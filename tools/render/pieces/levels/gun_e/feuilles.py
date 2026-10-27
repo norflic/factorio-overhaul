@@ -80,14 +80,14 @@ sys.path.insert(0, RENDER)
 import fo_post as P  # noqa: E402
 
 MOD_NAME = "factorio-overhaul"
-LOGS = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
+LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 VALIDES_DEFAUT = ["1-9=" + os.path.join(LOGS, "2026-10-23_V3E-p5", "bas", "sprites"),
                   "10-12=" + os.path.join(LOGS, "2026-10-23_V3E-p5", "haut", "sprites"),
                   "13-15=" + os.path.join(LOGS, "2026-10-23_V3E-ereV", "sprites")]
 SO_DEFAUT = os.path.join(LOGS, "2026-10-24_A2", "sprites")
 A3_DEFAUT = os.path.join(LOGS, "2026-10-24_A3", "sprites")
 SOCLE_ANIME_DEFAUT = os.path.join(LOGS, "2026-10-24_A4", "socle-anime", "sprites")   # lot A4 (à GARDER)
-DATA_DEFAUT = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
+DATA_DEFAUT = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
 DEST_DEFAUT = os.path.join(MOD, "graphics", "levels", "gun")
 GRAPHICS_PREFIX = "__%s__/graphics/levels/gun/" % MOD_NAME
 DIRECTIONS = (("N", "tete-N"), ("E", "tete-E"), ("S", "tete-d32"), ("O", "tete-d48"))

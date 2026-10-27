@@ -34,7 +34,7 @@ avant tout travail.
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
 |---|---|
-| Racine du jeu (installation portable) | `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\` |
+| Racine du jeu (installation portable) | `F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`  **Depuis le 27/10 (1 h), le projet vit sur F:** (disque Kingston exFAT, 211 Go libres) : le DC y a copié tout le dossier le 26/10 vers 21 h 15, H: étant plein (471 Mo libres). **Ne plus rien écrire sur H:** (copie figée au commit 88f3ca4, sources des feuilles toujours lisibles) ; sur exFAT, git exige `safe.directory` (posé en global pour le dépôt et ses worktrees) et les liens durs n'existent pas (copier les feuilles au lieu de les lier). |
 | Source du mod (ce dossier) | `<racine>\mods\factorio-overhaul\` |
 | Exécutable | `<racine>\bin\x64\factorio.exe` |
 | Données du jeu (banc de l'étape data) | `<racine>\data\` (Lua lisible de `core` et `base`) |
@@ -76,7 +76,7 @@ Toutes les commandes se lancent depuis la racine du mod, sauf mention.
 **Worktree ou checkout neuf : régénérer d'abord les feuilles de la mitrailleuse** (PNG hors de git, décision D-6) :
 `py -3.9 tools/render/pieces/levels/gun_e/feuilles.py` + les arguments écrits dans `graphics/levels/gun/MANIFEST.json`
 (champ `arguments` ; depuis 0.4.13 (24/10), **vide** : tous les âges à 64 directions ; 4 à 7 min ; attendu « [FO-FEUILLES]
-376 fichiers PNG, 164.05 Mo, 936 sources ; têtes : 14 âge(s) à 64 directions, 0 à 4 » ; 164 Mo écrits sur H:), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (6 OK) et
+376 fichiers PNG, 164.05 Mo, 936 sources ; têtes : 14 âge(s) à 64 directions, 0 à 4 » ; 164 Mo écrits sur F:), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (6 OK) et
 `git status` propre. Sans cela, le harness et `levels_test` échouent (ils impriment cette commande) et l'étape data
 du jeu refuse le mod. **Même chose pour le four** (depuis 0.4.30, lot F2-B) : `py -3.9 tools/render/pieces/levels/four_e/feuilles.py`
 → « [FO-FEUILLES-FOUR] 208 fichiers PNG, 4.32 Mo » (sources : `fo-logs\2026-10-25_F2\production\sprites`).
@@ -200,10 +200,10 @@ la marge : 1 échec sur 5 passages (35/36) ; rejouer une fois avant de conclure.
 La variable d'environnement `FO_CREATE_SRC` donne une autre source de factorio-overhaul pour la seule création de
 la carte ; le benchmark rejoue la même carte avec la source habituelle. Sous PowerShell :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 ht3-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 ht3-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
-python -B tools/autotest/ht3_journal.py 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+python -B tools/autotest/ht3_journal.py 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
 ```
 - `src-0.4.1` est identique à `git archive 91097e6` (version 0.4.1) ; `fo-autotest\create-source.txt` dit quelle
   source a créé la carte.
@@ -214,10 +214,10 @@ python -B tools/autotest/ht3_journal.py 'H:\Factorio.v1.1.91 Modding\Factorio.v1
 
 Migration 0.4.2 → 0.4.3 quand toutes les familles grandissent (lot V3-T2, RD_LOG E50 ; usine dense de 24 machines) :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 t2-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 t2-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
-python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
 ```
 - `src-0.4.2` est identique à `git archive c4d37e5` (version 0.4.2) : à GARDER, c'est la source de création de ce
   banc.
@@ -230,16 +230,16 @@ python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION 'H:\Factorio.v1.1.
 Migration d'une DÉFENSE DENSE (lot R1, RD_LOG E54 ; 21 tourelles derrière un mur continu, bras électriques, convoyeur
 de munitions, poteaux), création 0.4.1 :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1200 t2-defense 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1200 t2-defense 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
-python -B tools/autotest/ht3_journal.py --tag FO-T2-DEFENSE 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+python -B tools/autotest/ht3_journal.py --tag FO-T2-DEFENSE 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
 ```
 - Attendu depuis 0.4.1 : « [FO-T2-DEFENSE] BILAN : 36 OK, 0 ECHEC(S) » dans `benchmark.log`, ET « JOURNAL
   FO-T2-DEFENSE : 19 OK, 0 ECHEC(S) », code 0 ; journal du mod : « 8 bâtiment(s) reposé(s), 0 déjà en place,
   13 laissé(s) ». Observé sur `main` le 22/10 (`done.txt` 20:11:36,19 ; après le lot V3-T3, 22:51:15,21 ; ligne hors
   bilan « LIBERER LA PLACE (plan seul, hors bilan) : 2 liberable(s) sur 13 ») ; le 23/10 après A1 et M0, 17:46:08,87.
-- Création 0.4.2 : même commande avec `$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'`.
+- Création 0.4.2 : même commande avec `$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'`.
   Attendu : 36 OK, ET « JOURNAL FO-T2-DEFENSE : 11 OK, 0 ECHEC(S) », code 0 ; journal du mod « 5, 0, 5 ». Observé sur
   `main` le 22/10 (`done.txt` 20:11:40,52 ; après le lot V3-T3, 22:51:19,45 ; hors bilan : 0 libérable sur 5) ; le
   23/10 après A1 et M0, 17:46:13,10.
@@ -249,8 +249,8 @@ python -B tools/autotest/ht3_journal.py --tag FO-T2-DEFENSE 'H:\Factorio.v1.1.91
 « Libérer la place » pour un bâtiment laissé HORS GRILLE par une vraie migration (lot V3-T3, RD_LOG E59 ; un script
 ne sait pas fabriquer un bâtiment hors grille, F104) :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 t3-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 t3-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
 ```
 - Attendu : « [FO-T3-MIGRATION] BILAN : 7 OK, 0 ECHEC(S) » dans `benchmark.log`, code 0. Observé sur `main` le 22/10
@@ -260,8 +260,8 @@ $env:FO_CREATE_SRC = $null
 Migration d'une sauvegarde 0.4.4 vers la garantie des monnaies (lot M0, RD_LOG E76 ; sauvegarde avec un coffre du
 joueur, gisements déjà connus comptés) :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-23_suite\M0\src-0.4.4'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 m0-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-23_suite\M0\src-0.4.4'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 m0-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
 ```
 - `src-0.4.4` est identique à `git archive 93e3d89` (version 0.4.4) : à GARDER.
@@ -278,19 +278,19 @@ Pour les cinq bancs en double source :
   par la protection de chemin de l'outil (REPRISE.md §6).
 
 **Contact bord à bord des recherches par zone** (lot R1, RD_LOG E53, F96 ; sans double source) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 60 bord-a-bord 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 60 bord-a-bord 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-BORD-A-BORD] BILAN : 12 OK, 0 ECHEC(S) » (45 cas comparés à la règle du moteur simulé ; observé sur `main`
 le 22/10, `done.txt` 20:11:23,82 ; après le lot V3-T3, 22:50:54,07 ; le 23/10 après A1 et M0, 17:45:56,31). Un ECHEC veut dire que le moteur simulé (`tests/mock_engine.lua`) ne suit plus le
 moteur réel : l'aligner, puis rejouer tous les bancs hors jeu.
 
 **Machines agrandies, pour les captures** (lot V3-T2, sans double source) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1500 t2-machines 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1500 t2-machines 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-T2-MACHINES] BILAN : 80 OK, 0 ECHEC(S) » (observé sur `main` le 22/10, `done.txt` 19:05:44,44 ; après le lot
 R1, 20:11:19,61 ; après le lot V3-T3, 22:50:50,22 ; le 23/10 après A1 et M0, 17:45:48,00). Pour les
 images : `& "<racine>\fo-captures.bat" t2-machines "<source>"` depuis PowerShell.
 
 **« Libérer la place »** (lot V3-T3, RD_LOG E59 ; sans double source ; zones A à V et L, vrais robots en zone R) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1900 t3-libere 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1900 t3-libere 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-T3-LIBERE] BILAN : 41 OK, 0 ECHEC(S) » (observé sur `main` le 22/10, `done.txt` 22:50:58,19 ; le 23/10 après A1
 et M0, 17:45:52,25). Le scénario
 contrôle au tick 1 800 (`check_tick`, à cause des vrais robots) : il faut au moins 1 900 ticks. Images :
@@ -299,12 +299,12 @@ contrôle au tick 1 800 (`check_tick`, à cause des vrais robots) : il faut au m
 
 **Garantie des monnaies des âges 5, 7 et 8** (lot M0, RD_LOG E73, E74 ; sans double source ; la graine de
 `fo-autotest.bat` est fixe, 20261020 : le scénario joue 5 autres graines sur des surfaces qu'il crée) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 monde 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 monde 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-MONDE] BILAN : 89 OK, 0 ECHEC(S) » (observé sur `main` le 23/10, `done.txt` 17:45:34,86). Images :
 `& "<racine>\fo-captures.bat" monde "<source>"` depuis PowerShell (9 captures des 3 sites de nauvis ; 91 OK, car la
 cartographie ne tourne qu'avec images, F131).
 Échec puis reprise de la garantie (correction M-1 du lot M0, E74) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 2600 m0-reprise 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 2600 m0-reprise 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-M0-REPRISE] BILAN : 15 OK, 0 ECHEC(S) » (contrôle final au tick 2 460 : il faut 2 600 ticks ; observé sur
 `main` le 23/10, `done.txt` 17:45:39,32).
 **Depuis 0.4.5, toute carte de banc créée par `fo-autotest.bat` porte 3 sites garantis** sur nauvis (graine 20261020 :
@@ -313,7 +313,7 @@ bancs de durée et de performance `ia0-*` (216 000 ticks) NE sont PAS rejoués :
 environ 50 chunks générés de plus) ; à rejouer avant de citer leurs chiffres comme référence.
 
 **Usine géante et mémoire vidéo** (lot D4m, recalé au lot D4m-géant, RD_LOG E117) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 600 d4-geant 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 600 d4-geant 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-D4-GEANT] BILAN : 18 OK, 0 ECHEC(S) » (observé sur `main` le 24/10, `done.txt` 5:46:15,72 ; 10 OK, 6 ECHEC de 0.4.3
 à 0.4.9, F128) : usine de 5 343 bâtiments, galerie de 960 mitrailleuses (64 images relues par âge). Mesure de la
 mémoire vidéo : `tools/autotest/README.md` §5.3 (passages `--measure` avec `--ticks 3900`). Aux 15 âges à 64 directions (lot A3-final, 24/10, RD_LOG E130) : haute, 17 atlas,
@@ -331,15 +331,15 @@ a4-socle` → « 2 OK » (socle animé de l'âge 6) ; observés sur `main` 0.4.1
 des prototypes de test (sur le mod livré, le scénario se refuse à l'init, « prototypes de test absents ») :
 ```
 py -3.9 tools/autotest/a1/jetable.py --dest <dossier neuf, hors du dépôt>
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 a1-tourelle '<dossier de la copie>'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 a1-tourelle '<dossier de la copie>'
 ```
 → « [FO-A1-TOURELLE] BILAN : 5 OK, 0 ECHEC(S) » (copie du lot, 23/10, `done.txt` 15:56:07,00 ; copie neuve du
 vérificateur, 16:48:01,51). Images : `& "<racine>\fo-captures.bat" a1-tourelle "<copie>"` (20 captures, flèches
-numérotées). Effacer la copie après usage (place sur H:).
+numérotées). Effacer la copie après usage (place sur le disque).
 
 **La mitrailleuse en jeu** (lot A2, RD_LOG E68, F123 à F129 ; sans double source ; feuilles requises, voir « Worktree
 ou checkout neuf » plus haut) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 gun-rose 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 gun-rose 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-GUN-ROSE] BILAN : 13 OK, 0 ECHEC(S) » depuis A3-jeu (30 niveaux × 20 directions dont d06, d26, d38, d58, par `orientation`, tenue jusqu'au contrôle ; tir dans les 11 directions écartées de l'âge 2 ;
 boîtes d'affichage, restes et explosions déclarés ; tir sur 60 sites, éclat à 1/32 de tuile de la règle F126 ; observé
 sur `main` 0.4.6 le 23/10, `done.txt` 20:54:32,19). Images : `& "<racine>\fo-captures.bat" gun-rose "<source>"`

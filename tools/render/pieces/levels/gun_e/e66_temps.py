@@ -40,7 +40,7 @@ sys.path.insert(0, RENDER)
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 SCRIPT = os.path.join(HERE, "e66_temps_blender.py")
-LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
+LOCK_DIR = os.environ.get("FO_RENDER_LOCK_DIR", r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91")
 POSE_DIR = {"N": "d00", "E": "d16"}
 
 

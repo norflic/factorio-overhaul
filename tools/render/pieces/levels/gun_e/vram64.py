@@ -103,7 +103,7 @@ def main():
     ap.add_argument("--feuilles", required=True)
     ap.add_argument("--repli", required=True)
     ap.add_argument("--qualite", choices=("hr", "lr"), default="hr")
-    ap.add_argument("--estimation", default=r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3\estimation\estimation.txt")
+    ap.add_argument("--estimation", default=r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3\estimation\estimation.txt")
     ap.add_argument("--go-par-gpx", default="", help="bornes octets/px (Go par Gpx) lues dans le rapport vram.py, ex. 1.03,1.17")
     a = ap.parse_args()
     av, apr = atlas(a.avant), atlas(a.apres)

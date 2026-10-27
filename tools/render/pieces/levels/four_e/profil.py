@@ -22,7 +22,7 @@ COTE = {e: E.COTE[e] for e in AGES}
 POSES = ("E",)
 FENETRE_GRIS = 10.0
 REF_VANILLA = dict(dump="furnace_steel-furnace", mesure="steel-furnace")
-DUMP_VANILLA = "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-25_F2/ref/furnace_steel-furnace.txt"
+DUMP_VANILLA = "F:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-25_F2/ref/furnace_steel-furnace.txt"
 CIBLE = {}
 LUCIOLES_MAX = 13.2
 PIECE_MIN = 0.10

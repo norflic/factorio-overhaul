@@ -31,7 +31,7 @@ import fo_post as P  # noqa: E402
 
 MOD_ROOT = os.path.dirname(os.path.dirname(HERE))
 MOD_NAME = "factorio-overhaul"
-DEFAULT_DATA = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
+DEFAULT_DATA = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\data"
 LAYERS = ("main", "shadow", "glow", "light")
 
 

@@ -25,7 +25,7 @@ import threading
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPT = os.path.normpath(os.path.join(HERE, "..", "pieces", "levels", "gun_e", "produire_a3.py"))
-A3 = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3"
+A3 = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-24_A3"
 SOURCE = os.path.join(A3, "sprites")
 TETES = ["e05-tete-d%02d" % k for k in (1, 2, 3, 4)]
 

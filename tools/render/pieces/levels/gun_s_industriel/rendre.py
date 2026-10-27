@@ -35,7 +35,7 @@ import ind  # noqa: E402
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
-WORK = os.environ.get("FO_IND_WORK", "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
+WORK = os.environ.get("FO_IND_WORK", "F:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-22_V3S/industriel")
 CACHE = os.path.join(WORK, "cache")
 OUT = os.path.join(WORK, "out")
 HALO_PEAK = 0.45
