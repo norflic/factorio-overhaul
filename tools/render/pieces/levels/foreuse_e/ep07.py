@@ -17,6 +17,7 @@ TRIPLET = ("diapason", "dallage de pierre", "cristaux dressés")
 FOYER = ages.FOYER[7]
 HABILLAGE = dict(ages.CORPS[7], forme_tablier="rond")
 PIED = 1.08
+FIN = 1.0       # ronde F4-A3 : tablier entièrement garni de détail fin
 # ronde F4-A2 : le socle de pierre à degrés est l'embase ; 2 conduites de bronze
 EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
 
@@ -78,11 +79,22 @@ def montant(g, c, x, y):
     cp.halo(g, (x, y - 0.2, c.zt + 0.5), M, 2.0)
 
 
+def _eclats(a):
+    # ronde F4-A3 : 4 → 8 éclats (détail fin, charte D3)
+    return ((-a * 0.5, -a * 0.25), (a * 0.25, a * 0.55), (-a * 0.3, a * 0.6), (a * 0.62, -a * 0.1),
+            (-a * 0.62, a * 0.1), (a * 0.5, a * 0.25), (-a * 0.15, -a * 0.62), (a * 0.35, -a * 0.5))
+
+
+def occupe(c):
+    """Éclats de cristal sertis dans le dallage (la garniture et le détail fin les évitent)."""
+    return [(x - 0.12, y - 0.12, x + 0.12, y + 0.12) for (x, y) in _eclats(c.a)]
+
+
 def socle(g, c):
     M = g.M
     a, zt = c.a, c.zt
     # éclats de cristal sertis dans le dallage, le long des joints
-    for (x, y) in ((-a * 0.5, -a * 0.25), (a * 0.25, a * 0.55), (-a * 0.3, a * 0.6), (a * 0.62, -a * 0.1)):
+    for (x, y) in _eclats(a):
         g.cyl((x, y, zt + 0.04), "z", 0.07, 0.1, M["emit"], n=6, r2=0.02, style="flat", what="eclat")
         cp.bague(g, x, y, zt + 0.02, 0.07, 0.04, M["bronze_sombre"], ep=0.02, n=6, what="serti")
 

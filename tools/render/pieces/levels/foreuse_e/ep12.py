@@ -45,6 +45,12 @@ def tour(g, c):
           what="cryostat")
     for z in (zt + 0.08, zc - 0.06):
         g.tube_shell((0, 0, z), "z", rt * 0.99, rt * 0.9, 0.06, M["chrome_mat"], n=8, what="cerclage")
+    # ronde F4-A3 : deux voyants cyan par pan du cryostat
+    for k in range(8):
+        a = math.tau * k / 8
+        for dz in (0.35, 0.65):
+            g.dome((rt * 0.955 * math.cos(a), rt * 0.955 * math.sin(a), zt + (zc - zt) * dz), (math.cos(a), math.sin(a), 0),
+                   0.03, M["emit"], what="voyant")
     for k in range(8):
         a = math.tau * (k + 0.5) / 8
         g.box((rt * 0.88 * math.cos(a), rt * 0.88 * math.sin(a), (zt + zc) / 2), (0.06, 0.06, zc - zt), M["trim"],
@@ -68,7 +74,14 @@ def tour(g, c):
     for k in range(4):
         p0 = cp.quart((rt * 0.95, -rt * 0.35, zt + 0.18 * H), k)
         p1 = cp.quart((rt * 1.3, -rt * 0.55, zt + 0.08), k)
-        g.hose([p0, ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, p0[2] + 0.05), p1], 0.06, M["frost"])
+        pm = ((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, p0[2] + 0.05)
+        g.hose([p0, pm, p1], 0.06, M["frost"])
+        # ronde F4-A3 : colliers chromés le long de la conduite
+        for (qa, qb) in ((p0, pm), (pm, p1)):
+            for f in (0.3, 0.7):
+                q = (qa[0] + (qb[0] - qa[0]) * f, qa[1] + (qb[1] - qa[1]) * f, qa[2] + (qb[2] - qa[2]) * f)
+                g.cyl(q, (qb[0] - qa[0], qb[1] - qa[1], qb[2] - qa[2] + 1e-4), 0.075, 0.035, M["chrome_mat"], n=12,
+                      style="hard", what="collier")
     cp.halo(g, (0, -rt * 0.9, zc + 0.3), M, 5.0)
 
 

@@ -40,6 +40,16 @@ def tour(g, c):
     cp.colonne(g, 0, 0, zt, zt + 0.14, rt * 0.95, M["indigo_nuit"], n=40, what="dais")
     cp.colonne(g, 0, 0, zt + 0.14, zt + 0.26, rt * 0.75, M["blanc_lunaire"], n=40, what="dais")
     cp.bague(g, 0, 0, zt + 0.14, rt * 0.95, 0.02, M["emit_soft"], ep=0.01, n=40, what="lisere")
+    # ronde F4-A3 : inserts indigo et rivets sur le degré blanc du dais, points d'étoile sur le degré indigo
+    for i in range(24):
+        a = math.tau * (i + 0.5) / 24
+        g.box((rt * 0.62 * math.cos(a), rt * 0.62 * math.sin(a), zt + 0.262), (0.07, 0.07, 0.008), M["indigo_nuit"],
+              "flat", what="insert")
+        g.dome((rt * 0.7 * math.cos(a + 0.13), rt * 0.7 * math.sin(a + 0.13), zt + 0.262), (0, 0, 1), 0.018,
+               M["acier_bleui"], what="rivet")
+    for i in range(40):
+        a = math.tau * (i + 0.25) / 40
+        g.dome((rt * 0.86 * math.cos(a), rt * 0.86 * math.sin(a), zt + 0.142), (0, 0, 1), 0.016, M["emit"], n=6)
     # pied central jusqu'au bas des anneaux (la tige y descend)
     cp.colonne(g, 0, 0, zt + 0.26, zr - R + 0.05, 0.26, M["indigo_nuit2"], n=16, what="pied")
     for k, axe in enumerate(("y", "x")):
@@ -54,7 +64,7 @@ def tour(g, c):
         # étoiles semées sur les deux faces de la membrane
         rng = (7 + 13 * k)
         pts = []
-        for i in range(26):
+        for i in range(64):     # ronde F4-A3 : 26 → 64 étoiles par face (détail fin, charte D3)
             rng = (rng * 1103515245 + 12345) % 2147483648
             a = math.tau * (rng % 1000) / 1000.0
             rr = (R - 0.2) * math.sqrt(((rng // 1000) % 1000) / 1000.0)
@@ -86,7 +96,7 @@ def socle(g, c):
     M = g.M
     a, zt = c.a, c.zt
     rng = 99
-    for i in range(46):
+    for i in range(140):    # ronde F4-A3 : 46 → 140 étoiles semées
         rng = (rng * 1103515245 + 12345) % 2147483648
         x = (((rng >> 4) % 1000) / 1000.0 - 0.5) * 2 * (a - 0.3)
         y = (((rng >> 14) % 1000) / 1000.0 - 0.5) * 2 * (a - 0.3)
