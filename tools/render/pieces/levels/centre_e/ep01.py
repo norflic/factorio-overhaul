@@ -36,7 +36,7 @@ def facade(g, c):
             cp.colonne(g, t, -h1 - 0.05, z0, z0 + H1 + 0.08, 0.05, M["wood"], n=8, what="rondin")
             g.dome((t, -h1 - 0.05, z0 + H1 + 0.08), (0, 0, 1), 0.05, M["wood2"], what="pointe")
             if int(round((t + h1) / 0.105)) % 4 == 2:     # ronde F5-A2 : falots sur la palissade (nuit)
-                g.cyl((t, -h1 - 0.12, z0 + H1 * 0.7), "z", 0.04, 0.08, M["emit"], n=8, style="flat", what="falot")
+                g.cyl((t, -h1 - 0.13, z0 + H1 * 0.7), "z", 0.065, 0.13, M["emit"], n=8, style="flat", what="falot")   # 2c : 0,04 → 0,065
                 halo(g, (t, -h1 - 0.3, z0 + H1 * 0.7), M, 2.6)   # ronde 2b : 1,2 → 2,6
         cp.colonne(g, h1 + 0.05, t, z0, z0 + H1 + 0.08, 0.05, M["wood"], n=8, what="rondin")
         t += 0.105
@@ -44,8 +44,8 @@ def facade(g, c):
     for s_ in (-1, 1):
         xl, yl = s_ * (w + 0.06), -h1 - 0.24
         cp.colonne(g, xl, yl, z0, z0 + H1 * 0.95, 0.03, M["wood"], n=8, what="poteau_lanterne")
-        g.cyl((xl, yl, z0 + H1 * 0.95 + 0.06), "z", 0.055, 0.11, M["emit"], n=8, style="flat", what="lanterne_porte")
-        g.cyl((xl, yl, z0 + H1 * 0.95 + 0.125), "z", 0.07, 0.025, M["blackiron"], n=8, what="chapeau")
+        g.cyl((xl, yl, z0 + H1 * 0.95 + 0.07), "z", 0.085, 0.14, M["emit"], n=8, style="flat", what="lanterne_porte")
+        g.cyl((xl, yl, z0 + H1 * 0.95 + 0.15), "z", 0.1, 0.025, M["blackiron"], n=8, what="chapeau")
         halo(g, (xl, yl - 0.25, z0 + H1 * 0.95), M, 4.0)
 
 
@@ -65,6 +65,6 @@ def mat(g, c, z):
           what="toit_guet")
     cp.colonne(g, 0, 0, z + hp + 0.4, z + hp + 0.95, 0.018, M["wood"], n=6, what="hampe")
     g.box((0.13, 0, z + hp + 0.86), (0.24, 0.012, 0.13), M["redpaint"], "hard", what="fanion")
-    g.cyl((0, -a - 0.1, z + hp - 0.16), "z", 0.05, 0.1, M["emit"], n=8, style="flat", what="lanterne")
+    g.cyl((0, -a - 0.11, z + hp - 0.17), "z", 0.075, 0.13, M["emit"], n=8, style="flat", what="lanterne")   # 2c : 0,05 → 0,075
     g.cyl((0, -a - 0.1, z + hp - 0.1), "z", 0.06, 0.02, M["blackiron"], n=8, what="chapeau")
     cp.halo(g, (0, -a - 0.3, z + hp - 0.15), M, 5.0)   # ronde 2b : 3 → 5
