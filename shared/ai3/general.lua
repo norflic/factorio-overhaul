@@ -316,7 +316,10 @@ function Gen.choose(cat, ev, state, ctx)
     for i, c in ipairs(cands) do
       if c.palier == "nouveau" and (not best or c.cost < best.cost or (c.cost == best.cost and c.tech < best.tech)) then best, bi = c, i end
     end
-    if best and bi > 1 then
+    -- … sauf devant une candidate qui ouvre elle-même un palier (« automation » avant « landfill » : moteur réel,
+    -- petrole-partie 1618033988, palier 1 à 6,3 min au lieu de 1,6 quand le pack vert passait devant)
+    local top = cands[1]
+    if best and bi > 1 and not (top and top.palier == true) then
       table.remove(cands, bi)
       table.insert(cands, 1, best)
       best.k1 = "pack nouveau"

@@ -144,9 +144,19 @@ local function run(d, label, names)
     for _, ing in ipairs((cat.techs[t] or {}).ingredients or {}) do if ing[1] == names.chem_pack then return true end end
     return false
   end
-  local d_on = Gen.choose(cat, ev1, st_known, { new_pack = true })
-  check(d_on.tech ~= nil and consumes(d_on.tech), label .. " §2b pack nouveau : la recherche consomme le pack chimique (" .. tostring(d_on.tech) .. ")")
-  local d_off = Gen.choose(cat, ev1, st_known, {})
+  -- (le palier militaire ouvert d'abord : la règle ne passe jamais devant une candidate qui ouvre elle-même un palier)
+  local st2 = { stock = {}, techs = {}, built = {}, known = st_known.known }
+  for k in pairs(techs) do st2.techs[k] = true end
+  for k in pairs(all_techs_before(cat, names.mil_tech)) do st2.techs[k] = true end
+  st2.techs[names.mil_tech] = true
+  local ev3 = Gen.prepare(cat, st2)
+  local d_on = Gen.choose(cat, ev3, st2, { new_pack = true })
+  local used = {}
+  for t in pairs(st2.techs) do for _, ing in ipairs((cat.techs[t] or {}).ingredients or {}) do used[ing[1]] = true end end
+  local newp = false
+  for _, ing in ipairs((cat.techs[d_on.tech or ""] or {}).ingredients or {}) do if not used[ing[1]] then newp = true end end
+  check(d_on.tech ~= nil and newp and d_on.k1 == "pack nouveau", label .. " §2b pack nouveau : la recherche choisie consomme un pack jamais consommé (" .. tostring(d_on.tech) .. ")")
+  local d_off = Gen.choose(cat, ev3, st2, {})
   say(label .. " §2b sans la règle : " .. tostring(d_off.tech) .. (consumes(d_off.tech or "") and " (consomme)" or " (ne consomme pas)"))
   -- §3 chaîne
   local ch, why = Fl.chain(rel, info, { names.plastic_bar, names.sulfur_item }, { [names.water] = "pompe" })
@@ -236,7 +246,7 @@ end
 
 local V = { crude = "crude-oil", pumpjack = "pumpjack", basic = "basic-oil-processing", refinery = "oil-refinery",
   plastic = "plastic-bar", sulfur = "sulfur", chem = "chemical-plant", engine = "engine-unit", gear = "iron-gear-wheel",
-  chem_tech = "chemical-science-pack", chem_pack = "chemical-science-pack", iron = "iron-ore", copper = "copper-ore",
+  chem_tech = "chemical-science-pack", mil_tech = "military-science-pack", chem_pack = "chemical-science-pack", iron = "iron-ore", copper = "copper-ore",
   coal = "coal", stone = "stone", plastic_bar = "plastic-bar", sulfur_item = "sulfur", water = "water",
   offshore = "offshore-pump", boiler = "boiler", steam = "steam-engine", pipe = "pipe", chest = "iron-chest", arm = "inserter", pole = "medium-electric-pole" }
 run(F.dump(), "vanilla", V)
