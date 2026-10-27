@@ -23,6 +23,7 @@ local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
 local C = require("shared.ai3.cerveau")
 local A = require("shared.ai3.automatiser")
+local MAX_OPEN0 = A.MAX_OPEN -- valeur du lot (les mutants changent A.MAX_OPEN, pas les attentes)
 
 local passes, failures = 0, 0
 local quiet = false
@@ -80,6 +81,13 @@ local hot = win(10, { ["iron-plate"] = 7200 }, { ["iron-plate"] = 60 })
 do
   local r = A.decide({ window = win(9, { ["iron-plate"] = 7200 }, { ["iron-plate"] = 60 }), obtainable = all_ok, book = book })
   check(verdict(r, "iron-plate").verdict == "attente" and #r.requests == 0, "fenêtre incomplète (9 min) : on attend")
+  local rr = A.decide({ window = win(5, { ["iron-plate"] = 7200 }, { ["iron-plate"] = 60 }), book = book_early,
+    obtainable = function(i) return book_early:handcraftable(i) end })
+  check(#rr.requests == 0 and verdict(rr, "iron-plate").verdict == "recherche" and rr.wanted["medium-electric-pole"],
+    "demi-fenêtre (5 min) : l'objet impossible est déjà voulu (la recherche prend du temps), aucune demande")
+  local rr4 = A.decide({ window = win(4, { ["iron-plate"] = 7200 }, { ["iron-plate"] = 60 }), book = book_early,
+    obtainable = function(i) return book_early:handcraftable(i) end })
+  check(next(rr4.wanted) == nil, "4 min de fenêtre : rien n'est encore voulu")
   local r2 = A.decide({ window = win(10, { ["iron-plate"] = 600 }, { ["iron-plate"] = 60 }), obtainable = all_ok, book = book })
   check(verdict(r2, "iron-plate").verdict == "non" and #r2.requests == 0, "charge 0,17 PNJ : à la main (pas de module)")
   local r3 = A.decide({ window = hot, obtainable = all_ok, book = book })
@@ -119,13 +127,16 @@ do
   local packs = win(10, { ["iron-plate"] = 300, ["automation-science-pack"] = 3 * 3600 }, { ["iron-plate"] = 60, ["automation-science-pack"] = 10 })
   local r8 = A.decide({ window = packs, obtainable = all_ok, book = book })
   check(req(r8, "automation-science-pack") ~= nil, "fer non rentable : les packs sont demandés (" .. tostring(verdict(r8, "automation-science-pack").why) .. ")")
-  -- Un module déjà ouvert : rien d'autre (le cuivre attend).
+  -- A.MAX_OPEN modules ouverts : rien d'autre (le cuivre attend) ; un de moins : le cuivre est demandé avec le fer.
   local cu = win(10, { ["iron-plate"] = 7200, ["copper-plate"] = 7200 }, { ["iron-plate"] = 60, ["copper-plate"] = 60 })
-  local r9 = A.decide({ window = cu, obtainable = all_ok, book = book, modules = { { product = "iron-plate", state = "chantier" } } })
+  local opened = {}
+  for i = 1, MAX_OPEN0 do opened[i] = { product = "iron-plate", state = "chantier" } end
+  local r9 = A.decide({ window = cu, obtainable = all_ok, book = book, modules = opened })
   check(#r9.requests == 0 and verdict(r9, "iron-plate").verdict == "en_cours" and verdict(r9, "copper-plate").verdict == "attente",
-    "un module ouvert (fer) : le cuivre attend (" .. tostring(verdict(r9, "copper-plate").why) .. ")")
+    MAX_OPEN0 .. " module(s) ouvert(s) : le cuivre attend (" .. tostring(verdict(r9, "copper-plate").why) .. ")")
   local r9b = A.decide({ window = cu, obtainable = all_ok, book = book })
-  check(#r9b.requests == 1 and req(r9b, "iron-plate") ~= nil, "fer et cuivre rentables : UNE demande à la fois (le fer)")
+  check(#r9b.requests == math.min(2, MAX_OPEN0) and req(r9b, "iron-plate") ~= nil,
+    "fer et cuivre rentables : " .. math.min(2, MAX_OPEN0) .. " demande(s) à la fois, le fer d'abord (" .. #r9b.requests .. ")")
   -- Refus : même contexte, coût infini ; contexte changé, revu.
   local mods = { { product = "iron-plate", state = "refuse", reason = "pas de lot", sig = "r5:t3:e0" } }
   local r10 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = mods, sig = "r5:t3:e0" })
@@ -292,7 +303,9 @@ mutant("seuil de charge nul", function() A.LOAD_MIN = 0 end, function() A.LOAD_M
 local HT = A.H_THREAT
 mutant("menace ignorée (horizon 20 min menacé)", function() A.H_THREAT = A.H_SAFE end, function() A.H_THREAT = HT end)
 local MO = A.MAX_OPEN
-mutant("plusieurs modules ouverts", function() A.MAX_OPEN = 9 end, function() A.MAX_OPEN = MO end)
+mutant("modules ouverts sans plafond", function() A.MAX_OPEN = 9 end, function() A.MAX_OPEN = MO end)
+local RW = A.RESEARCH_WINDOW
+mutant("recherche à la fenêtre pleine seulement", function() A.RESEARCH_WINDOW = A.WINDOW end, function() A.RESEARCH_WINDOW = RW end)
 local MPP = A.MAX_PER_PRODUCT
 mutant("modules finis sans plafond", function() A.MAX_PER_PRODUCT = 99 end, function() A.MAX_PER_PRODUCT = MPP end)
 local W0 = A.WINDOW

@@ -1289,6 +1289,10 @@ end
 --- HORS de global : c'est une simple mémoire d'un calcul pur (P.route_tree), vide au chargement et recalculée au
 --- besoin, au même résultat (27/10 : 1,7 ms par marche sans elle, hors jeu).
 local ROUTES = {}
+-- Lot IA3-e : le compte des mémoires refaites reste LOCAL (une mesure) : écrit dans global, il différait entre une partie
+-- continue et la même partie rechargée (la mémoire, locale, est refaite après le chargement) ; moteur simulé, pvp_test
+-- « partie continue = partie rechargée », 2 ECHEC dès que les factions ont un plan directeur.
+local ROUTE_RESETS = {}
 local function route_cache(f)
   local b = f.build
   local key = f.key or "player"
@@ -1297,7 +1301,7 @@ local function route_cache(f)
   if not c or c.ver ~= ver then
     c = { ver = ver, trees = {} }
     ROUTES[key] = c
-    b.stats.route_resets = (b.stats.route_resets or 0) + 1
+    ROUTE_RESETS[key] = (ROUTE_RESETS[key] or 0) + 1
   end
   return c.trees
 end
@@ -1575,7 +1579,8 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "reserve" then
-    if reserve(f, p) then p.state = #p.obstacles > 0 and "defrichage" or "fantomes" else p.reason = "materiaux" end
+    -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
+    if reserve(f, p) then p.state, p.reason = #p.obstacles > 0 and "defrichage" or "fantomes", nil else p.reason = "materiaux" end
     return
   end
   if p.state == "defrichage" then
@@ -1788,7 +1793,7 @@ function Build.report(f)
     lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
     cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
-    route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = st.route_resets or 0,
+    route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = ROUTE_RESETS[f.key or "player"] or 0,
     self_skips = st.self_skips or 0,
     street_walks = st.street_walks, street_ok = st.street_ok, street_stuck = st.street_stuck,
     modules_started = st.modules_started, modules_done = st.modules_done, projects_done = st.projects_done,

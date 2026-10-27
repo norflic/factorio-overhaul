@@ -766,13 +766,13 @@ function M.new_world(opts)
       collision_mask = MASK_BUILDING },
     ["electric-mining-drill"] = { type = "mining-drill", max_health = 300,
       resource_categories = { ["basic-solid"] = true, ["fo-hard-solid"] = true },
-      collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING },
+      collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING, items_to_place_this = { { name = "electric-mining-drill", count = 1 } } },
     ["burner-mining-drill"] = { type = "mining-drill", max_health = 150, collision_box = box(-0.7, -0.7, 0.7, 0.7),
       collision_mask = MASK_BUILDING },
     ["stone-furnace"] = { type = "furnace", max_health = 200, collision_box = box(-0.7, -0.7, 0.7, 0.7),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "stone-furnace", count = 1 } } },
     ["iron-chest"] = { type = "container", max_health = 200, collision_box = box(-0.35, -0.35, 0.35, 0.35),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "iron-chest", count = 1 } } },
     ["fo-team-chest"] = { type = "container", max_health = 800, collision_box = box(-0.35, -0.35, 0.35, 0.35),
       collision_mask = MASK_BUILDING },
     ["wooden-chest"] = { type = "container", max_health = 100, collision_box = box(-0.35, -0.35, 0.35, 0.35),
@@ -785,6 +785,28 @@ function M.new_world(opts)
       collision_mask = MASK_UNIT },
     -- Lot V3-T3 : fantôme d'entité (sa boîte est celle de l'entité portée ; masque par défaut : ghost-layer).
     ["entity-ghost"] = { type = "entity-ghost", max_health = 1 },
+    -- Lot IA3-e : bâtiments des modules du plan directeur (shared/team/modules.lua), posés par les PNJ des factions
+    -- (objet qui les pose : items_to_place_this ; boîtes vanilla).
+    ["transport-belt"] = { type = "transport-belt", max_health = 150, collision_box = box(-0.4, -0.4, 0.4, 0.4),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "transport-belt", count = 1 } } },
+    inserter = { type = "inserter", max_health = 150, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "inserter", count = 1 } } },
+    ["burner-inserter"] = { type = "inserter", max_health = 100, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "burner-inserter", count = 1 } } },
+    ["fast-inserter"] = { type = "inserter", max_health = 150, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "fast-inserter", count = 1 } } },
+    ["medium-electric-pole"] = { type = "electric-pole", max_health = 100, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "medium-electric-pole", count = 1 } }, max_wire_distance = 9 },
+    ["big-electric-pole"] = { type = "electric-pole", max_health = 150, collision_box = box(-0.65, -0.65, 0.65, 0.65),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "big-electric-pole", count = 1 } }, max_wire_distance = 30 },
+    ["assembling-machine-1"] = { type = "assembling-machine", max_health = 300, collision_box = box(-1.2, -1.2, 1.2, 1.2),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "assembling-machine-1", count = 1 } } },
+    boiler = { type = "boiler", max_health = 200, collision_box = box(-1.29, -0.79, 1.29, 0.79),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "boiler", count = 1 } } },
+    ["steam-engine"] = { type = "generator", max_health = 400, collision_box = box(-1.35, -2.35, 1.35, 2.35),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "steam-engine", count = 1 } } },
+    ["offshore-pump"] = { type = "offshore-pump", max_health = 150, collision_box = box(-0.6, -0.05, 0.6, 0.3),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "offshore-pump", count = 1 } } },
     -- Lot IA3-c : laboratoire vanilla (laboratoire du QG des factions).
     lab = { type = "lab", max_health = 150, collision_box = box(-1.2, -1.2, 1.2, 1.2), collision_mask = MASK_BUILDING,
       items_to_place_this = { { name = "lab", count = 1 } }, researching_speed = 1,
@@ -830,6 +852,8 @@ function M.new_world(opts)
     on_player_display_scale_changed = 30,
   }
   _G.defines = {
+    -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
+    build_check_type = { script = 0, manual = 1, manual_ghost = 2, script_ghost = 3, blueprint_ghost = 4, ghost_revive = 5 },
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
     events = strict(events, "defines.events"),
     command = strict({ attack = 0, attack_area = 1, build_base = 2, compound = 3, flee = 4, go_to_location = 5, group = 6, stop = 7, wander = 8 }, "defines.command"),
@@ -867,6 +891,7 @@ function M.new_world(opts)
     ["fo-tungsten-ore"] = true, ["fo-resonance-crystal"] = true, ["fo-methane"] = true,
     ["fo-ilmenite"] = true, ["fo-brine"] = true } -- lot X1-TITANE
   surface.create_entity = function(t)
+    if t.position and t.position.x == nil and t.position[1] ~= nil then t.position = { x = t.position[1], y = t.position[2] } end -- lot IA3-e
     if t.position and t.position.x == nil then t.position = { x = t.position[1], y = t.position[2] } end
     if RESOURCES[t.name] then
       -- Ressource posée par script : regroupée en gisements ponctuels (modèle de W.patches).
@@ -920,6 +945,7 @@ function M.new_world(opts)
     return e
   end
   surface.can_place_entity = function(t)
+    if t.position and t.position.x == nil and t.position[1] ~= nil then t.position = { x = t.position[1], y = t.position[2] } end -- lot IA3-e
     assert(t.name and t.position, "can_place_entity : arguments")
     return not W.occupied[occ_key(t.position)]
   end
@@ -975,6 +1001,13 @@ function M.new_world(opts)
   end
   surface.find_entities_filtered = function(t)
     local out = {}
+    -- Lot IA3-e : position en tableau { x, y } (acceptée par le moteur, utilisée par le plan directeur).
+    if t.position and t.position.x == nil and t.position[1] ~= nil then
+      local c = {}
+      for k, v in pairs(t) do c[k] = v end
+      c.position = { x = t.position[1], y = t.position[2] }
+      t = c
+    end
     if t.invert then
       -- Filtre inversé (seul usage du mod : « tout sauf les ressources » dans une zone).
       -- Lot M0 : « toute force sauf celles-ci » (bâtiments d'un joueur ou d'une IA sous un site garanti).
@@ -1063,9 +1096,15 @@ function M.new_world(opts)
     assert(t.area and not t.name and not t.position, "find_tiles_filtered (moteur simulé) : zone seule attendue")
     local lt, rb = t.area[1], t.area[2]
     local out = {}
+    -- Lot IA3-e : filtre `collision_mask = "water-tile"` (relevé de l'eau du plan directeur, script/team/build.lua) :
+    -- sans lui, toutes les tuiles de la zone revenaient comme de l'eau et aucun module ne trouvait de place.
+    local water_only = t.collision_mask == "water-tile"
     for y = math.floor(lt[2]), math.ceil(rb[2]) - 1 do
       for x = math.floor(lt[1]), math.ceil(rb[1]) - 1 do
-        out[#out + 1] = { name = tile_name_at(x, y), position = { x = x, y = y }, valid = true }
+        local name = tile_name_at(x, y)
+        if not water_only or name:find("water", 1, true) then
+          out[#out + 1] = { name = name, position = { x = x, y = y }, valid = true }
+        end
       end
     end
     return out

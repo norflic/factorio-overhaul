@@ -171,10 +171,12 @@ local function refresh(f, st, tick)
   end
 end
 
---- Contexte d'un refus : rayon du treillis, technologies recherchées, époque de 30 min (le terrain change).
+--- Contexte d'un refus : rayon du treillis (il grandit jusqu'à Build.RADIUS_MAX quand rien ne tient), époque de 30 min
+--- (le terrain change : arbres défrichés, avant-postes, bâtiments). Les technologies n'y sont pas : une recherche ne
+--- change pas la place (moteur simulé, sonde du 27/10 : un refus « place » redemandé à chaque technologie).
 local function signature(f, tick)
   local b = f.build
-  return string.format("r%d:t%d:e%d", b and b.radius or 0, f.tech or 0, math.floor(tick / Auto.REFUSE_EPOCH))
+  return string.format("r%d:e%d", b and b.radius or 0, math.floor(tick / Auto.REFUSE_EPOCH))
 end
 
 ---------------------------------------------------------------------------------------------------

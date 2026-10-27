@@ -24,7 +24,9 @@
      « la recherche vaut ce qu'elle débloque », H9). Aucune demande tant qu'il manque.
   8. Ordre (IA1-d §6.3) : rang 1 fer et cuivre (racines de toutes les chaînes), rang 2 engrenages et circuits, rang 3
      packs. Un rang attend tant qu'une méthode d'un rang inférieur est demandable, en recherche ou en cours. Au plus
-     A.MAX_OPEN module ouvert à la fois (hors centrale) ; au plus A.MAX_PER_PRODUCT modules finis par objet.
+     A.MAX_OPEN modules ouverts à la fois (hors centrale) ; au plus A.MAX_PER_PRODUCT modules finis par objet.
+     Un objet impossible se voit dès A.RESEARCH_WINDOW minutes de fenêtre (la recherche prend du temps) ; la demande
+     du module attend la fenêtre pleine.
   9. Refus du plan directeur : coût infini tant que la raison ne change pas (signature `sig` : raison + contexte
      fourni par le runtime, rayon du treillis et poteau disponible).
 
@@ -57,7 +59,8 @@ A.BELT_FLOW = 1.0        -- objets/s : au-delà, une voie de minerai est servie 
 A.DRILL_RATE = 0.5       -- minerai/s d'une foreuse électrique (vitesse 0,5, temps 1 s)
 A.BELT_LEN = 28          -- tuiles de tapis estimées des foreuses à la tête d'alimentation (un pas de treillis)
 A.NET_POLES = 3          -- poteaux de réseau estimés jusqu'au carrefour le plus proche
-A.MAX_OPEN = 1           -- modules ouverts à la fois (chantier, plan, réserve), hors centrale
+A.MAX_OPEN = 2           -- modules ouverts à la fois (chantier, plan, réserve), hors centrale : fer et cuivre ensemble
+A.RESEARCH_WINDOW = 5    -- minutes : un objet impossible (recherche) se voit dès la demi-fenêtre (la recherche prend du temps)
 A.MAX_PER_PRODUCT = 2    -- modules finis au plus par objet
 A.VALUE = 64             -- valeur de base du projet d'un module (famille capital, pondérée par le chef)
 A.BURNER_RATE = 0.25     -- minerai/s d'une foreuse à combustion (avant-postes : capacité d'un module en unités d'avant-poste)
@@ -295,7 +298,7 @@ function A.decide(input)
       v.verdict, v.why = "refuse", tostring(st.refused.reason)
     elseif st.fini >= A.MAX_PER_PRODUCT then
       v.verdict, v.why = "fini", st.fini .. " module(s)"
-    elseif n < A.WINDOW then
+    elseif n < A.RESEARCH_WINDOW then
       v.verdict, v.why = "attente", "fenetre " .. n .. "/" .. A.WINDOW .. " min"
     elseif L <= A.LOAD_MIN then
       v.verdict, v.why = "non", string.format("charge %.2f PNJ <= %.2f", L, A.LOAD_MIN)
@@ -326,6 +329,10 @@ function A.decide(input)
             v.verdict, v.why = "recherche", "objets impossibles : " .. table.concat(missing, ",")
             for _, name in ipairs(missing) do out.wanted[name] = true end
             busy_rank = busy_rank or meth.rank
+          elseif n < A.WINDOW then
+            -- Demi-fenêtre : assez pour lancer la recherche d'un objet impossible, pas pour demander le module (H3 :
+            -- « pendant 10 min »).
+            v.verdict, v.why = "attente", "fenetre " .. n .. "/" .. A.WINDOW .. " min"
           elseif open >= A.MAX_OPEN then
             v.verdict, v.why = "attente", "un module deja ouvert"
             busy_rank = busy_rank or meth.rank
