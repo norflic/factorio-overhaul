@@ -4,8 +4,9 @@
 Usage : py -3.9 -B tools/autotest/capital_egal.py <archive A> <archive B> [--tag-a FO-X --tag-b FO-Y]
 Lignes comparées : celles de benchmark.log(.gz) qui portent une balise [FO-...] du mod ou du scénario, sans l'horodatage
 ni l'origine « Script @__mod__/fichier.lua:ligne: » (les numéros de ligne changent avec le code) ; écartées : les
-balises de MESURE de temps ([FO-CALIB], [FO-BENCH], [FO-AUTOTEST], profileur « Duration »), la balise [FO-CAPITAL]
-comptée à part, et les lignes du banc qui disent la source ou la version. --tag-a/--tag-b : la balise du scénario
+balises de MESURE de temps et du banc ([FO-CALIB], [FO-BENCH], [FO-AUTOTEST] : source, version, durées ; profileur
+« Duration ») ; les lignes [FO-CAPITAL] sont comparées à part (leur suite doit être identique aussi) ; le contrôle
+« reglage fo-war-capital » d'une variante (create.log) est retiré du BILAN de A. --tag-a/--tag-b : la balise du scénario
 de A est récrite en celle de B (variante greffée : [FO-CAPITAL-VERIF-GUIDE] -> [FO-VERIF-GUIDE]). Rend 0 si les suites
 sont identiques, 1 sinon (première différence affichée).
 """
