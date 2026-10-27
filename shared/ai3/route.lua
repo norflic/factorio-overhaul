@@ -69,9 +69,10 @@ end
 --- touche ; on prend la moins dangereuse (sinon un coin de deux cases sûres est lu dans la case marquée voisine). Rend
 --- aussi la clé de la case retenue.
 local EPS = 0.01
+local CORNERS = { { -EPS, -EPS }, { EPS, -EPS }, { -EPS, EPS }, { EPS, EPS } } -- constante : aucune table par appel (coût)
 function R.danger_pt(field, x, y)
   local best, bk = nil, nil
-  for _, o in ipairs({ { -EPS, -EPS }, { EPS, -EPS }, { -EPS, EPS }, { EPS, EPS } }) do
+  for _, o in ipairs(CORNERS) do
     local k = D.key(D.cell(x + o[1]), D.cell(y + o[2]))
     local d = field[k] or 0
     if not best or d < best or (d == best and k < bk) then best, bk = d, k end
@@ -117,28 +118,39 @@ function R.via(start, goal, draw, prev)
 end
 
 -- Tas binaire min sur { f, k } (égalité : clé croissante).
-local function less(a, b) if a.f ~= b.f then return a.f < b.f end return a.k < b.k end
+-- Tas binaire (ordre : f, puis clé). Comparaisons écrites en ligne (coût), mêmes résultats que less(a, b).
 local function push(h, it)
-  h[#h + 1] = it
-  local i = #h
+  local i = #h + 1
+  h[i] = it
+  local f, k = it.f, it.k
   while i > 1 do
-    local p = math.floor(i / 2)
-    if less(h[i], h[p]) then h[i], h[p] = h[p], h[i]; i = p else break end
+    local p = (i - i % 2) / 2
+    local hp = h[p]
+    if f < hp.f or (f == hp.f and k < hp.k) then h[i], h[p] = hp, it; i = p else break end
   end
 end
 local function pop(h)
   local top = h[1]
-  local last = h[#h]
-  h[#h] = nil
-  if #h > 0 then
+  local n = #h
+  local last = h[n]
+  h[n] = nil
+  n = n - 1
+  if n > 0 then
     h[1] = last
     local i = 1
     while true do
       local l, r, m = 2 * i, 2 * i + 1, i
-      if l <= #h and less(h[l], h[m]) then m = l end
-      if r <= #h and less(h[r], h[m]) then m = r end
+      local hm = h[m]
+      if l <= n then
+        local hl = h[l]
+        if hl.f < hm.f or (hl.f == hm.f and hl.k < hm.k) then m, hm = l, hl end
+      end
+      if r <= n then
+        local hr = h[r]
+        if hr.f < hm.f or (hr.f == hm.f and hr.k < hm.k) then m, hm = r, hr end
+      end
       if m == i then break end
-      h[i], h[m] = h[m], h[i]
+      h[i], h[m] = hm, h[i]
       i = m
     end
   end
@@ -155,20 +167,30 @@ end
 
 --- A* sur les cases. Renvoie la liste des cases { cx, cy } du départ au but, ou nil (bloqué ou trop cher), puis le
 --- nombre de développements.
+-- Coût (banc final-3958412 verif-guide-1618033988 : 3 020 pics de 7,7 ms) : clés et bruit calculés en ligne, bruit d'une
+-- case mémorisé pendant l'appel, voisins par indice ; mêmes opérations, dans le même ordre, que la version d'origine
+-- (tests/ia3k_regles_test.lua compare les deux sur des cartes tirées au sort).
+local OFF = D.OFF
 function R.astar(field, sc, gc, B, seed, max_expand)
+  local floor = math.floor
   local cx0 = math.min(sc[1], gc[1]) - R.BOX_MARGIN
   local cy0 = math.min(sc[2], gc[2]) - R.BOX_MARGIN
   local cx1 = math.max(sc[1], gc[1]) + R.BOX_MARGIN
   local cy1 = math.max(sc[2], gc[2]) + R.BOX_MARGIN
-  local sk, gk = D.key(sc[1], sc[2]), D.key(gc[1], gc[2])
+  local gx, gy = gc[1], gc[2]
+  local sk, gk = (sc[1] + OFF) * 65536 + (sc[2] + OFF), (gx + OFF) * 65536 + (gy + OFF)
   local g, from, closed = { [sk] = 0 }, {}, {}
   local open = {}
-  push(open, { f = octile(sc[1], sc[2], gc[1], gc[2]), k = sk, cx = sc[1], cy = sc[2] })
+  push(open, { f = octile(sc[1], sc[2], gx, gy), k = sk, cx = sc[1], cy = sc[2] })
   local expand = 0
   local cap = max_expand or R.MAX_EXPAND
+  local M1, NZ = Tr.MOD - 1, R.NOISE + 1
+  local TM = Tr.MOD
+  local nzc = {}
   while #open > 0 do
     local cur = pop(open)
-    if cur.k == gk then
+    local ck = cur.k
+    if ck == gk then
       local path, k = {}, gk
       while k do
         local x, y = D.unkey(k)
@@ -177,24 +199,36 @@ function R.astar(field, sc, gc, B, seed, max_expand)
       end
       return path, expand
     end
-    if not closed[cur.k] then
-      closed[cur.k] = true
+    if not closed[ck] then
+      closed[ck] = true
       expand = expand + 1
       if expand > cap then return nil, expand end
-      for _, nb in ipairs(NB) do
-        local nx, ny = cur.cx + nb[1], cur.cy + nb[2]
+      local ccx, ccy, gcur = cur.cx, cur.cy, g[ck]
+      for q = 1, 8 do
+        local nb = NB[q]
+        local nx, ny = ccx + nb[1], ccy + nb[2]
         if nx >= cx0 and nx <= cx1 and ny >= cy0 and ny <= cy1 then
-          local nk = D.key(nx, ny)
+          local nk = (nx + OFF) * 65536 + (ny + OFF)
           local dg = field[nk] or 0
           if not closed[nk] and (dg < B or nk == gk) then
             local noise = 0
-            if seed then noise = Tr.mulmod(nk % (Tr.MOD - 1) + 1, seed) % (R.NOISE + 1) end
+            if seed then
+              noise = nzc[nk]
+              if not noise then
+                -- Tr.mulmod(nk % (MOD - 1) + 1, seed), en ligne
+                local a = nk % M1 + 1
+                local hi, lo = floor(seed / 65536), seed % 65536
+                noise = ((a * hi % TM) * 65536 % TM + a * lo) % TM % NZ
+                nzc[nk] = noise
+              end
+            end
             local step = nb[3] * (1000 + dg * 10 + noise) / 1000
-            local ng = g[cur.k] + step
-            if not g[nk] or ng < g[nk] then
+            local ng = gcur + step
+            local gn = g[nk]
+            if not gn or ng < gn then
               g[nk] = ng
-              from[nk] = cur.k
-              push(open, { f = ng + octile(nx, ny, gc[1], gc[2]), k = nk, cx = nx, cy = ny })
+              from[nk] = ck
+              push(open, { f = ng + octile(nx, ny, gx, gy), k = nk, cx = nx, cy = ny })
             end
           end
         end
@@ -205,9 +239,15 @@ function R.astar(field, sc, gc, B, seed, max_expand)
 end
 
 --- Un segment (a -> b) ne touche-t-il aucune case de danger ≥ lim (case du départ exclue) ?
+-- Mêmes points que R.samples(a, {}, b, R.SAMPLE), sans table par point (coût : la réduction essaie O(n²) segments ; banc
+-- final-3958412 verif-guide-1618033988 : 3 020 pics de 7,7 ms en moyenne).
 local function clear(field, a, b, lim, sk)
-  for _, s in ipairs(R.samples(a, {}, b, R.SAMPLE)) do
-    local d, k = R.danger_pt(field, s.x, s.y)
+  local d0, k0 = R.danger_pt(field, a.x, a.y)
+  if k0 ~= sk and d0 >= lim then return false end
+  local px, py = a.x, a.y
+  local n = math.max(1, math.ceil(dist(px, py, b.x, b.y) / R.SAMPLE))
+  for i = 1, n do
+    local d, k = R.danger_pt(field, px + (b.x - px) * i / n, py + (b.y - py) * i / n)
     if k ~= sk and d >= lim then return false end
   end
   return true

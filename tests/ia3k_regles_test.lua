@@ -314,6 +314,189 @@ end
 suite()
 local base_fail = failures
 
+---------------------------------------------------------------------------------------------------
+-- ÉQUIVALENCE de l'A* accéléré (shared/ai3/route.lua) avec la version d'origine (gardée ici comme référence, copie
+-- exacte de 3958412) : mêmes cases et même nombre de développements sur des cartes tirées au sort, avec et sans bruit
+-- de tournée. Hors des mutants (contrôle de la seule implantation).
+---------------------------------------------------------------------------------------------------
+do
+  print("== A* accéléré : identique à la version d'origine")
+  local function less(a, b) if a.f ~= b.f then return a.f < b.f end return a.k < b.k end
+  local function push(h, it)
+    h[#h + 1] = it
+    local i = #h
+    while i > 1 do
+      local p = math.floor(i / 2)
+      if less(h[i], h[p]) then h[i], h[p] = h[p], h[i]; i = p else break end
+    end
+  end
+  local function pop(h)
+    local top = h[1]
+    local last = h[#h]
+    h[#h] = nil
+    if #h > 0 then
+      h[1] = last
+      local i = 1
+      while true do
+        local l, r, m = 2 * i, 2 * i + 1, i
+        if l <= #h and less(h[l], h[m]) then m = l end
+        if r <= #h and less(h[r], h[m]) then m = r end
+        if m == i then break end
+        h[i], h[m] = h[m], h[i]
+        i = m
+      end
+    end
+    return top
+  end
+  local NB = { { 1, 0, 10 }, { -1, 0, 10 }, { 0, 1, 10 }, { 0, -1, 10 }, { 1, 1, 14 }, { 1, -1, 14 }, { -1, 1, 14 }, { -1, -1, 14 } }
+  local function octile(ax, ay, bx, by)
+    local dx, dy = math.abs(ax - bx), math.abs(ay - by)
+    local mn, mx = dx < dy and dx or dy, dx < dy and dy or dx
+    return 14 * mn + 10 * (mx - mn)
+  end
+  local function astar_ref(field, sc, gc, B, seed, max_expand)
+    local cx0 = math.min(sc[1], gc[1]) - R.BOX_MARGIN
+    local cy0 = math.min(sc[2], gc[2]) - R.BOX_MARGIN
+    local cx1 = math.max(sc[1], gc[1]) + R.BOX_MARGIN
+    local cy1 = math.max(sc[2], gc[2]) + R.BOX_MARGIN
+    local sk, gk = D.key(sc[1], sc[2]), D.key(gc[1], gc[2])
+    local g, from, closed = { [sk] = 0 }, {}, {}
+    local open = {}
+    push(open, { f = octile(sc[1], sc[2], gc[1], gc[2]), k = sk, cx = sc[1], cy = sc[2] })
+    local expand = 0
+    local cap = max_expand or R.MAX_EXPAND
+    while #open > 0 do
+      local cur = pop(open)
+      if cur.k == gk then
+        local path, k = {}, gk
+        while k do
+          local x, y = D.unkey(k)
+          table.insert(path, 1, { x, y })
+          k = from[k]
+        end
+        return path, expand
+      end
+      if not closed[cur.k] then
+        closed[cur.k] = true
+        expand = expand + 1
+        if expand > cap then return nil, expand end
+        for _, nb in ipairs(NB) do
+          local nx, ny = cur.cx + nb[1], cur.cy + nb[2]
+          if nx >= cx0 and nx <= cx1 and ny >= cy0 and ny <= cy1 then
+            local nk = D.key(nx, ny)
+            local dg = field[nk] or 0
+            if not closed[nk] and (dg < B or nk == gk) then
+              local noise = 0
+              if seed then noise = Tr.mulmod(nk % (Tr.MOD - 1) + 1, seed) % (R.NOISE + 1) end
+              local step = nb[3] * (1000 + dg * 10 + noise) / 1000
+              local ng = g[cur.k] + step
+              if not g[nk] or ng < g[nk] then
+                g[nk] = ng
+                from[nk] = cur.k
+                push(open, { f = ng + octile(nx, ny, gc[1], gc[2]), k = nk, cx = nx, cy = ny })
+              end
+            end
+          end
+        end
+      end
+    end
+    return nil, expand
+  end
+  local st = Tr.new_stream(20261027, 471)
+  local function rnd(n) return Tr.range(st, 1, n) end
+  local same, cases, found, blocked = 0, 0, 0, 0
+  for c = 1, 300 do
+    local map = D.new()
+    local tick = 50 * MIN
+    for i = 1, rnd(30) do
+      local kinds = { "worm", "spawner", "turret", "unit", "pack" }
+      D.mark_seen(map, rnd(500) - 250, rnd(500) - 250, kinds[rnd(5)], 14 + rnd(30), tick - rnd(40) * MIN)
+    end
+    for i = 1, rnd(6) - 1 do D.mark_death(map, rnd(400) - 200, rnd(400) - 200, tick - rnd(50) * MIN) end
+    local field = D.field(map, tick)
+    local sc = { rnd(20) - 10, rnd(20) - 10 }
+    local gc = { rnd(40) - 20, rnd(40) - 20 }
+    local B = ({ 400, 600, 750, 1e9 })[rnd(4)]
+    local seed = (c % 2 == 0) and rnd(Tr.MOD - 2) or nil
+    local cap = (c % 5 == 0) and 200 or nil
+    local p1, n1 = R.astar(field, sc, gc, B, seed, cap)
+    local p2, n2 = astar_ref(field, sc, gc, B, seed, cap)
+    cases = cases + 1
+    local eq = n1 == n2 and ((p1 == nil) == (p2 == nil))
+    if eq and p1 then
+      if #p1 ~= #p2 then eq = false else
+        for i = 1, #p1 do if p1[i][1] ~= p2[i][1] or p1[i][2] ~= p2[i][2] then eq = false break end end
+      end
+    end
+    if p1 then found = found + 1 else blocked = blocked + 1 end
+    if eq then same = same + 1 end
+  end
+  check(same == cases and found > 50 and blocked > 10,
+    string.format("A* accéléré = version d'origine : %d / %d cas identiques (%d chemins, %d sans issue)", same, cases, found, blocked))
+end
+
+-- ÉQUIVALENCE du champ accéléré (D.field, disques limités à la boîte) avec la version d'origine (référence ci-dessous,
+-- copie exacte de 3958412) : mêmes cases, mêmes valeurs, même nombre, avec et sans boîte.
+do
+  print("== champ du danger accéléré : identique à la version d'origine")
+  local function field_ref(map, tick, box)
+    local out, n = {}, 0
+    local function add(cx, cy, w)
+      if w <= 0 then return end
+      if box and (cx < box[1] or cy < box[2] or cx > box[3] or cy > box[4]) then return end
+      local k = D.key(cx, cy)
+      if not out[k] then n = n + 1 end
+      out[k] = (out[k] or 0) + w
+    end
+    for _, t in ipairs(map.threats) do
+      local K = D.KINDS[t.k] or D.KINDS.unit
+      local w = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+      if w > 0 then D.cells_within(t.x, t.y, t.r + D.MARGIN, function(cx, cy) add(cx, cy, w) end) end
+    end
+    for _, d in ipairs(map.deaths) do
+      local age = tick - d.t
+      local w = age < D.DEATH_FULL and D.DEATH_W or math.floor(D.DEATH_W * D.dec10(age - D.DEATH_FULL) / 1000)
+      if d.home then w = 0 end
+      if w > 0 then D.cells_within(d.x, d.y, D.DEATH_R, function(cx, cy) add(cx, cy, w) end) end
+    end
+    local keys = {}
+    for k in pairs(map.cells) do keys[#keys + 1] = k end
+    table.sort(keys)
+    for _, k in ipairs(keys) do
+      local cx, cy = D.unkey(k)
+      local c = map.cells[k]
+      add(cx, cy, math.floor(c.m * D.dec10(tick - c.t) / 1000))
+    end
+    return out, n
+  end
+  local st = Tr.new_stream(20261027, 472)
+  local function rnd(k) return Tr.range(st, 1, k) end
+  local same, cases, cells = 0, 0, 0
+  for c = 1, 200 do
+    local map = D.new()
+    local tick = 90 * MIN
+    local kinds = { "worm", "spawner", "turret", "unit", "pack", "character" }
+    for i = 1, rnd(40) do
+      D.mark_seen(map, rnd(600) - 300 + rnd(100) / 7, rnd(600) - 300 - rnd(100) / 9, kinds[rnd(6)], 10 + rnd(40), tick - rnd(80) * MIN)
+    end
+    for i = 1, rnd(8) - 1 do D.mark_death(map, rnd(400) - 200, rnd(400) - 200, tick - rnd(70) * MIN, rnd(5) == 1) end
+    for i = 1, rnd(5) - 1 do D.mark_attack(map, rnd(400) - 200, rnd(400) - 200, tick - rnd(20) * MIN) end
+    local box = nil
+    if c % 4 ~= 0 then
+      local x0, y0 = rnd(40) - 25, rnd(40) - 25
+      box = { x0, y0, x0 + rnd(30), y0 + rnd(30) }
+    end
+    local a, na = D.field(map, tick, box)
+    local b, nb = field_ref(map, tick, box)
+    local eq = na == nb
+    for k, v in pairs(a) do if b[k] ~= v then eq = false end end
+    for k, v in pairs(b) do if a[k] ~= v then eq = false end end
+    cases, cells = cases + 1, cells + nb
+    if eq then same = same + 1 end
+  end
+  check(same == cases and cells > 1000, string.format("champ accéléré = version d'origine : %d / %d cartes identiques (%d cases)", same, cases, cells))
+end
+
 print("== mutants (chaque règle retirée doit faire échouer au moins un contrôle)")
 local function mutant(name, apply, restore)
   apply()

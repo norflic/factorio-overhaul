@@ -326,14 +326,17 @@ local function marks_near(map, a, b, tick)
   return false
 end
 
---- Itinéraire de p à goal pour ce PNJ. opts = { draw = bool (variation de tournée), B = seuil forcé }.
+--- Itinéraire de p à goal pour ce PNJ. opts = { draw = bool (variation de tournée), B = seuil forcé, same = résultat d'un
+--- appel précédent du MÊME tick pour les mêmes p et goal (son champ est repris : la carte n'a pas changé entre les deux) }.
 function M.plan(f, agent, p, goal, tick, opts)
   opts = opts or {}
   local t = M.team(f)
   local prud = M.character(f)
   local B = opts.B or D.block(prud)
   local field, n = {}, 0
-  if marks_near(t.map, p, goal, tick) then
+  if opts.same then
+    field, n = opts.same.field, opts.same.n or 0
+  elseif marks_near(t.map, p, goal, tick) then
     local m = R.BOX_MARGIN + 1
     local box = { math.min(D.cell(p.x), D.cell(goal.x)) - m, math.min(D.cell(p.y), D.cell(goal.y)) - m,
       math.max(D.cell(p.x), D.cell(goal.x)) + m, math.max(D.cell(p.y), D.cell(goal.y)) + m }
@@ -348,7 +351,7 @@ function M.plan(f, agent, p, goal, tick, opts)
   local res = R.plan(p, goal, { field = field, n = n, B = B, seed = seed, draw = draw, side = opts.side })
   if res.astar then Trace.log("ia3k", "astar", res.expand) end -- attribution des pics (tools/autotest/analyze.py)
   res.B = B
-  res.field = field
+  res.field, res.n = field, n
   -- Profil GÉOMÉTRIQUE (distance réelle aux menaces, D.danger_exact) le long de l'itinéraire, 6 premières tuiles exclues
   -- (le PNJ peut déjà être près d'un danger) : c'est lui que jugent la porte et le choix de l'itinéraire de secours ; les
   -- cases de 16 tuiles (A*) surestiment (un avant-poste à 35-55 tuiles d'un ver était refusé).
@@ -399,7 +402,7 @@ function M.leg(agent, pos, radius, tick, depth)
       t.stats.blocked = t.stats.blocked + 1
       -- Le chemin qui minimise le danger : pris s'il reste hors de PORTÉE réelle des menaces (profil géométrique sous le
       -- seuil), ou faute de mieux pour rentrer au QG, passer escorté ou avec le risque accepté.
-      local res2 = M.plan(f, agent, p, pos, tick, { B = 1e9 })
+      local res2 = M.plan(f, agent, p, pos, tick, { B = 1e9, same = res })
       if home or a.escort or a.risk or res2.exact_max < res.B then
         res = res2
       else
@@ -497,7 +500,7 @@ function M.gate(f, agent, task, steps, tick)
   local res = M.plan(f, agent, p, dest, tick)
   -- Bloqué au sens des cases : le chemin qui minimise le danger est-il hors de portée réelle des menaces ?
   if res.blocked then
-    local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9 })
+    local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9, same = res })
     if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 end
   end
   local pts = R.samples(p, res.pts, dest, 8)

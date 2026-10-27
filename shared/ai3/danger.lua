@@ -184,21 +184,48 @@ end
 --- cases non nulles, et leur nombre. Coût : menaces × cases de leur disque + morts + cases mobiles.
 function D.field(map, tick, box)
   local out, n = {}, 0
-  local function add(cx, cy, w)
-    if w <= 0 then return end
-    if box and (cx < box[1] or cy < box[2] or cx > box[3] or cy > box[4]) then return end
-    local k = D.key(cx, cy)
-    if not out[k] then n = n + 1 end
-    out[k] = (out[k] or 0) + w
+  local floor = math.floor
+  local C, OFF = D.CELL, D.OFF
+  local bx0, by0, bx1, by1 = -1e9, -1e9, 1e9, 1e9
+  if box then bx0, by0, bx1, by1 = box[1], box[2], box[3], box[4] end
+  -- Disque de rayon r autour de (x, y), limité à la boîte (coût : une menace hors de la boîte ne coûte rien) ; mêmes
+  -- cases et mêmes poids que cells_within + add (sommes entières : l'ordre ne change rien).
+  local function disc(x, y, r, w)
+    local c0x, c1x = floor((x - r) / C), floor((x + r) / C)
+    local c0y, c1y = floor((y - r) / C), floor((y + r) / C)
+    if c0x < bx0 then c0x = bx0 end
+    if c1x > bx1 then c1x = bx1 end
+    if c0y < by0 then c0y = by0 end
+    if c1y > by1 then c1y = by1 end
+    local r2 = r * r
+    for cy = c0y, c1y do
+      local y0 = cy * C
+      local y1 = y0 + C
+      local dy = (y < y0) and (y0 - y) or ((y > y1) and (y - y1) or 0)
+      local dy2 = dy * dy
+      if dy2 <= r2 then
+        for cx = c0x, c1x do
+          local x0 = cx * C
+          local x1 = x0 + C
+          local dx = (x < x0) and (x0 - x) or ((x > x1) and (x - x1) or 0)
+          if dx * dx + dy2 <= r2 then
+            local k = (cx + OFF) * 65536 + (cy + OFF)
+            local v = out[k]
+            if not v then n = n + 1 v = 0 end
+            out[k] = v + w
+          end
+        end
+      end
+    end
   end
   for _, t in ipairs(map.threats) do
     local K = D.KINDS[t.k] or D.KINDS.unit
-    local w = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
-    if w > 0 then cells_within(t.x, t.y, t.r + D.MARGIN, function(cx, cy) add(cx, cy, w) end) end
+    local w = floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+    if w > 0 then disc(t.x, t.y, t.r + D.MARGIN, w) end
   end
   for _, d in ipairs(map.deaths) do
     local w = d.home and 0 or death_w(d, tick)
-    if w > 0 then cells_within(d.x, d.y, D.DEATH_R, function(cx, cy) add(cx, cy, w) end) end
+    if w > 0 then disc(d.x, d.y, D.DEATH_R, w) end
   end
   -- Cases mobiles : clés triées (aucun ordre de pairs).
   local keys = {}
@@ -206,7 +233,12 @@ function D.field(map, tick, box)
   table.sort(keys)
   for _, k in ipairs(keys) do
     local cx, cy = D.unkey(k)
-    add(cx, cy, mobile_now(map.cells[k], tick))
+    local w = mobile_now(map.cells[k], tick)
+    if w > 0 and cx >= bx0 and cy >= by0 and cx <= bx1 and cy <= by1 then
+      local v = out[k]
+      if not v then n = n + 1 v = 0 end
+      out[k] = v + w
+    end
   end
   return out, n
 end
