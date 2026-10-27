@@ -40,5 +40,6 @@ def coins_satellites(side, plan):
 
 
 def cote_satellite(side):
-    """Côté (tuiles) de la mitrailleuse posée en satellite : 0,22 × l'emprise + 0,25 (1,1 t à 4×4, 2 t à 8×8)."""
-    return 0.22 * side + 0.25
+    """Côté (tuiles) de la mitrailleuse posée en satellite : 0,2 × l'emprise + 0,2 (1 t à 4×4, 1,8 t à 8×8 ; ronde F5-A2,
+    essai : à 0,22 S + 0,25 les mitrailleuses débordaient du socle des 4×4)."""
+    return 0.2 * side + 0.2
