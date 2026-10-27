@@ -80,7 +80,7 @@ function C.scenario(opts)
         local k = string.format("%d:%d:%d", d.t, math.floor(d.x), math.floor(d.y))
         if not st.seen_d[k] then
           st.seen_d[k] = true
-          st.deaths[#st.deaths + 1] = { x = d.x, y = d.y, t = d.t }
+          st.deaths[#st.deaths + 1] = { x = d.x, y = d.y, t = d.t, home = d.home }
         end
       end
       if st.nest and t % 18000 == 0 then
@@ -109,14 +109,20 @@ function C.scenario(opts)
           if d2(d, st.nest) <= 48 * 48 then near = near + 1 end
         end
       end
-      -- Règle de l'heure : pour chaque mort, morts à moins de 32 tuiles dans l'heure qui suit.
-      local worst = 0
+      -- Règle de l'heure : pour chaque mort, morts à moins de 32 tuiles dans l'heure qui suit. « worst » : morts AU TRAVAIL
+      -- (hors raid sur le QG : moins de 16 tuiles du coffre, marquées home par le mod) ; « worst_all » : toutes.
+      local worst, worst_all, home_n = 0, 0, 0
       for _, d in ipairs(st.deaths) do
-        local n = 0
+        if d.home then home_n = home_n + 1 end
+        local n, na = 0, 0
         for _, x in ipairs(st.deaths) do
-          if x.t >= d.t and x.t < d.t + HOUR and d2(x, d) <= 32 * 32 then n = n + 1 end
+          if x.t >= d.t and x.t < d.t + HOUR and d2(x, d) <= 32 * 32 then
+            na = na + 1
+            if not x.home and not d.home then n = n + 1 end
+          end
         end
         if n > worst then worst = n end
+        if na > worst_all then worst_all = na end
       end
       local stv = ctx.remote("fo-ia3k", "status", KEY)
       local sv = stv and stv.stats or {}
@@ -133,8 +139,8 @@ function C.scenario(opts)
       end
       local nests = s.count_entities_filtered({ position = st.nest, radius = 30, type = "unit-spawner", force = "enemy" })
       local sold = stv and stv.soldiers
-      ctx.log(string.format("FAIT une heure apres le nid : %d mort(s) d'ouvriers d'Ecarlate a moins de 48 tuiles du nid, %d en tout ; au plus %d au meme endroit (32 tuiles) dans une heure ; tues par les ennemis (partie) %s",
-        near, all, worst, tostring(lost)))
+      ctx.log(string.format("FAIT une heure apres le nid : %d mort(s) d'ouvriers d'Ecarlate a moins de 48 tuiles du nid, %d en tout ; au plus %d au meme endroit (32 tuiles) dans une heure hors raid sur le QG, %d avec (%d mort(s) au QG dans la partie) ; tues par les ennemis (partie) %s",
+        near, all, worst, worst_all, home_n, tostring(lost)))
       ctx.log(string.format("FAIT porte : go %s, escorte %s, attente %s ; escortes pretes %s ; nettoyages lances %s, finis %s ; nid encore la : %d ; soldats (passages) : %s",
         tostring((sv.gate or {}).go), tostring((sv.gate or {}).escort), tostring((sv.gate or {}).wait), tostring(sv.escort_ready),
         tostring(sv.clear_ops), tostring(sv.cleared), nests,
@@ -142,7 +148,8 @@ function C.scenario(opts)
       if opts.temoin then
         ctx.check(true, string.format("temoin (sans le lot) : %d mort(s) pres du nid en une heure, au plus %d au meme endroit (mesure)", near, worst))
       else
-        ctx.check(worst <= 2, "C5 : au plus 2 morts au meme endroit par heure (equipe Ecarlate)", worst)
+        ctx.check(worst <= 2, "C5 : au plus 2 morts au meme endroit par heure (equipe Ecarlate, hors raid sur le QG)",
+          string.format("%d (avec le QG : %d)", worst, worst_all))
         ctx.check(near <= 2, "C5 : au plus 2 morts d'ouvriers pres du nid dans l'heure", near)
       end
     end,

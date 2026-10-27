@@ -38,7 +38,8 @@ local M = {}
 M.SETTING = "fo-war-ia3-comportement"
 M.SALT = 470
 M.HOME_SAFE = 32        -- pas de regard à moins de 32 tuiles du QG (il est défendu)
-M.HOME_DEATH_R = 48     -- une mort à moins de 48 tuiles du QG : attaque du QG, sans effet sur la carte (D.mark_death)
+M.HOME_DEATH_R = 16     -- une mort à moins de 16 tuiles du QG (cases d'attente) : raid sur le QG, sans effet sur la carte
+                        -- (D.mark_death) ; 48 classait « QG » des morts au ver à 36-43 tuiles (final-0159125 Écarlate 123456789)
 M.WP_RADIUS = 2         -- rayon d'arrivée d'un point de passage
 M.WP_REACH = 4          -- point de passage atteint à 4 tuiles (8 coupait les virages : banc route-20261020-4e6303a)
 M.GROUP_R = 24          -- un regard qui voit un ennemi marque aussi les autres ennemis à moins de 24 tuiles de lui
