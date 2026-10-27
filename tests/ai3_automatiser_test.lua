@@ -290,6 +290,18 @@ local function ctx_of(auto)
     army_target = 18, auto = auto }
 end
 do
+  -- (a bis) module FINI dont le quai de circuits est vide au coffre : but « alimenter », circuits fabriqués pour lui.
+  local st = C.new_state(0)
+  local auto = { modules = { { product = "logistic-science-pack", state = "fini" } }, cap = {}, covered = {},
+    feeds = { { product = "logistic-science-pack", id = 5, items = { { "electronic-circuit", 200 } }, gain = 1 } } }
+  local plan = C.think(view({ stock = base_stock, outposts = outs }), book, st, ctx_of(auto))
+  local proj = nil
+  for _, p in ipairs(st.projects) do if p.key == "alim:logistic-science-pack" then proj = p end end
+  check(proj ~= nil and proj.state == "actif", "module fini sans circuits au coffre : projet « alimenter » actif (" .. tostring(proj and proj.state) .. ")")
+  check(count(plan, function(t) return t.kind == "craft" and t.item == "electronic-circuit" and t.ia3 == (proj and proj.id) end) >= 1,
+    "… ses circuits sont fabriqués pour lui")
+end
+do
   -- (a) module en réserve, il manque des foreuses électriques et des bras : projet actif, sous-buts fabriqués.
   local st = C.new_state(0)
   local auto = { modules = { { product = "iron-plate", state = "reserve", missing = { { "electric-mining-drill", 4 }, { "inserter", 6 } } } },
@@ -479,6 +491,15 @@ mutant("logistique du module oubliée", function() A.residual = function() retur
 local emit0 = P.EMIT.module
 mutant("projet module sans sous-buts", function() P.EMIT.module = function() return "en_cours" end end, function() P.EMIT.module = emit0 end)
 local goals0 = A.goals
+mutant("module fini jamais nourri", function()
+  A.goals = function(g, auto, w)
+    if not auto then return goals0(g, auto, w) end
+    local a2 = {}
+    for k, x in pairs(auto) do a2[k] = x end
+    a2.feeds = nil
+    return goals0(g, a2, w)
+  end
+end, function() A.goals = goals0 end)
 mutant("module hors des projets", function() A.goals = function(g) return g end end, function() A.goals = goals0 end)
 local vpp = A.VALUE_PER_PNJ
 mutant("valeur sans le gain", function() A.VALUE_PER_PNJ = 0 end, function() A.VALUE_PER_PNJ = vpp end)

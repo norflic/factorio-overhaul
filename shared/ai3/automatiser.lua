@@ -610,6 +610,20 @@ function A.goals(goals, auto, weights)
         status = m.state, missing = m.missing, reason = m.reason, value = clamp(math.floor(base * w / 1000), 1, 100) }
     end
   end
+  -- Un module FINI se nourrit depuis le coffre du QG (quais d'entrée remplis par les porteurs, plan directeur) : ce qui
+  -- manque au coffre pour ses quais (circuits des packs verts, plaques) est un but « alimenter », de la valeur du module
+  -- (moteur réel, e7-usine : packs verts finis, quai de circuits vide, 0 pack ; personne ne fabriquait de circuits pour
+  -- lui). Ses manques deviennent des sous-buts (fabriquer, fondre) comme ceux d'un chantier ; la charge à la main des
+  -- objets qu'il mange se mesure alors, et leur propre module vient en son temps (ordre du graphe).
+  local fed = {}
+  for _, fd in ipairs(auto.feeds or {}) do
+    if not fed[fd.product] and fd.items and #fd.items > 0 then
+      fed[fd.product] = true
+      local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, fd.gain or 0)))
+      goals[#goals + 1] = { key = "alim:" .. fd.product, family = "capital", kind = "module", product = fd.product,
+        status = "reserve", missing = fd.items, value = clamp(math.floor(base * w / 1000), 1, 100) }
+    end
+  end
   table.sort(goals, function(a, b)
     if a.value ~= b.value then return a.value > b.value end
     return a.key < b.key

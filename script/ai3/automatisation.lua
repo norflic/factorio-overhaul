@@ -35,6 +35,7 @@ Auto.EVERY = 3600           -- ticks entre deux décisions
 Auto.RADIUS = 3             -- treillis du plan directeur évalué au départ (7 × 7 lots)
 Auto.REFUSE_EPOCH = 30 * 3600 -- un refus est revu quand le contexte change, et au plus tard toutes les 30 min
 Auto.LOG_MAX = 16
+Auto.FEED_STOCK = 200        -- objets au coffre du QG pour les quais d'un module fini (Build.QUAI_LOW déclenche le remplissage)
 Auto.RESERVE_MAX = 15 * 3600 -- une demande qui attend ses matériaux plus de 15 min est annulée (objets rendus au coffre) :
                              -- elle ne mange plus le fer de la recherche et de l'armée sans jamais produire (moteur réel,
                              -- e4-usine : réserves de 26 à 90 min, palier 3 jamais atteint chez 3 factions sur 4)
@@ -379,8 +380,22 @@ function Auto.think(f, view, book, tick)
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end
+  local feeds = {}
+  local stock = view.stock or {}
   for _, m in ipairs(st.modules) do
     mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain }
+    if m.state == "fini" and f.build then
+      -- Objets de ses quais d'entrée qui manquent au coffre : fabriqués ou fondus pour lui (pas les minerais ni le
+      -- charbon : avant-postes ; un quai de minerai est un défaut du plan, la fonderie se dimensionne pour le tapis).
+      local s = Build.brief(f, m.id)
+      local items = {}
+      for _, it in ipairs(s and s.quais or {}) do
+        local makeable = (book and book.handcraftable and book:handcraftable(it)) or T.smelter_inputs[it] ~= nil
+        local have = stock[it] or 0
+        if makeable and have < Auto.FEED_STOCK then items[#items + 1] = { it, Auto.FEED_STOCK - have } end
+      end
+      if #items > 0 then feeds[#feeds + 1] = { product = m.product, id = m.id, items = items, gain = m.gain } end
+    end
     if m.state == "fini" then
       -- débit MESURÉ (la minute écoulée), pas le nominal : un module sans courant ne couvre rien
       fini_rate[m.product] = (fini_rate[m.product] or 0) + (m.rate_meas or 0)
@@ -395,7 +410,7 @@ function Auto.think(f, view, book, tick)
     end
   end
   Profiler.stop("ia3e:auto")
-  return { modules = mods, cap = cap, covered = covered }
+  return { modules = mods, cap = cap, covered = covered, feeds = feeds }
 end
 
 --- Ligne de la minute (lisibilité, critère 6) : charges et débits de la fenêtre, modules, verdicts et leurs raisons.

@@ -1904,8 +1904,13 @@ function Build.brief(f, id)
     local pt = p.parts[i]
     if pt then parts[#parts + 1] = { kind = pt.kind, key = pt.key, x = pt.ox, y = pt.oy, w = pt.w, h = pt.h } end
   end
+  -- objets des quais d'entrée (lot IA3-e : un module fini se nourrit DEPUIS LE COFFRE du QG, quai_tasks)
+  local quais, seen = {}, {}
+  for _, q in ipairs(p.quais or {}) do
+    if q.item and not seen[q.item] then seen[q.item] = true; quais[#quais + 1] = q.item end
+  end
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
-    retry_at = p.retry_at, retries = p.retries, parts = parts }
+    retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais }
 end
 
 function Build.report(f)

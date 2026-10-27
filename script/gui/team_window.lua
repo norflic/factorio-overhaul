@@ -230,6 +230,11 @@ local function ia3_projects(parent, f, w, compact)
       local proto = game.item_prototypes[auto_item]
       name = { "fo-team.goal-ia3-auto-objet", proto and proto.localised_name or auto_item }
     end
+    local fed_item = p.key:match("^alim:(.+)$")
+    if fed_item then
+      local proto = game.item_prototypes[fed_item]
+      name = { "fo-team.goal-ia3-alim", proto and proto.localised_name or fed_item }
+    end
     local why
     local cause = p.cause or ""
     if p.state == "bloque" and cause:sub(1, 5) == "site:" then
