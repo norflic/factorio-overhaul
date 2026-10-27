@@ -308,6 +308,10 @@ end
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
 --- payé à cette pensée (E.pay, lu par le runtime après le tableau) ; sinon le dépliage le sert comme un besoin ordinaire
 --- (prendre, main, matières brutes).
+--- Un BÂTIMENT (pas le centre) ne fait travailler que des BRAS LIBRES (règle des bras libres d'IA-G, H4 : investir ce qui
+--- dort, stock ou bras) : sans PNJ sans tâche à cette pensée, il ne prend que ce qui reste au stock virtuel, rien n'est
+--- fabriqué ni extrait pour lui. Moteur réel, banc c4 (27/10, graine 271828182) : but de fond qui fabriquait quand même ses
+--- engrenages et demandait son fer, palier 3 de recherche à 20,8 / 40,0 / 51,4 min contre 16,5 / 24,5 / 28,3 au témoin.
 function Cap.emit(P)
   return function(E, proj, g)
     if P.take(E, g.cost) then
@@ -315,6 +319,7 @@ function Cap.emit(P)
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
       return "ok"
     end
+    if not g.center and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
     return "matiere"
   end
