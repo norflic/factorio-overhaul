@@ -255,6 +255,11 @@ local function spare(f, view, tick)
     local war = State.war()
     local elapsed = tick - (f.started or (war and war.started) or 0)
     g.spare = Gen.spare_depth(g.idle_run, view.workers_idle, view.workers, elapsed)
+    -- Une exploration demandée (IA3-f, f.ai3f.req) prend d'abord les PNJ sans tâche comme éclaireurs : pas de travail
+    -- d'avance tant qu'elle est ouverte (moteur simulé, tests/ia3f_test.lua §6 : avec les bras libres, le pétrole n'était
+    -- plus trouvé en 30 min sous 30 % de chemins ratés, les éclaireurs étant occupés aux packs d'avance). Test de vacuité
+    -- seulement (aucun ordre de parcours).
+    if f.ai3f and f.ai3f.req and next(f.ai3f.req) ~= nil then g.spare = 0 end
   end
   return g.spare or 0
 end
