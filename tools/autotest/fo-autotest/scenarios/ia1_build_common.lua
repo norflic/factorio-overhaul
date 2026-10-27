@@ -437,6 +437,43 @@ return function(variant)
       local gen = 0
       for _, e in ipairs(s.find_entities_filtered({ area = area, name = "steam-engine", force = "player" })) do gen = gen + e.energy_generated_last_tick end
       ctx.log(string.format("machines a vapeur : %.0f kW produits au dernier tick", gen * 60 / 1000))
+      -- diagnostic de la centrale et du réseau (hors bilan)
+      local status_name = {}
+      for k, v in pairs(defines.entity_status) do status_name[v] = k end
+      local function st_of(e) return e.status and status_name[e.status] or "?" end
+      for _, b in ipairs(s.find_entities_filtered({ area = area, name = "boiler", force = "player" })) do
+        local fuel = b.get_fuel_inventory()
+        local w, v = b.fluidbox[1], b.fluidbox[2]
+        ctx.log(string.format("chaudiere (%g, %g) : statut %s, charbon %d, eau %.0f, vapeur %.0f", b.position.x, b.position.y, st_of(b),
+          fuel and fuel.get_item_count("coal") or -1, w and w.amount or 0, v and v.amount or 0))
+      end
+      local nets, net_ids = {}, {}
+      for _, pole in ipairs(s.find_entities_filtered({ area = area, type = "electric-pole", force = "player" })) do
+        local id = pole.electric_network_id
+        if id then
+          if not nets[id] then nets[id] = 0; net_ids[#net_ids + 1] = id end
+          nets[id] = nets[id] + 1
+        end
+      end
+      table.sort(net_ids)
+      local parts_n = {}
+      for _, id in ipairs(net_ids) do parts_n[#parts_n + 1] = id .. ":" .. nets[id] end
+      local eng_net = {}
+      for _, e in ipairs(s.find_entities_filtered({ area = area, name = "steam-engine", force = "player" })) do
+        eng_net[#eng_net + 1] = tostring(e.electric_network_id) .. "/" .. st_of(e)
+      end
+      local drill_net = {}
+      for _, e in ipairs(s.find_entities_filtered({ area = area, name = "electric-mining-drill", force = "player" })) do
+        drill_net[#drill_net + 1] = tostring(e.electric_network_id) .. "/" .. st_of(e)
+      end
+      ctx.log(string.format("reseaux electriques (id:poteaux) %s ; machines a vapeur (reseau/statut) %s ; foreuses %s", table.concat(parts_n, " "),
+        table.concat(eng_net, " "), table.concat(drill_net, " ")))
+      local bi = {}
+      for _, e in ipairs(s.find_entities_filtered({ area = area, name = "burner-inserter", force = "player" })) do
+        local fu = e.get_fuel_inventory()
+        bi[#bi + 1] = string.format("(%g,%g)%s/c%d", e.position.x, e.position.y, st_of(e), fu and fu.get_item_count("coal") or -1)
+      end
+      ctx.log("bras a combustion : " .. table.concat(bi, " "))
     end,
 
     -- Galerie officielle (fo-captures.bat) : vue d'ensemble à la fin ; il faut une session de CHECK ticks au moins

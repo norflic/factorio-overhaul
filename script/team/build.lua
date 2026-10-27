@@ -503,7 +503,10 @@ local function plan_feed(f, surface, p, place, part)
           end
         end
       end
-      local fd = P.feeder(port, sources, "inserter")
+      -- centrale : bras À COMBUSTION au quai (correction du 27/10 : avec un bras électrique, pas de charbon sans courant
+      -- ni de courant sans charbon, 0 kW au banc ia1-build-plaine) ; il se ravitaille avec le charbon qu'il porte
+      local quai_ins = (g.gen == "steam") and "burner-inserter" or "inserter"
+      local fd = P.feeder(port, sources, quai_ins)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
@@ -514,7 +517,7 @@ local function plan_feed(f, surface, p, place, part)
           if not ok then
             -- repli : quai sur cette voie (le tapis n'a pas pu être tracé ou le gisement manque)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
-            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, "inserter")
+            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins)
             local extra = {}
             for _, e in ipairs(alt.entities) do if e.role ~= "tete" then e.part = part; extra[#extra + 1] = e end end
             if reserve_tiles(b, p, extra) then
