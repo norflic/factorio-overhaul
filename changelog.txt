@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.4
+Date: 2026-10-27
+  Changes:
+    - Les factions démarrent à 8 PNJ et peuvent monter jusqu'à 30 (réglage « Factions : ouvriers au plus », 30 par défaut au
+      lieu de 4) : elles recrutent quand du travail attend depuis 2 minutes et que personne n'est libre, si la recrue se paie ;
+      plus de recrue pendant que leurs PNJ attendent sans rien faire. La fenêtre « Équipe et factions » dit pourquoi.
+    - Les PNJ libres reçoivent du travail d'avance : plus de fours quand du minerai attend, extraction par vagues, packs des
+      recherches suivantes et laboratoires de plus, armée selon le caractère de la faction.
+    - Les fours et laboratoires du QG se posent en rangées sur la grille, sans se chevaucher (66 chevauchements corrigés).
+    - Une faction dont le QG est occupé par les biters n'envoie plus ses recrues mourir en boucle (pause de 10 minutes).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.3
 Date: 2026-10-27
   Changes:

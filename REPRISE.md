@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 17 h 15 : `main` = 0.6.4** (IA3-d + SCALE, fast-forward de `valid064`, conflits cerveau.lua et team.lua résolus) : factions
+> 8 → 30 PNJ, travail d'avance, fours en rangées ; validation verte ; K10 seul 0,400 ms (p99 5,96). **Banc remis à 1 place à 17 h 01** (le
+> DC reprend son PC ; pas de réponse sur « jouez-vous ce soir ? »). Prochaine étape : brancher la capitalisation (plan en 10 étapes,
+> `fo-logs\2026-10-27_CAPI\INTEGRATION.md` §5), puis PETROLE et PERF2 (workflow en cours), TIRS (en cours). Question posée au DC :
+> lancer une partie longue de 4 à 6 h (réglages éteints et allumés) pour voir jusqu'où vont les factions.
+>
 > **27/10, 15 h 35 : WORKFLOW `ia-suite-petrole-perf` LANCÉ** (`wf_5e31d1cc-dde`) : PETROLE (A9 : exécutants chevalement, raffinerie,
 > usine chimique, tuyaux, réglage fo-war-petrole éteint sauf preuve ; pack chimique et palier 4) et PERF2 (A* étalé, pensées découpées,
 > boucle du PNJ refusé ; K10) ; worktrees `petrole`, `perf2` partis de main 0.6.3 ; livraisons `fo-logs\2026-10-27_PETROLE`, `_PERF2`.
