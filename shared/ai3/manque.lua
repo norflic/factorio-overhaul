@@ -112,8 +112,19 @@ function X.tasks(view, missing, ctx)
   end
   end
   if smelters == 0 and not placing then return out end
+  -- Lot IA-V2 : sous le cerveau par besoins, seulement le GOULOT (la plaque sans avant-poste qui manque le plus), comme
+  -- son approvisionnement (shared/ai3/projets.lua) : deux plaques au même rang se partageaient les mineurs.
+  local only = nil
+  if ctx.no_smelters then
+    local worst = 0
+    for _, p in ipairs(X.PLATES) do
+      local n = missing[p[1]] or 0
+      if n > worst and not has_kind(view, p[3]) then only, worst = p[1], n end
+    end
+  end
   for _, p in ipairs(X.PLATES) do
     local short, ore, kind = missing[p[1]] or 0, p[2], p[3]
+    if only and p[1] ~= only then short = 0 end
     -- Le minerai déjà au coffre couvre le manque : c'est la fonte qui manque, pas le minage (aucun mineur de plus).
     if short > 0 and not has_kind(view, kind) and (free[ore] or 0) < short then
       -- Mineurs : un par X.PER_MINER plaques qui manquent, et TOUT PNJ inactif de plus (« aucun n'attend au coffre tant

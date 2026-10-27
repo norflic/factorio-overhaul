@@ -531,9 +531,15 @@ function P.supply(E, ctx)
     end
     return false
   end
-  local blocked_by_plate = false
+  -- Le GOULOT (H2) : la plaque sans avant-poste qui manque le plus ; elle seule passe à la priorité de l'amorçage (deux
+  -- plaques au même rang se partageaient les mineurs : moteur réel, ia3b-fer sur b33efe6, 1 mineur de fer au plus, le
+  -- cuivre au même rang).
+  local blocked_by_plate, bottleneck, worst = false, nil, 0
   for _, k in ipairs(sorted_keys(E.raw)) do
-    if T.smelter_inputs[k] and E.raw[k].n > 0 and unfed_plate(k) then blocked_by_plate = true end
+    if T.smelter_inputs[k] and E.raw[k].n > 0 and unfed_plate(k) then
+      blocked_by_plate = true
+      if E.raw[k].n > worst then bottleneck, worst = k, E.raw[k].n end
+    end
   end
   for _ = 1, 4 do
     local items = {}
@@ -562,7 +568,7 @@ function P.supply(E, ctx)
       -- composants (moteur réel, ia3b-fer sur 968dc38 : 1re minute, 2,7 PNJ sur la pierre et le charbon des fours des
       -- avant-postes, 0 sur le fer ; 62 plaques à 5,6 min contre 4,7 avec IA3-b seul).
       local plate_kind = kind and T.smelter_inputs[T.outposts[kind].product] and kind or nil
-      local critical = plate_kind ~= nil and not fed
+      local critical = plate_kind ~= nil and not fed and bottleneck == T.outposts[plate_kind].product
       if critical then prio = math.max(prio, P.BOOT_PRIO)
       elseif blocked_by_plate and r.why ~= "fonderie" then prio = math.min(prio, P.DEFER_PRIO) end
       if input then
