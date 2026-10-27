@@ -10,6 +10,22 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 10 h 45 : POINT DE REPRISE (limite d'usage de la session atteinte).** `main` = **0.6.0** (`4424be0`, documents `2427c2b`,
+> `c99d2fe`) : IA-V2 + correctif 0.5.2 (`7236ffa`), IA3-k 0.5.1, IA-G 0.6.0. **À FAIRE EN PREMIER** :
+> 1. Lire la validation de 0.6.0 : `fo-logs\2026-10-27_integration-0.6.0\series.txt` et `bilans.txt` (« FINI » quand tout est passé :
+>    verif-guide 271828182 et 1618033988, content, pnj-reduit, ia1b2-guide 1618033988, iag-partie × 2, ia3k-route, iag-jetable sur
+>    `jetable-src`, puis K10 `--seul` ia1-scale) ; instantané testé : worktree `.claude/worktrees/valid060` (branche `valid060`) ;
+>    série hors jeu : `<scratchpad>\serie_valid060\bilan.txt`. Consigner dans RD_LOG (E199, E220 à E223) et OBJECTIFS ; un échec se
+>    corrige en avant sur `main`. Retirer ensuite `valid060`.
+> 2. IA3-e (agent `aa204fd5af007dd61`) : `git merge main` 0.6.0 dans `ia3e`, conflits sur le cerveau, réglage `fo-war-ia3e` ÉTEINT ;
+>    rapport attendu vers 12 h ; fusionner s'il est vert réglage éteint.
+> 3. IA3-d (branche `ia3d`, agent terminé) : fusionner `main` dedans, puis P1 (`fo-war-workers` 4 → 30) avec verif-guide sur 4 graines.
+> 4. Design (agent `af602e63c702fb3b4`) : F4-B (foreuse en jeu) et F5-A2 (centre) en cours ; fusion de F4-B après mémoire vidéo au plancher.
+> 5. Banc : `fo-banc-places.txt` = 3 (le DC n'utilise pas le PC jusque vers 17 h) ; le remettre à 1 quand il joue.
+> 6. Bilan au DC de l'échéance de 12 h 10 (« cerveau des IA fini ») : franc ; non tenus connus : palier 2, inactifs à 30 PNJ (45 %),
+>    automatisation éteinte par défaut, buts d'amélioration des niveaux absents (D-20 (3)), A8 et A9 non commencés.
+> Page du DC : https://claude.ai/artifact/617hK5AkCWh1vu7HCzViU5 (à mettre à jour avec 0.5.1, 0.5.2, 0.6.0 et X3).
+>
 > **27/10, 10 h 35 : IA3-k FUSIONNÉ, `main` = 0.5.1** (`cd36d4b`) : comportements visibles allumés (`fo-war-ia3-comportement`).
 > Preuve du lot sur main 0.5.0 + lot (C2 24/24 et 14/14 sans mort, C5 1 mort contre 27 et 48, C3 7 OK, B5 et C4, D1) ; fusion
 > propre, main depuis la base du lot : outils, X3 (non lu par le jeu) et documents seulement. Sur `main` 0.5.1 (intégrateur) : série
