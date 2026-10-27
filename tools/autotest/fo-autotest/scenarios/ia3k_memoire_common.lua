@@ -2,7 +2,7 @@
   Lot IA3-k (C5, C6, B5) : le CAS DU DC (Écarlate, partie du 26/10 : 26 PNJ tués en 41 min, presque tous en tournée
   « service » entre 87 et 103 tuiles du QG, par les mêmes petits déchiqueteurs et vers). Moteur réel, carte naturelle.
   Guerre de 2 factions (30 soldats, 8 ouvriers). Dès qu'Écarlate a un avant-poste entre 60 et 180 tuiles de son QG
-  (contrôle toutes les 600 ticks, au plus tard au tick 40 000), un NID est posé à 70 % du chemin QG -> avant-poste : un
+  (contrôle toutes les 600 ticks, au plus tard au tick 72 000), un NID est posé à 70 % du chemin QG -> avant-poste : un
   nid de déchiqueteurs, un petit et un moyen ver, 4 petits déchiqueteurs. Puis une heure de jeu.
   Mesures (toutes les 600 ticks, morts lues sur la carte de l'équipe : interface « fo-ia3k », marquées même réglage
   éteint) : morts d'ouvriers d'Écarlate à moins de 48 tuiles du nid ; pour toute mort, morts de la même équipe à moins de
@@ -13,7 +13,7 @@
 local C = {}
 
 local KEY = "scarlet"
-local FIND_UNTIL = 40000
+local FIND_UNTIL = 72000
 local HOUR = 216000
 
 local function d2(a, b)
@@ -51,6 +51,11 @@ function C.scenario(opts)
             for _, o in ipairs(f.outposts) do
               local dd = math.sqrt(d2(o.pos, f.hq))
               if dd >= 60 and dd <= 180 and (not bd or dd < bd) then best, bd = o, dd end
+            end
+            if not best and t % 6000 == 0 then
+              local ds = {}
+              for _, o in ipairs(f.outposts) do ds[#ds + 1] = string.format("%s %.0f", o.kind, math.sqrt(d2(o.pos, f.hq))) end
+              ctx.log(string.format("tick %d : pas encore d'avant-poste d'Ecarlate a 60-180 tuiles (%s)", t, #ds > 0 and table.concat(ds, ", ") or "aucun"))
             end
             if best then
               local at = { x = f.hq.x + (best.pos.x - f.hq.x) * 0.7, y = f.hq.y + (best.pos.y - f.hq.y) * 0.7 }
