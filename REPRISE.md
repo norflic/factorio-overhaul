@@ -10,6 +10,19 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 7 h 15 : CONSIGNE DU DC (réveillé, contrôle à distance) : le cerveau des IA FINI en 5 h, et un cerveau qui
+> GÉNÉRALISE** (« si ils font des chemins en dur […] dans le code, ça risque pas de le faire […] un véritable cerveau quelqu'un
+> qui généralise », OBJECTIFS §4). Constat vérifié : décisions des factions sur l'échelle écrite à la main (`T.ladder`,
+> `T.research`, avant-postes iron, copper, coal de `shared/team/planner.lua`) ; `shared/ai3/graphe.lua` (dépliage générique,
+> IA3_CERVEAU §3) JAMAIS branché. **Lot IA-G LANCÉ** (agent `a53268fe1401a6fb1`, branche `iag`, worktree
+> `.claude/worktrees/iag`, base ia-v2 `c826b48` + `main` = `9efc142`, feuilles copiées ; notes `fo-logs\2026-10-27_IA-G\` ;
+> F331 à F336, E220 à E223, prochains libres F337, E224 ; bancs `--qui IA-G`) : catalogue depuis les prototypes, choix des
+> recherches par leur valeur, dépliage branché vers les exécutants (tableau, plan d'IA1-d, exploration), échelle remplacée,
+> test anti-noms ; preuve de GÉNÉRALISATION exigée (copie jetable du mod aux données changées, même code). Échéance vers
+> 12 h 15. Messages : IA-V2 livre vite sans chantier neuf (il a corrigé traits et valeur en `c826b48`) ; IA3-e généralise
+> « main ou machine » à tout objet et garde une interface pure pour IA-G ; IA3-k sans seuils ni positions en dur.
+> Ordre des fusions : IA-V2, puis IA-G et IA3-e, puis IA3-d (avec P1), puis IA3-k.
+>
 > **27/10, 7 h 40 : IA3-d LIVRÉ, NON FUSIONNÉ (attend IA-V2)** : branche `ia3d` (tête `d97181c`, contient ia-v2 `4e0388b` et
 > `main` 0.4.32), worktree `.claude/worktrees/ia3d` GARDÉ ; agent terminé (`af7c16550a493a161`). Notes
 > `fo-logs\2026-10-27_IA3-d\NOTES.md`, `INTEGRATION.md` (brouillons F315 à F318, E210, E211, OBJECTIFS, changelog, CLAUDE.md).
