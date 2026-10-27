@@ -25,7 +25,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
-GAME = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
+GAME = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 CIBLE = os.path.join("sound", "levels", "gun", "tir-ere3-2.ogg")
 
 

@@ -10,6 +10,121 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 1 h 45 : REPRISE APRÈS LA COUPURE HEBDOMADAIRE (orchestrateur, session `bf870ee5`, lancée par une macro de nuit ;
+> le DC dort et ne répond pas).**
+> - **Le projet vit sur F:** (`F:\Factorio.v1.1.91 Modding\…`, exFAT, 211 Go libres) : le DC a tout copié le 26/10 vers 21 h 15,
+>   H: étant plein (471 Mo). H: est figée (commit `88f3ca4`, parties du DC du 26/10) : NE RIEN Y ÉCRIRE. Outils repointés vers F:
+>   (`b2237de`), worktrees réparés à la main, `safe.directory` global, verrous orphelins de F: retirés. `content` 331 OK depuis F:.
+> - **File d'attente du banc** (`d80fd8d`) : `tools/autotest/banc.py` pour TOUS les agents (CLAUDE.md §4, interdit 4).
+> - **Demande du DC (26/10, OBJECTIFS §5, 1re ligne)** : « toute la partie cerveau à refaire » (pas d'automatisation, craft à la
+>   main, pas de vraie recherche, trajets prévisibles, aucune réaction à un ennemi vu, ni peur ni agressivité, agents inactifs,
+>   milices inactives, ne « scalent » pas), designs en parallèle. Liste demandée écrite : **`docs/IA_ATTENDUS.md`** (A, B, C, D).
+>   Journal de sa partie (0.4.30, ANCIEN cerveau) : Écarlate a perdu 26 PNJ en 41 min au même endroit (87 à 103 tuiles, « service »).
+> - **AGENTS LANCÉS vers 1 h 40** (chacun : NOTES.md avec POINT DE REPRISE dans son dossier fo-logs ; s'il est coupé, nouvel agent
+>   avec le même brief, en lisant ses NOTES et le dernier commit de sa branche) :
+>   - **IA-V2** : branche `ia-v2` (worktree `.claude/worktrees/ia-v2`), fusion d'IA3-b, IA3-f, IA3-c (IA3-a en repli), allumés par
+>     défaut, cas du DC, série avant/après 4 graines, garde-fous ; `fo-logs\2026-10-27_IA-V2\` ; F296-F299, E198-E199 ; vise 0.5.0 ;
+>   - **IA1-d** : sa branche `worktree-agent-a39bad97bdb746bc4`, centrale refusée à corriger, 5 terrains, garde-fous, proposition
+>     pour IA3-e ; `fo-logs\2026-10-25_IA1-d\` ; F292-F295, E195-E197 ;
+>   - **IA3-k (nouveau)** : branche `ia3k` (worktree `.claude/worktrees/ia3k`), famille C d'IA_ATTENDUS (carte du danger, trajets
+>     variés et qui évitent, réaction à un ennemi vu, mémoire des morts, peur, agressivité, soldats occupés, états visibles) ;
+>     `fo-logs\2026-10-27_IA3-k\` ; F300-F305, E200-E203 ;
+>   - **Design** : F3-B (assembleur : fin de production, feuilles, mémoire vidéo au plancher, bancs, captures ; vise 0.4.31 ;
+>     F306-F308, E204-E205) puis F4-A2 (foreuse enrichie : fin des rendus, planches pour le DC).
+> - ENSUITE (après IA-V2) : IA3-e (automatiser, avec IA1-d), IA3-d (effectif qui grandit : « ils ne scalent pas »), IA3-g, IA3-h.
+>   Designs ensuite : F5 (centre), F6 (mur), X2-suite, A5-suite, F1-C.
+> **20 h 40, F3-B (assembleur en production) arrêté proprement** (branche `worktree-agent-ad00d688396c75623`, dernier commit
+> `b15db4a` ; elle contient `main` 0.4.29 ET la branche du four F2-B, qui se dit 0.4.30 : fusionner F2-B AVANT F3-B) : production
+> 21 variantes sur 29 (le paquet 6 a continué seul ; reprendre par `rendre.py --only` sur les variantes absentes, commande dans
+> `fo-logs\2026-10-25_F3\NOTES.md`) ; intégration faite sur des feuilles d'ESSAI (`prototypes/levels/assembler.lua`, feuilles hors
+> git par `assembleur_e/feuilles.py`, contrôle `asm_sheets.lua`, scénario `f3-assembleurs` 6 OK en moteur réel, captures de jour et
+> de nuit regardées) ; animation au coût le plus bas (lueur rejouée au travail, aucune image en plus). RESTE : fin de production,
+> feuilles régénérées, mémoire vidéo au plancher avec le four, content, t2-machines, mod1-modules, mod2-lots, migration 0.4.29
+> (`src-0.4.29` prête), captures finales.
+> **20 h 30, IA3-c arrêté proprement** (branche `worktree-agent-a4f8ddc966cf133ed`, dernier commit `ecc8348`, intégrateur `dedfd43`,
+> réglage `fo-war-ia3-cerveau` éteint ; instantané à tester `fo-logs\2026-10-25_IA3-c\src-a\factorio-overhaul`) : cerveau par
+> besoins écrit et branché ; HORS JEU vert (ai3_cerveau 40 OK : le cas du DC est résolu au moteur simulé ; pvp 1305 allumé et
+> éteint après 5 corrections) ; AUCUN banc en moteur réel (verrou jamais obtenu en 30 min) : RESTE le cas du DC en jeu
+> (`ia3c-dc-*`), la série avant / après sur 4 graines, la migration, la fenêtre, les garde-fous. **LEÇON : 5 agents IA se
+> disputent UN banc ; à la reprise, ne relancer que 2 agents qui ont besoin du banc à la fois (les autres en travail hors jeu),
+> ou leur donner des créneaux.**
+> **20 h 15, IA3-b arrêté proprement** (branche `worktree-agent-a1c27739bad6e06fc`, dernier commit `cb0ccd5`, commit intégrateur
+> `ec8cbd0` pour le réglage `fo-war-ia3-marche`, éteint par défaut) : CAS DU DC CORRIGÉ en moteur réel (scénario `ia3b-fer`) :
+> 62 plaques de fer en 4,7 min (jamais avant), PNJ sans tâche pendant le manque 61,7 % → 2,0 %, 3 mineurs de fer en même temps,
+> objectif charbon atteint en 5,4 min ; hors jeu ia3b 31 OK, pvp 1305 (réglage allumé et éteint). RESTE avant fusion : séries
+> `ia3b-reduit` et `ia3b-default` (K3, K4, K5 après), garde-fous en moteur réel (ia1-poles, verif-guide et ia1b2-guide 4 graines,
+> content, pnj-reduit, pnj-auto, ia0-normal, ia1-scale, coût, déterminisme) ; notes `fo-logs\2026-10-25_IA3-b\NOTES.md`.
+> **POINT DE 19 H 10, AVANT LA COUPURE HEBDOMADAIRE** : état identique au point de 18 h 50 ci-dessous (rien de fusionné depuis ;
+> `main` = 0.4.29). Les 8 agents ont été coupés à 18 h 55, relancés vers 19 h, puis priés de commiter et de mettre à jour leur
+> POINT DE REPRISE. À la reprise : pour chaque lot (IA3-a, IA3-b, IA3-c, IA3-f, IA1-d, F2-B, F3-B, F4-A2), lire le dernier commit de
+> sa branche `worktree-agent-…` (`git worktree list`) et le POINT DE REPRISE de `fo-logs\2026-10-25_<lot>\NOTES.md`, puis relancer
+> (SendMessage si l'agent répond, sinon nouvel agent avec le brief résumé au point de 17 h 45 et les constats du DC). Vérifier
+> d'abord les verrous orphelins (`fo-autotest.lock`, `fo-render.lock.*`) et les processus de test restés ouverts.
+> **POINT DE 18 H 50, AVANT UNE COUPURE PAR LA LIMITE D'USAGE (à lire en premier pour reprendre)** :
+> - `main` = **0.4.29**, documenté (`5aa7b4c` et suivants). Le DC joue cette version. Guide de partie à jour :
+>   `fo-logs\2026-10-24_PNJ\GUIDE_PARTIE.md`. Pages : Atlas des designs Dfvg6UEeQN5YYAYHZRS5Pt (source `designs/` du dossier de
+>   travail de l'orchestrateur : `manifeste.json`, `build_page.py`), page du matin N8rHLyXYL7rYqnVjf7atj3.
+> - DEMANDES DU DC EN VIGUEUR : questions par QCM cliquable (AskUserQuestion) ; l'IA des PNJ est une section que NOUS concevons
+>   (D-18), avec « des agents sur le coup en permanance » (R-25k) : relancer un agent IA dès qu'un lot finit ; ses constats en
+>   jouant (OBJECTIFS §5, 18 h 40 et 18 h 45, capture `fo-logs\2026-10-25_DC-captures\pnj-inactifs-fer-ignore.png`) : PNJ inactifs
+>   au coffre, fer manquant jamais cherché (« Objectif : Charbon — il manque : 62 Plaque de fer »), pierre et charbon extraits
+>   sans fin, aucune exploration : CAS DE TEST des lots IA3-b, IA3-c, IA3-f.
+> - AGENTS EN COURS (chacun a un worktree `.claude/worktrees/agent-…` et un dossier `fo-logs\2026-10-25_<lot>\` avec NOTES.md
+>   et un POINT DE REPRISE en tête ; s'ils sont coupés : SendMessage pour reprendre, ou nouvel agent avec le même brief en
+>   lisant le dernier commit de la branche et ces NOTES) :
+>   - IA3-a recherche d'abord (`fo-logs\2026-10-25_IA3-a`) ; IA3-b marché des tâches et registre (`…_IA3-b`) ; IA3-c nouveau
+>     cerveau derrière `fo-ia3-cerveau` (`…_IA3-c`) ; IA3-f exploration sous brouillard, équipe du joueur comprise (`…_IA3-f`) ;
+>     IA1-d plan directeur et construction (`…_IA1-d`) : périmètres de fichiers dans le point de 17 h 45 ci-dessous ;
+>   - F2-B four en PRODUCTION (validé par le DC), F3-B assembleur en PRODUCTION (validé), F4-A2 foreuse « enrichir nettement » :
+>     `fo-logs\2026-10-25_F2`, `…_F3`, `…_F4`.
+> - EN ATTENTE (D-17) : X2-suite (monazite et sables noirs à refaire, usages des sous-produits, puis fusion de X2 : branche
+>   `worktree-agent-a94df9d4c17247154`), X1-suite (hydrogène, ilménite I2 et nuit, saumure), A5-suite (couleur d'équipe 25 %,
+>   liserés, teinte automatique), F1-C (3e ronde du laser), LOG-1 (logistique au-delà de 120 objets/s), F5 et F6 (centre, mur) ;
+>   IA suivants : IA3-d (après b), IA3-g (après c et f), IA3-e (après c et IA1-d), IA3-h, IA3-i, IA3-j.
+> - DÉFAUTS OUVERTS de 0.4.29 : `verif-guide` 314159265 (14 OK), `ia1b2-guide` 577215664 (13 OK), `ia1-poles` (15 OK, 2 ECHEC).
+> - À L'INTÉGRATION de chaque lot : bancs sur `main` (scripts `bancs_04xx.ps1` du dossier de travail comme modèle), documents
+>   (RD_LOG, OBJECTIFS, les deux CLAUDE.md identiques, changelog, info.json), worktree retiré ; disque surveillé (≥ 2 Go).
+> **Point de 17 h 45** : `main` = **0.4.29** (IA1-b2 fusionné avec 3 défauts ouverts, documenté `5aa7b4c` ; IA3-0 fusionné
+> `f613db1`). Le DC (R-25k) : « mettrez des agents sur le coup en permanance pour avancer sur la partie IA » : SECTION IA EN
+> PARALLÈLE, relancer un agent dès qu'un lot finit (dépendances : `docs/IA3_CERVEAU.md` §6.2). En cours, chacun dans son
+> périmètre de fichiers : IA3-a (recherche d'abord ; F279-F281, E186-E187), IA3-b (marché des tâches et registre ; board,
+>   worker, org ; F282-F284, E188-E189), IA3-c (nouveau cerveau derrière `fo-ia3-cerveau` ; buts, projets, cerveau ; F285-F288,
+>   E190-E192), IA3-f (exploration sous brouillard, carte de connaissance ; F289-F291, E193-E194), IA1-d (plan directeur et
+>   construction, chemin critique ; F292-F295, E195-E197). Rendus : F2-B (four en production ; F276-F278, E184-E185), F3-A3
+>   (assembleur, 3e ronde), F4-A2 (foreuse enrichie). SUIVANTS IA : IA3-d (effectif 8, après b), IA3-g (expéditions, après c et
+>   f), IA3-e (automatiser, après c et IA1-d), IA3-h (pétrole), IA3-i (âges), IA3-j (lisibilité). Feuilles de la mitrailleuse
+>   des worktrees : liens durs depuis `main` (même MANIFEST) au lieu de régénérer.
+> **Point de 15 h 30** : conception IA3 FUSIONNÉE (`db7911c` : `docs/IA3_CERVEAU.md`, `shared/ai3/`, tests 31, 24, 15 OK ;
+> rien de branché). Verdicts du DC : four VALIDÉ pour la production (lot F2-B lancé : rendu final, animation, mémoire vidéo
+> au plancher, mise en jeu) ; foreuse « enrichir nettement » (F4-A2) ; foreuses X0 gardées à part (Q-C3) ; assembleur 3e
+> ronde (F3-A3). Le DC demande le développement profond de l'IA en parallèle : agent IA3-dev lancé (revue adverse du document,
+> IA3-0 fondations avec E180 et E181 en moteur réel, puis IA3-a « recherche d'abord » APRÈS la fusion d'IA1-b2). IA1-b2
+> relancé pour finir ses 3 contrôles rouges (ia1-poles, verif-guide 314159265, ia1b-scale10). 5 agents en cours.
+> **Point de 14 h 05 (après une coupure par la limite d'usage, 13 h 10 à 14 h)** : `main` = **0.4.28** (fenêtre « Équipe et
+> factions », validée par le DC ; régression d'intégration de `levels_test` corrigée, `cf25906`) ; 0.4.27 = modules au barème
+> D-17 et icônes validées. Documents à jour jusqu'à 0.4.28 (`c86b966`). Décisions du jour : D-17 (réponses R-QCM-25 à 25f),
+> D-18 (l'IA des PNJ est une section à concevoir de bout en bout, sans questions au DC à chaque étape). LOTS EN COURS (reprendre
+> un agent coupé par SendMessage ; s'il est perdu, relancer avec le même brief en lisant son dernier commit et ses NOTES) :
+>   - IA1-b2, branche `worktree-agent-a00f8ab45b9529fa2` (dernier commit `7e483cc`) : défendre d'abord pour TOUTES les factions
+>     (ordre strict de pvp_test à rétablir), l'équipe défend son coffre, travail pour les PNJ libres (inactifs ≤ 15 % à 8 PNJ),
+>     correctif du solveur au plafond (MOD-3 INTEGRATION §7) ; NON fusionnable avant `verif-guide` 15 OK sur 4 graines ;
+>   - F2-A2 (four, retouches légères), branche `worktree-agent-aa8c5e5bc03addfbd` (`89f7907`) ;
+>   - F3-A2 (assembleur : corps intégré, détaillé, silhouettes variées dont circulaires), `worktree-agent-ad00d688396c75623`
+>     (`f473739` + fichiers non commités au moment de la coupure) ;
+>   - F4-A (foreuse), `worktree-agent-a235f8f5537d5ec4f` (`3055926`, ronde 1 en rendu au moment de la coupure) ;
+>   - IA3 (conception du cerveau des PNJ, `docs/IA3_CERVEAU.md`) : RELANCÉ à 14 h (le premier architecte n'avait rien commité).
+>   EN ATTENTE : X2 (terres rares, branche `worktree-agent-a94df9d4c17247154`, `6c3c248`) : refaire monazite et sables noirs,
+>   donner un usage aux sous-produits, puis fusion (hausse du centre acceptée) ; X1-suite (hydrogène, ilménite I2 et nuit,
+>   saumure) ; A5-suite (couleur d'équipe 25 %, liserés, teinte automatique) ; F1-C (3e ronde du laser) ; LOG-1 (logistique
+>   au-delà de 120 objets/s) ; F5, F6 (centre, mur). Pages : page du matin N8rHLyXYL7rYqnVjf7atj3 ; Atlas des designs
+>   Dfvg6UEeQN5YYAYHZRS5Pt (source `designs/` du dossier de travail : `manifeste.json`, `build_page.py`). Disque : 2,1 Go libres
+>   à 14 h (cache d'atlas des captures effacé, régénérable ; vieux worktrees archivés dans `fo-logs/2026-10-25_menage-worktrees`).
+>   Questions au DC : toujours par QCM cliquable (AskUserQuestion).
+> **Point de 10 h 15** : page « Atlas des designs » publiée (https://claude.ai/artifact/Dfvg6UEeQN5YYAYHZRS5Pt ; source
+> `designs/` du dossier de travail : `manifeste.json`, `gabarit.html`, `build_page.py`). Le DC BANNIT les familles qui ne
+> changent que de teinte (OBJECTIFS §5, 25/10 vers 10 h) et choisit, par QCM, « les trois en même temps » : lancés F2-A
+> (four), F3-A (assembleur), F4-A (foreuse) : fiches des 15 âges, kit de famille, aperçus, planches pour le DC ; rien en
+> jeu ; rendus partagés sur les 2 places du verrou. Tournent aussi MOD-3 et IA1-b2 : 5 agents. Disque surveillé (2,8 Go).
 > **Point de 9 h 25** : le DC a répondu à TOUT par QCM dans Claude Code (format exigé désormais : AskUserQuestion, jamais
 > un code de réponse à taper) ; réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25), décision **D-17** (RD_LOG). Lancés :
 > MOD-3 (nouveaux paliers vitesse +20/+10 et productivité multipliée +10/+5, écart d'énergie au plafond, design MOD-V

@@ -20,12 +20,14 @@ local DATA_DIR = assert(arg[1], "usage : harness.lua <data_dir> [mod_root] [--ve
 local MOD_ROOT = (arg[2] and not arg[2]:match("^%-%-")) and arg[2] or "."
 local VERBOSE, SHOW_SUPPRESSED = false, false
 local DUMP_RECIPES = nil
+local DUMP_TECHS = nil -- "--dump-techs <fichier>" : technologies finales (lot IA3-0)
 local DUMP_PROTO = nil -- "--dump-proto type/name" : affiche un prototype VANILLA (outil de conception)
 local DUMP_FINAL = nil -- "--dump-final type/name" : affiche un prototype tel que le mod le livre
 for i, a in ipairs(arg) do
   if a == "--verbose" then VERBOSE = true end
   if a == "--show-suppressed" then SHOW_SUPPRESSED = true end
   if a == "--dump-recipes" then DUMP_RECIPES = arg[i + 1] end
+  if a == "--dump-techs" then DUMP_TECHS = arg[i + 1] end
   if a == "--dump-proto" then DUMP_PROTO = arg[i + 1] end
   if a == "--dump-final" then DUMP_FINAL = arg[i + 1] end
 end
@@ -287,6 +289,44 @@ if DUMP_RECIPES then
   f:write(table.concat(lines, "\n"), "\n")
   f:close()
   print("Recettes ecrites : " .. #names .. " -> " .. DUMP_RECIPES)
+end
+
+-- Option --dump-techs <fichier> (lot IA3-0) : technologies FINALES (vanilla + mod, difficulté normale), au format de
+-- tests/fixtures/tech_ai3.lua : { count, time, ingredients = {{pack, n}}, prerequisites, unlocks }. Le mod réécrit le
+-- coût des technologies (automation : 1 unité au lieu de 10) : les tests du cerveau doivent lire CES coûts, pas ceux
+-- de base/prototypes/technology.lua. Les technologies infinies (count_formula) sont omises.
+if DUMP_TECHS then
+  local names = {}
+  for name in pairs(modded.technology or {}) do names[#names + 1] = name end
+  table.sort(names)
+  local lines = { "-- Généré par tests/datastage/harness.lua --dump-techs (vanilla 1.1.91 + mod, coûts FINAUX). Ne pas éditer.", "return {" }
+  local n = 0
+  for _, name in ipairs(names) do
+    local t = modded.technology[name]
+    local body = t.normal or t
+    local unit = body.unit or t.unit
+    if unit and unit.count then
+      local ings = {}
+      for _, i in ipairs(unit.ingredients or {}) do
+        local iname, amount = i.name or i[1], i.amount or i[2] or 1
+        ings[#ings + 1] = string.format("{ %q, %d }", iname, amount)
+      end
+      local unlocks = {}
+      for _, e in ipairs(body.effects or t.effects or {}) do
+        if e.type == "unlock-recipe" then unlocks[#unlocks + 1] = string.format("%q", e.recipe) end
+      end
+      local pre = {}
+      for _, p in ipairs(body.prerequisites or t.prerequisites or {}) do pre[#pre + 1] = string.format("%q", p) end
+      lines[#lines + 1] = string.format("  [%q] = { count = %d, time = %s, ingredients = { %s }, prerequisites = { %s }, unlocks = { %s } },",
+        name, unit.count, tostring(unit.time), table.concat(ings, ", "), table.concat(pre, ", "), table.concat(unlocks, ", "))
+      n = n + 1
+    end
+  end
+  lines[#lines + 1] = "}"
+  local f = assert(io.open(DUMP_TECHS, "w"))
+  f:write(table.concat(lines, "\n"), "\n")
+  f:close()
+  print("Technologies ecrites : " .. n .. " -> " .. DUMP_TECHS)
 end
 local changed = Validator.changed(vanilla_fp, modded)
 local report = Validator.validate(schema, modded, changed)
@@ -775,6 +815,10 @@ end
 local GunSheets = dofile(HERE .. "/gun_sheets.lua")
 local gun_sheets = GunSheets.check(MOD_ROOT)
 for _, l in ipairs(GunSheets.lines(gun_sheets)) do print(l) end
+-- Feuilles du four hors de git (D-6, lot F2-B) : même contrôle, plus les images nommées par sprites.lua
+local FourSheets = dofile(HERE .. "/four_sheets.lua")
+local four_sheets = FourSheets.check(MOD_ROOT)
+for _, l in ipairs(FourSheets.lines(four_sheets)) do print(l) end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
@@ -843,4 +887,5 @@ for i = 1, math.min(#lot_errors, 40) do print("  LOT " .. lot_errors[i]) end
 os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule_errors == 0 and #selftest_fail == 0
   and #unlock_errors == 0 and unlock_self == 2 and #lot_errors == 0 and lot_self == 2
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
+  and FourSheets.ok(four_sheets)
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)

@@ -16,7 +16,8 @@ local CAS = {
   { id = "M1-niveau30-34xP10", m = "fo-lvl-assembler-30", rec = "iron-gear-wheel", mods = 34, dx = 0, lot = 100, feed = "iron-plate" },
   { id = "M2-am2-5xP10", m = "assembling-machine-2", rec = "iron-gear-wheel", mods = 5, dx = 12, lot = 10 },
   { id = "M3-am2-beton-5xP10", m = "assembling-machine-2", rec = "concrete", mods = 5, dx = 20, lot = 1 },
-  { id = "M4-chimie-acide-3xP10", m = "chemical-plant", rec = "sulfuric-acid", mods = 3, dx = 28, lot = 10 },
+  -- Lot MOD-3 (D-17) : 3 × P10 = × 9,26 (9,3 /s) : lot 1 (lot 10 avant D-17, × 74,09). Les autres lots sont inchangés.
+  { id = "M4-chimie-acide-3xP10", m = "chemical-plant", rec = "sulfuric-acid", mods = 3, dx = 28, lot = 1 },
   { id = "M5-am2-sans-module", m = "assembling-machine-2", rec = "iron-gear-wheel", mods = 0, dx = 36, lot = 1 },
 }
 

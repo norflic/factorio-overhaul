@@ -240,6 +240,20 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 25/10, vers 13 h, **le DC sur le diagnostic des PNJ (IA3-DIAG)** : réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25g) :
+  les PNJ « doivent jouer comme des joueurs, mais qui s'organisent » ; l'évolution doit être « algorithmisé[e] […] on peut pas
+  faire ça pour tous les bâtiments » ; « réfléchi[r] à comment un humain réfléchi, et transcrire ça pour les IA, et aussi,
+  comment un groupe d'humain (organisé) réfléchirai en jouant à factorio » ; pétrole : « se débrouiller pour chercher du
+  pétrole, comme les joueurs », en évaluant la sécurité (s'équiper de grenades, tourelles, munitions) ; « la conception des
+  IA/PNJ […] c'est une section à part entière car ça fait partie intégrante du gameplay ».
+  → **Décision D-18** : l'IA des PNJ devient une SECTION du projet, conçue par nous de bout en bout (pas de questions au DC
+  à chaque étape) : un cerveau GÉNÉRIQUE qui raisonne comme un joueur (buts, arbre des recettes et des recherches lus dans
+  les données du jeu, aucun script par bâtiment), une ORGANISATION de groupe (réservation des ressources, répartition des
+  tâches : personne ne « s'arrache » les plaques d'une machine à vapeur), des EXPÉDITIONS évaluées (sécurité, équipement :
+  grenades, tourelles, munitions) pour le pétrole et les gisements lointains. 8 ouvriers par faction au départ après les
+  corrections ; recherche ou armée d'abord selon le caractère. Méthode : document de conception (IA3), revue adverse,
+  puis lots d'implémentation mesurés (temps de la recherche 3, inactifs, recherche 4 et plus avec pétrole, aucune
+  ressource disputée).
 - 25/10, vers 9 h 15, **réponses du DC aux questions de la nuit, par QCM dans Claude Code** (il demande ce format : « j'ai rien
   compris au formart de réponse, pour moi ça veut rien dire, posez moi les questions ICI avec un choix QCM où je peux cliquer
   dessus et ça fonctionne DANS claude code ») ; réponses mot pour mot dans OBJECTIFS §4 (lignes R-QCM-25).
@@ -485,6 +499,92 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés (lot F2, le four aux 15 âges : F2-A et F2-A2 rondes de design hors jeu, F2-B production et intégration en jeu, 25/10 ; branche `worktree-agent-aa8c5e5bc03addfbd`, version 0.4.30)
+Preuves : `fo-logs\2026-10-25_F2\` (`NOTES.md`, `FICHES_FOUR.md`, `INTEGRATION.md`, `planches_DC\`, `captures\`, `vram\`,
+`bancs-prod\`). Expériences : E85 à E87 (F2-A), E184, E185 (F2-B). Bloc réservé F254 à F262 partagé avec F3-A et F4-A :
+F2 prend F254 à F256.
+- **F254** (rendu, hors jeu) : quand la sole d'une famille couvre toute l'emprise, une pièce posée DEVANT (sur le tablier)
+  n'ajoute aucun pixel opaque à la silhouette, quelle que soit sa hauteur (une hauteur z se lit 0,707 tuile vers le nord,
+  le bord nord de la sole est à s/2) : le critère « masque nouveau ≥ 0,10 t² » du catalogue (`mesures.py`) ne peut pas
+  passer ; mesuré au four : 0,000 à 0,036 t² aux âges 2 à 15, 1,09 t² à l'âge 1 (pièce au nord). Mesure de remplacement :
+  surface dont la couleur change (`outils/f2_pair.py`) : 0,40 à 2,64 t² (3,6 à 10,8 % de l'emprise).
+- **F255** (rendu, hors jeu) : la fenêtre des planches du kit commun (`apercu.py`, côté + 3 tuiles, centrée) coupe ce qui
+  monte à l'écran au-delà de 0,5 s + 1,5 tuile au nord du centre ; règle du kit four : yn + 0,707 z ≤ 0,5 s + 1,35
+  (`cotes.ecran`, contrôlée sur la bouche de fumée).
+- **F256** (rendu, hors jeu) : la boîte d'une couche `glow` rognée englobe tous ses points lumineux, même épars : son coût
+  dépend de l'ÉCART entre les points, pas de leur surface (socles 4×4 à 6×6 de la ronde 2 : 75 à 88 % de la couche
+  principale pour quelques voyants).
+- **F276** (moteur réel) : UNE feuille de flammes presque BLANCHES (16 images de 96 × 42 px hr), `tint` à la couleur de
+  l'âge, `draw_as_glow` et `additive`, en `working_visualisations` à la place et à la taille de chaque gueule (`scale`), donne
+  en jeu un feu de la couleur de chacun des 14 âges, de jour comme de nuit (captures `f2-fours`, `captures\flaque\gueules.png`) :
+  une seule image en mémoire pour tous les âges (une teinte multiplie, F36 : la source doit être claire).
+- **F277** (moteur réel) : une couche `draw_as_light` rendue en bande mince devant la gueule (56 à 62 px hr de haut, alpha au
+  plus 142) éclaire à peine le sol de nuit, bien moins que la flaque vanilla du four en acier (image de 152 × 126 px hr,
+  alpha moyen 96, décalée de 1,5 tuile au sud) : de nuit, les niveaux 3 à 30 étaient plus sombres que le niveau 2
+  (`captures\prod-brut`). Une `LightDefinition` posée sur la visualisation du feu (`light = {intensity = 0,5, size =
+  2 + 1,7 × emprise, shift devant la gueule, color = lumière de l'âge}`) donne une flaque colorée comparable à la vanilla
+  (`captures\prod-flaque`), sans aucune image de plus.
+- **F278** (moteur réel, plancher : qualité normale, mémoire vidéo basse, compression basse, `d4-geant --measure`) : les
+  208 feuilles du four (30 niveaux, feu animé, icônes) ne débordent pas l'atlas virtuel déjà plein (F186) : « Created
+  virtual atlas pages 4096x4096x12 » comme sur `main` 0.4.28, aucun avertissement au journal, `d4-geant` 18 OK ; les
+  autres atlas bougent de moins de 1 % (objets 2048 × 1316 contre 1320, ombres 87,6 contre 87,2 Mpx, icônes 20,2 contre
+  20,1 Mpx, l'atlas [icon] y regagne `linear-mip-level`, F125) ; mémoire dédiée mesurée : médiane 0,44 Go des deux côtés,
+  moyenne 0,42 contre 0,43 Go. Aucun levier n'a donc été nécessaire. Images de l'usine au plancher NON regardées (effacées
+  par la session d'un autre lot avant d'être copiées).
+
+### Faits vérifiés en moteur réel (lot IA1-b2, votre équipe défend d'abord, 25/10 ; fusionné dans `main`, `a3bf828`, version 0.4.29)
+Preuves : `fo-logs\2026-10-25_IA1-b2\` (`NOTES.md` §2 à §10, `INTEGRATION.md`). Expériences : E172, E173.
+- **F251** : dans la partie du guide, les PNJ de votre équipe meurent surtout en tournée vers des avant-postes LOINTAINS
+  (médiane 130 à 165 tuiles du QG ; biters et vers) et au QG pendant les attaques (pollution, soldats des factions) ; sur la
+  graine 271828182, tous les morts viennent des factions.
+- **F252** : la partie du guide DIVERGE au moindre changement de votre équipe (même graine, même code des factions : coffre
+  détruit à 53 min dans un passage, pas dans l'autre) : une conclusion demande plusieurs graines (F238 reste vrai : même
+  code, même résultat).
+- **F253** (déduit) : des tourelles portées par un PNJ tué en route sont perdues avec lui (fer du coffre 615 → 26 en 5 min) :
+  d'où le plancher de fer de la défense (150).
+
+### Faits vérifiés en moteur réel (section IA3, conception et fondations IA3-0, 25/10 après-midi ; fusionnés dans `main`, `db7911c` et `f613db1`, rien de branché dans le jeu)
+Preuves : `docs/IA3_CERVEAU.md` (conception qui fait foi, revue adverse intégrée), `fo-logs\2026-10-25_IA3\`, `fo-logs\2026-10-25_IA3-dev\`
+(`REVUE.md`, `NOTES.md`, `INTEGRATION.md`). Expériences : E178 à E181.
+- **F269** : une force SANS joueur fait avancer une recherche dans des laboratoires alimentés, au temps des prototypes
+  finaux (`automation` : tick 150 = 1 unité de 600 ticks ÷ 4 laboratoires) ; `on_research_finished` levé ; une force créée
+  par script a `research_queue_enabled = false` ; `add_research` sans un prérequis rend faux.
+- **F270** : écrire `LuaForce.research_progress` est relu tel quel ; écrire 1 TERMINE la recherche en cours comme un
+  laboratoire (`by_script = false`) ; `researched = true` la termine avec `by_script = true` ; les bonus s'appliquent.
+- **F271** : le mod réécrit le coût des technologies (`automation` : 1 unité au lieu de 10 ; palier 3 = 40 packs) ;
+  `research_unit_energy` est en TICKS.
+- **F272** : une force créée par script est hostile aux biters ; `can_place_entity` refuse la case d'un biter ; une
+  mitrailleuse posée par script près de biters qui chargent, remplie par script, tire 35 ticks après une détection à
+  22,4 tuiles (`find_enemy_units`, regard toutes les 30 ticks).
+- **F273** : `LuaEntity.mine{inventory = inventaire d'un personnage}` rend la tourelle ET ses munitions ; dans un
+  inventaire plein, `mine` rend faux et la tourelle reste.
+- **F274** : une grenade créée par script (`create_entity{name = "grenade", target, speed = 0,3}`) tue 4 petits biters groupés.
+- **F275** : `harness.lua --dump-techs` est identique aux prototypes du moteur sur 214 technologies (0 écart).
+
+### Faits vérifiés en moteur réel (lot IA1-i, fenêtre « Équipe et factions », 25/10 ; fusionné dans `main`, `63c480c`, version 0.4.28)
+Preuves : `fo-logs\2026-10-25_IA1-i\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E174, E175.
+- **F263** : la barre de raccourcis garde l'ORDRE propre à chaque joueur (`player-data.json`) : un raccourci nouveau
+  s'ajoute à la fin ; `order` du prototype ne joue que pour un joueur neuf ; il peut tomber sur une rangée à faire défiler.
+- **F264** : `take_screenshot{show_gui = true}` dessine l'interface à la taille et à l'échelle d'affichage du joueur ; une
+  capture d'une autre taille la coupe.
+- **F265** : une interface ouverte comme `player.opened` a été fermée sans action du banc dans 3 passages sur 6, à des
+  ticks différents sur la même carte, jamais au tick d'un rafraîchissement : c'est une ENTRÉE de la session de test
+  (fenêtre au premier plan, pertes de focus) ; cause exacte non prouvée.
+
+### Faits vérifiés en moteur réel (lots MOD-V et MOD-3, modules au barème D-17 et icônes propres, 25/10 ; fusionnés dans `main`, `18bc98d`, version 0.4.27)
+Preuves : `fo-logs\2026-10-25_MODV\NOTES.md`, `fo-logs\2026-10-25_MOD3\` (`NOTES.md`, `INTEGRATION.md`, `images-DC\`). Expériences : E155,
+E156, E170, E171.
+- **F225** : `LuaControl.opened = <LuaTechnology>` par script n'ouvre rien dans une session avec images (`opened_gui_type`
+  reste 0) : les icônes de technologie ne se voient que sur planche.
+- **F226** (E156) : 60 icônes propres à la place de couches teintées font passer l'atlas [icon] de 8192 × 2288 à 8192 × 2448
+  au plancher, `linear-mip-level` gardé ; l'atlas virtuel ne bouge pas (12 pages).
+- **F227** (cause déduite) : dans les captures avec interface, une case d'inventaire mesure 30,5 px : l'icône y est dessinée
+  vers 24 px, entre les mipmaps de 32 et 16 px ; un détail absent du mipmap de 16 px y sort à moitié effacé.
+- **F248** : la barre de productivité (`bonus_progress`) se remplit avec la progression de la fabrication ; fabrications
+  d'une machine à forte productivité = (Δ products_finished + Δ crafting_progress + Δ bonus_progress) / (1 + productivité).
+- **F249** : un effet de module ne se range qu'en pourcents entiers (centièmes entiers, F190, F199) : la moitié exacte du
+  malus (−2,5, −7,5 %) est arrondie vers zéro (−2, −5, −7 %).
 
 ### Faits vérifiés en moteur réel (lot IA1-b, pôles, managers, généralistes, 25/10 matin ; fusionné dans `main`, `f33cfbb`, version 0.4.26)
 Preuves : `fo-logs\2026-10-25_IA1-b\` (`NOTES.md` §2 à §5, `INTEGRATION.md`). Expériences : E164, E165.
@@ -1042,6 +1142,92 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E85 à E87, E184, E185 · Lot F2, le four aux 15 âges (25/10 ; verdicts du DC R-QCM-25e « Oui, enrichir », puis « c'est
+pas si mal, je pense qu'il faut pas beaucoup plus », R-QCM-25h « Validé, production »)**. **E85** (témoin et ronde 1, 32
+échantillons) : 6 + 29 variantes, 508 s et 3 552 s ; îlots 25 + 18 contrôles, 0 échec. **E86** (ronde 2) : 14 socles avec
+halo, 2 003 s ; foyers 14 sur 15 dans leur famille (âge 15 : saturation 0,17) ; plus grand foyer > 0,45 t² aux âges 10
+(0,75), 12 (0,64), 15 (1,53). **E87** (ronde 3, puis retouches légères A2) : 1 878 s ; kit 193 OK ; foyers 15 sur 15 ; D3
+de 33 à 83 % de la mitrailleuse ; niveau pair : F254. **E184** (production F2-B) : 29 variantes à 128 échantillons (ombre à
+32, D-7) en 7 094 s, par le verrou de rendu ; îlots 43 contrôles, 0 échec ; kit `--sprites` 193 OK ; foyers 15 sur 15 dans
+leur famille (âge 15 : plus grand foyer 0,9 t²) ; points blancs : la pièce paire de l'âge 3 passe de 14,8 (32 échantillons)
+à 23,7 par t² (128), seuil 13,2 : laiton des cerclages, du volant et des cornières passé en cuivre sombre, 0 point
+(20,7 après un premier essai qui gardait les cornières des patins) ; 44 puis 43 échecs « bloquants » restants de
+`mesures.py`, tous connus : pièce paire (14, F254) et charte des niveaux 2 à 30 (29 : le profil du four n'a AUCUNE cible, `profil.CIBLE` vide,
+comme en F2-A). Feuilles : 208 PNG,
+4,32 Mo. **E185** (intégration en jeu, version 0.4.30) : `f2-fours` 3 OK (30 fours posés, 30 en marche au tick 300,
+plaques produites), 40 captures REGARDÉES (`captures\flaque\`) ; nuit d'abord trop sombre (F277), corrigée par la
+flaque du moteur ; harness code 0 (Feuilles four : 208 fichiers, 0 manquant, 0 écart), levels_test 1 665 OK, api_lint
+1 102 ; plancher : F278 ; sur la branche 0.4.30 (`bancs-prod\`, `done.txt` 20:12:44 à 20:13:13) : content 331 OK,
+t2-machines 80 OK, gun-rose 13 OK (inchangé), migration d'une sauvegarde 0.4.28 avec ses 30 fours (double source
+`src-0.4.28`, création 0.4.28, benchmark 0.4.30) : `f2-fours` 3 OK (les 30 fours repris marchent).
+
+**E172, E173 · Lot IA1-b2, votre équipe défend d'abord (25/10 ; réponses du DC R-QCM-25, 25c et constat des PNJ qui attendent ;
+fusion `a3bf828`, version 0.4.29)** : défendre d'abord (tourelles au coffre puis à chaque avant-poste avant d'y travailler ;
+TOUTES les factions aussi, sans recaler les difficultés : l'ordre strict de pvp tient, ce qui le cassait était la croissance
+des factions, non leurs tourelles) ; le coffre se défend (4 tourelles, gardes armés dès la déclaration de guerre, toute
+l'équipe s'il est menacé à moins de 48 tuiles) ; gardes d'avant-postes coupées ; PNJ libres au travail (transport, minage
+à moins de 96 tuiles du coffre et à plus de 40 des nids, réserves) ; sites gardés ou au chemin dangereux refusés, aucun
+site au-delà de 400 tuiles sans tourelles ; prudence limitée à la zone d'une perte ; croissance d'une recrue toutes les
+5 min si tout est défendu, 400 fer au coffre et du travail en attente. **E172** (partie du guide, 4 graines) : morts de
+votre équipe 123 → 66 sans recherche, 96 → 35 avec la recherche « Tourelles » ; inactifs 45 à 84 % → environ 8 % sur les
+bonnes graines, 23 à 38 % sur deux graines difficiles. **E173** (30 contre 10) : 0,95 → 1,31. Sur `main` 0.4.29
+(`fo-logs\2026-10-25_integration-0.4.29\`, `done.txt` 17:08:05 à 17:20:07) : content 331, verif-guide 15 / 15 / **14** / 15
+(graines 271828182, 1618033988, **314159265**, 577215664), ia1b2-guide 15 et **13** (271828182, **577215664**), pnj-auto 7,
+pnj-reduit 12, ia0-normal 14, ia1-scale 17, **ia1-poles 15 OK, 2 ECHEC**, verif-tourelles 7, ia1b-migration 19, ia1-gui 7,
+0 erreur ; hors jeu ia1b2 62, pteam 32, org 366, ia1_production 104 (correctif MOD-3 du solveur au plafond appliqué), pvp
+1305, levels 1664, api_lint 1098. **DÉFAUTS OUVERTS, FUSIONNÉ QUAND MÊME** (gain moyen net ; IA3-a attendait cette
+fusion) : 314159265 sans recherche : avant-postes détruits par les biters à 56-57 min ; 577215664 avec recherche : coffre
+tombé à 56 min, fer à 42-100, tourelles du QG non reconstruites ; `ia1-poles` occupé à 75 % au lieu de 85 % (sans gardes ni
+expansion sans tourelles, 30 PNJ n'ont que minage et transport) et contrôle de crise (un ouvrier reste à la Base).
+Chaque correction déplaçait l'échec d'une graine à l'autre (F252) : suite par la section IA3 (recherche d'abord,
+place de marché).
+
+**E178 à E181 · Section IA3, le cerveau des PNJ (25/10 après-midi ; décision D-18 ; fusions `db7911c`, `f613db1` ; rien de branché)** :
+conception `docs/IA3_CERVEAU.md` : le chef (IA2) donne des POIDS par famille de buts ; des générateurs de buts (recherche,
+armée, défense, extraction au goulot, capital, exploration, réserve) se déplient sur le graphe recettes-technologies-machines-
+ressources par six méthodes génériques (prendre, main, machine, extraire, explorer, rechercher ; aucun nom du jeu dans le
+code : 825 noms cherchés, 0 trouvé) ; 2 à 10 projets en parallèle ; un REGISTRE réserve la matière de chaque projet (fin de
+l'« arrachage » : 3 à 50 échecs « stock » par équipe en 2 h mesurés) ; une PLACE DE MARCHÉ remplace la règle des pôles
+(E179, jouet : 35 % contre 0 % d'inactifs avec du travail) ; le solveur IA1-e1 tranche fabriquer / automatiser / agrandir /
+améliorer / construire ailleurs ; les expéditions évaluent le risque et partent équipées. **E178** : dépliage et coût réel de
+la recherche (revue M13 : aux coûts FINAUX du mod, les factions reçoivent 705 packs de technologies pour 290 payés, × 2,4 et
+non × 22 ; palier 3 = 40 packs, 325 s de laboratoire : le vrai risque devient des factions TROP rapides). Revue adverse
+(`REVUE.md`) : 3 bloquants corrigés (B1 désynchronisation d'une pensée étalée sur plusieurs ticks : état en `global` ;
+B2 recherche par le « laboratoire du QG » ; B3 effondrement déjà vu à IA2-a : garde de l'économie), 13 majeurs (dont la
+place de marché : 8,25 ms mesurés pour 30 PNJ × 64 tâches, réécrite à 2,0 ms, mêmes attributions sur 1 000 tableaux), 6
+mineurs. **E180** (`ia3-recherche`, 11 OK, `done.txt` 16:51:27) et **E181** (`ia3-tourelle`, 9 OK, 16:51:34) en moteur réel :
+F269 à F274 ; `ia3-donnees` 2 OK (F275). Hors jeu sur `main` : graphe 36, groupe 28, expédition 19, recherche 17, levels 1664,
+harness 0 erreur, api_lint 1091. Plan : lots IA3-a (recherche d'abord, prêt, attend la fusion d'IA1-b2), IA3-b (personne
+n'attend), IA3-d (effectif 8), IA3-c (nouveau cerveau), IA3-e à IA3-j ; 17 à 21 jours d'agents.
+
+**E174, E175 · Lot IA1-i, fenêtre « Équipe et factions » (25/10 de 10 h 50 à 12 h 15 ; fusion `63c480c`, version 0.4.28)** :
+demande du DC (« l'idée serait plutôt d'avoir une interface. Pas des commandes à taper ») ; bouton de la barre de raccourcis
+et Maj+T ; onglets Mon équipe, Orientation (5 préréglages, renvoyer avec confirmation dans la fenêtre), Factions (une carte
+par faction, lancer la guerre avec les RÉGLAGES DE CARTE affichés, arrêter avec confirmation), PNJ ; Territoire et Chantiers
+« à venir ». Chaque bouton appelle la fonction de la commande correspondante (bouton et commande : même état de jeu, hors
+jeu) ; l'interface ne fait que lire l'état et n'écrit que par 4 fonctions appelées d'un clic synchronisé. **E174** (`ia1-gui`,
+avec images 35 OK, sans images 7 OK) ; **E175** (rafraîchissement une fois par seconde, fenêtre ouverte seulement : 0,6 ms
+Mon équipe, 0,66 ms Factions, 0,21 ms PNJ ; 0,012 ms par tick en moyenne). VALIDÉE par le DC (« Validée, en jeu »). Sur
+`main` 0.4.28 (`fo-logs\2026-10-25_integration-0.4.28\`) : content 331, ia1-gui 7 (sans images) et 35 (avec images), pnj-auto 7, pnj-reduit 12, verif-guide 15 et 15 (graines 271828182 et 1618033988) (`done.txt` 12:39:25 à 13:08:40), 0 erreur ; hors jeu ia1i 89, pteam 32, war 105, chef 62, org 365, ia1b 50, migration 82, module_mult 95, pvp 1305, harness 0 erreur ; levels_test 1658 OK et 6 ECHEC à l'intégration (la fenêtre lisait `gui.screen` d'un joueur simulé qui n'en a pas), corrigé par l'intégrateur (`cf25906`) : 1664 OK ; api_lint 1065. NON prouvé : un vrai clic, le
+vrai bouton, la vraie touche (à essayer par le DC) ; le multijoueur (raisonnement seulement) ; fermetures non demandées en
+session de test (F265).
+
+**E155, E156, E170, E171 · Lots MOD-V et MOD-3, modules au barème D-17 (25/10 ; fusion `18bc98d`, version 0.4.27)** :
+vitesse +20 % puis +10 % par palier ; productivité +10 % puis +5 % par palier, MULTIPLIÉE (plafond du moteur seul, × 328,67,
+réponse du DC « Pas de plafond (× 328) » après correction de l'ERREUR de l'orchestrateur, qui l'avait dite plafonnée à × 4) ;
+énergie à 60 % du bonus ; au plafond, l'énergie ne paie que la part utile de chaque module (34 × vitesse 10 : × 52,38 au lieu
+de × 328,67 ; calcul en entiers, comparé à un calcul flottant sur 3 000 machines : 0 écart) ; malus de vitesse de la
+productivité réduit de moitié (−2, −5, −7 %, F249) ; efficacité inchangée. Exemples (relus en jeu) : 5 × vitesse 1 : × 2,49
+et énergie × 1,76 ; 5 × vitesse 10 : × 40,84 et × 12,60 ; 5 × productivité 10 : × 8,95 objets, vitesse × 0,70. Icônes propres
+(MOD-V, repris selon D-17 : couleur par type, chevron, engrenage, feuille, chiffre romain, balises à la couleur de l'âge),
+VALIDÉES par le DC (« Validé tel quel », défauts signalés avant : chiffre romain illisible en petit, engrenage proche de la
+roue dentée en mode Alt). **E170** (`mod1-modules`, 85 OK) ; **E171** (`mod3-migration`, double source 0.4.26 : 14 OK ;
+une machine en lots repasse en recette normale, plaques gardées). Sur `main` 0.4.27
+(`fo-logs\2026-10-25_integration-0.4.27\`) : content 331, mod1-modules 85, mod2-lots 28, mod1-migration 11, mod2-migration 6, mod3-migration 14, t2-machines 80, ia1-diag 27, verif-guide 15 (graine 271828182), pnj-reduit 12 (`done.txt` 10:54:37 à 10:57:16), 0 erreur ; hors jeu module_mult 95, ia1_production 103, recipe_lots 67, icones.py --check 0 écart, levels 1664, pvp 1305, harness 0 erreur ; api_lint 1026. NON corrigé : le solveur des équipes
+(`shared/team/production.lua`) ignore l'écart d'énergie au plafond (× 57,66 au lieu de × 52,38 ; sans effet en partie : aucun
+gabarit d'équipe ne pose de module ; correctif d'une ligne dans `fo-logs\2026-10-25_MOD3\INTEGRATION.md` §7, à appliquer
+après IA1-b2). Usine chimique : plus jamais de lot (3 emplacements).
+
 **E164, E165 · Lot IA1-b, pôles, managers, généralistes (25/10 de 6 h 50 à 8 h 20 ; fusion `f33cfbb`, version 0.4.26)** :
 le modèle `org.lua` branché sur l'équipe vivante (pôles Extraction, Base, Territoire ; changements de pôle appliqués en
 fin de tâche ; promotion après 2 min de vacance ; meneurs ; rapports d'une ligne) ; travail de FOND (`shared/team/fond.lua` :

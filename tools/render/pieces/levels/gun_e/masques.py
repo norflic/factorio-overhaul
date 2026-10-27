@@ -39,7 +39,7 @@ import piece  # noqa: E402
 BLENDER = os.environ.get("FO_BLENDER", r"C:\Users\evan2\tools\blender-5.2.2\blender.exe")
 LOCK = os.path.join(RENDER, "with_render_lock.py")
 SCRIPT = os.path.join(HERE, "masques_blender.py")
-LOGS = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
+LOGS = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs"
 VALIDES = ["1-9=" + os.path.join(LOGS, "2026-10-23_V3E-p5", "bas", "sprites"),
            "10-12=" + os.path.join(LOGS, "2026-10-23_V3E-p5", "haut", "sprites"),
            "13-15=" + os.path.join(LOGS, "2026-10-23_V3E-ereV", "sprites")]

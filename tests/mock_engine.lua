@@ -767,6 +767,10 @@ function M.new_world(opts)
     -- lot MOD-2 : recettes par lots (script/modules/lots.lua) : lots activés à la création d'une force ; le mock ne
     -- modélise PAS les lots (fixture vanilla : aucun « fo-lot ») ; le moteur réel est prouvé par « mod2-lots »
     on_force_created = 26,
+    -- lot IA1-i : interface « Équipe et factions » (script/gui/team_window.lua) : raccourci et onglets ; le mock n'a
+    -- qu'un conteneur d'interface minimal (gui.screen), tests/ia1i_test.lua y greffe le sien
+    on_lua_shortcut = 27, on_gui_selected_tab_changed = 28, on_player_display_resolution_changed = 29,
+    on_player_display_scale_changed = 30,
   }
   _G.defines = {
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
@@ -1062,7 +1066,7 @@ function M.new_world(opts)
     _lua_object = true, index = 1, valid = true, admin = true, connected = true, surface = surface, force = W.forces.player,
     character = player_char,
     print = function(s) W.prints[#W.prints + 1] = M.ls_to_string(s) end,
-    gui = { top = gui_container(), left = gui_container() },
+    gui = { top = gui_container(), left = gui_container(), screen = gui_container() },
     insert = function(items) return player_char.insert(items) end,
     get_main_inventory = function() return player_char.get_main_inventory() end,
     create_local_flying_text = function(t) W.local_texts = W.local_texts or {}; W.local_texts[#W.local_texts + 1] = M.ls_to_string(t.text) end,

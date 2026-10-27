@@ -30,10 +30,14 @@ if not "%~3"=="" set WIN=%~3
 set TICKS=600
 if /i "%SCEN%"=="content" set TICKS=4000
 
+rem Orchestrateur (27/10) : FO_LOCK_HELD = l'appelant (tools\autotest\banc.py, file d'attente) tient deja le verrou.
+if defined FO_LOCK_HELD goto :held
 mkdir "%ROOT%\fo-autotest.lock" 2>nul || (
   echo Un banc est deja en cours : verrou fo-autotest.lock pris. Rien n'a tourne.
   exit /b 2
 )
+set OWN_LOCK=1
+:held
 set FO_LOCK_HELD=1
 echo === fo-captures : scenario %SCEN%, %TICKS% ticks, fenetre %WIN% ===
 call "%ROOT%\fo-autotest.bat" nopause %TICKS% %SCEN% "%SRC%"
@@ -56,6 +60,6 @@ if defined BANC_ECHEC if "%RC%"=="0" (
 )
 
 :unlock
-rmdir "%ROOT%\fo-autotest.lock" 2>nul
+if defined OWN_LOCK rmdir "%ROOT%\fo-autotest.lock" 2>nul
 echo === fo-captures : code de sortie %RC% ===
 exit /b %RC%

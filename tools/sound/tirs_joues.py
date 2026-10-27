@@ -35,7 +35,7 @@ from scipy.signal import fftconvolve
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
-GAME = r"H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
+GAME = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 AUDIO_LINE = re.compile(r"^\s*([\d.]+)\s.*\[Audio\][^\n]*?Depth:\s*(\d+)[^\n]*?Channels:\s*(\d+)[^\n]*?Frequency:\s*(\d+)",
                         re.M)
 TIR_LINE = re.compile(r"^\s*([\d.]+)\s.*\[FO-S0-TIR\] TIR\t(.*)$", re.M)

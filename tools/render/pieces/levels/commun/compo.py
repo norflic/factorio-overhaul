@@ -20,7 +20,7 @@ from PIL import Image, ImageDraw, ImageFont
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", "..", ".."))
 MOD = os.path.dirname(os.path.dirname(RENDER))
-ROOT = "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91"
+ROOT = "F:/Factorio.v1.1.91 Modding/Factorio.v1.1.91"
 DATA = ROOT + "/data"
 DUMPS = ROOT + "/fo-logs/2026-10-22_V3S/industriel/dumps"
 PASSE3 = (ROOT + "/fo-logs/2026-10-22_V3E/bas/sprites", ROOT + "/fo-logs/2026-10-22_V3E/haut/sprites")

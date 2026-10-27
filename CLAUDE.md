@@ -23,18 +23,18 @@ avant tout travail.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
 4. `RD_LOG.md` : faits F1 à F162 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
    V3-T3, intégré ; F111 à F118 : lot V3-T4, livré NON intégré ; F119 : V3-E ; F120 à F122 : lot A1 ; F130 à F135 : lot
-   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant ; F171 à F174 : PNJ-VÉRIF ; F186, F187 : A3-final ; F190 à F194 : MOD-0 ; F199 à F203 : MOD-1 ; F204 à F206 : A4-SOCLE ; F207 à F209 : IA2-0 ; F213 à F218 : IA2-a et IA2-a2 ; F210, F211 : X1 ; F219 à F221 : MOD-2 ; F222 à F224 : IA2-b ; F228 à F230 : F1-B ; F237, F238 : VERIF-NUIT ; F234 à F236 : IA2-c ; F242 à F244 : IA1-e1 ; F239 à F241 : IA1-b ; F163 à F165 : F1-A ; F167 à F170, F188, F189 : M1 ; F175 à F179 : IA1-0 ; F180 à F182 : IA1-a ; F183 à F185 : IA1-c ; F195 à F198 : B0),
+   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant ; F171 à F174 : PNJ-VÉRIF ; F186, F187 : A3-final ; F190 à F194 : MOD-0 ; F199 à F203 : MOD-1 ; F204 à F206 : A4-SOCLE ; F207 à F209 : IA2-0 ; F213 à F218 : IA2-a et IA2-a2 ; F210, F211 : X1 ; F219 à F221 : MOD-2 ; F222 à F224 : IA2-b ; F228 à F230 : F1-B ; F237, F238 : VERIF-NUIT ; F234 à F236 : IA2-c ; F242 à F244 : IA1-e1 ; F239 à F241 : IA1-b ; F225 à F227, F248, F249 : MOD-V et MOD-3 ; F263 à F265 : IA1-i ; F269 à F275 : IA3 ; F254 à F256 : F2-A ; F276 à F278 : F2-B ; F251 à F253 : IA1-b2 ; F163 à F165 : F1-A ; F167 à F170, F188, F189 : M1 ; F175 à F179 : IA1-0 ; F180 à F182 : IA1-a ; F183 à F185 : IA1-c ; F195 à F198 : B0),
    expériences E1 à E84, E105 à E123 et E128 à E132 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
-   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant ; E118 à E120 : PNJ-VÉRIF ; E128 à E130 : A3-final ; E133 à E135 : MOD-0 ; E138 à E140 : MOD-1 ; E141, E142 : A4-SOCLE ; E143, E144 : IA2-0 ; E147 à E150 : IA2-a et IA2-a2 ; E145, E146 : X1 ; E151, E152 : MOD-2 ; E153, E154 : IA2-b ; E157, E158 : F1-B ; E163 : VERIF-NUIT ; E161, E162 : IA2-c ; E166, E167 : IA1-e1 ; E164, E165 : IA1-b ; E77 à E80, E131, E132 : M1 ; E81 à E84 : F1-A ; E121 à E123 : IA1-0 ; E124, E125 : IA1-a ; E126, E127 : IA1-c ; E136, E137 : B0), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
+   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant ; E118 à E120 : PNJ-VÉRIF ; E128 à E130 : A3-final ; E133 à E135 : MOD-0 ; E138 à E140 : MOD-1 ; E141, E142 : A4-SOCLE ; E143, E144 : IA2-0 ; E147 à E150 : IA2-a et IA2-a2 ; E145, E146 : X1 ; E151, E152 : MOD-2 ; E153, E154 : IA2-b ; E157, E158 : F1-B ; E163 : VERIF-NUIT ; E161, E162 : IA2-c ; E166, E167 : IA1-e1 ; E164, E165 : IA1-b ; E155, E156, E170, E171 : MOD-V et MOD-3 ; E174, E175 : IA1-i ; E178 à E181 : IA3 ; E85 à E87 : F2-A ; E184, E185 : F2-B ; E172, E173 : IA1-b2 ; E77 à E80, E131, E132 : M1 ; E81 à E84 : F1-A ; E121 à E123 : IA1-0 ; E124, E125 : IA1-a ; E126, E127 : IA1-c ; E136, E137 : B0), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (24/10, 23 h 15) : **F216** et **E149** hors blocs (réservés : MOD-V F225 à F227, E155, E156 ; A5-ESSAI F231 à F233, E159, E160 ; X2 F245 à F247, E168, E169 ; prochains libres F248, E170) (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
+   expérience de contrôle). Prochains identifiants (24/10, 23 h 15) : **F216** et **E149** hors blocs (réservés : MOD-V F225 à F227, E155, E156 ; A5-ESSAI F231 à F233, E159, E160 ; X2 F245 à F247, E168, E169 ; MOD-3 F248 à F250, E170, E171 ; IA1-b2 F251 à F253, E172, E173 ; F2-A, F3-A, F4-A F254 à F262, E85 à E96 ; F2-B F276 à F278, E184, E185 ; IA3-a F279 à F281, E186, E187 ; prochains libres F282, E188) (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
    expériences, rien hors des blocs réservés : E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
    de 4). Les blocs réservés sont listés en tête de RD_LOG.
 
 ## 3. Chemins (PC Windows du Directeur Créatif)
 | Quoi | Chemin |
 |---|---|
-| Racine du jeu (installation portable) | `H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\` |
+| Racine du jeu (installation portable) | `F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\`  **Depuis le 27/10 (1 h), le projet vit sur F:** (disque Kingston exFAT, 211 Go libres) : le DC y a copié tout le dossier le 26/10 vers 21 h 15, H: étant plein (471 Mo libres). **Ne plus rien écrire sur H:** (copie figée au commit 88f3ca4, sources des feuilles toujours lisibles) ; sur exFAT, git exige `safe.directory` (posé en global pour le dépôt et ses worktrees) et les liens durs n'existent pas (copier les feuilles au lieu de les lier). |
 | Source du mod (ce dossier) | `<racine>\mods\factorio-overhaul\` |
 | Exécutable | `<racine>\bin\x64\factorio.exe` |
 | Données du jeu (banc de l'étape data) | `<racine>\data\` (Lua lisible de `core` et `base`) |
@@ -44,6 +44,7 @@ avant tout travail.
 | Captures | `<racine>\fo-visual\write\script-output\fo-shots\` : `NNN-<scène>.png`, `index.txt`, `planche-NN.png`, `session.txt` |
 | Rendu 3D (lot V0) | Blender 5.2.2 LTS : `C:\Users\evan2\tools\blender-5.2.2\blender.exe` ; pipeline : `tools\render\README.md`, `tools\render\CALIBRATION.md` |
 | Feuilles de la mitrailleuse en jeu (lot A2, décision D-6) | `<mod>\graphics\levels\gun\` : 376 PNG (164 Mo depuis 0.4.18) HORS de git, régénérés par `feuilles.py` ; `MANIFEST.json`, `sprites.lua`, `sprites.json` commités ; sources dans `<racine>\fo-logs\`, à GARDER : `2026-10-23_V3E-p5\bas\sprites`, `2026-10-23_V3E-p5\haut\sprites`, `2026-10-23_V3E-ereV\sprites`, `2026-10-24_A2\sprites`, `2026-10-24_A3\sprites` (têtes à 64 directions), `2026-10-24_A4\socle-anime\sprites` (socle animé des âges 5 à 15) |
+| Feuilles du four en jeu (lot F2-B, D-6) | `<mod>\graphics\levels\four\` : 208 PNG (4,3 Mo) HORS de git, régénérés par `tools/render/pieces/levels/four_e/feuilles.py` (sans argument) ; `MANIFEST.json`, `sprites.lua`, `sprites.json` commités ; source à GARDER : `<racine>\fo-logs\2026-10-25_F2\production\sprites` (29 variantes à 128 échantillons) |
 
 ## 4. Interdits absolus (protègent le jeu et les parties du Directeur Créatif)
 1. **Ne jamais toucher** à `<racine>\saves\`, `<racine>\config\`, `player-data.json`,
@@ -59,7 +60,10 @@ avant tout travail.
    `<racine>\fo-autotest.lock` (code de sortie 2 s'il est pris). `fo-autotest.bat`
    **efface `fo-autotest\`** à chaque lancement : copiez vos journaux avant le banc suivant. Un verrou
    orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest`) se supprime avec
-   `rmdir`.
+   `rmdir`. **Depuis le 27/10, tout agent lance ses bancs par la FILE D'ATTENTE** :
+   `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>] [--son] [--captures]
+   [--visuel "<args>"] --qui <lot> -- <ticks> <scenario> <source>` (premier arrivé, premier servi ; le verrou est tenu
+   jusqu'à la fin de l'archivage ; `--file` montre la file). Ne plus appeler `fo-autotest.bat` en boucle soi-même.
 5. Aucune donnée personnelle, aucun identifiant, rien à publier.
 6. **Blender uniquement par le verrou de rendu** : `python tools/render/with_render_lock.py -- <commande>`.
    Au plus 2 rendus à la fois sur le PC, en priorité inférieure à la normale pour ne pas gêner une partie
@@ -75,9 +79,10 @@ Toutes les commandes se lancent depuis la racine du mod, sauf mention.
 **Worktree ou checkout neuf : régénérer d'abord les feuilles de la mitrailleuse** (PNG hors de git, décision D-6) :
 `py -3.9 tools/render/pieces/levels/gun_e/feuilles.py` + les arguments écrits dans `graphics/levels/gun/MANIFEST.json`
 (champ `arguments` ; depuis 0.4.13 (24/10), **vide** : tous les âges à 64 directions ; 4 à 7 min ; attendu « [FO-FEUILLES]
-376 fichiers PNG, 164.05 Mo, 936 sources ; têtes : 14 âge(s) à 64 directions, 0 à 4 » ; 164 Mo écrits sur H:), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (6 OK) et
+376 fichiers PNG, 164.05 Mo, 936 sources ; têtes : 14 âge(s) à 64 directions, 0 à 4 » ; 164 Mo écrits sur F:), puis `py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources` (6 OK) et
 `git status` propre. Sans cela, le harness et `levels_test` échouent (ils impriment cette commande) et l'étape data
-du jeu refuse le mod.
+du jeu refuse le mod. **Même chose pour le four** (depuis 0.4.30, lot F2-B) : `py -3.9 tools/render/pieces/levels/four_e/feuilles.py`
+→ « [FO-FEUILLES-FOUR] 208 fichiers PNG, 4.32 Mo » (sources : `fo-logs\2026-10-25_F2\production\sprites`).
 
 **Production des têtes de la mitrailleuse à 64 directions** (lot A3 ; `<racine>\fo-logs\2026-10-24_A3\INTEGRATION.md`) :
 **TERMINÉE** le 24/10 à 11:59:25 (840 / 840, 0 erreur ; 8 têtes HORS REGLE regardées et acceptées) : ne plus la lancer.
@@ -98,10 +103,10 @@ lua5.2 tests/td_test.lua         -> 270 OK
 lua5.2 tests/pteam_test.lua      -> 32 OK   (reconstruction de votre équipe décimée depuis 0.4.24)
 lua5.2 tests/migration_test.lua  -> 82 OK
 lua5.2 tests/monde_test.lua      -> 201 OK   (garantie des monnaies des âges 5, 7 et 8, lot M0 : candidats, décision, sites, échec et reprise par paliers)
-lua5.2 tests/levels_test.lua     -> 1664 OK   (+ 11 « écarts connus » au contrat, comptés à part ; dont le contrôle des feuilles de la mitrailleuse, lot A2 ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
+lua5.2 tests/levels_test.lua     -> 1665 OK   (+ 11 « écarts connus » au contrat, comptés à part ; dont le contrôle des feuilles de la mitrailleuse, lot A2, et celui des feuilles du four depuis 0.4.30, lot F2-B ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
 lua5.2 tests/pvp_test.lua        -> 1305 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
-lua5.2 tests/org_test.lua        -> 365 OK   (modèle des rôles des équipes de PNJ, lot IA1)
+lua5.2 tests/org_test.lua        -> 366 OK   (modèle des rôles des équipes de PNJ, lot IA1)
 lua5.2 tests/recipe_lots_test.lua -> BILAN : 67 OK   (recettes par lots, 10 mutants refusés, lot MOD-2)
 lua5.2 tests/titanium_test.lua   -> 114 OK   (chaîne du titane de l'âge 11, lot X1)
 lua5.2 tests/traits_test.lua     -> 65 OK   (caractère des factions tiré de la graine, lot IA2-0)
@@ -110,14 +115,18 @@ lua5.2 tests/valeur_test.lua     -> 51 OK   (valeur des sites d'expansion des fa
 lua5.2 tests/adversaire_test.lua -> 53 OK   (modèle de l'adversaire sous brouillard, lot IA2-c)
 PYTHONUTF8=1 python -B tools/autotest/tests/test_ia2c_joueur.py   -> 15 OK (outil de mesure du lot IA2-c)
 PYTHONUTF8=1 python -B tools/autotest/tests/test_ia2_mesures.py   -> 50 OK (outil de mesure des PNJ, lot IA2-0 ; sans PYTHONUTF8 il plante à l'affichage de ρ)
-lua5.2 tests/module_mult_test.lua -> BILAN : 67 OK   (modules qui se multiplient, 17 mutants refusés, lot MOD-1)
+lua5.2 tests/module_mult_test.lua -> BILAN : 95 OK   (barème D-17, productivité multipliée, écart d'énergie au plafond, 26 mutants ; lots MOD-1 et MOD-3)
+py -3.9 tools/render/pieces/modules/icones.py --check   -> 30 objet(s), 30 techno(s), 0 écart(s) (icônes des modules, validées par le DC, lots MOD-V et MOD-3)
 lua5.2 tests/ia1_scale_test.lua  -> 115 OK   (échelle 30 des équipes de PNJ, lot IA1-a)
-lua5.2 tests/ia1_production_test.lua -> [IA1-E1] BILAN : 101 OK   (solveur de débits et diagnostic, lot IA1-e1 ; 18 mutants ; environ 2 s ; livre `tests/fixtures/recipes_ia1e.lua` à régénérer par `harness.lua ... --dump-recipes` si les recettes changent)
+lua5.2 tests/ia1_production_test.lua -> [IA1-E1] BILAN : 104 OK   (solveur de débits et diagnostic, lot IA1-e1 ; 18 mutants ; environ 2 s ; livre `tests/fixtures/recipes_ia1e.lua` à régénérer par `harness.lua ... --dump-recipes` si les recettes changent)
+lua5.2 tests/ai3_graphe_test.lua -> [AI3-GRAPHE] BILAN : 36 OK ; ai3_groupe_test 28 OK ; ai3_expedition_test 19 OK ; ai3_recherche_test 17 OK (section IA3, règles pures non branchées)
+lua5.2 tests/ia1i_test.lua       -> 89 OK   (fenêtre « Équipe et factions », lot IA1-i : bouton contre commande, fenêtre ouverte contre fermée)
+lua5.2 tests/ia1b2_test.lua      -> 62 OK   (votre équipe défend d'abord, coffre défendu, travail des PNJ libres, lot IA1-b2)
 lua5.2 tests/ia1b_test.lua       -> 50 OK   (pôles, travail de fond, danger, prudence, lot IA1-b)
 lua5.2 tests/ia1_modules_test.lua -> BILAN : 1018 OK   (gabarits de modules des équipes organisées, lot IA1-c ; 25 mutants)
 python -B tools/team/test_bp2lua.py   -> 12 OK (conversion de plans en gabarits, lot IA1-c)
-lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 376 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 14 age(s) a 64 directions, 0 a 4, 0 erreur(s), auto-contrôle 4/4 (depuis 0.4.13) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 1009 usages, 0 erreur (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 376 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 14 age(s) a 64 directions, 0 a 4, 0 erreur(s), auto-contrôle 4/4 (depuis 0.4.13) ; Feuilles four (graphics/levels/four, D-6) : 208 fichier(s) au manifeste, 0 manquant(s), 0 écart(s), 208 image(s) de sprites.lua relue(s) (depuis 0.4.30, lot F2-B) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 1102 usages, 0 erreur (1098 avant le scénario f2-fours) (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; essai à blanc du greffon 15 OK et BILAN attendu 18 depuis D4m-géant ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
@@ -131,6 +140,7 @@ python -B tools/autotest/tests/test_audio_guard.py   -> 4 OK (garde de crête ; 
 py -3.9 tools/render/tests/test_garde_disque.py   -> 11 OK (garde de disque du verrou de rendu : refus sous 1 Go libre, code 4 ; lot A3)
 py -3.9 tools/render/pieces/ressources/check_gisement.py --mutants   -> BILAN : 7 OK, 0 ECHEC(S) ; mutants 10/10 refusés (feuilles de gisement du kit minerai, lot M1)
 py -3.9 tools/render/pieces/levels/laser_e/tests/test_laser.py   -> [F1-LASER] 182 OK (kit de la tourelle laser, lots F1-A et F1-B : 15 âges)
+py -3.9 tools/render/pieces/levels/four_e/tests/test_four.py   -> [F2-FOUR] 179 OK ; avec --sprites "<racine>/fo-logs/2026-10-25_F2/production/sprites" : 193 OK (kit du four, lots F2-A et F2-B)
 PYTHONUTF8=1 py -3.9 tools/render/tests/test_produire_a3.py   -> 43 OK (production des têtes à 64 directions : pannes de lecture, exceptions, code de sortie, reprise ; faux rendre.py, sans Blender, environ 50 s ; lit A3\sprites et A3\masques\m16, à GARDER ; lot A3)
 ```
 `levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
@@ -193,10 +203,10 @@ la marge : 1 échec sur 5 passages (35/36) ; rejouer une fois avant de conclure.
 La variable d'environnement `FO_CREATE_SRC` donne une autre source de factorio-overhaul pour la seule création de
 la carte ; le benchmark rejoue la même carte avec la source habituelle. Sous PowerShell :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 ht3-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 ht3-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
-python -B tools/autotest/ht3_journal.py 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+python -B tools/autotest/ht3_journal.py 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
 ```
 - `src-0.4.1` est identique à `git archive 91097e6` (version 0.4.1) ; `fo-autotest\create-source.txt` dit quelle
   source a créé la carte.
@@ -207,10 +217,10 @@ python -B tools/autotest/ht3_journal.py 'H:\Factorio.v1.1.91 Modding\Factorio.v1
 
 Migration 0.4.2 → 0.4.3 quand toutes les familles grandissent (lot V3-T2, RD_LOG E50 ; usine dense de 24 machines) :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 t2-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 t2-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
-python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
 ```
 - `src-0.4.2` est identique à `git archive c4d37e5` (version 0.4.2) : à GARDER, c'est la source de création de ce
   banc.
@@ -223,16 +233,16 @@ python -B tools/autotest/ht3_journal.py --tag FO-T2-MIGRATION 'H:\Factorio.v1.1.
 Migration d'une DÉFENSE DENSE (lot R1, RD_LOG E54 ; 21 tourelles derrière un mur continu, bras électriques, convoyeur
 de munitions, poteaux), création 0.4.1 :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1200 t2-defense 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T-suites\ht3\src-0.4.1'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1200 t2-defense 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
-python -B tools/autotest/ht3_journal.py --tag FO-T2-DEFENSE 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
+python -B tools/autotest/ht3_journal.py --tag FO-T2-DEFENSE 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest'
 ```
 - Attendu depuis 0.4.1 : « [FO-T2-DEFENSE] BILAN : 36 OK, 0 ECHEC(S) » dans `benchmark.log`, ET « JOURNAL
   FO-T2-DEFENSE : 19 OK, 0 ECHEC(S) », code 0 ; journal du mod : « 8 bâtiment(s) reposé(s), 0 déjà en place,
   13 laissé(s) ». Observé sur `main` le 22/10 (`done.txt` 20:11:36,19 ; après le lot V3-T3, 22:51:15,21 ; ligne hors
   bilan « LIBERER LA PLACE (plan seul, hors bilan) : 2 liberable(s) sur 13 ») ; le 23/10 après A1 et M0, 17:46:08,87.
-- Création 0.4.2 : même commande avec `$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'`.
+- Création 0.4.2 : même commande avec `$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'`.
   Attendu : 36 OK, ET « JOURNAL FO-T2-DEFENSE : 11 OK, 0 ECHEC(S) », code 0 ; journal du mod « 5, 0, 5 ». Observé sur
   `main` le 22/10 (`done.txt` 20:11:40,52 ; après le lot V3-T3, 22:51:19,45 ; hors bilan : 0 libérable sur 5) ; le
   23/10 après A1 et M0, 17:46:13,10.
@@ -242,8 +252,8 @@ python -B tools/autotest/ht3_journal.py --tag FO-T2-DEFENSE 'H:\Factorio.v1.1.91
 « Libérer la place » pour un bâtiment laissé HORS GRILLE par une vraie migration (lot V3-T3, RD_LOG E59 ; un script
 ne sait pas fabriquer un bâtiment hors grille, F104) :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 t3-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-22_V3T2\src-0.4.2'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 t3-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
 ```
 - Attendu : « [FO-T3-MIGRATION] BILAN : 7 OK, 0 ECHEC(S) » dans `benchmark.log`, code 0. Observé sur `main` le 22/10
@@ -253,8 +263,8 @@ $env:FO_CREATE_SRC = $null
 Migration d'une sauvegarde 0.4.4 vers la garantie des monnaies (lot M0, RD_LOG E76 ; sauvegarde avec un coffre du
 joueur, gisements déjà connus comptés) :
 ```
-$env:FO_CREATE_SRC = 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-23_suite\M0\src-0.4.4'
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 m0-migration 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
+$env:FO_CREATE_SRC = 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-logs\2026-10-23_suite\M0\src-0.4.4'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 m0-migration 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'
 $env:FO_CREATE_SRC = $null
 ```
 - `src-0.4.4` est identique à `git archive 93e3d89` (version 0.4.4) : à GARDER.
@@ -271,19 +281,19 @@ Pour les cinq bancs en double source :
   par la protection de chemin de l'outil (REPRISE.md §6).
 
 **Contact bord à bord des recherches par zone** (lot R1, RD_LOG E53, F96 ; sans double source) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 60 bord-a-bord 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 60 bord-a-bord 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-BORD-A-BORD] BILAN : 12 OK, 0 ECHEC(S) » (45 cas comparés à la règle du moteur simulé ; observé sur `main`
 le 22/10, `done.txt` 20:11:23,82 ; après le lot V3-T3, 22:50:54,07 ; le 23/10 après A1 et M0, 17:45:56,31). Un ECHEC veut dire que le moteur simulé (`tests/mock_engine.lua`) ne suit plus le
 moteur réel : l'aligner, puis rejouer tous les bancs hors jeu.
 
 **Machines agrandies, pour les captures** (lot V3-T2, sans double source) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1500 t2-machines 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1500 t2-machines 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-T2-MACHINES] BILAN : 80 OK, 0 ECHEC(S) » (observé sur `main` le 22/10, `done.txt` 19:05:44,44 ; après le lot
 R1, 20:11:19,61 ; après le lot V3-T3, 22:50:50,22 ; le 23/10 après A1 et M0, 17:45:48,00). Pour les
 images : `& "<racine>\fo-captures.bat" t2-machines "<source>"` depuis PowerShell.
 
 **« Libérer la place »** (lot V3-T3, RD_LOG E59 ; sans double source ; zones A à V et L, vrais robots en zone R) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1900 t3-libere 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1900 t3-libere 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-T3-LIBERE] BILAN : 41 OK, 0 ECHEC(S) » (observé sur `main` le 22/10, `done.txt` 22:50:58,19 ; le 23/10 après A1
 et M0, 17:45:52,25). Le scénario
 contrôle au tick 1 800 (`check_tick`, à cause des vrais robots) : il faut au moins 1 900 ticks. Images :
@@ -292,12 +302,12 @@ contrôle au tick 1 800 (`check_tick`, à cause des vrais robots) : il faut au m
 
 **Garantie des monnaies des âges 5, 7 et 8** (lot M0, RD_LOG E73, E74 ; sans double source ; la graine de
 `fo-autotest.bat` est fixe, 20261020 : le scénario joue 5 autres graines sur des surfaces qu'il crée) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 monde 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 700 monde 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-MONDE] BILAN : 89 OK, 0 ECHEC(S) » (observé sur `main` le 23/10, `done.txt` 17:45:34,86). Images :
 `& "<racine>\fo-captures.bat" monde "<source>"` depuis PowerShell (9 captures des 3 sites de nauvis ; 91 OK, car la
 cartographie ne tourne qu'avec images, F131).
 Échec puis reprise de la garantie (correction M-1 du lot M0, E74) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 2600 m0-reprise 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 2600 m0-reprise 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-M0-REPRISE] BILAN : 15 OK, 0 ECHEC(S) » (contrôle final au tick 2 460 : il faut 2 600 ticks ; observé sur
 `main` le 23/10, `done.txt` 17:45:39,32).
 **Depuis 0.4.5, toute carte de banc créée par `fo-autotest.bat` porte 3 sites garantis** sur nauvis (graine 20261020 :
@@ -306,7 +316,7 @@ bancs de durée et de performance `ia0-*` (216 000 ticks) NE sont PAS rejoués :
 environ 50 chunks générés de plus) ; à rejouer avant de citer leurs chiffres comme référence.
 
 **Usine géante et mémoire vidéo** (lot D4m, recalé au lot D4m-géant, RD_LOG E117) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 600 d4-geant 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 600 d4-geant 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-D4-GEANT] BILAN : 18 OK, 0 ECHEC(S) » (observé sur `main` le 24/10, `done.txt` 5:46:15,72 ; 10 OK, 6 ECHEC de 0.4.3
 à 0.4.9, F128) : usine de 5 343 bâtiments, galerie de 960 mitrailleuses (64 images relues par âge). Mesure de la
 mémoire vidéo : `tools/autotest/README.md` §5.3 (passages `--measure` avec `--ticks 3900`). Aux 15 âges à 64 directions (lot A3-final, 24/10, RD_LOG E130) : haute, 17 atlas,
@@ -324,15 +334,15 @@ a4-socle` → « 2 OK » (socle animé de l'âge 6) ; observés sur `main` 0.4.1
 des prototypes de test (sur le mod livré, le scénario se refuse à l'init, « prototypes de test absents ») :
 ```
 py -3.9 tools/autotest/a1/jetable.py --dest <dossier neuf, hors du dépôt>
-& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 a1-tourelle '<dossier de la copie>'
+& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 a1-tourelle '<dossier de la copie>'
 ```
 → « [FO-A1-TOURELLE] BILAN : 5 OK, 0 ECHEC(S) » (copie du lot, 23/10, `done.txt` 15:56:07,00 ; copie neuve du
 vérificateur, 16:48:01,51). Images : `& "<racine>\fo-captures.bat" a1-tourelle "<copie>"` (20 captures, flèches
-numérotées). Effacer la copie après usage (place sur H:).
+numérotées). Effacer la copie après usage (place sur le disque).
 
 **La mitrailleuse en jeu** (lot A2, RD_LOG E68, F123 à F129 ; sans double source ; feuilles requises, voir « Worktree
 ou checkout neuf » plus haut) :
-`& 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 gun-rose 'H:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
+`& 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\fo-autotest.bat' nopause 1000 gun-rose 'F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\mods\factorio-overhaul'`
 → « [FO-GUN-ROSE] BILAN : 13 OK, 0 ECHEC(S) » depuis A3-jeu (30 niveaux × 20 directions dont d06, d26, d38, d58, par `orientation`, tenue jusqu'au contrôle ; tir dans les 11 directions écartées de l'âge 2 ;
 boîtes d'affichage, restes et explosions déclarés ; tir sur 60 sites, éclat à 1/32 de tuile de la règle F126 ; observé
 sur `main` 0.4.6 le 23/10, `done.txt` 20:54:32,19). Images : `& "<racine>\fo-captures.bat" gun-rose "<source>"`
@@ -374,8 +384,9 @@ Scénarios :
   « [FO-X1-TITANE] BILAN : 27 OK » ; `x1-migration` (700 ticks, DOUBLE SOURCE `FO_CREATE_SRC` =
   `<racine>\fo-logs\2026-10-25_X1\src-0.4.16`, à GARDER) → « 8 OK » ; `m0-migration` → 11 OK (4 garanties) ; `content`
   → 331 OK et `monde` → 116 OK depuis 0.4.21 (`main`, 25/10, `done.txt` 2:39:56 à 2:40:45) ;
-- `mod1-modules` (lot MOD-1, 2 200 ticks) : modules qui se multiplient, mesurés contre la formule → « [FO-MOD1-MODULES]
-  BILAN : 67 OK » (`main` 0.4.18, 24/10, `done.txt` 22:16:22) ; `mod1-migration` (200 ticks, DOUBLE SOURCE `FO_CREATE_SRC` =
+- `mod1-modules` (lots MOD-1 et MOD-3, 2 200 ticks) : modules qui se multiplient, mesurés contre la formule → « [FO-MOD1-MODULES]
+  BILAN : 85 OK » depuis 0.4.27 (barème D-17) ; `mod3-migration` (200 ticks, DOUBLE SOURCE `FO_CREATE_SRC` =
+  `<racine>\fo-logs\2026-10-25_MOD3\src-0.4.26\factorio-overhaul`, à GARDER) → « 14 OK » ; `mod1-migration` (200 ticks, DOUBLE SOURCE `FO_CREATE_SRC` =
   `<racine>\fo-logs\2026-10-24_MOD1\src-0.4.15`, à GARDER) → « 11 OK » ; images : `fo-captures.bat mod1-modules`
   (panneau « Modules (multipliés) ») ; `a4-socle` (300 ticks) : 12 tourelles, 11 socles animés et un témoin fixe → « 2 OK »,
   images : `fo-captures.bat a4-socle` puis `py -3.9 tools/autotest/a4_socle_images.py <fo-shots>` ;
@@ -396,6 +407,20 @@ Scénarios :
 - `ia1-risques` (lot IA1-0, 1 800 ticks) : risques moteur R1 à R5, R7 des équipes organisées → « [FO-IA1-RISQUES] BILAN :
   65 OK » (`main` 0.4.14, 15:09:36), puis `py -3.9 -B tools/autotest/ia1/risques.py <passes>` ; `ia1-carte` (images
   seulement) : R6 (`tools/autotest/README.md` §4.1) ;
+- `ia1b2-guide` (lot IA1-b2, 216 000 ticks, la partie du guide avec la recherche « Tourelles » à 5 min ; FO_MAP_SEED) →
+  « [FO-IA1B2-GUIDE] BILAN : 15 OK » sur 271828182 ; 13 OK sur 577215664 (défaut ouvert, 0.4.29) ; `verif-guide` se joue
+  désormais sur 4 graines (271828182, 1618033988, 314159265, 577215664 : 14 OK sur 314159265, défaut ouvert) ;
+  `ia1-poles` → 15 OK, 2 ECHEC depuis 0.4.29 (occupation 75 %, crise : défaut ouvert) ;
+- `f2-fours` (lot F2-B, 400 ticks) : les 30 niveaux du four posés en 5 rangées, garnis, en marche → « [FO-F2-FOURS] BILAN :
+  3 OK » (30 posés, 30 en marche au tick 300, plaques produites) ; images : `& "<racine>\fo-captures.bat" f2-fours "<source>"`,
+  40 captures (5 ères au zoom 1, 15 âges au zoom 2, de jour et de nuit ; table `fo-shots\f2-fours-sites.tsv`) ; migration
+  d'une sauvegarde 0.4.28 avec ses fours : même scénario en DOUBLE SOURCE `FO_CREATE_SRC` =
+  `<racine>\fo-logs\2026-10-25_F2\src-0.4.28` (à GARDER ; feuilles de la mitrailleuse en liens durs) → 3 OK ;
+- `ia3-recherche` (3 700 ticks) → « [FO-IA3-RECHERCHE] BILAN : 11 OK » (E180 : recherche d'une force sans joueur) ;
+  `ia3-tourelle` (2 500) → « 9 OK » (E181 : tourelle posée près des biters puis reprise) ; `ia3-donnees` → « 2 OK » (F275) ;
+- `ia1-gui` (lot IA1-i, 16 600 ticks) : fenêtre « Équipe et factions » → « [FO-IA1-GUI] BILAN : 7 OK » sans images ; avec
+  images : `$env:FO_VISUAL_ARGS = '--ticks 17500'`, `fo-captures.bat ia1-gui <source>`, puis `$env:FO_VISUAL_ARGS = $null` →
+  « 35 OK » dans `fo-shots\factorio.log` (ATTENTION : `fo-captures.bat` rend 0 même si ce BILAN porte des ECHEC : le lire) ;
 - `ia1-poles` (lot IA1-b, 94 600 ticks) : pôles, crise, orientation, promotion → « [FO-IA1-POLES] BILAN : 17 OK » ;
   `ia1b-scale30` et `ia1b-scale10` (216 000) → 14 OK chacun, puis `python -B tools/autotest/ia1b_livre.py <arch 30>
   <arch 10>` (30 / 10 : 0,95 sur 0.4.26) ; `ia1b-migration` (37 000, DOUBLE SOURCE `FO_CREATE_SRC` =
@@ -568,6 +593,12 @@ inutile dans Claude Code : lancez le `.bat` directement.
 - **F204 à F206** (lot A4-SOCLE) : au plancher, des couches animées vont dans un atlas ordinaire et l'atlas virtuel garde
   12 pages ; la mise au net y est plus lente (jusqu'à 11 s avec 11 socles animés à l'écran) ; `--output-perf-stats` perd
   l'espace du chemin (dossier sans espace).
+- **F251 à F253** (lot IA1-b2) : les PNJ meurent surtout en tournée vers des avant-postes lointains (F251) ; la partie du
+  guide DIVERGE au moindre changement de l'équipe : conclure sur plusieurs graines (F252) ; des tourelles portées par
+  un PNJ tué en route sont perdues (F253).
+- **F263 à F265** (lot IA1-i) : un raccourci nouveau s'ajoute à la FIN de la barre propre au joueur (F263) ;
+  `take_screenshot{show_gui}` suit l'échelle d'affichage du joueur (F264) ; en session de test, une fenêtre peut se
+  fermer sans action du banc (F265).
 - **F239 à F241** (lot IA1-b) : des PNJ au travail hors du QG meurent environ 9 fois plus (F239) ; le travail de fond
   d'une équipe à son effectif de départ peut la perdre (F241) : le fond ne sert qu'au-delà.
 - **F242 à F244** (lot IA1-e1) : lire les débits sur les COMPTEURS (`get_input_count`), la moyenne par minute lit 0,3 à

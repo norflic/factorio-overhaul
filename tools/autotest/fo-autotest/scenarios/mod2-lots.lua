@@ -6,11 +6,14 @@
 -- Cellules (chacune nourrie et vidée par script à chaque tick, sauf mention) ; fenêtre de mesure ticks 600 à 1199 :
 --   A0 témoin : niveau 30, 34 × palier 10, engrenage, posé SANS raise_built (jamais suivi : aucune décision de lot) ;
 --   A  : même machine posée normalement, modules posés par script (aucun événement) : le balayage la passe au lot 100 ;
---   B  : conservation : niveau 30, engrenage, modules changés (0 → 3 → 34 → 3 → 0 × P10 : lots 1 → 10 → 100 → 10 → 1),
+--   B  : conservation : niveau 30, engrenage, modules changés (0 → 6 → 34 → 6 → 0 × P10 : lots 1 → 10 → 100 → 10 → 1 ;
+--        3 modules avant le barème D-17 du lot MOD-3),
 --        objets comptés à chaque bascule et en boucle fermée (plaques versées = 2 × engrenages sortis + reste) ;
 --   C1 : béton (fluide), niveau 30, 34 × P10 (lot 10), eau versée par script, retour au lot 1 au tick 1 250 (boîte
 --        plus petite) : eau, briques et minerai comptés à la bascule ; C2 : même machine nourrie par un tuyau infini ;
---   E  : usine chimique, 3 × P10, acide sulfurique (fluide en entrée ET en sortie) : lot 10 ;
+--   E  : usine chimique, 3 × P10, acide sulfurique (fluide en entrée ET en sortie) : lot 10 avant D-17 ; depuis le
+--        barème D-17 (lot MOD-3), 3 × P10 = × 9,26 : 9,3 fabrications/s, LOT 1 (une usine chimique à 3 emplacements
+--        n'atteint plus 60 /s, même entourée de 12 balises : 22,5 /s au plus) ;
 --   D  : fours (aucun lot : un four choisit sa recette par l'objet entré) : vitesse et plaques/s d'un four électrique
 --        à 2 × P10 entouré de 12 balises à 2 × P10, et d'un four en acier niveau 30 ;
 --   H  : limite logistique : niveau 30, 34 × P10, engrenage, 16 bras empileurs entrants (coffres) et 8 sortants ;
@@ -26,7 +29,9 @@ local CHECK = 2200
 local P10 = "fo-speed-module-10"
 local L30 = "fo-lvl-assembler-30"
 local T_B = { 300, 600, 900, 1300 }          -- B : bascules (modules changés puis relus)
-local B_MODS = { 3, 34, 3, 0 }
+-- Lot MOD-3 (D-17, palier 10 à +110 %) : 6 modules au lieu de 3 pour le lot 10 (6 × P10 = × 85,77 : 427 /s au lot 1,
+-- 42,7 /s au lot 10, sous la descente de 45 /s ; 3 × P10 = × 9,26 ne donnerait plus que 46 /s, lot 1).
+local B_MODS = { 6, 34, 6, 0 }
 local B_STOP = { [900] = 850, [1300] = 1250 } -- B : nourriture coupée avant les descentes
 local T_C1 = 1250
 local T_F, T_FPROF = 1400, 2000
@@ -659,7 +664,9 @@ return {
     local ve = ce.m.crafting_speed
     ctx.log(string.format("MESURE E (usine chimique, 3 x P10) : vitesse %s ; lot %d ; acide %s en %.0f s = %.1f /s (voulu %.1f)", f6(ve), lot_k(ce.m),
       f6(ce.acid), secs, ce.acid / secs, 50 * ve))
-    ctx.check(lot_k(ce.m) == 10 and math.abs(ce.acid / secs - 50 * ve) <= 0.03 * 50 * ve, "E : acide sulfurique au lot 10, debit voulu (fluide en sortie)",
+    -- Lot MOD-3 (D-17) : 3 × P10 = × 9,26, 9,3 fabrications/s : lot 1 (lot 10 avant D-17).
+    ctx.check(lot_k(ce.m) == 1 and ve < 45 and math.abs(ce.acid / secs - 50 * ve) <= 0.03 * 50 * ve,
+      "E : acide sulfurique au lot 1 (D-17 : 3 x P10 = x 9,26, sous 45 /s), debit voulu (fluide en sortie)",
       string.format("%.1f /s", ce.acid / secs))
     -- D : fours.
     local d = st.d
