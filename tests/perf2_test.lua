@@ -1,14 +1,13 @@
 --[[
-  Lot PERF2 : banc HORS JEU de la mémoire courte des refus de la porte (script/ai3/comportement.lua) et du décalage des
-  créneaux de l'ordonnanceur (script/core/scheduler.lua), moteur simulé (même installation que tests/ia3k_moteur_test.lua).
+  Lot PERF2 : banc HORS JEU de la mémoire courte des refus de la porte (script/ai3/comportement.lua), moteur simulé (même
+  installation que tests/ia3k_moteur_test.lua). (Le décalage des créneaux de l'ordonnanceur, essayé puis retiré, n'est plus
+  testé ici.)
     1. Équivalence : avec et sans mémoire (REFUS_TTL = 0), mêmes décisions de la porte, appel par appel, sur trois suites
        (escalade autour d'un but cerné de vers, but à portée d'un ver, morts près du but) ; moins d'itinéraires avec.
     2. Ce qui lève un refus gardé : carte effacée, menace oubliée DANS la boîte du trajet (map.gone_log ; hors de la boîte :
        rejoué), délai, autre case de départ, escorte devenue possible, menace éteinte vue par la SONDE ; minage : changement
        de site retenté au plus toutes les RETARGET_PERIOD ticks par destination (tâche neuve à chaque pensée).
     3. Mutants : rejeu sans compter l'attente (escalade retardée), mémoire qui ignore les oublis, sonde muette.
-    4. Ordonnanceur : le premier membre d'une voie de 300 ticks n'est plus au créneau 1 (tick % 300 = 0) ; deux voies de
-       300 ticks n'ont pas le même créneau ; global sérialisable.
   Lancement : lua5.2 tests/perf2_test.lua (depuis la racine du mod).
 ]]
 package.path = "./?.lua;" .. package.path
@@ -246,38 +245,6 @@ end
 local _, p_s, ok_s = after_refusal(function() global.fo.ia3k.teams["player"].map.threats = {} end)
 MUTANT = nil
 check(not ok_s and p_s == 0, "mutant « sonde muette » : menace éteinte, refus rejoué à tort, vu")
-
----------------------------------------------------------------------------------------------------
-section("4. Ordonnanceur : créneaux décalés")
-setup()
-local lanes = global.fo.sched.lanes
-local slots300 = {}
-for _, name in ipairs({ "fo-pteam", "fo-commander" }) do
-  local st = lanes[name]
-  if st and st.period == 300 then
-    local ids = {}
-    for id in pairs(st.slot_of) do ids[#ids + 1] = id end
-    table.sort(ids, function(a, b) return tostring(a) < tostring(b) end)
-    if ids[1] then
-      local s = st.slot_of[ids[1]]
-      check(s ~= 1, string.format("%s : premier membre au créneau %d (et non 1, tick %% 300 = 0)", name, s))
-      slots300[#slots300 + 1] = { name, s }
-      print(string.format("   %s : créneau %d sur 300", name, s))
-    end
-  end
-end
-check(#slots300 >= 1, "au moins une voie de 300 ticks vue (" .. #slots300 .. ")")
-if #slots300 >= 2 then check(slots300[1][2] ~= slots300[2][2], "deux voies de 300 ticks : créneaux différents") end
-local per = {}
-for _, name in ipairs({ "fo-pteam-prospect" }) do
-  local st = lanes[name]
-  if st then
-    local ids = {}
-    for id in pairs(st.slot_of) do ids[#ids + 1] = id end
-    if ids[1] then per[#per + 1] = st.slot_of[ids[1]] end
-  end
-end
-check(#per == 0 or per[1] >= 1, "voie de 30 ticks : créneau valide")
 
 print(string.format("[PERF2] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
