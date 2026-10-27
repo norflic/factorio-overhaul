@@ -108,13 +108,15 @@ T.ages = {
     part = { 2, 3 }, -- 1 tir sur 3
     bouche = {
       -- (ronde 1 : gerbe_blanche, texture orientée, couchée à l'horizontale quelle que soit la visée : écartée)
-      { source = "explosion-gunshot", echelle = 2.4, teinte = { 0.45, 0.78, 1.00 }, duree = 6,
+      { source = "explosion-gunshot", echelle = 3.0, teinte = { 0.45, 0.78, 1.00 }, duree = 8,
         lumiere = { taille = 12, intensite = 0.70, couleur = { 0.23, 0.66, 1.00 } } },
     },
-    trace = { image = "fin", echelle = 1.00, teinte = { 0.40, 0.75, 1.00 }, vitesse = 2.4, -- trait de plasma
+    -- ronde 2 : trait de plasma fin (3 ticks) en plus de la traçante, qui passait en 4 ticks sans se voir de jour
+    trait = { duree = 3, epaisseur = 1.0, teinte = { 0.35, 0.70, 1.00 }, coeur = { 0.80, 0.92, 1.00 } },
+    trace = { image = "fin", echelle = 1.60, teinte = { 0.40, 0.75, 1.00 }, vitesse = 2.4, -- boule de plasma
       lumiere = { taille = 4, intensite = 0.70, couleur = { 0.23, 0.66, 1.00 } } },
     impact = {
-      { image = "gerbe_blanche", echelle = 2.0, teinte = { 0.55, 0.82, 1.00 }, duree = 12, tourne = true,
+      { image = "gerbe_blanche", echelle = 2.6, teinte = { 0.55, 0.82, 1.00 }, duree = 12, tourne = true,
         lumiere = { taille = 12, intensite = 0.60, couleur = { 0.23, 0.66, 1.00 }, onde = 0.4 },
         etincelles = { source = "pole-spark-particle", nombre = 8, teinte = { 1.00, 1.00, 1.00 }, vitesse = 0.08 } },
     },
