@@ -67,6 +67,21 @@ def piece(g, c):
         g.cyl((0.105 * math.cos(a), 0.105 * math.sin(a), 1.27), "z", 0.015, 0.23, M["blackiron"], n=5, what="barreau")
     # ronde F4-A3 : la nuit de l'âge 1 était presque noire : lanterne plus grosse, halo × 1,8, falots sur les sacs
     cp.halo(g, (0, -0.15, 1.2), M, 9.0)
+    # ronde F4-A4 : la lanterne du milieu restait cachée sous la tête : une seconde, GRANDE, au bout d'une POTENCE de bois
+    # sortie côté sud (vue de face), avec sa corde et son halo
+    # (essai a4q : une jambe de force et une lanterne trop près de la perche enfermaient un jour de 95 px : retirée,
+    # lanterne plus au sud et plus bas)
+    yp = -0.98
+    cp.poutre(g, (0.0, -0.08, za - 0.05), (0.0, yp, za - 0.12), 0.07, M["bois_clair"], "potence")
+    g.tube([(0.0, yp, za - 0.15), (0.0, yp, za - 0.35), (0.0, yp, za - 0.52)], 0.016, M["canvas2"], n=6, what="corde_s")
+    g.cyl((0.0, yp, za - 0.7), "z", 0.15, 0.3, M["emit"], n=12, style="flat", what="lanterne_s")
+    g.cyl((0.0, yp, za - 0.53), "z", 0.17, 0.04, M["blackiron"], n=12, what="chapeau_s")
+    g.cyl((0.0, yp, za - 0.87), "z", 0.16, 0.04, M["blackiron"], n=12, what="fond_s")
+    for k in range(4):
+        a = math.radians(45 + 90 * k)
+        g.cyl((0.15 * math.cos(a), yp + 0.15 * math.sin(a), za - 0.7), "z", 0.018, 0.32, M["blackiron"], n=5,
+              what="barreau_s")
+    cp.halo(g, (0.0, yp - 0.2, za - 0.7), M, 6.0)
     for k in range(3):
         a = math.radians(90 + 120 * k + 30)
         x, y = 0.55 * 1.05 * math.cos(a + 0.45), 0.55 * 1.05 * math.sin(a + 0.45)

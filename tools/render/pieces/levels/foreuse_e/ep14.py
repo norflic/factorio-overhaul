@@ -40,20 +40,20 @@ def tour(g, c):
     zr = H - R - r
     # dais circulaire à deux degrés
     cp.colonne(g, 0, 0, zt, zt + 0.14, rt * 0.95, M["indigo_nuit"], n=40, what="dais")
-    cp.colonne(g, 0, 0, zt + 0.14, zt + 0.26, rt * 0.75, M["blanc_lunaire"], n=40, what="dais")
-    cp.bague(g, 0, 0, zt + 0.14, rt * 0.95, 0.02, M["emit_soft"], ep=0.01, n=40, what="lisere")
-    # ronde F4-A3 : inserts indigo et rivets sur le degré blanc du dais, points d'étoile sur le degré indigo
-    for i in range(24):
-        a = math.tau * (i + 0.5) / 24
-        g.box((rt * 0.62 * math.cos(a), rt * 0.62 * math.sin(a), zt + 0.262), (0.07, 0.07, 0.008), M["indigo_nuit"],
-              "flat", what="insert")
-        g.dome((rt * 0.7 * math.cos(a + 0.13), rt * 0.7 * math.sin(a + 0.13), zt + 0.262), (0, 0, 1), 0.018,
-               M["acier_bleui"], what="rivet")
-    for (rr, nn) in ((0.24, 10), (0.38, 14), (0.5, 18)):
-        for i in range(nn):
-            a = math.tau * (i + 0.5 * (nn % 4)) / nn
-            g.box((rt * rr * math.cos(a), rt * rr * math.sin(a), zt + 0.262), (0.05, 0.05, 0.008), M["indigo_nuit"],
-                  "flat", what="insert")
+    # ronde F4-A4 : le degré blanc du dais est DÉCOUPÉ en 16 secteurs × 3 bandes (blanc lunaire et indigo en damier,
+    # joints, rivets aux coins) : la grande plage blanche lisse pesait sur la charte (54 % de la mitrailleuse en A3)
+    cp.colonne(g, 0, 0, zt + 0.14, zt + 0.2, rt * 0.75, M["indigo_nuit2"], n=40, what="dais_fond")
+    bandes = ((0.26, 0.5), (0.5, 0.74), (0.74, 1.0))
+    for i in range(16):
+        a0, a1 = math.tau * i / 16 + 0.012, math.tau * (i + 1) / 16 - 0.012
+        for kb, (f0, f1) in enumerate(bandes):
+            r0, r1 = rt * 0.75 * f0 + 0.01, rt * 0.75 * f1 - 0.01
+            quad = [(r0 * math.cos(a0), r0 * math.sin(a0)), (r1 * math.cos(a0), r1 * math.sin(a0)),
+                    (r1 * math.cos(a1), r1 * math.sin(a1)), (r0 * math.cos(a1), r0 * math.sin(a1))]
+            pts = [cp.V((x, y, zt + 0.2)) for x, y in quad] + [cp.V((x, y, zt + 0.26)) for x, y in quad]
+            g.hexa(pts, M["blanc_lunaire"] if (i + kb) % 2 == 0 else M["indigo_nuit"], "hard", "secteur_dais")
+            for (x, y) in quad[1:3]:
+                g.dome((x * 0.96, y * 0.96, zt + 0.26), (0, 0, 1), 0.02, M["acier_bleui"], what="rivet")
     for i in range(40):
         a = math.tau * (i + 0.25) / 40
         g.dome((rt * 0.86 * math.cos(a), rt * 0.86 * math.sin(a), zt + 0.142), (0, 0, 1), 0.016, M["emit"], n=6)
@@ -63,6 +63,19 @@ def tour(g, c):
         # anneau vertical, membrane d'horizon, chevrons
         g.torus((0, 0, zr), axe, R, r, M["blanc_lunaire"], n=48, m=10, what="anneau")
         g.cyl((0, 0, zr), axe, R - r * 0.4, 0.05, M["horizon_porte"], n=48, what="horizon")
+        # ronde F4-A4 : anneau à SEGMENTS (joints indigo autour du tube, 24) et RIVETS sur ses deux faces (144)
+        for i in range(24):
+            a = math.tau * (i + 0.5) / 24
+            u, w = R * math.cos(a), R * math.sin(a)
+            tg = (-math.sin(a), 0.0, math.cos(a)) if axe == "y" else (0.0, -math.sin(a), math.cos(a))
+            pj = (u, 0.0, zr + w) if axe == "y" else (0.0, u, zr + w)
+            g.cyl(pj, tg, r * 1.12, 0.03, M["indigo_nuit2"], n=12, style="hard", what="joint_anneau")
+            for s in (-1, 1):
+                for da in (-0.09, 0.0, 0.09):
+                    uu, ww = R * math.cos(a + da), R * math.sin(a + da)
+                    pr = (uu, s * r * 0.95, zr + ww) if axe == "y" else (s * r * 0.95, uu, zr + ww)
+                    nr = (0, s, 0) if axe == "y" else (s, 0, 0)
+                    g.dome(pr, nr, 0.018, M["acier_bleui"], what="rivet_anneau")
         for i in range(24):     # ronde F4-A3 : 12 → 24 chevrons
             a = math.tau * i / 24
             u, w = R * math.cos(a), R * math.sin(a)
