@@ -540,7 +540,7 @@ function Ia3.plan(f, view, book, surface, tick)
   end
   -- Plancher de fer des packs (garde de l'économie, revue B3) : fer d'un avant-poste de fer tant que « fer II » manque.
   local iron_floor = 0
-  if not st.iron2_done then
+  if not st.iron2_done and not st.economy_ok then -- lot IA-V2 : plancher levé aussi quand l'économie couvre le besoin
     local raw = book:raw_cost(Planner.outpost_items("iron"))
     iron_floor = math.ceil(raw[P.IRON] or 0)
   end
