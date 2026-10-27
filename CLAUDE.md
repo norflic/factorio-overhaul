@@ -60,7 +60,10 @@ avant tout travail.
    `<racine>\fo-autotest.lock` (code de sortie 2 s'il est pris). `fo-autotest.bat`
    **efface `fo-autotest\`** à chaque lancement : copiez vos journaux avant le banc suivant. Un verrou
    orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest`) se supprime avec
-   `rmdir`.
+   `rmdir`. **Depuis le 27/10, tout agent lance ses bancs par la FILE D'ATTENTE** :
+   `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>] [--son] [--captures]
+   [--visuel "<args>"] --qui <lot> -- <ticks> <scenario> <source>` (premier arrivé, premier servi ; le verrou est tenu
+   jusqu'à la fin de l'archivage ; `--file` montre la file). Ne plus appeler `fo-autotest.bat` en boucle soi-même.
 5. Aucune donnée personnelle, aucun identifiant, rien à publier.
 6. **Blender uniquement par le verrou de rendu** : `python tools/render/with_render_lock.py -- <commande>`.
    Au plus 2 rendus à la fois sur le PC, en priorité inférieure à la normale pour ne pas gêner une partie
