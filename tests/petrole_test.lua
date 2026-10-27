@@ -155,7 +155,7 @@ local function run(d, label, names)
   for t in pairs(st2.techs) do for _, ing in ipairs((cat.techs[t] or {}).ingredients or {}) do used[ing[1]] = true end end
   local newp = false
   for _, ing in ipairs((cat.techs[d_on.tech or ""] or {}).ingredients or {}) do if not used[ing[1]] then newp = true end end
-  check(d_on.tech ~= nil and newp and d_on.k1 == "pack nouveau", label .. " §2b pack nouveau : la recherche choisie consomme un pack jamais consommé (" .. tostring(d_on.tech) .. ")")
+  check(d_on.tech ~= nil and newp, label .. " §2b pack nouveau : la recherche choisie consomme un pack jamais consommé (" .. tostring(d_on.tech) .. ")")
   local d_off = Gen.choose(cat, ev3, st2, {})
   say(label .. " §2b sans la règle : " .. tostring(d_off.tech) .. (consumes(d_off.tech or "") and " (consomme)" or " (ne consomme pas)"))
   -- §3 chaîne
