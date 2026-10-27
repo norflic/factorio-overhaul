@@ -38,6 +38,7 @@ local M = {}
 M.SETTING = "fo-war-ia3-comportement"
 M.SALT = 470
 M.HOME_SAFE = 32        -- pas de regard à moins de 32 tuiles du QG (il est défendu)
+M.HOME_DEATH_R = 48     -- une mort à moins de 48 tuiles du QG : attaque du QG, sans effet sur la carte (D.mark_death)
 M.WP_RADIUS = 2         -- rayon d'arrivée d'un point de passage
 M.WP_REACH = 4          -- point de passage atteint à 4 tuiles (8 coupait les virages : banc route-20261020-4e6303a)
 M.GROUP_R = 24          -- un regard qui voit un ennemi marque aussi les autres ennemis à moins de 24 tuiles de lui
@@ -825,7 +826,9 @@ Registry.on_removed(function(agent)
   local t = M.team(f)
   -- Morts tuées par un ennemi seulement (« cause/force:dégâts »).
   if agent.death_cause and agent.death_cause:find("/", 1, true) then
-    D.mark_death(t.map, agent.death_pos.x, agent.death_pos.y, game.tick)
+    local at_home = f.hq_pos and d2(agent.death_pos, f.hq_pos) <= M.HOME_DEATH_R * M.HOME_DEATH_R
+    D.mark_death(t.map, agent.death_pos.x, agent.death_pos.y, game.tick, at_home)
+    if at_home then t.stats.deaths_home = (t.stats.deaths_home or 0) + 1 end
     t.epoch = t.epoch + 1
     t.stats.deaths = t.stats.deaths + 1
     log(string.format("[FO-IA3K] %s : mort marquee en (%d, %d) (%s), %d mort(s) de l'heure a moins de %d tuiles",

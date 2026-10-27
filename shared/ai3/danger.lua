@@ -144,13 +144,16 @@ function D.mark_attack(map, x, y, tick)
   add_mobile(map, x, y, D.ATTACK_R, D.ATTACK_W, tick)
 end
 
---- Mort d'un PNJ de l'équipe en (x, y).
-function D.mark_death(map, x, y, tick)
+--- Mort d'un PNJ de l'équipe en (x, y). `home` : mort au QG (attaque du QG) : gardée et comptée, mais elle ne marque ni le
+--- champ ni la règle de l'heure (sinon chaque trajet, qui part du QG, verrait « des morts sur sa route » et l'équipe
+--- entière attendrait une heure : banc final-a805b65 memoire-123456789, 649 refus après 3 morts au QG). Le QG relève de
+--- la défense (C7), pas de l'évitement.
+function D.mark_death(map, x, y, tick, home)
   local keep = {}
   for _, d in ipairs(map.deaths) do
     if tick - d.t < D.HOUR then keep[#keep + 1] = d end
   end
-  keep[#keep + 1] = { x = x, y = y, t = tick }
+  keep[#keep + 1] = { x = x, y = y, t = tick, home = home or nil }
   while #keep > D.MAX_DEATHS do table.remove(keep, 1) end
   map.deaths = keep
 end
@@ -194,7 +197,7 @@ function D.field(map, tick, box)
     if w > 0 then cells_within(t.x, t.y, t.r + D.MARGIN, function(cx, cy) add(cx, cy, w) end) end
   end
   for _, d in ipairs(map.deaths) do
-    local w = death_w(d, tick)
+    local w = d.home and 0 or death_w(d, tick)
     if w > 0 then cells_within(d.x, d.y, D.DEATH_R, function(cx, cy) add(cx, cy, w) end) end
   end
   -- Cases mobiles : clés triées (aucun ordre de pairs).
@@ -223,7 +226,7 @@ function D.danger_exact(map, x, y, tick)
   end
   for _, d in ipairs(map.deaths) do
     local dx, dy = d.x - x, d.y - y
-    if dx * dx + dy * dy <= D.DEATH_R * D.DEATH_R then s = s + death_w(d, tick) end
+    if not d.home and dx * dx + dy * dy <= D.DEATH_R * D.DEATH_R then s = s + death_w(d, tick) end
   end
   local c = map.cells[D.key(D.cell(x), D.cell(y))]
   if c then s = s + mobile_now(c, tick) end
@@ -241,7 +244,7 @@ end
 function D.deaths_near(map, pts, r, tick)
   local r2, n = r * r, 0
   for _, d in ipairs(map.deaths) do
-    if tick - d.t < D.HOUR then
+    if tick - d.t < D.HOUR and not d.home then
       for _, p in ipairs(pts) do
         local dx, dy = p.x - d.x, p.y - d.y
         if dx * dx + dy * dy <= r2 then n = n + 1 break end

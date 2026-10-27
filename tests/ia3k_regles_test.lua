@@ -96,6 +96,14 @@ local function suite()
   D.mark_death(md, 55, 52, 10 * MIN)
   check(D.deaths_near(md, { { x = 52, y = 50 } }, D.HOUR_R, 20 * MIN) == 2, "deux morts au même endroit dans l'heure")
 
+  local mh = D.new()
+  D.mark_death(mh, 0, 0, 0, true)
+  D.mark_death(mh, 1, 1, 10, true)
+  D.mark_death(mh, 2, 0, 20, true)
+  check(#mh.deaths == 3 and D.deaths_near(mh, { { x = 0, y = 0 } }, D.HOUR_R, 30) == 0,
+    "morts au QG (attaque du QG) : gardées, mais hors de la règle de l'heure")
+  check(D.danger_at(mh, 0, 0, 30) == 0 and D.danger_exact(mh, 0, 0, 30) == 0, "morts au QG : aucun danger sur la carte")
+
   section("danger : nid nettoyé oublié")
   local mf = D.new()
   D.mark_seen(mf, 10, 0, "spawner", 24, 0)
