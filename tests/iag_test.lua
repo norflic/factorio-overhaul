@@ -253,6 +253,45 @@ local function run_all()
   check(decide(cat_d2, F.start_state()).tech == nil, "§6d bis laboratoire à l'acier verrouillé : aucune recherche (impasse vue)")
   -- e. Aucune ligne de code de plus : les quatre variantes ont tourné sur les mêmes modules (vérifié par §8).
   check(true, "§6e mêmes modules pour les quatre variantes")
+  -- f. Lot CHAÎNE : un CYCLE de recettes dans les données (la plaque de fer depuis l'engrenage, trois pour un, énergie 0 :
+  -- le coût de choix préfère la boucle). Le dépliage finit de lui-même, sans fabriquer la plaque par la boucle.
+  local function loop(from, to, n)
+    return { category = "crafting", energy = 0, hidden = false, enabled = true,
+      ingredients = { { type = "item", name = from, amount = 1 } }, products = { { type = "item", name = to, amount = n } } }
+  end
+  local _, sum_v = key_of(cat, F.start_state(), d.tech)
+  local cat_f = with(function(dd) dd.recipes["ia-chaine-plaque"] = loop("iron-gear-wheel", "iron-plate", 3) end)
+  local key_f, sum_f = key_of(cat_f, F.start_state(), d.tech)
+  check(not sum_f.truncated and sum_f.nodes <= sum_v.nodes * 2 + 10 and (sum_f.hand["iron-plate"] or 0) == 0,
+    "§6f cycle plaque <-> engrenage : dépliage fini (" .. sum_f.nodes .. " noeuds contre " .. sum_v.nodes .. "), plaque jamais fabriquée par la boucle")
+  check(table.concat(key_f.order, ",") == table.concat(key.order, ","), "§6f le cycle ne change pas l'ordre des avant-postes")
+  -- g. Tous les gisements d'une ressource interdits (le combustible : la foreuse le brûle aussi) : fini, aucune cause en
+  -- « ?<machine> », aucune boucle (une autre voie, le bois, peut encore rendre le but payable).
+  local coal = T.fuel
+  local st_g = F.start_state({ unknown = { coal } })
+  st_g.stock[coal] = nil
+  local d_g, _, ev_g = decide(cat, st_g)
+  local sum_g = Gen.summary(cat, ev_g, st_g, ref_goals(d.tech))
+  local qmark = false
+  for _, c in ipairs(sum_g.causes) do if c:sub(1, 1) == "?" then qmark = true end end
+  for _, b in ipairs(d_g.blocked) do
+    local sg = Gen.summary(cat, ev_g, st_g, { { tech = b.tech } })
+    for _, c in ipairs(sg.causes) do if c:sub(1, 1) == "?" then qmark = true end end
+  end
+  check(not sum_g.truncated and not qmark and sum_g.nodes < 400, "§6g combustible sans gisement : fini (" .. sum_g.nodes .. " noeuds), aucune cause en « ?<machine> »")
+  -- h. Trois recettes circulaires (x <- y <- z <- x, trois pour un, énergie 0), une seule entrée (z depuis la plaque de
+  -- fer), et l'engrenage exige x : le coût de choix préfère la boucle à l'entrée.
+  local cat_h = with(function(dd)
+    dd.recipes["ia-chaine-1"] = loop("ia-y", "ia-x", 3)
+    dd.recipes["ia-chaine-2"] = loop("ia-z", "ia-y", 3)
+    dd.recipes["ia-chaine-3"] = loop("ia-x", "ia-z", 3)
+    dd.recipes["ia-entree"] = loop("iron-plate", "ia-z", 1)
+    local g = dd.recipes["iron-gear-wheel"]
+    g.ingredients[#g.ingredients + 1] = { type = "item", name = "ia-x", amount = 1 }
+  end)
+  local _, sum_h = key_of(cat_h, F.start_state(), d.tech)
+  check(not sum_h.truncated and sum_h.nodes <= sum_v.nodes * 2 + 20 and (sum_h.hand["ia-x"] or 0) > 0,
+    "§6h trois recettes circulaires : dépliage fini (" .. sum_h.nodes .. " noeuds), l'objet est obtenu par l'entrée")
 
   -- §7 Ressource connue plus tard : un gisement découvert rend payable ce qui ne l'était pas.
   local st_k = F.start_state({ unknown = { T.outposts.copper.resource } })
@@ -324,6 +363,11 @@ do
   M("objet impossible compté plein", function() Gen.LATER_DIV = 1 end, function() Gen.LATER_DIV = ld0 end)
   local cost0 = Gen.cost
   M("coût ignoré (valeur seule)", function() Gen.cost = function() return 0 end end, function() Gen.cost = cost0 end)
+  local GR = require("shared.ai3.graphe")
+  local mr0 = GR.MAX_RETRIES
+  M("reprises après cycle interdites", function() GR.MAX_RETRIES = 0 end, function() GR.MAX_RETRIES = mr0 end)
+  local md0 = GR.MAX_DEPTH
+  M("profondeur maximale à 2", function() GR.MAX_DEPTH = 2 end, function() GR.MAX_DEPTH = md0 end)
 end
 check(n_caught == n_mut, string.format("mutants : %d refusés sur %d", n_caught, n_mut))
 
