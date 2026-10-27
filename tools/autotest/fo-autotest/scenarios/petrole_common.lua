@@ -17,7 +17,8 @@ local OIL = { "pumpjack", "oil-refinery", "chemical-plant" }
 local PACK = "chemical-science-pack"
 
 return function(variant, ticks)
-  local base = require("scenarios/iag_common")(variant == "photo" and "partie" or "partie", ticks)
+  local base = require("scenarios/iag_common")("partie", ticks)
+  local photo = variant:find("photo", 1, true) ~= nil
   local CHECK = (ticks or 432000) - 600
   base.check_tick = CHECK
   base.description = "PETROLE : aller au petrole (reglage fo-war-petrole allume, " .. variant .. ")"
@@ -78,7 +79,7 @@ return function(variant, ticks)
   base.tick = function(ctx, e)
     tick0(ctx, e)
     if e.tick % 36000 == 0 and e.tick > 0 then report(ctx, e.tick) end
-    if variant == "photo" and e.tick == CHECK - 300 then
+    if photo and e.tick == CHECK - 300 then
       local s = ctx.surface()
       local p = game.connected_players[1]
       for _, row in ipairs(factions()) do
