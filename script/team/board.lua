@@ -93,7 +93,7 @@ local function bump(f, k, n)
 end
 
 -- Liste prise STRICTEMENT par le programme de l'ouvrier (script/team/worker.lua, étape « take » avec strict = true).
-local STRICT = { craft = "uses", build = "items", extend = "items", fortify = "items", smelters = "items" }
+local STRICT = { craft = "uses", build = "items", extend = "items", fortify = "items", smelters = "items", equiper = "items" }
 function Board.strict_list(t)
   local fld = STRICT[t.kind]
   return fld and t[fld] or nil

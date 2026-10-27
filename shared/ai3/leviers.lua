@@ -74,10 +74,10 @@ end
 ---   techs = { [technologie] = { { type = …, modifier = … }, … } } }
 --- dump.techs[t] : count, time, ingredients { {pack, n} }, prerequisites (relevé de la règle).
 function Lv.build(lv, dump, D)
-  local L = { modules = {}, cand = {}, slots = {}, techs = {}, tech_list = {} }
+  local L = { equip = {}, cand = {}, slots = {}, techs = {}, tech_list = {} }
   if type(lv) ~= "table" then return L end
-  for _, name in ipairs(sorted_keys(lv.modules)) do
-    local m = lv.modules[name]
+  for _, name in ipairs(sorted_keys(lv.equip)) do
+    local m = lv.equip[name]
     local e = {}
     local keys = {}
     for _, ef in ipairs(sorted_keys(m.effects)) do
@@ -87,7 +87,7 @@ function Lv.build(lv, dump, D)
         keys[#keys + 1] = ef
       end
     end
-    L.modules[name] = { name = name, eff = e, keys = keys, limit = m.limit and set_of(m.limit) or nil }
+    L.equip[name] = { name = name, eff = e, keys = keys, limit = m.limit and set_of(m.limit) or nil }
     -- candidat : un module qui augmente la vitesse ou la productivité
     if (e.speed or 0) > 0 or (e.productivity or 0) > 0 then L.cand[#L.cand + 1] = name end
   end
@@ -119,13 +119,13 @@ end
 local function effect_list(L, mods, add, add_n)
   local list = {}
   for _, nm in ipairs(sorted_keys(mods)) do
-    local m = L.modules[nm]
+    local m = L.equip[nm]
     if m then
       for _ = 1, mods[nm] do list[#list + 1] = { speed = m.eff.speed, consumption = m.eff.consumption, productivity = m.eff.productivity } end
     end
   end
   if add then
-    local m = L.modules[add]
+    local m = L.equip[add]
     for _ = 1, add_n or 0 do list[#list + 1] = { speed = m.eff.speed, consumption = m.eff.consumption, productivity = m.eff.productivity } end
   end
   return list
@@ -147,7 +147,7 @@ function Lv.factors(D, g)
   return s / 100, p / 100
 end
 
-local function mods_sig(mods)
+function Lv.sig(mods)
   local parts = {}
   for _, nm in ipairs(sorted_keys(mods)) do parts[#parts + 1] = nm .. "*" .. mods[nm] end
   return #parts > 0 and table.concat(parts, "+") or "-"
@@ -281,17 +281,17 @@ local function group_options(Ca, ctx, plan, req, g, is_drill, out)
   local Ri = req.R[item] or 0
   if Ri <= 0 then return end
   local kind_name = is_drill and ("foreuse " .. g.entity) or (g.entity .. "/" .. tostring(g.recipe))
-  local key = string.format("modules:%s:%s:%s:%s", g.entity, tostring(is_drill and g.resource or g.recipe), where,
-    mods_sig(mods))
+  local key = string.format("equiper:%s:%s:%s:%s", g.entity, tostring(is_drill and g.resource or g.recipe), where,
+    Lv.sig(mods))
   if Ca.taken(plan, key) then return end
   -- Où : au QG, ou sur un gisement (déplacement, danger, épuisement).
   local f = nil
   if where ~= Ca.HQ then
     for _, dd in ipairs(ctx.deposits) do if tostring(dd.id) == where then f = dd end end
-    if ctx.threat then H.refuse(ctx, key, "modules", item, "menace : leviers du QG seulement") return end
+    if ctx.threat then H.refuse(ctx, key, "equiper", item, "menace : leviers du QG seulement") return end
     if f then
-      local why = Ca.usable(ctx, f, "modules")
-      if why then H.refuse(ctx, key, "modules", item, "gisement " .. where .. " : " .. why) return end
+      local why = Ca.usable(ctx, f, "equiper")
+      if why then H.refuse(ctx, key, "equiper", item, "gisement " .. where .. " : " .. why) return end
     end
     if plan.dead[where] then return end
   end
@@ -325,9 +325,9 @@ local function group_options(Ca, ctx, plan, req, g, is_drill, out)
   local best, best_mk = nil, nil
   local reasons = {} -- raison de refus de chaque module essayé (une clé d'ordre, plusieurs modules : on garde toutes les raisons)
   for _, nm in ipairs(L.cand) do
-    local m = L.modules[nm]
+    local m = L.equip[nm]
     if module_fits(L, m, sl, (not is_drill) and r.name or nil) and D.mu[nm] then
-      local mk_key = g.entity .. "|" .. tostring(is_drill and g.resource or g.recipe) .. "|" .. mods_sig(mods) .. "|" .. nm .. "*" .. free
+      local mk_key = g.entity .. "|" .. tostring(is_drill and g.resource or g.recipe) .. "|" .. Lv.sig(mods) .. "|" .. nm .. "*" .. free
       local fac = ctx.lv_fac[mk_key]
       if not fac then
         local s_n, p_n, e_n = factors_of(effect_list(L, mods, nm, free))
@@ -337,12 +337,12 @@ local function group_options(Ca, ctx, plan, req, g, is_drill, out)
       local s_n, p_n, e_n = fac[1], fac[2], fac[3]
       local per_machine = rho1 * (s_n * p_n - s_o * p_o) / 10000  -- sortie de plus par machine (par minute)
       if per_machine > Ca.EPS then
-        local obtainable = Ca.obtainable(ctx, nm) and (not ce or not ce("modules", nm))
+        local obtainable = Ca.obtainable(ctx, nm) and (not ce or not ce("equiper", nm))
         local k_need = math.max(1, math.min(n_g, math.ceil((math.max(def, 0) + lead_room * Ca.AHEAD_PCT / 100) / per_machine - Ca.EPS)))
         local function mk(k)
-          local o = { kind = "modules", key = key, item = item, entity = g.entity, recipe = (not is_drill) and r.name or nil,
+          local o = { kind = "equiper", key = key, item = item, entity = g.entity, recipe = (not is_drill) and r.name or nil,
             resource = is_drill and g.resource or nil, deposit = (where ~= Ca.HQ) and where or nil, where = where, n = k,
-            module = nm, per = free, depth = (req.depth[item] or 0) + 50, share = sh, tier = "modules" }
+            module = nm, per = free, sig = Lv.sig(mods), depth = (req.depth[item] or 0) + 50, share = sh, tier = "equiper" }
           local items = { { nm, k * free } }
           o.items = items
           o.cost_m, o.unpaid = H.items_mu(ctx, items)
@@ -370,7 +370,7 @@ local function group_options(Ca, ctx, plan, req, g, is_drill, out)
           local s_eff = s_o + frac * (s_n - s_o)
           local d_out = k * rho1 * (s_eff * p_n - s_o * p_o) / 10000
           if d_out <= Ca.EPS then
-            H.refuse(ctx, key, "modules", item, "l'entree manque : un module de vitesse n'ajouterait rien")
+            H.refuse(ctx, key, "equiper", item, "l'entree manque : un module de vitesse n'ajouterait rien")
             return nil
           end
           local useful = math.min(d_out, math.max(0, def))
@@ -383,7 +383,7 @@ local function group_options(Ca, ctx, plan, req, g, is_drill, out)
           if ent.energy == "electric" and ctx.input.power then
             local room_kw = plan.kw_have - plan.kw_used
             if d_kw > room_kw + Ca.EPS then
-              H.refuse(ctx, key, "modules", item, "courant insuffisant (" .. fmt(d_kw) .. " kW de plus)")
+              H.refuse(ctx, key, "equiper", item, "courant insuffisant (" .. fmt(d_kw) .. " kW de plus)")
               return nil
             end
           end
@@ -418,7 +418,7 @@ local function group_options(Ca, ctx, plan, req, g, is_drill, out)
   elseif #reasons > 0 then
     local keep = {}
     for i = 1, math.min(Lv.REPLI_REFUS, #reasons) do keep[i] = reasons[i] end
-    H.refuse(ctx, key, "modules", item, table.concat(keep, " ; "))
+    H.refuse(ctx, key, "equiper", item, table.concat(keep, " ; "))
   end
 end
 
@@ -547,7 +547,7 @@ end
 
 --- Applique un ordre « modules » ou « techno » au plan (pour son reste à poser).
 function Lv.apply(ctx, plan, o)
-  if o.kind == "modules" then
+  if o.kind == "equiper" then
     local frac = 1
     if o.n_left and o.n and o.n > 0 then frac = o.n_left / o.n end
     if o.d_item and o.d_out then plan.N[o.d_item] = (plan.N[o.d_item] or 0) + o.d_out * frac end
@@ -593,13 +593,13 @@ function Lv.repli(Ca, ctx, plan, req, orders)
   if #blocked == 0 then return nil end
   local levers, refus = {}, {}
   for _, o in ipairs(orders) do
-    if (o.kind == "modules" or o.kind == "techno") and o.repli then
+    if (o.kind == "equiper" or o.kind == "techno") and o.repli then
       levers[#levers + 1] = { key = o.key, kind = o.kind, T = o.T, why = o.why }
     end
   end
   for _, k in ipairs(sorted_keys(ctx.refus)) do
     local r = ctx.refus[k]
-    if (r.kind == "modules" or r.kind == "techno") and #refus < Lv.REPLI_REFUS then
+    if (r.kind == "equiper" or r.kind == "techno") and #refus < Lv.REPLI_REFUS then
       refus[#refus + 1] = { key = r.key, why = r.why }
     end
   end

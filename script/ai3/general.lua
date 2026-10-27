@@ -401,8 +401,11 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   end
   local speed = 1
   for _, l in ipairs(c.labs) do speed = math.max(speed, l.speed or 1) end
+  -- Lot LEVIERS : recherches à effet choisies par la capitalisation (script/ai3/capitalisation.lua), lues à l'appel.
+  local Capi = package.loaded["script.ai3.capitalisation"]
+  local levers = Capi and Capi.techs_wanted and Capi.techs_wanted(f) or nil
   local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
-    k1 = k1 or nil })
+    k1 = k1 or nil, levers = levers })
   -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
   -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
   local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })

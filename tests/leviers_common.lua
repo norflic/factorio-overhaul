@@ -56,9 +56,9 @@ C.TECHS = {
 
 --- Relevé `lv` (ce que script/ai3/capitalisation.lua lit sur les prototypes en jeu).
 function C.lv(mut)
-  local lv = { modules = {}, slots = {}, techs = {} }
+  local lv = { equip = {}, slots = {}, techs = {} }
   for name, e in pairs(C.MODULES) do
-    lv.modules[name] = { effects = { speed = e.speed, consumption = e.consumption, productivity = e.productivity,
+    lv.equip[name] = { effects = { speed = e.speed, consumption = e.consumption, productivity = e.productivity,
       pollution = e.pollution }, limit = e.limit and C.PROD_LIMIT or nil }
   end
   for ent, n in pairs(C.SLOTS) do

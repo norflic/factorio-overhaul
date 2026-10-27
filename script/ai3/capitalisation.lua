@@ -51,6 +51,9 @@ local Profiler = require("script.core.profiler")
 local General = require("script.ai3.general")
 local Auto = require("script.ai3.automatisation")
 local Build = require("script.team.build")
+local Equip = require("script.team.equiper") -- lot LEVIERS : tâche « equiper »
+local Lv = require("shared.ai3.leviers")
+local MM = require("shared.content.module_mult")
 
 local Capi = {}
 
@@ -67,6 +70,8 @@ Capi.QUEUE_MAX = 12          -- technologies au plus dans la file de recherche v
 Capi.BACKOFF = 10 * 3600     -- un produit refusé par le plan directeur n'est plus demandé pendant 10 min × 2^(refus - 1),
 Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes refusées d'un même produit en 50 min, un plan
                              -- coûte 25 à 40 ms : comme AUTO, un refus vaut tant que le contexte n'a pas changé)
+Capi.EQUIP_BATCH = 6         -- lot LEVIERS : machines équipées par tâche de PNJ (Equip.BATCH)
+Capi.UNITS_MAX = 48          -- lot LEVIERS : machines gardées par groupe au relevé (positions, pour la tâche « equiper »)
 Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
                              -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »).
                              -- 3 avant le banc p4 : le plan directeur RÉSERVE au coffre toute la matière d'un module dès sa
@@ -111,6 +116,39 @@ Auto.decide_off = function(f) return Capi.on(f) end
 local data_cache = {}
 local elec_drill = nil
 
+--- Lot LEVIERS : relevé des modules (effets en centièmes, recettes permises), des emplacements de chaque machine et des
+--- recherches à effet (types de R.LEVER_EFFECT) : ce que lit shared/ai3/leviers.lua (Lv.build). Prototypes seulement.
+local function lever_dump(d)
+  local lv = { equip = {}, slots = {}, techs = {} }
+  local protos = game.get_filtered_item_prototypes({ { filter = "type", type = R.ITEM_MODULE } })
+  for _, name in ipairs(sorted_keys(protos)) do
+    -- les modules cachés du complément de la balise (MOD-0) ne sont pas à vendre
+    if name:sub(1, #MM.PREFIX) ~= MM.PREFIX then
+      local p = protos[name]
+      local eff, me = {}, get(p, "module_effects") or {}
+      for _, ef in ipairs(sorted_keys(me)) do eff[ef] = MM.runtime_cents(me[ef].bonus) end
+      local lim = get(p, "limitations")
+      lv.equip[name] = { effects = eff, limit = (lim and #lim > 0) and lim or nil }
+    end
+  end
+  for _, e in ipairs(d.entities) do
+    local p = game.entity_prototypes[e.name]
+    local n = p and get(p, "module_inventory_size") or 0
+    if n and n > 0 then lv.slots[e.name] = { n = n, allowed = get(p, "allowed_effects") or {} } end
+  end
+  for _, name in ipairs(sorted_keys(game.technology_prototypes)) do
+    local t = game.technology_prototypes[name]
+    if not t.research_unit_count_formula then
+      local list = {}
+      for _, e in ipairs(t.effects or {}) do
+        if R.LEVER_EFFECT[e.type] and e.modifier then list[#list + 1] = { type = e.type, modifier = e.modifier } end
+      end
+      if #list > 0 then lv.techs[name] = list end
+    end
+  end
+  return lv
+end
+
 local function dump_full()
   local d = General.dump()
   for _, e in ipairs(d.entities) do
@@ -130,6 +168,7 @@ local function dump_full()
     local mp = p and get(p, "mineable_properties")
     r.mining_time = (mp and mp.mining_time) or 1
   end
+  d.lv = lever_dump(d)
   return d
 end
 
@@ -235,6 +274,17 @@ local function dep_at(cs, res, x, y)
   return nil
 end
 
+--- Lot LEVIERS : modules posés dans une machine ({ [objet] = nombre } ou nil) et leur signature (clé de groupe).
+local function modules_of(e)
+  local ok, inv = pcall(function() return e.get_module_inventory() end)
+  if not ok or not inv or #inv == 0 then return nil, "-" end
+  local c = inv.get_contents()
+  if next(c) == nil then return nil, "-" end
+  local mods = {}
+  for _, nm in ipairs(sorted_keys(c)) do mods[nm] = c[nm] end
+  return mods, Lv.sig(mods)
+end
+
 local function scan(f, cs, tick)
   local surface = f.hq.surface
   local hq = f.hq_pos
@@ -264,9 +314,14 @@ local function scan(f, cs, tick)
       if res then
         local d = dep_at(cs, res, p.x, p.y)
         local did = d and d.id or "?"
-        local k = e.name .. "|" .. res .. "|" .. did
-        if not dk[k] then dk[k] = { entity = e.name, resource = res, n = 0, deposit = did } drills[#drills + 1] = dk[k] end
+        local mods, sig = modules_of(e)
+        local k = e.name .. "|" .. res .. "|" .. did .. "|" .. sig
+        if not dk[k] then
+          dk[k] = { entity = e.name, resource = res, n = 0, deposit = did, mods = mods, sig = sig, units = {} }
+          drills[#drills + 1] = dk[k]
+        end
         dk[k].n = dk[k].n + 1
+        if #dk[k].units < Capi.UNITS_MAX then dk[k].units[#dk[k].units + 1] = { x = p.x, y = p.y, u = e.unit_number } end
         drill_pos[#drill_pos + 1] = { x = p.x, y = p.y, r = get(e.prototype, "mining_drill_radius") or 1, res = res, dep = did }
       end
     elseif role == "labo" then
@@ -286,9 +341,14 @@ local function scan(f, cs, tick)
           end
           if where == "?" then where = "loin" end
         end
-        local k = e.name .. "|" .. r.name .. "|" .. where
-        if not mk[k] then mk[k] = { entity = e.name, recipe = r.name, n = 0, where = where } machines[#machines + 1] = mk[k] end
+        local mods, sig = modules_of(e)
+        local k = e.name .. "|" .. r.name .. "|" .. where .. "|" .. sig
+        if not mk[k] then
+          mk[k] = { entity = e.name, recipe = r.name, n = 0, where = where, mods = mods, sig = sig, units = {} }
+          machines[#machines + 1] = mk[k]
+        end
         mk[k].n = mk[k].n + 1
+        if #mk[k].units < Capi.UNITS_MAX then mk[k].units[#mk[k].units + 1] = { x = p.x, y = p.y, u = e.unit_number } end
       end
     end
   end
@@ -612,7 +672,9 @@ local function build_input(f, cs, view, book, tick, D, w)
     open[#open + 1] = { key = o.key, kind = o.kind, item = o.item, resource = o.resource, deposit = o.deposit,
       entity = o.entity, n = o.n, n_left = o.n_left or o.n, rate = o.rate, where = o.where, smelt_n = o.smelt_n,
       smelt_left = o.smelt_left, smelt_recipe = o.smelt_recipe, smelt_entity = o.smelt_entity, missing = o.missing or {},
-      work_left = o.work_left, value = o.value }
+      work_left = o.work_left, value = o.value,
+      -- lot LEVIERS : ce que l'ordre ajoute au plan tant qu'il n'est pas fini
+      tech = o.tech, d_item = o.d_item, d_out = o.d_out, d_in = o.d_in, d_kw = o.d_kw, d_fuel = o.d_fuel }
   end
   local research, nlabs = research_of(f, cs)
   cs.nlabs = nlabs
@@ -629,6 +691,19 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- affamés sur 26 (aucune tâche de fonte ne les nourrit sans manque). La fonte au débit des foreuses passe par les
     -- fonderies à foreuses (ordre « couvrir » : leurs fours sont dimensionnés par le gabarit sur le minerai des foreuses).
     if kind == "fours" then return "fours du QG nourris par les PNJ : decideur SCALE (Br.smelters)" end
+    -- Lot LEVIERS : un module s'insère s'il est au coffre, ou si l'équipe sait le fabriquer à la main aujourd'hui (la
+    -- recherche qui le débloque est sinon DEMANDÉE : wanted, donnée à la recherche par Auto.want).
+    if kind == "equiper" then
+      local m2 = ce_memo[item]
+      if m2 ~= nil then return m2 or nil end
+      local res2 = nil
+      if (stock[item] or 0) <= 0 and not book:handcraftable(item) then
+        res2 = "recherche : " .. item
+        wanted[item] = true
+      end
+      ce_memo[item] = res2 or false
+      return res2
+    end
     local m = ce_memo[item]
     if m ~= nil then return m or nil end
     local meth, why = A.method_for(item, book)
@@ -652,8 +727,13 @@ local function build_input(f, cs, view, book, tick, D, w)
     return res
   end
   local g = f.team.iag
+  -- Lot LEVIERS : clés d'ordres de leviers refusées par l'exécutant, en repli (Ca.decide : input.skip).
+  local skip = {}
+  for _, k in ipairs(sorted_keys(cs.backoff or {})) do
+    if (k:sub(1, 8) == "equiper:" or k:sub(1, 7) == "techno:") and held(cs, k, tick) then skip[k] = true end
+  end
   return {
-    can_exec = can_exec,
+    can_exec = can_exec, skip = skip,
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
     deposits = deposits, open = open, sinks = {}, need = need, research = research, drill_for = drill_for,
@@ -730,6 +810,39 @@ local function execute(f, cs, o, view, book, tick, research)
     return nil, "foreuses a combustion : decideur d'avant (SCALE)"
   elseif o.kind == "fours" then
     return nil, "fours du QG : decideur SCALE (Br.smelters)"
+  elseif o.kind == "equiper" then
+    -- Lot LEVIERS : machines DÉJÀ posées (relevé de cette minute) du groupe décidé : même machine, même recette ou
+    -- ressource, même endroit, mêmes modules déjà posés ; au plus o.n machines, les premières par numéro d'unité.
+    local list = o.resource and (cs.scan and cs.scan.drills or {}) or (cs.scan and cs.scan.machines or {})
+    local targets = {}
+    for _, g in ipairs(list) do
+      local same = g.entity == o.entity and g.sig == o.sig
+      if same and o.resource then same = g.resource == o.resource and tostring(g.deposit) == tostring(o.deposit) end
+      if same and not o.resource then same = g.recipe == o.recipe and tostring(g.where) == tostring(o.where) end
+      if same then
+        for _, u in ipairs(g.units or {}) do
+          if #targets < (o.n or 0) then targets[#targets + 1] = { x = u.x, y = u.y, u = u.u, entity = g.entity } end
+        end
+      end
+    end
+    if #targets == 0 then return nil, "aucune machine du groupe au releve (releve perime)" end
+    table.sort(targets, function(a, b) return a.u < b.u end)
+    rec.exec, rec.module, rec.per, rec.targets, rec.done, rec.inserted = "equiper", o.module, o.per, targets, {}, 0
+    rec.n, rec.n_left = #targets, #targets
+    rec.missing = { { o.module, #targets * o.per } }
+    rec.d_item, rec.d_out, rec.d_in, rec.d_kw, rec.d_fuel, rec.sig = o.d_item, o.d_out, o.d_in, o.d_kw, o.d_fuel, o.sig
+    -- sortie annoncée pour les machines réellement ciblées (le plan applique n_left ÷ n de l'ordre décidé)
+    if (o.n or 0) > #targets and o.n > 0 then
+      local k = #targets / o.n
+      rec.d_out, rec.d_kw, rec.d_fuel = (o.d_out or 0) * k, (o.d_kw or 0) * k, (o.d_fuel or 0) * k
+      rec.d_in = {}
+      for _, e in ipairs(o.d_in or {}) do rec.d_in[#rec.d_in + 1] = { e[1], e[2] * k } end
+    end
+    rec.announced = { d_out = rec.d_out, item = o.d_item, factor = o.factor }
+    return rec
+  elseif o.kind == "techno" then
+    rec.exec, rec.tech, rec.n, rec.n_left = "techno", o.tech, 1, 1
+    return rec
   elseif o.kind == "labos" then
     rec.exec = "labos"
     rec.target = (cs.nlabs or 0) + (o.n or 0)
@@ -781,6 +894,33 @@ local function follow(f, cs, rec, tick)
     if built ~= rec.built then rec.built, rec.progress_tick = built, tick end
     if total > 0 then rec.n_left = math.max(0, math.ceil((rec.n or 0) * (total - built) / total)) end
     return "ouvert"
+  elseif rec.exec == "equiper" then
+    -- Lot LEVIERS : fini quand chaque machine ciblée a été traitée par un PNJ (module posé, ou refus du moteur écrit).
+    local done = {}
+    for _, u in ipairs(rec.done or {}) do done[u] = true end
+    local left, first = 0, nil
+    for _, t in ipairs(rec.targets or {}) do
+      if not done[t.u] then
+        left = left + 1
+        first = first or t
+      end
+    end
+    if #(rec.done or {}) ~= rec.ndone then rec.ndone, rec.progress_tick = #(rec.done or {}), tick end
+    rec.n_left = left
+    local have = Stock.count(f, rec.module)
+    rec.missing = {}
+    if left > 0 and have < left * rec.per then rec.missing = { { rec.module, left * rec.per - have } } end
+    if left == 0 then
+      if (rec.inserted or 0) > 0 then return "fini" end
+      return "echec", "aucun module pose (" .. tostring(rec.why_refused) .. ")"
+    end
+    return "ouvert"
+  elseif rec.exec == "techno" then
+    -- Lot LEVIERS : fini quand la technologie est faite ; progrès tant que le laboratoire la cherche ou qu'elle attend sa file.
+    local st = f.team.ia3
+    if (st.techs or {})[rec.tech] then return "fini" end
+    if st.lab and st.lab.tech == rec.tech then rec.progress_tick = tick end
+    return "ouvert"
   elseif rec.exec == "outpost" then
     if rec.outpost then
       local o = f.outposts[rec.outpost]
@@ -821,8 +961,32 @@ local function decide(f, cs, view, book, tick, research, w)
   Profiler.fstart("capi:decide")
   local res = Ca.decide(input, cs.st)
   Profiler.fstop("capi:decide")
+  -- Lot LEVIERS : les modules rentables mais pas encore fabricables sont DEMANDÉS à la recherche (comme une chaîne refusée).
+  cs.wanted_set = cs.wanted_set or {}
+  for _, nm in ipairs(res.want or {}) do cs.wanted_set[nm] = true end
   cs.wanted = sorted_keys(cs.wanted_set or {})
   cs.wanted_set = nil
+  -- Lot LEVIERS : « repli : pourquoi » (ressources bloquées, leviers retenus ou raison de n'en avoir aucun). Écrit quand la
+  -- SITUATION change (ressources bloquées, leviers), jamais à l'horloge.
+  if res.repli then
+    local rs, ls = {}, {}
+    for _, b in ipairs(res.repli.blocked) do rs[#rs + 1] = b.resource end
+    for _, l in ipairs(res.repli.levers) do ls[#ls + 1] = l.key end
+    local sig = table.concat(rs, ",") .. "|" .. table.concat(ls, ",") .. "|" .. tostring(res.repli.none)
+    if cs.repli_sig ~= sig then
+      cs.repli_sig = sig
+      log(string.format("[FO-CERVEAU] %s : %s a %.1f min", f.key or "?", res.repli.text, minutes(f, tick)))
+      for _, l in ipairs(res.repli.levers) do
+        log(string.format("[FO-CERVEAU] %s : repli : levier %s : %s", f.key or "?", l.key, tostring(l.why)))
+      end
+      for _, r in ipairs(res.repli.refus) do
+        log(string.format("[FO-CERVEAU] %s : repli : levier refuse %s : %s", f.key or "?", r.key, tostring(r.why)))
+      end
+    end
+    cs.repli_text = res.repli.text
+  else
+    cs.repli_sig, cs.repli_text = nil, nil
+  end
   -- Les objets que ses exécutants attendent sont DONNÉS à la recherche (étape 1 du 27/10 au soir : sans cela, scarlet cherchait
   -- grenades et armure pendant 30 min pendant que les chaînes de la capitalisation étaient refusées « recherche :
   -- fast-inserter, medium-electric-pole » ; le critère « automation à 2 min comme au témoin » interdisait toute électrification).
@@ -842,6 +1006,7 @@ local function decide(f, cs, view, book, tick, research, w)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
+      if o.kind == "equiper" or o.kind == "techno" then hold(cs, o.key, why, tick) end -- lot LEVIERS : pas redemandé tout de suite
       -- l'ordre n'a rien coûté : l'épargne débitée par la règle lui est rendue
       cs.st.bank = (cs.st.bank or 0) + (o.cost_m or 0)
     end
@@ -905,6 +1070,7 @@ function Capi.think(f, view, book, tick, research, w)
         cs.lag = s / #cs.lag_hist
       end
       if state == "echec" and rec.exec == "module" and rec.product then hold(cs, rec.product, why, tick) end
+      if state == "echec" and (rec.exec == "equiper" or rec.exec == "techno") then hold(cs, rec.key, why, tick) end
       cs.done[#cs.done + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, state = state, why = why,
         opened = rec.opened, closed = tick }
       while #cs.done > Capi.LOG_ORDERS do table.remove(cs.done, 1) end
@@ -923,10 +1089,48 @@ function Capi.think(f, view, book, tick, research, w)
   local open = {}
   for _, rec in ipairs(cs.open) do
     open[#open + 1] = { key = rec.key, kind = rec.kind, item = rec.item, value = rec.value, exec = rec.exec,
-      outpost_kind = rec.outpost_kind, n_left = rec.n_left, missing = rec.missing, blocked = rec.blocked }
+      outpost_kind = rec.outpost_kind, n_left = rec.n_left, missing = rec.missing, blocked = rec.blocked, tech = rec.tech }
+  end
+  -- Lot LEVIERS : tâches « equiper » (une par ordre : le premier lot de machines non traitées, dès que les modules sont
+  -- au coffre) ; renouvelées à chaque pensée, comme le plan.
+  local tasks = {}
+  for _, rec in ipairs(cs.open) do
+    if rec.exec == "equiper" and (rec.n_left or 0) > 0 then
+      local done = {}
+      for _, u in ipairs(rec.done or {}) do done[u] = true end
+      local nb = math.ceil(#rec.targets / Equip.BATCH)
+      for b = 1, nb do
+        local batch = {}
+        for i = (b - 1) * Equip.BATCH + 1, math.min(#rec.targets, b * Equip.BATCH) do
+          if not done[rec.targets[i].u] then batch[#batch + 1] = rec.targets[i] end
+        end
+        if #batch > 0 then
+          if Stock.count(f, rec.module) >= #batch * rec.per then
+            tasks[#tasks + 1] = { key = "eq:" .. rec.key .. ":" .. b, kind = Equip.KIND, prio = Equip.PRIO, domain = "production",
+              work = 20 + 10 * #batch, items = { { rec.module, #batch * rec.per } }, targets = batch, module = rec.module,
+              per = rec.per, rec_key = rec.key }
+          end
+          break -- un lot à la fois par ordre : les modules du suivant attendent le coffre
+        end
+      end
+    end
   end
   Profiler.stop("capi:think")
-  return { res = cs.res, open = open }
+  return { res = cs.res, open = open, tasks = tasks }
+end
+
+--- Lot LEVIERS : recherches à effet que la capitalisation a CHOISIES et qui restent ouvertes : { [technologie] = valeur }.
+--- Lue par le choix de la technologie (script/ai3/general.lua, ctx.levers de Gen.choose). Nil : aucune.
+function Capi.techs_wanted(f)
+  if not (f and f.team and f.team.capi) or not Capi.on(f) then return nil end
+  local out = nil
+  for _, rec in ipairs(f.team.capi.open) do
+    if rec.exec == "techno" and rec.tech then
+      out = out or {}
+      out[rec.tech] = rec.value or Ca.V_MIN
+    end
+  end
+  return out
 end
 
 --- Laboratoires visés par la capitalisation (nil : capitalisation éteinte pour cette faction).
@@ -953,10 +1157,11 @@ remote.add_interface("fo-capi", {
     local cs = f and f.team and f.team.capi
     if not cs then return nil end
     local out = { on = Capi.on(f), decisions = cs.decisions, orders = cs.orders, open = {}, done = {}, deps = {},
-      res = cs.res, labs_want = cs.labs_want, stats = {}, lag = cs.lag, wanted = cs.wanted }
+      res = cs.res, labs_want = cs.labs_want, stats = {}, lag = cs.lag, wanted = cs.wanted, repli = cs.repli_text }
     for _, rec in ipairs(cs.open) do
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
-        mod_ids = rec.mod_ids, opened = rec.opened }
+        mod_ids = rec.mod_ids, opened = rec.opened, module = rec.module, per = rec.per, inserted = rec.inserted,
+        refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced }
     end
     for _, d in ipairs(cs.done) do out.done[#out.done + 1] = d end
     for _, id in ipairs(sorted_keys(cs.deps)) do

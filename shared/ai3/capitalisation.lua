@@ -105,7 +105,7 @@ Ca.SHARE_MAX = 800                          -- défense + armée au plus (‰)
 Ca.T0, Ca.T_MIN, Ca.T_MAX = 20, 10, 40      -- retour accepté (min) : T0 × ambition ÷ prudence, borné
 Ca.THREAT_DIV = 4                           -- menace : retour accepté ÷ 4 (comme les 5 min d'IA3-e)
 -- Leviers du QG : les seuls ouverts sous menace (les foreuses et les sites sont hors du QG).
-Ca.HQ_LEVERS = { fours = true, chaine = true, packs = true, labos = true, energie = true, modules = true, techno = true }
+Ca.HQ_LEVERS = { fours = true, chaine = true, packs = true, labos = true, energie = true, equiper = true, techno = true }
 -- Budget, croissance, bras.
 Ca.STOCK_PCT = 50       -- part du stock libre convertible investissable par cycle
 Ca.BANK_H = 30          -- épargne du flux réinvesti : au plus 30 min de ce flux
@@ -883,7 +883,7 @@ function Ca.apply(ctx, plan, o)
     add_labs(ctx, plan, D.lab_by[o.entity], n)
   elseif k == "energie" then
     plan.kw_have = plan.kw_have + (o.kw_left or o.kw or 0)
-  elseif k == "modules" or k == "techno" then
+  elseif k == "equiper" or k == "techno" then
     Lv.apply(ctx, plan, o) -- lot LEVIERS
   end
   if o.key then plan.taken[o.key] = true end
@@ -947,6 +947,8 @@ local function new_plan(ctx)
   end
   plan.lab_cap0 = plan.lab_cap
   for _, o in ipairs(ctx.open) do Ca.apply(ctx, plan, o) end
+  -- Lot LEVIERS : clés que l'exécutant a refusées (input.skip = { [clé] = vrai }) : jamais réémises tant qu'elles y sont.
+  for k, v in pairs(ctx.input.skip or {}) do if v then plan.taken[k] = true end end
   return plan
 end
 
@@ -978,9 +980,11 @@ local function prepare(input, st)
   ctx.w_cap = (w.capital or 1000) / 1000
   ctx.w_rech = (w.recherche or 1000) / 1000
   ctx.machines = sort_by(input.machines, function(m)
-    return tostring(m.entity) .. "|" .. tostring(m.recipe) .. "|" .. tostring(m.where) .. "|" .. tostring(m.n) end)
+    return tostring(m.entity) .. "|" .. tostring(m.recipe) .. "|" .. tostring(m.where) .. "|" .. tostring(m.n) .. "|"
+      .. tostring(m.sig) end)
   ctx.drills_in = sort_by(input.drills, function(d)
-    return tostring(d.entity) .. "|" .. tostring(d.resource) .. "|" .. tostring(d.deposit) .. "|" .. tostring(d.n) end)
+    return tostring(d.entity) .. "|" .. tostring(d.resource) .. "|" .. tostring(d.deposit) .. "|" .. tostring(d.n) .. "|"
+      .. tostring(d.sig) end)
   ctx.labs_in = sort_by(input.labs, function(l) return tostring(l.entity) .. "|" .. tostring(l.n) end)
   ctx.deposits = sort_by(input.deposits, function(f) return tostring(f.id) end)
   ctx.open = sort_by(input.open, function(o)

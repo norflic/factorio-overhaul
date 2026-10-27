@@ -101,7 +101,7 @@ local function asm_scene(D, recipe, sink, plates)
     stock = stock({ ["iron-plate"] = plates or 5000 }),
     flows = { ["iron-plate"] = { made = 600 } },
     sinks = { { item = recipe, rate = sink } },
-    can_exec = function(kind) if kind ~= "modules" then return "ordres de machines reserves a un autre decideur" end end })
+    can_exec = function(kind) if kind ~= "equiper" then return "ordres de machines reserves a un autre decideur" end end })
 end
 local function pipe_scene(D) return asm_scene(D, "pipe", 400) end
 local function pipe_tight_scene(D) return asm_scene(D, "pipe", 400, 3600) end -- plaques : juste de quoi nourrir les 4 assembleurs
@@ -122,7 +122,7 @@ local function s1()
   check(L.techs["mining-productivity-1"].count > 0 and #L.techs["mining-productivity-1"].ingredients > 0,
     "§1 coût de recherche lu au relevé des technologies")
   check(D0.mu["productivity-module"] > 100 and D0.mu["productivity-module"] == D0.mu["speed-module"], "§1 valeur d'un module : ses recettes")
-  local D1 = C.data(nil, nil, nil, function(lv) lv.modules = nil end)
+  local D1 = C.data(nil, nil, nil, function(lv) lv.equip = nil end)
   check(#D1.lv.cand == 0 and next(D1.lv.slots) ~= nil, "§1 relevé sans module : aucun candidat")
   local D2 = Ca_data_no_lv and nil
   local D3 = require("shared.ai3.capitalisation").data({ recipes = {}, techs = {}, entities = {}, resources = {}, items = {} }, {})
@@ -135,12 +135,12 @@ end
 local Ca = require("shared.ai3.capitalisation")
 local function s2()
   local res = Ca.decide(blocked_scene(D0), {})
-  local o = find(res, "modules:electric-furnace:iron-plate")
+  local o = find(res, "equiper:electric-furnace:iron-plate")
   check(o ~= nil, "§2 tous les sites interdits : un ordre de module sur les fours")
   check(o and o.module == "productivity-module" and o.per == 2, "§2 la productivité : la vitesse n'a pas d'entrée de plus (" .. tostring(o and o.module) .. ")")
   check(res.repli and #res.repli.blocked >= 1 and res.repli.blocked[#res.repli.blocked].resource == "iron-ore"
     and #res.repli.levers >= 1, "§2 compte rendu du repli : ressource bloquée et levier retenu")
-  check(res.repli and res.repli.text:find("1 dangereux", 1, true) and res.repli.text:find("modules:electric-furnace", 1, true),
+  check(res.repli and res.repli.text:find("1 dangereux", 1, true) and res.repli.text:find("equiper:electric-furnace", 1, true),
     "§2 le texte dit pourquoi (gisement dangereux) et quoi")
   check(o and o.why:find("repli : 1 gisement(s) de iron-ore", 1, true), "§2 la raison de l'ordre porte le repli")
   -- Ordre émis dans les 5 pensées (une par minute), ordres ouverts rendus à la pensée suivante.
@@ -148,7 +148,7 @@ local function s2()
   for cycle = 1, 5 do
     local r = Ca.decide(blocked_scene(D0, { open = open, dt = 1 }), st)
     for _, oo in ipairs(r.orders) do
-      if oo.kind == "modules" and not first then first = cycle end
+      if oo.kind == "equiper" and not first then first = cycle end
       local c = deep(oo)
       c.n_left = c.n
       open[#open + 1] = c
@@ -158,14 +158,14 @@ local function s2()
   -- Un site libre : l'extraction (retour 1 à 5 min) passe avant, aucun module d'abord.
   local r2 = Ca.decide(free_scene(D0), {})
   check(find(r2, "couvrir:") or find(r2, "ouvrir:"), "§2 site libre : l'extraction est décidée")
-  local m2 = find(r2, "modules:")
+  local m2 = find(r2, "equiper:")
   check(not m2 or (m2.repli == nil), "§2 site libre : un module éventuel n'est pas un repli")
   local first_key = r2.orders[1] and r2.orders[1].kind
   check(first_key == "couvrir" or first_key == "ouvrir", "§2 site libre : le premier ordre est une extraction (" .. tostring(first_key) .. ")")
   check(not r2.repli, "§2 site libre : pas de repli")
   -- Retour accepté en repli plus long que T_max du caractère (sinon aucun levier).
   local res3 = Ca.decide(blocked_scene(D0), {})
-  local o3 = find(res3, "modules:")
+  local o3 = find(res3, "equiper:")
   check(o3 and o3.T > res3.tmax and o3.T <= 60, string.format("§2 retour %s min au-delà de T_max %s mais sous l'horizon de 60 min",
     o3 and string.format("%.1f", o3.T) or "-", string.format("%.1f", res3.tmax)))
   -- Hors repli (site libre), le même module n'est PAS accepté à ce retour : T_max du caractère.
@@ -179,7 +179,7 @@ end
 ---------------------------------------------------------------------------------------------------
 local function s3()
   local res = Ca.decide(blocked_scene(D0), {})
-  local o = find(res, "modules:electric-furnace:iron-plate")
+  local o = find(res, "equiper:electric-furnace:iron-plate")
   if not o then check(false, "§3 ordre absent") return end
   -- Recalcul par le test : liste des effets des modules posés (2 de productivité par machine), barème MULTIPLICATIF.
   local list = { { speed = -2, consumption = 6, productivity = 10 }, { speed = -2, consumption = 6, productivity = 10 } }
@@ -200,7 +200,7 @@ local function s3()
   local inp = blocked_scene(D0)
   inp.machines[1].mods = { ["productivity-module"] = 1 }
   local r1 = Ca.decide(inp, {})
-  local o1 = find(r1, "modules:electric-furnace:iron-plate:qg:productivity-module*1")
+  local o1 = find(r1, "equiper:electric-furnace:iron-plate:qg:productivity-module*1")
   check(o1 ~= nil and o1.per == 1, "§3 un emplacement pris : un module de plus au plus par machine (" .. tostring(o1 and o1.per) .. ")")
   local list2 = { { speed = -2, consumption = 6, productivity = 10 }, { speed = -2, consumption = 6, productivity = 10 } }
   local cc = MM.complements(list2)
@@ -213,7 +213,7 @@ local function s3()
   local inp2 = blocked_scene(D0, { deposits = { { id = "d1", resource = "iron-ore", tiles = 270, amount = 1e6, open = true, dist = 60 } } })
   inp2.deposits[1].covered = 270
   local r2 = Ca.decide(inp2, {})
-  local od = find(r2, "modules:electric-mining-drill")
+  local od = find(r2, "equiper:electric-mining-drill")
   check(od ~= nil, "§3 foreuses : un module quand le gisement est couvert")
   if od then
     local sc = MM.complements({ { speed = 20, consumption = 12 }, { speed = 20, consumption = 12 }, { speed = 20, consumption = 12 } })
@@ -229,54 +229,54 @@ end
 local function s4()
   -- L'entrée manque : un four n'a pas de minerai de plus (minerai livré = consommé) -> la vitesse n'ajoute rien.
   local res = Ca.decide(blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }) }), {})
-  check(not find(res, "modules:electric-furnace"), "§4 sans module de productivité : pas de module de vitesse sur des fours sans minerai de plus")
-  local rf = refus_of(res, "modules:electric-furnace")
+  check(not find(res, "equiper:electric-furnace"), "§4 sans module de productivité : pas de module de vitesse sur des fours sans minerai de plus")
+  local rf = refus_of(res, "equiper:electric-furnace")
   check(rf and rf.why:find("entree", 1, true), "§4 refus écrit : l'entrée manque (" .. tostring(rf and rf.why) .. ")")
   -- Du minerai en surplus : le module de vitesse sert.
   local inp = blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
     flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
   local r2 = Ca.decide(inp, {})
-  local o2 = find(r2, "modules:electric-furnace")
+  local o2 = find(r2, "equiper:electric-furnace")
   check(o2 and o2.module:find("speed", 1, true), "§4 minerai livré en surplus : un module de vitesse (" .. tostring(o2 and o2.module) .. ")")
   -- Recette non permise à la productivité (assembleur de moteurs) : aucun module de productivité.
   local r3 = Ca.decide(pipe_scene(D0), {})
-  local o3 = find(r3, "modules:assembling-machine-2")
+  local o3 = find(r3, "equiper:assembling-machine-2")
   check(o3 ~= nil and o3.module:find("speed", 1, true), "§4 recette hors de la liste : vitesse, pas productivité (" .. tostring(o3 and o3.module) .. ")")
   local t3 = Ca.decide(pipe_tight_scene(D0), {})
-  check(not find(t3, "modules:assembling-machine-2") and ((refus_of(t3, "modules:assembling-machine-2") or {}).why or ""):find("entree", 1, true),
+  check(not find(t3, "equiper:assembling-machine-2") and ((refus_of(t3, "equiper:assembling-machine-2") or {}).why or ""):find("entree", 1, true),
     "§4 plaques sans surplus, tuyaux hors de la liste : ni vitesse ni productivité")
-  local g3 = find(Ca.decide(gear_scene(D0), {}), "modules:assembling-machine-2")
+  local g3 = find(Ca.decide(gear_scene(D0), {}), "equiper:assembling-machine-2")
   check(g3 ~= nil and g3.module:find("productivity", 1, true), "§4 recette de la liste (engrenages) : productivité (" .. tostring(g3 and g3.module) .. ")")
   -- Effet non permis : une machine qui ne permet pas la productivité.
   local Dn = C.data(nil, nil, nil, function(lv) lv.slots["electric-furnace"].allowed.productivity = nil end)
   local r4 = Ca.decide(blocked_scene(Dn, { stock = stock() }), {})
-  local o4 = find(r4, "modules:electric-furnace")
+  local o4 = find(r4, "equiper:electric-furnace")
   check(not o4 or o4.module:find("speed", 1, true), "§4 productivité non permise : aucun module de productivité")
   -- Emplacements pleins.
   local inp5 = blocked_scene(D0)
   inp5.machines[1].mods = { ["productivity-module"] = 2 }
-  check(not find(Ca.decide(inp5, {}), "modules:electric-furnace"), "§4 emplacements pleins : aucun ordre")
+  check(not find(Ca.decide(inp5, {}), "equiper:electric-furnace"), "§4 emplacements pleins : aucun ordre")
   -- Courant : la puissance de plus dépasse la réserve.
   local inp6 = blocked_scene(D0, { power = { have_kw = 1000, used_kw = 1000 } })
   local r6 = Ca.decide(inp6, {})
-  check(not find(r6, "modules:electric-furnace") and ((refus_of(r6, "modules:electric-furnace") or {}).why or ""):find("courant", 1, true),
+  check(not find(r6, "equiper:electric-furnace") and ((refus_of(r6, "equiper:electric-furnace") or {}).why or ""):find("courant", 1, true),
     "§4 courant insuffisant : refus écrit")
   -- Menace : leviers du QG seulement (les fours du QG restent permis, les foreuses d'un gisement non).
   local inp7 = blocked_scene(D0, { threat = true })
   inp7.deposits[1].danger = nil
   inp7.deposits[1].covered = 270
   local r7 = Ca.decide(inp7, {})
-  check(not find(r7, "modules:electric-mining-drill"), "§4 menace : pas de module chez les foreuses du gisement")
+  check(not find(r7, "equiper:electric-mining-drill"), "§4 menace : pas de module chez les foreuses du gisement")
   -- Gisement dangereux : les foreuses du gisement ne reçoivent rien (ni PNJ, ni module).
   local r8 = Ca.decide(blocked_scene(D0), {})
-  check(not find(r8, "modules:electric-mining-drill") and refus_of(r8, "modules:electric-mining-drill").why:find("danger", 1, true),
+  check(not find(r8, "equiper:electric-mining-drill") and refus_of(r8, "equiper:electric-mining-drill").why:find("danger", 1, true),
     "§4 gisement dangereux : pas de module chez ses foreuses")
   -- Pas de demande : aucun levier.
   local r9 = Ca.decide(blocked_scene(D0, { sinks = {} }), {})
   check(#r9.orders == 0, "§4 aucune demande : aucun ordre")
   -- Module non obtenable (ni au stock ni fabricable) : l'ordre n'existe pas, la recherche prend de la valeur.
   local r10 = Ca.decide(blocked_scene(D0, { stock = { ["electronic-circuit"] = 1000 } }), {})
-  check(not find(r10, "modules:"), "§4 module non obtenable : aucun ordre")
+  check(not find(r10, "equiper:"), "§4 module non obtenable : aucun ordre")
   check(#r10.want >= 1, "§4 module rentable mais non obtenable : demandé à la recherche (" .. table.concat(r10.want, ",") .. ")")
 end
 
@@ -286,7 +286,7 @@ end
 local function s5()
   local st = {}
   local r1 = Ca.decide(blocked_scene(D0), st)
-  local o = find(r1, "modules:electric-furnace")
+  local o = find(r1, "equiper:electric-furnace")
   if not o then check(false, "§5 ordre absent") return end
   local c = deep(o)
   c.n_left = c.n
@@ -305,7 +305,7 @@ local function s5()
   check(ok, "§5 ordre fini (n_left 0) : clé gardée (un seul ordre par clé)")
   -- Le plan applique l'ordre : le manque baisse (une seconde décision ne redemande pas la même sortie).
   local tot = 0
-  for _, oo in ipairs(r1.orders) do if oo.kind == "modules" then tot = tot + oo.d_out end end
+  for _, oo in ipairs(r1.orders) do if oo.kind == "equiper" then tot = tot + oo.d_out end end
   check(tot > 0 and tot <= 75 + 1e-6 + (Ca.LEAD * 300 - 225), "§5 la sortie de plus ne dépasse pas la demande servie (+ l'avance)")
 end
 
@@ -375,27 +375,27 @@ end
 local function s7()
   -- Modules deux fois plus rapides, même code : une sortie de plus au moins double (vitesse), formule recalculée.
   local D2 = C.data(nil, nil, nil, function(lv)
-    for _, m in pairs(lv.modules) do
+    for _, m in pairs(lv.equip) do
       if m.effects.speed then m.effects.speed = m.effects.speed * 2 end
     end
   end)
   local inp = blocked_scene(D2, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
     flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
-  local o = find(Ca.decide(inp, {}), "modules:electric-furnace")
+  local o = find(Ca.decide(inp, {}), "equiper:electric-furnace")
   local inp1 = blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
     flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
-  local o1 = find(Ca.decide(inp1, {}), "modules:electric-furnace")
+  local o1 = find(Ca.decide(inp1, {}), "equiper:electric-furnace")
   check(o and o1 and o.d_out > o1.d_out, "§7 modules plus rapides : sortie de plus plus grande, même code")
   -- Plus d'emplacement : aucun levier, et le compte rendu le dit.
   local D3 = C.data(nil, nil, nil, function(lv) lv.slots = {} end)
   local r3 = Ca.decide(blocked_scene(D3), {})
-  check(count_kind(r3, "modules") == 0 and r3.repli and r3.repli.none and r3.repli.text:find("aucun levier", 1, true),
+  check(count_kind(r3, "equiper") == 0 and r3.repli and r3.repli.none and r3.repli.text:find("aucun levier", 1, true),
     "§7 sans emplacement dans les données : aucun levier, dit pourquoi (" .. tostring(r3.repli and r3.repli.none) .. ")")
   -- Tous les noms changés (modules, machines, recettes du test inchangés ici : on renomme les modules) : mêmes ordres.
   local Dr = C.data(nil, nil, nil, function(lv)
     local m2 = {}
-    for k, v in pairs(lv.modules) do m2["zz-" .. k] = v end
-    lv.modules = m2
+    for k, v in pairs(lv.equip) do m2["zz-" .. k] = v end
+    lv.equip = m2
   end, nil)
   -- (les recettes des modules gardent leurs noms : ils sortent du relevé de recettes, pas de lv ; le renommage ne
   -- change donc pas les valeurs) -> on contrôle seulement la décision sur les modules du stock renommés
@@ -403,7 +403,7 @@ local function s7()
   for k, v in pairs(stock()) do st2["zz-" .. k] = v end
   st2["electronic-circuit"] = 1000
   local rr = Ca.decide(blocked_scene(Dr, { stock = st2 }), {})
-  check(count_kind(rr, "modules") == 0, "§7 modules sans recette (valeur inconnue) : aucun ordre, aucune erreur")
+  check(count_kind(rr, "equiper") == 0, "§7 modules sans recette (valeur inconnue) : aucun ordre, aucune erreur")
   -- Déterminisme : deux passages, entrées permutées.
   local a = orders_text(Ca.decide(blocked_scene(D0), {}))
   local b = orders_text(Ca.decide(blocked_scene(D0), {}))
@@ -476,20 +476,20 @@ local function mutants()
     differs(function() return blocked_scene(D0, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }) }) end, base_nospeed))
   M("liste de recettes de la productivité ignorée", "if recipe and m.limit and not m.limit[recipe] then return false end", "",
     function(CaM)
-      local o = find(CaM.decide(pipe_tight_scene(D0), {}), "modules:assembling-machine-2")
+      local o = find(CaM.decide(pipe_tight_scene(D0), {}), "equiper:assembling-machine-2")
       return o ~= nil and o.module:find("productivity", 1, true) ~= nil
     end)
   M("effets permis ignorés", "if slots.allowed[ef] ~= true then return false end", "",
     function(CaM)
       local Dn = C.data(nil, nil, nil, function(lv) lv.slots["electric-furnace"].allowed.productivity = nil end)
-      local o = find(CaM.decide(blocked_scene(Dn, { stock = stock() }), {}), "modules:electric-furnace")
+      local o = find(CaM.decide(blocked_scene(Dn, { stock = stock() }), {}), "equiper:electric-furnace")
       return o ~= nil and o.module:find("productivity", 1, true) ~= nil
     end)
   M("emplacements pleins ignorés", "local free = sl.n - filled_count(mods)", "local free = sl.n",
     function(CaM)
       local inp5 = blocked_scene(D0)
       inp5.machines[1].mods = { ["productivity-module"] = 2 }
-      return find(CaM.decide(inp5, {}), "modules:electric-furnace") ~= nil
+      return find(CaM.decide(inp5, {}), "equiper:electric-furnace") ~= nil
     end)
   M("énergie de plus gratuite", "o.gain = (useful + extra) * va * sh * wf - d_fuel * ctx.fuel_mu", "o.gain = (useful + extra) * va * sh * wf",
     differs(function() return blocked_scene(D0) end, base_blocked))
@@ -497,20 +497,20 @@ local function mutants()
     differs(function() return blocked_scene(D0, { sinks = { { item = "iron-plate", rate = 229 } } }) end,
       orders_text(Ca.decide(blocked_scene(D0, { sinks = { { item = "iron-plate", rate = 229 } } }), {}))))
   M("courant ignoré", "if d_kw > room_kw + Ca.EPS then", "if false then",
-    function(CaM) return find(CaM.decide(blocked_scene(D0, { power = { have_kw = 1000, used_kw = 1000 } }), {}), "modules:electric-furnace") ~= nil end)
-  M("menace ignorée", "if ctx.threat then H.refuse(ctx, key, \"modules\", item, \"menace : leviers du QG seulement\") return end", "",
+    function(CaM) return find(CaM.decide(blocked_scene(D0, { power = { have_kw = 1000, used_kw = 1000 } }), {}), "equiper:electric-furnace") ~= nil end)
+  M("menace ignorée", "if ctx.threat then H.refuse(ctx, key, \"equiper\", item, \"menace : leviers du QG seulement\") return end", "",
     function(CaM)
       local Dc = C.data()
       Dc.mu["speed-module"] = 30
       local inp7 = blocked_scene(Dc, { threat = true })
       inp7.deposits[1].danger = nil
       inp7.deposits[1].covered = 270
-      return find(CaM.decide(inp7, {}), "modules:electric-mining-drill") ~= nil
+      return find(CaM.decide(inp7, {}), "equiper:electric-mining-drill") ~= nil
     end)
-  M("gisement dangereux ignoré", "local why = Ca.usable(ctx, f, \"modules\")\n      if why then", "local why = nil\n      if why then",
-    function(CaM) return find(CaM.decide(blocked_scene(D0), {}), "modules:electric-mining-drill") ~= nil end)
+  M("gisement dangereux ignoré", "local why = Ca.usable(ctx, f, \"equiper\")\n      if why then", "local why = nil\n      if why then",
+    function(CaM) return find(CaM.decide(blocked_scene(D0), {}), "equiper:electric-mining-drill") ~= nil end)
   M("repli jamais déclaré", "if st.blocked then blocked[#blocked + 1] = { resource = k, text = st.text, absent = st.absent or nil } end",
-    "", function(CaM) return find(CaM.decide(blocked_scene(D0), {}), "modules:") == nil end)
+    "", function(CaM) return find(CaM.decide(blocked_scene(D0), {}), "equiper:") == nil end)
   M("gisement dangereux compté libre", "if why then\n      if f.danger then st.danger = st.danger + 1 else st.forbid = st.forbid + 1 end",
     "if false then\n      if f.danger then st.danger = st.danger + 1 else st.forbid = st.forbid + 1 end",
     function(CaM) return CaM.decide(blocked_scene(D0), {}).repli == nil end)
@@ -538,8 +538,8 @@ local function mutants()
     function(CaM)
       local inp = blocked_scene(D0)
       inp.machines[1].mods = { ["productivity-module"] = 1 }
-      local a = find(CaM.decide(inp, {}), "modules:electric-furnace")
-      local b = find(Ca.decide(inp, {}), "modules:electric-furnace")
+      local a = find(CaM.decide(inp, {}), "equiper:electric-furnace")
+      local b = find(Ca.decide(inp, {}), "equiper:electric-furnace")
       return (a and a.d_out or -1) ~= (b and b.d_out or -1)
     end)
   check(n_caught == n_mut, string.format("§8 mutants : %d refusés sur %d", n_caught, n_mut))

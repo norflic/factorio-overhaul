@@ -736,6 +736,10 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
+  if capi and capi.tasks then
+    for _, t in ipairs(capi.tasks) do plan.tasks[#plan.tasks + 1] = t end
+  end
   -- Lot IA-G : une ressource INCONNUE qui bloque la recherche de valeur est à explorer (après le regard des abords).
   if not f.is_player and General.on() and home ~= false then
     for _, res in ipairs(sorted_keys(General.explore(f))) do
