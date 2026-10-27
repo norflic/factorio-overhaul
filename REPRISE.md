@@ -10,6 +10,14 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 10 h 40 : IA3-e LIVRÉ (2e fois), réglage `fo-war-ia3e` ÉTEINT par défaut** (tête `d52a2d0` ; INTEGRATION.md §0 bis) :
+> éteint, automatisation et plan des factions inertes (verif-guide 1618033988 15 OK, content 331) ; allumé : aucune fonderie posée
+> (lot des foreuses introuvable : « tapis des foreuses (pas de lot) », « (trop long) »), K1 instable (une faction différente recule
+> à chaque correction). Fusion main + ia3e : PROPRE ; main + ia3e + iag : CONFLITS dans script/ai3/cerveau.lua, shared/ai3/buts.lua,
+> shared/ai3/cerveau.lua, shared/ai3/projets.lua, tests/mock_engine.lua. **Ordre décidé** : IA-G d'abord dans `main` (vers 11 h 15),
+> puis l'agent IA3-e (`aa204fd5af007dd61`) fait `git merge main` dans `ia3e`, résout en gardant le cerveau d'IA-G et en branchant
+> `A.decide*` à son point de jonction, rejoue hors jeu + verif-guide + content réglage éteint ; fusion ensuite.
+>
 > **27/10, 10 h 15 : X3 FUSIONNÉ (proposition hors jeu, `f76af76`, `0f78e4f`) et D-20 du DC** (QCM) : fonderie de puces OBLIGATOIRE
 > à l'âge 10 ; gamme de robots à concevoir « style Supreme Commander 2 » ; une partie des niveaux en pièces montées, que le cerveau
 > des PNJ doit faire DE LUI-MÊME (rien en dur) ; calcul NON stockable, par script. À reporter dans `shared/content/x3.lua` et §3.7 au
