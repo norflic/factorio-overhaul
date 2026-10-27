@@ -70,7 +70,8 @@ return {
         s.create_entity({ name = "transport-belt", position = { x = line.position.x + 2, y = line.position.y }, force = "player" })
       end
       local n = 0
-      for k, ent in pairs(st.f) do
+      for _, k in ipairs({ "a", "b", "far", "line" }) do
+        local ent = st.f[k]
         if ent then
           n = n + 1
           if st.api then remote.call("fo-adopte", "built", ent) end
@@ -80,9 +81,26 @@ return {
       ctx.check(n == 4, "4 fours poses a la main", n)
       ctx.check(not ON or st.api, "interface fo-adopte presente (adoption allumee)")
     end
+    -- Session avec images : un VRAI joueur existe, il pose le four de sa main (cursor_stack + build_from_cursor) : c'est le
+    -- gestionnaire on_built_entity du mod qui est joue, sans l'interface fo-adopte.built.
+    if e.tick == PLACE + 30 and #game.connected_players > 0 then
+      local pl = game.connected_players[1]
+      local want = s.find_non_colliding_position("stone-furnace", { x = c.x + 20, y = c.y + 24 }, 8, 1)
+      if want and pl.character then
+        pl.teleport({ x = want.x - 3, y = want.y }, s)
+        pl.cursor_stack.set_stack({ name = "stone-furnace", count = 1 })
+        local ok = pl.can_build_from_cursor({ position = want })
+        if ok then pl.build_from_cursor({ position = want }) end
+        st.real = { pos = want, ok = ok }
+        st.f.real = s.find_entities_filtered({ name = "stone-furnace", position = want, radius = 0.5, limit = 1 })[1]
+        ctx.log(TAG .. string.format("VRAI joueur : four pose de la main en (%.1f, %.1f) : %s", want.x, want.y, tostring(st.f.real ~= nil)))
+      else
+        ctx.log(TAG .. "VRAI joueur : pas de personnage ou pas de place, pose reelle non jouee")
+      end
+    end
     if e.tick > PLACE and e.tick % 300 == 0 then
       local parts = {}
-      for _, k in ipairs({ "a", "b", "line", "far" }) do
+      for _, k in ipairs({ "a", "b", "line", "far", "real" }) do
         local fs = furnace_state(st.f and st.f[k])
         parts[#parts + 1] = string.format("%s[comb %s src %s sortie %s faits %s]", k, tostring(fs.fuel), tostring(fs.src), tostring(fs.out), tostring(fs.made))
         if served(fs) and not (st.first and st.first[k]) then
@@ -101,7 +119,8 @@ return {
     local fa, fb, fl, ff = furnace_state(F.a), furnace_state(F.b), furnace_state(F.line), furnace_state(F.far)
     local stat = st.api and remote.call("fo-adopte", "status") or { listed = 0, n = 0 }
     if ON then
-      ctx.check(stat.listed == 2 and stat.n == 2, "2 fours adoptes exactement (a, b)", stat.listed .. "/" .. stat.n)
+      local want_n = 2 + ((st.real and st.f.real) and 1 or 0)
+      ctx.check(stat.listed == want_n and stat.n == want_n, want_n .. " fours adoptes exactement (a, b" .. (want_n == 3 and ", real : pose de la main, evenement on_built_entity reel" or "") .. ")", stat.listed .. "/" .. stat.n)
       ctx.check(served(fa) and served(fb), "les 2 fours isolés sont servis par les PNJ (combustible ou minerai ou produits)",
         string.format("a %s/%s/%s/%s b %s/%s/%s/%s", fa.fuel, fa.src, fa.out, fa.made, fb.fuel, fb.src, fb.out, fb.made))
       ctx.check(fa.fuel > 0 and fb.fuel > 0, "combustible mis aux 2 fours", fa.fuel .. " / " .. fb.fuel)
@@ -115,8 +134,8 @@ return {
       string.format("%s/%s/%s/%s", fl.fuel, fl.src, fl.out, fl.made))
     ctx.check(ff.valid and not served(ff), "four hors du rayon : intact",
       string.format("%s/%s/%s/%s", ff.fuel, ff.src, ff.out, ff.made))
-    for _, k in ipairs({ "a", "b", "line", "far" }) do
-      ctx.check(F[k] and F[k].valid, "four " .. k .. " du joueur toujours la (jamais demoli)")
+    for _, k in ipairs({ "a", "b", "line", "far", "real" }) do
+      if F[k] or k ~= "real" then ctx.check(F[k] and F[k].valid, "four " .. k .. " du joueur toujours la (jamais demoli)") end
     end
   end,
 }
