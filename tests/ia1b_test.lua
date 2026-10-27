@@ -12,6 +12,7 @@ local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Book = require("shared.team.book")
 local Fond = require("shared.team.fond")
+local F_PAIRS = Fond.PAIRS
 
 local passes, failures = 0, 0
 local function check(cond, msg)
@@ -168,7 +169,22 @@ do
   -- Potentiel : places restantes des avant-postes non pleins + sites connus.
   local p = Fond.potential({ outposts = { { id = 1, kind = "iron", drills = 8 }, { id = 2, kind = "coal", drills = 4, full = true } },
     sites = { copper = 1 } })
-  check(p == (T.max_drills("iron") - 8) + T.outposts.copper.drills, "potentiel : " .. p)
+  -- Lot COFFRE (K-D) : ce qui se POSE à brève échéance, un lot de F.PAIRS paires par avant-poste agrandissable et par site
+  -- constructible, au plus F.AHEAD (plus « toutes les places de la carte » : 37 foreuses dormantes au constat du DC).
+  check(p == F_PAIRS + math.min(F_PAIRS, T.outposts.copper.drills), "potentiel : un lot par avant-poste agrandissable et par site (" .. p .. ")")
+  local big = { outposts = {}, sites = { coal = 1, copper = 1, stone = 1 } }
+  for i = 1, 6 do big.outposts[#big.outposts + 1] = { id = i, kind = "iron", drills = 2 } end
+  check(Fond.potential(big) == Fond.AHEAD, "potentiel : plafonné à F.AHEAD (" .. Fond.potential(big) .. ")")
+  local df = { defend_first = true }
+  check(Fond.potential({ outposts = {}, sites = { copper = 1 } }, df) == 0, "sous « défendre d'abord », sans tourelles au stock : un site connu ne compte pas")
+  check(Fond.potential({ outposts = {}, sites = { copper = 1 } }, df, { ["gun-turret"] = 1, [T.turret_ammo] = T.defend_ammo }) > 0,
+    "sous « défendre d'abord », avec tourelles et chargeurs au stock : le site compte")
+  check(Fond.potential({ outposts = { { id = 1, kind = "iron", drills = 8 } }, sites = { copper = 1 } }, { safe_only = true }) == 0
+    and Fond.potential({ outposts = { { id = 1, kind = "iron", drills = 8 } } }, { prudent = true }) == 0,
+    "fond sûr ou prudence : rien ne se pose, rien d'avance")
+  check(Fond.potential({ outposts = { { id = 1, kind = "iron", drills = 8 } } }, { undefended = { [1] = true } }) == 0
+    and Fond.potential({ outposts = { { id = 1, kind = "iron", drills = 8 } } }, { danger = { [1] = true } }) == 0,
+    "avant-poste non défendu ou dangereux : rien d'avance")
 end
 do
   -- Danger (nid ou ver près d'un avant-poste) et prudence (pertes récentes) : le fond ne sort plus du QG.
@@ -189,6 +205,35 @@ do
   local cn = Fond.candidates(v2, Fond.free_stock(v2.stock, {}), { book = book, keys = {}, mine_left = 0 })
   local cs = Fond.candidates(v2, Fond.free_stock(v2.stock, {}), { book = book, keys = {}, mine_left = 0, brain_short = true })
   check(#cn.base > 0 and #cs.base == 0, "cerveau en manque d'objets : aucune fabrication de fond (" .. #cn.base .. " sinon)")
+end
+
+do
+  -- Lot COFFRE (K-D) : la réserve de biens d'équipement ne dépasse jamais ce qui se pose ; rien à poser : rien d'avance.
+  local rich = { ["iron-plate"] = 3000, ["copper-plate"] = 1000, stone = 1000, coal = 500, wood = 500 }
+  local v0 = view({ outposts = { { id = 1, kind = "iron", drills = 20, full = true } }, sites = {}, stock = rich })
+  local c0 = Fond.candidates(v0, Fond.free_stock(v0.stock, {}), { book = book, keys = {}, mine_left = 0 })
+  local eq = 0
+  for _, t in ipairs(c0.base) do if Fond.EQUIPMENT[t.item] then eq = eq + t.count end end
+  check(eq == 0, "rien à poser : aucun bien d'équipement d'avance (" .. eq .. ")")
+  local v1 = view({ outposts = { { id = 1, kind = "iron", drills = 8 } }, sites = { copper = 2, coal = 1 }, stock = rich })
+  local c1 = Fond.candidates(v1, Fond.free_stock(v1.stock, {}), { book = book, keys = {}, mine_left = 0 })
+  local drills = 0
+  for _, t in ipairs(c1.base) do if t.item == T.DRILL then drills = drills + t.count end end
+  check(drills > 0 and drills <= Fond.AHEAD, "à poser : foreuses d'avance dans la limite de F.AHEAD (" .. drills .. ")")
+  -- Annexes : coffres à fabriquer quand le stock se remplit (ctx.annex_want), même cerveau en manque s'ils ne coûtent aucune plaque.
+  local v2 = view({ outposts = { { id = 1, kind = "iron", drills = 20, full = true } }, sites = {}, stock = { wood = 200, ["iron-plate"] = 1000 } })
+  local c2 = Fond.candidates(v2, Fond.free_stock(v2.stock, {}), { book = book, keys = {}, mine_left = 0, annex_want = 2, brain_short = true })
+  local items = {}
+  for _, t in ipairs(c2.base) do items[#items + 1] = t.item end
+  check(#items == 1 and items[1] == "wooden-chest", "cerveau en manque : seul le coffre sans plaque est fabriqué pour les annexes (" .. table.concat(items, ",") .. ")")
+  local c3 = Fond.candidates(v2, Fond.free_stock(v2.stock, {}), { book = book, keys = {}, mine_left = 0, annex_want = 2 })
+  local chests = 0
+  for _, t in ipairs(c3.base) do if t.item == "iron-chest" or t.item == "wooden-chest" then chests = chests + t.count end end
+  check(chests == 2, "annex_want 2 : deux coffres demandés (" .. chests .. ")")
+  local c4 = Fond.candidates(v2, Fond.free_stock({ wood = 200, ["iron-plate"] = 1000, ["iron-chest"] = 3 }, {}), { book = book, keys = {}, mine_left = 0, annex_want = 2 })
+  local more = 0
+  for _, t in ipairs(c4.base) do if t.item == "iron-chest" or t.item == "wooden-chest" then more = more + 1 end end
+  check(more == 0, "coffres déjà en main : aucun de plus")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

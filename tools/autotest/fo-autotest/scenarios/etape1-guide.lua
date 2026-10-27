@@ -38,6 +38,19 @@ local function snap(s, name, x, y, zoom)
   log(TAG .. string.format("capture etape1-%s (%.1f, %.1f) zoom %.2f", name, x, y, zoom))
 end
 
+-- Lot COFFRE : annexes du QG (script/team/stock.lua) : coffres posés au sud du QG (rangées T.hq_rows.annex). Rend leur
+-- nombre, leurs cases prises et leurs cases, et ajoute leur contenu à `cont` (le stock est le coffre ET les annexes).
+local function annexes(s, pos, force, cont)
+  local n, used, size = 0, 0, 0
+  for _, e in ipairs(s.find_entities_filtered({ area = { { pos.x - 8, pos.y + 3 }, { pos.x + 16, pos.y + 22 } }, force = force,
+    name = { "iron-chest", "wooden-chest" } })) do
+    local inv = e.get_inventory(defines.inventory.chest)
+    n, used, size = n + 1, used + #inv - inv.count_empty_stacks(), size + #inv
+    for k, v in pairs(inv.get_contents()) do cont[k] = (cont[k] or 0) + v end
+  end
+  return n, used, size
+end
+
 local function report(s, minute)
   for _, r in ipairs(factions()) do
     local c = {}
@@ -56,6 +69,9 @@ local function report(s, minute)
       local used = #inv - inv.count_empty_stacks()
       fill = string.format("%d/%d", used, #inv)
       local cont = inv.get_contents()
+      local na, ua, sa = annexes(s, hq.position, r.force, cont)
+      fill = fill .. string.format(" annexes=%d(%d/%d) dormants foreuses=%d fours=%d", na, ua, sa,
+        cont["burner-mining-drill"] or 0, cont["stone-furnace"] or 0)
       local names = {}
       for n in pairs(cont) do names[#names + 1] = n end
       table.sort(names, function(a, b) if cont[a] ~= cont[b] then return cont[a] > cont[b] end return a < b end)
@@ -87,6 +103,9 @@ local function report_player(s, minute)
   if inv then
     fill = string.format("%d/%d", #inv - inv.count_empty_stacks(), #inv)
     local cont = inv.get_contents()
+    local na, ua, sa = annexes(s, chest.position, "player", cont)
+    fill = fill .. string.format(" annexes=%d(%d/%d) dormants foreuses=%d fours=%d", na, ua, sa,
+      cont["burner-mining-drill"] or 0, cont["stone-furnace"] or 0)
     local names = {}
     for n in pairs(cont) do names[#names + 1] = n end
     table.sort(names, function(a, b) if cont[a] ~= cont[b] then return cont[a] > cont[b] end return a < b end)

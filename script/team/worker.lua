@@ -18,6 +18,7 @@ local Render = require("script.companion.render")
 local Brain = require("script.companion.brain")
 local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -137,7 +138,7 @@ local function deposit_inventory(f, inv, keep)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
     if n > 0 then
-      local moved = f.hq.insert({ name = name, count = n })
+      local moved = Stock.insert(f, name, n)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved
@@ -171,11 +172,11 @@ local function take(agent, f, list)
   local all = true
   for _, it in ipairs(list) do
     local want = it[2]
-    local n = math.min(want, f.hq.get_item_count(it[1]))
+    local n = math.min(want, Stock.count(f, it[1]))
     if n > 0 then
-      local got = f.hq.remove_item({ name = it[1], count = n })
+      local got = Stock.remove(f, it[1], n)
       local put = inv.insert({ name = it[1], count = got })
-      if put < got then f.hq.insert({ name = it[1], count = got - put }) end
+      if put < got then Stock.insert(f, it[1], got - put) end
       if put < want then all = false end
     else
       all = false
@@ -233,7 +234,7 @@ function Worker.program(f, task, surface, tick)
     if f.is_player then
       local force = game.forces[f.force]
       local rec = force and force.recipes and force.recipes["gun-turret"]
-      local turret_ok = f.hq.get_item_count("gun-turret") > 0 or (rec ~= nil and rec.enabled)
+      local turret_ok = Stock.count(f, "gun-turret") > 0 or (rec ~= nil and rec.enabled)
       local d2 = dist2(site, f.hq_pos)
       local bad = (not turret_ok) and d2 > T.site_max_noturret * T.site_max_noturret
       if not bad then

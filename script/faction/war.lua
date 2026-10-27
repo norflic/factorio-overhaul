@@ -18,6 +18,7 @@ local Scheduler = require("script.core.scheduler")
 local PathService = require("script.core.path_service")
 local F = require("shared.faction.config")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Commander = require("script.faction.commander")
 local Military = require("script.faction.military")
 local Outposts = require("script.faction.outposts")
@@ -332,7 +333,7 @@ function War.fund(amount)
     if f.hq and f.hq.valid then
       for _, it in ipairs({ { "iron-plate", amount }, { "copper-plate", amount / 4 }, { "coal", amount / 2 }, { "stone", amount / 2 } }) do
         local n = math.floor(it[2])
-        if n > 0 then f.hq.insert({ name = it[1], count = n }) end
+        if n > 0 then Stock.insert(f, it[1], n) end
       end
     end
   end
