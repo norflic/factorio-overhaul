@@ -120,6 +120,23 @@ function C.trips(opts)
   return {
     description = opts.description,
     check_tick = CHECK,
+    -- Captures (session avec images) : au tick SHOTS (manche 1, quand les PNJ voient les ennemis posés), une capture
+    -- centrée sur chaque PNJ en tournée (état visible au-dessus de lui), puis une vue d'ensemble de chaque groupe d'ennemis.
+    shots_delay = opts.shots_delay or 1700,
+    shots = function(ctx, add)
+      local st = ctx.state()
+      local n = 0
+      for _, a in ipairs(ctx.remote("fo-ia3k", "agents", "player") or {}) do
+        if a.task or a.state == "walk" then
+          n = n + 1
+          add(string.format("pnj%d-%s", a.id, a.label or "marche"), a.x, a.y - 2, 0.9, 0)
+        end
+      end
+      for _, tr in ipairs((st.cur and st.cur.trips) or {}) do
+        if tr.at then add(string.format("couloir%d-ennemis", tr.k), tr.at.x - 30, tr.at.y, 0.45, 0) end
+      end
+      ctx.log(string.format("captures demandees au tick %d : %d PNJ en tournee", game.tick, n))
+    end,
 
     init = function(ctx)
       local s = ctx.surface()

@@ -18,6 +18,7 @@ local ROUND = 3600
 local START = 600
 local ROUNDS = 7
 local CHECK = START + ROUNDS * ROUND + 60
+local SITUATION = 1500
 
 local function d2(a, b)
   local dx, dy = a.x - b.x, a.y - b.y
@@ -47,6 +48,13 @@ end
 return {
   description = "IA3-k C3 : peur (fuite blesse ou sans munitions, prudent contre audacieux)",
   check_tick = CHECK,
+  -- Captures : manche 1, 45 ticks après la mise en situation (fuite engagée, état visible).
+  shots_delay = START + SITUATION + 45,
+  shots = function(ctx, add)
+    for _, a in ipairs(ctx.remote("fo-ia3k", "agents", "player") or {}) do
+      if a.task or a.refuge or a.state == "walk" then add(string.format("pnj%d-%s", a.id, a.label or "attente"), a.x, a.y - 2, 1.0, 0) end
+    end
+  end,
 
   init = function(ctx)
     local s = ctx.surface()
@@ -110,8 +118,9 @@ return {
         if not a then
           c.done, c.dead = true, true
         elseif not c.t0 then
-          -- Arrivé et en attente : mise en situation.
-          if a.state == "wait" and d2(a, c.dest) <= 64 then
+          -- Arrivé et en attente : mise en situation à un tick FIXE de la manche (SITUATION), pour que les captures
+          -- tombent pendant la fuite ; un PNJ arrivé plus tard l'est à son arrivée.
+          if in_round >= SITUATION and a.state == "wait" and d2(a, c.dest) <= 64 then
             local ch = find_char(s, { x = a.x, y = a.y })
             if ch then
               local maxh = ch.prototype.max_health

@@ -466,8 +466,12 @@ function M.gate(f, agent, task, steps, tick)
     if n > 6 then n = 6 end
     if M.request_escort and M.request_escort(f, agent, n, tick, task.key) then
       a.escort = true
-      for i, s in ipairs(steps) do
-        if s[1] == "goto" then table.insert(steps, i, { "wait", M.ESCORT_WAIT }) break end
+      -- Danger connu : le PNJ attend son escorte au QG (au plus ESCORT_WAIT) ; simple éloignement (C6) : il part, les
+      -- soldats le rattrapent (pas d'attente qui ralentirait chaque tournée lointaine).
+      if why ~= "loin" then
+        for i, s in ipairs(steps) do
+          if s[1] == "goto" then table.insert(steps, i, { "wait", M.ESCORT_WAIT }) break end
+        end
       end
       label(agent, "escorte", tick, t.stats)
     elseif why ~= "loin" then
