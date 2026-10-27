@@ -62,6 +62,9 @@ Capi.DEP_MAX = 16            -- gisements suivis au plus par faction (les plus p
 Capi.CENSUS_EVERY = 5 * 3600 -- un gisement est relu toutes les 5 min
 Capi.ORDER_TTL = 30 * 3600   -- un ordre qui n'avance plus depuis 30 min est retiré (refus écrit)
 Capi.LOG_ORDERS = 64         -- lignes d'ordres gardées pour l'interface des bancs
+Capi.BACKOFF = 10 * 3600     -- un produit refusé par le plan directeur n'est plus demandé pendant 10 min × 2^(refus - 1),
+Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes refusées d'un même produit en 50 min, un plan
+                             -- coûte 25 à 40 ms : comme AUTO, un refus vaut tant que le contexte n'a pas changé)
 Capi.MODULES_PER_ORDER = 3   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
                              -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »)
 
@@ -457,6 +460,24 @@ local function research_of(f, cs)
   return { queue = q, rate = rate, starved = starved }, nlabs
 end
 
+--- Produit en repli après un refus du plan directeur (rend la raison, ou nil).
+local function held(cs, product, tick)
+  local b = (cs.backoff or {})[product]
+  if b and tick < b.until_tick then
+    return string.format("repli apres %d refus du plan directeur (%s) jusqu'a %.0f min", b.n, tostring(b.why), b.until_tick / 3600)
+  end
+  return nil
+end
+
+local function hold(cs, product, why, tick)
+  cs.backoff = cs.backoff or {}
+  local b = cs.backoff[product] or { n = 0 }
+  b.n = b.n + 1
+  b.why = why
+  b.until_tick = tick + math.min(Capi.BACKOFF_MAX, Capi.BACKOFF * 2 ^ (b.n - 1))
+  cs.backoff[product] = b
+end
+
 local function build_input(f, cs, view, book, tick, D, w)
   local st = f.team.ia3
   local force = game.forces[f.force]
@@ -470,11 +491,18 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- combustion sans charbon, fer extrait divisé par 4, 50 à 75 % de PNJ sans tâche).
   local drill_for, elec = {}, {}
   local plant_state, plant_why = Auto.plant_state(f)
+  -- Centrale demandée mais pas finie : un seul module électrique ouvert à la fois (celui qui l'a fait demander) ; les
+  -- suivants attendent le réseau (banc p3 du lot : « pas de rue vers le reseau », « pas de centrale » à la chaîne).
+  local elec_open = 0
+  for _, o in ipairs(cs.open) do if o.exec == "module" then elec_open = elec_open + 1 end end
+  local wait_plant = plant_state ~= nil and plant_state ~= "fini" and elec_open > 0
   local wanted = {}
   for _, res in ipairs(D.res_list) do
     local meth = METHOD_OF_ORE[res]
     local ok, miss = false, {}
-    if meth and elec_drill and plant_state ~= "refuse" then ok, miss = module_ok(meth, book, stock, plant_state ~= nil) end
+    if meth and elec_drill and plant_state ~= "refuse" and not wait_plant and not held(cs, meth.product, tick) then
+      ok, miss = module_ok(meth, book, stock, plant_state ~= nil)
+    end
     if ok then drill_for[res], elec[res] = elec_drill, true
     else drill_for[res] = "" end
     for _, m in ipairs(miss) do wanted[m] = true end
@@ -530,7 +558,11 @@ local function build_input(f, cs, view, book, tick, D, w)
     if m ~= nil then return m or nil end
     local meth, why = A.method_for(item, book)
     local res = nil
+    local hw = held(cs, item, tick)
     if not meth then res = tostring(why)
+    elseif hw then res = hw
+    elseif wait_plant and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
+      res = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
     elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
       res = "centrale refusee (" .. tostring(plant_why) .. ")"
     else
@@ -607,7 +639,7 @@ local function execute(f, cs, o, view, book, tick, research)
           rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
           tick, research)
-        if not id then why = "plan directeur : " .. tostring(w2) break end
+        if not id then why = "plan directeur : " .. tostring(w2) hold(cs, meth.product, w2, tick) break end
         ids[#ids + 1] = id
         -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_MAX)
         if f.build and dep then
@@ -616,7 +648,7 @@ local function execute(f, cs, o, view, book, tick, research)
         end
       end
       if #ids == 0 then return nil, why end
-      rec.exec, rec.mod_ids = "module", ids
+      rec.exec, rec.mod_ids, rec.product = "module", ids, meth.product
       return rec
     end
     return nil, "foreuses a combustion : decideur d'avant (SCALE)"
@@ -636,11 +668,11 @@ local function execute(f, cs, o, view, book, tick, research)
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
         rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key,
         why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
-      if not id then why2 = "plan directeur : " .. tostring(w2) break end
+      if not id then why2 = "plan directeur : " .. tostring(w2) hold(cs, o.item, w2, tick) break end
       ids[#ids + 1] = id
     end
     if #ids == 0 then return nil, why2 end
-    rec.exec, rec.mod_ids = "module", ids
+    rec.exec, rec.mod_ids, rec.product = "module", ids, o.item
     return rec
   end
   return nil, "levier sans executant (" .. tostring(o.kind) .. ")"
@@ -792,6 +824,7 @@ function Capi.think(f, view, book, tick, research, w)
         for _, x in ipairs(cs.lag_hist) do s = s + x end
         cs.lag = s / #cs.lag_hist
       end
+      if state == "echec" and rec.exec == "module" and rec.product then hold(cs, rec.product, why, tick) end
       cs.done[#cs.done + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, state = state, why = why,
         opened = rec.opened, closed = tick }
       while #cs.done > Capi.LOG_ORDERS do table.remove(cs.done, 1) end
