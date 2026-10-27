@@ -126,15 +126,24 @@ function C.trips(opts)
     check_tick = CHECK,
     -- Captures (session avec images) : au tick SHOTS (manche 1, quand les PNJ voient les ennemis posés), une capture
     -- centrée sur chaque PNJ en tournée (état visible au-dessus de lui), puis une vue d'ensemble de chaque groupe d'ennemis.
-    shots_delay = opts.shots_delay or 2300,
+    -- 2 420 : juste après les premières réactions de la manche 1 (final-050-2c49ceb route-20261020 : détour au tick 2 400,
+    -- alerte à 2 341) ; à 2 300, les textes des PNJ étaient déjà éteints (captures-route de 2c49ceb : aucun état visible).
+    shots_delay = opts.shots_delay or 2420,
     shots = function(ctx, add)
       local st = ctx.state()
       local n = 0
+      local list, alive = {}, {}
       for _, a in ipairs(ctx.remote("fo-ia3k", "agents", "player") or {}) do
         if a.task or a.state == "walk" then
-          n = n + 1
-          add(string.format("pnj%d-%s", a.id, a.label or "marche"), a.x, a.y - 2, 0.9, 0)
+          list[#list + 1] = a
+          -- D1 : de préférence les PNJ dont l'état est ENCORE affiché (texte de 150 ticks, captures prises 10 ticks à part).
+          if a.label_t and game.tick - a.label_t < 100 then alive[#alive + 1] = a end
         end
+      end
+      if #alive > 0 then list = alive end
+      for _, a in ipairs(list) do
+        n = n + 1
+        add(string.format("pnj%d-%s", a.id, a.label or "marche"), a.x, a.y - 2, 0.9, 0)
       end
       for _, tr in ipairs((st.cur and st.cur.trips) or {}) do
         if tr.at then add(string.format("couloir%d-ennemis", tr.k), tr.at.x - 30, tr.at.y, 0.45, 0) end
