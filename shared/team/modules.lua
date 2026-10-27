@@ -194,6 +194,7 @@ recipe("inserter", "crafting", 0.5, { I("electronic-circuit", 1), I("iron-gear-w
 recipe("transport-belt", "crafting", 0.5, { I("iron-plate", 1), I("iron-gear-wheel", 1) }, { I("transport-belt", 2) })
 recipe("logistic-science-pack", "crafting", 6, { I("inserter", 1), I("transport-belt", 1) }, { I("logistic-science-pack", 1) })
 recipe("pipe", "crafting", 0.5, { I("iron-plate", 1) }, { I("pipe", 1) })
+recipe("firearm-magazine", "crafting", 1, { I("iron-plate", 4) }, { I("firearm-magazine", 1) }) -- lot IA3-e (G.simple)
 recipe("engine-unit", "advanced-crafting", 10, { I("steel-plate", 1), I("iron-gear-wheel", 1), I("pipe", 2) }, { I("engine-unit", 1) })
 recipe("basic-oil-processing", "oil-processing", 5, { F("crude-oil", 100, 2) }, { F("petroleum-gas", 45, 3) })
 recipe("plastic-bar", "chemistry", 1, { F("petroleum-gas", 20), I("coal", 1) }, { I("plastic-bar", 2) })
@@ -778,6 +779,64 @@ function G.gears(n, machine)
   return b:finish()
 end
 
+--- Lot IA3-e : rangée de n assembleurs d'UNE recette du modèle (M.RECIPES) à un ou deux ingrédients solides et un
+--- produit (munitions…) : un ingrédient sur les deux voies du tapis du haut, ou un par voie ; sortie au tapis du bas.
+function G.simple(recipe, n, machine)
+  machine = machine or "assembling-machine-1"
+  local sp, why = machine_spec(machine, "assembler", "rangée"); if not sp then return nil, why end
+  -- Lot IA3-e (généralisation) : la recette peut venir des DONNÉES du jeu (table { name, category, energy | time,
+  -- ingredients = { { type, name, amount } }, products = { … } }, livre de recettes du cerveau) : elle est rangée au modèle
+  -- (M.RECIPES) à la première génération ; le paramètre du gabarit garde la table (le gabarit se refait après un
+  -- chargement). Fonction pure de la table : même modèle sur tous les postes.
+  local key = recipe
+  if type(recipe) == "table" then
+    key = recipe.name
+    if type(key) ~= "string" then return fail("rangée : recette sans nom") end
+    if not R[key] then
+      local ins, outs = {}, {}
+      for _, i in ipairs(recipe.ingredients or {}) do
+        ins[#ins + 1] = { name = i.name or i[1], amount = i.amount or i[2], fluid = (i.type == "fluid") or nil }
+      end
+      for _, q in ipairs(recipe.products or {}) do
+        outs[#outs + 1] = { name = q.name or q[1], amount = q.amount or q[2] or 1, fluid = (q.type == "fluid") or nil }
+      end
+      R[key] = { name = key, category = recipe.category or "crafting", time = recipe.time or recipe.energy or 0.5,
+        ingredients = ins, products = outs }
+    end
+  end
+  local r = R[key]
+  local cat_ok = false
+  for _, c in ipairs(sp.categories or { "crafting" }) do if r and c == (r.category or "crafting") then cat_ok = true end end
+  if not r or not cat_ok then return fail("rangée : recette « %s » absente du modèle ou d'une catégorie que « %s » ne fabrique pas", tostring(key), machine) end
+  if not (r.time and r.time > 0) then return fail("rangée : %s sans durée", key) end
+  local ok, why2 = count_ok(n, "rangée"); if not ok then return nil, why2 end
+  local ings = {}
+  for _, ing in ipairs(r.ingredients) do
+    if ing.fluid then return fail("rangée : %s demande un fluide", key) end
+    ings[#ings + 1] = ing
+  end
+  if #ings < 1 or #ings > 2 or #r.products ~= 1 then return fail("rangée : %s n'a pas 1 ou 2 ingrédients et un produit", key) end
+  local rate = sp.speed / r.time
+  local top = {}
+  for i, ing in ipairs(ings) do top[i] = ing.name end
+  local ms = {}
+  for i = 1, n do ms[i] = { name = machine, recipe = key, rate = rate, top = top, out = true } end
+  local lanes = { ings[1].name, (ings[2] or ings[1]).name }
+  local b, info = G.row("rangee-" .. key .. lvl_tag(sp), "Rangée (" .. n .. " " .. machine .. ", " .. key .. ")",
+    "Row (" .. n .. " " .. machine .. ", " .. key .. ")", { machines = ms, lanes = lanes })
+  if not b then return nil, info end
+  b.g.power_pole = row_poles(b, info, 0, 0)
+  b.g.params = { recipe = key, n = n, machine = machine }
+  b.g.gen, b.g.args, b.g.level_arg = "simple", { recipe, n, machine }, 3
+  -- bornes : largeur ; un ingrédient seul sur deux voies (15/s), deux ingrédients sur une voie chacun (7,5/s) ; produit sur
+  -- UNE voie du tapis de sortie
+  local bounds = { row_width_bound(sp.w), floor_eps(M.LANE_RATE / (r.products[1].amount * rate)) }
+  if #ings == 1 then bounds[#bounds + 1] = floor_eps(M.BELT_RATE / (ings[1].amount * rate))
+  else for _, ing in ipairs(ings) do bounds[#bounds + 1] = floor_eps(M.LANE_RATE / (ing.amount * rate)) end end
+  set_ext(b.g, "n", 2, minimum(bounds))
+  return b:finish()
+end
+
 --- Îlot de circuits verts « C K C K C » (pairs = 2, défaut) : assembleurs de câbles (C, cuivre au tapis du haut) et de
 --- circuits (K, fer au tapis du haut), chaque K reçoit ses câbles de ses deux voisins (rapport 3:2, EQUIPES_PNJ §6.4).
 --- pairs = 1 : « C K C » (le second C ne tourne qu'à moitié). pairs ≥ 3 : câbles insuffisants (refusé par le contrôle).
@@ -1198,7 +1257,7 @@ function G.oil_plastic()
 end
 
 -- Fonctions publiques : enveloppées par pcall (filet). G.row reste brut (pièce interne, rend déjà (nil, raison)).
-M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "circuits", "engines", "labs",
+M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "simple", "circuits", "engines", "labs",
   "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic" }
 local GEN = { row = G.row }
 for _, k in ipairs(M.GENERATORS) do

@@ -182,5 +182,52 @@ check(ok3, "4 min sans erreur, sans guerre (" .. tostring(err3) .. ")")
 check((g.stats.emergency_recruits or 0) - r0 >= 7 and g.engineers_count >= 8, "équipe reconstruite au QG : "
   .. tostring((g.stats.emergency_recruits or 0) - r0) .. " recrues équipées, " .. g.engineers_count .. " PNJ")
 
+section("Lot IA-V2 : PNJ tué loin du QG : les PNJ au travail à moins de 64 tuiles rentrent (moteur réel, ia1b2-guide 1618033988)")
+M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
+local s3 = game.surfaces[1]
+local chest3 = s3.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+for _, it in ipairs({ { "iron-plate", 2000 }, { "copper-plate", 500 }, { "coal", 400 }, { "stone", 200 } }) do
+  chest3.insert({ name = it[1], count = it[2] })
+end
+W().events[defines.events.on_built_entity]({ created_entity = chest3, player_index = 1, tick = game.tick })
+local g3 = global.fo.pteam.team
+M.run_ticks(1200)
+local busy = {}
+local ids3 = {}
+for id in pairs(g3.engineers) do ids3[#ids3 + 1] = id end
+table.sort(ids3)
+for _, id in ipairs(ids3) do
+  local a = Registry.get(id)
+  if a and a.entity and a.entity.valid and a.task and a.task.kind ~= "garrison" and a.task.kind ~= "fortify"
+    and not a.task.fail then busy[#busy + 1] = a end
+end
+check(#busy >= 3, "au moins 3 PNJ au travail après 20 s (" .. #busy .. ")")
+if #busy >= 3 then
+  local victim, near, far = busy[1], busy[2], busy[3]
+  victim.entity.teleport({ x = 120, y = 120 })
+  near.entity.teleport({ x = 140, y = 120 })
+  far.entity.teleport({ x = 300, y = 300 })
+  local recalls0 = g3.stats.danger_recalls or 0
+  victim.entity.die()
+  M.run_ticks(1)
+  check(near.task and near.task.fail == "danger", "PNJ à 20 tuiles de la perte : rappelé au QG (« danger »)")
+  check(not (far.task and far.task.fail == "danger"), "PNJ à plus de 64 tuiles : continue")
+  check((g3.stats.danger_recalls or 0) - recalls0 >= 1, "rappel compté (" .. tostring(g3.stats.danger_recalls) .. ")")
+  -- Perte près du QG (moins de 24 tuiles) : personne n'est rappelé.
+  local b2 = {}
+  for _, id in ipairs(ids3) do
+    local a = Registry.get(id)
+    if a and a.entity and a.entity.valid and a.task and not a.task.fail and a ~= far then b2[#b2 + 1] = a end
+  end
+  if #b2 >= 2 then
+    b2[1].entity.teleport({ x = 10, y = 10 })
+    b2[2].entity.teleport({ x = 12, y = 10 })
+    local r1 = g3.stats.danger_recalls or 0
+    b2[1].entity.die()
+    M.run_ticks(1)
+    check((g3.stats.danger_recalls or 0) == r1, "perte à moins de 24 tuiles du QG : aucun rappel")
+  end
+end
+
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

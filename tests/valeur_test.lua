@@ -187,8 +187,8 @@ local function logs(pattern)
   for _, l in ipairs(W().logs) do if l:find(pattern, 1, true) then out[#out + 1] = l end end
   return out
 end
-local function start(seed)
-  M.new_game({ seed = seed, patches = patches(), p_busy = 0.02, p_nopath = 0.02, p_lost = 0.005 })
+local function start(seed, cerveau)
+  M.new_game({ seed = seed, patches = patches(), p_busy = 0.02, p_nopath = 0.02, p_lost = 0.005, ia3_cerveau = cerveau })
   M.command("fo-war", "start 4 100 10 320")
   return global.fo.war
 end
@@ -236,7 +236,10 @@ do
     turns = turns + (f.scan_turn or 0)
   end
   check(fronts + in_reserve >= 1, "des sites trouvés depuis un front (choisis " .. fronts .. ", en réserve " .. in_reserve .. ")")
-  check(dropped >= 4 and turns >= 8, "réserve renouvelée (" .. dropped .. " sites oubliés) et origines alternées (" .. turns .. " tours)")
+  -- Lot IA-V2 : le cerveau par besoins (allumé par défaut) ne demande un site que pour un projet ouvert : la réserve
+  -- d'une ressource n'atteint pas sa borne, rien n'y est à renouveler (0 site oublié). Le renouvellement (mécanisme
+  -- d'IA2-b, inchangé) est contrôlé avec l'ancien cerveau, section « réserve renouvelée » plus bas.
+  check(turns >= 8, "origines alternées (" .. turns .. " tours ; " .. dropped .. " sites oubliés sous le cerveau par besoins)")
   local over, detail = false, {}
   for _, f in ipairs(war.factions) do
     local per = {}
@@ -311,6 +314,18 @@ do
       "orphelins du 2e site démontés (démontés " .. tostring(f.stats.orphans_salvaged or 0) .. ", repris "
       .. tostring(f.stats.orphans_reclaimed or 0) .. ", restants " .. still .. ")")
   end
+end
+
+section("Moteur simulé : réserve renouvelée, ancien cerveau (mécanisme d'IA2-b)")
+do
+  local w = start(seed, false)
+  check(pcall(M.run_ticks, 15 * 3600), "15 min de guerre sans erreur (ancien cerveau)")
+  local dropped, turns = 0, 0
+  for _, f in ipairs(w.factions) do
+    dropped = dropped + (f.stats.reserve_dropped or 0)
+    turns = turns + (f.scan_turn or 0)
+  end
+  check(dropped >= 4 and turns >= 8, "réserve renouvelée (" .. dropped .. " sites oubliés) et origines alternées (" .. turns .. " tours)")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

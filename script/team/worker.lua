@@ -32,6 +32,10 @@ local Locomotion = require("script.companion.locomotion")
 local Worker = {}
 
 Worker.DANGER_RADIUS = 40 -- lot IA1-b : rayon « nid ou ver » qui écarte un minage ou une garde de fond
+Worker.SAFE_HOME = 24     -- lot IA-V2 : une perte à moins de 24 tuiles du QG ne rappelle personne (le QG est défendu)
+-- Lot IA3-k : crochets des comportements visibles (script/ai3/comportement.lua, qui s'y branche) : sense (regard, peur,
+-- réaction), leg (point de passage), gate (porte d'une tâche), nav_failed (point de passage injoignable). nil : rien.
+Worker.hook = nil
 
 local MACHINE = "worker"
 local HOME_RADIUS = 6
@@ -294,6 +298,21 @@ function Worker.program(f, task, surface, tick)
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
     if o then pos = access(o) end
     local ammo = Outposts.ammo_name(f.tech)
+    if Board.market(f) then
+      -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
+      -- « firearm-magazine », soit jusqu'à 400 chargeurs sortis du coffre pendant la tournée : la matière promise aux
+      -- tâches strictes, tourelles comprises, n'y était plus). Réservée au libre ensuite (Board.reserve_soft).
+      local _, by_key = Outposts.turret_groups(f)
+      local g = by_key[task.group]
+      local need = 0
+      for _, t in ipairs(g and g.list or {}) do
+        local inv = t.valid and t.get_inventory(defines.inventory.turret_ammo)
+        local have = inv and inv.get_item_count() or 0
+        if have < T.turret_ammo_target then need = need + T.turret_ammo_target - have end
+      end
+      if need <= 0 then return nil end
+      return { { "home" }, { "take", { { ammo, need } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
+    end
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
     -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
@@ -336,13 +355,25 @@ function Worker.program(f, task, surface, tick)
         area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource", invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
-      if busy == 0 and task.fond and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
+      -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
+      -- ia3c-default graine 20261020, Ambre, 28 PNJ tués en minage à la main près d'un nid à 35 tuiles de son QG.
+      if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
       end
       -- Lot IA1-b2 : prudence par zone (votre équipe) : pas de minage de fond près d'une perte récente.
-      if busy == 0 and task.fond and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
+      -- Lot IA-V2 : les minages du cerveau par besoins aussi (task.prudent) : moteur réel, ia1b2-guide graine 1618033988,
+      -- 7e3e4ad : 8 PNJ tués en minage à la main à 51-57 tuiles du QG en 40 min (0.4.30 : 1), recrues de survie payées
+      -- en fer, fer à 0 à 40 min, munitions épuisées, coffre perdu à 45 min.
+      if busy == 0 and (task.fond or task.prudent) and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       if busy == 0 then best = r break end
+    end
+    -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
+    -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
+    local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
+    if far then
+      task.target = far
+      return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
     end
     if not best then return nil end
     task.target = { x = best.position.x, y = best.position.y }
@@ -445,7 +476,9 @@ local function finish(agent, f, ok, tick)
   local task = agent.task
   agent.task = nil
   agent.steps = nil
+  Board.release(f, agent) -- lot IA3-b : réservation non prise rendue au libre
   if task then
+    agent.last_project = task.project -- lot IA3-b : continuité de la place de marché
     if not ok then return_site(f, task) end
     Board.finish(f, task, ok, tick)
     Poles.task_done(f, task, ok, tick)
@@ -463,6 +496,7 @@ local function abort(agent, f, tick, reason)
   agent.pc = 1
   set(agent, "step", tick)
 end
+Worker.abort = abort -- lot IA3-k : demi-tour et fuite
 
 local function goto_step(agent, pos, radius, tick)
   local e = agent.entity
@@ -505,6 +539,11 @@ local function goto_step(agent, pos, radius, tick)
     end
   end
   agent.walk_radius = radius
+  local H = Worker.hook -- lot IA3-k : itinéraire par points de passage (danger, variation)
+  if H then
+    local w, wr = H.leg(agent, pos, radius, tick)
+    if w then pos, radius = w, wr end
+  end
   Nav.go(agent, pos, tick, { radius = radius })
   set(agent, "walk", tick)
   return false
@@ -528,10 +567,13 @@ local function run_steps(agent, tick)
       deposit_all(agent, f)
       agent.pc = agent.pc + 1
     elseif kind == "take" then
-      local all = take(agent, f, step[2])
+      -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
+      local all
+      if agent.resa_id then all = Board.take_reserved(f, agent, main_inv(agent), step[2])
+      else all = take(agent, f, step[2]) end
       if agent.task then agent.task.took = true end -- lot IA1-b : objets pris (stock libre du fond)
       if step.strict and not all then
-        abort(agent, f, tick, "stock")
+        abort(agent, f, tick, (agent.task and agent.task.preempted) and "preempte" or "stock")
         return
       end
       agent.pc = agent.pc + 1
@@ -591,8 +633,11 @@ local function run_steps(agent, tick)
 end
 
 --- Autodéfense : un ouvrier armé tire sur l'ennemi le plus proche (déchiqueteurs, autres factions).
+--- Lot IA3-k : rend true quand le crochet « sense » a pris la main (la pensée de l'état s'arrête là).
 local function defend(agent, tick)
-  if tick - (agent.defense_tick or 0) < DEFENSE_PERIOD then return end
+  local H = Worker.hook
+  local took = H and H.sense(agent, tick) or false
+  if tick - (agent.defense_tick or 0) < DEFENSE_PERIOD then return took end
   agent.defense_tick = tick
   local e = agent.entity
   local enemy = e.surface.find_nearest_enemy({ position = e.position, max_distance = DEFENSE_RADIUS, force = e.force })
@@ -605,12 +650,13 @@ local function defend(agent, tick)
     e.shooting_state = { state = defines.shooting.not_shooting, position = e.position }
     agent.shooting = nil
   end
+  return took
 end
 
 FSM.define(MACHINE, {
   idle = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       local f = faction_of(agent)
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
@@ -627,17 +673,29 @@ FSM.define(MACHINE, {
       local steps = Worker.program(f, task, agent.entity.surface, tick)
       if not steps then
         task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
+        Board.release(f, agent) -- lot IA3-b : réservation rendue
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
         return
       end
+      -- Lot IA3-k : porte de la tâche (trajet dangereux : escorte ou attente).
+      local H = Worker.hook
+      if H and not H.gate(f, agent, task, steps, tick) then
+        return_site(f, task)
+        task.fail = task.fail or "danger"
+        Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
+        Board.finish(f, task, false, tick)
+        Poles.task_done(f, task, false, tick)
+        return
+      end
+      Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
     end,
   },
   step = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       run_steps(agent, tick)
     end,
   },
@@ -669,7 +727,7 @@ FSM.define(MACHINE, {
   -- Lot IA1-b : attente sur place (garnison) ; l'autodéfense tourne.
   wait = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       if tick >= (agent.wait_until or 0) then
         agent.pc = agent.pc + 1
         set(agent, "step", tick)
@@ -678,7 +736,7 @@ FSM.define(MACHINE, {
   },
   walk = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       Nav.think(agent, tick)
     end,
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
@@ -700,6 +758,8 @@ FSM.define(MACHINE, {
           if f then Build.note_walk(f, "stuck") end
         end
         local reason = agent.nav_fail or "no_path"
+        local H = Worker.hook -- lot IA3-k : un point de passage injoignable ne fait pas échouer la tâche
+        if H and H.nav_failed(agent, tick) then set(agent, "step", tick) return end
         agent.walk_retries = (agent.walk_retries or 0) + 1
         if f then f.stats.nav_fail = (f.stats.nav_fail or 0) + 1 end
         if agent.walk_retries <= 3 and reason ~= "no_path" then
@@ -743,7 +803,7 @@ FSM.define(MACHINE, {
   },
   craft = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       local e = agent.entity
       if e.crafting_queue_size > 0 then
         if tick - agent.craft_started > CRAFT_TIMEOUT then
@@ -775,7 +835,7 @@ FSM.define(MACHINE, {
   },
   mine = {
     think = function(agent, tick)
-      defend(agent, tick)
+      if defend(agent, tick) then return end
       local e = agent.entity
       local step = agent.steps[agent.pc]
       local item, count = step[2], step[3]
@@ -854,6 +914,7 @@ Registry.on_removed(function(agent)
   local f = State.faction(agent.faction)
   if not f or not f.engineers[agent.id] then return end
   release_slot(f, agent)
+  Board.release(f, agent) -- lot IA3-b : réservation d'un PNJ disparu rendue au libre (ce qu'il portait est perdu, F253)
   f.engineers[agent.id] = nil
   f.engineers_count = (f.engineers_count or 1) - 1
   if f.stats then f.stats.engineers_lost = (f.stats.engineers_lost or 0) + 1 end
@@ -872,6 +933,22 @@ Registry.on_removed(function(agent)
     if not oid and t and type(t.group) == "string" and t.group:sub(1, 1) == "o" then oid = tonumber(t.group:sub(2)) end
     local o = oid and f.outposts and f.outposts[oid]
     if o then o.lethal_tick = game.tick end
+    -- Lot IA-V2 (même banc : PNJ tués par vagues, 4 à 6 au même endroit en moins d'une minute, chacun pendant que les
+    -- autres continuaient à miner) : votre équipe, PNJ tué loin du QG : les autres PNJ au travail à moins de
+    -- Poles.LOSS_RADIUS tuiles du lieu de la perte rentrent au QG (tâche abandonnée, « danger »), sauf la défense.
+    if f.is_player and p and f.hq_pos and dist2(p, f.hq_pos) > Worker.SAFE_HOME * Worker.SAFE_HOME then
+      local r2 = Poles.LOSS_RADIUS * Poles.LOSS_RADIUS
+      for _, id in ipairs(State.sorted_keys(f.engineers)) do
+        local a = Registry.get(id)
+        local at = a and a.task
+        local e = a and a.entity
+        if at and e and e.valid and at.kind ~= "garrison" and at.kind ~= "fortify" and not at.defend
+          and not at.fail and dist2(e.position, p) <= r2 then
+          abort(a, f, game.tick, "danger")
+          f.stats.danger_recalls = (f.stats.danger_recalls or 0) + 1
+        end
+      end
+    end
     -- Constructeur de votre équipe tué : les sites connus à moins de 64 tuiles du lieu de la mort sont écartés (les vers
     -- n'existent qu'une fois leur chunk généré, à l'approche : la vérification du site avant le départ ne les voit pas ;
     -- essai 10, graine 314159265 : 4 constructeurs tués au même endroit).

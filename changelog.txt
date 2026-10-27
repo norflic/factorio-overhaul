@@ -1,4 +1,83 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.1
+Date: 2026-10-27
+  Changes:
+    - Les factions automatisent ce qui leur coûte le plus de bras (lot IA3-e) : chaque minute, le cerveau mesure le temps
+      que ses PNJ passent à la main sur chaque objet (tournées des avant-postes, fonte, minage, fabrication) ; quand une
+      fonderie électrique (foreuses et tapis) ou une rangée d'assembleurs rendrait ce temps en moins de 20 minutes (5 sous
+      menace), il la demande au plan directeur, avec sa centrale à vapeur d'abord ; ce qui manque au chantier est fabriqué
+      ; un objet impossible (poteau moyen) fait rechercher sa technologie. Le module fini remplace les tournées qu'il rend
+      inutiles. Lisible : la fenêtre « Équipe et factions » montre les projets « Automatiser : … » et leur raison.
+    - N'importe quel objet fabriqué à la main peut être automatisé : sans module écrit pour lui, une rangée d'assembleurs
+      est générée depuis sa recette (machine de sa catégorie, entrées par quais, débit visé). L'ordre se déduit du
+      graphe des recettes : un objet attend que ses entrées soient automatisées. Limites écrites dans la ligne du
+      cerveau : objets bruts (extraction), recettes de four ou à fluide, plus de deux ingrédients.
+    - Un module fini se nourrit : ce qui manque au coffre pour ses quais d'entrée est fabriqué ou fondu pour lui.
+    - Plan directeur : un module se relie au réseau électrique RÉEL (carrefour bâti relié aux machines à vapeur) ; la
+      fonderie de l'automatisation tire son tapis de minerai jusqu'à 5 pas du gisement ; poteau ajouté près d'un bras de
+      quai hors de portée.
+    - Votre équipe n'automatise pas encore (même cerveau, automatisation éteinte pour elle).
+    - Réglage de carte « PNJ : automatiser ce qui revient » (fo-war-ia3e), ÉTEINT par défaut : allumé, une recherche
+      ouverte passe avant les modules qui ne la servent pas, et une fonderie n'est jamais posée loin de son gisement.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.0
+Date: 2026-10-27
+  Changes:
+    - Le cerveau des factions lit l'arbre d'avancement dans les données du jeu (recettes, technologies, machines,
+      ressources) au lieu d'une liste écrite à la main : chaque faction choisit sa recherche suivante elle-même, d'après
+      ce qu'elle débloque (pack suivant, armes, machines, bonus) et ce qu'elle coûte à fabriquer avec ce que la faction
+      possède et sait extraire ; le caractère de la faction pondère le choix. Une recherche impayable (matière sans source
+      connue, machine que personne ne sait poser) n'est jamais lancée et rien n'est fabriqué pour elle.
+    - Les ressources de départ d'une faction (laquelle exploiter d'abord, laquelle n'est pas nécessaire) se déduisent de
+      ce que ses buts consomment ; une ressource inconnue qui rapporterait (qui rendrait des recherches possibles) est
+      cherchée par ses éclaireurs.
+    - Une recherche peu chère (quelques packs) passe devant l'armée et la réserve de munitions.
+    - Journal : une ligne « [FO-CERVEAU] » par décision (technologie, valeur, coût, raisons, ressources).
+---------------------------------------------------------------------------------------------------
+Version: 0.5.2
+Date: 2026-10-27
+  Changes:
+    - Votre équipe : les minages décidés par le nouveau cerveau évitent aussi la zone d'une perte récente (64 tuiles,
+      5 min), et un PNJ tué loin du coffre fait rentrer les PNJ qui travaillent près de lui (gardes et pose de tourelles
+      exceptées). Corrige une régression de 0.5.0 (coffre de l'équipe perdu à 45 min sur une graine du guide).
+---------------------------------------------------------------------------------------------------
+Version: 0.5.1
+Date: 2026-10-27
+  Changes:
+    - Les PNJ retiennent les endroits dangereux (ennemis vus, attaques, morts), choisissent des trajets qui les évitent et qui
+      varient d'une tournée à l'autre, s'arrêtent, se détournent ou rebroussent chemin quand ils voient un ennemi sur leur
+      route, fuient blessés ou sans munitions vers la tourelle ou le QG le plus proche, et ne repartent pas seuls là où des
+      camarades sont morts (au plus 2 morts au même endroit par heure) ; après quelques attentes sans mort, ils retentent,
+      jamais vers un endroit à portée d'un ennemi connu.
+    - Les soldats des factions patrouillent la frontière (plus une faction est agressive), gardent les postes et les
+      avant-postes menacés, escortent les ouvriers vers les zones dangereuses, nettoient les nids proches des routes, chassent
+      un adversaire isolé et défendent le QG.
+    - Un état court s'affiche au-dessus du PNJ à chaque changement (« ! », Détour, Demi-tour, Fuite !, Combat, Escorte, Trop
+      dangereux, Patrouille, Garde, Nettoyage, Chasse, À l'abri !, Défense), au moins 2 s.
+    - Réglage de carte « PNJ : comportements visibles » (fo-war-ia3-comportement), allumé par défaut.
+---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2026-10-27
+  Changes:
+    - Nouveau cerveau des PNJ, pour les factions et votre équipe, allumé par défaut : plus d'échelle d'objectifs ;
+      chaque équipe mène plusieurs projets en même temps selon ce qui lui MANQUE (il manque du fer : elle pose des fours
+      au QG, plusieurs PNJ minent le fer et le fondent, la pierre et le charbon attendent ; elle ne ramasse plus ce
+      qu'elle a en trop pendant qu'autre chose manque).
+    - Vraie recherche des factions : elles fabriquent un laboratoire, le posent près de leur QG, fabriquent leurs packs
+      et recherchent les technologies de leur force, selon leur caractère ; jamais de packs pour une recherche qu'elles
+      ne peuvent pas payer.
+    - Personne n'attend, personne n'arrache : un PNJ libre prend la tâche la plus utile qu'il sait faire, même hors de son
+      pôle ; une tâche prise réserve sa matière au coffre, plus personne ne la lui prend.
+    - Exploration sous brouillard : une équipe ne connaît que ce qu'elle a vu (son QG, ses avant-postes, ses PNJ en
+      marche, ses éclaireurs) ; elle fait le tour de sa base au départ, regarde autour d'elle avant d'explorer, envoie
+      jusqu'à 3 éclaireurs quand une ressource manque et que des PNJ attendent, et ne prend plus de site jamais vu ;
+      un éclaireur de faction dont le chemin est coupé en route (eau, falaise) prend une autre cible au lieu de rentrer.
+    - Un avant-poste qui attend ses tourelles depuis 2 minutes les fait fabriquer.
+    - Réglages de carte « PNJ : cerveau par besoins » et « PNJ : personne n'attend, personne n'arrache » : allumés ;
+      les éteindre AVANT la guerre rend l'ancien cerveau.
+    - Une partie 0.4.x rechargée passe au nouveau cerveau à la pensée suivante de chaque équipe, en gardant ses
+      recherches et ses avant-postes.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.32
 Date: 2026-10-27
   Changes:

@@ -10,6 +10,146 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 12 h 10 : CAPITALISATION** (le DC, 12 h 05 : « Le scaling des IA est aussi et surtout dans la maximisation des gisements,
+> de la fonte et des crafts […] c'est le concept de capitalisation qu'il faut implémenter » ; « Et concernant la recherche IA ? »).
+> Workflow `capitalisation-pnj` (relancé à 12 h 15 avec la précision du DC « plus de gisements, plus de fours dans la limite de ce qu'on peut faire fondre, si assembleurs disponibles des chaînes de production » : run `wf_181b9d75-fba` ; le premier run `wf_6987f189-654` est arrêté, hors jeu, worktree `capi`, livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md`
+> et `RESUME_DC.md`) : règle pure + test + doc, PLAN DE BRANCHEMENT à appliquer après la fusion de SCALE et AUTO, puis preuve en
+> moteur réel (capacité qui croît, inactifs ≤ 20 % à 30 PNJ, 30 contre 10 ≥ 1,2, paliers de recherche, laboratoires qui grandissent).
+>
+> **27/10, 11 h 40 : WORKFLOW `ia-fin-cerveau` LANCÉ** (le DC : « ultracode si nécessaire » ; run `wf_7e757943-a80` ; NE JAMAIS écrire par
+> SendMessage à ses agents) : 4 lots en parallèle, chacun suivi d'un critique adverse et d'un correcteur si défaut majeur ; worktrees
+> `.claude/worktrees/perf`, `scale`, `auto`, `capital` (branches du même nom, partis de main 0.6.1 `2d6cb75`, feuilles copiées) ;
+> livraisons `fo-logs\2026-10-27_PERF`, `_SCALE`, `_AUTO`, `_CAPITAL` ; bancs `--qui PERF|SCALE|AUTO|CAPITAL`. À l'arrivée : fusionner
+> lot par lot (conflits attendus sur shared/ai3/general.lua, buts.lua, cerveau.lua), rejouer la validation complète sur main (comme
+> `valid060`), K10 `--seul`. Recherche 3D par IA FAITE (`fo-logs\2026-10-27_3D-IA\RAPPORT.md`) : essai à décider par le DC.
+>
+> **27/10, 11 h 30 : IA3-e FUSIONNÉ, `main` = 0.6.1**, réglage `fo-war-ia3e` ÉTEINT (décisions identiques à 0.6.0) ; worktree `ia3e`
+> gardé pour la suite (rallumer : lot des foreuses, K1, règles dans le cerveau général). Restent : IA3-d (+ P1), design F4-B et F5-A2,
+> recherche 3D par IA (agent lancé, rapport `fo-logs\2026-10-27_3D-IA\RAPPORT.md`), lot de performance (K10 0,441 ms), bilan au DC.
+>
+> **27/10, 11 h 15 : 0.6.0 VALIDÉE sur `main`** (garde-fous verts, `ia1b2-guide` 1618033988 réparé ; `iag_test` 93 OK après
+> admission des types du moteur d'IA3-k). **K10 NON tenu : 0,441 ms par tick, p99 6,6 ms, mesuré seul** (0,291 en 0.5.0) : lot de
+> performance à ouvrir (profileur par composant : itinéraires d'IA3-k, catalogue d'IA-G étalé). Les points 1 de la reprise de 10 h 45
+> sont faits ; restent 2 à 6. Agents IA3-e et design arrêtés par la limite d'usage à 10 h 45, à relancer par SendMessage.
+>
+> **27/10, 10 h 45 : POINT DE REPRISE (limite d'usage de la session atteinte).** `main` = **0.6.0** (`4424be0`, documents `2427c2b`,
+> `c99d2fe`) : IA-V2 + correctif 0.5.2 (`7236ffa`), IA3-k 0.5.1, IA-G 0.6.0. **À FAIRE EN PREMIER** :
+> 1. Lire la validation de 0.6.0 : `fo-logs\2026-10-27_integration-0.6.0\series.txt` et `bilans.txt` (« FINI » quand tout est passé :
+>    verif-guide 271828182 et 1618033988, content, pnj-reduit, ia1b2-guide 1618033988, iag-partie × 2, ia3k-route, iag-jetable sur
+>    `jetable-src`, puis K10 `--seul` ia1-scale) ; instantané testé : worktree `.claude/worktrees/valid060` (branche `valid060`) ;
+>    série hors jeu : `<scratchpad>\serie_valid060\bilan.txt`. Consigner dans RD_LOG (E199, E220 à E223) et OBJECTIFS ; un échec se
+>    corrige en avant sur `main`. Retirer ensuite `valid060`.
+> 2. IA3-e (agent `aa204fd5af007dd61`) : `git merge main` 0.6.0 dans `ia3e`, conflits sur le cerveau, réglage `fo-war-ia3e` ÉTEINT ;
+>    rapport attendu vers 12 h ; fusionner s'il est vert réglage éteint.
+> 3. IA3-d (branche `ia3d`, agent terminé) : fusionner `main` dedans, puis P1 (`fo-war-workers` 4 → 30) avec verif-guide sur 4 graines.
+> 4. Design (agent `af602e63c702fb3b4`) : F4-B (foreuse en jeu) et F5-A2 (centre) en cours ; fusion de F4-B après mémoire vidéo au plancher.
+> 5. Banc : `fo-banc-places.txt` = 3 (le DC n'utilise pas le PC jusque vers 17 h) ; le remettre à 1 quand il joue.
+> 6. Bilan au DC de l'échéance de 12 h 10 (« cerveau des IA fini ») : franc ; non tenus connus : palier 2, inactifs à 30 PNJ (45 %),
+>    automatisation éteinte par défaut, buts d'amélioration des niveaux absents (D-20 (3)), A8 et A9 non commencés.
+> Page du DC : https://claude.ai/artifact/617hK5AkCWh1vu7HCzViU5 (à mettre à jour avec 0.5.1, 0.5.2, 0.6.0 et X3).
+>
+> **27/10, 10 h 35 : IA3-k FUSIONNÉ, `main` = 0.5.1** (`cd36d4b`) : comportements visibles allumés (`fo-war-ia3-comportement`).
+> Preuve du lot sur main 0.5.0 + lot (C2 24/24 et 14/14 sans mort, C5 1 mort contre 27 et 48, C3 7 OK, B5 et C4, D1) ; fusion
+> propre, main depuis la base du lot : outils, X3 (non lu par le jeu) et documents seulement. Sur `main` 0.5.1 (intégrateur) : série
+> hors jeu, content, verif-guide 271828182 et 1618033988 lancés. Fusions d'essai : main + ia3k + iag PROPRE ; + ia3e : conflits
+> settings.lua et tests/mock_engine.lua seulement. Défauts ouverts : économie d'une faction sans soldat sous un nid ; C1 allongement ;
+> K10 (mesure `--seul` de l'intégrateur sur main après les fusions). Worktree `ia3k` gardé tant que l'agent tourne.
+>
+> **27/10, 10 h 40 : IA3-e LIVRÉ (2e fois), réglage `fo-war-ia3e` ÉTEINT par défaut** (tête `d52a2d0` ; INTEGRATION.md §0 bis) :
+> éteint, automatisation et plan des factions inertes (verif-guide 1618033988 15 OK, content 331) ; allumé : aucune fonderie posée
+> (lot des foreuses introuvable : « tapis des foreuses (pas de lot) », « (trop long) »), K1 instable (une faction différente recule
+> à chaque correction). Fusion main + ia3e : PROPRE ; main + ia3e + iag : CONFLITS dans script/ai3/cerveau.lua, shared/ai3/buts.lua,
+> shared/ai3/cerveau.lua, shared/ai3/projets.lua, tests/mock_engine.lua. **Ordre décidé** : IA-G d'abord dans `main` (vers 11 h 15),
+> puis l'agent IA3-e (`aa204fd5af007dd61`) fait `git merge main` dans `ia3e`, résout en gardant le cerveau d'IA-G et en branchant
+> `A.decide*` à son point de jonction, rejoue hors jeu + verif-guide + content réglage éteint ; fusion ensuite.
+>
+> **27/10, 10 h 15 : X3 FUSIONNÉ (proposition hors jeu, `f76af76`, `0f78e4f`) et D-20 du DC** (QCM) : fonderie de puces OBLIGATOIRE
+> à l'âge 10 ; gamme de robots à concevoir « style Supreme Commander 2 » ; une partie des niveaux en pièces montées, que le cerveau
+> des PNJ doit faire DE LUI-MÊME (rien en dur) ; calcul NON stockable, par script. À reporter dans `shared/content/x3.lua` et §3.7 au
+> lot de mise en jeu (X3-0…), après la priorité IA. Worktree `x3` à retirer (refusé : dossier courant de la session).
+>
+> **27/10, 9 h 55 : IA3-e LIVRÉ, NON FUSIONNÉ** (tête `d7e8a7d` = main 0.5.0 + lot ; `fo-logs\2026-10-27_IA3-e\INTEGRATION.md`) :
+> règle « main ou machine » pour TOUT objet (module généré depuis la recette), ordre tiré de la profondeur du graphe, interface
+> pure pour IA-G (§0) ; verif-guide 15 OK × 2, content 331, ia1-build-plaine 12, K11, K10 0,157 ms en `--seul`. **Refusé en
+> l'état** : sur la tête, AUCUN module de production seul à 45 min (fonderie posée loin du gisement, quai de minerai vide), part à
+> la main 93 à 100 %, **K1 RECULE** (amber 42 min → jamais). Agent relancé (correctifs : fonderie au gisement, cause du recul de
+> K1, réglage de carte `fo-war-ia3e` allumé seulement si tenu) ; livraison vers 11 h 10. IA-G : gel vers 11 h, rapport, point
+> de jonction avec `A.decide*`. **Plan jusqu'à 12 h 15** : fusion IA-G puis IA3-e vers 11 h 15, preuve commune sur 3 places ;
+> IA3-d (avec P1) et IA3-k ensuite. Garde-fous d'IA-V2 revenus sur 0.5.0 : verif-guide 577215664 15 OK (13 avant), brouillard
+> 10 OK, réduite 1618033988 5 OK, ia1-poles 15 OK 2 ECHEC (défaut ouvert depuis 0.4.29, inchangé) ; restent verif-guide
+> 1618033988 et ia1b2-guide.
+>
+> **27/10, 9 h 05 : BANC À 3 PLACES DÉPLOYÉ** (fusion `cf7053b` de `banc2`, agent terminé ; `fo-autotest.bat` recopié à la racine,
+> l'ancien gardé dans `fo-logs\fo-autotest.bat.avant-banc2`) ; `<racine>\fo-banc-places.txt` = **3** (REMETTRE 1 quand le DC joue).
+> Tests : test_banc_file 78 OK, bat_double_source 70 OK (rejoués par l'intégrateur). Moteur réel : `content` 331 OK à la place 2
+> (14 s, sans attente) pendant la session d'images d'IA3-e à la place 1 (`fo-logs\2026-10-27_integration-0.5.0\content`). Les
+> tickets déposés par des banc.py ANCIENS (avant 9 h 03) ne passent que par la place 1 : agents priés de les relancer. Toute
+> mesure K10 avec `--seul` ; les mesures K10 prises avant ce déploiement pendant d'autres bancs sont à refaire seules.
+>
+> **27/10, 8 h 55 : PC LIBRE 8 h ET BANC À PLUSIEURS PLACES.** Le DC, vers 8 h 50 : « Vous pouvez potentiellement accélérer le jeu
+> beaucoup plus pour 1 partie à la fois […] (Et au pire ça ram mais c'est pas grave si ?) », puis vers 8 h 55 : « Je n'utilise pas
+> mon pc pour les 8 prochaines heures donc vous pouvez y aller (sans faire planter le pc quand même mais vous avez compris) ».
+> Mesure : un banc tourne déjà sans limite de vitesse (`ia3-fer-joueur`, 54 000 ticks : copie 2 s, création 5 s, simulation 9 s,
+> archivage 4 s, ATTENTE en file 965 s) : le frein est la file. Agent BANC2 lancé (worktree `banc2`) : `FO_PLACE` 1 à 3 dans
+> `fo-autotest.bat` (dossiers `fo-autotest`, `-2`, `-3` ; verrous `.lock`, `-2.lock`, `-3.lock`), banc.py à N places lues dans
+> `<racine>\fo-banc-places.txt` (défaut 2), tickets exclusifs (`--captures`, `--visuel`, `--son`, `--seul` pour toute mesure K10),
+> place supplémentaire seulement avec 6 Go libres. Déploiement par l'intégrateur après relecture ; l'interdit n° 4 de CLAUDE.md
+> sera réécrit à ce moment. Disque F: 154,6 Go libres, C: 12,9 Go (à surveiller).
+>
+> **27/10, 8 h 40 : IA-V2 FUSIONNÉ, `main` = 0.5.0** (`6c631d5`) : le nouveau cerveau (marché IA3-b, cerveau par besoins IA3-c,
+> exploration IA3-f) ALLUMÉ par défaut. Hors jeu sur la fusion (worktree `integ`, retiré ensuite) : 32 tests verts, harness 0,
+> api_lint 1179, pvp 1305. Moteur réel sur la branche (même code) : content 331, verif-guide 15 OK × 2 graines, cas du DC, migration
+> 12 OK, K11 ; NON tenus : K1, K5, K10 (0,291 ms), B1 à 30 PNJ. **6 garde-fous en jeu encore en file** sous `--qui IA-V2` (série
+> `travaux-final-a.txt`, `-b.txt` du dossier `fo-logs\2026-10-27_IA-V2\`, relançable par `./serie.sh` ; ce qui est fait est sauté) :
+> pnj-reduit, ia1-poles, ia3-brouillard, ia1b2-guide, verif-guide 1618033988 et 577215664 : À CONSIGNER (E199) à leur retour ;
+> un échec se corrige en avant sur `main`. **Prévenus de faire `git merge main`** : IA-G, IA3-e, IA3-k ; IA3-d (agent terminé) :
+> l'intégrateur fusionne `main` dans `ia3d` à sa fusion. Worktree `ia-v2` GARDÉ tant que la série de l'agent tourne.
+>
+> **27/10, 8 h 05 : WORKFLOW X3 LANCÉ à la demande du DC** (« lancer un workflow pour avoir d'autres minerais […] tel minerai à
+> telle époque […] des processeurs […] technologies laser […] impressions […] cartes graphiques […] calcul […] robots de défense »,
+> OBJECTIFS §4) : run `wf_75a10ea1-27c` (8 agents, HORS JEU, aucun banc ni Blender), worktree `.claude/worktrees/x3` (branche `x3`
+> partie de `main` e2930ad) ; données pures NOUVELLES `shared/content/x3.lua` + `tests/x3_test.lua` + §3.7 de SCENARIO_EPOQUES ;
+> epochs.lua NON modifié (il est lu par le jeu : niveaux, titane, garantie) ; livrables `fo-logs\2026-10-27_X3\INTEGRATION.md` et
+> `RESUME_DC.md` ; F337 à F340, E224 à E226 (prochains libres F341, E227). Ne JAMAIS écrire par SendMessage à un agent de ce
+> workflow (doublon). Mise en jeu après la priorité IA. **D-19 (8 h 25, validé par le DC)** : le calcul comme l'électricité
+> (centre de calcul qui consomme courant et refroidissement) : vérifier à la livraison de X3 que la synthèse le respecte.
+>
+> **27/10, 7 h 50 : le DC demande de refaire QUELQUES âges de l'assembleur** (OBJECTIFS §4, mot pour mot) : 15 très réussi,
+> 14 « partiellement » (un élément décentré), d'autres très basiques malgré l'âge ; « le gameplay fonctionnel avec les IA reste
+> la priorité ». Lot **F3-C** mis à la FIN de la file du design (après F4-B et F5-A2) ; âges à refaire, lecture provisoire de
+> l'intégrateur : 4, 9, 10, 11, et la correction du 14. **ANNULÉ vers 8 h par le DC** (« les assemblages sont bons finalement […]
+> j'avais regardé les ancienne ») : rien à refaire, design prévenu. Une boucle de vérification toutes les 10 min est armée (CronCreate
+> `5d7f4995`, session seulement) : avancement des branches, file du banc, noms du jeu dans le code de décision.
+>
+> **27/10, 7 h 15 : CONSIGNE DU DC (réveillé, contrôle à distance) : le cerveau des IA FINI en 5 h, et un cerveau qui
+> GÉNÉRALISE** (« si ils font des chemins en dur […] dans le code, ça risque pas de le faire […] un véritable cerveau quelqu'un
+> qui généralise », OBJECTIFS §4). Constat vérifié : décisions des factions sur l'échelle écrite à la main (`T.ladder`,
+> `T.research`, avant-postes iron, copper, coal de `shared/team/planner.lua`) ; `shared/ai3/graphe.lua` (dépliage générique,
+> IA3_CERVEAU §3) JAMAIS branché. **Lot IA-G LANCÉ** (agent `a53268fe1401a6fb1`, branche `iag`, worktree
+> `.claude/worktrees/iag`, base ia-v2 `c826b48` + `main` = `9efc142`, feuilles copiées ; notes `fo-logs\2026-10-27_IA-G\` ;
+> F331 à F336, E220 à E223, prochains libres F337, E224 ; bancs `--qui IA-G`) : catalogue depuis les prototypes, choix des
+> recherches par leur valeur, dépliage branché vers les exécutants (tableau, plan d'IA1-d, exploration), échelle remplacée,
+> test anti-noms ; preuve de GÉNÉRALISATION exigée (copie jetable du mod aux données changées, même code). Échéance vers
+> 12 h 15. Messages : IA-V2 livre vite sans chantier neuf (il a corrigé traits et valeur en `c826b48`) ; IA3-e généralise
+> « main ou machine » à tout objet et garde une interface pure pour IA-G ; IA3-k sans seuils ni positions en dur.
+> Ordre des fusions : IA-V2, puis IA-G et IA3-e, puis IA3-d (avec P1), puis IA3-k.
+>
+> **27/10, 7 h 40 : IA3-d LIVRÉ, NON FUSIONNÉ (attend IA-V2)** : branche `ia3d` (tête `d97181c`, contient ia-v2 `4e0388b` et
+> `main` 0.4.32), worktree `.claude/worktrees/ia3d` GARDÉ ; agent terminé (`af7c16550a493a161`). Notes
+> `fo-logs\2026-10-27_IA3-d\NOTES.md`, `INTEGRATION.md` (brouillons F315 à F318, E210, E211, OBJECTIFS, changelog, CLAUDE.md).
+> Règle d'effectif des factions `shared/ai3/effectif.lua` : recrue quand du travail attend 2 min au-delà des bras libres et
+> que la recrue se paie ; prouvée par une charge injectée (`ia3d-charge` 13 OK : 8 → 14 et 8 → 10). **Croissance NON obtenue en
+> partie de 2 h** (`ia3d-croissance` 7 OK 2 ECHEC) : sous le cerveau d'ia-v2, 28 à 58 % des PNJ sans tâche, aucun travail
+> n'attend 2 min ; 30 contre 10 = 1,09. Cause : le travail engendré par le cerveau (IA-V2, IA3-e), pas le recrutement ;
+> transmis à IA-V2 (B1) et à IA3-e le 27/10 vers 7 h 35. **À FAIRE À SA FUSION** (après IA-V2 et IA3-e) : `git merge main`
+> dans `ia3d`, série hors jeu, `ia3d-charge`, `verif-guide` sur 4 graines, et **P1 : défaut de `fo-war-workers` 4 → 30**
+> (D-14 « 30 dès l'époque 1 » ; aujourd'hui une faction part à min(8, 4) = 4 = son plafond et ne grandit jamais, F315) ;
+> rejouer `verif-guide` AVEC P1 (factions à 8 au départ : tempo contre le joueur, K9) ; P2 textes des réglages
+> `fo-recruit-idle-max` et `fo-war-workers`. Défauts déclarés : part de PNJ sans tâche visible en hausse (les recrues de
+> l'ancien frein la cachaient), cuivre −46 à −49 % non expliqué, `war_test` modifié (105 OK). **Vérifié par l'intégrateur :
+> `traits_test` 64 OK 1 ECHEC et `valeur_test` 50 OK 1 ECHEC sur ia-v2 `948888e`** (verts sur `main`) : bloquants pour IA-V2,
+> signalés à IA-V2.
+>
 > **27/10, 7 h 15 : DESIGN. Kits de la foreuse et du centre FUSIONNÉS dans `main`** (outils seulement, aucune version montée,
 > rien en jeu, aucun design validé) : `859cfab` (foreuse_e, rondes F4-A à F4-A3 : charte moyenne 28,7, âges 10 et 12 sous 25,
 > âges 12 et 14 sous 70 % de la mitrailleuse, âge 1 noir de nuit) et `d5cf09d` (centre_e, ronde 1 : 15 silhouettes, grands étages

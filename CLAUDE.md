@@ -23,11 +23,11 @@ avant tout travail.
 3. `BALANCE_SHEET.md` : chiffres. §12 niveaux (courbe provisoire, à refaire pour les 15 époques).
 4. `RD_LOG.md` : faits F1 à F162 (F102 lu dans le binaire, pas en moteur réel ; F103 à F110 : lot
    V3-T3, intégré ; F111 à F118 : lot V3-T4, livré NON intégré ; F119 : V3-E ; F120 à F122 : lot A1 ; F130 à F135 : lot
-   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant ; F171 à F174 : PNJ-VÉRIF ; F186, F187 : A3-final ; F190 à F194 : MOD-0 ; F199 à F203 : MOD-1 ; F204 à F206 : A4-SOCLE ; F207 à F209 : IA2-0 ; F213 à F218 : IA2-a et IA2-a2 ; F210, F211 : X1 ; F219 à F221 : MOD-2 ; F222 à F224 : IA2-b ; F228 à F230 : F1-B ; F237, F238 : VERIF-NUIT ; F234 à F236 : IA2-c ; F242 à F244 : IA1-e1 ; F239 à F241 : IA1-b ; F225 à F227, F248, F249 : MOD-V et MOD-3 ; F263 à F265 : IA1-i ; F269 à F275 : IA3 ; F254 à F256 : F2-A ; F276 à F278 : F2-B ; F251 à F253 : IA1-b2 ; F163 à F165 : F1-A ; F167 à F170, F188, F189 : M1 ; F175 à F179 : IA1-0 ; F180 à F182 : IA1-a ; F183 à F185 : IA1-c ; F195 à F198 : B0 ; F306 à F308 : F3-B ; F292 à F295 : IA1-d ; F260 à F262, F309 à F311 : F4-A à F4-A3 ; F312, F313 : F5-A),
+   M0 ; F136 : Blender 5.2.2, vérification du lot K0 ; F123 à F129 : lot A2 ; F137 à F139 : INT-GRAINE ; F140 à F145 : A3-préparation ; F146 à F148 : A3-jeu ; F149, F157 à F160 : A4-préparation ; F150 à F154 : lot S0 ; F155, F156 : S0-suite ; F161, F162 : D4m-géant ; F171 à F174 : PNJ-VÉRIF ; F186, F187 : A3-final ; F190 à F194 : MOD-0 ; F199 à F203 : MOD-1 ; F204 à F206 : A4-SOCLE ; F207 à F209 : IA2-0 ; F213 à F218 : IA2-a et IA2-a2 ; F210, F211 : X1 ; F219 à F221 : MOD-2 ; F222 à F224 : IA2-b ; F228 à F230 : F1-B ; F237, F238 : VERIF-NUIT ; F234 à F236 : IA2-c ; F242 à F244 : IA1-e1 ; F239 à F241 : IA1-b ; F225 à F227, F248, F249 : MOD-V et MOD-3 ; F263 à F265 : IA1-i ; F269 à F275 : IA3 ; F254 à F256 : F2-A ; F276 à F278 : F2-B ; F251 à F253 : IA1-b2 ; F163 à F165 : F1-A ; F167 à F170, F188, F189 : M1 ; F175 à F179 : IA1-0 ; F180 à F182 : IA1-a ; F183 à F185 : IA1-c ; F195 à F198 : B0 ; F306 à F308 : F3-B ; F292 à F295 : IA1-d ; F296 à F298 : IA-V2 ; F300 à F305 : IA3-k ; F331 à F333 : IA-G ; F319 à F323 : IA3-e ; F337 à F340 : X3 ; F260 à F262, F309 à F311 : F4-A à F4-A3 ; F312, F313 : F5-A),
    expériences E1 à E84, E105 à E123 et E128 à E132 (E3 jamais attribué ; E56 à E59 : V3-T3 ; E60 à E62 : V3-T4 ; E63 à E65 : V3-E,
-   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant ; E118 à E120 : PNJ-VÉRIF ; E128 à E130 : A3-final ; E133 à E135 : MOD-0 ; E138 à E140 : MOD-1 ; E141, E142 : A4-SOCLE ; E143, E144 : IA2-0 ; E147 à E150 : IA2-a et IA2-a2 ; E145, E146 : X1 ; E151, E152 : MOD-2 ; E153, E154 : IA2-b ; E157, E158 : F1-B ; E163 : VERIF-NUIT ; E161, E162 : IA2-c ; E166, E167 : IA1-e1 ; E164, E165 : IA1-b ; E155, E156, E170, E171 : MOD-V et MOD-3 ; E174, E175 : IA1-i ; E178 à E181 : IA3 ; E85 à E87 : F2-A ; E184, E185 : F2-B ; E172, E173 : IA1-b2 ; E77 à E80, E131, E132 : M1 ; E81 à E84 : F1-A ; E121 à E123 : IA1-0 ; E124, E125 : IA1-a ; E126, E127 : IA1-c ; E136, E137 : B0 ; E204, E205 : F3-B ; E195 à E197 : IA1-d ; E93 à E96, E206, E207 : F4-A à F4-A3 ; E208, E209 : F5-A), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
+   passes 3 à 5 ; E66, E67, E70 : A1 ; E68 : A2 ; E69 : S0 ; E71, E72 : K0 ; E73 à E76 : M0 ; E105 à E108 : A3-préparation ; E109 à E111 : A3-jeu ; E112, E114 à E116 : A4-préparation ; E113 : S0-suite ; E117 : D4m-géant ; E118 à E120 : PNJ-VÉRIF ; E128 à E130 : A3-final ; E133 à E135 : MOD-0 ; E138 à E140 : MOD-1 ; E141, E142 : A4-SOCLE ; E143, E144 : IA2-0 ; E147 à E150 : IA2-a et IA2-a2 ; E145, E146 : X1 ; E151, E152 : MOD-2 ; E153, E154 : IA2-b ; E157, E158 : F1-B ; E163 : VERIF-NUIT ; E161, E162 : IA2-c ; E166, E167 : IA1-e1 ; E164, E165 : IA1-b ; E155, E156, E170, E171 : MOD-V et MOD-3 ; E174, E175 : IA1-i ; E178 à E181 : IA3 ; E85 à E87 : F2-A ; E184, E185 : F2-B ; E172, E173 : IA1-b2 ; E77 à E80, E131, E132 : M1 ; E81 à E84 : F1-A ; E121 à E123 : IA1-0 ; E124, E125 : IA1-a ; E126, E127 : IA1-c ; E136, E137 : B0 ; E204, E205 : F3-B ; E195 à E197 : IA1-d ; E198, E199 : IA-V2 ; E200 à E203 : IA3-k ; E220 à E223 : IA-G ; E212 à E214 : IA3-e ; E224 à E226 : X3 ; E93 à E96, E206, E207 : F4-A à F4-A3 ; E208, E209 : F5-A), hypothèses ouvertes (H-V2, H-X1, H-L1 (mesurée en partie au lot V3-T2), H-B1, H-E1, H-T4-1 ;
    H-T1 et H-V1 validées ; H-T3 : (1) prouvée en moteur réel, (2) prémisse réfutée par F77, filet prouvé seulement en
-   expérience de contrôle). Prochains identifiants (24/10, 23 h 15) : **F216** et **E149** hors blocs (réservés : MOD-V F225 à F227, E155, E156 ; A5-ESSAI F231 à F233, E159, E160 ; X2 F245 à F247, E168, E169 ; MOD-3 F248 à F250, E170, E171 ; IA1-b2 F251 à F253, E172, E173 ; F2-A, F3-A, F4-A F254 à F262, E85 à E96 ; F2-B F276 à F278, E184, E185 ; IA3-a F279 à F281, E186, E187 ; IA1-d F292 à F295, E195 à E197 ; IA-V2 F296 à F299, E198, E199 ; IA3-k F300 à F305, E200 à E203 ; F3-B F306 à F308, E204, E205 ; IA3-d F315 à F318, E210, E211 ; IA3-e F319 à F323, E212 à E214 ; F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; **prochains libres (27/10, 7 h 15) F331, E220**) (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
+   expérience de contrôle). Prochains identifiants (24/10, 23 h 15) : **F216** et **E149** hors blocs (réservés : MOD-V F225 à F227, E155, E156 ; A5-ESSAI F231 à F233, E159, E160 ; X2 F245 à F247, E168, E169 ; MOD-3 F248 à F250, E170, E171 ; IA1-b2 F251 à F253, E172, E173 ; F2-A, F3-A, F4-A F254 à F262, E85 à E96 ; F2-B F276 à F278, E184, E185 ; IA3-a F279 à F281, E186, E187 ; IA1-d F292 à F295, E195 à E197 ; F3-B F306 à F308, E204, E205 ; IA3-d F315 à F318, E210, E211 ; F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; PERF F341 à F343, E227, E228 ; SCALE F344 à F346, E229, E230 ; AUTO F347 à F349, E231, E232 ; CAPITAL F350 à F352, E233, E234 ; CAPI F353 à F356, E235 à E237 ; **prochains libres (27/10, 12 h 10) F357, E238**) (F163 à F185 et E118 à E127 sont réservés aux lots F1, M1, PNJ-VÉRIF et IA1) ; en
    expériences, rien hors des blocs réservés : E77 à E80 (M1, M2), E81 à E104 (lots F1 à F6, par blocs
    de 4). Les blocs réservés sont listés en tête de RD_LOG.
 
@@ -57,16 +57,22 @@ avant tout travail.
    `Get-CimInstance Win32_Process -Filter "Name='factorio.exe'" | ? CommandLine -like '*fo-visual*' | Invoke-CimMethod -MethodName Terminate`
    Depuis le lot P1, `fo-visual.bat` ferme lui-même sa session : d'abord le PID qu'il a lancé, puis tout
    `factorio.exe` dont la ligne de commande contient le chemin complet du dossier `fo-visual`.
-4. **Un seul banc à la fois.** `fo-autotest.bat`, `fo-visual.bat` et `fo-captures.bat` partagent le verrou
-   `<racine>\fo-autotest.lock` (code de sortie 2 s'il est pris). `fo-autotest.bat`
-   **efface `fo-autotest\`** à chaque lancement : copiez vos journaux avant le banc suivant. Un verrou
-   orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest`) se supprime avec
-   `rmdir`. **Depuis le 27/10, tout agent lance ses bancs par la FILE D'ATTENTE** :
-   `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>] [--son] [--captures]
-   [--visuel="<args>"] --qui <lot> -- <ticks> <scenario> <source>` (depuis le 27/10 à 3 h 50, TOUR DE RÔLE entre les lots
-   `--qui` : le lot servi il y a le plus longtemps passe d'abord, puis premier arrivé, premier servi dans un lot ; donner
-   toujours le même `--qui` à tous les bancs d'un lot ; le verrou est tenu jusqu'à la fin de l'archivage ; `--file` montre
-   la file et le ticket servi ensuite). Ne plus appeler `fo-autotest.bat` en boucle soi-même.
+4. **Bancs en parallèle par PLACES, toujours par la FILE** (lot BANC2, 27/10 vers 9 h ; le DC : « au pire ça ram mais c'est
+   pas grave », « Je n'utilise pas mon pc pour les 8 prochaines heures donc vous pouvez y aller (sans faire planter le pc) »).
+   Le banc a jusqu'à 3 places : `fo-autotest\` + `fo-autotest.lock`, `fo-autotest-2\` + `fo-autotest-2.lock`,
+   `fo-autotest-3\` + `fo-autotest-3.lock` (variable `FO_PLACE` de `fo-autotest.bat`, posée par banc.py seulement ; à la main :
+   code 3). Le nombre de places ouvertes est dans `<racine>\fo-banc-places.txt` (absent : 2 ; illisible ou hors de 1 à 3 : 1) ;
+   **remettre 1 quand le DC joue**. Une place au-delà de la première exige 6 Go de mémoire libre. Les images
+   (`fo-captures.bat`, `fo-visual.bat`, son) ne tournent qu'à la place 1 (verrou `fo-autotest.lock`, partagé avec
+   `fo-visual`). Chaque `fo-autotest.bat` **efface le dossier de SA place** : banc.py archive avant de rendre le verrou.
+   Tout agent lance ses bancs par la FILE : `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>]
+   [--son] [--captures] [--visuel="<args>"] [--seul] --qui <lot> -- <ticks> <scenario> <source>` (TOUR DE RÔLE entre les lots
+   `--qui`, premier arrivé, premier servi dans un lot ; même `--qui` pour tous les bancs d'un lot ; `--file` montre les places
+   et la file). **Toute mesure de performance (K10, `analyze.py`, `[FO-CALIB]`, temps par tick) se lance avec `--seul`** :
+   seule sur le PC, toutes places prises ; une mesure prise sans `--seul` est fausse (les bancs voisins partagent les cœurs P,
+   F30). Ne jamais appeler `fo-autotest.bat` en boucle soi-même. Un verrou orphelin (aucun `factorio.exe` avec
+   `\fo-autotest\`, `\fo-autotest-N\` ou `fo-visual`) est retiré par banc.py. Prouvé en moteur réel le 27/10 à 9 h 03 :
+   `content` 331 OK à la place 2 pendant une session d'images à la place 1.
 5. Aucune donnée personnelle, aucun identifiant, rien à publier.
 6. **Blender uniquement par le verrou de rendu** : `python tools/render/with_render_lock.py -- <commande>`.
    Au plus 2 rendus à la fois sur le PC, en priorité inférieure à la normale pour ne pas gêner une partie
@@ -105,18 +111,28 @@ Résultats attendus aujourd'hui :
 lua5.2 tests/run.lua             -> 114 OK
 lua5.2 tests/war_test.lua        -> 105 OK   (13 contrôles des soldats égarés depuis 0.4.12, lot PNJ-VÉRIF)
 lua5.2 tests/td_test.lua         -> 270 OK
-lua5.2 tests/pteam_test.lua      -> 32 OK   (reconstruction de votre équipe décimée depuis 0.4.24)
+lua5.2 tests/pteam_test.lua      -> 37 OK   (reconstruction de votre équipe décimée depuis 0.4.24)
 lua5.2 tests/migration_test.lua  -> 82 OK
 lua5.2 tests/monde_test.lua      -> 201 OK   (garantie des monnaies des âges 5, 7 et 8, lot M0 : candidats, décision, sites, échec et reprise par paliers)
 lua5.2 tests/levels_test.lua     -> 1666 OK   (+ 11 « écarts connus » au contrat, comptés à part ; dont le contrôle des feuilles de la mitrailleuse, lot A2, celui des feuilles du four depuis 0.4.30, lot F2-B, et celui de l'assembleur depuis 0.4.31, lot F3-B ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
 lua5.2 tests/pvp_test.lua        -> 1305 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
+lua5.2 tests/x3_test.lua         -> [X3] BILAN : 6002 OK   (proposition X3 jointe à X0 : voies jamais une porte, cerveau avec technologies, 28 mutants ; environ 48 s ; --court 5963 ; rien en jeu)
 lua5.2 tests/org_test.lua        -> 366 OK   (modèle des rôles des équipes de PNJ, lot IA1)
 lua5.2 tests/recipe_lots_test.lua -> BILAN : 67 OK   (recettes par lots, 10 mutants refusés, lot MOD-2)
 lua5.2 tests/titanium_test.lua   -> 114 OK   (chaîne du titane de l'âge 11, lot X1)
 lua5.2 tests/traits_test.lua     -> 65 OK   (caractère des factions tiré de la graine, lot IA2-0)
 lua5.2 tests/chef_test.lua       -> 62 OK   (chef de faction adaptatif, lots IA2-a et IA2-a2 ; environ 2 min)
-lua5.2 tests/valeur_test.lua     -> 51 OK   (valeur des sites d'expansion des factions, lot IA2-b)
+lua5.2 tests/valeur_test.lua     -> 53 OK   (valeur des sites d'expansion des factions, lot IA2-b ; 51 avant 0.5.0 : renouvellement de la réserve contrôlé dans une partie à l'ancien cerveau, lot IA-V2)
+lua5.2 tests/ia3b_test.lua       -> [IA3-B] BILAN : 31 OK   (marché, registre, manque de plaques ; lot IA3-b, fusionné par IA-V2 en 0.5.0)
+lua5.2 tests/ia3f_test.lua       -> [IA3F] BILAN : 32 OK    (exploration sous brouillard, moteur simulé ; lot IA3-f, par IA-V2)
+lua5.2 tests/ai3_carte_test.lua  -> [AI3-CARTE] BILAN : 55 OK (carte de connaissance, pure ; lot IA3-f)
+lua5.2 tests/ai3_cerveau_test.lua -> [AI3-CERVEAU] BILAN : 49 OK (cerveau par besoins, pur ; lot IA3-c, par IA-V2)
+lua5.2 tests/ai3_automatiser_test.lua -> BILAN : 86 OK (règle « main ou machine » d'IA3-e, 17 mutants ; réglage fo-war-ia3e éteint par défaut ; FO_IA3E=1 l'allume au moteur simulé)
+lua5.2 tests/iag_test.lua         -> [IAG] BILAN : 95 OK   (cerveau général, lot IA-G, 0.6.0 : catalogue des prototypes, choix valeur ÷ coût, H8, ressources clés, généralisation sur 4 jeux de données changés, ANTI-ÉCHELLE sur shared/ai3 et script/ai3, exemptions reglages.lua et paliers.lua ; 9 mutants)
+lua5.2 tests/ia3k_regles_test.lua  -> [IA3K-REGLES] BILAN : 106 OK   (carte du danger, itinéraire, réaction ; 9 mutants ; lot IA3-k, 0.5.1)
+lua5.2 tests/ia3k_soldats_test.lua -> [IA3K-SOLDATS] BILAN : 30 OK  (rôles des soldats ; 6 mutants ; lot IA3-k)
+lua5.2 tests/ia3k_moteur_test.lua  -> [IA3K-MOTEUR] BILAN : 41 OK   (moteur simulé : variation, ver sur la route, peur, porte, escalade, changement de site, réglage éteint, déterminisme ; environ 15 s)
 lua5.2 tests/adversaire_test.lua -> 53 OK   (modèle de l'adversaire sous brouillard, lot IA2-c)
 PYTHONUTF8=1 python -B tools/autotest/tests/test_ia2c_joueur.py   -> 15 OK (outil de mesure du lot IA2-c)
 PYTHONUTF8=1 python -B tools/autotest/tests/test_ia2_mesures.py   -> 50 OK (outil de mesure des PNJ, lot IA2-0 ; sans PYTHONUTF8 il plante à l'affichage de ρ)
@@ -132,13 +148,13 @@ lua5.2 tests/ia1b_test.lua       -> 50 OK   (pôles, travail de fond, danger, pr
 lua5.2 tests/ia1_modules_test.lua -> BILAN : 1018 OK   (gabarits de modules des équipes organisées, lot IA1-c ; 25 mutants)
 python -B tools/team/test_bp2lua.py   -> 12 OK (conversion de plans en gabarits, lot IA1-c)
 lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 376 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 14 age(s) a 64 directions, 0 a 4, 0 erreur(s), auto-contrôle 4/4 (depuis 0.4.13) ; Feuilles four (graphics/levels/four, D-6) : 208 fichier(s) au manifeste, 0 manquant(s), 0 écart(s), 208 image(s) de sprites.lua relue(s) (depuis 0.4.30, lot F2-B) ; Feuilles assembleur (graphics/levels/assembleur, D-6) : 234 fichier(s) au manifeste, 0 manquant(s), 0 écart(s), 234 image(s) de sprites.lua relue(s) (depuis 0.4.31, lot F3-B) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 1123 usages, 0 erreur (1107 avant le lot IA1-d, 0.4.32 ; 1102 avant le scénario f3-assembleurs, 1098 avant f2-fours) (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 1250 usages, 0 erreur (0.6.1 ; 1235 en 0.6.0 ; 1212 avant IA-G ; 1179 avant IA3-k, 0.5.1 ; 1123 avant IA-V2, 0.5.0 ; 1107 avant le lot IA1-d, 0.4.32 ; 1102 avant le scénario f3-assembleurs, 1098 avant f2-fours) (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; essai à blanc du greffon 15 OK et BILAN attendu 18 depuis D4m-géant ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
 python -B tools/autotest/tests/test_ht3_journal.py   -> 15 OK (contrôle du journal des bancs de migration, --tag et messages aux joueurs compris, hors jeu)
-PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py   -> BILAN : 13 OK (tour de rôle de la file du banc : règle pure, puis 4 vrais lanceurs sur une racine jetable avec un faux fo-autotest.bat ; environ 25 s ; aucun jeu lancé)
-python -B tools/autotest/tests/bat_double_source/run.py   -> 47 OK (code 8 de fo-captures.bat sur un banc en échec depuis D4m-géant ; FO_AUDIO et pilote disk depuis S0 ; graine FO_MAP_SEED comprise depuis INT-GRAINE ; fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
+PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py   -> BILAN : 78 OK (tour de rôle de la file du banc et PLACES depuis BANC2 : 3 bancs en même temps, passage de 3 à 1 place, images à la place 1 pendant les places 2 et 3, barrière --seul, garde-fou de 6 Go, cohabitation avec l'ancien banc.py ; vrais lanceurs sur une racine jetable avec un faux fo-autotest.bat ; environ 75 s ; aucun jeu lancé ; 13 avant BANC2)
+python -B tools/autotest/tests/bat_double_source/run.py   -> 70 OK (FO_PLACE depuis BANC2, cas 15 à 18 ; 47 avant ; code 8 de fo-captures.bat sur un banc en échec depuis D4m-géant ; FO_AUDIO et pilote disk depuis S0 ; graine FO_MAP_SEED comprise depuis INT-GRAINE ; fo-autotest.bat en double source, faux factorio.exe et robocopy.exe ; gcc de C:\mingw64 requis)
 py -3.9 tools/render/pieces/levels/gun_e/check_gun_sheets.py --sources --mutants   -> 19 OK (feuilles de la mitrailleuse, éclats et socle animé compris depuis A4 : manifeste, sha256, rectangles, poses au pixel contre les sources, directions écartées de l'éclat regardées, mutants refusés ; lots A2 et A3-jeu)
 py -3.9 -B tests/datastage/mut_sons.py --work <dossier jetable hors du dépôt>   -> BILAN : 6 OK (règle « sons » : Opus, FLAC dans Ogg, fichier coupé… refusés ; environ 3 min ; lot S0-suite)
 python -B tools/autotest/tests/test_audio_session.py   -> 21 OK (pilote de session avec son : environnement disk, pilote lu au journal, mesure de la sortie disk ; lot S0)
@@ -426,6 +442,20 @@ Scénarios :
   40 captures (5 ères au zoom 1, 15 âges au zoom 2, de jour et de nuit ; table `fo-shots\f2-fours-sites.tsv`) ; migration
   d'une sauvegarde 0.4.28 avec ses fours : même scénario en DOUBLE SOURCE `FO_CREATE_SRC` =
   `<racine>\fo-logs\2026-10-25_F2\src-0.4.28` (à GARDER ; feuilles de la mitrailleuse en liens durs) → 3 OK ;
+- **depuis 0.6.0 (lot IA-G), le cerveau général** : `iag-partie` (162 000 ticks, 4 factions, Paisible, 45 min ; décisions [FO-CERVEAU],
+  paliers A1), `iag-jetable` (même partie sur la copie de `py -3.9 tools/autotest/iag/jetable.py --src <source> --dest <neuf>` :
+  données changées), `iag-photo` (captures du QG des factions) ; lecture `PYTHONUTF8=1 py -3.9 -B tools/autotest/iag_mesures.py <archives>` ;
+- **depuis 0.5.1 (lot IA3-k), comportements visibles ALLUMÉS** (`fo-war-ia3-comportement`), 2 graines (20261020, 123456789) :
+  `ia3k-route` (54 700) → « [FO-IA3K-ROUTE] BILAN : 8 OK » sur 20261020 (7 OK 1 ECHEC d'échantillon sur 123456789) ; `ia3k-memoire`
+  (288 700) → 5 OK, économie : `py -3.9 -B tools/autotest/ia3k_economie.py <archive> 70` ; `ia3k-variete` (54 700) → 5 OK 1 ECHEC connu
+  (allongement) ; `ia3k-peur` (30 100) → 7 OK ; `ia3k-soldats` (108 100) → 9 OK 1 ECHEC connu ; témoins `*-temoin` (réglage éteint) ;
+  rejeu : `FO_BANC="<banc.py de main>" bash tools/autotest/ia3k_rejouer.sh "<source>" <archives> [rapide|complet|temoins]` ;
+- **depuis 0.5.0 (lot IA-V2), le nouveau cerveau est ALLUMÉ par défaut** (réglages `fo-war-ia3-marche`, `fo-war-ia3-cerveau`) :
+  `ia3b-fer` (54 100 ticks) → « [FO-IA3B-FER] BILAN : 8 OK » ; `ia3c-dc-apres` (72 100) → 9 OK ; `ia3c-dc-loin` → 4 OK ; `ia3-fer-joueur`
+  (54 000) → 10 OK ; témoins tout éteint `ia3b-fer-avant`, `ia3c-dc-avant`, `ia3-fer-joueur-avant` (mesure) ; `ia3c-migration` (42 100)
+  chemin A en DOUBLE SOURCE (`--creation <racine>/fo-logs/2026-10-27_IA-V2/src-0.4.30`, à GARDER) et chemin B → 12 OK chacun ;
+  mesure `ia3c-reduit`, `ia3c-default` (432 000) puis `PYTHONUTF8=1 py -3.9 -B tools/autotest/iav2_mesures.py --avant <…> --apres <…>` ;
+  K11 : `py -3.9 -B tools/autotest/iav2_empreinte.py <A> <B> --minutes 30` ; exploration `ia3-brouillard` (216 000) ;
 - `ia1-build-plaine`, `-eau`, `-falaises`, `-foret`, `-reseau` (lot IA1-d, 132 000 ticks, 30 à 90 s) : plan directeur et
   construction par les PNJ (centrale, fonderies de fer et de cuivre avec foreuses et tapis), équipe renvoyée, puis 5 min
   SANS PNJ à 70 % de 112,5 plaques/min → « [FO-IA1-BUILD-<TERRAIN>] BILAN : 12 OK » chacun ; images : `banc.py --captures

@@ -20,7 +20,61 @@ local MOD_MODULE_PATTERN = "^script%."
 
 local W -- monde courant
 
+--- Lot IA-G : prototypes d'objets du mock, ITÉRABLES (forme de LuaItemPrototype : name, type, fuel_value,
+--- localised_name), tirés des recettes ; types militaires et pouvoir calorifique des combustibles vanilla.
+local ITEM_TYPE = {
+  ["firearm-magazine"] = "ammo", ["piercing-rounds-magazine"] = "ammo", ["shotgun-shell"] = "ammo",
+  ["piercing-shotgun-shell"] = "ammo", ["uranium-rounds-magazine"] = "ammo", ["rocket"] = "ammo",
+  ["pistol"] = "gun", ["submachine-gun"] = "gun", ["shotgun"] = "gun", ["combat-shotgun"] = "gun",
+  ["rocket-launcher"] = "gun", ["light-armor"] = "armor", ["heavy-armor"] = "armor", ["modular-armor"] = "armor",
+  ["grenade"] = "capsule", ["cluster-grenade"] = "capsule", ["poison-capsule"] = "capsule",
+  ["slowdown-capsule"] = "capsule", ["defender-capsule"] = "capsule",
+}
+local FUEL_VALUE = { coal = 4e6, wood = 2e6, ["solid-fuel"] = 12e6 }
+function M.item_prototypes(recipes)
+  local out = {}
+  local function add(n)
+    if not out[n] then
+      out[n] = { name = n, type = ITEM_TYPE[n] or "item", fuel_value = FUEL_VALUE[n] or 0,
+        localised_name = { "item-name." .. n } }
+    end
+  end
+  local names = {}
+  for name in pairs(recipes or {}) do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local r = recipes[name]
+    for _, p in ipairs(r.products or {}) do if p.type ~= "fluid" then add(p.name) end end
+    for _, i in ipairs(r.ingredients or {}) do if i.type ~= "fluid" then add(i.name) end end
+  end
+  for _, n in ipairs({ "coal", "copper-ore", "iron-ore", "stone", "wood" }) do add(n) end
+  return setmetatable(out, { __index = function(_, name)
+    return { name = name, localised_name = { "item-name." .. name } }
+  end })
+end
+
 function M.world() return W end
+
+--- Lot IA3-c : prototypes de technologies du mock (forme de LuaTechnologyPrototype) depuis la fixture des coûts FINAUX
+--- (tests/fixtures/tech_ai3_final.lua, contrôlée en moteur réel par le scénario ia3-donnees, F275). Lu une fois.
+local tech_cache = nil
+function M.technology_prototypes()
+  if tech_cache then return tech_cache end
+  local raw = dofile("tests/fixtures/tech_ai3_final.lua")
+  local out = {}
+  for name, t in pairs(raw) do
+    local ing, eff = {}, {}
+    for _, i in ipairs(t.ingredients or {}) do ing[#ing + 1] = { type = "item", name = i[1], amount = i[2] } end
+    for _, r in ipairs(t.unlocks or {}) do eff[#eff + 1] = { type = "unlock-recipe", recipe = r } end
+    out[name] = { name = name, enabled = true, hidden = false, research_unit_ingredients = ing, effects = eff,
+      research_unit_count = t.count, research_unit_energy = t.time * 60, prerequisites = {} }
+  end
+  for name, t in pairs(raw) do
+    for _, p in ipairs(t.prerequisites or {}) do if out[p] then out[name].prerequisites[p] = out[p] end end
+  end
+  tech_cache = out
+  return out
+end
 
 local function strict(t, what)
   return setmetatable(t, { __index = function(_, k) error(what .. " inconnu : " .. tostring(k), 2) end })
@@ -80,9 +134,37 @@ local function new_force(name)
     return r
   end })
   f.technologies = setmetatable({}, { __index = function(t2, name)
-    local tech = { name = name, researched = false }
+    local tech = { name = name, researched = false, enabled = true }
     rawset(t2, name, tech)
     return tech
+  end })
+  -- Lot IA3-c (laboratoire du QG, F269, F270) : recherche d'une force sans joueur ; écrire research_progress = 1
+  -- termine la recherche (technologie recherchée, événement on_research_finished, by_script = false).
+  f.laboratory_speed_modifier = 0
+  f.current_research = nil
+  f.add_research = function(name)
+    local tech = f.technologies[type(name) == "string" and name or name.name]
+    if tech.researched then return false end
+    f.current_research = tech
+    rawset(f, "_progress", 0)
+    return true
+  end
+  setmetatable(f, { __newindex = function(t2, k, v)
+    if k == "research_progress" then
+      rawset(t2, "_progress", v)
+      local cur = rawget(t2, "current_research")
+      if cur and v >= 1 then
+        cur.researched = true
+        rawset(t2, "current_research", nil)
+        rawset(t2, "_progress", 0)
+        local h = W.events[defines.events.on_research_finished]
+        if h then h({ research = { name = cur.name, force = t2 }, by_script = false, tick = _G.game.tick }) end
+      end
+      return
+    end
+    rawset(t2, k, v)
+  end, __index = function(t2, k)
+    if k == "research_progress" then return rawget(t2, "_progress") or 0 end
   end })
   return f
 end
@@ -410,6 +492,19 @@ local EntityMT = {
       if t.type == "electric-pole" then return { copper = rawget(t, "_copper") or {}, red = {}, green = {} } end
       return nil
     end
+    -- Lot IA3-e : fil de cuivre entre deux poteaux (raccordement d'un module du plan directeur).
+    if k == "connect_neighbour" and t.type == "electric-pole" then
+      return function(other)
+        if not (other and other.valid and other.type == "electric-pole") then return false end
+        local a, b = rawget(t, "_copper") or {}, rawget(other, "_copper") or {}
+        for _, x in ipairs(a) do if x == other then return false end end
+        a[#a + 1] = other
+        b[#b + 1] = t
+        rawset(t, "_copper", a)
+        rawset(other, "_copper", b)
+        return true
+      end
+    end
     if k == "ghost_name" then return rawget(t, "_ghost_name") end
     if k == "ghost_prototype" and rawget(t, "_ghost_name") then return W.prototype(rawget(t, "_ghost_name")) end
     if k == "revive" then
@@ -675,6 +770,13 @@ function M.new_world(opts)
       -- lot PNJ-JOUABLE : lancement de la guerre par les réglages de carte (défauts du jeu)
       ["fo-war-autostart"] = opts.war_autostart or false, ["fo-war-factions"] = 2,
       ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 4,
+      -- Lot IA3-c : cerveau par besoins (settings/ia3c.lua). Lot IA-V2 : ALLUMÉ par défaut comme le jeu (0.5.0) ;
+      -- éteint par l'option (ia3_cerveau = false) ou par FO_IA3_CERVEAU=0 (bancs « bascule éteinte », pvp_test compris).
+      ["fo-war-ia3-cerveau"] = (opts.ia3_cerveau ~= false) and (os.getenv("FO_IA3_CERVEAU") ~= "0"),
+      -- Lot IA3-e : ÉTEINT par défaut comme le jeu (settings/ia3e.lua) ; allumé par l'option (ia3e = true) ou FO_IA3E=1
+      ["fo-war-ia3e"] = (opts.ia3e == true) or (os.getenv("FO_IA3E") == "1"),
+      -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
+      ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants
@@ -705,22 +807,26 @@ function M.new_world(opts)
       type = "character", running_speed = 0.15, max_health = 250,
       collision_box = box(-0.2, -0.2, 0.2, 0.2), collision_mask = MASK_CHARACTER,
     },
+    -- Lot IA-G : catégories de fabrication et de minage du personnage (relevé du cerveau général).
     character = { type = "character", max_health = 250, collision_box = box(-0.2, -0.2, 0.2, 0.2),
-      collision_mask = MASK_CHARACTER },
+      collision_mask = MASK_CHARACTER, crafting_categories = { crafting = true }, resource_categories = { ["basic-solid"] = true } },
     -- Copie de crash-site-spaceship (prototypes/faction.lua) : boîte décentrée de l'épave vanilla.
     ["fo-faction-hq"] = { type = "container", max_health = 25000, collision_box = box(-8.7, -3.3, 6.9, 4.5),
       collision_mask = MASK_BUILDING },
     ["gun-turret"] = { type = "ammo-turret", max_health = 400, collision_box = box(-0.7, -0.7, 0.7, 0.7),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "gun-turret", count = 1 } } },
     ["electric-mining-drill"] = { type = "mining-drill", max_health = 300,
       resource_categories = { ["basic-solid"] = true, ["fo-hard-solid"] = true },
-      collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING },
+      collision_box = box(-1.4, -1.4, 1.4, 1.4), collision_mask = MASK_BUILDING, items_to_place_this = { { name = "electric-mining-drill", count = 1 } } },
+    -- Lot IA-G : objet qui pose, source d'énergie, catégories (relevé du cerveau général, comme le moteur).
     ["burner-mining-drill"] = { type = "mining-drill", max_health = 150, collision_box = box(-0.7, -0.7, 0.7, 0.7),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "burner-mining-drill", count = 1 } },
+      resource_categories = { ["basic-solid"] = true }, burner_prototype = { effectivity = 1 }, mining_speed = 0.25 },
     ["stone-furnace"] = { type = "furnace", max_health = 200, collision_box = box(-0.7, -0.7, 0.7, 0.7),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "stone-furnace", count = 1 } },
+      crafting_categories = { smelting = true }, burner_prototype = { effectivity = 1 }, crafting_speed = 1 },
     ["iron-chest"] = { type = "container", max_health = 200, collision_box = box(-0.35, -0.35, 0.35, 0.35),
-      collision_mask = MASK_BUILDING },
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "iron-chest", count = 1 } } },
     ["fo-team-chest"] = { type = "container", max_health = 800, collision_box = box(-0.35, -0.35, 0.35, 0.35),
       collision_mask = MASK_BUILDING },
     ["wooden-chest"] = { type = "container", max_health = 100, collision_box = box(-0.35, -0.35, 0.35, 0.35),
@@ -733,6 +839,33 @@ function M.new_world(opts)
       collision_mask = MASK_UNIT },
     -- Lot V3-T3 : fantôme d'entité (sa boîte est celle de l'entité portée ; masque par défaut : ghost-layer).
     ["entity-ghost"] = { type = "entity-ghost", max_health = 1 },
+    -- Lot IA3-e : bâtiments des modules du plan directeur (shared/team/modules.lua), posés par les PNJ des factions
+    -- (objet qui les pose : items_to_place_this ; boîtes vanilla).
+    ["transport-belt"] = { type = "transport-belt", max_health = 150, collision_box = box(-0.4, -0.4, 0.4, 0.4),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "transport-belt", count = 1 } } },
+    inserter = { type = "inserter", max_health = 150, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "inserter", count = 1 } } },
+    ["burner-inserter"] = { type = "inserter", max_health = 100, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "burner-inserter", count = 1 } } },
+    ["fast-inserter"] = { type = "inserter", max_health = 150, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "fast-inserter", count = 1 } } },
+    ["medium-electric-pole"] = { type = "electric-pole", max_health = 100, collision_box = box(-0.15, -0.15, 0.15, 0.15),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "medium-electric-pole", count = 1 } }, max_wire_distance = 9 },
+    ["big-electric-pole"] = { type = "electric-pole", max_health = 150, collision_box = box(-0.65, -0.65, 0.65, 0.65),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "big-electric-pole", count = 1 } }, max_wire_distance = 30 },
+    ["assembling-machine-1"] = { type = "assembling-machine", max_health = 300, collision_box = box(-1.2, -1.2, 1.2, 1.2),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "assembling-machine-1", count = 1 } } },
+    boiler = { type = "boiler", max_health = 200, collision_box = box(-1.29, -0.79, 1.29, 0.79),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "boiler", count = 1 } } },
+    ["steam-engine"] = { type = "generator", max_health = 400, collision_box = box(-1.35, -2.35, 1.35, 2.35),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "steam-engine", count = 1 } } },
+    ["offshore-pump"] = { type = "offshore-pump", max_health = 150, collision_box = box(-0.6, -0.05, 0.6, 0.3),
+      collision_mask = MASK_BUILDING, items_to_place_this = { { name = "offshore-pump", count = 1 } } },
+    -- Lot IA3-c : laboratoire vanilla (laboratoire du QG des factions).
+    lab = { type = "lab", max_health = 150, collision_box = box(-1.2, -1.2, 1.2, 1.2), collision_mask = MASK_BUILDING,
+      items_to_place_this = { { name = "lab", count = 1 } }, researching_speed = 1,
+      lab_inputs = { "automation-science-pack", "logistic-science-pack", "military-science-pack", "chemical-science-pack",
+        "production-science-pack", "utility-science-pack", "space-science-pack" } },
   }
   W.recipes = dofile("tests/fixtures/recipes.lua")
   -- Soldats et unités du mod : prototype d'unité générique, boîte des soldats (prototypes/faction.lua, ± 0,2) et
@@ -773,6 +906,8 @@ function M.new_world(opts)
     on_player_display_scale_changed = 30,
   }
   _G.defines = {
+    -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
+    build_check_type = { script = 0, manual = 1, manual_ghost = 2, script_ghost = 3, blueprint_ghost = 4, ghost_revive = 5 },
     direction = strict({ north = 0, northeast = 1, east = 2, southeast = 3, south = 4, southwest = 5, west = 6, northwest = 7 }, "defines.direction"),
     events = strict(events, "defines.events"),
     command = strict({ attack = 0, attack_area = 1, build_base = 2, compound = 3, flee = 4, go_to_location = 5, group = 6, stop = 7, wander = 8 }, "defines.command"),
@@ -810,6 +945,7 @@ function M.new_world(opts)
     ["fo-tungsten-ore"] = true, ["fo-resonance-crystal"] = true, ["fo-methane"] = true,
     ["fo-ilmenite"] = true, ["fo-brine"] = true } -- lot X1-TITANE
   surface.create_entity = function(t)
+    if t.position and t.position.x == nil and t.position[1] ~= nil then t.position = { x = t.position[1], y = t.position[2] } end -- lot IA3-e
     if t.position and t.position.x == nil then t.position = { x = t.position[1], y = t.position[2] } end
     if RESOURCES[t.name] then
       -- Ressource posée par script : regroupée en gisements ponctuels (modèle de W.patches).
@@ -863,6 +999,7 @@ function M.new_world(opts)
     return e
   end
   surface.can_place_entity = function(t)
+    if t.position and t.position.x == nil and t.position[1] ~= nil then t.position = { x = t.position[1], y = t.position[2] } end -- lot IA3-e
     assert(t.name and t.position, "can_place_entity : arguments")
     return not W.occupied[occ_key(t.position)]
   end
@@ -898,12 +1035,33 @@ function M.new_world(opts)
     return new_group(t.position, t.force)
   end
   local function is_resource_name(n)
+    -- Lot IA3-f : liste de noms (regards de la carte de connaissance) : ressource si TOUS les noms en sont.
+    if type(n) == "table" then
+      if #n == 0 then return false end
+      for _, x in ipairs(n) do if not is_resource_name(x) then return false end end
+      return true
+    end
     if type(n) ~= "string" then return false end
     for _, p in ipairs(W.patches) do if (p.name or "iron-ore") == n then return true end end
     return n == "iron-ore" or n == "copper-ore" or n == "coal" or n == "stone"
   end
+  local function name_matches(want, name)
+    if want == nil then return true end
+    if type(want) == "table" then
+      for _, x in ipairs(want) do if x == name then return true end end
+      return false
+    end
+    return want == name
+  end
   surface.find_entities_filtered = function(t)
     local out = {}
+    -- Lot IA3-e : position en tableau { x, y } (acceptée par le moteur, utilisée par le plan directeur).
+    if t.position and t.position.x == nil and t.position[1] ~= nil then
+      local c = {}
+      for k, v in pairs(t) do c[k] = v end
+      c.position = { x = t.position[1], y = t.position[2] }
+      t = c
+    end
     if t.invert then
       -- Filtre inversé (seul usage du mod : « tout sauf les ressources » dans une zone).
       -- Lot M0 : « toute force sauf celles-ci » (bâtiments d'un joueur ou d'une IA sous un site garanti).
@@ -937,7 +1095,7 @@ function M.new_world(opts)
       end
       for _, p in ipairs(W.patches) do
         local dx, dy = p.x - cx, p.y - cy
-        if dx * dx + dy * dy <= (rad + 4) ^ 2 and (t.name == nil or t.name == (p.name or "iron-ore")) then
+        if dx * dx + dy * dy <= (rad + 4) ^ 2 and name_matches(t.name, p.name or "iron-ore") then
           for ix = -2, 2 do
             for iy = -2, 2 do
               -- amount (lot M0) : la quantité du gisement répartie sur ses 25 entités simulées.
@@ -992,9 +1150,15 @@ function M.new_world(opts)
     assert(t.area and not t.name and not t.position, "find_tiles_filtered (moteur simulé) : zone seule attendue")
     local lt, rb = t.area[1], t.area[2]
     local out = {}
+    -- Lot IA3-e : filtre `collision_mask = "water-tile"` (relevé de l'eau du plan directeur, script/team/build.lua) :
+    -- sans lui, toutes les tuiles de la zone revenaient comme de l'eau et aucun module ne trouvait de place.
+    local water_only = t.collision_mask == "water-tile"
     for y = math.floor(lt[2]), math.ceil(rb[2]) - 1 do
       for x = math.floor(lt[1]), math.ceil(rb[1]) - 1 do
-        out[#out + 1] = { name = tile_name_at(x, y), position = { x = x, y = y }, valid = true }
+        local name = tile_name_at(x, y)
+        if not water_only or name:find("water", 1, true) then
+          out[#out + 1] = { name = name, position = { x = x, y = y }, valid = true }
+        end
       end
     end
     return out
@@ -1161,11 +1325,31 @@ function M.new_world(opts)
     connected_players = { W.player },
     entity_prototypes = W.prototypes,
     recipe_prototypes = W.recipes,
-    item_prototypes = setmetatable({}, { __index = function(_, name)
-      return { name = name, localised_name = { "item-name." .. name } }
-    end }),
+    -- Lot IA-G : objets ITÉRABLES (relevé du cerveau général : type, pouvoir calorifique), tirés des recettes du mock ;
+    -- un nom absent garde la réponse d'avant (nom localisé seulement).
+    item_prototypes = M.item_prototypes(W.recipes),
     -- Lot MOD-1 : aucun prototype de module au mock (la règle est testée à part, tests/module_mult_test.lua).
     get_filtered_item_prototypes = function(filters) return {} end,
+    -- Lot IA3-c : technologies FINALES (vanilla + mod, tests/fixtures/tech_ai3_final.lua) et entités par type.
+    technology_prototypes = M.technology_prototypes(),
+    -- Lots IA3-c et IA3-f (fusion IA-V2) : entités par type ; pour les ressources (regards de la carte de connaissance),
+    -- les 4 de base et celles des gisements en plus.
+    get_filtered_entity_prototypes = function(filters)
+      assert(type(filters) == "table" and filters[1] and filters[1].filter == "type", "get_filtered_entity_prototypes : filtre de type attendu")
+      local out = {}
+      local want = filters[1].type
+      for name, p in pairs(W.prototypes) do if p.type == want then out[name] = p end end
+      if want == "resource" then
+        -- Lot IA-G : catégorie et produit du minage (relevé du cerveau général).
+        local function res(n)
+          return { name = n, type = "resource", resource_category = "basic-solid",
+            mineable_properties = { minable = true, products = { { type = "item", name = n, amount = 1 } } } }
+        end
+        for _, n in ipairs({ "coal", "copper-ore", "iron-ore", "stone" }) do out[n] = out[n] or res(n) end
+        for _, p in ipairs(W.patches) do local n = p.name or "iron-ore"; out[n] = out[n] or res(n) end
+      end
+      return out
+    end,
     get_player = function(i) if i == 1 then return W.player end end,
     is_multiplayer = function() return false end,
     create_profiler = function() return profiler() end,
