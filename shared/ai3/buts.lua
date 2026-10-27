@@ -133,7 +133,8 @@ end
 --- Besoin prévu d'une matière (horizon) : manque des projets + le plancher. `s.need` = { [objet] = n } (dernière
 --- pensée). Une matière SATURÉE (stock ≥ B.SAT_FACTOR × besoin) ne génère plus de travail d'extraction.
 function B.saturated(s, item)
-  local need = math.max(B.NEED_FLOOR, (s.need and s.need[item]) or 0)
+  -- Lot SCALE : plancher qui suit l'effectif (Br.need_floor : 100 à 8 PNJ, 375 à 30).
+  local need = math.max(Br.need_floor(s.workers, B.NEED_FLOOR), (s.need and s.need[item]) or 0)
   return (s.stock[item] or 0) >= B.SAT_FACTOR * need
 end
 

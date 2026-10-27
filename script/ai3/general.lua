@@ -25,6 +25,7 @@
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages")
 local K = require("shared.ai3.catalogue")
+local Br = require("shared.ai3.bras") -- lot SCALE : bras libres lissés
 local Gen = require("shared.ai3.general")
 local B = require("shared.ai3.buts")
 local Planner = require("shared.team.planner")
@@ -251,12 +252,17 @@ local function spare(f, view, tick)
   if not g then return 0 end
   if g.spare_tick ~= tick then
     g.spare_tick = tick
-    if Gen.ahead_depth(view.workers_idle, view.workers) > 0 then g.idle_run = (g.idle_run or 0) + 1 else g.idle_run = 0 end
+    -- Lot SCALE : PNJ sans tâche LISSÉS (moyenne glissante d'environ 1 min, shared/ai3/bras.lua, Br.smooth) au lieu du
+    -- compte de la pensée : une pensée sous le seuil ne remet plus le compteur à zéro (moteur simulé, 30 PNJ : 7,8 à
+    -- 9,5 PNJ sans tâche par pensée, aucune tâche libre, aucun travail d'avance).
+    g.idle_ema = Br.smooth(g.idle_ema, view.workers_idle)
+    local idle_s = math.floor(g.idle_ema / 10)
+    if Gen.ahead_depth(idle_s, view.workers) > 0 then g.idle_run = (g.idle_run or 0) + 1 else g.idle_run = 0 end
     local war = State.war()
     local elapsed = tick - (f.started or (war and war.started) or 0)
-    g.spare = Gen.spare_depth(g.idle_run, view.workers_idle, view.workers, elapsed)
+    g.spare = Gen.spare_depth(g.idle_run, idle_s, view.workers, elapsed)
     -- Lot SCALE : nombre de bras libres durables (0 si la profondeur est nulle) : taille des vagues d'avance.
-    g.spare_hands = g.spare > 0 and (view.workers_idle or 0) or 0
+    g.spare_hands = g.spare > 0 and idle_s or 0
     -- Une exploration demandée (IA3-f, f.ai3f.req) prend d'abord les PNJ sans tâche comme éclaireurs : pas de travail
     -- d'avance tant qu'elle est ouverte (moteur simulé, tests/ia3f_test.lua §6 : avec les bras libres, le pétrole n'était
     -- plus trouvé en 30 min sous 30 % de chemins ratés, les éclaireurs étant occupés aux packs d'avance). Test de vacuité

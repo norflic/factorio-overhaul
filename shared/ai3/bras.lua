@@ -26,6 +26,11 @@
 
 local Br = {}
 
+-- 0. Bras libres DURABLES : moyenne glissante des PNJ sans tâche (en dixièmes, entiers), sur environ Br.EMA_THINKS
+-- pensées (1 min). Diagnostic du lot (moteur simulé, 4 factions à 30 PNJ, minutes 18 à 20 : 7,8 à 9,5 PNJ sans tâche
+-- par pensée chez deux factions, AUCUNE tâche libre, et AUCUN travail d'avance : la règle d'IA-G comptait les pensées DE
+-- SUITE au-dessus de 25 % de l'effectif ; une seule pensée sous le seuil la remettait à zéro).
+Br.EMA_THINKS = 12
 -- 2. Extraction d'avance.
 Br.HANDS_PER_CAP = 3      -- une capacité de plus par 3 bras libres (pose, agrandissements, tournées de ses foreuses)
 Br.WAVE_MAX = 3           -- au plus 3 capacités de plus par vague (toutes ressources)
@@ -42,6 +47,11 @@ Br.DEPTH_PCT = 15         -- recherches suivantes préparées au plus : 15 % de 
 -- fer libres, la recherche seule ouverte avec 3 laboratoires au plus, 10 PNJ sans tâche).
 Br.LABS_PCT = 20          -- laboratoires au plus : 20 % de l'effectif (8 PNJ : 2, plancher 3 ; 30 PNJ : 6)
 Br.LAB_WINDOW_MIN_PCT = 25 -- la fenêtre « un laboratoire par N s de recherche restante » descend au plus à 25 %
+-- 5. Besoin de réserve : le plancher du besoin prévu d'une matière (au-delà de 3 fois, elle est « saturée » : plus
+-- d'extraction) suit l'effectif ; 8 PNJ (le départ, D-18) est la référence. Une équipe de 30 consomme environ 4 fois
+-- plus vite : sa réserve « suffisante » est 4 fois plus grande (moteur réel, s0-ia1-scale : à 30 PNJ, fer, cuivre,
+-- charbon et pierre saturés à 1 100 plaques de fer libres, aucun but d'extraction, 10 PNJ sans tâche).
+Br.REF_WORKERS = 8
 -- 4. Armée d'avance.
 Br.ARMY_STEP_PCT = 10     -- soldats visés de plus : 10 % du plafond de soldats par point d'agressivité au-dessus de 1000
                           -- (pour mille) : agressivité 1 400 -> + 4 % ; jamais au-delà du plafond
@@ -53,6 +63,21 @@ local function clamp(x, lo, hi)
 end
 
 local function pct(n, p) return math.floor(((n or 0) * p + 99) / 100) end -- arrondi au-dessus
+
+--- Moyenne glissante des PNJ sans tâche (dixièmes) : prev (nil à la première pensée) et idle (PNJ sans tâche).
+function Br.smooth(prev, idle)
+  local x = (idle or 0) * 10
+  if prev == nil then return x end
+  local d = x - prev
+  local step = d >= 0 and math.floor(d / Br.EMA_THINKS) or -math.floor(-d / Br.EMA_THINKS)
+  if step == 0 and d ~= 0 then step = d > 0 and 1 or -1 end
+  return prev + step
+end
+
+--- Plancher du besoin prévu d'une matière : `floor` × effectif ÷ Br.REF_WORKERS, au moins `floor`.
+function Br.need_floor(workers, floor)
+  return math.max(floor or 0, math.floor((floor or 0) * (workers or 0) / Br.REF_WORKERS))
+end
 
 --- Capacités visées au plus par ressource : Br.CAP_PCT % de l'effectif, au moins `floor` (le plafond d'avant).
 function Br.cap_max(workers, floor) return math.max(floor or 0, pct(workers, Br.CAP_PCT)) end

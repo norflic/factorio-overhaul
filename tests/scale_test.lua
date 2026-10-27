@@ -47,6 +47,13 @@ local function suite(Br, B)
   check(Br.smelt_max(8, 4) == 4 and Br.smelt_max(30, 4) == 15, "§1 fours au plus : 4 à 8 PNJ, 15 à 30 (" .. Br.smelt_max(30, 4) .. ")")
   check(Br.depth_max(8, 3) == 3 and Br.depth_max(30, 3) == 5, "§1 recherches d'avance au plus : 3 à 8, 5 à 30")
   check(Br.labs_max(8, 3) == 3 and Br.labs_max(30, 3) == 6, "§1 laboratoires au plus : 3 à 8, 6 à 30")
+  check(Br.need_floor(8, 100) == 100 and Br.need_floor(30, 100) == 375 and Br.need_floor(nil, 100) == 100,
+    "§1 plancher du besoin : 100 à 8 PNJ, 375 à 30 (" .. Br.need_floor(30, 100) .. ")")
+  check(B.saturated({ workers = 8, stock = { [IRON] = 400 }, need = {} }, IRON)
+    and not B.saturated({ workers = 30, stock = { [IRON] = 400 }, need = {} }, IRON),
+    "§1 400 plaques : saturé à 8 PNJ, pas à 30")
+  check(Br.smooth(nil, 9) == 90 and Br.smooth(90, 0) == 83 and Br.smooth(0, 9) == 7 and Br.smooth(85, 9) == 86,
+    "§0 moyenne glissante des PNJ sans tâche (dixièmes) : " .. Br.smooth(90, 0) .. ", " .. Br.smooth(0, 9))
   -- §2 Vagues d'extraction.
   check(Br.wave(0) == 0 and Br.wave(1) == 1 and Br.wave(3) == 1 and Br.wave(4) == 2 and Br.wave(30) == 3,
     "§2 vague : 1 capacité par 3 bras libres, au plus 3 (" .. Br.wave(4) .. ", " .. Br.wave(30) .. ")")
@@ -170,6 +177,9 @@ local MUTANTS = {
   { "armée sans caractère", "if extra_pm <= 0 then return target end", "if extra_pm <= 0 then extra_pm = 400 end" },
   { "armée malgré le manque", "if (spare or 0) <= 0 or key_short then return target end", "if (spare or 0) <= 0 then return target end" },
   { "armée au-delà du plafond", "return math.min(soldiers_max or 0, target + add)", "return target + add" },
+  { "plancher du besoin fixe", "return math.max(floor or 0, math.floor((floor or 0) * (workers or 0) / Br.REF_WORKERS))",
+    "return floor or 0" },
+  { "bras libres non lissés", "return prev + step", "return x" },
   { "fenêtre des laboratoires fixe", "local w = math.floor((window or 0) * Br.HANDS_PER_CAP / (Br.HANDS_PER_CAP + math.max(0, spare or 0)))",
     "local w = window or 0" },
 }

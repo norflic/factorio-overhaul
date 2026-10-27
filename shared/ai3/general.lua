@@ -275,7 +275,7 @@ end
 --- PNJ sans tâche sont moins de Gen.IDLE_MIN ou moins de Gen.IDLE_PCT % de l'effectif (rien ne change à 8 PNJ occupés),
 --- puis 1 par Gen.IDLE_PER PNJ sans tâche, au plus Gen.AHEAD_MAX.
 Gen.IDLE_MIN = 2
-Gen.IDLE_PCT = 25
+Gen.IDLE_PCT = 15 -- lot SCALE : 25 -> 15 (PNJ sans tâche lissés, script/ai3/general.lua ; cible B1 : 15 à 20 %)
 Gen.IDLE_PER = 3
 Gen.AHEAD_MAX = 3
 function Gen.ahead_depth(idle, workers)
