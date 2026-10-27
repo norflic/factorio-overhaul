@@ -310,6 +310,20 @@ end
 -- Fonderie du QG
 ---------------------------------------------------------------------------------------------------
 local SMELTER_OFFSETS = { { 9, -7 }, { 11, -7 }, { 13, -7 }, { 15, -7 }, { 9, -10 }, { 11, -10 } }
+-- Lot SCALE : une fonderie agrandie (jusqu'à la moitié de l'effectif, shared/ai3/bras.lua) continue les rangées : les
+-- 6 places d'avant d'abord (même ordre), puis des rangées de 2 en 2 tuiles vers l'est et le nord.
+do
+  local seen = {}
+  for _, o in ipairs(SMELTER_OFFSETS) do seen[o[1] .. ":" .. o[2]] = true end
+  for _, y in ipairs({ -7, -10, -13, -16 }) do
+    for x = 9, 23, 2 do
+      if not seen[x .. ":" .. y] then
+        seen[x .. ":" .. y] = true
+        SMELTER_OFFSETS[#SMELTER_OFFSETS + 1] = { x, y }
+      end
+    end
+  end
+end
 
 function Outposts.place_smelters(f, surface, count, carrier)
   f.smelters = f.smelters or {}

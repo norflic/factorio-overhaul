@@ -97,6 +97,7 @@ function C.situation(view, st, ctx)
     -- Lot IA-G : ressources clés DÉDUITES du dépliage des buts (script/ai3/general.lua) ; repli : celles de l'échelle.
     key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
     idle_grow = ctx.idle_grow or false, tick = ctx.tick or 0, -- lot IA-G : bras libres
+    spare = ctx.spare, -- lot SCALE : nombre de bras libres durables (vague d'extraction d'avance, shared/ai3/bras.lua)
   }
 end
 

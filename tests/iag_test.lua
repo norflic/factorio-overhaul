@@ -450,8 +450,11 @@ end
 do
   check(Gen.ahead_depth(1, 8) == 0 and Gen.ahead_depth(1, 2) == 0, "§11 un seul PNJ sans tâche : rien d'avance")
   check(Gen.ahead_depth(2, 30) == 0, "§11 2 sans tâche sur 30 (7 %) : rien d'avance")
-  check(Gen.ahead_depth(2, 8) == 1 and Gen.ahead_depth(9, 30) == 3 and Gen.ahead_depth(20, 30) == 3,
-    "§11 profondeur : 1 à 2 sur 8, 3 à 9 sur 30, plafond 3 (" .. Gen.ahead_depth(2, 8) .. ", " .. Gen.ahead_depth(9, 30) .. ")")
+  -- Lot SCALE : le plafond suit l'effectif (shared/ai3/bras.lua, Br.depth_max : 3 jusqu'à 20 PNJ, 5 à 30).
+  check(Gen.ahead_depth(2, 8) == 1 and Gen.ahead_depth(9, 30) == 3 and Gen.ahead_depth(20, 30) == 5
+    and Gen.ahead_depth(20, 8) == 3,
+    "§11 profondeur : 1 à 2 sur 8, 3 à 9 sur 30, plafond 3 à 8 PNJ et 5 à 30 (" .. Gen.ahead_depth(2, 8) .. ", "
+    .. Gen.ahead_depth(9, 30) .. ", " .. Gen.ahead_depth(20, 30) .. ", " .. Gen.ahead_depth(20, 8) .. ")")
   check(Gen.spare_depth(100, 8, 8, 0) == 0, "§11 jamais à la première pensée (8 sur 8 sans tâche au départ : banc g5)")
   check(Gen.spare_depth(5, 8, 8, 6 * 3600) == 0, "§11 bras libres depuis moins d'une minute : rien")
   check(Gen.spare_depth(12, 8, 8, 6 * 3600) == 2, "§11 bras libres durables après 5 min : profondeur " .. Gen.spare_depth(12, 8, 8, 6 * 3600))

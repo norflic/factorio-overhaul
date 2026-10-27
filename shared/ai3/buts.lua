@@ -24,6 +24,7 @@
 
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli (équipe du joueur, avant la 1re décision)
+local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bornes qui suivent l'effectif)
 
 local B = {}
 
@@ -159,11 +160,13 @@ function B.targets(s, st)
     tg[key.top] = math.max(tg[key.top] or 0, 2)
     tg[key.fuel] = math.max(tg[key.fuel] or 0, 2)
   end
+  -- Lot SCALE : capacités visées au plus par ressource, selon l'effectif (Br.cap_max : 5 jusqu'à 25 PNJ, 6 à 30).
+  local grow_max = Br.cap_max(s.workers, B.GROW_MAX)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local product = T.outposts[kind].product
     local n = (st.short_n or {})[product] or 0
     local short = (st.short or {})[product] or 0
-    if n >= B.GROW_THINKS and short >= B.GROW_SHORT and not B.saturated(s, product) and tg[kind] < B.GROW_MAX
+    if n >= B.GROW_THINKS and short >= B.GROW_SHORT and not B.saturated(s, product) and tg[kind] < grow_max
       and (s.cap[kind] or 0) >= tg[kind] * 0.75 then
       tg[kind] = tg[kind] + 1
       st.short_n[product] = 0
@@ -173,19 +176,38 @@ function B.targets(s, st)
   -- aucun manque durable : la ressource NÉCESSAIRE la plus demandée (ordre des ressources clés, déduit du dépliage) dont
   -- le produit n'est pas saturé reçoit une capacité de plus, d'avance (un joueur agrandit ce que ses buts mangeront),
   -- au plus toutes les B.IDLE_GROW_EVERY ; jamais au-delà de B.GROW_MAX ni avant que la capacité visée tourne.
+  -- Lot SCALE : la vague suit le nombre de bras libres (s.spare, PNJ sans tâche durables ; Br.wave : une capacité par
+  -- Br.HANDS_PER_CAP bras, au plus Br.WAVE_MAX, une par ressource et par vague, dans l'ordre du besoin brut) ; sans ce
+  -- nombre (s.idle_grow seul), une capacité par vague comme IA-G.
   if s.idle_grow and (s.tick or 0) - (st.idle_grow_tick or -B.IDLE_GROW_EVERY) >= B.IDLE_GROW_EVERY then
+    local wave = s.spare and Br.wave(s.spare) or 1
+    local added = 0
     for _, kind in ipairs(key.order or {}) do
+      if added >= wave then break end
       local product = T.outposts[kind] and T.outposts[kind].product
-      if product and not (key.optional or {})[kind] and not B.saturated(s, product) and (tg[kind] or 0) < B.GROW_MAX
+      if product and not (key.optional or {})[kind] and not B.saturated(s, product) and (tg[kind] or 0) < grow_max
         and (s.cap[kind] or 0) >= (tg[kind] or 0) * 0.75 then
         tg[kind] = (tg[kind] or 0) + 1
         st.idle_grow_tick = s.tick or 0
         st.idle_grown = (st.idle_grown or 0) + 1
-        break
+        added = added + 1
       end
     end
   end
   return tg
+end
+
+--- Situation de la fonderie pour Br.smelters : entrées de la fonderie (données de shared/team/config.lua), triées.
+local SMELT_INPUTS = {}
+do
+  local ps = {}
+  for p in pairs(T.smelter_inputs) do ps[#ps + 1] = p end
+  table.sort(ps)
+  for _, p in ipairs(ps) do SMELT_INPUTS[#SMELT_INPUTS + 1] = { p, T.smelter_inputs[p][1], T.smelter_inputs[p][2] } end
+end
+function B.smelt_situation(s)
+  return { workers = s.workers, stock = s.stock or {}, smelters = s.smelters, smelters_pending = s.smelters_pending,
+    tick = s.tick, smelter_inputs = SMELT_INPUTS }
 end
 
 --- Buts de la pensée. s = situation (shared/ai3/cerveau.lua, B.situation) ; rend une liste triée (valeur
@@ -211,6 +233,9 @@ function B.generate(s, st)
   end
   -- Capital : fonderie du QG.
   local smelters_want = s.is_player and 2 or B.SMELTERS_WANT
+  -- Lot SCALE (capacité de FONTE) : une faction dont une plaque manque alors que son minerai attend au coffre agrandit sa
+  -- fonderie, par vagues, jusqu'à la moitié de son effectif (shared/ai3/bras.lua, Br.smelters).
+  if not s.is_player then smelters_want = Br.smelters(B.smelt_situation(s), st, B.SMELTERS_WANT, B.GROW_THINKS) end
   if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and (s.cap[key.top] or 0) >= 0.75 then
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
       n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }

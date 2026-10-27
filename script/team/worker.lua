@@ -329,7 +329,10 @@ function Worker.program(f, task, surface, tick)
     table.sort(products)
     for _, p in ipairs(products) do
       local input = T.smelter_inputs[p]
-      if input then list[#list + 1] = { input[1], math.min(input[2] * 20, input[2] * task.smelt[p]) } end
+      -- Lot SCALE : la fournée suit le nombre de fours (5 entrées par four, 20 pour les 4 fours d'avant) : une fonderie
+      -- agrandie (shared/ai3/bras.lua, Br.smelters) n'est pas limitée par une tournée de 20 minerais.
+      local per_trip = math.max(20, 5 * #Outposts.smelters(f))
+      if input then list[#list + 1] = { input[1], math.min(input[2] * per_trip, input[2] * task.smelt[p]) } end
     end
     list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }

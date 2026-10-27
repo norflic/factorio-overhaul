@@ -38,6 +38,7 @@ local General = require("script.ai3.general") -- lot IA-G : le cerveau général
 local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressources clés de repli
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
+local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 
 local Ia3 = {}
 
@@ -49,6 +50,20 @@ Ia3.PACK_RESERVE = 10       -- réserve de packs de chaque sorte payable (la rec
 Ia3.REACH_RADII = { 48, 96, 160, 250 }
 Ia3.REACH_EVERY = 12        -- gisements atteignables relus toutes les 12 pensées (1 min)
 Ia3.LAB_OFFSETS = { { -10, -7 }, { -14, -7 }, { -10, -11 }, { -14, -11 } }
+-- Lot SCALE : plus de laboratoires quand des bras sont libres (shared/ai3/bras.lua, Br.labs_max) : les 4 places d'avant
+-- d'abord, puis des rangées de 4 en 4 tuiles vers l'ouest et le nord.
+do
+  local seen = {}
+  for _, o in ipairs(Ia3.LAB_OFFSETS) do seen[o[1] .. ":" .. o[2]] = true end
+  for _, y in ipairs({ -7, -11, -15 }) do
+    for _, x in ipairs({ -10, -14, -18, -22 }) do
+      if not seen[x .. ":" .. y] then
+        seen[x .. ":" .. y] = true
+        Ia3.LAB_OFFSETS[#Ia3.LAB_OFFSETS + 1] = { x, y }
+      end
+    end
+  end
+end
 -- Paliers de recherche (§6.1, MESURE seulement) : lot IA-G, déplacés dans script/ai3/paliers.lua ; le test anti-échelle
 -- (tests/iag_test.lua §8) vérifie qu'ils ne sont lus que par Ia3.measure.
 Ia3.PALIERS = Paliers.LIST
@@ -482,7 +497,10 @@ local function research_step(f, st, book, w, tick, view)
   local labs, speed = valid_labs(st)
   local left = spec.count - (lab.units or 0)
   local secs = left * spec.energy / 60 / math.max(1, lproto and lproto.speed or 1)
-  local want = math.min(Ia3.LABS_MAX, math.max(1, math.ceil(secs / Ia3.LAB_WINDOW_S)))
+  -- Lot SCALE : bornes et fenêtre selon l'effectif et les bras libres (Br.labs_max, Br.lab_window).
+  local spare_hands = General.spare_hands(f, view, tick)
+  local window = Br.lab_window(Ia3.LAB_WINDOW_S, spare_hands)
+  local want = math.min(Br.labs_max(view.workers, Ia3.LABS_MAX), math.max(1, math.ceil(secs / window)))
   if lproto then
     info.lab_item = lproto.item
     local stock = view.stock[lproto.item] or 0
@@ -663,9 +681,14 @@ function Ia3.plan(f, view, book, surface, tick)
     iron_floor = math.ceil(raw[floor_item] or 0)
   end
   local army_target = 0
+  local spare_hands = General.spare_hands(f, view, tick) -- lot SCALE : bras libres durables (0 pour votre équipe)
   if not f.is_player then
     local share = T.army_share[view.personality] or 0.6
     army_target = math.floor((view.soldiers_max or 0) * share)
+    -- Lot SCALE (armée selon le caractère) : une faction agressive aux bras libres arme d'avance, quand sa matière clé ne
+    -- manque pas (shared/ai3/bras.lua, Br.army ; jamais au-delà du plafond de soldats).
+    local key_short = ((st.short or {})[floor_item] or 0) > 0
+    army_target = Br.army(army_target, view.soldiers_max, (f.traits or {}).agressivite, spare_hands, key_short)
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
@@ -678,6 +701,7 @@ function Ia3.plan(f, view, book, surface, tick)
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
     key = (not f.is_player) and General.on() and General.key(f) or nil,
     idle_grow = General.idle_grow(f, view, tick),
+    spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
