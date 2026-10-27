@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.2
+Date: 2026-10-27
+  Graphics:
+    - Les foreuses électriques des âges 2 à 15 (niveaux 3 à 30) ont chacune leur design, dans les 4 directions, à la
+      place de la foreuse vanilla teintée : chevalement de forge, colonne de vapeur, derrick, cône volcanique, pylône
+      électrique, temple de cristal, bocal du marais, tour atomique, croix de haute technologie, fuseau de titane, pile
+      de tores supraconducteurs, cuve d'antimatière, Porte étoilée, sphère noire… La goulotte dessinée est au point de
+      dépôt. Le niveau pair de chaque âge ajoute une pièce au sommet de la tour et une teinte de l'âge. Le niveau 2
+      garde la foreuse vanilla avec une chèvre de bois et sa lanterne posées dessus.
+    - Foreuse en marche : voyants, braises et cristaux de l'âge s'avivent et scintillent, avec une lumière de la
+      couleur de l'âge ; lueurs de jour et halo de nuit.
+    - Icône de l'âge pour chaque niveau, couleur de carte de l'âge, reste et explosion à la taille de la foreuse.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.1
 Date: 2026-10-27
   Changes:
