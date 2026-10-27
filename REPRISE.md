@@ -10,6 +10,42 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 11 h 15 : 0.6.0 VALIDÉE sur `main`** (garde-fous verts, `ia1b2-guide` 1618033988 réparé ; `iag_test` 93 OK après
+> admission des types du moteur d'IA3-k). **K10 NON tenu : 0,441 ms par tick, p99 6,6 ms, mesuré seul** (0,291 en 0.5.0) : lot de
+> performance à ouvrir (profileur par composant : itinéraires d'IA3-k, catalogue d'IA-G étalé). Les points 1 de la reprise de 10 h 45
+> sont faits ; restent 2 à 6. Agents IA3-e et design arrêtés par la limite d'usage à 10 h 45, à relancer par SendMessage.
+>
+> **27/10, 10 h 45 : POINT DE REPRISE (limite d'usage de la session atteinte).** `main` = **0.6.0** (`4424be0`, documents `2427c2b`,
+> `c99d2fe`) : IA-V2 + correctif 0.5.2 (`7236ffa`), IA3-k 0.5.1, IA-G 0.6.0. **À FAIRE EN PREMIER** :
+> 1. Lire la validation de 0.6.0 : `fo-logs\2026-10-27_integration-0.6.0\series.txt` et `bilans.txt` (« FINI » quand tout est passé :
+>    verif-guide 271828182 et 1618033988, content, pnj-reduit, ia1b2-guide 1618033988, iag-partie × 2, ia3k-route, iag-jetable sur
+>    `jetable-src`, puis K10 `--seul` ia1-scale) ; instantané testé : worktree `.claude/worktrees/valid060` (branche `valid060`) ;
+>    série hors jeu : `<scratchpad>\serie_valid060\bilan.txt`. Consigner dans RD_LOG (E199, E220 à E223) et OBJECTIFS ; un échec se
+>    corrige en avant sur `main`. Retirer ensuite `valid060`.
+> 2. IA3-e (agent `aa204fd5af007dd61`) : `git merge main` 0.6.0 dans `ia3e`, conflits sur le cerveau, réglage `fo-war-ia3e` ÉTEINT ;
+>    rapport attendu vers 12 h ; fusionner s'il est vert réglage éteint.
+> 3. IA3-d (branche `ia3d`, agent terminé) : fusionner `main` dedans, puis P1 (`fo-war-workers` 4 → 30) avec verif-guide sur 4 graines.
+> 4. Design (agent `af602e63c702fb3b4`) : F4-B (foreuse en jeu) et F5-A2 (centre) en cours ; fusion de F4-B après mémoire vidéo au plancher.
+> 5. Banc : `fo-banc-places.txt` = 3 (le DC n'utilise pas le PC jusque vers 17 h) ; le remettre à 1 quand il joue.
+> 6. Bilan au DC de l'échéance de 12 h 10 (« cerveau des IA fini ») : franc ; non tenus connus : palier 2, inactifs à 30 PNJ (45 %),
+>    automatisation éteinte par défaut, buts d'amélioration des niveaux absents (D-20 (3)), A8 et A9 non commencés.
+> Page du DC : https://claude.ai/artifact/617hK5AkCWh1vu7HCzViU5 (à mettre à jour avec 0.5.1, 0.5.2, 0.6.0 et X3).
+>
+> **27/10, 10 h 35 : IA3-k FUSIONNÉ, `main` = 0.5.1** (`cd36d4b`) : comportements visibles allumés (`fo-war-ia3-comportement`).
+> Preuve du lot sur main 0.5.0 + lot (C2 24/24 et 14/14 sans mort, C5 1 mort contre 27 et 48, C3 7 OK, B5 et C4, D1) ; fusion
+> propre, main depuis la base du lot : outils, X3 (non lu par le jeu) et documents seulement. Sur `main` 0.5.1 (intégrateur) : série
+> hors jeu, content, verif-guide 271828182 et 1618033988 lancés. Fusions d'essai : main + ia3k + iag PROPRE ; + ia3e : conflits
+> settings.lua et tests/mock_engine.lua seulement. Défauts ouverts : économie d'une faction sans soldat sous un nid ; C1 allongement ;
+> K10 (mesure `--seul` de l'intégrateur sur main après les fusions). Worktree `ia3k` gardé tant que l'agent tourne.
+>
+> **27/10, 10 h 40 : IA3-e LIVRÉ (2e fois), réglage `fo-war-ia3e` ÉTEINT par défaut** (tête `d52a2d0` ; INTEGRATION.md §0 bis) :
+> éteint, automatisation et plan des factions inertes (verif-guide 1618033988 15 OK, content 331) ; allumé : aucune fonderie posée
+> (lot des foreuses introuvable : « tapis des foreuses (pas de lot) », « (trop long) »), K1 instable (une faction différente recule
+> à chaque correction). Fusion main + ia3e : PROPRE ; main + ia3e + iag : CONFLITS dans script/ai3/cerveau.lua, shared/ai3/buts.lua,
+> shared/ai3/cerveau.lua, shared/ai3/projets.lua, tests/mock_engine.lua. **Ordre décidé** : IA-G d'abord dans `main` (vers 11 h 15),
+> puis l'agent IA3-e (`aa204fd5af007dd61`) fait `git merge main` dans `ia3e`, résout en gardant le cerveau d'IA-G et en branchant
+> `A.decide*` à son point de jonction, rejoue hors jeu + verif-guide + content réglage éteint ; fusion ensuite.
+>
 > **27/10, 10 h 15 : X3 FUSIONNÉ (proposition hors jeu, `f76af76`, `0f78e4f`) et D-20 du DC** (QCM) : fonderie de puces OBLIGATOIRE
 > à l'âge 10 ; gamme de robots à concevoir « style Supreme Commander 2 » ; une partie des niveaux en pièces montées, que le cerveau
 > des PNJ doit faire DE LUI-MÊME (rien en dur) ; calcul NON stockable, par script. À reporter dans `shared/content/x3.lua` et §3.7 au

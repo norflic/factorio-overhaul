@@ -1,4 +1,40 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.0
+Date: 2026-10-27
+  Changes:
+    - Le cerveau des factions lit l'arbre d'avancement dans les données du jeu (recettes, technologies, machines,
+      ressources) au lieu d'une liste écrite à la main : chaque faction choisit sa recherche suivante elle-même, d'après
+      ce qu'elle débloque (pack suivant, armes, machines, bonus) et ce qu'elle coûte à fabriquer avec ce que la faction
+      possède et sait extraire ; le caractère de la faction pondère le choix. Une recherche impayable (matière sans source
+      connue, machine que personne ne sait poser) n'est jamais lancée et rien n'est fabriqué pour elle.
+    - Les ressources de départ d'une faction (laquelle exploiter d'abord, laquelle n'est pas nécessaire) se déduisent de
+      ce que ses buts consomment ; une ressource inconnue qui rapporterait (qui rendrait des recherches possibles) est
+      cherchée par ses éclaireurs.
+    - Une recherche peu chère (quelques packs) passe devant l'armée et la réserve de munitions.
+    - Journal : une ligne « [FO-CERVEAU] » par décision (technologie, valeur, coût, raisons, ressources).
+---------------------------------------------------------------------------------------------------
+Version: 0.5.2
+Date: 2026-10-27
+  Changes:
+    - Votre équipe : les minages décidés par le nouveau cerveau évitent aussi la zone d'une perte récente (64 tuiles,
+      5 min), et un PNJ tué loin du coffre fait rentrer les PNJ qui travaillent près de lui (gardes et pose de tourelles
+      exceptées). Corrige une régression de 0.5.0 (coffre de l'équipe perdu à 45 min sur une graine du guide).
+---------------------------------------------------------------------------------------------------
+Version: 0.5.1
+Date: 2026-10-27
+  Changes:
+    - Les PNJ retiennent les endroits dangereux (ennemis vus, attaques, morts), choisissent des trajets qui les évitent et qui
+      varient d'une tournée à l'autre, s'arrêtent, se détournent ou rebroussent chemin quand ils voient un ennemi sur leur
+      route, fuient blessés ou sans munitions vers la tourelle ou le QG le plus proche, et ne repartent pas seuls là où des
+      camarades sont morts (au plus 2 morts au même endroit par heure) ; après quelques attentes sans mort, ils retentent,
+      jamais vers un endroit à portée d'un ennemi connu.
+    - Les soldats des factions patrouillent la frontière (plus une faction est agressive), gardent les postes et les
+      avant-postes menacés, escortent les ouvriers vers les zones dangereuses, nettoient les nids proches des routes, chassent
+      un adversaire isolé et défendent le QG.
+    - Un état court s'affiche au-dessus du PNJ à chaque changement (« ! », Détour, Demi-tour, Fuite !, Combat, Escorte, Trop
+      dangereux, Patrouille, Garde, Nettoyage, Chasse, À l'abri !, Défense), au moins 2 s.
+    - Réglage de carte « PNJ : comportements visibles » (fo-war-ia3-comportement), allumé par défaut.
+---------------------------------------------------------------------------------------------------
 Version: 0.5.0
 Date: 2026-10-27
   Changes:

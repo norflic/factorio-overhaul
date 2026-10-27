@@ -34,6 +34,9 @@ local R = require("shared.ai3.registre") -- lot IA-V2 : contrôle du registre d'
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Profiler = require("script.core.profiler")
+local General = require("script.ai3.general") -- lot IA-G : le cerveau général (choix de recherche sur le graphe)
+local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressources clés de repli
+local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 
 local Ia3 = {}
 
@@ -45,15 +48,19 @@ Ia3.PACK_RESERVE = 10       -- réserve de packs de chaque sorte payable (la rec
 Ia3.REACH_RADII = { 48, 96, 160, 250 }
 Ia3.REACH_EVERY = 12        -- gisements atteignables relus toutes les 12 pensées (1 min)
 Ia3.LAB_OFFSETS = { { -10, -7 }, { -14, -7 }, { -10, -11 }, { -14, -11 } }
--- Paliers de recherche (§6.1, MESURE seulement : le cerveau n'en lit aucun) : technologie, pack, packs fabriqués.
-Ia3.PALIERS = {
-  { tech = "automation", pack = "automation-science-pack", n = 10 },
-  { tech = "logistic-science-pack", pack = "logistic-science-pack", n = 10 },
-  { tech = "military-science-pack", pack = "military-science-pack", n = 10 },
-  { tech = "chemical-science-pack", pack = "chemical-science-pack", n = 40 },
-}
+-- Paliers de recherche (§6.1, MESURE seulement) : lot IA-G, déplacés dans script/ai3/paliers.lua ; le test anti-échelle
+-- (tests/iag_test.lua §8) vérifie qu'ils ne sont lus que par Ia3.measure.
+Ia3.PALIERS = Paliers.LIST
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
+
+--- Lot IA-G : ressources clés d'une équipe (types d'avant-poste) : déduites du dépliage pour une faction au cerveau
+--- général (script/ai3/general.lua) ; repli de shared/ai3/reglages.lua (votre équipe, avant la 1re décision).
+local function key_of(f)
+  local k = (not f.is_player and General.on()) and General.key(f) or nil
+  if k and k.top and k.fuel then return k end
+  return Rg.FALLBACK_KEY
+end
 
 local function minutes(f, tick)
   local war = State.war()
@@ -96,7 +103,12 @@ local function catalogue()
   -- Laboratoires : entités de type « lab » posables par un objet.
   local labs = {}
   local lnames = {}
-  for name in pairs(game.get_filtered_entity_prototypes({ { filter = "type", type = "lab" } })) do lnames[#lnames + 1] = name end
+  -- Lot IA-G : types du moteur lus dans shared/ai3/reglages.lua (rôle « labo »), plus de nom dans ce fichier.
+  for _, ty in ipairs(Rg.ENTITY_TYPES) do
+    if Rg.ENTITY_ROLE[ty] == "labo" then
+      for name in pairs(game.get_filtered_entity_prototypes({ { filter = "type", type = ty } })) do lnames[#lnames + 1] = name end
+    end
+  end
   table.sort(lnames)
   for _, name in ipairs(lnames) do
     local e = game.entity_prototypes[name]
@@ -123,7 +135,12 @@ local function catalogue()
     end
   end
   local machines = {}
-  for _, n in ipairs({ "assembling-machine", "furnace", "lab", "mining-drill" }) do
+  local mtypes = {} -- lot IA-G : types des machines (rôles fabrique, labo, foreuse de shared/ai3/reglages.lua)
+  for _, ty in ipairs(Rg.ENTITY_TYPES) do
+    local r = Rg.ENTITY_ROLE[ty]
+    if r == "fabrique" or r == "labo" or r == "foreuse" then mtypes[#mtypes + 1] = ty end
+  end
+  for _, n in ipairs(mtypes) do
     for ename in pairs(game.get_filtered_entity_prototypes({ { filter = "type", type = n } })) do
       local e = game.entity_prototypes[ename]
       for _, it in ipairs(e.items_to_place_this or {}) do machines[it.name] = true end
@@ -374,7 +391,14 @@ local function research_step(f, st, book, w, tick, view)
   if not force then return nil end
   local c = catalogue()
   refresh_techs(force, st, c)
-  local tech, payable, causes, palier = choose_tech(f, force, st, c, book, w)
+  -- Lot IA-G : le cerveau général choisit sur le graphe des prototypes (shared/ai3/general.lua) ; l'ancien choix reste
+  -- le repli (General.ENABLED = false).
+  local tech, payable, causes, palier
+  if General.on() then
+    tech, payable, causes, palier = General.choose_tech(f, force, st, book, w, tick, view, nil)
+  else
+    tech, payable, causes, palier = choose_tech(f, force, st, c, book, w)
+  end
   local info = { tech = tech, payable = payable, causes = causes, palier = palier, packs = {} }
   if not tech then
     info.tech = "?"
@@ -455,21 +479,48 @@ local function research_step(f, st, book, w, tick, view)
   local units_left = math.ceil(spec.count - lab.paid)
   local want = {}
   for _, ing in ipairs(spec.ing) do want[ing[1]] = units_left * ing[2] end
+  -- Lot IA-G : les packs de la technologie EN COURS (« maintenant ») sont séparés de la réserve et des packs d'avance :
+  -- seuls les premiers disent si la recherche est peu chère, et seuls les seconds respectent le plancher de la garde de
+  -- l'économie (moteur réel, banc g3, graine 271828182 : « automation », 1 pack rouge, a attendu de 1,4 à 20,1 min chez
+  -- Ambre : la réserve de 10 packs verts rendait la recherche « chère », le plancher de fer bloquait le pack, et l'armée,
+  -- servie ensuite sans plancher, prenait le fer).
+  local now = {}
+  for _, ing in ipairs(spec.ing) do now[ing[1]] = units_left * ing[2] end
   for _, pack in ipairs(c.pack_list) do
-    if book:handcraftable(pack) and A.level_status(book, { { pack, 1 } }, obtainable) then
+    -- Lot IA-G : payable au sens du graphe (ressources connues, exécutants) ; repli : la règle d'IA3-a.
+    local ok = nil
+    if General.on() then ok = General.feasible(f, pack) end
+    if ok == nil then ok = A.level_status(book, { { pack, 1 } }, obtainable) and true or false end
+    if book:handcraftable(pack) and ok then
       want[pack] = math.max(want[pack] or 0, Ia3.PACK_RESERVE)
     end
   end
+  -- Lot IA-G (bras libres) : les packs des recherches SUIVANTES, d'avance, quand des PNJ sont sans tâche.
+  if General.on() then
+    for _, it in ipairs(General.lookahead(f, st, view, tick)) do
+      if book:handcraftable(it[1]) then want[it[1]] = (want[it[1]] or 0) + it[2] end
+    end
+  end
+  info.packs_ahead = {}
   for _, pack in ipairs(sorted_keys(want)) do
-    local need = want[pack] - (view.stock[pack] or 0) - ((view.incoming or {})[pack] or 0)
-    if need > 0 then info.packs[#info.packs + 1] = { pack, math.min(Ia3.PACK_BATCH, need) } end
+    local have = (view.stock[pack] or 0) + ((view.incoming or {})[pack] or 0)
+    local need = want[pack] - have
+    if need > 0 then
+      local need_now = math.max(0, (now[pack] or 0) - have)
+      local n_now = math.min(Ia3.PACK_BATCH, need_now)
+      if n_now > 0 then info.packs[#info.packs + 1] = { pack, n_now } end
+      local n_ahead = math.min(Ia3.PACK_BATCH, need) - n_now
+      if n_ahead > 0 then info.packs_ahead[#info.packs_ahead + 1] = { pack, n_ahead } end
+    end
   end
   -- Lot IA-V2 : fer encore à dépenser pour cette recherche (packs à fabriquer, laboratoires à fabriquer), plan du livre.
+  -- Lot IA-G : la matière de la garde est le produit de la ressource la PLUS DEMANDÉE (ressources clés déduites du
+  -- dépliage ; le fer sur les données vanilla), plus le fer écrit à la main.
   local list = {}
   for _, it in ipairs(info.packs) do list[#list + 1] = it end
   if info.lab_item and (info.labs_craft or 0) > 0 then list[#list + 1] = { info.lab_item, info.labs_craft } end
   local raw = #list > 0 and book:raw_cost(list) or {}
-  info.iron_cost = math.ceil(raw[P.IRON] or 0)
+  info.iron_cost = math.ceil(raw[T.outposts[key_of(f).top].product] or 0)
   return info
 end
 
@@ -530,6 +581,8 @@ function Ia3.plan(f, view, book, surface, tick)
   local st = t.ia3
   Profiler.start("ia3:research")
   local w = B.weights(f.chef and f.chef.mix, f.traits)
+  -- Lot IA-G : gisements relus AVANT la recherche (le cerveau général en a besoin dès la première pensée).
+  local reach, known = reach_of(f, st, tick)
   local research = nil
   if not f.is_player then research = research_step(f, st, book, w, tick, view) end
   Profiler.stop("ia3:research")
@@ -539,10 +592,15 @@ function Ia3.plan(f, view, book, surface, tick)
     if tk.worker and tk.kind == "mine" and tk.ia3 then mines_open[tk.resource] = (mines_open[tk.resource] or 0) + 1 end
   end
   -- Plancher de fer des packs (garde de l'économie, revue B3) : fer d'un avant-poste de fer tant que « fer II » manque.
+  -- Lot IA-G : la matière gardée est le produit de la ressource la PLUS DEMANDÉE par les buts (ressources clés déduites
+  -- du dépliage, General.key ; repli : celles de l'échelle), et le plancher = ce que coûte en cette matière l'avant-poste
+  -- de cette ressource (livre de recettes). Sur les données vanilla : le fer, comme avant.
+  local key = key_of(f)
+  local floor_item = T.outposts[key.top].product
   local iron_floor = 0
   if not st.iron2_done and not st.economy_ok then -- lot IA-V2 : plancher levé aussi quand l'économie couvre le besoin
-    local raw = book:raw_cost(Planner.outpost_items("iron"))
-    iron_floor = math.ceil(raw[P.IRON] or 0)
+    local raw = book:raw_cost(Planner.outpost_items(key.top))
+    iron_floor = math.ceil(raw[floor_item] or 0)
   end
   local army_target = 0
   if not f.is_player then
@@ -552,20 +610,30 @@ function Ia3.plan(f, view, book, surface, tick)
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
-  local reach, known = reach_of(f, st, tick)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
-    reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
-    at_war = at_war and true or false, home_known = home ~= false }
+    reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
+    army_target = army_target,
+    at_war = at_war and true or false, home_known = home ~= false,
+    -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
+    key = (not f.is_player) and General.on() and General.key(f) or nil,
+    idle_grow = General.idle_grow(f, view, tick) }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
-  -- « Fer II » (critère K12) : même ligne que l'ancien cerveau.
+  -- Lot IA-G : une ressource INCONNUE qui bloque la recherche de valeur est à explorer (après le regard des abords).
+  if not f.is_player and General.on() and home ~= false then
+    for _, res in ipairs(sorted_keys(General.explore(f))) do
+      plan.ia3.explore[res] = math.max(plan.ia3.explore[res] or 0, General.explore(f)[res])
+    end
+  end
+  -- « Fer II » (critère K12) : même ligne que l'ancien cerveau. Lot IA-G : deux capacités de la ressource la plus
+  -- demandée et deux du combustible (ressources clés déduites ; le fer et le charbon sur les données vanilla).
   if not st.iron2_done then
-    local cap = { iron = 0, coal = 0 }
+    local cap = { [key.top] = 0, [key.fuel] = 0 }
     for _, o in ipairs(view.outposts or {}) do
       if cap[o.kind] then cap[o.kind] = cap[o.kind] + o.drills / T.outposts[o.kind].drills end
     end
-    if cap.iron >= 1.5 and cap.coal >= 1.5 then
+    if cap[key.top] >= 1.5 and cap[key.fuel] >= 1.5 then
       st.iron2_done = tick
       log(string.format("[FO-TEAM] %s : objectif atteint 'iron2' a %.1f min", f.key, minutes(f, tick)))
     end
