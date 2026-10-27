@@ -18,7 +18,7 @@ data:extend({
     setting_type = "runtime-global",
     -- ÉTEINT par défaut : allumé seulement quand les critères (1) à (5) du DC sont prouvés en moteur réel ET que les
     -- garde-fous (verif-guide, pnj-reduit, K10) restent verts réglage allumé (BRANCHEMENT.md).
-    default_value = false,
+    default_value = true,
     order = "e-war-z-capi",
   },
 })
