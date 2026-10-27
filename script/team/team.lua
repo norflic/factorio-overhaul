@@ -547,6 +547,8 @@ function Team.think(f, surface, tick)
     end
     stock = Board.view_stock(f, stock_of(f), tick)
   end
+  -- Lot CAPITAL : amélioration d'un bâtiment à niveaux ou du centre, payée sur le stock LIBRE après les recrues et l'armée.
+  if ia3 then Ia3.capital_pay(f, surface, tick, plan, stock) end
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])
     f.tech = plan.research

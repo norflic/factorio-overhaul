@@ -33,6 +33,8 @@ local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
 
 P.EMIT.module = A.emit(P)
+local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration » (niveaux, centre), payés par le runtime
+P.EMIT.upgrade = Cap.emit(P)
 
 local C = {}
 
@@ -152,6 +154,8 @@ function C.think(view, book, st, ctx)
   for k, v in pairs(avail) do avail0[k] = v end
   -- 3. Buts ; 4. projets.
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
+  -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
+  if ctx.capital then goals[#goals + 1] = ctx.capital end
   local order, K = P.update(st, goals, tick, s.workers)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
@@ -274,8 +278,9 @@ function C.think(view, book, st, ctx)
     emergency_unarmed = base.emergency_unarmed, emergency_recruit = base.emergency_recruit,
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
     coal_rate = base.coal_rate, burn_rate = base.burn_rate, defend = base.defend,
-    ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped, explore = E.explore,
-      saturated = saturated, dominant = dom and dom.key or nil },
+    ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
+      explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
+      pay = E.pay }, -- lot CAPITAL : améliorations dont le coût est réservé au stock virtuel, payées par le runtime
   }
 end
 

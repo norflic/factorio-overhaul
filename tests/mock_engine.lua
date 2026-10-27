@@ -775,6 +775,8 @@ function M.new_world(opts)
       ["fo-war-ia3-cerveau"] = (opts.ia3_cerveau ~= false) and (os.getenv("FO_IA3_CERVEAU") ~= "0"),
       -- Lot IA3-e : ÉTEINT par défaut comme le jeu (settings/ia3e.lua) ; allumé par l'option (ia3e = true) ou FO_IA3E=1
       ["fo-war-ia3e"] = (opts.ia3e == true) or (os.getenv("FO_IA3E") == "1"),
+      -- Lot CAPITAL : ÉTEINT par défaut comme le jeu (settings/capital.lua) ; allumé par l'option (capital = true) ou FO_CAPITAL=1
+      ["fo-war-capital"] = (opts.capital == true) or (os.getenv("FO_CAPITAL") == "1"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
     },
