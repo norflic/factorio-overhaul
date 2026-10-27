@@ -37,9 +37,16 @@ def facade(g, c):
             g.dome((t, -h1 - 0.05, z0 + H1 + 0.08), (0, 0, 1), 0.05, M["wood2"], what="pointe")
             if int(round((t + h1) / 0.105)) % 4 == 2:     # ronde F5-A2 : falots sur la palissade (nuit)
                 g.cyl((t, -h1 - 0.12, z0 + H1 * 0.7), "z", 0.04, 0.08, M["emit"], n=8, style="flat", what="falot")
-                halo(g, (t, -h1 - 0.3, z0 + H1 * 0.7), M, 1.2)
+                halo(g, (t, -h1 - 0.3, z0 + H1 * 0.7), M, 2.6)   # ronde 2b : 1,2 → 2,6
         cp.colonne(g, h1 + 0.05, t, z0, z0 + H1 + 0.08, 0.05, M["wood"], n=8, what="rondin")
         t += 0.105
+    # ronde 2b (nuit de l'âge 1, presque noire en ronde 2) : deux lanternes sur poteaux de part et d'autre de la porte
+    for s_ in (-1, 1):
+        xl, yl = s_ * (w + 0.06), -h1 - 0.24
+        cp.colonne(g, xl, yl, z0, z0 + H1 * 0.95, 0.03, M["wood"], n=8, what="poteau_lanterne")
+        g.cyl((xl, yl, z0 + H1 * 0.95 + 0.06), "z", 0.055, 0.11, M["emit"], n=8, style="flat", what="lanterne_porte")
+        g.cyl((xl, yl, z0 + H1 * 0.95 + 0.125), "z", 0.07, 0.025, M["blackiron"], n=8, what="chapeau")
+        halo(g, (xl, yl - 0.25, z0 + H1 * 0.95), M, 4.0)
 
 
 def mat(g, c, z):
@@ -60,4 +67,4 @@ def mat(g, c, z):
     g.box((0.13, 0, z + hp + 0.86), (0.24, 0.012, 0.13), M["redpaint"], "hard", what="fanion")
     g.cyl((0, -a - 0.1, z + hp - 0.16), "z", 0.05, 0.1, M["emit"], n=8, style="flat", what="lanterne")
     g.cyl((0, -a - 0.1, z + hp - 0.1), "z", 0.06, 0.02, M["blackiron"], n=8, what="chapeau")
-    cp.halo(g, (0, -a - 0.3, z + hp - 0.15), M, 3.0)
+    cp.halo(g, (0, -a - 0.3, z + hp - 0.15), M, 5.0)   # ronde 2b : 3 → 5

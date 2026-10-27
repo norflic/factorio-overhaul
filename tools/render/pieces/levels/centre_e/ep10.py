@@ -21,6 +21,8 @@ ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.arch
 
 FENETRES = "emit"   # ronde F5-A2 : nuit de l'âge 10 (presque noire en ronde 1)
 
+MOTIF_DALLE = True   # ronde 2b : pastille et plots à chaque dalle visible du socle (charte 18,9 en ronde 2)
+
 
 def matieres(metal, M):
     ages.matieres(10, metal, M)

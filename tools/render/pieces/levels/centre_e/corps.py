@@ -185,6 +185,21 @@ def socle(g, c):
         g.box((0, 0, zc + 0.003), (2 * dd - 2 * e, 2 * dd - 2 * e, 0.006), c.m(c.pont["fond"]), "flat", what="fond")
         g.panels(q, nu, nv, pm[0], t=zt - zc, gap=0.025, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET,
                  rivet_step=0.11, mats=pm, what="dessus")
+        if getattr(c.ep, "MOTIF_DALLE", False) and motif == "dalles":
+            # ronde 2b (âge 10) : motif fin à chaque dalle visible (pastille sombre et quatre plots), comme le tablier
+            # de la foreuse de l'âge 10 (F4-A4)
+            su, h1 = (2 * dd - 2 * e) / nu, c.T["h"][0]
+            mm = c.m(getattr(c.ep, "MOTIF_MAT", "steel_dk"))
+            c.n_pastilles = 0
+            for i in range(nu):
+                for j in range(nv):
+                    x, y = -dd + e + (i + 0.5) * su, -dd + e + (j + 0.5) * su
+                    if dans_forme(c.plan, h1 + 0.04, x, y, -su / 2):
+                        continue
+                    g.box((x, y, zt + 0.006), (su * 0.42, su * 0.42, 0.012), mm, "hard", what="pastille")
+                    for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+                        g.dome((x + sx * su * 0.32, y + sy * su * 0.32, zt), (0, 0, 1), 0.018, M["steel_hi"], what="plot")
+                    c.n_pastilles += 1
         b = c.m(c.pont["bord"])
         for k in range(4):
             p0 = quart((-dd, dd - 0.03), k)
@@ -661,6 +676,8 @@ def detail_fin(g, c):
 def detail_toits(g, c, zm):
     """Détail fin sur les terrasses des étages (anneau entre l'étage k et l'étage k + 1, en retrait du garde-corps) et
     sur le toit plat du dernier étage (hors mât)."""
+    if getattr(c.ep, "ARCHI", False):
+        return _toits_archi(g, c)
     import random
     rng = random.Random(17000 + 31 * c.e + c.side)
     M = g.M
@@ -703,6 +720,78 @@ def detail_toits(g, c, zm):
                         r -= w
                 f(g, c, x, y, z1 - 0.012, rng, M)
                 poses += 1
+    return poses
+
+
+def _lanterneau(g, c, x, y, z, M, lit):
+    """Lanterneau de toit : cadre sombre, verre fumé (ou éclairé), deux traverses."""
+    g.box((x, y, z + 0.016), (0.17, 0.15, 0.032), c.m("steel_dk"), "hard", what="lanterneau")
+    g.box((x, y, z + 0.035), (0.13, 0.11, 0.008), M["emit_soft"] if lit else c.m("glass_dk"), "hard", what="vitre_toit")
+    g.box((x, y, z + 0.04), (0.012, 0.11, 0.004), c.m("steel_hi"), "flat", what="traverse")
+
+
+def _toits_archi(g, c):
+    """Ronde 2b (âges à ep.ARCHI) : terrasses et toit garnis en RANGÉES (lanterneaux et ouïes de ventilation en lignes
+    alternées, un voyant de loin en loin) au lieu du moucheté au hasard ; la terrasse sud du premier étage est à la
+    verrière."""
+    import random
+    rng = random.Random(29000 + 31 * c.e + c.side)
+    M = g.M
+    pas = float(getattr(c.ep, "PAS_TOIT", 0.28))
+    poses = 0
+    n_et = len(c.z_etages)
+    for k in range(n_et):
+        z0, z1, h = c.z_etages[k]
+        if k + 1 < n_et:
+            hin = c.z_etages[k + 1][2] + 0.12
+        elif c.toit in ("plat", "crenele"):
+            hin = max(0.32 * c.side / 4.5, float(getattr(c.ep, "RAYON_MAT", 0.45)) * getattr(c, "echelle_mat", 1.0) + 0.08)
+        else:
+            continue
+        hout = h - (0.22 if k == 0 else 0.14)
+        n = int(2 * hout / pas)
+        o = -hout + (2 * hout - n * pas) / 2.0 + pas / 2.0
+        for j in range(n):
+            for i in range(n):
+                x, y = o + i * pas, o + j * pas
+                if not dans_forme(c.plan, hout, x, y, 0.09) or dans_forme(c.plan, hin, x, y, -0.09):
+                    continue
+                if k + 1 == n_et and math.hypot(x, y) < hin:
+                    continue
+                if k == 0 and y < 0 and 195 < math.degrees(math.atan2(y, x)) % 360 < 345:
+                    continue
+                if j % 2 == 0:
+                    _lanterneau(g, c, x, y, z1 - 0.012, M, rng.random() < 0.2)
+                elif i % 4 == 1:
+                    _f_voyant(g, c, x, y, z1 - 0.012, rng, M)
+                else:
+                    _f_event(g, c, x, y, z1 - 0.012, rng, M)
+                poses += 1
+    return poses
+
+
+def bornes(g, c):
+    """Ronde 2b (âges à ep.ARCHI) : allée de BORNES autour du pied du premier étage, sur le socle (hors porte, hors
+    satellites et feux : corps.libre)."""
+    if not getattr(c.ep, "ARCHI", False):
+        return 0
+    h1, dd = c.T["h"][0], c.dd
+    r = h1 + 0.3 * (dd - h1)
+    plan = c.plan if c.plan in ("rond", "octo") else "carre"
+    pas = 0.25
+    n = int(2 * math.pi * r / pas) if plan == "rond" else int(8 * r / pas)
+    poses = 0
+    for i in range(n):
+        a = math.tau * (i + 0.5) / n
+        rr = _rayon_forme(plan, r, a)
+        x, y = rr * math.cos(a), rr * math.sin(a)
+        if not libre(c, x, y, 0.06):
+            continue
+        colonne(g, x, y, c.zt, c.zt + 0.07, 0.03, c.m("steel_dk"), n=8, style="hard", what="borne")
+        g.dome((x, y, c.zt + 0.07), (0, 0, 1), 0.03, c.m("steel_hi") if i % 3 else g.M["emit"], what="tete_borne")
+        c.occupe.append((x - 0.06, y - 0.06, x + 0.06, y + 0.06))
+        poses += 1
+    c.n_bornes = poses
     return poses
 
 
@@ -792,6 +881,9 @@ def _verriere(g, c):
     M = g.M
     plan = c.plan if c.plan != "croix" else "carre"
     n = max(6, int(4.0 * h1 / 0.3))
+    import random
+    rng = random.Random(23000 + 31 * c.e + c.side)
+    lum = float(getattr(c.ep, "VERRIERE_LUM", 0.3))
     for i in range(n):
         a0 = math.radians(205 + 130 * i / n)
         a1 = math.radians(205 + 130 * (i + 1) / n)
@@ -808,11 +900,31 @@ def _verriere(g, c):
             continue
         p = [(rout0 * math.cos(a0), rout0 * math.sin(a0), z1 + 0.04), (rout1 * math.cos(a1), rout1 * math.sin(a1), z1 + 0.04),
              (rin1 * math.cos(a1), rin1 * math.sin(a1), z1 + 0.26), (rin0 * math.cos(a0), rin0 * math.sin(a0), z1 + 0.26)]
+        # ronde 2b : la ronde 2 (une vitre par secteur, une sur trois lumineuse) se lisait en RAYONS de soleil ; châssis
+        # sombre et vitres découpées le long de la pente (traverses), verre fumé, quelques carreaux éclairés au hasard
         pts = [V(q) for q in p] + [V((q[0], q[1], q[2] + 0.02)) for q in p]
-        g.hexa(pts, M["emit_soft"] if i % 3 == 1 else c.m("seam"), "hard", "vitre")
-        c.n_vitres = getattr(c, "n_vitres", 0) + 1
-        poutre(g, p[0], p[3], 0.025, c.m("steel_hi"), "meneau")
+        g.hexa(pts, c.m("steel_dk"), "hard", "chassis_verriere")
+        c.n_chassis = getattr(c, "n_chassis", 0) + 1
+        L = math.hypot(p[3][0] - p[0][0], p[3][1] - p[0][1])
+        ns = max(2, int(round(L / 0.2)))
+
+        def Q(s, t):
+            return tuple((1 - t) * ((1 - s) * p[0][d] + s * p[1][d]) + t * ((1 - s) * p[3][d] + s * p[2][d])
+                         for d in range(3))
+        for j in range(ns):
+            t0, t1 = (j + 0.08) / ns, (j + 0.92) / ns
+            qs = [Q(0.1, t0), Q(0.9, t0), Q(0.9, t1), Q(0.1, t1)]
+            pts = [V((q[0], q[1], q[2] + 0.02)) for q in qs] + [V((q[0], q[1], q[2] + 0.032)) for q in qs]
+            lit = rng.random() < lum
+            g.hexa(pts, M["emit_soft"] if lit else c.m("glass_dk"), "hard", "vitre")
+            c.n_vitres = getattr(c, "n_vitres", 0) + 1
+        haut = 0.035
+        poutre(g, (p[0][0], p[0][1], p[0][2] + haut), (p[3][0], p[3][1], p[3][2] + haut), 0.02, c.m("steel_hi"), "meneau")
         poutre(g, p[0], p[1], 0.03, c.m("steel_dk"), "bord_verriere")
+        if i % 4 == 2:
+            cx = sum(q[0] for q in p) / 4.0
+            cy = sum(q[1] for q in p) / 4.0
+            halo(g, (cx, cy, z1 + 0.45), M, 1.6)
 
 
 def architecture(g, c):
@@ -859,5 +971,6 @@ def centre(g, c):
             c.ep.mat(g, c, zm)
         finally:
             g.stack.pop()
+        bornes(g, c)
         c.n_fin = detail_fin(g, c)
         c.n_fin_toits = detail_toits(g, c, zm)

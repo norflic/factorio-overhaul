@@ -181,6 +181,18 @@ for e in list(range(1, 16)) + ["k4", "k8"]:
             check(n.get("contrefort", 0) >= 10 and getattr(c, "n_vitres", 0) >= 3 and n.get("balcon", 0) == 1,
                   "âge %s : architecture (contreforts %d, vitres de verrière %d, balcon %d)" % (
                       e, n.get("contrefort", 0), getattr(c, "n_vitres", 0), n.get("balcon", 0)))
+            # ronde 2b : verrière découpée (au moins 2 carreaux par secteur), terrasses en rangées, allée de bornes
+            check(getattr(c, "n_vitres", 0) >= 2 * getattr(c, "n_chassis", 0) > 0 and n.get("lanterneau", 0) >= 10
+                  and n.get("event", 0) >= 10 and getattr(c, "n_bornes", 0) >= 20,
+                  "âge %s : ronde 2b (carreaux %d sur %d châssis, lanterneaux %d, ouïes %d, bornes %d)" % (
+                      e, getattr(c, "n_vitres", 0), getattr(c, "n_chassis", 0), n.get("lanterneau", 0),
+                      n.get("event", 0), getattr(c, "n_bornes", 0)))
+        if ee == 10:
+            check(getattr(c, "n_pastilles", 0) >= 100, "âge 10 : motif des dalles visibles du socle (%d pastilles)" %
+                  getattr(c, "n_pastilles", 0))
+        if ee == 1:
+            check(n.get("lanterne_porte", 0) == 2, "âge 1 : deux lanternes à la porte (nuit), %d" %
+                  n.get("lanterne_porte", 0))
     except Exception as ex:  # noqa: BLE001
         check(False, "âge %s : construction à blanc : %r" % (e, ex))
 
