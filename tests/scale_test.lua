@@ -208,5 +208,138 @@ if #kept == 0 then pass = pass + 1 else
   print("[SCALE] ECHEC : mutants NON refusés : " .. table.concat(kept, " ; "))
 end
 print(string.format("[SCALE] mutants refusés : %d sur %d", refused, #MUTANTS))
+
+-- §8 Places du QG en rangées (correction après revue, shared/ai3/places.lua) : le pas suit l'EMPRISE du prototype posé ;
+-- avec les emprises du jeu de base, exactement les places d'avant la correction (même ordre) ; bloc de départ = main.
+local PL_SRC = read("shared/ai3/places.lua")
+local function load_pl(src)
+  local fn = load(src, "=places", "t")
+  if not fn then return nil end
+  local ok, mod = pcall(fn)
+  return ok and mod or nil
+end
+-- Témoins : les listes ÉCRITES avant la correction (main 0.6.1 + lot SCALE c276e59), recopiées telles quelles.
+local function old_smelters()
+  local out, seen = {}, {}
+  for _, o in ipairs({ { 9, -7 }, { 11, -7 }, { 13, -7 }, { 15, -7 }, { 9, -10 }, { 11, -10 } }) do
+    out[#out + 1] = o
+    seen[o[1] .. ":" .. o[2]] = true
+  end
+  for _, y in ipairs({ -7, -10, -13, -16 }) do
+    for x = 9, 23, 2 do
+      if not seen[x .. ":" .. y] then seen[x .. ":" .. y] = true out[#out + 1] = { x, y } end
+    end
+  end
+  return out
+end
+local function old_labs()
+  local out, seen = {}, {}
+  for _, o in ipairs({ { -10, -7 }, { -14, -7 }, { -10, -11 }, { -14, -11 } }) do
+    out[#out + 1] = o
+    seen[o[1] .. ":" .. o[2]] = true
+  end
+  for _, y in ipairs({ -7, -11, -15 }) do
+    for _, x in ipairs({ -10, -14, -18, -22 }) do
+      if not seen[x .. ":" .. y] then seen[x .. ":" .. y] = true out[#out + 1] = { x, y } end
+    end
+  end
+  return out
+end
+local function same(a, b, n)
+  n = n or #b
+  if #a < n then return false end
+  for i = 1, n do if a[i][1] ~= b[i][1] or a[i][2] ~= b[i][2] then return false end end
+  return true
+end
+local function box(x0, y0, x1, y1) return { left_top = { x = x0, y = y0 }, right_bottom = { x = x1, y = y1 } } end
+local function places_suite(Pl)
+  local p8, f8, m8 = 0, 0, {}
+  local function check(c, m) if c then p8 = p8 + 1 else f8 = f8 + 1 m8[#m8 + 1] = m end end
+  local fw, fh = Pl.tiles(box(-0.7, -0.7, 0.7, 0.7))
+  local lw, lh = Pl.tiles(box(-1.2, -1.2, 1.2, 1.2))
+  local bw, bh = Pl.tiles({ { -1.4, -0.9 }, { 1.4, 0.9 } })
+  local nw, nh = Pl.tiles(nil)
+  check(fw == 2 and fh == 2 and lw == 3 and lh == 3 and bw == 3 and bh == 2 and nw == 1 and nh == 1,
+    "§8 emprise lue dans la boîte de collision : four 2 × 2, laboratoire 3 × 3, 2,8 × 1,8 -> 3 × 2, sans boîte 1 × 1")
+  local S, L = T.hq_rows.smelter, T.hq_rows.lab
+  local s30 = Pl.rows(S, 2, 2, Pl.need(13, 2, T.hq_rows_slack))
+  local ref_s = old_smelters()
+  check(#s30 == #ref_s and same(s30, ref_s), "§8 four 2 × 2 : les 32 places d'avant la correction, même ordre (" .. #s30 .. ")")
+  local l12 = Pl.rows(L, 3, 3, Pl.need(0, 6, T.hq_rows_slack))
+  local ref_l = old_labs()
+  check(#l12 == #ref_l and same(l12, ref_l), "§8 laboratoire 3 × 3 : les 12 places d'avant la correction, même ordre (" .. #l12 .. ")")
+  check(same(Pl.rows(S, 2, 2, 1), ref_s, 6) and #Pl.rows(S, 2, 2, 1) == 6 and same(Pl.rows(L, 3, 3, 1), ref_l, 4),
+    "§8 bloc de départ = places de main 0.6.1 (6 fours, 4 laboratoires), dans leur ordre")
+  local short, long = Pl.rows(S, 2, 2, 10), Pl.rows(S, 2, 2, 40)
+  check(#short >= 10 and #long >= 40 and same(long, short), "§8 préfixe stable (10 places au début des 40)")
+  check(Pl.need(4, 2, 2) == 12 and Pl.need(nil, 3, 2) == 6, "§8 places demandées : 2 × (posées + à poser)")
+  -- Généralisation : une emprise plus grande (niveau du mod) écarte les places ; jamais deux machines l'une sur l'autre.
+  local overlap = 0
+  for w = 1, 5 do
+    for h = 1, 5 do
+      for _, spec in ipairs({ S, L }) do
+        local list = Pl.rows(spec, w, h, 24)
+        for i = 1, #list do
+          for j = i + 1, #list do
+            if math.abs(list[i][1] - list[j][1]) < w and math.abs(list[i][2] - list[j][2]) < h then overlap = overlap + 1 end
+          end
+        end
+      end
+    end
+  end
+  check(overlap == 0, "§8 emprises de 1 × 1 à 5 × 5 : aucune place qui chevauche une autre (" .. overlap .. ")")
+  local big = Pl.rows(S, 3, 3, 6)
+  check(big[2][1] == 12 and big[5][2] == -11, "§8 four 3 × 3 : pas de 3 tuiles en rangée, allée gardée (" .. big[2][1] .. ", " .. big[5][2] .. ")")
+  return p8, f8, m8
+end
+local Pl = load_pl(PL_SRC)
+local p8, f8, m8 = places_suite(Pl)
+pass, fail = pass + p8, fail + f8
+for _, m in ipairs(m8) do print("[SCALE] ECHEC : " .. m) end
+-- Le runtime lit l'emprise dans le prototype et la disposition dans les données (plus aucune liste de places écrite).
+do
+  local bad = {}
+  for _, file in ipairs({ "script/faction/outposts.lua", "script/ai3/cerveau.lua" }) do
+    local code = read(file):gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")
+    if code:find("SMELTER_OFFSETS", 1, true) or code:find("LAB_OFFSETS", 1, true) then
+      bad[#bad + 1] = file .. " (liste de places écrite)"
+    end
+    if not (code:find("collision_box", 1, true) and code:find("T.hq_rows.", 1, true) and code:find("Pl.rows(", 1, true)) then
+      bad[#bad + 1] = file .. " (emprise ou disposition non lue)"
+    end
+  end
+  local wcode = read("script/team/worker.lua"):gsub("%-%-[^\n]*", "")
+  if not wcode:find("math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))", 1, true) then
+    bad[#bad + 1] = "script/team/worker.lua (fournée sans les données nommées)"
+  end
+  if #bad == 0 then pass = pass + 1 else fail = fail + 1 print("[SCALE] ECHEC : §8 " .. table.concat(bad, " ; ")) end
+end
+local PL_MUTANTS = {
+  { "pas sans l'emprise", "local px = w + spec.gap[1]", "local px = 2 + spec.gap[1]" },
+  { "emprise arrondie en dessous", "local w = math.ceil(coord(rb, \"x\", 1) - coord(lt, \"x\", 1))",
+    "local w = math.floor(coord(rb, \"x\", 1) - coord(lt, \"x\", 1))" },
+  { "bloc de départ ignoré", "for i = 0, fn - 1 do add(i % fc, math.floor(i / fc)) end", "" },
+  { "places demandées ignorées", "while #out < (need or 0) do", "while #out < 0 do" },
+  { "places en double", "if seen[k] then return end", "" },
+  { "sens des rangées ignoré", "out[#out + 1] = { ox + sx * c * px, oy + sy * r * py }", "out[#out + 1] = { ox + c * px, oy + r * py }" },
+}
+local pr, pk = 0, {}
+for _, m in ipairs(PL_MUTANTS) do
+  local a, b = PL_SRC:find(m[2], 1, true)
+  if not a then pk[#pk + 1] = m[1] .. " (motif absent)" else
+    local mp = load_pl(PL_SRC:sub(1, a - 1) .. m[3] .. PL_SRC:sub(b + 1))
+    local ff = 1
+    if mp then
+      local ok, _, x = pcall(places_suite, mp)
+      ff = ok and x or 1
+    end
+    if ff > 0 then pr = pr + 1 else pk[#pk + 1] = m[1] end
+  end
+end
+if #pk == 0 then pass = pass + 1 else
+  fail = fail + 1
+  print("[SCALE] ECHEC : §8 mutants NON refusés : " .. table.concat(pk, " ; "))
+end
+print(string.format("[SCALE] §8 mutants des places refusés : %d sur %d", pr, #PL_MUTANTS))
 print(string.format("[SCALE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 if fail > 0 then os.exit(1) end

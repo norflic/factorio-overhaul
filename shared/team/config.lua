@@ -76,6 +76,30 @@ T.smelter_inputs = {        -- produit visé -> (entrée, quantité d'entrée pa
   ["iron-plate"] = { "iron-ore", 1 },
   ["copper-plate"] = { "copper-ore", 1 },
 }
+-- Lot SCALE (correction après revue, 27/10) : DISPOSITION des machines du QG en rangées. Règle : shared/ai3/places.lua
+-- (PURE, sans nom du jeu) ; le PAS est l'emprise du prototype posé (sa collision_box, lue au runtime) plus l'écart ci-
+-- dessous : aucune position n'est écrite pour une taille de bâtiment. Le bloc de départ (first = { colonnes, places })
+-- redonne, avec les emprises du jeu de base (four 2 × 2, laboratoire 3 × 3), EXACTEMENT les places de main 0.6.1
+-- (outposts.lua, SMELTER_OFFSETS ; script/ai3/cerveau.lua, LAB_OFFSETS), dans leur ordre : une partie en cours garde ses
+-- places ; la suite prolonge les rangées (tests/scale_test.lua §8).
+T.hq_rows = {
+  -- Fonderie, à l'est du coffre du QG (main) : fours JOINTIFS dans une rangée (écart 0 : un PNJ les garnit à la main,
+  -- aucun bras entre eux), une allée d'une tuile entre deux rangées (le PNJ y passe) ; rangées vers le nord ; 8 fours
+  -- par rangée (la rangée de main, 4 fours, prolongée vers l'est : le bloc reste à moins de 16 tuiles du coffre).
+  smelter = { origin = { 9, -7 }, dir = { 1, -1 }, gap = { 0, 1 }, first = { 4, 6 }, per_row = 8 },
+  -- Laboratoires, à l'ouest du coffre (main) : une tuile libre autour de chacun (main : on les garnit à la main de tous
+  -- les côtés) ; rangées vers le nord ; 4 par rangée (le carré de main, 2 × 2, prolongé vers l'ouest).
+  lab = { origin = { -10, -7 }, dir = { -1, -1 }, gap = { 1, 1 }, first = { 2, 4 }, per_row = 4 },
+}
+-- Places générées : au moins 2 fois les machines voulues (une place peut être prise : coffre, tourelles du QG, foreuses
+-- de fond, chantier en cours ; la place prise est sautée par find_non_colliding_position).
+T.hq_rows_slack = 2
+-- Fournée d'une tournée « smelt » (script/team/worker.lua) : minerai porté = T.smelt_per_furnace entrées par four du QG,
+-- au moins T.smelt_trip_min (la fournée de main 0.6.1 : 20 entrées pour les 4 fours de la fonderie de base d'une
+-- faction, d'où 5 par four) : une fonderie agrandie par les bras libres (shared/ai3/bras.lua, Br.smelters) n'est pas
+-- limitée à 20 minerais par tournée.
+T.smelt_per_furnace = 5
+T.smelt_trip_min = 20
 
 -- Tourelles : munitions visées par tourelle, seuil de ravitaillement.
 T.turret_ammo_target = 20

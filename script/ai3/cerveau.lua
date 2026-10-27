@@ -39,6 +39,7 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
+local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 
 local Ia3 = {}
 
@@ -49,21 +50,10 @@ Ia3.PACK_BATCH = 30         -- packs d'une sorte demandés à la fois (comme IA3
 Ia3.PACK_RESERVE = 10       -- réserve de packs de chaque sorte payable (la recherche suivante démarre sans attendre)
 Ia3.REACH_RADII = { 48, 96, 160, 250 }
 Ia3.REACH_EVERY = 12        -- gisements atteignables relus toutes les 12 pensées (1 min)
-Ia3.LAB_OFFSETS = { { -10, -7 }, { -14, -7 }, { -10, -11 }, { -14, -11 } }
--- Lot SCALE : plus de laboratoires quand des bras sont libres (shared/ai3/bras.lua, Br.labs_max) : les 4 places d'avant
--- d'abord, puis des rangées de 4 en 4 tuiles vers l'ouest et le nord.
-do
-  local seen = {}
-  for _, o in ipairs(Ia3.LAB_OFFSETS) do seen[o[1] .. ":" .. o[2]] = true end
-  for _, y in ipairs({ -7, -11, -15 }) do
-    for _, x in ipairs({ -10, -14, -18, -22 }) do
-      if not seen[x .. ":" .. y] then
-        seen[x .. ":" .. y] = true
-        Ia3.LAB_OFFSETS[#Ia3.LAB_OFFSETS + 1] = { x, y }
-      end
-    end
-  end
-end
+-- Places des laboratoires du QG (lot SCALE, correction après revue) : bloc de départ de main 0.6.1 (4 places, même ordre)
+-- puis rangées, calculées depuis l'EMPRISE du laboratoire posé (collision_box du prototype) et la disposition nommée de
+-- shared/team/config.lua (T.hq_rows.lab) ; règle pure : shared/ai3/places.lua. Plus aucun pas de 4 tuiles écrit en dur.
+
 -- Paliers de recherche (§6.1, MESURE seulement) : lot IA-G, déplacés dans script/ai3/paliers.lua ; le test anti-échelle
 -- (tests/iag_test.lua §8) vérifie qu'ils ne sont lus que par Ia3.measure.
 Ia3.PALIERS = Paliers.LIST
@@ -443,7 +433,9 @@ local function place_labs(f, st, lab, want)
   local labs = valid_labs(st)
   local placed = 0
   local surface = f.hq.surface
-  for _, off in ipairs(Ia3.LAB_OFFSETS) do
+  local proto = game.entity_prototypes[lab.entity]
+  local lw, lh = Pl.tiles(proto and proto.collision_box)
+  for _, off in ipairs(Pl.rows(T.hq_rows.lab, lw, lh, Pl.need(0, want, T.hq_rows_slack))) do
     if #labs + placed >= want or f.hq.get_item_count(lab.item) < 1 then break end
     local pos = surface.find_non_colliding_position(lab.entity, { x = f.hq_pos.x + off[1], y = f.hq_pos.y + off[2] }, 8, 1)
     if pos then

@@ -13,6 +13,7 @@ local F = require("shared.faction.config")
 local T = require("shared.team.config")
 local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
+local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 
 local Outposts = {}
 
@@ -309,26 +310,19 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Fonderie du QG
 ---------------------------------------------------------------------------------------------------
-local SMELTER_OFFSETS = { { 9, -7 }, { 11, -7 }, { 13, -7 }, { 15, -7 }, { 9, -10 }, { 11, -10 } }
--- Lot SCALE : une fonderie agrandie (jusqu'à la moitié de l'effectif, shared/ai3/bras.lua) continue les rangées : les
--- 6 places d'avant d'abord (même ordre), puis des rangées de 2 en 2 tuiles vers l'est et le nord.
-do
-  local seen = {}
-  for _, o in ipairs(SMELTER_OFFSETS) do seen[o[1] .. ":" .. o[2]] = true end
-  for _, y in ipairs({ -7, -10, -13, -16 }) do
-    for x = 9, 23, 2 do
-      if not seen[x .. ":" .. y] then
-        seen[x .. ":" .. y] = true
-        SMELTER_OFFSETS[#SMELTER_OFFSETS + 1] = { x, y }
-      end
-    end
-  end
+-- Places des fours du QG : bloc de départ de main 0.6.1 (6 places, même ordre) puis rangées, calculées depuis l'EMPRISE
+-- du four posé (collision_box du prototype) et la disposition nommée de shared/team/config.lua (T.hq_rows.smelter) ;
+-- règle pure : shared/ai3/places.lua (lot SCALE, correction après revue : plus aucun pas de 2 tuiles écrit en dur).
+local function smelter_offsets(need)
+  local proto = game.entity_prototypes[T.SMELTER]
+  local w, h = Pl.tiles(proto and proto.collision_box)
+  return Pl.rows(T.hq_rows.smelter, w, h, need)
 end
 
 function Outposts.place_smelters(f, surface, count, carrier)
   f.smelters = f.smelters or {}
   local placed = 0
-  for _, o in ipairs(SMELTER_OFFSETS) do
+  for _, o in ipairs(smelter_offsets(Pl.need(#f.smelters, count, T.hq_rows_slack))) do
     if placed >= count or carrier.get_item_count(T.SMELTER) < 1 then break end
     local pos = surface.find_non_colliding_position(T.SMELTER, { x = f.hq_pos.x + o[1], y = f.hq_pos.y + o[2] }, 4, 1)
     if pos then
