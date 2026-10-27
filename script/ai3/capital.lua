@@ -289,7 +289,14 @@ function Capital.pay(f, surface, tick, plan, stock)
       if d.build then
         ok, why = place_center(f, c, d, tick)
       else
-        local e = find_entity(c, d.id)
+        -- Le centre n'est pas dans le relevé des bâtiments (familles ordinaires) : il est lu au module des niveaux.
+        local e
+        if d.center then
+          e = Levels.cc(game.forces[f.force])
+          if e and e.unit_number ~= d.id then e = nil end
+        else
+          e = find_entity(c, d.id)
+        end
         if e then
           local owner = State.owner(d.id)
           local inv = f.hq.get_inventory(defines.inventory.chest)

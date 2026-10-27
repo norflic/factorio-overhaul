@@ -59,6 +59,12 @@ Cap.TOP = 3             -- candidats gardés pour le journal
 Cap.GOAL_VALUE = 40
 Cap.GOAL_STOCK = 12
 Cap.GOAL_EPOCH = 6
+-- Travail COURT (règle « le plus court d'abord » d'IA-G, shared/ai3/projets.lua, P.update) : une amélioration dont le coût
+-- en travail ne dépasse pas Cap.SHORT_WORK (la pose du centre : 541 en jeu) passe devant les familles permanentes (armée, réserve), comme une recherche peu
+-- chère. Moteur réel, banc c1 (27/10, graine 271828182) : servie APRÈS l'armée, la pose du centre (coût 541, environ 90
+-- plaques de fer) attendait 60 min chez 2 factions sur 4, l'armée prenant tout le fer ; le passage du centre (coût 3 024)
+-- n'est pas court et reste derrière l'armée.
+Cap.SHORT_WORK = 800
 
 local function sorted_keys(t)
   local ks = {}
@@ -288,7 +294,8 @@ function Cap.goal(d, weights)
   local base = Cap.GOAL_VALUE + (d.all_in and Cap.GOAL_STOCK or 0) + (d.center and Cap.GOAL_EPOCH or 0)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
-    value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil }
+    value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil,
+    short = (d.work ~= nil and d.work <= Cap.SHORT_WORK) or nil }
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
