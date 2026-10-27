@@ -286,7 +286,7 @@ def fenetres(g, c, plan, h, z0, z1, k):
     M = g.M
     zf = z0 + (z1 - z0) * 0.55
     hf = min(0.12, (z1 - z0) * 0.3)
-    lum = M["emit_soft"]
+    lum = M[getattr(c.ep, "FENETRES", "emit_soft")]
     cad = c.m("steel_dk")
     if plan in ("rond", "octo"):
         n = max(5, int(2 * h * 1.6 / 0.32))
@@ -451,24 +451,45 @@ def satellite_lignee(g, c, x, y, z, k):
     g.dome((x, y, z + 0.27 + r * 0.38), (0, 0, 1), 0.03, g.M["emit"], what="sat_feu")
 
 
+def assise_satellite(g, c, x, y, z, k):
+    """Ronde F5-A2 : ASSISE de la mitrailleuse satellite (la mitrailleuse VALIDÉE du même âge est composée après le rendu
+    par satellites.py, bible des familles : « satellites de la mitrailleuse ») : platine ronde boulonnée, au ras du socle."""
+    r = cotes.cote_satellite(c.side) * 0.5
+    with habille(g, c):
+        colonne(g, x, y, z - 0.01, z + 0.03, r * 1.02, c.m("steel_dk"), n=24, style="hard", what="assise_sat")
+    n = 12
+    for i in range(n):
+        a = TAU * (i + 0.5) / n
+        g.dome((x + r * 0.9 * math.cos(a), y + r * 0.9 * math.sin(a), z + 0.03), (0, 0, 1), RIVET, c.m("rivet"))
+
+
+def projecteur(g, c, x, y, z, k):
+    """Coin arrière (emprises de 6 et plus) : mât de projecteur, lampe de la couleur de l'âge et halo de nuit."""
+    M = g.M
+    hm = 0.5 + 0.06 * c.side
+    with habille(g, c):
+        colonne(g, x, y, z, z + 0.08, 0.14, c.m("steel_dk"), n=12, style="hard", what="pied_projecteur")
+        colonne(g, x, y, z + 0.08, z + hm, 0.04, c.m("steel"), n=8, what="mat_projecteur")
+        g.box((x, y, z + hm + 0.05), (0.2, 0.12, 0.1), c.m("olive"), "hard", what="projecteur")
+    g.box((x, y - 0.065, z + hm + 0.05), (0.15, 0.012, 0.07), M["emit"], "flat", what="lampe_projecteur")
+    halo(g, (x, y - 0.25, z + hm), M, 2.0)
+
+
 def satellites(g, c):
-    S = c.T["sat"]
-    h1 = c.T["h"][0]
-    # au milieu de la bande libre entre le premier étage et le bord du socle, sur les diagonales (essai 1 : hors du
-    # socle rond)
-    if c.plan == "rond":
-        d = (h1 + c.dd) / 2.0 / SQ2
-    elif c.plan == "octo":
-        d = 1.188 * (h1 + c.dd) / 2.0 / SQ2     # distance des pans diagonaux : 1,188 × le demi-côté
+    """Avant : assises des mitrailleuses satellites (composées après le rendu) ; arrière : projecteurs. Avec
+    ep.SATELLITES_3D (témoin) : les petites tourelles de la ronde 1."""
+    avant, arriere = cotes.coins_satellites(c.side, c.plan)
+    if getattr(c.ep, "SATELLITES_3D", False):
+        f_av = f_ar = getattr(c.ep, "satellite", satellite_lignee)
     else:
-        d = (h1 + c.dd) / 2.0
-    coins = [(-d, -d), (d, -d)]
-    if c.side >= 6:
-        coins += [(d, d), (-d, d)]
-    f = getattr(c.ep, "satellite", satellite_lignee)
-    for k, (x, y) in enumerate(coins):
-        f(g, c, x, y, c.zt, k)
-        r = S["r"] + 0.12
+        f_av, f_ar = assise_satellite, projecteur
+    for k, (x, y) in enumerate(avant):
+        f_av(g, c, x, y, c.zt, k)
+        r = max(c.T["sat"]["r"], cotes.cote_satellite(c.side) * 0.5) + 0.12
+        c.occupe.append((x - r, y - r, x + r, y + r))
+    for k, (x, y) in enumerate(arriere):
+        f_ar(g, c, x, y, c.zt, k)
+        r = c.T["sat"]["r"] + 0.12
         c.occupe.append((x - r, y - r, x + r, y + r))
 
 
@@ -665,7 +686,8 @@ def detail_toits(g, c, zm):
                 x = o + i * pas + (u2 - 0.5) * pas * 0.35
                 y = o + j * pas + (u3 - 0.5) * pas * 0.35
                 # ronde 1b : terrasses moins garnies (0,85 → 0,45 : moucheté à la ronde 1)
-                if u5 > 0.45 or not dans_forme(c.plan, hout, x, y, 0.07) or dans_forme(c.plan, hin, x, y, -0.07):
+                if u5 > (0.25 if getattr(c.ep, "ARCHI", False) else 0.45) or not dans_forme(c.plan, hout, x, y, 0.07) \
+                        or dans_forme(c.plan, hin, x, y, -0.07) or (getattr(c.ep, "ARCHI", False) and k == 0 and y < 0):
                     continue
                 if k + 1 == n_et and math.hypot(x, y) < hin:
                     continue
@@ -684,6 +706,126 @@ def detail_toits(g, c, zm):
     return poses
 
 
+
+# ------------------------------------------------------------------------------------------------
+# Ronde F5-A2 : ARCHITECTURE des grands étages (âges à ep.ARCHI) au lieu du « moucheté » des terrasses : CONTREFORTS
+# le long des faces visibles, BALCON en saillie au sud du deuxième étage, VERRIÈRE en appentis sur la terrasse du premier
+# étage (vitres sombres à meneaux, une sur trois éclairée la nuit), BAIES hautes éclairées entre les contreforts.
+# ------------------------------------------------------------------------------------------------
+def _rayon_forme(plan, h, a):
+    if plan == "rond":
+        return h
+    if plan == "octo":
+        return _rayon_octo(h, a)
+    return h / max(abs(math.cos(a)), abs(math.sin(a)), 1e-6)
+
+
+def _contreforts(g, c, k):
+    z0, z1, h = c.z_etages[k]
+    H = z1 - z0
+    m = c.m("steel_dk")
+    mc = c.mat_etage(k)
+    porte = c.T["porte"]["w"] / 2 + 0.25
+    n = max(5, int(3.2 * h / 0.55))
+    for i in range(n):
+        a = math.radians(200 + 140 * (i + 0.5) / n)
+        r = _rayon_forme(c.plan if c.plan != "croix" else "carre", h, a)
+        x, y = r * math.cos(a), r * math.sin(a)
+        if c.plan == "croix" and not dans_forme("croix", h + 0.02, x * 0.98, y * 0.98):
+            continue
+        if k == 0 and abs(x) < porte and y < 0:
+            continue
+        g.push((x, y, z0), rz=a)
+        g.box((0.06, 0, H * 0.36), (0.16, 0.11, H * 0.72), mc, "hard", what="contrefort")
+        g.box((0.09, 0, H * 0.74), (0.12, 0.13, 0.05), m, "hard", what="chaperon")
+        g.box((0.14, 0, H * 0.04), (0.08, 0.15, 0.08), m, "hard", what="sabot")
+        for zz in (0.25, 0.5):
+            g.dome((0.145, 0, H * zz), (1, 0, 0), RIVET, c.m("rivet"))
+        g.pop()
+
+
+def _baies(g, c, k):
+    """Baies hautes éclairées sur la face sud de l'étage k (entre les contreforts)."""
+    z0, z1, h = c.z_etages[k]
+    H = z1 - z0
+    M = g.M
+    porte = c.T["porte"]["w"] / 2 + 0.3
+    n = max(3, int(2 * h / 0.42))
+    for i in range(n):
+        a = math.radians(205 + 130 * (i + 0.5) / n)
+        r = _rayon_forme(c.plan if c.plan != "croix" else "carre", h, a)
+        x, y = r * math.cos(a), r * math.sin(a)
+        if (k == 0 and abs(x) < porte) or (c.plan == "croix" and not dans_forme("croix", h + 0.02, x * 0.98, y * 0.98)):
+            continue
+        g.push((x, y, z0), rz=a)
+        g.box((0.006, 0, H * 0.5), (0.02, 0.15, H * 0.62), c.m("steel_dk"), "hard", what="cadre_baie")
+        g.box((0.016, 0, H * 0.5), (0.008, 0.1, H * 0.55), M["emit_soft"], "flat", what="baie")
+        g.box((0.022, 0, H * 0.5), (0.006, 0.012, H * 0.55), c.m("steel"), "flat", what="meneau_baie")
+        g.pop()
+
+
+def _balcon(g, c, k):
+    z0, z1, h = c.z_etages[k]
+    H = z1 - z0
+    w = min(1.1, 0.9 * h)
+    zb = z0 + H * 0.42
+    y = -h - 0.12
+    if c.plan == "croix":
+        y = -h - 0.12
+    with habille(g, c):
+        g.box((0, y, zb), (2 * w, 0.26, 0.05), c.m("steel_dk"), "hard", what="balcon")
+        for s in (-1, 1):
+            g.box((s * w * 0.8, -h - 0.05, zb - 0.12), (0.05, 0.12, 0.2), c.m("steel"), "hard", what="console")
+    n = int(2 * w / 0.12)
+    for i in range(n + 1):
+        x = -w + 2 * w * i / n
+        g.cyl((x, y - 0.11, zb + 0.07), "z", 0.011, 0.11, c.m("ochre"), n=6, style="hard", what="balustre")
+    poutre(g, (-w, y - 0.11, zb + 0.13), (w, y - 0.11, zb + 0.13), 0.02, g.M["steel_hi"], "main_courante")
+
+
+def _verriere(g, c):
+    """Verrière en appentis sur la terrasse du premier étage, au sud, contre le deuxième étage."""
+    if len(c.z_etages) < 2:
+        return
+    z0, z1, h1 = c.z_etages[0]
+    h2 = c.z_etages[1][2]
+    M = g.M
+    plan = c.plan if c.plan != "croix" else "carre"
+    n = max(6, int(4.0 * h1 / 0.3))
+    for i in range(n):
+        a0 = math.radians(205 + 130 * i / n)
+        a1 = math.radians(205 + 130 * (i + 1) / n)
+        am = (a0 + a1) / 2
+        if 262 < math.degrees(am) < 278:
+            continue
+        rin0, rin1 = _rayon_forme(plan, h2, a0) + 0.02, _rayon_forme(plan, h2, a1) + 0.02
+        rout0, rout1 = _rayon_forme(plan, h1, a0) - 0.16, _rayon_forme(plan, h1, a1) - 0.16
+        if c.plan == "croix":
+            xm, ym = math.cos(am) * (rin0 + rout0) / 2, math.sin(am) * (rin0 + rout0) / 2
+            if not dans_forme("croix", h1 - 0.1, xm, ym):
+                continue
+        if rout0 - rin0 < 0.18:
+            continue
+        p = [(rout0 * math.cos(a0), rout0 * math.sin(a0), z1 + 0.04), (rout1 * math.cos(a1), rout1 * math.sin(a1), z1 + 0.04),
+             (rin1 * math.cos(a1), rin1 * math.sin(a1), z1 + 0.26), (rin0 * math.cos(a0), rin0 * math.sin(a0), z1 + 0.26)]
+        pts = [V(q) for q in p] + [V((q[0], q[1], q[2] + 0.02)) for q in p]
+        g.hexa(pts, M["emit_soft"] if i % 3 == 1 else c.m("seam"), "hard", "vitre")
+        c.n_vitres = getattr(c, "n_vitres", 0) + 1
+        poutre(g, p[0], p[3], 0.025, c.m("steel_hi"), "meneau")
+        poutre(g, p[0], p[1], 0.03, c.m("steel_dk"), "bord_verriere")
+
+
+def architecture(g, c):
+    if not getattr(c.ep, "ARCHI", False):
+        return
+    for k in range(len(c.z_etages)):
+        _contreforts(g, c, k)
+        _baies(g, c, k)
+    if len(c.z_etages) >= 2:
+        _balcon(g, c, 1)
+    _verriere(g, c)
+
+
 # ------------------------------------------------------------------------------------------------
 # Assemblage
 # ------------------------------------------------------------------------------------------------
@@ -700,6 +842,7 @@ def centre(g, c):
         satellites(g, c)
         feux(g, c)
         c.n_garde_corps = garde_corps(g, c)
+        architecture(g, c)
         if hasattr(c.ep, "facade"):
             c.ep.facade(g, c)
         # le mât est dessiné pour une emprise de 4,5 t : mis à l'échelle de l'emprise autour de son pied (essai 1 : trop

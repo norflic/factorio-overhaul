@@ -24,11 +24,16 @@ def matieres(metal, M):
 def mat(g, c, z):
     M = g.M
     hm = 1.35
+    # ronde F5-A2 : salle radio au pied du mât (organe plus large), vitrée, éclairée la nuit
+    g.box((0, 0, z + 0.14), (0.62, 0.46, 0.28), M["jaune_capot"], "hard", what="salle_radio")
+    g.box((0, -0.235, z + 0.17), (0.5, 0.012, 0.09), M["emit_soft"], "flat", what="vitres_radio")
+    g.box((0, 0, z + 0.29), (0.68, 0.52, 0.03), M["noir_capot"], "hard", what="toit_radio")
+    z = z + 0.3
     cp.colonne(g, 0, 0, z, z + 0.08, 0.2, M["noir_capot"], n=8, style="hard", what="pied_mat")
-    cp.colonne(g, 0, 0, z + 0.08, z + hm, 0.075, M["jaune_capot"], n=12, r2=0.03, what="mat_radio")
+    cp.colonne(g, 0, 0, z + 0.08, z + hm, 0.1, M["jaune_capot"], n=12, r2=0.04, what="mat_radio")
     for i, f in enumerate((0.3, 0.55, 0.8)):
         zz = z + hm * f
-        rr = 0.15 - 0.03 * i
+        rr = 0.24 - 0.04 * i
         cp.colonne(g, 0, 0, zz, zz + 0.03, rr, M["noir_capot"], n=12, style="hard", what="palier")
         for k in range(4):
             x, y = cp.quart((rr * 0.95, 0.0), k)[:2]
@@ -37,5 +42,5 @@ def mat(g, c, z):
     cp.halo(g, (0, -0.1, z + hm + 0.05), M, 2.0)
     x, y = 0.36, -0.3          # coordonnées avant l'échelle du mât (corps.centre)
     cp.colonne(g, x, y, z, z + 0.5, 0.028, M["noir_capot"], n=8, what="torchere")
-    g.cyl((x, y, z + 0.6), "z", 0.06, 0.2, M["amber"], n=8, r2=0.0, style="flat", what="flamme")
+    g.cyl((x, y, z + 0.62), "z", 0.09, 0.28, M["amber"], n=8, r2=0.0, style="flat", what="flamme")
     cp.halo(g, (x, y - 0.1, z + 0.6), M, 2.5)

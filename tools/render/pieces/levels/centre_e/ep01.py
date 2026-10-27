@@ -7,6 +7,7 @@ import math
 
 import ages
 import corps as cp
+from corps import halo
 
 EPOQUE = 1
 NOM = ages.NOMS[1]
@@ -15,7 +16,9 @@ FOYER = ages.FOYER[1]
 HABILLAGE = dict(plan="carre", etages=2, toit="pans", mat_e1="wood", mat_e2="wood2", mat_toit="wood2",
                  plateforme=dict(motif="planches", mat="wood", mat2="wood2", pas=0.17))
 
-RAYON_MAT = 0.30   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+RAYON_MAT = 0.46   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+
+FENETRES = "emit"   # ronde F5-A2 : nuit de l'âge 1
 
 
 def matieres(metal, M):
@@ -32,6 +35,9 @@ def facade(g, c):
         if abs(t) > w:
             cp.colonne(g, t, -h1 - 0.05, z0, z0 + H1 + 0.08, 0.05, M["wood"], n=8, what="rondin")
             g.dome((t, -h1 - 0.05, z0 + H1 + 0.08), (0, 0, 1), 0.05, M["wood2"], what="pointe")
+            if int(round((t + h1) / 0.105)) % 4 == 2:     # ronde F5-A2 : falots sur la palissade (nuit)
+                g.cyl((t, -h1 - 0.12, z0 + H1 * 0.7), "z", 0.04, 0.08, M["emit"], n=8, style="flat", what="falot")
+                halo(g, (t, -h1 - 0.3, z0 + H1 * 0.7), M, 1.2)
         cp.colonne(g, h1 + 0.05, t, z0, z0 + H1 + 0.08, 0.05, M["wood"], n=8, what="rondin")
         t += 0.105
 
@@ -39,8 +45,8 @@ def facade(g, c):
 def mat(g, c, z):
     """Tour de guet de bois sur le faîte : 4 poteaux, plancher, garde-corps plein, toit en pointe, fanion, lanterne."""
     M = g.M
-    a = 0.22
-    hp = 0.75
+    a = 0.34          # ronde F5-A2 : 0,22 → 0,34 (organe plus large)
+    hp = 0.7
     for (x, y) in cp.sym4((a, a)):
         cp.colonne(g, x, y, z - 0.1, z + hp, 0.035, M["wood"], n=8, what="poteau_guet")
     cp.dalle(g, -a - 0.06, -a - 0.06, a + 0.06, a + 0.06, z + hp - 0.04, z + hp, M["wood2"], what="plancher")
@@ -48,7 +54,7 @@ def mat(g, c, z):
         x0, y0 = cp.quart((-a - 0.06, -a - 0.06), k)[:2]
         x1, y1 = cp.quart((a + 0.06, -a - 0.06), k)[:2]
         cp.poutre(g, (x0, y0, z + hp + 0.09), (x1, y1, z + hp + 0.09), 0.03, M["wood"], "planche", h=0.18)
-    g.cyl((0, 0, z + hp + 0.3), "z", 0.36, 0.26, M["wood2"], n=4, r2=0.0, phase=math.pi / 4, style="hard",
+    g.cyl((0, 0, z + hp + 0.3), "z", 0.52, 0.3, M["wood2"], n=4, r2=0.0, phase=math.pi / 4, style="hard",
           what="toit_guet")
     cp.colonne(g, 0, 0, z + hp + 0.4, z + hp + 0.95, 0.018, M["wood"], n=6, what="hampe")
     g.box((0.13, 0, z + hp + 0.86), (0.24, 0.012, 0.13), M["redpaint"], "hard", what="fanion")

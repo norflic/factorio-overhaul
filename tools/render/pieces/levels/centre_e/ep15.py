@@ -18,6 +18,8 @@ HABILLAGE = dict(ages.CORPS[15], plan="octo", etages=3, toit="plat", mat_e1="noi
 RAYON_MAT = 0.15   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
 ECHELLE_MAT = 2.0   # échelle imposée : les pièces en porte-à-faux restent au-dessus du dernier étage
 
+ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.architecture)
+
 
 def matieres(metal, M):
     ages.matieres(15, metal, M)

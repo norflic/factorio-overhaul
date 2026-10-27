@@ -18,6 +18,8 @@ HABILLAGE = dict(ages.CORPS[9], plan="octo", etages=2, toit="coupole", mat_e1="b
 RAYON_MAT = 0.66   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
 ECHELLE_MAT = 1.5   # coupole : le pied du mât entre dans la coupole (vérifié aux cotes), échelle imposée
 
+ARCHI = True   # ronde F5-A2 : contreforts, baies, balcon, verrière (corps.architecture)
+
 
 def matieres(metal, M):
     ages.matieres(9, metal, M)
