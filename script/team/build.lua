@@ -1327,7 +1327,14 @@ local function npc_block(f, p, e, surface)
   -- la fusion de main 0.5.0 : fonderie d'emerald bloquée 50 min à 68 entités sur 69, un bras sous fo-emerald-rifleman) :
   -- il s'écarte (téléporté sur la case libre la plus proche HORS de l'emprise). Les personnages (PNJ) bougent seuls.
   local a = footprint(e)
-  for _, u in ipairs(surface.find_entities_filtered({ area = a, type = "unit", force = f.force })) do
+  -- Lot AUTO : un PNJ (personnage SANS joueur) de l'équipe arrêté sur l'emprise s'écarte aussi (moteur réel, a4-usine
+  -- graine 271828182, emerald : fonderie à 133 entités sur 135 de 58 à 75 min, four refusé « pnj » ; « les PNJ bougent
+  -- seuls » ne vaut pas pour un PNJ sans tâche). Un personnage d'un joueur n'est jamais déplacé.
+  local movers = surface.find_entities_filtered({ area = a, type = "unit", force = f.force })
+  for _, c in ipairs(surface.find_entities_filtered({ area = a, type = "character", force = f.force })) do
+    if not c.player then movers[#movers + 1] = c end
+  end
+  for _, u in ipairs(movers) do
     local target = { x = a[2][1] + 2, y = (a[1][2] + a[2][2]) / 2 }
     local pos = surface.find_non_colliding_position(u.name, target, 8, 0.5)
     if pos and not (pos.x > a[1][1] - 0.5 and pos.x < a[2][1] + 0.5 and pos.y > a[1][2] - 0.5 and pos.y < a[2][2] + 0.5) then
