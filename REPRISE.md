@@ -10,6 +10,16 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 8 h 55 : PC LIBRE 8 h ET BANC À PLUSIEURS PLACES.** Le DC, vers 8 h 50 : « Vous pouvez potentiellement accélérer le jeu
+> beaucoup plus pour 1 partie à la fois […] (Et au pire ça ram mais c'est pas grave si ?) », puis vers 8 h 55 : « Je n'utilise pas
+> mon pc pour les 8 prochaines heures donc vous pouvez y aller (sans faire planter le pc quand même mais vous avez compris) ».
+> Mesure : un banc tourne déjà sans limite de vitesse (`ia3-fer-joueur`, 54 000 ticks : copie 2 s, création 5 s, simulation 9 s,
+> archivage 4 s, ATTENTE en file 965 s) : le frein est la file. Agent BANC2 lancé (worktree `banc2`) : `FO_PLACE` 1 à 3 dans
+> `fo-autotest.bat` (dossiers `fo-autotest`, `-2`, `-3` ; verrous `.lock`, `-2.lock`, `-3.lock`), banc.py à N places lues dans
+> `<racine>\fo-banc-places.txt` (défaut 2), tickets exclusifs (`--captures`, `--visuel`, `--son`, `--seul` pour toute mesure K10),
+> place supplémentaire seulement avec 6 Go libres. Déploiement par l'intégrateur après relecture ; l'interdit n° 4 de CLAUDE.md
+> sera réécrit à ce moment. Disque F: 154,6 Go libres, C: 12,9 Go (à surveiller).
+>
 > **27/10, 8 h 40 : IA-V2 FUSIONNÉ, `main` = 0.5.0** (`6c631d5`) : le nouveau cerveau (marché IA3-b, cerveau par besoins IA3-c,
 > exploration IA3-f) ALLUMÉ par défaut. Hors jeu sur la fusion (worktree `integ`, retiré ensuite) : 32 tests verts, harness 0,
 > api_lint 1179, pvp 1305. Moteur réel sur la branche (même code) : content 331, verif-guide 15 OK × 2 graines, cas du DC, migration
