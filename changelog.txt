@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.1
+Date: 2026-10-27
+  Changes:
+    - Les PNJ retiennent les endroits dangereux (ennemis vus, attaques, morts), choisissent des trajets qui les évitent et qui
+      varient d'une tournée à l'autre, s'arrêtent, se détournent ou rebroussent chemin quand ils voient un ennemi sur leur
+      route, fuient blessés ou sans munitions vers la tourelle ou le QG le plus proche, et ne repartent pas seuls là où des
+      camarades sont morts (au plus 2 morts au même endroit par heure) ; après quelques attentes sans mort, ils retentent,
+      jamais vers un endroit à portée d'un ennemi connu.
+    - Les soldats des factions patrouillent la frontière (plus une faction est agressive), gardent les postes et les
+      avant-postes menacés, escortent les ouvriers vers les zones dangereuses, nettoient les nids proches des routes, chassent
+      un adversaire isolé et défendent le QG.
+    - Un état court s'affiche au-dessus du PNJ à chaque changement (« ! », Détour, Demi-tour, Fuite !, Combat, Escorte, Trop
+      dangereux, Patrouille, Garde, Nettoyage, Chasse, À l'abri !, Défense), au moins 2 s.
+    - Réglage de carte « PNJ : comportements visibles » (fo-war-ia3-comportement), allumé par défaut.
+---------------------------------------------------------------------------------------------------
 Version: 0.5.0
 Date: 2026-10-27
   Changes:

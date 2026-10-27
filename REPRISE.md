@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 10 h 50 : IA3-k FUSIONNÉ, `main` = 0.5.1** (`cd36d4b`) : comportements visibles allumés (`fo-war-ia3-comportement`).
+> Preuve du lot sur main 0.5.0 + lot (C2 24/24 et 14/14 sans mort, C5 1 mort contre 27 et 48, C3 7 OK, B5 et C4, D1) ; fusion
+> propre, main depuis la base du lot : outils, X3 (non lu par le jeu) et documents seulement. Sur `main` 0.5.1 (intégrateur) : série
+> hors jeu, content, verif-guide 271828182 et 1618033988 lancés. Fusions d'essai : main + ia3k + iag PROPRE ; + ia3e : conflits
+> settings.lua et tests/mock_engine.lua seulement. Défauts ouverts : économie d'une faction sans soldat sous un nid ; C1 allongement ;
+> K10 (mesure `--seul` de l'intégrateur sur main après les fusions). Worktree `ia3k` gardé tant que l'agent tourne.
+>
 > **27/10, 10 h 40 : IA3-e LIVRÉ (2e fois), réglage `fo-war-ia3e` ÉTEINT par défaut** (tête `d52a2d0` ; INTEGRATION.md §0 bis) :
 > éteint, automatisation et plan des factions inertes (verif-guide 1618033988 15 OK, content 331) ; allumé : aucune fonderie posée
 > (lot des foreuses introuvable : « tapis des foreuses (pas de lot) », « (trop long) »), K1 instable (une faction différente recule
