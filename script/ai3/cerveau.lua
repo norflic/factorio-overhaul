@@ -592,7 +592,7 @@ function Ia3.plan(f, view, book, surface, tick)
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
   local reach, known = reach_of(f, st, tick)
-  local auto = Auto.think(f, view, book, tick) -- lot IA3-e : modules demandés, leur état (nil : éteint)
+  local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false, auto = auto }

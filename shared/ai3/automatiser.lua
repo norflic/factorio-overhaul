@@ -467,7 +467,9 @@ function A.decide(input)
       v.verdict, v.why = "en_cours", "module ouvert"
       busy[c.item] = true
     elseif st.refused and st.refused.sig == input.sig then
-      v.verdict, v.why = "refuse", tostring(st.refused.reason)
+      -- refus « gisement » (fonderie sans lot assez près de son minerai) : limite écrite, pas de module posé
+      local why = tostring(st.refused.reason)
+      v.verdict, v.why = why:find("^gisement") and "limite" or "refuse", why
     elseif st.fini >= A.MAX_PER_PRODUCT then
       v.verdict, v.why = "fini", st.fini .. " module(s)"
     elseif n < A.RESEARCH_WINDOW then
@@ -597,10 +599,32 @@ local function clamp(x, a, b)
   return x
 end
 
+--- Objets qu'une recherche ouverte consomme (ses packs restants) : un module qui en produit SERT la recherche.
+--- research = s.research du cerveau ({ tech, packs = { { objet, n } }, for_auto }) ou nil.
+function A.serves_research(research, product)
+  if not research then return false end
+  for _, it in ipairs(research.packs or {}) do
+    if (it[1] or it.name) == product then return true end
+  end
+  return false
+end
+
 --- Buts « module » des demandes ouvertes (auto = { modules = { { product, state, missing, reason } } }), ajoutés à la
 --- liste des buts de la pensée (shared/ai3/cerveau.lua). Valeur : A.VALUE × poids « capital » du chef.
-function A.goals(goals, auto, weights)
+--- research (facultatif) : la recherche ouverte ; un module qui ne la sert pas passe APRÈS elle (valeur plafonnée sous
+--- celle du but « recherche ») : il ne prend ni les matières ni les bras dont elle a besoin (moteur réel, e6 à e10-usine,
+--- critère K1 : palier 3 de 18,7 à 43,8 min ou jamais atteint, réserves de chantier servies avant les packs). Une
+--- recherche voulue par l'automatisation elle-même (for_auto : poteau moyen) ne plafonne rien.
+function A.goals(goals, auto, weights, research)
   if not auto then return goals end
+  local rvalue = nil
+  for _, g in ipairs(goals) do
+    if g.key == "recherche" and not (research and research.for_auto) then rvalue = g.value end
+  end
+  local function capped(v, product)
+    if rvalue and v >= rvalue and not A.serves_research(research, product) then return math.max(1, rvalue - 1) end
+    return v
+  end
   -- Le caractère peut AVANCER l'automatisation (capitalisation), pas la retarder sous le neutre : un conquérant construit
   -- aussi son usine (moteur réel, e4-usine : scarlet, conquérant, poids « capital » sous 1 000, fonderie servie après la
   -- recherche, l'armée et les munitions, réserve « materiaux » de 26 à 90 min).
@@ -611,7 +635,8 @@ function A.goals(goals, auto, weights)
       seen[m.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, m.gain or 0)))
       goals[#goals + 1] = { key = "auto:" .. m.product, family = "capital", kind = "module", product = m.product,
-        status = m.state, missing = m.missing, reason = m.reason, value = clamp(math.floor(base * w / 1000), 1, 100) }
+        status = m.state, missing = m.missing, reason = m.reason,
+        value = capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
     end
   end
   -- Un module FINI se nourrit depuis le coffre du QG (quais d'entrée remplis par les porteurs, plan directeur) : ce qui
@@ -625,7 +650,7 @@ function A.goals(goals, auto, weights)
       fed[fd.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, fd.gain or 0)))
       goals[#goals + 1] = { key = "alim:" .. fd.product, family = "capital", kind = "module", product = fd.product,
-        status = "reserve", missing = fd.items, value = clamp(math.floor(base * w / 1000), 1, 100) }
+        status = "reserve", missing = fd.items, value = capped(clamp(math.floor(base * w / 1000), 1, 100), fd.product) }
     end
   end
   table.sort(goals, function(a, b)

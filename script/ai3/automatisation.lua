@@ -65,9 +65,12 @@ end
 -- Produit (nom, nombre) de chaque recette : mémoire LOCALE tirée des prototypes (mesure seulement).
 local PRODUCT_AMOUNT = {}
 
+Auto.SETTING = "fo-war-ia3e" -- réglage de carte (settings/ia3e.lua)
 local function enabled(f)
   if not (f and f.team and f.team.ia3c and f.hq and f.hq.valid) then return false end
   if Auto.FACTIONS_ONLY and f.is_player then return false end
+  local s = settings.global[Auto.SETTING]
+  if s ~= nil and s.value == false then return false end
   return true
 end
 
@@ -334,7 +337,7 @@ end
 -- Pensée
 ---------------------------------------------------------------------------------------------------
 --- Appelé par le cerveau (Ia3.plan) avant la pensée pure. Rend ctx.auto (ou nil : automatisation éteinte).
-function Auto.think(f, view, book, tick)
+function Auto.think(f, view, book, tick, research)
   if not enabled(f) then return nil end
   Profiler.start("ia3e:auto")
   local st = state_of(f)
@@ -366,6 +369,10 @@ function Auto.think(f, view, book, tick)
         note(f, st, tick, "plan directeur allume (rayon " .. Auto.RADIUS .. ")")
       end
       local prio = 40 + math.floor(A.VALUE * 45 / 100)
+      -- Recherche ouverte que ce module ne sert pas : ses tâches passent après celles de la recherche (critère K1)
+      if research and research.tech and not research.for_auto and not A.serves_research(research, rq.product) then
+        prio = prio - 10
+      end
       -- Centrale d'abord (correction e2-usine) : demandée APRÈS le module, elle ne trouvait plus de rue vers le réseau
       -- que le module avait amorcé seul (« pas de rue vers le reseau ») ; demandée avant, elle amorce le réseau et les
       -- modules s'y relient (ordre du banc ia1-build d'IA1-d).

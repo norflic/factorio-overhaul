@@ -669,16 +669,24 @@ local function plan_feed(f, surface, p, place, part)
         if item and not (lane == 2 and port.lanes[1] == item) then
           sources[lane] = "quai"
           local flow = g.inputs and g.inputs[item] or 0
+          -- Lot IA3-e : feed = "tapis" (fonderie de l'automatisation) : sa voie de minerai est servie par foreuses et
+          -- tapis, JAMAIS par un quai (il se remplit depuis le coffre, où il n'y a pas de minerai : e7 et e10-usine,
+          -- fours « no_ingredients », 0 plaque sans PNJ) ; sinon le plan est refusé, raison « gisement : … ».
+          local need_belt = p.spec.feed == "tapis" and M.ORES[item] and item ~= "coal"
           if M.ORES[item] and flow >= P.AUTO_FLOW and p.spec.feed ~= "quai" then
             local dt = deposit_toward(b, item)
-            -- Lot IA3-e : feed = "tapis" (fonderie de l'automatisation) porte le tapis des foreuses jusqu'à 5 pas du
-            -- treillis : une voie de minerai à quai se remplit depuis le coffre, où il n'y a pas de minerai (e7-usine :
-            -- fonderie posée à plus de 3 pas du gisement, quai de minerai vide, fours « no_ingredients »).
             local reach = (p.spec.feed == "tapis") and 5 or 3
-            if dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) <= reach * P.PITCH then
+            local d = dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) or nil
+            if d and d <= reach * P.PITCH then
               sources[lane] = "tapis"
               drills[lane] = { item = item, flow = flow }
+            elseif need_belt then
+              -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change)
+              if not dt and b.radius < Build.RADIUS_MAX then Build.grow(f, b.radius + 1) end
+              return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
             end
+          elseif need_belt then
+            return false, string.format("gisement : %s %.2f/s, sous le seuil du tapis", item, flow)
           end
         end
       end
@@ -698,6 +706,10 @@ local function plan_feed(f, surface, p, place, part)
         local d = drills[a.lane]
         if d then
           local ok, why = Build.plan_drills(f, surface, p, d.item, d.flow, a)
+          if not ok and p.spec.feed == "tapis" then
+            bump(b.stats.plan_refused, "tapis:" .. tostring(why))
+            return false, "gisement : tapis des foreuses (" .. tostring(why) .. ")"
+          end
           if not ok then
             -- repli : quai sur cette voie (le tapis n'a pas pu être tracé ou le gisement manque)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))

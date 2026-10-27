@@ -147,7 +147,7 @@ function C.think(view, book, st, ctx)
   local avail0 = {}
   for k, v in pairs(avail) do avail0[k] = v end
   -- 3. Buts ; 4. projets.
-  local goals = A.goals(B.generate(s, st), ctx.auto, s.weights) -- lot IA3-e : modules demandés = projets
+  local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
   local order, K = P.update(st, goals, tick, s.workers)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)

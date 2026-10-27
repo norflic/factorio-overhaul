@@ -293,6 +293,23 @@ local function ctx_of(auto)
     army_target = 18, auto = auto }
 end
 do
+  -- (a ter) recherche ouverte (packs rouges) : un module de fer passe APRÈS elle ; un module de packs rouges la sert.
+  local gs = { { key = "recherche", family = "recherche", kind = "research", tech = "automation", value = 70 } }
+  local auto = { modules = { { product = "iron-plate", state = "reserve", gain = 3 },
+    { product = "automation-science-pack", state = "reserve", gain = 3 } } }
+  local research = { tech = "automation", packs = { { "automation-science-pack", 10 } } }
+  local out = A.goals(gs, auto, { capital = 1000 }, research)
+  local vi, vp = 0, 0
+  for _, g in ipairs(out) do
+    if g.key == "auto:iron-plate" then vi = g.value elseif g.key == "auto:automation-science-pack" then vp = g.value end
+  end
+  check(vi < 70 and vp >= 70, string.format("recherche ouverte (70) : module de fer après elle (%d), module de packs rouges non plafonné (%d)", vi, vp))
+  local out2 = A.goals({ { key = "recherche", value = 70 } }, auto, { capital = 1000 }, { tech = "x", packs = {}, for_auto = true })
+  local vi2 = 0
+  for _, g in ipairs(out2) do if g.key == "auto:iron-plate" then vi2 = g.value end end
+  check(vi2 >= 70, "recherche voulue par l'automatisation (poteau moyen) : rien de plafonné (" .. vi2 .. ")")
+end
+do
   -- (a bis) module FINI dont le quai de circuits est vide au coffre : but « alimenter », circuits fabriqués pour lui.
   local st = C.new_state(0)
   local auto = { modules = { { product = "logistic-science-pack", state = "fini" } }, cap = {}, covered = {},
@@ -494,6 +511,9 @@ mutant("logistique du module oubliée", function() A.residual = function() retur
 local emit0 = P.EMIT.module
 mutant("projet module sans sous-buts", function() P.EMIT.module = function() return "en_cours" end end, function() P.EMIT.module = emit0 end)
 local goals0 = A.goals
+mutant("module devant la recherche ouverte", function()
+  A.goals = function(g, auto, w) return goals0(g, auto, w, nil) end
+end, function() A.goals = goals0 end)
 mutant("module fini jamais nourri", function()
   A.goals = function(g, auto, w)
     if not auto then return goals0(g, auto, w) end
