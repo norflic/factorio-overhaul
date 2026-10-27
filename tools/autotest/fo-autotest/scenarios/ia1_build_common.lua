@@ -507,11 +507,12 @@ return function(variant)
       ctx.log("bras a combustion : " .. table.concat(bi, " "))
     end,
 
-    -- Galerie officielle (fo-captures.bat) : vue d'ensemble à la fin ; il faut une session de CHECK ticks au moins
-    -- (FO_VISUAL_ARGS = '--ticks 133000 --timeout 3600').
-    shots = function(add)
+    -- Galerie officielle (fo-captures.bat) : vue d'ensemble APRÈS le contrôle final (la session avec images porte
+    -- donc aussi le BILAN) ; il faut une session de CHECK + 200 ticks au moins (FO_VISUAL_ARGS = '--ticks 133000
+    -- --timeout 3600'). Correction du 27/10 : le banc appelle shots(ctx, add), pas shots(add) (0 capture, code 4).
+    shots = function(ctx, add)
       add("ia1d-" .. variant .. "-fin", 0, 0, 0.22)
     end,
-    shots_delay = CHECK - 900,
+    shots_delay = CHECK + 60,
   }
 end
