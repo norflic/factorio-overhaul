@@ -25,8 +25,16 @@ rem          Toute autre valeur : code 1 avant le verrou, rien n'a tourne. Etat 
 rem          ATTENTION (E69) : --create et --benchmark tournent sans affichage et ne chargent AUCUN son, meme ainsi ;
 rem          les fichiers son ne se chargent que dans la session avec images (fo-captures.bat, FO_AUDIO=1).
 rem          Les volumes a 0 ne coupent PAS la sortie (F152) : le jeu de test recoit aussi SDL_AUDIODRIVER=disk.
+rem  Place (lot BANC2, 27/10) : la variable FO_PLACE choisit la place du banc, pour faire tourner plusieurs bancs
+rem          en meme temps (tools\autotest\banc.py). Absente, vide ou 1 : place 1, dossier fo-autotest et verrou
+rem          fo-autotest.lock (comportement inchange). 2 ou 3 : dossier fo-autotest-2 ou fo-autotest-3, verrou
+rem          fo-autotest-2.lock ou fo-autotest-3.lock. Toute autre valeur : code 3 avant le verrou, rien n'a tourne.
+rem          Aux places 2 et 3, FO_LOCK_HELD (verrou deja tenu par l'appelant) doit valoir le numero de la place,
+rem          sinon code 3 : fo-captures.bat pose FO_LOCK_HELD=1, une FO_PLACE=2 heritee ne peut donc jamais faire
+rem          tourner un banc a la place 2 sans son verrou. Les images (fo-captures, fo-visual) restent a la place 1.
 rem  Codes : 0 termine (lire le BILAN), 1 erreur (pas de carte creee...), 2 verrou pris (rien n'a
-rem          tourne : fo-autotest\ contient encore les resultats du test PRECEDENT).
+rem          tourne : fo-autotest\ contient encore les resultats du test PRECEDENT), 3 FO_PLACE refusee (rien
+rem          n'a tourne).
 rem ============================================================================================
 setlocal
 cd /d "%~dp0"
@@ -61,6 +69,45 @@ if not exist "%EXE%" (
   if /i not "%~1"=="nopause" pause
   exit /b 1
 )
+
+rem Place du banc (lot BANC2) : FO_PLACE absente, vide ou 1 = place 1 (fo-autotest, fo-autotest.lock : inchange) ;
+rem 2 ou 3 = fo-autotest-N et fo-autotest-N.lock ; toute autre valeur, ou FO_LOCK_HELD different du numero de la
+rem place 2 ou 3 : code 3 AVANT le verrou. Valeurs lues en expansion retardee seulement (comme la graine) : aucun
+rem caractere ne peut casser ni detourner le script.
+set PLACE=1
+set LOCK=%ROOT%\fo-autotest.lock
+set PLACEN=
+set PLACEBAD=
+setlocal EnableDelayedExpansion
+set "PL_V=!FO_PLACE!"
+set PL_N=
+set PL_BAD=
+if "!PL_V!"=="" goto :plend
+if "!PL_V!"=="1" goto :plend
+if "!PL_V!"=="2" (set PL_N=2& goto :plheld)
+if "!PL_V!"=="3" (set PL_N=3& goto :plheld)
+set PL_BAD=1
+echo Valeur invalide dans FO_PLACE : [!PL_V!]
+goto :plend
+:plheld
+if not defined FO_LOCK_HELD goto :plend
+if "!FO_LOCK_HELD!"=="!PL_N!" goto :plend
+set PL_BAD=1
+echo FO_PLACE=!PL_N! avec FO_LOCK_HELD=[!FO_LOCK_HELD!] : l'appelant ne tient pas le verrou de la place !PL_N!.
+:plend
+endlocal & set "PLACEN=%PL_N%" & set "PLACEBAD=%PL_BAD%"
+if defined PLACEBAD (
+  echo FO_PLACE : 1, 2 ou 3 ^(place du banc^) ou absente ; aux places 2 et 3, FO_LOCK_HELD absente ou egale a la place. Rien n'a tourne.
+  if /i not "%~1"=="nopause" pause
+  exit /b 3
+)
+if not defined PLACEN goto :placeok
+set PLACE=%PLACEN%
+set TEST=%ROOT%\fo-autotest-%PLACEN%
+set MODS=%TEST%\mods
+set WRITE=%TEST%\write
+set LOCK=%ROOT%\fo-autotest-%PLACEN%.lock
+:placeok
 
 rem Graine de la carte (lot INT-GRAINE) : FO_MAP_SEED si elle est donnee et non vide, sinon 20261020. La valeur
 rem n'est lue qu'en expansion retardee : aucun caractere (guillemet, &, |...) ne peut casser ni detourner le
@@ -136,10 +183,11 @@ if defined AUDIOON (
   set SDL_AUDIO_DEVICE_NAME=
 )
 
-rem Verrou : un seul banc moteur a la fois (fo-autotest, fo-visual, fo-captures partagent ce verrou).
-rem FO_LOCK_HELD : l'appelant (fo-captures.bat) tient deja le verrou pour toute la chaine.
+rem Verrou de la place : un seul banc moteur a la fois par place (place 1 : fo-autotest, fo-visual, fo-captures
+rem partagent fo-autotest.lock ; places 2 et 3 : fo-autotest-N.lock).
+rem FO_LOCK_HELD : l'appelant (fo-captures.bat, banc.py) tient deja le verrou pour toute la chaine.
 if defined FO_LOCK_HELD goto :locked
-mkdir "%ROOT%\fo-autotest.lock" 2>nul || (
+mkdir "%LOCK%" 2>nul || (
   echo Un test est deja en cours.
   exit /b 2
 )
@@ -159,6 +207,7 @@ if not exist "%CREATESRC%\info.json" (
 )
 :srcok
 
+if not "%PLACE%"=="1" echo Place %PLACE% : dossier %TEST%, verrou %LOCK%
 echo [1/4] Preparation du dossier de test (source : %MODSRC%, scenario %SCENARIO%, %TICKS% ticks)...
 if exist "%TEST%" rmdir /s /q "%TEST%"
 mkdir "%MODS%"
@@ -240,7 +289,7 @@ copy /y "%WRITE%\factorio-current.log" "%TEST%\benchmark.log" >nul
 echo [4/4] Termine. Resultats dans %TEST%
 
 :end
-if defined OWN_LOCK rmdir "%ROOT%\fo-autotest.lock" 2>nul
+if defined OWN_LOCK rmdir "%LOCK%" 2>nul
 if /i not "%~1"=="nopause" (
   echo Tu peux fermer cette fenetre et prevenir Claude.
   pause

@@ -43,6 +43,17 @@ benchmark.log ; le faux fo-visual.bat rend FAKE_VISUAL_RC, 0 par défaut) :
  14. par fo-captures.bat : un BILAN avec au moins un ECHEC (6, 12, 10) donne le code 8, session visuelle lancée quand
      même ; un BILAN sans échec (0 ECHEC, y compris « 10 OK » et « 310 OK ») donne 0 ; une session visuelle en échec
      (7, 4) garde son propre code. Sans benchmark.log (cas 9a, 13a) : 0, comme avant.
+Cas de la place du banc (lot BANC2 : FO_PLACE, plusieurs bancs en même temps) :
+ 15. FO_PLACE=1 ou vide : place 1, comme sans variable (fo-autotest, fo-autotest.lock) ;
+ 16. FO_PLACE=2 et 3 : tout dans fo-autotest-N (config.ini, write-data, journal, done.txt, seed.txt), le fo-autotest\\
+     de la place 1 intact, aucun verrou restant ; avec FO_AUDIO=1, la sortie disk dans fo-autotest-N ; en double source
+     aussi ; verrou fo-autotest-2.lock déjà pris : code 2, rien n'a tourné ; fo-autotest.lock pris (place 1 occupée) :
+     la place 2 tourne quand même ; FO_LOCK_HELD=2 avec le verrou de la place 2 tenu par l'appelant : tourne, verrou
+     laissé à l'appelant ; FO_LOCK_HELD=1 (ou 2 pour la place 3, ou « x ») : code 3, rien n'a tourné ;
+ 17. FO_PLACE refusée (0, 4, 02, « 2 » suivi d'une espace, espace puis 2, lettre, « % », guillemet et « & »
+     d'injection) : code 3, rien n'a tourné, aucun dossier fo-autotest-N, aucun verrou, aucune commande injectée ;
+ 18. par fo-captures.bat : FO_PLACE=2 héritée donne le code 8 (le banc refuse, code 3 : fo-captures.bat tient le verrou
+     de la place 1), session visuelle NON lancée, aucun dossier fo-autotest-2 ; FO_PLACE=1 : code 0, comme avant.
 Code de sortie : 0 si tous les contrôles passent.
 """
 import argparse
@@ -98,20 +109,23 @@ def read(path):
     return open(path, errors="replace").read() if os.path.exists(path) else None
 
 
-def run_case(base, bat, bins, name, double, extra, captures=None, previous=False):
+def run_case(base, bat, bins, name, double, extra, captures=None, previous=False, place=None, pre=()):
     """captures : chemin de fo-captures.bat (le cas passe par lui) ; previous : un fo-autotest\\ « ancien » existe
-    déjà (résultats du banc précédent, qui doivent rester intacts si rien ne tourne)."""
+    déjà (résultats du banc précédent, qui doivent rester intacts si rien ne tourne) ; place : numéro de la place dont
+    on lit les résultats (dossier fo-autotest-N ; défaut : place 1) ; pre : verrous (dossiers) posés avant le cas."""
     root, old, new = make_root(base, bat, bins, name, captures)
-    test = os.path.join(root, "fo-autotest")
+    test = os.path.join(root, "fo-autotest" if place in (None, 1) else "fo-autotest-%d" % place)
     if previous:
-        os.makedirs(test)
-        with open(os.path.join(test, "done.txt"), "w") as f:
+        os.makedirs(os.path.join(root, "fo-autotest"))
+        with open(os.path.join(root, "fo-autotest", "done.txt"), "w") as f:
             f.write("ancien\n")
+    for d in pre:
+        os.makedirs(os.path.join(root, d))
     env = {k: v for k, v in os.environ.items()
            if k.upper() not in ("FO_CREATE_SRC", "FO_LOCK_HELD", "NODEFAULTCURRENTDIRECTORYINEXEPATH",
                                 "FAKE_HOLD", "FAKE_ROBO_FAIL", "FO_MAP_SEED", "FO_AUDIO",
                                 "SDL_AUDIODRIVER", "SDL_AUDIO_DEVICE_NAME", "SDL_DISKAUDIOFILE",
-                                "FAKE_BILAN", "FAKE_VISUAL_RC")}
+                                "FAKE_BILAN", "FAKE_VISUAL_RC", "FO_PLACE")}
     if double:
         env["FO_CREATE_SRC"] = old
     for k, v in extra.items():
@@ -127,6 +141,11 @@ def run_case(base, bat, bins, name, double, extra, captures=None, previous=False
         "rc": p.returncode,
         "done": os.path.exists(os.path.join(test, "done.txt")),
         "done_text": (read(os.path.join(test, "done.txt")) or "").strip(),
+        "prev_text": (read(os.path.join(root, "fo-autotest", "done.txt")) or "").strip(),
+        "locks": sorted(d for d in os.listdir(root) if d.endswith(".lock")),
+        "dirs": sorted(d for d in os.listdir(root) if d.startswith("fo-autotest") and not d.endswith(".lock")
+                       and os.path.isdir(os.path.join(root, d))),
+        "config": (read(os.path.join(test, "config.ini")) or "").replace(chr(92), "/"),
         "create_source": os.path.exists(os.path.join(test, "create-source.txt")),
         "lock": os.path.exists(os.path.join(root, "fo-autotest.lock")),
         "bench": bench,
@@ -321,6 +340,65 @@ def main():
     else:
         fail += 1
         print("ECHEC  14. fo-captures.bat introuvable : %s" % a.captures)
+    # --- place du banc (lot BANC2) ---
+    for tag, val in (("15a", "1"), ("15b", "")):
+        r = run_case(base, a.bat, bins, tag + " place 1", False, {"FO_PLACE": val})
+        check(r["rc"] == 0 and r["done"] and r["locks"] == [] and r["dirs"] == ["fo-autotest"] and audio_off(r)
+              and seed_passed(r, DEFAULT_SEED) and r["bench"] and '"0.4.2"' in r["bench"] and "Place " not in r["stdout"]
+              and "/fo-autotest/write" in r["config"],
+              "%s. FO_PLACE=[%s] : place 1, comme sans variable" % (tag, val), r)
+    for n in (2, 3):
+        r = run_case(base, a.bat, bins, "16 place %d" % n, False, {"FO_PLACE": str(n)}, previous=True, place=n)
+        check(r["rc"] == 0 and r["done"] and r["prev_text"] == "ancien" and r["locks"] == []
+              and r["dirs"] == ["fo-autotest", "fo-autotest-%d" % n] and audio_off(r) and seed_passed(r, DEFAULT_SEED)
+              and r["bench"] and '"0.4.2"' in r["bench"] and "marker-old.txt absent" in r["bench"]
+              and ("/fo-autotest-%d/write" % n) in r["config"] and ("Place %d" % n) in r["stdout"],
+              "16.%d FO_PLACE=%d : tout dans fo-autotest-%d, place 1 intacte, verrou rendu" % (n, n, n), r)
+    r = run_case(base, a.bat, bins, "16 place 2 son", False, {"FO_PLACE": "2", "FO_AUDIO": "1"}, place=2)
+    check(r["rc"] == 0 and r["done"] and r["locks"] == [] and audio_on(r) and r["dirs"] == ["fo-autotest-2"],
+          "16.4 FO_PLACE=2 et FO_AUDIO=1 : sortie disk dans fo-autotest-2, volumes a 0", r)
+    r = run_case(base, a.bat, bins, "16 place 2 double source", True, {"FO_PLACE": "2", "FO_MAP_SEED": "42"}, place=2)
+    check(r["rc"] == 0 and r["done"] and r["create_source"] and r["locks"] == [] and seed_passed(r, "42")
+          and r["bench"] and '"0.4.2"' in r["bench"] and "marker-old.txt absent" in r["bench"],
+          "16.5 FO_PLACE=2 en double source avec FO_MAP_SEED=42 : tout s'applique a la place 2", r)
+    r = run_case(base, a.bat, bins, "16 place 2 verrou pris", False, {"FO_PLACE": "2"}, place=2,
+                 pre=("fo-autotest-2.lock",))
+    check(r["rc"] == 2 and r["create_out"] is None and r["locks"] == ["fo-autotest-2.lock"] and r["dirs"] == [],
+          "16.6 FO_PLACE=2, fo-autotest-2.lock deja pris : code 2, rien n'a tourne, verrou laisse", r)
+    r = run_case(base, a.bat, bins, "16 place 2 place 1 occupee", False, {"FO_PLACE": "2"}, place=2,
+                 pre=("fo-autotest.lock",))
+    check(r["rc"] == 0 and r["done"] and r["locks"] == ["fo-autotest.lock"] and r["dirs"] == ["fo-autotest-2"],
+          "16.7 FO_PLACE=2 pendant que la place 1 est prise : la place 2 tourne, fo-autotest.lock laisse", r)
+    r = run_case(base, a.bat, bins, "16 place 2 verrou tenu", False, {"FO_PLACE": "2", "FO_LOCK_HELD": "2"}, place=2,
+                 pre=("fo-autotest-2.lock",))
+    check(r["rc"] == 0 and r["done"] and r["locks"] == ["fo-autotest-2.lock"],
+          "16.8 FO_PLACE=2, FO_LOCK_HELD=2 (verrou tenu par l'appelant) : tourne, verrou laisse a l'appelant", r)
+    for tag, plc, held in (("16.9", "2", "1"), ("16.10", "3", "2"), ("16.11", "2", "x")):
+        r = run_case(base, a.bat, bins, tag + " verrou d'une autre place", False,
+                     {"FO_PLACE": plc, "FO_LOCK_HELD": held}, previous=True, place=int(plc))
+        check(r["rc"] == 3 and r["create_out"] is None and r["prev_text"] == "ancien" and r["locks"] == []
+              and r["dirs"] == ["fo-autotest"] and "FO_LOCK_HELD" in r["stdout"],
+              "%s FO_PLACE=%s avec FO_LOCK_HELD=%s : code 3, rien n'a tourne" % (tag, plc, held), r)
+    bad_place = ["0", "4", "02", "2 ", " 2", "a", "%CD%", '2" & echo PIEGE> piege5.txt & rem "',
+                 "2&echo PIEGE>piege6.txt"]
+    for i, given in enumerate(bad_place):
+        r = run_case(base, a.bat, bins, "17%02d place refusee" % i, False, {"FO_PLACE": given}, previous=True)
+        check(r["rc"] == 3 and "FO_PLACE" in r["stdout"] and r["create_out"] is None and r["prev_text"] == "ancien"
+              and r["locks"] == [] and r["dirs"] == ["fo-autotest"] and not r["piege"],
+              "17.%02d FO_PLACE=[%s] refusee : code 3, rien n'a tourne" % (i, given), r)
+    if a.captures and os.path.exists(a.captures):
+        r = run_case(base, a.bat, bins, "18a captures place 2", False, {"FO_PLACE": "2"}, captures=a.captures,
+                     previous=True)
+        check(r["rc"] == 8 and not r["visual"] and r["locks"] == [] and r["dirs"] == ["fo-autotest"]
+              and r["prev_text"] == "ancien",
+              "18a. fo-captures.bat avec FO_PLACE=2 heritee : code 8, session visuelle non lancee, place 2 non touchee", r)
+        r = run_case(base, a.bat, bins, "18b captures place 1", False, {"FO_PLACE": "1"}, captures=a.captures)
+        check(r["rc"] == 0 and r["visual"] and r["locks"] == [] and r["dirs"] == ["fo-autotest"]
+              and seed_passed(r, DEFAULT_SEED),
+              "18b. fo-captures.bat avec FO_PLACE=1 : code 0, comme avant", r)
+    else:
+        fail += 1
+        print("ECHEC  18. fo-captures.bat introuvable : %s" % a.captures)
     print("BILAN : %d OK, %d ECHEC(S)  (bat : %s)" % (ok, fail, a.bat))
     if a.keep:
         print("racines gardees :", base)

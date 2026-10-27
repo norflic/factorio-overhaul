@@ -31,7 +31,8 @@
 2. [Les branches avancées (Q7)](#2-les-branches-avancées-q7) : 2.1 Vue d'ensemble · 2.2 Déblocage et Serment ·
    2.3 à 2.6 les quatre branches · 2.7 Convergence
 3. [Contenu par époque](#3-contenu-par-époque) : 3.1 Calendrier et monnaies · 3.2 Ressources · 3.3 Bâtiments et
-   niveaux · 3.4 Arbres de fabrication · 3.5 Vanilla et existant · 3.6 Bilans
+   niveaux · 3.4 Arbres de fabrication · 3.5 Vanilla et existant · 3.6 Bilans · 3.7 Graphe réaliste et minerais
+   par âge (lot X3, proposition, pas en jeu)
 4. [Compaction, énergie, niveaux, recherche, boucle idle](#4-compaction-énergie-niveaux-recherche-boucle-idle)
 5. [Contraintes moteur 1.1.91 et volume](#5-contraintes-moteur-1191-et-volume)
 6. [Vérification hors jeu](#6-vérification-hors-jeu)
@@ -1073,6 +1074,329 @@ les silhouettes des premières époques (bible V1) restent visibles pendant ce r
 - Branches consommées (segments et ancre) : A : 104 × Condensat d'axions ; B : 102 × Piège d'antihydrogène ; C : 102 × Cristal temporel stable ; D : 204 × Plaque étrange.
 - Énergie : 0,3 TJ pour poser les segments (50 MW), puis 9 TJ pour la charge (5 GW pendant 30 min).
 <!-- /GEN:gate -->
+
+### 3.7 Graphe réaliste et minerais par âge (lot X3, 27/10, proposition, pas en jeu)
+
+> **Statut : PROPOSITION, rien en jeu.** Aucun prototype, aucune locale, aucun fichier du jeu ne lit ces
+> données. Elles **enrichissent** le scénario approuvé sans le modifier : `shared/content/epochs.lua` est
+> intact, les blocs `GEN:` ci-dessus décrivent toujours X0 seul.
+>
+> **Demande du DC** (27/10, vers 8 h, dictée) : « avoir d'autres minerais [...] tel minerai à telle époque
+> [...] des graphes liés entre eux, avoir un peu plus de complexité à certains endroits, par exemple des
+> processeurs [...] des technologies laser, [...] des impressions [...] des cartes graphiques, peut-être faire
+> du calcul [...] comme si on essayait de monter en fait des machines [...] peut-être pour des robots, des
+> vraiment des robots de défense ». Rappel du même jour : « le gameplay fonctionnel avec les IA reste la
+> priorité », et le cerveau des PNJ doit **généraliser** depuis les données (aucun chemin en dur).
+>
+> **Source des chiffres** : `shared/content/x3.lua` (version 2), joint à X0 par `X3.merge` (sur une copie
+> fraîche, en fin de liste). **Banc** : `lua5.2 tests/x3_test.lua`, **6 002 OK, 0 échec** le 27/10 (5 963 en
+> `--court`) ; détail au point 9.
+>
+> **Version 2 (correction du 27/10).** La version 1 retouchait 13 recettes d'X0. Deux critiques adverses ont
+> montré que ces retouches changeaient le chemin critique approuvé : la tranche de silicium rendait le quartz
+> obligatoire au Codex X, le manomètre la blende au Codex III, le Codex IV la cassitérite, et six bâtiments des âges
+> 12 à 15 la bauxite et les trois chaînes pour la Compaction T5. Le calendrier tenait sur une voie que le cerveau
+> des PNJ refusait. La version 2 suit une seule règle : **des voies, jamais une porte.**
+
+**1. La règle et le principe.**
+- **Aucune recette d'X0 n'est modifiée.** Toute voie réaliste qui produit un objet d'X0 est une **variante** :
+  une recette de plus, sous un nom propre, placée après celle d'X0. Une faction ou un joueur qui n'a pas la
+  ressource nouvelle garde la voie d'X0.
+- **Aucune ressource nouvelle n'est obligatoire.** Ni pour un Codex, ni pour un pack, ni pour la ligne principale
+  du palier T5. C'est prouvé sur le cerveau des PNJ (point 9, mesure c) : sans les ressources d'X3, les 107 buts
+  d'X0 restent payables et aucun ne demande d'explorer.
+- **Aucune technologie de pack ni de Codex** ne prend un prérequis d'X3. Les 7 technologies d'X3 sont facultatives.
+- **Trois chaînes marquantes**, et presque rien ailleurs :
+  - **A. Imprimer les puces** : âges 4, 7 et 10 ;
+  - **B. Calculer** : âge 10, puis 11 et 13 ;
+  - **C. Monter des machines, se défendre** : âges 6, 7, 10 et 12.
+- **Quatre minerais nouveaux**, un seul par âge : blende (3), cassitérite (4), bauxite (6), quartz filonien (10).
+- **Neuf âges sans aucun objet ni bâtiment nouveau** : 1, 2, 5, 8, 9, 11, 13, 14 et 15 (11 et 13 reçoivent
+  seulement des variantes).
+
+| Volume | X0 | Fusion |
+|---|---|---|
+| Objets | 144 | 176 |
+| Bâtiments | 80 | 86 |
+| Recettes réelles | 247 | 292 (dont 10 variantes) |
+| Technologies | 78 | 85 |
+| Ressources | 15 | 19 |
+| Prototypes estimés par `epochs_test` (VOL) | 2 253 | 2 543 (+ 290, dont + 184 de niveau) |
+
+Hors du compte VOL : 6 catégories de recette, 3 contrôles d'autoplace, 2 entités `combat-robot` (drones laser et
+de garde), 1 `unit` (robot de combat), 3 projectiles de capsule avec leurs effets.
+
+**2. Ressources par âge** (anciennes : X0 ; nouvelles : X3, en gras). « JEU » = en jeu aujourd'hui.
+
+| Âge | Ressources X0 | Nouvelle (X3) | Où, et comment elle est placée | Traitement → usage |
+|---|---|---|---|---|
+| 3 | eau (vanilla) | **Blende** | districts miniers tirés d'un bruit propre, à plus de 150 tuiles ; 2 × 200 000 garantis à 150-400 tuiles | cornue → zinc (+ laitier) → laiton → manomètre à tube de Bourdon (variante) |
+| 4 | pétrole (vanilla) | **Cassitérite** | placers au bord de l'eau (élévation 0 à 6), à plus de 120 tuiles ; 2 × 150 000 à 120-350 tuiles | four → étain → cartes imprimées, mémoire, carte graphique |
+| 6 | — | **Bauxite** | climat du désert rouge vanilla (aux ≥ 0,6, humidité ≤ 0,3), à plus de 300 tuiles ; 3 × 300 000 à 300-600 tuiles | frittage → alumine (+ boue rouge → ciment ou fer) → cuve ignée → aluminium |
+| 10 | — | **Quartz filonien** | AUCUNE autoplace : 2 × 200 000 posés par la seule garantie, en bordure d'une plaine de cristal à 400-800 tuiles (ou sur un disque de plaine créé) ; minable à la main (3 s) | four à arc → creuset → lingot de silicium → tranches sciées (variante) |
+
+**Placement** (correction d'un défaut majeur de la version 1). Un autoplace « vanilla-like » passe par
+`resource_autoplace_settings`, qui incrémente le compteur **partagé** `regular-resource-patch-set-count`
+(`data/core/lualib/resource-autoplace.lua`, l. 6 à 12) : trois jeux de gisements de plus auraient déplacé fer,
+cuivre, charbon, pierre, uranium et pétrole sur toutes les graines, jusque dans les chunks neufs des sauvegardes.
+Chaque ressource d'X3 prend un **jeu de gisements propre** (`placement.patch_set`), sur le modèle de
+`biome_bound_autoplace` (`prototypes/world.lua`) : compteur restauré, `skip_span` 1, `seed1` numérique (F198), et
+favorabilité des centres = masque de région à graine propre. Graines 7301 à 7303 (gisements) et 7311 à 7313
+(régions), absentes de `world.lua` (contrôlé). Le champ `elevation_max` de la cassitérite est **nouveau** : il faut
+l'ajouter à `region_mask` à l'intégration. Le quartz n'est pas autoplacé : partager le masque de la plaine avec le
+cristal de résonance (monnaie de l'âge 7, en jeu) l'aurait fait baisser sur toutes les graines. Hypothèse à prouver
+en moteur : H-X3-4. **Défaut d'X0 hors X3** : la galène (âge 9) est aussi en « vanilla-like » ; même correction à
+son intégration.
+
+Couleurs de carte à mesurer avec `mesure.py` (règle M1 : ΔE ≥ 48). Trois paires à risque : cassitérite et charbon,
+bauxite et cuivre, quartz et cristal (sans lueur).
+
+**3. Les trois chaînes** ([machine] entre crochets ; « variante » = la voie d'X0 reste).
+
+```
+A. IMPRIMER LES PUCES
+âge 4  : cassitérite → étain ; éthylène + huile lourde → résine époxy
+         cuivre + verre + résine → stratifié → [imprimante de circuits] + étain + acide → 2 cartes imprimées
+         carte + 4 circuits électroniques + 4 plastiques + 2 câbles → 2 circuits avancés (variante, MU égale à 1 % près, 2 fois le débit)
+âge 7  : cristal taillé + 2 lentilles + 2 bobines + aluminium → laser à cristal
+âge 10 : 6 quartz → [four à arc] creuset ; 10 silicium pur + creuset → [tireuse] lingot
+         lingot + 2 poudres de cristal + eau → [taillerie, scie à fil] 40 tranches (variante : 6 fois moins d'énergie)
+         résine époxy + huile légère + soufre → résine photosensible
+         verre + tungstène + circuit avancé → [salle blanche] photomasque
+         [lithographe à cristal : 4 lasers, UV par conversion de fréquence]
+           10 tranches + masque + 5 résines photosensibles + acide → 10 tranches gravées
+         2 gravées + 2 cartes + 9 circuits verts + 1 circuit avancé → 2 processeurs (processeur gravé : variante)
+         gravée + carte + étain → 2 modules de mémoire
+         4 gravées + 2 mémoires + carte + aluminium + étain → carte graphique
+
+B. CALCULER
+âge 10 : 10 cartes graphiques + 4 contrôleurs → centre de calcul (10 MW)
+         [centre de calcul] 10 eau/s → 5 calcul/s (fluide sans baril, 2 MJ l'unité)
+         contrôleur + carte graphique + 2 capteurs + 20 calcul → [atelier de robotique] noyau de pilotage
+âge 11 : 3 silicium métallurgique + chlore (boucle déclarée) + 75 hydrogène → 2 silicium pur (Siemens, variante)
+âge 13 : noyaux dans la foreuse profonde, la foreuse de noyau et la fonderie à plasma pilotées (variantes)
+
+C. MONTER DES MACHINES, SE DÉFENDRE
+âge 6  : 5 bauxites + pierre + eau → 2 alumines + 2 boues rouges
+         boue rouge + pierre → ciment ; 4 boues rouges + graphite → [four à arc] 2 fers + laitier
+         [cuve d'électrolyse ignée, 6 MW] 4 alumines + graphite → 2 aluminiums (Hall-Héroult)
+         6 aciers + 2 aluminiums + 2 bobines → pylône haute tension (variante)
+âge 7  : moteur électrique + bobine + 2 engrenages + circuit + aluminium → servomoteur
+         lentille + 2 oscillateurs + carte → 2 capteurs optiques ; 2 circuits avancés + 2 oscillateurs + carte → contrôleur
+         servomoteur + capteur + contrôleur + laser à cristal + 2 batteries → capsule de drone laser   (robot de défense n° 1)
+âge 10 : noyau de pilotage + 2 servomoteurs + 2 batteries + 2 calcul → [atelier] drone de garde      (n° 2)
+âge 12 : servomoteur + 4 aimants permanents + composite → actionneur à aimants
+         néodyme + yttrium + 2 alumines → [tireuse] 2 barreaux Nd:YAG ; barreau + lentille + 2 bobines + contrôleur → module laser
+         4 actionneurs + noyau + 2 modules laser + 10 composites + 10 batteries → [atelier] robot de combat   (n° 3)
+         2 actionneurs à la place de 10 moteurs électriques → unité cryogénique (variante)
+```
+
+**4. Objets nouveaux** : 32 objets, dont 3 fluides. Aucun n'est sans usage, et **chacun est consommé dès son âge**
+(hors usages finals : les trois robots) ; contrôlé, mutant refusé. En version 1, le servomoteur, le capteur, le
+contrôleur et le noyau attendaient 10 à 15 h leur premier usage.
+
+| Âge | Objet | Rôle | Consommé à son âge par | Plus tard |
+|---|---|---|---|---|
+| 3 | Blende, Plaque de zinc, Laiton | minerai, matière ρ1, alliage | zinc, laiton, manomètre (variante) | — |
+| 4 | Cassitérite, Plaque d'étain | minerai, matière ρ1 | carte imprimée | mémoire, carte graphique (10) |
+| 4 | Résine époxy (fluide, baril) | liant | stratifié | résine photosensible (10) |
+| 4 | Stratifié cuivré, Carte de circuit imprimé | support, **impression des cartes** | circuit avancé (variante) | capteur, contrôleur (7) ; processeur, mémoire, carte graphique (10) |
+| 6 | Bauxite, Alumine, Boue rouge, Plaque d'aluminium | minerai, intermédiaire, sous-produit à deux exutoires, matière ρ1 | électrolyse ignée, ciment, fer, pylône (variante) | servomoteur, laser (7), carte graphique (10), Nd:YAG (12) |
+| 7 | Servomoteur, Laser à cristal, Capteur optique, Contrôleur programmable | actionneur de 1re génération, **premier laser**, la vue et le cerveau des machines | drone laser | atelier, noyau, lithographe, drone de garde (10) ; actionneur, module laser (12) |
+| 7 | Capsule de drone laser | robot de défense n° 1 | lancée | — |
+| 10 | Quartz, Creuset, Lingot monocristallin | minerai, consommable du tirage, tirage Czochralski | tranches sciées (variante) | — |
+| 10 | Résine photosensible (fluide, baril), Photomasque, Tranche gravée | lithographie | processeur gravé, mémoire, carte graphique | — |
+| 10 | Module de mémoire, **Carte graphique** | puces | centre de calcul, noyau | — |
+| 10 | **Calcul** (fluide, sans baril) | produit par le centre de calcul | noyau (20), drone de garde (2) | — |
+| 10 | Noyau de pilotage | cerveau programmé | drone de garde | robot de combat (12), machines pilotées (13) |
+| 10 | Capsule de drone de garde | robot de défense n° 2 | lancée | — |
+| 12 | Actionneur à aimants, Barreau Nd:YAG, Module laser | actionneur de 2e génération (l'aimant permanent entre enfin dans un moteur), milieu laser, arme et outil laser | robot de combat, unité cryogénique (variante) | machines pilotées (13) |
+| 12 | Robot de combat | robot de défense n° 3 | lancé (unité) | — |
+
+**5. Bâtiments nouveaux** (6). Image provisoire : copie teintée d'une machine vanilla (0 image nouvelle, mais à
+mesurer au plancher : point 10). Niveaux : la famille « assembleurs » ou « fours » reprend, au-dessus du niveau 1,
+l'image de l'assembleur ou du four de son âge (`prototypes/levels/assembler.lua`, `furnace.lua`) ; seule
+l'imprimante (3 × 3, une machine d'assemblage) la garde, les cinq autres prennent la famille « procédés » (pas de
+module visuel en jeu aujourd'hui : leur image propre reste). X0 a le même souci pour ses propres bâtiments de 4 × 4
+en famille « fours » (haut fourneau) : à trancher pour X0 entier.
+
+| Âge | Bâtiment | Taille | Puissance | Catégorie | Fluides | Niveaux |
+|---|---|---|---|---|---|---|
+| 4 | Imprimante de circuits | 3×3 | 300 kW | `fo-circuit-printing` | 1 entrée | assembleurs |
+| 6 | Cuve d'électrolyse ignée (la plus gourmande de l'âge 6) | 4×4 | 6 MW | `fo-fused-salt-electrolysis` | — | procédés |
+| 10 | Tireuse de cristal (lingot de silicium, barreau Nd:YAG) | 3×3 | 1,5 MW | `fo-crystal-pulling` | — | procédés |
+| 10 | Lithographe à cristal | 4×4 | 3 MW | `fo-lithography` | 2 entrées | procédés |
+| 10 | Centre de calcul (recette fixe) | 4×4 | 10 MW | `fo-computing` | 1 + 1, filtrées (eau, calcul) | procédés |
+| 10 | Atelier de robotique | 5×5 | 2,5 MW | `fo-robotics` | 1 entrée filtrée (calcul) | procédés |
+
+**6. Technologies.** Sept nouvelles, toutes facultatives ; les prérequis qui traversent les âges sont déclarés, et
+pour les recettes d'X3 un objet d'un âge antérieur n'est obtenu que si une technologie qui le débloque est dans la
+fermeture des prérequis ou dans le chemin obligatoire (packs, Codex et leurs prérequis) ; contrôlé, mutant refusé.
+
+| Technologie | Âge | Débloque | Prérequis |
+|---|---|---|---|
+| Circuits imprimés | 4 | étain, résine, stratifié, imprimante, carte imprimée, circuit avancé (variante) | vapocraquage |
+| Aluminium | 6 | cuve, frittage, ciment et fer de la boue rouge, Hall-Héroult, pylône (variante) | fusion à l'arc, tôle magnétique, haute tension |
+| Servomécanismes et laser à cristal | 7 | servomoteur, laser, capteur, contrôleur, drone laser | aluminium, circuits imprimés |
+| Fonderie de puces | 10 | creuset, tireuse, lingot, tranches sciées, résine photosensible, photomasque, lithographe, tranche gravée, mémoire, processeur gravé, carte graphique | silicium (X0), servomécanismes |
+| Calcul et robotique | 10 | centre de calcul, calcul, atelier, noyau, drone de garde | fonderie de puces |
+| Robots de combat | 12 | actionneur, Nd:YAG, module laser, robot de combat, unité cryogénique (variante) | calcul et robotique |
+| Machines pilotées | 13 | foreuse profonde, fonderie à plasma, foreuse de noyau (variantes) | robots de combat, foreuses de concentré |
+
+Cinq technologies d'X0 sont étendues :
+- **Verrerie** devient « Verrerie et laiton » : zinc, laiton et manomètre à tube de Bourdon (déblocages seulement).
+- **Tungstène par voie humide** devient « Voie humide : tungstène et silicium » (procédé Siemens), prérequis
+  silicium. En jeu, `T.TECHS` du titane n'est PAS changé (à faire à l'intégration).
+- **Trois défauts d'X0 trouvés par `x3_test`** (un objet du même âge requis hors des prérequis), réparés dans la
+  fusion seulement : l'asphalte du Codex IV, le ferronickel du superalliage (prérequis : météoritique), les miroirs
+  d'iridium du Codex XIV (prérequis : optique à l'iridium). Ces trois réparations (`repair_x0`) sont la seule chose
+  qu'X3 ajoute au chemin obligatoire, et ce sont des prérequis manquants d'X0.
+
+**Recalage de la recherche** (fusion seulement, aux SEULS âges qui reçoivent une technologie d'X3) :
+
+| Âge | Unités X0 | Unités fusion | Part fusion | Part sur la voie d'X0 (sans variantes) |
+|---|---|---|---|---|
+| 4 | 100 | 77 | 34,9 % | 35,0 % |
+| 6 | 180 | 147 | 35,1 % | 35,1 % |
+| 7 | 255 | 211 | 35,1 % | 35,2 % |
+| 10 | 1 175 | 885 | 34,9 % | 35,1 % |
+| 12 | 5 950 | 5 290 | 34,7 % | 35,3 % |
+| 13 | 10 200 | 8 790 | 34,7 % | 35,4 % |
+
+Aux âges 11, 14 et 15, les unités d'X0 restent : 34,7 %, 34,3 % et 34,3 % sur la fusion, 35,0 % sur la voie d'X0.
+Les 15 âges restent entre 30 et 40 % **sur les deux voies** (contrôlé) : une faction qui n'a pas les ressources
+d'X3 paie ses packs au prix d'X0, et sa part de recherche ne sort pas de la règle.
+
+**7. Les variantes** (10). Chaque variante reste à 5 % ou moins de la voie d'X0 en MU quand l'objet entre dans un
+pack (circuit avancé, processeur, silicium pur, tranche), pour ne pas déplacer le calendrier ; elle gagne en
+énergie ou en temps-machine. Le banc refuse une variante moins chère en MU mais plus chère en énergie ET en
+temps-machine (piège de la version 1 : le processeur gravé coûtait environ 113 MJ contre 42, estimation de la critique).
+
+| Variante | Objet | MU variante / X0 | MJ variante / X0 | Temps-machine (s) variante / X0 |
+|---|---|---|---|---|
+| Manomètre à tube de Bourdon | manomètre | 3,99 / 4,38 | 3,8 / 3,8 | 12,2 / 13,1 |
+| Circuit avancé sur carte imprimée | circuit avancé | 8,67 / 8,73 | 5,2 / 4,2 | 25,9 / 31,9 |
+| Pylône aluminium-acier | pylône HT | 40,1 / 45,2 | 110 / 85 | 124 / 142 |
+| Tranches sciées dans le lingot | tranche | 1,66 / 1,46 | 9,5 / 17,5 | 5,4 / 6,2 |
+| Processeur gravé | processeur | 21,48 / 22,20 | 63,3 / 50,3 | 63,2 / 63,9 |
+| Silicium pur (Siemens) | silicium pur | 5,84 / 7,76 | 30,0 / 39,3 | 14,7 / 21,8 |
+| Unité cryogénique actionnée | unité cryogénique | 480 / 507 | 1 144 / 1 038 | 1 541 / 1 654 |
+| Foreuse profonde pilotée | foreuse profonde | 699 / 799 | 2 383 / 2 483 | 3 686 / 3 779 |
+| Fonderie à plasma pilotée | fonderie à plasma | 1 055 / 1 155 | 3 861 / 3 962 | 5 905 / 5 997 |
+| Foreuse de noyau assistée par laser | foreuse de noyau | 1 704 / 1 906 | 5 383 / 5 871 | 8 372 / 8 530 |
+
+MJ et temps-machine : estimation du banc (machine la moins gourmande de la catégorie, vitesse 1, foreuse électrique
+à 90 kW), le long du chemin le moins cher en MU. Le modèle des MU ne compte ni l'énergie ni le temps : le calcul y
+vaut 0 MU (l'eau est gratuite) ; son énergie est comptée dans les MJ.
+
+**Valeurs en MU** (chemin le moins cher, fusion) : processeur 21,5 (X0 22,5 ; vanilla 68), carte graphique 28,9,
+noyau de pilotage 65,6 (421 MJ), drone laser 99, drone de garde 134, robot de combat 495 (1 656 MJ, 45 min de
+machine). La monnaie de l'âge 10 (processeur, 75 MU) vaut 3,49 fois son coût, contre 3,33 dans X0 (règle du banc :
+au plus 1,15 fois l'écart d'X0).
+
+Packs (MU), X0 → fusion : 4 : 19,9 → 19,8 ; 6 : 69,7 → 69,5 ; 10 : 32,0 → 31,4 ; 11 : 115,7 → 114,6 ;
+12 : 146,9 → 143,8 ; 13 : 157,5 → 153,5 ; 14 : 105,5 → 104,1 ; 15 : 111,4 → 109,9. La règle « pack nouveau ≥ pack
+précédent » garde ses marges d'X0 à 1 MU près (5,8 MU entre 14 et 15, 9,7 entre 12 et 13).
+
+**8. Les usages : pourquoi monter ces chaînes.**
+
+*Robots de défense* : trois robots, par la mécanique vanilla des capsules, sans script à chaque tick.
+
+| Âge | Robot | Mécanique | Rôle |
+|---|---|---|---|
+| 7 | Drone laser | capsule → `combat-robot` à faisceau laser qui **suit** son lanceur 3 min (`time_to_live` 10 800), comme le **défenseur** vanilla (`follows_player = true`, `range_from_player` 6 ; lui vit 45 s ; le distracteur, `speed = 0`, ne suit pas) ; compte dans `LuaForce.maximum_following_robot_count` | escorte |
+| 10 | Drone de garde | capsule → `combat-robot` laser, `follows_player = false`, 10 min | garde un point |
+| 12 | Robot de combat | capsule → `unit` de la force du lanceur (`ai_settings` : `allow_try_return_to_spawner = false`, `destroy_when_commands_fail = false`, valeurs par défaut en 1.1.91) ; plafond proposé : 4 robots vivants par atelier de robotique | tient un avant-poste |
+
+Les PNJ ne lancent pas de capsule aujourd'hui : aucun exécutant n'a d'étape « lancer ». La voie existe
+(`LuaItemStack.use_capsule(personnage, position)`, puis `combat_robot_owner`), H-X3-1 ; un poste de garde
+robotisé (un bâtiment, lisible par l'étape « construire ») est proposé au DC (Q-X3-2).
+
+*Calcul* :
+- **Production** : 10 MW donnent 5 unités/s, soit 2 MJ l'unité (version 1 : 50 unités/s à 200 kJ ; les quantités
+  sont divisées par 10 pour que le coût de choix du cerveau, compté par unité, ne soit pas multiplié par 200).
+- **Transport** : fluide **stockable** (un réservoir tient 25 000 unités, 50 GJ) qui voyage en wagon-citerne
+  (`FluidWagonPrototype` n'a aucun filtre) ; pas de baril (contrôlé, mutant refusé). Boîtes filtrées
+  (`FluidBox.filter`) : eau à l'entrée du centre, calcul à sa sortie et à l'entrée de l'atelier (H-X3-3). Un calcul
+  non stockable exigerait un script : écarté.
+- **Usage** : noyau de pilotage (20, soit 40 MJ), drone de garde (2). Pas de débouché continu hors robots détruits
+  au combat ; un pack « calculé » ferait une porte : la part des niveaux en pièces est une question au DC (Q-X3-3).
+
+*Machines montées* : servomoteur, capteur et contrôleur (7), actionneur à aimants et module laser (12), noyau (10).
+Ils entrent dans les drones et le robot, et dans 4 variantes de bâtiments d'X0 (âges 12 et 13).
+
+**9. Cerveau général et vérification** (27/10, worktree x3, `lua5.2 tests/x3_test.lua` → **[X3] BILAN : 6 002 OK,
+0 ECHEC(S)**, 48 s ; `--court` 5 963 OK, 6 s).
+- **Lisible sans chemin en dur** : catégories servies par une machine ; recettes à la main solides à produit
+  unique ; aucun cycle par produits principaux (le photomasque ne prend pas de processeur, le chlore de Siemens est
+  un catalyseur déclaré) ; aucune étape par script.
+- **Dépliage par le prototype du cerveau (`shared/ai3/graphe.lua`), AVEC les technologies** (prérequis déclarés et
+  technologie du pack de l'âge, packs de la fenêtre × unités ; recettes de merveille exclues). Référence : **X0
+  réparé** (X0 avec ses trois prérequis manquants, `X3.repairs_only`).
+  - **(b) âges bornés** : à l'âge k, technologies des âges < k recherchées, ressources des âges ≤ k connues, rien de
+    construit. Toute technologie de l'âge k est payable ; la plus lourde fait 2 845 nœuds (Codex XIV, âge 14),
+    71 % de `G.MAX_NODES` (4 000), comme X0 réparé. Les 4 plus lourdes ensemble (lookahead du cerveau général) :
+    3 622 nœuds au plus (âge 14), comme X0 réparé ; X3 ne les augmente qu'aux âges 4 (382 → 443), 6 (677 → 770) et
+    10 (1 019 → 1 142).
+  - Cibles des chaînes à leur âge, recherches comprises : carte graphique 826 nœuds (âge 10), noyau 1 257 (10),
+    robot de combat 1 591 (12), payables.
+  - **(c) aucune porte** : ressources d'X3 inconnues ; les 107 buts d'X0 (technologies, packs, Codex de chaque âge)
+    restent payables, et aucun ne fait explorer une ressource d'X3.
+  - **(d) rien de recherché** (signalé) : nœuds d'un pack identiques à X0 réparé aux 15 âges.
+  - **(e) voie du cerveau** (tout recherché, connu, construit) : il ne prend **aucune** variante (son coût de choix
+    compte les secondes de recette et les quantités, pas les MU ni l'énergie). Les packs qu'il paie restent à 3 %
+    au plus de l'écart d'X0 réparé. **Défaut d'X0 et du cerveau, hors X3** : dans X0 seul, la voie du cerveau
+    s'écarte déjà du chemin le moins cher jusqu'à 1,91 fois (pack de l'âge 10) ; signalé au lot IA-G.
+  - (a) tout débloqué, rien de construit (mesure de la version 1) : identique à X0 aux 15 âges.
+  - Profondeur maximale d'une chaîne : 14, dans X0 comme dans la fusion (limite : 64 passes).
+- **Contrôles propres** : fermeture ; limites moteur (boîtes à fluide, four à une entrée, minage et catégorie de
+  ressource, noms uniques, catégories servies, calcul sans baril et filtré) ; usages, usage dès l'âge, sous-produits
+  à deux exutoires ; orphelines ; prérequis et déblocage strict ; recalage borné ; placement ; règle (aucune recette
+  d'X0 modifiée, rien d'X3 sur le chemin obligatoire) ; variantes réelles ; garde du titane (`T.maker` identique).
+- **28 mutants refusés** : 27 par les contrôles propres, et le 28e (une variante qui casse le calendrier) par
+  `epochs_test` rejoué sur sa fusion ; en voie complète, chaque mutant passe aussi par `epochs_test`.
+- **Bancs rejoués** : `epochs_test` sur X seul 16 665 OK ; sur la fusion 18 918 OK et 10 échecs, tous des blocs
+  `GEN:` de ce document (qui décrit X seul) ; sur la voie d'X0 (fusion sans variantes), parts de recherche dans la
+  règle. `titanium_test` 114, `monde_test` 201, `org_test` 366 et `levels_test` 1 666 OK : identiques sur X seul
+  et sur la fusion. Ces quatre-là ne lisent pas le contenu d'X3 : ils prouvent seulement que la fusion ne casse rien
+  de ce qu'ils lisent.
+
+**10. Ce qui n'est PAS fait.**
+- **Rien en jeu** : aucun prototype, aucune locale, aucune garantie de placement, aucun kit minerai M1, aucune
+  image. Le jeu ne change pas, `epochs.lua` non plus.
+- **Écarté, ou laissé à plus tard** : lithographie EUV, imprimante 3D métal, carte multicouche, plaque froide ;
+  procédé Bayer et spath fluor (la soude n'arrive qu'à l'âge 11) ; latérite, spodumène, gallium, germanium, argent,
+  barytine ; lance-drones et obus guidé ; laboratoire accéléré par le calcul (un laboratoire 1.1.91 ne prend pas de
+  fluide) ; pack d'utilité simulé ; cadre de robot piloté ; variantes du lanceur, du remorqueur, de la Porte et du
+  radar à réseau phasé (version 1).
+- **Non décidé** (questions au DC) : rendre une voie obligatoire (Q-X3-1) ; robots pour les PNJ (Q-X3-2) ; niveaux
+  payés en pièces montées (Q-X3-3).
+- **À prouver en moteur réel** : H-X3-1 (drone né d'une capsule, voie des PNJ) ; H-X3-2 (l'unité tient sa place et
+  riposte) ; H-X3-3 (calcul filtré, stockable) ; H-X3-4 (aucun minerai déplacé sur les 5 graines du scénario monde).
+- **Mémoire vidéo** (l'atlas virtuel est plein au plancher, F186) : 4 kits minerai M1 (16 PNG par kit, environ
+  0,5 Mpx), 6 bâtiments en copies teintées, sprites des 3 robots (réemploi teinté du défenseur et du destructeur :
+  0 image), 32 icônes environ (F125). À mesurer au plancher avec `d4-geant --measure` puis `mut_atlas`, avant toute
+  intégration.
+- **Pour intégrer** : voir `fo-logs/2026-10-27_X3/INTEGRATION.md` (lots, ordre, prototypes, sprites, mémoire
+  vidéo).
+
+**11. Origine des idées** (synthèse de trois concepteurs, puis correction).
+- **Retenu de « puces, optique, impression et calcul »** : l'imprimerie des cartes à l'âge 4 ; le laser à cristal
+  (UV par conversion de fréquence) ; creuset, lingot, résine photosensible, photomasque, tranche gravée, mémoire ;
+  le processeur gravé ; le centre de calcul et le calcul comme fluide ; le procédé Siemens à l'âge 11.
+- **Retenu de « minerais et géologie par âge »** : blende et laiton du manomètre ; cassitérite ; bauxite, frittage à
+  la chaux, boue rouge, cuve Hall-Héroult ; quartz filonien ; barreau Nd:YAG à l'alumine ; pylône à l'aluminium ;
+  poudre de cristal, abrasif de la scie à fil.
+- **Retenu de « usages, machines assemblées et robots de défense »** : servomoteur, capteur, contrôleur ; noyau,
+  atelier de robotique, drone de garde ; actionneur, module laser, robot de combat ; les machines pilotées ; la
+  preuve par fusion en fin de liste.
+- **Tranché** : carte de calcul et carte graphique ne font qu'un objet ; pas de processeur dans le photomasque ; pas
+  de creuset de quartz dans le Nd:YAG ; un seul minerai par âge.
+- **Corrigé en version 2** : toutes les retouches d'X0 deviennent des variantes ou disparaissent ; jeux de
+  gisements propres ; quartz sans autoplace et minable à la main ; servomoteur à l'âge 7 ; noyau dans le drone de
+  garde ; drone laser monté (servomoteur, capteur, contrôleur, laser) au lieu d'un distracteur ; second exutoire de
+  la boue rouge ; calcul divisé par 10 en quantités ; boîtes filtrées ; sept technologies facultatives aux
+  prérequis déclarés.
 
 ---
 

@@ -125,6 +125,9 @@ function Journal.buildings(f)
     for _, e in ipairs(o.sinks or {}) do list[#list + 1] = e end
   end
   for _, e in ipairs(f.smelters or {}) do list[#list + 1] = e end
+  -- Lot IA-V2 : laboratoires du QG posés par le cerveau par besoins (lot IA3-c, f.team.ia3.labs).
+  local ia3 = f.team and f.team.ia3
+  for _, e in ipairs(ia3 and ia3.labs or {}) do list[#list + 1] = e end
   -- Lot IA2-b (F209) : réceptacles orphelins des avant-postes perdus (coffres et fours restés sur la carte).
   for _, o in ipairs(f.orphans or {}) do
     if o.e and o.e.valid then list[#list + 1] = o.e end

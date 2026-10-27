@@ -77,29 +77,43 @@ local function victims(reg, tick, except)
   return list
 end
 
+--- Réservations de `item` rognées jusqu'au stock (les moins prioritaires d'abord). Rend { {projet, n}, ... } (lot IA3-b :
+--- le journal dit qui a perdu quoi).
+local function shrink(reg, item, tick, cuts)
+  local over = R.reserved(reg, item) - (reg.stock[item] or 0)
+  if over <= 0 then return cuts end
+  for _, id in ipairs(victims(reg, tick)) do
+    local p = reg.projects[id]
+    local have = p.resa[item] or 0
+    local cut = have < over and have or over
+    if cut > 0 then
+      p.resa[item] = have - cut
+      if p.resa[item] == 0 then p.resa[item] = nil end
+      over = over - cut
+      cuts[#cuts + 1] = { id, item, cut }
+    end
+    if over <= 0 then break end
+  end
+  return cuts
+end
+
 --- Vérité du coffre. Si des objets ont disparu (pris par un ennemi, détruits), les réservations les moins
---- prioritaires rétrécissent d'abord.
+--- prioritaires rétrécissent d'abord. Rend la liste des coupes { {projet, objet, n}, ... }.
 function R.set_stock(reg, stock, tick)
   reg.stock = {}
   for _, k in ipairs(sorted_keys(stock)) do reg.stock[k] = stock[k] end
   local items = {}
   for _, id in ipairs(reg.ids) do for _, k in ipairs(sorted_keys(reg.projects[id].resa)) do items[k] = true end end
-  for _, item in ipairs(sorted_keys(items)) do
-    local over = R.reserved(reg, item) - (reg.stock[item] or 0)
-    if over > 0 then
-      for _, id in ipairs(victims(reg, tick)) do
-        local p = reg.projects[id]
-        local have = p.resa[item] or 0
-        local cut = have < over and have or over
-        if cut > 0 then
-          p.resa[item] = have - cut
-          if p.resa[item] == 0 then p.resa[item] = nil end
-          over = over - cut
-        end
-        if over <= 0 then break end
-      end
-    end
-  end
+  local cuts = {}
+  for _, item in ipairs(sorted_keys(items)) do shrink(reg, item, tick, cuts) end
+  return cuts
+end
+
+--- Lot IA3-b : vérité d'UN objet (relu au coffre au moment d'une prise de tâche, entre deux pensées). Même règle que
+--- R.set_stock pour cet objet seul ; rend les coupes.
+function R.set_count(reg, item, n, tick)
+  reg.stock[item] = n
+  return shrink(reg, item, tick, {})
 end
 
 --- Demande d'un projet : besoins NETS { {objet, n}, ... } ; puise seulement dans le LIBRE. Renvoie accordé, manque.
@@ -172,6 +186,19 @@ function R.preempt(reg, id, item, n, tick)
     end
   end
   return got, from
+end
+
+--- Lot IA3-b : quantité de `item` que le projet `id` POURRAIT reprendre par préemption (mêmes règles que R.preempt, sans
+--- rien changer) : la prise d'une tâche est tout ou rien (on ne préempte que si toute la liste est couverte).
+function R.preemptable(reg, id, item, tick)
+  local mine = R.effective(reg, id, tick)
+  local n = 0
+  for _, vid in ipairs(victims(reg, tick, id)) do
+    local v = reg.projects[vid]
+    local gap = mine - R.effective(reg, vid, tick)
+    if gap >= R.PREEMPT_URGENT or (gap >= R.PREEMPT_IDLE and not v.engaged) then n = n + (v.resa[item] or 0) end
+  end
+  return n
 end
 
 --- Projet fini ou abandonné : son reste retourne au libre.
