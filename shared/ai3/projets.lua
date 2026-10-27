@@ -26,6 +26,7 @@
 
 local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
+local R = require("shared.ai3.reglages") -- lot IA-G : la tourelle de « défendre d'abord » (nom déplacé, inchangé)
 
 local P = {}
 
@@ -50,9 +51,9 @@ P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
 -- « défendre d'abord » d'IA1-b2, le soldat de repli (clé de T.kits), la plaque de la garde de l'économie (produit de
 -- l'avant-poste de fer). Aucune autre chaîne du jeu dans la logique de ce module.
-P.TURRET = "gun-turret"
+P.TURRET = R.TURRET
 P.FALLBACK_UNIT = "rifleman"
-P.IRON = T.outposts.iron.product
+P.IRON = T.outposts[R.FALLBACK_KEY.top].product -- lot IA-G : repli ; la matière gardée vient de ctx.floor_item
 
 local function sorted_keys(t)
   local ks = {}
@@ -156,14 +157,20 @@ function P.update(st, goals, tick, workers)
   -- (objectif 50 > armée 45 > recherche 40) gardé pour les ressources, avec K projets qui avancent sur le reste.
   -- Moteur simulé de pvp_test, essais 2 à 5 de ce lot : servie APRÈS tous les projets, l'armée n'avait plus de fer
   -- (0 soldat à 15 min, 441 fers manquants) et Difficile n'attaquait pas plus que Normal.
-  local out, perm, rest = {}, {}, {}
+  -- Lot IA-G (le plus court d'abord, règle d'ordonnancement classique : il minimise l'attente moyenne) : un projet dont
+  -- le but se dit COURT (recherche peu chère : quelques packs, shared/ai3/buts.lua) passe juste après le premier projet,
+  -- devant les familles permanentes. Moteur réel, banc g2 (27/10, graine 271828182) : servie après l'armée et la
+  -- réserve de munitions (740 fers), la recherche de 8 packs rouges attendait 9 min ; palier 1 à 10,4 min en médiane.
+  local out, perm, rest, short = {}, {}, {}, {}
   local first = nil
   for _, p in ipairs(active) do
     if p.goal.permanent then perm[#perm + 1] = p
     elseif not first then first = p
+    elseif p.goal.short then short[#short + 1] = p
     else rest[#rest + 1] = p end
   end
   if first then out[#out + 1] = first end
+  for _, p in ipairs(short) do out[#out + 1] = p end
   for _, p in ipairs(perm) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(blocked) do out[#out + 1] = p end
@@ -447,15 +454,28 @@ EMIT.research = function(E, proj, g, ctx)
   if r.lab_item and (r.labs_craft or 0) > 0 then
     if not P.want(E, proj, { { r.lab_item, r.labs_craft } }, prio + P.FINISH_BONUS, false, "labo") then status = "matiere" end
   end
+  local fi = ctx.floor_item or P.IRON -- lot IA-G : produit de la ressource la plus demandée (déduite)
+  local function with_floor(floor, fn)
+    local keep = math.min(E.avail[fi] or 0, floor)
+    E.avail[fi] = (E.avail[fi] or 0) - keep
+    fn()
+    E.avail[fi] = (E.avail[fi] or 0) + keep
+  end
   if r.packs and #r.packs > 0 then
+    -- Lot IA-G : packs de la technologie EN COURS ; une recherche PEU CHÈRE (but `short`) n'attend pas derrière le
+    -- plancher (quelques plaques : « automation » = 1 pack rouge) ; sinon le plancher d'IA-V2.
     -- Lot IA3-e : la recherche d'un objet que l'automatisation attend (r.for_auto : poteau moyen de la fonderie
-    -- électrique) n'a pas de plancher de fer : c'est l'investissement qui rend le fer (moteur réel, e2-usine : poteau
-    -- moyen commencé à 20 min, jamais fini en 90 min chez azure, fer au coffre sous le plancher).
-    local floor = (not r.for_auto) and (ctx.iron_floor or 0) or 0
-    local keep = math.min(E.avail[P.IRON] or 0, floor)
-    E.avail[P.IRON] = (E.avail[P.IRON] or 0) - keep
-    if not P.want(E, proj, r.packs, prio, true, "pack") then status = "matiere" end
-    E.avail[P.IRON] = (E.avail[P.IRON] or 0) + keep
+    -- électrique) n'a pas non plus de plancher de fer : c'est l'investissement qui rend le fer (moteur réel, e2-usine).
+    local floor = ((g and g.short) or r.for_auto) and 0 or (ctx.iron_floor or 0)
+    with_floor(floor, function()
+      if not P.want(E, proj, r.packs, prio, true, "pack") then status = "matiere" end
+    end)
+  end
+  if r.packs_ahead and #r.packs_ahead > 0 then
+    -- Lot IA-G : réserve et packs d'avance (bras libres), toujours au-dessus du plancher, un cran sous les packs du moment.
+    with_floor(ctx.iron_floor or 0, function()
+      P.want(E, proj, r.packs_ahead, prio - 2, true, "avance")
+    end)
   end
   return status
 end

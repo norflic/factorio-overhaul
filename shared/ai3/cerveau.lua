@@ -29,6 +29,7 @@ local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
+local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
 
 P.EMIT.module = A.emit(P)
@@ -93,6 +94,9 @@ function C.situation(view, st, ctx)
     -- sert à rien, et la recherche restait plafonnée pour toujours (moteur réel, ia3c-reduit et ia3c-default graine
     -- 20261020 : fer II jamais, 2 700 plaques de fer au coffre, paliers 2 et 3 à 29 et 48 min à 8 PNJ).
     economy_done = st.iron2_done ~= nil or st.economy_ok ~= nil,
+    -- Lot IA-G : ressources clés DÉDUITES du dépliage des buts (script/ai3/general.lua) ; repli : celles de l'échelle.
+    key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
+    idle_grow = ctx.idle_grow or false, tick = ctx.tick or 0, -- lot IA-G : bras libres
   }
 end
 
@@ -184,7 +188,8 @@ function C.think(view, book, st, ctx)
   st.saturated = saturated
   -- … et seulement quand l'équipe a son effectif visé (ses recrues se paient en fer : moteur simulé, ia1_scale_test, une
   -- faction à 26 PNJ sur 30 en 12 min quand la recherche déplafonnée prenait le fer des recrues).
-  if not st.economy_ok and (s.cap.iron or 0) >= 0.75 and saturated[P.IRON]
+  local top = s.key.top -- lot IA-G : la ressource la plus demandée (le fer sur les données vanilla)
+  if not st.economy_ok and (s.cap[top] or 0) >= 0.75 and saturated[T.outposts[top].product]
     and (view.workers or 0) >= (view.workers_wanted or 0) then st.economy_ok = tick end
   -- Lot IA-V2 : une matière saturée ne libère ses bras que si une AUTRE manque (critère A5 : « aucune matière au-dessus
   -- de 3 fois son besoin PENDANT qu'une autre manque » ; constat du DC du 25/10 : pierre et charbon ramassés pendant que

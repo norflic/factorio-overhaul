@@ -10,6 +10,44 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 10 h 50 : IA3-k FUSIONNÉ, `main` = 0.5.1** (`cd36d4b`) : comportements visibles allumés (`fo-war-ia3-comportement`).
+> Preuve du lot sur main 0.5.0 + lot (C2 24/24 et 14/14 sans mort, C5 1 mort contre 27 et 48, C3 7 OK, B5 et C4, D1) ; fusion
+> propre, main depuis la base du lot : outils, X3 (non lu par le jeu) et documents seulement. Sur `main` 0.5.1 (intégrateur) : série
+> hors jeu, content, verif-guide 271828182 et 1618033988 lancés. Fusions d'essai : main + ia3k + iag PROPRE ; + ia3e : conflits
+> settings.lua et tests/mock_engine.lua seulement. Défauts ouverts : économie d'une faction sans soldat sous un nid ; C1 allongement ;
+> K10 (mesure `--seul` de l'intégrateur sur main après les fusions). Worktree `ia3k` gardé tant que l'agent tourne.
+>
+> **27/10, 10 h 40 : IA3-e LIVRÉ (2e fois), réglage `fo-war-ia3e` ÉTEINT par défaut** (tête `d52a2d0` ; INTEGRATION.md §0 bis) :
+> éteint, automatisation et plan des factions inertes (verif-guide 1618033988 15 OK, content 331) ; allumé : aucune fonderie posée
+> (lot des foreuses introuvable : « tapis des foreuses (pas de lot) », « (trop long) »), K1 instable (une faction différente recule
+> à chaque correction). Fusion main + ia3e : PROPRE ; main + ia3e + iag : CONFLITS dans script/ai3/cerveau.lua, shared/ai3/buts.lua,
+> shared/ai3/cerveau.lua, shared/ai3/projets.lua, tests/mock_engine.lua. **Ordre décidé** : IA-G d'abord dans `main` (vers 11 h 15),
+> puis l'agent IA3-e (`aa204fd5af007dd61`) fait `git merge main` dans `ia3e`, résout en gardant le cerveau d'IA-G et en branchant
+> `A.decide*` à son point de jonction, rejoue hors jeu + verif-guide + content réglage éteint ; fusion ensuite.
+>
+> **27/10, 10 h 15 : X3 FUSIONNÉ (proposition hors jeu, `f76af76`, `0f78e4f`) et D-20 du DC** (QCM) : fonderie de puces OBLIGATOIRE
+> à l'âge 10 ; gamme de robots à concevoir « style Supreme Commander 2 » ; une partie des niveaux en pièces montées, que le cerveau
+> des PNJ doit faire DE LUI-MÊME (rien en dur) ; calcul NON stockable, par script. À reporter dans `shared/content/x3.lua` et §3.7 au
+> lot de mise en jeu (X3-0…), après la priorité IA. Worktree `x3` à retirer (refusé : dossier courant de la session).
+>
+> **27/10, 9 h 55 : IA3-e LIVRÉ, NON FUSIONNÉ** (tête `d7e8a7d` = main 0.5.0 + lot ; `fo-logs\2026-10-27_IA3-e\INTEGRATION.md`) :
+> règle « main ou machine » pour TOUT objet (module généré depuis la recette), ordre tiré de la profondeur du graphe, interface
+> pure pour IA-G (§0) ; verif-guide 15 OK × 2, content 331, ia1-build-plaine 12, K11, K10 0,157 ms en `--seul`. **Refusé en
+> l'état** : sur la tête, AUCUN module de production seul à 45 min (fonderie posée loin du gisement, quai de minerai vide), part à
+> la main 93 à 100 %, **K1 RECULE** (amber 42 min → jamais). Agent relancé (correctifs : fonderie au gisement, cause du recul de
+> K1, réglage de carte `fo-war-ia3e` allumé seulement si tenu) ; livraison vers 11 h 10. IA-G : gel vers 11 h, rapport, point
+> de jonction avec `A.decide*`. **Plan jusqu'à 12 h 15** : fusion IA-G puis IA3-e vers 11 h 15, preuve commune sur 3 places ;
+> IA3-d (avec P1) et IA3-k ensuite. Garde-fous d'IA-V2 revenus sur 0.5.0 : verif-guide 577215664 15 OK (13 avant), brouillard
+> 10 OK, réduite 1618033988 5 OK, ia1-poles 15 OK 2 ECHEC (défaut ouvert depuis 0.4.29, inchangé) ; restent verif-guide
+> 1618033988 et ia1b2-guide.
+>
+> **27/10, 9 h 05 : BANC À 3 PLACES DÉPLOYÉ** (fusion `cf7053b` de `banc2`, agent terminé ; `fo-autotest.bat` recopié à la racine,
+> l'ancien gardé dans `fo-logs\fo-autotest.bat.avant-banc2`) ; `<racine>\fo-banc-places.txt` = **3** (REMETTRE 1 quand le DC joue).
+> Tests : test_banc_file 78 OK, bat_double_source 70 OK (rejoués par l'intégrateur). Moteur réel : `content` 331 OK à la place 2
+> (14 s, sans attente) pendant la session d'images d'IA3-e à la place 1 (`fo-logs\2026-10-27_integration-0.5.0\content`). Les
+> tickets déposés par des banc.py ANCIENS (avant 9 h 03) ne passent que par la place 1 : agents priés de les relancer. Toute
+> mesure K10 avec `--seul` ; les mesures K10 prises avant ce déploiement pendant d'autres bancs sont à refaire seules.
+>
 > **27/10, 8 h 55 : PC LIBRE 8 h ET BANC À PLUSIEURS PLACES.** Le DC, vers 8 h 50 : « Vous pouvez potentiellement accélérer le jeu
 > beaucoup plus pour 1 partie à la fois […] (Et au pire ça ram mais c'est pas grave si ?) », puis vers 8 h 55 : « Je n'utilise pas
 > mon pc pour les 8 prochaines heures donc vous pouvez y aller (sans faire planter le pc quand même mais vous avez compris) ».

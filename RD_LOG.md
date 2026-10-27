@@ -4,7 +4,7 @@
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
 > Prochains identifiants libres (27/10, vers 8 h 05, au lancement du workflow X3) : **F341** et **E227** hors blocs. Réservés aux lots
-> en cours : X3 F337 à F340, E224 à E226 ; IA-G F331 à F336, E220 à E223 ; F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; IA3-e F319 à F323, E212 à E214 ; IA3-d F315 à F318, E210, E211 ; IA3-k F300 à F305, E200 à E203 ; attribués à IA-V2 (fusionné 27/10 vers 8 h 40, 0.5.0) : F296 à F298, E198, E199 (F299 non servi ; les blocs d'IA3-b, c, f, F282 à F291 et E188 à E194, restent LIBRES : leurs faits sont écrits sous les numéros d'IA-V2) ; à F4-A à F4-A3 (kit fusionné 27/10, outils) : F260 à F262, F309 à F311, E93 à E96, E206, E207 ; à F5-A (kit fusionné 27/10, outils) : F312, F313, E208, E209 (F314 non servi, rendu) ; à IA1-d (fusionné 27/10, 0.4.32) : F292 à F295, E195 à E197 ; à F3-B :
+> en cours : IA-G F331 à F336, E220 à E223 ; F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; IA3-e F319 à F323, E212 à E214 ; IA3-d F315 à F318, E210, E211 ; attribués à IA3-k (fusionné 27/10 vers 10 h 50, 0.5.1) : F300 à F305, E200 à E203 ; à X3 (proposition hors jeu fusionnée 27/10 vers 10 h 10) : F337 à F340, E224 à E226 ; à IA-V2 (fusionné 27/10 vers 8 h 40, 0.5.0) : F296 à F298, E198, E199 (F299 non servi ; les blocs d'IA3-b, c, f, F282 à F291 et E188 à E194, restent LIBRES : leurs faits sont écrits sous les numéros d'IA-V2) ; à F4-A à F4-A3 (kit fusionné 27/10, outils) : F260 à F262, F309 à F311, E93 à E96, E206, E207 ; à F5-A (kit fusionné 27/10, outils) : F312, F313, E208, E209 (F314 non servi, rendu) ; à IA1-d (fusionné 27/10, 0.4.32) : F292 à F295, E195 à E197 ; à F3-B :
 > F306 à F308, E204, E205. Les blocs d'IA3-a, b, c, f (F279 à F291, E186 à E194) restent à leurs lots, repris par IA-V2.
 > Prochains identifiants libres (24/10, vers 7 h 35, après la fusion d'A4-préparation) : **F163** et **E118** hors blocs ; F149, F157 à F160, E112, E114 à E116 : A4-préparation (blocs d'A3 et A4 épuisés). Avant (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
@@ -243,6 +243,13 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 27/10, vers 10 h 15, **les 4 questions d'X3 (QCM dans Claude Code, R-QCM-27a)** : (1) voie obligatoire : « Fonderie de puces à l'âge 10 » ; (2) robots : « Ils faudrait créer d’autres robots, si vous voulez un peu un style d’inspiration ça serait style Suprême Commander 2 (modérateur revemp mod (designs plus créatif et complet)) » ;
+  (3) niveaux en pièces montées : « Oui une partie du coût des niveau en pièces montée. A noter que si l’IA est autonome elle le fera d’elle même, il faut que ce soit un choix logique et nom encré en dur c’est très important » ; (4) calcul stockable : « Non stockable, par script ».
+  → **Décision D-20** : (1) fonderie de puces OBLIGATOIRE à l'âge 10 (le quartz devient un passage obligé : garantie à prouver
+  sur toute graine) ; (2) une gamme de robots à concevoir dans l'esprit de Supreme Commander 2 (lot de conception à ouvrir) ;
+  (3) une partie du coût des niveaux en pièces montées, et le cerveau des PNJ le fait de lui-même, sans rien d'écrit en dur ;
+  (4) calcul NON stockable, tenu par script (D-19 précisé). Contraire aux recommandations (1), (3) et (4) de l'orchestrateur :
+  appliqué tel quel. Mise en jeu après la priorité IA.
 - 27/10, vers 8 h 25, **le CALCUL comme ressource (lot X3)** : « "Je propose qu’il fonctionne comme l’électricité : un centre de calcul le produit en consommant du courant et du refroidissement." Complètement d’accord je valide ».
   → **Décision D-19** : le calcul est une ressource de RÉSEAU, comme l'électricité : un centre de calcul (bâtiment nouveau)
   le PRODUIT en consommant électricité et refroidissement ; des consommateurs le TIRENT (recherche, pilotage des robots de
@@ -508,6 +515,53 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés en moteur réel (lot IA3-k, comportements visibles : carte du danger, trajets, réaction, peur, agressivité, soldats, état affiché ; 27/10 ; branche `ia3k`, fusionnée dans `main` vers 10 h 50, `cd36d4b`, version 0.5.1)
+Preuves : `fo-logs\2026-10-27_IA3-k\` (`INTEGRATION.md` §2, `bancs\final-050-*\`, `images-DC\`).
+
+| ID | Fait | Conséquence |
+|---|---|---|
+| F300 | En terrain dégagé, le chemin rendu par `request_path` (`prefer_straight_paths`) entre deux points non alignés sur un axe fait « diagonale puis tout droit » : pour dx 330, dy 150, l'aller mesuré fait 392 à 396 tuiles (150√2 + 180 = 392) et passe jusqu'à 75 tuiles de la droite au milieu ; dy 50 : 351 à 356 (50√2 + 280). Écart à la droite ≈ 0,21 × le segment. Bancs `ia3k-route-temoin-29f26a1`, `final-679429f\route-20261020` (itinéraire prévu sûr, entrée de 5,9 tuiles dans la zone d'un ver par l'écart du moteur). | Un banc qui pose des ennemis « sur la route » doit les poser sur le chemin RÉEL (couloirs parallèles à un axe). Un contournement se donne au moteur en tronçons de 24 tuiles au plus (écart ≤ 5 tuiles) : `R.SEG_MAX`. |
+| F301 | `surface.find_nearest_enemy{position, max_distance, force}` d'une force sans joueur rend vers, nids, mitrailleuses d'une force adverse et unités, sans cartographie ; un regard de 35 tuiles autour d'un point 16 tuiles devant un PNJ voit un ver moyen à 36-51 tuiles (avant sa portée de 30), mais pas à temps un GROS ver naturel (portée 38) : 2 PNJ tués en tournée à 116-117 tuiles du QG (`final-3958412\route-123456789`). | Regard porté à 40 (audacieux) - 56 (prudent) tuiles autour d'un point 20 tuiles devant (`Re.look_radius`, `Re.LOOK_AHEAD`) : la zone d'un béhémoth (48 + 10) est vue avant d'y entrer. |
+| F302 | De petits déchiqueteurs posés par script avec `stop` (attente 1 000 000 ticks, distraction par ennemi) chargent un personnage qui passe dans leur vue (30 tuiles, `vision_distance`) et le poursuivent ; certains quittent leur poste pour poursuivre le PNJ d'un autre couloir. Un PNJ arrêté à 29-39 tuiles d'eux a été chargé (banc `01-route-072d88a`). | Portée utile d'une unité ennemie = sa VUE ; un arrêt n'est sûr qu'au-delà de vue + 8 (`Re.MARGIN`). |
+| F303 | Une mitrailleuse de la force `enemy` posée par script et garnie de 20 chargeurs tue des personnages de la force `player` à sa portée (18) : 3 PNJ tués par `gun-turret/enemy` dans le témoin `ia3k-route-temoin-29f26a1`. | Les tourelles adverses sont des menaces fixes comme les vers (genre « turret »). |
+| F304 | Un texte `rendering.draw_text{…, time_to_live = 150}` attaché à un personnage disparaît seul à l'échéance ; relevé toutes les 10 ticks par `rendering.get_all_ids`, chacun des états vus en entier a vécu au moins 120 ticks (`ia3k-route-29f26a1` 59/59, `route-f4f7e06` 94/94, `final-3958412\route-20261020` 55/55, `final-bb9569d\route-123456789` 65/65). | D1 : l'état reste ≥ 2 s si on ne le détruit pas avant ; un état suivant attend son tour (sauf la fuite, dans un second emplacement). |
+| F305 | Le même texte attaché à un personnage qui MEURT disparaît avec lui, avant son `time_to_live` : à la mesure, sa cible n'est plus valide (`rendering.get_target(id).entity`). 1 cas dans `final-3958412\route-123456789` (compté « court » par l'ancienne mesure), 3 dans `final-bb9569d\route-123456789`. | Mesure D1 : un texte dont le porteur est mort est compté à part (aucune durée mesurable), pas comme un état trop court. |
+
+### Faits vérifiés (lot X3, graphe réaliste et minerais par âge : proposition HORS JEU, workflow `wf_75a10ea1-27c`, 27/10 ; branche `x3`, fusionnée dans `main` vers 10 h 10 : `shared/content/x3.lua`, `tests/x3_test.lua`, SCENARIO_EPOQUES §3.7 ; rien en jeu)
+Preuves : `fo-logs\2026-10-27_X3\` (`INTEGRATION.md`, `RESUME_DC.md`, `x3_test-complet.txt`). Faits LUS (code du jeu, API), pas en moteur réel.
+**F337** (lu dans le code du jeu, pas en moteur réel). `resource_autoplace_settings`
+(`data/core/lualib/resource-autoplace.lua`) incrémente, à chaque nouveau jeu de gisements, l'expression partagée
+`regular-resource-patch-set-count` (l. 6 à 12). Elle sert de `skip_span` à tous les minerais réguliers, et l'index du
+jeu de `skip_offset` (l. 263, 264). Une ressource « vanilla-like » de plus déplace donc fer, cuivre, charbon, pierre,
+uranium et pétrole sur toutes les graines, y compris dans les chunks neufs d'une sauvegarde. La parade est celle de
+`biome_bound_autoplace` (`prototypes/world.lua`) : restaurer le compteur, `skip_span` 1 et une graine propre. À
+confirmer en moteur : H-X3-4.
+
+**F338** (lu dans `data/base/prototypes/entity/flying-robots.lua` et `runtime-api.json` 1.1.91).
+- Le défenseur (l. 179 à 208 : `follows_player = true`, `range_from_player` 6, 45 s) et le destructeur (l. 1417 à
+  1446, 2 min) suivent leur lanceur.
+- Le distracteur (l. 1334 à 1360, `speed = 0`, 45 s) reste au point de lancer.
+- Les robots qui suivent sont plafonnés par `LuaForce.maximum_following_robot_count`, inscriptible.
+- `LuaItemStack.use_capsule(entity, position)` existe, et `LuaEntity.combat_robot_owner` est inscriptible : un
+  script peut faire lancer une capsule à un PNJ.
+- `UnitAISettings` vaut par défaut `allow_try_return_to_spawner = false` et `destroy_when_commands_fail = false`.
+
+**F339** (lu dans `prototype-api.json` 1.1.91).
+- `FluidBox` a un champ `filter`.
+- `FluidWagonPrototype` n'a que `capacity` et `tank_count` : aucun filtre.
+- Un fluide sans baril (`auto_barrel = false`) se stocke donc en réservoir et voyage en wagon-citerne.
+- Un fluide « non stockable » demanderait un script.
+
+**F340** (mesuré hors jeu, `tests/x3_test.lua`, prototype du cerveau `shared/ai3/graphe.lua`).
+- Le coût de choix du cerveau (secondes de recette et quantités brutes, catalyseurs non soustraits, fluides par
+  unité) s'écarte du chemin le moins cher en MU. Dans X0 seul, tout recherché, connu et construit, la voie du cerveau
+  coûte jusqu'à 1,91 fois le chemin le moins cher (pack de l'âge 10).
+- Il ne choisit aucune des 10 variantes d'X3, même quand elles sont moins chères en MU.
+- Avec les technologies, les 4 technologies les plus lourdes de l'âge 14 dépliées ensemble font 3 616 nœuds dans X0
+  (3 622 réparé), soit 90 % de `G.MAX_NODES`.
+- Corollaire, mesuré en version 1 : quand le cerveau choisit une voie qui demande une machine de plus pour quelques
+  objets (tranches sciées, avec tireuse et quartz), le plan grandit de 4 à 10 % (4 004 nœuds, tronqué à l'âge 14).
 
 ### Faits vérifiés (lot IA-V2, le nouveau cerveau des PNJ réuni et allumé : IA3-b, IA3-c, IA3-f ; 27/10 ; branche `ia-v2`, fusionnée dans `main` le 27/10 vers 8 h 40, `6c631d5`, version 0.5.0)
 Preuves : `fo-logs\2026-10-27_IA-V2\` (`INTEGRATION.md` §2 à §5 et §8, `NOTES.md`, `bancs\`, `bancs\RESUME.txt`, `src-0.4.30` à GARDER).
@@ -1233,6 +1287,94 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E200 à E203 · Lot IA3-k, comportements visibles (27/10 ; fusionné dans `main` vers 10 h 50, `cd36d4b`, 0.5.1 ; preuve sur main 0.5.0 + lot)**. Seuils en constantes nommées et justifiées (INTEGRATION.md §7, consigne « rien en dur »). Hors jeu sur la branche fusionnée : pvp 1305, ia3k 106 / 30 / 41, api_lint 1212 ; garde-fous en moteur réel : verif-guide 15 OK × 2, pnj-reduit 12, content 331. Défauts ouverts : économie d'une faction SANS soldat sous un nid (Écarlate, 20261020 : 355 fer à 70 min contre 6 976 au témoin, qui perd 43 PNJ) ; C1 allongement (13 allers sur 24 sous +15 %) ; K10 non mesuré seul (pics d'environ 6 ms par itinéraire) ; C7 sans banc dédié.
+
+**E200 (C2, D1) : ennemis posés sur la route des tournées** (`ia3k-route`, témoin `ia3k-route-temoin`, 54 700 ticks).
+- Protocole : votre équipe en zone pavée, cerveau retenu (porte des bancs) ; 4 couloirs droits (F300) de 320 tuiles,
+  6 manches de 9 000 ticks, carte du danger remise à zéro à chaque manche ; vers, nid gardé, déchiqueteurs ou
+  mitrailleuses posés sur l'itinéraire PRÉVU à mi-couloir quand le PNJ entre dans son couloir. Critères (IA_ATTENDUS
+  C2) : ≥ 90 % des tournées qui rencontrent les ennemis s'arrêtent ou se détournent avant la zone de portée (disque fixe
+  autour de la position de départ de chaque ennemi) ; 0 entrée dans une zone vue occupée ; ≥ 90 % de réactions visibles ;
+  D1 : chaque état visible ≥ 2 s.
+- Témoin (réglage éteint) : graine 20261020, 22/22 tournées entrent à portée, 16 PNJ tués (`route-temoin-20261020-4e6303a`).
+- SUR 0.5.0 (IA-V2) + lot (`final-050-2c49ceb`, `final-050-055078c`) : graine 20261020, 24/24 avant la zone de portée,
+  0 entrée, 0 mort, D1 49/49 (témoin même base : 22/22 à portée, 16 tués) ; graine 123456789, 14/14, 0 entrée, 0 mort, D1
+  42/42 (témoin : 16/16 à portée, 11 tués) ; contrôle d'échantillon du banc (≥ 16 rencontres) en échec sur 123456789 (14).
+- Historique avant la fusion : 072d88a 19/24 ; 29f26a1 21/24 ; 3958412
+  graine 20261020 24/24 avant portée, 0 entrée, 0 mort, 55/55 états ≥ 2 s ; graine 123456789 15/16, 0 entrée, mais 2 PNJ
+  tués par de gros vers naturels hors des couloirs (F301) -> regard porté à 40-56 tuiles (bb9569d) : 15/15, 0 mort.
+
+**E201 (C1) : variété des trajets** (`ia3k-variete`, témoin `ia3k-variete-temoin`, 54 700 ticks, 2 graines).
+- Protocole : mêmes couloirs, aucun ennemi posé ; paires de tournées successives d'un même PNJ vers le même but ; écart
+  latéral médian par tranches de 8 tuiles ; allongement par rapport au trajet du témoin. Critères : écart médian ≥ 4 tuiles
+  dans ≥ 50 % des paires, allongement ≤ 15 %.
+- SUR 0.5.0 + lot (`final-050-2c49ceb\variete-20261020`, écart 8-20 tuiles) : écart tenu dans 13 paires sur 20 (témoin
+  même base : 0/20) ; allongement NON tenu : 13 allers sur 24 sous + 15 % (318 à 422 tuiles pour 320), alors que la
+  distance totale marchée n'est que + 8 % sur le témoin (cause non trouvée). Avant : f8c44de (écart 12-28) 11/20 et 14/24.
+
+**E202 (C3) : peur** (`ia3k-peur`, 30 100 ticks : 7 manches indépendantes de 4 200 ticks, carte remise à zéro).
+- Protocole : un PNJ mis à 35 % (neutre), 48 % (prudent 1 250 et audacieux 600) de vie, ou sans munitions, à portée de
+  petits déchiqueteurs ; critères : fuite en ≤ 1 s sous 40 % ; un prudent fuit plus tôt (48 %) qu'un audacieux (tient).
+- SUR 0.5.0 + lot : `055078c` BILAN 7 OK : neutre à 35 % fuit en ≤ 60 ticks 8/8, prudent à 48 % 8/8, audacieux à 48 %
+  tient 8/8, sans munitions 4/4. `2c49ceb` : sans munitions 2/4 seulement (fuite après 541 ticks : « armé » relu toutes les
+  600 ticks) -> corrigé (`055078c`). Avant : 331095f, neutre 4/4, audacieux tient 4/4.
+
+**E203 (C5, B5, C4) : cas Écarlate et soldats** (`ia3k-memoire` + témoin, 288 700 ticks, 2 graines ; `ia3k-soldats`,
+108 100 ticks).
+- Protocole C5 : guerre à 2 factions (30 soldats, 8 ouvriers) ; quand Écarlate a un avant-poste à 60-180 tuiles, un nid
+  (7 entités, 2 vers) est posé à 70 % du trajet QG -> avant-poste ; critère : au plus 2 morts d'ouvriers au même endroit
+  (32 tuiles) dans l'heure qui suit, hors raid sur le QG.
+- Témoins (réglage éteint, 331095f) : 20261020 66 morts près du nid en 1 h (55 au même endroit) ; 123456789 125 (112).
+- Lot : 679429f et 3958412 : au plus 2 au même endroit sur les 2 graines. Économie d'Écarlate à 70 min (fer livré,
+  `tools/autotest/ia3k_economie.py`) : 20261020 9 374 (679429f) et 1 118 (3958412) contre 5 371 au témoin ; 123456789
+  440 et 390 contre 1 022 au témoin.
+- SUR 0.5.0 + lot (`final-050-4e20f25`, témoins `final-050-2c49ceb`) : 1 mort près du nid sur chaque graine (témoins : 27
+  et 48 morts, jusqu'à 29 et 51 au même endroit, 43 et 63 PNJ perdus). Économie à 70 min (fer / cuivre / charbon) :
+  20261020 355 / 112 / 20 contre 6 976 / 2 578 / 3 446 (Écarlate sans soldat, mines à 24-40 tuiles du nid : 1 133 refus) ;
+  123456789 1 545 / 2 892 / 986 contre 2 638 / 306 / 1 613 (5 escortes demandées, 3 prêtes). DÉFAUT OUVERT : économie
+  sous un nid quand la faction n'a pas de soldats (INTEGRATION.md §2.2).
+- Soldats (331095f) : 0 % du temps sans ordre hors repos ; patrouille 69 % (agressif) contre 36 % ; 4 escortes demandées,
+  3 prêtes ; états des soldats visibles.
+- SUR 0.5.0 + lot (`final-050-4e20f25\soldats-20261020`) : 0,0 % sans ordre (deux factions), patrouille 72 % contre 37 %,
+  2 nettoyages lancés et finis, nid d'Écarlate détruit ; aucune escorte à faire (nid détruit avant) : BILAN 9 OK, 1 ECHEC.
+
+**E224 à E226 · Lot X3, graphe réaliste et minerais par âge (27/10 ; proposition hors jeu ; workflow de 8 agents : inventaire, 3 concepteurs, synthèse, 2 critiques adverses, correction ; fusionné dans `main` vers 10 h 10)**. Demande du DC (OBJECTIFS §4, 27/10 vers 8 h) ; décision D-19 (le calcul comme l'électricité). Règle retenue : des VOIES, jamais une porte (0 recette d'X0 modifiée, 10 variantes, 4 minerais : blende âge 3, cassitérite âge 4, bauxite âge 6, quartz âge 10). La version 1 rendait 3 minerais obligatoires et mesurait le cerveau sans technologies (packs 11 et 12 tronqués) : corrigé en version 2 par le correcteur après la critique « moteur ».
+**E224** : banc de la fusion X0 + X3, version 2.
+- Protocole : `lua5.2 tests/x3_test.lua`, depuis le worktree x3.
+- Résultat : 6 002 OK, 0 ECHEC, en 48 s ; `--court` 5 963 OK.
+- 28 mutants refusés : 27 par les contrôles propres, 1 par `epochs_test`.
+- Version 1 : 5 084 OK, 11 mutants, mais trois défauts majeurs non vus. La critique « moteur » a ajouté 8 mutants, qui
+  passaient tous les contrôles propres de la version 1.
+
+**E225** : cerveau avec les technologies et aucune porte.
+- Protocole : spécification du cerveau tirée de la fusion (technologies avec leurs prérequis et la technologie du pack
+  de l'âge, packs × unités). États :
+  - (b) technologies < k, ressources ≤ k, rien de construit ;
+  - (c) idem, ressources d'X3 inconnues ;
+  - (d) rien de recherché ;
+  - (e) tout recherché, connu et construit.
+- Référence : X0 réparé.
+- Résultats :
+  - (b) toutes les technologies payables ; la plus lourde à 2 845 nœuds (71 %) ; 4 ensemble à 3 622 au plus, comme
+    X0 réparé ;
+  - (c) 107 buts d'X0 : 0 impayable, 0 exploration d'une ressource d'X3 ;
+  - (e) écart de la voie du cerveau à 3 % au plus de celui d'X0 réparé.
+- Version 1, refaite par la critique : packs 11 et 12 tronqués (4 020 nœuds) quand rien n'est recherché.
+
+**E226** : parts de recherche sur deux voies, et variantes en MU, énergie et temps.
+- Protocole : `epochs_test` sur la fusion, puis sur la fusion sans variantes (`X3.without_variants`) ; MU, MJ et
+  temps-machine par le banc (machine la moins gourmande de la catégorie, foreuse électrique à 90 kW).
+- Résultats :
+  - part de recherche de 34,3 à 35,5 % sur la fusion, de 34,7 à 35,5 % sur la voie d'X0 ;
+  - recalage aux âges 4, 6, 7, 10, 12 et 13 : 77, 147, 211, 885, 5 290 et 8 790 unités, contre 100, 180, 255,
+    1 175, 5 950 et 10 200 ;
+  - processeur gravé : 21,48 MU, 63,3 MJ, 63,2 s, contre 22,20, 50,3 et 63,9 par la salle blanche d'X0 ;
+  - tranches sciées : 9,5 MJ par tranche contre 17,5 ;
+  - aucune variante dominée en MU et à la fois en MJ et en temps.
+
+**Hypothèses** (à prouver en moteur, quand une chaîne entre en jeu) : H-X3-1 (drones nés d'une capsule, voie des PNJ),
+H-X3-2 (l'unité tient sa place et riposte), H-X3-3 (calcul filtré et stockable), H-X3-4 (0 minerai déplacé).
+
 **E198, E199 · Lot IA-V2, le nouveau cerveau réuni et allumé (27/10 ; fusionné dans `main` vers 8 h 40, `6c631d5`, 0.5.0)**.
 Réunit le marché et le registre (IA3-b), le cerveau par besoins (IA3-c) et l'exploration sous brouillard (IA3-f), puis `main`
 0.4.32 ; réglages `fo-war-ia3-marche` et `fo-war-ia3-cerveau` ALLUMÉS par défaut ; 23 défauts trouvés en moteur réel et corrigés
@@ -1249,7 +1391,7 @@ environ 15 % à 4 à 10 PNJ : « le cerveau ne crée du travail que pour ce qui 
 (1618033988), dans la borne de K9. Hors jeu sur `main` + `ia-v2` (intégrateur, 27/10 vers 8 h 35) : les 32 tests verts (pvp 1305,
 levels 1666, valeur 53, traits 65, ai3_cerveau 49, ia3b 31, ia3f 32, ai3_carte 55…), harness 0 erreur, api_lint 1179. **Garde-fous
 en jeu encore en file à la fusion** (même source `7e3e4ad`) : `pnj-reduit`, `ia1-poles`, `ia3-brouillard`, `ia1b2-guide`,
-`verif-guide` 1618033988 et 577215664 (à consigner à leur retour). Restes ÉCRITS EN DUR déclarés (INTEGRATION.md §8 ; à reprendre
+`verif-guide` 1618033988 et 577215664 (consignés ci-après). **Garde-fous revenus (sur `7e3e4ad`, identique au code fusionné ; série A finie à 10 h 12)** : `verif-guide` 15 OK sur les 4 graines (271828182, 314159265, 1618033988, 577215664 ; 14 OK sur 314159265 en 0.4.29) ; `pnj-reduit` 12 OK ; `ia1b2-guide` 15 OK sur 271828182, 314159265 et 577215664 (13 OK sur 577215664 en 0.4.29) mais **13 OK, 2 ECHEC sur 1618033988** (des biters détruisent le coffre de votre équipe à 45 min, l'équipe part ; **RÉGRESSION** : témoin 0.4.30, même graine, 15 OK, archive `fo-logs\2026-10-27_integration-0.5.0\ia1b2-guide-1618033988-temoin-0.4.30`) ; `ia1-poles` 15 OK 2 ECHEC (les mêmes que depuis 0.4.29) ; `ia3-brouillard` 10 OK sur 2 graines (pétrole trouvé en moins de 30 min par chaque faction, aucun site dans un secteur jamais vu ; témoin 7 OK). Médianes sur 4 graines (16 factions contre 20 en 0.4.29 et 0.4.30) : K1 palier 3 en 25,4 min (avant : jamais ; 2 factions sur 16 jamais), K3 12,5 % (8,9 % avant), K4 0 (14), K5 84 min (72 avant : PLUS MAUVAIS), K6 0 (30 PNJ-minutes), 0 faction sans soldat à 60 min (1), 0 anéantie. Restes ÉCRITS EN DUR déclarés (INTEGRATION.md §8 ; à reprendre
 par IA-G) : 4 sortes d'avant-postes (`T.outposts`, `B.BOOT`), fonderie (four en pierre, charbon), noms de `shared/ai3/manque.lua`,
 armée (`gun-turret`, `firearm-magazine`, `rifleman`, `T.kits`), condition « fer II ». Décisions provisoires du lot (le DC dormait) :
 réglages allumés, IA3-a non fusionné, critère A3 d'IA_ATTENDUS au lieu du contrôle « 2 projets ≥ 25 % », recherche peu chère non
