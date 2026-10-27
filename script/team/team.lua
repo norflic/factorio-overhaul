@@ -30,6 +30,7 @@ local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
+local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
 
 local Team = {}
 
@@ -96,7 +97,8 @@ Events.on_configuration_changed(function()
   if not (war and war.active and war.factions) then return end
   for _, id in ipairs(State.sorted_keys(war.factions)) do
     local f = war.factions[id]
-    if f.team and not f.is_player and not f.eliminated and game.forces[f.force] then
+    -- Lot IA3-c : une faction au cerveau par besoins fait sa VRAIE recherche (aucun niveau offert).
+    if f.team and not f.team.ia3c and not f.is_player and not f.eliminated and game.forces[f.force] then
       for level = 0, f.tech or 0 do unlock(f, level) end
     end
   end
@@ -413,7 +415,9 @@ function Team.think(f, surface, tick)
   local view = Team.view(f, tick)
   Profiler.stop("team:view")
   Profiler.start("team:plan")
-  local plan = Planner.plan(view, book_for(f))
+  -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
+  local ia3 = Ia3.active(f, tick)
+  local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
   Profiler.stop("team:plan")
 
   for _, key in ipairs(plan.reached) do
@@ -451,6 +455,7 @@ function Team.think(f, surface, tick)
   -- Lot IA1-b : organisation (pôles, managers, généralistes) et travail de fond, sur le tableau synchronisé.
   Profiler.start("team:poles")
   Poles.think(f, view, book_for(f), tick, plan)
+  if ia3 then Ia3.after_poles(f, tick) end -- lot IA3-c : pas de fond sur une matière saturée
   Profiler.stop("team:poles")
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé).
   Profiler.start("team:market")
@@ -532,6 +537,7 @@ function Team.think(f, surface, tick)
     unlock(f, f.tech)
     log(string.format("[FO-TEAM] %s : recherche niveau %d payee en packs a %.1f min", f.key, f.tech, (tick - State.war().started) / 3600))
   end
+  Ia3.measure(f, tick, plan) -- lot IA3-c : paliers de recherche et projets, mesurés avec les deux cerveaux
   return plan
 end
 

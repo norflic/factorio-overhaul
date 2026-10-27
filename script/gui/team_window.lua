@@ -164,6 +164,109 @@ local function no_team(c)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot IA3-c : bloc « Projets en cours » du cerveau par besoins (lecture seule de f.team.ia3, script/ai3/cerveau.lua) :
+-- projets, état et raison (ce qui manque, ce qui bloque), recherche en cours, ce qu'on cherche, ce qu'on ne ramasse plus.
+-- Rien n'est affiché qui ne soit dans l'état de l'équipe (règle d'IA1-i : aucun faux chiffre).
+---------------------------------------------------------------------------------------------------
+local IA3_STATE_ORDER = { actif = 1, attente = 2, bloque = 3 }
+
+local function proto_name(name)
+  local p = game.item_prototypes[name] or game.entity_prototypes[name] or game.fluid_prototypes[name]
+  return p and p.localised_name or name
+end
+
+local function ia3_list(names, max)
+  local parts = { "" }
+  for i, n in ipairs(names) do
+    if i > max then break end
+    if i > 1 then parts[#parts + 1] = ", " end
+    parts[#parts + 1] = proto_name(n)
+  end
+  return parts
+end
+
+local function ia3_projects(parent, f, w, compact)
+  local t = f.team
+  if not (t and t.ia3c and t.ia3) then
+    if not compact then label(parent, { "fo-ia3c.projects-off" }, { width = w, color = GREY }) end
+    return
+  end
+  local st = t.ia3
+  if compact then
+    label(parent, { "fo-ia3c.projects" }, { width = w, font = "default-bold" })
+  else
+    heading(parent, { "fo-ia3c.projects" })
+  end
+  local taken = {}
+  local b = t.board
+  for _, tk in ipairs((b and b.list) or {}) do if tk.worker and tk.ia3 then taken[tk.ia3] = true end end
+  local list, n_act, n_taken, n_block = {}, 0, 0, 0
+  for _, p in ipairs(st.projects or {}) do
+    list[#list + 1] = p
+    if p.state == "actif" then n_act = n_act + 1 end
+    if p.state == "bloque" then n_block = n_block + 1 end
+    if taken[p.id] then n_taken = n_taken + 1 end
+  end
+  if #list == 0 then
+    label(parent, { "fo-ia3c.projects-none" }, { width = w, color = GREY })
+  else
+    label(parent, { "fo-ia3c.summary", n_act, (st.last_plan and st.last_plan.K) or 0, n_taken, n_block }, { width = w })
+  end
+  table.sort(list, function(a, x)
+    local oa, ox = IA3_STATE_ORDER[a.state] or 9, IA3_STATE_ORDER[x.state] or 9
+    if oa ~= ox then return oa < ox end
+    return a.id < x.id
+  end)
+  for i, p in ipairs(list) do
+    if compact and i > 4 then break end
+    local name = { "fo-team.goal-" .. ("ia3-" .. p.key):gsub(":", "-") }
+    local why
+    local cause = p.cause or ""
+    if p.state == "bloque" and cause:sub(1, 5) == "site:" then
+      why = { "fo-ia3c.cause-site", { "fo-team.outpost-" .. cause:sub(6) } }
+    elseif p.state == "bloque" and cause == "tourelles" then
+      why = { "fo-ia3c.cause-tourelles" }
+    elseif p.state == "bloque" and cause:sub(1, 10) == "impayable:" then
+      why = { "fo-ia3c.cause-impayable", cause:sub(11) }
+    elseif p.state == "bloque" then
+      why = { "fo-ia3c.cause-other", cause }
+    else
+      local miss = {}
+      for k, n in pairs(p.missing or {}) do miss[#miss + 1] = { k, n } end
+      table.sort(miss, function(a, x) if a[2] ~= x[2] then return a[2] > x[2] end return a[1] < x[1] end)
+      if #miss > 0 then
+        local parts = { "" }
+        for j, m in ipairs(miss) do
+          if j > 3 then break end
+          if j > 1 then parts[#parts + 1] = ", " end
+          parts[#parts + 1] = { "", tostring(math.ceil(m[2])), " ", proto_name(m[1]) }
+        end
+        why = { "", { "fo-ia3c.state-" .. p.state }, " ; ", { "fo-ia3c.need", parts } }
+      else
+        why = { "fo-ia3c.state-" .. p.state }
+      end
+    end
+    local color = p.state == "bloque" and WARN or (taken[p.id] and GOOD or nil)
+    label(parent, { "fo-ia3c.project-line", name, why }, { width = w, color = color })
+  end
+  local lab = st.lab
+  if lab and lab.tech then
+    local proto = game.technology_prototypes[lab.tech]
+    local count = proto and proto.research_unit_count or 1
+    local n_labs = 0
+    for _, e in ipairs(st.labs or {}) do if e.valid then n_labs = n_labs + 1 end end
+    label(parent, { "fo-ia3c.research-line", proto and proto.localised_name or lab.tech,
+      math.floor(100 * (lab.units or 0) / math.max(1, count)), n_labs }, { width = w })
+  end
+  local exp = State.sorted_keys(st.explore or {})
+  if #exp > 0 then label(parent, { "fo-ia3c.explore-line", ia3_list(exp, 4) }, { width = w, color = WARN }) end
+  if not compact then
+    local sat = State.sorted_keys(st.saturated or {})
+    if #sat > 0 then label(parent, { "fo-ia3c.saturated-line", ia3_list(sat, 6) }, { width = w, color = GREY }) end
+  end
+end
+
+---------------------------------------------------------------------------------------------------
 -- Onglets : chaque onglet a une partie FIXE (boutons, confirmation ; refaite après une action, ou quand sa
 -- signature change) et une partie VIVANTE (refaite chaque seconde, fenêtre ouverte).
 ---------------------------------------------------------------------------------------------------
@@ -194,6 +297,8 @@ tabs.equipe = {
       shown = shown + 1
     end
     if shown == 0 then label(row, { "fo-ia1i.missing-none" }, { color = GOOD }) end
+
+    ia3_projects(c, f, WIDTH - 40, false) -- lot IA3-c
 
     heading(c, { "fo-ia1i.staff" })
     local org = t.org
@@ -373,6 +478,8 @@ local function card(parent, f, rec, tick, war)
   if (f.upgrades or 0) > 0 then tech = tech .. " (+" .. f.upgrades .. ")" end
   label(inner, { "fo-ia1i.forces", f.soldiers_count or 0, f.garrison_count or 0, f.engineers_count or 0,
     Team.npc_max(f), f.outposts_count or 0, tech, rec and rec.attacks or 0 }, { width = w })
+
+  if f.team and f.team.ia3c then ia3_projects(inner, f, w, true) end -- lot IA3-c
 
   if rec and (rec.known or 0) > 0 then
     local seen = (f.pvp and f.pvp.vision) and #Vision.known_turrets(f.pvp.vision) or 0
