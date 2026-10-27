@@ -21,7 +21,7 @@ local function patches()
   end
   return out
 end
-M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "normal", groups_hit_player = true, turrets_kill = true })
+M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "normal", groups_hit_player = true, turrets_kill = true, ia3e = true })
 M.command("fo-war", "start 2 60 8 320")
 local seen = 0
 local t0 = os.clock()
