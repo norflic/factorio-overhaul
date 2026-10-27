@@ -593,8 +593,10 @@ end
 local QUAI_ROLES = { ["quai-bras"] = true, ["sortie-bras"] = true }
 local function covered_by(poles, e)
   for _, q in ipairs(poles) do
+    -- aire d'alimentation du poteau (demi-côté) contre la boîte du bras (±0,15) : un bras à 4 tuiles d'un poteau moyen
+    -- n'est PAS alimenté (moteur réel, e6-usine : bras de quai « no_power » sous des poteaux du réseau de la centrale)
     local sup = (q.name == "big-electric-pole") and 2 or ((q.name == "small-electric-pole") and 2.5 or 3.5)
-    if math.abs(q.x - e.x) <= sup + 0.5 and math.abs(q.y - e.y) <= sup + 0.5 then return true end
+    if math.abs(q.x - e.x) <= sup + 0.15 and math.abs(q.y - e.y) <= sup + 0.15 then return true end
   end
   return false
 end

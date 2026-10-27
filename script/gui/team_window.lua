@@ -48,6 +48,10 @@ local State = require("script.faction.state")
 local Team = require("script.team.team")
 local Poles = require("script.team.poles")
 local PlayerTeam = require("script.team.player_team")
+local Auto3e = require("shared.ai3.automatiser")
+-- Objets dont le module a sa propre clé de traduction (locale/*/ia3e.cfg) : les gabarits écrits, et la centrale.
+local AUTO_NAMED = { centrale = true }
+for _, m in ipairs(Auto3e.METHODS) do AUTO_NAMED[m.product] = true end
 local War = require("script.faction.war")
 local PvP = require("script.faction.pvp")
 local Vision = require("script.faction.vision")
@@ -220,6 +224,12 @@ local function ia3_projects(parent, f, w, compact)
   for i, p in ipairs(list) do
     if compact and i > 4 then break end
     local name = { "fo-team.goal-" .. ("ia3-" .. p.key):gsub(":", "-") }
+    -- Lot IA3-e : module GÉNÉRÉ pour un objet quelconque (sans clé de traduction propre) : nom de l'objet du jeu.
+    local auto_item = p.key:match("^auto:(.+)$")
+    if auto_item and not AUTO_NAMED[auto_item] then
+      local proto = game.item_prototypes[auto_item]
+      name = { "fo-team.goal-ia3-auto-objet", proto and proto.localised_name or auto_item }
+    end
     local why
     local cause = p.cause or ""
     if p.state == "bloque" and cause:sub(1, 5) == "site:" then

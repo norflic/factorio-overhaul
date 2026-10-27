@@ -12,6 +12,9 @@
     4. le cerveau : un module demandé est un PROJET (compté dans K), ses manques sont des sous-buts fabriqués à la main,
        un chantier bloqué est un projet bloqué, un module fini compte comme capacité d'extraction et retire les tournées
        des avant-postes qu'il remplace ;
+    2 bis. graphe des recettes et objets quelconques (consigne du DC du 27/10, 7 h 10) : profondeurs, module GÉNÉRÉ depuis
+       la recette (tuyau), limites écrites (3 ingrédients, objet brut, recette de four), un objet attend SES entrées
+       (tapis derrière les engrenages ; le cuivre ne retient plus les chargeurs), interface A.decide_item ;
     5. déterminisme (deux décisions identiques) ;
     6. mutants : chaque règle retirée fait échouer au moins un contrôle.
 ]]
@@ -155,7 +158,7 @@ do
     MAX_OPEN0 .. " module(s) ouvert(s) : le cuivre attend (" .. tostring(verdict(r9, "copper-plate").why) .. ")")
   local r9b = A.decide({ window = cu, obtainable = all_ok, book = book })
   check(#r9b.requests == math.min(2, MAX_OPEN0) and req(r9b, "iron-plate") ~= nil,
-    "fer et cuivre rentables : " .. math.min(2, MAX_OPEN0) .. " demande(s) à la fois, le fer d'abord (" .. #r9b.requests .. ")")
+    "fer et cuivre rentables : " .. math.min(2, MAX_OPEN0) .. " demande(s) à la fois, le fer compris (" .. #r9b.requests .. ")")
   -- Refus : même contexte, coût infini ; contexte changé, revu.
   local mods = { { product = "iron-plate", state = "refuse", reason = "pas de lot", sig = "r5:t3:e0" } }
   local r10 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = mods, sig = "r5:t3:e0" })
@@ -171,6 +174,57 @@ do
   local fin2 = { { product = "iron-plate", state = "fini" }, { product = "iron-plate", state = "fini" } }
   local r13 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = fin2 })
   check(req(r13, "iron-plate") == nil and verdict(r13, "iron-plate").verdict == "fini", "deux modules finis : plus de demande")
+end
+
+---------------------------------------------------------------------------------------------------
+section("2 bis. Graphe des recettes et objets quelconques")
+---------------------------------------------------------------------------------------------------
+do
+  local function d(i) return A.depth(i, book) end
+  check(d("iron-ore") == 0 and d("iron-plate") == 1 and d("iron-gear-wheel") == 2 and d("electronic-circuit") == 2
+    and d("automation-science-pack") == 2 and d("logistic-science-pack") == 3 and d("transport-belt") == 3 and d("pipe") == 2,
+    string.format("profondeurs du graphe : minerai %d, fer %d, engrenages %d, circuits %d, packs rouges %d, verts %d, tapis %d, tuyau %d",
+      d("iron-ore"), d("iron-plate"), d("iron-gear-wheel"), d("electronic-circuit"), d("automation-science-pack"),
+      d("logistic-science-pack"), d("transport-belt"), d("pipe")))
+  -- Un objet SANS gabarit écrit (tuyau), fabriqué à la main 1 PNJ, 30/min : module généré depuis sa recette.
+  local wp = win(10, { ["pipe"] = 3600 }, { ["pipe"] = 30 })
+  local rp = A.decide({ window = wp, obtainable = all_ok, book = book, has_plant = true })
+  local vp, qp = verdict(rp, "pipe"), req(rp, "pipe")
+  check(vp ~= nil and vp.generic and qp ~= nil and qp.gen == "simple" and type(qp.args[1]) == "table" and qp.args[1].name == "pipe"
+    and qp.args[3] == "assembling-machine-1",
+    "tuyau (aucun gabarit écrit) : rangée d'assembleurs GÉNÉRÉE depuis sa recette, demandée (" .. tostring(vp and vp.why) .. ")")
+  check(qp and qp.rate_nom >= 30 * 1.25 - 1e-6 and qp.items["assembling-machine-1"] == qp.args[2],
+    string.format("tuyau : débit visé 37,5/min, nominal %.1f, %s assembleur(s)", qp and qp.rate_nom or 0, qp and tostring(qp.args[2]) or "?"))
+  local g = A.template(qp.gen, qp.args)
+  check(g ~= nil and (g.inputs["iron-plate"] or 0) > 0, "le gabarit généré reçoit les plaques de fer par son quai")
+  -- Limites écrites.
+  local wi = win(10, { ["inserter"] = 3600, ["stone"] = 3600, ["stone-brick"] = 3600 }, { ["inserter"] = 10 })
+  local ri = A.decide({ window = wi, obtainable = all_ok, book = book, has_plant = true })
+  local vi, vs, vb = verdict(ri, "inserter"), verdict(ri, "stone"), verdict(ri, "stone-brick")
+  check(vi and vi.verdict == "limite" and tostring(vi.why):find("3 ingredients", 1, true) and req(ri, "inserter") == nil,
+    "bras (3 ingrédients) : verdict « limite », raison écrite (" .. tostring(vi and vi.why) .. ")")
+  check(vs and vs.verdict == "limite" and tostring(vs.why):find("brut", 1, true), "pierre minée à la main : « limite » objet brut (" .. tostring(vs and vs.why) .. ")")
+  check(vb and vb.verdict == "limite" and tostring(vb.why):find("smelting", 1, true), "briques (four) : « limite » hors de la main (" .. tostring(vb and vb.why) .. ")")
+  -- Un objet attend SES entrées : le tapis (engrenages + fer) derrière un module d'engrenages en chantier ; les chargeurs
+  -- (fer seul) ne sont plus retenus par un module de cuivre (l'ancienne liste de rangs les retenait).
+  local wb = win(10, { ["transport-belt"] = 3600, ["firearm-magazine"] = 3600 }, { ["transport-belt"] = 30, ["firearm-magazine"] = 30 })
+  local rb = A.decide({ window = wb, obtainable = all_ok, book = book, has_plant = true,
+    modules = { { product = "iron-gear-wheel", state = "chantier" } } })
+  local vt = verdict(rb, "transport-belt")
+  check(vt and vt.verdict == "ordre" and tostring(vt.why):find("iron-gear-wheel", 1, true),
+    "tapis : attend son entrée « engrenages » en chantier (" .. tostring(vt and vt.why) .. ")")
+  local rc = A.decide({ window = wb, obtainable = all_ok, book = book, has_plant = true,
+    modules = { { product = "copper-plate", state = "chantier" } } })
+  check(req(rc, "firearm-magazine") ~= nil, "chargeurs (fer seul) : un module de cuivre en chantier ne les retient pas (" ..
+    tostring(verdict(rc, "firearm-magazine").why) .. ")")
+  local sorted = true
+  for i = 2, #rc.verdicts do if (rc.verdicts[i].depth or 0) < (rc.verdicts[i - 1].depth or 0) then sorted = false end end
+  check(sorted, "verdicts pesés par profondeur croissante")
+  -- Interface d'un objet (IA-G) : pesé même sans charge mesurée.
+  local v1, q1 = A.decide_item({ window = win(10, {}, {}), obtainable = all_ok, book = book }, "pipe")
+  check(v1 and v1.product == "pipe" and v1.verdict == "non" and q1 == nil, "A.decide_item : tuyau sans charge, verdict « non » (" .. tostring(v1 and v1.why) .. ")")
+  local v2, q2 = A.decide_item({ window = wp, obtainable = all_ok, book = book, has_plant = true }, "pipe")
+  check(v2 and v2.verdict == "demande" and q2 and q2.gen == "simple", "A.decide_item : tuyau chargé, demande rendue")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -399,8 +453,15 @@ local W0 = A.WINDOW
 mutant("fenêtre d'une minute", function() A.WINDOW = 1 end, function() A.WINDOW = W0 end)
 local meth0 = {}
 for i, m in ipairs(A.METHODS) do meth0[i] = m end
-mutant("sans ordre des rangs", function() for _, m in ipairs(A.METHODS) do m.rank0 = m.rank; m.rank = 1 end end,
-  function() for _, m in ipairs(A.METHODS) do m.rank = m.rank0; m.rank0 = nil end end)
+local inputs0 = A.inputs_of
+mutant("ordre sans le graphe (aucune entrée)", function() A.inputs_of = function() return {} end end, function() A.inputs_of = inputs0 end)
+local mf0 = A.method_for
+mutant("aucun module généré (gabarits écrits seulement)", function()
+  A.method_for = function(item, b)
+    for _, m in ipairs(A.METHODS) do if m.product == item then return m end end
+    return nil, "limite : pas de gabarit"
+  end
+end, function() A.method_for = mf0 end)
 local cost0 = A.cost
 mutant("coût nul", function() A.cost = function(meth, g, ctx) local c, i, n, d = cost0(meth, g, ctx); return 0, i, n, d end end,
   function() A.cost = cost0 end)

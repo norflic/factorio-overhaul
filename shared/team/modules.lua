@@ -784,26 +784,49 @@ end
 function G.simple(recipe, n, machine)
   machine = machine or "assembling-machine-1"
   local sp, why = machine_spec(machine, "assembler", "rangée"); if not sp then return nil, why end
-  local r = R[recipe]
-  if not r or r.category ~= "crafting" then return fail("rangée : recette « %s » absente du modèle ou pas « crafting »", tostring(recipe)) end
+  -- Lot IA3-e (généralisation) : la recette peut venir des DONNÉES du jeu (table { name, category, energy | time,
+  -- ingredients = { { type, name, amount } }, products = { … } }, livre de recettes du cerveau) : elle est rangée au modèle
+  -- (M.RECIPES) à la première génération ; le paramètre du gabarit garde la table (le gabarit se refait après un
+  -- chargement). Fonction pure de la table : même modèle sur tous les postes.
+  local key = recipe
+  if type(recipe) == "table" then
+    key = recipe.name
+    if type(key) ~= "string" then return fail("rangée : recette sans nom") end
+    if not R[key] then
+      local ins, outs = {}, {}
+      for _, i in ipairs(recipe.ingredients or {}) do
+        ins[#ins + 1] = { name = i.name or i[1], amount = i.amount or i[2], fluid = (i.type == "fluid") or nil }
+      end
+      for _, q in ipairs(recipe.products or {}) do
+        outs[#outs + 1] = { name = q.name or q[1], amount = q.amount or q[2] or 1, fluid = (q.type == "fluid") or nil }
+      end
+      R[key] = { name = key, category = recipe.category or "crafting", time = recipe.time or recipe.energy or 0.5,
+        ingredients = ins, products = outs }
+    end
+  end
+  local r = R[key]
+  local cat_ok = false
+  for _, c in ipairs(sp.categories or { "crafting" }) do if r and c == (r.category or "crafting") then cat_ok = true end end
+  if not r or not cat_ok then return fail("rangée : recette « %s » absente du modèle ou d'une catégorie que « %s » ne fabrique pas", tostring(key), machine) end
+  if not (r.time and r.time > 0) then return fail("rangée : %s sans durée", key) end
   local ok, why2 = count_ok(n, "rangée"); if not ok then return nil, why2 end
   local ings = {}
   for _, ing in ipairs(r.ingredients) do
-    if ing.fluid then return fail("rangée : %s demande un fluide", recipe) end
+    if ing.fluid then return fail("rangée : %s demande un fluide", key) end
     ings[#ings + 1] = ing
   end
-  if #ings < 1 or #ings > 2 or #r.products ~= 1 then return fail("rangée : %s n'a pas 1 ou 2 ingrédients et un produit", recipe) end
+  if #ings < 1 or #ings > 2 or #r.products ~= 1 then return fail("rangée : %s n'a pas 1 ou 2 ingrédients et un produit", key) end
   local rate = sp.speed / r.time
   local top = {}
   for i, ing in ipairs(ings) do top[i] = ing.name end
   local ms = {}
-  for i = 1, n do ms[i] = { name = machine, recipe = recipe, rate = rate, top = top, out = true } end
+  for i = 1, n do ms[i] = { name = machine, recipe = key, rate = rate, top = top, out = true } end
   local lanes = { ings[1].name, (ings[2] or ings[1]).name }
-  local b, info = G.row("rangee-" .. recipe .. lvl_tag(sp), "Rangée (" .. n .. " " .. machine .. ", " .. recipe .. ")",
-    "Row (" .. n .. " " .. machine .. ", " .. recipe .. ")", { machines = ms, lanes = lanes })
+  local b, info = G.row("rangee-" .. key .. lvl_tag(sp), "Rangée (" .. n .. " " .. machine .. ", " .. key .. ")",
+    "Row (" .. n .. " " .. machine .. ", " .. key .. ")", { machines = ms, lanes = lanes })
   if not b then return nil, info end
   b.g.power_pole = row_poles(b, info, 0, 0)
-  b.g.params = { recipe = recipe, n = n, machine = machine }
+  b.g.params = { recipe = key, n = n, machine = machine }
   b.g.gen, b.g.args, b.g.level_arg = "simple", { recipe, n, machine }, 3
   -- bornes : largeur ; un ingrédient seul sur deux voies (15/s), deux ingrédients sur une voie chacun (7,5/s) ; produit sur
   -- UNE voie du tapis de sortie

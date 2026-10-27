@@ -324,7 +324,8 @@ function Auto.think(f, view, book, tick)
     st.wanted = res.wanted
     st.verdicts = {}
     for _, v in ipairs(res.verdicts) do
-      st.verdicts[#st.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T }
+      st.verdicts[#st.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T,
+        depth = v.depth, generic = v.generic }
     end
     for _, rq in ipairs(res.requests) do
       -- Plan directeur allumé à la PREMIÈRE demande (une fois, sans « seul » : le cerveau garde ses tâches libres).
@@ -354,7 +355,11 @@ function Auto.think(f, view, book, tick)
           gain = rq.gain }
         if rq.electric then st.plant_gain = math.max(st.plant_gain or 0, rq.gain or 0) end
         note(f, st, tick, string.format("module '%s' DEMANDE (%s %s, %.0f objets/min visés, nominal %.0f) : %s", rq.product, rq.gen,
-          table.concat((function() local o = {} for i, a in ipairs(rq.args) do o[i] = tostring(a) end return o end)(), ","),
+          table.concat((function()
+            local o = {}
+            for i, a in ipairs(rq.args) do o[i] = type(a) == "table" and ("recette " .. tostring(a.name)) or tostring(a) end
+            return o
+          end)(), ","),
           rq.rate, rq.rate_nom, rq.why))
       else
         note(f, st, tick, string.format("module '%s' : demande impossible (%s)", rq.product, tostring(why)))
@@ -395,10 +400,11 @@ end
 
 --- Ligne de la minute (lisibilité, critère 6) : charges et débits de la fenêtre, modules, verdicts et leurs raisons.
 function Auto.minute_line(f, st, tick)
+  -- objets pesés à la dernière pensée (gabarits écrits et tout objet chargé à la main : consigne du DC du 27/10), par
+  -- profondeur du graphe des recettes
   local loads = {}
-  for _, m in ipairs(A.METHODS) do
-    local L, D, Lres, n = A.measure(st.window, m.product)
-    loads[#loads + 1] = string.format("%s:%.2f/%.0f", m.product, L, D)
+  for _, v in ipairs(st.verdicts) do
+    loads[#loads + 1] = string.format("%s:%.2f/%.0f", v.product, v.L or 0, v.D or 0)
   end
   local mods = {}
   for _, m in ipairs(st.modules) do
@@ -415,7 +421,9 @@ function Auto.minute_line(f, st, tick)
   end
   if st.plant_id then mods[#mods + 1] = "centrale#" .. st.plant_id .. ":" .. tostring(st.plant_state) end
   local vs = {}
-  for _, v in ipairs(st.verdicts) do vs[#vs + 1] = v.product .. ":" .. v.verdict .. "(" .. tostring(v.why) .. ")" end
+  for _, v in ipairs(st.verdicts) do
+    vs[#vs + 1] = v.product .. ":" .. v.verdict .. (v.generic and "*" or "") .. "(d" .. tostring(v.depth or 0) .. ", " .. tostring(v.why) .. ")"
+  end
   local hand = {}
   for _, k in ipairs(sorted_keys(st.hand)) do hand[#hand + 1] = k .. "=" .. st.hand[k] end
   log(string.format("[FO-IA3E] %s minute %d | fenetre %d min | charge PNJ/debit {%s} | modules {%s} | verdicts {%s} | recherche voulue [%s] | main {%s}",
@@ -456,7 +464,7 @@ remote.add_interface("fo-ia3e", {
         finished = m.finished, rate = m.rate, rate_nom = m.rate_nom, rate_meas = m.rate_meas, built = m.built, total = m.total,
         parts = s and s.parts or {}, quais = s and s.quais or {} }
     end
-    for _, v in ipairs(st.verdicts) do out.verdicts[#out.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T } end
+    for _, v in ipairs(st.verdicts) do out.verdicts[#out.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T, depth = v.depth, generic = v.generic } end
     for _, k in ipairs(sorted_keys(st.hand)) do out.hand[k] = st.hand[k] end
     out.hand_all = {}
     for _, k in ipairs(sorted_keys(st.hand_all)) do out.hand_all[k] = st.hand_all[k] end

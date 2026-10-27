@@ -22,9 +22,18 @@
   7. Un objet du gabarit que l'équipe ne sait ni fabriquer ni n'a en stock (poteau moyen sans sa technologie) : verdict
      « recherche » ; l'objet est rendu dans `wanted` (le runtime donne de la valeur à la technologie qui le débloque :
      « la recherche vaut ce qu'elle débloque », H9). Aucune demande tant qu'il manque.
-  8. Ordre (IA1-d §6.3) : rang 1 fer et cuivre (racines de toutes les chaînes), rang 2 engrenages et circuits, rang 3
-     packs. Un rang attend tant qu'une méthode d'un rang inférieur est demandable, en recherche ou en cours. Au plus
+  8. Ordre DÉDUIT DU GRAPHE DES RECETTES (consigne du DC, 27/10, 7 h 10 : « un objet attend que ses ingrédients soient
+     automatisés. Pas d'une liste de noms ») : profondeur d'un objet = 1 + la plus grande profondeur de ses entrées
+     (entrées du gabarit, sinon ingrédients de sa recette ; objet brut : 0) ; les objets sont pesés par profondeur
+     croissante, puis charge décroissante, puis nom ; un objet ATTEND (« ordre ») tant qu'une de ses entrées est en route
+     vers l'automatisation (demandée, en recherche, en cours, en attente de place, ou elle-même en attente). Au plus
      A.MAX_OPEN modules ouverts à la fois (hors centrale) ; au plus A.MAX_PER_PRODUCT modules finis par objet.
+  10. N'IMPORTE QUEL objet (même consigne) : sont pesés les produits de A.METHODS (gabarits écrits à la main, plus
+     efficaces : fonderie avec foreuses, îlots de circuits) ET tout objet qui a coûté de la charge à la main dans la
+     fenêtre (ou demandé par l'appelant, input.items). Sans gabarit, le module est GÉNÉRÉ depuis les données : rangée
+     d'assembleurs (G.simple) de la première machine de A.MACHINES qui fait la catégorie de sa recette, entrées de la
+     recette par quais, débit visé. Limites (verdict « limite », raison écrite) : objet brut (extraction seule), recette
+     hors de la main (fours, fluides), plus de 2 ingrédients, plusieurs produits (INTEGRATION.md §0).
      Un objet impossible se voit dès A.RESEARCH_WINDOW minutes de fenêtre (la recherche prend du temps) ; la demande
      du module attend la fenêtre pleine.
   9. Refus du plan directeur : coût infini tant que la raison ne change pas (signature `sig` : raison + contexte
@@ -76,13 +85,13 @@ A.BURNER_RATE = 0.25     -- minerai/s d'une foreuse à combustion (avant-postes 
 -- Méthodes « machine » (données du mod : générateurs de shared/team/modules.lua). ext = indice du paramètre agrandi
 -- (extension du gabarit) ; ore = minerai servi par des foreuses quand le flux le permet ; feed = têtes d'alimentation.
 A.METHODS = {
-  { product = "iron-plate", rank = 1, gen = "smelter", args = { "stone-furnace", "iron-ore", 1 }, ore = "iron-ore", feed = true },
-  { product = "copper-plate", rank = 1, gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = true },
-  { product = "iron-gear-wheel", rank = 2, gen = "gears", args = { 1, "assembling-machine-1" }, feed = true },
-  { product = "electronic-circuit", rank = 2, gen = "circuits", args = { "assembling-machine-1", 1 }, feed = true },
-  { product = "firearm-magazine", rank = 2, gen = "simple", args = { "firearm-magazine", 1, "assembling-machine-1" }, feed = true },
-  { product = "automation-science-pack", rank = 3, gen = "red_packs", args = { "assembling-machine-1", 1 }, feed = true },
-  { product = "logistic-science-pack", rank = 3, gen = "green_packs", args = { "assembling-machine-1", 1 }, feed = true },
+  { product = "iron-plate", gen = "smelter", args = { "stone-furnace", "iron-ore", 1 }, ore = "iron-ore", feed = true },
+  { product = "copper-plate", gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = true },
+  { product = "iron-gear-wheel", gen = "gears", args = { 1, "assembling-machine-1" }, feed = true },
+  { product = "electronic-circuit", gen = "circuits", args = { "assembling-machine-1", 1 }, feed = true },
+  { product = "firearm-magazine", gen = "simple", args = { "firearm-magazine", 1, "assembling-machine-1" }, feed = true },
+  { product = "automation-science-pack", gen = "red_packs", args = { "assembling-machine-1", 1 }, feed = true },
+  { product = "logistic-science-pack", gen = "green_packs", args = { "assembling-machine-1", 1 }, feed = true },
 }
 -- La centrale (demandée d'elle-même par le plan directeur au premier module électrique) : comptée dans le coût du
 -- premier module quand l'équipe n'en a pas.
@@ -102,7 +111,11 @@ local cache = {}
 
 local function args_key(gen, args)
   local parts = { gen }
-  for i = 1, #args do parts[#parts + 1] = tostring(args[i]) end
+  for i = 1, #args do
+    local a = args[i]
+    -- recette tirée des données (G.simple) : son NOM (une adresse de table changerait d'une pensée à l'autre)
+    parts[#parts + 1] = type(a) == "table" and ("{" .. tostring(a.name) .. "}") or tostring(a)
+  end
   return table.concat(parts, "|")
 end
 
@@ -255,6 +268,108 @@ function A.residual(det, rate_nom_min, dist)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Graphe des recettes et méthodes générées (consigne du DC du 27/10, 7 h 10)
+---------------------------------------------------------------------------------------------------
+--- Machines essayées, dans l'ordre, pour un module généré : la première dont les catégories contiennent celle de la
+--- recette (M.spec). Un objet de la machine que l'équipe ne sait pas fabriquer fait « recherche » (point 7).
+A.MACHINES = { "assembling-machine-1", "assembling-machine-2" }
+
+-- Index produit -> recette de TOUT le livre (fours et fluides compris : le graphe, pas la main). Cache LOCAL par livre
+-- (table faible), construit dans l'ordre des noms : fonction pure des recettes.
+local INDEX = setmetatable({}, { __mode = "k" })
+local function recipe_index(book)
+  if not (type(book) == "table" and type(book.recipes) == "table") then return {} end
+  local idx = INDEX[book]
+  if idx then return idx end
+  idx = {}
+  for _, name in ipairs(sorted_keys(book.recipes)) do
+    local r = book.recipes[name]
+    local pr = r.products or {}
+    if not r.hidden and #pr == 1 and pr[1].name then
+      local p = pr[1].name
+      local cur = idx[p]
+      if not cur or (name == p and cur ~= p) then idx[p] = name end
+    end
+  end
+  INDEX[book] = idx
+  return idx
+end
+
+--- Méthode « machine » d'un objet : celle de A.METHODS s'il en a une, sinon un module GÉNÉRÉ depuis la recette de la main
+--- (rangée G.simple). Rend la méthode, ou nil et la raison de la limite.
+function A.method_for(item, book)
+  for _, m in ipairs(A.METHODS) do if m.product == item then return m end end
+  local rname = type(book) == "table" and book.recipe_for and book:recipe_for(item) or nil
+  if not rname then
+    local other = recipe_index(book)[item]
+    if other then
+      local r = book.recipes[other]
+      return nil, "limite : recette " .. other .. " hors de la main (" .. tostring(r and r.category) .. ")"
+    end
+    return nil, "limite : objet brut (extraction seule)"
+  end
+  local r = book.recipes[rname]
+  local solid, n_in = true, 0
+  for _, i in ipairs(r.ingredients or {}) do
+    n_in = n_in + 1
+    if i.type == "fluid" then solid = false end
+  end
+  if not solid then return nil, "limite : " .. rname .. " demande un fluide" end
+  if n_in < 1 or n_in > 2 then return nil, "limite : " .. rname .. " a " .. n_in .. " ingredients (rangee : 1 ou 2)" end
+  if #(r.products or {}) ~= 1 then return nil, "limite : " .. rname .. " a plusieurs produits" end
+  local machine = nil
+  for _, name in ipairs(A.MACHINES) do
+    local sp = M.spec(name)
+    for _, c in ipairs(sp and sp.categories or {}) do
+      if c == r.category and not machine then machine = name end
+    end
+  end
+  if not machine then return nil, "limite : aucune machine pour la categorie " .. tostring(r.category) end
+  local def = { name = rname, category = r.category, energy = r.energy, ingredients = r.ingredients, products = r.products }
+  return { product = item, gen = "simple", args = { def, 1, machine }, feed = true, generic = true }
+end
+
+--- Entrées d'un objet dans le graphe : celles du gabarit de sa méthode (ce que le module reçoit du dehors : les
+--- engrenages des packs rouges se font DANS le module), sinon les ingrédients de sa recette (toutes catégories). Triées.
+local function inputs_of(item, book, meth)
+  local t = {}
+  if meth then
+    local base = A.template(meth.gen, meth.args)
+    if base then
+      for _, k in ipairs(sorted_keys(base.inputs)) do if k ~= "electricity-kw" then t[#t + 1] = k end end
+      return t
+    end
+  end
+  local rname = recipe_index(book)[item]
+  local r = rname and book.recipes[rname]
+  if not r then return t end
+  local seen = {}
+  for _, i in ipairs(r.ingredients or {}) do
+    if i.name and not seen[i.name] then seen[i.name] = true; t[#t + 1] = i.name end
+  end
+  table.sort(t)
+  return t
+end
+A.inputs_of = inputs_of
+
+--- Profondeur d'un objet dans le graphe des recettes : 0 pour un objet brut, 1 + la plus grande profondeur de ses entrées
+--- sinon (fer : 1 ; engrenages, circuits, chargeurs, packs rouges : 2 ; packs verts : 3). memo et meth_of facultatifs.
+function A.depth(item, book, memo, meth_of)
+  memo = memo or {}
+  meth_of = meth_of or function(i) return (A.method_for(i, book)) end
+  local d = memo[item]
+  if d ~= nil then return d end
+  memo[item] = 0 -- garde contre un cycle de recettes
+  local best = 0
+  for _, i in ipairs(A.inputs_of(item, book, meth_of(item))) do
+    local di = A.depth(i, book, memo, meth_of) + 1
+    if di > best then best = di end
+  end
+  memo[item] = best
+  return best
+end
+
+---------------------------------------------------------------------------------------------------
 -- Décision
 ---------------------------------------------------------------------------------------------------
 local OPEN = { attente = true, plan = true, reserve = true, defrichage = true, fantomes = true, chantier = true,
@@ -264,9 +379,12 @@ A.OPEN_STATES = OPEN
 --- La décision d'une pensée. input = {
 ---   window, threatened, modules = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
 ---   obtainable(item) -> bool (fabricable à la main OU au stock), book, stock, dist, has_plant, sig (contexte),
----   no_power (raison du refus de la centrale, ou nil) }.
---- Rend { requests = { { product, gen, args, rate, rate_nom, feed, why } }, verdicts = { { product, verdict, why, L, D,
---- T, C, G } } (ordre de A.METHODS), wanted = { [objet] = true } }.
+---   no_power (raison du refus de la centrale, ou nil), items (facultatif : objets à peser en plus, par exemple les
+---   étapes « produce » du dépliage d'IA-G) }.
+--- Rend { requests = { { product, gen, args, rate, rate_nom, feed, why, items, electric, gain } }, verdicts = { { product,
+--- verdict, why, L, D, T, C, G, depth, generic } } (ordre de la pesée : profondeur, charge, nom), wanted = { [objet] = true } }.
+--- Verdicts : demande, en_cours, ordre (une entrée d'abord), recherche (objet impossible), attente (fenêtre ou place),
+--- non (charge, retour, gain, centrale, gabarit), refuse (plan directeur, même signature), fini, limite (pas de méthode).
 function A.decide(input)
   local window = input.window or {}
   local H = input.threatened and A.H_THREAT or A.H_SAFE
@@ -300,18 +418,54 @@ function A.decide(input)
     if not price[p] and price[input[1]] then price[p] = input[2] * price[input[1]] end
   end
   local out = { requests = {}, verdicts = {}, wanted = {} }
-  local busy_rank = nil -- plus petit rang qui retient les suivants (demandable, en recherche ou en cours)
-  for _, meth in ipairs(A.METHODS) do
-    local st = mods[meth.product] or { open = 0, fini = 0 }
-    -- Un module fini du même objet : seules les minutes APRÈS sa fin comptent (la charge d'avant, qu'il remplace, ne
-    -- demande pas un second module ; sonde au moteur simulé du 27/10 : second module demandé la minute suivante).
-    local L, D, Lres, n = A.measure(window, meth.product, st.last_m)
-    local v = { product = meth.product, L = L, D = D, rank = meth.rank }
-    if busy_rank and meth.rank > busy_rank then
-      v.verdict, v.why = "ordre", "rang " .. busy_rank .. " d'abord"
+  -- Objets pesés : produits des gabarits écrits, objets demandés par l'appelant, objets qui ont coûté de la charge à la
+  -- main dans la fenêtre (n'importe lequel : consigne du DC du 27/10).
+  local book = input.book
+  local cands, seen = {}, {}
+  local function cand(item) if item and not seen[item] then seen[item] = true; cands[#cands + 1] = item end end
+  for _, m in ipairs(A.METHODS) do cand(m.product) end
+  for _, it in ipairs(input.items or {}) do cand(it) end
+  local loaded = {}
+  for i = math.max(1, #window - A.WINDOW + 1), #window do
+    for k, x in pairs(window[i].load or {}) do if x > 0 then loaded[k] = true end end
+  end
+  for _, k in ipairs(sorted_keys(loaded)) do cand(k) end
+  local meths, whys = {}, {}
+  local function meth_of(item)
+    if meths[item] == nil then
+      local m, why = A.method_for(item, book)
+      meths[item] = m or false
+      whys[item] = why
+    end
+    return meths[item] or nil
+  end
+  local memo = {}
+  local order = {}
+  for _, item in ipairs(cands) do
+    local st = mods[item] or { open = 0, fini = 0 }
+    local L, D, _, n = A.measure(window, item, st.last_m)
+    order[#order + 1] = { item = item, depth = A.depth(item, book, memo, meth_of), L = L, D = D, n = n,
+      inputs = A.inputs_of(item, book, meth_of(item)) }
+  end
+  table.sort(order, function(a, b)
+    if a.depth ~= b.depth then return a.depth < b.depth end
+    if a.L ~= b.L then return a.L > b.L end
+    return a.item < b.item
+  end)
+  local busy = {} -- objets en route vers l'automatisation : leurs consommateurs attendent (point 8)
+  for _, c in ipairs(order) do
+    local meth = meth_of(c.item)
+    local st = mods[c.item] or { open = 0, fini = 0 }
+    local L, D, n = c.L, c.D, c.n
+    local v = { product = c.item, L = L, D = D, depth = c.depth, generic = meth and meth.generic or nil }
+    local first_busy = nil
+    for _, i in ipairs(c.inputs) do if busy[i] and not first_busy then first_busy = i end end
+    if first_busy then
+      v.verdict, v.why = "ordre", "entree " .. first_busy .. " d'abord"
+      busy[c.item] = true
     elseif st.open > 0 then
       v.verdict, v.why = "en_cours", "module ouvert"
-      busy_rank = busy_rank or meth.rank
+      busy[c.item] = true
     elseif st.refused and st.refused.sig == input.sig then
       v.verdict, v.why = "refuse", tostring(st.refused.reason)
     elseif st.fini >= A.MAX_PER_PRODUCT then
@@ -320,6 +474,8 @@ function A.decide(input)
       v.verdict, v.why = "attente", "fenetre " .. n .. "/" .. A.WINDOW .. " min"
     elseif L <= A.LOAD_MIN then
       v.verdict, v.why = "non", string.format("charge %.2f PNJ <= %.2f", L, A.LOAD_MIN)
+    elseif not meth then
+      v.verdict, v.why = "limite", tostring(whys[c.item])
     else
       local rate = math.max(1, D) * (100 + margin) / 100
       if st.fini == 0 and rate > A.FIRST_RATE_MAX then rate = A.FIRST_RATE_MAX end
@@ -347,7 +503,7 @@ function A.decide(input)
       if not g then
         v.verdict, v.why = "non", "gabarit : " .. tostring(args)
       else
-        local rate_nom = (g.nominal[meth.product] or 0) * 60
+        local rate_nom = (g.nominal[c.item] or 0) * 60
         local C, items, n_ent, det = A.cost(meth, g, { book = input.book, stock = input.stock, dist = input.dist,
           price = price, has_plant = input.has_plant })
         local electric = (g.power_kw or 0) > 0
@@ -373,20 +529,20 @@ function A.decide(input)
           elseif #missing > 0 then
             v.verdict, v.why = "recherche", "objets impossibles : " .. table.concat(missing, ",")
             for _, name in ipairs(missing) do out.wanted[name] = true end
-            busy_rank = busy_rank or meth.rank
+            busy[c.item] = true
           elseif n < A.WINDOW then
             -- Demi-fenêtre : assez pour lancer la recherche d'un objet impossible, pas pour demander le module (H3 :
             -- « pendant 10 min »).
             v.verdict, v.why = "attente", "fenetre " .. n .. "/" .. A.WINDOW .. " min"
           elseif open >= A.MAX_OPEN then
             v.verdict, v.why = "attente", "un module deja ouvert"
-            busy_rank = busy_rank or meth.rank
+            busy[c.item] = true
           else
             v.verdict, v.why = "demande", string.format("charge %.2f PNJ, retour %.1f min <= %d", L, T, H)
-            out.requests[#out.requests + 1] = { product = meth.product, gen = meth.gen, args = args, rate = rate,
+            out.requests[#out.requests + 1] = { product = c.item, gen = meth.gen, args = args, rate = rate,
               rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric, gain = G }
             open = open + 1
-            busy_rank = busy_rank or meth.rank
+            busy[c.item] = true
           end
         end
       end
@@ -394,6 +550,24 @@ function A.decide(input)
     out.verdicts[#out.verdicts + 1] = v
   end
   return out
+end
+
+--- Interface STABLE pour un appelant qui pèse UN objet (étapes « produce » et « extract » du dépliage d'IA-G) : même
+--- décision que A.decide (même contexte : ordre du graphe, modules ouverts, refus), l'objet étant pesé même sans charge
+--- mesurée. Rend le verdict de l'objet { product, verdict, why, L, D, T, C, G, depth, generic } et sa demande (ou nil) :
+--- le runtime (script/ai3/automatisation.lua) reste seul à appliquer les demandes au plan directeur.
+function A.decide_item(input, item)
+  local items = {}
+  for _, it in ipairs(input.items or {}) do items[#items + 1] = it end
+  items[#items + 1] = item
+  local copy = {}
+  for k, x in pairs(input) do copy[k] = x end
+  copy.items = items
+  local res = A.decide(copy)
+  local verdict, request = nil, nil
+  for _, v in ipairs(res.verdicts) do if v.product == item then verdict = v end end
+  for _, r in ipairs(res.requests) do if r.product == item then request = r end end
+  return verdict, request, res
 end
 
 ---------------------------------------------------------------------------------------------------
