@@ -1211,6 +1211,18 @@ local function npc_block(f, p, e, surface)
   local st = f.build.stats
   st.npc_blocks = (st.npc_blocks or 0) + 1
   e.npc_blocks = (e.npc_blocks or 0) + 1
+  -- Lot IA3-e : un SOLDAT de l'équipe en garnison ne quitte jamais l'emprise (moteur réel, e9-usine graine 20261020 après
+  -- la fusion de main 0.5.0 : fonderie d'emerald bloquée 50 min à 68 entités sur 69, un bras sous fo-emerald-rifleman) :
+  -- il s'écarte (téléporté sur la case libre la plus proche HORS de l'emprise). Les personnages (PNJ) bougent seuls.
+  local a = footprint(e)
+  for _, u in ipairs(surface.find_entities_filtered({ area = a, type = "unit", force = f.force })) do
+    local target = { x = a[2][1] + 2, y = (a[1][2] + a[2][2]) / 2 }
+    local pos = surface.find_non_colliding_position(u.name, target, 8, 0.5)
+    if pos and not (pos.x > a[1][1] - 0.5 and pos.x < a[2][1] + 0.5 and pos.y > a[1][2] - 0.5 and pos.y < a[2][2] + 0.5) then
+      u.teleport(pos)
+      st.npc_moved = (st.npc_moved or 0) + 1
+    end
+  end
   if e.npc_blocks % Build.NPC_BLOCKS_PER_FAIL == 0 then e.fails = (e.fails or 0) + 1 end
   log_refusal(f, p, e, "pnj", surface)
 end
