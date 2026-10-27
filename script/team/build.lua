@@ -679,11 +679,12 @@ local function plan_feed(f, surface, p, place, part)
       local fd = P.feeder(port, sources, quai_ins)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
-      if quai_ins ~= "burner-inserter" then
-        local qp = quai_poles(b, p, fd.entities, place.masks)
-        if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
-      end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
+      -- Lot IA3-e : les poteaux des bras de quai APRÈS le tapis des foreuses (posés avant, ils prenaient les tuiles de son
+      -- arrivée : tapis impossible, repli sur un quai de minerai vide ; moteur réel, e7-usine, emerald, même lot qu'en
+      -- e6, 74 entités sans foreuses contre 138 avec).
+      local quay_ents = {}
+      for _, e in ipairs(fd.entities) do quay_ents[#quay_ents + 1] = e end
       for _, a in ipairs(fd.arrivals) do
         local d = drills[a.lane]
         if d then
@@ -696,9 +697,14 @@ local function plan_feed(f, surface, p, place, part)
             for _, e in ipairs(alt.entities) do if e.role ~= "tete" then e.part = part; extra[#extra + 1] = e end end
             if reserve_tiles(b, p, extra) then
               for _, c in ipairs(alt.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
+              for _, e in ipairs(extra) do quay_ents[#quay_ents + 1] = e end
             end
           end
         end
+      end
+      if quai_ins ~= "burner-inserter" then
+        local qp = quai_poles(b, p, quay_ents, place.masks)
+        if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       end
     else
       local outn = 0
