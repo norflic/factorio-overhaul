@@ -402,11 +402,27 @@ local function plan_site(f, surface, p, h)
   local masks = h.read_masks(x0, y0, x1, y1)
   local net = nearest_network(f, surface, origin.x, origin.y, b)
   local pole = pole_of(f, rel)
+  -- hors du relevé principal (ligne de poteaux jusqu'au réseau, qui peut traverser le QG) : relevés par carrés de 32
+  -- tuiles, lus à la demande et gardés le temps du plan (moteur réel, petrole-partie 271828182 : un relais posé sur le
+  -- QG de la faction, hors du relevé, chantier bloqué à 274 entités sur 287)
+  local extra = {}
+  local function masks_at(tx, ty)
+    if tx >= x0 and tx < x1 and ty >= y0 and ty < y1 then return masks end
+    local cx, cy = math.floor(tx / 32), math.floor(ty / 32)
+    local ck = cx * 65536 + cy
+    local m = extra[ck]
+    if not m then
+      m = h.read_masks(cx * 32, cy * 32, cx * 32 + 32, cy * 32 + 32)
+      extra[ck] = m
+    end
+    return m
+  end
   local function blocked(tx, ty)
     -- clé des tuiles du plan directeur (shared/team/plan.lua P.tkey : même formule que Fl.tkey)
     local k = Fl.tkey(tx, ty)
     if b.occ[k] then return true end
-    return masks.water[k] or masks.blocked[k] or false
+    local m = masks_at(tx, ty)
+    return m.water[k] or m.blocked[k] or false
   end
   local req = { origin = origin, blocked = blocked, ents = rel.entities, chain = ch, wells = wells, pumps = pumps,
     extractor = spec.extractor, conduit = D.PIPE, chest = D.CHEST, arm = D.ARM, poles = pole, network = net, block = block }
