@@ -10,6 +10,17 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 9 h 55 : IA3-e LIVRÉ, NON FUSIONNÉ** (tête `d7e8a7d` = main 0.5.0 + lot ; `fo-logs\2026-10-27_IA3-e\INTEGRATION.md`) :
+> règle « main ou machine » pour TOUT objet (module généré depuis la recette), ordre tiré de la profondeur du graphe, interface
+> pure pour IA-G (§0) ; verif-guide 15 OK × 2, content 331, ia1-build-plaine 12, K11, K10 0,157 ms en `--seul`. **Refusé en
+> l'état** : sur la tête, AUCUN module de production seul à 45 min (fonderie posée loin du gisement, quai de minerai vide), part à
+> la main 93 à 100 %, **K1 RECULE** (amber 42 min → jamais). Agent relancé (correctifs : fonderie au gisement, cause du recul de
+> K1, réglage de carte `fo-war-ia3e` allumé seulement si tenu) ; livraison vers 11 h 10. IA-G : gel vers 11 h, rapport, point
+> de jonction avec `A.decide*`. **Plan jusqu'à 12 h 15** : fusion IA-G puis IA3-e vers 11 h 15, preuve commune sur 3 places ;
+> IA3-d (avec P1) et IA3-k ensuite. Garde-fous d'IA-V2 revenus sur 0.5.0 : verif-guide 577215664 15 OK (13 avant), brouillard
+> 10 OK, réduite 1618033988 5 OK, ia1-poles 15 OK 2 ECHEC (défaut ouvert depuis 0.4.29, inchangé) ; restent verif-guide
+> 1618033988 et ia1b2-guide.
+>
 > **27/10, 9 h 05 : BANC À 3 PLACES DÉPLOYÉ** (fusion `cf7053b` de `banc2`, agent terminé ; `fo-autotest.bat` recopié à la racine,
 > l'ancien gardé dans `fo-logs\fo-autotest.bat.avant-banc2`) ; `<racine>\fo-banc-places.txt` = **3** (REMETTRE 1 quand le DC joue).
 > Tests : test_banc_file 78 OK, bat_double_source 70 OK (rejoués par l'intégrateur). Moteur réel : `content` 331 OK à la place 2
