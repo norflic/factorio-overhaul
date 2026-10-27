@@ -245,11 +245,25 @@ end
 
 --- Bras libres : packs des technologies suivantes à fabriquer d'avance ({ {pack, n} }, vide si les PNJ sont occupés).
 --- Une ligne [FO-CERVEAU] quand la profondeur change.
+--- Profondeur d'avance de la pensée (une fois par pensée : compteur de pensées de suite avec des bras libres, global).
+local function spare(f, view, tick)
+  local g = f.team and f.team.iag
+  if not g then return 0 end
+  if g.spare_tick ~= tick then
+    g.spare_tick = tick
+    if Gen.ahead_depth(view.workers_idle, view.workers) > 0 then g.idle_run = (g.idle_run or 0) + 1 else g.idle_run = 0 end
+    local war = State.war()
+    local elapsed = tick - (f.started or (war and war.started) or 0)
+    g.spare = Gen.spare_depth(g.idle_run, view.workers_idle, view.workers, elapsed)
+  end
+  return g.spare or 0
+end
+
 function General.lookahead(f, st, view, tick)
   local g = f.team and f.team.iag
   local m = memos[f.force]
   if not (g and g.next and m and m.ev) then return {} end
-  local depth = Gen.ahead_depth(view.workers_idle, view.workers)
+  local depth = spare(f, view, tick)
   if depth > 0 then g.ahead_thinks = (g.ahead_thinks or 0) + 1 end
   if depth ~= (g.depth or 0) and tick - (g.depth_log or -3600) >= 3600 then
     g.depth = depth
@@ -263,9 +277,12 @@ function General.lookahead(f, st, view, tick)
 end
 
 --- Bras libres : la pensée pure agrandit d'avance l'extraction de la ressource la plus demandée (shared/ai3/buts.lua).
-function General.idle_grow(f, view)
+--- … seulement l'économie faite (« fer II » ou économie couverte : la garde B3 d'IA-V2), et des bras libres durables.
+function General.idle_grow(f, view, tick)
   if f.is_player or not General.on() then return false end
-  return Gen.ahead_depth(view.workers_idle, view.workers) > 0
+  local st = f.team and f.team.ia3
+  if not (st and (st.iron2_done or st.economy_ok)) then return false end
+  return spare(f, view, tick) > 0
 end
 
 --- Faisabilité d'un objet à la dernière évaluation de la force (nil : inconnue).

@@ -283,6 +283,18 @@ function Gen.ahead_depth(idle, workers)
   return math.min(Gen.AHEAD_MAX, math.max(1, math.floor(idle / Gen.IDLE_PER)))
 end
 
+--- Bras libres DURABLES (moteur réel, banc g5, graine 271828182 : à la PREMIÈRE pensée, les 8 PNJ sont sans tâche
+--- faute de tâches encore distribuées ; la règle partait à 0,0 min, fabriquait les packs de deux recherches et une
+--- capacité de fer de plus avec le fer du départ : Ambre à 10 soldats à 30 min contre 38 sans elle, fer à 5 plaques,
+--- palier 2 jamais). La profondeur ne vaut que si des PNJ sont sans tâche depuis Gen.IDLE_THINKS pensées de suite
+--- (1 min), et jamais avant Gen.SPARE_START ticks de partie (le départ a toujours du travail qui arrive).
+Gen.IDLE_THINKS = 12
+Gen.SPARE_START = 5 * 3600
+function Gen.spare_depth(run, idle, workers, elapsed)
+  if (elapsed or 0) < Gen.SPARE_START or (run or 0) < Gen.IDLE_THINKS then return 0 end
+  return Gen.ahead_depth(idle, workers)
+end
+
 --- Packs des `depth` technologies SUIVANTES (liste `next`, dans l'ordre du choix), encore à faire et payables : ce que la
 --- faction fabrique d'avance avec ses bras libres (jamais pour une technologie impayable : H8). Rend { {pack, n} } trié.
 function Gen.lookahead(cat, ev, state, next, depth)

@@ -616,7 +616,7 @@ function Ia3.plan(f, view, book, surface, tick)
     at_war = at_war and true or false, home_known = home ~= false,
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
     key = (not f.is_player) and General.on() and General.key(f) or nil,
-    idle_grow = General.idle_grow(f, view) }
+    idle_grow = General.idle_grow(f, view, tick) }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
