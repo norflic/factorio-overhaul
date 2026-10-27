@@ -3,9 +3,10 @@
   créneaux de l'ordonnanceur (script/core/scheduler.lua), moteur simulé (même installation que tests/ia3k_moteur_test.lua).
     1. Équivalence : avec et sans mémoire (REFUS_TTL = 0), mêmes décisions de la porte, appel par appel, sur trois suites
        (escalade autour d'un but cerné de vers, but à portée d'un ver, morts près du but) ; moins d'itinéraires avec.
-    2. Ce qui lève un refus gardé : carte effacée, menace oubliée (map.gone), délai, autre case de départ, escorte devenue
-       possible : jugement complet (un itinéraire de plus).
-    3. Mutants : rejeu sans compter l'attente (escalade retardée), mémoire qui ignore les menaces oubliées.
+    2. Ce qui lève un refus gardé : carte effacée, menace oubliée DANS la boîte du trajet (map.gone_log ; hors de la boîte :
+       rejoué), délai, autre case de départ, escorte devenue possible, menace éteinte vue par la SONDE ; minage : changement
+       de site retenté au plus toutes les RETARGET_PERIOD ticks par destination (tâche neuve à chaque pensée).
+    3. Mutants : rejeu sans compter l'attente (escalade retardée), mémoire qui ignore les oublis, sonde muette.
     4. Ordonnanceur : le premier membre d'une voie de 300 ticks n'est plus au créneau 1 (tick % 300 = 0) ; deux voies de
        300 ticks n'ont pas le même créneau ; global sérialisable.
   Lancement : lua5.2 tests/perf2_test.lua (depuis la racine du mod).

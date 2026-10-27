@@ -510,14 +510,17 @@ end
 -- 1 à 3 A* (6,9 ms) ; une destination revient toutes les quelques centaines à milliers de ticks (verif-guide 1618033988 :
 -- 332 refus vers la même case en 60 min).
 -- t.refus[clé de la case du but] = { sk (case du départ), t (tick du jugement complet), uv (carte effacée ou revérifiée,
--- M.unblock), gone (t.map.gone : menaces et morts oubliées, comptées par shared/ai3/danger.lua), B (seuil), esc (escorte
+-- M.unblock), gone (t.map.gone au jugement : oublis comptés par shared/ai3/danger.lua, lieux dans t.map.gone_log), box
+-- (boîte du trajet, marge GONE_MARGIN comprise), rt (dernier changement de site tenté, minage), B (seuil), esc (escorte
 -- possible), far (but loin du QG), px, py (départ), gx, gy (but), pts (échantillons du chemin jugé), ppts (échantillons du
 -- chemin qui minimisait le danger, refus « bloqué ») }.
--- Un refus gardé est REJOUÉ sans itinéraire si : même case de départ, même seuil, même escorte possible, rien d'oublié
--- sur la carte depuis, moins de REFUS_TTL ticks, ET la SONDE (M.refus_probe : règle D.gate rejugée sur le chemin gardé, au
--- tick présent) refuse encore. Le rejeu fait tout ce que fait le refus (attente comptée pour l'escalade, menace signalée
+-- Un refus gardé est REJOUÉ sans itinéraire si : même case de départ, même seuil, même escorte possible, aucun lieu oublié
+-- dans la boîte du trajet depuis, moins de REFUS_TTL ticks, ET la SONDE (M.refus_probe : règle D.gate rejugée sur le chemin
+-- gardé, au tick présent) refuse encore. Le rejeu fait tout ce que fait le refus (attente comptée pour l'escalade, menace signalée
 -- aux soldats, étiquette, statistiques, journal) ; il cède la main au jugement complet quand une escalade (attente de rang
--- > W, but hors de portée) ou un changement de site (minage) serait possible. Ce que la sonde ne voit pas (un AUTRE chemin
+-- > W, but hors de portée) ou un changement de site (minage, au plus toutes les RETARGET_PERIOD ticks par destination)
+-- serait possible. La raison rejouée est celle de la sonde (« bloque » quand le chemin gardé passe à portée, même si le
+-- jugement complet aurait dit « but ») : même décision, statistiques et journal un peu différents. Ce que la sonde ne voit pas (un AUTRE chemin
 -- ouvert par l'extinction des cases mobiles) attend au plus REFUS_TTL ticks.
 M.REFUS_TTL = 3600
 M.REFUS_MAX = 64
@@ -650,7 +653,7 @@ function M.gate(f, agent, task, steps, tick)
   local free = M.escort_free and M.escort_free(f) or 0
   -- Lot PERF2 : mémoire courte des refus (boucle du PNJ refusé, F341 : 94 % des refus répétaient une destination déjà
   -- refusée, en refaisant 1 à 3 A*). Un refus récent de l'équipe vers la même case, depuis la même case de départ, au même
-  -- seuil et avec la même escorte possible, est REJOUÉ sans itinéraire tant que rien n'a pu le lever (M.refus_hit).
+  -- seuil et avec la même escorte possible, est REJOUÉ sans itinéraire tant que la sonde refuse encore (M.refus_hit).
   local dk = D.key(D.cell(dest.x), D.cell(dest.y))
   local sk = D.key(D.cell(p.x), D.cell(p.y))
   local prud0 = M.character(f)
