@@ -299,6 +299,10 @@ local function scan(f, cs, tick)
     return a.y < c.y
   end)
   cs.seeds = seeds
+  -- graines oubliées après deux échéances du recensement
+  for _, k in ipairs(sorted_keys(cs.seed_seen or {})) do
+    if tick - cs.seed_seen[k] >= 2 * Capi.CENSUS_EVERY then cs.seed_seen[k] = nil end
+  end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -355,7 +359,13 @@ local function census_one(f, cs, tick)
     cs.census_i = (cs.census_i % n) + 1
     local s = seeds[cs.census_i]
     local d = dep_at(cs, s.res, s.x, s.y)
-    if not d or tick - (d.tick or 0) >= Capi.CENSUS_EVERY then
+    -- une graine relue il y a moins de Capi.CENSUS_EVERY n'est pas relue (une graine HORS de la boîte de son gisement :
+    -- centre de site prospecté, gisement connu ; banc p3 : le même gisement recensé à chaque pensée, 4 s de script)
+    local sk = s.res .. "@" .. s.x .. "," .. s.y
+    cs.seed_seen = cs.seed_seen or {}
+    local fresh = cs.seed_seen[sk] and tick - cs.seed_seen[sk] < Capi.CENSUS_EVERY
+    if not fresh and (not d or tick - (d.tick or 0) >= Capi.CENSUS_EVERY) then
+      cs.seed_seen[sk] = tick
       local c = Sites.census(surface, s.res, { x = s.x + 0.5, y = s.y + 0.5 })
       if c then
         -- une composante déjà connue sous un autre identifiant (coin épuisé) : la même entrée, mise à jour
