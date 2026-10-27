@@ -38,6 +38,7 @@ local General = require("script.ai3.general") -- lot IA-G : le cerveau général
 local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressources clés de repli
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
+local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
 
 local Ia3 = {}
 
@@ -454,7 +455,17 @@ local function research_step(f, st, book, w, tick, view)
   -- fo-war-ia3e éteint) sont le dernier argument du cerveau général (V_WANTED et chaîne vers l'objet voulu d'IA-G).
   local tech, payable, causes, palier, for_auto
   if General.on() then
-    tech, payable, causes, palier = General.choose_tech(f, force, st, book, w, tick, view, Auto.wanted(f))
+    -- Lot CAPITAL : les objets qu'une amélioration de valeur attend sans savoir les obtenir (H8) s'ajoutent aux objets
+    -- voulus : la technologie qui les débloque prend de la valeur (H9), sans aucun nom écrit.
+    local wanted = Auto.wanted(f)
+    local cw = Capital.wanted(f)
+    if cw and next(cw) ~= nil then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted)) do m[k] = wanted[k] end
+      for _, k in ipairs(sorted_keys(cw)) do m[k] = true end
+      wanted = m
+    end
+    tech, payable, causes, palier = General.choose_tech(f, force, st, book, w, tick, view, wanted)
   else
     tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)
   end
@@ -678,7 +689,9 @@ function Ia3.plan(f, view, book, surface, tick)
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
     key = (not f.is_player) and General.on() and General.key(f) or nil,
     idle_grow = General.idle_grow(f, view, tick),
-    auto = auto }
+    auto = auto,
+    -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
+    capital = (not f.is_player) and Capital.goal(f, view, book, tick, w) or nil }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
@@ -775,6 +788,12 @@ function Ia3.after_poles(f, tick)
     st.fond_dropped = (st.fond_dropped or 0) + dropped
   end
   return dropped
+end
+
+--- Lot CAPITAL : décisions immédiates sur le stock libre (script/team/team.lua) : paie l'amélioration prête.
+function Ia3.capital_pay(f, surface, tick, plan, stock)
+  if f.is_player then return 0 end
+  return Capital.pay(f, surface, tick, plan, stock)
 end
 
 --- Demandes d'exploration (ressource -> priorité) : pour le lot IA3-f (carte de connaissance, éclaireurs).

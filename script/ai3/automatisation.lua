@@ -337,6 +337,20 @@ end
 -- Pensée
 ---------------------------------------------------------------------------------------------------
 --- Appelé par le cerveau (Ia3.plan) avant la pensée pure. Rend ctx.auto (ou nil : automatisation éteinte).
+--- Objets à peser (chaînes, triées) : étapes de la dernière décision de recherche (IA-G) et du coût de l'amélioration en
+--- cours (lot CAPITAL) ; nil s'il n'y en a aucune.
+function Auto.items_of(f)
+  local a = f.team.iag and f.team.iag.steps
+  local b = f.team.capital and f.team.capital.steps
+  if not (b and #b > 0) then return a end
+  if not (a and #a > 0) then return b end
+  local seen, out = {}, {}
+  for _, k in ipairs(a) do if not seen[k] then seen[k] = true out[#out + 1] = k end end
+  for _, k in ipairs(b) do if not seen[k] then seen[k] = true out[#out + 1] = k end end
+  table.sort(out)
+  return out
+end
+
 function Auto.think(f, view, book, tick, research)
   if not enabled(f) then return nil end
   Profiler.start("ia3e:auto")
@@ -354,7 +368,8 @@ function Auto.think(f, view, book, tick, research)
       has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
       no_power = st.plant_refused and st.plant_refused.reason or nil,
       -- objets du dépliage du cerveau général (IA-G : étapes hand, produce, extract de la dernière décision)
-      items = f.team.iag and f.team.iag.steps or nil,
+      -- lot CAPITAL : et ceux du dépliage du coût de l'amélioration en cours (f.team.capital.steps)
+      items = Auto.items_of(f),
       hold = (tick < (st.hold_until or 0)) and string.format("repli jusqu'a %.0f min (%d reserve(s) affamee(s))",
         (st.hold_until or 0) / 3600, st.starved or 0) or nil,
     })

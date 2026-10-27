@@ -297,6 +297,28 @@ function General.feasible(f, item)
   return m.ev.feas[item] == true
 end
 
+--- Lot CAPITAL : coût unitaire d'un objet (point fixe min-plus du graphe) à la dernière évaluation de la force ; nil si
+--- l'objet n'y est pas faisable ou si la force n'a pas encore été évaluée.
+function General.unit_cost(f, item)
+  local m = memos[f.force]
+  if not (m and m.ev and m.ev.feas[item]) then return nil end
+  return m.ev.cost[item]
+end
+
+--- Lot CAPITAL : dépliage d'une liste { {objet, n} } (coût d'une amélioration) sur la dernière évaluation de la force :
+--- le même Gen.summary que la recherche (main, machine, extraire, construire). nil sans évaluation.
+function General.summary_items(f, list)
+  local m = memos[f.force]
+  if not (m and m.ev) or not General.on() then return nil end
+  local st = f.team and f.team.ia3
+  if not st then return nil end
+  local goals = {}
+  for _, it in ipairs(list or {}) do goals[#goals + 1] = { item = it[1], n = it[2] } end
+  local state = { stock = {}, techs = st.techs or {}, built = {}, known = {} }
+  for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then state.known[k] = true end end
+  return Gen.summary(General.catalogue(), m.ev, state, goals)
+end
+
 --- Une ressource inconnue que l'équipe saurait extraire (un exécutant de sa catégorie) ?
 local function explorable(c, res)
   local r = c.resources[res]
