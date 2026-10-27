@@ -121,7 +121,8 @@ local function scan(f, c)
   for _, id in ipairs(sorted_keys(by_id)) do
     local e = by_id[id]
     ents[#ents + 1] = e
-    local working = e.status == defines.entity_status.working
+    local ws = defines.entity_status and defines.entity_status.working
+    local working = ws ~= nil and e.status == ws
     list[#list + 1] = { id = id, name = e.name, working = working }
     local fam, n = L.parse(e.name)
     if fam then by_family[fam.key] = math.max(by_family[fam.key] or 0, n) end
