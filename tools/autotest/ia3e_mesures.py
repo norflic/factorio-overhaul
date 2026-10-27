@@ -16,6 +16,7 @@ RE_PLANT = re.compile(r"\[FO-IA3E\] (\w+) : centrale (FINIE|REFUSEE[^a]*)a ([0-9
 RE_CRIT = re.compile(r"CRITERES (\w+) \| modules produisant 5 min sans PNJ a 45 min : (\d+).*\((\d+) % a la main.*tournees a pied 30-90 min : (\d+) %.*minage a la main (\d+) %")
 RE_DEAD = re.compile(r"qg detruit tick (\d+) (\w+) par (\w+)")
 RE_WAR = re.compile(r"\[FO-IA3E-USINE\] SANS PNJ (\w+) : (\d+) module\(s\) produisent 5 min sur (\d+) finis : (.*)")
+RE_WAR2 = re.compile(r"\[FO-IA3E-USINE\] SANS PNJ \(75 min\) (\w+) : (\d+) module\(s\) produisent 5 min sur (\d+) finis : (.*)")
 
 
 def parse(path):
@@ -23,7 +24,7 @@ def parse(path):
 
     def t(k):
         return teams.setdefault(k, {"pal": {}, "eed1": None, "dem": [], "fini": [], "ref": [], "plant": None, "crit": None,
-                                    "dead": None, "sanspnj": None})
+                                    "dead": None, "sanspnj": None, "sanspnj75": None})
 
     with gzip.open(os.path.join(path, "benchmark.log.gz"), "rt", encoding="utf-8", errors="replace") as f:
         for line in f:
@@ -62,6 +63,10 @@ def parse(path):
             m = RE_WAR.search(line)
             if m:
                 t(m.group(1))["sanspnj"] = (int(m.group(2)), int(m.group(3)), m.group(4).strip())
+                continue
+            m = RE_WAR2.search(line)
+            if m:
+                t(m.group(1))["sanspnj75"] = (int(m.group(2)), int(m.group(3)), m.group(4).strip())
     return teams
 
 
@@ -84,7 +89,8 @@ def main():
             plant = f"centrale {d['plant'][0]} a {fmt(d['plant'][1])}" if d["plant"] else "centrale -"
             print(f"  {k:8s} {pal} | poteau moyen {fmt(d['eed1'])} | {plant} | {dead}")
             print(f"           demandes [{dem}] | finis [{fin}] | refus {len(d['ref'])}")
-            print(f"           {c}" + (f" | sans PNJ : {d['sanspnj'][2]}" if d["sanspnj"] else ""))
+            print(f"           {c}" + (f" | sans PNJ : {d['sanspnj'][2]}" if d["sanspnj"] else "")
+                  + (f" | a 75 min : {d['sanspnj75'][0]} module(s) {d['sanspnj75'][2]}" if d["sanspnj75"] else ""))
 
 
 if __name__ == "__main__":

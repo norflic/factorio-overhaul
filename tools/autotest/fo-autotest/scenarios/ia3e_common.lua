@@ -22,6 +22,7 @@
 local MIN = 3600
 local SAMPLE = 300
 local T_FREEZE = 45 * MIN
+local T_FREEZE2 = 75 * MIN
 local FREEZE = 5 * MIN
 local T_END = 90 * MIN
 local K7_FROM = 30 * MIN
@@ -195,10 +196,36 @@ return function(variant)
         end
       end
       if PHOTOS[t] then photos(ctx, PHOTOS[t]) end
-      -- Mesure SANS PNJ (pas dans la variante « photo », trop courte).
+      -- Mesure SANS PNJ (pas dans la variante « photo », trop courte) : à 45 min (critère A4), puis à 75 min (complément :
+      -- les modules finis plus tard ; minutes figées hors des relevés de K7).
+      if t == T_FREEZE2 and T_FREEZE2 < T_END and not st.frozen then
+        local s = ctx.surface()
+        st.freeze2 = {}
+        st.freeze_at = t
+        for _, row in ipairs(factions(ctx)) do
+          local a = auto_status(ctx, row.key)
+          local list = {}
+          for _, m in ipairs(a and a.modules or {}) do
+            if m.state == "fini" then
+              local made = production(machines_of(s, row.force, m))
+              list[#list + 1] = { product = m.product, id = m.id, last = made, per_min = {} }
+            end
+          end
+          if #s.find_entities_filtered({ type = "generator", force = row.force, limit = 1 }) > 0 then
+            list[#list + 1] = { product = "centrale", gens = true, per_min = {} }
+          end
+          st.freeze2[row.key] = { list = list, force = row.force }
+        end
+        st.cur_freeze = st.freeze2
+        local n = set_npcs_active(ctx, false)
+        st.frozen = true
+        ctx.log(string.format("PNJ des factions FIGES a %d min (%d personnages) : 2e mesure de 5 min sans PNJ", t / MIN, n))
+      end
       if t == T_FREEZE and T_FREEZE < T_END then
         local s = ctx.surface()
         st.freeze = {}
+        st.freeze_at = t
+        st.cur_freeze = st.freeze
         st.hand45 = {}
         for _, row in ipairs(factions(ctx)) do
           local a = auto_status(ctx, row.key)
@@ -237,10 +264,10 @@ return function(variant)
         st.frozen = true
         ctx.log(string.format("PNJ des factions FIGES a %d min (%d personnages) : mesure de 5 min sans PNJ", t / MIN, n))
       end
-      if st.frozen and t > T_FREEZE and (t - T_FREEZE) % MIN == 0 then
+      if st.frozen and t > st.freeze_at and (t - st.freeze_at) % MIN == 0 then
         local s = ctx.surface()
-        for _, key in ipairs(sorted_keys(st.freeze)) do
-          local fz = st.freeze[key]
+        for _, key in ipairs(sorted_keys(st.cur_freeze)) do
+          local fz = st.cur_freeze[key]
           for _, m in ipairs(fz.list) do
             if m.gens then
               local p = 0
@@ -256,12 +283,13 @@ return function(variant)
             end
           end
         end
-        if t - T_FREEZE >= FREEZE then
+        if t - st.freeze_at >= FREEZE then
           local n = set_npcs_active(ctx, true)
           st.frozen = false
           ctx.log(string.format("PNJ des factions repartis a %d min (%d personnages)", t / MIN, n))
-          for _, key in ipairs(sorted_keys(st.freeze)) do
-            local fz = st.freeze[key]
+          local label = st.cur_freeze == st.freeze2 and "SANS PNJ (75 min)" or "SANS PNJ"
+          for _, key in ipairs(sorted_keys(st.cur_freeze)) do
+            local fz = st.cur_freeze[key]
             local ok_n = 0
             local parts = {}
             for _, m in ipairs(fz.list) do
@@ -273,7 +301,7 @@ return function(variant)
               parts[#parts + 1] = string.format("%s[%s]%s", m.product, table.concat(vals, ","), all and "OK" or "non")
             end
             fz.ok_n = ok_n
-            ctx.log(string.format("SANS PNJ %s : %d module(s) produisent 5 min sur %d finis : %s", key, ok_n, #fz.list, table.concat(parts, " ")))
+            ctx.log(string.format("%s %s : %d module(s) produisent 5 min sur %d finis : %s", label, key, ok_n, #fz.list, table.concat(parts, " ")))
           end
         end
       end
