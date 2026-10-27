@@ -59,6 +59,8 @@ A.BELT_FLOW = 1.0        -- objets/s : au-delà, une voie de minerai est servie 
 A.QUAI_RATE = 0.635      -- objets/s d'un bras simple au quai de sortie (0,83 × 0,85 × 0,9 : M.choose_inserters) ; au-delà,
                          -- le plan directeur pose un bras RAPIDE (technologie) : la taille du module se règle sur ce qui se
                          -- fabrique (moteur réel, e4-usine : fonderie de 7 rangées, 2 bras rapides impossibles, réserve 15 min)
+A.FIRST_RATE_MAX = 150   -- objets/min au plus pour le PREMIER module d'un objet (on commence petit, on agrandit ensuite :
+                         -- e4-usine, fonderie de 7 rangées à 93 entités jamais payée)
 A.DRILL_RATE = 0.5       -- minerai/s d'une foreuse électrique (vitesse 0,5, temps 1 s)
 A.BELT_LEN = 28          -- tuiles de tapis estimées des foreuses à la tête d'alimentation (un pas de treillis)
 A.NET_POLES = 3          -- poteaux de réseau estimés jusqu'au carrefour le plus proche
@@ -320,6 +322,7 @@ function A.decide(input)
       v.verdict, v.why = "non", string.format("charge %.2f PNJ <= %.2f", L, A.LOAD_MIN)
     else
       local rate = math.max(1, D) * (100 + margin) / 100
+      if st.fini == 0 and rate > A.FIRST_RATE_MAX then rate = A.FIRST_RATE_MAX end
       local g, args = A.sized(meth, rate)
       local function missing_of(gg)
         local _, its = A.cost(meth, gg, { has_plant = true })
