@@ -469,6 +469,12 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Gisements atteignables (minage à la main) : rayon du plus proche, relu toutes les REACH_EVERY pensées
 ---------------------------------------------------------------------------------------------------
+-- Lot IA-V2 (fusion d'IA3-c et d'IA3-f) : crochet posé par script/ai3/exploration.lua quand le brouillard est actif :
+-- gisements CONNUS d'une ressource (carte de connaissance), du plus proche au plus lointain ({ distance, ... }). Sans
+-- crochet (brouillard coupé, témoins « avant ») : le rayon se lit sur la carte entière, comme IA3-c seul.
+Ia3.known_deposits = nil
+Ia3.REACH_SEEN = 96 -- au-delà, sous brouillard, seulement un gisement CONNU (le PNJ y va par Worker.far_mine)
+
 local function reach_of(f, st, tick)
   st.reach_n = (st.reach_n or 0) - 1
   if st.reach and st.reach_n > 0 then return st.reach end
@@ -477,6 +483,16 @@ local function reach_of(f, st, tick)
   local surface = f.hq.surface
   for _, res in ipairs(sorted_keys(MINABLE)) do
     for _, r in ipairs(Ia3.REACH_RADII) do
+      -- Sous brouillard (constat du DC : « ils regardent même pas autour d'eux », critère A6) : au-delà des abords du
+      -- QG, le minage à la main ne vise qu'un gisement que l'équipe a VU ; la tâche garde le rayon des abords et
+      -- l'ouvrier va au gisement connu et sûr le plus proche (Worker.far_mine, lot IA3-f), sinon il demande une
+      -- exploration. Avant cette fusion, le rayon allait jusqu'à 250 tuiles sur la carte entière. Le crochet rend nil
+      -- quand le brouillard est coupé (témoins) : lecture de la carte entière, comme avant.
+      local d = r > Ia3.REACH_SEEN and Ia3.known_deposits and Ia3.known_deposits(f, res, tick) or nil
+      if d ~= nil then
+        if d[1] and d[1].distance <= Ia3.REACH_RADII[#Ia3.REACH_RADII] then out[res] = Ia3.REACH_SEEN end
+        break
+      end
       if surface.count_entities_filtered({ position = f.hq_pos, radius = r, name = res, limit = 1 }) > 0 then
         out[res] = r
         break

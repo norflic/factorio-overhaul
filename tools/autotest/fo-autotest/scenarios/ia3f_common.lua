@@ -15,6 +15,7 @@
       comportement d'avant le lot, même source, même graine).
 ]]
 
+local IaV2Off = require("scenarios/iav2_off") -- lot IA-V2 : témoin = bascules éteintes
 local C = {}
 
 C.REQ_TICK = 5 * 3600
@@ -24,6 +25,8 @@ C.RES = "crude-oil"
 function C.start(ctx, fog)
   local on = ctx.remote("fo-ia3f", "set_fog", fog)
   ctx.check(on == fog, "brouillard " .. (fog and "actif" or "coupe (avant le lot)"), tostring(on))
+  -- Lot IA-V2 : le témoin rejoue 0.4.30 (cerveau d'avant, sans marché).
+  if not fog then IaV2Off(ctx, { marche = false, cerveau = false }) end
   local ok = ctx.remote("fo-pvp", "set_difficulty", "normal")
   ctx.check(ok == true, "difficulte Normal imposee avant la guerre")
   game.forces.player.set_cease_fire("enemy", true)

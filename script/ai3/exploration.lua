@@ -47,6 +47,9 @@ local Registry = require("script.companion.registry")
 local Sites = require("script.faction.sites")
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles")
+-- Lot IA-V2 : le cerveau par besoins (IA3-c) lit les gisements CONNUS par un crochet (module déjà chargé par
+-- script/team/team.lua : l'ordre de chargement, donc des abonnements, ne change pas).
+local Ia3 = require("script.ai3.cerveau")
 
 local X = {}
 
@@ -924,5 +927,13 @@ remote.add_interface("fo-ia3f", {
     return out
   end,
 })
+
+-- Lot IA-V2 : crochet du cerveau par besoins (script/ai3/cerveau.lua, gisements atteignables) : gisements CONNUS sous
+-- brouillard, nil quand le brouillard est coupé (témoins « avant » : lecture de la carte entière, comme avant).
+Ia3.known_deposits = function(f, res, tick)
+  if not X.fog_on() then return nil end
+  if not (f and f.ai3f) then return {} end
+  return X.deposits(f, res, tick)
+end
 
 return X

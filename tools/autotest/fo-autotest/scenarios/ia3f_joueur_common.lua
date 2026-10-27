@@ -14,6 +14,7 @@
   tour est interrompu (fuite).
 ]]
 
+local IaV2Off = require("scenarios/iav2_off") -- lot IA-V2 : témoin = bascules éteintes
 local C = {}
 
 C.IRON_CLEAR = 230
@@ -25,6 +26,8 @@ local function key(p) return math.floor(p.x) .. "," .. math.floor(p.y) end
 function C.setup(ctx, fog)
   local on = ctx.remote("fo-ia3f", "set_fog", fog)
   ctx.check(on == fog, "brouillard " .. (fog and "actif" or "coupe (avant le lot)"), tostring(on))
+  -- Lot IA-V2 : le témoin rejoue 0.4.30 (cerveau d'avant, sans marché).
+  if not fog then IaV2Off(ctx, { marche = false, cerveau = false }) end
   ctx.call("profiler", true)
   local s = ctx.surface()
   local c = game.forces.player.get_spawn_position(s)

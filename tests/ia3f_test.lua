@@ -106,7 +106,11 @@ f = pteam_world(false)
 local ok2, t_iron2 = pcall(iron_outpost_tick, f, 20 * 3600)
 check(ok2 and t_iron2 ~= nil, "sans brouillard : avant-poste de fer construit (" .. tostring(t_iron2 and t_iron2 / 3600) .. " min)")
 check(f.ai3f == nil and remote.call("fo-ia3f", "status").stats.looks == 0, "sans brouillard : aucune carte, aucun regard")
-check(t_iron2 and t_fog_iron and t_iron2 <= t_fog_iron, "sans brouillard (omniscient), le fer n'est pas plus tard")
+-- Lot IA-V2 : avec le cerveau par besoins (allumé par défaut), le gisement VU est retenu dès qu'il est vu
+-- (Sites.probe_at) : l'avant-poste sous brouillard peut venir AVANT la prospection omnisciente (1,2 contre 1,7 min au
+-- moteur simulé, 27/10). Le contrôle garde le critère de la conception (§6.2) : au plus 5 min plus tard qu'avant le lot.
+check(t_iron2 and t_fog_iron and t_fog_iron <= t_iron2 + 5 * 3600,
+  "avec brouillard, l'avant-poste de fer au plus 5 min plus tard que sans (critère §6.2)")
 print(string.format("  sans brouillard : avant-poste de fer à %s min (avec : %s min)", tostring(t_iron2 and t_iron2 / 3600),
   tostring(t_fog_iron and t_fog_iron / 3600)))
 

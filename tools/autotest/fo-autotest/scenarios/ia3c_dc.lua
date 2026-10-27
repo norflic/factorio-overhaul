@@ -17,6 +17,7 @@
   tâche de minage de fer. Chiffres et règle de lecture : fo-logs\2026-10-25_IA3-c\NOTES.md.
 ]]
 
+local IaV2Off = require("scenarios/iav2_off") -- lot IA-V2 : témoin = bascules éteintes
 local X, Y = 1504.5, 32.5
 local CLEAR_R = 300
 
@@ -70,6 +71,8 @@ return {
     else
       local v = ctx.remote("factorio-overhaul", "war_setting", "fo-war-ia3-cerveau", false)
       ctx.check(v == false, "reglage fo-war-ia3-cerveau eteint (ancien cerveau)", tostring(v))
+      -- Lot IA-V2 : le témoin rejoue 0.4.30 (sans marché ni brouillard).
+      IaV2Off(ctx, { marche = false, fog = false })
     end
     local chest = s.create_entity({ name = "fo-team-chest", position = { X, Y }, force = "player", raise_built = true })
     ctx.check(chest ~= nil, "coffre d'equipe pose")

@@ -724,9 +724,9 @@ function M.new_world(opts)
       -- lot PNJ-JOUABLE : lancement de la guerre par les réglages de carte (défauts du jeu)
       ["fo-war-autostart"] = opts.war_autostart or false, ["fo-war-factions"] = 2,
       ["fo-war-soldiers"] = 30, ["fo-war-workers"] = 4,
-      -- Lot IA3-c : cerveau par besoins (settings/ia3c.lua) ; allumé par l'option ou par FO_IA3_CERVEAU=1 (bancs
-      -- « bascule allumée », pvp_test compris).
-      ["fo-war-ia3-cerveau"] = opts.ia3_cerveau or (os.getenv("FO_IA3_CERVEAU") == "1"),
+      -- Lot IA3-c : cerveau par besoins (settings/ia3c.lua). Lot IA-V2 : ALLUMÉ par défaut comme le jeu (0.5.0) ;
+      -- éteint par l'option (ia3_cerveau = false) ou par FO_IA3_CERVEAU=0 (bancs « bascule éteinte », pvp_test compris).
+      ["fo-war-ia3-cerveau"] = (opts.ia3_cerveau ~= false) and (os.getenv("FO_IA3_CERVEAU") ~= "0"),
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants

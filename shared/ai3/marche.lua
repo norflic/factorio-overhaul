@@ -32,7 +32,10 @@
 local M = {}
 
 M.SETTING = "fo-war-ia3-marche" -- lot IA3-b : réglage de carte (settings/ia3b.lua)
-M.DEFAULT_ON = false            -- défaut du réglage ET du moteur simulé (réglage absent) : voir settings/ia3b.lua
+M.DEFAULT_ON = true             -- défaut du réglage ET du moteur simulé (réglage absent) : voir settings/ia3b.lua.
+                                -- Lot IA-V2 (27/10, version 0.5.0) : ALLUMÉ par défaut (critères mesurés :
+                                -- fo-logs/2026-10-27_IA-V2/INTEGRATION.md). Bancs hors jeu « éteint » : régler
+                                -- fo-war-ia3-marche à false dans le monde simulé (scratchpad on_all.lua, FO_IA3_MARCHE=0).
 
 M.ROLE_BONUS = 20      -- pour cent
 M.DESIGN_BONUS = 20    -- pour cent

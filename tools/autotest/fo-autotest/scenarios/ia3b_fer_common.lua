@@ -25,6 +25,7 @@
   Les contrôles sont les ATTENDUS du DC : la variante « avant » doit les manquer (chiffres avant / après).
 ]]
 
+local IaV2Off = require("scenarios/iav2_off") -- lot IA-V2 : témoin = bascules éteintes
 local MIN = 3600
 local CHECK = 54000
 local QG_R = 22
@@ -54,6 +55,8 @@ return {
   init = function(ctx)
     local v = ctx.remote("factorio-overhaul", "war_setting", "fo-war-ia3-marche", on)
     ctx.check(v == on, "reglage fo-war-ia3-marche " .. (on and "allume" or "eteint") .. " avant la pose du coffre", tostring(v))
+    -- Lot IA-V2 : le témoin rejoue 0.4.30 (cerveau d'avant, sans brouillard) ; l'essai garde les défauts (tout allumé).
+    if not on then IaV2Off(ctx, { cerveau = false, fog = false }) end
     ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
     local s = ctx.surface()
     local c0 = game.forces.player.get_spawn_position(s)
