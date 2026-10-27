@@ -16,6 +16,7 @@ NOM = ages.NOMS[7]
 TRIPLET = ("diapason", "dallage de pierre", "cristaux dressés")
 FOYER = ages.FOYER[7]
 HABILLAGE = dict(ages.CORPS[7], forme_tablier="rond")
+PAS_FIN = 0.12  # ronde F4-A3 : détail fin plus serré
 PIED = 1.08
 FIN = 1.0       # ronde F4-A3 : tablier entièrement garni de détail fin
 # ronde F4-A2 : le socle de pierre à degrés est l'embase ; 2 conduites de bronze

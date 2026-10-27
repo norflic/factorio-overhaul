@@ -220,7 +220,8 @@ def tablier_forme(g, c):
         Q1 = V((q[0] - uq[0] * 0.05, q[1] - uq[1] * 0.05, zc))
         k = i // (2 if c.forme == "rond" else 1)
         # trois bandes concentriques par secteur (plaques en damier, joints, rivets au bord de chaque plaque)
-        for b_, (t0, t1) in enumerate(((0.0, 0.42), (0.42, 0.74), (0.74, 1.0))):
+        # ronde F4-A3 : cinq bandes au lieu de trois (plaques plus petites, plus de rivets)
+        for b_, (t0, t1) in enumerate(((0.0, 0.26), (0.26, 0.47), (0.47, 0.65), (0.65, 0.82), (0.82, 1.0))):
             A0, B0 = P0.lerp(P1, t0), Q0.lerp(Q1, t0)
             A1, B1 = P0.lerp(P1, t1), Q0.lerp(Q1, t1)
             mid = (A0 + B0 + A1 + B1) / 4.0
@@ -228,7 +229,7 @@ def tablier_forme(g, c):
             top = [v + V((0, 0, zt - zc)) for v in quad]
             g.hexa(quad + top, pm[(k + b_) % 2], "hard", "secteur")
             if bou:
-                for t in (0.14, 0.38, 0.62, 0.86):
+                for t in (0.12, 0.31, 0.5, 0.69, 0.88):
                     e = quad[1].lerp(quad[2], t).lerp(mid, 0.12)
                     g.dome((e.x, e.y, zt), (0, 0, 1), RIVET_PONT, c.m(bou))
     colonne(g, 0, 0, zc, zt, r0 + 0.02, pm[1], n=32, what="disque_central")
@@ -265,7 +266,10 @@ def tablier(g, c):
         g.box((0, 0, zc + 0.003), (2 * dd - 2 * e, 2 * dd - 2 * e, 0.006), c.m(c.pont["fond"]), "flat", what="fond")
     q = [V((-dd + e, -dd + e, zc)), V((dd - e, -dd + e, zc)), V((dd - e, dd - e, zc)), V((-dd + e, dd - e, zc))]
     bou = c.pont.get("boulons")
-    g.panels(q, nu, nv, pm[0], t=zt - zc, gap=0.025, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET_PONT,
+    # ronde F4-A3 : joints plus larges pour les petites dalles (au joint de 0,025 t, les dalles voisines se fondaient
+    # en une seule plage à l'écran)
+    gap = 0.045 if (motif == "dalles" and pas <= 0.3) else 0.025
+    g.panels(q, nu, nv, pm[0], t=zt - zc, gap=gap, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET_PONT,
              rivet_step=0.11, mats=pm, what="dessus")
     # cornières de bord (au-dessus du dessus : le tablier a un rebord)
     b = c.m(c.pont["bord"])

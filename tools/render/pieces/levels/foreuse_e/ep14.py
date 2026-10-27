@@ -19,7 +19,8 @@ HABILLAGE = dict(ages.CORPS[14], forme_tablier="rond")
 PIED = 1.12
 # ronde F4-A2 : le dais et les piliers sont l'embase ; 2 conduites
 EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
-DENSITE = 0.3    # les étoiles semées font une part de la garniture
+DENSITE = 0.7    # ronde F4-A3 : 0,3 → 0,7 (les étoiles semées ne suffisaient pas)
+PAS_FIN = 0.12
 
 
 def matieres(metal, M):
@@ -96,7 +97,7 @@ def socle(g, c):
     M = g.M
     a, zt = c.a, c.zt
     rng = 99
-    for i in range(140):    # ronde F4-A3 : 46 → 140 étoiles semées
+    for i in range(240):    # ronde F4-A3 : 46 → 240 étoiles semées
         rng = (rng * 1103515245 + 12345) % 2147483648
         x = (((rng >> 4) % 1000) / 1000.0 - 0.5) * 2 * (a - 0.3)
         y = (((rng >> 14) % 1000) / 1000.0 - 0.5) * 2 * (a - 0.3)
