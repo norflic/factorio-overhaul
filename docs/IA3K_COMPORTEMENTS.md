@@ -66,7 +66,10 @@ sens des cases, l'itinéraire qui minimise le danger est gardé s'il reste hors 
 - but à plus de 160 tuiles du QG (C6) : escorte si possible (le PNJ part, les soldats le rattrapent) ;
 - sinon **partir**.
 - **Changer de site** : un minage refusé cherche une autre tuile de son minerai hors de la zone marquée (au plus 40 tuiles
-  contrôlées, la plus proche du QG), puis la porte rejuge.
+  contrôlées, la plus proche du QG), sinon un gisement connu et sûr plus loin (`Worker.far_mine`, carte de connaissance
+  d'IA3-f, qui demande une exploration s'il n'y en a pas), au plus toutes les 10 s par tâche ; puis la porte rejuge.
+- **Ce que la porte ne voit pas** : les éclaireurs et le tour du QG d'IA3-f posent leur tâche sans passer par elle ; leurs
+  marches passent par l'itinéraire et la réaction du lot.
 - **Escalade** (« attendre n'est pas une fin ») : une destination refusée pour une menace VUE (pas pour une mort) part
   quand même après W attentes, W = clamp(⌊4 × prudence / 1 000⌋, 2, 6) ; le PNJ garde ses réflexes. La menace qui bloque
   est signalée aux soldats, qui la nettoient quel que soit le caractère.
