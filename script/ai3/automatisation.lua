@@ -36,6 +36,7 @@ Auto.RADIUS = 3             -- treillis du plan directeur évalué au départ (7
 Auto.REFUSE_EPOCH = 30 * 3600 -- un refus est revu quand le contexte change, et au plus tard toutes les 30 min
 Auto.LOG_MAX = 16
 Auto.FEED_STOCK = 200        -- objets au coffre du QG pour les quais d'un module fini (Build.QUAI_LOW déclenche le remplissage)
+Auto.STARVE_HOLD = 15 * 3600 -- repli après une réserve affamée (× leur nombre)
 Auto.RESERVE_MAX = 15 * 3600 -- une demande qui attend ses matériaux plus de 15 min est annulée (objets rendus au coffre) :
                              -- elle ne mange plus le fer de la recherche et de l'armée sans jamais produire (moteur réel,
                              -- e4-usine : réserves de 26 à 90 min, palier 3 jamais atteint chez 3 factions sur 4)
@@ -263,6 +264,11 @@ local function refresh(f, st, tick)
           m.reserve_since = m.reserve_since or tick
           if tick - m.reserve_since > Auto.RESERVE_MAX and Build.cancel(f, m.id, "materiaux introuvables en 15 min") then
             state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables en 15 min"
+            -- Repli de l'équipe : plus de NOUVELLE demande pendant 15 min × le nombre de réserves affamées (moteur réel,
+            -- e6 et e7-usine, amber : 4 réserves de 15 min en 70 min, la recherche des packs militaires arrêtée, palier 3
+            -- jamais atteint contre 42 min au témoin).
+            st.starved = (st.starved or 0) + 1
+            st.hold_until = tick + Auto.STARVE_HOLD * st.starved
           end
         else
           m.reserve_since = nil
@@ -321,6 +327,8 @@ function Auto.think(f, view, book, tick)
       book = book, stock = stock, sig = st.sig,
       has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
       no_power = st.plant_refused and st.plant_refused.reason or nil,
+      hold = (tick < (st.hold_until or 0)) and string.format("repli jusqu'a %.0f min (%d reserve(s) affamee(s))",
+        (st.hold_until or 0) / 3600, st.starved or 0) or nil,
     })
     st.wanted = res.wanted
     st.verdicts = {}

@@ -178,6 +178,9 @@ do
   local r12b = A.decide({ window = hot, obtainable = all_ok, book = book, modules = { { product = "iron-plate", state = "fini", finished_m = 6 } } })
   check(req(r12b, "iron-plate") == nil and verdict(r12b, "iron-plate").verdict == "attente",
     "module fini à la minute 6 : la charge d'avant ne compte pas, on attend une fenêtre après lui (" .. tostring(verdict(r12b, "iron-plate").why) .. ")")
+  local r12h = A.decide({ window = hot, obtainable = all_ok, book = book, hold = "repli jusqu'a 50 min" })
+  check(#r12h.requests == 0 and verdict(r12h, "iron-plate").verdict == "attente", "repli de l'équipe (réserves affamées) : aucune demande (" ..
+    tostring(verdict(r12h, "iron-plate").why) .. ")")
   local fin2 = { { product = "iron-plate", state = "fini" }, { product = "iron-plate", state = "fini" } }
   local r13 = A.decide({ window = hot, obtainable = all_ok, book = book, modules = fin2 })
   check(req(r13, "iron-plate") == nil and verdict(r13, "iron-plate").verdict == "fini", "deux modules finis : plus de demande")

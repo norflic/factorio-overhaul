@@ -379,7 +379,7 @@ A.OPEN_STATES = OPEN
 --- La décision d'une pensée. input = {
 ---   window, threatened, modules = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
 ---   obtainable(item) -> bool (fabricable à la main OU au stock), book, stock, dist, has_plant, sig (contexte),
----   no_power (raison du refus de la centrale, ou nil), items (facultatif : objets à peser en plus, par exemple les
+---   no_power (raison du refus de la centrale, ou nil), hold (raison d'un repli : aucune demande, ou nil), items (facultatif : objets à peser en plus, par exemple les
 ---   étapes « produce » du dépliage d'IA-G) }.
 --- Rend { requests = { { product, gen, args, rate, rate_nom, feed, why, items, electric, gain } }, verdicts = { { product,
 --- verdict, why, L, D, T, C, G, depth, generic } } (ordre de la pesée : profondeur, charge, nom), wanted = { [objet] = true } }.
@@ -550,6 +550,10 @@ function A.decide(input)
             v.verdict, v.why = "attente", "fenetre " .. n .. "/" .. A.WINDOW .. " min"
           elseif open >= A.MAX_OPEN then
             v.verdict, v.why = "attente", "un module deja ouvert"
+            busy[c.item] = true
+          elseif input.hold then
+            -- repli de l'équipe après des réserves affamées (le runtime en donne la raison)
+            v.verdict, v.why = "attente", tostring(input.hold)
             busy[c.item] = true
           else
             v.verdict, v.why = "demande", string.format("charge %.2f PNJ, retour %.1f min <= %d", L, T, H)
