@@ -799,7 +799,13 @@ function Fl.layout(req)
       end
     end
     if pumps[fl] then
-      if not join(fl, conns_of(pumps[fl], fl)) then return nil, "tuyau de la pompe impossible (" .. fl .. ")" end
+      local pc = conns_of(pumps[fl], fl)
+      if not join(fl, pc) then
+        local c = pc[1]
+        return nil, string.format("tuyau de la pompe impossible (%s) : pompe (%.1f, %.1f) dir %d, raccord %s", fl,
+          pumps[fl].x, pumps[fl].y, pumps[fl].dir or 0,
+          c and string.format("(%d, %d) %s", c.tx, c.ty, s:pipe_ok(c.tx, c.ty, fl) and "libre" or "bloque") or "absent")
+      end
     end
   end
   for _, k in ipairs(sorted_keys(s.tube)) do

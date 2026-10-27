@@ -44,7 +44,8 @@ Pet.OUT_AT = 10             -- objets à rapporter d'une sortie (au lieu de 200)
 Pet.WATER_SEARCH = { 24, 48, 96, 144, 200 }
 Pet.BLOCK_NEAR = 40         -- rive à plus de 40 tuiles du gisement : les machines vont près de la rive…
 Pet.BLOCK_OFF = 10          -- … à 10 tuiles d'elle, vers le gisement
-Pet.PUMP_TRIES = 80
+Pet.PUMP_TRIES = 160
+Pet.PUMPS = 8               -- places de pompe essayées au plus (la plus proche d'abord)
 Pet.RETRY = 10 * 3600       -- un site refusé est revu 10 min plus tard
 Pet.GAIN = 3                -- PNJ « libérés » (valeur du projet de chantier, comme un module de l'automatisation)
 
@@ -338,7 +339,7 @@ local function pump_spots(surface, f, rel, origin, fluid)
           out[#out + 1] = { name = pname, x = lx + 0.5, y = ly + 0.5, dir = dir, fluid = fluid }
         end
       end
-      if #out >= 4 then return out, pname end
+      if #out >= Pet.PUMPS then return out, pname end
     end
   end
   return out, pname
@@ -394,8 +395,16 @@ local function plan_site(f, surface, p, h)
   end
   local req = { origin = origin, blocked = blocked, ents = rel.entities, chain = ch, wells = wells, pumps = pumps,
     extractor = spec.extractor, conduit = D.PIPE, chest = D.CHEST, arm = D.ARM, poles = pole, network = net, block = block }
-  local lay, w2 = Fl.layout(req)
-  if not lay then return nil, w2 end
+  -- rives candidates, de la plus proche à la plus lointaine : la première dont le tuyau se trace (une rive d'une tuile
+  -- de terre peut avoir son raccord sur l'eau ; moteur réel, petrole-partie 271828182 : « tuyau de la pompe impossible »)
+  local lay, w2
+  local tries = (#pumps > 0) and #pumps or 1
+  for i = 1, tries do
+    if #pumps > 0 then req.pumps = { pumps[i] } end
+    lay, w2 = Fl.layout(req)
+    if lay then break end
+  end
+  if not lay then return nil, w2 .. (#pumps > 1 and (" (" .. #pumps .. " rives essayees)") or "") end
   lay.masks = masks
   lay.out_at = Pet.OUT_AT
   lay.key = "petrole:" .. table.concat(spec.targets, "+")
