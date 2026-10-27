@@ -36,7 +36,7 @@ D.MAX_CELLS = 256
 D.KINDS = {
   worm = { w = 1000, r = 30, fixed = true },      -- « turret » de la force des déchiqueteurs
   turret = { w = 1000, r = 24, fixed = true },    -- tourelle d'une force adverse
-  spawner = { w = 800, r = 24, fixed = true },    -- nid
+  spawner = { w = 800, r = 30, fixed = true },    -- nid (les déchiqueteurs qui le gardent voient à 30 tuiles)
   unit = { w = 150, r = 16, fixed = false },
   character = { w = 150, r = 16, fixed = false },
 }

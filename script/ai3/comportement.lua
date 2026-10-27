@@ -131,10 +131,18 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Étiquettes visibles (D1)
 ---------------------------------------------------------------------------------------------------
---- Texte au-dessus d'une entité. `holder` garde l'identifiant (un seul texte vivant par porteur).
+--- Texte au-dessus d'une entité. `holder` garde l'identifiant (un seul texte vivant par porteur). D1 : chaque état reste
+--- au moins LABEL_GAP ticks ; un état nouveau qui arrive avant attend son tour (holder.pending, M.flush_label), sauf la
+--- fuite, qui passe tout de suite.
 function M.label_entity(holder, entity, key, tick, stats)
   if not (entity and entity.valid) then return end
-  if holder.label_key == key and holder.label_t and tick - holder.label_t < M.LABEL_GAP then return end
+  local young = holder.label_t and tick - holder.label_t < M.LABEL_GAP
+  if holder.label_key == key and young then return end
+  if young and key ~= "fuite" and holder.label and rendering.is_valid(holder.label) then
+    holder.pending = key
+    return
+  end
+  holder.pending = nil
   if holder.label and rendering.is_valid(holder.label) then rendering.destroy(holder.label) end
   holder.label = rendering.draw_text({
     text = { "fo-ia3k.etat-" .. key }, surface = entity.surface, target = entity, target_offset = { 0, -3.2 },
@@ -148,6 +156,13 @@ local function label(agent, key, tick, tstats)
   M.label_entity(astate(agent), agent.entity, key, tick, tstats)
 end
 M.label = label
+
+--- État en attente (arrivé pendant les 2 s du précédent) : affiché quand son tour vient.
+function M.flush_label(holder, entity, tick, stats)
+  if holder.pending and holder.label_t and tick - holder.label_t >= M.LABEL_GAP then
+    M.label_entity(holder, entity, holder.pending, tick, stats)
+  end
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Ce que l'on voit
@@ -170,8 +185,14 @@ function M.classify(e)
   if r == nil then
     r = false
     if kind == "worm" or kind == "turret" or kind == "unit" then
-      local ap = e.prototype.attack_parameters
+      local pr = e.prototype
+      local ap = pr.attack_parameters
       if ap and ap.range then r = ap.range end
+      -- Une unité charge dès qu'elle VOIT : sa portée utile est sa distance de vue (petit déchiqueteur : 30).
+      if kind == "unit" and ty == "unit" then
+        local v = pr.vision_distance
+        if v and v > (r or 0) then r = v end
+      end
     end
     range_cache[name] = r
   end
@@ -469,6 +490,7 @@ function M.sense(agent, tick)
   if not (f and f.hq_pos) then return false end
   local a = astate(agent)
   local t = M.team(f)
+  if a.pending then M.flush_label(a, e, tick, t.stats) end
   local hp = math.floor(e.get_health_ratio() * 1000 + 0.5)
   local hurt = a.hp ~= nil and hp < a.hp - 5
   a.hp = hp
@@ -621,7 +643,7 @@ remote.add_interface("fo-ia3k", {
         out[#out + 1] = { id = id, x = p.x, y = p.y, state = ag.state, task = ag.task and ag.task.kind or nil,
           trip = ag.task and ag.task.trip or nil, hp = math.floor(ag.entity.get_health_ratio() * 1000 + 0.5),
           hold = a.hold, refuge = copy(a.refuge), wps = a.pts and #a.pts or 0, wp_i = a.i, final = copy(a.final),
-          label = a.label_key, label_t = a.label_t }
+          label = a.label_key, label_t = a.label_t, pts = copy(a.pts), side_o = a.side_o, side_h = a.side_h }
       end
     end
     return out
