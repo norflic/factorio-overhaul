@@ -92,7 +92,7 @@ return {
         local ok = pl.can_build_from_cursor({ position = want })
         if ok then pl.build_from_cursor({ position = want }) end
         st.real = { pos = want, ok = ok }
-        st.f.real = s.find_entities_filtered({ name = "stone-furnace", position = want, radius = 0.5, limit = 1 })[1]
+        st.f.real = s.find_entities_filtered({ name = "stone-furnace", position = want, radius = 1.5, limit = 1 })[1]
         ctx.log(TAG .. string.format("VRAI joueur : four pose de la main en (%.1f, %.1f) : %s", want.x, want.y, tostring(st.f.real ~= nil)))
       else
         ctx.log(TAG .. "VRAI joueur : pas de personnage ou pas de place, pose reelle non jouee")
