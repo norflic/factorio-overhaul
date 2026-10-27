@@ -29,6 +29,8 @@ T.ID = "fo-tir"              -- effect_id de l'effet script des chargeurs
 T.PREFIXE = "fo-tir-"        -- préfixe des prototypes du lot (explosions, traçantes, traits, particules, fumées)
 T.probabilite = 0.5          -- part des tirs de TOURELLE à balles qui lèvent l'événement (tirée par le moteur)
 T.plafond_tick = 6           -- tirs habillés au plus par tick, toute la carte (unités de travail, jamais un temps)
+-- + `quota` par âge (tirs habillés de l'âge au plus par tick) : mesure E238, défense de 80 tourelles qui tirent au même
+-- tick, le plafond seul servait les tourelles mises à jour les premières (âge 1 : 40 % de ses tirs, âge 15 : 20 %)
 
 -- Images vanilla réutilisées (aucun fichier nouveau ; couleur mesurée, PLAN.md §2).
 T.IMAGES = {
@@ -47,6 +49,7 @@ T.temoins = { 1, 5, 10, 15 }
 
 --[[ Champs d'un âge :
   part     = { a, b } : a événements gardés sur b (accumulateur entier) ; part des tirs habillés = probabilite × a / b
+  quota    = tirs habillés de l'âge au plus par tick (sous le plafond commun T.plafond_tick)
   bouche   = liste d'explosions créées à la bouche (position source de l'effet)
   trace    = traçante (projectile sans dégâts) : image, echelle, teinte, vitesse (tuiles/tick), lumiere, trainee
   trait    = faisceau sans action de la bouche à la cible : duree (ticks), epaisseur (× sprite), teinte, coeur
@@ -66,6 +69,7 @@ T.ages = {
   [1] = {
     nom = "Pionnier", couleur = { 1.00, 0.69, 0.38 },
     part = { 2, 5 }, -- 1 tir sur 5 (balle traçante dans une bande)
+    quota = 1,
     bouche = {
       { source = "explosion-gunshot", echelle = 1.3, teinte = { 1.00, 0.80, 0.55 }, duree = 4,
         lumiere = { taille = 3.9, intensite = 0.34, couleur = { 1.00, 0.69, 0.38 } },
@@ -84,6 +88,7 @@ T.ages = {
   [5] = {
     nom = "Volcan", couleur = { 1.00, 0.29, 0.06 },
     part = { 1, 2 }, -- 1 tir sur 4
+    quota = 1,
     bouche = {
       { source = "explosion-gunshot", echelle = 1.8, teinte = { 1.00, 0.45, 0.16 }, duree = 6,
         lumiere = { taille = 7.5, intensite = 0.60, couleur = { 1.00, 0.33, 0.08 } },
@@ -106,6 +111,7 @@ T.ages = {
   [10] = {
     nom = "Haute technologie", couleur = { 0.23, 0.66, 1.00 },
     part = { 2, 3 }, -- 1 tir sur 3
+    quota = 2,
     bouche = {
       -- (ronde 1 : gerbe_blanche, texture orientée, couchée à l'horizontale quelle que soit la visée : écartée)
       { source = "explosion-gunshot", echelle = 3.0, teinte = { 0.45, 0.78, 1.00 }, duree = 8,
@@ -130,6 +136,7 @@ T.ages = {
   [15] = {
     nom = "Néant", couleur = { 1.00, 0.90, 0.66 }, bord = { 1.00, 0.64, 0.28 },
     part = { 1, 1 }, -- 1 tir sur 2 (la bouche reste allumée : l'explosion dure plus que l'intervalle des tirs)
+    quota = 3,
     bouche = {
       { source = "explosion-gunshot", echelle = 3.0, teinte = { 1.00, 0.72, 0.36 }, duree = 9,
         lumiere = { taille = 16.5, intensite = 0.90, couleur = { 1.00, 0.82, 0.55 } } },

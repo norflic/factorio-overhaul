@@ -108,6 +108,7 @@ function R.verifier_ages(T)
           or p[1] % 1 ~= 0 or p[2] % 1 ~= 0 then
         non(w .. " : part = { a, b } entiers, 1 <= a <= b")
       end
+      if type(A.quota) ~= "number" or A.quota < 1 or A.quota % 1 ~= 0 then non(w .. " : quota entier >= 1") end
       if not A.bouche or #A.bouche == 0 then non(w .. " : bouche vide") end
       if not A.impact or #A.impact == 0 then non(w .. " : impact vide") end
       for _, champ in ipairs({ "bouche", "impact" }) do

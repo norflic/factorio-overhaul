@@ -7,7 +7,7 @@
     1. rend la main tout de suite si la source n'est pas une mitrailleuse d'un âge de la table (vanilla, factions,
        autres âges : effet d'avant) ;
     2. garde `part` des événements de l'âge (accumulateur entier par âge, dans le stockage : déterministe) ;
-    3. sous le plafond de T.plafond_tick tirs habillés par tick (toute la carte ; compteur remis à zéro au tick
+    3. sous le quota de l'âge (A.quota par tick) et le plafond de T.plafond_tick tirs habillés par tick (toute la carte ; compteurs remis à zéro au tick
        suivant, dans le stockage) ;
     4. crée les explosions de bouche à la position source de l'effet, la traçante vers la position de la cible (son
        action crée l'impact à l'arrivée ; sans traçante, l'impact est créé tout de suite) et le trait.
@@ -51,7 +51,7 @@ end
 Storage.declare("tirs", function()
   local st = {}
   for _, e in ipairs(T.temoins) do st[e] = stats_age() end
-  return { actif = true, cpt = {}, plafond = { tick = -1, n = 0 }, stats = st, autres = 0, journal = {} }
+  return { actif = true, cpt = {}, plafond = { tick = -1, n = 0 }, quota = {}, stats = st, autres = 0, journal = {} }
 end)
 
 local function S() return Storage.ns("tirs") end
@@ -77,10 +77,19 @@ local function sur_effet(e)
   local garde, c = R.garder(s.cpt[age], A.part)
   s.cpt[age] = c
   if not garde then return end
+  s.quota = s.quota or {}
+  local q = s.quota[age]
+  if not q then q = { tick = -1, n = 0 }; s.quota[age] = q end
+  -- quota de l'âge d'abord (sans entamer le plafond commun), puis plafond commun
+  if q.tick == e.tick and q.n >= A.quota then
+    st.plafond = st.plafond + 1
+    return
+  end
   if not R.plafond(s.plafond, e.tick, T.plafond_tick) then
     st.plafond = st.plafond + 1
     return
   end
+  R.plafond(q, e.tick, A.quota)
   local cible = e.target_entity
   local to = e.target_position or (cible and cible.valid and cible.position)
   if not to then return end

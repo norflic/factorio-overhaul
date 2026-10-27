@@ -143,6 +143,8 @@ local mutants_ages = {
   { "son sans aggregation", function(t) t.ages[15].son.couches[1].max = nil end },
   { "age hors liste des temoins", function(t) t.ages[7] = copie(t.ages[5]) end },
   { "probabilite nulle", function(t) t.probabilite = 0 end },
+  { "quota absent", function(t) t.ages[10].quota = nil end },
+  { "quota nul", function(t) t.ages[15].quota = 0 end },
 }
 for _, mu in ipairs(mutants_ages) do
   local t = copie(T)
