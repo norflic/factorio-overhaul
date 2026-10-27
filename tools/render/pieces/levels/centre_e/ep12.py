@@ -15,6 +15,8 @@ FOYER = ages.FOYER[12]
 HABILLAGE = dict(ages.CORPS[12], plan="octo", etages=3, toit="plat", mat_e1="noir_miroir", mat_e2="frost",
                  mat_e3="chrome_mat")
 
+RAYON_MAT = 0.65   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+
 
 def matieres(metal, M):
     ages.matieres(12, metal, M)

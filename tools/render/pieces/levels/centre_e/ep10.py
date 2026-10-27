@@ -15,6 +15,8 @@ FOYER = ages.FOYER[10]
 HABILLAGE = dict(ages.CORPS[10], plan="carre", etages=3, toit="plat", mat_e1="blanc_casse", mat_e2="gris_tech",
                  mat_e3="blanc_casse")
 
+RAYON_MAT = 0.70   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+
 
 def matieres(metal, M):
     ages.matieres(10, metal, M)
@@ -38,7 +40,6 @@ def mat(g, c, z):
     cp.prisme(g, cp.octogone(0.34), z + 0.86, z + 0.92, M["blanc_casse"], what="toit_cabine")
     cp.colonne(g, 0, 0, z + 0.92, z + 1.4, 0.015, M["anthracite"], n=6, what="antenne")
     g.dome((0, 0, z + 1.4), (0, 0, 1), 0.03, M["emit"], what="feu_antenne")
-    h = c.T["h"][2]
-    _parabole(g, M, -h * 0.55, h * 0.3, z + 0.2, math.radians(200))
-    _parabole(g, M, h * 0.55, h * 0.35, z + 0.2, math.radians(-20))
+    _parabole(g, M, -0.5, 0.28, z + 0.2, math.radians(200))     # coordonnées avant l'échelle du mât
+    _parabole(g, M, 0.5, 0.32, z + 0.2, math.radians(-20))
     cp.halo(g, (0, -0.4, z + 0.75), M, 3.0)

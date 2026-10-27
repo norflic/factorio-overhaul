@@ -14,6 +14,8 @@ TRIPLET = ('anneau de la Porte', 'horizon étoilé', 'pieds lunaires')
 FOYER = ages.FOYER[14]
 HABILLAGE = dict(ages.CORPS[14], plan="rond", etages=2, toit="plat", mat_e1="indigo_nuit", mat_e2="blanc_lunaire")
 
+RAYON_MAT = 1.03   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+
 
 def matieres(metal, M):
     ages.matieres(14, metal, M)

@@ -14,6 +14,9 @@ TRIPLET = ('cuve de confinement', 'bouteilles couchées', 'éclairs violets')
 FOYER = ages.FOYER[13]
 HABILLAGE = dict(ages.CORPS[13], plan="croix", etages=2, toit="plat", mat_e1="acier_canon", mat_e2="acier_canon2")
 
+RAYON_MAT = 0.42   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+ECHELLE_MAT = 1.8   # échelle imposée : les pièces en porte-à-faux restent au-dessus du dernier étage
+
 
 def matieres(metal, M):
     ages.matieres(13, metal, M)

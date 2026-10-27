@@ -14,6 +14,8 @@ TRIPLET = ('tour Tesla', 'isolateurs', 'arcs bleus')
 FOYER = ages.FOYER[6]
 HABILLAGE = dict(ages.CORPS[6], plan="croix", etages=2, toit="plat", mat_e1="porcelaine_capot", mat_e2="bleu_machine")
 
+RAYON_MAT = 0.52   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+
 
 def matieres(metal, M):
     ages.matieres(6, metal, M)

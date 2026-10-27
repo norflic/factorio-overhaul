@@ -704,7 +704,12 @@ def centre(g, c):
             c.ep.facade(g, c)
         # le mât est dessiné pour une emprise de 4,5 t : mis à l'échelle de l'emprise autour de son pied (essai 1 : trop
         # petit sur les 7×7 et 8×8)
-        k = float(getattr(c.ep, "ECHELLE_MAT", 1.4 * c.side / 4.5))     # ronde 1b : × 1,4 (mâts peu lisibles)
+        # ronde 1b : × 1,4 (mâts peu lisibles en ronde 1), BORNÉ pour que le pied de l'organe (ep.RAYON_MAT, rayon de ce
+        # qui touche le toit, avant échelle) reste sur le dernier étage (rien ne flotte) ; ep.ECHELLE_MAT force l'échelle
+        h = c.T["h"][c.n_etages - 1] * {"gradins": 0.518, "coupole": 0.45}.get(c.toit, 1.0)
+        k = min(1.4 * c.side / 4.5, 0.92 * h / float(getattr(c.ep, "RAYON_MAT", 0.45)))
+        k = float(getattr(c.ep, "ECHELLE_MAT", k))
+        c.echelle_mat = k
         g.stack.append(g.stack[-1] @ Matrix.Translation((0.0, 0.0, zm)) @ Matrix.Diagonal((k, k, k, 1.0))
                        @ Matrix.Translation((0.0, 0.0, -zm)))
         try:

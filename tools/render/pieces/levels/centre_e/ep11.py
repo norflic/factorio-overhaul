@@ -14,6 +14,8 @@ TRIPLET = ('radar tournant', 'fuseau', 'ailerons orange')
 FOYER = ages.FOYER[11]
 HABILLAGE = dict(ages.CORPS[11], plan="rond", etages=2, toit="plat", mat_e1="titane_cl", mat_e2="titane_md")
 
+RAYON_MAT = 0.45   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+
 
 def matieres(metal, M):
     ages.matieres(11, metal, M)

@@ -13,6 +13,8 @@ TRIPLET = None
 FOYER = dict(rgb=(1.0, 0.6, 0.2))
 HABILLAGE = dict()
 
+RAYON_MAT = 0.20   # rayon du pied du mât (avant échelle) : borne de l'échelle du mât (corps.centre)
+
 
 def matieres(metal, M):
     pass
