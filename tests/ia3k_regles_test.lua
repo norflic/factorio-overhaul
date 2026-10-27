@@ -193,10 +193,19 @@ local function suite()
     D.mark_seen(mbk, p[1], p[2], "worm", 30, 0)
   end
   local fb2, nb2 = D.field(mbk, 0)
-  local rb = R.plan({ x = 0, y = 0 }, { x = 300, y = 0 }, { field = fb2, n = nb2, B = 600 })
-  check(rb.blocked, "PNJ encerclé de vers : trajet bloqué")
+  local rb = R.plan({ x = -200, y = 0 }, { x = 0, y = 0 }, { field = fb2, n = nb2, B = 600 })
+  check(rb.blocked and rb.escape == nil, "but encerclé de vers, départ sûr : trajet bloqué (la porte fera attendre)")
   local rb2 = R.plan({ x = 0, y = 0 }, { x = 300, y = 0 }, { field = fb2, n = nb2, B = 1e9 })
-  check(not rb2.blocked and rb2.max_d > 0, "sans seuil (escorte, sortie) : un chemin qui minimise le danger")
+  check(not rb2.blocked and rb2.max_d > 0, "sans seuil (escorte) : un chemin qui minimise le danger")
+  -- Sortie d'une zone marquée : le PNJ à 20 tuiles d'un ver va d'abord vers la case sûre la plus proche, jamais plus près.
+  local mz = D.new()
+  D.mark_seen(mz, 0, 0, "worm", 30, 0)
+  local fz, nz = D.field(mz, 0)
+  local rz = R.plan({ x = 20, y = 4 }, { x = 300, y = 4 }, { field = fz, n = nz, B = 600 })
+  local szp = R.samples({ x = 20, y = 4 }, rz.pts, { x = 300, y = 4 }, 1)
+  local closest = min_dist(szp, 0, 0)
+  check(rz.escape ~= nil and not rz.blocked, "dans la zone d'un ver : sortie par la case sûre la plus proche, puis itinéraire")
+  check(closest >= R.dist(20, 4, 0, 0) - 2, "la sortie ne rapproche jamais du ver (au plus près " .. string.format("%.1f", closest) .. ")")
 
   ---------------------------------------------------------------------------------------------------
   section("réaction : peur (C3)")
@@ -218,12 +227,16 @@ local function suite()
     "nid loin du trajet : seulement marqué")
   check(Re.decide({ kind = "unit", dist = 20, hp = 1000, armed = true, enemies = 3, allies = 5, walking = true }) == "engage",
     "6 armés contre 3 : combat")
-  check(Re.decide({ kind = "unit", dist = 20, hp = 1000, armed = true, enemies = 3, allies = 0, walking = true }) == "back",
+  check(Re.decide({ kind = "unit", range = 30, dist = 20, hp = 1000, armed = true, enemies = 3, allies = 0, walking = true }) == "back",
     "seul contre 3, proches : demi-tour")
-  check(Re.decide({ kind = "unit", dist = 20, hp = 1000, armed = true, enemies = 3, allies = 0, walking = false }) == "flee",
+  check(Re.decide({ kind = "unit", range = 30, dist = 20, hp = 1000, armed = true, enemies = 3, allies = 0, walking = false }) == "flee",
     "seul contre 3 à l'arrêt : fuite")
   check(Re.decide({ kind = "unit", dist = 35, on_route = true, hp = 1000, armed = true, enemies = 3, walking = true }) == "stop",
     "unités loin sur la route : arrêt")
+  check(Re.decide({ kind = "unit", range = 30, dist = 34, on_route = true, hp = 1000, armed = true, enemies = 3, walking = true }) == "detour",
+    "unités juste hors de leur vue (30 < 34 ≤ 38) : détour immédiat")
+  check(Re.decide({ kind = "unit", range = 30, dist = 45, on_route = true, hp = 1000, armed = true, enemies = 3, walking = true }) == "stop",
+    "unités au-delà de leur vue + marge : arrêt")
   check(Re.engage_ratio(600, 1800) == 1500 and Re.engage_ratio(1250, 700) == 3000, "rapport d'engagement 1,5 à 3 selon le caractère")
   check(Re.look_radius(562) == 28 and Re.look_radius(1250) == 40, "regard de 28 à 40 tuiles selon la prudence")
   check(Re.decide({}) == "none", "aucun ennemi : rien")

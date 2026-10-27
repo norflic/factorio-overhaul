@@ -133,12 +133,23 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Texte au-dessus d'une entité. `holder` garde l'identifiant (un seul texte vivant par porteur). D1 : chaque état reste
 --- au moins LABEL_GAP ticks ; un état nouveau qui arrive avant attend son tour (holder.pending, M.flush_label), sauf la
---- fuite, qui passe tout de suite.
+--- fuite, qui s'affiche tout de suite au-dessus (second emplacement) sans effacer l'état précédent.
 function M.label_entity(holder, entity, key, tick, stats)
   if not (entity and entity.valid) then return end
   local young = holder.label_t and tick - holder.label_t < M.LABEL_GAP
   if holder.label_key == key and young then return end
-  if young and key ~= "fuite" and holder.label and rendering.is_valid(holder.label) then
+  if young and holder.label and rendering.is_valid(holder.label) then
+    if key == "fuite" then
+      if holder.label2_t and tick - holder.label2_t < M.LABEL_GAP then return end
+      if holder.label2 and rendering.is_valid(holder.label2) then rendering.destroy(holder.label2) end
+      holder.label2 = rendering.draw_text({
+        text = { "fo-ia3k.etat-fuite" }, surface = entity.surface, target = entity, target_offset = { 0, -4.0 },
+        color = COLORS.fuite, scale = 1.3, alignment = "center", time_to_live = M.LABEL_TTL,
+      })
+      holder.label2_t = tick
+      if stats then inc(stats.labels, key) end
+      return
+    end
     holder.pending = key
     return
   end
@@ -310,7 +321,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Crochet : prochain point de passage d'une étape « aller »
 ---------------------------------------------------------------------------------------------------
-function M.leg(agent, pos, radius, tick)
+function M.leg(agent, pos, radius, tick, depth)
+  depth = (depth or 0) + 1
+  if depth > 4 then return nil end -- garde : sorties ou points injoignables en chaîne
   if not M.enabled() then return nil end
   local f = faction_of(agent)
   local e = agent.entity
@@ -325,23 +338,41 @@ function M.leg(agent, pos, radius, tick)
     a.final = { x = pos.x, y = pos.y }
     a.pts = nil
   end
+  -- Sortie d'une zone marquée faite : l'itinéraire est recalculé depuis la case sûre.
+  if a.pts and a.partial and not a.pts[a.i] then a.pts, a.partial = nil, nil end
   if not a.pts then
     local t = M.team(f)
     -- Côté de la variation : un pour les retours au QG, un pour les allers (sinon l'aller suivant dépend du retour).
-    local sk = d2(pos, f.hq_pos) <= 24 * 24 and "side_h" or "side_o"
+    local home = d2(pos, f.hq_pos) <= 24 * 24
+    local sk = home and "side_h" or "side_o"
     local res = M.plan(f, agent, p, pos, tick, { draw = true, side = a[sk] })
     if res.side then a[sk] = res.side end
-    if res.blocked then
-      -- Déjà parti (la porte a jugé) ou déjà dans une zone marquée : le chemin qui minimise le danger.
+    if res.blocked and not res.partial then
       t.stats.blocked = t.stats.blocked + 1
-      res = M.plan(f, agent, p, pos, tick, { B = 1e9 })
+      if home or a.escort then
+        -- Rentrer au QG (ou passer escorté) : le chemin qui minimise le danger, faute de mieux.
+        res = M.plan(f, agent, p, pos, tick, { B = 1e9 })
+      else
+        -- Aller sans issue sûre : on ne traverse pas ; demi-tour à la pensée suivante (sense).
+        a.abort_pending = true
+        a.pts, a.i = {}, 1
+        return { x = p.x, y = p.y }, 1
+      end
     end
+    a.partial = res.partial or nil
     t.stats.plans = t.stats.plans + 1
     if res.astar then t.stats.astar = t.stats.astar + 1 elseif #res.pts > 0 then t.stats.via = t.stats.via + 1 end
-    a.pts, a.i, a.epoch = res.pts, 1, t.epoch
+    if res.escape then t.stats.escapes = (t.stats.escapes or 0) + 1 end
+    a.pts, a.i, a.epoch, a.mver = res.pts, 1, t.epoch, t.mver
     a.tour = (a.tour or 0) + 1
+    if res.astar and Profiler.enabled() then
+      log(string.format("[FO-IA3K] %s : PNJ %d itineraire A* de (%d, %d) a (%d, %d) : %d point(s), %.0f tuiles (direct %.0f), danger max %d (seuil %d)%s%s",
+        tostring(f.key), agent.id, math.floor(p.x), math.floor(p.y), math.floor(pos.x), math.floor(pos.y), #res.pts, res.len,
+        res.direct, res.max_d, res.B, res.escape and ", sortie de zone" or "", res.blocked and ", BLOQUE" or ""))
+    end
   end
   while a.pts[a.i] and d2(p, a.pts[a.i]) <= M.WP_REACH * M.WP_REACH do a.i = a.i + 1 end
+  if a.partial and not a.pts[a.i] then a.pts, a.partial = nil, nil return M.leg(agent, pos, radius, tick, depth) end
   local w = a.pts[a.i]
   if w and not w.ok then
     -- Point de passage praticable (ni eau, ni bâtiment) : la case libre la plus proche, sinon il est sauté.
@@ -351,7 +382,7 @@ function M.leg(agent, pos, radius, tick)
       a.pts[a.i] = w
     else
       a.i = a.i + 1
-      return M.leg(agent, pos, radius, tick)
+      return M.leg(agent, pos, radius, tick, depth)
     end
   end
   if w then
@@ -419,7 +450,7 @@ function M.gate(f, agent, task, steps, tick)
       end
     end
     if n > 6 then n = 6 end
-    if M.request_escort and M.request_escort(f, agent, n, tick) then
+    if M.request_escort and M.request_escort(f, agent, n, tick, task.key) then
       a.escort = true
       for i, s in ipairs(steps) do
         if s[1] == "goto" then table.insert(steps, i, { "wait", M.ESCORT_WAIT }) break end
@@ -437,6 +468,9 @@ end
 -- Crochet : sens (regard, attaque subie, peur, réaction)
 ---------------------------------------------------------------------------------------------------
 local function act(agent, f, t, a, action, why, ep, kind, tick)
+  -- Déjà en retraite (demi-tour ou fuite de moins de 10 s) : on ne s'arrête pas de nouveau à chaque regard (le PNJ
+  -- rentrerait par saccades, poursuivi) ; l'itinéraire du retour évite déjà ce qui est marqué.
+  if (action == "back" or action == "flee") and a.ret_t and tick - a.ret_t < 600 then return false end
   inc(t.stats.actions, action)
   local key = Re.LABEL[action]
   if key then label(agent, key, tick, t.stats) end
@@ -466,6 +500,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick)
   elseif action == "back" or action == "flee" then
     if agent.nav then Nav.stop(agent, tick) end
     a.pts, a.final, a.hold = nil, nil, nil
+    a.ret_t = tick
     if action == "flee" then
       a.refuge = refuge(f, agent.entity.position, ep)
       t.stats.refuges = t.stats.refuges + 1
@@ -503,9 +538,26 @@ function M.sense(agent, tick)
     if agent.state == "walk" and not hurt then FSM.set(M.MACHINE, agent, "step", tick) return true end
   end
   local p = e.position
+  -- Aller sans issue sûre (leg) : demi-tour.
+  if a.abort_pending then
+    a.abort_pending = nil
+    if agent.task then return act(agent, f, t, a, "back", "sans-issue", p, "route", tick) end
+  end
   local near_home = d2(p, f.hq_pos) <= M.HOME_SAFE * M.HOME_SAFE
   local walking = agent.state == "walk" and agent.nav == "moving"
   local prud, agr = M.character(f)
+  -- Une menace fixe NOUVELLE vue par un camarade touche le reste de notre trajet : nouvel itinéraire (détour).
+  if walking and a.pts and (a.mver or 0) < (t.mver or 0) then
+    local hit = nil
+    for _, nt in ipairs(t.new_threats or {}) do
+      if nt.v > (a.mver or 0) and d_route(p, a, nt) <= nt.r + Re.MARGIN then hit = nt end
+    end
+    a.mver = t.mver
+    if hit then
+      t.stats.shared = (t.stats.shared or 0) + 1
+      return act(agent, f, t, a, "detour", "camarade", hit, hit.k, tick)
+    end
+  end
   -- Une mort de l'équipe depuis le calcul de l'itinéraire : le reste du trajet est rejugé (C5).
   if walking and a.pts and (a.epoch or 0) < t.epoch and a.final then
     a.epoch = t.epoch
@@ -542,7 +594,13 @@ function M.sense(agent, tick)
   if not enemy then return false end
   local ep = enemy.position
   local kind, range = M.classify(enemy)
-  D.mark_seen(t.map, ep.x, ep.y, kind, range, tick)
+  if D.mark_seen(t.map, ep.x, ep.y, kind, range, tick) and (D.KINDS[kind] or D.KINDS.unit).fixed then
+    -- Menace fixe nouvelle : les camarades en marche rejugent leur trajet (8 dernières gardées).
+    t.mver = (t.mver or 0) + 1
+    t.new_threats = t.new_threats or {}
+    t.new_threats[#t.new_threats + 1] = { v = t.mver, x = ep.x, y = ep.y, r = range or D.KINDS[kind].r, k = kind }
+    while #t.new_threats > 8 do table.remove(t.new_threats, 1) end
+  end
   inc(t.stats.seen, kind)
   local dist = math.sqrt(d2(p, ep))
   local K = D.KINDS[kind] or D.KINDS.unit
@@ -570,6 +628,7 @@ Registry.on_removed(function(agent)
   if not st then return end
   local a = st.agents[agent.id]
   if a and a.label and rendering.is_valid(a.label) then rendering.destroy(a.label) end
+  if a and a.label2 and rendering.is_valid(a.label2) then rendering.destroy(a.label2) end
   st.agents[agent.id] = nil
   if not agent.faction or not agent.death_pos then return end
   local f = State.faction(agent.faction)

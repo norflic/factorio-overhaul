@@ -223,6 +223,31 @@ function R.reduce(field, start, cells, goal, lim)
   return out
 end
 
+--- Case SÛRE la plus proche (danger < lim), par anneaux de cases autour de p (au plus R.ESCAPE_RINGS), à égalité la plus
+--- faible puis la plus petite clé ; centre de la case, ou nil.
+R.ESCAPE_RINGS = 6
+function R.escape(field, p, lim)
+  local cx, cy = D.cell(p.x), D.cell(p.y)
+  if (field[D.key(cx, cy)] or 0) < lim then return nil end
+  for ring = 1, R.ESCAPE_RINGS do
+    local best, bd, bk = nil, nil, nil
+    for dy = -ring, ring do
+      for dx = -ring, ring do
+        if math.max(math.abs(dx), math.abs(dy)) == ring then
+          local k = D.key(cx + dx, cy + dy)
+          local d = field[k] or 0
+          if d < lim and (not bd or d < bd or (d == bd and k < bk)) then best, bd, bk = { cx + dx, cy + dy }, d, k end
+        end
+      end
+    end
+    if best then
+      local x, y = D.center(best[1], best[2])
+      return { x = x, y = y }
+    end
+  end
+  return nil
+end
+
 --- Itinéraire de start à goal. opts = { field (D.field), n (cases non nulles du champ), B (blocage), seed (bruit de
 --- tournée, entier ≥ 1, ou nil), draw (tirage de la variation, ou nil), side (côté de la tournée précédente), max_expand }.
 --- Renvoie { pts, len, direct, max_d, goal_d, blocked, astar, h, side, expand }.
@@ -251,13 +276,30 @@ function R.plan(start, goal, opts)
     res.h, res.side = h, side
   else
     res.astar = true
+    local lim = math.max(1, math.floor(B / R.MARKED))
     local cells, n = R.astar(field, sc, gc, B, opts.seed, opts.max_expand)
     res.expand = n
     if not cells then
+      -- Bloqué (le PNJ est déjà dans une zone marquée, ou le but est encerclé) : d'abord SORTIR vers la case sûre la plus
+      -- proche (jamais traverser le danger pour gagner du chemin), puis l'itinéraire depuis elle.
       res.blocked = true
       res.pts = {}
+      local esc = R.escape(field, start, lim)
+      if esc then
+        res.escape = esc
+        local ec = { D.cell(esc.x), D.cell(esc.y) }
+        local cells2, n2 = R.astar(field, ec, gc, B, opts.seed, opts.max_expand)
+        res.expand = n + n2
+        res.pts = { esc }
+        if cells2 then
+          res.blocked = false
+          for _, p in ipairs(R.reduce(field, esc, cells2, goal, lim)) do res.pts[#res.pts + 1] = p end
+        else
+          res.partial = true -- sortir d'abord ; l'itinéraire sera recalculé depuis la case sûre
+        end
+      end
     else
-      res.pts = R.reduce(field, start, cells, goal, math.max(1, math.floor(B / R.MARKED)))
+      res.pts = R.reduce(field, start, cells, goal, lim)
     end
   end
   res.len = R.length(start, res.pts, goal)

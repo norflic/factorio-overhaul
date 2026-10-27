@@ -20,7 +20,6 @@ local D = require("shared.ai3.danger")
 local Re = {}
 
 Re.MARGIN = 8
-Re.NEAR_UNITS = 24  -- unités plus près : on ne s'arrête plus, on se bat ou on part
 Re.STOP_TICKS = 180
 Re.FEAR_BASE = 400  -- 40 % de vie (IA_ATTENDUS C3)
 Re.FEAR_MAX = 550
@@ -78,15 +77,21 @@ function Re.decide(s)
     if s.walking and (s.on_route or dist <= range + Re.MARGIN) then return "detour", "sur-la-route" end
     return "none", "vu"
   end
-  -- Unités et personnages : se battre en surnombre, sinon s'arrêter (loin) ou partir (près).
+  -- Unités et personnages : se battre en surnombre ; sinon, selon leur portée utile (leur VUE pour une unité) : au-delà
+  -- de portée + marge, s'arrêter (elles passent peut-être) ; entre portée et portée + marge, se détourner tout de suite ;
+  -- à portée, partir.
   local n = math.max(1, s.enemies or 1)
   if s.armed and ((s.allies or 0) + 1) * 1000 >= Re.engage_ratio(p, s.agressivite) * n then
-    if dist <= Re.NEAR_UNITS or s.on_route then return "engage", "surnombre" end
+    if dist <= range + Re.MARGIN or s.on_route then return "engage", "surnombre" end
     return "none", "vu"
   end
-  if dist > Re.NEAR_UNITS then
+  if dist > range + Re.MARGIN then
     if s.walking and s.on_route then return "stop", "sur-la-route" end
     return "none", "vu"
+  end
+  if dist > range then
+    if s.walking then return "detour", "proche" end
+    return "flee", "proche"
   end
   if s.walking then return "back", "trop-pres" end
   return "flee", "trop-pres"
