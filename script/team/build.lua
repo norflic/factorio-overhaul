@@ -48,6 +48,11 @@ Build.QUAI_FILL = 400
 Build.COLLECT_AT = 200
 Build.PRIO = 55
 Build.FAIL_LIMIT = 3          -- §6.6 (4) : un fantôme refusé 3 fois bloque son module (raison écrite)
+Build.REFUSAL_LOGS = 40       -- refus de fantôme écrits au journal (emprise et occupants), au plus, par équipe
+Build.NPC_BLOCKS_PER_FAIL = 5  -- un PNJ debout sur l'emprise est passager : 5 refus de ce genre comptent pour 1 échec
+Build.RETRY_TICKS = 7200       -- un projet bloqué rend ses PNJ et reprend 2 min plus tard (au plus Build.RETRIES fois)
+Build.RETRIES = 3
+Build.ANCHOR_SEARCH = 6        -- rayon (tuiles) de la recherche d'une tuile libre pour un point d'appui
 
 local REACH = P.BUILD_DISTANCE
 local TREE_TYPES = { "tree", "simple-entity" }
@@ -593,6 +598,46 @@ function Build.plan_drills(f, surface, p, item, flow, a)
 end
 
 --- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
+--- Tuile libre pour un point d'appui, au plus près de (x, y) : ni réservée par un projet (emprise d'une entité
+--- planifiée, de cette équipe), ni eau, ni bâtie (relevé `masks`, quand il couvre la tuile) ; de préférence avec ses 8
+--- voisines libres (le PNJ s'arrête à une tuile près du point). Anneaux de Chebyshev de rayon 0 à Build.ANCHOR_SEARCH,
+--- ordre fixe (distance, puis y, puis x). Rend le centre de la tuile ; sans tuile libre, le point tel quel.
+local function free_spot(b, masks, x, y)
+  local function free(tx, ty)
+    local k = P.tkey(tx, ty)
+    if b.occ[k] then return false end
+    if masks and (masks.water[k] or masks.blocked[k]) then return false end
+    return true
+  end
+  local function clear3(tx, ty)
+    for dy = -1, 1 do for dx = -1, 1 do if not free(tx + dx, ty + dy) then return false end end end
+    return true
+  end
+  local x0, y0 = math.floor(x), math.floor(y)
+  local fallback
+  for r = 0, Build.ANCHOR_SEARCH do
+    local ring = {}
+    for dy = -r, r do
+      for dx = -r, r do
+        if math.max(math.abs(dx), math.abs(dy)) == r then ring[#ring + 1] = { dx, dy } end
+      end
+    end
+    table.sort(ring, function(u, v)
+      local du, dv = u[1] * u[1] + u[2] * u[2], v[1] * v[1] + v[2] * v[2]
+      if du ~= dv then return du < dv end
+      if u[2] ~= v[2] then return u[2] < v[2] end
+      return u[1] < v[1]
+    end)
+    for _, d in ipairs(ring) do
+      local tx, ty = x0 + d[1], y0 + d[2]
+      if clear3(tx, ty) then return tx + 0.5, ty + 0.5 end
+      if not fallback and free(tx, ty) then fallback = { tx + 0.5, ty + 0.5 } end
+    end
+  end
+  if fallback then return fallback[1], fallback[2] end
+  return x, y
+end
+
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
@@ -663,15 +708,19 @@ local function plan_project(f, surface, p)
     end
   end
   if is_plant then b.plant = p.id end
-  -- points d'appui
+  -- points d'appui : sur une rue praticable à 16 tuiles au plus, sinon au centre de la case de 8 × 8 ; dans les deux
+  -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
+  -- bâtisseur, debout dessus, en empêchait la pose : banc ia1-build-plaine, 25/10)
   local passable = seg_passable(b)
   for _, e in ipairs(p.ents) do
     local a = P.anchor_for(b.lat, e.x, e.y, passable)
-    if a then e.ax, e.ay, e.anchor = a.x, a.y, a.key
-    else
-      local cx, cy = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4
-      e.ax, e.ay, e.anchor = cx, cy, string.format("c%d:%d", cx, cy)
-    end
+    local ax, ay
+    if a then ax, ay = a.x, a.y
+    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+    local fx, fy = free_spot(b, masks, ax, ay)
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y) end
+    e.ax, e.ay = fx, fy
+    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
     e.item = item_of(e.name)
   end
   P.sort_build(p.ents)
@@ -783,15 +832,49 @@ local function find_ghost(surface, e, force)
   return nil
 end
 
---- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "occupe" (autre).
+--- Ce qui occupe l'emprise d'une entité planifiée (journal d'un refus) : entités triées, tuiles d'eau.
+local function blockers(surface, e)
+  local w, h = P.size(e.name, e.dir)
+  local area = { { e.x - w / 2 + 0.05, e.y - h / 2 + 0.05 }, { e.x + w / 2 - 0.05, e.y + h / 2 - 0.05 } }
+  local out = {}
+  for _, x in ipairs(surface.find_entities_filtered({ area = area })) do
+    out[#out + 1] = string.format("%s%s %s (%.2f, %.2f) dir %d", x.name, x.name == "entity-ghost" and ("/" .. x.ghost_name) or "",
+      x.force.name, x.position.x, x.position.y, x.direction or 0)
+  end
+  table.sort(out)
+  local wet = surface.count_tiles_filtered({ area = area, collision_mask = "water-tile" })
+  return (#out > 0 and table.concat(out, ", ") or "rien") .. " ; eau " .. wet .. " tuile(s)"
+end
+
+local function log_refusal(f, p, e, why, surface)
+  local st = f.build.stats
+  st.refusal_logs = (st.refusal_logs or 0) + 1
+  if st.refusal_logs > Build.REFUSAL_LOGS then return end
+  log(string.format("[FO-IA1D] %s : projet %d, fantome refuse (%s) : %s en (%g, %g) dir %d ; emprise : %s", f.key or "player",
+    p and p.id or 0, why, e.name, e.x, e.y, e.dir or 0, blockers(surface, e)))
+end
+
+--- Emprise d'une entité planifiée, rognée de 0,05 (les voisins qui la touchent ne comptent pas, F96).
+local function footprint(e)
+  local w, h = P.size(e.name, e.dir)
+  return { { e.x - w / 2 + 0.05, e.y - h / 2 + 0.05 }, { e.x + w / 2 - 0.05, e.y + h / 2 - 0.05 } }
+end
+
+--- Un personnage (PNJ, joueur) debout sur l'emprise : refus passager.
+local function npc_on(surface, e)
+  return surface.count_entities_filtered({ area = footprint(e), type = "character", limit = 1 }) > 0
+end
+
+--- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "pnj" (un personnage
+--- debout dessus, passager), "occupe" (autre).
 local function place_ghost(surface, f, e)
   if find_real(surface, e, f.force) then return "deja" end
   if find_ghost(surface, e, f.force) then return "ok" end
   if not surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
     build_check_type = defines.build_check_type.ghost_revive }) then
-    local w, h = P.size(e.name, e.dir)
-    local area = { { e.x - w / 2 + 0.05, e.y - h / 2 + 0.05 }, { e.x + w / 2 - 0.05, e.y + h / 2 - 0.05 } }
+    local area = footprint(e)
     if surface.count_entities_filtered({ area = area, type = TREE_TYPES, limit = 1 }) > 0 then return "obstacle" end
+    if npc_on(surface, e) then return "pnj" end
     return "occupe"
   end
   local gh = surface.create_entity({ name = "entity-ghost", inner_name = e.name, position = { e.x, e.y }, direction = e.dir,
@@ -800,31 +883,57 @@ local function place_ghost(surface, f, e)
   return "ok"
 end
 
---- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ : true si bâtie.
-local function revive_one(surface, f, p, e, inv, tick)
+--- Refus passager (un personnage sur l'emprise) : compté à part ; Build.NPC_BLOCKS_PER_FAIL refus valent un échec.
+local function npc_block(f, p, e, surface)
+  local st = f.build.stats
+  st.npc_blocks = (st.npc_blocks or 0) + 1
+  e.npc_blocks = (e.npc_blocks or 0) + 1
+  if e.npc_blocks % Build.NPC_BLOCKS_PER_FAIL == 0 then e.fails = (e.fails or 0) + 1 end
+  log_refusal(f, p, e, "pnj", surface)
+end
+
+--- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
+--- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
+local function revive_one(surface, f, p, e, inv, tick, self)
   local st = f.build.stats
   if find_real(surface, e, f.force) then e.built = true return true end
   if not e.item or inv.get_item_count(e.item) < 1 then return false end
+  if self and self.valid then
+    local a, q = footprint(e), self.position
+    if q.x > a[1][1] - 0.3 and q.x < a[2][1] + 0.3 and q.y > a[1][2] - 0.3 and q.y < a[2][2] + 0.3 then
+      st.self_skips = (st.self_skips or 0) + 1
+      return false
+    end
+  end
   local gh = find_ghost(surface, e, f.force)
   if not gh then
     local r = place_ghost(surface, f, e)
     if r == "deja" then e.built = true return true end
+    if r == "pnj" then npc_block(f, p, e, surface) return false end
     if r ~= "ok" then
       e.fails = (e.fails or 0) + 1
       st.revive_fail = st.revive_fail + 1
+      log_refusal(f, p, e, r, surface)
       if r == "obstacle" then p.obstacles[#p.obstacles + 1] = { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay } end
       return false
     end
     st.ghosts = st.ghosts + 1
     gh = find_ghost(surface, e, f.force)
-    if not gh then return false end
+    if not gh then
+      e.fails = (e.fails or 0) + 1
+      st.revive_fail = st.revive_fail + 1
+      log_refusal(f, p, e, "fantome pose mais introuvable", surface)
+      return false
+    end
   end
   inv.remove({ name = e.item, count = 1 })
   local _, ent = gh.revive({ raise_revive = true })
   if not (ent and ent.valid) then
     inv.insert({ name = e.item, count = 1 })
+    if npc_on(surface, e) then npc_block(f, p, e, surface) return false end
     e.fails = (e.fails or 0) + 1
     st.revive_fail = st.revive_fail + 1
+    log_refusal(f, p, e, "ravivage refuse", surface)
     return false
   end
   if e.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, e.recipe) end
@@ -860,7 +969,7 @@ function Build.work(agent, f, tick)
           if did < Build.REVIVE_PER_THINK then
             local cost = x.name:find("electric%-pole") and Build.COST_REVIVE_POLE or Build.COST_REVIVE
             if not Tokens.take(f, tick, cost) then return "more" end
-            if revive_one(surface, f, p, x, inv, tick) then
+            if revive_one(surface, f, p, x, inv, tick, e) then
               did = did + 1
               local d = math.sqrt(dist2(x, pos))
               if d > (b.stats.max_reach or 0) then b.stats.max_reach = d end
@@ -1060,7 +1169,8 @@ local function quai_tasks(f, p, surface, out)
       local n = chest.get_item_count(q.item)
       local have = f.hq.get_item_count(q.item)
       if n < Build.QUAI_LOW and have > 0 then
-        local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build)) or { x = q.x, y = q.y }
+        local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+        if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
         out[#out + 1] = {
           key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = p.prio + 3, domain = "logistique", work = 40,
           items = { { q.item, math.min(Build.QUAI_FILL - n, have) } },
@@ -1074,7 +1184,8 @@ local function quai_tasks(f, p, surface, out)
     if chest and chest.force.name == f.force then
       local n = chest.get_inventory(defines.inventory.chest).get_item_count()
       if n >= Build.COLLECT_AT then
-        local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build)) or { x = o.x, y = o.y }
+        local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
+        if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
         out[#out + 1] = {
           key = "ia1d:" .. p.id .. ":o:" .. i, kind = "carry", prio = p.prio, domain = "logistique", work = 40,
           ia1d = { pid = p.id, mode = "collect", idx = i, ax = a.x, ay = a.y },
@@ -1130,6 +1241,16 @@ local function wire_project(f, surface, p)
       parent[rc] = ra
     end
   end
+  -- liaisons de cuivre des poteaux du projet (le moteur relie lui-même un poteau ravivé à ses voisins : les fils
+  -- AJOUTÉS ci-dessus ne comptent que les trous)
+  local links, idx = 0, {}
+  for i, ent in ipairs(poles) do idx[ent.unit_number] = i end
+  for a = 1, #poles do
+    for _, nb in ipairs((poles[a].neighbours or {}).copper or {}) do
+      if nb.valid and idx[nb.unit_number] and idx[nb.unit_number] > a then links = links + 1 end
+    end
+  end
+  p.links = links
   return n
 end
 
@@ -1230,10 +1351,14 @@ local function advance(f, surface, p, tick)
         elseif r == "obstacle" then
           p.obstacles[#p.obstacles + 1] = { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }
           e.ghosted = true
+        elseif r == "pnj" then
+          e.ghosted = true -- posé au ravivage (revive_one)
+          npc_block(f, p, e, surface)
         else
           e.ghosted = true
           e.fails = (e.fails or 0) + 1
           b.stats.ghost_refused = b.stats.ghost_refused + 1
+          log_refusal(f, p, e, r, surface)
         end
       end
     end
@@ -1249,7 +1374,10 @@ local function advance(f, surface, p, tick)
         if not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
           p.state, p.reason = "bloque", "fantome refuse (" .. e.name .. " en " .. e.x .. "," .. e.y .. ")"
           b.stats.projects_blocked = b.stats.projects_blocked + 1
-          log(string.format("[FO-IA1D] %s : projet %d bloque : %s", f.key or "player", p.id, p.reason))
+          p.retries = (p.retries or 0) + 1
+          p.retry_at = p.retries <= Build.RETRIES and (tick + Build.RETRY_TICKS) or nil
+          log(string.format("[FO-IA1D] %s : projet %d bloque : %s%s", f.key or "player", p.id, p.reason,
+            p.retry_at and string.format(" ; reprise %d/%d a %.1f min", p.retries, Build.RETRIES, p.retry_at / 3600) or " ; abandon"))
           return
         end
       end
@@ -1278,6 +1406,13 @@ local function pulse_team(f, tick)
   -- 2. projets, dans l'ordre des demandes (un plan au plus par passe)
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
+    -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
+    if p and p.state == "bloque" and p.retry_at and tick >= p.retry_at then
+      p.retry_at = nil
+      for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
+      p.state, p.reason = "chantier", nil
+      log(string.format("[FO-IA1D] %s : projet %d reprend son chantier a %.1f min", f.key or "player", p.id, tick / 3600))
+    end
     if p and p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque" then
       local was = p.state
       advance(f, surface, p, tick)
@@ -1376,7 +1511,7 @@ function Build.status(f, id)
   end
   return { id = p.id, state = p.state, reason = p.reason, built = count_built(p), total = #p.ents, parts = parts,
     obstacles = #p.obstacles, quais = quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
-    finished = p.finished, wires = p.wired }
+    finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries }
 end
 
 function Build.report(f)
@@ -1392,7 +1527,8 @@ function Build.report(f)
     radius = b.radius, lots = lots, segs = segs, queue = #b.queue - b.qhead + 1, projects = projects,
     lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
-    cleared = st.cleared, filled = st.filled, collected = st.collected,
+    cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
+    self_skips = st.self_skips or 0,
     street_walks = st.street_walks, street_ok = st.street_ok, street_stuck = st.street_stuck,
     modules_started = st.modules_started, modules_done = st.modules_done, projects_done = st.projects_done,
     projects_refused = st.projects_refused, projects_blocked = st.projects_blocked, minutes = st.minutes,

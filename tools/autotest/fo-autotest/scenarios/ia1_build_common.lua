@@ -166,8 +166,8 @@ local function report_line(ctx, r, t)
   for _, p in ipairs(r.projects) do
     states[#states + 1] = string.format("%d:%s(%d/%d%s)", p.id, p.state, p.built, p.total, p.reason and (" " .. p.reason) or "")
   end
-  ctx.log(string.format("minute %d | projets %s | fantomes %d refuses %d ravives %d echecs %d | defriches %d | quais +%d -%d | rues : marches %d arrivees %d bloques %d | modules %d/%d",
-    math.floor(t / MIN), table.concat(states, " "), r.ghosts, r.ghost_refused, r.revived, r.revive_fail, r.cleared,
+  ctx.log(string.format("minute %d | projets %s | fantomes %d refuses %d ravives %d echecs %d pnj-dessus %d | defriches %d | quais +%d -%d | rues : marches %d arrivees %d bloques %d | modules %d/%d",
+    math.floor(t / MIN), table.concat(states, " "), r.ghosts, r.ghost_refused, r.revived, r.revive_fail, r.npc_blocks or 0, r.cleared,
     r.filled, r.collected, r.street_walks, r.street_ok, r.street_stuck, r.modules_done, r.modules_started))
 end
 
@@ -307,7 +307,7 @@ return function(variant)
         local open = 0
         local quais_ok = true
         for _, p in ipairs(r.projects) do
-          if p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque" then open = open + 1 end
+          if (p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque") or p.retry_at then open = open + 1 end
           for _, q in ipairs(p.quais or {}) do if p.state == "fini" and q.count < 100 then quais_ok = false end end
         end
         if (open == 0 and quais_ok and #r.projects > 0) or t >= T_DISMISS_MAX then
@@ -345,8 +345,8 @@ return function(variant)
       for _, p in ipairs(r.projects) do
         local parts = {}
         for _, pt in ipairs(p.parts) do parts[#parts + 1] = string.format("%s %s lot %s (%d,%d) r%d", pt.kind, pt.key, pt.lot, pt.x, pt.y, pt.rotation) end
-        ctx.log(string.format("projet %d : %s%s, %d/%d entites, %d fils ; %s", p.id, p.state, p.reason and (" (" .. p.reason .. ")") or "",
-          p.built, p.total, p.wires or 0, table.concat(parts, " ; ")))
+        ctx.log(string.format("projet %d : %s%s, %d/%d entites, %d fils ajoutes, %d liaisons de poteaux ; %s", p.id, p.state, p.reason and (" (" .. p.reason .. ")") or "",
+          p.built, p.total, p.wires or 0, p.links or 0, table.concat(parts, " ; ")))
       end
       -- PNJ bloqués et replis, par minute (compteurs cumulés relevés à chaque pensée)
       local prev
@@ -363,8 +363,8 @@ return function(variant)
       ctx.log(string.format("marches par les rues %d, arrivees %d, bloques puis rendus au PathService %d ; echecs de chemin de l'equipe %d ; PathService : demandes %d, echecs %d, en vol au plus %d",
         r.street_walks, r.street_ok, r.street_stuck, nav_fail, st.path and st.path.requested or -1, st.path and st.path.fail or -1,
         st.path and st.path.inflight_max or -1))
-      ctx.log(string.format("fantomes poses %d, refuses %d, ravives %d, echecs de ravivage %d, defriches %d, quais remplis %d, sorties videes %d",
-        r.ghosts, r.ghost_refused, r.revived, r.revive_fail, r.cleared, r.filled, r.collected))
+      ctx.log(string.format("fantomes poses %d, refuses %d, ravives %d, echecs de ravivage %d, refus passagers (PNJ sur l'emprise) %d, sous le batisseur %d, defriches %d, quais remplis %d, sorties videes %d",
+        r.ghosts, r.ghost_refused, r.revived, r.revive_fail, r.npc_blocks or 0, r.self_skips or 0, r.cleared, r.filled, r.collected))
       -- 1. modules commencés finis
       local pct = r.modules_started > 0 and r.modules_done / r.modules_started or 0
       ctx.check(r.modules_started >= 3 and pct >= 0.9, string.format("au moins 90 %% des modules commences finis : %d/%d", r.modules_done, r.modules_started))
