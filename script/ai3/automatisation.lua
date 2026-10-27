@@ -36,6 +36,7 @@ Auto.RADIUS = 3             -- treillis du plan directeur évalué au départ (7
 Auto.REFUSE_EPOCH = 30 * 3600 -- un refus est revu quand le contexte change, et au plus tard toutes les 30 min
 Auto.LOG_MAX = 16
 Auto.FEED_STOCK = 200        -- objets au coffre du QG pour les quais d'un module fini (Build.QUAI_LOW déclenche le remplissage)
+Auto.IDLE_OFF = true          -- plan directeur éteint quand tous ses projets sont refusés et qu'aucun module n'est fini
 Auto.STARVE_HOLD = 15 * 3600 -- repli après une réserve affamée (× leur nombre)
 Auto.RESERVE_MAX = 15 * 3600 -- une demande qui attend ses matériaux plus de 15 min est annulée (objets rendus au coffre) :
                              -- elle ne mange plus le fer de la recherche et de l'armée sans jamais produire (moteur réel,
@@ -297,14 +298,36 @@ local function refresh(f, st, tick)
       end
     end
   end
+  -- Centrale refusée et plan directeur éteint : nouvel essai quand le contexte change (époque de 30 min).
+  if not st.plant_id and st.plant_refused and st.plant_refused.sig ~= st.sig then st.plant_refused = nil end
+  -- Plan directeur ÉTEINT quand il n'a plus rien à bâtir ni à servir (tous ses projets refusés, aucun module fini) : allumé,
+  -- il fait marcher les PNJ par les rues et lit le terrain pour rien (moteur simulé, tests/ia3f_test.lua §6 après la
+  -- fusion de main 0.5.0 : centrale refusée à 10 min, plan resté allumé, pétrole jamais trouvé contre 26 min sans lui).
+  -- Rallumé à la prochaine demande.
+  local b = f.build
+  if b and Auto.IDLE_OFF then
+    local busy = false
+    for _, pid in ipairs(b.order or {}) do
+      local p = b.projects[pid]
+      if p and p.state ~= "refuse" then busy = true break end
+    end
+    if not busy then
+      st.last_radius = b.radius
+      f.build = nil
+      st.plant_id, st.plant_state = nil, nil
+      note(f, st, tick, "plan directeur eteint (rien a batir ni a servir)")
+    end
+  end
 end
 
 --- Contexte d'un refus : rayon du treillis (il grandit jusqu'à Build.RADIUS_MAX quand rien ne tient), époque de 30 min
 --- (le terrain change : arbres défrichés, avant-postes, bâtiments). Les technologies n'y sont pas : une recherche ne
 --- change pas la place (moteur simulé, sonde du 27/10 : un refus « place » redemandé à chaque technologie).
-local function signature(f, tick)
+local function signature(f, tick, st)
   local b = f.build
-  return string.format("r%d:e%d", b and b.radius or 0, math.floor(tick / Auto.REFUSE_EPOCH))
+  -- plan directeur éteint (rien à bâtir) : le rayon qu'il avait (sinon la signature changerait à l'extinction et tout
+  -- refus serait redemandé à la minute suivante)
+  return string.format("r%d:e%d", b and b.radius or (st and st.last_radius or 0), math.floor(tick / Auto.REFUSE_EPOCH))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -316,7 +339,7 @@ function Auto.think(f, view, book, tick)
   Profiler.start("ia3e:auto")
   local st = state_of(f)
   roll(f, st, tick)
-  st.sig = signature(f, tick)
+  st.sig = signature(f, tick, st)
   refresh(f, st, tick)
   if tick >= (st.next_decide or 0) then
     st.next_decide = tick + Auto.EVERY
