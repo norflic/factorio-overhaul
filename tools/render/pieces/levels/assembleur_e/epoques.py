@@ -145,9 +145,16 @@ SILHOUETTES = {
 # Ronde F3-A3 (rendu a4, regardés) : plan en U, la baie est le SOL (verdict du DC) ; dans l'étroit passage entre la
 # semelle et le bac d'entrée, l'ombre de contact (alpha ≥ 0,5) ferme une petite poche de sol : âge 4 (107 px, à gauche
 # du fût couché), âge 15 (26 px, à gauche du creuset). C'est le sol voulu, pas un jour dans une pièce.
+# F3-B (production, 27/10, regardés : fo-logs/2026-10-25_F3/production/trous/) : la conduite du port S passe au raccord de
+# JEU (x = −0,5 aux côtés pairs, `cb39b10`), les bacs du plan en U vont à l'est de la conduite. Âge 11 : le bac de
+# sortie touche alors le pylône est et ferme au sud le couloir de SOL entre la table et ce pylône (âge 11 : 1 997 px,
+# âge 15 : 2 091 px, 0,3 × 2 t : sol voulu, ouvert en a4 ; la poche de l'âge 15 du rendu a4, à gauche du creuset, n'existe
+# plus) ; âge 10 (plan en H), niveau pair : mince bande de sol entre la conduite et la baie ouest (102 px).
 TROUS_VOULUS = {
     (4, "machine"): [(-0.84, 1.16, 0.3)], (4, "compo"): [(-0.84, 1.16, 0.3)],
-    (15, "machine"): [(-0.29, 1.67, 0.15)], (15, "compo"): [(-0.29, 1.67, 0.15)],
+    (10, "compo"): [(-0.74, 1.69, 0.15)],
+    (11, "machine"): [(1.36, 0.49, 0.3)], (11, "compo"): [(1.36, 0.49, 0.3)],
+    (15, "machine"): [(1.36, 0.45, 0.3)], (15, "compo"): [(1.36, 0.45, 0.3)],
 }
 
 

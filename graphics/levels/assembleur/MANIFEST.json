@@ -3,16 +3,16 @@
  "commande": "py -3.9 tools/render/pieces/levels/assembleur_e/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-10-25_F3/production/sprites, à GARDER)",
  "fichiers": {
   "asm-e01-piece-light.png": {
-   "hauteur": 98,
-   "largeur": 138,
-   "sha256": "26a7bc4c929d8c6da9cb4f778dd7594c10f40527ea8de3c40b8f1f36a38297e2",
-   "taille": 5081
+   "hauteur": 97,
+   "largeur": 137,
+   "sha256": "a8fd5241c8b14d1494795d7798b1160c69e64134932d4bd293c83b62250dfb43",
+   "taille": 3984
   },
   "asm-e01-piece-main.png": {
-   "hauteur": 30,
+   "hauteur": 29,
    "largeur": 104,
-   "sha256": "42fdbc48e4b70f3b235b0cdf65bdfb74f4b6baea21ef5149049a4c52ab7cf22c",
-   "taille": 3088
+   "sha256": "110a87d379cf0a5abdf25b91123b2d5ec9657db69a29c6d134f8e769bce70845",
+   "taille": 2969
   },
   "asm-e01-piece-shadow.png": {
    "hauteur": 17,
@@ -23,50 +23,50 @@
   "asm-e02-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "2a426d143e10444014cb56c0e7e8bdabd72b38215411bf74677af976246b863d",
-   "taille": 10305
+   "sha256": "af34af74569dfbcff97feb88c5c3f4beb3bc290107a236dd2e48085da0571ea9",
+   "taille": 10077
   },
   "asm-e02-machine-glow.png": {
-   "hauteur": 108,
-   "largeur": 82,
-   "sha256": "ef7baedaa56774e0a537e6d9a2b2e1f4e4b1ee5f04736f22737b29921ba43e3c",
-   "taille": 1654
+   "hauteur": 89,
+   "largeur": 72,
+   "sha256": "224a07e0870cbeac7475e4f4c7a85e0b0280c23a82641917b7cf9606d4cd2a2e",
+   "taille": 1619
   },
   "asm-e02-machine-light.png": {
-   "hauteur": 105,
-   "largeur": 135,
-   "sha256": "b8f9a9521c3c64a88f0ad80de0fb021e5e10564b17c0658c31ba6ba926cfb028",
-   "taille": 2054
+   "hauteur": 76,
+   "largeur": 82,
+   "sha256": "db82438587de692d42bb8c436844b1d8210b893f034f827a7d71f21650b205ef",
+   "taille": 1567
   },
   "asm-e02-machine-main.png": {
    "hauteur": 128,
    "largeur": 114,
-   "sha256": "5e062ccbda557a1be113475ec596af00c2f22ead520a94050a402923d4b474a9",
-   "taille": 23452
+   "sha256": "f70c150893e12e603359fa714aa9effa4abf8bf3edef10e5b73e460fbe501bf3",
+   "taille": 22401
   },
   "asm-e02-machine-shadow.png": {
    "hauteur": 97,
    "largeur": 124,
-   "sha256": "f5431f0f44c9a4d914df3fbee0b08764111a68518059a31812795ee7593f774f",
-   "taille": 2386
+   "sha256": "2ee02d52a336c6b8459b7295092878be9747509c161902ef163cecdda9266863",
+   "taille": 2455
   },
   "asm-e02-piece-glow.png": {
-   "hauteur": 18,
-   "largeur": 83,
-   "sha256": "88d4b27c963c4ad2061cd0b9c65c98f1f8a94e02cdd0ca2061bae66de49c28e4",
-   "taille": 455
+   "hauteur": 11,
+   "largeur": 68,
+   "sha256": "2a33620a7d097d28a81f7930838131e6e1ab3dca8eb9249097402fb9c69d91e1",
+   "taille": 398
   },
   "asm-e02-piece-light.png": {
    "hauteur": 133,
    "largeur": 165,
-   "sha256": "e00bac78345e0de8294f8bc1b6c21ed8286df06625ff0fed6da49a0241a51045",
-   "taille": 10083
+   "sha256": "f375a7259312249f11b6975cb61b8cccbd65655cbbd157b7f276b51b62cbd319",
+   "taille": 7857
   },
   "asm-e02-piece-main.png": {
-   "hauteur": 33,
-   "largeur": 98,
-   "sha256": "46e944125ed411a2b31ab6b4afcccb9a5a8f58ed4350e9f522f8ee67a8522a72",
-   "taille": 2938
+   "hauteur": 34,
+   "largeur": 97,
+   "sha256": "31b6a63224026f656c6bba880d3eac80f60af6a0c53b5ec642dcea095f63afbf",
+   "taille": 2865
   },
   "asm-e02-piece-shadow.png": {
    "hauteur": 12,
@@ -77,50 +77,50 @@
   "asm-e03-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "a661a88111300c9b017a929eddea06b8900930e234613dd38549ba5dcd1fc54a",
-   "taille": 11993
+   "sha256": "62ec31eb09c0c5aceafbf8e357019fabe99cbfcb77f6a25a43bf0e8d30fe6368",
+   "taille": 11856
   },
   "asm-e03-machine-glow.png": {
-   "hauteur": 110,
-   "largeur": 93,
-   "sha256": "90abca02bf4f84c6a35d5c73e5d4c5c5d1f5386b30210a4034509cfb9e739ed7",
-   "taille": 2171
+   "hauteur": 111,
+   "largeur": 85,
+   "sha256": "00380c4d27745217bdd6256802e806dc3987b3b5ac6ee3e251824f73084a687f",
+   "taille": 2132
   },
   "asm-e03-machine-light.png": {
-   "hauteur": 117,
-   "largeur": 163,
-   "sha256": "b5cedd055f436822d8af48ad7f13e1bf54503346eb06a584b60ff22d12982585",
-   "taille": 3771
+   "hauteur": 113,
+   "largeur": 159,
+   "sha256": "a1a141ea5d58d73e6a821f0612c4b7c492c4a10f7fd085664bb1b7758beef164",
+   "taille": 2769
   },
   "asm-e03-machine-main.png": {
-   "hauteur": 125,
+   "hauteur": 124,
    "largeur": 114,
-   "sha256": "46571288680ed7e94872e8d7a8b3ccee40ec3ad558a1bd5b3e5d420daa7e7064",
-   "taille": 27550
+   "sha256": "01e491e78302101362793a1f7a61e895e3493d94516a91f31656292fd3dc0618",
+   "taille": 26205
   },
   "asm-e03-machine-shadow.png": {
    "hauteur": 96,
    "largeur": 123,
-   "sha256": "492c31958804c2989bc8b77ff0f6d9245231a8184b7f382f925334a65fc74498",
-   "taille": 1713
+   "sha256": "0e6b66638c0716d120a39c18b06366794f7f79e40efbaa57210ee8e89c607dfd",
+   "taille": 1712
   },
   "asm-e03-piece-glow.png": {
-   "hauteur": 22,
-   "largeur": 16,
-   "sha256": "81daa51a4250e63a8318b50f933452ef08102bb14f46f310ad6d2f45a9f92542",
-   "taille": 141
+   "hauteur": 21,
+   "largeur": 14,
+   "sha256": "821f18f0e028abb0c448dba5c90332f497a7691c5489c994d42fef6a367fce35",
+   "taille": 133
   },
   "asm-e03-piece-light.png": {
-   "hauteur": 118,
+   "hauteur": 114,
    "largeur": 152,
-   "sha256": "3e415cc3de2c51e2a381942fa87428889eeacbbe4868b186026cb486c922d91c",
-   "taille": 5635
+   "sha256": "6e99212351dacd11d4e275affb6e3466cfbc65e8d36deed3c27300785271defc",
+   "taille": 4469
   },
   "asm-e03-piece-main.png": {
    "hauteur": 47,
    "largeur": 106,
-   "sha256": "8ea45bb56b4d7c625acfe84b24f14cb67ccc66bf2ab1239efaf46e5d7a04f8e7",
-   "taille": 4598
+   "sha256": "7ad60b4221468aee25bd88a3f861a7769db9f8f57bf942cd4dc503a7821eaa75",
+   "taille": 4412
   },
   "asm-e03-piece-shadow.png": {
    "hauteur": 16,
@@ -131,50 +131,50 @@
   "asm-e04-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "5869c11cedfb61ab977d72772c0898bc2026bfa3d68a916ec029fcdfb5e1f143",
-   "taille": 12513
+   "sha256": "77ee1179cef2f0e28371ca11175336254b8c51c2d2929339795a5582fc8151bf",
+   "taille": 12293
   },
   "asm-e04-machine-glow.png": {
-   "hauteur": 146,
-   "largeur": 125,
-   "sha256": "96a9461d717d828e326083268b965e0999b5d1f1af5cc5352e1ece7d1a0f7800",
-   "taille": 3014
+   "hauteur": 144,
+   "largeur": 123,
+   "sha256": "72dd33b78175658af4cd07c5b842f3b5d48ad513a4194f63d7f45ff112c56d51",
+   "taille": 2238
   },
   "asm-e04-machine-light.png": {
-   "hauteur": 116,
-   "largeur": 142,
-   "sha256": "daebd955351893c4a909339eaf74af6a8175260155dfcde8760f539fd6a32a82",
-   "taille": 5013
+   "hauteur": 120,
+   "largeur": 140,
+   "sha256": "9a69026c36dcedc9c4e4476224ddf0d0a33ca6733d4cd225ffd5bdf4f7347b67",
+   "taille": 4602
   },
   "asm-e04-machine-main.png": {
    "hauteur": 162,
    "largeur": 146,
-   "sha256": "f97f2b94bc7e48c5629858f896d3bbdce6749d4723d1634b0c753dc2c54b501f",
-   "taille": 43742
+   "sha256": "aa11577a5ac69baa9b0e68343951f66f910f8da160e07993110c6312c6492049",
+   "taille": 41815
   },
   "asm-e04-machine-shadow.png": {
    "hauteur": 128,
    "largeur": 190,
-   "sha256": "a6607bb93597392cbd92397381d32c6fae1f25ea3169c3a062c8229c78abdfed",
-   "taille": 4719
+   "sha256": "b36d2c1e78a8e3765c3b8847f5b2fc28c2dd43f7b70aeff7e4f71d5114f65a46",
+   "taille": 4636
   },
   "asm-e04-piece-glow.png": {
-   "hauteur": 31,
-   "largeur": 120,
-   "sha256": "711b563b309f1eb8c7fb57c71809c001fbffafcfb04b6056565b909d979d34ce",
-   "taille": 603
+   "hauteur": 24,
+   "largeur": 95,
+   "sha256": "c5c4d281b6b2a6d4c07e1f17d9c9d4e7cb8132b2f319e9b9eb3b14802ab65d63",
+   "taille": 508
   },
   "asm-e04-piece-light.png": {
-   "hauteur": 142,
-   "largeur": 189,
-   "sha256": "935b2106263286c482f35fb91dff33ff16e233c6ba1ed1bb83a4dfa54dab7167",
-   "taille": 14466
+   "hauteur": 141,
+   "largeur": 188,
+   "sha256": "8b7253dbe0572dcbe937053f15748efafb7a530294092b97e364d2e0995685c0",
+   "taille": 11888
   },
   "asm-e04-piece-main.png": {
    "hauteur": 51,
    "largeur": 136,
-   "sha256": "6b56affac7a8943585308c0ff0aa52fb746a73d19cf59db1d89c78e16d7ebab1",
-   "taille": 6058
+   "sha256": "5b070239593bbb274c1c89961116f93803941b602dc0a9c503ccfc917ce4ebdb",
+   "taille": 5851
   },
   "asm-e04-piece-shadow.png": {
    "hauteur": 22,
@@ -185,44 +185,44 @@
   "asm-e05-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "304e17fe0f5e36bfdc60614d87ece336d5abdf751730710f4a6c5398026cb659",
-   "taille": 10338
+   "sha256": "23549e85ecd1832fcdcba1bc23f04af768a74279634749b2bca33630e3a83618",
+   "taille": 10296
   },
   "asm-e05-machine-glow.png": {
-   "hauteur": 160,
-   "largeur": 122,
-   "sha256": "f31dbcb4130f86ef19486f903649b4600feda99926d2d7ae69be1e4a61ec19e9",
-   "taille": 8095
+   "hauteur": 157,
+   "largeur": 124,
+   "sha256": "91949ed43997c3ff5276d6bc501625a6d126a9a6f385bcd8bace992b33cea8f5",
+   "taille": 7069
   },
   "asm-e05-machine-main.png": {
    "hauteur": 176,
    "largeur": 146,
-   "sha256": "271a2147c64cf3f0517a98b672610a3bdbb3867eb4f3cd4198019d65b42b98d3",
-   "taille": 38520
+   "sha256": "5fd263a86f492c66b2ac67464d6f5f1f748c2b9e9b3cac02f730f7860f3474d3",
+   "taille": 37722
   },
   "asm-e05-machine-shadow.png": {
    "hauteur": 128,
    "largeur": 174,
-   "sha256": "35dae9d40868a2f5b225b902ad68741ec08f7868c0628d6e8216368fd9ca82bf",
-   "taille": 3030
+   "sha256": "e0d53510e9b5c1ec1a91e341f71a6017b6b999c4386100e6de847bc09f259bc0",
+   "taille": 2976
   },
   "asm-e05-piece-glow.png": {
-   "hauteur": 18,
-   "largeur": 115,
-   "sha256": "cf7c3741c3943b4b9e910ae033e743ac1ab7b580f0eba1052349738d77b9a2c7",
-   "taille": 448
+   "hauteur": 17,
+   "largeur": 111,
+   "sha256": "bccd404aa4f62cd362c5819dca8141282df8b0448c3acf1d8e438ce81ec8acbc",
+   "taille": 422
   },
   "asm-e05-piece-light.png": {
-   "hauteur": 45,
+   "hauteur": 42,
    "largeur": 78,
-   "sha256": "0d1e8daaa572114a74604a940fb1d9ae179f758d26972a26a169b1744df6ab84",
-   "taille": 2057
+   "sha256": "e9613b3d02cf5ce8b17167eaa39d9a162c93d322fdc1b4914b392ce6dd04a9e9",
+   "taille": 1934
   },
   "asm-e05-piece-main.png": {
-   "hauteur": 31,
+   "hauteur": 30,
    "largeur": 133,
-   "sha256": "54ac9933b7b94d2d00e59cb99cf0f8ee3f7595a4f459b00bd4c7c7f1ef6ab664",
-   "taille": 3076
+   "sha256": "e8437dcc9b45296e7bcadf794f3f1c7f64e4b4a81cbd59232a2f46a114809994",
+   "taille": 2963
   },
   "asm-e05-piece-shadow.png": {
    "hauteur": 16,
@@ -233,50 +233,50 @@
   "asm-e06-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "ddb8ea0750fe98768a87fe95dbb0c7c64825b78947637763b5881072c1193438",
-   "taille": 12620
+   "sha256": "95873f4ba43ae79ec6148b63b96f4ea45469289b7800b6f9bfbc2f624773fef6",
+   "taille": 12422
   },
   "asm-e06-machine-glow.png": {
-   "hauteur": 150,
+   "hauteur": 155,
    "largeur": 123,
-   "sha256": "f413c2e186f07ff945e5912c14049687da779da7c1431c45ba0340a3a4d35847",
-   "taille": 4567
+   "sha256": "44fa59db52c2f31d91831cf1fe23a768c5cbb6b18033b769e57753703f396d18",
+   "taille": 4222
   },
   "asm-e06-machine-light.png": {
    "hauteur": 204,
    "largeur": 202,
-   "sha256": "1c589780fe09db01cfdea8e224973ebe35a258e65c2c883408feea9e67279b32",
-   "taille": 12135
+   "sha256": "ba8110b0942e526ae5e3662a73a7e70dd397ea664b7cce25da43add7fce211bb",
+   "taille": 9881
   },
   "asm-e06-machine-main.png": {
-   "hauteur": 166,
+   "hauteur": 167,
    "largeur": 146,
-   "sha256": "e3e95a8b0496ef84a79ec6ba3a8759c263cb28d7a151f41170e435de9f27338f",
-   "taille": 46802
+   "sha256": "cf37dd29230d84d573aa76dff1ebc16848d48ba570259241220a33d303936641",
+   "taille": 44781
   },
   "asm-e06-machine-shadow.png": {
    "hauteur": 128,
    "largeur": 174,
-   "sha256": "391312f56e786dc9604697c5874e121f0f763d957f04256ebb5f58ae3c6d67e8",
-   "taille": 2381
+   "sha256": "8d8776fa7d6afbaa6d4caa233660273595623ffa452234d3f42c9443bfcc6c21",
+   "taille": 2375
   },
   "asm-e06-piece-glow.png": {
-   "hauteur": 25,
-   "largeur": 102,
-   "sha256": "dd10591039f53aacbf5013722bf62717e58911852397cfcc56d86353052f497a",
-   "taille": 327
+   "hauteur": 19,
+   "largeur": 108,
+   "sha256": "580418d9176107944f6ad070d6e2b04a508b27fff5f1a5d595b08f3bf51cb111",
+   "taille": 319
   },
   "asm-e06-piece-light.png": {
-   "hauteur": 117,
-   "largeur": 165,
-   "sha256": "18459b1db794a87502b7935bf9316f7d5c5e9a1655c23317486bb43d2f792e9a",
-   "taille": 6827
+   "hauteur": 114,
+   "largeur": 161,
+   "sha256": "514d30040f3d638d3fd0d31fdaab371eec1b91bd7e61570f4df7b2890f334a54",
+   "taille": 4942
   },
   "asm-e06-piece-main.png": {
    "hauteur": 37,
    "largeur": 131,
-   "sha256": "85e80f93a1bd864aecdaeed503586bef3dd21e58f1789ff5ec6e15c9730b1d1c",
-   "taille": 3583
+   "sha256": "59c6c0529d4958d32f6f4cd1d950257dd787e8e59fb490cad5148a8cb2f02c0c",
+   "taille": 3498
   },
   "asm-e06-piece-shadow.png": {
    "hauteur": 14,
@@ -287,26 +287,26 @@
   "asm-e07-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "8b6a39f451eac44e73b670e97ef2675d30fc9f57dfab1d708caeb7f0ae889153",
-   "taille": 11417
+   "sha256": "62f10825e5cb7dc4a0b9de5d3acc61fbc5c84f0e5f59f12cbba149d037174cc8",
+   "taille": 11330
   },
   "asm-e07-machine-glow.png": {
-   "hauteur": 162,
-   "largeur": 156,
-   "sha256": "ccb6113bd6683790af612615c2c2dff9505d3d7ff83cc83576668bdcaee0f67d",
-   "taille": 9293
+   "hauteur": 159,
+   "largeur": 155,
+   "sha256": "f6ebaf528a76b0e1fffeba3e4178dc94158f949ac391e57ef0a8b389810e8363",
+   "taille": 9206
   },
   "asm-e07-machine-light.png": {
    "hauteur": 62,
-   "largeur": 220,
-   "sha256": "01bd4a3136beb0290514ccbaa2f64ea7f63a378ce40d14f7e94bdb7274faacae",
-   "taille": 4439
+   "largeur": 221,
+   "sha256": "f1690674b3078d27ed966e0a8b25af301bbbcc687a45a9805b71bf25b51fda44",
+   "taille": 4377
   },
   "asm-e07-machine-main.png": {
    "hauteur": 199,
    "largeur": 178,
-   "sha256": "8c93b679d7626d58cc19d0b5d3c78840968250767ae5373c94a7ccdb03cc26bd",
-   "taille": 57821
+   "sha256": "3b9c910377827463cf28f8d41175325d2c324114cf2c487957826877f18ea5b4",
+   "taille": 55891
   },
   "asm-e07-machine-shadow.png": {
    "hauteur": 162,
@@ -315,22 +315,22 @@
    "taille": 5015
   },
   "asm-e07-piece-glow.png": {
-   "hauteur": 38,
-   "largeur": 144,
-   "sha256": "83f726fec7362ba116bc2e1ad681a928c5e966a251c010a4036f187df9d3e44d",
-   "taille": 1187
+   "hauteur": 37,
+   "largeur": 143,
+   "sha256": "c7050efd82c8e581ee58cb6e9bef3bc09fd22984e42858817fe3a72f2c33f4e2",
+   "taille": 1144
   },
   "asm-e07-piece-light.png": {
-   "hauteur": 139,
-   "largeur": 220,
-   "sha256": "721dcfb10a9cf54ca5142fb6870c5b69d6ced62d4d716620d4d3e3ff912fe444",
-   "taille": 24731
+   "hauteur": 140,
+   "largeur": 222,
+   "sha256": "50bbcdc5651770cf35a2d650d29f779ee690d1fa26d50256bbed8a8f31908a9d",
+   "taille": 28262
   },
   "asm-e07-piece-main.png": {
    "hauteur": 46,
-   "largeur": 162,
-   "sha256": "f2bffa4d58880ce03a82c4fd89ef9213e9fc6d664c558da786cde52ab592a991",
-   "taille": 3962
+   "largeur": 160,
+   "sha256": "5e8ca76e5e7a9f13ea5372558711320c11cae5a925a4cc7d2bf77fc4380d8968",
+   "taille": 3786
   },
   "asm-e07-piece-shadow.png": {
    "hauteur": 20,
@@ -341,20 +341,20 @@
   "asm-e08-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "07c6482e890c28e61674caa2d6a7557acc6eda490d5bf17eacd3e060bf61d748",
-   "taille": 11305
+   "sha256": "0af4671370d57d4a96513ebcf30d30f98cc5d500c3e6cffd54e3c88374a42e2a",
+   "taille": 11335
   },
   "asm-e08-machine-glow.png": {
-   "hauteur": 186,
-   "largeur": 151,
-   "sha256": "46189a4b5562de926f4e696a9b128e07de8d64acdabfc06c2e55b555e428c920",
-   "taille": 10246
+   "hauteur": 183,
+   "largeur": 140,
+   "sha256": "4e0cfc95982b7c14a65559fa05345e7e2b84e31e2fa125399f304989ea6dcd70",
+   "taille": 8666
   },
   "asm-e08-machine-main.png": {
    "hauteur": 214,
-   "largeur": 177,
-   "sha256": "04ef0bc9f7be1f7184f989bd1cd950b648baf647a01fc0a01c9eb83582e38725",
-   "taille": 63354
+   "largeur": 176,
+   "sha256": "5c93dbf4ba497afc6f9ee7d03dd9b88a628602ee81836fe34b5b1e981bb0cc47",
+   "taille": 62360
   },
   "asm-e08-machine-shadow.png": {
    "hauteur": 158,
@@ -363,22 +363,22 @@
    "taille": 4735
   },
   "asm-e08-piece-glow.png": {
-   "hauteur": 22,
-   "largeur": 135,
-   "sha256": "372b9034f258966942f47de487ac1eb2ef0be71bd18b0dcf63276203f3410170",
-   "taille": 1021
+   "hauteur": 23,
+   "largeur": 24,
+   "sha256": "c5d6822c4376fc0a5b04fc066a976790c6cfd44142af4ce2634af675dd5071ef",
+   "taille": 916
   },
   "asm-e08-piece-light.png": {
-   "hauteur": 118,
-   "largeur": 159,
-   "sha256": "026159da69678b66f20c7f7fdf66d82d8d2e4e8927d507ba01e090fb39143c18",
-   "taille": 4655
+   "hauteur": 117,
+   "largeur": 157,
+   "sha256": "13923c40dc51b2332ad38e0e55f424d735bfd8014f7e2f3b0889ac538c92af3f",
+   "taille": 3769
   },
   "asm-e08-piece-main.png": {
-   "hauteur": 35,
+   "hauteur": 36,
    "largeur": 165,
-   "sha256": "a12a47bc2c958170d0ac37053869b629c923eaaf9c16c19b4db776a1f6160996",
-   "taille": 4445
+   "sha256": "0b65b7a403edbfeaedf126173e80df462c8620f3a7e4d2114be485255e825d56",
+   "taille": 4389
   },
   "asm-e08-piece-shadow.png": {
    "hauteur": 22,
@@ -389,26 +389,26 @@
   "asm-e09-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "0747fd02e40e6da02a5978a0f64acd85a906dfdb776d5f8edde3b5e88ba28fdc",
-   "taille": 10166
+   "sha256": "84212bf2c7bc426d720a542225973868d9e0421d2fa9fe3ec13948fdf2778c23",
+   "taille": 10091
   },
   "asm-e09-machine-glow.png": {
-   "hauteur": 206,
-   "largeur": 158,
-   "sha256": "0d780199ae4605869f5907531924158eca867bd117feca6ee8db65a29c044366",
-   "taille": 9565
+   "hauteur": 204,
+   "largeur": 157,
+   "sha256": "953a2ed207be7c5255d678d26bdece5a5c542403c9aa307facce5e21e64954e9",
+   "taille": 7905
   },
   "asm-e09-machine-light.png": {
-   "hauteur": 193,
-   "largeur": 221,
-   "sha256": "1007a07854c9c405690120ddd0f5935ac094d99d3a8e7a1cf52ad283b0b6f6e9",
-   "taille": 5180
+   "hauteur": 192,
+   "largeur": 219,
+   "sha256": "a193efc4d06b230561b80deda456acd449e9ef69c51303bfcab239b8db80282b",
+   "taille": 4317
   },
   "asm-e09-machine-main.png": {
    "hauteur": 219,
    "largeur": 178,
-   "sha256": "66df2263a9f790cff6df5e32d9fca24dc18e090f3ac1c93ba049c9ae1fd64d7a",
-   "taille": 58551
+   "sha256": "f25e957b660f83eb1c9b43b02d08356a8783a334e7d4369a575f2fff0fb6eb27",
+   "taille": 56798
   },
   "asm-e09-machine-shadow.png": {
    "hauteur": 162,
@@ -417,22 +417,22 @@
    "taille": 4509
   },
   "asm-e09-piece-glow.png": {
-   "hauteur": 20,
-   "largeur": 134,
-   "sha256": "b5618a5319b7cd0116dc654501c0f1ae7756703e23ca7562bab14a6f410a3cd6",
-   "taille": 278
+   "hauteur": 16,
+   "largeur": 131,
+   "sha256": "4f7558c9361b5b32b8a0f44345b29b43695d91538b600d390f7adc9a26c982c0",
+   "taille": 242
   },
   "asm-e09-piece-light.png": {
-   "hauteur": 34,
-   "largeur": 172,
-   "sha256": "b741a085681dce7f0891093de94f3cabdd1cd6a41508a76f656616b243ec10bc",
-   "taille": 2290
+   "hauteur": 33,
+   "largeur": 174,
+   "sha256": "e7b06992bdf76c7e1d36b5994a80dbc81d1a3ef633f079871d7bfa8444a0ce45",
+   "taille": 2009
   },
   "asm-e09-piece-main.png": {
    "hauteur": 44,
    "largeur": 162,
-   "sha256": "478a6fd0bcc888164620b64c6e2337fa05879aec79d3b9f49bd9cfdf6da23d86",
-   "taille": 5656
+   "sha256": "bb11446f3d22f0f8ddb56c3aeb5ceea9a033e9d07577e2123180b5e82589db0e",
+   "taille": 5505
   },
   "asm-e09-piece-shadow.png": {
    "hauteur": 22,
@@ -443,104 +443,104 @@
   "asm-e10-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "00e6a2d3d9af4dd3fdca436015b2ac67d666101e16db21a02513f1f125640e43",
-   "taille": 11367
+   "sha256": "65d2d26e25ae8a9820db1cceb06863a29e44f86fd411c63fd8fa09231f89b701",
+   "taille": 11290
   },
   "asm-e10-machine-glow.png": {
-   "hauteur": 230,
-   "largeur": 190,
-   "sha256": "878d47d53282f24d2d3a178f587e0824e08c9a31357f64b769f56994b5911d85",
-   "taille": 8117
+   "hauteur": 224,
+   "largeur": 188,
+   "sha256": "32243dcb05969a6feaffa8aa4d1975a123dc465f300ccf78eaa249e24cf3e92b",
+   "taille": 6807
   },
   "asm-e10-machine-light.png": {
-   "hauteur": 76,
-   "largeur": 187,
-   "sha256": "a01fc210ca0614981a1e88aefdede9adb83213f7511b6724a635f976df4fc655",
-   "taille": 4878
+   "hauteur": 73,
+   "largeur": 186,
+   "sha256": "eec50426c0aab56b5cbbc63b6de33eb71e6d8ded848cdb7a40ee214f867c8728",
+   "taille": 3509
   },
   "asm-e10-machine-main.png": {
    "hauteur": 239,
-   "largeur": 210,
-   "sha256": "8dd3c72bde0f30977475cdaa3c407f88723148ff9e943819cbb266b705cfbd6f",
-   "taille": 75014
+   "largeur": 208,
+   "sha256": "f38241f4f4231d72f82aa33296cb9effa2a07877b9b9b8ef0acbd720b00acdb8",
+   "taille": 70826
   },
   "asm-e10-machine-shadow.png": {
    "hauteur": 193,
    "largeur": 248,
-   "sha256": "3862b6e89174a32726916b0d90f99d2b2dd3f83390ae57d66e85ad16eb4c7748",
-   "taille": 6566
+   "sha256": "14cf521335c053e190977d0bee19460577f5d17666585dcf93865de4eaee9e4c",
+   "taille": 6021
   },
   "asm-e10-piece-glow.png": {
-   "hauteur": 23,
-   "largeur": 95,
-   "sha256": "81b488322c7faa0efaf065b82f02ccf81642f3bb08b7773e08185f1ccc98a4d5",
-   "taille": 1015
+   "hauteur": 22,
+   "largeur": 90,
+   "sha256": "461f58afefa5002aa8b1964c9cccfddf048e9e9e1a67c9c75b1f23008662fd50",
+   "taille": 808
   },
   "asm-e10-piece-light.png": {
-   "hauteur": 50,
-   "largeur": 174,
-   "sha256": "414aef611ebb622bad2a0b26c72b39c36e18aacfdea7cf8f5237e0bde2ab5864",
-   "taille": 2199
+   "hauteur": 55,
+   "largeur": 177,
+   "sha256": "a719d7d8d035846c424b8f9a4138512af45c55bb92ddae7ae189b96683f7982f",
+   "taille": 2418
   },
   "asm-e10-piece-main.png": {
    "hauteur": 48,
    "largeur": 116,
-   "sha256": "9ea1789952712c17e4a55f250f2f706875821adf53f7db41dc6973458d5c03b4",
-   "taille": 7178
+   "sha256": "27336da49c252e72ed57cdbe32c61e79dd8bf1a937651f603b529c8c3e402c9d",
+   "taille": 6025
   },
   "asm-e10-piece-shadow.png": {
    "hauteur": 19,
-   "largeur": 130,
-   "sha256": "b118157fe968a89f9f57db1a175e6a7593af96c395c5738bf09e4e35c2d0af0e",
-   "taille": 1069
+   "largeur": 128,
+   "sha256": "a6d25c7d5461380de38e0cec5979d2be783f459817476e5dd56951cbacdd972c",
+   "taille": 1048
   },
   "asm-e11-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "bc92ae86d84c9cbd1219b46bef4e61333c834a7b57a0fa3ab969987c997451e0",
-   "taille": 12531
+   "sha256": "09ea3d25683e727c10353606d6e9f4969a3d891fd9ef48e046b2e87acba312b4",
+   "taille": 12477
   },
   "asm-e11-machine-glow.png": {
-   "hauteur": 219,
+   "hauteur": 220,
    "largeur": 190,
-   "sha256": "32c9937ce87820fe47fba8e43acc2e9bfeb121ea518096c76b48dafe4e3adccc",
-   "taille": 10411
+   "sha256": "b8df84df9e9308a424709eca32fa672f8e9916b500ee8b2c30b60252c903f4d0",
+   "taille": 8631
   },
   "asm-e11-machine-light.png": {
-   "hauteur": 200,
-   "largeur": 243,
-   "sha256": "89c4ecdf7bb54d0cb7828288a550b4b2ca127f81aa0c6ce0cd3d819f2daa466e",
-   "taille": 5703
+   "hauteur": 196,
+   "largeur": 238,
+   "sha256": "590dd4a8b13c0820e0b76ab4887999045baf88c23fe3d85f544af3551602a833",
+   "taille": 4052
   },
   "asm-e11-machine-main.png": {
    "hauteur": 234,
    "largeur": 210,
-   "sha256": "ae716f6a034d7c5152a08909d8881f19ac26a12017f88fda953049070d4e3d6d",
-   "taille": 93867
+   "sha256": "859151ea43852354ab0caf13cb19521dbba34a4d14c4482be5bda0271f95acc6",
+   "taille": 89002
   },
   "asm-e11-machine-shadow.png": {
    "hauteur": 192,
    "largeur": 283,
-   "sha256": "5c225e9b6ac0cc13e6eb6e1538def4b012dcd8bcd3a84edf576144574b211a94",
-   "taille": 8156
+   "sha256": "130b18b1c897c1b926446597a4d9de27c8e825f39e8d3fb0d1a1b042cecead46",
+   "taille": 7978
   },
   "asm-e11-piece-glow.png": {
-   "hauteur": 47,
-   "largeur": 154,
-   "sha256": "0f0f2e40c491badd6835505f52424844539e42edee803090848a4c223b3cfdf6",
-   "taille": 287
+   "hauteur": 7,
+   "largeur": 152,
+   "sha256": "aaa83ed51c3583496bef20f276d5052b6b225f754ec8470aa2cff131dc7bf018",
+   "taille": 227
   },
   "asm-e11-piece-light.png": {
-   "hauteur": 171,
-   "largeur": 259,
-   "sha256": "81a292ab493fb1d9d9f3b1dd21245ad89d01b6a29db3bbaf9dbeda546148bed6",
-   "taille": 27631
+   "hauteur": 170,
+   "largeur": 258,
+   "sha256": "bc9d92830f462ccee6f18d678ef67df4a39e5f6601d905224723cffa74f62ec1",
+   "taille": 22534
   },
   "asm-e11-piece-main.png": {
-   "hauteur": 68,
+   "hauteur": 67,
    "largeur": 192,
-   "sha256": "52bc80003651636c036ba8d3bb01a4a43973ee2c695e0bb085bcdb670a362ee0",
-   "taille": 7200
+   "sha256": "5b6fcb56ec8c98136547ea11cb35fe085ba4d9291114f5a816cac02b91b34a6e",
+   "taille": 6914
   },
   "asm-e11-piece-shadow.png": {
    "hauteur": 25,
@@ -551,44 +551,44 @@
   "asm-e12-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "da07ae7b6b2ccbad5aa2ca71ebe89ac617c1fcf9362a51d007cca0e4bdeaf4ce",
+   "sha256": "823b256a320acea6e91406dff71cd8892c60d43bed0a2945bf5536f4841a37d0",
    "taille": 12012
   },
   "asm-e12-machine-glow.png": {
-   "hauteur": 237,
+   "hauteur": 235,
    "largeur": 188,
-   "sha256": "29e072354b7d2dd3b3258ff797b395ad75d99b2697e608faae8da589f0bbae7e",
-   "taille": 26597
+   "sha256": "9ff5d5a043f83dcbb853ed6a9544c56edf1c99e1836cbc1bfc02b96aeaf65f64",
+   "taille": 24803
   },
   "asm-e12-machine-main.png": {
-   "hauteur": 250,
+   "hauteur": 251,
    "largeur": 208,
-   "sha256": "7e32380e3cc77a8091aa3533a609c79995f6f2347c7c7c93b09f7583338683a8",
-   "taille": 91549
+   "sha256": "2c1a574af283b332e38a5d3f6a7fa9054673b973e08e43b22d14b6391f51ac4b",
+   "taille": 88302
   },
   "asm-e12-machine-shadow.png": {
    "hauteur": 190,
    "largeur": 243,
-   "sha256": "b48bef453a8a4abaa75cf7cffe16f2ac6e4bd72600d3263bbdf7d733c6701f9a",
-   "taille": 9079
+   "sha256": "361cce7c9ecf0f7912a85548ba02831d2ad0105f76336270b578019c0c0a8c51",
+   "taille": 9066
   },
   "asm-e12-piece-glow.png": {
-   "hauteur": 31,
+   "hauteur": 29,
    "largeur": 174,
-   "sha256": "8395779f0e92f8e988a58560cedb1de63986198dc55eee8223ce6572f7c7dcd8",
-   "taille": 1965
+   "sha256": "7b4f8dd08d9deaa470c53900b278e239b584e7c4fe5d25e67d1c96ffcf6b0e91",
+   "taille": 1899
   },
   "asm-e12-piece-light.png": {
-   "hauteur": 85,
-   "largeur": 219,
-   "sha256": "08a04d73442075f270b57e082d22ec2e648e955a19aa3acb92821bb4aec4b640",
-   "taille": 6769
+   "hauteur": 81,
+   "largeur": 218,
+   "sha256": "1a0b4a3421cb57d6484369ec539e60345ccd92c41649dee60cbab7b78d167a75",
+   "taille": 5230
   },
   "asm-e12-piece-main.png": {
-   "hauteur": 38,
-   "largeur": 210,
-   "sha256": "a9a85bb96b19af5dff1cf1173f36470398082e5a46fd8c55a4c8bced1ed63de5",
-   "taille": 5718
+   "hauteur": 39,
+   "largeur": 190,
+   "sha256": "960fe2c1fec6fc07e1292531c9e88d7aa7c93db56ac2c989c990d840a94c6765",
+   "taille": 5544
   },
   "asm-e12-piece-shadow.png": {
    "hauteur": 27,
@@ -599,26 +599,26 @@
   "asm-e13-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "caa9d07a2ad231416f71a6b6b8734a43ffee8287eb0a536287e2f3be9b111875",
-   "taille": 11825
+   "sha256": "dcaa87c0b5d1ab3d2de50e55c8814d41e4965e9f4ab4057dd1a965aa22be8153",
+   "taille": 11665
   },
   "asm-e13-machine-glow.png": {
-   "hauteur": 204,
-   "largeur": 190,
-   "sha256": "84c871c00b636b6303eca96f98883979dcc98447180d3566a8a4300ac4c7eab5",
-   "taille": 14508
+   "hauteur": 216,
+   "largeur": 188,
+   "sha256": "9d13a8a5b260fe7961979381e9c5c4823f305ff723d5b7f0018b97867e47fadf",
+   "taille": 13307
   },
   "asm-e13-machine-light.png": {
    "hauteur": 269,
    "largeur": 167,
-   "sha256": "7e1fea83b744ccbd73b5e5d5e7e60f8f3c36f12ddf486cc303ccdac357721757",
-   "taille": 5932
+   "sha256": "ca5e74d639349d992f793d8fe7f8f6e7170b116b9a34865847f9ce4dad863463",
+   "taille": 6124
   },
   "asm-e13-machine-main.png": {
    "hauteur": 233,
-   "largeur": 210,
-   "sha256": "565b6f35d6ef741c87fb12929d455cd85529c72f777f693497824cab8662c45c",
-   "taille": 86345
+   "largeur": 209,
+   "sha256": "6f5a53c99df7937a6926f4a33aa6c76c0da41e5514d90d1458454fb6584f8daf",
+   "taille": 82689
   },
   "asm-e13-machine-shadow.png": {
    "hauteur": 192,
@@ -627,22 +627,22 @@
    "taille": 2623
   },
   "asm-e13-piece-glow.png": {
-   "hauteur": 16,
-   "largeur": 166,
-   "sha256": "39ca94ef493e8323eaa553cade850c6d011b2a5b4080fc89da58574004feb182",
-   "taille": 339
+   "hauteur": 10,
+   "largeur": 159,
+   "sha256": "096982dc2826bf1612e8c6986765a80a0a67ca50555a06330a8b160e305654bf",
+   "taille": 246
   },
   "asm-e13-piece-light.png": {
-   "hauteur": 69,
-   "largeur": 212,
-   "sha256": "5bb4050d0c8aea4c2366c30f6dd2ad6ce26a9f823338c2c25e462373bae454fc",
-   "taille": 4286
+   "hauteur": 68,
+   "largeur": 208,
+   "sha256": "3d847781a163f5b57fca9642d57ad2dc810237b96c63788c0868d692f3e1e2b2",
+   "taille": 3123
   },
   "asm-e13-piece-main.png": {
    "hauteur": 38,
    "largeur": 192,
-   "sha256": "c5169c1ec7293ed493f69e3856052341c6fdb98ce6b2e8ca37ba558f1b02fb53",
-   "taille": 5744
+   "sha256": "88bdd1d59d3bc733f1916f59c7583cd6444dcfb6ded014023f255708ab56e8fb",
+   "taille": 5506
   },
   "asm-e13-piece-shadow.png": {
    "hauteur": 20,
@@ -653,50 +653,50 @@
   "asm-e14-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "005dfb9322e6223d034e9fa4150a5c0d580670f0cc558c23e501a18f83091450",
+   "sha256": "a3049451d8aaaf1949daceba8d7644b2adda9bcb259a056163b019141fc8c47f",
    "taille": 11004
   },
   "asm-e14-machine-glow.png": {
-   "hauteur": 220,
-   "largeur": 187,
-   "sha256": "c1761ecfefb96d9a16c7cbd9c603ed3c020929cbae0d91911bdcf81933976783",
-   "taille": 12291
+   "hauteur": 215,
+   "largeur": 183,
+   "sha256": "4938fb663c494cebc501fdbd030e3922d149d5d6772a4d2972be0f0afa84e2a7",
+   "taille": 11680
   },
   "asm-e14-machine-light.png": {
-   "hauteur": 145,
+   "hauteur": 143,
    "largeur": 266,
-   "sha256": "cd48f9057448110ccc72aa677524f3280b9d0b27d7d31ef6411efc764fadc997",
-   "taille": 6860
+   "sha256": "9afa504816505c69f3bd6f02b4369dfaee3cda52c22e757c0da3c8fa2936d94b",
+   "taille": 5857
   },
   "asm-e14-machine-main.png": {
    "hauteur": 255,
-   "largeur": 210,
-   "sha256": "ef6a46a1fb2739071b5cbabe78079eac1d4df37f50330bb583bba7b3ff05760e",
-   "taille": 84899
+   "largeur": 208,
+   "sha256": "c38ac1a4f7d1e859f16d8164c3629bc7717b23655f97898bea399b5fea30d4a9",
+   "taille": 81424
   },
   "asm-e14-machine-shadow.png": {
    "hauteur": 194,
    "largeur": 258,
-   "sha256": "644270920985bacc4bca3ba732967243e57de7dd387977a687275f9f3bdf3208",
-   "taille": 4904
+   "sha256": "71326b6e5bb637b60c81949136c49ea28ebafdb1c80528d4605aed3c9a50d6da",
+   "taille": 4888
   },
   "asm-e14-piece-glow.png": {
-   "hauteur": 50,
-   "largeur": 162,
-   "sha256": "e4e9a52e5f19d83966bf0ee04d381acc4b3f554fb14ea0735e087d8252daa358",
-   "taille": 519
+   "hauteur": 49,
+   "largeur": 158,
+   "sha256": "c6bc76a20877cef63ed6461160305e1183d7c40bbf9a0b0c6062256fddec3520",
+   "taille": 466
   },
   "asm-e14-piece-light.png": {
    "hauteur": 46,
-   "largeur": 195,
-   "sha256": "249562ba28d142399fb2038a5982573e8316596d7e248529101645e665eafe48",
-   "taille": 2761
+   "largeur": 196,
+   "sha256": "57b799ceedf7b0241d3598fa5dba524df77dc91b5ef166869b5566e018f691fb",
+   "taille": 2399
   },
   "asm-e14-piece-main.png": {
    "hauteur": 58,
    "largeur": 184,
-   "sha256": "a332968d7dac3da87ffd6d9081fa37520317614968329d31420f5f2f8be5220d",
-   "taille": 6290
+   "sha256": "45a085783368dbb6beb31e26df51931890e25933f218b8deb0408a4f97739b5a",
+   "taille": 6035
   },
   "asm-e14-piece-shadow.png": {
    "hauteur": 20,
@@ -707,38 +707,38 @@
   "asm-e15-icone.png": {
    "hauteur": 64,
    "largeur": 120,
-   "sha256": "fb0d9f32de7f4dcf680c0ccdf2e269955cf11fa78d7eac06f649d31992fa220c",
-   "taille": 10922
+   "sha256": "d39b2692c54d7cba8540ef943ddb1421a268021c7d2ed40112bfe672a3603945",
+   "taille": 10868
   },
   "asm-e15-machine-glow.png": {
-   "hauteur": 221,
+   "hauteur": 222,
    "largeur": 190,
-   "sha256": "890e61d6908bec46c72aaf3fde7b60341f07a23d57193b343d19a2a9734b086d",
-   "taille": 19285
+   "sha256": "93109d8ea9ba269b4b1b26e73dac6265c3635772d780caac328fa11a29ecf7f7",
+   "taille": 21087
   },
   "asm-e15-machine-main.png": {
    "hauteur": 234,
    "largeur": 210,
-   "sha256": "e15ee21c937da597a84823bdcf27fb26bdb8570b49807e0a6bd40108df984059",
-   "taille": 74007
+   "sha256": "2a746d7825afad08afb4f4c2ce1e359ff770bb7522276e35224032ba005cb9cc",
+   "taille": 69588
   },
   "asm-e15-machine-shadow.png": {
    "hauteur": 192,
    "largeur": 271,
-   "sha256": "09bb3db411a4d72be4a6cb6cffb4c8e99b184b986da5399325d655b9a11f27a0",
-   "taille": 7021
+   "sha256": "f22c3c1d84e74fb0eb241b4a9deb1d0f878fe9a9526418e9d5d2d56f80f51670",
+   "taille": 6919
   },
   "asm-e15-piece-glow.png": {
-   "hauteur": 50,
-   "largeur": 178,
-   "sha256": "2a298c1ba5436e61be4ba99d9de51ddb8e47c336a3f2bf264c103cb07055d0f8",
-   "taille": 1728
+   "hauteur": 49,
+   "largeur": 177,
+   "sha256": "2a90bffa71b4f4a47109a306c04e4a864bf0544b58125f2a1b4d20cdb40e0096",
+   "taille": 1488
   },
   "asm-e15-piece-main.png": {
    "hauteur": 63,
-   "largeur": 193,
-   "sha256": "94ddd53121147a326a774580832362f7ff99b09ea9682a364f206dd94e4d80bd",
-   "taille": 8058
+   "largeur": 192,
+   "sha256": "228b873b777ef859bc351c64e133781c5d639e11b3aeadcecdce3ee482f33f74",
+   "taille": 7584
   },
   "asm-e15-piece-shadow.png": {
    "hauteur": 30,
@@ -747,16 +747,16 @@
    "taille": 2461
   },
   "hr-asm-e01-piece-light.png": {
-   "hauteur": 196,
-   "largeur": 276,
-   "sha256": "5396784d41437f20805c9e1c44980e646180ccfab79601d0a2e552334d73bc4c",
-   "taille": 21587
+   "hauteur": 194,
+   "largeur": 274,
+   "sha256": "91e4ba9044b379b80322ee95cd3aaba25b3639ab04074acb1b643ce533c6aeeb",
+   "taille": 15189
   },
   "hr-asm-e01-piece-main.png": {
-   "hauteur": 60,
+   "hauteur": 58,
    "largeur": 208,
-   "sha256": "d89969fe336da24986fe04c544b270a087c4751286616003d68d30584250a010",
-   "taille": 9676
+   "sha256": "ee43ab105eab486d498e1932780af389fabbabbe22ed887d8ad7c481979b8187",
+   "taille": 8940
   },
   "hr-asm-e01-piece-shadow.png": {
    "hauteur": 34,
@@ -765,46 +765,46 @@
    "taille": 2073
   },
   "hr-asm-e02-machine-glow.png": {
-   "hauteur": 216,
-   "largeur": 164,
-   "sha256": "46c505fb6bf0178e58f93968525a69415887bb52a630e33c7f0590628712e2f1",
-   "taille": 3728
+   "hauteur": 178,
+   "largeur": 144,
+   "sha256": "0df24a50595177203499a8fdd5576a9e78420ded2fc7a66749390b7c414016ac",
+   "taille": 6653
   },
   "hr-asm-e02-machine-light.png": {
-   "hauteur": 210,
-   "largeur": 270,
-   "sha256": "fb7cc373c97677b1fd30d7b1afef47f6b10e37a361a1ff319781ea769c3ede5e",
-   "taille": 6993
+   "hauteur": 152,
+   "largeur": 164,
+   "sha256": "efb226b68918e5eaf2f8e1288c4e7fc7931cb8569d7b1f15b5e7d33b382b0c04",
+   "taille": 4743
   },
   "hr-asm-e02-machine-main.png": {
    "hauteur": 256,
    "largeur": 228,
-   "sha256": "e26c9a6fd14136887a8aeb3eb5bdfcd9bb45b88d8fecc66f393ec79ef5013ea8",
-   "taille": 85485
+   "sha256": "d39f338a0bf5e3f147f4883a8c994f424ae8ff1aa83d8c75f3ffe30618ed759d",
+   "taille": 77579
   },
   "hr-asm-e02-machine-shadow.png": {
    "hauteur": 194,
    "largeur": 248,
-   "sha256": "ebd9a8ac861daa4b4e6b50d50e6388ca86922ed0ba45057e2f20dd3206dd89de",
-   "taille": 7468
+   "sha256": "ba9f3d2bdf8d098807eb84631c7629c08db20a30eec4e43eb9b49dd32279d55e",
+   "taille": 7539
   },
   "hr-asm-e02-piece-glow.png": {
-   "hauteur": 36,
-   "largeur": 166,
-   "sha256": "8fca4fb62a5badf0bdffa60e64df4f19d8b9cc0b5267a5646f32f0a05a0d7fb9",
-   "taille": 1196
+   "hauteur": 22,
+   "largeur": 136,
+   "sha256": "ca7c30d9872087dcb9241c23a0f190544ea44e7d27a361e87cf79433c1d75b5e",
+   "taille": 1112
   },
   "hr-asm-e02-piece-light.png": {
    "hauteur": 266,
    "largeur": 330,
-   "sha256": "777641535b5f6c22fd52f4027c83235023b69e5205a76e27e20a2a82ccffff20",
-   "taille": 44723
+   "sha256": "3b069e1dd7ee97b46d47247a9a606840f252cf8b8f290f861ab2533077314c6e",
+   "taille": 34013
   },
   "hr-asm-e02-piece-main.png": {
-   "hauteur": 66,
-   "largeur": 196,
-   "sha256": "f25eedba5d65df01b5e282953318f9b07ac9c310deaf04b6bc355753a0b3465c",
-   "taille": 8997
+   "hauteur": 68,
+   "largeur": 194,
+   "sha256": "6302977a251d2edd9e3c56503b4ecc126b5708e45b16b6b8c544fdc928fab12c",
+   "taille": 8660
   },
   "hr-asm-e02-piece-shadow.png": {
    "hauteur": 24,
@@ -813,46 +813,46 @@
    "taille": 1677
   },
   "hr-asm-e03-machine-glow.png": {
-   "hauteur": 220,
-   "largeur": 186,
-   "sha256": "c8904c523f69be1a97160834d5e3174dfe0efe0cbefc4b9bfbfe6ced39807b9e",
-   "taille": 5501
+   "hauteur": 222,
+   "largeur": 170,
+   "sha256": "4b6a3ec4de5dc8a5c049048a872e0ac0230f48c90f5efc3e30f23681338f10c5",
+   "taille": 9659
   },
   "hr-asm-e03-machine-light.png": {
-   "hauteur": 234,
-   "largeur": 326,
-   "sha256": "485baaec70931ef768667f82f404b6151a1a81cb16cecb9727aebedae0f10df4",
-   "taille": 15518
+   "hauteur": 226,
+   "largeur": 318,
+   "sha256": "c008124095f494c313f39ed68619e4f583d9489ce52d8abda1f833c73360fe96",
+   "taille": 9774
   },
   "hr-asm-e03-machine-main.png": {
-   "hauteur": 250,
+   "hauteur": 248,
    "largeur": 228,
-   "sha256": "40115eecdc5aa820b805ef1f9ba77be4a17aa51c6335f222098fd322061a8b1a",
-   "taille": 100864
+   "sha256": "96d94fb62438868f42a439b6ed79ed7d5b2f76176c81e6df82edeff37b83736f",
+   "taille": 91276
   },
   "hr-asm-e03-machine-shadow.png": {
    "hauteur": 192,
    "largeur": 246,
-   "sha256": "194fb4ad9ffd30f3e98dcbd29065985a1f33b7a3c364649f4016108de7e1fec4",
-   "taille": 5618
+   "sha256": "b09582d9294795b0037a35055177bb7f95caee3af2663fe68b313e229b20784c",
+   "taille": 5612
   },
   "hr-asm-e03-piece-glow.png": {
-   "hauteur": 44,
-   "largeur": 32,
-   "sha256": "e09fa395d36180d28a0444bc25196c391fa8af63d4ccbb7c4a54a13650514974",
-   "taille": 218
+   "hauteur": 42,
+   "largeur": 28,
+   "sha256": "04cf6bd32445b7e23142caedacb58c4f8aa5cff39c03b60d5ef442fc6921159e",
+   "taille": 236
   },
   "hr-asm-e03-piece-light.png": {
-   "hauteur": 236,
+   "hauteur": 228,
    "largeur": 304,
-   "sha256": "2eb879d8111ffa203ab05d95fe17814fcd6f395110f4f137537fd569ee952f16",
-   "taille": 23488
+   "sha256": "8de805122f0f3f7a76aa43c8d37ce258a3022ae10ffc300e617a3e41fdf8ae6b",
+   "taille": 15818
   },
   "hr-asm-e03-piece-main.png": {
    "hauteur": 94,
    "largeur": 212,
-   "sha256": "186b0070c2e1772a2e003f11e6ef25604af86af71645cec11f78c6c76f81ba88",
-   "taille": 14914
+   "sha256": "14424e64e3ff0afb7b7fe98c26892792fc7f0942dd62698e8b876cdd3c928718",
+   "taille": 13937
   },
   "hr-asm-e03-piece-shadow.png": {
    "hauteur": 32,
@@ -861,46 +861,46 @@
    "taille": 2979
   },
   "hr-asm-e04-machine-glow.png": {
-   "hauteur": 292,
-   "largeur": 250,
-   "sha256": "ae656e7f01cd882b1461e5f9af1d1b9da5527fbc3940fe93ce80a2965ab25f5e",
-   "taille": 7946
+   "hauteur": 288,
+   "largeur": 246,
+   "sha256": "2f8e3049feef38c29e6e5c73f8d4651dd18d5ccdf5669ab287ede5dc14aba022",
+   "taille": 11071
   },
   "hr-asm-e04-machine-light.png": {
-   "hauteur": 232,
-   "largeur": 284,
-   "sha256": "c8c385369268380e145bbc9bd49a53e83ace2774cfd02664f70b1324bef5c317",
-   "taille": 19124
+   "hauteur": 240,
+   "largeur": 280,
+   "sha256": "f835eae612572fc2a1340bddcac9e18d2bbe68d51e5b6f0b98067d490f46d632",
+   "taille": 17540
   },
   "hr-asm-e04-machine-main.png": {
    "hauteur": 324,
    "largeur": 292,
-   "sha256": "f4447e2fdaf06b84361e5de62c478f72708f86d1b30e70afc8866d8512457b43",
-   "taille": 159058
+   "sha256": "3f36c5b08c4eb21aa7dc4acd4ee6bd2e6a132b128eb3a98bb479b8762beab6ce",
+   "taille": 144990
   },
   "hr-asm-e04-machine-shadow.png": {
    "hauteur": 256,
    "largeur": 380,
-   "sha256": "7cb009a0c51e6cd41d4dffd447faf552e3261cf02da77f52aa2192e39f35d3b1",
-   "taille": 18005
+   "sha256": "eb1a6a202f428a26326ca2404d937eb511ac2f0e3d53473e0b6550b20fb91da5",
+   "taille": 17862
   },
   "hr-asm-e04-piece-glow.png": {
-   "hauteur": 62,
-   "largeur": 240,
-   "sha256": "9531ffc2994f4a14360241a61c015b52e48837fe0bad657bc03b14ce17e7cb60",
-   "taille": 1355
+   "hauteur": 48,
+   "largeur": 190,
+   "sha256": "ceefcba6e87c08eb44fd0adb771d155909cfe8b13064200d99e66e84ef2ab821",
+   "taille": 1829
   },
   "hr-asm-e04-piece-light.png": {
-   "hauteur": 284,
-   "largeur": 378,
-   "sha256": "975eb4129b3eec78a6cba40f365d36972a27c2dcbf41d5dc44cfa9d7decc6767",
-   "taille": 64195
+   "hauteur": 282,
+   "largeur": 376,
+   "sha256": "a32cdfd844e8c32bec8b9bcd144bb32da350a8fec25734f69a57f9a7e7b4d3f5",
+   "taille": 50248
   },
   "hr-asm-e04-piece-main.png": {
    "hauteur": 102,
    "largeur": 272,
-   "sha256": "3c5a5c0c4115471bfd7e8aa4d40e6327a35465221812d7b696680998e2012ce5",
-   "taille": 19942
+   "sha256": "a0c77a51a93445bdced35505600c799bac9ef97b3fefbd4323ba14d14048d88c",
+   "taille": 18882
   },
   "hr-asm-e04-piece-shadow.png": {
    "hauteur": 44,
@@ -909,40 +909,40 @@
    "taille": 5573
   },
   "hr-asm-e05-machine-glow.png": {
-   "hauteur": 320,
-   "largeur": 244,
-   "sha256": "2653f0dcea50c47f9eaa0e18a763b7dce17ac34cf8083bce5b2eeaf5737a421b",
-   "taille": 23774
+   "hauteur": 314,
+   "largeur": 248,
+   "sha256": "3e91c1ee079824c31a4c06fc775ccb100afb38be728859c3c748331e259cf579",
+   "taille": 29393
   },
   "hr-asm-e05-machine-main.png": {
    "hauteur": 352,
    "largeur": 292,
-   "sha256": "eaa15240b85cade2411847951a26d7dc455456fc7d1a7cb249d4dd53bc10854c",
-   "taille": 135855
+   "sha256": "1e9779ac05319e278a72e7e7c5ca0f919ea4f57547d2cba03fa5a9f7066d22a1",
+   "taille": 128979
   },
   "hr-asm-e05-machine-shadow.png": {
    "hauteur": 256,
    "largeur": 348,
-   "sha256": "5c8f189a6662ae7c41af83a64086a0032d9b27bde0c84fea6ffa748392e686a4",
-   "taille": 10648
+   "sha256": "e8215efa3508d5781c28924b10776499af7b319bc5fd8f8d234bbe1dad441f15",
+   "taille": 10484
   },
   "hr-asm-e05-piece-glow.png": {
-   "hauteur": 36,
-   "largeur": 230,
-   "sha256": "0fdd853d2725c41f5d2ef24eb5b8cdec4e0cf977fcf4dd25550ed122a32d3ee5",
-   "taille": 1310
+   "hauteur": 34,
+   "largeur": 222,
+   "sha256": "3dd7702ee78a21436b283b52b6c3a2c56cc31399bc85a840f0a252764636e0a5",
+   "taille": 1202
   },
   "hr-asm-e05-piece-light.png": {
-   "hauteur": 90,
+   "hauteur": 84,
    "largeur": 156,
-   "sha256": "a52be45e23e33c5893396ce0348bf01059946848032021835c43f86ef8a9ab22",
-   "taille": 7449
+   "sha256": "30c989fffabb5cf8a8a5ff8cb6906120f7f894fe230b6836c0f657db65bd7d55",
+   "taille": 6181
   },
   "hr-asm-e05-piece-main.png": {
-   "hauteur": 62,
+   "hauteur": 60,
    "largeur": 266,
-   "sha256": "e0f7592d91e92d1890e6fce971785d6ccf99dbfa83aa52829c4bb411bafaaab9",
-   "taille": 9520
+   "sha256": "7dc45e6dd438beddffaa010dcb6225463182f3b10dd8d29f24ae859f025c2b1c",
+   "taille": 8811
   },
   "hr-asm-e05-piece-shadow.png": {
    "hauteur": 32,
@@ -951,46 +951,46 @@
    "taille": 1632
   },
   "hr-asm-e06-machine-glow.png": {
-   "hauteur": 300,
+   "hauteur": 310,
    "largeur": 246,
-   "sha256": "d1868345760aecff9cfdf26f31ee397269664b74efe4d3c1152c7e7ba8ddb466",
-   "taille": 10861
+   "sha256": "fab69762f19711929581b95164ad4232baaa79441055b2c8dabf884628665e51",
+   "taille": 19177
   },
   "hr-asm-e06-machine-light.png": {
    "hauteur": 408,
    "largeur": 404,
-   "sha256": "3e12830b952f98d9df3b277be4c79f544127bcdfc997f0fb407556340acec6ad",
-   "taille": 49864
+   "sha256": "ddd9eaf7674801d04776041d6c0faee33a9f00c3da139877bc726f094843f4d5",
+   "taille": 41605
   },
   "hr-asm-e06-machine-main.png": {
-   "hauteur": 332,
+   "hauteur": 334,
    "largeur": 292,
-   "sha256": "e35bf35758770e7b1907aaeedd2342e59f9a00af1d940a67137665f9157aa934",
-   "taille": 174700
+   "sha256": "02c11b7a9c5f66277fe49b7f34da0c57fbdd44fe16b502b72e0224c2889b06db",
+   "taille": 157170
   },
   "hr-asm-e06-machine-shadow.png": {
    "hauteur": 256,
    "largeur": 348,
-   "sha256": "f9151c7bcee11244bfe9126ad2dcf8a095ba5d608f4d1a5fa573a338e2f318bb",
-   "taille": 8040
+   "sha256": "03a265c1991de888bb908fb70daa15a892b21bd3dd61c6c1eb74ada78db776de",
+   "taille": 8034
   },
   "hr-asm-e06-piece-glow.png": {
-   "hauteur": 50,
-   "largeur": 204,
-   "sha256": "29859fcd2b42cbd6e96825ae2c3cbfa7ca5ebc512ea85287603804257654cd8d",
-   "taille": 599
+   "hauteur": 38,
+   "largeur": 216,
+   "sha256": "3fd6015248a0d40f3aef6c672811431f1e744b280fd4d4269257047baaaf267a",
+   "taille": 896
   },
   "hr-asm-e06-piece-light.png": {
-   "hauteur": 234,
-   "largeur": 330,
-   "sha256": "cb27187aeb7131569fd9814d3c1f8626a979862a85c9043c4bf84e121b76699f",
-   "taille": 29880
+   "hauteur": 228,
+   "largeur": 322,
+   "sha256": "c310307036c39faac5d4ef72e1fbabe1f1807dc0664cb4328400356cda833d13",
+   "taille": 18717
   },
   "hr-asm-e06-piece-main.png": {
    "hauteur": 74,
    "largeur": 262,
-   "sha256": "abb656526977e4f13ea351327d2fa431138bf6e7d9584517a85aaa4bf8065d05",
-   "taille": 11257
+   "sha256": "0d10f17862508aaefb338c781096f535ab740db431caf15af31eb3f252106443",
+   "taille": 10687
   },
   "hr-asm-e06-piece-shadow.png": {
    "hauteur": 28,
@@ -999,22 +999,22 @@
    "taille": 2877
   },
   "hr-asm-e07-machine-glow.png": {
-   "hauteur": 324,
-   "largeur": 312,
-   "sha256": "83d561072a53ed0e4b7f6dd5e816f87f6dcc17a796a40ff43cf3af01006e35bf",
-   "taille": 31798
+   "hauteur": 318,
+   "largeur": 310,
+   "sha256": "ba1eba4065512df16a05d7108369b8db192da4d6522ad525ef0631f9b2254a32",
+   "taille": 40996
   },
   "hr-asm-e07-machine-light.png": {
    "hauteur": 124,
-   "largeur": 440,
-   "sha256": "fb17716015d0e4b7ae33136878d5f66f7cd66f73abc3638cc7ff8200d4e11ed1",
-   "taille": 11021
+   "largeur": 442,
+   "sha256": "12aba1c3a62279c3ac1bac822893480ca24677233008d28e8bac8b03254979a2",
+   "taille": 17628
   },
   "hr-asm-e07-machine-main.png": {
    "hauteur": 398,
    "largeur": 356,
-   "sha256": "c5e2d058941e7cb1fdd6efddaa4e7f4d288142b21bd1345adb0ab797c34ee100",
-   "taille": 210443
+   "sha256": "bf3761983b99ed2fff50911513804ade10c407a692d6e11ac3b0c4cf7b1c3471",
+   "taille": 192233
   },
   "hr-asm-e07-machine-shadow.png": {
    "hauteur": 324,
@@ -1023,22 +1023,22 @@
    "taille": 18091
   },
   "hr-asm-e07-piece-glow.png": {
-   "hauteur": 76,
-   "largeur": 288,
-   "sha256": "9014e6fcd092b2203d42e097f8735de7bd78b8ede223715417306ae26639b143",
-   "taille": 3405
+   "hauteur": 74,
+   "largeur": 286,
+   "sha256": "fbe64c567f1d1085cbdab526473ee1e812186cff7eff6f097aca361fdf31e435",
+   "taille": 3750
   },
   "hr-asm-e07-piece-light.png": {
-   "hauteur": 278,
-   "largeur": 440,
-   "sha256": "4cf28843db81801e218feecdebf6be7486efbdc65a5ea34eef07d13ee7934551",
-   "taille": 59417
+   "hauteur": 280,
+   "largeur": 444,
+   "sha256": "e7b31bc6009f4b9753530337ccef8e4e8be3af32f1f8e7a4c1468470017e15db",
+   "taille": 108909
   },
   "hr-asm-e07-piece-main.png": {
    "hauteur": 92,
-   "largeur": 324,
-   "sha256": "549fae2d61e30950976d1a8dbb502e7a83431d5c4fb43021d41d28b7a1302f88",
-   "taille": 12542
+   "largeur": 320,
+   "sha256": "71e5c93e907c142697dccead4a4c9f6b5d1f34a65bb21e95aec0f3df908793ba",
+   "taille": 11523
   },
   "hr-asm-e07-piece-shadow.png": {
    "hauteur": 40,
@@ -1047,16 +1047,16 @@
    "taille": 2485
   },
   "hr-asm-e08-machine-glow.png": {
-   "hauteur": 372,
-   "largeur": 302,
-   "sha256": "defd8ac35da923970ae02be556f078d5b71ec10d9b05ba0b69addd5b622daf25",
-   "taille": 31308
+   "hauteur": 366,
+   "largeur": 280,
+   "sha256": "b6365494ce7541fb5bc1cd51eac17ca02dcb3e2beb981ad30659de668bb1e3e3",
+   "taille": 45087
   },
   "hr-asm-e08-machine-main.png": {
    "hauteur": 428,
-   "largeur": 354,
-   "sha256": "166a758b5f2d7b731246de11284deda83bb28c310e993f67f93533b119204c03",
-   "taille": 221444
+   "largeur": 352,
+   "sha256": "8a0bb948092c4217274e1949d5c3aaa41696804b05635a90c7da3ac3dc3e3252",
+   "taille": 209340
   },
   "hr-asm-e08-machine-shadow.png": {
    "hauteur": 316,
@@ -1065,22 +1065,22 @@
    "taille": 16454
   },
   "hr-asm-e08-piece-glow.png": {
-   "hauteur": 44,
-   "largeur": 270,
-   "sha256": "1fb00e01cbdacf5cd0e70b6d913c18eb7898a9a12996374ede785c18cf9f8421",
-   "taille": 2820
+   "hauteur": 46,
+   "largeur": 48,
+   "sha256": "8033c13dde835115144aafee452c9e0e4ca49caa952892e1930e36fc69c3b929",
+   "taille": 2760
   },
   "hr-asm-e08-piece-light.png": {
-   "hauteur": 236,
-   "largeur": 318,
-   "sha256": "956fc40e42eff726177f35e515aa167e066c8619eab5484b352920d10f34a191",
-   "taille": 19707
+   "hauteur": 234,
+   "largeur": 314,
+   "sha256": "ca6ec57147ca5a057170e3c0b79b38e2eaf499a8d9abcfa50eda60e7fcb8974c",
+   "taille": 13442
   },
   "hr-asm-e08-piece-main.png": {
-   "hauteur": 70,
+   "hauteur": 72,
    "largeur": 330,
-   "sha256": "08677f02918de2294873107757cd814cf77ca32bacdb767dc459900c3d5d5de2",
-   "taille": 13885
+   "sha256": "8a61959a00830e769d281eb067fb9cbe646b2ada1f3190330e63f4246ba897e1",
+   "taille": 13286
   },
   "hr-asm-e08-piece-shadow.png": {
    "hauteur": 44,
@@ -1089,22 +1089,22 @@
    "taille": 2292
   },
   "hr-asm-e09-machine-glow.png": {
-   "hauteur": 412,
-   "largeur": 316,
-   "sha256": "4202edbe7b64a24bc085b5a91f324be8cdf05f2b3212ddcffde262c3aaf57ee3",
-   "taille": 29776
+   "hauteur": 408,
+   "largeur": 314,
+   "sha256": "3549c808465167b1297b4456275f8fda94ede50f71bac958a893b6b1b169e723",
+   "taille": 39206
   },
   "hr-asm-e09-machine-light.png": {
-   "hauteur": 386,
-   "largeur": 442,
-   "sha256": "18a7ee1296e4b40611488f09d844662800cec0552cc1e093f19c22ccad536823",
-   "taille": 18824
+   "hauteur": 384,
+   "largeur": 438,
+   "sha256": "9ec89962b83497af24b25831592f314950fcec4716655be8ddcfb930ce4f3c84",
+   "taille": 15300
   },
   "hr-asm-e09-machine-main.png": {
    "hauteur": 438,
    "largeur": 356,
-   "sha256": "3abb0c129f0b039a38cb872843e70b42c3e5ac7a2c639319006c598676f64dec",
-   "taille": 211877
+   "sha256": "67a7824e63fbb63f350774b114794567f1cd60b43b8db5363ce4d595f4db2b84",
+   "taille": 194173
   },
   "hr-asm-e09-machine-shadow.png": {
    "hauteur": 324,
@@ -1113,22 +1113,22 @@
    "taille": 15385
   },
   "hr-asm-e09-piece-glow.png": {
-   "hauteur": 40,
-   "largeur": 268,
-   "sha256": "bfac71bf45ad21318a7d0a56df9e2536fd8035f1a3fb774587d74a53030f1413",
-   "taille": 564
+   "hauteur": 32,
+   "largeur": 262,
+   "sha256": "5139763e1569d1e065454bbc43be83a26449965ca04d183b6267f323bc94bc13",
+   "taille": 533
   },
   "hr-asm-e09-piece-light.png": {
-   "hauteur": 68,
-   "largeur": 344,
-   "sha256": "081ce08a1c289cafe3f56b614517438e3312fffa17b203b0315056491e40a86d",
-   "taille": 8611
+   "hauteur": 66,
+   "largeur": 348,
+   "sha256": "dfce3d6aeacc50c9f45ed0cca6af5e41cd196a29120e0bb08023d0676d4ac166",
+   "taille": 6483
   },
   "hr-asm-e09-piece-main.png": {
    "hauteur": 88,
    "largeur": 324,
-   "sha256": "bd2c15dc9145ee5d2234ddd27bc362b8397a97c7284fca6087fbed6702f609d5",
-   "taille": 18685
+   "sha256": "bf42e42ea3ffb60c8399e2101a018273264487138025046d2517496aaeffda87",
+   "taille": 17618
   },
   "hr-asm-e09-piece-shadow.png": {
    "hauteur": 44,
@@ -1137,94 +1137,94 @@
    "taille": 4331
   },
   "hr-asm-e10-machine-glow.png": {
-   "hauteur": 460,
-   "largeur": 380,
-   "sha256": "e90d3efd108dc5c30b414cf84bbf090cb35b3ac30f589430e51c657474b8bcfb",
-   "taille": 24200
+   "hauteur": 448,
+   "largeur": 376,
+   "sha256": "357193a87f7b37f32d472f0df4849bf768804cf7dbd6c4c82941e1cf8b32a025",
+   "taille": 32140
   },
   "hr-asm-e10-machine-light.png": {
-   "hauteur": 152,
-   "largeur": 374,
-   "sha256": "ac56787a858c62664d3c7c3cfc15ca8789a20bb70cc635d47d67f44e79abed49",
-   "taille": 20043
+   "hauteur": 146,
+   "largeur": 372,
+   "sha256": "4740064d3394ac031e2f23f06b5455902afd6be419cf58f0ebe048c8679dcdbc",
+   "taille": 12240
   },
   "hr-asm-e10-machine-main.png": {
    "hauteur": 478,
-   "largeur": 420,
-   "sha256": "6430577c7a713a2145b3e8e090fb1fc634b2e69e844a237943c9402ac38a3b58",
-   "taille": 280207
+   "largeur": 416,
+   "sha256": "998a33505d43d1c6bf1838c84232a914be7991b13c0772e67741b1068790c064",
+   "taille": 248542
   },
   "hr-asm-e10-machine-shadow.png": {
    "hauteur": 386,
    "largeur": 496,
-   "sha256": "2a93c855562fe115800a6a728bcccd199be78049586522998eb301054636c6a0",
-   "taille": 30072
+   "sha256": "41218cfafac1a96e1e3a1fef73b5d1e10923c530f802a10107692a0638f62090",
+   "taille": 28450
   },
   "hr-asm-e10-piece-glow.png": {
-   "hauteur": 46,
-   "largeur": 190,
-   "sha256": "ad96a284ac8b7a5063ae8450dbb639d63473236a730c5afd9b9ce07aaedef86f",
-   "taille": 2963
+   "hauteur": 44,
+   "largeur": 180,
+   "sha256": "6dc0822cf41492ba4dd08114bb9615209372e637ecb16d8d22b4a005a0aae40a",
+   "taille": 2332
   },
   "hr-asm-e10-piece-light.png": {
-   "hauteur": 100,
-   "largeur": 348,
-   "sha256": "2c9b5e18a89e3374b9bd0ba4d72c04ee502a54120a6a2621792c09cb673fd3ce",
-   "taille": 5826
+   "hauteur": 110,
+   "largeur": 354,
+   "sha256": "417a893140860b1c4800425e7e64445ea9b442c962903c31e40e7bbc042a516e",
+   "taille": 5758
   },
   "hr-asm-e10-piece-main.png": {
    "hauteur": 96,
    "largeur": 232,
-   "sha256": "dfb094b41b957557a97bb1d7756e521790bc137064241909e63735adc37a289e",
-   "taille": 24502
+   "sha256": "0d88a4fc8a56541946a7a7d9f629bead46a87b2d39a866bcfb44de0b872e135d",
+   "taille": 19012
   },
   "hr-asm-e10-piece-shadow.png": {
    "hauteur": 38,
-   "largeur": 260,
-   "sha256": "e0c74c7d0d30a4d1297e7c66bd3bed443ab7f1843a5f24412825849d1eedbaa9",
-   "taille": 3638
+   "largeur": 256,
+   "sha256": "4f8979502ac3ef657aa7db973039a5096de12a9c4380c343dc077c9218aee68b",
+   "taille": 3550
   },
   "hr-asm-e11-machine-glow.png": {
-   "hauteur": 438,
+   "hauteur": 440,
    "largeur": 380,
-   "sha256": "e4b8cb55af7f1ffdb0c7668f4544cbf44890438ce2459fc6a172b4a4eb3a6cd7",
-   "taille": 31817
+   "sha256": "c87c3acec0d8ebea25b3affe60b7d1eb4c341b91dbc54e5ca7d9980293c9c499",
+   "taille": 48933
   },
   "hr-asm-e11-machine-light.png": {
-   "hauteur": 400,
-   "largeur": 486,
-   "sha256": "3fd9022f472b6e12efa070874e3f3c28bb22324ebb0857564604d5fb005b9310",
-   "taille": 19940
+   "hauteur": 392,
+   "largeur": 476,
+   "sha256": "0caa2929df28c32ee70739ec3286316bc9b1eaa535f609383e14e3116252e37d",
+   "taille": 14436
   },
   "hr-asm-e11-machine-main.png": {
    "hauteur": 468,
    "largeur": 420,
-   "sha256": "9aa0788cc67cf0241b00baae7a7249e5cdc18b5830e56b0de879dfeba3f20131",
-   "taille": 357158
+   "sha256": "205be4007f8d5d6d7c99b82b76a64bfc6229d7e720c9b796de375a92a585962c",
+   "taille": 319670
   },
   "hr-asm-e11-machine-shadow.png": {
    "hauteur": 384,
    "largeur": 566,
-   "sha256": "adcca7a78e95cbeec66fbbe9a66b8f203eda034a61070fda759e2874e45b3e29",
-   "taille": 33661
+   "sha256": "474235e6f06ef6b926537098a2024c439e6ce6a21d25f0a6241c201d3b0448b6",
+   "taille": 33043
   },
   "hr-asm-e11-piece-glow.png": {
-   "hauteur": 94,
-   "largeur": 308,
-   "sha256": "6d6eb016b9f952f4fb1daa2e392979074e72421fdb5bd3988c2e6f5839234775",
-   "taille": 626
+   "hauteur": 14,
+   "largeur": 304,
+   "sha256": "9c8e8cbdb5c24050ac0002850377ec17834f61b5f1295b842c546528fb3145ea",
+   "taille": 479
   },
   "hr-asm-e11-piece-light.png": {
-   "hauteur": 342,
-   "largeur": 518,
-   "sha256": "aaae898fc6ec13403df489b11da1dcc9313879df068a37f750aadb240fdfc781",
-   "taille": 126364
+   "hauteur": 340,
+   "largeur": 516,
+   "sha256": "d52ac4fb34dea4e5aafa5efa688d8bd12d6a812ec944e9a2ea032198273f35ff",
+   "taille": 108777
   },
   "hr-asm-e11-piece-main.png": {
-   "hauteur": 136,
+   "hauteur": 134,
    "largeur": 384,
-   "sha256": "486d2458fb5b5e78a0ce730e8ede8d596c8f2c0887aef1e16d96d9f159e64ea2",
-   "taille": 23884
+   "sha256": "a48d5cf0202d37777141e0e6f87bc361f29a9b73a5da616fc72dae09070fd486",
+   "taille": 22219
   },
   "hr-asm-e11-piece-shadow.png": {
    "hauteur": 50,
@@ -1233,40 +1233,40 @@
    "taille": 8171
   },
   "hr-asm-e12-machine-glow.png": {
-   "hauteur": 474,
+   "hauteur": 470,
    "largeur": 376,
-   "sha256": "4c7c5daf9fb595256f3bee3cf0b58a63ea816612b13ea57dbd15c500164bfa22",
-   "taille": 74663
+   "sha256": "7acda3ad39239043169a9b22c2f8d08161ddb8eb905f985a5d3ba109c023cd9a",
+   "taille": 114012
   },
   "hr-asm-e12-machine-main.png": {
-   "hauteur": 500,
+   "hauteur": 502,
    "largeur": 416,
-   "sha256": "7cffa11e8dbc5078f97fef4dc2ec8324764fbdc24f1141aa86bfe4581d0081c1",
-   "taille": 335676
+   "sha256": "a00896d141e523588c76c6b2f1d4f154f06378f4b221b8b7867933905bab0f46",
+   "taille": 306699
   },
   "hr-asm-e12-machine-shadow.png": {
    "hauteur": 380,
    "largeur": 486,
-   "sha256": "a0dad303e39bec1bf917fe400995cf0ce1eeeb4d4c961f696aced9302115dadb",
-   "taille": 31326
+   "sha256": "262eeaff4a9bc36d018b878e59bc2e4a64442d6006ec86781f7a5452d29edd2b",
+   "taille": 31290
   },
   "hr-asm-e12-piece-glow.png": {
-   "hauteur": 62,
+   "hauteur": 58,
    "largeur": 348,
-   "sha256": "77679799b35ed9e9e9334e808f80ef869a6fb00b6aaa514a490c551462677cdf",
-   "taille": 5674
+   "sha256": "c681cf7d588cbdf2a698ecfcf0325161a856bf4d8ee075617364d57d624f6804",
+   "taille": 6932
   },
   "hr-asm-e12-piece-light.png": {
-   "hauteur": 170,
-   "largeur": 438,
-   "sha256": "483371104eb6b81ede537580acfc803cb920a7bde3d9592b4ea2a7afd88c0f91",
-   "taille": 28336
+   "hauteur": 162,
+   "largeur": 436,
+   "sha256": "85676b574a92559587f7f1cb1b0ad24bf1e7ead787914effb37450a0d1ea3287",
+   "taille": 21175
   },
   "hr-asm-e12-piece-main.png": {
-   "hauteur": 76,
-   "largeur": 420,
-   "sha256": "afcc0dfea88be78dd160e3e364d2c59ea5a6fa9d6606743a773a93978b563def",
-   "taille": 19367
+   "hauteur": 78,
+   "largeur": 380,
+   "sha256": "c5d7759b7b6f842c934b10e4f6d69f589ab72a56c442bc5811733f7d1930a8d7",
+   "taille": 17723
   },
   "hr-asm-e12-piece-shadow.png": {
    "hauteur": 54,
@@ -1275,22 +1275,22 @@
    "taille": 4647
   },
   "hr-asm-e13-machine-glow.png": {
-   "hauteur": 408,
-   "largeur": 380,
-   "sha256": "e472ef61cef10a8493f078010eb2890540fa29967aa22ad15fcc35fcdedf273c",
-   "taille": 40354
+   "hauteur": 432,
+   "largeur": 376,
+   "sha256": "86cb10055596fdd9d40bc2f0fc786675e483a95d9ede9dc9998231c181301e1e",
+   "taille": 61968
   },
   "hr-asm-e13-machine-light.png": {
    "hauteur": 538,
    "largeur": 334,
-   "sha256": "10e145d283f4587eee3e5214ff2aac51eb5f4021598ad69c0e26daa6363148f5",
-   "taille": 24517
+   "sha256": "d911c16de8867292c33aa23312ffb927586489423805da963966d4c2682f9309",
+   "taille": 26278
   },
   "hr-asm-e13-machine-main.png": {
    "hauteur": 466,
-   "largeur": 420,
-   "sha256": "8a46a96ecdf73f4a36fe5a77f2b70260455346e25aef7c6fad28132c2d1dacd0",
-   "taille": 319992
+   "largeur": 418,
+   "sha256": "3744ad6da8f6b22630c89472038c14b685f68090a8cae2ee8040a0c39b96e6f1",
+   "taille": 291478
   },
   "hr-asm-e13-machine-shadow.png": {
    "hauteur": 384,
@@ -1299,22 +1299,22 @@
    "taille": 10181
   },
   "hr-asm-e13-piece-glow.png": {
-   "hauteur": 32,
-   "largeur": 332,
-   "sha256": "969af2d574664fa352a6bfac59f83c80462106a588f63ca702b9edd5400ff1b9",
-   "taille": 644
+   "hauteur": 20,
+   "largeur": 318,
+   "sha256": "a2291c2a5fd418b832224e49823f74e17ad09e1d0353e25b6ef24b4b8e35f5a3",
+   "taille": 746
   },
   "hr-asm-e13-piece-light.png": {
-   "hauteur": 138,
-   "largeur": 424,
-   "sha256": "94637a413adabfa0d0552a87956b1a494805832776e8e441816ddadf5f04c527",
-   "taille": 18671
+   "hauteur": 136,
+   "largeur": 416,
+   "sha256": "06b6637888b252231065d75423d911c136573c1f164849d9988ef935e4d2626d",
+   "taille": 11903
   },
   "hr-asm-e13-piece-main.png": {
    "hauteur": 76,
    "largeur": 384,
-   "sha256": "64ceaf450d091fcba0629edb0abe8ba929a51fa5642607c3d281868830baa093",
-   "taille": 18505
+   "sha256": "a37cf1c97f3f26e9b3f8ccdf0910614d7e5b52a2db5f2387e3df62f5329f3a09",
+   "taille": 16917
   },
   "hr-asm-e13-piece-shadow.png": {
    "hauteur": 40,
@@ -1323,46 +1323,46 @@
    "taille": 3687
   },
   "hr-asm-e14-machine-glow.png": {
-   "hauteur": 440,
-   "largeur": 374,
-   "sha256": "8f505bb20cb971e0d0744de039e4ef7cbd3608fa2fa62f97b1430f2dc680b3dc",
-   "taille": 41210
+   "hauteur": 430,
+   "largeur": 366,
+   "sha256": "eec92674e82adec52dde222dde117b13f27256e1265fe194f48641f482ff6339",
+   "taille": 55084
   },
   "hr-asm-e14-machine-light.png": {
-   "hauteur": 290,
+   "hauteur": 286,
    "largeur": 532,
-   "sha256": "5aeb58e789d10bfb7c963e43bde94357d62d617245bddecd235714213b0311b2",
-   "taille": 25676
+   "sha256": "ac4cfd418af674f8c48c541c8b49788a3d90349b95c949a072c6e199c29eee97",
+   "taille": 21611
   },
   "hr-asm-e14-machine-main.png": {
    "hauteur": 510,
-   "largeur": 420,
-   "sha256": "27928c005af1531a52cadc7ba989803cc8485776faba3a7756e571ba80fed1e7",
-   "taille": 309082
+   "largeur": 416,
+   "sha256": "0a793661b2cebdd896305babf8d95f84ea81808557e8d4ed077783f8b40c6a8b",
+   "taille": 278592
   },
   "hr-asm-e14-machine-shadow.png": {
    "hauteur": 388,
    "largeur": 516,
-   "sha256": "38f32df0d8874202ef681d1961cdbe4b1072ef47524d2a04ce201cb2ce2f0e3b",
-   "taille": 18158
+   "sha256": "3e78d58c4a0519f18fbc6871ade2e6a11d7cb2dfa4906ee345c3bbb42bb74c92",
+   "taille": 18119
   },
   "hr-asm-e14-piece-glow.png": {
-   "hauteur": 100,
-   "largeur": 324,
-   "sha256": "852142bba176981445ed8ed79f6391a86067a7ae426cd979643732fe3ca8fb6d",
-   "taille": 1340
+   "hauteur": 98,
+   "largeur": 316,
+   "sha256": "9f23b83251d152d596609b13939c465c0eb791802376dbf915eb8c42d1f3cb90",
+   "taille": 1969
   },
   "hr-asm-e14-piece-light.png": {
    "hauteur": 92,
-   "largeur": 390,
-   "sha256": "a2a510b7c72cfba012fc844aae1b69c9f4541097d54217047e39311bd37fbe40",
-   "taille": 9441
+   "largeur": 392,
+   "sha256": "f6e4f4e12532ede5a425b4c631e93d80365e4a75e397d1c691134a6845c83b8c",
+   "taille": 7252
   },
   "hr-asm-e14-piece-main.png": {
    "hauteur": 116,
    "largeur": 368,
-   "sha256": "6e07db828d9ef4a515a61dbb39af77dc9718149fea04303921619d5e46255161",
-   "taille": 20449
+   "sha256": "fbee2c4c2ddd6e0949a5b57e095694b0843f5d17400f866a92b952ceb1546cb7",
+   "taille": 18461
   },
   "hr-asm-e14-piece-shadow.png": {
    "hauteur": 40,
@@ -1371,34 +1371,34 @@
    "taille": 4233
   },
   "hr-asm-e15-machine-glow.png": {
-   "hauteur": 442,
+   "hauteur": 444,
    "largeur": 380,
-   "sha256": "bb856b23679ff841fa9dce8726ae8e376da54f2686ac3658cfeed80a76266f51",
-   "taille": 44521
+   "sha256": "e1f6795048760c5dbb2fa0cf5aefe28e03c866abfa2b176d06c8dc16d5eabfac",
+   "taille": 80482
   },
   "hr-asm-e15-machine-main.png": {
    "hauteur": 468,
    "largeur": 420,
-   "sha256": "836784d4f984f470074d0a7fb6e43f19525c79c0f470d1c6491c8da4326c80b4",
-   "taille": 273453
+   "sha256": "2241fa903b9fe429ced11cc9d7a05bb24c92acce565b96bac47641541b8146b8",
+   "taille": 242607
   },
   "hr-asm-e15-machine-shadow.png": {
    "hauteur": 384,
    "largeur": 542,
-   "sha256": "8e4c2a02ba10db7b3cf7492ac60fd254110e58cd4d3d3168ae99338631f0673e",
-   "taille": 27796
+   "sha256": "b04a004e08c7b2a5637838b6a270d362f79d699d5ac8c00677b72740810f40af",
+   "taille": 27414
   },
   "hr-asm-e15-piece-glow.png": {
-   "hauteur": 100,
-   "largeur": 356,
-   "sha256": "e979007e1027b3aa5c3357e84a61f12da47b251f29366d0f7bc5f34b5a9a9168",
-   "taille": 4826
+   "hauteur": 98,
+   "largeur": 354,
+   "sha256": "bf0f41d14d7d615cfc6a79726035c81fdf793b1126eb6be831b9e37145ae236d",
+   "taille": 6160
   },
   "hr-asm-e15-piece-main.png": {
    "hauteur": 126,
-   "largeur": 386,
-   "sha256": "0544a6e04a697c788f602b91da0ecae432e8259283b4d5ef42bf1224eb58e79d",
-   "taille": 27498
+   "largeur": 384,
+   "sha256": "ad9058b7f0352b98fb34a08dfbe95a5a48230f90601031d09372b7458dc01fe6",
+   "taille": 24891
   },
   "hr-asm-e15-piece-shadow.png": {
    "hauteur": 60,
@@ -1407,5 +1407,5 @@
    "taille": 7878
   }
  },
- "sources": "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-25_F3/a4/sprites"
+ "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-25_F3\\production\\sprites"
 }
