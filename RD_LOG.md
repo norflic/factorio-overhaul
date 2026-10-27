@@ -4,7 +4,7 @@
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
 > Prochains identifiants libres (27/10, vers 8 h 05, au lancement du workflow X3) : **F341** et **E227** hors blocs. Réservés aux lots
-> en cours : X3 F337 à F340, E224 à E226 ; IA-G F331 à F336, E220 à E223 ; F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; IA3-e F319 à F323, E212 à E214 ; IA3-d F315 à F318, E210, E211 ; IA3-k F300 à F305, E200 à E203 ; attribués à IA-V2 (fusionné 27/10 vers 8 h 40, 0.5.0) : F296 à F298, E198, E199 (F299 non servi ; les blocs d'IA3-b, c, f, F282 à F291 et E188 à E194, restent LIBRES : leurs faits sont écrits sous les numéros d'IA-V2) ; à F4-A à F4-A3 (kit fusionné 27/10, outils) : F260 à F262, F309 à F311, E93 à E96, E206, E207 ; à F5-A (kit fusionné 27/10, outils) : F312, F313, E208, E209 (F314 non servi, rendu) ; à IA1-d (fusionné 27/10, 0.4.32) : F292 à F295, E195 à E197 ; à F3-B :
+> en cours : IA-G F331 à F336, E220 à E223 ; F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; IA3-e F319 à F323, E212 à E214 ; IA3-d F315 à F318, E210, E211 ; IA3-k F300 à F305, E200 à E203 ; attribués à X3 (proposition hors jeu fusionnée 27/10 vers 10 h 10) : F337 à F340, E224 à E226 ; à IA-V2 (fusionné 27/10 vers 8 h 40, 0.5.0) : F296 à F298, E198, E199 (F299 non servi ; les blocs d'IA3-b, c, f, F282 à F291 et E188 à E194, restent LIBRES : leurs faits sont écrits sous les numéros d'IA-V2) ; à F4-A à F4-A3 (kit fusionné 27/10, outils) : F260 à F262, F309 à F311, E93 à E96, E206, E207 ; à F5-A (kit fusionné 27/10, outils) : F312, F313, E208, E209 (F314 non servi, rendu) ; à IA1-d (fusionné 27/10, 0.4.32) : F292 à F295, E195 à E197 ; à F3-B :
 > F306 à F308, E204, E205. Les blocs d'IA3-a, b, c, f (F279 à F291, E186 à E194) restent à leurs lots, repris par IA-V2.
 > Prochains identifiants libres (24/10, vers 7 h 35, après la fusion d'A4-préparation) : **F163** et **E118** hors blocs ; F149, F157 à F160, E112, E114 à E116 : A4-préparation (blocs d'A3 et A4 épuisés). Avant (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
@@ -508,6 +508,41 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés (lot X3, graphe réaliste et minerais par âge : proposition HORS JEU, workflow `wf_75a10ea1-27c`, 27/10 ; branche `x3`, fusionnée dans `main` vers 10 h 10 : `shared/content/x3.lua`, `tests/x3_test.lua`, SCENARIO_EPOQUES §3.7 ; rien en jeu)
+Preuves : `fo-logs\2026-10-27_X3\` (`INTEGRATION.md`, `RESUME_DC.md`, `x3_test-complet.txt`). Faits LUS (code du jeu, API), pas en moteur réel.
+**F337** (lu dans le code du jeu, pas en moteur réel). `resource_autoplace_settings`
+(`data/core/lualib/resource-autoplace.lua`) incrémente, à chaque nouveau jeu de gisements, l'expression partagée
+`regular-resource-patch-set-count` (l. 6 à 12). Elle sert de `skip_span` à tous les minerais réguliers, et l'index du
+jeu de `skip_offset` (l. 263, 264). Une ressource « vanilla-like » de plus déplace donc fer, cuivre, charbon, pierre,
+uranium et pétrole sur toutes les graines, y compris dans les chunks neufs d'une sauvegarde. La parade est celle de
+`biome_bound_autoplace` (`prototypes/world.lua`) : restaurer le compteur, `skip_span` 1 et une graine propre. À
+confirmer en moteur : H-X3-4.
+
+**F338** (lu dans `data/base/prototypes/entity/flying-robots.lua` et `runtime-api.json` 1.1.91).
+- Le défenseur (l. 179 à 208 : `follows_player = true`, `range_from_player` 6, 45 s) et le destructeur (l. 1417 à
+  1446, 2 min) suivent leur lanceur.
+- Le distracteur (l. 1334 à 1360, `speed = 0`, 45 s) reste au point de lancer.
+- Les robots qui suivent sont plafonnés par `LuaForce.maximum_following_robot_count`, inscriptible.
+- `LuaItemStack.use_capsule(entity, position)` existe, et `LuaEntity.combat_robot_owner` est inscriptible : un
+  script peut faire lancer une capsule à un PNJ.
+- `UnitAISettings` vaut par défaut `allow_try_return_to_spawner = false` et `destroy_when_commands_fail = false`.
+
+**F339** (lu dans `prototype-api.json` 1.1.91).
+- `FluidBox` a un champ `filter`.
+- `FluidWagonPrototype` n'a que `capacity` et `tank_count` : aucun filtre.
+- Un fluide sans baril (`auto_barrel = false`) se stocke donc en réservoir et voyage en wagon-citerne.
+- Un fluide « non stockable » demanderait un script.
+
+**F340** (mesuré hors jeu, `tests/x3_test.lua`, prototype du cerveau `shared/ai3/graphe.lua`).
+- Le coût de choix du cerveau (secondes de recette et quantités brutes, catalyseurs non soustraits, fluides par
+  unité) s'écarte du chemin le moins cher en MU. Dans X0 seul, tout recherché, connu et construit, la voie du cerveau
+  coûte jusqu'à 1,91 fois le chemin le moins cher (pack de l'âge 10).
+- Il ne choisit aucune des 10 variantes d'X3, même quand elles sont moins chères en MU.
+- Avec les technologies, les 4 technologies les plus lourdes de l'âge 14 dépliées ensemble font 3 616 nœuds dans X0
+  (3 622 réparé), soit 90 % de `G.MAX_NODES`.
+- Corollaire, mesuré en version 1 : quand le cerveau choisit une voie qui demande une machine de plus pour quelques
+  objets (tranches sciées, avec tireuse et quartz), le plan grandit de 4 à 10 % (4 004 nœuds, tronqué à l'âge 14).
 
 ### Faits vérifiés (lot IA-V2, le nouveau cerveau des PNJ réuni et allumé : IA3-b, IA3-c, IA3-f ; 27/10 ; branche `ia-v2`, fusionnée dans `main` le 27/10 vers 8 h 40, `6c631d5`, version 0.5.0)
 Preuves : `fo-logs\2026-10-27_IA-V2\` (`INTEGRATION.md` §2 à §5 et §8, `NOTES.md`, `bancs\`, `bancs\RESUME.txt`, `src-0.4.30` à GARDER).
@@ -1233,6 +1268,43 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E224 à E226 · Lot X3, graphe réaliste et minerais par âge (27/10 ; proposition hors jeu ; workflow de 8 agents : inventaire, 3 concepteurs, synthèse, 2 critiques adverses, correction ; fusionné dans `main` vers 10 h 10)**. Demande du DC (OBJECTIFS §4, 27/10 vers 8 h) ; décision D-19 (le calcul comme l'électricité). Règle retenue : des VOIES, jamais une porte (0 recette d'X0 modifiée, 10 variantes, 4 minerais : blende âge 3, cassitérite âge 4, bauxite âge 6, quartz âge 10). La version 1 rendait 3 minerais obligatoires et mesurait le cerveau sans technologies (packs 11 et 12 tronqués) : corrigé en version 2 par le correcteur après la critique « moteur ».
+**E224** : banc de la fusion X0 + X3, version 2.
+- Protocole : `lua5.2 tests/x3_test.lua`, depuis le worktree x3.
+- Résultat : 6 002 OK, 0 ECHEC, en 48 s ; `--court` 5 963 OK.
+- 28 mutants refusés : 27 par les contrôles propres, 1 par `epochs_test`.
+- Version 1 : 5 084 OK, 11 mutants, mais trois défauts majeurs non vus. La critique « moteur » a ajouté 8 mutants, qui
+  passaient tous les contrôles propres de la version 1.
+
+**E225** : cerveau avec les technologies et aucune porte.
+- Protocole : spécification du cerveau tirée de la fusion (technologies avec leurs prérequis et la technologie du pack
+  de l'âge, packs × unités). États :
+  - (b) technologies < k, ressources ≤ k, rien de construit ;
+  - (c) idem, ressources d'X3 inconnues ;
+  - (d) rien de recherché ;
+  - (e) tout recherché, connu et construit.
+- Référence : X0 réparé.
+- Résultats :
+  - (b) toutes les technologies payables ; la plus lourde à 2 845 nœuds (71 %) ; 4 ensemble à 3 622 au plus, comme
+    X0 réparé ;
+  - (c) 107 buts d'X0 : 0 impayable, 0 exploration d'une ressource d'X3 ;
+  - (e) écart de la voie du cerveau à 3 % au plus de celui d'X0 réparé.
+- Version 1, refaite par la critique : packs 11 et 12 tronqués (4 020 nœuds) quand rien n'est recherché.
+
+**E226** : parts de recherche sur deux voies, et variantes en MU, énergie et temps.
+- Protocole : `epochs_test` sur la fusion, puis sur la fusion sans variantes (`X3.without_variants`) ; MU, MJ et
+  temps-machine par le banc (machine la moins gourmande de la catégorie, foreuse électrique à 90 kW).
+- Résultats :
+  - part de recherche de 34,3 à 35,5 % sur la fusion, de 34,7 à 35,5 % sur la voie d'X0 ;
+  - recalage aux âges 4, 6, 7, 10, 12 et 13 : 77, 147, 211, 885, 5 290 et 8 790 unités, contre 100, 180, 255,
+    1 175, 5 950 et 10 200 ;
+  - processeur gravé : 21,48 MU, 63,3 MJ, 63,2 s, contre 22,20, 50,3 et 63,9 par la salle blanche d'X0 ;
+  - tranches sciées : 9,5 MJ par tranche contre 17,5 ;
+  - aucune variante dominée en MU et à la fois en MJ et en temps.
+
+**Hypothèses** (à prouver en moteur, quand une chaîne entre en jeu) : H-X3-1 (drones nés d'une capsule, voie des PNJ),
+H-X3-2 (l'unité tient sa place et riposte), H-X3-3 (calcul filtré et stockable), H-X3-4 (0 minerai déplacé).
+
 **E198, E199 · Lot IA-V2, le nouveau cerveau réuni et allumé (27/10 ; fusionné dans `main` vers 8 h 40, `6c631d5`, 0.5.0)**.
 Réunit le marché et le registre (IA3-b), le cerveau par besoins (IA3-c) et l'exploration sous brouillard (IA3-f), puis `main`
 0.4.32 ; réglages `fo-war-ia3-marche` et `fo-war-ia3-cerveau` ALLUMÉS par défaut ; 23 défauts trouvés en moteur réel et corrigés
