@@ -42,7 +42,7 @@ Fl.MAX_FLUID_IN = 2
 Fl.MAX_DEPTH = 6        -- profondeur d'une chaîne de cellules (garde contre un cycle de recettes)
 Fl.MARGIN = 2           -- tuiles libres autour d'une machine (bras, coffres, tuyaux)
 Fl.SEARCH = 30          -- rayon de recherche d'une place (tuiles)
-Fl.ASTAR_MAX = 9000     -- nœuds développés au plus par tuyau
+Fl.ASTAR_MAX = 30000    -- nœuds développés au plus par tuyau
 Fl.ROUTE_R = 48         -- fenêtre d'un tuyau autour du site
 Fl.EXTRACTORS = 2       -- puits équipés par site (au départ)
 Fl.POLE_LINE_MAX = 400  -- tuiles au plus jusqu'au réseau
@@ -365,8 +365,15 @@ function Site:route(sx, sy, goal, fl)
     end
     return best
   end
-  local ox, oy = self.req.origin.x, self.req.origin.y
-  local R = Fl.ROUTE_R
+  -- fenêtre : le rectangle du départ et de la cible la plus proche, élargi de Fl.ROUTE_R / 2 (une liaison lointaine,
+  -- l'eau d'une rive éloignée du gisement, garde sa fenêtre ; moteur réel, petrole-partie : rive à plus de 48 tuiles)
+  local near, nd = gl[1], math.huge
+  for _, g in ipairs(gl) do
+    local d = math.abs(g[1] - sx) + math.abs(g[2] - sy)
+    if d < nd then near, nd = g, d end
+  end
+  local ox, oy = (sx + near[1]) / 2, (sy + near[2]) / 2
+  local R = math.max(math.abs(sx - near[1]), math.abs(sy - near[2])) / 2 + Fl.ROUTE_R / 2
   local open = { { f = h(sx, sy), g = 0, x = sx, y = sy } }
   local came, gs = { [sk] = false }, { [sk] = 0 }
   local n = 0

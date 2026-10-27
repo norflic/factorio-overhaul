@@ -41,7 +41,7 @@ Pet.WATER_R = 160           -- une rive à moins de 160 tuiles du QG : l'eau est
 Pet.PACK_N = 10             -- packs dépliés pour trouver ce qu'il faut
 Pet.FEED_STOCK = 20         -- objets gardés au coffre pour les quais d'un site fini
 Pet.OUT_AT = 10             -- objets à rapporter d'une sortie (au lieu de 200)
-Pet.WATER_SEARCH = { 24, 48, 72 }
+Pet.WATER_SEARCH = { 24, 48, 96, 144 }
 Pet.PUMP_TRIES = 80
 Pet.RETRY = 10 * 3600       -- un site refusé est revu 10 min plus tard
 Pet.GAIN = 3                -- PNJ « libérés » (valeur du projet de chantier, comme un module de l'automatisation)
@@ -207,8 +207,16 @@ local function wanted_items(f, General, c)
       if p.type ~= "fluid" then made[p.name] = true end
     end
   end
+  -- packs OUVERTS seulement (une recette qui les produit est débloquée pour la force) : un joueur ne bâtit pas sa
+  -- raffinerie pour un pack qu'il ne sait pas encore fabriquer (moteur réel, petrole-partie : site demandé à 2 min)
+  local force = game.forces[f.force]
+  local open = {}
+  for _, rn in ipairs(sorted_keys(c.products)) do
+    local fr = force and force.recipes[rn]
+    if fr and fr.enabled then for _, p in ipairs(c.products[rn]) do open[p] = true end end
+  end
   for _, pack in ipairs(c.pack_list) do
-    if General.feasible(f, pack) then
+    if open[pack] and General.feasible(f, pack) then
       local sum = General.summary_items(f, { { pack, Pet.PACK_N } })
       for _, it in ipairs(sorted_keys(sum and sum.produce)) do
         if made[it] and not seen[it] then seen[it] = true; out[#out + 1] = it end
@@ -330,6 +338,12 @@ local function plan_site(f, surface, p, h)
   local pumps = {}
   if spec.water then pumps = pump_spots(surface, f, rel, origin, spec.water) end
   local x0, y0, x1, y1 = origin.x - Fl.ROUTE_R - 4, origin.y - Fl.ROUTE_R - 4, origin.x + Fl.ROUTE_R + 4, origin.y + Fl.ROUTE_R + 4
+  -- la rive la plus proche (la seule que l'implantation prendra) : le relevé couvre aussi le couloir jusqu'à elle
+  if pumps[1] then
+    local pp = pumps[1]
+    x0, y0 = math.min(x0, pp.x - Fl.ROUTE_R / 2), math.min(y0, pp.y - Fl.ROUTE_R / 2)
+    x1, y1 = math.max(x1, pp.x + Fl.ROUTE_R / 2), math.max(y1, pp.y + Fl.ROUTE_R / 2)
+  end
   local masks = h.read_masks(x0, y0, x1, y1)
   local net = nearest_network(f, surface, origin.x, origin.y, b)
   local pole = pole_of(f, rel)
@@ -369,8 +383,16 @@ local function decide(f, st, General, deposits, tick)
   local groups, order = {}, {}
   local water = nil
   for _, res in ipairs(pump_resources(c)) do if st.known[res] then water = res end end
+  local force = game.forces[f.force]
   for _, it in ipairs(items) do
     local ch = Fl.chain(REL, INFO, { it }, water and { [water] = "pompe" } or {}, chooser(f))
+    -- toutes les recettes de la chaîne débloquées (sinon la machine posée ne pourrait pas la lancer)
+    if ch then
+      for _, cell in ipairs(ch.cells) do
+        local fr = force and force.recipes[cell.recipe]
+        if not (fr and fr.enabled) then ch = nil break end
+      end
+    end
     if ch then
       local res = nil
       for _, fl in ipairs(sorted_keys(ch.sources)) do if ch.sources[fl] == "extract" then res = fl end end
