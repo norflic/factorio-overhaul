@@ -260,11 +260,20 @@ do
     check(#(f.prospects or {}) > 0, "le gisement perdu revient à la réserve")
     -- Équipe en fin d'échelle souvent à court de fer dans le moteur simulé : on lui donne de quoi
     -- reconstruire, le test porte sur la règle, pas sur l'économie.
-    for _, it in ipairs({ { "burner-mining-drill", 4 }, { "iron-chest", 4 }, { "coal", 50 } }) do
+    -- Lot IA3-d : avec « défendre d'abord » pour toutes les factions (IA1-b2, R-QCM-25c), un avant-poste se reconstruit
+    -- AVEC ses tourelles : elles sont données aussi (sur ia-v2, la reconstruction ne passait qu'avec une 9e recrue faite
+    -- par l'ancien frein à un instant où personne n'était sans tâche ; 8 PNJ, fer au chemin critique : tourelles jamais
+    -- fabriquées en 6 min, manque « gun-turret 2 »).
+    for _, it in ipairs({ { "burner-mining-drill", 4 }, { "iron-chest", 4 }, { "coal", 50 }, { "gun-turret", 2 },
+      { "firearm-magazine", 40 } }) do
       f.hq.insert({ name = it[1], count = it[2] })
     end
-    local ok_r, err_r = pcall(M.run_ticks, 6 * 3600)
-    check(ok_r, "six minutes sans erreur (" .. tostring(err_r) .. ")")
+    -- Lot IA3-d : 10 min au lieu de 6. Sous le cerveau par besoins, la reconstruction est planifiée dès la pensée qui
+    -- suit la perte (tâche « build:stone » prise) ; selon le site choisi et le trajet, l'avant-poste tient à 5 ou à 8 min
+    -- (moteur simulé, effectifs des autres factions changés par la règle d'effectif : 8 min). La règle testée (un
+    -- avant-poste perdu est reconstruit avec le stock) n'est pas affaiblie ; seule l'attente du trajet est allongée.
+    local ok_r, err_r = pcall(M.run_ticks, 10 * 3600)
+    check(ok_r, "dix minutes sans erreur (" .. tostring(err_r) .. ")")
     stone_now = 0
     for _, o in pairs(f.outposts) do if o.kind == "stone" then stone_now = stone_now + 1 end end
     check(stone_now >= 1, f.key .. " : avant-poste de pierre reconstruit (" .. stone_now .. ")")

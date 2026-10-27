@@ -32,6 +32,9 @@ local Build = require("script.team.build") -- lot IA1-d : plan directeur et cons
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
+local Effectif = require("shared.ai3.effectif") -- lot IA3-d : une faction grandit quand le travail attend (A7)
+local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
+local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
 
 local Team = {}
 
@@ -249,6 +252,106 @@ function Team.init(f, surface)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot IA3-d : effectif d'une faction (shared/ai3/effectif.lua). Situation lue au tableau des tâches tel qu'il est à la
+-- pensée (tâches libres, date de naissance, matière stricte libre au registre), au stock LIBRE et au manque de l'objectif.
+---------------------------------------------------------------------------------------------------
+-- Plaques du coût d'une recrue (lot SCALE, règle anti-échelle : shared/ai3/effectif.lua ne nomme aucun objet) : les
+-- produits des avant-postes que la fonderie sait faire (données de shared/team/config.lua), triés.
+local PLATES = {}
+for _, kind in ipairs(T.OUTPOST_ORDER) do
+  local p = T.outposts[kind].product
+  if T.smelter_inputs[p] then PLATES[#PLATES + 1] = p end
+end
+table.sort(PLATES)
+local PLATE = {}
+for _, p in ipairs(PLATES) do PLATE[p] = true end
+
+--- Ajoute une liste { {objet, n}, ... } à la table `acc` ({ [objet] = n }).
+local function add_list(acc, list)
+  for _, it in ipairs(list or {}) do acc[it[1]] = (acc[it[1]] or 0) + it[2] end
+end
+
+--- Situation de l'équipe pour la règle d'effectif. free = stock libre (coffre − réservé, Board.view_stock).
+local function effectif_input(f, tick, free, args)
+  local list = Board.get(f).list or {}
+  local tasks, reserved, kinds, making = {}, {}, {}, {}
+  for i = 1, #list do
+    local t = list[i]
+    -- Équipement de recrue déjà en fabrication (libre ou pris) : compté comme prêt dans le coût (sa matière est réservée
+    -- au registre dès la prise : la compter aussi dans le coût le paierait deux fois).
+    if t.tag == Effectif.RECRUIT_TAG and t.kind == "craft" and t.item then
+      making[t.item] = (making[t.item] or 0) + (t.count or 0)
+    end
+    if not t.worker then
+      local strict = Board.strict_list(t)
+      local prenable = true
+      for _, it in ipairs(strict or {}) do
+        if (free[it[1]] or 0) < it[2] then prenable = false break end
+      end
+      -- L'équipement de la recrue en fabrication (tâche « ouvrier ») EST son coût : pas réservé contre elle (sinon le coût
+      -- compte deux fois et la décision bascule « recrue » / « cout » à chaque pensée : moteur réel, ia3d-charge, Écarlate).
+      if not t.fond and t.tag ~= Effectif.RECRUIT_TAG then add_list(reserved, strict) end
+      tasks[#tasks + 1] = { kind = t.kind, prio = t.prio, critical = t.critical, created = t.created, fond = t.fond,
+        tag = t.tag, prenable = prenable }
+      local k = (t.kind or "?") .. (t.fond and "(fond)" or "") .. ":" .. tostring(t.prio or 0)
+      kinds[k] = (kinds[k] or 0) + 1
+    end
+  end
+  local kk = {}
+  for _, k in ipairs(State.sorted_keys(kinds)) do kk[#kk + 1] = k .. "x" .. kinds[k] end
+  -- Ce que l'objectif courant attend encore (dernière pensée : f.team.missing, plaques seulement).
+  for _, m in ipairs(f.team.missing or {}) do
+    if PLATE[m[1]] then reserved[m[1]] = (reserved[m[1]] or 0) + (m[2] or 0) end
+  end
+  -- Coût de la recrue en plaques : ce que le coffre a de prêt (libre, hors travail en attente) est déjà payé ; le reste
+  -- se fabrique (livre de recettes : pistolet, chargeurs).
+  local cost, rest = {}, {}
+  for _, it in ipairs(args.recruit_cost) do
+    local have = math.max(0, (free[it[1]] or 0) - (reserved[it[1]] or 0)) + (making[it[1]] or 0)
+    local need = it[2] - have
+    if need > 0 then
+      if PLATE[it[1]] then cost[it[1]] = (cost[it[1]] or 0) + need
+      else rest[#rest + 1] = { it[1], need } end
+    end
+  end
+  if #rest > 0 then
+    local raw = book_for(f):raw_cost(rest)
+    for _, k in ipairs(PLATES) do if raw[k] then cost[k] = (cost[k] or 0) + raw[k] end end
+  end
+  local left = {}
+  for _, k in ipairs(PLATES) do left[k] = (free[k] or 0) - (reserved[k] or 0) end
+  local tr = f.traits or {}
+  local key = General.key(f) or Rg.FALLBACK_KEY
+  local margin_item = T.outposts[key.top] and T.outposts[key.top].product or PLATES[#PLATES]
+  return {
+    plates = PLATES, margin_item = margin_item,
+    n = f.engineers_count or 0, cap = args.cap, floor = args.floor, blocked = args.blocked, limit = args.limit,
+    threatened = args.threatened, idle = args.idle, fond = args.fond, tasks = tasks, cost = cost, left = left,
+    traits = { ambition = tr.ambition, prudence = tr.prudence },
+    free_kinds = table.concat(kk, " "), -- tâches libres par genre et priorité (journal : diagnostic)
+  }
+end
+
+--- Texte de la fenêtre « Équipe et factions » (carte d'une faction) : décision de la dernière pensée et sa raison.
+function Team.effectif_text(f)
+  local ef = f.team and f.team.effectif
+  local d = ef and ef.last_d
+  if not d then return nil end
+  local r = d.reason
+  local why
+  if r == "plafond" then why = { "fo-ia3d.why-plafond", f.engineers_count or 0 }
+  elseif r == "plancher" then why = { "fo-ia3d.why-plancher", d.floor or 0 }
+  elseif r == "inactifs" then why = { "fo-ia3d.why-inactifs", d.hands, d.waiting }
+  elseif r == "matiere" then why = { "fo-ia3d.why-matiere", d.matter or 0 }
+  elseif r == "travail_recent" then why = { "fo-ia3d.why-travail_recent", d.young or 0 }
+  elseif r == "cout" then why = { "fo-ia3d.why-cout", d.cost_iron or 0, math.max(0, d.left_iron or 0) }
+  elseif r == "rythme" then why = { "fo-ia3d.why-rythme", d.waiting, math.ceil((d.wait_left or 0) / 60) }
+  elseif r == "recrue" then why = { "fo-ia3d.why-recrue", d.waiting }
+  else why = { "fo-ia3d.why-" .. r } end
+  return { "fo-ia3d.recruit-line", why }
+end
+
+---------------------------------------------------------------------------------------------------
 -- Vue
 ---------------------------------------------------------------------------------------------------
 function Team.view(f, tick)
@@ -351,10 +454,39 @@ function Team.view(f, tick)
   end
   if grow_due then recruit_held = false end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
+  -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
+  local stock_free = Board.view_stock(f, stock_of(f), tick, true)
+  local threatened = tick < (f.threatened_until or 0)
+  -- Lot IA3-d (A7, « ils ne scalent pas ») : une FACTION grandit quand du travail attend depuis 2 min au-delà de ses bras
+  -- libres et que la recrue se paie (shared/ai3/effectif.lua) ; elle ne recrute pas quand ses PNJ sont inactifs. La règle
+  -- remplace, pour les factions, le frein « tout le monde travaille à l'instant de la pensée » (fo-recruit-idle-max = 0 :
+  -- 36 à 99 % des pensées retenues sur la partie default de 2 h, fo-logs/2026-10-27_IA3-d/NOTES.md). Mêmes cas sans frein
+  -- qu'avant : sous l'effectif de départ (survie), et fo-recruit-idle-max ≥ 60. Votre équipe garde sa règle d'IA1-b2
+  -- (grow_due : défendue, 400 fer, une recrue par 5 min) : la croissance sans défense l'a perdue (F241, IA1-b2 essais 2 et 5).
+  local effectif, recruit_prio
+  if not f.is_player then
+    local st = f.team.effectif
+    if not st then
+      st = {}
+      f.team.effectif = st
+    end
+    local s = effectif_input(f, tick, stock_free, {
+      recruit_cost = recruit_cost, cap = workers_wanted, floor = floor, blocked = recruit_blocked,
+      limit = Config.get("recruit_idle_max"), threatened = threatened, idle = workers_idle, fond = on_fond,
+    })
+    effectif = Effectif.decide(s, st, tick)
+    effectif.floor = floor
+    effectif.cost_iron = (s.cost[s.margin_item] or 0) + effectif.margin
+    effectif.left_iron = s.left[s.margin_item] or 0
+    effectif.free_kinds = s.free_kinds
+    recruit_held = not effectif.recruit
+    -- Recrue décidée : son équipement se fabrique à la valeur du travail qu'elle débloque (prix fictif, borné 55 à 89 :
+    -- sous les urgences), et non plus à 55 derrière les fabrications de l'armée (72 à 83).
+    if effectif.reason == "recrue" then recruit_prio = Effectif.kit_prio(effectif.value) end
+  end
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
-    -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
-    stock = Board.view_stock(f, stock_of(f), tick, true), incoming = Board.incoming(f),
+    stock = stock_free, incoming = Board.incoming(f),
     outposts = outposts, pending = pend, sites = sites,
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
@@ -363,12 +495,17 @@ function Team.view(f, tick)
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
-    recruit_held = recruit_held,
+    recruit_held = recruit_held, recruit_prio = recruit_prio, -- lot IA3-d : priorité de l'équipement d'une recrue décidée
     -- Lot IA2-a : une faction suit l'ordre des objectifs de son chef (T.ladder réordonné selon ses postures,
     -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
-    threatened = tick < (f.threatened_until or 0),
+    threatened = threatened,
     open = Board.open(f),
+    effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)
+    -- Lot IA3-d : effectif visé atteint selon la règle (aucun bras ne manque) ; le cerveau d'IA-V2 attendait sinon le
+    -- plafond (workers ≥ workers_wanted) pour dire l'économie « faite », jamais atteint par une faction qui n'a pas besoin
+    -- de grandir.
+    workers_enough = effectif and Effectif.enough(effectif.reason) or nil,
     -- Lot IA2-a2 (SURVIE, factions seulement) : sous son effectif de départ, une faction équipe ses recrues au QG avec
     -- les plaques du stock ; en reconstruction (chef) ou menacée, elle y équipe aussi sa garde (shared/team/planner.lua).
     emergency = (not f.is_player) and { floor = floor, rebuild = (f.chef and f.chef.rebuild) or false } or nil,
@@ -505,6 +642,10 @@ function Team.think(f, surface, tick)
     if Worker.recruit(f, surface, tick) then
       f.stats.recruited = (f.stats.recruited or 0) + 1
       if view.grow_due then f.team.last_grow = tick end -- lot IA1-b2 : rythme de la croissance
+      -- Lot IA3-d : recrue de CROISSANCE d'une faction (rythme de la règle d'effectif).
+      if view.effectif and view.effectif.reason == "recrue" and not plan.emergency_recruit then
+        Effectif.grown(f.team.effectif, tick)
+      end
       if plan.recruit_uses then
         f.stats.emergency_recruits = (f.stats.emergency_recruits or 0) + 1
         -- Votre équipe peut travailler sans guerre (State.war().started nil) : minutes comptées depuis sa fondation,
@@ -546,7 +687,36 @@ function Team.think(f, surface, tick)
     log(string.format("[FO-TEAM] %s : recherche niveau %d payee en packs a %.1f min", f.key, f.tech, (tick - State.war().started) / 3600))
   end
   Ia3.measure(f, tick, plan) -- lot IA3-c : paliers de recherche et projets, mesurés avec les deux cerveaux
+  Team.effectif_journal(f, view, tick) -- lot IA3-d : ligne minute « [FO-EFFECTIF] »
   return plan
+end
+
+--- Lot IA3-d (lisibilité, critère 5 d'A7) : chaque minute de partie, une ligne par faction : effectif, recrues de
+--- croissance, raisons des pensées de la minute, dernière situation (travail qui attend, bras libres, fer).
+function Team.effectif_journal(f, view, tick)
+  local d = view.effectif
+  local st = f.team.effectif
+  if not (d and st) then return end
+  local war = State.war() or {}
+  local m = math.floor((tick - (f.started or war.started or 0)) / 3600)
+  if st.minute == nil then st.minute = m end
+  if m ~= st.minute then
+    local sum = Effectif.minute_summary(st)
+    local l = st.last_d or {}
+    local a = sum.avg
+    local function dec(x) return string.format("%d,%d", math.floor(x / 10), x % 10) end
+    log(string.format("[FO-EFFECTIF] %s minute %d | effectif %d/%d (depart %d) | croissance %d (recrues %d) | raisons {%s} | "
+      .. "moyennes : attente %s, sans tache %s, fond %s, recentes %s, sans matiere %s, faible valeur %s, exclues %s | "
+      .. "derniere : %s, attente %d (plus ancienne %d s, valeur %d), bras libres %d, manque %d, libres {%s} | "
+      .. "fer libre %d, cout fer %d (marge %d) | periode %d s",
+      f.key, st.minute, f.engineers_count or 0, view.workers_wanted or 0, l.floor or 0, st.grown or 0,
+      (f.stats and f.stats.recruited) or 0, sum.reasons, dec(a.waiting), dec(a.idle), dec(a.fond), dec(a.young),
+      dec(a.matter), dec(a.low), dec(a.excluded), l.reason or "-", l.waiting or 0, math.floor((l.oldest or 0) / 60),
+      l.value or 0, l.hands or 0, l.short or 0, l.free_kinds or "", l.left_iron or 0, l.cost_iron or 0,
+      l.margin or 0, math.floor((l.period or 0) / 60)))
+    st.minute = m
+  end
+  Effectif.count(st, d)
 end
 
 ---------------------------------------------------------------------------------------------------

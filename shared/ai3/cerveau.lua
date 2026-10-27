@@ -190,7 +190,9 @@ function C.think(view, book, st, ctx)
   -- faction à 26 PNJ sur 30 en 12 min quand la recherche déplafonnée prenait le fer des recrues).
   local top = s.key.top -- lot IA-G : la ressource la plus demandée (le fer sur les données vanilla)
   if not st.economy_ok and (s.cap[top] or 0) >= 0.75 and saturated[T.outposts[top].product]
-    and (view.workers or 0) >= (view.workers_wanted or 0) then st.economy_ok = tick end
+    and ((view.workers or 0) >= (view.workers_wanted or 0) or view.workers_enough) then st.economy_ok = tick end
+  -- (lot IA3-d : view.workers_enough = la règle d'effectif dit qu'aucun bras ne manque ; une faction plafonnée à 30 qui
+  -- n'a pas besoin de grandir a son effectif visé.)
   -- Lot IA-V2 : une matière saturée ne libère ses bras que si une AUTRE manque (critère A5 : « aucune matière au-dessus
   -- de 3 fois son besoin PENDANT qu'une autre manque » ; constat du DC du 25/10 : pierre et charbon ramassés pendant que
   -- le fer manquait). Rien ne manque : la collecte et le fond continuent (moteur réel, ia3c-dc-apres, 27/10 : sans cette
