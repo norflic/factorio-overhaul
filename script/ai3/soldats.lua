@@ -16,7 +16,6 @@ local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Worker = require("script.team.worker")
 local Profiler = require("script.core.profiler")
-local T = require("shared.team.config")
 local D = require("shared.ai3.danger")
 local Sd = require("shared.ai3.soldats")
 local C = require("script.ai3.comportement")
@@ -107,7 +106,7 @@ local function shelter(f, t, threat, tick)
     local ag = Registry.get(id)
     if ag and ag.entity.valid and ag.task then
       local e = ag.entity
-      local armed = e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0
+      local armed = C.has_ammo(e)
       local dh = d2(e.position, f.hq_pos)
       if not armed and dh > 12 * 12 and dh <= Sd.NEAR_HQ * Sd.NEAR_HQ then
         local a = C.astate(ag)

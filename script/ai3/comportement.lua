@@ -27,7 +27,6 @@ local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Character = require("script.faction.character")
 local Worker = require("script.team.worker")
-local T = require("shared.team.config")
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
@@ -252,10 +251,17 @@ local function d_route(p, a, ep)
 end
 M.d_route = d_route
 
+--- Le personnage a-t-il de quoi tirer ? Lu dans SON inventaire de munitions (aucun nom d'objet : une munition chargée,
+--- quelle qu'elle soit).
+function M.has_ammo(e)
+  local inv = e.get_inventory(defines.inventory.character_ammo)
+  return inv ~= nil and not inv.is_empty()
+end
+
 local function armed(agent, a, tick)
   if a.armed == nil or tick - (a.armed_t or -1e9) >= 600 then
     local e = agent.entity
-    a.armed = e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0
+    a.armed = M.has_ammo(e)
     a.armed_t = tick
   end
   return a.armed
