@@ -89,15 +89,32 @@ function G.new(spec)
   end
   -- Recettes : une recette qu'aucune machine connue ni la main ne sait faire est ignorée (elle n'existe pas pour
   -- l'équipe ; en jeu : catégorie sans bâtiment fabricable).
+  -- Machines PAR RECETTE (lot AUTO, correction après revue, H8) : une machine qui porte `recipes` (ensemble de noms :
+  -- ce que son exécutant sait lancer, shared/ai3/catalogue.lua) ne fait que celles-là, même si ses catégories en
+  -- permettent d'autres. cat.makers[recette] = machines qui la font ; sans `recipes` dans la liste de sa catégorie,
+  -- c'est la liste de la catégorie elle-même (même table : comportement d'avant le lot).
+  cat.makers = {}
   local all = {}
   for _, name in ipairs(sorted_keys(spec.recipes)) do all[#all + 1] = { name, spec.recipes[name] } end
   for _, name in ipairs(sorted_keys(spec.pseudo_recipes)) do all[#all + 1] = { name, spec.pseudo_recipes[name] } end
   table.sort(all, function(a, b) return a[1] < b[1] end)
   for _, e in ipairs(all) do
     local name, r = e[1], e[2]
-    local doable = cat.by_category[r.category] ~= nil or cat.hand[r.category]
+    local list = cat.by_category[r.category]
+    local filtered = false
+    for _, m in ipairs(list or {}) do if cat.machine[m].recipes then filtered = true end end
+    if filtered then
+      local l = {}
+      for _, m in ipairs(list) do
+        local only = cat.machine[m].recipes
+        if not only or only[name] then l[#l + 1] = m end
+      end
+      list = #l > 0 and l or nil
+    end
+    local doable = list ~= nil or cat.hand[r.category]
     if not r.hidden and doable then
       cat.recipes[name] = r
+      cat.makers[name] = list
       cat.recipe_list[#cat.recipe_list + 1] = name
       for _, p in ipairs(r.products) do
         local list = cat.producers[p.name] or {}
@@ -159,7 +176,7 @@ local function recipe_ok(cat, st, rname)
   local r = cat.recipes[rname]
   local t = cat.unlocked_by[rname]
   if not tech_done(st, t) and not st.tfeas[t] then return false end
-  if not handable(cat, r) and not machines_ok(cat, st, cat.by_category[r.category]) then return false end
+  if not handable(cat, r) and not machines_ok(cat, st, cat.makers[rname]) then return false end
   for _, i in ipairs(r.ingredients) do if not st.feas[i.name] then return false end end
   return true
 end
@@ -223,7 +240,7 @@ local function evaluate(cat, st)
         local extra = 0
         if not tech_done(st, cat.unlocked_by[rname]) then extra = extra + G.RESEARCH_PENALTY end
         if not handable(cat, r) then
-          local mc = machine_cost(cat, st, cat.by_category[r.category])
+          local mc = machine_cost(cat, st, cat.makers[rname])
           if mc > 0 then extra = extra + G.MACHINE_PENALTY + math.min(mc, G.EXPLORE_COST) * 0.01 end
         end
         for _, p in ipairs(r.products) do
@@ -294,8 +311,8 @@ local function causes_of(cat, st, item, seen, out)
     for _, ing in ipairs(cat.techs[t].ingredients or {}) do causes_of(cat, st, ing[1], seen, out) end
   end
   for _, i in ipairs(r.ingredients) do causes_of(cat, st, i.name, seen, out) end
-  if not handable(cat, r) and not machines_ok(cat, st, cat.by_category[r.category]) then
-    local mach = best_machine(cat, st, cat.by_category[r.category])
+  if not handable(cat, r) and not machines_ok(cat, st, cat.makers[m.name]) then
+    local mach = best_machine(cat, st, cat.makers[m.name])
     if mach then causes_of(cat, st, mach, seen, out) end
   end
 end
@@ -383,7 +400,7 @@ ensure_supply = function(cat, st, item, why)
   else
     local r = cat.recipes[m.name]
     ensure_unlocked(cat, st, m.name, why)
-    if not handable(cat, r) then ensure_machine(cat, st, cat.by_category[r.category], "ligne " .. item) end
+    if not handable(cat, r) then ensure_machine(cat, st, cat.makers[m.name], "ligne " .. item) end
     for _, ing in ipairs(r.ingredients) do
       if ing.type == "fluid" then ensure_capacity(cat, st, ing.name, "ligne " .. item)
       else ensure_supply(cat, st, ing.name, "ligne " .. item) end
@@ -406,7 +423,7 @@ ensure_capacity = function(cat, st, fluid, why)
   else
     local r = cat.recipes[m.name]
     ensure_unlocked(cat, st, m.name, why)
-    ensure_machine(cat, st, cat.by_category[r.category], "ligne " .. fluid)
+    ensure_machine(cat, st, cat.makers[m.name], "ligne " .. fluid)
     for _, ing in ipairs(r.ingredients) do
       if ing.type == "fluid" then ensure_capacity(cat, st, ing.name, "ligne " .. fluid)
       else ensure_supply(cat, st, ing.name, "ligne " .. fluid) end
@@ -436,8 +453,8 @@ emit_enable = function(cat, st, item, why)
     else for _, ing in ipairs(cat.techs[t].ingredients or {}) do emit_enable(cat, st, ing[1], why) end end
   end
   for _, ing in ipairs(r.ingredients) do emit_enable(cat, st, ing.name, why) end
-  if not handable(cat, r) and not machines_ok(cat, st, cat.by_category[r.category]) then
-    local mach = best_machine(cat, st, cat.by_category[r.category])
+  if not handable(cat, r) and not machines_ok(cat, st, cat.makers[m.name]) then
+    local mach = best_machine(cat, st, cat.makers[m.name])
     if mach then emit_enable(cat, st, mach, why) end
   end
 end
@@ -468,7 +485,7 @@ emit_item = function(cat, st, item, n, why)
   local runs = math.ceil(n / amount)
   ensure_unlocked(cat, st, m.name, why)
   local how = handable(cat, r) and "hand" or "produce"
-  if how == "produce" then ensure_machine(cat, st, cat.by_category[r.category], item) end
+  if how == "produce" then ensure_machine(cat, st, cat.makers[m.name], item) end
   for _, ing in ipairs(r.ingredients) do
     if ing.type == "fluid" then ensure_capacity(cat, st, ing.name, item)
     else emit_item(cat, st, ing.name, ing.amount * runs, item) end

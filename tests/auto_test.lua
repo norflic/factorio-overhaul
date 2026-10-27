@@ -12,6 +12,9 @@
     3. exécutants de l'automatisation (shared/ai3/automatiser.lua, A.exec_entities) : déduits des gabarits (centrale,
        fonderie, foreuses, machines des rangées), triés, sans doublon ;
     4. mutants : chaque règle retirée fait échouer au moins un contrôle.
+    5. exécutants RECETTE PAR RECETTE (correction après revue, H8) : réglage allumé, eau connue, tout recherché, le béton,
+       les barils d'eau, le mur renforcé et le moteur ne sont PAS faisables ; l'automatisation n'ajoute au graphe que la
+       chaîne de la centrale ; éteint : comportement d'avant (même liste de machines par recette) ; 3 mutants.
 ]]
 package.path = "./?.lua;" .. package.path
 local Gen = require("shared.ai3.general")
@@ -206,6 +209,143 @@ do
     for _, e in ipairs(plant.entities) do if not s2[e.name] then okp = false end end
     check(okp, "centrale complète")
   end)
+end
+
+---------------------------------------------------------------------------------------------------
+-- 5. Exécutants RECETTE PAR RECETTE (correction après revue, règle H8)
+---------------------------------------------------------------------------------------------------
+-- Revue du lot AUTO : réglage allumé, les assembleurs de l'automatisation étaient des exécutants de TOUTES leurs
+-- catégories (fluides compris) : le béton, les barils d'eau, le mur renforcé, le moteur devenaient faisables alors que
+-- la rangée générée (G.simple) refuse toute recette à fluide et toute recette à plus de 2 ingrédients. Données réelles
+-- (tests/iag_fixture.lua), eau connue, toutes les technologies faites.
+section("5. exécutants recette par recette (A.exec_recipes, A.add_executors, cat.makers)")
+local K = require("shared.ai3.catalogue")
+local G = require("shared.ai3.graphe")
+local F = require("tests.iag_fixture")
+local function full_state(c)
+  local techs, known = {}, {}
+  for _, t in ipairs(c.tech_list) do techs[t] = true end
+  for _, r in ipairs(c.resource_list) do known[r] = true end
+  return { techs = techs, known = known, built = {}, stock = {} }
+end
+local function sorted_keys_of(t)
+  local ks = {}
+  for k in pairs(t or {}) do ks[#ks + 1] = k end
+  table.sort(ks)
+  return ks
+end
+local function exec_cases()
+  local dump = F.dump()
+  local o_off, o_on = F.opts(), F.opts()
+  A.add_executors(o_on.exec, dump.recipes)
+  local off, on = K.build(dump, o_off), K.build(dump, o_on)
+  local eoff, eon = G.prepare(off.g, full_state(off)), G.prepare(on.g, full_state(on))
+  -- a. le cas de la revue, et ce qui en dépend
+  check(eon.feas["water"] == true, "allumé : l'eau est connue et pompée (centrale)")
+  for _, it in ipairs({ "concrete", "refined-concrete", "hazard-concrete", "refined-hazard-concrete", "water-barrel",
+    "fo-reinforced-wall", "engine-unit" }) do
+    check(eon.feas[it] ~= true, "allumé, eau connue, tout recherché : " .. it .. " n'est PAS faisable (aucun exécutant ne lance sa recette)")
+  end
+  check(eon.feas[K.ELEC] == true and eoff.feas[K.ELEC] ~= true, "allumé : l'électricité devient faisable (centrale), éteint non")
+  -- b. ce que l'automatisation ajoute au graphe : la seule chaîne de la centrale (recettes de chauffe et de génération,
+  --    eau des pompes) ; aucune recette à fluide d'une machine de fabrication
+  local roff = {}
+  for _, r in ipairs(off.g.recipe_list) do roff[r] = true end
+  local extra, bad = 0, {}
+  for _, r in ipairs(on.g.recipe_list) do
+    if not roff[r] then
+      extra = extra + 1
+      local c = on.g.recipes[r].category
+      if c:sub(1, #K.BOIL) ~= K.BOIL and c:sub(1, #K.GEN) ~= K.GEN then bad[#bad + 1] = r end
+    end
+  end
+  check(#bad == 0 and extra > 0, string.format("allumé : %d recette(s) de plus, toutes de la centrale (hors centrale : %s)", extra, table.concat(bad, " ")))
+  local new_items = {}
+  for _, k in ipairs(sorted_keys_of(eon.feas)) do
+    if eon.feas[k] and not eoff.feas[k] then
+      local ok = k == K.ELEC or (on.g.resources[k] and on.g.resources[k].category == K.PUMP)
+      for _, r in ipairs(on.g.producers[k] or {}) do
+        local c = on.g.recipes[r].category
+        if c:sub(1, #K.BOIL) == K.BOIL or c:sub(1, #K.GEN) == K.GEN then ok = true end
+      end
+      if not ok then new_items[#new_items + 1] = k end
+    end
+  end
+  check(#new_items == 0, "allumé : objets faisables de plus = la seule chaîne de la centrale (" .. table.concat(new_items, " ") .. ")")
+  -- c. chaque machine de fabrication de l'automatisation ne lance que des recettes sans fluide, ou celles d'un gabarit écrit
+  local runs = A.exec_recipes(dump.recipes)
+  local written = {}
+  for _, m in ipairs(A.METHODS) do
+    local t = A.template(m.gen, m.args)
+    for e, set in pairs((t and t.recipes) or {}) do for rn in pairs(set) do written[e .. "|" .. rn] = true end end
+  end
+  local fl, n = {}, 0
+  for _, e in ipairs(sorted_keys_of(runs)) do
+    for _, rn in ipairs(sorted_keys_of(runs[e])) do
+      n = n + 1
+      local r = dump.recipes[rn]
+      local fluid = false
+      for _, i in ipairs((r and r.ingredients) or {}) do if i.type == "fluid" then fluid = true end end
+      for _, p in ipairs((r and r.products) or {}) do if p.type == "fluid" then fluid = true end end
+      if (fluid or not r) and not written[e .. "|" .. rn] then fl[#fl + 1] = rn end
+    end
+  end
+  check(n > 0 and #fl == 0, string.format("A.exec_recipes : %d couple(s) machine-recette, aucun à fluide hors gabarit écrit (%s)", n, table.concat(fl, " ")))
+  local all_written = true
+  for k in pairs(written) do
+    local e, rn = k:match("^(.-)|(.*)$")
+    if not (runs[e] and runs[e][rn]) then all_written = false end
+  end
+  check(all_written, "A.exec_recipes : les recettes des gabarits écrits y sont toutes")
+  -- d. une machine des rangées générées qu'aucune recette ne choisit n'est pas une machine du catalogue
+  for _, name in ipairs(A.MACHINES) do
+    local empty = runs[name] ~= nil and next(runs[name]) == nil
+    if empty then check(on.g.machine[name] == nil, "machine sans recette lancée (" .. name .. ") : absente du catalogue allumé") end
+  end
+  -- e. réglage éteint : aucune machine filtrée, la liste d'une recette EST celle de sa catégorie (comportement d'avant)
+  local same = true
+  for _, rn in ipairs(off.g.recipe_list) do
+    if off.g.makers[rn] ~= off.g.by_category[off.g.recipes[rn].category] then same = false end
+  end
+  check(same, "éteint : machines d'une recette = liste de sa catégorie (même table), comportement d'avant la correction")
+end
+exec_cases()
+
+section("5 bis. mutants des exécutants recette par recette")
+do
+  local add0 = A.add_executors
+  mutant("exécutants machine par machine (code d'avant la revue)", function()
+    A.add_executors = function(exec) for _, n in ipairs(A.exec_entities()) do exec[n] = true end return exec end
+  end, function() A.add_executors = add0 end, exec_cases)
+  local new0 = G.new
+  mutant("graphe sans le filtre par recette (machine.recipes ignoré)", function()
+    G.new = function(spec)
+      local s = {}
+      for k, v in pairs(spec) do s[k] = v end
+      s.machines = {}
+      for i, m in ipairs(spec.machines or {}) do
+        local c = {}
+        for k, v in pairs(m) do c[k] = v end
+        c.recipes = nil
+        s.machines[i] = c
+      end
+      return new0(s)
+    end
+  end, function() G.new = new0 end, exec_cases)
+  local er0 = A.exec_recipes
+  mutant("A.exec_recipes : toutes les recettes des catégories de la machine", function()
+    A.exec_recipes = function(recipes)
+      local out = er0(recipes)
+      for _, name in ipairs(A.MACHINES) do
+        local sp = M.spec(name)
+        out[name] = out[name] or {}
+        for rn, r in pairs(recipes) do
+          for _, c in ipairs((sp and sp.categories) or {}) do if c == r.category then out[name][rn] = true end end
+        end
+      end
+      return out
+    end
+  end, function() A.exec_recipes = er0 end, exec_cases)
 end
 
 print(string.format("[AUTO] BILAN : %d OK, %d ECHEC(S)", passes, failures))

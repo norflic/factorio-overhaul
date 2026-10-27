@@ -151,10 +151,13 @@ end
 --- (tables de l'exécutant). Un lot qui ajoute un exécutant (IA3-e : modules du plan directeur) l'ajoute ici.
 --- Lot AUTO : automatisation allumée (réglage fo-war-ia3e, Auto.on), les entités que ses gabarits posent (assembleurs,
 --- foreuses électriques, centrale à vapeur : Auto.exec_entities, déduites des gabarits) sont aussi des exécutants :
---- l'électricité et les recettes des assembleurs deviennent payables (H8).
-function General.exec_opts(auto_on)
+--- l'électricité devient payable (H8). Correction après revue (H8) : une machine de fabrication de l'automatisation
+--- ne fait que les recettes que son exécutant sait LANCER (Auto.add_executors : gabarits écrits et rangées générées,
+--- ni fluide ni plus de 2 ingrédients hors d'un gabarit écrit), pas toutes celles de ses catégories. `recipes` : le
+--- relevé des recettes (General.dump().recipes), requis quand auto_on.
+function General.exec_opts(auto_on, recipes)
   local exec = { [T.SMELTER] = true, [T.DRILL] = true }
-  if auto_on then for _, name in ipairs(Auto.exec_entities()) do exec[name] = true end end
+  if auto_on then Auto.add_executors(exec, recipes) end
   return { exec = exec, exec_roles = { main = true, labo = true }, labs_unpowered = true,
     -- Combustible : un objet qu'un avant-poste rapporte (moteur réel, banc g2 : sans cela, le cristal de résonance).
     fuel_ok = function(item) return General.kind_of(item) ~= nil end }
@@ -172,7 +175,8 @@ function General.catalogue()
     return cat
   end
   Profiler.start("iag:catalogue")
-  cat = K.build(General.dump(), General.exec_opts(on))
+  local d = General.dump()
+  cat = K.build(d, General.exec_opts(on, d.recipes))
   cats[on] = cat
   Profiler.stop("iag:catalogue")
   log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s",

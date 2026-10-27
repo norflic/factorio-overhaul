@@ -83,6 +83,10 @@ end
 --- Lot AUTO : entités que l'exécutant de l'automatisation sait poser (déduites de ses gabarits, A.exec_entities).
 function Auto.exec_entities() return A.exec_entities() end
 
+--- Lot AUTO (correction après revue, H8) : ajoute à `exec` les exécutants de l'automatisation, recette par recette pour
+--- ses machines de fabrication (A.add_executors ; `recipes` : relevé des recettes du catalogue).
+function Auto.add_executors(exec, recipes) return A.add_executors(exec, recipes) end
+
 local function state_of(f)
   local t = f.team
   t.ia3e = t.ia3e or { v = 1, window = {}, cur = nil, mods = {}, verdicts = {}, wanted = {}, hand = {}, logs = {},
