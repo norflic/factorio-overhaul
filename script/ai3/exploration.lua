@@ -49,6 +49,7 @@ local Registry = require("script.companion.registry")
 local Sites = require("script.faction.sites")
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles")
+local Board = require("script.team.board") -- lot IA-V2 : crochet Board.on_fail (déjà chargé par control.lua)
 -- Lot IA-V2 : le cerveau par besoins (IA3-c) lit les gisements CONNUS par un crochet (module déjà chargé par
 -- script/team/team.lua : l'ordre de chargement, donc des abonnements, ne change pas).
 local Ia3 = require("script.ai3.cerveau")
@@ -809,6 +810,23 @@ local function team_pass(f, tick)
     local cap = math.min(EXPLORERS_MAX, 1 + math.floor(idle / IDLE_PER_EXPLORER))
     if n >= cap then return end
   end
+  -- Lot IA-V2 : le tour part quand les morceaux de carte de son anneau sont générés (ses points sont alors posés sur des
+  -- cases libres ; moteur réel, 27/10 : tours d'Azur tous ratés sur « chemin » en 0,0 min) ; au plus 2 min d'attente.
+  if kind == "tour" and tick - (k.opened or tick) < HOME_GIVEUP then
+    local surface = surface_of(f)
+    local first = type(f.id) == "number" and (f.id % 8) or 0
+    local wait = false
+    for _, p in ipairs(K.ring(f.hq_pos.x, f.hq_pos.y, TOUR_RADIUS, first)) do
+      if not chunk_ready(surface, p) then
+        surface.request_to_generate_chunks(p, 1)
+        wait = true
+      end
+    end
+    if wait then
+      k.next_mission = tick + 120
+      return
+    end
+  end
   local a = pick_idle(f)
   if a then
     start_mission(f, k, a, kind, res, tick)
@@ -882,8 +900,13 @@ Worker.far_mine = function(f, task, surface, tick)
   local k = f.ai3f
   if not k then return nil end
   local res = task.resource
+  local unreach = k.unreach or {}
   for _, d in ipairs(K.deposits(k.m, res, f.hq_pos)) do
     if d.d2 > FAR_MINE * FAR_MINE then break end
+    -- Lot IA-V2 : gisement au chemin raté récemment (Board.on_fail) : sauté (moteur réel, ia3c-reduit graine 20261020 :
+    -- Azur, 45 minages à la main ratés sur « chemin », toujours vers les mêmes gisements de l'autre côté de l'eau).
+    local t0 = unreach[d.key]
+    if t0 and tick - t0 < BAD_TTL then goto continue end
     local nests, worms = K.enemies_near(k.m, d.x, d.y, K.NEAR)
     if nests + worms == 0 and K.marks_near(k.m, d.x, d.y, K.NEAR, tick) == 0
       and not (f.is_player and Poles.near_loss(f, d, tick)) then
@@ -900,6 +923,7 @@ Worker.far_mine = function(f, task, surface, tick)
           type = "resource", invert = true, limit = 1 })
         if busy == 0 then
           k.stats.far_mine = (k.stats.far_mine or 0) + 1
+          task.far_key = d.key -- lot IA-V2 : gisement visé (mémoire des chemins ratés, Board.on_fail)
           if (k.stats.far_mine or 0) == 1 then
             log(string.format("[FO-IA3F] %s : minage de %s au gisement connu en (%d, %d), %d tuiles du QG (rien a %d tuiles)",
               team_label(f), res, math.floor(p.x), math.floor(p.y), math.floor(math.sqrt(dist2(p, f.hq_pos))), task.radius or 96))
@@ -908,6 +932,7 @@ Worker.far_mine = function(f, task, surface, tick)
         end
       end
     end
+    ::continue::
   end
   open_request(f, k, res, tick, "minage")
   return nil
@@ -1056,6 +1081,18 @@ end
 Ia3.home_known = function(f)
   if not X.fog_on() then return nil end
   return (f and f.ai3f and f.ai3f.home_seen) ~= nil
+end
+
+-- Lot IA-V2 : un minage lointain raté sur « chemin » marque son gisement injoignable BAD_TTL (Worker.far_mine le saute).
+Board.on_fail = function(f, task, tick)
+  if task.kind ~= "mine" or not task.far_key or task.fail ~= "chemin" then return end
+  local k = f.ai3f
+  if not k then return end
+  k.unreach = k.unreach or {}
+  k.unreach[task.far_key] = tick
+  for _, key in ipairs(sorted_keys(k.unreach)) do
+    if tick - k.unreach[key] >= BAD_TTL then k.unreach[key] = nil end
+  end
 end
 
 return X
