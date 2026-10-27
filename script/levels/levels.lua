@@ -123,13 +123,18 @@ Events.on_configuration_changed(check_cost_items)
 ---------------------------------------------------------------------------------------------------
 -- Paiement : centre de commandement d'abord, puis inventaire du joueur.
 ---------------------------------------------------------------------------------------------------
-local function sources(force, player)
+local function sources(force, player, extra)
   local invs = {}
   local cc = Levels.cc(force)
   if cc then invs[#invs + 1] = cc.get_inventory(defines.inventory.chest) end
   if player and player.valid then
     local m = player.get_main_inventory()
     if m then invs[#invs + 1] = m end
+  end
+  -- Lot CAPITAL : inventaires payeurs en plus, après le centre (une faction paie avec le coffre de son QG ; opts.inventories
+  -- de Levels.preview et Levels.start). Le joueur n'en passe aucun : rien ne change pour lui.
+  for _, inv in ipairs(extra or {}) do
+    if inv and inv.valid then invs[#invs + 1] = inv end
   end
   return invs
 end
@@ -1104,7 +1109,7 @@ function Levels.preview(entity, player, fresh, opts)
   -- (fonction du module, jamais dans global).
   if not (opts and opts.box) and Levels.pending_box then
     local b = Levels.pending_box(entity)
-    if b then opts = { box = b } end
+    if b then opts = { box = b, inventories = opts and opts.inventories } end
   end
   local force = entity.force
   local info = { family = family, level = n, next = n + 1, cc_level = Levels.cc_level(force) }
@@ -1134,7 +1139,7 @@ function Levels.preview(entity, player, fresh, opts)
     info.blocking = L.cc_blockers(Levels.census_cached(force, info.condition_level, fresh))
     if info.ok and #info.blocking > 0 then info.ok, info.reason = false, "cc-families" end
   end
-  info.missing = missing(sources(force, player), info.cost)
+  info.missing = missing(sources(force, player, opts and opts.inventories), info.cost)
   if info.ok and #info.missing > 0 then info.ok, info.reason = false, "no-resources" end
   local from, to = L.footprint(family, n), L.footprint(family, n + 1)
   -- Lot V3-T2 : bâtiment hors grille (laissé par une migration) : même à côté égal, il est reposé sur la grille par
@@ -1167,7 +1172,7 @@ function Levels.start(entity, player, opts)
     end
     return false, info.reason, info
   end
-  local invs = sources(entity.force, player)
+  local invs = sources(entity.force, player, opts and opts.inventories)
   local ledger = pay(invs, info.cost)
   local new = replace(entity, info.family, info.next, { room = info.room })
   if not new then
@@ -1574,5 +1579,12 @@ Events.on(defines.events.on_player_mined_entity, on_removed)
 Events.on(defines.events.on_robot_mined_entity, on_removed)
 Events.on(defines.events.on_entity_died, on_removed)
 Events.on(defines.events.script_raised_destroy, on_removed)
+
+-- Lot CAPITAL : lien avec l'exécutant des factions (script/ai3/capital.lua), sans changer l'ordre de chargement de
+-- control.lua (le module des factions est chargé avant celui-ci ; s'il ne l'est pas, il lit ce module à son chargement).
+do
+  local cap = package.loaded["script.ai3.capital"]
+  if cap and cap.bind then cap.bind(Levels) end
+end
 
 return Levels

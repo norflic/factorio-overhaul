@@ -48,6 +48,7 @@
 local M = require("shared.team.modules")
 local T = require("shared.team.config")
 local D = require("shared.team.automatisation_donnees") -- lot IA3-e : ce que l'exécutant sait poser (données nommées)
+local Book = require("shared.team.book") -- lot AUTO : livre de la main, pour A.exec_recipes (même règle que A.method_for)
 
 local A = {}
 
@@ -123,10 +124,17 @@ function A.template(gen, args)
   if not fn then cache[k] = false return nil, "generateur inconnu" end
   local g, why = fn(table.unpack(args))
   if not g then cache[k] = false return nil, why end
-  local items = {}
-  for _, e in ipairs(g.entities) do items[e.name] = (items[e.name] or 0) + 1 end
+  local items, recipes = {}, {}
+  for _, e in ipairs(g.entities) do
+    items[e.name] = (items[e.name] or 0) + 1
+    -- lot AUTO : recettes que le gabarit donne à ses machines ({ [entité] = { [recette] = vrai } }, A.exec_recipes)
+    if type(e.recipe) == "string" then
+      recipes[e.name] = recipes[e.name] or {}
+      recipes[e.name][e.recipe] = true
+    end
+  end
   local ex = g.extensions and g.extensions[1]
-  c = { key = g.key, n_ent = #g.entities, items = items, nominal = g.nominal or {}, inputs = g.inputs or {},
+  c = { key = g.key, n_ent = #g.entities, items = items, recipes = recipes, nominal = g.nominal or {}, inputs = g.inputs or {},
     power_kw = g.power_kw or 0, ext = ex and { arg = ex.arg, max = ex.max } or nil, args = args, gen = gen }
   cache[k] = c
   return c
@@ -134,6 +142,73 @@ end
 
 --- Vide le cache (tests).
 function A.reset_cache() cache = {} end
+
+--- Lot AUTO : entités que l'EXÉCUTANT de l'automatisation sait poser et faire tourner, DÉDUITES de ses gabarits (aucun
+--- nom écrit ici) : celles des méthodes écrites (A.METHODS), des foreuses qui servent leur minerai, de la centrale
+--- (A.PLANT) et les machines des rangées générées (A.MACHINES). Le cerveau général (script/ai3/general.lua,
+--- General.exec_opts) les ajoute à ses exécutants quand l'automatisation est allumée : l'électricité (générateur,
+--- chaudière, pompe) et les recettes des assembleurs deviennent payables au sens du graphe (H8). Liste triée.
+function A.exec_entities()
+  local set = {}
+  local function add(gen, args)
+    local t = A.template(gen, args)
+    if t then for _, k in ipairs(sorted_keys(t.items)) do set[k] = true end end
+  end
+  for _, m in ipairs(A.METHODS) do
+    add(m.gen, m.args)
+    if m.ore then add("drills", { m.ore, 1 }) end
+  end
+  add(A.PLANT.gen, A.PLANT.args)
+  for _, name in ipairs(A.MACHINES) do set[name] = true end
+  return sorted_keys(set)
+end
+
+--- Lot AUTO (correction après revue, règle H8) : ce que chaque MACHINE DE FABRICATION de l'exécutant sait LANCER,
+--- recette par recette, et non tout ce que ses catégories permettent en jeu. Rend { [entité] = { [recette] = vrai } }
+--- pour :
+---   - les machines des gabarits écrits (A.METHODS) : les recettes que le gabarit leur donne ;
+---   - les machines des rangées générées (A.MACHINES) : les recettes pour lesquelles A.method_for génère une rangée sur
+---     elles, sur le livre de la main bâti depuis `recipes` (la règle de la rangée G.simple : ingrédients solides, 1 ou
+---     2 ingrédients, un produit ; première machine de A.MACHINES qui fait sa catégorie). Une machine qu'aucune recette
+---     ne choisit rend un ensemble VIDE : elle ne fait rien pour le graphe.
+--- Une recette à fluide en entrée ou en sortie (rangée : « demande un fluide »), à plus de 2 ingrédients hors d'un
+--- gabarit écrit, ou hors du livre de la main n'y est donc jamais : en jeu, une machine saurait la faire, mais aucun
+--- exécutant ne sait la lancer (revue du lot AUTO : le béton et les barils d'eau devenaient faisables, réglage allumé).
+--- `recipes` : le relevé du catalogue ({ [nom] = { category, energy, hidden, ingredients, products } }). Fonction pure.
+function A.exec_recipes(recipes)
+  local out = {}
+  local function add(entity, rname)
+    out[entity] = out[entity] or {}
+    if rname then out[entity][rname] = true end
+  end
+  for _, name in ipairs(A.MACHINES) do add(name) end
+  for _, m in ipairs(A.METHODS) do
+    local t = A.template(m.gen, m.args)
+    if t then
+      for _, e in ipairs(sorted_keys(t.recipes)) do
+        for _, rn in ipairs(sorted_keys(t.recipes[e])) do add(e, rn) end
+      end
+    end
+  end
+  local book = Book.new(recipes or {})
+  for _, item in ipairs(sorted_keys(book.by_product)) do
+    local m = A.method_for(item, book)
+    if m and m.generic then add(m.args[3], m.args[1].name) end
+  end
+  return out
+end
+
+--- Lot AUTO (correction après revue) : ajoute à `exec` (exécutants du catalogue, shared/ai3/catalogue.lua :
+--- { [entité] = vrai | { [recette] = vrai } }) ceux de l'automatisation : chaque entité de ses gabarits
+--- (A.exec_entities) ; une machine de fabrication n'y lance que ses recettes (A.exec_recipes) ; une entité déjà
+--- exécutante de TOUTES ses recettes (fours du QG) le reste. Rend exec (modifié sur place).
+function A.add_executors(exec, recipes)
+  local runs = A.exec_recipes(recipes)
+  for _, name in ipairs(A.exec_entities()) do
+    if exec[name] ~= true then exec[name] = runs[name] or true end
+  end
+  return exec
+end
 
 --- Gabarit d'une méthode dimensionné au débit `rate` (objets/min du produit) : (résumé, args) ou nil, raison.
 function A.sized(method, rate)

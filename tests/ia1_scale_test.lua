@@ -29,7 +29,7 @@ local function section(name) print("== " .. name) end
 section("Réglages : défauts et bornes (docs §11, commande du lot)")
 local want = {
   -- Fusion avec 0.4.15 : réglages de la guerre (déclarés par settings/faction.lua), défauts de 0.4.15 gardés.
-  ["fo-war-factions"] = { 2, 2, 4 }, ["fo-war-workers"] = { 4, 1, 60 }, ["fo-player-team-npc-max"] = { 30, 6, 60 },
+  ["fo-war-factions"] = { 2, 2, 4 }, ["fo-war-workers"] = { 30, 1, 60 }, ["fo-player-team-npc-max"] = { 30, 6, 60 },
   ["fo-npc-start"] = { 8, 2, 30 }, ["fo-agents-max"] = { 300, 50, 600 }, ["fo-path-issue-per-tick"] = { 2, 1, 6 },
   ["fo-recruit-idle-max"] = { 0, 0, 60 }, -- correction IA1-a : frein par le travail
 }
@@ -44,8 +44,8 @@ for _, s in ipairs(S.SETTINGS) do
   end
 end
 check(seen == 7, "7 réglages déclarés (" .. seen .. ")")
-check(S.read("fo-war-workers", function() error("absent") end) == 4, "réglage absent : défaut")
-check(S.read("fo-war-workers", function() return nil end) == 4, "réglage nil : défaut")
+check(S.read("fo-war-workers", function() error("absent") end) == 30, "réglage absent : défaut")
+check(S.read("fo-war-workers", function() return nil end) == 30, "réglage nil : défaut")
 check(S.read("fo-war-workers", function() return 100 end) == 60, "valeur bornée au maximum")
 -- Un seul réglage par sens : aucun doublon d'IA1-a, les deux réglages de la guerre déclarés par faction.lua.
 local declared = {}

@@ -646,14 +646,19 @@ end
 --- Tracé d'un tapis de la tuile `s` à la tuile `t` (incluses) dans `bounds` {x0, y0, x1, y1} (inclus), 4 voisins.
 --- cost(x, y) -> nil (interdit) ou coût ≥ 1. Rend la liste des tuiles {x, y, dir} (chaque tuile tournée vers la
 --- suivante ; la dernière vers `t_dir`) et le nombre de nœuds développés, ou nil, raison.
-function P.belt_route(s, t, t_dir, bounds, cost)
+function P.belt_route(s, t, t_dir, bounds, cost, opts)
   if not cost(s.x, s.y) then return nil, "depart" end
   if not cost(t.x, t.y) then return nil, "arrivee" end
+  -- Lot AUTO : opts = { weight, max } (facultatif ; absent : A* exact, plafond P.ASTAR_MAX, comme avant). weight > 1 :
+  -- A* PONDÉRÉ (heuristique × weight : chemin au plus weight fois plus cher que le meilleur, beaucoup moins de nœuds en
+  -- forêt et entre les rues) ; max : nœuds développés au plus (la boîte entière : « aucun chemin » plutôt que « trop long »).
+  local hw = (opts and opts.weight) or 1
+  local cap = (opts and opts.max) or P.ASTAR_MAX
   local open = {}
   local g = { [tkey(s.x, s.y)] = 0 }
   local prev = {}
   local closed = {}
-  local function hh(x, y) return math.abs(x - t.x) + math.abs(y - t.y) end
+  local function hh(x, y) return (math.abs(x - t.x) + math.abs(y - t.y)) * hw end
   heap_push(open, { x = s.x, y = s.y, f = hh(s.x, s.y), h = hh(s.x, s.y), k = tkey(s.x, s.y) })
   local expanded = 0
   local ORDER = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 } }
@@ -663,7 +668,7 @@ function P.belt_route(s, t, t_dir, bounds, cost)
     if not closed[ck] then
       closed[ck] = true
       expanded = expanded + 1
-      if expanded > P.ASTAR_MAX then return nil, "trop long" end
+      if expanded > cap then return nil, "trop long" end
       if cur.x == t.x and cur.y == t.y then
         local tiles = {}
         local k = ck

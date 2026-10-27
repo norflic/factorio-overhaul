@@ -203,8 +203,8 @@ remote.add_interface("factorio-overhaul", {
   levels_free_check = function()
     return Free.check()
   end,
-  profiler = function(on)
-    Profiler.set_enabled(on and true or false, game.tick)
+  profiler = function(on, fine)
+    Profiler.set_enabled(on and true or false, game.tick, fine) -- lot PERF : fine = portées fines (nil : inchangé)
   end,
   reset_stats = function()
     Bench.reset_stats(game.tick)

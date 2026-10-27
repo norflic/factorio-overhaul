@@ -10,6 +10,44 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 17 h 30 : TIRS livré (prototype, NON fusionné)** : branche `tirs` `43aab26`, 5 âges témoins (1, 5, 8, 10, 15) + laser 15 ;
+> images `fo-logs\2026-10-27_TIRS\images-r4-final\` envoyées au DC ; questions au DC (puissance : image seule ou dégâts ; son de l'âge 15 ;
+> verdict). Fusion après son verdict ; coût seul à remesurer ; 10 âges à faire. Worktree `tirs` GARDÉ.
+>
+> **27/10, 17 h 20 : WORKFLOW `capi-branchement` LANCÉ** (`wf_751a87a7-9e1`, worktree `capib`, bancs `--qui CAPIB`) : plan en 10 étapes,
+> réglage fo-war-capi éteint sauf preuve, critères (1) à (5), images de base à 30, 60 et 90 min (`fo-logs\2026-10-27_CAPI\images-DC`),
+> `BRANCHEMENT.md` ; relu par un critique adverse. Ne pas écrire par SendMessage à ses agents.
+>
+> **27/10, 17 h 15 : `main` = 0.6.4** (IA3-d + SCALE, fast-forward de `valid064`, conflits cerveau.lua et team.lua résolus) : factions
+> 8 → 30 PNJ, travail d'avance, fours en rangées ; validation verte ; K10 seul 0,400 ms (p99 5,96). **Banc remis à 1 place à 17 h 01** (le
+> DC reprend son PC ; pas de réponse sur « jouez-vous ce soir ? »). Prochaine étape : brancher la capitalisation (plan en 10 étapes,
+> `fo-logs\2026-10-27_CAPI\INTEGRATION.md` §5), puis PETROLE et PERF2 (workflow en cours), TIRS (en cours). Question posée au DC :
+> lancer une partie longue de 4 à 6 h (réglages éteints et allumés) pour voir jusqu'où vont les factions.
+>
+> **27/10, 15 h 35 : WORKFLOW `ia-suite-petrole-perf` LANCÉ** (`wf_5e31d1cc-dde`) : PETROLE (A9 : exécutants chevalement, raffinerie,
+> usine chimique, tuyaux, réglage fo-war-petrole éteint sauf preuve ; pack chimique et palier 4) et PERF2 (A* étalé, pensées découpées,
+> boucle du PNJ refusé ; K10) ; worktrees `petrole`, `perf2` partis de main 0.6.3 ; livraisons `fo-logs\2026-10-27_PETROLE`, `_PERF2`.
+> Ne pas écrire par SendMessage à ses agents. Ensemble des workflows actifs : `ia-fin-cerveau` (SCALE seul restant), `tirs-par-age`,
+> `ia-suite-petrole-perf`. **Le banc reviendra à 1 place vers 17 h** (le DC reprend son PC) : prévenir que la file ralentira.
+>
+> **27/10, 15 h 25 : `main` = 0.6.3** (PERF, AUTO, CAPITAL par fast-forward de `valid063`, conflit cerveau.lua résolu ; réglages
+> fo-war-ia3e et fo-war-capital ÉTEINTS ; décisions identiques à 0.6.0 ; K10 seul 0,379 ms, p99 5,48). Reste de l'atelier : SCALE
+> (en correction). Puis : brancher CAPI (après SCALE), lot de performance suivant (A* étalé, pensée découpée, boucle du PNJ refusé),
+> TIRS (en correction). Worktrees perf, auto, capital, valid063 à retirer quand l'atelier sera fini.
+>
+> **27/10, 14 h 20 : CAPI FUSIONNÉ (règle pure, rien en jeu)** : `shared/ai3/capitalisation.lua`, test 151 OK, `docs/IA_CAPITALISATION.md` ;
+> livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md` (plan de branchement en 10 étapes §5, critères C1 à C9, `RESUME_DC.md`). Q-CAPI-1
+> tranchée par l'intégrateur d'après le DC (12 h 30) : couverture complète du gisement sans plafond « 2 × le besoin ». À FAIRE après la
+> fusion de SCALE, AUTO et CAPITAL : brancher (préalable : gisements comptés en entier, pas à 64 tuiles), étaler le coût, prouver en jeu
+> avec l'image d'une base (critères de l'OBJECTIFS §4, 12 h 30). Worktree `capi` retiré.
+>
+> **27/10, 13 h 50 : `main` = 0.6.2** (foreuse aux 15 âges EN JEU, `8217fb0`, provisoire ; ronde 2 du centre en outils, `ba6c9ac` ;
+> sur main : harness 0, feuilles foreuse 580, levels 1667, api_lint 1260, f4-foreuses 7 OK, content 331 ; agent design TERMINÉ,
+> worktrees design retirés). **Workflow `tirs-par-age` LANCÉ** (`wf_91cd3f5e-b4a`, worktree `tirs`, `fo-logs\2026-10-27_TIRS`,
+> F357 à F360, E238 à E240) : demande du DC (tirs et sons des tourelles à la mesure de l'âge). Essai 3D par IA fini : rester en
+> procédural ; Meshy à la décision du DC. Workflows en cours : `ia-fin-cerveau` (PERF, SCALE, AUTO, CAPITAL), `capitalisation-pnj`,
+> `tirs-par-age`. Banc à 3 places.
+>
 > **27/10, 12 h 10 : CAPITALISATION** (le DC, 12 h 05 : « Le scaling des IA est aussi et surtout dans la maximisation des gisements,
 > de la fonte et des crafts […] c'est le concept de capitalisation qu'il faut implémenter » ; « Et concernant la recherche IA ? »).
 > Workflow `capitalisation-pnj` (relancé à 12 h 15 avec la précision du DC « plus de gisements, plus de fours dans la limite de ce qu'on peut faire fondre, si assembleurs disponibles des chaînes de production » : run `wf_181b9d75-fba` ; le premier run `wf_6987f189-654` est arrêté, hors jeu, worktree `capi`, livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md`

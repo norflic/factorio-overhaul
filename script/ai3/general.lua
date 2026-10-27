@@ -25,17 +25,21 @@
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages")
 local K = require("shared.ai3.catalogue")
+local Br = require("shared.ai3.bras") -- lot SCALE : bras libres lissés
 local Gen = require("shared.ai3.general")
 local B = require("shared.ai3.buts")
 local Planner = require("shared.team.planner")
 local State = require("script.faction.state")
 local Profiler = require("script.core.profiler")
+local Auto = require("script.ai3.automatisation") -- lot AUTO : exécutants de l'automatisation (Auto.on, Auto.exec_entities)
 
 local General = {}
 
 -- Aucun réglage de carte (settings.lua est un fichier de l'intégrateur) : allumé pour toute faction au cerveau par
 -- besoins ; General.ENABLED = false rend l'ancien choix d'IA-V2 (tests, essais « avant »).
 General.ENABLED = true
+General.AUTO_STALL = 10 * 3600 -- lot AUTO (K1, IA3-e) : recherche pour l'automatisation sans unité payée depuis 10 min…
+General.AUTO_PAUSE = 20 * 3600 -- … les autres passent 20 min
 General.ARMY_FIRST = B.ARMY_FIRST_N
 General.AMMO_STOCK = B.AMMO_STOCK
 
@@ -146,19 +150,39 @@ end
 
 --- Exécutants d'aujourd'hui : la main et le laboratoire du QG (rôles), les fours du QG et les foreuses des avant-postes
 --- (tables de l'exécutant). Un lot qui ajoute un exécutant (IA3-e : modules du plan directeur) l'ajoute ici.
-function General.exec_opts()
-  return { exec = { [T.SMELTER] = true, [T.DRILL] = true }, exec_roles = { main = true, labo = true }, labs_unpowered = true,
+--- Lot AUTO : automatisation allumée (réglage fo-war-ia3e, Auto.on), les entités que ses gabarits posent (assembleurs,
+--- foreuses électriques, centrale à vapeur : Auto.exec_entities, déduites des gabarits) sont aussi des exécutants :
+--- l'électricité devient payable (H8). Correction après revue (H8) : une machine de fabrication de l'automatisation
+--- ne fait que les recettes que son exécutant sait LANCER (Auto.add_executors : gabarits écrits et rangées générées,
+--- ni fluide ni plus de 2 ingrédients hors d'un gabarit écrit), pas toutes celles de ses catégories. `recipes` : le
+--- relevé des recettes (General.dump().recipes), requis quand auto_on.
+function General.exec_opts(auto_on, recipes)
+  local exec = { [T.SMELTER] = true, [T.DRILL] = true }
+  if auto_on then Auto.add_executors(exec, recipes) end
+  return { exec = exec, exec_roles = { main = true, labo = true }, labs_unpowered = true,
     -- Combustible : un objet qu'un avant-poste rapporte (moteur réel, banc g2 : sans cela, le cristal de résonance).
     fuel_ok = function(item) return General.kind_of(item) ~= nil end }
 end
 
+-- Lot AUTO : un catalogue par état du réglage de l'automatisation (réglage de carte : le même chez tous les pairs) ;
+-- changer de catalogue efface les mémos de points fixes (ils appartiennent au graphe de l'autre catalogue).
+local cats = {}
 function General.catalogue()
-  if cat then return cat end
+  local on = Auto.on() and true or false
+  if cat and cats[on] == cat then return cat end
+  for k in pairs(memos) do memos[k] = nil end
+  if cats[on] then
+    cat = cats[on]
+    return cat
+  end
   Profiler.start("iag:catalogue")
-  cat = K.build(General.dump(), General.exec_opts())
+  local d = General.dump()
+  cat = K.build(d, General.exec_opts(on, d.recipes))
+  cats[on] = cat
   Profiler.stop("iag:catalogue")
-  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s",
-    #cat.g.recipe_list, #cat.tech_list, #cat.g.machine_list, #cat.pack_list, tostring(cat.fuel)))
+  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s",
+    #cat.g.recipe_list, #cat.tech_list, #cat.g.machine_list, #cat.pack_list, tostring(cat.fuel),
+    on and " (automatisation allumee : executants de ses gabarits compris)" or ""))
   return cat
 end
 
@@ -251,15 +275,22 @@ local function spare(f, view, tick)
   if not g then return 0 end
   if g.spare_tick ~= tick then
     g.spare_tick = tick
-    if Gen.ahead_depth(view.workers_idle, view.workers) > 0 then g.idle_run = (g.idle_run or 0) + 1 else g.idle_run = 0 end
+    -- Lot SCALE : PNJ sans tâche LISSÉS (moyenne glissante d'environ 1 min, shared/ai3/bras.lua, Br.smooth) au lieu du
+    -- compte de la pensée : une pensée sous le seuil ne remet plus le compteur à zéro (moteur simulé, 30 PNJ : 7,8 à
+    -- 9,5 PNJ sans tâche par pensée, aucune tâche libre, aucun travail d'avance).
+    g.idle_ema = Br.smooth(g.idle_ema, view.workers_idle)
+    local idle_s = math.floor(g.idle_ema / 10)
+    if Gen.ahead_depth(idle_s, view.workers) > 0 then g.idle_run = (g.idle_run or 0) + 1 else g.idle_run = 0 end
     local war = State.war()
     local elapsed = tick - (f.started or (war and war.started) or 0)
-    g.spare = Gen.spare_depth(g.idle_run, view.workers_idle, view.workers, elapsed)
+    g.spare = Gen.spare_depth(g.idle_run, idle_s, view.workers, elapsed)
+    -- Lot SCALE : nombre de bras libres durables (0 si la profondeur est nulle) : taille des vagues d'avance.
+    g.spare_hands = g.spare > 0 and idle_s or 0
     -- Une exploration demandée (IA3-f, f.ai3f.req) prend d'abord les PNJ sans tâche comme éclaireurs : pas de travail
     -- d'avance tant qu'elle est ouverte (moteur simulé, tests/ia3f_test.lua §6 : avec les bras libres, le pétrole n'était
     -- plus trouvé en 30 min sous 30 % de chemins ratés, les éclaireurs étant occupés aux packs d'avance). Test de vacuité
     -- seulement (aucun ordre de parcours).
-    if f.ai3f and f.ai3f.req and next(f.ai3f.req) ~= nil then g.spare = 0 end
+    if f.ai3f and f.ai3f.req and next(f.ai3f.req) ~= nil then g.spare, g.spare_hands = 0, 0 end
   end
   return g.spare or 0
 end
@@ -290,11 +321,42 @@ function General.idle_grow(f, view, tick)
   return spare(f, view, tick) > 0
 end
 
+--- Lot SCALE : bras libres DURABLES de la pensée (nombre de PNJ sans tâche quand la profondeur d'avance est > 0, sinon
+--- 0) ; factions seulement, cerveau général allumé.
+function General.spare_hands(f, view, tick)
+  if f.is_player or not General.on() then return 0 end
+  spare(f, view, tick)
+  local g = f.team and f.team.iag
+  return (g and g.spare_hands) or 0
+end
+
 --- Faisabilité d'un objet à la dernière évaluation de la force (nil : inconnue).
 function General.feasible(f, item)
   local m = memos[f.force]
   if not (m and m.ev) then return nil end
   return m.ev.feas[item] == true
+end
+
+--- Lot CAPITAL : coût unitaire d'un objet (point fixe min-plus du graphe) à la dernière évaluation de la force ; nil si
+--- l'objet n'y est pas faisable ou si la force n'a pas encore été évaluée.
+function General.unit_cost(f, item)
+  local m = memos[f.force]
+  if not (m and m.ev and m.ev.feas[item]) then return nil end
+  return m.ev.cost[item]
+end
+
+--- Lot CAPITAL : dépliage d'une liste { {objet, n} } (coût d'une amélioration) sur la dernière évaluation de la force :
+--- le même Gen.summary que la recherche (main, machine, extraire, construire). nil sans évaluation.
+function General.summary_items(f, list)
+  local m = memos[f.force]
+  if not (m and m.ev) or not General.on() then return nil end
+  local st = f.team and f.team.ia3
+  if not st then return nil end
+  local goals = {}
+  for _, it in ipairs(list or {}) do goals[#goals + 1] = { item = it[1], n = it[2] } end
+  local state = { stock = {}, techs = st.techs or {}, built = {}, known = {} }
+  for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then state.known[k] = true end end
+  return Gen.summary(General.catalogue(), m.ev, state, goals)
 end
 
 --- Une ressource inconnue que l'équipe saurait extraire (un exécutant de sa catégorie) ?
@@ -312,10 +374,23 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local state, nlabs = General.state(f, st, view)
   local ev = Gen.prepare(c, state, memo_of(f))
   local lab = st.lab
-  if lab and lab.tech and not st.techs[lab.tech] then
+  -- Lot AUTO (garde de K1 du lot IA3-e, reportée du choix de repli) : une recherche voulue par l'automatisation
+  -- (for_auto) sans unité payée depuis General.AUTO_STALL laisse passer les autres General.AUTO_PAUSE (objets voulus
+  -- ignorés pendant ce temps).
+  if wanted and lab and lab.for_auto and lab.tech and not st.techs[lab.tech]
+      and tick - (lab.paid_tick or lab.started or tick) > General.AUTO_STALL then
+    st.auto_pause = tick + General.AUTO_PAUSE
+    log(string.format("[FO-CERVEAU] %s : recherche '%s' (automatisation) sans progres depuis %d min : les autres recherches passent %d min",
+      f.key or "?", lab.tech, math.floor(General.AUTO_STALL / 3600), math.floor(General.AUTO_PAUSE / 3600)))
+    lab.for_auto = nil
+    lab.stalled = true
+  end
+  local k1 = wanted ~= nil and Auto.on()
+  if st.auto_pause and tick < st.auto_pause then wanted = nil end
+  if lab and lab.tech and not st.techs[lab.tech] and not lab.stalled then
     if ev.tfeas[lab.tech] then
       Profiler.stop("iag:choose")
-      return lab.tech, true, {}, lab.palier
+      return lab.tech, true, {}, lab.palier, lab.for_auto
     end
     log(string.format("[FO-CERVEAU] %s : but '%s' abandonne (plus payable) a %.1f min", f.key or "?", lab.tech, minutes(f, tick)))
   end
@@ -326,7 +401,8 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   end
   local speed = 1
   for _, l in ipairs(c.labs) do speed = math.max(speed, l.speed or 1) end
-  local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs) })
+  local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
+    k1 = k1 or nil })
   -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
   -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
   local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })
@@ -378,12 +454,16 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   g.decisions = g.decisions + 1
   g.history[#g.history + 1] = { tech = d.tech, tick = tick, value = d.value, cost = d.cost }
   while #g.history > 32 do table.remove(g.history, 1) end
-  log(string.format("[FO-CERVEAU] %s : but '%s' valeur %d cout %d score %d%s | %s | ressources cles : plus demandee %s, combustible %s, ordre %s, sans besoin [%s], besoins bruts %s | inconnues qui rapporteraient [%s] | %d pretes payables a %.1f min",
-    f.key or "?", d.tech, d.value, d.cost, d.score, d.palier and " (palier)" or "", Gen.why_text(d, sum), tostring(key.top),
+  log(string.format("[FO-CERVEAU] %s : but '%s' valeur %d cout %d score %d%s%s | %s | ressources cles : plus demandee %s, combustible %s, ordre %s, sans besoin [%s], besoins bruts %s | inconnues qui rapporteraient [%s] | %d pretes payables a %.1f min",
+    f.key or "?", d.tech, d.value, d.cost, d.score, d.palier and " (palier)" or "",
+    d.k1 and (" (K1 : " .. d.k1 .. ")") or ((d.auto and not d.k1_palier) and " (voulue par l'automatisation)" or ""),
+    Gen.why_text(d, sum), tostring(key.top),
     tostring(key.fuel), table.concat(key.order, ","), table.concat(sorted_keys(key.optional), ","), Gen.fmt_map(key.need),
     table.concat(rv_txt, ", "), d.n_ready or 0, minutes(f, tick)))
   Profiler.stop("iag:choose")
-  return d.tech, true, {}, d.palier
+  -- lot AUTO : for_auto (5e valeur, comme le choix de repli) : la recherche sert l'automatisation sans ouvrir de palier
+  -- (garde AUTO_STALL ci-dessus ; plancher et plafond de shared/ai3/projets.lua, buts.lua, automatiser.lua A.goals)
+  return d.tech, true, {}, d.palier, (k1 and d.auto and not d.k1_palier) or nil
 end
 
 ---------------------------------------------------------------------------------------------------

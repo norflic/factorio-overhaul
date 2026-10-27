@@ -329,7 +329,11 @@ function Worker.program(f, task, surface, tick)
     table.sort(products)
     for _, p in ipairs(products) do
       local input = T.smelter_inputs[p]
-      if input then list[#list + 1] = { input[1], math.min(input[2] * 20, input[2] * task.smelt[p]) } end
+      -- Lot SCALE : la fournée suit le nombre de fours (données nommées et justifiées de shared/team/config.lua :
+      -- T.smelt_per_furnace entrées par four, au moins T.smelt_trip_min) : une fonderie agrandie (shared/ai3/bras.lua,
+      -- Br.smelters) n'est pas limitée par une tournée de 20 minerais.
+      local per_trip = math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))
+      if input then list[#list + 1] = { input[1], math.min(input[2] * per_trip, input[2] * task.smelt[p]) } end
     end
     list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
@@ -506,8 +510,13 @@ local function goto_step(agent, pos, radius, tick)
   -- 21/10) : un point d'accès couvert depuis par une foreuse, une case du QG sous un four, un autre PNJ.
   -- Le but devient le point libre le plus proche (test seulement, aucune entité posée : F26).
   local surface = e.surface
-  if not surface.can_place_entity({ name = e.name, position = pos }) then
+  Profiler.fstart("worker:goal_free")
+  local placeable = surface.can_place_entity({ name = e.name, position = pos })
+  Profiler.fstop("worker:goal_free")
+  if not placeable then
+    Profiler.fstart("worker:goal_free")
     local free = surface.find_non_colliding_position(e.name, pos, radius + 6, 0.5)
+    Profiler.fstop("worker:goal_free")
     if free then
       pos = free
       local f = faction_of(agent)
@@ -541,10 +550,14 @@ local function goto_step(agent, pos, radius, tick)
   agent.walk_radius = radius
   local H = Worker.hook -- lot IA3-k : itinéraire par points de passage (danger, variation)
   if H then
+    Profiler.fstart("ia3k:leg")
     local w, wr = H.leg(agent, pos, radius, tick)
+    Profiler.fstop("ia3k:leg")
     if w then pos, radius = w, wr end
   end
+  Profiler.fstart("nav:go")
   Nav.go(agent, pos, tick, { radius = radius })
+  Profiler.fstop("nav:go")
   set(agent, "walk", tick)
   return false
 end
@@ -610,7 +623,10 @@ local function run_steps(agent, tick)
     elseif kind == "act" then
       Trace.log("act", step[2], f.key)
       local fn = ACTS[step[2]]
+      local pn = Profiler.fine() and ("act:" .. tostring(step[2])) or nil
+      if pn then Profiler.fstart(pn) end
       local ok = fn and fn(agent, f, agent.task, surface, tick)
+      if pn then Profiler.fstop(pn) end
       if not ok then
         abort(agent, f, tick, step[2])
         return
@@ -636,11 +652,15 @@ end
 --- Lot IA3-k : rend true quand le crochet « sense » a pris la main (la pensée de l'état s'arrête là).
 local function defend(agent, tick)
   local H = Worker.hook
+  Profiler.fstart("ia3k:sense")
   local took = H and H.sense(agent, tick) or false
+  Profiler.fstop("ia3k:sense")
   if tick - (agent.defense_tick or 0) < DEFENSE_PERIOD then return took end
   agent.defense_tick = tick
   local e = agent.entity
+  Profiler.fstart("worker:defend")
   local enemy = e.surface.find_nearest_enemy({ position = e.position, max_distance = DEFENSE_RADIUS, force = e.force })
+  Profiler.fstop("worker:defend")
   if enemy and e.get_item_count(T.worker_ammo) + e.get_item_count("piercing-rounds-magazine") > 0 then
     e.shooting_state = { state = defines.shooting.shooting_enemies, position = enemy.position }
     agent.shooting = true
@@ -661,36 +681,55 @@ FSM.define(MACHINE, {
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
       if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
+      -- Lot PERF (correction après revue) : la prise de tâche entière (réclamer, programmer, juger, rendre) est comptée et
+      -- mesurée SELON SON ISSUE (« idle:sans-tache », « idle:sans-programme », « idle:refus », « idle:depart ») ; la
+      -- porte seule aussi (« gate:accepte », « gate:refus »). Mode fin du profileur seulement (mesure, jamais décision).
+      Profiler.fmark("idle")
+      Profiler.fstart("board:claim")
       local task = Board.claim(f, agent, tick)
+      Profiler.fstop("board:claim")
       if not task then
         -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin.
         if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav then
           agent.task, agent.steps, agent.pc = nil, { { "home" } }, 1
           set(agent, "step", tick)
         end
+        Profiler.fcredit("idle", "idle:sans-tache")
         return
       end
+      Profiler.fstart("worker:program")
       local steps = Worker.program(f, task, agent.entity.surface, tick)
+      Profiler.fstop("worker:program")
       if not steps then
         task.fail = task.fail or "programme" -- lot IA1-b : raison écrite (minerai introuvable, avant-poste disparu)
         Board.release(f, agent) -- lot IA3-b : réservation rendue
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
+        Profiler.fcredit("idle", "idle:sans-programme")
         return
       end
       -- Lot IA3-k : porte de la tâche (trajet dangereux : escorte ou attente).
       local H = Worker.hook
-      if H and not H.gate(f, agent, task, steps, tick) then
+      Profiler.fstart("ia3k:gate")
+      Profiler.fmark("gate")
+      local gate_ok = not H or H.gate(f, agent, task, steps, tick)
+      Profiler.fcredit("gate", gate_ok and "gate:accepte" or "gate:refus")
+      Profiler.fstop("ia3k:gate")
+      if not gate_ok then
         return_site(f, task)
         task.fail = task.fail or "danger"
         Board.release(f, agent) -- lot IA3-b : réservation rendue (comme un programme introuvable)
         Board.finish(f, task, false, tick)
         Poles.task_done(f, task, false, tick)
+        Profiler.fcredit("idle", "idle:refus")
         return
       end
+      Profiler.fstart("board:reserve")
       Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
+      Profiler.fstop("board:reserve")
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
       set(agent, "step", tick)
+      Profiler.fcredit("idle", "idle:depart")
     end,
   },
   step = {
@@ -737,7 +776,9 @@ FSM.define(MACHINE, {
   walk = {
     think = function(agent, tick)
       if defend(agent, tick) then return end
+      Profiler.fstart("nav:think")
       Nav.think(agent, tick)
+      Profiler.fstop("nav:think")
     end,
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
     on = {
@@ -927,6 +968,23 @@ Registry.on_removed(function(agent)
     log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min", f.key or "player",
       agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
       game.tick / 3600))
+    -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
+    -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
+    -- T.hq_lethal_ticks (script/team/team.lua, view.hold_recruits). Dates gardées : les T.hq_lethal_deaths dernières.
+    if not f.is_player and agent.death_cause:find("/enemy:", 1, true) and p and f.hq_pos
+      and dist2(p, f.hq_pos) <= Worker.SAFE_HOME * Worker.SAFE_HOME then
+      local hd = f.hq_deaths or {}
+      f.hq_deaths = hd
+      hd[#hd + 1] = game.tick
+      while #hd > T.hq_lethal_deaths do table.remove(hd, 1) end
+      if #hd >= T.hq_lethal_deaths and hd[#hd] - hd[1] <= T.hq_lethal_window
+        and not (f.hq_lethal_tick and game.tick - f.hq_lethal_tick < T.hq_lethal_ticks) then
+        f.hq_lethal_tick = game.tick
+        f.stats.hq_lethal = (f.stats.hq_lethal or 0) + 1
+        log(string.format("[FO-TEAM] %s : QG occupe par les biters (%d PNJ tues a moins de %d tuiles en %.1f min) : aucune recrue pendant %d min, a %.1f min",
+          f.key or "?", #hd, Worker.SAFE_HOME, (hd[#hd] - hd[1]) / 3600, T.hq_lethal_ticks / 3600, game.tick / 3600))
+      end
+    end
     -- Lot IA1-b2 (défendre d'abord) : l'avant-poste vers lequel allait le PNJ tué devient MEURTRIER (date gardée) : le
     -- cerveau n'y envoie plus personne pendant T.lethal_ticks, sauf pour y poser des tourelles.
     local oid = t and (t.outpost or (type(t.post) == "number" and t.post) or nil)
