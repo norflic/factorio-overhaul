@@ -581,6 +581,10 @@ function P.supply(E, ctx)
       local plate_kind = kind and T.smelter_inputs[T.outposts[kind].product] and kind or nil
       local critical = plate_kind ~= nil and not fed and bottleneck == T.outposts[plate_kind].product
       if critical then prio = math.max(prio, P.BOOT_PRIO)
+      elseif blocked_by_plate and item == T.fuel then
+        -- Lot IA-V2 : le COMBUSTIBLE des fours du QG est sur le chemin critique de la plaque (moteur réel, ia3b-fer sur
+        -- 0302af1 : charbon reporté avec les autres matières, fours à sec, plaques bloquées à 44 pendant 3 min).
+        prio = math.max(prio, P.BOOT_PRIO - 1)
       elseif blocked_by_plate and r.why ~= "fonderie" then prio = math.min(prio, P.DEFER_PRIO) end
       if input then
         -- Fondre : la fonderie du QG (ses fours d'abord s'il n'y en a pas).
