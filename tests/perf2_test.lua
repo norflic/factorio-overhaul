@@ -92,7 +92,7 @@ local RING = { { 40, 0 }, { 28, 28 }, { 0, 40 }, { -28, 28 }, { -40, 0 }, { -28,
 --- Une suite de jugements : renvoie la liste des décisions (« o » partie, « x » refusée) et le nombre d'itinéraires.
 local function scenario(kind, ttl, n, gap)
   local f = setup()
-  C.REFUS_TTL = ttl
+  if ttl then C.REFUS_TTL = ttl end -- nil : délai du module
   local ag = first_agent(f)
   ag.entity.teleport({ x = 0, y = 10 })
   local steps, key
@@ -123,14 +123,14 @@ end
 section("1. Équivalence avec et sans mémoire")
 local memo_total, full_total = 0, 0
 for _, sc in ipairs({ { "anneau", 12, 0 }, { "anneau", 12, 60 }, { "portee", 10, 60 }, { "morts", 8, 60 } }) do
-  local d_on, p_on = scenario(sc[1], 600, sc[2], sc[3])
+  local d_on, p_on = scenario(sc[1], nil, sc[2], sc[3])
   local d_off, p_off = scenario(sc[1], 0, sc[2], sc[3])
   check(d_on == d_off, string.format("%s (pas %d) : mêmes décisions avec et sans mémoire (%s contre %s)", sc[1], sc[3], d_on, d_off))
   check(p_on < p_off, string.format("%s (pas %d) : moins d'itinéraires avec la mémoire (%d contre %d)", sc[1], sc[3], p_on, p_off))
   memo_total, full_total = memo_total + p_on, full_total + p_off
   print(string.format("   %s pas %d : %s ; itinéraires %d avec, %d sans", sc[1], sc[3], d_on, p_on, p_off))
 end
-local d_ring = scenario("anneau", 600, 12, 60)
+local d_ring = scenario("anneau", nil, 12, 60)
 check(d_ring:sub(1, 5) == "xxxxo", "anneau : 4 attentes puis départ (escalade inchangée) : " .. d_ring)
 print(string.format("   itinéraires : %d avec la mémoire, %d sans", memo_total, full_total))
 
@@ -138,7 +138,7 @@ print(string.format("   itinéraires : %d avec la mémoire, %d sans", memo_total
 section("2. Ce qui lève un refus gardé")
 -- Un refus gardé, puis chaque événement : le jugement suivant calcule un itinéraire.
 local function after_refusal(event)
-  local _, _, f, ag = scenario("portee", 600, 1, 0)
+  local _, _, f, ag = scenario("portee", nil, 1, 0)
   local steps = { { "home" }, { "goto", { x = 165, y = -150 }, 3 }, { "act", "service" }, { "home" } }
   plans = 0
   C.gate(f, ag, { key = "t:portee", kind = "service" }, steps, game.tick)
@@ -157,7 +157,13 @@ rep, p, ok = after_refusal(function()
   D.forget_unseen(t.map, 160, -140, 10, nil)
 end)
 check(p > 0 and ok == true, string.format("ver oublié par un regard (map.gone) : jugement complet (%d), la tâche part", p))
-rep, p = after_refusal(function() M.run_ticks(C.REFUS_TTL + 1) end)
+local function idle_ticks(ag, n)
+  remote.call("fo-ia3k", "hold", "player", true)
+  M.run_ticks(n)
+  remote.call("fo-ia3k", "hold", "player", false)
+  ag.entity.teleport({ x = 0, y = 10 }) -- même case de départ
+end
+rep, p = after_refusal(function(_, ag) idle_ticks(ag, C.REFUS_TTL + 1) end)
 check(p > 0, string.format("délai passé (%d ticks) : jugement complet (%d)", C.REFUS_TTL + 1, p))
 rep, p = after_refusal(function(_, ag) ag.entity.teleport({ x = 60, y = 40 }) end)
 check(p > 0, string.format("autre case de départ : jugement complet (%d)", p))
@@ -165,6 +171,12 @@ rep, p = after_refusal(function() C.escort_free = function() return 3 end end)
 check(p > 0, string.format("escorte devenue possible : jugement complet (%d)", p))
 rep, p = after_refusal(function() M.run_ticks(60) end)
 check(p == 0, "rien de changé, 60 ticks plus tard : rejoué")
+-- La SONDE : le ver disparaît de la carte SANS passer par un oubli compté (décroissance, par exemple) : la sonde rejuge le
+-- chemin gardé, le refus ne tient plus, jugement complet.
+rep, p, ok = after_refusal(function() global.fo.ia3k.teams["player"].map.threats = {} end)
+check(p > 0 and ok == true, string.format("menace éteinte sans oubli compté : la sonde rend la main (%d), la tâche part", p))
+rep, p = after_refusal(function(_, ag) idle_ticks(ag, 1800) end)
+check(p == 0, "30 s plus tard, ver toujours là : rejoué (sonde)")
 local stt = remote.call("fo-ia3k", "status", "player")
 check((stt.stats.refus_memo or 0) > 0, "statistique des refus rejoués publiée (" .. tostring(stt.stats.refus_memo) .. ")")
 check(pcall(M.serialize, global), "global sérialisable (aucune fonction)")
@@ -181,21 +193,31 @@ MUTANT = function(Cm)
     return a, b
   end
 end
-local m_on = scenario("anneau", 600, 12, 60)
+local m_on = scenario("anneau", nil, 12, 60)
 local m_off = scenario("anneau", 0, 12, 60)
 MUTANT = nil
 check(m_on ~= m_off, "mutant « attente rejouée non comptée » : décisions changées, vu (" .. m_on .. " contre " .. m_off .. ")")
 MUTANT = function(Cm)
   local hit0 = Cm.refus_hit
-  Cm.refus_hit = function(t, task, dk, sk, B, Wn, esc, tick)
+  Cm.refus_hit = function(t, task, dk, sk, B, Wn, prud, esc, tick)
     local r = t.refus and t.refus[dk]
     if r then r.uv, r.gone = t.uv or 0, t.map.gone or 0 end -- mutant : menaces oubliées ignorées
-    return hit0(t, task, dk, sk, B, Wn, esc, tick)
+    local save = t.map
+    t.map = { threats = save.threats_mutant or { { x = 160, y = -140, k = "worm", r = 25, t = tick } }, deaths = {}, cells = {} }
+    local h = hit0(t, task, dk, sk, B, Wn, prud, esc, tick)
+    t.map = save
+    return h
   end
 end
 local _, p_m, ok_m = after_refusal(function() remote.call("fo-ia3k", "forget", "player") end)
 MUTANT = nil
 check(not ok_m and p_m == 0, "mutant « carte effacée ignorée » : refus rejoué à tort, vu")
+MUTANT = function(Cm)
+  Cm.refus_probe = function() return "wait", "bloque", false, 0, 0 end -- mutant : sonde qui refuse toujours
+end
+local _, p_s, ok_s = after_refusal(function() global.fo.ia3k.teams["player"].map.threats = {} end)
+MUTANT = nil
+check(not ok_s and p_s == 0, "mutant « sonde muette » : menace éteinte, refus rejoué à tort, vu")
 
 ---------------------------------------------------------------------------------------------------
 section("4. Ordonnanceur : créneaux décalés")

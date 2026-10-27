@@ -506,16 +506,20 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Lot PERF2 : mémoire courte des refus de la porte (casse la boucle du PNJ refusé, F341)
 ---------------------------------------------------------------------------------------------------
--- t.refus[clé de la case du but] = { sk (case du départ), t (tick du jugement complet), uv (carte effacée, revérifiée),
--- gone (t.map.gone : menaces ou morts oubliées, compté par shared/ai3/danger.lua),
--- B (seuil), esc (escorte possible), why, deaths, max_d, goal_ok (but hors de portée : escalade permise), pts (échantillons
--- du chemin jugé) }. Un refus est rejoué sans itinéraire si TOUT est pareil : même case de départ, même seuil, même escorte
--- possible, rien n'a pu lever le refus (t.uv : menace oubliée, nid revérifié disparu, carte effacée, ménage), moins de
--- REFUS_TTL ticks. Le rejeu fait tout ce que fait le refus (compte des attentes et escalade, menace signalée aux soldats,
--- étiquette, statistiques, journal) ; il cède la main au jugement complet quand celui-ci pourrait décider autrement : une
--- escalade possible (attente de rang > W, but hors de portée), un changement de site dû (minage). Une menace NOUVELLE ou une
--- mort nouvelle n'invalide pas (elles ne font qu'aggraver) ; les cases mobiles qui s'éteignent attendent au plus REFUS_TTL.
-M.REFUS_TTL = 600
+-- Moteur réel (F341, lot PERF) : 1 793 refus en 60 min à ia1-scale, 94 % vers une destination déjà refusée, chacun avec
+-- 1 à 3 A* (6,9 ms) ; une destination revient toutes les quelques centaines à milliers de ticks (verif-guide 1618033988 :
+-- 332 refus vers la même case en 60 min).
+-- t.refus[clé de la case du but] = { sk (case du départ), t (tick du jugement complet), uv (carte effacée ou revérifiée,
+-- M.unblock), gone (t.map.gone : menaces et morts oubliées, comptées par shared/ai3/danger.lua), B (seuil), esc (escorte
+-- possible), far (but loin du QG), px, py (départ), gx, gy (but), pts (échantillons du chemin jugé), ppts (échantillons du
+-- chemin qui minimisait le danger, refus « bloqué ») }.
+-- Un refus gardé est REJOUÉ sans itinéraire si : même case de départ, même seuil, même escorte possible, rien d'oublié
+-- sur la carte depuis, moins de REFUS_TTL ticks, ET la SONDE (M.refus_probe : règle D.gate rejugée sur le chemin gardé, au
+-- tick présent) refuse encore. Le rejeu fait tout ce que fait le refus (attente comptée pour l'escalade, menace signalée
+-- aux soldats, étiquette, statistiques, journal) ; il cède la main au jugement complet quand une escalade (attente de rang
+-- > W, but hors de portée) ou un changement de site (minage) serait possible. Ce que la sonde ne voit pas (un AUTRE chemin
+-- ouvert par l'extinction des cases mobiles) attend au plus REFUS_TTL ticks.
+M.REFUS_TTL = 3600
 M.REFUS_MAX = 64
 
 --- La carte a perdu une menace ou une mort hors de shared/ai3/danger.lua (revérification, carte effacée) : ce qui peut LEVER
@@ -544,26 +548,56 @@ function M.refus_keep(t, dk, r)
   m[dk] = r
 end
 
---- Refus gardé utilisable pour ce jugement, ou nil.
-function M.refus_hit(t, task, dk, sk, B, W, esc, tick)
+--- Sonde d'un refus gardé : la règle de la porte (D.gate) rejugée sur le CHEMIN gardé (ses échantillons), sans itinéraire :
+--- morts de l'heure près de lui, danger géométrique le long de lui et au but, au tick présent (les poids décroissent, les
+--- morts sortent de l'heure). Le chemin gardé est celui qui minimisait le danger au jugement complet : tant qu'il reste
+--- au-dessus du seuil, le refus tient. Rend la décision et sa raison, et si le but est hors de portée.
+function M.refus_probe(t, r, prud, esc, tick)
+  local deaths = D.deaths_near(t.map, r.pts, D.HOUR_R, tick)
+  local pts = r.ppts or r.pts
+  local x0, y0, x1, y1 = r.gx, r.gy, r.gx, r.gy
+  for _, q in ipairs(pts) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(t.map, tick, x0, y0, x1, y1)
+  local mx = 0
+  for _, q in ipairs(pts) do
+    local dx, dy = q.x - r.px, q.y - r.py
+    if dx * dx + dy * dy > 36 then
+      local v = D.exact_at(prep, q.x, q.y)
+      if v > mx then mx = v end
+    end
+  end
+  local goal_d = D.exact_at(prep, r.gx, r.gy)
+  local decision, why = D.gate({ blocked = mx >= r.B, max_d = mx, goal_d = goal_d, deaths = deaths, far = r.far },
+    { B = r.B, prudence = prud, escort_ok = esc })
+  return decision, why, goal_d < r.B, deaths, mx
+end
+
+--- Refus gardé utilisable pour ce jugement (avec la raison et l'état de la sonde), ou nil.
+function M.refus_hit(t, task, dk, sk, B, W, prud, esc, tick)
   local r = t.refus and t.refus[dk]
   if not r then return nil end
   if r.sk ~= sk or r.B ~= B or r.esc ~= esc or r.uv ~= (t.uv or 0) or r.gone ~= (t.map.gone or 0)
     or tick - r.t >= M.REFUS_TTL then return nil end
   if task.kind == "mine" and (not task.ia3k_retarget or tick - task.ia3k_retarget >= M.RETARGET_PERIOD) then return nil end
-  if r.why ~= "morts" and r.why ~= "mort" then
+  local decision, why, goal_ok, deaths, mx = M.refus_probe(t, r, prud, esc, tick)
+  if decision ~= "wait" then return nil end
+  if why ~= "morts" and why ~= "mort" then
     local w = t.waits and t.waits[dk]
     if not w then return nil end
-    if w.n + 1 > W and r.goal_ok then return nil end
+    if w.n + 1 > W and goal_ok then return nil end
   end
-  return r
+  return { r = r, why = why, deaths = deaths, max_d = mx }
 end
 
 --- Rejoue un refus gardé (mêmes effets que le refus du jugement complet).
-function M.refus_replay(f, t, agent, task, dest, dk, r, tick)
+function M.refus_replay(f, t, agent, task, dest, dk, h, tick)
+  local r = h.r
   local a = astate(agent)
   a.escort, a.risk = nil, nil
-  if r.why ~= "morts" and r.why ~= "mort" then
+  if h.why ~= "morts" and h.why ~= "mort" then
     local w = t.waits[dk]
     w.n, w.t = w.n + 1, tick
     for _, th in ipairs(t.map.threats) do
@@ -573,12 +607,12 @@ function M.refus_replay(f, t, agent, task, dest, dk, r, tick)
     end
   end
   inc(t.stats.gate, "wait")
-  inc(t.stats.gate_why, "wait:" .. r.why)
+  inc(t.stats.gate_why, "wait:" .. h.why)
   t.stats.refus_memo = (t.stats.refus_memo or 0) + 1
   label(agent, "attente", tick, t.stats)
   if Profiler.enabled() then
     log(string.format("[FO-IA3K] %s : PNJ %d attend (%s) : tache %s vers (%d, %d), morts de l'heure %d, danger %d (seuil %d), memoire",
-      tostring(f.key), agent.id, r.why, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), r.deaths, r.max_d, r.B))
+      tostring(f.key), agent.id, h.why, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), h.deaths, h.max_d, r.B))
   end
   return false, "danger"
 end
@@ -605,13 +639,14 @@ function M.gate(f, agent, task, steps, tick)
   local dk = D.key(D.cell(dest.x), D.cell(dest.y))
   local sk = D.key(D.cell(p.x), D.cell(p.y))
   local prud0 = M.character(f)
-  local hit = M.refus_hit(t, task, dk, sk, D.block(prud0), M.waits_max(prud0), free >= 2, tick)
+  local hit = M.refus_hit(t, task, dk, sk, D.block(prud0), M.waits_max(prud0), prud0, free >= 2, tick)
   if hit then return M.refus_replay(f, t, agent, task, dest, dk, hit, tick) end
   local res = M.plan(f, agent, p, dest, tick)
   -- Bloqué au sens des cases : le chemin qui minimise le danger est-il hors de portée réelle des menaces ?
+  local res2 = nil
   if res.blocked then
-    local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9, same = res })
-    if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 end
+    res2 = M.plan(f, agent, p, dest, tick, { B = 1e9, same = res })
+    if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res, res2 = res2, nil end
   end
   Profiler.fstart("gate:post")
   local pts = R.samples(p, res.pts, dest, 8)
@@ -684,8 +719,9 @@ function M.gate(f, agent, task, steps, tick)
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
   if decision == "wait" then
-    M.refus_keep(t, dk, { sk = sk, t = tick, uv = t.uv or 0, gone = t.map.gone or 0, B = res.B, esc = free >= 2, why = why, deaths = deaths,
-      max_d = res.max_d, goal_ok = res.exact_goal < res.B, pts = pts })
+    M.refus_keep(t, dk, { sk = sk, t = tick, uv = t.uv or 0, gone = t.map.gone or 0, B = res.B, esc = free >= 2, far = far,
+      px = p.x, py = p.y, gx = dest.x, gy = dest.y, pts = pts,
+      ppts = res2 and R.samples(p, res2.pts, dest, 8) or nil }) -- chemin sondé : celui qui minimisait le danger
     label(agent, "attente", tick, t.stats)
     if Profiler.enabled() then
       log(string.format("[FO-IA3K] %s : PNJ %d attend (%s) : tache %s vers (%d, %d), morts de l'heure %d, danger %d (seuil %d)",
