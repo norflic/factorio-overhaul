@@ -169,6 +169,12 @@ function Cap.candidates(Ld, census, ctx)
   end
   local cands, blocked = {}, {}
   local function add(c)
+    -- Refus récent de l'exécutant (place, condition vue autrement par le jeu) : écarté jusqu'à son échéance (ctx.exclude).
+    if ctx.exclude and ctx.exclude[c.key] then
+      c.causes = { "refus" }
+      blocked[#blocked + 1] = c
+      return
+    end
     local cost, missing, all_in = Cap.work_cost(c.cost, ctx)
     c.work, c.all_in = cost, all_in
     if #missing > 0 then

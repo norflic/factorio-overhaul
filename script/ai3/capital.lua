@@ -40,6 +40,7 @@ Capital.RADIUS = 64       -- tuiles autour du QG : la base (les tourelles des av
 Capital.CENTER_OFFSETS = { { 0, 14 }, { 14, 0 }, { -14, 0 }, { 0, -14 }, { 14, 14 }, { -14, 14 } }
 Capital.CENTER_SEARCH = 12
 Capital.HISTORY = 32
+Capital.REFUSE_TICKS = 5 * 3600 -- une cible refusée par l'exécutant est écartée 5 min (pas de nouvel essai à chaque pensée)
 
 local Levels = package.loaded["script.levels.levels"] -- lien inverse : script/levels/levels.lua, Capital.bind
 function Capital.bind(levels) Levels = levels end
@@ -176,8 +177,14 @@ function Capital.goal(f, view, book, tick, w)
   c.scan_n = Capital.SCAN_EVERY
   Profiler.start("capital:decide")
   local census = scan(f, c)
+  local exclude = {}
+  c.refused_until = c.refused_until or {}
+  for _, k in ipairs(sorted_keys(c.refused_until)) do
+    if tick < c.refused_until[k] then exclude[k] = true else c.refused_until[k] = nil end
+  end
   local ctx = { proto = proto, unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
-    threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil }
+    threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
+    exclude = exclude }
   local d = Cap.choose(L, census, ctx)
   c.wanted = {}
   for _, k in ipairs(sorted_keys(d.wanted)) do c.wanted[k] = true end
@@ -311,6 +318,9 @@ function Capital.pay(f, surface, tick, plan, stock)
         c.current, c.goal, c.scan_n = nil, nil, 0 -- décision suivante dès la prochaine pensée
       else
         c.refused = (c.refused or 0) + 1
+        c.refused_until = c.refused_until or {}
+        c.refused_until[d.key] = tick + Capital.REFUSE_TICKS
+        c.current = nil
         if c.refused_sig ~= (d.key .. "|" .. tostring(why)) then
           c.refused_sig = d.key .. "|" .. tostring(why)
           log(string.format("[FO-CAPITAL] %s : amelioration '%s' refusee (%s) a %.1f min", f.key or "?", d.key, tostring(why),

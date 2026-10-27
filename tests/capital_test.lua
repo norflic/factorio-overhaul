@@ -283,6 +283,10 @@ local function run_all()
   local da = Cap.choose(L, census(l1, center1), ctx())
   local db = Cap.choose(L, census(l2, center1), ctx())
   check(da.key == db.key and da.score == db.score, "§9 déterminisme : relevé dans l'ordre inverse, même décision")
+  local dx = Cap.choose(L, census(l1, center1), ctx({ exclude = { [da.key] = true } }))
+  local refused = false
+  for _, b in ipairs(dx.blocked) do if b.key == da.key and b.causes[1] == "refus" then refused = true end end
+  check(dx.key ~= da.key and refused, "§9 une cible refusée par l'exécutant est écartée (" .. tostring(dx.key) .. ")")
   local di = Cap.choose(L, census(guns({ 1, 1, 1, 1 }), center1), ctx({ current = "gun:2:104" }))
   check(di.key == "gun:2:104" or di.chain, "§9 inertie : la cible en cours garde sa place à valeur proche")
 end
