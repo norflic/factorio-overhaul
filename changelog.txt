@@ -1,4 +1,25 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.1
+Date: 2026-10-27
+  Changes:
+    - Les factions automatisent ce qui leur coûte le plus de bras (lot IA3-e) : chaque minute, le cerveau mesure le temps
+      que ses PNJ passent à la main sur chaque objet (tournées des avant-postes, fonte, minage, fabrication) ; quand une
+      fonderie électrique (foreuses et tapis) ou une rangée d'assembleurs rendrait ce temps en moins de 20 minutes (5 sous
+      menace), il la demande au plan directeur, avec sa centrale à vapeur d'abord ; ce qui manque au chantier est fabriqué
+      ; un objet impossible (poteau moyen) fait rechercher sa technologie. Le module fini remplace les tournées qu'il rend
+      inutiles. Lisible : la fenêtre « Équipe et factions » montre les projets « Automatiser : … » et leur raison.
+    - N'importe quel objet fabriqué à la main peut être automatisé : sans module écrit pour lui, une rangée d'assembleurs
+      est générée depuis sa recette (machine de sa catégorie, entrées par quais, débit visé). L'ordre se déduit du
+      graphe des recettes : un objet attend que ses entrées soient automatisées. Limites écrites dans la ligne du
+      cerveau : objets bruts (extraction), recettes de four ou à fluide, plus de deux ingrédients.
+    - Un module fini se nourrit : ce qui manque au coffre pour ses quais d'entrée est fabriqué ou fondu pour lui.
+    - Plan directeur : un module se relie au réseau électrique RÉEL (carrefour bâti relié aux machines à vapeur) ; la
+      fonderie de l'automatisation tire son tapis de minerai jusqu'à 5 pas du gisement ; poteau ajouté près d'un bras de
+      quai hors de portée.
+    - Votre équipe n'automatise pas encore (même cerveau, automatisation éteinte pour elle).
+    - Réglage de carte « PNJ : automatiser ce qui revient » (fo-war-ia3e), ÉTEINT par défaut : allumé, une recherche
+      ouverte passe avant les modules qui ne la servent pas, et une fonderie n'est jamais posée loin de son gisement.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.0
 Date: 2026-10-27
   Changes:

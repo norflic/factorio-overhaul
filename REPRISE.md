@@ -10,6 +10,10 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 11 h 30 : IA3-e FUSIONNÉ, `main` = 0.6.1**, réglage `fo-war-ia3e` ÉTEINT (décisions identiques à 0.6.0) ; worktree `ia3e`
+> gardé pour la suite (rallumer : lot des foreuses, K1, règles dans le cerveau général). Restent : IA3-d (+ P1), design F4-B et F5-A2,
+> recherche 3D par IA (agent lancé, rapport `fo-logs\2026-10-27_3D-IA\RAPPORT.md`), lot de performance (K10 0,441 ms), bilan au DC.
+>
 > **27/10, 11 h 15 : 0.6.0 VALIDÉE sur `main`** (garde-fous verts, `ia1b2-guide` 1618033988 réparé ; `iag_test` 93 OK après
 > admission des types du moteur d'IA3-k). **K10 NON tenu : 0,441 ms par tick, p99 6,6 ms, mesuré seul** (0,291 en 0.5.0) : lot de
 > performance à ouvrir (profileur par composant : itinéraires d'IA3-k, catalogue d'IA-G étalé). Les points 1 de la reprise de 10 h 45
