@@ -7,7 +7,7 @@
     kind      genre de l'ennemi le plus proche (shared/ai3/danger.lua, D.KINDS)
     dist      distance à lui (tuiles)           range   sa portée (tuiles)
     on_route  il est à portée + marge du trajet restant
-    enemies   unités ennemies près de lui       allies  alliés armés à moins de 16 tuiles (escorte comprise)
+    enemies   force ennemie près de lui (pesée : moyen déchiqueteur = 1)   allies  alliés armés à moins de 16 tuiles
     walking   le PNJ marche                     prudence, agressivite (pour mille ; 1 000 neutre)
   }
   Sortie : action, raison. Actions : "none" (rien : la case est seulement marquée), "flee" (fuite vers la tourelle amie
@@ -80,7 +80,7 @@ function Re.decide(s)
   -- Unités et personnages : se battre en surnombre ; sinon, selon leur portée utile (leur VUE pour une unité) : au-delà
   -- de portée + marge, s'arrêter (elles passent peut-être) ; entre portée et portée + marge, se détourner tout de suite ;
   -- à portée, partir.
-  local n = math.max(1, s.enemies or 1)
+  local n = math.max(0.2, s.enemies or 1) -- force PESÉE (moyen déchiqueteur = 1)
   if s.armed and ((s.allies or 0) + 1) * 1000 >= Re.engage_ratio(p, s.agressivite) * n then
     if dist <= range + Re.MARGIN or s.on_route then return "engage", "surnombre" end
     return "none", "vu"

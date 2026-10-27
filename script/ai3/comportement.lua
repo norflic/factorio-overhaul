@@ -210,6 +210,20 @@ function M.classify(e)
   return kind, (r ~= false) and r or nil
 end
 
+local weight_cache = {} -- [nom de prototype] = poids (prototypes : identiques chez tous les pairs)
+--- Poids d'un ennemi mobile dans le rapport de force (shared/ai3/reaction.lua : `enemies`).
+function M.weight(u)
+  if u.type == "character" then return 1 end
+  local w = weight_cache[u.name]
+  if not w then
+    local mh = u.prototype.max_health or 75
+    w = mh / 75
+    if w < 0.2 then w = 0.2 end
+    weight_cache[u.name] = w
+  end
+  return w
+end
+
 --- Distance d'un point à la polyligne départ -> pts[i..] -> final.
 local function d_route(p, a, ep)
   local pts = {}
@@ -609,7 +623,12 @@ function M.sense(agent, tick)
   local s = e.surface
   local enemies, allies = 1, 0
   if not K.fixed then
-    enemies = s.count_entities_filtered({ position = ep, radius = 16, force = enemy.force, type = { "unit", "character" } })
+    -- Force ennemie PESÉE : une unité vaut sa vie maximale / 75 (petit déchiqueteur 0,2, moyen 1, gros 5), au moins 0,2 ;
+    -- un personnage vaut 1 (un ouvrier armé comme nous).
+    enemies = 0
+    for _, u in ipairs(s.find_entities_filtered({ position = ep, radius = 16, force = enemy.force, type = { "unit", "character" }, limit = 24 })) do
+      enemies = enemies + M.weight(u)
+    end
     allies = math.max(0, s.count_entities_filtered({ position = p, radius = M.ALLY_R, force = e.force,
       type = { "unit", "character" } }) - 1)
   end

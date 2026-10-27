@@ -237,6 +237,15 @@ local function suite()
     "unités juste hors de leur vue (30 < 34 ≤ 38) : détour immédiat")
   check(Re.decide({ kind = "unit", range = 30, dist = 45, on_route = true, hp = 1000, armed = true, enemies = 3, walking = true }) == "stop",
     "unités au-delà de leur vue + marge : arrêt")
+  -- Force pesée : 2 petits déchiqueteurs (0,2 chacun) face à un ouvrier armé en bonne santé.
+  check(Re.decide({ kind = "unit", range = 30, dist = 14, hp = 1000, armed = true, enemies = 0.4, prudence = 600, agressivite = 1500 }) == "engage",
+    "audacieux armé contre 2 petits déchiqueteurs : combat")
+  check(Re.decide({ kind = "unit", range = 30, dist = 14, hp = 480, armed = true, enemies = 0.4, prudence = 600, agressivite = 1500 }) == "engage",
+    "audacieux à 48 % contre 2 petits : il se bat encore")
+  check(Re.decide({ kind = "unit", range = 30, dist = 14, hp = 480, armed = true, enemies = 0.4, prudence = 1250 }) == "flee",
+    "prudent à 48 % contre 2 petits : fuite (seuil 55 %)")
+  check(Re.decide({ kind = "unit", range = 30, dist = 14, hp = 390, armed = true, enemies = 0.4, prudence = 600, agressivite = 1500 }) == "flee",
+    "audacieux sous 40 % : fuite")
   check(Re.engage_ratio(600, 1800) == 1500 and Re.engage_ratio(1250, 700) == 3000, "rapport d'engagement 1,5 à 3 selon le caractère")
   check(Re.look_radius(562) == 28 and Re.look_radius(1250) == 40, "regard de 28 à 40 tuiles selon la prudence")
   check(Re.decide({}) == "none", "aucun ennemi : rien")
