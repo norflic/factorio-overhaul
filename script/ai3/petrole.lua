@@ -423,6 +423,16 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   end
   local mods, feeds = {}, {}
   local stock = view.stock or {}
+  -- La centrale du plan directeur (demandée par un site électrique) est un projet du cerveau comme un site : ses manques
+  -- (chaudière, machines à vapeur, pompe) deviennent des fabrications (même produit « centrale » que l'automatisation :
+  -- A.goals n'en garde qu'un).
+  local b = f.build
+  if b and b.plant and #st.sites > 0 then
+    local ps = Build.brief(f, b.plant)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
+      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = Pet.GAIN }
+    end
+  end
   for _, s in ipairs(st.sites) do
     local br = Build.brief(f, s.id)
     if br then
