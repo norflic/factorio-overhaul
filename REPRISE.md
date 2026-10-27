@@ -13,7 +13,8 @@
 > **27/10, 7 h 50 : le DC demande de refaire QUELQUES âges de l'assembleur** (OBJECTIFS §4, mot pour mot) : 15 très réussi,
 > 14 « partiellement » (un élément décentré), d'autres très basiques malgré l'âge ; « le gameplay fonctionnel avec les IA reste
 > la priorité ». Lot **F3-C** mis à la FIN de la file du design (après F4-B et F5-A2) ; âges à refaire, lecture provisoire de
-> l'intégrateur : 4, 9, 10, 11, et la correction du 14. Une boucle de vérification toutes les 10 min est armée (CronCreate
+> l'intégrateur : 4, 9, 10, 11, et la correction du 14. **ANNULÉ vers 8 h par le DC** (« les assemblages sont bons finalement […]
+> j'avais regardé les ancienne ») : rien à refaire, design prévenu. Une boucle de vérification toutes les 10 min est armée (CronCreate
 > `5d7f4995`, session seulement) : avancement des branches, file du banc, noms du jeu dans le code de décision.
 >
 > **27/10, 7 h 15 : CONSIGNE DU DC (réveillé, contrôle à distance) : le cerveau des IA FINI en 5 h, et un cerveau qui
