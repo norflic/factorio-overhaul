@@ -13,7 +13,8 @@
   État (global, espace « ia3k », nombres et tables) :
     teams[clé] = { map, epoch, stream, char = { prudence, agressivite } | nil (forcé par un banc), hold, stats,
                    escorts = { [id d'agent] = { units, n, since } } }
-    agents[id] = { final, pts, i, epoch, refuge, hold, hp, armed, armed_t, label, label_key, label_t, escort, tour }
+    agents[id] = { final, pts, i, epoch, refuge, hold, hold_stop, hp, armed, armed_t, label, label_key, label_t, escort, tour,
+                   backs, back_t, ret_t, flee_t, flee_ep }
   Flux : Tr.new_stream(graine, 470 + numéro de l'équipe) (sels 470 à 479 : IA3-k ; 479 = votre équipe).
 ]]
 
@@ -272,7 +273,7 @@ local function armed(agent, a, tick)
 end
 
 --- Refuge le plus proche : une tourelle amie (pas du côté de la menace), sinon la case du QG.
-local function refuge(f, p, ep)
+local function refuge(f, p, ep, range)
   local best, bd = nil, nil
   for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
     local t = f.turrets[id]
@@ -292,7 +293,13 @@ local function refuge(f, p, ep)
     if L < 1 then vx, vy, L = 1, 0, 1 end
     return { x = p.x + 24 * vx / L, y = p.y + 24 * vy / L }
   end
-  if not best or d2(home, p) <= bd then return { x = home.x, y = home.y } end
+  if not best or d2(home, p) <= bd then
+    -- Le QG est du côté de l'ennemi : y courir, c'est courir sur lui (fusion-60, PNJ 7 : tué en rentrant à 232 tuiles) ;
+    -- on s'éloigne d'abord, l'itinéraire de retour contourne ensuite la meute marquée.
+    local aw = Re.away_point(p, home, ep, range)
+    if aw then return aw end
+    return { x = home.x, y = home.y }
+  end
   -- 3 tuiles derrière la tourelle, du côté du QG
   local hx, hy = home.x - best.x, home.y - best.y
   local L = math.sqrt(hx * hx + hy * hy)
@@ -634,10 +641,24 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Crochet : sens (regard, attaque subie, peur, réaction)
 ---------------------------------------------------------------------------------------------------
-local function act(agent, f, t, a, action, why, ep, kind, tick)
+--- Le PNJ vient d'être arrêté (Nav.stop) et son état est « step » : sans cet appel, il restait immobile jusqu'à sa
+-- prochaine pensée (période 60 ticks : 0 à 60 ticks, soit jusqu'à 7 tuiles gagnées par un soldat et 12 par un
+-- déchiqueteur) avant de repartir. La pensée de l'état « step » est donc rejouée tout de suite ; `a.now` coupe le regard
+-- de cette pensée imbriquée (pas de réaction dans une réaction).
+local function resume_now(agent, a, tick)
+  a.now = true
+  FSM.think(M.MACHINE, agent, tick)
+  a.now = nil
+end
+
+local function act(agent, f, t, a, action, why, ep, kind, tick, range)
   -- Déjà en retraite (demi-tour ou fuite de moins de 10 s) : on ne s'arrête pas de nouveau à chaque regard (le PNJ
-  -- rentrerait par saccades, poursuivi) ; l'itinéraire du retour évite déjà ce qui est marqué.
-  if (action == "back" or action == "flee") and a.ret_t and tick - a.ret_t < 600 then return false end
+  -- rentrerait par saccades, poursuivi) ; l'itinéraire du retour évite déjà ce qui est marqué. Une FUITE n'est jamais
+  -- retardée par un demi-tour récent (survie avant tâche) : elle n'est évitée que si elle est déjà engagée vers le même
+  -- danger (refuge en route, ennemi à moins de 8 tuiles de l'endroit qui l'a lancée).
+  if action == "back" and a.ret_t and tick - a.ret_t < 600 then return false end
+  if action == "flee" and agent.nav == "moving" and a.refuge and a.flee_ep and a.flee_t and tick - a.flee_t < 600
+    and d2(a.flee_ep, ep) <= 64 then return false end
   inc(t.stats.actions, action)
   local key = Re.LABEL[action]
   if key then label(agent, key, tick, t.stats) end
@@ -651,25 +672,34 @@ local function act(agent, f, t, a, action, why, ep, kind, tick)
     if agent.nav then Nav.stop(agent, tick) end
     a.pts = nil
     FSM.set(M.MACHINE, agent, "step", tick)
+    resume_now(agent, a, tick)
     return true
   elseif action == "stop" then
     if agent.nav then Nav.stop(agent, tick) end
     a.pts = nil
     a.hold = tick + Re.STOP_TICKS
+    a.hold_stop = true
     return true
   elseif action == "engage" then
     if agent.nav then Nav.stop(agent, tick) end
     a.pts = nil
     a.hold = tick + M.ENGAGE_HOLD
+    a.hold_stop = nil
     local e = agent.entity
     e.shooting_state = { state = defines.shooting.shooting_enemies, position = ep }
     return true
   elseif action == "back" or action == "flee" then
     if agent.nav then Nav.stop(agent, tick) end
-    a.pts, a.final, a.hold = nil, nil, nil
+    a.pts, a.final, a.hold, a.hold_stop = nil, nil, nil, nil
     a.ret_t = tick
+    if action == "back" and (kind == "unit" or kind == "character") then
+      -- Mémoire des demi-tours devant des unités : le suivant, dans Re.BACK_MEMORY ticks, devient une fuite.
+      if a.back_t and tick - a.back_t > Re.BACK_MEMORY then a.backs = 0 end
+      a.backs, a.back_t = (a.backs or 0) + 1, tick
+    end
     if action == "flee" then
-      a.refuge = refuge(f, agent.entity.position, ep)
+      a.refuge = refuge(f, agent.entity.position, ep, range)
+      a.flee_t, a.flee_ep = tick, { x = ep.x, y = ep.y }
       t.stats.refuges = t.stats.refuges + 1
       if M.on_alert and M.on_alert(f, ep, kind, tick) then t.stats.alerts = t.stats.alerts + 1 end
     end
@@ -679,9 +709,21 @@ local function act(agent, f, t, a, action, why, ep, kind, tick)
       agent.steps, agent.pc = { { "home" } }, 1
       FSM.set(M.MACHINE, agent, "step", tick)
     end
+    resume_now(agent, a, tick)
     return true
   end
   return false
+end
+
+--- Pendant un arrêt : une unité mobile est-elle à portée + marge (Re.breach) ? Un regard à portée de vue (rayon du regard),
+-- une classification : coût d'un seul find_nearest_enemy par pensée d'un PNJ en arrêt.
+function M.hold_breached(f, e)
+  local prud = M.character(f)
+  local p = e.position
+  local enemy = e.surface.find_nearest_enemy({ position = p, max_distance = Re.look_radius(prud), force = e.force })
+  if not enemy then return false end
+  local kind, range = M.classify(enemy)
+  return Re.breach(kind, math.sqrt(d2(p, enemy.position)), range)
 end
 
 function M.sense(agent, tick)
@@ -691,6 +733,7 @@ function M.sense(agent, tick)
   local f = faction_of(agent)
   if not (f and f.hq_pos) then return false end
   local a = astate(agent)
+  if a.now then return false end -- pensée rejouée par resume_now : pas de réaction dans une réaction
   local t = M.team(f)
   if a.pending then M.flush_label(a, e, tick, t.stats) end
   local hp = math.floor(e.get_health_ratio() * 1000 + 0.5)
@@ -698,11 +741,20 @@ function M.sense(agent, tick)
   a.hp = hp
   -- Arrêt en cours (alerte, combat) : on attend sur place, l'autodéfense tire ; puis nouvel itinéraire. Une blessure
   -- pendant l'arrêt le rompt (la peur est rejugée tout de suite).
+  local breach = false
   if a.hold then
-    if tick < a.hold and not hurt then return true end
-    a.hold = nil
+    if tick < a.hold and not hurt then
+      -- Un ARRÊT (alerte) garde les yeux ouverts : des unités qui franchissent portée + marge le rompent (le regard
+      -- ci-dessous juge alors, PNJ immobile : fuite). Le combat sur place (engage) n'est pas rompu.
+      if not (a.hold_stop and M.hold_breached(f, e)) then return true end
+      breach = true
+    end
+    a.hold, a.hold_stop = nil, nil
     a.pts = nil
-    if agent.state == "walk" and not hurt then FSM.set(M.MACHINE, agent, "step", tick) return true end
+    if agent.state == "walk" and not hurt and not breach then
+      FSM.set(M.MACHINE, agent, "step", tick)
+      return true
+    end
   end
   local p = e.position
   -- Aller sans issue sûre (leg) : demi-tour.
@@ -766,7 +818,7 @@ function M.sense(agent, tick)
   if near_home and not hurt then return false end
   local is_armed = armed(agent, a, tick)
   local fear = hp < Re.fear(prud)
-  if not (walking or hurt or fear or not is_armed) then return false end
+  if not (walking or hurt or fear or breach or not is_armed) then return false end
   -- Regard : autour d'un point LOOK_AHEAD tuiles devant (vers le point de passage courant), sinon autour du PNJ.
   local c = p
   if walking and agent.goal then
@@ -822,7 +874,8 @@ function M.sense(agent, tick)
       type = { "unit", "character" } }) - 1)
   end
   local action, why = Re.decide({ kind = kind, range = range, dist = dist, on_route = on_route, hp = hp, armed = is_armed,
-    enemies = enemies, allies = allies, walking = walking, prudence = prud, agressivite = agr, repeats = a.urep })
+    enemies = enemies, allies = allies, walking = walking, prudence = prud, agressivite = agr, repeats = a.urep,
+    backs = (a.back_t and tick - a.back_t <= Re.BACK_MEMORY) and a.backs or 0 })
   -- C4 : un soldat ou un ouvrier ADVERSE isolé (force pesée ≤ 1,5, pas la force des déchiqueteurs) vu près du QG : la
   -- garnison est appelée, elle le chasse (au plus une alerte par menace et par minute : script/ai3/soldats.lua).
   if not K.fixed and enemy.force.name ~= "enemy" and enemies <= 1.5 and M.on_alert then
@@ -875,7 +928,7 @@ function M.sense(agent, tick)
   end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
-  return act(agent, f, t, a, action, why, ep, kind, tick)
+  return act(agent, f, t, a, action, why, ep, kind, tick, range)
 end
 
 ---------------------------------------------------------------------------------------------------

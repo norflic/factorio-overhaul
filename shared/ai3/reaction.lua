@@ -10,6 +10,7 @@
     enemies   force ennemie près de lui (pesée : moyen déchiqueteur = 1)   allies  alliés armés à moins de 16 tuiles
     walking   le PNJ marche                     prudence, agressivite (pour mille ; 1 000 neutre)
     repeats   arrêts et détours déjà faits devant des unités dans cette tournée
+    backs     demi-tours déjà faits devant des unités (mémoire de Re.BACK_MEMORY ticks, tenue par le script)
   }
   Sortie : action, raison. Actions : "none" (rien : la case est seulement marquée), "flee" (fuite vers la tourelle amie
   ou le QG le plus proche), "back" (demi-tour : la tâche est rendue), "detour" (arrêt puis nouvel itinéraire), "stop"
@@ -23,6 +24,10 @@ local Re = {}
 Re.MARGIN = 8
 Re.STOP_TICKS = 180
 Re.REPEATS = 2     -- arrêts ou détours devant des unités dans la même tournée avant de renoncer
+Re.BACKS = 1       -- demi-tours déjà faits devant des unités avant que le suivant devienne une FUITE avec refuge
+Re.BACK_MEMORY = 3600 -- ticks : au-delà, les demi-tours passés sont oubliés (un autre groupe, une autre tournée)
+Re.AWAY_EXTRA = 24 -- tuiles : marge ajoutée à (portée + MARGIN) pour s'éloigner d'unités quand le QG est de leur côté
+Re.HOME_CONE = 0.5 -- cosinus : l'ennemi est « du côté du QG » s'il est dans ce cône (60°) vers le QG et plus près que lui
 Re.FEAR_BASE = 400  -- 40 % de vie (IA_ATTENDUS C3)
 Re.FEAR_MAX = 550
 
@@ -64,6 +69,32 @@ function Re.flee_unarmed(prudence)
   return r
 end
 
+--- Une unité mobile vue pendant un ARRÊT (alerte) a-t-elle franchi portée + marge ? L'arrêt est alors rompu : le PNJ
+-- ne reste pas aveugle 180 ticks devant des soldats qui marchent sur lui (banc fusion-60, PNJ 7 : 38 tuiles à l'arrêt,
+-- 22 à la sortie de l'arrêt, tué 2 regards plus tard).
+function Re.breach(kind, dist, range)
+  local K = D.KINDS[kind] or D.KINDS.unit
+  if K.fixed then return false end
+  return (dist or 1e9) <= (range or K.r) + Re.MARGIN
+end
+
+--- Distance de fuite quand aucun refuge n'est du bon côté : portée de l'ennemi (lue au prototype) + marge + Re.AWAY_EXTRA.
+function Re.away_distance(range)
+  return (range or D.KINDS.unit.r) + Re.MARGIN + Re.AWAY_EXTRA
+end
+
+--- Refuge « loin de la menace » : si l'ennemi (ep) est du côté du QG (home) depuis le PNJ (p) et plus près que lui, courir
+-- au QG, c'est courir sur l'ennemi. Rend alors le point à Re.away_distance(range) à l'opposé de l'ennemi, sinon nil.
+function Re.away_point(p, home, ep, range)
+  local hx, hy = home.x - p.x, home.y - p.y
+  local ex, ey = ep.x - p.x, ep.y - p.y
+  local hl, el = math.sqrt(hx * hx + hy * hy), math.sqrt(ex * ex + ey * ey)
+  if hl < 1 or el < 1 or el >= hl then return nil end
+  if hx * ex + hy * ey < Re.HOME_CONE * hl * el then return nil end
+  local d = Re.away_distance(range)
+  return { x = p.x - d * ex / el, y = p.y - d * ey / el }
+end
+
 function Re.decide(s)
   if not s.kind then return "none", "rien" end
   local K = D.KINDS[s.kind] or D.KINDS.unit
@@ -86,6 +117,11 @@ function Re.decide(s)
   -- Unités et personnages : se battre en surnombre ; sinon, selon leur portée utile (leur VUE pour une unité) : au-delà
   -- de portée + marge, s'arrêter (elles passent peut-être) ; entre portée et portée + marge, se détourner tout de suite ;
   -- à portée, partir.
+  -- Demi-tour devant des unités ; le deuxième (Re.BACKS déjà faits) est une FUITE avec refuge : survie avant tâche.
+  local function pull(why)
+    if (s.backs or 0) >= Re.BACKS then return "flee", "poursuivi" end
+    return "back", why
+  end
   local n = math.max(0.2, s.enemies or 1) -- force PESÉE (moyen déchiqueteur = 1)
   if s.armed and ((s.allies or 0) + 1) * 1000 >= Re.engage_ratio(p, s.agressivite) * n then
     if dist <= range + Re.MARGIN or s.on_route then return "engage", "surnombre" end
@@ -96,19 +132,19 @@ function Re.decide(s)
   local insist = (s.repeats or 0) >= Re.REPEATS
   if dist > range + Re.MARGIN then
     if s.walking and s.on_route then
-      if insist then return "back", "insiste" end
+      if insist then return pull("insiste") end
       return "stop", "sur-la-route"
     end
     return "none", "vu"
   end
   if dist > range then
     if s.walking then
-      if insist then return "back", "insiste" end
+      if insist then return pull("insiste") end
       return "detour", "proche"
     end
     return "flee", "proche"
   end
-  if s.walking then return "back", "trop-pres" end
+  if s.walking then return pull("trop-pres") end
   return "flee", "trop-pres"
 end
 
