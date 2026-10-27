@@ -158,7 +158,8 @@ Stock.place_smelters = nil
 Stock.smelters = nil
 
 --- Lot ADOPTE (constat du DC : « les IA se mettent à poser des fours ») : les fours LIBRES au-delà de Ad.IDLE_KEEP sont posés
---- au QG (registre f.smelters, rangées T.hq_rows.smelter), jusqu'à la moitié de l'effectif (Br.smelt_max) ; le combustible
+--- au QG (registre f.smelters, rangées T.hq_rows.smelter), jusqu'à Br.SMELT_HARD fours en tout (ils sont déjà fabriqués : un four
+--- de plus, même sans minerai, ne coûte rien, contrairement à une commande d'avance) ; le combustible
 --- vient du stock libre. VOTRE équipe seulement : les factions posent leurs fours par leurs vagues (Br.smelters). Une ligne
 --- [FO-ADOPTE] par pose. Rend le nombre posé.
 function Stock.deploy_idle(f, surface, tick)
@@ -168,7 +169,7 @@ function Stock.deploy_idle(f, surface, tick)
   local free = Stock.free_view(f, tick)
   local have = free[T.SMELTER] or 0
   local registry = Stock.smelters(f)
-  local cap = math.min(Br.SMELT_HARD, Br.smelt_max(f.engineers_count or 0, T.start_smelters))
+  local cap = Br.SMELT_HARD
   local n = Ad.deploy(have, #registry, 0, cap, free[T.fuel] or 0, T.fuel_per_burner)
   if n <= 0 then return 0 end
   local tmp = game.create_inventory(8)

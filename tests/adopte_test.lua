@@ -295,8 +295,10 @@ do
   check(Stock.deploy_idle(f, {}, 600) == 2 and #reg == 2, "13 fours au coffre dont 3 réservés : deux posés")
   check(f.hq.get_item_count(TT.SMELTER) == 11 and f.hq.get_item_count(TT.fuel) == 500 - 2 * TT.fuel_per_burner, "les deux fours et leur combustible sont sortis du coffre")
   Stock.deploy_idle(f, {}, 1200); Stock.deploy_idle(f, {}, 1800); Stock.deploy_idle(f, {}, 2400)
-  check(#reg == 5 and f.stats.idle_deployed == 5, "plafond de la moitié de l'effectif (10 PNJ : 5 fours) : " .. #reg)
-  check(f.hq.get_item_count(TT.SMELTER) == 8, "les fours restants restent au coffre")
+  check(#reg == 8 and f.stats.idle_deployed == 8, "quatre pensées : huit fours posés (" .. #reg .. ")")
+  check(f.hq.get_item_count(TT.SMELTER) == 5, "les fours restants restent au coffre")
+  for i = 1, 8 do Stock.deploy_idle(f, {}, 3000 + i) end
+  check(#reg <= require("shared.ai3.bras").SMELT_HARD, "jamais au-delà de Br.SMELT_HARD (" .. #reg .. ")")
   local g = { key = "scarlet", hq = chest({ [TT.SMELTER] = 13, [TT.fuel] = 500 }), hq_pos = { x = 0, y = 0 }, started = 0, engineers_count = 10 }
   check(Stock.deploy_idle(g, {}, 600) == 0, "une faction : jamais (ses vagues sont à elles)")
   setting_value = false
