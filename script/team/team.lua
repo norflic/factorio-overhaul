@@ -262,6 +262,7 @@ function Team.view(f, tick)
   local recruit_blocked = Registry.count() >= Config.get("agents_max")
   -- Correction IA1-a (défauts M1, M2) : frein par le travail. Plus de fo-recruit-idle-max PNJ sans tâche :
   -- aucune recrue (ni équipement de recrue fabriqué) ; le stock reste aux objectifs et à l'armée.
+  Profiler.fstart("view:1-debut")
   local workers_idle = Worker.idle_count(f)
   -- Lot IA1-b : un PNJ au travail de FOND compte comme disponible pour le frein (le fond s'étire à volonté : sans cela,
   -- l'équipe n'est jamais « inactive » et achète des recrues jusqu'à vider son coffre ; moteur réel, verif-guide sur
@@ -296,6 +297,8 @@ function Team.view(f, tick)
   -- toute recrue : votre équipe restait à 8 PNJ toute la partie du guide).
   -- (Remplacé par la règle de croissance à rythme fixe ci-dessous, D-18 : grow_due.)
   f.team.floor = floor -- lot IA2-a2 : lu par le chef (survie)
+  Profiler.fstop("view:1-debut")
+  Profiler.fstart("view:2-avant-postes")
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
@@ -329,8 +332,12 @@ function Team.view(f, tick)
       hq_guards = math.max(hq_guards, f.engineers_count or 0)
     end
   end
+  Profiler.fstop("view:2-avant-postes")
+  Profiler.fstart("view:3-sites")
   local sites = {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind] = Sites.available(f, T.outposts[kind].resource) end
+  Profiler.fstop("view:3-sites")
+  Profiler.fstart("view:4-fin")
   local groups = {}
   local hq_turrets = 0
   for _, g in ipairs(Outposts.turret_groups(f)) do
@@ -351,6 +358,7 @@ function Team.view(f, tick)
   end
   if grow_due then recruit_held = false end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
+  Profiler.fstop("view:4-fin")
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
