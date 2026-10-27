@@ -12,7 +12,7 @@
 >
 > **27/10, 12 h 10 : CAPITALISATION** (le DC, 12 h 05 : « Le scaling des IA est aussi et surtout dans la maximisation des gisements,
 > de la fonte et des crafts […] c'est le concept de capitalisation qu'il faut implémenter » ; « Et concernant la recherche IA ? »).
-> Workflow `capitalisation-pnj` (`wf_6987f189-654`, hors jeu, worktree `capi`, livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md`
+> Workflow `capitalisation-pnj` (relancé à 12 h 15 avec la précision du DC « plus de gisements, plus de fours dans la limite de ce qu'on peut faire fondre, si assembleurs disponibles des chaînes de production » : run `wf_181b9d75-fba` ; le premier run `wf_6987f189-654` est arrêté, hors jeu, worktree `capi`, livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md`
 > et `RESUME_DC.md`) : règle pure + test + doc, PLAN DE BRANCHEMENT à appliquer après la fusion de SCALE et AUTO, puis preuve en
 > moteur réel (capacité qui croît, inactifs ≤ 20 % à 30 PNJ, 30 contre 10 ≥ 1,2, paliers de recherche, laboratoires qui grandissent).
 >
