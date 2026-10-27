@@ -167,7 +167,11 @@ function Stock.deploy_idle(f, surface, tick)
   local ok, on = pcall(function() return settings.global["fo-war-adopte"].value end)
   if ok and on == false then return 0 end
   local free = Stock.free_view(f, tick)
-  local have = free[T.SMELTER] or 0
+  -- Dormant = resté LIBRE toute une fenêtre (A.window) : le kit de départ et les fours qu'une tâche va réclamer ne sont pas posés.
+  local w, lo = Ad.window(f.idle_window, tick, free[T.SMELTER] or 0)
+  f.idle_window = w
+  if lo == nil then return 0 end
+  local have = lo
   local registry = Stock.smelters(f)
   local cap = Br.SMELT_HARD
   local n = Ad.deploy(have, #registry, 0, cap, free[T.fuel] or 0, T.fuel_per_burner)

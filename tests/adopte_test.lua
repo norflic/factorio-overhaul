@@ -56,7 +56,17 @@ do
 end
 
 do
-  check(A.deploy(13, 2, 0, 15, 500, 5) == A.DEPLOY_PER_THINK, "13 fours libres : deux posés par pensée")
+  check(A.deploy(13, 2, 0, 15, 500, 5) == A.DEPLOY_PER_THINK, "13 fours libres : " .. A.DEPLOY_PER_THINK .. " posés par fenêtre")
+  do
+    local w, lo = A.window(nil, 0, 8)
+    check(w and lo == nil, "fenêtre ouverte au premier appel")
+    w, lo = A.window(w, 100, 3)
+    w, lo = A.window(w, A.IDLE_WINDOW - 1, 9)
+    check(lo == nil, "pas fermée avant A.IDLE_WINDOW")
+    w, lo = A.window(w, A.IDLE_WINDOW, 9)
+    check(lo == 3, "fermée : minimum observé (" .. tostring(lo) .. ")")
+    check(w.t0 == A.IDLE_WINDOW and w.lo == 9, "rouverte à l'état courant")
+  end
   check(A.deploy(3, 2, 0, 15, 500, 5) == 1, "3 libres : un de posé, " .. A.IDLE_KEEP .. " gardés")
   check(A.deploy(2, 2, 0, 15, 500, 5) == 0 and A.deploy(0, 0, 0, 15, 500, 5) == 0, "pas d'excédent : rien")
   check(A.deploy(13, 15, 0, 15, 500, 5) == 0 and A.deploy(13, 14, 0, 15, 500, 5) == 1, "plafond du registre")
@@ -292,13 +302,21 @@ do
     for i = 1, k do reg[#reg + 1] = { valid = true } end
     return k
   end
-  check(Stock.deploy_idle(f, {}, 600) == 2 and #reg == 2, "13 fours au coffre dont 3 réservés : deux posés")
-  check(f.hq.get_item_count(TT.SMELTER) == 11 and f.hq.get_item_count(TT.fuel) == 500 - 2 * TT.fuel_per_burner, "les deux fours et leur combustible sont sortis du coffre")
-  Stock.deploy_idle(f, {}, 1200); Stock.deploy_idle(f, {}, 1800); Stock.deploy_idle(f, {}, 2400)
-  check(#reg == 8 and f.stats.idle_deployed == 8, "quatre pensées : huit fours posés (" .. #reg .. ")")
-  check(f.hq.get_item_count(TT.SMELTER) == 5, "les fours restants restent au coffre")
-  for i = 1, 8 do Stock.deploy_idle(f, {}, 3000 + i) end
-  check(#reg <= require("shared.ai3.bras").SMELT_HARD, "jamais au-delà de Br.SMELT_HARD (" .. #reg .. ")")
+  local W = A.IDLE_WINDOW
+  check(Stock.deploy_idle(f, {}, 600) == 0 and #reg == 0, "première pensée : la fenêtre s'ouvre, rien n'est posé (le kit de départ reste aux avant-postes)")
+  check(Stock.deploy_idle(f, {}, 600 + W - 1) == 0, "fenêtre pas fermée : rien")
+  -- une tâche réclame 9 fours dans la fenêtre : le minimum libre observé tombe à 1 et rien n'est posé
+  Stock.free_view = function(team, _) return { [TT.SMELTER] = 1, [TT.fuel] = team.hq.get_item_count(TT.fuel) } end
+  Stock.deploy_idle(f, {}, 600 + W - 1)
+  check(Stock.deploy_idle(f, {}, 600 + W) == 0 and #reg == 0, "fours repris par une tâche dans la fenêtre : jamais posés")
+  Stock.free_view = function(team, _) return { [TT.SMELTER] = team.hq.get_item_count(TT.SMELTER) - 3, [TT.fuel] = team.hq.get_item_count(TT.fuel) } end
+  Stock.deploy_idle(f, {}, 600 + W + 10)
+  Stock.deploy_idle(f, {}, 600 + 2 * W + 10) -- ferme la fenêtre ouverte à l'état bas (1) : rien
+  check(Stock.deploy_idle(f, {}, 600 + 3 * W + 20) == A.DEPLOY_PER_THINK and #reg == 4, "restés libres toute une fenêtre : quatre posés")
+  check(f.hq.get_item_count(TT.SMELTER) == 9 and f.hq.get_item_count(TT.fuel) == 500 - 4 * TT.fuel_per_burner, "les fours et leur combustible sont sortis du coffre")
+  for k = 4, 14 do Stock.deploy_idle(f, {}, 600 + k * W + 30) end
+  check(#reg <= require("shared.ai3.bras").SMELT_HARD and f.stats.idle_deployed == #reg, "jamais au-delà de Br.SMELT_HARD (" .. #reg .. ")")
+  check(f.hq.get_item_count(TT.SMELTER) >= 3, "les fours gardés restent au coffre")
   local g = { key = "scarlet", hq = chest({ [TT.SMELTER] = 13, [TT.fuel] = 500 }), hq_pos = { x = 0, y = 0 }, started = 0, engineers_count = 10 }
   check(Stock.deploy_idle(g, {}, 600) == 0, "une faction : jamais (ses vagues sont à elles)")
   setting_value = false

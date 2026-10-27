@@ -56,7 +56,22 @@ function A.sorted(list)
 end
 
 A.IDLE_KEEP = 2          -- machines libres gardées au coffre (un avant-poste en prend deux par agrandissement)
-A.DEPLOY_PER_THINK = 2   -- machines dormantes posées au plus par pensée
+A.DEPLOY_PER_THINK = 4   -- machines dormantes posées au plus par fenêtre
+A.IDLE_WINDOW = 18000    -- ticks (5 min) : une machine n'est dormante que si elle est restée LIBRE (ni réservée, ni prise) toute la fenêtre
+
+--- Fenêtre d'observation du stock libre (état `w` = { t0, lo } ou nil, tenu par l'appelant). Chaque appel donne le nombre libre ;
+--- à la fermeture de la fenêtre (A.IDLE_WINDOW ticks) rend le MINIMUM observé (ce qui est resté libre tout du long) et rouvre la
+--- fenêtre ; sinon rend nil. Le kit de départ (8 fours pour les paires des avant-postes) n'est donc jamais posé au QG avant qu'un
+--- avant-poste l'ait réclamé ou ait eu 5 min pour le faire. Rend le nouvel état et le minimum (ou nil).
+function A.window(w, tick, free)
+  if not w then return { t0 = tick, lo = free }, nil end
+  if free < w.lo then w.lo = free end
+  if tick - w.t0 >= A.IDLE_WINDOW then
+    local lo = w.lo
+    return { t0 = tick, lo = free }, lo
+  end
+  return w, nil
+end
 
 --- Machines DORMANTES à poser au QG (lot ADOPTE, constat du DC : « votre équipe garde 12-13 fours au coffre à 60 min contre 0
 --- chez les factions »). Trace (fo-logs/2026-10-27_ADOPTE/diag-1) : les fours fabriqués pour des avant-postes lointains
