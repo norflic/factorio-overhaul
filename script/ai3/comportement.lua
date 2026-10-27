@@ -692,7 +692,7 @@ end)
 --   trip(clé, id, x, y[, attente])    -> numéro de tournée (PNJ sans tâche seulement) ou false        [bancs]
 --   hold(clé, vrai|faux)              -> vrai : la porte refuse toute tâche du cerveau (tournées seules) [bancs]
 --   set_character(clé, prudence, agressivite) -> vrai (nil, nil : caractère de la faction)           [bancs]
---   mark(clé, x, y, genre, portée), death(clé, x, y) -> vrai                                          [bancs]
+--   mark(clé, x, y, genre, portée), death(clé, x, y), forget(clé) (carte remise à zéro) -> vrai       [bancs]
 --   danger(clé)                       -> { threats, deaths, summary }
 ---------------------------------------------------------------------------------------------------
 local function team_by_key(key)
@@ -769,6 +769,14 @@ remote.add_interface("fo-ia3k", {
     local f = team_by_key(key)
     if not f then return false end
     D.mark_seen(M.team(f).map, x, y, kind or "worm", range, game.tick)
+    return true
+  end,
+  forget = function(key)
+    local f = team_by_key(key)
+    if not f then return false end
+    local t = M.team(f)
+    t.map = D.new()
+    t.new_threats = {}
     return true
   end,
   death = function(key, x, y)

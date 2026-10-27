@@ -14,7 +14,7 @@
 
 local AX, AY = 2000, 0
 local LANES = { -90, -30, 30, 90 }
-local ROUND = 3600
+local ROUND = 4200
 local START = 600
 local ROUNDS = 7
 local CHECK = START + ROUNDS * ROUND + 60
@@ -80,6 +80,18 @@ return {
     if r > ROUNDS then return end
     local in_round = t - START - (r - 1) * ROUND
     if in_round == 0 then
+      -- Résultats de la manche précédente restés en suspens (PNJ arrivés trop tard, ou jamais).
+      for _, c in ipairs(st.cur or {}) do
+        if not c.done then
+          st.res[#st.res + 1] = { kind = c.kind, r = c.r, id = c.id, delay = (c.tf and c.t0) and (c.tf - c.t0) or nil, hpf = c.hpf,
+            hp0 = c.hp0, unset = c.t0 == nil }
+          ctx.log(string.format("manche %d PNJ %d (%s) : %s", c.r, c.id, c.kind, c.t0 and "fin de manche avant les 600 ticks de mesure"
+            or "jamais mis en situation (pas arrive)"))
+        end
+      end
+      -- Manches indépendantes : la carte du danger de l'équipe est remise à zéro (sinon les déchiqueteurs de la manche
+      -- précédente rendent les mêmes destinations « sans issue » et les PNJ y renoncent : C5, voulu, mais hors mesure).
+      ctx.remote("fo-ia3k", "forget", "player")
       local k = kind_of(r)
       if k == "prudent" then ctx.remote("fo-ia3k", "set_character", "player", 1250, 1000)
       elseif k == "audacieux" then ctx.remote("fo-ia3k", "set_character", "player", 600, 1500)
@@ -168,8 +180,18 @@ return {
 
   finish = function(ctx)
     local st = ctx.state()
+    for _, c in ipairs(st.cur or {}) do
+      if not c.done then
+        st.res[#st.res + 1] = { kind = c.kind, r = c.r, id = c.id, delay = (c.tf and c.t0) and (c.tf - c.t0) or nil, hpf = c.hpf,
+          hp0 = c.hp0, unset = c.t0 == nil }
+      end
+    end
     local by = { neutre = {}, prudent = {}, audacieux = {}, desarme = {} }
-    for _, x in ipairs(st.res) do by[x.kind][#by[x.kind] + 1] = x end
+    local unset = 0
+    for _, x in ipairs(st.res) do
+      if x.unset then unset = unset + 1 else by[x.kind][#by[x.kind] + 1] = x end
+    end
+    ctx.log(string.format("FAIT %d PNJ jamais mis en situation (pas arrives a destination)", unset))
     local function fast(list)
       local n, ok = 0, 0
       for _, x in ipairs(list) do
