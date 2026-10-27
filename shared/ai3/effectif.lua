@@ -85,10 +85,12 @@ end
 --- de faible valeur). W = tâches libres du cerveau, prenables par une recrue, matière libre, valeur ≥ VALUE_MIN, en
 --- attente depuis au moins WAIT_TICKS.
 function E.waiting(tasks, tick)
-  local w, value, oldest, young, matter, low = 0, 0, 0, 0, 0, 0
+  local w, value, oldest, young, matter, low, excluded = 0, 0, 0, 0, 0, 0, 0
   for i = 1, #(tasks or {}) do
     local t = tasks[i]
-    if not t.worker and not t.fond and not E.EXCLUDED[t.kind or ""] and t.tag ~= E.RECRUIT_TAG then
+    if not t.worker and (t.fond or E.EXCLUDED[t.kind or ""] or t.tag == E.RECRUIT_TAG) then
+      excluded = excluded + 1
+    elseif not t.worker then
       local v = (t.prio or 0) * (t.critical and 3 or 2) -- valeur × 2 (1,5 sur le chemin critique, en entiers)
       local age = tick - (t.created or tick)
       if v < E.VALUE_MIN * 2 then
@@ -104,7 +106,7 @@ function E.waiting(tasks, tick)
       end
     end
   end
-  return w, math.floor(value / 2), oldest, young, matter, low
+  return w, math.floor(value / 2), oldest, young, matter, low, excluded
 end
 
 --- La recrue se paie-t-elle ? cost et left : { [plaque] = n } ; marge de fer en plus du coût en fer.
@@ -121,7 +123,8 @@ end
 function E.decide(s, st, tick)
   st = st or {}
   local d = { recruit = false, waiting = 0, hands = 0, short = 0, value = 0, oldest = 0, young = 0, matter = 0, low = 0,
-    period = E.period(s.traits), margin = E.margin(s.traits), wait_left = 0 }
+    excluded = 0, idle = s.idle or 0, fond = s.fond or 0, period = E.period(s.traits), margin = E.margin(s.traits),
+    wait_left = 0 }
   local function done(reason)
     d.reason = reason
     d.recruit = E.RECRUITS[reason] or false
@@ -132,8 +135,8 @@ function E.decide(s, st, tick)
   if s.blocked then return done("garde") end
   if n < (s.floor or 0) then return done("plancher") end
   if (s.limit or 0) >= E.NO_BRAKE then return done("sans_frein") end
-  local w, value, oldest, young, matter, low = E.waiting(s.tasks, tick)
-  d.waiting, d.value, d.oldest, d.young, d.matter, d.low = w, value, oldest, young, matter, low
+  local w, value, oldest, young, matter, low, excluded = E.waiting(s.tasks, tick)
+  d.waiting, d.value, d.oldest, d.young, d.matter, d.low, d.excluded = w, value, oldest, young, matter, low, excluded
   local hands = (s.idle or 0) + (s.fond or 0)
   d.hands = hands
   local free = hands - (s.limit or 0)
@@ -167,14 +170,19 @@ function E.count(st, d)
   st.why = st.why or {}
   st.why[d.reason] = (st.why[d.reason] or 0) + 1
   st.thinks = (st.thinks or 0) + 1
+  -- Sommes de la minute (moyennes au journal) : travail en attente, bras libres (sans tâche, fond), tâches libres
+  -- récentes, sans matière, de faible valeur, exclues.
+  st.sum = st.sum or {}
+  for _, k in ipairs(E.SUMS) do st.sum[k] = (st.sum[k] or 0) + (d[k] or 0) end
   -- Copie des champs simples de la décision (nombres, chaînes, booléens : global), pour la fenêtre et le journal.
   local keep = {}
   for _, k in ipairs(E.FIELDS) do keep[k] = d[k] end
   st.last_d = keep
 end
 
-E.FIELDS = { "reason", "recruit", "waiting", "hands", "short", "value", "oldest", "young", "matter", "low", "period",
-  "margin", "wait_left", "floor", "cost_iron", "left_iron" }
+E.FIELDS = { "reason", "recruit", "waiting", "hands", "short", "value", "oldest", "young", "matter", "low", "excluded",
+  "idle", "fond", "period", "margin", "wait_left", "floor", "cost_iron", "left_iron", "free_kinds" }
+E.SUMS = { "waiting", "idle", "fond", "young", "matter", "low", "excluded" }
 
 function E.minute_summary(st)
   local parts = {}
@@ -187,7 +195,15 @@ function E.minute_summary(st)
     end
   end
   local out = { reasons = table.concat(parts, " "), top = top or "-", thinks = st.thinks or 0 }
-  st.why, st.thinks = {}, 0
+  -- Moyennes de la minute, en dixièmes (entiers : « 12 » = 1,2).
+  local th = st.thinks or 0
+  local avg = {}
+  for _, k in ipairs(E.SUMS) do
+    local v = (st.sum or {})[k] or 0
+    avg[k] = th > 0 and math.floor(v * 10 / th + 0.5) or 0
+  end
+  out.avg = avg
+  st.why, st.thinks, st.sum = {}, 0, {}
   return out
 end
 

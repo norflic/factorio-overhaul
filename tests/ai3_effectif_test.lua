@@ -165,9 +165,14 @@ local function suite(E)
     E.count(cst, { reason = "rythme" })
     E.count(cst, { reason = "inactifs" })
     E.count(cst, { reason = "inactifs" })
+    cst.sum.waiting = 4 -- 4 tâches en attente sur 3 pensées : 1,3 en dixièmes arrondis
     local sum = E.minute_summary(cst)
     check(sum.reasons == "inactifs:2 rythme:1" and sum.top == "inactifs" and sum.thinks == 3, "résumé de la minute : " .. sum.reasons)
-    check(cst.thinks == 0 and next(cst.why) == nil, "résumé : comptes remis à zéro")
+    check(sum.avg and sum.avg.waiting == 13 and sum.avg.idle == 0, "résumé : moyennes de la minute en dixièmes (" .. tostring(sum.avg and sum.avg.waiting) .. ")")
+    check(cst.thinks == 0 and next(cst.why) == nil and next(cst.sum) == nil, "résumé : comptes remis à zéro")
+    d = decide(base({ idle = 1, tasks = { task("garrison", 96, W2 + 10), task("mine", 50, W2 + 10, { fond = true }),
+      task("craft", 55, W2 + 10, { tag = "ouvrier" }), task("mine", 30, W2 + 10) } }))
+    check(d.excluded == 3 and d.low == 1 and d.idle == 1, "comptes : 3 exclues (garde, fond, équipement), 1 de faible valeur")
     check(cst.last_d and cst.last_d.reason == "inactifs", "dernière décision gardée (fenêtre)")
     -- 5. Équipe simulée (pensée toutes les 300 ticks ; une tâche dure 2 min de PNJ ; recrue disponible à la pensée
     -- suivante ; fer : revenu de 40 par minute et par PNJ, coût 55 + effectif).
@@ -262,7 +267,7 @@ local MUTANTS = {
   { "attente ignorée (0 min)", "E.WAIT_TICKS = 2 * 3600", "E.WAIT_TICKS = 0" },
   { "inactifs ignorés", "local hands = (s.idle or 0) + (s.fond or 0)", "local hands = 0" },
   { "fond non compté comme bras libres", "local hands = (s.idle or 0) + (s.fond or 0)", "local hands = (s.idle or 0)" },
-  { "fond compté comme travail", "not t.worker and not t.fond and", "not t.worker and" },
+  { "fond compté comme travail", "(t.fond or E.EXCLUDED", "(E.EXCLUDED" },
   { "coût ignoré", "if not E.affordable(s.cost, s.left, d.margin) then", "if false then" },
   { "marge ignorée", "need = need + (margin or 0)", "need = need" },
   { "rythme ignoré", "if last and tick - last < d.period then", "if false then" },
@@ -273,7 +278,8 @@ local MUTANTS = {
   { "matière ignorée", "elseif t.prenable == false then", "elseif false then" },
   { "valeur minimale ignorée", "if v < E.VALUE_MIN * 2 then", "if false then" },
   { "garde ignorée", "if s.blocked then", "if false then" },
-  { "équipement de recrue compté", "and t.tag ~= E.RECRUIT_TAG then", "then" },
+  { "équipement de recrue compté", " or t.tag == E.RECRUIT_TAG)", ")" },
+  { "garde et conception comptées", "(t.fond or E.EXCLUDED[t.kind or \"\"] or", "(t.fond or" },
   { "caractère ignoré (période)", "local a = (traits and traits.ambition) or 1000", "local a = 1000" },
   { "caractère ignoré (marge)", "local p = (traits and traits.prudence) or 1000", "local p = 1000" },
   { "tolérance ignorée", "local free = hands - (s.limit or 0)", "local free = hands" },

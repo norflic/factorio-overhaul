@@ -262,7 +262,7 @@ end
 --- Situation de l'équipe pour la règle d'effectif. free = stock libre (coffre − réservé, Board.view_stock).
 local function effectif_input(f, tick, free, args)
   local list = Board.get(f).list or {}
-  local tasks, reserved = {}, {}
+  local tasks, reserved, kinds = {}, {}, {}
   for i = 1, #list do
     local t = list[i]
     if not t.worker then
@@ -274,8 +274,12 @@ local function effectif_input(f, tick, free, args)
       if not t.fond then add_list(reserved, strict) end
       tasks[#tasks + 1] = { kind = t.kind, prio = t.prio, critical = t.critical, created = t.created, fond = t.fond,
         tag = t.tag, prenable = prenable }
+      local k = (t.kind or "?") .. (t.fond and "(fond)" or "") .. ":" .. tostring(t.prio or 0)
+      kinds[k] = (kinds[k] or 0) + 1
     end
   end
+  local kk = {}
+  for _, k in ipairs(State.sorted_keys(kinds)) do kk[#kk + 1] = k .. "x" .. kinds[k] end
   -- Ce que l'objectif courant attend encore (dernière pensée : f.team.missing, plaques seulement).
   for _, m in ipairs(f.team.missing or {}) do
     if m[1] == "iron-plate" or m[1] == "copper-plate" then reserved[m[1]] = (reserved[m[1]] or 0) + (m[2] or 0) end
@@ -302,6 +306,7 @@ local function effectif_input(f, tick, free, args)
     n = f.engineers_count or 0, cap = args.cap, floor = args.floor, blocked = args.blocked, limit = args.limit,
     threatened = args.threatened, idle = args.idle, fond = args.fond, tasks = tasks, cost = cost, left = left,
     traits = { ambition = tr.ambition, prudence = tr.prudence },
+    free_kinds = table.concat(kk, " "), -- tâches libres par genre et priorité (journal : diagnostic)
   }
 end
 
@@ -451,6 +456,7 @@ function Team.view(f, tick)
     effectif.floor = floor
     effectif.cost_iron = (s.cost["iron-plate"] or 0) + effectif.margin
     effectif.left_iron = s.left["iron-plate"] or 0
+    effectif.free_kinds = s.free_kinds
     recruit_held = not effectif.recruit
   end
   return {
@@ -665,12 +671,16 @@ function Team.effectif_journal(f, view, tick)
   if m ~= st.minute then
     local sum = Effectif.minute_summary(st)
     local l = st.last_d or {}
+    local a = sum.avg
+    local function dec(x) return string.format("%d,%d", math.floor(x / 10), x % 10) end
     log(string.format("[FO-EFFECTIF] %s minute %d | effectif %d/%d (depart %d) | croissance %d (recrues %d) | raisons {%s} | "
-      .. "derniere : %s, attente %d (plus ancienne %d s, valeur %d), recentes %d, sans matiere %d, bras libres %d, manque %d | "
+      .. "moyennes : attente %s, sans tache %s, fond %s, recentes %s, sans matiere %s, faible valeur %s, exclues %s | "
+      .. "derniere : %s, attente %d (plus ancienne %d s, valeur %d), bras libres %d, manque %d, libres {%s} | "
       .. "fer libre %d, cout fer %d (marge %d) | periode %d s",
       f.key, st.minute, f.engineers_count or 0, view.workers_wanted or 0, l.floor or 0, st.grown or 0,
-      (f.stats and f.stats.recruited) or 0, sum.reasons, l.reason or "-", l.waiting or 0, math.floor((l.oldest or 0) / 60),
-      l.value or 0, l.young or 0, l.matter or 0, l.hands or 0, l.short or 0, l.left_iron or 0, l.cost_iron or 0,
+      (f.stats and f.stats.recruited) or 0, sum.reasons, dec(a.waiting), dec(a.idle), dec(a.fond), dec(a.young),
+      dec(a.matter), dec(a.low), dec(a.excluded), l.reason or "-", l.waiting or 0, math.floor((l.oldest or 0) / 60),
+      l.value or 0, l.hands or 0, l.short or 0, l.free_kinds or "", l.left_iron or 0, l.cost_iron or 0,
       l.margin or 0, math.floor((l.period or 0) / 60)))
     st.minute = m
   end
