@@ -15,5 +15,5 @@ def taille(side):
     H3 = 0.72 * H2
     return dict(side=s, dd=dd, zt=zt, h=(h1, h2, h3), H=(H1, H2, H3),
                 porte=dict(w=0.2 + 0.035 * s, h=0.34 + 0.04 * s),
-                sat=dict(r=0.16 + 0.025 * s, retrait=0.36 + 0.02 * s),
+                sat=dict(r=0.12 + 0.025 * s, retrait=0.36 + 0.02 * s),
                 parapet=0.07 + 0.006 * s)

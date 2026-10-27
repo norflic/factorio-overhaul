@@ -453,7 +453,15 @@ def satellite_lignee(g, c, x, y, z, k):
 
 def satellites(g, c):
     S = c.T["sat"]
-    d = c.dd - S["retrait"]
+    h1 = c.T["h"][0]
+    # au milieu de la bande libre entre le premier étage et le bord du socle, sur les diagonales (essai 1 : hors du
+    # socle rond)
+    if c.plan == "rond":
+        d = (h1 + c.dd) / 2.0 / SQ2
+    elif c.plan == "octo":
+        d = 1.188 * (h1 + c.dd) / 2.0 / SQ2     # distance des pans diagonaux : 1,188 × le demi-côté
+    else:
+        d = (h1 + c.dd) / 2.0
     coins = [(-d, -d), (d, -d)]
     if c.side >= 6:
         coins += [(d, d), (-d, d)]
@@ -625,6 +633,52 @@ def detail_fin(g, c):
     return poses
 
 
+def detail_toits(g, c, zm):
+    """Détail fin sur les terrasses des étages (anneau entre l'étage k et l'étage k + 1, en retrait du garde-corps) et
+    sur le toit plat du dernier étage (hors mât)."""
+    import random
+    rng = random.Random(17000 + 31 * c.e + c.side)
+    M = g.M
+    pas = float(getattr(c.ep, "PAS_FIN", 0.15))
+    lampes = float(getattr(c.ep, "LAMPES", 0.14))
+    tot = sum(w for _, w in FINS)
+    poses = 0
+    n_et = len(c.z_etages)
+    for k in range(n_et):
+        z0, z1, h = c.z_etages[k]
+        if k + 1 < n_et:
+            hin = c.z_etages[k + 1][2] + 0.1
+        elif c.toit in ("plat", "crenele"):
+            hin = 0.32 * c.side / 4.5
+        else:
+            continue
+        hout = h - (0.2 if k == 0 else 0.12)
+        n = int(2 * hout / pas)
+        o = -hout + (2 * hout - n * pas) / 2.0 + pas / 2.0
+        for i in range(n):
+            for j in range(n):
+                u2, u3, u4, u5 = rng.random(), rng.random(), rng.random(), rng.random()
+                x = o + i * pas + (u2 - 0.5) * pas * 0.35
+                y = o + j * pas + (u3 - 0.5) * pas * 0.35
+                if u5 > 0.85 or not dans_forme(c.plan, hout, x, y, 0.07) or dans_forme(c.plan, hin, x, y, -0.07):
+                    continue
+                if k + 1 == n_et and math.hypot(x, y) < hin:
+                    continue
+                if u4 < lampes:
+                    f = _f_voyant
+                else:
+                    r = rng.random() * tot
+                    f = FINS[-1][0]
+                    for ff, w in FINS:
+                        if r < w:
+                            f = ff
+                            break
+                        r -= w
+                f(g, c, x, y, z1 - 0.012, rng, M)
+                poses += 1
+    return poses
+
+
 # ------------------------------------------------------------------------------------------------
 # Assemblage
 # ------------------------------------------------------------------------------------------------
@@ -643,5 +697,14 @@ def centre(g, c):
         c.n_garde_corps = garde_corps(g, c)
         if hasattr(c.ep, "facade"):
             c.ep.facade(g, c)
-        c.ep.mat(g, c, zm)
+        # le mât est dessiné pour une emprise de 4,5 t : mis à l'échelle de l'emprise autour de son pied (essai 1 : trop
+        # petit sur les 7×7 et 8×8)
+        k = float(getattr(c.ep, "ECHELLE_MAT", c.side / 4.5))
+        g.stack.append(g.stack[-1] @ Matrix.Translation((0.0, 0.0, zm)) @ Matrix.Diagonal((k, k, k, 1.0))
+                       @ Matrix.Translation((0.0, 0.0, -zm)))
+        try:
+            c.ep.mat(g, c, zm)
+        finally:
+            g.stack.pop()
         c.n_fin = detail_fin(g, c)
+        c.n_fin_toits = detail_toits(g, c, zm)
