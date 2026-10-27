@@ -10,6 +10,10 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 17 h 20 : WORKFLOW `capi-branchement` LANCÉ** (`wf_751a87a7-9e1`, worktree `capib`, bancs `--qui CAPIB`) : plan en 10 étapes,
+> réglage fo-war-capi éteint sauf preuve, critères (1) à (5), images de base à 30, 60 et 90 min (`fo-logs\2026-10-27_CAPI\images-DC`),
+> `BRANCHEMENT.md` ; relu par un critique adverse. Ne pas écrire par SendMessage à ses agents.
+>
 > **27/10, 17 h 15 : `main` = 0.6.4** (IA3-d + SCALE, fast-forward de `valid064`, conflits cerveau.lua et team.lua résolus) : factions
 > 8 → 30 PNJ, travail d'avance, fours en rangées ; validation verte ; K10 seul 0,400 ms (p99 5,96). **Banc remis à 1 place à 17 h 01** (le
 > DC reprend son PC ; pas de réponse sur « jouez-vous ce soir ? »). Prochaine étape : brancher la capitalisation (plan en 10 étapes,
