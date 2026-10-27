@@ -21,7 +21,7 @@ RE_PAL = re.compile(r"\[FO-IA3C\] (\w+) : palier (\d) atteint a ([0-9.]+) min")
 RE_IRON2 = re.compile(r"\[FO-TEAM\] (\w+) : objectif atteint 'iron2' a ([0-9.]+) min")
 RE_RES = re.compile(r"\[FO-TEAM\] (\w+) : recherche niveau (\d) payee en packs a ([0-9.]+) min")
 RE_TECH = re.compile(r"\[FO-IA3C\] (\w+) : recherche '([^']+)' terminee a ([0-9.]+) min")
-RE_MIN = re.compile(r"\[FO-IA3[A-Z]-[A-Z]+\] minute (\d+) \| (\w+) tech (\d+) soldats (\d+) pnj (\d+)/(\d+) \| "
+RE_MIN = re.compile(r"\[FO-IA(?:3[A-Z]|G)-[A-Z]+\] minute (\d+) \| (\w+) tech (\d+) soldats (\d+) pnj (\d+)/(\d+) \| "
                     r"taches \{([^}]*)\} \| activite \{([^}]*)\} \| fab \{([^}]*)\}")
 RE_PROJ = re.compile(r"\[FO-IA3C\] (\w+) minute (\d+) \| actifs (\d+) productifs (\d+) pris (\d+) bloques (\d+) K (\d+)"
                      r".*\| projets \{([^}]*)\}")
