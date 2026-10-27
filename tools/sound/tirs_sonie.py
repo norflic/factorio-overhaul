@@ -7,8 +7,8 @@ au tir vanilla (gun-turret-gunshot-01 à 04, volume 0,4). AUCUN son n'est joué 
 Mesures (mêmes définitions que tools/sound/rafales.py : sonie K BS.1770 sans porte, momentanée max sur 400 ms, crête) :
   - tir isolé : moyenne sur les 4 variations S0 (la couche k prend la variation i mod n_k ; vitesse au milieu de
     [min_speed, max_speed]) ;
-  - rafale de 2,4 s à 10 tirs/s (cadence de base) : une couche à `aggregation` max_count M ne démarre un son que s'il
-    en joue moins de M (count_already_playing, remove : HYPOTHÈSE de lecture de la doc, à prouver en jeu, PLAN.md §6).
+  - rafale de 2,4 s à 10 tirs/s (cadence de base) : chaque tir démarre chaque couche (MODELE « libre » : F360, mesuré
+    en session disk, l'`aggregation` des couches ne limite pas la rafale ; --modele agg|coupe pour les autres lectures).
 Contrat proposé (PLAN.md §4, ronde 4 du correcteur, à faire trancher par le DC) : il porte sur la RAFALE, ce que le
 joueur entend d'une tourelle (le contrat de la ronde 3, +0,25 dB par âge sur le tir isolé, laissait les 4 âges SOUS la
 vanilla en rafale) :
@@ -18,8 +18,7 @@ vanilla en rafale) :
   - crête : tir isolé ≤ −1 dBFS (comme S0) ; rafale ≤ crête de la rafale vanilla + Δ visé + 1 dB (pas plus « pointue »
     que la vanilla). Une crête de rafale ≤ −1 dBFS (demande du critique) est INCOMPATIBLE avec +4 à +6 dB : la rafale
     vanilla elle-même a sa crête à −3,0 dBFS au volume du prototype ; à faire trancher.
-Le chiffre de la rafale repose sur une HYPOTHÈSE de lecture d'`aggregation` (F360, ouvert) : à confirmer en session
-disk (tools/sound/tirs_couches.py). --cible : rend aussi le facteur de volume des couches ajoutées qui atteint la
+Le modèle de la rafale est celui MESURÉ en jeu (F360, tools/sound/tirs_couches.py : « libre »). --cible : rend aussi le facteur de volume des couches ajoutées qui atteint la
 rafale visée. Code 0 si le contrat est tenu, 1 sinon.
 """
 import argparse
@@ -149,25 +148,41 @@ def tir_vanilla(i):
     return decode(chemin("", VANILLA[i % 4])) * VOL_VANILLA
 
 
-def rafale(age, mod, g=1.0, n_tirs=24, cadence=0.1):
-    """Rafale : S0 à chaque tir, couche k démarrée si moins de max_count de ses sons jouent (hypothèse)."""
+# Modèle de l'`aggregation` des couches (F360, tranché en session disk au lot TIRS, ronde 4, tools/sound/tirs_couches.py) :
+#   "libre" : chaque tir démarre chaque couche, aucune limite (la rafale mesurée en jeu suit ce modèle à 0,2 à 0,9 dB
+#             près sur les âges 5, 8, 10, 15 ; le modèle « agg » s'en écarte de 2 à 3,5 dB) ;
+#   "coupe" : chaque tir démarre chaque couche, le plus ancien son de la couche est coupé au-delà de max_count ;
+#   "agg"   : HYPOTHÈSE de la ronde 3 : une couche ne démarre un son que si moins de max_count jouent (réfutée).
+MODELE = "libre"
+
+
+def rafale(age, mod, g=1.0, n_tirs=24, cadence=0.1, modele=None):
+    """Rafale : S0 à chaque tir, couches selon le modèle d'aggregation (MODELE par défaut)."""
+    modele = modele or MODELE
     long = int((n_tirs * cadence + 4.0) * RATE)
     out = np.zeros((long, 2))
-    en_cours = [[] for _ in (age or {}).get("couches", [])]
+    couches = (age or {}).get("couches", [])
+    inst = [[] for _ in couches]  # par couche : [début, fin, signal]
     for k in range(n_tirs):
         a = int(round(k * cadence * RATE))
         if age is None:
             ajoute(out, tir_vanilla(k), a)
             continue
         ajoute(out, decode(chemin(mod, age["s0"][k % len(age["s0"])])) * age["vol_s0"], a)
-        for j, c in enumerate(age["couches"]):
-            en_cours[j] = [fin for fin in en_cours[j] if fin > a]
-            if len(en_cours[j]) >= c["max"]:
+        for j, c in enumerate(couches):
+            jouent = [i for i in inst[j] if i[1] > a]
+            if modele == "agg" and len(jouent) >= c["max"]:
                 continue
+            if modele == "coupe":
+                while len(jouent) >= c["max"]:
+                    jouent[0][1] = a  # le plus ancien est coupé
+                    jouent = jouent[1:]
             f = c["fichiers"][k % len(c["fichiers"])]
             x = vitesse(decode(chemin(mod, f)), 0.5 * (c["vmin"] + c["vmax"])) * c["volume"] * g
-            ajoute(out, x, a)
-            en_cours[j].append(a + len(x))
+            inst[j].append([a, a + len(x), x])
+    for lst in inst:
+        for a, fin, x in lst:
+            ajoute(out, x[:max(0, fin - a)], a)
     return out
 
 
@@ -219,7 +234,10 @@ def main():
     ap.add_argument("--json")
     ap.add_argument("--cible", action="store_true")
     ap.add_argument("--tol", type=float, default=0.4, help="tolérance sur la rafale visée (dB)")
+    ap.add_argument("--modele", choices=["libre", "coupe", "agg"], default="libre")
     a = ap.parse_args()
+    global MODELE
+    MODELE = a.modele
     ages = lire_ages(a.mod)
     van = [rafales.mesures(tir_vanilla(i)) for i in range(4)]
     ref = {k: float(np.mean([m[k] for m in van])) for k in van[0]}
@@ -273,7 +291,7 @@ def main():
     if a.json:
         with open(a.json, "w", encoding="utf-8") as f:
             json.dump({"vanilla": ref, "rafale_vanilla": raf_ref, "ages": res,
-                       "hypothese": "aggregation : une couche ne demarre un son que si moins de max_count jouent (F360)"},
+                       "modele": MODELE},
                       f, indent=1)
     print("BILAN : %s" % ("contrat tenu" if ok else "contrat NON tenu"))
     return 0 if ok else 1

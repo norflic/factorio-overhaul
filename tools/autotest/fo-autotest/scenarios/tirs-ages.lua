@@ -21,30 +21,33 @@
 local SPR_OK, SPR = pcall(require, "__factorio-overhaul__/graphics/levels/gun/sprites")
 
 local P0 = { x = -2600, y = -2600 }
-local G = 48 -- pas de la grille des sites (tuiles)
--- dir : direction du ver depuis la tourelle ; dist : distance ; gx, gy : case de la grille autour de P0
+-- Grille autour de P0 (le joueur y est placé) : tout tient à moins de 96 tuiles (filtre de proximité ; 1re session de
+-- la ronde 4 : une rangée à 100 tuiles, âges 1, 8 et 10 refusés « loin »). Écarts de 48 tuiles : aucune tourelle n'atteint
+-- la cible d'un autre site (portée 27 au plus).
+-- dir : direction du ver depuis la tourelle ; dist : distance ; (x, y) : décalage depuis P0
 local SITES = {
-  { cle = "a01", famille = "gun", niveau = 2, age = 1, dist = 9, dir = "E", gx = -2, gy = -2, serie = "pleine" },
-  { cle = "a05", famille = "gun", niveau = 9, age = 5, dist = 10, dir = "E", gx = -1, gy = -2, serie = "pleine" },
-  { cle = "a07-sans-effet", famille = "gun", niveau = 13, age = 7, dist = 11, dir = "E", gx = 0, gy = -2,
-    sans_effet = true, serie = "temoin" },
-  { cle = "a08", famille = "gun", niveau = 15, age = 8, dist = 11, dir = "E", gx = 1, gy = -2, serie = "pleine" },
-  { cle = "a10", famille = "gun", niveau = 19, age = 10, dist = 12, dir = "E", gx = 2, gy = -2, serie = "pleine" },
-  { cle = "a15", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "E", gx = -2, gy = 1, serie = "pleine" },
-  { cle = "a15-nord", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "N", gx = -1, gy = 1, serie = "direction" },
-  { cle = "a15-sud", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "S", gx = 0, gy = 1, serie = "direction" },
-  { cle = "a15-ouest", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "O", gx = 1, gy = 1, serie = "direction" },
-  { cle = "a15-nordest", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "NE", gx = 2, gy = 1,
+  { cle = "a01", famille = "gun", niveau = 2, age = 1, dist = 9, dir = "E", x = -72, y = -84, serie = "pleine" },
+  { cle = "a05", famille = "gun", niveau = 9, age = 5, dist = 10, dir = "E", x = -24, y = -84, serie = "pleine" },
+  { cle = "a08", famille = "gun", niveau = 15, age = 8, dist = 11, dir = "E", x = 24, y = -84, serie = "pleine" },
+  { cle = "a10", famille = "gun", niveau = 19, age = 10, dist = 12, dir = "E", x = 72, y = -84, serie = "pleine" },
+  { cle = "a15", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "E", x = -72, y = -36, serie = "pleine" },
+  { cle = "a15-nord", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "N", x = -24, y = -36, serie = "direction" },
+  { cle = "a15-sud", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "S", x = 24, y = -36, serie = "direction" },
+  { cle = "a15-ouest", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "O", x = 72, y = -36, serie = "direction" },
+  { cle = "a15-nordest", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "NE", x = -72, y = 36,
     serie = "direction" },
-  { cle = "a05-nord", famille = "gun", niveau = 9, age = 5, dist = 10, dir = "N", gx = -2, gy = 2, serie = "direction" },
-  { cle = "laser15", famille = "laser", niveau = 29, age = 15, dist = 13, dir = "E", gx = -1, gy = 2, serie = "pleine" },
-  { cle = "laser08-temoin", famille = "laser", niveau = 15, age = 8, dist = 11, dir = "E", gx = 0, gy = 2, temoin = true,
+  { cle = "a05-nord", famille = "gun", niveau = 9, age = 5, dist = 10, dir = "N", x = -24, y = 36, serie = "direction" },
+  { cle = "a07-sans-effet", famille = "gun", niveau = 13, age = 7, dist = 11, dir = "E", x = 24, y = 36,
+    sans_effet = true, serie = "temoin" },
+  { cle = "laser15", famille = "laser", niveau = 29, age = 15, dist = 13, dir = "E", x = 72, y = 36, serie = "pleine" },
+  { cle = "laser08-temoin", famille = "laser", niveau = 15, age = 8, dist = 11, dir = "E", x = -84, y = 84, temoin = true,
     serie = "temoin" },
-  { cle = "a15-loin", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "E", loin = true, serie = "loin" },
+  { cle = "a15-loin", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "E", x = 300, y = 0, loin = true,
+    serie = "loin" },
 }
 local DIRS = { E = { 1, 0 }, O = { -1, 0 }, N = { 0, -1 }, S = { 0, 1 }, NE = { 0.7071, -0.7071 } }
--- mur : 10 mitrailleuses de l'âge 15 (6 × 6, pas de 7) au nord de P0, vagues de biters venues du nord
-local MUR = { niveau = 29, n = 10, pas = 7, y = P0.y - 40, vague = 150, biters = 8, dist_vague = 30 }
+-- mur : 10 mitrailleuses de l'âge 15 (6 × 6, pas de 7) au sud de P0, vagues de biters venues du sud
+local MUR = { niveau = 29, n = 10, pas = 7, y = P0.y + 84, vague = 150, biters = 8, dist_vague = 30 }
 local T_CIBLES, T_MUN, CHECK = 20, 30, 1200
 local MUN = "firearm-magazine"
 local K = 0.7071 -- F126
@@ -151,17 +154,16 @@ return {
     if not game.entity_prototypes["fo-lvl-laser-29-faisceau"] then manque[#manque + 1] = "fo-lvl-laser-29-faisceau" end
     ctx.check(#lot == 5 and #manque == 0, "prototypes du lot presents (5 ages temoins, flammes, faisceau du laser 15)",
       #lot .. " ages ; manque : " .. (#manque == 0 and "aucun" or table.concat(manque, ",")))
-    -- terrain : tout le carré des sites, le mur, et le site loin
-    ctx.prepare_area(P0.x - 2 * G - 30, P0.y - 2 * G - 30, P0.x + 2 * G + 40, P0.y + 2 * G + 40, "grass-1")
+    -- terrain : tout le carré des sites, le mur et ses vagues, et le site loin
+    ctx.prepare_area(P0.x - 110, P0.y - 110, P0.x + 110, P0.y + 130, "grass-1")
     ctx.prepare_area(P0.x + 270, P0.y - 30, P0.x + 340, P0.y + 30, "grass-1")
     for _, e in ipairs(s.find_entities_filtered({ force = "enemy",
-        area = { { P0.x - 2 * G - 90, P0.y - 2 * G - 90 }, { P0.x + 400, P0.y + 2 * G + 90 } } })) do
+        area = { { P0.x - 180, P0.y - 180 }, { P0.x + 400, P0.y + 200 } } })) do
       e.destroy()
     end
     st.sites = {}
     for k, c in ipairs(SITES) do
-      local x, y
-      if c.loin then x, y = P0.x + 300, P0.y else x, y = P0.x + c.gx * G, P0.y + c.gy * G end
+      local x, y = P0.x + c.x, P0.y + c.y
       local t = s.create_entity({ name = nom(c), position = { x, y }, force = "player" })
       if t and c.famille == "laser" then ctx.power(x - 6, y + 6, "player") end
       local site = { k = k, c = c, t = t, x = t and t.position.x or x, y = t and t.position.y or y, vus = {}, n_vus = 0,
@@ -180,7 +182,7 @@ return {
     for i = 1, MUR.n do
       local t = s.create_entity({ name = "fo-lvl-gun-" .. MUR.niveau, position = { x0 + (i - 1) * MUR.pas, MUR.y },
         force = "player" })
-      if t then pcall(function() t.orientation = 0 end) end
+      if t then pcall(function() t.orientation = 0.5 end) end
       st.mur[#st.mur + 1] = t
       if t then poses = poses + 1 end
     end
@@ -199,7 +201,7 @@ return {
     if not st.place then
       local p = game.connected_players[1]
       if p then
-        st.place = p.teleport({ P0.x, P0.y + 4 }, s) and t or false
+        st.place = p.teleport({ P0.x, P0.y }, s) and t or false
         if ctx.has("fo-tirs", "releve") then ctx.remote("fo-tirs", "releve") end
         ctx.log("joueur place en P0 au tick " .. t .. " : " .. tostring(st.place))
       end
@@ -231,14 +233,14 @@ return {
           end
         end
       end
-      -- vagues sur le mur : des grands biters partent du nord et marchent sur le mur (ils meurent sous le feu)
+      -- vagues sur le mur : des grands biters partent du sud et marchent sur le mur (ils meurent sous le feu)
       if t % MUR.vague == T_CIBLES % MUR.vague then
         local x0 = P0.x - (MUR.n - 1) * MUR.pas / 2
         for i = 1, MUR.biters do
           local b = s.create_entity({ name = "big-biter", force = "enemy",
-            position = { x0 + (i - 0.5) * (MUR.n - 1) * MUR.pas / MUR.biters, MUR.y - MUR.dist_vague } })
+            position = { x0 + (i - 0.5) * (MUR.n - 1) * MUR.pas / MUR.biters, MUR.y + MUR.dist_vague } })
           if b then
-            b.set_command({ type = defines.command.go_to_location, destination = { b.position.x, MUR.y - 4 },
+            b.set_command({ type = defines.command.go_to_location, destination = { b.position.x, MUR.y + 4 },
               distraction = defines.distraction.none })
           end
         end
@@ -257,7 +259,7 @@ return {
         end
       end
       local mx = (MUR.n - 1) * MUR.pas / 2 + 6
-      local a = { P0.x - mx, MUR.y - MUR.dist_vague - 4, P0.x + mx, MUR.y + 6 }
+      local a = { P0.x - mx, MUR.y - 6, P0.x + mx, MUR.y + MUR.dist_vague + 4 }
       for _, en in ipairs(s.find_entities_filtered({ name = st.tous, area = { { a[1], a[2] }, { a[3], a[4] } } })) do
         if dedans(en, a[1], a[2], a[3], a[4]) then st.mur_n_vus = st.mur_n_vus + 1 end
       end
@@ -391,7 +393,7 @@ return {
       rafales(c.cle, c.age, c.niveau, c.famille, c.dir, (site.x + site.cx) / 2, (site.y + site.cy) / 2 - 0.5,
         SERIES[c.serie])
     end
-    rafales("mur15", 15, MUR.niveau, "gun", "N", P0.x, MUR.y - 10, SERIES.mur)
+    rafales("mur15", 15, MUR.niveau, "gun", "S", P0.x, MUR.y + 10, SERIES.mur)
     game.write_file("fo-shots/tirs-ages-sites.tsv", table.concat(L, "\n") .. "\n", false)
   end,
 }

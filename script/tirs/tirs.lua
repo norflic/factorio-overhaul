@@ -9,8 +9,8 @@
     2. décide par R.decider (règle pure) : proximité d'un joueur connecté (relevé toutes les T.releve ticks), part
        de l'âge, quota de l'âge par tick, plafond commun par tick (compteurs dans le stockage : déterministe) ;
     3. dessine la bouche ORIENTÉE vers la cible (rendering.draw_animation, orientation_target, le pied de la flamme
-       sur la bouche) et sa lumière (rendering.draw_light), crée la fumée de bouche, les dards (le premier crée
-       l'impact à son arrivée) et le trait.
+       sur la bouche) et sa lumière (rendering.draw_light), crée la fumée de bouche, les dards (vers l'entité cible ;
+       le premier crée l'impact en la touchant) et le trait.
   Aucune entité créée ne touche au jeu (prototypes/tirs.lua le contrôle) ; aucun `pairs`, aucune trigonométrie (le
   moteur oriente la flamme), aucun temps mesuré ; les tables nom -> âge sont construites au chargement du fichier
   (aucun require pendant un événement, F24). Interface « fo-tirs » (bancs) : stats(), actif(booléen), noms(),
@@ -139,12 +139,15 @@ local function sur_effet(e)
       surface.create_trivial_smoke({ name = N.fumee, position = { from.x + dx * 0.035 * k, from.y + dy * 0.035 * k } })
     end
   end
-  -- 3. dards : le premier porte l'impact, les suivants partent moins vite (rafale discontinue)
-  compte(st, surface.create_entity({ name = N.trace, position = from, target = to, speed = N.vitesse, max_range = 80 }))
+  -- 3. dards : le premier porte l'impact, les suivants partent moins vite (rafale discontinue). Ils visent l'ENTITÉ
+  -- cible (projectile à tête chercheuse : il la touche et l'impact naît sur elle) ; vers une POSITION, un dard rapide
+  -- DÉPASSE sa cible et son impact naît 20 à 50 tuiles plus loin (ronde 4, 1re session d'images : F359).
+  local vise = (cible and cible.valid) and cible or to
+  compte(st, surface.create_entity({ name = N.trace, position = from, target = vise, speed = N.vitesse, max_range = 80 }))
   local v = N.vitesse
   for _ = 2, N.ndards do
     v = v * N.ralenti
-    compte(st, surface.create_entity({ name = N.dard, position = from, target = to, speed = v, max_range = 80 }))
+    compte(st, surface.create_entity({ name = N.dard, position = from, target = vise, speed = v, max_range = 80 }))
   end
   -- 4. trait (claquement bref) : le faisceau n'a pas de hauteur ; départ 1 tuile au-dessus du point source (F126)
   if N.trait then

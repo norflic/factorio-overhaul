@@ -98,11 +98,12 @@ T.sans_effet = 7
              son { fichiers, volume, max }. Jamais `tourne` : une texture vanilla couchée paraît verticale (ronde 3).
   son      = { couches = { … } } : couches AJOUTÉES au son S0 de l'ère (LayeredSound), fichiers vanilla RÉFÉRENCÉS ;
              vitesse de lecture dans CHAQUE variation (SoundDefinition.min_speed / max_speed : posée sur la couche, le
-             moteur l'ignore, doc 1.1.91 « Only loaded if variations […] are not defined ») ; volumes réglés par
-             tools/sound/tirs_sonie.py --cible sur le contrat de la RAFALE (PLAN.md §4, ronde 4)
+             moteur l'ignore, doc 1.1.91 « Only loaded if variations […] are not defined » ; prouvé en session disk,
+             tools/sound/tirs_couches.py) ; volumes réglés par tools/sound/tirs_sonie.py --cible sur le contrat de la
+             RAFALE (PLAN.md §4, ronde 4), modèle « libre » MESURÉ en jeu (F360 : `max` ne limite pas la rafale)
   laser    = faisceau de la tourelle laser de l'âge (épaisseur, teintes)
   Couche de son : fichiers = { motif, premier, dernier } (motif avec %d) ; volume ; vitesse = { min, max } ;
-    max = sons au plus en même temps (aggregation : count_already_playing, remove ; sens exact : F360).
+    max = aggregation (count_already_playing, remove) ; F360 : ne limite PAS la rafale d'une tourelle (mesuré).
 ]]
 T.ages = {
   [1] = {
@@ -150,9 +151,9 @@ T.ages = {
           montee = 0.08 } },
     },
     son = { couches = { -- coup lourd une quarte plus bas, claquement de fusil à pompe
-      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.25, vitesse = { 0.74, 0.80 },
+      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.17, vitesse = { 0.74, 0.80 },
         max = 3 },
-      { fichiers = { "__base__/sound/fight/pump-shotgun-%d.ogg", 1, 6 }, volume = 0.21, vitesse = { 0.85, 0.95 },
+      { fichiers = { "__base__/sound/fight/pump-shotgun-%d.ogg", 1, 6 }, volume = 0.15, vitesse = { 0.85, 0.95 },
         max = 2 },
     } },
   },
@@ -179,11 +180,11 @@ T.ages = {
           duree = 110 } },
     },
     son = { couches = { -- bulle qui crève (capsule de poison, plus aiguë), coup lourd, fusil à pompe
-      { fichiers = { "__base__/sound/fight/poison-capsule-explosion-%d.ogg", 1, 5 }, volume = 0.31,
+      { fichiers = { "__base__/sound/fight/poison-capsule-explosion-%d.ogg", 1, 5 }, volume = 0.23,
         vitesse = { 1.20, 1.40 }, max = 3 },
-      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.31, vitesse = { 0.80, 0.90 },
+      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.23, vitesse = { 0.80, 0.90 },
         max = 3 },
-      { fichiers = { "__base__/sound/fight/pump-shotgun-%d.ogg", 1, 6 }, volume = 0.26, vitesse = { 0.95, 1.05 },
+      { fichiers = { "__base__/sound/fight/pump-shotgun-%d.ogg", 1, 6 }, volume = 0.19, vitesse = { 0.95, 1.05 },
         max = 2 },
     } },
   },
@@ -208,11 +209,11 @@ T.ages = {
         etincelles = { source = "pole-spark-particle", nombre = 12, teinte = { 1.00, 1.00, 1.00 }, vitesse = 0.10,
           montee = 0.10 } },
     },
-    son = { couches = { -- tir laser, coup lourd grave, queue d'explosion (plus aiguë : un grondement court)
-      { fichiers = { "__base__/sound/fight/laser-%d.ogg", 1, 3 }, volume = 0.44, vitesse = { 0.85, 0.95 }, max = 3 },
-      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.31, vitesse = { 0.62, 0.68 },
+    son = { couches = { -- tir laser, coup lourd grave, claquement de fusil à pompe (plus aigu)
+      { fichiers = { "__base__/sound/fight/laser-%d.ogg", 1, 3 }, volume = 0.34, vitesse = { 0.85, 0.95 }, max = 3 },
+      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.20, vitesse = { 0.62, 0.68 },
         max = 3 },
-      { fichiers = { "__base__/sound/fight/large-explosion-%d.ogg", 1, 2 }, volume = 0.25, vitesse = { 1.40, 1.60 },
+      { fichiers = { "__base__/sound/fight/pump-shotgun-%d.ogg", 1, 6 }, volume = 0.22, vitesse = { 1.05, 1.15 },
         max = 2 },
     } },
   },
@@ -241,11 +242,11 @@ T.ages = {
       { source = "explosion-hit", echelle = 1.6, teinte = { 1.00, 1.00, 0.90 }, enfle = { depart = 0.5, ticks = 3 } },
     },
     son = { couches = { -- canon de char, coup d'artillerie (plus aigu), grave une octave sous le coup lourd
-      { fichiers = { "__base__/sound/fight/tank-cannon-%d.ogg", 1, 5 }, volume = 0.33, vitesse = { 1.10, 1.22 },
+      { fichiers = { "__base__/sound/fight/tank-cannon-%d.ogg", 1, 5 }, volume = 0.22, vitesse = { 1.10, 1.22 },
         max = 2 },
-      { fichiers = { "__base__/sound/fight/artillery-shoots-%d.ogg", 1, 2 }, volume = 0.36, vitesse = { 1.30, 1.50 },
+      { fichiers = { "__base__/sound/fight/artillery-shoots-%d.ogg", 1, 2 }, volume = 0.24, vitesse = { 1.30, 1.50 },
         max = 3 },
-      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.45, vitesse = { 0.52, 0.58 },
+      { fichiers = { "__base__/sound/fight/heavy-gunshot-%d.ogg", 1, 4 }, volume = 0.30, vitesse = { 0.52, 0.58 },
         max = 3 },
     } },
     -- faisceau du laser 15 : or, épaissi ×1,5 au plus tant que source_offset n'est pas recalé sur l'optique (défaut

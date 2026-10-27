@@ -9,12 +9,14 @@ Méthode (mêmes décodage et corrélation que tools/sound/tirs_joues.py, lot S0
   2. tir isolé d'un âge à couches : le tir S0 de l'ère (meilleure des 4 variations, ± 40 ms) est retiré par moindres
      carrés ; sur le RÉSIDU, pour chaque couche ajoutée, corrélation normalisée maximale (± 30 ms, meilleure variation)
      avec le fichier de la couche lu (H_v) à la vitesse de la table (milieu de [min, max]) et (H_1) à la vitesse 1 ;
-     verdict « vitesse appliquée » si ρ(H_v) dépasse ρ(H_1) de 0,05 au moins en moyenne sur les couches à vitesse
-     éloignée de 1 (|v − 1| >= 0,1) ; défaut de la ronde 3 : la vitesse posée sur la couche était ignorée (F360 voisin) ;
+     en fait, VITESSE ESTIMÉE par balayage (0,45 à 1,55 par pas de 0,02, meilleure variation, 0,6 s de début) ; une
+     couche est mesurable si sa corrélation médiane atteint RHO_MIN et si sa vitesse est loin de 1 ; verdict « vitesse
+     appliquée » si chaque couche mesurable tombe dans [min, max] ± 0,03 (défaut de la ronde 3 : la vitesse posée sur
+     la couche était ignorée) ;
   3. rafale (journal « RAFALE debut / fin ») : sonie momentanée maximale (BS.1770, 400 ms) de la fenêtre, rapportée à la
-     rafale du site vanilla ; comparée à tools/sound/tirs_sonie.py pour la même cadence, sous deux hypothèses
-     d'`aggregation` : H_agg (une couche ne démarre un son que si moins de max_count jouent) et H_libre (aucune limite).
-     La plus proche (écart > 0,5 dB entre les deux prévisions) départage F360.
+     rafale du site vanilla ; comparée à tools/sound/tirs_sonie.py pour la même cadence, sous trois lectures
+     d'`aggregation` (agg : une couche ne démarre un son que si moins de max_count jouent ; coupe : le plus ancien est
+     coupé ; libre : aucune limite). La plus proche départage F360.
 Code 0 si la vitesse est appliquée sur chaque site à couches et si la rafale mesurée croît avec l'âge, 1 sinon, 2 si
 l'entrée est illisible.
 """
@@ -37,6 +39,9 @@ AUDIO_LINE = TJ.AUDIO_LINE
 TIR = re.compile(r"\[FO-TIRS-SON\] TIR\t(.*)$", re.M)
 RAF = re.compile(r"\[FO-TIRS-SON\] RAFALE\t(.*)$", re.M)
 L_SEG = 1.6   # s : segment d'un tir isolé (tirs séparés de 1 s ; la queue du précédent est faible)
+RHO_MIN = 0.22  # corrélation médiane minimale d'une couche pour estimer sa vitesse (en dessous : masquée)
+GRILLE = [round(0.45 + 0.02 * k, 2) for k in range(56)] + [1.0]
+CACHE = {}
 
 
 def champs(txt):
@@ -94,7 +99,8 @@ def main():
     n = min(len(t["rho"]) for t in tpl)
     best = np.vstack([t["rho"][:n] for t in tpl]).max(axis=0)
     dets = [{"t": j / float(fs)} for j in TJ.peaks(best, fs, 0.4, 0.3)]
-    fit = TJ.fit_times(tirs, dets, 0.06)
+    # droite sur les sites SANS couche (vanilla, âge 1) : leurs tirs sont reconnus au S0 seul
+    fit = TJ.fit_times([t for t in tirs if t["age"] == 1 or t["ere"] == 0] or tirs, dets, 0.06)
     if fit is None:
         print("[FO-TIRS-COUCHES] ECHEC aucun tir entendu")
         return 1
@@ -102,13 +108,13 @@ def main():
     print("[FO-TIRS-COUCHES] droite temps = %.4f + %.7f x tick (%d detections)" % (fa, fb, len(dets)))
     # 2. couches à leur vitesse
     res, ok_v = {}, True
+    mesurables = [0]
     for age in sorted({t["age"] for t in tirs if t["ere"] > 0}):
         g = ages.get(age)
         if not g or not g["couches"]:
             continue
         s0 = [TJ.decode(TS.chemin(a.mod, f))[0] for f in g["s0"]]
-        rho = {"v": [], "1": []}
-        pour_couche = []
+        estim = {}
         for t in [t for t in tirs if t["age"] == age]:
             i0 = int(round((fa + fb * t["tick"]) * fs))
             seg = x[max(0, i0 - int(0.04 * fs)):i0 + int(L_SEG * fs)]
@@ -124,29 +130,43 @@ def main():
             resid = seg[bi:].copy()
             L = min(len(resid), len(y))
             resid[:L] -= gain * y[:L]
-            for c in g["couches"]:
-                vm = 0.5 * (c["vmin"] + c["vmax"])
-                pv, p1 = 0.0, 0.0
+            for ci, c in enumerate(g["couches"]):
+                # vitesse de lecture ESTIMÉE : balayage de 0,45 à 1,55, meilleure variation (début du son, 0,6 s)
+                bv, br_ = 1.0, -1.0
                 for f in c["fichiers"]:
                     z = TJ.decode(TS.chemin(a.mod, f))[0]
-                    pv = max(pv, ncc_max(resid, TS.vitesse(z, vm), int(0.03 * fs)))
-                    p1 = max(p1, ncc_max(resid, z, int(0.03 * fs)))
-                pour_couche.append((os.path.basename(c["fichiers"][0]).rsplit("-", 1)[0], vm, pv, p1))
-                if abs(vm - 1) >= 0.1:
-                    rho["v"].append(pv)
-                    rho["1"].append(p1)
-        mv, m1 = float(np.mean(rho["v"])) if rho["v"] else 0, float(np.mean(rho["1"])) if rho["1"] else 0
-        verdict = mv - m1 >= 0.05
+                    for v in GRILLE:
+                        cle = (f, round(v, 3))
+                        if cle not in CACHE:
+                            CACHE[cle] = TS.vitesse(z, v)[:int(0.6 * fs)]
+                        r_ = ncc_max(resid, CACHE[cle], int(0.04 * fs))
+                        if r_ > br_:
+                            bv, br_ = v, r_
+                estim.setdefault(ci, []).append((bv, br_))
+        verdict, det = True, []
+        for ci, c in enumerate(g["couches"]):
+            vs = [v for v, _ in estim.get(ci, [])]
+            med = float(np.median(vs)) if vs else 0.0
+            dans = c["vmin"] - 0.03 <= med <= c["vmax"] + 0.03
+            # mesurable : la couche ressort du mélange (corrélation médiane >= RHO_MIN) et sa vitesse est loin de 1
+            rmed = float(np.median([r_ for _, r_ in estim.get(ci, [(0, 0)])]))
+            discr = abs(0.5 * (c["vmin"] + c["vmax"]) - 1) >= 0.1 and rmed >= RHO_MIN
+            if discr:
+                mesurables[0] += 1
+            if discr and not dans:
+                verdict = False
+            det.append("%s [%.2f ; %.2f] : vitesse estimee mediane %.2f (tirs %s ; rho median %.2f)%s" % (
+                os.path.basename(c["fichiers"][0]).rsplit("-", 1)[0], c["vmin"], c["vmax"], med,
+                ",".join("%.2f" % v for v in vs), float(np.median([r_ for _, r_ in estim.get(ci, [(0, 0)])])),
+                " (masquee : non mesurable)" if rmed < RHO_MIN else ("" if not discr else (
+                    " DANS L'INTERVALLE" if dans else " HORS DE L'INTERVALLE"))))
         ok_v = ok_v and verdict
-        par = {}
-        for nom, vm, pv, p1 in pour_couche:
-            par.setdefault((nom, vm), []).append((pv, p1))
-        det = " ; ".join("%s a %.2f : rho(H_v) %.2f, rho(H_1) %.2f" % (nom, vm, np.mean([u for u, _ in l]),
-                                                                       np.mean([w for _, w in l]))
-                         for (nom, vm), l in par.items())
-        print("[FO-TIRS-COUCHES] age %2d : %s -> moyenne rho(H_v) %.3f contre rho(H_1) %.3f : %s" % (
-            age, det, mv, m1, "VITESSE APPLIQUEE" if verdict else "VITESSE NON DEMONTREE"))
-        res[age] = {"rho_v": mv, "rho_1": m1, "vitesse_appliquee": verdict}
+        print("[FO-TIRS-COUCHES] age %2d : %s : %s" % (age, " ; ".join(det),
+                                                    "VITESSE APPLIQUEE" if verdict else "VITESSE NON DEMONTREE"))
+        res[age] = {"vitesses": {str(ci): [v for v, _ in estim.get(ci, [])] for ci in range(len(g["couches"]))},
+                    "vitesse_appliquee": verdict}
+    print("[FO-TIRS-COUCHES] couches mesurables a vitesse loin de 1 : %d (il en faut 3)" % mesurables[0])
+    ok_v = ok_v and mesurables[0] >= 3
     # 3. rafales
     ref = None
     mes = {}
@@ -172,19 +192,19 @@ def main():
             g = dict(ages[age]) if age in ages else None
             if g is None:
                 g = {"s0": s0_ere.get(1), "vol_s0": ages[1]["vol_s0"], "couches": []}
-            p_agg = rafales.mesures(TS.rafale(g, a.mod, n_tirs=mm["n"], cadence=mm["cadence"]))["momentanee"] - raf_v
-            libre = dict(g)
-            libre["couches"] = [dict(c, max=10 ** 6) for c in g["couches"]]
-            p_lib = rafales.mesures(TS.rafale(libre, a.mod, n_tirs=mm["n"], cadence=mm["cadence"]))["momentanee"] - raf_v
-            proche = ("H_agg" if abs(d - p_agg) < abs(d - p_lib) else "H_libre") if abs(p_agg - p_lib) > 0.5 else "indistinct"
+            p = {mo: rafales.mesures(TS.rafale(g, a.mod, n_tirs=mm["n"], cadence=mm["cadence"], modele=mo))["momentanee"]
+                 - raf_v for mo in ("agg", "coupe", "libre")}
+            ecarts = sorted((abs(d - v_), mo) for mo, v_ in p.items())
+            proche = ecarts[0][1] if ecarts[1][0] - ecarts[0][0] > 0.3 else "indistinct (%s ou %s)" % (ecarts[0][1],
+                                                                                                    ecarts[1][1])
             if prev is not None and d <= prev:
                 croit = False
             prev = d
-            res.setdefault(age, {}).update({"rafale_mesuree": d, "prevu_agg": p_agg, "prevu_libre": p_lib,
-                                             "plus_proche": proche, "cadence_s": mm["cadence"]})
+            res.setdefault(age, {}).update({"rafale_mesuree": d, "prevu": p, "plus_proche": proche,
+                                             "cadence_s": mm["cadence"], "crete": mm["crete"]})
             print("[FO-TIRS-COUCHES] rafale age %2d (%d cartouches, %.0f ms entre deux tirs) : %+.2f dB sur la vanilla "
-                  "(prevu H_agg %+.2f, H_libre %+.2f : %s) ; crete %.1f dBFS" % (
-                      age, mm["n"], 1000 * mm["cadence"], d, p_agg, p_lib, proche, mm["crete"]))
+                  "(prevu agg %+.2f, coupe %+.2f, libre %+.2f : %s) ; crete %.1f dBFS" % (
+                      age, mm["n"], 1000 * mm["cadence"], d, p["agg"], p["coupe"], p["libre"], proche, mm["crete"]))
         print("[FO-TIRS-COUCHES] rafale croissante avec l'age : %s" % ("OUI" if croit else "NON"))
         ok_v = ok_v and croit
     if a.json:
