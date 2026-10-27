@@ -149,6 +149,11 @@ local function suite(E)
     check(d.recruit == true, "fo-recruit-idle-max = 1 : 1 PNJ inactif toléré")
     d = decide(base({ limit = 1, idle = 2, tasks = { task("craft", 50, W2 + 10) } }))
     check(d.recruit == false and d.reason == "inactifs", "fo-recruit-idle-max = 1 : 2 inactifs, 1 libre pour 1 tâche : aucune recrue")
+    -- Effectif visé (lu par le cerveau pour « économie faite ») : atteint quand aucun bras ne manque.
+    check(E.enough("inactifs") and E.enough("pas_de_travail") and E.enough("plafond") and E.enough("matiere")
+      and E.enough("travail_recent") and E.enough("garde"), "effectif visé atteint : inactifs, rien n'attend, plafond, matière")
+    check(not E.enough("recrue") and not E.enough("cout") and not E.enough("rythme") and not E.enough("plancher")
+      and not E.enough("sans_frein") and not E.enough("menace") and not E.enough(nil), "effectif visé PAS atteint quand des bras manquent")
     -- Indépendance de l'ordre des tâches et déterminisme.
     local a = { task("craft", 50, W2 + 10), task("build", 80, W2 + 600), task("mine", 30, W2), task("craft", 50, 10) }
     local b = { a[4], a[3], a[2], a[1] }
@@ -273,6 +278,7 @@ local MUTANTS = {
   { "caractère ignoré (marge)", "local p = (traits and traits.prudence) or 1000", "local p = 1000" },
   { "tolérance ignorée", "local free = hands - (s.limit or 0)", "local free = hands" },
   { "recrue dès 1 tâche même avec des libres", "if d.short <= 0 then", "if w == 0 then" },
+  { "effectif visé atteint malgré le manque de fer", "E.ENOUGH = { plafond = true,", "E.ENOUGH = { cout = true, plafond = true," },
 }
 local refused, kept = 0, {}
 for _, m in ipairs(MUTANTS) do
@@ -360,6 +366,7 @@ local okm, errm = pcall(function()
   f.hq.insert({ name = "copper-plate", count = 200 })
   local view = Team.view(f, tick + 1)
   local de = view.effectif
+  check(view.workers_enough == nil or view.workers_enough == false, "Team.view : des bras manquent, effectif visé pas atteint")
   check(de ~= nil and de.reason == "recrue" and view.recruit_held == false and de.waiting == 3,
     "Team.view : 3 tâches en attente, personne de libre, fer : recrue, frein levé (" .. tostring(de and de.reason) .. ", "
       .. tostring(de and de.waiting) .. ")")
@@ -370,6 +377,7 @@ local okm, errm = pcall(function()
   view = Team.view(f, tick + 2)
   check(view.effectif and view.effectif.reason == "inactifs" and view.recruit_held == true,
     "Team.view : un PNJ libre pour la seule tâche en attente : aucune recrue (" .. tostring(view.effectif and view.effectif.reason) .. ")")
+  check(view.workers_enough == true, "Team.view : PNJ libres, effectif visé atteint (économie « faite » possible)")
   -- Fenêtre : texte localisé de la raison.
   require("shared.ai3.effectif").count(f.team.effectif, view.effectif)
   local txt = Team.effectif_text(f)

@@ -471,6 +471,10 @@ function Team.view(f, tick)
     threatened = threatened,
     open = Board.open(f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)
+    -- Lot IA3-d : effectif visé atteint selon la règle (aucun bras ne manque) ; le cerveau d'IA-V2 attendait sinon le
+    -- plafond (workers ≥ workers_wanted) pour dire l'économie « faite », jamais atteint par une faction qui n'a pas besoin
+    -- de grandir.
+    workers_enough = effectif and Effectif.enough(effectif.reason) or nil,
     -- Lot IA2-a2 (SURVIE, factions seulement) : sous son effectif de départ, une faction équipe ses recrues au QG avec
     -- les plaques du stock ; en reconstruction (chef) ou menacée, elle y équipe aussi sa garde (shared/team/planner.lua).
     emergency = (not f.is_player) and { floor = floor, rebuild = (f.chef and f.chef.rebuild) or false } or nil,

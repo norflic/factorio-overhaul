@@ -54,6 +54,13 @@ E.PLATES = { "iron-plate", "copper-plate" }
 E.REASONS = { "plafond", "garde", "plancher", "sans_frein", "menace", "inactifs", "matiere", "travail_recent",
   "pas_de_travail", "cout", "rythme", "recrue" }
 E.RECRUITS = { plancher = true, sans_frein = true, recrue = true }
+-- Raisons où l'équipe a l'effectif qu'il lui faut (aucun bras ne manque, ou elle ne peut plus grandir) : son « effectif
+-- visé » est atteint (lu par le cerveau d'IA-V2 pour « économie faite », shared/ai3/cerveau.lua). « cout », « rythme »,
+-- « recrue », « menace », « plancher », « sans_frein » : des bras manquent ou l'effectif visé reste le plafond.
+E.ENOUGH = { plafond = true, garde = true, inactifs = true, matiere = true, travail_recent = true, pas_de_travail = true }
+
+--- L'équipe a-t-elle l'effectif qu'il lui faut (raison d'une décision) ?
+function E.enough(reason) return E.ENOUGH[reason or ""] or false end
 
 local function clamp(x, lo, hi)
   if x < lo then return lo end
