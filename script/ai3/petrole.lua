@@ -559,6 +559,29 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
   return auto
 end
 
+--- Objets qu'un chantier du lot (site, ou la centrale qu'il attend) réserve sans pouvoir les fabriquer, faute de leur
+--- recette (verrouillée) : ils deviennent des objets VOULUS par la recherche (comme Auto.wanted, Capital.wanted) ; la
+--- technologie qui les débloque prend de la valeur (moteur réel, petrole-partie : centrale jamais finie en 120 min,
+--- poteau moyen verrouillé). nil réglage éteint ou rien à vouloir.
+function Pet.wanted(f)
+  if not Pet.on() then return nil end
+  local st = f and f.team and f.team.petrole
+  if not (st and f.build) then return nil end
+  local force = game.forces[f.force]
+  local out, any = {}, false
+  local function add(id)
+    local br = id and Build.brief(f, id)
+    if not (br and br.state == "reserve") then return end
+    for _, m in ipairs(br.missing or {}) do
+      local r = force and force.recipes[m[1]]
+      if r and not r.enabled then out[m[1]] = true; any = true end
+    end
+  end
+  for _, s in ipairs(st.sites) do add(s.id) end
+  if #st.sites > 0 then add(f.build.plant) end
+  return any and out or nil
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Interface distante de LECTURE (bancs)
 ---------------------------------------------------------------------------------------------------

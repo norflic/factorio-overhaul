@@ -467,6 +467,14 @@ local function research_step(f, st, book, w, tick, view)
       for _, k in ipairs(sorted_keys(cw)) do m[k] = true end
       wanted = m
     end
+    -- Lot PETROLE (réglage allumé) : objets qu'un site ou sa centrale attend sans recette ouverte (nil : rien, éteint)
+    local pw = Pet.wanted(f)
+    if pw then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted)) do m[k] = wanted[k] end
+      for _, k in ipairs(sorted_keys(pw)) do m[k] = true end
+      wanted = m
+    end
     tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, wanted)
   else
     tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)
