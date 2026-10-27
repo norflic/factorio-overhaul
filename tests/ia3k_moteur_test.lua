@@ -194,7 +194,7 @@ section("Peur (C3)")
 local Registry = require("script.companion.registry")
 local victim = Registry.get(ids[3])
 remote.call("fo-ia3k", "trip", "player", ids[3], -150, 5, 600)
-M.run_ticks(200)
+M.run_ticks(600) -- à plus de 32 tuiles du QG (près du QG, on se bat groupés : contrôle plus bas)
 local vp = victim.entity.position
 local biter = s.create_entity({ name = "small-biter", position = { x = vp.x - 12, y = vp.y }, force = "enemy" })
 victim.entity.health = 80 -- 32 % de vie
@@ -210,10 +210,23 @@ check(victim.task and victim.task.fail == "fuite", "la tournée est rendue (fuit
 st = remote.call("fo-ia3k", "status", "player")
 check((st.stats.actions.flee or 0) >= 1 and st.stats.refuges >= 1, "fuite comptée, refuge choisi")
 biter.destroy()
+-- Près du QG, sans tourelle : un ouvrier blessé face à une unité ne fuit pas seul, il se bat sur place (groupés).
+local homer = Registry.get(ids[6])
+local hp0 = homer.entity.position
+local b2 = s.create_entity({ name = "small-biter", position = { x = hp0.x + 6, y = hp0.y }, force = "enemy" })
+local fl0 = remote.call("fo-ia3k", "status", "player").stats.actions.flee or 0
+local en0 = remote.call("fo-ia3k", "status", "player").stats.actions.engage or 0
+homer.entity.health = 80
+M.run_ticks(130)
+st = remote.call("fo-ia3k", "status", "player")
+check((st.stats.actions.flee or 0) == fl0 and (st.stats.actions.engage or 0) > en0,
+  "près du QG sans tourelle : combat sur place, pas de fuite isolée")
+b2.destroy()
 
 ---------------------------------------------------------------------------------------------------
 section("Mémoire des morts (C5) : la porte")
 local C = require("script.ai3.comportement")
+remote.call("fo-ia3k", "forget", "player") -- carte remise à zéro : les combats ci-dessus ont marqué les abords du QG
 local ag = Registry.get(ids[4])
 local task = { key = "test:service", kind = "service" }
 local steps = { { "home" }, { "goto", { x = -5, y = 140 }, 3 }, { "act", "service" }, { "home" } }
@@ -245,6 +258,7 @@ local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } --
 remote.call("fo-ia3k", "mark", "player", ip.x, ip.y, "worm", 25)
 local mt = { key = "test:mine", kind = "mine", resource = "iron-ore", radius = 96, target = { x = ip.x, y = ip.y } }
 local msteps = { { "home" }, { "goto", { x = ip.x, y = ip.y }, 1.5 }, { "mine", "iron-ore", 10 }, { "home" } }
+ag.entity.teleport({ x = 0, y = 10 }) -- le trajet jugé part du coffre (le PNJ a travaillé pendant l'heure simulée)
 local mok = C.gate(f, ag, mt, msteps, game.tick)
 local ng = msteps[2][2]
 check(mok == true and R.dist(ng.x, ng.y, ip.x, ip.y) > 40, string.format("minage reciblé hors de la zone du ver (%.0f, %.0f)", ng.x, ng.y))

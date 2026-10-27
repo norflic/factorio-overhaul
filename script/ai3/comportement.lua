@@ -742,6 +742,23 @@ function M.sense(agent, tick)
   -- Tournée escaladée (risque accepté par la porte) : pas de nouveau détour pour une menace fixe déjà connue (le chemin
   -- qui minimise le danger la contourne déjà au mieux) ; le demi-tour à portée reste.
   if a.risk and K.fixed and action == "detour" then action = "none" end
+  -- Risque accepté (escalade) : pas de demi-tour à la seule portée d'une menace fixe ; seule la peur (blessé sous le
+  -- seuil : action « flee ») fait partir. La règle des 2 morts par heure reste le garde-fou (banc final-2b66f91
+  -- memoire-123456789 : tournées escaladées revenues bredouilles, 617 refus, économie effondrée).
+  if a.risk and K.fixed and action == "back" then action = "none" end
+  -- Près du QG, face à des UNITÉS : sans tourelle où se réfugier, fuir seul est pire que rester groupés (un déchiqueteur
+  -- court plus vite qu'un personnage) : on se bat sur place. Même banc : 4 ouvriers sans tâche rattrapés à 11 tuiles du QG.
+  if near_home and not K.fixed and (action == "flee" or action == "back") then
+    local rf = refuge(f, p, ep)
+    local home = f.home_spot or f.hq_pos
+    local to_turret = rf and d2(rf, home) > 4 and d2(rf, p) > 4 and d2(rf, ep) >= 144
+    local has_turret = false
+    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
+      local tt = f.turrets[id]
+      if tt and tt.valid then has_turret = true break end
+    end
+    if not (has_turret and to_turret) then action, why = "engage", "groupes-au-qg" end
+  end
   if action == "none" then return false end
   -- MEUTE : le PNJ recule devant un groupe d'unités (force pesée ≥ 0,4) : la zone du groupe (vue + étendue) devient une
   -- menace fixe à décroissance rapide, pour que le nouvel itinéraire ne passe pas par ses bords (banc final-c4091c0 : 3
