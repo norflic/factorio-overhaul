@@ -500,13 +500,17 @@ local function plan_power(f, p, mp, masks)
   if #keys == 0 then
     target = { i = mi, j = mj }
   else
-    local best, bestd
+    -- Lot IA3-e : un carrefour BÂTI d'abord (réseau qui existe) ; un carrefour d'un projet encore en réserve disparaît
+    -- si ce projet est annulé, et le module qui s'y reliait reste une île sans courant (moteur réel, e7-usine, amber :
+    -- rangée de grenades reliée au réseau prévu d'un module annulé, réseau à elle seule, « no_power »).
+    local best, bestd, bbest, bbestd
     for _, k in ipairs(keys) do
       local n = b.net[k]
       local d = math.abs(n.i - mi) + math.abs(n.j - mj)
       if not bestd or d < bestd then best, bestd = n, d end
+      if n.built and (not bbestd or d < bbestd) then bbest, bbestd = n, d end
     end
-    target = best
+    target = bbest or best
   end
   -- route : rues praticables, à défaut par-dessus une rue fermée par une falaise (les fils passent ; correction du
   -- 27/10, banc ia1-build-reseau) ; un carrefour sans place pour son poteau est évité (3 essais)
