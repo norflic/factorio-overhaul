@@ -65,6 +65,17 @@ local function suite()
   D.mark_attack(mu, 200, 200, 0)
   check(D.danger_at(mu, 200, 200, 0) == D.ATTACK_W, "attaque subie : 300")
 
+  section("danger : meute (zone d'un groupe d'unités, décroissance rapide)")
+  local mp = D.new()
+  check(D.mark_seen(mp, 0, 0, "pack", 36, 0) == true, "meute nouvelle")
+  check(D.mark_seen(mp, 8, 0, "pack", 40, 60) == false and mp.threats[1].x == 8 and mp.threats[1].r == 40,
+    "meute revue à 8 tuiles : la même, déplacée, portée suivie")
+  check(D.danger_at(mp, 8, 0, 60) == 800, "meute : 800 (bloquante)")
+  check(D.danger_at(mp, 8, 0, 60 + 10 * MIN) == math.floor(800 * D.DEC10[10] / 1000), "meute : 10 % par minute")
+  D.prune(mp, 60 + 30 * MIN)
+  check(#mp.threats == 0, "meute oubliée après 30 min (sous 50)")
+  check(D.forget_unseen(D.new(), 0, 0, 30, nil) == 0, "regard vide sans meute : rien à oublier")
+
   section("danger : morts (mémoire longue, règle de l'heure)")
   local md = D.new()
   D.mark_death(md, 50, 50, 0)

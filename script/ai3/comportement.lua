@@ -743,6 +743,34 @@ function M.sense(agent, tick)
   -- qui minimise le danger la contourne déjà au mieux) ; le demi-tour à portée reste.
   if a.risk and K.fixed and action == "detour" then action = "none" end
   if action == "none" then return false end
+  -- MEUTE : le PNJ recule devant un groupe d'unités (force pesée ≥ 0,4) : la zone du groupe (vue + étendue) devient une
+  -- menace fixe à décroissance rapide, pour que le nouvel itinéraire ne passe pas par ses bords (banc final-c4091c0 : 3
+  -- entrées dans une zone vue occupée, entre des disques d'unités sous le seuil de blocage).
+  if not K.fixed and enemies >= 0.4 and (action == "stop" or action == "detour" or action == "back" or action == "flee") then
+    local sx, sy, n = 0, 0, 0
+    for _, g in ipairs(group) do
+      if g.type == "unit" or g.type == "character" then
+        sx, sy, n = sx + g.position.x, sy + g.position.y, n + 1
+      end
+    end
+    if n > 0 then
+      local cx, cy = sx / n, sy / n
+      local spread = 0
+      for _, g in ipairs(group) do
+        if g.type == "unit" or g.type == "character" then
+          local d = math.sqrt(d2(g.position, { x = cx, y = cy }))
+          if d > spread then spread = d end
+        end
+      end
+      if D.mark_seen(t.map, cx, cy, "pack", rr + spread, tick) then
+        t.mver = (t.mver or 0) + 1
+        t.new_threats = t.new_threats or {}
+        t.new_threats[#t.new_threats + 1] = { v = t.mver, x = cx, y = cy, r = rr + spread, k = "pack" }
+        while #t.new_threats > 8 do table.remove(t.new_threats, 1) end
+      end
+      t.stats.packs = (t.stats.packs or 0) + 1
+    end
+  end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
   return act(agent, f, t, a, action, why, ep, kind, tick)

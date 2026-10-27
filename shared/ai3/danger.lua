@@ -37,6 +37,9 @@ D.KINDS = {
   worm = { w = 1000, r = 30, fixed = true },      -- « turret » de la force des déchiqueteurs
   turret = { w = 1000, r = 24, fixed = true },    -- tourelle d'une force adverse
   spawner = { w = 800, r = 30, fixed = true },    -- nid (les déchiqueteurs qui le gardent voient à 30 tuiles)
+  -- MEUTE : zone d'un groupe d'unités devant lequel un PNJ a réagi (portée = vue + étendue du groupe) ; bloquante, mais
+  -- elle s'éteint vite (10 % par minute) et un regard qui la voit vide l'efface.
+  pack = { w = 800, r = 30, fixed = true, fast = true, same = 12 },
   unit = { w = 150, r = 16, fixed = false },
   character = { w = 150, r = 16, fixed = false },
 }
@@ -113,11 +116,12 @@ function D.mark_seen(map, x, y, kind, range, tick)
   local K = D.KINDS[kind] or D.KINDS.unit
   local r = range or K.r
   if K.fixed then
+    local same = (K.same or 3) * (K.same or 3)
     for _, t in ipairs(map.threats) do
       local dx, dy = t.x - x, t.y - y
-      if t.k == kind and dx * dx + dy * dy <= 9 then
+      if t.k == kind and dx * dx + dy * dy <= same then
         t.t = tick
-        if r > t.r then t.r = r end
+        if K.fast then t.x, t.y, t.r = x, y, r elseif r > t.r then t.r = r end
         return false
       end
     end
@@ -186,7 +190,7 @@ function D.field(map, tick, box)
   end
   for _, t in ipairs(map.threats) do
     local K = D.KINDS[t.k] or D.KINDS.unit
-    local w = math.floor(K.w * D.dec2(tick - t.t) / 1000)
+    local w = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
     if w > 0 then cells_within(t.x, t.y, t.r + D.MARGIN, function(cx, cy) add(cx, cy, w) end) end
   end
   for _, d in ipairs(map.deaths) do
@@ -280,7 +284,8 @@ function D.prune(map, tick)
   for _ in pairs(map.cells) do map.n_cells = map.n_cells + 1 end
   local th = {}
   for _, t in ipairs(map.threats) do
-    if D.dec2(tick - t.t) * (D.KINDS[t.k] or D.KINDS.unit).w >= 50 * 1000 then th[#th + 1] = t end
+    local K = D.KINDS[t.k] or D.KINDS.unit
+    if (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) * K.w >= 50 * 1000 then th[#th + 1] = t end
   end
   map.threats = th
   local de = {}
@@ -291,15 +296,16 @@ end
 
 --- Résumé (journal, interface des bancs).
 function D.summary(map, tick)
-  local nests, worms, turrets = 0, 0, 0
+  local nests, worms, turrets, packs = 0, 0, 0, 0
   for _, t in ipairs(map.threats) do
-    if t.k == "spawner" then nests = nests + 1 elseif t.k == "worm" then worms = worms + 1 else turrets = turrets + 1 end
+    if t.k == "spawner" then nests = nests + 1 elseif t.k == "worm" then worms = worms + 1
+    elseif t.k == "pack" then packs = packs + 1 else turrets = turrets + 1 end
   end
   local deaths = 0
   for _, d in ipairs(map.deaths) do if tick - d.t < D.HOUR then deaths = deaths + 1 end end
   local cells = 0
   for _ in pairs(map.cells) do cells = cells + 1 end
-  return { nests = nests, worms = worms, turrets = turrets, deaths = deaths, cells = cells, threats = #map.threats }
+  return { nests = nests, worms = worms, turrets = turrets, packs = packs, deaths = deaths, cells = cells, threats = #map.threats }
 end
 
 return D
