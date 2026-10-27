@@ -6,9 +6,11 @@
 # que le précédent n'ait archivé ses journaux (le verrou était rendu par le .bat, l'archivage se faisait après).
 #
 # Ce que fait ce lanceur :
-#   1. il prend un TICKET (fichier <racine>\fo-banc-file\<horloge>-<pid>.txt) : premier arrivé, premier servi ; les
-#      tickets d'un processus mort sont retirés ;
-#   2. quand son ticket est le plus ancien ET que le verrou est libre, il prend lui-même le verrou fo-autotest.lock (un
+#   1. il prend un TICKET (fichier <racine>\fo-banc-file\<horloge>-<pid>.txt) : les tickets d'un processus mort sont
+#      retirés ; depuis le 27/10 (3 h 50), TOUR DE RÔLE entre les lots (étiquette --qui) : le ticket servi est le plus
+#      ancien du lot servi il y a le plus longtemps (fo-banc-file\servis\<lot>) ; dans un lot, premier arrivé, premier
+#      servi ;
+#   2. quand son ticket est l'élu ET que le verrou est libre, il prend lui-même le verrou fo-autotest.lock (un
 #      fichier owner.txt dit qui le tient) et lance le .bat avec FO_LOCK_HELD=1 ;
 #   3. il ARCHIVE les journaux dans --out (journaux compressés, carte non copiée sauf --carte) AVANT de rendre le verrou ;
 #   4. il rend le verrou, retire son ticket, affiche les lignes BILAN et rend le code du .bat.
@@ -105,6 +107,55 @@ def lire(p):
         return ""
 
 
+# Tour de rôle entre les lots (27/10, 3 h 50) : le 27/10, un lot a déposé 14 bancs d'un coup et les bancs du cas du DC
+# d'un autre lot attendaient derrière (1 h). Le ticket servi est désormais le plus ancien du lot servi il y a le plus
+# longtemps (jamais servi d'abord) ; à l'intérieur d'un lot, premier arrivé, premier servi. Le lot est l'étiquette --qui.
+SERVIS = os.path.join(FILE, "servis")
+
+
+def lot_du_ticket(n):
+    txt = lire(os.path.join(FILE, n))
+    return txt.split(" : ", 1)[0] if " : " in txt else txt
+
+
+def nom_de_lot(qui):
+    return "".join(c if c.isalnum() or c in "-_" else "_" for c in qui)[:80] or "_"
+
+
+def dernier_service(qui):
+    try:
+        return float((lire(os.path.join(SERVIS, nom_de_lot(qui))).split() or ["0"])[0])
+    except ValueError:
+        return 0.0
+
+
+def elu(t, lot=lot_du_ticket, servi=dernier_service):
+    """Ticket à servir parmi t (triés par heure de dépôt) : règle pure, testée par tests/test_banc_file.py."""
+    premier = {}
+    for n in t:
+        premier.setdefault(lot(n), n)
+    if not premier:
+        return None
+    return min(premier.values(), key=lambda n: (servi(lot(n)), n))
+
+
+def noter_service(qui, pid):
+    p = os.path.join(SERVIS, nom_de_lot(qui))
+    if lire(p).split()[1:2] == [str(pid)]:
+        return
+    os.makedirs(SERVIS, exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(f"{time.time():.3f} {pid}\n")
+
+
+def observer_verrou():
+    """Note le lot qui tient le verrou (owner.txt : « pid qui jj/mm hh:mm:ss »), même lancé par une version de ce
+    fichier sans tour de rôle : sans cela, ses lots passeraient pour jamais servis."""
+    m = lire(PROPRIO).split()
+    if len(m) >= 4 and m[0].isdigit():
+        noter_service(" ".join(m[1:-2]), int(m[0]))
+
+
 def verrou_libre(etat):
     """Vrai si le verrou est libre ; retire un verrou orphelin. etat garde l'heure où l'on a vu un verrou vide."""
     if not os.path.isdir(VERROU):
@@ -190,10 +241,12 @@ def bilans(out):
 
 def montrer_file():
     t = tickets()
+    observer_verrou()
     print(f"[BANC] racine {RACINE}")
     print(f"[BANC] verrou : {'libre' if not os.path.isdir(VERROU) else ('tenu par ' + (lire(PROPRIO) or '(vide : appel direct au .bat)'))}")
+    e = elu(t)
     for i, n in enumerate(t):
-        print(f"[BANC] file {i + 1} : {n} {lire(os.path.join(FILE, n))}")
+        print(f"[BANC] file {i + 1} : {n} {lire(os.path.join(FILE, n))}{'  <- servi ensuite' if n == e else ''}")
 
 
 def main(argv):
@@ -245,7 +298,9 @@ def main(argv):
     try:
         while True:
             t = tickets()
-            if t and t[0] == moi and verrou_libre(etat) and prendre_verrou(qui):
+            observer_verrou()
+            if t and elu(t) == moi and verrou_libre(etat) and prendre_verrou(qui):
+                noter_service(qui, os.getpid())
                 break
             if time.time() - t0 > a.attente_max:
                 print(f"[BANC] {qui} : attente de plus de {a.attente_max:.0f} s, abandon (rien n'a tourné)", flush=True)
