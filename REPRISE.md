@@ -10,6 +10,63 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 4 h 30 : IA1-d FUSIONNÉ, `main` = 0.4.32** (`d414f34`, version et changelog `4197173`) : plan directeur et
+> construction par fantômes (`script/team/build.lua`, `shared/team/plan.lua`), NEUTRE tant qu'aucun cerveau ne l'appelle ;
+> 5 terrains `ia1-build-*` 12 OK sur la branche ; F292 à F295, E195 à E197. Bancs sur `main` par la file : ia1-build-plaine
+> 12 OK (4:23:41), content 331 OK (4:29:59), pvp 1305 ; archives `fo-logs\2026-10-27_integration-0.4.32\`. Proposition d'appel pour IA3-e : `fo-logs\2026-10-25_IA1-d\INTEGRATION.md` §6.
+> **IA3-e LANCÉ à 4 h 45** (A4, « ils craftent beaucoup à la main ») : branche `ia3e`, worktree `.claude/worktrees/ia3e`, base
+> `d427633` = tête d'`ia-v2` + `main` 0.4.32 (conflit unique `team.lua` résolu par l'intégrateur : `Build.think` puis
+> `Board.assign`) ; notes `fo-logs\2026-10-27_IA3-e\` ; F319 à F323, E212 à E214 (prochains libres F324, E215). Phase 1 hors
+> jeu (règle pure `shared/ai3/automatiser.lua`, branchement au cerveau), phase 2 par la file. **À la fusion d'IA-V2 : prévenir
+> IA3-e, IA3-d et IA3-k de faire `git merge main`** (essais à blanc : ia-v2 + main = 1 conflit, `team.lua` ; ia-v2 + ia3k =
+> 3 conflits, `worker.lua`, `settings.lua`, `tests/mock_engine.lua`). IA-V2 a été prié de fusionner `main` 0.4.32 AVANT sa
+> série finale. Worktree IA1-d (`agent-a39bad97…`) retiré.
+>
+> **27/10, 4 h : FILE DU BANC À TOUR DE RÔLE, IA3-d LANCÉ.**
+> - `banc.py` (`dc343d5`) sert désormais les lots à tour de rôle (étiquette `--qui`), puis premier arrivé, premier servi dans un
+>   lot. Pourquoi : à 3 h 35, IA1-d a déposé 14 bancs d'un coup, et les bancs du cas du DC d'IA-V2 attendaient derrière (environ
+>   1 h). Contrôle : `tools/autotest/tests/test_banc_file.py` 13 OK. Les lanceurs DÉJÀ en attente gardent l'ancienne règle
+>   (code chargé au départ) ; les trois agents IA ont été priés d'appeler le banc.py de main par son chemin absolu et de garder
+>   au plus 4 bancs en file.
+> - **IA3-d** (A7, « ils ne scalent pas ») : branche `ia3d`, worktree `.claude/worktrees/ia3d`, créée sur la tête d'`ia-v2`
+>   (`0302af1`) ; notes `fo-logs\2026-10-27_IA3-d\` ; F315 à F318, E210, E211 (prochains libres F319, E212). Phase 1 HORS JEU
+>   (diagnostic sur les archives d'IA1-b, règle pure `shared/ai3/effectif.lua`, tests) ; phase 2 par la file, au plus 3
+>   bancs en file. À relancer s'il s'arrête faute de banc.
+> - Worktrees retirés (fusionnés dans `main`) : F3-B (`agent-ad00d688…`) et `agent-aa8c5e5b…` (documents 0.4.30).
+>
+> **27/10, 2 h 40 : F3-B FUSIONNÉ, `main` = 0.4.31** (`91f07a2` : assembleur en jeu, feuilles par
+> `assembleur_e/feuilles.py`, F306 à F308, E204, E205 ; `banc.py` accepte `--visuel "--…"`, F307). Bancs sur `main` par la file :
+> archives `fo-logs\2026-10-27_integration-0.4.31\`. **Design relancé** (même agent, `af602e63c702fb3b4`) : F4-A3 (foreuse,
+> 3e ronde, branche `worktree-agent-a235f8f5537d5ec4f`, cible « visible au zoom 1 », F309-F311, E206-E207, planches dans
+> `fo-logs\2026-10-25_F4\planches_DC_A3\`), puis F5-A (centre, ronde 1, worktree `.claude/worktrees/f5a` branche `f5a`,
+> F312-F314, E208-E209, `fo-logs\2026-10-27_F5\`). **Page de suivi pour le téléphone du DC** :
+> https://claude.ai/artifact/617hK5AkCWh1vu7HCzViU5 (source : `chantier.html` + `img/` dans le scratchpad de la session
+> `bf870ee5` ; à republier à chaque lot fusionné). La liste IA_ATTENDUS compte **22** comportements (A1-A9, B1-B5, C1-C7,
+> D1), pas 24 comme dit au DC à 1 h 50.
+>
+> **27/10, 1 h 45 : REPRISE APRÈS LA COUPURE HEBDOMADAIRE (orchestrateur, session `bf870ee5`, lancée par une macro de nuit ;
+> le DC dort et ne répond pas).**
+> - **Le projet vit sur F:** (`F:\Factorio.v1.1.91 Modding\…`, exFAT, 211 Go libres) : le DC a tout copié le 26/10 vers 21 h 15,
+>   H: étant plein (471 Mo). H: est figée (commit `88f3ca4`, parties du DC du 26/10) : NE RIEN Y ÉCRIRE. Outils repointés vers F:
+>   (`b2237de`), worktrees réparés à la main, `safe.directory` global, verrous orphelins de F: retirés. `content` 331 OK depuis F:.
+> - **File d'attente du banc** (`d80fd8d`) : `tools/autotest/banc.py` pour TOUS les agents (CLAUDE.md §4, interdit 4).
+> - **Demande du DC (26/10, OBJECTIFS §5, 1re ligne)** : « toute la partie cerveau à refaire » (pas d'automatisation, craft à la
+>   main, pas de vraie recherche, trajets prévisibles, aucune réaction à un ennemi vu, ni peur ni agressivité, agents inactifs,
+>   milices inactives, ne « scalent » pas), designs en parallèle. Liste demandée écrite : **`docs/IA_ATTENDUS.md`** (A, B, C, D).
+>   Journal de sa partie (0.4.30, ANCIEN cerveau) : Écarlate a perdu 26 PNJ en 41 min au même endroit (87 à 103 tuiles, « service »).
+> - **AGENTS LANCÉS vers 1 h 40** (chacun : NOTES.md avec POINT DE REPRISE dans son dossier fo-logs ; s'il est coupé, nouvel agent
+>   avec le même brief, en lisant ses NOTES et le dernier commit de sa branche) :
+>   - **IA-V2** : branche `ia-v2` (worktree `.claude/worktrees/ia-v2`), fusion d'IA3-b, IA3-f, IA3-c (IA3-a en repli), allumés par
+>     défaut, cas du DC, série avant/après 4 graines, garde-fous ; `fo-logs\2026-10-27_IA-V2\` ; F296-F299, E198-E199 ; vise 0.5.0 ;
+>   - **IA1-d** : sa branche `worktree-agent-a39bad97bdb746bc4`, centrale refusée à corriger, 5 terrains, garde-fous, proposition
+>     pour IA3-e ; `fo-logs\2026-10-25_IA1-d\` ; F292-F295, E195-E197 ;
+>   - **IA3-k (nouveau)** : branche `ia3k` (worktree `.claude/worktrees/ia3k`), famille C d'IA_ATTENDUS (carte du danger, trajets
+>     variés et qui évitent, réaction à un ennemi vu, mémoire des morts, peur, agressivité, soldats occupés, états visibles) ;
+>     `fo-logs\2026-10-27_IA3-k\` ; F300-F305, E200-E203 ;
+>   - **Design** : F3-B (assembleur : fin de production, feuilles, mémoire vidéo au plancher, bancs, captures ; vise 0.4.31 ;
+>     F306-F308, E204-E205) puis F4-A2 (foreuse enrichie : fin des rendus, planches pour le DC).
+> - ENSUITE (après IA-V2) : IA3-e (automatiser, avec IA1-d), IA3-d (effectif qui grandit : « ils ne scalent pas »), IA3-g, IA3-h.
+>   Designs ensuite : F5 (centre), F6 (mur), X2-suite, A5-suite, F1-C.
 > **20 h 40, F3-B (assembleur en production) arrêté proprement** (branche `worktree-agent-ad00d688396c75623`, dernier commit
 > `b15db4a` ; elle contient `main` 0.4.29 ET la branche du four F2-B, qui se dit 0.4.30 : fusionner F2-B AVANT F3-B) : production
 > 21 variantes sur 29 (le paquet 6 a continué seul ; reprendre par `rendre.py --only` sur les variantes absentes, commande dans

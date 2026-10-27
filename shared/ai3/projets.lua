@@ -576,7 +576,11 @@ function P.supply(E, ctx)
       end
       local fed = kind ~= nil and ((ctx.cap or {})[kind] or 0) > 0
       if fed then prio = math.min(prio, P.APPOINT_PRIO) end
-      local room = fed and 1 or mine_room
+      -- Lot IA-V2 (K3, constat du DC « plein qui foutent rien ») : une matière qui manque alors qu'un avant-poste la produit
+      -- déjà garde son minage d'APPOINT à priorité basse, mais avec autant de mineurs que de PNJ sans tâche (au plus la
+      -- moitié de l'équipe) : moteur réel, ia3c-reduit graine 20261020 (938e08e), seul le fer manquait, tout le reste
+      -- saturé, un seul mineur d'appoint : 24 % de PNJ sans tâche de 30 à 90 min (5 % avant le lot).
+      local room = fed and math.max(1, math.min(mine_room, view.workers_idle or 0)) or mine_room
       -- Lot IA-V2 : une PLAQUE (fondue au QG) qu'aucun avant-poste ne produit est sur le chemin critique de tout projet
       -- qui en a besoin : son minerai et sa fonte passent à la priorité de l'amorçage, devant la pierre et le charbon des
       -- composants (moteur réel, ia3b-fer sur 968dc38 : 1re minute, 2,7 PNJ sur la pierre et le charbon des fours des
@@ -620,11 +624,12 @@ function P.supply(E, ctx)
           if not (ctx.known and ctx.known[item]) then E.explore[item] = math.max(E.explore[item] or 0, prio) end
         else
           local want = math.min(room, math.ceil(r.n / (critical and P.PLATE_PER_MINER or P.MINE_BATCH)))
+          if fed and (view.workers_idle or 0) > 0 then want = room end -- lot IA-V2 : appoint par les PNJ sans tâche
           local busy = (ctx.mines_open and ctx.mines_open[item]) or 0
           local n = 0
           for i = 1, room do
             if n >= want - busy then break end
-            if P.add(E, { key = "ia3:mine:" .. item .. ":" .. i, kind = "mine", prio = prio, resource = item,
+            if P.add(E, { key = "ia3:mine:" .. item .. ":" .. i, kind = "mine", prio = prio, resource = item, prudent = true,
               count = P.MINE_BATCH, radius = radius, ia3 = r.pid, why = item .. ">" .. proj.key }) then n = n + 1 end
           end
         end

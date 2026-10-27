@@ -19,3 +19,5 @@ tools/render/out/
 graphics/levels/gun/*.png
 # Feuilles de jeu du four (lot F2-B, même règle) : tools/render/pieces/levels/four_e/feuilles.py
 graphics/levels/four/*.png
+# Feuilles de jeu de la machine d'assemblage (lot F3-B, même règle) : tools/render/pieces/levels/assembleur_e/feuilles.py
+graphics/levels/assembleur/*.png

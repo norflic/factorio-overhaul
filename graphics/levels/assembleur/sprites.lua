@@ -1,0 +1,1761 @@
+-- FICHIER GÉNÉRÉ par tools/render/pieces/levels/assembleur_e/feuilles.py (lot F3-B) : ne pas modifier à
+-- la main. Tailles en pixels, shift en tuiles ; hr = 64 px par tuile (scale 0,5), normale = 32.
+-- Images hors de git (D-6) : MANIFEST.json, « commande ».
+return {
+  ages = {
+    [1] = {
+      piece = {
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e01-piece-light.png",
+            height = 194,
+            shift = { 0.171875, 0.796875 },
+            width = 274
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e01-piece-light.png",
+            height = 97,
+            shift = { 0.171875, 0.796875 },
+            width = 137
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e01-piece-main.png",
+            height = 58,
+            shift = { 0.0, 1.046875 },
+            width = 208
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e01-piece-main.png",
+            height = 29,
+            shift = { 0.0, 1.046875 },
+            width = 104
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e01-piece-shadow.png",
+            height = 34,
+            shift = { 0.203125, 1.109375 },
+            width = 198
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e01-piece-shadow.png",
+            height = 17,
+            shift = { 0.203125, 1.109375 },
+            width = 99
+          }
+        }
+      }
+    },
+    [2] = {
+      boite = { { -1.78125, -2.3125 }, { 1.78125, 1.6875 } },
+      foyer = { 1.0, 0.13, 0.025 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-machine-glow.png",
+            height = 178,
+            shift = { -0.34375, -0.078125 },
+            width = 144
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-machine-glow.png",
+            height = 89,
+            shift = { -0.34375, -0.078125 },
+            width = 72
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-machine-light.png",
+            height = 152,
+            shift = { -1.25, 1.28125 },
+            width = 164
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-machine-light.png",
+            height = 76,
+            shift = { -1.25, 1.28125 },
+            width = 82
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-machine-main.png",
+            height = 256,
+            shift = { 0.0, -0.3125 },
+            width = 228
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-machine-main.png",
+            height = 128,
+            shift = { 0.0, -0.3125 },
+            width = 114
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-machine-shadow.png",
+            height = 194,
+            shift = { 0.46875, 0.015625 },
+            width = 248
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-machine-shadow.png",
+            height = 97,
+            shift = { 0.46875, 0.015625 },
+            width = 124
+          }
+        }
+      },
+      map_color = { 0.335, 0.275, 0.244 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-piece-glow.png",
+            height = 22,
+            shift = { 0.1875, 0.671875 },
+            width = 136
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-piece-glow.png",
+            height = 11,
+            shift = { 0.1875, 0.671875 },
+            width = 68
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-piece-light.png",
+            height = 266,
+            shift = { 0.078125, 0.546875 },
+            width = 330
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-piece-light.png",
+            height = 133,
+            shift = { 0.078125, 0.546875 },
+            width = 165
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-piece-main.png",
+            height = 68,
+            shift = { -0.140625, 0.90625 },
+            width = 194
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-piece-main.png",
+            height = 34,
+            shift = { -0.140625, 0.90625 },
+            width = 97
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e02-piece-shadow.png",
+            height = 24,
+            shift = { 0.328125, 1.125 },
+            width = 210
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e02-piece-shadow.png",
+            height = 12,
+            shift = { 0.328125, 1.125 },
+            width = 105
+          }
+        }
+      },
+      teinte = { 1.0, 0.826, 0.805 }
+    },
+    [3] = {
+      boite = { { -1.78125, -2.1875 }, { 1.78125, 1.6875 } },
+      foyer = { 1.0, 0.753, 0.376 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-machine-glow.png",
+            height = 222,
+            shift = { -0.140625, -0.421875 },
+            width = 170
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-machine-glow.png",
+            height = 111,
+            shift = { -0.140625, -0.421875 },
+            width = 85
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-machine-light.png",
+            height = 226,
+            shift = { -0.109375, 0.421875 },
+            width = 318
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-machine-light.png",
+            height = 113,
+            shift = { -0.109375, 0.421875 },
+            width = 159
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-machine-main.png",
+            height = 248,
+            shift = { 0.0, -0.25 },
+            width = 228
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-machine-main.png",
+            height = 124,
+            shift = { 0.0, -0.25 },
+            width = 114
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-machine-shadow.png",
+            height = 192,
+            shift = { 0.453125, 0.0 },
+            width = 246
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-machine-shadow.png",
+            height = 96,
+            shift = { 0.453125, 0.0 },
+            width = 123
+          }
+        }
+      },
+      map_color = { 0.3, 0.314, 0.226 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-piece-glow.png",
+            height = 42,
+            shift = { -1.15625, 0.578125 },
+            width = 28
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-piece-glow.png",
+            height = 21,
+            shift = { -1.15625, 0.578125 },
+            width = 14
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-piece-light.png",
+            height = 228,
+            shift = { -0.0625, 0.6875 },
+            width = 304
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-piece-light.png",
+            height = 114,
+            shift = { -0.0625, 0.6875 },
+            width = 152
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-piece-main.png",
+            height = 94,
+            shift = { 0.0, 0.796875 },
+            width = 212
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-piece-main.png",
+            height = 47,
+            shift = { 0.0, 0.796875 },
+            width = 106
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e03-piece-shadow.png",
+            height = 32,
+            shift = { 0.59375, 1.125 },
+            width = 236
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e03-piece-shadow.png",
+            height = 16,
+            shift = { 0.59375, 1.125 },
+            width = 118
+          }
+        }
+      },
+      teinte = { 1.0, 0.9506, 0.8752 }
+    },
+    [4] = {
+      boite = { { -2.28125, -2.875 }, { 2.28125, 2.1875 } },
+      foyer = { 1.0, 0.42, 0.1 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-machine-glow.png",
+            height = 288,
+            shift = { -0.015625, -0.4375 },
+            width = 246
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-machine-glow.png",
+            height = 144,
+            shift = { -0.015625, -0.4375 },
+            width = 123
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-machine-light.png",
+            height = 240,
+            shift = { -0.0625, 1.28125 },
+            width = 280
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-machine-light.png",
+            height = 120,
+            shift = { -0.0625, 1.28125 },
+            width = 140
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-machine-main.png",
+            height = 324,
+            shift = { 0.0, -0.34375 },
+            width = 292
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-machine-main.png",
+            height = 162,
+            shift = { 0.0, -0.34375 },
+            width = 146
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-machine-shadow.png",
+            height = 256,
+            shift = { 1.0, 0.0 },
+            width = 380
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-machine-shadow.png",
+            height = 128,
+            shift = { 1.0, 0.0 },
+            width = 190
+          }
+        }
+      },
+      map_color = { 0.317, 0.293, 0.17 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-piece-glow.png",
+            height = 48,
+            shift = { 0.234375, 1.0625 },
+            width = 190
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-piece-glow.png",
+            height = 24,
+            shift = { 0.234375, 1.0625 },
+            width = 95
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-piece-light.png",
+            height = 282,
+            shift = { 0.125, 0.828125 },
+            width = 376
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-piece-light.png",
+            height = 141,
+            shift = { 0.125, 0.828125 },
+            width = 188
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-piece-main.png",
+            height = 102,
+            shift = { -0.03125, 1.234375 },
+            width = 272
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-piece-main.png",
+            height = 51,
+            shift = { -0.03125, 1.234375 },
+            width = 136
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e04-piece-shadow.png",
+            height = 44,
+            shift = { 0.5625, 1.53125 },
+            width = 296
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e04-piece-shadow.png",
+            height = 22,
+            shift = { 0.5625, 1.53125 },
+            width = 148
+          }
+        }
+      },
+      teinte = { 1.0, 0.884, 0.82 }
+    },
+    [5] = {
+      boite = { { -2.28125, -3.3125 }, { 2.28125, 2.1875 } },
+      foyer = { 1.0, 0.3, 0.02 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e05-machine-glow.png",
+            height = 314,
+            shift = { 0.0, -0.671875 },
+            width = 248
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-machine-glow.png",
+            height = 157,
+            shift = { 0.0, -0.671875 },
+            width = 124
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e05-machine-main.png",
+            height = 352,
+            shift = { 0.0, -0.5625 },
+            width = 292
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-machine-main.png",
+            height = 176,
+            shift = { 0.0, -0.5625 },
+            width = 146
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e05-machine-shadow.png",
+            height = 256,
+            shift = { 0.75, 0.0 },
+            width = 348
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-machine-shadow.png",
+            height = 128,
+            shift = { 0.75, 0.0 },
+            width = 174
+          }
+        }
+      },
+      map_color = { 0.25, 0.218, 0.201 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e05-piece-glow.png",
+            height = 34,
+            shift = { -0.015625, 1.484375 },
+            width = 222
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-piece-glow.png",
+            height = 17,
+            shift = { -0.015625, 1.484375 },
+            width = 111
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e05-piece-light.png",
+            height = 84,
+            shift = { -1.1875, 1.9375 },
+            width = 156
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-piece-light.png",
+            height = 42,
+            shift = { -1.1875, 1.9375 },
+            width = 78
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e05-piece-main.png",
+            height = 60,
+            shift = { 0.046875, 1.5 },
+            width = 266
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-piece-main.png",
+            height = 30,
+            shift = { 0.046875, 1.5 },
+            width = 133
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e05-piece-shadow.png",
+            height = 32,
+            shift = { 0.1875, 1.5625 },
+            width = 260
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e05-piece-shadow.png",
+            height = 16,
+            shift = { 0.1875, 1.5625 },
+            width = 130
+          }
+        }
+      },
+      teinte = { 1.0, 0.86, 0.804 }
+    },
+    [6] = {
+      boite = { { -2.28125, -3.03125 }, { 2.28125, 2.1875 } },
+      foyer = { 0.25, 0.55, 1.0 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-machine-glow.png",
+            height = 310,
+            shift = { -0.046875, -0.609375 },
+            width = 246
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-machine-glow.png",
+            height = 155,
+            shift = { -0.046875, -0.609375 },
+            width = 123
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-machine-light.png",
+            height = 408,
+            shift = { 0.0, 0.0 },
+            width = 404
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-machine-light.png",
+            height = 204,
+            shift = { 0.0, 0.0 },
+            width = 202
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-machine-main.png",
+            height = 334,
+            shift = { 0.0, -0.421875 },
+            width = 292
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-machine-main.png",
+            height = 167,
+            shift = { 0.0, -0.421875 },
+            width = 146
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-machine-shadow.png",
+            height = 256,
+            shift = { 0.75, 0.0 },
+            width = 348
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-machine-shadow.png",
+            height = 128,
+            shift = { 0.75, 0.0 },
+            width = 174
+          }
+        }
+      },
+      map_color = { 0.378, 0.392, 0.429 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-piece-glow.png",
+            height = 38,
+            shift = { 0.1875, 0.984375 },
+            width = 216
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-piece-glow.png",
+            height = 19,
+            shift = { 0.1875, 0.984375 },
+            width = 108
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-piece-light.png",
+            height = 228,
+            shift = { 0.328125, 1.0625 },
+            width = 322
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-piece-light.png",
+            height = 114,
+            shift = { 0.328125, 1.0625 },
+            width = 161
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-piece-main.png",
+            height = 74,
+            shift = { 0.046875, 1.265625 },
+            width = 262
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-piece-main.png",
+            height = 37,
+            shift = { 0.046875, 1.265625 },
+            width = 131
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e06-piece-shadow.png",
+            height = 28,
+            shift = { 0.515625, 1.5 },
+            width = 274
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e06-piece-shadow.png",
+            height = 14,
+            shift = { 0.515625, 1.5 },
+            width = 137
+          }
+        }
+      },
+      teinte = { 0.85, 0.91, 1.0 }
+    },
+    [7] = {
+      boite = { { -2.78125, -3.5625 }, { 2.78125, 2.65625 } },
+      foyer = { 0.69, 0.44, 1.0 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-machine-glow.png",
+            height = 318,
+            shift = { -0.015625, -0.734375 },
+            width = 310
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-machine-glow.png",
+            height = 159,
+            shift = { -0.015625, -0.734375 },
+            width = 155
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-machine-light.png",
+            height = 124,
+            shift = { -0.015625, 2.0625 },
+            width = 442
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-machine-light.png",
+            height = 62,
+            shift = { -0.015625, 2.0625 },
+            width = 221
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-machine-main.png",
+            height = 398,
+            shift = { 0.0, -0.453125 },
+            width = 356
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-machine-main.png",
+            height = 199,
+            shift = { 0.0, -0.453125 },
+            width = 178
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-machine-shadow.png",
+            height = 324,
+            shift = { 0.75, 0.03125 },
+            width = 412
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-machine-shadow.png",
+            height = 162,
+            shift = { 0.75, 0.03125 },
+            width = 206
+          }
+        }
+      },
+      map_color = { 0.36, 0.312, 0.276 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-piece-glow.png",
+            height = 74,
+            shift = { -0.015625, 1.578125 },
+            width = 286
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-piece-glow.png",
+            height = 37,
+            shift = { -0.015625, 1.578125 },
+            width = 143
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-piece-light.png",
+            height = 280,
+            shift = { 0.0, 1.375 },
+            width = 444
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-piece-light.png",
+            height = 140,
+            shift = { 0.0, 1.375 },
+            width = 222
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-piece-main.png",
+            height = 92,
+            shift = { 0.0, 1.71875 },
+            width = 320
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-piece-main.png",
+            height = 46,
+            shift = { 0.0, 1.71875 },
+            width = 160
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e07-piece-shadow.png",
+            height = 40,
+            shift = { 0.46875, 1.96875 },
+            width = 352
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e07-piece-shadow.png",
+            height = 20,
+            shift = { 0.46875, 1.96875 },
+            width = 176
+          }
+        }
+      },
+      teinte = { 0.938, 0.888, 1.0 }
+    },
+    [8] = {
+      boite = { { -2.75, -4.0 }, { 2.75, 2.6875 } },
+      foyer = { 0.6, 1.0, 0.04 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e08-machine-glow.png",
+            height = 366,
+            shift = { -0.03125, -1.078125 },
+            width = 280
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-machine-glow.png",
+            height = 183,
+            shift = { -0.03125, -1.078125 },
+            width = 140
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e08-machine-main.png",
+            height = 428,
+            shift = { 0.0, -0.65625 },
+            width = 352
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-machine-main.png",
+            height = 214,
+            shift = { 0.0, -0.65625 },
+            width = 176
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e08-machine-shadow.png",
+            height = 316,
+            shift = { 0.765625, 0.0 },
+            width = 410
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-machine-shadow.png",
+            height = 158,
+            shift = { 0.765625, 0.0 },
+            width = 205
+          }
+        }
+      },
+      map_color = { 0.339, 0.332, 0.281 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e08-piece-glow.png",
+            height = 46,
+            shift = { -1.9375, 1.859375 },
+            width = 48
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-piece-glow.png",
+            height = 23,
+            shift = { -1.9375, 1.859375 },
+            width = 24
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e08-piece-light.png",
+            height = 234,
+            shift = { -0.734375, 1.421875 },
+            width = 314
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-piece-light.png",
+            height = 117,
+            shift = { -0.734375, 1.421875 },
+            width = 157
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e08-piece-main.png",
+            height = 72,
+            shift = { -0.015625, 1.90625 },
+            width = 330
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-piece-main.png",
+            height = 36,
+            shift = { -0.015625, 1.90625 },
+            width = 165
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e08-piece-shadow.png",
+            height = 44,
+            shift = { 0.1875, 1.96875 },
+            width = 324
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e08-piece-shadow.png",
+            height = 22,
+            shift = { 0.1875, 1.96875 },
+            width = 162
+          }
+        }
+      },
+      teinte = { 0.92, 1.0, 0.808 }
+    },
+    [9] = {
+      boite = { { -2.78125, -4.15625 }, { 2.78125, 2.6875 } },
+      foyer = { 0.361, 1.0, 0.29 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-machine-glow.png",
+            height = 408,
+            shift = { -0.015625, -0.90625 },
+            width = 314
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-machine-glow.png",
+            height = 204,
+            shift = { -0.015625, -0.90625 },
+            width = 157
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-machine-light.png",
+            height = 384,
+            shift = { -0.046875, 0.5 },
+            width = 438
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-machine-light.png",
+            height = 192,
+            shift = { -0.046875, 0.5 },
+            width = 219
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-machine-main.png",
+            height = 438,
+            shift = { 0.0, -0.734375 },
+            width = 356
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-machine-main.png",
+            height = 219,
+            shift = { 0.0, -0.734375 },
+            width = 178
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-machine-shadow.png",
+            height = 324,
+            shift = { 0.625, 0.03125 },
+            width = 396
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-machine-shadow.png",
+            height = 162,
+            shift = { 0.625, 0.03125 },
+            width = 198
+          }
+        }
+      },
+      map_color = { 0.382, 0.39, 0.395 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-piece-glow.png",
+            height = 32,
+            shift = { 0.015625, 1.8125 },
+            width = 262
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-piece-glow.png",
+            height = 16,
+            shift = { 0.015625, 1.8125 },
+            width = 131
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-piece-light.png",
+            height = 66,
+            shift = { 0.0, 2.484375 },
+            width = 348
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-piece-light.png",
+            height = 33,
+            shift = { 0.0, 2.484375 },
+            width = 174
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-piece-main.png",
+            height = 88,
+            shift = { 0.0, 1.65625 },
+            width = 324
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-piece-main.png",
+            height = 44,
+            shift = { 0.0, 1.65625 },
+            width = 162
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e09-piece-shadow.png",
+            height = 44,
+            shift = { 0.46875, 1.875 },
+            width = 332
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e09-piece-shadow.png",
+            height = 22,
+            shift = { 0.46875, 1.875 },
+            width = 166
+          }
+        }
+      },
+      teinte = { 0.8722, 1.0, 0.858 }
+    },
+    [10] = {
+      boite = { { -3.25, -4.28125 }, { 3.25, 3.1875 } },
+      foyer = { 0.09, 0.33, 1.0 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-machine-glow.png",
+            height = 448,
+            shift = { 0.0, -0.6875 },
+            width = 376
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-machine-glow.png",
+            height = 224,
+            shift = { 0.0, -0.6875 },
+            width = 188
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-machine-light.png",
+            height = 146,
+            shift = { 0.0, 2.953125 },
+            width = 372
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-machine-light.png",
+            height = 73,
+            shift = { 0.0, 2.953125 },
+            width = 186
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-machine-main.png",
+            height = 478,
+            shift = { 0.0, -0.546875 },
+            width = 416
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-machine-main.png",
+            height = 239,
+            shift = { 0.0, -0.546875 },
+            width = 208
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-machine-shadow.png",
+            height = 386,
+            shift = { 0.90625, 0.015625 },
+            width = 496
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-machine-shadow.png",
+            height = 193,
+            shift = { 0.90625, 0.015625 },
+            width = 248
+          }
+        }
+      },
+      map_color = { 0.383, 0.366, 0.331 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-piece-glow.png",
+            height = 44,
+            shift = { -0.0625, 1.96875 },
+            width = 180
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-piece-glow.png",
+            height = 22,
+            shift = { -0.0625, 1.96875 },
+            width = 90
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-piece-light.png",
+            height = 110,
+            shift = { -0.046875, 2.828125 },
+            width = 354
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-piece-light.png",
+            height = 55,
+            shift = { -0.046875, 2.828125 },
+            width = 177
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-piece-main.png",
+            height = 96,
+            shift = { 0.0, 1.84375 },
+            width = 232
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-piece-main.png",
+            height = 48,
+            shift = { 0.0, 1.84375 },
+            width = 116
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e10-piece-shadow.png",
+            height = 38,
+            shift = { 0.5, 2.109375 },
+            width = 256
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e10-piece-shadow.png",
+            height = 19,
+            shift = { 0.5, 2.109375 },
+            width = 128
+          }
+        }
+      },
+      teinte = { 0.818, 0.866, 1.0 }
+    },
+    [11] = {
+      boite = { { -3.28125, -4.125 }, { 3.28125, 3.1875 } },
+      foyer = { 0.749, 0.902, 1.0 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-machine-glow.png",
+            height = 440,
+            shift = { 0.0, -0.625 },
+            width = 380
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-machine-glow.png",
+            height = 220,
+            shift = { 0.0, -0.625 },
+            width = 190
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-machine-light.png",
+            height = 392,
+            shift = { 0.0, 1.03125 },
+            width = 476
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-machine-light.png",
+            height = 196,
+            shift = { 0.0, 1.03125 },
+            width = 238
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-machine-main.png",
+            height = 468,
+            shift = { 0.0, -0.46875 },
+            width = 420
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-machine-main.png",
+            height = 234,
+            shift = { 0.0, -0.46875 },
+            width = 210
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-machine-shadow.png",
+            height = 384,
+            shift = { 1.453125, 0.0 },
+            width = 566
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-machine-shadow.png",
+            height = 192,
+            shift = { 1.453125, 0.0 },
+            width = 283
+          }
+        }
+      },
+      map_color = { 0.296, 0.357, 0.457 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-piece-glow.png",
+            height = 14,
+            shift = { 0.0, 0.671875 },
+            width = 304
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-piece-glow.png",
+            height = 7,
+            shift = { 0.0, 0.671875 },
+            width = 152
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-piece-light.png",
+            height = 340,
+            shift = { 0.0, 1.40625 },
+            width = 516
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-piece-light.png",
+            height = 170,
+            shift = { 0.0, 1.40625 },
+            width = 258
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-piece-main.png",
+            height = 134,
+            shift = { 0.0, 1.609375 },
+            width = 384
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-piece-main.png",
+            height = 67,
+            shift = { 0.0, 1.609375 },
+            width = 192
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e11-piece-shadow.png",
+            height = 50,
+            shift = { 0.734375, 2.234375 },
+            width = 422
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e11-piece-shadow.png",
+            height = 25,
+            shift = { 0.734375, 2.234375 },
+            width = 211
+          }
+        }
+      },
+      teinte = { 0.9498, 0.9804, 1.0 }
+    },
+    [12] = {
+      boite = { { -3.25, -4.6875 }, { 3.25, 3.15625 } },
+      foyer = { 0.29, 0.94, 1.0 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e12-machine-glow.png",
+            height = 470,
+            shift = { 0.0, -0.921875 },
+            width = 376
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-machine-glow.png",
+            height = 235,
+            shift = { 0.0, -0.921875 },
+            width = 188
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e12-machine-main.png",
+            height = 502,
+            shift = { 0.0, -0.765625 },
+            width = 416
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-machine-main.png",
+            height = 251,
+            shift = { 0.0, -0.765625 },
+            width = 208
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e12-machine-shadow.png",
+            height = 380,
+            shift = { 0.859375, 0.0 },
+            width = 486
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-machine-shadow.png",
+            height = 190,
+            shift = { 0.859375, 0.0 },
+            width = 243
+          }
+        }
+      },
+      map_color = { 0.333, 0.373, 0.384 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e12-piece-glow.png",
+            height = 58,
+            shift = { 0.0, 2.265625 },
+            width = 348
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-piece-glow.png",
+            height = 29,
+            shift = { 0.0, 2.265625 },
+            width = 174
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e12-piece-light.png",
+            height = 162,
+            shift = { 0.0, 2.578125 },
+            width = 436
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-piece-light.png",
+            height = 81,
+            shift = { 0.0, 2.578125 },
+            width = 218
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e12-piece-main.png",
+            height = 78,
+            shift = { 0.0, 2.265625 },
+            width = 380
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-piece-main.png",
+            height = 39,
+            shift = { 0.0, 2.265625 },
+            width = 190
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e12-piece-shadow.png",
+            height = 54,
+            shift = { 0.328125, 2.359375 },
+            width = 386
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e12-piece-shadow.png",
+            height = 27,
+            shift = { 0.328125, 2.359375 },
+            width = 193
+          }
+        }
+      },
+      teinte = { 0.858, 0.988, 1.0 }
+    },
+    [13] = {
+      boite = { { -3.25, -4.09375 }, { 3.28125, 3.1875 } },
+      foyer = { 0.561, 0.294, 1.0 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-machine-glow.png",
+            height = 432,
+            shift = { 0.0, -0.625 },
+            width = 376
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-machine-glow.png",
+            height = 216,
+            shift = { 0.0, -0.625 },
+            width = 188
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-machine-light.png",
+            height = 538,
+            shift = { -0.015625, 0.015625 },
+            width = 334
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-machine-light.png",
+            height = 269,
+            shift = { -0.015625, 0.015625 },
+            width = 167
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-machine-main.png",
+            height = 466,
+            shift = { 0.015625, -0.453125 },
+            width = 418
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-machine-main.png",
+            height = 233,
+            shift = { 0.015625, -0.453125 },
+            width = 209
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-machine-shadow.png",
+            height = 384,
+            shift = { 0.734375, 0.0 },
+            width = 474
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-machine-shadow.png",
+            height = 192,
+            shift = { 0.734375, 0.0 },
+            width = 237
+          }
+        }
+      },
+      map_color = { 0.279, 0.236, 0.247 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-piece-glow.png",
+            height = 20,
+            shift = { -0.109375, 2.15625 },
+            width = 318
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-piece-glow.png",
+            height = 10,
+            shift = { -0.109375, 2.15625 },
+            width = 159
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-piece-light.png",
+            height = 136,
+            shift = { -0.03125, 2.65625 },
+            width = 416
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-piece-light.png",
+            height = 68,
+            shift = { -0.03125, 2.65625 },
+            width = 208
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-piece-main.png",
+            height = 76,
+            shift = { 0.0, 2.125 },
+            width = 384
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-piece-main.png",
+            height = 38,
+            shift = { 0.0, 2.125 },
+            width = 192
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e13-piece-shadow.png",
+            height = 40,
+            shift = { 0.453125, 2.28125 },
+            width = 390
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e13-piece-shadow.png",
+            height = 20,
+            shift = { 0.453125, 2.28125 },
+            width = 195
+          }
+        }
+      },
+      teinte = { 0.9122, 0.8588, 1.0 }
+    },
+    [14] = {
+      boite = { { -3.25, -4.78125 }, { 3.25, 3.1875 } },
+      foyer = { 0.957, 0.965, 1.0 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-machine-glow.png",
+            height = 430,
+            shift = { 0.078125, -1.421875 },
+            width = 366
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-machine-glow.png",
+            height = 215,
+            shift = { 0.078125, -1.421875 },
+            width = 183
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-machine-light.png",
+            height = 286,
+            shift = { 0.0, 1.671875 },
+            width = 532
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-machine-light.png",
+            height = 143,
+            shift = { 0.0, 1.671875 },
+            width = 266
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-machine-main.png",
+            height = 510,
+            shift = { 0.0, -0.796875 },
+            width = 416
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-machine-main.png",
+            height = 255,
+            shift = { 0.0, -0.796875 },
+            width = 208
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-machine-shadow.png",
+            height = 388,
+            shift = { 1.0625, 0.03125 },
+            width = 516
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-machine-shadow.png",
+            height = 194,
+            shift = { 1.0625, 0.03125 },
+            width = 258
+          }
+        }
+      },
+      map_color = { 0.243, 0.252, 0.348 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-piece-glow.png",
+            height = 98,
+            shift = { 0.0625, 1.828125 },
+            width = 316
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-piece-glow.png",
+            height = 49,
+            shift = { 0.0625, 1.828125 },
+            width = 158
+          }
+        },
+        light = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-piece-light.png",
+            height = 92,
+            shift = { -0.03125, 2.90625 },
+            width = 392
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-piece-light.png",
+            height = 46,
+            shift = { -0.03125, 2.90625 },
+            width = 196
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-piece-main.png",
+            height = 116,
+            shift = { 0.0, 1.96875 },
+            width = 368
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-piece-main.png",
+            height = 58,
+            shift = { 0.0, 1.96875 },
+            width = 184
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e14-piece-shadow.png",
+            height = 40,
+            shift = { 0.640625, 2.40625 },
+            width = 410
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e14-piece-shadow.png",
+            height = 20,
+            shift = { 0.640625, 2.40625 },
+            width = 205
+          }
+        }
+      },
+      teinte = { 0.88, 0.92, 1.0 }
+    },
+    [15] = {
+      boite = { { -3.28125, -4.125 }, { 3.28125, 3.1875 } },
+      foyer = { 1.0, 0.902, 0.659 },
+      icone = {
+        filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e15-icone.png",
+        icon_mipmaps = 4,
+        icon_size = 64
+      },
+      machine = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e15-machine-glow.png",
+            height = 444,
+            shift = { 0.0, -0.59375 },
+            width = 380
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e15-machine-glow.png",
+            height = 222,
+            shift = { 0.0, -0.59375 },
+            width = 190
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e15-machine-main.png",
+            height = 468,
+            shift = { 0.0, -0.46875 },
+            width = 420
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e15-machine-main.png",
+            height = 234,
+            shift = { 0.0, -0.46875 },
+            width = 210
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e15-machine-shadow.png",
+            height = 384,
+            shift = { 1.265625, 0.0 },
+            width = 542
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e15-machine-shadow.png",
+            height = 192,
+            shift = { 1.265625, 0.0 },
+            width = 271
+          }
+        }
+      },
+      map_color = { 0.155, 0.139, 0.12 },
+      piece = {
+        glow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e15-piece-glow.png",
+            height = 98,
+            shift = { 0.015625, 1.640625 },
+            width = 354
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e15-piece-glow.png",
+            height = 49,
+            shift = { 0.015625, 1.640625 },
+            width = 177
+          }
+        },
+        main = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e15-piece-main.png",
+            height = 126,
+            shift = { 0.0, 1.859375 },
+            width = 384
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e15-piece-main.png",
+            height = 63,
+            shift = { 0.0, 1.859375 },
+            width = 192
+          }
+        },
+        shadow = {
+          hr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/hr-asm-e15-piece-shadow.png",
+            height = 60,
+            shift = { 0.703125, 2.21875 },
+            width = 422
+          },
+          lr = {
+            filename = "__factorio-overhaul__/graphics/levels/assembleur/asm-e15-piece-shadow.png",
+            height = 30,
+            shift = { 0.703125, 2.21875 },
+            width = 211
+          }
+        }
+      },
+      teinte = { 1.0, 0.9804, 0.9318 }
+    }
+  }
+}
