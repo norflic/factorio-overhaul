@@ -284,13 +284,14 @@ local function choose_tech(f, force, st, c, book, w, tick)
   -- le livre COMPLET (règle H8 : une chaîne qui touche une matière sans source n'est pas suivie).
   local chain = {}
   local auto_chain = {} -- lot IA3-e : technologies de la chaîne d'un objet voulu par l'automatisation
+  local pack_near = {}  -- lot IA3-e : technologies d'une chaîne COURTE (3 au plus) vers un pack nouveau (palier suivant)
   for _, name in ipairs(c.names) do
     local spec = c.techs[name]
     if spec and not done[name] then
-      local opens, for_auto = false, false
+      local opens, for_auto, for_pack = false, false, false
       for _, r in ipairs(spec.unlocks) do
         for _, p in ipairs(c.products[r] or {}) do
-          if c.packs[p] then opens = true end
+          if c.packs[p] then opens, for_pack = true, true end
           if wanted and wanted[p] then opens, for_auto = true, true end
         end
       end
@@ -316,6 +317,7 @@ local function choose_tech(f, force, st, c, book, w, tick)
           local share = math.floor(100 / #list)
           for _, n in ipairs(list) do chain[n] = math.max(chain[n] or 0, share) end
           if for_auto then for _, n in ipairs(list) do auto_chain[n] = true end end
+          if for_pack and #list <= 3 then for _, n in ipairs(list) do pack_near[n] = true end end
         end
       end
     end
@@ -344,7 +346,9 @@ local function choose_tech(f, force, st, c, book, w, tick)
           for _, r in ipairs(spec.unlocks) do
             for _, p in ipairs(c.products[r] or {}) do if c.packs[p] then opens_pack = true end end
           end
-          if opens_pack and (not pack_cost or cost < pack_cost) then pack_best, pack_cost = name, cost end
+          -- critère K1 (moteur réel, e10-usine graine 271828182 : militaire à 22,9 min contre 11,9 au témoin main 0.5.0,
+          -- palier 3 à 57-58 min contre 18,7-18,8) : la chaîne COURTE d'un pack nouveau passe aussi devant
+          if (opens_pack or pack_near[name]) and (not pack_cost or cost < pack_cost) then pack_best, pack_cost = name, cost end
         else
           for _, k in ipairs(causes) do blocked_causes[k] = true end
         end
