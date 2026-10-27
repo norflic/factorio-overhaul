@@ -503,14 +503,29 @@ local function plan_power(f, p, mp, masks)
     -- Lot IA3-e : un carrefour BÂTI d'abord (réseau qui existe) ; un carrefour d'un projet encore en réserve disparaît
     -- si ce projet est annulé, et le module qui s'y reliait reste une île sans courant (moteur réel, e7-usine, amber :
     -- rangée de grenades reliée au réseau prévu d'un module annulé, réseau à elle seule, « no_power »).
-    local best, bestd, bbest, bbestd
+    -- Le réseau RÉEL : un carrefour bâti dont le poteau est sur le réseau des machines à vapeur (moteur réel, e7-usine
+    -- graine 20261020, scarlet : la rangée de pierre reliée à la route d'un module annulé, puis la fonderie et les
+    -- chargeurs reliés à elle : trois modules sur une île, centrale à 0 kW). À défaut, les carrefours de la centrale, puis
+    -- n'importe lequel.
+    local gen_net = nil
+    if surface then
+      local g = surface.find_entities_filtered({ force = f.force, type = "generator", limit = 1 })[1]
+      gen_net = g and g.electric_network_id or nil
+    end
+    local function live(n)
+      if not (n.built and gen_net and surface and n.x) then return false end
+      local e = surface.find_entities_filtered({ position = { n.x, n.y }, radius = 0.75, force = f.force, type = "electric-pole", limit = 1 })[1]
+      return e ~= nil and e.electric_network_id == gen_net
+    end
+    local best, bestd, lbest, lbestd, pbest, pbestd
     for _, k in ipairs(keys) do
       local n = b.net[k]
       local d = math.abs(n.i - mi) + math.abs(n.j - mj)
       if not bestd or d < bestd then best, bestd = n, d end
-      if n.built and (not bbestd or d < bbestd) then bbest, bbestd = n, d end
+      if b.plant and n.pid == b.plant and (not pbestd or d < pbestd) then pbest, pbestd = n, d end
+      if (not lbestd or d < lbestd) and live(n) then lbest, lbestd = n, d end
     end
-    target = bbest or best
+    target = lbest or pbest or best
   end
   -- route : rues praticables, à défaut par-dessus une rue fermée par une falaise (les fils passent ; correction du
   -- 27/10, banc ia1-build-reseau) ; un carrefour sans place pour son poteau est évité (3 essais)
