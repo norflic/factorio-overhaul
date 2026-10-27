@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.32
+Date: 2026-10-27
+  Changes:
+    - Plan directeur des équipes de PNJ (lot IA1-d ; pas encore utilisé par le cerveau des factions ni par votre équipe :
+      il le sera par le lot IA3-e) : autour du QG, des lots de 24 × 24 et des rues de 4 sont évalués (libre, à
+      défricher, gisement, rive, refusé : eau, falaise, nid, force rivale) ; un module demandé (centrale à vapeur,
+      fonderie, foreuses, rangée d'assembleurs) est placé sur le meilleur lot, tourné au besoin, alimenté par tapis depuis
+      des foreuses ou par un quai, raccordé au réseau électrique de l'équipe par de grands poteaux aux carrefours.
+    - Les PNJ savent construire comme un joueur : fantômes posés d'avance, objets réservés au coffre, défrichage des
+      arbres et rochers (en forêt dense, un PNJ arrêté se taille un passage), ravivage à 16 tuiles au plus de leur point
+      d'appui, marche par les rues ; un fantôme gêné par un PNJ est repris plus tard, un chantier bloqué reprend 2 min après.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.31
 Date: 2026-10-27
   Graphics:
