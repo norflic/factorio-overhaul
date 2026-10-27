@@ -587,6 +587,44 @@ local function deposit_toward(b, res)
   return c and lot_center(b, c.l) or nil
 end
 
+--- Lot IA3-e : un bras ÉLECTRIQUE de quai (tête d'alimentation, quai de sortie) hors de l'aire des poteaux du module ne
+--- reçoit pas de courant (moteur réel, e5-usine, diagnostic : « inserter:no_power » aux quais, fours « no_fuel » faute du
+--- bras du charbon) : un poteau moyen est ajouté sur une tuile libre voisine (le moteur le relie seul aux poteaux à portée).
+local QUAI_ROLES = { ["quai-bras"] = true, ["sortie-bras"] = true }
+local function covered_by(poles, e)
+  for _, q in ipairs(poles) do
+    local sup = (q.name == "big-electric-pole") and 2 or ((q.name == "small-electric-pole") and 2.5 or 3.5)
+    if math.abs(q.x - e.x) <= sup + 0.5 and math.abs(q.y - e.y) <= sup + 0.5 then return true end
+  end
+  return false
+end
+local function quai_poles(b, p, list, masks)
+  local poles = {}
+  for _, e in ipairs(p.ents) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
+  for _, e in ipairs(list) do if e.name:find("electric%-pole") then poles[#poles + 1] = e end end
+  local planned = {}
+  for _, e in ipairs(p.ents) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
+  for _, e in ipairs(list) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
+  local extra = {}
+  for _, e in ipairs(list) do
+    if QUAI_ROLES[e.role] and e.name ~= "burner-inserter" and not covered_by(poles, e) then
+      local tx0, ty0 = math.floor(e.x), math.floor(e.y)
+      for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 }, { 2, 0 }, { -2, 0 }, { 0, 2 }, { 0, -2 } }) do
+        local tx, ty = tx0 + d[1], ty0 + d[2]
+        local k = P.tkey(tx, ty)
+        if not planned[k] and not b.occ[k] and (not masks or masks.free(tx, ty)) then
+          local pole = { name = "medium-electric-pole", x = tx + 0.5, y = ty + 0.5, dir = 0, role = "quai-poteau", part = e.part }
+          extra[#extra + 1] = pole
+          poles[#poles + 1] = pole
+          planned[k] = true
+          break
+        end
+      end
+    end
+  end
+  return extra
+end
+
 --- Têtes d'alimentation et quais d'un module posé ; foreuses de ravitaillement et tapis. Rend true ou false, raison.
 local function plan_feed(f, surface, p, place, part)
   local b = f.build
@@ -616,6 +654,10 @@ local function plan_feed(f, surface, p, place, part)
       local fd = P.feeder(port, sources, quai_ins)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
+      if quai_ins ~= "burner-inserter" then
+        local qp = quai_poles(b, p, fd.entities, place.masks)
+        if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
+      end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
       for _, a in ipairs(fd.arrivals) do
         local d = drills[a.lane]
@@ -643,6 +685,8 @@ local function plan_feed(f, surface, p, place, part)
       local q = P.out_quai(port, ins)
       for _, e in ipairs(q) do e.part = part end
       if not reserve_tiles(b, p, q) then return false, "quai de sortie" end
+      local qp = quai_poles(b, p, q, place.masks)
+      if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       p.outs[#p.outs + 1] = { x = q[2].x, y = q[2].y }
     end
   end

@@ -113,8 +113,13 @@ end
 
 local function diagnose(ctx, row, m)
   local s = ctx.surface()
-  local by, chests = {}, {}
+  local by, chests, nets = {}, {}, {}
   for _, pt in ipairs(m.parts or {}) do
+    local area0 = { { pt.x - 3, pt.y - 3 }, { pt.x + pt.w + 3, pt.y + pt.h + 3 } }
+    for _, e in ipairs(s.find_entities_filtered({ area = area0, force = row.force, type = "electric-pole" })) do
+      local id = tostring(e.electric_network_id)
+      nets[id] = (nets[id] or 0) + 1
+    end
     local area = { { pt.x - 3, pt.y - 3 }, { pt.x + pt.w + 3, pt.y + pt.h + 3 } }
     for _, e in ipairs(s.find_entities_filtered({ area = area, force = row.force,
       type = { "furnace", "assembling-machine", "mining-drill", "inserter", "container" } })) do
@@ -129,7 +134,8 @@ local function diagnose(ctx, row, m)
       end
     end
   end
-  ctx.log(string.format("DIAG %s %s#%d : %s | coffres %s", row.key, m.product, m.id, kv(by), table.concat(chests, " ")))
+  ctx.log(string.format("DIAG %s %s#%d : %s | coffres %s | reseaux des poteaux {%s}", row.key, m.product, m.id, kv(by),
+    table.concat(chests, " "), kv(nets)))
 end
 
 --- Images (session avec images seulement : un joueur connecté) : vue d'ensemble de la base d'une faction et gros plan
@@ -242,7 +248,10 @@ return function(variant)
           for _, e in ipairs(sf.find_entities_filtered({ force = row.force, type = { "boiler", "generator", "offshore-pump" } })) do
             local k = e.type .. ":" .. status_name(e.status)
             by[k] = (by[k] or 0) + 1
-            if e.type == "generator" then kw = kw + e.energy_generated_last_tick * 60 / 1000 end
+            if e.type == "generator" then
+              kw = kw + e.energy_generated_last_tick * 60 / 1000
+              by["reseau:" .. tostring(e.electric_network_id)] = (by["reseau:" .. tostring(e.electric_network_id)] or 0) + 1
+            end
           end
           if next(by) then ctx.log(string.format("DIAG %s centrale : %s | %.0f kW", row.key, kv(by), kw)) end
         end
