@@ -261,6 +261,12 @@ function C.trips(opts)
                 if not tr.min[i] or dd < tr.min[i] then tr.min[i] = dd end
                 if dd - m.r <= 30 then tr.met = true end
               end
+              -- ZONE FIXE (critère d'IA_ATTENDUS C2) : disque de portée autour de la position de DÉPART de l'ennemi. Entrer
+              -- dedans, c'est le PNJ qui y va (un déchiqueteur qui charge ne déplace pas la zone).
+              local ds = math.sqrt(d2(p, m))
+              tr.smin = tr.smin or {}
+              if not tr.smin[i] or ds < tr.smin[i] then tr.smin[i] = ds end
+              if ds < m.r and not tr.first_in then tr.first_in = t end
             end
             if a.label_t and a.label_t ~= tr.last_lt then
               tr.last_lt = a.label_t
@@ -313,18 +319,28 @@ function C.trips(opts)
           end
           tr.entered = entered
           tr.worst = worst
+          -- Critère C2 : zone fixe jamais entrée, ou première réaction (arrêt, détour, demi-tour) AVANT d'y entrer et hors de
+          -- portée ; « traverse » : entrée dans la zone APRÈS avoir réagi (zone vue occupée).
+          local zone_in = tr.first_in ~= nil
+          local r1 = tr.reacts[1]
+          tr.react_before = r1 ~= nil and r1.margin > 0 and (not tr.first_in or r1.t < tr.first_in)
+          tr.c2 = (not zone_in) or tr.react_before
+          tr.cross = zone_in and r1 ~= nil and r1.t < tr.first_in
+          local zmin = 1e9
+          for i, m in ipairs(tr.cluster or {}) do zmin = math.min(zmin, ((tr.smin or {})[i] or 1e9) - m.r) end
           local L = 0
           for i = 2, #tr.out do L = L + math.sqrt(d2(tr.out[i - 1], tr.out[i])) end
           tr.len = L
           tr.direct = math.sqrt(d2(tr.start, tr.goal))
           local rl = {}
           for _, x in ipairs(tr.reacts) do rl[#rl + 1] = string.format("%s@%d(%+.0f)", x.l, x.t, x.margin) end
-          ctx.log(string.format("manche %d couloir %d PNJ %d %s : %s, marge min %+.1f, aller %.0f / %.0f tuiles%s, reactions %s",
+          ctx.log(string.format("manche %d couloir %d PNJ %d %s : %s, marge min %+.1f (zone fixe %+.1f, %s), aller %.0f / %.0f tuiles%s, reactions %s",
             r, tr.k, tr.id, tr.cluster and (CLUSTERS[tr.kind].name .. (tr.met and "" or " (jamais rencontres)")) or "-", tr.cluster and (entered and "ENTRE a portee" or "jamais a portee") or "sans ennemi",
-            worst < 1e8 and worst or 0, L, tr.direct, tr.outdone and "" or " (but non atteint)", #rl > 0 and table.concat(rl, " ") or "aucune"))
+            worst < 1e8 and worst or 0, zmin < 1e8 and zmin or 0, tr.c2 and "C2 tenu" or "C2 MANQUE", L, tr.direct,
+            tr.outdone and "" or " (but non atteint)", #rl > 0 and table.concat(rl, " ") or "aucune"))
           if tr.cluster then destroy_cluster(s, tr.cluster) end
           st.trips[#st.trips + 1] = { r = r, k = tr.k, id = tr.id, entered = tr.entered, dead = tr.dead, reacts = #tr.reacts,
-            enemies = tr.cluster ~= nil, met = tr.met or false, outdone = tr.outdone, len = tr.len, direct = tr.direct, out = tr.out,
+            enemies = tr.cluster ~= nil, met = tr.met or false, c2 = tr.c2, cross = tr.cross, outdone = tr.outdone, len = tr.len, direct = tr.direct, out = tr.out,
             start = tr.start, goal = tr.goal, kind = tr.kind }
         end
         st.cur = nil
@@ -342,26 +358,29 @@ function C.trips(opts)
           stv.stats.deaths, (function() local n = 0 for _, v in pairs(stv.stats.labels) do n = n + v end return n end)()))
       end
       -- Tournées qui ont RENCONTRÉ des ennemis à leur poste (à moins de leur portée + 30 tuiles) : celles du critère.
-      local n, ok, dead, reacted, posed = 0, 0, 0, 0, 0
+      local n, ok, dead, reacted, posed, c2, cross = 0, 0, 0, 0, 0, 0, 0
       for _, tr in ipairs(st.trips) do
         if tr.enemies then posed = posed + 1 end
         if tr.enemies and tr.met then
           n = n + 1
           if not tr.entered then ok = ok + 1 end
+          if tr.c2 then c2 = c2 + 1 end
+          if tr.cross then cross = cross + 1 end
           if tr.dead then dead = dead + 1 end
           if tr.reacts > 0 then reacted = reacted + 1 end
         end
       end
       if mode == "route" then
         local pct = n > 0 and math.floor(100 * ok / n + 0.5) or 0
-        ctx.log(string.format("FAIT %d tournees avec ennemis poses, %d les ont rencontres : %d jamais a portee (%d %%), %d avec reaction visible, %d PNJ tues",
-          posed, n, ok, pct, reacted, dead))
+        ctx.log(string.format("FAIT %d tournees avec ennemis poses, %d les ont rencontres : C2 (arret ou detour avant la zone de portee) %d, entrees dans une zone vue occupee %d ; jamais a portee des ennemis a leur poste (plus strict) %d (%d %%), %d avec reaction visible, %d PNJ tues",
+          posed, n, c2, cross, ok, pct, reacted, dead))
         ctx.check(n >= 16, "au moins 16 tournees ont rencontre des ennemis poses sur leur route", n)
         if opts.temoin then
-          ctx.check(true, string.format("temoin (sans le lot) : %d %% jamais a portee, %d tues (mesure)", pct, dead))
+          ctx.check(true, string.format("temoin (sans le lot) : C2 %d / %d, jamais a portee %d %%, %d tues (mesure)", c2, n, pct, dead))
         else
-          ctx.check(n > 0 and ok * 10 >= n * 9, "C2 : >= 90 % des PNJ changent de route ou s'arretent avant d'entrer a portee",
-            string.format("%d / %d", ok, n))
+          ctx.check(n > 0 and c2 * 10 >= n * 9, "C2 : >= 90 % des PNJ changent de route ou s'arretent avant d'entrer a portee",
+            string.format("%d / %d", c2, n))
+          ctx.check(cross == 0, "C2 : aucun PNJ n'entre dans une zone vue occupee", cross)
           ctx.check(reacted * 10 >= n * 9, "C2 : une reaction visible (alerte, detour, demi-tour) dans >= 90 % des tournees qui les rencontrent",
             string.format("%d / %d", reacted, n))
           local keys = {}
