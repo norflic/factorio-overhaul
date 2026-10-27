@@ -32,6 +32,7 @@ local Locomotion = require("script.companion.locomotion")
 local Worker = {}
 
 Worker.DANGER_RADIUS = 40 -- lot IA1-b : rayon « nid ou ver » qui écarte un minage ou une garde de fond
+Worker.SAFE_HOME = 24     -- lot IA-V2 : une perte à moins de 24 tuiles du QG ne rappelle personne (le QG est défendu)
 -- Lot IA3-k : crochets des comportements visibles (script/ai3/comportement.lua, qui s'y branche) : sense (regard, peur,
 -- réaction), leg (point de passage), gate (porte d'une tâche), nav_failed (point de passage injoignable). nil : rien.
 Worker.hook = nil
@@ -361,7 +362,10 @@ function Worker.program(f, task, surface, tick)
         busy = 1
       end
       -- Lot IA1-b2 : prudence par zone (votre équipe) : pas de minage de fond près d'une perte récente.
-      if busy == 0 and task.fond and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
+      -- Lot IA-V2 : les minages du cerveau par besoins aussi (task.prudent) : moteur réel, ia1b2-guide graine 1618033988,
+      -- 7e3e4ad : 8 PNJ tués en minage à la main à 51-57 tuiles du QG en 40 min (0.4.30 : 1), recrues de survie payées
+      -- en fer, fer à 0 à 40 min, munitions épuisées, coffre perdu à 45 min.
+      if busy == 0 and (task.fond or task.prudent) and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       if busy == 0 then best = r break end
     end
     -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
@@ -929,6 +933,22 @@ Registry.on_removed(function(agent)
     if not oid and t and type(t.group) == "string" and t.group:sub(1, 1) == "o" then oid = tonumber(t.group:sub(2)) end
     local o = oid and f.outposts and f.outposts[oid]
     if o then o.lethal_tick = game.tick end
+    -- Lot IA-V2 (même banc : PNJ tués par vagues, 4 à 6 au même endroit en moins d'une minute, chacun pendant que les
+    -- autres continuaient à miner) : votre équipe, PNJ tué loin du QG : les autres PNJ au travail à moins de
+    -- Poles.LOSS_RADIUS tuiles du lieu de la perte rentrent au QG (tâche abandonnée, « danger »), sauf la défense.
+    if f.is_player and p and f.hq_pos and dist2(p, f.hq_pos) > Worker.SAFE_HOME * Worker.SAFE_HOME then
+      local r2 = Poles.LOSS_RADIUS * Poles.LOSS_RADIUS
+      for _, id in ipairs(State.sorted_keys(f.engineers)) do
+        local a = Registry.get(id)
+        local at = a and a.task
+        local e = a and a.entity
+        if at and e and e.valid and at.kind ~= "garrison" and at.kind ~= "fortify" and not at.defend
+          and not at.fail and dist2(e.position, p) <= r2 then
+          abort(a, f, game.tick, "danger")
+          f.stats.danger_recalls = (f.stats.danger_recalls or 0) + 1
+        end
+      end
+    end
     -- Constructeur de votre équipe tué : les sites connus à moins de 64 tuiles du lieu de la mort sont écartés (les vers
     -- n'existent qu'une fois leur chunk généré, à l'approche : la vérification du site avant le départ ne les voit pas ;
     -- essai 10, graine 314159265 : 4 constructeurs tués au même endroit).
