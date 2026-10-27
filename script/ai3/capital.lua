@@ -29,11 +29,14 @@ local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
+local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
 
 local Capital = {}
 
--- Aucun réglage de carte (settings.lua est un fichier de l'intégrateur) : allumé pour toute faction au cerveau par
--- besoins ; Capital.ENABLED = false (interface « fo-capital », bancs témoins) l'éteint.
+-- Réglage de carte fo-war-capital (settings/capital.lua), ÉTEINT par défaut (correction après revue, 27/10 : la recherche
+-- des factions est retardée quand il est allumé, D1 ouvert) ; relu à chaque pensée. Capital.ENABLED = false et l'interface
+-- « fo-capital » set_enabled(false) (bancs témoins, rangé dans l'état de la guerre) l'éteignent aussi, même réglage allumé.
+Capital.SETTING = "fo-war-capital"
 Capital.ENABLED = true
 Capital.SCAN_EVERY = 12   -- pensées (1 min à une pensée toutes les 5 s)
 Capital.RADIUS = 64       -- tuiles autour du QG : la base (les tourelles des avant-postes sont suivies à part)
@@ -60,7 +63,9 @@ end
 
 function Capital.on()
   local war = State.war()
-  return Capital.ENABLED == true and Levels ~= nil and not (war and war.capital_off)
+  if not (Capital.ENABLED == true and Levels ~= nil and not (war and war.capital_off)) then return false end
+  local s = settings.global[Capital.SETTING]
+  return s ~= nil and s.value == true
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -170,7 +175,15 @@ end
 
 --- But « amélioration » de la pensée (nil : aucun, ou éteint). w = poids des familles (B.weights).
 function Capital.goal(f, view, book, tick, w)
-  if f.is_player or not Capital.on() or not (f.hq and f.hq.valid) then return nil end
+  if f.is_player then return nil end
+  if not Capital.on() then
+    -- Éteint en cours de partie : la décision en cours et ses objets (voulus, dépliage) sont oubliés ; relevé et compteurs
+    -- gardés (interface fo-capital).
+    local c = f.team and f.team.capital
+    if c then c.current, c.goal, c.wanted, c.steps, c.scan_n = nil, nil, nil, nil, 0 end
+    return nil
+  end
+  if not (f.hq and f.hq.valid) then return nil end
   local c = state_of(f)
   c.scan_n = (c.scan_n or 0) - 1
   if c.goal and c.scan_n > 0 then return c.goal end
@@ -232,16 +245,21 @@ end
 
 --- Objets que les améliorations de valeur attendent et que la faction ne sait pas obtenir (H8 -> H9 : la recherche
 --- qui les débloque prend de la valeur, script/ai3/cerveau.lua).
+--- Éteint (réglage, témoin) : nil, même si une pensée allumée les avait rangés (l'éteindre en cours de partie ne laisse
+--- aucun objet voulu peser sur la recherche).
 function Capital.wanted(f)
+  if not Capital.on() then return nil end
   local c = f.team and f.team.capital
   return c and c.wanted or nil
 end
 
---- Objets du dépliage du coût de l'amélioration en cours (pour la règle « main ou machine » d'IA3-e).
+--- Objets du dépliage du coût de l'amélioration en cours (pour la règle « main ou machine » d'IA3-e) ; nil éteint.
 function Capital.steps(f)
+  if not Capital.on() then return nil end
   local c = f.team and f.team.capital
   return c and c.steps or nil
 end
+Auto.capital_steps = Capital.steps
 
 ---------------------------------------------------------------------------------------------------
 -- Exécutant : poser le centre, payer le niveau (décisions immédiates de script/team/team.lua)

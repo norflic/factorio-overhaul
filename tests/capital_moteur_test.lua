@@ -7,7 +7,8 @@
   son propre monde seulement (aucun autre test touché), la recette du centre (celle de prototypes/levels/common.lua), les
   prototypes des niveaux 1 à 6 de la mitrailleuse (vie et dégâts des données des niveaux, L.apply_stat) et le centre ;
   puis il joue la partie de pvp_test (2 factions, 60 soldats, 6 ouvriers, QG à 320 tuiles, base témoin du joueur
-  défendue par 1 tourelle) en Normal pendant 45 min, améliorations ALLUMÉES puis COUPÉES (fo-capital set_enabled), et
+  défendue par 1 tourelle) en Normal pendant 45 min, améliorations ALLUMÉES (réglage fo-war-capital) puis au défaut du
+  jeu (réglage ÉTEINT, correction après revue), et
   compare : centres posés, tourelles améliorées, attaques contre le joueur, soldats envoyés, soldats en vie.
   Usage : lua5.2 tests/capital_moteur_test.lua   (environ 1 à 2 min)
 ]]
@@ -46,8 +47,9 @@ local GUN, CC = L.by_key.gun, L.by_key.command
 local function box(x0, y0, x1, y1) return { left_top = { x = x0, y = y0 }, right_bottom = { x = x1, y = y1 } } end
 
 local function world(on)
+  -- Allumé : réglage fo-war-capital allumé (option du moteur simulé) ; témoin : réglage à son défaut du jeu (ÉTEINT).
   M.new_world({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "normal",
-    groups_hit_player = true, turrets_kill = true })
+    groups_hit_player = true, turrets_kill = true, capital = on })
   local w = W()
   -- Recette du centre (prototypes/levels/common.lua) et objets du coût.
   w.recipes["fo-command-center"] = { name = "fo-command-center", category = "crafting", energy = 5, enabled = true,
@@ -82,7 +84,6 @@ local function world(on)
   for i = 0, 3 do s.create_entity({ name = "stone-furnace", position = { x = OUTPOST.x - 6 + 4 * i, y = OUTPOST.y }, force = "player" }) end
   local t = s.create_entity({ name = "gun-turret", position = { x = OUTPOST.x, y = OUTPOST.y - 4 }, force = "player" })
   t.insert({ name = "piercing-rounds-magazine", count = 50 })
-  if not on then remote.call("fo-capital", "set_enabled", false) end
   M.command("fo-war", "start 2 60 6 320")
 end
 
@@ -110,6 +111,25 @@ local function measure(on, minutes)
     end
   end
   r.guns_up = lv
+  if on then
+    -- Réglage ÉTEINT en cours de partie (correction après revue) : plus aucune amélioration payée, plus aucun objet voulu
+    -- ni dépliage laissé par la dernière décision (Capital.wanted, Capital.steps : nil).
+    local Capital = package.loaded["script.ai3.capital"]
+    local before = 0
+    for i = 1, 2 do before = before + ((remote.call("fo-capital", "status", global.fo.war.factions[i].key) or {}).upgrades or 0) end
+    W().settings["fo-war-capital"] = false
+    M.run_ticks(5 * MIN)
+    local after, stale = 0, 0
+    for i = 1, 2 do
+      local f = global.fo.war.factions[i]
+      after = after + ((remote.call("fo-capital", "status", f.key) or {}).upgrades or 0)
+      if Capital.wanted(f) ~= nil or Capital.steps(f) ~= nil then stale = stale + 1 end
+      if f.team and f.team.capital and (f.team.capital.current or f.team.capital.wanted or f.team.capital.steps) then
+        stale = stale + 1
+      end
+    end
+    r.off_before, r.off_after, r.off_stale = before, after, stale
+  end
   return r
 end
 
@@ -125,6 +145,9 @@ print("[CAPITAL-MOTEUR] " .. line("temoin", off))
 check(on.cc >= 1, "allumé : au moins une faction pose son centre au moteur simulé")
 check(on.up >= 2 and on.guns_up >= 1, "allumé : des tourelles améliorées (niveau >= 2 en jeu)")
 check(off.cc == 0 and off.up == 0 and off.decisions == 0, "témoin : aucune amélioration")
+check(on.off_after == on.off_before and on.off_stale == 0,
+  string.format("éteint en cours de partie : aucune amélioration de plus en 5 min (%d puis %d), aucun objet voulu laissé (%d)",
+    on.off_before or -1, on.off_after or -1, on.off_stale or -1))
 -- K9 : la pression contre le joueur en Normal ne s'effondre pas (au moins la moitié des attaques du témoin, et au moins 1
 -- si le témoin attaque) ; l'écart est imprimé (effet sur la difficulté).
 check(off.attacks == 0 or (on.attacks >= 1 and on.attacks * 2 >= off.attacks),

@@ -339,9 +339,11 @@ end
 --- Appelé par le cerveau (Ia3.plan) avant la pensée pure. Rend ctx.auto (ou nil : automatisation éteinte).
 --- Objets à peser (chaînes, triées) : étapes de la dernière décision de recherche (IA-G) et du coût de l'amélioration en
 --- cours (lot CAPITAL) ; nil s'il n'y en a aucune.
+--- Auto.capital_steps : posé au chargement par script/ai3/capital.lua (Capital.steps : nil quand fo-war-capital est éteint).
+Auto.capital_steps = nil
 function Auto.items_of(f)
   local a = f.team.iag and f.team.iag.steps
-  local b = f.team.capital and f.team.capital.steps
+  local b = Auto.capital_steps and Auto.capital_steps(f) or nil
   if not (b and #b > 0) then return a end
   if not (a and #a > 0) then return b end
   local seen, out = {}, {}

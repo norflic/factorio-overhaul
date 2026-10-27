@@ -7,8 +7,10 @@
     3. au moins une faction a MONTÉ son centre (niveau ≥ 2 : l'époque 2 ouverte) ;
     4. chaque amélioration payée vient d'une décision au journal (décisions ≥ 1 pour toute faction qui a amélioré) ;
     5. les bâtiments à niveaux recensés EN JEU (find_entities_filtered) disent la même chose que l'interface.
-  Variante « temoin » : même partie, améliorations des factions COUPÉES (fo-capital set_enabled false, rangé dans
-  l'état de la guerre) : mesure de l'effet sur l'armée et la recherche (relevés par minute d'ia3d_common, paliers).
+  Variante « temoin » : même partie, améliorations des factions COUPÉES (réglage fo-war-capital laissé éteint, et
+  fo-capital set_enabled false, rangé dans l'état de la guerre) : mesure de l'effet sur l'armée et la recherche (relevés
+  par minute d'ia3d_common, paliers). La partie ALLUME le réglage fo-war-capital (éteint par défaut depuis la correction
+  après revue) : un contrôle de plus au BILAN.
   Journal : [FO-IA3D-DEFAULT] (relevés), [FO-CAPITAL] (décisions et paiements, côté mod) et les contrôles du banc.
 ]]
 
@@ -23,6 +25,10 @@ return function(variant, ticks)
   local init0, tick0, finish0 = base.init, base.tick, base.finish
   base.init = function(ctx)
     init0(ctx)
+    -- Réglage de carte du lot (settings/capital.lua, ÉTEINT par défaut) : ALLUMÉ pour la partie, laissé ÉTEINT au témoin
+    -- (nil : réglage absent, source d'avant la correction après revue, toujours allumée).
+    local on = ctx.call("war_setting", "fo-war-capital", not temoin)
+    ctx.check(on == (not temoin) or on == nil, "reglage fo-war-capital " .. (temoin and "eteint" or "allume"), tostring(on))
     if temoin then
       local ok = pcall(remote.call, "fo-capital", "set_enabled", false)
       ctx.check(ok, "temoin : ameliorations des factions coupees", tostring(ok))
