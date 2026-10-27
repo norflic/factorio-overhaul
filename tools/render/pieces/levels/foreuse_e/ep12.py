@@ -16,6 +16,7 @@ TRIPLET = ("pile de tores", "cryostat", "glace cyan")
 FOYER = ages.FOYER[12]
 HABILLAGE = dict(ages.CORPS[12], forme_tablier="octogone")
 PAS_FIN = 0.12  # ronde F4-A3 : détail fin plus serré
+LAMPES = 0.22   # ronde F4-A3 : plus de voyants (détail fin et nuit)
 PIED = 1.05
 # ronde F4-A2 (un seul corps) : embase chromée, 4 contreforts givrés sur les diagonales
 EMBASE = dict(r=1.05, contreforts=4, cphase=45.0, hc=0.24, rin=0.88, haubans=0, conduites=0)

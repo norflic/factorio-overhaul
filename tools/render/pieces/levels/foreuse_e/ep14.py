@@ -16,6 +16,7 @@ NOM = ages.NOMS[14]
 TRIPLET = ("anneau vertical", "horizon étoilé", "piliers lunaires")
 FOYER = ages.FOYER[14]
 HABILLAGE = dict(ages.CORPS[14], forme_tablier="rond")
+LAMPES = 0.24   # ronde F4-A3 : plus de voyants (détail fin et nuit)
 PIED = 1.12
 # ronde F4-A2 : le dais et les piliers sont l'embase ; 2 conduites
 EMBASE = dict(r=0.0, contreforts=0, haubans=0, conduites=2)
