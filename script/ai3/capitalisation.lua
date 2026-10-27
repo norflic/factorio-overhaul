@@ -821,7 +821,9 @@ local function decide(f, cs, view, book, tick, research, w)
   Profiler.fstop("capi:decide")
   cs.wanted = sorted_keys(cs.wanted_set or {})
   cs.wanted_set = nil
-  Auto.want(f, cs.wanted)
+  -- Les objets que ses exécutants attendent sont ÉCRITS au journal, pas donnés à la recherche (Auto.want reste pour plus
+  -- tard) : bancs p2 à p4 du lot, « assembling-machine-1 » voulu faisait d'« automation » une recherche POUR
+  -- l'automatisation, que la garde K1 d'IA-G passe après les paliers : automation à 7 min au lieu de 2 au témoin.
   cs.decisions = cs.decisions + 1
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
     labs_target = res.labs_target, u_star = res.u_star }
