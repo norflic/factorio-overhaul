@@ -243,9 +243,10 @@ def main():
 
     tol = a.tol_ms / 1000.0
     # lot TIRS (27/10) : aux âges à couches ajoutées, le tir n'est plus le S0 seul (le mélange fait baisser la corrélation
-    # et monter le gain) : la droite des instants est ajustée sur les AUTRES sites ; ces tirs sont reconnus au S0 de leur
-    # ère à SEUIL_COUCHES près de l'instant prévu ; leur ère est écartée du différentiel de volume
+    # et monter le gain) : un tir à couches non apparié est cherché au S0 de son ère, à SEUIL_COUCHES, près de l'instant
+    # prévu ; leur ère est écartée du différentiel de volume
     # (tools/sound/tirs_couches.py les mesure). Âge d'un niveau n >= 2 : (n + 1) // 2 (prototypes/levels).
+    # (la droite des instants reste ajustée sur tous les tirs, plus bas)
     couches = ages_a_couches(a.mod)
     for s in shots:
         s["couches"] = s["niveau"] >= 2 and (s["niveau"] + 1) // 2 in couches
@@ -254,7 +255,9 @@ def main():
         print("[FO-TIRS-JOUES] ages a couches TIRS : %s ; sites a couches : %s" % (
             ",".join(str(e) for e in sorted(couches)),
             ", ".join(sorted({"niveau %d" % s["niveau"] for s in shots if s["couches"]})) or "aucun"))
-    fit = fit_times([s for s in shots if not s["couches"]] or shots, dets, tol)
+    # droite ajustée sur TOUS les tirs (ajustée sur les seuls sites sans couche, elle dérive en fin de session : 66 ms
+    # au dernier site de s0-tir, ronde 4) ; les tirs à couches non appariés sont cherchés ensuite près de l'instant prévu
+    fit = fit_times(shots, dets, tol)
     if fit is None:
         print("[FO-TIRS-JOUES] ECHEC aucune detection : aucun tir entendu")
         return 1

@@ -85,6 +85,7 @@ T.sans_effet = 7
              anim (T.ANIMS), variation (gunshot), largeur et longueur (x_scale, y_scale : on étire dans l'axe du tir),
              teinte, duree (ticks). Le pied de la flamme est posé sur la bouche (oriented_offset = base × longueur).
              Une image basse définition (gunshot, 34 × 38) n'est pas agrandie de plus de ×2 dans l'axe, ×1,5 en largeur.
+             devant (facultatif) : tuiles de plus vers la cible (la flamme sort de l'éclat A4 au lieu de le recouvrir).
   lumiere  = lumière de bouche (rendering.draw_light, light_medium du core) : taille (tuiles), intensite, couleur, duree
   fumee    = bouffées à la bouche (create_trivial_smoke) : source, couleur, nombre, debut et fin (échelle), duree (ticks)
   trace    = dards (projectiles sans dégâts) : image (T.IMAGES), echelle, teinte, vitesse (tuiles/tick), nombre (le
@@ -111,12 +112,13 @@ T.ages = {
     part = { 2, 5 }, -- 1 tir sur 5 : la balle traçante d'une bande ; l'identité de l'ère est la FUMÉE de la poudre noire
     quota = 1,
     bouche = {
-      { anim = "gunshot", variation = 5, largeur = 1.2, longueur = 1.6, teinte = { 1.00, 0.82, 0.55 }, duree = 5 },
+      { anim = "gunshot", variation = 5, largeur = 1.4, longueur = 2.0, teinte = { 1.00, 0.82, 0.55 }, duree = 5 },
     },
     lumiere = { taille = 6, intensite = 0.55, couleur = { 1.00, 0.62, 0.30 }, duree = 6 },
-    fumee = { source = "smoke-fast", couleur = { 0.26, 0.25, 0.24, 0.90 }, nombre = 4, debut = 0.8, fin = 1.9,
-      duree = 100 },
-    trace = { image = "balle", echelle = 1.0, teinte = { 1.00, 0.92, 0.75 }, vitesse = 1.6, nombre = 1,
+    -- la poudre noire fait une fumée BLANCHE épaisse (ronde 4, 1re capture : la fumée grise ne se voyait pas sur le sol)
+    fumee = { source = "smoke-fast", couleur = { 0.80, 0.78, 0.74, 0.85 }, nombre = 5, debut = 1.0, fin = 2.6,
+      duree = 110 },
+    trace = { image = "balle", echelle = 1.3, teinte = { 1.00, 0.92, 0.75 }, vitesse = 1.6, nombre = 1,
       lumiere = { taille = 2, intensite = 0.35, couleur = { 1.00, 0.70, 0.35 } } },
     impact = {
       { source = "explosion-hit", echelle = 1.25, teinte = { 1.00, 0.85, 0.60 },
@@ -195,16 +197,18 @@ T.ages = {
     quota = 2,
     bouche = {
       -- cœur blanc-bleu étiré dans l'axe, gaine bleue plus large et plus courte
-      { anim = "gunshot", variation = 3, largeur = 1.5, longueur = 1.3, teinte = { 0.30, 0.62, 1.00 }, duree = 5 },
-      { anim = "gunshot", variation = 5, largeur = 1.0, longueur = 1.9, teinte = { 0.62, 0.88, 1.00 }, duree = 6 },
+      { anim = "gunshot", variation = 3, largeur = 1.5, longueur = 1.6, teinte = { 0.30, 0.62, 1.00 }, duree = 6 },
+      { anim = "gunshot", variation = 5, largeur = 1.1, longueur = 2.0, teinte = { 0.62, 0.88, 1.00 }, duree = 6,
+        devant = 0.3 },
     },
     lumiere = { taille = 12, intensite = 0.80, couleur = { 0.23, 0.66, 1.00 }, duree = 10 },
     -- dards de plasma (pas de trait : réservé au laser)
-    trace = { image = "fin", echelle = 1.25, teinte = { 0.50, 0.82, 1.00 }, vitesse = 2.4, nombre = 3, ralenti = 0.82,
-      lumiere = { taille = 4, intensite = 0.75, couleur = { 0.23, 0.66, 1.00 } } },
+    -- ronde 4, 1re capture : dards de 1,3 tuile trop fins au zoom 0,5 ; ×2 : dards de 2 tuiles
+    trace = { image = "fin", echelle = 2.0, teinte = { 0.50, 0.82, 1.00 }, vitesse = 2.4, nombre = 3, ralenti = 0.82,
+      lumiere = { taille = 6, intensite = 0.90, couleur = { 0.23, 0.66, 1.00 } } },
     impact = {
       -- éclair de plasma qui enfle (fumée vanilla neutre en lueur additive), cœur blanc-bleu, gerbe d'étincelles qui monte
-      { source = "explosion-hit", echelle = 1.5, teinte = { 0.55, 0.85, 1.00 }, enfle = { depart = 0.3, ticks = 4 },
+      { source = "explosion-hit", echelle = 2.2, teinte = { 0.55, 0.85, 1.00 }, enfle = { depart = 0.3, ticks = 4 },
         lumiere = { taille = 12, intensite = 0.75, couleur = { 0.23, 0.66, 1.00 }, onde = 0.4, tenue = 0.65 },
         etincelles = { source = "pole-spark-particle", nombre = 12, teinte = { 1.00, 1.00, 1.00 }, vitesse = 0.10,
           montee = 0.10 } },
@@ -223,9 +227,10 @@ T.ages = {
     part = { 1, 1 }, -- 1 tir sur 2
     quota = 3,
     bouche = {
-      -- halo ambre (bord de l'âge) large derrière, cœur blanc-or devant (l'ambre n'est plus la couleur dominante)
-      { anim = "artillerie", largeur = 0.40, longueur = 0.50, teinte = { 1.00, 0.64, 0.28 }, duree = 7 },
-      { anim = "gunshot", variation = 5, largeur = 1.4, longueur = 2.0, teinte = { 1.00, 0.95, 0.80 }, duree = 6 },
+      -- l'éclat A4 de l'âge 15 est déjà une grande flamme blanc-or à bord ambre (validée) : le lot pousse DEVANT lui un
+      -- jet blanc-or étiré (ronde 4, 1re capture : le halo d'artillerie posé dessus se lisait comme une tache rouge)
+      { anim = "gunshot", variation = 5, largeur = 1.2, longueur = 2.0, teinte = { 1.00, 0.95, 0.80 }, duree = 6,
+        devant = 0.6 },
     },
     lumiere = { taille = 16.5, intensite = 0.90, couleur = { 1.00, 0.85, 0.60 }, duree = 10 },
     -- rafale de dards d'or (la lumière fait la traînée : plus de fumée à l'âge du Néant)

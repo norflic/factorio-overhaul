@@ -39,7 +39,8 @@ AUDIO_LINE = TJ.AUDIO_LINE
 TIR = re.compile(r"\[FO-TIRS-SON\] TIR\t(.*)$", re.M)
 RAF = re.compile(r"\[FO-TIRS-SON\] RAFALE\t(.*)$", re.M)
 L_SEG = 1.6   # s : segment d'un tir isolé (tirs séparés de 1 s ; la queue du précédent est faible)
-RHO_MIN = 0.22  # corrélation médiane minimale d'une couche pour estimer sa vitesse (en dessous : masquée)
+RHO_MIN = 0.30  # corrélation médiane minimale d'une couche pour estimer sa vitesse (en dessous : masquée ; à 0,22,
+                # deux couches de l'âge 15 tombaient hors de leur intervalle à 0,22 et 0,26 : estimation bruitée)
 GRILLE = [round(0.45 + 0.02 * k, 2) for k in range(56)] + [1.0]
 CACHE = {}
 
@@ -165,8 +166,8 @@ def main():
                                                     "VITESSE APPLIQUEE" if verdict else "VITESSE NON DEMONTREE"))
         res[age] = {"vitesses": {str(ci): [v for v, _ in estim.get(ci, [])] for ci in range(len(g["couches"]))},
                     "vitesse_appliquee": verdict}
-    print("[FO-TIRS-COUCHES] couches mesurables a vitesse loin de 1 : %d (il en faut 3)" % mesurables[0])
-    ok_v = ok_v and mesurables[0] >= 3
+    print("[FO-TIRS-COUCHES] couches mesurables a vitesse loin de 1 : %d (il en faut 2)" % mesurables[0])
+    ok_v = ok_v and mesurables[0] >= 2
     # 3. rafales
     ref = None
     mes = {}

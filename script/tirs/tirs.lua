@@ -42,7 +42,7 @@ for _, e in ipairs(T.temoins) do
     local n = an.variations and an.variations[b.variation].n or an.n
     -- vitesse d'animation : les n images en `duree` ticks (un peu moins, pour ne pas reboucler au dernier tick)
     x.bouche[i] = { nom = R.nom(T, e, "bouche", i), n = n, v = n / b.duree * 0.999, ttl = b.duree,
-      xs = b.largeur, ys = b.longueur, avance = { 0, -an.base * b.longueur } }
+      xs = b.largeur, ys = b.longueur, avance = { 0, -(an.base * b.longueur + (b.devant or 0)) } }
   end
   if A.lumiere then
     x.lumiere = { scale = A.lumiere.taille / TUILE_LUMIERE, intensity = A.lumiere.intensite,
@@ -142,12 +142,17 @@ local function sur_effet(e)
   -- 3. dards : le premier porte l'impact, les suivants partent moins vite (rafale discontinue). Ils visent l'ENTITÉ
   -- cible (projectile à tête chercheuse : il la touche et l'impact naît sur elle) ; vers une POSITION, un dard rapide
   -- DÉPASSE sa cible et son impact naît 20 à 50 tuiles plus loin (ronde 4, 1re session d'images : F359).
+  -- Portée : distance à la cible par l'octogone (max + 0,42 × min, au plus 8 % au-dessus de la vraie distance, sans
+  -- racine) plus 2 tuiles : si la cible meurt en route, le dard ne file pas au loin (impact égaré vu en ronde 4).
   local vise = (cible and cible.valid) and cible or to
-  compte(st, surface.create_entity({ name = N.trace, position = from, target = vise, speed = N.vitesse, max_range = 80 }))
+  local ax, ay = math.abs(to.x - from.x), math.abs(to.y - from.y)
+  local portee = math.max(ax, ay) + 0.42 * math.min(ax, ay) + 2
+  compte(st, surface.create_entity({ name = N.trace, position = from, target = vise, speed = N.vitesse,
+    max_range = portee }))
   local v = N.vitesse
   for _ = 2, N.ndards do
     v = v * N.ralenti
-    compte(st, surface.create_entity({ name = N.dard, position = from, target = vise, speed = v, max_range = 80 }))
+    compte(st, surface.create_entity({ name = N.dard, position = from, target = vise, speed = v, max_range = portee }))
   end
   -- 4. trait (claquement bref) : le faisceau n'a pas de hauteur ; départ 1 tuile au-dessus du point source (F126)
   if N.trait then
