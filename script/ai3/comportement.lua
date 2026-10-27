@@ -340,6 +340,19 @@ function M.plan(f, agent, p, goal, tick, opts)
   if res.astar then Trace.log("ia3k", "astar", res.expand) end -- attribution des pics (tools/autotest/analyze.py)
   res.B = B
   res.field = field
+  -- Profil GÉOMÉTRIQUE (distance réelle aux menaces, D.danger_exact) le long de l'itinéraire, 6 premières tuiles exclues
+  -- (le PNJ peut déjà être près d'un danger) : c'est lui que jugent la porte et le choix de l'itinéraire de secours ; les
+  -- cases de 16 tuiles (A*) surestiment (un avant-poste à 35-55 tuiles d'un ver était refusé).
+  local t2 = t.map
+  local mx = 0
+  for _, q in ipairs(R.samples(p, res.pts, goal, R.SAMPLE)) do
+    if d2(q, p) > 36 then
+      local v = D.danger_exact(t2, q.x, q.y, tick)
+      if v > mx then mx = v end
+    end
+  end
+  res.exact_max = mx
+  res.exact_goal = D.danger_exact(t2, goal.x, goal.y, tick)
   return res
 end
 
@@ -375,9 +388,11 @@ function M.leg(agent, pos, radius, tick, depth)
     if res.side then a[sk] = res.side end
     if res.blocked and not res.partial then
       t.stats.blocked = t.stats.blocked + 1
-      if home or a.escort or a.risk then
-        -- Rentrer au QG (ou passer escorté) : le chemin qui minimise le danger, faute de mieux.
-        res = M.plan(f, agent, p, pos, tick, { B = 1e9 })
+      -- Le chemin qui minimise le danger : pris s'il reste hors de PORTÉE réelle des menaces (profil géométrique sous le
+      -- seuil), ou faute de mieux pour rentrer au QG, passer escorté ou avec le risque accepté.
+      local res2 = M.plan(f, agent, p, pos, tick, { B = 1e9 })
+      if home or a.escort or a.risk or res2.exact_max < res.B then
+        res = res2
       else
         -- Aller sans issue sûre : on ne traverse pas ; demi-tour à la pensée suivante (sense).
         a.abort_pending = true
@@ -471,12 +486,17 @@ function M.gate(f, agent, task, steps, tick)
   local e = agent.entity
   local p = e.position
   local res = M.plan(f, agent, p, dest, tick)
+  -- Bloqué au sens des cases : le chemin qui minimise le danger est-il hors de portée réelle des menaces ?
+  if res.blocked then
+    local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9 })
+    if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 end
+  end
   local pts = R.samples(p, res.pts, dest, 8)
   local deaths = D.deaths_near(t.map, pts, D.HOUR_R, tick)
   local far = d2(f.hq_pos, dest) > M.SAFE_RADIUS * M.SAFE_RADIUS
   local prud = M.character(f)
   local free = M.escort_free and M.escort_free(f) or 0
-  local decision, why = D.gate({ blocked = res.blocked, max_d = res.max_d, goal_d = res.goal_d, deaths = deaths, far = far },
+  local decision, why = D.gate({ blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far },
     { B = res.B, prudence = prud, escort_ok = free >= 2 })
   local a = astate(agent)
   a.escort, a.risk = nil, nil
@@ -742,10 +762,6 @@ function M.sense(agent, tick)
   -- Tournée escaladée (risque accepté par la porte) : pas de nouveau détour pour une menace fixe déjà connue (le chemin
   -- qui minimise le danger la contourne déjà au mieux) ; le demi-tour à portée reste.
   if a.risk and K.fixed and action == "detour" then action = "none" end
-  -- Risque accepté (escalade) : pas de demi-tour à la seule portée d'une menace fixe ; seule la peur (blessé sous le
-  -- seuil : action « flee ») fait partir. La règle des 2 morts par heure reste le garde-fou (banc final-2b66f91
-  -- memoire-123456789 : tournées escaladées revenues bredouilles, 617 refus, économie effondrée).
-  if a.risk and K.fixed and action == "back" then action = "none" end
   -- Près du QG, face à des UNITÉS : sans tourelle où se réfugier, fuir seul est pire que rester groupés (un déchiqueteur
   -- court plus vite qu'un personnage) : on se bat sur place. Même banc : 4 ouvriers sans tâche rattrapés à 11 tuiles du QG.
   if near_home and not K.fixed and (action == "flee" or action == "back") then

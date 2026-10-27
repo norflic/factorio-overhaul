@@ -208,6 +208,28 @@ function D.field(map, tick, box)
   return out, n
 end
 
+--- Danger GÉOMÉTRIQUE en un point (porte des tâches, itinéraire de secours) : une menace fixe compte si le point est à sa
+--- portée + D.EXACT_MARGIN (pas toute case qui la touche), une mort à moins de D.DEATH_R, les unités par leur case.
+D.EXACT_MARGIN = 4
+function D.danger_exact(map, x, y, tick)
+  local s = 0
+  for _, t in ipairs(map.threats) do
+    local K = D.KINDS[t.k] or D.KINDS.unit
+    local r = t.r + D.EXACT_MARGIN
+    local dx, dy = t.x - x, t.y - y
+    if dx * dx + dy * dy <= r * r then
+      s = s + math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+    end
+  end
+  for _, d in ipairs(map.deaths) do
+    local dx, dy = d.x - x, d.y - y
+    if dx * dx + dy * dy <= D.DEATH_R * D.DEATH_R then s = s + death_w(d, tick) end
+  end
+  local c = map.cells[D.key(D.cell(x), D.cell(y))]
+  if c then s = s + mobile_now(c, tick) end
+  return s
+end
+
 --- Danger d'une case (sans champ précalculé : pour un contrôle ponctuel).
 function D.danger_at(map, x, y, tick)
   local cx, cy = D.cell(x), D.cell(y)
