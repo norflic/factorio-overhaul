@@ -782,8 +782,27 @@ function Fl.layout(req)
       end
     end
   end
-  -- b. sources (puits, rive) : les consommateurs d'abord (réseau amorcé au site), puis la source le rejoint
-  for _, fl in ipairs(sorted_keys(ch.sources)) do
+  -- b. sources (puits, rive) : les consommateurs d'abord (réseau amorcé au site), puis la source le rejoint ; la source la
+  -- plus PROCHE des machines d'abord (sans tuyau souterrain, un long tuyau tracé avant couperait la route d'un court :
+  -- moteur réel, petrole-site 271828182 : brut sur 155 tuiles tracé avant l'eau de la rive voisine, eau impossible)
+  local function src_dist(fl)
+    local best = math.huge
+    local list = {}
+    for _, x in ipairs(extractors) do if x.fluid == fl then list[#list + 1] = x end end
+    if pumps[fl] then list[#list + 1] = pumps[fl] end
+    for _, x in ipairs(list) do
+      local d = math.abs(x.x - cx0) + math.abs(x.y - cy0)
+      if d < best then best = d end
+    end
+    return best
+  end
+  local src_order = sorted_keys(ch.sources)
+  table.sort(src_order, function(a, b)
+    local da, db = src_dist(a), src_dist(b)
+    if da ~= db then return da < db end
+    return a < b
+  end)
+  for _, fl in ipairs(src_order) do
     for _, cc in ipairs(cells) do
       for _, f in ipairs(cc.cell.fin) do
         if f.fluid == fl then
