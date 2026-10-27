@@ -86,7 +86,7 @@ function Sd.assign(input)
   -- 1. Défense (même au repos).
   for _, dp in ipairs(input.defend or {}) do
     local list = nearest(free, taken, dp, dp.n or #free, hq, nil)
-    for _, s in ipairs(list) do give(s, { role = "defense", x = dp.x, y = dp.y }) end
+    for _, s in ipairs(list) do give(s, { role = dp.role or "defense", x = dp.x, y = dp.y }) end
   end
   -- 2. Escortes.
   for _, er in ipairs(input.escorts or {}) do

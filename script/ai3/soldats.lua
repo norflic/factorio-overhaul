@@ -32,7 +32,7 @@ SD.THREAT_HQ = 220     -- menaces candidates au nettoyage : à moins de 220 tuil
 SD.THREAT_OUTPOST = 64 -- ... ou de 64 tuiles d'un avant-poste
 SD.HQ_THREAT_R = 48
 
-local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense" }
+local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse" }
 
 local function d2(a, b)
   local dx, dy = a.x - b.x, a.y - b.y
@@ -56,7 +56,7 @@ local function command_for(u, o, f, agent_entity)
   elseif o.role == "escort" and agent_entity and agent_entity.valid then
     compound(u, { { type = defines.command.go_to_location, destination_entity = agent_entity, radius = 5,
       distraction = defines.distraction.by_enemy }, wander(6) })
-  elseif o.role == "clear" or o.role == "defense" then
+  elseif o.role == "clear" or o.role == "defense" or o.role == "hunt" then
     compound(u, { { type = defines.command.attack_area, destination = p, radius = 24, distraction = defines.distraction.by_enemy },
       wander(12) })
   else
@@ -80,14 +80,23 @@ C.request_escort = function(f, agent, n, tick, key)
 end
 
 --- Alerte d'un PNJ en fuite : les soldats les plus proches vont vers la menace (si elle est près du QG).
-C.on_alert = function(f, ep, kind, tick)
-  if not (f.soldiers and f.hq_pos) or d2(ep, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ * 2 then return false end
+--- mode « hunt » (C4) : un adversaire isolé vu par un ouvrier : 3 soldats le chassent (rôle « hunt »).
+C.on_alert = function(f, ep, kind, tick, mode)
+  if not (f.soldiers and f.hq_pos) or (f.soldiers_count or 0) == 0 or d2(ep, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ * 2 then
+    return false
+  end
   local t = C.team(f)
   t.alerts = t.alerts or {}
   for _, a in ipairs(t.alerts) do
-    if d2(a, ep) <= 24 * 24 then a["until"] = tick + SD.ALERT_TICKS return true end
+    if d2(a, ep) <= 24 * 24 then
+      if tick - (a.t or 0) < 3600 and mode == "hunt" then return false end
+      a["until"] = tick + SD.ALERT_TICKS
+      a.x, a.y, a.t = ep.x, ep.y, tick
+      return true
+    end
   end
-  t.alerts[#t.alerts + 1] = { x = ep.x, y = ep.y, ["until"] = tick + SD.ALERT_TICKS, n = 4 }
+  t.alerts[#t.alerts + 1] = { x = ep.x, y = ep.y, ["until"] = tick + SD.ALERT_TICKS, n = mode == "hunt" and 3 or 4,
+    role = mode == "hunt" and "hunt" or nil, t = tick }
   return true
 end
 
@@ -198,7 +207,7 @@ local function pass(f, tick)
   for _, a in ipairs(t.alerts or {}) do
     if tick < a["until"] then
       alerts[#alerts + 1] = a
-      defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = a.n }
+      defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = a.n, role = a.role }
     end
   end
   t.alerts = alerts
@@ -332,7 +341,7 @@ local function pass(f, tick)
   local free_n = 0
   for _, s in ipairs(list) do
     local o = orders[s.id]
-    local busy = o and (o.role == "escort" or o.role == "defense" or o.role == "clear")
+    local busy = o and (o.role == "escort" or o.role == "defense" or o.role == "clear" or o.role == "hunt")
     if not busy and not (s.rest_until and tick < s.rest_until) and d2(s, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ then
       free_n = free_n + 1
     end

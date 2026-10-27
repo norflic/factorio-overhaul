@@ -53,6 +53,7 @@ local COLORS = {
   fuite = { r = 1, g = 0.25, b = 0.25 }, combat = { r = 0.85, g = 0.35, b = 1 }, escorte = { r = 0.35, g = 0.7, b = 1 },
   attente = { r = 0.8, g = 0.8, b = 0.8 }, patrouille = { r = 0.45, g = 1, b = 0.45 }, garde = { r = 0.6, g = 0.9, b = 0.6 },
   nettoyage = { r = 1, g = 0.4, b = 0.8 }, abri = { r = 0.9, g = 0.9, b = 0.4 }, defense = { r = 1, g = 0.5, b = 0.5 },
+  chasse = { r = 1, g = 0.3, b = 0.6 },
 }
 M.COLORS = COLORS
 
@@ -646,6 +647,11 @@ function M.sense(agent, tick)
   end
   local action, why = Re.decide({ kind = kind, range = range, dist = dist, on_route = on_route, hp = hp, armed = is_armed,
     enemies = enemies, allies = allies, walking = walking, prudence = prud, agressivite = agr, repeats = a.urep })
+  -- C4 : un soldat ou un ouvrier ADVERSE isolé (force pesée ≤ 1,5, pas la force des déchiqueteurs) vu près du QG : la
+  -- garnison est appelée, elle le chasse (au plus une alerte par menace et par minute : script/ai3/soldats.lua).
+  if not K.fixed and enemy.force.name ~= "enemy" and enemies <= 1.5 and M.on_alert then
+    if M.on_alert(f, ep, kind, tick, "hunt") then t.stats.hunts = (t.stats.hunts or 0) + 1 end
+  end
   if action == "none" then return false end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
