@@ -41,7 +41,8 @@ fo-captures.bat [scenario] [source du mod] [fenetre]
     fenetre  : min (défaut) | small | normal
 fo-autotest.bat [nopause] [ticks] [scenario] [source]      (défaut : fo-autotest-params.txt)
     variables facultatives : FO_CREATE_SRC (source de création, §1.1), FO_MAP_SEED (graine, défaut 20261020, §1.2),
-                             FO_AUDIO (1 : son actif sans sortie audio, pilote SDL disk et garde de crête, §1.3)
+                             FO_AUDIO (1 : son actif sans sortie audio, pilote SDL disk et garde de crête, §1.3),
+                             FO_PLACE (2 ou 3 : place du banc, dossier fo-autotest-N ; code 3 si refusée, §1.4)
 fo-visual.bat   [nopause] [fenetre] [delai_s]              (défaut : min, 900 s)
 ```
 
@@ -64,7 +65,8 @@ Codes de sortie :
 (`grep "\[FO-CONTENT\] BILAN" fo-autotest\benchmark.log`).
 
 **Verrou.** `<racine>\fo-autotest.lock` (un dossier) : les trois commandes le prennent, une seule session
-moteur à la fois. `fo-captures.bat` le tient pour toute la chaîne (variable `FO_LOCK_HELD` transmise aux deux
+moteur à la fois à la place 1 (depuis le lot BANC2, `fo-autotest.bat` a aussi des places 2 et 3 : §1.4 ; code 3 de
+`fo-autotest.bat` = `FO_PLACE` refusée, à ne pas confondre avec le code 3 de `fo-visual.bat` ci-dessus). `fo-captures.bat` le tient pour toute la chaîne (variable `FO_LOCK_HELD` transmise aux deux
 autres). Verrou orphelin (aucun `factorio.exe` dont la ligne de commande contient `fo-autotest` ou `fo-visual`) :
 `rmdir "<racine>\fo-autotest.lock"`.
 
@@ -272,6 +274,61 @@ pilote ; valeurs refusées ; passage par `fo-captures.bat`), `python -B tools/au
 environnement, pilote lu dans le journal, mesure de la sortie disk) et `python -B tools/autotest/tests/test_audio_guard.py`
 → « BILAN : 4 OK » (garde sur la VRAIE sortie du PC : témoin négatif silencieux, témoin positif de 30 Hz à −70 dBFS,
 inaudible, vu et TUÉ en moins de 1 s).
+
+### 1.4 File d'attente et PLACES du banc : `banc.py`, `FO_PLACE` (lot BANC2, 27/10)
+
+Tous les agents lancent leurs bancs par la file `tools/autotest/banc.py` (en-tête du fichier : règle complète). Depuis
+le lot BANC2, jusqu'à **3 bancs sans images tournent en même temps**, chacun dans sa place :
+
+| Place | Dossier | Verrou | Qui |
+|---|---|---|---|
+| 1 | `<racine>\fo-autotest\` | `fo-autotest.lock` (celui d'avant) | bancs ordinaires, **et seule place des images** (`fo-captures.bat`, `fo-visual.bat`, son) |
+| 2 | `<racine>\fo-autotest-2\` | `fo-autotest-2.lock` | bancs sans images (`fo-autotest.bat` avec `FO_PLACE=2`) |
+| 3 | `<racine>\fo-autotest-3\` | `fo-autotest-3.lock` | bancs sans images (`FO_PLACE=3`) |
+
+- **Nombre de places ouvertes** : `<racine>\fo-banc-places.txt` (« 1 », « 2 » ou « 3 »), relu par chaque lanceur à
+  chaque tour d'attente : on le change sans relancer personne ; les bancs déjà partis aux places fermées finissent.
+  Sans fichier : 2. Toute autre valeur, ou fichier illisible : 1. L'option `--places N` d'un lanceur l'emporte (et ce
+  ticket ne prend alors aucune place au-delà de N).
+  **Tant que le `fo-autotest.bat` de la racine ne connaît pas `FO_PLACE`** (ancien .bat), `banc.py` n'ouvre que la
+  place 1, quoi que disent le fichier et `--places` : l'ancien .bat ferait tourner la place 2 dans `fo-autotest\`.
+- **Garde-fou mémoire** : une place au-delà de la première n'est prise que s'il reste au moins **6 Go** de mémoire
+  physique libre (`GlobalMemoryStatusEx`), et au plus une place de plus par tour de 2 s.
+- **Genres de tickets** : ordinaire (n'importe quelle place) ; « place 1 » (`--captures`, `--visuel`, `--son`, et tout
+  ticket d'un ANCIEN `banc.py`) ; « seul » (`--seul`) : toutes les places, personne d'autre ne tourne. **Toute mesure
+  de performance (K10, `analyze.py`, étalon `[FO-CALIB]`) se lance avec `--seul`** : deux bancs en même temps se
+  partagent les cœurs P (F30).
+- **Règle de la file** : classement par tour de rôle, inchangé (lot servi il y a le plus longtemps d'abord, premier
+  arrivé, premier servi dans un lot ; un lot qui occupe une place passe après les autres) ; le premier ticket « place 1 »
+  prend ou RÉSERVE la place 1, les tickets ordinaires partent aux autres places sans l'attendre ; un ticket « seul » est
+  une barrière : rien ne part derrière lui, il part quand toutes les places sont libres.
+- **Verrou** : pris d'un seul coup (dossier préparé avec `owner.txt`, au format d'avant, et `banc2.txt` « mode pid »,
+  puis renommé) ; tenu jusqu'à la fin de l'archivage, qui lit le dossier de SA place. Orphelin par place : processus
+  mort et aucun `factorio.exe` dont la ligne de commande contient `\fo-autotest\` (place 1), `\fo-autotest-N\`
+  (place N) ou `fo-visual`.
+- `py -3.9 -B tools/autotest/banc.py --file` : places ouvertes, mémoire libre, état de chaque place, file avec le rang
+  de chaque ticket, les bancs en cours et ceux qui partent au prochain tour.
+- `banc.txt` de l'archive : ligne « place N ; verrous … ; genre … ; dossier … ; prise <horloge> ; fin <horloge> ».
+
+**`fo-autotest.bat` seul** : `FO_PLACE` absente, vide ou `1` : place 1, comportement inchangé. `2` ou `3` : dossier et
+verrou de cette place (le journal le dit : « Place N : dossier …, verrou … »). Toute autre valeur : **code 3** avant le
+verrou, rien n'a tourné. Aux places 2 et 3, `FO_LOCK_HELD` doit être absente ou valoir le numéro de la place, sinon
+code 3 : `fo-captures.bat` pose `FO_LOCK_HELD=1`, une `FO_PLACE=2` héritée ne peut donc jamais faire tourner un banc
+à la place 2 sans son verrou (`fo-captures.bat` rend alors 8). `fo-captures.bat` et `fo-visual.bat` ne changent pas :
+les images restent à la place 1.
+
+**Cohabitation avec les anciens lanceurs** (processus `banc.py` lancés avant le déploiement, encore en attente) : ils ne
+connaissent que `fo-autotest.lock` et calculent le même tour de rôle ; le nouveau lanceur compte leur ticket comme un
+ticket « place 1 » et leur verrou (sans `banc2.txt`) comme une place 1 occupée. Ils ne tournent donc jamais en même
+temps qu'un autre banc de la place 1 ; un ancien ticket `--captures` ou de mesure peut en revanche tourner pendant
+qu'un banc nouveau occupe la place 2 ou 3.
+
+Bancs hors jeu : `PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_banc_file.py` → « BILAN : 78 OK » (règles pures du
+tour de rôle, de l'affectation et du nombre de places ; puis vrais lanceurs sur une racine jetable : une place, trois
+bancs en même temps, passage de 3 à 1 place en cours de route, images à la place 1 pendant deux bancs aux places 2
+et 3, images en attente servies dès que la place 1 se libère, ticket « seul », garde-fou mémoire, cohabitation avec
+l'ancien `banc.py` du commit `aeb03ba` ; environ 75 s) ; `bat_double_source/run.py` → « BILAN : 70 OK » (cas 15 à 18 :
+`FO_PLACE`).
 
 ## 2. Session visuelle automatique (`fo-visual.bat`)
 
