@@ -473,14 +473,20 @@ end
 --- charbon permet (comme IA3-b), le reste fabriqué. Renvoie vrai si l'amorçage est pris en charge ici.
 function P.boot_smelters(E, st, cap)
   local view = E.view
-  local short = 0
+  local short, unfed = 0, false
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local plate = T.outposts[kind].product
-    if T.smelter_inputs[plate] and (cap[kind] or 0) <= 0 then short = math.max(short, (st.short or {})[plate] or 0) end
+    if T.smelter_inputs[plate] and (cap[kind] or 0) <= 0 then
+      unfed = true
+      short = math.max(short, (st.short or {})[plate] or 0)
+    end
   end
-  if short <= 0 or E.open["smelters"] then return false end
-  local n = short >= P.SMELT_MORE and P.SMELTERS_BOOT_MORE or P.SMELTERS_BOOT
   local have = (view.smelters or 0) + (view.smelters_pending or 0)
+  -- Aucun four au QG et aucune plaque produite par un avant-poste : l'amorçage part dès la PREMIÈRE pensée (un joueur
+  -- pose ses fours avant tout ; moteur réel, ia3b-fer sur 5ddcd70 : sans cela, la 1re pensée fabriquait les fours des
+  -- avant-postes avec toute la pierre, 1 four au QG à 2 min, 4 à 4 min, 62 plaques à 7,3 min).
+  if E.open["smelters"] or (short <= 0 and not (have == 0 and unfed)) then return false end
+  local n = short >= P.SMELT_MORE and P.SMELTERS_BOOT_MORE or P.SMELTERS_BOOT
   if have >= n then return false end
   local need = n - have
   local put = math.min(need, E.avail[T.SMELTER] or 0, math.floor((E.avail[T.fuel] or 0) / T.fuel_per_burner))

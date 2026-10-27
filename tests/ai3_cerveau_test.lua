@@ -312,5 +312,67 @@ mutant("poids ignorés", function() B.weights = function() local o = {} for _, f
   return rank_of(g1, "recherche") < rank_of(g1, "armee") and rank_of(g2, "armee") < rank_of(g2, "recherche")
 end)
 
+---------------------------------------------------------------------------------------------------
+section("7. Lot IA-V2 : emboîtement avec IA3-b et IA3-f (défauts trouvés en moteur réel le 27/10)")
+---------------------------------------------------------------------------------------------------
+-- (a) Fonderie d'amorçage AVANT les projets : cas ia3b-fer (6 fer, 30 charbon, 60 pierre, aucun four, aucun
+-- avant-poste) : la première pensée fabrique les fours du QG en priorité P.BOOT_PRIO, au-dessus des fours des
+-- avant-postes (moteur réel, 1bd0801 : 0 four au QG en 15 min, les projets prenaient toute la pierre).
+local fer_stock = { ["iron-plate"] = 6, coal = 30, stone = 60 }
+local function fer_view(over)
+  local v = view({ is_player = true, stock = fer_stock, outposts = {}, sites = { coal = 1, iron = 1, copper = 1, stone = 1 },
+    workers = 8, workers_idle = 8 })
+  for k, x in pairs(over or {}) do v[k] = x end
+  return v
+end
+local fer_ctx = { tick = 0, is_player = true, weights = B.weights({}, nil),
+  reach = { ["iron-ore"] = 48, stone = 48, coal = 96, ["copper-ore"] = 96 } }
+local function boot_of(p)
+  local boot, top_other = nil, 0
+  for _, t in ipairs(p.tasks) do
+    if (t.kind == "smelters" and t.why == "fonderie") or (t.kind == "craft" and t.item == T.SMELTER and t.ia3 == 0) then
+      boot = t
+    elseif t.kind == "craft" and t.item == T.SMELTER and t.prio > top_other then
+      top_other = t.prio
+    end
+  end
+  return boot, top_other
+end
+local pf = C.think(fer_view(), book, C.new_state(0), fer_ctx)
+local boot, top_other = boot_of(pf)
+check(boot ~= nil and boot.prio == P.BOOT_PRIO, "fonderie d'amorçage dès la 1re pensée (" .. tostring(boot and boot.kind) .. ")")
+check(boot ~= nil and boot.prio > top_other, "fours du QG avant ceux des avant-postes (" .. tostring(boot and boot.prio)
+  .. " contre " .. top_other .. ")")
+-- Avec des fours au coffre et du charbon : posés tout de suite (ce que le charbon permet).
+local pf2 = C.think(fer_view({ stock = { ["iron-plate"] = 6, coal = 12, stone = 60, [T.SMELTER] = 4 } }), book, C.new_state(0), fer_ctx)
+local put = find(pf2, function(t) return t.kind == "smelters" and t.why == "fonderie" end)
+check(put ~= nil and put.count == 2, "fours du coffre posés selon le charbon (12 charbons : " .. tostring(put and put.count) .. " fours)")
+-- (b) Saturation (A5) : rien ne manque : la tournée de l'avant-poste de pierre saturé continue ; le fer manque : retirée.
+local calm = dc_view({ smelters = 2, stock = { stone = 600, coal = 800, ["iron-plate"] = 900, ["copper-plate"] = 900,
+  ["firearm-magazine"] = 60 }, outposts = { op(1, "stone", 2), op(2, "iron", 4), op(3, "coal", 4), op(4, "copper", 4) } })
+local stc = C.new_state(0)
+local pc = C.think(calm, book, stc, ctx)
+check(stc.other_short == false, "rien ne manque : aucune autre matière en manque")
+check(pc.ia3.saturated.stone and pc.ia3.dropped == 0,
+  "rien ne manque : pierre saturée, mais aucune tournée retirée (" .. pc.ia3.dropped .. ")")
+local pd = C.think(dc_view(), book, C.new_state(0), ctx)
+check(pd.ia3.dropped > 0, "le fer manque : la tournée de la pierre saturée est retirée (" .. pd.ia3.dropped .. ")")
+-- (c) Abords du QG pas encore vus (brouillard d'IA3-f) : aucune exploration demandée.
+local ph = C.think(dc_view({ sites = { coal = 1, iron = 0, copper = 0, stone = 1 } }), book, C.new_state(0),
+  { tick = 0, is_player = true, weights = B.weights({}, nil), reach = { stone = 40, coal = 80 }, home_known = false })
+check(next(ph.ia3.explore) == nil, "abords du QG pas vus : aucune exploration")
+-- (d) Gisement CONNU (carte d'IA3-f) hors de portée de la main : pas « à explorer ».
+local pk = C.think(dc_view({ sites = { coal = 1, iron = 0, copper = 0, stone = 1 } }), book, C.new_state(0),
+  { tick = 0, is_player = true, weights = B.weights({}, nil), reach = { stone = 40, coal = 80 },
+    known = { ["iron-ore"] = true, stone = true, coal = true } })
+check((pk.ia3.explore["iron-ore"] or 0) == 0, "fer connu sur la carte : pas d'exploration du fer")
+-- Mutants de la section 7.
+local boot0 = P.boot_smelters
+mutant("sans fonderie d'amorçage", function() P.boot_smelters = function() return false end end,
+  function() P.boot_smelters = boot0 end, function()
+  local b2 = boot_of(C.think(fer_view(), book, C.new_state(0), fer_ctx))
+  return b2 ~= nil
+end)
+
 print(string.format("[AI3-CERVEAU] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
