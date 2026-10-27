@@ -22,6 +22,7 @@ local Journal = require("script.faction.journal")
 local Character = require("script.faction.character")
 local V = require("shared.faction.valeur")
 local Tr = require("shared.faction.traits")
+local T = require("shared.team.config")
 
 local Sites = {}
 
@@ -58,32 +59,54 @@ local MIN_RESOURCES = 24      -- tuiles de ressource exploitables dans le chunk 
 local MIN_SITE_RESOURCES = 12 -- tuiles exploitables lues autour du site
 local MIN_DIST_OTHER_HQ = 110
 local MIN_DIST_PLAYER_SPAWN = 140
--- Espacement minimal entre deux avant-postes (tuiles). Session 3 : l'exclusion par chunks voisins
--- (96 × 96 tuiles) interdisait d'exploiter un grand gisement à plusieurs ; on mesure la distance réelle.
-local MIN_SITE_SPACING = 40
+-- Espacement entre deux avant-postes : distance réelle (session 3 : l'exclusion par chunks voisins de 96 × 96 tuiles
+-- interdisait d'exploiter un grand gisement à plusieurs), par RESSOURCE depuis le lot SITES (V.spacing).
 local ENEMY_CLEARANCE = 48
 local CLAIM_SCAN_CHUNKS = 2
 
 local chunk_key = State.chunk_key
 
-local function claimed(war, pos)
+--- Ressource d'une revendication ancienne (écrite avant le lot SITES, sans ressource) : lue sur l'avant-poste de la
+--- faction qui la détient, à la même position. Rend nil si introuvable (la règle prudente de 40 tuiles s'applique).
+local function claim_resource(war, key, entry)
+  local owner = war.claims[key]
+  local f = owner and war.factions and war.factions[owner]
+  if not f then return nil end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    local dx, dy = o.pos.x - entry.x, o.pos.y - entry.y
+    if dx * dx + dy * dy <= 4 then
+      local spec = o.kind and T.outposts[o.kind]
+      return spec and spec.resource or nil
+    end
+  end
+  return nil
+end
+
+--- Revendication qui bloque le site `site` ({ x, y, resource, radius }) : { dist, x, y } ou nil. Une entrée ancienne
+--- sans ressource est migrée à la lecture (claim_resource) ; sans position : prudence.
+local function claim_blocker(war, site)
   local claims = war.claims
-  if next(claims) == nil then return false end
-  local cx, cy = math.floor(pos.x / 32), math.floor(pos.y / 32)
+  if next(claims) == nil then return nil end
+  local cx, cy = math.floor(site.x / 32), math.floor(site.y / 32)
   local cpos = war.claim_pos or {}
   for dx = -CLAIM_SCAN_CHUNKS, CLAIM_SCAN_CHUNKS do
     for dy = -CLAIM_SCAN_CHUNKS, CLAIM_SCAN_CHUNKS do
       local key = chunk_key(cx + dx, cy + dy)
       if claims[key] then
         local p = cpos[key]
-        if not p then return true end -- ancienne sauvegarde sans position : prudence
-        local ddx, ddy = p.x - pos.x, p.y - pos.y
-        if ddx * ddx + ddy * ddy < MIN_SITE_SPACING * MIN_SITE_SPACING then return true end
+        if not p then return { key = key } end -- ancienne sauvegarde sans position : prudence
+        if p.resource == nil then p.resource = claim_resource(war, key, p) end
+        if V.too_close(site, p) then
+          return { key = key, dist = math.sqrt((p.x - site.x) ^ 2 + (p.y - site.y) ^ 2), x = p.x, y = p.y }
+        end
       end
     end
   end
-  return false
+  return nil
 end
+
+local function claimed(war, site) return claim_blocker(war, site) ~= nil end
 
 local function far_from(pos, others, min_dist)
   for _, o in ipairs(others) do
@@ -136,12 +159,30 @@ local function count_resources(surface, area, name, limit)
   return n
 end
 
-local function near_prospect(f, pos)
+--- Site de la réserve qui bloque `pos` ({ x, y, resource, radius }) : { site, dist } ou nil.
+local function prospect_blocker(f, pos)
   for _, p in ipairs(f.prospects) do
     local dx, dy = p.x - pos.x, p.y - pos.y
-    if dx * dx + dy * dy < MIN_SITE_SPACING * MIN_SITE_SPACING then return true end
+    if V.too_close(pos, p) then return { site = p, dist = math.sqrt(dx * dx + dy * dy) } end
   end
-  return false
+  return nil
+end
+
+local function near_prospect(f, pos) return prospect_blocker(f, pos) ~= nil end
+
+--- Lot SITES (trace) : un gisement lu et NON retenu, avec son motif. Compteurs dans f.stats.refus (rendus par le bilan),
+--- une ligne [FO-SITES] par refus, au plus 400 par équipe.
+local REFUS_LOG_MAX = 400
+local function refuse(f, tick, reason, res, site, detail)
+  f.stats.refus = f.stats.refus or {}
+  local k = reason .. ":" .. res
+  f.stats.refus[k] = (f.stats.refus[k] or 0) + 1
+  if (f.stats.refus_logged or 0) >= REFUS_LOG_MAX then return end
+  f.stats.refus_logged = (f.stats.refus_logged or 0) + 1
+  local hq = f.hq_pos
+  local d = hq and math.floor(math.sqrt((site.x - hq.x) ^ 2 + (site.y - hq.y) ^ 2)) or -1
+  log(string.format("[FO-SITES] refus tick %d %s %s : (%d, %d), %d tuiles du QG, motif %s%s", tick, f.key, res,
+    math.floor(site.x), math.floor(site.y), d, reason, detail and (" " .. detail) or ""))
 end
 
 local function prospects_of(f, resource)
@@ -259,9 +300,16 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
   local free = far_from(center, other_hqs, MIN_DIST_OTHER_HQ)
     and (f.is_player or far_from(center, { spawn }, MIN_DIST_PLAYER_SPAWN))
     and surface.is_chunk_generated({ x = cx, y = cy })
-    and not unreachable(war, center, tick) and not claimed(war, center)
+  local why = nil
+  if free and unreachable(war, center, tick) then why = "injoignable" end
+  free = free and why == nil
   Profiler.stop("prospect:checks")
   local area = { { cx * 32, cy * 32 }, { cx * 32 + 32, cy * 32 + 32 } }
+  if why and (f.stats.refus_logged or 0) < REFUS_LOG_MAX and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
+    for _, res in ipairs(wanted) do
+      if count_resources(surface, area, res, 64) >= MIN_SITE_RESOURCES then refuse(f, tick, why, res, center) end
+    end
+  end
   if free and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
     -- Ressource demandée la plus présente dans le chunk.
     local best, best_n = nil, 0
@@ -281,6 +329,27 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
         rich = rich + (r.amount or 0)
       end
       local site = { x = sx / #tiles, y = sy / #tiles, resource = best, front = front and front.key or nil }
+      -- Lot SITES : rayon du site = étendue des tuiles lues autour de leur centre (espacement par ressource, V.spacing).
+      local far2 = 0
+      for _, r in ipairs(tiles) do
+        local d2 = (r.position.x - site.x) ^ 2 + (r.position.y - site.y) ^ 2
+        if d2 > far2 then far2 = d2 end
+      end
+      site.radius = math.ceil(math.sqrt(far2))
+      -- Refus de Lua pur d'abord (injoignable, revendiqué, trop près d'un site de la réserve), avant les lectures moteur.
+      if unreachable(war, site, tick) then
+        refuse(f, tick, "injoignable", best, site)
+        return false
+      end
+      local cb, pb = claim_blocker(war, site), prospect_blocker(f, site)
+      if cb then
+        refuse(f, tick, "revendique", best, site, cb.dist and string.format("a %d tuiles de (%d, %d)", cb.dist, cb.x, cb.y) or "sans position")
+        return false
+      elseif pb then
+        refuse(f, tick, "espacement", best, site, string.format("a %d tuiles du site %s (%d, %d)", pb.dist, pb.site.resource,
+          pb.site.x, pb.site.y))
+        return false
+      end
       -- Lot IA2-b : richesse, eau et terrain lus UNE fois à la découverte (carte de valeur, shared/faction/valeur.lua).
       Profiler.start("prospect:value")
       site.rich, site.tiles = rich, #tiles
@@ -294,7 +363,8 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
       if hostile then
         Sites.mark_unreachable(site, tick)
         f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
-      elseif not unreachable(war, site, tick) and not claimed(war, site) and not near_prospect(f, site) then
+        refuse(f, tick, "hostile", best, site)
+      else
         f.prospects[#f.prospects + 1] = site
         f.stats.prospected = (f.stats.prospected or 0) + 1
         return true
@@ -653,7 +723,7 @@ function Sites.claim(f, pos)
   local key = State.site_key(pos)
   war.claims[key] = f.id
   war.claim_pos = war.claim_pos or {}
-  war.claim_pos[key] = { x = pos.x, y = pos.y }
+  war.claim_pos[key] = { x = pos.x, y = pos.y, resource = pos.resource, radius = pos.radius }
 end
 
 function Sites.release(pos)
