@@ -44,6 +44,7 @@ P.SMELT_MORE = 50        -- 2 fours fondent 37 plaques par minute, le minerai at
 P.APPOINT_PRIO = 30      -- fonderie et minage d'APPOINT d'une matière qu'un avant-poste produit déjà
 P.BOOT_PRIO = 93         -- fonderie d'amorçage : chemin critique (aucune plaque sans four), avant les projets (lot IA-V2)
 P.PLATE_PER_MINER = 20   -- plaque sans avant-poste : un mineur par 20 plaques qui manquent (règle d'IA3-b, lot IA-V2)
+P.DEFER_PRIO = 40        -- matières des autres branches pendant qu'une plaque critique manque (lot IA-V2, §3.5)
 P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
 -- « défendre d'abord » d'IA1-b2, le soldat de repli (clé de T.kits), la plaque de la garde de l'économie (produit de
@@ -517,6 +518,23 @@ function P.supply(E, ctx)
   local smelters = (view.smelters or 0) + (view.smelters_pending or 0)
   -- Jusqu'à la moitié des PNJ au minage à la main d'une matière qui manque (constat du DC : « plein qui foutent rien »).
   local mine_room = math.max(1, math.floor((ctx.workers or 0) / 2))
+  -- Lot IA-V2 (chemin critique, §3.5) : une plaque fondue au QG qu'aucun avant-poste ne produit, et qui manque, bloque
+  -- tous les projets qui en ont besoin : les AUTRES matières brutes de leurs composants (pierre des fours d'avant-poste…)
+  -- attendent (P.DEFER_PRIO), sauf celles de la fonderie d'amorçage (« fonderie »). Moteur réel, ia3b-fer sur c06a97b :
+  -- 2,7 PNJ sur la pierre et le charbon pendant la 1re minute, 62 plaques à 7,3 min.
+  local function unfed_plate(item)
+    for _, k in ipairs(T.OUTPOST_ORDER) do
+      local spec = T.outposts[k]
+      if (spec.product == item or spec.resource == item) and T.smelter_inputs[spec.product] then
+        return ((ctx.cap or {})[k] or 0) <= 0
+      end
+    end
+    return false
+  end
+  local blocked_by_plate = false
+  for _, k in ipairs(sorted_keys(E.raw)) do
+    if T.smelter_inputs[k] and E.raw[k].n > 0 and unfed_plate(k) then blocked_by_plate = true end
+  end
   for _ = 1, 4 do
     local items = {}
     for _, k in ipairs(sorted_keys(E.raw)) do if not done[k] then items[#items + 1] = k end end
@@ -545,7 +563,8 @@ function P.supply(E, ctx)
       -- avant-postes, 0 sur le fer ; 62 plaques à 5,6 min contre 4,7 avec IA3-b seul).
       local plate_kind = kind and T.smelter_inputs[T.outposts[kind].product] and kind or nil
       local critical = plate_kind ~= nil and not fed
-      if critical then prio = math.max(prio, P.BOOT_PRIO) end
+      if critical then prio = math.max(prio, P.BOOT_PRIO)
+      elseif blocked_by_plate and r.why ~= "fonderie" then prio = math.min(prio, P.DEFER_PRIO) end
       if input then
         -- Fondre : la fonderie du QG (ses fours d'abord s'il n'y en a pas).
         E.smelt[item] = (E.smelt[item] or 0) + r.n
