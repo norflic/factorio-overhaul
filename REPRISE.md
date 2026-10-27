@@ -12,10 +12,10 @@
 >
 > **27/10, 4 h 30 : IA1-d FUSIONNÉ, `main` = 0.4.32** (`d414f34`, version et changelog `4197173`) : plan directeur et
 > construction par fantômes (`script/team/build.lua`, `shared/team/plan.lua`), NEUTRE tant qu'aucun cerveau ne l'appelle ;
-> 5 terrains `ia1-build-*` 12 OK sur la branche ; F292 à F295, E195 à E197. Bancs sur `main` par la file : archives
-> `fo-logs\2026-10-27_integration-0.4.32\`. Proposition d'appel pour IA3-e : `fo-logs\2026-10-25_IA1-d\INTEGRATION.md` §6.
+> 5 terrains `ia1-build-*` 12 OK sur la branche ; F292 à F295, E195 à E197. Bancs sur `main` par la file : ia1-build-plaine
+> 12 OK (4:23:41), content 331 OK (4:29:59), pvp 1305 ; archives `fo-logs\2026-10-27_integration-0.4.32\`. Proposition d'appel pour IA3-e : `fo-logs\2026-10-25_IA1-d\INTEGRATION.md` §6.
 > ENSUITE : **IA3-e** (A4, « ils craftent beaucoup à la main ») dès qu'IA-V2 est fusionné (il a besoin du cerveau d'IA3-c
-> et du plan d'IA1-d, tous deux sur `main` à ce moment). Worktree IA1-d (`agent-a39bad97…`) à retirer après les bancs sur `main`.
+> et du plan d'IA1-d, tous deux sur `main` à ce moment). Worktree IA1-d (`agent-a39bad97…`) retiré.
 >
 > **27/10, 4 h : FILE DU BANC À TOUR DE RÔLE, IA3-d LANCÉ.**
 > - `banc.py` (`dc343d5`) sert désormais les lots à tour de rôle (étiquette `--qui`), puis premier arrivé, premier servi dans un
