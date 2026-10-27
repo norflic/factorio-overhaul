@@ -1630,8 +1630,15 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "reserve" then
+    -- lot IA3-e : une réserve incomplète n'est relue qu'une fois par seconde (elle relisait le coffre et le registre
+    -- toutes les 5 ticks : chantiers des factions en attente de matériaux pendant des dizaines de minutes, K10)
+    if p.reserve_next and tick < p.reserve_next then return end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
-    if reserve(f, p) then p.state, p.reason = #p.obstacles > 0 and "defrichage" or "fantomes", nil else p.reason = "materiaux" end
+    if reserve(f, p) then
+      p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
+    else
+      p.reason, p.reserve_next = "materiaux", tick + 60
+    end
     return
   end
   if p.state == "defrichage" then
