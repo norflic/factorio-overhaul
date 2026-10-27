@@ -62,6 +62,7 @@ Capi.DEP_MAX = 16            -- gisements suivis au plus par faction (les plus p
 Capi.CENSUS_EVERY = 5 * 3600 -- un gisement est relu toutes les 5 min
 Capi.ORDER_TTL = 30 * 3600   -- un ordre qui n'avance plus depuis 30 min est retiré (refus écrit)
 Capi.LOG_ORDERS = 64         -- lignes d'ordres gardées pour l'interface des bancs
+Capi.QUEUE_MAX = 12          -- technologies au plus dans la file de recherche vue par la règle (recherche élastique)
 Capi.BACKOFF = 10 * 3600     -- un produit refusé par le plan directeur n'est plus demandé pendant 10 min × 2^(refus - 1),
 Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes refusées d'un même produit en 50 min, un plan
                              -- coûte 25 à 40 ms : comme AUTO, un refus vaut tant que le contexte n'a pas changé)
@@ -434,9 +435,35 @@ local function research_of(f, cs)
   end
   if lab.tech and c.techs[lab.tech] then add(lab.tech, c.techs[lab.tech].count - (lab.units or 0)) end
   local g = f.team.iag
+  local seen = { [lab.tech or ""] = true }
   for _, t in ipairs((g and g.next) or {}) do
-    if t ~= lab.tech and not (st.techs or {})[t] and c.techs[t] then add(t, c.techs[t].count) end
+    if not seen[t] and not (st.techs or {})[t] and c.techs[t] then
+      seen[t] = true
+      add(t, c.techs[t].count)
+    end
   end
+  -- Recherche ÉLASTIQUE (lot CAPIB, banc p3 : « recherche=47 s/min, labos=1 » à 60 min, épargne de 19 000 MU sans ordre) :
+  -- un joueur ne s'arrête pas à la technologie suivante. La file vue par la règle compte aussi les technologies que la
+  -- force peut chercher avec les packs qu'elle sait déjà fabriquer (recettes de packs ouvertes), les moins chères
+  -- d'abord (unités × temps, puis le nom), au plus Capi.QUEUE_MAX : la demande de packs grandit avec la règle (g par
+  -- cycle, jamais plus de Ca.LEAD × ce qui tourne), et avec elle les chaînes et l'extraction en amont.
+  local force = game.forces[f.force]
+  local open_pack = {}
+  for _, p in ipairs(c.pack_list or {}) do
+    local r = force and force.recipes[p]
+    if r and r.enabled then open_pack[p] = true end
+  end
+  local extra = {}
+  for _, t in ipairs(c.tech_list or sorted_keys(c.techs)) do
+    local spec = c.techs[t]
+    if spec and not seen[t] and not (st.techs or {})[t] then
+      local ok = #(spec.ingredients or {}) > 0
+      for _, ing in ipairs(spec.ingredients or {}) do if not open_pack[ing[1]] then ok = false end end
+      if ok then extra[#extra + 1] = { t = t, cost = (spec.count or 1) * (spec.time or 1) } end
+    end
+  end
+  table.sort(extra, function(a, b) if a.cost ~= b.cost then return a.cost < b.cost end return a.t < b.t end)
+  for i = 1, math.min(Capi.QUEUE_MAX, #extra) do add(extra[i].t, c.techs[extra[i].t].count) end
   -- débit de recherche MESURÉ (secondes de laboratoire par minute) : unités payées depuis la minute précédente
   local key = tostring(lab.tech) .. ":" .. tostring(lab.started or 0)
   local units = lab.units or 0
