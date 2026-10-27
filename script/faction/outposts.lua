@@ -78,7 +78,7 @@ end
 
 --- Pose jusqu'à `max_pairs` paires foreuse + réceptacle sur le gisement `kind` autour de `center`, avec
 --- les objets portés par `carrier` (inventaire de l'ouvrier). Renvoie drills, sinks.
-local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
+local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius, skip_taken)
   local spec = T.outposts[kind]
   local force = f.force
   -- L'ouvrier dégage le chantier : arbres et rochers abattus (le bois revient à l'équipe).
@@ -103,12 +103,29 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
   -- emplacement n'est essayé qu'une fois et le nombre d'essais est plafonné.
   local drills, sinks = {}, {}
   local tried, attempts = {}, 0
+  -- Lot CAPIB (avant-poste sous la capitalisation, skip_taken) : les tuiles déjà prises par une entité de la force
+  -- (foreuses, réceptacles) ne comptent pas parmi les MAX_ATTEMPTS essais (sans cela, les 40 tuiles les plus proches,
+  -- toutes prises après la construction, marquaient l'avant-poste plein : moteur réel, banc p1 du lot).
+  local taken = nil
+  if skip_taken then
+    taken = {}
+    for _, e in ipairs(surface.find_entities_filtered({ position = center, radius = radius + 3, force = force })) do
+      local bb = e.bounding_box
+      for x = math.floor(bb.left_top.x + 0.01), math.floor(bb.right_bottom.x - 0.01) do
+        for y = math.floor(bb.left_top.y + 0.01), math.floor(bb.right_bottom.y - 0.01) do taken[x * 65536 + y] = true end
+      end
+    end
+  end
   for _, res in ipairs(resources) do
     if #drills >= max_pairs or attempts >= MAX_ATTEMPTS then break end
     if carrier.get_item_count(T.DRILL) < 1 or carrier.get_item_count(spec.sink) < 1 then break end
     local rp = res.position
     local pos = { x = math.floor(rp.x + 0.5), y = math.floor(rp.y + 0.5) } -- foreuse 2×2 : centre entier
     local key = pos.x * 65536 + pos.y
+    if taken and (taken[(pos.x - 1) * 65536 + pos.y - 1] or taken[pos.x * 65536 + pos.y - 1]
+      or taken[(pos.x - 1) * 65536 + pos.y] or taken[key]) then
+      tried[key] = true
+    end
     if not tried[key] then
       tried[key] = true
       attempts = attempts + 1
@@ -273,7 +290,12 @@ end
 function Outposts.extend(f, surface, o, carrier)
   local spec = T.outposts[o.kind]
   local room = T.max_drills(o.kind, o) - o.drills
-  local drills, sinks = place_pairs(f, surface, o.kind, o.pos, carrier, math.min(spec.drills, room), 18)
+  -- Lot CAPIB : sous la capitalisation (plafond o.cap_drills), l'extension se centre sur la partie non couverte du
+  -- gisement (o.ext_center, relevé de la capitalisation) et ne compte pas les tuiles déjà prises ; sinon : inchangé.
+  local capi = o.cap_drills ~= nil
+  local has = carrier.get_item_count(T.DRILL) >= 1 and carrier.get_item_count(spec.sink) >= 1
+  local drills, sinks = place_pairs(f, surface, o.kind, (capi and o.ext_center) or o.pos, carrier, math.min(spec.drills, room),
+    18, capi)
   for _, d in ipairs(drills) do
     o.drill_list[#o.drill_list + 1] = d
     State.own(d, f.id, "drill", o.id)
@@ -286,7 +308,7 @@ function Outposts.extend(f, surface, o, carrier)
   if #drills == 0 or o.drills >= T.max_drills(o.kind, o) then o.full = true end
   -- Lot CAPIB : plein faute de PLACE (aucune paire posée), à distinguer d'un plafond atteint (la capitalisation relève
   -- le plafond, jamais la place).
-  if #drills == 0 and room > 0 then o.full_place = true end
+  if #drills == 0 and room > 0 and has then o.full_place = true end
   return #drills
 end
 

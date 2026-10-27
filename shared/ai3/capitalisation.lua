@@ -1415,6 +1415,17 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
   local kind = is_chain and (D.packs[item] and "packs" or "chaine") or "fours"
   local key = kind .. ":" .. item
   if Ca.taken(plan, key) then return end
+  -- Lot CAPIB : l'EXÉCUTANT sait-il poser cette chaîne aujourd'hui (gabarit, objets du gabarit fabricables, centrale) ?
+  -- input.can_exec(kind, item) rend nil (oui) ou la raison ; le refus est écrit et l'option n'existe pas (aucun budget
+  -- dépensé pour un ordre que personne ne peut poser).
+  local ce = ctx.input.can_exec
+  if ce then
+    local why_not = ce(kind, item)
+    if why_not then
+      if def > Ca.EPS then refuse(ctx, key, kind, item, "executant : " .. tostring(why_not)) end
+      return
+    end
+  end
   if ctx.threat and not Ca.HQ_LEVERS[kind] then
     if def > Ca.EPS then refuse(ctx, key, kind, item, "menace : leviers du QG seulement") end
     return

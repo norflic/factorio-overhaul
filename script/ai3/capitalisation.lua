@@ -62,7 +62,8 @@ Capi.DEP_MAX = 16            -- gisements suivis au plus par faction (les plus p
 Capi.CENSUS_EVERY = 5 * 3600 -- un gisement est relu toutes les 5 min
 Capi.ORDER_TTL = 30 * 3600   -- un ordre qui n'avance plus depuis 30 min est retiré (refus écrit)
 Capi.LOG_ORDERS = 64         -- lignes d'ordres gardées pour l'interface des bancs
-Capi.MODULE_DEFAULT_KM = 8   -- dixièmes : taille d'un pas de lot pour la portée du plan directeur (Build.RADIUS_MAX)
+Capi.MODULES_PER_ORDER = 3   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
+                             -- un gabarit plus grand ne tient pas dans un lot, moteur réel p1, « pas de lot », « trop grand »)
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -162,10 +163,10 @@ for _, kind in ipairs(T.OUTPOST_ORDER) do KIND_OF_RES[T.outposts[kind].resource]
 
 --- Une fonderie à foreuses de ce minerai peut-elle se poser MAINTENANT (tous ses objets fabricables ou au coffre) ?
 --- Rend vrai, ou faux et les objets manquants (la recherche qui les débloque prend de la valeur : Auto.wanted).
-local function module_ok(meth, book, stock)
-  local g = A.sized(meth, 60)
+local function module_ok(meth, book, stock, has_plant, rate)
+  local g = A.sized(meth, math.min(rate or 60, A.FIRST_RATE_MAX))
   if not g then return false, {} end
-  local _, items = A.cost(meth, g, { has_plant = true })
+  local _, items = A.cost(meth, g, { has_plant = has_plant })
   local miss = {}
   for _, name in ipairs(sorted_keys(items)) do
     if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name end
@@ -323,8 +324,10 @@ local function coverage(f, cs)
         idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
       end
       local seen, n = {}, 0
+      local sx, sy = 0, 0
       for _, dp in ipairs(by_dep[id]) do
         local r = dp.r
+        sx, sy = sx + dp.x, sy + dp.y
         for x = math.floor(dp.x - r + 0.01), math.floor(dp.x + r - 0.01) do
           for y = math.floor(dp.y - r + 0.01), math.floor(dp.y + r - 0.01) do
             local k = tkey(x, y)
@@ -334,6 +337,18 @@ local function coverage(f, cs)
       end
       cs.cov[id] = n
       d.covered = n
+      -- tuile de minerai NON couverte la plus proche du centre des foreuses : là où l'exécutant des avant-postes agrandit
+      -- (Outposts.extend, o.ext_center) ; ordre fixe (distance, x, y)
+      local cx, cy = sx / #by_dep[id], sy / #by_dep[id]
+      local best, bd = nil, nil
+      for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
+        local x, y = math.floor(e.position.x), math.floor(e.position.y)
+        if not seen[tkey(x, y)] then
+          local dd = (x + 0.5 - cx) ^ 2 + (y + 0.5 - cy) ^ 2
+          if bd == nil or dd < bd or (dd == bd and (x < best[1] or (x == best[1] and y < best[2]))) then best, bd = { x, y }, dd end
+        end
+      end
+      d.free_x, d.free_y = best and best[1] or nil, best and best[2] or nil
     end
   end
 end
@@ -395,6 +410,23 @@ local function flows_of(f, cs)
     if d > 0 and prev[k] ~= nil then out[k] = { made = d } end
   end
   cs.prod = cur
+  -- Fabrication À LA MAIN des PNJ (insérée par script : hors des statistiques, F244) : compteurs de l'automatisation
+  -- (f.team.ia3e.hand_all, objets fabriqués). Elle nourrit aujourd'hui (couverture d'un ingrédient, packs des
+  -- laboratoires) sans être du capital (Ca.HAND_CAPITAL = 0).
+  local ha = (f.team.ia3e and f.team.ia3e.hand_all) or {}
+  local hp = cs.hand_prev or {}
+  for _, k in ipairs(sorted_keys(ha)) do
+    local d = (ha[k] or 0) - (hp[k] or 0)
+    if d > 0 and hp[k] ~= nil then
+      local o = out[k] or { made = 0 }
+      o.made = (o.made or 0) + d
+      o.hand = (o.hand or 0) + d
+      out[k] = o
+    end
+  end
+  local copy = {}
+  for _, k in ipairs(sorted_keys(ha)) do copy[k] = ha[k] end
+  cs.hand_prev = copy
   return out
 end
 
@@ -426,10 +458,16 @@ local function research_of(f, cs)
     if du > 0 and spec then rate = du * (spec.time or 1) end
   end
   cs.r_key, cs.r_units = key, units
-  -- laboratoires affamés : des laboratoires, une technologie, et aucune unité payée cette minute (‰)
+  -- laboratoires affamés : des laboratoires, une technologie en cours, et un de ses packs absent du coffre du QG (‰)
   local nlabs = 0
   for _, e in ipairs(st.labs or {}) do if e.valid then nlabs = nlabs + 1 end end
-  local starved = (nlabs > 0 and lab.tech and rate <= 0) and 1000 or 0
+  local starved = 0
+  local spec = lab.tech and c.techs[lab.tech]
+  if nlabs > 0 and spec and f.hq and f.hq.valid then
+    for _, ing in ipairs(spec.ingredients or {}) do
+      if f.hq.get_item_count(ing[1]) < (ing[2] or 1) then starved = 1000 end
+    end
+  end
   return { queue = q, rate = rate, starved = starved }, nlabs
 end
 
@@ -447,13 +485,13 @@ local function build_input(f, cs, view, book, tick, D, w)
   for _, res in ipairs(D.res_list) do
     local meth = METHOD_OF_ORE[res]
     local ok, miss = false, {}
-    if meth and elec_drill and plant_state ~= "refuse" then ok, miss = module_ok(meth, book, stock) end
+    if meth and elec_drill and plant_state ~= "refuse" then ok, miss = module_ok(meth, book, stock, plant_state ~= nil) end
     if ok then drill_for[res], elec[res] = elec_drill, true
     elseif KIND_OF_RES[res] then drill_for[res] = T.DRILL
     else drill_for[res] = "" end
     for _, m in ipairs(miss) do wanted[m] = true end
   end
-  cs.wanted = sorted_keys(wanted)
+  cs.wanted_set = wanted
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
   local reach = (Build.RADIUS_MAX + 0.5) * Pl.PITCH
   local open_dep = {}
@@ -510,8 +548,30 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- besoin des buts SANS les buts capi ni la recherche : le besoin de matière de la dernière pensée (manque + usage)
   local need = {}
   for _, k in ipairs(sorted_keys(st.need)) do need[k] = st.need[k] end
+  -- L'exécutant des chaînes (rangées du plan directeur) sait-il les poser aujourd'hui ? (mémo de la décision)
+  local ce_memo = {}
+  local function can_exec(kind, item)
+    if kind == "fours" then return nil end
+    local m = ce_memo[item]
+    if m ~= nil then return m or nil end
+    local meth, why = A.method_for(item, book)
+    local res = nil
+    if not meth then res = tostring(why)
+    elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
+      res = "centrale refusee (" .. tostring(plant_why) .. ")"
+    else
+      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil)
+      if not ok then
+        res = "recherche : " .. table.concat(miss, ",")
+        for _, x in ipairs(miss) do wanted[x] = true end
+      end
+    end
+    ce_memo[item] = res or false
+    return res
+  end
   local g = f.team.iag
   return {
+    can_exec = can_exec,
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
     deposits = deposits, open = open, sinks = {}, need = need, research = research, drill_for = drill_for,
@@ -539,6 +599,16 @@ local function outposts_on(f, cs, dep)
   return out
 end
 
+--- Débit d'un ordre découpé en modules d'au plus A.FIRST_RATE_MAX objets/min (au plus Capi.MODULES_PER_ORDER).
+function Capi.split(rate)
+  local cap = A.FIRST_RATE_MAX
+  local k = math.max(1, math.min(Capi.MODULES_PER_ORDER, math.ceil((rate or 0) / cap - 1e-9)))
+  local each = math.min(cap, (rate or 0) / k)
+  local out = {}
+  for i = 1, k do out[i] = each end
+  return out
+end
+
 --- Envoie un ordre de la règle à son exécutant. Rend l'enregistrement de l'ordre ouvert, ou nil et la raison.
 local function execute(f, cs, o, view, book, tick, research)
   local rec = { key = o.key, kind = o.kind, item = o.item, resource = o.resource, deposit = o.deposit, entity = o.entity,
@@ -562,24 +632,25 @@ local function execute(f, cs, o, view, book, tick, research)
         if pin > 0 then per_ore = pout / pin end
       end
       local rate = (o.rate or 0) * per_ore
-      local g, args = A.sized(meth, rate)
-      if not g then return nil, "gabarit : " .. tostring(args) end
       local near = dep and { x = math.floor(dep.cx), y = math.floor(dep.cy) } or nil
-      -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_MAX)
-      if f.build and dep then
-        local far = math.max(math.abs(dep.cx - f.hq_pos.x), math.abs(dep.cy - f.hq_pos.y))
-        Build.grow(f, math.min(Build.RADIUS_MAX, math.ceil(far / Pl.PITCH)))
+      local ids, why = {}, nil
+      for _, part in ipairs(Capi.split(rate)) do
+        local g, args = A.sized(meth, part)
+        if not g then why = "gabarit : " .. tostring(args) break end
+        local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
+          rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near,
+          capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
+          tick, research)
+        if not id then why = "plan directeur : " .. tostring(w2) break end
+        ids[#ids + 1] = id
+        -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_MAX)
+        if f.build and dep then
+          local far = math.max(math.abs(dep.cx - f.hq_pos.x), math.abs(dep.cy - f.hq_pos.y))
+          Build.grow(f, math.min(Build.RADIUS_MAX, math.ceil(far / Pl.PITCH)))
+        end
       end
-      local id, why = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = rate,
-        rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near,
-        capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
-        tick, research)
-      if not id then return nil, "plan directeur : " .. tostring(why) end
-      if f.build and dep then
-        local far = math.max(math.abs(dep.cx - f.hq_pos.x), math.abs(dep.cy - f.hq_pos.y))
-        Build.grow(f, math.min(Build.RADIUS_MAX, math.ceil(far / Pl.PITCH)))
-      end
-      rec.exec, rec.module = "module", id
+      if #ids == 0 then return nil, why end
+      rec.exec, rec.mod_ids = "module", ids
       return rec
     end
     -- foreuses des avant-postes
@@ -593,6 +664,15 @@ local function execute(f, cs, o, view, book, tick, research)
       table.sort(list, function(a, b) if a.drills ~= b.drills then return a.drills < b.drills end return a.id < b.id end)
       local tgt = list[1]
       tgt.cap_drills = math.max(tgt.cap_drills or tgt.drills, tgt.drills) + (o.n or 0)
+      -- l'extension se fait là où le gisement n'est pas encore couvert (relevé de l'étape 1), sans compter les tuiles
+      -- déjà prises (Outposts.extend, mode capitalisation) ; un « plein » d'avant est revu une fois à ce nouveau centre
+      local dep = cs.deps[o.deposit]
+      if dep and dep.free_x then
+        if not (tgt.ext_center and tgt.ext_center.x == dep.free_x + 0.5 and tgt.ext_center.y == dep.free_y + 0.5) then
+          tgt.full_place = nil
+        end
+        tgt.ext_center = { x = dep.free_x + 0.5, y = dep.free_y + 0.5 }
+      end
       if not tgt.full_place then tgt.full = false end
       rec.outpost, rec.target = tgt.id, tgt.cap_drills
     else
@@ -613,13 +693,18 @@ local function execute(f, cs, o, view, book, tick, research)
   elseif o.kind == "chaine" or o.kind == "packs" then
     local meth, why = A.method_for(o.item, book)
     if not meth then return nil, tostring(why) end
-    local g, args = A.sized(meth, o.rate or 0)
-    if not g then return nil, "gabarit : " .. tostring(args) end
-    local id, why2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = o.rate,
-      rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key,
-      why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
-    if not id then return nil, "plan directeur : " .. tostring(why2) end
-    rec.exec, rec.module = "module", id
+    local ids, why2 = {}, nil
+    for _, part in ipairs(Capi.split(o.rate or 0)) do
+      local g, args = A.sized(meth, part)
+      if not g then why2 = "gabarit : " .. tostring(args) break end
+      local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
+        rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key,
+        why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
+      if not id then why2 = "plan directeur : " .. tostring(w2) break end
+      ids[#ids + 1] = id
+    end
+    if #ids == 0 then return nil, why2 end
+    rec.exec, rec.mod_ids = "module", ids
     return rec
   end
   return nil, "levier sans executant (" .. tostring(o.kind) .. ")"
@@ -628,15 +713,29 @@ end
 --- Suivi d'un ordre ouvert : manques, reste à poser, fin. Rend "ouvert", "fini" ou "echec", raison.
 local function follow(f, cs, rec, tick)
   if rec.exec == "module" then
-    local m = Auto.module(f, rec.module)
-    if not m then return "echec", "module perdu" end
-    rec.missing = (m.state == "reserve" and m.missing) or {}
-    rec.blocked = (m.state == "bloque") and tostring(m.reason) or nil
-    if m.state == "fini" then return "fini" end
-    if m.state == "refuse" then return "echec", "plan directeur : " .. tostring(m.reason) end
-    local built = m.built or 0
+    -- plusieurs modules par ordre : fini quand tous sont finis ou refusés (au moins un fini) ; échec si tous refusés
+    local missing, n_fini, n_ref, built, total, why = {}, 0, 0, 0, 0, nil
+    local blocked = nil
+    for _, id in ipairs(rec.mod_ids or { rec.module }) do
+      local m = Auto.module(f, id)
+      if not m or m.state == "refuse" then
+        n_ref = n_ref + 1
+        why = m and tostring(m.reason) or "module perdu"
+      elseif m.state == "fini" then n_fini = n_fini + 1
+      else
+        if m.state == "reserve" then for _, it in ipairs(m.missing or {}) do missing[#missing + 1] = it end end
+        if m.state == "bloque" then blocked = tostring(m.reason) end
+      end
+      if m then built, total = built + (m.built or 0), total + (m.total or 0) end
+    end
+    local n_mod = #(rec.mod_ids or { rec.module })
+    rec.missing, rec.blocked = missing, blocked
+    if n_fini + n_ref >= n_mod then
+      if n_fini > 0 then return "fini" end
+      return "echec", "plan directeur : " .. tostring(why)
+    end
     if built ~= rec.built then rec.built, rec.progress_tick = built, tick end
-    if m.total and m.total > 0 then rec.n_left = math.max(0, math.ceil((rec.n or 0) * (m.total - built) / m.total)) end
+    if total > 0 then rec.n_left = math.max(0, math.ceil((rec.n or 0) * (total - built) / total)) end
     return "ouvert"
   elseif rec.exec == "outpost" then
     if rec.outpost then
@@ -678,6 +777,9 @@ local function decide(f, cs, view, book, tick, research, w)
   Profiler.fstart("capi:decide")
   local res = Ca.decide(input, cs.st)
   Profiler.fstop("capi:decide")
+  cs.wanted = sorted_keys(cs.wanted_set or {})
+  cs.wanted_set = nil
+  Auto.want(f, cs.wanted)
   cs.decisions = cs.decisions + 1
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
     labs_target = res.labs_target, u_star = res.u_star }
@@ -692,6 +794,8 @@ local function decide(f, cs, view, book, tick, research, w)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
+      -- l'ordre n'a rien coûté : l'épargne débitée par la règle lui est rendue
+      cs.st.bank = (cs.st.bank or 0) + (o.cost_m or 0)
     end
   end
   -- couverture relue et dépôts suivis (journal : critères (1) et (3))
@@ -738,7 +842,9 @@ function Capi.think(f, view, book, tick, research, w)
     local state, why = follow(f, cs, rec, tick)
     if state == "ouvert" and tick - (rec.progress_tick or rec.opened) > Capi.ORDER_TTL then
       state, why = "echec", "aucun progres en " .. math.floor(Capi.ORDER_TTL / 3600) .. " min"
-      if rec.exec == "module" then Build.cancel(f, rec.module, "CAPI : " .. why) end
+      if rec.exec == "module" then
+        for _, id in ipairs(rec.mod_ids or { rec.module }) do Build.cancel(f, id, "CAPI : " .. why) end
+      end
     end
     if state == "ouvert" then keep[#keep + 1] = rec
     else
@@ -821,7 +927,7 @@ remote.add_interface("fo-capi", {
       res = cs.res, labs_want = cs.labs_want, smelt_want = cs.smelt_want, stats = {}, lag = cs.lag, wanted = cs.wanted }
     for _, rec in ipairs(cs.open) do
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
-        module = rec.module, opened = rec.opened }
+        mod_ids = rec.mod_ids, opened = rec.opened }
     end
     for _, d in ipairs(cs.done) do out.done[#out.done + 1] = d end
     for _, id in ipairs(sorted_keys(cs.deps)) do

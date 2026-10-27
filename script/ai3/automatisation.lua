@@ -574,9 +574,25 @@ function Auto.minute_line(f, st, tick)
 end
 
 --- Objets que l'automatisation voudrait et que l'équipe ne sait pas fabriquer (crochet de la recherche).
+--- Lot CAPIB : plus ceux que les exécutants de la capitalisation attendent (Auto.want ; nil réglage éteint).
 function Auto.wanted(f)
   local st = f and f.team and f.team.ia3e
-  return st and st.wanted or nil
+  if not st then return nil end
+  local cw = st.capi_wanted
+  if cw and #cw > 0 then
+    local m = {}
+    for _, k in ipairs(sorted_keys(st.wanted)) do m[k] = st.wanted[k] end
+    for _, k in ipairs(cw) do m[k] = true end
+    return m
+  end
+  return st.wanted
+end
+
+--- Lot CAPIB : objets qu'un exécutant de la capitalisation attend (liste triée) ; la recherche qui les débloque prend de
+--- la valeur (comme les objets voulus par A.decide).
+function Auto.want(f, list)
+  local st = f and f.team and f.team.ia3e
+  if st then st.capi_wanted = (list and #list > 0) and list or nil end
 end
 
 Board.on_done = Auto.on_done
