@@ -110,7 +110,11 @@ local function run_all()
     d.items["iag-tourbe"] = { type = "item", fuel_value = 20e6 }
   end })
   local cat_f = K.build(d_f, F.opts())
-  check(cat_f.fuels[1] == "iag-tourbe" and cat_f.fuel == "iag-tourbe", "§1 combustible : seulement un extractible (" .. tostring(cat_f.fuel) .. ")")
+  check(cat_f.fuel == T.fuel, "§1 combustible : extractible ET rapporté par un avant-poste (" .. tostring(cat_f.fuel) .. ")")
+  local o_nf = F.opts()
+  o_nf.fuel_ok = nil
+  local cat_nf = K.build(d_f, o_nf)
+  check(cat_nf.fuel == "iag-tourbe", "§1 combustible sans condition d'avant-poste : le plus riche extractible (" .. tostring(cat_nf.fuel) .. ")")
   local key_f = Gen.key_resources(cat_f, { extract = {} }, T.OUTPOST_ORDER, kind_of)
   check(key_f.fuel == "coal", "§1 combustible clé : le meilleur qu'un avant-poste rapporte (" .. tostring(key_f.fuel) .. ")")
 
@@ -413,6 +417,27 @@ do
   -- Le contrôle voit un nom : témoin positif.
   local probe = 'local x = "' .. T.turret_ammo .. '"'
   check(probe:find('"' .. T.turret_ammo .. '"', 1, true) ~= nil, "§8 témoin : un nom entre guillemets est vu")
+end
+
+-- §10 Le plus court d'abord (shared/ai3/projets.lua, P.update) : une recherche peu chère passe devant l'armée et la réserve.
+do
+  local P = require("shared.ai3.projets")
+  local function order_of(short)
+    local st = {}
+    local goals = {
+      { key = "extraction:a", family = "extraction", kind = "outpost", value = 92 },
+      { key = "armee", family = "armee", kind = "army", value = 58, permanent = true },
+      { key = "defense:munitions", family = "defense", kind = "stock", value = 55, permanent = true },
+      { key = "recherche", family = "recherche", kind = "research", value = 70, short = short },
+    }
+    local out = P.update(st, goals, 0, 8)
+    local keys = {}
+    for _, p in ipairs(out) do keys[#keys + 1] = p.key end
+    return table.concat(keys, ",")
+  end
+  local o1, o0 = order_of(true), order_of(nil)
+  check(o1 == "extraction:a,recherche,armee,defense:munitions", "§10 recherche courte servie avant les familles permanentes : " .. o1)
+  check(o0 == "extraction:a,armee,defense:munitions,recherche", "§10 sans le drapeau : ordre d'IA-V2 inchangé : " .. o0)
 end
 
 -- §9 Coût de calcul (ordre de grandeur).

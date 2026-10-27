@@ -147,7 +147,9 @@ end
 --- Exécutants d'aujourd'hui : la main et le laboratoire du QG (rôles), les fours du QG et les foreuses des avant-postes
 --- (tables de l'exécutant). Un lot qui ajoute un exécutant (IA3-e : modules du plan directeur) l'ajoute ici.
 function General.exec_opts()
-  return { exec = { [T.SMELTER] = true, [T.DRILL] = true }, exec_roles = { main = true, labo = true }, labs_unpowered = true }
+  return { exec = { [T.SMELTER] = true, [T.DRILL] = true }, exec_roles = { main = true, labo = true }, labs_unpowered = true,
+    -- Combustible : un objet qu'un avant-poste rapporte (moteur réel, banc g2 : sans cela, le cristal de résonance).
+    fuel_ok = function(item) return General.kind_of(item) ~= nil end }
 end
 
 function General.catalogue()

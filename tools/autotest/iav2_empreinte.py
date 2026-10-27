@@ -10,7 +10,7 @@ import os
 import re
 import sys
 
-TAGS = ("[FO-TEAM]", "[FO-IA3B]", "[FO-IA3C]", "[FO-IA3F]", "[FO-WAR]")
+TAGS = ("[FO-TEAM]", "[FO-IA3B]", "[FO-IA3C]", "[FO-IA3F]", "[FO-WAR]", "[FO-CERVEAU]")  # lot IA-G : décisions du cerveau général
 RE_PREFIX = re.compile(r"^\s*[0-9.]+ Script @__[^_]+__/[^:]+:\d+: ")
 RE_MINUTE = re.compile(r"\] minute (\d+) \|")
 RE_AT = re.compile(r" a ([0-9.]+) min")

@@ -224,7 +224,10 @@ function B.generate(s, st)
     -- jusqu'au fer II (72 min), palier 1 à 16-20 min.
     local cheap = r.iron_cost ~= nil and r.iron_cost <= B.RESEARCH_CHEAP
     if not s.economy_done and v > B.RESEARCH_PRE and not cheap then v = B.RESEARCH_PRE end
-    goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v }
+    -- Lot IA-G : une recherche PEU CHÈRE (même règle) est un travail COURT : elle est servie avant les familles
+    -- permanentes (armée, réserve) ; voir P.update (le plus court d'abord).
+    goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v,
+      short = cheap or nil }
   end
   -- Armée (factions).
   -- Une faction EN GUERRE (déclarée au joueur, ou posture guerrière du chef) s'arme d'abord : valeur × B.ARMY_WAR_PCT.

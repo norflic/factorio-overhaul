@@ -151,7 +151,10 @@ function K.build(dump, opts)
   for _, name in ipairs(sorted_keys(resources)) do
     local it = (dump.items or {})[name]
     local v = it and it.fuel_value or 0
-    if v > 0 and extract_cats[resources[name].category] then fuels[#fuels + 1] = { name, v } end
+    -- opts.fuel_ok(objet) : un exécutant sait aussi l'apporter aux machines (en jeu : un avant-poste le rapporte).
+    if v > 0 and extract_cats[resources[name].category] and (opts.fuel_ok == nil or opts.fuel_ok(name)) then
+      fuels[#fuels + 1] = { name, v }
+    end
   end
   table.sort(fuels, function(a, b)
     if a[2] ~= b[2] then return a[2] > b[2] end

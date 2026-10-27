@@ -157,14 +157,20 @@ function P.update(st, goals, tick, workers)
   -- (objectif 50 > armée 45 > recherche 40) gardé pour les ressources, avec K projets qui avancent sur le reste.
   -- Moteur simulé de pvp_test, essais 2 à 5 de ce lot : servie APRÈS tous les projets, l'armée n'avait plus de fer
   -- (0 soldat à 15 min, 441 fers manquants) et Difficile n'attaquait pas plus que Normal.
-  local out, perm, rest = {}, {}, {}
+  -- Lot IA-G (le plus court d'abord, règle d'ordonnancement classique : il minimise l'attente moyenne) : un projet dont
+  -- le but se dit COURT (recherche peu chère : quelques packs, shared/ai3/buts.lua) passe juste après le premier projet,
+  -- devant les familles permanentes. Moteur réel, banc g2 (27/10, graine 271828182) : servie après l'armée et la
+  -- réserve de munitions (740 fers), la recherche de 8 packs rouges attendait 9 min ; palier 1 à 10,4 min en médiane.
+  local out, perm, rest, short = {}, {}, {}, {}
   local first = nil
   for _, p in ipairs(active) do
     if p.goal.permanent then perm[#perm + 1] = p
     elseif not first then first = p
+    elseif p.goal.short then short[#short + 1] = p
     else rest[#rest + 1] = p end
   end
   if first then out[#out + 1] = first end
+  for _, p in ipairs(short) do out[#out + 1] = p end
   for _, p in ipairs(perm) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(blocked) do out[#out + 1] = p end
