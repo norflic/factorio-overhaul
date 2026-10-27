@@ -95,6 +95,7 @@ local SPREAD = 160             -- un éclaireur de plus ne vise pas un secteur �
 -- d'abord ») : point de passage posé sur une case LIBRE ; une cible au chemin raté est écartée pour toute l'équipe.
 local BAD_TTL = 10 * 3600      -- cible au chemin raté écartée 10 min (toutes missions de l'équipe)
 local FREE_RADIUS = 24         -- case libre cherchée à 24 tuiles au plus du point de passage
+local FAIL_MAX = 3             -- chemins ratés EN ROUTE repris par une autre cible, par mission d'exploration
 
 Storage.declare("ai3f", function()
   return { fog = true, lc = 0, tc = 0, seq = 0, stats = { looks = 0, skipped = 0, gen = 0, res_looks = 0 } }
@@ -554,6 +555,18 @@ local function monitor_one(f, k, ex, tick)
       ex.bad[ex.target] = true
       k.badt = k.badt or {}
       k.badt[ex.target] = tick -- lot IA-V2 : écartée pour toute l'équipe (BAD_TTL)
+    end
+    -- Lot IA-V2 (moteur réel, ia3c-reduit graine 20261020, code 4e0388b : Écarlate, 32 missions sur 33 finies sur
+    -- « chemin », point de passage de 96 tuiles introuvable EN ROUTE, puis retour à pied au QG ; aucun fer lointain en
+    -- 2 h) : une mission d'exploration prend une autre cible depuis là où il est, au plus FAIL_MAX fois.
+    if t.fail == "chemin" and ex.kind == "explore" and ex.state ~= "home" and (ex.fails or 0) < FAIL_MAX then
+      ex.fails = (ex.fails or 0) + 1
+      t.fail = nil
+      k.stats.rerouted = (k.stats.rerouted or 0) + 1
+      log(string.format("[FO-IA3F] %s : eclaireur %d : chemin rate en route, autre cible (%d/%d) a %.1f min", team_label(f),
+        a.id, ex.fails, FAIL_MAX, minutes(tick)))
+      retarget(f, k, a, ex, tick)
+      return
     end
     if ex.state ~= "home" then ex.state, ex.why = "home", "chemin" end
     return
