@@ -130,6 +130,7 @@ function D.mark_seen(map, x, y, kind, range, tick)
       local oldest = 1
       for i, t in ipairs(map.threats) do if t.t < map.threats[oldest].t then oldest = i end end
       table.remove(map.threats, oldest)
+      map.gone = (map.gone or 0) + 1
     end
     return true
   end
@@ -153,8 +154,10 @@ function D.mark_death(map, x, y, tick, home)
   for _, d in ipairs(map.deaths) do
     if tick - d.t < D.HOUR then keep[#keep + 1] = d end
   end
+  local before = #map.deaths
   keep[#keep + 1] = { x = x, y = y, t = tick, home = home or nil }
   while #keep > D.MAX_DEATHS do table.remove(keep, 1) end
+  if #keep <= before then map.gone = (map.gone or 0) + 1 end
   map.deaths = keep
 end
 
@@ -170,7 +173,10 @@ function D.forget_unseen(map, x, y, r, nearest)
     local dx, dy = t.x - x, t.y - y
     if dx * dx + dy * dy < l2 then n = n + 1 else keep[#keep + 1] = t end
   end
-  if n > 0 then map.threats = keep end
+  if n > 0 then
+    map.threats = keep
+    map.gone = (map.gone or 0) + 1
+  end
   return n
 end
 
@@ -400,9 +406,11 @@ function D.prune(map, tick)
     local K = D.KINDS[t.k] or D.KINDS.unit
     if (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) * K.w >= 50 * 1000 then th[#th + 1] = t end
   end
+  if #th < #map.threats then map.gone = (map.gone or 0) + 1 end
   map.threats = th
   local de = {}
   for _, d in ipairs(map.deaths) do if tick - d.t < D.HOUR then de[#de + 1] = d end end
+  if #de < #map.deaths then map.gone = (map.gone or 0) + 1 end
   map.deaths = de
   return removed
 end

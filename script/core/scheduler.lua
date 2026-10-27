@@ -41,6 +41,18 @@ Storage.declare("sched", function()
   return { lanes = {}, timers = {} }
 end)
 
+-- Lot PERF2 (F342) : DÉCALAGE des créneaux par voie. Avant, le premier membre de CHAQUE voie avait le créneau 1, traité
+-- au tick où tick % P = 0 : la 1re faction (fo-commander, 300 ticks), votre équipe (fo-pteam, 300) et tous les
+-- on_nth_tick de période divisant 300 tombaient au même tick (8,7 ms en moyenne). Chaque voie commence désormais au créneau
+-- 1 + décalage, décalage = partie fractionnaire de (rang de définition × nombre d'or) × P, en entiers (même valeur sur tous
+-- les clients, aucune dépendance au contenu). Les garanties de la roue (période exacte, un passage par tick) ne changent pas.
+local GOLD = 618034 -- (√5 − 1) / 2 en millionièmes
+local function lane_offset(name, period)
+  local cfg = lanes[name]
+  local i = cfg and cfg.index or 0
+  return math.floor(((i * GOLD) % 1000000) * period / 1000000)
+end
+
 local function current_period(name)
   local p = math.floor(lanes[name].period())
   if p < 1 then p = 1 end
@@ -48,7 +60,7 @@ local function current_period(name)
 end
 
 -- Réattribue tous les ids vivants sur P créneaux, dans un ordre déterministe.
-local function rebuild(st, period)
+local function rebuild(st, period, off)
   local ids, seen = {}, {}
   local old = st.buckets
   for s = 1, (st.period or 0) do
@@ -66,7 +78,7 @@ local function rebuild(st, period)
   local buckets, slot_of = {}, {}
   for s = 1, period do buckets[s] = {} end
   for k = 1, #ids do
-    local s = (k - 1) % period + 1
+    local s = (k - 1 + (off or 0)) % period + 1
     local b = buckets[s]
     b[#b + 1] = ids[k]
     slot_of[ids[k]] = s
@@ -82,7 +94,7 @@ local function lane_state(name)
     S.lanes[name] = st
   end
   local p = current_period(name)
-  if st.period ~= p then rebuild(st, p) end
+  if st.period ~= p then rebuild(st, p, lane_offset(name, p)) end
   return st
 end
 
@@ -91,8 +103,8 @@ function Scheduler.define_lane(name, period, handler)
   assert(not lanes[name], "voie déjà définie : " .. name)
   local period_fn = period
   if type(period) == "number" then period_fn = function() return period end end
-  lanes[name] = { period = period_fn, handler = handler, prof = "lane:" .. name }
   lane_order[#lane_order + 1] = name
+  lanes[name] = { period = period_fn, handler = handler, prof = "lane:" .. name, index = #lane_order }
   stamps[name] = {}
 end
 
@@ -104,7 +116,7 @@ end
 function Scheduler.add(lane, id)
   local st = lane_state(lane)
   if st.slot_of[id] then return end
-  local s = st.rr % st.period + 1
+  local s = (st.rr + lane_offset(lane, st.period)) % st.period + 1
   st.rr = st.rr + 1
   local b = st.buckets[s]
   b[#b + 1] = id
@@ -158,7 +170,7 @@ local function run_lane(name, tick)
   local st = Storage.ns("sched").lanes[name]
   if not st or (st.count == 0 and st.period) then return end
   local p = current_period(name)
-  if st.period ~= p then rebuild(st, p) end
+  if st.period ~= p then rebuild(st, p, lane_offset(name, p)) end
   local s = tick % p + 1
   local b = st.buckets[s]
   local n = #b

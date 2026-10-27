@@ -504,6 +504,86 @@ function M.retarget_mine(f, t, task, surface, tick, B)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot PERF2 : mémoire courte des refus de la porte (casse la boucle du PNJ refusé, F341)
+---------------------------------------------------------------------------------------------------
+-- t.refus[clé de la case du but] = { sk (case du départ), t (tick du jugement complet), uv (carte effacée, revérifiée),
+-- gone (t.map.gone : menaces ou morts oubliées, compté par shared/ai3/danger.lua),
+-- B (seuil), esc (escorte possible), why, deaths, max_d, goal_ok (but hors de portée : escalade permise), pts (échantillons
+-- du chemin jugé) }. Un refus est rejoué sans itinéraire si TOUT est pareil : même case de départ, même seuil, même escorte
+-- possible, rien n'a pu lever le refus (t.uv : menace oubliée, nid revérifié disparu, carte effacée, ménage), moins de
+-- REFUS_TTL ticks. Le rejeu fait tout ce que fait le refus (compte des attentes et escalade, menace signalée aux soldats,
+-- étiquette, statistiques, journal) ; il cède la main au jugement complet quand celui-ci pourrait décider autrement : une
+-- escalade possible (attente de rang > W, but hors de portée), un changement de site dû (minage). Une menace NOUVELLE ou une
+-- mort nouvelle n'invalide pas (elles ne font qu'aggraver) ; les cases mobiles qui s'éteignent attendent au plus REFUS_TTL.
+M.REFUS_TTL = 600
+M.REFUS_MAX = 64
+
+--- La carte a perdu une menace ou une mort hors de shared/ai3/danger.lua (revérification, carte effacée) : ce qui peut LEVER
+--- un refus ; les refus gardés ne valent plus. Les oublis faits par danger.lua sont comptés dans map.gone.
+function M.unblock(t) t.uv = (t.uv or 0) + 1 end
+
+--- Nombre d'attentes avant l'escalade (2 audacieux à 6 prudent).
+function M.waits_max(prud) return math.max(2, math.min(6, math.floor(4 * prud / 1000))) end
+
+function M.refus_keep(t, dk, r)
+  local m = t.refus
+  if not m then
+    m = {}
+    t.refus = m
+  end
+  if not m[dk] then
+    local keys = {}
+    for k in pairs(m) do keys[#keys + 1] = k end
+    if #keys >= M.REFUS_MAX then
+      table.sort(keys)
+      local old = keys[1]
+      for _, k in ipairs(keys) do if m[k].t < m[old].t then old = k end end
+      m[old] = nil
+    end
+  end
+  m[dk] = r
+end
+
+--- Refus gardé utilisable pour ce jugement, ou nil.
+function M.refus_hit(t, task, dk, sk, B, W, esc, tick)
+  local r = t.refus and t.refus[dk]
+  if not r then return nil end
+  if r.sk ~= sk or r.B ~= B or r.esc ~= esc or r.uv ~= (t.uv or 0) or r.gone ~= (t.map.gone or 0)
+    or tick - r.t >= M.REFUS_TTL then return nil end
+  if task.kind == "mine" and (not task.ia3k_retarget or tick - task.ia3k_retarget >= M.RETARGET_PERIOD) then return nil end
+  if r.why ~= "morts" and r.why ~= "mort" then
+    local w = t.waits and t.waits[dk]
+    if not w then return nil end
+    if w.n + 1 > W and r.goal_ok then return nil end
+  end
+  return r
+end
+
+--- Rejoue un refus gardé (mêmes effets que le refus du jugement complet).
+function M.refus_replay(f, t, agent, task, dest, dk, r, tick)
+  local a = astate(agent)
+  a.escort, a.risk = nil, nil
+  if r.why ~= "morts" and r.why ~= "mort" then
+    local w = t.waits[dk]
+    w.n, w.t = w.n + 1, tick
+    for _, th in ipairs(t.map.threats) do
+      for _, q in ipairs(r.pts) do
+        if d2(q, th) <= (th.r + 16) * (th.r + 16) then th.b = tick break end
+      end
+    end
+  end
+  inc(t.stats.gate, "wait")
+  inc(t.stats.gate_why, "wait:" .. r.why)
+  t.stats.refus_memo = (t.stats.refus_memo or 0) + 1
+  label(agent, "attente", tick, t.stats)
+  if Profiler.enabled() then
+    log(string.format("[FO-IA3K] %s : PNJ %d attend (%s) : tache %s vers (%d, %d), morts de l'heure %d, danger %d (seuil %d), memoire",
+      tostring(f.key), agent.id, r.why, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), r.deaths, r.max_d, r.B))
+  end
+  return false, "danger"
+end
+
+---------------------------------------------------------------------------------------------------
 -- Crochet : porte d'une tâche (C5, C6)
 ---------------------------------------------------------------------------------------------------
 function M.gate(f, agent, task, steps, tick)
@@ -518,6 +598,15 @@ function M.gate(f, agent, task, steps, tick)
   if not dest then return true end
   local e = agent.entity
   local p = e.position
+  local free = M.escort_free and M.escort_free(f) or 0
+  -- Lot PERF2 : mémoire courte des refus (boucle du PNJ refusé, F341 : 94 % des refus répétaient une destination déjà
+  -- refusée, en refaisant 1 à 3 A*). Un refus récent de l'équipe vers la même case, depuis la même case de départ, au même
+  -- seuil et avec la même escorte possible, est REJOUÉ sans itinéraire tant que rien n'a pu le lever (M.refus_hit).
+  local dk = D.key(D.cell(dest.x), D.cell(dest.y))
+  local sk = D.key(D.cell(p.x), D.cell(p.y))
+  local prud0 = M.character(f)
+  local hit = M.refus_hit(t, task, dk, sk, D.block(prud0), M.waits_max(prud0), free >= 2, tick)
+  if hit then return M.refus_replay(f, t, agent, task, dest, dk, hit, tick) end
   local res = M.plan(f, agent, p, dest, tick)
   -- Bloqué au sens des cases : le chemin qui minimise le danger est-il hors de portée réelle des menaces ?
   if res.blocked then
@@ -529,7 +618,6 @@ function M.gate(f, agent, task, steps, tick)
   local deaths = D.deaths_near(t.map, pts, D.HOUR_R, tick)
   local far = d2(f.hq_pos, dest) > M.SAFE_RADIUS * M.SAFE_RADIUS
   local prud = M.character(f)
-  local free = M.escort_free and M.escort_free(f) or 0
   local decision, why = D.gate({ blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far },
     { B = res.B, prudence = prud, escort_ok = free >= 2 })
   Profiler.fstop("gate:post")
@@ -558,7 +646,6 @@ function M.gate(f, agent, task, steps, tick)
   -- ESCALADE (IA3_CERVEAU §4.2 : « attendre n'est pas une fin ») : une destination refusée pour une menace VUE (pas pour
   -- une mort) part quand même après W attentes (2 audacieux à 6 prudent) ; le PNJ garde ses réflexes (demi-tour à portée).
   -- La menace qui bloque est signalée aux soldats (nettoyage quel que soit le caractère, script/ai3/soldats.lua).
-  local dk = D.key(D.cell(dest.x), D.cell(dest.y))
   t.waits = t.waits or {}
   if decision == "wait" and why ~= "morts" and why ~= "mort" then
     local w = t.waits[dk]
@@ -581,7 +668,7 @@ function M.gate(f, agent, task, steps, tick)
         if d2(q, th) <= (th.r + 16) * (th.r + 16) then th.b = tick break end
       end
     end
-    local W = math.max(2, math.min(6, math.floor(4 * prud / 1000)))
+    local W = M.waits_max(prud)
     -- Jamais d'escalade vers un BUT à portée réelle d'une menace connue (D.danger_exact au but >= seuil) : le PNJ y
     -- mourrait ou ferait demi-tour à portée ; seuls un nettoyage ou un autre site le débloquent (final-3958412
     -- memoire-123456789 : PNJ tué par un ver après une escalade vers un but à 4 150 de danger, seuil 650).
@@ -597,6 +684,8 @@ function M.gate(f, agent, task, steps, tick)
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
   if decision == "wait" then
+    M.refus_keep(t, dk, { sk = sk, t = tick, uv = t.uv or 0, gone = t.map.gone or 0, B = res.B, esc = free >= 2, why = why, deaths = deaths,
+      max_d = res.max_d, goal_ok = res.exact_goal < res.B, pts = pts })
     label(agent, "attente", tick, t.stats)
     if Profiler.enabled() then
       log(string.format("[FO-IA3K] %s : PNJ %d attend (%s) : tache %s vers (%d, %d), morts de l'heure %d, danger %d (seuil %d)",
@@ -910,7 +999,19 @@ end)
 Events.on_nth_tick(M.PRUNE_PERIOD, function(e)
   local st = S()
   if not st then return end
-  for _, k in ipairs(State.sorted_keys(st.teams)) do D.prune(st.teams[k].map, e.tick) end
+  for _, k in ipairs(State.sorted_keys(st.teams)) do
+    local t = st.teams[k]
+    D.prune(t.map, e.tick)
+    -- Lot PERF2 : refus gardés périmés retirés (D.prune compte lui-même ce qu'il oublie, map.gone).
+    if t.refus then
+      local keys = {}
+      for rk in pairs(t.refus) do keys[#keys + 1] = rk end
+      table.sort(keys)
+      for _, rk in ipairs(keys) do
+        if e.tick - t.refus[rk].t >= M.REFUS_TTL then t.refus[rk] = nil end
+      end
+    end
+  end
 end)
 
 -- YEUX FIXES (brouillard d'IA2-c : le QG voit à 160 tuiles, un avant-poste à 128) : les menaces fixes connues dans leur
@@ -955,6 +1056,7 @@ Events.on_nth_tick(M.RECHECK_PERIOD, function(e)
       if gone > 0 then
         t.map.threats = keep
         t.stats.recheck_gone = (t.stats.recheck_gone or 0) + gone
+        M.unblock(t) -- lot PERF2 : refus gardés levés
       end
       t.stats.rechecks = (t.stats.rechecks or 0) + checked
     end
@@ -1055,6 +1157,7 @@ remote.add_interface("fo-ia3k", {
     local t = M.team(f)
     t.map = D.new()
     t.new_threats = {}
+    M.unblock(t) -- lot PERF2 : refus gardés levés
     return true
   end,
   death = function(key, x, y)
