@@ -171,8 +171,9 @@ local function photos(ctx, moment)
 end
 
 return function(variant)
-  local NF = (variant == "usine2" or variant == "photo") and 2 or 4
-  -- Variante « photo » (captures pour le DC) : 2 factions, 51 min, images à 35, 43 et 50 min ; pas de mesure sans PNJ.
+  local NF = variant == "usine2" and 2 or 4
+  -- Variante « photo » (captures pour le DC) : 4 factions (comme ia3e-usine : mêmes bases sur la même graine), 51 min,
+  -- images à 35, 43 et 50 min ; pas de mesure sans PNJ.
   local T_END = variant == "photo" and 51 * MIN or T_END
   local PHOTOS = variant == "photo" and { [35 * MIN] = "35min", [43 * MIN] = "43min", [50 * MIN] = "50min" } or {}
   return {
