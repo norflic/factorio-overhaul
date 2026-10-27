@@ -10,6 +10,12 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 14 h 20 : CAPI FUSIONNÉ (règle pure, rien en jeu)** : `shared/ai3/capitalisation.lua`, test 151 OK, `docs/IA_CAPITALISATION.md` ;
+> livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md` (plan de branchement en 10 étapes §5, critères C1 à C9, `RESUME_DC.md`). Q-CAPI-1
+> tranchée par l'intégrateur d'après le DC (12 h 30) : couverture complète du gisement sans plafond « 2 × le besoin ». À FAIRE après la
+> fusion de SCALE, AUTO et CAPITAL : brancher (préalable : gisements comptés en entier, pas à 64 tuiles), étaler le coût, prouver en jeu
+> avec l'image d'une base (critères de l'OBJECTIFS §4, 12 h 30). Worktree `capi` retiré.
+>
 > **27/10, 13 h 50 : `main` = 0.6.2** (foreuse aux 15 âges EN JEU, `8217fb0`, provisoire ; ronde 2 du centre en outils, `ba6c9ac` ;
 > sur main : harness 0, feuilles foreuse 580, levels 1667, api_lint 1260, f4-foreuses 7 OK, content 331 ; agent design TERMINÉ,
 > worktrees design retirés). **Workflow `tirs-par-age` LANCÉ** (`wf_91cd3f5e-b4a`, worktree `tirs`, `fo-logs\2026-10-27_TIRS`,
