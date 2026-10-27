@@ -205,6 +205,23 @@ local function run(d, label, names)
     end end
     check(same, label .. " §6 deux implantations identiques")
   end
+  -- §4b rive LOIN du gisement (eau à x < -90) : machines près de la rive (req.block), le brut y vient par un long tuyau
+  local function blocked2(tx, ty) return tx < -90 end
+  local pumps2 = {}
+  for y = -6, 6 do pumps2[#pumps2 + 1] = { name = names.offshore, x = -89.5, y = y + 0.5, dir = 6, fluid = names.water } end
+  local req2 = {}
+  for k, v in pairs(req) do req2[k] = v end
+  req2.blocked, req2.pumps, req2.block = blocked2, pumps2, { x = -79.5, y = 0.5 }
+  local lay2, why4 = Fl.layout(req2)
+  check(lay2 ~= nil, label .. " §4b rive lointaine : " .. tostring(why4))
+  if lay2 then
+    local ok2, w5 = Fl.check(lay2, rel.entities)
+    check(ok2, label .. " §4b réseaux sans mélange, chevalets raccordés : " .. tostring(w5))
+    local ref
+    for _, e in ipairs(lay2.ents) do if e.name == names.refinery then ref = e end end
+    check(ref ~= nil and ref.x < -60, label .. " §4b raffinerie près de la rive (x " .. tostring(ref and ref.x) .. ")")
+    say(string.format("%s §4b : %d tuyaux, %d poteaux, %d relais", label, lay2.pipes, lay2.poles, lay2.line))
+  end
   return lay
 end
 
