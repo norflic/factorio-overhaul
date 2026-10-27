@@ -30,8 +30,10 @@
   Bascule (bancs avant / après sur la même source) : interface distante « fo-ia3f », set_fog(false) = comportement
   d'avant le lot (prospection sans brouillard, aucune exploration, aucun regard).
 
-  État (nombres, chaînes, tables) : f.ai3f = { m, q, qi, inq, gen, born, fixed_at, fixed_n, tour, req, done, ex,
-  next_mission, next_check, probed, audit, stats } ; global.fo.ai3f = { fog, lc, tc, seq, stats }.
+  État (nombres, chaînes, tables) : f.ai3f = { m, q, qi, inq, gen, born, fixed_at, fixed_n, tour, req, done, exl,
+  next_mission, next_check, probed, audit, stats, home_seen } ; global.fo.ai3f = { fog, lc, tc, seq, stats }.
+  Lot IA-V2 : `exl` = LISTE des missions en cours (un tour, ou jusqu'à EXPLORERS_MAX explorations quand des PNJ
+  attendent sans travail) ; aucune demande d'exploration avant que les abords du QG soient vus (`home_seen`).
   Journal : « [FO-IA3F] ».
 ]]
 
@@ -78,6 +80,13 @@ local MINE_REQ_TTL = 10 * 3600 -- une demande « minage » non renouvelée expir
 local EXHAUSTED_RETRY = 10 * 3600
 local PROBE_RETRY = 5 * 3600
 local MIN_TEAM = 2             -- jamais d'éclaireur dans une équipe de moins de 2 PNJ
+-- Lot IA-V2 (constats du DC : « plein qui foutent rien », « n'explorent pas et regardent même pas autour d'eux ») :
+local HOME_GIVEUP = 2 * 3600   -- abords du QG (œil du QG) vus avant toute demande d'exploration, au plus 2 min d'attente
+local EXPLORERS_MAX = 3        -- éclaireurs à la fois quand une ressource manque ET que des PNJ attendent sans travail
+local IDLE_PER_EXPLORER = 3    -- un éclaireur de plus par 3 PNJ sans tâche (le premier part sans condition)
+local MULTI_TEAM = 4           -- plusieurs éclaireurs seulement dans une équipe d'au moins 4 PNJ
+local EXTRA_GAP = 300          -- départs des éclaireurs supplémentaires espacés de 5 s
+local SPREAD = 160             -- un éclaireur de plus ne vise pas un secteur à moins de 160 tuiles de la cible d'un autre
 
 Storage.declare("ai3f", function()
   return { fog = true, lc = 0, tc = 0, seq = 0, stats = { looks = 0, skipped = 0, gen = 0, res_looks = 0 } }
@@ -262,6 +271,10 @@ local function open_request(f, k, res, tick, why)
     if why == "minage" then r.renewed = tick end
     return "en cours"
   end
+  -- Lot IA-V2 : un joueur regarde autour de sa base avant de partir explorer (critère A6) : pas de demande tant que les
+  -- abords du QG ne sont pas vus (moteur réel, ia3c-dc-apres, 27/10 : exploration du fer demandée à 0,1 min alors que
+  -- le gisement était à 127 tuiles, dans l'œil du QG pas encore regardé).
+  if not k.home_seen then return "abords" end
   k.req[res] = { t = tick, why = why, known0 = K.count(k.m, res), renewed = tick }
   log(string.format("[FO-IA3F] %s : exploration demandee pour %s (%s) a %.1f min, gisements connus %d, secteurs vus %d",
     team_label(f), res, why, minutes(tick), k.req[res].known0, k.m.n))
@@ -414,16 +427,18 @@ local function start_mission(f, k, a, kind, res, tick)
     steps = { { "wait", 120 }, { "home" } } -- la cible est choisie à la première surveillance (au plus 15 ticks)
     ex.next_target = tick
   end
-  k.ex = ex
+  k.exl = k.exl or {}
+  k.exl[#k.exl + 1] = ex
   k.stats.missions = (k.stats.missions or 0) + 1
   set_steps(a, steps, tick)
-  log(string.format("[FO-IA3F] %s : eclaireur %d part (%s%s) a %.1f min, secteurs vus %d", team_label(f), a.id, kind,
-    res and (" " .. res) or "", minutes(tick), k.m.n))
+  log(string.format("[FO-IA3F] %s : eclaireur %d part (%s%s) a %.1f min, secteurs vus %d, eclaireurs %d", team_label(f), a.id,
+    kind, res and (" " .. res) or "", minutes(tick), k.m.n, #k.exl))
 end
 
-local function end_mission(f, k, tick, why)
-  local ex = k.ex
-  k.ex = nil
+local function end_mission(f, k, ex, tick, why)
+  local rest = {}
+  for _, e in ipairs(k.exl or {}) do if e.tag ~= ex.tag then rest[#rest + 1] = e end end
+  k.exl = rest
   local a = Registry.get(ex.agent)
   if a then a.ai3f_eye = nil end
   k.next_mission = tick + ((why == "fuite" or why == "perdu") and COOLDOWN_FLEE or COOLDOWN)
@@ -442,8 +457,28 @@ local function retarget(f, k, a, ex, tick)
   local e = a.entity
   local surface = e.surface
   local me = { x = e.position.x, y = e.position.y }
+  -- Lot IA-V2 : plusieurs éclaireurs : chacun évite les secteurs proches de la cible d'un autre (exclusion calculée à la
+  -- demande, table locale jamais rangée dans global).
+  local others = {}
+  for _, e in ipairs(k.exl or {}) do
+    if e.tag ~= ex.tag and e.target then
+      local ox, oy = K.center(K.xy(e.target))
+      others[#others + 1] = { x = ox, y = oy }
+    end
+  end
+  local exclude = ex.bad
+  if #others > 0 then
+    exclude = setmetatable({}, { __index = function(_, key)
+      if ex.bad[key] then return true end
+      local cx, cy = K.center(K.xy(key))
+      for _, o in ipairs(others) do
+        if (cx - o.x) ^ 2 + (cy - o.y) ^ 2 < SPREAD * SPREAD then return true end
+      end
+      return nil
+    end })
+  end
   local key = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
-    rivals = rivals(f, surface), exclude = ex.bad })
+    rivals = rivals(f, surface), exclude = exclude })
   if not key then
     local r = ex.res and k.req[ex.res]
     if r then r.exhausted = tick end
@@ -476,16 +511,15 @@ local function flee(f, k, a, ex, enemy, tick)
   go_home(a, ex, "fuite", tick)
 end
 
-local function monitor(f, k, tick)
-  local ex = k.ex
+local function monitor_one(f, k, ex, tick)
   local a = Registry.get(ex.agent)
   if not (a and a.entity and a.entity.valid) then
-    end_mission(f, k, tick, "perdu")
+    end_mission(f, k, ex, tick, "perdu")
     return
   end
   local t = a.task
   if not (t and t.ai3f == ex.tag) then
-    end_mission(f, k, tick, ex.state == "home" and ex.why or "fini")
+    end_mission(f, k, ex, tick, ex.state == "home" and ex.why or "fini")
     return
   end
   if t.fail then -- chemin raté : le PNJ rentre de lui-même (étape home)
@@ -523,6 +557,12 @@ local function monitor(f, k, tick)
   end
 end
 
+local function monitor(f, k, tick)
+  local list = {}
+  for _, ex in ipairs(k.exl or {}) do list[#list + 1] = ex end
+  for _, ex in ipairs(list) do monitor_one(f, k, ex, tick) end
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Une équipe : fondation, yeux, demandes automatiques, missions, contrôle des sites
 ---------------------------------------------------------------------------------------------------
@@ -530,7 +570,7 @@ local function init(f, surface, tick)
   local war = State.war()
   local k = {
     m = K.new(), q = {}, qi = 1, inq = {}, gen = {}, born = f.started or war.started or tick, fixed_at = -1e9, fixed_n = -1,
-    tour = { state = "todo", next = 1 }, req = {}, done = {}, ex = nil, next_mission = tick + 60, next_check = tick,
+    tour = { state = "todo", next = 1 }, req = {}, done = {}, exl = {}, next_mission = tick + 60, next_check = tick,
     probed = {}, audit = { outposts = {}, ok = 0, bad = {} }, stats = { looks = 0 },
   }
   f.ai3f = k
@@ -677,21 +717,53 @@ local function measure(f, tick)
   end
 end
 
+--- Lot IA-V2 : les abords du QG (secteurs de l'œil du QG) sont-ils tous vus ? Une fois vrai, le reste (ou au bout de
+--- HOME_GIVEUP : secteur jamais généré, file pleine).
+local function home_check(f, k, tick)
+  if k.home_seen then return true end
+  local all = true
+  for _, key in ipairs(eye_keys(f.hq_pos.x, f.hq_pos.y, K.EYE.hq)) do
+    if not K.seen(k.m, key) then all = false break end
+  end
+  if all or tick - (k.opened or k.born) >= HOME_GIVEUP then
+    k.home_seen = tick
+    log(string.format("[FO-IA3F] %s : abords du QG %s a %.1f min, secteurs vus %d", team_label(f),
+      all and "vus" or "vus en partie (delai)", minutes(tick), k.m.n))
+    -- Demande en attente pendant le regard (crochet du minage) : les besoins sont relus tout de suite.
+    k.next_check = tick
+  end
+  return k.home_seen ~= nil
+end
+
+local function idle_count(f)
+  local n = 0
+  for _, id in ipairs(sorted_keys(f.engineers or {})) do
+    local a = Registry.get(id)
+    if a and a.entity and a.entity.valid and a.task == nil and a.state == "idle" and not a.nav then n = n + 1 end
+  end
+  return n
+end
+
 local function team_pass(f, tick)
   local surface = surface_of(f)
   if not surface then return end
   measure(f, tick)
   local k = f.ai3f or init(f, surface, tick)
+  k.exl = k.exl or {}
+  k.opened = k.opened or tick
   fixed_eyes(f, k, tick)
   moving_eyes(f, k, surface, tick)
   audit(f, k, tick)
+  home_check(f, k, tick)
   if tick >= k.next_check then
     k.next_check = tick + CHECK_PERIOD
     auto_requests(f, k, surface, tick)
   end
-  if k.ex or tick < k.next_mission then return end
+  if tick < k.next_mission then return end
+  local n = #k.exl
+  for _, ex in ipairs(k.exl) do if ex.kind == "tour" then return end end
   local kind, res
-  if k.tour.state == "todo" then
+  if k.tour.state == "todo" and n == 0 then
     if tick - k.born > TOUR_DEADLINE then k.tour.state = "skip" else kind = "tour" end
   end
   if not kind then
@@ -699,8 +771,19 @@ local function team_pass(f, tick)
     if res then kind = "explore" end
   end
   if not kind then return end
+  if n > 0 then
+    -- Lot IA-V2 (B4 : « met plusieurs personnes sur l'urgence ») : un éclaireur de plus seulement si des PNJ attendent
+    -- sans travail (un par IDLE_PER_EXPLORER), dans une équipe d'au moins MULTI_TEAM PNJ, au plus EXPLORERS_MAX.
+    if (f.engineers_count or 0) < MULTI_TEAM then return end
+    local idle = idle_count(f)
+    local cap = math.min(EXPLORERS_MAX, 1 + math.floor(idle / IDLE_PER_EXPLORER))
+    if n >= cap then return end
+  end
   local a = pick_idle(f)
-  if a then start_mission(f, k, a, kind, res, tick) end
+  if a then
+    start_mission(f, k, a, kind, res, tick)
+    if kind == "explore" then k.next_mission = tick + EXTRA_GAP end
+  end
 end
 
 Scheduler.define_lane(X.EYE_LANE, EYE_PERIOD, function(_, tick)
@@ -715,7 +798,7 @@ Scheduler.define_lane(X.EYE_LANE, EYE_PERIOD, function(_, tick)
   end
   Profiler.start("ai3f:eyes")
   for _, f in ipairs(list) do
-    if f.ai3f and f.ai3f.ex then monitor(f, f.ai3f, tick) end
+    if f.ai3f and f.ai3f.exl and #f.ai3f.exl > 0 then monitor(f, f.ai3f, tick) end
   end
   g.tc = g.tc % #list + 1
   team_pass(list[g.tc], tick)
@@ -854,7 +937,10 @@ function X.status(f, res)
   if not k then return nil end
   local r = k.req[res]
   return { known = K.count(k.m, res), open = r ~= nil, since = r and r.t or nil,
-    exploring = k.ex ~= nil and k.ex.res == res, found_after = k.stats.found and k.stats.found[res] or nil }
+    exploring = (function()
+      for _, ex in ipairs(k.exl or {}) do if ex.res == res then return true end end
+      return false
+    end)(), found_after = k.stats.found and k.stats.found[res] or nil }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -882,7 +968,8 @@ local function team_report(f)
   return {
     key = f.key, open = true, sectors = sum.sectors, nests = sum.nests, worms = sum.worms, deposits = sum.deposits,
     found = found, requests = req, done = k.done, tour = k.tour.state, tour_done_at = k.tour.done_at,
-    mission = k.ex and { kind = k.ex.kind, res = k.ex.res, started = k.ex.started, agent = k.ex.agent, state = k.ex.state } or nil,
+    mission = k.exl and k.exl[1] and { kind = k.exl[1].kind, res = k.exl[1].res, started = k.exl[1].started,
+      agent = k.exl[1].agent, state = k.exl[1].state } or nil, explorers = k.exl and #k.exl or 0, home_seen = k.home_seen,
     looks = k.stats.looks, missions = k.stats.missions or 0, flees = k.stats.flees or 0, deaths = k.stats.deaths or 0,
     injected = k.stats.injected or 0, far_mine = k.stats.far_mine or 0, audit_ok = k.audit.ok, audit_bad = #k.audit.bad,
     found_after = k.stats.found, outposts_at = mm.out, site_at = mm.site,
@@ -934,6 +1021,11 @@ Ia3.known_deposits = function(f, res, tick)
   if not X.fog_on() then return nil end
   if not (f and f.ai3f) then return {} end
   return X.deposits(f, res, tick)
+end
+-- Abords du QG vus (aucune exploration demandée avant) ; nil quand le brouillard est coupé.
+Ia3.home_known = function(f)
+  if not X.fog_on() then return nil end
+  return (f and f.ai3f and f.ai3f.home_seen) ~= nil
 end
 
 return X

@@ -117,7 +117,7 @@ function C.consumed(base, view)
 end
 
 --- La pensée. ctx = { tick, is_player, weights, research, reach = { [ressource] = rayon }, mines_open, iron_floor,
---- army_target }. Renvoie le plan (format du planificateur) ; plan.ia3 = compte rendu (projets, exploration, saturées).
+--- army_target, home_known (faux : abords du QG pas encore vus, aucune exploration ; lot IA-V2) }. Renvoie le plan (format du planificateur) ; plan.ia3 = compte rendu (projets, exploration, saturées).
 function C.think(view, book, st, ctx)
   local tick = ctx.tick or 0
   -- 1. Observer.
@@ -140,7 +140,11 @@ function C.think(view, book, st, ctx)
   for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
-  P.supply(E, { reach = ctx.reach, workers = s.workers, mines_open = ctx.mines_open, minable = minable, cap = s.cap })
+  P.supply(E, { reach = ctx.reach, workers = s.workers, mines_open = ctx.mines_open, minable = minable, cap = s.cap,
+    home_known = ctx.home_known })
+  -- Lot IA-V2 : pas d'exploration demandée avant que les abords du QG soient vus (ctx.home_known faux : brouillard
+  -- d'IA3-f, regard en cours) ; le projet reste bloqué sur sa cause (« site: »), rien d'autre ne change.
+  if ctx.home_known == false then E.explore = {} end
   -- 7. Besoin, manques persistants, saturation.
   local short = {}
   for _, k in ipairs(sorted_keys(E.raw)) do short[k] = math.ceil(E.raw[k].n) end
@@ -162,6 +166,15 @@ function C.think(view, book, st, ctx)
     if (view.stock[k] or 0) > 0 and B.saturated(s, k) then saturated[k] = true end
   end
   st.saturated = saturated
+  -- Lot IA-V2 : une matière saturée ne libère ses bras que si une AUTRE manque (critère A5 : « aucune matière au-dessus
+  -- de 3 fois son besoin PENDANT qu'une autre manque » ; constat du DC du 25/10 : pierre et charbon ramassés pendant que
+  -- le fer manquait). Rien ne manque : la collecte et le fond continuent (moteur réel, ia3c-dc-apres, 27/10 : sans cette
+  -- règle, 5 à 8 PNJ sur 8 inactifs de 16 à 20 min, tout étant « saturé » faute de besoin).
+  local other_short = false
+  for _, k in ipairs(sorted_keys(short)) do
+    if short[k] > 0 and not saturated[k] then other_short = true end
+  end
+  st.other_short = other_short
   st.explore = E.explore
   -- 8. Plan.
   local product_of = {}
@@ -169,7 +182,7 @@ function C.think(view, book, st, ctx)
   local tasks, keys = {}, {}
   local dropped = 0
   for _, t in ipairs(base.tasks or {}) do
-    local drop = t.kind == "service" and t.prio < 90 and saturated[product_of[t.outpost] or ""] or false
+    local drop = other_short and t.kind == "service" and t.prio < 90 and saturated[product_of[t.outpost] or ""] or false
     if drop then dropped = dropped + 1 else
       tasks[#tasks + 1] = t
       keys[t.key] = true

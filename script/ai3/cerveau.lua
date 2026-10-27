@@ -473,6 +473,7 @@ end
 -- gisements CONNUS d'une ressource (carte de connaissance), du plus proche au plus lointain ({ distance, ... }). Sans
 -- crochet (brouillard coupé, témoins « avant ») : le rayon se lit sur la carte entière, comme IA3-c seul.
 Ia3.known_deposits = nil
+Ia3.home_known = nil -- crochet d'IA3-f : abords du QG vus (aucune exploration demandée avant ; nil sans brouillard)
 Ia3.REACH_SEEN = 96 -- au-delà, sous brouillard, seulement un gisement CONNU (le PNJ y va par Worker.far_mine)
 
 local function reach_of(f, st, tick)
@@ -533,9 +534,10 @@ function Ia3.plan(f, view, book, surface, tick)
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
+  local home = Ia3.home_known and Ia3.home_known(f)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach_of(f, st, tick), mines_open = mines_open, iron_floor = iron_floor, army_target = army_target,
-    at_war = at_war and true or false }
+    at_war = at_war and true or false, home_known = home ~= false }
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
@@ -587,6 +589,8 @@ function Ia3.after_poles(f, tick)
   local st = f.team.ia3
   local sat = st and st.saturated
   if not sat or next(sat) == nil then return 0 end
+  -- Lot IA-V2 : seulement si une autre matière manque (shared/ai3/cerveau.lua, st.other_short ; critère A5).
+  if st.other_short == false then return 0 end
   local product_of = {}
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]

@@ -65,10 +65,17 @@ function X.tasks(view, missing, ctx)
   end
   if most <= 0 then return out end
   local smelters = (view.smelters or 0) + (view.smelters_pending or 0)
+  -- Lot IA-V2 : sous le cerveau par besoins (ctx.no_smelters), les fours du QG sont l'affaire de son approvisionnement
+  -- (shared/ai3/projets.lua, P.supply, même règle de 2 ou 4 fours) : deux producteurs fabriquaient chacun leurs fours
+  -- et vidaient la pierre du coffre (moteur réel, ia3b-fer, 27/10 : pierre à 0 en 2 min, 62 plaques à 9,0 min contre
+  -- 4,7 min sans le cerveau). Ici, seulement les mineurs.
+  local placing = false
+  if ctx.no_smelters then
+    smelters = math.max(1, smelters)
+  else
   -- Fours voulus : X.SMELTERS, X.SMELTERS_MAX pour un gros manque (premier essai en moteur réel, 25/10 : 2 fours
   -- fondent 37 plaques par minute, le minerai attendait au coffre).
   local want = most >= X.SMELT_MORE and X.SMELTERS_MAX or X.SMELTERS
-  local placing = false
   if smelters < want then
     local n0 = want - smelters
     -- Les fours du coffre sont posés tout de suite (avec leur charbon), les autres fabriqués (pierre) en parallèle.
@@ -102,6 +109,7 @@ function X.tasks(view, missing, ctx)
         end
       end
     end
+  end
   end
   if smelters == 0 and not placing then return out end
   for _, p in ipairs(X.PLATES) do

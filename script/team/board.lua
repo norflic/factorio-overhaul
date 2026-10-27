@@ -316,7 +316,9 @@ function Board.sync(f, planned, tick, plan, view, book)
       end
     end
     for _, key in ipairs(sorted_keys(b.cooldown)) do if tick < b.cooldown[key] then keys[key] = true end end
-    local added = X.tasks(view, missing, { keys = keys, mines = mines, mines_taken = taken, book = book })
+    -- Lot IA-V2 : sous le cerveau par besoins, ses fours d'abord (no_smelters, shared/ai3/manque.lua).
+    local added = X.tasks(view, missing, { keys = keys, mines = mines, mines_taken = taken, book = book,
+      no_smelters = f.team.ia3c == true })
     for _, t in ipairs(added) do
       t.created = born[t.key] or tick
       keep[t.key] = t

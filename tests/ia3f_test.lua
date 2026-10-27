@@ -177,7 +177,9 @@ check(oil ~= nil and oil - t0 <= 30 * 3600, "pétrole trouvé moins de 30 min ap
   tostring(oil and (oil - t0) / 3600) .. " min)")
 check(f1.ai3f.req["crude-oil"] == nil and count_logs("exploration crude-oil : trouve") >= 1, "demande fermée « trouvé »")
 M.run_ticks(2 * 3600)
-check(f1.ai3f.ex == nil or f1.ai3f.ex.res ~= "crude-oil", "l'éclaireur du pétrole est rentré")
+local oil_out = false
+for _, ex in ipairs(f1.ai3f.exl or {}) do if ex.res == "crude-oil" then oil_out = true end end
+check(not oil_out, "l'éclaireur du pétrole est rentré")
 local bad = 0
 for _, ff in pairs(global.fo.war.factions) do
   for _, s in ipairs(ff.prospects or {}) do

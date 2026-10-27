@@ -39,6 +39,8 @@ P.MINE_BATCH = 50
 P.FINISH_BONUS = 3
 P.SUPPLY_BONUS = 2
 P.SMELTERS_BOOT = 2      -- fonderie d'amorçage (aucun four au QG : votre équipe au départ)
+P.SMELTERS_BOOT_MORE = 4 -- … et 4 pour un manque d'au moins P.SMELT_MORE plaques (règle d'IA3-b, moteur réel du 25/10 :
+P.SMELT_MORE = 50        -- 2 fours fondent 37 plaques par minute, le minerai attendait au coffre ; lot IA-V2)
 P.APPOINT_PRIO = 30      -- fonderie et minage d'APPOINT d'une matière qu'un avant-poste produit déjà
 P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
@@ -497,7 +499,7 @@ function P.supply(E, ctx)
         E.smelt[item] = (E.smelt[item] or 0) + r.n
         if prio > E.smelt_prio then E.smelt_prio = prio end
         if smelters == 0 and not E.open["smelters"] then
-          local n = P.SMELTERS_BOOT
+          local n = r.n >= P.SMELT_MORE and P.SMELTERS_BOOT_MORE or P.SMELTERS_BOOT
           local list = { { T.SMELTER, n }, { T.fuel, T.fuel_per_burner * n } }
           if P.take(E, list) then
             P.add(E, { key = "smelters", kind = "smelters", prio = prio + 1, count = n, items = list, ia3 = r.pid,
