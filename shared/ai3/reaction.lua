@@ -34,13 +34,17 @@ function Re.fear(prudence)
   return t
 end
 
---- Rayon du regard (tuiles, autour d'un point LOOK_AHEAD tuiles devant le PNJ) : 28 (audacieux) à 40 (prudent).
-Re.LOOK_AHEAD = 16
+--- Rayon du regard (tuiles, autour d'un point LOOK_AHEAD tuiles devant le PNJ) : 40 (audacieux) à 56 (prudent).
+-- Portée : voir une zone de gros ver (38 + 10) ou de béhémoth (48 + 10) avant d'y entrer : un gros ver naturel a tué 2 PNJ
+-- en tournée avec un regard de 35 autour d'un point 16 tuiles devant (banc final-3958412 route-123456789).
+Re.LOOK_AHEAD = 20
+Re.LOOK_MIN = 40
+Re.LOOK_MAX = 56
 function Re.look_radius(prudence)
   local p = prudence or 1000
-  local r = 28 + math.floor((p - 562) * 12 / 688)
-  if r < 28 then return 28 end
-  if r > 40 then return 40 end
+  local r = Re.LOOK_MIN + math.floor((p - 562) * (Re.LOOK_MAX - Re.LOOK_MIN) / 688)
+  if r < Re.LOOK_MIN then return Re.LOOK_MIN end
+  if r > Re.LOOK_MAX then return Re.LOOK_MAX end
   return r
 end
 

@@ -296,7 +296,8 @@ local function suite()
   check(Re.decide({ kind = "unit", range = 30, dist = 34, on_route = true, hp = 1000, armed = true, enemies = 3, walking = true, repeats = 2 }) == "back",
     "unités revues après 2 arrêts ou détours de la même tournée : demi-tour (renoncer)")
   check(Re.engage_ratio(600, 1800) == 1500 and Re.engage_ratio(1250, 700) == 3000, "rapport d'engagement 1,5 à 3 selon le caractère")
-  check(Re.look_radius(562) == 28 and Re.look_radius(1250) == 40, "regard de 28 à 40 tuiles selon la prudence")
+  check(Re.look_radius(562) == 40 and Re.look_radius(1250) == 56, "regard de 40 à 56 tuiles selon la prudence")
+  check(Re.LOOK_AHEAD + Re.look_radius(562) >= 48 + D.MARGIN, "le regard le plus court voit une zone de béhémoth (48 + marge) avant d'y entrer")
   check(Re.decide({}) == "none", "aucun ennemi : rien")
 end
 

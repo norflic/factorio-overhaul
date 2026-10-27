@@ -288,7 +288,8 @@ function C.trips(opts)
               alive[id] = true
               local l = st.lab[id]
               if not l then
-                l = { first = t, key = txt[1]:sub(14) }
+                local tg = rendering.get_target(id)
+                l = { first = t, key = txt[1]:sub(14), ent = tg and tg.entity or nil }
                 st.lab[id] = l
               end
               l.last = t
@@ -296,7 +297,11 @@ function C.trips(opts)
           end
         end
         for id, l in pairs(st.lab) do
-          if not alive[id] then
+          if not alive[id] and l.ent and not l.ent.valid then
+            -- Porteur mort : le texte meurt avec lui (aucune durée mesurable) ; compté à part.
+            st.labels_dead = (st.labels_dead or 0) + 1
+            st.lab[id] = nil
+          elseif not alive[id] then
             st.labels_seen = st.labels_seen + 1
             -- vue de « first » à « last » (relevés toutes les 10 ticks) : durée ≥ last - first + 10 - 10
             if l.last - l.first + 10 >= 120 then st.labels_ttl = st.labels_ttl + 1 else
@@ -387,7 +392,8 @@ function C.trips(opts)
           for k, v in pairs(st.lab_keys or {}) do keys[#keys + 1] = k .. "=" .. v end
           table.sort(keys)
           ctx.check(st.labels_seen > 0 and st.labels_ttl == st.labels_seen, "D1 : etats visibles au-dessus des PNJ, chacun >= 2 s",
-            string.format("%d etats vus en entier, %d a >= 120 ticks (%s)", st.labels_seen, st.labels_ttl, table.concat(keys, " ")))
+            string.format("%d etats vus en entier, %d a >= 120 ticks (%s) ; %d texte(s) de PNJ tues, hors mesure", st.labels_seen,
+              st.labels_ttl, table.concat(keys, " "), st.labels_dead or 0))
         end
       else
         -- Variété (C1) : allers successifs d'un même couloir.
