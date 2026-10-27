@@ -23,7 +23,7 @@ AGES = tuple(range(1, 16))
 COTE = {e: E.COTE[e] for e in AGES}
 POSES = ("E", "N")
 FENETRE_GRIS = 10.0
-DUMP = "H:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-25_F4/vanilla/raw.txt"
+DUMP = "F:/Factorio.v1.1.91 Modding/Factorio.v1.1.91/fo-logs/2026-10-25_F4/vanilla/raw.txt"
 REF_VANILLA = dict(dump=DUMP, mesure="electric-mining-drill")
 CIBLE = {}
 LUCIOLES_MAX = 13.2
