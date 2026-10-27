@@ -77,7 +77,12 @@ function C.situation(view, st, ctx)
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
     sites = view.sites or {}, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     weights = ctx.weights or {}, research = ctx.research, army_target = ctx.army_target or 0, need = st.need,
-    at_war = ctx.at_war or view.threatened or false, economy_done = st.iron2_done ~= nil,
+    at_war = ctx.at_war or view.threatened or false,
+    -- Lot IA-V2 : l'économie est « faite » au fer II de l'ancienne échelle OU quand un avant-poste de fer tourne et que
+    -- le fer est SATURÉ (st.economy_ok, collant) : le cerveau par besoins ne bâtit pas un 2e avant-poste de fer qui ne
+    -- sert à rien, et la recherche restait plafonnée pour toujours (moteur réel, ia3c-reduit et ia3c-default graine
+    -- 20261020 : fer II jamais, 2 700 plaques de fer au coffre, paliers 2 et 3 à 29 et 48 min à 8 PNJ).
+    economy_done = st.iron2_done ~= nil or st.economy_ok ~= nil,
   }
 end
 
@@ -167,6 +172,10 @@ function C.think(view, book, st, ctx)
     if (view.stock[k] or 0) > 0 and B.saturated(s, k) then saturated[k] = true end
   end
   st.saturated = saturated
+  -- … et seulement quand l'équipe a son effectif visé (ses recrues se paient en fer : moteur simulé, ia1_scale_test, une
+  -- faction à 26 PNJ sur 30 en 12 min quand la recherche déplafonnée prenait le fer des recrues).
+  if not st.economy_ok and (s.cap.iron or 0) >= 0.75 and saturated[P.IRON]
+    and (view.workers or 0) >= (view.workers_wanted or 0) then st.economy_ok = tick end
   -- Lot IA-V2 : une matière saturée ne libère ses bras que si une AUTRE manque (critère A5 : « aucune matière au-dessus
   -- de 3 fois son besoin PENDANT qu'une autre manque » ; constat du DC du 25/10 : pierre et charbon ramassés pendant que
   -- le fer manquait). Rien ne manque : la collecte et le fond continuent (moteur réel, ia3c-dc-apres, 27/10 : sans cette

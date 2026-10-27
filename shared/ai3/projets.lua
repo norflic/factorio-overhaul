@@ -45,6 +45,7 @@ P.APPOINT_PRIO = 30      -- fonderie et minage d'APPOINT d'une matière qu'un av
 P.BOOT_PRIO = 93         -- fonderie d'amorçage : chemin critique (aucune plaque sans four), avant les projets (lot IA-V2)
 P.PLATE_PER_MINER = 20   -- plaque sans avant-poste : un mineur par 20 plaques qui manquent (règle d'IA3-b, lot IA-V2)
 P.DEFER_PRIO = 40        -- matières des autres branches pendant qu'une plaque critique manque (lot IA-V2, §3.5)
+P.TURRET_WAIT = 2 * 3600 -- avant-poste qui attend ses tourelles depuis 2 min : le projet les fabrique lui-même (lot IA-V2)
 P.LOG_MAX = 24           -- annonces gardées (fenêtre, journal)
 -- Données du mod (comme shared/team/config.lua ; le planificateur permanent les nomme de même) : la tourelle des règles
 -- « défendre d'abord » d'IA1-b2, le soldat de repli (clé de T.kits), la plaque de la garde de l'économie (produit de
@@ -333,7 +334,17 @@ EMIT.outpost = function(E, proj, g, ctx)
     -- attend sans rien prendre (essai 4 de ce lot, moteur simulé : tourelles et chargeurs demandés ICI sans plancher,
     -- fer à 17 à 5 min, armée à 0). Sans recette de tourelle : bloqué.
     if not turret_ok then return "bloque", "tourelles" end
-    proj.missing = { [P.TURRET] = math.max(1, T.defend_turrets(wait.drills) - (wait.turrets or 0)) }
+    local nt = math.max(1, T.defend_turrets(wait.drills) - (wait.turrets or 0))
+    proj.missing = { [P.TURRET] = nt }
+    -- Lot IA-V2 (piège de pauvreté, moteur réel, ia3c-default graine 20261020 : Écarlate, avant-postes de fer et de
+    -- charbon « manque [gun-turretx1] » pendant 2 h, le fer mangé par l'armée et les munitions, 4 à 5 PNJ sur 8 sans
+    -- tâche) : après P.TURRET_WAIT d'attente, le projet FABRIQUE ses tourelles et leurs chargeurs, à sa propre priorité
+    -- (la pose reste au planificateur permanent). Pas avant : l'essai 4 d'IA3-c (tourelles demandées dès la 1re minute)
+    -- avait effondré l'économie au moteur simulé.
+    local since = proj.waiting_since
+    if since and ctx and ctx.tick and ctx.tick - since >= P.TURRET_WAIT then
+      P.want(E, proj, { { P.TURRET, nt }, { T.turret_ammo, nt * T.defend_ammo } }, prio, false, "tourelle")
+    end
     return "matiere"
   end
   -- Construction : avec ses tourelles (défendre d'abord, IA1-b2) quand une tourelle est possible et que ce n'est pas
@@ -534,6 +545,9 @@ function P.supply(E, ctx)
   -- Le GOULOT (H2) : la plaque sans avant-poste qui manque le plus ; elle seule passe à la priorité de l'amorçage (deux
   -- plaques au même rang se partageaient les mineurs : moteur réel, ia3b-fer sur b33efe6, 1 mineur de fer au plus, le
   -- cuivre au même rang).
+  -- Fours du QG à court de combustible (charbon du coffre sous la recharge des fours posés).
+  local smelter_dry = (view.smelters or 0) > 0 and (view.smelter_fuel_low or
+    (E.avail[T.fuel] or 0) < T.fuel_per_burner * (view.smelters or 0))
   local blocked_by_plate, bottleneck, worst = false, nil, 0
   for _, k in ipairs(sorted_keys(E.raw)) do
     if T.smelter_inputs[k] and E.raw[k].n > 0 and unfed_plate(k) then
@@ -570,6 +584,13 @@ function P.supply(E, ctx)
       local plate_kind = kind and T.smelter_inputs[T.outposts[kind].product] and kind or nil
       local critical = plate_kind ~= nil and not fed and bottleneck == T.outposts[plate_kind].product
       if critical then prio = math.max(prio, P.BOOT_PRIO)
+      elseif blocked_by_plate and item == T.fuel and smelter_dry then
+        -- Lot IA-V2 : le COMBUSTIBLE des fours du QG est sur le chemin critique de la plaque quand les fours en manquent
+        -- (moteur réel, ia3b-fer sur 0302af1 : charbon reporté avec les autres matières, fours à sec, plaques bloquées à
+        -- 44 pendant 3 min). Seulement dans ce cas, et 2 mineurs au plus (au moteur simulé, le charbon des foreuses des
+        -- avant-postes passait aussi devant : ia1_scale_test, une faction à 26 PNJ sur 30 en 12 min).
+        prio = math.max(prio, P.BOOT_PRIO - 1)
+        room = math.min(room, 2)
       elseif blocked_by_plate and r.why ~= "fonderie" then prio = math.min(prio, P.DEFER_PRIO) end
       if input then
         -- Fondre : la fonderie du QG (ses fours d'abord s'il n'y en a pas).

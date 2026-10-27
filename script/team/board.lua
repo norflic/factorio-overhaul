@@ -439,6 +439,11 @@ local function rush_of(list)
 end
 
 Board.MARKET_TRIES = 8 -- tâches strictes refusées (matière non libre) essayées au plus par prise
+-- Lot IA-V2 : un indice de la pensée (Board.assign) ne réserve sa tâche qu'une seconde, et seulement pour un PNJ encore en
+-- attente (sans tâche, état « idle »). Diagnostic du 27/10 (moteur réel, ia3c-default graine 20261020, Écarlate : 4 à
+-- 5 PNJ sans tâche à CHAQUE pensée pendant 2 h avec une vingtaine de tâches libres prenables ; moteur simulé, 4 factions :
+-- 52 prises vides sur 52 avaient toutes leurs tâches libres indiquées à d'AUTRES PNJ).
+Board.HINT_TICKS = 60
 
 local function claim_market(f, agent, tick, b)
   local list = b.list
@@ -448,9 +453,12 @@ local function claim_market(f, agent, tick, b)
   local mine = b.hint and b.hint[agent.id]
   local ctx = market_ctx(f, b)
   ctx.rush = rush_of(list)
+  local fresh = b.hint_tick ~= nil and tick - b.hint_tick <= Board.HINT_TICKS
   ctx.skip = function(t)
     local h = hinted[t.key]
-    return h ~= nil and h ~= agent.id
+    if h == nil or h == agent.id or not fresh then return false end
+    local ha = Registry.get(h)
+    return ha ~= nil and ha.task == nil and ha.state == "idle"
   end
   local idx = M.order(npc, list, ctx)
   -- L'indice de la pensée (meilleure paire de M.assign) d'abord, s'il est encore là.
@@ -491,7 +499,9 @@ function Board.assign(f, tick)
   local npcs = {}
   for _, id in ipairs(sorted_keys(f.engineers or {})) do
     local a = Registry.get(id)
-    if a and not a.task and a.entity and a.entity.valid then npcs[#npcs + 1] = market_npc(a) end
+    -- Lot IA-V2 : seulement les PNJ qui vont PRENDRE une tâche (état « idle ») : un PNJ sans tâche qui rentre au QG
+    -- ou attend ne reçoit pas d'indice (il bloquerait la tâche pour les autres).
+    if a and not a.task and a.state == "idle" and a.entity and a.entity.valid then npcs[#npcs + 1] = market_npc(a) end
   end
   local reg = reg_of(f)
   -- Lot IA-V2 : diagnostic de K5 (PNJ sans tâche pendant que des tâches libres attendent), à chaque pensée : tâches
@@ -549,6 +559,7 @@ function Board.assign(f, tick)
     end
   end
   b.hint, b.hinted = hint, hinted
+  b.hint_tick = tick
   return n
 end
 
