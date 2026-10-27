@@ -85,8 +85,8 @@ A.BURNER_RATE = 0.25     -- minerai/s d'une foreuse à combustion (avant-postes 
 -- Méthodes « machine » (données du mod : générateurs de shared/team/modules.lua). ext = indice du paramètre agrandi
 -- (extension du gabarit) ; ore = minerai servi par des foreuses quand le flux le permet ; feed = têtes d'alimentation.
 A.METHODS = {
-  { product = "iron-plate", gen = "smelter", args = { "stone-furnace", "iron-ore", 1 }, ore = "iron-ore", feed = true },
-  { product = "copper-plate", gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = true },
+  { product = "iron-plate", gen = "smelter", args = { "stone-furnace", "iron-ore", 1 }, ore = "iron-ore", feed = "tapis" },
+  { product = "copper-plate", gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = "tapis" },
   { product = "iron-gear-wheel", gen = "gears", args = { 1, "assembling-machine-1" }, feed = true },
   { product = "electronic-circuit", gen = "circuits", args = { "assembling-machine-1", 1 }, feed = true },
   { product = "firearm-magazine", gen = "simple", args = { "firearm-magazine", 1, "assembling-machine-1" }, feed = true },

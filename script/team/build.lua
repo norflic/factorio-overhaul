@@ -643,7 +643,11 @@ local function plan_feed(f, surface, p, place, part)
           local flow = g.inputs and g.inputs[item] or 0
           if M.ORES[item] and flow >= P.AUTO_FLOW and p.spec.feed ~= "quai" then
             local dt = deposit_toward(b, item)
-            if dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) <= 3 * P.PITCH then
+            -- Lot IA3-e : feed = "tapis" (fonderie de l'automatisation) porte le tapis des foreuses jusqu'à 5 pas du
+            -- treillis : une voie de minerai à quai se remplit depuis le coffre, où il n'y a pas de minerai (e7-usine :
+            -- fonderie posée à plus de 3 pas du gisement, quai de minerai vide, fours « no_ingredients »).
+            local reach = (p.spec.feed == "tapis") and 5 or 3
+            if dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) <= reach * P.PITCH then
               sources[lane] = "tapis"
               drills[lane] = { item = item, flow = flow }
             end
