@@ -53,6 +53,8 @@ Build.NPC_BLOCKS_PER_FAIL = 5  -- un PNJ debout sur l'emprise est passager : 5 r
 Build.RETRY_TICKS = 7200       -- un projet bloqué rend ses PNJ et reprend 2 min plus tard (au plus Build.RETRIES fois)
 Build.RETRIES = 3
 Build.ANCHOR_SEARCH = 6        -- rayon (tuiles) de la recherche d'une tuile libre pour un point d'appui
+Build.OBST_CHECKS = 8          -- obstacles revus par passe (défrichage et chantier), à tour de rôle
+Build.CUT_WIDTH = 1.5          -- demi-largeur (tuiles) du couloir qu'un défricheur arrêté s'ouvre vers son point d'appui
 
 local REACH = P.BUILD_DISTANCE
 local TREE_TYPES = { "tree", "simple-entity" }
@@ -159,11 +161,20 @@ end
 
 local function seg_ok(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state == "ouvert" end end
 local function seg_passable(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state ~= "ferme" and s.state ~= "inconnu" end end
+--- Tronçon que des fils peuvent suivre : connu, et fermé au plus par une falaise ou nos bâtiments (pas l'eau : le
+--- carrefour peut y tomber ; ni nid, ni force rivale).
+local function seg_wire(b) return function(key)
+  local s = b.segs[key]
+  if s == nil or s.state == "inconnu" then return false end
+  return s.state ~= "ferme" or s.reason == "falaise" or s.reason == "batiments"
+end end
 
 ---------------------------------------------------------------------------------------------------
 -- Évaluation d'un lot ou d'un tronçon : 3 appels du moteur, aucune entité posée
 ---------------------------------------------------------------------------------------------------
-local function survey(surface, force, x0, y0, x1, y1)
+local WALKABLE_OWN = { ["transport-belt"] = true, ["underground-belt"] = true, ["splitter"] = true, ["electric-pole"] = true }
+
+local function survey(surface, force, x0, y0, x1, y1, seg)
   local area = { { x0, y0 }, { x1, y1 } }
   local s = { tiles = (x1 - x0) * (y1 - y0), water = 0, cliffs = 0, trees = 0, rocks = 0, foreign = 0, own = 0, nests = 0, res = {} }
   s.water = surface.count_tiles_filtered({ area = area, collision_mask = "water-tile" })
@@ -175,7 +186,10 @@ local function survey(surface, force, x0, y0, x1, y1)
       elseif t == "cliff" then s.cliffs = s.cliffs + 1
       elseif t == "simple-entity" then s.rocks = s.rocks + 1
       elseif t == "unit-spawner" or (t == "turret" and fn == "enemy") then s.nests = s.nests + 1
-      elseif fn == force then s.own = s.own + 1
+      elseif fn == force then
+        -- un tronçon de rue reste praticable sous nos tapis et nos poteaux (correction du 27/10 : 9 rues « fermées
+        -- par nos bâtiments » après défrichage au banc ia1-build-foret)
+        if not (seg and WALKABLE_OWN[t]) then s.own = s.own + 1 end
       elseif fn == "neutral" then s.rocks = s.rocks + 1
       elseif fn ~= "enemy" then s.foreign = s.foreign + 1 end
     end
@@ -208,7 +222,7 @@ local function eval_one(f, surface, item, tick)
   else
     local g = b.segs[item[2]]
     local x0, y0, x1, y1 = P.seg_rect(b.lat, item[2])
-    local s = survey(surface, f.force, x0, y0, x1, y1)
+    local s = survey(surface, f.force, x0, y0, x1, y1, true)
     local old = g.state
     g.state, g.reason = P.classify_segment(s)
     g.trees, g.tick = s.trees + s.rocks, tick
@@ -427,6 +441,8 @@ local function plan_power(f, p, mp, masks)
     target = best
   end
   local nodes = P.route_nodes({ i = mi, j = mj }, target, seg_passable(b), b.radius)
+  -- à défaut : par-dessus une rue fermée par une falaise (correction du 27/10, banc ia1-build-reseau)
+  if not nodes then nodes = P.route_nodes({ i = mi, j = mj }, target, seg_wire(b), b.radius) end
   if not nodes then return nil, "pas de rue vers le reseau" end
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
@@ -591,6 +607,16 @@ function Build.plan_drills(f, surface, p, item, flow, a)
   end
   local tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost)
   if not tiles then
+    -- second essai, marge d'un pas de treillis (contourner une falaise par la brèche voisine ; correction du 27/10)
+    local cx0, cy0 = math.min(s.x, a.x) - P.PITCH, math.min(s.y, a.y) - P.PITCH
+    local cx1, cy1 = math.max(s.x, a.x) + P.PITCH, math.max(s.y, a.y) + P.PITCH
+    if cx1 - cx0 <= 120 and cy1 - cy0 <= 120 then
+      local m2 = read_masks(f, surface, cx0, cy0, cx1 + 1, cy1 + 1)
+      masks.water, masks.blocked, masks.clear = m2.water, m2.blocked, m2.clear
+      tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = cx0, y0 = cy0, x1 = cx1, y1 = cy1 }, cost)
+    end
+  end
+  if not tiles then
     p.parts[part] = nil
     return false, n2
   end
@@ -600,16 +626,17 @@ function Build.plan_drills(f, surface, p, item, flow, a)
   return true
 end
 
---- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
 --- Tuile libre pour un point d'appui, au plus près de (x, y) : ni réservée par un projet (emprise d'une entité
---- planifiée, de cette équipe), ni eau, ni bâtie (relevé `masks`, quand il couvre la tuile) ; de préférence avec ses 8
---- voisines libres (le PNJ s'arrête à une tuile près du point). Anneaux de Chebyshev de rayon 0 à Build.ANCHOR_SEARCH,
---- ordre fixe (distance, puis y, puis x). Rend le centre de la tuile ; sans tuile libre, le point tel quel.
-local function free_spot(b, masks, x, y)
-  local function free(tx, ty)
+--- planifiée, de cette équipe), ni eau, ni bâtie (relevé `masks`, quand il couvre la tuile), ni arbre (`trees`) ; de
+--- préférence avec ses 8 voisines libres (le PNJ s'arrête à une tuile près du point). Anneaux de Chebyshev de rayon 0 à
+--- Build.ANCHOR_SEARCH, ordre fixe (distance, puis y, puis x). Rend le centre de la tuile ; à défaut une tuile libre
+--- sous un arbre ; sans tuile libre, le point tel quel.
+local function free_spot(b, masks, x, y, trees)
+  local function free(tx, ty, wood)
     local k = P.tkey(tx, ty)
     if b.occ[k] then return false end
     if masks and (masks.water[k] or masks.blocked[k]) then return false end
+    if not wood and ((trees and trees[k]) or (masks and masks.clear and masks.clear[k])) then return false end
     return true
   end
   local function clear3(tx, ty)
@@ -617,7 +644,7 @@ local function free_spot(b, masks, x, y)
     return true
   end
   local x0, y0 = math.floor(x), math.floor(y)
-  local fallback
+  local fallback, fallback2
   for r = 0, Build.ANCHOR_SEARCH do
     local ring = {}
     for dy = -r, r do
@@ -635,12 +662,76 @@ local function free_spot(b, masks, x, y)
       local tx, ty = x0 + d[1], y0 + d[2]
       if clear3(tx, ty) then return tx + 0.5, ty + 0.5 end
       if not fallback and free(tx, ty) then fallback = { tx + 0.5, ty + 0.5 } end
+      if not fallback2 and free(tx, ty, true) then fallback2 = { tx + 0.5, ty + 0.5 } end
     end
   end
   if fallback then return fallback[1], fallback[2] end
+  if fallback2 then return fallback2[1], fallback2[2] end
   return x, y
 end
 
+--- Arbres et rochers sur l'emprise de TOUTES les entités d'un projet (un appel sur leur boîte englobante, au plan) :
+--- { [tuile] = true }. Correction du 27/10 : seul le relevé du module principal était lu, et les arbres sous les
+--- foreuses et leur tapis n'étaient découverts qu'à la pose (banc ia1-build-foret).
+local function wood_of(surface, ents)
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, e in ipairs(ents) do
+    local w, h = P.size(e.name, e.dir)
+    x0, y0 = math.min(x0, e.x - w / 2), math.min(y0, e.y - h / 2)
+    x1, y1 = math.max(x1, e.x + w / 2), math.max(y1, e.y + h / 2)
+  end
+  local out = {}
+  if x0 > x1 then return out end
+  for _, t in ipairs(surface.find_entities_filtered({ area = { { x0 - 7, y0 - 7 }, { x1 + 7, y1 + 7 } }, type = TREE_TYPES })) do
+    local bb = t.bounding_box
+    for ty = math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.y - 0.01) - 1 do
+      for tx = math.floor(bb.left_top.x + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1 do out[P.tkey(tx, ty)] = true end
+    end
+  end
+  return out
+end
+
+--- Ajoute un obstacle au projet (une fois par tuile).
+local function add_obstacle(p, o)
+  local k = P.tkey(math.floor(o.x), math.floor(o.y))
+  p.obst_keys = p.obst_keys or {}
+  if p.obst_keys[k] then
+    for _, q in ipairs(p.obstacles) do if q.k == k then q.done = nil end end
+    return
+  end
+  p.obst_keys[k] = true
+  o.k = k
+  p.obstacles[#p.obstacles + 1] = o
+end
+
+--- Revue de Build.OBST_CHECKS obstacles ouverts (à tour de rôle) : faits quand plus aucun arbre ni rocher n'y est.
+--- Rend le nombre d'obstacles encore ouverts.
+local function review_obstacles(surface, p)
+  local n, left = #p.obstacles, 0
+  if n == 0 then return 0 end
+  local checked = 0
+  p.obst_cur = p.obst_cur or 1
+  for _ = 1, n do
+    if p.obst_cur > n then p.obst_cur = 1 end
+    local o = p.obstacles[p.obst_cur]
+    p.obst_cur = p.obst_cur + 1
+    if not o.done then
+      if checked < Build.OBST_CHECKS then
+        checked = checked + 1
+        if surface.count_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 }) == 0 then
+          o.done = true
+        else
+          left = left + 1
+        end
+      else
+        left = left + 1
+      end
+    end
+  end
+  return left
+end
+
+--- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
@@ -715,28 +806,27 @@ local function plan_project(f, surface, p)
   -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
   -- bâtisseur, debout dessus, en empêchait la pose : banc ia1-build-plaine, 25/10)
   local passable = seg_passable(b)
+  local wood = wood_of(surface, p.ents)
   for _, e in ipairs(p.ents) do
     local a = P.anchor_for(b.lat, e.x, e.y, passable)
     local ax, ay
     if a then ax, ay = a.x, a.y
     else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
-    local fx, fy = free_spot(b, masks, ax, ay)
-    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y) end
+    local fx, fy = free_spot(b, masks, ax, ay, wood)
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
     e.ax, e.ay = fx, fy
     e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
     e.item = item_of(e.name)
   end
   P.sort_build(p.ents)
-  -- obstacles à défricher sous les entités planifiées
-  local obst = {}
-  local seen_o = {}
+  -- obstacles à défricher sous les entités planifiées (toutes les pièces du projet)
+  p.obstacles, p.obst_keys = {}, {}
   for _, e in ipairs(p.ents) do
     for _, t in ipairs(P.tiles_of(e)) do
       local k = P.tkey(t[1], t[2])
-      if masks.clear[k] and not seen_o[k] then seen_o[k] = true; obst[#obst + 1] = { x = t[1] + 0.5, y = t[2] + 0.5, anchor = e.anchor, ax = e.ax, ay = e.ay } end
+      if masks.clear[k] or wood[k] then add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
     end
   end
-  p.obstacles = obst
   for _, pt in ipairs(p.parts) do if pt then b.stats.modules_started = b.stats.modules_started + 1 end end
   return true
 end
@@ -917,7 +1007,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
       e.fails = (e.fails or 0) + 1
       st.revive_fail = st.revive_fail + 1
       log_refusal(f, p, e, r, surface)
-      if r == "obstacle" then p.obstacles[#p.obstacles + 1] = { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay } end
+      if r == "obstacle" then add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
       return false
     end
     st.ghosts = st.ghosts + 1
@@ -1017,6 +1107,35 @@ function Build.work(agent, f, tick)
           remain = remain + 1
         end
       end
+    end
+    -- rien à portée dans la zone (PNJ arrêté en route, forêt dense) : il coupe les arbres du couloir qui mène à son
+    -- point d'appui, puis repart (correction du 27/10, banc ia1-build-foret)
+    if did == 0 and remain == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 9 then
+      local dx, dy = job.ax - pos.x, job.ay - pos.y
+      local l2 = dx * dx + dy * dy
+      local near = surface.find_entities_filtered({ area = { { pos.x - REACH, pos.y - REACH }, { pos.x + REACH, pos.y + REACH } }, type = TREE_TYPES })
+      table.sort(near, function(a, c)
+        local da, dc = dist2(a.position, pos), dist2(c.position, pos)
+        if da ~= dc then return da < dc end
+        if a.position.x ~= c.position.x then return a.position.x < c.position.x end
+        return a.position.y < c.position.y
+      end)
+      local cut = 0
+      for _, t in ipairs(near) do
+        local tx, ty = t.position.x - pos.x, t.position.y - pos.y
+        local u = (tx * dx + ty * dy) / l2
+        local px, py = tx - u * dx, ty - u * dy
+        if u > 0 and u <= 1 and px * px + py * py <= Build.CUT_WIDTH * Build.CUT_WIDTH and dist2(t.position, pos) <= reach2 then
+          if cut >= Build.CLEAR_PER_THINK then return "more" end
+          if not Tokens.take(f, tick, Build.COST_EVAL) then return "more" end
+          if not t.mine({ inventory = inv, force = e.force, raise_destroyed = true }) and t.valid then t.destroy({ raise_destroy = true }) end
+          cut = cut + 1
+          b.stats.cleared = b.stats.cleared + 1
+          b.stats.cut = (b.stats.cut or 0) + 1
+        end
+      end
+      if cut > 0 then return "more" end
+      return "done"
     end
     job.done = (job.done or 0) + did
     if did > 0 or remain > 0 then return "more" end
@@ -1327,17 +1446,7 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "defrichage" then
-    local left = 0
-    for _, o in ipairs(p.obstacles) do
-      if not o.done then
-        if surface.count_entities_filtered({ area = { { o.x - 0.45, o.y - 0.45 }, { o.x + 0.45, o.y + 0.45 } }, type = TREE_TYPES, limit = 1 }) == 0 then
-          o.done = true
-        else
-          left = left + 1
-        end
-      end
-    end
-    if left == 0 then p.state = "fantomes" end
+    if review_obstacles(surface, p) == 0 then p.state = "fantomes" end
     return
   end
   if p.state == "fantomes" then
@@ -1352,7 +1461,7 @@ local function advance(f, surface, p, tick)
         if r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
         elseif r == "deja" then e.built = true
         elseif r == "obstacle" then
-          p.obstacles[#p.obstacles + 1] = { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }
+          add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay })
           e.ghosted = true
         elseif r == "pnj" then
           e.ghosted = true -- posé au ravivage (revive_one)
@@ -1369,6 +1478,7 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "chantier" then
+    review_obstacles(surface, p)
     if all_built(p) then
       p.state = "raccordement"
     else
@@ -1512,7 +1622,17 @@ function Build.status(f, id)
     local chest = surface and surface.find_entity("iron-chest", { q.x, q.y })
     quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1 }
   end
+  -- entités pas encore bâties (5 au plus, dans l'ordre de pose) : ce qui retient un chantier
+  local unbuilt = {}
+  for _, e in ipairs(p.ents) do
+    if not e.built and #unbuilt < 5 then
+      unbuilt[#unbuilt + 1] = { name = e.name, x = e.x, y = e.y, fails = e.fails or 0, npc = e.npc_blocks or 0, anchor = e.anchor }
+    end
+  end
+  local open_obst = 0
+  for _, o in ipairs(p.obstacles or {}) do if not o.done then open_obst = open_obst + 1 end end
   return { id = p.id, state = p.state, reason = p.reason, built = count_built(p), total = #p.ents, parts = parts,
+    unbuilt = unbuilt, open_obstacles = open_obst,
     obstacles = #p.obstacles, quais = quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
     finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries }
 end

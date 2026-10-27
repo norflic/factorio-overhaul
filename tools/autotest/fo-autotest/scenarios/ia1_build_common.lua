@@ -347,6 +347,11 @@ return function(variant)
         for _, pt in ipairs(p.parts) do parts[#parts + 1] = string.format("%s %s lot %s (%d,%d) r%d", pt.kind, pt.key, pt.lot, pt.x, pt.y, pt.rotation) end
         ctx.log(string.format("projet %d : %s%s, %d/%d entites, %d fils ajoutes, %d liaisons de poteaux ; %s", p.id, p.state, p.reason and (" (" .. p.reason .. ")") or "",
           p.built, p.total, p.wires or 0, p.links or 0, table.concat(parts, " ; ")))
+        if p.built < p.total then
+          local u = {}
+          for _, x in ipairs(p.unbuilt or {}) do u[#u + 1] = string.format("%s (%g, %g) echecs %d pnj %d appui %s", x.name, x.x, x.y, x.fails, x.npc, tostring(x.anchor)) end
+          ctx.log(string.format("   projet %d : obstacles ouverts %d ; non baties : %s", p.id, p.open_obstacles or -1, table.concat(u, " | ")))
+        end
       end
       -- PNJ bloqués et replis, par minute (compteurs cumulés relevés à chaque pensée)
       local prev

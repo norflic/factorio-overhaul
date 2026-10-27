@@ -560,7 +560,7 @@ local function run_steps(agent, tick)
         abort(agent, f, tick, "chantier")
         return
       end
-      agent.ia1d = { pid = j.pid, mode = j.mode, anchor = j.anchor, idx = j.idx, seg = j.seg, rect = j.rect }
+      agent.ia1d = { pid = j.pid, mode = j.mode, anchor = j.anchor, idx = j.idx, seg = j.seg, rect = j.rect, ax = j.ax, ay = j.ay }
       set(agent, "ia1d", tick)
       return
     elseif kind == "act" then
@@ -698,6 +698,12 @@ FSM.define(MACHINE, {
         end
         agent.walk_retries = 0
         local step = agent.steps and agent.steps[agent.pc]
+        -- Lot IA1-d : un défricheur arrêté en route défriche là où il est (il s'ouvre le chemin, script/team/build.lua)
+        if step and step[1] == "goto" and agent.task and agent.task.ia1d and agent.task.ia1d.mode == "clear" then
+          agent.pc = agent.pc + 1
+          set(agent, "step", tick)
+          return
+        end
         if step and step[1] == "home" then
           -- Ne jamais rester égaré : rappel au QG (le dépôt se fait à l'arrivée).
           local e = agent.entity
