@@ -17,6 +17,10 @@ Storage.declare("prof", function()
 end)
 
 local timers = {}
+-- Lot PERF : copie LOCALE du mode fin (lue à chaque mesure fine, une vingtaine par pensée de PNJ : sans elle, chaque
+-- appel relisait le stockage). Elle ne sert qu'à mesurer (jamais à décider) ; recopiée de global par set_enabled et par
+-- chaque mesure ordinaire (Profiler.start, plusieurs fois par tick) : juste dès le premier tick après un chargement.
+local fine_on = false
 
 function Profiler.enabled()
   return Storage.ns("prof").enabled
@@ -30,18 +34,17 @@ function Profiler.set_enabled(on, tick, fine)
   -- ajoutent une dizaine de mesures par pensée de PNJ, ce qui fausserait une mesure K10 de référence (ia1-scale allume le
   -- profileur ORDINAIRE). fine = nil garde le réglage précédent.
   if fine ~= nil then p.fine = fine and true or nil end
+  fine_on = (p.enabled and p.fine == true) or false
   timers = {}
 end
 
 function Profiler.fine()
-  local p = Storage.ns("prof")
-  return p.enabled and p.fine == true
+  return fine_on
 end
 
---- Mesures fines (lot PERF) : rien quand le profileur ou le mode fin est éteint.
+--- Mesures fines (lot PERF) : rien quand le profileur ou le mode fin est éteint (un test d'une variable locale).
 function Profiler.fstart(name)
-  local p = Storage.ns("prof")
-  if not (p.enabled and p.fine) then return end
+  if not fine_on then return end
   local t = timers[name]
   if not t then
     t = game.create_profiler(true)
@@ -55,7 +58,9 @@ function Profiler.fstop(name)
 end
 
 function Profiler.start(name)
-  if not Storage.ns("prof").enabled then return end
+  local p = Storage.ns("prof")
+  fine_on = (p.enabled and p.fine == true) or false
+  if not p.enabled then return end
   local t = timers[name]
   if not t then
     t = game.create_profiler(true)

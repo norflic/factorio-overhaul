@@ -330,45 +330,6 @@ local function marks_near(map, a, b, tick)
   return false
 end
 
----------------------------------------------------------------------------------------------------
--- Lot PERF : MÉMO des itinéraires SANS tirage (porte d'une tâche, itinéraire de secours, rejugement après une mort). Un PNJ
--- au repos que la porte refuse rejuge la même destination, depuis la même case, à chaque pensée (60 ticks) : l'A* était
--- refait à l'identique (banc ia1-scale 0.6.1 : 1 820 attentes, jusqu'à 317 vers la même destination). Le résultat d'un
--- itinéraire sans tirage est une fonction PURE de (départ, but, seuil, marques près du trajet, signature exacte de la carte
--- dans la boîte : D.signature) : il est rendu tel quel (copie) quand tout cela est égal terme à terme, sinon recalculé.
--- Table LOCALE, jamais dans global : vide après un chargement ou chez un joueur qui rejoint, elle ne change aucun
--- résultat (un mémo manqué recalcule la même chose) ; aucun compteur dans global. Les appels AVEC tirage (aller d'une
--- tournée, variation) ne passent jamais par le mémo : ils consomment le flux de l'équipe.
----------------------------------------------------------------------------------------------------
-M.MEMO_MAX = 16 -- itinéraires gardés par équipe (les plus anciens partent d'abord)
-local memo = {}  -- [clé d'équipe] = { liste d'entrées { sig = {nombres}, ns = longueur, res = résultat } }
-local memo_stats = { hit = 0, miss = 0 }
-M.memo_stats = memo_stats
-
-local function copy_res(res)
-  local out = {}
-  for k, v in pairs(res) do out[k] = v end -- copie d'un résultat : l'ordre ne change rien
-  local pts = {}
-  for i, q in ipairs(res.pts) do pts[i] = { x = q.x, y = q.y } end
-  out.pts = pts
-  if res.escape then out.escape = { x = res.escape.x, y = res.escape.y } end
-  return out
-end
-
-local function memo_find(list, sig, ns)
-  for i = #list, 1, -1 do
-    local e = list[i]
-    if e.ns == ns then
-      local s2, same = e.sig, true
-      for j = 1, ns do
-        if s2[j] ~= sig[j] then same = false break end
-      end
-      if same then return e end
-    end
-  end
-  return nil
-end
-
 --- Itinéraire de p à goal pour ce PNJ. opts = { draw = bool (variation de tournée), B = seuil forcé, same = résultat d'un
 --- appel précédent du MÊME tick pour les mêmes p et goal (son champ est repris : la carte n'a pas changé entre les deux) }.
 function M.plan(f, agent, p, goal, tick, opts)
@@ -376,34 +337,11 @@ function M.plan(f, agent, p, goal, tick, opts)
   local t = M.team(f)
   local prud = M.character(f)
   local B = opts.B or D.block(prud)
-  -- Mémo (lot PERF) : sans tirage seulement.
-  local sig, ns, mlist, mk = nil, 0, nil, nil
-  Profiler.fstart("plan:memo")
-  if not opts.draw then
-    mk = marks_near(t.map, p, goal, tick)
-    local m = R.BOX_MARGIN + 1
-    local box = { math.min(D.cell(p.x), D.cell(goal.x)) - m, math.min(D.cell(p.y), D.cell(goal.y)) - m,
-      math.max(D.cell(p.x), D.cell(goal.x)) + m, math.max(D.cell(p.y), D.cell(goal.y)) + m }
-    sig = { p.x, p.y, goal.x, goal.y, B, mk and 1 or 0, opts.side or 0 }
-    ns = D.signature(t.map, tick, box, sig, 7)
-    local key = M.team_key(f)
-    mlist = memo[key]
-    if not mlist then mlist = {} memo[key] = mlist end
-    local e = memo_find(mlist, sig, ns)
-    if e then
-      memo_stats.hit = memo_stats.hit + 1
-      if e.res.astar then Trace.log("ia3k", "memo", e.res.expand) end
-      Profiler.fstop("plan:memo")
-      return copy_res(e.res)
-    end
-    memo_stats.miss = memo_stats.miss + 1
-  end
-  Profiler.fstop("plan:memo")
   Profiler.fstart("plan:field")
   local field, n = {}, 0
   if opts.same then
     field, n = opts.same.field, opts.same.n or 0
-  elseif (mk == nil and marks_near(t.map, p, goal, tick)) or mk then -- lot PERF : marques déjà lues pour le mémo
+  elseif marks_near(t.map, p, goal, tick) then
     local m = R.BOX_MARGIN + 1
     local box = { math.min(D.cell(p.x), D.cell(goal.x)) - m, math.min(D.cell(p.y), D.cell(goal.y)) - m,
       math.max(D.cell(p.x), D.cell(goal.x)) + m, math.max(D.cell(p.y), D.cell(goal.y)) + m }
@@ -445,10 +383,6 @@ function M.plan(f, agent, p, goal, tick, opts)
   end
   res.exact_max = mx
   res.exact_goal = D.exact_at(prep, goal.x, goal.y)
-  if sig then
-    mlist[#mlist + 1] = { sig = sig, ns = ns, res = copy_res(res) }
-    if #mlist > M.MEMO_MAX then table.remove(mlist, 1) end
-  end
   Profiler.fstop("plan:exact")
   return res
 end
