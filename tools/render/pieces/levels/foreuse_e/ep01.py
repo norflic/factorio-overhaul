@@ -59,10 +59,17 @@ def piece(g, c):
     g.cyl((0, 0, za - 0.16), "x", 0.05, 0.12, M["blackiron"], n=8, what="axe")
     # corde et lanterne
     g.tube([(0.0, 0.0, za - 0.35), (0.0, 0.0, 1.6), (0.0, 0.0, 1.38)], 0.02, M["canvas2"], n=6, what="corde")
-    g.cyl((0, 0, 1.27), "z", 0.1, 0.2, M["emit"], n=10, style="flat", what="lanterne")
+    g.cyl((0, 0, 1.27), "z", 0.12, 0.22, M["emit"], n=10, style="flat", what="lanterne")
     g.cyl((0, 0, 1.385), "z", 0.12, 0.035, M["blackiron"], n=10, what="chapeau")
     g.cyl((0, 0, 1.155), "z", 0.11, 0.035, M["blackiron"], n=10, what="fond")
     for k in range(4):
         a = math.radians(45 + 90 * k)
         g.cyl((0.105 * math.cos(a), 0.105 * math.sin(a), 1.27), "z", 0.015, 0.23, M["blackiron"], n=5, what="barreau")
-    cp.halo(g, (0, -0.15, 1.2), M, 5.0)
+    # ronde F4-A3 : la nuit de l'âge 1 était presque noire : lanterne plus grosse, halo × 1,8, falots sur les sacs
+    cp.halo(g, (0, -0.15, 1.2), M, 9.0)
+    for k in range(3):
+        a = math.radians(90 + 120 * k + 30)
+        x, y = 0.55 * 1.05 * math.cos(a + 0.45), 0.55 * 1.05 * math.sin(a + 0.45)
+        g.cyl((x, y, 0.70), "z", 0.04, 0.08, M["emit"], n=8, style="flat", what="falot")
+        g.cyl((x, y, 0.75), "z", 0.05, 0.02, M["blackiron"], n=8, what="falot_chapeau")
+        cp.halo(g, (x, y - 0.05, 0.8), M, 1.5)

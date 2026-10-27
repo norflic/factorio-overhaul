@@ -128,6 +128,8 @@ def piece(g, c):
     cp.colonne(g, 0, 0, z, z + 0.14, 0.06, M["anthracite"], n=12, what="mat")
     g.sphere((0, 0, z + 0.3), 0.2, M["blanc_casse"], n=24, m=12, scale=(1, 1, 0.8), what="radome")
     cp.bague(g, 0, 0, z + 0.2, 0.19, 0.03, M["anthracite"], ep=0.02, n=24, what="joint")
+    # ronde F4-A3 : collier plein sous le joint (deux jours de 18 px entre le radôme et la bague en ronde A2)
+    cp.colonne(g, 0, 0, z + 0.12, z + 0.215, 0.185, M["anthracite"], n=24, what="collier")
     for k in range(8):
         a = math.tau * k / 8
         g.sphere((0.2 * math.cos(a), 0.2 * math.sin(a), z + 0.2), 0.022, M["emit"], n=8, m=4, what="voyant")

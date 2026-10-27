@@ -143,6 +143,9 @@ def halo(g, p, M, power=4.0, cle="_emit_rgb"):
 # ------------------------------------------------------------------------------------------------
 # Pièces de la lignée
 # ------------------------------------------------------------------------------------------------
+# ronde F4-A3 : rivets de 0,016 t (1 px en haute résolution) invisibles au zoom 1 et non comptés par la charte
+# (blobs de 4 à 256 px) : 0,024 t
+RIVET_PONT = 0.024
 COUPE_OCTOGONE = 0.32     # pan coupé de l'octogone : 0,32 × demi-côté (le pan diagonal est à 1,19 × le demi-côté)
 
 
@@ -225,9 +228,9 @@ def tablier_forme(g, c):
             top = [v + V((0, 0, zt - zc)) for v in quad]
             g.hexa(quad + top, pm[(k + b_) % 2], "hard", "secteur")
             if bou:
-                for t in (0.25, 0.75):
+                for t in (0.2, 0.5, 0.8):
                     e = quad[1].lerp(quad[2], t).lerp(mid, 0.12)
-                    g.dome((e.x, e.y, zt), (0, 0, 1), 0.015, c.m(bou))
+                    g.dome((e.x, e.y, zt), (0, 0, 1), RIVET_PONT, c.m(bou))
     colonne(g, 0, 0, zc, zt, r0 + 0.02, pm[1], n=32, what="disque_central")
     # rebord le long du contour
     b = c.m(c.pont["bord"])
@@ -260,7 +263,7 @@ def tablier(g, c):
         g.box((0, 0, zc + 0.003), (2 * dd - 2 * e, 2 * dd - 2 * e, 0.006), c.m(c.pont["fond"]), "flat", what="fond")
     q = [V((-dd + e, -dd + e, zc)), V((dd - e, -dd + e, zc)), V((dd - e, dd - e, zc)), V((-dd + e, dd - e, zc))]
     bou = c.pont.get("boulons")
-    g.panels(q, nu, nv, pm[0], t=zt - zc, gap=0.025, rivet_mat=(c.m(bou) if bou else None), rivet_r=0.016,
+    g.panels(q, nu, nv, pm[0], t=zt - zc, gap=0.025, rivet_mat=(c.m(bou) if bou else None), rivet_r=RIVET_PONT,
              mats=pm, what="dessus")
     # cornières de bord (au-dessus du dessus : le tablier a un rebord)
     b = c.m(c.pont["bord"])
@@ -517,7 +520,7 @@ def _caisse(g, c, x, y, rng):
     g.box((x, y, z + h / 2), (w, w * 0.85, h), m, "hard", what="caisse")
     g.box((x, y, z + h * 0.55), (w + 0.012, w * 0.85 + 0.012, 0.035), c.m("steel_dk"), "hard", what="sangle")
     for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
-        g.dome((x + sx * (w / 2 - 0.035), y + sy * (w * 0.425 - 0.035), z + h), (0, 0, 1), 0.016, c.m("rivet"))
+        g.dome((x + sx * (w / 2 - 0.035), y + sy * (w * 0.425 - 0.035), z + h), (0, 0, 1), RIVET_PONT, c.m("rivet"))
     return h
 
 
@@ -563,7 +566,7 @@ def _trappe(g, c, x, y, rng):
     with habille(g, c):
         g.hazard(q, 4, t=0.006)
     for (sx, sy) in ((-1, 1), (1, 1)):
-        g.dome((x + sx * (w / 2 - 0.04), y + sy * (w / 2 - 0.04), z + 0.02), (0, 0, 1), 0.016, c.m("rivet"))
+        g.dome((x + sx * (w / 2 - 0.04), y + sy * (w / 2 - 0.04), z + 0.02), (0, 0, 1), RIVET_PONT, c.m("rivet"))
     poutre(g, (x - 0.08, y + 0.05, z + 0.03), (x + 0.08, y + 0.05, z + 0.03), 0.025, c.m("steel"), "poignee")
 
 
@@ -837,6 +840,209 @@ def chemins_de_cables(g, c):
 
 
 # ------------------------------------------------------------------------------------------------
+# Ronde F4-A3 (27/10) : « enrichir nettement » AU ZOOM 1. La ronde A2 n'avait pas bougé la densité de petites pièces de
+# la charte (12 à 36 par t², mitrailleuse 26 à 56) : les satellites sont de grosses pièces. Trois leviers de lignée :
+# DÉTAIL FIN semé sur tout le tablier libre (boulons, bouchons, évents, plaquettes, voyants, bouts de câble), GARDE-CORPS
+# sur les grands tabliers, FEUX DE POSITION sur les 4 montants (la nuit n'est plus noire). Réglages par âge : ep.FIN
+# (part des cases garnies, 0,9), ep.PAS_FIN (pas de la grille, 0,17 t), ep.LAMPES (part des voyants, 0,14),
+# ep.GARDE_CORPS (vrai à partir de 5×5), ep.FEUX (vrai).
+# ------------------------------------------------------------------------------------------------
+def _dist_seg(px, py, a, b):
+    ax, ay = a
+    bx, by = b
+    vx, vy = bx - ax, by - ay
+    L2 = vx * vx + vy * vy
+    s = 0.0 if L2 < 1e-12 else max(0.0, min(1.0, ((px - ax) * vx + (py - ay) * vy) / L2))
+    return math.hypot(px - (ax + s * vx), py - (ay + s * vy))
+
+
+def _tracés_raccords(c):
+    """Polylignes (repère N) des tuyaux de raccord posés par raccords() : bord → bout droit → pied de la tour."""
+    L = c.T["raccord"]["long"]
+    out = []
+    for nom in ("O", "E", "S"):
+        px, py = c.T["raccords"][nom]
+        if nom == "O":
+            bx, by, ux, uy = -c.a, py, 1.0, 0.0
+        elif nom == "E":
+            bx, by, ux, uy = c.a, py, -1.0, 0.0
+        else:
+            bx, by, ux, uy = px, -c.a, 0.0, 1.0
+        ex, ey = bx + ux * L, by + uy * L
+        if nom == "S":
+            out.append([(bx, by), (bx, ey), (bx * 0.5, -c.rt * 0.9)])
+        else:
+            tx = -c.rt * 0.9 if nom == "O" else c.rt * 0.9
+            out.append([(bx, by), (ex, ey), (tx, by * 0.3)])
+    return out
+
+
+def _libre_fin(c, x, y, r):
+    """Place libre pour le DÉTAIL FIN (ronde F4-A3) : comme _libre, mais au plus près des objets réels (tuyaux de
+    raccord suivis à leur tracé, goulotte à sa largeur) au lieu des larges bandes réservées à la garniture."""
+    if not dans_tablier(c, x, y, r):
+        return False
+    rp = c.rt * float(getattr(c.ep, "PIED", 1.08))
+    if math.hypot(x, y) < rp + r or (abs(x) < c.rt + r and abs(y) < c.rt + r and rp >= 1.0 * c.rt):
+        return False
+    G = c.T["goulotte"]
+    if y + r > G["y0"] - 0.05 and abs(x - G["x"]) < G["w"] / 2 + 0.05 + r:
+        return False
+    rr = c.T["raccord"]["r"] * 1.8 + 0.03 + r
+    if not hasattr(c, "_tr_racc"):
+        c._tr_racc = _tracés_raccords(c)
+    for pl in c._tr_racc:
+        for k in range(len(pl) - 1):
+            if _dist_seg(x, y, pl[k], pl[k + 1]) < rr:
+                return False
+    m = c.T["moteur"]
+    if abs(x - 0.42 * c.a) < m["w"] / 2 + 0.12 + r and abs(y - m["y"]) < m["p"] / 2 + 0.14 + r:
+        return False
+    mr = position_montant(c)
+    if abs(abs(x) - mr) < c.T["montant"]["w"] + r and abs(abs(y) - mr) < c.T["montant"]["w"] + r:
+        return False
+    for (x0, y0, x1, y1) in c.occupe:
+        if min(x0, x1) - r < x < max(x0, x1) + r and min(y0, y1) - r < y < max(y0, y1) + r:
+            return False
+    return True
+
+
+def _f_boulons(g, c, x, y, z, rng, M):
+    s = 0.034
+    g.box((x, y, z + 0.006), (0.12, 0.12, 0.016), c.m("steel_dk"), "hard", what="platine")
+    for (sx, sy) in ((-1, -1), (1, -1), (1, 1), (-1, 1)):
+        g.dome((x + sx * s, y + sy * s, z + 0.014), (0, 0, 1), 0.022, M["steel_hi"], what="boulon")
+
+
+def _f_bouchon(g, c, x, y, z, rng, M):
+    g.cyl((x, y, z + 0.018), "z", 0.045, 0.036, c.m("steel"), n=12, style="hard", what="bouchon")
+    g.cyl((x, y, z + 0.037), "z", 0.024, 0.004, M["void"], n=10, style="flat", what="bouchon_trou")
+
+
+def _f_event(g, c, x, y, z, rng, M):
+    w, p = 0.15, 0.1
+    g.box((x, y, z + 0.01), (w, p, 0.02), c.m("steel"), "hard", what="event")
+    for k in (-1, 0, 1):
+        g.box((x, y + k * 0.028, z + 0.0205), (w * 0.72, 0.016, 0.002), M["void"], "flat", what="fente")
+
+
+def _f_plaquette(g, c, x, y, z, rng, M):
+    m = M["steel_hi"] if rng.random() < 0.5 else c.m("ochre")
+    g.box((x, y, z + 0.008), (0.1, 0.065, 0.016), m, "hard", what="plaquette")
+    g.box((x - 0.02, y, z + 0.0165), (0.04, 0.012, 0.002), M["void"], "flat", what="inscription")
+
+
+def _f_voyant(g, c, x, y, z, rng, M):
+    g.cyl((x, y, z + 0.016), "z", 0.04, 0.032, c.m("steel_dk"), n=12, style="hard", what="boitier")
+    g.dome((x, y, z + 0.032), (0, 0, 1), 0.026, M["emit"], what="voyant")
+
+
+def _f_cable(g, c, x, y, z, rng, M):
+    a = rng.random() * math.pi
+    u = (math.cos(a) * 0.08, math.sin(a) * 0.08)
+    m = (M["rubber"], M["redcable"], M["soot"])[rng.randrange(3)]
+    g.tube([(x - u[0], y - u[1], z + 0.018), (x, y, z + 0.024), (x + u[0], y + u[1], z + 0.018)], 0.014, m, n=6,
+           what="bout_cable")
+    for s in (-0.6, 0.6):
+        g.box((x + u[0] * s, y + u[1] * s, z + 0.02), (0.03, 0.03, 0.03), M["steel_hi"], "hard", what="collier")
+
+
+FINS = ((_f_boulons, 0.30), (_f_bouchon, 0.20), (_f_event, 0.14), (_f_plaquette, 0.14), (_f_cable, 0.08))
+
+
+def detail_fin(g, c):
+    """Détail fin semé sur le tablier libre (grille de pas PAS_FIN, décalage au hasard), APRÈS satellites et garniture
+    (zones occupées évitées) ; rien n'est inscrit dans c.occupe (les cases sont disjointes)."""
+    import random
+    rng = random.Random(11000 + 31 * c.e + c.side)
+    M = g.M
+    pas = float(getattr(c.ep, "PAS_FIN", 0.17))
+    part = float(getattr(c.ep, "FIN", 0.9))
+    lampes = float(getattr(c.ep, "LAMPES", 0.14))
+    poids = [(f, w) for f, w in FINS]
+    tot = sum(w for _, w in poids)
+    n = int(2 * c.dd / pas)
+    o = -c.dd + (2 * c.dd - n * pas) / 2.0 + pas / 2.0
+    z = c.zt - 0.012
+    poses = 0
+    for i in range(n):
+        for j in range(n):
+            u1, u2, u3, u4 = rng.random(), rng.random(), rng.random(), rng.random()
+            if u1 > part:
+                continue
+            x = o + i * pas + (u2 - 0.5) * pas * 0.35
+            y = o + j * pas + (u3 - 0.5) * pas * 0.35
+            if not _libre_fin(c, x, y, 0.07) or (getattr(c, "n_garde_corps", 0) and not dans_tablier(c, x, y, 0.07, 0.2)):
+                continue
+            if u4 < lampes:
+                f = _f_voyant
+            else:
+                r = rng.random() * tot
+                f = poids[-1][0]
+                for ff, w in poids:
+                    if r < w:
+                        f = ff
+                        break
+                    r -= w
+            f(g, c, x, y, z, rng, M)
+            poses += 1
+    return poses
+
+
+def garde_corps(g, c):
+    """Garde-corps le long du bord du tablier (poteaux tous les 0,2 t, deux lisses), interrompu par la goulotte, les
+    raccords, le moteur, les montants et tout ce qui occupe le bord."""
+    if not getattr(c.ep, "GARDE_CORPS", c.side >= 5):
+        return 0
+    M = g.M
+    ins = 0.11
+    h = 0.12
+    z0 = c.zt - 0.01
+    ext = contour_tablier(c, retrait=ins)
+    if ext is None:
+        d = c.dd - ins
+        ext = [(-d, -d), (d, -d), (d, d), (-d, d)]
+    m_p = c.m("ochre")
+    m_l = M["steel_hi"]
+    poteaux = []
+    for i in range(len(ext)):
+        a, b = ext[i], ext[(i + 1) % len(ext)]
+        L = math.hypot(b[0] - a[0], b[1] - a[1])
+        k = max(1, int(L / 0.2))
+        for s in range(k):
+            t = s / float(k)
+            poteaux.append((a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t))
+    ok = [_libre_fin(c, x, y, 0.035) for (x, y) in poteaux]
+    n = 0
+    for i, (x, y) in enumerate(poteaux):
+        if not ok[i]:
+            continue
+        g.cyl((x, y, z0 + h / 2), "z", 0.016, h, m_p, n=6, style="hard", what="poteau")
+        n += 1
+        j = (i + 1) % len(poteaux)
+        if ok[j]:
+            x2, y2 = poteaux[j]
+            if math.hypot(x2 - x, y2 - y) < 0.3:
+                for zz in (h, h * 0.55):
+                    g.tube([(x, y, z0 + zz), ((x + x2) / 2, (y + y2) / 2, z0 + zz), (x2, y2, z0 + zz)], 0.009, m_l,
+                           n=5, what="lisse")
+    return n
+
+
+def feux_montants(g, c):
+    """Feu de position sur le chapeau de chacun des 4 montants (couleur du foyer de l'âge) et son halo de nuit."""
+    if not getattr(c.ep, "FEUX", True):
+        return
+    M = g.M
+    r = position_montant(c)
+    hm = c.T["montant"]["h"]
+    for (x, y) in ((-r, -r), (r, -r), (r, r), (-r, r)):
+        g.cyl((x, y, hm + 0.09), "z", 0.04, 0.05, c.m("steel_dk"), n=10, style="hard", what="feu_socle")
+        g.dome((x, y, hm + 0.115), (0, 0, 1), 0.036, M["emit"], what="feu")
+        halo(g, (x, y, hm + 0.2), M, float(getattr(c.ep, "FEUX_PUISSANCE", 1.6)))
+
+
+# ------------------------------------------------------------------------------------------------
 # Assemblage
 # ------------------------------------------------------------------------------------------------
 def corps(g, c):
@@ -863,6 +1069,10 @@ def corps(g, c):
         c.n_satellites = satellites(g, c, int(nsat))
         if getattr(c.ep, "GARNITURE", True):
             c.n_garniture = garniture(g, c, float(getattr(c.ep, "DENSITE", 0.85)))
+        # ronde F4-A3 : garde-corps (avant le détail fin, qui évite ses poteaux), détail fin, feux de position
+        c.n_garde_corps = garde_corps(g, c)
+        c.n_fin = detail_fin(g, c)
+        feux_montants(g, c)
 
 
 def piece(g, c):
