@@ -364,6 +364,12 @@ function C.trips(opts)
             r, tr.k, tr.id, tr.cluster and (CLUSTERS[tr.kind].name .. (tr.met and "" or " (jamais rencontres)")) or "-", tr.cluster and (entered and "ENTRE a portee" or "jamais a portee") or "sans ennemi",
             worst < 1e8 and worst or 0, zmin < 1e8 and zmin or 0, tr.c2 and "C2 tenu" or "C2 MANQUE", L, tr.direct,
             tr.outdone and "" or " (but non atteint)", #rl > 0 and table.concat(rl, " ") or "aucune"))
+          if mode ~= "route" then
+            -- Diagnostic C1 : l'aller relevé (une position sur 5, soit toutes les 50 ticks), pour expliquer l'allongement.
+            local tp = {}
+            for i = 1, #tr.out, 5 do tp[#tp + 1] = string.format("%.0f,%.0f", tr.out[i].x, tr.out[i].y) end
+            ctx.log(string.format("TRACE manche %d couloir %d : %s", r, tr.k, table.concat(tp, " ")))
+          end
           if tr.cluster then destroy_cluster(s, tr.cluster) end
           st.trips[#st.trips + 1] = { r = r, k = tr.k, id = tr.id, entered = tr.entered, dead = tr.dead, reacts = #tr.reacts,
             enemies = tr.cluster ~= nil, met = tr.met or false, c2 = tr.c2, cross = tr.cross, outdone = tr.outdone, len = tr.len, direct = tr.direct, out = tr.out,
