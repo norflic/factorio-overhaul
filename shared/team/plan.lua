@@ -226,6 +226,41 @@ function P.route_nodes(a, b, ok, r)
   return nil
 end
 
+--- Arbre du parcours en largeur depuis le carrefour a (mêmes règles et même ordre que P.route_nodes : le chemin lu
+--- dans l'arbre vers b est celui que rend P.route_nodes(a, b)). Rend { [clé] = clé du parent | false }.
+function P.route_tree(a, ok, r)
+  local start = P.lot_key(a.i, a.j)
+  local prev = { [start] = false }
+  local queue, head = { { a.i, a.j } }, 1
+  while head <= #queue do
+    local cur = queue[head]
+    head = head + 1
+    local ck = P.lot_key(cur[1], cur[2])
+    for _, nb in ipairs(neighbours(cur[1], cur[2], ok)) do
+      local k = P.lot_key(nb[1], nb[2])
+      if prev[k] == nil and math.abs(nb[1]) <= r + 1 and math.abs(nb[2]) <= r + 1 then
+        prev[k] = ck
+        queue[#queue + 1] = { nb[1], nb[2] }
+      end
+    end
+  end
+  return prev
+end
+
+--- Chemin lu dans un arbre de P.route_tree jusqu'au carrefour b, ou nil.
+function P.tree_path(prev, b)
+  local k = P.lot_key(b.i, b.j)
+  if prev[k] == nil then return nil end
+  local path = {}
+  local x = k
+  while x do
+    local i, j = x:match("^(%-?%d+):(%-?%d+)$")
+    table.insert(path, 1, { i = tonumber(i), j = tonumber(j) })
+    x = prev[x] or nil
+  end
+  return path
+end
+
 --- Accès d'une position à la rue : point de la ligne médiane la plus proche (horizontale ou verticale) et les deux
 --- carrefours du tronçon qui le porte. Rend une liste de 2 accès { point, seg, nodes = { a, b } }, le plus proche d'abord.
 function P.street_access(lat, p)
@@ -246,16 +281,22 @@ function P.street_access(lat, p)
 end
 
 --- Chemin par les rues de p à q (waypoints {x, y}) : accès à la rue, carrefours, accès à q. `ok(seg)` : tronçon
---- praticable SANS pathfinder (ouvert). nil si aucun chemin (le PNJ prend alors le pathfinder).
-function P.street_path(lat, p, q, ok, r)
+--- praticable SANS pathfinder (ouvert). nil si aucun chemin (le PNJ prend alors le pathfinder). `cache` (facultatif) :
+--- table des arbres de parcours par carrefour de départ, valable tant que les tronçons ne changent pas (27/10 : un
+--- parcours par départ au lieu de 16 par marche ; même résultat que P.route_nodes).
+function P.street_path(lat, p, q, ok, r, cache)
   local best
+  cache = cache or {}
   for _, a in ipairs(P.street_access(lat, p)) do
     if ok(a.seg) then
       for _, b in ipairs(P.street_access(lat, q)) do
         if ok(b.seg) then
           for _, na in ipairs(a.nodes) do
+            local tk = P.lot_key(na.i, na.j)
+            local tree = cache[tk]
+            if not tree then tree = P.route_tree(na, ok, r); cache[tk] = tree end
             for _, nb in ipairs(b.nodes) do
-              local nodes = P.route_nodes(na, nb, ok, r)
+              local nodes = P.tree_path(tree, nb)
               if nodes then
                 local na_p, nb_p = P.node_pos(lat, na.i, na.j), P.node_pos(lat, nb.i, nb.j)
                 local len = a.d + math.abs(a.point.x - na_p.x) + math.abs(a.point.y - na_p.y) + (#nodes - 1) * P.PITCH
@@ -414,6 +455,33 @@ function P.fit(g, rect, opts)
     local r = (k == 0) and g or (not g.no_rotate and M.rotate(g, k) or nil)
     if r and r.w <= P.LOT - 2 * margin and r.h <= P.LOT - 2 * margin then
       local res = opts.ore and M.resource_tiles(r) or nil
+      -- tuiles minées en rectangle plein (lignes de foreuses) : couverture par sommes cumulées du minerai, en O(1) par
+      -- position (27/10 : 8,9 ms par lot essayé sans cela) ; sinon, décompte tuile par tuile
+      local rect_res, ore_sat, ox0, oy0, ow
+      if res and #res > 0 then
+        local rx0, ry0, rx1, ry1 = math.huge, math.huge, -math.huge, -math.huge
+        for _, t in ipairs(res) do
+          if t.well then rx0 = nil break end
+          rx0, ry0 = math.min(rx0, t[1]), math.min(ry0, t[2])
+          rx1, ry1 = math.max(rx1, t[1]), math.max(ry1, t[2])
+        end
+        if rx0 and not opts.slow_cover and (rx1 - rx0 + 1) * (ry1 - ry0 + 1) == #res then
+          rect_res = { rx0, ry0, rx1 - rx0 + 1, ry1 - ry0 + 1 }
+          ox0, oy0 = rect.x0 + rx0 - 1, rect.y0 + ry0 - 1
+          local ox1, oy1 = rect.x1 + rx1 + 1, rect.y1 + ry1 + 1
+          ow = ox1 - ox0 + 1
+          ore_sat = {}
+          for x = 0, ow do ore_sat[x] = 0 end
+          for y = 1, oy1 - oy0 + 1 do
+            ore_sat[y * (ow + 1)] = 0
+            local row = 0
+            for x = 1, ow do
+              if opts.ore[tkey(ox0 + x - 1, oy0 + y - 1)] then row = row + 1 end
+              ore_sat[y * (ow + 1) + x] = ore_sat[(y - 1) * (ow + 1) + x] + row
+            end
+          end
+        end
+      end
       local room0 = P.port_room(M.instantiate(r, 0, 0, 0))
       -- pompe de rive (centrale) : la tuile devant la pompe et 60 % des tuiles d'eau du gabarit doivent être de l'eau
       local wt, adj
@@ -447,7 +515,13 @@ function P.fit(g, rect, opts)
           local cover = 1
           if ok and res then
             local hit = 0
-            for _, t in ipairs(res) do if opts.ore[tkey(ox + t[1], oy + t[2])] then hit = hit + 1 end end
+            if rect_res then
+              local ax, ay = ox + rect_res[1] - ox0, oy + rect_res[2] - oy0
+              local a0, a1 = ay * (ow + 1), (ay + rect_res[4]) * (ow + 1)
+              hit = ore_sat[a1 + ax + rect_res[3]] - ore_sat[a0 + ax + rect_res[3]] - ore_sat[a1 + ax] + ore_sat[a0 + ax]
+            else
+              for _, t in ipairs(res) do if opts.ore[tkey(ox + t[1], oy + t[2])] then hit = hit + 1 end end
+            end
             cover = #res > 0 and hit / #res or 0
             if cover < P.DRILL_COVER then ok = false end
           end

@@ -399,5 +399,64 @@ do
     and order[4].name == "iron-chest" and order[5].name == "transport-belt", "ordre : poteaux, machines, bras, coffres, tapis")
 end
 
+---------------------------------------------------------------------------------------------------
+section("10. Accélérations (27/10) : mêmes résultats que le calcul d'avant")
+do
+  -- générateur congruentiel (aucun hasard de Lua)
+  local s = 12345
+  local function rnd(n) s = (s * 48271) % 2147483647; return s % n end
+  -- (a) couverture du minerai par sommes cumulées == décompte tuile par tuile, sur 12 gisements tirés au hasard
+  local same, tried = 0, 0
+  for case = 1, 12 do
+    local ore = {}
+    local cx, cy, rr = 48 + rnd(16), -40 + rnd(16), 4 + rnd(8)
+    for y = cy - rr, cy + rr do for x = cx - rr, cx + rr do
+      if (x - cx) ^ 2 + (y - cy) ^ 2 <= rr * rr and rnd(10) < 8 then ore[P.tkey(x, y)] = true end
+    end end
+    local d = M.GEN.drills("iron-ore", 2 + case % 3)
+    local x0, y0, x1, y1 = P.lot_rect(lat, 2, -1)
+    local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+    local fast, w1 = P.fit(d, rect, { ore = ore })
+    local slow, w2 = P.fit(d, rect, { ore = ore, slow_cover = true })
+    tried = tried + 1
+    if (fast == nil and slow == nil and w1 == w2) or (fast and slow and fast.k == slow.k and fast.ox == slow.ox
+      and fast.oy == slow.oy and math.abs(fast.cover - slow.cover) < 1e-12) then same = same + 1 end
+  end
+  check(same == tried, string.format("couverture du minerai : même placement qu'avant (%d/%d gisements)", same, tried))
+  -- (b) arbre de parcours == P.route_nodes, sur 30 réseaux de rues fermées au hasard
+  local eq, n = 0, 0
+  for case = 1, 30 do
+    local closed = {}
+    local function ok(key) if closed[key] == nil then closed[key] = rnd(10) < 3 end return not closed[key] end
+    local a = { i = rnd(7) - 3, j = rnd(7) - 3 }
+    local tree = P.route_tree(a, ok, 3)
+    for _ = 1, 6 do
+      local b = { i = rnd(7) - 3, j = rnd(7) - 3 }
+      local r1 = P.route_nodes(a, b, ok, 3)
+      local r2 = P.tree_path(tree, b)
+      n = n + 1
+      local same2 = (r1 == nil and r2 == nil)
+      if r1 and r2 and #r1 == #r2 then
+        same2 = true
+        for k = 1, #r1 do if r1[k].i ~= r2[k].i or r1[k].j ~= r2[k].j then same2 = false end end
+      end
+      if same2 then eq = eq + 1 end
+    end
+  end
+  check(eq == n, string.format("arbre de parcours : mêmes chemins que P.route_nodes (%d/%d)", eq, n))
+  -- (c) chemin par les rues : avec et sans mémoire des arbres, identique
+  local cache = {}
+  local okc = function(key) return key ~= "h:0:1" and key ~= "v:1:0" end
+  local same3 = true
+  for k = 1, 8 do
+    local p, q = { x = 3 * k, y = -k }, { x = 70 - 5 * k, y = 42 + k }
+    local w1, l1 = P.street_path(lat, p, q, okc, 3)
+    local w2, l2 = P.street_path(lat, p, q, okc, 3, cache)
+    if (w1 == nil) ~= (w2 == nil) or (w1 and (#w1 ~= #w2 or math.abs(l1 - l2) > 1e-9)) then same3 = false end
+    if w1 and w2 then for m = 1, #w1 do if w1[m].x ~= w2[m].x or w1[m].y ~= w2[m].y then same3 = false end end end
+  end
+  check(same3, "chemin par les rues : identique avec la mémoire des arbres")
+end
+
 print(string.format("[IA1-D PLAN] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

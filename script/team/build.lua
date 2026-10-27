@@ -155,6 +155,7 @@ function Build.grow(f, r)
   for _, key in ipairs(P.segs_within(r)) do
     if not b.segs[key] then
       b.segs[key] = { state = "inconnu" }
+      b.seg_ver = (b.seg_ver or 0) + 1
       b.queue[#b.queue + 1] = { "seg", key }
     end
   end
@@ -228,6 +229,7 @@ local function eval_one(f, surface, item, tick)
     local old = g.state
     g.state, g.reason = P.classify_segment(s)
     g.trees, g.tick = s.trees + s.rocks, tick
+    if g.state ~= old then b.seg_ver = (b.seg_ver or 0) + 1 end
     if old == "inconnu" then
       bump(st.segs, g.state)
       if g.state == "ferme" then bump(st.segs_closed, g.reason) end
@@ -732,20 +734,37 @@ end
 --- Arbres et rochers sur l'emprise de TOUTES les entités d'un projet (un appel sur leur boîte englobante, au plan) :
 --- { [tuile] = true }. Correction du 27/10 : seul le relevé du module principal était lu, et les arbres sous les
 --- foreuses et leur tapis n'étaient découverts qu'à la pose (banc ia1-build-foret).
+local STRETCHED = { reseau = true, rue = true, liaison = true, ["liaison-tapis"] = true }
+
 local function wood_of(surface, ents)
-  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  -- une boîte par pièce compacte (module, foreuses, têtes) ; entité par entité pour ce qui s'étire (poteaux de rue et de
+  -- liaison, tapis de liaison) : un seul appel sur la boîte de tout le projet coûtait jusqu'à 68 ms en forêt (27/10)
+  local boxes, order = {}, {}
+  local out = {}
+  local function mark(area)
+    for _, t in ipairs(surface.find_entities_filtered({ area = area, type = TREE_TYPES })) do
+      local bb = t.bounding_box
+      for ty = math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.y - 0.01) - 1 do
+        for tx = math.floor(bb.left_top.x + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1 do out[P.tkey(tx, ty)] = true end
+      end
+    end
+  end
   for _, e in ipairs(ents) do
     local w, h = P.size(e.name, e.dir)
-    x0, y0 = math.min(x0, e.x - w / 2), math.min(y0, e.y - h / 2)
-    x1, y1 = math.max(x1, e.x + w / 2), math.max(y1, e.y + h / 2)
-  end
-  local out = {}
-  if x0 > x1 then return out end
-  for _, t in ipairs(surface.find_entities_filtered({ area = { { x0 - 7, y0 - 7 }, { x1 + 7, y1 + 7 } }, type = TREE_TYPES })) do
-    local bb = t.bounding_box
-    for ty = math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.y - 0.01) - 1 do
-      for tx = math.floor(bb.left_top.x + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1 do out[P.tkey(tx, ty)] = true end
+    if STRETCHED[e.role or ""] then
+      mark({ { e.x - w / 2 - 1, e.y - h / 2 - 1 }, { e.x + w / 2 + 1, e.y + h / 2 + 1 } })
+    else
+      local k = e.part or 0
+      local bx = boxes[k]
+      if not bx then bx = { math.huge, math.huge, -math.huge, -math.huge }; boxes[k] = bx; order[#order + 1] = k end
+      bx[1], bx[2] = math.min(bx[1], e.x - w / 2), math.min(bx[2], e.y - h / 2)
+      bx[3], bx[4] = math.max(bx[3], e.x + w / 2), math.max(bx[4], e.y + h / 2)
     end
+  end
+  table.sort(order)
+  for _, k in ipairs(order) do
+    local bx = boxes[k]
+    mark({ { bx[1] - 1, bx[2] - 1 }, { bx[3] + 1, bx[4] + 1 } })
   end
   return out
 end
@@ -1256,13 +1275,26 @@ end
 -- Marche par les rues (étape goto de script/team/worker.lua)
 ---------------------------------------------------------------------------------------------------
 --- Waypoints par les rues de p à q quand les deux sont dans le plan (tronçons OUVERTS seulement), sinon nil.
+--- Mémoire des arbres de parcours des rues, par équipe, valable pour une version des tronçons (b.seg_ver) et un rayon.
+--- HORS de global : c'est une simple mémoire d'un calcul pur (P.route_tree), vide au chargement et recalculée au
+--- besoin, au même résultat (27/10 : 1,7 ms par marche sans elle, hors jeu).
+local ROUTES = {}
+local function route_cache(f)
+  local b = f.build
+  local key = f.key or "player"
+  local ver = tostring(b.seg_ver or 0) .. ":" .. tostring(b.radius)
+  local c = ROUTES[key]
+  if not c or c.ver ~= ver then c = { ver = ver, trees = {} }; ROUTES[key] = c end
+  return c.trees
+end
+
 function Build.street_route(f, p, q)
   local b = f.build
   if not b or b.radius == 0 then return nil end
   local lim = (b.radius + 0.5) * P.PITCH
   if math.abs(p.x - b.lat.ox) > lim or math.abs(p.y - b.lat.oy) > lim then return nil end
   if math.abs(q.x - b.lat.ox) > lim or math.abs(q.y - b.lat.oy) > lim then return nil end
-  local wp = P.street_path(b.lat, p, q, seg_ok(b), b.radius)
+  local wp = P.street_path(b.lat, p, q, seg_ok(b), b.radius, route_cache(f))
   if not wp then return nil end
   return wp
 end

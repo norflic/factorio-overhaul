@@ -485,7 +485,9 @@ local function goto_step(agent, pos, radius, tick)
   -- pathfinder) ; un PNJ bloqué (aucun progrès pendant 2 pensées) est rendu au PathService (agent.street_off).
   local fb = faction_of(agent)
   if fb and fb.build and not agent.street_off then
+    Profiler.start("build:route")
     local wp = Build.street_route(fb, p, pos)
+    Profiler.stop("build:route")
     if wp then
       local path = {}
       for i, w in ipairs(wp) do path[i] = { position = w } end
@@ -645,7 +647,9 @@ FSM.define(MACHINE, {
       defend(agent, tick)
       local f = faction_of(agent)
       if not f then return end
+      Profiler.start("build:work")
       local r = Build.work(agent, f, tick)
+      Profiler.stop("build:work")
       if r == "more" then return end
       agent.ia1d = nil
       if r == "again" then
