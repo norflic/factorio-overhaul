@@ -813,6 +813,7 @@ end
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
+  Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   local g, why = template_of(spec)
   if not g then return false, why end
   local main
@@ -835,6 +836,7 @@ local function plan_project(f, surface, p)
     main, why = place_module(f, surface, g, { libre = true, defricher = true }, toward, nil)
     if not main then main, why = place_module(f, surface, g, { gisement = true }, toward, nil) end
   end
+  Profiler.stop("build:plan:place")
   if not main then
     if b.radius < Build.RADIUS_MAX then
       Build.grow(f, b.radius + 1)
@@ -848,9 +850,12 @@ local function plan_project(f, surface, p)
   if not reserve_tiles(b, p, ents) then return false, "place" end
   b.lots[main.lot].used = p.id
   if spec.feed or is_plant then
+    Profiler.start("build:plan:feed")
     local ok, w2 = plan_feed(f, surface, p, main, 1)
+    Profiler.stop("build:plan:feed")
     if not ok then return false, w2 end
   end
+  Profiler.start("build:plan:power")
   -- électricité : le réseau de l'équipe ; la centrale l'amorce
   local masks = main.masks
   local need = false
@@ -879,7 +884,9 @@ local function plan_project(f, surface, p)
       end
     end
   end
+  Profiler.stop("build:plan:power")
   if is_plant then b.plant = p.id end
+  Profiler.start("build:plan:anchors")
   -- points d'appui : sur une rue praticable à 16 tuiles au plus, sinon au centre de la case de 8 × 8 ; dans les deux
   -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
   -- bâtisseur, debout dessus, en empêchait la pose : banc ia1-build-plaine, 25/10)
@@ -906,6 +913,7 @@ local function plan_project(f, surface, p)
     end
   end
   for _, pt in ipairs(p.parts) do if pt then b.stats.modules_started = b.stats.modules_started + 1 end end
+  Profiler.stop("build:plan:anchors")
   return true
 end
 
@@ -1577,6 +1585,8 @@ local function advance(f, surface, p, tick)
     Profiler.start("build:plan")
     local ok, why, wait = plan_project(f, surface, p)
     Profiler.stop("build:plan")
+    -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
+    Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
     if ok then
       p.state = "reserve"
       p.started = tick
