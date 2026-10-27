@@ -113,6 +113,16 @@ return {
     end
   end,
 
+  -- Images (session avec images) : les fours poses, servis (a, b, real) et le four sur tapis (line) laisse tel quel.
+  shots_delay = CHECK + 60,
+  shots = function(ctx, add)
+    local chest = ctx.state().chest
+    if chest and chest.valid then
+      add("adopte-fours-est", chest.position.x + 24, chest.position.y + 12, 0.6)
+      add("adopte-four-ligne", chest.position.x - 20, chest.position.y + 10, 0.9)
+    end
+  end,
+
   finish = function(ctx)
     local st = ctx.state()
     local F = st.f or {}
