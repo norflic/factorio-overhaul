@@ -130,9 +130,37 @@ function Auto.on_done(f, task, ok, tick)
 end
 
 --- Clôt la minute écoulée : débit livré au QG par objet (toutes sources), fenêtre glissante.
+--- Production RÉELLE d'un module fini sur la dernière minute (lot IA3-e, moteur réel e2-usine : des modules finis sans
+--- courant ne produisaient rien, mais retiraient les tournées de leurs avant-postes) : fours et assembleurs de ses
+--- pièces dont la recette donne l'objet du module ; objets par minute.
+local function measure_module(f, m)
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  local s = surface and f.build and Build.status(f, m.id)
+  if not s then return 0 end
+  local made = 0
+  for _, pt in ipairs(s.parts or {}) do
+    local area = { { pt.x, pt.y }, { pt.x + pt.w, pt.y + pt.h } }
+    for _, e in ipairs(surface.find_entities_filtered({ area = area, force = f.force, type = { "furnace", "assembling-machine" } })) do
+      local ok = e.type == "furnace"
+      if not ok then
+        local r = e.get_recipe and e.get_recipe() or nil
+        ok = r ~= nil and r.name == m.product
+      end
+      if ok then made = made + (e.products_finished or 0) end
+    end
+  end
+  local rate = m.made_prev and math.max(0, made - m.made_prev) or 0
+  m.made_prev = made
+  return rate
+end
+
 local function roll(f, st, tick)
   local m = math.floor(tick / 3600)
   if st.last_min == m then return end
+  -- Production mesurée des modules finis (une lecture par minute et par module).
+  for _, mod in ipairs(st.modules) do
+    if mod.state == "fini" then mod.rate_meas = measure_module(f, mod) end
+  end
   local delivered = f.team.delivered or {}
   if st.last_min ~= nil then
     local cur = st.cur
@@ -160,6 +188,31 @@ local function note(f, st, tick, text)
 end
 
 local function refresh(f, st, tick)
+  -- Centrale (demandée AVANT le premier module électrique) : son état ; refusée, les modules électriques attendent que la
+  -- raison change (signature).
+  if st.plant_id and f.build then
+    local ps = Build.status(f, st.plant_id)
+    local state = ps and ps.state or "refuse"
+    if state == "bloque" and not (ps and ps.retry_at) then state = "refuse" end
+    if state ~= st.plant_state then
+      st.plant_state = state
+      if state == "fini" then note(f, st, tick, "centrale FINIE")
+      elseif state == "refuse" then
+        st.plant_refused = { reason = tostring(ps and ps.reason or "projet perdu"), sig = st.sig }
+        note(f, st, tick, "centrale REFUSEE par le plan directeur : " .. st.plant_refused.reason)
+        -- Les modules électriques pas encore en chantier sont annulés : sans courant, ils ne produiraient rien.
+        for _, m in ipairs(st.modules) do
+          if m.electric and (m.state == "attente" or m.state == "plan" or m.state == "reserve") then
+            Build.cancel(f, m.id, "pas de centrale")
+          end
+        end
+      end
+    end
+    if state == "refuse" and st.plant_refused and st.plant_refused.sig ~= st.sig then
+      -- contexte changé (rayon, époque de 30 min) : nouvel essai de la centrale à la prochaine demande électrique
+      st.plant_id, st.plant_state, st.plant_refused = nil, nil, nil
+    end
+  end
   for _, m in ipairs(st.modules) do
     if m.state ~= "fini" and m.state ~= "refuse" then
       local s = Build.status(f, m.id)
@@ -213,7 +266,9 @@ function Auto.think(f, view, book, tick)
     local res = A.decide({
       window = st.window, threatened = view.threatened, modules = st.modules,
       obtainable = function(item) return book:handcraftable(item) or (stock[item] or 0) > 0 end,
-      book = book, stock = stock, has_plant = f.build and f.build.plant ~= nil, sig = st.sig,
+      book = book, stock = stock, sig = st.sig,
+      has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
+      no_power = st.plant_refused and st.plant_refused.reason or nil,
     })
     st.wanted = res.wanted
     st.verdicts = {}
@@ -227,10 +282,18 @@ function Auto.think(f, view, book, tick)
         note(f, st, tick, "plan directeur allume (rayon " .. Auto.RADIUS .. ")")
       end
       local prio = 40 + math.floor(A.VALUE * 45 / 100)
+      -- Centrale d'abord (correction e2-usine) : demandée APRÈS le module, elle ne trouvait plus de rue vers le réseau
+      -- que le module avait amorcé seul (« pas de rue vers le reseau ») ; demandée avant, elle amorce le réseau et les
+      -- modules s'y relient (ordre du banc ia1-build d'IA1-d).
+      if rq.electric and not st.plant_id then
+        st.plant_id = Build.plant(f)
+        st.plant_state = "attente"
+        note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
+      end
       local id, why = Build.request(f, { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production" })
       if id then
         st.modules[#st.modules + 1] = { id = id, product = rq.product, state = "attente", requested = tick,
-          rate = rq.rate, rate_nom = rq.rate_nom, gen = rq.gen, args = rq.args, missing = {} }
+          rate = rq.rate, rate_nom = rq.rate_nom, gen = rq.gen, args = rq.args, missing = {}, electric = rq.electric or nil }
         note(f, st, tick, string.format("module '%s' DEMANDE (%s %s, %.0f objets/min visés, nominal %.0f) : %s", rq.product, rq.gen,
           table.concat((function() local o = {} for i, a in ipairs(rq.args) do o[i] = tostring(a) end return o end)(), ","),
           rq.rate, rq.rate_nom, rq.why))
@@ -246,12 +309,13 @@ function Auto.think(f, view, book, tick)
   for _, m in ipairs(st.modules) do
     mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason }
     if m.state == "fini" then
-      fini_rate[m.product] = (fini_rate[m.product] or 0) + (m.rate_nom or 0)
+      -- débit MESURÉ (la minute écoulée), pas le nominal : un module sans courant ne couvre rien
+      fini_rate[m.product] = (fini_rate[m.product] or 0) + (m.rate_meas or 0)
       target[m.product] = math.max(target[m.product] or 0, m.rate or 0)
     end
   end
   for _, p in ipairs(sorted_keys(fini_rate)) do
-    if fini_rate[p] >= 0.8 * (target[p] or 0) then covered[p] = true end
+    if fini_rate[p] >= 0.5 * (target[p] or 0) and fini_rate[p] > 0 then covered[p] = true end
     for _, kind in ipairs(T.OUTPOST_ORDER) do
       local spec = T.outposts[kind]
       if spec.product == p then cap[kind] = (cap[kind] or 0) + fini_rate[p] / (spec.drills * A.BURNER_RATE * 60) end
@@ -270,9 +334,11 @@ function Auto.minute_line(f, st, tick)
   end
   local mods = {}
   for _, m in ipairs(st.modules) do
-    mods[#mods + 1] = string.format("%s#%d:%s(%d/%d)%s", m.product, m.id, m.state, m.built or 0, m.total or 0,
+    mods[#mods + 1] = string.format("%s#%d:%s(%d/%d)%s%s", m.product, m.id, m.state, m.built or 0, m.total or 0,
+      m.state == "fini" and string.format("=%d/min", m.rate_meas or 0) or "",
       m.reason and ("[" .. tostring(m.reason) .. "]") or "")
   end
+  if st.plant_id then mods[#mods + 1] = "centrale#" .. st.plant_id .. ":" .. tostring(st.plant_state) end
   local vs = {}
   for _, v in ipairs(st.verdicts) do vs[#vs + 1] = v.product .. ":" .. v.verdict .. "(" .. tostring(v.why) .. ")" end
   local hand = {}
@@ -307,11 +373,12 @@ remote.add_interface("fo-ia3e", {
     local f = team_of(key)
     local st = f and f.team and f.team.ia3e
     if not st then return nil end
-    local out = { modules = {}, verdicts = {}, wanted = sorted_keys(st.wanted), hand = {}, window = #st.window }
+    local out = { modules = {}, verdicts = {}, wanted = sorted_keys(st.wanted), hand = {}, window = #st.window,
+      plant = st.plant_id, plant_state = st.plant_state }
     for _, m in ipairs(st.modules) do
       local s = f.build and Build.status(f, m.id)
       out.modules[#out.modules + 1] = { id = m.id, product = m.product, state = m.state, reason = m.reason, requested = m.requested,
-        finished = m.finished, rate = m.rate, rate_nom = m.rate_nom, built = m.built, total = m.total,
+        finished = m.finished, rate = m.rate, rate_nom = m.rate_nom, rate_meas = m.rate_meas, built = m.built, total = m.total,
         parts = s and s.parts or {}, quais = s and s.quais or {} }
     end
     for _, v in ipairs(st.verdicts) do out.verdicts[#out.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T } end

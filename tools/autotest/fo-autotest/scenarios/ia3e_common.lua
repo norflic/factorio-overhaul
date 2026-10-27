@@ -99,10 +99,45 @@ local function set_npcs_active(ctx, active)
   return n
 end
 
+--- Images (session avec images seulement : un joueur connecté) : vue d'ensemble de la base d'une faction et gros plan
+--- de chaque module fini, dans script-output/fo-shots/ia3e-<faction>-<moment>.png.
+local function snap(ctx, name, x, y, zoom)
+  local player = game.connected_players[1]
+  if not player then return false end
+  game.take_screenshot({ player = player, surface = ctx.surface(), position = { x, y }, resolution = { 1600, 900 }, zoom = zoom,
+    path = "fo-shots/ia3e-" .. name .. ".png", show_entity_info = true, anti_alias = true, daytime = 0,
+    allow_in_replay = true, force_render = true })
+  ctx.log("capture ia3e-" .. name)
+  return true
+end
+
+local function photos(ctx, moment)
+  local s = ctx.surface()
+  for _, row in ipairs(factions(ctx)) do
+    local hq = s.find_entities_filtered({ name = "fo-faction-hq", force = row.force, limit = 1 })[1]
+    if hq then
+      snap(ctx, row.key .. "-" .. moment .. "-base", hq.position.x, hq.position.y, 0.18)
+      local a = auto_status(ctx, row.key)
+      local n = 0
+      for _, m in ipairs(a and a.modules or {}) do
+        for _, pt in ipairs(m.parts or {}) do
+          n = n + 1
+          if n <= 6 and m.state == "fini" then
+            snap(ctx, string.format("%s-%s-%d-%s", row.key, moment, n, m.product), pt.x + pt.w / 2, pt.y + pt.h / 2, 0.6)
+          end
+        end
+      end
+    end
+  end
+end
+
 return function(variant)
-  local NF = variant == "usine2" and 2 or 4
+  local NF = (variant == "usine2" or variant == "photo") and 2 or 4
+  -- Variante « photo » (captures pour le DC) : 2 factions, 42 min, images à 30, 36 et 41 min ; pas de mesure sans PNJ.
+  local T_END = variant == "photo" and 42 * MIN or T_END
+  local PHOTOS = variant == "photo" and { [30 * MIN] = "30min", [36 * MIN] = "36min", [41 * MIN] = "41min" } or {}
   return {
-    description = "IA3-e : l'usine des factions (" .. NF .. " factions, Normal, 8 PNJ, 90 min)",
+    description = "IA3-e : l'usine des factions (" .. NF .. " factions, Normal, 8 PNJ, " .. math.floor(T_END / MIN) .. " min)",
     base = nil,
     check_tick = T_END + 60,
 
@@ -159,8 +194,9 @@ return function(variant)
           end
         end
       end
-      -- Mesure SANS PNJ.
-      if t == T_FREEZE then
+      if PHOTOS[t] then photos(ctx, PHOTOS[t]) end
+      -- Mesure SANS PNJ (pas dans la variante « photo », trop courte).
+      if t == T_FREEZE and T_FREEZE < T_END then
         local s = ctx.surface()
         st.freeze = {}
         st.hand45 = {}
@@ -243,8 +279,31 @@ return function(variant)
       end
     end,
 
+    -- Galerie officielle (fo-captures.bat) : une vue par faction après le contrôle.
+    shots = function(ctx, add)
+      local s = ctx.surface()
+      for _, row in ipairs(factions(ctx)) do
+        local hq = s.find_entities_filtered({ name = "fo-faction-hq", force = row.force, limit = 1 })[1]
+        if hq then add("ia3e-" .. row.key .. "-fin", hq.position.x, hq.position.y, 0.18) end
+      end
+    end,
+    shots_delay = T_END + 120,
+
     finish = function(ctx)
       local st = ctx.state()
+      if T_FREEZE >= T_END then
+        ctx.log("variante sans mesure sans PNJ (" .. math.floor(T_END / MIN) .. " min)")
+        local s2 = 0
+        for _, row in ipairs(factions(ctx)) do
+          local a = auto_status(ctx, row.key)
+          local parts = {}
+          for _, m in ipairs(a and a.modules or {}) do parts[#parts + 1] = m.product .. ":" .. m.state end
+          ctx.log(string.format("modules %s a %d min : %s", row.key, math.floor(T_END / MIN), table.concat(parts, " ")))
+          if a and #a.modules > 0 then s2 = s2 + 1 end
+        end
+        ctx.check(s2 > 0, "au moins une faction a demande un module")
+        return
+      end
       ctx.check(st.freeze ~= nil, "mesure sans PNJ faite a 45 min")
       local n3, nh, nk7, nf = 0, 0, 0, 0
       for _, row in ipairs(factions(ctx)) do

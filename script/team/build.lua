@@ -974,6 +974,24 @@ local function release(f, p)
   end
 end
 
+--- Lot IA3-e : annule une demande pas encore en chantier (attente, plan, réserve) : objets réservés rendus au coffre,
+--- tuiles et lots libérés ; état « refuse » (raison donnée). Rend vrai si la demande a été annulée.
+function Build.cancel(f, id, why)
+  local b = f and f.build
+  local p = b and b.projects[id]
+  if not (p and (p.state == "attente" or p.state == "plan" or p.state == "reserve")) then return false end
+  release(f, p)
+  for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+  for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+  for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+  p.ents, p.parts = {}, {}
+  p.state, p.reason = "refuse", why or "annule"
+  b.stats.projects_refused = b.stats.projects_refused + 1
+  if b.plant == p.id then b.plant = nil end
+  log(string.format("[FO-IA1D] %s : projet %d annule (%s)", f.key or "player", p.id, tostring(p.reason)))
+  return true
+end
+
 --- Prise au stock du chantier (étape « take_res » d'un PNJ) : rend vrai si tout a été pris.
 function Build.take_reserved(f, pid, items, inv)
   local p = f.build and f.build.projects[pid]
@@ -1043,7 +1061,9 @@ end
 
 --- Un personnage (PNJ, joueur) debout sur l'emprise : refus passager.
 local function npc_on(surface, e)
-  return surface.count_entities_filtered({ area = footprint(e), type = "character", limit = 1 }) > 0
+  -- Lot IA3-e : un SOLDAT (unité) debout sur l'emprise est aussi un passager (moteur réel, e2-usine : fantômes d'emerald
+  -- refusés « occupe » par fo-emerald-rifleman et fo-emerald-rocketeer, chantier bloqué près du QG).
+  return surface.count_entities_filtered({ area = footprint(e), type = { "character", "unit" }, limit = 1 }) > 0
 end
 
 --- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "pnj" (un personnage

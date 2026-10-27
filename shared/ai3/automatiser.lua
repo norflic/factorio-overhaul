@@ -253,8 +253,9 @@ local OPEN = { attente = true, plan = true, reserve = true, defrichage = true, f
 A.OPEN_STATES = OPEN
 
 --- La décision d'une pensée. input = {
----   window, threatened, modules = { { product, state, reason, sig } } (demandes de l'équipe, dans l'ordre),
----   obtainable(item) -> bool (fabricable à la main OU au stock), book, stock, dist, has_plant, sig (contexte) }.
+---   window, threatened, modules = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
+---   obtainable(item) -> bool (fabricable à la main OU au stock), book, stock, dist, has_plant, sig (contexte),
+---   no_power (raison du refus de la centrale, ou nil) }.
 --- Rend { requests = { { product, gen, args, rate, rate_nom, feed, why } }, verdicts = { { product, verdict, why, L, D,
 --- T, C, G } } (ordre de A.METHODS), wanted = { [objet] = true } }.
 function A.decide(input)
@@ -319,6 +320,7 @@ function A.decide(input)
         local rate_nom = (g.nominal[meth.product] or 0) * 60
         local C, items, n_ent, det = A.cost(meth, g, { book = input.book, stock = input.stock, dist = input.dist,
           price = price, has_plant = input.has_plant })
+        local electric = (g.power_kw or 0) > 0
         local missing = {}
         for _, name in ipairs(sorted_keys(items)) do
           if not (input.obtainable and input.obtainable(name)) then missing[#missing + 1] = name end
@@ -326,7 +328,12 @@ function A.decide(input)
         local share = D > 0 and math.min(1, rate_nom / D) or 1
         local G = L * share - A.residual(det, rate_nom, input.dist)
         v.C, v.G, v.n_ent, v.rate_nom = C, G, n_ent, rate_nom
-        if G <= 0 then
+        if electric and input.no_power then
+          -- La centrale du plan directeur est refusée (pas de rive, pas de rue vers le réseau) : un module électrique ne
+          -- produirait rien (moteur réel, e2-usine : 5 modules bâtis sans courant chez emerald). Coût infini tant que la
+          -- raison ne change pas (signature du refus de la centrale).
+          v.verdict, v.why = "non", "pas de centrale : " .. tostring(input.no_power)
+        elseif G <= 0 then
           v.verdict, v.why = "non", string.format("gain %.2f PNJ <= 0 (logistique du module %.2f)", G, L * share - G)
         else
           local T = C / (60 * G)
@@ -347,7 +354,7 @@ function A.decide(input)
           else
             v.verdict, v.why = "demande", string.format("charge %.2f PNJ, retour %.1f min <= %d", L, T, H)
             out.requests[#out.requests + 1] = { product = meth.product, gen = meth.gen, args = args, rate = rate,
-              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items }
+              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric }
             open = open + 1
             busy_rank = busy_rank or meth.rank
           end
