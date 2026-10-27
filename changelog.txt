@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.4.31
+Date: 2026-10-27
+  Graphics:
+    - Les machines d'assemblage des âges 2 à 15 (niveaux 3 à 30) ont chacune leur design, à la place de l'assembleur
+      vanilla teinté : forge en L, colonne de vapeur, portique de presse, croix du temple de cristal, salle blanche en H,
+      pont en U de l'âge 15… ; le sol se voit entre les ailes et sous les portiques. Le niveau pair de chaque âge ajoute
+      une pièce et une teinte de l'âge. Le niveau 2 garde l'assembleur vanilla avec un établi posé aux coins avant.
+    - Machine en marche : voyants, écrans, braises et cristaux de l'âge s'avivent et scintillent, avec une lumière de la
+      couleur de l'âge ; lueurs de jour et halo de nuit.
+    - Les brides de tuyau dessinées sont exactement aux raccords de jeu (y compris aux machines 4×4 et 6×6).
+    - Icône de l'âge pour chaque niveau, couleur de carte de l'âge, reste et explosion à la taille de la machine.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.30
 Date: 2026-10-25
   Graphics:
