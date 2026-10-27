@@ -66,12 +66,14 @@ return {
     end
     -- relevé type « read_masks » : eau + entités de la couche objets sur 56 × 56 tuiles
     local prof3 = game.create_profiler()
+    local n = 0
     for _ = 1, 10 do
-      s.find_tiles_filtered({ area = { { x0, y0 }, { x0 + 56, y0 + 56 } }, collision_mask = "water-tile" })
-      s.find_entities_filtered({ area = { { x0, y0 }, { x0 + 56, y0 + 56 } }, collision_mask = "object-layer" })
+      local wt = s.find_tiles_filtered({ area = { { x0, y0 }, { x0 + 56, y0 + 56 } }, collision_mask = "water-tile" })
+      local ob = s.find_entities_filtered({ area = { { x0, y0 }, { x0 + 56, y0 + 56 } }, collision_mask = "object-layer" })
+      n = n + #wt + #ob
     end
     prof3.stop()
-    log({ "", "[FO-IA1D-COUTS] releve 56 x 56 (eau + objets) x10 : ", prof3 })
+    log({ "", "[FO-IA1D-COUTS] releve 56 x 56 (eau + objets) x10, " .. n .. " resultats : ", prof3 })
   end,
 
   finish = function(ctx)

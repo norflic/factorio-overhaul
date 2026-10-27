@@ -248,6 +248,7 @@ return function(variant)
       if not chest then return end
       stock_chest(chest)
       st.chest = chest
+      ctx.remote("factorio-overhaul", "profiler", true) -- coût par sous-système au rapport de chaque minute
       local ok = ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = true, radius = 3 })
       ctx.check(ok == true, "plan directeur active")
       st.t0 = game.tick

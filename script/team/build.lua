@@ -25,6 +25,7 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Tokens = require("script.team.tokens")
+local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
@@ -1502,7 +1503,9 @@ local function advance(f, surface, p, tick)
       local pl = b.projects[b.plant]
       if pl and (pl.state == "attente" or pl.state == "plan") then return end
     end
+    Profiler.start("build:plan")
     local ok, why, wait = plan_project(f, surface, p)
+    Profiler.stop("build:plan")
     if ok then
       p.state = "reserve"
       p.started = tick
@@ -1630,7 +1633,11 @@ end
 
 Events.on_nth_tick(Build.PULSE, function(e)
   for _, f in ipairs(teams()) do
-    if f.hq and f.hq.valid then pulse_team(f, e.tick) end
+    if f.hq and f.hq.valid then
+      Profiler.start("build:pulse")
+      pulse_team(f, e.tick)
+      Profiler.stop("build:pulse")
+    end
   end
 end)
 
