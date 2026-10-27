@@ -226,6 +226,7 @@ end
     poles = { name, supply (demi-côté de l'aire), wire (portée) } ;
     network = {x, y} (poteau du réseau le plus proche) ou nil ;
     n_extract = puits à équiper ;
+    block = {x, y} (facultatif) : centre de la place des machines (défaut : le centre des extracteurs) ;
   }
   Rend { ents = { {name, x, y, dir, recipe, role} }, quais = { {x, y, item} }, outs = { {x, y, item} }, box = {x0, y0,
   x1, y1}, pipes = n, poles = n, line = n } ou nil, raison.
@@ -565,7 +566,7 @@ function Site:power(electric)
       local x = a.x + (b.x - a.x) * i / steps
       local y = a.y + (b.y - a.y) * i / steps
       local done = nil
-      for r = 0, 2 do
+      for r = 0, 4 do
         for dy = -r, r do
           for dx = -r, r do
             if not done and math.max(math.abs(dx), math.abs(dy)) == r then
@@ -713,7 +714,10 @@ function Fl.layout(req)
   -- 3. Cellules : machines (producteurs de fluide d'abord), raccords réservés, quais.
   local cells = {}
   local cx0, cy0 = origin.x, origin.y
-  if #extractors > 0 then
+  if req.block then
+    -- place des machines imposée (près de la rive quand l'eau est loin du gisement : le brut vient par un long tuyau)
+    cx0, cy0 = req.block.x, req.block.y
+  elseif #extractors > 0 then
     local sx, sy = 0, 0
     for _, x in ipairs(extractors) do sx, sy = sx + x.x, sy + x.y end
     cx0, cy0 = sx / #extractors, sy / #extractors

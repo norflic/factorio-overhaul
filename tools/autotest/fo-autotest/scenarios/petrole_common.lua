@@ -61,14 +61,18 @@ return function(variant, ticks)
       local n = census(s, row.force)
       local f = game.forces[row.force]
       local made = f and f.item_production_statistics.get_input_count(PACK) or 0
+      local prod = {}
+      for _, it in ipairs({ "engine-unit", "plastic-bar", "sulfur", "advanced-circuit" }) do
+        prod[#prod + 1] = it .. "=" .. (f and f.item_production_statistics.get_input_count(it) or 0)
+      end
       local sites = {}
       for _, x in ipairs(st.sites or {}) do
         sites[#sites + 1] = string.format("%s:%s(%s/%s)%s", x.key, tostring(x.state), tostring(x.built), tostring(x.total),
           x.reason and ("<" .. x.reason .. ">") or "")
       end
-      ctx.log(string.format("minute %d | %s | connus [%s] | decisions %d | sites [%s] | chevalets %d raffineries %d usines %d | packs chimiques %d | palier 4 [%s]",
+      ctx.log(string.format("minute %d | %s | connus [%s] | decisions %d | sites [%s] | chevalets %d raffineries %d usines %d | packs chimiques %d | produits [%s] | palier 4 [%s]",
         math.floor(tick / 3600), row.key, table.concat(st.known or {}, " "), st.decisions or 0, table.concat(sites, " "),
-        n.pumpjack, n["oil-refinery"], n["chemical-plant"], made, table.concat(tier4(row.force), " ")))
+        n.pumpjack, n["oil-refinery"], n["chemical-plant"], made, table.concat(prod, " "), table.concat(tier4(row.force), " ")))
     end
   end
   base.tick = function(ctx, e)

@@ -41,7 +41,9 @@ Pet.WATER_R = 160           -- une rive à moins de 160 tuiles du QG : l'eau est
 Pet.PACK_N = 10             -- packs dépliés pour trouver ce qu'il faut
 Pet.FEED_STOCK = 20         -- objets gardés au coffre pour les quais d'un site fini
 Pet.OUT_AT = 10             -- objets à rapporter d'une sortie (au lieu de 200)
-Pet.WATER_SEARCH = { 24, 48, 96, 144 }
+Pet.WATER_SEARCH = { 24, 48, 96, 144, 200 }
+Pet.BLOCK_NEAR = 40         -- rive à plus de 40 tuiles du gisement : les machines vont près de la rive…
+Pet.BLOCK_OFF = 10          -- … à 10 tuiles d'elle, vers le gisement
 Pet.PUMP_TRIES = 80
 Pet.RETRY = 10 * 3600       -- un site refusé est revu 10 min plus tard
 Pet.GAIN = 3                -- PNJ « libérés » (valeur du projet de chantier, comme un module de l'automatisation)
@@ -336,13 +338,26 @@ local function plan_site(f, surface, p, h)
     if #wells == 0 then return nil, "aucun puits de " .. spec.res end
   end
   local pumps = {}
-  if spec.water then pumps = pump_spots(surface, f, rel, origin, spec.water) end
-  local x0, y0, x1, y1 = origin.x - Fl.ROUTE_R - 4, origin.y - Fl.ROUTE_R - 4, origin.x + Fl.ROUTE_R + 4, origin.y + Fl.ROUTE_R + 4
-  -- la rive la plus proche (la seule que l'implantation prendra) : le relevé couvre aussi le couloir jusqu'à elle
-  if pumps[1] then
+  local block = nil
+  if spec.water then
+    pumps = pump_spots(surface, f, rel, origin, spec.water)
+    -- la rive est loin du gisement : les machines vont près de la rive, le brut y vient par un long tuyau (un joueur
+    -- raffine là où il a l'eau quand le champ est sec)
     local pp = pumps[1]
-    x0, y0 = math.min(x0, pp.x - Fl.ROUTE_R / 2), math.min(y0, pp.y - Fl.ROUTE_R / 2)
-    x1, y1 = math.max(x1, pp.x + Fl.ROUTE_R / 2), math.max(y1, pp.y + Fl.ROUTE_R / 2)
+    if pp then
+      local dx, dy = origin.x - pp.x, origin.y - pp.y
+      local d = math.sqrt(dx * dx + dy * dy)
+      if d > Pet.BLOCK_NEAR then
+        block = { x = math.floor(pp.x + dx * Pet.BLOCK_OFF / d) + 0.5, y = math.floor(pp.y + dy * Pet.BLOCK_OFF / d) + 0.5 }
+      end
+    end
+  end
+  local x0, y0, x1, y1 = origin.x - Fl.ROUTE_R - 4, origin.y - Fl.ROUTE_R - 4, origin.x + Fl.ROUTE_R + 4, origin.y + Fl.ROUTE_R + 4
+  -- la rive la plus proche (la seule que l'implantation prendra) et la place des machines : le relevé couvre aussi le
+  -- couloir jusqu'à elles
+  for _, q in ipairs({ pumps[1], block }) do
+    x0, y0 = math.min(x0, q.x - Fl.ROUTE_R / 2), math.min(y0, q.y - Fl.ROUTE_R / 2)
+    x1, y1 = math.max(x1, q.x + Fl.ROUTE_R / 2), math.max(y1, q.y + Fl.ROUTE_R / 2)
   end
   local masks = h.read_masks(x0, y0, x1, y1)
   local net = nearest_network(f, surface, origin.x, origin.y, b)
@@ -354,7 +369,7 @@ local function plan_site(f, surface, p, h)
     return masks.water[k] or masks.blocked[k] or false
   end
   local req = { origin = origin, blocked = blocked, ents = rel.entities, chain = ch, wells = wells, pumps = pumps,
-    extractor = spec.extractor, conduit = D.PIPE, chest = D.CHEST, arm = D.ARM, poles = pole, network = net }
+    extractor = spec.extractor, conduit = D.PIPE, chest = D.CHEST, arm = D.ARM, poles = pole, network = net, block = block }
   local lay, w2 = Fl.layout(req)
   if not lay then return nil, w2 end
   lay.masks = masks
