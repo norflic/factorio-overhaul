@@ -559,8 +559,11 @@ local function monitor_one(f, k, ex, tick)
     end
     -- Lot IA-V2 (moteur réel, ia3c-reduit graine 20261020, code 4e0388b : Écarlate, 32 missions sur 33 finies sur
     -- « chemin », point de passage de 96 tuiles introuvable EN ROUTE, puis retour à pied au QG ; aucun fer lointain en
-    -- 2 h) : une mission d'exploration prend une autre cible depuis là où il est, au plus FAIL_MAX fois.
-    if t.fail == "chemin" and ex.kind == "explore" and ex.state ~= "home" and (ex.fails or 0) < FAIL_MAX then
+    -- 2 h) : une mission d'exploration prend une autre cible depuis là où il est, au plus FAIL_MAX fois. Factions
+    -- seulement : votre équipe garde le retour au QG (cas du DC ia3-fer-joueur, 948888e : l'éclaireur repris à 6,6 min
+    -- est tué au retour à 328 tuiles, 2 passages sur 2 ; le joueur explore lui-même au loin).
+    if t.fail == "chemin" and ex.kind == "explore" and ex.state ~= "home" and not f.is_player
+      and (ex.fails or 0) < FAIL_MAX then
       ex.fails = (ex.fails or 0) + 1
       t.fail = nil
       k.stats.rerouted = (k.stats.rerouted or 0) + 1

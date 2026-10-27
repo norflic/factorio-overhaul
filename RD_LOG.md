@@ -3,8 +3,8 @@
 > Chaque entrée : **ID · statut · énoncé · protocole · résultat**.
 > Statuts : `FAIT` (vérifié dans une source), `VALIDÉ` / `REJETÉ` (prouvé par expérience), `OUVERT` (à tester).
 > Ordre : le plus récent en haut de chaque section.
-> Prochains identifiants libres (27/10, vers 7 h 15, à la relance du design F4-A4, F4-B et F5-A2) : **F331** et **E220** hors blocs. Réservés aux lots
-> en cours : F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; IA3-e F319 à F323, E212 à E214 ; IA3-d F315 à F318, E210, E211 ; IA-V2 F296 à F299, E198, E199 ; IA3-k F300 à F305, E200 à E203 ; attribués à F4-A à F4-A3 (kit fusionné 27/10, outils) : F260 à F262, F309 à F311, E93 à E96, E206, E207 ; à F5-A (kit fusionné 27/10, outils) : F312, F313, E208, E209 (F314 non servi, rendu) ; à IA1-d (fusionné 27/10, 0.4.32) : F292 à F295, E195 à E197 ; à F3-B :
+> Prochains identifiants libres (27/10, vers 8 h 05, au lancement du workflow X3) : **F341** et **E227** hors blocs. Réservés aux lots
+> en cours : X3 F337 à F340, E224 à E226 ; IA-G F331 à F336, E220 à E223 ; F4-A4 et F4-B F324 à F327, E215 à E217 ; F5-A2 F328 à F330, E218, E219 ; IA3-e F319 à F323, E212 à E214 ; IA3-d F315 à F318, E210, E211 ; IA3-k F300 à F305, E200 à E203 ; attribués à IA-V2 (fusionné 27/10 vers 8 h 40, 0.5.0) : F296 à F298, E198, E199 (F299 non servi ; les blocs d'IA3-b, c, f, F282 à F291 et E188 à E194, restent LIBRES : leurs faits sont écrits sous les numéros d'IA-V2) ; à F4-A à F4-A3 (kit fusionné 27/10, outils) : F260 à F262, F309 à F311, E93 à E96, E206, E207 ; à F5-A (kit fusionné 27/10, outils) : F312, F313, E208, E209 (F314 non servi, rendu) ; à IA1-d (fusionné 27/10, 0.4.32) : F292 à F295, E195 à E197 ; à F3-B :
 > F306 à F308, E204, E205. Les blocs d'IA3-a, b, c, f (F279 à F291, E186 à E194) restent à leurs lots, repris par IA-V2.
 > Prochains identifiants libres (24/10, vers 7 h 35, après la fusion d'A4-préparation) : **F163** et **E118** hors blocs ; F149, F157 à F160, E112, E114 à E116 : A4-préparation (blocs d'A3 et A4 épuisés). Avant (24/10, vers 5 h 50, après la fusion de D4m-géant) : **F163** et **E118** hors blocs ; F157 à F160, E114 à E116 réservés à A4 ; F161, F162, E117 : D4m-géant. Avant (24/10, vers 4 h 15, après la fusion d'A3-jeu) : **F157** et **E114** hors blocs ; F146 à F148 et E109 à E111 : A3-jeu ; **F149 et E112 réservés à A4**. Avant (24/10, vers 2 h 45, après la fusion de S0-suite) : **F157** hors blocs ; F155, F156 et **E113** : S0-suite ; **E114** hors blocs. Avant (24/10, vers 0 h 10, après la fusion d'A3-préparation) : **F155** hors blocs ; F140 à F145 et E105 à E108 : A3-préparation ; **F146 à F149 et E109 à E112 réservés à A3-jeu et A4**. Avant (23/10, vers 23 h 10, après la fusion du lot S0) : **F155** hors blocs ; F150 à F154 : S0 (F154 hors de son bloc F150 à F153) ; E69 : S0 ; F140 à F149 et E105 à E108 : toujours réservés à A3 et A4. Avant (23/10, vers 21 h 15, après la fusion du lot A2) : **F150** hors blocs ; **F140 à F149 réservés à A3 et A4** ; F123 à F129 et E68 : A2 (le bloc F120 à F129 d'A1 à A4 est épuisé) ; en expériences, **E105 à E108 réservés à A3 et A4** (leur bloc E66 à E70 est épuisé : E66, E67, E70 à A1, E68 à A2, E69 à S0 ; E81 à E104 : lots F1 à F6). Avant (23/10, vers 19 h, après les fusions d'INT-K0, INT-GARDE et INT-GRAINE) : **F140** ; F137 à F139 : INT-GRAINE (cmd.exe et PowerShell). Avant (23/10, vers 18 h 30, après la consignation des lots A1, K0 et M0) : **F137** (F123 à F129 restent réservés à A2 à A4) ; en expériences, aucun numéro hors des blocs réservés : **E68** (A2 à A4), **E69** (S0), **E77 à E80** (M1, M2), **E81 et suivants** (lots F, par blocs de 4). Attribués le 23/10 : F120 à F122 (A1), F130 à F135 (M0 ; F135 hors du bloc), F136 (vérification de K0, Blender) ; E66, E67, E70 (A1), E71, E72 (K0), E73 à E76 (M0 ; l'« E77 » proposé par le correcteur de M0 est consigné dans E74, E77 étant réservé à M1 et M2). Avant : (23/10, vers 14 h 55, après la consignation de la passe 5 de V3-E, E65 et F119) **F120, E66**. Blocs RÉSERVÉS par le plan de la suite (23/10, 16 h ; `fo-logs\2026-10-23_plan-suite\PLAN_SUITE.md` §6) : mitrailleuse A1 à A4 : E66 à E70 et F120 à F129 (E69 : sons, lot S0) ; K0 : E71 et E72 ; M0 : E73 à E76 et F130 à F134 ; M1 et M2 : E77 à E80 ; chaque lot F : un bloc de 4 expériences à partir de E81. E3 n'a jamais été attribué (la numérotation passe de E2 à E4).
 
@@ -243,6 +243,12 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 27/10, vers 8 h 25, **le CALCUL comme ressource (lot X3)** : « "Je propose qu’il fonctionne comme l’électricité : un centre de calcul le produit en consommant du courant et du refroidissement." Complètement d’accord je valide ».
+  → **Décision D-19** : le calcul est une ressource de RÉSEAU, comme l'électricité : un centre de calcul (bâtiment nouveau)
+  le PRODUIT en consommant électricité et refroidissement ; des consommateurs le TIRENT (recherche, pilotage des robots de
+  défense, à préciser par X3). Forme moteur à confirmer par le lot X3 (pseudo-fluide comme proposé, ou autre mécanisme
+  faisable en 1.1.91). Le reste de X3 (minerais par âge, chaînes des puces, lasers, impression, cartes graphiques, robots de
+  défense) attend la synthèse du workflow et la page du DC.
 - 25/10, vers 13 h, **le DC sur le diagnostic des PNJ (IA3-DIAG)** : réponses mot pour mot dans OBJECTIFS §4 (R-QCM-25g) :
   les PNJ « doivent jouer comme des joueurs, mais qui s'organisent » ; l'évolution doit être « algorithmisé[e] […] on peut pas
   faire ça pour tous les bâtiments » ; « réfléchi[r] à comment un humain réfléchi, et transcrire ça pour les IA, et aussi,
@@ -502,6 +508,20 @@
 - Fichiers orphelins `script/faction/engineer.lua` et `tools/sim_war.lua` supprimés (aucun `require`,
   vérifié par `grep`). L'expérience E4 qui utilisait `tools/sim_war.lua` reste lisible dans l'historique
   git (commit `4b2a1e0`).
+
+### Faits vérifiés (lot IA-V2, le nouveau cerveau des PNJ réuni et allumé : IA3-b, IA3-c, IA3-f ; 27/10 ; branche `ia-v2`, fusionnée dans `main` le 27/10 vers 8 h 40, `6c631d5`, version 0.5.0)
+Preuves : `fo-logs\2026-10-27_IA-V2\` (`INTEGRATION.md` §2 à §5 et §8, `NOTES.md`, `bancs\`, `bancs\RESUME.txt`, `src-0.4.30` à GARDER).
+- **F296** (moteur réel, banc `ia3c-migration` en double source, `bancs/migr-v2c`) : une sauvegarde rechargée par `--benchmark`
+  fait penser les équipes du mod AU TICK DU CHARGEMENT, avant le premier tick du mod de test (« cerveau par besoins allume a
+  0.0 min » avant « cerveau eteint au tick 0 » du scénario) ; le mod de test dépend de factorio-overhaul et passe après (ordre de
+  chargement, déduit). Un banc ne peut donc pas éteindre un réglage « avant la première pensée » d'une partie chargée : il faut
+  l'éteindre à la CRÉATION.
+- **F297** (moteur réel, `ia3c-reduit` graine 20261020) : un personnage envoyé par script vers un point dans l'eau (ou sans case
+  libre) échoue tout de suite ; Azur a répété 77 fois la même cible en 70 min. Corrigé : point posé par
+  `find_non_colliding_position("character", p, 24, 1)`, cible ratée écartée 10 min pour l'équipe.
+- **F298** (moteur réel, `ia3c-migration` chemin A) : un réglage de carte AJOUTÉ par une version du mod prend sa valeur par défaut
+  dans une sauvegarde qui ne le connaissait pas (sauvegarde 0.4.30 rechargée : marché, registre et cerveau allumés à la première
+  pensée de chaque équipe) ; `bancs/s-migrA` 12 OK.
 
 ### Faits vérifiés (lots F4-A à F4-A3 et F5-A, kits de rendu de la foreuse et du centre, 25 et 27/10 ; branches `worktree-agent-a235f8f5537d5ec4f` et `f5a`, fusionnées dans `main` le 27/10 vers 7 h : outils seulement, rien en jeu, aucun design validé)
 Preuves : `fo-logs\2026-10-25_F4\` (`NOTES.md` §5 et §6, `INTEGRATION.md` §1 quater et §3, `planches_DC_A3\`, `a3\mesures.json`,
@@ -1213,6 +1233,28 @@ d'intégration sur `main` (14 h 51, 238 OK). Archives : `<racine>\fo-logs\2026-1
 | F64 | `draw_as_light` est une carte de lumière en espace écran : elle révèle la couleur de jour de TOUT ce qu'elle recouvre, bâtiments compris, et pas seulement le sol. Un trou dans la couche (par exemple la forme d'un objet qui bloquait la lumière dans le rendu) se voit donc comme une zone sombre sur le bâtiment (E31). | Une pièce posée sur un bâtiment doit avoir sa passe light rendue avec un volume de remplacement de ce bâtiment ; la flaque au sol reste hors de sa silhouette (lot V0b). |
 
 ### Expériences menées
+**E198, E199 · Lot IA-V2, le nouveau cerveau réuni et allumé (27/10 ; fusionné dans `main` vers 8 h 40, `6c631d5`, 0.5.0)**.
+Réunit le marché et le registre (IA3-b), le cerveau par besoins (IA3-c) et l'exploration sous brouillard (IA3-f), puis `main`
+0.4.32 ; réglages `fo-war-ia3-marche` et `fo-war-ia3-cerveau` ALLUMÉS par défaut ; 23 défauts trouvés en moteur réel et corrigés
+(INTEGRATION.md §2). **E198** (cas du DC) : `ia3b-fer` 8 OK (mais 62 plaques en 7,3 min, cible 5 : non tenu ; témoin tout éteint
+5 OK 5 ECHEC, 62 plaques jamais), `ia3c-dc-apres` 9 OK (62 fer en 2,4 min), `ia3c-dc-loin` 4 OK (77 % d'inactifs : fer à
+336 tuiles, hors de portée du minage à la main), `ia3-fer-joueur` 10 OK sur `7e3e4ad` (`948888e` : 9 OK 1 ECHEC « aucun éclaireur
+mort », 2 passages sur 2 ; corrigé : reprise des éclaireurs réservée aux factions). **E199** (avant / après et garde-fous) :
+migration chemins A et B 12 OK chacun, `content` 331, `pnj-auto` 7, `ia0-normal` 14, `verif-guide` 15 OK sur 271828182 et
+314159265 (14 avant), `ia1-scale` 17 ; K11 : 2 passages, empreintes égales (1 642 lignes). Tenus partout : K3 de 0 à 10 min (3 à
+15 % d'inactifs contre 15 à 65 %), K4 0 arrachage, K6 0 fabrication jetée ; K12 tenu sur 1618033988, pas sur 20261020 (Ambre sans
+soldat à 60 min). **NON tenus** : K1 (palier 3 en 29 à 50 min, cible 20 à 25 ; Azur 19,4 min sur 1618033988), K5 (médianes 30 à
+76 min, cible 5), K10 (0,291 ms par tick contre 0,232 en 0.4.30, +25 % ; p99 2,72 à 3,42 ms), B1 à 30 PNJ (53 à 64 % d'inactifs ;
+environ 15 % à 4 à 10 PNJ : « le cerveau ne crée du travail que pour ce qui manque »). Émeraude anéantie par les biters à 65 min
+(1618033988), dans la borne de K9. Hors jeu sur `main` + `ia-v2` (intégrateur, 27/10 vers 8 h 35) : les 32 tests verts (pvp 1305,
+levels 1666, valeur 53, traits 65, ai3_cerveau 49, ia3b 31, ia3f 32, ai3_carte 55…), harness 0 erreur, api_lint 1179. **Garde-fous
+en jeu encore en file à la fusion** (même source `7e3e4ad`) : `pnj-reduit`, `ia1-poles`, `ia3-brouillard`, `ia1b2-guide`,
+`verif-guide` 1618033988 et 577215664 (à consigner à leur retour). Restes ÉCRITS EN DUR déclarés (INTEGRATION.md §8 ; à reprendre
+par IA-G) : 4 sortes d'avant-postes (`T.outposts`, `B.BOOT`), fonderie (four en pierre, charbon), noms de `shared/ai3/manque.lua`,
+armée (`gun-turret`, `firearm-magazine`, `rifleman`, `T.kits`), condition « fer II ». Décisions provisoires du lot (le DC dormait) :
+réglages allumés, IA3-a non fusionné, critère A3 d'IA_ATTENDUS au lieu du contrôle « 2 projets ≥ 25 % », recherche peu chère non
+plafonnée avant le fer II, attente de `valeur_test` déplacée (§2 n° 22).
+
 **E93 à E96, E206, E207 · Foreuse aux 15 âges, kit `foreuse_e` (lots F4-A, F4-A2, F4-A3 ; 25 et 27/10 ; hors jeu)**. Kit fusionné
 dans `main` le 27/10 vers 7 h (`859cfab`, outils seulement). **E93** : témoin de lignée (16 éch., k3 et k6, N et E), 4 directions
 justes, 0 trou ; tablier nu. **E94** : ronde 1 (`r1/`, 28 variantes à 16 éch.) ; forts 3, 5, 8, 9, 12, 14, 15, faibles 2, 6, 7, 10,

@@ -10,6 +10,44 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 8 h 40 : IA-V2 FUSIONNÉ, `main` = 0.5.0** (`6c631d5`) : le nouveau cerveau (marché IA3-b, cerveau par besoins IA3-c,
+> exploration IA3-f) ALLUMÉ par défaut. Hors jeu sur la fusion (worktree `integ`, retiré ensuite) : 32 tests verts, harness 0,
+> api_lint 1179, pvp 1305. Moteur réel sur la branche (même code) : content 331, verif-guide 15 OK × 2 graines, cas du DC, migration
+> 12 OK, K11 ; NON tenus : K1, K5, K10 (0,291 ms), B1 à 30 PNJ. **6 garde-fous en jeu encore en file** sous `--qui IA-V2` (série
+> `travaux-final-a.txt`, `-b.txt` du dossier `fo-logs\2026-10-27_IA-V2\`, relançable par `./serie.sh` ; ce qui est fait est sauté) :
+> pnj-reduit, ia1-poles, ia3-brouillard, ia1b2-guide, verif-guide 1618033988 et 577215664 : À CONSIGNER (E199) à leur retour ;
+> un échec se corrige en avant sur `main`. **Prévenus de faire `git merge main`** : IA-G, IA3-e, IA3-k ; IA3-d (agent terminé) :
+> l'intégrateur fusionne `main` dans `ia3d` à sa fusion. Worktree `ia-v2` GARDÉ tant que la série de l'agent tourne.
+>
+> **27/10, 8 h 05 : WORKFLOW X3 LANCÉ à la demande du DC** (« lancer un workflow pour avoir d'autres minerais […] tel minerai à
+> telle époque […] des processeurs […] technologies laser […] impressions […] cartes graphiques […] calcul […] robots de défense »,
+> OBJECTIFS §4) : run `wf_75a10ea1-27c` (8 agents, HORS JEU, aucun banc ni Blender), worktree `.claude/worktrees/x3` (branche `x3`
+> partie de `main` e2930ad) ; données pures NOUVELLES `shared/content/x3.lua` + `tests/x3_test.lua` + §3.7 de SCENARIO_EPOQUES ;
+> epochs.lua NON modifié (il est lu par le jeu : niveaux, titane, garantie) ; livrables `fo-logs\2026-10-27_X3\INTEGRATION.md` et
+> `RESUME_DC.md` ; F337 à F340, E224 à E226 (prochains libres F341, E227). Ne JAMAIS écrire par SendMessage à un agent de ce
+> workflow (doublon). Mise en jeu après la priorité IA. **D-19 (8 h 25, validé par le DC)** : le calcul comme l'électricité
+> (centre de calcul qui consomme courant et refroidissement) : vérifier à la livraison de X3 que la synthèse le respecte.
+>
+> **27/10, 7 h 50 : le DC demande de refaire QUELQUES âges de l'assembleur** (OBJECTIFS §4, mot pour mot) : 15 très réussi,
+> 14 « partiellement » (un élément décentré), d'autres très basiques malgré l'âge ; « le gameplay fonctionnel avec les IA reste
+> la priorité ». Lot **F3-C** mis à la FIN de la file du design (après F4-B et F5-A2) ; âges à refaire, lecture provisoire de
+> l'intégrateur : 4, 9, 10, 11, et la correction du 14. **ANNULÉ vers 8 h par le DC** (« les assemblages sont bons finalement […]
+> j'avais regardé les ancienne ») : rien à refaire, design prévenu. Une boucle de vérification toutes les 10 min est armée (CronCreate
+> `5d7f4995`, session seulement) : avancement des branches, file du banc, noms du jeu dans le code de décision.
+>
+> **27/10, 7 h 15 : CONSIGNE DU DC (réveillé, contrôle à distance) : le cerveau des IA FINI en 5 h, et un cerveau qui
+> GÉNÉRALISE** (« si ils font des chemins en dur […] dans le code, ça risque pas de le faire […] un véritable cerveau quelqu'un
+> qui généralise », OBJECTIFS §4). Constat vérifié : décisions des factions sur l'échelle écrite à la main (`T.ladder`,
+> `T.research`, avant-postes iron, copper, coal de `shared/team/planner.lua`) ; `shared/ai3/graphe.lua` (dépliage générique,
+> IA3_CERVEAU §3) JAMAIS branché. **Lot IA-G LANCÉ** (agent `a53268fe1401a6fb1`, branche `iag`, worktree
+> `.claude/worktrees/iag`, base ia-v2 `c826b48` + `main` = `9efc142`, feuilles copiées ; notes `fo-logs\2026-10-27_IA-G\` ;
+> F331 à F336, E220 à E223, prochains libres F337, E224 ; bancs `--qui IA-G`) : catalogue depuis les prototypes, choix des
+> recherches par leur valeur, dépliage branché vers les exécutants (tableau, plan d'IA1-d, exploration), échelle remplacée,
+> test anti-noms ; preuve de GÉNÉRALISATION exigée (copie jetable du mod aux données changées, même code). Échéance vers
+> 12 h 15. Messages : IA-V2 livre vite sans chantier neuf (il a corrigé traits et valeur en `c826b48`) ; IA3-e généralise
+> « main ou machine » à tout objet et garde une interface pure pour IA-G ; IA3-k sans seuils ni positions en dur.
+> Ordre des fusions : IA-V2, puis IA-G et IA3-e, puis IA3-d (avec P1), puis IA3-k.
+>
 > **27/10, 7 h 40 : IA3-d LIVRÉ, NON FUSIONNÉ (attend IA-V2)** : branche `ia3d` (tête `d97181c`, contient ia-v2 `4e0388b` et
 > `main` 0.4.32), worktree `.claude/worktrees/ia3d` GARDÉ ; agent terminé (`af7c16550a493a161`). Notes
 > `fo-logs\2026-10-27_IA3-d\NOTES.md`, `INTEGRATION.md` (brouillons F315 à F318, E210, E211, OBJECTIFS, changelog, CLAUDE.md).

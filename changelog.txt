@@ -1,4 +1,26 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.5.0
+Date: 2026-10-27
+  Changes:
+    - Nouveau cerveau des PNJ, pour les factions et votre équipe, allumé par défaut : plus d'échelle d'objectifs ;
+      chaque équipe mène plusieurs projets en même temps selon ce qui lui MANQUE (il manque du fer : elle pose des fours
+      au QG, plusieurs PNJ minent le fer et le fondent, la pierre et le charbon attendent ; elle ne ramasse plus ce
+      qu'elle a en trop pendant qu'autre chose manque).
+    - Vraie recherche des factions : elles fabriquent un laboratoire, le posent près de leur QG, fabriquent leurs packs
+      et recherchent les technologies de leur force, selon leur caractère ; jamais de packs pour une recherche qu'elles
+      ne peuvent pas payer.
+    - Personne n'attend, personne n'arrache : un PNJ libre prend la tâche la plus utile qu'il sait faire, même hors de son
+      pôle ; une tâche prise réserve sa matière au coffre, plus personne ne la lui prend.
+    - Exploration sous brouillard : une équipe ne connaît que ce qu'elle a vu (son QG, ses avant-postes, ses PNJ en
+      marche, ses éclaireurs) ; elle fait le tour de sa base au départ, regarde autour d'elle avant d'explorer, envoie
+      jusqu'à 3 éclaireurs quand une ressource manque et que des PNJ attendent, et ne prend plus de site jamais vu ;
+      un éclaireur de faction dont le chemin est coupé en route (eau, falaise) prend une autre cible au lieu de rentrer.
+    - Un avant-poste qui attend ses tourelles depuis 2 minutes les fait fabriquer.
+    - Réglages de carte « PNJ : cerveau par besoins » et « PNJ : personne n'attend, personne n'arrache » : allumés ;
+      les éteindre AVANT la guerre rend l'ancien cerveau.
+    - Une partie 0.4.x rechargée passe au nouveau cerveau à la pensée suivante de chaque équipe, en gardant ses
+      recherches et ses avant-postes.
+---------------------------------------------------------------------------------------------------
 Version: 0.4.32
 Date: 2026-10-27
   Changes:
