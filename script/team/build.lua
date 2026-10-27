@@ -23,6 +23,7 @@
 
 local Events = require("script.core.events")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Board = require("script.team.board")
 local Tokens = require("script.team.tokens")
 local Profiler = require("script.core.profiler")
@@ -435,7 +436,7 @@ end
 local function pole_kind(f)
   local force = game.forces[f.force]
   local r = force and force.recipes["big-electric-pole"]
-  if (f.hq.get_item_count("big-electric-pole") > 0) or (r and r.enabled) then return "big-electric-pole", 30 end
+  if (Stock.count(f, "big-electric-pole") > 0) or (r and r.enabled) then return "big-electric-pole", 30 end
   return "medium-electric-pole", 9
 end
 
@@ -1181,7 +1182,7 @@ end
 --- Board.view_stock ; registre éteint : le coffre tel quel). Le chantier ne prend plus la matière promise à une tâche
 --- (critère K4 : 0 échec « stock »).
 local function free_stock(f)
-  return Board.view_stock(f, f.hq.get_inventory(defines.inventory.chest).get_contents(), game.tick)
+  return Board.view_stock(f, Stock.contents(f), game.tick)
 end
 
 local function reserve(f, p)
@@ -1191,10 +1192,10 @@ local function reserve(f, p)
   for _, it in ipairs(sorted_keys(need)) do
     local want = need[it] - (p.stock[it] or 0)
     if want > 0 then
-      local have = math.min(f.hq.get_item_count(it), free[it] or 0)
+      local have = math.min(Stock.count(f, it), free[it] or 0)
       local n = math.min(want, have)
       if n > 0 then
-        local got = f.hq.remove_item({ name = it, count = n })
+        local got = Stock.remove(f, it, n)
         bump(p.stock, it, got)
         want = want - got
       end
@@ -1209,7 +1210,7 @@ local function release(f, p)
   for _, it in ipairs(sorted_keys(p.stock)) do
     local n = p.stock[it]
     if n > 0 and f.hq and f.hq.valid then
-      local put = f.hq.insert({ name = it, count = n })
+      local put = Stock.insert(f, it, n)
       p.stock[it] = n - put
     end
   end
@@ -1245,8 +1246,8 @@ function Build.take_reserved(f, pid, items, inv)
     if have < want then
       -- complément au coffre (un PNJ a pu rapporter des objets) : sur le stock LIBRE seulement (lot IA3-e, K4)
       free = free or free_stock(f)
-      local add = math.min(want - have, f.hq.get_item_count(it[1]), free[it[1]] or 0)
-      if add > 0 then have = have + f.hq.remove_item({ name = it[1], count = add }) end
+      local add = math.min(want - have, Stock.count(f, it[1]), free[it[1]] or 0)
+      if add > 0 then have = have + Stock.remove(f, it[1], add) end
     end
     local n = math.min(want, have)
     local put = n > 0 and inv.insert({ name = it[1], count = n }) or 0
@@ -1704,7 +1705,7 @@ local function quai_tasks(f, p, surface, out)
     local chest = surface.find_entity("iron-chest", { q.x, q.y })
     if chest and chest.force.name == f.force then
       local n = chest.get_item_count(q.item)
-      local have = f.hq.get_item_count(q.item)
+      local have = Stock.count(f, q.item)
       if n < Build.QUAI_LOW and have > 0 then
         local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
         if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end

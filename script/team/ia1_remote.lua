@@ -18,6 +18,7 @@
 
 local Storage = require("script.core.storage")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Registry = require("script.companion.registry")
 local Scale = require("shared.team.scale")
 local Team = require("script.team.team")
@@ -62,7 +63,7 @@ local function team_row(f)
     nav_fail = st.nav_fail or 0, goal_moved = st.goal_moved or 0, rescued = st.rescued or 0,
     soldiers = f.soldiers_count or 0, tech = f.tech or 0, outposts = f.outposts_count or 0,
     -- Lot IA1-b2 (mesures) : PNJ perdus (toutes causes, puis tués par les ennemis), tourelles vivantes, fer du QG.
-    lost = st.engineers_lost or 0, lost_enemy = st.lost_enemy or 0, iron = f.hq.get_item_count("iron-plate"),
+    lost = st.engineers_lost or 0, lost_enemy = st.lost_enemy or 0, iron = Stock.count(f, "iron-plate"),
     idle_rien = (f.team.idle_why or {}).rien or 0, idle_bloque = (f.team.idle_why or {}).bloque or 0,
     idle_manque = (f.team.idle_why or {}).manque or 0,
     -- Lot IA3-d : règle d'effectif d'une faction (dernière pensée) : raison, recrues de croissance, travail en attente.

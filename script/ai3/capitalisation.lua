@@ -45,6 +45,7 @@ local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
 local Pl = require("shared.team.plan")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Sites = require("script.faction.sites")
 local Profiler = require("script.core.profiler")
 local General = require("script.ai3.general")
@@ -525,7 +526,7 @@ local function research_of(f, cs)
   local spec = lab.tech and c.techs[lab.tech]
   if nlabs > 0 and spec and f.hq and f.hq.valid then
     for _, ing in ipairs(spec.ingredients or {}) do
-      if f.hq.get_item_count(ing[1]) < (ing[2] or 1) then starved = 1000 end
+      if Stock.count(f, ing[1]) < (ing[2] or 1) then starved = 1000 end
     end
   end
   return { queue = q, rate = rate, starved = starved }, nlabs

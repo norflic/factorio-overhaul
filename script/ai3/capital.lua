@@ -26,6 +26,7 @@ local Cap = require("shared.ai3.capital")
 local Gen = require("shared.ai3.general")
 local R = require("shared.ai3.reglages")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
 local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
@@ -274,7 +275,7 @@ end
 local function place_center(f, c, d, tick)
   local surface = f.hq.surface
   local item = d.cost[1][1]
-  if f.hq.get_item_count(item) < 1 then return false, "objet" end
+  if Stock.count(f, item) < 1 then return false, "objet" end
   local name = L.name(CFAM, 1)
   for _, off in ipairs(Capital.CENTER_OFFSETS) do
     local pos = surface.find_non_colliding_position(name, { x = f.hq_pos.x + off[1], y = f.hq_pos.y + off[2] },
@@ -282,7 +283,7 @@ local function place_center(f, c, d, tick)
     if pos then
       local e = surface.create_entity({ name = name, position = pos, force = f.force, raise_built = true })
       if e and e.valid then
-        f.hq.remove_item({ name = item, count = 1 })
+        Stock.remove(f, item, 1)
         f.team.consumed[item] = (f.team.consumed[item] or 0) + 1
         log(string.format("[FO-CAPITAL] %s : centre de commandement pose (niveau 1) en (%d, %d) a %.1f min", f.key or "?",
           math.floor(pos.x), math.floor(pos.y), minutes(f, tick)))
@@ -317,9 +318,8 @@ function Capital.pay(f, surface, tick, plan, stock)
         end
         if e then
           local owner = State.owner(d.id)
-          local inv = f.hq.get_inventory(defines.inventory.chest)
           local res, info, new
-          ok, res, info, new = Levels.start(e, nil, { inventories = { inv } })
+          ok, res, info, new = Levels.start(e, nil, { inventories = Stock.inventories(f) })
           why = res
           if ok and new and new.valid then
             for _, it in ipairs(d.cost) do f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + it[2] end

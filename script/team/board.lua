@@ -31,6 +31,7 @@ local M = require("shared.ai3.marche")
 local R = require("shared.ai3.registre")
 local X = require("shared.ai3.manque")
 local Registry = require("script.companion.registry")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 
 local Board = {}
 
@@ -111,7 +112,7 @@ end
 local function sync_item(f, reg, item, tick, seen)
   if seen and seen[item] then return end
   if seen then seen[item] = true end
-  local cuts = R.set_count(reg, item, f.hq.get_item_count(item), tick)
+  local cuts = R.set_count(reg, item, Stock.count(f, item), tick)
   if #cuts > 0 then journal_cuts(f, reg, cuts, "disparu(s) du coffre") end
 end
 
@@ -214,12 +215,12 @@ function Board.take_reserved(f, agent, inv, list)
   local all = true
   for _, it in ipairs(list) do
     local name, want = it[1], it[2]
-    local n = math.min(want, left[name] or 0, f.hq.get_item_count(name))
+    local n = math.min(want, left[name] or 0, Stock.count(f, name))
     local put = 0
     if n > 0 then
-      local got = f.hq.remove_item({ name = name, count = n })
+      local got = Stock.remove(f, name, n)
       put = got > 0 and inv.insert({ name = name, count = got }) or 0
-      if put < got then f.hq.insert({ name = name, count = got - put }) end
+      if put < got then Stock.insert(f, name, got - put) end
       left[name] = (left[name] or 0) - put
     end
     if put < want then all = false end

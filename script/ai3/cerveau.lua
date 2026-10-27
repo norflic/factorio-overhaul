@@ -32,6 +32,7 @@ local P = require("shared.ai3.projets")
 local A = require("shared.ai3.recherche")
 local R = require("shared.ai3.registre") -- lot IA-V2 : contrôle du registre d'IA3-b (interface de lecture)
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Board = require("script.team.board")
 local Profiler = require("script.core.profiler")
 local General = require("script.ai3.general") -- lot IA-G : le cerveau général (choix de recherche sur le graphe)
@@ -439,10 +440,10 @@ local function place_labs(f, st, lab, want)
   -- la grille et vérifiées avant la pose (script/ai3/places_qg.lua).
   return PlacesQG.place(f.hq.surface, lab.entity, f.force, f.hq_pos, T.hq_rows.lab, Pl.need(0, want, T.hq_rows_slack),
     want - #labs, function(pos)
-      if f.hq.get_item_count(lab.item) < 1 then return nil end
+      if Stock.count(f, lab.item) < 1 then return nil end
       local e = f.hq.surface.create_entity({ name = lab.entity, position = pos, force = f.force })
       if not e then return false end
-      f.hq.remove_item({ name = lab.item, count = 1 })
+      Stock.remove(f, lab.item, 1)
       st.labs[#st.labs + 1] = e
       return true
     end)
@@ -533,11 +534,11 @@ local function research_step(f, st, book, w, tick, view)
     while lab.paid < need_paid do
       local ok = true
       for _, ing in ipairs(spec.ing) do
-        if f.hq.get_item_count(ing[1]) < ing[2] then ok = false break end
+        if Stock.count(f, ing[1]) < ing[2] then ok = false break end
       end
       if not ok then break end
       for _, ing in ipairs(spec.ing) do
-        f.hq.remove_item({ name = ing[1], count = ing[2] })
+        Stock.remove(f, ing[1], ing[2])
         f.team.consumed[ing[1]] = (f.team.consumed[ing[1]] or 0) + ing[2]
       end
       lab.paid = lab.paid + 1

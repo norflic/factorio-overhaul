@@ -230,16 +230,22 @@ local function new_inventory()
     return c
   end
   inv.is_empty = function() return next(inv._items) == nil end
+  -- Lot COFFRE : le mock n'a pas de nombre de cases (#inv = 0, capacité illimitée) ; script/team/stock.lua traite un coffre
+  -- de 0 case comme « capacité inconnue » : ni annexe ni rangement.
+  inv.count_empty_stacks = function() return 0 end
+  -- Étape 1 (défaut 3) : inv[1] (première pile) et clear() pour la reprise d'un four mal chargé.
   inv.clear = function() inv._items = {} end
-  -- Étape 1 : service_smelters lit la 1re pile (inv[1]) ; le mock rend la première (par nom) comme une pile lisible
-  return setmetatable(inv, { __index = function(_, k)
-    if k ~= 1 then return nil end
-    local names = {}
-    for n in pairs(inv._items) do names[#names + 1] = n end
-    table.sort(names)
-    if #names == 0 then return { valid_for_read = false, count = 0 } end
-    return { valid_for_read = true, name = names[1], count = inv._items[names[1]] }
-  end })
+  setmetatable(inv, {
+    __index = function(_, k)
+      if k ~= 1 then return nil end
+      local names = {}
+      for n in pairs(inv._items) do names[#names + 1] = n end
+      table.sort(names)
+      if #names == 0 then return { valid_for_read = false } end
+      return { valid_for_read = true, name = names[1], count = inv._items[names[1]] }
+    end,
+  })
+  return inv
 end
 M.new_inventory = new_inventory
 

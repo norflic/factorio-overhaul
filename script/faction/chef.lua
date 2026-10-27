@@ -27,6 +27,7 @@ local S = require("shared.faction.strategy")
 local C = require("shared.faction.chef")
 local Tr = require("shared.faction.traits")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Character = require("script.faction.character")
 local Military = require("script.faction.military")
 local Sites = require("script.faction.sites")
@@ -189,7 +190,7 @@ end
 
 local function stock(f, name)
   if not (f.hq and f.hq.valid) then return 0 end
-  return f.hq.get_item_count(name)
+  return Stock.count(f, name)
 end
 
 local function count_keys(t)

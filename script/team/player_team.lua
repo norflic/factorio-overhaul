@@ -23,6 +23,7 @@ local Scheduler = require("script.core.scheduler")
 local Storage = require("script.core.storage")
 local T = require("shared.team.config")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Sites = require("script.faction.sites")
 local Registry = require("script.companion.registry")
 local Team = require("script.team.team")
@@ -66,7 +67,7 @@ local function dismiss(f, refund)
     local a = Registry.get(id)
     -- Lot IA1-a : un kit OFFERT (PNJ de départ, embauche de secours sans arme) n'est jamais rendu.
     if refund and f.hq and f.hq.valid and not (a and a.free_kit) then
-      for _, it in ipairs(T.kits.worker) do f.hq.insert({ name = it[1], count = it[2] }) end
+      for _, it in ipairs(T.kits.worker) do Stock.insert(f, it[1], it[2]) end
     end
     Registry.remove(id, true)
   end

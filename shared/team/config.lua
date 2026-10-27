@@ -97,6 +97,24 @@ T.hq_rows = {
 -- Places générées : au moins 2 fois les machines voulues (une place peut être prise : coffre, tourelles du QG, foreuses
 -- de fond, chantier en cours ; la place prise est sautée par find_non_colliding_position).
 T.hq_rows_slack = 2
+-- ANNEXES du QG (lot COFFRE, constat du DC du 27/10, 18 h 50 : « le coffre est complètement rempli depuis un bon moment mais
+-- il est jamais vidé, il y a jamais d'autres coffres alors qu'il y a 15 coffres [en stock] »). Le coffre du QG a un nombre de
+-- cases fini (T.hq_inventory ; 96 pour le coffre de votre équipe) : plein, plus aucun ouvrier ne peut y déposer et la partie
+-- s'arrête. Des coffres supplémentaires se posent donc autour du QG (rangées `T.hq_rows.annex`, sud) dès que les cases se
+-- remplissent ; le STOCK de l'équipe est le coffre du QG ET ses annexes (script/team/stock.lua : toute lecture, prise et
+-- dépôt passe par là). Données (aucun objet écrit dans le cerveau) :
+--   kinds    : coffres posables, dans l'ordre de préférence ; `slots` = cases (pour estimer le besoin) ; `cheap` = ne coûte
+--              aucune plaque (fabricable même quand le cerveau manque de plaques) ;
+--   grow_at  : remplissage (cases prises / cases) du total QG + annexes à partir duquel un coffre se pose ;
+--   park_at  : remplissage du coffre du QG à partir duquel l'excédent passe aux annexes, jusqu'à park_to ;
+--   keep     : piles d'un même objet laissées dans le coffre du QG au rangement (le reste, par piles entières, part aux annexes) ;
+--   max      : annexes au plus.
+T.annex = {
+  kinds = { { item = "iron-chest", slots = 32 }, { item = "wooden-chest", slots = 16, cheap = true } },
+  grow_at = 0.70, park_at = 0.80, park_to = 0.60, keep = 1, max = 24, want = 2,
+}
+-- Rangées des annexes : au sud du QG, un coffre sur deux (une tuile libre autour de chacun : les PNJ passent).
+T.hq_rows.annex = { origin = { -5, 5 }, dir = { 1, 1 }, gap = { 1, 1 }, first = { 6, 12 }, per_row = 6, search = 4 }
 -- Fournée d'une tournée « smelt » (script/team/worker.lua) : minerai porté = T.smelt_per_furnace entrées par four du QG,
 -- au moins T.smelt_trip_min (la fournée de main 0.6.1 : 20 entrées pour les 4 fours de la fonderie de base d'une
 -- faction, d'où 5 par four) : une fonderie agrandie par les bras libres (shared/ai3/bras.lua, Br.smelters) n'est pas
