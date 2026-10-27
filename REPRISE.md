@@ -10,6 +10,10 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 17 h 30 : TIRS livré (prototype, NON fusionné)** : branche `tirs` `43aab26`, 5 âges témoins (1, 5, 8, 10, 15) + laser 15 ;
+> images `fo-logs\2026-10-27_TIRS\images-r4-final\` envoyées au DC ; questions au DC (puissance : image seule ou dégâts ; son de l'âge 15 ;
+> verdict). Fusion après son verdict ; coût seul à remesurer ; 10 âges à faire. Worktree `tirs` GARDÉ.
+>
 > **27/10, 17 h 20 : WORKFLOW `capi-branchement` LANCÉ** (`wf_751a87a7-9e1`, worktree `capib`, bancs `--qui CAPIB`) : plan en 10 étapes,
 > réglage fo-war-capi éteint sauf preuve, critères (1) à (5), images de base à 30, 60 et 90 min (`fo-logs\2026-10-27_CAPI\images-DC`),
 > `BRANCHEMENT.md` ; relu par un critique adverse. Ne pas écrire par SendMessage à ses agents.
