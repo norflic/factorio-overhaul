@@ -89,6 +89,11 @@ local IDLE_PER_EXPLORER = 3    -- un éclaireur de plus par 3 PNJ sans tâche (l
 local MULTI_TEAM = 4           -- plusieurs éclaireurs seulement dans une équipe d'au moins 4 PNJ
 local EXTRA_GAP = 300          -- départs des éclaireurs supplémentaires espacés de 5 s
 local SPREAD = 160             -- un éclaireur de plus ne vise pas un secteur à moins de 160 tuiles de la cible d'un autre
+-- Lot IA-V2 (moteur réel, ia3c-reduit, graine 20261020, 27/10 : Azur, 77 missions « chemin » en 0,0 min pendant 70 min,
+-- toujours la même cible, aucun site de cuivre, donc aucune tourelle, donc l'avant-poste de fer bloqué par « défendre
+-- d'abord ») : point de passage posé sur une case LIBRE ; une cible au chemin raté est écartée pour toute l'équipe.
+local BAD_TTL = 10 * 3600      -- cible au chemin raté écartée 10 min (toutes missions de l'équipe)
+local FREE_RADIUS = 24         -- case libre cherchée à 24 tuiles au plus du point de passage
 
 Storage.declare("ai3f", function()
   return { fog = true, lc = 0, tc = 0, seq = 0, stats = { looks = 0, skipped = 0, gen = 0, res_looks = 0 } }
@@ -418,7 +423,9 @@ local function start_mission(f, k, a, kind, res, tick)
           surface.request_to_generate_chunks(p, 1)
           wait = true
         end
-        steps[#steps + 1] = { "goto", p, 6 }
+        -- Lot IA-V2 : point de l'anneau posé sur une case libre (eau, falaise : chemin raté en 0 s).
+        local q = chunk_ready(surface, p) and surface.find_non_colliding_position("character", p, FREE_RADIUS, 1) or nil
+        steps[#steps + 1] = { "goto", q and { x = q.x, y = q.y } or p, 6 }
       end
     end
     if wait then table.insert(steps, 1, { "wait", 120 }) end
@@ -444,6 +451,17 @@ local function end_mission(f, k, ex, tick, why)
   local a = Registry.get(ex.agent)
   if a then a.ai3f_eye = nil end
   k.next_mission = tick + ((why == "fuite" or why == "perdu") and COOLDOWN_FLEE or COOLDOWN)
+  -- Lot IA-V2 : chemins ratés à la suite : attente doublée à chaque fois (10 s, 20 s, … 160 s au plus).
+  if why == "chemin" then
+    k.chemin_n = math.min(4, (k.chemin_n or 0) + 1)
+    k.next_mission = tick + COOLDOWN * (2 ^ k.chemin_n)
+  else
+    k.chemin_n = 0
+  end
+  -- Ménage des cibles écartées (expirées).
+  for _, key in ipairs(sorted_keys(k.badt or {})) do
+    if tick - k.badt[key] >= BAD_TTL then k.badt[key] = nil end
+  end
   if ex.kind == "tour" then
     k.tour.tries = (k.tour.tries or 0) + 1
     if why == "fini" or why == "duree" or k.tour.tries >= 3 then
@@ -468,17 +486,19 @@ local function retarget(f, k, a, ex, tick)
       others[#others + 1] = { x = ox, y = oy }
     end
   end
-  local exclude = ex.bad
-  if #others > 0 then
-    exclude = setmetatable({}, { __index = function(_, key)
-      if ex.bad[key] then return true end
+  local badt = k.badt or {}
+  local exclude = setmetatable({}, { __index = function(_, key)
+    if ex.bad[key] then return true end
+    local t0 = badt[key]
+    if t0 and tick - t0 < BAD_TTL then return true end
+    if #others > 0 then
       local cx, cy = K.center(K.xy(key))
       for _, o in ipairs(others) do
         if (cx - o.x) ^ 2 + (cy - o.y) ^ 2 < SPREAD * SPREAD then return true end
       end
-      return nil
-    end })
-  end
+    end
+    return nil
+  end })
   local key = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
     rivals = rivals(f, surface), exclude = exclude })
   if not key then
@@ -490,6 +510,10 @@ local function retarget(f, k, a, ex, tick)
   ex.target = key
   local cx, cy = K.center(K.xy(key))
   local wp = K.toward(me, { x = cx, y = cy }, WAYPOINT)
+  if chunk_ready(surface, wp) then
+    local q = surface.find_non_colliding_position("character", wp, FREE_RADIUS, 1)
+    if q then wp = { x = q.x, y = q.y } end
+  end
   local steps = { { "goto", wp, 6 }, { "wait", 600 }, { "home" } }
   if not chunk_ready(surface, wp) then
     surface.request_to_generate_chunks(wp, 2)
@@ -525,7 +549,11 @@ local function monitor_one(f, k, ex, tick)
     return
   end
   if t.fail then -- chemin raté : le PNJ rentre de lui-même (étape home)
-    if ex.target then ex.bad[ex.target] = true end
+    if ex.target then
+      ex.bad[ex.target] = true
+      k.badt = k.badt or {}
+      k.badt[ex.target] = tick -- lot IA-V2 : écartée pour toute l'équipe (BAD_TTL)
+    end
     if ex.state ~= "home" then ex.state, ex.why = "home", "chemin" end
     return
   end
