@@ -90,10 +90,22 @@ local function bouche_f126(e, px, py, tx, ty)
   return cx + d * vx / n, cy + d * vy / n
 end
 
+-- Entités du lot dont la POSITION est dans la zone : la recherche par zone rend aussi des explosions lointaines (vu au
+-- 1er banc de la ronde 4 : impacts de l'âge 15 du mur comptés sur le site sans effet, à près de 30 tuiles ; boîte de
+-- recherche d'une explosion plus grande que son image, cause non établie, comme F96 pour les bords).
+local function dedans(en, x0, y0, x1, y1)
+  local p = en.position
+  return p.x >= x0 and p.x <= x1 and p.y >= y0 and p.y <= y1
+end
+
 local function vus_sur(s, st, site, x0, y0, x1, y1)
   for _, en in ipairs(s.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, name = st.tous })) do
-    site.vus[en.name] = (site.vus[en.name] or 0) + 1
-    site.n_vus = site.n_vus + 1
+    if dedans(en, x0, y0, x1, y1) then
+      site.vus[en.name] = (site.vus[en.name] or 0) + 1
+      site.n_vus = site.n_vus + 1
+    else
+      st.hors_zone = (st.hors_zone or 0) + 1
+    end
   end
 end
 
@@ -235,8 +247,10 @@ return {
         end
       end
       local mx = (MUR.n - 1) * MUR.pas / 2 + 6
-      st.mur_n_vus = st.mur_n_vus + s.count_entities_filtered({ name = st.tous,
-        area = { { P0.x - mx, MUR.y - MUR.dist_vague - 4 }, { P0.x + mx, MUR.y + 6 } } })
+      local a = { P0.x - mx, MUR.y - MUR.dist_vague - 4, P0.x + mx, MUR.y + 6 }
+      for _, en in ipairs(s.find_entities_filtered({ name = st.tous, area = { { a[1], a[2] }, { a[3], a[4] } } })) do
+        if dedans(en, a[1], a[2], a[3], a[4]) then st.mur_n_vus = st.mur_n_vus + 1 end
+      end
     end
   end,
 
@@ -301,7 +315,8 @@ return {
         end
       end
     end
-    ctx.log("entites du lot vues (tous les 2 ticks) : " .. table.concat(v, " ") .. " ; mur : " .. st.mur_n_vus)
+    ctx.log("entites du lot vues (tous les 2 ticks) : " .. table.concat(v, " ") .. " ; mur : " .. st.mur_n_vus
+      .. " ; rendues par la recherche mais posees hors de la zone (ecartees) : " .. (st.hors_zone or 0))
     ctx.check(vus_ok == n_hab, "chaque site habille : dards, impacts (et trait) vus", vus_ok .. " / " .. n_hab)
     ctx.check(sans_ok, "site sans effet (age 7, niveau 13) : aucune entite du lot", sans_ok and "0" or "vues")
     ctx.check(loin_ok == true, "site a 300 tuiles : " .. (avec_joueur and "jamais habille (joueur en P0)"
