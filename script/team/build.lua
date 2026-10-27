@@ -29,6 +29,7 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
+local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
 
@@ -757,6 +758,31 @@ local function plan_feed(f, surface, p, place, part)
   end
   return true
 end
+
+--- Lot AUTO : l'emprise d'une entité `name` posée en `pos` (direction `dir`) touche-t-elle une tuile RÉSERVÉE par un projet
+--- du plan directeur de l'équipe (b.occ) ? Lecture seulement ; faux sans plan directeur. Les autres poseurs (avant-postes
+--- d'IA3-c) la consultent : moteur réel, a2-usine graine 271828182, emerald, un coffre d'avant-poste posé à 50 min sur le
+--- tracé du tapis de la fonderie planifiée à 31 min : fantôme du tapis refusé « occupe » 18 fois, fonderie bloquée à
+--- 138 entités sur 139 jusqu'à 90 min.
+function Build.reserved_entity(f, name, pos, dir)
+  local b = f and f.build
+  if not (b and b.occ and pos) then return false end
+  local p = game.entity_prototypes[name]
+  if not p then return false end
+  local w, h = p.tile_width or 1, p.tile_height or 1
+  if dir == 2 or dir == 6 then w, h = h, w end
+  local x0, y0 = math.floor(pos.x - w / 2 + 0.01), math.floor(pos.y - h / 2 + 0.01)
+  for ty = y0, y0 + h - 1 do
+    for tx = x0, x0 + w - 1 do
+      if b.occ[P.tkey(tx, ty)] then return true end
+    end
+  end
+  return false
+end
+
+-- Crochet des avant-postes (script/faction/outposts.lua, déjà chargé par script/team/worker.lua avant ce fichier : ni
+-- l'ordre des require ni celui des abonnements ne change).
+Outposts.reserved = function(f, name, pos, dir) return Build.reserved_entity(f, name, pos, dir) end
 
 Build.ROUTE_WEIGHT = 2        -- lot AUTO : poids de l'heuristique du second tracé du tapis des foreuses (A* pondéré)
 Build.DRILL_DIAG_LOGS = 24    -- lot AUTO : lignes de diagnostic des foreuses refusées, au plus, par équipe
