@@ -337,6 +337,7 @@ function M.plan(f, agent, p, goal, tick, opts)
   local t = M.team(f)
   local prud = M.character(f)
   local B = opts.B or D.block(prud)
+  Profiler.fstart("plan:field")
   local field, n = {}, 0
   if opts.same then
     field, n = opts.same.field, opts.same.n or 0
@@ -352,23 +353,37 @@ function M.plan(f, agent, p, goal, tick, opts)
     draw = function(k) return Tr.range(st, 1, k) end
     seed = Tr.range(st, 1, Tr.MOD - 2)
   end
+  Profiler.fstop("plan:field")
+  Profiler.fstart("plan:route")
   local res = R.plan(p, goal, { field = field, n = n, B = B, seed = seed, draw = draw, side = opts.side })
+  Profiler.fstop("plan:route")
+  Profiler.fstart("plan:exact")
   if res.astar then Trace.log("ia3k", "astar", res.expand) end -- attribution des pics (tools/autotest/analyze.py)
   res.B = B
   res.field, res.n = field, n
   -- Profil GÉOMÉTRIQUE (distance réelle aux menaces, D.danger_exact) le long de l'itinéraire, 6 premières tuiles exclues
   -- (le PNJ peut déjà être près d'un danger) : c'est lui que jugent la porte et le choix de l'itinéraire de secours ; les
   -- cases de 16 tuiles (A*) surestiment (un avant-poste à 35-55 tuiles d'un ver était refusé).
+  -- Lot PERF : D.exact_prep / D.exact_at (poids décrus calculés une fois, menaces hors du rectangle des échantillons
+  -- écartées) : mêmes valeurs que D.danger_exact point par point (tests/perf_test.lua).
   local t2 = t.map
   local mx = 0
-  for _, q in ipairs(R.samples(p, res.pts, goal, R.SAMPLE)) do
+  local qs = R.samples(p, res.pts, goal, R.SAMPLE)
+  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
+  for _, q in ipairs(qs) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(t2, tick, x0, y0, x1, y1)
+  for _, q in ipairs(qs) do
     if d2(q, p) > 36 then
-      local v = D.danger_exact(t2, q.x, q.y, tick)
+      local v = D.exact_at(prep, q.x, q.y)
       if v > mx then mx = v end
     end
   end
   res.exact_max = mx
-  res.exact_goal = D.danger_exact(t2, goal.x, goal.y, tick)
+  res.exact_goal = D.exact_at(prep, goal.x, goal.y)
+  Profiler.fstop("plan:exact")
   return res
 end
 
@@ -433,7 +448,9 @@ function M.leg(agent, pos, radius, tick, depth)
   local w = a.pts[a.i]
   if w and not w.ok then
     -- Point de passage praticable (ni eau, ni bâtiment) : la case libre la plus proche, sinon il est sauté.
+    Profiler.fstart("leg:wp")
     local q = e.surface.find_non_colliding_position(e.name, w, 8, 1)
+    Profiler.fstop("leg:wp")
     if q then
       w = { x = q.x, y = q.y, ok = true }
       a.pts[a.i] = w
@@ -507,6 +524,7 @@ function M.gate(f, agent, task, steps, tick)
     local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9, same = res })
     if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 end
   end
+  Profiler.fstart("gate:post")
   local pts = R.samples(p, res.pts, dest, 8)
   local deaths = D.deaths_near(t.map, pts, D.HOUR_R, tick)
   local far = d2(f.hq_pos, dest) > M.SAFE_RADIUS * M.SAFE_RADIUS
@@ -514,6 +532,7 @@ function M.gate(f, agent, task, steps, tick)
   local free = M.escort_free and M.escort_free(f) or 0
   local decision, why = D.gate({ blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far },
     { B = res.B, prudence = prud, escort_ok = free >= 2 })
+  Profiler.fstop("gate:post")
   local a = astate(agent)
   a.escort, a.risk = nil, nil
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre

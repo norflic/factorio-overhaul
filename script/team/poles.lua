@@ -23,6 +23,7 @@
   (IA1-e1) ; onglets « Orientation », « PNJ », « Territoire », « Chantiers » de l'interface (IA1-i).
 ]]
 
+local Profiler = require("script.core.profiler") -- lot PERF : portées fines
 local Events = require("script.core.events")
 local O = require("shared.team.org")
 local T = require("shared.team.config")
@@ -217,6 +218,7 @@ function Poles.think(f, view, book, tick, plan)
   local b = Board.get(f)
   local list = b.list
 
+  Profiler.fstart("poles:1-travail")
   -- 1. Travail estimé (mesuré) et reste des tâches prises ; parties.
   local real, fond_busy = {}, { 0, 0, 0 }
   local mine_fond_busy = 0
@@ -256,6 +258,8 @@ function Poles.think(f, view, book, tick, plan)
   end
   org.n_exec = n_exec
 
+  Profiler.fstop("poles:1-travail")
+  Profiler.fstart("poles:2-fond")
   -- 2. Candidats de fond (capacité par pôle).
   -- Clés déjà au tableau, ou en pause après un échec (Board.add les refuserait : la capacité serait surévaluée).
   local keys = {}
@@ -363,6 +367,8 @@ function Poles.think(f, view, book, tick, plan)
     end
   end
 
+  Profiler.fstop("poles:2-fond")
+  Profiler.fstart("poles:3-org")
   -- 3. Organisation.
   local out = O.plan({
     tick = tick, npcs = npcs, tasks = real, orientation = Poles.orientation(f), threatened = view.threatened,
@@ -422,6 +428,7 @@ function Poles.think(f, view, book, tick, plan)
   for _, a in ipairs(agents) do if a.org.role == "generalist" then gens = gens + 1 end end
   if gens >= (out.generalists_wanted or 0) then org.vacancy_since = nil end
 
+  Profiler.fstop("poles:3-org")
   -- 4. Fond : inactifs du pôle + marge (1 + 1 par 6 PNJ du pôle) - tâches libres du pôle.
   local idle_p, staff_p, open_p = { 0, 0, 0 }, { 0, 0, 0 }, { 0, 0, 0 }
   for _, a in ipairs(agents) do

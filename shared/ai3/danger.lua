@@ -227,17 +227,20 @@ function D.field(map, tick, box)
     local w = d.home and 0 or death_w(d, tick)
     if w > 0 then disc(d.x, d.y, D.DEATH_R, w) end
   end
-  -- Cases mobiles : clés triées (aucun ordre de pairs).
-  local keys = {}
-  for k in pairs(map.cells) do keys[#keys + 1] = k end
-  table.sort(keys)
-  for _, k in ipairs(keys) do
-    local cx, cy = D.unkey(k)
-    local w = mobile_now(map.cells[k], tick)
-    if w > 0 and cx >= bx0 and cy >= by0 and cx <= bx1 and cy <= by1 then
-      local v = out[k]
-      if not v then n = n + 1 v = 0 end
-      out[k] = v + w
+  -- Cases mobiles. Lot PERF : parcourues par pairs SANS tri (jusqu'à 256 clés triées à chaque itinéraire) : chaque case
+  -- reçoit une somme ENTIÈRE (exacte, commutative) et le compte n ne dépend pas de l'ordre ; le champ rendu est le même
+  -- quel que soit l'ordre (tests/perf_test.lua le compare à la version triée). La boîte est testée avant la décroissance.
+  local cells = map.cells
+  for k, c in pairs(cells) do
+    local a = floor(k / 65536)
+    local cx, cy = a - OFF, k - a * 65536 - OFF
+    if cx >= bx0 and cy >= by0 and cx <= bx1 and cy <= by1 then
+      local w = mobile_now(c, tick)
+      if w > 0 then
+        local v = out[k]
+        if not v then n = n + 1 v = 0 end
+        out[k] = v + w
+      end
     end
   end
   return out, n
@@ -262,6 +265,59 @@ function D.danger_exact(map, x, y, tick)
   end
   local c = map.cells[D.key(D.cell(x), D.cell(y))]
   if c then s = s + mobile_now(c, tick) end
+  return s
+end
+
+--- Lot PERF : D.danger_exact PRÉPARÉ pour une série de points (profil d'un itinéraire : un appel par échantillon, 4 tuiles,
+--- chacun relisant toutes les menaces et toutes les morts avec leurs décroissances). prep = D.exact_prep(map, tick, x0, y0,
+--- x1, y1) : poids décrus calculés UNE fois ; menaces et morts qui ne peuvent toucher aucun point du rectangle
+--- [x0, x1] × [y0, y1] écartées (leur contribution y est nulle). D.exact_at(prep, x, y) rend exactement
+--- D.danger_exact(map, x, y, tick) pour tout point du rectangle (mêmes tests, mêmes sommes entières, même ordre ;
+--- tests/perf_test.lua).
+function D.exact_prep(map, tick, x0, y0, x1, y1)
+  local tx, ty, tr2, tw, nt = {}, {}, {}, {}, 0
+  for _, t in ipairs(map.threats) do
+    local K = D.KINDS[t.k] or D.KINDS.unit
+    local r = t.r + D.EXACT_MARGIN
+    -- distance du centre de la menace au rectangle (0 dedans) : au-delà de r, aucun point du rectangle n'est touché
+    local ddx = (t.x < x0) and (x0 - t.x) or ((t.x > x1) and (t.x - x1) or 0)
+    local ddy = (t.y < y0) and (y0 - t.y) or ((t.y > y1) and (t.y - y1) or 0)
+    if ddx * ddx + ddy * ddy <= r * r then
+      nt = nt + 1
+      tx[nt], ty[nt], tr2[nt] = t.x, t.y, r * r
+      tw[nt] = math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+    end
+  end
+  local dx_, dy_, dw, nd = {}, {}, {}, 0
+  local R2 = D.DEATH_R * D.DEATH_R
+  for _, d in ipairs(map.deaths) do
+    if not d.home then
+      local ddx = (d.x < x0) and (x0 - d.x) or ((d.x > x1) and (d.x - x1) or 0)
+      local ddy = (d.y < y0) and (y0 - d.y) or ((d.y > y1) and (d.y - y1) or 0)
+      if ddx * ddx + ddy * ddy <= R2 then
+        nd = nd + 1
+        dx_[nd], dy_[nd], dw[nd] = d.x, d.y, death_w(d, tick)
+      end
+    end
+  end
+  return { tx = tx, ty = ty, tr2 = tr2, tw = tw, nt = nt, dx = dx_, dy = dy_, dw = dw, nd = nd, cells = map.cells, tick = tick }
+end
+
+function D.exact_at(prep, x, y)
+  local s = 0
+  local tx, ty, tr2, tw = prep.tx, prep.ty, prep.tr2, prep.tw
+  for i = 1, prep.nt do
+    local dx, dy = tx[i] - x, ty[i] - y
+    if dx * dx + dy * dy <= tr2[i] then s = s + tw[i] end
+  end
+  local ex, ey, ew = prep.dx, prep.dy, prep.dw
+  local R2 = D.DEATH_R * D.DEATH_R
+  for i = 1, prep.nd do
+    local dx, dy = ex[i] - x, ey[i] - y
+    if dx * dx + dy * dy <= R2 then s = s + ew[i] end
+  end
+  local c = prep.cells[D.key(D.cell(x), D.cell(y))]
+  if c then s = s + mobile_now(c, prep.tick) end
   return s
 end
 

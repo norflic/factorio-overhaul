@@ -642,9 +642,13 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.start("ia3:research")
   local w = B.weights(f.chef and f.chef.mix, f.traits)
   -- Lot IA-G : gisements relus AVANT la recherche (le cerveau général en a besoin dès la première pensée).
+  Profiler.fstart("ia3:reach")
   local reach, known = reach_of(f, st, tick)
+  Profiler.fstop("ia3:reach")
   local research = nil
+  Profiler.fstart("ia3:research_step")
   if not f.is_player then research = research_step(f, st, book, w, tick, view) end
+  Profiler.fstop("ia3:research_step")
   Profiler.stop("ia3:research")
   -- Tâches de minage déjà prises, par ressource.
   local mines_open = {}
