@@ -58,12 +58,7 @@ T.outpost_max_drills = 12
 -- Session 4, moteur réel (E16 it. 8) : le fer est le goulot de toute l'échelle (armée, recherche) ; le
 -- gisement de fer de départ est plus large et accueille 20 foreuses, la pierre (peu demandée) 8.
 T.outpost_max = { iron = 20, stone = 8 }
--- Lot CAPIB : `o` (avant-poste, facultatif) porte un plafond cap_drills posé par la capitalisation (fo-war-capi) : ses
--- ordres « couvrir » le relèvent au-delà du plafond ci-dessus, à la mesure du gisement recensé. Sans lui : inchangé.
-function T.max_drills(kind, o)
-  if o and o.cap_drills then return o.cap_drills end
-  return T.outpost_max[kind] or T.outpost_max_drills
-end
+function T.max_drills(kind) return T.outpost_max[kind] or T.outpost_max_drills end
 -- Rayon des gisements de la zone de départ, par type d'avant-poste (tuiles).
 T.seed_radius = { coal = 8, iron = 11, copper = 8, stone = 6 }
 T.fuel = "coal"

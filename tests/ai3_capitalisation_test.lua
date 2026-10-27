@@ -402,6 +402,17 @@ local function s2()
   local oi2 = find(Ca.decide(inp_i, {}), "couvrir:d1")
   Ca.COVER_LEAD = saved_cl
   check(oi2 and oi2.n == 4, "§2i ancien plafond (Ca.COVER_LEAD = 2) : " .. tostring(oi2 and oi2.n) .. " foreuses")
+  -- Lot CAPIB : pas de couverture d'avance avec une foreuse à combustible (input.drill_for : l'exécutant ne sait poser que
+  -- celle-là) ; le manque, lui, reste couvert (Ca.AHEAD_BURNER = false, banc p2).
+  local inp_ib = deep(inp_i)
+  inp_ib.drill_for = { ["iron-ore"] = "burner-mining-drill" }
+  inp_ib.drills = { { entity = "burner-mining-drill", resource = "iron-ore", n = 12, deposit = "d1" } }
+  check(find(Ca.decide(inp_ib, {}), "couvrir:d1") == nil, "§2i aucune couverture d'avance a combustible (Ca.AHEAD_BURNER)")
+  local inp_ib2 = deep(inp_ib)
+  inp_ib2.sinks = { { item = "iron-plate", rate = 600 } }
+  local oib2 = find(Ca.decide(inp_ib2, {}), "couvrir:d1")
+  check(oib2 and oib2.entity == "burner-mining-drill" and (oib2.useful or 0) > 0,
+    "§2i le manque reste couvert a combustible : " .. tostring(oib2 and oib2.n))
   local ri0 = Ca.decide(iron_scene(D, 0, { flows = { ["iron-ore"] = { made = 180 } } }), {})
   check(find(ri0, "couvrir:d1") == nil, "§2i aucune couverture d'avance sans débouché")
   -- j. Goulot sous une demi-machine (X8) : 37,8 charbon/min demandés, plus 5,85 pour les machines à combustion (2 foreuses,

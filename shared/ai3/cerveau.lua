@@ -102,9 +102,6 @@ function C.situation(view, st, ctx)
     key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
     idle_grow = ctx.idle_grow or false, tick = ctx.tick or 0, -- lot IA-G : bras libres
     spare = ctx.spare, -- lot SCALE : nombre de bras libres durables (vague d'extraction d'avance, shared/ai3/bras.lua)
-    -- Lot CAPIB : la capitalisation décide (réglage fo-war-capi) : croissance des capacités et vagues de fours de SCALE
-    -- éteintes (shared/ai3/buts.lua), fours du QG visés par ses ordres.
-    capi = ctx.capi ~= nil or nil, capi_smelt = ctx.capi and ctx.capi.smelt_want or nil,
   }
 end
 

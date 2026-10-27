@@ -19,17 +19,17 @@
                 relu toutes les Capi.CENSUS_EVERY ;
     étape 10    DÉCISION (Ca.decide) et ENVOI des ordres aux exécutants ; ligne « [FO-CAPI] <faction> minute M » ;
     toutes      suivi des ordres ouverts (état de l'exécutant, manques), buts de FOND du cerveau (Ca.goals).
-  Exécutants (un seul décideur par levier : la capitalisation ; table du document §5) :
-    couvrir/ouvrir, foreuse électrique  fonderie du plan directeur (gabarit à foreuses et tapis d'AUTO, Auto.submit) au
-                                        débit des foreuses commandées, posée près du gisement (spec.near) : ses fours
-                                        sont dimensionnés par le gabarit sur le minerai des foreuses (critère (2)) ;
-    couvrir, foreuse des avant-postes   plafond de foreuses de l'avant-poste du gisement relevé (o.cap_drills), puis
-                                        l'extension du cerveau (P.EMIT.outpost) ;
-    ouvrir, foreuse des avant-postes    construction d'un avant-poste (P.EMIT.outpost : site prospecté) ;
-    fours (au QG)                       rangées de fours du QG (P.EMIT.smelters) ;
-    chaine, packs                       rangée d'assembleurs du plan directeur (A.method_for, A.sized, Auto.submit) ;
+  Exécutants (un seul décideur par levier ; périmètre RÉDUIT après les bancs p1 et p2 du lot, BRANCHEMENT.md §3) :
+    couvrir/ouvrir, foreuse électrique  fonderies du plan directeur (gabarit à foreuses et tapis d'AUTO, Auto.submit), au
+                                        débit des foreuses commandées, découpé en modules d'au plus A.FIRST_RATE_MAX
+                                        objets/min : leurs fours sont dimensionnés par le gabarit sur le minerai des
+                                        foreuses (critère (2)) ;
+    chaine, packs                       rangées d'assembleurs du plan directeur (A.method_for, A.sized, Auto.submit) ;
     labos                               laboratoires du QG (research_step : nombre visé, Capi.labs_want) ;
     energie                             la centrale est demandée par AUTO avant le premier module électrique.
+  Restent à leur décideur d'avant (refus écrit) : les avant-postes à COMBUSTION (croissance des buts, vagues de SCALE :
+  leur charbon est porté par les PNJ, travail récurrent que la règle ne compte pas) et les fours du QG nourris par les PNJ
+  (Br.smelters).
   Ce qui s'éteint sous la capitalisation : les demandes d'A.decide (il mesure encore), les vagues d'extraction et la
   croissance des capacités par manque (B.targets : s.capi), les vagues de fours de SCALE (Br.smelters) et le plafond de
   laboratoires (Br.labs_max, Ia3.LABS_MAX). Aucun nom du jeu ici (anti-échelle, tests/iag_test.lua §8) : objets,
@@ -259,7 +259,7 @@ local function scan(f, cs, tick)
   local seeds = {}
   local function seed(res, x, y)
     if not (res and x and y) then return end
-    if dist({ x = x, y = y }, hq) > Capi.SCAN_R + 64 and not KIND_OF_RES[res] then return end
+    if dist({ x = x, y = y }, hq) > Capi.SCAN_R + 64 then return end
     seeds[#seeds + 1] = { res = res, x = math.floor(x), y = math.floor(y) }
   end
   for _, oid in ipairs(sorted_keys(f.outposts)) do
@@ -324,10 +324,8 @@ local function coverage(f, cs)
         idx[tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
       end
       local seen, n = {}, 0
-      local sx, sy = 0, 0
       for _, dp in ipairs(by_dep[id]) do
         local r = dp.r
-        sx, sy = sx + dp.x, sy + dp.y
         for x = math.floor(dp.x - r + 0.01), math.floor(dp.x + r - 0.01) do
           for y = math.floor(dp.y - r + 0.01), math.floor(dp.y + r - 0.01) do
             local k = tkey(x, y)
@@ -337,18 +335,6 @@ local function coverage(f, cs)
       end
       cs.cov[id] = n
       d.covered = n
-      -- tuile de minerai NON couverte la plus proche du centre des foreuses : là où l'exécutant des avant-postes agrandit
-      -- (Outposts.extend, o.ext_center) ; ordre fixe (distance, x, y)
-      local cx, cy = sx / #by_dep[id], sy / #by_dep[id]
-      local best, bd = nil, nil
-      for _, e in ipairs(surface.find_entities_filtered({ area = { { d.x0, d.y0 }, { d.x1, d.y1 } }, name = d.resource })) do
-        local x, y = math.floor(e.position.x), math.floor(e.position.y)
-        if not seen[tkey(x, y)] then
-          local dd = (x + 0.5 - cx) ^ 2 + (y + 0.5 - cy) ^ 2
-          if bd == nil or dd < bd or (dd == bd and (x < best[1] or (x == best[1] and y < best[2]))) then best, bd = { x, y }, dd end
-        end
-      end
-      d.free_x, d.free_y = best and best[1] or nil, best and best[2] or nil
     end
   end
 end
@@ -477,8 +463,11 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.mining = (force and force.mining_drill_productivity_bonus) or 0
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
-  -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui, sinon
-  -- celle des avant-postes ; aucune autre (aucun exécutant).
+  -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
+  -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
+  -- d'avant (croissance des buts et vagues de SCALE) : leur combustible est porté par les PNJ, un travail récurrent que
+  -- la règle ne compte pas (moteur réel, bancs p1 et p2 du lot : avant-postes « pleins », puis 75 à 102 foreuses à
+  -- combustion sans charbon, fer extrait divisé par 4, 50 à 75 % de PNJ sans tâche).
   local drill_for, elec = {}, {}
   local plant_state, plant_why = Auto.plant_state(f)
   local wanted = {}
@@ -487,7 +476,6 @@ local function build_input(f, cs, view, book, tick, D, w)
     local ok, miss = false, {}
     if meth and elec_drill and plant_state ~= "refuse" then ok, miss = module_ok(meth, book, stock, plant_state ~= nil) end
     if ok then drill_for[res], elec[res] = elec_drill, true
-    elseif KIND_OF_RES[res] then drill_for[res] = T.DRILL
     else drill_for[res] = "" end
     for _, m in ipairs(miss) do wanted[m] = true end
   end
@@ -499,7 +487,6 @@ local function build_input(f, cs, view, book, tick, D, w)
   local deposits = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do
     local d = cs.deps[id]
-    local kind = KIND_OF_RES[d.resource]
     local blocked = nil
     local smelt, smelter = nil, nil
     if elec[d.resource] then
@@ -510,23 +497,6 @@ local function build_input(f, cs, view, book, tick, D, w)
       for _, rn in ipairs(D.producers[meth.product] or {}) do
         local r = D.recipes[rn]
         for _, i in ipairs(r.ingredients) do if i.name == d.resource and not smelt then smelt = rn end end
-      end
-    elseif kind then
-      local spec = T.outposts[kind]
-      if T.smelter_inputs[spec.product] and T.smelter_inputs[spec.product][1] == d.resource then
-        smelter = spec.sink
-        for _, rn in ipairs(D.producers[spec.product] or {}) do
-          local r = D.recipes[rn]
-          for _, i in ipairs(r.ingredients) do if i.name == d.resource and not smelt then smelt = rn end end
-        end
-      end
-      if open_dep[id] then
-        local full_place = false
-        for _, oid in ipairs(sorted_keys(f.outposts)) do
-          local o = f.outposts[oid]
-          if o.kind == kind and o.full_place and dep_at(cs, d.resource, o.pos.x, o.pos.y) == d then full_place = true end
-        end
-        if full_place then blocked = "avant-poste plein (place)" end
       end
     end
     deposits[#deposits + 1] = { id = id, resource = d.resource, tiles = d.tiles, amount = d.amount, covered = d.covered,
@@ -551,7 +521,11 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- L'exécutant des chaînes (rangées du plan directeur) sait-il les poser aujourd'hui ? (mémo de la décision)
   local ce_memo = {}
   local function can_exec(kind, item)
-    if kind == "fours" then return nil end
+    -- fours du QG : nourris à la main par les PNJ (tâches de fonte du cerveau) ; leur nombre reste au décideur d'avant
+    -- (Br.smelters, SCALE). Moteur réel, banc p2 du lot : 25 fours du QG commandés « d'avance » pour les briques, 25
+    -- affamés sur 26 (aucune tâche de fonte ne les nourrit sans manque). La fonte au débit des foreuses passe par les
+    -- fonderies à foreuses (ordre « couvrir » : leurs fours sont dimensionnés par le gabarit sur le minerai des foreuses).
+    if kind == "fours" then return "fours du QG nourris par les PNJ : decideur SCALE (Br.smelters)" end
     local m = ce_memo[item]
     if m ~= nil then return m or nil end
     local meth, why = A.method_for(item, book)
@@ -588,17 +562,6 @@ local function note(f, cs, tick, text)
   log(string.format("[FO-CAPI] %s : %s a %.1f min", f.key or "?", text, minutes(f, tick)))
 end
 
-local function outposts_on(f, cs, dep)
-  local out = {}
-  if not dep then return out end
-  for _, oid in ipairs(sorted_keys(f.outposts)) do
-    local o = f.outposts[oid]
-    local spec = T.outposts[o.kind]
-    if spec and spec.resource == dep.resource and dep_at(cs, dep.resource, o.pos.x, o.pos.y) == dep then out[#out + 1] = o end
-  end
-  return out
-end
-
 --- Débit d'un ordre découpé en modules d'au plus A.FIRST_RATE_MAX objets/min (au plus Capi.MODULES_PER_ORDER).
 function Capi.split(rate)
   local cap = A.FIRST_RATE_MAX
@@ -632,7 +595,10 @@ local function execute(f, cs, o, view, book, tick, research)
         if pin > 0 then per_ore = pout / pin end
       end
       local rate = (o.rate or 0) * per_ore
-      local near = dep and { x = math.floor(dep.cx), y = math.floor(dep.cy) } or nil
+      -- Pas de « near » : le plan directeur pose la fonderie au plus près de SON gisement de lots (comme AUTO, fonderies
+      -- validées en 0.6.3) ; banc p2 du lot : avec la fonderie posée au centre du gisement, 174 refus « tapis des
+      -- foreuses (minerai) » et 124 « (trop loin) ».
+      local near = nil
       local ids, why = {}, nil
       for _, part in ipairs(Capi.split(rate)) do
         local g, args = A.sized(meth, part)
@@ -653,39 +619,9 @@ local function execute(f, cs, o, view, book, tick, research)
       rec.exec, rec.mod_ids = "module", ids
       return rec
     end
-    -- foreuses des avant-postes
-    local kind = KIND_OF_RES[o.resource]
-    if not kind then return nil, "aucun executant pour cette ressource" end
-    rec.exec, rec.outpost_kind = "outpost", kind
-    if o.kind == "couvrir" then
-      local list = outposts_on(f, cs, cs.deps[o.deposit])
-      if #list == 0 then return nil, "aucun avant-poste sur ce gisement" end
-      -- le plus petit avant-poste du gisement reçoit les foreuses commandées (plafond relevé)
-      table.sort(list, function(a, b) if a.drills ~= b.drills then return a.drills < b.drills end return a.id < b.id end)
-      local tgt = list[1]
-      tgt.cap_drills = math.max(tgt.cap_drills or tgt.drills, tgt.drills) + (o.n or 0)
-      -- l'extension se fait là où le gisement n'est pas encore couvert (relevé de l'étape 1), sans compter les tuiles
-      -- déjà prises (Outposts.extend, mode capitalisation) ; un « plein » d'avant est revu une fois à ce nouveau centre
-      local dep = cs.deps[o.deposit]
-      if dep and dep.free_x then
-        if not (tgt.ext_center and tgt.ext_center.x == dep.free_x + 0.5 and tgt.ext_center.y == dep.free_y + 0.5) then
-          tgt.full_place = nil
-        end
-        tgt.ext_center = { x = dep.free_x + 0.5, y = dep.free_y + 0.5 }
-      end
-      if not tgt.full_place then tgt.full = false end
-      rec.outpost, rec.target = tgt.id, tgt.cap_drills
-    else
-      rec.target_count = 0
-      for _, oid in ipairs(sorted_keys(f.outposts)) do if f.outposts[oid].kind == kind then rec.target_count = rec.target_count + 1 end end
-      rec.target_count = rec.target_count + 1
-    end
-    return rec
+    return nil, "foreuses a combustion : decideur d'avant (SCALE)"
   elseif o.kind == "fours" then
-    if o.where ~= Ca.HQ then return nil, "fours hors du QG : aucun executant" end
-    rec.exec = "smelters"
-    rec.target = #(f.smelters or {}) + (o.n or 0)
-    return rec
+    return nil, "fours du QG : decideur SCALE (Br.smelters)"
   elseif o.kind == "labos" then
     rec.exec = "labos"
     rec.target = (cs.nlabs or 0) + (o.n or 0)
@@ -856,11 +792,6 @@ function Capi.think(f, view, book, tick, research, w)
         for _, x in ipairs(cs.lag_hist) do s = s + x end
         cs.lag = s / #cs.lag_hist
       end
-      if rec.exec == "outpost" and rec.outpost and f.outposts[rec.outpost] and state ~= "fini" then
-        -- échec : le plafond revient à ce qui est posé
-        local o = f.outposts[rec.outpost]
-        o.cap_drills = o.drills
-      end
       cs.done[#cs.done + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, state = state, why = why,
         opened = rec.opened, closed = tick }
       while #cs.done > Capi.LOG_ORDERS do table.remove(cs.done, 1) end
@@ -869,20 +800,12 @@ function Capi.think(f, view, book, tick, research, w)
     end
   end
   cs.open = keep
-  -- Avant-postes sous la capitalisation : aucun ne grandit au-delà de ce que la règle a commandé.
-  for _, oid in ipairs(sorted_keys(f.outposts)) do
-    local o = f.outposts[oid]
-    if o.cap_drills == nil then o.cap_drills = o.drills end
-  end
   -- Laboratoires visés : ceux du QG plus le reste des ordres ouverts.
   local labs_want = cs.nlabs or 0
-  local smelt_want = nil
   for _, rec in ipairs(cs.open) do
     if rec.exec == "labos" then labs_want = math.max(labs_want, rec.target or 0) end
-    if rec.exec == "smelters" then smelt_want = math.max(smelt_want or 0, rec.target or 0) end
   end
   cs.labs_want = labs_want
-  cs.smelt_want = smelt_want
   -- Buts de fond du cerveau : un par ordre ouvert (Ca.goals), avec ce qui manque à l'exécutant.
   local open = {}
   for _, rec in ipairs(cs.open) do
@@ -890,7 +813,7 @@ function Capi.think(f, view, book, tick, research, w)
       outpost_kind = rec.outpost_kind, n_left = rec.n_left, missing = rec.missing, blocked = rec.blocked }
   end
   Profiler.stop("capi:think")
-  return { res = cs.res, open = open, smelt_want = cs.smelt_want }
+  return { res = cs.res, open = open }
 end
 
 --- Laboratoires visés par la capitalisation (nil : capitalisation éteinte pour cette faction).
@@ -898,13 +821,6 @@ function Capi.labs_want(f)
   if not Capi.on(f) then return nil end
   local cs = f.team.capi
   return cs and cs.labs_want or nil
-end
-
---- Fours du QG visés par la capitalisation (nil : éteinte, ou aucun ordre de fours ouvert : le nombre posé).
-function Capi.smelt_want(f)
-  if not Capi.on(f) then return nil end
-  local cs = f.team.capi
-  return (cs and cs.smelt_want) or #(f.smelters or {})
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -924,7 +840,7 @@ remote.add_interface("fo-capi", {
     local cs = f and f.team and f.team.capi
     if not cs then return nil end
     local out = { on = Capi.on(f), decisions = cs.decisions, orders = cs.orders, open = {}, done = {}, deps = {},
-      res = cs.res, labs_want = cs.labs_want, smelt_want = cs.smelt_want, stats = {}, lag = cs.lag, wanted = cs.wanted }
+      res = cs.res, labs_want = cs.labs_want, stats = {}, lag = cs.lag, wanted = cs.wanted }
     for _, rec in ipairs(cs.open) do
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
         mod_ids = rec.mod_ids, opened = rec.opened }

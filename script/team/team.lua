@@ -412,7 +412,6 @@ function Team.view(f, tick)
     local st = Outposts.status(o, tick)
     outposts[#outposts + 1] = {
       id = oid, kind = o.kind, drills = o.drills, full = o.full or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
-      cap_drills = o.cap_drills, -- lot CAPIB : plafond posé par la capitalisation (nil : celui de shared/team/config.lua)
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).

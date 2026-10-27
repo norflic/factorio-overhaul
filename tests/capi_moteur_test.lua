@@ -79,7 +79,9 @@ check(deps >= 2, "§1 gisements recenses : " .. deps)
 -- Le moteur simulé pose une entité de ressource par gisement (une tuile) : le recensement au-delà de 64 tuiles se prouve
 -- en moteur réel seulement (banc capi-partie, BRANCHEMENT.md).
 check(maxtiles >= 1, "§1 recensement rend la composante (moteur simule : 1 tuile par gisement) : " .. maxtiles)
-check(orders >= 1, "§1 ordres envoyes aux executants : " .. orders)
+-- Le moteur simulé n'a pas la foreuse électrique de l'exécutant (fonderies du plan directeur) : aucune extraction n'y est
+-- commandée (périmètre du lot : les avant-postes à combustion restent au décideur d'avant) ; chaque décision est écrite.
+check(#on.lines >= decisions, "§1 une ligne [FO-CAPI] par decision : " .. #on.lines .. " pour " .. decisions .. " (ordres " .. orders .. ")")
 
 -- §2 capi sans automatisation : rien
 local noauto = run({ ia3e = false, capi = true }, 6)

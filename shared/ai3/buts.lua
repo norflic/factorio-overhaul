@@ -161,9 +161,6 @@ function B.targets(s, st)
     tg[key.top] = math.max(tg[key.top] or 0, 2)
     tg[key.fuel] = math.max(tg[key.fuel] or 0, 2)
   end
-  -- Lot CAPIB : sous la capitalisation (s.capi, réglage fo-war-capi), elle seule fait grandir l'extraction (couvrir,
-  -- ouvrir) : ni croissance par manque ni vague des bras libres ici ; l'amorçage et « fer II » restent.
-  if s.capi then return tg end
   -- Lot SCALE : capacités visées au plus par ressource, selon l'effectif (Br.cap_max : 5 jusqu'à 25 PNJ, 6 à 30).
   local grow_max = Br.cap_max(s.workers, B.GROW_MAX)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
@@ -239,11 +236,7 @@ function B.generate(s, st)
   local smelters_want = s.is_player and 2 or B.SMELTERS_WANT
   -- Lot SCALE (capacité de FONTE) : une faction dont une plaque manque alors que son minerai attend au coffre agrandit sa
   -- fonderie, par vagues, jusqu'à la moitié de son effectif (shared/ai3/bras.lua, Br.smelters).
-  if not s.is_player then
-    -- Lot CAPIB : sous la capitalisation, les fours du QG sont ceux de ses ordres (au moins le défaut) : pas de vague SCALE.
-    if s.capi then smelters_want = math.max(B.SMELTERS_WANT, s.capi_smelt or 0)
-    else smelters_want = Br.smelters(B.smelt_situation(s), st, B.SMELTERS_WANT, B.GROW_THINKS) end
-  end
+  if not s.is_player then smelters_want = Br.smelters(B.smelt_situation(s), st, B.SMELTERS_WANT, B.GROW_THINKS) end
   if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and (s.cap[key.top] or 0) >= 0.75 then
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
       n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }

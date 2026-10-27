@@ -119,6 +119,12 @@ Ca.LEAD = 2             -- la demande élastique, et la capacité d'avance, ne d
 -- récupérer un maximum » : couvrir jusqu'à Ca.KAPPA ‰ des tuiles dès que le budget le permet, SANS « 2 × le besoin » ; les
 -- FOURS restent bornés par le minerai livré, Ca.fed_max). Lot CAPIB (branchement, 27/10 soir).
 Ca.COVER_LEAD = nil
+-- Couverture d'avance avec une foreuse À COMBUSTIBLE : interdite (false). Son combustible est porté par les PNJ, à vie : un
+-- travail récurrent que le coût de pose ne compte pas. Moteur réel, banc p2 du lot CAPIB (graine 1618033988) : 75 à 102
+-- foreuses à combustion à 40 min, 43 fours sur 48 des avant-postes sans minerai (foreuses sans charbon), fer extrait
+-- divisé par 4. La couverture d'avance se fait avec des foreuses sans combustible (électriques) ; le MANQUE reste couvert
+-- par toute foreuse.
+Ca.AHEAD_BURNER = false
 Ca.LABOR_H = 10         -- min de travail des bras disponibles engagés au plus
 Ca.SPARE = 2            -- PNJ : travail qui attend au-delà des bras libres (fait venir une recrue, IA3-d)
 Ca.HANDS_MIN = 1        -- PNJ : un bras au moins peut toujours passer au capital
@@ -1302,7 +1308,8 @@ local function extraction_options(ctx, plan, req, item, def, out)
       local n, ahead = 0, false
       if def > Ca.EPS then
         n = math.min(free, n_need)
-      elseif Ri > 0 and kappa < Ca.KAPPA and not Ca.taken(plan, "ouvrir:" .. tostring(f.id)) then
+      elseif Ri > 0 and kappa < Ca.KAPPA and not Ca.taken(plan, "ouvrir:" .. tostring(f.id))
+        and (Ca.AHEAD_BURNER or d.energy ~= "burner") then
         -- Couverture D'AVANCE (critère (1) : « à mesure que le capital le permet ») : jusqu'à Ca.KAPPA ‰ des tuiles et
         -- Ca.LEAD × le besoin, gain à Ca.AHEAD_PCT % ; seulement pour une ressource qui a un débouché, et pas sur un site
         -- ouvert dans ce cycle (un ordre par gisement et par cycle).
@@ -1802,16 +1809,6 @@ function Ca.emit(P)
   return function(E, proj, g, ctx)
     local o = (g and g.order) or {}
     if o.blocked then return "bloque", "capi:" .. tostring(o.blocked) end
-    -- Exécutants du cerveau lui-même (méthodes d'émission existantes, aucun second chemin de pose) : l'extension ou la
-    -- construction d'un avant-poste (o.exec « outpost », type o.outpost_kind) et les rangées de fours du QG
-    -- (o.exec « smelters », reste à poser o.n_left).
-    if o.exec == "outpost" and P.EMIT.outpost then
-      return P.EMIT.outpost(E, proj, { outpost = o.outpost_kind }, ctx)
-    end
-    if o.exec == "smelters" and P.EMIT.smelters then
-      if (o.n_left or 0) <= 0 then return "en_cours" end
-      return P.EMIT.smelters(E, proj, { n = o.n_left }, ctx)
-    end
     local miss = o.missing or {}
     if #miss == 0 then return "en_cours" end
     local res = ctx and ctx.capi and ctx.capi.res or nil
