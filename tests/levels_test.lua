@@ -2426,6 +2426,14 @@ if not oka then for _, l in ipairs(AsmSheets.lines(ra)) do print(l) end end
 check(oka and ra.n > 0, string.format("graphics/levels/assembleur : %d PNG du manifeste présents, à la taille et aux "
   .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", ra.n, ra.refs or 0,
   #ra.manquants, #ra.ecarts, ra.erreur and (", " .. ra.erreur) or ""))
+-- lot F4-B : feuilles de la foreuse (même règle D-6)
+local DrillSheets = dofile("tests/datastage/drill_sheets.lua")
+local rd = DrillSheets.check(".")
+local okd = DrillSheets.ok(rd)
+if not okd then for _, l in ipairs(DrillSheets.lines(rd)) do print(l) end end
+check(okd and rd.n > 0, string.format("graphics/levels/foreuse : %d PNG du manifeste présents, à la taille et aux "
+  .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", rd.n, rd.refs or 0,
+  #rd.manquants, #rd.ecarts, rd.erreur and (", " .. rd.erreur) or ""))
 end)()
 
 ---------------------------------------------------------------------------------------------------

@@ -21,3 +21,5 @@ graphics/levels/gun/*.png
 graphics/levels/four/*.png
 # Feuilles de jeu de la machine d'assemblage (lot F3-B, même règle) : tools/render/pieces/levels/assembleur_e/feuilles.py
 graphics/levels/assembleur/*.png
+# Feuilles de jeu de la foreuse (lot F4-B, même règle) : tools/render/pieces/levels/foreuse_e/feuilles.py
+graphics/levels/foreuse/*.png
