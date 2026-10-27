@@ -40,6 +40,11 @@ local General = {}
 General.ENABLED = true
 General.AUTO_STALL = 10 * 3600 -- lot AUTO (K1, IA3-e) : recherche pour l'automatisation sans unité payée depuis 10 min…
 General.AUTO_PAUSE = 20 * 3600 -- … les autres passent 20 min
+-- Votre équipe : une recherche (quelle qu'elle soit) sans unité payée depuis 8 min laisse la place aux autres pendant 30 min
+-- (un joueur ne garde pas son seul laboratoire sur une recherche dont il ne peut pas fabriquer les packs : moteur réel,
+-- etape1-guide, « defender » gardait le laboratoire de 27,8 à 38,8 min, puis de 27,8 à 49,3 min).
+General.PLAYER_STALL = 8 * 3600
+General.PLAYER_STALL_PAUSE = 30 * 3600
 General.ARMY_FIRST = B.ARMY_FIRST_N
 General.AMMO_STOCK = B.AMMO_STOCK
 
@@ -385,6 +390,14 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     lab.for_auto = nil
     lab.stalled = true
   end
+  if f.is_player and lab and lab.tech and not st.techs[lab.tech] and not lab.stalled
+      and tick - (lab.paid_tick or lab.started or tick) > General.PLAYER_STALL then
+    st.stalled = st.stalled or {}
+    st.stalled[lab.tech] = tick + General.PLAYER_STALL_PAUSE
+    lab.stalled = true
+    log(string.format("[FO-CERVEAU] %s : recherche '%s' sans progres depuis %d min : les autres passent %d min",
+      f.key or "?", lab.tech, math.floor(General.PLAYER_STALL / 3600), math.floor(General.PLAYER_STALL_PAUSE / 3600)))
+  end
   local k1 = wanted ~= nil and Auto.on()
   if st.auto_pause and tick < st.auto_pause then wanted = nil end
   if lab and lab.tech and not st.techs[lab.tech] and not lab.stalled then
@@ -398,6 +411,9 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   for _, t in ipairs(c.tech_list) do
     local ft = force.technologies[t]
     if not ft or not ft.enabled then disabled[t] = true end
+  end
+  for _, t in ipairs(sorted_keys(st.stalled)) do
+    if tick < st.stalled[t] then disabled[t] = true else st.stalled[t] = nil end
   end
   local speed = 1
   for _, l in ipairs(c.labs) do speed = math.max(speed, l.speed or 1) end

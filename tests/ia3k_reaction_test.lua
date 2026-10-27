@@ -1,0 +1,145 @@
+--[[
+  Lot FUITE : un PNJ en danger de mort FUIT même en plein travail (survie > défense > objectif). Banc HORS JEU de la règle
+  pure shared/ai3/reaction.lua :
+    - « back, back, puis flee avec refuge » : le deuxième demi-tour devant des unités mobiles est une fuite (poursuivi) ;
+      devant une menace FIXE (ver, nid) le demi-tour reste un demi-tour ;
+    - l'arrêt (alerte) est rompu par des unités qui franchissent portée + marge, jamais par une menace fixe ;
+    - le refuge « loin de la menace » : le QG du côté de l'ennemi n'est pas un refuge ;
+    - MUTANTS : chaque règle retirée fait échouer au moins un contrôle.
+  Cause racine (journal fusion-60, PNJ 7, tué à 232 tuiles du QG) : script/ai3/comportement.lua (arrêt aveugle de 180 ticks,
+  PNJ immobile jusqu'à sa pensée suivante après chaque réaction, QG du côté du danger) ; les valeurs ci-dessous reprennent ce
+  cas : fusilier de faction (portée utile 30 = sa vue), 38 tuiles à l'arrêt, 22 au demi-tour, puis 25.
+  Lancement : lua5.2 tests/ia3k_reaction_test.lua (depuis la racine du mod).
+]]
+package.path = "./?.lua;" .. package.path
+local Re = require("shared.ai3.reaction")
+
+local quiet = false
+local passes, failures = 0, 0
+local function check(cond, msg)
+  if cond then passes = passes + 1 else
+    failures = failures + 1
+    if not quiet then print("  ECHEC : " .. msg) end
+  end
+end
+local function section(name) if not quiet then print("== " .. name) end end
+
+local function dist(a, b) return math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2) end
+
+-- Le cas du journal : un fusilier (portée utile 30), le PNJ marche, armé, en pleine vie, seul contre 2.
+local function unit_case(over)
+  local s = { kind = "unit", range = 30, dist = 22, hp = 1000, armed = true, enemies = 2, allies = 0, walking = true,
+    on_route = true }
+  for k, v in pairs(over or {}) do s[k] = v end
+  return s
+end
+
+local function suite()
+  section("back, back, puis flee avec refuge")
+  local a1, w1 = Re.decide(unit_case({ backs = 0 }))
+  check(a1 == "back" and w1 == "trop-pres", "premier demi-tour devant des unités : back (" .. tostring(a1) .. ")")
+  local a2, w2 = Re.decide(unit_case({ backs = 1 }))
+  check(a2 == "flee" and w2 == "poursuivi", "deuxième : flee (poursuivi) (" .. tostring(a2) .. ", " .. tostring(w2) .. ")")
+  check(Re.decide(unit_case({})) == "back", "sans compteur (nil) : comme 0")
+  -- Le même compte vaut pour « insiste » (arrêts et détours répétés) et pour les unités qui sont à portée de vue.
+  check(Re.decide(unit_case({ dist = 34, backs = 1, repeats = 2 })) == "flee", "insiste après un demi-tour : flee")
+  check(Re.decide(unit_case({ dist = 34, backs = 0, repeats = 2 })) == "back", "insiste sans demi-tour : back")
+  -- Les autres issues ne changent pas.
+  check(Re.decide(unit_case({ dist = 34, backs = 1 })) == "detour", "entre portée et portée + marge, 1er passage : detour")
+  check(Re.decide(unit_case({ dist = 45, backs = 1 })) == "stop", "au-delà de portée + marge : stop")
+  check(Re.decide(unit_case({ dist = 22, backs = 1, allies = 5 })) == "engage", "en surnombre : engage, même après un demi-tour")
+  check(Re.decide(unit_case({ walking = false, backs = 0 })) == "flee", "immobile à portée : flee")
+  -- Menace FIXE : le compteur d'unités ne la concerne pas.
+  check(Re.decide({ kind = "worm", dist = 25, range = 30, hp = 1000, armed = true, walking = true, backs = 3 }) == "back",
+    "ver à portée : back, quel que soit le compteur")
+  check(Re.decide({ kind = "spawner", dist = 22, range = 24, hp = 1000, armed = true, walking = true, backs = 3 }) == "back",
+    "nid à portée : back")
+  -- La peur et l'absence d'arme restent des fuites d'emblée.
+  check(Re.decide(unit_case({ hp = 300 })) == "flee", "blessé : flee")
+  check(Re.decide(unit_case({ armed = false, dist = 30 })) == "flee", "sans munitions : flee")
+
+  section("l'arrêt garde les yeux ouverts")
+  check(Re.breach("unit", 22, 30) == true, "fusilier à 22 tuiles (portée 30) : l'arrêt est rompu")
+  check(Re.breach("unit", 38, 30) == true, "à portée + marge exactement : rompu")
+  check(Re.breach("unit", 39, 30) == false, "au-delà de portée + marge : l'arrêt continue")
+  check(Re.breach("unit", 25, nil) == false and Re.breach("unit", 24, nil) == true, "portée absente : celle du genre (16) + marge")
+  check(Re.breach("worm", 5, 30) == false, "un ver ne rompt jamais l'arrêt (on ne marche pas dessus : le regard le gère)")
+  check(Re.breach("spawner", 5, 30) == false, "un nid non plus")
+  check(Re.breach("character", 20, nil) == true, "un personnage ennemi proche : rompu")
+
+  section("refuge loin de la menace")
+  local p, home = { x = 170, y = 165 }, { x = 8, y = 7 }
+  local ep = { x = 153, y = 151 } -- entre le PNJ et le QG (cas du journal)
+  local aw = Re.away_point(p, home, ep, 30)
+  check(aw ~= nil, "l'ennemi est du côté du QG : point d'éloignement")
+  if aw then
+    check(math.abs(dist(aw, p) - Re.away_distance(30)) < 1e-6, "à portée + marge + extra de lui")
+    check(dist(aw, ep) > dist(p, ep) + 50, "et il s'éloigne de l'ennemi")
+    check(Re.away_distance(30) == 30 + Re.MARGIN + Re.AWAY_EXTRA, "distance dérivée de la portée lue au prototype")
+    check(Re.away_distance(48) > Re.away_distance(30), "plus grande portée, plus grande distance")
+  end
+  check(Re.away_point(p, home, { x = 190, y = 190 }, 30) == nil, "ennemi dans le dos (QG à l'opposé) : le QG reste le refuge")
+  check(Re.away_point(p, home, { x = -400, y = -300 }, 30) == nil, "ennemi plus loin que le QG : le QG reste le refuge")
+  check(Re.away_point(p, home, { x = 220, y = 114 }, 30) == nil, "ennemi à 90° du QG : le QG reste le refuge")
+  check(Re.away_point(p, p, ep, 30) == nil, "PNJ au QG : rien")
+end
+
+suite()
+
+---------------------------------------------------------------------------------------------------
+-- MUTANTS : chaque règle retirée doit faire échouer au moins un contrôle.
+---------------------------------------------------------------------------------------------------
+local base_fail = failures
+print(string.format("[FUITE] suite de base : %d OK, %d ECHEC(S)", passes, failures))
+
+local saved = {}
+local function patch(t, k, v) saved[#saved + 1] = { t, k, t[k] } t[k] = v end
+local function unpatch()
+  for i = #saved, 1, -1 do saved[i][1][saved[i][2]] = saved[i][3] saved[i] = nil end
+end
+local killed, total = 0, 0
+local function mutant(name, apply)
+  total = total + 1
+  local p0, f0 = passes, failures
+  apply()
+  quiet = true
+  suite()
+  quiet = false
+  unpatch()
+  local caught = failures > f0
+  passes, failures = p0, f0
+  if caught then killed = killed + 1 else print("  MUTANT SURVIVANT : " .. name) end
+end
+
+mutant("jamais de fuite après un demi-tour", function()
+  local d = Re.decide
+  patch(Re, "decide", function(s) local a, r = d(s) if r == "poursuivi" then return "back", "trop-pres" end return a, r end)
+end)
+mutant("fuite dès le premier demi-tour", function() patch(Re, "BACKS", 0) end)
+mutant("la menace fixe devient aussi une fuite", function()
+  local d = Re.decide
+  patch(Re, "decide", function(s)
+    local a, r = d(s)
+    if a == "back" and (s.backs or 0) >= 1 then return "flee", "poursuivi" end
+    return a, r
+  end)
+end)
+mutant("l'arrêt n'est jamais rompu", function() patch(Re, "breach", function() return false end) end)
+mutant("un ver rompt l'arrêt", function() patch(Re, "breach", function(kind, d, r) return d <= (r or 16) + Re.MARGIN end) end)
+mutant("marge oubliée à la rupture", function() patch(Re, "breach", function(kind, d, r) return kind == "unit" and d <= (r or 16) end) end)
+mutant("QG toujours le refuge", function() patch(Re, "away_point", function() return nil end) end)
+mutant("éloignement vers l'ennemi", function()
+  local f = Re.away_point
+  patch(Re, "away_point", function(p, h, e, r)
+    local q = f(p, h, e, r)
+    if q then return { x = 2 * p.x - q.x, y = 2 * p.y - q.y } end
+    return nil
+  end)
+end)
+mutant("éloignement sans cône", function() patch(Re, "HOME_CONE", -1) end)
+mutant("portée en dur pour l'éloignement", function() patch(Re, "away_distance", function() return 40 end) end)
+
+print(string.format("[FUITE] MUTANTS : %d / %d refusés", killed, total))
+print(string.format("[FUITE] BILAN : %d OK, %d ECHEC(S)%s", passes, failures + (total - killed),
+  base_fail > 0 and " (suite de base en échec)" or ""))
+os.exit((failures == 0 and killed == total) and 0 or 1)

@@ -35,6 +35,20 @@
   Une étape = { kind, name, n, item, why } ; l'ordre des étapes est exécutable (dépendances d'abord).
 
   Déterminisme : listes triées partout (aucun pairs décisionnel), égalités départagées par le nom ; aucun hasard.
+
+  Anti-boucle (lot CHAÎNE) : le dépliage descend de l'objectif vers le début ; les données d'un autre mode peuvent
+  contenir un CYCLE de recettes (A depuis B et B depuis A, énergie 0 ou rendement supérieur à 1 : le coût de choix ne
+  les départage plus et aucune garde de profondeur ne suffisait, seule MAX_NODES arrêtait le dépliage après 4 000
+  étapes fausses). Trois gardes, sans nom d'objet :
+    - marque « en cours » par objet (st.active, dans emit_item, ensure_supply, ensure_capacity) : revenir sur un objet
+      dont le dépliage est en cours est un cycle ; la recette qui a ouvert ce cycle est INTERDITE pour cet objet
+      (st.banned) et le dépliage est repris, l'objet retombe sur sa meilleure autre méthode. La recette interdite est celle
+      du cycle qui s'appuie sur ce que son produit rend faisable (rang de faisabilité st.order : un ingrédient de rang
+      supérieur ou égal), pas forcément celle qui l'a ouvert ; sans autre méthode,
+      l'objet est « bloqué » avec la cause « cycle:<objet> » ;
+    - profondeur maximale (G.MAX_DEPTH) : au-delà, le dépliage est tronqué (truncated, why = "profondeur") ;
+    - reprises bornées (G.MAX_RETRIES) : au-delà, tronqué (why = "cycles").
+  Le résultat porte `cycles` (liste « objet:recette » interdits) et `retries`. Sans cycle dans les données, rien ne change.
 ]]
 
 local G = {}
@@ -45,6 +59,8 @@ G.RESEARCH_PENALTY = 60     -- recette verrouillée : surcoût de choix (le coû
 G.MACHINE_PENALTY = 30      -- catégorie sans machine construite ni main : surcoût de choix
 G.MAX_PASSES = 64
 G.MAX_NODES = 4000
+G.MAX_DEPTH = 128           -- profondeur maximale du dépliage (objet dans objet) ; la chaîne la plus longue des données du jeu est bien en dessous
+G.MAX_RETRIES = 32          -- reprises du dépliage après un cycle de recettes interdit
 
 local function sorted_keys(t)
   local ks = {}
@@ -200,6 +216,8 @@ local function evaluate(cat, st)
     for _, res in ipairs(cat.resource_list) do
       if not st.feas[res] and st.known[res] and machines_ok(cat, st, cat.by_rescat[cat.resources[res].category]) then
         st.feas[res], changed = true, true
+        st.nfeas = st.nfeas + 1
+        st.order[res] = st.nfeas
       end
     end
     for _, rname in ipairs(cat.recipe_list) do
@@ -208,7 +226,11 @@ local function evaluate(cat, st)
       for _, p in ipairs(r.products) do if not st.feas[p.name] then need = true end end
       if need and recipe_ok(cat, st, rname) then
         for _, p in ipairs(r.products) do
-          if not st.feas[p.name] then st.feas[p.name], changed = true, true end
+          if not st.feas[p.name] then
+            st.feas[p.name], changed = true, true
+            st.nfeas = st.nfeas + 1
+            st.order[p.name] = st.nfeas
+          end
         end
       end
     end
@@ -259,7 +281,7 @@ local function best_method(cat, st, item)
   if res then best = { kind = "resource", name = item, ok = st.feas[item] == true, cost = st.cost[item] or G.HUGE } end
   for _, rname in ipairs(cat.producers[item] or {}) do
     local r = cat.recipes[rname]
-    if not self_loop(r, item) then
+    if not self_loop(r, item) and not (st.banned and st.banned[item .. ":" .. rname]) then
       local ok = recipe_ok(cat, st, rname)
       local base = r.energy
       for _, i in ipairs(r.ingredients) do base = base + (st.cost[i.name] or G.HUGE) * i.amount end
@@ -302,7 +324,10 @@ local function causes_of(cat, st, item, seen, out)
   if m.kind == "resource" then
     if not st.known[item] then out[item] = true end
     local res = cat.resources[item]
-    for _, d in ipairs(cat.by_rescat[res.category] or {}) do causes_of(cat, st, d, seen, out) end
+    local list = cat.by_rescat[res.category] or {}
+    -- Une catégorie que la main sait extraire n'a pas de machine à attendre : « ?<main> » n'est pas une cause.
+    for _, d in ipairs(list) do if cat.machine[d].hand then return end end
+    for _, d in ipairs(list) do causes_of(cat, st, d, seen, out) end
     return
   end
   local r = cat.recipes[m.name]
@@ -313,7 +338,7 @@ local function causes_of(cat, st, item, seen, out)
   for _, i in ipairs(r.ingredients) do causes_of(cat, st, i.name, seen, out) end
   if not handable(cat, r) and not machines_ok(cat, st, cat.makers[m.name]) then
     local mach = best_machine(cat, st, cat.makers[m.name])
-    if mach then causes_of(cat, st, mach, seen, out) end
+    if mach and not cat.machine[mach].hand then causes_of(cat, st, mach, seen, out) end
   end
 end
 
@@ -328,8 +353,62 @@ end
 
 local function tick_node(st)
   st.nodes = st.nodes + 1
-  if st.nodes > G.MAX_NODES then st.truncated = true end
-  return not st.truncated
+  if st.nodes > G.MAX_NODES then st.truncated, st.why = true, st.why or "noeuds" end
+  return not st.truncated and not st.abort
+end
+
+--- Un niveau de plus dans le dépliage ; faux (et dépliage tronqué) au-delà de G.MAX_DEPTH. L'appelant qui a obtenu vrai
+--- rend le niveau (st.depth - 1) en sortant.
+local function deeper(st)
+  if st.depth >= G.MAX_DEPTH then
+    st.truncated, st.why = true, st.why or "profondeur"
+    return false
+  end
+  st.depth = st.depth + 1
+  return true
+end
+
+--- Marque « en cours » d'un objet fabriqué par une RECETTE (emit_item : la quantité, sans mémoire, c'est elle qui bouclait).
+--- Faux : l'objet est déjà en cours plus haut, c'est un cycle de recettes ; le dépliage est à reprendre sans UNE recette du
+--- cycle (st.abort) : la première, en descendant la pile depuis l'objet repris, dont un ingrédient est de rang de
+--- faisabilité >= à celui de son produit (elle s'appuie sur ce que son produit rend faisable) ; à défaut, celle qui a ouvert
+--- le cycle. Vrai : l'appelant note la recette dans st.active[item] et appelle leave(st, item) en sortant.
+local function enter(cat, st, item)
+  if st.active[item] then
+    if not st.abort then
+      local from = 1
+      for i, it in ipairs(st.stack) do if it == item then from = i end end
+      local pick = { item = item, recipe = st.active[item] }
+      for i = from, #st.stack do
+        local it, rname = st.stack[i], st.active[st.stack[i]]
+        local nxt = st.stack[i + 1] or item
+        local r = rname and cat.recipes[rname]
+        local rank = st.order[it]
+        local bad = false
+        for _, ing in ipairs(r and r.ingredients or {}) do
+          if ing.name == nxt and (st.order[nxt] or 0) >= (rank or 0) then bad = true end
+        end
+        if bad then pick = { item = it, recipe = rname } break end
+      end
+      st.abort = pick
+    end
+    return false
+  end
+  if not deeper(st) then return false end
+  st.active[item] = true
+  st.stack[#st.stack + 1] = item
+  return true
+end
+
+local function leave(st, item)
+  st.active[item] = nil
+  st.stack[#st.stack] = nil
+  st.depth = st.depth - 1
+end
+
+--- Objet sans aucune méthode non interdite (toutes closes par des cycles) : bloqué, cause « cycle:<objet> ».
+local function block_cycle(st, item, n)
+  st.blocked[#st.blocked + 1] = { item = item, n = n, causes = { "cycle:" .. item } }
 end
 
 local function block(cat, st, entry, item)
@@ -387,6 +466,8 @@ emit_tech = function(cat, st, tname, why)
 end
 
 ensure_supply = function(cat, st, item, why)
+  -- Une ligne demandée deux fois (l'extracteur du charbon brûle du charbon) est DÉJÀ prévue : la mémoire st.supply coupe
+  -- la boucle, ce n'est pas un cycle de recettes. Seule la profondeur est gardée.
   if st.supply[item] or not tick_node(st) then return end
   st.supply[item] = true
   if not st.feas[item] then
@@ -395,6 +476,8 @@ ensure_supply = function(cat, st, item, why)
     return
   end
   local m = best_method(cat, st, item)
+  if not m then block_cycle(st, item) return end
+  if not deeper(st) then return end
   if m.kind == "resource" then
     ensure_extractor(cat, st, item, why)
   else
@@ -406,6 +489,7 @@ ensure_supply = function(cat, st, item, why)
       else ensure_supply(cat, st, ing.name, "ligne " .. item) end
     end
   end
+  st.depth = st.depth - 1
   push(st, { kind = "supply", name = item, why = why })
 end
 
@@ -418,6 +502,8 @@ ensure_capacity = function(cat, st, fluid, why)
     return
   end
   local m = best_method(cat, st, fluid)
+  if not m then block_cycle(st, fluid) return end
+  if not deeper(st) then return end
   if m.kind == "resource" then
     ensure_extractor(cat, st, fluid, why)
   else
@@ -429,6 +515,7 @@ ensure_capacity = function(cat, st, fluid, why)
       else ensure_supply(cat, st, ing.name, "ligne " .. fluid) end
     end
   end
+  st.depth = st.depth - 1
   push(st, { kind = "line", name = fluid, why = why })
 end
 
@@ -443,7 +530,9 @@ emit_enable = function(cat, st, item, why)
       st.explore[item] = true
       push(st, { kind = "explore", name = item, why = why })
     end
-    for _, d in ipairs(cat.by_rescat[cat.resources[item].category] or {}) do emit_enable(cat, st, d, why) end
+    for _, d in ipairs(cat.by_rescat[cat.resources[item].category] or {}) do
+      if not cat.machine[d].hand then emit_enable(cat, st, d, why) end -- la main n'est pas une machine à obtenir
+    end
     return
   end
   local r = cat.recipes[m.name]
@@ -455,7 +544,7 @@ emit_enable = function(cat, st, item, why)
   for _, ing in ipairs(r.ingredients) do emit_enable(cat, st, ing.name, why) end
   if not handable(cat, r) and not machines_ok(cat, st, cat.makers[m.name]) then
     local mach = best_machine(cat, st, cat.makers[m.name])
-    if mach then emit_enable(cat, st, mach, why) end
+    if mach and not cat.machine[mach].hand then emit_enable(cat, st, mach, why) end
   end
 end
 
@@ -475,11 +564,17 @@ emit_item = function(cat, st, item, n, why)
     return
   end
   local m = best_method(cat, st, item)
+  if not m then block_cycle(st, item, n) return end
   if m.kind == "resource" then
+    -- Pas de marque : l'extracteur peut brûler ce qu'il extrait (st.built coupe cette boucle, comme avant).
+    if not deeper(st) then return end
     ensure_extractor(cat, st, item, why)
+    st.depth = st.depth - 1
     push(st, { kind = "extract", name = item, n = n, why = why })
     return
   end
+  if not enter(cat, st, item) then return end -- déjà en cours plus haut : cycle de recettes
+  st.active[item] = m.name
   local r = cat.recipes[m.name]
   local amount = product_amount(r, item)
   local runs = math.ceil(n / amount)
@@ -490,6 +585,7 @@ emit_item = function(cat, st, item, n, why)
     if ing.type == "fluid" then ensure_capacity(cat, st, ing.name, item)
     else emit_item(cat, st, ing.name, ing.amount * runs, item) end
   end
+  leave(st, item)
   push(st, { kind = how, name = m.name, item = item, n = runs, why = why })
   local surplus = runs * amount - n
   if surplus > 0 then st.avail[item] = (st.avail[item] or 0) + surplus end
@@ -527,28 +623,47 @@ function G.prepare(cat, state)
   local st = {
     known = copy(state.known), techs = copy(state.techs), built = copy(state.built),
     feas = {}, tfeas = {}, cost = {}, passes = 0,
+    -- Rang de faisabilité : l'ordre où chaque objet est devenu faisable (0 : durable du stock). Une recette dont un
+    -- ingrédient est de rang >= à celui de son produit s'appuie sur ce que le produit rend faisable : c'est elle qui boucle.
+    order = {}, nfeas = 0,
   }
   -- Les objets DURABLES du stock sont atteignables (le kit de départ apporte ses foreuses et ses fours). Les autres
   -- objets du stock sont pris par le dépliage (étape « take ») mais n'amorcent pas la faisabilité (revue M2).
-  for _, item in ipairs(G.durable_kinds(cat, state)) do st.feas[item] = true end
+  for _, item in ipairs(G.durable_kinds(cat, state)) do st.feas[item], st.order[item] = true, 0 end
   evaluate(cat, st)
   return st
 end
 
-function G.unfold(cat, goals, state, prepared)
-  local ev = prepared or G.prepare(cat, state)
+local function unfold_once(cat, goals, state, ev, banned)
   local st = {
     known = ev.known, techs = ev.techs, built = copy(ev.built), avail = copy(state.stock),
     feas = ev.feas, tfeas = ev.tfeas, cost = ev.cost,
     planned = {}, cap = {}, supply = {}, enabled = {}, explore = {},
     steps = {}, blocked = {}, nodes = 0, truncated = false,
+    active = {}, stack = {}, depth = 0, banned = banned, order = ev.order,
   }
   for _, g in ipairs(goals) do
     if g.tech then emit_tech(cat, st, g.tech, "but " .. g.tech)
     else emit_item(cat, st, g.item, g.n or 1, "but " .. g.item) end
   end
+  return st
+end
+
+function G.unfold(cat, goals, state, prepared)
+  local ev = prepared or G.prepare(cat, state)
+  local banned, cycles, retries = {}, {}, 0
+  local st = unfold_once(cat, goals, state, ev, banned)
+  -- Un cycle de recettes ferme le dépliage : on interdit la recette qui l'a ouvert, pour cet objet, et on reprend.
+  while st.abort and not st.truncated do
+    if retries >= G.MAX_RETRIES then st.truncated, st.why = true, "cycles" break end
+    retries = retries + 1
+    local key = st.abort.item .. ":" .. tostring(st.abort.recipe)
+    banned[key] = true
+    cycles[#cycles + 1] = key
+    st = unfold_once(cat, goals, state, ev, banned)
+  end
   return { steps = st.steps, blocked = st.blocked, payable = #st.blocked == 0 and not st.truncated, nodes = st.nodes,
-    truncated = st.truncated, passes = ev.passes }
+    truncated = st.truncated, why = st.why, passes = ev.passes, cycles = cycles, retries = retries }
 end
 
 --- Une technologie est-elle payable dans cet état (toutes ses feuilles atteignables) ?

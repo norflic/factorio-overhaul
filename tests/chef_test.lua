@@ -377,6 +377,107 @@ do
   check(p0 ~= nil and p1 == nil and S.raid(sv("peaceful", true)) == nil and S.raid(sv("peaceful", nil)) ~= nil,
     "trêve en Paisible : ni attaque (" .. tostring(p0) .. " -> nil) ni raid contre la rivale")
   check(n0 ~= nil and n0 == n1, "trêve à un niveau agressif : attaque inchangée (" .. tostring(n0) .. ", " .. tostring(n1) .. ")")
+
+  -- Lot ARMEE : `hold_rival` (trêve, vague en route, attaque sans effet) épargne la rivale à un niveau agressif ; le
+  -- chemin contre le joueur (S.decide) est identique avec et sans lui, à tous les niveaux et à tous les stades du plan.
+  local function sw(level, extra)
+    local v = sv(level, nil)
+    for k, x in pairs(extra or {}) do v.chef[k] = x end
+    return v
+  end
+  for _, lv in ipairs({ "easy", "normal", "hard", "merciless" }) do
+    local a0, a1 = S.attack(sw(lv)), S.attack(sw(lv, { hold_rival = true }))
+    check(a0 ~= nil and a1 == nil, "hold_rival au niveau " .. lv .. " : la rivale est épargnée (" .. tostring(a0) .. " -> nil)")
+    check(S.raid(sw(lv, { vain = "echec" })) == nil and S.raid(sw(lv)) ~= nil, "attaque sans effet au niveau " .. lv .. " : pas de raid non plus")
+  end
+  check(S.attack(sw("peaceful", { vain = "portee" })) == nil, "attaque sans effet en Paisible : rivale épargnée aussi")
+  local function player_view(level, garrison, extra, sent_player)
+    local v = sw(level, extra)
+    v.garrison = garrison
+    v.player = { score = 40, defense = 6, reachable = true }
+    v.pvp.declared, v.pvp.anchor, v.pvp.tick = true, 0, 400 * 3600
+    v.pvp.sent_player, v.pvp.sent_total = sent_player or 0, 100
+    return v
+  end
+  local same, saw_attack = true, 0
+  for _, lv in ipairs({ "easy", "normal", "hard", "merciless" }) do
+    for g = 0, 120, 3 do
+      local o0, o1 = S.decide(player_view(lv, g)), S.decide(player_view(lv, g, { hold_rival = true, vain = "echec" }))
+      local a0, a1 = o0.attack, o1.attack
+      if o0.plan ~= o1.plan or o0.need ~= o1.need or o0.count ~= o1.count or ((a0 and a0.target) == "player") ~= ((a1 and a1.target) == "player")
+        or (a0 and a0.target == "player" and a0.count ~= a1.count) then same = false end
+      if a0 and a0.target == "player" then saw_attack = saw_attack + 1 end
+    end
+  end
+  -- Part du joueur déjà servie (règle du déficit : il n'est pas « dû ») : une rivale épargnée le rend dû, exactement comme
+  -- une faction sans rivale ; sans elle, il attend.
+  local like_norival, waits, fired = true, true, 0
+  for _, lv in ipairs({ "easy", "normal", "hard", "merciless" }) do
+    for g = 0, 120, 3 do
+      local held = S.decide(player_view(lv, g, { hold_rival = true }, 100))
+      local free = S.decide(player_view(lv, g, nil, 100))
+      local none = player_view(lv, g, nil, 100)
+      none.rival = nil
+      local o = S.decide(none)
+      if held.plan ~= o.plan or held.need ~= o.need or held.count ~= o.count
+        or ((held.attack and held.attack.target) == "player") ~= ((o.attack and o.attack.target) == "player") then like_norival = false end
+      if free.plan ~= nil then waits = false end
+      if held.attack and held.attack.target == "player" then fired = fired + 1 end
+    end
+  end
+  check(like_norival and waits and fired > 10, "rivale épargnée : le joueur devient dû comme sans rivale (" .. fired .. " attaques), il attendait sinon")
+  check(same and saw_attack > 10, "hold_rival : décision contre le joueur identique (plan, besoin, effectif) sur 164 garnisons x 4 niveaux (" .. saw_attack .. " attaques du joueur comparées)")
+end
+
+---------------------------------------------------------------------------------------------------
+section("Règles pures : attaques sans effet, attente croissante et portée (lot ARMEE)")
+do
+  local st = C.new(stream(31), 0)
+  local T0 = 20 * 3600
+  -- Sans historique : tout est permis.
+  check(C.vain_hold(st, 2, T0, 768) == nil, "sans historique : attaque permise")
+  -- 1re attaque : un groupe dissous (0 survivant) qui n'a pas dépassé 300 tuiles sur 768.
+  C.record_attack(st, { target = 2, octant = 6, n = 16, tick = T0, gid = 1, dist = 768 })
+  check(C.vain_hold(st, 2, T0 + 100, 768) == nil, "tant que l'issue n'est pas connue, `vain_hold` ne bloque pas (la vague en route, elle, est Chef.engaged)")
+  local t1 = T0 + 16000
+  C.record_outcome(st, 1, "dissous", 16, 0, t1, nil, 300)
+  check(C.vain_hold(st, 2, t1 + 1, 768) == "echec", "dissous sans effet : attente (1re : " .. C.VAIN_WAIT .. " ticks)")
+  check(st.vain[2].ok_at == t1 + C.VAIN_WAIT and st.vain[2].n == 1, "attente de la 1re attaque sans effet = VAIN_WAIT")
+  check(C.vain_hold(st, 2, t1 + C.VAIN_WAIT, 768) == "portee", "attente écoulée, mais portée 300 sur 768 tuiles : même distance interdite")
+  check(C.vain_hold(st, 2, t1 + C.VAIN_WAIT, 500) == "portee" and C.vain_hold(st, 2, t1 + C.VAIN_WAIT, 400) == nil,
+    "une cible plus proche que la portée (+ marge du point visé) reste permise")
+  check(C.vain_hold(st, 2, t1 + C.REACH_MEMORY + 1, 768) == nil, "la portée est oubliée après REACH_MEMORY")
+  check(C.vain_hold(st, 3, t1 + 1, 768) == nil, "une autre cible n'est pas touchée")
+  -- 2e et 3e échecs : attente doublée, plafonnée.
+  local t = t1 + C.REACH_MEMORY + 10
+  for k = 2, 6 do
+    C.record_attack(st, { target = 2, octant = 6, n = 16, tick = t, gid = 10 + k, dist = 768 })
+    C.record_outcome(st, 10 + k, "dissous", 16, 0, t + 500, nil, 700)
+    local want = math.min(C.VAIN_CAP, C.VAIN_WAIT * 2 ^ (k - 1))
+    check(st.vain[2].n == k and st.vain[2].ok_at == t + 500 + want, "échec " .. k .. " de suite : attente " .. want .. " ticks (cap " .. C.VAIN_CAP .. ")")
+    check(st.vain[2].reach == nil and C.vain_hold(st, 2, t + 500 + want, 768) == nil, "portée 700 sur 768 : atteint le but, aucune restriction de portée")
+    t = t + 500 + want + 10
+  end
+  -- Repoussée ou anéantie (un combat a eu lieu : défense apprise ailleurs) et renonce : ni échec de plus ni remise à zéro.
+  local n_before = st.vain[2].n
+  C.record_attack(st, { target = 2, octant = 6, n = 16, tick = t, gid = 98, dist = 768 })
+  C.record_outcome(st, 98, "repoussee", 16, 3, t + 50, nil, 700)
+  check(st.vain[2].n == n_before, "repoussée : pas un échec « sans effet » de plus (elle a combattu)")
+  C.record_attack(st, { target = 2, octant = 6, n = 16, tick = t, gid = 99, dist = 768 })
+  C.record_outcome(st, 99, "renonce", 16, 16, t + 100, 20, 600)
+  check(st.vain[2].n == n_before, "renonce : pas un échec de plus")
+  -- Réussie : remise à zéro.
+  C.record_attack(st, { target = 2, octant = 6, n = 16, tick = t + 200, gid = 100, dist = 768 })
+  C.record_outcome(st, 100, "reussie", 16, 14, t + 900, nil, 760)
+  check(st.vain[2] == nil and C.vain_hold(st, 2, t + 901, 768) == nil, "attaque réussie : plus aucune restriction")
+  -- Portée inconnue : seulement l'attente.
+  local s2 = C.new(stream(32), 0)
+  C.record_attack(s2, { target = 5, octant = 1, n = 10, tick = 0, gid = 1, dist = 500 })
+  C.record_outcome(s2, 1, "dissous", 10, 0, 1000, nil, nil)
+  check(s2.vain[5].reach == nil and C.vain_hold(s2, 5, 1000 + C.VAIN_WAIT, 500) == nil, "portée inconnue : l'attente seule joue")
+  -- Bornes de short_of.
+  check(not C.short_of(200, 100) and C.short_of(768, 300) and not C.short_of(768, 650) and C.short_of(768, 500),
+    "short_of : but proche jamais « trop loin » (rassemblement avancé), but lointain si manque > 20 %")
 end
 
 ---------------------------------------------------------------------------------------------------

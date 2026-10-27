@@ -1354,6 +1354,31 @@ local function npc_block(f, p, e, surface)
   log_refusal(f, p, e, "pnj", surface)
 end
 
+--- Le bâtisseur `self` est-il debout sur l'emprise de `e` (marge 0,3) ?
+local function stands_on(self, e)
+  if not (self and self.valid) then return false end
+  local a, q = footprint(e), self.position
+  return q.x > a[1][1] - 0.3 and q.x < a[2][1] + 0.3 and q.y > a[1][2] - 0.3 and q.y < a[2][2] + 0.3
+end
+
+--- Écarte le bâtisseur de l'emprise de `e` : case libre la plus proche à l'est de l'emprise, HORS de toute emprise
+--- visée (comme npc_block pour les autres PNJ). Rend vrai s'il ne gêne plus. Sans cela, un bâtisseur arrêté sur le
+--- dernier poteau et la dernière machine d'une centrale les « laissait » à chaque pensée en payant ses jetons, et la
+--- tâche ne finissait jamais (moteur réel, etape1-guide, VOTRE équipe : centrale à 15 entités sur 17 de 27 à 60 min,
+--- module des packs rouges sans courant, aucune foreuse électrique).
+local function step_aside(surface, self, e)
+  if not stands_on(self, e) then return true end
+  local a = footprint(e)
+  for _, d in ipairs({ 2, 4, 6 }) do
+    local spot = surface.find_non_colliding_position(self.name, { x = a[2][1] + d, y = (a[1][2] + a[2][2]) / 2 }, 6, 0.5)
+    if spot then
+      self.teleport(spot)
+      if not stands_on(self, e) then return true end
+    end
+  end
+  return false
+end
+
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
 --- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
 local function revive_one(surface, f, p, e, inv, tick, self)
@@ -1475,9 +1500,15 @@ function Build.work(agent, f, tick)
       if not x.built and x.anchor == job.anchor then
         if dist2(x, pos) <= reach2 and x.item and inv.get_item_count(x.item) > 0 and (x.fails or 0) < Build.FAIL_LIMIT * 2 then
           if did < Build.REVIVE_PER_THINK then
+            -- Debout sur l'emprise : s'écarter AVANT de payer les jetons (step_aside) ; impossible : laissée sans jetons.
+            local blocked = stands_on(e, x) and not find_real(surface, x, f.force) and not step_aside(surface, e, x)
+            pos = e.position
             local cost = x.name:find("electric%-pole") and Build.COST_REVIVE_POLE or Build.COST_REVIVE
-            if not Tokens.take(f, tick, cost) then return "more" end
-            if revive_one(surface, f, p, x, inv, tick, e) then
+            if blocked then
+              left = left + 1
+            elseif not Tokens.take(f, tick, cost) then
+              return "more"
+            elseif revive_one(surface, f, p, x, inv, tick, e) then
               did = did + 1
               local d = math.sqrt(dist2(x, pos))
               if d > (b.stats.max_reach or 0) then b.stats.max_reach = d end

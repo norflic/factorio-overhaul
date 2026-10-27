@@ -309,5 +309,164 @@ do
   check(same, "même clé, même faisabilité (intermédiaires au coffre ou non)")
 end
 
+-- Lot CHAÎNE (anti-boucle) : les données d'un autre mode peuvent contenir un CYCLE de recettes. Le dépliage doit
+-- s'arrêter de lui-même (marque « en cours », profondeur maximale, reprises bornées), jamais par MAX_NODES.
+do
+  local function R(category, energy, ings, prods)
+    local function lst(l)
+      local out = {}
+      for _, e in ipairs(l) do out[#out + 1] = { type = "item", name = e[1], amount = e[2] or 1 } end
+      return out
+    end
+    return { category = category, energy = energy, hidden = false, enabled = true, ingredients = lst(ings), products = lst(prods) }
+  end
+  local function mini(recs, machines)
+    return G.new({
+      recipes = recs, techs = {},
+      machines = machines or { { name = "hand", hand = true, crafting_categories = { "c" }, resource_categories = { "r" }, energy = "none" },
+        { name = "asm", crafting_categories = { "c" }, energy = "none" } },
+      resources = { ore = { category = "r" }, gem = { category = "r" } }, hand_categories = { c = true },
+    })
+  end
+  local function state(known, stock)
+    return { stock = stock or {}, techs = {}, built = { asm = 1 }, known = known or { ore = true } }
+  end
+  local function unfold(c, goal, st) return G.unfold(c, { goal }, st or state()) end
+  local function uses(res, kind, name)
+    local n = 0
+    for _, s in ipairs(res.steps) do if s.kind == kind and s.name == name then n = n + 1 end end
+    return n
+  end
+  local function ser(r)
+    local out = {}
+    for _, s in ipairs(r.steps) do out[#out + 1] = s.kind .. ":" .. s.name .. ":" .. tostring(s.n) end
+    return table.concat(out, "|")
+  end
+
+  -- a. Deux recettes d'énergie EXACTEMENT 0 (A depuis B, B depuis A) et une entrée par l'extérieur : le coût de choix ne
+  -- départage plus, le nom de la recette qui boucle passe devant (avant le lot : 4 000 étapes, truncated).
+  local c = mini({
+    zA = R("c", 0, { { "ore" } }, { { "A" } }), aB = R("c", 0, { { "A" } }, { { "B" } }),
+    aA2 = R("c", 0, { { "B" } }, { { "A" } }), rG = R("c", 1, { { "A" }, { "B" } }, { { "goal" } }),
+  })
+  local res = unfold(c, { item = "goal", n = 1 })
+  check(not res.truncated and res.payable, "chaîne a : cycle A<->B d'énergie 0 : ni tronqué ni impayable")
+  check(res.nodes < 20, "chaîne a : moins de 20 nœuds (" .. res.nodes .. ")")
+  check(#res.steps < 20 and uses(res, "hand", "aA2") == 0 and uses(res, "hand", "zA") >= 1,
+    "chaîne a : A vient de l'entrée (zA), jamais de la boucle (aA2) ; " .. #res.steps .. " étapes")
+  check(res.retries == 1 and res.cycles[1] == "A:aA2", "chaîne a : la recette qui ouvrait le cycle est interdite (" .. table.concat(res.cycles, ",") .. ")")
+  local c_rev = mini({
+    rG = R("c", 1, { { "A" }, { "B" } }, { { "goal" } }), aA2 = R("c", 0, { { "B" } }, { { "A" } }),
+    aB = R("c", 0, { { "A" } }, { { "B" } }), zA = R("c", 0, { { "ore" } }, { { "A" } }),
+  })
+  check(ser(unfold(c_rev, { item = "goal", n = 1 })) == ser(res), "chaîne a : déterminisme (données dans l'ordre inverse)")
+
+  -- b. Rendement supérieur à 1 (B rend 2 pour 1 A, A rend 3 pour 1 B) : le coût de choix descend à chaque tour et préfère
+  -- la boucle ; la marque « en cours » la refuse.
+  local cg = mini({
+    zA = R("c", 5, { { "ore" } }, { { "A" } }), gB = R("c", 0.1, { { "A" } }, { { "B", 2 } }),
+    gA = R("c", 0.1, { { "B" } }, { { "A", 3 } }), rG = R("c", 1, { { "B" } }, { { "goal" } }),
+  })
+  local rg = unfold(cg, { item = "goal", n = 4 })
+  check(not rg.truncated and rg.payable and rg.nodes < 30, "chaîne b : rendement supérieur à 1 : ni tronqué ni impayable (" .. rg.nodes .. " nœuds)")
+  check(uses(rg, "hand", "gA") == 0, "chaîne b : la boucle qui crée de la matière n'est pas une source")
+
+  -- c. Trois recettes circulaires A <- B <- C <- A (énergie 0), une seule entrée : le dépliage la trouve, pour chaque but.
+  local c3 = mini({
+    ab = R("c", 0, { { "B" } }, { { "A" } }), bc = R("c", 0, { { "C" } }, { { "B" } }),
+    ca = R("c", 0, { { "A" } }, { { "C" } }), zC = R("c", 0, { { "ore" } }, { { "C" } }),
+    rG = R("c", 1, { { "A" } }, { { "goal" } }),
+  })
+  local r3 = unfold(c3, { item = "goal", n = 1 })
+  check(not r3.truncated and r3.payable and r3.nodes < 30, "chaîne c : trois recettes circulaires : ni tronqué ni impayable (" .. r3.nodes .. " nœuds)")
+  check(uses(r3, "hand", "zC") >= 1 and uses(r3, "hand", "ca") == 0, "chaîne c : C vient de l'entrée, pas de la boucle")
+  for _, g in ipairs({ "A", "B", "C" }) do
+    local rr = unfold(c3, { item = g, n = 2 })
+    check(not rr.truncated and rr.payable and rr.nodes < 30, "chaîne c : but " .. g .. " : fini et payable")
+  end
+
+  -- d. Cycle SANS entrée (A depuis B et B depuis A, rien d'autre) : impayable, sans boucle ni troncature.
+  local cn = mini({ ab = R("c", 0, { { "B" } }, { { "A" } }), ba = R("c", 0, { { "A" } }, { { "B" } }) })
+  local rn = unfold(cn, { item = "A", n = 1 })
+  check(not rn.truncated and not rn.payable and rn.nodes < 20 and #rn.steps == 0, "chaîne d : cycle sans entrée : impayable, 0 étape (" .. rn.nodes .. " nœuds)")
+
+  -- e. Objet FAISABLE (le stock durable l'amorce) dont toutes les recettes bouclent : bloqué, cause « cycle:<objet> »,
+  -- jamais « ?<objet> », sans troncature.
+  local ce = mini({ mb = R("c", 0, { { "N" } }, { { "M" } }), nb = R("c", 0, { { "M" } }, { { "N" } }) },
+    { { name = "hand", hand = true, crafting_categories = { "c" }, resource_categories = { "r" }, energy = "none" },
+      { name = "M", crafting_categories = { "z" }, energy = "none" } })
+  local re = G.unfold(ce, { { item = "M", n = 3 } }, { stock = { M = 1 }, techs = {}, built = {}, known = { ore = true } })
+  local cyc_cause = false
+  for _, b in ipairs(re.blocked) do for _, k in ipairs(b.causes) do if k == "cycle:M" then cyc_cause = true end end end
+  check(not re.truncated and not re.payable and cyc_cause, "chaîne e : objet faisable aux recettes toutes circulaires : bloqué, cause cycle:M")
+
+  -- f. Ressource inconnue (aucun gisement connu) : exploration seule, aucune boucle, cause = la ressource, jamais
+  -- « ?<main> ».
+  local cu = mini({ rG = R("c", 1, { { "gem" } }, { { "goal" } }) })
+  local ru = unfold(cu, { item = "goal", n = 1 })
+  check(not ru.truncated and not ru.payable and uses(ru, "explore", "gem") == 1 and ru.nodes < 10, "chaîne f : gisement inconnu : une exploration, pas de boucle")
+  local bad = {}
+  for _, b in ipairs(ru.blocked) do for _, k in ipairs(b.causes) do
+    if k:sub(1, 1) == "?" then bad[#bad + 1] = k end
+  end end
+  check(#bad == 0 and ru.blocked[1] and ru.blocked[1].causes[1] == "gem", "chaîne f : la cause est la ressource, rien de la forme ?machine : " .. table.concat(bad, ","))
+
+  -- g. Profondeur maximale : une chaîne de 40 objets, une limite à 10, puis la limite d'origine.
+  local chain = {}
+  chain.i1 = R("c", 1, { { "ore" } }, { { "x1" } })
+  for i = 2, 40 do chain["i" .. i] = R("c", 1, { { "x" .. (i - 1) } }, { { "x" .. i } }) end
+  local cc = mini(chain)
+  local d0 = G.MAX_DEPTH
+  G.MAX_DEPTH = 10
+  local rd = unfold(cc, { item = "x40", n = 1 })
+  G.MAX_DEPTH = d0
+  check(rd.truncated and rd.why == "profondeur" and not rd.payable and rd.nodes <= 12, "chaîne g : profondeur maximale : tronqué, raison « profondeur » (" .. rd.nodes .. " nœuds)")
+  local rf = unfold(cc, { item = "x40", n = 1 })
+  check(not rf.truncated and rf.payable, "chaîne g : 40 niveaux sous la limite d'origine : complet (" .. #rf.steps .. " étapes)")
+
+  -- h. Reprises bornées : sans reprise permise, le cycle tronque avec la raison « cycles ».
+  local n0 = G.MAX_RETRIES
+  G.MAX_RETRIES = 0
+  local rr0 = unfold(c, { item = "goal", n = 1 })
+  G.MAX_RETRIES = n0
+  check(rr0.truncated and rr0.why == "cycles" and rr0.nodes < 20, "chaîne h : sans reprise permise, le cycle tronque (raison « cycles »)")
+
+  -- i. Une extraction qui brûle ce qu'elle extrait (foreuse à combustible sur le gisement de combustible) n'est PAS un
+  -- cycle de recettes : le dépliage de l'automatisation du vrai jeu n'a aucune reprise.
+  local ra = G.unfold(cat, { { tech = "automation" } }, start_state())
+  check(ra.retries == 0 and #ra.cycles == 0 and ra.payable, "chaîne i : le jeu réel (automation) : aucun cycle, aucune reprise")
+
+  -- j. Tous les buts du jeu réel (chaque produit de chaque recette, chaque technologie, deux états) : aucun cycle,
+  -- aucune troncature.
+  local cyc, trunc, total = 0, 0, 0
+  for _, all in ipairs({ false, true }) do
+    local stt = start_state()
+    if all then for _, k in ipairs(cat.resource_list) do stt.known[k] = true end end
+    local ev = G.prepare(cat, stt)
+    for _, rn in ipairs(cat.recipe_list) do
+      for _, p in ipairs(cat.recipes[rn].products) do
+        local r = G.unfold(cat, { { item = p.name, n = 3 } }, stt, ev)
+        total = total + 1
+        if #r.cycles > 0 then cyc = cyc + 1 end
+        if r.truncated then trunc = trunc + 1 end
+      end
+    end
+    for _, tn in ipairs(cat.tech_list) do
+      local r = G.unfold(cat, { { tech = tn } }, stt, ev)
+      total = total + 1
+      if #r.cycles > 0 then cyc = cyc + 1 end
+      if r.truncated then trunc = trunc + 1 end
+    end
+  end
+  check(cyc == 0 and trunc == 0 and total > 500, string.format("chaîne j : %d buts du jeu réel : %d avec cycle, %d tronqué(s)", total, cyc, trunc))
+  print(string.format("[AI3-GRAPHE] chaîne : %d buts du jeu réel, %d cycle(s), %d tronqué(s)", total, cyc, trunc))
+
+  -- k. Données réelles, ressource inconnue extraite à la main (la catégorie de la main) : la cause est la ressource.
+  local ruo = G.unfold(cat, { { item = "uranium-ore", n = 1 } }, start_state())
+  local qs = false
+  for _, b in ipairs(ruo.blocked) do for _, k in ipairs(b.causes) do if k:sub(1, 1) == "?" then qs = true end end end
+  check(not ruo.payable and not qs and #ruo.blocked > 0, "chaîne k : uranium inconnu : la cause est le gisement, pas « ?character »")
+end
+
 print(string.format("[AI3-GRAPHE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

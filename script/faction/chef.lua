@@ -335,7 +335,27 @@ function Chef.decision_fields(f, target, tick)
   local hold = (st.hold and target and st.target == target.id)
     or (target and (Chef.engaged(f, target.id)
       or C.sated(st, { id = target.id, bare = (target.outposts_count or 0) == 0 }, tr, tick or 0))) or nil
-  return { war_mult = st.war_mult, raid = raid, raid_defense = raid_defense, posture = st.dominant, hold = hold }
+  -- Lot ARMEE : attaque sans effet contre cette cible (attente croissante) ou hors de la portée déjà atteinte.
+  local vain = target and target.id ~= "player" and C.vain_hold(st, target.id, tick or 0, Chef.distance(f, target)) or nil
+  if (vain or false) ~= (st.vain_logged or false) then
+    st.vain_logged = vain or nil
+    local v = target and st.vain and st.vain[target.id]
+    log(string.format("[FO-STRAT] vain tick %d %s -> %s : %s", tick or 0, f.key, target and target.key or "-",
+      vain and string.format("%s (%d sans effet de suite, reprise au tick %d, portee atteinte %s sur %s tuiles)", vain,
+        v and v.n or 0, v and v.ok_at or 0, v and v.reach and tostring(math.floor(v.reach)) or "-",
+        v and v.dist and tostring(math.floor(v.dist)) or "-") or "fin"))
+  end
+  -- hold_rival : à un niveau agressif, aucune attaque ni raid contre la rivale (trêve, vague en cours, sans effet).
+  -- Champ distinct de `hold` : le chemin contre le joueur (S.decide) et la campagne de pvp_test ne le lisent pas.
+  return { war_mult = st.war_mult, raid = raid, raid_defense = raid_defense, posture = st.dominant, hold = hold,
+    vain = vain, hold_rival = (hold or vain) and true or nil }
+end
+
+--- Lot ARMEE : distance (tuiles) de notre QG à celui de la cible (même mesure à l'envoi et à la décision).
+function Chef.distance(f, target)
+  local a, b = f.hq_pos, target and target.hq_pos
+  if not (a and b) then return nil end
+  return math.sqrt(d2(a, b))
 end
 
 --- Options d'une attaque contre une rivale : point visé (raid : l'avant-poste vu le plus faible), rassemblement
@@ -411,7 +431,7 @@ end
 Military.on_chef_launch = function(f, target_faction, n, rp, tick, gid)
   if target_faction.id == "player" or not f.chef then return end
   C.record_attack(f.chef, { target = target_faction.id, octant = rp.octant or -1, n = n, tick = tick, gid = gid,
-    raid = rp.raid })
+    raid = rp.raid, dist = Chef.distance(f, target_faction) })
   if rp.raid then f.chef.raid = nil end
 end
 
@@ -443,10 +463,12 @@ Military.on_attack_ended = function(f, g, survivors, tick, alive)
   else
     outcome = "aneantie"
   end
-  local a = C.record_outcome(f.chef, g.gid, outcome, g.size, survivors, tick, g.seen_def)
-  log(string.format("[FO-STRAT] issue tick %d %s -> %s : %s, %d envoyes, %d survivants, octant %s%s, vivants %s",
+  local reach = g.reach2 and math.sqrt(g.reach2) or nil -- lot ARMEE : point le plus éloigné du QG où le groupe a été vu
+  local a = C.record_outcome(f.chef, g.gid, outcome, g.size, survivors, tick, g.seen_def, reach)
+  log(string.format("[FO-STRAT] issue tick %d %s -> %s : %s, %d envoyes, %d survivants, octant %s%s, vivants %s, portee %s sur %s tuiles",
     tick, f.key, t and t.key or tostring(g.target_faction), outcome, g.size or 0, survivors,
-    a and tostring(a.octant) or "-", a and a.raid and ", raid" or "", alive and tostring(alive) or "-"))
+    a and tostring(a.octant) or "-", a and a.raid and ", raid" or "", alive and tostring(alive) or "-",
+    reach and tostring(math.floor(reach)) or "-", a and a.dist and tostring(math.floor(a.dist)) or "-"))
   if a and outcome == "reussie" then
     log(string.format("[FO-STRAT] satiete tick %d %s -> %s : battue (attaque reussie), epargnee %d min", tick, f.key,
       t and t.key or tostring(g.target_faction), math.floor(C.SATIETY / 3600)))
