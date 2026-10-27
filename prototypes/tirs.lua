@@ -216,5 +216,33 @@ for _, n in ipairs(noms) do
   base.source_type = "default"
   item.ammo_type = { base, tourelle }
 end
+-- Sons déclarés (contrôle de l'étape data, lu au journal du banc : l'API runtime 1.1.91 n'expose pas les sons) : chaque
+-- mitrailleuse d'un âge témoin porte 1 + #couches couches (S0 de l'ère, puis celles de la table), chaque niveau de
+-- l'âge 15 du laser porte son faisceau déclaré.
+local L = require("shared.levels.config")
+local sons = {}
+for _, f in ipairs(L.families) do
+  for n = 2, f.max do
+    local e = L.epoch_of(f, n)
+    local A = T.ages[e]
+    local p = A and data.raw[f.type] and data.raw[f.type][L.name(f, n)]
+    if p and f.key == "gun" then
+      local voulu = A.son and (1 + #A.son.couches) or 0
+      local snd = p.attack_parameters.sound
+      local vu = (snd and snd.layers) and #snd.layers or 0
+      if vu ~= voulu then
+        error("[factorio-overhaul] prototypes/tirs.lua : " .. p.name .. " porte " .. vu .. " couche(s) de son, attendu " .. voulu)
+      end
+      sons[#sons + 1] = p.name .. "=" .. (vu == 0 and "S0" or (vu .. " couches"))
+    elseif p and f.key == "laser" and A.laser then
+      local d = p.attack_parameters.ammo_type.action.action_delivery
+      if d.beam ~= L.name(f, n) .. "-faisceau" then
+        error("[factorio-overhaul] prototypes/tirs.lua : " .. p.name .. " tire " .. tostring(d.beam) .. ", attendu son faisceau")
+      end
+      sons[#sons + 1] = p.name .. "=" .. d.beam
+    end
+  end
+end
+log("[FO-TIRS] sons et faisceaux des ages temoins : " .. table.concat(sons, " "))
 log("[FO-TIRS] " .. #out .. " prototype(s) d'effets (ages " .. table.concat(T.temoins, ", ") .. ") ; chargeurs a effet "
   .. "script pour les tourelles : " .. #noms .. " (" .. table.concat(noms, ", ") .. ")")
