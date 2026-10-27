@@ -118,6 +118,16 @@ do
   local r5c = A.decide({ window = win(10, { ["iron-plate"] = 0.30 * 3600 }, { ["iron-plate"] = 10 }), obtainable = all_ok,
     book = book, stock = full, dist = 10, has_plant = true })
   check(req(r5c, "iron-plate") ~= nil, "charge 0,30 PNJ, retour sous 20 min : demandé (" .. tostring(verdict(r5c, "iron-plate").why) .. ")")
+  -- Fonderie au débit de 150 plaques/min sans bras rapides : réduite à ce qu'un bras simple décharge à chaque quai.
+  local big = win(10, { ["iron-plate"] = 3 * 3600 }, { ["iron-plate"] = 120 })
+  local book_nofast = Book.new(recipes, { allowed = function(n) return n ~= "fast-inserter" end })
+  local rb = A.decide({ window = big, obtainable = function(i) return book_nofast:handcraftable(i) end, book = book_nofast })
+  local qb = req(rb, "iron-plate")
+  check(qb ~= nil and qb.args[3] <= 2 and not qb.items["fast-inserter"],
+    "sans bras rapides : fonderie réduite à " .. tostring(qb and qb.args[3]) .. " rangée(s), sans bras rapide (" .. tostring(verdict(rb, "iron-plate").why) .. ")")
+  local rb2 = A.decide({ window = big, obtainable = all_ok, book = book })
+  local qb2 = req(rb2, "iron-plate")
+  check(qb2 ~= nil and qb2.args[3] >= 4 and qb2.items["fast-inserter"], "avec bras rapides : fonderie à la taille du débit (" .. tostring(qb2 and qb2.args[3]) .. " rangées)")
   -- Munitions (rang 2) : la rangée d'assembleurs demande des bras rapides ; sans leur technologie, recherche.
   local mag = win(10, { ["iron-plate"] = 300, ["firearm-magazine"] = 2 * 3600 }, { ["iron-plate"] = 60, ["firearm-magazine"] = 60 })
   local book_mag = Book.new(recipes, { allowed = function(n) return n ~= "fast-inserter" end })

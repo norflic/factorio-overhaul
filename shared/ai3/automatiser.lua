@@ -56,6 +56,9 @@ A.PLATE_S = 1.0          -- PNJ-s par plaque brute sans mesure (minage à la mai
 A.QUAI_FILL = 400        -- objets portés au quai d'entrée par aller-retour (Build.QUAI_FILL)
 A.COLLECT_AT = 200       -- objets rapportés du quai de sortie par aller-retour (Build.COLLECT_AT)
 A.BELT_FLOW = 1.0        -- objets/s : au-delà, une voie de minerai est servie par tapis depuis des foreuses (P.AUTO_FLOW)
+A.QUAI_RATE = 0.635      -- objets/s d'un bras simple au quai de sortie (0,83 × 0,85 × 0,9 : M.choose_inserters) ; au-delà,
+                         -- le plan directeur pose un bras RAPIDE (technologie) : la taille du module se règle sur ce qui se
+                         -- fabrique (moteur réel, e4-usine : fonderie de 7 rangées, 2 bras rapides impossibles, réserve 15 min)
 A.DRILL_RATE = 0.5       -- minerai/s d'une foreuse électrique (vitesse 0,5, temps 1 s)
 A.BELT_LEN = 28          -- tuiles de tapis estimées des foreuses à la tête d'alimentation (un pas de treillis)
 A.NET_POLES = 3          -- poteaux de réseau estimés jusqu'au carrefour le plus proche
@@ -195,12 +198,13 @@ local function feed_extra(method, g)
       add("inserter", 1)
     end
   end
-  local outs = 0
-  for _, it in ipairs(sorted_keys(g.nominal)) do if it ~= "electricity-kw" then outs = outs + 1 end end
-  -- un quai de sortie par port de sortie : les fonderies en ont deux (une rangée de fours chacune)
+  local outn = 0
+  for _, it in ipairs(sorted_keys(g.nominal)) do if it ~= "electricity-kw" then outn = outn + g.nominal[it] end end
+  -- un quai de sortie par port de sortie : les fonderies en ont deux (une rangée de fours chacune) ; bras rapide quand un
+  -- bras simple ne suffit pas (choix du plan directeur, P.out_quai)
   local ports = method.gen == "smelter" and 2 or 1
   add("iron-chest", ports)
-  add("inserter", ports)
+  add(outn / ports > A.QUAI_RATE and "fast-inserter" or "inserter", ports)
   if (g.power_kw or 0) > 0 then add("medium-electric-pole", A.NET_POLES) end
   return items, n, quais_in, ports
 end
@@ -317,6 +321,26 @@ function A.decide(input)
     else
       local rate = math.max(1, D) * (100 + margin) / 100
       local g, args = A.sized(meth, rate)
+      local function missing_of(gg)
+        local _, its = A.cost(meth, gg, { has_plant = true })
+        local miss = {}
+        for _, name in ipairs(sorted_keys(its)) do
+          if not (input.obtainable and input.obtainable(name)) then miss[#miss + 1] = name end
+        end
+        return miss
+      end
+      -- La plus grande taille que l'équipe sait FABRIQUER (une taille plus petite peut se passer d'un objet impossible, le
+      -- bras rapide d'un quai de sortie) ; l'objet impossible ne fait rechercher que si même la plus petite le demande.
+      if g and g.ext and #missing_of(g) > 0 then
+        local cur = args[g.ext.arg]
+        for n = cur - 1, 1, -1 do
+          local a2 = {}
+          for i = 1, #args do a2[i] = args[i] end
+          a2[g.ext.arg] = n
+          local g2 = A.template(meth.gen, a2)
+          if g2 and #missing_of(g2) == 0 then g, args = g2, a2 break end
+        end
+      end
       if not g then
         v.verdict, v.why = "non", "gabarit : " .. tostring(args)
       else

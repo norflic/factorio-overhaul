@@ -470,10 +470,19 @@ local function plan_power(f, p, mp, masks)
   -- Lot IA3-e : le carrefour le plus proche du module peut n'avoir aucun quart libre (rive, eau : la centrale) ; on prend
   -- le plus proche des carrefours voisins qui en a un (moteur réel, e3-usine, azure : centrale refusée « pas de rue vers
   -- le reseau » alors qu'elle amorçait le réseau, son carrefour étant dans l'eau).
-  if not spot_of(mi, mj) then
+  -- Lot IA3-e : le PREMIER réseau (la centrale) part d'un carrefour relié au QG par les rues : la centrale au bord de
+  -- l'eau, son carrefour isolé par des rues fermées (eau), aucun module ne pouvait ensuite la rejoindre (moteur réel,
+  -- e4-usine graine 271828182, emerald : 15 refus « pas de rue vers le reseau »).
+  local first_net = next(b.net) == nil
+  local function reach_hq(i, j)
+    if not first_net then return true end
+    return P.route_nodes({ i = i, j = j }, { i = 0, j = 0 }, seg_passable(b), b.radius) ~= nil
+      or P.route_nodes({ i = i, j = j }, { i = 0, j = 0 }, seg_wire(b), b.radius) ~= nil
+  end
+  if not (spot_of(mi, mj) and reach_hq(mi, mj)) then
     local cands = {}
-    for dj = -1, 1 do
-      for di = -1, 1 do
+    for dj = -2, 2 do
+      for di = -2, 2 do
         if di ~= 0 or dj ~= 0 then
           local n = P.node_pos(b.lat, mi + di, mj + dj)
           cands[#cands + 1] = { i = mi + di, j = mj + dj, d = (n.x - mp.x) ^ 2 + (n.y - mp.y) ^ 2 }
@@ -482,7 +491,7 @@ local function plan_power(f, p, mp, masks)
     end
     table.sort(cands, function(a, c) if a.d ~= c.d then return a.d < c.d end if a.j ~= c.j then return a.j < c.j end return a.i < c.i end)
     for _, c in ipairs(cands) do
-      if spot_of(c.i, c.j) then mi, mj = c.i, c.j break end
+      if spot_of(c.i, c.j) and reach_hq(c.i, c.j) then mi, mj = c.i, c.j break end
     end
   end
   -- route de carrefours jusqu'au réseau (tronçons non fermés)
