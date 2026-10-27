@@ -10,6 +10,13 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 13 h 50 : `main` = 0.6.2** (foreuse aux 15 âges EN JEU, `8217fb0`, provisoire ; ronde 2 du centre en outils, `ba6c9ac` ;
+> sur main : harness 0, feuilles foreuse 580, levels 1667, api_lint 1260, f4-foreuses 7 OK, content 331 ; agent design TERMINÉ,
+> worktrees design retirés). **Workflow `tirs-par-age` LANCÉ** (`wf_91cd3f5e-b4a`, worktree `tirs`, `fo-logs\2026-10-27_TIRS`,
+> F357 à F360, E238 à E240) : demande du DC (tirs et sons des tourelles à la mesure de l'âge). Essai 3D par IA fini : rester en
+> procédural ; Meshy à la décision du DC. Workflows en cours : `ia-fin-cerveau` (PERF, SCALE, AUTO, CAPITAL), `capitalisation-pnj`,
+> `tirs-par-age`. Banc à 3 places.
+>
 > **27/10, 12 h 10 : CAPITALISATION** (le DC, 12 h 05 : « Le scaling des IA est aussi et surtout dans la maximisation des gisements,
 > de la fonte et des crafts […] c'est le concept de capitalisation qu'il faut implémenter » ; « Et concernant la recherche IA ? »).
 > Workflow `capitalisation-pnj` (relancé à 12 h 15 avec la précision du DC « plus de gisements, plus de fours dans la limite de ce qu'on peut faire fondre, si assembleurs disponibles des chaînes de production » : run `wf_181b9d75-fba` ; le premier run `wf_6987f189-654` est arrêté, hors jeu, worktree `capi`, livraison `fo-logs\2026-10-27_CAPI\INTEGRATION.md`
