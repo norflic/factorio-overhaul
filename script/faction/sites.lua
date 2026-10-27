@@ -249,6 +249,86 @@ local function refresh_reserve(f, tick)
   f.stats.reserve_dropped = (f.stats.reserve_dropped or 0) + 1
 end
 
+--- Examine UN chunk (cx, cy) : gisement d'une ressource demandée, libre, centré sur ses tuiles, lu une fois (carte de
+--- valeur), mis en réserve s'il n'est ni hostile, ni pris, ni injoignable. Renvoie true si un site a été ajouté.
+--- (Corps de la boucle de Sites.prospect, sorti tel quel au lot IA3-f pour servir aussi à Sites.probe_at.)
+local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, war)
+  local center = { x = cx * 32 + 16, y = cy * 32 + 16 }
+  Profiler.start("prospect:checks")
+  -- Contrôles du moins cher au plus cher.
+  local free = far_from(center, other_hqs, MIN_DIST_OTHER_HQ)
+    and (f.is_player or far_from(center, { spawn }, MIN_DIST_PLAYER_SPAWN))
+    and surface.is_chunk_generated({ x = cx, y = cy })
+    and not unreachable(war, center, tick) and not claimed(war, center)
+  Profiler.stop("prospect:checks")
+  local area = { { cx * 32, cy * 32 }, { cx * 32 + 32, cy * 32 + 32 } }
+  if free and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
+    -- Ressource demandée la plus présente dans le chunk.
+    local best, best_n = nil, 0
+    for _, res in ipairs(wanted) do
+      local c = count_resources(surface, area, res, 64)
+      if c > best_n then best, best_n = res, c end
+    end
+    if best and best_n >= MIN_SITE_RESOURCES then
+      Trace.log("prospect", f.key, best)
+      Profiler.start("prospect:find")
+      local tiles = surface.find_entities_filtered({ area = area, name = best, limit = 64 })
+      Profiler.stop("prospect:find")
+      local sx, sy, rich = 0, 0, 0
+      for _, r in ipairs(tiles) do
+        local p = r.position
+        sx, sy = sx + p.x, sy + p.y
+        rich = rich + (r.amount or 0)
+      end
+      local site = { x = sx / #tiles, y = sy / #tiles, resource = best, front = front and front.key or nil }
+      -- Lot IA2-b : richesse, eau et terrain lus UNE fois à la découverte (carte de valeur, shared/faction/valeur.lua).
+      Profiler.start("prospect:value")
+      site.rich, site.tiles = rich, #tiles
+      site.water = surface.count_tiles_filtered({ position = site, radius = 24, collision_mask = "water-tile", limit = 1 }) > 0
+      site.rough = surface.count_entities_filtered({ position = site, radius = 12, type = { "tree", "simple-entity" }, limit = 100 })
+      site.cliffs = surface.count_entities_filtered({ position = site, radius = 16, type = "cliff", limit = 8 })
+      Profiler.stop("prospect:value")
+      -- Moteur réel (session 3) : 27 ingénieurs tués par des vers près de leurs sites. Un site à portée
+      -- d'ennemis (déchiqueteurs) est évité ; les ennemis éliminés, il redevient prospectable.
+      local hostile = surface.count_entities_filtered({ position = site, radius = ENEMY_CLEARANCE, force = "enemy", limit = 1 }) > 0
+      if hostile then
+        Sites.mark_unreachable(site, tick)
+        f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
+      elseif not unreachable(war, site, tick) and not claimed(war, site) and not near_prospect(f, site) then
+        f.prospects[#f.prospects + 1] = site
+        f.stats.prospected = (f.stats.prospected or 0) + 1
+        return true
+      end
+    end
+  end
+  return false
+end
+
+local function other_hqs_of(f)
+  local other_hqs = {}
+  for _, id in ipairs(State.alive()) do
+    if id ~= f.id then other_hqs[#other_hqs + 1] = State.faction(id).hq_pos end
+  end
+  return other_hqs
+end
+
+--- Lot IA3-f (exploration sous brouillard) : crochet posé par script/ai3/exploration.lua. seen_filter(f, cx, cy) rend
+--- faux pour un chunk dont le secteur n'a jamais été VU par l'équipe : la prospection le saute sans appel moteur et sans
+--- compter de sonde. Sans crochet (ou brouillard coupé : il rend toujours vrai), la prospection est celle d'avant.
+Sites.seen_filter = nil
+local SKIPS_PER_STEP = 64
+
+--- Lot IA3-f : un gisement VU par un œil de l'équipe (x, y) est examiné tout de suite, même hors du disque de
+--- prospection (éclaireur lointain), avec les mêmes règles que la prospection. Renvoie true si un site a été ajouté.
+function Sites.probe_at(f, surface, x, y, tick)
+  f.prospects = f.prospects or {}
+  if #f.prospects >= max_prospects(f) then return false end
+  local wanted = wanted_resources(f)
+  if #wanted == 0 then return false end
+  local spawn = game.forces.player.get_spawn_position(surface)
+  return probe(f, surface, math.floor(x / 32), math.floor(y / 32), tick, wanted, nil, other_hqs_of(f), spawn, State.war())
+end
+
 function Sites.prospect(f, surface, tick)
   f.prospects = f.prospects or {}
   if not f.is_player and tick >= (f.reserve_refresh or 0) then
@@ -265,10 +345,7 @@ function Sites.prospect(f, surface, tick)
     return
   end
   local war = State.war()
-  local other_hqs = {}
-  for _, id in ipairs(State.alive()) do
-    if id ~= f.id then other_hqs[#other_hqs + 1] = State.faction(id).hq_pos end
-  end
+  local other_hqs = other_hqs_of(f)
   local spawn = game.forces.player.get_spawn_position(surface)
   if not f.is_player then
     -- Front perdu (avant-poste détruit) : retour au QG.
@@ -284,7 +361,8 @@ function Sites.prospect(f, surface, tick)
   local hcx, hcy = math.floor(origin.x / 32), math.floor(origin.y / 32)
   local n = front and N_FRONT or (f.prospect_wide and #OFFSETS or N_NEAR)
   local cursor = front and "front_cursor" or "site_cursor"
-  for _ = 1, PROBES_PER_STEP do
+  local probes, skips = 0, 0
+  while probes < PROBES_PER_STEP do
     local k = f[cursor] or 1
     if k > n then
       f[cursor] = 1
@@ -313,58 +391,20 @@ function Sites.prospect(f, surface, tick)
     f[cursor] = k + 1
     local o = OFFSETS[k]
     local cx, cy = hcx + o.dx, hcy + o.dy
-    local center = { x = cx * 32 + 16, y = cy * 32 + 16 }
-    Profiler.start("prospect:checks")
-    -- Contrôles du moins cher au plus cher.
-    local free = far_from(center, other_hqs, MIN_DIST_OTHER_HQ)
-      and (f.is_player or far_from(center, { spawn }, MIN_DIST_PLAYER_SPAWN))
-      and surface.is_chunk_generated({ x = cx, y = cy })
-      and not unreachable(war, center, tick) and not claimed(war, center)
-    Profiler.stop("prospect:checks")
-    local area = { { cx * 32, cy * 32 }, { cx * 32 + 32, cy * 32 + 32 } }
-    if free and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
-      -- Ressource demandée la plus présente dans le chunk.
-      local best, best_n = nil, 0
-      for _, res in ipairs(wanted) do
-        local c = count_resources(surface, area, res, 64)
-        if c > best_n then best, best_n = res, c end
-      end
-      if best and best_n >= MIN_SITE_RESOURCES then
-        Trace.log("prospect", f.key, best)
-        Profiler.start("prospect:find")
-        local tiles = surface.find_entities_filtered({ area = area, name = best, limit = 64 })
-        Profiler.stop("prospect:find")
-        local sx, sy, rich = 0, 0, 0
-        for _, r in ipairs(tiles) do
-          local p = r.position
-          sx, sy = sx + p.x, sy + p.y
-          rich = rich + (r.amount or 0)
+    if Sites.seen_filter and not Sites.seen_filter(f, cx, cy) then
+      -- Lot IA3-f : secteur jamais vu par l'équipe : sauté, sans appel moteur ni sonde comptée.
+      skips = skips + 1
+      if skips >= SKIPS_PER_STEP then return end
+    else
+      probes = probes + 1
+      if probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, war) then
+        if front then
+          f.front_found = (f.front_found or 0) + 1
+        else
+          f.prospect_found = (f.prospect_found or 0) + 1
         end
-        local site = { x = sx / #tiles, y = sy / #tiles, resource = best, front = front and front.key or nil }
-        -- Lot IA2-b : richesse, eau et terrain lus UNE fois à la découverte (carte de valeur, shared/faction/valeur.lua).
-        Profiler.start("prospect:value")
-        site.rich, site.tiles = rich, #tiles
-        site.water = surface.count_tiles_filtered({ position = site, radius = 24, collision_mask = "water-tile", limit = 1 }) > 0
-        site.rough = surface.count_entities_filtered({ position = site, radius = 12, type = { "tree", "simple-entity" }, limit = 100 })
-        site.cliffs = surface.count_entities_filtered({ position = site, radius = 16, type = "cliff", limit = 8 })
-        Profiler.stop("prospect:value")
-        -- Moteur réel (session 3) : 27 ingénieurs tués par des vers près de leurs sites. Un site à portée
-        -- d'ennemis (déchiqueteurs) est évité ; les ennemis éliminés, il redevient prospectable.
-        local hostile = surface.count_entities_filtered({ position = site, radius = ENEMY_CLEARANCE, force = "enemy", limit = 1 }) > 0
-        if hostile then
-          Sites.mark_unreachable(site, tick)
-          f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
-        elseif not unreachable(war, site, tick) and not claimed(war, site) and not near_prospect(f, site) then
-          f.prospects[#f.prospects + 1] = site
-          if front then
-            f.front_found = (f.front_found or 0) + 1
-          else
-            f.prospect_found = (f.prospect_found or 0) + 1
-          end
-          f.stats.prospected = (f.stats.prospected or 0) + 1
-          wanted = wanted_resources(f)
-          if #wanted == 0 or #f.prospects >= max_prospects(f) then return end
-        end
+        wanted = wanted_resources(f)
+        if #wanted == 0 or #f.prospects >= max_prospects(f) then return end
       end
     end
   end
