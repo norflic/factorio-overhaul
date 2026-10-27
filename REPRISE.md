@@ -10,6 +10,11 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 10 h 15 : X3 FUSIONNÉ (proposition hors jeu, `f76af76`, `0f78e4f`) et D-20 du DC** (QCM) : fonderie de puces OBLIGATOIRE
+> à l'âge 10 ; gamme de robots à concevoir « style Supreme Commander 2 » ; une partie des niveaux en pièces montées, que le cerveau
+> des PNJ doit faire DE LUI-MÊME (rien en dur) ; calcul NON stockable, par script. À reporter dans `shared/content/x3.lua` et §3.7 au
+> lot de mise en jeu (X3-0…), après la priorité IA. Worktree `x3` à retirer (refusé : dossier courant de la session).
+>
 > **27/10, 9 h 55 : IA3-e LIVRÉ, NON FUSIONNÉ** (tête `d7e8a7d` = main 0.5.0 + lot ; `fo-logs\2026-10-27_IA3-e\INTEGRATION.md`) :
 > règle « main ou machine » pour TOUT objet (module généré depuis la recette), ordre tiré de la profondeur du graphe, interface
 > pure pour IA-G (§0) ; verif-guide 15 OK × 2, content 331, ia1-build-plaine 12, K11, K10 0,157 ms en `--seul`. **Refusé en

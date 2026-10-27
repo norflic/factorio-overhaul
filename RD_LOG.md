@@ -243,6 +243,13 @@
   Q-IA1-7 rangs et avantage maintenu. Première vague (lots indépendants, §16) : IA1-0 (risques moteur R1 à R9), IA1-a
   (échelle 30), IA1-c (gabarits). Identifiants réservés : IA1-0 F175 à F179, E121 à E123 ; IA1-a F180 à F182, E124,
   E125 ; IA1-c F183 à F185, E126, E127.
+- 27/10, vers 10 h 15, **les 4 questions d'X3 (QCM dans Claude Code, R-QCM-27a)** : (1) voie obligatoire : « Fonderie de puces à l'âge 10 » ; (2) robots : « Ils faudrait créer d’autres robots, si vous voulez un peu un style d’inspiration ça serait style Suprême Commander 2 (modérateur revemp mod (designs plus créatif et complet)) » ;
+  (3) niveaux en pièces montées : « Oui une partie du coût des niveau en pièces montée. A noter que si l’IA est autonome elle le fera d’elle même, il faut que ce soit un choix logique et nom encré en dur c’est très important » ; (4) calcul stockable : « Non stockable, par script ».
+  → **Décision D-20** : (1) fonderie de puces OBLIGATOIRE à l'âge 10 (le quartz devient un passage obligé : garantie à prouver
+  sur toute graine) ; (2) une gamme de robots à concevoir dans l'esprit de Supreme Commander 2 (lot de conception à ouvrir) ;
+  (3) une partie du coût des niveaux en pièces montées, et le cerveau des PNJ le fait de lui-même, sans rien d'écrit en dur ;
+  (4) calcul NON stockable, tenu par script (D-19 précisé). Contraire aux recommandations (1), (3) et (4) de l'orchestrateur :
+  appliqué tel quel. Mise en jeu après la priorité IA.
 - 27/10, vers 8 h 25, **le CALCUL comme ressource (lot X3)** : « "Je propose qu’il fonctionne comme l’électricité : un centre de calcul le produit en consommant du courant et du refroidissement." Complètement d’accord je valide ».
   → **Décision D-19** : le calcul est une ressource de RÉSEAU, comme l'électricité : un centre de calcul (bâtiment nouveau)
   le PRODUIT en consommant électricité et refroidissement ; des consommateurs le TIRENT (recherche, pilotage des robots de
