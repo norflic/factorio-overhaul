@@ -1167,6 +1167,22 @@ function M.new_world(opts)
   end
   surface.count_tiles_filtered = function(t)
     assert(t.area or (t.position and t.radius), "count_tiles_filtered : zone attendue")
+    -- Lot CENTRALE : l'eau (collision_mask = "water-tile") est comptée sur la zone (regard des secteurs de l'exploration, terrain
+    -- d'une ligne de poteaux) ; tout autre filtre rend 0 comme avant.
+    if t.area and t.collision_mask == "water-tile" then
+      local lt, rb = t.area[1], t.area[2]
+      local n = 0
+      for y = math.floor(lt[2]), math.ceil(rb[2]) - 1 do
+        for x = math.floor(lt[1]), math.ceil(rb[1]) - 1 do
+          local name = tile_name_at(x, y)
+          if name == "water" or name == "deepwater" then
+            n = n + 1
+            if t.limit and n >= t.limit then return n end
+          end
+        end
+      end
+      return n
+    end
     return 0
   end
   -- Lot M0 : tuiles d'une zone { {x0, y0}, {x1, y1} } (bornes du moteur : x0 <= x < x1), sans autre filtre.

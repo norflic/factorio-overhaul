@@ -50,6 +50,10 @@ K.MARKS = 16                  -- incidents retenus
 K.DANGER = { nest = 250, worm = 100, mark_radius = 96, mark_ttl = 20 * 3600, rival = 600, rival_radius = 256,
   cap = 1000, skip = 900 }
 K.MAX_DIST = 1600             -- aucune cible d'exploration au-delà de 1 600 tuiles du QG
+-- Lot CENTRALE : l'EAU est une « ressource » de l'exploration (demande, mission, compteur de secteurs). Ce n'est pas le
+-- nom d'un fluide ou d'une tuile du jeu (tests/iag_test.lua §8) : une clé interne de la carte, jamais lue par le moteur.
+K.WATER = "eau"
+K.CORRIDOR_STEP = 32          -- lot CENTRALE : pas d'échantillonnage d'un couloir (une ligne de poteaux)
 
 ---------------------------------------------------------------------------------------------------
 -- Secteurs
@@ -101,7 +105,8 @@ local function copy_points(list)
 end
 
 --- Résultat d'un regard. obs = { res = { { name, n, a, x, y }, ... }, nests = { {x, y} }, worms = { {x, y} }, water }.
---- Renvoie la liste (triée) des ressources NOUVELLES dans ce secteur.
+--- Renvoie la liste (triée) des ressources NOUVELLES dans ce secteur, et (lot CENTRALE) vrai si ce secteur montre de l'EAU
+--- pour la première fois.
 function K.record(m, key, tick, obs)
   local s = m.s[key]
   if not s then
@@ -110,6 +115,13 @@ function K.record(m, key, tick, obs)
     m.n = m.n + 1
   end
   s.t = tick
+  local water_before = s.w == true
+  if m.cnt == nil then m.cnt = {} end
+  if m.cnt[K.WATER] == nil then -- carte d'avant le lot CENTRALE : secteurs d'eau déjà vus, comptés une fois
+    local n = 0
+    for _, k in ipairs(sorted_keys(m.s)) do if m.s[k] ~= s and m.s[k].w then n = n + 1 end end
+    m.cnt[K.WATER] = n + (water_before and 1 or 0)
+  end
   local old = {}
   for _, r in ipairs(s.r or {}) do old[r.name] = true end
   local res = {}
@@ -138,7 +150,16 @@ function K.record(m, key, tick, obs)
   s.sp = #sp > 0 and sp or nil
   s.wm = #wm > 0 and wm or nil
   s.w = obs.water and true or nil
-  return fresh
+  -- Lot CENTRALE : un secteur qui montre de l'eau pour la première fois est une trouvaille, comme un gisement nouveau ; la
+  -- liste `fresh` reste celle des ressources (ses lecteurs d'avant ne changent pas), le fait est rendu en SECOND (vrai).
+  local water_new = false
+  if s.w and not water_before then
+    m.cnt[K.WATER] = m.cnt[K.WATER] + 1
+    water_new = true
+  elseif water_before and not s.w then
+    m.cnt[K.WATER] = math.max(0, m.cnt[K.WATER] - 1)
+  end
+  return fresh, water_new
 end
 
 --- Incident (éclaireur en fuite, PNJ tué par l'ennemi) : la zone devient dangereuse pendant mark_ttl.
@@ -177,7 +198,32 @@ function K.deposits(m, res, from)
 end
 
 --- Nombre de secteurs où un gisement de la ressource est vu (tenu à chaque regard : aucun parcours).
-function K.count(m, res) return (m.cnt and m.cnt[res]) or 0 end
+function K.count(m, res)
+  if res == K.WATER and not (m.cnt and m.cnt[K.WATER] ~= nil) then
+    local n = 0 -- carte d'avant le lot CENTRALE, aucun regard depuis : balayage (rien n'est écrit)
+    for _, k in ipairs(sorted_keys(m.s)) do if m.s[k].w then n = n + 1 end end
+    return n
+  end
+  return (m.cnt and m.cnt[res]) or 0
+end
+
+--- Secteurs où de l'EAU a été vue : { key, x, y (centre du secteur), d2 (distance² à `from`) }, du plus proche au plus
+--- lointain (à distance égale, par clé) ; `exclude` = { [clé] = raison } écartés.
+function K.waters(m, from, exclude)
+  local out = {}
+  for _, k in ipairs(sorted_keys(m.s)) do
+    if m.s[k].w and not (exclude and exclude[k]) then
+      local cx, cy = A.center(A.xy(k))
+      local dx, dy = cx - from.x, cy - from.y
+      out[#out + 1] = { key = k, x = cx, y = cy, d2 = dx * dx + dy * dy }
+    end
+  end
+  table.sort(out, function(p, q)
+    if p.d2 ~= q.d2 then return p.d2 < q.d2 end
+    return p.key < q.key
+  end)
+  return out
+end
 
 --- Ressources connues (au moins un gisement vu), triées.
 function K.known_resources(m) return sorted_keys(m.found) end
@@ -309,6 +355,41 @@ function K.sector_risk(m, key, tick, rivals)
   return r
 end
 
+--- Lot CENTRALE : risque d'un COULOIR (le segment a → b que suivra une ligne de poteaux et les PNJ qui la posent), lu à la
+--- seule connaissance de l'équipe : { samples, unseen (secteurs jamais vus), risk (pour mille, le pire secteur : nids,
+--- vers, incidents, QG rival), nests (nids vus à moins de K.PATH du segment), length }. Échantillons tous les
+--- K.CORRIDOR_STEP tuiles, extrémités comprises. `skip_dist` (défaut 0) : les premières tuiles du segment à partir de `a` ne
+--- comptent pas (le territoire de la base, sa propre zone défendue : un QG au bord d'un nid ne doit pas interdire tout
+--- départ ; moteur réel, 28/10, graine 271828182, Azure : 10 nids à 128 tuiles du QG, risque 1000 dès le secteur du QG).
+function K.line_risk(m, a, b, tick, rivals, skip_dist)
+  local dx, dy = b.x - a.x, b.y - a.y
+  local len = math.sqrt(dx * dx + dy * dy)
+  skip_dist = skip_dist or 0
+  local n = math.max(1, math.ceil(len / K.CORRIDOR_STEP))
+  local seen, unseen, risk, worst = {}, 0, 0, nil
+  local samples = 0
+  for i = 0, n do
+    if len * i / n >= skip_dist then
+      local x, y = a.x + dx * i / n, a.y + dy * i / n
+      local key = K.key_of(x, y)
+      if not seen[key] then
+        seen[key] = true
+        samples = samples + 1
+        if not m.s[key] then unseen = unseen + 1 end
+        local r = K.sector_risk(m, key, tick, rivals)
+        if r > risk then risk, worst = r, key end
+      end
+    end
+  end
+  local from = a
+  if skip_dist > 0 and len > 0 then
+    local t = math.min(1, skip_dist / len)
+    from = { x = a.x + dx * t, y = a.y + dy * t }
+  end
+  local nests = (skip_dist >= len and skip_dist > 0) and 0 or K.path_nests(m, from, b)
+  return { samples = samples, unseen = unseen, risk = risk, worst = worst, nests = nests, length = len }
+end
+
 --- Frontière : secteurs NON VUS voisins (8-connexité) d'un secteur vu, triés par clé.
 function K.frontier(m)
   local out, added = {}, {}
@@ -335,7 +416,7 @@ end
 --- la distance). Facteur 0,5 à 2 selon la distance du secteur au départ, rapportée à celle du QG (au moins 256).
 --- Une ressource déjà vue quelque part : a priori uniforme (1 000).
 function K.prior(m, res, key, spawn, hq)
-  if res == nil or m.found[res] then return 1000 end
+  if res == nil or res == K.WATER or m.found[res] then return 1000 end -- l'eau : pas de biais d'éloignement (lot CENTRALE)
   local cx, cy = A.center(A.xy(key))
   local ds = math.sqrt((cx - spawn.x) ^ 2 + (cy - spawn.y) ^ 2)
   local dh = math.max(256, math.sqrt((hq.x - spawn.x) ^ 2 + (hq.y - spawn.y) ^ 2))
