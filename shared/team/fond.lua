@@ -46,6 +46,10 @@ F.GARRISON_PER_POST = 1  -- une garde par avant-poste (et une au QG)
 F.CRAFT_BATCH = 10       -- une fabrication de fond : 10 objets (essai 1 : 4 objets = 8 s de travail, trop court)
 F.CRAFT_TASKS = 8        -- au plus 8 fabrications de fond par objet et par pensée
 F.AHEAD = 8              -- lot COFFRE : paires d'avance au plus pour la réserve de biens d'équipement (F.potential)
+-- Lot ADOPTE : VOTRE équipe garde moins de paires d'avance que les factions (graine 123456789, 60 min : 8 fours et 8 foreuses d'avance
+-- restaient au coffre toute la partie, les « 12 fours dormants » du constat du DC ; ses extensions réussissent, la réserve ne sert
+-- qu'à gagner quelques secondes de fabrication).
+F.PLAYER_AHEAD = 4
 -- Réserve de biens d'équipement visée (stock + fabrications en cours), ordre FIXE (celui des préférences) : au moins
 -- `min`, et autant que les agrandissements possibles (paires restantes des avant-postes + sites connus), au plus `max`.
 F.RESERVE = {
@@ -257,7 +261,7 @@ function F.potential(view, ctx, free)
       if ready then n = n + pairs_n end
     end
   end
-  return math.min(F.AHEAD, n)
+  return math.min((ctx.reserve ~= nil and ctx.reserve == F.PLAYER_RESERVE) and F.PLAYER_AHEAD or F.AHEAD, n)
 end
 
 local function base(view, free, ctx, out)
