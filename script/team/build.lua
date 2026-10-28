@@ -30,7 +30,7 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
-local PlantArms = require("script.team.plant_arms") -- lot PLANDIR (T2) : bras de la centrale, combustion puis électrique
+local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -737,7 +737,7 @@ local function quai_poles(b, p, list, masks, pole_name)
   for _, e in ipairs(list) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
   local extra = {}
   for _, e in ipairs(list) do
-    if QUAI_ROLES[e.role] and not covered_by(poles, e) then
+    if QUAI_ROLES[e.role] and e.name ~= M.BURNER_ARM and not covered_by(poles, e) then
       local tx0, ty0 = math.floor(e.x), math.floor(e.y)
       for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 }, { 2, 0 }, { -2, 0 }, { 0, 2 }, { 0, -2 } }) do
         local tx, ty = tx0 + d[1], ty0 + d[2]
@@ -799,8 +799,8 @@ local function plan_feed(f, surface, p, place, part)
       end
       -- centrale : bras À COMBUSTION au quai (correction du 27/10 : avec un bras électrique, pas de charbon sans courant
       -- ni de courant sans charbon, 0 kW au banc ia1-build-plaine) ; il se ravitaille avec le charbon qu'il porte. Lot
-      -- PLANDIR (T2) : démarrage seulement, PlantArms le remplace par un bras électrique dès que la centrale produit ;
-      -- son poteau de quai est donc posé dès maintenant
+      -- PLANDIR (28/10) : ils le RESTENT, mesuré : passés à l'électrique, les bras de la centrale la tuaient en 1,5 à 3,5 min
+      -- (6 cas sur 6)
       local quai_ins = (g.gen == "steam") and M.BURNER_ARM or "inserter"
       local fd = P.feeder(port, sources, quai_ins)
       for _, e in ipairs(fd.entities) do e.part = part end
@@ -832,7 +832,7 @@ local function plan_feed(f, surface, p, place, part)
           end
         end
       end
-      do
+      if quai_ins ~= M.BURNER_ARM then
         local qp = quai_poles(b, p, quay_ents, place.masks, g.pole_name)
         if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       end
@@ -2182,7 +2182,7 @@ local function pulse_team(f, tick)
       if was == "plan" and p.state ~= "plan" then break end
     end
   end
-  -- 3. lot PLANDIR (T2) : bras de la centrale finie, combustion au démarrage puis électriques
+  -- 3. lot PLANDIR : moniteur de la centrale finie (premier courant, pannes)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
 end
