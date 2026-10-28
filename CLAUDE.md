@@ -47,7 +47,10 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
    `factorio.exe` dont la ligne de commande contient le chemin complet du dossier `fo-visual`.
 4. **Bancs toujours par la FILE** : `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>]
    [--son] [--captures] [--visuel="<args>"] [--seul] --qui <lot> -- <ticks> <scenario> <source>`. Jusqu'à 3 places
-   (`<racine>\fo-banc-places.txt`, **remettre 1 quand le DC joue**) ; les images ne tournent qu'à la place 1 ; toute mesure
+   (`<racine>\fo-banc-places.txt`, **remettre 1 quand le DC joue**) ; **depuis le 28/10 vers 18 h, ordre du DC : UN SEUL
+   factorio.exe de test à la fois, tests GROUPÉS (scénarios composites), AUCUNE boucle de sondage `until/sleep/tail/grep`**
+   (50 `banc.py` en attente et des dizaines de shells par minute rendaient son PC inutilisable ; le fichier de places
+   absent vaut 2 : ne jamais le supprimer) ; les images ne tournent qu'à la place 1 ; toute mesure
    de performance se lance avec `--seul`. Ne jamais appeler `fo-autotest.bat` en boucle soi-même. Détails :
    `docs/MEMO_COMPLET.md` §4.
 5. Aucune donnée personnelle, aucun identifiant, rien à publier.
