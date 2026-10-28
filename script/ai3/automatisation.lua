@@ -23,6 +23,7 @@
 
 local T = require("shared.team.config")
 local A = require("shared.ai3.automatiser")
+local L = require("shared.team.lointain") -- lot CENTRALE : règles pures de la centrale à distance
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
@@ -300,7 +301,12 @@ local function refresh(f, st, tick)
         m.state, m.reason, m.missing = state, s.reason, s.missing or {}
         m.built, m.total = s.built or 0, s.total or 0
         if state == "reserve" then
-          reserve_clock(m, "reserve_since", "reserve_left", s, tick)
+          -- Lot CENTRALE : un module électrique n'a pas faim de sa faute tant que la centrale n'est pas finie
+          if L.freezes_clock(m.electric, st.plant_state) then
+            m.reserve_since, m.reserve_left = tick, missing_count(s)
+          else
+            reserve_clock(m, "reserve_since", "reserve_left", s, tick)
+          end
           if tick - m.reserve_since > Auto.RESERVE_MAX and Build.cancel(f, m.id, "materiaux introuvables (15 min sans progres)") then
             state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables (15 min sans progres)"
             -- Repli de l'équipe : plus de NOUVELLE demande pendant 15 min × le nombre de réserves affamées (moteur réel,
@@ -365,7 +371,9 @@ local function signature(f, tick, st)
   local b = f.build
   -- plan directeur éteint (rien à bâtir) : le rayon qu'il avait (sinon la signature changerait à l'extinction et tout
   -- refus serait redemandé à la minute suivante)
-  return string.format("r%d:e%d", b and b.radius or (st and st.last_radius or 0), math.floor(tick / Auto.REFUSE_EPOCH))
+  -- Lot CENTRALE : p = rives de la centrale lointaine écartées (pompe refusée) : la centrale est redemandée aussitôt
+  return string.format("r%d:e%d:p%d", b and b.radius or (st and st.last_radius or 0), math.floor(tick / Auto.REFUSE_EPOCH),
+    b and b.remote and b.remote.rejected or 0)
 end
 
 ---------------------------------------------------------------------------------------------------

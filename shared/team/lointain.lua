@@ -142,4 +142,21 @@ function L.passes_plant_gate(wait_water, electric)
   return wait_water == true and electric == false
 end
 
+--- Le minuteur « 15 min sans progrès » d'une réserve de module s'arrête-t-il ? Un module électrique ne peut rien faire
+--- avancer tant que la centrale (qui passe avant lui à la réserve) n'est pas finie : sa faim n'est pas la sienne (moteur
+--- réel, etape1-guide 123456789, Écarlate : centrale lointaine finie à 14,7 min, premier module annulé à 23,4 min).
+--- plant_state : état de la centrale demandée (nil : aucune) ; "fini" ou "refuse" : le minuteur reprend.
+function L.freezes_clock(electric, plant_state)
+  if not electric or plant_state == nil then return false end
+  return plant_state ~= "fini" and plant_state ~= "refuse"
+end
+
+--- Une rive dont le fantôme de pompe est refusé est écartée pour de bon (le secteur la saute) et la centrale se replanifie
+--- tout de suite à la rive suivante. `cur` : { [secteur] = rives consommées }, `site` : { key, idx }. Rend le nouveau
+--- compteur de la rive consommée.
+function L.skip_shore(cur, site)
+  cur[site.key] = math.max(cur[site.key] or 0, site.idx)
+  return cur[site.key]
+end
+
 return L

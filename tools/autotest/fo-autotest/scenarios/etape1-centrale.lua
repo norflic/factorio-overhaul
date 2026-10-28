@@ -20,6 +20,25 @@ end
 
 base.tick = function(ctx, e)
   if tick0 then tick0(ctx, e) end
+  -- chantiers des factions toutes les 2 min (diagnostic : état, entités posées, ce qui reste et pourquoi)
+  if e.tick > 0 and e.tick % (2 * MIN) == 0 then
+    for _, r in ipairs(factions()) do
+      local okr, rep = pcall(remote.call, "fo-ia1d", "report", r.key)
+      if okr and rep then
+        for _, pr in ipairs(rep.projects or {}) do
+          if pr.state ~= "fini" and pr.state ~= "refuse" then
+            local ub = {}
+            for i, u in ipairs(pr.unbuilt or {}) do
+              if i <= 4 then ub[#ub + 1] = string.format("%s@%d,%d f%d npc%d", u.name, u.x, u.y, u.fails, u.npc) end
+            end
+            log(TAG .. string.format("chantier minute %d | %s | #%s %s %s (%d/%d) obst %d/%d | non poses %s", e.tick / MIN, r.key,
+              tostring(pr.id), tostring(pr.state), tostring(pr.reason), pr.built or 0, pr.total or 0,
+              pr.open_obstacles or 0, pr.obstacles or 0, table.concat(ub, "; ")))
+          end
+        end
+      end
+    end
+  end
   if e.tick > 0 and e.tick % (5 * MIN) == 0 then
     local s = ctx.surface()
     for _, r in ipairs(factions()) do
@@ -44,8 +63,41 @@ base.tick = function(ctx, e)
       end
       local n = 0
       for _ in pairs(nets) do n = n + 1 end
-      log(TAG .. string.format("reseau minute %d | %s | generateurs=%d reseaux=%d poteaux_total=%d poteaux_sur_reseau_centrale=%d plus_loin_poteau_de_ligne=%.0f kW_produits=%.0f",
-        e.tick / MIN, r.key, #gens, n, #poles, on, far, kw))
+      -- chaudières : combustible (charbon livré à la centrale) et état ; consommateurs : foreuses électriques et machines
+      -- qui travaillent (« l'électricité est CONSOMMÉE »)
+      local fuel, bo_ok, bo_dry, boilers = 0, 0, 0, s.find_entities_filtered({ force = r.force, type = "boiler" })
+      for _, bo in ipairs(boilers) do
+        local inv = bo.get_fuel_inventory()
+        if inv then fuel = fuel + inv.get_item_count() end
+        if bo.status == defines.entity_status.working then bo_ok = bo_ok + 1
+        elseif bo.status == defines.entity_status.no_fuel then bo_dry = bo_dry + 1 end
+      end
+      local dr_elec, dr_work, am_work = 0, 0, 0
+      for _, d in ipairs(s.find_entities_filtered({ force = r.force, type = "mining-drill" })) do
+        if d.prototype.electric_energy_source_prototype then
+          dr_elec = dr_elec + 1
+          if d.status == defines.entity_status.working then dr_work = dr_work + 1 end
+        end
+      end
+      for _, a in ipairs(s.find_entities_filtered({ force = r.force, type = { "assembling-machine", "lab" } })) do
+        if a.status == defines.entity_status.working then am_work = am_work + 1 end
+      end
+      log(TAG .. string.format("reseau minute %d | %s | generateurs=%d reseaux=%d poteaux_total=%d poteaux_sur_reseau_centrale=%d plus_loin_poteau_de_ligne=%.0f kW_produits=%.0f"
+        .. " chaudieres=%d travaillent=%d sans_combustible=%d charbon_en_chaudiere=%d foreuses_elec=%d foreuses_elec_travaillent=%d machines_travaillent=%d",
+        e.tick / MIN, r.key, #gens, n, #poles, on, far, kw, #boilers, bo_ok, bo_dry, fuel, dr_elec, dr_work, am_work))
+      -- ravitaillement des quais (centrale lointaine : le charbon part du coffre du QG à pied) : objets remplis aux quais, objets
+      -- collectés, contenu des quais d'entrée de la centrale
+      local okq, rq = pcall(remote.call, "fo-ia1d", "report", r.key)
+      if okq and rq then
+        local qs = {}
+        for _, pr in ipairs(rq.projects or {}) do
+          if pr.parts and pr.parts[1] and pr.parts[1].kind == "centrale" then
+            for _, q in ipairs(pr.quais or {}) do qs[#qs + 1] = string.format("%s=%d", q.item, q.count) end
+          end
+        end
+        log(TAG .. string.format("quais minute %d | %s | remplis=%d collectes=%d | quais de la centrale : %s", e.tick / MIN, r.key,
+          rq.filled or 0, rq.collected or 0, table.concat(qs, " ")))
+      end
     end
   end
 end

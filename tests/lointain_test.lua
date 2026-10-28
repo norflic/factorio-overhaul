@@ -434,5 +434,44 @@ do
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- §8 Minuteur d'un module électrique, pompe refusée (corrections après les sceptiques du 28/10)
+---------------------------------------------------------------------------------------------------
+do
+  package.loaded["shared.team.lointain"] = nil
+  local Lr = require("shared.team.lointain")
+  local function ck(c, msg)
+    if c then pass = pass + 1 else fail = fail + 1; print("  ECHEC : " .. msg) end
+  end
+  -- minuteur : gelé pour un module électrique tant que la centrale demandée n'est pas finie ni refusée
+  ck(Lr.freezes_clock(true, "reserve") == true, "module electrique, centrale en reserve : minuteur gele")
+  ck(Lr.freezes_clock(true, "chantier") == true, "module electrique, centrale en chantier : minuteur gele")
+  ck(Lr.freezes_clock(true, "bloque") == true, "module electrique, centrale bloquee (reprise a venir) : minuteur gele")
+  ck(Lr.freezes_clock(true, "fini") == false, "centrale finie : le minuteur reprend")
+  ck(Lr.freezes_clock(true, "refuse") == false, "centrale refusee : le minuteur reprend")
+  ck(Lr.freezes_clock(true, nil) == false, "aucune centrale demandee : le minuteur court")
+  ck(Lr.freezes_clock(false, "chantier") == false, "module sans reseau : le minuteur court toujours")
+  ck(Lr.freezes_clock(nil, "chantier") == false, "module sans drapeau electrique : le minuteur court")
+  -- rive refusee : consommee pour de bon, jamais ramenee en arriere
+  local cur = { ["5:6"] = 2 }
+  ck(Lr.skip_shore(cur, { key = "5:6", idx = 4 }) == 4 and cur["5:6"] == 4, "rive 4 refusee : le secteur saute jusqu'a elle")
+  ck(Lr.skip_shore(cur, { key = "5:6", idx = 3 }) == 4, "une rive plus proche refusee apres coup ne ramene pas le compteur en arriere")
+  ck(Lr.skip_shore(cur, { key = "7:7", idx = 1 }) == 1 and cur["7:7"] == 1, "un autre secteur est a part")
+
+  -- Lointain.reject sur une equipe factice : compteur de rives ecartees, rive consommee, journal ; rien sans site lointain
+  local logs = {}
+  _G.log = function(s) logs[#logs + 1] = s end
+  package.loaded["script.team.lointain"] = nil
+  local Lo = require("script.team.lointain")
+  local f = { key = "azure", build = { remote = { want_water = false, bad = {}, cur = { ["5:6"] = 1 }, gen = {}, logged = 0 } } }
+  local p = { remote_site = { key = "5:6", idx = 3, x = 381, y = 392 } }
+  ck(Lo.reject(f, p) == true, "pompe refusee a une rive lointaine : reject rend vrai")
+  ck(f.build.remote.cur["5:6"] == 3, "la rive 3 est consommee")
+  ck(f.build.remote.rejected == 1, "le compteur de rives ecartees monte (la signature de l'automatisation change)")
+  ck(#logs == 1 and logs[1]:find("FO%-LOINTAIN") ~= nil, "la rive ecartee est journalisee")
+  ck(Lo.reject(f, {}) == false and f.build.remote.rejected == 1, "un projet sans site lointain (centrale du treillis) : rien n'est ecarte")
+  ck(Lo.reject({ key = "x", build = {} }, p) == false, "equipe sans etat lointain : rien")
+end
+
 print(string.format("[LOINTAIN] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

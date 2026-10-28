@@ -1279,7 +1279,12 @@ end
 --- Centrale de l'équipe (une demande, si aucune n'existe).
 function Build.plant(f, pole)
   local b = f.build
-  if b.plant then return b.plant end
+  if b.plant then
+    -- Lot CENTRALE : une centrale abandonnée (bloquée sans reprise : pompe refusée) ne tient plus la place d'une nouvelle
+    local old = b.projects[b.plant]
+    if not (old and (old.state == "refuse" or (old.state == "bloque" and not old.retry_at))) then return b.plant end
+    b.plant = nil
+  end
   local id = Build.request(f, { gen = "steam", args = { 1 }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
     pole = pole })
   b.plant = id
@@ -1750,8 +1755,20 @@ function Build.work(agent, f, tick)
     job.done = (job.done or 0) + did
     if did > 0 and left > 0 then return "more" end
     if did > 0 then return "more" end -- une pensée de plus pour constater la fin
-    if (job.done or 0) == 0 and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 16 then
-      return not_there(f, agent, job, pos, inv, tick, reach2, "fail")
+    -- Lot CENTRALE (moteur réel, etape1-guide 271828182, Azure : centrale à 114 tuiles au bord d'un lac) : le PNJ arrêté à 19
+    -- tuiles du point d'appui ravive les entités à sa portée (2 sur 5), puis la tâche se termine « faite » ; les 3 autres, dont
+    -- il porte les objets, restent hors portée, les objets rentrent au coffre (stock libre, pris ailleurs) et le dernier tapis
+    -- du chantier attend 13 min (16 entités sur 17). Une entité de ce point d'appui hors portée dont le PNJ porte l'objet
+    -- compte comme « pas arrivé » : même marche que s'il n'avait rien posé.
+    local far = 0
+    for _, x in ipairs(p.ents) do
+      if not x.built and x.anchor == job.anchor and x.item and inv.get_item_count(x.item) > 0 and (x.fails or 0) < Build.FAIL_LIMIT * 2
+        and dist2(x, pos) > reach2 then
+        far = far + 1
+      end
+    end
+    if ((job.done or 0) == 0 or far > 0) and job.ax and dist2({ x = job.ax, y = job.ay }, pos) > 16 then
+      return not_there(f, agent, job, pos, inv, tick, reach2, (job.done or 0) > 0 and "done" or "fail")
     end
     return (job.done or 0) > 0 and "done" or "fail"
   elseif job.mode == "clear" then
@@ -2200,6 +2217,9 @@ local function advance(f, surface, p, tick)
           b.stats.projects_blocked = b.stats.projects_blocked + 1
           p.retries = (p.retries or 0) + 1
           p.retry_at = p.retries <= Build.RETRIES and (tick + Build.RETRY_TICKS) or nil
+          -- Lot CENTRALE : une pompe refusée à la rive d'une centrale lointaine ne passera pas à la reprise : rive écartée,
+          -- abandon tout de suite (l'automatisation redemande la centrale, qui prend la rive suivante)
+          if e.name == "offshore-pump" and Lointain.reject(f, p) then p.retry_at = nil end
           log(string.format("[FO-IA1D] %s : projet %d bloque : %s%s", f.key or "player", p.id, p.reason,
             p.retry_at and string.format(" ; reprise %d/%d a %.1f min", p.retries, Build.RETRIES, p.retry_at / 3600) or " ; abandon"))
           return

@@ -197,6 +197,19 @@ function Lointain.release(f, p, retry)
   p.remote_site = nil
 end
 
+--- Le fantôme de la pompe est refusé au moteur malgré le gabarit accepté par P.fit (rive irrégulière, tuile de bord que la
+--- règle de la pompe n'accepte pas) : la rive est écartée pour de bon, la centrale sera replanifiée à la suivante (la
+--- signature de l'automatisation change : `rejected`). Rend vrai si le projet est une centrale lointaine.
+function Lointain.reject(f, p)
+  local site = p.remote_site
+  local r = f.build and f.build.remote
+  if not (site and r) then return false end
+  L.skip_shore(r.cur, site)
+  r.rejected = (r.rejected or 0) + 1
+  say(f, r, "pompe refusee a la rive (%d, %d) du secteur %s : rive ecartee, centrale replanifiee", site.x, site.y, tostring(site.key))
+  return true
+end
+
 --- Terrain d'une ligne de poteaux lu au moteur : free(x, y) -> bool (centre de tuile), mémoïsé ; `missing()` rend les chunks
 --- non générés rencontrés (liste triée). Une tuile est libre si son chunk est généré, sans eau, sans entité de la couche
 --- des objets (arbres, rochers, falaises, bâtiments), non réservée par un projet (b.occ) ni dans `taken`.
