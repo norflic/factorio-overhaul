@@ -4,12 +4,12 @@
 --   banc.py --qui TIRS --captures --visuel="--no-atlas-cache --ticks 4000 --timeout 2400" -- 1300 tirs-ages <source>
 --   py -3.9 -B tools/autotest/tirs_images.py <archive>\fo-shots <dossier des images>    (GIF et planches)
 --
--- Sites autour de P0 (le joueur y est téléporté dans la session avec images : le filtre de proximité, 96 tuiles, les
--- laisse tous habiller), chacun UNE tourelle face à un ver géant ENNEMI (cessez-le-feu de l'ennemi, ver recréé s'il
--- meurt) et deux biters posés immobiles à côté du ver :
---   mitrailleuse des âges 1 (niveau 2), 5 (9), 8 (15, LE « niveau 15 » regardé par le DC), 10 (19), 15 (29), tir vers
---   l'EST ; âge 7 (13) : SANS effet (effet d'avant) ; âge 15 vers le nord, le sud, l'ouest et le nord-est, âge 5 vers le
---   nord (orientation de la bouche) ; tourelle laser de l'âge 15 (faisceau de l'âge) et de l'âge 8 (vanilla) ;
+-- Sites en grille de 5 × 5 autour de P0 (le joueur y est téléporté dans la session avec images : le filtre de proximité,
+-- 96 tuiles, les laisse tous habiller), chacun UNE tourelle face à un ver géant ENNEMI (cessez-le-feu de l'ennemi, ver
+-- recréé s'il meurt) et deux biters posés immobiles à côté du ver :
+--   mitrailleuse de chacun des 15 âges (niveau 2e), tir vers l'EST ; niveau 1 (vanilla) : SANS effet (effet d'avant) ;
+--   âge 15 vers le nord (orientation de la bouche) ; tourelles laser des âges 2, 6, 10 et 15 (faisceau de l'âge) et
+--   niveau 1 (vanilla : faisceau rouge) ;
 --   MUR : 10 mitrailleuses de l'âge 15 face à des vagues de grands biters (qui meurent) ;
 --   LOIN : une mitrailleuse de l'âge 15 à 300 tuiles de P0 (avec un joueur : jamais habillée ; sans joueur : habillée).
 -- Contrôles (finish) : prototypes du lot présents ; tourelles posées, chacune a tiré ; par âge témoin, événements,
@@ -19,35 +19,49 @@
 -- source de l'effet = bouche de la règle F126 (journal du mod) ; laser : faisceau de l'âge vu, témoin vanilla.
 
 local SPR_OK, SPR = pcall(require, "__factorio-overhaul__/graphics/levels/gun/sprites")
+local TIRS = require("__factorio-overhaul__/shared/tirs/ages")
 
 local P0 = { x = -2600, y = -2600 }
 -- Grille autour de P0 (le joueur y est placé) : tout tient à moins de 96 tuiles (filtre de proximité ; 1re session de
 -- la ronde 4 : une rangée à 100 tuiles, âges 1, 8 et 10 refusés « loin »). Écarts de 48 tuiles : aucune tourelle n'atteint
 -- la cible d'un autre site (portée 27 au plus).
 -- dir : direction du ver depuis la tourelle ; dist : distance ; (x, y) : décalage depuis P0
-local SITES = {
-  { cle = "a01", famille = "gun", niveau = 2, age = 1, dist = 9, dir = "E", x = -72, y = -84, serie = "pleine" },
-  { cle = "a05", famille = "gun", niveau = 9, age = 5, dist = 10, dir = "E", x = -24, y = -84, serie = "pleine" },
-  { cle = "a08", famille = "gun", niveau = 15, age = 8, dist = 11, dir = "E", x = 24, y = -84, serie = "pleine" },
-  { cle = "a10", famille = "gun", niveau = 19, age = 10, dist = 12, dir = "E", x = 72, y = -84, serie = "pleine" },
-  { cle = "a15", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "E", x = -72, y = -36, serie = "pleine" },
-  { cle = "a15-nord", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "N", x = -24, y = -36, serie = "direction" },
-  { cle = "a15-sud", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "S", x = 24, y = -36, serie = "direction" },
-  { cle = "a15-ouest", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "O", x = 72, y = -36, serie = "direction" },
-  { cle = "a15-nordest", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "NE", x = -72, y = 36,
-    serie = "direction" },
-  { cle = "a05-nord", famille = "gun", niveau = 9, age = 5, dist = 10, dir = "N", x = -24, y = 36, serie = "direction" },
-  { cle = "a07-sans-effet", famille = "gun", niveau = 13, age = 7, dist = 11, dir = "E", x = 24, y = 36,
-    sans_effet = true, serie = "temoin" },
-  { cle = "laser15", famille = "laser", niveau = 29, age = 15, dist = 13, dir = "E", x = 72, y = 36, serie = "pleine" },
-  { cle = "laser08-temoin", famille = "laser", niveau = 15, age = 8, dist = 11, dir = "E", x = -84, y = 84, temoin = true,
-    serie = "temoin" },
-  { cle = "a15-loin", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "E", x = 300, y = 0, loin = true,
-    serie = "loin" },
-}
+local PAS = 44
+local SITES = {}
+do
+  -- cases de la grille (colonne, rangée) : la rangée du bas (y = +88) porte aussi le mur au centre
+  local cases = {}
+  for r = -2, 2 do
+    for c = -2, 2 do
+      if not (r == 2 and c >= -1 and c <= 1) then cases[#cases + 1] = { c * PAS, r * PAS } end
+    end
+  end
+  local n = 0
+  local function ajoute(t)
+    n = n + 1
+    t.x, t.y = cases[n][1], cases[n][2]
+    SITES[#SITES + 1] = t
+  end
+  local pleine = { [1] = true, [5] = true, [8] = true, [10] = true, [15] = true } -- jour, nuit et zoom 0,5 complets
+  for e = 1, 15 do
+    ajoute({ cle = string.format("a%02d", e), famille = "gun", niveau = 2 * e, age = e, dist = math.floor(8.5 + 0.3 * e),
+      dir = "E", serie = pleine[e] and "pleine" or "moyenne" })
+  end
+  ajoute({ cle = "a15-nord", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "N", serie = "direction" })
+  ajoute({ cle = "niv1-sans-effet", famille = "gun", niveau = 1, age = 0, dist = 9, dir = "E", sans_effet = true,
+    serie = "temoin" })
+  for _, e in ipairs({ 2, 6, 10, 15 }) do
+    ajoute({ cle = string.format("laser%02d", e), famille = "laser", niveau = 2 * e - 1, age = e,
+      dist = math.floor(8.5 + 0.3 * e), dir = "E", serie = (e == 10 or e == 15) and "moyenne" or nil })
+  end
+  ajoute({ cle = "laser-niv1-temoin", famille = "laser", niveau = 1, age = 0, dist = 11, dir = "E", temoin = true,
+    serie = "temoin" })
+  SITES[#SITES + 1] = { cle = "a15-loin", famille = "gun", niveau = 29, age = 15, dist = 13, dir = "E", x = 300, y = 0,
+    loin = true, serie = "loin" }
+end
 local DIRS = { E = { 1, 0 }, O = { -1, 0 }, N = { 0, -1 }, S = { 0, 1 }, NE = { 0.7071, -0.7071 } }
 -- mur : 10 mitrailleuses de l'âge 15 (6 × 6, pas de 7) au sud de P0, vagues de biters venues du sud
-local MUR = { niveau = 29, n = 10, pas = 7, y = P0.y + 84, vague = 150, biters = 8, dist_vague = 30 }
+local MUR = { niveau = 29, n = 10, pas = 7, y = P0.y + 2 * PAS, vague = 150, biters = 8, dist_vague = 30 }
 local T_CIBLES, T_MUN, CHECK = 20, 30, 1200
 local MUN = "firearm-magazine"
 local K = 0.7071 -- F126
@@ -58,13 +72,17 @@ local RES = { 768, 432 }
 local CAD = 2
 local SERIES = {
   pleine = { { "jour", 24, 1, false }, { "nuit", 16, 1, true }, { "jour-z05", 12, 0.5, false } },
+  moyenne = { { "jour", 16, 1, false }, { "nuit", 8, 1, true } },
   temoin = { { "jour", 16, 1, false }, { "nuit", 8, 1, true } },
   direction = { { "jour", 16, 1, false } },
   loin = { { "jour", 8, 1, false } },
   mur = { { "jour-z05", 24, 0.5, false }, { "nuit-z05", 16, 0.5, true }, { "jour", 16, 1, false } },
 }
 
-local function nom(c) return "fo-lvl-" .. c.famille .. "-" .. c.niveau end
+local function nom(c)
+  if c.niveau == 1 then return c.famille == "gun" and "gun-turret" or "laser-turret" end -- niveau 1 : vanilla
+  return "fo-lvl-" .. c.famille .. "-" .. c.niveau
+end
 
 local function noms_du_lot(ctx)
   if not ctx.has("fo-tirs", "noms") then return {} end
@@ -123,7 +141,7 @@ local function vus_sur(s, st, site, x0, y0, x1, y1)
 end
 
 return {
-  description = "TIRS : tir de chaque age temoin (bouche orientee, dards, impact), sans effet, loin, mur de 10 tourelles",
+  description = "TIRS : tir des 15 ages (bouche orientee, dards, impact), niveau 1 sans effet, loin, mur de 10 tourelles, lasers",
   base = nil,
   check_tick = CHECK,
   shots_delay = 240,
@@ -152,7 +170,7 @@ return {
     end
     table.sort(st.tous)
     if not game.entity_prototypes["fo-lvl-laser-29-faisceau"] then manque[#manque + 1] = "fo-lvl-laser-29-faisceau" end
-    ctx.check(#lot == 5 and #manque == 0, "prototypes du lot presents (5 ages temoins, flammes, faisceau du laser 15)",
+    ctx.check(#lot == #TIRS.temoins and #manque == 0, "prototypes du lot presents (15 ages, flammes, faisceau du laser 15)",
       #lot .. " ages ; manque : " .. (#manque == 0 and "aucun" or table.concat(manque, ",")))
     -- terrain : tout le carré des sites, le mur et ses vagues, et le site loin
     ctx.prepare_area(P0.x - 110, P0.y - 110, P0.x + 110, P0.y + 130, "grass-1")
@@ -187,7 +205,7 @@ return {
       if t then poses = poses + 1 end
     end
     st.mur_vus, st.mur_n_vus, st.biters_tues = {}, 0, 0
-    ctx.check(poses == #SITES + MUR.n, "tourelles posees (14 sites, mur de 10)", poses .. " / " .. (#SITES + MUR.n))
+    ctx.check(poses == #SITES + MUR.n, "tourelles posees (" .. #SITES .. " sites, mur de 10)", poses .. " / " .. (#SITES + MUR.n))
     st.place = false
     st.pret = true
   end,
@@ -287,7 +305,8 @@ return {
     local stats = ctx.has("fo-tirs", "stats") and ctx.remote("fo-tirs", "stats") or nil
     ctx.check(stats ~= nil, "interface fo-tirs presente", stats and "oui" or "non")
     if not stats then return end
-    local PART = { [1] = { 2, 5 }, [5] = { 2, 3 }, [8] = { 2, 3 }, [10] = { 2, 3 }, [15] = { 1, 1 } } -- shared/tirs/ages.lua
+    local PART = {}
+    for _, e in ipairs(TIRS.temoins) do PART[e] = TIRS.ages[e].part end -- shared/tirs/ages.lua
     local ok_evt, ok_part, ok_cree, txt = 0, 0, 0, {}
     for _, a in ipairs(stats.ages) do
       local proches = a.evts - a.loin
@@ -302,10 +321,10 @@ return {
     end
     ctx.log("compteurs : " .. table.concat(txt, " ; ") .. " ; autres tireurs : " .. stats.autres .. " ; joueurs releves : "
       .. stats.joueurs)
-    ctx.check(ok_evt == 5, "chaque age temoin recoit des evenements et habille des tirs", ok_evt .. " / 5")
-    ctx.check(ok_part == 5, "part gardee = a / b des evenements proches (5 points)", ok_part .. " / 5")
-    ctx.check(ok_cree == 5, "entites du lot creees et flammes dessinees, aucune ratee", ok_cree .. " / 5")
-    ctx.check(stats.autres > 0, "l'age sans effet (7) leve des evenements sans habillage", "autres = " .. stats.autres)
+    ctx.check(ok_evt == 15, "chacun des 15 ages recoit des evenements et habille des tirs", ok_evt .. " / 15")
+    ctx.check(ok_part == 15, "part gardee = a / b des evenements proches (5 points)", ok_part .. " / 15")
+    ctx.check(ok_cree == 15, "entites du lot creees et flammes dessinees, aucune ratee", ok_cree .. " / 15")
+    ctx.check(stats.autres > 0, "le niveau 1 (vanilla) leve des evenements sans habillage", "autres = " .. stats.autres)
     -- 3. entités du lot vues sur les sites ; aucune sur le site sans effet ; site loin selon le joueur
     local vus_ok, n_hab, sans_ok, loin_ok, v = 0, 0, true, nil, {}
     for _, site in ipairs(st.sites) do
@@ -330,7 +349,7 @@ return {
     ctx.log("entites du lot vues (tous les 2 ticks) : " .. table.concat(v, " ") .. " ; mur : " .. st.mur_n_vus
       .. " ; rendues par la recherche mais posees hors de la zone (ecartees) : " .. (st.hors_zone or 0))
     ctx.check(vus_ok == n_hab, "chaque site habille : dards, impacts (et trait) vus", vus_ok .. " / " .. n_hab)
-    ctx.check(sans_ok, "site sans effet (age 7, niveau 13) : aucune entite du lot", sans_ok and "0" or "vues")
+    ctx.check(sans_ok, "site sans effet (niveau 1, vanilla) : aucune entite du lot", sans_ok and "0" or "vues")
     ctx.check(loin_ok == true, "site a 300 tuiles : " .. (avec_joueur and "jamais habille (joueur en P0)"
       or "habille (aucun joueur connecte : pas de filtre)"), tostring(loin_ok))
     ctx.check(st.mur_n_vus > 0, "mur de 10 tourelles de l'age 15 habille", st.mur_n_vus)
@@ -355,9 +374,9 @@ return {
     ctx.check(n_j > 0 and sans_src == 0 and ecart_max < 0.05,
       "position source de l'effet = bouche F126 (1/20 de tuile)",
       string.format("%d tirs, ecart max %.4f, sans position source %d", n_j, ecart_max, sans_src))
-    -- 5. laser : faisceau de l'âge 15, témoin vanilla
+    -- 5. laser : faisceau de l'âge pour chaque tourelle laser d'âge, témoin vanilla au niveau 1
     local fl = {}
-    local laser_ok, temoin_l = false, false
+    local lasers_ok, n_lasers, temoin_l = 0, 0, false
     for _, site in ipairs(st.sites) do
       if site.c.famille == "laser" then
         local noms = {}
@@ -365,11 +384,15 @@ return {
         table.sort(noms)
         for _, n in ipairs(noms) do fl[#fl + 1] = site.c.cle .. ":" .. n .. "=" .. site.faisceaux[n] end
         if site.c.temoin then temoin_l = site.faisceaux["laser-beam"] ~= nil
-        else laser_ok = (site.faisceaux["fo-lvl-laser-29-faisceau"] or 0) > 0 end
+        else
+          n_lasers = n_lasers + 1
+          if (site.faisceaux["fo-lvl-laser-" .. site.c.niveau .. "-faisceau"] or 0) > 0 then lasers_ok = lasers_ok + 1 end
+        end
       end
     end
     ctx.log("faisceaux vus : " .. table.concat(fl, " "))
-    ctx.check(laser_ok and temoin_l, "laser 15 : faisceau de l'age ; laser 8 : faisceau vanilla", table.concat(fl, " "))
+    ctx.check(n_lasers == 4 and lasers_ok == n_lasers and temoin_l,
+      "lasers des ages 2, 6, 10 et 15 : faisceau de l'age ; laser niveau 1 : faisceau vanilla", table.concat(fl, " "))
   end,
 
   shots = function(ctx, add)
@@ -390,8 +413,10 @@ return {
     end
     for _, site in ipairs(st.sites) do
       local c = site.c
-      rafales(c.cle, c.age, c.niveau, c.famille, c.dir, (site.x + site.cx) / 2, (site.y + site.cy) / 2 - 0.5,
-        SERIES[c.serie])
+      if c.serie then
+        rafales(c.cle, c.age, c.niveau, c.famille, c.dir, (site.x + site.cx) / 2, (site.y + site.cy) / 2 - 0.5,
+          SERIES[c.serie])
+      end
     end
     rafales("mur15", 15, MUR.niveau, "gun", "S", P0.x, MUR.y + 10, SERIES.mur)
     game.write_file("fo-shots/tirs-ages-sites.tsv", table.concat(L, "\n") .. "\n", false)

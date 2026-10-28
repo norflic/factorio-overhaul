@@ -1,9 +1,9 @@
 -- Scénario greffé du lot TIRS (27/10 ; ronde 4) : le son du tir par âge, JOUÉ en jeu (session FO_AUDIO=1, pilote
 -- SDL disk : rien n'atteint la sortie du PC, interdit n° 7). Variante de s0-tir (lot S0-suite) :
---   banc.py --qui TIRS --son --captures --visuel="--ticks 6600 --timeout 2400" -- 6400 tirs-son <source>
+--   banc.py --qui TIRS --son --captures --visuel="--ticks 8600 --timeout 3000" -- 8400 tirs-son <source>
 --   puis py -3.9 -B tools/sound/tirs_couches.py <archive>\audio-disk.raw <archive>\fo-shots\factorio.log
--- SIX SITES à 240 tuiles l'un de l'autre (hors de portée d'écoute), joués l'un APRÈS l'autre dans un ordre mêlé :
--- mitrailleuse vanilla (ère 0), niveaux 2 (âge 1, S0 seul), 9 (âge 5), 15 (âge 8), 19 (âge 10), 29 (âge 15). Sur chacun,
+-- HUIT SITES à 240 tuiles l'un de l'autre (hors de portée d'écoute), joués l'un APRÈS l'autre dans un ordre mêlé :
+-- mitrailleuse vanilla (ère 0), niveaux 2 (âge 1, S0 seul), 9 (âge 5), 15 (âge 8), 19 (âge 10), 23 (âge 12), 25 (âge 13), 29 (âge 15). Sur chacun,
 -- UNE tourelle face à un ver géant ENNEMI 11 tuiles au nord ; le joueur (écouteur) est téléporté 8 tuiles au sud.
 --   1. TIRS ISOLÉS : une cartouche à la fois, 6 tirs séparés d'une seconde (journal « TIR ») ;
 --   2. RAFALE : 30 cartouches d'un coup, la tourelle tire à sa cadence (journal « RAFALE debut / fin »).
@@ -19,6 +19,8 @@ local SITES = {
   { niveau = 2, age = 1, ere = 1 },
   { niveau = 15, age = 8, ere = 3 },
   { niveau = 9, age = 5, ere = 2 },
+  { niveau = 23, age = 12, ere = 4 }, -- D-21 : les ages 12 et 13 (plus graves)
+  { niveau = 25, age = 13, ere = 5 },
 }
 local X0, Y0, PAS = 2600, -3800, 240
 local DY_CIBLE, DY_EC = -11, 8
@@ -45,7 +47,7 @@ local function compte(t)
 end
 
 return {
-  description = "TIRS : son du tir par age joue en jeu (tirs isoles puis rafale, 6 sites, habillage eteint)",
+  description = "TIRS : son du tir par age joue en jeu (tirs isoles puis rafale, 8 sites, habillage eteint)",
   base = nil,
   check_tick = CHECK,
   shots_delay = CHECK + 30,

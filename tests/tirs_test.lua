@@ -23,19 +23,17 @@ end
 -- 1. table des âges bien formée, âges témoins
 local m = R.verifier_ages(T)
 check(#m == 0, "table des ages bien formee", table.concat(m, " ; "))
-local TEM = { 1, 5, 8, 10, 15 }
-local est_temoin = {}
+local TEM = { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }
 for i, e in ipairs(TEM) do
-  est_temoin[e] = true
-  check(T.temoins[i] == e, "age temoin n" .. i .. " = " .. e, T.temoins[i])
+  check(T.temoins[i] == e, "age n" .. i .. " = " .. e, T.temoins[i])
+  check(T.ages[e] ~= nil, "age " .. e .. " habille")
 end
-check(#T.temoins == #TEM, "5 ages temoins (dont l'age 8 du niveau 15 regarde par le DC)", #T.temoins)
-for e = 1, 15 do
-  check((T.ages[e] ~= nil) == (est_temoin[e] == true), "age " .. e .. (est_temoin[e] and " habille" or " sans entree"))
-end
-check(T.sans_effet == 7 and T.ages[7] == nil, "site sans effet des bancs : age 7 (niveau 13)")
--- grandeur croissante avec l'âge : lumière de bouche (taille), dards (nombre × vitesse), lumière d'impact
+check(#T.temoins == 15, "les 15 ages sont habilles (D-21)", #T.temoins)
+check(T.sans_effet == nil, "plus d'age sans effet : le site sans effet des bancs est le niveau 1 (vanilla)")
+-- grandeur croissante avec l'âge (D-21 : « impacts nettement plus gros aux âges hauts »)
 local lum, imp, part, quota = 0, 0, 0, 0
+local ech_ok, etinc_ok, lum_imp_ok = true, true, true
+local ech_prec, etinc_prec = 0, 0
 for _, e in ipairs(T.temoins) do
   local A = T.ages[e]
   check(A.lumiere.taille > lum, "lumiere de bouche croissante (age " .. e .. ")", A.lumiere.taille)
@@ -49,16 +47,46 @@ for _, e in ipairs(T.temoins) do
   check(A.quota >= quota, "quota non decroissant (age " .. e .. ")", A.quota)
   quota = A.quota
   check(A.impact[1].tourne == nil, "age " .. e .. " : impact jamais tourne")
+  -- taille de l'impact principal en tuiles (largeur de la 1re image à l'échelle 1 × échelle demandée)
+  local LARG = { ["explosion-hit"] = 1.0, ["explosion"] = 0.75, ["massive-explosion"] = 10.0, eclaboussure = 3.3 }
+  local x = A.impact[1]
+  local tuiles = (LARG[x.source or x.image] or 1) * x.echelle
+  check(tuiles >= ech_prec - 1e-9, "taille de l'impact principal non decroissante (age " .. e .. " : " .. string.format("%.2f", tuiles) .. " tuiles)", tuiles)
+  ech_prec = tuiles
+  local ne = x.etincelles and x.etincelles.nombre or 0
+  check(ne >= etinc_prec or e == 8, "etincelles d'impact non decroissantes (age " .. e .. ")", ne)
+  if ne > 0 then etinc_prec = ne end
 end
+-- l'impact de l'âge 15 est NETTEMENT plus gros que celui de l'âge 10, qui l'est plus que celui de l'âge 5 (D-21)
+local function tuiles_age(e)
+  local LARG = { ["explosion-hit"] = 1.0, ["explosion"] = 0.75, ["massive-explosion"] = 10.0, eclaboussure = 3.3 }
+  local x = T.ages[e].impact[1]
+  return (LARG[x.source or x.image] or 1) * x.echelle
+end
+check(tuiles_age(15) >= 1.5 * tuiles_age(10) and tuiles_age(10) >= 1.5 * tuiles_age(5) and tuiles_age(5) >= 2 * tuiles_age(1),
+  "impacts : age 15 >= 1,5 x age 10 >= 2,25 x age 5 >= 4,5 x age 1")
+check(T.ages[15].impact[1].lumiere.taille >= 30 and T.ages[1].impact[1].lumiere.taille <= 4, "lumiere d'impact : 30+ tuiles a l'age 15, 4 au plus a l'age 1")
 check(T.probabilite * T.ages[15].part[1] / T.ages[15].part[2] > T.probabilite * T.ages[1].part[1] / T.ages[1].part[2],
   "l'age 15 habille plus de tirs que l'age 1")
 check((T.ages[15].trace.nombre or 1) > (T.ages[1].trace.nombre or 1), "l'age 15 tire plus de dards que l'age 1")
 -- l'âge du Néant : lumière, pas de fumée (fil « de la fumée à la lumière »)
 check(T.ages[15].trace.trainee == nil and T.ages[15].fumee == nil, "age 15 : ni trainee ni fumee de bouche")
 check(T.ages[1].fumee ~= nil and T.ages[1].fumee.nombre >= 3, "age 1 : bouffee de poudre noire (3 fumees au moins)")
+-- somme des quotas = plafond commun (aucun âge ne dépend de l'ordre de mise à jour)
+local somme = 0
+for _, e in ipairs(T.temoins) do somme = somme + T.ages[e].quota end
+check(T.plafond_tick >= somme, "plafond commun >= somme des quotas (" .. somme .. ")", T.plafond_tick)
+-- laser : un faisceau par âge de 2 à 15, de plus en plus épais, jamais plus de x1,5
+local ep = 0
+for e = 2, 15 do
+  local Lz = T.ages[e].laser
+  check(Lz ~= nil and Lz.epaisseur <= 1.5 + 1e-9 and Lz.epaisseur >= ep, "age " .. e .. " : faisceau du laser, epaisseur croissante <= 1,5", Lz and Lz.epaisseur)
+  if Lz then ep = Lz.epaisseur end
+end
+check(T.ages[1].laser == nil, "age 1 : laser vanilla (faisceau rouge)")
 
 -- 2. sons : couches ajoutées, vitesse DANS chaque variation (jamais sur la couche), volumes plafonnés, aggregation
-for _, e in ipairs({ 5, 8, 10, 15 }) do
+for _, e in ipairs({ 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }) do
   local c = T.ages[e].son and T.ages[e].son.couches
   check(c and #c >= 1, "age " .. e .. " : couches de son ajoutees")
   for _, x in ipairs(c or {}) do
@@ -82,7 +110,20 @@ for _, e in ipairs({ 5, 8, 10, 15 }) do
   end
   check(bonne, "age " .. e .. " : vitesse et volume dans chaque variation, rien d'ignore sur la couche")
 end
-check(T.ages[1].son == nil and K.son_tir({ "x" }, T.ages[1])[1] == "x", "age 1 : son S0 inchange")
+for _, e in ipairs({ 1, 2, 3 }) do
+  check(T.ages[e].son == nil and K.son_tir({ "x" }, T.ages[e])[1] == "x", "age " .. e .. " : son S0 inchange (ere I)")
+end
+-- D-21 : plus grave aux âges hauts : la vitesse de lecture de la couche la plus grave baisse d'un âge à l'autre dès l'âge 8
+do
+  local prec = 9
+  for _, e in ipairs({ 8, 9, 10, 11, 12, 13, 14, 15 }) do
+    local mn = 9
+    for _, c in ipairs(T.ages[e].son.couches) do if c.vitesse and c.vitesse[1] < mn then mn = c.vitesse[1] end end
+    check(mn <= prec + 1e-9, "age " .. e .. " : couche la plus grave (vitesse " .. mn .. ") non plus aigue que l'age precedent", mn)
+    prec = mn
+  end
+  check(prec <= 0.45, "age 15 : une couche a 0,45 de vitesse ou moins (plus d'une octave sous l'origine)", prec)
+end
 
 -- 3. accumulateur : a sur b exactement, sans ordre ni hasard
 for _, p in ipairs({ { 2, 5 }, { 1, 2 }, { 2, 3 }, { 1, 1 }, { 1, 7 } }) do
@@ -263,11 +304,12 @@ local mutants_ages = {
   { "son trop fort", function(t) t.ages[15].son.couches[1].volume = 1.5 end },
   { "son sans aggregation", function(t) t.ages[15].son.couches[1].max = nil end },
   { "son a vitesse < 1/64", function(t) t.ages[15].son.couches[1].vitesse = { 0.01, 0.02 } end },
-  { "age hors liste des temoins", function(t) t.ages[7] = copie(t.ages[5]) end },
+  { "age hors liste des temoins", function(t) t.ages[16] = copie(t.ages[5]) end },
+  { "frames non entier", function(t) t.ages[15].impact[1].frames = 2.5 end },
   { "probabilite nulle", function(t) t.probabilite = 0 end },
   { "quota absent", function(t) t.ages[10].quota = nil end },
   { "quota nul", function(t) t.ages[15].quota = 0 end },
-  { "plafond sous la somme des quotas", function(t) t.plafond_tick = 7 end },
+  { "plafond sous la somme des quotas", function(t) t.plafond_tick = 23 end },
   { "proximite nulle", function(t) t.proximite = 0 end },
   { "lumiere de bouche sans duree", function(t) t.ages[5].lumiere.duree = nil end },
 }

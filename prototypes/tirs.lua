@@ -101,6 +101,8 @@ local function animations(spec)
   for _, a in ipairs(anims) do
     K.agrandir(a, spec.echelle)
     K.teinter(a, spec.teinte)
+    -- `frames` : les n premières images seulement (la boule de feu d'une grande explosion, sans sa fumée)
+    if spec.frames then K.chaque(a, function(l) l.frame_count = spec.frames end) end
     if spec.duree then K.duree(a, spec.duree) end
   end
   return anims

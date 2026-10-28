@@ -44,6 +44,9 @@ LUA = r"C:\Users\evan2\bin\lua5.2.exe"
 RATE = 44100
 VANILLA = ["__base__/sound/fight/gun-turret-gunshot-0%d.ogg" % i for i in (1, 2, 3, 4)]
 VOL_VANILLA = 0.4
+PENTE = 0.45          # dB de rafale par âge à partir de l'âge 4 (D-21)
+CRETE_MAX = 4.5       # dBFS : crête de la rafale au plus (crête de la rafale vanilla -3,0 dBFS + Δ + 3 dB) ; au-dessus : écrêtage violent
+GRAVE_HZ = 150.0      # « plus grave » : part de l'énergie de la rafale sous cette fréquence
 
 DUMP = r"""
 package.path = "./?.lua;" .. package.path
@@ -116,12 +119,18 @@ def decode(path):
     return x
 
 
+_VC = {}
+
+
 def vitesse(x, v):
-    """Lecture à la vitesse v (hauteur et durée), comme le moteur : rééchantillonnage."""
+    """Lecture à la vitesse v (hauteur et durée), comme le moteur : rééchantillonnage (mémorisé : x vient du cache de decode)."""
     if abs(v - 1) < 1e-9:
         return x
-    fr_ = Fraction(1 / v).limit_denominator(200)
-    return signal.resample_poly(x, fr_.numerator, fr_.denominator, axis=0)
+    k = (id(x), round(v, 6))
+    if k not in _VC:
+        fr_ = Fraction(1 / v).limit_denominator(200)
+        _VC[k] = signal.resample_poly(x, fr_.numerator, fr_.denominator, axis=0)
+    return _VC[k]
 
 
 def ajoute(out, x, a):
@@ -186,6 +195,15 @@ def rafale(age, mod, g=1.0, n_tirs=24, cadence=0.1, modele=None):
     return out
 
 
+def spectre(x):
+    """Part de l'énergie sous GRAVE_HZ et centroïde (Hz, 40 Hz à 16 kHz) d'un signal stéréo (somme des canaux)."""
+    m = x.mean(axis=1)
+    f = np.fft.rfftfreq(len(m), 1.0 / RATE)
+    p = np.abs(np.fft.rfft(m * np.hanning(len(m)))) ** 2
+    b = (f >= 40) & (f <= 16000)
+    return float(p[b & (f < GRAVE_HZ)].sum() / p[b].sum()), float((f[b] * p[b]).sum() / p[b].sum())
+
+
 def mesure_tir(age, mod, g=1.0):
     ms = [rafales.mesures(tir(age, mod, i, g)) for i in range(4)]
     return {k: float(np.mean([m[k] for m in ms])) for k in ms[0]}, max(m["crete"] for m in ms)
@@ -224,7 +242,9 @@ def vise_rafale(age):
     """Δ visé de la rafale (dB au-dessus de la rafale vanilla) ; None pour l'ère I (S0 tel quel)."""
     if age < 4:
         return None
-    return 1.0 + (age - 4) / 3.0
+    # D-21 (DC, 27/10 : « Plus fort et plus grave ») : +0,45 dB par âge, +5,95 dB à l'âge 15 (ronde 4 : +1/3 dB par âge,
+    # +4,67 dB à l'âge 15). La crête de la rafale croît du même nombre de dB : +3,9 dBFS à l'âge 15 (voir CRETE_MAX).
+    return 1.0 + PENTE * (age - 4)
 
 
 def main():
@@ -244,7 +264,7 @@ def main():
     raf_ref = rafales.mesures(rafale(None, a.mod))
     print("vanilla : tir isole momentanee %.2f LUFS, sonie K %.2f, crete %.2f dBFS ; rafale momentanee %.2f" % (
         ref["momentanee"], ref["sonie_k"], ref["crete"], raf_ref["momentanee"]))
-    res, ok, prec = [], True, None
+    res, ok, prec, bass_4, cen_4, cens, d4 = [], True, None, None, None, {}, 0.0
     for age in ages:
         m, crete = mesure_tir(age, a.mod)
         r = rafales.mesures(rafale(age, a.mod))
@@ -257,22 +277,48 @@ def main():
                 motifs.append("ere I : S0 seul attendu")
         elif abs(dr - vise) > a.tol:
             motifs.append("rafale %+.2f hors de %+.2f +/- %.1f" % (dr, vise, a.tol))
-        lim = raf_ref["crete"] + (vise or 0.0) + 1.0
+        lim = raf_ref["crete"] + (vise or 0.0) + 3.0  # D-21 : + 2 dB de plus qu'à la ronde 4 (la rafale est plus forte)
         if crete > -1.0:
             motifs.append("crete du tir isole > -1 dBFS")
+        if r["crete"] > CRETE_MAX:
+            motifs.append("crete de la rafale %.2f > %.1f dBFS (ecretage)" % (r["crete"], CRETE_MAX))
         if r["crete"] > lim:
             motifs.append("crete de la rafale %.2f > %.2f dBFS" % (r["crete"], lim))
-        if prec is not None and d <= prec:
-            motifs.append("tir isole pas plus fort que l'age precedent")
-        prec = d
+        # tir isolé (sonie momentanée) : jamais plus de 0,6 dB sous l'âge précédent (les couches graves pèsent peu en sonie K)
+        # et l'âge 15 au moins 3 dB au-dessus de l'âge 4 ; c'est la RAFALE qui porte le contrat
+        if prec is not None and age["couches"] and d < prec - 0.6:
+            motifs.append("tir isole %.2f dB sous l'age precedent (0,6 dB tolere)" % (prec - d))
+        if age["age"] == 15 and d < d4 + 3.0:
+            motifs.append("tir isole de l'age 15 (%+.2f) pas 3 dB au-dessus de l'age 4 (%+.2f)" % (d, d4))
+        if age["age"] == 4:
+            d4 = d
+        if age["couches"]:
+            prec = d
+        # « plus grave » (D-21) : part de l'énergie sous 150 Hz et centroïde spectral de la rafale. Pas de règle d'un âge au
+        # suivant (le S0 change d'ère et pèse sur le timbre) : l'âge 15 est le plus grave de tous (centroïde le plus bas,
+        # plus de 1,5 fois la part grave de l'âge 4, centroïde sous 0,6 fois celui de l'âge 4), et les âges 12 à 15 baissent.
+        bass, cen = spectre(rafale(age, a.mod))
+        if age["couches"]:
+            if bass_4 is None:
+                bass_4, cen_4 = bass, cen
+            cens[age["age"]] = cen
+            if age["age"] == 15:
+                if not (bass >= 1.5 * bass_4 and cen <= 0.6 * cen_4):
+                    motifs.append("age 15 pas assez grave : part grave %.3f (age 4 : %.3f, x1,5 voulu), centroide %.0f Hz (age 4 : %.0f, x0,6 voulu)" % (
+                        bass, bass_4, cen, cen_4))
+                if any(cens[e] <= cen for e in cens if e != 15):
+                    motifs.append("age 15 pas le plus grave (centroide %.0f Hz)" % cen)
+            if age["age"] in (13, 14, 15) and cens.get(age["age"] - 1) is not None and cen >= cens[age["age"] - 1]:
+                motifs.append("centroide non decroissant de l'age %d a %d" % (age["age"] - 1, age["age"]))
         tenu = not motifs
         ok = ok and tenu
         ligne = {"age": age["age"], "couches": len(age["couches"]), "delta_tir": round(d, 2), "delta_rafale": round(dr, 2),
                  "vise_rafale": vise, "delta_sonie_k": round(m["sonie_k"] - ref["sonie_k"], 2), "crete": round(crete, 2),
-                 "crete_rafale": round(r["crete"], 2), "tenu": tenu, "motifs": motifs}
+                 "crete_rafale": round(r["crete"], 2), "grave": round(bass, 4), "centroide_hz": round(cen),
+                 "tenu": tenu, "motifs": motifs}
         if a.cible and age["couches"] and vise is not None:
             lo, hi = 0.0, 6.0
-            for _ in range(24):
+            for _ in range(14):
                 g = 0.5 * (lo + hi)
                 if rafales.mesures(rafale(age, a.mod, g))["momentanee"] - raf_ref["momentanee"] < vise:
                     lo = g
@@ -281,9 +327,9 @@ def main():
             ligne["facteur_cible"] = round(0.5 * (lo + hi), 3)
         res.append(ligne)
         print("age %2d : %d couche(s) ajoutee(s) ; rafale %+.2f dB (vise %s), tir isole %+.2f, sonie K %+.2f, crete %.2f / "
-              "rafale %.2f dBFS%s ; %s" % (
+              "rafale %.2f dBFS, grave %.3f, centroide %d Hz%s ; %s" % (
                   age["age"], len(age["couches"]), dr, "S0" if vise is None else "%+.2f" % vise, d,
-                  ligne["delta_sonie_k"], crete, r["crete"],
+                  ligne["delta_sonie_k"], crete, r["crete"], bass, cen,
                   (" ; facteur des couches pour la cible %.3f" % ligne["facteur_cible"]) if "facteur_cible" in ligne else "",
                   "TENU" if tenu else "NON TENU (" + "; ".join(motifs) + ")"))
     if a.ecoute:

@@ -190,6 +190,7 @@ function R.verifier_ages(T)
         if not nombre(x.echelle, 1e-9) then non(wi .. " : echelle") end
         if not couleur_ok(x.teinte) then non(wi .. " : teinte") end
         if x.duree ~= nil and not nombre(x.duree, 1) then non(wi .. " : duree") end
+        if x.frames ~= nil and (not nombre(x.frames, 1, 100) or x.frames % 1 ~= 0) then non(wi .. " : frames entier de 1 a 100") end
         if x.enfle and (not nombre(x.enfle.depart, 0.05, 1) or not nombre(x.enfle.ticks, 1, 60)) then
           non(wi .. " : enfle { depart dans ]0, 1], ticks }")
         end
@@ -241,7 +242,7 @@ function R.verifier_ages(T)
   end
   if T.sans_effet ~= nil and (T.ages[T.sans_effet] or vus[T.sans_effet]) then non("sans_effet : un age sans entree") end
   -- toute entrée de ages est un témoin (pas d'âge oublié de la liste ordonnée)
-  for e = 1, 15 do
+  for e = 1, 30 do
     if T.ages[e] and not vus[e] then non("age " .. e .. " absent de temoins") end
   end
   return out
