@@ -1472,6 +1472,21 @@ do
     end
     return (os.clock() - t1) * 1000 / n, worst * 1000
   end
+  -- Mesure déterministe : instructions de la machine virtuelle (en milliers) du pire appel, indépendante de la charge du PC.
+  local function worst_kinstr(inp, n)
+    local worst = 0
+    for _ = 1, n do
+      local c = 0
+      debug.sethook(function() c = c + 1 end, "", 1000)
+      Ca.decide(inp, {})
+      debug.sethook()
+      if c > worst then worst = c end
+    end
+    return worst
+  end
+  local k4 = worst_kinstr(rich(D), 20)
+  local k60 = worst_kinstr(big_scene(D, 60, 20000), 10)
+  local k200 = worst_kinstr(big_scene(D, 200, 20000), 5)
   local m4, w4 = per_decision(rich(D), 20)
   local m60, w60 = per_decision(big_scene(D, 60, 20000), 10)
   local m200, w200 = per_decision(big_scene(D, 200, 20000), 5)
@@ -1480,7 +1495,16 @@ do
   local per_data = (os.clock() - t2) * 1000 / 3
   print(string.format("[CAPI] §12 coût (ms, PC non épinglé) : une décision : 4 gisements %.2f (pic %.2f), 60 gisements %.2f (pic %.2f), 200 gisements %.2f (pic %.2f) ; relevé %.1f ; tout le banc %.1f s",
     m4, w4, m60, w60, m200, w200, per_data, t_run))
-  check(w4 < 20 and w60 < 40 and w200 < 80, string.format("§12 pics sous 20, 40 et 80 ms hors jeu (%.1f, %.1f, %.1f)", w4, w60, w200))
+  -- Correction du 28/10 (lot DOC) : le contrôle « pics sous 20, 40 et 80 ms » échouait dès que le PC était chargé (pics 76, 92 ms
+  -- pendant des bancs moteur : le temps mesuré suit la charge, pas le code). Le garde-fou est maintenant en INSTRUCTIONS de la
+  -- machine virtuelle (milliers, du pire appel) : déterministe, mesuré le 28/10 à 46, 122 et 243 ; la limite est le DOUBLE
+  -- (un calcul qui double de complexité échoue). Les millisecondes restent affichées et gardent une limite large (10 fois
+  -- l'ancienne : 200, 400 et 800 ms) qui ne voit que l'effondrement ; l'ancienne limite stricte est écrite en avertissement.
+  check(k4 <= 92 and k60 <= 244 and k200 <= 486, string.format("§12 pires appels en milliers d'instructions : %d, %d, %d (limites 92, 244, 486 ; mesuré 46, 122, 243)", k4, k60, k200))
+  check(w4 < 200 and w60 < 400 and w200 < 800, string.format("§12 pics sous 200, 400 et 800 ms (%.1f, %.1f, %.1f)", w4, w60, w200))
+  if not (w4 < 20 and w60 < 40 and w200 < 80) then
+    print(string.format("[CAPI] AVERTISSEMENT §12 : pics au-dessus de l'ancienne limite 20, 40 et 80 ms (%.1f, %.1f, %.1f) : PC chargé ?", w4, w60, w200))
+  end
 end
 
 -- §13 Lot ELEC2 : un ordre qui étend la capacité d'une matière en manque (o.short posé par le runtime) devient un but
