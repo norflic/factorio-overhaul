@@ -74,6 +74,12 @@ function World:surface()
       end
       return out
     end,
+    can_place_entity = function(q)
+      for _, e in ipairs(w.ents) do
+        if e.valid and math.abs(e.position.x - q.position[1]) < 0.5 and math.abs(e.position.y - q.position[2]) < 0.5 then return false end
+      end
+      return true
+    end,
     find_nearest_enemy = function(q)
       local px, py = q.position.x or q.position[1], q.position.y or q.position[2]
       for _, en in ipairs(w.enemies) do
@@ -103,19 +109,19 @@ local Rv = require("script.team.reseau_vivant")
 --- Une équipe : centrale (projet 1, fini : chaudière, machine, pompe, poteau), un module (projet 2, fini : 2 poteaux).
 local function team(world)
   local ents1 = {
-    { name = "boiler", x = 10, y = 10, built = true }, { name = "steam-engine", x = 10, y = 14, built = true },
+    { name = "boiler", x = 10, y = 10, built = true }, { name = "steam-engine", x = 10, y = 2, built = true },
     { name = "offshore-pump", x = 10, y = 6, built = true }, { name = "small-electric-pole", x = 4, y = 0, built = true, role = "liaison" },
   }
   local ents2 = {
     { name = "small-electric-pole", x = 10, y = 0, built = true, role = "rue" },
     { name = "small-electric-pole", x = 13, y = 0, built = true, role = "rue" },
   }
-  local f = { key = "test", force = "fo-test", build = { order = { 1, 2 }, plant = 1, opts = {}, projects = {
+  local f = { key = "test", force = "fo-test", build = { order = { 1, 2 }, plant = 1, opts = {}, occ = {}, projects = {
     [1] = { id = 1, state = "fini", ents = ents1, parts = { { ox = 8, oy = 4, w = 5, h = 14 } } },
     [2] = { id = 2, state = "fini", ents = ents2, parts = {} },
   } } }
   local boiler = world:add(entity("boiler", "boiler", 10, 10, { fuel = 1 }))
-  local engine = world:add(entity("steam-engine", "generator", 10, 14, { net = 1, kw = 900 }))
+  local engine = world:add(entity("steam-engine", "generator", 10, 2, { net = 1, kw = 900 }))
   world:add(entity("offshore-pump", "offshore-pump", 10, 6))
   world:add(entity("small-electric-pole", "electric-pole", 4, 0, { net = 1 }))
   world:add(entity("small-electric-pole", "electric-pole", 10, 0, { net = 1 }))
@@ -123,8 +129,21 @@ local function team(world)
   return f, { boiler = boiler, engine = engine }
 end
 
-local requested
-local api = { plant = function(f)
+local requested, poles_added, add_calls
+local api = {
+  pole_of = function() return "small-electric-pole", 7.5 end,
+  add_poles = function(f, q, list)
+    local out = {}
+    for _, c in ipairs(list) do
+      local e = { name = c.name, x = c.x, y = c.y, dir = 0, role = "couverture" }
+      q.ents[#q.ents + 1] = e
+      out[#out + 1] = e
+    end
+    poles_added = (poles_added or 0) + #out
+    add_calls = (add_calls or 0) + 1
+    return out
+  end,
+  plant = function(f)
   local b = f.build
   local id = 3
   b.projects[id] = { id = id, state = "attente", ents = {}, parts = {} }
@@ -262,6 +281,53 @@ do
   run(f, w, 1200, 7200 + 1200 * 6)
   check(f.build.projects[2].ents[1].built == true and f.build.projects[2].state == "fini" and (f.build.projects[2].reopened or 0) == 0,
     "îlot + ennemi à 28 tuiles : poteau pas rouvert (pas de pose sous le feu)")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §5 bis consommateur sous aucun poteau : couvrir
+---------------------------------------------------------------------------------------------------
+local function uncovered_world(enemy)
+  local w = new_world()
+  local f = team(w)
+  -- un laboratoire à 11 tuiles du dernier poteau, sous aucun poteau (pas de reseau)
+  w:add(entity("lab", "lab", 24, 2, { consumer = true }))
+  if enemy then w.enemies[1] = { valid = true, position = { x = 30, y = 2 } } end
+  return w, f
+end
+
+do
+  logs, poles_added, add_calls = {}, nil, nil
+  local w, f = uncovered_world(false)
+  run(f, w, 1200, 7200 + 1200 * 3) -- un seul relevé du réseau : on attend (peut être un chantier)
+  check(poles_added == nil, "decouvert vu une fois : aucun poteau pose")
+  run(f, w, 7200 + 1200 * 4, 7200 * 2 + 1200 * 3)
+  check((poles_added or 0) >= 1 and (poles_added or 0) <= 5, "decouvert depuis deux relevés : quelques poteaux neufs (" .. tostring(poles_added) .. ")")
+  local q = f.build.projects[2]
+  local n_cov = 0
+  for _, e in ipairs(f.build.projects[2].ents) do if e.role == "couverture" then n_cov = n_cov + 1 end end
+  for _, e in ipairs(f.build.projects[1].ents) do if e.role == "couverture" then n_cov = n_cov + 1 end end
+  check(n_cov == (poles_added or 0), "les poteaux neufs sont portes par un projet fini (le plus proche)")
+  check(f.build.projects[2].state == "reserve" or f.build.projects[1].state == "reserve", "le projet qui porte les poteaux neufs est rouvert")
+  local before = poles_added
+  run(f, w, 7200 * 2 + 1200 * 4, 7200 * 4)
+  check(poles_added == before and add_calls == 1, "projet de couverture en cours : une seule pose, pas de seconde (" .. tostring(add_calls) .. ")")
+  check(count("poteau(x) neuf(s)") >= 1, "la decision est au journal")
+
+  -- le laboratoire est dans l'emprise d'un projet en construction : pas decouvert, il n'est pas fini
+  logs, poles_added, add_calls = {}, nil, nil
+  w, f = uncovered_world(false)
+  f.build.projects[3] = { id = 3, state = "chantier", ents = {}, parts = { { ox = 20, oy = -2, w = 8, h = 8 } } }
+  f.build.order[#f.build.order + 1] = 3
+  run(f, w, 1200, 7200 * 3)
+  check(add_calls == nil, "consommateur dans l'emprise d'un projet en chantier : aucun poteau pose")
+
+  logs, poles_added, add_calls = {}, nil, nil
+  w, f = uncovered_world(true) -- ennemi a 6 tuiles du laboratoire
+  run(f, w, 1200, 7200 * 3)
+  local any = false
+  for _, e in ipairs(f.build.projects[2].ents) do if e.role == "couverture" then any = true end end
+  for _, e in ipairs(f.build.projects[1].ents) do if e.role == "couverture" then any = true end end
+  check(not any, "ennemi a portee du site de pose : aucun poteau neuf pose sous le feu")
 end
 
 ---------------------------------------------------------------------------------------------------

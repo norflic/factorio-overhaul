@@ -1263,6 +1263,60 @@ local function plan_project(f, surface, p)
   return true
 end
 
+--- Lot RESEAU-VIVANT : le poteau 1 × 1 en usage dans l'équipe (celui de ses projets), pour couvrir un consommateur découvert.
+--- Rend nom, portée de fil ; nil si l'équipe n'en a posé aucun.
+function Build.pole_of(f)
+  local b = f and f.build
+  if not b then return nil end
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    for _, e in ipairs(q and q.ents or {}) do
+      if e.name:find("electric%-pole") then
+        local w, h = P.size(e.name, 0)
+        if w == 1 and h == 1 then return e.name, P.wire(e.name) or 7.5 end
+      end
+    end
+  end
+  return nil
+end
+
+--- Lot RESEAU-VIVANT : ajoute au projet `p` (fini) des poteaux { name, x, y } à poser (les tuiles sont réservées, l'ancre et l'objet
+--- posés comme au plan) ; rend la liste des entités ajoutées (le projet n'est PAS rouvert ici : l'appelant le rouvre). Une tuile prise
+--- ou non libre est refusée sans bruit.
+function Build.add_poles(f, p, list)
+  local b = f and f.build
+  local surface = b and surface_of(f)
+  if not (b and surface and p and list and #list > 0) then return {} end
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, c in ipairs(list) do
+    x0, y0, x1, y1 = math.min(x0, c.x), math.min(y0, c.y), math.max(x1, c.x), math.max(y1, c.y)
+  end
+  local masks = read_masks(f, surface, x0 - 8, y0 - 8, x1 + 8, y1 + 8)
+  local added = {}
+  for _, c in ipairs(list) do
+    local tx, ty = math.floor(c.x), math.floor(c.y)
+    if masks.free(tx, ty) and not masks.clear[P.tkey(tx, ty)] then
+      local e = { name = c.name, x = tx + 0.5, y = ty + 0.5, dir = 0, role = "couverture", part = 1 }
+      if reserve_tiles(b, p, { e }) then added[#added + 1] = e end
+    end
+  end
+  local wood = wood_of(surface, added)
+  local passable = seg_passable(b)
+  for _, e in ipairs(added) do
+    local a = P.anchor_for(b.lat, e.x, e.y, passable)
+    local ax, ay
+    if a then ax, ay = a.x, a.y
+    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+    local fx, fy = free_spot(b, masks, ax, ay, wood)
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+    e.ax, e.ay = fx, fy
+    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    e.item = item_of(e.name)
+  end
+  P.sort_build(p.ents)
+  return added
+end
+
 --- Centrale de l'équipe (une demande, si aucune n'existe).
 function Build.plant(f, pole)
   local b = f.build
@@ -2242,7 +2296,7 @@ local function pulse_team(f, tick)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot RESEAU-VIVANT : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
-  Rv.step({ plant = Build.plant }, f, surface, tick)
+  Rv.step({ plant = Build.plant, add_poles = Build.add_poles, pole_of = Build.pole_of }, f, surface, tick)
 end
 
 local function teams()

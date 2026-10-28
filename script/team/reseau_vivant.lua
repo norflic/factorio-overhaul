@@ -18,6 +18,8 @@
 local M = require("shared.team.modules")
 local S = require("shared.team.reseau_sante")
 local R = require("shared.team.reseau")
+local C = require("shared.team.reseau_couvre")
+local P = require("shared.team.plan")
 
 local Rv = {}
 
@@ -27,6 +29,7 @@ Rv.POLE_REOPEN_MAX = 5    -- réouvertures d'un même projet pour ses poteaux (o
 Rv.POLE_ENEMY_R = 28      -- jamais de pose de poteau avec un ennemi à cette portée
 Rv.CAND_MAX = 40          -- poteaux perdus examinés par cycle
 Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
+Rv.COVER_BUSY_MAX = 54000 -- 15 min : un projet rouvert depuis plus longtemps ne retient plus de nouvelle couverture
 Rv.LOT_AVOID_R = 16       -- tuiles : rayon écarté autour du lot de la centrale perdue (le lot fait 32 de côté)
 
 local TYPES = {
@@ -57,6 +60,16 @@ function Rv.reopen(q, ents, why)
   end
   if q.state == "fini" then q.state, q.reason, q.reserve_next = "reserve", why, nil end
   q.reopened = (q.reopened or 0) + 1
+  q.reopened_tick = game.tick
+end
+
+--- Un projet rouvert (poteaux perdus, poteaux de couverture, pièces de la centrale) est-il encore en reconstruction ?
+local function rebuilding(b, tick)
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q.reopened and q.state ~= "fini" and q.state ~= "refuse" and tick - (q.reopened_tick or 0) < Rv.COVER_BUSY_MAX then return true end
+  end
+  return false
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -122,7 +135,25 @@ local function box_of(e)
 end
 
 --- { islands = n, uncovered = n, cons = { boîtes des consommateurs hors réseau de centrale }, gens = { boîtes } }
-local function net_read(f, surface)
+--- Le consommateur (boîte) est-il dans l'emprise d'un projet en construction (tout projet qui n'est ni fini ni refusé) ? Ses poteaux
+--- n'ont pas forcément été posés : il n'est pas « découvert », il n'est pas fini.
+local function in_construction(b, bx)
+  local cx, cy = (bx.x0 + bx.x1) / 2, (bx.y0 + bx.y1) / 2
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q.state ~= "fini" and q.state ~= "refuse" then
+      for k = 1, 16 do
+        local pt = q.parts and q.parts[k]
+        if pt and pt.ox and cx >= pt.ox - 3 and cx <= pt.ox + (pt.w or 0) + 3 and cy >= pt.oy - 3 and cy <= pt.oy + (pt.h or 0) + 3 then
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
+local function net_read(f, surface, b)
   local gnets, gens = {}, {}
   for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = "generator" })) do
     local id = g.electric_network_id
@@ -133,12 +164,12 @@ local function net_read(f, surface)
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = ELEC_TYPES })) do
     if e.prototype.electric_energy_source_prototype then
       local id = e.electric_network_id
-      if not id then
-        out.uncovered = out.uncovered + 1
-        out.cons[#out.cons + 1] = box_of(e)
-      elseif not gnets[id] then
-        out.islands = out.islands + 1
-        out.cons[#out.cons + 1] = box_of(e)
+      if not (id and gnets[id]) then
+        local bx = box_of(e)
+        if not in_construction(b, bx) then
+          if id then out.islands = out.islands + 1 else out.uncovered = out.uncovered + 1 end
+          out.cons[#out.cons + 1] = bx
+        end
       end
     end
   end
@@ -162,25 +193,49 @@ local function lost_poles(f, surface, b)
   return out
 end
 
---- Plan de relève : quels poteaux perdus rallument les consommateurs hors réseau (coût minimal, R.repair). Rend la liste
---- { { e, q } } et le texte du plan.
-local function repair_plan(f, surface, nr, cands)
-  local poles = {}
+--- Plan de relève ET de couverture : quels poteaux (perdus : à relever ; nouveaux : à poser sur une tuile libre autour des consommateurs
+--- découverts) rallument tout ce qui est hors réseau, au coût minimal (R.repair). Rend les poteaux perdus choisis { { e, q } }, les
+--- nouveaux choisis { { name, x, y } }, le texte du plan. Les nouveaux ne sont proposés que si l'équipe a un poteau 1 × 1 en usage.
+local function repair_plan(api, f, surface, b, nr, cands, want_new)
+  local poles, live = {}, {}
   for _, p in ipairs(surface.find_entities_filtered({ force = f.force, type = "electric-pole" })) do
     local pr = p.prototype
     poles[#poles + 1] = { x = p.position.x, y = p.position.y, wire = pr.max_wire_distance or 0, supply = pr.supply_area_distance or 0 }
+    local id = p.electric_network_id
+    if id and nr.gnets[id] then live[#live + 1] = { x = p.position.x, y = p.position.y } end
   end
+  table.sort(poles, function(a, c) if a.y ~= c.y then return a.y < c.y end return a.x < c.x end)
+  table.sort(live, function(a, c) if a.y ~= c.y then return a.y < c.y end return a.x < c.x end)
   local model = {}
   for i, c in ipairs(cands) do
     local pr = game.entity_prototypes[c.e.name]
     model[i] = { x = c.e.x, y = c.e.y, wire = pr and pr.max_wire_distance or 7.5, supply = pr and pr.supply_area_distance or 2.5, cost = 1 }
   end
+  local nl = #model
+  local new_name, fresh = nil, {}
+  if want_new and api.pole_of then
+    local name = api.pole_of(f)
+    local pr = name and game.entity_prototypes[name]
+    if name and pr then
+      new_name = name
+      local function free(tx, ty)
+        if b.occ[P.tkey(tx, ty)] then return false end
+        return surface.can_place_entity({ name = name, position = { tx + 0.5, ty + 0.5 }, force = f.force })
+      end
+      local res = C.candidates(nr.cons, live, free, { supply = pr.supply_area_distance or 2.5, wire = pr.max_wire_distance or 7.5 })
+      fresh = res.cands
+      for _, c in ipairs(fresh) do model[#model + 1] = c end
+    end
+  end
   local plan = R.repair({ poles = poles, consumers = nr.cons, producers = nr.gens }, model)
-  local out = {}
-  for _, j in ipairs(plan.chosen) do out[#out + 1] = cands[j] end
-  local txt = string.format("%d poteau(x) a relever sur %d perdu(s), %d consommateur(s) a rallumer, %d hors d'atteinte", #out, #cands,
-    plan.restored or 0, #(plan.unreachable or {}))
-  return out, txt, plan
+  local lost_sel, new_sel = {}, {}
+  for _, j in ipairs(plan.chosen) do
+    if j <= nl then lost_sel[#lost_sel + 1] = cands[j]
+    else new_sel[#new_sel + 1] = { name = new_name, x = model[j].x, y = model[j].y } end
+  end
+  local txt = string.format("%d poteau(x) a relever sur %d perdu(s) + %d poteau(x) neuf(s) sur %d candidat(s), %d consommateur(s) a rallumer, "
+    .. "%d hors d'atteinte", #lost_sel, #cands, #new_sel, #fresh, plan.restored or 0, #(plan.unreachable or {}))
+  return lost_sel, new_sel, txt, plan
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -229,8 +284,9 @@ function Rv.step(api, f, surface, tick)
   local nr
   if tick >= sv.net_next then
     sv.net_next = tick + Rv.NET_PERIOD
-    nr = net_read(f, surface)
+    nr = net_read(f, surface, b)
     sv.islands, sv.uncovered = nr.islands, nr.uncovered
+    sv.uncov_reads = (nr.uncovered > 0) and ((sv.uncov_reads or 0) + 1) or 0
     sv.demand = nominal_demand(b)
     sv.lost_links = 0
     if nr.islands + nr.uncovered > 0 then sv.lost_links = #lost_poles(f, surface, b) end
@@ -238,6 +294,7 @@ function Rv.step(api, f, surface, tick)
   local inp, lost = plant_read(f, surface, pp)
   inp.demand_kw = sv.demand
   inp.islands, inp.uncovered, inp.lost_links = sv.islands, sv.uncovered, sv.lost_links
+  inp.uncov_reads, inp.cover_busy = sv.uncov_reads or 0, rebuilding(b, tick)
   local site = site_of(pp)
   inp.enemies = 0
   if site then
@@ -292,11 +349,11 @@ function Rv.step(api, f, surface, tick)
     say(f, tick, string.format("centrale: %s ; centrale demandee AILLEURS (projet %s, site ecarte %.0f,%.0f, danger %s)", why,
       tostring(id), site and site.x or 0, site and site.y or 0,
       sv.enemy_x and string.format("%.0f,%.0f ecarte de %d tuiles", sv.enemy_x, sv.enemy_y, S.DANGER_R + 16) or "non vu"))
-  elseif action == "relier" then
-    nr = nr or net_read(f, surface)
+  elseif action == "relier" or action == "couvrir" then
+    nr = nr or net_read(f, surface, b)
     local cands = lost_poles(f, surface, b)
-    local plan_list, txt = repair_plan(f, surface, nr, cands)
-    if #plan_list == 0 and #cands > 0 and (nr.islands + nr.uncovered) > 0 then
+    local lost_sel, new_sel, txt = repair_plan(api, f, surface, b, nr, cands, true)
+    if #lost_sel == 0 and #new_sel == 0 and #cands > 0 and (nr.islands + nr.uncovered) > 0 then
       -- le modèle ne voit pas de chemin : repli, les poteaux perdus les plus proches des consommateurs hors réseau
       local near = {}
       for _, c in ipairs(cands) do
@@ -304,20 +361,48 @@ function Rv.step(api, f, surface, tick)
           if math.abs(c.e.x - (bx.x0 + bx.x1) / 2) < 24 and math.abs(c.e.y - (bx.y0 + bx.y1) / 2) < 24 then near[#near + 1] = c break end
         end
       end
-      plan_list, txt = near, txt .. " ; repli : " .. #near .. " proche(s) des consommateurs"
+      lost_sel, txt = near, txt .. " ; repli : " .. #near .. " proche(s) des consommateurs"
+    end
+    local function clear_of(x, y)
+      return not surface.find_nearest_enemy({ position = { x = x, y = y }, max_distance = Rv.POLE_ENEMY_R, force = f.force })
     end
     local per = {}
     local n = 0
-    for _, c in ipairs(plan_list) do
-      local clear = not surface.find_nearest_enemy({ position = { x = c.e.x, y = c.e.y }, max_distance = Rv.POLE_ENEMY_R, force = f.force })
-      if clear then
+    for _, c in ipairs(lost_sel) do
+      if clear_of(c.e.x, c.e.y) then
         per[c.q.id] = per[c.q.id] or { q = c.q, ents = {} }
         per[c.q.id].ents[#per[c.q.id].ents + 1] = c.e
         n = n + 1
       end
     end
+    -- poteaux neufs : au projet fini qui porte le poteau le plus proche (sinon la centrale), jamais sous le feu
+    local fresh = {}
+    for _, c in ipairs(new_sel) do if clear_of(c.x, c.y) then fresh[#fresh + 1] = c end end
+    local added = 0
+    if #fresh > 0 and api.add_poles then
+      local owner, od
+      for _, pid in ipairs(b.order) do
+        local q = b.projects[pid]
+        if q and q.state == "fini" then
+          for _, e in ipairs(q.ents) do
+            if is_pole(e.name) and e.built then
+              local d = (e.x - fresh[1].x) ^ 2 + (e.y - fresh[1].y) ^ 2
+              if not od or d < od then owner, od = q, d end
+            end
+          end
+        end
+      end
+      if not owner and pp.state == "fini" then owner = pp end
+      if owner then
+        local ents = api.add_poles(f, owner, fresh)
+        added = #ents
+        if added > 0 then Rv.reopen(owner, ents, "reseau: poteaux de couverture") end
+      end
+    end
     for _, pid in ipairs(sorted_keys(per)) do Rv.reopen(per[pid].q, per[pid].ents, "reseau: poteaux perdus") end
-    say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s) (les autres : ennemis a %d tuiles)", why, txt, n, Rv.POLE_ENEMY_R))
+    S.applied(sv.st, action, tick)
+    say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s), %d poteau(x) neuf(s) ajoute(s) (les autres : ennemis a %d tuiles ou tuile prise)", why,
+      txt, n, added, Rv.POLE_ENEMY_R))
     sv.net_next = tick + 1200 -- relire vite après la remise en état
   elseif action == "combustible" then
     say(f, tick, "centrale: " .. why .. " (combustible : pas un probleme de reseau, les bras de la centrale s'en chargent)")

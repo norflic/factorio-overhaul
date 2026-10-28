@@ -19,6 +19,8 @@
     "reposer"     pièces perdues, site sûr : rouvrir le projet pour les refaire sur place ;
     "autre_site"  pièces perdues et site DANGEREUX (persistant) ou refait en vain : la centrale est demandée AILLEURS ;
     "relier"      centrale vivante mais des consommateurs sur un îlot : relever les poteaux perdus qui les rallument ;
+    "couvrir"     centrale saine, des consommateurs sous AUCUN poteau depuis plusieurs relevés (hors chantier) : poser les poteaux
+                  (en nombre minimal, R.repair) qui les relient au réseau d'une centrale ;
     "combustible" sources présentes, à sec, production nulle : ce n'est pas un problème de réseau (diagnostic publié).
   Option par défaut de la question au DC : reconstruire AILLEURS dans la zone sûre la plus proche du réseau.
   Déterminisme : entiers et booléens, aucune horloge mesurée, aucun hasard, aucun pairs.
@@ -33,9 +35,11 @@ S.MAX_TRIES = 2        -- reposes sur place sans que la production revienne, ava
 S.SITE_LOSSES = 2      -- pertes de pièces sur le site (déjà refait) au-delà desquelles il est jugé dangereux
 S.MAX_RELOC = 3        -- centrales de remplacement demandées au plus
 S.MIN_DEMAND_KW = 1    -- demande en dessous de laquelle une production nulle n'est pas une panne
+S.COVER_CONFIRM = 2    -- relevés du réseau de suite avec des consommateurs découverts (hors chantier) avant de poser des poteaux
+S.MAX_COVER = 4        -- poses de couverture au plus pour un même épisode (remis à zéro quand plus rien n'est découvert)
 
 function S.new()
-  return { bad = 0, seen = 0, tries = 0, relocations = 0, site_losses = 0, last = nil, last_tick = nil }
+  return { bad = 0, seen = 0, tries = 0, relocations = 0, site_losses = 0, cover_tries = 0, last = nil, last_tick = nil }
 end
 
 local function lost_of(inp)
@@ -84,6 +88,11 @@ function S.decide(inp, st)
   if (inp.islands or 0) > 0 and (inp.lost_links or 0) > 0 then
     return "relier", string.format("%d consommateur(s) sur un ilot, %d poteau(x) perdu(s)", inp.islands, inp.lost_links), detail
   end
+  if (inp.uncovered or 0) == 0 then st.cover_tries = 0 end
+  if (inp.uncovered or 0) > 0 and (inp.uncov_reads or 0) >= S.COVER_CONFIRM and not inp.cover_busy then
+    if st.cover_tries >= S.MAX_COVER then return "attendre", "consommateurs decouverts : poses de couverture epuisees", detail end
+    return "couvrir", string.format("%d consommateur(s) sous aucun poteau depuis %d releves", inp.uncovered, inp.uncov_reads), detail
+  end
   return "ok", "centrale saine", detail
 end
 
@@ -91,6 +100,7 @@ end
 function S.applied(st, action, tick)
   st.last, st.last_tick = action, tick
   if action == "reposer" then st.tries = st.tries + 1 end
+  if action == "couvrir" then st.cover_tries = st.cover_tries + 1 end
   if action == "autre_site" then
     st.relocations = st.relocations + 1
     st.tries, st.site_losses, st.seen, st.bad = 0, 0, 0, 0

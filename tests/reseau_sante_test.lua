@@ -126,6 +126,31 @@ do
   end
 end
 
+-- §1 bis couverture des consommateurs decouverts
+do
+  local st = S.new()
+  local act = S.decide(inp({ uncovered = 3, uncov_reads = 1 }), st)
+  check(act == "ok", "decouverts depuis un seul releve : on attend (peut etre un chantier)")
+  act = S.decide(inp({ uncovered = 3, uncov_reads = S.COVER_CONFIRM }), st)
+  check(act == "couvrir", "decouverts depuis COVER_CONFIRM releves : couvrir")
+  act = S.decide(inp({ uncovered = 3, uncov_reads = 5, cover_busy = true }), st)
+  check(act == "ok", "un projet de couverture est deja en cours : ne pas en poser un second")
+  act = S.decide(inp({ uncovered = 3, uncov_reads = 5, islands = 1, lost_links = 2 }), S.new())
+  check(act == "relier", "poteaux perdus et decouverts : relever d'abord les poteaux perdus")
+  local s2 = S.new()
+  for i = 1, S.MAX_COVER do
+    local x = S.decide(inp({ uncovered = 3, uncov_reads = 9 }), s2)
+    check(x == "couvrir", "essai de couverture " .. i)
+    S.applied(s2, x, i)
+  end
+  act = S.decide(inp({ uncovered = 3, uncov_reads = 9 }), s2)
+  check(act == "attendre", "poses de couverture epuisees : on arrete (pas de boucle)")
+  S.decide(inp({ uncovered = 0 }), s2)
+  check(s2.cover_tries == 0, "plus rien de decouvert : le compte des essais repart a zero")
+  act = S.decide(inp({ uncovered = 2, uncov_reads = 9, missing = { source = 1 } }), S.new())
+  check(act == "reposer", "centrale amputee : la centrale d'abord, la couverture ensuite")
+end
+
 -- §6 mutants
 local MUT = {
   { "pas de confirmation de la production nulle", "if st.bad < S.CONFIRM then", "if false then" },
@@ -142,6 +167,11 @@ local MUT = {
   { "deplacement ne remet pas les compteurs", "st.tries, st.site_losses, st.seen, st.bad = 0, 0, 0, 0", "" },
   { "pompe non comptee", "(m.source or 0) + (m.gen or 0) + (m.eau or 0)", "(m.source or 0) + (m.gen or 0) + (m.tuyau or 0)" },
   { "tuyaux non comptes", "+ (m.tuyau or 0)", "" },
+  { "couverture sans confirmation", "(inp.uncov_reads or 0) >= S.COVER_CONFIRM", "true" },
+  { "couverture sans garde de projet en cours", "and not inp.cover_busy then", "then" },
+  { "couverture sans limite", "if st.cover_tries >= S.MAX_COVER then", "if false then" },
+  { "essais de couverture non comptes", 'if action == "couvrir" then st.cover_tries = st.cover_tries + 1 end', "" },
+  { "essais de couverture jamais remis a zero", "if (inp.uncovered or 0) == 0 then st.cover_tries = 0 end", "" },
 }
 local function battery(S2)
   local bad = 0
@@ -152,6 +182,16 @@ local function battery(S2)
   exp((S2.decide(inp({ missing = { eau = 1 } }), S2.new())) == "reposer")
   exp((S2.decide(inp({ missing = { source = 1 }, enemies = 3 }), S2.new())) == "attendre")
   exp((S2.decide(inp({ missing = { tuyau = 2 } }), S2.new())) == "reposer")
+  exp((S2.decide(inp({ uncovered = 3, uncov_reads = 1 }), S2.new())) == "ok")
+  exp((S2.decide(inp({ uncovered = 3, uncov_reads = 9 }), S2.new())) == "couvrir")
+  exp((S2.decide(inp({ uncovered = 3, uncov_reads = 9, cover_busy = true }), S2.new())) == "ok")
+  do
+    local s4 = S2.new()
+    for i = 1, S2.MAX_COVER do S2.applied(s4, S2.decide(inp({ uncovered = 3, uncov_reads = 9 }), s4), i) end
+    exp((S2.decide(inp({ uncovered = 3, uncov_reads = 9 }), s4)) == "attendre")
+    S2.decide(inp({ uncovered = 0 }), s4)
+    exp((S2.decide(inp({ uncovered = 3, uncov_reads = 9 }), s4)) == "couvrir")
+  end
   exp((S2.decide(inp({ prod_kw = 0, dry = 2 }), S2.new())) == "attendre")
   local s3 = S2.new()
   S2.decide(inp({ prod_kw = 0, dry = 2 }), s3)
