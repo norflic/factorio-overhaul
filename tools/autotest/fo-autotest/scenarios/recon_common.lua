@@ -6,7 +6,10 @@
     - « separees » (800) : aucune ne voit l'autre. Attendu : AUCUNE attaque entre factions, au moins un soldat éclaireur parti,
       toute attaque proposée par la sonde `recon_probe` refusée (et comptée) ;
     - « voisines » (60) : leurs QG sont à portée des yeux du chef (160 tuiles). Attendu : chacune VOIT l'autre (QG et avant-
-      postes, statut fraîche), la sonde accepte l'attaque, aucun soldat envoyé en reconnaissance.
+      postes, statut fraîche), la sonde accepte l'attaque, aucun soldat envoyé en reconnaissance ;
+    - « attaque » (60, 30 min) : les mêmes voisines, jouées assez longtemps pour qu'une attaque entre factions PARTE : preuve en
+      moteur réel du critère central, « où elles se voient, l'attaque part » (ligne [FO-STRAT] attaque ... savoir N min, lue
+      par tools/autotest/recon_mesures.py).
   Journal : [FO-RECON-<CAS>] ; lignes du mod : [FO-RECON]. Lancement : fo-autotest.bat nopause <ticks> recon-<cas> <source>.
 ]]
 return function(case, distance, ticks)
@@ -67,6 +70,10 @@ return function(case, distance, ticks)
         local refused = 0
         for _, f in ipairs(rr.factions) do refused = refused + f.refused end
         ctx.check(refused >= 2, "les refus sont comptes", refused)
+      elseif case == "attaque" then
+        ctx.check(seen_all, "chaque faction a vu l'autre (QG a portee des yeux)")
+        ctx.check(attacks >= 1, "au moins une attaque entre factions lancee apres une vue (journal : savoir N min)", attacks)
+        ctx.check(pa == true and pb == true, "la sonde accepte l'attaque d'une rivale vue", tostring(pa) .. "/" .. tostring(pb))
       else
         ctx.check(seen_all, "chaque faction a vu l'autre (QG a portee des yeux)")
         ctx.check(pa == true and pb == true, "la sonde accepte l'attaque d'une rivale vue", tostring(pa) .. "/" .. tostring(pb))
