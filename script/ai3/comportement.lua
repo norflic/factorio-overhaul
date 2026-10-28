@@ -616,6 +616,19 @@ function M.gate(f, agent, task, steps, tick)
       t.waits[dk] = w
     end
     w.n, w.t = w.n + 1, tick
+    if f.is_player and (w.n == 1 or w.n % 10 == 0) then -- TMPDIAG
+      local near = {}
+      for _, th in ipairs(t.map.threats) do
+        for _, q in ipairs(pts) do
+          if d2(q, th) <= (th.r + 16) * (th.r + 16) then
+            near[#near + 1] = string.format("%s@%d,%d r%d age%.1fmin", th.k, th.x, th.y, th.r, (tick - th.t) / 3600)
+            break
+          end
+        end
+      end
+      log(string.format("[TMPDIAG] %.1f min gate %s %s vers %d,%d goal_d %d max_d %d B %d deaths %d menaces[%s] cellsmobiles %d", tick / 3600,
+        why, task.kind, dest.x, dest.y, res.exact_goal or -1, res.exact_max or -1, res.B or -1, deaths, table.concat(near, "; "), t.map.n_cells or -1))
+    end
     for _, th in ipairs(t.map.threats) do
       for _, q in ipairs(pts) do
         if d2(q, th) <= (th.r + 16) * (th.r + 16) then th.b = tick break end
