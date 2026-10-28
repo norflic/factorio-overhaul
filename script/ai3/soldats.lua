@@ -17,6 +17,7 @@ local Registry = require("script.companion.registry")
 local Worker = require("script.team.worker")
 local Profiler = require("script.core.profiler")
 local D = require("shared.ai3.danger")
+local K = require("shared.ai3.carte")
 local Re = require("shared.ai3.reaction")
 local Sd = require("shared.ai3.soldats")
 local C = require("script.ai3.comportement")
@@ -31,6 +32,7 @@ SD.CLEAR_TICKS = 3 * 3600
 SD.THREAT_HQ = 220     -- menaces candidates au nettoyage : à moins de 220 tuiles du QG...
 SD.THREAT_OUTPOST = 64 -- ... ou de 64 tuiles d'un avant-poste
 SD.HQ_THREAT_R = 48
+SD.RING_TICKS = 3600  -- lot CENTRALE : les anneaux sûrs sont recalculés chaque minute
 SD.SHELTER_TICKS = 600 -- ralliement ou éloignement : on y attend 10 s, puis le PNJ rentre et la menace est rejugée
 
 local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse" }
@@ -332,9 +334,27 @@ local function pass(f, tick)
     if hot then marked[#marked + 1] = { x = p.x, y = p.y } end
   end
   local ch_prud, ch_agr = C.character(f)
+  -- Lot CENTRALE : anneaux de patrouille et de garde réduits aux points SÛRS (nids et vers connus de la carte de connaissance,
+  -- danger et morts de la carte de l'équipe), recalculés chaque minute ou quand la carte de l'équipe change. Nombres seulement.
+  local epoch = t.epoch or 0
+  if not sd.ring_t or tick - sd.ring_t >= SD.RING_TICKS or sd.ring_epoch ~= epoch then
+    local km = f.ai3f and f.ai3f.m
+    local B = D.block(ch_prud)
+    local function safe(x, y)
+      if km then
+        local n, w = K.enemies_near(km, x, y, Sd.SAFE_R)
+        if n + w > 0 then return false end
+      end
+      return D.danger_at(t.map, x, y, tick) < B
+    end
+    sd.ppts = Sd.safe_ring(f.hq_pos, Sd.PATROL_RADII, safe)
+    sd.gpts = Sd.safe_ring(f.hq_pos, Sd.GUARD_RADII, safe)
+    sd.ring_t, sd.ring_epoch = tick, epoch
+  end
   local orders, summary = Sd.assign({
     tick = tick, hq = f.hq_pos, agr = ch_agr, soldiers = list, defend = defend, escorts = escorts,
     threats = clusters, clearing = sd.clearing, marked_outposts = marked, cursor = sd.cursor,
+    patrol_pts = sd.ppts, guard_pts = sd.gpts,
   })
   -- Application : commande seulement quand l'ordre change (l'escorte est relancée à chaque passage : elle suit le PNJ).
   local started_clear = nil
@@ -410,6 +430,29 @@ local function pass(f, tick)
   m.group = m.group + group_n
   for k, v in pairs(summary.roles) do m.roles[k] = (m.roles[k] or 0) + v end
 end
+
+-- Lot CENTRALE : la mort d'un SOLDAT tué par un ennemi est une mort de l'équipe (carte du danger, comme celle d'un PNJ :
+-- script/ai3/comportement.lua, Registry.on_removed). Sans cela, les soldats mouraient au même endroit à chaque patrouille,
+-- la carte ne le savait pas. Le fait seul est tiré de l'événement (position, force du tueur).
+Events.on(defines.events.on_entity_died, function(e)
+  local ent = e.entity
+  if not (ent and ent.valid and ent.type == "unit") then return end
+  if not (e.force and e.force.name == "enemy") then return end
+  local owner = State.owner(ent.unit_number)
+  if not (owner and owner.kind == "soldier") then return end
+  local f = State.faction(owner.f)
+  if not (f and f.hq_pos and C.enabled()) then return end
+  local t = C.team(f)
+  local p = ent.position
+  local at_home = d2(p, f.hq_pos) <= C.HOME_DEATH_R * C.HOME_DEATH_R
+  D.mark_death(t.map, p.x, p.y, game.tick, at_home)
+  t.epoch = (t.epoch or 0) + 1
+  t.stats.soldier_deaths = (t.stats.soldier_deaths or 0) + 1
+  if Profiler.enabled() then
+    log(string.format("[FO-IA3K] %s : mort d'un soldat marquee en (%d, %d)%s", tostring(f.key), math.floor(p.x), math.floor(p.y),
+      at_home and " (pres du QG)" or ""))
+  end
+end)
 
 Events.on_nth_tick(SD.PERIOD, function(e)
   local alive = State.alive()
