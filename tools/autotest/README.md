@@ -1124,3 +1124,16 @@ $env:FO_VISUAL_ARGS = $null`. Durée de chaque passage : **74 à 80 s** mesurée
     60, les images/s mesurent la simulation autant que le rendu (que le jeu borne les images/s par l'UPS n'est pas
     prouvé ici).
 11. Règles d'octets « alpha-mask » et « low-quality » : hypothèses (tableau ci-dessus) ; la mesure directe tranche.
+
+## 6. Mesures fonctionnelles d'une base (lot MESURES, 28/10)
+
+`scenarios/fonction_common.lua` lit sur le moteur ce que font les machines (et non combien il y en a) : fours (production
+par machine, alimenteur structurel foreuse / bras sur tapis / coffre alimenté / main), foreuses, électricité (réseau du
+générateur), bras électriques et thermiques, tapis utiles, tourelles armées, corps de PNJ inertes, stock non posé,
+technologies terminées, parité joueur contre la médiane des factions vivantes. `etape1-guide` l'appelle toutes les 30 s
+(relevé) et toutes les 10 min (rapport) : lignes `[FO-FONCTION] <genre> minute N | <clé> | k=v …`, jamais dans le BILAN.
+Lecture : `PYTHONUTF8=1 py -3.9 -B tools/autotest/fonction_mesures.py <archive> [...] [--minutes 20,40,60]` (tableau par
+force, puis distribution médiane / min / max sur plusieurs archives, forces mortes exclues). Tests hors jeu :
+`lua5.2 tools/autotest/tests/test_fonction.lua` (moteur simulé) et
+`PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_fonction_mesures.py` (journal synthétique, dont 54 fours en carré
+jamais alimentés). Ce que chaque indicateur prouve ou non, et la règle des seuils : `docs/PORTES_MESURES.md`.

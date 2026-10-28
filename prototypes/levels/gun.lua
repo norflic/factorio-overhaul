@@ -30,6 +30,9 @@
 
 local SPR = require("__factorio-overhaul__/graphics/levels/gun/sprites")
 local SONS = require("__factorio-overhaul__/sound/levels/gun/sons")
+-- Lot TIRS (27/10) : couches de son AJOUTÉES par âge (fichiers vanilla référencés), table de données par âge.
+local TIRS = require("shared.tirs.ages")
+local TK = require("prototypes.tirs_kit")
 
 local M = {}
 
@@ -151,7 +154,8 @@ local TETE = { "folded_animation", "preparing_animation", "prepared_animation", 
 function M.dress(p, ctx)
   local e = ctx.epoch
   -- Son du tir (lot S0) : seul champ sonore touché ; le niveau 1 (vanilla) n'est jamais habillé.
-  p.attack_parameters.sound = son_tir(e)
+  -- Lot TIRS : aux âges de shared/tirs/ages.lua qui en déclarent, le son S0 devient la 1re couche d'un LayeredSound.
+  p.attack_parameters.sound = TK.son_tir(son_tir(e), TIRS.ages[e])
   if e == 1 then
     -- Niveau 2 : la pièce e01 SOUS la mitrailleuse vanilla (couches insérées en tête du socle vanilla).
     local base = p.base_picture
