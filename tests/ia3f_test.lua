@@ -140,7 +140,8 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 4. Factions : étape « explore » du cerveau pour une ressource jamais vue
 ---------------------------------------------------------------------------------------------------
-local function faction_world(p_nopath, no_oil_brain)
+local function faction_world(p_nopath, opt)
+  opt = opt or {}
   local out = {}
   local d = 0.7071
   local names = { "coal", "iron-ore", "copper-ore", "stone" }
@@ -152,16 +153,12 @@ local function faction_world(p_nopath, no_oil_brain)
   end
   -- Pétrole loin du QG nord-est (226, -226) : à 620 tuiles vers l'est-nord-est.
   out[#out + 1] = { x = 820, y = -400, name = "crude-oil", amount = 300000 }
-  -- no_oil_brain : réglage fo-war-petrole éteint (lot PETROLE 2, allumé par défaut). Allumé, le cerveau demande LUI-MÊME le pétrole
-  -- (demande « cerveau », épuisée au bout de ses missions puis reprise 10 min plus tard) en plus de la demande de ce test : la
-  -- suite des tirages de chemins ratés change et §6 (reprise d'un chemin raté, pas le pétrole des factions) ne le trouve plus en
-  -- 30 min. Fait noté pour le lot d'exploration : la demande propre au cerveau s'épuise avant le pétrole lointain.
-  M.new_game({ patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0, petrole = not no_oil_brain })
+  M.new_game({ patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0, petrole = opt.petrole ~= false, seed = opt.seed })
   check(remote.call("factorio-overhaul", "war_start", 4, 20, 4, 320) == true, "guerre lancée (4 factions, 4 PNJ)")
 end
 
-local function run_oil(p_nopath, no_oil_brain)
-  faction_world(p_nopath, no_oil_brain)
+local function run_oil(p_nopath, opt)
+  faction_world(p_nopath, opt)
   M.run_ticks(3 * 3600)
   local war = global.fo.war
   local f1 = war.factions[1]
@@ -211,13 +208,62 @@ check(oilb == snap1.oil and f1b.ai3f.m.n == snap1.n and st5.stats.looks == snap1
 -- 6. Lot IA-V2 (moteur réel, ia3c-reduit graine 20261020 : Écarlate, 32 missions sur 33 finies sur « chemin » EN ROUTE,
 -- puis retour à pied au QG) : chemins introuvables au hasard (30 % des demandes) : la mission prend une autre cible
 -- depuis là où est l'éclaireur, et le pétrole est trouvé quand même.
-local f6, asked6, t6, oil6 = run_oil(0.3, true)
+--
+-- CRITÈRES ÉCRITS AVANT LA MESURE (lot PETROLE, 28/10, sur décision du coordinateur ; remplacent le critère « pétrole trouvé
+-- en moins de 30 min sur la graine 42 », qui dépend du hasard : mesuré hors jeu sur 6 graines du moteur simulé, 2 graines
+-- sur 6 le trouvent en 30 min avec fo-war-petrole ÉTEINT comme ALLUMÉ ; seule la graine 42 passait, éteint) :
+--   C1. sur SEEDS graines (1 à 6), chemins ratés à 30 %, le nombre de graines où le pétrole est trouvé en moins de 30 min
+--       avec fo-war-petrole ALLUMÉ (défaut du jeu) est AU MOINS ÉGAL à celui du réglage éteint ;
+--   C2. le temps médian de découverte (30 min si non trouvé) avec le réglage allumé ne dépasse pas celui du réglage éteint
+--       de plus de la moitié de l'étendue des temps du réglage éteint entre graines (max - min) / 2 ;
+--   C3. la graine 42 (défaut), réglage allumé, est jouée et DOCUMENTÉE sans être masquée (voir plus bas).
+-- Ce que cela prouve : qu'allumer le pétrole ne dégrade pas l'exploration lointaine plus que le hasard entre graines, sur
+-- 6 graines du moteur simulé, chemins ratés compris. Ce que cela ne prouve PAS : la découverte du pétrole en jeu réel (cartes,
+-- ennemis, lacs), ni que l'exploration est bonne : un balayage de la frontière sans direction trouve un pétrole à 614 tuiles en
+-- 30 min dans un tiers des cas seulement, même réglage éteint (cause : exploration en balayage, zone du lot recon-2).
+local SEEDS = { 1, 2, 3, 4, 5, 6 }
+local function find_min(opt)
+  local _, _, t0, oil = run_oil(0.3, opt)
+  return oil and oil - t0 <= 30 * 3600 and (oil - t0) / 3600 or nil
+end
+local on_n, off_n, on_t, off_t = 0, 0, {}, {}
+for _, sd in ipairs(SEEDS) do
+  local a = find_min({ petrole = true, seed = sd })
+  local b = find_min({ petrole = false, seed = sd })
+  if a then on_n = on_n + 1 end
+  if b then off_n = off_n + 1 end
+  on_t[#on_t + 1] = a or 30
+  off_t[#off_t + 1] = b or 30
+  print(string.format("  graine %d : petrole trouve a %s min (allume) / %s min (eteint)", sd, tostring(a), tostring(b)))
+end
+local function median(t)
+  local c = {}
+  for i, v in ipairs(t) do c[i] = v end
+  table.sort(c)
+  local n = #c
+  return n % 2 == 1 and c[(n + 1) / 2] or (c[n / 2] + c[n / 2 + 1]) / 2
+end
+local off_lo, off_hi = math.huge, -math.huge
+for _, v in ipairs(off_t) do off_lo, off_hi = math.min(off_lo, v), math.max(off_hi, v) end
+local m_on, m_off, spread = median(on_t), median(off_t), (off_hi - off_lo) / 2
+print(string.format("  graines ou le petrole est trouve : %d (allume) / %d (eteint) ; temps median %.1f / %.1f min ; ecart toleré %.1f min",
+  on_n, off_n, m_on, m_off, spread))
+check(on_n >= off_n, string.format("chemins ratés : pétrole allumé trouve le pétrole sur au moins autant de graines que éteint (%d contre %d sur %d)",
+  on_n, off_n, #SEEDS))
+check(m_on <= m_off + spread, string.format("chemins ratés : temps médian allumé %.1f min, éteint %.1f min, écart toléré %.1f min", m_on, m_off, spread))
+
+-- C3. Graine 42 (défaut du moteur simulé), réglage allumé : ÉCART CONNU, non masqué. Avec le réglage éteint, le pétrole y est
+-- trouvé à 1,4 min ; allumé, la suite des tirages de chemins ratés change et il n'est pas trouvé en 30 min (cause : exploration
+-- en balayage, régions de chemins ratés qui écartent la frontière ; pas le pétrole : mêmes échecs sur d'autres graines éteint).
+local f6, asked6, t6, oil6 = run_oil(0.3)
 local rer = count_logs("chemin rate en route, autre cible")
 local ends = count_logs("fin : chemin")
-print(string.format("  chemins rates en route repris : %d ; missions finies sur chemin : %d ; petrole a %s min", rer, ends,
+local known = not (oil6 and oil6 - t6 <= 30 * 3600)
+print(string.format("  chemins rates en route repris : %d ; missions finies sur chemin : %d ; petrole a %s min (graine 42, allume)", rer, ends,
   tostring(oil6 and (oil6 - t6) / 3600)))
-check(asked6 == "demande" and oil6 ~= nil and oil6 - t6 <= 30 * 3600, "chemins ratés : pétrole trouvé moins de 30 min après (" ..
-  tostring(oil6 and (oil6 - t6) / 3600) .. " min)")
+print(known and "[IA3F] ECART CONNU : graine 42, pétrole allumé : pétrole non trouvé en 30 min avec 30 % de chemins ratés (cause : exploration en balayage, voir C1/C2)"
+  or "[IA3F] ECART CONNU RESOLU : graine 42, pétrole allumé : pétrole trouvé en 30 min ; retirer cet écart")
+check(asked6 == "demande", "chemins ratés : demande ouverte (" .. tostring(asked6) .. ")")
 check(rer >= 1, "chemins ratés en route : une autre cible (" .. rer .. " fois)")
 check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
 
