@@ -26,6 +26,8 @@
   (pas les objets fabriqués à la main par un PNJ, F319) ; entités détruites en cours de fenêtre non comptées.
 ]]
 
+local Z = require("scenarios/fonction_reseau")
+
 local F = {}
 
 F.TAG = "[FO-FONCTION] "
@@ -517,6 +519,33 @@ function F.report(st, s, key, force, minute, tick, row)
     fe_el, table.concat(cons, " ")))
   M.kw_moy = kw_moy
   M.poteaux_gen = poles_gen
+
+  -- Lot RESEAU-VIVANT : mesure à vide du réseau (paires serrées, poteaux redondants, consommateurs hors couverture)
+  do
+    local cons_ents = {}
+    for _, cls in ipairs({ "foreuse_elec", "bras_elec", "assembleur", "labo", "pompe" }) do
+      for _, e in ipairs(by[cls]) do cons_ents[#cons_ents + 1] = e end
+    end
+    for _, e in ipairs(by.four) do
+      if e.prototype.electric_energy_source_prototype then cons_ents[#cons_ents + 1] = e end
+    end
+    local okz, poles_z, cons_z, prods_z, pole_ents = pcall(Z.read, s, force, cons_ents, by.generateur)
+    if okz then
+      local R = Z.measure(poles_z, cons_z, prods_z)
+      logl("reseau", minute, key, Z.line(R))
+      M.redondants = R.glouton
+      if minute % 20 == 0 then
+        for i, p in ipairs(poles_z) do
+          local pe = pole_ents[i]
+          logl("poteau", minute, key, string.format("x=%.1f y=%.1f nom=%s voisins=%d paire=%d seul=%d glouton=%d reseau=%s", p.x, p.y, p.name,
+            #p.nb, (R.in_pair and R.in_pair[i]) and 1 or 0, (R.removable and R.removable[i]) and 1 or 0, (R.gone and R.gone[i]) and 1 or 0,
+            tostring(pe.electric_network_id or "-")))
+        end
+      end
+    else
+      logl("reseau", minute, key, "erreur=" .. tostring(poles_z))
+    end
+  end
 
   -- bras : cibles
   local ins_ok, ins_n = 0, 0
