@@ -708,7 +708,11 @@ FSM.define(MACHINE, {
       local f = faction_of(agent)
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
-      if not Tokens.take(f, tick, Tokens.COST_CLAIM) then return end
+      local TD = f.is_player and tick >= 70000 and tick <= 130000 and tick % 120 == 0 -- TMPDIAG
+      if not Tokens.take(f, tick, Tokens.COST_CLAIM) then
+        if TD then log(string.format("[TMPDIAG] idle %d jetons refuses tick %d", agent.id, tick)) end
+        return
+      end
       -- Lot PERF (correction après revue) : la prise de tâche entière (réclamer, programmer, juger, rendre) est comptée et
       -- mesurée SELON SON ISSUE (« idle:sans-tache », « idle:sans-programme », « idle:refus », « idle:depart ») ; la
       -- porte seule aussi (« gate:accepte », « gate:refus »). Mode fin du profileur seulement (mesure, jamais décision).
@@ -716,6 +720,7 @@ FSM.define(MACHINE, {
       Profiler.fstart("board:claim")
       local task = Board.claim(f, agent, tick)
       Profiler.fstop("board:claim")
+      if TD then log(string.format("[TMPDIAG] idle %d claim -> %s tick %d", agent.id, task and (task.kind .. ":" .. task.key) or "nil", tick)) end
       if not task then
         -- Rien à faire : rentrer au QG (et y déposer) plutôt que rester au loin.
         if dist2(agent.entity.position, home_slot(agent, f)) > 3 * 3 and not agent.nav then
