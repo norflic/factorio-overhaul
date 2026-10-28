@@ -57,6 +57,10 @@ grandes idées ; le détail des commandes et interdits est dans `CLAUDE.md` du m
   mettre à jour les documents ; rapport au DC en 3 lignes seulement si quelque chose a changé.
 - **Deux fois par heure** (`17,47 * * * *`) : relecture des logs (`docs/LOGS_NUIT.md`, script `scan_logs.py`) : erreurs Lua,
   plantages, boucles de tâches, fer gardé en inventaire, gels, centrales à 0 kW, processus parasites.
+- **Ne JAMAIS écrire (SendMessage) à un agent d'un workflow en cours** (ids `a…` sans nom) : cela le « reprend » et crée
+  un DOUBLON cloné qui écrit dans le même worktree (arrivé le 29/10 sur le lot RESEAU, d'où des commits étrangers, un
+  agent arrêté, un lot repris par un agent nommé). On les suit par leur `STATUS.md` et leurs archives ; pour parler à un
+  lot, utiliser un agent NOMMÉ (Agent avec `name`), joignable par SendMessage.
 - Ces tâches vivent dans la session (7 jours au plus) : si la session redémarre, les recréer en premier.
 - Un agent n'est jamais « laissé tranquille » : s'il n'a rien produit (archive, commit, rapport) depuis 20 minutes, je lui
   écris ; s'il est silencieux depuis 40 minutes, je lis son worktree et ses archives moi-même.
