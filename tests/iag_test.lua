@@ -464,6 +464,101 @@ do
   end
   print(string.format("[IAG] §8 anti-échelle : %d noms du jeu cherchés dans %d fichiers de décision, %d fichier(s) en défaut",
     total, #files, #bad))
+  -- §8 bis (lot GENERAL, 28/10) : les dossiers de l'EXÉCUTANT et des factions (shared/team, script/team, shared/faction,
+  -- script/faction, script/core, script/world, script/agents, script/gui, script/modules), que §8 ne couvrait pas. Ce sont
+  -- des lignes qui nomment un objet du jeu entre guillemets. Trois sortes de fichiers :
+  --   EXEC   : tables NOMMÉES de l'exécutant (ce que les PNJ savent poser, fabriquer, brûler : gabarits, empreintes,
+  --            nom des pièces) : le nom y est la donnée, légitime ; plafond tout de même (rien ne s'y ajoute en silence) ;
+  --   TYPE   : types du moteur ou masques de collision (`container`, `radar`, `water-tile`...), pas des noms de prototype ;
+  --   DETTE  : décisions qui devraient lire T (shared/team/config.lua) ou le catalogue du cerveau (correctif proposé au
+  --            rapport du lot) ; le plafond est l'état du 28/10 et ne peut que BAISSER.
+  -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
+  local LEDGER = {
+    ["shared/team/config.lua"] = { "EXEC", 41, "table nommée de l'exécutant (kit, avant-postes, fonte, munitions, pièces)" },
+    ["shared/team/modules.lua"] = { "EXEC", 203, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces" },
+    ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
+    ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
+    ["script/team/build.lua"] = { "EXEC", 23, "construction : pièces posées (tapis, coffre, poteaux, bras)" },
+    ["script/team/plant_arms.lua"] = { "EXEC", 3, "bras de la centrale (chaudière, machine à vapeur)" },
+    ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
+    ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },
+    ["script/modules/mult.lua"] = { "TYPE", 2, "types du moteur des machines à modules" },
+    ["script/gui/team_window.lua"] = { "EXEC", 2, "coffre d'équipe : entité du mod" },
+    ["shared/team/production.lua"] = { "DETTE", 16, "solveur de débits (lot IA1-e1) : machine par catégorie, matières brutes, recette par défaut du gaz : lire le catalogue du cerveau" },
+    ["script/core/path_service.lua"] = { "TYPE", 1, "masque de collision d'eau" },
+    ["shared/team/fond.lua"] = { "DETTE", 18, "cibles du travail de fond : lire T.outposts / T.start_kit" },
+    ["shared/team/planner.lua"] = { "DETTE", 40, "table plaque -> avant-poste : déduire de T.outposts / T.smelter_inputs (comme manque.lua)" },
+    ["shared/team/org.lua"] = { "DETTE", 2, "coût de recrue en plaques de fer : T.outposts.iron.product" },
+    ["shared/team/scale.lua"] = { "DETTE", 1, "noms de pièces : T" },
+    ["script/team/board.lua"] = { "DETTE", 2, "besoins de fonte : T.smelter_inputs" },
+    ["script/team/poles.lua"] = { "DETTE", 6, "matières brutes et tourelles : T" },
+    ["script/team/team.lua"] = { "DETTE", 4, "réserve de fer et objets clés : T" },
+    ["script/team/worker.lua"] = { "DETTE", 6, "tourelle et munitions : T.turret / T.turret_ammo" },
+    ["script/team/ia1_remote.lua"] = { "DETTE", 2, "relevé des matières produites : T.outposts" },
+    ["script/team/player_team.lua"] = { "DETTE", 1, "coffre d'équipe (entité du mod)" },
+    ["script/faction/chef.lua"] = { "DETTE", 1, "stocks du chef : T.outposts" },
+    ["script/faction/outposts.lua"] = { "DETTE", 8, "tourelle et munitions des avant-postes : T" },
+    ["script/faction/war.lua"] = { "DETTE", 3, "tourelles du QG et kit de départ : T" },
+  }
+  local function hit_lines(src, nameset)
+    -- commentaires longs remplacés par autant de retours à la ligne : les numéros de ligne restent ceux du fichier
+    local code = src:gsub("%-%-%[(=*)%[(.-)%]%1%]", function(_, body) return (body:gsub("[^" .. string.char(10) .. "]", "")) end)
+    local n, found, ln = 0, {}, 0
+    for line in (code .. string.char(10)):gmatch("([^" .. string.char(10) .. "]*)" .. string.char(10)) do
+      ln = ln + 1
+      -- commentaire de fin de ligne : retiré en suivant les guillemets (un "--" dans une chaîne reste)
+      local quote, cut = nil, nil
+      for i = 1, #line do
+        local c = line:sub(i, i)
+        if quote then
+          if c == quote and line:sub(i - 1, i - 1) ~= "\\" then quote = nil end
+        elseif c == '"' or c == "'" then quote = c
+        elseif c == "-" and line:sub(i + 1, i + 1) == "-" then cut = i break end
+      end
+      if cut then line = line:sub(1, cut - 1) end
+      for _, name in ipairs(sorted_keys(nameset)) do
+        if not TYPES[name] and line:find('"' .. name .. '"', 1, true) then
+          n = n + 1
+          found[#found + 1] = string.format("ligne %d : %s (%s)", ln, name, (line:gsub("^%s+", "")):sub(1, 70))
+          break
+        end
+      end
+    end
+    return n, found
+  end
+  local function culprits(found, n_ok)
+    local out = {}
+    for i = math.max(1, n_ok + 1), math.min(#found, n_ok + 6) do out[#out + 1] = "    " .. found[i] end
+    return table.concat(out, string.char(10))
+  end
+  local NL = string.char(10)
+  check(hit_lines('local a = "' .. T.turret_ammo .. '"' .. NL .. 'local b = 1', names) == 1
+    and hit_lines('-- "' .. T.turret_ammo .. '"' .. NL .. 'local b = 1', names) == 0,
+    "§8 bis témoin : une ligne qui nomme un objet est comptée, un commentaire non")
+  local dirs = "shared/team script/team shared/faction script/faction script/core script/world script/agents script/gui script/modules"
+  local pl = io.popen("ls " .. dirs:gsub("%S+", "%0/*.lua"))
+  local extra, seen_ledger, debt = {}, {}, 0
+  for line in pl:lines() do extra[#extra + 1] = line end
+  pl:close()
+  table.sort(extra)
+  for _, file in ipairs(extra) do
+    local f = io.open(file, "rb")
+    local n, found = 0, {}
+    if f then n, found = hit_lines(f:read("*a"), names) f:close() end
+    local e = LEDGER[file]
+    if e then
+      seen_ledger[file] = true
+      check(n <= e[2], string.format("§8 bis %s [%s] : %d ligne(s) nommant un objet du jeu, plafond %d (%s). Lire le nom dans T (shared/team/config.lua) ou le catalogue du cerveau, ou, si c'est une donnée nommée de l'exécutant, relever le plafond dans tests/iag_test.lua (LEDGER) en le justifiant. Lignes (les dernières du fichier sont les plus probables) : %s",
+        file, e[1], n, e[2], e[3], NL .. culprits(found, e[2])))
+      if n < e[2] then print(string.format("[IAG] §8 bis %s : %d ligne(s), plafond %d : à ABAISSER", file, n, e[2])) end
+      if e[1] == "DETTE" then debt = debt + n end
+    else
+      check(n == 0, string.format("§8 bis %s : %d ligne(s) nomment un objet du jeu et le fichier n'est pas au registre. Lire le nom dans T (shared/team/config.lua) ou le catalogue du cerveau (docs/DETTE_NOMS.md), ou l'inscrire au LEDGER de tests/iag_test.lua avec sa catégorie (EXEC, TYPE, DETTE) et sa justification. Lignes : %s",
+        file, n, NL .. culprits(found, 0)))
+    end
+  end
+  for _, k in ipairs(sorted_keys(LEDGER)) do check(seen_ledger[k], "§8 bis fichier du registre introuvable : " .. k) end
+  print(string.format("[IAG] §8 bis : %d fichiers de l'exécutant et des factions, dette de noms en dur dans les décisions : %d ligne(s)", #extra, debt))
   -- Le contrôle voit un nom : témoin positif.
   local probe = 'local x = "' .. T.turret_ammo .. '"'
   check(probe:find('"' .. T.turret_ammo .. '"', 1, true) ~= nil, "§8 témoin : un nom entre guillemets est vu")
