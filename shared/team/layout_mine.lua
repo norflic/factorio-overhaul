@@ -406,8 +406,8 @@ local function assemble(S, strips, cov)
   local total, total_tiles = 0, 0
   local tot_seen = {}
   for k, o in pairs(S.ore) do
-    local b = S.bounds
-    if o.x >= b.x0 and o.x < b.x1 and o.y >= b.y0 and o.y < b.y1 and (not S.opts.only or S.opts.only == o.res) then
+    -- tout le minerai du champ lu (y compris la marge au-delà de la zone : le rayon d'une foreuse du bord la dépasse)
+    if (o.amount or 0) > 0 and (not S.opts.only or S.opts.only == o.res) then
       total = total + (o.amount or 0)
       total_tiles = total_tiles + 1
     end
