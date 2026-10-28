@@ -31,6 +31,7 @@ local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR (T2) : bras de la centrale, combustion puis électrique
+local LayoutRT = require("script.team.layout_runtime") -- lot LAYOUT : champ de minerai, foreuse débloquée, agencement
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -903,13 +904,64 @@ function Build.drill_diag(f, item, n, a, why, diag, s)
     #lots > 0 and table.concat(lots, " ") or "aucun", (diag and #diag > 0) and table.concat(diag, " ") or "-"))
 end
 
+Build.LAYOUT_LOGS = 24  -- lot LAYOUT : lignes [FO-LAYOUT], au plus, par équipe
+
+--- Lot LAYOUT : place la ligne de foreuses d'une voie par la règle pure d'agencement (shared/team/layout_mine.lua) au lieu du
+--- gabarit fixe : foreuse électrique la plus rapide DÉBLOQUÉE (prototypes et recettes de la force, script/team/layout_runtime.lua),
+--- lignes de part et d'autre d'un couloir de tapis dont la sortie regarde l'arrivée `a`, jamais deux minerais dans un rayon,
+--- colonne de poteaux libre, débit d'une voie respecté. Même forme de rendu que place_module : { g, k, ox, oy, lot, inst,
+--- cover, masks } ou (nil, raison) ; l'appelant retombe alors sur l'ancien gabarit.
+function Build.layout_place(f, surface, p, item, flow, a)
+  local b = f.build
+  local options = LayoutRT.options(f.force, item, function(name) return Stock.count(f, name) end)
+  if #options == 0 then return nil, "foreuse" end
+  local pole = p.spec and p.spec.pole
+  local best, last, tries = nil, "pas de lot", 0
+  for _, c in ipairs(candidates(b, { gisement = true }, { x = a.x, y = a.y }, item)) do
+    tries = tries + 1
+    if tries > 8 then break end
+    local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
+    local masks = read_masks(f, surface, x0 - 8, y0 - 8, x1 + 8, y1 + 8)
+    local field = LayoutRT.field(surface, item, x0, y0, x1, y1, masks.free)
+    if field then
+      for oi = 1, math.min(LayoutRT.MAX_OPTIONS, #options) do
+        local drill = options[oi]
+        local plan, g = LayoutRT.plan(field, drill, item, flow, { x = a.x, y = a.y }, pole)
+        if plan then
+          if not best or plan.rate > best.plan.rate + 1e-9 then best = { plan = plan, g = g, drill = drill, lot = c.k, masks = masks } end
+          if plan.rate >= flow - 1e-9 then break end
+        else
+          last = tostring(g)
+        end
+      end
+      if best and best.plan.rate >= flow - 1e-9 then break end
+    else
+      last = "minerai"
+    end
+  end
+  if not best then
+    bump(b.stats.plan_refused, "champ:" .. last)
+    return nil, last
+  end
+  b.layout_logs = (b.layout_logs or 0) + 1
+  if b.layout_logs <= Build.LAYOUT_LOGS then
+    log(string.format("[FO-LAYOUT] %s : %s, lot %s : %d foreuse(s) %s (%.2f/s pour %.2f/s voulus), %d tuile(s) de minerai captee(s) sur %d, sortie vers (%d, %d)",
+      f.key or "player", item, best.lot, best.plan.drills_n, best.drill.name, best.plan.rate, flow, best.plan.covered_tiles,
+      best.plan.total_tiles or 0, best.plan.exits[1].x, best.plan.exits[1].y))
+  end
+  local o = best.g.origin
+  return { g = best.g, k = 0, ox = o[1], oy = o[2], lot = best.lot, inst = M.instantiate(best.g, 0, o[1], o[2]),
+    cover = best.plan.covered / math.max(1, best.plan.total), masks = best.masks }
+end
+
 --- Foreuses de ravitaillement d'une voie et leur tapis jusqu'à l'arrivée `a`. Rend true, ou false et raison.
 function Build.plan_drills(f, surface, p, item, flow, a)
   local b = f.build
   local n = math.max(1, math.ceil(flow / (2 * M.spec("electric-mining-drill").speed) - 1e-9))
-  local place, why
+  -- Lot LAYOUT : l'agencement choisi sur le champ d'abord ; l'ancien gabarit (n, n - 1, ... 1 paires) en repli
+  local place, why = Build.layout_place(f, surface, p, item, flow, a)
   local diag = {}
-  for nn = n, 1, -1 do
+  for nn = place and 0 or n, 1, -1 do
     local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
     if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
     if g then

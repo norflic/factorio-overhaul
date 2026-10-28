@@ -695,6 +695,7 @@ function M.mine_template(plan, ore, drill, pole)
   b.g.resource = ore
   b.g.params = { ore = ore, n = n, drill = drill }
   b.g.no_rotate = true
+  b.g.origin = { x0, y0 }
   return b:finish()
 end
 

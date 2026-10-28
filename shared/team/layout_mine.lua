@@ -403,12 +403,13 @@ end
 ---------------------------------------------------------------------------------------------------
 local function assemble(S, strips, cov)
   local drills, belts, exits, rate = {}, {}, {}, 0
-  local total = 0
+  local total, total_tiles = 0, 0
   local tot_seen = {}
   for k, o in pairs(S.ore) do
     local b = S.bounds
     if o.x >= b.x0 and o.x < b.x1 and o.y >= b.y0 and o.y < b.y1 and (not S.opts.only or S.opts.only == o.res) then
       total = total + (o.amount or 0)
+      total_tiles = total_tiles + 1
     end
     tot_seen[k] = true
   end
@@ -447,7 +448,7 @@ local function assemble(S, strips, cov)
   end
   table.sort(poles, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
   return { ok = true, strips = strips, drills = drills, belts = belts, exits = exits, pole_tiles = poles,
-    drills_n = #drills, strips_n = #strips, covered = amount, covered_tiles = tiles, total = total, rate = rate, w = S.w,
+    drills_n = #drills, strips_n = #strips, covered = amount, covered_tiles = tiles, total = total, total_tiles = total_tiles, rate = rate, w = S.w,
     lo = S.lo, hi = S.hi, belt_rate = S.lane_cap * 2, gap = S.gap, bounds = S.bounds }
 end
 
