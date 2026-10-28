@@ -501,9 +501,11 @@ do
     ["script/faction/war.lua"] = { "DETTE", 3, "tourelles du QG et kit de départ : T" },
   }
   local function hit_lines(src, nameset)
-    local code = src:gsub("%-%-%[(=*)%[.-%]%1%]", "")
-    local n = 0
+    -- commentaires longs remplacés par autant de retours à la ligne : les numéros de ligne restent ceux du fichier
+    local code = src:gsub("%-%-%[(=*)%[(.-)%]%1%]", function(_, body) return (body:gsub("[^" .. string.char(10) .. "]", "")) end)
+    local n, found, ln = 0, {}, 0
     for line in (code .. string.char(10)):gmatch("([^" .. string.char(10) .. "]*)" .. string.char(10)) do
+      ln = ln + 1
       -- commentaire de fin de ligne : retiré en suivant les guillemets (un "--" dans une chaîne reste)
       local quote, cut = nil, nil
       for i = 1, #line do
@@ -514,11 +516,20 @@ do
         elseif c == "-" and line:sub(i + 1, i + 1) == "-" then cut = i break end
       end
       if cut then line = line:sub(1, cut - 1) end
-      for name in pairs(nameset) do
-        if not TYPES[name] and line:find('"' .. name .. '"', 1, true) then n = n + 1 break end
+      for _, name in ipairs(sorted_keys(nameset)) do
+        if not TYPES[name] and line:find('"' .. name .. '"', 1, true) then
+          n = n + 1
+          found[#found + 1] = string.format("ligne %d : %s (%s)", ln, name, (line:gsub("^%s+", "")):sub(1, 70))
+          break
+        end
       end
     end
-    return n
+    return n, found
+  end
+  local function culprits(found, n_ok)
+    local out = {}
+    for i = math.max(1, n_ok + 1), math.min(#found, n_ok + 6) do out[#out + 1] = "    " .. found[i] end
+    return table.concat(out, string.char(10))
   end
   local NL = string.char(10)
   check(hit_lines('local a = "' .. T.turret_ammo .. '"' .. NL .. 'local b = 1', names) == 1
@@ -532,16 +543,18 @@ do
   table.sort(extra)
   for _, file in ipairs(extra) do
     local f = io.open(file, "rb")
-    local n = f and hit_lines(f:read("*a"), names) or 0
-    if f then f:close() end
+    local n, found = 0, {}
+    if f then n, found = hit_lines(f:read("*a"), names) f:close() end
     local e = LEDGER[file]
     if e then
       seen_ledger[file] = true
-      check(n <= e[2], string.format("§8 bis %s [%s] : %d ligne(s) nommant un objet, plafond %d (%s)", file, e[1], n, e[2], e[3]))
+      check(n <= e[2], string.format("§8 bis %s [%s] : %d ligne(s) nommant un objet du jeu, plafond %d (%s). Lire le nom dans T (shared/team/config.lua) ou le catalogue du cerveau, ou, si c'est une donnée nommée de l'exécutant, relever le plafond dans tests/iag_test.lua (LEDGER) en le justifiant. Lignes (les dernières du fichier sont les plus probables) : %s",
+        file, e[1], n, e[2], e[3], NL .. culprits(found, e[2])))
       if n < e[2] then print(string.format("[IAG] §8 bis %s : %d ligne(s), plafond %d : à ABAISSER", file, n, e[2])) end
       if e[1] == "DETTE" then debt = debt + n end
     else
-      check(n == 0, string.format("§8 bis %s : %d ligne(s) nomment un objet du jeu (ni exempté ni plafonné)", file, n))
+      check(n == 0, string.format("§8 bis %s : %d ligne(s) nomment un objet du jeu et le fichier n'est pas au registre. Lire le nom dans T (shared/team/config.lua) ou le catalogue du cerveau (docs/DETTE_NOMS.md), ou l'inscrire au LEDGER de tests/iag_test.lua avec sa catégorie (EXEC, TYPE, DETTE) et sa justification. Lignes : %s",
+        file, n, NL .. culprits(found, 0)))
     end
   end
   for _, k in ipairs(sorted_keys(LEDGER)) do check(seen_ledger[k], "§8 bis fichier du registre introuvable : " .. k) end
