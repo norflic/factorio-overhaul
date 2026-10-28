@@ -163,10 +163,11 @@ function P.update(st, goals, tick, workers)
   -- le but se dit COURT (recherche peu chère : quelques packs, shared/ai3/buts.lua) passe juste après le premier projet,
   -- devant les familles permanentes. Moteur réel, banc g2 (27/10, graine 271828182) : servie après l'armée et la
   -- réserve de munitions (740 fers), la recherche de 8 packs rouges attendait 9 min ; palier 1 à 10,4 min en médiane.
-  local out, perm, rest, short, fond, invest, plants = {}, {}, {}, {}, {}, {}, {}
+  local out, perm, rest, short, fond, invest, plants, floor = {}, {}, {}, {}, {}, {}, {}, {}
   local first = nil
   for _, p in ipairs(active) do
-    if p.goal.permanent then perm[#perm + 1] = p
+    if p.goal.permanent and p.goal.floor then floor[#floor + 1] = p
+    elseif p.goal.permanent then perm[#perm + 1] = p
     elseif p.goal.fond then
       if p.goal.short then short[#short + 1] = p
       elseif p.goal.invest then invest[#invest + 1] = p
@@ -182,6 +183,9 @@ function P.update(st, goals, tick, workers)
   -- permanentes : l'armée et les munitions consomment sans fin la matière que l'investissement produit, et le plan
   -- directeur n'y trouvait plus assez de fer pour la fonderie électrique (moteur réel, etape1-guide, 4 graines : 0
   -- foreuse électrique à 60 min avec des dizaines de poteaux). Leurs parts restent réservées (Ca.capi_view).
+  -- Plancher : tant que l'armée n'a pas ses premiers soldats (g.floor, B.ARMY_FIRST_N), elle reste servie avant tout
+  -- investissement ; au-delà, l'investissement passe devant sa croissance.
+  for _, p in ipairs(floor) do out[#out + 1] = p end
   for _, p in ipairs(plants) do out[#out + 1] = p end
   for _, p in ipairs(invest) do out[#out + 1] = p end
   for _, p in ipairs(short) do out[#out + 1] = p end
