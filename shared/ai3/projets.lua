@@ -329,6 +329,50 @@ end
 local EMIT = {}
 P.EMIT = EMIT -- lot IA3-e : méthodes d'émission enregistrées par d'autres modules purs (EMIT.module, shared/ai3/automatiser.lua)
 
+--- Lot ADOPTE (foreuses dormantes, trace [FO-DORM] graine 20261020 : 5 foreuses fabriquées à 2 min pour le lot de 8 paires du fer
+--- attendent 45 min au coffre, le projet « manque [charbon x69, pierre x60, plaques x26] » pour les 3 paires et le combustible
+--- du reste) : un lot est INDIVISIBLE (P.take tout ou rien) alors que l'exécutant (Outposts.build / extend) pose autant de
+--- paires que les objets portés le permettent. Quand le lot entier n'est pas servi par le stock et la fabrication à la main,
+--- le projet vise le plus grand lot de P.MIN_LOT paires au moins qui l'est (repli : P.MIN_LOT), au lieu de fabriquer un lot
+--- partiel qui attend ses manques.
+P.MIN_LOT = 2
+
+--- Les objets de `items` (lot de `full` paires) pour `n` paires.
+local function scale_items(items, n, full)
+  local out = {}
+  for _, it in ipairs(items) do out[#out + 1] = { it[1], math.ceil(it[2] * n / full) } end
+  return out
+end
+
+--- Le stock virtuel et la fabrication à la main servent-ils toute la liste ? (simulation, E.avail n'est pas modifié)
+local function serviceable(E, list)
+  local avail = {}
+  for k, v in pairs(E.avail) do avail[k] = v end
+  for _, it in ipairs(list) do
+    local item, n = it[1], it[2]
+    local have = avail[item] or 0
+    if have >= n then
+      avail[item] = have - n
+    else
+      if not E.book:handcraftable(item) then return false end
+      avail[item] = 0
+      local p = E.book:plan({ { item, n - have } }, avail)
+      if next(p.raw) ~= nil then return false end
+      avail = p.avail
+    end
+  end
+  return true
+end
+
+--- Plus grand nombre de paires (entre min(P.MIN_LOT, full) et full) dont `list_of(n)` est servi ; repli : le minimum.
+local function lot_pairs(E, full, list_of)
+  local lo = math.min(P.MIN_LOT, full)
+  for n = full, lo, -1 do
+    if serviceable(E, list_of(n)) then return n end
+  end
+  return lo
+end
+
 --- Avant-poste (construction ou agrandissement) : comme l'échelle d'avant, mais PAR BESOIN et en parallèle.
 EMIT.outpost = function(E, proj, g, ctx)
   local view, kind = E.view, g.outpost
@@ -344,9 +388,19 @@ EMIT.outpost = function(E, proj, g, ctx)
     proj.branch = "extend"
     local key = "extend:" .. ext.id
     if E.open[key] then return "en_cours" end
+    -- Places restantes de l'avant-poste : jamais plus de paires que l'exécutant n'en posera (le surplus reviendrait au coffre).
+    local full = math.max(1, math.min(spec.drills, T.max_drills(kind) - (ext.drills or 0)))
+    if full < spec.drills then items = scale_items(items, full, spec.drills) end
+    if not P.take(E, items) then
+      local n = lot_pairs(E, full, function(k) return scale_items(Planner.outpost_items(kind), k, spec.drills) end)
+      if n < full then
+        proj.branch = "extend-partiel"
+        items = scale_items(Planner.outpost_items(kind), n, spec.drills)
+      end
+    end
     if P.take(E, items) then
       P.add(E, { key = key, kind = "extend", prio = prio + P.FINISH_BONUS, outpost = ext.id, outpost_kind = kind,
-        items = items, ia3 = proj.id, why = proj.key })
+        items = items, ia3 = proj.id, why = proj.key, branch = proj.branch })
       return "ok"
     end
     P.want(E, proj, items, prio, false, kind)
@@ -387,9 +441,25 @@ EMIT.outpost = function(E, proj, g, ctx)
   if E.open[key] then return "en_cours" end
   if (view.sites[kind] or 0) > 0 then
     proj.branch = "build"
+    if not P.take(E, list) then
+      local function list_of(k)
+        local l = scale_items(items, k, spec.drills)
+        if turret_ok and count_kind(view, kind) > 0 then
+          local nt = T.defend_turrets(k)
+          l[#l + 1] = { P.TURRET, nt }
+          l[#l + 1] = { T.turret_ammo, nt * T.defend_ammo }
+        end
+        return l
+      end
+      local n = lot_pairs(E, spec.drills, list_of)
+      if n < spec.drills then
+        proj.branch = "build-partiel"
+        list = list_of(n)
+      end
+    end
     if P.take(E, list) then
       P.add(E, { key = key, kind = "build", prio = prio + P.FINISH_BONUS, outpost_kind = kind, items = list,
-        ia3 = proj.id, why = proj.key })
+        ia3 = proj.id, why = proj.key, branch = proj.branch })
       return "ok"
     end
     P.want(E, proj, list, prio, false, kind)

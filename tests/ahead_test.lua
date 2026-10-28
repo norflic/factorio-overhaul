@@ -71,5 +71,50 @@ do
   local E3, _, st3 = run(view)
   check(st3 == "bloque" and crafted(E3, T.SMELTER) == 0, "avant-poste en attente (o.full) : rien fabriqué")
 end
+-- Lots partiels : le lot de 8 paires du fer n'est pas servi (plaques insuffisantes) : le projet vise le plus grand lot servi.
+do
+  local plates = 90
+  local pbook = {}
+  pbook.handcraftable = function(_, item) return item == T.DRILL or item == T.outposts.iron.sink end
+  pbook.plan = function(_, list, avail)
+    local a = {}
+    for k, v in pairs(avail or {}) do a[k] = v end
+    local need, uses = 0, {}
+    for _, it in ipairs(list) do need = need + it[2] * 9; uses[it[1]] = it[2] end
+    local raw = {}
+    local have = a["iron-plate"] or 0
+    if need > have then raw["iron-plate"] = need - have end
+    a["iron-plate"] = math.max(0, have - need)
+    return { raw = raw, crafts = { { energy = 1 } }, uses = uses, avail = a }
+  end
+  local function runp(avail_plates, lethal)
+    local view = { pending = {}, sites = { iron = 0 }, outposts = { { id = 1, kind = "iron", drills = 4 } }, open = {} }
+    local E = P.context({ ["iron-plate"] = avail_plates, [T.fuel] = 500 }, pbook, view, {})
+    local proj = { id = 1, key = "extraction:iron", prio = 60, goal = { kind = "outpost", outpost = "iron" }, missing = {} }
+    local st = P.EMIT.outpost(E, proj, proj.goal, {})
+    return E, proj, st
+  end
+  local E, proj, st = runp(90)
+  check(st == "matiere" and proj.branch == "extend-partiel" and crafted(E, T.DRILL) == 5,
+    "plaques pour 5 paires : le lot visé est de 5 paires, pas 8 (" .. crafted(E, T.DRILL) .. " foreuses, branche " .. tostring(proj.branch) .. ")")
+  local E2, proj2 = runp(20)
+  check(crafted(E2, T.DRILL) <= P.MIN_LOT, "plaques pour moins d'une paire : au plus un lot minimal fabriqué (" .. crafted(E2, T.DRILL) .. " foreuses)")
+  local E3, proj3 = runp(100000)
+  check(proj3.branch == "extend" and crafted(E3, T.DRILL) == 8, "plaques en abondance : le lot entier de 8 paires, comme avant")
+  -- places restantes de l'avant-poste : jamais plus de paires que de places (12 foreuses au plus, il en a 11)
+  local view = { pending = {}, sites = { iron = 0 }, outposts = { { id = 1, kind = "iron", drills = T.max_drills("iron") - 3 } }, open = {} }
+  local E4 = P.context({ ["iron-plate"] = 100000, [T.fuel] = 500 }, pbook, view, {})
+  local proj4 = { id = 1, key = "extraction:iron", prio = 60, goal = { kind = "outpost", outpost = "iron" }, missing = {} }
+  P.EMIT.outpost(E4, proj4, proj4.goal, {})
+  check(crafted(E4, T.DRILL) == 3, "3 places restantes : 3 paires visées, pas 8 (" .. crafted(E4, T.DRILL) .. ")")
+  -- lot déjà au stock : pris tel quel
+  local view5 = { pending = {}, sites = { iron = 0 }, outposts = { { id = 1, kind = "iron", drills = 4 } }, open = {} }
+  local E5 = P.context({ [T.DRILL] = 5, [T.outposts.iron.sink] = 5, [T.fuel] = 500, ["iron-plate"] = 0 }, pbook, view5, {})
+  local proj5 = { id = 1, key = "extraction:iron", prio = 60, goal = { kind = "outpost", outpost = "iron" }, missing = {} }
+  local st5 = P.EMIT.outpost(E5, proj5, proj5.goal, {})
+  local took = nil
+  for _, t in ipairs(E5.tasks) do if t.kind == "extend" then took = t end end
+  check(st5 == "ok" and took and took.items[1][2] == 5, "5 foreuses et 5 réceptacles au stock : l'agrandissement part tout de suite avec 5 paires (au lieu d'attendre 45 min)")
+end
 print(string.format("[AHEAD] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
