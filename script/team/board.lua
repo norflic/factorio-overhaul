@@ -568,6 +568,19 @@ function Board.assign(f, tick)
       b.diag = d
     end
   end
+  if f.is_player and #npcs >= 2 and tick % 900 == 0 and tick > 70000 and tick < 130000 then -- TMPDIAG
+    local ks = {}
+    for _, t in ipairs(b.list) do
+      if not t.worker then
+        local why = ""
+        for _, it in ipairs(Board.strict_list(t) or {}) do
+          if R.free(reg, it[1]) < it[2] then why = "!" .. it[1] .. it[2] break end
+        end
+        ks[#ks + 1] = t.kind .. ":" .. t.key .. why
+      end
+    end
+    log(string.format("[TMPDIAG] %.1f min idle %d libres %d : %s", tick / 3600, #npcs, #ks, table.concat(ks, " ")))
+  end
   if #npcs < 2 then return 0 end
   local brain, fond = {}, {}
   for _, t in ipairs(b.list) do
