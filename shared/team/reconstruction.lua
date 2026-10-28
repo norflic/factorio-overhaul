@@ -30,6 +30,7 @@ Rc.BATCH_RADIUS = 12     -- tuiles : un voyage refait toutes les pièces à 12 t
 Rc.BATCH_MAX = 12
 Rc.HOLD_MAX = 20 * 3600  -- « améliorer attend » au plus 20 min après la perte : un site tenu par l'ennemi ne gèle pas les améliorations
 Rc.MAX_DEFERS = 20       -- reports (ennemis près de la place) avant l'abandon
+Rc.MAX_BLOCKS = 4        -- poses refusées par le moteur (place prise par autre chose) avant l'abandon
 Rc.PRIO_BASE = 70        -- priorité de tâche : 70 + valeur du rôle, jamais l'urgence (90, O.URGENT_PRIO)
 Rc.PRIO_MAX = 86
 
@@ -134,6 +135,14 @@ function Rc.defer(st, key, until_tick, tick)
   r.retry = until_tick
   r.defers = (r.defers or 0) + 1
   if r.defers > Rc.MAX_DEFERS then r.abandoned = true end
+end
+
+--- Le moteur refuse la pose (place prise) : trop de refus, la pièce est abandonnée (elle ne gèle plus « améliorer attend »).
+function Rc.block(st, key)
+  local r = st.lost[key]
+  if not r then return end
+  r.blocks = (r.blocks or 0) + 1
+  if r.blocks > Rc.MAX_BLOCKS then r.abandoned = true end
 end
 
 --- Pièces en attente de reconstruction (abandonnées et sans objet exclues).

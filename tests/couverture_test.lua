@@ -318,6 +318,11 @@ local function suite(Cov, Rc, n_instances)
     -- défèrement
     Rc.defer(st, k3, 6000, 5000)
     check(#Rc.due(st, 5500) == 1 and #Rc.due(st, 6000) == 2, "§7 pièce différée (ennemis près d'elle) jusqu'à la date")
+    -- pose refusée par le moteur : abandon après Rc.MAX_BLOCKS refus
+    for i = 1, Rc.MAX_BLOCKS do Rc.block(st, k3) end
+    check(not st.lost[k3].abandoned, "§7 pose refusée " .. Rc.MAX_BLOCKS .. " fois : encore refaisable")
+    Rc.block(st, k3)
+    check(st.lost[k3].abandoned == true and Rc.pending(st) == 1, "§7 pose refusée trop souvent : pièce abandonnée")
     -- même place détruite de nouveau : patience doublée, puis abandon
     local st2 = Rc.new()
     local ka = Rc.record(st2, { name = "A", x = 1, y = 1, dir = 0, item = "ia", value = 3 }, 0)
