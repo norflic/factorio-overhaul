@@ -32,6 +32,7 @@ local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
 local Tr = require("shared.faction.traits")
+local Avance = require("script.team.avancee") -- lot FORTIFY : poste avancé de VOTRE équipe
 
 local M = {}
 
@@ -575,6 +576,8 @@ function M.gate(f, agent, task, steps, tick)
   Profiler.fstop("gate:post")
   local a = astate(agent)
   a.escort, a.risk = nil, nil
+  -- Lot FORTIFY : une destination refusée par une meute fraîche ouvre un poste de tourelles côté QG (votre équipe).
+  if decision == "wait" and not task.post then Avance.note(f, t.map, pts, dest, res.exact_goal, res.B, why, tick) end
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
   -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
   -- Lot IA3-k sur 0.5.0 : réessayé au plus toutes les RETARGET_PERIOD ticks pour la même tâche (le tableau garde ses

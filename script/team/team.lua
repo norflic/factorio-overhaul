@@ -30,6 +30,7 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
+local Avance = require("script.team.avancee") -- lot FORTIFY : postes avancés de votre équipe
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -612,6 +613,11 @@ function Team.think(f, surface, tick)
     Profiler.start("team:build")
     Build.think(f, surface, tick)
     Profiler.stop("team:build")
+  end
+  -- Lot FORTIFY : postes avancés de votre équipe (tourelles au bord d'une zone de meute), tâches ajoutées au tableau.
+  if f.is_player then
+    local av = Avance.tasks(f, tick)
+    if #av > 0 then Board.add(f, av, tick) end
   end
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).

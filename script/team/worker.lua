@@ -27,6 +27,7 @@ local Tokens = require("script.team.tokens") -- lot IA1-b : jetons de travail gl
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
+local Avance = require("script.team.avancee") -- lot FORTIFY
 local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
 local Locomotion = require("script.companion.locomotion")
 local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
@@ -320,6 +321,8 @@ function Worker.program(f, task, surface, tick)
   elseif k == "fortify" then
     -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
     if task.outpost == "hq" then return { { "home" }, { "take", task.items, strict = true }, { "act", "fortify" }, { "home" } } end
+    -- Lot FORTIFY : poste avancé (script/team/avancee.lua), tourelles posées au point d'arrêt côté QG.
+    if task.post then return { { "home" }, { "take", task.items, strict = true }, { "goto", task.post, 3 }, { "act", "fortify" }, { "home" } } end
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "fortify" }, { "home" } }
@@ -447,7 +450,12 @@ ACTS.refill = function(agent, f, task)
   return n > 0
 end
 
-ACTS.fortify = function(agent, f, task, surface)
+ACTS.fortify = function(agent, f, task, surface, tick)
+  if task.post then
+    local n = Outposts.fortify(f, surface, { pos = task.post }, task.items[1][2], main_inv(agent))
+    Avance.done(f, task.post_key, tick or game.tick, n)
+    return n > 0
+  end
   -- Lot IA1-b2 : « hq » = autour du QG (tourelles du groupe « hq », Outposts.turret_groups).
   local o = task.outpost == "hq" and { pos = f.hq_pos } or f.outposts[task.outpost]
   if not o then return false end
