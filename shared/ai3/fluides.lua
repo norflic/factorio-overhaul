@@ -42,7 +42,7 @@ Fl.MAX_FLUID_IN = 2
 Fl.MAX_DEPTH = 6        -- profondeur d'une chaîne de cellules (garde contre un cycle de recettes)
 Fl.MARGIN = 2           -- tuiles libres autour d'une machine (bras, coffres, tuyaux)
 Fl.SEARCH = 30          -- rayon de recherche d'une place (tuiles)
-Fl.ASTAR_MAX = 30000    -- nœuds développés au plus par tuyau
+Fl.ASTAR_MAX = 20000    -- nœuds développés au plus par tuyau
 Fl.ROUTE_R = 48         -- fenêtre d'un tuyau autour du site
 Fl.EXTRACTORS = 2       -- puits équipés par site (au départ)
 Fl.POLE_LINE_MAX = 400  -- tuiles au plus jusqu'au réseau
@@ -447,6 +447,26 @@ function Site:reserve_conns(ent, map)
   end
 end
 
+local function copy1(t) local o = {} for k, v in pairs(t) do o[k] = v end return o end
+
+--- Photo de l'état d'un site (essai d'une pompe : retour en arrière si son tuyau ne se trace pas) ; `nets` : réseaux de tuyaux
+--- par fluide du plan en cours.
+function Site:snapshot(nets)
+  local n2 = {}
+  for k, v in pairs(nets) do n2[k] = copy1(v) end
+  return { occ = copy1(self.occ), tube = copy1(self.tube), rsv = copy1(self.rsv), nents = #self.ents, npipes = self.npipes,
+    nquais = #self.quais, nouts = #self.outs, nets = n2 }
+end
+
+function Site:restore(snap, nets)
+  self.occ, self.tube, self.rsv, self.npipes = snap.occ, snap.tube, snap.rsv, snap.npipes
+  for i = #self.ents, snap.nents + 1, -1 do self.ents[i] = nil end
+  for i = #self.quais, snap.nquais + 1, -1 do self.quais[i] = nil end
+  for i = #self.outs, snap.nouts + 1, -1 do self.outs[i] = nil end
+  for k in pairs(nets) do nets[k] = nil end
+  for k, v in pairs(snap.nets) do nets[k] = v end
+end
+
 --- Une tuile peut-elle porter un tuyau du fluide `fl` ?
 function Site:pipe_ok(tx, ty, fl)
   local k = tkey(tx, ty)
@@ -480,6 +500,19 @@ function Site:route(sx, sy, goal, fl)
     return 0
   end
   if not self:pipe_ok(sx, sy, fl) then return nil end
+  -- une cible dont aucun voisin n'accepte un tuyau de ce fluide est scellée (autres fluides, machines) : refus immédiat,
+  -- sans développer l'A* (moteur réel, 28/10 : l'eau d'une usine entourée de tuyaux de brut)
+  do
+    local open_goal = false
+    for _, g in ipairs(gl) do
+      for _, d in ipairs(DIRS) do
+        local nx, ny = g[1] + DV[d][1], g[2] + DV[d][2]
+        if (nx == sx and ny == sy) or goal[tkey(nx, ny)] or self:pipe_ok(nx, ny, fl) then open_goal = true end
+      end
+      if open_goal then break end
+    end
+    if not open_goal then return nil end
+  end
   local function h(x, y)
     local best = math.huge
     for _, g in ipairs(gl) do
@@ -527,7 +560,8 @@ function Site:route(sx, sy, goal, fl)
     local ck = tkey(cur.x, cur.y)
     if cur.g == gs[ck] then
       n = n + 1
-      if n > Fl.ASTAR_MAX then return nil end
+      self.req.spent = (self.req.spent or 0) + 1
+      if n > Fl.ASTAR_MAX or self.req.spent > Fl.LAYOUT_BUDGET then return nil end
       for _, d in ipairs(DIRS) do
         local nx, ny = cur.x + DV[d][1], cur.y + DV[d][2]
         local nk = tkey(nx, ny)
@@ -779,7 +813,7 @@ function Site:power(electric)
   return #poles, line
 end
 
-function Fl.layout(req)
+local function layout_once(req, shift)
   local s = new_site(req)
   Fl.last_site = s
   local ch = req.chain
@@ -826,8 +860,11 @@ function Fl.layout(req)
     end
     if #extractors == 0 then return nil, "aucun puits libre pour l'extracteur" end
   end
-  -- 2. Pompes de rive.
+  -- 2. Pompes de rive : candidates seulement. La place est choisie APRÈS les machines (la rive la plus proche du consommateur
+  -- du fluide) et essayée une à une, avec retour en arrière si son tuyau ne se trace pas (sans tuyau souterrain, un tuyau
+  -- d'un autre fluide posé avant peut fermer la route : moteur réel, étang au gisement, 28/10).
   local pumps = {}
+  local pump_cands = {}
   for _, fl in ipairs(sorted_keys(ch.sources)) do
     if ch.sources[fl] == "pompe" then
       local list = {}
@@ -839,13 +876,8 @@ function Fl.layout(req)
         if a.y ~= b.y then return a.y < b.y end
         return a.x < b.x
       end)
-      local p = list[1]
-      if not p then return nil, "aucune rive pour la pompe de " .. fl end
-      local ent = s:put(p.name, p.x, p.y, p.dir, { role = "pompe", fluid = fl })
-      local map = {}
-      for bi in ipairs(req.ents[p.name].boxes or {}) do map[bi] = fl end
-      s:reserve_conns(ent, map)
-      pumps[fl] = ent
+      if #list == 0 then return nil, "aucune rive pour la pompe de " .. fl end
+      pump_cands[fl] = list
     end
   end
   -- 3. Cellules : machines (producteurs de fluide d'abord), raccords réservés, quais.
@@ -859,6 +891,7 @@ function Fl.layout(req)
     for _, x in ipairs(extractors) do sx, sy = sx + x.x, sy + x.y end
     cx0, cy0 = sx / #extractors, sy / #extractors
   end
+  cx0, cy0 = cx0 + shift[1], cy0 + shift[2]
   for i, c in ipairs(ch.cells) do
     local x, y = s:find_spot(c.machine, cx0, cy0)
     if not x then return nil, "aucune place pour " .. c.machine .. " (" .. c.recipe .. ")" end
@@ -926,7 +959,7 @@ function Fl.layout(req)
     local best = math.huge
     local list = {}
     for _, x in ipairs(extractors) do if x.fluid == fl then list[#list + 1] = x end end
-    if pumps[fl] then list[#list + 1] = pumps[fl] end
+    if pump_cands[fl] then list[#list + 1] = pump_cands[fl][1] end
     for _, x in ipairs(list) do
       local d = math.abs(x.x - cx0) + math.abs(x.y - cy0)
       if d < best then best = d end
@@ -939,31 +972,96 @@ function Fl.layout(req)
     if da ~= db then return da < db end
     return a < b
   end)
-  for _, fl in ipairs(src_order) do
+  local function route_sources(order_list)
+  for _, fl in ipairs(order_list) do
     for _, cc in ipairs(cells) do
       for _, f in ipairs(cc.cell.fin) do
         if f.fluid == fl then
           local ok, c = join(fl, conns_of(cc.ent, fl))
-          if not ok then return nil, string.format("tuyau de %s vers %s impossible (raccord %d,%d)", fl, cc.ent.name, c.tx, c.ty) end
+          if not ok then return false, string.format("tuyau de %s vers %s impossible (raccord %d,%d)", fl, cc.ent.name, c.tx, c.ty) end
         end
       end
     end
     for _, x in ipairs(extractors) do
       if x.fluid == fl then
         local cs = conns_of(x, fl)
-        if not join(fl, { cs[1] }) then return nil, "tuyau d'un extracteur impossible" end
+        if not join(fl, { cs[1] }) then return false, "tuyau d'un extracteur impossible" end
       end
     end
-    if pumps[fl] then
-      local pc = conns_of(pumps[fl], fl)
-      if not join(fl, pc) then
-        local c = pc[1]
-        return nil, string.format("tuyau de la pompe impossible (%s) : pompe (%.1f, %.1f) dir %d, raccord %s", fl,
-          pumps[fl].x, pumps[fl].y, pumps[fl].dir or 0,
-          c and string.format("(%d, %d) %s", c.tx, c.ty, s:pipe_ok(c.tx, c.ty, fl) and "libre" or "bloque") or "absent")
+    if pump_cands[fl] then
+      -- rives triées par la distance au consommateur du fluide (raccords d'entrée des machines), puis par le rang de départ
+      local targets = {}
+      for _, cc in ipairs(cells) do for _, c in ipairs(conns_of(cc.ent, fl)) do targets[#targets + 1] = c end end
+      local order = {}
+      for i, p in ipairs(pump_cands[fl]) do
+        local d = math.huge
+        for _, t in ipairs(targets) do d = math.min(d, math.abs(p.x - t.tx) + math.abs(p.y - t.ty)) end
+        order[#order + 1] = { p = p, d = d, i = i }
       end
+      table.sort(order, function(a, b) if a.d ~= b.d then return a.d < b.d end return a.i < b.i end)
+      local placed, last_why = false, nil
+      for _, it in ipairs(order) do
+        local p = it.p
+        local pe = req.ents[p.name]
+        local px0, py0, px1, py1 = rect_of(pe, p.x, p.y, p.dir)
+        if s:rect_free(px0, py0, px1, py1) then
+          local snap = s:snapshot(nets)
+          local ent = s:put(p.name, p.x, p.y, p.dir, { role = "pompe", fluid = fl })
+          local map = {}
+          for bi in ipairs(pe.boxes or {}) do map[bi] = fl end
+          s:reserve_conns(ent, map)
+          local pc = conns_of(ent, fl)
+          if join(fl, pc) then
+            pumps[fl] = ent
+            placed = true
+            break
+          end
+          local c = pc[1]
+          last_why = string.format("tuyau de la pompe impossible (%s) : pompe (%.1f, %.1f) dir %d, raccord %s", fl, p.x, p.y, p.dir or 0,
+            c and string.format("(%d, %d) %s", c.tx, c.ty, s:pipe_ok(c.tx, c.ty, fl) and "libre" or "bloque") or "absent")
+          s:restore(snap, nets)
+        end
+      end
+      if not placed then return false, last_why or ("aucune rive libre pour la pompe de " .. fl) end
     end
   end
+  return true
+  end
+  -- Sans tuyau souterrain, l'ORDRE des tracés décide : un tuyau long tracé d'abord peut sceller l'entrée d'une machine. L'ordre
+  -- par distance est essayé d'abord ; si un tuyau ne se trace pas, retour à l'état d'avant les sources et ordre suivant
+  -- (permutations dans l'ordre lexicographique des positions, 4 sources au plus).
+  local orders = { src_order }
+  if #src_order >= 2 and #src_order <= 4 then
+    local seen = { [table.concat(src_order, "|")] = true }
+    local function perm(prefix, rest)
+      if #rest == 0 then
+        local key = table.concat(prefix, "|")
+        if not seen[key] then seen[key] = true; orders[#orders + 1] = { table.unpack(prefix) } end
+        return
+      end
+      for i = 1, #rest do
+        local nrest = {}
+        for j, v in ipairs(rest) do if j ~= i then nrest[#nrest + 1] = v end end
+        local np = { table.unpack(prefix) }
+        np[#np + 1] = rest[i]
+        perm(np, nrest)
+      end
+    end
+    perm({}, src_order)
+  end
+  local routed, why_route
+  local base = s:snapshot(nets)
+  for i, order_list in ipairs(orders) do
+    local ok, why = route_sources(order_list)
+    if ok then routed = true break end
+    why_route = why_route or why
+    if i < #orders then
+      s:restore(base, nets)
+      for k in pairs(pumps) do pumps[k] = nil end
+      base = s:snapshot(nets)
+    end
+  end
+  if not routed then return nil, why_route end
   for _, k in ipairs(sorted_keys(s.tube)) do
     local tx, ty = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
     s:put(req.conduit, tx + 0.5, ty + 0.5, 0, { role = "tuyau", fluid = s.tube[k] })
@@ -990,6 +1088,26 @@ function Fl.layout(req)
   end
   return { ents = s.ents, quais = s.quais, outs = s.outs, box = { x0, y0, x1, y1 }, pipes = s.npipes, poles = npoles,
     line = line, extractors = #extractors }
+end
+
+--- Décalages essayés de la place des machines quand un tuyau ne se trace pas (sans tuyau souterrain, la disposition décide
+--- des croisements impossibles) : l'écart est de Fl.SHIFT tuiles, dans un ordre fixe.
+Fl.SHIFT = 14
+Fl.LAYOUT_BUDGET = 80000 -- nœuds d'A* des tuyaux au plus pour toutes les tentatives d'une implantation
+
+function Fl.layout(req)
+  local k = Fl.SHIFT
+  local shifts = { { 0, 0 }, { k, 0 }, { -k, 0 }, { 0, k }, { 0, -k }, { k, k }, { -k, -k }, { k, -k }, { -k, k } }
+  req.spent = 0
+  local first_why
+  for _, sh in ipairs(shifts) do
+    local lay, why = layout_once(req, sh)
+    if lay then return lay end
+    first_why = first_why or why
+    -- le refus n'est pas une affaire de tuyau (aucune place, aucun puits, poteaux…) ou le budget est épuisé : inutile de continuer
+    if req.spent > Fl.LAYOUT_BUDGET or not (tostring(why):find("tuyau", 1, true)) then break end
+  end
+  return nil, first_why
 end
 
 --- Contrôle d'une implantation (tests, journal) : réseaux de tuyaux (composantes 4-connexes) d'un seul fluide, chaque

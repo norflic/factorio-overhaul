@@ -259,6 +259,12 @@ local function wanted_items(f, General, c)
   return out, seen
 end
 
+--- Objets produits par la force depuis le début (statistiques de production ; 0 si le moteur simulé n'en a pas).
+local function produced(force, item)
+  local ok, n = pcall(function() return force.item_production_statistics.get_input_count(item) end)
+  return ok and n or 0
+end
+
 local function obtainable(f, name)
   local item = name
   local force = game.forces[f.force]
@@ -438,8 +444,23 @@ local function plan_site(f, surface, p, h)
   local block = nil
   if spec.water then
     pumps = pump_spots(surface, f, rel, origin, spec.water)
-    local near = pumps[1] and ((pumps[1].x - origin.x) ^ 2 + (pumps[1].y - origin.y) ^ 2) <= Pet.POND_NEAR ^ 2
-    if not near and site_pond(f, surface, origin, h, spec.water) then pumps = pump_spots(surface, f, rel, origin, spec.water) end
+    -- les machines se posent autour des puits équipés (les plus proches de l'origine) : la rive se juge depuis leur centre
+    local sorted = {}
+    for _, w in ipairs(wells) do sorted[#sorted + 1] = w end
+    table.sort(sorted, function(a, b)
+      local da, db = (a.x - origin.x) ^ 2 + (a.y - origin.y) ^ 2, (b.x - origin.x) ^ 2 + (b.y - origin.y) ^ 2
+      if da ~= db then return da < db end
+      if a.y ~= b.y then return a.y < b.y end
+      return a.x < b.x
+    end)
+    local hub = { x = origin.x, y = origin.y }
+    local nh = math.min(#sorted, Fl.EXTRACTORS)
+    if nh > 0 then
+      hub = { x = 0, y = 0 }
+      for i = 1, nh do hub.x, hub.y = hub.x + sorted[i].x / nh, hub.y + sorted[i].y / nh end
+    end
+    local near = pumps[1] and ((pumps[1].x - hub.x) ^ 2 + (pumps[1].y - hub.y) ^ 2) <= Pet.POND_NEAR ^ 2
+    if not near and site_pond(f, surface, hub, h, spec.water) then pumps = pump_spots(surface, f, rel, hub, spec.water) end
     -- la rive est loin du gisement : les machines vont près de la rive, le brut y vient par un long tuyau (un joueur
     -- raffine là où il a l'eau quand le champ est sec)
     local pp = pumps[1]
@@ -487,13 +508,10 @@ local function plan_site(f, surface, p, h)
     extractor = spec.extractor, conduit = D.PIPE, chest = D.CHEST, arm = D.ARM, poles = pole, network = net, block = block }
   -- rives candidates, de la plus proche à la plus lointaine : la première dont le tuyau se trace (une rive d'une tuile
   -- de terre peut avoir son raccord sur l'eau ; moteur réel, petrole-partie 271828182 : « tuyau de la pompe impossible »)
-  local lay, w2
-  local tries = (#pumps > 0) and #pumps or 1
-  for i = 1, tries do
-    if #pumps > 0 then req.pumps = { pumps[i] } end
-    lay, w2 = Fl.layout(req)
-    if lay then break end
-  end
+  -- toutes les rives candidates d'un coup : l'implantation choisit celle qui est la plus proche du consommateur du fluide
+  -- (les machines étant posées) et en essaie une autre si son tuyau ne se trace pas (Fl.layout, retour en arrière)
+  req.pumps = pumps
+  local lay, w2 = Fl.layout(req)
   if not lay then
     -- Diagnostic (moteur réel, 28/10) : le relevé du terrain autour du site refusé, une fois par faction et par raison
     -- (. libre, # bloqué, ~ eau, O origine, W puits, P pompe, B bloc des machines, * tuile occupée par le plan directeur)
@@ -536,7 +554,13 @@ local function plan_site(f, surface, p, h)
 end
 
 Build.SITES = Build.SITES or {}
-Build.SITES.petrole = plan_site
+-- chronomètre du plan d'un site (relevés de terrain, A* des tuyaux et des poteaux : un tick entier) : mesure K10
+Build.SITES.petrole = function(f, surface, p, h)
+  Profiler.start("petrole:plan")
+  local a, b, c = plan_site(f, surface, p, h)
+  Profiler.stop("petrole:plan")
+  return a, b, c
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Pensée
@@ -649,7 +673,7 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
       local fr = force and force.recipes[rn]
       if fr and fr.enabled then
         for _, pk in ipairs(c.products[rn]) do
-          if c.packs[pk] and (stock[pk] or 0) == 0 and force.item_production_statistics.get_input_count(pk) == 0 then
+          if c.packs[pk] and (stock[pk] or 0) == 0 and produced(force, pk) == 0 then
             consumes[pk] = true
           end
         end

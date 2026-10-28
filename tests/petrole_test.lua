@@ -284,7 +284,7 @@ local function run(d, label, names)
   req4.blocked = blocked4
   local lay4, why6 = Fl.layout(req4)
   check(lay4 == nil and tostring(why6):find("reseau", 1, true) ~= nil, label .. " §4c mutant : mur sans brèche : site refusé (" .. tostring(why6) .. ")")
-  return lay
+  return lay, rel, ch
 end
 
 local V = { crude = "crude-oil", pumpjack = "pumpjack", basic = "basic-oil-processing", refinery = "oil-refinery",
@@ -292,7 +292,98 @@ local V = { crude = "crude-oil", pumpjack = "pumpjack", basic = "basic-oil-proce
   chem_tech = "chemical-science-pack", mil_tech = "military-science-pack", chem_pack = "chemical-science-pack", iron = "iron-ore", copper = "copper-ore",
   coal = "coal", stone = "stone", plastic_bar = "plastic-bar", sulfur_item = "sulfur", water = "water",
   offshore = "offshore-pump", boiler = "boiler", steam = "steam-engine", pipe = "pipe", chest = "iron-chest", arm = "inserter", pole = "medium-electric-pole" }
-run(F.dump(), "vanilla", V)
+local _, rel0, ch0 = run(F.dump(), "vanilla", V)
+
+-- §8 cartes RÉELLES de sites refusés en moteur réel (tests/fixtures/petrole_cartes.lua) : l'implantation doit réussir
+local function carte_case(c)
+  local blocked, wells, pumps, origin = {}, {}, {}, nil
+  local rowsn = #c.rows
+  for r, line in ipairs(c.rows) do
+    for col = 1, #line do
+      local chr = line:sub(col, col)
+      local tx, ty = c.x0 + col - 1, c.y0 + r - 1
+      if chr == "#" or chr == "~" then blocked[Fl.tkey(tx, ty)] = chr end
+      if chr == "W" then wells[#wells + 1] = { x = tx + 0.5, y = ty + 0.5 } end
+      if chr == "O" then origin = { x = tx, y = ty } end
+      if chr == "P" then pumps[#pumps + 1] = { tx = tx, ty = ty } end
+    end
+  end
+  local function wet(tx, ty) return blocked[Fl.tkey(tx, ty)] == "~" end
+  local list = {}
+  for _, q in ipairs(pumps) do
+    for _, d in ipairs({ 0, 2, 4, 6 }) do
+      local pos = rel0.entities[V.offshore].boxes[1].conns[d][1]
+      local rx, ry = math.floor(q.tx + 0.5 + pos[1] + 0.01), math.floor(q.ty + 0.5 + pos[2] + 0.01)
+      local ox, oy = math.floor(q.tx + 0.5 - pos[1] + 0.01), math.floor(q.ty + 0.5 - pos[2] + 0.01)
+      if not wet(rx, ry) and wet(ox, oy) then list[#list + 1] = { name = V.offshore, x = q.tx + 0.5, y = q.ty + 0.5, dir = d, fluid = V.water } end
+    end
+  end
+  local req = { origin = origin, blocked = function(tx, ty) return blocked[Fl.tkey(tx, ty)] ~= nil end, ents = rel0.entities, chain = ch0,
+    wells = wells, pumps = list, extractor = V.pumpjack, conduit = V.pipe, chest = V.chest, arm = V.arm,
+    poles = { name = V.pole, supply = 3.5, wire = 9 }, network = { x = origin.x - 60.5, y = origin.y - 60.5 }, n_extract = 2 }
+  return req, #list
+end
+local cartes = dofile("tests/fixtures/petrole_cartes.lua")
+for _, c in ipairs(cartes) do
+  local req, np = carte_case(c)
+  -- toutes les rives candidates d'un coup : l'implantation choisit la plus proche du consommateur et essaie les autres si le tuyau ne se trace pas
+  local t0 = os.clock()
+  local lay, why = Fl.layout(req)
+  say(string.format("§8 %s : implantation en %.3f s (%d noeuds d'A*)", c.name, os.clock() - t0, req.spent or -1))
+  if not lay and os.getenv("DBG") and Fl.last_site then
+    local st = Fl.last_site
+    local x0, y0 = c.x0, c.y0
+    for r = 1, #c.rows do
+      local line = {}
+      for col = 1, #c.rows[1] do
+        local tx, ty = x0 + col - 1, y0 + r - 1
+        local k = Fl.tkey(tx, ty)
+        local ch = c.rows[r]:sub(col, col)
+        if st.tube[k] then ch = "=" elseif st.occ[k] then
+          local e = st.ents[st.occ[k]]
+          ch = e and (e.role == "machine" and "M" or e.role == "pompe" and "p" or e.role == "extracteur" and "X" or e.role == "bras-entree" and "i" or e.role == "bras-sortie" and "o" or e.role == "quai" and "c" or e.role == "sortie" and "c" or "?") or "?"
+        elseif st.rsv[k] then ch = tostring(st.rsv[k]):sub(1, 1):upper() end
+        line[#line + 1] = ch
+      end
+      print(table.concat(line))
+    end
+  end
+  if not lay and os.getenv("DBG") and Fl.last_site then
+    local st = Fl.last_site
+    for _, e in ipairs(st.ents) do
+      if e.role == "machine" or e.role == "pompe" then
+        local parts = {}
+        for _, cn in ipairs(st:conns(e)) do parts[#parts + 1] = string.format("(%d,%d %s %s ok=%s)", cn.tx, cn.ty, tostring(cn.type), tostring(cn.fluid), tostring(st:pipe_ok(cn.tx, cn.ty, cn.fluid or "?"))) end
+        print(string.format("DBG %s@%.1f,%.1f recette %s : %s", e.name, e.x, e.y, tostring(e.recipe), table.concat(parts, " ")))
+      end
+    end
+  end
+  if not lay and os.getenv("DBG") and Fl.last_site then
+    local st = Fl.last_site
+    local X0, Y0, X1, Y1 = tonumber(os.getenv("DX0")), tonumber(os.getenv("DY0")), tonumber(os.getenv("DX1")), tonumber(os.getenv("DY1"))
+    if c.name:find(os.getenv("DNAME") or "scarlet", 1, true) and X0 then
+      for ty = Y0, Y1 do
+        local line = {}
+        for tx = X0, X1 do
+          local k = Fl.tkey(tx, ty)
+          local ch = blocked_char and "" or "."
+          if st.req.blocked(tx, ty) then ch = "#" end
+          if st.tube[k] then ch = (st.tube[k]:sub(1, 1)):lower() == "w" and "w" or (st.tube[k]:sub(1, 1)):lower() == "p" and "g" or "c"
+          elseif st.occ[k] then ch = "M"
+          elseif st.rsv[k] then ch = (tostring(st.rsv[k]):sub(1, 1)):upper() end
+          line[#line + 1] = ch
+        end
+        print(string.format("%5d %s", ty, table.concat(line)))
+      end
+    end
+  end
+  check(lay ~= nil, "§8 carte réelle " .. c.name .. " (" .. np .. " places de pompe, " .. #req.wells .. " puits) : " .. tostring(why))
+  if lay then
+    local ok, w = Fl.check(lay, rel0.entities)
+    check(ok, "§8 carte " .. c.name .. " : réseaux sans mélange : " .. tostring(w))
+    say(string.format("§8 %s : implantation (%d rives candidates) : %d tuyaux, %d poteaux", c.name, np, lay.pipes, lay.poles))
+  end
+end
 
 -- §5 Généralisation : tout renommé (préfixe « zz- »), boîtes et catégories comprises.
 local function rename(s) return "zz-" .. s end

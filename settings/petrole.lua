@@ -6,8 +6,8 @@
                    pétrole, raffinerie, usines chimiques, pompe de rive, tuyaux, quais et poteaux (exécutant générique :
                    machines et raccords lus dans les prototypes, shared/ai3/fluides.lua). Le cerveau général voit alors
                    le pack chimique payable une fois le pétrole trouvé, le fait explorer, et demande un site au gisement
-                   quand ses packs en ont besoin. Votre équipe n'est pas touchée. ÉTEINT par défaut : allumé seulement si
-                   c'est prouvé en moteur réel (INTEGRATION.md). Préfixe « fo-war- » : réglable par les bancs
+                   quand ses packs en ont besoin. ALLUMÉ par défaut (lot PETROLE 2 : règle du DC, pas de réglage éteint par défaut ;
+                   interrupteur de coupure, preuves en moteur réel dans fo-logs/2026-10-28_PETROLE2). Préfixe « fo-war- » : réglable par les bancs
                    (interface distante war_setting).
   Traductions : locale/*/petrole.cfg.
 ]]

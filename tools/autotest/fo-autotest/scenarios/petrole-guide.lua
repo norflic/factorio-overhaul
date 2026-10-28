@@ -143,8 +143,10 @@ base.finish = function(ctx)
     if f and f.item_production_statistics.get_input_count(PACK) > 0 then n_pack = n_pack + 1 end
     if #tier4(r.force) > 0 then n_t4 = n_t4 + 1 end
   end
-  ctx.check(n_pack >= 1, "au moins une faction a fabrique des packs chimiques", n_pack .. "/" .. n_fac)
-  ctx.check(n_t4 >= 1, "au moins une faction a recherche une technologie du palier 4", n_t4 .. "/" .. n_fac)
+  -- Les packs chimiques fabriques A LA MAIN par les PNJ ne comptent pas dans les statistiques de production (F244) : le pack
+  -- est PROUVE par une technologie qui le consomme, recherchee (n_pack, a titre informatif, compte les statistiques)
+  ctx.log(TAG .. "factions dont les statistiques comptent des packs chimiques : " .. n_pack .. "/" .. n_fac)
+  ctx.check(n_t4 >= 1, "au moins une faction a recherche une technologie qui consomme le pack chimique (palier 4)", n_t4 .. "/" .. n_fac)
 end
 
 return base
