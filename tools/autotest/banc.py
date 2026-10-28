@@ -471,12 +471,20 @@ def signature(res):
 
 
 def fin_de_benchmark(p):
-    """Vrai si la fin de benchmark-stdout.txt porte « Performed N updates » (le jeu est allé au bout des ticks)."""
+    """Vrai si benchmark-stdout.txt porte « Performed N updates » (le jeu est allé au bout des ticks).
+    La ligne est AVANT le tableau CSV par tick (--benchmark-verbose all, plus de 1 Mo pour 10 000 ticks) : on lit tout le
+    fichier par blocs, avec recouvrement (28/10 : lire seulement les 64 derniers Ko donnait un faux ECHEC code 12)."""
+    cle = b"Performed "
     try:
         with open(p, "rb") as f:
-            f.seek(0, os.SEEK_END)
-            f.seek(max(0, f.tell() - 65536))
-            return b"Performed " in f.read()
+            reste = b""
+            while True:
+                bloc = f.read(1 << 20)
+                if not bloc:
+                    return False
+                if cle in reste + bloc:
+                    return True
+                reste = bloc[-(len(cle) - 1):]
     except OSError:
         return False
 
