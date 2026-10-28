@@ -148,13 +148,14 @@ do
   local api, calls = tmpl_api(b)
   for t = 1200, 1200 * 2, 1200 do Rv.step(api, f, W.surface, t) end
   W.kill(W.ents[1])
-  W.enemy = { x = 110, y = 110 }
+  W.enemy = { x = 110, y = 110, position = { x = 110, y = 110 } }
   local t = 1200 * 3
   Rv.step(api, f, W.surface, t)
   check(p.state == "fini" and calls.plant == 0, "ennemis a portee, premier releve : on attend, aucune pose")
   for _ = 1, 5 do t = t + 1200 Rv.step(api, f, W.surface, t) end
   check(calls.plant == 1, "ennemis a portee durablement : une centrale demandee ailleurs (" .. calls.plant .. ")")
-  check(b.avoid and #b.avoid == 1 and b.avoid[1].r == 40, "le site dangereux est ecarte")
+  check(b.avoid and #b.avoid == 2 and b.avoid[1].r == 16 and b.avoid[2].r == 40 and b.avoid[2].x == 110 and b.avoid[2].y == 110,
+    "l'ancien site et la POSITION de l'ennemi (rayon 40) sont ecartes")
   check(p.abandoned == true and b.plant == 2, "l'ancien projet est abandonne, la nouvelle centrale est la centrale de l'equipe")
   check(b.sante.reloc and b.sante.reloc.new == 2, "le remplacement est suivi")
   check(p.state == "fini", "ancien projet non rouvert sous le feu")
@@ -171,7 +172,7 @@ do
   check(p.state == "reserve" and p.boiler.built == false, "ennemis partis : pieces perdues rouvertes sur place a la passe suivante")
   -- ennemis revenus : pas de nouvelle demande d'autre site avant la fin du blocage
   local calls_before = calls.plant
-  W.enemy = { x = 110, y = 110 }
+  W.enemy = { x = 110, y = 110, position = { x = 110, y = 110 } }
   p.state, p.boiler.built = "fini", true
   W.kill(W.ents[1])
   b.sante.st.seen, b.sante.st.relocations = 9, 1
@@ -208,7 +209,7 @@ do
     local f, b = team(W)
     local api = tmpl_api(b)
     W.kill(W.ents[1])
-    W.enemy = { x = 110, y = 110 }
+    W.enemy = { x = 110, y = 110, position = { x = 110, y = 110 } }
     local t = 1200
     for _ = 1, 10 do Rv.step(api, f, W.surface, t) t = t + 1200 end
     return table.concat(LOG, "\n")

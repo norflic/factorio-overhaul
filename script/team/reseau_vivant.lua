@@ -243,7 +243,10 @@ function Rv.step(api, f, surface, tick)
   inp.enemies = 0
   if site then
     local en = surface.find_nearest_enemy({ position = site, max_distance = S.DANGER_R, force = f.force })
-    if en then inp.enemies = 1 end
+    if en then
+      inp.enemies = 1
+      sv.enemy_x, sv.enemy_y = en.position.x, en.position.y -- la POSITION du danger, pas seulement celle du site
+    end
   end
   -- une perte survenue sur une centrale qui marchait : compte pour le jugement du site
   local was_healthy = sv.healthy
@@ -278,8 +281,11 @@ function Rv.step(api, f, surface, tick)
   elseif action == "autre_site" then
     if sv.reloc then return end
     b.avoid = b.avoid or {}
-    if site then b.avoid[#b.avoid + 1] = { x = site.x, y = site.y, r = S.DANGER_R } end
-    while #b.avoid > 4 do table.remove(b.avoid, 1) end
+    -- écartés : l'ancien site (son lot) et, quand un ennemi est connu, TOUT ce qui est à portée de lui (la centrale de remplacement
+    -- doit finir à plus de S.DANGER_R du danger, pas seulement loin de l'ancien site)
+    if site then b.avoid[#b.avoid + 1] = { x = site.x, y = site.y, r = sv.enemy_x and 16 or S.DANGER_R } end
+    if sv.enemy_x then b.avoid[#b.avoid + 1] = { x = sv.enemy_x, y = sv.enemy_y, r = S.DANGER_R } end
+    while #b.avoid > 6 do table.remove(b.avoid, 1) end
     local old = pp
     old.abandoned = true
     b.plant = nil
