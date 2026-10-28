@@ -26,6 +26,7 @@ Rv.NET_PERIOD = 7200      -- 2 min : consommateurs sur îlot, poteaux perdus
 Rv.POLE_REOPEN_MAX = 5    -- réouvertures d'un même projet pour ses poteaux (on ne nourrit pas un point que l'ennemi tient)
 Rv.POLE_ENEMY_R = 28      -- jamais de pose de poteau avec un ennemi à cette portée
 Rv.CAND_MAX = 40          -- poteaux perdus examinés par cycle
+Rv.RELOC_BLOCK = 5 * 3600  -- pas de nouvelle demande d'autre site pendant 5 min après un refus du plan
 Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
 
 local TYPES = {
@@ -210,11 +211,12 @@ function Rv.step(api, f, surface, tick)
       if old then
         b.plant = old.id
         old.abandoned = nil
-        local _, lost = plant_read(f, surface, old)
-        Rv.reopen(old, lost, "reseau: centrale de remplacement refusee, retour sur place")
-        say(f, tick, string.format("centrale de remplacement refusee (%s) : retour au site d'origine, %d piece(s) rouverte(s)",
-          tostring(np and np.reason or "perdue"), #lost))
       end
+      -- aucun autre site : on ne rouvre PAS sous le feu ; la décision suivante rouvrira dès que les ennemis seront partis, et
+      -- aucune nouvelle demande d'autre site pendant Rv.RELOC_BLOCK ticks (un plan coûte 25 à 40 ms)
+      sv.reloc_block = tick + Rv.RELOC_BLOCK
+      say(f, tick, string.format("centrale de remplacement refusee (%s) : retour au site d'origine, pieces a refaire quand il sera sur",
+        tostring(np and np.reason or "perdue")))
       sv.reloc = nil
       return
     elseif np.state == "fini" then
@@ -249,6 +251,9 @@ function Rv.step(api, f, surface, tick)
   if sv.healthy then S.recovered(sv.st) end
   if was_healthy and S.lost(inp) > 0 then S.note_loss(sv.st, 1) end
   local action, why, detail = S.decide(inp, sv.st)
+  if action == "autre_site" and tick < (sv.reloc_block or 0) then
+    action, why = "attendre", "aucun autre site (essai recent refuse par le plan)"
+  end
   -- synthèse périodique
   if tick >= sv.log_next then
     sv.log_next = tick + Rv.LOG_EVERY

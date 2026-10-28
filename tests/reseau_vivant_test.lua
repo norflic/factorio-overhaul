@@ -164,8 +164,20 @@ do
   t = t + 1200
   Rv.step(api, f, W.surface, t)
   check(b.plant == 1 and b.avoid == nil, "remplacement refuse : retour a l'ancienne centrale, site de nouveau permis")
-  check(p.state == "reserve" and p.boiler.built == false, "remplacement refuse : pieces perdues rouvertes sur place")
+  check(p.state == "fini" and p.boiler.built == true, "remplacement refuse, ennemis partis a l'instant : pas de reouverture dans la meme passe")
   check(b.sante.reloc == nil, "remplacement refuse : suivi termine")
+  t = t + 1200
+  Rv.step(api, f, W.surface, t)
+  check(p.state == "reserve" and p.boiler.built == false, "ennemis partis : pieces perdues rouvertes sur place a la passe suivante")
+  -- ennemis revenus : pas de nouvelle demande d'autre site avant la fin du blocage
+  local calls_before = calls.plant
+  W.enemy = { x = 110, y = 110 }
+  p.state, p.boiler.built = "fini", true
+  W.kill(W.ents[1])
+  b.sante.st.seen, b.sante.st.relocations = 9, 1
+  t = t + 1200
+  Rv.step(api, f, W.surface, t)
+  check(calls.plant == calls_before, "apres un refus du plan : pas de nouvelle demande pendant le blocage")
 end
 
 -- §5 îlot : le poteau du plan minimal est rouvert
