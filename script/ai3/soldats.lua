@@ -111,6 +111,7 @@ end
 ---   "away"   : tous s'éloignent de l'ennemi, qu'ils distancent ;
 --- la garnison, la fortification et la défense (Re.recall_exempt) gardent leur poste.
 local function shelter(f, t, threat, tick, resp, rally, range)
+  resp = resp or "stand" -- l'appel de votre équipe (sans soldats) n'en donne pas : mise à l'abri seule (moteur réel, petrole-guide 20261020 : plantage à la minute 73)
   local far2 = Re.away_distance(range) ^ 2
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
