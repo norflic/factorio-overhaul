@@ -35,6 +35,7 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en attente des avant-postes en échec)
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
+local Mains = require("script.team.mains") -- lot MAINS : travail à la main mesuré (ligne [FO-MAINS])
 
 local Board = {}
 
@@ -734,6 +735,7 @@ function Board.finish(f, task, ok, tick)
   note_extend(f, task, ok, tick)
   if not ok and Board.on_fail then Board.on_fail(f, task, tick) end
   if Board.on_done then Board.on_done(f, task, ok, tick) end -- lot IA3-e : charge à la main mesurée (fin de tâche)
+  Mains.on_done(f, task, ok, tick) -- lot MAINS : mesure seulement
   local b = Board.get(f)
   if b.tasks[task.key] == task then b.tasks[task.key] = nil end
   local st = f.team.task_stats
