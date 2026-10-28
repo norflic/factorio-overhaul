@@ -578,6 +578,12 @@ function M.gate(f, agent, task, steps, tick)
   a.escort, a.risk = nil, nil
   -- Lot FORTIFY : une destination refusée par une meute fraîche ouvre un poste de tourelles côté QG (votre équipe).
   if decision == "wait" and not task.post then Avance.note(f, t.map, pts, dest, res.exact_goal, res.B, why, tick) end
+  -- … et la tâche de ce poste passe la porte (sauf morts récentes) : la zone d'une meute (vue + étendue du groupe) dépasse la
+  -- portée d'une tourelle ; un joueur monte poser ses tourelles au bord en acceptant l'aggro (mesure : pertes pendant la pose).
+  if decision == "wait" and task.post and why ~= "morts" and why ~= "mort" then
+    decision, why = "go", "poste"
+    t.stats.poste = (t.stats.poste or 0) + 1
+  end
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
   -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
   -- Lot IA3-k sur 0.5.0 : réessayé au plus toutes les RETARGET_PERIOD ticks pour la même tâche (le tableau garde ses
