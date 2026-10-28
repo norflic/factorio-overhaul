@@ -91,8 +91,8 @@ for _, f in ipairs(global.fo.war.factions) do
   check(f.soldiers_count <= 100, f.key .. " respecte le plafond de soldats")
   check(f.garrison_count >= 0 and f.garrison_count <= f.soldiers_count, f.key .. " garnison cohérente")
   local real = 0
-  for _ in pairs(f.soldiers) do real = real + 1 end
-  check(real == f.soldiers_count, f.key .. " compteur de soldats = table des soldats")
+  for _, sd in pairs(f.soldiers) do if not sd.scout then real = real + 1 end end -- lot VEILLE : le vivier d'éclaireurs n'est pas compté
+  check(real == f.soldiers_count, f.key .. " compteur de soldats = table des soldats (hors vivier d'éclaireurs)")
 end
 check(total_soldiers > 0, "des soldats existent (" .. total_soldiers .. ")")
 check(total_attacks > 0, "des attaques ont été lancées (" .. total_attacks .. ")")
@@ -156,7 +156,7 @@ do
   if f then
     local idle = {}
     for _, id in ipairs(St.sorted_keys(f.soldiers)) do
-      if not f.soldiers[id].group and f.soldiers[id].entity.valid then idle[#idle + 1] = id end
+      if not f.soldiers[id].group and f.soldiers[id].entity.valid and not f.soldiers[id].scout then idle[#idle + 1] = id end -- hors vivier (lot VEILLE)
     end
     local near0, far0 = Military.garrison_split(f)
     check(far0 == 0, "au départ, aucun soldat loin du QG (" .. far0 .. ")")
