@@ -248,6 +248,31 @@ do
   check(st2 and st2.n_threats == 1, "bâtiments détruits récemment : menaces de la couverture")
 end
 
+-- §4 bis Généralisation : une autre tourelle (autre nom, autre portée) et d'autres noms de pièces, mêmes règles ------------
+do
+  local f = new_team()
+  local save = R.TURRET
+  R.TURRET = "canon-lourd"
+  PROTOS["canon-lourd"] = { turret_range = 30 }
+  package.loaded["script.team.couverture"] = nil
+  local Couv3 = require("script.team.couverture")
+  local fes = { ent("piece-b", "lab", 0, 0), ent("piece-b", "furnace", 40, 0), ent("piece-b", "boiler", -40, 0) }
+  local surf = { find_entities_filtered = function(t)
+    local out = {}
+    for _, e in ipairs(fes) do
+      for _, ty in ipairs(t.type) do if ty == e.type then out[#out + 1] = e end end
+    end
+    return out
+  end, can_place_entity = function() return true end }
+  local st = Couv3.plan(f, surf, { x = 0, y = 0 }, true)
+  local p1, p2 = Couv3.next(st, f, surf), Couv3.next(st, f, surf)
+  check(st.range == 30 and p1 and p2, "la portée du prototype (30) décide, quel que soit le nom de la tourelle")
+  check(p1 and p2 and math.sqrt((p1.x - p2.x) ^ 2 + (p1.y - p2.y) ^ 2) >= 30 * 0.4 - 1e-9, "espacement : 40 % de la portée lue (12 tuiles), pas une valeur écrite")
+  R.TURRET = save
+  package.loaded["script.team.couverture"] = nil
+  require("script.team.couverture")
+end
+
 -- §5 Source -----------------------------------------------------------------------------------------------------------------
 for _, file in ipairs({ "script/team/couverture.lua", "script/team/reconstruction.lua" }) do
   local fh = assert(io.open(file, "rb"))
