@@ -1484,15 +1484,13 @@ do
 end
 
 -- §13 Lot ELEC2 : un ordre qui étend la capacité d'une matière en manque (o.short posé par le runtime) devient un but
--- d'INVESTISSEMENT : servi après l'objectif du moment, le plancher de l'armée (g.floor), la centrale qu'il alimente et
--- les familles permanentes (armée, munitions), devant les projets ordinaires restants et les autres buts de fond ; sans
--- `short`, il reste servi en dernier.
+-- d'INVESTISSEMENT : servi après l'objectif du moment et les familles permanentes (armée, munitions), devant les projets
+-- ordinaires restants et les autres buts de fond ; sans `short`, il reste servi en dernier.
 do
   local goals = {
     { key = "recherche", family = "recherche", kind = "research", value = 70 },
     { key = "extraction:a", family = "extraction", kind = "outpost", value = 60 },
-    { key = "auto:centrale", family = "capital", kind = "module", value = 30, plant = true },
-    { key = "armee", family = "armee", kind = "army", value = 46, permanent = true, floor = true },
+    { key = "armee", family = "armee", kind = "army", value = 46, permanent = true },
     { key = "armee2", family = "armee", kind = "army", value = 44, permanent = true },
     { key = "defense:munitions", family = "defense", kind = "ammo", value = 45, permanent = true },
   }
@@ -1508,8 +1506,6 @@ do
   check(by["capi:couvrir:fer"].invest == true and by["capi:couvrir:cuivre"].invest == nil,
     "§13 seul l'ordre marqué `short` devient un investissement")
   check(pos["recherche"] == 1, "§13 l'objectif du moment reste premier")
-  check(pos["armee"] < pos["auto:centrale"] and pos["auto:centrale"] < pos["capi:couvrir:fer"],
-    "§13 plancher de l'armée, puis la centrale, avant l'investissement")
   check(pos["capi:couvrir:fer"] > pos["armee2"] and pos["capi:couvrir:fer"] > pos["defense:munitions"],
     "§13 investissement : après les familles permanentes")
   check(pos["capi:couvrir:fer"] < pos["extraction:a"], "§13 investissement : devant les projets ordinaires restants")

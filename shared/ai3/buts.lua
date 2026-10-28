@@ -281,8 +281,7 @@ function B.generate(s, st)
     local war = s.at_war and B.ARMY_WAR_PCT or 100
     if (s.soldiers or 0) < first then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = first,
-        value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true,
-        floor = true } -- lot ELEC2 : le plancher de l'armée (B.ARMY_FIRST_N soldats) est servi avant l'investissement
+        value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true }
     elseif (s.soldiers or 0) < (s.army_target or 0) then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = s.army_target,
         value = val(math.floor(B.ARMY_MORE * war / 100), w.armee), permanent = true }

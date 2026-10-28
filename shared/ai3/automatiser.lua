@@ -777,7 +777,7 @@ function A.goals(goals, auto, weights, research)
       seen[m.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, m.gain or 0)))
       goals[#goals + 1] = { key = "auto:" .. m.product, family = "capital", kind = "module", product = m.product,
-        status = m.state, missing = m.missing, reason = m.reason, plant = m.plant or nil,
+        status = m.state, missing = m.missing, reason = m.reason,
         value = capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
     end
   end
