@@ -167,6 +167,7 @@ Events.on(defines.events.on_entity_died, function(e)
     local ddx, ddy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
     f.stats = f.stats or {}
     f.stats.soldier_deaths = (f.stats.soldier_deaths or 0) + 1
+    f.recon_quiet_until = e.tick + 5 * 3600 -- lot RECON : pas d'éclaireur pendant 5 min (shared/faction/recon.lua, R.QUIET)
     log(string.format("[FO-RECON] soldat mort tick %d %s : par %s (%s) en (%d, %d), a %d tuiles du QG, %d soldat(s) restants", e.tick, f.key,
       e.cause and e.cause.valid and e.cause.name or "?", e.force and e.force.name or "?", math.floor(p.x), math.floor(p.y),
       math.floor(math.sqrt(ddx * ddx + ddy * ddy)), (f.soldiers_count or 1) - 1))

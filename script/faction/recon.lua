@@ -34,6 +34,8 @@ local State = require("script.faction.state")
 local Military = require("script.faction.military")
 local Character = require("script.faction.character")
 local Sites = require("script.faction.sites")
+local Outposts = require("script.faction.outposts")
+local T = require("shared.team.config")
 
 local Recon = {}
 
@@ -138,6 +140,19 @@ local function scout_busy(f)
   return false
 end
 
+--- Tourelles du QG complètes (T.defend_hq, la défense du début de shared/team) ?
+local function hq_defended(f)
+  for _, g in ipairs(Outposts.turret_groups(f)) do
+    if g.key == "hq" then return #g.list >= T.defend_hq end
+  end
+  return false
+end
+
+local ENEMY_NEAR = 100
+local function enemies_near_hq(surface, f)
+  return surface.count_entities_filtered({ position = f.hq_pos, radius = ENEMY_NEAR, force = "enemy", type = { "unit", "unit-spawner" }, limit = 1 }) > 0
+end
+
 local function chunk_ready(surface, p)
   return surface.is_chunk_generated({ x = math.floor(p.x / 32), y = math.floor(p.y / 32) })
 end
@@ -157,7 +172,12 @@ function Recon.think(f, surface, tick)
   local size = R.size(rs.losses, garrison)
   local keep = math.ceil(garrison * (ch.war_keep or ch.keep or 0.3) - 1e-9)
   local ok = R.want({ recon = req, tick = tick, next_at = rs.next_at, busy = scout_busy(f), garrison = garrison, size = size,
-    keep = keep, threat = st.last_threat, survive = st.survival, alert = tick < (f.threatened_until or 0) })
+    keep = keep, threat = st.last_threat, survive = st.survival, alert = tick < (f.threatened_until or 0),
+    hq_ok = hq_defended(f), quiet_until = f.recon_quiet_until })
+  if ok and enemies_near_hq(surface, f) then
+    rs.next_at = tick + BUSY_WAIT
+    return
+  end
   if not ok then return end
   -- Destination : revérifier le dernier point connu (périmée, vieillissante), sinon la frontière de la carte.
   local dest, how

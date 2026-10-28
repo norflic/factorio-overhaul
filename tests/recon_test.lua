@@ -158,8 +158,13 @@ local function battery()
   check(not want({ recon = false }), "rien à chercher : il ne part pas")
   check(not want({ busy = true }), "un éclaireur à la fois")
   check(not want({ garrison = R.RESERVE }), "garnison trop petite : il ne part pas")
-  check(want({ garrison = 1 + R.RESERVE }), "garnison juste suffisante")
-  check(not want({ garrison = 1 + R.RESERVE, size = 3 }), "une patrouille de 3 exige plus de garnison")
+  check(not want({ garrison = 1 + R.RESERVE }) and not want({ garrison = R.START_ARMY }), "sous l'armée de départ : il ne part pas")
+  check(want({ garrison = 1 + R.START_ARMY }), "garnison juste suffisante : armée de départ gardée, éclaireur retiré")
+  check(not want({ garrison = R.START_ARMY + 2, size = 3 }) and want({ garrison = R.START_ARMY + 3, size = 3 }),
+    "une patrouille de 3 exige 3 soldats de plus")
+  check(not want({ hq_ok = false }) and want({ hq_ok = true }), "tourelles du QG incomplètes : défense du début d'abord")
+  check(not want({ enemies = true }), "ennemis vus près du QG : il ne part pas")
+  check(not want({ quiet_until = 10001 }) and want({ quiet_until = 10000 }), "soldat mort depuis moins de 5 min : il ne part pas")
   check(not want({ next_at = 20000 }), "délai non écoulé")
   check(not want({ threat = R.THREAT_MAX + 1 }), "menace : la garnison reste au QG")
   check(not want({ survive = true }), "survie : la garnison reste au QG")
@@ -167,7 +172,7 @@ local function battery()
     "taille : 1, +1 par perte, 3 au plus (plafond contre l'appauvrissement de la garnison, constat des sceptiques)")
   check(R.size(9, 5) == 1 and R.size(9, 8) == 2 and R.size(9, 12) == 3 and R.size(0, 2) == 1,
     "taille : jamais plus de 25 % de la garnison (au moins 1)")
-  check(want({ garrison = 30, size = 1, keep = 30 }) == false and want({ garrison = 30, size = 1, keep = 20 }),
+  check(want({ garrison = 40, size = 1, keep = 40 }) == false and want({ garrison = 40, size = 1, keep = 20 }),
     "garnison gardée du caractère : l'éclaireur ne la fait jamais passer sous son plancher")
   check(not want({ alert = true }), "QG en alerte : la garnison reste au QG")
   -- Reconnaissance régulière : balayage selon la curiosité, la menace et les pertes.
@@ -414,6 +419,26 @@ mutant("R.want ignore la garnison gardée", function()
     local c2 = {}
     for kk, vv in pairs(c) do c2[kk] = vv end
     c2.keep = 0
+    return orig(c2)
+  end
+  return function() R.want = orig end
+end)
+mutant("R.want ignore l'armée de départ", function()
+  local orig = R.want
+  R.want = function(c)
+    local c2 = {}
+    for kk, vv in pairs(c) do c2[kk] = vv end
+    c2.garrison = (c.garrison or 0) + R.START_ARMY
+    return orig(c2)
+  end
+  return function() R.want = orig end
+end)
+mutant("R.want ignore les tourelles du QG, les ennemis et les pertes récentes", function()
+  local orig = R.want
+  R.want = function(c)
+    local c2 = {}
+    for kk, vv in pairs(c) do c2[kk] = vv end
+    c2.hq_ok, c2.enemies, c2.quiet_until = true, false, 0
     return orig(c2)
   end
   return function() R.want = orig end

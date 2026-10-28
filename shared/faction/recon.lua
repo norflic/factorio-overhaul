@@ -40,8 +40,11 @@ R.RANGE_CUR = 500
 R.LOSS_CAP = 4            -- doublement du délai à chaque éclaireur perdu (F235), 2^4 au plus
 R.SIZE_MAX = 3            -- +1 soldat par perte récente (petit groupe prudent), 3 au plus (7 avec +2 par perte : garnison appauvrie)
 R.SHARE_MAX = 25          -- un éclaireur ne prend jamais plus de 25 % de la garnison
-R.THREAT_MAX = 300        -- au-delà (pour mille), la garnison reste au QG
+R.THREAT_MAX = 100        -- au-delà (pour mille), la garnison reste au QG (300 avant la mesure du 28/10 : menace 250 = vague en cours)
 R.RESERVE = 4             -- soldats gardés au QG en plus de l'éclaireur (plancher de la garnison gardée)
+R.START_ARMY = 10         -- armée de départ (objectif « army » de shared/team/config.lua) : aucun éclaireur tant que la garnison, ÉCLAIREUR
+                          -- RETIRÉ, ne la garde pas (moteur réel 28/10 : Azur à 5 soldats en perdait 1 à 6 min et ne s'en remettait pas)
+R.QUIET = 5 * 3600        -- aucun éclaireur dans les 5 min qui suivent la mort d'un soldat de la faction (une vague peut être en route)
 
 local function d2(a, b)
   local dx, dy = a.x - b.x, a.y - b.y
@@ -214,17 +217,21 @@ function R.size(losses, garrison)
 end
 
 --- Un éclaireur doit-il partir ? c = { recon (demande du chef, ou balayage dû, ou nil), tick, next_at, busy (éclaireur en
---- cours), garrison, size, keep (garnison gardée en soldats, plancher R.RESERVE), threat, survive, alert (alerte du QG) }.
---- Renvoie (oui, raison).
+--- cours), garrison, size, keep (garnison gardée en soldats), threat, survive, alert (alerte du QG), hq_ok (tourelles du QG
+--- complètes ; nil : non contrôlé), enemies (ennemis vus près du QG), quiet_until (tick avant lequel un soldat est mort) }.
+--- Garnison laissée au QG au départ : au moins max(R.RESERVE, keep, R.START_ARMY). Renvoie (oui, raison).
 function R.want(c)
   if not c.recon then return false, "rien a chercher" end
   if c.busy then return false, "eclaireur en cours" end
   if c.survive then return false, "survie" end
   if c.alert then return false, "alerte" end
+  if c.hq_ok == false then return false, "defense du debut" end
+  if c.enemies then return false, "ennemis pres du QG" end
+  if c.tick < (c.quiet_until or 0) then return false, "pertes recentes" end
   if (c.threat or 0) > R.THREAT_MAX then return false, "menace" end
   if c.tick < (c.next_at or 0) then return false, "delai" end
   local left = (c.garrison or 0) - (c.size or 1)
-  if left < math.max(R.RESERVE, c.keep or 0) then return false, "garnison" end
+  if left < math.max(R.RESERVE, c.keep or 0, R.START_ARMY) then return false, "garnison" end
   return true, "ok"
 end
 
