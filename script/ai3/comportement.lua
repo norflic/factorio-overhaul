@@ -14,7 +14,7 @@
     teams[clé] = { map, epoch, stream, char = { prudence, agressivite } | nil (forcé par un banc), hold, stats,
                    escorts = { [id d'agent] = { units, n, since } } }
     agents[id] = { final, pts, i, epoch, refuge, hold, hold_stop, hp, armed, armed_t, label, label_key, label_t, escort, tour,
-                   backs, back_t, ret_t, flee_t, flee_ep }
+                   backs, back_t, ret_t, flee_t, flee_ep, look_t }
   Flux : Tr.new_stream(graine, 470 + numéro de l'équipe) (sels 470 à 479 : IA3-k ; 479 = votre équipe).
 ]]
 
@@ -701,6 +701,12 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range)
       a.refuge = refuge(f, agent.entity.position, ep, range)
       a.flee_t, a.flee_ep = tick, { x = ep.x, y = ep.y }
       t.stats.refuges = t.stats.refuges + 1
+      -- Votre équipe : un PNJ qui fuit prévient les autres AVANT la première perte (lieu de la menace) ; hors du QG, qui
+      -- est défendu (même règle que le rappel après une mort : Worker.SAFE_HOME).
+      if f.is_player and f.hq_pos and d2(ep, f.hq_pos) > Worker.SAFE_HOME * Worker.SAFE_HOME then
+        local n = Worker.recall_near(f, ep, nil, tick, agent)
+        if n > 0 then t.stats.flee_recalls = (t.stats.flee_recalls or 0) + n end
+      end
       if M.on_alert and M.on_alert(f, ep, kind, tick) then t.stats.alerts = t.stats.alerts + 1 end
     end
     if agent.task then
@@ -818,7 +824,11 @@ function M.sense(agent, tick)
   if near_home and not hurt then return false end
   local is_armed = armed(agent, a, tick)
   local fear = hp < Re.fear(prud)
-  if not (walking or hurt or fear or breach or not is_armed) then return false end
+  -- Regard périodique d'un PNJ armé, sain et à l'arrêt (étalé par numéro) : il voyait venir les groupes seulement blessé.
+  if not (walking or hurt or fear or breach or not is_armed) and not Re.idle_look_due(tick, a.look_t, agent.id) then
+    return false
+  end
+  a.look_t = tick
   -- Regard : autour d'un point LOOK_AHEAD tuiles devant (vers le point de passage courant), sinon autour du PNJ.
   local c = p
   if walking and agent.goal then
@@ -878,7 +888,7 @@ function M.sense(agent, tick)
     backs = (a.back_t and tick - a.back_t <= Re.BACK_MEMORY) and a.backs or 0 })
   -- C4 : un soldat ou un ouvrier ADVERSE isolé (force pesée ≤ 1,5, pas la force des déchiqueteurs) vu près du QG : la
   -- garnison est appelée, elle le chasse (au plus une alerte par menace et par minute : script/ai3/soldats.lua).
-  if not K.fixed and enemy.force.name ~= "enemy" and enemies <= 1.5 and M.on_alert then
+  if not K.fixed and enemy.force.name ~= "enemy" and enemies <= Re.ISOLATED and M.on_alert then
     if M.on_alert(f, ep, kind, tick, "hunt") then t.stats.hunts = (t.stats.hunts or 0) + 1 end
   end
   -- Tournée escaladée (risque accepté par la porte) : pas de nouveau détour pour une menace fixe déjà connue (le chemin

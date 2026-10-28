@@ -28,6 +28,9 @@ Re.BACKS = 1       -- demi-tours déjà faits devant des unités avant que le su
 Re.BACK_MEMORY = 3600 -- ticks : au-delà, les demi-tours passés sont oubliés (un autre groupe, une autre tournée)
 Re.AWAY_EXTRA = 24 -- tuiles : marge ajoutée à (portée + MARGIN) pour s'éloigner d'unités quand le QG est de leur côté
 Re.HOME_CONE = 0.5 -- cosinus : l'ennemi est « du côté du QG » s'il est dans ce cône (60°) vers le QG et plus près que lui
+Re.IDLE_LOOK = 180   -- ticks : un PNJ armé, sain et à l'arrêt regarde autour de lui au plus toutes les 3 s (étalé par numéro)
+Re.ISOLATED = 1.5    -- force pesée au plus : un ennemi « isolé » qu'un ouvrier armé peut chasser ; au-delà, il ne tient pas seul
+Re.EXEMPT = { garrison = true, fortify = true } -- tâches de défense : jamais rappelées ni mises à l'abri quand elles sont armées
 Re.FEAR_BASE = 400  -- 40 % de vie (IA_ATTENDUS C3)
 Re.FEAR_MAX = 550
 
@@ -67,6 +70,26 @@ function Re.flee_unarmed(prudence)
   if r < 24 then return 24 end
   if r > 36 then return 36 end
   return r
+end
+
+--- Le regard périodique d'un PNJ armé, sain et à l'arrêt est-il dû ? `last` : tick du dernier (nil : jamais). Le premier est
+-- décalé par le numéro du PNJ (53 est premier avec 180) : les PNJ d'une équipe ne regardent pas tous au même tick.
+function Re.idle_look_due(tick, last, id)
+  local from = last or -(((id or 0) * 53) % Re.IDLE_LOOK)
+  return tick - from >= Re.IDLE_LOOK
+end
+
+--- Une tâche de défense (garnison, fortification, `defend`) n'est jamais rappelée ni mise à l'abri par la sécurité d'équipe.
+function Re.recall_exempt(kind, defend)
+  return Re.EXEMPT[kind] == true or defend == true
+end
+
+--- Mise à l'abri (C7) d'un ouvrier occupé quand le QG est menacé : un ouvrier sans arme toujours ; un ouvrier ARMÉ seulement
+-- si la force ennemie dépasse Re.ISOLATED (seul, il ne la bat pas) et que sa tâche n'est pas une défense.
+function Re.shelter_needed(armed, force, kind, defend)
+  if not armed then return true end
+  if Re.recall_exempt(kind, defend) then return false end
+  return (force or 0) > Re.ISOLATED
 end
 
 --- Une unité mobile vue pendant un ARRÊT (alerte) a-t-elle franchi portée + marge ? L'arrêt est alors rompu : le PNJ

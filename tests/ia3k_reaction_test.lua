@@ -82,6 +82,33 @@ local function suite()
   check(Re.away_point(p, home, { x = -400, y = -300 }, 30) == nil, "ennemi plus loin que le QG : le QG reste le refuge")
   check(Re.away_point(p, home, { x = 220, y = 114 }, 30) == nil, "ennemi à 90° du QG : le QG reste le refuge")
   check(Re.away_point(p, p, ep, 30) == nil, "PNJ au QG : rien")
+
+  section("regard périodique d'un PNJ armé à l'arrêt")
+  -- Jamais regardé : le premier regard est décalé par le numéro (étalé sur une période), puis toutes les IDLE_LOOK ticks.
+  local firsts = {}
+  for id = 1, 30 do
+    local tk = 0
+    while tk <= Re.IDLE_LOOK + 1 and not Re.idle_look_due(tk, nil, id) do tk = tk + 1 end
+    check(tk <= Re.IDLE_LOOK, "le premier regard du PNJ " .. id .. " vient dans la période")
+    firsts[id] = tk
+  end
+  local distinct = {}
+  for id = 1, 30 do distinct[firsts[id]] = true end
+  local nd = 0
+  for _ in pairs(distinct) do nd = nd + 1 end
+  check(nd >= 25, "30 PNJ : au moins 25 ticks de premier regard différents (" .. nd .. ")")
+  check(Re.idle_look_due(1000, 1000 - Re.IDLE_LOOK + 1, 7) == false, "regardé il y a moins d'une période : pas dû")
+  check(Re.idle_look_due(1000, 1000 - Re.IDLE_LOOK, 7) == true, "regardé il y a une période : dû")
+  check(Re.idle_look_due(1000, 990, 7) == false, "regardé il y a 10 ticks : pas dû")
+
+  section("rappel et mise à l'abri : la défense reste à son poste")
+  check(Re.recall_exempt("garrison") and Re.recall_exempt("fortify") and Re.recall_exempt("mine", true), "garnison, fortification, defend : exemptées")
+  check(not Re.recall_exempt("ghost") and not Re.recall_exempt("service", false) and not Re.recall_exempt(nil), "les autres tâches sont rappelées")
+  check(Re.shelter_needed(false, 0, "garrison") == true, "sans arme : toujours à l'abri")
+  check(Re.shelter_needed(true, 3, "ghost") == true, "armé, occupé, force 3 : à l'abri")
+  check(Re.shelter_needed(true, 1.5, "ghost") == false, "armé, force isolée (1,5) : il se défend seul")
+  check(Re.shelter_needed(true, 3, "garrison") == false and Re.shelter_needed(true, 3, "ghost", true) == false, "armé en garnison ou en défense : reste")
+  check(Re.shelter_needed(true, nil, "ghost") == false, "force inconnue : reste")
 end
 
 suite()
@@ -127,6 +154,14 @@ end)
 mutant("l'arrêt n'est jamais rompu", function() patch(Re, "breach", function() return false end) end)
 mutant("un ver rompt l'arrêt", function() patch(Re, "breach", function(kind, d, r) return d <= (r or 16) + Re.MARGIN end) end)
 mutant("marge oubliée à la rupture", function() patch(Re, "breach", function(kind, d, r) return kind == "unit" and d <= (r or 16) end) end)
+mutant("regard périodique jamais dû", function() patch(Re, "idle_look_due", function() return false end) end)
+mutant("regard de tous au même tick", function() patch(Re, "idle_look_due", function(tick, last) return tick - (last or 0) >= Re.IDLE_LOOK end) end)
+mutant("regard à chaque pensée", function() patch(Re, "idle_look_due", function() return true end) end)
+mutant("la garnison est rappelée", function() patch(Re, "recall_exempt", function(kind, defend) return defend == true end) end)
+mutant("la défense est rappelée", function() patch(Re, "recall_exempt", function(kind) return Re.EXEMPT[kind] == true end) end)
+mutant("armé toujours à l'abri", function() patch(Re, "shelter_needed", function(armed, force, kind, defend) return true end) end)
+mutant("armé jamais à l'abri", function() patch(Re, "shelter_needed", function(armed) return not armed end) end)
+mutant("armé à l'abri même isolé", function() patch(Re, "ISOLATED", 0) end)
 mutant("QG toujours le refuge", function() patch(Re, "away_point", function() return nil end) end)
 mutant("éloignement vers l'ennemi", function()
   local f = Re.away_point

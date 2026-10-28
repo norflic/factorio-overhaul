@@ -17,6 +17,7 @@ local Registry = require("script.companion.registry")
 local Worker = require("script.team.worker")
 local Profiler = require("script.core.profiler")
 local D = require("shared.ai3.danger")
+local Re = require("shared.ai3.reaction")
 local Sd = require("shared.ai3.soldats")
 local C = require("script.ai3.comportement")
 
@@ -101,14 +102,16 @@ end
 
 --- C7 : QG menacé, les ouvriers SANS munitions à moins de 160 tuiles du QG se mettent à l'abri (refuge : tourelle amie,
 --- sinon le QG s'il est loin de la menace, sinon à l'opposé de la menace).
-local function shelter(f, t, threat, tick)
+-- Lot FUITE : un ouvrier ARMÉ et occupé est aussi mis à l'abri quand la force ennemie près de la menace dépasse Re.ISOLATED
+-- (Re.shelter_needed) : seul, il ne la bat pas ; la garnison, la fortification et la défense restent à leur poste.
+local function shelter(f, t, threat, tick, force)
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
     if ag and ag.entity.valid and ag.task then
       local e = ag.entity
       local armed = C.has_ammo(e)
       local dh = d2(e.position, f.hq_pos)
-      if not armed and dh > 12 * 12 and dh <= Sd.NEAR_HQ * Sd.NEAR_HQ then
+      if Re.shelter_needed(armed, force, ag.task.kind, ag.task.defend) and dh > 12 * 12 and dh <= Sd.NEAR_HQ * Sd.NEAR_HQ then
         local a = C.astate(ag)
         if not a.refuge then
           a.refuge = C.refuge(f, e.position, threat)
@@ -135,7 +138,15 @@ local function pass(f, tick)
   if enabled then
     local en = surface.find_nearest_enemy({ position = f.hq_pos, max_distance = SD.HQ_THREAT_R, force = f.force })
     if en and (en.type == "unit" or en.type == "character") then threat = { x = en.position.x, y = en.position.y } end
-    if threat then shelter(f, t, threat, tick) end
+    if threat then
+      -- Force ennemie PESÉE autour de la menace (même mesure que le regard : moyen déchiqueteur = 1).
+      local force = 0
+      for _, u in ipairs(surface.find_entities_filtered({ position = threat, radius = 16, force = en.force,
+        type = { "unit", "character" }, limit = 24 })) do
+        force = force + C.weight(u)
+      end
+      shelter(f, t, threat, tick, force)
+    end
   end
   local soldiers = f.soldiers or {}
   local ids = State.sorted_keys(soldiers)

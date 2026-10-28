@@ -29,6 +29,7 @@ local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
 local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
 local Locomotion = require("script.companion.locomotion")
+local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
 local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
 
 local Worker = {}
@@ -507,6 +508,26 @@ local function abort(agent, f, tick, reason)
   set(agent, "step", tick)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
+
+--- Lot FUITE : les PNJ au travail à moins de `radius` tuiles de `p` (défaut Poles.LOSS_RADIUS) rentrent au QG (tâche
+-- abandonnée, « danger »), sauf `except` et les tâches de défense (Re.recall_exempt) ; rend leur nombre. Appelé à la mort
+-- d'un PNJ (lieu de la perte) et à la FUITE d'un autre (lieu de la menace) : on n'attend plus la première perte.
+function Worker.recall_near(f, p, radius, tick, except)
+  local r2 = (radius or Poles.LOSS_RADIUS) ^ 2
+  local n = 0
+  for _, id in ipairs(State.sorted_keys(f.engineers)) do
+    local a = Registry.get(id)
+    local at = a and a.task
+    local e = a and a.entity
+    if a ~= except and at and e and e.valid and not Re.recall_exempt(at.kind, at.defend)
+      and not at.fail and dist2(e.position, p) <= r2 then
+      abort(a, f, tick, "danger")
+      n = n + 1
+    end
+  end
+  f.stats.danger_recalls = (f.stats.danger_recalls or 0) + n
+  return n
+end
 
 local function goto_step(agent, pos, radius, tick)
   local e = agent.entity
@@ -1001,17 +1022,7 @@ Registry.on_removed(function(agent)
     -- autres continuaient à miner) : votre équipe, PNJ tué loin du QG : les autres PNJ au travail à moins de
     -- Poles.LOSS_RADIUS tuiles du lieu de la perte rentrent au QG (tâche abandonnée, « danger »), sauf la défense.
     if f.is_player and p and f.hq_pos and dist2(p, f.hq_pos) > Worker.SAFE_HOME * Worker.SAFE_HOME then
-      local r2 = Poles.LOSS_RADIUS * Poles.LOSS_RADIUS
-      for _, id in ipairs(State.sorted_keys(f.engineers)) do
-        local a = Registry.get(id)
-        local at = a and a.task
-        local e = a and a.entity
-        if at and e and e.valid and at.kind ~= "garrison" and at.kind ~= "fortify" and not at.defend
-          and not at.fail and dist2(e.position, p) <= r2 then
-          abort(a, f, game.tick, "danger")
-          f.stats.danger_recalls = (f.stats.danger_recalls or 0) + 1
-        end
-      end
+      Worker.recall_near(f, p, Poles.LOSS_RADIUS, game.tick, nil)
     end
     -- Constructeur de votre équipe tué : les sites connus à moins de 64 tuiles du lieu de la mort sont écartés (les vers
     -- n'existent qu'une fois leur chunk généré, à l'approche : la vérification du site avant le départ ne les voit pas ;
