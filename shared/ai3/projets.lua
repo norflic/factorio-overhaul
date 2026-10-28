@@ -267,7 +267,7 @@ local function craft(E, proj, item, n, prio, tag)
     made = made + k
     P.add(E, { key = "ia3:" .. proj.id .. ":craft:" .. item .. ":" .. tag .. ":" .. i, kind = "craft", prio = prio,
       item = item, count = k, steps = q.crafts, uses = sorted_uses(q.uses), tag = "ia3", ia3 = proj.id,
-      why = proj.key })
+      why = proj.key, branch = proj.branch })
   end
   if left > 0 then E.avail = E.book:plan({ { item, left } }, E.avail).avail end
   return made
@@ -315,9 +315,11 @@ local function count_kind(view, kind)
   return n
 end
 
+--- Lot ADOPTE (fours dormants à la source) : un avant-poste où un PNJ est mort il y a peu (o.lethal) ou qui est en attente après des
+--- agrandissements échoués (o.full posé par script/team/board.lua) n'est pas agrandi, donc rien n'est fabriqué pour lui.
 local function extendable(view, kind, undefended)
   for _, o in ipairs(view.outposts or {}) do
-    if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
+    if o.kind == kind and not o.full and not o.lethal and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
       return o
     end
   end
@@ -326,6 +328,50 @@ end
 
 local EMIT = {}
 P.EMIT = EMIT -- lot IA3-e : méthodes d'émission enregistrées par d'autres modules purs (EMIT.module, shared/ai3/automatiser.lua)
+
+--- Lot ADOPTE (foreuses dormantes, trace [FO-DORM] graine 20261020 : 5 foreuses fabriquées à 2 min pour le lot de 8 paires du fer
+--- attendent 45 min au coffre, le projet « manque [charbon x69, pierre x60, plaques x26] » pour les 3 paires et le combustible
+--- du reste) : un lot est INDIVISIBLE (P.take tout ou rien) alors que l'exécutant (Outposts.build / extend) pose autant de
+--- paires que les objets portés le permettent. Quand le lot entier n'est pas servi par le stock et la fabrication à la main,
+--- le projet vise le plus grand lot de P.MIN_LOT paires au moins qui l'est (repli : P.MIN_LOT), au lieu de fabriquer un lot
+--- partiel qui attend ses manques.
+P.MIN_LOT = 2
+
+--- Les objets de `items` (lot de `full` paires) pour `n` paires.
+local function scale_items(items, n, full)
+  local out = {}
+  for _, it in ipairs(items) do out[#out + 1] = { it[1], math.ceil(it[2] * n / full) } end
+  return out
+end
+
+--- Le stock virtuel et la fabrication à la main servent-ils toute la liste ? (simulation, E.avail n'est pas modifié)
+local function serviceable(E, list)
+  local avail = {}
+  for k, v in pairs(E.avail) do avail[k] = v end
+  for _, it in ipairs(list) do
+    local item, n = it[1], it[2]
+    local have = avail[item] or 0
+    if have >= n then
+      avail[item] = have - n
+    else
+      if not E.book:handcraftable(item) then return false end
+      avail[item] = 0
+      local p = E.book:plan({ { item, n - have } }, avail)
+      if next(p.raw) ~= nil then return false end
+      avail = p.avail
+    end
+  end
+  return true
+end
+
+--- Plus grand nombre de paires (entre min(P.MIN_LOT, full) et full) dont `list_of(n)` est servi ; repli : le minimum.
+local function lot_pairs(E, full, list_of)
+  local lo = math.min(P.MIN_LOT, full)
+  for n = full, lo, -1 do
+    if serviceable(E, list_of(n)) then return n end
+  end
+  return lo
+end
 
 --- Avant-poste (construction ou agrandissement) : comme l'échelle d'avant, mais PAR BESOIN et en parallèle.
 EMIT.outpost = function(E, proj, g, ctx)
@@ -339,11 +385,22 @@ EMIT.outpost = function(E, proj, g, ctx)
   local items = Planner.outpost_items(kind)
   local ext = extendable(view, kind, und)
   if ext then
+    proj.branch = "extend"
     local key = "extend:" .. ext.id
     if E.open[key] then return "en_cours" end
+    -- Places restantes de l'avant-poste : jamais plus de paires que l'exécutant n'en posera (le surplus reviendrait au coffre).
+    local full = math.max(1, math.min(spec.drills, T.max_drills(kind) - (ext.drills or 0)))
+    if full < spec.drills then items = scale_items(items, full, spec.drills) end
+    if not P.take(E, items) then
+      local n = lot_pairs(E, full, function(k) return scale_items(Planner.outpost_items(kind), k, spec.drills) end)
+      if n < full then
+        proj.branch = "extend-partiel"
+        items = scale_items(Planner.outpost_items(kind), n, spec.drills)
+      end
+    end
     if P.take(E, items) then
       P.add(E, { key = key, kind = "extend", prio = prio + P.FINISH_BONUS, outpost = ext.id, outpost_kind = kind,
-        items = items, ia3 = proj.id, why = proj.key })
+        items = items, ia3 = proj.id, why = proj.key, branch = proj.branch })
       return "ok"
     end
     P.want(E, proj, items, prio, false, kind)
@@ -383,9 +440,26 @@ EMIT.outpost = function(E, proj, g, ctx)
   local key = "build:" .. kind
   if E.open[key] then return "en_cours" end
   if (view.sites[kind] or 0) > 0 then
+    proj.branch = "build"
+    if not P.take(E, list) then
+      local function list_of(k)
+        local l = scale_items(items, k, spec.drills)
+        if turret_ok and count_kind(view, kind) > 0 then
+          local nt = T.defend_turrets(k)
+          l[#l + 1] = { P.TURRET, nt }
+          l[#l + 1] = { T.turret_ammo, nt * T.defend_ammo }
+        end
+        return l
+      end
+      local n = lot_pairs(E, spec.drills, list_of)
+      if n < spec.drills then
+        proj.branch = "build-partiel"
+        list = list_of(n)
+      end
+    end
     if P.take(E, list) then
       P.add(E, { key = key, kind = "build", prio = prio + P.FINISH_BONUS, outpost_kind = kind, items = list,
-        ia3 = proj.id, why = proj.key })
+        ia3 = proj.id, why = proj.key, branch = proj.branch })
       return "ok"
     end
     P.want(E, proj, list, prio, false, kind)
@@ -396,7 +470,13 @@ EMIT.outpost = function(E, proj, g, ctx)
   if not (ctx and ctx.known and ctx.known[spec.resource]) then
     E.explore[spec.resource] = math.max(E.explore[spec.resource] or 0, prio)
   end
-  P.want(E, proj, list, prio - 5, false, kind)
+  -- Lot ADOPTE (fours dormants à la source, constat du DC : 12 à 13 fours au coffre de votre équipe) : la préparation d'avance
+  -- sans site VIABLE ne vaut que pour le PREMIER avant-poste de ce type (le démarrage) ; ensuite le lot (8 paires de fer : 16
+  -- fours) attendrait au coffre un site que la prospection, les écarts de sites.lua ou le danger ne donnent peut-être jamais.
+  if count_kind(view, kind) == 0 then
+    proj.branch = "avance"
+    P.want(E, proj, list, prio - 5, false, kind)
+  end
   return "bloque", "site:" .. kind
 end
 
