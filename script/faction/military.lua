@@ -609,20 +609,30 @@ PathService.register_handler(SCOUT_HANDLER, function(fid, path, ticket, reason, 
     if Military.on_scout_done then Military.on_scout_done(f, { dest = sp.dest, tag = sp.tag, nopath = true }, tick, false) end
     return
   end
+  -- Lot RECON : les soldats LES PLUS PROCHES du rassemblement partent (avant : les premiers par numéro, jusqu'à
+  -- GATHER_RADIUS tuiles de lui). Moteur réel (28/10, etape1-guide, graine 20261020) : 14 éclaireurs seuls sur 23 « perdus » 300
+  -- ticks après le départ avec leur soldat vivant (F174) ; un soldat lointain d'un groupe créé au rassemblement le quitte
+  -- (F173). Le groupe est créé sur le premier soldat choisi. Égalités : numéro de l'unité (déterminisme).
   local chosen = {}
   local r2 = GATHER_RADIUS * GATHER_RADIUS
+  local cand = {}
   for _, id in ipairs(State.sorted_keys(f.soldiers)) do
-    if #chosen >= (sp.size or 1) then break end
     local s = f.soldiers[id]
     if not s.group and s.entity.valid then
       local p = s.entity.position
       local dx, dy = p.x - sp.gather.x, p.y - sp.gather.y
-      if dx * dx + dy * dy <= r2 then chosen[#chosen + 1] = id end
+      if dx * dx + dy * dy <= r2 then cand[#cand + 1] = { id = id, d2 = dx * dx + dy * dy } end
     end
   end
+  table.sort(cand, function(a, b)
+    if a.d2 ~= b.d2 then return a.d2 < b.d2 end
+    return a.id < b.id
+  end)
+  for i = 1, math.min(#cand, sp.size or 1) do chosen[i] = cand[i].id end
   if #chosen == 0 then return end
   local surface = game.surfaces[war.surface]
-  local group = surface.create_unit_group({ position = sp.gather, force = f.force })
+  local first = f.soldiers[chosen[1]].entity.position
+  local group = surface.create_unit_group({ position = { x = first.x, y = first.y }, force = f.force })
   for _, id in ipairs(chosen) do
     group.add_member(f.soldiers[id].entity)
     f.soldiers[id].group = group.group_number
