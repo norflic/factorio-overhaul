@@ -20,8 +20,9 @@ aussi faire de la reconnaissance comme un joueur »).
    (premier départ possible dès que l'armée de départ est faite). Une faction qui n'atteint jamais l'armée de départ est signalée,
    pas comptée contre la règle.
 2. Perdus : au plus 30 % des éclaireurs partis (par graine, toutes factions).
-3. Secteurs reconnus (champ `k.m.n` de la carte de connaissance, lignes `[FO-IA3F]` / `[FO-VEILLE]`) à 20, 40 et 60 min : au moins ceux de
-   la base sur 3 graines au moins, et en hausse sur au moins 2.
+3. Secteurs reconnus (champ `k.m.n` de la carte de connaissance, bilans `[FO-VEILLE]` de 10 min) à 20, 40 et 60 min : au moins ceux du
+   TÉMOIN sur 3 graines au moins, et en hausse sur au moins 2. La base-<graine> de MESURES ne publie pas ce relevé : le témoin des secteurs
+   est la MÊME source avec la veille éteinte (scénario `veille-temoin`, remote `veille_options { on = false }`), 4 parties de plus.
 4. Défense : aucune faction sous la base de plus de 2 soldats ou 1 tourelle à 12, 40 et 60 min (soldats HORS vivier), ni PNJ de votre
    équipe en moins (compte de l'équipe du joueur et pertes), ni attaque de plus vers le joueur.
 5. Coût du vivier : plaques de fer et kits consommés par les éclaireurs (lignes `[FO-VEILLE]`), comparés au fer au coffre et à l'effectif

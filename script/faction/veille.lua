@@ -44,6 +44,7 @@ Veille.watch = nil
 Veille.mark_bad = nil
 Veille.note_nopath = nil
 Veille.pay_kit = nil
+Veille.on = true -- bancs de mesure SEULEMENT (remote factorio-overhaul / veille_options { on = false }) : témoin sans veille, même source
 
 local function state_of(f)
   if not f.veille then
@@ -105,7 +106,7 @@ end
 -- Pensée
 ---------------------------------------------------------------------------------------------------
 function Veille.think(f, surface, tick)
-  if not Veille.fog_on() then return end
+  if not Veille.on or not Veille.fog_on() then return end
   local st = f.chef
   if not st or not f.hq_pos then return end
   local vs = state_of(f)
@@ -192,8 +193,8 @@ end
 
 --- Bilan toutes les 10 min par faction (appelé par le commandant à chaque pensée ; une ligne par période).
 function Veille.report(f, tick)
-  local vs = f.veille
-  if not vs or tick - vs.last_report < REPORT_EVERY then return end
+  local vs = state_of(f)
+  if tick - vs.last_report < REPORT_EVERY then return end
   vs.last_report = tick
   local keys = {}
   for r in pairs(vs.refus) do keys[#keys + 1] = r end
@@ -202,8 +203,8 @@ function Veille.report(f, tick)
   for _, r in ipairs(keys) do parts[#parts + 1] = r:gsub(" ", "_") .. "=" .. vs.refus[r] end
   local ready, alive = Military.scouts_ready(f)
   log(string.format("[FO-VEILLE] bilan tick %d %s minute %d : partis %d, arrives %d, perdus %d, fabriques %d, vivier %d (prets %d), rayon %d, "
-    .. "secteurs reconnus %s, refus {%s}", tick, f.key, math.floor(tick / 3600), vs.sent, vs.arrived, vs.lost, vs.trained, alive, ready,
-    V.radius(vs.trips), tostring(Veille.known and Veille.known(f) or "?"), table.concat(parts, " ")))
+    .. "secteurs reconnus %s, veille %s, refus {%s}", tick, f.key, math.floor(tick / 3600), vs.sent, vs.arrived, vs.lost, vs.trained, alive,
+    ready, V.radius(vs.trips), tostring(Veille.known and Veille.known(f) or "?"), Veille.on and "allumee" or "eteinte", table.concat(parts, " ")))
 end
 
 ---------------------------------------------------------------------------------------------------
