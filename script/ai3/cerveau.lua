@@ -471,6 +471,17 @@ local function research_step(f, st, book, w, tick, view)
       for _, k in ipairs(sorted_keys(cw)) do m[k] = true end
       wanted = m
     end
+    -- Votre équipe défend d'abord, comme un joueur : tant que la tourelle de « défendre d'abord » n'est pas faisable (technologie
+    -- pas faite), elle est un objet voulu, la recherche qui l'ouvre passe devant (moteur réel, etape1-guide : la tourelle
+    -- arrivait à 27 min, les premiers biters détruisaient sans défense les avant-postes de charbon, de pierre et de fer
+    -- de 18 à 25 min, le fer tombait de 997 plaques à 17).
+    local turret_recipe = f.is_player and force.recipes[Rg.TURRET] or nil
+    if turret_recipe and not turret_recipe.enabled then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      m[Rg.TURRET] = true
+      wanted = m
+    end
     tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, wanted)
   else
     tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)
@@ -736,6 +747,10 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
+  if capi and capi.tasks then
+    for _, t in ipairs(capi.tasks) do plan.tasks[#plan.tasks + 1] = t end
+  end
   -- Lot IA-G : une ressource INCONNUE qui bloque la recherche de valeur est à explorer (après le regard des abords).
   if not f.is_player and General.on() and home ~= false then
     for _, res in ipairs(sorted_keys(General.explore(f))) do

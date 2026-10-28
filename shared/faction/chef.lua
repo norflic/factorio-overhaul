@@ -66,6 +66,13 @@ C.GRUDGE_OVERRIDE = 600    -- la rancune (rancune × trait) au-delà de 600 pass
 C.OPPORTUNIST = 1200       -- un opportuniste (trait ≥ 1 200) frappe une rivale battue dont l'armée est sortie
 C.SURVIVAL_LOST = 5        -- SURVIE : au moins 5 soldats perdus en 10 min et moins du quart de l'armée visée, ou
                            -- moins de la moitié de l'effectif de départ en ouvriers : « reconstruction » imposée
+-- Lot ARMEE (moteur réel, etape1-guide 60 min : Écarlate lançait 20 attaques vers le même point à 768 tuiles, 15 groupes
+-- « dissous » et 2 « repoussés », l'issue de chacune arrivant 13 000 à 16 000 ticks après son départ) :
+C.VAIN_WAIT = 5 * 3600     -- ATTAQUE VAINE (groupe dissous par le moteur, cible debout) : attente avant la suivante
+                           -- contre la même cible, doublée à chaque échec de suite (5, 10, 20, puis 40 min au plus)
+C.VAIN_CAP = 40 * 3600
+C.REACH_FRAC = 800         -- PORTÉE : un groupe qui n'a pas dépassé 80 % de la distance au but (pour mille) n'y arrive pas
+C.REACH_MEMORY = 30 * 3600 -- une portée trop courte interdit la même distance pendant 30 min (l'armée peut avoir changé)
 
 -- Lot IA2-c : effet du style d'une rivale sur son attrait comme cible (pour mille).
 C.STYLE_TARGET = { tortue = 600, batisseur = 1250, expansionniste = 1100, agresseur = 1100 }
@@ -705,10 +712,49 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Mémoire : événements
 ---------------------------------------------------------------------------------------------------
+--- Lot ARMEE : une attaque sans effet contre `a.target` (groupe dissous par le moteur, cible debout). `reach` :
+--- distance (tuiles) du point le plus éloigné du QG où le groupe a été vu (nil : inconnue). Le nombre d'échecs de suite
+--- fixe l'attente avant la prochaine attaque contre la même cible (C.VAIN_WAIT, doublée, C.VAIN_CAP au plus) ; une
+--- portée trop courte pour la distance du but est mémorisée C.REACH_MEMORY. Une attaque réussie remet tout à zéro.
+function C.record_vain(st, a, tick, reach)
+  st.vain = st.vain or {}
+  local v = st.vain[a.target] or { n = 0 }
+  st.vain[a.target] = v
+  v.n = v.n + 1
+  local wait = C.VAIN_WAIT
+  for _ = 2, math.min(v.n, 8) do wait = wait * 2 end
+  if wait > C.VAIN_CAP then wait = C.VAIN_CAP end
+  v.ok_at, v.last = tick + wait, tick
+  v.reach, v.reach_until, v.dist = nil, nil, a.dist
+  if reach and a.dist and C.short_of(a.dist, reach) then
+    v.reach, v.reach_until = reach, tick + C.REACH_MEMORY -- n'a pas atteint le but : la même distance est hors de portée
+  end
+  return v
+end
+
+--- Lot ARMEE : un groupe dont le point le plus éloigné du QG est à `reach` tuiles n'a-t-il pas atteint un but à `dist`
+--- tuiles ? Oui s'il manque plus de (1 - REACH_FRAC) de la distance ET plus que le rassemblement avancé et la marge du
+--- point visé (périphérie du QG rival : C.SIDE_RADIUS + C.CAPITAL_RADIUS + 32 tuiles), pour un but proche.
+function C.short_of(dist, reach)
+  local slack = math.max(dist * (1000 - C.REACH_FRAC) / 1000, C.SIDE_RADIUS + C.CAPITAL_RADIUS + 32)
+  return dist - reach > slack
+end
+
+--- Lot ARMEE : FAISABILITÉ d'une nouvelle attaque contre `tid` à la distance `dist` (tuiles, QG à QG). Renvoie nil si
+--- elle est permise, sinon la raison : « echec » (attente après une attaque sans effet) ou « portee » (une attaque
+--- précédente n'a pas dépassé C.REACH_FRAC de la distance : une cible aussi lointaine est hors de portée).
+function C.vain_hold(st, tid, tick, dist)
+  local v = st.vain and st.vain[tid]
+  if not v then return nil end
+  if tick < (v.ok_at or 0) then return "echec" end
+  if v.reach and tick < (v.reach_until or 0) and dist and C.short_of(dist, v.reach) then return "portee" end
+  return nil
+end
+
 --- Une attaque (ou un raid) part.
 function C.record_attack(st, rec)
   st.attacks[#st.attacks + 1] = { target = rec.target, octant = rec.octant, n = rec.n, tick = rec.tick, gid = rec.gid,
-    raid = rec.raid or nil }
+    raid = rec.raid or nil, dist = rec.dist }
   while #st.attacks > C.MEMORY do table.remove(st.attacks, 1) end
   if rec.raid then st.last_raid = rec.tick end
 end
@@ -717,12 +763,21 @@ end
 --- (aucun survivant, cible debout) ou « dissous » (groupe défait par le moteur, soldats vivants : F174, sans leçon).
 --- Une attaque repoussée rend la cible moins attirante et lui ajoute de la défense estimée (les pertes subies, en
 --- équivalents fusiliers).
-function C.record_outcome(st, gid, outcome, sent, survivors, tick, seen)
+function C.record_outcome(st, gid, outcome, sent, survivors, tick, seen, reach)
   for k = #st.attacks, 1, -1 do
     local a = st.attacks[k]
     if a.gid == gid and not a.outcome then
       a.outcome, a.survivors = outcome, survivors
       st.dissolved = st.dissolved or {}
+      -- Lot ARMEE : groupe DISSOUS sans effet (F174 : le moteur le défait en route, cible debout, aucun combat qui
+      -- apprenne quoi que ce soit) : attente croissante et portée atteinte. Une attaque repoussée ou anéantie a combattu
+      -- (défense apprise, côté évité, attaque suivante plus grosse : ci-dessous) et ne compte pas ici ; une réussie remet
+      -- tout à zéro.
+      if outcome == "reussie" then
+        if st.vain then st.vain[a.target] = nil end
+      elseif outcome == "dissous" then
+        C.record_vain(st, a, tick, reach)
+      end
       if outcome == "renonce" then
         -- Lot IA2-c : le groupe a renoncé au rassemblement (défense vue trop forte) : cible évitée 10 min, défense
         -- apprise = la moitié de ce qui a été vu (sans perte, sans leçon sur le côté).

@@ -71,6 +71,7 @@
 ]]
 
 local R = require("shared.ai3.reglages") -- types du moteur -> rôle (seules données nommées admises)
+local Lv = require("shared.ai3.leviers") -- lot LEVIERS : modules dans les machines posées, recherches à effet
 
 local Ca = {}
 
@@ -104,7 +105,7 @@ Ca.SHARE_MAX = 800                          -- défense + armée au plus (‰)
 Ca.T0, Ca.T_MIN, Ca.T_MAX = 20, 10, 40      -- retour accepté (min) : T0 × ambition ÷ prudence, borné
 Ca.THREAT_DIV = 4                           -- menace : retour accepté ÷ 4 (comme les 5 min d'IA3-e)
 -- Leviers du QG : les seuls ouverts sous menace (les foreuses et les sites sont hors du QG).
-Ca.HQ_LEVERS = { fours = true, chaine = true, packs = true, labos = true, energie = true }
+Ca.HQ_LEVERS = { fours = true, chaine = true, packs = true, labos = true, energie = true, equiper = true, techno = true }
 -- Budget, croissance, bras.
 Ca.STOCK_PCT = 50       -- part du stock libre convertible investissable par cycle
 Ca.BANK_H = 30          -- épargne du flux réinvesti : au plus 30 min de ce flux
@@ -397,6 +398,8 @@ function Ca.data(dump, opts)
   for _, m in ipairs(D.drills) do seeds[#seeds + 1] = m.item end
   for _, m in ipairs(D.labs) do seeds[#seeds + 1] = m.item end
   D.convertible = Ca.closure(D, sorted_copy(seeds))
+  -- Lot LEVIERS : modules, emplacements des machines, recherches à effet (relevé `dump.lv`, absent : aucun levier).
+  D.lv = Lv.build(dump.lv, dump, D)
   return D
 end
 
@@ -811,10 +814,10 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 6. Plan : capacités posées, ouvertes et décidées
 ---------------------------------------------------------------------------------------------------
-local function add_machines(ctx, plan, m, r, n, where)
+local function add_machines(ctx, plan, m, r, n, where, fs, fp)
   if not (m and r) or (n or 0) <= 0 then return end
-  local cpm = Ca.crafts_per_min(m, r) * n
-  for _, p in ipairs(r.products) do plan.N[p.name] = (plan.N[p.name] or 0) + cpm * p.amount end
+  local cpm = Ca.crafts_per_min(m, r) * n * (fs or 1) -- fs : facteur de vitesse des modules posés (lot LEVIERS)
+  for _, p in ipairs(r.products) do plan.N[p.name] = (plan.N[p.name] or 0) + cpm * p.amount * (fp or 1) end
   if where == nil or where == Ca.HQ then
     for _, i in ipairs(r.ingredients) do
       plan.cons[i.name] = (plan.cons[i.name] or 0) + cpm * i.amount
@@ -833,11 +836,11 @@ local function add_machines(ctx, plan, m, r, n, where)
   if m.energy == "electric" then plan.kw_used = plan.kw_used + n * (m.kw or 0) end
 end
 
-local function add_drills(ctx, plan, d, item, n, dep, count_cover)
+local function add_drills(ctx, plan, d, item, n, dep, count_cover, mult)
   if not d or (n or 0) <= 0 or not ctx.D.res[item] then return end
   local key = dep ~= nil and tostring(dep) or nil
   if key and plan.dead[key] then return end -- gisement épuisé : ses foreuses ne livrent plus rien
-  local rate = n * Ca.drill_per_min(ctx.D, d, item)
+  local rate = n * Ca.drill_per_min(ctx.D, d, item) * (mult or 1) -- mult : modules posés (lot LEVIERS)
   plan.N[item] = (plan.N[item] or 0) + rate
   if key then
     plan.drills_on[key] = (plan.drills_on[key] or 0) + n
@@ -880,6 +883,8 @@ function Ca.apply(ctx, plan, o)
     add_labs(ctx, plan, D.lab_by[o.entity], n)
   elseif k == "energie" then
     plan.kw_have = plan.kw_have + (o.kw_left or o.kw or 0)
+  elseif k == "equiper" or k == "techno" then
+    Lv.apply(ctx, plan, o) -- lot LEVIERS
   end
   if o.key then plan.taken[o.key] = true end
 end
@@ -914,18 +919,20 @@ local function new_plan(ctx)
   end
   for _, m in ipairs(ctx.machines) do
     local mm, r = D.maker_by[m.entity], D.recipes[m.recipe]
-    add_machines(ctx, plan, mm, r, m.n, m.where)
+    local fs, fp = Lv.factors(D, m)
+    add_machines(ctx, plan, mm, r, m.n, m.where, fs, fp)
     if mm and r then
-      for _, p in ipairs(r.products) do plan.K = plan.K + Ca.crafts_per_min(mm, r) * m.n * p.amount * Ca.va(D, p.name, r.name) end
+      for _, p in ipairs(r.products) do plan.K = plan.K + Ca.crafts_per_min(mm, r) * m.n * fs * fp * p.amount * Ca.va(D, p.name, r.name) end
     end
   end
   for _, d in ipairs(ctx.drills_in) do
     local dd = D.drill_by[d.entity]
     local key = d.deposit ~= nil and tostring(d.deposit) or nil
-    add_drills(ctx, plan, dd, d.resource, d.n, d.deposit, not (key and measured[key]))
+    local fs, fp = Lv.factors(D, d)
+    add_drills(ctx, plan, dd, d.resource, d.n, d.deposit, not (key and measured[key]), fs * fp)
     if key then plan.opened[key] = true end
     if dd and D.res[d.resource] and not (key and plan.dead[key]) then
-      plan.K = plan.K + d.n * Ca.drill_per_min(D, dd, d.resource) * (D.mu[d.resource] or 0)
+      plan.K = plan.K + d.n * fs * fp * Ca.drill_per_min(D, dd, d.resource) * (D.mu[d.resource] or 0)
     end
   end
   for _, l in ipairs(ctx.labs_in) do
@@ -940,6 +947,8 @@ local function new_plan(ctx)
   end
   plan.lab_cap0 = plan.lab_cap
   for _, o in ipairs(ctx.open) do Ca.apply(ctx, plan, o) end
+  -- Lot LEVIERS : clés que l'exécutant a refusées (input.skip = { [clé] = vrai }) : jamais réémises tant qu'elles y sont.
+  for k, v in pairs(ctx.input.skip or {}) do if v then plan.taken[k] = true end end
   return plan
 end
 
@@ -965,14 +974,17 @@ local function prepare(input, st)
     techs = state.techs or {}, known = state.known, obt = {}, best_m = {}, best_d = {}, refus = {}, explore = {},
     dt = input.dt or Ca.CYCLE_MIN, threat = input.threat and true or false, power_block = {}, rec_memo = {}, cc = {},
     cs = {}, ds = {} }
+  Lv.prepare(ctx)
   ctx.ch = Ca.character(input.traits, input.weights, ctx.threat)
   local w = input.weights or {}
   ctx.w_cap = (w.capital or 1000) / 1000
   ctx.w_rech = (w.recherche or 1000) / 1000
   ctx.machines = sort_by(input.machines, function(m)
-    return tostring(m.entity) .. "|" .. tostring(m.recipe) .. "|" .. tostring(m.where) .. "|" .. tostring(m.n) end)
+    return tostring(m.entity) .. "|" .. tostring(m.recipe) .. "|" .. tostring(m.where) .. "|" .. tostring(m.n) .. "|"
+      .. tostring(m.sig) end)
   ctx.drills_in = sort_by(input.drills, function(d)
-    return tostring(d.entity) .. "|" .. tostring(d.resource) .. "|" .. tostring(d.deposit) .. "|" .. tostring(d.n) end)
+    return tostring(d.entity) .. "|" .. tostring(d.resource) .. "|" .. tostring(d.deposit) .. "|" .. tostring(d.n) .. "|"
+      .. tostring(d.sig) end)
   ctx.labs_in = sort_by(input.labs, function(l) return tostring(l.entity) .. "|" .. tostring(l.n) end)
   ctx.deposits = sort_by(input.deposits, function(f) return tostring(f.id) end)
   ctx.open = sort_by(input.open, function(o)
@@ -1141,8 +1153,10 @@ local function work_of(ctx, items, dist)
   return n_ent * Ca.POSE_S + math.ceil(n_ent / Ca.BATCH) * (2 * (dist or Ca.DIST) / Ca.WALK + Ca.HANDLE_S) + craft
 end
 
---- Termine une option : coût, retour, valeur ; rend l'option ou nil (refus écrit).
-local function finish(ctx, o)
+--- Termine une option : coût, retour, valeur ; rend l'option ou nil (refus écrit). `tmax` : retour accepté (le caractère
+--- par défaut ; lot LEVIERS : plus long quand l'extraction n'a plus aucune option, Lv.REPLI_TMAX).
+local function finish(ctx, o, tmax)
+  tmax = tmax or ctx.ch.tmax
   if o.cost_m == nil then
     refuse(ctx, o.key, o.kind, o.item, "impayable : " .. tostring(o.unpaid))
     return nil
@@ -1154,11 +1168,11 @@ local function finish(ctx, o)
   end
   o.T = o.cost / o.gain
   o.Tq = math.floor(o.T * 1e6 + 0.5) -- comparaison exacte et transitive (aucun bruit de flottant dans le tri)
-  if o.T > ctx.ch.tmax then
-    refuse(ctx, o.key, o.kind, o.item, string.format("retour %s min > %s", fmt(o.T), fmt(ctx.ch.tmax)))
+  if o.T > tmax then
+    refuse(ctx, o.key, o.kind, o.item, string.format("retour %s min > %s", fmt(o.T), fmt(tmax)))
     return nil
   end
-  o.value = Ca.value(o.T, ctx.ch.tmax)
+  o.value = Ca.value(o.T, tmax)
   return o
 end
 
@@ -1638,6 +1652,7 @@ function Ca.options(ctx, plan, req)
   end
   lab_options(ctx, plan, out)
   power_options(ctx, plan, out)
+  Lv.options(Ca, ctx, plan, req, out) -- lot LEVIERS : modules dans les machines posées, recherches à effet
   table.sort(out, function(a, b) return Ca.before(a.o, b.o) end)
   return out
 end
@@ -1748,7 +1763,8 @@ function Ca.decide(input, st)
       if theta == nil or th < theta - 1e-12 then bottleneck, theta = i, th end
     end
   end
-  return { orders = orders, refus = refus, explore = explore, s = ctx.ch.s, delta = ctx.ch.delta, alpha = ctx.ch.alpha,
+  local repli = Lv.repli(Ca, ctx, plan, req, orders) -- lot LEVIERS : pourquoi ces leviers, ou pourquoi aucun
+  return { repli = repli, want = Lv.wanted(ctx), orders = orders, refus = refus, explore = explore, s = ctx.ch.s, delta = ctx.ch.delta, alpha = ctx.ch.alpha,
     tmax = ctx.ch.tmax, g = ctx.g, lambda = ctx.lambda, Y = ctx.Y, K = plan.K, budget = budget, bank = st.bank,
     flow_part = bank, stock_part = stock_part, spent = spent, labor = ctx.labor, labor_used = work_used,
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
@@ -1779,8 +1795,9 @@ function Ca.goals(goals, res, open)
       if type(v) ~= "function" then copy[k] = v end
     end
     local fam = (o.kind == "labos" or o.kind == "packs") and "recherche" or "capital"
-    goals[#goals + 1] = { key = "capi:" .. o.key, family = fam, kind = "capi", value = o.value or Ca.V_MIN, fond = true,
-      order = copy }
+    -- Une recherche à effet n'a pas de matière à fabriquer : l'exécutant est le choix de technologie (Ca.techs_wanted).
+    if o.kind ~= "techno" then goals[#goals + 1] = { key = "capi:" .. o.key, family = fam, kind = "capi", value = o.value or Ca.V_MIN, fond = true,
+      order = copy } end
   end
   table.sort(goals, function(a, b)
     if a.value ~= b.value then return a.value > b.value end
@@ -1832,6 +1849,7 @@ end
 --- Ligne de journal (ASCII) : « [FO-CAPI] <faction> minute M » + ce texte, côté runtime.
 function Ca.text(res)
   local parts = {}
+  local rp = res.repli and (" repli=[" .. res.repli.text .. "]") or ""
   for _, o in ipairs(res.orders) do
     parts[#parts + 1] = string.format("%s %s x%d T=%s v=%d", o.kind, tostring(o.item or o.key), o.n or 1, fmt(o.T), o.value or 0)
   end
@@ -1846,7 +1864,23 @@ function Ca.text(res)
     res.s, res.delta, res.alpha, fmt(res.tmax), res.g, fmt(res.Y), fmt(res.K), fmt(res.spent), fmt(res.budget),
     fmt(res.bank), fmt(res.stock_part), fmt(res.labor_used), fmt(res.labor), fmt(res.lambda), fmt(res.u_star),
     res.labs_target, res.open_n or 0, res.bottleneck and (res.bottleneck.item .. " " .. fmt(res.bottleneck.theta)) or "-",
-    table.concat(parts, ", "), table.concat(cov, ", "), table.concat(rf, ", "))
+    table.concat(parts, ", "), table.concat(cov, ", "), table.concat(rf, ", ")) .. rp
 end
+
+--- Recherches à effet retenues (res.orders de la sorte « techno ») ou ouvertes : { [technologie] = valeur (35 à 50) }.
+function Ca.techs_wanted(res, open)
+  local out = {}
+  for _, o in ipairs((res and res.orders) or {}) do
+    if o.kind == "techno" and o.tech then out[o.tech] = o.value or Ca.V_MIN end
+  end
+  for _, o in ipairs(open or {}) do
+    if o.kind == "techno" and o.tech and out[o.tech] == nil then out[o.tech] = o.value or Ca.V_MIN end
+  end
+  return out
+end
+
+-- Aides de la règle pour shared/ai3/leviers.lua (même état de décision, pas de second chemin de calcul).
+Ca.H = { refuse = refuse, items_mu = items_mu, work_of = work_of, finish = finish, cand = cand, best_drill = best_drill,
+  lab_share = lab_share }
 
 return Ca
