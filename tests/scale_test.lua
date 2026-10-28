@@ -360,8 +360,13 @@ do
     if not q:find(need, 1, true) then bad[#bad + 1] = "script/ai3/places_qg.lua (" .. need .. " absent)" end
   end
   local wcode = read("script/team/worker.lua"):gsub("%-%-[^\n]*", "")
-  if not wcode:find("math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))", 1, true) then
-    bad[#bad + 1] = "script/team/worker.lua (fournée sans les données nommées)"
+  -- Lot REMPLISSAGE : la fournée n'est plus « 5 entrées par four, au moins 20 » mais la règle pure shared/team/charge.lua,
+  -- lue aux fours POSÉS (Outposts.smelt_take) : elle suit toujours le nombre de fours, sans quantité écrite dans la tournée.
+  if not wcode:find("Outposts.smelt_take(f, task.smelt", 1, true) then
+    bad[#bad + 1] = "script/team/worker.lua (fournée sans la règle de charge)"
+  end
+  if wcode:find("smelt_per_furnace", 1, true) or wcode:find("smelt_trip_min", 1, true) then
+    bad[#bad + 1] = "script/team/worker.lua (fournée à quantité écrite)"
   end
   if #bad == 0 then pass = pass + 1 else fail = fail + 1 print("[SCALE] ECHEC : §8 " .. table.concat(bad, " ; ")) end
 end

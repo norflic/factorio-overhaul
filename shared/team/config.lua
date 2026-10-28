@@ -118,12 +118,18 @@ T.annex = {
 }
 -- Rangées des annexes : au sud du QG, un coffre sur deux (une tuile libre autour de chacun : les PNJ passent).
 T.hq_rows.annex = { origin = { -5, 5 }, dir = { 1, 1 }, gap = { 1, 1 }, first = { 6, 12 }, per_row = 6, search = 4 }
--- Fournée d'une tournée « smelt » (script/team/worker.lua) : minerai porté = T.smelt_per_furnace entrées par four du QG,
--- au moins T.smelt_trip_min (la fournée de main 0.6.1 : 20 entrées pour les 4 fours de la fonderie de base d'une
--- faction, d'où 5 par four) : une fonderie agrandie par les bras libres (shared/ai3/bras.lua, Br.smelters) n'est pas
--- limitée à 20 minerais par tournée.
-T.smelt_per_furnace = 5
-T.smelt_trip_min = 20
+-- Lot REMPLISSAGE (28/10) : la fournée d'une tournée « smelt » n'est plus « T.smelt_per_furnace = 5 entrées par four, au moins
+-- T.smelt_trip_min = 20 » (main 0.6.7) ni « 10 fabrications chargées par four » : c'est la règle pure shared/team/charge.lua
+-- (de quoi tenir `horizon` ticks de fonte, bornée par la pile de la case, la demande et une part du stock libre), lue
+-- aux fours posés (Outposts.smelt_take, Outposts.service_smelters). Paramètres : T.charge (défauts de Charge.DEFAULT).
+T.charge = {
+  horizon = 36000,  -- ticks de fonte visés par four : 10 minutes (question 7 du DC, option par défaut)
+  low = 0.5,        -- un four garni est complété (et une tournée justifiée) sous cette part de sa cible
+  share = 0.5,      -- part du stock libre d'un objet que les fours peuvent immobiliser (au-delà du plancher)
+  base_fabs = 10,   -- plancher : les 10 fabrications chargées par four de main 0.6.7
+  out_due = 0.25,   -- une sortie à cette part de sa pile justifie une tournée
+  fuel_low = 0.5,   -- un combustible sous cette part de sa cible justifie une tournée
+}
 
 -- Tourelles : munitions visées par tourelle, seuil de ravitaillement.
 T.turret_ammo_target = 20

@@ -26,6 +26,7 @@
 ]]
 
 local T = require("shared.team.config")
+local Charge = require("shared.team.charge") -- lot REMPLISSAGE : tournée de fonte justifiée seulement
 local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
@@ -248,7 +249,7 @@ function C.think(view, book, st, ctx)
     end
   end
   if not has_smelt and (view.smelters or 0) > 0 and not view.smelter_task and next(smelt) ~= nil
-    and not (view.open or {})["smelt"] then
+    and not (view.open or {})["smelt"] and Charge.visit_due(view.smelter_due, smelt, view.smelter_fuel_low) then
     tasks[#tasks + 1] = { key = "smelt", kind = "smelt", prio = math.max(60, E.smelt_prio), smelt = smelt }
   end
   table.sort(tasks, function(a, b)

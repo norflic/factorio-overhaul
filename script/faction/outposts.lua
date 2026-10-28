@@ -15,6 +15,7 @@ local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local Charge = require("shared.team.charge") -- lot REMPLISSAGE : règle pure de la charge des fours du QG
 
 local Outposts = {}
 
@@ -482,44 +483,135 @@ function Outposts.service(o, carrier, tick)
   return collected
 end
 
+-- Lot REMPLISSAGE : états des fours, produits et combustible lus aux PROTOTYPES du jeu (vitesse, énergie, piles, durées) ;
+-- aucune quantité n'est écrite ici, la règle est shared/team/charge.lua.
+local function furnace_state(s)
+  local src = s.get_inventory(defines.inventory.furnace_source)
+  local c = src[1]
+  local item, n
+  if c and c.valid_for_read then item, n = c.name, c.count end
+  local out_inv = s.get_output_inventory()
+  local out, cap = out_inv.get_item_count(), 0
+  if out > 0 then
+    local oc = out_inv[1]
+    local proto = oc and oc.valid_for_read and game.item_prototypes[oc.name]
+    cap = proto and proto.stack_size or out
+  end
+  return { item = item, n = n or 0, fuel = fuel_of(s), out = out, out_cap = cap, crafting = s.is_crafting() }
+end
+
+--- Produits de la fonderie (T.smelter_inputs) : entrée, quantité, durée d'une fabrication (ticks, vitesse du four
+--- comprise) et pile de l'entrée, lues aux prototypes.
+local function smelter_specs(speed)
+  local specs = {}
+  for _, p in ipairs(State.sorted_keys(T.smelter_inputs)) do
+    local inp = T.smelter_inputs[p]
+    local rp = game.recipe_prototypes[p]
+    local ip = game.item_prototypes[inp[1]]
+    specs[p] = { input = inp[1], per = inp[2], ticks = math.max(1, math.ceil(((rp and rp.energy) or 3.2) * 60 / math.max(0.01, speed))),
+      cap = ip and ip.stack_size or inp[2] }
+  end
+  return specs
+end
+
+--- Charbons visés pour un four du QG : de quoi brûler `horizon` ticks à sa puissance (énergie du combustible et puissance
+--- lues aux prototypes), dans la limite d'une pile.
+local function smelter_fuel_target(s)
+  local fp = game.item_prototypes[T.fuel]
+  local eu = s.prototype.energy_usage or 0
+  if not fp or eu <= 0 or (fp.fuel_value or 0) <= 0 then return T.fuel_refill_to end
+  return Charge.fuel_target(fp.fuel_value / eu, fp.stack_size, T.charge)
+end
+
+local function smelter_context(f)
+  local list = Outposts.smelters(f)
+  local speed = list[1] and list[1].prototype.crafting_speed or 1
+  local fs = {}
+  for i, s in ipairs(list) do fs[i] = furnace_state(s) end
+  return list, fs, smelter_specs(speed)
+end
+
+--- Charbon à apporter aux fours du QG pour les compléter à leur cible.
+function Outposts.smelter_coal_needed(f)
+  local n = 0
+  for _, s in ipairs(Outposts.smelters(f)) do n = n + Charge.fuel_missing(fuel_of(s), smelter_fuel_target(s)) end
+  return n
+end
+
+--- Liste { {objet, n} } que la tournée « smelt » prend au coffre (stock = { [objet] = n } libre) : entrées selon la règle
+--- de charge, plus le combustible. smelt = { [produit] = demande }.
+function Outposts.smelt_take(f, smelt, stock)
+  local list, fs, specs = smelter_context(f)
+  local products = State.sorted_keys(smelt or {})
+  local assign = Charge.assign(fs, products, specs, T.charge)
+  local take = Charge.take(assign, smelt, stock, T.charge)
+  local out = {}
+  for _, item in ipairs(State.sorted_keys(take)) do out[#out + 1] = { item, take[item] } end
+  out[#out + 1] = { T.fuel, Outposts.smelter_coal_needed(f) }
+  return out
+end
+
+--- Fonderie du QG : relève (production en sortie, combustible urgent) et justification d'une tournée (`due`, règle
+--- Charge.due) selon le stock libre `stock`.
+function Outposts.smelter_report(f, stock)
+  local list, fs, specs = smelter_context(f)
+  local out, low = 0, false
+  for i, s in ipairs(list) do
+    out = out + fs[i].out
+    if fs[i].fuel < T.fuel_low then low = true end
+  end
+  local ft = list[1] and smelter_fuel_target(list[1]) or nil
+  return out, low, Charge.due(fs, specs, stock or {}, ft, T.charge)
+end
+
 --- Fonderie du QG : vide les sorties, charge les entrées selon `smelt` ({ [produit] = n }), ravitaille.
+--- Lot REMPLISSAGE : quantités de shared/team/charge.lua (de quoi tenir T.charge.horizon ticks, bornée par la pile, la
+--- demande et une part du stock) ; un four garni est complété ; une ligne [FO-SMELT] par visite.
 function Outposts.service_smelters(f, carrier, smelt)
   local list = Outposts.smelters(f)
   local collected = collect(list, carrier)
-  -- Un produit par four, dans l'ordre des demandes (tri déterministe).
-  local products = {}
-  for p in pairs(smelt or {}) do products[#products + 1] = p end
-  table.sort(products)
-  -- Étape 1 (27/10 au soir) : un four chargé de MOINS que la recette n'en exige (acier : 5 plaques, il en avait 1 à 4) ne
-  -- fond jamais et n'était jamais rechargé (il n'est rechargé que vide) : 3 fours sur 4 morts à jamais, 0 acier en 40 min,
-  -- donc aucun poteau moyen ou grand, aucune électrification. Ses entrées sont reprises par le porteur.
-  local ratio = {}
-  for _, p in ipairs(State.sorted_keys(T.smelter_inputs)) do
-    local inp = T.smelter_inputs[p]
-    if inp[2] > 1 then ratio[inp[1]] = math.max(ratio[inp[1]] or 0, inp[2]) end
-  end
-  local i = 0
-  for _, s in ipairs(list) do
-    local src = s.get_inventory(defines.inventory.furnace_source)
-    if not src.is_empty() and not s.is_crafting() then
+  local _, fs, specs = smelter_context(f)
+  local products = State.sorted_keys(smelt or {})
+  local assign = Charge.assign(fs, products, specs, T.charge)
+  for i, s in ipairs(list) do
+    if assign.reclaim[i] then
+      local src = s.get_inventory(defines.inventory.furnace_source)
       local c = src[1]
-      if c.valid_for_read and ratio[c.name] and c.count < ratio[c.name] then
+      if c and c.valid_for_read then
         carrier.insert({ name = c.name, count = c.count })
         src.clear()
       end
     end
-    if src.is_empty() and #products > 0 then
-      i = i % #products + 1
-      local input = T.smelter_inputs[products[i]]
-      if input then
-        -- jamais moins d'une fabrication complète, et un multiple de l'entrée
-        local n = math.min(input[2] * 10, carrier.get_item_count(input[1]))
-        n = n - n % input[2]
-        if n > 0 then src.insert({ name = input[1], count = carrier.remove({ name = input[1], count = n }) }) end
+  end
+  local avail = {}
+  for _, l in pairs(assign.loads) do avail[l.item] = carrier.get_item_count(l.item) end
+  local gives = Charge.distribute(assign, avail)
+  local loaded, units, targets = 0, 0, 0
+  for i, s in ipairs(list) do
+    local g = gives[i]
+    if g then
+      local src = s.get_inventory(defines.inventory.furnace_source)
+      local got = carrier.remove({ name = g.item, count = g.n })
+      if got > 0 then
+        local put = src.insert({ name = g.item, count = got })
+        if put < got then carrier.insert({ name = g.item, count = got - put }) end
+        loaded, units = loaded + 1, units + put
       end
     end
   end
-  refuel(list, carrier)
+  for _, l in pairs(assign.loads) do targets = targets + l.room end
+  local fuel_in, fuel_before = 0, 0
+  for _, s in ipairs(list) do
+    fuel_before = fuel_before + fuel_of(s)
+    local want = Charge.fuel_missing(fuel_of(s), smelter_fuel_target(s))
+    local n = math.min(want, carrier.get_item_count(T.fuel))
+    if n > 0 then
+      local put = s.get_fuel_inventory().insert({ name = T.fuel, count = carrier.remove({ name = T.fuel, count = n }) })
+      fuel_in = fuel_in + put
+    end
+  end
+  log("[FO-SMELT] " .. game.tick .. " " .. tostring(f.key) .. " fours=" .. #list .. " charges=" .. loaded .. " unites=" .. units
+    .. " places=" .. targets .. " collecte=" .. collected .. " charbon_avant=" .. fuel_before .. " charbon_ajoute=" .. fuel_in)
   return collected
 end
 

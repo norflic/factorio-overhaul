@@ -464,9 +464,10 @@ function Team.view(f, tick)
     end
   end
   if grow_due then recruit_held = false end
-  local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
   local stock_free = Board.view_stock(f, stock_of(f), tick, true)
+  -- Lot REMPLISSAGE : relevé des fours du QG (sortie, combustible urgent) et justification d'une tournée (règle de charge).
+  local smelter_out, smelter_low, smelter_due = Outposts.smelter_report(f, stock_free)
   local threatened = tick < (f.threatened_until or 0)
   -- Lot IA3-d (A7, « ils ne scalent pas ») : une FACTION grandit quand du travail attend depuis 2 min au-delà de ses bras
   -- libres et que la recrue se paie (shared/ai3/effectif.lua) ; elle ne recrute pas quand ses PNJ sont inactifs. La règle
@@ -501,8 +502,8 @@ function Team.view(f, tick)
     stock = stock_free, incoming = Board.incoming(f),
     outposts = outposts, pending = pend, sites = sites,
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
-    smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
-    smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
+    smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low, smelter_due = smelter_due,
+    smelter_coal = Outposts.smelter_coal_needed(f),
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,

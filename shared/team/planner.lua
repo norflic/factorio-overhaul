@@ -17,6 +17,7 @@
     outposts = { { id, kind, drills, turrets, fuel_low, output, idle_ticks, has_task }, ... },
     pending = { [type] = n }, sites = { [type] = n },
     smelters = n, smelters_pending = n, smelter_task = bool, smelter_output = n, smelter_fuel_low = bool,
+    smelter_due = { products = { [produit] = bool }, fuel = bool, out = bool } | nil (lot REMPLISSAGE : tournée justifiée),
     turret_groups = { { key, low, has_task }, ... },
     soldiers, soldiers_max, workers, workers_max, threatened,
     open = { [clé de tâche] = true },                       -- tâches en cours (affectées)
@@ -27,6 +28,7 @@
 ]]
 
 local T = require("shared.team.config")
+local Charge = require("shared.team.charge") -- lot REMPLISSAGE : tournée de fonte justifiée seulement
 
 local P = {}
 
@@ -878,7 +880,10 @@ function P.plan(view, book)
 
   -- Fonderie : une tournée si elle a quelque chose à produire, à vider ou à ravitailler.
   if view.smelters > 0 and not view.smelter_task then
-    if next(out.smelt) ~= nil or view.smelter_output > 0 or view.smelter_fuel_low then
+    -- Lot REMPLISSAGE : la tournée ne s'ouvre que si elle a quelque chose à faire (place à charger ET matière au coffre,
+    -- combustible bas, sortie qui s'accumule : shared/team/charge.lua) ; `smelter_due` absent : ancien comportement.
+    if (next(out.smelt) ~= nil or view.smelter_output > 0 or view.smelter_fuel_low)
+      and Charge.visit_due(view.smelter_due, out.smelt, view.smelter_fuel_low) then
       add({ key = "smelt", kind = "smelt", prio = view.smelter_fuel_low and 65 or 60, smelt = out.smelt })
     end
   end
