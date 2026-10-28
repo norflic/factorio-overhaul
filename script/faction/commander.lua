@@ -161,6 +161,16 @@ Events.on(defines.events.on_entity_died, function(e)
   local f = State.by_force(entity.force.name)
   if not f or f.eliminated then return end
   local p = entity.position
+  -- Lot RECON : mort d'un soldat de faction (cause, lieu, distance au QG), pour dater les effondrements de garnison.
+  local own = entity.unit_number and State.owner(entity.unit_number)
+  if own and own.kind == "soldier" then
+    local ddx, ddy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
+    f.stats = f.stats or {}
+    f.stats.soldier_deaths = (f.stats.soldier_deaths or 0) + 1
+    log(string.format("[FO-RECON] soldat mort tick %d %s : par %s (%s) en (%d, %d), a %d tuiles du QG, %d soldat(s) restants", e.tick, f.key,
+      e.cause and e.cause.valid and e.cause.name or "?", e.force and e.force.name or "?", math.floor(p.x), math.floor(p.y),
+      math.floor(math.sqrt(ddx * ddx + ddy * ddy)), (f.soldiers_count or 1) - 1))
+  end
   local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
   if dx * dx + dy * dy < THREAT_RADIUS * THREAT_RADIUS then
     f.threatened_until = e.tick + THREAT_TICKS
