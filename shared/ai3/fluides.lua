@@ -1361,4 +1361,14 @@ function Fl.complete_packs(rows)
   return out
 end
 
+--- Premier gisement de la liste (déjà triée, du plus proche au plus lointain) que `taken(d)` ne dit pas pris (lot PETROLE 2).
+--- Un gisement n'a qu'un site : celui qu'une autre équipe a demandé ou bâti est PRIS (moteur réel, etape1-guide 20261020 :
+--- votre équipe planifiait son site sur l'emplacement exact de celui de scarlet, « fantôme refusé (occupé) » pendant 35 min).
+function Fl.pick_unclaimed(list, taken)
+  for _, d in ipairs(list or {}) do
+    if not (taken and taken(d)) then return d end
+  end
+  return nil
+end
+
 return Fl

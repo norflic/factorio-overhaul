@@ -54,6 +54,7 @@ Pet.POND_NEAR = 60         -- rive à plus de 60 tuiles du gisement : un étang 
 Pet.PUMPS = 8               -- places de pompe essayées au plus (la plus proche d'abord)
 Pet.PLAN_SLICE = 600          -- nœuds d'A* au plus par passage du plan d'un site (environ 5 à 10 ms ; un plan de 120 000 nœuds : 200 passages)
 Pet.RETRY = 10 * 3600       -- un site refusé est revu 10 min plus tard
+Pet.CLAIM_R = 48           -- un gisement est PRIS si le site d'une autre équipe (demandé ou bâti) est à moins de 48 tuiles de lui
 Pet.GAIN = 3                -- PNJ « libérés » (valeur du projet de chantier, comme un module de l'automatisation)
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -668,6 +669,28 @@ local function site_for(st, key)
   return nil
 end
 
+--- Le gisement (x, y) de la ressource `res` est-il pris par une autre équipe ? Site demandé ou bâti d'une autre équipe (état du lot
+--- de chacune, global) ou extracteur d'une autre force sur le gisement (une partie rechargée sans l'état).
+local function claimed(f, res, d, extractors)
+  local r2 = Pet.CLAIM_R * Pet.CLAIM_R
+  local teams = {}
+  local war = State.war()
+  for _, id in ipairs(sorted_keys(war and war.factions)) do teams[#teams + 1] = war.factions[id] end
+  teams[#teams + 1] = State.faction("player")
+  for _, t in ipairs(teams) do
+    local ps = t ~= f and t.team and t.team.petrole
+    for _, s in ipairs((ps and ps.sites) or {}) do
+      if s.res == res and s.state ~= "refuse" and s.x and (s.x - d.x) ^ 2 + (s.y - d.y) ^ 2 <= r2 then return true end
+    end
+  end
+  if extractors and #extractors > 0 and f.hq and f.hq.valid then
+    for _, e in ipairs(f.hq.surface.find_entities_filtered({ name = extractors, position = { d.x, d.y }, radius = Pet.CLAIM_R })) do
+      if e.force.name ~= f.force then return true end
+    end
+  end
+  return false
+end
+
 local function decide(f, st, General, deposits, tick)
   local c = General.catalogue()
   refresh_known(f, st, c, deposits, tick)
@@ -719,8 +742,9 @@ local function decide(f, st, General, deposits, tick)
       local extractor
       if grp.res then
         local d = deposits and deposits(f, grp.res, tick)
-        if d and d[1] then x, y = d[1].x, d[1].y else ok = false end
         extractor = INFO.extract[grp.res] and INFO.extract[grp.res][1]
+        local pick = Fl.pick_unclaimed(d, function(dd) return claimed(f, grp.res, dd, INFO.extract[grp.res]) end)
+        if pick then x, y = pick.x, pick.y else ok = false end
       end
       if ok then
         if not f.build then Build.enable(f, { radius = 3 }) end

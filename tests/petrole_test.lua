@@ -644,5 +644,20 @@ do
   end
 end
 
+-- §10 gisement pris (Fl.pick_unclaimed) : le site d'une autre équipe n'est pas recopié
+do
+  local list = { { x = 80, y = -112, id = "a" }, { x = 300, y = 10, id = "b" }, { x = 500, y = 0, id = "c" } }
+  local function pris(set) return function(d) return set[d.id] == true end end
+  check(Fl.pick_unclaimed(list, pris({})).id == "a", "§10 aucun gisement pris : le plus proche")
+  check(Fl.pick_unclaimed(list, pris({ a = true })).id == "b", "§10 le plus proche est pris : le suivant")
+  check(Fl.pick_unclaimed(list, pris({ a = true, b = true })).id == "c", "§10 deux pris : le troisième")
+  check(Fl.pick_unclaimed(list, pris({ a = true, b = true, c = true })) == nil, "§10 tous pris : aucun site (rien n'est posé sur celui d'un autre)")
+  check(Fl.pick_unclaimed({}, pris({})) == nil and Fl.pick_unclaimed(nil, nil) == nil, "§10 aucun gisement connu : aucun choix")
+  check(Fl.pick_unclaimed(list, nil).id == "a", "§10 sans règle de prise : le plus proche")
+  -- mutant : un choix qui ignore la prise rendrait « a » à tous les cas ci-dessus
+  local function ignore(l) return l and l[1] or nil end
+  check(ignore(list).id == "a" and Fl.pick_unclaimed(list, pris({ a = true })).id ~= ignore(list).id, "§10 mutant refusé : ignorer la prise recopie le site voisin")
+end
+
 print(string.format("[PETROLE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
