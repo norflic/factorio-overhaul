@@ -14,6 +14,8 @@ local P0 = { x = -3000, y = -3000 }
 local NIVEAUX = { 2, 9, 15, 19, 25, 29 }
 local PAS, DIST = 40, 11
 local MUN = "firearm-magazine"
+-- require au chargement du fichier seulement (interdit pendant un evenement, F24) ; absent de la source 0.6.5 : pcall
+local D_ok, D = pcall(require, "__factorio-overhaul__/shared/tirs/degats")
 
 return {
   description = "TIRS : migration d'une sauvegarde 0.6.5 (double source) : tourelles gardees, stockage cree, habillage actif",
@@ -54,7 +56,6 @@ return {
     if dt == 1 then
       -- la partie vient d'être rechargée avec le mod du lot : relevé de ce que le chargement a fait
       st.iface = ctx.has("fo-tirs", "stats")
-      local D_ok, D = pcall(require, "__factorio-overhaul__/shared/tirs/degats")
       st.degats_ok, st.degats_vus = true, {}
       if D_ok then
         for _, site in ipairs(st.sites) do
