@@ -701,7 +701,7 @@ local function decide(f, st, General, deposits, tick)
   local water = nil
   for _, res in ipairs(pump_resources(c)) do if st.known[res] then water = res end end
   local force = game.forces[f.force]
-  local locked = {}
+  local locked, locked_pack = {}, {}
   -- chaîne de chaque objet, puis packs COMPLETS : un pack dont un objet n'a pas de chaîne (pétrole pas encore connu) ne fait
   -- demander aucun site, pas même la cellule sans fluide (Fl.complete_packs)
   local chains, rows = {}, {}
@@ -726,7 +726,7 @@ local function decide(f, st, General, deposits, tick)
       local res = nil
       for _, fl in ipairs(sorted_keys(ch.sources)) do if ch.sources[fl] == "extract" then res = fl end end
       local g = res or "qg"
-      if lock then locked[g] = true end
+      if lock then locked[g] = true; if pack_of[it] then locked_pack[pack_of[it]] = true end end
       if not groups[g] then groups[g] = { res = res, items = {}, water = nil, pack = pack_of[it] }; order[#order + 1] = g end
       groups[g].items[#groups[g].items + 1] = it
       if ch.sources[water or "?"] == "pompe" then groups[g].water = water end
@@ -737,7 +737,9 @@ local function decide(f, st, General, deposits, tick)
     local grp = groups[g]
     local s = site_for(st, g)
     local again = s and s.state == "refuse" and tick >= (s.retry or 0)
-    if ((not s) or again) and not locked[g] then
+    -- … ni tant qu'une recette d'une autre cellule du MÊME pack est verrouillée (le moteur ne se bâtit pas des dizaines de
+    -- minutes avant la raffinerie : moteur réel, etape1-guide 123456789, cellule du moteur à 14 min pour un pack impayable)
+    if ((not s) or again) and not locked[g] and not (grp.pack and locked_pack[grp.pack]) then
       local x, y, ok = f.hq_pos.x, f.hq_pos.y, true
       local extractor
       if grp.res then
