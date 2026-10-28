@@ -1,6 +1,6 @@
 --[[
   Lot RECON : la partie de etape1-guide (216 300 ticks = 60 min, aux réglages livrés), inchangée, plus un relevé toutes les
-  3 minutes de l'armée de chaque faction ([FO-RECON-GUIDE] : soldats, tourelles, ouvriers) et, si le mod a la
+  5 minutes de l'armée de chaque faction ([FO-RECON-GUIDE] : soldats, tourelles, ouvriers) et, si le mod a la
   reconnaissance (lot RECON), de ce que chaque faction sait des autres. Sert au tableau avant / après : le MÊME scénario
   tourne sur la source du lot et sur une copie de main 0.6.5 (témoin).
   Lancement : banc.py --out <archive> --graine <g> --qui RECON<g> -- 216300 recon-guide <source>.
@@ -9,10 +9,13 @@ local base = require("scenarios/etape1-guide")
 local tick0 = base.tick
 local TAG = "[FO-RECON-GUIDE] "
 
-base.description = base.description .. " -- releve de l'armee toutes les 3 min (lot RECON)"
+base.description = base.description .. " -- releve de l'armee toutes les 5 min (lot RECON)"
 base.tick = function(ctx, e)
   if tick0 then tick0(ctx, e) end
-  if e.tick == 0 or e.tick % (3 * 3600) ~= 0 then return end
+  -- Toutes les 5 minutes (+ minute 12, point de comparaison du lot) : tableau témoin / lot pour tracer les creux.
+  if e.tick == 0 or e.tick % 3600 ~= 0 then return end
+  local minute = math.floor(e.tick / 3600)
+  if minute % 5 ~= 0 and minute ~= 12 then return end
   local s = ctx.surface()
   local parts = {}
   for _, row in ipairs(remote.call("fo-ia1", "teams") or {}) do
@@ -24,7 +27,7 @@ base.tick = function(ctx, e)
     end
   end
   log(TAG .. string.format("minute %d | %s", e.tick / 3600, table.concat(parts, " | ")))
-  if remote.interfaces["factorio-overhaul"] and e.tick % (12 * 3600) == 0 then
+  if remote.interfaces["factorio-overhaul"] and minute % 5 == 0 then
     local ok, r = pcall(remote.call, "factorio-overhaul", "recon_status")
     if ok and r then
       local rows = {}
