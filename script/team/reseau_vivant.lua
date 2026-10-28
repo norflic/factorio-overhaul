@@ -27,6 +27,7 @@ Rv.POLE_REOPEN_MAX = 5    -- réouvertures d'un même projet pour ses poteaux (o
 Rv.POLE_ENEMY_R = 28      -- jamais de pose de poteau avec un ennemi à cette portée
 Rv.CAND_MAX = 40          -- poteaux perdus examinés par cycle
 Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
+Rv.LOT_AVOID_R = 16       -- tuiles : rayon écarté autour du lot de la centrale perdue (le lot fait 32 de côté)
 
 local TYPES = {
   source = { "boiler" }, gen = { "generator" }, eau = { "offshore-pump" }, tuyau = { "pipe", "pipe-to-ground" },
@@ -193,6 +194,7 @@ end
 function Rv.step(api, f, surface, tick)
   local b = f.build
   if not b then return end
+  if b.opts and b.opts.sante == false then return end -- interrupteur D'ESSAI (remote fo-ia1d set_option) : le témoin des bancs ; allumé sinon
   local sv = b.sante
   if not sv then
     sv = { st = S.new(), next = tick + Rv.PERIOD, net_next = tick + Rv.NET_PERIOD, islands = 0, uncovered = 0, lost_links = 0,
@@ -240,7 +242,10 @@ function Rv.step(api, f, surface, tick)
   inp.enemies = 0
   if site then
     local en = surface.find_nearest_enemy({ position = site, max_distance = S.DANGER_R, force = f.force })
-    if en then inp.enemies = 1 end
+    if en and en.valid then
+      inp.enemies = 1
+      sv.enemy_x, sv.enemy_y = en.position.x, en.position.y -- le danger, pas le site : c'est lui qu'une centrale de remplacement évite
+    end
   end
   -- une perte survenue sur une centrale qui marchait : compte pour le jugement du site
   local was_healthy = sv.healthy
@@ -272,16 +277,21 @@ function Rv.step(api, f, surface, tick)
   elseif action == "autre_site" then
     if sv.reloc then return end
     b.avoid = b.avoid or {}
-    if site then b.avoid[#b.avoid + 1] = { x = site.x, y = site.y, r = S.DANGER_R } end
-    while #b.avoid > 4 do table.remove(b.avoid, 1) end
+    -- le lot perdu (ses voisins immédiats) ET le danger lui-même : la centrale de remplacement finit à plus de S.DANGER_R du
+    -- danger (centre du lot à S.DANGER_R + 16 + AVOID_MARGIN du danger : même en diagonale du lot, la pièce la plus proche reste à plus de S.DANGER_R) ; sans ennemi vu au moment de la décision (pertes
+    -- seules), seul le lot perdu est écarté
+    if site then b.avoid[#b.avoid + 1] = { x = site.x, y = site.y, r = Rv.LOT_AVOID_R } end
+    if sv.enemy_x then b.avoid[#b.avoid + 1] = { x = sv.enemy_x, y = sv.enemy_y, r = S.DANGER_R + 16 } end
+    while #b.avoid > 6 do table.remove(b.avoid, 1) end
     local old = pp
     old.abandoned = true
     b.plant = nil
     local id = api.plant(f)
     sv.reloc = { old = old.id, new = id }
     S.applied(sv.st, action, tick)
-    say(f, tick, string.format("centrale: %s ; centrale demandee AILLEURS (projet %s, site ecarte %.0f,%.0f rayon %d)", why,
-      tostring(id), site and site.x or 0, site and site.y or 0, S.DANGER_R))
+    say(f, tick, string.format("centrale: %s ; centrale demandee AILLEURS (projet %s, site ecarte %.0f,%.0f, danger %s)", why,
+      tostring(id), site and site.x or 0, site and site.y or 0,
+      sv.enemy_x and string.format("%.0f,%.0f ecarte de %d tuiles", sv.enemy_x, sv.enemy_y, S.DANGER_R + 16) or "non vu"))
   elseif action == "relier" then
     nr = nr or net_read(f, surface)
     local cands = lost_poles(f, surface, b)

@@ -2427,7 +2427,7 @@ remote.add_interface("fo-ia1d", {
   layout = function(key) return Build.layout(team_of_key(key)) end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead")) then return nil end
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante")) then return nil end
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

@@ -128,6 +128,7 @@ function Z.measure(poles, cons, prods)
     return powered, cov, ils, comp, nc, touch
   end
 
+  R.eval = eval -- lot RESEAU-VIVANT : pour choisir un poteau pivot dans les scénarios d'événement (reseau-detruit)
   local powered, covered, islands, comp, nc, touch = eval({})
   R.powered = powered
   R.sans_poteau = #cons - covered
