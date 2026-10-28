@@ -1424,11 +1424,33 @@ end
 
 --- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "pnj" (un personnage
 --- debout dessus, passager), "occupe" (autre).
+--- Lot RESEAU-VIVANT (moteur réel, essai court : « fantôme refusé (occupe) : boiler en (436.5, 398) ; emprise : boiler-remnants
+--- neutral, item-on-ground neutral » 11 min de suite) : une pièce DÉTRUITE laisse des restes (corpse) et des objets au sol
+--- (item-entity) sur son emprise, et la centrale ne se refaisait jamais. Les objets au sol vont au coffre de l'équipe, les restes
+--- sont retirés. Rend le nombre d'éléments retirés. Appelé seulement après un refus de pose.
+local function clear_debris(surface, f, e)
+  local n = 0
+  for _, d in ipairs(surface.find_entities_filtered({ area = footprint(e), type = { "item-entity", "corpse" } })) do
+    if d.valid then
+      if d.type == "item-entity" and f.hq and f.hq.valid then
+        local st = d.stack
+        if st and st.valid_for_read then Stock.insert(f, st.name, st.count) end
+      end
+      d.destroy()
+      n = n + 1
+    end
+  end
+  return n
+end
+
 local function place_ghost(surface, f, e)
   if find_real(surface, e, f.force) then return "deja" end
   if find_ghost(surface, e, f.force) then return "ok" end
-  if not surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
-    build_check_type = defines.build_check_type.ghost_revive }) then
+  local function can_place()
+    return surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
+      build_check_type = defines.build_check_type.ghost_revive })
+  end
+  if not can_place() and not (clear_debris(surface, f, e) > 0 and can_place()) then
     local area = footprint(e)
     if surface.count_entities_filtered({ area = area, type = TREE_TYPES, limit = 1 }) > 0 then return "obstacle" end
     if npc_on(surface, e) then return "pnj" end
