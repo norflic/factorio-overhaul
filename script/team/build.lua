@@ -1544,11 +1544,23 @@ local function shift_pole(f, surface, p, e)
   return false
 end
 
+--- Lot RESEAU-VIVANT : trace d'un poteau posé (qui l'a demandé : projet, rôle) pour établir la cause des poteaux
+--- redondants. Journal seulement ([FO-POLE]), aucune décision n'en dépend.
+local function trace_pole(f, p, e, how)
+  local part = p.parts and p.parts[e.part or 1] or nil
+  log(string.format("[FO-POLE] %s : projet %d (%s), %s role %s %s en (%g, %g)", f.key or "player", p.id,
+    tostring(part and part.key or (p.spec and p.spec.gen) or "?"), e.name, tostring(e.role), how, e.x, e.y))
+end
+
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
 --- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
 local function revive_one(surface, f, p, e, inv, tick, self)
   local st = f.build.stats
-  if find_real(surface, e, f.force) then e.built = true return true end
+  if find_real(surface, e, f.force) then
+    e.built = true
+    if e.name:find("electric%-pole") then trace_pole(f, p, e, "deja") end
+    return true
+  end
   if not e.item or inv.get_item_count(e.item) < 1 then return false end
   if self and self.valid then
     local a, q = footprint(e), self.position
@@ -1596,6 +1608,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   end
   e.built = true
   st.revived = st.revived + 1
+  if e.name:find("electric%-pole") then trace_pole(f, p, e, "pose") end
   return true
 end
 
