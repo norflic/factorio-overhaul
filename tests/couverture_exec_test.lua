@@ -80,6 +80,8 @@ surface = {
   enemies = 0, placeable = true, created = {},
   find_enemy_units = function(self) local n = {} for i = 1, surface.enemies do n[i] = {} end return n end,
   find_entity = function() return nil end,
+  find_entities = function() return {} end,
+  get_tile = function() return { name = "grass-1" } end,
   can_place_entity = function() return surface.placeable end,
   create_entity = function(spec)
     local e = ent(spec.name, spec.type or "assembling-machine", spec.position.x, spec.position.y, spec.force, spec.direction)
