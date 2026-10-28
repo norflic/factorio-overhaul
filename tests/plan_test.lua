@@ -392,9 +392,12 @@ do
   for _, c in ipairs(first) do known[#known + 1] = { x = c.x, y = c.y } end
   local second = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free, known)
   check(second ~= nil and #second == 0, "chaîne le long d'une chaîne existante : aucun poteau de plus (" .. (second and #second or -1) .. ")")
-  -- chaîne décalée d'une tuile, mêmes poteaux connus : elle les traverse aussi
-  local third = P.pole_chain({ x = 0.5, y = 1.5 }, { x = 40.5, y = 1.5 }, 9, false, free, known)
-  check(third ~= nil and #third == 0, "chaîne décalée d'une tuile : traverse les poteaux existants")
+  -- même départ, arrivée décalée d'une tuile : elle traverse aussi les poteaux existants
+  local third = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 1.5 }, 9, false, free, known)
+  check(third ~= nil and #third == 0, "arrivée décalée d'une tuile : traverse les poteaux existants")
+  -- départ trop loin (9,06 tuiles) du premier poteau connu : il n'est pas utilisé
+  local off = P.pole_chain({ x = 0.5, y = 1.5 }, { x = 40.5, y = 1.5 }, 9, false, free, known)
+  check(off ~= nil and #off >= 1, "poteau connu hors de portée de fil du départ : non utilisé")
   -- un poteau connu trop loin du fil (au-delà de la portée) n'est pas utilisé
   local far = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free, { { x = 20.5, y = 40.5 } })
   check(far ~= nil and #far >= 4, "poteau connu hors de portée : ignoré")
