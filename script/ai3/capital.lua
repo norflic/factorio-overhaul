@@ -152,6 +152,12 @@ local function machine_catalog()
 end
 function Capital.mproto(name) return machine_catalog().by[name] end
 
+--- Machines supérieures vers lesquelles `name` se remplace sur place (liste triée : vitesse croissante), lues aux prototypes.
+--- Interface du lot LEVIERS (valeur d'une recherche qui débloque une meilleure machine) : même règle que le remplacement.
+function Capital.successors_of(name)
+  return Cap.successors(L, { mproto = Capital.mproto, machines = machine_catalog().names }, name)
+end
+
 -- Recettes (prototypes) qui donnent un objet, cache LOCAL ; l'objet est « débloqué » pour la force quand l'une est activée.
 local recipes_of = {}
 local function unlocked(f, item)
