@@ -82,6 +82,59 @@ local function suite()
   check(Re.away_point(p, home, { x = -400, y = -300 }, 30) == nil, "ennemi plus loin que le QG : le QG reste le refuge")
   check(Re.away_point(p, home, { x = 220, y = 114 }, 30) == nil, "ennemi à 90° du QG : le QG reste le refuge")
   check(Re.away_point(p, p, ep, 30) == nil, "PNJ au QG : rien")
+
+  section("regard périodique d'un PNJ armé à l'arrêt")
+  -- Jamais regardé : le premier regard est décalé par le numéro (étalé sur une période), puis toutes les IDLE_LOOK ticks.
+  local firsts = {}
+  for id = 1, 30 do
+    local tk = 0
+    while tk <= Re.IDLE_LOOK + 1 and not Re.idle_look_due(tk, nil, id) do tk = tk + 1 end
+    check(tk <= Re.IDLE_LOOK, "le premier regard du PNJ " .. id .. " vient dans la période")
+    firsts[id] = tk
+  end
+  local distinct = {}
+  for id = 1, 30 do distinct[firsts[id]] = true end
+  local nd = 0
+  for _ in pairs(distinct) do nd = nd + 1 end
+  check(nd >= 25, "30 PNJ : au moins 25 ticks de premier regard différents (" .. nd .. ")")
+  check(Re.idle_look_due(1000, 1000 - Re.IDLE_LOOK + 1, 7) == false, "regardé il y a moins d'une période : pas dû")
+  check(Re.idle_look_due(1000, 1000 - Re.IDLE_LOOK, 7) == true, "regardé il y a une période : dû")
+  check(Re.idle_look_due(1000, 990, 7) == false, "regardé il y a 10 ticks : pas dû")
+
+  section("rappel et mise à l'abri : la défense reste à son poste")
+  check(Re.recall_exempt("garrison") and Re.recall_exempt("fortify") and Re.recall_exempt("mine", true), "garnison, fortification, defend : exemptées")
+  check(not Re.recall_exempt("ghost") and not Re.recall_exempt("service", false) and not Re.recall_exempt(nil), "les autres tâches sont rappelées")
+
+  section("QG attaqué : se regrouper sous les tourelles")
+  local home2 = { x = 8, y = 7 }
+  local tur = { { x = 14, y = 0 }, { x = 14, y = 14 }, { x = 300, y = 300 } } -- la 3e est à un avant-poste
+  local rp = Re.rally_point(tur, home2)
+  check(rp ~= nil, "tourelles du QG : point de ralliement")
+  if rp then
+    -- centre des 2 tourelles du QG = (14, 7) ; Re.RALLY_BEHIND tuiles derrière, vers le coffre (8, 7) : (4, 7)
+    check(math.abs(rp.x - 4) < 1e-6 and math.abs(rp.y - 7) < 1e-6, "10 tuiles derrière le centre des tourelles du QG, côté coffre")
+  end
+  check(Re.rally_point({ { x = 300, y = 300 } }, home2) == nil, "aucune tourelle du QG (avant-poste seulement) : pas de ralliement")
+  check(Re.rally_point({}, home2) == nil and Re.rally_point(nil, home2) == nil, "aucune tourelle : pas de ralliement")
+  local rp1 = Re.rally_point({ { x = 8, y = 7 } }, home2)
+  check(rp1 and rp1.x == 8 and rp1.y == 7, "tourelle sur le coffre : le point est la tourelle")
+  check(Re.outrun(0.12, 0.15) == true and Re.outrun(0.2, 0.15) == false and Re.outrun(nil, 0.15) == false
+    and Re.outrun(0.135, 0.15) == true, "distancer : vitesse de l'ennemi <= 90 % de la nôtre")
+  -- Journal int-1 : 9 PNJ armés contre 5 soldats d'Azure (force pesée ~13).
+  local base = { allies = 9, force = 13, prudence = 1000, agressivite = 1000 }
+  local function hq(over) local i = {} for k, v in pairs(base) do i[k] = v end for k, v in pairs(over or {}) do i[k] = v end return Re.hq_response(i) end
+  check(hq({ rally = rp }) == "rally", "9 contre force 13, tourelles, ennemi plus rapide : ralliement")
+  check(hq({ rally = rp, outrun = true }) == "rally", "9 contre force 13, tourelles, ennemi plus lent : ralliement quand même (s'éloigner l'entraîne loin des tourelles)")
+  check(hq({ rally = nil, outrun = true }) == "away", "sans tourelle, ennemi distancé : on s'éloigne")
+  check(hq({ rally = nil, outrun = false }) == "stand", "sans tourelle, ennemi plus rapide : on se bat, groupés")
+  check(hq({ allies = 30, rally = rp }) == "stand", "plus nombreux (30 contre 13) : on se bat")
+  check(hq({ force = 2, allies = 4, rally = rp }) == "stand", "4 contre force 2 : on se bat")
+  check(hq({ force = 2, allies = 2, rally = rp }) == "rally", "2 contre force 2 (ratio 2 000 requis) : ralliement")
+  check(hq({ prudence = 600, agressivite = 1500, allies = 3, force = 2, rally = rp }) == "stand", "un audacieux se bat à 3 contre 2")
+  -- Le refuge ne mène pas sur l'ennemi.
+  check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 5 }) == true, "ennemi sur le chemin")
+  check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 60 }) == false, "ennemi sur le côté")
+  check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 130, y = 0 }) == false, "ennemi au-delà de la cible")
 end
 
 suite()
@@ -127,6 +180,30 @@ end)
 mutant("l'arrêt n'est jamais rompu", function() patch(Re, "breach", function() return false end) end)
 mutant("un ver rompt l'arrêt", function() patch(Re, "breach", function(kind, d, r) return d <= (r or 16) + Re.MARGIN end) end)
 mutant("marge oubliée à la rupture", function() patch(Re, "breach", function(kind, d, r) return kind == "unit" and d <= (r or 16) end) end)
+mutant("regard périodique jamais dû", function() patch(Re, "idle_look_due", function() return false end) end)
+mutant("regard de tous au même tick", function() patch(Re, "idle_look_due", function(tick, last) return tick - (last or 0) >= Re.IDLE_LOOK end) end)
+mutant("regard à chaque pensée", function() patch(Re, "idle_look_due", function() return true end) end)
+mutant("la garnison est rappelée", function() patch(Re, "recall_exempt", function(kind, defend) return defend == true end) end)
+mutant("la défense est rappelée", function() patch(Re, "recall_exempt", function(kind) return Re.EXEMPT[kind] == true end) end)
+mutant("tourelles d'avant-poste prises pour celles du QG", function() patch(Re, "RALLY_R", 1e6) end)
+mutant("ralliement jamais", function() patch(Re, "rally_point", function() return nil end) end)
+mutant("point de ralliement devant les tourelles", function() patch(Re, "RALLY_BEHIND", -10) end)
+mutant("toujours plus lent que nous", function() patch(Re, "outrun", function() return true end) end)
+mutant("jamais distancé", function() patch(Re, "outrun", function() return false end) end)
+mutant("on se bat toujours", function() patch(Re, "hq_response", function() return "stand" end) end)
+mutant("on se regroupe toujours", function() patch(Re, "hq_response", function(i) return i.rally and "rally" or "away" end) end)
+mutant("éloignement avant ralliement", function()
+  patch(Re, "hq_response", function(i)
+    local need = Re.engage_ratio(i.prudence, i.agressivite) * math.max(0.2, i.force or 1)
+    if (i.allies or 0) * 1000 >= need then return "stand" end
+    if i.outrun then return "away" end
+    if i.rally then return "rally" end
+    return "stand"
+  end)
+end)
+mutant("ratio d'engagement ignoré", function() patch(Re, "engage_ratio", function() return 1 end) end)
+mutant("ennemi jamais sur le chemin", function() patch(Re, "on_the_way", function() return false end) end)
+mutant("ennemi toujours sur le chemin", function() patch(Re, "on_the_way", function() return true end) end)
 mutant("QG toujours le refuge", function() patch(Re, "away_point", function() return nil end) end)
 mutant("éloignement vers l'ennemi", function()
   local f = Re.away_point
