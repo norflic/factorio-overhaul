@@ -80,7 +80,11 @@ surface = {
   enemies = 0, placeable = true, created = {},
   find_enemy_units = function(self) local n = {} for i = 1, surface.enemies do n[i] = {} end return n end,
   find_entity = function() return nil end,
-  can_place_entity = function() return surface.placeable end,
+  find_entities = function() return {} end,
+  floor_items = {},
+  find_entities_filtered = function() local l = {} for i, e in ipairs(surface.floor_items) do l[i] = e end return l end,
+  get_tile = function() return { name = "grass-1" } end,
+  can_place_entity = function() return surface.placeable and #surface.floor_items == 0 end,
   create_entity = function(spec)
     local e = ent(spec.name, spec.type or "assembling-machine", spec.position.x, spec.position.y, spec.force, spec.direction)
     e.set_recipe = function(r) e.recipe = r end
@@ -189,6 +193,21 @@ do
   check(Recon.act(agent, f, t2, surface) == false and Rc.pending(f.recon) == 1 and f.recon.stats.blocked == 1, "place occupée : rien posé, la pièce reste en attente")
   check(f.recon.lost[t2.recs[1]].claimed == nil, "tâche finie : pièce libérée pour un autre essai")
   surface.placeable = true
+  -- objets au sol (contenu d'un coffre détruit) : ramassés avant la pose, sinon la pose est refusée
+  inv.insert = function(s) inv.items[s.name] = (inv.items[s.name] or 0) + s.count return s.count end
+  local gone = false
+  surface.floor_items = { { valid = true, stack = { valid_for_read = true, name = "coal", count = 3 },
+    destroy = function() gone = true surface.floor_items = {} end } }
+  inv.items["item-b"] = 1
+  local before = f.recon.stats.blocked
+  check(Recon.act(agent, f, t2, surface) == true and gone and inv.items["coal"] == 3 and f.recon.stats.blocked == before,
+    "objets au sol dans l'emprise : ramasses, puis la piece est posee")
+  surface.floor_items = {}
+  died({ entity = ent("piece-b", "assembling-machine", 12, 10), tick = 6000 })
+  Recon.think(f, surface, 6000 + Rc.CALM + 5)
+  t2 = added[#added]
+  t2.worker = 3
+  Recon.program(f, t2)
   -- PNJ debout sur l'emprise : écarté avant la pose
   PROTOS["piece-b"].collision_box = { left_top = { x = -1.5, y = -1.5 }, right_bottom = { x = 1.5, y = 1.5 } }
   local moved

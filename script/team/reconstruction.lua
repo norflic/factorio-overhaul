@@ -50,6 +50,7 @@ Recon.SEEDS_PER_THINK = 3   -- places essayées (épreuve « ennemis près ») p
 Recon.HITS_MAX = 24
 Recon.MATCH = 0.3           -- tolérance de position (tuiles) pour reconnaître une pièce d'un projet
 Recon.LOGS = 60
+Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par force
 
 local ITEM_OF = {}          -- mémoire LOCALE (prototypes seulement)
 local function item_of(name)
@@ -135,7 +136,7 @@ Events.on(defines.events.on_entity_died, on_died)
 function Recon.hold_upgrades(f)
   local s = f.recon
   if not s then return false end
-  return Rc.hold_upgrades(s, function(item) return Stock.count(f, item) end)
+  return Rc.hold_upgrades(s, function(item) return Stock.count(f, item) end, game.tick)
 end
 
 function Recon.pending(f) return f.recon and Rc.pending(f.recon) or 0 end
@@ -287,6 +288,23 @@ local function step_aside(surface, self, r)
   end
 end
 
+--- Les objets tombés au sol (contenu d'un coffre ou d'un four détruit) empêchent la pose (moteur réel, lot COUVERTURE) : le PNJ
+--- les ramasse, ce qui ne tient pas dans son sac est laissé.
+local function clear_items(surface, inv, r)
+  local fp = footprint(r)
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { fp[1], fp[2] }, { fp[3], fp[4] } }, type = "item-entity" })) do
+    if e.valid then
+      local st = e.stack
+      if st and st.valid_for_read then
+        local n = inv.insert({ name = st.name, count = st.count })
+        if n >= st.count then e.destroy() else st.count = st.count - n end
+      else
+        e.destroy()
+      end
+    end
+  end
+end
+
 --- Pose les pièces du lot (script/team/worker.lua, ACTS.rebuild). Vrai si au moins une pièce est refaite.
 function Recon.act(agent, f, task, surface)
   local s = f.recon
@@ -301,6 +319,7 @@ function Recon.act(agent, f, task, surface)
         Rc.done(s, k) -- déjà refaite (par un autre moyen)
       elseif r.item and inv.get_item_count(r.item) >= 1 then
         step_aside(surface, agent.entity, r)
+        clear_items(surface, inv, r)
         if surface.can_place_entity({ name = r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force }) then
           local ent = surface.create_entity({ name = r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force,
             raise_built = true })
@@ -327,6 +346,23 @@ function Recon.act(agent, f, task, surface)
           end
         else
           stat(s, "blocked")
+          Rc.block(s, k)
+          -- Diagnostic (hors comportement) : ce qui gêne la pose, pour les premiers cas seulement.
+          if (s.stats.dlogs or 0) < Recon.DIAG_LOGS then
+            s.stats.dlogs = (s.stats.dlogs or 0) + 1
+            local fp = footprint(r)
+            local gens = {}
+            for _, e2 in ipairs(surface.find_entities({ { fp[1], fp[2] }, { fp[3], fp[4] } })) do
+              if e2.valid and #gens < 6 then
+                gens[#gens + 1] = string.format("%s/%s@(%.1f,%.1f)%s", e2.name, e2.type, e2.position.x, e2.position.y,
+                  e2.force and e2.force.name ~= f.force and (":" .. e2.force.name) or "")
+              end
+            end
+            local tile = surface.get_tile(r.x, r.y)
+            log(string.format("[FO-RECON] %s : pose impossible de %s en (%.1f, %.1f) dir %s : gene par %s ; sol %s ; ennemis a 12 tuiles %d",
+              f.key or "player", r.name, r.x, r.y, tostring(r.dir), #gens > 0 and table.concat(gens, ", ") or "rien de visible",
+              tile and tile.name or "?", #surface.find_enemy_units({ x = r.x, y = r.y }, 12, f.force)))
+          end
         end
       end
     end

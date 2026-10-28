@@ -37,7 +37,9 @@ Rc.RESET = 30 * 3600     -- la mémoire des destructions d'une place dure 30 min
 Rc.TTL = 90 * 60 * 60    -- une perte jamais refaite est oubliée après 90 min
 Rc.BATCH_RADIUS = 12     -- tuiles : un voyage refait toutes les pièces à 12 tuiles de la plus précieuse
 Rc.BATCH_MAX = 12
+Rc.HOLD_MAX = 20 * 3600  -- « améliorer attend » au plus 20 min après la perte : un site tenu par l'ennemi ne gèle pas les améliorations
 Rc.MAX_DEFERS = 20       -- reports (ennemis près de la place) avant l'abandon
+Rc.MAX_BLOCKS = 4        -- poses refusées par le moteur (place prise par autre chose) avant l'abandon
 Rc.PRIO_BASE = 70        -- priorité de tâche : 70 + valeur du rôle, jamais l'urgence (90, O.URGENT_PRIO)
 Rc.PRIO_MAX = 86
 
@@ -155,6 +157,14 @@ function Rc.defer(st, key, until_tick, tick)
   if r.defers > Rc.MAX_DEFERS then r.abandoned = true end
 end
 
+--- Le moteur refuse la pose (place prise) : trop de refus, la pièce est abandonnée (elle ne gèle plus « améliorer attend »).
+function Rc.block(st, key)
+  local r = st.lost[key]
+  if not r then return end
+  r.blocks = (r.blocks or 0) + 1
+  if r.blocks > Rc.MAX_BLOCKS then r.abandoned = true end
+end
+
 --- Pièces en attente de reconstruction (abandonnées et sans objet exclues).
 function Rc.pending(st)
   local n = 0
@@ -166,11 +176,13 @@ function Rc.pending(st)
 end
 
 --- L'équipe attend-elle avant d'améliorer ? Vrai tant qu'une pièce refaisable attend ; `have(objet)` (facultatif) : seules
---- comptent les pièces dont l'objet est au stock (sans objet, rien à refaire : l'amélioration d'autre chose ne les gêne pas).
-function Rc.hold_upgrades(st, have)
+--- comptent les pièces dont l'objet est au stock (sans objet, rien à refaire : l'amélioration d'autre chose ne les gêne pas) ;
+--- `tick` (facultatif) : une perte vieille de plus de Rc.HOLD_MAX ticks ne retient plus (le site est tenu par l'ennemi ou
+--- inaccessible : refaire attend, mais améliorer ailleurs n'attend plus).
+function Rc.hold_upgrades(st, have, tick)
   for _, k in ipairs(sorted_keys(st.lost)) do
     local r = st.lost[k]
-    if not r.abandoned and r.item and (not have or have(r.item) > 0) then return true end
+    if not r.abandoned and r.item and (not have or have(r.item) > 0) and (not tick or tick - r.tick <= Rc.HOLD_MAX) then return true end
   end
   return false
 end
