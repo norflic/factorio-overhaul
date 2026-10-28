@@ -300,7 +300,12 @@ local function refresh(f, st, tick)
         m.state, m.reason, m.missing = state, s.reason, s.missing or {}
         m.built, m.total = s.built or 0, s.total or 0
         if state == "reserve" then
-          reserve_clock(m, "reserve_since", "reserve_left", s, tick)
+          -- Lot CENTRALE : un module électrique n'a pas faim de sa faute tant que la centrale n'est pas finie
+          if A.freezes_clock(m.electric, st.plant_state) then
+            m.reserve_since, m.reserve_left = tick, missing_count(s)
+          else
+            reserve_clock(m, "reserve_since", "reserve_left", s, tick)
+          end
           if tick - m.reserve_since > Auto.RESERVE_MAX and Build.cancel(f, m.id, "materiaux introuvables (15 min sans progres)") then
             state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables (15 min sans progres)"
             -- Repli de l'équipe : plus de NOUVELLE demande pendant 15 min × le nombre de réserves affamées (moteur réel,

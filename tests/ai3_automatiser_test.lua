@@ -359,6 +359,12 @@ do
   local g_hi = A.goals({}, { mods = { { product = "iron-plate", state = "plan", gain = 2 } } }, {})
   check(g_hi[1].value > g_lo[1].value and g_hi[1].value == A.VALUE + 2 * A.VALUE_PER_PNJ,
     string.format("valeur d'un module : %d sans gain, %d pour 2 PNJ libérés", g_lo[1].value, g_hi[1].value))
+  -- (a ter) lot CENTRALE : minuteur « sans progrès » gelé pour un module électrique tant que sa centrale n'est ni finie ni refusée
+  check(A.freezes_clock(true, "reserve") == true and A.freezes_clock(true, "chantier") == true and A.freezes_clock(true, "bloque") == true,
+    "module electrique, centrale en cours : minuteur gele")
+  check(A.freezes_clock(true, "fini") == false and A.freezes_clock(true, "refuse") == false, "centrale finie ou refusee : le minuteur reprend")
+  check(A.freezes_clock(true, nil) == false and A.freezes_clock(false, "chantier") == false and A.freezes_clock(nil, "chantier") == false,
+    "sans centrale demandee, ou module sans reseau : le minuteur court")
   -- (b) chantier bloqué : projet bloqué, cause lisible, il ne prend pas de place.
   local st2 = C.new_state(0)
   local auto2 = { mods = { { product = "iron-plate", state = "bloque", reason = "fantome refuse (stone-furnace en 3,4)" } }, cap = {}, covered = {} }

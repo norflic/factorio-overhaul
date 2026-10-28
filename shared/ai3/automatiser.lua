@@ -517,6 +517,15 @@ local OPEN = { attente = true, plan = true, reserve = true, defrichage = true, f
   raccordement = true, bloque = true, demande = true }
 A.OPEN_STATES = OPEN
 
+--- Le minuteur « 15 min sans progrès » d'une réserve de module s'arrête-t-il ? Un module électrique ne peut rien faire
+--- avancer tant que la centrale (qui passe avant lui à la réserve) n'est pas finie : sa faim n'est pas la sienne (moteur
+--- réel, etape1-guide 123456789, Écarlate : centrale finie à 14,7 min, premier module annulé à 23,4 min).
+--- plant_state : état de la centrale demandée (nil : aucune) ; "fini" ou "refuse" : le minuteur reprend.
+function A.freezes_clock(electric, plant_state)
+  if not electric or plant_state == nil then return false end
+  return plant_state ~= "fini" and plant_state ~= "refuse"
+end
+
 --- La décision d'une pensée. input = {
 ---   window, threatened, mods = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
 ---   obtainable(item) -> bool (fabricable à la main OU au stock), book, stock, dist, has_plant, sig (contexte),
