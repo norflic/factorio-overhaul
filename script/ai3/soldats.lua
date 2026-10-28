@@ -245,7 +245,6 @@ end
 Events.on(defines.events.on_entity_died, function(e)
   local ent, killer = e.entity, e.force
   if not (ent and ent.valid and killer and killer.name == "enemy") then return end
-  if not nids_on() then return end
   local war = State.war()
   if not war.active then return end
   local f = State.by_force(ent.force.name)

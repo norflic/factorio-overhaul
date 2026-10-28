@@ -46,8 +46,8 @@ RE_LAUNCH = re.compile(r"\[FO-NIDS\] (\w+) : operation lancee en \((-?\d+), (-?\
                        r"echecs (\d+)\), secteur vu au tick (\S+)")
 RE_END = re.compile(r"\[FO-NIDS\] (\w+) : operation en \((-?\d+), (-?\d+)\) (done|retreat|timeout) : engages (\d+), vivants (\d+), "
                     r"sur place \(max\) (\d+), nids restants au moteur (\d+), duree (\d+) min")
-RE_BASE_MIN = re.compile(r"\[FO-ETAPE1-GUIDE\] minute (\d+) \| vivantes \d+ \| (.*?) \| ouvriers du joueur")
-RE_BASE_MES = re.compile(r"\[FO-ETAPE1-GUIDE\] mesure minute (\d+) \| (\w+) \| (.*)$")
+RE_BASE_MIN = re.compile(r"\[FO-[\w-]+\] minute (\d+) \| vivantes \d+ \| (.*?) \| ouvriers du joueur")
+RE_BASE_MES = re.compile(r"\[FO-[\w-]+\] mesure minute (\d+) \| (\w+) \| (.*)$")
 
 
 def kv(body):
