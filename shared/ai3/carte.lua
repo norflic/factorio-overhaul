@@ -381,6 +381,40 @@ end
 local D = 0.70710678
 K.DIRS = { [0] = { 1, 0 }, { D, D }, { 0, 1 }, { -D, D }, { -1, 0 }, { -D, -D }, { 0, -1 }, { D, -D } }
 
+--- Lot EXPLO : régions où un chemin a raté (lac, falaises, île) : { { ox, oy, x, y, tick } } (ox, oy : où était
+--- l'éclaireur ; x, y : le point de passage raté). Un point est « bloqué » s'il est à moins de `radius` tuiles du point
+--- raté, OU dans le cône de K.BLOCK_COS (cosinus de l'angle, 0,8 : environ 37°) autour de la direction éclaireur -> point
+--- raté, au-delà de 70 % de cette distance : un chemin raté dit que toute la région derrière est mal desservie (moteur
+--- réel, 28/10, graine 20261020 : Azur, lac de 200 tuiles à l'ouest du QG, 17 fins « chemin » sur 30 départs : les
+--- secteurs voisins, un par un, échouaient tous). Pas de trigonométrie : produits scalaires.
+K.BLOCK_COS = 0.8
+function K.blocked_near(blocked, x, y, tick, radius, ttl)
+  for _, b in ipairs(blocked or {}) do
+    if tick - b.tick < ttl then
+      if (b.x - x) ^ 2 + (b.y - y) ^ 2 < radius * radius then return true end
+      local ux, uy = b.x - b.ox, b.y - b.oy
+      local ud = math.sqrt(ux * ux + uy * uy)
+      local vx, vy = x - b.ox, y - b.oy
+      local vd = math.sqrt(vx * vx + vy * vy)
+      if ud > 0 and vd >= 0.7 * ud and (vx * ux + vy * uy) >= K.BLOCK_COS * vd * ud then return true end
+    end
+  end
+  return false
+end
+
+--- Ajoute un échec (éclaireur en ox, oy ; point de passage raté en x, y). Au plus `cap` entrées, les plus anciennes
+--- d'abord oubliées ; un échec voisin (point raté à moins de 32 tuiles, origine à moins de 64) rafraîchit l'entrée.
+function K.note_blocked(blocked, ox, oy, x, y, tick, cap)
+  for _, b in ipairs(blocked) do
+    if (b.x - x) ^ 2 + (b.y - y) ^ 2 < 32 * 32 and (b.ox - ox) ^ 2 + (b.oy - oy) ^ 2 < 64 * 64 then
+      b.tick = tick
+      return
+    end
+  end
+  blocked[#blocked + 1] = { ox = ox, oy = oy, x = x, y = y, tick = tick }
+  while #blocked > cap do table.remove(blocked, 1) end
+end
+
 --- Anneau du tour du propriétaire : 8 points à r tuiles autour de (x, y), en partant de l'octant `first` (0 à 7).
 function K.ring(x, y, r, first)
   local out = {}

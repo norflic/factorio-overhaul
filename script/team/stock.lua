@@ -156,6 +156,10 @@ Stock.free_view = nil
 Stock.place_smelters = nil
 --- Registre des fours du QG (Outposts.smelters), idem.
 Stock.smelters = nil
+--- Exemplaires d'un objet que le plan directeur va encore réclamer (posé par script/team/board.lua) : jamais dormants.
+Stock.demand = nil
+--- Crochet de pensée (balayage des fantômes d'aperçu), idem.
+Stock.on_think = nil
 
 --- Lot ADOPTE (constat du DC : « les IA se mettent à poser des fours ») : les fours LIBRES au-delà de Ad.IDLE_KEEP sont posés
 --- au QG (registre f.smelters, rangées T.hq_rows.smelter), jusqu'à Br.SMELT_HARD fours en tout (ils sont déjà fabriqués : un four
@@ -168,25 +172,28 @@ function Stock.deploy_idle(f, surface, tick)
   if ok and on == false then return 0 end
   local free = Stock.free_view(f, tick)
   -- Dormant = resté LIBRE toute une fenêtre (A.window) : le kit de départ et les fours qu'une tâche va réclamer ne sont pas posés.
-  local w, lo = Ad.window(f.idle_window, tick, free[T.SMELTER] or 0)
+  local claimed = Stock.demand and Stock.demand(f, T.SMELTER) or 0
+  local w, lo = Ad.window(f.idle_window, tick, math.max(0, (free[T.SMELTER] or 0) - claimed))
   f.idle_window = w
   if lo == nil then return 0 end
   local have = lo
   local registry = Stock.smelters(f)
   local cap = Br.SMELT_HARD
-  local n = Ad.deploy(have, #registry, 0, cap, free[T.fuel] or 0, T.fuel_per_burner)
+  local n = Ad.deploy(have, #registry, 0, cap)
   -- Trace de la fenêtre close (au plus une ligne par fenêtre, 60 lignes par équipe) : fours au coffre, libres (minimum de la
   -- fenêtre), registre, posés : de quoi lire pourquoi des fours restent au coffre (réservés par une tâche, ou plafond atteint).
   f.stats = f.stats or {}
   f.stats.idle_logs = (f.stats.idle_logs or 0) + 1
   if f.stats.idle_logs <= 60 then
-    log(string.format("[FO-ADOPTE] player : fenetre %.1f min : %d four(s) au coffre, %d libre(s) toute la fenetre, registre %d/%d, a poser %d",
-      (tick - (f.started or 0)) / 3600, Stock.count(f, T.SMELTER), have, #registry, cap, n))
+    log(string.format("[FO-ADOPTE] player : fenetre %.1f min : %d four(s) au coffre, %d libre(s) et non reclames toute la fenetre (plan : %d), registre %d/%d, a poser %d",
+      (tick - (f.started or 0)) / 3600, Stock.count(f, T.SMELTER), have, claimed, #registry, cap, n))
   end
   if n <= 0 then return 0 end
   local tmp = game.create_inventory(8)
   tmp.insert({ name = T.SMELTER, count = Stock.remove(f, T.SMELTER, n) })
-  tmp.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, T.fuel_per_burner * n) })
+  -- le combustible libre accompagne les fours (jusqu'à T.fuel_per_burner chacun) ; sans charbon libre, ils sont posés à sec
+  local fuel = math.min(math.max(0, free[T.fuel] or 0), T.fuel_per_burner * n)
+  if fuel > 0 then tmp.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, fuel) }) end
   local placed = Stock.place_smelters(f, surface, n, tmp)
   for name, c in pairs(tmp.get_contents()) do Stock.insert(f, name, c) end
   tmp.destroy()
@@ -202,6 +209,7 @@ end
 --- Pose un coffre du stock (au plus un par appel) quand les cases se remplissent. Rend vrai si un coffre a été posé.
 function Stock.grow(f, surface, tick)
   if not (f.hq and f.hq.valid) then return false end
+  if Stock.on_think then Stock.on_think(f, tick) end -- lot FANTOMES : balayage des aperçus (posé par script/team/board.lua)
   Stock.deploy_idle(f, surface, tick)
   local used, size, n = totals(f)
   if size <= 0 or not A.need_chest(used, size, n) then return false end

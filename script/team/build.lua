@@ -30,6 +30,7 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
+local PlantArms = require("script.team.plant_arms") -- lot PLANDIR (T2) : bras de la centrale, combustion puis électrique
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -37,6 +38,8 @@ local Build = {}
 Build.RADIUS = 3              -- carré de lots évalué au départ (7 × 7)
 Build.RADIUS_MAX = 5
 Build.PULSE = 5               -- ticks entre deux passes de travail
+Build.NET_WAIT_TICKS = 1800   -- lot PLANDIR : attente (30 s) entre deux essais d'un projet dont le réseau passe par un projet pas bâti
+Build.NET_WAIT_MAX = 40       -- au plus 40 essais (20 min) avant le refus
 Build.EVAL_PER_PULSE = 4
 Build.GHOSTS_PER_PULSE = 6
 Build.REVIVE_PER_THINK = 6    -- ravivages par pensée d'un PNJ (pensée toutes les 60 ticks)
@@ -630,19 +633,28 @@ local function plan_power(f, p, mp, masks)
     nodes = nil
   end
   if not nodes then
+    local nbad, nforeign_total = 0, 0
+    for _ in pairs(bad) do nbad = nbad + 1 end
+    for _, k in ipairs(keys) do if foreign(k) then nforeign_total = nforeign_total + 1 end end
     p.noroute_logged = (p.noroute_logged or 0) + 1
     if p.noroute_logged <= 3 then
-      local nbad, nforeign = 0, 0
-      for _ in pairs(bad) do nbad = nbad + 1 end
-      for _, k in ipairs(keys) do if foreign(k) then nforeign = nforeign + 1 end end
       local free_streets = P.route_nodes({ i = mi, j = mj }, target, seg_passable(b), b.radius) ~= nil
       local free_wires = P.route_nodes({ i = mi, j = mj }, target, seg_wire(b), b.radius) ~= nil
       log(string.format("[FO-PLANDIR] %s : pas de rue vers le reseau (projet %d) : cause %s ; depart (%d,%d) cible (%d,%d) rayon %d ; "
         .. "carrefours ecartes %d, etrangers non bati %d, reseau %d carrefour(s) ; route sans filtre : rues %s, fils %s",
-        f.key or "player", p.id, tostring(cause), mi, mj, target.i, target.j, b.radius or 0, nbad, nforeign, #keys,
+        f.key or "player", p.id, tostring(cause), mi, mj, target.i, target.j, b.radius or 0, nbad, nforeign_total, #keys,
         free_streets and "oui" or "non", free_wires and "oui" or "non"))
     end
-    return nil, "pas de rue vers le reseau"
+    -- lot PLANDIR : les carrefours d'un AUTRE projet pas encore bâti ferment seuls la route (elle existe sans le filtre, 27/10,
+    -- scarlet : 19 carrefours étrangers sur 20, projet refusé à 13 min) : le projet ATTEND (« net ») que ce réseau soit bâti ou
+    -- annulé, au lieu d'être refusé
+    local wait = nil
+    if (nforeign_total or 0) > 0 and nbad == 0 and cause and cause:find("^aucune route") then
+      local ok_s = P.route_nodes({ i = mi, j = mj }, target, seg_passable(b), b.radius) ~= nil
+      local ok_w = P.route_nodes({ i = mi, j = mj }, target, seg_wire(b), b.radius) ~= nil
+      if ok_s or ok_w then wait = "net" end
+    end
+    return nil, "pas de rue vers le reseau", wait
   end
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
@@ -721,7 +733,7 @@ local function quai_poles(b, p, list, masks, pole_name)
   for _, e in ipairs(list) do for _, t in ipairs(P.tiles_of(e)) do planned[P.tkey(t[1], t[2])] = true end end
   local extra = {}
   for _, e in ipairs(list) do
-    if QUAI_ROLES[e.role] and e.name ~= "burner-inserter" and not covered_by(poles, e) then
+    if QUAI_ROLES[e.role] and not covered_by(poles, e) then
       local tx0, ty0 = math.floor(e.x), math.floor(e.y)
       for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 }, { 2, 0 }, { -2, 0 }, { 0, 2 }, { 0, -2 } }) do
         local tx, ty = tx0 + d[1], ty0 + d[2]
@@ -782,8 +794,10 @@ local function plan_feed(f, surface, p, place, part)
         end
       end
       -- centrale : bras À COMBUSTION au quai (correction du 27/10 : avec un bras électrique, pas de charbon sans courant
-      -- ni de courant sans charbon, 0 kW au banc ia1-build-plaine) ; il se ravitaille avec le charbon qu'il porte
-      local quai_ins = (g.gen == "steam") and "burner-inserter" or "inserter"
+      -- ni de courant sans charbon, 0 kW au banc ia1-build-plaine) ; il se ravitaille avec le charbon qu'il porte. Lot
+      -- PLANDIR (T2) : démarrage seulement, PlantArms le remplace par un bras électrique dès que la centrale produit ;
+      -- son poteau de quai est donc posé dès maintenant
+      local quai_ins = (g.gen == "steam") and M.BURNER_ARM or "inserter"
       local fd = P.feeder(port, sources, quai_ins)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
@@ -814,7 +828,7 @@ local function plan_feed(f, surface, p, place, part)
           end
         end
       end
-      if quai_ins ~= "burner-inserter" then
+      do
         local qp = quai_poles(b, p, quay_ents, place.masks, g.pole_name)
         if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       end
@@ -1172,7 +1186,7 @@ local function plan_project(f, surface, p)
           -- relevé autour de CE module (eau, bâtiments, arbres) jusqu'aux carrefours voisins
           local pm = idx == 1 and masks or read_masks(f, surface, pt.ox - 32, pt.oy - 32, pt.ox + pt.w + 32, pt.oy + pt.h + 32)
           local extra, w3, nodes = plan_power(f, p, mp, pm)
-          if not extra then return false, w3 end
+          if not extra then return false, w3, nodes == "net" and "net" or nil end
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
             local k = P.lot_key(n.i, n.j)
@@ -1921,7 +1935,7 @@ end
 local function advance(f, surface, p, tick)
   local b = f.build
   if p.state == "attente" then
-    if b.qhead > #b.queue then p.state = "plan" end
+    if b.qhead > #b.queue and tick >= (p.plan_after or 0) then p.state = "plan" end
     return
   end
   if p.state == "plan" then
@@ -1941,7 +1955,16 @@ local function advance(f, surface, p, tick)
       p.started = tick
       log(string.format("[FO-IA1D] %s : projet %d plan (%s, lot %s, %d entites, %d obstacles) a %.1f min", f.key or "player", p.id,
         p.parts[1].key, p.parts[1].lot, #p.ents, #p.obstacles, tick / 3600))
-    elseif wait then
+    elseif wait == "net" and (p.wait_net or 0) < Build.NET_WAIT_MAX then
+      -- lot PLANDIR : le réseau d'un autre projet n'est pas bâti ; tout ce qui a été réservé est rendu, nouvel essai plus tard
+      for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+      for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+      for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+      p.ents, p.parts = {}, {}
+      p.wait_net = (p.wait_net or 0) + 1
+      p.plan_after = tick + Build.NET_WAIT_TICKS
+      p.state, p.reason = "attente", why
+    elseif wait == true then
       p.state = "attente"
       p.reason = why
     else
@@ -2056,6 +2079,9 @@ local function pulse_team(f, tick)
       if was == "plan" and p.state ~= "plan" then break end
     end
   end
+  -- 3. lot PLANDIR (T2) : bras de la centrale finie, combustion au démarrage puis électriques
+  local pp = b.plant and b.projects[b.plant]
+  if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
 end
 
 local function teams()
