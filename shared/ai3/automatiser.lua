@@ -331,7 +331,9 @@ function A.cost(method, g, ctx)
     if pl then
       for _, name in ipairs(sorted_keys(pl.items)) do items[name] = (items[name] or 0) + pl.items[name] end
       items[D.PARTS.chest] = (items[D.PARTS.chest] or 0) + 1
-      n_ent = n_ent + pl.n_ent + 1
+      -- lot PLANDIR (T2) : le bras du quai de la centrale est à combustion au démarrage (build.lua, plan_feed)
+      items[M.BURNER_ARM] = (items[M.BURNER_ARM] or 0) + 1
+      n_ent = n_ent + pl.n_ent + 2
     end
   end
   local dist = ctx.dist or A.DIST
@@ -389,10 +391,57 @@ local function recipe_index(book)
   return idx
 end
 
+--- Lot PLANDIR (T1) : la MEILLEURE machine de fabrication dont `usable(nom)` est vrai (recette ouverte ou au coffre) parmi
+--- A.MACHINES, qui fait toutes les catégories de `cats` : la plus rapide (données de shared/team/modules.lua), à égalité
+--- la première de la liste. Sans machine utilisable (ou `usable` nil), la première de la liste qui fait les catégories
+--- (comportement d'avant : l'objet impossible fait rechercher). Rend le nom ou nil.
+function A.pick_machine(cats, usable)
+  local first, best, best_speed
+  for _, name in ipairs(A.MACHINES) do
+    local sp = M.spec(name)
+    local ok = sp ~= nil
+    for _, c in ipairs(cats or {}) do
+      local has = false
+      for _, c2 in ipairs(sp and sp.categories or {}) do if c2 == c then has = true end end
+      ok = ok and has
+    end
+    if ok then
+      first = first or name
+      if usable and usable(name) and (not best or (sp.speed or 0) > best_speed) then best, best_speed = name, sp.speed or 0 end
+    end
+  end
+  return best or first
+end
+
+local MACHINE_SET = {}
+for _, name in ipairs(A.MACHINES) do MACHINE_SET[name] = true end
+
 --- Méthode « machine » d'un objet : celle de A.METHODS s'il en a une, sinon un module GÉNÉRÉ depuis la recette de la main
---- (rangée G.simple). Rend la méthode, ou nil et la raison de la limite.
-function A.method_for(item, book)
-  for _, m in ipairs(A.METHODS) do if m.product == item then return m end end
+--- (rangée G.simple). Rend la méthode, ou nil et la raison de la limite. `usable` (facultatif, lot PLANDIR T1) : les
+--- machines du module sont les meilleures utilisables (A.pick_machine), jamais plus lentes que celles écrites.
+function A.method_for(item, book, usable)
+  for _, m in ipairs(A.METHODS) do
+    if m.product == item then
+      if not usable then return m end
+      local args, changed = {}, false
+      for i = 1, #m.args do
+        local a = m.args[i]
+        if type(a) == "string" and MACHINE_SET[a] then
+          local sp = M.spec(a)
+          local best = A.pick_machine(sp and sp.categories, usable)
+          if best and best ~= a and (M.spec(best).speed or 0) > (sp.speed or 0) then a, changed = best, true end
+        end
+        args[i] = a
+      end
+      if not changed then return m end
+      local m2 = {}
+      for k, v in pairs(m) do m2[k] = v end
+      m2.args = args
+      -- une machine plus rapide qui ne passe pas le contrôle du gabarit (bras introuvables…) cède à la machine écrite
+      if not A.template(m2.gen, m2.args) then return m end
+      return m2
+    end
+  end
   local rname = type(book) == "table" and book.recipe_for and book:recipe_for(item) or nil
   if not rname then
     local other = recipe_index(book)[item]
@@ -411,16 +460,14 @@ function A.method_for(item, book)
   if not solid then return nil, "limite : " .. rname .. " demande un fluide" end
   if n_in < 1 or n_in > 2 then return nil, "limite : " .. rname .. " a " .. n_in .. " ingredients (rangee : 1 ou 2)" end
   if #(r.products or {}) ~= 1 then return nil, "limite : " .. rname .. " a plusieurs produits" end
-  local machine = nil
-  for _, name in ipairs(A.MACHINES) do
-    local sp = M.spec(name)
-    for _, c in ipairs(sp and sp.categories or {}) do
-      if c == r.category and not machine then machine = name end
-    end
-  end
+  local machine = A.pick_machine({ r.category }, usable)
   if not machine then return nil, "limite : aucune machine pour la categorie " .. tostring(r.category) end
   local def = { name = rname, category = r.category, energy = r.energy, ingredients = r.ingredients, products = r.products }
-  return { product = item, gen = "simple", args = { def, 1, machine }, feed = true, generic = true }
+  local meth = { product = item, gen = "simple", args = { def, 1, machine }, feed = true, generic = true }
+  -- lot PLANDIR (T1) : la meilleure machine refusée par le gabarit cède à la première de la liste
+  local first = A.pick_machine({ r.category }, nil)
+  if machine ~= first and not A.template(meth.gen, meth.args) then meth.args = { def, 1, first } end
+  return meth
 end
 
 --- Entrées d'un objet dans le graphe : celles du gabarit de sa méthode (ce que le module reçoit du dehors : les
@@ -527,7 +574,7 @@ function A.decide(input)
   local meths, whys = {}, {}
   local function meth_of(item)
     if meths[item] == nil then
-      local m, why = A.method_for(item, book)
+      local m, why = A.method_for(item, book, input.obtainable)
       meths[item] = m or false
       whys[item] = why
     end

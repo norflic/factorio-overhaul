@@ -15,6 +15,7 @@ local M = require("shared.team.modules")
 local A = require("shared.ai3.automatiser")
 local Book = require("shared.team.book")
 local recipes = dofile("tests/fixtures/recipes.lua")
+local recipes_book = nil
 
 local passes, failures = 0, 0
 local function check(cond, msg)
@@ -24,6 +25,7 @@ end
 local function section(name) print("== " .. name) end
 
 local SMALL, MEDIUM = "small-electric-pole", "medium-electric-pole"
+recipes_book = Book.new(recipes)
 
 ---------------------------------------------------------------------------------------------------
 section("1. Table des poteaux")
@@ -194,6 +196,54 @@ do
   g0.pole_name = nil
   local set_bad = poles_of(M.regenerate(g0))
   check(set_bad[MEDIUM] ~= nil, "mutant « poteau oublié » : la régénération reprend le moyen (le contrôle 3 le verrait)")
+end
+
+---------------------------------------------------------------------------------------------------
+section("8. Meilleure machine (T1) : les gabarits des machines plus rapides passent le contrôle")
+do
+  local all = function() return true end
+  local n_checked, n_changed = 0, 0
+  for _, m in ipairs(A.METHODS) do
+    local m2 = A.method_for(m.product, recipes_book, all)
+    local changed = false
+    for i = 1, #m.args do if m2.args[i] ~= m.args[i] then changed = true end end
+    if changed then
+      n_changed = n_changed + 1
+      local t = A.template(m2.gen, m2.args)
+      if check(t ~= nil, m.product .. " : gabarit de la meilleure machine obtenu") then
+        local ex = t.ext
+        for k = 1, (ex and ex.max or 1) do
+          local args = {}
+          for i = 1, #m2.args do args[i] = m2.args[i] end
+          if ex then args[ex.arg] = k end
+          local g = M.GEN[m2.gen](table.unpack(args))
+          if check(g ~= nil, m.product .. " n=" .. k .. " : gabarit refait") then
+            local errs = M.check(g)
+            check(#errs == 0, m.product .. " n=" .. k .. " (" .. tostring(m2.args[1]) .. "," .. tostring(m2.args[2]) .. ") sans erreur : " .. tostring(errs[1]))
+            n_checked = n_checked + 1
+          end
+        end
+      end
+    end
+  end
+  print(string.format("  %d méthode(s) écrites changent de machine, %d taille(s) contrôlées", n_changed, n_checked))
+  check(n_changed >= 4, "au moins quatre gabarits écrits passent à la machine 2")
+  -- rangées générées depuis toutes les recettes de la main à 1 ou 2 ingrédients solides : machine 2 contrôlée aussi
+  local n_gen, n_fail, n_regress = 0, 0, 0
+  for _, item in ipairs({ "pipe", "iron-stick", "copper-cable", "stone-brick", "inserter", "transport-belt", "underground-belt",
+    "firearm-magazine", "piercing-rounds-magazine", "engine-unit", "iron-chest", "steel-chest" }) do
+    local m = A.method_for(item, recipes_book, all)
+    local m1 = A.method_for(item, recipes_book)
+    if m and m.generic then
+      local t = A.template(m.gen, m.args)
+      local t1 = A.template(m1.gen, m1.args)
+      n_gen = n_gen + 1
+      if not t then n_fail = n_fail + 1; if t1 then n_regress = n_regress + 1 end end
+    end
+  end
+  print(string.format("  %d rangée(s) générée(s) examinée(s), %d refusée(s) (dont %d acceptées sur la machine 1 : repli)", n_gen, n_fail, n_regress))
+  check(n_regress == 0, "une rangée acceptée sur la machine 1 l'est encore (repli sur la machine écrite)")
+  check(n_gen >= 3, "au moins trois rangées générées examinées")
 end
 
 print(string.format("[PLANDIR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
