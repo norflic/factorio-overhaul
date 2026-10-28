@@ -1159,6 +1159,7 @@ end
 -- Interface distante de LECTURE (bancs)
 ---------------------------------------------------------------------------------------------------
 local function team_of(key)
+  if key == "player" then return State.faction("player") end -- lot LEVIERS : votre équipe aussi (bancs)
   for _, id in ipairs(State.alive()) do
     local f = State.faction(id)
     if f and (f.key == key or id == key) then return f end

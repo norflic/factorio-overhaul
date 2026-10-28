@@ -391,19 +391,47 @@ local function s7()
   local r3 = Ca.decide(blocked_scene(D3), {})
   check(count_kind(r3, "equiper") == 0 and r3.repli and r3.repli.none and r3.repli.text:find("aucun levier", 1, true),
     "§7 sans emplacement dans les données : aucun levier, dit pourquoi (" .. tostring(r3.repli and r3.repli.none) .. ")")
-  -- Tous les noms changés (modules, machines, recettes du test inchangés ici : on renomme les modules) : mêmes ordres.
-  local Dr = C.data(nil, nil, nil, function(lv)
-    local m2 = {}
-    for k, v in pairs(lv.equip) do m2["zz-" .. k] = v end
-    lv.equip = m2
-  end, nil)
-  -- (les recettes des modules gardent leurs noms : ils sortent du relevé de recettes, pas de lv ; le renommage ne
-  -- change donc pas les valeurs) -> on contrôle seulement la décision sur les modules du stock renommés
-  local st2 = {}
-  for k, v in pairs(stock()) do st2["zz-" .. k] = v end
-  st2["electronic-circuit"] = 1000
-  local rr = Ca.decide(blocked_scene(Dr, { stock = st2 }), {})
-  check(count_kind(rr, "equiper") == 0, "§7 modules sans recette (valeur inconnue) : aucun ordre, aucune erreur")
+  -- TOUS les noms changés (objets, recettes, machines, ressources, technologies, modules, recettes permises) : mêmes ordres
+  -- au renommage près, sur trois scènes (repli de fours, repli de foreuses couvertes, recherche à effet).
+  local d0 = C.dump()
+  local map = C.name_map(d0)
+  local unmap = {}
+  for _, k in ipairs(sorted_keys(map)) do unmap[map[k]] = k end
+  local d2 = C.rename(d0, map)
+  local exec2 = {}
+  for _, k in ipairs(sorted_keys(C.EXEC)) do exec2[map[k]] = true end
+  local Da = Ca.data(d0, { exec = C.EXEC, exec_roles = C.ROLES })
+  local Db = Ca.data(d2, { exec = exec2, exec_roles = C.ROLES })
+  Da.mu["chemical-science-pack"] = 12
+  Db.mu[map["chemical-science-pack"]] = 12
+  local function sig(res, un)
+    local t = {}
+    for _, o in ipairs(res.orders) do
+      local key = o.key
+      if un then
+        key = key:gsub("[%w%-_]+", function(w) return un[w] or w end)
+      end
+      t[#t + 1] = string.format("%s|%d|%.6f|%s", key, o.n or 0, o.T, tostring(un and un[o.module or ""] or o.module))
+    end
+    return table.concat(t, ";")
+  end
+  local scenes = {
+    function(D) return blocked_scene(D) end,
+    function(D)
+      local inp = blocked_scene(D, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
+        flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
+      return inp
+    end,
+    function(D) return tech_scene(D) end,
+  }
+  for k, mk_scene in ipairs(scenes) do
+    local inp_a = mk_scene(Da)
+    local r_a = Ca.decide(inp_a, {})
+    local r_b = Ca.decide(C.rename_input(inp_a, map, Db), {})
+    local sa, sb = sig(r_a), sig(r_b, unmap)
+    check(#r_a.orders >= 1 and sa == sb, string.format("§7 tous les noms changés, scène %d : mêmes ordres (%d)%s", k, #r_a.orders,
+      sa == sb and "" or (" : " .. sa .. " / " .. sb)))
+  end
   -- Déterminisme : deux passages, entrées permutées.
   local a = orders_text(Ca.decide(blocked_scene(D0), {}))
   local b = orders_text(Ca.decide(blocked_scene(D0), {}))

@@ -102,4 +102,120 @@ function C.input(D, over)
   return inp
 end
 
+---------------------------------------------------------------------------------------------------
+-- Renommage de TOUS les noms (preuve de généralisation, comme tests/ai3_capitalisation_test.lua §8e), relevé `lv` compris
+---------------------------------------------------------------------------------------------------
+function C.name_map(d)
+  local names = {}
+  local function n(x) if type(x) == "string" then names[x] = true end end
+  for rn, r in pairs(d.recipes) do
+    n(rn) n(r.category)
+    for _, i in ipairs(r.ingredients or {}) do n(i.name) end
+    for _, p in ipairs(r.products or {}) do n(p.name) end
+  end
+  for tn, t in pairs(d.techs) do
+    n(tn)
+    for _, x in ipairs(t.prerequisites or {}) do n(x) end
+    for _, x in ipairs(t.unlocks or {}) do n(x) end
+    for _, x in ipairs(t.ingredients or {}) do n(x[1]) end
+  end
+  for _, e in ipairs(d.entities) do
+    n(e.name) n(e.item)
+    for _, c in ipairs(e.crafting_categories or {}) do n(c) end
+    for _, c in ipairs(e.resource_categories or {}) do n(c) end
+    for _, c in ipairs(e.lab_inputs or {}) do n(c) end
+  end
+  for _, r in ipairs(d.resources) do
+    n(r.entity) n(r.category)
+    for _, p in ipairs(r.products or {}) do n(p.name) end
+  end
+  for k in pairs(d.items) do n(k) end
+  for k, m in pairs(d.lv.equip) do
+    n(k)
+    for _, r in ipairs(m.limit or {}) do n(r) end
+  end
+  for k in pairs(d.lv.slots) do n(k) end
+  for k in pairs(d.lv.techs) do n(k) end
+  local map = {}
+  for i, x in ipairs(C.sorted_keys(names)) do map[x] = string.format("z%05d", i) end -- l'ordre des noms est gardé
+  return map
+end
+
+function C.rename(d, map)
+  local function m(x) return (type(x) == "string" and map[x]) or x end
+  local nd = { recipes = {}, techs = {}, entities = {}, resources = {}, items = {}, lv = { equip = {}, slots = {}, techs = {} } }
+  for _, rn in ipairs(C.sorted_keys(d.recipes)) do
+    local r = C.deep(d.recipes[rn])
+    r.category = m(r.category)
+    for _, i in ipairs(r.ingredients or {}) do i.name = m(i.name) end
+    for _, p in ipairs(r.products or {}) do p.name = m(p.name) end
+    nd.recipes[m(rn)] = r
+  end
+  for _, tn in ipairs(C.sorted_keys(d.techs)) do
+    local t = C.deep(d.techs[tn])
+    for i, x in ipairs(t.prerequisites or {}) do t.prerequisites[i] = m(x) end
+    for i, x in ipairs(t.unlocks or {}) do t.unlocks[i] = m(x) end
+    for _, x in ipairs(t.ingredients or {}) do x[1] = m(x[1]) end
+    nd.techs[m(tn)] = t
+  end
+  for _, e0 in ipairs(d.entities) do
+    local e = C.deep(e0)
+    e.name, e.item = m(e.name), m(e.item)
+    for i, c in ipairs(e.crafting_categories or {}) do e.crafting_categories[i] = m(c) end
+    for i, c in ipairs(e.resource_categories or {}) do e.resource_categories[i] = m(c) end
+    for i, c in ipairs(e.lab_inputs or {}) do e.lab_inputs[i] = m(c) end
+    nd.entities[#nd.entities + 1] = e
+  end
+  for _, r0 in ipairs(d.resources) do
+    local r = C.deep(r0)
+    r.entity, r.category = m(r.entity), m(r.category)
+    for _, p in ipairs(r.products or {}) do p.name = m(p.name) end
+    nd.resources[#nd.resources + 1] = r
+  end
+  for _, k in ipairs(C.sorted_keys(d.items)) do nd.items[m(k)] = C.deep(d.items[k]) end
+  for _, k in ipairs(C.sorted_keys(d.lv.equip)) do
+    local e = C.deep(d.lv.equip[k])
+    for i, r in ipairs(e.limit or {}) do e.limit[i] = m(r) end
+    nd.lv.equip[m(k)] = e
+  end
+  for _, k in ipairs(C.sorted_keys(d.lv.slots)) do nd.lv.slots[m(k)] = C.deep(d.lv.slots[k]) end
+  for _, k in ipairs(C.sorted_keys(d.lv.techs)) do nd.lv.techs[m(k)] = C.deep(d.lv.techs[k]) end
+  return nd
+end
+
+function C.rename_input(inp, map, D2)
+  local function m(x) return (type(x) == "string" and map[x]) or x end
+  local function keys(t) local o = {} for _, k in ipairs(C.sorted_keys(t)) do o[m(k)] = C.deep(t[k]) end return o end
+  local o = {}
+  for k, v in pairs(inp) do if type(v) ~= "function" then o[k] = C.deep(v) else o[k] = v end end
+  o.data = D2
+  o.state = { techs = keys(inp.state.techs) }
+  o.stock, o.flows = keys(inp.stock), keys(inp.flows)
+  for _, x in ipairs(o.machines or {}) do
+    x.entity, x.recipe = m(x.entity), m(x.recipe)
+    if x.mods then x.mods = keys(x.mods) end
+  end
+  for _, x in ipairs(o.drills or {}) do
+    x.entity, x.resource = m(x.entity), m(x.resource)
+    if x.mods then x.mods = keys(x.mods) end
+  end
+  for _, x in ipairs(o.labs or {}) do x.entity = m(x.entity) end
+  for _, x in ipairs(o.deposits or {}) do x.resource, x.smelt, x.smelter = m(x.resource), m(x.smelt), m(x.smelter) end
+  for _, x in ipairs(o.sinks or {}) do x.item = m(x.item) end
+  if o.research then
+    for _, q in ipairs(o.research.queue or {}) do
+      q.tech = m(q.tech)
+      for _, p in ipairs(q.packs or {}) do p[1] = m(p[1]) end
+    end
+  end
+  if type(inp.obtainable) == "function" then o.obtainable = inp.obtainable end
+  if inp.can_exec then
+    local un = {}
+    for k, v in pairs(map) do un[v] = k end
+    local f0 = inp.can_exec
+    o.can_exec = function(kind, item) return f0(kind, un[item] or item) end
+  end
+  return o
+end
+
 return C
