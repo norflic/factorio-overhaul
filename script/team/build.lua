@@ -906,6 +906,13 @@ end
 
 Build.LAYOUT_LOGS = 24  -- lot LAYOUT : lignes [FO-LAYOUT], au plus, par équipe
 
+--- Lot LAYOUT : une ligne [FO-LAYOUT] (au plus Build.LAYOUT_LOGS par équipe).
+function Build.layout_log(f, text)
+  local b = f.build
+  b.layout_logs = (b.layout_logs or 0) + 1
+  if b.layout_logs <= Build.LAYOUT_LOGS then log("[FO-LAYOUT] " .. tostring(f.key or "player") .. " : " .. text) end
+end
+
 --- Lot LAYOUT : place la ligne de foreuses d'une voie par la règle pure d'agencement (shared/team/layout_mine.lua) au lieu du
 --- gabarit fixe : foreuse électrique la plus rapide DÉBLOQUÉE (prototypes et recettes de la force, script/team/layout_runtime.lua),
 --- lignes de part et d'autre d'un couloir de tapis dont la sortie regarde l'arrivée `a`, jamais deux minerais dans un rayon,
@@ -914,7 +921,10 @@ Build.LAYOUT_LOGS = 24  -- lot LAYOUT : lignes [FO-LAYOUT], au plus, par équipe
 function Build.layout_place(f, surface, p, item, flow, a)
   local b = f.build
   local options = LayoutRT.options(f.force, item, function(name) return Stock.count(f, name) end)
-  if #options == 0 then return nil, "foreuse" end
+  if #options == 0 then
+    Build.layout_log(f, string.format("%s : aucune foreuse electrique debloquee ni au coffre", item))
+    return nil, "foreuse"
+  end
   local pole = p.spec and p.spec.pole
   local best, last, tries = nil, "pas de lot", 0
   for _, c in ipairs(candidates(b, { gisement = true }, { x = a.x, y = a.y }, item)) do
@@ -941,14 +951,12 @@ function Build.layout_place(f, surface, p, item, flow, a)
   end
   if not best then
     bump(b.stats.plan_refused, "champ:" .. last)
+    Build.layout_log(f, string.format("%s : refus (%s) apres %d lot(s), %d foreuse(s) possible(s) dont %s", item, last, tries, #options, options[1].name))
     return nil, last
   end
-  b.layout_logs = (b.layout_logs or 0) + 1
-  if b.layout_logs <= Build.LAYOUT_LOGS then
-    log(string.format("[FO-LAYOUT] %s : %s, lot %s : %d foreuse(s) %s (%.2f/s pour %.2f/s voulus), %d tuile(s) de minerai captee(s) sur %d, sortie vers (%d, %d)",
-      f.key or "player", item, best.lot, best.plan.drills_n, best.drill.name, best.plan.rate, flow, best.plan.covered_tiles,
+  Build.layout_log(f, string.format("%s, lot %s : %d foreuse(s) %s (%.2f/s pour %.2f/s voulus), %d tuile(s) de minerai captee(s) sur %d, sortie vers (%d, %d)",
+      item, best.lot, best.plan.drills_n, best.drill.name, best.plan.rate, flow, best.plan.covered_tiles,
       best.plan.total_tiles or 0, best.plan.exits[1].x, best.plan.exits[1].y))
-  end
   local o = best.g.origin
   return { g = best.g, k = 0, ox = o[1], oy = o[2], lot = best.lot, inst = M.instantiate(best.g, 0, o[1], o[2]),
     cover = best.plan.covered / math.max(1, best.plan.total), masks = best.masks }
