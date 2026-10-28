@@ -73,19 +73,20 @@ base.tick = function(ctx, e)
         if bo.status == defines.entity_status.working then bo_ok = bo_ok + 1
         elseif bo.status == defines.entity_status.no_fuel then bo_dry = bo_dry + 1 end
       end
-      local dr_elec, dr_work, am_work = 0, 0, 0
+      local dr_elec, dr_work, am_work, dr_nopow = 0, 0, 0, 0
       for _, d in ipairs(s.find_entities_filtered({ force = r.force, type = "mining-drill" })) do
         if d.prototype.electric_energy_source_prototype then
           dr_elec = dr_elec + 1
-          if d.status == defines.entity_status.working then dr_work = dr_work + 1 end
+          if d.status == defines.entity_status.working then dr_work = dr_work + 1
+          elseif d.status == defines.entity_status.no_power or d.status == defines.entity_status.low_power then dr_nopow = dr_nopow + 1 end
         end
       end
       for _, a in ipairs(s.find_entities_filtered({ force = r.force, type = { "assembling-machine", "lab" } })) do
         if a.status == defines.entity_status.working then am_work = am_work + 1 end
       end
       log(TAG .. string.format("reseau minute %d | %s | generateurs=%d reseaux=%d poteaux_total=%d poteaux_sur_reseau_centrale=%d plus_loin_poteau_de_ligne=%.0f kW_produits=%.0f"
-        .. " chaudieres=%d travaillent=%d sans_combustible=%d charbon_en_chaudiere=%d foreuses_elec=%d foreuses_elec_travaillent=%d machines_travaillent=%d",
-        e.tick / MIN, r.key, #gens, n, #poles, on, far, kw, #boilers, bo_ok, bo_dry, fuel, dr_elec, dr_work, am_work))
+        .. " chaudieres=%d travaillent=%d sans_combustible=%d charbon_en_chaudiere=%d foreuses_elec=%d foreuses_elec_travaillent=%d machines_travaillent=%d foreuses_elec_sans_courant=%d",
+        e.tick / MIN, r.key, #gens, n, #poles, on, far, kw, #boilers, bo_ok, bo_dry, fuel, dr_elec, dr_work, am_work, dr_nopow))
       -- ravitaillement des quais (centrale lointaine : le charbon part du coffre du QG à pied) : objets remplis aux quais, objets
       -- collectés, contenu des quais d'entrée de la centrale
       local okq, rq = pcall(remote.call, "fo-ia1d", "report", r.key)
