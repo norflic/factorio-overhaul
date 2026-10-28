@@ -72,6 +72,13 @@ L.TEAM_FACTOR = 1
 -- Tout ce que la config lit dans X est lu ICI, au chargement, et recopié dans L (L.VANILLA_UNIT_SCALE,
 -- L.target, index de QX9) : aucune fonction de L ne lit X ensuite (correction V2c de la garde de dress).
 ---------------------------------------------------------------------------------------------------
+-- Lot TIRS (D-21) : table des dégâts par niveau (pur, nombres écrits), même chemin double que X ci-dessous.
+local DEGATS
+do
+  local ok, res = pcall(require, "shared.tirs.degats")
+  if ok and type(res) == "table" then DEGATS = res else DEGATS = require("__factorio-overhaul__/shared/tirs/degats") end
+end
+
 local X
 do
   local ok, res = pcall(require, "shared.content.epochs")
@@ -197,6 +204,7 @@ L.MIN_MATERIAL_STACK = 50
 --   max         : niveau maximal (15 pour le centre, 30 pour les autres) ;
 --   stats       : { chemin, op, k } appliqué au prototype du niveau 1 :
 --                 "mul" : v × (1 + k·(n-1))     "add" : v + k·(n-1)
+--                 "table" : v × t[n] (t : 30 nombres écrits ; lot TIRS, D-21 : dégâts des tourelles par âge)
 --                 knee, k2 : au-delà du niveau `knee`, la pente devient k2 (dégressif) ;
 --                 hidden : statistique absente du panneau ; label : clé de locale du panneau
 --   base_cost   : panier de base (époque 1) ; quantité × (1 + base_growth·(n-2)) : croissance LINÉAIRE ;
@@ -219,12 +227,13 @@ L.families = {
     base_growth = 0.15,
   },
   {
-    -- Dégâts : + 8 % par niveau jusqu'au 10 (0.3.0), puis + 2 % (dégressif) : au niveau 30, × 2,12, sous la
-    -- tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS). Testé : DPS ≤ 1,1 × la lourde.
+    -- Dégâts (lot TIRS, D-21 révisée le 28/10 : × 1,15 par âge) : niveaux 1 à 6 comme avant (+ 8 % par niveau), puis × 1,15 par ÂGE
+    -- (shared/tirs/degats.lua, nombres écrits) : × 7,49 au niveau 30 (× 1,15 par âge ; 0.6.5 : × 2,12, + 2 % par âge de 6 à 15).
+    -- La tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS) vaut le niveau 12-13 : testé.
     key = "gun", type = "ammo-turret", base = "gun-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1 },
+      { path = { "attack_parameters", "damage_modifier" }, op = "table", t = DEGATS.par_niveau, default = 1 },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
     },
@@ -232,13 +241,14 @@ L.families = {
     base_growth = 0.15, epoch_value = 12,
   },
   {
-    -- Mêmes dégâts dégressifs (× 4,24 au niveau 30 contre 4 pour la tourelle laser lourde) ; l'énergie par
-    -- tir (et le tampon, qui doit la contenir) croît de 4 % par niveau : × 2,16 au niveau 30, les dégâts par
-    -- joule restent ceux du niveau 1 (la lourde : × 2,5 d'énergie pour × 2 de dégâts).
+    -- Mêmes dégâts que la mitrailleuse (lot TIRS, D-21 : 2 × 7,49 = × 14,98 en absolu au niveau 30, contre 4 pour la
+    -- tourelle laser lourde) ; l'énergie par tir (et le tampon, qui doit la contenir) croît de 4 % par niveau :
+    -- × 2,16 au niveau 30 (une tourelle laser ne tire pas plus qu'une entrée de 9,6 MW), donc les dégâts par joule
+    -- CROISSENT avec l'âge (les balles aussi : une balle de plus haut niveau fait plus de dégâts pour la même munition).
     key = "laser", type = "electric-turret", base = "laser-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "attack_parameters", "damage_modifier" }, op = "mul", k = 0.08, knee = 10, k2 = 0.02, default = 1 },
+      { path = { "attack_parameters", "damage_modifier" }, op = "table", t = DEGATS.par_niveau, default = 1 },
       { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
       { path = { "attack_parameters", "ammo_type", "energy_consumption" }, op = "mul", k = 0.04,
@@ -499,6 +509,7 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Valeur d'une statistique au niveau n à partir de la valeur du niveau 1.
 function L.apply_stat(stat, v1, n)
+  if stat.op == "table" then return v1 * stat.t[n] end
   local x = stat.k * (n - 1)
   if stat.knee and n > stat.knee then x = stat.k * (stat.knee - 1) + stat.k2 * (n - stat.knee) end
   if stat.op == "mul" then return v1 * (1 + x) end
