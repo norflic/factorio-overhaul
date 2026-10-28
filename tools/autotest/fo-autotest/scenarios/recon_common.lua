@@ -17,7 +17,7 @@ return function(case, distance, ticks)
   return {
     description = "RECON : connaissance des rivales, cas " .. case .. " (distance " .. distance .. ")",
     base = nil,
-    check_tick = ticks,
+    check_tick = ticks - 300, -- le contrôle se joue avant la fin du banc (sinon il est sauté)
 
     init = function(ctx)
       local ok = ctx.remote("fo-pvp", "set_difficulty", "peaceful")
