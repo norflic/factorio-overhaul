@@ -21,7 +21,7 @@ local Journal = {}
 
 -- ui : état de la fenêtre par joueur { tab, confirm } ; journal : entrées { tick, kind, a, b, c } ; snap : dernier relevé ;
 -- refreshes : contenus d'onglet reconstruits (mesure : aucun quand toutes les fenêtres sont fermées).
-Storage.declare("ia1i", function() return { ui = {}, journal = {}, snap = nil, refreshes = 0 } end)
+Storage.declare("ia1i", function() return { ui = {}, journal = {}, snap = nil, refreshes = 0, panel = { rings = {} } } end)
 
 function Journal.ns() return Storage.ns("ia1i") end
 
