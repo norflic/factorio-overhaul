@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.7
+Date: 2026-10-28
+  Changes:
+    - Les tourelles (mitrailleuse et laser) gagnent des degats croissants par age : x1,15 par age a partir de l'age 4, niveaux 1 a 6
+      inchanges (age 4 : 1,61 ; age 10 : 3,72 ; age 15, niveau 30 : 7,49 contre 2,12 avant). Le laser garde son degat double d'origine
+      et consomme 4 % d'energie de plus par niveau. Les tourelles deja posees gardent leur niveau et prennent les nouveaux degats.
+    - Les tirs sont habilles par age (fo-tirs) ; un tir dont la cible est deja morte est compte a part.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.6
 Date: 2026-10-28
   Changes:
