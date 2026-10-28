@@ -71,7 +71,20 @@ function Av.tasks(f, tick)
   for _, r in ipairs(A.open(st, tick)) do
     local n = A.TURRETS
     local ammo = n * T.defend_ammo
-    if Stock.count(f, Rg.TURRET) >= n and Stock.count(f, T.turret_ammo) >= ammo then
+    local have_t, have_a = Stock.count(f, Rg.TURRET), Stock.count(f, T.turret_ammo)
+    if have_t < n or have_a < ammo then
+      st.waited = st.waited or {}
+      if not st.waited[r.key] then
+        st.waited[r.key] = tick
+        log(string.format("[FO-AVANCE] %s : poste %s attend ses objets : tourelles %d/%d, chargeurs %d/%d a %.1f min", f.key or "player",
+          r.key, have_t, n, have_a, ammo, tick / 3600))
+      end
+    else
+      st.emitted = st.emitted or {}
+      if not st.emitted[r.key] then
+        st.emitted[r.key] = tick
+        log(string.format("[FO-AVANCE] %s : tache de poste %s emise (%d tourelles, %d chargeurs) a %.1f min", f.key or "player", r.key, n, ammo, tick / 3600))
+      end
       out[#out + 1] = { key = "avance:" .. r.key, kind = "fortify", prio = 74, post = { x = r.x, y = r.y }, post_key = r.key,
         items = { { Rg.TURRET, n }, { T.turret_ammo, ammo } }, defend = true }
     end
