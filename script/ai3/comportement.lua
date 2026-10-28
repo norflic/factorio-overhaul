@@ -233,19 +233,23 @@ function M.enemy_speed(e)
   return v or nil
 end
 
---- Tourelles amies valides de l'équipe, en positions { x, y } (triées par numéro).
-local function turret_points(f)
+--- Tourelles amies debout autour du QG (à moins de Re.RALLY_R tuiles du coffre), en positions { x, y } : celles de l'équipe
+-- ET celles que son joueur a posées (un scan de la zone : appelé seulement quand le QG est menacé ou qu'un PNJ y est blessé).
+local function qg_turret_points(f)
   local out = {}
-  for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
-    local t = f.turrets[id]
-    if t and t.valid then out[#out + 1] = { x = t.position.x, y = t.position.y } end
-  end
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  if not surface then return out end
+  local home = f.home_spot or f.hq_pos
+  local list = surface.find_entities_filtered({ position = home, radius = Re.RALLY_R, force = f.force,
+    type = { "ammo-turret", "electric-turret", "fluid-turret" } })
+  for _, t in ipairs(list) do out[#out + 1] = { x = t.position.x, y = t.position.y, n = t.unit_number or 0 } end
+  table.sort(out, function(a, b) if a.n ~= b.n then return a.n < b.n end if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   return out
 end
 
 --- Point de ralliement du QG (derrière ses tourelles, côté coffre) ; nil sans tourelle du QG.
 function M.rally(f)
-  return Re.rally_point(turret_points(f), f.home_spot or f.hq_pos)
+  return Re.rally_point(qg_turret_points(f), f.home_spot or f.hq_pos)
 end
 
 local weight_cache = {} -- [nom de prototype] = poids (prototypes : identiques chez tous les pairs)

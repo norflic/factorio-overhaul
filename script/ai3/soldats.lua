@@ -155,6 +155,27 @@ local function armed_near_hq(f)
   return n
 end
 
+--- Menace sur le QG (C7) : l'ennemi militaire le plus proche à moins de HQ_THREAT_R tuiles ; réponse de l'équipe (shelter).
+local function hq_threat(f, t, surface, tick)
+  local en = surface.find_nearest_enemy({ position = f.hq_pos, max_distance = SD.HQ_THREAT_R, force = f.force })
+  if not (en and (en.type == "unit" or en.type == "character")) then return end
+  local threat = { x = en.position.x, y = en.position.y }
+  -- Force ennemie PESÉE autour de la menace (même mesure que le regard : moyen déchiqueteur = 1).
+  local force = 0
+  for _, u in ipairs(surface.find_entities_filtered({ position = threat, radius = 16, force = en.force,
+    type = { "unit", "character" }, limit = 24 })) do
+    force = force + C.weight(u)
+  end
+  local prud, agr = C.character(f)
+  local rally = C.rally(f)
+  local _, range = C.classify(en)
+  local own = game.entity_prototypes["character"] and game.entity_prototypes["character"].running_speed or nil
+  local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
+    outrun = Re.outrun(C.enemy_speed(en), own) })
+  t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
+  shelter(f, t, threat, tick, resp, rally, range)
+end
+
 local function pass(f, tick)
   local t = C.team(f)
   t.sd = t.sd or { per = {}, cursor = 0 }
@@ -163,28 +184,7 @@ local function pass(f, tick)
   local enabled = C.enabled()
   local surface = f.hq and f.hq.valid and f.hq.surface
   if not surface then return end
-  -- Menace sur le QG (C7) : l'ennemi militaire le plus proche à moins de HQ_THREAT_R tuiles.
-  local threat = nil
-  if enabled then
-    local en = surface.find_nearest_enemy({ position = f.hq_pos, max_distance = SD.HQ_THREAT_R, force = f.force })
-    if en and (en.type == "unit" or en.type == "character") then threat = { x = en.position.x, y = en.position.y } end
-    if threat then
-      -- Force ennemie PESÉE autour de la menace (même mesure que le regard : moyen déchiqueteur = 1).
-      local force = 0
-      for _, u in ipairs(surface.find_entities_filtered({ position = threat, radius = 16, force = en.force,
-        type = { "unit", "character" }, limit = 24 })) do
-        force = force + C.weight(u)
-      end
-      local prud, agr = C.character(f)
-      local rally = C.rally(f)
-      local _, range = C.classify(en)
-      local own = game.entity_prototypes["character"] and game.entity_prototypes["character"].running_speed or nil
-      local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
-        outrun = Re.outrun(C.enemy_speed(en), own) })
-      t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
-      shelter(f, t, threat, tick, resp, rally, range)
-    end
-  end
+  if enabled then hq_threat(f, t, surface, tick) end
   local soldiers = f.soldiers or {}
   local ids = State.sorted_keys(soldiers)
   local list, group_n = {}, 0
@@ -416,6 +416,15 @@ Events.on_nth_tick(SD.PERIOD, function(e)
   local i = math.floor(e.tick / SD.PERIOD) % #alive + 1
   local f = war.factions[alive[i]]
   if f and not f.eliminated and f.hq_pos then pass(f, e.tick) end
+end)
+
+-- Votre équipe n'est pas une faction de la guerre (State.alive) : elle n'a pas de rôles de soldats, mais son QG est menacé
+-- comme les autres (une vague de biters, un raid d'une faction) : même réponse, à chaque période (une recherche d'ennemi).
+Events.on_nth_tick(SD.PERIOD, function(e)
+  if not C.enabled() then return end
+  local f = State.faction("player")
+  local surface = f and f.hq_pos and f.hq and f.hq.valid and f.hq.surface
+  if surface then hq_threat(f, C.team(f), surface, e.tick) end
 end)
 
 -- Votre équipe n'a pas de soldats : seule la mise à l'abri (C7) la concerne, toutes les 120 ticks.
