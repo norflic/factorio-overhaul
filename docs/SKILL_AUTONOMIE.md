@@ -49,6 +49,18 @@ grandes idées ; le détail des commandes et interdits est dans `CLAUDE.md` du m
 - Jamais de `factorio.exe` direct, jamais de son sur la vraie sortie, jamais tuer tous les `factorio.exe`.
 - Surveiller les processus orphelins (tickets d'agents disparus) ; tuer ceux qui n'ont plus de propriétaire.
 
+## 4 bis. Pilotage : tâches planifiées (ordre du DC, 28/10 nuit : « vous êtes le seul orchestrateur, managez-les de près »)
+- **Toutes les 10 minutes** : une tâche planifiée de pilotage (CronCreate `4-59/10 * * * *`) : `ListAgents` et messages ; relancer
+  tout agent idle avec du travail restant ; faire exposer le diagnostic de tout agent qui tourne en rond (2 essais) ; contrôler
+  la file des bancs (3 places, un ticket par lot, tickets orphelins tués) ; réclamer leur tableau aux agents dont l'archive est
+  finie ; fusionner ce qui tient ses critères sur 4 graines après relecture sceptique ; lancer la suite des workflows ;
+  mettre à jour les documents ; rapport au DC en 3 lignes seulement si quelque chose a changé.
+- **Deux fois par heure** (`17,47 * * * *`) : relecture des logs (`docs/LOGS_NUIT.md`, script `scan_logs.py`) : erreurs Lua,
+  plantages, boucles de tâches, fer gardé en inventaire, gels, centrales à 0 kW, processus parasites.
+- Ces tâches vivent dans la session (7 jours au plus) : si la session redémarre, les recréer en premier.
+- Un agent n'est jamais « laissé tranquille » : s'il n'a rien produit (archive, commit, rapport) depuis 20 minutes, je lui
+  écris ; s'il est silencieux depuis 40 minutes, je lis son worktree et ses archives moi-même.
+
 ## 5. Gouvernance
 - Seul l'intégrateur (moi) touche `info.json`, `data.lua`, `control.lua`, `settings.lua`, les documents partagés et `main`.
 - `main` = toujours jouable : fusions validées seulement. Versions : `info.json` montée, banc `content` vert, tag
