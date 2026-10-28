@@ -388,18 +388,15 @@ end
 
 --- Étape 1 / robustesse (28/10, graine 123456789 : Écarlate, QG à (339, −340), AUCUNE eau dans les 121 lots du treillis ni à
 --- moins de 256 tuiles : « centrale REFUSEE : pas de lot » à chaque demande, 0 poteau, 0 centrale, 0 foreuse électrique à
---- 60 min, alors qu'Azure trouvait sa rive à 5 lots) : sans eau dans le treillis, la centrale à vapeur n'a nulle part où
---- pomper et l'électrification d'une faction ne démarre JAMAIS. Comme les gisements garantis (lot M0), l'eau de la
+--- 60 min ; graine 271828182, Azure : de l'eau, mais aucune rive où le gabarit de la pompe tient, « refuse (place) » à chaque
+--- demande, 0 poteau) : sans rive utilisable dans le treillis, la centrale à vapeur n'a nulle part où pomper et
+--- l'électrification d'une faction ne démarre JAMAIS. Comme les gisements garantis (lot M0), l'eau de la
 --- centrale est GARANTIE : un petit étang (Build.POND × Build.POND tuiles) au centre du lot libre le plus proche du QG
 --- (hors lot du QG, hors gisement, hors lot pris), une fois par équipe. Le lot est réévalué (rive) et la centrale replanifiée.
 Build.POND = 6
 local function make_pond(f, surface)  -- factions seulement (le joueur trouve son eau)
   local b = f.build
   if b.pond then return false end
-  for _, k in ipairs(sorted_keys(b.lots)) do
-    local l = b.lots[k]
-    if (l.water or 0) > 0 or (l.state == "refuse" and l.reason == "eau") then return false end -- de l'eau existe déjà
-  end
   local best
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
@@ -417,9 +414,16 @@ local function make_pond(f, surface)  -- factions seulement (le joueur trouve so
   end
   surface.set_tiles(tiles, true, true)
   b.pond = best.k
+  -- Les rives naturelles déjà essayées sans succès (la pompe de rive demande 2 tuiles d'eau devant elle et 60 % du gabarit
+  -- mouillé : graine 271828182, Azure, « centrale refusee : place » à chaque demande malgré l'eau) ne sont plus candidates :
+  -- l'étang, au bord rectiligne, l'est seul.
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    if k ~= best.k and (l.water or 0) > 0 then l.bad = math.max(l.bad or 0, 2) end
+  end
   best.l.state, best.l.reason, best.l.bad = "inconnu", nil, nil
   b.queue[#b.queue + 1] = { "lot", best.k }
-  log(string.format("[FO-IA1D] %s : aucune eau dans le treillis : etang de %d x %d tuiles pose au lot %s (%d, %d) pour la centrale",
+  log(string.format("[FO-IA1D] %s : aucune rive ne tient la centrale : etang de %d x %d tuiles pose au lot %s (%d, %d) pour la centrale",
     f.key or "player", Build.POND, Build.POND, best.k, x0, y0))
   return true
 end
