@@ -525,9 +525,6 @@ function A.freezes_clock(electric, plant_state)
   if not electric or plant_state == nil then return false end
   return plant_state ~= "fini" and plant_state ~= "refuse"
 end
--- Lot CENTRALE : états d'un chantier dont les matériaux sont réservés (il ne lui reste que la pose)
-local TAIL = { defrichage = true, fantomes = true, chantier = true, raccordement = true }
-A.TAIL_STATES = TAIL
 
 --- La décision d'une pensée. input = {
 ---   window, threatened, mods = { { product, state, reason, sig, finished_m } } (demandes de l'équipe, dans l'ordre),
@@ -788,13 +785,8 @@ function A.goals(goals, auto, weights, research)
     if OPEN[m.state] and not seen[m.product] then
       seen[m.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, m.gain or 0)))
-      -- Lot CENTRALE (moteur réel, etape1-guide 123456789, Azure : centrale à 16 entités sur 18, 2 poteaux manquants pendant plus
-      -- de 40 min, « auto:centrale » en attente derrière les K projets du cerveau) : un chantier dont les matériaux sont réservés
-      -- et qui n'attend plus que quelques objets (manque annoncé après 3 min sans progrès, Build) est servi comme une famille
-      -- permanente, hors des K places : il ne lui manque presque rien, et tout le reste de l'usine l'attend.
-      local tail = TAIL[m.state] == true and m.missing ~= nil and #m.missing > 0
       goals[#goals + 1] = { key = "auto:" .. m.product, family = "capital", kind = "module", product = m.product,
-        status = m.state, missing = m.missing, reason = m.reason, permanent = tail or nil,
+        status = m.state, missing = m.missing, reason = m.reason,
         value = capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
     end
   end

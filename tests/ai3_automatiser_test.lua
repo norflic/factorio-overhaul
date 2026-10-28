@@ -359,25 +359,6 @@ do
   local g_hi = A.goals({}, { mods = { { product = "iron-plate", state = "plan", gain = 2 } } }, {})
   check(g_hi[1].value > g_lo[1].value and g_hi[1].value == A.VALUE + 2 * A.VALUE_PER_PNJ,
     string.format("valeur d'un module : %d sans gain, %d pour 2 PNJ libérés", g_lo[1].value, g_hi[1].value))
-  -- (a bis) lot CENTRALE : un chantier dont les matériaux sont réservés et qui n'attend plus que quelques objets est servi
-  -- hors des K places (famille permanente) ; en réserve, ou sans manque, il reste un projet ordinaire.
-  local gt = A.goals({}, { mods = {
-    { product = "centrale", state = "chantier", missing = { { "small-electric-pole", 2 } }, gain = 1 },
-    { product = "iron-plate", state = "reserve", missing = { { "inserter", 3 } }, gain = 1 },
-    { product = "copper-plate", state = "chantier", missing = {}, gain = 1 },
-    { product = "stone-brick", state = "bloque", missing = { { "inserter", 1 } }, gain = 1 } } }, {})
-  local by = {}
-  for _, g in ipairs(gt) do by[g.product] = g end
-  check(by["centrale"].permanent == true, "chantier a qui il ne manque que quelques objets : famille permanente (hors des K places)")
-  check(by["iron-plate"].permanent == nil, "module en reserve : projet ordinaire")
-  check(by["copper-plate"].permanent == nil, "chantier sans manque : projet ordinaire")
-  check(by["stone-brick"].permanent == nil, "chantier bloque : projet ordinaire")
-  local stt = C.new_state(0)
-  C.think(view({ stock = base_stock, outposts = outs }), book, stt, ctx_of({ mods = { { product = "centrale", state = "chantier",
-    missing = { { "small-electric-pole", 2 } }, gain = 1 } }, cap = {}, covered = {} }))
-  local pt = nil
-  for _, p in ipairs(stt.projects) do if p.key == "auto:centrale" then pt = p end end
-  check(pt ~= nil and pt.state == "actif", "la centrale en fin de chantier est un projet actif du cerveau")
   -- (a ter) lot CENTRALE : minuteur « sans progrès » gelé pour un module électrique tant que sa centrale n'est ni finie ni refusée
   check(A.freezes_clock(true, "reserve") == true and A.freezes_clock(true, "chantier") == true and A.freezes_clock(true, "bloque") == true,
     "module electrique, centrale en cours : minuteur gele")
@@ -562,9 +543,6 @@ end, function() A.goals = goals0 end)
 mutant("module hors des projets", function() A.goals = function(g) return g end end, function() A.goals = goals0 end)
 local vpp = A.VALUE_PER_PNJ
 mutant("valeur sans le gain", function() A.VALUE_PER_PNJ = 0 end, function() A.VALUE_PER_PNJ = vpp end)
-local tails = A.TAIL_STATES
-mutant("fin de chantier jamais permanente", function() for k in pairs(tails) do tails[k] = nil end end,
-  function() tails.defrichage, tails.fantomes, tails.chantier, tails.raccordement = true, true, true, true end)
 local plant = A.PLANT
 mutant("centrale jamais comptée", function() A.PLANT = { gen = "inconnu", args = {} } end, function() A.PLANT = plant end)
 
