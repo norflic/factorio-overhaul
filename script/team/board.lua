@@ -695,6 +695,8 @@ Board.on_done = nil
 --- Votre équipe seulement.
 local function note_extend(f, task, ok, tick)
   if not (f.is_player and task.kind == "extend" and task.fail ~= "preempte") then return end
+  local on_ok, on = pcall(function() return settings.global["fo-war-adopte"].value end)
+  if on_ok and on == false then return end -- l'interrupteur du lot ADOPTE coupe aussi la mise en attente
   local o = f.outposts and f.outposts[task.outpost]
   if not o then return end
   if ok then
