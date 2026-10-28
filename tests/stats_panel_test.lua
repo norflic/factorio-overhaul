@@ -268,7 +268,8 @@ do
   for _, k in ipairs({ "team", "level", "tech", "outposts", "soldiers", "pnj", "kills", "lost", "att-out", "att-in" }) do
     used["fo-panel.col-" .. k], used["fo-panel.tip-" .. k] = true, true
   end
-  used["fo-panel.task-idle"], used["fo-panel.task-norole"] = true, true
+  for _, k in ipairs({ "idle", "norole", "ghost", "equiper", "centrale" }) do used["fo-panel.task-" .. k] = true end
+  used["fo-panel.col-rate-hand"] = true
   local absent = {}
   for k in pairs(used) do
     if not (fr[k] and en[k]) and k ~= "fo-panel.col-" and k ~= "fo-panel.tip-" and k ~= "fo-panel.task-" then absent[#absent + 1] = k end

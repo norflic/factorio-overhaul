@@ -120,7 +120,7 @@ function Partie.tab(H)
     tbl.style.horizontal_spacing = 18
     tbl.style.top_margin = 4
     tbl.add({ type = "label", caption = { "fo-panel.col-item" }, style = "bold_label" })
-    tbl.add({ type = "label", caption = { "fo-panel.col-rate" }, style = "bold_label" })
+    tbl.add({ type = "label", caption = { with_cons and "fo-panel.col-rate" or "fo-panel.col-rate-hand" }, style = "bold_label" })
     if with_cons then tbl.add({ type = "label", caption = { "fo-panel.col-cons" }, style = "bold_label" }) end
     tbl.add({ type = "label", caption = { total_key }, style = "bold_label" })
     for _, r in ipairs(rows) do

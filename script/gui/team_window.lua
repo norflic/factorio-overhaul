@@ -603,8 +603,9 @@ tabs.pnj = {
 }
 
 -- Partie (lot PANEL-STATS) : statistiques de la partie, lecture seule (script/gui/partie.lua).
+local PANEL_TASKS = { idle = true, norole = true, ghost = true, equiper = true, centrale = true }
 local function task_text(kind)
-  if kind == "idle" or kind == "norole" then return { "fo-panel.task-" .. kind } end
+  if PANEL_TASKS[kind] then return { "fo-panel.task-" .. kind } end
   return TASK_TEXT[kind] and { "fo-ia1i.task-" .. kind } or kind
 end
 tabs.partie = Partie.tab({ label = label, heading = heading, task_text = task_text })
