@@ -731,7 +731,7 @@ function Ia3.plan(f, view, book, surface, tick)
     spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
-    capital = (not f.is_player) and Capital.goal(f, view, book, tick, w) or nil,
+    capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     capi = capi } -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
@@ -833,7 +833,6 @@ end
 
 --- Lot CAPITAL : décisions immédiates sur le stock libre (script/team/team.lua) : paie l'amélioration prête.
 function Ia3.capital_pay(f, surface, tick, plan, stock)
-  if f.is_player then return 0 end
   return Capital.pay(f, surface, tick, plan, stock)
 end
 

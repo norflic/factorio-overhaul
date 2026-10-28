@@ -407,5 +407,224 @@ do
     "§12 Capital.on lit le réglage")
 end
 
+
+-- §13 Lot AMELIORER : machines HORS famille (four de pierre, premier assembleur) remplacées sur place par la machine
+-- supérieure, DÉRIVÉE des prototypes (type, groupe de remplacement rapide, emprise, énergie, catégories, vitesse). Données
+-- vanilla simulées PUIS un jeu de données aux noms changés (aucun nom du jeu dans le code : même décision).
+local function machine_world(rn)
+  rn = rn or function(n) return n end
+  local cats_asm1 = { [rn("crafting")] = true, [rn("basic-crafting")] = true, [rn("advanced-crafting")] = true }
+  local cats_asm2 = { [rn("crafting")] = true, [rn("basic-crafting")] = true, [rn("advanced-crafting")] = true,
+    [rn("crafting-with-fluid")] = true }
+  local defs = {
+    { "stone-furnace", "furnace", "furnace", 2, "burner", { [rn("smelting")] = true }, 1 },
+    { "steel-furnace", "furnace", "furnace", 2, "burner", { [rn("smelting")] = true }, 2 },
+    { "electric-furnace", "furnace", "furnace", 3, "electric", { [rn("smelting")] = true }, 2 },
+    { "assembling-machine-1", "assembling-machine", "assembling-machine", 3, "electric", cats_asm1, 0.5 },
+    { "assembling-machine-2", "assembling-machine", "assembling-machine", 3, "electric", cats_asm2, 0.75 },
+    { "assembling-machine-3", "assembling-machine", "assembling-machine", 3, "electric", cats_asm2, 1.25 },
+    { "chemical-plant", "assembling-machine", "chemical-plant", 3, "electric", { [rn("chemistry")] = true }, 1 },
+    -- Leurres : chacun ne diffère du four de pierre que par UNE propriété (emprise, énergie, groupe, catégories, vitesse).
+    { "leurre-taille", "furnace", "furnace", 3, "burner", { [rn("smelting")] = true }, 3 },
+    { "leurre-energie", "furnace", "furnace", 2, "electric", { [rn("smelting")] = true }, 3 },
+    { "leurre-groupe", "furnace", "autre-groupe", 2, "burner", { [rn("smelting")] = true }, 3 },
+    { "leurre-categories", "furnace", "furnace", 2, "burner", { ["autre-categorie"] = true }, 3 },
+    { "leurre-lent", "furnace", "furnace", 2, "burner", { [rn("smelting")] = true }, 0.5 },
+  }
+  local protos, names = {}, {}
+  for _, d in ipairs(defs) do
+    local nm = rn(d[1])
+    protos[nm] = { type = d[2], group = rn(d[3]), w = d[4], h = d[4], energy = d[5], cats = d[6], speed = d[7], item = nm }
+    names[#names + 1] = nm
+  end
+  table.sort(names)
+  return { mproto = function(n) return protos[n] end, machines = names }
+end
+local function mctx(world, over)
+  local c = ctx(over)
+  c.mproto, c.machines = world.mproto, world.machines
+  return c
+end
+local MUNIT = { ["stone-furnace"] = 20, ["steel-furnace"] = 60, ["electric-furnace"] = 400, ["assembling-machine-1"] = 40,
+  ["assembling-machine-2"] = 90, ["assembling-machine-3"] = 600 }
+
+local function run_replace()
+  local W = machine_world()
+  local saved_unit = {}
+  for k, v in pairs(MUNIT) do saved_unit[k] = UNIT[k]; UNIT[k] = v end
+  local function restore() for k in pairs(MUNIT) do UNIT[k] = saved_unit[k] end end
+  local function mach(list, base_id)
+    local out = {}
+    for i, e in ipairs(list) do out[#out + 1] = { id = (base_id or 500) + i, name = e[1], working = e[2] and true or false } end
+    return out
+  end
+  local cen = { id = 1, name = L.name(CC, 2) }
+
+  -- Successeurs : lus dans les prototypes (emprise, énergie, groupe, catégories, vitesse).
+  local sc = Cap.successors(L, mctx(W), "stone-furnace")
+  check(#sc == 1 and sc[1] == "steel-furnace", "§13 four de pierre -> four en acier seulement (le four électrique, 3x3, est écarté) : " .. table.concat(sc, ","))
+  local sa = Cap.successors(L, mctx(W), "assembling-machine-1")
+  check(#sa == 2 and sa[1] == "assembling-machine-2" and sa[2] == "assembling-machine-3", "§13 assembleur 1 : 2 puis 3, par vitesse croissante : " .. table.concat(sa, ","))
+  check(#Cap.successors(L, mctx(W), "chemical-plant") == 0, "§13 une usine chimique n'a aucune cible (groupe, catégories)")
+  check(#Cap.successors(L, mctx(W), "inconnu") == 0, "§13 un nom inconnu n'a aucune cible")
+
+  -- Décision : le four de pierre en marche est remplacé ; la cible est l'objet qui la pose.
+  local d = Cap.choose(L, census({}, cen), mctx(W))
+  check(d.replace == nil, "§13 sans machine, aucun remplacement")
+  local cs = census({}, cen)
+  cs.machines = mach({ { "stone-furnace", true }, { "stone-furnace", true } })
+  local d1 = Cap.choose(L, cs, mctx(W, { stock = { ["steel-furnace"] = 2 } }))
+  check(d1.family == "remplacer" and d1.replace and d1.replace.from == "stone-furnace" and d1.replace.to == "steel-furnace",
+    "§13 four de pierre en marche : remplacé par le four en acier (" .. tostring(d1.key) .. ")")
+  check(d1.replace and d1.replace.n == 2 and #d1.ids == 2 and d1.cost[1][1] == "steel-furnace" and d1.cost[1][2] == 2,
+    "§13 deux fours en stock : un lot de 2, coût = 2 objets de la cible")
+  check(d1.value == 200, "§13 valeur = gain de vitesse (+100 %) × V_DEBIT par machine (" .. tostring(d1.value) .. ")")
+  local d1b = Cap.choose(L, cs, mctx(W))
+  check(d1b.replace and d1b.replace.n == 1 and #d1b.ids == 1, "§13 rien en stock : une machine à la fois (rien de fabriqué en gros)")
+  local cs5 = census({}, cen)
+  local seven = {}
+  for i = 1, 7 do seven[i] = { "stone-furnace", true } end
+  cs5.machines = mach(seven)
+  local d5 = Cap.choose(L, cs5, mctx(W, { stock = { ["steel-furnace"] = 9 } }))
+  check(d5.replace and d5.replace.n == Cap.REPLACE_BATCH, "§13 le lot est borné à Cap.REPLACE_BATCH (" .. tostring(d5.replace and d5.replace.n) .. ")")
+
+  -- Valeur : à l'arrêt, un quart ; l'assembleur 1 choisit la cible de meilleur score ; la cible impayable ne compte pas.
+  local cs2 = census({}, cen)
+  cs2.machines = mach({ { "stone-furnace", false } })
+  local d2 = Cap.choose(L, cs2, mctx(W))
+  check(d2.value == 25, "§13 à l'arrêt : un quart de la valeur (" .. tostring(d2.value) .. ")")
+  local cs3 = census({}, cen)
+  cs3.machines = mach({ { "assembling-machine-1", true } })
+  local d3 = Cap.choose(L, cs3, mctx(W))
+  check(d3.replace and d3.replace.to == "assembling-machine-2", "§13 assembleur 1 -> 2 (meilleur valeur ÷ coût que 3) : " .. tostring(d3.replace and d3.replace.to))
+  UNIT["assembling-machine-3"] = 100
+  local d3b = Cap.choose(L, cs3, mctx(W))
+  check(d3b.replace and d3b.replace.to == "assembling-machine-3", "§13 la cible de meilleur score change avec les coûts (3 devient bon marché)")
+  UNIT["assembling-machine-3"] = 600
+  UNIT["steel-furnace"] = nil
+  local d4 = Cap.choose(L, cs2, mctx(W))
+  check(d4.replace == nil, "§13 cible non faisable (coût inconnu) : aucun remplacement")
+  local bl4 = false
+  for _, b in ipairs(d4.blocked) do if b.family == "remplacer" and b.no_want then bl4 = true end end
+  check(bl4, "§13 la machine attend, notée bloquée")
+  check(next(d4.wanted) == nil, "§13 une cible non faisable ne réclame PAS la recherche (no_want)")
+  UNIT["steel-furnace"] = 60
+
+  -- Famille à niveaux : jamais en double (la machine d'une famille suit l'amélioration ordinaire).
+  local cs6 = census({}, cen)
+  cs6.machines = mach({ { "steel-furnace", true }, { L.name(L.by_key.assembler, 3), true } })
+  local d6 = Cap.choose(L, cs6, mctx(W))
+  check(d6.replace == nil, "§13 une machine déjà d'une famille à niveaux n'est pas un candidat « remplacer »")
+
+  -- Refus par machine : écartée, sans bloquer les autres.
+  local cs7 = census({}, cen)
+  cs7.machines = mach({ { "stone-furnace", true }, { "stone-furnace", true } }, 700)
+  local d7 = Cap.choose(L, cs7, mctx(W, { stock = { ["steel-furnace"] = 5 } }))
+  check(d7.replace and d7.replace.n == 2 and d7.ids[1] == 701, "§13 deux machines au lot (sans refus)")
+  local d7b = Cap.choose(L, cs7, mctx(W, { stock = { ["steel-furnace"] = 5 }, exclude = { ["m:701"] = true } }))
+  check(d7b.replace and d7b.replace.n == 1 and d7b.ids[1] == 702, "§13 une machine refusée par l'exécutant est écartée, l'autre reste")
+
+  -- Déterminisme : relevé inversé.
+  local cs8 = census({}, cen)
+  cs8.machines = mach({ { "stone-furnace", true }, { "assembling-machine-1", false }, { "stone-furnace", false } })
+  local cs8r = census({}, cen)
+  cs8r.machines = {}
+  for i = #cs8.machines, 1, -1 do cs8r.machines[#cs8r.machines + 1] = cs8.machines[i] end
+  local da, db = Cap.choose(L, cs8, mctx(W)), Cap.choose(L, cs8r, mctx(W))
+  check(da.key == db.key, "§13 déterminisme : relevé inversé, même décision (" .. tostring(da.key) .. " / " .. tostring(db.key) .. ")")
+
+  -- But : fond (aucune place de projet), coût = les objets de la cible.
+  local g = Cap.goal(d1, {})
+  check(g and g.fond == true and g.kind == "upgrade" and g.cost[1][1] == "steel-furnace" and g.target == d1.key, "§13 but de fond, coût = la cible")
+
+  -- GÉNÉRALISATION : mêmes machines, TOUS les noms changés (types gardés : ce sont ceux du moteur).
+  local map = { ["stone-furnace"] = "four-d-argile", ["steel-furnace"] = "four-de-fonte", ["electric-furnace"] = "four-a-arc",
+    ["assembling-machine-1"] = "monteur-1", ["assembling-machine-2"] = "monteur-2", ["assembling-machine-3"] = "monteur-3",
+    ["chemical-plant"] = "cornue", ["smelting"] = "fonte", ["crafting"] = "montage", ["basic-crafting"] = "montage-simple",
+    ["advanced-crafting"] = "montage-fin", ["crafting-with-fluid"] = "montage-fluide", ["chemistry"] = "chimie",
+    ["furnace"] = "groupe-four", ["assembling-machine"] = "groupe-montage" }
+  local W2 = machine_world(function(n) return map[n] or n end)
+  local U2 = {}
+  for k, v in pairs(MUNIT) do U2[map[k]] = v end
+  local function unit2(item) return U2[item] or UNIT[item] end
+  local cs9 = census({}, cen)
+  cs9.machines = { { id = 801, name = "four-d-argile", working = true }, { id = 802, name = "monteur-1", working = true } }
+  local c9 = mctx(W2, { stock = { ["four-de-fonte"] = 3 } })
+  c9.unit_cost = unit2
+  local d9 = Cap.choose(L, cs9, c9)
+  check(d9.replace and d9.replace.from == "four-d-argile" and d9.replace.to == "four-de-fonte",
+    "§13 GÉNÉRALISATION : données aux noms changés, le même code remplace le four d'argile par celui de la fonte (" .. tostring(d9.key) .. ")")
+  check(#Cap.successors(L, c9, "monteur-1") == 2, "§13 GÉNÉRALISATION : successeurs du monteur lus dans les prototypes")
+  -- Même décision que sur les noms d'origine (au renommage près).
+  local c9o = mctx(W, { stock = { ["steel-furnace"] = 3 } })
+  local cs9o = census({}, cen)
+  cs9o.machines = { { id = 801, name = "stone-furnace", working = true }, { id = 802, name = "assembling-machine-1", working = true } }
+  local d9o = Cap.choose(L, cs9o, c9o)
+  check(d9o.value == d9.value and d9o.score == d9.score and d9o.replace.n == d9.replace.n, "§13 GÉNÉRALISATION : même valeur, même score, même lot")
+  restore()
+end
+run_replace()
+
+-- Anti-échelle : aucun nom du jeu écrit dans le code pur de ce lot (commentaires exceptés).
+do
+  local fh = io.open("shared/ai3/capital.lua", "r")
+  local code = fh and fh:read("*a") or ""
+  if fh then fh:close() end
+  local seg = code:match("function Cap%.successors.-\nend\n") or ""
+  local seg2 = code:match("function Cap%.replace_candidates.-\nend\n") or ""
+  local clean = (seg .. seg2):gsub("%-%-[^\n]*", "")
+  for _, bad in ipairs({ "furnace", "assembling", "stone", "steel", "smelting" }) do
+    check(not clean:find(bad, 1, true), "§13 aucun nom du jeu dans le code de remplacement : « " .. bad .. " »")
+  end
+  check(#seg > 100 and #seg2 > 100, "§13 les fonctions de remplacement sont trouvées par le contrôle anti-échelle")
+end
+
+-- Mutants du lot AMELIORER.
+do
+  local n_mut, n_caught = 0, 0
+  local function M(name, apply, undo)
+    n_mut = n_mut + 1
+    local p0, f0 = pass, fail
+    quiet = true
+    apply()
+    local ok = pcall(run_replace)
+    undo()
+    quiet = false
+    local caught = (not ok) or fail > f0
+    pass, fail = p0, f0
+    if caught then n_caught = n_caught + 1 else print("[CAPITAL] mutant survivant (remplacer) : " .. name) end
+  end
+  local sc = Cap.successors
+  local function wrap(edit)
+    return function(Ld, c, n)
+      local mp = c.mproto
+      local c2 = setmetatable({ mproto = function(x)
+        local p = mp(x)
+        if not p then return nil end
+        local q = {}
+        for k, v in pairs(p) do q[k] = v end
+        edit(q, x, n)
+        return q
+      end }, { __index = c })
+      return sc(Ld, c2, n)
+    end
+  end
+  M("successeurs : l'emprise n'est plus comparée", function() Cap.successors = wrap(function(q) q.w, q.h = 2, 2 end) end, function() Cap.successors = sc end)
+  M("successeurs : le groupe n'est plus comparé", function() Cap.successors = wrap(function(q) q.group = "g" end) end, function() Cap.successors = sc end)
+  M("successeurs : l'énergie n'est plus comparée", function() Cap.successors = wrap(function(q) q.energy = "e" end) end, function() Cap.successors = sc end)
+  M("successeurs : les catégories ne sont plus comparées", function() Cap.successors = wrap(function(q) q.cats = {} end) end, function() Cap.successors = sc end)
+  M("successeurs : la vitesse n'est plus comparée", function() Cap.successors = wrap(function(q, x, n) q.speed = (x == n) and 1 or 2 end) end, function() Cap.successors = sc end)
+  local rb = Cap.REPLACE_BATCH
+  M("lot non borné", function() Cap.REPLACE_BATCH = 100 end, function() Cap.REPLACE_BATCH = rb end)
+  local iu = Cap.IDLE_USE
+  M("usage ignoré (remplacer)", function() Cap.IDLE_USE = 100 end, function() Cap.IDLE_USE = iu end)
+  local rc = Cap.replace_candidates
+  M("remplacer éteint", function() Cap.replace_candidates = function() return {}, {} end end, function() Cap.replace_candidates = rc end)
+  local wc = Cap.work_cost
+  M("impayable compté payable (remplacer)", function() Cap.work_cost = function(l, c) local x, _, a = wc(l, c) return x, {}, a end end,
+    function() Cap.work_cost = wc end)
+  check(n_caught == n_mut, string.format("§13 mutants du lot : %d refusés sur %d", n_caught, n_mut))
+end
+
 print(string.format("[CAPITAL] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
