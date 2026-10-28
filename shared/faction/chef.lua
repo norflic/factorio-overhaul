@@ -230,7 +230,10 @@ function C.rank_targets(v, st)
   local tr = v.traits
   local out = {}
   for _, r in ipairs(v.rivals) do
-    if r.reachable ~= false then
+    -- Lot RECON : une rivale jamais vue (known == false) ou vue il y a trop longtemps (stale == true) n'est pas une
+    -- cible : on ne vise que ce qu'on a reconnu. Défaut `~= false` / `~= true` comme `reachable` (vues sans ces champs
+    -- inchangées).
+    if r.reachable ~= false and r.known ~= false and r.stale ~= true then
       local value = 2 + (r.outposts_seen or 0)
       if (r.outposts_seen or 0) > math.max(2, (v.outposts or 0) * 1.3) then value = value * 3 / 2 end -- leader vu : coalition tacite
       local def = (r.defense or 0) + (st.extra_defense[r.id] or 0)
@@ -257,6 +260,26 @@ function C.rank_targets(v, st)
     return a.id < b.id
   end)
   return out
+end
+
+--- Lot RECON : que faut-il RECONNAÎTRE ? Une rivale inconnue (jamais vue) ou périmée (vue il y a plus de R.FRESH),
+--- atteignable. Rancune la plus forte d'abord, puis périmée avant inconnue (on sait où aller), puis numéro. Renvoie
+--- { id, kind = "perimee" | "inconnue", x, y } (x, y : dernier point connu d'une périmée) ou nil.
+function C.recon_pick(v, st)
+  local best
+  for _, r in ipairs(v.rivals) do
+    if r.reachable ~= false and (r.known == false or r.stale == true) then
+      local kind = r.stale == true and "perimee" or "inconnue"
+      local key = { grudge = st.grudge[r.id] or 0, stale = kind == "perimee" and 1 or 0, id = r.id }
+      if not best or key.grudge > best.key.grudge
+        or (key.grudge == best.key.grudge and (key.stale > best.key.stale
+          or (key.stale == best.key.stale and key.id < best.key.id))) then
+        best = { key = key, id = r.id, kind = kind, x = r.last and r.last.x or nil, y = r.last and r.last.y or nil }
+      end
+    end
+  end
+  if not best then return nil end
+  return { id = best.id, kind = best.kind, x = best.x, y = best.y }
 end
 
 --- Considérations des 8 postures (moyennes entières) et raison principale de chacune.
@@ -550,6 +573,8 @@ function C.think(st, v, draw)
     ep.checked = v.tick
   end
   local targets = C.rank_targets(v, st)
+  -- Lot RECON : sans cible reconnue, le chef demande une reconnaissance (lue par script/faction/recon.lua).
+  st.recon = #targets == 0 and C.recon_pick(v, st) or nil
   -- Lot IA2-a2 : hasard borné entre les seules rivales NON épargnées ; si toutes sont épargnées par satiété, la
   -- première reste désignée (vue PvP inchangée) mais aucune attaque ni raid ne part contre elle (trêve, st.hold).
   local open = {}
@@ -629,7 +654,7 @@ function C.think(st, v, draw)
   end
   return { dominant = chosen.key, mix = mix, scores = scores, reason = chosen.reason, war_mult = st.war_mult,
     raid = st.raid, target = st.target, changed = changed, threat = v.threat, hold = st.hold, survive = survive,
-    sated_new = st.sated_new }
+    sated_new = st.sated_new, recon = st.recon }
 end
 
 ---------------------------------------------------------------------------------------------------

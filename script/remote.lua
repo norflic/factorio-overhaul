@@ -21,6 +21,9 @@ local Levels = require("script.levels.levels")
 local Free = require("script.levels.free")
 local Storage = require("script.core.storage")
 local Config = require("script.core.config")
+local Recon = require("script.faction.recon") -- lot RECON
+local RR = require("shared.faction.recon")
+local Military = require("script.faction.military")
 
 local function surface() return game.surfaces[1] end
 
@@ -106,6 +109,37 @@ remote.add_interface("factorio-overhaul", {
   end,
   -- Points d'intérêt (lecture seule) pour la revue visuelle : QG et avant-postes des factions et de
   -- l'équipe du joueur. Le mod de test n'a pas accès à `global` de ce mod (une table par mod).
+  --- Lot RECON (bancs) : ce que chaque faction sait des autres et ce qu'elle a fait pour le savoir. Par faction :
+  --- { key, attacks, scouts, lost, refused, rivals = { { key, status, age (ticks), hq (QG vu), posts } } }.
+  recon_status = function()
+    local out = { fog = Recon.fog_on(), factions = {} }
+    for _, id in ipairs(State.alive()) do
+      local f = State.faction(id)
+      local row = { key = f.key, attacks = f.stats and f.stats.attacks or 0, scouts = f.stats and f.stats.recon_scouts or 0,
+        lost = f.stats and f.stats.recon_lost or 0, refused = f.stats and f.stats.recon_refused or 0, rivals = {} }
+      for _, rid in ipairs(State.alive()) do
+        if rid ~= id then
+          local k = Recon.known_of(f, rid)
+          local r = State.faction(rid)
+          row.rivals[#row.rivals + 1] = { key = r.key, status = RR.status(k, game.tick), age = RR.age(k, game.tick),
+            hq = k and k.hq ~= nil or false, posts = k and #k.posts or 0 }
+        end
+      end
+      out.factions[#out.factions + 1] = row
+    end
+    return out
+  end,
+  --- Lot RECON (bancs) : l'attaque de `from` contre `to` serait-elle acceptée ? (Military.attack_known ; un refus est compté.)
+  recon_probe = function(from_key, to_key)
+    local a, b
+    for _, id in ipairs(State.alive()) do
+      local f = State.faction(id)
+      if f.key == from_key then a = f end
+      if f.key == to_key then b = f end
+    end
+    if not (a and b) then return nil end
+    return (Military.attack_known(a, b, game.tick)) and true or false
+  end,
   points_of_interest = function()
     local function team(f)
       if not (f and f.hq and f.hq.valid) then return nil end

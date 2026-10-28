@@ -41,6 +41,7 @@ K.EYE = { hq = 160, outpost = 128, group = 96, scout = 128, walker = 48, explore
 K.STEP = 64                   -- un PNJ en marche est regardé tous les 64 tuiles parcourues (revue M3)
 K.RELOOK = { fixed = 30 * 3600, moving = 10 * 3600 } -- un secteur vu n'est regardé de nouveau qu'après ce délai
 K.NEST_KEEP = 8
+K.RV_KEEP = 24                -- lot RECON : constructions de factions retenues par secteur
 K.NEAR = 64                   -- nids et vers comptés autour d'un site (§4.2)
 K.PATH = 32                   -- un nid « près du chemin » est à moins de 32 tuiles du segment QG → site
 K.MARKS = 16                  -- incidents retenus
@@ -138,7 +139,45 @@ function K.record(m, key, tick, obs)
   s.sp = #sp > 0 and sp or nil
   s.wm = #wm > 0 and wm or nil
   s.w = obs.water and true or nil
+  -- Lot RECON : constructions des autres factions vues dans ce secteur (QG, avant-postes), remplacées à chaque regard :
+  -- un secteur regardé de nouveau sans elles les oublie (détruites). Triées (id, nature, x, y), K.RV_KEEP au plus.
+  local rv = {}
+  for _, e in ipairs(obs.rv or {}) do
+    rv[#rv + 1] = { id = e.id, kind = e.kind, x = math.floor(e.x), y = math.floor(e.y) }
+  end
+  table.sort(rv, function(p, q)
+    if p.id ~= q.id then return tostring(p.id) < tostring(q.id) end
+    if p.kind ~= q.kind then return p.kind < q.kind end
+    if p.x ~= q.x then return p.x < q.x end
+    return p.y < q.y
+  end)
+  while #rv > K.RV_KEEP do table.remove(rv) end
+  s.rv = #rv > 0 and rv or nil
   return fresh
+end
+
+--- Lot RECON : constructions de la faction `rid` VUES (QG, avant-postes), triées : { { kind, x, y, t } } où t est le
+--- tick du dernier regard sur le secteur. `kind` : "hq" | "post". Jamais une position lue ailleurs que dans un regard.
+function K.rival_sightings(m, rid)
+  local out = {}
+  for _, key in ipairs(sorted_keys(m.s)) do
+    local s = m.s[key]
+    for _, e in ipairs(s.rv or {}) do
+      if e.id == rid then out[#out + 1] = { kind = e.kind, x = e.x, y = e.y, t = s.t } end
+    end
+  end
+  return out
+end
+
+--- Lot RECON : QG de factions VUS (toutes factions), { x, y } triés par clé de secteur : danger de l'exploration.
+function K.rival_hqs(m)
+  local out = {}
+  for _, key in ipairs(sorted_keys(m.s)) do
+    for _, e in ipairs(m.s[key].rv or {}) do
+      if e.kind == "hq" then out[#out + 1] = { x = e.x, y = e.y } end
+    end
+  end
+  return out
 end
 
 --- Incident (éclaireur en fuite, PNJ tué par l'ennemi) : la zone devient dangereuse pendant mark_ttl.

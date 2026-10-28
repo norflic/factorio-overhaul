@@ -97,6 +97,24 @@ end
 check(total_soldiers > 0, "des soldats existent (" .. total_soldiers .. ")")
 check(total_attacks > 0, "des attaques ont été lancées (" .. total_attacks .. ")")
 check(total_lost > 0, "des soldats sont morts au combat (" .. total_lost .. ")")
+-- Lot RECON : une faction n'attaque que ce qu'elle a reconnu ; des soldats éclaireurs partent chercher les rivales.
+do
+  local scouts, refused, blind = 0, 0, {}
+  for _, f in ipairs(global.fo.war.factions) do
+    scouts = scouts + (f.stats.recon_scouts or 0)
+    refused = refused + (f.stats.recon_refused or 0)
+    if f.stats.attacks > 0 then
+      local knows = false
+      for rid, mem in pairs(f.chef and f.chef.seen or {}) do
+        if mem.k and (mem.k.hq or #mem.k.posts > 0) then knows = true end
+      end
+      if not knows then blind[#blind + 1] = f.key end
+    end
+  end
+  check(scouts > 0, "des soldats éclaireurs sont partis chercher les rivales (" .. scouts .. ")")
+  check(#blind == 0, "toute faction qui a attaqué avait reconnu une rivale (" .. table.concat(blind, ",") .. ")")
+  check(refused == 0, "aucune attaque proposée contre une rivale non reconnue (" .. refused .. " refus du filet)")
+end
 check(techs > 0, "au moins une faction a progressé en technologie (" .. techs .. ")")
 check(count_entities("burner-mining-drill") > 0, "des foreuses d'avant-poste existent")
 check(count_entities("stone-furnace") > 0, "des fours d'avant-poste existent")

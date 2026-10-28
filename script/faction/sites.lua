@@ -621,6 +621,10 @@ local function seen_by(list, p)
   return false
 end
 
+-- Lot RECON, branché par script/faction/recon.lua : Sites.rival_points(f, rid) -> { { x, y, hq } } des points VUS de la rivale,
+-- ou nil (brouillard coupé : positions réelles, comme avant le lot).
+Sites.rival_points = nil
+
 --- Contexte de la carte de valeur d'une faction (pur ensuite) : territoire (QG et avant-postes), rivales VUES (QG
 --- connus, avant-postes dans nos champs de vision : brouillard D-16), nos sites perdus récents, traits, appétit du chef.
 function Sites.value_ctx(f, tick)
@@ -638,10 +642,16 @@ function Sites.value_ctx(f, tick)
     for _, rid in ipairs(State.alive()) do
       if rid ~= f.id then
         local r = State.faction(rid)
-        if r.hq_pos then ctx.rivals[#ctx.rivals + 1] = { x = r.hq_pos.x, y = r.hq_pos.y, hq = true } end
-        for _, oid in ipairs(State.sorted_keys(r.outposts or {})) do
-          local p = r.outposts[oid].pos
-          if seen_by(my, p) then ctx.rivals[#ctx.rivals + 1] = { x = p.x, y = p.y } end
+        local known = Sites.rival_points and Sites.rival_points(f, rid) or nil
+        if known then
+          -- Lot RECON : seulement ce que la faction a VU de la rivale (QG, avant-postes), pas les positions de départ.
+          for _, p in ipairs(known) do ctx.rivals[#ctx.rivals + 1] = p end
+        else
+          if r.hq_pos then ctx.rivals[#ctx.rivals + 1] = { x = r.hq_pos.x, y = r.hq_pos.y, hq = true } end
+          for _, oid in ipairs(State.sorted_keys(r.outposts or {})) do
+            local p = r.outposts[oid].pos
+            if seen_by(my, p) then ctx.rivals[#ctx.rivals + 1] = { x = p.x, y = p.y } end
+          end
         end
       end
     end

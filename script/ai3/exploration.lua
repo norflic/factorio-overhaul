@@ -54,6 +54,7 @@ local Board = require("script.team.board") -- lot IA-V2 : crochet Board.on_fail 
 -- Lot IA-V2 : le cerveau par besoins (IA3-c) lit les gisements CONNUS par un crochet (module déjà chargé par
 -- script/team/team.lua : l'ordre de chargement, donc des abonnements, ne change pas).
 local Ia3 = require("script.ai3.cerveau")
+local Recon = require("script.faction.recon") -- lot RECON : connaissance des rivales (crochets posés en fin de fichier)
 
 local X = {}
 
@@ -144,13 +145,18 @@ local function spawn_of(surface)
   return { x = s.x, y = s.y }
 end
 
---- Positions à éviter pour l'éclaireur : QG des autres factions (connus, comme dans IA2) ; pour une faction, le point
---- de départ du joueur (sa base).
+--- Positions à éviter pour l'éclaireur : QG des autres factions VUS (lot RECON : lus dans la carte de connaissance ;
+--- avant ce lot, les positions de départ réelles étaient connues d'office) ; pour une faction, le point de départ du
+--- joueur (sa base). Brouillard coupé : comportement d'avant le lot.
 local function rivals(f, surface)
   local out = {}
-  for _, id in ipairs(State.alive()) do
-    local r = State.faction(id)
-    if r and r ~= f and r.hq_pos then out[#out + 1] = { x = r.hq_pos.x, y = r.hq_pos.y } end
+  if X.fog_on() then
+    if f.ai3f then out = K.rival_hqs(f.ai3f.m) end
+  else
+    for _, id in ipairs(State.alive()) do
+      local r = State.faction(id)
+      if r and r ~= f and r.hq_pos then out[#out + 1] = { x = r.hq_pos.x, y = r.hq_pos.y } end
+    end
   end
   if not f.is_player then out[#out + 1] = spawn_of(surface) end
   return out
@@ -225,12 +231,38 @@ end
 local ENEMY_TYPES = { "unit-spawner", "turret" }
 
 --- REGARDER un secteur : comptages du moteur, rien d'autre. Renvoie les ressources nouvelles du secteur.
-local function look(k, surface, key, tick)
+--- Lot RECON : constructions des AUTRES factions (QG, avant-postes) dans un secteur, lues au registre du mod : la même
+--- vérité que le moteur, sans appel de plus. Elles n'entrent dans la carte que par ce regard.
+local function rival_buildings(f, x0, y0, x1, y1)
+  local out = {}
+  local war = State.war()
+  if not war.active then return out end
+  for _, rid in ipairs(State.alive()) do
+    if rid ~= f.id then
+      local r = war.factions[rid]
+      if r then
+        local p = r.hq_pos
+        if p and r.hq and r.hq.valid and p.x >= x0 and p.x < x1 and p.y >= y0 and p.y < y1 then
+          out[#out + 1] = { id = rid, kind = "hq", x = p.x, y = p.y }
+        end
+        for _, oid in ipairs(sorted_keys(r.outposts or {})) do
+          local q = r.outposts[oid].pos
+          if q.x >= x0 and q.x < x1 and q.y >= y0 and q.y < y1 then
+            out[#out + 1] = { id = rid, kind = "post", x = q.x, y = q.y }
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
+local function look(f, k, surface, key, tick)
   local g = G()
   local sx, sy = K.xy(key)
   local x0, y0 = sx * K.SECTOR, sy * K.SECTOR
   local area = { { x0, y0 }, { x0 + K.SECTOR, y0 + K.SECTOR } }
-  local obs = { res = {}, nests = {}, worms = {} }
+  local obs = { res = {}, nests = {}, worms = {}, rv = rival_buildings(f, x0, y0, x0 + K.SECTOR, y0 + K.SECTOR) }
   if surface.count_entities_filtered({ area = area, type = "resource", limit = 1 }) > 0 then
     g.stats.res_looks = g.stats.res_looks + 1
     local rest = {}
@@ -360,7 +392,7 @@ Scheduler.define_lane(X.LOOK_LANE, LOOK_PERIOD, function(_, tick)
         elseif generated(surface, key) then
           k.gen[key] = nil
           Profiler.start("ai3f:look")
-          local fresh = look(k, surface, key, tick)
+          local fresh = look(f, k, surface, key, tick)
           Profiler.stop("ai3f:look")
           if #fresh > 0 then on_fresh(f, k, surface, key, fresh, tick) end
           return
@@ -487,22 +519,21 @@ local function end_mission(f, k, ex, tick, why)
     ex.kind, ex.res and (" " .. ex.res) or "", why, minutes(tick - ex.started), k.m.n))
 end
 
-local function retarget(f, k, a, ex, tick)
-  local e = a.entity
-  local surface = e.surface
-  local me = { x = e.position.x, y = e.position.y }
+--- Secteurs écartés d'une cible d'exploration (table locale, jamais rangée dans global). `ex` : la mission de l'ouvrier
+--- (cibles ratées de cette mission), ou nil (lot RECON : l'éclaireur soldat d'une faction, qui n'a pas de mission).
+local function make_exclude(k, tick, ex)
   -- Lot IA-V2 : plusieurs éclaireurs : chacun évite les secteurs proches de la cible d'un autre (exclusion calculée à la
   -- demande, table locale jamais rangée dans global).
   local others = {}
   for _, e in ipairs(k.exl or {}) do
-    if e.tag ~= ex.tag and e.target then
+    if (not ex or e.tag ~= ex.tag) and e.target then
       local ox, oy = K.center(K.xy(e.target))
       others[#others + 1] = { x = ox, y = oy }
     end
   end
   local badt = k.badt or {}
-  local exclude = setmetatable({}, { __index = function(_, key)
-    if ex.bad[key] then return true end
+  return setmetatable({}, { __index = function(_, key)
+    if ex and ex.bad[key] then return true end
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
     local bx, by = K.center(K.xy(key))
@@ -519,6 +550,13 @@ local function retarget(f, k, a, ex, tick)
     end
     return nil
   end })
+end
+
+local function retarget(f, k, a, ex, tick)
+  local e = a.entity
+  local surface = e.surface
+  local me = { x = e.position.x, y = e.position.y }
+  local exclude = make_exclude(k, tick, ex)
   local key = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
     rivals = rivals(f, surface), exclude = exclude })
   if not key then
@@ -691,7 +729,7 @@ local function init(f, surface, tick)
     for dx = -1, 1 do
       local key = K.key(sx + dx, sy + dy)
       if generated(surface, key) then
-        local fresh = look(k, surface, key, tick)
+        local fresh = look(f, k, surface, key, tick)
         if #fresh > 0 then on_fresh(f, k, surface, key, fresh, tick) end
       else
         push(k, key)
@@ -1173,6 +1211,44 @@ Board.on_fail = function(f, task, tick)
   for _, key in ipairs(sorted_keys(k.unreach)) do
     if tick - k.unreach[key] >= BAD_TTL then k.unreach[key] = nil end
   end
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot RECON : crochets de l'éclaireur SOLDAT d'une faction (script/faction/recon.lua). Même carte, mêmes exclusions
+-- (cibles ratées, régions bloquées, nids vus) que les éclaireurs ouvriers : rien n'est recopié.
+---------------------------------------------------------------------------------------------------
+Recon.fog_on = function() return X.fog_on() end
+
+--- Où chercher une rivale inconnue : le secteur NON VU de la frontière de la carte de meilleure note (K.best_target, sans
+--- ressource visée), centre du secteur. nil : aucune frontière sûre.
+Recon.pick_frontier = function(f, tick)
+  local k = f.ai3f
+  local surface = surface_of(f)
+  if not (k and surface and f.hq_pos) then return nil end
+  local key = K.best_target(k.m, { hq = f.hq_pos, me = f.hq_pos, tick = tick, res = nil, spawn = spawn_of(surface),
+    rivals = rivals(f, surface), exclude = make_exclude(k, tick, nil) })
+  if not key then return nil end
+  local cx, cy = K.center(K.xy(key))
+  return { x = cx, y = cy }
+end
+
+--- Le soldat éclaireur regarde ici : les secteurs de son champ entrent dans la file des regards, et la carte est générée
+--- autour de lui (le prochain départ ira plus loin).
+Recon.watch = function(f, x, y, tick)
+  local k = f.ai3f
+  local surface = surface_of(f)
+  if not (k and surface) then return end
+  push_eye(k, x, y, K.EYE.scout, tick, K.RELOOK.moving)
+  surface.request_to_generate_chunks({ x = x, y = y }, GEN_RADIUS)
+end
+
+--- Le secteur d'un point est écarté BAD_TTL (chemin raté, éclaireur perdu) ; `danger` : incident daté sur la carte.
+Recon.mark_bad = function(f, x, y, tick, danger)
+  local k = f.ai3f
+  if not k then return end
+  k.badt = k.badt or {}
+  k.badt[K.key_of(x, y)] = tick
+  if danger then K.mark(k.m, x, y, tick, 800) end
 end
 
 return X

@@ -217,5 +217,43 @@ check(asked6 == "demande" and oil6 ~= nil and oil6 - t6 <= 30 * 3600, "chemins r
 check(rer >= 1, "chemins ratés en route : une autre cible (" .. rer .. " fois)")
 check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
 
+-- 7. Lot RECON : la carte de connaissance note les constructions des AUTRES factions (QG, avant-postes) du secteur regardé,
+-- jamais celles d'un secteur non regardé ; chaque entrée est une vraie construction, dans son secteur.
+do
+  faction_world()
+  M.run_ticks(60) -- premier regard : les abords du QG seulement (les QG sont à plus de 600 tuiles les uns des autres)
+  local any_hq = 0
+  for _, ff in pairs(global.fo.war.factions) do
+    if ff.ai3f then any_hq = any_hq + #K.rival_hqs(ff.ai3f.m) end
+  end
+  check(any_hq == 0, "RECON : au départ, aucune faction ne connaît le QG d'une autre (" .. any_hq .. ")")
+  M.run_ticks(25 * 3600)
+  local entries, wrong, seen_hq = 0, 0, 0
+  for _, ff in pairs(global.fo.war.factions) do
+    local m = ff.ai3f and ff.ai3f.m
+    for _, key in ipairs(m and K.sorted_keys(m.s) or {}) do
+      for _, e in ipairs(m.s[key].rv or {}) do
+        entries = entries + 1
+        local owner = global.fo.war.factions[e.id]
+        local real = false
+        if owner and owner.id ~= ff.id then
+          if e.kind == "hq" then
+            real = owner.hq_pos and math.floor(owner.hq_pos.x) == e.x and math.floor(owner.hq_pos.y) == e.y
+          else
+            for _, o in pairs(owner.outposts or {}) do
+              if math.floor(o.pos.x) == e.x and math.floor(o.pos.y) == e.y then real = true end
+            end
+          end
+        end
+        if K.key_of(e.x, e.y) ~= key or not real then wrong = wrong + 1 end
+        if e.kind == "hq" then seen_hq = seen_hq + 1 end
+      end
+    end
+  end
+  check(wrong == 0, "RECON : chaque construction notée est une vraie construction d'une AUTRE faction, dans son secteur (" ..
+    entries .. " notées, " .. wrong .. " fausses)")
+  print(string.format("  RECON : %d constructions de factions notees en 25 min dont %d QG", entries, seen_hq))
+end
+
 print(string.format("[IA3F] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

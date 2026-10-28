@@ -23,6 +23,8 @@ local Team = require("script.team.team")
 local PvP = require("script.faction.pvp")
 local Character = require("script.faction.character")
 local Chef = require("script.faction.chef")
+local Recon = require("script.faction.recon") -- lot RECON : reconnaissance des rivales par un soldat éclaireur
+Recon.install() -- après script/faction/pvp.lua (donc vision.lua) : enveloppe les crochets de Military.scout
 
 local Commander = {}
 
@@ -44,7 +46,8 @@ local function rival_of(f, tick)
   end
   for k = 1, n - 1 do
     local id = alive[(start - 1 + k) % n + 1]
-    if not Military.target_unreachable(f, id, tick) then return id end
+    -- Lot RECON : seulement une rivale reconnue et fraîche (le voisin cyclique n'est plus connu d'office).
+    if not Military.target_unreachable(f, id, tick) and Recon.attackable(f, id, tick) then return id end
   end
   return nil
 end
@@ -52,7 +55,7 @@ end
 local function pick_target(f, tick)
   local others = {}
   for _, id in ipairs(State.alive()) do
-    if id ~= f.id and not Military.target_unreachable(f, id, tick) then
+    if id ~= f.id and not Military.target_unreachable(f, id, tick) and Recon.attackable(f, id, tick) then
       others[#others + 1] = { id = id, outposts = State.faction(id).outposts_count }
     end
   end
@@ -114,6 +117,7 @@ function Commander.think(id, tick)
   Team.think(f, surface, tick)
   Profiler.stop("faction:team")
   Chef.think(f, tick) -- lot IA2-a : une pensée par minute (rien avant l'échéance)
+  Recon.think(f, surface, tick) -- lot RECON : un soldat éclaireur cherche ou revérifie une rivale quand le chef n'a aucune cible
   Profiler.start("faction:attack")
   local view, target = Commander.view(f, tick)
   PvP.think(f, surface, tick, view, target)

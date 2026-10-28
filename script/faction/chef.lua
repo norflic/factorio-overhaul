@@ -6,8 +6,11 @@
     du chef, ligne publiée « [FO-STRAT] posture ».
   - BROUILLARD (D-16, « brouillard partout ») : le chef ne connaît d'une rivale que ce que ses yeux ont vu : avant-
     postes et tourelles à moins de VISION_HQ tuiles de son QG, VISION_OUTPOST de ses avant-postes, VISION_GROUP de ses
-    groupes en route ; groupes rivaux en route passés dans ce champ (armée sortie, menace). Les QG rivaux (positions
-    de départ) sont connus. Ce qui a été vu est retenu SEEN_TTL ticks. La défense estimée d'une rivale vient de ces
+    groupes en route ; groupes rivaux en route passés dans ce champ (armée sortie, menace). Lot RECON (28/10) : les QG
+    rivaux ne sont PLUS connus d'office : une rivale n'est une cible qu'après avoir été VUE (ses yeux, la carte de
+    connaissance de l'équipe, un soldat éclaireur) et mémorisée (f.chef.seen[id].k, shared/faction/recon.lua) ; sa
+    position visée est la dernière vue, jamais la position réelle ; périmée (R.FRESH), elle est à revérifier. Ce qui a été
+    vu de ses défenses est retenu SEEN_TTL ticks. La défense estimée d'une rivale vient de ces
     seules observations (+ ce que la mémoire a appris des attaques repoussées). Le repérage PvP du joueur (IA0) n'est
     PAS changé (garanties de pvp_test) : le chef ne lit pas le joueur en v0.
   - Attaques : cible = la rivale choisie par le chef ; côté d'arrivée tiré parmi les 3 meilleurs octants
@@ -32,6 +35,9 @@ local Character = require("script.faction.character")
 local Military = require("script.faction.military")
 local Sites = require("script.faction.sites")
 local A = require("shared.faction.adversaire")
+local R = require("shared.faction.recon") -- lot RECON : connaissance des rivales (pur)
+local K = require("shared.ai3.carte") -- lot RECON : regards sur les rivales rangés dans la carte (pur)
+local Recon = require("script.faction.recon")
 
 local Chef = {}
 
@@ -103,6 +109,19 @@ function Chef.observe(f, tick)
       st.seen[rid] = mem
       -- Avant-postes vus maintenant, tourelles proches de chacun.
       local seen_n, turrets_n, weak, weak_t, weak_d = 0, 0, nil, nil, nil
+      -- Lot RECON : ce que cette faction SAIT de la rivale (QG, avant-postes vus) ; brouillard coupé : rien n'est tenu.
+      local fog = Recon.fog_on()
+      local kn
+      if fog then
+        kn = mem.k
+        if not kn then
+          kn = R.new()
+          mem.k = kn
+          -- Partie existante : l'avant-poste faible vu autrefois sert de graine (la rivale n'est pas « jamais vue »).
+          if mem.weak and mem.tick then R.sight(kn, "post", mem.weak.x, mem.weak.y, mem.tick) end
+        end
+        if r.hq_pos and seen_by(my, r.hq_pos) then R.sight(kn, "hq", r.hq_pos.x, r.hq_pos.y, tick) end
+      end
       local turret_list = {}
       for _, tid in ipairs(State.sorted_keys(r.turrets or {})) do
         local t = r.turrets[tid]
@@ -112,6 +131,7 @@ function Chef.observe(f, tick)
         local p = r.outposts[oid].pos
         if seen_by(my, p) then
           seen_n = seen_n + 1
+          if kn then R.sight(kn, "post", p.x, p.y, tick) end
           local nt = 0
           for _, tp in ipairs(turret_list) do if d2(tp, p) <= tn2 then nt = nt + 1 end end
           turrets_n = turrets_n + nt
@@ -144,6 +164,17 @@ function Chef.observe(f, tick)
           end
         end
       end
+      if kn then
+        -- Regards de l'équipe (carte de connaissance : ouvriers en marche, éclaireurs, soldats éclaireurs), puis oubli de
+        -- ce qu'un regard postérieur n'a pas retrouvé (yeux du chef ou secteur regardé de nouveau).
+        local m = f.ai3f and f.ai3f.m
+        if m then R.merge(kn, K.rival_sightings(m, rid)) end
+        R.prune(kn, function(e)
+          if e.t < tick and seen_by(my, e) then return true end
+          local t = m and K.seen_xy(m, e.x, e.y)
+          return t ~= nil and t > e.t
+        end)
+      end
       if seen_n > 0 then
         mem.outposts, mem.turrets, mem.tick = seen_n, turrets_n, tick
         mem.weak = { x = weak.x, y = weak.y, turrets = weak_t }
@@ -175,14 +206,33 @@ function Chef.observe(f, tick)
           C.received_recent(st, rid, tick, A.HIT_WINDOW), repulsed))
       end
       mem.style = style
-      local aim = mem.weak or r.hq_pos
+      local aim, known, stale, last, weak_ok = mem.weak or r.hq_pos, nil, nil, nil, mem.weak ~= nil
+      if kn then
+        -- Lot RECON : le point visé est le dernier VU (jamais la position réelle) ; une rivale jamais vue n'est pas une
+        -- cible (known == false), une rivale vue il y a trop longtemps non plus (stale == true) : à reconnaître.
+        local status = R.status(kn, tick)
+        known, stale = status ~= "inconnue", status == "perimee"
+        last = R.last_point(kn)
+        aim = R.aim(kn, tick, f.hq_pos, C.target_point)
+        weak_ok = mem.weak ~= nil and mem.tick ~= nil and tick - mem.tick <= R.FRESH
+      end
       rivals[#rivals + 1] = {
         id = rid, outposts_seen = outposts, defense = defense, army_out = army_out, style = style,
-        weak = mem.weak ~= nil, weak_turrets = mem.weak and mem.weak.turrets or nil,
+        weak = weak_ok, weak_turrets = weak_ok and mem.weak.turrets or nil,
         dist = (aim and f.hq_pos) and math.floor(math.sqrt(d2(aim, f.hq_pos))) or 600,
         reachable = not Military.target_unreachable(f, rid, tick),
         bare = (r.outposts_count or 0) == 0, -- lot IA2-a2 : QG nu (même donnée que Military.target_of)
+        known = known, stale = stale, last = last, -- lot RECON (nil : brouillard coupé, ancien comportement)
       }
+      if kn then
+        local word = not known and "inconnue" or (stale and "perimee" or "fraiche")
+        if word ~= (mem.k_logged or "") then
+          mem.k_logged = word
+          log(string.format("[FO-RECON] vu tick %d %s -> %s : %s%s", tick, f.key, r.key, word,
+            last and string.format(" (age %.1f min), dernier point (%d, %d), qg %s, %d avant-poste(s)", R.age(kn, tick) / 3600,
+              math.floor(last.x), math.floor(last.y), kn.hq and "vu" or "non vu", #kn.posts) or ""))
+        end
+      end
     end
   end
   return rivals, enemy_near
@@ -269,6 +319,7 @@ function Chef.think(f, tick)
   local v = Chef.view(f, tick)
   v.jitter = f.attack_jitter
   local d = C.think(st, v, draw_of(st))
+  st.last_threat = d.threat -- lot RECON : menace de la dernière pensée (lue par Recon.think)
   log(string.format("[FO-STRAT] posture tick %d %s : %s, raison %s, menace %d, mult %d, cible %s, raid %s%s",
     tick, f.key, mix_text(d), (d.reason:gsub(" ", "_")), d.threat, d.war_mult,
     d.target and (State.faction(d.target) and State.faction(d.target).key or tostring(d.target)) or "-",
@@ -293,6 +344,7 @@ function Chef.target(f, tick)
   if not (st and st.target) then return nil end
   local t = State.faction(st.target)
   if not t or t.eliminated or Military.target_unreachable(f, t.id, tick) then return nil end
+  if not Recon.attackable(f, t.id, tick) then return nil end -- lot RECON : reconnue et fraîche seulement
   return t
 end
 
@@ -354,6 +406,8 @@ end
 --- Lot ARMEE : distance (tuiles) de notre QG à celui de la cible (même mesure à l'envoi et à la décision).
 function Chef.distance(f, target)
   local a, b = f.hq_pos, target and target.hq_pos
+  -- Lot RECON : la distance est celle du dernier point VU de la cible (jamais son QG réel), nil si rien n'a été vu.
+  if a and target and target.id ~= "player" and Recon.fog_on() then b = R.last_point(Recon.known_of(f, target.id)) end
   if not (a and b) then return nil end
   return math.sqrt(d2(a, b))
 end
@@ -364,11 +418,17 @@ function Chef.attack_opts(f, target, attack, tick)
   local st = f.chef
   if not st or not target or target.id == "player" then return nil end
   local tp
+  local fog = Recon.fog_on()
   if attack.raid then
     local mem = st.seen and st.seen[target.id]
-    tp = mem and mem.weak and { x = mem.weak.x, y = mem.weak.y } or nil
+    if mem and mem.weak and (not fog or (mem.tick and tick - mem.tick <= R.FRESH)) then tp = { x = mem.weak.x, y = mem.weak.y } end
   end
-  if not tp then
+  if not tp and fog then
+    -- Lot RECON : seulement un point VU récemment (périphérie d'abord) ; rien : pas d'attaque (le commandant n'appelle
+    -- Military.attack que pour une cible reconnue ; Military.attack_known est le filet).
+    tp = R.aim(Recon.known_of(f, target.id), tick, f.hq_pos, C.target_point)
+    if not tp then return nil end
+  elseif not tp then
     -- Lot IA2-a2 : périphérie d'abord (C.target_point) ; avant : l'avant-poste le plus proche de notre QG
     -- (Military.target_of), souvent dans la zone de départ de la rivale, à 45 tuiles de son QG.
     local list = {}

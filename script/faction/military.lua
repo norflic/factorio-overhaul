@@ -137,6 +137,10 @@ Military.on_rally = nil
 Military.on_player_attack_ended = nil
 Military.on_scout_done = nil
 Military.on_scout_lost = nil
+-- Lot RECON, branché par script/faction/recon.lua : Military.attack_known(f, cible, tick) -> bool. Une attaque contre une
+-- rivale que la faction n'a pas reconnue (ou dont le savoir est périmé) est REFUSÉE et comptée : filet de la règle
+-- « on ne vise que ce qu'on a vu ». Sans crochet : comme avant le lot.
+Military.attack_known = nil
 
 --- Cible d'attaque : avant-poste le plus proche de la faction visée, sinon son QG.
 function Military.target_of(target_faction, from)
@@ -156,6 +160,11 @@ end
 --- (QG + (0, 14)) : F173 (unités ajoutées à un groupe lointain) et F174 (membres perdus à la création).
 function Military.attack(f, surface, target_faction, count, tick, opts)
   if f.route_pending then return false end
+  local known, know_age -- lot RECON : savoir de la cible (âge en ticks de ce qu'on en a vu), ou refus
+  if Military.attack_known then
+    known, know_age = Military.attack_known(f, target_faction, tick)
+    if not known then return false end
+  end
   opts = opts or {}
   local target = opts.target or Military.target_of(target_faction, f.hq_pos)
   local name = F.unit_name(f.key, F.best_soldier(f.tech))
@@ -169,6 +178,7 @@ function Military.attack(f, surface, target_faction, count, tick, opts)
     -- Lot IA2-c : défense estimée au départ (go / no-go au rassemblement), défense du côté choisi et du côté le plus
     -- défendu (journal), secteur visé (mémoire des attaques contre le joueur).
     launch_def = opts.launch_def, side_def = opts.side_def, side_max = opts.side_max, key = opts.key, direct = opts.direct,
+    know_age = know_age,
   }
   request_route(f, surface, f.route_pending, name)
   return true

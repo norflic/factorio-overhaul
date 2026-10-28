@@ -79,11 +79,12 @@ function Journal.attack(f, target_faction, n, rp, tick)
   local ox = from.x - hq.x
   local oy = from.y - hq.y
   local dx, dy = tx - rp.gather.x, ty - rp.gather.y
-  log(string.format("[FO-STRAT] attaque tick %d %s -> %s : %d soldats, depart (%d, %d), vise (%d, %d), %d tuiles, octant %d, seuil %s, rassemblement %s, regle %s%s",
+  log(string.format("[FO-STRAT] attaque tick %d %s -> %s : %d soldats, depart (%d, %d), vise (%d, %d), %d tuiles, octant %d, seuil %s, rassemblement %s, regle %s%s%s",
     tick, f.key, target_faction.key, n, math.floor(rp.gather.x), math.floor(rp.gather.y), math.floor(tx), math.floor(ty),
     math.floor(math.sqrt(dx * dx + dy * dy)), Journal.octant(ox, oy), f.attack_jitter and tostring(f.attack_jitter) or "-",
     rp.approach and string.format("(%d, %d)", math.floor(rp.approach.x), math.floor(rp.approach.y)) or "-",
-    rp.rule or (target_faction.id == "player" and "joueur" or "-"), rp.raid and ", raid" or ""))
+    rp.rule or (target_faction.id == "player" and "joueur" or "-"), rp.raid and ", raid" or "",
+    rp.know_age and string.format(", savoir %.1f min", rp.know_age / 3600) or ""))
 end
 
 --- Ligne d'un site puisé dans la réserve : `site` choisi, `list` = réserve AVANT le retrait (sites valides de la
