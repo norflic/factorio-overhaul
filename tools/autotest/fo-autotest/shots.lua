@@ -36,6 +36,7 @@ local function shot(list, name, pos, zoom, daytime, opt)
   list[#list + 1] = {
     name = name, x = pos.x or pos[1], y = pos.y or pos[2], zoom = zoom or 1, daytime = daytime or 0,
     res = opt.res or RES, info = opt.info ~= false, aa = opt.aa ~= false,
+    cadence = opt.cadence, -- lot TIRS : ticks avant la capture SUIVANTE (rafales : 1 ou 2) ; absent : CADENCE
   }
 end
 
@@ -259,7 +260,7 @@ function Shots.on_tick(e, scenario)
   end
   take(player, st.i, s, e.tick)
   st.i = st.i + 1
-  st.next = e.tick + CADENCE
+  st.next = e.tick + (s.cadence or CADENCE)
 end
 
 return Shots

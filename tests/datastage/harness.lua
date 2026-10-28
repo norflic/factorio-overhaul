@@ -363,7 +363,8 @@ table.sort(disabled_rules)
 -- passeraient inaperçues. Un cas faux compte comme une violation (code de sortie 1).
 local selftest_fail, selftest_total = {}, 0
 do
-  local RULES = { "pipe-inside", "pipe-off-center", "drop-inside", "drop-on-footprint" }
+  local RULES = { "pipe-inside", "pipe-off-center", "drop-inside", "drop-on-footprint", "ammo-list-source-type",
+    "sound-ignored-key" }
   local function drill(side, drop, pipes)
     local c = side / 2 - 0.3
     local pcs = {}
@@ -393,6 +394,16 @@ do
       { ["pipe-inside"] = 1 } },
     { "entité hors grille, raccord hors des centres", { type = "pipe", flags = { "placeable-off-grid" },
       collision_box = { { -0.29, -0.29 }, { 0.29, 0.29 } }, fluid_box = { pipe_connections = { { position = { 0, -0.75 } } } } }, {} },
+    -- lot TIRS : F357 et clés de son ignorées
+    { "chargeur à AmmoType en liste, source_type partout", { type = "ammo", ammo_type = {
+      { category = "bullet", source_type = "default" }, { category = "bullet", source_type = "turret" } } }, {} },
+    { "chargeur à AmmoType en liste, source_type oublié (F357)", { type = "ammo", ammo_type = {
+      { category = "bullet" }, { category = "bullet", source_type = "turret" } } }, { ["ammo-list-source-type"] = 1 } },
+    { "son en couches, vitesse dans chaque variation", { type = "ammo-turret", attack_parameters = { sound = { layers = {
+      { variations = { { filename = "__base__/a.ogg", volume = 0.3, min_speed = 0.5, max_speed = 0.6 } } } } } } }, {} },
+    { "son en couches, vitesse posée sur la couche (ronde 3 du lot TIRS)", { type = "ammo-turret", attack_parameters = {
+      sound = { layers = { { variations = { { filename = "__base__/a.ogg" } }, min_speed = 0.5, max_speed = 0.6 } } } } },
+      { ["sound-ignored-key"] = 2 } },
   }
   for i, c in ipairs(cases) do
     local raw = { [c[2].type] = { ["cas-" .. i] = c[2] } }

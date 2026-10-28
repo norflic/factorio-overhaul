@@ -53,6 +53,9 @@ require("script.levels.panel")
 -- Modules multiplicatifs (lot MOD-1, D-15) : balise cachée de complément par machine, balayage tournant
 require("script.modules.mult")
 
+-- Tirs des tourelles par âge (lot TIRS) : bouche, traçante, impact et trait des âges de shared/tirs/ages.lua
+require("script.tirs.tirs")
+
 -- Interface de gestion en jeu « Équipe et factions » (lot IA1-i) : raccourci, touche Maj + T, onglets
 require("script.gui.team_window")
 
