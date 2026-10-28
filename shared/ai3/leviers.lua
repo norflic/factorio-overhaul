@@ -574,7 +574,7 @@ end
 --- (ctx.lv_want : le choix de la technologie lui donne la valeur d'un objet voulu et la chaîne de ses prérequis).
 local function unlock_options(Ca, ctx, plan, req)
   local succ = ctx.input.successors
-  ctx.lv_unlock = {}
+  ctx.lv_unlock, ctx.lv_eval = {}, {}
   if not succ then return end
   local D, L = ctx.D, ctx.D.lv
   local by_tech, order = {}, {}
@@ -628,6 +628,8 @@ local function unlock_options(Ca, ctx, plan, req)
               local d_fuel = 0
               if D.fuel_kj > 0 then d_fuel = g.n * ((S.kw or 0) - (E.kw or 0)) * 60 / D.fuel_kj end
               local gain = (useful + extra) * (D.mu[item] or 0) * wf - d_fuel * ctx.fuel_mu
+              ctx.lv_eval[#ctx.lv_eval + 1] = string.format("%s:%dx%s>%s gain %s (manque %s, utile %s, entree %s)", tech, g.n, g.entity,
+                sname, fmt(gain), fmt(def), fmt(useful), fmt(frac))
               if gain > Ca.EPS then
                 local b = by_tech[tech]
                 if not b then
@@ -662,6 +664,8 @@ local function unlock_options(Ca, ctx, plan, req)
       local T = cost / b.gain + delay
       local tmax = math.max(ctx.ch.tmax, (Lv.UNLOCK_TMAX or Ca.H_LIFE) / (ctx.threat and Ca.THREAT_DIV or 1))
       local items = sorted_keys(b.items)
+      ctx.lv_eval[#ctx.lv_eval + 1] = string.format("%s: T %s (cout %s, gain %s, retard %s) %s", tech, fmt(T), fmt(cost), fmt(b.gain),
+        fmt(delay), T <= tmax and "retenu" or "refuse")
       if T <= tmax then
         for _, it in ipairs(items) do ctx.lv_want[it] = true end
         ctx.lv_unlock[#ctx.lv_unlock + 1] = { tech = tech, items = items, chain = chain.techs, gain = b.gain, cost = cost,

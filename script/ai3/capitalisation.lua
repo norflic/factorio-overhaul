@@ -1035,6 +1035,12 @@ local function decide(f, cs, view, book, tick, research, w)
       end
     end
     cs.unlocks = names
+    -- diagnostic : toutes les recherches de machine évaluées (une ligne par changement, jamais à l'horloge)
+    local ev = table.concat(res.unlock_eval or {}, " | ")
+    if ev ~= (cs.unlock_eval_sig or "") then
+      cs.unlock_eval_sig = ev
+      if ev ~= "" then log(string.format("[FO-CERVEAU] %s : evaluation des recherches de machine : %s a %.1f min", f.key or "?", ev, minutes(f, tick))) end
+    end
     -- technologies de la chaîne (la technologie et ses prérequis non faits) : valeur d'un objet voulu SANS le quart des
     -- machines « pour plus tard » (Gen.LATER_DIV) : la machine supérieure est posée sur place par le lot AMELIORER
     cs.unlock_techs = {}
