@@ -341,6 +341,14 @@ EMIT.outpost = function(E, proj, g, ctx)
   if ext then
     local key = "extend:" .. ext.id
     if E.open[key] then return "en_cours" end
+    -- Lot ADOPTE (plafond seul) : jamais plus de paires que de places restantes de l'avant-poste. L'exécutant (Outposts.extend)
+    -- pose au plus min(spec.drills, places) paires : le surplus de foreuses et de fours reviendrait au coffre.
+    local room = math.max(1, T.max_drills(kind) - (ext.drills or 0))
+    if room < spec.drills then
+      local scaled = {}
+      for _, it in ipairs(items) do scaled[#scaled + 1] = { it[1], math.ceil(it[2] * room / spec.drills) } end
+      items = scaled
+    end
     if P.take(E, items) then
       P.add(E, { key = key, kind = "extend", prio = prio + P.FINISH_BONUS, outpost = ext.id, outpost_kind = kind,
         items = items, ia3 = proj.id, why = proj.key })
