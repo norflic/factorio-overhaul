@@ -29,6 +29,7 @@
 local Events = require("script.core.events")
 local Storage = require("script.core.storage")
 local Profiler = require("script.core.profiler")
+local Etalement = require("shared.core.etalement")
 
 local Scheduler = {}
 
@@ -47,8 +48,21 @@ local function current_period(name)
   return p
 end
 
+-- Lot OUTILLAGE : créneau de l'id de rang r. Tourniquet d'origine ((r mod P) + 1) ; avec l'option `spread` de la voie, créneaux
+-- ÉTALÉS (shared/core/etalement.lua) : les pensées de quelques ids ne tombent plus sur des ticks voisins.
+local function spread_sig(name)
+  local sp = lanes[name] and lanes[name].spread
+  return sp and (1 + (sp.phase or 0)) or 0
+end
+
+local function slot_for(name, rank, period)
+  local sp = lanes[name] and lanes[name].spread
+  if sp then return Etalement.creneau(rank, period, sp.phase) end
+  return rank % period + 1
+end
+
 -- Réattribue tous les ids vivants sur P créneaux, dans un ordre déterministe.
-local function rebuild(st, period)
+local function rebuild(st, period, name)
   local ids, seen = {}, {}
   local old = st.buckets
   for s = 1, (st.period or 0) do
@@ -66,12 +80,13 @@ local function rebuild(st, period)
   local buckets, slot_of = {}, {}
   for s = 1, period do buckets[s] = {} end
   for k = 1, #ids do
-    local s = (k - 1) % period + 1
+    local s = slot_for(name, k - 1, period)
     local b = buckets[s]
     b[#b + 1] = ids[k]
     slot_of[ids[k]] = s
   end
   st.buckets, st.slot_of, st.period, st.rr, st.count = buckets, slot_of, period, #ids, #ids
+  st.sig = spread_sig(name)
 end
 
 local function lane_state(name)
@@ -82,16 +97,20 @@ local function lane_state(name)
     S.lanes[name] = st
   end
   local p = current_period(name)
-  if st.period ~= p then rebuild(st, p) end
+  -- Lot OUTILLAGE : une sauvegarde d'avant l'étalement (créneaux consécutifs) est ré-étalée une fois, dans l'ordre des rangs.
+  if st.period ~= p or (st.sig or 0) ~= spread_sig(name) then rebuild(st, p, name) end
   return st
 end
 
 --- Définit une voie. `period` : nombre ou fonction renvoyant un nombre de ticks (>= 1).
-function Scheduler.define_lane(name, period, handler)
+--- `opts.spread` (lot OUTILLAGE) : vrai, ou { phase = n } : créneaux étalés (peu d'ids, pensées lourdes) au lieu du tourniquet.
+function Scheduler.define_lane(name, period, handler, opts)
   assert(not lanes[name], "voie déjà définie : " .. name)
   local period_fn = period
   if type(period) == "number" then period_fn = function() return period end end
-  lanes[name] = { period = period_fn, handler = handler, prof = "lane:" .. name }
+  local spread = opts and opts.spread
+  if spread == true then spread = {} end
+  lanes[name] = { period = period_fn, handler = handler, prof = "lane:" .. name, spread = spread or nil }
   lane_order[#lane_order + 1] = name
   stamps[name] = {}
 end
@@ -104,7 +123,7 @@ end
 function Scheduler.add(lane, id)
   local st = lane_state(lane)
   if st.slot_of[id] then return end
-  local s = st.rr % st.period + 1
+  local s = slot_for(lane, st.rr, st.period)
   st.rr = st.rr + 1
   local b = st.buckets[s]
   b[#b + 1] = id
@@ -158,7 +177,7 @@ local function run_lane(name, tick)
   local st = Storage.ns("sched").lanes[name]
   if not st or (st.count == 0 and st.period) then return end
   local p = current_period(name)
-  if st.period ~= p then rebuild(st, p) end
+  if st.period ~= p or (st.sig or 0) ~= spread_sig(name) then rebuild(st, p, name) end
   local s = tick % p + 1
   local b = st.buckets[s]
   local n = #b

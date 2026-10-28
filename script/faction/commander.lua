@@ -124,7 +124,7 @@ end
 Scheduler.define_lane(Commander.LANE, function()
   local s = State.war().settings
   return (s and s.think_period) or F.defaults.think_period
-end, Commander.think)
+end, Commander.think, { spread = true }) -- lot OUTILLAGE : pensées des factions étalées sur la période (shared/core/etalement.lua)
 
 ---------------------------------------------------------------------------------------------------
 -- Destructions et menaces

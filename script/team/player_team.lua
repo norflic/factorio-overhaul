@@ -33,6 +33,7 @@ require("script.team.adopte") -- lot ADOPTE : machines posées à la main par le
 local PlayerTeam = {}
 
 local CHEST = "fo-team-chest"
+local Etalement = require("shared.core.etalement")
 local THINK_LANE = "fo-pteam"
 local PROSPECT_LANE = "fo-pteam-prospect"
 
@@ -103,11 +104,13 @@ Events.on(defines.events.on_entity_destroyed, function(e)
   game.print({ "fo-team.lost" })
 end)
 
+-- Lot OUTILLAGE : la pensée de votre équipe ne tombe plus sur le tick des factions (rang 4 de la suite d'étalement, après
+-- les rangs 0 à 3 de la voie des commandants, script/faction/commander.lua).
 Scheduler.define_lane(THINK_LANE, 300, function(_, tick)
   local f = get()
   if not (f and f.hq and f.hq.valid) then return end
   Team.think(f, f.hq.surface, tick)
-end)
+end, { spread = { phase = Etalement.decalage(4, 300) } })
 
 Scheduler.define_lane(PROSPECT_LANE, 30, function(_, tick)
   local f = get()
