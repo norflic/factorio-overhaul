@@ -110,12 +110,17 @@ end
 
 --- Fantômes d'aperçu vivants (registre) et fantômes de pose de ce module repérés sur la carte (balayage de contrôle).
 function Fantomes.status(f)
-  local live, entries = 0, 0
+  local live, entries, drills = 0, 0, 0
   for _, key in ipairs(State.sorted_keys(f.fantomes or {})) do
     entries = entries + 1
-    for _, g in ipairs(f.fantomes[key].ents) do if g.valid then live = live + 1 end end
+    for _, g in ipairs(f.fantomes[key].ents) do
+      if g.valid then
+        live = live + 1
+        if g.ghost_name == T.DRILL then drills = drills + 1 end
+      end
+    end
   end
-  return { entries = entries, live = live, shown = (f.stats or {}).fantomes_montres or 0, arrive = (f.stats or {}).fantomes_arrivee or 0,
+  return { entries = entries, live = live, drills = drills, shown = (f.stats or {}).fantomes_montres or 0, arrive = (f.stats or {}).fantomes_arrivee or 0,
     fin = (f.stats or {}).fantomes_fin or 0, balayage = (f.stats or {}).fantomes_balayage or 0 }
 end
 
