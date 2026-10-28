@@ -320,7 +320,7 @@ local function nearest_network(f, surface, x, y, b)
       if pass == 2 or (e.electric_network_id and powered[e.electric_network_id]) then
         local d = (e.position.x - x) ^ 2 + (e.position.y - y) ^ 2
         if not bd or d < bd or (d == bd and (e.position.x < best.x or (e.position.x == best.x and e.position.y < best.y))) then
-          best, bd = { x = e.position.x, y = e.position.y }, d
+          best, bd = { x = e.position.x, y = e.position.y, wire = get(e.prototype, "max_wire_distance") }, d
         end
       end
     end
@@ -331,7 +331,8 @@ local function nearest_network(f, surface, x, y, b)
   for _, e in ipairs((pl and pl.ents) or {}) do
     if e.name:find("electric%-pole") then
       local d = (e.x - x) ^ 2 + (e.y - y) ^ 2
-      if not bd or d < bd then best, bd = { x = e.x, y = e.y }, d end
+      local pp = game.entity_prototypes[e.name]
+      if not bd or d < bd then best, bd = { x = e.x, y = e.y, wire = pp and get(pp, "max_wire_distance") or nil }, d end
     end
   end
   return best

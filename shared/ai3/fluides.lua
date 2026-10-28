@@ -226,7 +226,7 @@ end
     pumps = { {x, y, dir} } (places de pompe de rive possibles, s'il en faut) ;
     conduit, chest, arm = noms des pièces (données de l'exécutant) ;
     poles = { name, supply (demi-côté de l'aire), wire (portée) } ;
-    network = {x, y} (poteau du réseau le plus proche) ou nil ;
+    network = {x, y, wire} (poteau du réseau le plus proche et sa portée de fil, facultative) ou nil ;
     n_extract = puits à équiper ;
     block = {x, y} (facultatif) : centre de la place des machines (défaut : le centre des extracteurs) ;
   }
@@ -857,17 +857,25 @@ function Site:power(electric)
   local line = 0
   if self.req.network then
     local net = { x = self.req.network.x, y = self.req.network.y }
+    -- La portée d'un fil entre deux poteaux est la PLUS PETITE des deux : un poteau moyen (9) ne joint un petit poteau du
+    -- réseau (7,5) qu'à 7,5 tuiles au plus (moteur réel, etape1-guide 123456789 : site fini, 146 entités, « no_power » à 89 min).
+    -- La ligne vers le réseau se tire donc à la portée du poteau du réseau quand il en a une plus courte.
+    local keep = wire
+    local netw = self.req.network.wire
+    if netw and netw > 0 and netw < wire then wire = netw end
     local best, bp
     for _, p in ipairs(poles) do
       local d = d2(p, net)
       if not best or d < best then best, bp = d, p end
     end
     if bp and best > wire * wire then
-      if math.sqrt(best) > Fl.POLE_LINE_MAX then return nil, "reseau trop loin (" .. math.floor(math.sqrt(best)) .. " tuiles)" end
+      if math.sqrt(best) > Fl.POLE_LINE_MAX then wire = keep return nil, "reseau trop loin (" .. math.floor(math.sqrt(best)) .. " tuiles)" end
       local n = relay(bp, net)
+      wire = keep
       if not n then return nil, "ligne de poteaux jusqu'au reseau impossible" end
       line = n
     end
+    wire = keep
   end
   return #poles, line
 end

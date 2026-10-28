@@ -230,6 +230,32 @@ local function run(d, label, names)
     poles = { name = names.pole, supply = 3.5, wire = 9 }, network = { x = -20.5, y = -40.5 }, n_extract = 2 }
   local lay, why2 = Fl.layout(req)
   check(lay ~= nil, label .. " §4 implantation : " .. tostring(why2))
+  -- §4d portée du fil vers le réseau : le dernier poteau de la ligne est à la portée du POTEAU DU RÉSEAU quand elle est plus
+  -- courte (petit poteau 5 ici, au lieu du poteau moyen 9) ; sans cela la ligne s'arrête hors de portée (« no_power »)
+  if lay then
+    local function mind(l)
+      local best = math.huge
+      for _, e in ipairs(l.ents) do
+        if e.name == names.pole then
+          local d = math.sqrt((e.x - req.network.x) ^ 2 + (e.y - req.network.y) ^ 2)
+          if d < best then best = d end
+        end
+      end
+      return best
+    end
+    local req2 = {}
+    for k, v in pairs(req) do req2[k] = v end
+    req2.network = { x = req.network.x, y = req.network.y, wire = 5 }
+    local lay2, why7 = Fl.layout(req2)
+    check(lay2 ~= nil, label .. " §4d implantation avec un poteau de réseau à portée 5 : " .. tostring(why7))
+    if lay2 then
+      check(mind(lay2) <= 5 + 1e-6, label .. string.format(" §4d le dernier poteau est à %.2f tuiles du poteau du réseau (portée 5)", mind(lay2)))
+      check(lay2.line >= lay.line, label .. " §4d la ligne ne raccourcit pas avec une portée plus courte (" .. lay2.line .. " contre " .. lay.line .. ")")
+    end
+    -- mutant : la portée du poteau moyen (9) laisse la ligne à plus de 5 tuiles du réseau, le contrôle ci-dessus la refuse
+    check(mind(lay) > 5, label .. string.format(" §4d mutant refusé : sans la portée du poteau du réseau, la ligne s'arrête à %.2f tuiles (> 5)", mind(lay)))
+    say(label .. string.format(" §4d portée 9 : poteau le plus proche du réseau à %.2f ; portée 5 : %.2f", mind(lay), lay2 and mind(lay2) or -1))
+  end
   if lay then
     local count = {}
     for _, e in ipairs(lay.ents) do count[e.name] = (count[e.name] or 0) + 1 end
