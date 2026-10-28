@@ -15,7 +15,7 @@
 local Z = require("scenarios/fonction_reseau")
 
 local MIN = 3600
-local KILL = 35 * MIN
+local KILL = 35 * MIN -- défaut ; opts.kill_min le change (micro-banc d'essai)
 local STEP = 600
 local WORM_AT = 34          -- tuiles entre le site et le ver
 local DANGER = 40           -- tuiles : portée de danger du mod (S.DANGER_R)
@@ -89,10 +89,13 @@ end
 
 return function(opts)
   local temoin = opts and opts.temoin
+  local KILL = ((opts and opts.kill_min) or 35) * MIN
   local sc = require("scenarios/etape1-guide")
   local init0, tick0, finish0 = sc.init, sc.tick, sc.finish
   sc.description = sc.description .. (temoin and " + evenements provoques a 35 min, TEMOIN (sante coupee)"
     or " + evenements provoques a 35 min (centrale detruite : site sur, site dangereux ; poteau pivot)")
+
+  if opts and opts.check_tick then sc.check_tick = opts.check_tick end
 
   sc.init = function(ctx)
     if init0 then init0(ctx) end
@@ -153,8 +156,8 @@ return function(opts)
                 end
               end
             end
-            log(TAG .. string.format("%s | %s | centrale detruite a la minute 35 : %d piece(s) ; site %.0f,%.0f ; ver %s ; avant : prod %.0f kW, "
-              .. "consommateurs %d dont %d sur une centrale", ev.key, ev.role, ev.killed, site.x, site.y,
+            log(TAG .. string.format("%s | %s | centrale detruite a la minute %d : %d piece(s) ; site %.0f,%.0f ; ver %s ; avant : prod %.0f kW, "
+              .. "consommateurs %d dont %d sur une centrale", ev.key, ev.role, KILL / MIN, ev.killed, site.x, site.y,
               ev.worm and string.format("pose en %.0f,%.0f a %.1f tuiles", ev.worm.x, ev.worm.y, dist(ev.worm.x, ev.worm.y, site.x, site.y))
               or "NON POSE", ev.pre.prod, ev.pre.cons, ev.pre.on))
           end
