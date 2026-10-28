@@ -2110,6 +2110,10 @@ local function advance(f, surface, p, tick)
       p.wait_net = (p.wait_net or 0) + 1
       p.plan_after = tick + Build.NET_WAIT_TICKS
       p.state, p.reason = "attente", why
+    elseif wait == "calcul" then
+      -- lot PETROLE 2 : le plan d'un site se calcule par tranches (Fl.layout_step) ; le projet reste en « plan » et reprend à la
+      -- prochaine passe (rien n'a été réservé)
+      p.reason = why
     elseif wait == true then
       p.state = "attente"
       p.reason = why

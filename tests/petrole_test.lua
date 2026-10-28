@@ -424,6 +424,107 @@ for _, c in ipairs(cartes) do
   end
 end
 
+-- §8b IMPLANTATION PAR TRANCHES (Fl.layout_step) : le résultat ne dépend pas de la tranche de nœuds d'A* par tick, et l'état du
+-- travail est fait de DONNÉES SEULES (recopié, sans fonction, entre deux tranches comme le ferait global après un chargement)
+do
+  local function copy_data(v, seen)
+    local t = type(v)
+    assert(t ~= "function" and t ~= "thread" and t ~= "userdata", "l'etat du travail contient un(e) " .. t)
+    if t ~= "table" then return v end
+    seen = seen or {}
+    assert(not seen[v], "cycle dans l'etat du travail")
+    seen[v] = true
+    local o = {}
+    for k, x in pairs(v) do o[copy_data(k, seen)] = copy_data(x, seen) end
+    seen[v] = nil
+    return o
+  end
+  local function signature(lay)
+    if not lay then return "aucune" end
+    local out = {}
+    for _, e in ipairs(lay.ents) do
+      out[#out + 1] = string.format("%s@%.2f,%.2f/%d/%s/%s/%s", e.name, e.x, e.y, e.dir or 0, tostring(e.role), tostring(e.fluid), tostring(e.recipe))
+    end
+    for _, q in ipairs(lay.quais) do out[#out + 1] = string.format("q%.1f,%.1f,%s", q.x, q.y, q.item) end
+    for _, o in ipairs(lay.outs) do out[#out + 1] = string.format("o%.1f,%.1f,%s", o.x, o.y, o.item) end
+    out[#out + 1] = table.concat(lay.box, ",") .. "/" .. lay.pipes .. "/" .. lay.poles .. "/" .. lay.line
+    return table.concat(out, "|")
+  end
+  -- tranches successives ; `mutant` : fonction (job) -> job appliquée entre deux tranches
+  local function run_sliced(c, budget, roundtrip, mutant)
+    local job = Fl.layout_new()
+    local steps = 0
+    while true do
+      local req = carte_case(c)
+      local st, a = Fl.layout_step(req, job, budget)
+      steps = steps + 1
+      if st == "done" then return a, steps, job end
+      if st == "fail" then return nil, steps, job, a end
+      if steps > 4000 then return nil, steps, job, "pas fini" end
+      if roundtrip then job = copy_data(job) end
+      if mutant then job = mutant(job) end
+    end
+  end
+  for _, c in ipairs(cartes) do
+    local req0 = carte_case(c)
+    local ref, why0 = Fl.layout(req0)
+    local ref_sig = signature(ref)
+    local nodes = req0.spent
+    local ok_all, detail = true, ""
+    -- peu de nœuds par tranche seulement pour les petites implantations (chaque reprise rejoue la tentative : 4 à 9 ms)
+    local budgets = { 500, 50000 }
+    if nodes <= 100 then budgets = { 1, 7, 500, 50000 }
+    elseif nodes <= 2500 then budgets = { 7, 500, 50000 }
+    elseif nodes > 20000 then budgets = { 8000 } end
+    for _, b in ipairs(budgets) do
+      local lay, steps, job, w = run_sliced(c, b, true)
+      if signature(lay) ~= ref_sig or tostring(w) ~= tostring(ref and nil or why0) then
+        ok_all, detail = false, string.format("tranche %d : %s", b, tostring(w))
+      end
+      if b <= 500 and nodes > 3 * b then
+        check(steps > 1, "§8b " .. c.name .. " : tranche " .. b .. " : l'implantation prend plusieurs tranches (" .. steps .. ")")
+      end
+      check(job.spent == nodes, "§8b " .. c.name .. " : tranche " .. b .. " : mêmes nœuds développés (" .. job.spent .. " contre " .. nodes .. ")")
+    end
+    check(ok_all, "§8b " .. c.name .. " : même implantation quelle que soit la tranche " .. detail)
+    -- sans recopie, même résultat (les tables sont les mêmes d'une tranche à l'autre)
+    local lay_nc = run_sliced(c, budgets[1], false)
+    check(signature(lay_nc) == ref_sig, "§8b " .. c.name .. " : même implantation sans recopie de l'etat")
+    say(string.format("§8b %s : %d noeuds, tranches %s : identique", c.name, nodes, table.concat(budgets, "/")))
+  end
+  -- Fl.is_plain : ce qui va dans global
+  check(Fl.is_plain({ a = 1, b = { "x", true, { 2.5 } } }), "§8b is_plain : nombres, chaînes, booléens, tables")
+  check(not Fl.is_plain({ a = function() end }), "§8b is_plain : une fonction est refusée")
+  local cyc = {}; cyc.me = cyc
+  check(not Fl.is_plain(cyc), "§8b is_plain : un cycle est refusé")
+  check(not Fl.is_plain({ [print] = 1 }), "§8b is_plain : une clé fonction est refusée")
+  do
+    local c = cartes[#cartes]
+    local job = Fl.layout_new()
+    local st = Fl.layout_step(carte_case(c), job, 200)
+    check(st == "more" and Fl.is_plain(job) and job.cur ~= nil, "§8b l'état du travail interrompu est fait de données seules")
+  end
+  -- mutants : un état perdu entre deux tranches doit se voir (résultat différent, ou travail jamais fini)
+  local big
+  for _, c in ipairs(cartes) do
+    local req0 = carte_case(c)
+
+    local okb = Fl.layout(req0)
+    if okb and req0.spent > 3000 and req0.spent < 20000 and not big then big = c end
+  end
+  big = big or cartes[1]
+  local reqb = carte_case(big)
+  local refb = signature((Fl.layout(reqb)))
+  local function differs(mutant, label)
+    local lay, steps, job, w = run_sliced(big, 300, true, mutant)
+    check(signature(lay) ~= refb, "§8b mutant refusé : " .. label .. " (" .. tostring(w) .. ")")
+  end
+  differs(function(job) job.cur = nil return job end, "A* repris de zéro à chaque tranche")
+  differs(function(job) job.calls = {} return job end, "journal des tracés perdu")
+  differs(function(job) if job.cur then job.cur.open = {} end return job end, "tas de l'A* perdu")
+  differs(function(job) if job.cur then job.cur.came = {} end return job end, "parents de l'A* perdus")
+end
+
 -- §5 Généralisation : tout renommé (préfixe « zz- »), boîtes et catégories comprises.
 local function rename(s) return "zz-" .. s end
 local d = F.dump()

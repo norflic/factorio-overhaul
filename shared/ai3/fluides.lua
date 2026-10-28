@@ -377,7 +377,7 @@ function Fl.pole_route(a, b, wire, free, max_nodes)
 end
 
 local function new_site(req)
-  local s = setmetatable({ req = req, occ = {}, ents = {}, tube = {}, rsv = {}, quais = {}, outs = {}, npipes = 0 }, Site)
+  local s = setmetatable({ req = req, job = req.job, occ = {}, ents = {}, tube = {}, rsv = {}, quais = {}, outs = {}, npipes = 0 }, Site)
   return s
 end
 
@@ -490,18 +490,56 @@ end
 --- Tuyau du fluide `fl` d'une tuile de départ à l'ensemble `goal` ({ [clé] = vrai }) : A* sur la grille (4 voisins,
 --- coût 1, heuristique de Manhattan vers la cible la plus proche) ; pose les tuyaux. Rend le nombre posé, ou nil.
 function Site:route(sx, sy, goal, fl)
+  local job = self.job
+  job.ord = job.ord + 1
+  local ord = job.ord
+  local rec = job.calls[ord]
+  if rec == nil then
+    rec = self:route_raw(sx, sy, goal, fl, ord)
+    job.calls[ord] = rec
+  elseif rec.sx ~= sx or rec.sy ~= sy or rec.fl ~= fl then
+    error("fluides : reprise incoherente du tuyau " .. ord, 0)
+  end
+  return self:apply_route(rec, fl)
+end
+
+--- Pose les tuyaux d'un tracé (le même code pour un tracé neuf et pour un tracé rejoué d'une reprise) : rend le nombre posé, ou nil.
+function Site:apply_route(rec, fl)
+  if not rec.seq then return nil end
+  local placed = 0
+  for i, k in ipairs(rec.seq) do
+    -- la tuile but est un raccord (ou un tuyau du réseau) : un tuyau y est posé s'il n'y en a pas
+    if not self.tube[k] and not (i == 1 and rec.occ_first and self.occ[k]) then
+      self.tube[k] = fl
+      placed = placed + 1
+    end
+  end
+  if rec.zero then
+    self.npipes = self.npipes + placed
+    return 0
+  end
+  self.npipes = self.npipes + placed
+  return placed
+end
+
+--- Le calcul d'un tracé, sans rien poser : rend l'enregistrement { sx, sy, fl, seq = { clés des tuiles à garnir, dans l'ordre },
+--- occ_first, zero } ou { sx, sy, fl } (aucun tracé). Peut s'interrompre (erreur Fl.YIELD) quand la tranche de nœuds de
+--- l'implantation est épuisée : l'état de l'A* est alors gardé dans job.cur (données seules), repris à l'appel suivant.
+function Site:route_raw(sx, sy, goal, fl, ord)
+  local job = self.job
+  local none = { sx = sx, sy = sy, fl = fl }
   local gl = {}
   for _, k in ipairs(sorted_keys(goal)) do
     local gx, gy = math.floor(k / 2097152) - 1048576, k % 2097152 - 1048576
     gl[#gl + 1] = { gx, gy }
   end
-  if #gl == 0 then return nil end
+  if #gl == 0 then return none end
   local sk = tkey(sx, sy)
   if goal[sk] then
-    if not self.tube[sk] then self.tube[sk] = fl; self.npipes = self.npipes + 1 end
-    return 0
+    -- déjà au réseau : le tuyau de départ seul, et « 0 posé » à l'appelant
+    return { sx = sx, sy = sy, fl = fl, seq = { sk }, zero = true }
   end
-  if not self:pipe_ok(sx, sy, fl) then return nil end
+  if not self:pipe_ok(sx, sy, fl) then return none end
   -- une cible dont aucun voisin n'accepte un tuyau de ce fluide est scellée (autres fluides, machines) : refus immédiat,
   -- sans développer l'A* (moteur réel, 28/10 : l'eau d'une usine entourée de tuyaux de brut)
   do
@@ -513,7 +551,7 @@ function Site:route(sx, sy, goal, fl)
       end
       if open_goal then break end
     end
-    if not open_goal then return nil end
+    if not open_goal then return none end
   end
   local function h(x, y)
     local best = math.huge
@@ -535,11 +573,23 @@ function Site:route(sx, sy, goal, fl)
   local limit = math.min(Fl.ASTAR_MAX, math.max(Fl.ASTAR_MIN, Fl.ASTAR_PER_TILE * nd))
   local ox, oy = (sx + near[1]) / 2, (sy + near[2]) / 2
   local R = math.max(math.abs(sx - near[1]), math.abs(sy - near[2])) / 2 + Fl.ROUTE_R / 2
-  local open = { { f = h(sx, sy), g = 0, x = sx, y = sy } }
-  local came, gs = { [sk] = false }, { [sk] = 0 }
-  local n = 0
+  local open, came, gs, n
+  local cur0 = job.cur
+  if cur0 and cur0.ord == ord then
+    open, came, gs, n = cur0.open, cur0.came, cur0.gs, cur0.n -- reprise du même tracé
+  else
+    open = { { f = h(sx, sy), g = 0, x = sx, y = sy } }
+    came, gs = { [sk] = false }, { [sk] = 0 }
+    n = 0
+  end
+  job.cur = nil
   local found
   while #open > 0 do
+    -- tranche épuisée : l'état (données seules) est gardé et l'implantation s'interrompt, au même endroit quelle que soit la tranche
+    if job.slice >= job.limit then
+      job.cur = { ord = ord, open = open, came = came, gs = gs, n = n }
+      error(Fl.YIELD, 0)
+    end
     -- tas binaire minimal (f, puis g décroissant, puis y, x : déterministe)
     local cur = open[1]
     local last = table.remove(open)
@@ -565,8 +615,9 @@ function Site:route(sx, sy, goal, fl)
     local ck = tkey(cur.x, cur.y)
     if cur.g == gs[ck] then
       n = n + 1
-      self.req.spent = (self.req.spent or 0) + 1
-      if n > limit or self.req.spent > Fl.LAYOUT_BUDGET then return nil end
+      job.spent = job.spent + 1
+      job.slice = job.slice + 1
+      if n > limit or job.spent > Fl.LAYOUT_BUDGET then return none end
       for _, d in ipairs(DIRS) do
         local nx, ny = cur.x + DV[d][1], cur.y + DV[d][2]
         local nk = tkey(nx, ny)
@@ -597,17 +648,14 @@ function Site:route(sx, sy, goal, fl)
       if found then break end
     end
   end
-  if not found then return nil end
-  local placed = 0
+  if not found then return none end
+  local seq = { found }
   local k = came[found]
-  -- la tuile but est un raccord (ou un tuyau du réseau) : un tuyau y est posé s'il n'y en a pas
-  if not self.tube[found] and not self.occ[found] then self.tube[found] = fl; placed = placed + 1 end
   while k do
-    if not self.tube[k] then self.tube[k] = fl; placed = placed + 1 end
+    seq[#seq + 1] = k
     k = came[k]
   end
-  self.npipes = self.npipes + placed
-  return placed
+  return { sx = sx, sy = sy, fl = fl, seq = seq, occ_first = true }
 end
 
 --- Place libre d'une machine (direction 0) au plus près de (x, y), avec la marge ; rend cx, cy ou nil.
@@ -1200,21 +1248,67 @@ end
 Fl.SHIFT = 14
 Fl.LAYOUT_BUDGET = 120000 -- nœuds d'A* des tuyaux au plus pour toutes les tentatives d'une implantation
 
-function Fl.layout(req)
+--- Jeton d'interruption de l'implantation (erreur lancée dans l'A*, attrapée par Fl.layout_step ; jamais gardé dans global).
+Fl.YIELD = { "fl-yield" }
+
+--- IMPLANTATION PAR TRANCHES (lot PETROLE 2). Un A* de 120 000 nœuds dans UN tick gelait le jeu (moteur réel, x10 : un gel toutes
+--- les 0,5 s). L'implantation est reprise tranche après tranche : `Fl.layout_new()` rend l'état du travail (DONNÉES SEULES : aucune
+--- fonction, gardable dans global), `Fl.layout_step(req, job, budget)` développe au plus `budget` nœuds d'A* (au moins 1) puis rend
+--- "more" (à reprendre), ou "done", l'implantation, ou "fail", la raison. Le résultat NE DÉPEND PAS de la tranche (testé : tranches
+--- de 1, 7, 500, 50 000 et sans limite, état recopié entre deux tranches) : l'A* n'est interrompu qu'en tête de boucle, son état
+--- entier gardé (tas, parents, coûts, compte) ; le reste de la tentative est rejoué à chaque reprise (calcul pur), les tracés
+--- déjà finis étant relus du journal job.calls au lieu d'être recalculés. `req` doit être le même à chaque reprise (mêmes
+--- données ; `blocked` doit rendre les mêmes réponses).
+function Fl.layout_new()
+  return { shift = 1, spent = 0, ord = 0, calls = {}, slice = 0, limit = math.huge }
+end
+
+function Fl.layout_step(req, job, budget)
   local k = Fl.SHIFT
   local shifts = { { 0, 0 }, { k, 0 }, { -k, 0 }, { 0, k }, { 0, -k }, { k, k }, { -k, -k }, { k, -k }, { -k, k } }
-  req.spent = 0
-  local first_why
-  for _, sh in ipairs(shifts) do
-    local lay, why = layout_once(req, sh)
-    if lay then return lay end
-    first_why = first_why or why
+  job.slice, job.limit = 0, math.max(1, budget or math.huge)
+  req.job = job
+  while true do
+    local sh = shifts[job.shift]
+    if not sh then return "fail", job.first_why end
+    job.ord = 0
+    local ok, lay, why = pcall(layout_once, req, sh)
+    if not ok then
+      if lay == Fl.YIELD then return "more" end
+      error(lay, 0)
+    end
+    if lay then return "done", lay end
+    job.first_why = job.first_why or why
     -- un autre décalage ne change rien à l'absence de puits ni aux poteaux (la ligne a son propre A*) ; budget épuisé : fin
     local w = tostring(why)
-    if req.spent > Fl.LAYOUT_BUDGET or w:find("puits", 1, true) or w:find("poteau", 1, true) then break end
-    if not first_why or not first_why:find("tuyau", 1, true) then first_why = first_why or why end
+    if job.spent > Fl.LAYOUT_BUDGET or w:find("puits", 1, true) or w:find("poteau", 1, true) then return "fail", job.first_why end
+    job.shift, job.calls, job.cur = job.shift + 1, {}, nil
   end
-  return nil, first_why
+end
+
+--- Vrai si `v` n'est fait que de nombres, chaînes, booléens et tables (donc gardable dans global : ni fonction, ni fil, ni objet du jeu,
+--- ni cycle).
+function Fl.is_plain(v, seen)
+  local t = type(v)
+  if t == "number" or t == "string" or t == "boolean" or t == "nil" then return true end
+  if t ~= "table" then return false end
+  seen = seen or {}
+  if seen[v] then return false end
+  seen[v] = true
+  for k, x in pairs(v) do
+    if not Fl.is_plain(k, seen) or not Fl.is_plain(x, seen) then return false end
+  end
+  seen[v] = nil
+  return true
+end
+
+--- Implantation d'un coup (tests, outils) : toutes les tranches à la suite. req.spent : nœuds développés.
+function Fl.layout(req)
+  local job = Fl.layout_new()
+  local st, a = Fl.layout_step(req, job, nil)
+  req.spent = job.spent
+  if st == "done" then return a end
+  return nil, a
 end
 
 --- Contrôle d'une implantation (tests, journal) : réseaux de tuyaux (composantes 4-connexes) d'un seul fluide, chaque

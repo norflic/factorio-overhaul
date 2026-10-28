@@ -52,6 +52,7 @@ Pet.DUMP = false           -- diagnostic (allumé par les bancs : remote fo-petr
 Pet.POND = 6               -- côté de l'étang posé au gisement quand aucune rive n'est à portée (comme celui de la centrale, Build.POND)
 Pet.POND_NEAR = 60         -- rive à plus de 60 tuiles du gisement : un étang est posé au gisement
 Pet.PUMPS = 8               -- places de pompe essayées au plus (la plus proche d'abord)
+Pet.PLAN_SLICE = 600          -- nœuds d'A* au plus par passage du plan d'un site (environ 5 à 10 ms ; un plan de 120 000 nœuds : 200 passages)
 Pet.RETRY = 10 * 3600       -- un site refusé est revu 10 min plus tard
 Pet.GAIN = 3                -- PNJ « libérés » (valeur du projet de chantier, comme un module de l'automatisation)
 
@@ -460,7 +461,7 @@ local function danger_tiles(f, tick)
 end
 Pet.danger_tiles = danger_tiles
 
-local function plan_site(f, surface, p, h)
+local function freeze_site(f, surface, p, h)
   local b = f.build
   local spec = p.spec
   local rel = REL
@@ -519,26 +520,58 @@ local function plan_site(f, surface, p, h)
   local masks = h.read_masks(x0, y0, x1, y1)
   local net = nearest_network(f, surface, origin.x, origin.y, b)
   local pole = pole_of(f, rel)
+  -- Le terrain, le danger et le réseau sont GELÉS ici (données seules, gardées dans le projet, donc dans global) : le plan est
+  -- repris tranche après tranche (Fl.layout_step) et chaque reprise doit voir les mêmes réponses (lot PETROLE 2).
+  local fz = {
+    origin = origin, wells = wells, pumps = pumps, block = block, net = net, pole = pole, chain = ch,
+    x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+    water = masks.water, blocked = masks.blocked, clear = masks.clear, extra = {}, danger = danger_tiles(f, game.tick), occ = {},
+    targets = spec.targets,
+  }
+  for _, v in ipairs({ origin, wells, pumps, block or {}, net or {}, pole or {}, ch }) do
+    if not Fl.is_plain(v) then return nil, "etat du plan non serialisable" end
+  end
+  return { jb = Fl.layout_new(), fz = fz, steps = 0 }
+end
+
+--- Une tranche du plan d'un site (Pet.PLAN_SLICE nœuds d'A* au plus) : (implantation), ou (nil, raison) refusé, ou (nil, raison,
+--- "calcul") à reprendre au prochain passage. L'état est pj = { jb, fz } (voir freeze_site et Fl.layout_step).
+local function step_site(f, surface, p, h, pj)
+  local b = f.build
+  local spec = p.spec
+  local fz = pj.fz
+  local origin, wells, pumps, block, net, pole = fz.origin, fz.wells, fz.pumps, fz.block, fz.net, fz.pole
+  local ch = fz.chain
+  local x0, y0, x1, y1 = fz.x0, fz.y0, fz.x1, fz.y1
+  local danger = fz.danger
+  local masks = { water = fz.water, blocked = fz.blocked, clear = fz.clear }
+  masks.free = function(tx, ty)
+    local k = Fl.tkey(tx, ty)
+    return not masks.water[k] and not masks.blocked[k] and not b.occ[k]
+  end
+  local rel = REL
   -- hors du relevé principal (ligne de poteaux jusqu'au réseau, qui peut traverser le QG) : relevés par carrés de 32
   -- tuiles, lus à la demande et gardés le temps du plan (moteur réel, petrole-partie 271828182 : un relais posé sur le
   -- QG de la faction, hors du relevé, chantier bloqué à 274 entités sur 287)
-  local extra = {}
+  local extra = fz.extra
   local function masks_at(tx, ty)
     if tx >= x0 and tx < x1 and ty >= y0 and ty < y1 then return masks end
     local cx, cy = math.floor(tx / 32), math.floor(ty / 32)
     local ck = cx * 65536 + cy
     local m = extra[ck]
     if not m then
-      m = h.read_masks(cx * 32, cy * 32, cx * 32 + 32, cy * 32 + 32)
+      local r = h.read_masks(cx * 32, cy * 32, cx * 32 + 32, cy * 32 + 32)
+      m = { water = r.water, blocked = r.blocked, clear = r.clear }
       extra[ck] = m
     end
     return m
   end
-  local danger = danger_tiles(f, game.tick)
   local function blocked(tx, ty)
     -- clé des tuiles du plan directeur (shared/team/plan.lua P.tkey : même formule que Fl.tkey)
     local k = Fl.tkey(tx, ty)
-    if b.occ[k] then return true end
+    local o = fz.occ[k]
+    if o == nil then o = b.occ[k] ~= nil; fz.occ[k] = o end
+    if o then return true end
     if danger and danger[k] then return true end
     local m = masks_at(tx, ty)
     return m.water[k] or m.blocked[k] or false
@@ -550,7 +583,20 @@ local function plan_site(f, surface, p, h)
   -- toutes les rives candidates d'un coup : l'implantation choisit celle qui est la plus proche du consommateur du fluide
   -- (les machines étant posées) et en essaie une autre si son tuyau ne se trace pas (Fl.layout, retour en arrière)
   req.pumps = pumps
-  local lay, w2 = Fl.layout(req)
+  local okc, status, lay, w2
+  okc, status, lay = pcall(Fl.layout_step, req, pj.jb, Pet.PLAN_SLICE)
+  pj.steps = pj.steps + 1
+  if not okc then
+    -- reprise incohérente (ne devrait jamais arriver : toutes les entrées sont gelées) : on repart de zéro, deux fois au plus
+    log(string.format("[FO-PETROLE] %s : plan du site repris de zero (%s)", f.key or "?", tostring(status)))
+    p.plan_job = nil
+    p.plan_restarts = (p.plan_restarts or 0) + 1
+    if p.plan_restarts > 2 then return nil, "plan incoherent" end
+    return nil, "plan repris de zero", "calcul"
+  end
+  if status == "more" then return nil, "calcul du plan (" .. pj.jb.spent .. " noeuds)", "calcul" end
+  p.plan_job = nil
+  if status == "fail" then w2, lay = lay, nil end
   if not lay then
     -- Diagnostic (moteur réel, 28/10) : le relevé du terrain autour du site refusé, une fois par faction et par raison
     -- (. libre, # bloqué, ~ eau, O origine, W puits, P pompe, B bloc des machines, * tuile occupée par le plan directeur)
@@ -587,9 +633,22 @@ local function plan_site(f, surface, p, h)
     return nil, w2 .. (#pumps > 1 and (" (" .. #pumps .. " rives essayees)") or "")
   end
   lay.masks = masks
+  log(string.format("[FO-PETROLE] %s : plan du site en %d tranche(s), %d noeuds d'A*", f.key or "?", pj.steps, pj.jb.spent))
   lay.out_at = Pet.OUT_AT
   lay.key = "petrole:" .. table.concat(spec.targets, "+")
   return lay
+end
+
+local function plan_site(f, surface, p, h)
+  local pj = p.plan_job
+  if not pj then
+    local why, wait
+    pj, why, wait = freeze_site(f, surface, p, h)
+    if not pj then return nil, why, wait end
+    p.plan_job = pj
+    return nil, "terrain releve", "calcul" -- la première passe relève le terrain seulement ; l'A* commence à la suivante
+  end
+  return step_site(f, surface, p, h, pj)
 end
 
 Build.SITES = Build.SITES or {}
