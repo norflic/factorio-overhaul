@@ -7,7 +7,7 @@
       toute attaque proposée par la sonde `recon_probe` refusée (et comptée) ;
     - « voisines » (60) : leurs QG sont à portée des yeux du chef (160 tuiles). Attendu : chacune VOIT l'autre (QG et avant-
       postes, statut fraîche), la sonde accepte l'attaque, aucun soldat envoyé en reconnaissance ;
-    - « attaque » (60, 30 min) : les mêmes voisines, jouées assez longtemps pour qu'une attaque entre factions PARTE : preuve en
+    - « attaque » (60, 50 min, 40 000 plaques) : les mêmes voisines, jouées assez longtemps pour qu'une attaque entre factions PARTE : preuve en
       moteur réel du critère central, « où elles se voient, l'attaque part » (ligne [FO-STRAT] attaque ... savoir N min, lue
       par tools/autotest/recon_mesures.py).
   Journal : [FO-RECON-<CAS>] ; lignes du mod : [FO-RECON]. Lancement : fo-autotest.bat nopause <ticks> recon-<cas> <source>.
@@ -27,7 +27,7 @@ return function(case, distance, ticks)
       ctx.check(ok == true, "difficulte Paisible (aucun PvP : seule la guerre entre factions)", tostring(ok))
       local started = ctx.call("war_start", 2, 60, 6, distance)
       ctx.check(started == true, "guerre lancee : 2 factions, QG a " .. distance .. " tuiles du depart", tostring(started))
-      ctx.call("war_fund", 3000)
+      ctx.call("war_fund", case == "attaque" and 40000 or 3000) -- « attaque » : assez de plaques pour lever l'armée (13 à 28 soldats)
       ctx.call("profiler", true)
     end,
 

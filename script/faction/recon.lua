@@ -162,7 +162,7 @@ function Recon.think(f, surface, tick)
   -- Destination : revérifier le dernier point connu (périmée, vieillissante), sinon la frontière de la carte.
   local dest, how
   if (req.kind == "perimee" or req.kind == "vieillissante") and req.x then
-    dest, how = { x = req.x, y = req.y }, "reverifier"
+    dest, how = R.standoff(f.hq_pos, { x = req.x, y = req.y }), "reverifier"
   elseif Recon.pick_frontier then
     if req.kind == "balayage" then
       dest, how = Recon.pick_frontier(f, tick, { ring = false, max_dist = R.range(traits.curiosite) }), "balayer"

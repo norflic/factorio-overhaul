@@ -401,13 +401,39 @@ function K.ring_prior(ring, cx, cy)
   return p
 end
 
+--- Lot RECON : le trajet en ligne droite de `a` à `b` passe-t-il loin de tout ennemi VU ? Moteur réel (28/10, scénario voisines) :
+--- un soldat éclaireur « balayage » est mort à 40 tuiles du QG de la rivale, sur la route de son but (le pathfinder ne contourne
+--- ni tourelles ni nids). Refusé si une construction de faction vue (QG, avant-poste) est à moins de K.PATH_CLEAR du segment, ou
+--- un nid ou un ver vu à moins de K.PATH_CLEAR_NEST d'un point échantillonné tous les 64 tuiles. Aucune trigonométrie.
+K.PATH_CLEAR = 110
+K.PATH_CLEAR_NEST = 64
+function K.path_clear(m, a, b)
+  local dx, dy = b.x - a.x, b.y - a.y
+  local len2 = dx * dx + dy * dy
+  local c2 = K.PATH_CLEAR * K.PATH_CLEAR
+  for _, key in ipairs(sorted_keys(m.s)) do
+    for _, e in ipairs(m.s[key].rv or {}) do
+      local t = len2 > 0 and ((e.x - a.x) * dx + (e.y - a.y) * dy) / len2 or 0
+      if t < 0 then t = 0 elseif t > 1 then t = 1 end
+      local px, py = a.x + dx * t, a.y + dy * t
+      if (e.x - px) ^ 2 + (e.y - py) ^ 2 < c2 then return false end
+    end
+  end
+  local n = math.max(1, math.floor(math.sqrt(len2) / 64))
+  for i = 0, n do
+    local nests, worms = K.enemies_near(m, a.x + dx * i / n, a.y + dy * i / n, K.PATH_CLEAR_NEST)
+    if nests + worms > 0 then return false end
+  end
+  return true
+end
+
 --- Lot RECON : cible de RECHERCHE d'une rivale (soldat éclaireur). Moteur réel (28/10, 4 graines, 60 min) : en sautant de proche
 --- en proche de secteur en secteur de la frontière, 3 graines sur 4 n'ont JAMAIS vu la rivale (+1 secteur par départ, la rivale
 --- est à 850 tuiles). Ici le but peut être n'importe quel secteur NON VU sur l'anneau (K.ring_prior : même distance du départ que
 --- notre QG, pas à côté de lui), pourvu que le moteur l'ait GÉNÉRÉ (`generated(clé)`) : les chemins de 500 à 900 tuiles existent
 --- (les abords de chaque QG sont générés sur 13 chunks). Note = a priori d'anneau × (1 000 − risque) ÷ (K.SEARCH_TRAVEL + distance
 --- au QG) : l'anneau domine, à anneau égal le plus proche (la bande vue en route couvre 4 secteurs de large : on balaie
---- l'anneau de proche en proche). ctx = { hq, tick, rivals, exclude, ring = { x, y, r, hq }, generated, max_dist }. Renvoie la clé
+--- l'anneau de proche en proche). ctx = { hq, tick, rivals, exclude, ring = { x, y, r, hq }, generated, path_ok, max_dist }. Renvoie la clé
 --- (nil : aucun secteur). Déterministe : balayage de la grille par lignes, égalités au premier.
 K.SEARCH_TRAVEL = 500
 function K.search_target(m, ctx)
@@ -428,7 +454,9 @@ function K.search_target(m, ctx)
           local risk = K.sector_risk(m, key, ctx.tick, ctx.rivals)
           if risk < K.DANGER.skip then
             local score = K.ring_prior(ring, cx, cy) * (1000 - risk) / (K.SEARCH_TRAVEL + dh)
-            if (not bs or score > bs) and (not ctx.generated or ctx.generated(key)) then best, bs = key, score end
+            if (not bs or score > bs) and (not ctx.generated or ctx.generated(key)) and (not ctx.path_ok or ctx.path_ok(key)) then
+              best, bs = key, score
+            end
           end
         end
       end
@@ -455,7 +483,7 @@ function K.best_target(m, ctx)
           local dm = math.sqrt((cx - me.x) ^ 2 + (cy - me.y) ^ 2)
           local prior = ctx.ring and K.ring_prior(ctx.ring, cx, cy) or K.prior(m, ctx.res, k, spawn, ctx.hq)
           local score = prior * (1000 - risk) / (dh + dm + 100)
-          if not bs or score > bs then best, bs = k, score end
+          if (not bs or score > bs) and (not ctx.path_ok or ctx.path_ok(k)) then best, bs = k, score end
         end
       end
     end

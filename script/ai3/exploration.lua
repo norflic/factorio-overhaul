@@ -1248,14 +1248,19 @@ Recon.pick_frontier = function(f, tick, opts)
     return nil
   end })
   local key
+  -- Le trajet en ligne droite ne doit passer ni près d'une construction de faction vue, ni près d'un nid ou d'un ver vu.
+  local function path_ok(sk)
+    local cx, cy = K.center(K.xy(sk))
+    return K.path_clear(k.m, f.hq_pos, { x = cx, y = cy })
+  end
   if ring and opts.search then
     -- Recherche d'une rivale : n'importe quel secteur non vu de l'anneau déjà généré (pas seulement la frontière).
     key = K.search_target(k.m, { hq = f.hq_pos, tick = tick, rivals = rivals(f, surface), exclude = exclude, ring = ring,
-      max_dist = opts.max_dist, generated = function(sk) return generated(surface, sk) end })
+      max_dist = opts.max_dist, generated = function(sk) return generated(surface, sk) end, path_ok = path_ok })
   end
   if not key then
     key = K.best_target(k.m, { hq = f.hq_pos, me = f.hq_pos, tick = tick, res = nil, spawn = sp,
-      rivals = rivals(f, surface), exclude = exclude, ring = ring, max_dist = opts.max_dist })
+      rivals = rivals(f, surface), exclude = exclude, ring = ring, max_dist = opts.max_dist, path_ok = path_ok })
   end
   if not key then return nil end
   local cx, cy = K.center(K.xy(key))

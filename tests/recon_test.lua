@@ -177,6 +177,10 @@ local function battery()
   check(R.sweep_gap(1000, 0, 1) == 2 * R.sweep_gap(1000, 0, 0), "délai de balayage doublé par perte")
   check(R.sweep_gap(1000, 0, 99) == R.sweep_gap(1000, 0, R.LOSS_CAP) and R.sweep_gap(2000, 0, 0) >= R.SWEEP_MIN, "balayage : borné")
   check(R.range(2000) > R.range(1000) and R.range(500) < R.range(1000), "plus curieuse, elle va plus loin")
+  local so = R.standoff({ x = 0, y = 0 }, { x = 400, y = 0 })
+  check(math.abs(so.x - (400 - R.STANDOFF)) < 1e-9 and so.y == 0, "revérification : à R.STANDOFF tuiles du point connu, côté QG")
+  local near = R.standoff({ x = 0, y = 0 }, { x = 50, y = 0 })
+  check(near.x == 50 and near.y == 0, "revérification : point plus proche que R.STANDOFF : le point lui-même")
   local kf = { hq = { x = 0, y = 0, t = 1000 }, posts = {} }
   check(not R.aging(kf, 1000 + R.AGING) and R.aging(kf, 1000 + R.AGING + 1) and R.aging(kf, 1000 + R.FRESH)
     and not R.aging(kf, 1000 + R.FRESH + 1) and not R.aging(nil, 5) and not R.aging(R.new(), 5), "vieillissante : entre R.AGING et R.FRESH")
@@ -259,6 +263,15 @@ local function battery()
   check(K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings, generated = function() return false end }) == nil,
     "recherche : rien de généré, rien à viser (repli sur la frontière)")
   check(K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings, max_dist = 30 }) == nil, "recherche : portée bornée")
+  -- Trajet dégagé : ni construction de faction vue près du segment, ni nid vu.
+  local mp = K.new()
+  K.record(mp, K.key(0, 0), 100, { rv = { { id = 2, kind = "hq", x = 300, y = 10 } } })
+  K.record(mp, K.key(10, 10), 100, { nests = { { x = 650, y = 650 } } })
+  check(not K.path_clear(mp, { x = 0, y = 0 }, { x = 600, y = 0 }), "trajet : une construction de faction à 10 tuiles du segment le ferme")
+  check(K.path_clear(mp, { x = 0, y = 0 }, { x = 0, y = 600 }), "trajet : loin de tout ennemi vu, il est dégagé")
+  check(not K.path_clear(mp, { x = 0, y = 0 }, { x = 700, y = 700 }), "trajet : un nid vu sur la route le ferme")
+  local blocked = K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings, path_ok = function() return false end })
+  check(blocked == nil, "recherche : aucun trajet dégagé, aucun but")
   local far = K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings })
   check(far == sk, "recherche : déterministe")
   -- Un saut direct vers la rivale, là où la frontière avançait d'un secteur par départ : le but est à plus de 300 tuiles du QG.
@@ -452,6 +465,18 @@ mutant("K.search_target ignore les exclusions", function()
     return orig(m, c2)
   end
   return function() K.search_target = orig end
+end)
+
+mutant("K.path_clear ne voit pas les constructions de faction", function()
+  local orig = K.path_clear
+  K.path_clear = function(m, a, b)
+    local saved = {}
+    for kk, s in pairs(m.s) do saved[kk] = s.rv; s.rv = nil end
+    local r = orig(m, a, b)
+    for kk, rv in pairs(saved) do m.s[kk].rv = rv end
+    return r
+  end
+  return function() K.path_clear = orig end
 end)
 
 local survivors = 0

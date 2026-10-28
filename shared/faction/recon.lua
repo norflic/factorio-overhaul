@@ -195,6 +195,16 @@ function R.range(curiosity)
   return R.RANGE + math.floor(R.RANGE_CUR * math.max(500, math.min(2000, curiosity or 1000)) / 1000)
 end
 
+--- Point d'observation d'une revérification : à R.STANDOFF tuiles du point connu, du côté de notre QG (l'œil d'un éclaireur voit à
+--- 128 tuiles : inutile d'aller sous les tourelles de l'avant-poste). Plus proche que cela : le point lui-même.
+R.STANDOFF = 110
+function R.standoff(from, p)
+  local dx, dy = from.x - p.x, from.y - p.y
+  local len = math.sqrt(dx * dx + dy * dy)
+  if len <= R.STANDOFF then return { x = p.x, y = p.y } end
+  return { x = p.x + dx * R.STANDOFF / len, y = p.y + dy * R.STANDOFF / len }
+end
+
 --- Taille de l'éclaireur : un soldat, +1 par perte récente (petit groupe prudent), R.SIZE_MAX au plus, et jamais plus de
 --- R.SHARE_MAX % de la garnison (au moins 1).
 function R.size(losses, garrison)
