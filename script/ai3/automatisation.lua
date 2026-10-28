@@ -26,6 +26,7 @@ local A = require("shared.ai3.automatiser")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
+local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : bras électriques de la centrale, fabriqués d'avance
 local Profiler = require("script.core.profiler")
 
 local Auto = {}
@@ -533,6 +534,14 @@ function Auto.think(f, view, book, tick, research)
       -- débit MESURÉ (la minute écoulée), pas le nominal : un module sans courant ne couvre rien
       fini_rate[m.product] = (fini_rate[m.product] or 0) + (m.rate_meas or 0)
       target[m.product] = math.max(target[m.product] or 0, m.rate or 0)
+    end
+  end
+  -- Lot PLANDIR : les bras ÉLECTRIQUES de la centrale sont fabriqués dès qu'elle est planifiée (ses bras de départ brûlent du
+  -- charbon) : au premier courant ils sont au coffre (23,7 et 31,4 min sans cela : « 3 bras au coffre » seulement alors)
+  if f.build then
+    local dm = PlantArms.demand(f, function(n) return (book and book.handcraftable and book:handcraftable(n)) or (stock[n] or 0) > 0 end, stock)
+    if dm then
+      feeds[#feeds + 1] = { product = "centrale-bras", id = f.build.plant, items = { dm }, gain = math.max(1, st.plant_gain or 0) }
     end
   end
   for _, p in ipairs(sorted_keys(fini_rate)) do

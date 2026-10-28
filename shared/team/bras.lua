@@ -24,6 +24,7 @@ end
 --- l'action puis appelle B.applied. Le compteur de relevés avance ici.
 function B.observe(st, obs, tick)
   if (obs.power or 0) > 0 then
+    st.first_power = st.first_power or tick
     st.live, st.dead = st.live + 1, 0
   else
     st.live = 0
@@ -35,6 +36,14 @@ function B.observe(st, obs, tick)
     return "revert"
   end
   return nil
+end
+
+--- Nombre de bras électriques à garder AU COFFRE pour la centrale : autant que de bras à combustion restant à remplacer tant
+--- que la centrale est à combustion (la demande part dès que la centrale est planifiée : fabriqués d'avance, ils sont là
+--- au premier courant), zéro sinon. `burners` : bras à combustion de la centrale ; `have` : bras électriques au coffre.
+function B.arms_missing(st, burners, have)
+  if (st and st.mode == "electric") or (burners or 0) <= 0 then return 0 end
+  return math.max(0, burners - (have or 0))
 end
 
 --- L'action a été appliquée (n = bras remplacés ; 0 : rien n'a pu l'être, l'action sera redemandée).

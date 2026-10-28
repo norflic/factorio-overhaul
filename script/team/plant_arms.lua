@@ -32,6 +32,29 @@ local function need_of(e, nboilers)
   return per_boiler / 2
 end
 
+--- Bras à combustion de la centrale de l'équipe `f` encore à remplacer (nil : pas de centrale planifiée ou refusée).
+function PA.burners(f)
+  local b = f.build
+  local p = b and b.plant and b.projects[b.plant]
+  if not p or p.state == "refuse" then return nil end
+  local n = 0
+  for _, e in ipairs(p.ents) do if e.name == M.BURNER_ARM then n = n + 1 end end
+  if n == 0 and #p.ents == 0 then n = 3 end -- pas encore planifiée : deux bras de chaudière et celui du quai
+  return n
+end
+
+--- Lot PLANDIR : bras électriques à FABRIQUER d'avance pour la centrale, { nom, manque } ou nil. `usable(nom)` : le livre de
+--- la main sait le faire ou il est au coffre ; `stock` : le coffre. Le bras est celui que PA.step posera.
+function PA.demand(f, usable, stock)
+  local n = PA.burners(f)
+  if not n then return nil end
+  local name = M.electric_arm(usable, 0)
+  if not name then return nil end
+  local miss = B.arms_missing(f.build.plant_arms, n, stock[name] or 0)
+  if miss <= 0 then return nil end
+  return { name, miss }
+end
+
 --- Relevé de la centrale d'une équipe (projet `p` fini) : f.build.plant_arms porte l'état de B.
 function PA.step(f, surface, p, tick)
   local b = f.build
@@ -95,9 +118,9 @@ function PA.step(f, surface, p, tick)
     end
   end
   B.applied(st, action, done, tick)
-  log(string.format("[FO-PLANDIR] %s : centrale, bras %s : %d remplace(s) sur %d (puissance %.0f, chaudiere a sec %s, %d bras au coffre) a %.1f min",
+  log(string.format("[FO-PLANDIR] %s : centrale, bras %s : %d remplace(s) sur %d (puissance %.0f, chaudiere a sec %s, %d bras au coffre, 1er courant a %.1f min) a %.1f min",
     f.key or "player", action == "upgrade" and "ELECTRIQUES" or "RETOUR a la combustion", done, #arms, power,
-    tostring(dry), avail, tick / 3600))
+    tostring(dry), avail, (st.first_power or tick) / 3600, tick / 3600))
 end
 
 return PA

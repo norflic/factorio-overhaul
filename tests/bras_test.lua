@@ -76,6 +76,28 @@ local st3 = B.new()
 B.applied(st3, "upgrade", 0, 0)
 check(st3.mode == "burner" and st3.upgrades == 0, "aucun bras remplacé : l'état ne change pas (l'action sera redemandée)")
 
+-- bras électriques fabriqués d'avance
+section("2 bis. Bras à fabriquer d'avance")
+do
+  local s0 = B.new()
+  check(B.arms_missing(s0, 3, 0) == 3, "centrale à combustion, aucun bras au coffre : 3 à fabriquer")
+  check(B.arms_missing(s0, 3, 2) == 1, "2 au coffre : 1 de plus")
+  check(B.arms_missing(s0, 3, 5) == 0, "assez au coffre : rien")
+  check(B.arms_missing(s0, 0, 0) == 0, "aucun bras à combustion : rien")
+  check(B.arms_missing(nil, 3, 0) == 3, "état inconnu (centrale pas encore relevée) : comme à combustion")
+  local s1 = B.new()
+  B.applied(s1, "upgrade", 3, 100)
+  check(B.arms_missing(s1, 3, 0) == 0, "centrale déjà électrique : rien")
+  B.applied(s1, "revert", 3, 200)
+  check(B.arms_missing(s1, 3, 0) == 3, "après un retour à la combustion : de nouveau demandés")
+  local s2 = B.new()
+  B.observe(s2, { power = 0 }, 300)
+  check(s2.first_power == nil, "pas de courant : pas de premier courant")
+  B.observe(s2, { power = 10 }, 600)
+  B.observe(s2, { power = 10 }, 900)
+  check(s2.first_power == 600, "premier courant noté une fois (tick 600)")
+end
+
 -- mutants
 section("3. Mutants")
 local saved = B.DEAD_CHECKS
