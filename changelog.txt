@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.6
+Date: 2026-10-28
+  Changes:
+    - Correctif d'un plantage : la mise a l'abri de votre equipe de PNJ (menace pres du QG, sans reponse de soldats) concatenait
+      une valeur nulle et arretait la partie vers la 73e minute.
+    - Outils de test seulement : releves fonctionnels des IA (production reelle des fours, etat des foreuses, courant, bras
+      electriques ou thermiques, stock dormant) pour juger les futures versions ; aucun effet sur le jeu.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.5
 Date: 2026-10-28
   Changes:

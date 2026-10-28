@@ -6,10 +6,16 @@
   recherches faites, remplissage du coffre du QG et ce qu'il contient le plus.
   Images (session avec images) : ×8 hors des moments de photo ; à 10, 20, 40 et 60 min, par faction, la base au zoom
   0,25 et le QG au zoom 0,6.
+  Lot MESURES (28/10) : à côté de ces comptes de PRÉSENCE, indicateurs FONCTIONNELS lus sur le moteur, pour toutes les
+  forces avec la même fonction (scenarios/fonction_common.lua, lignes [FO-FONCTION], fenêtres de 10 min, relevés d'état
+  toutes les 30 s ; ce qu'ils prouvent : docs/PORTES_MESURES.md ; lecture : tools/autotest/fonction_mesures.py).
+  La colonne `tech=` des lignes « base » est désormais le nombre de technologies TERMINÉES, pour votre équipe comme
+  pour les factions (avant : pour les factions, le palier du plan `f.tech`, rendu ici par `palier=`).
   Lancement : banc.py --out <archive> --qui ETAPE1 --captures --visuel="--ticks 216200 --timeout 7200" -- 216200 etape1-guide <source>.
 ]]
 
 local base = require("scenarios/verif_guide_common")(30)
+local Fn = require("scenarios/fonction_common")
 
 local MIN = 3600
 local EVERY = 10 * MIN
@@ -70,7 +76,7 @@ local function report(s, minute)
       fill = string.format("%d/%d", used, #inv)
       local cont = inv.get_contents()
       local na, ua, sa = annexes(s, hq.position, r.force, cont)
-      fill = fill .. string.format(" annexes=%d(%d/%d) dormants foreuses=%d fours=%d", na, ua, sa,
+      fill = fill .. string.format(" annexes=%d(%d/%d) dormants stock_foreuses=%d stock_fours=%d", na, ua, sa,
         cont["burner-mining-drill"] or 0, cont["stone-furnace"] or 0)
       local names = {}
       for n in pairs(cont) do names[#names + 1] = n end
@@ -80,9 +86,9 @@ local function report(s, minute)
       top = table.concat(parts, " ")
     end
     log(TAG .. string.format("base minute %d | %s | chaudieres=%d vapeur=%d poteaux=%d foreuses_elec=%d foreuses_comb=%d"
-      .. " tapis=%d bras=%d fours=%d assembleurs=%d labos=%d coffres=%d | tech=%d n=%d | coffre_qg %s | %s",
+      .. " tapis=%d bras=%d fours=%d assembleurs=%d labos=%d coffres=%d | tech=%d palier=%s n=%d | coffre_qg %s | %s",
       minute, r.key, c.boiler, c.generator, c["electric-pole"], de, db, c["transport-belt"], c.inserter, c.furnace,
-      c["assembling-machine"], c.lab, c.container, r.tech or -1, r.n or -1, fill, top))
+      c["assembling-machine"], c.lab, c.container, Fn.researched(r.force), tostring(r.tech or -1), r.n or -1, fill, top))
   end
 end
 
@@ -118,7 +124,7 @@ local function report_player(s, minute)
     fill = string.format("%d/%d", #inv - inv.count_empty_stacks(), #inv)
     local cont = inv.get_contents()
     local na, ua, sa = annexes(s, chest.position, "player", cont)
-    fill = fill .. string.format(" annexes=%d(%d/%d) dormants foreuses=%d fours=%d", na, ua, sa,
+    fill = fill .. string.format(" annexes=%d(%d/%d) dormants stock_foreuses=%d stock_fours=%d", na, ua, sa,
       cont["burner-mining-drill"] or 0, cont["stone-furnace"] or 0)
     local names = {}
     for n in pairs(cont) do names[#names + 1] = n end
@@ -135,8 +141,7 @@ local function report_player(s, minute)
     log(TAG .. string.format("fantomes minute %d | aperceus en cours %d (%d fantomes dont %d foreuses) | carte : %d fantomes de foreuse | ORPHELINS %d | montres %d arrivee %d fin %d balayage %d",
       minute, fs.entries or 0, fs.live or 0, fs.drills or 0, scan, scan - (fs.drills or 0), fs.shown, fs.arrive, fs.fin, fs.balayage))
   end
-  local techs = 0
-  for _, tc in pairs(game.forces.player.technologies) do if tc.researched then techs = techs + 1 end end
+  local techs = Fn.researched("player")
   log(TAG .. string.format("base minute %d | VOTRE EQUIPE | chaudieres=%d vapeur=%d poteaux=%d foreuses_elec=%d foreuses_comb=%d"
     .. " tapis=%d bras=%d fours=%d assembleurs=%d labos=%d coffres=%d | tech=%d pnj=%d | coffre_equipe %s | %s",
     minute, c.boiler, c.generator, c["electric-pole"], de, db, c["transport-belt"], c.inserter, c.furnace,
@@ -175,6 +180,18 @@ base.tick = function(ctx, e)
           snap(s, r.key .. "-" .. moment .. "-qg", hq.position.x, hq.position.y, 0.6)
         end
       end
+    end
+  end
+  -- Lot MESURES : relevés d'état toutes les 30 s (dès le tick 0), rapport fonctionnel par fenêtre de 10 min
+  if e.tick % Fn.SAMPLE == 0 then
+    local rows = remote.call("fo-ia1", "teams") or {}
+    local forces = { { key = "player", force = "player" } }
+    for _, r in ipairs(rows) do if r.key ~= "player" then forces[#forces + 1] = { key = r.key, force = r.force } end end
+    if e.tick > 0 and e.tick % EVERY == 0 then
+      Fn.sample_all(ctx.state(), s, forces, e.tick, rows)
+      Fn.report_all(ctx.state(), s, forces, e.tick / MIN, e.tick, rows)
+    else
+      Fn.sample_all(ctx.state(), s, forces, e.tick, rows)
     end
   end
   if e.tick > 0 and e.tick % EVERY == 0 then
