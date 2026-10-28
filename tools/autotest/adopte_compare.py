@@ -5,6 +5,7 @@ où <dossier base> contient base-<graine>/ et <dossier lot> contient lot-<graine
 mesure (ordre du DC, 28/10) : foreuses au coffre, foreuses électriques ET à combustion EN MARCHE à 40 et 60 min (statut),
 fer livré par tranche de 10 min (fer_min x 10), plus la recherche et la défense (pas de baisse). Distribution par graine."""
 import gzip
+import os
 import re
 import statistics
 import sys
@@ -59,7 +60,7 @@ def main():
     agg = {}
     for s in seeds:
         b = player("%s/base-%s" % (base_dir, s))
-        l = player("%s/lot-%s" % (lot_dir, s))
+        l = player("%s/%s-%s" % (lot_dir, os.environ.get("LOT_PREFIX", "lot"), s))
         print("=" * 100)
         print("graine %s : colonnes = minutes %s (base | lot)" % (s, ",".join(map(str, MINUTES))))
         spec = [
