@@ -16,6 +16,11 @@
     POSÉ près du QG (objet du coffre, create_entity raise_built : le module des niveaux l'enregistre comme centre de la
     force) ; un niveau est PAYÉ par Levels.start, le mécanisme du joueur, avec le coffre du QG comme inventaire payeur
     (après le coffre du centre) ; une tourelle améliorée reste une tourelle de la faction (Outposts.add_turret).
+  - REMPLACER (lot AMELIORER) : les machines HORS famille que l'équipe a posées (fours du QG f.smelters, machines des projets
+    du plan directeur f.build) sont remplacées sur place par la machine supérieure, dérivée des PROTOTYPES (shared/ai3/
+    capital.lua, Cap.successors : même type, même groupe de remplacement rapide, même emprise, même énergie, vitesse
+    supérieure) ; create_entity{fast_replace} (F39) garde contenu et recette ; la cible est payée au stock libre, l'ancienne
+    machine y revient. Factions ET votre équipe (pour elle, seules ses machines suivies : jamais celles du joueur).
   Le lien avec script/levels/levels.lua est posé au chargement par les deux modules (Capital.bind), sans changer l'ordre
   des require de control.lua.
   Déterminisme : listes triées par numéro d'entité, aucun hasard, aucun temps mesuré.
@@ -37,6 +42,9 @@ local Capital = {}
 -- Réglage de carte fo-war-capital (settings/capital.lua), ÉTEINT par défaut (correction après revue, 27/10 : la recherche
 -- des factions est retardée quand il est allumé, D1 ouvert) ; relu à chaque pensée. Capital.ENABLED = false et l'interface
 -- « fo-capital » set_enabled(false) (bancs témoins, rangé dans l'état de la guerre) l'éteignent aussi, même réglage allumé.
+-- Il commande les buts sur les bâtiments à niveaux et le centre. Le REMPLACEMENT des machines hors famille (lot AMELIORER)
+-- a son propre réglage fo-war-remplacer, ALLUMÉ par défaut : il ne remplace que ce qui est déjà débloqué et ne réclame jamais
+-- de recherche ; éteint, la pensée est celle d'avant le lot.
 Capital.SETTING = "fo-war-capital"
 Capital.ENABLED = true
 Capital.SCAN_EVERY = 12   -- pensées (1 min à une pensée toutes les 5 s)
@@ -62,12 +70,25 @@ local function get(obj, k)
   return nil
 end
 
+Capital.SETTING_REPLACE = "fo-war-remplacer"
+
+--- Remplacement des machines hors famille (lot AMELIORER) : réglage fo-war-remplacer (défaut : allumé).
+function Capital.replace_on()
+  local war = State.war()
+  if not (Capital.ENABLED == true and Levels ~= nil and not (war and war.capital_off)) then return false end
+  local s = settings.global[Capital.SETTING_REPLACE]
+  return s == nil or s.value == true
+end
+
 function Capital.on()
   local war = State.war()
   if not (Capital.ENABLED == true and Levels ~= nil and not (war and war.capital_off)) then return false end
   local s = settings.global[Capital.SETTING]
   return s ~= nil and s.value == true
 end
+
+--- Un des deux mécanismes est allumé.
+function Capital.any_on() return Capital.on() or Capital.replace_on() end
 
 ---------------------------------------------------------------------------------------------------
 -- Noms des bâtiments à niveaux (données des niveaux) et prototypes (cache LOCAL)
@@ -100,6 +121,113 @@ local function proto(name)
   return c or nil
 end
 Capital.proto = proto
+
+---------------------------------------------------------------------------------------------------
+-- Machines hors famille (lot AMELIORER) : catalogue des prototypes (cache LOCAL) et relevé des machines de l'équipe
+---------------------------------------------------------------------------------------------------
+local mcat = nil
+--- Catalogue des machines de fabrication (types « fabrique » de R.ENTITY_ROLE) qui ont un objet, un groupe de remplacement
+--- rapide et une vitesse : { names (triés), by[nom] = { type, group, w, h, energy, cats, speed, item } }.
+local function machine_catalog()
+  if mcat then return mcat end
+  local c = { names = {}, by = {} }
+  local filters = {}
+  for _, t in ipairs(R.ENTITY_TYPES) do
+    if R.ENTITY_ROLE[t] == "fabrique" then
+      filters[#filters + 1] = { filter = "type", type = t, mode = #filters > 0 and "or" or nil }
+    end
+  end
+  local list = #filters > 0 and game.get_filtered_entity_prototypes(filters) or {}
+  local names = {}
+  for n in pairs(list) do names[#names + 1] = n end
+  table.sort(names)
+  for _, n in ipairs(names) do
+    local p = list[n]
+    local items = get(p, "items_to_place_this")
+    local item = items and items[1] and items[1].name or nil
+    local group = get(p, "fast_replaceable_group")
+    local speed = get(p, "crafting_speed")
+    local hidden = false
+    pcall(function() hidden = p.has_flag("hidden") end)
+    local cb = get(p, "collision_box")
+    if item and group and speed and speed > 0 and cb and not hidden then
+      local cats = {}
+      for k, v in pairs(get(p, "crafting_categories") or {}) do if v then cats[k] = true end end
+      local energy = "none"
+      if get(p, "burner_prototype") then energy = "burner"
+      elseif get(p, "electric_energy_source_prototype") then energy = "electric"
+      elseif get(p, "fluid_energy_source_prototype") then energy = "fluid"
+      elseif get(p, "heat_energy_source_prototype") then energy = "heat" end
+      c.by[n] = { type = p.type, group = group, speed = speed, item = item, energy = energy, cats = cats,
+        w = math.ceil(cb.right_bottom.x - cb.left_top.x - 1e-6), h = math.ceil(cb.right_bottom.y - cb.left_top.y - 1e-6) }
+      c.names[#c.names + 1] = n
+    end
+  end
+  mcat = c
+  return c
+end
+function Capital.mproto(name) return machine_catalog().by[name] end
+
+--- Machines supérieures vers lesquelles `name` se remplace sur place (liste triée : vitesse croissante), lues aux prototypes.
+--- Interface du lot LEVIERS (valeur d'une recherche qui débloque une meilleure machine) : même règle que le remplacement.
+function Capital.successors_of(name)
+  return Cap.successors(L, { mproto = Capital.mproto, machines = machine_catalog().names }, name)
+end
+
+-- Recettes (prototypes) qui donnent un objet, cache LOCAL ; l'objet est « débloqué » pour la force quand l'une est activée.
+local recipes_of = {}
+local function unlocked(f, item)
+  local r = recipes_of[item]
+  if not r then
+    r = {}
+    for n in pairs(game.get_filtered_recipe_prototypes({ { filter = "has-product-item",
+        elem_filters = { { filter = "name", name = item } } } })) do
+      r[#r + 1] = n
+    end
+    table.sort(r)
+    recipes_of[item] = r
+  end
+  local force = game.forces[f.force]
+  for _, n in ipairs(r) do
+    local rc = force and force.recipes[n]
+    if rc and rc.enabled then return true end
+  end
+  return false
+end
+
+--- Machines que l'équipe a posées, hors familles à niveaux : fours du QG et machines des projets du plan directeur
+--- (jamais celles du joueur, même force). Rend { list = { {id, name, working} } triée par id, ents = { [id] = entité },
+--- refs = { [id] = entrée du plan } }.
+local function scan_machines(f)
+  local cat = machine_catalog()
+  local surface = f.hq.surface
+  local ents, refs = {}, {}
+  local function add(e, ref)
+    if e and e.valid and e.unit_number and cat.by[e.name] then
+      ents[e.unit_number] = e
+      if ref then refs[e.unit_number] = ref end
+    end
+  end
+  for _, e in ipairs(f.smelters or {}) do add(e) end
+  local b = f.build
+  if b and b.projects then
+    for _, pid in ipairs(sorted_keys(b.projects)) do
+      for _, pe in ipairs(b.projects[pid].ents or {}) do
+        if pe.built and cat.by[pe.name] then
+          local e = surface.find_entity(pe.name, { pe.x, pe.y })
+          if e and e.force.name == f.force then add(e, pe) end
+        end
+      end
+    end
+  end
+  local list = {}
+  local ws = defines.entity_status and defines.entity_status.working
+  for _, id in ipairs(sorted_keys(ents)) do
+    local e = ents[id]
+    list[#list + 1] = { id = id, name = e.name, working = ws ~= nil and e.status == ws }
+  end
+  return { list = list, ents = ents, refs = refs }
+end
 
 ---------------------------------------------------------------------------------------------------
 -- État de la faction (global)
@@ -148,6 +276,27 @@ local function scan(f, c)
   return { list = list, center = center }
 end
 
+--- Relevé complet : bâtiments à niveaux et centre (factions seulement), machines hors famille (toutes les équipes).
+local function census_of(f, c)
+  local census
+  if f.is_player or not Capital.on() then
+    -- Votre équipe : ni centre à poser ni bâtiments à niveaux du joueur (même force) ; seulement ses propres machines. De
+    -- même quand fo-war-capital est éteint : seul le remplacement des machines (fo-war-remplacer) décide.
+    census = { list = {}, center = nil, no_center = true }
+    c.ents, c.by_family, c.cc_level = {}, {}, 0
+  else
+    census = scan(f, c)
+  end
+  if Capital.replace_on() then
+    local m = scan_machines(f)
+    census.machines = m.list
+    c.mach_ents, c.mach_refs = m.ents, m.refs
+  else
+    c.mach_ents, c.mach_refs = {}, {}
+  end
+  return census
+end
+
 local function find_entity(c, id)
   for _, e in ipairs(c.ents or {}) do
     if e.valid and e.unit_number == id then return e end
@@ -174,10 +323,15 @@ local function unit_cost_fn(f, book)
   end
 end
 
+--- Texte d'une décision pour le journal : « famille de -> à » ou « remplacer machine -> machine xN ».
+function Capital.describe(d)
+  if d.replace then return string.format("remplacer %s -> %s x%d", d.replace.from, d.replace.to, d.replace.n) end
+  return string.format("%s %d -> %d", d.family, d.from, d.to)
+end
+
 --- But « amélioration » de la pensée (nil : aucun, ou éteint). w = poids des familles (B.weights).
 function Capital.goal(f, view, book, tick, w)
-  if f.is_player then return nil end
-  if not Capital.on() then
+  if not Capital.any_on() then
     -- Éteint en cours de partie : la décision en cours et ses objets (voulus, dépliage) sont oubliés ; relevé et compteurs
     -- gardés (interface fo-capital).
     local c = f.team and f.team.capital
@@ -190,13 +344,15 @@ function Capital.goal(f, view, book, tick, w)
   if c.goal and c.scan_n > 0 then return c.goal end
   c.scan_n = Capital.SCAN_EVERY
   Profiler.start("capital:decide")
-  local census = scan(f, c)
+  local census = census_of(f, c)
   local exclude = {}
   c.refused_until = c.refused_until or {}
   for _, k in ipairs(sorted_keys(c.refused_until)) do
     if tick < c.refused_until[k] then exclude[k] = true else c.refused_until[k] = nil end
   end
-  local ctx = { proto = proto, unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
+  local ctx = { proto = proto, mproto = Capital.mproto, machines = machine_catalog().names,
+    available = function(item) return unlocked(f, item) end,
+    unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
     exclude = exclude }
   local d = Cap.choose(L, census, ctx)
@@ -216,8 +372,14 @@ function Capital.goal(f, view, book, tick, w)
     c.none_sig = nil
     local cost = {}
     for i, it in ipairs(d.cost) do cost[i] = { it[1], it[2] } end
+    local ids = nil
+    if d.ids then
+      ids = {}
+      for i, v in ipairs(d.ids) do ids[i] = v end
+    end
     c.current = { key = d.key, id = d.id, family = d.family, from = d.from, to = d.to, build = d.build or nil,
-      center = d.center or nil, value = d.value, work = d.work, score = d.score, cost = cost }
+      center = d.center or nil, value = d.value, work = d.work, score = d.score, cost = cost, ids = ids,
+      replace = d.replace and { from = d.replace.from, to = d.replace.to, n = d.replace.n } or nil }
     if d.key ~= prev then
       c.decisions = (c.decisions or 0) + 1
       -- Dépliage du coût par le graphe du cerveau général (le même que pour la recherche) : ce que la faction fabriquera
@@ -234,8 +396,8 @@ function Capital.goal(f, view, book, tick, w)
       end
       c.history[#c.history + 1] = { key = d.key, tick = tick, value = d.value, work = d.work, score = d.score }
       while #c.history > Capital.HISTORY do table.remove(c.history, 1) end
-      log(string.format("[FO-CAPITAL] %s : but '%s' (%s %d -> %d) valeur %d cout %d score %d%s | %s%s | centre niveau %d, %d candidat(s) a %.1f min",
-        f.key or "?", d.key, d.family, d.from, d.to, d.value, d.work, d.score, d.all_in and " (cout au stock)" or "",
+      log(string.format("[FO-CAPITAL] %s : but '%s' (%s) valeur %d cout %d score %d%s | %s%s | centre niveau %d, %d candidat(s) a %.1f min",
+        f.key or "?", d.key, Capital.describe(d), d.value, d.work, d.score, d.all_in and " (cout au stock)" or "",
         Cap.why_text(d), sum_txt, c.cc_level or 0, d.n_cands or 0, minutes(f, tick)))
     end
   end
@@ -256,7 +418,7 @@ end
 
 --- Objets du dépliage du coût de l'amélioration en cours (pour la règle « main ou machine » d'IA3-e) ; nil éteint.
 function Capital.steps(f)
-  if not Capital.on() then return nil end
+  if not Capital.any_on() then return nil end
   local c = f.team and f.team.capital
   return c and c.steps or nil
 end
@@ -294,18 +456,90 @@ local function place_center(f, c, d, tick)
   return false, "place"
 end
 
+--- Remplace UNE machine sur place par `to` (remplacement rapide du moteur, F39 : contenu, recette et munitions gardés). Rend
+--- la nouvelle entité, ou nil et le motif. L'objet de la cible vient du stock libre, celui de l'ancienne machine y revient ;
+--- les registres qui tenaient l'ancienne entité (fours du QG, propriété, entrée du plan directeur) suivent la nouvelle.
+local function replace_one(f, c, e, to)
+  local cat = machine_catalog()
+  local tp, op = cat.by[to], cat.by[e.name]
+  if not (tp and op) then return nil, "inconnue" end
+  if Stock.count(f, tp.item) < 1 then return nil, "objet" end
+  local surface = e.surface
+  local args = { name = to, position = e.position, direction = e.direction, force = e.force }
+  if not surface.can_fast_replace(args) then return nil, "pas-remplacable" end
+  local old_unit = e.unit_number
+  local ratio = e.get_health_ratio() or 1
+  local owner = State.owner(old_unit)
+  local ref = c.mach_refs and c.mach_refs[old_unit]
+  local slot
+  for i, s in ipairs(f.smelters or {}) do
+    if s == e then slot = i break end
+  end
+  local new = surface.create_entity({ name = to, position = args.position, direction = args.direction, force = args.force,
+    fast_replace = true, spill = false, raise_built = true, create_build_effect_smoke = false })
+  if not (new and new.valid and new.name == to) then return nil, "echec" end
+  if e.valid then
+    -- Posée par-dessus sans rien remplacer (F86, hors grille) : annulé, l'ancienne reste.
+    new.destroy()
+    return nil, "hors-grille"
+  end
+  Stock.remove(f, tp.item, 1)
+  Stock.insert(f, op.item, 1)
+  f.team.consumed[tp.item] = (f.team.consumed[tp.item] or 0) + 1
+  local mh = get(new.prototype, "max_health")
+  if mh then new.health = mh * ratio end
+  if slot then f.smelters[slot] = new end
+  if owner then
+    State.disown(old_unit)
+    State.own(new, f.id, owner.kind, owner.oid)
+  end
+  if ref then ref.name = to end
+  return new
+end
+
+--- Paie un lot de remplacements (d.ids) : chaque machine refusée est écartée seule, 5 min. Rend le nombre fait et le dernier
+--- motif de refus.
+local function pay_replace(f, c, d, tick)
+  local n, why = 0, nil
+  c.refused_until = c.refused_until or {}
+  for _, id in ipairs(d.ids or {}) do
+    local e = c.mach_ents and c.mach_ents[id]
+    local new, w
+    if e and e.valid and e.name == d.replace.from then
+      new, w = replace_one(f, c, e, d.replace.to)
+    else
+      w = "disparue"
+    end
+    if new then
+      n = n + 1
+    else
+      why = w
+      c.refused_until["m:" .. id] = tick + Capital.REFUSE_TICKS
+      if w == "objet" then break end
+    end
+  end
+  return n, why
+end
+
 --- Paie l'amélioration prête (plan.ia3.pay : coût réservé au stock virtuel par la pensée pure) si le stock LIBRE la
 --- couvre. Rend le nombre d'améliorations faites.
 function Capital.pay(f, surface, tick, plan, stock)
   local list = plan and plan.ia3 and plan.ia3.pay
-  if not list or #list == 0 or not Capital.on() then return 0 end
+  if not list or #list == 0 or not Capital.any_on() then return 0 end
   local c = state_of(f)
   local d = c.current
   local done = 0
   for _, p in ipairs(list) do
-    if d and p.target == d.key and has_list(stock, d.cost) then
+    -- Un but dont le mécanisme a été éteint depuis sa décision n'est pas payé.
+    local allowed = d and ((d.replace and Capital.replace_on()) or (not d.replace and Capital.on()))
+    if d and allowed and p.target == d.key and has_list(stock, d.cost) then
       local ok, why
-      if d.build then
+      local n_done = 1
+      if d.replace then
+        n_done, why = pay_replace(f, c, d, tick)
+        ok = n_done > 0
+        if ok then why = nil end
+      elseif d.build then
         ok, why = place_center(f, c, d, tick)
       else
         -- Le centre n'est pas dans le relevé des bâtiments (familles ordinaires) : il est lu au module des niveaux.
@@ -338,8 +572,12 @@ function Capital.pay(f, surface, tick, plan, stock)
         c.upgrades = (c.upgrades or 0) + 1
         local m = {}
         for _, it in ipairs(d.cost) do m[it[1]] = it[2] end
-        log(string.format("[FO-CAPITAL] %s : amelioration payee '%s' (%s %d -> %d) valeur %d cout %d, paye %s a %.1f min",
-          f.key or "?", d.key, d.family, d.from, d.to, d.value or 0, d.work or 0, Gen.fmt_map(m), minutes(f, tick)))
+        if d.replace then
+          m = {}
+          m[d.replace.to] = n_done
+        end
+        log(string.format("[FO-CAPITAL] %s : amelioration payee '%s' (%s) valeur %d cout %d, paye %s a %.1f min",
+          f.key or "?", d.key, Capital.describe(d), d.value or 0, d.work or 0, Gen.fmt_map(m), minutes(f, tick)))
         c.current, c.goal, c.scan_n = nil, nil, 0 -- décision suivante dès la prochaine pensée
       else
         c.refused = (c.refused or 0) + 1

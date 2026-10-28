@@ -23,4 +23,14 @@ data:extend({
     default_value = false,
     order = "e-war-z-capital",
   },
+  -- Lot AMELIORER (28/10) : le remplacement sur place des machines hors famille (four de pierre, premier assembleur) par la
+  -- machine supérieure lue aux prototypes. ALLUMÉ par défaut : il ne remplace que ce qui est déjà débloqué, ne réclame jamais
+  -- la recherche de sa cible et ne touche ni centre ni tourelles. Relu à chaque pensée (runtime-global).
+  {
+    type = "bool-setting",
+    name = "fo-war-remplacer",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-capital-b",
+  },
 })
