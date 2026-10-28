@@ -178,13 +178,12 @@ function P.update(st, goals, tick, workers)
     else rest[#rest + 1] = p end
   end
   if first then out[#out + 1] = first end
-  -- Lot ELEC2 : la centrale (g.plant) puis les investissements de fond qui étendent la capacité d'une matière en manque
-  -- (g.invest : foreuses électriques et fours sur place, retour en quelques minutes) passent AVANT les familles
-  -- permanentes : l'armée et les munitions consomment sans fin la matière que l'investissement produit, et le plan
-  -- directeur n'y trouvait plus assez de fer pour la fonderie électrique (moteur réel, etape1-guide, 4 graines : 0
-  -- foreuse électrique à 60 min avec des dizaines de poteaux). Leurs parts restent réservées (Ca.capi_view).
-  -- Plancher : tant que l'armée n'a pas ses premiers soldats (g.floor, B.ARMY_FIRST_N), elle reste servie avant tout
-  -- investissement ; au-delà, l'investissement passe devant sa croissance.
+  -- Lot ELEC2 : le plancher de l'armée (g.floor, B.ARMY_FIRST_N soldats) puis la centrale (g.plant) passent juste après
+  -- l'objectif du moment. Les investissements de fond qui étendent la capacité d'une matière en manque (g.invest :
+  -- foreuses électriques et fours sur place, retour en quelques minutes) viennent APRÈS les familles permanentes et devant
+  -- les autres projets : servis en dernier, ils n'avaient jamais le fer de la fonderie électrique (moteur réel,
+  -- etape1-guide : 0 foreuse électrique à 60 min avec des dizaines de poteaux). Servis avant l'armée, ils lui coûtaient
+  -- des soldats (mesuré : 0 soldat à 60 min sur 2 graines).
   for _, p in ipairs(floor) do out[#out + 1] = p end
   for _, p in ipairs(plants) do out[#out + 1] = p end
   for _, p in ipairs(short) do out[#out + 1] = p end
