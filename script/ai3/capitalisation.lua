@@ -1034,6 +1034,12 @@ local function decide(f, cs, view, book, tick, research, w)
       end
     end
     cs.unlocks = names
+    -- technologies de la chaîne (la technologie et ses prérequis non faits) : valeur d'un objet voulu SANS le quart des
+    -- machines « pour plus tard » (Gen.LATER_DIV) : la machine supérieure est posée sur place par le lot AMELIORER
+    cs.unlock_techs = {}
+    for _, u in ipairs(res.unlocks or {}) do
+      for _, t in ipairs(u.chain or {}) do cs.unlock_techs[t] = u.tech end
+    end
   end
   -- Les objets que ses exécutants attendent sont DONNÉS à la recherche (étape 1 du 27/10 au soir : sans cela, scarlet cherchait
   -- grenades et armure pendant 30 min pendant que les chaînes de la capitalisation étaient refusées « recherche :
@@ -1183,6 +1189,10 @@ function Capi.techs_wanted(f)
       out = out or {}
       out[rec.tech] = rec.value or Ca.V_MIN
     end
+  end
+  for _, t in ipairs(sorted_keys(f.team.capi.unlock_techs or {})) do
+    out = out or {}
+    if out[t] == nil then out[t] = Ca.V_MIN end
   end
   return out
 end
