@@ -752,9 +752,9 @@ technologie d'un autre mod (sans préfixe « fo- ») serait traitée comme une v
   `levels_test`, K9 hors jeu) ;
 - **énergie de la tourelle laser** : l'énergie par tir et le tampon croissent de 4 % par niveau (× 2,16 au niveau 30) ;
   les dégâts par joule CROISSENT avec le niveau (× 3,47 au niveau 30 : 7,49 / 2,16 ; au plus × 4 testé) et le tampon
-  contient toujours un tir (testé). Mesuré en moteur réel le 28/10 (banc tirs-tout, courbe × 1,2 alors livrée, avant la
-  révision) : laser niveau 1 = 30 DPS (20 dégâts par tir, 1,5 tir par seconde) ; le banc rejoué sur la table × 1,15
-  donne les valeurs de la ligne « rejeu » ci-dessous quand il aura tourné ;
+  contient toujours un tir (testé). Mesuré en moteur réel le 28/10 (banc tirs-tout, archive `tout4`, table × 1,15) : laser niveau 1 = 30,00 DPS (20 dégâts par tir,
+  1,5 tir par seconde), niveau 10 = 55,5 (× 1,85), niveau 30 = 224,7 (× 7,49) ; mitrailleuse niveau 1 = 50,00, niveau 30 =
+  374,5 (× 7,49) ; rapport d'un âge au suivant de 1,148 à 1,152 (âges 4 à 15) ;
 - **murs** : PV × (1 + 0,5 (n-1)), 350 → 5 425 PV ; réduction fixe physique et explosion + 0,5 par niveau ;
 - **foreuse, four, machine** : l'énergie croît moins vite que la vitesse ;
 - toutes les statistiques sont strictement croissantes et au plus × 16 entre le niveau 1 et le dernier
