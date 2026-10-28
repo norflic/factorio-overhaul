@@ -509,7 +509,6 @@ local function abort(agent, f, tick, reason)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
 
-<<<<<<< HEAD
 --- Un PNJ arrêté en forêt dense (blocage « stuck » : le chemin du moteur passe entre des arbres que le corps ne passe pas) s'ouvre
 --- le couloir comme un joueur : arbres et rochers à moins de Worker.CORRIDOR_RADIUS tuiles, devant lui ou sous ses pieds, au plus
 --- Worker.CORRIDOR_MAX par blocage (du plus proche au plus loin). Moteur réel, etape1-guide, VOTRE équipe : 170 blocages en
@@ -548,7 +547,9 @@ local function open_corridor(agent)
       n = n + 1
     end
   end
-=======
+  return n
+end
+
 --- Lot FUITE : les PNJ au travail à moins de `radius` tuiles de `p` (défaut Poles.LOSS_RADIUS) rentrent au QG (tâche
 -- abandonnée, « danger »), sauf `except` et les tâches de défense (Re.recall_exempt) ; rend leur nombre. Appelé à la mort
 -- d'un PNJ (lieu de la perte) et à la FUITE d'un autre (lieu de la menace) : on n'attend plus la première perte.
@@ -567,7 +568,6 @@ function Worker.recall_near(f, p, radius, tick, except)
     end
   end
   f.stats.danger_recalls = (f.stats.danger_recalls or 0) + n
->>>>>>> capib
   return n
 end
 
