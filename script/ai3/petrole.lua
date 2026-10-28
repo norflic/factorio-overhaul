@@ -882,6 +882,7 @@ end
 -- Interface distante de LECTURE (bancs)
 ---------------------------------------------------------------------------------------------------
 local function team_of(key)
+  if key == "player" then return State.faction("player") end -- votre équipe n'est pas dans la liste des factions (bancs)
   local war = State.war()
   for _, id in ipairs(sorted_keys(war and war.factions)) do
     local fx = war.factions[id]

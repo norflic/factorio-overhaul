@@ -113,8 +113,10 @@ base.tick = function(ctx, e)
   if e.tick > 0 and e.tick % 36000 == 0 then
     local s = ctx.surface()
     ctx.log(TAG .. line_for(s, "player", "player", e.tick))
-    for _, r in ipairs(factions()) do
-      ctx.log(TAG .. line_for(s, r.key, r.force, e.tick))
+    local rows = factions()
+    rows[#rows + 1] = { key = "player", force = "player" }
+    for _, r in ipairs(rows) do
+      if r.key ~= "player" then ctx.log(TAG .. line_for(s, r.key, r.force, e.tick)) end
       if e.tick % 72000 == 0 then machines_report(s, r.force, r.key, e.tick) end
       -- projets non finis (diagnostic) : ce qui retient chaque chantier
       local okr, rep = pcall(remote.call, "fo-ia1d", "report", r.key)
