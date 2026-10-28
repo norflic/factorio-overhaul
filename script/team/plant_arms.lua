@@ -32,6 +32,48 @@ local function need_of(e, nboilers)
   return per_boiler / 2
 end
 
+local STATUS_NAME = nil
+local function status_name(r)
+  if not STATUS_NAME then
+    STATUS_NAME = {}
+    for k, v in pairs(defines.entity_status) do STATUS_NAME[v] = k end
+  end
+  local st = r.status
+  return st and STATUS_NAME[st] or "?"
+end
+
+--- Diagnostic d'une centrale sans courant (journal, 8 lignes au plus par équipe) : charbon des coffres de quai, combustible et
+--- vapeur des chaudières, statut des bras. Lecture seule.
+local function snapshot(f, surface, p, st, tag, tick)
+  st.snaps = (st.snaps or 0) + 1
+  if st.snaps > 8 then return end
+  local parts = {}
+  for _, q in ipairs(p.quais or {}) do
+    local c = surface.find_entities_filtered({ position = { q.x, q.y }, radius = 0.4, name = "iron-chest", force = f.force, limit = 1 })[1]
+    parts[#parts + 1] = string.format("coffre(%s)=%d", tostring(q.item), c and c.get_item_count(q.item) or -1)
+  end
+  for _, e in ipairs(p.ents) do
+    if e.name == "boiler" then
+      local r = real_of(surface, e, f.force)
+      if r then
+        local inv = r.get_fuel_inventory()
+        local fb = r.fluidbox
+        local steam = 0
+        for i = 1, #fb do local fl = fb[i]; if fl and fl.name == "steam" then steam = steam + fl.amount end end
+        parts[#parts + 1] = string.format("chaudiere combustible=%d vapeur=%.0f statut=%s", inv and inv.get_item_count() or -1, steam, status_name(r))
+      end
+    elseif e.name == "steam-engine" then
+      local r = real_of(surface, e, f.force)
+      if r then parts[#parts + 1] = string.format("machine statut=%s", status_name(r)) end
+    elseif e.was_burner or e.name == M.BURNER_ARM then
+      local r = real_of(surface, e, f.force)
+      if r then parts[#parts + 1] = string.format("bras %s/%s statut=%s", e.name, tostring(e.role), status_name(r)) end
+    end
+  end
+  log(string.format("[FO-PLANDIR] %s : centrale, diagnostic (%s) a %.1f min : %s", f.key or "player", tag, tick / 3600,
+    table.concat(parts, " ; ")))
+end
+
 --- Bras à combustion de la centrale de l'équipe `f` encore à remplacer (nil : pas de centrale planifiée ou refusée).
 function PA.burners(f)
   local b = f.build
@@ -83,7 +125,9 @@ function PA.step(f, surface, p, tick)
   local avail = 0
   for _, name in ipairs(M.ELECTRIC_ARMS) do avail = avail + Stock.count(f, name) end
   local action = B.observe(st, { power = power, dry = dry, arms = avail }, tick)
+  if st.mode == "electric" and power <= 0 and not action then snapshot(f, surface, p, st, "electrique, sans courant", tick) end
   if not action then return end
+  if action == "revert" then snapshot(f, surface, p, st, "avant le retour", tick) end
   local done = 0
   if action == "upgrade" then
     for _, e in ipairs(arms) do
