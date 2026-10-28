@@ -741,7 +741,7 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.fstart("ia3:capi")
   local capi = Capi.think(f, view, book, tick, research, w)
   Profiler.fstop("ia3:capi")
-  -- lot PETROLE (réglage fo-war-petrole, ÉTEINT par défaut : rend `auto` tel quel) : sites des chaînes à fluides
+  -- lot PETROLE (réglage fo-war-petrole, ALLUMÉ par défaut ; éteint, rend `auto` tel quel) : sites des chaînes à fluides
   auto = Pet.think(f, view, book, tick, auto, General, Ia3.known_deposits)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,

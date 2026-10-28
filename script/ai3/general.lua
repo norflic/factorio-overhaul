@@ -32,7 +32,7 @@ local Planner = require("shared.team.planner")
 local State = require("script.faction.state")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot AUTO : exécutants de l'automatisation (Auto.on, Auto.exec_entities)
-local Pet = require("script.ai3.petrole") -- lot PETROLE : exécutants des chaînes à fluides (Pet.on, réglage ÉTEINT par défaut)
+local Pet = require("script.ai3.petrole") -- lot PETROLE : exécutants des chaînes à fluides (Pet.on, réglage ALLUMÉ par défaut)
 
 local General = {}
 

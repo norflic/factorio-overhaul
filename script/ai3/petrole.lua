@@ -1,7 +1,7 @@
 --[[
   Lot PETROLE (A9 « aller au pétrole, comme un joueur »), côté RUNTIME : relie l'exécutant générique des chaînes à
   fluides (shared/ai3/fluides.lua) au cerveau général (script/ai3/general.lua) et au plan directeur (script/team/build.lua).
-  Réglage de carte fo-war-petrole, ÉTEINT par défaut (settings/petrole.lua) : éteint, rien de ce fichier ne change une
+  Réglage de carte fo-war-petrole, ALLUMÉ par défaut (settings/petrole.lua) ; éteint, rien de ce fichier ne change une
   décision (aucun exécutant déclaré, aucun site, aucune ressource connue en plus).
 
   Allumé, pour chaque FACTION :

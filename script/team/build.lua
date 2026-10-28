@@ -1806,7 +1806,7 @@ function Build.work(agent, f, tick)
     -- Lot PETROLE 2 : les autres sorties du MÊME projet, à portée de la première, se vident dans le même voyage (moteur réel,
     -- etape1-guide 1618033988 : la sortie du soufre, de clé plus petite, était toujours vidée la première, celle du plastique
     -- gardait 732 plaques et le pack chimique ne se fabriquait jamais).
-    for i, o2 in ipairs(p.outs) do
+    for i, o2 in ipairs(p.spec and p.spec.site and p.outs or {}) do -- sites seulement (les autres projets gardent une sortie par voyage)
       if i ~= job.idx and (o2.x - o.x) ^ 2 + (o2.y - o.y) ^ 2 <= 40 * 40 then
         local c2 = out_chest(o2)
         if c2 and c2.force.name == f.force then take(c2) end
