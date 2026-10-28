@@ -239,6 +239,30 @@ local function battery()
   local cx, cy = K.center(rx, ry)
   check(flat ~= nil and ringed ~= nil and math.abs(math.sqrt(cx * cx + cy * cy) - 512) < 120,
     "a priori d'anneau : la frontière choisie est près de l'anneau")
+  -- Recherche d'une rivale : n'importe quel secteur non vu de l'anneau déjà généré, pas à côté de notre QG.
+  local ms = K.new()
+  local hq = { x = 512, y = 32 }
+  for _, kk in ipairs({ { 7, 0 }, { 8, 0 }, { 8, 1 }, { 9, 0 } }) do K.record(ms, K.key(kk[1], kk[2]), 100, {}) end
+  local rings = { x = 0, y = 0, r = 512, hq = hq }
+  local function dist(a, b) return math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2) end
+  local sk = K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings })
+  local sx, sy = K.xy(sk)
+  local scx, scy = K.center(sx, sy)
+  check(sk ~= nil and ms.s[sk] == nil, "recherche : un secteur NON vu")
+  check(math.abs(dist({ scx, scy }, { 0, 0 }) - 512) <= K.RING_FAR, "recherche : sur l'anneau (à K.RING_FAR près)")
+  check(dist({ scx, scy }, { hq.x, hq.y }) >= 0.6 * 512 - 64, "recherche : pas à côté de notre QG")
+  local sk2 = K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings, exclude = { [sk] = true } })
+  check(sk2 ~= nil and sk2 ~= sk, "recherche : un secteur exclu n'est pas choisi")
+  local calls = 0
+  local sk3 = K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings, generated = function(kk) calls = calls + 1; return kk ~= sk end })
+  check(sk3 ~= nil and sk3 ~= sk and calls >= 1, "recherche : un secteur non généré n'est pas choisi")
+  check(K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings, generated = function() return false end }) == nil,
+    "recherche : rien de généré, rien à viser (repli sur la frontière)")
+  check(K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings, max_dist = 30 }) == nil, "recherche : portée bornée")
+  local far = K.search_target(ms, { hq = hq, tick = 200, rivals = {}, ring = rings })
+  check(far == sk, "recherche : déterministe")
+  -- Un saut direct vers la rivale, là où la frontière avançait d'un secteur par départ : le but est à plus de 300 tuiles du QG.
+  check(dist({ scx, scy }, { hq.x, hq.y }) > 250, "recherche : un saut de plus de 250 tuiles (la frontière : 1 secteur)")
 end
 
 local function run(label)
@@ -407,6 +431,27 @@ mutant("K.ring_prior sans décote près de notre QG", function()
     return orig({ x = ring.x, y = ring.y, r = ring.r }, cx, cy)
   end
   return function() K.ring_prior = orig end
+end)
+
+mutant("K.search_target ignore la génération", function()
+  local orig = K.search_target
+  K.search_target = function(m, ctx)
+    local c2 = {}
+    for kk, vv in pairs(ctx) do c2[kk] = vv end
+    c2.generated = nil
+    return orig(m, c2)
+  end
+  return function() K.search_target = orig end
+end)
+mutant("K.search_target ignore les exclusions", function()
+  local orig = K.search_target
+  K.search_target = function(m, ctx)
+    local c2 = {}
+    for kk, vv in pairs(ctx) do c2[kk] = vv end
+    c2.exclude = nil
+    return orig(m, c2)
+  end
+  return function() K.search_target = orig end
 end)
 
 local survivors = 0

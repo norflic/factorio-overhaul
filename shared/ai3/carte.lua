@@ -401,6 +401,42 @@ function K.ring_prior(ring, cx, cy)
   return p
 end
 
+--- Lot RECON : cible de RECHERCHE d'une rivale (soldat éclaireur). Moteur réel (28/10, 4 graines, 60 min) : en sautant de proche
+--- en proche de secteur en secteur de la frontière, 3 graines sur 4 n'ont JAMAIS vu la rivale (+1 secteur par départ, la rivale
+--- est à 850 tuiles). Ici le but peut être n'importe quel secteur NON VU sur l'anneau (K.ring_prior : même distance du départ que
+--- notre QG, pas à côté de lui), pourvu que le moteur l'ait GÉNÉRÉ (`generated(clé)`) : les chemins de 500 à 900 tuiles existent
+--- (les abords de chaque QG sont générés sur 13 chunks). Note = a priori d'anneau × (1 000 − risque) ÷ (K.SEARCH_TRAVEL + distance
+--- au QG) : l'anneau domine, à anneau égal le plus proche (la bande vue en route couvre 4 secteurs de large : on balaie
+--- l'anneau de proche en proche). ctx = { hq, tick, rivals, exclude, ring = { x, y, r, hq }, generated, max_dist }. Renvoie la clé
+--- (nil : aucun secteur). Déterministe : balayage de la grille par lignes, égalités au premier.
+K.SEARCH_TRAVEL = 500
+function K.search_target(m, ctx)
+  local ring = ctx.ring
+  local span = ring.r + K.RING_FAR
+  local x0, x1 = math.floor((ring.x - span) / K.SECTOR), math.floor((ring.x + span) / K.SECTOR)
+  local y0, y1 = math.floor((ring.y - span) / K.SECTOR), math.floor((ring.y + span) / K.SECTOR)
+  local maxd = ctx.max_dist or K.MAX_DIST
+  local best, bs
+  for sy = y0, y1 do
+    for sx = x0, x1 do
+      local key = A.key(sx, sy)
+      if not m.s[key] and not (ctx.exclude and ctx.exclude[key]) then
+        local cx, cy = A.center(sx, sy)
+        local dr = math.sqrt((cx - ring.x) ^ 2 + (cy - ring.y) ^ 2)
+        local dh = math.sqrt((cx - ctx.hq.x) ^ 2 + (cy - ctx.hq.y) ^ 2)
+        if math.abs(dr - ring.r) <= K.RING_FAR and dh <= maxd then
+          local risk = K.sector_risk(m, key, ctx.tick, ctx.rivals)
+          if risk < K.DANGER.skip then
+            local score = K.ring_prior(ring, cx, cy) * (1000 - risk) / (K.SEARCH_TRAVEL + dh)
+            if (not bs or score > bs) and (not ctx.generated or ctx.generated(key)) then best, bs = key, score end
+          end
+        end
+      end
+    end
+  end
+  return best, bs
+end
+
 --- Meilleure cible d'exploration. ctx = { hq = {x, y}, me = {x, y}, tick, res (ou nil), spawn = {x, y},
 --- rivals = { {x, y} }, exclude = { [clé] = true }, max_dist, ring (lot RECON : a priori d'une faction rivale) }.
 --- Renvoie clé, note (nil si aucune).

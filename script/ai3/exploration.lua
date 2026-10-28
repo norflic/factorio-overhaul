@@ -1219,7 +1219,8 @@ end
 ---------------------------------------------------------------------------------------------------
 Recon.fog_on = function() return X.fog_on() end
 
---- Où envoyer le soldat éclaireur : le secteur NON VU de la frontière de la carte de meilleure note (K.best_target, sans
+--- Où envoyer le soldat éclaireur : recherche d'une rivale (opts.search) : un secteur non vu de l'anneau déjà généré
+--- (K.search_target) ; sinon le secteur NON VU de la frontière de la carte de meilleure note (K.best_target, sans
 --- ressource visée), centre du secteur. opts.ring == false : balayage sans rivale à chercher (a priori général) ; sinon
 --- recherche d'une rivale (a priori d'anneau, sauf Recon.ring_on == false : banc de mesure). opts.max_dist : portée du QG.
 --- Exclusions : celles des éclaireurs ouvriers (cibles ratées, régions bloquées, nids vus) + les régions où un chemin de
@@ -1246,8 +1247,16 @@ Recon.pick_frontier = function(f, tick, opts)
     end
     return nil
   end })
-  local key = K.best_target(k.m, { hq = f.hq_pos, me = f.hq_pos, tick = tick, res = nil, spawn = sp,
-    rivals = rivals(f, surface), exclude = exclude, ring = ring, max_dist = opts.max_dist })
+  local key
+  if ring and opts.search then
+    -- Recherche d'une rivale : n'importe quel secteur non vu de l'anneau déjà généré (pas seulement la frontière).
+    key = K.search_target(k.m, { hq = f.hq_pos, tick = tick, rivals = rivals(f, surface), exclude = exclude, ring = ring,
+      max_dist = opts.max_dist, generated = function(sk) return generated(surface, sk) end })
+  end
+  if not key then
+    key = K.best_target(k.m, { hq = f.hq_pos, me = f.hq_pos, tick = tick, res = nil, spawn = sp,
+      rivals = rivals(f, surface), exclude = exclude, ring = ring, max_dist = opts.max_dist })
+  end
   if not key then return nil end
   local cx, cy = K.center(K.xy(key))
   return { x = cx, y = cy }

@@ -222,7 +222,7 @@ function Chef.observe(f, tick)
         weak = weak_ok, weak_turrets = weak_ok and mem.weak.turrets or nil,
         dist = (aim and f.hq_pos) and math.floor(math.sqrt(d2(aim, f.hq_pos))) or 600,
         reachable = not Military.target_unreachable(f, rid, tick),
-        bare = (r.outposts_count or 0) == 0, -- lot IA2-a2 : QG nu (même donnée que Military.target_of)
+        bare = Recon.bare(f, r), -- lot IA2-a2 : QG nu ; lot RECON : d'après ce que la faction en a VU (brouillard actif)
         known = known, stale = stale, aging = aging, last = last, -- lot RECON (nil : brouillard coupé, ancien comportement)
       }
       if kn then
@@ -387,7 +387,7 @@ function Chef.decision_fields(f, target, tick)
   local tr = Character.of(f).traits or {}
   local hold = (st.hold and target and st.target == target.id)
     or (target and (Chef.engaged(f, target.id)
-      or C.sated(st, { id = target.id, bare = (target.outposts_count or 0) == 0 }, tr, tick or 0))) or nil
+      or C.sated(st, { id = target.id, bare = Recon.bare(f, target) }, tr, tick or 0))) or nil
   -- Lot ARMEE : attaque sans effet contre cette cible (attente croissante) ou hors de la portée déjà atteinte.
   local vain = target and target.id ~= "player" and C.vain_hold(st, target.id, tick or 0, Chef.distance(f, target)) or nil
   if (vain or false) ~= (st.vain_logged or false) then

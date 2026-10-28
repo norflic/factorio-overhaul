@@ -131,10 +131,12 @@ remote.add_interface("factorio-overhaul", {
     return out
   end,
   --- Lot RECON (bancs de mesure SEULEMENT, rien n'est rangé dans global) : { ring = bool } coupe l'a priori d'anneau de la
-  --- recherche d'une rivale (mesure de son gain, E-RECON).
+  --- recherche d'une rivale (mesure de son gain), { scouts = bool } supprime tout soldat éclaireur (témoin sans éclaireur :
+  --- sépare l'effet des éclaireurs de celui de la connaissance par la vue).
   recon_options = function(o)
     if o and o.ring ~= nil then Recon.ring_on = o.ring and true or false end
-    return { ring = Recon.ring_on }
+    if o and o.scouts ~= nil then Recon.scouts_on = o.scouts and true or false end
+    return { ring = Recon.ring_on, scouts = Recon.scouts_on }
   end,
   --- Lot RECON (bancs) : l'attaque de `from` contre `to` serait-elle acceptée ? (Military.attack_known ; un refus est compté.)
   recon_probe = function(from_key, to_key)

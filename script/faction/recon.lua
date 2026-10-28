@@ -50,6 +50,7 @@ Recon.watch = nil
 Recon.mark_bad = nil
 Recon.note_nopath = nil
 Recon.ring_on = true -- a priori d'anneau pour chercher une rivale (bancs de mesure : remote recon_options)
+Recon.scouts_on = true -- soldats éclaireurs permis (bancs de mesure : remote recon_options { scouts = false } = témoin sans éclaireur)
 
 local function label(f, rid)
   local r = rid and State.faction(rid)
@@ -85,6 +86,14 @@ function Recon.points_of(f, rid)
   if k.hq then out[#out + 1] = { x = k.hq.x, y = k.hq.y, hq = true } end
   for _, e in ipairs(k.posts) do out[#out + 1] = { x = e.x, y = e.y } end
   return out
+end
+
+--- Une rivale est-elle « nue » (QG sans avant-poste) ? Brouillard actif : seulement d'après ce que `f` en a VU (QG vu et aucun
+--- avant-poste vu : nue à ce qu'on sait) ; coupé : le compte réel de la rivale, comme avant le lot.
+function Recon.bare(f, rival)
+  if not Recon.fog_on() then return (rival.outposts_count or 0) == 0 end
+  local k = Recon.known_of(f, rival.id)
+  return k ~= nil and k.hq ~= nil and #k.posts == 0
 end
 
 -- Cartes de valeur des sites (script/faction/sites.lua) : seulement les rivales vues.
@@ -135,7 +144,7 @@ end
 
 --- Pensée de reconnaissance (appelée par le commandant après le chef, pour tous les niveaux de difficulté).
 function Recon.think(f, surface, tick)
-  if not Recon.fog_on() then return end
+  if not Recon.fog_on() or not Recon.scouts_on then return end
   local st = f.chef
   if not st then return end
   local rs = state_of(f)
@@ -158,7 +167,7 @@ function Recon.think(f, surface, tick)
     if req.kind == "balayage" then
       dest, how = Recon.pick_frontier(f, tick, { ring = false, max_dist = R.range(traits.curiosite) }), "balayer"
     else
-      dest, how = Recon.pick_frontier(f, tick), "chercher"
+      dest, how = Recon.pick_frontier(f, tick, { search = true }), "chercher"
     end
   end
   if not dest then
