@@ -708,7 +708,7 @@ FSM.define(MACHINE, {
       local f = faction_of(agent)
       if not f or f.eliminated then return end
       -- Lot IA1-b : une prise de tâche coûte des jetons de travail (budget par tick pour tout le mod).
-      local TD = f.is_player and tick >= 70000 and tick <= 130000 and tick % 120 == 0 -- TMPDIAG
+      local TD = f.is_player and tick >= 75000 and tick <= 100000 and tick % 600 < 60 -- TMPDIAG
       if not Tokens.take(f, tick, Tokens.COST_CLAIM) then
         if TD then log(string.format("[TMPDIAG] idle %d jetons refuses tick %d", agent.id, tick)) end
         return
