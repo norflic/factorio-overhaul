@@ -310,7 +310,7 @@ return {
     local ok_evt, ok_part, ok_cree, txt = 0, 0, 0, {}
     for _, a in ipairs(stats.ages) do
       local proches = a.evts - a.loin
-      local part = proches > 0 and (a.habilles + a.quota + a.plafond) / proches or 0
+      local part = proches > 0 and (a.habilles + a.quota + a.plafond + (a.sans_cible or 0)) / proches or 0
       local voulu = PART[a.age] and PART[a.age][1] / PART[a.age][2] or -1
       if a.evts > 0 and a.habilles > 0 then ok_evt = ok_evt + 1 end
       if math.abs(part - voulu) <= 0.05 then ok_part = ok_part + 1 end

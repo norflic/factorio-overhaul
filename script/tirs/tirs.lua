@@ -108,7 +108,12 @@ local function sur_effet(e)
   end
   local cible = e.target_entity
   local to = e.target_position or (cible and cible.valid and cible.position)
-  if not to then return end
+  if not to then
+    -- cible morte avant l'événement (vagues de biters du mur) : rien à habiller, mais l'événement est COMPTÉ (sinon la
+    -- part gardée semble fausse : 69 événements sur 724 à l'âge 15, banc tirs-tout du 28/10)
+    st.sans_cible = (st.sans_cible or 0) + 1
+    return
+  end
   st.habilles = st.habilles + 1
   if #s.journal < JOURNAL_MAX then
     local p = src.position
@@ -176,7 +181,7 @@ remote.add_interface("fo-tirs", {
       local st = s.stats[e] or stats_age()
       out.ages[#out.ages + 1] = { age = e, evts = st.evts, habilles = st.habilles, loin = st.loin or 0,
         part = st.part or 0, quota = st.quota or 0, plafond = st.plafond, crees = st.crees, ratees = st.ratees,
-        rendus = st.rendus or 0 }
+        rendus = st.rendus or 0, sans_cible = st.sans_cible or 0 }
     end
     for i, j in ipairs(s.journal) do out.journal[i] = j end
     return out

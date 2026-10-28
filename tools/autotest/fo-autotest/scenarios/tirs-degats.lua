@@ -94,7 +94,17 @@ return {
         end
       end
     end
-    if t < DEBUT - 1 then return end
+    if t < DEBUT - 1 then
+      -- mise en place : la cible est SOIGNEE dès le premier tick (sans mesure). Cause mesurée du 28/10 (tout2) : soignée
+      -- seulement à partir du tick 199, elle était TUÉE avant la fenêtre par les lasers des niveaux 18 à 30 (damage_dealt
+      -- = le plus petit nombre de tirs de la table qui dépasse ses 400 points, par niveau) : 0 dégât mesuré, pas un défaut du laser.
+      for _, site in ipairs(st.sites) do
+        local c = site.cible
+        if c and c.valid then c.health = c.prototype.max_health
+        elseif site.t and not site.mort then site.mort = t end -- cible perdue pendant la mise en place (sonde)
+      end
+      return
+    end
     for _, site in ipairs(st.sites) do
       -- sonde des lasers (diagnostic de cause, hors contrôles) : énergie la plus basse vue (jamais sous le plein = n'a
       -- jamais tiré), ticks où la tourelle VISE quelque chose, et ce qu'elle vise si ce n'est pas la cible du site
@@ -158,8 +168,8 @@ return {
               if d < dmin then dmin, proche = d, en.name end
             end
           end
-          return string.format("portee=%.2f tampon=%s emin=%s vise=%s autre=%s degats_infliges=%s ennemis_a_portee=%d plus_proche=%s@%.1f",
-            portee, tostring(t.electric_buffer_size), tostring(site.emin), tostring(site.vise or 0), tostring(site.autre),
+          return string.format("portee=%.2f tampon=%s mort_tick=%s emin=%s vise=%s autre=%s degats_infliges=%s ennemis_a_portee=%d plus_proche=%s@%.1f",
+            portee, tostring(t.electric_buffer_size), tostring(site.mort), tostring(site.emin), tostring(site.vise or 0), tostring(site.autre),
             tostring(t.damage_dealt), n, tostring(proche), dmin)
         end)
         ctx.log(string.format("SONDE laser niveau %d : %s", site.n, ok2 and r2 or ("erreur " .. tostring(r2))))
