@@ -705,7 +705,13 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range)
       -- est défendu (même règle que le rappel après une mort : Worker.SAFE_HOME).
       if f.is_player and f.hq_pos and d2(ep, f.hq_pos) > Worker.SAFE_HOME * Worker.SAFE_HOME then
         local n = Worker.recall_near(f, ep, nil, tick, agent)
-        if n > 0 then t.stats.flee_recalls = (t.stats.flee_recalls or 0) + n end
+        if n > 0 then
+          t.stats.flee_recalls = (t.stats.flee_recalls or 0) + n
+          if Profiler.enabled() then
+            log(string.format("[FO-IA3K] %s : PNJ %d fuit (%s) : %d coequipier(s) rappele(s) a moins de %d tuiles de la menace", tostring(f.key),
+              agent.id, why, n, Worker.RECALL_RADIUS))
+          end
+        end
       end
       if M.on_alert and M.on_alert(f, ep, kind, tick) then t.stats.alerts = t.stats.alerts + 1 end
     end

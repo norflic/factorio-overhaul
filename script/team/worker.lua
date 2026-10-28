@@ -512,8 +512,9 @@ Worker.abort = abort -- lot IA3-k : demi-tour et fuite
 --- Lot FUITE : les PNJ au travail à moins de `radius` tuiles de `p` (défaut Poles.LOSS_RADIUS) rentrent au QG (tâche
 -- abandonnée, « danger »), sauf `except` et les tâches de défense (Re.recall_exempt) ; rend leur nombre. Appelé à la mort
 -- d'un PNJ (lieu de la perte) et à la FUITE d'un autre (lieu de la menace) : on n'attend plus la première perte.
+Worker.RECALL_RADIUS = Poles.LOSS_RADIUS
 function Worker.recall_near(f, p, radius, tick, except)
-  local r2 = (radius or Poles.LOSS_RADIUS) ^ 2
+  local r2 = (radius or Worker.RECALL_RADIUS) ^ 2
   local n = 0
   for _, id in ipairs(State.sorted_keys(f.engineers)) do
     local a = Registry.get(id)
