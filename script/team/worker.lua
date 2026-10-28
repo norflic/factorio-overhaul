@@ -56,6 +56,19 @@ end
 
 local function main_inv(agent) return agent.entity.get_main_inventory() end
 
+--- Lot MAINS-CHAINE : compteurs de la chaîne « mine à la main -> inventaire -> fonte -> dépôt » (f.stats.chain ; lus par
+--- remote fo-ia1 « teams » et le relevé [FO-FONCTION] chaine). Ils ne servent qu'à MESURER : aucune décision n'en dépend ici.
+local function chain_of(f)
+  f.stats = f.stats or {}
+  local c = f.stats.chain
+  if not c then
+    c = { depot_refuse = 0, fonte_vide = 0, mine_zero = 0, mine_ore = 0, fondu = 0, tournees = 0 }
+    f.stats.chain = c
+  end
+  return c
+end
+Worker.chain_of = chain_of
+
 -- Place de chacun au QG. Moteur réel (session 4) : tous les ouvriers rentraient au MÊME point ; empilés,
 -- leurs départs suivants se chevauchaient et 150 demandes de chemin échouaient « départ bloqué » (tournées
 -- perdues, plaques de fer bloquées dans les fours). Chaque ouvrier a sa case.
@@ -160,6 +173,12 @@ local function deposit_all(agent, f)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
   deposit_inventory(f, main_inv(agent), nil)
+  -- Lot MAINS-CHAINE (mesure) : du minerai ou des plaques encore portés après le dépôt = dépôt refusé (coffre et annexes pleins).
+  local left = 0
+  for _, name in ipairs(State.sorted_keys(T.smelter_inputs)) do
+    left = left + main_inv(agent).get_item_count(T.smelter_inputs[name][1])
+  end
+  if left > 0 then chain_of(f).depot_refuse = chain_of(f).depot_refuse + 1 end
   local guns = e.get_inventory(defines.inventory.character_guns)
   if guns then deposit_inventory(f, guns, KEEP_GUN) end
   local ammo = e.get_inventory(defines.inventory.character_ammo)
@@ -464,7 +483,11 @@ end
 ACTS.equiper = Equip.act -- lot LEVIERS
 
 ACTS.smelt = function(agent, f, task)
-  Outposts.service_smelters(f, main_inv(agent), task.smelt)
+  local collected, loaded, fueled = Outposts.service_smelters(f, main_inv(agent), task.smelt)
+  local c = chain_of(f)
+  c.tournees = c.tournees + 1
+  c.fondu = c.fondu + (loaded or 0)
+  if (collected or 0) + (loaded or 0) + (fueled or 0) == 0 then c.fonte_vide = c.fonte_vide + 1 end
   return true
 end
 
@@ -914,7 +937,14 @@ FSM.define(MACHINE, {
       if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
         e.mining_state = { mining = false }
         local f = faction_of(agent)
-        if f then f.stats.mined = (f.stats.mined or 0) + got end
+        if f then
+          f.stats.mined = (f.stats.mined or 0) + got
+          local c = chain_of(f)
+          if got <= 0 then c.mine_zero = c.mine_zero + 1 end
+          for _, name in ipairs(State.sorted_keys(T.smelter_inputs)) do
+            if T.smelter_inputs[name][1] == item and got > 0 then c.mine_ore = c.mine_ore + got end
+          end
+        end
         agent.pc = agent.pc + 1
         set(agent, "step", tick)
         return

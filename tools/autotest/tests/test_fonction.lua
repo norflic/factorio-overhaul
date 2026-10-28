@@ -175,5 +175,31 @@ local f3
 for _, l in ipairs(LOG) do if l:find("parite minute 4 | plaques_min", 1, true) then f3 = l end end
 check(f3 and f3:find("nviv=1", 1, true) and f3:find("joueur_vivant=0", 1, true), "parité : 1 faction vivante dans la médiane, joueur mort : " .. tostring(f3))
 
+-- Lot MAINS-CHAINE : minerai et plaques PORTÉS (chain_note / chain_roll) et ligne « chaine »
+do
+  local K = {}
+  -- PNJ 1 : 60, 70, 10, 55 (suite de 2 puis 1) ; PNJ 2 : 120 + 30 plaques, 0 + 100 plaques, 0 + 120 plaques, 0 + 120 plaques
+  local a = { 60, 70, 10, 55 }
+  local b = { { 120, 30 }, { 0, 100 }, { 0, 120 }, { 0, 120 } }
+  for i = 1, 4 do
+    Fn.chain_note(K, 1, a[i], 0)
+    Fn.chain_note(K, 2, b[i][1], b[i][2])
+  end
+  local r = Fn.chain_roll(K)
+  check(r.n == 8, "chain_roll : 8 relevés : " .. tostring(r.n))
+  check(r.ore_max == 120 and r.plaques_max == 120, "chain_roll : maxima")
+  check(r.dur_max_s == 60, "chain_roll : plus longue suite à 50 minerais ou plus : " .. tostring(r.dur_max_s))
+  check(r.ore50_pct == 100 * 4 / 8, "chain_roll : 4 relevés sur 8 à 50 minerais ou plus : " .. tostring(r.ore50_pct))
+  check(r.haut_max == 4, "chain_roll : le PNJ 2 déborde 4 relevés de suite (120+30, 100, 120, 120) : " .. tostring(r.haut_max))
+  check(r.ore_med == 32.5, "chain_roll : médiane du minerai porté : " .. tostring(r.ore_med))
+  -- la fenêtre est roulée, la suite du PNJ 2 survit
+  local r2 = Fn.chain_roll(K)
+  check(r2.n == 0 and r2.haut_max == 4, "chain_roll : fenêtre vide, suite qui continue : " .. tostring(r2.haut_max))
+  Fn.chain_note(K, 2, 0, 0)
+  local r3 = Fn.chain_roll(K)
+  check(r3.haut_max == 4, "chain_roll : la fenêtre compte la suite commencée dans la précédente")
+  check(Fn.chain_roll(K).haut_max == 0, "chain_roll : la suite s'arrête quand le PNJ ne porte plus rien")
+end
+
 print(string.format("BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

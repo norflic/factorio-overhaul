@@ -788,12 +788,14 @@ function Team.status_line(f)
   -- Lot IA1-a : effectif / plafond, recrues payées, garde d'agents, mesures de la dernière pensée.
   local m = t.scale and t.scale.last
   local st = f.stats or {}
-  return string.format("    equipe : objectif %s | manque [%s] | stock %s | taches %d libres %d prises | ouvriers {%s} | taches ok/echec {%s} | echecs {%s} | ramasse %d | entraines %d | livre fer %d cuivre %d charbon %d minerai %d | effectif %d/%d (recrues %d, garde %d, frein %d) | inactifs %s | au-dela du carnet %s",
+  return string.format("    equipe : objectif %s | manque [%s] | stock %s | taches %d libres %d prises | ouvriers {%s} | taches ok/echec {%s} | echecs {%s} | ramasse %d | entraines %d | livre fer %d cuivre %d charbon %d minerai %d | effectif %d/%d (recrues %d, garde %d, frein %d) | inactifs %s | au-dela du carnet %s | chaine {depot_refuse %d fonte_vide %d/%d mine_zero %d mine_ore %d fondu %d}",
     t.goal or "aucun (echelle gravie)", table.concat(missing, " "), table.concat(parts, " "), open, taken,
     table.concat(ws, " "), table.concat(ts, ", "), table.concat(fr, " "), t.collected or 0, t.trained or 0,
     d["iron-plate"] or 0, d["copper-plate"] or 0, d["coal"] or 0, d["iron-ore"] or 0,
     f.engineers_count or 0, Team.npc_max(f), st.recruited or 0, st.recruit_guard or 0, st.recruit_held or 0,
-    m and (m.idle .. "/" .. m.n) or "?", m and tostring(m.surplus) or "?")
+    m and (m.idle .. "/" .. m.n) or "?", m and tostring(m.surplus) or "?",
+    (st.chain and st.chain.depot_refuse) or 0, (st.chain and st.chain.fonte_vide) or 0, (st.chain and st.chain.tournees) or 0,
+    (st.chain and st.chain.mine_zero) or 0, (st.chain and st.chain.mine_ore) or 0, (st.chain and st.chain.fondu) or 0)
 end
 
 return Team

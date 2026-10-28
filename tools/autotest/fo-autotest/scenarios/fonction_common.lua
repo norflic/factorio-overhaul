@@ -12,7 +12,8 @@
   `rows` = rendu de remote.call("fo-ia1", "teams") (facultatif : palier de recherche et inactifs « du mod »).
 
   Lignes (grep « \[FO-FONCTION\] ») : « [FO-FONCTION] <genre> minute N | <clé> | k=v k=v … », valeurs sans espace.
-  Genres : prod, fours, statut, elec, tapis, tourelles, corps, dormants, tech, parite (docs/PORTES_MESURES.md :
+  Genres : prod, fours, statut, elec, tapis, tourelles, corps, dormants, tech, parite, chaine (lot MAINS-CHAINE : minerai et plaques
+  PORTES par les PNJ, minerai et plaques du coffre, compteurs mine -> fonte -> dépôt) (docs/PORTES_MESURES.md :
   ce que chacun prouve et ne prouve pas ; lecture : tools/autotest/fonction_mesures.py).
   Définitions retenues :
    - « alimenté » (four) : une foreuse y dépose (drop_target), ou un bras y dépose depuis un tapis, ou depuis un coffre
@@ -34,6 +35,11 @@ F.FULL_BELT = 7      -- objets sur une tuile de tapis (max 8) à partir desquels
 F.NOMINAL_S = 3.2    -- énergie de la recette de référence (plaque) : cadence nominale = crafting_speed / 3,2 par s
 F.MIN_SAMPLES = 3    -- relevés minimum pour qu'un four compte dans la population productive
 F.INACTIVE_SHARE = 0.2 -- une machine « inactive » travaille au plus cette part de ses relevés (>= 5 relevés)
+F.CARRY_MIN = 50     -- lot MAINS-CHAINE : minerai porté à partir duquel un PNJ « garde du minerai » (une pile)
+F.CARRY_HIGH = 100   -- minerai + plaques portés à partir desquels le PNJ « déborde » (critère C2 : jamais 3 relevés de suite)
+local ORE_NAMES = { "iron-ore", "copper-ore" }
+local PLATE_NAMES = { "iron-plate", "copper-plate" }
+local CHAIN_KEYS = { "depot_refuse", "fonte_vide", "tournees", "mine_zero", "mine_ore", "fondu" }
 
 local MACHINE_TYPES = { "furnace", "mining-drill", "inserter", "assembling-machine", "lab", "ammo-turret", "generator",
   "boiler" }
@@ -109,6 +115,66 @@ local function recipe_energy(e)
   local ok, r = pcall(function() return e.previous_recipe end)
   if ok and r and r.energy and r.energy > 0 then return r.energy end
   return F.NOMINAL_S
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot MAINS-CHAINE : ce que les PNJ PORTENT (outils purs, testés hors jeu)
+---------------------------------------------------------------------------------------------------
+
+--- Note, pour le PNJ `un`, le minerai et les plaques portés à ce relevé. K.chain garde, pour la fenêtre : les listes des
+--- valeurs, le nombre de relevés à 50 minerais ou plus, la plus longue suite de relevés d'un même PNJ à 50 minerais ou plus
+--- (`dur_max`) et à 100 minerais + plaques ou plus (`haut_max`). Les suites survivent à la fenêtre ; les listes non.
+function F.chain_note(K, un, ore, plates)
+  local C = K.chain
+  if not C then
+    C = { ore = {}, plates = {}, n50 = 0, streak = {}, high = {}, dur_max = 0, haut_max = 0 }
+    K.chain = C
+  end
+  C.ore[#C.ore + 1] = ore
+  C.plates[#C.plates + 1] = plates
+  if ore >= F.CARRY_MIN then
+    C.n50 = C.n50 + 1
+    local n = (C.streak[un] or 0) + 1
+    C.streak[un] = n
+    if n > C.dur_max then C.dur_max = n end
+  else
+    C.streak[un] = nil
+  end
+  if ore + plates >= F.CARRY_HIGH then
+    local n = (C.high[un] or 0) + 1
+    C.high[un] = n
+    if n > C.haut_max then C.haut_max = n end
+  else
+    C.high[un] = nil
+  end
+end
+
+--- Résumé de la fenêtre { n, ore_med, ore_max, ore50_pct, dur_max_s, plaques_med, plaques_max, haut_max } ; roule la fenêtre.
+function F.chain_roll(K)
+  local C = K.chain
+  local n = C and #C.ore or 0
+  local out = { n = n, ore_med = 0, ore_max = 0, ore50_pct = 0, dur_max_s = 0, plaques_med = 0, plaques_max = 0, haut_max = 0 }
+  if not C then return out end
+  out.ore_med = F.median(C.ore) or 0
+  out.plaques_med = F.median(C.plates) or 0
+  for _, v in ipairs(C.ore) do if v > out.ore_max then out.ore_max = v end end
+  for _, v in ipairs(C.plates) do if v > out.plaques_max then out.plaques_max = v end end
+  out.ore50_pct = n > 0 and 100 * C.n50 / n or 0
+  out.dur_max_s = C.dur_max * F.SAMPLE / 60
+  out.haut_max = C.haut_max
+  C.ore, C.plates, C.n50 = {}, {}, 0
+  C.dur_max, C.haut_max = 0, 0
+  for _, v in pairs(C.streak) do if v > C.dur_max then C.dur_max = v end end
+  for _, v in pairs(C.high) do if v > C.haut_max then C.haut_max = v end end
+  return out
+end
+
+local function carried(inv, names)
+  local n = 0
+  if not inv then return 0 end
+  local contents = inv.get_contents()
+  for _, name in ipairs(names) do n = n + (contents[name] or 0) end
+  return n
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -208,6 +274,9 @@ function F.sample(st, s, key, force, tick, row)
         K.bcls[bc] = K.bcls[bc] + 1
       end
       K.body[un] = { x = x, y = y, t = tick }
+      -- Lot MAINS-CHAINE : minerai et plaques portés (lecture seule de l'inventaire principal).
+      local mi = c.get_main_inventory and c.get_main_inventory() or nil
+      F.chain_note(K, un, carried(mi, ORE_NAMES), carried(mi, PLATE_NAMES))
     end
   end
 end
@@ -339,6 +408,20 @@ local function stock_of(s, force)
     if not c.player then add_inv(bodies, c.get_main_inventory()) end
   end
   return chest, bodies
+end
+
+--- Lot MAINS-CHAINE : total des objets `names` dans le coffre du QG et ses annexes.
+local function stock_count(s, force, names)
+  local n = 0
+  local anchor = s.find_entities_filtered({ name = { "fo-faction-hq", "fo-team-chest" }, force = force, limit = 1 })[1]
+  if not anchor then return 0 end
+  n = n + carried(anchor.get_inventory(defines.inventory.chest), names)
+  local p = anchor.position
+  for _, e in ipairs(s.find_entities_filtered({ area = { { p.x - 8, p.y + 3 }, { p.x + 16, p.y + 22 } }, force = force,
+    name = { "iron-chest", "wooden-chest" } })) do
+    n = n + carried(e.get_inventory(defines.inventory.chest), names)
+  end
+  return n
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -556,6 +639,20 @@ function F.report(st, s, key, force, minute, tick, row)
   logl("corps", minute, key, string.format("corps=%d relevés=%d mine=%d fabrique=%d marche=%d inerte=%d inactifs_mod_pct=%s",
     bodies, bn, bc.mine, bc.fabrique, bc.marche, bc.inerte, f1(idle_mod)))
   M.inerte_pct = bn > 0 and 100 * bc.inerte / bn or -1
+
+  -- Lot MAINS-CHAINE : minerai et plaques portés, stock, compteurs de la fenêtre (mine -> fonte -> dépôt)
+  local cr = F.chain_roll(K)
+  local cnow = row and row.chain or {}
+  local c0 = K.chain0 or {}
+  local d = {}
+  for _, k in ipairs(CHAIN_KEYS) do d[k] = (cnow[k] or 0) - (c0[k] or 0) end
+  K.chain0 = cnow
+  logl("chaine", minute, key, string.format(
+    "n=%d porte_ore_med=%s porte_ore_max=%d porte_ore50_pct=%s porte_dur_max_s=%d porte_plaques_med=%s porte_plaques_max=%d"
+    .. " porte_haut_max=%d coffre_ore=%d coffre_plaques=%d depot_refuse=%d fonte_vide=%d tournees=%d mine_zero=%d mine_ore=%d fondu=%d",
+    cr.n, f1(cr.ore_med), cr.ore_max, f1(cr.ore50_pct), cr.dur_max_s, f1(cr.plaques_med), cr.plaques_max, cr.haut_max,
+    stock_count(s, force, ORE_NAMES), stock_count(s, force, PLATE_NAMES),
+    d.depot_refuse, d.fonte_vide, d.tournees, d.mine_zero, d.mine_ore, d.fondu))
 
   -- dormants : stock non posé + capital posé inactif
   local chest, body = stock_of(s, force)

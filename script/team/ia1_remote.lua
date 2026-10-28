@@ -98,6 +98,8 @@ local function team_row(f)
     produced, mu = {}, -1
   end
   row.produced, row.produced_mu = produced, mu
+  -- Lot MAINS-CHAINE : compteurs de la chaîne mine -> fonte -> dépôt (script/team/worker.lua), lus par le relevé chaine.
+  row.chain = copy_fields(st.chain, { "depot_refuse", "fonte_vide", "mine_zero", "mine_ore", "fondu", "tournees" })
   local bad, owned = 0, 0
   for i = 1, #Scale.HOME_SLOTS do
     if f.slot_bad and f.slot_bad[i] then bad = bad + 1 end

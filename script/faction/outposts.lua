@@ -486,6 +486,7 @@ end
 function Outposts.service_smelters(f, carrier, smelt)
   local list = Outposts.smelters(f)
   local collected = collect(list, carrier)
+  local loaded = 0
   -- Un produit par four, dans l'ordre des demandes (tri déterministe).
   local products = {}
   for p in pairs(smelt or {}) do products[#products + 1] = p end
@@ -515,12 +516,19 @@ function Outposts.service_smelters(f, carrier, smelt)
         -- jamais moins d'une fabrication complète, et un multiple de l'entrée
         local n = math.min(input[2] * 10, carrier.get_item_count(input[1]))
         n = n - n % input[2]
-        if n > 0 then src.insert({ name = input[1], count = carrier.remove({ name = input[1], count = n }) }) end
+        if n > 0 then
+          local took = carrier.remove({ name = input[1], count = n })
+          src.insert({ name = input[1], count = took })
+          loaded = loaded + took
+        end
       end
     end
   end
+  local fuel_before = carrier.get_item_count(T.fuel)
   refuel(list, carrier)
-  return collected
+  -- Lot MAINS-CHAINE : rend aussi le minerai CHARGÉ et le combustible posé (mesure : une tournée qui n'a rien chargé, rien
+  -- ramassé et rien ravitaillé est une tournée « à vide »).
+  return collected, loaded, math.max(0, fuel_before - carrier.get_item_count(T.fuel))
 end
 
 function Outposts.smelters_status(f)
