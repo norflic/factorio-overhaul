@@ -33,6 +33,8 @@ local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
 
 P.EMIT.module = A.emit(P)
+local Ex = require("shared.ai3.expansion") -- lot EXPANSION : projets « expansion » (nouveau site avant l'épuisement)
+P.EMIT.expansion = Ex.emit(P)
 local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration » (niveaux, centre), payés par le runtime
 P.EMIT.upgrade = Cap.emit(P)
 local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de la capitalisation (réglage fo-war-capi)
@@ -102,6 +104,8 @@ function C.situation(view, st, ctx)
     key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
     idle_grow = ctx.idle_grow or false, tick = ctx.tick or 0, -- lot IA-G : bras libres
     spare = ctx.spare, -- lot SCALE : nombre de bras libres durables (vague d'extraction d'avance, shared/ai3/bras.lua)
+    -- Lot EXPANSION : avant-postes, débit d'une foreuse par type (prototypes) et croissance du capital (‰ par minute).
+    outposts = view.outposts or {}, drill_rate = ctx.drill_rate, growth = ctx.growth,
   }
 end
 

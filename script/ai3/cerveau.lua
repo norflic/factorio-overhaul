@@ -43,6 +43,7 @@ local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les b�
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local Bx = require("script.ai3.besoin") -- lot EXPANSION : débits des foreuses (prototypes), croissance du capital
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
 
 local Ia3 = {}
@@ -743,7 +744,8 @@ function Ia3.plan(f, view, book, surface, tick)
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
-    capi = capi } -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
+    capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
+    drill_rate = Bx.drill_rates(), growth = Bx.growth(f, w, view.threatened) } -- lot EXPANSION : besoin croissant
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
@@ -778,6 +780,16 @@ function Ia3.plan(f, view, book, surface, tick)
       st.explore_logged[res] = tick
       log(string.format("[FO-IA3C] %s : exploration demandee pour '%s' (aucune source connue) a %.1f min", f.key, res,
         minutes(f, tick)))
+    end
+  end
+  -- Lot EXPANSION : une ligne du journal à chaque CHANGEMENT de décision d'un type d'avant-poste (besoin croissant).
+  st.exp_logged = st.exp_logged or {}
+  for _, kind in ipairs(sorted_keys(st.exp)) do
+    local e = st.exp[kind]
+    if e.act ~= (st.exp_logged[kind] or "none") then
+      st.exp_logged[kind] = e.act
+      log(string.format("[FO-EXPANSION] %s : %s -> %s (%s), besoin %s/min, gisements exploites a %s %%, sites retenus %d, explorations vaines %d, a %.1f min",
+        f.key or "player", kind, e.act, e.why, tostring(e.need), tostring(e.sat), e.free or 0, e.tries or 0, minutes(f, tick)))
     end
   end
   -- Annonces du cerveau (projets ouverts, finis, bloqués) : une ligne du journal du mod chacune.
@@ -869,6 +881,24 @@ local function team_of(key)
 end
 
 remote.add_interface("fo-ia3c", {
+  -- Lot EXPANSION, BANC SEUL (scénario expansion-site) : amène une équipe dans l'état d'une partie avancée pour un type
+  -- d'avant-poste (économie faite, armée de départ faite, gisements bâtis pleins, gros besoin gardé). Les bancs n'ont pas
+  -- 3 h de partie à attendre ; la décision et ses suites sont ensuite celles du jeu, sans autre intervention.
+  bench_expansion = function(key, kind, drills, need)
+    local f = team_of(key)
+    local spec = T.outposts[kind]
+    if not (f and f.team and f.team.ia3 and spec) then return false end
+    local st = f.team.ia3
+    st.iron2_done = st.iron2_done or game.tick
+    st.army_done = st.army_done or game.tick
+    for _, oid in ipairs(sorted_keys(f.outposts)) do
+      local o = f.outposts[oid]
+      if o.kind == kind then o.drills, o.full = drills, true end
+    end
+    st.need = st.need or {}
+    st.need[spec.product] = need
+    return true
+  end,
   status = function(key)
     local f = team_of(key)
     if not (f and f.team) then return nil end
@@ -890,6 +920,9 @@ remote.add_interface("fo-ia3c", {
         out.projects[#out.projects + 1] = { key = p.key, state = p.state, cause = p.cause, taken = taken[p.id] or false }
         if taken[p.id] then out.taken = out.taken + 1 end
       end
+      out.expansion = st.exp -- lot EXPANSION : décision par type d'avant-poste (act, why, need, sat, free, tries)
+      out.site_needs = f.site_needs and {} or nil
+      for _, res in ipairs(sorted_keys(f.site_needs)) do out.site_needs[res] = f.site_needs[res] end
       out.saturated = sorted_keys(st.saturated)
       out.explore = sorted_keys(st.explore)
       out.fond_dropped = st.fond_dropped or 0

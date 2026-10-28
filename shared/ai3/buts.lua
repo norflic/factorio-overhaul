@@ -25,6 +25,7 @@
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli (équipe du joueur, avant la 1re décision)
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bornes qui suivent l'effectif)
+local Ex = require("shared.ai3.expansion") -- lot EXPANSION : besoin croissant, nouveau site avant l'épuisement
 
 local B = {}
 
@@ -287,6 +288,8 @@ function B.generate(s, st)
         value = val(math.floor(B.ARMY_MORE * war / 100), w.armee), permanent = true }
     end
   end
+  -- Lot EXPANSION : un nouveau site AVANT l'épuisement quand le besoin croît (shared/ai3/besoin.lua, shared/ai3/expansion.lua).
+  Ex.goals(goals, s, st, w)
   table.sort(goals, function(a, b)
     if a.value ~= b.value then return a.value > b.value end
     return a.key < b.key
