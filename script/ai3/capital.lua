@@ -39,8 +39,8 @@ local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_st
 
 local Capital = {}
 
--- Réglage de carte fo-war-capital (settings/capital.lua), ÉTEINT par défaut (correction après revue, 27/10 : la recherche
--- des factions est retardée quand il est allumé, D1 ouvert) ; relu à chaque pensée. Capital.ENABLED = false et l'interface
+-- Réglage de carte fo-war-capital (settings/capital.lua), ALLUMÉ par défaut (lot AMELIORER, 29/10 : D1 corrigé, le centre
+-- ne se travaille que sur des bras libres durables) ; relu à chaque pensée. Capital.ENABLED = false et l'interface
 -- « fo-capital » set_enabled(false) (bancs témoins, rangé dans l'état de la guerre) l'éteignent aussi, même réglage allumé.
 -- Il commande les buts sur les bâtiments à niveaux et le centre. Le REMPLACEMENT des machines hors famille (lot AMELIORER)
 -- a son propre réglage fo-war-remplacer, ALLUMÉ par défaut : il ne remplace que ce qui est déjà débloqué et ne réclame jamais

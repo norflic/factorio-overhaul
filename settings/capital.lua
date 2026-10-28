@@ -17,10 +17,11 @@ data:extend({
     type = "bool-setting",
     name = "fo-war-capital",
     setting_type = "runtime-global",
-    -- ÉTEINT par défaut (correction après revue du lot CAPITAL, 27/10) : la recherche des factions est retardée quand il
-    -- est allumé (palier 2 en médiane plus tard qu'au témoin sur les 2 graines mesurées, palier 3 sur 1 des 2 : D1 ouvert,
-    -- INTEGRATION.md §3 et « Correction après revue »).
-    default_value = false,
+    -- ALLUMÉ par défaut (lot AMELIORER, 29/10 : aucun réglage éteint par défaut). Le D1 du lot CAPITAL (recherche des
+    -- factions retardée) venait du centre posé dès la minute 0, servi comme travail court devant la fonderie et les packs
+    -- (fonderie finie à 6,1 min au lieu de 1,2) : le centre ne se travaille plus que sur des bras libres durables
+    -- (shared/ai3/capital.lua, ctx.hold_center). Mesuré sur 4 graines : aucun retard systématique (fo-logs/2026-10-28_AMELIORER-D1).
+    default_value = true,
     order = "e-war-z-capital",
   },
   -- Lot AMELIORER (28/10) : le remplacement sur place des machines hors famille (four de pierre, premier assembleur) par la
