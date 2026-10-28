@@ -2020,6 +2020,29 @@ end
 local function finish_project(f, surface, p, tick)
   local b = f.build
   p.wired = wire_project(f, surface, p)
+  -- lot ENERGIE : un module fini dont les poteaux ne sont pas sur le réseau d'un générateur est une île sans courant (mesuré :
+  -- scarlet 271828182, 0 bras alimenté sur 11 posés à 30 min) ; cause journalisée à la fin du projet
+  if p.spec and p.spec.gen ~= "steam" then
+    local gen = surface.find_entities_filtered({ force = f.force, type = "generator", limit = 1 })[1]
+    local gid = gen and gen.electric_network_id
+    local total, off, ids = 0, 0, {}
+    for _, e in ipairs(p.ents) do
+      if e.name:find("electric%-pole") then
+        local r = find_real(surface, e, f.force)
+        if r then
+          total = total + 1
+          ids[r.electric_network_id or 0] = true
+          if gid == nil or r.electric_network_id ~= gid then off = off + 1 end
+        end
+      end
+    end
+    local nids = 0
+    for _ in pairs(ids) do nids = nids + 1 end
+    if total > 0 then
+      log(string.format("[FO-PLANDIR] %s : projet %d (%s) fini : %d poteau(x), %d hors du reseau du generateur, %d reseau(x)%s",
+        f.key or "player", p.id, p.parts[1] and p.parts[1].key or "?", total, off, nids, gid == nil and " (aucun generateur)" or ""))
+    end
+  end
   release(f, p)
   p.state = "fini"
   p.finished = tick
