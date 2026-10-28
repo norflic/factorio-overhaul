@@ -29,10 +29,12 @@ T.start_kit_generous = {
 }
 T.start_smelters_generous = 2 -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
 T.hq_smelters = 2             -- taille de la fonderie du QG reposée en secours (planificateur, manque de plaques)
--- Lot KIT (décision de l'orchestrateur, 28/10, veto possible du DC) : une faction n'a pas non plus de tourelle de QG ni de
--- technologie au départ (votre équipe n'en a pas : elle recherche « gun-turret » et fabrique ses 4 tourelles de QG, T.defend_hq).
--- Les deux ne sont offertes qu'avec le kit généreux (bancs).
-T.start_hq_turrets = 0
+-- Lot KIT (décision de l'orchestrateur, 28/10, veto possible du DC) : une faction n'a pas de technologie au départ (votre
+-- équipe n'en a pas : elle recherche « gun-turret »). EXCEPTION DOCUMENTÉE : les 4 tourelles de QG (chargées de 20 chargeurs,
+-- script/faction/war.lua) restent offertes aux factions, plancher de défense : aucun joueur humain ne défend une faction, et
+-- sans elles l'économie de fer sans stock ne tient pas la défense du début (mesuré en moteur réel, etape1-guide 123456789 :
+-- 0 soldat et 0 tourelle à 60 min pour les deux factions, contre 5 à 7 et 5 à 6 sur main). Votre équipe n'en reçoit jamais.
+T.start_hq_turrets = 4
 T.start_hq_turrets_generous = 4
 T.hq_inventory = 200
 -- Avant IA1-a : 2 ouvriers de départ et « 2 + 1 par avant-poste » (T.workers_wanted). Depuis IA1-a, le départ

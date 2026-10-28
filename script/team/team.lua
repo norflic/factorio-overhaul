@@ -559,7 +559,7 @@ function Team.view(f, tick)
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = (f.is_player or not Team.kit_generous()) and T.defend_hq or 0, -- lot KIT : sans kit généreux, une faction pose ses 4 tourelles de QG comme votre équipe
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0, -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,

@@ -85,7 +85,7 @@ print(string.format("   avec réservation : %d conflits de tuile, %d minerais, %
 check(egal.conflicts * 3 < sans.conflicts, "la réservation divise les mineurs sur la même tuile par plus de 3")
 check(egal.mined > sans.mined, "plus de minerai à la main avec la réservation")
 
-section("4. Tourelles de QG et technologies : rien au départ en kit égal, comme votre équipe (décision du 28/10)")
+section("4. Tourelles de QG offertes (exception), aucune technologie au départ en kit égal (décision du 28/10)")
 local function hq_turrets(res)
   local s = game.surfaces[1]
   local n, techs = 0, 0
@@ -101,7 +101,7 @@ end
 M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0, kit_egal = true })
 remote.call("factorio-overhaul", "war_start", 2, 100, nil, 320)
 local tr0, te0 = hq_turrets({ w = global.fo.war })
-check(tr0 == 0, "kit égal : aucune tourelle de QG offerte (" .. tr0 .. ")")
+check(tr0 == 8, "kit égal : 4 tourelles de QG par faction, exception documentée (" .. tr0 .. " pour 2 factions)")
 check(te0 == 0, "kit égal : aucune technologie de niveau 0 offerte (" .. te0 .. ")")
 M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0, kit_egal = false })
 remote.call("factorio-overhaul", "war_start", 2, 100, nil, 320)

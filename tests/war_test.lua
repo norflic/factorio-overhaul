@@ -67,7 +67,7 @@ check(count_entities("fo-faction-hq") == 4, "4 QG posés")
 -- Lot KIT : le kit généreux (défaut du moteur simulé) offre 4 tourelles de QG par faction ; le kit égal (FO_KIT_EGAL=1, le
 -- jeu réel) n'en offre aucune, ni stock de départ au coffre.
 local kit_egal = os.getenv("FO_KIT_EGAL") == "1"
-check(count_entities("gun-turret") == (kit_egal and 0 or 16), kit_egal and "aucune tourelle de QG (kit égal)" or "16 tourelles de QG")
+check(count_entities("gun-turret") == 16, "16 tourelles de QG (offertes aux factions, même en kit égal)")
 -- Lot IA1-a : effectif de départ fo-npc-start (8, défaut de shared/team/scale.lua ; 2 avant IA1-a).
 check(count_entities("fo-companion") == 32, "8 ouvriers par faction (fo-npc-start)")
 for _, f in ipairs(global.fo.war.factions) do

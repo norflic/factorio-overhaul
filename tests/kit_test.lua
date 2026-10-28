@@ -42,21 +42,27 @@ local function as_map(list) local m = {} for _, it in ipairs(list) do m[it[1]] =
 ---------------------------------------------------------------------------------------------------
 section("1. Kit égal : faction == votre équipe")
 local player, faction, generous = F.grant(true, false), F.grant(false, false), F.grant(false, true)
-check(same(player, faction), "F.grant(joueur) == F.grant(faction) champ par champ (coffre, fours, kit ouvrier)")
+do -- seule différence : les 4 tourelles de QG des factions (exception documentée, shared/team/config.lua)
+  local a, b = {}, {}
+  for k, v in pairs(player) do a[k] = v end
+  for k, v in pairs(faction) do b[k] = v end
+  a.hq_turrets, b.hq_turrets = nil, nil
+  check(same(a, b), "F.grant(joueur) == F.grant(faction) champ par champ (coffre, fours, kit ouvrier), sauf les tourelles de QG")
+end
 check(#faction.chest == 0 and faction.smelters == 0, "kit égal : coffre vide, aucun four posé")
 check(same(F.grant(true, true), player), "le réglage généreux n'agit jamais sur votre équipe")
+check(player.hq_turrets == 0 and faction.hq_turrets == 4, "tourelles de QG : jamais pour votre équipe, 4 pour une faction (plancher de défense)")
 check(same(T.start_kit, {}) and T.start_smelters == 0, "T.start_kit vide et T.start_smelters 0 (kit égal)")
 check(same(faction.worker_kit, player.worker_kit) and #faction.worker_kit > 0, "kit de l'ouvrier commun aux deux équipes")
 check(same(F.grant(false, false), F.grant(false, false)), "déterminisme : deux appels, même résultat")
 check(F.SETTING == "fo-war-kit-genereux", "nom du réglage")
 check(F.grant(false, nil).smelters == 0 and #F.grant(false, nil).chest == 0, "réglage absent (nil) : kit égal")
 check(F.grant(false, "oui").smelters == 0, "seul `true` allume le kit généreux")
-check(faction.hq_turrets == 0 and player.hq_turrets == 0 and not faction.unlock0 and not player.unlock0,
-  "kit égal : ni tourelle de QG ni technologie de niveau 0 (décision du 28/10 : comme votre équipe)")
+check(not faction.unlock0 and not player.unlock0, "kit égal : aucune technologie de niveau 0 (décision du 28/10 : comme votre équipe)")
 check(generous.hq_turrets == 4 and generous.unlock0 == true, "kit généreux : 4 tourelles de QG et technologies de niveau 0")
 check(F.grant(false, false, true).unlock0 == true and F.grant(true, false, true).unlock0 == false,
   "ancien cerveau (échelle d'objectifs) : une faction garde les technologies de niveau 0, votre équipe jamais")
-check(F.grant(false, false, true).hq_turrets == 0, "ancien cerveau : toujours aucune tourelle offerte")
+check(F.grant(false, false, true).hq_turrets == 4, "ancien cerveau : les 4 tourelles de QG des factions")
 
 ---------------------------------------------------------------------------------------------------
 section("2. Kit généreux (bancs) : sur-ensemble strict, sans bois")

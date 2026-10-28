@@ -30,7 +30,7 @@ function F.grant(is_player, generous, brain_off)
   return {
     chest = copy_sorted(give_more and T.start_kit_generous or T.start_kit),
     smelters = give_more and T.start_smelters_generous or T.start_smelters,
-    hq_turrets = give_more and T.start_hq_turrets_generous or T.start_hq_turrets,
+    hq_turrets = is_player and 0 or (give_more and T.start_hq_turrets_generous or T.start_hq_turrets), -- exception faction
     -- technologies du niveau 0 (T.unlocks[0]) : kit généreux, ou faction à l'ancien cerveau (échelle d'objectifs qui les suppose)
     unlock0 = give_more or ((not is_player) and brain_off == true),
     worker_kit = copy_sorted(T.kits.worker),
