@@ -1155,8 +1155,15 @@ function Capi.think(f, view, book, tick, research, w)
   local short_now = (f.team.ia3 and f.team.ia3.short) or {}
   local D0 = Capi.data()
   local power_up = Auto.plant_state(f) == "fini"
+  -- Amorçage seulement : une matière qui a déjà des foreuses électriques posées reprend le rang ordinaire des buts de fond
+  -- (la défense ne paie pas chaque agrandissement ; moteur réel, 1618033988 : azure perd son armée en 3 fonderies de fer).
+  local elec_on = {}
+  for _, dr in ipairs(cs.scan and cs.scan.drills or {}) do
+    if dr.entity == elec_drill then elec_on[dr.resource] = (elec_on[dr.resource] or 0) + (dr.n or 1) end
+  end
   local function makes_short(rec)
     if not power_up or (rec.kind ~= "couvrir" and rec.kind ~= "ouvrir") then return false end
+    if (elec_on[rec.item] or 0) > 0 then return false end
     if (short_now[rec.item] or 0) > 0 then return true end
     local r = rec.smelt_recipe and D0.recipes[rec.smelt_recipe]
     for _, pr in ipairs(r and r.products or {}) do
