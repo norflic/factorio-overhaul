@@ -15,6 +15,8 @@ local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local Couv = require("script.team.couverture") -- lot COUVERTURE : positions des tourelles par couverture maximale
+local Reglages = require("shared.ai3.reglages") -- la tourelle des règles « défendre d'abord » (Reglages.TURRET)
 
 local Outposts = {}
 
@@ -358,27 +360,45 @@ function Outposts.extend(f, surface, o, carrier)
   return #drills
 end
 
+-- Positions de REPLI (avant le lot COUVERTURE : les 4 diagonales puis les 4 axes) : utilisées seulement quand la couverture
+-- n'a rien à protéger (aucun bâtiment vu autour du centre) ou n'a plus de place à proposer.
 local TURRET_OFFSETS = { { 7, 7 }, { -7, -7 }, { 7, -7 }, { -7, 7 }, { 9, 0 }, { -9, 0 }, { 0, 9 }, { 0, -9 } }
 
---- Pose jusqu'à `count` tourelles autour de l'avant-poste avec les objets portés.
+--- Pose UNE tourelle en `pos` avec les objets portés (munitions comprises) ; rend vrai si elle est posée.
+local function put_turret(f, surface, outpost, pos, carrier)
+  local t = surface.create_entity({ name = Reglages.TURRET, position = pos, force = f.force, raise_built = true })
+  if not t then return false end
+  carrier.remove({ name = Reglages.TURRET, count = 1 })
+  for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
+    local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
+    if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
+  end
+  Outposts.add_turret(f, t, outpost.id, 0)
+  return true
+end
+
+--- Pose jusqu'à `count` tourelles autour de l'avant-poste (ou du QG : outpost.id nil) avec les objets portés. Lot COUVERTURE :
+--- les positions maximisent la valeur des bâtiments couverts (portée lue au prototype), loin les unes des autres et du côté des
+--- menaces connues (shared/team/couverture.lua, script/team/couverture.lua) ; repli : les positions fixes d'avant.
 function Outposts.fortify(f, surface, outpost, count, carrier)
-  local placed = 0
-  for _, o in ipairs(TURRET_OFFSETS) do
-    if placed >= count or carrier.get_item_count("gun-turret") < 1 then break end
-    local pos = surface.find_non_colliding_position("gun-turret", { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
-    if pos then
-      local t = surface.create_entity({ name = "gun-turret", position = pos, force = f.force, raise_built = true })
-      if t then
-        carrier.remove({ name = "gun-turret", count = 1 })
-        for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
-          local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
-          if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
-        end
-        Outposts.add_turret(f, t, outpost.id, 0)
+  local placed, by_cover = 0, 0
+  local st = Couv.plan(f, surface, outpost.pos, outpost.id == nil)
+  if st then
+    while placed < count and carrier.get_item_count(Reglages.TURRET) >= 1 do
+      local p = Couv.next(st, f, surface)
+      if not p then break end
+      if put_turret(f, surface, outpost, { x = p.x, y = p.y }, carrier) then
         placed = placed + 1
+        by_cover = by_cover + 1
       end
     end
   end
+  for _, o in ipairs(TURRET_OFFSETS) do
+    if placed >= count or carrier.get_item_count(Reglages.TURRET) < 1 then break end
+    local pos = surface.find_non_colliding_position(Reglages.TURRET, { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
+    if pos and put_turret(f, surface, outpost, pos, carrier) then placed = placed + 1 end
+  end
+  if st then Couv.report(f, st, by_cover, placed - by_cover, outpost.id == nil and "QG" or ("avant-poste " .. tostring(outpost.id))) end
   return placed
 end
 

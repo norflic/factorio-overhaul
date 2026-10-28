@@ -1234,6 +1234,12 @@ function M.new_world(opts)
     assert(t.position and t.max_distance, "find_nearest_enemy : position et max_distance attendus")
     return nil
   end
+  -- Lot COUVERTURE : unités des forces ennemies de `force` dans le rayon (le moteur rend les unités qui attaquent, pas les
+  -- nids). Le moteur simulé range les unités ennemies dans la force « enemy ».
+  surface.find_enemy_units = function(center, radius, force)
+    assert(center and radius, "find_enemy_units : centre et rayon attendus")
+    return surface.find_entities_filtered({ position = center, radius = radius, type = "unit", force = "enemy" })
+  end
   W.surface = surface
 
   local player_char = new_entity("character", 0, 0, surface, "player")

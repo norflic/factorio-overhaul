@@ -497,7 +497,7 @@ do
     ["script/team/ia1_remote.lua"] = { "DETTE", 2, "relevé des matières produites : T.outposts" },
     ["script/team/player_team.lua"] = { "DETTE", 1, "coffre d'équipe (entité du mod)" },
     ["script/faction/chef.lua"] = { "DETTE", 1, "stocks du chef : T.outposts" },
-    ["script/faction/outposts.lua"] = { "DETTE", 8, "tourelle et munitions des avant-postes : T" },
+    ["script/faction/outposts.lua"] = { "DETTE", 4, "munitions des avant-postes : T (la tourelle vient de Reglages.TURRET depuis le lot COUVERTURE)" },
     ["script/faction/war.lua"] = { "DETTE", 3, "tourelles du QG et kit de départ : T" },
   }
   local function hit_lines(src, nameset)

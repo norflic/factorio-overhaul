@@ -111,6 +111,15 @@ R.ITEM_MODULE = "module"
 
 R.TURRET = "gun-turret"
 
+-- Lot COUVERTURE : types d'entité du moteur (LuaEntityPrototype.type) dont chaque pièce ne vaut pas une tourelle : le
+-- tapis, le poteau, le tuyau, la pince. Ils forment des LIGNES qu'on refait par la reconstruction (script/team/
+-- reconstruction.lua), mais ils ne pèsent pas dans le choix des positions de tourelles (shared/team/couverture.lua) : cent
+-- tapis ne valent pas un laboratoire. Même justification que R.ENTITY_ROLE (le moteur classe ses bâtiments par TYPE).
+R.PASSIVE_TYPES = {
+  ["transport-belt"] = true, ["underground-belt"] = true, ["splitter"] = true, ["inserter"] = true,
+  ["electric-pole"] = true, ["pipe"] = true, ["pipe-to-ground"] = true,
+}
+
 R.BODY = "character"
 
 -- Lot ADOPTE : type -> { role (R.ENTITY_ROLE), registre, ... }.
