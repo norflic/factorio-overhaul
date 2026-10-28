@@ -170,7 +170,16 @@ local function runs_of(S, axis, c)
     if not f and a then out[#out + 1] = { a = a, b = v - 1 }; a = nil end
   end
   if a then out[#out + 1] = { a = a, b = v1 - 1 } end
-  for _, r in ipairs(out) do r.lo_open, r.hi_open = r.a == v0, r.b == v1 - 1 end
+  -- Ouvert : touche le bord de la zone ET la tuile juste au-delà n'est pas un obstacle connu (un tapis qui sortirait sur
+  -- l'eau, une falaise ou un bâtiment serait enfermé : le tapis de liaison n'aurait aucun chemin).
+  local function beyond_free(v)
+    local x, y = xy(axis, c, v)
+    return not S.blocked(x, y)
+  end
+  for _, r in ipairs(out) do
+    r.lo_open = r.a == v0 and beyond_free(v0 - 1)
+    r.hi_open = r.b == v1 - 1 and beyond_free(v1)
+  end
   return out
 end
 
@@ -728,6 +737,7 @@ function LM.check(plan, field, drill, opts)
         local ex = exit_at[tk(x, y)]
         local nx, ny = x + DV[cur.dir][1], y + DV[cur.dir][2]
         if nx >= b.x0 and nx < b.x1 and ny >= b.y0 and ny < b.y1 then err("sortie " .. i .. " pas au bord de la zone") end
+        if S.blocked(nx, ny) then err("sortie " .. i .. " enfermee : la tuile au-dela est un obstacle") end
         break
       end
       x, y = x + DV[cur.dir][1], y + DV[cur.dir][2]

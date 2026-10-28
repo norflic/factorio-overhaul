@@ -966,13 +966,21 @@ function Build.layout_place(f, surface, p, item, flow, a)
 end
 
 --- Foreuses de ravitaillement d'une voie et leur tapis jusqu'à l'arrivée `a`. Rend true, ou false et raison.
+--- Lot LAYOUT : l'agencement du champ d'abord ; si son tapis de liaison ne trouve aucun chemin (sortie enfermée), l'ancien
+--- gabarit (n, n - 1, ... 1 paires) prend le relais : un champ mal sorti ne doit jamais coûter la voie.
 function Build.plan_drills(f, surface, p, item, flow, a)
   local b = f.build
   local n = math.max(1, math.ceil(flow / (2 * M.spec("electric-mining-drill").speed) - 1e-9))
-  -- Lot LAYOUT : l'agencement choisi sur le champ d'abord ; l'ancien gabarit (n, n - 1, ... 1 paires) en repli
   local place, why = Build.layout_place(f, surface, p, item, flow, a)
+  if place then
+    local ok, w2 = Build.plan_drills_link(f, surface, p, item, flow, a, place, n)
+    if ok then return true end
+    bump(b.stats.plan_refused, "champ-liaison:" .. tostring(w2))
+    Build.layout_log(f, string.format("%s : liaison du champ refusee (%s), ancien gabarit", item, tostring(w2)))
+    place = nil
+  end
   local diag = {}
-  for nn = place and 0 or n, 1, -1 do
+  for nn = n, 1, -1 do
     local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
     if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
     if g then
@@ -984,6 +992,13 @@ function Build.plan_drills(f, surface, p, item, flow, a)
     Build.drill_diag(f, item, n, a, why, diag)
     return false, why
   end
+  return Build.plan_drills_link(f, surface, p, item, flow, a, place, n)
+end
+
+--- Pose le module de foreuses `place` dans le projet `p` et trace son tapis jusqu'à l'arrivée `a`. Rend true, ou false et raison
+--- (le projet est alors laissé comme avant).
+function Build.plan_drills_link(f, surface, p, item, flow, a, place, n)
+  local b = f.build
   local part = #p.parts + 1
   p.parts[part] = { kind = "foreuses", key = place.g.key, lot = place.lot, ox = place.ox, oy = place.oy, k = place.k,
     w = place.g.w, h = place.g.h, power = needs_power(place.g) }
@@ -997,7 +1012,7 @@ function Build.plan_drills(f, surface, p, item, flow, a)
   local by0 = math.min(s.y, a.y) - 12
   local bx1 = math.max(s.x, a.x) + 12
   local by1 = math.max(s.y, a.y) + 12
-  if bx1 - bx0 > 120 or by1 - by0 > 120 then return false, "trop loin" end
+  if bx1 - bx0 > 120 or by1 - by0 > 120 then p.parts[part] = nil; return false, "trop loin" end
   local masks = read_masks(f, surface, bx0, by0, bx1 + 1, by1 + 1)
   -- anneau d'une tuile autour des modules (aucun tapis ne longe un module : bras, têtes, queues)
   local ring = {}

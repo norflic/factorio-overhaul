@@ -154,6 +154,26 @@ local function battery(M)
     if p then ck(#errs(p, f, D3, { gap = 1, strict_active = true }) == 0, "mur horizontal valide") end
   end
 
+  -- sortie enfermée : un mur juste AU-DELÀ de la zone au nord et au sud ferme tous les couloirs verticaux ; au sud seulement,
+  -- les couloirs sortent par le nord ; jamais un tapis qui débouche sur un obstacle (le tapis de liaison n'aurait aucun chemin)
+  do
+    local bl = {}
+    for x = -10, 30 do bl[tk(x, BIG.y0 - 1)] = true; bl[tk(x, BIG.y1)] = true end
+    local f = { tiles = rect(0, 0, 19, 13, "a"), blocked = bl, bounds = BIG }
+    local pv = M.plan(f, D3, { gap = 1, axes = { "V" } })
+    ck(pv == nil or #errs(pv, f, D3, { gap = 1 }) == 0, "murs au-dela, nord et sud : aucun couloir vertical n'y debouche")
+    ck(pv == nil, "murs au-dela, nord et sud : pas de plan vertical")
+    local ps = M.plan(f, D3, { mode = "single", max_drills = 3, axes = { "V" }, toward = { x = 8, y = 90 } })
+    ck(ps == nil, "single, murs au-dela : pas de plan vertical")
+    local pa = M.plan(f, D3, { gap = 1 })
+    ck(pa ~= nil and #errs(pa, f, D3, { gap = 1 }) == 0, "murs au-dela, nord et sud : les couloirs horizontaux sortent par l'est ou l'ouest")
+    local bl2 = {}
+    for x = -10, 30 do bl2[tk(x, BIG.y1)] = true end
+    local f2 = { tiles = rect(0, 0, 19, 13, "a"), blocked = bl2, bounds = BIG }
+    local p2 = M.plan(f2, D3, { mode = "single", max_drills = 3, axes = { "V" }, toward = { x = 8, y = 90 } })
+    ck(p2 ~= nil and p2.exits[1].dir == 0 and #errs(p2, f2, D3, {}) == 0, "single, mur au sud seulement : sortie par le nord")
+  end
+
   -- colonne de poteaux : deux foreuses de lignes différentes ne se touchent pas (lignes de remplissage comprises)
   do
     local R = rng(4242)
@@ -428,7 +448,8 @@ do
     { "voie sans limite de debit", "while load > S.lane_cap + EPS and #m > 0 do", "while false and #m > 0 do" },
     { "obstacle ignore sous la foreuse", "for x = ox, ox + w - 1 do if S.blocked(x, y) then ok = false end end", "for x = ox, ox + w - 1 do end" },
     { "couloir sur obstacle", "local f = tile_free(S, x, y)\n    if f and not a", "local f = true\n    if f and not a" },
-    { "bords toujours ouverts", "r.lo_open, r.hi_open = r.a == v0, r.b == v1 - 1", "r.lo_open, r.hi_open = true, true" },
+    { "bords toujours ouverts", "r.lo_open = r.a == v0 and beyond_free(v0 - 1)\n    r.hi_open = r.b == v1 - 1 and beyond_free(v1)", "r.lo_open, r.hi_open = true, true" },
+    { "au-dela du bord ignore", "r.lo_open = r.a == v0 and beyond_free(v0 - 1)", "r.lo_open = r.a == v0" },
     { "foreuse inactive acceptee", "if n >= S.min_tiles then\n        sel[#sel + 1] = cands[best]", "if true then\n        sel[#sel + 1] = cands[best]" },
     { "sortie de foreuse sans le demi-pas des cotes pairs", "local x, y = drop[1], drop[2]\n  local rx, ry", "local x, y = 0, drop[2]\n  local rx, ry" },
     { "couverture trop courte", "return math.ceil(c - reach - 0.5 - EPS), floor(c + reach - 0.5 + EPS)", "return math.ceil(c - reach - 0.5 - EPS), floor(c + reach - 1.5 + EPS)" },
