@@ -179,7 +179,7 @@ function Stock.deploy_idle(f, surface, tick)
   local have = lo
   local registry = Stock.smelters(f)
   local cap = Br.SMELT_HARD
-  local n = Ad.deploy(have, #registry, 0, cap, free[T.fuel] or 0, T.fuel_per_burner)
+  local n = Ad.deploy(have, #registry, 0, cap)
   -- Trace de la fenêtre close (au plus une ligne par fenêtre, 60 lignes par équipe) : fours au coffre, libres (minimum de la
   -- fenêtre), registre, posés : de quoi lire pourquoi des fours restent au coffre (réservés par une tâche, ou plafond atteint).
   f.stats = f.stats or {}
@@ -191,7 +191,9 @@ function Stock.deploy_idle(f, surface, tick)
   if n <= 0 then return 0 end
   local tmp = game.create_inventory(8)
   tmp.insert({ name = T.SMELTER, count = Stock.remove(f, T.SMELTER, n) })
-  tmp.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, T.fuel_per_burner * n) })
+  -- le combustible libre accompagne les fours (jusqu'à T.fuel_per_burner chacun) ; sans charbon libre, ils sont posés à sec
+  local fuel = math.min(math.max(0, free[T.fuel] or 0), T.fuel_per_burner * n)
+  if fuel > 0 then tmp.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, fuel) }) end
   local placed = Stock.place_smelters(f, surface, n, tmp)
   for name, c in pairs(tmp.get_contents()) do Stock.insert(f, name, c) end
   tmp.destroy()

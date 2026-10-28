@@ -77,10 +77,11 @@ end
 --- chez les factions »). Trace (fo-logs/2026-10-27_ADOPTE/diag-1) : les fours fabriqués pour des avant-postes lointains
 --- reviennent au coffre quand le chantier échoue (chemin, avant-poste plein) ; ils y restent. `free` : exemplaires LIBRES au
 --- coffre (coffre moins ce que des tâches ont réservé), `placed` : machines du registre, `pending` : machines en commande,
---- `cap` : plafond du registre, `fuel` : combustible libre, `per_fuel` : combustible d'une machine. Rend le nombre à poser.
-function A.deploy(free, placed, pending, cap, fuel, per_fuel)
+--- `cap` : plafond du registre. Rend le nombre à poser. (Le combustible n'est pas une condition : un four posé à sec est ravitaillé
+--- par la tournée de fonte suivante, Outposts.service_smelters ; le coffre sans charbon libre bloquait la pose, graine 123456789.)
+function A.deploy(free, placed, pending, cap)
   local n = (free or 0) - A.IDLE_KEEP
-  n = math.min(n, (cap or 0) - (placed or 0) - (pending or 0), math.floor((fuel or 0) / math.max(1, per_fuel or 1)), A.DEPLOY_PER_THINK)
+  n = math.min(n, (cap or 0) - (placed or 0) - (pending or 0), A.DEPLOY_PER_THINK)
   return math.max(0, n)
 end
 
