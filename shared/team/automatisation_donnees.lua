@@ -23,6 +23,10 @@ D.METHODS = {
 -- La centrale à vapeur (générateur « steam » de modules.lua), demandée avant le premier module électrique.
 D.PLANT = { gen = "steam", args = { 1 } }
 
+-- Lot ENERGIE : sources d'énergie dont un gabarit de pose existe (générateurs de shared/team/modules.lua). Seule la vapeur en a
+-- un ; solaire et nucléaire sont écartés « pas de gabarit de pose » par shared/ai3/generation.lua.
+D.POWER = { D.PLANT }
+
 -- Machines d'une rangée GÉNÉRÉE depuis une recette, dans l'ordre d'essai (la première dont les catégories contiennent
 -- celle de la recette).
 D.MACHINES = { "assembling-machine-1", "assembling-machine-2" }

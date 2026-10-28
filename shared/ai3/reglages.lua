@@ -67,6 +67,10 @@ R.ENTITY_TYPES = {}
 for k in pairs(R.ENTITY_ROLE) do R.ENTITY_TYPES[#R.ENTITY_TYPES + 1] = k end
 table.sort(R.ENTITY_TYPES)
 
+-- Lot ENERGIE : types du moteur qui PRODUISENT de l'énergie (puissance nominale lue au prototype) : turbines et machines à
+-- vapeur, générateurs à combustion, panneaux solaires, réacteurs. Le choix de la source (shared/ai3/generation.lua) les lit.
+R.POWER_TYPES = { "burner-generator", "generator", "reactor", "solar-panel" }
+
 R.ITEM_ROLE = {
   ["ammo"] = "militaire",
   ["gun"] = "militaire",

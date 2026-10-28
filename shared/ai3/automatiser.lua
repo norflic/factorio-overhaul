@@ -145,7 +145,7 @@ function A.template(gen, args, pole)
   local ex = g.extensions and g.extensions[1]
   c = { key = g.key, n_ent = #g.entities, items = items, recipes = recipes, nominal = g.nominal or {}, inputs = g.inputs or {},
     power_kw = g.power_kw or 0, ext = ex and { arg = ex.arg, max = ex.max } or nil, args = args, gen = gen,
-    pole = g.pole_name }
+    pole = g.pole_name, out_kw = g.electric_out_kw or 0 }
   cache[k] = c
   return c
 end
@@ -166,6 +166,23 @@ function A.choose_pole(book, stock)
     end
     return true
   end)
+end
+
+--- Lot ENERGIE : sources d'énergie que l'exécutant sait poser, lues à ses gabarits (D.POWER : aucun nom écrit ici), pour la
+--- règle pure shared/ai3/generation.lua. Chaque candidat : { name, kind (générateur du gabarit), kw, cost, template }.
+function A.power_candidates()
+  local out = {}
+  for _, p in ipairs(D.POWER or { A.PLANT }) do
+    local t = A.template(p.gen, p.args)
+    if t then
+      local cost, args = {}, {}
+      for _, k in ipairs(sorted_keys(t.items)) do cost[#cost + 1] = { k, t.items[k] } end
+      for i, x in ipairs(p.args) do args[i] = tostring(x) end
+      out[#out + 1] = { name = p.gen .. ":" .. table.concat(args, ","), kind = p.gen, kw = t.out_kw, cost = cost,
+        template = true, gen = p.gen, args = p.args }
+    end
+  end
+  return out
 end
 
 --- Vide le cache (tests).

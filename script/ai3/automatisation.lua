@@ -27,6 +27,7 @@ local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
 local Centrale = require("shared.team.centrale") -- lot PLANDIR : croissance de la centrale
+local Energie = require("script.ai3.energie") -- lot ENERGIE : relevé des sources d'énergie (journal)
 local Profiler = require("script.core.profiler")
 
 local Auto = {}
@@ -486,6 +487,7 @@ function Auto.think(f, view, book, tick, research)
         w.power or 0, w.capacity or 0, nb, id))
     end
   end
+  Energie.survey(f, st, book, view.stock or {}, tick)
   if tick >= (st.next_decide or 0) then
     st.next_decide = tick + Auto.EVERY
     local stock = view.stock or {}

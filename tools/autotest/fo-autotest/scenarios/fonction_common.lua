@@ -511,9 +511,11 @@ function F.report(st, s, key, force, minute, tick, row)
   end
   local fe_el = 0
   for _, e in ipairs(by.four) do if e.prototype.electric_energy_source_prototype then fe_el = fe_el + 1 end end
+  -- lot ENERGIE : autres sources (panneaux solaires, générateurs à combustion, réacteurs), invisibles aux seuls `generator`
+  local autres = s.find_entities_filtered({ force = force, type = { "solar-panel", "burner-generator", "reactor" } })
   logl("elec", minute, key, string.format(
-    "kw_moy=%s kw_now=%s generateurs=%d chaudieres=%d poteaux=%d poteaux_reseau_gen=%d reseaux_poteaux=%d reseaux_gen=%d"
-    .. " fours_elec=%d %s", f1(kw_moy), f1(kw_now), #by.generateur, #by.chaudiere, poles, poles_gen, n_pnets, n_gnets,
+    "kw_moy=%s kw_now=%s generateurs=%d autres_sources=%d chaudieres=%d poteaux=%d poteaux_reseau_gen=%d reseaux_poteaux=%d reseaux_gen=%d"
+    .. " fours_elec=%d %s", f1(kw_moy), f1(kw_now), #by.generateur, #autres, #by.chaudiere, poles, poles_gen, n_pnets, n_gnets,
     fe_el, table.concat(cons, " ")))
   M.kw_moy = kw_moy
   M.poteaux_gen = poles_gen
