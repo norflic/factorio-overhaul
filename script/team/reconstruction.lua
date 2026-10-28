@@ -41,6 +41,7 @@ Recon.SEEDS_PER_THINK = 3   -- places essayées (épreuve « ennemis près ») p
 Recon.HITS_MAX = 24
 Recon.MATCH = 0.3           -- tolérance de position (tuiles) pour reconnaître une pièce d'un projet
 Recon.LOGS = 60
+Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par force
 
 local ITEM_OF = {}          -- mémoire LOCALE (prototypes seulement)
 local function item_of(name)
@@ -271,6 +272,22 @@ function Recon.act(agent, f, task, surface)
           end
         else
           stat(s, "blocked")
+          -- Diagnostic (hors comportement) : ce qui gêne la pose, pour les premiers cas seulement.
+          if (s.stats.dlogs or 0) < Recon.DIAG_LOGS then
+            s.stats.dlogs = (s.stats.dlogs or 0) + 1
+            local fp = footprint(r)
+            local gens = {}
+            for _, e2 in ipairs(surface.find_entities({ { fp[1], fp[2] }, { fp[3], fp[4] } })) do
+              if e2.valid and #gens < 6 then
+                gens[#gens + 1] = string.format("%s/%s@(%.1f,%.1f)%s", e2.name, e2.type, e2.position.x, e2.position.y,
+                  e2.force and e2.force.name ~= f.force and (":" .. e2.force.name) or "")
+              end
+            end
+            local tile = surface.get_tile(r.x, r.y)
+            log(string.format("[FO-RECON] %s : pose impossible de %s en (%.1f, %.1f) dir %s : gene par %s ; sol %s ; ennemis a 12 tuiles %d",
+              f.key or "player", r.name, r.x, r.y, tostring(r.dir), #gens > 0 and table.concat(gens, ", ") or "rien de visible",
+              tile and tile.name or "?", #surface.find_enemy_units({ x = r.x, y = r.y }, 12, f.force)))
+          end
         end
       end
     end
