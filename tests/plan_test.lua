@@ -382,6 +382,43 @@ do
   check(np.x == 13 and np.y == 13, "grand poteau de carrefour dans le quart nord-ouest du croisement")
 end
 
+-- Lot RESEAU-VIVANT : une chaîne traverse les poteaux déjà prévus au lieu d'en poser à côté (cause mesurée des poteaux redondants)
+do
+  local function free(x, y) return true end
+  local first = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free)
+  -- deuxième chaîne le long de la même rue, sans connaissance du premier : elle pose des poteaux (au même endroit, free ne
+  -- sait rien) ; avec `known`, elle n'en pose AUCUN de nouveau
+  local known = {}
+  for _, c in ipairs(first) do known[#known + 1] = { x = c.x, y = c.y } end
+  local second = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free, known)
+  check(second ~= nil and #second == 0, "chaîne le long d'une chaîne existante : aucun poteau de plus (" .. (second and #second or -1) .. ")")
+  -- chaîne décalée d'une tuile, mêmes poteaux connus : elle les traverse aussi
+  local third = P.pole_chain({ x = 0.5, y = 1.5 }, { x = 40.5, y = 1.5 }, 9, false, free, known)
+  check(third ~= nil and #third == 0, "chaîne décalée d'une tuile : traverse les poteaux existants")
+  -- un poteau connu trop loin du fil (au-delà de la portée) n'est pas utilisé
+  local far = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free, { { x = 20.5, y = 40.5 } })
+  check(far ~= nil and #far >= 4, "poteau connu hors de portée : ignoré")
+  -- un poteau connu qui ne rapproche pas du but n'est pas utilisé
+  local back = P.pole_chain({ x = 20.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free, { { x = 14.5, y = 0.5 } })
+  check(back ~= nil and #back >= 1, "poteau connu en arrière : ignoré")
+  -- le trajet reste continu : chaque saut au plus 9 tuiles, en comptant les poteaux connus traversés
+  local partial = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free, { { x = 8.5, y = 0.5 }, { x = 16.5, y = 0.5 } })
+  local prev, ok = { x = 0.5, y = 0.5 }, true
+  local pts = { { x = 8.5, y = 0.5 }, { x = 16.5, y = 0.5 } }
+  for _, c in ipairs(partial) do pts[#pts + 1] = c end
+  table.sort(pts, function(a, b) return a.x < b.x end)
+  for _, c in ipairs(pts) do
+    if (c.x - prev.x) ^ 2 + (c.y - prev.y) ^ 2 > 81 + 1e-9 then ok = false end
+    prev = c
+  end
+  if (40.5 - prev.x) ^ 2 + (0.5 - prev.y) ^ 2 > 81 + 1e-9 then ok = false end
+  check(ok, "chaîne mêlant poteaux connus et neufs : aucun fil trop long")
+  -- sans `known` : le comportement d'avant, identique
+  local a1 = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free)
+  local a2 = P.pole_chain({ x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }, 9, false, free, {})
+  check(#a1 == #a2, "known vide : même chaîne qu'avant")
+end
+
 ---------------------------------------------------------------------------------------------------
 section("9. Chevauchements et ordre de pose")
 do
