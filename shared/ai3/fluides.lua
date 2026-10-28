@@ -252,6 +252,128 @@ end
 local Site = {}
 Site.__index = Site
 
+---------------------------------------------------------------------------------------------------
+-- Ligne de poteaux contournant les obstacles (lot PETROLE 2)
+---------------------------------------------------------------------------------------------------
+Fl.POLE_ASTAR_MAX = 3000  -- nœuds (cellules de 3 × 3 tuiles) développés au plus par ligne de relais
+Fl.POLE_CELL = 3          -- côté d'une cellule du treillis de recherche
+
+--- Décalages (en cellules) d'un relais au suivant pour une portée de fil `wire` : tous les décalages dont le centre est à
+--- portée (plus la marge du déplacement d'un relais dans sa cellule, 1 tuile de chaque côté) ; la distance exacte entre
+--- les deux tuiles choisies est contrôlée à l'expansion. Triés (di, dj) : déterministe.
+function Fl.pole_cells(wire)
+  local out = {}
+  local reach = math.floor((wire + Fl.POLE_CELL - 1) / Fl.POLE_CELL)
+  for di = -reach, reach do
+    for dj = -reach, reach do
+      local d = Fl.POLE_CELL * math.sqrt(di * di + dj * dj)
+      if (di ~= 0 or dj ~= 0) and d <= wire + 2 then out[#out + 1] = { di, dj } end
+    end
+  end
+  return out
+end
+
+--- Relais d'une ligne de poteaux de `a` à `b` ({x, y} centres de tuiles) par A* sur un treillis de cellules de
+--- Fl.POLE_CELL tuiles (le relais d'une cellule est sa tuile centrale libre, sinon l'une de ses 8 voisines, `free(tx, ty)`),
+--- chaque saut d'au plus `wire` tuiles ; coût d'un saut = 10 + sa longueur (peu de poteaux d'abord). Rend la liste des
+--- centres des relais intermédiaires (vide si `a` et `b` se touchent déjà) ou nil (aucun chemin dans `max_nodes`).
+function Fl.pole_route(a, b, wire, free, max_nodes)
+  local w2 = wire * wire
+  local function d2(x1, y1, x2, y2) return (x1 - x2) ^ 2 + (y1 - y2) ^ 2 end
+  if d2(a.x, a.y, b.x, b.y) <= w2 then return {} end
+  local cells = Fl.pole_cells(wire)
+  local C = Fl.POLE_CELL
+  local ax, ay = math.floor(a.x), math.floor(a.y)
+  local bx, by = b.x, b.y
+  local per = (10 + wire) / wire -- coût minimal par tuile parcourue (saut de la portée entière) : heuristique cohérente
+  local function h(tx, ty) return math.max(0, math.sqrt(d2(tx + 0.5, ty + 0.5, bx, by)) - wire) * per end
+  local order = { { 0, 0 }, { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { 1, -1 }, { -1, -1 } }
+  -- tuile du relais d'une cellule (mémoïsée : ne dépend que de la cellule) ; nil si aucune tuile libre
+  local reps = {}
+  local function rep(i, j)
+    local ck = i * 8192 + j
+    local r = reps[ck]
+    if r ~= nil then return r or nil end
+    for _, o in ipairs(order) do
+      local tx, ty = ax + i * C + o[1], ay + j * C + o[2]
+      if free(tx, ty) then r = { tx, ty }; break end
+    end
+    reps[ck] = r or false
+    return r
+  end
+  -- tas binaire (f, puis clé) : déterministe
+  local heap, hn = {}, 0
+  local function less(p, q) if p.f ~= q.f then return p.f < q.f end return p.k < q.k end
+  local function push(node)
+    hn = hn + 1
+    heap[hn] = node
+    local i = hn
+    while i > 1 do
+      local par = math.floor(i / 2)
+      if less(heap[i], heap[par]) then heap[i], heap[par] = heap[par], heap[i]; i = par else break end
+    end
+  end
+  local function pop()
+    local top = heap[1]
+    heap[1] = heap[hn]
+    heap[hn] = nil
+    hn = hn - 1
+    local i = 1
+    while true do
+      local l, r, m = 2 * i, 2 * i + 1, i
+      if l <= hn and less(heap[l], heap[m]) then m = l end
+      if r <= hn and less(heap[r], heap[m]) then m = r end
+      if m == i then break end
+      heap[i], heap[m] = heap[m], heap[i]
+      i = m
+    end
+    return top
+  end
+  local g, parent, closed = {}, {}, {}
+  local k0 = 0
+  g[k0] = 0
+  push({ k = k0, i = 0, j = 0, x = ax, y = ay, f = h(ax, ay) })
+  local expanded = 0
+  while hn > 0 do
+    local cur = pop()
+    if not closed[cur.k] then
+      closed[cur.k] = true
+      if cur.k ~= k0 and d2(cur.x + 0.5, cur.y + 0.5, bx, by) <= w2 then
+        local chain, k = {}, cur.k
+        while k ~= k0 do
+          local nd = parent[k]
+          chain[#chain + 1] = nd.tile
+          k = nd.from
+        end
+        local path = {}
+        for i = #chain, 1, -1 do path[#path + 1] = { x = chain[i][1] + 0.5, y = chain[i][2] + 0.5 } end
+        return path
+      end
+      expanded = expanded + 1
+      if expanded > (max_nodes or Fl.POLE_ASTAR_MAX) then return nil end
+      for _, st in ipairs(cells) do
+        local ni, nj = cur.i + st[1], cur.j + st[2]
+        local nk = ni * 8192 + nj
+        if nk ~= k0 and not closed[nk] then
+          local r = rep(ni, nj)
+          if r then
+            local dd = d2(cur.x, cur.y, r[1], r[2])
+            if dd <= w2 then
+              local ng = g[cur.k] + 10 + math.sqrt(dd)
+              if g[nk] == nil or ng < g[nk] then
+                g[nk] = ng
+                parent[nk] = { from = cur.k, tile = r }
+                push({ k = nk, i = ni, j = nj, x = r[1], y = r[2], f = ng + h(r[1], r[2]) })
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+
 local function new_site(req)
   local s = setmetatable({ req = req, occ = {}, ents = {}, tube = {}, rsv = {}, quais = {}, outs = {}, npipes = 0 }, Site)
   return s
@@ -556,12 +678,14 @@ function Site:power(electric)
   end
   -- relier : arbre couvrant, chaque composante rejoint la plus proche par une chaîne de relais
   local function d2(a, b) return (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 end
-  local function relay(a, b)
-    -- relais tous les (wire - 1) tuiles sur le segment, chacun sur la tuile libre la plus proche (2 tuiles au plus)
+  -- Relais de `a` à `b` : d'abord en ligne droite (un relais tous les (wire - 1) tuiles, sur la tuile libre la plus proche,
+  -- 4 tuiles au plus de côté) ; si la ligne droite bute (falaise, eau, bâtiments), A* sur les tuiles libres (Fl.pole_route).
+  -- Rien n'est posé tant que la liste n'est pas complète (un essai raté ne laisse aucun poteau perdu).
+  local function straight(a, b)
     local dist = math.sqrt(d2(a, b))
     local steps = math.ceil(dist / (wire - 1))
     local prev = a
-    local n = 0
+    local out = {}
     for i = 1, steps - 1 do
       local x = a.x + (b.x - a.x) * i / steps
       local y = a.y + (b.y - a.y) * i / steps
@@ -572,19 +696,32 @@ function Site:power(electric)
             if not done and math.max(math.abs(dx), math.abs(dy)) == r then
               local tx, ty = math.floor(x) + dx, math.floor(y) + dy
               local c = { x = tx + 0.5, y = ty + 0.5 }
-              if d2(c, prev) <= wire * wire and self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil then
-                done = try_put(c.x, c.y)
-                if done then done.role = "liaison" end
-              end
+              if d2(c, prev) <= wire * wire and self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil then done = c end
             end
           end
         end
       end
       if not done then return nil end
+      out[#out + 1] = done
       prev = done
-      n = n + 1
     end
     if d2(prev, b) > wire * wire then return nil end
+    return out
+  end
+  local function relay(a, b)
+    local pos = straight(a, b)
+    if not pos then
+      pos = Fl.pole_route(a, b, wire, function(tx, ty) return self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil end,
+        Fl.POLE_ASTAR_MAX)
+    end
+    if not pos then return nil end
+    local n = 0
+    for _, c in ipairs(pos) do
+      local done = try_put(c.x, c.y)
+      if not done then return nil end
+      done.role = "liaison"
+      n = n + 1
+    end
     return n
   end
   local comp = {}

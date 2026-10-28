@@ -45,6 +45,9 @@ Pet.WATER_SEARCH = { 24, 48, 96, 144, 200 }
 Pet.BLOCK_NEAR = 40         -- rive à plus de 40 tuiles du gisement : les machines vont près de la rive…
 Pet.BLOCK_OFF = 10          -- … à 10 tuiles d'elle, vers le gisement
 Pet.PUMP_TRIES = 160
+Pet.DUMP = true            -- diagnostic : relevé du terrain d'un site refusé au journal (une fois par raison)
+Pet.POND = 6               -- côté de l'étang posé au gisement quand aucune rive n'est à portée (comme celui de la centrale, Build.POND)
+Pet.POND_NEAR = 60         -- rive à plus de 60 tuiles du gisement : un étang est posé au gisement
 Pet.PUMPS = 8               -- places de pompe essayées au plus (la plus proche d'abord)
 Pet.RETRY = 10 * 3600       -- un site refusé est revu 10 min plus tard
 Pet.GAIN = 3                -- PNJ « libérés » (valeur du projet de chantier, comme un module de l'automatisation)
@@ -186,6 +189,9 @@ local function refresh_known(f, st, c, deposits, tick)
     local n = surface.count_tiles_filtered({ position = f.hq_pos, radius = Pet.WATER_R, collision_mask = "water-tile", limit = 1 })
     st.water = n > 0
   end
+  -- … ou l'étang que le plan directeur a posé pour la centrale (aucune rive ne la tenait : Build make_pond) : l'équipe a de
+  -- l'eau (moteur réel, etape1-guide 123456789 : aucune eau à 160 tuiles, le pack chimique restait impayable, le pétrole « valait 0 »)
+  if not st.water and f.build and f.build.pond then st.water = true end
   if st.water then for _, res in ipairs(pump_resources(c)) do st.known[res] = true end end
   for _, fl in ipairs(sorted_keys(INFO and INFO.extract)) do
     if not st.known[fl] and deposits then
@@ -360,6 +366,57 @@ local function pump_spots(surface, f, rel, origin, fluid)
   return out, pname
 end
 
+--- Étang posé près du gisement quand aucune rive n'est à portée (la centrale en pose un de même, Build.POND) : un carré libre
+--- de Pet.POND tuiles, hors ressource, cherché sur des anneaux autour de l'origine (ordre fixe). Rend vrai si posé.
+--- Tuile d'eau qui donne le fluide `fluid` à la pompe de rive : la tuile de même nom que le fluide si elle en est une, sinon la
+--- première (par nom) dont le prototype pompe ce fluide. nil si le jeu n'en a aucune.
+local function pond_tile(fluid)
+  local function is_water(p)
+    local mask = get(p, "collision_mask") or {}
+    return mask["water-tile"] == true
+  end
+  local same = game.tile_prototypes[fluid]
+  if same and is_water(same) then return fluid end
+  local names = {}
+  for name, p in pairs(game.tile_prototypes) do
+    if is_water(p) and get(p, "fluid") and get(get(p, "fluid"), "name") == fluid then names[#names + 1] = name end
+  end
+  table.sort(names)
+  return names[1]
+end
+
+local function site_pond(f, surface, origin, h, fluid)
+  local b = f.build
+  local tile = pond_tile(fluid)
+  if not tile then return false end
+  local N = Pet.POND
+  local x0, y0, x1, y1 = origin.x - 60, origin.y - 60, origin.x + 60, origin.y + 60
+  local masks = h.read_masks(x0, y0, x1, y1)
+  local dirs = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
+  for _, r in ipairs({ 12, 16, 20, 25, 30, 36, 44 }) do
+    for _, d in ipairs(dirs) do
+      local sx, sy = math.floor(origin.x + d[1] * r) - math.floor(N / 2), math.floor(origin.y + d[2] * r) - math.floor(N / 2)
+      local ok = true
+      for ty = sy - 1, sy + N do
+        for tx = sx - 1, sx + N do
+          local k = Fl.tkey(tx, ty)
+          if masks.water[k] or masks.blocked[k] or b.occ[k] then ok = false end
+        end
+      end
+      if ok and surface.count_entities_filtered({ area = { { sx - 3, sy - 3 }, { sx + N + 3, sy + N + 3 } }, type = "resource" }) > 0 then ok = false end
+      if ok then
+        local tiles = {}
+        for dx = 0, N - 1 do for dy = 0, N - 1 do tiles[#tiles + 1] = { name = tile, position = { sx + dx, sy + dy } } end end
+        surface.set_tiles(tiles, true, true)
+        log(string.format("[FO-PETROLE] %s : aucune rive a moins de %d tuiles du gisement : etang de %d x %d tuiles pose en (%d, %d)",
+          f.key or "?", Pet.POND_NEAR, N, N, sx, sy))
+        return true
+      end
+    end
+  end
+  return false
+end
+
 local function plan_site(f, surface, p, h)
   local b = f.build
   local spec = p.spec
@@ -381,6 +438,8 @@ local function plan_site(f, surface, p, h)
   local block = nil
   if spec.water then
     pumps = pump_spots(surface, f, rel, origin, spec.water)
+    local near = pumps[1] and ((pumps[1].x - origin.x) ^ 2 + (pumps[1].y - origin.y) ^ 2) <= Pet.POND_NEAR ^ 2
+    if not near and site_pond(f, surface, origin, h, spec.water) then pumps = pump_spots(surface, f, rel, origin, spec.water) end
     -- la rive est loin du gisement : les machines vont près de la rive, le brut y vient par un long tuyau (un joueur
     -- raffine là où il a l'eau quand le champ est sec)
     local pp = pumps[1]
@@ -435,7 +494,41 @@ local function plan_site(f, surface, p, h)
     lay, w2 = Fl.layout(req)
     if lay then break end
   end
-  if not lay then return nil, w2 .. (#pumps > 1 and (" (" .. #pumps .. " rives essayees)") or "") end
+  if not lay then
+    -- Diagnostic (moteur réel, 28/10) : le relevé du terrain autour du site refusé, une fois par faction et par raison
+    -- (. libre, # bloqué, ~ eau, O origine, W puits, P pompe, B bloc des machines, * tuile occupée par le plan directeur)
+    local st = f.team.petrole
+    st.dumped = st.dumped or {}
+    local why = tostring(w2):sub(1, 24)
+    if Pet.DUMP and not st.dumped[why] then
+      st.dumped[why] = true
+      local xa, xb, ya, yb = origin.x, origin.x, origin.y, origin.y
+      for _, q in ipairs({ pumps[1] or origin, block or origin }) do
+        xa, xb, ya, yb = math.min(xa, q.x), math.max(xb, q.x), math.min(ya, q.y), math.max(yb, q.y)
+      end
+      xa, xb, ya, yb = math.floor(xa) - 24, math.floor(xb) + 24, math.floor(ya) - 24, math.floor(yb) + 24
+      if xb - xa > 110 then xb = xa + 110 end
+      if yb - ya > 90 then yb = ya + 90 end
+      local rows = {}
+      for ty = ya, yb do
+        local r = {}
+        for tx = xa, xb do
+          local k = Fl.tkey(tx, ty)
+          local ch = "."
+          if b.occ[k] then ch = "*" elseif masks.water[k] then ch = "~" elseif masks.blocked[k] then ch = "#" end
+          for _, w in ipairs(wells) do if math.floor(w.x) == tx and math.floor(w.y) == ty then ch = "W" end end
+          for _, q in ipairs(pumps) do if math.floor(q.x) == tx and math.floor(q.y) == ty then ch = "P" end end
+          if block and math.floor(block.x) == tx and math.floor(block.y) == ty then ch = "B" end
+          if math.floor(origin.x) == tx and math.floor(origin.y) == ty then ch = "O" end
+          r[#r + 1] = ch
+        end
+        rows[#rows + 1] = table.concat(r)
+      end
+      log(string.format("[FO-PETROLE-CARTE] %s : %s ; fenetre x %d..%d y %d..%d\n%s", f.key or "?", tostring(w2), xa, xb, ya, yb,
+        table.concat(rows, "\n")))
+    end
+    return nil, w2 .. (#pumps > 1 and (" (" .. #pumps .. " rives essayees)") or "")
+  end
   lay.masks = masks
   lay.out_at = Pet.OUT_AT
   lay.key = "petrole:" .. table.concat(spec.targets, "+")

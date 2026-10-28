@@ -61,6 +61,41 @@ local function line_for(s, key, force, tick)
     n.pumpjack, n["oil-refinery"], n["chemical-plant"], table.concat(prod, " "), table.concat(tier4(force), " "))
 end
 
+local STATUS = {}
+for k, v in pairs(defines.entity_status) do STATUS[v] = k end
+
+--- Etat des machines du site du petrole (statut, recette, contenu des fluides) et contenu des coffres des quais.
+local function machines_report(s, force, tag, tick)
+  local parts = {}
+  for _, e in ipairs(s.find_entities_filtered({ name = OIL, force = force })) do
+    local fl = {}
+    for i = 1, #e.fluidbox do
+      local fb = e.fluidbox[i]
+      fl[#fl + 1] = fb and string.format("%s %.0f", fb.name, fb.amount) or "-"
+    end
+    local rec = e.type == "mining-drill" and "" or (e.get_recipe and e.get_recipe() and e.get_recipe().name or "sans recette")
+    parts[#parts + 1] = string.format("%s@%d,%d %s %s [%s]", e.name, e.position.x, e.position.y, STATUS[e.status] or tostring(e.status), rec, table.concat(fl, "; "))
+  end
+  local chests = {}
+  local seen = {}
+  for _, e in ipairs(s.find_entities_filtered({ name = OIL, force = force })) do
+    for _, c in ipairs(s.find_entities_filtered({ name = "iron-chest", force = force, position = e.position, radius = 8 })) do
+      local k = c.position.x * 100000 + c.position.y
+      if not seen[k] then
+        seen[k] = true
+        local items = {}
+        for n, v in pairs(c.get_inventory(defines.inventory.chest).get_contents()) do items[#items + 1] = n .. "=" .. v end
+        table.sort(items)
+        chests[#chests + 1] = string.format("coffre@%d,%d {%s}", c.position.x, c.position.y, table.concat(items, " "))
+      end
+    end
+  end
+  if #parts > 0 then
+    log(TAG .. string.format("machines %s minute %d | %s", tag, math.floor(tick / 3600), table.concat(parts, " | ")))
+    log(TAG .. string.format("quais %s minute %d | %s", tag, math.floor(tick / 3600), table.concat(chests, " | ")))
+  end
+end
+
 local init0, tick0, finish0 = base.init, base.tick, base.finish
 base.description = "PETROLE : partie du guide a 90 min, defaut du reglage fo-war-petrole"
 base.check_tick = CHECK
@@ -78,6 +113,7 @@ base.tick = function(ctx, e)
     local s = ctx.surface()
     for _, r in ipairs(factions()) do
       ctx.log(TAG .. line_for(s, r.key, r.force, e.tick))
+      if e.tick % 72000 == 0 then machines_report(s, r.force, r.key, e.tick) end
       -- projets non finis (diagnostic) : ce qui retient chaque chantier
       local okr, rep = pcall(remote.call, "fo-ia1d", "report", r.key)
       for _, pr in ipairs((okr and rep and rep.projects) or {}) do
@@ -100,6 +136,7 @@ base.finish = function(ctx)
   for _, r in ipairs(factions()) do
     n_fac = n_fac + 1
     ctx.log(TAG .. "FIN " .. line_for(s, r.key, r.force, game.tick))
+    machines_report(s, r.force, r.key, game.tick)
     local okp, st = pcall(remote.call, "fo-petrole", "status", r.key)
     for _, l in ipairs((okp and st and st.logs) or {}) do ctx.log(TAG .. "journal " .. l) end
     local f = game.forces[r.force]

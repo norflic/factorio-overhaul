@@ -241,6 +241,49 @@ local function run(d, label, names)
     check(ref ~= nil and ref.x < -60, label .. " §4b raffinerie près de la rive (x " .. tostring(ref and ref.x) .. ")")
     say(string.format("%s §4b : %d tuyaux, %d poteaux, %d relais", label, lay2.pipes, lay2.poles, lay2.line))
   end
+  -- §4c ligne de poteaux qui CONTOURNE un obstacle (lot PETROLE 2) : un mur épais de 15 tuiles (y de -37 à -22, x de -30 à 60)
+  -- entre le site et le réseau, une brèche à l'est (x de 61 à 64) ; la ligne droite buterait sur le mur
+  local function blocked3(tx, ty)
+    return blocked(tx, ty) or (ty >= -37 and ty <= -22 and tx >= -30 and tx <= 60)
+  end
+  local req3 = {}
+  for k, v in pairs(req) do req3[k] = v end
+  req3.blocked = blocked3
+  local lay3, why5 = Fl.layout(req3)
+  check(lay3 ~= nil, label .. " §4c mur entre le site et le réseau : " .. tostring(why5))
+  if lay3 then
+    local bad3 = 0
+    for _, e in ipairs(lay3.ents) do
+      local p = rel.entities[e.name] or { w = 1, h = 1 }
+      local x0, y0, x1, y1 = Fl.rect_of(p, e.x, e.y, e.dir)
+      for ty = y0, y1 do for tx = x0, x1 do if blocked3(tx, ty) then bad3 = bad3 + 1 end end end
+    end
+    check(bad3 == 0, label .. " §4c aucune entité sur le mur (" .. bad3 .. ")")
+    -- continuité : de proche en proche, tous les poteaux jusqu'au réseau (sauts de fil)
+    local poles = { { x = req3.network.x, y = req3.network.y } }
+    for _, e in ipairs(lay3.ents) do if e.name == names.pole then poles[#poles + 1] = { x = e.x, y = e.y } end end
+    local seen, queue, qi = { [1] = true }, { 1 }, 1
+    while qi <= #queue do
+      local i = queue[qi]; qi = qi + 1
+      for j = 1, #poles do
+        if not seen[j] and (poles[i].x - poles[j].x) ^ 2 + (poles[i].y - poles[j].y) ^ 2 <= req3.poles.wire ^ 2 then
+          seen[j] = true; queue[#queue + 1] = j
+        end
+      end
+    end
+    local linked = true
+    for j = 1, #poles do if not seen[j] then linked = false end end
+    check(linked, label .. " §4c tous les poteaux du site sont reliés au réseau")
+    check(lay3.line > (lay and lay.line or 0), label .. " §4c la ligne contournée compte plus de relais (" .. lay3.line .. ")")
+    say(string.format("%s §4c : contournement du mur : %d relais (ligne droite : %d)", label, lay3.line, lay and lay.line or -1))
+  end
+  -- mutant : un mur sans brèche sur toute la largeur utile (x de -30 à 400) : aucun chemin dans le budget, site refusé
+  local function blocked4(tx, ty) return blocked(tx, ty) or (ty >= -37 and ty <= -22 and tx >= -30 and tx <= 400) end
+  local req4 = {}
+  for k, v in pairs(req) do req4[k] = v end
+  req4.blocked = blocked4
+  local lay4, why6 = Fl.layout(req4)
+  check(lay4 == nil and tostring(why6):find("reseau", 1, true) ~= nil, label .. " §4c mutant : mur sans brèche : site refusé (" .. tostring(why6) .. ")")
   return lay
 end
 
