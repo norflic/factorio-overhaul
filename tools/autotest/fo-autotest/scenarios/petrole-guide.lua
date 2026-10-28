@@ -76,7 +76,20 @@ base.tick = function(ctx, e)
   if tick0 then tick0(ctx, e) end
   if e.tick > 0 and e.tick % 36000 == 0 then
     local s = ctx.surface()
-    for _, r in ipairs(factions()) do ctx.log(TAG .. line_for(s, r.key, r.force, e.tick)) end
+    for _, r in ipairs(factions()) do
+      ctx.log(TAG .. line_for(s, r.key, r.force, e.tick))
+      -- projets non finis (diagnostic) : ce qui retient chaque chantier
+      local okr, rep = pcall(remote.call, "fo-ia1d", "report", r.key)
+      for _, pr in ipairs((okr and rep and rep.projects) or {}) do
+        if pr.state ~= "fini" and pr.state ~= "refuse" then
+          local ub = {}
+          for _, u in ipairs(pr.unbuilt or {}) do ub[#ub + 1] = string.format("%s@%d,%d f%d npc%d", u.name, u.x, u.y, u.fails, u.npc) end
+          ctx.log(TAG .. string.format("projet %s minute %d | #%s %s %s (%d/%d) obst %d/%d | non poses %s", r.key,
+            math.floor(e.tick / 3600), tostring(pr.id), tostring(pr.state), tostring(pr.reason), pr.built or 0, pr.total or 0,
+            pr.open_obstacles or 0, pr.obstacles or 0, table.concat(ub, "; ")))
+        end
+      end
+    end
   end
 end
 
