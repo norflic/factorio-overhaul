@@ -1124,3 +1124,23 @@ $env:FO_VISUAL_ARGS = $null`. Durée de chaque passage : **74 à 80 s** mesurée
     60, les images/s mesurent la simulation autant que le rendu (que le jeu borne les images/s par l'UPS n'est pas
     prouvé ici).
 11. Règles d'octets « alpha-mask » et « low-quality » : hypothèses (tableau ci-dessus) ; la mesure directe tranche.
+
+## 6. Fenêtres de console et gels périodiques (lot OUTILLAGE, 28/10)
+
+**Aucune fenêtre chez le joueur.** `sans_fenetre.py` lance les programmes de console du banc (`fo-autotest.bat` par `banc.py`,
+`powershell` de `jeux_de_test` et de `visual_session.py`, `ia3d_run.py`) avec `CREATE_NO_WINDOW`, un `STARTUPINFO` caché et la
+priorité réduite (le benchmark reste lancé par `start /ABOVENORMAL` dans le `.bat` : mesures inchangées ; `FO_BANC_PRIORITE=normal`
+supprime la priorité réduite). Un lanceur SANS console (tâche de fond, planificateur) qui démarre `py -3.9 banc.py` fait ouvrir une
+console visible à `py.exe` pendant toute l'attente : `banc.py` cache sa propre console quand elle n'est qu'à lui et à `py.exe`
+(jamais celle d'un `cmd`, PowerShell ou Git Bash). Le jeu avec images (`fo-visual`) garde sa fenêtre réduite.
+- Preuve : `py -3.9 -B tools/autotest/tests/test_sans_fenetre.py` (28 OK) : banc.py lancé par `pythonw` (aucune console) sur une
+  racine jetable ; l'ancien (`ce8d148`) ouvre une console visible, le nouveau aucune ; 4 mutants.
+- Mesure : `py -3.9 -B tools/autotest/fenetres.py [--detache] -- <commande>` (EnumWindows toutes les 5 ms, verdict sur les seuls
+  descendants de la commande) ; code 1 si une fenêtre visible.
+- **Veille avant de jouer** : `py -3.9 -B tools/autotest/fenetres.py --veille 3600 --garder fenetres-veille.jsonl` note, pour chaque
+  fenêtre de type shell qui devient visible, l'heure, la chaîne des parents et la LIGNE DE COMMANDE : c'est ce qui dit QUI ouvre les
+  fenêtres que le joueur voit.
+
+**Gels périodiques.** `py -3.9 -B tools/autotest/gels.py <archive de banc.py> [...]` : pics de `scriptUpdate`, rythme, alignement sur
+une période, causes par traces `[FO-TRACE]`, postes les plus lourds du profileur. Mesure K10 à faire PC au repos : voir
+`fo-logs\2026-10-28_OUTILLAGE\K10.md` (commandes exactes).
