@@ -28,6 +28,9 @@ Sd.ESCORT_MAX = 6
 Sd.CLEAR_BASE = 3
 Sd.CLEAR_PER = 2
 Sd.CLEAR_AGR = 900
+Sd.SAFE_R = 56 -- lot CENTRALE : un point de patrouille ou de garde n'est pas à moins de 56 tuiles d'un nid ou d'un ver CONNU
+Sd.PATROL_RADII = { 80, 56, 32 } -- anneau de patrouille : le rayon le plus grand dont le point est sûr, dans chaque direction
+Sd.GUARD_RADII = { 28, 16 }
 Sd.NEAR_HQ = 160 -- au-delà : un soldat n'est pas pris pour une escorte, une patrouille ou une garde du QG
 
 -- 8 directions (vecteurs unitaires approchés en rationnels : aucune trigonométrie).
@@ -49,6 +52,26 @@ end
 
 --- Soldats nécessaires pour nettoyer un groupe de k menaces.
 function Sd.clear_need(k) return Sd.CLEAR_BASE + Sd.CLEAR_PER * k end
+
+--- Lot CENTRALE (moteur réel, etape1-guide 123456789 et 271828182, Azure : QG à 70-90 tuiles de groupes de nids ; les 5 soldats
+--- partaient en patrouille sur l'anneau de 80 tuiles, au pied des nids et des vers, y mouraient (5, 3, 0 soldat de 5 à 7 min,
+--- puis encore de 18 à 19 min) et le QG n'en avait pas à 12 min ; Écarlate, sans ennemi à 60 tuiles, patrouillait sans perte) :
+--- points de l'anneau dans les 8 directions, chacun au plus grand rayon de `radii` (décroissant) dont le point est sûr.
+--- safe(x, y) -> bool (nids et vers connus, danger de la carte de l'équipe). Une direction sans point sûr est sautée : la liste
+--- peut être vide (les soldats restent alors en garde près du QG). Sortie triée par direction ; racines et sommes seulement.
+function Sd.safe_ring(hq, radii, safe)
+  local out = {}
+  for _, d in ipairs(DIRS) do
+    for _, r in ipairs(radii) do
+      local x, y = hq.x + d[1] * r, hq.y + d[2] * r
+      if safe(x, y) then
+        out[#out + 1] = { x = x, y = y }
+        break
+      end
+    end
+  end
+  return out
+end
 
 --- Les n soldats libres les plus proches de p (distance, puis identifiant). free = liste triée par id ; taken = { [id] }.
 local function nearest(free, taken, p, n, hq, max_hq)
@@ -153,6 +176,7 @@ function Sd.assign(input)
   for _, s in ipairs(avail) do if not taken[s.id] then rest_av[#rest_av + 1] = s end end
   local n_patrol = math.floor(#rest_av * Sd.patrol_share(input.agr) / 1000 + 0.5)
   local ppts = input.patrol_pts
+  if ppts and #ppts == 0 then n_patrol = 0 end -- aucun point sûr : tous en garde
   if not ppts then
     ppts = {}
     for i, d in ipairs(DIRS) do ppts[i] = { x = hq.x + d[1] * Sd.PATROL_R, y = hq.y + d[2] * Sd.PATROL_R } end
