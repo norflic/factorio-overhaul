@@ -126,7 +126,7 @@ Events.on(defines.events.on_entity_died, on_died)
 function Recon.hold_upgrades(f)
   local s = f.recon
   if not s then return false end
-  return Rc.hold_upgrades(s, function(item) return Stock.count(f, item) end)
+  return Rc.hold_upgrades(s, function(item) return Stock.count(f, item) end, game.tick)
 end
 
 function Recon.pending(f) return f.recon and Rc.pending(f.recon) or 0 end

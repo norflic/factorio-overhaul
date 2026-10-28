@@ -333,6 +333,11 @@ local function suite(Cov, Rc, n_instances)
     check(st2.lost[ka].abandoned and #Rc.due(st2, 1e9) == 0 and not Rc.hold_upgrades(st2),
       "§7 détruit trop souvent au même endroit : abandonné, n'empêche plus d'améliorer")
     check(Rc.calm_for({ losses = 99 }) <= Rc.CALM_MAX, "§7 patience bornée")
+    -- améliorer attend, mais pas indéfiniment
+    local st5 = Rc.new()
+    Rc.record(st5, { name = "A", x = 1, y = 1, dir = 0, item = "ia", value = 3 }, 0)
+    check(Rc.hold_upgrades(st5, nil, Rc.HOLD_MAX) and not Rc.hold_upgrades(st5, nil, Rc.HOLD_MAX + 1) and Rc.hold_upgrades(st5),
+      "§7 une perte qui n'est pas refaite retient les améliorations pendant 20 min au plus (sans date : toujours)")
     -- priorité de tâche
     check(Rc.task_prio(8) > Rc.task_prio(1) and Rc.task_prio(8) < 90 and Rc.task_prio(1) >= 70, "§7 priorité de tâche selon la valeur, sous l'urgence (90)")
     -- purge des anciennes pertes
@@ -414,6 +419,7 @@ local MUTANTS = {
   { "rec", "lot sans rayon", "if #out < max and (r == seed or d2(r, seed) <= radius * radius) then", "if #out < max then" },
   { "rec", "oubli jamais", "if tick - r.tick > Rc.TTL then st.lost[k] = nil end", "" },
   { "rec", "objets non additionnés", "n[r.item] = (n[r.item] or 0) + 1", "n[r.item] = 1" },
+  { "rec", "attente des améliorations sans limite", "and (not tick or tick - r.tick <= Rc.HOLD_MAX) then return true end", "then return true end" },
   { "rec", "priorité sans valeur", "return math.min(Rc.PRIO_MAX, Rc.PRIO_BASE + value)", "return Rc.PRIO_BASE" },
 }
 local refused, kept = 0, {}
