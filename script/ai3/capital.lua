@@ -350,7 +350,7 @@ function Capital.goal(f, view, book, tick, w)
   for _, k in ipairs(sorted_keys(c.refused_until)) do
     if tick < c.refused_until[k] then exclude[k] = true else c.refused_until[k] = nil end
   end
-  local ctx = { only = (State.war() or {}).capital_mode, proto = proto, mproto = Capital.mproto, machines = machine_catalog().names,
+  local ctx = { only = (State.war() or {}).capital_mode, hold_center = General.spare_hands(f, view, tick) <= 0, proto = proto, mproto = Capital.mproto, machines = machine_catalog().names,
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,

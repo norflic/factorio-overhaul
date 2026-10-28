@@ -668,5 +668,35 @@ do
   check(n_caught == n_mut, string.format("§13 mutants du lot : %d refusés sur %d", n_caught, n_mut))
 end
 
+
+-- §14 Lot AMELIORER (D1) : le centre (pose ou passage) ne se travaille que sur des bras libres durables (ctx.hold_center) ;
+-- les bâtiments à niveaux déjà permis et le remplacement des machines ne sont pas retenus par cette règle.
+do
+  local function run_hold()
+    local d_free = Cap.choose(L, census(guns({ 1, 1, 1, 1 })), ctx())
+    check(d_free.key == "command:1:pose", "§14 sans retenue : poser le centre (" .. tostring(d_free.key) .. ")")
+    local d_hold = Cap.choose(L, census(guns({ 1, 1, 1, 1 })), ctx({ hold_center = true }))
+    check(d_hold.none == true, "§14 bras non libres : le centre n'est pas servi")
+    local held = false
+    for _, b in ipairs(d_hold.blocked) do if b.key == "command:1:pose" and b.causes[1] == "bras" then held = true end end
+    check(held, "§14 le centre retenu est noté bloqué par « bras »")
+    check(d_hold.wanted["bras"] == nil, "§14 la retenue ne réclame aucune recherche (cause « bras » absente de wanted)")
+  end
+  run_hold()
+  local n_mut, n_caught = 0, 0
+  local ch = Cap.choose
+  n_mut = n_mut + 1
+  local p0, f0 = pass, fail
+  quiet = true
+  Cap.choose = function(Ld, c, x) if x then x.hold_center = nil end return ch(Ld, c, x) end
+  local ok = pcall(run_hold)
+  Cap.choose = ch
+  quiet = false
+  local caught = (not ok) or fail > f0
+  pass, fail = p0, f0
+  if caught then n_caught = n_caught + 1 else print("[CAPITAL] mutant survivant : retenue du centre ignorée") end
+  check(n_caught == n_mut, "§14 mutant refusé : retenue du centre ignorée")
+end
+
 print(string.format("[CAPITAL] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

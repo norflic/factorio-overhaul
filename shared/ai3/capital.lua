@@ -298,6 +298,14 @@ function Cap.candidates(Ld, census, ctx)
       if ctx.only == "pose" and not c.build then return end
       if ctx.only == "batiments" and c.center and not c.build then return end
     end
+    -- Lot AMELIORER (D1) : le centre (pose ou passage, coût en travail de plusieurs minutes de main) ne se travaille que
+    -- sur des bras LIBRES DURABLES (ctx.hold_center : aucun PNJ sans tâche depuis longtemps), comme les bâtiments : posé tôt,
+    -- il passait devant la fonderie et les packs (moteur réel, ameliorer-pose : fonderie finie à 6,1 min au lieu de 1,2).
+    if ctx.hold_center and c.center then
+      c.causes, c.no_want = { "bras" }, true
+      blocked[#blocked + 1] = c
+      return
+    end
     -- Refus récent de l'exécutant (place, condition vue autrement par le jeu) : écarté jusqu'à son échéance (ctx.exclude).
     if ctx.exclude and ctx.exclude[c.key] then
       c.causes = { "refus" }
