@@ -803,21 +803,53 @@ for _, w in ipairs(A.walls) do if w.name == "fo-armored-wall" then armored = w e
 local gun30, laser30 = stat_at(G, "max_health", 30), stat_at(L.by_key.laser, "max_health", 30)
 check(gun30 >= heavy["gun-turret"].hp and gun30 <= 1.5 * heavy["gun-turret"].hp,
   "mitrailleuse 30 : " .. gun30 .. " PV, entre 1 et 1,5 × la tourelle lourde (" .. heavy["gun-turret"].hp .. ")")
--- DPS (dégâts × cadence) : le dernier niveau rejoint la version lourde sans la dépasser de plus de 10 %.
+-- DPS (dégâts × cadence) : lot TIRS, D-21 (27/10, « Aussi les dégâts »), courbe C2 de shared/tirs/degats.lua. La version
+-- lourde du mod (3x3, âge 5) vaut désormais un niveau d'âge MOYEN de la petite tourelle (Q14 caduque : le niveau 30
+-- n'est plus plafonné à la lourde) : mitrailleuse lourde entre les niveaux 11 et 12, laser lourd entre les 9 et 10.
 local LZ = L.by_key.laser
-for _, f in ipairs({ G, LZ }) do
-  local d30, dh = dps_at(f, f.max), heavy_dps(f.key)
-  check(d30 <= 1.1 * dh and d30 >= 0.8 * dh,
-    string.format("%s 30 : DPS × %.2f, entre 0,8 et 1,1 × la version lourde (× %.2f)", f.key, d30, dh))
+do
+  local D = require("shared.tirs.degats")
+  local dg, dl = heavy_dps("gun"), heavy_dps("laser")
+  check(dps_at(G, 11) <= dg and dg <= dps_at(G, 12),
+    string.format("mitrailleuse lourde (DPS × %.2f) entre les niveaux 11 (%.2f) et 12 (%.2f)", dg, dps_at(G, 11), dps_at(G, 12)))
+  check(dps_at(LZ, 9) <= dl and dl <= dps_at(LZ, 10),
+    string.format("laser lourd (DPS × %.2f) entre les niveaux 9 (%.2f) et 10 (%.2f)", dl, dps_at(LZ, 9), dps_at(LZ, 10)))
+  -- K9 (hors jeu) : 30 nombres, strictement croissants ; niveaux 1 à 6 = le jeu d'avant ; × 1,2 (± 0,01) d'un âge à
+  -- l'autre de l'âge 4 à l'âge 15 ; la même courbe pour la mitrailleuse et le laser (relatifs à leur niveau 1)
+  check(#D.par_niveau == 30, "dégâts par niveau : 30 nombres")
+  local croit, avant = true, true
+  for n = 2, 30 do if not (D.par_niveau[n] > D.par_niveau[n - 1]) then croit = false end end
+  for n = 1, 6 do if math.abs(D.par_niveau[n] - (1 + 0.08 * (n - 1))) > 1e-9 then avant = false end end
+  check(croit, "dégâts par niveau strictement croissants")
+  check(avant, "niveaux 1 à 6 (âges 1 à 3) inchangés : 1 + 0,08 (n - 1)")
+  local rap = true
+  for e = 4, 15 do if math.abs(D.rapport_age(e) - 1.2) > 0.012 then rap = false end end
+  check(rap, "âges 4 à 15 : × 1,2 (± 0,01) d'un âge à l'autre")
+  check(math.abs(dps_at(G, 30) - 12.48) < 1e-9 and math.abs(dps_at(LZ, 30) - 12.48) < 1e-9,
+    "niveau 30 : DPS × 12,48 (mitrailleuse et laser, relatifs au niveau 1)")
+  check(math.abs(stat_at(LZ, "damage_modifier", 30) - 2 * 12.48) < 1e-9, "laser 30 : damage_modifier absolu 24,96")
+  for e = 1, 15 do
+    check(dps_at(G, 2 * e) > dps_at(G, 2 * e - 1) and (e == 1 or dps_at(G, 2 * e - 1) > dps_at(G, 2 * e - 2)),
+      "âge " .. e .. " : niveaux 2e - 1 et 2e croissants")
+  end
 end
--- Niveaux 1 à 10 inchangés depuis 0.3.0 (+ 8 % de dégâts par niveau), dégressifs ensuite.
-check(math.abs(stat_at(G, "damage_modifier", 10) - 1.72) < 1e-9 and math.abs(stat_at(G, "damage_modifier", 11) - 1.74) < 1e-9,
-  "mitrailleuse : dégâts × 1,72 au niveau 10 (0.3.0), puis + 2 % par niveau")
--- Laser : l'énergie par tir suit les dégâts (dégâts par joule au niveau 30 : ± 10 % du niveau 1), et le
+-- Niveaux 1 à 10 : + 8 % de dégâts par niveau jusqu'au 6 (0.3.0), puis la table (D-21).
+check(math.abs(stat_at(G, "damage_modifier", 6) - 1.40) < 1e-9 and math.abs(stat_at(G, "damage_modifier", 10) - 2.02) < 1e-9,
+  "mitrailleuse : dégâts × 1,40 au niveau 6 (0.3.0) et × 2,02 au niveau 10 (D-21)")
+-- Laser : l'énergie par tir (× 1,04 par niveau) suit moins vite que les dégâts : les dégâts par joule CROISSENT avec
+-- le niveau (D-21), de × 5,78 au niveau 30 (la balle aussi : plus de dégâts pour la même munition), et le
 -- tampon contient toujours un tir.
 local eff1 = stat_at(LZ, "damage_modifier", 1) / stat_at(LZ, "energy_consumption", 1)
 local eff30 = stat_at(LZ, "damage_modifier", 30) / stat_at(LZ, "energy_consumption", 30)
-check(eff30 >= 0.9 * eff1 and eff30 <= 1.1 * eff1, string.format("laser 30 : dégâts par joule × %.2f du niveau 1", eff30 / eff1))
+check(eff30 > eff1 and eff30 <= 6.5 * eff1, string.format("laser 30 : dégâts par joule × %.2f du niveau 1 (croissant, au plus × 6,5)", eff30 / eff1))
+do
+  local ok = true
+  for n = 2, 30 do
+    if not (stat_at(LZ, "damage_modifier", n) / stat_at(LZ, "energy_consumption", n)
+        > stat_at(LZ, "damage_modifier", n - 1) / stat_at(LZ, "energy_consumption", n - 1)) then ok = false end
+  end
+  check(ok, "laser : dégâts par joule strictement croissants avec le niveau")
+end
 local buffer_ok = true
 for n = 1, 30 do
   if not (stat_at(LZ, "buffer_capacity", n) > stat_at(LZ, "energy_consumption", n)) then buffer_ok = false end
