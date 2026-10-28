@@ -127,7 +127,7 @@ T.charge = {
   low = 0.5,        -- un four garni est complété (et une tournée justifiée) sous cette part de sa cible
   share = 0.5,      -- part du stock libre d'un objet que les fours peuvent immobiliser (au-delà du plancher)
   base_fabs = 10,   -- plancher : les 10 fabrications chargées par four de main 0.6.7
-  out_due = 0.25,   -- une sortie à cette part de sa pile justifie une tournée
+  out_due = 0.1,    -- une sortie à cette part de sa pile justifie une tournée (10 plaques d'un four de pierre : 32 s)
   fuel_low = 0.5,   -- un combustible sous cette part de sa cible justifie une tournée
   fuel_min = 5,     -- ... si le coffre a au moins ce combustible libre (sinon la tournée reviendrait à vide)
 }

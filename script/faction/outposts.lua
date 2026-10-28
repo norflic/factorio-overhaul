@@ -531,11 +531,21 @@ local function smelter_context(f)
   return list, fs, smelter_specs(speed)
 end
 
---- Charbon à apporter aux fours du QG pour les compléter à leur cible.
+--- Charbon qu'il faut RÉSERVER pour les fours du QG (le plancher : leur recharge de main 0.6.7, T.fuel_refill_to ; la
+--- cible de la règle de charge n'est atteinte que dans la limite d'une part du stock, Charge.fuel_take).
 function Outposts.smelter_coal_needed(f)
   local n = 0
-  for _, s in ipairs(Outposts.smelters(f)) do n = n + Charge.fuel_missing(fuel_of(s), smelter_fuel_target(s)) end
+  for _, s in ipairs(Outposts.smelters(f)) do n = n + Charge.fuel_missing(fuel_of(s), math.min(T.fuel_refill_to, smelter_fuel_target(s))) end
   return n
+end
+
+local function smelter_fuels(list)
+  local fuels, target = {}, nil
+  for i, s in ipairs(list) do
+    fuels[i] = fuel_of(s)
+    target = math.max(target or 0, smelter_fuel_target(s))
+  end
+  return fuels, target
 end
 
 --- Liste { {objet, n} } que la tournée « smelt » prend au coffre (stock = { [objet] = n } libre) : entrées selon la règle
@@ -547,7 +557,8 @@ function Outposts.smelt_take(f, smelt, stock)
   local take = Charge.take(assign, smelt, stock, T.charge)
   local out = {}
   for _, item in ipairs(State.sorted_keys(take)) do out[#out + 1] = { item, take[item] } end
-  out[#out + 1] = { T.fuel, Outposts.smelter_coal_needed(f) }
+  local fuels, ftarget = smelter_fuels(list)
+  out[#out + 1] = { T.fuel, ftarget and Charge.fuel_take(fuels, ftarget, T.fuel_refill_to, stock[T.fuel], T.charge) or 0 }
   return out
 end
 
@@ -603,13 +614,15 @@ function Outposts.service_smelters(f, carrier, smelt)
   end
   for _, l in pairs(assign.loads) do targets = targets + l.room end
   local fuel_in, fuel_before = 0, 0
-  for _, s in ipairs(list) do
-    fuel_before = fuel_before + fuel_of(s)
-    local want = Charge.fuel_missing(fuel_of(s), smelter_fuel_target(s))
-    local n = math.min(want, carrier.get_item_count(T.fuel))
-    if n > 0 then
-      local put = s.get_fuel_inventory().insert({ name = T.fuel, count = carrier.remove({ name = T.fuel, count = n }) })
-      fuel_in = fuel_in + put
+  local fuels, ftarget = smelter_fuels(list)
+  for _, n in ipairs(fuels) do fuel_before = fuel_before + n end
+  if ftarget then
+    local adds = Charge.fuel_distribute(fuels, ftarget, carrier.get_item_count(T.fuel))
+    for i, s in ipairs(list) do
+      if adds[i] > 0 then
+        local put = s.get_fuel_inventory().insert({ name = T.fuel, count = carrier.remove({ name = T.fuel, count = adds[i] }) })
+        fuel_in = fuel_in + put
+      end
     end
   end
   log("[FO-SMELT] " .. game.tick .. " " .. tostring(f.key) .. " fours=" .. #list .. " charges=" .. loaded .. " unites=" .. units

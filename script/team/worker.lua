@@ -334,6 +334,7 @@ function Worker.program(f, task, surface, tick)
       local input = T.smelter_inputs[p]
       if input then stock[input[1]] = Stock.count(f, input[1]) end
     end
+    stock[T.fuel] = Stock.count(f, T.fuel)
     local list = Outposts.smelt_take(f, task.smelt, stock)
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
   elseif k == "equiper" then

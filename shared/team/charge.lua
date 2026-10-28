@@ -41,7 +41,7 @@ C.DEFAULT = {
   low = 0.5,        -- un four garni est complété sous cette part de sa cible
   share = 0.5,      -- part du stock libre d'un objet que les fours peuvent immobiliser
   base_fabs = 10,   -- plancher : les 10 fabrications de main 0.6.7, quelle que soit la part
-  out_due = 0.25,   -- une sortie à cette part de sa pile justifie une tournée
+  out_due = 0.1,    -- une sortie à cette part de sa pile justifie une tournée
   fuel_low = 0.5,   -- un combustible sous cette part de sa cible justifie une tournée
   fuel_min = 5,     -- ... à condition que le coffre ait au moins ce combustible libre (sinon la tournée reviendrait à vide)
 }
@@ -214,6 +214,40 @@ end
 --- Combustible à apporter à un four : de son contenu à la cible (jamais négatif).
 function C.fuel_missing(fuel, target)
   return math.max(0, target - (fuel or 0))
+end
+
+--- Combustible que le porteur prend au coffre pour les fours dont le contenu est `fuels` (liste de nombres) : au moins de
+--- quoi les compléter à `base` (la recharge de main 0.6.7), jusqu'à `target` seulement dans la limite de `share` du stock
+--- libre (le charbon est rare au début d'une partie : les foreuses d'avant-poste en vivent). Jamais plus que le stock.
+function C.fuel_take(fuels, target, base, stock, P)
+  P = P_of(P)
+  local floor_n, full = 0, 0
+  for _, n in ipairs(fuels) do
+    floor_n = floor_n + C.fuel_missing(n, math.min(base, target))
+    full = full + C.fuel_missing(n, target)
+  end
+  local s = math.max(0, math.floor(stock or 0))
+  local want = math.max(floor_n, math.min(full, math.floor(P.share * s)))
+  return math.min(want, s)
+end
+
+--- Répartit `avail` charbons entre les fours (contenus `fuels`) : toujours au plus vide d'abord, jusqu'à `target`.
+--- Rend { [i] = ajout }.
+function C.fuel_distribute(fuels, target, avail)
+  local add, level = {}, {}
+  for i, n in ipairs(fuels) do add[i] = 0; level[i] = n or 0 end
+  local a = math.max(0, math.floor(avail or 0))
+  while a > 0 do
+    local best
+    for i = 1, #level do
+      if level[i] < target and (best == nil or level[i] < level[best]) then best = i end
+    end
+    if best == nil then break end
+    level[best] = level[best] + 1
+    add[best] = add[best] + 1
+    a = a - 1
+  end
+  return add
 end
 
 --- La tournée est-elle justifiée ? Rend due = { products = { [produit] = fabrications au coffre }, fuel = bool, out = bool }.

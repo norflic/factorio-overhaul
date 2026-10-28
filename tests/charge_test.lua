@@ -58,6 +58,20 @@ local function suite(C)
   check(C.fuel_target(1e9, 50) == 1, "combustible : au moins 1")
   check(C.fuel_missing(3, 14) == 11 and C.fuel_missing(20, 14) == 0 and C.fuel_missing(nil, 4) == 4, "combustible manquant")
 
+  -- 2 bis. Prise et répartition du combustible.
+  check(C.fuel_take({ 5, 5 }, 14, 10, 1000) == 18, "combustible : stock large, cible 14 pour deux fours à 5 (18)")
+  check(C.fuel_take({ 5, 5 }, 14, 10, 20) == 10, "combustible : stock 20 -> part de 10 (plancher de recharge à 10 : 10)")
+  check(C.fuel_take({ 5, 5 }, 14, 10, 6) == 6, "combustible : jamais plus que le stock")
+  check(C.fuel_take({ 5, 5 }, 14, 10, 0) == 0, "combustible : coffre sans charbon")
+  check(C.fuel_take({ 14, 14 }, 14, 10, 1000) == 0, "combustible : fours pleins")
+  check(C.fuel_take({ 12, 2 }, 14, 10, 30) == 15 or C.fuel_take({ 12, 2 }, 14, 10, 30) == 14, "combustible : part du stock 15 pour un manque total de 14")
+  check(C.fuel_take({ 0, 0, 0, 0 }, 3, 10, 1000) == 12, "cible sous le plancher : jamais au-dessus de la cible")
+  local fa = C.fuel_distribute({ 5, 5, 12 }, 14, 15)
+  check(fa[1] + fa[2] + fa[3] == 15 and fa[3] == 0 and fa[1] >= 7 and fa[2] >= 7, "répartition au plus vide d'abord (15 charbons)")
+  fa = C.fuel_distribute({ 13, 14 }, 14, 50)
+  check(fa[1] == 1 and fa[2] == 0, "jamais au-dessus de la cible")
+  check(C.fuel_distribute({ 0 }, 14, 0)[1] == 0, "porteur sans charbon")
+
   -- 3. Assignation.
   local fs = { furnace(), furnace(), furnace(), furnace() }
   local a = C.assign(fs, { "iron-plate" }, S)
@@ -152,8 +166,8 @@ local function suite(C)
   check(not due.fuel, "combustible à la moitié exactement : pas encore")
   due = C.due({ furnace({ item = "iron-ore", n = 50, crafting = true, out = 30, out_cap = 100 }) }, S, {}, 14)
   check(due.out, "sortie à 30 % de la pile : justifiée")
-  due = C.due({ furnace({ item = "iron-ore", n = 50, crafting = true, out = 10, out_cap = 100 }) }, S, {}, 14)
-  check(not due.out, "sortie à 10 % : pas encore")
+  due = C.due({ furnace({ item = "iron-ore", n = 50, crafting = true, out = 5, out_cap = 100 }) }, S, {}, 14)
+  check(not due.out, "sortie à 5 % : pas encore")
   due = C.due({ furnace({ item = "iron-ore", n = 10, crafting = true }) }, S, { ["iron-ore"] = 37 }, 14)
   check(due.products["iron-plate"] == 37, "fabrications au coffre rendues (37 minerais = 37 fabrications)")
   due = C.due({ furnace({ item = "iron-ore", n = 50, crafting = true, fuel = 4 }) }, S, {}, 14, nil, 3)
@@ -268,6 +282,10 @@ local MUTANTS = {
   { "combustible ignoré", "if fuel_target and (f.fuel or 0) < P.fuel_low * fuel_target and (fuel_stock == nil or fuel_stock >= P.fuel_min) then due.fuel = true end", "" },
   { "matière insuffisante suffit", "if have == true or have >= math.min(P.base_fabs, d) then return true end", "return true" },
   { "combustible sans stock", "and (fuel_stock == nil or fuel_stock >= P.fuel_min) then due.fuel = true end", "then due.fuel = true end" },
+  { "combustible sans plancher", "local want = math.max(floor_n, math.min(full, math.floor(P.share * s)))", "local want = math.min(full, math.floor(P.share * s))" },
+  { "combustible sans part", "local want = math.max(floor_n, math.min(full, math.floor(P.share * s)))", "local want = math.max(floor_n, full)" },
+  { "combustible au-dessus de la cible", "if level[i] < target and (best == nil", "if (best == nil" },
+  { "combustible au plus plein d'abord", "level[i] < level[best]) then best = i end", "level[i] > level[best]) then best = i end" },
   { "visite sans demande", "if d > 0 and have then", "if have then" },
   { "tour de rôle des produits retiré", "k = k % #products + 1", "k = 1" },
 }
