@@ -24,16 +24,32 @@ local function sorted_keys(t)
   return ks
 end
 
+-- Les factions ET votre équipe (force « player », coffre d'équipe comme QG).
 local function factions(ctx)
   local out = {}
   for _, row in ipairs(ctx.remote("fo-ia1", "teams") or {}) do
     if row.key ~= "player" then out[#out + 1] = row end
   end
+  out[#out + 1] = { key = "player", force = "player" }
   return out
 end
 
 local function hq_of(s, force)
-  return s.find_entities_filtered({ name = "fo-faction-hq", force = force, limit = 1 })[1]
+  local name = force == "player" and "fo-team-chest" or "fo-faction-hq"
+  return s.find_entities_filtered({ name = name, force = force, limit = 1 })[1]
+end
+
+local function place_team_chest(ctx)
+  local s = ctx.surface()
+  local c = game.forces.player.get_spawn_position(s)
+  local p = s.find_non_colliding_position("fo-team-chest", { x = c.x + 6, y = c.y + 6 }, 20, 1)
+  local chest = p and s.create_entity({ name = "fo-team-chest", position = p, force = "player", raise_built = true })
+  if not chest then return false end
+  for _, it in ipairs({ { "iron-plate", 400 }, { "copper-plate", 100 }, { "coal", 200 }, { "stone", 100 },
+    { "burner-mining-drill", 8 }, { "stone-furnace", 8 }, { "iron-chest", 4 } }) do
+    chest.insert({ name = it[1], count = it[2] })
+  end
+  return true
 end
 
 local function build(ctx, s, row, st)
@@ -69,7 +85,8 @@ local function build(ctx, s, row, st)
   for _, m in ipairs({ { "productivity-module", 60 }, { "speed-module", 60 }, { "productivity-module-2", 60 }, { "speed-module-2", 60 } }) do
     inv.insert({ name = m[1], count = m[2] })
   end
-  local blocked = ctx.remote("fo-capi", "block_sites", row.key, true)
+  -- Variante « libre » (scenarios/leviers-libre.lua) : les sites restent ouverts, l'extraction et les modules se font concurrence.
+  local blocked = st.libre or ctx.remote("fo-capi", "block_sites", row.key, true)
   -- Demande : un client de la faction consomme 600 plaques de fer par minute (puits mesuré de la règle) ; les fours posés et
   -- ceux des avant-postes n'y suffisent pas, le manque est à servir par les modules (l'extraction est interdite).
   ctx.remote("fo-capi", "bench_sink", row.key, "iron-plate", 600)
@@ -148,6 +165,7 @@ return {
     ctx.check(ctx.remote("fo-pvp", "set_difficulty", "peaceful") == true, "Paisible")
     ctx.check(ctx.call("war_start", 2, 100) == true, "guerre lancee (2 factions)")
     ctx.check(ctx.call("war_fund", 2500) == 2, "2 factions financees")
+    ctx.check(place_team_chest(ctx), "coffre d'equipe pose (votre equipe)")
     local st = ctx.state()
     st.rows = {}
   end,
@@ -167,7 +185,25 @@ return {
 
   finish = function(ctx)
     local st = ctx.state()
+    if st.libre then
+      -- Sites libres : qui gagne, l'extraction ou les modules ? Compte des ordres de chaque sorte, par force.
+      local ext, mod = 0, 0
+      for _, key in ipairs(sorted_keys(st.rows)) do
+        local r = st.rows[key]
+        local cs = ctx.remote("fo-capi", "status", key)
+        local stats = cs and cs.stats or {}
+        local e = (stats.couvrir or 0) + (stats.ouvrir or 0)
+        local m = stats.equiper or 0
+        ext, mod = ext + e, mod + m
+        ctx.log(string.format("LIBRE %s : ordres d'extraction (couvrir + ouvrir) %d, ordres de modules %d, fours equipes %d, ordre de module vu %s, repli %s",
+          key, e, m, (r.samples[#r.samples] or { eq = 0 }).eq, r.ann and "oui" or "non", r.repli and "ecrit" or "non"))
+        ctx.check(true, key .. " : releve des ordres", string.format("extraction %d, modules %d", e, m))
+      end
+      ctx.check(ext > 0, "sites libres : l'extraction est decidee (au moins une force)", ext)
+      return
+    end
     local any_order, any_pose, any_ok = false, false, false
+    local per_row = {}
     for _, key in ipairs(sorted_keys(st.rows)) do
       local r = st.rows[key]
       local sm = r.samples
@@ -186,6 +222,7 @@ return {
         r.ann and "emis" or "ABSENT", r.repli and "ecrit" or "ABSENT", n_eq, tostring(t_first), tostring(t_all)))
       if r.ann then any_order = true end
       if n_eq > 0 then any_pose = true end
+      per_row[key] = { order = r.ann ~= nil, pose = n_eq > 0, ok = false }
       ctx.check(r.repli ~= nil, key .. " : ligne repli (pourquoi) ecrite", r.repli)
       if r.ann and n_eq > 0 and t_first and t_all then
         local function total(sample_i)
@@ -209,7 +246,10 @@ return {
           ctx.log(string.format("MESURE %s : %d fours, avant %.2f/min, apres %.2f/min, gain mesure %.2f/min, annonce %.2f/min, ecart %.1f %%",
             key, n_eq, before, after, gain, want, err * 100))
           ctx.check(err <= 0.10, key .. " : gain mesure = gain annonce a 10 %", string.format("%.2f contre %.2f", gain, want))
-          if err <= 0.10 then any_ok = true end
+          if err <= 0.10 then
+            any_ok = true
+            per_row[key].ok = true
+          end
         else
           ctx.log(string.format("%s : fenetres de mesure introuvables (a=%s b=%s c=%s d=%s)", key, tostring(i_a), tostring(i_b),
             tostring(i_c), tostring(i_d)))
@@ -217,6 +257,11 @@ return {
         end
       end
     end
+    -- VOTRE équipe aussi (is_player) : ordre, pose par ses PNJ, débit.
+    local pr = per_row.player
+    ctx.check(pr ~= nil and pr.order, "votre equipe : un ordre de module decide")
+    ctx.check(pr ~= nil and pr.pose, "votre equipe : modules poses par ses PNJ")
+    ctx.check(pr ~= nil and pr.ok, "votre equipe : debit mesure = sortie annoncee a 10 %")
     ctx.check(any_order, "un ordre de module decide (au moins une faction)")
     ctx.check(any_pose, "des modules poses par les PNJ (au moins une faction)")
     ctx.check(any_ok, "le debit mesure suit la sortie annoncee a 10 % (au moins une faction)")

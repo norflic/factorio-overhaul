@@ -615,6 +615,26 @@ local function hold(cs, product, why, tick)
   cs.backoff[product] = b
 end
 
+-- Lot LEVIERS : machines supérieures de chaque machine posée, lues aux prototypes par le lot AMELIORER (Cap.successors, via
+-- Capital.successors_of : aucune logique de successeur ici). Cache LOCAL (prototypes seulement). Nil : la fonction n'existe pas.
+local succ_cache = {}
+local function successors_for(cs)
+  local Cp = package.loaded["script.ai3.capital"]
+  if not (Cp and Cp.successors_of) then return nil end
+  local out = {}
+  for _, m in ipairs(cs.scan and cs.scan.machines or {}) do
+    if out[m.entity] == nil then
+      local l = succ_cache[m.entity]
+      if l == nil then
+        l = Cp.successors_of(m.entity) or {}
+        succ_cache[m.entity] = l
+      end
+      out[m.entity] = l
+    end
+  end
+  return out
+end
+
 local function build_input(f, cs, view, book, tick, D, w)
   local st = f.team.ia3
   local force = game.forces[f.force]
@@ -742,7 +762,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     if (k:sub(1, 8) == "equiper:" or k:sub(1, 7) == "techno:") and held(cs, k, tick) then skip[k] = true end
   end
   return {
-    can_exec = can_exec, skip = skip,
+    can_exec = can_exec, skip = skip, successors = successors_for(cs),
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
     deposits = deposits, open = open, sinks = cs.bench_sinks or {}, need = need, research = research, drill_for = drill_for,
@@ -989,13 +1009,38 @@ local function decide(f, cs, view, book, tick, research, w)
       for _, l in ipairs(res.repli.levers) do
         log(string.format("[FO-CERVEAU] %s : repli : levier %s : %s", f.key or "?", l.key, tostring(l.why)))
       end
+      cs.repli_refus = cs.repli_refus or {}
       for _, r in ipairs(res.repli.refus) do
-        log(string.format("[FO-CERVEAU] %s : repli : levier refuse %s : %s", f.key or "?", r.key, tostring(r.why)))
+        -- chaque refus n'est écrit qu'une fois par raison (le même refus se répète à chaque changement de situation)
+        local sig2 = r.key .. "|" .. tostring(r.why)
+        if not cs.repli_refus[sig2] then
+          cs.repli_refus[sig2] = true
+          log(string.format("[FO-CERVEAU] %s : repli : levier refuse %s : %s", f.key or "?", r.key, tostring(r.why)))
+        end
       end
     end
     cs.repli_text = res.repli.text
   else
     cs.repli_sig, cs.repli_text = nil, nil
+  end
+  -- Lot LEVIERS : recherches retenues parce qu'elles débloquent une meilleure machine (écrit quand l'ensemble change).
+  do
+    local names = {}
+    for _, u in ipairs(res.unlocks or {}) do names[#names + 1] = u.tech end
+    local sig3 = table.concat(names, ",")
+    if sig3 ~= (cs.unlock_sig or "") then
+      cs.unlock_sig = sig3
+      for _, u in ipairs(res.unlocks or {}) do
+        log(string.format("[FO-CERVEAU] %s : %s a %.1f min", f.key or "?", u.why, minutes(f, tick)))
+      end
+    end
+    cs.unlocks = names
+    -- technologies de la chaîne (la technologie et ses prérequis non faits) : valeur d'un objet voulu SANS le quart des
+    -- machines « pour plus tard » (Gen.LATER_DIV) : la machine supérieure est posée sur place par le lot AMELIORER
+    cs.unlock_techs = {}
+    for _, u in ipairs(res.unlocks or {}) do
+      for _, t in ipairs(u.chain or {}) do cs.unlock_techs[t] = u.tech end
+    end
   end
   -- Les objets que ses exécutants attendent sont DONNÉS à la recherche (étape 1 du 27/10 au soir : sans cela, scarlet cherchait
   -- grenades et armure pendant 30 min pendant que les chaînes de la capitalisation étaient refusées « recherche :
@@ -1146,6 +1191,10 @@ function Capi.techs_wanted(f)
       out[rec.tech] = rec.value or Ca.V_MIN
     end
   end
+  for _, t in ipairs(sorted_keys(f.team.capi.unlock_techs or {})) do
+    out = out or {}
+    if out[t] == nil then out[t] = Ca.V_MIN end
+  end
   return out
 end
 
@@ -1160,6 +1209,7 @@ end
 -- Interface distante de LECTURE (bancs)
 ---------------------------------------------------------------------------------------------------
 local function team_of(key)
+  if key == "player" then return State.faction("player") end -- lot LEVIERS : votre équipe aussi (bancs)
   for _, id in ipairs(State.alive()) do
     local f = State.faction(id)
     if f and (f.key == key or id == key) then return f end
@@ -1190,7 +1240,7 @@ remote.add_interface("fo-capi", {
     local cs = f and f.team and f.team.capi
     if not cs then return nil end
     local out = { on = Capi.on(f), decisions = cs.decisions, orders = cs.orders, open = {}, done = {}, deps = {},
-      res = cs.res, labs_want = cs.labs_want, stats = {}, lag = cs.lag, wanted = cs.wanted, repli = cs.repli_text }
+      res = cs.res, labs_want = cs.labs_want, stats = {}, lag = cs.lag, wanted = cs.wanted, repli = cs.repli_text, unlocks = cs.unlocks }
     for _, rec in ipairs(cs.open) do
       out.open[#out.open + 1] = { key = rec.key, kind = rec.kind, exec = rec.exec, n = rec.n, n_left = rec.n_left,
         mod_ids = rec.mod_ids, opened = rec.opened, module = rec.module, per = rec.per, inserted = rec.inserted,
