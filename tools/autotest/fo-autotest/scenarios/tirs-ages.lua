@@ -324,6 +324,31 @@ return {
     ctx.check(ok_evt == 15, "chacun des 15 ages recoit des evenements et habille des tirs", ok_evt .. " / 15")
     ctx.check(ok_part == 15, "part gardee = a / b des evenements proches (5 points)", ok_part .. " / 15")
     ctx.check(ok_cree == 15, "entites du lot creees et flammes dessinees, aucune ratee", ok_cree .. " / 15")
+    -- BORNE de sans_cible (seuil écrit AVANT le passage, 28/10) : les événements dont la cible est déjà morte entrent dans la
+    -- part gardée (ci-dessus) ; pour qu'ils ne cachent pas un vrai manque d'habillage, ils ne dépassent pas 15 % des
+    -- événements proches, à chaque âge. Cause de ces événements : non prouvée (déduite : le tir qui tue la cible), voir le
+    -- journal « SANS CIBLE » ci-dessous (état de target_entity / target_position).
+    local SEUIL_SANS_CIBLE = 0.15
+    local sc_ok, sc_txt = 0, {}
+    for _, a in ipairs(stats.ages) do
+      local proches = a.evts - a.loin
+      local r = proches > 0 and (a.sans_cible or 0) / proches or 0
+      if r <= SEUIL_SANS_CIBLE then sc_ok = sc_ok + 1 end
+      sc_txt[#sc_txt + 1] = string.format("%d:%.3f", a.age, r)
+    end
+    ctx.check(sc_ok == 15, "evenements sans cible <= 15 % des evenements proches, a chaque age", sc_ok .. " / 15 (" ..
+      table.concat(sc_txt, " ") .. ")")
+    local jc, kinds = {}, {}
+    for _, j in ipairs(stats.journal_sans or {}) do
+      local k = "entite=" .. j.entite .. " position=" .. j.position
+      kinds[k] = (kinds[k] or 0) + 1
+      if #jc < 5 then jc[#jc + 1] = string.format("t%d %s(age %d)", j.tick, j.nom, j.age) end
+    end
+    local kl = {}
+    for k, n in pairs(kinds) do kl[#kl + 1] = k .. " x" .. n end
+    table.sort(kl)
+    ctx.log("SANS CIBLE (premiers cas journalises) : " .. (#kl > 0 and table.concat(kl, " ; ") or "aucun") .. " | " ..
+      table.concat(jc, " "))
     ctx.check(stats.autres > 0, "le niveau 1 (vanilla) leve des evenements sans habillage", "autres = " .. stats.autres)
     -- 3. entités du lot vues sur les sites ; aucune sur le site sans effet ; site loin selon le joueur
     local vus_ok, n_hab, sans_ok, loin_ok, v = 0, 0, true, nil, {}

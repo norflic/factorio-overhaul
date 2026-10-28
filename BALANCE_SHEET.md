@@ -739,14 +739,22 @@ technologie d'un autre mod (sans préfixe « fo- ») serait traitée comme une v
 - mêmes formules qu'en 0.3.0, prolongées jusqu'au niveau 30 : PV × (1 + 0,15 (n-1)), portée + 0,25 / niveau,
   rotation + 5 % / niveau, minage + 10 % / niveau (énergie + 7 %), vitesse des fours et machines + 8 % /
   niveau (énergie + 6 %) ; centre : PV × (1 + 0,2 (n-1)), + 16 cases / niveau ;
-- **dégâts des tourelles croissants par âge** (lot TIRS, D-21 du 27/10, courbe C2 de `shared/tirs/degats.lua`,
-  nombres écrits) : niveaux 1 à 6 comme avant (+ 8 % par niveau), puis × 1,2 par ÂGE : × 12,48 au niveau 30
-  (avant : + 8 % jusqu'au niveau 10 puis + 2 % : × 2,12). **Q14 (option A, « DPS du niveau 30 ≈ lourdes ») est caduque** :
-  la mitrailleuse lourde du mod (2,25) vaut le niveau 11-12 de la petite (2,21 / 2,42), la laser lourde (2) le niveau 9-10
-  (1,84 / 2,02) ; le niveau 30 fait 5,5 fois la lourde (testé : `levels_test`, K9 hors jeu) ;
+- **dégâts des tourelles croissants par âge** (lot TIRS, D-21 du 27/10 révisée le 28/10 au soir, table de
+  `shared/tirs/degats.lua`, nombres écrits) : niveaux 1 à 6 comme avant (+ 8 % par niveau), puis × 1,15 PAR ÂGE, soit
+  1,4 × 1,15^(âge − 3) au niveau pair 2e (âge 4 : 1,61 ; âge 5 : 1,85 ; âge 10 : 3,72 ; âge 15, niveau 30 : 7,49) et
+  1,4 × 1,15^(âge − 3,5) au niveau impair, arrondis au centième (le DC : « x1.2 c'est un peu trop, x1.1 c'est mieux »,
+  puis « on part sur 1.15 » ; × 1,2 (12,48 au niveau 30) et × 1,1 (4,39) abandonnés). Avant : + 8 % jusqu'au niveau 10
+  puis + 2 % (× 2,12 au niveau 30). Niveau 2e, nouvelle table contre 0.6.5, âge par âge : 4 : 1,61 / 1,56 ; 5 : 1,85 /
+  1,72 ; 6 : 2,13 / 1,76 ; 7 : 2,45 / 1,80 ; 8 : 2,82 / 1,84 ; 9 : 3,24 / 1,88 ; 10 : 3,72 / 1,92 ; 11 : 4,28 / 1,96 ;
+  12 : 4,93 / 2,00 ; 13 : 5,66 / 2,04 ; 14 : 6,51 / 2,08 ; 15 : 7,49 / 2,12 (3,5 fois au niveau 30). **Q14 (option A,
+  « DPS du niveau 30 ≈ lourdes ») est caduque** : la mitrailleuse lourde du mod (2,25) vaut le niveau 12-13 de la petite
+  (2,13 / 2,28), la laser lourde (2) le niveau 11-12 (1,99 / 2,13) ; le niveau 30 fait 3,3 fois la lourde (testé :
+  `levels_test`, K9 hors jeu) ;
 - **énergie de la tourelle laser** : l'énergie par tir et le tampon croissent de 4 % par niveau (× 2,16 au niveau 30) ;
-  depuis D-21 les dégâts par joule CROISSENT avec le niveau (× 5,78 au niveau 30, au plus × 6,5 testé) et le tampon
-  contient toujours un tir (testé) ;
+  les dégâts par joule CROISSENT avec le niveau (× 3,47 au niveau 30 : 7,49 / 2,16 ; au plus × 4 testé) et le tampon
+  contient toujours un tir (testé). Mesuré en moteur réel le 28/10 (banc tirs-tout, courbe × 1,2 alors livrée, avant la
+  révision) : laser niveau 1 = 30 DPS (20 dégâts par tir, 1,5 tir par seconde) ; le banc rejoué sur la table × 1,15
+  donne les valeurs de la ligne « rejeu » ci-dessous quand il aura tourné ;
 - **murs** : PV × (1 + 0,5 (n-1)), 350 → 5 425 PV ; réduction fixe physique et explosion + 0,5 par niveau ;
 - **foreuse, four, machine** : l'énergie croît moins vite que la vitesse ;
 - toutes les statistiques sont strictement croissantes et au plus × 16 entre le niveau 1 et le dernier
@@ -897,12 +905,12 @@ en moteur réel.
 | Centre de commandement | max_health | 3 000 | 8 400 | 11 400 (niveau 15) | — |
 | Centre de commandement | inventory_size | 48 | 192 | 272 (niveau 15) | coffre en acier : 48 cases |
 | Mitrailleuse | max_health | 400 | 940 | 2 140 (niveau 30) | tourelle lourde (mod) : 2 000 |
-| Mitrailleuse | damage_modifier | 1 | 2,02 | 12,48 (niveau 30) | tourelle lourde (mod) : 1,5 |
-| Mitrailleuse | dps | 1 | 2,02 | 12,48 (niveau 30) | tourelle lourde (mod) : 2,25 (dégâts 1,5 × cadence 1,5) |
+| Mitrailleuse | damage_modifier | 1 | 1,85 | 7,49 (niveau 30) | tourelle lourde (mod) : 1,5 |
+| Mitrailleuse | dps | 1 | 1,85 | 7,49 (niveau 30) | tourelle lourde (mod) : 2,25 (dégâts 1,5 × cadence 1,5) |
 | Mitrailleuse | range | 18 | 20,25 | 25,25 (niveau 30) | tourelle lourde (mod) : 24 ; ver géant : 48 |
 | Tourelle laser | max_health | 1 000 | 2 350 | 5 350 (niveau 30) | tourelle laser lourde (mod) : 3 000 |
-| Tourelle laser | damage_modifier | 2 | 4,04 | 24,96 (niveau 30) | tourelle laser lourde (mod) : 4 |
-| Tourelle laser | dps | 1 | 2,02 | 12,48 (niveau 30) | tourelle laser lourde (mod) : 2 (même cadence) |
+| Tourelle laser | damage_modifier | 2 | 3,7 | 14,98 (niveau 30) | tourelle laser lourde (mod) : 4 |
+| Tourelle laser | dps | 1 | 1,85 | 7,49 (niveau 30) | tourelle laser lourde (mod) : 2 (même cadence) |
 | Tourelle laser | energy_consumption | 800 | 1 088 | 1 728 (niveau 30) | tourelle laser lourde (mod) : 2 000 kJ |
 | Tourelle laser | range | 24 | 26,25 | 31,25 (niveau 30) | tourelle laser lourde (mod) : 32 |
 | Mur | max_health | 350 | 1 925 | 5 425 (niveau 30) | mur renforcé : 1 200 ; mur blindé : 3 500 |
@@ -973,30 +981,30 @@ En heures (chemin le plus court, payé au débit moyen X0 de chaque époque) : c
 | 4 | 2 Forge (+ pièce) | 580 | 1,24 | 18,75 | 8 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 4 steel-plate | 40 | 4 / 64 |
 | 5 | 3 Vapeur (silhouette) | 640 | 1,32 | 19 | 9 iron-plate, 4 iron-gear-wheel, 4 copper-plate, 2 engine-unit, 1 steel-plate | 44 | 5 / 80 |
 | 6 | 3 Vapeur (+ pièce) | 700 | 1,4 | 19,25 | 10 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 2 engine-unit, 2 steel-plate | 53 | 5 / 80 |
-| 7 | 4 Pétrole (silhouette) | 760 | 1,53 | 19,5 | 11 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 11 plastic-bar, 2 engine-unit | 77 | 5 / 96 |
-| 8 | 4 Pétrole (+ pièce) | 820 | 1,68 | 19,75 | 11 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 14 plastic-bar, 3 engine-unit | 98 | 5 / 96 |
-| 9 | 5 Volcan (silhouette) | 880 | 1,84 | 20 | 12 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 30 fo-tungsten-plate, 25 plastic-bar | 225 | 5 / 112 |
-| 10 | 5 Volcan (+ pièce) | 940 | 2,02 | 20,25 | 13 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 35 fo-tungsten-plate, 30 plastic-bar | 264 | 5 / 112 |
-| 11 | 6 Électricité (silhouette) | 1 000 | 2,21 | 20,5 | 14 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 25 battery, 35 fo-tungsten-plate | 400 | 5 / 128 |
-| 12 | 6 Électricité (+ pièce) | 1 060 | 2,42 | 20,75 | 15 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 30 battery, 45 fo-tungsten-plate | 489 | 5 / 128 |
-| 13 | 7 Cristal (silhouette) | 1 120 | 2,65 | 21 | 16 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 140 fo-resonance-crystal, 30 battery | 730 | 7 / 144 |
-| 14 | 7 Cristal (+ pièce) | 1 180 | 2,9 | 21,25 | 17 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 170 fo-resonance-crystal, 40 battery | 911 | 8 / 144 |
-| 15 | 8 Marais (silhouette) | 1 240 | 3,18 | 21,5 | 18 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 80 fo-methane-barrel, 180 fo-resonance-crystal | 1 385 | 15 / 160 |
-| 16 | 8 Marais (+ pièce) | 1 300 | 3,48 | 21,75 | 19 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 100 fo-methane-barrel, 220 fo-resonance-crystal | 1 706 | 18 / 160 |
-| 17 | 9 Atome (silhouette) | 1 360 | 3,82 | 22 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 100 uranium-238, 100 fo-methane-barrel | 2 450 | 14 / 176 |
-| 18 | 9 Atome (+ pièce) | 1 420 | 4,18 | 22,25 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 130 uranium-238, 120 fo-methane-barrel | 3 070 | 17 / 176 |
-| 19 | 10 Haute technologie (silhouette) | 1 480 | 4,58 | 22,5 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 35 processing-unit, 130 uranium-238 | 4 498 | 6 / 192 |
-| 20 | 10 Haute technologie (+ pièce) | 1 540 | 5,02 | 22,75 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 45 processing-unit, 160 uranium-238 | 5 668 | 6 / 192 |
-| 21 | 11 Titane (silhouette) | 1 600 | 5,5 | 23 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 110 low-density-structure, 45 processing-unit | 8 386 | 15 / 208 |
-| 22 | 11 Titane (+ pièce) | 1 660 | 6,02 | 23,25 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 140 low-density-structure, 55 processing-unit | 10 486 | 18 / 208 |
-| 23 | 12 Supraconducteurs (silhouette) | 1 720 | 6,59 | 23,5 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 560 electric-engine-unit, 130 low-density-structure | 14 871 | 28 / 224 |
-| 24 | 12 Supraconducteurs (+ pièce) | 1 780 | 7,22 | 23,75 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 700 electric-engine-unit, 170 low-density-structure | 18 914 | 34 / 224 |
-| 25 | 13 Fusion (silhouette) | 1 840 | 7,91 | 24 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 360 uranium-235, 680 electric-engine-unit | 27 144 | 21 / 240 |
-| 26 | 13 Fusion (+ pièce) | 1 900 | 8,67 | 24,25 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 450 uranium-235, 850 electric-engine-unit | 33 922 | 25 / 240 |
-| 27 | 14 Orbite (silhouette) | 1 960 | 9,5 | 24,5 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 200 rocket-control-unit, 440 uranium-235 | 49 872 | 28 / 256 |
-| 28 | 14 Orbite (+ pièce) | 2 020 | 10,4 | 24,75 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 250 rocket-control-unit, 550 uranium-235 | 62 325 | 34 / 256 |
-| 29 | 15 Légende (silhouette) | 2 080 | 11,39 | 25 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 200 space-science-pack, 230 rocket-control-unit | 84 575 | 27 / 272 |
-| 30 | 15 Légende (+ pièce) | 2 140 | 12,48 | 25,25 | 30 iron-plate, 16 iron-gear-wheel, 16 copper-plate, 250 space-science-pack, 280 rocket-control-unit | 104 578 | 32 / 272 |
+| 7 | 4 Pétrole (silhouette) | 760 | 1,5 | 19,5 | 11 iron-plate, 5 iron-gear-wheel, 5 copper-plate, 11 plastic-bar, 2 engine-unit | 77 | 5 / 96 |
+| 8 | 4 Pétrole (+ pièce) | 820 | 1,61 | 19,75 | 11 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 14 plastic-bar, 3 engine-unit | 98 | 5 / 96 |
+| 9 | 5 Volcan (silhouette) | 880 | 1,73 | 20 | 12 iron-plate, 6 iron-gear-wheel, 6 copper-plate, 30 fo-tungsten-plate, 25 plastic-bar | 225 | 5 / 112 |
+| 10 | 5 Volcan (+ pièce) | 940 | 1,85 | 20,25 | 13 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 35 fo-tungsten-plate, 30 plastic-bar | 264 | 5 / 112 |
+| 11 | 6 Électricité (silhouette) | 1 000 | 1,99 | 20,5 | 14 iron-plate, 7 iron-gear-wheel, 7 copper-plate, 25 battery, 35 fo-tungsten-plate | 400 | 5 / 128 |
+| 12 | 6 Électricité (+ pièce) | 1 060 | 2,13 | 20,75 | 15 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 30 battery, 45 fo-tungsten-plate | 489 | 5 / 128 |
+| 13 | 7 Cristal (silhouette) | 1 120 | 2,28 | 21 | 16 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 140 fo-resonance-crystal, 30 battery | 730 | 7 / 144 |
+| 14 | 7 Cristal (+ pièce) | 1 180 | 2,45 | 21,25 | 17 iron-plate, 8 iron-gear-wheel, 8 copper-plate, 170 fo-resonance-crystal, 40 battery | 911 | 8 / 144 |
+| 15 | 8 Marais (silhouette) | 1 240 | 2,63 | 21,5 | 18 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 80 fo-methane-barrel, 180 fo-resonance-crystal | 1 385 | 15 / 160 |
+| 16 | 8 Marais (+ pièce) | 1 300 | 2,82 | 21,75 | 19 iron-plate, 9 iron-gear-wheel, 9 copper-plate, 100 fo-methane-barrel, 220 fo-resonance-crystal | 1 706 | 18 / 160 |
+| 17 | 9 Atome (silhouette) | 1 360 | 3,02 | 22 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 100 uranium-238, 100 fo-methane-barrel | 2 450 | 14 / 176 |
+| 18 | 9 Atome (+ pièce) | 1 420 | 3,24 | 22,25 | 20 iron-plate, 10 iron-gear-wheel, 10 copper-plate, 130 uranium-238, 120 fo-methane-barrel | 3 070 | 17 / 176 |
+| 19 | 10 Haute technologie (silhouette) | 1 480 | 3,47 | 22,5 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 35 processing-unit, 130 uranium-238 | 4 498 | 6 / 192 |
+| 20 | 10 Haute technologie (+ pièce) | 1 540 | 3,72 | 22,75 | 20 iron-plate, 11 iron-gear-wheel, 11 copper-plate, 45 processing-unit, 160 uranium-238 | 5 668 | 6 / 192 |
+| 21 | 11 Titane (silhouette) | 1 600 | 3,99 | 23 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 110 low-density-structure, 45 processing-unit | 8 386 | 15 / 208 |
+| 22 | 11 Titane (+ pièce) | 1 660 | 4,28 | 23,25 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 140 low-density-structure, 55 processing-unit | 10 486 | 18 / 208 |
+| 23 | 12 Supraconducteurs (silhouette) | 1 720 | 4,59 | 23,5 | 25 iron-plate, 12 iron-gear-wheel, 12 copper-plate, 560 electric-engine-unit, 130 low-density-structure | 14 871 | 28 / 224 |
+| 24 | 12 Supraconducteurs (+ pièce) | 1 780 | 4,93 | 23,75 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 700 electric-engine-unit, 170 low-density-structure | 18 914 | 34 / 224 |
+| 25 | 13 Fusion (silhouette) | 1 840 | 5,28 | 24 | 25 iron-plate, 13 iron-gear-wheel, 13 copper-plate, 360 uranium-235, 680 electric-engine-unit | 27 144 | 21 / 240 |
+| 26 | 13 Fusion (+ pièce) | 1 900 | 5,66 | 24,25 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 450 uranium-235, 850 electric-engine-unit | 33 922 | 25 / 240 |
+| 27 | 14 Orbite (silhouette) | 1 960 | 6,07 | 24,5 | 30 iron-plate, 14 iron-gear-wheel, 14 copper-plate, 200 rocket-control-unit, 440 uranium-235 | 49 872 | 28 / 256 |
+| 28 | 14 Orbite (+ pièce) | 2 020 | 6,51 | 24,75 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 250 rocket-control-unit, 550 uranium-235 | 62 325 | 34 / 256 |
+| 29 | 15 Légende (silhouette) | 2 080 | 6,98 | 25 | 30 iron-plate, 15 iron-gear-wheel, 15 copper-plate, 200 space-science-pack, 230 rocket-control-unit | 84 575 | 27 / 272 |
+| 30 | 15 Légende (+ pièce) | 2 140 | 7,49 | 25,25 | 30 iron-plate, 16 iron-gear-wheel, 16 copper-plate, 250 space-science-pack, 280 rocket-control-unit | 104 578 | 32 / 272 |
 
 #### Emprise au sol par niveau (lot V3-T, Q23 et Q24, intégré le 22/10 à 14 h 50, version 0.4.2 ; toutes les familles depuis le lot V3-T2, Q-S1, intégré le 22/10 à 19 h 05, version 0.4.3)
 
@@ -1065,20 +1073,20 @@ Chiffres du correcteur (notes du lot, §9.5), recalculés depuis `L.apply_stat` 
 assembleur 0,75 × (1 + 0,08 (n − 1)) ; four 2 × (1 + 0,08 (n − 1)) ; foreuse 0,5 × (1 + 0,1 (n − 1)) ; tourelles
 laser et mitrailleuse (mêmes règles de dégâts et mêmes tailles dans `shared/levels/config.lua`, donc mêmes
 chiffres) : multiplicateur de dégâts RELATIF au niveau 1 (1 + 0,08 (n − 1) jusqu'au niveau 6, puis la table
-`shared/tirs/degats.lua`, × 1,2 par âge, depuis D-21 ; pour la laser, le modificateur du prototype vaut le double, 2 au
+`shared/tirs/degats.lua`, × 1,15 par âge, depuis D-21 révisée le 28/10 ; pour la laser, le modificateur du prototype vaut le double, 2 au
 niveau 1). Exemple de la revue (avant D-21) : sur la surface d'une mitrailleuse 6×6 de niveau 30 (× 2,12), neuf
-mitrailleuses 2×2 de niveau 6 font 9 × 1,4 = 12,6 ; **avec D-21, le niveau 30 (× 12,48) fait ce que font neuf niveaux 6**.
+mitrailleuses 2×2 de niveau 6 font 9 × 1,4 = 12,6 ; **avec D-21 révisée (× 1,15 par âge), le niveau 30 (× 7,49) fait ce que font 5,35 niveaux 6** (3,5 fois les 2,12 d'avant).
 
 | Famille | n6 | n7 | n12 | n13 | n18 | n19 | n24 | n25 | n30 | n30 / n6 |
 |---|---|---|---|---|---|---|---|---|---|---|
 | Assembleur | 1,05 / 3×3 = 0,117 | 1,11 / 4×4 = 0,069 | 0,088 | 1,47 / 5×5 = 0,059 | 0,071 | 1,83 / 6×6 = 0,051 | 0,059 | 0,061 | 2,49 / 6×6 = 0,069 | 0,59 |
 | Four | 2,80 / 2×2 = 0,700 | 2,96 / 3×3 = 0,329 | 0,418 | 0,245 | 0,295 | 0,195 | 0,227 | 0,162 | 6,64 / 6×6 = 0,184 | 0,26 |
 | Foreuse | 0,75 / 3×3 = 0,083 | 0,80 / 4×4 = 0,050 | 0,066 | 0,044 | 0,054 | 1,40 / 6×6 = 0,039 | 0,046 | 0,047 | 1,95 / 6×6 = 0,054 | 0,65 |
-| Tourelles laser et mitrailleuse (dégâts, D-21) | × 1,40 / 2×2 = 0,350 | 0,170 | 0,269 | 0,166 | 0,261 | 0,183 | 0,289 | 0,220 | × 12,48 / 6×6 = 0,347 | 0,99 |
+| Tourelles laser et mitrailleuse (dégâts, D-21) | × 1,40 / 2×2 = 0,350 | 0,167 | 0,237 | 0,143 | 0,203 | 0,139 | 0,197 | 0,147 | × 7,49 / 6×6 = 0,208 | 0,59 |
 
 Lecture : à chaque changement de taille, la production par tuile chute (assembleur 0,117 → 0,069 entre les niveaux
 6 et 7 ; four 0,700 → 0,329), puis remonte un peu dans l'ère, sans jamais revenir au niveau 6. Creux : assembleur
-0,051 et foreuse 0,039 au niveau 19, four 0,162 au niveau 25 ; tourelles (D-21) : creux de 0,170 au niveau 7, puis la production par tuile remonte et retrouve celle du niveau 6 au niveau 30. Le joueur a donc intérêt à ne faire
+0,051 et foreuse 0,039 au niveau 19, four 0,162 au niveau 25 ; tourelles (D-21 révisée) : creux de 0,139 au niveau 19, puis la production par tuile remonte jusqu'à 0,208 au niveau 30, soit 0,59 de celle du niveau 6 (elle ne la retrouve plus : à × 1,2 elle l'égalait). Le joueur a donc intérêt à ne faire
 que le minimum d'améliorations exigé par Q16 (relecteur du défaut 8). **Question ouverte au Directeur Créatif
 (Q-T2-2)** : faire suivre la surface (vitesse, emplacements de modules ; au moins la production par tuile du niveau
 6), assumer la taille comme un prestige, ou autre chose. Recommandation de l'orchestrateur : la production par tuile

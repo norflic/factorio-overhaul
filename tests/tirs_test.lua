@@ -329,8 +329,16 @@ do
     { "une baisse au niveau 14", function(t) t[14] = t[13] - 0.01 end },
     { "deux niveaux egaux", function(t) t[20] = t[19] end },
     { "niveau 6 change (jeu d'avant)", function(t) t[6] = 1.5 end },
-    { "age 8 trop faible (rapport 1,1)", function(t) t[16] = t[14] * 1.1 end },
-    { "age 15 trop fort (rapport 1,3)", function(t) t[30] = t[28] * 1.3 end },
+    { "age 8 trop faible (rapport 1,05)", function(t) t[16] = t[14] * 1.05 end },
+    { "age 15 trop fort (rapport 1,2)", function(t) t[30] = t[28] * 1.2 end },
+    { "x 1,1 par age (variante ecartee le 28/10 soir)", function(t)
+        local v = { 1.47, 1.54, 1.62, 1.69, 1.78, 1.86, 1.95, 2.05, 2.15, 2.25, 2.36, 2.48, 2.60, 2.73, 2.86, 3.00, 3.15,
+          3.30, 3.46, 3.63, 3.81, 3.99, 4.19, 4.39 }
+        for i, x in ipairs(v) do t[6 + i] = x end end },
+    { "l'ancien x 1,2 par age (D-21 avant le 28/10 soir)", function(t)
+        local v = { 1.53, 1.68, 1.84, 2.02, 2.21, 2.42, 2.65, 2.90, 3.18, 3.48, 3.82, 4.18, 4.58, 5.02, 5.50, 6.02, 6.59,
+          7.22, 7.91, 8.67, 9.50, 10.40, 11.39, 12.48 }
+        for i, x in ipairs(v) do t[6 + i] = x end end },
     { "29 entrees", function(t) t[30] = nil end },
     { "niveau non numerique", function(t) t[12] = "2,42" end },
     { "plus 2 % par age (le jeu d'avant D-21)", function(t)

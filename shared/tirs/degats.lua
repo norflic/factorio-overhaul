@@ -6,14 +6,20 @@
 
   Multiplicateur de dégâts du niveau n RELATIF au niveau 1 vanilla (le laser vanilla a déjà `damage_modifier` 2 :
   le niveau n du laser vaut 2 × par_niveau[n]). Âge e = niveaux 2e - 1 et 2e. Niveaux 1 à 6 (âges 1 à 3) = le jeu
-  d'avant (1 + 0,08 (n - 1)) ; ensuite × 1,2 par âge (× 1,0954 par niveau), 12,48 au niveau 30. Aujourd'hui (0.6.5) :
-  + 2 % par âge de 6 à 15, 2,12 au niveau 30.
+  d'avant (1 + 0,08 (n - 1)) ; ensuite × 1,15 PAR ÂGE (× 1,0724 par niveau), 1,4 × 1,15^(âge - 3) au niveau pair 2e :
+  1,61 à l'âge 4, 1,85 à l'âge 5, 3,72 à l'âge 10, 7,49 à l'âge 15 (niveau 30) ; niveau impair 2e - 1 = 1,4 × 1,15^(e - 3,5),
+  arrondi au centième. Décision du DC du 28/10 (soir) : « en fait x1.2 c'est un peu trop, x1.1 c'est mieux », puis
+  « ah ok donc on par sur 1.15 ? » (réponse : oui) : D-21 révisée, × 1,15 par âge ; les courbes × 1,2 (12,48 au niveau 30)
+  et × 1,1 (4,39) sont abandonnées. Aujourd'hui (0.6.5) : + 8 % par niveau jusqu'au 10 puis + 2 % : 2,12 au niveau 30.
+  Niveau 2e, nouvelle contre 0.6.5 : âge 4 1,61 / 1,56 ; 5 1,85 / 1,72 ; 6 2,13 / 1,76 ; 7 2,45 / 1,80 ; 8 2,82 / 1,84 ;
+  9 3,24 / 1,88 ; 10 3,72 / 1,92 ; 11 4,28 / 1,96 ; 12 4,93 / 2,00 ; 13 5,66 / 2,04 ; 14 6,51 / 2,08 ; 15 7,49 / 2,12
+  (3,5 fois les dégâts d'aujourd'hui au niveau 30 ; dégâts par joule du laser × 3,47 au niveau 30 : 7,49 / 2,16).
 ]]
 
 local D = {}
 
-D.par_niveau = { 1.00, 1.08,  1.16, 1.24,  1.32, 1.40,  1.53, 1.68,  1.84, 2.02,  2.21, 2.42,  2.65, 2.90,
-  3.18, 3.48,  3.82, 4.18,  4.58, 5.02,  5.50, 6.02,  6.59, 7.22,  7.91, 8.67,  9.50, 10.40,  11.39, 12.48 }
+D.par_niveau = { 1.00, 1.08,  1.16, 1.24,  1.32, 1.40,  1.50, 1.61,  1.73, 1.85,  1.99, 2.13,  2.28, 2.45,
+  2.63, 2.82,  3.02, 3.24,  3.47, 3.72,  3.99, 4.28,  4.59, 4.93,  5.28, 5.66,  6.07, 6.51,  6.98, 7.49 }
 
 --- Multiplicateur de dégâts du niveau n (1 à 30).
 function D.mult(n) return D.par_niveau[n] end
@@ -23,7 +29,7 @@ function D.rapport_age(e) return D.par_niveau[2 * e] / D.par_niveau[2 * e - 2] e
 
 --- Règle K9 hors jeu : rend la liste des motifs de refus d'une table de dégâts t (vide si elle est bonne) :
 --- 30 nombres, t[1] = 1, strictement croissants, niveaux 1 à 6 = 1 + 0,08 (n - 1) (jeu d'avant, âges 1 à 3),
---- rapport d'un âge au précédent = 1,2 à 0,012 près de l'âge 4 à l'âge 15.
+--- rapport d'un âge au précédent = 1,15 à 0,012 près de l'âge 4 à l'âge 15.
 function D.verifier(t)
   local out = {}
   if type(t) ~= "table" or #t ~= 30 then return { "30 nombres attendus" } end
@@ -37,7 +43,7 @@ function D.verifier(t)
   end
   for e = 4, 15 do
     local r = t[2 * e] / t[2 * e - 2]
-    if math.abs(r - 1.2) > 0.012 then out[#out + 1] = string.format("age %d : rapport %.3f a l'age precedent (1,2 attendu)", e, r) end
+    if math.abs(r - 1.15) > 0.012 then out[#out + 1] = string.format("age %d : rapport %.3f a l'age precedent (1,15 attendu)", e, r) end
   end
   return out
 end

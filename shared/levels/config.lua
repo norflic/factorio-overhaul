@@ -227,9 +227,9 @@ L.families = {
     base_growth = 0.15,
   },
   {
-    -- Dégâts (lot TIRS, D-21, courbe C2) : niveaux 1 à 6 comme avant (+ 8 % par niveau), puis × 1,2 par ÂGE
-    -- (shared/tirs/degats.lua, nombres écrits) : × 12,48 au niveau 30 (0.6.5 : × 2,12, + 2 % par âge de 6 à 15).
-    -- La tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS) vaut le niveau 11-12 : testé.
+    -- Dégâts (lot TIRS, D-21 révisée le 28/10 : × 1,15 par âge) : niveaux 1 à 6 comme avant (+ 8 % par niveau), puis × 1,15 par ÂGE
+    -- (shared/tirs/degats.lua, nombres écrits) : × 7,49 au niveau 30 (× 1,15 par âge ; 0.6.5 : × 2,12, + 2 % par âge de 6 à 15).
+    -- La tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS) vaut le niveau 12-13 : testé.
     key = "gun", type = "ammo-turret", base = "gun-turret", size = 2, max = 30,
     stats = {
       { path = { "max_health" }, op = "mul", k = 0.15 },
@@ -241,7 +241,7 @@ L.families = {
     base_growth = 0.15, epoch_value = 12,
   },
   {
-    -- Mêmes dégâts que la mitrailleuse (lot TIRS, D-21 : 2 × 12,48 = × 24,96 en absolu au niveau 30, contre 4 pour la
+    -- Mêmes dégâts que la mitrailleuse (lot TIRS, D-21 : 2 × 7,49 = × 14,98 en absolu au niveau 30, contre 4 pour la
     -- tourelle laser lourde) ; l'énergie par tir (et le tampon, qui doit la contenir) croît de 4 % par niveau :
     -- × 2,16 au niveau 30 (une tourelle laser ne tire pas plus qu'une entrée de 9,6 MW), donc les dégâts par joule
     -- CROISSENT avec l'âge (les balles aussi : une balle de plus haut niveau fait plus de dégâts pour la même munition).

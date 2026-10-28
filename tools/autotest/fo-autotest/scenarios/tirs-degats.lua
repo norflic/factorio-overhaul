@@ -16,9 +16,9 @@
 --   3. rapport (dégâts par tir du niveau n) / (niveau 1) = table du niveau (shared/tirs/degats.lua) à 1 % près,
 --      mitrailleuse ET laser ;
 --   4. DPS réel strictement croissant d'un niveau au suivant (K9) ;
---   5. d'un âge au suivant (niveau 2e contre niveau 2e - 2), de l'âge 4 à l'âge 15 : dégâts par tir × 1,2 à 2 % près,
---      DPS réel × 1,2 à 8 % près ;
---   6. niveau 30 : au moins 11,5 fois le DPS du niveau 1 (D-21 : dégâts × 12,48).
+--   5. d'un âge au suivant (niveau 2e contre niveau 2e - 2), de l'âge 4 à l'âge 15 : dégâts par tir × 1,15 à 2 % près,
+--      DPS réel × 1,15 à 8 % près ;
+--   6. niveau 30 : au moins 7 fois le DPS du niveau 1 (D-21 révisée le 28/10 : dégâts × 7,49).
 -- Journal [FO-TIRS-DEGATS] : une ligne DPS par niveau et par famille (tabulation) pour tools/autotest/tirs_degats.py.
 
 local L = require("__factorio-overhaul__/shared/levels/config")
@@ -199,16 +199,16 @@ return {
       for e = 4, 15 do
         local r = pt[2 * e - 2] > 0 and pt[2 * e] / pt[2 * e - 2] or 0
         local rd = d[2 * e - 2] > 0 and d[2 * e] / d[2 * e - 2] or 0
-        if math.abs(r / 1.2 - 1) > 0.02 then age_ok = false end
-        if math.abs(rd / 1.2 - 1) > 0.08 then age_dps = false end
+        if math.abs(r / 1.15 - 1) > 0.02 then age_ok = false end
+        if math.abs(rd / 1.15 - 1) > 0.08 then age_dps = false end
         age_det[#age_det + 1] = string.format("%d:%.3f/%.3f", e, r, rd)
       end
       ctx.check(ecart <= 0.01, fam .. " : degats par tir du niveau n / niveau 1 = table du niveau, a 1 % pres",
         string.format("ecart max %.2f %%", 100 * ecart))
       ctx.check(croit, fam .. " : DPS reel strictement croissant d'un niveau au suivant (K9)", croit and "oui" or "non")
-      ctx.check(age_ok, fam .. " : degats par tir x 1,2 d'un age au suivant (ages 4 a 15, 2 % pres)", table.concat(age_det, " "))
-      ctx.check(age_dps, fam .. " : DPS reel x 1,2 d'un age au suivant (ages 4 a 15, 8 % pres)", table.concat(age_det, " "))
-      ctx.check(d[1] > 0 and d[30] >= 11.5 * d[1], fam .. " : DPS du niveau 30 >= 11,5 fois celui du niveau 1 (D-21 : x 12,48)",
+      ctx.check(age_ok, fam .. " : degats par tir x 1,15 d'un age au suivant (ages 4 a 15, 2 % pres)", table.concat(age_det, " "))
+      ctx.check(age_dps, fam .. " : DPS reel x 1,15 d'un age au suivant (ages 4 a 15, 8 % pres)", table.concat(age_det, " "))
+      ctx.check(d[1] > 0 and d[30] >= 7 * d[1], fam .. " : DPS du niveau 30 >= 7 fois celui du niveau 1 (D-21 revisee : x 7,49)",
         string.format("x %.2f", d[1] > 0 and d[30] / d[1] or 0))
     end
   end,

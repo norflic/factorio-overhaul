@@ -112,6 +112,14 @@ local function sur_effet(e)
     -- cible morte avant l'événement (vagues de biters du mur) : rien à habiller, mais l'événement est COMPTÉ (sinon la
     -- part gardée semble fausse : 69 événements sur 724 à l'âge 15, banc tirs-tout du 28/10)
     st.sans_cible = (st.sans_cible or 0) + 1
+    -- cause NON prouvée (déduite : le tir qui tue la cible n'a ni flamme ni impact) : on journalise l'état des deux champs
+    -- de l'événement sur les premiers cas, pour la mesurer (nil = le moteur n'a rien donné ; invalide = donnée puis morte)
+    s.journal_sans = s.journal_sans or {}
+    if #s.journal_sans < JOURNAL_MAX then
+      s.journal_sans[#s.journal_sans + 1] = { tick = e.tick, nom = src.name, age = age,
+        entite = cible == nil and "nil" or (cible.valid and "valide" or "invalide"),
+        position = e.target_position == nil and "nil" or "donnee" }
+    end
     return
   end
   st.habilles = st.habilles + 1
@@ -184,6 +192,8 @@ remote.add_interface("fo-tirs", {
         rendus = st.rendus or 0, sans_cible = st.sans_cible or 0 }
     end
     for i, j in ipairs(s.journal) do out.journal[i] = j end
+    out.journal_sans = {}
+    for i, j in ipairs(s.journal_sans or {}) do out.journal_sans[i] = j end
     return out
   end,
   --- Allume ou éteint l'habillage (bancs de coût : témoin « événement seul »).
