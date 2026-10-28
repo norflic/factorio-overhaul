@@ -111,6 +111,12 @@ R.ITEM_MODULE = "module"
 
 R.TURRET = "gun-turret"
 
+-- Lot COUVERTURE : positions des tourelles choisies par couverture maximale (script/team/couverture.lua). ETEINT sur la branche
+-- couverture-reco (28/10) : sur 2 graines de 5 (1618033988, 314159265) la selection decale les actions des factions et votre
+-- equipe perd (RD_LOG/rapport du lot) ; la reconstruction (script/team/reconstruction.lua) n'en depend pas. Eteint : les
+-- positions fixes d'avant le lot (Outposts.TURRET_OFFSETS) servent seules.
+R.COUVERTURE_POSITIONS = false
+
 -- Lot COUVERTURE : types d'entité du moteur (LuaEntityPrototype.type) dont chaque pièce ne vaut pas une tourelle : le
 -- tapis, le poteau, le tuyau, la pince. Ils forment des LIGNES qu'on refait par la reconstruction (script/team/
 -- reconstruction.lua), mais ils ne pèsent pas dans le choix des positions de tourelles (shared/team/couverture.lua) : cent

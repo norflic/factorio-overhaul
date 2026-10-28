@@ -382,7 +382,7 @@ end
 --- menaces connues (shared/team/couverture.lua, script/team/couverture.lua) ; repli : les positions fixes d'avant.
 function Outposts.fortify(f, surface, outpost, count, carrier)
   local placed, by_cover = 0, 0
-  local st = Couv.plan(f, surface, outpost.pos, outpost.id == nil)
+  local st = Reglages.COUVERTURE_POSITIONS and Couv.plan(f, surface, outpost.pos, outpost.id == nil) or nil
   if st then
     while placed < count and carrier.get_item_count(Reglages.TURRET) >= 1 do
       local p = Couv.next(st, f, surface)
