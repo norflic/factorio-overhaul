@@ -1004,6 +1004,11 @@ FSM.define(MACHINE, {
       local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item), f)
       if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
         e.mining_state = { mining = false }
+        -- Lot KIT (mesure, journal seul) : rendement de chaque minage à la main, pour la part des minages à 0 sur N.
+        if f then
+          log(string.format("[FO-MINAGE] %s min=%.2f %s got=%d/%d dt=%.1f %s", f.key or "?", tick / 3600, tostring(item), got, count,
+            (tick - (agent.mine_started or tick)) / 60, got >= count and "complet" or (res and "delai" or "sans-entite")))
+        end
         if f and agent.task then release_tile(f, agent.task.target) end -- lot KIT : la tuile est rendue
         if f then f.stats.mined = (f.stats.mined or 0) + got end
         agent.pc = agent.pc + 1
