@@ -96,6 +96,20 @@ return {
     end
     if t < DEBUT - 1 then return end
     for _, site in ipairs(st.sites) do
+      -- sonde des lasers (diagnostic de cause, hors contrôles) : énergie la plus basse vue (jamais sous le plein = n'a
+      -- jamais tiré), ticks où la tourelle VISE quelque chose, et ce qu'elle vise si ce n'est pas la cible du site
+      if site.fam == "laser" and t >= DEBUT and t < FIN_LASER and site.t and site.t.valid then
+        local e = site.t.energy
+        if site.emin == nil or e < site.emin then site.emin = e end
+        local ok, tgt = pcall(function() return site.t.shooting_target end)
+        if ok and tgt and tgt.valid then
+          site.vise = (site.vise or 0) + 1
+          local c0 = site.cible
+          if not (c0 and c0.valid and tgt.position.x == c0.position.x and tgt.position.y == c0.position.y) then
+            site.autre = tgt.name .. "@" .. string.format("%.0f,%.0f", tgt.position.x, tgt.position.y)
+          end
+        end
+      end
       local c = site.cible
       if c and c.valid then
         local pv = c.prototype.max_health
@@ -128,6 +142,27 @@ return {
           tostring(site.t.energy), tostring(site.t.electric_network_id)) end)
         ctx.log(string.format("DIAG laser niveau %d sans degats : au tick %d [%s] ; a la fin [%s]", site.n, DEBUT,
           tostring(site.diag0), ok and r or "?"))
+        -- sonde : a-t-elle tiré (énergie sous le plein), visé, infligé des dégâts à QUOI QUE CE SOIT, et quels ennemis
+        -- se trouvent dans sa portée + 5 (hors la cible du site) ?
+        local ok2, r2 = pcall(function()
+          local t = site.t
+          local portee = t.prototype.attack_parameters.range
+          local ennemis = t.surface.find_entities_filtered({ force = "enemy", position = t.position, radius = portee + 5 })
+          local proche, dmin = nil, 1e9
+          local n = 0
+          for _, en in ipairs(ennemis) do
+            if not (site.cible and site.cible.valid and en.position.x == site.cible.position.x
+                and en.position.y == site.cible.position.y) then
+              n = n + 1
+              local d = math.sqrt((en.position.x - t.position.x) ^ 2 + (en.position.y - t.position.y) ^ 2)
+              if d < dmin then dmin, proche = d, en.name end
+            end
+          end
+          return string.format("portee=%.2f tampon=%s emin=%s vise=%s autre=%s degats_infliges=%s ennemis_a_portee=%d plus_proche=%s@%.1f",
+            portee, tostring(t.electric_buffer_size), tostring(site.emin), tostring(site.vise or 0), tostring(site.autre),
+            tostring(t.damage_dealt), n, tostring(proche), dmin)
+        end)
+        ctx.log(string.format("SONDE laser niveau %d : %s", site.n, ok2 and r2 or ("erreur " .. tostring(r2))))
       end
     end
     for _, fam in ipairs(FAM) do
