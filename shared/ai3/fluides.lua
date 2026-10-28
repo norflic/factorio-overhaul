@@ -43,6 +43,8 @@ Fl.MAX_DEPTH = 6        -- profondeur d'une chaîne de cellules (garde contre un
 Fl.MARGIN = 2           -- tuiles libres autour d'une machine (bras, coffres, tuyaux)
 Fl.SEARCH = 30          -- rayon de recherche d'une place (tuiles)
 Fl.ASTAR_MAX = 20000    -- nœuds développés au plus par tuyau
+Fl.ASTAR_MIN = 2000     -- … au moins (un petit tuyau parmi des obstacles)
+Fl.ASTAR_PER_TILE = 25  -- … et 25 nœuds par tuile de distance à la cible entre les deux
 Fl.ROUTE_R = 48         -- fenêtre d'un tuyau autour du site
 Fl.EXTRACTORS = 2       -- puits équipés par site (au départ)
 Fl.POLE_LINE_MAX = 400  -- tuiles au plus jusqu'au réseau
@@ -528,6 +530,9 @@ function Site:route(sx, sy, goal, fl)
     local d = math.abs(g[1] - sx) + math.abs(g[2] - sy)
     if d < nd then near, nd = g, d end
   end
+  -- budget de ce tuyau : proportionnel à sa longueur (en terrain libre l'A* développe peu de nœuds ; un échec ne doit pas
+  -- explorer toute la fenêtre : 1,2 s pour une implantation refusée en terrain libre, moteur simulé)
+  local limit = math.min(Fl.ASTAR_MAX, math.max(Fl.ASTAR_MIN, Fl.ASTAR_PER_TILE * nd))
   local ox, oy = (sx + near[1]) / 2, (sy + near[2]) / 2
   local R = math.max(math.abs(sx - near[1]), math.abs(sy - near[2])) / 2 + Fl.ROUTE_R / 2
   local open = { { f = h(sx, sy), g = 0, x = sx, y = sy } }
@@ -561,7 +566,7 @@ function Site:route(sx, sy, goal, fl)
     if cur.g == gs[ck] then
       n = n + 1
       self.req.spent = (self.req.spent or 0) + 1
-      if n > Fl.ASTAR_MAX or self.req.spent > Fl.LAYOUT_BUDGET then return nil end
+      if n > limit or self.req.spent > Fl.LAYOUT_BUDGET then return nil end
       for _, d in ipairs(DIRS) do
         local nx, ny = cur.x + DV[d][1], cur.y + DV[d][2]
         local nk = tkey(nx, ny)
@@ -696,13 +701,19 @@ function Site:power(electric)
     if not covered(ent) then
       local e = self.req.ents[ent.name] or { w = 1, h = 1 }
       local x0, y0, x1, y1 = rect_of(e, ent.x, ent.y, ent.dir)
-      local best, bn
-      for ty = y0 - 1, y1 + 1 do
-        for tx = x0 - 1, x1 + 1 do
-          if (tx < x0 or tx > x1 or ty < y0 or ty > y1) and self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil then
+      -- tuile libre qui couvre l'entité (zone d'alimentation du poteau : jusqu'à `s` tuiles de la machine, pas seulement la
+      -- couronne voisine : moteur réel, 28/10, « poteau : aucune place autour de inserter » dans un quai entouré de coffres et
+      -- de tuyaux) ; le plus d'entités non couvertes d'abord, puis la plus proche, puis l'ordre de balayage
+      local best, bn, bd
+      local reach = math.max(1, math.floor(s))
+      for ty = y0 - reach, y1 + reach do
+        for tx = x0 - reach, x1 + reach do
+          if (tx < x0 or tx > x1 or ty < y0 or ty > y1) and self:free(tx, ty) and self.rsv[tkey(tx, ty)] == nil
+              and covers(tx + 0.5, ty + 0.5, ent) then
             local n = 0
             for _, o in ipairs(electric) do if not covered(o) and covers(tx + 0.5, ty + 0.5, o) then n = n + 1 end end
-            if not bn or n > bn then best, bn = { tx, ty }, n end
+            local dist = math.max(x0 - tx, tx - x1, y0 - ty, ty - y1)
+            if not bn or n > bn or (n == bn and dist < bd) then best, bn, bd = { tx, ty }, n, dist end
           end
         end
       end
@@ -1093,7 +1104,7 @@ end
 --- Décalages essayés de la place des machines quand un tuyau ne se trace pas (sans tuyau souterrain, la disposition décide
 --- des croisements impossibles) : l'écart est de Fl.SHIFT tuiles, dans un ordre fixe.
 Fl.SHIFT = 14
-Fl.LAYOUT_BUDGET = 80000 -- nœuds d'A* des tuyaux au plus pour toutes les tentatives d'une implantation
+Fl.LAYOUT_BUDGET = 60000 -- nœuds d'A* des tuyaux au plus pour toutes les tentatives d'une implantation
 
 function Fl.layout(req)
   local k = Fl.SHIFT
@@ -1104,8 +1115,9 @@ function Fl.layout(req)
     local lay, why = layout_once(req, sh)
     if lay then return lay end
     first_why = first_why or why
-    -- le refus n'est pas une affaire de tuyau (aucune place, aucun puits, poteaux…) ou le budget est épuisé : inutile de continuer
-    if req.spent > Fl.LAYOUT_BUDGET or not (tostring(why):find("tuyau", 1, true)) then break end
+    -- un autre décalage ne change rien à l'absence de puits ni aux poteaux (la ligne a son propre A*) ; budget épuisé : fin
+    local w = tostring(why)
+    if req.spent > Fl.LAYOUT_BUDGET or w:find("puits", 1, true) or w:find("poteau", 1, true) then break end
   end
   return nil, first_why
 end

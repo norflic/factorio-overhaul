@@ -191,7 +191,10 @@ local function refresh_known(f, st, c, deposits, tick)
   end
   -- … ou l'étang que le plan directeur a posé pour la centrale (aucune rive ne la tenait : Build make_pond) : l'équipe a de
   -- l'eau (moteur réel, etape1-guide 123456789 : aucune eau à 160 tuiles, le pack chimique restait impayable, le pétrole « valait 0 »)
-  if not st.water and f.build and f.build.pond then st.water = true end
+  if not st.water and f.build then
+    local pl = f.build.plant and f.build.projects[f.build.plant]
+    if f.build.pond or (pl and pl.state == "fini") then st.water = true end
+  end
   if st.water then for _, res in ipairs(pump_resources(c)) do st.known[res] = true end end
   for _, fl in ipairs(sorted_keys(INFO and INFO.extract)) do
     if not st.known[fl] and deposits then
