@@ -17,7 +17,7 @@ data:extend({
     type = "bool-setting",
     name = "fo-war-petrole",
     setting_type = "runtime-global",
-    default_value = false,
+    default_value = true,
     order = "e-war-z-ia3-p",
   },
 })
