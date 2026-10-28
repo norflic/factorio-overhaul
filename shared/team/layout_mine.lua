@@ -125,7 +125,7 @@ local function drill_at(S, ox, oy)
       for x = ox, ox + w - 1 do if S.blocked(x, y) then ok = false end end
     end
     if ok then
-      local res, keys, amount = nil, {}, 0
+      local res, keys, amount, amts = nil, {}, 0, {}
       for y = oy + S.lo, oy + w - 1 + S.hi do
         for x = ox + S.lo, ox + w - 1 + S.hi do
           local o = S.ore[tk(x, y)]
@@ -134,10 +134,11 @@ local function drill_at(S, ox, oy)
             res = o.res
             keys[#keys + 1] = tk(x, y)
             amount = amount + o.amount
+            amts[#keys] = o.amount
           end
         end
       end
-      if ok and res and #keys >= S.min_tiles then e = { res = res, keys = keys, amount = amount, n = #keys } end
+      if ok and res and #keys >= S.min_tiles then e = { res = res, keys = keys, amts = amts, amount = amount, n = #keys } end
     end
   end
   S.memo[k] = e
@@ -223,30 +224,49 @@ end
 local function union_gain(S, list, cov)
   local seen, amount, n = {}, 0, 0
   for _, e in ipairs(list) do
-    for _, k in ipairs(e.d.keys) do
-      if not cov[k] and not seen[k] then seen[k] = true; amount = amount + S.ore[k].amount; n = n + 1 end
+    local keys, amts = e.d.keys, e.d.amts
+    for i = 1, #keys do
+      local k = keys[i]
+      if not cov[k] and not seen[k] then seen[k] = true; amount = amount + amts[i]; n = n + 1 end
     end
   end
   return amount, n
 end
 
+--- Gain marginal d'une foreuse sur ce qui est déjà capté (cov) : (quantité, nombre de tuiles).
+local function marginal(e, cov)
+  local keys, amts = e.d.keys, e.d.amts
+  local a, n = 0, 0
+  for i = 1, #keys do
+    if not cov[keys[i]] then a = a + amts[i]; n = n + 1 end
+  end
+  return a, n
+end
+
 --- Choix glouton de foreuses par gain marginal (au moins min_tiles NOUVELLES tuiles), au plus max_n.
 local function choose_greedy(S, cands, cov, max_n)
+  -- glouton PARESSEUX : un gain marginal ne fait que baisser ; on ne recalcule que la tête de liste
   local cov2 = setmetatable({}, { __index = cov })
-  local taken, sel = {}, {}
+  local bound, fresh, taken, sel = {}, {}, {}, {}
+  for i, e in ipairs(cands) do bound[i] = marginal(e, cov2); fresh[i] = true end
   while #sel < max_n do
-    local best, best_a
-    for i, e in ipairs(cands) do
-      if not taken[i] then
-        local a, n = 0, 0
-        for _, k in ipairs(e.d.keys) do if not cov2[k] then a = a + S.ore[k].amount; n = n + 1 end end
-        if n >= S.min_tiles and (not best or a > best_a) then best, best_a = i, a end
-      end
+    local best
+    for i = 1, #cands do
+      if not taken[i] and (not best or bound[i] > bound[best]) then best = i end
     end
     if not best then break end
-    taken[best] = true
-    sel[#sel + 1] = cands[best]
-    for _, k in ipairs(cands[best].d.keys) do cov2[k] = true end
+    if fresh[best] then
+      taken[best] = true
+      local _, n = marginal(cands[best], cov2)
+      if n >= S.min_tiles then
+        sel[#sel + 1] = cands[best]
+        for _, k in ipairs(cands[best].d.keys) do cov2[k] = true end
+        for i = 1, #cands do fresh[i] = false end
+      end
+    else
+      bound[best] = marginal(cands[best], cov2)
+      fresh[best] = true
+    end
   end
   return sel
 end
@@ -341,23 +361,41 @@ local function finalize(S, axis, c, run, res, sel, cov, single, toward)
     gain = best.gain, tiles = best.tiles }
 end
 
---- Une ligne candidate sur la plage `run` du couloir c pour la ressource res (nil si rien de rentable).
-local function eval_strip(S, axis, c, run, res, cov, single, max_n, toward)
+--- Foreuses candidates d'une ligne (décalage de chaque côté choisi), triées par (v, côté) ; nil si aucune.
+local function prep_strip(S, axis, c, run, res, cov)
   local cands = {}
   for _, side in ipairs({ -1, 1 }) do
     local bp, bs
     for phase = 0, S.w - 1 do
       local list = side_cands(S, axis, c, run, side, phase, res)
-      local s = union_gain(S, list, cov)
+      local s = 0
+      if next(cov) == nil then
+        -- rien de capté encore : somme des quantités (le recouvrement de deux voisines est le même à tous les décalages)
+        for _, e in ipairs(list) do s = s + e.d.amount end
+      else
+        s = union_gain(S, list, cov)
+      end
       if #list > 0 and (not bs or s > bs) then bp, bs = list, s end
     end
     for _, e in ipairs(bp or {}) do cands[#cands + 1] = e end
   end
   table.sort(cands, function(a, b) if a.v0 ~= b.v0 then return a.v0 < b.v0 end return a.side < b.side end)
   if #cands == 0 then return nil end
+  return cands
+end
+
+--- Ligne finie depuis ses candidates (choix glouton, sorties, débits).
+local function finish_strip(S, axis, c, run, res, cands, cov, single, max_n, toward)
   local sel = choose_greedy(S, cands, cov, max_n or math.huge)
   if #sel == 0 then return nil end
   return finalize(S, axis, c, run, res, sel, cov, single, toward)
+end
+
+--- Une ligne candidate sur la plage `run` du couloir c pour la ressource res (nil si rien de rentable).
+local function eval_strip(S, axis, c, run, res, cov, single, max_n, toward)
+  local cands = prep_strip(S, axis, c, run, res, cov)
+  if not cands then return nil end
+  return finish_strip(S, axis, c, run, res, cands, cov, single, max_n, toward)
 end
 
 local function apply_strip(S, st, cov)
@@ -473,6 +511,9 @@ function LM.plan(field, drill, opts)
 
   if single then
     local best
+    local max_n = opts.max_drills or math.huge
+    -- 1. candidates de chaque ligne et une borne haute de leur gain (les max_n plus riches foreuses, sans recouvrement)
+    local pool = {}
     for _, axis in ipairs(axes_of(opts)) do
       local u0, u1 = u_range(S, axis)
       for c = u0, u1 - 1 do
@@ -480,18 +521,37 @@ function LM.plan(field, drill, opts)
           for _, run in ipairs(runs_of(S, axis, c)) do
             if run.lo_open or run.hi_open then
               for _, res in ipairs(S.reslist) do
-                local st = eval_strip(S, axis, c, run, res, cov, true, opts.max_drills or math.huge, opts.toward)
-                if st then
-                  st.dist = 0
-                  if opts.toward and #st.exits > 0 then
-                    st.dist = math.abs(st.exits[1].x - opts.toward.x) + math.abs(st.exits[1].y - opts.toward.y)
-                  end
-                  if not best or strip_better(st, best, true) then best = st end
+                local cands = prep_strip(S, axis, c, run, res, cov)
+                if cands then
+                  local amounts = {}
+                  for _, e in ipairs(cands) do amounts[#amounts + 1] = e.d.amount end
+                  table.sort(amounts, function(x, y) return x > y end)
+                  local bound = 0
+                  for i = 1, math.min(#amounts, max_n) do bound = bound + amounts[i] end
+                  pool[#pool + 1] = { axis = axis, c = c, run = run, res = res, cands = cands, bound = bound }
                 end
               end
             end
           end
         end
+      end
+    end
+    -- 2. par borne décroissante ; on s'arrête quand aucune ne peut battre la meilleure (égalité : évaluée, départage par la destination)
+    table.sort(pool, function(x, y)
+      if x.bound ~= y.bound then return x.bound > y.bound end
+      if x.axis ~= y.axis then return x.axis < y.axis end
+      if x.c ~= y.c then return x.c < y.c end
+      return x.run.a < y.run.a
+    end)
+    for _, e in ipairs(pool) do
+      if best and e.bound < best.gain then break end
+      local st = finish_strip(S, e.axis, e.c, e.run, e.res, e.cands, cov, true, max_n, opts.toward)
+      if st then
+        st.dist = 0
+        if opts.toward and #st.exits > 0 then
+          st.dist = math.abs(st.exits[1].x - opts.toward.x) + math.abs(st.exits[1].y - opts.toward.y)
+        end
+        if not best or strip_better(st, best, true) then best = st end
       end
     end
     if not best then return nil, "aucune ligne" end

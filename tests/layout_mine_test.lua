@@ -429,7 +429,7 @@ do
     { "obstacle ignore sous la foreuse", "for x = ox, ox + w - 1 do if S.blocked(x, y) then ok = false end end", "for x = ox, ox + w - 1 do end" },
     { "couloir sur obstacle", "local f = tile_free(S, x, y)\n    if f and not a", "local f = true\n    if f and not a" },
     { "bords toujours ouverts", "r.lo_open, r.hi_open = r.a == v0, r.b == v1 - 1", "r.lo_open, r.hi_open = true, true" },
-    { "foreuse inactive acceptee", "if n >= S.min_tiles and (not best or a > best_a) then", "if (not best or a > best_a) then" },
+    { "foreuse inactive acceptee", "if n >= S.min_tiles then\n        sel[#sel + 1] = cands[best]", "if true then\n        sel[#sel + 1] = cands[best]" },
     { "sortie de foreuse sans le demi-pas des cotes pairs", "local x, y = drop[1], drop[2]\n  local rx, ry", "local x, y = 0, drop[2]\n  local rx, ry" },
     { "couverture trop courte", "return math.ceil(c - reach - 0.5 - EPS), floor(c + reach - 0.5 + EPS)", "return math.ceil(c - reach - 0.5 - EPS), floor(c + reach - 1.5 + EPS)" },
     { "colonne de poteaux oubliee", "for y = e.oy - gap, e.oy + w - 1 + gap do\n      for x = e.ox - gap, e.ox + w - 1 + gap do S.keep[tk(x, y)] = true end\n    end",

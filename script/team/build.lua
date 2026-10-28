@@ -905,6 +905,7 @@ function Build.drill_diag(f, item, n, a, why, diag, s)
 end
 
 Build.LAYOUT_LOGS = 24  -- lot LAYOUT : lignes [FO-LAYOUT], au plus, par équipe
+Build.LAYOUT_PLANS = 6  -- lot LAYOUT : plans calculés au plus par demande (environ 30 ms chacun hors jeu : borne du coût d'un tick)
 
 --- Lot LAYOUT : une ligne [FO-LAYOUT] (au plus Build.LAYOUT_LOGS par équipe).
 function Build.layout_log(f, text)
@@ -926,15 +927,17 @@ function Build.layout_place(f, surface, p, item, flow, a)
     return nil, "foreuse"
   end
   local pole = p.spec and p.spec.pole
-  local best, last, tries = nil, "pas de lot", 0
+  local best, last, tries, plans = nil, "pas de lot", 0, 0
   for _, c in ipairs(candidates(b, { gisement = true }, { x = a.x, y = a.y }, item)) do
     tries = tries + 1
-    if tries > 8 then break end
+    if tries > 8 or plans >= Build.LAYOUT_PLANS then break end
     local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
     local masks = read_masks(f, surface, x0 - 8, y0 - 8, x1 + 8, y1 + 8)
     local field = LayoutRT.field(surface, item, x0, y0, x1, y1, masks.free)
     if field then
       for oi = 1, math.min(LayoutRT.MAX_OPTIONS, #options) do
+        if plans >= Build.LAYOUT_PLANS then break end
+        plans = plans + 1
         local drill = options[oi]
         local plan, g = LayoutRT.plan(field, drill, item, flow, { x = a.x, y = a.y }, pole)
         if plan then
