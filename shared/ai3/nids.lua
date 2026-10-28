@@ -33,6 +33,8 @@ Nd.ATTR_R = 240           -- un incident est rattaché au site le plus proche, �
 Nd.INC_TTL = 40 * 3600    -- un incident pèse de moins en moins et ne compte plus après 40 min
 Nd.MIN_MENACE = 250       -- menace minimale d'un site qui n'a encore rien frappé (nid à ~110 tuiles du QG, ou ~60 d'un avant-poste)
 Nd.MIN_MENACE_HIT = 120   -- menace minimale d'un site auquel un incident est rattaché
+Nd.MIN_ABS = 60           -- jamais sous 60 de menace (un nid hors de portee de tout bien et sans incident n'est pas une cible)
+Nd.SURPLUS_MAX = 3        -- une armée libre qui dépasse le besoin de 2, 3 fois ... abaisse le seuil de menace (÷ 2, ÷ 3 au plus)
 Nd.KEEP_PM = 250          -- garnison gardée au QG : 25 % de l'effectif (pour mille)...
 Nd.KEEP_MIN = 3           -- ... et 3 soldats au moins
 Nd.FAIL_PM = 500          -- besoin augmenté de 50 % par échec précédent (pour mille)
@@ -255,17 +257,21 @@ function Nd.decide(ctx)
   local reserve = Nd.reserve(ctx.total)
   local spare = (ctx.idle or 0) - reserve
   for _, s in ipairs(sites) do
+    local h = Nd.hold_of(ctx.holds, s)
+    local fails = h and h.fails or 0
+    local need = Nd.need(s, fails)
+    -- Seuil de menace : celui du site (frappé ou non), abaissé quand l'armée libre dépasse de loin le besoin (« grosse armée
+    -- inactive » : plus elle est grosse, moins il faut de menace pour qu'elle serve), jamais sous Nd.MIN_ABS.
     local floor = s.inc > 0 and Nd.MIN_MENACE_HIT or Nd.MIN_MENACE
+    local k = (spare >= need and need > 0) and math.min(Nd.SURPLUS_MAX, math.floor(spare / need)) or 1
+    floor = math.max(Nd.MIN_ABS, math.floor(floor / k))
     if s.menace < floor then
       why.faibles = why.faibles + 1
       if not why.faible then why.faible = { x = s.x, y = s.y, sp = s.sp, wm = s.wm, menace = s.menace, inc = s.inc } end
     else
-      local h = Nd.hold_of(ctx.holds, s)
       if h and ctx.tick < h["until"] then
         why.attente = why.attente + 1
       else
-        local fails = h and h.fails or 0
-        local need = Nd.need(s, fails)
         if spare < need then
           why.courts = why.courts + 1
           if not why.court then why.court = { x = s.x, y = s.y, sp = s.sp, wm = s.wm, menace = s.menace, inc = s.inc, need = need, spare = spare } end
