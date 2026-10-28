@@ -65,7 +65,14 @@
 #   --places N : nombre de places vues par ce lanceur (1 à 3), au lieu de fo-banc-places.txt ; ce ticket ne prend
 #                alors aucune place au-delà de N.
 #   --file : affiche les places, la file et l'affectation, sans rien lancer.
-# Codes : ceux du .bat ; 9 = attente de plus de --attente-max secondes (défaut 6 h), rien n'a tourné.
+# Codes : ceux du .bat ; 9 = attente de plus de --attente-max secondes (défaut 6 h), rien n'a tourné ;
+#         12 = le jeu a rendu 0 mais le dossier de la place n'a PAS de résultat frais (voir ci-dessous).
+# ARCHIVE ÉCHEC (28/10) : un jeu qui plante avant d'effacer le dossier de sa place (code 3221225794 vu à la place 2) laissait
+# les journaux PÉRIMÉS du banc précédent, archivés comme s'ils étaient les siens (une partie plantée se lisait comme la
+# réussite d'un autre lot). Après chaque banc, `diagnostic` compare le dossier de la place à son état d'avant le lancement
+# et à l'heure du lancement : code non nul, done.txt / benchmark.log / create.log absents, inchangés ou plus vieux que le
+# lancement, benchmark interrompu (pas de ligne « Performed N updates » en fin de benchmark-stdout.txt). En cas de problème :
+# fichier ECHEC.txt dans l'archive (les raisons), AUCUN fichier périmé archivé, code de sortie non nul (celui du jeu, sinon 12).
 import argparse
 import ctypes
 import gzip
@@ -434,12 +441,70 @@ def gz(src, dst):
         shutil.copyfileobj(fi, fo)
 
 
-def archiver(out, carte, captures, place=1):
+CODE_SANS_RESULTAT = 12
+TOLERANCE_HORLOGE = 3.0  # exFAT arrondit les heures de modification à 2 s
+FICHIERS_BANC = ("done.txt", "benchmark.log", "create.log", "benchmark-stdout.txt")
+
+
+def signature(res):
+    """{nom: (heure de modification, taille)} des fichiers du dossier de la place, avant le lancement."""
+    sig = {}
+    for n in sorted(os.listdir(res)) if os.path.isdir(res) else []:
+        p = os.path.join(res, n)
+        if os.path.isfile(p):
+            st = os.stat(p)
+            sig[n] = (st.st_mtime, st.st_size)
+    return sig
+
+
+def fin_de_benchmark(p):
+    """Vrai si la fin de benchmark-stdout.txt porte « Performed N updates » (le jeu est allé au bout des ticks)."""
+    try:
+        with open(p, "rb") as f:
+            f.seek(0, os.SEEK_END)
+            f.seek(max(0, f.tell() - 65536))
+            return b"Performed " in f.read()
+    except OSError:
+        return False
+
+
+def diagnostic(res, t_lancement, sig_avant, code, captures=False, fin=fin_de_benchmark):
+    """(problèmes, périmés) : raisons pour lesquelles ce banc n'a pas de résultat frais, et fichiers du dossier de la place
+    qui datent d'un banc précédent (inchangés depuis avant le lancement ou plus vieux que le lancement)."""
+    problemes, perimes = [], set()
+    if code != 0:
+        problemes.append(f"code de sortie {code} (le jeu ou le lanceur a échoué)")
+    sig_apres = signature(res)
+
+    def frais(n):
+        if n not in sig_apres:
+            return None
+        st = sig_apres[n]
+        if sig_avant.get(n) == st or st[0] < t_lancement - TOLERANCE_HORLOGE:
+            return False
+        return True
+
+    for n in sorted(sig_apres):
+        if n in FICHIERS_BANC and frais(n) is False:
+            perimes.add(n)
+    if not captures:  # les images (fo-captures.bat) ne produisent pas de benchmark.log : seuls code et périmés comptent
+        for n in FICHIERS_BANC:
+            f = frais(n)
+            if f is None:
+                problemes.append(f"{n} absent")
+            elif f is False:
+                problemes.append(f"{n} PÉRIMÉ (d'un banc précédent : le jeu n'a pas écrit dans ce dossier)")
+        if frais("benchmark-stdout.txt") and not fin(os.path.join(res, "benchmark-stdout.txt")):
+            problemes.append("benchmark interrompu (pas de ligne « Performed N updates » : le jeu s'est arrêté avant la fin)")
+    return problemes, perimes
+
+
+def archiver(out, carte, captures, place=1, perimes=()):
     os.makedirs(out, exist_ok=True)
     res = dossier(place)
     for n in sorted(os.listdir(res)) if os.path.isdir(res) else []:
         p = os.path.join(res, n)
-        if not os.path.isfile(p):
+        if not os.path.isfile(p) or n in perimes:
             continue
         if n.endswith(".zip") and not carte:
             continue
@@ -612,6 +677,7 @@ def main(argv):
             env["FO_PLACE"] = str(place)
         print(f"[BANC] {qui} : place {place} ({genre}{', toutes les places' if genre == 'seul' else ''}), "
               f"attente {attente:.0f} s", flush=True)
+        sig_avant = signature(dossier(place))
         t1 = time.time()
         if a.captures:
             cmd = [os.path.join(RACINE, "fo-captures.bat"), scenario, source]
@@ -622,7 +688,19 @@ def main(argv):
         os.makedirs(out, exist_ok=True)
         with open(os.path.join(out, "banc-sortie.txt"), "wb") as f:
             f.write(p.stdout)
-        archiver(out, a.carte, a.captures, place)
+        problemes, perimes = diagnostic(dossier(place), t1, sig_avant, p.returncode, a.captures)
+        archiver(out, a.carte, a.captures, place, perimes)
+        echec = os.path.join(out, "ECHEC.txt")
+        if problemes:
+            with open(echec, "w", encoding="utf-8") as f:
+                f.write(f"ECHEC du banc {qui} ({scenario}, {ticks} ticks, place {place}, {time.strftime('%d/%m/%Y %H:%M:%S')}) :\n")
+                f.write("".join(f"  - {x}\n" for x in problemes))
+                f.write("Fichiers périmés NON archivés : " + (", ".join(sorted(perimes)) or "aucun") + "\n")
+                f.write("Cette archive ne contient PAS le résultat d'une partie : ne pas la lire comme un succès.\n")
+        elif os.path.exists(echec):
+            os.remove(echec)
+        if problemes and p.returncode == 0:
+            p.returncode = CODE_SANS_RESULTAT
         with open(os.path.join(out, "banc.txt"), "w", encoding="utf-8") as f:
             f.write(f"{qui}\ncommande : {' '.join(cmd)}\ngraine {a.graine or '-'} ; creation {a.creation or '-'} ; "
                     f"son {a.son} ; visuel {a.visuel or '-'}\ncode {p.returncode} ; attente {attente:.0f} s ; "
@@ -638,6 +716,8 @@ def main(argv):
             pass
     print(f"[BANC] {qui} : code {p.returncode}, place {place}, attente {attente:.0f} s, banc {time.time() - t1:.0f} s, "
           f"archive {out}", flush=True)
+    for x in problemes:
+        print(f"[BANC] {qui} : ECHEC DU BANC : {x}", flush=True)
     for l in bilans(out):
         print("[BANC]   " + l, flush=True)
     return p.returncode
