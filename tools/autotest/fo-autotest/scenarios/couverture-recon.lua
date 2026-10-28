@@ -59,6 +59,10 @@ return {
     if not chest then return end
     stock_chest(chest)
     ctx.check(ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = true, radius = 3 }) == true, "plan directeur active")
+    -- La demande part TOUT DE SUITE : le cerveau (lot IA3-E, Auto.IDLE_OFF) éteint le plan directeur qui n'a plus rien à
+    -- bâtir ni à servir, et une demande faite 120 ticks plus tard (ancien banc) rend nil, « plan directeur inactif ».
+    st.pid = ctx.remote("fo-ia1d", "request", "player", { gen = "smelter", args = { "stone-furnace", "iron-ore", 3 }, feed = false })
+    ctx.check(st.pid ~= nil, "la fonderie est demandee au plan directeur", st.pid)
     st.t0 = game.tick
   end,
 
@@ -67,10 +71,7 @@ return {
     if not st.t0 then return end
     local t = e.tick - st.t0
     local s = ctx.surface()
-    if t == REQUEST then
-      st.pid = ctx.remote("fo-ia1d", "request", "player", { gen = "smelter", args = { "stone-furnace", "iron-ore", 3 }, feed = false })
-      ctx.log("demande de la fonderie : projet " .. tostring(st.pid))
-    end
+    if t == REQUEST then ctx.log("demande de la fonderie : projet " .. tostring(st.pid)) end
     if t > REQUEST and t % 300 == 0 and not st.killed then
       local r = ctx.remote("fo-ia1d", "report", "player")
       if r then
