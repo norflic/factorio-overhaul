@@ -8,7 +8,7 @@
   qu'une fois, à la fin d'un projet ; après « fini » plus personne ne regarde.
 
   UNE DÉCISION À PLUSIEURS ENTRÉES (aucune ne suffit seule) :
-    pièces       combien de sources / machines / pompes la centrale devrait avoir et combien existent (existence) ;
+    pièces       combien de sources / machines / pompes / tuyaux la centrale devrait avoir et combien existent (existence) ;
     production   énergie produite lue au moteur (kW) contre la demande des consommateurs posés ;
     combustible  sources présentes mais à sec ;
     connexité    consommateurs sur un îlot sans centrale, sous aucun poteau ; centrale reliée ou non ;
@@ -40,12 +40,12 @@ end
 
 local function lost_of(inp)
   local m = inp.missing or {}
-  return (m.source or 0) + (m.gen or 0) + (m.eau or 0)
+  return (m.source or 0) + (m.gen or 0) + (m.eau or 0) + (m.tuyau or 0)
 end
 S.lost = lost_of
 
 --- Décision. inp : voir le haut du fichier ; st : S.new() (modifié). Rend action, raison (texte), détail { lost, danger }.
---- inp = { fini = bool, missing = { source, gen, eau }, present = { source, gen, eau }, prod_kw, demand_kw, dry = n sources à sec,
+--- inp = { fini = bool, missing = { source, gen, eau, tuyau }, present = { source, gen, eau }, prod_kw, demand_kw, dry = n sources à sec,
 ---         islands = n consommateurs sur îlot, uncovered = n sous aucun poteau, enemies = n ennemis à portée du site,
 ---         lost_links = n poteaux perdus qui rallumeraient quelque chose }
 function S.decide(inp, st)

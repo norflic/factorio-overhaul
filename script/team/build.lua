@@ -31,6 +31,7 @@ local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR (T2) : bras de la centrale, combustion puis électrique
+local Rv = require("script.team.reseau_vivant") -- lot RESEAU-VIVANT : santé de la centrale et du réseau après « fini »
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -369,7 +370,17 @@ local function candidates(b, states, toward, res)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
     if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
-      out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
+      -- lot RESEAU-VIVANT : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
+      local avoided = false
+      if states.rive and b.avoid then
+        for _, a in ipairs(b.avoid) do
+          local m = a.r + Build.AVOID_MARGIN
+          if (c.x - a.x) * (c.x - a.x) + (c.y - a.y) * (c.y - a.y) <= m * m then avoided = true break end
+        end
+      end
+      if not avoided then
+        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
+      end
     end
   end
   table.sort(out, function(a, c) if a.d ~= c.d then return a.d < c.d end return a.k < c.k end)
@@ -498,6 +509,7 @@ local function nearest_node(b, x, y)
   return i, j
 end
 
+Build.AVOID_MARGIN = 8 -- tuiles ajoutées au rayon d'un site écarté (le lot fait 32 tuiles de côté)
 Build.REUSE_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true }
 
 --- Poteaux du réseau à ajouter pour relier le module (premier poteau `mp`) au réseau : carrefours de la route jusqu'au
@@ -1323,6 +1335,7 @@ function Build.cancel(f, id, why)
   local b = f and f.build
   local p = b and b.projects[id]
   if not (p and (p.state == "attente" or p.state == "plan" or p.state == "reserve")) then return false end
+  if p.reopened then return false end -- lot RESEAU-VIVANT : un projet déjà bâti dont des pièces sont à refaire n'est pas annulable
   release(f, p)
   for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
   for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
@@ -2054,10 +2067,13 @@ local function finish_project(f, surface, p, tick)
   release(f, p)
   p.state = "fini"
   p.finished = tick
-  for _, pt in pairs(p.parts) do
-    if pt then b.stats.modules_done = b.stats.modules_done + 1 end
+  if not p.counted then -- lot RESEAU-VIVANT : un projet rouvert puis refini ne compte qu'une fois
+    p.counted = true
+    for _, pt in pairs(p.parts) do
+      if pt then b.stats.modules_done = b.stats.modules_done + 1 end
+    end
+    b.stats.projects_done = b.stats.projects_done + 1
   end
-  b.stats.projects_done = b.stats.projects_done + 1
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n].built = true end end
   log(string.format("[FO-IA1D] %s : projet %d fini (%s, %d entites, %d fils) a %.1f min", f.key or "player", p.id,
     p.parts[1] and p.parts[1].key or "?", #p.ents, p.wired or 0, tick / 3600))
@@ -2216,6 +2232,8 @@ local function pulse_team(f, tick)
   -- 3. lot PLANDIR (T2) : bras de la centrale finie, combustion au démarrage puis électriques
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
+  -- 4. lot RESEAU-VIVANT : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
+  Rv.step({ plant = Build.plant }, f, surface, tick)
 end
 
 local function teams()

@@ -42,6 +42,8 @@ a = S.decide(inp({ missing = { gen = 1 } }), S.new())
 check(a == "reposer", "machine perdue, site sur : reposer")
 a = S.decide(inp({ missing = { eau = 1 } }), S.new())
 check(a == "reposer", "pompe perdue : reposer")
+a = S.decide(inp({ missing = { tuyau = 3 } }), S.new())
+check(a == "reposer", "tuyaux perdus (la vapeur ne passe plus) : reposer")
 a = S.decide(inp({ missing = { source = 1 }, enemies = 3 }), S.new())
 check(a == "attendre", "ennemis a portee, pas encore dangereux : attendre (pas de pose sous le feu)")
 a = S.decide(inp({ prod_kw = 0, dry = 2 }), S.new())
@@ -138,7 +140,8 @@ local MUT = {
   { "panne sans demande", "demand >= S.MIN_DEMAND_KW", "true" },
   { "combustible confondu", 'if (inp.dry or 0) > 0 then return "combustible"', 'if false then return "combustible"' },
   { "deplacement ne remet pas les compteurs", "st.tries, st.site_losses, st.seen, st.bad = 0, 0, 0, 0", "" },
-  { "pompe non comptee", "(m.source or 0) + (m.gen or 0) + (m.eau or 0)", "(m.source or 0) + (m.gen or 0)" },
+  { "pompe non comptee", "(m.source or 0) + (m.gen or 0) + (m.eau or 0)", "(m.source or 0) + (m.gen or 0) + (m.tuyau or 0)" },
+  { "tuyaux non comptes", "+ (m.tuyau or 0)", "" },
 }
 local function battery(S2)
   local bad = 0
@@ -148,6 +151,7 @@ local function battery(S2)
   exp((S2.decide(inp({ missing = { source = 1 } }), S2.new())) == "reposer")
   exp((S2.decide(inp({ missing = { eau = 1 } }), S2.new())) == "reposer")
   exp((S2.decide(inp({ missing = { source = 1 }, enemies = 3 }), S2.new())) == "attendre")
+  exp((S2.decide(inp({ missing = { tuyau = 2 } }), S2.new())) == "reposer")
   exp((S2.decide(inp({ prod_kw = 0, dry = 2 }), S2.new())) == "attendre")
   local s3 = S2.new()
   S2.decide(inp({ prod_kw = 0, dry = 2 }), s3)
