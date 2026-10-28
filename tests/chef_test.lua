@@ -576,6 +576,19 @@ do
   check(styled >= 1, "IA2-c : style des rivales tenu par le chef (" .. styled .. " modèles)")
 end
 check(pcall(M.serialize, global), "global sérialisable (état du chef)")
+-- Lot RECON : la ligne de statut est contrôlée DEUX fois. D'abord rivales non reconnues (production : les factions du moteur simulé ne
+-- se voient pas) : posture et raison traduites, cible « - ». Puis, brouillard des rivales coupé (rivale connue d'office) et deux
+-- minutes de plus pour que le chef choisisse : la cible est traduite.
+M.command("fo-war", "status")
+do
+  local line0
+  for _, l in ipairs(W().prints) do if l:find("{fo-chef.status:", 1, true) then line0 = l end end
+  check(line0 ~= nil and line0:find("{fo-chef.posture-", 1, true) ~= nil and line0:find("{fo-chef.reason-", 1, true) ~= nil,
+    "ligne du chef, rivales non reconnues : posture et raison traduites (" .. tostring(line0 and line0:sub(1, 90)) .. ")")
+end
+require("script.core.storage").ns("ai3f").fog = false
+M.run_ticks(2 * 3600)
+for k = #W().prints, 1, -1 do W().prints[k] = nil end
 M.command("fo-war", "status")
 local status_ok = false
 -- Correction VERIF-NUIT (25/10) : ligne traduite (clé fo-chef.status, locale/*/ia2.cfg), postures et raison traduites.

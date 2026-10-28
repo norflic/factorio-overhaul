@@ -167,6 +167,13 @@ F.pvp_rules = {
   -- rivale d'attaques en Impitoyable ; 10 donne un peu moins d'écarts à 90 s par soldat mais retarde encore
   -- la reprise (Normal : 80 min) ; 8 retenu.
   rival_wait = 8,
+  -- Lot RECON (28/10) : une faction dont les rivales existent mais ne sont pas RECONNUES (jamais vues, savoir périmé) n'a pas de
+  -- rivale à attaquer : le déficit ne se comblerait jamais, et ni « sans rivale » (le joueur dû en permanence : 9 et 19 attaques
+  -- contre 6 et 9 sur main à Difficile et Impitoyable, moteur simulé de pvp_test, taille moyenne non croissante) ni rival_wait
+  -- (2 et 4 attaques) ne donnent la pression d'avant. Elle se retourne contre le joueur après unknown_wait × l'intervalle du
+  -- niveau sans attaque lancée : 2,5 reproduit les 3, 6 et 9 attaques de main aux trois niveaux (Normal 20 min, Difficile 12,5,
+  -- Impitoyable 7,5).
+  unknown_wait = 2.5,
   max_keep = 0.9,             -- garnison gardée au plus (quel que soit le niveau)
   -- Coalition (le joueur est le « leader » : territoire nettement supérieur) : la part visée s devient
   -- s + leader_bonus × (1 - s). Correction du lot IA0 : l'ancien « × 1,5 plafonné à 100 % » rendait

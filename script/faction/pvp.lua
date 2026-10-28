@@ -315,6 +315,14 @@ function PvP.think(f, surface, tick, view, target)
     end
   end
   view.rival = target and { id = target.id, outposts = target.outposts_count } or nil
+  -- Lot RECON : des rivales existent et sont atteignables, mais aucune n'est reconnue (jamais vue ou savoir périmé) : la faction
+  -- n'est PAS « sans rivale » (S.decide : la règle du déficit s'applique encore, sa pression sur le joueur reste celle d'avant).
+  view.rival_unknown = false
+  if not target then
+    for _, id in ipairs(State.alive()) do
+      if id ~= f.id and not Military.target_unreachable(f, id, tick) then view.rival_unknown = true break end
+    end
+  end
   view.own_outposts = f.outposts_count
   view.leader_outposts = leader
   -- Lot IA2-c : brouillard. Aux niveaux agressifs, la faction prépare ses regards (file de secteurs), tient son

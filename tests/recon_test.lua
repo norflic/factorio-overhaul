@@ -183,6 +183,19 @@ local function battery()
   check(R.sweep_gap(1000, 0, 1) == 2 * R.sweep_gap(1000, 0, 0), "délai de balayage doublé par perte")
   check(R.sweep_gap(1000, 0, 99) == R.sweep_gap(1000, 0, R.LOSS_CAP) and R.sweep_gap(2000, 0, 0) >= R.SWEEP_MIN, "balayage : borné")
   check(R.range(2000) > R.range(1000) and R.range(500) < R.range(1000), "plus curieuse, elle va plus loin")
+  -- Pression sur le joueur d'une faction dont les rivales ne sont pas reconnues (S.rival_stalled, unknown_wait).
+  do
+    local S = require("shared.faction.strategy")
+    local F2 = require("shared.faction.config")
+    local w, wu = S.rival_wait_ticks("merciless"), S.rival_wait_ticks("merciless", true)
+    check(wu < w and wu == math.floor(F2.pvp_rules.unknown_wait * F2.pvp_params("merciless").cooldown_min * 3600),
+      "rivale inconnue : l'attente avant de se retourner contre le joueur est unknown_wait x l'intervalle du niveau")
+    local base = { pvp = { last_attack = 1000, tick = 1000 + wu }, rival_unknown = true }
+    check(S.rival_stalled(base, "merciless") and not S.rival_stalled({ pvp = { last_attack = 1000, tick = 1000 + wu - 1 }, rival_unknown = true }, "merciless"),
+      "rivale inconnue : le joueur redevient dû exactement après unknown_wait")
+    check(not S.rival_stalled({ pvp = { last_attack = 1000, tick = 1000 + wu }, rival_unknown = false }, "merciless"),
+      "rivale connue : l'attente reste rival_wait (main inchangé)")
+  end
   local so = R.standoff({ x = 0, y = 0 }, { x = 400, y = 0 })
   check(math.abs(so.x - (400 - R.STANDOFF)) < 1e-9 and so.y == 0, "revérification : à R.STANDOFF tuiles du point connu, côté QG")
   local near = R.standoff({ x = 0, y = 0 }, { x = 50, y = 0 })

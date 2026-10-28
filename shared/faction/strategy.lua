@@ -438,8 +438,8 @@ end
 
 --- Délai au-delà duquel une faction qui n'a rien lancé (ni contre le joueur, ni contre une rivale) se
 --- retourne contre le joueur malgré la règle du déficit (lot IA0b) : rival_wait × l'intervalle du niveau.
-function S.rival_wait_ticks(level)
-  return math.floor(F.pvp_rules.rival_wait * F.pvp_params(level).cooldown_min * 3600)
+function S.rival_wait_ticks(level, unknown)
+  return math.floor((unknown and F.pvp_rules.unknown_wait or F.pvp_rules.rival_wait) * F.pvp_params(level).cooldown_min * 3600)
 end
 
 --- Impasse de la règle du déficit (lot IA0b) : aucune attaque lancée (joueur ou rivale) depuis
@@ -448,7 +448,7 @@ function S.rival_stalled(v, level)
   local pv = v.pvp
   local last = pv.last_attack
   if pv.last_rival and (last == nil or pv.last_rival > last) then last = pv.last_rival end
-  return last ~= nil and pv.tick - last >= S.rival_wait_ticks(level)
+  return last ~= nil and pv.tick - last >= S.rival_wait_ticks(level, v.rival_unknown)
 end
 
 --- Territoire du joueur en « équivalents avant-postes » (unité commune avec les factions) : secteurs
@@ -525,7 +525,7 @@ function S.decide(v)
   -- plus (sent_total n'augmente plus) avant la fin de l'impasse, rival_wait × l'intervalle du niveau.
   local rival_held = v.chef ~= nil and v.chef.hold_rival == true
   local due = player_ok
-    and ((v.rival == nil) or rival_held or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0)
+    and ((v.rival == nil and not v.rival_unknown) or rival_held or (pv.sent_player or 0) <= S.player_share(v, level) * (pv.sent_total or 0)
       or S.rival_stalled(v, level))
   if pv then
     if due and pv.due_since == nil then out.due_since = pv.tick end

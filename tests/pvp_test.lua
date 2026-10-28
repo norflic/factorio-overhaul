@@ -1081,15 +1081,11 @@ end
 -- Lot IA0b : base agrandie de 36 assembleurs. Avec la seule base témoin (10 installations), Impitoyable
 -- l'avait rasée vers 28 min et plafonnait à 8 attaques en 45 min, comme Difficile (9) : le décompte mesurait
 -- la taille de la base, plus le niveau.
-local function measure(level, minutes)
+local function measure(level, minutes, fog_off)
   new_world(level, { machines = 36 })
   war("start 2 60 6 320")
-  -- Lot RECON (28/10) : cette mesure compare les NIVEAUX de difficulté contre le joueur, avec une rivale CONNUE comme avant le lot
-  -- (brouillard des rivales coupé). Avec le brouillard actif, les deux factions du moteur simulé ne se voient jamais : sans rivale
-  -- reconnue elles ne visent que le joueur (comme toute faction sans rivale, S.decide), d'où 9 attaques à Difficile et 19 à Impitoyable
-  -- au lieu de 6 et 9 (mesuré), et l'ordre de la taille moyenne casse (27,0 puis 26,1). La connaissance des rivales a ses bancs
-  -- (tests/recon_test.lua, scénarios recon-*), la pression sur le joueur en 4 factions son relevé (fo-logs/2026-10-28_RECON3).
-  require("script.core.storage").ns("ai3f").fog = false
+  -- Lot RECON : second cas, brouillard des rivales COUPÉ (rivale connue d'office, comportement d'avant le lot).
+  if fog_off then require("script.core.storage").ns("ai3f").fog = false end
   local r = { first = nil, declare = nil }
   for _ = 1, minutes * 12 do
     M.run_ticks(300)
@@ -1289,6 +1285,23 @@ check(runs.easy.attacks < runs.normal.attacks and runs.normal.attacks < runs.har
   string.format("ordre strict du nombre d'attaques : %d < %d < %d < %d", runs.easy.attacks, runs.normal.attacks, runs.hard.attacks, runs.merciless.attacks))
 check(runs.easy.mean < runs.normal.mean and runs.normal.mean < runs.hard.mean and runs.hard.mean < runs.merciless.mean,
   string.format("ordre strict de la taille moyenne : %.1f < %.1f < %.1f < %.1f", runs.easy.mean, runs.normal.mean, runs.hard.mean, runs.merciless.mean))
+-- Lot RECON : la même mesure, brouillard des rivales COUPÉ (rivale connue d'office : comportement d'avant le lot), en plus du cas de
+-- production ci-dessus (les deux factions ne se voient pas : leur pression sur le joueur reste celle d'avant, S.rival_stalled / unknown_wait).
+section("Runtime : mesures par niveau, brouillard des rivales coupé (lot RECON, second cas)")
+do
+  local nf = {}
+  for _, lv in ipairs(LEVELS) do nf[lv] = measure(lv, 45, true) end
+  print("  niveau (brouillard coupé)  attaques  taille moy.")
+  for _, lv in ipairs(LEVELS) do print(string.format("  %-11s %8d  %11.1f", lv, nf[lv].attacks, nf[lv].mean)) end
+  check(nf.easy.attacks < nf.normal.attacks and nf.normal.attacks < nf.hard.attacks and nf.hard.attacks < nf.merciless.attacks,
+    string.format("brouillard coupé : ordre strict du nombre d'attaques : %d < %d < %d < %d", nf.easy.attacks, nf.normal.attacks, nf.hard.attacks, nf.merciless.attacks))
+  check(nf.easy.mean < nf.normal.mean and nf.normal.mean < nf.hard.mean and nf.hard.mean < nf.merciless.mean,
+    string.format("brouillard coupé : ordre strict de la taille moyenne : %.1f < %.1f < %.1f < %.1f", nf.easy.mean, nf.normal.mean, nf.hard.mean, nf.merciless.mean))
+  -- Pression sur le joueur : jamais plus d'attaques avec rivale inconnue (production) qu'avec rivale connue.
+  for _, lv in ipairs({ "normal", "hard", "merciless" }) do
+    check(runs[lv].attacks <= nf[lv].attacks, string.format("%s : rivale inconnue, pas plus d'attaques contre le joueur que rivale connue (%d <= %d)", lv, runs[lv].attacks, nf[lv].attacks))
+  end
+end
 
 ---------------------------------------------------------------------------------------------------
 section("Runtime : base défendue (lot IA0b, 4 factions)")
