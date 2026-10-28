@@ -1545,6 +1545,17 @@ local function shift_pole(f, surface, p, e)
   return false
 end
 
+--- Lot QUAI-CHARGE (moteur réel, etape1-plant, Azure 123456789 : projet fini à 14 min, chaudière sans combustible jusqu'à
+--- 23 min, quai VIDE alors que le coffre du QG avait 248 à 584 charbons) : le quai de combustible de LA CENTRALE de l'équipe
+--- (b.plant) à la place de l'entité `e`, ou nil.
+local function fuel_quai(f, p, e)
+  if not (f.build and f.build.plant == p.id) then return nil end
+  for _, q in ipairs(p.quais) do
+    if math.abs(q.x - e.x) <= 0.3 and math.abs(q.y - e.y) <= 0.3 then return q end
+  end
+  return nil
+end
+
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
 --- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
 local function revive_one(surface, f, p, e, inv, tick, self)
@@ -1595,10 +1606,9 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     local fuel = ent.get_fuel_inventory()
     if fuel then fuel.insert({ name = "coal", count = inv.remove({ name = "coal", count = 2 }) }) end
   end
-  local fq = fuel_quai(p, e)
+  local fq = fuel_quai(f, p, e)
   if fq and ent.valid then
-    local keep = 0 -- les inserteurs à combustible pas encore posés gardent leurs 2 charbons
-    for _, o in ipairs(p.ents) do if o.name == "burner-inserter" and not o.built then keep = keep + 2 end end
+    local keep = needs_of(p)[fq.item] or 0 -- le combustible des pièces pas encore posées (inserteurs) reste à ceux qui le portent
     local n = P.quai_charge(inv.get_item_count(fq.item), keep, Build.QUAI_CHARGE)
     local box = n > 0 and ent.get_inventory(defines.inventory.chest) or nil
     if box then
@@ -1840,17 +1850,6 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tâches au tableau
 ---------------------------------------------------------------------------------------------------
---- Lot QUAI-CHARGE (moteur réel, etape1-plant, Azure 123456789 : projet fini à 14 min, chaudière sans combustible jusqu'à
---- 23 min, quai VIDE alors que le coffre du QG avait 248 à 584 charbons) : le quai de combustible d'une centrale (projet « steam »)
---- à la place de l'entité `e`, ou nil.
-local function fuel_quai(p, e)
-  if not (p.spec and p.spec.gen == "steam") then return nil end
-  for _, q in ipairs(p.quais) do
-    if math.abs(q.x - e.x) <= 0.3 and math.abs(q.y - e.y) <= 0.3 then return q end
-  end
-  return nil
-end
-
 local function batch_tasks(f, p, out)
   local b = f.build
   local by = {}
@@ -1862,7 +1861,7 @@ local function batch_tasks(f, p, out)
       local bt = by[k]
       bump(bt.items, e.item)
       if e.name == "burner-inserter" then bump(bt.items, "coal", 2) end
-      local fq = fuel_quai(p, e)
+      local fq = fuel_quai(f, p, e)
       if fq then bump(bt.items, fq.item, Build.QUAI_CHARGE) end -- souple : jamais dans la réserve (needs_of), le stock libre la fournit
       bt.n = bt.n + 1
     end
