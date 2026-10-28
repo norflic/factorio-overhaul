@@ -1201,7 +1201,8 @@ local function plan_project(f, surface, p)
     end
   end
   Profiler.stop("build:plan:power")
-  if is_plant then b.plant = p.id end
+  -- lot RESEAU : une centrale de plus (spec.extra) n'est pas LA centrale de l'équipe (b.plant reste celle de base)
+  if is_plant and not spec.extra then b.plant = p.id end
   Profiler.start("build:plan:anchors")
   -- points d'appui : sur une rue praticable à 16 tuiles au plus, sinon au centre de la case de 8 × 8 ; dans les deux
   -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
