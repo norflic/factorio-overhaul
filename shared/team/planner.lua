@@ -883,7 +883,7 @@ function P.plan(view, book)
     -- Lot REMPLISSAGE : la tournée ne s'ouvre que si elle a quelque chose à faire (place à charger ET matière au coffre,
     -- combustible bas, sortie qui s'accumule : shared/team/charge.lua) ; `smelter_due` absent : ancien comportement.
     if (next(out.smelt) ~= nil or view.smelter_output > 0 or view.smelter_fuel_low)
-      and Charge.visit_due(view.smelter_due, out.smelt, view.smelter_fuel_low) then
+      and Charge.visit_due(view.smelter_due, out.smelt, view.smelter_fuel_low, T.charge) then
       add({ key = "smelt", kind = "smelt", prio = view.smelter_fuel_low and 65 or 60, smelt = out.smelt })
     end
   end

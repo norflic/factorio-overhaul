@@ -43,6 +43,7 @@ C.DEFAULT = {
   base_fabs = 10,   -- plancher : les 10 fabrications de main 0.6.7, quelle que soit la part
   out_due = 0.25,   -- une sortie à cette part de sa pile justifie une tournée
   fuel_low = 0.5,   -- un combustible sous cette part de sa cible justifie une tournée
+  fuel_min = 5,     -- ... à condition que le coffre ait au moins ce combustible libre (sinon la tournée reviendrait à vide)
 }
 
 local function P_of(P)
@@ -215,9 +216,11 @@ function C.fuel_missing(fuel, target)
   return math.max(0, target - (fuel or 0))
 end
 
---- La tournée est-elle justifiée ? Rend due = { products = { [produit] = true }, fuel = bool, out = bool }.
---- products[p] : au moins un four peut recevoir p ET le coffre en a au moins une fabrication.
-function C.due(fs, specs, stock, fuel_target, P)
+--- La tournée est-elle justifiée ? Rend due = { products = { [produit] = fabrications au coffre }, fuel = bool, out = bool }.
+--- products[p] : au moins un four peut recevoir p ET le coffre a au moins une fabrication (le nombre de fabrications du
+--- coffre est rendu ; C.visit_due exige qu'il vaille la tournée). fuel : un four sous `fuel_low` de sa cible ET du
+--- combustible libre au coffre (`fuel_stock` >= `fuel_min` ; nil = non contrôlé).
+function C.due(fs, specs, stock, fuel_target, P, fuel_stock)
   P = P_of(P)
   local due = { products = {}, fuel = false, out = false }
   local ratio = ratio_of(specs)
@@ -229,26 +232,33 @@ function C.due(fs, specs, stock, fuel_target, P)
         local n = f.n or 0
         if f.item == nil or n == 0 or underfilled(f, ratio)
           or (f.item == spec.input and n < P.low * target and target - n >= spec.per) then
-          due.products[p] = true
+          due.products[p] = math.floor((stock[spec.input] or 0) / spec.per)
           break
         end
       end
     end
   end
   for _, f in ipairs(fs) do
-    if fuel_target and (f.fuel or 0) < P.fuel_low * fuel_target then due.fuel = true end
+    if fuel_target and (f.fuel or 0) < P.fuel_low * fuel_target and (fuel_stock == nil or fuel_stock >= P.fuel_min) then due.fuel = true end
     if (f.out or 0) > 0 and (f.out or 0) >= P.out_due * math.max(1, f.out_cap or 0) then due.out = true end
   end
   return due
 end
 
---- Une tournée « smelt » vaut-elle d'être ouverte ? smelt = { [produit] = n } (demande), fuel_low = combustible urgent
---- (< T.fuel_low). due == nil : ancien comportement (vue sans relevé des fours).
-function C.visit_due(due, smelt, fuel_low)
+--- Une tournée « smelt » vaut-elle d'être ouverte ? smelt = { [produit] = n } (demande). due == nil : ancien comportement
+--- (vue sans relevé des fours). Une matière ne justifie la tournée que si le coffre en a de quoi `base_fabs`
+--- fabrications, ou de quoi toute la demande si elle est plus petite (sinon la tournée charge 2 minerais et revient).
+--- Le combustible urgent (< T.fuel_low) est compris dans due.fuel (même seuil, avec du combustible libre au coffre).
+function C.visit_due(due, smelt, fuel_low, P)
   if due == nil then return true end
-  if fuel_low or due.fuel or due.out then return true end
+  P = P_of(P)
+  if due.fuel or due.out then return true end
   for _, p in ipairs(sorted_keys(smelt)) do
-    if (smelt[p] or 0) > 0 and due.products[p] then return true end
+    local d = smelt[p] or 0
+    local have = due.products[p]
+    if d > 0 and have then
+      if have == true or have >= math.min(P.base_fabs, d) then return true end
+    end
   end
   return false
 end

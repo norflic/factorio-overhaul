@@ -554,6 +554,7 @@ end
 --- Fonderie du QG : relève (production en sortie, combustible urgent) et justification d'une tournée (`due`, règle
 --- Charge.due) selon le stock libre `stock`.
 function Outposts.smelter_report(f, stock)
+  if #Outposts.smelters(f) == 0 then return 0, false, nil end
   local list, fs, specs = smelter_context(f)
   local out, low = 0, false
   for i, s in ipairs(list) do
@@ -561,7 +562,8 @@ function Outposts.smelter_report(f, stock)
     if fs[i].fuel < T.fuel_low then low = true end
   end
   local ft = list[1] and smelter_fuel_target(list[1]) or nil
-  return out, low, Charge.due(fs, specs, stock or {}, ft, T.charge)
+  stock = stock or {}
+  return out, low, Charge.due(fs, specs, stock, ft, T.charge, stock[T.fuel] or 0)
 end
 
 --- Fonderie du QG : vide les sorties, charge les entrées selon `smelt` ({ [produit] = n }), ravitaille.

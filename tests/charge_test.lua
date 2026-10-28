@@ -154,6 +154,17 @@ local function suite(C)
   check(due.out, "sortie à 30 % de la pile : justifiée")
   due = C.due({ furnace({ item = "iron-ore", n = 50, crafting = true, out = 10, out_cap = 100 }) }, S, {}, 14)
   check(not due.out, "sortie à 10 % : pas encore")
+  due = C.due({ furnace({ item = "iron-ore", n = 10, crafting = true }) }, S, { ["iron-ore"] = 37 }, 14)
+  check(due.products["iron-plate"] == 37, "fabrications au coffre rendues (37 minerais = 37 fabrications)")
+  due = C.due({ furnace({ item = "iron-ore", n = 50, crafting = true, fuel = 4 }) }, S, {}, 14, nil, 3)
+  check(not due.fuel, "combustible bas mais presque rien au coffre (3 < 5) : la tournée reviendrait à vide")
+  due = C.due({ furnace({ item = "iron-ore", n = 50, crafting = true, fuel = 4 }) }, S, {}, 14, nil, 40)
+  check(due.fuel, "combustible bas et du charbon au coffre : justifiée")
+  local ready = function(n) return { products = { ["iron-plate"] = n }, fuel = false, out = false } end
+  check(C.visit_due(ready(3), { ["iron-plate"] = 50 }, false) == false, "3 fabrications au coffre pour une demande de 50 : pas la peine")
+  check(C.visit_due(ready(10), { ["iron-plate"] = 50 }, false) == true, "10 fabrications au coffre : la peine (plancher de main)")
+  check(C.visit_due(ready(3), { ["iron-plate"] = 2 }, false) == true, "petite demande (2) couverte par le coffre : oui")
+  check(C.visit_due(ready(1), { ["iron-plate"] = 2 }, false) == false, "1 fabrication pour une demande de 2 : pas encore")
   check(C.visit_due(nil, {}, false) == true, "vue sans relevé : ancien comportement")
   check(C.visit_due({ products = {}, fuel = false, out = false }, { ["iron-plate"] = 50 }, false) == false, "demande sans place : non")
   check(C.visit_due({ products = { ["iron-plate"] = true }, fuel = false, out = false }, { ["iron-plate"] = 50 }, false) == true, "demande avec place : oui")
@@ -161,8 +172,9 @@ local function suite(C)
     "place pour un autre produit : non")
   check(C.visit_due({ products = { ["iron-plate"] = true }, fuel = false, out = false }, { ["iron-plate"] = 0 }, false) == false,
     "demande nulle : non")
-  check(C.visit_due({ products = {}, fuel = true, out = false }, {}, false) and C.visit_due({ products = {}, fuel = false, out = true }, {}, false)
-    and C.visit_due({ products = {}, fuel = false, out = false }, {}, true), "combustible, sortie ou urgence : oui")
+  check(C.visit_due({ products = {}, fuel = true, out = false }, {}, false) and C.visit_due({ products = {}, fuel = false, out = true }, {}, false),
+    "combustible ou sortie : oui")
+  check(C.visit_due({ products = {}, fuel = false, out = false }, {}, true) == false, "urgence sans combustible au coffre (due.fuel faux) : non")
 
   -- 7. Simulation de 10 minutes : passages d'un porteur (au plus un toutes les 300 ticks), 4 fours à minerai.
   local function simulate(C, lead)
@@ -253,8 +265,10 @@ local MUTANTS = {
   { "tournée sans matière au coffre", "if (stock[spec.input] or 0) >= spec.per then", "if true then" },
   { "tournée toujours justifiée", "if due == nil then return true end", "if due == nil then return true end\n  if true then return true end" },
   { "sortie ignorée", "if (f.out or 0) > 0 and (f.out or 0) >= P.out_due * math.max(1, f.out_cap or 0) then due.out = true end", "" },
-  { "combustible ignoré", "if fuel_target and (f.fuel or 0) < P.fuel_low * fuel_target then due.fuel = true end", "" },
-  { "visite sans demande", "if (smelt[p] or 0) > 0 and due.products[p] then return true end", "if due.products[p] then return true end" },
+  { "combustible ignoré", "if fuel_target and (f.fuel or 0) < P.fuel_low * fuel_target and (fuel_stock == nil or fuel_stock >= P.fuel_min) then due.fuel = true end", "" },
+  { "matière insuffisante suffit", "if have == true or have >= math.min(P.base_fabs, d) then return true end", "return true" },
+  { "combustible sans stock", "and (fuel_stock == nil or fuel_stock >= P.fuel_min) then due.fuel = true end", "then due.fuel = true end" },
+  { "visite sans demande", "if d > 0 and have then", "if have then" },
   { "tour de rôle des produits retiré", "k = k % #products + 1", "k = 1" },
 }
 local killed, survived = 0, {}

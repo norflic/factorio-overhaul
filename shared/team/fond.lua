@@ -166,7 +166,7 @@ local function extraction(view, free, ctx, out)
         any = true
       end
     end
-    if any and Charge.visit_due(view.smelter_due, smelt, view.smelter_fuel_low) then
+    if any and Charge.visit_due(view.smelter_due, smelt, view.smelter_fuel_low, T.charge) then
       out[#out + 1] = { key = "smelt", kind = "smelt", prio = F.PRIO.smelt, smelt = smelt, fond = true, domain = "gisements" }
     end
   end

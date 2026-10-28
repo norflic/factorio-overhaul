@@ -249,7 +249,7 @@ function C.think(view, book, st, ctx)
     end
   end
   if not has_smelt and (view.smelters or 0) > 0 and not view.smelter_task and next(smelt) ~= nil
-    and not (view.open or {})["smelt"] and Charge.visit_due(view.smelter_due, smelt, view.smelter_fuel_low) then
+    and not (view.open or {})["smelt"] and Charge.visit_due(view.smelter_due, smelt, view.smelter_fuel_low, T.charge) then
     tasks[#tasks + 1] = { key = "smelt", kind = "smelt", prio = math.max(60, E.smelt_prio), smelt = smelt }
   end
   table.sort(tasks, function(a, b)
