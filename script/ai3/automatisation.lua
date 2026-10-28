@@ -26,6 +26,7 @@ local A = require("shared.ai3.automatiser")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
+local Centrale = require("shared.team.centrale") -- lot PLANDIR : croissance de la centrale
 local Profiler = require("script.core.profiler")
 
 local Auto = {}
@@ -469,6 +470,22 @@ function Auto.think(f, view, book, tick, research)
   roll(f, st, tick)
   st.sig = signature(f, tick, st)
   refresh(f, st, tick)
+  -- Lot PLANDIR : centrale saturée (80 % de la capacité de ses machines pendant 30 s) : une centrale de plus, de la taille de
+  -- ce qui existe, par le plan directeur ; comme la première, son chantier est un projet du cerveau (mods ci-dessous)
+  local w = f.build and f.build.plant_watch
+  if w and st.plant_id then
+    local base = A.template(A.PLANT.gen, A.PLANT.args)
+    local nb = Centrale.growth(w, w.done or 0, w.pending or 0, w.boilers or 1, base and base.ext and base.ext.max)
+    if nb then
+      local id = Build.request(f, { gen = A.PLANT.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
+        pole = A.choose_pole(book, view.stock or {}) })
+      st.extra_plants = st.extra_plants or {}
+      st.extra_plants[#st.extra_plants + 1] = id
+      Centrale.requested(w)
+      note(f, st, tick, string.format("centrale saturee (%.0f J/tick sur %.0f) : centrale de %d chaudiere(s) demandee (projet %d)",
+        w.power or 0, w.capacity or 0, nb, id))
+    end
+  end
   if tick >= (st.next_decide or 0) then
     st.next_decide = tick + Auto.EVERY
     local stock = view.stock or {}
@@ -507,6 +524,12 @@ function Auto.think(f, view, book, tick, research)
   if st.plant_id and st.plant_state ~= "fini" and st.plant_state ~= "refuse" then
     local ps = Build.brief(f, st.plant_id)
     if ps then
+      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+    end
+  end
+  for _, id in ipairs(st.extra_plants or {}) do
+    local ps = f.build and Build.brief(f, id)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end

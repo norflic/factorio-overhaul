@@ -2183,8 +2183,7 @@ local function pulse_team(f, tick)
     end
   end
   -- 3. lot PLANDIR : moniteur de la centrale finie (premier courant, pannes)
-  local pp = b.plant and b.projects[b.plant]
-  if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
+  PlantArms.step_all(f, surface, tick)
 end
 
 local function teams()

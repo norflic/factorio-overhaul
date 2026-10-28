@@ -8,6 +8,7 @@
   combustion se recharge seul avec le charbon qu'il déplace. Seul le charbon du quai manque : voir docs, approvisionnement par tapis.
 ]]
 local M = require("shared.team.modules")
+local C = require("shared.team.centrale")
 
 local PA = {}
 
@@ -38,7 +39,7 @@ local function snapshot(f, surface, p, st, tag, tick)
     parts[#parts + 1] = string.format("coffre(%s)=%d", tostring(q.item), c and c.get_item_count(q.item) or -1)
   end
   for _, e in ipairs(p.ents) do
-    if (M.spec(e.name) or {}).kind == "boiler" then
+    if (M.spec(e.name) or {}).water ~= nil then
       local r = real_of(surface, e, f.force)
       if r then
         local inv = r.get_fuel_inventory()
@@ -47,7 +48,7 @@ local function snapshot(f, surface, p, st, tag, tick)
         for i = 1, #fb do local fl = fb[i]; if fl and fl.name == "steam" then steam = steam + fl.amount end end
         parts[#parts + 1] = string.format("chaudiere combustible=%d vapeur=%.0f statut=%s", inv and inv.get_item_count() or -1, steam, status_name(r))
       end
-    elseif (M.spec(e.name) or {}).kind == "generator" then
+    elseif (M.spec(e.name) or {}).power_out ~= nil then
       local r = real_of(surface, e, f.force)
       if r then parts[#parts + 1] = string.format("machine statut=%s", status_name(r)) end
     elseif e.was_burner or e.name == M.BURNER_ARM then
@@ -59,35 +60,58 @@ local function snapshot(f, surface, p, st, tag, tick)
     table.concat(parts, " ; ")))
 end
 
---- Relevé de la centrale (projet `p` fini), toutes les 5 s : premier courant et pannes (journal).
+--- Relevé de TOUTES les centrales finies de l'équipe, toutes les 5 s : premier courant, pannes (journal), saturation
+--- (f.build.plant_watch.saturated, lu par script/ai3/automatisation.lua qui demande une centrale de plus).
 PA.EVERY = 300
-function PA.step(f, surface, p, tick)
+function PA.step_all(f, surface, tick)
   local b = f.build
   b.plant_watch = b.plant_watch or { snaps = 0 }
   local st = b.plant_watch
   if tick < (st.next or 0) then return end
   st.next = tick + PA.EVERY
-  local power, dry = 0, false
-  for _, e in ipairs(p.ents) do
-    if (M.spec(e.name) or {}).kind == "generator" then
-      local r = real_of(surface, e, f.force)
-      if r then power = power + (r.energy_generated_last_tick or 0) end
-    elseif (M.spec(e.name) or {}).kind == "boiler" then
-      local r = real_of(surface, e, f.force)
-      if r then
-        local inv = r.get_fuel_inventory()
-        if inv and inv.is_empty() and ((r.burner and r.burner.remaining_burning_fuel) or 0) <= 0 then dry = true end
+  local power, capacity, boilers, done, pending = 0, 0, 0, 0, 0
+  local first_dry = false
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.gen == "steam" then
+      if p.state == "fini" then
+        done = done + 1
+        for _, e in ipairs(p.ents) do
+          local sp = M.spec(e.name) or {}
+          if sp.power_out then
+            capacity = capacity + (M.spec(e.name).power_out or 0) * 1000 / 60
+            local r = real_of(surface, e, f.force)
+            if r then power = power + (r.energy_generated_last_tick or 0) end
+          elseif sp.water then
+            boilers = boilers + 1
+            local r = real_of(surface, e, f.force)
+            if r and pid == b.plant then
+              local inv = r.get_fuel_inventory()
+              if inv and inv.is_empty() and ((r.burner and r.burner.remaining_burning_fuel) or 0) <= 0 then first_dry = true end
+            end
+          end
+        end
+      elseif p.state ~= "refuse" then
+        pending = pending + 1
       end
     end
   end
+  st.done, st.pending, st.boilers, st.capacity, st.power = done, pending, boilers, capacity, power
   if power > 0 and not st.first_power then
     st.first_power = tick
     log(string.format("[FO-PLANDIR] %s : centrale, 1er courant a %.1f min (puissance %.0f J/tick)", f.key or "player", tick / 3600, power))
   end
-  if st.first_power and power <= 0 and dry and not st.was_dry then
-    snapshot(f, surface, p, st, "centrale a sec", tick)
+  local was = st.saturated
+  C.observe(st, power, capacity)
+  if st.saturated and not was then
+    log(string.format("[FO-PLANDIR] %s : centrale saturee a %.1f min (%.0f J/tick sur %.0f, %d chaudiere(s), %d centrale(s))",
+      f.key or "player", tick / 3600, power, capacity, boilers, done))
   end
-  st.was_dry = dry and power <= 0
+  local pp = b.plant and b.projects[b.plant]
+  if pp and pp.state == "fini" and st.first_power and power <= 0 and first_dry and not st.was_dry then
+    snapshot(f, surface, pp, st, "centrale a sec", tick)
+  end
+  st.was_dry = first_dry and power <= 0
 end
 
 return PA
