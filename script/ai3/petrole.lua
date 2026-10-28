@@ -302,14 +302,27 @@ end
 -- Site : planification (crochet de Build, spec.site = "petrole")
 ---------------------------------------------------------------------------------------------------
 local function nearest_network(f, surface, x, y, b)
-  local best, bd
-  for _, e in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = Fl.POLE_LINE_MAX, type = "electric-pole", force = f.force })) do
-    local d = (e.position.x - x) ^ 2 + (e.position.y - y) ^ 2
-    if not bd or d < bd or (d == bd and (e.position.x < best.x or (e.position.x == best.x and e.position.y < best.y))) then
-      best, bd = { x = e.position.x, y = e.position.y }, d
-    end
+  -- Réseaux ALIMENTÉS : ceux d'une centrale (génératrice). Le poteau le plus proche peut être celui d'un
+  -- avant-poste isolé : la ligne y arrivait sans courant (moteur réel, etape1-guide, 28/10 : site fini, « no_power »).
+  local powered = {}
+  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
+    local id = g.electric_network_id
+    if id then powered[id] = true end
   end
-  if best then return best end
+  local poles = surface.find_entities_filtered({ position = { x, y }, radius = Fl.POLE_LINE_MAX, type = "electric-pole", force = f.force })
+  local best
+  for pass = 1, 2 do -- 1 : poteaux d'un réseau alimenté ; 2 : n'importe lequel (aucune centrale vue)
+    local bd
+    for _, e in ipairs(poles) do
+      if pass == 2 or (e.electric_network_id and powered[e.electric_network_id]) then
+        local d = (e.position.x - x) ^ 2 + (e.position.y - y) ^ 2
+        if not bd or d < bd or (d == bd and (e.position.x < best.x or (e.position.x == best.x and e.position.y < best.y))) then
+          best, bd = { x = e.position.x, y = e.position.y }, d
+        end
+      end
+    end
+    if best then return best end
+  end
   -- poteaux PLANIFIÉS de la centrale (pas encore bâtis) : la ligne y viendra
   local pl = b.plant and b.projects[b.plant]
   for _, e in ipairs((pl and pl.ents) or {}) do

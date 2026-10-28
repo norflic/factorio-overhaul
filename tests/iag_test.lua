@@ -476,6 +476,7 @@ do
   local LEDGER = {
     ["shared/team/config.lua"] = { "EXEC", 41, "table nommée de l'exécutant (kit, avant-postes, fonte, munitions, pièces)" },
     ["shared/team/modules.lua"] = { "EXEC", 203, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces" },
+    ["shared/team/petrole_donnees.lua"] = { "EXEC", 4, "pièces de l'exécutant des chaînes à fluides (tuyau, coffre des quais, bras, poteaux) : briques du plan directeur, comme automatisation_donnees" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
     ["script/team/build.lua"] = { "EXEC", 23, "construction : pièces posées (tapis, coffre, poteaux, bras)" },

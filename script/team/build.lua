@@ -1791,7 +1791,8 @@ function Build.work(agent, f, tick)
     return "done"
   elseif job.mode == "collect" then
     local o = p.outs[job.idx]
-    local chest = o and surface.find_entity("iron-chest", { o.x, o.y })
+    local function out_chest(q) return surface.find_entity("iron-chest", { q.x, q.y }) end
+    local chest = o and out_chest(o)
     if not chest then return "fail" end
     local got = 0
     local function take(c)
@@ -1807,7 +1808,7 @@ function Build.work(agent, f, tick)
     -- gardait 732 plaques et le pack chimique ne se fabriquait jamais).
     for i, o2 in ipairs(p.outs) do
       if i ~= job.idx and (o2.x - o.x) ^ 2 + (o2.y - o.y) ^ 2 <= 40 * 40 then
-        local c2 = surface.find_entity("iron-chest", { o2.x, o2.y })
+        local c2 = out_chest(o2)
         if c2 and c2.force.name == f.force then take(c2) end
       end
     end
