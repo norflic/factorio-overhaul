@@ -26,6 +26,22 @@ function M.on_done(f, task, ok, tick)
     local o = f.outposts and f.outposts[oid]
     local spec = o and T.outposts[o.kind]
     return spec and spec.product or nil
+  end, function(tk)
+    -- minage de l'entrée d'une plaque, ou fonte de plaques : la plaque est-elle saturée au cerveau (f.team.ia3.saturated) ?
+    local sat = f.team.ia3 and f.team.ia3.saturated or {}
+    if tk.kind == "mine" then
+      for _, p in ipairs(Mains.sorted_keys(T.smelter_inputs)) do
+        if T.smelter_inputs[p][1] == tk.resource then return sat[p] == true end
+      end
+    elseif tk.kind == "smelt" then
+      local any = false
+      for _, p in ipairs(Mains.sorted_keys(tk.smelt)) do
+        if sat[p] ~= true then return false end
+        any = true
+      end
+      return any
+    end
+    return false
   end)
   Mains.add(st.acc, label, ok, secs, Mains.units(task))
   local m = math.floor(minutes(f, tick) / M.PERIOD)

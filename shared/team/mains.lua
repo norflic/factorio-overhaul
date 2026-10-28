@@ -20,7 +20,7 @@ M.sorted_keys = sorted_keys
 
 --- Étiquette d'une tâche : « genre », « genre:détail » ; « + » en fin pour le travail de fond. `product_of(outpost)` rend le
 --- produit de l'avant-poste d'une tournée (nil : sans détail).
-function M.label(task, product_of)
+function M.label(task, product_of, saturated_of)
   local k = task.kind or "?"
   local detail
   if k == "mine" then
@@ -43,6 +43,8 @@ function M.label(task, product_of)
     local first = type(task.key) == "string" and task.key:match("^([^:]+):") or nil
     if first and first ~= k then lab = lab .. "@" .. first end
   end
+  -- « #sat » : la matière que la tâche fournit était SATURÉE (stock au-delà de plusieurs fois le besoin) à sa fin
+  if saturated_of and saturated_of(task) then lab = lab .. "#sat" end
   return lab
 end
 
