@@ -320,7 +320,7 @@ end
 --- Bras libres : la pensée pure agrandit d'avance l'extraction de la ressource la plus demandée (shared/ai3/buts.lua).
 --- … seulement l'économie faite (« fer II » ou économie couverte : la garde B3 d'IA-V2), et des bras libres durables.
 function General.idle_grow(f, view, tick)
-  if f.is_player or not General.on() then return false end
+  if not General.on() then return false end
   local st = f.team and f.team.ia3
   if not (st and (st.iron2_done or st.economy_ok)) then return false end
   return spare(f, view, tick) > 0
@@ -329,7 +329,7 @@ end
 --- Lot SCALE : bras libres DURABLES de la pensée (nombre de PNJ sans tâche quand la profondeur d'avance est > 0, sinon
 --- 0) ; factions seulement, cerveau général allumé.
 function General.spare_hands(f, view, tick)
-  if f.is_player or not General.on() then return 0 end
+  if not General.on() then return 0 end
   spare(f, view, tick)
   local g = f.team and f.team.iag
   return (g and g.spare_hands) or 0

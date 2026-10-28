@@ -67,7 +67,7 @@ local function sorted_keys(t) return State.sorted_keys(t or {}) end
 --- Lot IA-G : ressources clés d'une équipe (types d'avant-poste) : déduites du dépliage pour une faction au cerveau
 --- général (script/ai3/general.lua) ; repli de shared/ai3/reglages.lua (votre équipe, avant la 1re décision).
 local function key_of(f)
-  local k = (not f.is_player and General.on()) and General.key(f) or nil
+  local k = General.on() and General.key(f) or nil
   if k and k.top and k.fuel then return k end
   return Rg.FALLBACK_KEY
 end
@@ -737,7 +737,7 @@ function Ia3.plan(f, view, book, surface, tick)
     army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false,
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
-    key = (not f.is_player) and General.on() and General.key(f) or nil,
+    key = General.on() and General.key(f) or nil,
     idle_grow = General.idle_grow(f, view, tick),
     spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto,
@@ -748,7 +748,7 @@ function Ia3.plan(f, view, book, surface, tick)
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
   -- Lot IA-G : une ressource INCONNUE qui bloque la recherche de valeur est à explorer (après le regard des abords).
-  if not f.is_player and General.on() and home ~= false then
+  if General.on() and home ~= false then
     for _, res in ipairs(sorted_keys(General.explore(f))) do
       plan.ia3.explore[res] = math.max(plan.ia3.explore[res] or 0, General.explore(f)[res])
     end
