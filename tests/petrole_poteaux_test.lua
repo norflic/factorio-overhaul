@@ -101,5 +101,23 @@ check(Fl.pole_route(A, B, 9, free_of(none), 0) == nil, "§6 mutant : budget de n
 local blind = Fl.pole_route(A, B, 9, function() return true end, 6000)
 check(verify(A, B, blind, 9, wall) == false, "§6 mutant : A* aveugle aux obstacles refusé par le contrôle")
 
+-- §7 zones interdites (abords des menaces connues) : la ligne les contourne
+do
+  local set = Fl.disc_tiles({ { x = 50.5, y = 0.5, r = 10 } })
+  check(set ~= nil and set[Fl.tkey(50, 0)] and set[Fl.tkey(55, 5)] and not set[Fl.tkey(62, 0)] and not set[Fl.tkey(50, 12)],
+    "§7 disque : le centre et l'intérieur interdits, l'extérieur libre")
+  check(Fl.disc_tiles({}) == nil and Fl.disc_tiles(nil) == nil, "§7 aucune menace : rien d'interdit")
+  local zone = function(tx, ty) return set[Fl.tkey(tx, ty)] == true end
+  local pz = Fl.pole_route(A, B, 9, free_of(zone), 6000)
+  local okz, whyz = verify(A, B, pz, 9, zone)
+  check(okz, "§7 la ligne contourne la zone interdite : " .. tostring(whyz))
+  local detour = false
+  for _, p in ipairs(pz or {}) do if math.abs(p.y) > 6 then detour = true end end
+  check(detour, "§7 la ligne s'écarte de l'axe (elle passe à côté du disque)")
+  -- mutant : une ligne qui traverse la zone est refusée par le contrôle
+  local straight = { { x = 20.5, y = 0.5 }, { x = 40.5, y = 0.5 }, { x = 50.5, y = 0.5 }, { x = 60.5, y = 0.5 }, { x = 80.5, y = 0.5 } }
+  check(verify(A, B, straight, 30, zone) == false, "§7 mutant : un relais dans la zone interdite est refusé")
+end
+
 print(string.format("[PETROLE-POTEAUX] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

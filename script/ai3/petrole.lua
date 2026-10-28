@@ -29,6 +29,7 @@ local K = require("shared.ai3.catalogue")
 local R = require("shared.ai3.reglages")
 local A = require("shared.ai3.automatiser")
 local D = require("shared.team.petrole_donnees")
+local Dg = require("shared.ai3.danger") -- carte du danger (lot IA3-k) : lue seulement
 local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Profiler = require("script.core.profiler")
@@ -45,7 +46,9 @@ Pet.WATER_SEARCH = { 24, 48, 96, 144, 200 }
 Pet.BLOCK_NEAR = 40         -- rive à plus de 40 tuiles du gisement : les machines vont près de la rive…
 Pet.BLOCK_OFF = 10          -- … à 10 tuiles d'elle, vers le gisement
 Pet.PUMP_TRIES = 160
-Pet.DUMP = true            -- diagnostic : relevé du terrain d'un site refusé au journal (une fois par raison)
+Pet.DANGER_MIN = 400        -- danger exact d'une menace connue (shared/ai3/danger.lua) au-delà duquel ses abords sont interdits au plan
+Pet.DANGER_PAD = 4          -- … rayon de la menace + marge d'exactitude + 4 tuiles
+Pet.DUMP = false           -- diagnostic (allumé par les bancs : remote fo-petrole.dump) : relevé du terrain d'un site refusé au journal
 Pet.POND = 6               -- côté de l'étang posé au gisement quand aucune rive n'est à portée (comme celui de la centrale, Build.POND)
 Pet.POND_NEAR = 60         -- rive à plus de 60 tuiles du gisement : un étang est posé au gisement
 Pet.PUMPS = 8               -- places de pompe essayées au plus (la plus proche d'abord)
@@ -424,6 +427,26 @@ local function site_pond(f, surface, origin, h, fluid)
   return true
 end
 
+--- Tuiles des abords des menaces connues de la faction (nids, vers, tourelles adverses, bandes vues : carte du danger d'IA3-k),
+--- interdites au plan d'un site : les PNJ n'y vont pas (« attend (bloque) … danger », moteur réel, etape1-guide 271828182 : 11
+--- poteaux de la ligne jusqu'au réseau, posés près d'un nid, ne furent jamais bâtis, le site restant à 117/128 de 60 à 89 min).
+--- La ligne de poteaux et les tuyaux contournent ces tuiles. nil si rien n'est interdit.
+local function danger_tiles(f, tick)
+  local Cmp = package.loaded["script.ai3.comportement"]
+  if not (Cmp and Cmp.team) then return nil end
+  local t = Cmp.team(f)
+  local map = t and t.map
+  if not (map and map.threats and #map.threats > 0) then return nil end
+  local discs = {}
+  for _, th in ipairs(map.threats) do
+    if Dg.danger_exact(map, th.x, th.y, tick) >= Pet.DANGER_MIN then
+      discs[#discs + 1] = { x = th.x, y = th.y, r = th.r + Dg.EXACT_MARGIN + Pet.DANGER_PAD }
+    end
+  end
+  return Fl.disc_tiles(discs)
+end
+Pet.danger_tiles = danger_tiles
+
 local function plan_site(f, surface, p, h)
   local b = f.build
   local spec = p.spec
@@ -498,10 +521,12 @@ local function plan_site(f, surface, p, h)
     end
     return m
   end
+  local danger = danger_tiles(f, game.tick)
   local function blocked(tx, ty)
     -- clé des tuiles du plan directeur (shared/team/plan.lua P.tkey : même formule que Fl.tkey)
     local k = Fl.tkey(tx, ty)
     if b.occ[k] then return true end
+    if danger and danger[k] then return true end
     local m = masks_at(tx, ty)
     return m.water[k] or m.blocked[k] or false
   end
@@ -807,6 +832,25 @@ remote.add_interface("fo-petrole", {
       plant = f.build and brief_of(f.build.plant) or nil }
   end,
   on = function() return Pet.on() end,
+  -- bancs : relevé ASCII du terrain d'un site refusé au journal ([FO-PETROLE-CARTE], une fois par raison et par équipe)
+  dump = function(v) Pet.DUMP = (v == true) end,
+  -- bancs : tâches du tableau d'un chantier du lot (clé, prise par, priorité, objets, états), pour savoir pourquoi il n'avance pas
+  tasks = function(key, id)
+    local f = team_of(key)
+    if not f then return nil end
+    local ok, Board = pcall(require, "script.team.board")
+    if not ok then return nil end
+    local out = {}
+    for _, tk in ipairs(Board.get(f).list or {}) do
+      if tk.key and tk.key:find("ia1d:" .. tostring(id) .. ":", 1, true) == 1 then
+        local its = {}
+        for _, it in ipairs(tk.items or {}) do its[#its + 1] = tostring(it[1]) .. "x" .. tostring(it[2]) end
+        out[#out + 1] = string.format("%s worker=%s prio=%s items=[%s] fails=%s retry=%s", tk.key, tostring(tk.worker), tostring(tk.prio),
+          table.concat(its, ","), tostring(tk.fails), tostring(tk.retry_at or tk.pause_until or tk.paused))
+      end
+    end
+    return out
+  end,
 })
 
 return Pet

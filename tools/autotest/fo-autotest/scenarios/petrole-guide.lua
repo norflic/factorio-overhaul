@@ -102,6 +102,7 @@ base.check_tick = CHECK
 
 base.init = function(ctx)
   if init0 then init0(ctx) end
+  pcall(remote.call, "fo-petrole", "dump", true)
   local sv = settings.global["fo-war-petrole"]
   local on = sv and sv.value
   ctx.log(TAG .. "fo-war-petrole = " .. tostring(on))
@@ -124,6 +125,10 @@ base.tick = function(ctx, e)
           ctx.log(TAG .. string.format("projet %s minute %d | #%s %s %s (%d/%d) obst %d/%d | non poses %s", r.key,
             math.floor(e.tick / 3600), tostring(pr.id), tostring(pr.state), tostring(pr.reason), pr.built or 0, pr.total or 0,
             pr.open_obstacles or 0, pr.obstacles or 0, table.concat(ub, "; ")))
+          if pr.state == "chantier" and e.tick % 72000 == 0 then
+            local okt, tl = pcall(remote.call, "fo-petrole", "tasks", r.key, pr.id)
+            ctx.log(TAG .. string.format("taches %s #%s | %s", r.key, tostring(pr.id), table.concat((okt and tl) or {}, " || ")))
+          end
         end
       end
     end

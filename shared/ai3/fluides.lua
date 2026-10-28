@@ -1122,6 +1122,20 @@ function Fl.pond_spot(origin, n, free, no_resource)
   return nil
 end
 
+--- Tuiles couvertes par des disques { x, y, r } (zones interdites au plan : abords des menaces connues). Rend l'ensemble des clés de
+--- tuile (Fl.tkey) ou nil si la liste est vide. Une tuile compte quand son centre est dans le disque.
+function Fl.disc_tiles(discs)
+  local out, any = {}, false
+  for _, d in ipairs(discs or {}) do
+    for ty = math.floor(d.y - d.r), math.floor(d.y + d.r) do
+      for tx = math.floor(d.x - d.r), math.floor(d.x + d.r) do
+        if (tx + 0.5 - d.x) ^ 2 + (ty + 0.5 - d.y) ^ 2 <= d.r * d.r then out[tkey(tx, ty)] = true; any = true end
+      end
+    end
+  end
+  return any and out or nil
+end
+
 --- Décalages essayés de la place des machines quand un tuyau ne se trace pas (sans tuyau souterrain, la disposition décide
 --- des croisements impossibles) : l'écart est de Fl.SHIFT tuiles, dans un ordre fixe.
 Fl.SHIFT = 14
