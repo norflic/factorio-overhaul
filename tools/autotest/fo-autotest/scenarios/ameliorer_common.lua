@@ -27,13 +27,17 @@ local function report(s, minute)
   end
 end
 
-return function(on)
+return function(rem, cap)
+  cap = cap == true
   local base = require("scenarios/etape1-guide")
   local init0, tick0 = base.init, base.tick
-  base.description = "AMELIORER : etape1-guide, fo-war-capital " .. (on and "allume" or "eteint") .. ", decompte des machines"
+  base.description = "AMELIORER : etape1-guide, fo-war-remplacer " .. (rem and "allume" or "eteint") .. ", fo-war-capital "
+    .. (cap and "allume" or "eteint") .. ", decompte des machines"
   base.init = function(ctx)
-    local r = ctx.call("war_setting", "fo-war-capital", on)
-    ctx.check(r == on, "reglage fo-war-capital " .. (on and "allume" or "eteint"), tostring(r))
+    local r = ctx.call("war_setting", "fo-war-remplacer", rem)
+    ctx.check(r == rem, "reglage fo-war-remplacer " .. (rem and "allume" or "eteint"), tostring(r))
+    local c = ctx.call("war_setting", "fo-war-capital", cap)
+    ctx.check(c == cap, "reglage fo-war-capital " .. (cap and "allume" or "eteint"), tostring(c))
     if init0 then init0(ctx) end
   end
   base.tick = function(ctx, e)

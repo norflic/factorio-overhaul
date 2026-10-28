@@ -39,9 +39,12 @@ local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_st
 
 local Capital = {}
 
--- Réglage de carte fo-war-capital (settings/capital.lua), ALLUMÉ par défaut depuis le lot AMELIORER (28/10) ; relu à chaque
--- pensée. Capital.ENABLED = false et l'interface « fo-capital » set_enabled(false) (bancs témoins, rangé dans l'état de la
--- guerre) l'éteignent aussi, même réglage allumé.
+-- Réglage de carte fo-war-capital (settings/capital.lua), ÉTEINT par défaut (correction après revue, 27/10 : la recherche
+-- des factions est retardée quand il est allumé, D1 ouvert) ; relu à chaque pensée. Capital.ENABLED = false et l'interface
+-- « fo-capital » set_enabled(false) (bancs témoins, rangé dans l'état de la guerre) l'éteignent aussi, même réglage allumé.
+-- Il commande les buts sur les bâtiments à niveaux et le centre. Le REMPLACEMENT des machines hors famille (lot AMELIORER)
+-- a son propre réglage fo-war-remplacer, ALLUMÉ par défaut : il ne remplace que ce qui est déjà débloqué et ne réclame jamais
+-- de recherche ; éteint, la pensée est celle d'avant le lot.
 Capital.SETTING = "fo-war-capital"
 Capital.ENABLED = true
 Capital.SCAN_EVERY = 12   -- pensées (1 min à une pensée toutes les 5 s)
@@ -67,12 +70,25 @@ local function get(obj, k)
   return nil
 end
 
+Capital.SETTING_REPLACE = "fo-war-remplacer"
+
+--- Remplacement des machines hors famille (lot AMELIORER) : réglage fo-war-remplacer (défaut : allumé).
+function Capital.replace_on()
+  local war = State.war()
+  if not (Capital.ENABLED == true and Levels ~= nil and not (war and war.capital_off)) then return false end
+  local s = settings.global[Capital.SETTING_REPLACE]
+  return s == nil or s.value == true
+end
+
 function Capital.on()
   local war = State.war()
   if not (Capital.ENABLED == true and Levels ~= nil and not (war and war.capital_off)) then return false end
   local s = settings.global[Capital.SETTING]
   return s ~= nil and s.value == true
 end
+
+--- Un des deux mécanismes est allumé.
+function Capital.any_on() return Capital.on() or Capital.replace_on() end
 
 ---------------------------------------------------------------------------------------------------
 -- Noms des bâtiments à niveaux (données des niveaux) et prototypes (cache LOCAL)
@@ -263,16 +279,21 @@ end
 --- Relevé complet : bâtiments à niveaux et centre (factions seulement), machines hors famille (toutes les équipes).
 local function census_of(f, c)
   local census
-  if f.is_player then
-    -- Votre équipe : ni centre à poser ni bâtiments à niveaux du joueur (même force) ; seulement ses propres machines.
+  if f.is_player or not Capital.on() then
+    -- Votre équipe : ni centre à poser ni bâtiments à niveaux du joueur (même force) ; seulement ses propres machines. De
+    -- même quand fo-war-capital est éteint : seul le remplacement des machines (fo-war-remplacer) décide.
     census = { list = {}, center = nil, no_center = true }
     c.ents, c.by_family, c.cc_level = {}, {}, 0
   else
     census = scan(f, c)
   end
-  local m = scan_machines(f)
-  census.machines = m.list
-  c.mach_ents, c.mach_refs = m.ents, m.refs
+  if Capital.replace_on() then
+    local m = scan_machines(f)
+    census.machines = m.list
+    c.mach_ents, c.mach_refs = m.ents, m.refs
+  else
+    c.mach_ents, c.mach_refs = {}, {}
+  end
   return census
 end
 
@@ -310,7 +331,7 @@ end
 
 --- But « amélioration » de la pensée (nil : aucun, ou éteint). w = poids des familles (B.weights).
 function Capital.goal(f, view, book, tick, w)
-  if not Capital.on() then
+  if not Capital.any_on() then
     -- Éteint en cours de partie : la décision en cours et ses objets (voulus, dépliage) sont oubliés ; relevé et compteurs
     -- gardés (interface fo-capital).
     local c = f.team and f.team.capital
@@ -397,7 +418,7 @@ end
 
 --- Objets du dépliage du coût de l'amélioration en cours (pour la règle « main ou machine » d'IA3-e) ; nil éteint.
 function Capital.steps(f)
-  if not Capital.on() then return nil end
+  if not Capital.any_on() then return nil end
   local c = f.team and f.team.capital
   return c and c.steps or nil
 end
@@ -504,12 +525,14 @@ end
 --- couvre. Rend le nombre d'améliorations faites.
 function Capital.pay(f, surface, tick, plan, stock)
   local list = plan and plan.ia3 and plan.ia3.pay
-  if not list or #list == 0 or not Capital.on() then return 0 end
+  if not list or #list == 0 or not Capital.any_on() then return 0 end
   local c = state_of(f)
   local d = c.current
   local done = 0
   for _, p in ipairs(list) do
-    if d and p.target == d.key and has_list(stock, d.cost) then
+    -- Un but dont le mécanisme a été éteint depuis sa décision n'est pas payé.
+    local allowed = d and ((d.replace and Capital.replace_on()) or (not d.replace and Capital.on()))
+    if d and allowed and p.target == d.key and has_list(stock, d.cost) then
       local ok, why
       local n_done = 1
       if d.replace then

@@ -17,10 +17,20 @@ data:extend({
     type = "bool-setting",
     name = "fo-war-capital",
     setting_type = "runtime-global",
-    -- ALLUMÉ par défaut (lot AMELIORER, décision de l'orchestrateur 28/10 : aucun réglage éteint par défaut). Le D1 du lot
-    -- CAPITAL (recherche des factions retardée, non séparable du bruit de divergence F252) reste mesuré : le remplacement de
-    -- machines ne réclame JAMAIS la recherche de sa cible (il ne remplace que ce qui est déjà débloqué).
-    default_value = true,
+    -- ÉTEINT par défaut (correction après revue du lot CAPITAL, 27/10) : la recherche des factions est retardée quand il
+    -- est allumé (palier 2 en médiane plus tard qu'au témoin sur les 2 graines mesurées, palier 3 sur 1 des 2 : D1 ouvert,
+    -- INTEGRATION.md §3 et « Correction après revue »).
+    default_value = false,
     order = "e-war-z-capital",
+  },
+  -- Lot AMELIORER (28/10) : le remplacement sur place des machines hors famille (four de pierre, premier assembleur) par la
+  -- machine supérieure lue aux prototypes. ALLUMÉ par défaut : il ne remplace que ce qui est déjà débloqué, ne réclame jamais
+  -- la recherche de sa cible et ne touche ni centre ni tourelles. Relu à chaque pensée (runtime-global).
+  {
+    type = "bool-setting",
+    name = "fo-war-remplacer",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-capital-b",
   },
 })

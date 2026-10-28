@@ -401,7 +401,7 @@ do
 end
 
 -- §12 Réglage de carte (correction après revue, 27/10) : fo-war-capital existe, est relu en cours de partie
--- (runtime-global), porte le préfixe des réglages des bancs (« fo-war- », interface war_setting) et est ALLUMÉ par défaut (lot AMELIORER)
+-- (runtime-global), porte le préfixe des réglages des bancs (« fo-war- », interface war_setting) et est ÉTEINT par défaut
 -- (D1 ouvert : la recherche des factions est retardée quand il est allumé) ; ses deux traductions existent.
 do
   local got = {}
@@ -411,21 +411,29 @@ do
   _G.data = saved
   check(ok, "§12 settings/capital.lua se charge : " .. tostring(err))
   local s = got[1]
-  check(#got == 1 and s and s.name == "fo-war-capital" and s.type == "bool-setting", "§12 un réglage bool fo-war-capital")
+  check(#got == 2 and s and s.name == "fo-war-capital" and s.type == "bool-setting", "§12 un réglage bool fo-war-capital")
   check(s and s.setting_type == "runtime-global", "§12 réglage de carte relu en cours de partie (runtime-global)")
-  check(s and s.default_value == true, "§12 ALLUMÉ par défaut (lot AMELIORER)")
+  check(s and s.default_value == false, "§12 ÉTEINT par défaut (D1 ouvert)")
+  -- Lot AMELIORER : le remplacement des machines a son propre réglage, ALLUMÉ par défaut, découplé de fo-war-capital.
+  local r = got[2]
+  check(r and r.name == "fo-war-remplacer" and r.type == "bool-setting" and r.setting_type == "runtime-global",
+    "§12 réglage fo-war-remplacer (bool, relu en cours de partie)")
+  check(r and r.default_value == true, "§12 fo-war-remplacer ALLUMÉ par défaut")
   for _, lang in ipairs({ "fr", "en" }) do
     local fh = io.open("locale/" .. lang .. "/capital.cfg", "r")
     local txt = fh and fh:read("*a") or ""
     if fh then fh:close() end
     check(txt:find("\n?fo%-war%-capital=") ~= nil and select(2, txt:gsub("fo%-war%-capital=", "")) == 2,
       "§12 nom et description traduits (" .. lang .. ")")
+    check(select(2, txt:gsub("fo%-war%-remplacer=", "")) == 2, "§12 fo-war-remplacer : nom et description traduits (" .. lang .. ")")
   end
   local src = io.open("script/ai3/capital.lua", "r")
   local code = src and src:read("*a") or ""
   if src then src:close() end
   check(code:find('Capital.SETTING = "fo-war-capital"', 1, true) ~= nil and code:find("settings.global[Capital.SETTING]", 1, true) ~= nil,
     "§12 Capital.on lit le réglage")
+  check(code:find('Capital.SETTING_REPLACE = "fo-war-remplacer"', 1, true) ~= nil
+    and code:find("settings.global[Capital.SETTING_REPLACE]", 1, true) ~= nil, "§12 Capital.replace_on lit son réglage")
 end
 
 
