@@ -1101,6 +1101,27 @@ local function layout_once(req, shift)
     line = line, extractors = #extractors }
 end
 
+--- Étang au gisement (lot PETROLE 2) : coin (sx, sy) d'un carré de `n` tuiles d'eau à poser près de `origin`, cherché sur des
+--- anneaux (12, 16, 20, 25, 30, 36, 44 tuiles) dans 8 directions (ordre fixe) : le carré et sa couronne d'une tuile doivent
+--- être libres (`free(tx, ty)`) et sans ressource à 3 tuiles (`no_resource(x0, y0, x1, y1)`). nil si aucun ne convient.
+Fl.POND_RINGS = { 12, 16, 20, 25, 30, 36, 44 }
+local POND_DIRS = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
+function Fl.pond_spot(origin, n, free, no_resource)
+  for _, r in ipairs(Fl.POND_RINGS) do
+    for _, d in ipairs(POND_DIRS) do
+      local sx, sy = math.floor(origin.x + d[1] * r) - math.floor(n / 2), math.floor(origin.y + d[2] * r) - math.floor(n / 2)
+      local ok = true
+      for ty = sy - 1, sy + n do
+        for tx = sx - 1, sx + n do
+          if not free(tx, ty) then ok = false end
+        end
+      end
+      if ok and no_resource(sx - 3, sy - 3, sx + n + 3, sy + n + 3) then return sx, sy end
+    end
+  end
+  return nil
+end
+
 --- Décalages essayés de la place des machines quand un tuyau ne se trace pas (sans tuyau souterrain, la disposition décide
 --- des croisements impossibles) : l'écart est de Fl.SHIFT tuiles, dans un ordre fixe.
 Fl.SHIFT = 14

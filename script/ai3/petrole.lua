@@ -401,29 +401,19 @@ local function site_pond(f, surface, origin, h, fluid)
   local N = Pet.POND
   local x0, y0, x1, y1 = origin.x - 60, origin.y - 60, origin.x + 60, origin.y + 60
   local masks = h.read_masks(x0, y0, x1, y1)
-  local dirs = { { 1, 0 }, { 0, 1 }, { -1, 0 }, { 0, -1 }, { 1, 1 }, { -1, 1 }, { -1, -1 }, { 1, -1 } }
-  for _, r in ipairs({ 12, 16, 20, 25, 30, 36, 44 }) do
-    for _, d in ipairs(dirs) do
-      local sx, sy = math.floor(origin.x + d[1] * r) - math.floor(N / 2), math.floor(origin.y + d[2] * r) - math.floor(N / 2)
-      local ok = true
-      for ty = sy - 1, sy + N do
-        for tx = sx - 1, sx + N do
-          local k = Fl.tkey(tx, ty)
-          if masks.water[k] or masks.blocked[k] or b.occ[k] then ok = false end
-        end
-      end
-      if ok and surface.count_entities_filtered({ area = { { sx - 3, sy - 3 }, { sx + N + 3, sy + N + 3 } }, type = "resource" }) > 0 then ok = false end
-      if ok then
-        local tiles = {}
-        for dx = 0, N - 1 do for dy = 0, N - 1 do tiles[#tiles + 1] = { name = tile, position = { sx + dx, sy + dy } } end end
-        surface.set_tiles(tiles, true, true)
-        log(string.format("[FO-PETROLE] %s : aucune rive a moins de %d tuiles du gisement : etang de %d x %d tuiles pose en (%d, %d)",
-          f.key or "?", Pet.POND_NEAR, N, N, sx, sy))
-        return true
-      end
-    end
-  end
-  return false
+  local sx, sy = Fl.pond_spot(origin, N, function(tx, ty)
+    local k = Fl.tkey(tx, ty)
+    return not (masks.water[k] or masks.blocked[k] or b.occ[k])
+  end, function(x0, y0, x1, y1)
+    return surface.count_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = "resource" }) == 0
+  end)
+  if not sx then return false end
+  local tiles = {}
+  for dx = 0, N - 1 do for dy = 0, N - 1 do tiles[#tiles + 1] = { name = tile, position = { sx + dx, sy + dy } } end end
+  surface.set_tiles(tiles, true, true)
+  log(string.format("[FO-PETROLE] %s : aucune rive a moins de %d tuiles du gisement : etang de %d x %d tuiles pose en (%d, %d)",
+    f.key or "?", Pet.POND_NEAR, N, N, sx, sy))
+  return true
 end
 
 local function plan_site(f, surface, p, h)

@@ -465,13 +465,10 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     Profiler.stop("iag:choose")
     return nil, false, causes, false
   end
-  g.explore = {}
   -- Les General.EXPLORE_TOP ressources inconnues les plus rentables sont explorées ENSEMBLE (lot PETROLE 2 : seule la
   -- première l'était ; moteur réel, etape1-guide 123456789 : le tungstène, 250, passait devant le pétrole, 40, qui ne fut
   -- jamais cherché et le pack chimique restait impayable).
-  for i = 1, math.min(General.EXPLORE_TOP, #rv) do
-    if rv[i][2] > 0 then g.explore[rv[i][1]] = 40 end
-  end
+  g.explore = Gen.explore_set(rv, 40, General.EXPLORE_TOP)
   g.blocked_sig = nil
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
   -- Lot IA3-e (points de jonction « hand », « produce », « extract », INTEGRATION.md §3) : objets que le dépliage fait

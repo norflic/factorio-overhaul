@@ -294,6 +294,45 @@ local V = { crude = "crude-oil", pumpjack = "pumpjack", basic = "basic-oil-proce
   offshore = "offshore-pump", boiler = "boiler", steam = "steam-engine", pipe = "pipe", chest = "iron-chest", arm = "inserter", pole = "medium-electric-pole" }
 local _, rel0, ch0 = run(F.dump(), "vanilla", V)
 
+-- §7 exploration : les deux ressources inconnues les plus rentables sont explorées ensemble (la première ne cache plus la suivante)
+do
+  local rv = { { "alpha", 250 }, { "beta", 40 }, { "gamma", 0 } }
+  local e2 = Gen.explore_set(rv, 40, 2)
+  check(e2.alpha == 40 and e2.beta == 40 and e2.gamma == nil, "§7 exploration : les 2 premières de valeur positive")
+  local e1 = Gen.explore_set(rv, 40, 1)
+  check(e1.alpha == 40 and e1.beta == nil, "§7 exploration : une seule ressource quand top = 1 (comportement d'avant)")
+  local e3 = Gen.explore_set(rv, 40, 3)
+  check(e3.gamma == nil, "§7 exploration : jamais une ressource de valeur nulle")
+  check(next(Gen.explore_set({}, 40, 2)) == nil, "§7 exploration : rien à explorer, rien demandé")
+  -- mutant : la règle d'avant (une seule) ne passerait pas le contrôle de la deuxième
+  check(not (e1.beta == 40), "§7 mutant : top = 1 ne demande pas la deuxième")
+end
+
+-- §7b étang au gisement (Fl.pond_spot) : carré libre sur un anneau, jamais sur un obstacle ni près d'une ressource
+do
+  local O = { x = 100, y = 100 }
+  local free_all = function() return true end
+  local none_res = function() return true end
+  local sx, sy = Fl.pond_spot(O, 6, free_all, none_res)
+  check(sx == 100 + 12 - 3 and sy == 100 - 3, "§7b terrain libre : premier anneau, vers l'est (" .. tostring(sx) .. "," .. tostring(sy) .. ")")
+  local blocked_east = function(tx, ty) return not (tx > 105 and tx < 125 and ty > 90 and ty < 110) end
+  local sx2, sy2 = Fl.pond_spot(O, 6, blocked_east, none_res)
+  check(sx2 ~= nil and not (sx2 == sx and sy2 == sy), "§7b l'est occupé : une autre direction (" .. tostring(sx2) .. "," .. tostring(sy2) .. ")")
+  local ok2 = true
+  for ty = sy2 - 1, sy2 + 6 do for tx = sx2 - 1, sx2 + 6 do if not blocked_east(tx, ty) then ok2 = false end end end
+  check(ok2, "§7b le carré choisi et sa couronne sont libres")
+  check(Fl.pond_spot(O, 6, function() return false end, none_res) == nil, "§7b rien de libre : pas d'étang")
+  local res_east = function(x0, y0, x1, y1) return not (x1 >= 105 and x0 <= 125 and y1 >= 90 and y0 <= 110) end
+  local sx3, sy3 = Fl.pond_spot(O, 6, free_all, res_east)
+  check(sx3 ~= nil and not (sx3 == sx and sy3 == sy), "§7b une ressource à l'est : le carré va ailleurs (" .. tostring(sx3) .. "," .. tostring(sy3) .. ")")
+  -- mutant : un contrôle de ressource toujours vrai replace l'étang sur la ressource (détecté : même place que terrain libre)
+  local sx4, sy4 = Fl.pond_spot(O, 6, free_all, none_res)
+  check(sx4 == sx and sy4 == sy, "§7b mutant : sans contrôle de ressource, l'étang reprend la place de l'est (le contrôle sert)")
+  local a1, b1 = Fl.pond_spot(O, 6, free_all, none_res)
+  local a2, b2 = Fl.pond_spot(O, 6, free_all, none_res)
+  check(a1 == a2 and b1 == b2, "§7b déterministe")
+end
+
 -- §8 cartes RÉELLES de sites refusés en moteur réel (tests/fixtures/petrole_cartes.lua) : l'implantation doit réussir
 local function carte_case(c)
   local blocked, wells, pumps, origin = {}, {}, {}, nil

@@ -491,6 +491,16 @@ function Gen.resource_values(cat, ev, state, ctx)
   return out
 end
 
+--- Ressources à explorer d'après `Gen.resource_values` (rv trié par valeur décroissante) : les `top` premières dont la valeur
+--- est positive, chacune avec le poids `weight`. Rend { [ressource] = poids }.
+function Gen.explore_set(rv, weight, top)
+  local out = {}
+  for i = 1, math.min(top or 1, #rv) do
+    if rv[i][2] > 0 then out[rv[i][1]] = weight end
+  end
+  return out
+end
+
 --- Ressources CLÉS de l'équipe, déduites du besoin BRUT de ses buts (résumé d'un dépliage SANS le stock consommable).
 --- kind_of(ressource) -> type d'avant-poste (table de l'exécutant, shared/team/config.lua) ou nil ; kinds = types
 --- d'avant-poste dans leur ordre. Rend { top, fuel, order = {types, besoin décroissant, combustible exclu},
