@@ -111,6 +111,13 @@ R.ITEM_MODULE = "module"
 
 R.TURRET = "gun-turret"
 
+-- Lot RECONSTRUIRE : types d'entité du moteur (LuaEntityPrototype.type) de l'INFRASTRUCTURE ÉLECTRIQUE refaite quand elle est
+-- détruite, même posée à la main par le joueur (décision par défaut de la nuit du 29/10 ; ses coffres ne sont pas refaits) :
+-- le poteau, la chaudière, la machine à vapeur (type « generator ») et la pompe. Même justification que R.ENTITY_ROLE.
+R.INFRA_TYPES = { ["electric-pole"] = true, ["boiler"] = true, ["generator"] = true, ["offshore-pump"] = true }
+-- Types des CONSOMMATEURS dont l'état « sans courant » mesure ce qu'un poteau détruit coupe.
+R.CONSUMER_TYPES = { "inserter", "mining-drill", "assembling-machine", "lab" }
+
 R.BODY = "character"
 
 -- Lot ADOPTE : type -> { role (R.ENTITY_ROLE), registre, ... }.

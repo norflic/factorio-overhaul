@@ -31,6 +31,7 @@ local Build = require("script.team.build") -- lot IA1-d : plan directeur, constr
 local Locomotion = require("script.companion.locomotion")
 local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
 local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
+local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 
 local Worker = {}
 
@@ -270,6 +271,8 @@ function Worker.program(f, task, surface, tick)
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
+  elseif k == "rebuild" then
+    return Recon.program(f, task)
   elseif k == "garrison" then
     -- Lot IA1-b (fond du pôle Territoire) : garde d'un avant-poste ou du QG ; le PNJ tire sur ce qui approche
     -- (autodéfense, rayon DEFENSE_RADIUS) pendant task.wait ticks, puis rentre.
@@ -462,6 +465,8 @@ ACTS.smelters = function(agent, f, task, surface)
 end
 
 ACTS.equiper = Equip.act -- lot LEVIERS
+
+ACTS.rebuild = function(agent, f, task, surface) return Recon.act(agent, f, task, surface) end -- lot COUVERTURE
 
 ACTS.smelt = function(agent, f, task)
   Outposts.service_smelters(f, main_inv(agent), task.smelt)
