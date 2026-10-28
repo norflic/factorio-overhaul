@@ -24,7 +24,7 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
 
 ## 2. À lire avant de travailler
 `REPRISE.md` (où en est le projet), puis `OBJECTIFS.md` (attentes, réponses du DC). Au besoin : `ARCHITECTURE.md`,
-`BALANCE_SHEET.md`, `RD_LOG.md` (faits F, expériences E ; prochains libres : **F372, E249**).
+`BALANCE_SHEET.md`, `RD_LOG.md` (faits F, expériences E ; prochains libres : **F383, E258**).
 
 ## 3. Chemins
 - Racine du jeu : `F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91\` (disque exFAT : pas de liens durs, copier). **Ne plus

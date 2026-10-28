@@ -1,4 +1,30 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.5
+Date: 2026-10-28
+  Changes:
+    - Les factions s'électrifient : le plan directeur démarre vers 2 minutes (au lieu de 18 à 23), la centrale à vapeur
+      est toujours possible (un petit étang apparaît près du QG d'une faction sans eau utilisable), les bras de la
+      centrale passent à l'électrique dès qu'elle produit, les poteaux, bras et machines les moins chers dont la
+      recherche est faite sont choisis, et un poteau refusé est reposé à côté.
+    - Les fours à acier du QG ne restent plus bloqués avec trop peu de plaques : l'acier se fabrique, donc les poteaux.
+    - La fonderie du QG grandit avec le minerai qui attend ; le chantier déjà payé passe devant la fabrication d'avance.
+    - Votre équipe : la centrale n'est plus bloquée par un PNJ debout sur le dernier fantôme, la tourelle est recherchée
+      d'abord, une recherche non payée cède la place, le coffre du QG reçoit des annexes quand il est plein, et la
+      réserve de fours et de foreuses fabriqués d'avance est bornée.
+    - Vos fours à combustion isolés (sans bras ni tapis) à moins de 40 tuiles du coffre, vos laboratoires isolés et les
+      coffres de stockage proches sont adoptés par vos PNJ (réglage « Équipe : adopter vos machines posées », allumé) ;
+      jamais démolis, rendus à vous dès qu'un bras ou un tapis y touche. Vos PNJ montrent en fantômes ce qu'ils vont poser.
+    - Les IA remplacent sur place leurs fours et assembleurs par le niveau supérieur déjà débloqué (réglage « PNJ :
+      remplacer les machines », allumé) et valorisent la recherche du four d'acier ; des modules de vitesse ou de
+      productivité s'ajoutent quand tous les gisements sont pris ou dangereux.
+    - Gisements de votre équipe mieux détectés (cuivre à 66 tuiles au lieu de 256) ; un site remis sans avant-poste est
+      écarté avec une attente croissante ; les éclaireurs évitent les régions où le chemin échoue et les nids.
+    - Un PNJ menacé réagit avant la première blessure, fuit vers un refuge qui n'est pas du côté de l'ennemi et rappelle
+      ses coéquipiers ; les PNJ du QG menacé se rallient sous les tourelles. Votre équipe a maintenant un abri de QG.
+    - Une faction n'envoie plus des attaques vaines contre la même rivale : attente de 5, 10, 20 puis 40 minutes.
+    - Le dépliage des objectifs ne boucle plus sur des recettes circulaires ; la fausse cause « personnage » a disparu.
+    - Les équipes reçoivent 50 bois au départ (le petit poteau en dépend).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.4
 Date: 2026-10-27
   Changes:

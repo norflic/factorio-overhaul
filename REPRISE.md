@@ -10,6 +10,18 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **28/10, 7 h 30 : `main` = 0.6.5 (`capib` f1dea2e fusionné + documents)**. Garde-fous verts : batterie hors jeu (pvp 1305, levels 1667,
+> x3 6002, iag 110, harnais 0) ; moteur réel (content 331, monde 116, verif-guide 15 OK × 2 graines, pnj-reduit 12, machines, modules,
+> 14 migrations d'anciennes sauvegardes) : `fo-logs\2026-10-28_GARDEFOUS`, `_MIGRATIONS`. **PAS ENCORE FUSIONNÉ** (branches en cours) :
+> `elec2` (ordre de service de l'investissement, poteaux voisins ; à prouver : soldats et tourelles ≥ témoin sur 4 graines) et
+> `joueur` (inactifs, tâches en zone de danger). Réserve : couloir en forêt (`joueur2`, dégrade la défense de la graine 1618033988),
+> parité (`joueur` b17d599, neutre/dégrade). **Critère central ouvert : robustesse sur 4 graines** (5 factions sur 8 ont des poteaux
+> mais 0 foreuse électrique ; assembleurs de votre équipe 3 contre 7 sur 20261020 ; inactifs 31-57 % sur deux graines). Décisions du DC
+> attendues : étang garanti pour la centrale (ou centrale lointaine), 50 bois au kit de départ, avant-postes rivaux jamais vus (lots 5 et 13),
+> verdict sur les fantômes d'aperçu. D1 (`fo-war-capital`) ouvert. Worktrees à retirer à la fin : elec, elec2, coffre, chaine, sites, fuite,
+> armee, adopte, ameliorer, leviers, plandir, joueur, joueur2, capib. Banc à 2 places (`fo-banc-places.txt` = 2 depuis 2 h 20 : remettre 1
+> quand le DC joue).
+>
 > **27/10, 21 h : ORCHESTRATION RÉTABLIE (le DC : « le problème était que l'ancien orchestrateur n'orchestrait RIEN DU TOUT »), « 1 agent au plus » ABROGÉ**
 > (CLAUDE.md §1). `capib` = `ddc97b9` : défaut 3 (fours à acier sous-chargés, `f8458cf`), `elec` (`e3c84a3` : fonderie du QG levée par le
 > minerai, chantier payé prioritaire), `coffre` (`581f11e` : annexes du coffre, réserve d'équipement bornée). Partie du guide à 60 min
