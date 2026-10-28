@@ -116,7 +116,8 @@ remote.add_interface("factorio-overhaul", {
     for _, id in ipairs(State.alive()) do
       local f = State.faction(id)
       local row = { key = f.key, attacks = f.stats and f.stats.attacks or 0, scouts = f.stats and f.stats.recon_scouts or 0,
-        lost = f.stats and f.stats.recon_lost or 0, refused = f.stats and f.stats.recon_refused or 0, rivals = {} }
+        lost = f.stats and f.stats.recon_lost or 0, refused = f.stats and f.stats.recon_refused or 0,
+        nopath = f.stats and f.stats.recon_nopath or 0, sweeps = f.stats and f.stats.recon_sweeps or 0, rivals = {} }
       for _, rid in ipairs(State.alive()) do
         if rid ~= id then
           local k = Recon.known_of(f, rid)
@@ -128,6 +129,12 @@ remote.add_interface("factorio-overhaul", {
       out.factions[#out.factions + 1] = row
     end
     return out
+  end,
+  --- Lot RECON (bancs de mesure SEULEMENT, rien n'est rangé dans global) : { ring = bool } coupe l'a priori d'anneau de la
+  --- recherche d'une rivale (mesure de son gain, E-RECON).
+  recon_options = function(o)
+    if o and o.ring ~= nil then Recon.ring_on = o.ring and true or false end
+    return { ring = Recon.ring_on }
   end,
   --- Lot RECON (bancs) : l'attaque de `from` contre `to` serait-elle acceptée ? (Military.attack_known ; un refus est compté.)
   recon_probe = function(from_key, to_key)

@@ -1219,18 +1219,35 @@ end
 ---------------------------------------------------------------------------------------------------
 Recon.fog_on = function() return X.fog_on() end
 
---- Où chercher une rivale inconnue : le secteur NON VU de la frontière de la carte de meilleure note (K.best_target, sans
---- ressource visée), centre du secteur. nil : aucune frontière sûre.
-Recon.pick_frontier = function(f, tick)
+--- Où envoyer le soldat éclaireur : le secteur NON VU de la frontière de la carte de meilleure note (K.best_target, sans
+--- ressource visée), centre du secteur. opts.ring == false : balayage sans rivale à chercher (a priori général) ; sinon
+--- recherche d'une rivale (a priori d'anneau, sauf Recon.ring_on == false : banc de mesure). opts.max_dist : portée du QG.
+--- Exclusions : celles des éclaireurs ouvriers (cibles ratées, régions bloquées, nids vus) + les régions où un chemin de
+--- SOLDAT a raté (k.sblocked, valables toute la partie : ni lacs ni falaises ne s'assèchent). nil : aucune frontière sûre.
+Recon.pick_frontier = function(f, tick, opts)
+  opts = opts or {}
   local k = f.ai3f
   local surface = surface_of(f)
   if not (k and surface and f.hq_pos) then return nil end
-  -- A priori d'une FACTION : les QG sont tous à la même distance du départ de la carte que le nôtre (anneau).
   local sp = spawn_of(surface)
-  local r = math.sqrt(dist2(f.hq_pos, sp))
-  local ring = r >= 100 and { x = sp.x, y = sp.y, r = r } or nil
+  local ring
+  if opts.ring ~= false and Recon.ring_on then
+    -- A priori d'une FACTION : les QG sont tous à peu près à la même distance du départ de la carte que le nôtre (anneau).
+    local r = math.sqrt(dist2(f.hq_pos, sp))
+    if r >= 100 then ring = { x = sp.x, y = sp.y, r = r, hq = { x = f.hq_pos.x, y = f.hq_pos.y } } end
+  end
+  local base = make_exclude(k, tick, nil)
+  local sb = k.sblocked
+  local exclude = setmetatable({}, { __index = function(_, key)
+    if base[key] then return true end
+    if sb and #sb > 0 then
+      local bx, by = K.center(K.xy(key))
+      if K.blocked_near(sb, bx, by, tick, BLOCK_R, math.huge) then return true end
+    end
+    return nil
+  end })
   local key = K.best_target(k.m, { hq = f.hq_pos, me = f.hq_pos, tick = tick, res = nil, spawn = sp,
-    rivals = rivals(f, surface), exclude = make_exclude(k, tick, nil), ring = ring })
+    rivals = rivals(f, surface), exclude = exclude, ring = ring, max_dist = opts.max_dist })
   if not key then return nil end
   local cx, cy = K.center(K.xy(key))
   return { x = cx, y = cy }
@@ -1244,6 +1261,17 @@ Recon.watch = function(f, x, y, tick)
   if not (k and surface) then return end
   push_eye(k, x, y, K.EYE.scout, tick, K.RELOOK.moving)
   surface.request_to_generate_chunks({ x = x, y = y }, GEN_RADIUS)
+end
+
+--- Aucun chemin de soldat de (ox, oy) vers (x, y) : la région autour de (x, y) et le cône derrière elle sont écartés pour la
+--- partie (mécanisme du lot EXPLO : K.note_blocked / K.blocked_near), et le secteur but pour BAD_TTL.
+Recon.note_nopath = function(f, ox, oy, x, y, tick)
+  local k = f.ai3f
+  if not k then return end
+  k.sblocked = k.sblocked or {}
+  K.note_blocked(k.sblocked, ox, oy, x, y, tick, BLOCK_CAP)
+  k.badt = k.badt or {}
+  k.badt[K.key_of(x, y)] = tick
 end
 
 --- Le secteur d'un point est écarté BAD_TTL (chemin raté, éclaireur perdu) ; `danger` : incident daté sur la carte.

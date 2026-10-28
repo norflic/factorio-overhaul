@@ -17,9 +17,12 @@
                revérifiée par un éclaireur avant tout assaut ;
     fraiche  : vue il y a R.FRESH ticks ou moins : seule une rivale fraîche peut être ATTAQUÉE.
 
-  Éclaireur soldat (R.want, R.gap, R.size) : la faction envoie un soldat chercher une rivale inconnue, ou revérifier une
-  position périmée, quand aucune cible fraîche n'existe. Aucun nom de prototype, aucune trigonométrie, aucun hasard :
-  itérations triées, entiers.
+  Éclaireur soldat (R.want, R.gap, R.size) : RECONNAISSANCE RÉGULIÈRE, comme un joueur (précision du DC, 28/10 : « elles doivent
+  aussi faire de la reconnaissance COMME UN JOUEUR finalement ») : la faction envoie périodiquement un soldat (seul, ou un petit
+  groupe prudent après une perte) pour chercher une rivale inconnue, revérifier une position périmée ou vieillissante AVANT un
+  assaut (R.AGING), ou, sans besoin précis, balayer la carte (R.sweep_gap : découvrir nids, gisements, rivales ; fréquence et
+  portée selon la curiosité, délai allongé par la menace). Jamais plus de R.SHARE_MAX % de la garnison, jamais sous la garnison
+  gardée du caractère ni sous R.RESERVE. Aucun nom de prototype, aucune trigonométrie, aucun hasard : itérations triées, entiers.
 ]]
 
 local R = {}
@@ -27,12 +30,18 @@ local R = {}
 R.FRESH = 20 * 3600       -- une rivale vue il y a plus longtemps est « périmée » (entre RELOOK.moving 10 min et SEEN_TTL 30 min)
 R.MERGE_DIST = 24         -- deux avant-postes vus à moins de 24 tuiles sont le même (foreuses d'un même chantier)
 R.MAX_POSTS = 12          -- avant-postes retenus par rivale ; les plus anciens sont oubliés d'abord
-R.GAP = 4 * 3600          -- délai entre deux éclaireurs de reconnaissance (agressivité 1 000) ; ÷ agressivité
+R.AGING = 10 * 3600       -- une rivale attaquable dont le regard le plus récent a plus de 10 min est revérifiée AVANT l'assaut
+R.GAP = 4 * 3600          -- délai entre deux éclaireurs de recherche / revérification (agressivité 1 000) ; ÷ agressivité
 R.GAP_MIN = 3600
+R.SWEEP = 15 * 3600       -- délai entre deux balayages de la carte sans besoin précis (curiosité 1 000) ; ÷ curiosité
+R.SWEEP_MIN = 6 * 3600
+R.RANGE = 300             -- portée d'un balayage : R.RANGE + R.RANGE_CUR × curiosité (pour mille) tuiles du QG au plus
+R.RANGE_CUR = 500
 R.LOSS_CAP = 4            -- doublement du délai à chaque éclaireur perdu (F235), 2^4 au plus
-R.SIZE_MAX = 7            -- +2 soldats par perte récente (comme Vision.scout_policy), 7 au plus
+R.SIZE_MAX = 3            -- +1 soldat par perte récente (petit groupe prudent), 3 au plus (7 avec +2 par perte : garnison appauvrie)
+R.SHARE_MAX = 25          -- un éclaireur ne prend jamais plus de 25 % de la garnison
 R.THREAT_MAX = 300        -- au-delà (pour mille), la garnison reste au QG
-R.RESERVE = 4             -- soldats gardés au QG en plus de l'éclaireur
+R.RESERVE = 4             -- soldats gardés au QG en plus de l'éclaireur (plancher de la garnison gardée)
 
 local function d2(a, b)
   local dx, dy = a.x - b.x, a.y - b.y
@@ -111,6 +120,13 @@ end
 
 function R.fresh(k, tick) return R.status(k, tick) == "fraiche" end
 
+--- Rivale fraîche mais VIEILLISSANTE : le regard le plus récent a plus de R.AGING ticks. À revérifier avant l'assaut, pendant
+--- qu'elle est encore attaquable (le soldat met plusieurs minutes à arriver).
+function R.aging(k, tick)
+  local t = R.last(k)
+  return t ~= nil and tick - t <= R.FRESH and tick - t > R.AGING
+end
+
 --- Points FRAIS : avant-postes (liste) et QG (ou nil).
 local function fresh_points(k, tick)
   local posts = {}
@@ -154,7 +170,8 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Éclaireur soldat
 ---------------------------------------------------------------------------------------------------
---- Délai avant le prochain éclaireur : R.GAP ÷ agressivité (pour mille, 500 au plus bas), doublé par perte récente.
+--- Délai avant le prochain éclaireur de recherche ou de revérification : R.GAP ÷ agressivité (pour mille, 500 au plus bas),
+--- doublé par perte récente.
 function R.gap(aggressiveness, losses)
   local g = math.floor(R.GAP * 1000 / math.max(500, aggressiveness or 1000))
   for _ = 1, math.min(losses or 0, R.LOSS_CAP) do g = g * 2 end
@@ -162,20 +179,42 @@ function R.gap(aggressiveness, losses)
   return g
 end
 
---- Taille de l'éclaireur : un soldat, +2 par perte récente (une patrouille qui riposte), R.SIZE_MAX au plus.
-function R.size(losses)
-  return math.min(1 + 2 * (losses or 0), R.SIZE_MAX)
+--- Délai avant le prochain BALAYAGE de la carte (reconnaissance régulière sans besoin précis) : R.SWEEP ÷ curiosité (pour mille,
+--- bornée de 500 à 2 000), allongé par la menace (+ 2 × menace pour mille), doublé par perte récente, R.SWEEP_MIN au moins.
+function R.sweep_gap(curiosity, threat, losses)
+  local c = math.max(500, math.min(2000, curiosity or 1000))
+  local g = math.floor(R.SWEEP * 1000 / c)
+  g = math.floor(g * (1000 + 2 * math.max(0, threat or 0)) / 1000)
+  for _ = 1, math.min(losses or 0, R.LOSS_CAP) do g = g * 2 end
+  if g < R.SWEEP_MIN then g = R.SWEEP_MIN end
+  return g
 end
 
---- Un éclaireur doit-il partir ? c = { recon (demande du chef ou nil), tick, next_at, busy (éclaireur en cours),
---- garrison, size, threat, survive }. Renvoie (oui, raison).
+--- Portée d'un balayage (tuiles du QG) : plus curieuse, la faction va plus loin.
+function R.range(curiosity)
+  return R.RANGE + math.floor(R.RANGE_CUR * math.max(500, math.min(2000, curiosity or 1000)) / 1000)
+end
+
+--- Taille de l'éclaireur : un soldat, +1 par perte récente (petit groupe prudent), R.SIZE_MAX au plus, et jamais plus de
+--- R.SHARE_MAX % de la garnison (au moins 1).
+function R.size(losses, garrison)
+  local s = math.min(1 + (losses or 0), R.SIZE_MAX)
+  if garrison then s = math.min(s, math.max(1, math.floor(garrison * R.SHARE_MAX / 100))) end
+  return s
+end
+
+--- Un éclaireur doit-il partir ? c = { recon (demande du chef, ou balayage dû, ou nil), tick, next_at, busy (éclaireur en
+--- cours), garrison, size, keep (garnison gardée en soldats, plancher R.RESERVE), threat, survive, alert (alerte du QG) }.
+--- Renvoie (oui, raison).
 function R.want(c)
   if not c.recon then return false, "rien a chercher" end
   if c.busy then return false, "eclaireur en cours" end
   if c.survive then return false, "survie" end
+  if c.alert then return false, "alerte" end
   if (c.threat or 0) > R.THREAT_MAX then return false, "menace" end
   if c.tick < (c.next_at or 0) then return false, "delai" end
-  if (c.garrison or 0) < (c.size or 1) + R.RESERVE then return false, "garnison" end
+  local left = (c.garrison or 0) - (c.size or 1)
+  if left < math.max(R.RESERVE, c.keep or 0) then return false, "garnison" end
   return true, "ok"
 end
 

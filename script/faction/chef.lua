@@ -206,12 +206,13 @@ function Chef.observe(f, tick)
           C.received_recent(st, rid, tick, A.HIT_WINDOW), repulsed))
       end
       mem.style = style
-      local aim, known, stale, last, weak_ok = mem.weak or r.hq_pos, nil, nil, nil, mem.weak ~= nil
+      local aim, known, stale, aging, last, weak_ok = mem.weak or r.hq_pos, nil, nil, nil, nil, mem.weak ~= nil
       if kn then
         -- Lot RECON : le point visé est le dernier VU (jamais la position réelle) ; une rivale jamais vue n'est pas une
         -- cible (known == false), une rivale vue il y a trop longtemps non plus (stale == true) : à reconnaître.
         local status = R.status(kn, tick)
         known, stale = status ~= "inconnue", status == "perimee"
+        aging = R.aging(kn, tick)
         last = R.last_point(kn)
         aim = R.aim(kn, tick, f.hq_pos, C.target_point)
         weak_ok = mem.weak ~= nil and mem.tick ~= nil and tick - mem.tick <= R.FRESH
@@ -222,7 +223,7 @@ function Chef.observe(f, tick)
         dist = (aim and f.hq_pos) and math.floor(math.sqrt(d2(aim, f.hq_pos))) or 600,
         reachable = not Military.target_unreachable(f, rid, tick),
         bare = (r.outposts_count or 0) == 0, -- lot IA2-a2 : QG nu (même donnée que Military.target_of)
-        known = known, stale = stale, last = last, -- lot RECON (nil : brouillard coupé, ancien comportement)
+        known = known, stale = stale, aging = aging, last = last, -- lot RECON (nil : brouillard coupé, ancien comportement)
       }
       if kn then
         local word = not known and "inconnue" or (stale and "perimee" or "fraiche")

@@ -385,12 +385,20 @@ end
 
 --- Lot RECON : a priori (pour mille) d'un secteur quand on cherche une FACTION rivale. Les QG des factions sont tous à la même
 --- distance du point de départ de la carte (réglage de la partie) : un secteur dont la distance au départ est celle de notre
---- propre QG est plus probable (2 000 sur cet anneau, 500 à K.RING_FAR tuiles d'écart et au-delà). `ring` = { x, y, r }.
+--- propre QG est plus probable (2 000 sur cet anneau, 500 à K.RING_FAR tuiles d'écart et au-delà). `ring` = { x, y, r, hq } :
+--- un secteur à moins de K.RING_NEAR pour mille de r de NOTRE QG ne vaut qu'un quart (une rivale n'est pas notre voisine
+--- immédiate : les QG sont répartis autour du départ) ; sans `hq`, pas de décote.
 K.RING_FAR = 320
+K.RING_NEAR = 600
 function K.ring_prior(ring, cx, cy)
   local off = math.abs(math.sqrt((cx - ring.x) ^ 2 + (cy - ring.y) ^ 2) - ring.r)
   if off > K.RING_FAR then off = K.RING_FAR end
-  return 2000 - math.floor(1500 * off / K.RING_FAR)
+  local p = 2000 - math.floor(1500 * off / K.RING_FAR)
+  if ring.hq then
+    local near = ring.r * K.RING_NEAR / 1000
+    if (cx - ring.hq.x) ^ 2 + (cy - ring.hq.y) ^ 2 < near * near then p = math.floor(p / 4) end
+  end
+  return p
 end
 
 --- Meilleure cible d'exploration. ctx = { hq = {x, y}, me = {x, y}, tick, res (ou nil), spawn = {x, y},

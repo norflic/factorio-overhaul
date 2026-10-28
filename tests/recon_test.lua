@@ -134,6 +134,17 @@ local function battery()
   local one_ok = { { id = 2, known = true, stale = false, dist = 600 }, { id = 3, known = false, dist = 600 } }
   check(C.recon_pick(view(0, one_ok), C.new(stream(3), 0)).id == 3, "une rivale inconnue reste à chercher même si une autre est connue")
   check(C.recon_pick(view(0, { { id = 2, known = false, reachable = false } }), C.new(stream(3), 0)) == nil, "rivale injoignable : rien à chercher")
+  -- Reconnaissance régulière : une rivale fraîche mais vieillissante est revérifiée avant l'assaut, même quand elle EST la cible.
+  local aged = { { id = 2, outposts_seen = 1, defense = 8, dist = 700, known = true, stale = false, aging = true, last = { x = 5, y = 6 } } }
+  local pa = C.recon_pick(view(0, aged), C.new(stream(3), 0))
+  check(pa and pa.id == 2 and pa.kind == "vieillissante" and pa.x == 5 and pa.y == 6, "vieillissante : revérification vers son dernier point")
+  local sta = C.new(stream(2), 0)
+  local da = C.think(sta, view(5000, aged), drawer(sta.stream))
+  check(da.target == 2 and da.recon and da.recon.kind == "vieillissante", "cible reconnue ET vieillissante : cible gardée, revérification demandée en même temps")
+  local mix = { { id = 2, known = true, stale = false, aging = true, dist = 600 }, { id = 3, known = false, dist = 600 }, { id = 4, known = true, stale = true, dist = 600, last = { x = 1, y = 1 } } }
+  check(C.recon_pick(view(0, mix), C.new(stream(3), 0)).id == 4, "périmée avant inconnue")
+  table.remove(mix, 3)
+  check(C.recon_pick(view(0, mix), C.new(stream(3), 0)).id == 3, "inconnue avant vieillissante")
 
   ---------------------------------------------------------------------------------------------------
   section("Éclaireur : garnison, délai, pertes, menace, survie")
@@ -152,7 +163,23 @@ local function battery()
   check(not want({ next_at = 20000 }), "délai non écoulé")
   check(not want({ threat = R.THREAT_MAX + 1 }), "menace : la garnison reste au QG")
   check(not want({ survive = true }), "survie : la garnison reste au QG")
-  check(R.size(0) == 1 and R.size(1) == 3 and R.size(2) == 5 and R.size(9) == R.SIZE_MAX, "taille : 1, +2 par perte, 7 au plus")
+  check(R.size(0) == 1 and R.size(1) == 2 and R.size(2) == 3 and R.size(9) == R.SIZE_MAX and R.SIZE_MAX == 3,
+    "taille : 1, +1 par perte, 3 au plus (plafond contre l'appauvrissement de la garnison, constat des sceptiques)")
+  check(R.size(9, 5) == 1 and R.size(9, 8) == 2 and R.size(9, 12) == 3 and R.size(0, 2) == 1,
+    "taille : jamais plus de 25 % de la garnison (au moins 1)")
+  check(want({ garrison = 30, size = 1, keep = 30 }) == false and want({ garrison = 30, size = 1, keep = 20 }),
+    "garnison gardée du caractère : l'éclaireur ne la fait jamais passer sous son plancher")
+  check(not want({ alert = true }), "QG en alerte : la garnison reste au QG")
+  -- Reconnaissance régulière : balayage selon la curiosité, la menace et les pertes.
+  check(R.sweep_gap(2000, 0, 0) < R.sweep_gap(1000, 0, 0) and R.sweep_gap(500, 0, 0) > R.sweep_gap(1000, 0, 0),
+    "plus curieuse, elle balaie plus souvent")
+  check(R.sweep_gap(1000, 300, 0) > R.sweep_gap(1000, 0, 0), "la menace allonge le délai du balayage")
+  check(R.sweep_gap(1000, 0, 1) == 2 * R.sweep_gap(1000, 0, 0), "délai de balayage doublé par perte")
+  check(R.sweep_gap(1000, 0, 99) == R.sweep_gap(1000, 0, R.LOSS_CAP) and R.sweep_gap(2000, 0, 0) >= R.SWEEP_MIN, "balayage : borné")
+  check(R.range(2000) > R.range(1000) and R.range(500) < R.range(1000), "plus curieuse, elle va plus loin")
+  local kf = { hq = { x = 0, y = 0, t = 1000 }, posts = {} }
+  check(not R.aging(kf, 1000 + R.AGING) and R.aging(kf, 1000 + R.AGING + 1) and R.aging(kf, 1000 + R.FRESH)
+    and not R.aging(kf, 1000 + R.FRESH + 1) and not R.aging(nil, 5) and not R.aging(R.new(), 5), "vieillissante : entre R.AGING et R.FRESH")
   check(R.gap(1000, 1) == 2 * R.gap(1000, 0) and R.gap(1000, 2) == 4 * R.gap(1000, 0), "délai doublé à chaque perte (F235)")
   check(R.gap(2000, 0) < R.gap(1000, 0) and R.gap(500, 0) > R.gap(1000, 0), "plus agressif : plus souvent")
   check(R.gap(1000, 99) == R.gap(1000, R.LOSS_CAP), "doublement borné")
@@ -199,6 +226,9 @@ local function battery()
   check(K.ring_prior(ring, 0, 0) == 500 and K.ring_prior(ring, 2000, 0) == 500, "loin de l'anneau : 500")
   check(K.ring_prior(ring, 400, 0) > K.ring_prior(ring, 300, 0) and K.ring_prior(ring, 300, 0) > K.ring_prior(ring, 100, 0),
     "plus près de l'anneau, plus probable")
+  local ringh = { x = 0, y = 0, r = 500, hq = { x = 500, y = 0 } }
+  check(K.ring_prior(ringh, 520, 20) == math.floor(K.ring_prior(ring, 520, 20) / 4), "sur l'anneau mais à côté de NOTRE QG : un quart")
+  check(K.ring_prior(ringh, -500, 0) == 2000 and K.ring_prior(ringh, 0, 500) == 2000, "sur l'anneau, loin de notre QG : 2 000")
   local m3 = K.new()
   -- Deux secteurs vus côte à côte ; la frontière offre un secteur sur l'anneau (vers l'est) et un hors anneau (vers le centre).
   for _, kk in ipairs({ { 7, 0 }, { 8, 0 }, { 8, 1 } }) do K.record(m3, K.key(kk[1], kk[2]), 100, {}) end
@@ -334,6 +364,49 @@ mutant("K.record garde les constructions d'un regard à l'autre", function()
     return fresh
   end
   return function() K.record = orig end
+end)
+
+mutant("R.size sans plafond de part de la garnison", function()
+  local orig = R.size
+  R.size = function(losses) return orig(losses) end
+  return function() R.size = orig end
+end)
+mutant("R.want ignore la garnison gardée", function()
+  local orig = R.want
+  R.want = function(c)
+    local c2 = {}
+    for kk, vv in pairs(c) do c2[kk] = vv end
+    c2.keep = 0
+    return orig(c2)
+  end
+  return function() R.want = orig end
+end)
+mutant("R.want ignore l'alerte", function()
+  local orig = R.want
+  R.want = function(c)
+    local c2 = {}
+    for kk, vv in pairs(c) do c2[kk] = vv end
+    c2.alert = false
+    return orig(c2)
+  end
+  return function() R.want = orig end
+end)
+mutant("R.sweep_gap ignore la menace", function()
+  local orig = R.sweep_gap
+  R.sweep_gap = function(cur, threat, losses) return orig(cur, 0, losses) end
+  return function() R.sweep_gap = orig end
+end)
+mutant("R.aging toujours faux", function()
+  local orig = R.aging
+  R.aging = function() return false end
+  return function() R.aging = orig end
+end)
+mutant("K.ring_prior sans décote près de notre QG", function()
+  local orig = K.ring_prior
+  K.ring_prior = function(ring, cx, cy)
+    return orig({ x = ring.x, y = ring.y, r = ring.r }, cx, cy)
+  end
+  return function() K.ring_prior = orig end
 end)
 
 local survivors = 0

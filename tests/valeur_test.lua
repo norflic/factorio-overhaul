@@ -194,7 +194,7 @@ local function start(seed, cerveau)
 end
 
 section("Moteur simulé : éventail tiré, sites par valeur")
-local seed = 778 -- lot RECON : 777 donne 0 front dans cette partie simulée (main : 779 et 780 aussi, la vérification dépend de la graine)
+local seed = 777
 local war = start(seed)
 do
   local ok_axis, ok_side = true, true
@@ -212,7 +212,11 @@ do
   for _, f in ipairs(war.factions) do axes[#axes + 1] = f.seed_axis end
   check(not (axes[1] == axes[2] and axes[2] == axes[3] and axes[3] == axes[4]), "axes différents entre factions (" .. table.concat(axes, ", ") .. ")")
 end
-check(pcall(M.run_ticks, 15 * 3600), "15 min de guerre sans erreur")
+-- Lot RECON : 25 min (et non 15). Les factions ne connaissent plus les rivales d'office : sans elles, la valeur des sites
+-- (danger, contestation) et les tirages du chef changent, donc la trajectoire. À 15 min, la graine 777 (et 781) ne trouve plus
+-- aucun site depuis un front (une seule différence avec main, chez Ambre : 0 site trouvé au lieu de 1) ; à 25 min, les graines 777 à
+-- 782 passent, main comprise. La vérification porte sur le MÉCANISME (un front est prospecté), pas sur un délai.
+check(pcall(M.run_ticks, 25 * 3600), "25 min de guerre sans erreur")
 local sitesA = logs("[FO-STRAT] site")
 do
   local valued, real, maxn = 0, 0, 0
@@ -253,7 +257,7 @@ end
 section("Moteur simulé : même graine, mêmes choix")
 do
   start(seed)
-  check(pcall(M.run_ticks, 15 * 3600), "2e partie sans erreur")
+  check(pcall(M.run_ticks, 25 * 3600), "2e partie sans erreur")
   local sitesB = logs("[FO-STRAT] site")
   local same = #sitesA == #sitesB
   for i = 1, math.min(#sitesA, #sitesB) do if sitesA[i] ~= sitesB[i] then same = false end end

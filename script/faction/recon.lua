@@ -10,11 +10,14 @@
     Recon.status / Recon.attackable ;
   - REFUSE toute attaque contre une rivale non reconnue ou périmée (Military.attack_known, filet : le chef et le
     commandant ne la désignent déjà pas) et la compte (f.stats.recon_refused, ligne [FO-RECON] refus) ;
-  - envoie un SOLDAT ÉCLAIREUR (Military.scout, le mécanisme d'IA2-c) quand le chef demande une reconnaissance
-    (f.chef.recon : aucune cible reconnue) : vers le dernier point connu d'une rivale périmée, sinon vers la frontière de
-    la carte de connaissance de l'équipe (script/ai3/exploration.lua, Recon.pick_frontier : mêmes exclusions que les
-    éclaireurs ouvriers). Un soldat seul passe sans combattre ; après une perte, une patrouille plus grosse (R.size) et un
-    délai doublé (R.gap, F235).
+  - RECONNAÎT RÉGULIÈREMENT, comme un joueur (précision du DC, 28/10) : envoie un SOLDAT ÉCLAIREUR (Military.scout, le
+    mécanisme d'IA2-c) quand le chef demande une reconnaissance (f.chef.recon : rivale inconnue, périmée, ou vieillissante à
+    revérifier avant l'assaut) OU, sans besoin précis, pour un BALAYAGE de la carte (R.sweep_gap : fréquence selon la
+    curiosité, délai allongé par la menace, portée R.range). Destination : dernier point connu d'une rivale périmée ou
+    vieillissante, sinon la frontière de la carte de connaissance de l'équipe (script/ai3/exploration.lua,
+    Recon.pick_frontier : mêmes exclusions que les éclaireurs ouvriers + régions où un chemin de soldat a raté). Un soldat seul
+    passe sans combattre ; après une perte, un petit groupe (R.size : +1 par perte, 3 au plus, 25 % de la garnison au
+    plus), un délai doublé (R.gap, F235), et jamais sous la garnison gardée du caractère ni sous R.RESERVE.
   - Brouillard coupé (remote fo-ia3f set_fog(false)) : ancienne omniscience, pour les bancs avant / après.
 
   Les crochets de Military.scout (Military.on_scout_done / on_scout_lost, posés par script/faction/vision.lua pour les
@@ -45,6 +48,8 @@ Recon.fog_on = function() return true end
 Recon.pick_frontier = nil
 Recon.watch = nil
 Recon.mark_bad = nil
+Recon.note_nopath = nil
+Recon.ring_on = true -- a priori d'anneau pour chercher une rivale (bancs de mesure : remote recon_options)
 
 local function label(f, rid)
   local r = rid and State.faction(rid)
@@ -134,21 +139,31 @@ function Recon.think(f, surface, tick)
   local st = f.chef
   if not st then return end
   local rs = state_of(f)
+  local ch = Character.of(f)
+  local traits = ch.traits or {}
   local req = st.recon
+  if not req and tick >= (rs.sweep_at or 0) then req = { kind = "balayage" } end -- reconnaissance régulière, sans besoin précis
+  if not req then return end
   local garrison = Military.garrison_near(f)
-  local size = R.size(rs.losses)
+  local size = R.size(rs.losses, garrison)
+  local keep = math.ceil(garrison * (ch.war_keep or ch.keep or 0.3) - 1e-9)
   local ok = R.want({ recon = req, tick = tick, next_at = rs.next_at, busy = scout_busy(f), garrison = garrison, size = size,
-    threat = st.last_threat, survive = st.survival })
+    keep = keep, threat = st.last_threat, survive = st.survival, alert = tick < (f.threatened_until or 0) })
   if not ok then return end
-  -- Destination : revérifier le dernier point connu d'une rivale périmée, sinon la frontière de la carte.
+  -- Destination : revérifier le dernier point connu (périmée, vieillissante), sinon la frontière de la carte.
   local dest, how
-  if req.kind == "perimee" and req.x then
+  if (req.kind == "perimee" or req.kind == "vieillissante") and req.x then
     dest, how = { x = req.x, y = req.y }, "reverifier"
   elseif Recon.pick_frontier then
-    dest, how = Recon.pick_frontier(f, tick), "chercher"
+    if req.kind == "balayage" then
+      dest, how = Recon.pick_frontier(f, tick, { ring = false, max_dist = R.range(traits.curiosite) }), "balayer"
+    else
+      dest, how = Recon.pick_frontier(f, tick), "chercher"
+    end
   end
   if not dest then
     rs.next_at = tick + NO_DEST_WAIT
+    if req.kind == "balayage" then rs.sweep_at = tick + NO_DEST_WAIT end
     return
   end
   -- Le but doit être généré (le chemin d'un soldat ne traverse pas une zone non générée) : on le fait générer et on
@@ -173,10 +188,19 @@ function Recon.think(f, surface, tick)
     local s = stats_of(f)
     s.recon_scouts = (s.recon_scouts or 0) + 1
     rs.sent = rs.sent + 1
-    rs.next_at = tick + R.gap(Character.of(f).traits and Character.of(f).traits.agressivite, rs.losses)
+    local gap = R.gap(traits.agressivite, rs.losses)
+    local sweep_gap = R.sweep_gap(traits.curiosite, st.last_threat, rs.losses)
+    -- Un départ de recherche espace les suivants du délai de recherche, et le prochain balayage d'au moins la moitié du sien
+    -- (la carte vient d'être regardée) ; un balayage espace tout du sien.
+    if req.kind == "balayage" then
+      rs.next_at, rs.sweep_at = tick + gap, tick + sweep_gap
+      s.recon_sweeps = (s.recon_sweeps or 0) + 1
+    else
+      rs.next_at, rs.sweep_at = tick + gap, math.max(rs.sweep_at or 0, tick + math.floor(sweep_gap / 2))
+    end
     rs.dest = { x = dest.x, y = dest.y }
     log(string.format("[FO-RECON] eclaireur tick %d %s : part vers (%d, %d), %s %s (%s), %d soldat(s), garnison %d", tick, f.key,
-      math.floor(dest.x), math.floor(dest.y), how, label(f, req.id), req.kind, size, garrison))
+      math.floor(dest.x), math.floor(dest.y), how, req.id and label(f, req.id) or "la carte", req.kind, size, garrison))
   else
     rs.next_at = tick + BUSY_WAIT
   end
@@ -201,8 +225,16 @@ function Recon.install()
     local at = g.dest
     if g.group and g.group.valid and not arrived then at = g.group.position end
     if g.nopath then
-      -- Aucun chemin : le secteur but est écarté (même règle que les éclaireurs ouvriers).
-      if at and Recon.mark_bad then Recon.mark_bad(f, at.x, at.y, tick, false) end
+      -- Aucun chemin : la région autour du but et le cône derrière elle sont écartés (mécanisme du lot EXPLO), le secteur but
+      -- aussi (même règle que les éclaireurs ouvriers).
+      local s = stats_of(f)
+      s.recon_nopath = (s.recon_nopath or 0) + 1
+      if at and Recon.note_nopath then
+        local o = f.hq_pos
+        Recon.note_nopath(f, o.x, o.y, at.x, at.y, tick)
+      elseif at and Recon.mark_bad then
+        Recon.mark_bad(f, at.x, at.y, tick, false)
+      end
       rs.next_at = tick + NO_DEST_WAIT
     elseif at and Recon.watch then
       Recon.watch(f, at.x, at.y, tick)
