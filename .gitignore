@@ -23,3 +23,6 @@ graphics/levels/four/*.png
 graphics/levels/assembleur/*.png
 # Feuilles de jeu de la foreuse (lot F4-B, même règle) : tools/render/pieces/levels/foreuse_e/feuilles.py
 graphics/levels/foreuse/*.png
+
+# Journal du dernier passage de la batterie hors jeu (tools/batterie.py), propre a chaque checkout
+tools/batterie_derniere.txt

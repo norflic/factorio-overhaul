@@ -1,0 +1,1077 @@
+{
+ "version": 1,
+ "base": "main 2d0fbc5",
+ "aide": "nom, cmd ({lua} {py} {mod} {racine} {tmp}), regex (groupes ok puis echec ou total) ou zeros (motifs a un groupe, compte 0 = ok), ok_min, echec_max, duree_max (s), duree_ref (s), lent, reessais (rejeu SEUL si ecart), code_ok, env.",
+ "ignorees": [
+  {
+   "fichier": "tools/autotest/tests/test_audio_guard.py",
+   "raison": "joue 3 s de son (inaudible) sur la VRAIE sortie du PC : interdit en batterie automatique (CLAUDE.md, interdit 7)"
+  }
+ ],
+ "suites": [
+  {
+   "nom": "adopte_test",
+   "cmd": [
+    "{lua}",
+    "tests/adopte_test.lua"
+   ],
+   "ok_min": 75,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "adversaire_test",
+   "cmd": [
+    "{lua}",
+    "tests/adversaire_test.lua"
+   ],
+   "ok_min": 53,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ai3_automatiser_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_automatiser_test.lua"
+   ],
+   "ok_min": 92,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "ai3_capitalisation_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_capitalisation_test.lua"
+   ],
+   "reessais": 1,
+   "ok_min": 159,
+   "echec_max": 0,
+   "duree_max": 770,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 51
+  },
+  {
+   "nom": "ai3_carte_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_carte_test.lua"
+   ],
+   "ok_min": 66,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ai3_cerveau_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_cerveau_test.lua"
+   ],
+   "ok_min": 49,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ai3_effectif_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_effectif_test.lua"
+   ],
+   "ok_min": 72,
+   "echec_max": 0,
+   "duree_max": 560,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 37
+  },
+  {
+   "nom": "ai3_expedition_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_expedition_test.lua"
+   ],
+   "ok_min": 19,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ai3_graphe_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_graphe_test.lua"
+   ],
+   "ok_min": 59,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 2
+  },
+  {
+   "nom": "ai3_groupe_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_groupe_test.lua"
+   ],
+   "ok_min": 28,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 4
+  },
+  {
+   "nom": "ai3_recherche_test",
+   "cmd": [
+    "{lua}",
+    "tests/ai3_recherche_test.lua"
+   ],
+   "ok_min": 17,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "annexe_test",
+   "cmd": [
+    "{lua}",
+    "tests/annexe_test.lua"
+   ],
+   "ok_min": 38,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "auto_test",
+   "cmd": [
+    "{lua}",
+    "tests/auto_test.lua"
+   ],
+   "ok_min": 49,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "bras_test",
+   "cmd": [
+    "{lua}",
+    "tests/bras_test.lua"
+   ],
+   "ok_min": 21,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "capi_moteur_test",
+   "cmd": [
+    "{lua}",
+    "tests/capi_moteur_test.lua"
+   ],
+   "ok_min": 9,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 20
+  },
+  {
+   "nom": "capital_moteur_test",
+   "cmd": [
+    "{lua}",
+    "tests/capital_moteur_test.lua"
+   ],
+   "ok_min": 5,
+   "echec_max": 0,
+   "duree_max": 810,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 54
+  },
+  {
+   "nom": "capital_test",
+   "cmd": [
+    "{lua}",
+    "tests/capital_test.lua"
+   ],
+   "ok_min": 104,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "chef_test",
+   "cmd": [
+    "{lua}",
+    "tests/chef_test.lua"
+   ],
+   "lent": true,
+   "duree_max": 2930,
+   "ok_min": 96,
+   "echec_max": 0,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 195
+  },
+  {
+   "nom": "epochs_test",
+   "cmd": [
+    "{lua}",
+    "tests/epochs_test.lua"
+   ],
+   "ok_min": 16665,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "fantomes_test",
+   "cmd": [
+    "{lua}",
+    "tests/fantomes_test.lua"
+   ],
+   "ok_min": 17,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ia1_modules_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia1_modules_test.lua"
+   ],
+   "ok_min": 1023,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 14
+  },
+  {
+   "nom": "ia1_production_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia1_production_test.lua"
+   ],
+   "ok_min": 104,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 6
+  },
+  {
+   "nom": "ia1_scale_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia1_scale_test.lua"
+   ],
+   "ok_min": 115,
+   "echec_max": 0,
+   "duree_max": 620,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 41
+  },
+  {
+   "nom": "ia1b2_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia1b2_test.lua"
+   ],
+   "ok_min": 62,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ia1b_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia1b_test.lua"
+   ],
+   "ok_min": 58,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ia1i_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia1i_test.lua"
+   ],
+   "ok_min": 89,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 9
+  },
+  {
+   "nom": "ia3b_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia3b_test.lua"
+   ],
+   "ok_min": 31,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 4
+  },
+  {
+   "nom": "ia3f_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia3f_test.lua"
+   ],
+   "ok_min": 32,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 17
+  },
+  {
+   "nom": "ia3k_moteur_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia3k_moteur_test.lua"
+   ],
+   "ok_min": 41,
+   "echec_max": 0,
+   "duree_max": 360,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 24
+  },
+  {
+   "nom": "ia3k_reaction_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia3k_reaction_test.lua"
+   ],
+   "ok_min": 82,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "ia3k_regles_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia3k_regles_test.lua"
+   ],
+   "ok_min": 106,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 2
+  },
+  {
+   "nom": "ia3k_soldats_test",
+   "cmd": [
+    "{lua}",
+    "tests/ia3k_soldats_test.lua"
+   ],
+   "ok_min": 30,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "iag_test",
+   "cmd": [
+    "{lua}",
+    "tests/iag_test.lua"
+   ],
+   "ok_min": 110,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 7
+  },
+  {
+   "nom": "levels_test",
+   "cmd": [
+    "{lua}",
+    "tests/levels_test.lua"
+   ],
+   "ok_min": 1667,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 16
+  },
+  {
+   "nom": "leviers_exec_test",
+   "cmd": [
+    "{lua}",
+    "tests/leviers_exec_test.lua"
+   ],
+   "ok_min": 19,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "leviers_test",
+   "cmd": [
+    "{lua}",
+    "tests/leviers_test.lua"
+   ],
+   "ok_min": 84,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "migration_test",
+   "cmd": [
+    "{lua}",
+    "tests/migration_test.lua"
+   ],
+   "ok_min": 82,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 4
+  },
+  {
+   "nom": "module_mult_test",
+   "cmd": [
+    "{lua}",
+    "tests/module_mult_test.lua"
+   ],
+   "ok_min": 95,
+   "echec_max": 0,
+   "duree_max": 890,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 59
+  },
+  {
+   "nom": "monde_test",
+   "cmd": [
+    "{lua}",
+    "tests/monde_test.lua"
+   ],
+   "ok_min": 201,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 3
+  },
+  {
+   "nom": "org_test",
+   "cmd": [
+    "{lua}",
+    "tests/org_test.lua"
+   ],
+   "ok_min": 368,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "perf_profileur_test",
+   "cmd": [
+    "{lua}",
+    "tests/perf_profileur_test.lua"
+   ],
+   "ok_min": 9,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 3
+  },
+  {
+   "nom": "perf_test",
+   "cmd": [
+    "{lua}",
+    "tests/perf_test.lua"
+   ],
+   "ok_min": 10,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 7
+  },
+  {
+   "nom": "plan_test",
+   "cmd": [
+    "{lua}",
+    "tests/plan_test.lua"
+   ],
+   "ok_min": 82,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "plandir_test",
+   "cmd": [
+    "{lua}",
+    "tests/plandir_test.lua"
+   ],
+   "ok_min": 645,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 2
+  },
+  {
+   "nom": "pteam_test",
+   "cmd": [
+    "{lua}",
+    "tests/pteam_test.lua"
+   ],
+   "ok_min": 37,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 4
+  },
+  {
+   "nom": "pvp_test",
+   "cmd": [
+    "{lua}",
+    "tests/pvp_test.lua"
+   ],
+   "lent": true,
+   "duree_max": 3600,
+   "ok_min": 1305,
+   "echec_max": 0,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 462
+  },
+  {
+   "nom": "recipe_lots_test",
+   "cmd": [
+    "{lua}",
+    "tests/recipe_lots_test.lua"
+   ],
+   "ok_min": 67,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "scale_test",
+   "cmd": [
+    "{lua}",
+    "tests/scale_test.lua"
+   ],
+   "ok_min": 50,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "sites_test",
+   "cmd": [
+    "{lua}",
+    "tests/sites_test.lua"
+   ],
+   "ok_min": 85,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "td_test",
+   "cmd": [
+    "{lua}",
+    "tests/td_test.lua"
+   ],
+   "ok_min": 270,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "titanium_test",
+   "cmd": [
+    "{lua}",
+    "tests/titanium_test.lua"
+   ],
+   "ok_min": 114,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "traits_test",
+   "cmd": [
+    "{lua}",
+    "tests/traits_test.lua"
+   ],
+   "ok_min": 65,
+   "echec_max": 0,
+   "duree_max": 350,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 23
+  },
+  {
+   "nom": "valeur_test",
+   "cmd": [
+    "{lua}",
+    "tests/valeur_test.lua"
+   ],
+   "ok_min": 53,
+   "echec_max": 0,
+   "duree_max": 890,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 59
+  },
+  {
+   "nom": "war_test",
+   "cmd": [
+    "{lua}",
+    "tests/war_test.lua"
+   ],
+   "ok_min": 105,
+   "echec_max": 0,
+   "duree_max": 2040,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 136,
+   "lent": true
+  },
+  {
+   "nom": "x3_test",
+   "cmd": [
+    "{lua}",
+    "tests/x3_test.lua"
+   ],
+   "duree_max": 800,
+   "ok_min": 6002,
+   "echec_max": 0,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 53
+  },
+  {
+   "nom": "run",
+   "cmd": [
+    "{lua}",
+    "tests/run.lua"
+   ],
+   "ok_min": 114,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 8
+  },
+  {
+   "nom": "harness",
+   "cmd": [
+    "{lua}",
+    "tests/datastage/harness.lua",
+    "{racine}/data",
+    "."
+   ],
+   "zeros": [
+    "(\\d+) violation\\(s\\)",
+    "(\\d+) clé\\(s\\) manquante",
+    "(\\d+) écart\\(s\\)",
+    "(\\d+) manquant\\(s\\)",
+    "Erreurs nouvelles : (\\d+)",
+    "(\\d+) absent\\(s\\)"
+   ],
+   "duree_max": 350,
+   "ok_min": 17,
+   "echec_max": 0,
+   "duree_ref": 23
+  },
+  {
+   "nom": "api_lint",
+   "cmd": [
+    "{py}",
+    "tools/api_lint.py",
+    "{racine}/doc-html",
+    "{mod}"
+   ],
+   "regex": "(?P<ok>\\d+) usages vérifiés, (?P<echec>\\d+) erreur",
+   "ok_min": 1345,
+   "echec_max": 0,
+   "duree_max": 300,
+   "duree_ref": 17
+  },
+  {
+   "nom": "test_ia2c_joueur",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/test_ia2c_joueur.py"
+   ],
+   "ok_min": 15,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_ia2_mesures",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/test_ia2_mesures.py"
+   ],
+   "ok_min": 50,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_ht3_journal",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/test_ht3_journal.py"
+   ],
+   "ok_min": 15,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_perf_etale",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/test_perf_etale.py"
+   ],
+   "ok_min": 14,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_bp2lua",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/team/test_bp2lua.py"
+   ],
+   "ok_min": 12,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_audio_session",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/test_audio_session.py"
+   ],
+   "ok_min": 21,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_garde_disque",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/tests/test_garde_disque.py"
+   ],
+   "ok_min": 11,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 1
+  },
+  {
+   "nom": "test_laser",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/pieces/levels/laser_e/tests/test_laser.py"
+   ],
+   "ok_min": 182,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_four",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/pieces/levels/four_e/tests/test_four.py"
+   ],
+   "ok_min": 179,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_assembleur",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/pieces/levels/assembleur_e/tests/test_assembleur.py"
+   ],
+   "ok_min": 217,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_foreuse",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/pieces/levels/foreuse_e/tests/test_foreuse.py"
+   ],
+   "ok_min": 149,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_centre",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/pieces/levels/centre_e/tests/test_centre.py"
+   ],
+   "ok_min": 105,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 0
+  },
+  {
+   "nom": "test_famille",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/pieces/levels/commun/tests/test_famille.py"
+   ],
+   "ok_min": 12,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 2
+  },
+  {
+   "nom": "test_produire_a3",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/render/tests/test_produire_a3.py"
+   ],
+   "duree_max": 300,
+   "ok_min": 43,
+   "echec_max": 0,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 7
+  },
+  {
+   "nom": "test_banc_file",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/test_banc_file.py"
+   ],
+   "lent": true,
+   "duree_max": 300,
+   "ok_min": 78,
+   "echec_max": 0,
+   "regex": "BILAN : (?P<ok>\\d+) OK(?:, (?P<echec>\\d+) ECHEC)?",
+   "duree_ref": 4
+  },
+  {
+   "nom": "bat_double_source",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/bat_double_source/run.py"
+   ],
+   "duree_max": 300,
+   "ok_min": 70,
+   "echec_max": 0,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 9
+  },
+  {
+   "nom": "run_d4m",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/run_d4m.py",
+    "--logs",
+    "{racine}/fo-logs"
+   ],
+   "regex": "(?P<ok>\\d+)/(?P<total>\\d+) etapes OK",
+   "ok_min": 5,
+   "echec_max": 0,
+   "duree_max": 300,
+   "duree_ref": 12
+  },
+  {
+   "nom": "mut_atlas",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/mut_atlas.py",
+    "--logs",
+    "{racine}/fo-logs",
+    "--out",
+    "{tmp}"
+   ],
+   "ok_min": 50,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 6
+  },
+  {
+   "nom": "mut_vram",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/autotest/tests/mut_vram.py",
+    "--work",
+    "{tmp}"
+   ],
+   "regex": "(?P<ok>\\d+)/(?P<total>\\d+) mutants detectes",
+   "ok_min": 18,
+   "echec_max": 0,
+   "duree_max": 300,
+   "duree_ref": 15
+  },
+  {
+   "nom": "mut_sons",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tests/datastage/mut_sons.py",
+    "--work",
+    "{tmp}"
+   ],
+   "lent": true,
+   "duree_max": 3600,
+   "ok_min": 6,
+   "echec_max": 0,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 241
+  },
+  {
+   "nom": "check_gun_sheets",
+   "cmd": [
+    "{py}",
+    "tools/render/pieces/levels/gun_e/check_gun_sheets.py",
+    "--sources",
+    "--mutants"
+   ],
+   "ok_min": 19,
+   "echec_max": 0,
+   "duree_max": 3600,
+   "lent": true,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 975
+  },
+  {
+   "nom": "check_gisement",
+   "cmd": [
+    "{py}",
+    "tools/render/pieces/ressources/check_gisement.py",
+    "--mutants"
+   ],
+   "ok_min": 7,
+   "echec_max": 0,
+   "duree_max": 300,
+   "regex": "(?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "duree_ref": 6
+  },
+  {
+   "nom": "check_sprites",
+   "cmd": [
+    "{py}",
+    "tools/render/check_sprites.py"
+   ],
+   "regex": "(?P<ok>\\d+) fichiers contrôlés, (?P<echec>\\d+) écart",
+   "ok_min": 17,
+   "echec_max": 0,
+   "duree_max": 300,
+   "duree_ref": 8
+  },
+  {
+   "nom": "icones_modules",
+   "cmd": [
+    "{py}",
+    "tools/render/pieces/modules/icones.py",
+    "--check"
+   ],
+   "regex": "(?P<ok>\\d+) objet\\(s\\), \\d+ techno\\(s\\), (?P<echec>\\d+) écart",
+   "ok_min": 30,
+   "echec_max": 0,
+   "duree_max": 1100,
+   "duree_ref": 73,
+   "lent": true
+  },
+  {
+   "nom": "sons_check",
+   "cmd": [
+    "{py}",
+    "tools/sound/sons.py",
+    "--check"
+   ],
+   "regex": "(?P<ok>\\d+) fichier\\(s\\) conformes au manifeste, (?P<echec>\\d+) ECHEC",
+   "ok_min": 20,
+   "echec_max": 0,
+   "duree_max": 300,
+   "duree_ref": 2
+  },
+  {
+   "nom": "test_batterie",
+   "cmd": [
+    "{py}",
+    "-B",
+    "tools/tests/test_batterie.py"
+   ],
+   "regex": "BATTERIE-TEST\\] BILAN : (?P<ok>\\d+) OK, (?P<echec>\\d+) ECHEC",
+   "ok_min": 86,
+   "echec_max": 0,
+   "duree_max": 930,
+   "duree_ref": 62,
+   "lent": true
+  }
+ ]
+}
