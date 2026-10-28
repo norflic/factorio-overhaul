@@ -718,7 +718,7 @@ function Ia3.plan(f, view, book, surface, tick)
   local w = B.weights(f.chef and f.chef.mix, f.traits)
   -- Lot IA-G : gisements relus AVANT la recherche (le cerveau général en a besoin dès la première pensée).
   Profiler.fstart("ia3:reach")
-  local harvest = harvest_items(book)
+  local harvest = Harvest.applies(f) and harvest_items(book) or {} -- lot KIT : les factions seulement (Harvest.PLAYER)
   local reach, known = reach_of(f, st, tick, harvest)
   Profiler.fstop("ia3:reach")
   local research = nil

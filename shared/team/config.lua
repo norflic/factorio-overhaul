@@ -29,6 +29,11 @@ T.start_kit_generous = {
 }
 T.start_smelters_generous = 2 -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
 T.hq_smelters = 2             -- taille de la fonderie du QG reposée en secours (planificateur, manque de plaques)
+-- Lot KIT (décision de l'orchestrateur, 28/10, veto possible du DC) : une faction n'a pas non plus de tourelle de QG ni de
+-- technologie au départ (votre équipe n'en a pas : elle recherche « gun-turret » et fabrique ses 4 tourelles de QG, T.defend_hq).
+-- Les deux ne sont offertes qu'avec le kit généreux (bancs).
+T.start_hq_turrets = 0
+T.start_hq_turrets_generous = 4
 T.hq_inventory = 200
 -- Avant IA1-a : 2 ouvriers de départ et « 2 + 1 par avant-poste » (T.workers_wanted). Depuis IA1-a, le départ
 -- est le réglage fo-npc-start (8) et le plafond fo-war-workers (shared/team/scale.lua) ; ces valeurs ne servent

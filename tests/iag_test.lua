@@ -130,6 +130,13 @@ local function run_all()
   for _, p in ipairs(cat.techs[d.tech].prerequisites) do if not st.techs[p] then d_ok = false end end
   check(d_ok, "§2 prérequis faits")
   say("§2 départ : " .. tostring(d.tech) .. " valeur " .. tostring(d.value) .. " coût " .. tostring(d.cost) .. " ; " .. Gen.why_text(d, sum))
+  -- Lot KIT : depuis le kit RÉEL (coffre vide, aucun four), le même cerveau choisit une technologie payable, déplie un
+  -- laboratoire et la recherche en dernier.
+  local st_egal = F.start_state({ kit = "egal" })
+  local d_e, sum_e = decide(cat, st_egal)
+  check(next(st_egal.stock) == nil and st_egal.built[T.SMELTER] == 0, "§2 kit réel : coffre vide, aucun four")
+  check(d_e.tech ~= nil and sum_e and sum_e.build[cat.labs[1].item] == 1 and sum_e.research[#sum_e.research] == d_e.tech,
+    "§2 kit réel : une technologie choisie (" .. tostring(d_e.tech) .. "), laboratoire à construire, recherche en dernier")
   local cat_r = K.build(F.dump({ reverse = true }), F.opts())
   local d_r = decide(cat_r, F.start_state())
   check(d_r.tech == d.tech and d_r.score == d.score, "§2 déterminisme : données dans l'ordre inverse, même décision")

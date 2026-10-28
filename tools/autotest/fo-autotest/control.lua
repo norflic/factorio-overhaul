@@ -15,6 +15,12 @@ local Greffons = require("greffons")
 
 local ok_s, SCENARIO = pcall(require, "scenario")
 if not ok_s or type(SCENARIO) ~= "string" then SCENARIO = "default" end
+-- Lot KIT : scénarios joués avec le kit de départ RÉEL des factions (celui de votre équipe : coffre vide, aucun four, aucune
+-- tourelle ni technologie), pas avec l'interrupteur des bancs (fo-war-kit-genereux). Les autres gardent le kit généreux, dont
+-- leurs attendus datent.
+local KIT_EGAL = {
+  ["content"] = true, ["ia1-scale"] = true, ["verif-tourelles"] = true, ["etape1-guide"] = true, ["kit-egal"] = true,
+}
 
 -- Lot IA0 : les scénarios de guerre intégrés restent en « Paisible » (pvp = "peaceful"), comportement des
 -- sessions 4-5, pour rester comparables à E17-E22 (sinon, au niveau Normal par défaut, les factions
@@ -197,7 +203,10 @@ script.on_init(function()
   -- Lot KIT (28/10) : les bancs gardent le kit de départ généreux des factions (leurs attendus datent de ce kit) ; la partie
   -- réelle (par défaut) donne aux factions le kit de votre équipe. Le scénario etape1-guide l'éteint pour mesurer le guide.
   -- Allumé AVANT toute fondation (builtin_init, greffons). Sans le réglage (mod à créer d'une vieille source), rien.
-  pcall(remote.call, "factorio-overhaul", "war_setting", "fo-war-kit-genereux", true)
+  -- Exceptions (KIT_EGAL) : les bancs rejoués avec le kit réel des factions (couverture du défaut, critère du lot).
+  if not KIT_EGAL[SCENARIO] then
+    pcall(remote.call, "factorio-overhaul", "war_setting", "fo-war-kit-genereux", true)
+  end
   if PLUGIN then
     if PLUGIN.base then
       if SCENARIOS[PLUGIN.base] then

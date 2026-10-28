@@ -217,6 +217,17 @@ function Team.kit_generous()
   return s ~= nil and s.value == true
 end
 
+--- Lot KIT : le cerveau par besoins (réglage fo-war-ia3-cerveau, défaut vrai) est-il éteint ? Vrai seulement si le réglage
+--- existe et vaut faux.
+function Team.brain_off()
+  local g = settings and settings.global
+  local s = g and g[Ia3.SETTING]
+  return s ~= nil and s.value == false
+end
+
+--- Lot KIT : ce que reçoit une faction à la fondation (règle pure : shared/team/fondation.lua).
+function Team.faction_grant() return Fondation.grant(false, Team.kit_generous(), Team.brain_off()) end
+
 --- Prépare l'équipe d'un QG fraîchement posé : stock de départ, technologies de base, premiers ouvriers.
 function Team.init(f, surface)
   if f.is_player then
@@ -252,12 +263,12 @@ function Team.init(f, surface)
   f.smelters = {}
   -- Lot KIT : même kit que votre équipe (coffre vide, aucun four) ; le kit généreux d'avant n'est offert qu'aux bancs
   -- (réglage fo-war-kit-genereux). Lu à chaque fondation et refondation : une sauvegarde existante ne change pas.
-  local grant = Fondation.grant(false, Team.kit_generous())
+  local grant = Team.faction_grant()
   local inv = f.hq.get_inventory(defines.inventory.chest)
   for _, it in ipairs(grant.chest) do inv.insert({ name = it[1], count = it[2] }) end
   f.home_spot = surface.find_non_colliding_position("fo-companion", { x = f.hq_pos.x - 6, y = f.hq_pos.y + 8 }, 20, 0.5)
     or { x = f.hq_pos.x - 6, y = f.hq_pos.y + 8 }
-  unlock(f, 0)
+  if grant.unlock0 then unlock(f, 0) end -- lot KIT : sans kit généreux, une faction recherche comme votre équipe
   seed_resources(f, surface)
   -- Fonderie de départ : les fours sont posés avec le stock (comme les premiers fours d'un joueur). Aucun en kit égal.
   if grant.smelters > 0 then
@@ -548,7 +559,7 @@ function Team.view(f, tick)
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0,
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = (f.is_player or not Team.kit_generous()) and T.defend_hq or 0, -- lot KIT : sans kit généreux, une faction pose ses 4 tourelles de QG comme votre équipe
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,

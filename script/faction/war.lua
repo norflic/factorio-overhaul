@@ -127,7 +127,8 @@ local function found_hq(f, surface, pos)
   f.hq_pos = { x = hq_pos.x, y = hq_pos.y }
   State.own(hq, f.id, "hq")
   local offsets = { { 12, 0 }, { -12, 0 }, { 0, 10 }, { 0, -10 } }
-  for k = 1, F.military.hq_turrets do
+  -- Lot KIT : tourelles de QG offertes seulement avec le kit généreux (bancs) ; sinon la faction pose les siennes (T.defend_hq)
+  for k = 1, math.min(#offsets, Team.faction_grant().hq_turrets) do
     local o = offsets[k]
     local tpos = surface.find_non_colliding_position("gun-turret", { x = hq_pos.x + o[1], y = hq_pos.y + o[2] }, 10, 1)
     if tpos then

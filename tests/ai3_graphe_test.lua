@@ -39,12 +39,16 @@ local function spec_with(recs)
 end
 local cat = G.new(spec_with(recipes))
 
-local function start_state(known_extra)
+local function start_state(known_extra, kit)
+  -- Lot KIT : `kit` = "egal" : le kit RÉEL d'une faction (celui de votre équipe : coffre vide, aucun four) ; sinon le kit
+  -- généreux des bancs (les attendus de ce banc datent de lui).
   local stock = {}
-  for _, it in ipairs(T.start_kit_generous) do stock[it[1]] = it[2] end
+  local list = kit == "egal" and T.start_kit or T.start_kit_generous
+  for _, it in ipairs(list) do stock[it[1]] = it[2] end
   local known = { ["iron-ore"] = true, ["copper-ore"] = true, coal = true, stone = true, water = true }
   for _, k in ipairs(known_extra or {}) do known[k] = true end
-  return { stock = stock, techs = {}, built = { ["stone-furnace"] = T.start_smelters_generous }, known = known }
+  local furnaces = kit == "egal" and T.start_smelters or T.start_smelters_generous
+  return { stock = stock, techs = {}, built = { ["stone-furnace"] = furnaces }, known = known }
 end
 
 local function find(steps, kind, name)
@@ -135,6 +139,37 @@ do
   end
   print(string.format("[AI3-GRAPHE] automation : %d étapes, %d noeuds, fabrication à la main %.0f PNJ-s (%.1f PNJ-min)",
     #plan.steps, plan.nodes, hand_s, hand_s / 60))
+end
+
+-- 2 bis (lot KIT). La même recherche depuis le kit RÉEL d'une faction (coffre vide, aucun four) : payable, mêmes bâtiments,
+-- et la matière première (pierre des fours, fer des engrenages…) se récolte : plus d'étapes, jamais d'exploration.
+do
+  local st = start_state(nil, "egal")
+  check(next(st.stock) == nil and st.built["stone-furnace"] == 0, "kit réel : coffre vide, aucun four")
+  local plan = G.unfold(cat, { { tech = "automation" } }, st)
+  check(plan.payable, "automation depuis le kit réel : payable")
+  check(find(plan.steps, "research", "automation") ~= nil, "automation depuis le kit réel : étape de recherche")
+  check(find(plan.steps, "build", "lab") ~= nil and find(plan.steps, "build", "boiler") ~= nil,
+    "automation depuis le kit réel : laboratoire et chaudière construits")
+  check(count(plan.steps, "explore") == 0, "automation depuis le kit réel : aucune exploration")
+  check(find(plan.steps, "hand", "stone-furnace") ~= nil, "automation depuis le kit réel : le premier four est fabriqué à la main")
+  -- ÉCART CONNU (constat du lot KIT, hors bilan) : depuis un coffre sans four, le graphe émet « produce iron-plate » AVANT la
+  -- fabrication à la main du four (étapes 2 et 7 sur 71) ; l'exécuteur ne suit pas l'ordre à la lettre (les factions du
+  -- kit réel fondent bien, banc etape1-guide), mais l'ordre du plan y est inexact. Compté, jamais caché.
+  local sans_machine = 0
+  do
+    local made = {}
+    for _, q in ipairs(plan.steps) do
+      if q.kind == "hand" and q.name == "stone-furnace" then made["stone-furnace"] = true end
+      if q.kind == "produce" and cat.recipes[q.name].category == "smelting" and not made["stone-furnace"] then
+        sans_machine = sans_machine + 1
+      end
+    end
+  end
+  check(sans_machine <= 2, "automation depuis le kit réel : au plus 2 fontes avant le premier four (écart connu : " .. sans_machine .. ")")
+  local plan0 = G.unfold(cat, { { tech = "automation" } }, start_state())
+  check(#plan.steps >= #plan0.steps, "automation depuis le kit réel : au moins autant d'étapes que depuis le kit généreux")
+  print(string.format("[AI3-GRAPHE] automation depuis le kit réel : %d étapes (kit généreux : %d)", #plan.steps, #plan0.steps))
 end
 
 -- 3. Pack chimique SANS pétrole connu (H8).

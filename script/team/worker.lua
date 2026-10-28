@@ -59,7 +59,9 @@ Worker.CLAIM_SLACK = 8    -- tuiles : écart de distance au QG toléré entre la
 --- recherche de rayon 2,5 : le moteur la rend dans un ordre quelconque, et une tuile à 2 tuiles de la cible est hors de
 --- portée de l'ouvrier arrêté à 1,5 tuile de l'autre côté (relevé en moteur réel, kit égal : les mineurs d'un même gisement
 --- rendaient 44 ou 0 sur 50 en 91 s, au hasard de la tuile rendue ; le charbon d'Azur, graine 1618033988, 0 huit fois de suite).
-local function mining_entity(surface, target, names)
+local function mining_entity(surface, target, names, f)
+  if not names or #names == 0 then return nil end -- rien à récolter (Harvest.names vide) : jamais de recherche sans nom
+  if not Harvest.applies(f) then return surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 1 })[1] end
   local list = surface.find_entities_filtered({ position = target, radius = 0.9, name = names, limit = 8 })
   if #list == 0 then list = surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 }) end
   local best, bd
@@ -83,12 +85,13 @@ local function tile_key(p) return math.floor(p.x) .. "," .. math.floor(p.y) end
 
 --- La tuile est-elle réservée par un autre minage en cours ?
 local function tile_claimed(f, p, tick)
-  if not Worker.CLAIM_TILES then return false end
+  if not Worker.CLAIM_TILES or not Harvest.applies(f) then return false end
   local c = claims_of(f).by_tile[tile_key(p)]
   return c ~= nil and tick - c < CLAIM_TTL
 end
 
 local function claim_tile(f, p, tick)
+  if not Harvest.applies(f) then return end
   local cl = claims_of(f)
   local key = tile_key(p)
   cl.by_tile[key] = tick
@@ -101,7 +104,7 @@ local function claim_tile(f, p, tick)
 end
 
 local function release_tile(f, p)
-  if p then claims_of(f).by_tile[tile_key(p)] = nil end
+  if p and Harvest.applies(f) then claims_of(f).by_tile[tile_key(p)] = nil end
 end
 local CRAFT_TIMEOUT = 5 * 60 * 60
 local DEFENSE_PERIOD = 60
@@ -405,7 +408,9 @@ function Worker.program(f, task, surface, tick)
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
     -- Lot IA1-b2 (R-QCM-25c (c)) : task.radius (minage de fond de votre équipe : près du coffre, T.near_mine).
-    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = Harvest.names(task.resource), limit = 256 }) -- lot KIT : minerai = l'entité du même nom, bois = arbres
+    local names = Harvest.names_for(f, task.resource)
+    if #names == 0 then return nil end -- lot KIT : un objet sans entité récoltable ne se mine pas à la main
+    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 }) -- lot KIT : minerai = l'entité du même nom, bois = arbres
     table.sort(res, function(a, b)
       local da, db = dist2(a.position, f.hq_pos), dist2(b.position, f.hq_pos)
       if da ~= db then return da < db end
@@ -420,13 +425,13 @@ function Worker.program(f, task, surface, tick)
       local r = res[i]
       local p = r.position
       local busy = surface.count_entities_filtered({
-        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource), invert = true, limit = 1,
+        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource, f), invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
       -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
       -- ia3c-default graine 20261020, Ambre, 28 PNJ tués en minage à la main près d'un nid à 35 tuiles de son QG.
       -- Lot KIT : une autre ressource sur la même tuile (cristal sur du charbon) : le moteur sélectionne l'autre, rien ne vient
-      if busy == 0 and Harvest.foreign_resource(surface, p, task.resource) then busy = 1 end
+      if busy == 0 and Harvest.foreign_resource(surface, p, task.resource, f) then busy = 1 end
       if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
@@ -995,10 +1000,10 @@ FSM.define(MACHINE, {
       local item, count = step[2], step[3]
       local got = e.get_item_count(item) - (agent.mine_base or 0)
       local target = agent.task and agent.task.target
-      local res = target and mining_entity(e.surface, target, Harvest.names(item))
+      local f = faction_of(agent)
+      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item), f)
       if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
         e.mining_state = { mining = false }
-        local f = faction_of(agent)
         if f and agent.task then release_tile(f, agent.task.target) end -- lot KIT : la tuile est rendue
         if f then f.stats.mined = (f.stats.mined or 0) + got end
         agent.pc = agent.pc + 1
