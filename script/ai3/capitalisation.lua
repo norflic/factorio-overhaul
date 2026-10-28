@@ -988,8 +988,14 @@ local function decide(f, cs, view, book, tick, research, w)
       for _, l in ipairs(res.repli.levers) do
         log(string.format("[FO-CERVEAU] %s : repli : levier %s : %s", f.key or "?", l.key, tostring(l.why)))
       end
+      cs.repli_refus = cs.repli_refus or {}
       for _, r in ipairs(res.repli.refus) do
-        log(string.format("[FO-CERVEAU] %s : repli : levier refuse %s : %s", f.key or "?", r.key, tostring(r.why)))
+        -- chaque refus n'est écrit qu'une fois par raison (le même refus se répète à chaque changement de situation)
+        local sig2 = r.key .. "|" .. tostring(r.why)
+        if not cs.repli_refus[sig2] then
+          cs.repli_refus[sig2] = true
+          log(string.format("[FO-CERVEAU] %s : repli : levier refuse %s : %s", f.key or "?", r.key, tostring(r.why)))
+        end
       end
     end
     cs.repli_text = res.repli.text
