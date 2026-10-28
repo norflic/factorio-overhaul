@@ -28,6 +28,7 @@ local Sites = require("script.faction.sites")
 local Registry = require("script.companion.registry")
 local Team = require("script.team.team")
 local Poles = require("script.team.poles")
+require("script.team.adopte") -- lot ADOPTE : machines posées à la main par le joueur, inscrites au registre de l'équipe
 
 local PlayerTeam = {}
 

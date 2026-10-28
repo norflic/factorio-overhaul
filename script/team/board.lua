@@ -32,6 +32,7 @@ local R = require("shared.ai3.registre")
 local X = require("shared.ai3.manque")
 local Registry = require("script.companion.registry")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
 
 local Board = {}
 
@@ -93,7 +94,7 @@ local function bump(f, k, n)
 end
 
 -- Liste prise STRICTEMENT par le programme de l'ouvrier (script/team/worker.lua, étape « take » avec strict = true).
-local STRICT = { craft = "uses", build = "items", extend = "items", fortify = "items", smelters = "items" }
+local STRICT = { craft = "uses", build = "items", extend = "items", fortify = "items", smelters = "items", equiper = "items" }
 function Board.strict_list(t)
   local fld = STRICT[t.kind]
   return fld and t[fld] or nil
@@ -254,6 +255,11 @@ function Board.view_stock(f, stock, tick, full)
   for _, k in ipairs(sorted_keys(out)) do if out[k] <= 0 then out[k] = nil end end
   return out
 end
+
+-- Lot ADOPTE : stock libre pour la pose des fours dormants (script/team/stock.lua).
+Stock.free_view = function(f, tick) return Board.view_stock(f, Stock.contents(f), tick) end
+Stock.place_smelters = function(f, surface, n, carrier) return Outposts.place_smelters(f, surface, n, carrier) end
+Stock.smelters = function(f) return Outposts.smelters(f) end
 
 function Board.get(f)
   f.team.board = f.team.board or { tasks = {}, cooldown = {} }

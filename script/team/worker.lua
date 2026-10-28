@@ -29,6 +29,7 @@ local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
 local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
 local Locomotion = require("script.companion.locomotion")
+local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
 
 local Worker = {}
 
@@ -338,6 +339,8 @@ function Worker.program(f, task, surface, tick)
     end
     list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
+  elseif k == "equiper" then
+    return Equip.program(f, task) -- lot LEVIERS
   elseif k == "mine" then
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
@@ -456,6 +459,8 @@ ACTS.smelters = function(agent, f, task, surface)
   local n = Outposts.place_smelters(f, surface, task.count, main_inv(agent))
   return n > 0
 end
+
+ACTS.equiper = Equip.act -- lot LEVIERS
 
 ACTS.smelt = function(agent, f, task)
   Outposts.service_smelters(f, main_inv(agent), task.smelt)

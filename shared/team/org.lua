@@ -72,7 +72,7 @@ O.TASK_DOMAIN = {
   -- existants
   build = "gisements", extend = "gisements", mine = "gisements", smelt = "gisements", smelters = "gisements",
   service = "logistique", salvage = "logistique", -- salvage : lot IA2-b, démontage des réceptacles orphelins (F209)
-  craft = "production",
+  craft = "production", equiper = "production", -- equiper : lot LEVIERS (modules dans les machines posées)
   refill = "defense", fortify = "defense",
   -- nouveaux (IA1)
   drill_line = "gisements", pumpjack = "gisements", clear = "gisements",
@@ -103,7 +103,7 @@ O.URGENT_AWAY_PCT = 20
 -- Durée estimée d'une tâche (secondes de travail, trajets compris) quand la tâche n'en donne pas (task.work).
 -- Estimations de conception, À MESURER au lot IA1-b (statistiques par type, journal [FO-TEAM]).
 O.TASK_WORK = {
-  build = 90, extend = 60, mine = 60, smelt = 40, smelters = 30, service = 45, craft = 30, refill = 40, fortify = 60,
+  build = 90, extend = 60, mine = 60, smelt = 40, smelters = 30, service = 45, craft = 30, refill = 40, fortify = 60, equiper = 40,
   salvage = 60,
   drill_line = 90, pumpjack = 60, clear = 20, carry = 60, belt = 60, pipe = 60, power_line = 60, recover = 60,
   ghost = 60, recipe = 10, lab = 40, upgrade = 30, replace = 30, repair = 30, power_plant = 90,

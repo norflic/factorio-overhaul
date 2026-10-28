@@ -436,6 +436,16 @@ do
   local ra = G.unfold(cat, { { tech = "automation" } }, start_state())
   check(ra.retries == 0 and #ra.cycles == 0 and ra.payable, "chaîne i : le jeu réel (automation) : aucun cycle, aucune reprise")
 
+  -- l. Amorçage par une MACHINE (la foreuse qui mine la matière du four que la foreuse exige) : ce n'est pas un cycle de
+  -- recettes (la machine est posée avant la descente, la main reste possible) ; X3 a six objets de ce genre. Aucune
+  -- reprise, aucune interdiction.
+  local cb = mini({ f = R("c", 1, { { "ore" } }, { { "F" } }), d = R("c", 1, { { "F" } }, { { "D" } }) },
+    { { name = "hand", hand = true, crafting_categories = { "c" }, resource_categories = { "r" }, energy = "none" },
+      { name = "D", crafting_categories = { "z" }, resource_categories = { "r" }, energy = "none" } })
+  local rb = G.unfold(cb, { { item = "F", n = 2 } }, { stock = {}, techs = {}, built = {}, known = { ore = true } })
+  check(rb.payable and not rb.truncated and rb.retries == 0 and #rb.cycles == 0 and rb.nodes < 30,
+    "chaîne l : amorçage par une machine : payable, aucune reprise (" .. rb.nodes .. " nœuds, " .. rb.retries .. " reprise(s))")
+
   -- j. Tous les buts du jeu réel (chaque produit de chaque recette, chaque technologie, deux états) : aucun cycle,
   -- aucune troncature.
   local cyc, trunc, total = 0, 0, 0

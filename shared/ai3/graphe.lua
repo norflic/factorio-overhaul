@@ -369,30 +369,46 @@ local function deeper(st)
 end
 
 --- Marque « en cours » d'un objet fabriqué par une RECETTE (emit_item : la quantité, sans mémoire, c'est elle qui bouclait).
---- Faux : l'objet est déjà en cours plus haut, c'est un cycle de recettes ; le dépliage est à reprendre sans UNE recette du
---- cycle (st.abort) : la première, en descendant la pile depuis l'objet repris, dont un ingrédient est de rang de
---- faisabilité >= à celui de son produit (elle s'appuie sur ce que son produit rend faisable) ; à défaut, celle qui a ouvert
---- le cycle. Vrai : l'appelant note la recette dans st.active[item] et appelle leave(st, item) en sortant.
+--- Revenir sur un objet en cours est un cycle de recettes SEULEMENT si, de l'objet jusqu'ici, chaque maillon est un
+--- ingrédient du précédent. Un maillon « machine » (ensure_machine : la foreuse qui mine la pierre pour fabriquer le four
+--- que la foreuse exige) ne boucle pas : st.built est posé avant la descente, la deuxième visite ne refait pas la machine.
+--- Ce retour-là est permis (compteur st.nest).
+--- Cycle : faux, et le dépliage est à reprendre sans UNE recette du cycle (st.abort) : la première, en descendant la pile
+--- depuis l'objet repris, dont un ingrédient est de rang de faisabilité >= à celui de son produit (elle s'appuie sur ce
+--- que son produit rend faisable) ; à défaut, celle qui a ouvert le cycle. Profondeur dépassée : faux, tronqué.
+--- Vrai : l'appelant note la recette dans st.active[item] et appelle leave(st, item) en sortant.
 local function enter(cat, st, item)
   if st.active[item] then
-    if not st.abort then
-      local from = 1
-      for i, it in ipairs(st.stack) do if it == item then from = i end end
-      local pick = { item = item, recipe = st.active[item] }
-      for i = from, #st.stack do
-        local it, rname = st.stack[i], st.active[st.stack[i]]
-        local nxt = st.stack[i + 1] or item
-        local r = rname and cat.recipes[rname]
-        local rank = st.order[it]
-        local bad = false
-        for _, ing in ipairs(r and r.ingredients or {}) do
-          if ing.name == nxt and (st.order[nxt] or 0) >= (rank or 0) then bad = true end
+    local from = 1
+    for i, it in ipairs(st.stack) do if it == item then from = i end end
+    local links = {}
+    local pure = true
+    for i = from, #st.stack do
+      local it, rname = st.stack[i], st.active[st.stack[i]]
+      local nxt = st.stack[i + 1] or item
+      local r = rname and cat.recipes[rname]
+      local direct, bad = false, false
+      for _, ing in ipairs(r and r.ingredients or {}) do
+        if ing.name == nxt then
+          direct = true
+          if (st.order[nxt] or 0) >= (st.order[it] or 0) then bad = true end
         end
-        if bad then pick = { item = it, recipe = rname } break end
       end
-      st.abort = pick
+      if not direct then pure = false end
+      links[#links + 1] = { item = it, recipe = rname, bad = bad }
     end
-    return false
+    if pure then
+      if not st.abort then
+        local pick = { item = item, recipe = st.active[item] }
+        for _, l in ipairs(links) do if l.bad then pick = { item = l.item, recipe = l.recipe } break end end
+        st.abort = pick
+      end
+      return false
+    end
+    if not deeper(st) then return false end
+    st.nest[item] = (st.nest[item] or 0) + 1
+    st.stack[#st.stack + 1] = item
+    return true
   end
   if not deeper(st) then return false end
   st.active[item] = true
@@ -401,7 +417,7 @@ local function enter(cat, st, item)
 end
 
 local function leave(st, item)
-  st.active[item] = nil
+  if (st.nest[item] or 0) > 0 then st.nest[item] = st.nest[item] - 1 else st.active[item] = nil end
   st.stack[#st.stack] = nil
   st.depth = st.depth - 1
 end
@@ -640,7 +656,7 @@ local function unfold_once(cat, goals, state, ev, banned)
     feas = ev.feas, tfeas = ev.tfeas, cost = ev.cost,
     planned = {}, cap = {}, supply = {}, enabled = {}, explore = {},
     steps = {}, blocked = {}, nodes = 0, truncated = false,
-    active = {}, stack = {}, depth = 0, banned = banned, order = ev.order,
+    active = {}, nest = {}, stack = {}, depth = 0, banned = banned, order = ev.order,
   }
   for _, g in ipairs(goals) do
     if g.tech then emit_tech(cat, st, g.tech, "but " .. g.tech)

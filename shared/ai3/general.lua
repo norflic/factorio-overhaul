@@ -136,6 +136,12 @@ function Gen.value(cat, ev, state, t, ctx)
       end
     end
   end
+  -- Lot LEVIERS : une recherche à effet que la capitalisation a CHOISIE (retour chiffré sur la capacité qu'elle augmente,
+  -- shared/ai3/leviers.lua) vaut ce que vaut un objet voulu : elle remplace le poids fixe de rôle des bonus.
+  if ctx and ctx.levers and ctx.levers[t] then
+    v = v + math.floor(Gen.V_WANTED * wf(w, Gen.FAMILY.wanted))
+    why[#why + 1] = { "levier", t }
+  end
   for _, fam in ipairs(sorted_keys(spec.bonus)) do
     local base = Gen.V_BONUS[fam] or 0
     local family = fam == "militaire" and "armee" or "capital"

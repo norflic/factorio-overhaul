@@ -53,6 +53,18 @@ function Book:handcraftable(item)
   return self.by_product[item] ~= nil
 end
 
+--- Matière NATURELLE : aucune recette (même cachée ou hors de la main) ne la produit (bois, minerais, pierre, charbon).
+function Book:natural(item)
+  if not self.made then
+    local made = {}
+    for _, name in ipairs(sorted_keys(self.recipes)) do
+      for _, p in ipairs(self.recipes[name].products or {}) do made[p.name] = true end
+    end
+    self.made = made
+  end
+  return not self.made[item]
+end
+
 --- Planifie l'obtention des `wants` ({ {objet, n}, ... }, dans l'ordre de priorité) à partir de `stock`
 --- ({ [objet] = n }, non modifié). Renvoie :
 ---   crafts = { { recipe, runs, energy }, ... }  ordre exécutable (ingrédients avant produits)

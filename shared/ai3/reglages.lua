@@ -26,6 +26,10 @@
      autre chose (§6 du test, et la copie jetable du banc).
   7. R.BODY : le corps du personnage dont l'exécutant d'IA3-f cherche la place libre sur un trajet
      (script/ai3/exploration.lua, find_non_colliding_position ; nom déplacé, inchangé).
+  8. R.ADOPT et R.ADOPT_BLOCKERS (lot ADOPTE) : ce que votre équipe adopte quand le joueur le POSE à la main (script/team/adopte.lua,
+     règle pure shared/team/adopte.lua) : type de prototype -> registre de l'équipe qui le fait servir, et types du moteur
+     (bras, tapis, foreuses…) dont le voisinage prouve qu'une machine appartient à une ligne du joueur. Même justification
+     que R.ENTITY_ROLE : le moteur classe ses bâtiments par TYPE ; aucun nom de bâtiment ici ni dans le cerveau.
   Ce fichier ne contient aucune fonction.
 ]]
 
@@ -90,9 +94,35 @@ R.MODIFIER_ROLE = {
   ["worker-robot-storage"] = "capital",
 }
 
+-- Lot LEVIERS (27/10) : types d'effets de technologie qui AUGMENTENT UNE CAPACITÉ de production, et la capacité qu'ils
+-- augmentent (« mine » : débit des foreuses ; « lab_speed » : vitesse des laboratoires ; « lab_prod » : productivité de la
+-- recherche ; « labor » : vitesse du travail des PNJ, construction et fabrication). Le gain et le coût viennent des
+-- DONNÉES (valeur du modificateur, packs, durée) : shared/ai3/leviers.lua. Les effets militaires restent à R.MODIFIER_ROLE.
+R.LEVER_EFFECT = {
+  ["mining-drill-productivity-bonus"] = "mine",
+  ["laboratory-speed"] = "lab_speed",
+  ["laboratory-productivity"] = "lab_prod",
+  ["worker-robot-speed"] = "labor",
+  ["character-crafting-speed"] = "labor",
+  ["character-mining-speed"] = "labor",
+}
+-- Type d'objet du moteur qui porte des effets de module (LuaItemPrototype.type).
+R.ITEM_MODULE = "module"
+
 R.TURRET = "gun-turret"
 
 R.BODY = "character"
+
+-- Lot ADOPTE : type -> { registre, combustion } ; le rôle (R.ENTITY_ROLE) doit être « fabrique » (machine de fabrication).
+-- « smelters » = f.smelters, la fonderie que les tournées « smelt » vident et rechargent (Outposts.service_smelters) ; seule
+-- une machine À COMBUSTION y entre (le service y met du charbon).
+R.ADOPT = {
+  ["furnace"] = { registry = "smelters", burner = true },
+}
+-- Un de ces types à moins de la marge de la machine : elle fait partie d'une ligne du joueur (ses plaques lui appartiennent),
+-- jamais adoptée (ou plus adoptée si le voisin est posé après elle).
+R.ADOPT_BLOCKERS = { "inserter", "transport-belt", "underground-belt", "splitter", "loader", "loader-1x1", "linked-belt",
+  "mining-drill" }
 
 R.MARCHE_CIBLES = { coal = 400, stone = 200, ["iron-ore"] = 200, ["copper-ore"] = 100 }
 

@@ -411,11 +411,12 @@ local function submit(f, st, tick, rq, research)
   -- que le module avait amorcé seul (« pas de rue vers le reseau ») ; demandée avant, elle amorce le réseau et les
   -- modules s'y relient (ordre du banc ia1-build d'IA1-d).
   if rq.electric and not st.plant_id then
-    st.plant_id = Build.plant(f)
+    st.plant_id = Build.plant(f, rq.pole)
     st.plant_state = "attente"
     note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
   end
-  local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near }
+  local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
+    pole = rq.pole }
   if not spec.near and rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
     local ps = Build.brief(f, st.plant_id)
     local pt = ps and ps.parts and ps.parts[1]
@@ -475,6 +476,8 @@ function Auto.think(f, view, book, tick, research)
       window = st.window, threatened = view.threatened, mods = st.mods,
       obtainable = function(item) return book:handcraftable(item) or (stock[item] or 0) > 0 end,
       book = book, stock = stock, sig = st.sig,
+      -- lot PLANDIR : poteau des gabarits = le moins cher dont la recette est débloquée (jamais un nom écrit ici)
+      pole = A.choose_pole(book, stock),
       has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
       no_power = st.plant_refused and st.plant_refused.reason or nil,
       -- objets du dépliage du cerveau général (IA-G : étapes hand, produce, extract de la dernière décision)

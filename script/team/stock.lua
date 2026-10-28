@@ -8,7 +8,8 @@
 
     Stock.count(f, item) / Stock.remove(f, item, n) / Stock.insert(f, item, n) / Stock.contents(f) / Stock.inventories(f)
     Stock.balance(f)          range l'excédent du coffre du QG aux annexes (piles entières) quand il dépasse T.annex.park_at ;
-    Stock.grow(f, surface)    pose un coffre du stock (rangées T.hq_rows.annex) quand les cases se remplissent ;
+    Stock.grow(f, surface)    pose un coffre du stock (rangées T.hq_rows.annex) quand les cases se remplissent ; pose aussi les
+                              fours DORMANTS de votre équipe au QG (Stock.deploy_idle, lot ADOPTE) ;
     Stock.wanted(f)           coffres à avoir en main (fabrication de fond) : pour Fond.candidates.
   f.annex = liste d'entités (le coffre détruit par un ennemi est retiré de la liste, son contenu est perdu).
 ]]
@@ -17,6 +18,8 @@ local T = require("shared.team.config")
 local A = require("shared.team.annexe")
 local Pl = require("shared.ai3.places")
 local PlacesQG = require("script.ai3.places_qg")
+local Br = require("shared.ai3.bras")
+local Ad = require("shared.team.adopte")
 
 local Stock = {}
 
@@ -146,9 +149,60 @@ function Stock.wanted(f)
   return A.wanted(used, size, n, have)
 end
 
+--- Stock LIBRE (coffre et annexes moins ce que les tâches ont réservé) : posé par script/team/board.lua au chargement
+--- (le tableau requiert ce fichier : pas de require retardé, F24). Absent : le stock tel quel.
+Stock.free_view = nil
+--- Pose de fours au QG (Outposts.place_smelters), posée par script/team/board.lua pour la même raison.
+Stock.place_smelters = nil
+--- Registre des fours du QG (Outposts.smelters), idem.
+Stock.smelters = nil
+
+--- Lot ADOPTE (constat du DC : « les IA se mettent à poser des fours ») : les fours LIBRES au-delà de Ad.IDLE_KEEP sont posés
+--- au QG (registre f.smelters, rangées T.hq_rows.smelter), jusqu'à Br.SMELT_HARD fours en tout (ils sont déjà fabriqués : un four
+--- de plus, même sans minerai, ne coûte rien, contrairement à une commande d'avance) ; le combustible
+--- vient du stock libre. VOTRE équipe seulement : les factions posent leurs fours par leurs vagues (Br.smelters). Une ligne
+--- [FO-ADOPTE] par pose. Rend le nombre posé.
+function Stock.deploy_idle(f, surface, tick)
+  if not (f.is_player and f.hq and f.hq.valid and Stock.free_view and Stock.place_smelters and Stock.smelters) then return 0 end
+  local ok, on = pcall(function() return settings.global["fo-war-adopte"].value end)
+  if ok and on == false then return 0 end
+  local free = Stock.free_view(f, tick)
+  -- Dormant = resté LIBRE toute une fenêtre (A.window) : le kit de départ et les fours qu'une tâche va réclamer ne sont pas posés.
+  local w, lo = Ad.window(f.idle_window, tick, free[T.SMELTER] or 0)
+  f.idle_window = w
+  if lo == nil then return 0 end
+  local have = lo
+  local registry = Stock.smelters(f)
+  local cap = Br.SMELT_HARD
+  local n = Ad.deploy(have, #registry, 0, cap, free[T.fuel] or 0, T.fuel_per_burner)
+  -- Trace de la fenêtre close (au plus une ligne par fenêtre, 60 lignes par équipe) : fours au coffre, libres (minimum de la
+  -- fenêtre), registre, posés : de quoi lire pourquoi des fours restent au coffre (réservés par une tâche, ou plafond atteint).
+  f.stats = f.stats or {}
+  f.stats.idle_logs = (f.stats.idle_logs or 0) + 1
+  if f.stats.idle_logs <= 60 then
+    log(string.format("[FO-ADOPTE] player : fenetre %.1f min : %d four(s) au coffre, %d libre(s) toute la fenetre, registre %d/%d, a poser %d",
+      (tick - (f.started or 0)) / 3600, Stock.count(f, T.SMELTER), have, #registry, cap, n))
+  end
+  if n <= 0 then return 0 end
+  local tmp = game.create_inventory(8)
+  tmp.insert({ name = T.SMELTER, count = Stock.remove(f, T.SMELTER, n) })
+  tmp.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, T.fuel_per_burner * n) })
+  local placed = Stock.place_smelters(f, surface, n, tmp)
+  for name, c in pairs(tmp.get_contents()) do Stock.insert(f, name, c) end
+  tmp.destroy()
+  if placed > 0 then
+    f.stats = f.stats or {}
+    f.stats.idle_deployed = (f.stats.idle_deployed or 0) + placed
+    log(string.format("[FO-ADOPTE] player : %d four(s) dormant(s) pose(s) au QG (libres %d, registre %d -> %d, plafond %d) a %.1f min", placed,
+      have, #registry - placed, #registry, cap, (tick - (f.started or 0)) / 3600))
+  end
+  return placed
+end
+
 --- Pose un coffre du stock (au plus un par appel) quand les cases se remplissent. Rend vrai si un coffre a été posé.
 function Stock.grow(f, surface, tick)
   if not (f.hq and f.hq.valid) then return false end
+  Stock.deploy_idle(f, surface, tick)
   local used, size, n = totals(f)
   if size <= 0 or not A.need_chest(used, size, n) then return false end
   for _, k in ipairs(T.annex.kinds) do

@@ -113,8 +113,8 @@ end
 
 --- Résumé d'un gabarit : { key, n_ent, items = { [objet] = n }, nominal = { [objet] = n/s }, inputs = { [objet] = n/s },
 --- power_kw, ext = { arg, max }, args } ou nil, raison. Les entités vanilla se posent par l'objet de même nom.
-function A.template(gen, args)
-  local k = args_key(gen, args)
+function A.template(gen, args, pole)
+  local k = args_key(gen, args) .. (pole and ("#" .. pole) or "")
   local c = cache[k]
   if c ~= nil then
     if c == false then return nil, "gabarit refuse" end
@@ -122,7 +122,16 @@ function A.template(gen, args)
   end
   local fn = M.GEN[gen]
   if not fn then cache[k] = false return nil, "generateur inconnu" end
-  local g, why = fn(table.unpack(args))
+  local g, why = M.with_pole(pole, fn, table.unpack(args))
+  -- un poteau plus court couvre parfois moins bien (bras ou machine hors de l'aire des poteaux, fils trop longs) : le
+  -- gabarit est contrôlé (M.check) et cède au poteau par défaut s'il est refusé
+  if g and pole and pole ~= M.DEFAULT_POLE and #M.check(g) > 0 then g = nil end
+  if not g and pole then
+    -- Lot PLANDIR : le poteau choisi ne couvre pas ce gabarit (portée plus courte) : le poteau par défaut le pose
+    local c2 = A.template(gen, args)
+    cache[k] = c2 or false
+    return c2, c2 == nil and why or nil
+  end
   if not g then cache[k] = false return nil, why end
   local items, recipes = {}, {}
   for _, e in ipairs(g.entities) do
@@ -135,9 +144,28 @@ function A.template(gen, args)
   end
   local ex = g.extensions and g.extensions[1]
   c = { key = g.key, n_ent = #g.entities, items = items, recipes = recipes, nominal = g.nominal or {}, inputs = g.inputs or {},
-    power_kw = g.power_kw or 0, ext = ex and { arg = ex.arg, max = ex.max } or nil, args = args, gen = gen }
+    power_kw = g.power_kw or 0, ext = ex and { arg = ex.arg, max = ex.max } or nil, args = args, gen = gen,
+    pole = g.pole_name }
   cache[k] = c
   return c
+end
+
+--- Lot PLANDIR : poteau des gabarits d'une équipe = le moins cher DONT LA RECETTE EST DÉBLOQUÉE (livre de la main, qui ne
+--- compte que les recettes ouvertes) ou déjà au coffre, et dont les matières NATURELLES (aucune recette ne les produit : le
+--- bois) sont au coffre pour A.POLE_BATCH poteaux. Rend le nom (table triée de shared/team/modules.lua) ou nil : le poteau
+--- par défaut. Les plaques, câbles et bâtons ne bloquent pas : fonderie et main les fournissent.
+A.POLE_BATCH = 20
+function A.choose_pole(book, stock)
+  stock = stock or {}
+  return M.cheapest_pole(function(name)
+    if (stock[name] or 0) >= A.POLE_BATCH then return true end
+    if not book:handcraftable(name) then return false end
+    local plan = book:plan({ { name, A.POLE_BATCH } }, stock)
+    for _, k in ipairs(sorted_keys(plan.raw)) do
+      if book:natural(k) then return false end
+    end
+    return true
+  end)
 end
 
 --- Vide le cache (tests).
@@ -211,8 +239,8 @@ function A.add_executors(exec, recipes)
 end
 
 --- Gabarit d'une méthode dimensionné au débit `rate` (objets/min du produit) : (résumé, args) ou nil, raison.
-function A.sized(method, rate)
-  local base, why = A.template(method.gen, method.args)
+function A.sized(method, rate, pole)
+  local base, why = A.template(method.gen, method.args, pole)
   if not base then return nil, why end
   local nom = (base.nominal[method.product] or 0) * 60
   if nom <= 0 then return nil, "debit nominal nul" end
@@ -225,7 +253,7 @@ function A.sized(method, rate)
     if n > base.ext.max then n = base.ext.max end
     args[base.ext.arg] = n
   end
-  local g, why2 = A.template(method.gen, args)
+  local g, why2 = A.template(method.gen, args, pole)
   if not g then return nil, why2 end
   return g, args
 end
@@ -268,7 +296,7 @@ local function feed_extra(method, g)
     local flow = g.inputs[it]
     if method.ore == it and flow >= A.BELT_FLOW then
       local nd = math.max(1, math.ceil(flow / (2 * A.DRILL_RATE) - 1e-9))
-      local d = A.template("drills", { it, nd })
+      local d = A.template("drills", { it, nd }, g.pole)
       if d then
         for _, name in ipairs(sorted_keys(d.items)) do add(name, d.items[name]) end
       end
@@ -286,7 +314,7 @@ local function feed_extra(method, g)
   local ports = method.gen == "smelter" and 2 or 1
   add(D.PARTS.chest, ports)
   add(outn / ports > A.QUAI_RATE and D.PARTS.fast_arm or D.PARTS.arm, ports)
-  if (g.power_kw or 0) > 0 then add(D.PARTS.pole, A.NET_POLES) end
+  if (g.power_kw or 0) > 0 then add(g.pole or D.PARTS.pole, A.NET_POLES) end
   return items, n, quais_in, ports
 end
 
@@ -299,7 +327,7 @@ function A.cost(method, g, ctx)
   for _, name in ipairs(sorted_keys(extra)) do items[name] = (items[name] or 0) + extra[name] end
   local n_ent = g.n_ent + n_extra
   if (g.power_kw or 0) > 0 and not ctx.has_plant then
-    local pl = A.template(A.PLANT.gen, A.PLANT.args)
+    local pl = A.template(A.PLANT.gen, A.PLANT.args, g.pole)
     if pl then
       for _, name in ipairs(sorted_keys(pl.items)) do items[name] = (items[name] or 0) + pl.items[name] end
       items[D.PARTS.chest] = (items[D.PARTS.chest] or 0) + 1
@@ -547,7 +575,7 @@ function A.decide(input)
     else
       local rate = math.max(1, D) * (100 + margin) / 100
       if st.fini == 0 and rate > A.FIRST_RATE_MAX then rate = A.FIRST_RATE_MAX end
-      local g, args = A.sized(meth, rate)
+      local g, args = A.sized(meth, rate, input.pole)
       -- Fonderie : la voie de minerai n'est servie par foreuses et tapis qu'au-delà de A.BELT_FLOW (P.AUTO_FLOW) ; en
       -- dessous, c'est un quai que les porteurs remplissent DEPUIS LE COFFRE, où il n'y a pas de minerai (les avant-postes
       -- livrent des plaques) : moteur réel, e6-usine, emerald, seconde fonderie de fer à quai de minerai vide 30 min. La
@@ -558,7 +586,7 @@ function A.decide(input)
           local a2 = {}
           for i = 1, #args do a2[i] = args[i] end
           a2[g.ext.arg] = n
-          local g2 = A.template(meth.gen, a2)
+          local g2 = A.template(meth.gen, a2, input.pole)
           if g2 and belt_ok(g2) then g, args = g2, a2 break end
         end
       end
@@ -578,7 +606,7 @@ function A.decide(input)
           local a2 = {}
           for i = 1, #args do a2[i] = args[i] end
           a2[g.ext.arg] = n
-          local g2 = A.template(meth.gen, a2)
+          local g2 = A.template(meth.gen, a2, input.pole)
           if g2 and belt_ok(g2) and #missing_of(g2) == 0 then g, args = g2, a2 break end
         end
       end
@@ -626,7 +654,8 @@ function A.decide(input)
           else
             v.verdict, v.why = "demande", string.format("charge %.2f PNJ, retour %.1f min <= %d", L, T, H)
             out.requests[#out.requests + 1] = { product = c.item, gen = meth.gen, args = args, rate = rate,
-              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric, gain = G }
+              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric, gain = G,
+              pole = g.pole }
             open = open + 1
             busy[c.item] = true
           end
