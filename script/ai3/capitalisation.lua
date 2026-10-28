@@ -712,7 +712,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     end
     local m = ce_memo[item]
     if m ~= nil then return m or nil end
-    local meth, why = A.method_for(item, book)
+    local meth, why = A.method_for(item, book, function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end)
     local res = nil
     local hw = held(cs, item, tick)
     if not meth then res = tostring(why)
@@ -857,7 +857,8 @@ local function execute(f, cs, o, view, book, tick, research)
     rec.target = (cs.nlabs or 0) + (o.n or 0)
     return rec
   elseif o.kind == "chaine" or o.kind == "packs" then
-    local meth, why = A.method_for(o.item, book)
+    local vstock = view.stock or {}
+    local meth, why = A.method_for(o.item, book, function(n) return book:handcraftable(n) or (vstock[n] or 0) > 0 end)
     if not meth then return nil, tostring(why) end
     local ids, why2 = {}, nil
     for _, part in ipairs(Capi.split(o.rate or 0)) do

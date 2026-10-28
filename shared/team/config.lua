@@ -17,6 +17,9 @@ T.start_kit = {
   { "burner-mining-drill", 12 }, { "stone-furnace", 8 }, { "iron-chest", 4 },
   { "coal", 150 }, { "iron-plate", 200 }, { "copper-plate", 60 }, { "stone", 80 },
   { "firearm-magazine", 40 },
+  -- lot PLANDIR : du bois pour les petits poteaux des premiers modules (A.choose_pole : seul le bois du coffre compte, les
+  -- équipes n'en reçoivent que des arbres de leurs avant-postes ; 50 bois = 100 poteaux)
+  { "wood", 50 },
 }
 T.start_smelters = 2       -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
 T.hq_inventory = 200
