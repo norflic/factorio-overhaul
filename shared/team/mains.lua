@@ -85,7 +85,8 @@ end
   tâche. Il n'a de sens que si la matière MANQUE à l'équipe. Elle ne manque pas (le fond s'en abstient) quand, sur la foi
   des mesures du cerveau :
     « sature »  son stock dépasse plusieurs fois le besoin prévu (shared/ai3/buts.lua, B.saturated) ;
-    « module »  un module fini la livre (shared/ai3/cerveau.lua, covered) ;
+    « module »  un module fini la livre (shared/ai3/cerveau.lua, covered) ET le débit mesuré couvre le besoin (comme « debit », sans
+                la marge sur le minage à la main : un module à demi-régime ne couvre pas une équipe qui manque) ;
     « debit »   le débit AUTOMATIQUE mesuré couvre le besoin ET écrase le travail à la main : sur la fenêtre, (production des
                 machines − ce que les PNJ ont miné à la main) × M.COVER_MIN minutes ≥ le besoin prévu (manque compris : le
                 besoin du cerveau est « ce qu'il va consommer + ce qui manque »), et ce débit vaut au moins M.MARGINAL PNJ
@@ -143,14 +144,15 @@ end
 
 function M.reason(item, c)
   if c.saturated and c.saturated[item] then return "sature" end
-  if c.modules and c.modules[item] then return "module" end
   local fl = c.flow and c.flow[item]
   local hand = (c.hand and c.hand[item]) or M.HAND_RATE
-  if fl and (fl.n or 0) >= M.MIN_SAMPLES and (fl.rate or 0) > 0
+  -- Le débit automatique mesuré livre le besoin prévu sur la fenêtre (mesure assez longue, débit non nul).
+  local delivers = fl and (fl.n or 0) >= M.MIN_SAMPLES and (fl.rate or 0) > 0
     and fl.rate * M.COVER_MIN >= ((c.need and c.need[item]) or 0)
-    and fl.rate >= M.MARGINAL * hand then
-    return "debit"
-  end
+  -- « module » : un module fini la livre ET son débit mesuré livre le besoin (un module qui tourne à moitié de sa cible ne
+  -- couvre pas une équipe qui manque : mesuré au moteur réel, la faction Azure restait sans fer et ses PNJ sans travail).
+  if c.modules and c.modules[item] and delivers then return "module" end
+  if delivers and fl.rate >= M.MARGINAL * hand then return "debit" end
   return nil
 end
 

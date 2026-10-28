@@ -69,7 +69,13 @@ local function rule_checks(M, Tcfg)
 
   -- Cas de la règle.
   check(M.reason(P, ctx({ sat = { [P] = true } })) == "sature", "saturée : couverte (sature)")
-  check(M.reason(P, ctx({ mod = { [P] = true } })) == "module", "module fini : couverte (module)")
+  check(M.reason(P, ctx({ mod = { [P] = true }, need = { [P] = 100 }, flow = { [P] = { rate = 10, n = 5 } } })) == "module",
+    "module fini dont le débit mesuré couvre le besoin : couverte (module)")
+  check(M.reason(P, ctx({ mod = { [P] = true } })) == nil, "module fini sans débit mesuré : pas couverte")
+  check(M.reason(P, ctx({ mod = { [P] = true }, need = { [P] = 101 }, flow = { [P] = { rate = 10, n = 5 } } })) == nil,
+    "module fini dont le débit mesuré est sous le besoin (Azure, 28/10) : pas couverte")
+  check(M.reason(P, ctx({ mod = { [P] = true }, need = { [P] = 100 }, flow = { [P] = { rate = 10, n = 2 } } })) == nil,
+    "module fini, mesure de 2 minutes seulement : pas couverte")
   check(M.reason(P, ctx({})) == nil, "aucune mesure : jamais couverte")
   local W, K, H = M.COVER_MIN, M.MARGINAL, M.HAND_RATE
   local big = K * H -- débit qui vaut K PNJ au minage à la main
@@ -112,7 +118,7 @@ local function rule_checks(M, Tcfg)
   local mine, smelt = M.skips(chains, ctx({ sat = { [P] = true } }))
   check(mine[R] == "sature" and smelt[P] == "sature", "plaque saturée : minerai ET fonte de fond écartés")
   check(next(mine, next(mine)) == nil, "plaque saturée : un seul minerai écarté")
-  mine, smelt = M.skips(chains, ctx({ mod = { [raw.product] = true } }))
+  mine, smelt = M.skips(chains, ctx({ mod = { [raw.product] = true }, need = { [raw.product] = 50 }, flow = { [raw.product] = flow(10, 5) } }))
   check(mine[raw.resource] == "module" and next(smelt) == nil, "produit brut couvert : minage écarté, aucune fonte")
   mine, smelt = M.skips(chains, ctx({}))
   check(next(mine) == nil and next(smelt) == nil, "rien de couvert : rien d'écarté")
@@ -157,13 +163,15 @@ do
   -- x 10 >= besoin x k), avec au moins 3 minutes de mesure.
   local function oracle(stock, need, module, samples, hand)
     if stock >= B.SAT_FACTOR * need and need > 0 then return "sature" end
-    if module then return "module" end
     local k = math.min(#samples, 10)
     if k < 3 then return nil end
     local sum = 0
     for i = #samples - k + 1, #samples do sum = sum + math.max(0, samples[i].total - samples[i].hand) end
-    -- sum / k = débit par minute : couvre le besoin sur 10 minutes ET vaut 4 PNJ de minage (entiers : sum >= 4 x hand x k)
-    if sum > 0 and sum * 10 >= need * k and sum >= 4 * hand * k then return "debit" end
+    -- sum / k = débit par minute : couvre le besoin sur 10 minutes (entiers : sum x 10 >= besoin x k)
+    local delivers = sum > 0 and sum * 10 >= need * k
+    if module and delivers then return "module" end
+    -- ... ET vaut 4 PNJ de minage (entiers : sum >= 4 x hand x k)
+    if delivers and sum >= 4 * hand * k then return "debit" end
     return nil
   end
   local bad, total, covered, uncovered = 0, 0, 0, 0
@@ -369,13 +377,14 @@ do
   local mutants = {
     { "débit sans minimum de mesure", "(fl.n or 0) >= M.MIN_SAMPLES", "(fl.n or 0) >= 0" },
     { "égalité exclue", "fl.rate * M.COVER_MIN >= ((c.need", "fl.rate * M.COVER_MIN > ((c.need" },
-    { "marge sur le minage à la main ignorée", "\n    and fl.rate >= M.MARGINAL * hand then", " then" },
+    { "marge sur le minage à la main ignorée", "if delivers and fl.rate >= M.MARGINAL * hand then", "if delivers then" },
     { "rendement mesuré ignoré", "local hand = (c.hand and c.hand[item]) or M.HAND_RATE", "local hand = M.HAND_RATE" },
     { "rendement mesuré sur mesure trop courte", "if (secs or 0) < M.HAND_MIN_SECS then return nil end", "if (secs or 0) <= 0 then return nil end" },
     { "minage à la main non retiré du débit", "(s.total or 0) - (s.hand or 0)", "(s.total or 0)" },
     { "débit négatif admis", "math.max(0, (s.total or 0) - (s.hand or 0))", "((s.total or 0) - (s.hand or 0))" },
     { "saturation ignorée", 'if c.saturated and c.saturated[item] then return "sature" end', "" },
-    { "module ignoré", 'if c.modules and c.modules[item] then return "module" end', "" },
+    { "module ignoré", 'if c.modules and c.modules[item] and delivers then return "module" end', "" },
+    { "module sans le débit mesuré", 'if c.modules and c.modules[item] and delivers then return "module" end', 'if c.modules and c.modules[item] then return "module" end' },
     { "fonte écartée aussi pour un produit brut", "if ch.smelted then smelt[ch.product] = why end", "smelt[ch.product] = why" },
     { "fenêtre sans limite", "local first = math.max(1, n - M.COVER_MIN + 1)", "local first = 1" },
     { "minerai écarté sous le nom du produit", "mine[ch.resource] = why", "mine[ch.product] = why" },
