@@ -32,6 +32,7 @@ local R = require("shared.ai3.registre")
 local X = require("shared.ai3.manque")
 local Registry = require("script.companion.registry")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
 
 local Board = {}
@@ -257,6 +258,7 @@ function Board.view_stock(f, stock, tick, full)
 end
 
 -- Lot ADOPTE : stock libre pour la pose des fours dormants (script/team/stock.lua).
+Stock.on_think = function(f, tick) Fantomes.sweep(f, tick) end
 Stock.free_view = function(f, tick) return Board.view_stock(f, Stock.contents(f), tick) end
 Stock.place_smelters = function(f, surface, n, carrier) return Outposts.place_smelters(f, surface, n, carrier) end
 Stock.smelters = function(f) return Outposts.smelters(f) end
@@ -607,6 +609,7 @@ function Board.claim(f, agent, tick)
       best.worker = agent.id
       best.claimed = tick
       best.away = nil
+      Fantomes.show(f, best, tick) -- lot FANTOMES : où le PNJ va poser (aperçu en fantômes)
       -- Son indice (pris ou non) et celui de la tâche prise sont rendus : la tâche indiquée redevient libre pour tous.
       local h = b.hint and b.hint[agent.id]
       if h then
@@ -674,6 +677,7 @@ function Board.claim(f, agent, tick)
     best.worker = agent.id
     best.claimed = tick
     best.away = (away and (best.prio or 0) >= O.URGENT_PRIO) or nil
+    Fantomes.show(f, best, tick) -- lot FANTOMES
   end
   return best
 end
@@ -686,6 +690,7 @@ Board.on_fail = nil
 Board.on_done = nil
 
 function Board.finish(f, task, ok, tick)
+  Fantomes.finish(f, task.key) -- lot FANTOMES : l'aperçu de la tâche part, réussie ou non
   if not ok and Board.on_fail then Board.on_fail(f, task, tick) end
   if Board.on_done then Board.on_done(f, task, ok, tick) end -- lot IA3-e : charge à la main mesurée (fin de tâche)
   local b = Board.get(f)

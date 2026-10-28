@@ -158,6 +158,8 @@ Stock.place_smelters = nil
 Stock.smelters = nil
 --- Exemplaires d'un objet que le plan directeur va encore réclamer (posé par script/team/board.lua) : jamais dormants.
 Stock.demand = nil
+--- Crochet de pensée (balayage des fantômes d'aperçu), idem.
+Stock.on_think = nil
 
 --- Lot ADOPTE (constat du DC : « les IA se mettent à poser des fours ») : les fours LIBRES au-delà de Ad.IDLE_KEEP sont posés
 --- au QG (registre f.smelters, rangées T.hq_rows.smelter), jusqu'à Br.SMELT_HARD fours en tout (ils sont déjà fabriqués : un four
@@ -205,6 +207,7 @@ end
 --- Pose un coffre du stock (au plus un par appel) quand les cases se remplissent. Rend vrai si un coffre a été posé.
 function Stock.grow(f, surface, tick)
   if not (f.hq and f.hq.valid) then return false end
+  if Stock.on_think then Stock.on_think(f, tick) end -- lot FANTOMES : balayage des aperçus (posé par script/team/board.lua)
   Stock.deploy_idle(f, surface, tick)
   local used, size, n = totals(f)
   if size <= 0 or not A.need_chest(used, size, n) then return false end
