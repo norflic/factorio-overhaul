@@ -15,6 +15,7 @@ local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local Elec = require("script.faction.outposts_elec") -- lot ELEC2 : foreuses électriques des avant-postes
 
 local Outposts = {}
 
@@ -79,7 +80,32 @@ end
 
 --- Pose jusqu'à `max_pairs` paires foreuse + réceptacle sur le gisement `kind` autour de `center`, avec
 --- les objets portés par `carrier` (inventaire de l'ouvrier). Renvoie drills, sinks.
-local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
+local place_pairs
+
+--- Lot ELEC2 : les outils de pose que l'électrique partage avec la pose à combustible.
+local function elec_helpers()
+  return {
+    sink_position = sink_position, DIRS = DIRS,
+    free = function(f, dname, pos, dir, sink, spos)
+      return not (Outposts.reserved and (Outposts.reserved(f, dname, pos, dir) or Outposts.reserved(f, sink, spos)))
+    end,
+  }
+end
+
+function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
+  -- Lot ELEC2 : l'ouvrier porte des foreuses électriques (kit électrique, T.pair_kit) : pose électrique et sa ligne
+  if Elec.carries(carrier) then
+    local drills, sinks, why = Elec.place(f, surface, kind, center, carrier, math.ceil(max_pairs / Elec.per()), radius, elec_helpers())
+    if #drills == 0 then
+      Elec.fail(f, kind, game.tick)
+      log(string.format("[FO-ELEC2] %s : avant-poste %s en %d,%d sans foreuse electrique posee (%s), combustible pendant %d min",
+        f.key or "?", kind, math.floor(center.x), math.floor(center.y), tostring(why or "place"), Elec.BACKOFF / 3600))
+    else
+      log(string.format("[FO-ELEC2] %s : avant-poste %s en %d,%d : %d foreuse(s) electrique(s) posee(s)", f.key or "?", kind,
+        math.floor(center.x), math.floor(center.y), #drills))
+    end
+    return drills, sinks
+  end
   local spec = T.outposts[kind]
   local force = f.force
   -- L'ouvrier dégage le chantier : arbres et rochers abattus (le bois revient à l'équipe).
@@ -336,11 +362,50 @@ end
 
 --- Agrandit un avant-poste existant (même gisement). Renvoie le nombre de paires ajoutées ; à 0 ou au
 --- plafond, l'avant-poste est marqué plein.
+--- Lot ELEC2 : valeur de l'avant-poste en foreuses à combustible ÉQUIVALENTES (une électrique en vaut Elec.per()) et
+--- nombre de foreuses à combustible vivantes.
+function Outposts.weight(o)
+  local n, b = 0, 0
+  for _, d in ipairs(o.drill_list or {}) do
+    if d.valid then
+      if Elec.is_electric(d) then n = n + 1 else b = b + 1 end
+    end
+  end
+  return b + n * Elec.per(), b, n
+end
+
+--- Foreuses de l'avant-poste vues par les planificateurs : son poids en équivalents combustible ; quand le contexte
+--- électrique permet de remplacer ses foreuses à combustible, il reste « agrandissable » (une de moins que le plafond).
+function Outposts.view_drills(o, f)
+  local w, nb, ne = Outposts.weight(o)
+  if ne == 0 and nb == o.drills then return o.drills end -- tout à combustible : comme avant
+  if nb > 0 and T.elec and T.elec[o.kind] then return math.min(w, T.max_drills(o.kind) - 1) end
+  return w
+end
+
+function Outposts.view_full(o, f)
+  if not o.full then return false end
+  if T.elec and T.elec[o.kind] then
+    local _, nb = Outposts.weight(o)
+    if nb > 0 and not o.hold_until then return false end
+  end
+  return true
+end
+
 function Outposts.extend(f, surface, o, carrier)
   local spec = T.outposts[o.kind]
   if Outposts.on_arrive then Outposts.on_arrive(f, nil, o.id) end
-  local room = T.max_drills(o.kind) - o.drills
+  local elec = Elec.carries(carrier)
+  local w, nb = Outposts.weight(o)
+  -- électrique : les foreuses à combustible en trop seront retirées après la pose, elles ne comptent pas dans la place
+  local room = T.max_drills(o.kind) - w + (elec and nb or 0)
   local drills, sinks = place_pairs(f, surface, o.kind, o.pos, carrier, math.min(spec.drills, room), 18)
+  if elec and #drills > 0 then
+    local gone = Elec.retire(o, carrier, T.max_drills(o.kind), Elec.per())
+    if gone > 0 then
+      log(string.format("[FO-ELEC2] %s : avant-poste %s %d : %d foreuse(s) a combustible retiree(s)", f.key or "?", o.kind, o.id, gone))
+    end
+  end
   for _, d in ipairs(drills) do
     o.drill_list[#o.drill_list + 1] = d
     State.own(d, f.id, "drill", o.id)
@@ -350,7 +415,8 @@ function Outposts.extend(f, surface, o, carrier)
     State.own(s, f.id, "sink", o.id)
   end
   o.drills = o.drills + #drills
-  if #drills == 0 or o.drills >= T.max_drills(o.kind) then
+  local w2, nb2 = Outposts.weight(o)
+  if #drills == 0 or (w2 >= T.max_drills(o.kind) and (nb2 == 0 or not T.elec)) then
     o.full = true
     o.hold_until = nil -- plein pour de bon (et non en attente après des échecs, lot ADOPTE)
   end
@@ -425,7 +491,8 @@ end
 
 function Outposts.burners(o)
   local list = {}
-  for _, d in ipairs(valid_list(o.drill_list)) do list[#list + 1] = d end
+  -- lot ELEC2 : une foreuse électrique n'a pas de réservoir (ni ravitaillement, ni charbon à porter)
+  for _, d in ipairs(valid_list(o.drill_list)) do if d.get_fuel_inventory() ~= nil then list[#list + 1] = d end end
   for _, s in ipairs(valid_list(o.sinks)) do if s.type == "furnace" then list[#list + 1] = s end end
   return list
 end

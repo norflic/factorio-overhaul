@@ -54,6 +54,27 @@ T.outposts = {
   stone  = { resource = "stone",      sink = "iron-chest",    product = "stone",        drills = 2 },
 }
 T.OUTPOST_ORDER = { "coal", "iron", "copper", "stone" }
+-- Lot ELEC2 : contexte ÉLECTRIQUE de la pensée en cours (posé par script/team/team.lua avant les planificateurs, retiré après ;
+-- nil : foreuses à combustible, comportement d'avant). T.elec = { [type d'avant-poste] = { drill, pole, poles, per } } :
+-- l'objet de la foreuse électrique posable aujourd'hui, le poteau de la ligne, le nombre de poteaux portés et le nombre de
+-- foreuses à combustible qu'une foreuse électrique vaut (débit, lu aux prototypes).
+T.elec = nil
+--- Objets de `n` paires foreuse + réceptacle d'un avant-poste de ce type (n en foreuses à combustible ÉQUIVALENTES).
+--- Combustible comme avant (T.fuel_per_burner par brûleur : foreuse et four) ; électrique : la moitié des foreuses, le four
+--- seul brûle, plus les poteaux de la ligne.
+function T.pair_kit(kind, n)
+  local spec = T.outposts[kind]
+  local e = T.elec and T.elec[kind]
+  if e then
+    local m = math.max(1, math.ceil(n / (e.per or 2)))
+    local list = { { e.drill, m }, { spec.sink, m } }
+    if spec.sink == T.SMELTER then list[#list + 1] = { T.fuel, T.fuel_per_burner * m } end
+    list[#list + 1] = { e.pole, e.poles }
+    return list
+  end
+  local fuel = kind == "coal" and 2 * n or T.fuel_per_burner * n * (spec.sink == "stone-furnace" and 2 or 1)
+  return { { T.DRILL, n }, { spec.sink, n }, { T.fuel, fuel } }
+end
 -- Un avant-poste s'agrandit sur son gisement jusqu'à 12 foreuses avant qu'on en cherche un autre (moteur
 -- réel : à 480 tuiles du centre, la carte n'offre souvent qu'un gisement de chaque minerai par faction).
 -- Un palier « N avant-postes de fer » se lit donc « N × drills foreuses de fer ».

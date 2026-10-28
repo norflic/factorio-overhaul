@@ -474,7 +474,7 @@ do
   --            rapport du lot) ; le plafond est l'état du 28/10 et ne peut que BAISSER.
   -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
   local LEDGER = {
-    ["shared/team/config.lua"] = { "EXEC", 41, "table nommée de l'exécutant (kit, avant-postes, fonte, munitions, pièces)" },
+    ["shared/team/config.lua"] = { "EXEC", 42, "table nommée de l'exécutant (kit, avant-postes, fonte, munitions, pièces)" },
     ["shared/team/modules.lua"] = { "EXEC", 203, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
@@ -486,8 +486,8 @@ do
     ["script/gui/team_window.lua"] = { "EXEC", 2, "coffre d'équipe : entité du mod" },
     ["shared/team/production.lua"] = { "DETTE", 16, "solveur de débits (lot IA1-e1) : machine par catégorie, matières brutes, recette par défaut du gaz : lire le catalogue du cerveau" },
     ["script/core/path_service.lua"] = { "TYPE", 1, "masque de collision d'eau" },
-    ["shared/team/fond.lua"] = { "DETTE", 18, "cibles du travail de fond : lire T.outposts / T.start_kit" },
-    ["shared/team/planner.lua"] = { "DETTE", 40, "table plaque -> avant-poste : déduire de T.outposts / T.smelter_inputs (comme manque.lua)" },
+    ["shared/team/fond.lua"] = { "DETTE", 17, "cibles du travail de fond : lire T.outposts / T.start_kit" },
+    ["shared/team/planner.lua"] = { "DETTE", 38, "table plaque -> avant-poste : déduire de T.outposts / T.smelter_inputs (comme manque.lua)" },
     ["shared/team/org.lua"] = { "DETTE", 2, "coût de recrue en plaques de fer : T.outposts.iron.product" },
     ["shared/team/scale.lua"] = { "DETTE", 1, "noms de pièces : T" },
     ["script/team/board.lua"] = { "DETTE", 2, "besoins de fonte : T.smelter_inputs" },

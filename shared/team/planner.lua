@@ -106,8 +106,7 @@ end
 local function outpost_items(kind)
   local spec = T.outposts[kind]
   -- Un avant-poste de charbon démarre avec 2 charbons par foreuse puis se ravitaille sur sa production.
-  local fuel = kind == "coal" and 2 * spec.drills or T.fuel_per_burner * spec.drills * (spec.sink == "stone-furnace" and 2 or 1)
-  return { { T.DRILL, spec.drills }, { spec.sink, spec.drills }, { T.fuel, fuel } }
+  return T.pair_kit(kind, spec.drills) -- lot ELEC2 : électrique quand le contexte de la pensée le permet
 end
 
 function P.outpost_items(kind) return outpost_items(kind) end
@@ -116,8 +115,7 @@ function P.outpost_items(kind) return outpost_items(kind) end
 local function minimal_items(kind)
   local spec = T.outposts[kind]
   local n = math.min(2, spec.drills)
-  local fuel = kind == "coal" and 2 * n or T.fuel_per_burner * n * (spec.sink == "stone-furnace" and 2 or 1)
-  return { { T.DRILL, n }, { spec.sink, n }, { T.fuel, fuel } }
+  return T.pair_kit(kind, n)
 end
 
 --- Le palier `goal` est-il atteint ? Renvoie atteint, liste des besoins (avant-postes, objets...).

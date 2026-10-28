@@ -99,9 +99,7 @@ end
 
 --- Objets d'un agrandissement ou d'un petit avant-poste de `pairs` paires (combustible compris, comme le cerveau).
 function F.pair_items(kind, pairs)
-  local spec = T.outposts[kind]
-  local fuel = kind == "coal" and 2 * pairs or T.fuel_per_burner * pairs * (spec.sink == "stone-furnace" and 2 or 1)
-  return { { T.DRILL, pairs }, { spec.sink, pairs }, { T.fuel, fuel } }
+  return T.pair_kit(kind, pairs) -- lot ELEC2
 end
 
 --- Lot IA1-b2 (défendre d'abord) : tourelles d'un nouvel avant-poste de `pairs` paires, ajoutées à `items` si le stock

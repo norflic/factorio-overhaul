@@ -718,7 +718,7 @@ local function release_holds(f, tick)
     local o = f.outposts[oid]
     if o.hold_until and tick >= o.hold_until then
       o.hold_until, o.ext_fails = nil, 0
-      if o.drills < T.max_drills(o.kind) then o.full = false end
+      if Outposts.weight(o) < T.max_drills(o.kind) then o.full = false end
     end
   end
 end

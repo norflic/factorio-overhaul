@@ -30,6 +30,8 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
+local Elec = require("script.faction.outposts_elec") -- lot ELEC2 : avant-postes à foreuses électriques
+local AutoRules = require("shared.ai3.automatiser") -- lot ELEC2 : poteau le moins cher fabricable (A.choose_pole)
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -412,7 +414,7 @@ function Team.view(f, tick)
     local o = f.outposts[oid]
     local st = Outposts.status(o, tick)
     outposts[#outposts + 1] = {
-      id = oid, kind = o.kind, drills = o.drills, full = o.full or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
+      id = oid, kind = o.kind, drills = Outposts.view_drills(o, f), full = Outposts.view_full(o, f), turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
@@ -561,6 +563,12 @@ end
 function Team.think(f, surface, tick)
   if not f.team then return nil end
   Trace.log("team", f.key, #State.sorted_keys(f.outposts))
+  -- Lot ELEC2 : contexte électrique des avant-postes pour cette pensée seulement (kits des planificateurs, vue)
+  T.elec = nil
+  if f.hq and f.hq.valid then
+    local bk = book_for(f)
+    T.elec = Elec.context(f, tick, bk, Stock.contents(f), AutoRules.choose_pole)
+  end
   Profiler.start("team:view")
   local view = Team.view(f, tick)
   Profiler.stop("team:view")
