@@ -80,6 +80,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import audio_guard  # noqa: E402
 import gallery  # noqa: E402
+import sans_fenetre  # noqa: E402  (lot OUTILLAGE : aucun programme de console ne doit ouvrir de fenêtre)
 import vram  # noqa: E402
 
 SW_SHOWNORMAL, SW_SHOWNOACTIVATE, SW_SHOWMINNOACTIVE = 1, 4, 7
@@ -242,7 +243,7 @@ def factorio_processes():
     ps = ("Get-CimInstance Win32_Process | Where-Object { $_.Name -eq 'factorio.exe' } | "
           "ForEach-Object { [string]$_.ProcessId + '|' + [string]$_.CommandLine }")
     try:
-        out = subprocess.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps],
+        out = sans_fenetre.run(["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps],
                              capture_output=True, text=True, timeout=120).stdout
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise RuntimeError("liste des processus impossible : %s" % exc)
@@ -546,7 +547,10 @@ def main():
     si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
     si.wShowWindow = {"min": SW_SHOWMINNOACTIVE, "small": SW_SHOWNOACTIVATE, "hd": SW_SHOWNOACTIVATE,
                       "normal": SW_SHOWNORMAL}[a.window]
-    flags = BELOW_NORMAL_PRIORITY_CLASS if a.priority == "below" else 0
+    # Lot OUTILLAGE : « normal » est EXPLICITE (NORMAL_PRIORITY_CLASS) : le pilote est lancé par le banc en priorité réduite,
+    # et un drapeau 0 ferait hériter le jeu de cette priorité réduite. La fenêtre du jeu reste visible (réduite) :
+    # pas de CREATE_NO_WINDOW pour lui.
+    flags = BELOW_NORMAL_PRIORITY_CLASS if a.priority == "below" else sans_fenetre.NORMAL_PRIORITY_CLASS
     out("mode %s%s, fenetre %s%s, priorite %s, cache d'atlas %s, delai %d s" % (
         a.mode, " (%d ticks au plus)" % ticks if a.mode == "benchmark" else "", a.window,
         " " + size if size and a.window != "min" else "", a.priority, "oui" if a.atlas_cache else "non", a.timeout))
