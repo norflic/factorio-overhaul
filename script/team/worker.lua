@@ -401,11 +401,13 @@ function Worker.program(f, task, surface, tick)
       local r = res[i]
       local p = r.position
       local busy = surface.count_entities_filtered({
-        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(), invert = true, limit = 1,
+        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource), invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
       -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
       -- ia3c-default graine 20261020, Ambre, 28 PNJ tués en minage à la main près d'un nid à 35 tuiles de son QG.
+      -- Lot KIT : une autre ressource sur la même tuile (cristal sur du charbon) : le moteur sélectionne l'autre, rien ne vient
+      if busy == 0 and Harvest.foreign_resource(surface, p, task.resource) then busy = 1 end
       if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1

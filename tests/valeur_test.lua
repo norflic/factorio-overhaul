@@ -188,7 +188,8 @@ local function logs(pattern)
   return out
 end
 local function start(seed, cerveau)
-  M.new_game({ seed = seed, patches = patches(), p_busy = 0.02, p_nopath = 0.02, p_lost = 0.005, ia3_cerveau = cerveau })
+  M.new_game({ seed = seed, patches = patches(), p_busy = 0.02, p_nopath = 0.02, p_lost = 0.005, ia3_cerveau = cerveau,
+    shared_tile_mining = true }) -- lot KIT : ces tests suivent les sites et les fronts, pas le minage : ancien modèle du minage simulé (trajectoires inchangées)
   M.command("fo-war", "start 4 100 10 320")
   return global.fo.war
 end

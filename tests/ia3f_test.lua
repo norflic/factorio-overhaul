@@ -152,7 +152,8 @@ local function faction_world(p_nopath)
   end
   -- Pétrole loin du QG nord-est (226, -226) : à 620 tuiles vers l'est-nord-est.
   out[#out + 1] = { x = 820, y = -400, name = "crude-oil", amount = 300000 }
-  M.new_game({ patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0 })
+  M.new_game({ patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0,
+    shared_tile_mining = true }) -- lot KIT : exploration seule : ancien modèle du minage simulé (trajectoires inchangées)
   check(remote.call("factorio-overhaul", "war_start", 4, 20, 4, 320) == true, "guerre lancée (4 factions, 4 PNJ)")
 end
 

@@ -537,7 +537,8 @@ function M.retarget_mine(f, t, task, surface, tick, B)
     local p = res[i].position
     if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0 then
       local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } },
-        type = Harvest.free_types(), invert = true, limit = 1 })
+        type = Harvest.free_types(task.resource), invert = true, limit = 1 })
+      if busy == 0 and Harvest.foreign_resource(surface, p, task.resource) then busy = 1 end -- lot KIT : ressource étrangère sur la tuile
       if busy == 0 then return { x = p.x, y = p.y } end
     end
   end

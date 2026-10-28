@@ -92,7 +92,28 @@ local other = {
 check(same(H.names("fo-resin", other), { "grumble" }) and same(H.names("ferrous-lump", other), { "ferrous-lump" }),
   "d'autres données : résine par l'arbre, minerai par son nom")
 check(same(H.names("wood", protos), H.names("wood", protos)), "déterminisme")
-check(same(H.free_types(), { "resource", "tree" }), "types qui comptent comme libres au test de tuile")
+check(same(H.free_types("wood", { "tree-a" }), { "resource", "tree" }), "bois : une tuile avec un arbre est libre au test de tuile")
+check(same(H.free_types("iron-ore", { "iron-ore" }), { "resource" }), "minerai : un arbre sur la tuile reste un obstacle (comportement d'avant)")
+check(same(H.free_types("x", nil), { "resource" }), "sans noms : comportement d'avant")
+
+---------------------------------------------------------------------------------------------------
+section("3 bis. Une autre ressource sur la tuile (relevé du moteur réel : cristal sur du charbon, 0 charbon en 91 s)")
+local Harvest = require("script.team.harvest")
+local function fake_surface(entities)
+  return { find_entities_filtered = function(q)
+    assert(q.type == "resource" and q.area, "requête : zone et type ressource")
+    return entities
+  end }
+end
+local P0 = { x = 324.5, y = 303.5 }
+check(Harvest.foreign_resource(fake_surface({ { name = "coal" }, { name = "fo-resonance-crystal" } }), P0, "coal") == true,
+  "cristal sur le charbon : tuile refusée")
+check(Harvest.foreign_resource(fake_surface({ { name = "coal" } }), P0, "coal") == false, "charbon seul : tuile bonne")
+check(Harvest.foreign_resource(fake_surface({}), P0, "coal") == false, "aucune ressource : pas d'ressource étrangère")
+check(Harvest.foreign_resource(fake_surface({ { name = "iron-ore" }, { name = "coal" } }), P0, "iron-ore") == true,
+  "charbon sur le fer : tuile refusée")
+local mutant_foreign = Harvest.foreign_resource(fake_surface({ { name = "coal" }, { name = "fo-resonance-crystal" } }), P0, "fo-resonance-crystal")
+check(mutant_foreign == true, "le même cristal vu depuis le cristal : le charbon est l'étranger")
 
 ---------------------------------------------------------------------------------------------------
 section("4. Le poteau ne dépend plus d'un stock de bois de départ")

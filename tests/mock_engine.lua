@@ -816,7 +816,7 @@ function M.new_world(opts)
     -- tests/pvp_test.lua passe sans cette option (596 OK) ; le filtre collision_mask n'y change rien (rejoué sans
     -- lui : journal identique).
     legacy_boxes = opts.legacy_boxes or false,
-    shared_tile_mining = opts.shared_tile_mining or false, -- lot KIT : ancien modèle (chacun reçoit son minerai)
+    shared_tile_mining = opts.shared_tile_mining or (os.getenv("FO_SHARED_TILE") == "1"), -- lot KIT : ancien modèle (chacun reçoit son minerai)
   }
   math.randomseed(W.seed)
 

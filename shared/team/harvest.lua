@@ -34,8 +34,11 @@ function H.names(item, protos)
   return out
 end
 
---- L'entité de ce nom est-elle une ressource (tuile libre à vérifier avec les ressources seulement) ? Les arbres se
---- comptent comme des « ressources » pour le test de tuile libre du minage.
-function H.free_types() return { H.RESOURCE_TYPE, H.TREE_TYPE } end
+--- Types d'entités qui ne gênent pas le minage d'une tuile : les ressources, et les arbres SEULEMENT quand l'objet vient d'un
+--- arbre (names ~= { objet }) ; sur une tuile de minerai, un arbre par-dessus reste un obstacle (comportement d'avant).
+function H.free_types(item, names)
+  if names and not (#names == 1 and names[1] == item) then return { H.RESOURCE_TYPE, H.TREE_TYPE } end
+  return { H.RESOURCE_TYPE }
+end
 
 return H
