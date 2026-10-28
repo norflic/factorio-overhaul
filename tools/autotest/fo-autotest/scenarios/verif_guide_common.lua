@@ -112,6 +112,13 @@ return {
         e.tick / 3600, tag, r.n, r.recruited, r.lost or -1, r.lost_enemy or -1, r.iron or iron, r.outposts,
         r.outposts_defended or -1, r.turrets or count(s, "ammo-turret", r.force), r.produced_mu, r.hq_turrets or -1,
         idle_pct, r.idle_rien or -1, r.idle_bloque or -1, r.idle_manque or -1))
+      -- Lot COUVERTURE (mesure, hors bilan) : bilan de la reconstruction de la force (interface fo-recon, lecture seule).
+      local okr, rs = pcall(ctx.remote, "fo-recon", "status", r.key)
+      if okr and type(rs) == "table" then
+        ctx.log(string.format("recon minute %d | %s | enregistrees=%s refaites=%s bloquees=%s differees=%s taches=%s abandonnees=%s a_refaire=%s",
+          e.tick / 3600, tag, tostring(rs.recorded), tostring(rs.rebuilt), tostring(rs.blocked), tostring(rs.deferred),
+          tostring(rs.tasks), tostring(rs.abandoned), tostring(rs.pending)))
+      end
     end
   end,
 
