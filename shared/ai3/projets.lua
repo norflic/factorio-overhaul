@@ -267,7 +267,7 @@ local function craft(E, proj, item, n, prio, tag)
     made = made + k
     P.add(E, { key = "ia3:" .. proj.id .. ":craft:" .. item .. ":" .. tag .. ":" .. i, kind = "craft", prio = prio,
       item = item, count = k, steps = q.crafts, uses = sorted_uses(q.uses), tag = "ia3", ia3 = proj.id,
-      why = proj.key })
+      why = proj.key, branch = proj.branch })
   end
   if left > 0 then E.avail = E.book:plan({ { item, left } }, E.avail).avail end
   return made
@@ -315,9 +315,11 @@ local function count_kind(view, kind)
   return n
 end
 
+--- Lot ADOPTE (fours dormants à la source) : un avant-poste où un PNJ est mort il y a peu (o.lethal) ou qui est en attente après des
+--- agrandissements échoués (o.full posé par script/team/board.lua) n'est pas agrandi, donc rien n'est fabriqué pour lui.
 local function extendable(view, kind, undefended)
   for _, o in ipairs(view.outposts or {}) do
-    if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
+    if o.kind == kind and not o.full and not o.lethal and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
       return o
     end
   end
@@ -339,6 +341,7 @@ EMIT.outpost = function(E, proj, g, ctx)
   local items = Planner.outpost_items(kind)
   local ext = extendable(view, kind, und)
   if ext then
+    proj.branch = "extend"
     local key = "extend:" .. ext.id
     if E.open[key] then return "en_cours" end
     if P.take(E, items) then
@@ -383,6 +386,7 @@ EMIT.outpost = function(E, proj, g, ctx)
   local key = "build:" .. kind
   if E.open[key] then return "en_cours" end
   if (view.sites[kind] or 0) > 0 then
+    proj.branch = "build"
     if P.take(E, list) then
       P.add(E, { key = key, kind = "build", prio = prio + P.FINISH_BONUS, outpost_kind = kind, items = list,
         ia3 = proj.id, why = proj.key })
@@ -396,7 +400,13 @@ EMIT.outpost = function(E, proj, g, ctx)
   if not (ctx and ctx.known and ctx.known[spec.resource]) then
     E.explore[spec.resource] = math.max(E.explore[spec.resource] or 0, prio)
   end
-  P.want(E, proj, list, prio - 5, false, kind)
+  -- Lot ADOPTE (fours dormants à la source, constat du DC : 12 à 13 fours au coffre de votre équipe) : la préparation d'avance
+  -- sans site VIABLE ne vaut que pour le PREMIER avant-poste de ce type (le démarrage) ; ensuite le lot (8 paires de fer : 16
+  -- fours) attendrait au coffre un site que la prospection, les écarts de sites.lua ou le danger ne donnent peut-être jamais.
+  if count_kind(view, kind) == 0 then
+    proj.branch = "avance"
+    P.want(E, proj, list, prio - 5, false, kind)
+  end
   return "bloque", "site:" .. kind
 end
 
