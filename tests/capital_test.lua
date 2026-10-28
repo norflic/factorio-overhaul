@@ -306,6 +306,27 @@ local function run_all()
   for _, it in ipairs(cost) do left = left + (E8.avail[it[1]] or 0) end
   check(left == 0, "§8 le coût est RÉSERVÉ au stock virtuel (rien d'autre ne le prend)")
 
+  -- §8 bis (lot AMELIORER) : sans bras libre, un bâtiment à niveaux ne réclame rien ; un remplacement réclame sa cible.
+  local function snapshot(E)
+    local n = 0
+    for _, t in ipairs({ "raw", "tasks", "make", "hand", "want" }) do
+      for _ in pairs(E[t] or {}) do n = n + 1 end
+    end
+    return n
+  end
+  local function emit_idle0(replace)
+    local E = P.context({}, book, { open = {}, workers_idle = 0 }, {})
+    E.view = { workers_idle = 0 }
+    local g = { key = "capital:x", cost = { { "iron-gear-wheel", 2 } }, target = "x", replace = replace or nil }
+    local before = snapshot(E)
+    local r = fn(E, { id = 9, key = g.key, prio = 50 }, g)
+    return r, snapshot(E) - before
+  end
+  local r0, d0n = emit_idle0(false)
+  local r1, d1n = emit_idle0(true)
+  check(r0 == "matiere" and d0n == 0, "§8 bis sans bras libre, un bâtiment à niveaux ne réclame rien (" .. tostring(d0n) .. ")")
+  check(r1 == "matiere" and d1n > 0, "§8 bis sans bras libre, un remplacement réclame quand même sa cible (" .. tostring(d1n) .. ")")
+
   -- §9 Déterminisme.
   local l1 = guns({ 2, 1, 1, 1 })
   local l2 = {}
@@ -533,9 +554,22 @@ local function run_replace()
   local da, db = Cap.choose(L, cs8, mctx(W)), Cap.choose(L, cs8r, mctx(W))
   check(da.key == db.key, "§13 déterminisme : relevé inversé, même décision (" .. tostring(da.key) .. " / " .. tostring(db.key) .. ")")
 
+  -- Débloquée seulement : une cible dont la recette est désactivée attend, sans réclamer sa recherche.
+  local locked = mctx(W, { stock = { ["steel-furnace"] = 2 } })
+  locked.available = function(item) return item ~= "steel-furnace" end
+  local dl = Cap.choose(L, cs, locked)
+  check(dl.replace == nil, "§13 cible non débloquée (recette désactivée) : aucun remplacement")
+  local blk = false
+  for _, b in ipairs(dl.blocked) do if b.family == "remplacer" and b.no_want and b.causes[1] == "steel-furnace" then blk = true end end
+  check(blk and next(dl.wanted) == nil, "§13 cible non débloquée : notée bloquée, la recherche n'est pas réclamée")
+  locked.available = function() return true end
+  check(Cap.choose(L, cs, locked).replace ~= nil, "§13 cible débloquée : remplacement")
+
   -- But : fond (aucune place de projet), coût = les objets de la cible.
   local g = Cap.goal(d1, {})
   check(g and g.fond == true and g.kind == "upgrade" and g.cost[1][1] == "steel-furnace" and g.target == d1.key, "§13 but de fond, coût = la cible")
+  check(g and g.replace == true, "§13 le but porte le drapeau « remplacer » (servi sans attendre un bras libre)")
+
 
   -- GÉNÉRALISATION : mêmes machines, TOUS les noms changés (types gardés : ce sont ceux du moteur).
   local map = { ["stone-furnace"] = "four-d-argile", ["steel-furnace"] = "four-de-fonte", ["electric-furnace"] = "four-a-arc",

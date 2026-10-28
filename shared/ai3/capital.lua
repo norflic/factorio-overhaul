@@ -208,6 +208,9 @@ function Cap.replace_candidates(Ld, census, ctx)
         local use = m.working and 100 or Cap.IDLE_USE
         local v = math.floor(Cap.V_DEBIT * g * use / 100 * wf(ctx.weights, "capital") + 0.5)
         local cost, missing = Cap.work_cost({ { p1.item, 1 } }, ctx)
+        -- « Dès qu'elle est débloquée » : une cible que la force ne sait pas encore fabriquer (recette désactivée, ctx.available)
+        -- attend ; sa recherche n'est pas réclamée (no_want) et son coût de recherche n'entre pas dans le choix.
+        if #missing == 0 and ctx.available and not ctx.available(p1.item) then missing = { p1.item } end
         if #missing > 0 then
           first_missing = first_missing or { to = t, causes = missing }
         elseif v > 0 then
@@ -414,7 +417,7 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and d.work <= Cap.SHORT_WORK) or nil }
+    short = (d.center and d.work ~= nil and d.work <= Cap.SHORT_WORK) or nil, replace = d.replace and true or nil }
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
@@ -431,7 +434,7 @@ function Cap.emit(P)
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
       return "ok"
     end
-    if not g.center and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
+    if not g.center and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
     return "matiere"
   end

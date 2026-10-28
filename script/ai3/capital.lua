@@ -152,6 +152,27 @@ local function machine_catalog()
 end
 function Capital.mproto(name) return machine_catalog().by[name] end
 
+-- Recettes (prototypes) qui donnent un objet, cache LOCAL ; l'objet est « débloqué » pour la force quand l'une est activée.
+local recipes_of = {}
+local function unlocked(f, item)
+  local r = recipes_of[item]
+  if not r then
+    r = {}
+    for n in pairs(game.get_filtered_recipe_prototypes({ { filter = "has-product-item",
+        elem_filters = { { filter = "name", name = item } } } })) do
+      r[#r + 1] = n
+    end
+    table.sort(r)
+    recipes_of[item] = r
+  end
+  local force = game.forces[f.force]
+  for _, n in ipairs(r) do
+    local rc = force and force.recipes[n]
+    if rc and rc.enabled then return true end
+  end
+  return false
+end
+
 --- Machines que l'équipe a posées, hors familles à niveaux : fours du QG et machines des projets du plan directeur
 --- (jamais celles du joueur, même force). Rend { list = { {id, name, working} } triée par id, ents = { [id] = entité },
 --- refs = { [id] = entrée du plan } }.
@@ -303,6 +324,7 @@ function Capital.goal(f, view, book, tick, w)
     if tick < c.refused_until[k] then exclude[k] = true else c.refused_until[k] = nil end
   end
   local ctx = { proto = proto, mproto = Capital.mproto, machines = machine_catalog().names,
+    available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
     exclude = exclude }
