@@ -50,6 +50,7 @@ M.ESCORT_WAIT = 900     -- attente de l'escorte au QG, au plus
 M.SAFE_RADIUS = 160     -- au-delà : « loin » (C6)
 M.ALLY_R = 16
 M.ENGAGE_HOLD = 120
+M.EVAC_TICKS = 900      -- lot FUITE : un PNJ évacué attend 15 s au point d'évacuation, puis rentre (la menace est rejugée)
 M.PRUNE_PERIOD = 3600
 -- « Armé » relu à chaque pensée (60 ticks) : relu toutes les 600 ticks, un PNJ qui venait de vider ses chargeurs fuyait
 -- jusqu'à 9 s trop tard (final-050-2c49ceb peur-20261020 : sans munitions, 2 fuites sur 4 après 541 ticks ; C3 : <= 1 s).
@@ -219,6 +220,20 @@ function M.classify(e)
     range_cache[name] = r
   end
   return kind, (r ~= false) and r or nil
+end
+
+--- La plus grande vitesse parmi des unités ennemies (prototypes) ; nil si l'une d'elles est de vitesse inconnue (personnage,
+--- tourelle : on ne prétend pas la distancer) ou s'il n'y en a aucune.
+function M.fastest_speed(list)
+  local best = nil
+  for _, u in ipairs(list) do
+    if u.valid and (u.type == "unit" or u.type == "character") then
+      local v = M.enemy_speed(u)
+      if not v then return nil end
+      if not best or v > best then best = v end
+    end
+  end
+  return best
 end
 
 --- Vitesse d'une unité ennemie (prototype) ; nil pour les autres (personnage, tourelle…).
@@ -684,14 +699,22 @@ local function resume_now(agent, a, tick)
   a.now = nil
 end
 
-local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to)
+--- ÉVACUATION (lot FUITE) : le PNJ va au point `to`, y attend M.EVAC_TICKS, puis rentre. Remplace la suite d'étapes de la
+--- tâche rendue (« rentrer » : le QG est du côté de la menace). Appelé après Worker.abort.
+function M.evacuate(agent, a, to, tick)
+  a.refuge, a.pts, a.final = nil, nil, nil
+  a.shelter_t = tick
+  agent.steps, agent.pc = { { "goto", to, 3 }, { "wait", M.EVAC_TICKS }, { "home" } }, 1
+end
+
+local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to, evac)
   -- Déjà en retraite (demi-tour ou fuite de moins de 10 s) : on ne s'arrête pas de nouveau à chaque regard (le PNJ
   -- rentrerait par saccades, poursuivi) ; l'itinéraire du retour évite déjà ce qui est marqué. Une FUITE n'est jamais
   -- retardée par un demi-tour récent (survie avant tâche) : elle n'est évitée que si elle est déjà engagée vers le même
   -- danger (refuge en route, ennemi à moins de 8 tuiles de l'endroit qui l'a lancée).
   if action == "back" and a.ret_t and tick - a.ret_t < 600 then return false end
-  if action == "flee" and agent.nav == "moving" and a.refuge and a.flee_ep and a.flee_t and tick - a.flee_t < 600
-    and d2(a.flee_ep, ep) <= 64 then return false end
+  if action == "flee" and agent.nav == "moving" and (a.refuge or (a.shelter_t and tick - a.shelter_t < M.EVAC_TICKS))
+    and a.flee_ep and a.flee_t and tick - a.flee_t < 600 and d2(a.flee_ep, ep) <= 64 then return false end
   inc(t.stats.actions, action)
   local key = Re.LABEL[action]
   if key then label(agent, key, tick, t.stats) end
@@ -731,7 +754,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
       a.backs, a.back_t = (a.backs or 0) + 1, tick
     end
     if action == "flee" then
-      a.refuge = refuge_to or refuge(f, agent.entity.position, ep, range)
+      a.refuge = (not evac) and (refuge_to or refuge(f, agent.entity.position, ep, range)) or nil
       a.flee_t, a.flee_ep = tick, { x = ep.x, y = ep.y }
       t.stats.refuges = t.stats.refuges + 1
       -- Votre équipe : un PNJ qui fuit prévient les autres AVANT la première perte (lieu de la menace) ; hors du QG, qui
@@ -754,6 +777,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
       agent.steps, agent.pc = { { "home" } }, 1
       FSM.set(M.MACHINE, agent, "step", tick)
     end
+    if evac and refuge_to then M.evacuate(agent, a, refuge_to, tick) end
     resume_now(agent, a, tick)
     return true
   end
@@ -935,21 +959,25 @@ function M.sense(agent, tick)
   if a.risk and K.fixed and action == "detour" then action = "none" end
   -- Près du QG, face à des UNITÉS : sans tourelle où se réfugier, fuir seul est pire que rester groupés (un déchiqueteur
   -- court plus vite qu'un personnage) : on se bat sur place. Même banc : 4 ouvriers sans tâche rattrapés à 11 tuiles du QG.
-  local to = nil
-  if near_home and not K.fixed and (action == "flee" or action == "back") then
-    -- Lot FUITE : pas de combat un par un (int-1 : 5 PNJ tués dans les 32 tuiles du QG). Re.hq_response : assez nombreux,
-    -- on se bat ; sinon on se regroupe derrière les tourelles du QG ; sans tourelle, on s'éloigne d'un ennemi plus lent, et
-    -- face à un plus rapide (déchiqueteur) on se bat, groupés.
-    local rally = M.rally(f)
+  local to, evac = nil, false
+  if not K.fixed and (action == "flee" or action == "back") then
+    -- Lot FUITE : pas de combat un par un (int-1 : 5 PNJ tués dans les 32 tuiles du QG) ni de retraite vers le QG quand
+    -- l'ennemi s'y rend. Re.hq_response : assez nombreux, on se bat ; face à des unités plus LENTES que nous (armées de
+    -- faction), ÉVACUATION loin d'elles, partout (le QG n'est pas un refuge : l'armée y va) ; sinon, près du QG, on se
+    -- regroupe derrière les tourelles, et faute de tourelle on se bat, groupés.
+    local rally = near_home and M.rally(f) or nil
     local resp = Re.hq_response({ allies = allies + 1, force = enemies, prudence = prud, agressivite = agr, rally = rally,
-      outrun = Re.outrun(M.enemy_speed(enemy), e.prototype.running_speed) })
-    if resp == "rally" then
-      if d2(p, rally) <= 36 then action, why = "engage", "sous-les-tourelles"
-      else action, why, to = "flee", "ralliement", rally end
-    elseif resp == "away" then
-      action, why, to = "flee", "eloignement", Re.away_from(p, ep, rr)
-    else
-      action, why = "engage", "groupes-au-qg"
+      outrun = Re.outrun(M.fastest_speed(group), e.prototype.running_speed) })
+    if resp == "away" then
+      action, why, to, evac = "flee", "evacuation", Re.away_from(p, ep, rr), true
+      t.stats.evacuations = (t.stats.evacuations or 0) + 1
+    elseif near_home then
+      if resp == "rally" then
+        if d2(p, rally) <= 36 then action, why = "engage", "sous-les-tourelles"
+        else action, why, to = "flee", "ralliement", rally end
+      else
+        action, why = "engage", "groupes-au-qg"
+      end
     end
   end
   if action == "none" then return false end
@@ -983,7 +1011,7 @@ function M.sense(agent, tick)
   end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
-  return act(agent, f, t, a, action, why, ep, kind, tick, range, to)
+  return act(agent, f, t, a, action, why, ep, kind, tick, range, to, evac)
 end
 
 ---------------------------------------------------------------------------------------------------

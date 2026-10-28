@@ -28,7 +28,7 @@ return {
   init = function(ctx)
     local s = ctx.surface()
     local st = ctx.state()
-    ctx.prepare_area(AX - 40, -150, AX + 330, 150, "grass-1")
+    ctx.prepare_area(AX - 160, -150, AX + 330, 150, "grass-1")
     ctx.check(ctx.call("war_setting", "fo-war-ia3-comportement", true) == true, "reglage fo-war-ia3-comportement allume")
     if remote.interfaces["fo-ia3f"] and remote.interfaces["fo-ia3f"].set_fog then ctx.remote("fo-ia3f", "set_fog", false) end
     ctx.call("profiler", true)

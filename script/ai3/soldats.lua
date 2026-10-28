@@ -31,7 +31,7 @@ SD.CLEAR_TICKS = 3 * 3600
 SD.THREAT_HQ = 220     -- menaces candidates au nettoyage : à moins de 220 tuiles du QG...
 SD.THREAT_OUTPOST = 64 -- ... ou de 64 tuiles d'un avant-poste
 SD.HQ_THREAT_R = 48
-SD.SHELTER_TICKS = 600 -- ralliement ou éloignement : on y attend 10 s, puis le PNJ rentre et la menace est rejugée
+SD.SHELTER_TICKS = C.EVAC_TICKS -- ralliement ou évacuation : on y attend, puis le PNJ rentre et la menace est rejugée
 
 local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse" }
 
@@ -133,7 +133,7 @@ local function shelter(f, t, threat, tick, resp, rally, range)
           if march then a.shelter_t = tick else a.refuge = to end
           a.pts, a.final = nil, nil
           Worker.abort(ag, f, tick, "abri")
-          if march then ag.steps, ag.pc = { { "goto", to, 3 }, { "wait", SD.SHELTER_TICKS }, { "home" } }, 1 end
+          if march then C.evacuate(ag, a, to, tick) end
           C.label(ag, "abri", tick, t.stats)
           t.stats.shelter = (t.stats.shelter or 0) + 1
           if resp ~= "stand" then t.stats["shelter_" .. resp] = (t.stats["shelter_" .. resp] or 0) + 1 end
@@ -173,8 +173,9 @@ local function hq_threat(f, t, surface, tick)
   local rally = C.rally(f)
   local _, range = C.classify(en)
   local own = game.entity_prototypes["character"] and game.entity_prototypes["character"].running_speed or nil
+  local mobile = surface.find_entities_filtered({ position = threat, radius = 16, force = en.force, type = { "unit", "character" }, limit = 24 })
   local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
-    outrun = Re.outrun(C.enemy_speed(en), own) })
+    outrun = Re.outrun(C.fastest_speed(mobile), own) })
   t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
   shelter(f, t, threat, tick, resp, rally, range)
 end

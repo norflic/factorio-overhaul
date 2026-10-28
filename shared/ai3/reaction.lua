@@ -149,16 +149,17 @@ function Re.outrun(enemy_speed, own_speed)
   return enemy_speed <= own_speed * Re.OUTRUN
 end
 
---- Réponse d'un QG menacé par des UNITÉS (C7, lot FUITE) : "stand" (assez nombreux : on se bat, groupés), "rally" (derrière
--- les tourelles du QG : elles tirent pendant que les ennemis s'y heurtent), "away" (loin de l'ennemi, qu'on distance, sans
--- tourelle), sinon "stand" (fuir ne sert à rien : on se bat groupés). Mesuré (banc ia3k-vague-lente) : s'éloigner AVEC des
--- tourelles au QG est pire que se rallier (l'ennemi suit les PNJ loin des tourelles : 8 perdus, 1 ennemi tué sur 10).
+--- Réponse à des UNITÉS plus fortes que nous (C7, lot FUITE) : "stand" (assez nombreux : on se bat, groupés), "away"
+-- (ÉVACUATION : l'ennemi est plus lent que nous, on s'éloigne de lui, loin du QG et des tourelles, et on y attend), "rally"
+-- (derrière les tourelles du QG : l'ennemi est aussi rapide que nous, on ne lui échappe pas), sinon "stand" (fuir ne sert à
+-- rien : on se bat groupés). Mesuré (banc ia3k-faction, vraies unités fo-azure, 2 graines) : se rallier sous les tourelles
+-- face à une armée de faction = 8 PNJ perdus sur 8 (grenades de zone des lance-roquettes sur un groupe serré).
 -- i = { allies (armés près du QG, soi compris), force (pesée), prudence, agressivite, rally (point | nil), outrun (bool) }.
 function Re.hq_response(i)
   local need = Re.engage_ratio(i.prudence, i.agressivite) * math.max(0.2, i.force or 1)
   if (i.allies or 0) * 1000 >= need then return "stand" end
-  if i.rally then return "rally" end
   if i.outrun then return "away" end
+  if i.rally then return "rally" end
   return "stand"
 end
 
