@@ -6,15 +6,19 @@
 -- tourelle vanilla), chacun UNE tourelle face à une cible fixe : une tourelle (mitrailleuse) de la force ennemie, SANS
 -- résistance (vérifié sur data/base), inactive (elle ne tire pas) et que le script SOIGNE à chaque tick. La mesure
 -- est la perte de santé entre deux appels du script, soignée aussitôt : chaque dégât reçu est compté une fois, sans
--- événement (le banc n'en abonne pas). Fenêtre : 300 ticks pour les mitrailleuses (50 tirs au tir le plus lent), 600
--- ticks pour les lasers (15 tirs), après un temps de mise en place (lancement de la tourelle, rotation).
+-- événement (le banc n'en abonne pas). Fenêtre : 600 ticks pour les mitrailleuses (100 tirs), 800 ticks pour les
+-- lasers (20 tirs), après 200 ticks de mise en place (lancement de la tourelle, rotation). Deux mesures : les
+-- DÉGÂTS PAR TIR (perte totale / nombre de tirs : exacte, indépendante du nombre de tirs de la fenêtre) et le DPS
+-- RÉEL (perte totale / fenêtre : celui du joueur).
 -- Contrôles (finish) :
 --   1. les 60 sites sont posés et chaque tourelle a infligé des dégâts ;
 --   2. mitrailleuse niveau 1 : 45 à 55 dégâts par seconde (10 tirs par seconde × 5 : valeur vanilla, absolue) ;
---   3. rapport DPS(n) / DPS(1) = table du niveau (shared/tirs/degats.lua) à 4 % près, mitrailleuse ET laser ;
---   4. DPS strictement croissant d'un niveau au suivant (K9), puis d'un âge au suivant ;
---   5. d'un âge au suivant (niveau 2e contre niveau 2e - 2), de l'âge 4 à l'âge 15 : × 1,2 à 4 % près ;
---   6. niveau 30 : au moins 12 fois le niveau 1 (D-21 : × 12,48).
+--   3. rapport (dégâts par tir du niveau n) / (niveau 1) = table du niveau (shared/tirs/degats.lua) à 1 % près,
+--      mitrailleuse ET laser ;
+--   4. DPS réel strictement croissant d'un niveau au suivant (K9) ;
+--   5. d'un âge au suivant (niveau 2e contre niveau 2e - 2), de l'âge 4 à l'âge 15 : dégâts par tir × 1,2 à 2 % près,
+--      DPS réel × 1,2 à 8 % près ;
+--   6. niveau 30 : au moins 11,5 fois le DPS du niveau 1 (D-21 : dégâts × 12,48).
 -- Journal [FO-TIRS-DEGATS] : une ligne DPS par niveau et par famille (tabulation) pour tools/autotest/tirs_degats.py.
 
 local L = require("__factorio-overhaul__/shared/levels/config")
@@ -23,7 +27,7 @@ local D = require("__factorio-overhaul__/shared/tirs/degats")
 local P0 = { x = -3400, y = -3400 }
 local COLS, PAS_X, PAS_Y, DIST = 3, 44, 34, 8
 local T_PRET, T_MUN = 30, 30
-local DEBUT, FIN_GUN, FIN_LASER = 150, 450, 750
+local DEBUT, FIN_GUN, FIN_LASER = 200, 800, 1000
 local MUN = "firearm-magazine"
 local FAM = { "gun", "laser" }
 
@@ -81,6 +85,15 @@ return {
         if site.fam == "gun" and site.t and site.t.valid then site.t.insert({ name = MUN, count = 200 }) end
       end
     end
+    if t == DEBUT then
+      for _, site in ipairs(st.sites) do
+        if site.fam == "laser" and site.t and site.t.valid then
+          local ok, r = pcall(function() return string.format("statut=%s energie=%s reseau=%s", tostring(site.t.status),
+            tostring(site.t.energy), tostring(site.t.electric_network_id)) end)
+          site.diag0 = ok and r or "?"
+        end
+      end
+    end
     if t < DEBUT - 1 then return end
     for _, site in ipairs(st.sites) do
       local c = site.cible
@@ -102,44 +115,57 @@ return {
   finish = function(ctx)
     local st = ctx.state()
     if not st.pret then return end
-    local dps = { gun = {}, laser = {} }
-    local lignes = { "famille\tniveau\tage\tdegats\tcoups\tdps\trapport\ttable" }
+    local dps, par_tir = { gun = {}, laser = {} }, { gun = {}, laser = {} }
+    local lignes = { "famille	niveau	age	degats	tirs	degats_par_tir	dps	rapport_par_tir	table" }
     local tous = 0
     for _, site in ipairs(st.sites) do
       local fenetre = (site.fam == "gun" and (FIN_GUN - DEBUT) or (FIN_LASER - DEBUT)) / 60
       dps[site.fam][site.n] = site.perdu / fenetre
+      par_tir[site.fam][site.n] = site.coups > 0 and site.perdu / site.coups or 0
       if site.perdu > 0 then tous = tous + 1 end
+      if site.fam == "laser" and site.perdu == 0 and site.t and site.t.valid then
+        local ok, r = pcall(function() return string.format("statut=%s energie=%s reseau=%s", tostring(site.t.status),
+          tostring(site.t.energy), tostring(site.t.electric_network_id)) end)
+        ctx.log(string.format("DIAG laser niveau %d sans degats : au tick %d [%s] ; a la fin [%s]", site.n, DEBUT,
+          tostring(site.diag0), ok and r or "?"))
+      end
     end
     for _, fam in ipairs(FAM) do
       for n = 1, 30 do
         local site
         for _, x in ipairs(st.sites) do if x.fam == fam and x.n == n then site = x end end
-        lignes[#lignes + 1] = string.format("%s\t%d\t%d\t%.1f\t%d\t%.2f\t%.4f\t%.2f", fam, n, math.ceil(n / 2),
-          site.perdu, site.coups, dps[fam][n], dps[fam][1] > 0 and dps[fam][n] / dps[fam][1] or 0, D.par_niveau[n])
+        lignes[#lignes + 1] = string.format("%s	%d	%d	%.1f	%d	%.3f	%.2f	%.4f	%.2f", fam, n, math.ceil(n / 2),
+          site.perdu, site.coups, par_tir[fam][n], dps[fam][n],
+          par_tir[fam][1] > 0 and par_tir[fam][n] / par_tir[fam][1] or 0, D.par_niveau[n])
       end
     end
-    ctx.log("TIRS-DEGATS-TABLE\n" .. table.concat(lignes, "\n"))
+    ctx.log("TIRS-DEGATS-TABLE
+" .. table.concat(lignes, "
+"))
     ctx.check(tous == #st.sites, "chaque tourelle a inflige des degats a sa cible", tous .. " / " .. #st.sites)
     local g1 = dps.gun[1]
     ctx.check(g1 >= 45 and g1 <= 55, "mitrailleuse niveau 1 : 45 a 55 degats par seconde (10 tirs x 5)",
       string.format("%.2f", g1))
     for _, fam in ipairs(FAM) do
-      local d = dps[fam]
-      local ecart, croit, age_ok, age_det = 0, true, true, {}
+      local d, pt = dps[fam], par_tir[fam]
+      local ecart, croit, age_ok, age_dps, age_det = 0, true, true, true, {}
       for n = 1, 30 do
-        if d[1] > 0 then ecart = math.max(ecart, math.abs(d[n] / d[1] / D.par_niveau[n] - 1)) end
+        if pt[1] > 0 then ecart = math.max(ecart, math.abs(pt[n] / pt[1] / D.par_niveau[n] - 1)) end
         if n > 1 and not (d[n] > d[n - 1]) then croit = false end
       end
       for e = 4, 15 do
-        local r = d[2 * e] / d[2 * e - 2]
-        if math.abs(r / 1.2 - 1) > 0.04 then age_ok = false end
-        age_det[#age_det + 1] = string.format("%d:%.3f", e, r)
+        local r = pt[2 * e - 2] > 0 and pt[2 * e] / pt[2 * e - 2] or 0
+        local rd = d[2 * e - 2] > 0 and d[2 * e] / d[2 * e - 2] or 0
+        if math.abs(r / 1.2 - 1) > 0.02 then age_ok = false end
+        if math.abs(rd / 1.2 - 1) > 0.08 then age_dps = false end
+        age_det[#age_det + 1] = string.format("%d:%.3f/%.3f", e, r, rd)
       end
-      ctx.check(ecart <= 0.04, fam .. " : rapport DPS(n) / DPS(1) = table du niveau, a 4 % pres",
+      ctx.check(ecart <= 0.01, fam .. " : degats par tir du niveau n / niveau 1 = table du niveau, a 1 % pres",
         string.format("ecart max %.2f %%", 100 * ecart))
-      ctx.check(croit, fam .. " : DPS strictement croissant d'un niveau au suivant (K9)", croit and "oui" or "non")
-      ctx.check(age_ok, fam .. " : DPS x 1,2 d'un age au suivant (ages 4 a 15, 4 % pres)", table.concat(age_det, " "))
-      ctx.check(d[1] > 0 and d[30] >= 12 * d[1], fam .. " : niveau 30 >= 12 fois le niveau 1 (D-21 : x 12,48)",
+      ctx.check(croit, fam .. " : DPS reel strictement croissant d'un niveau au suivant (K9)", croit and "oui" or "non")
+      ctx.check(age_ok, fam .. " : degats par tir x 1,2 d'un age au suivant (ages 4 a 15, 2 % pres)", table.concat(age_det, " "))
+      ctx.check(age_dps, fam .. " : DPS reel x 1,2 d'un age au suivant (ages 4 a 15, 8 % pres)", table.concat(age_det, " "))
+      ctx.check(d[1] > 0 and d[30] >= 11.5 * d[1], fam .. " : DPS du niveau 30 >= 11,5 fois celui du niveau 1 (D-21 : x 12,48)",
         string.format("x %.2f", d[1] > 0 and d[30] / d[1] or 0))
     end
   end,

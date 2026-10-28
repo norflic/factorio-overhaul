@@ -319,6 +319,30 @@ for _, mu in ipairs(mutants_ages) do
   check(#R.verifier_ages(t) > 0, "mutant de la table refuse : " .. mu[1])
 end
 
+-- 8 bis. K9 hors jeu : la règle de la table des dégâts (shared/tirs/degats.lua), 8 mutants refusés
+do
+  local D = require("shared.tirs.degats")
+  local m0 = D.verifier(D.par_niveau)
+  check(#m0 == 0, "degats par niveau : table livree acceptee", table.concat(m0, " ; "))
+  local muts = {
+    { "niveau 1 change", function(t) t[1] = 1.1 end },
+    { "une baisse au niveau 14", function(t) t[14] = t[13] - 0.01 end },
+    { "deux niveaux egaux", function(t) t[20] = t[19] end },
+    { "niveau 6 change (jeu d'avant)", function(t) t[6] = 1.5 end },
+    { "age 8 trop faible (rapport 1,1)", function(t) t[16] = t[14] * 1.1 end },
+    { "age 15 trop fort (rapport 1,3)", function(t) t[30] = t[28] * 1.3 end },
+    { "29 entrees", function(t) t[30] = nil end },
+    { "niveau non numerique", function(t) t[12] = "2,42" end },
+    { "plus 2 % par age (le jeu d'avant D-21)", function(t)
+        for n = 7, 30 do t[n] = 1.4 + 0.02 * (n - 6) end end },
+  }
+  for _, mu in ipairs(muts) do
+    local t = copie(D.par_niveau)
+    mu[2](t)
+    check(#D.verifier(t) > 0, "mutant refuse (degats) : " .. mu[1])
+  end
+end
+
 -- 9. noms
 check(R.nom(T, 5, "bouche", 1) == "fo-tir-05-bouche-1" and R.nom(T, 15, "trace") == "fo-tir-15-trace", "noms du lot")
 

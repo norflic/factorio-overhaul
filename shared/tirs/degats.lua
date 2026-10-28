@@ -21,4 +21,25 @@ function D.mult(n) return D.par_niveau[n] end
 --- Rapport d'un âge au précédent (âge e = niveau 2e), pour les contrôles : D.rapport_age(e) = mult(2e) / mult(2e - 2).
 function D.rapport_age(e) return D.par_niveau[2 * e] / D.par_niveau[2 * e - 2] end
 
+--- Règle K9 hors jeu : rend la liste des motifs de refus d'une table de dégâts t (vide si elle est bonne) :
+--- 30 nombres, t[1] = 1, strictement croissants, niveaux 1 à 6 = 1 + 0,08 (n - 1) (jeu d'avant, âges 1 à 3),
+--- rapport d'un âge au précédent = 1,2 à 0,012 près de l'âge 4 à l'âge 15.
+function D.verifier(t)
+  local out = {}
+  if type(t) ~= "table" or #t ~= 30 then return { "30 nombres attendus" } end
+  for n = 1, 30 do if type(t[n]) ~= "number" then return { "niveau " .. n .. " : nombre attendu" } end end
+  if t[1] ~= 1 then out[#out + 1] = "niveau 1 : 1 attendu (tourelle vanilla)" end
+  for n = 2, 30 do
+    if not (t[n] > t[n - 1]) then out[#out + 1] = "niveau " .. n .. " : pas plus fort que le niveau " .. (n - 1) end
+  end
+  for n = 1, 6 do
+    if math.abs(t[n] - (1 + 0.08 * (n - 1))) > 1e-9 then out[#out + 1] = "niveau " .. n .. " : le jeu d'avant (1 + 0,08 (n - 1)) est change" end
+  end
+  for e = 4, 15 do
+    local r = t[2 * e] / t[2 * e - 2]
+    if math.abs(r - 1.2) > 0.012 then out[#out + 1] = string.format("age %d : rapport %.3f a l'age precedent (1,2 attendu)", e, r) end
+  end
+  return out
+end
+
 return D

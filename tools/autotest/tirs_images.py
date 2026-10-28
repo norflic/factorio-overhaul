@@ -12,7 +12,7 @@ Sortie :
   planche-jour.png, planche-nuit.png, planche-z05.png : par site, l'image où le tir AJOUTE le plus de lumière (gain de
                                     luminance sur le minimum, pixel par pixel, de sa rafale : une image sans tir) ;
   index.txt                         par rafale : gain moyen et maximal ; contrôle « le gain moyen au zoom 0,5 croît avec
-                                    l'âge » (âges 1, 5, 8, 10, 15).
+                                    l'âge » (informatif : une image n'est pas un son, le DC juge).
 """
 import csv
 import os
@@ -24,24 +24,22 @@ from PIL import Image, ImageDraw, ImageFont
 LARGEUR_GIF = 640
 MS_TICK = 1000.0 / 60.0
 
+NOMS_AGES = ["Pionnier", "Forge", "Vapeur", "Petrole", "Volcan", "Electricite", "Cristal", "Marais", "Atome",
+             "Haute techno", "Titane", "Supraconducteurs", "Antimatiere", "La Porte", "Neant"]
 TITRES = {
-    "a01": "Age 1 (Pionnier), niveau 2",
-    "a05": "Age 5 (Volcan), niveau 9",
-    "a07-sans-effet": "Age 7, niveau 13 : SANS effet (comme avant)",
-    "a08": "Age 8 (Marais), niveau 15",
-    "a10": "Age 10 (Haute techno), niveau 19",
-    "a15": "Age 15 (Neant), niveau 29",
     "a15-nord": "Age 15, tir vers le nord",
-    "a15-sud": "Age 15, tir vers le sud",
-    "a15-ouest": "Age 15, tir vers l'ouest",
-    "a15-nordest": "Age 15, tir vers le nord-est",
-    "a05-nord": "Age 5, tir vers le nord",
+    "niv1-sans-effet": "Niveau 1 (vanilla) : SANS effet (comme avant)",
+    "laser02": "Laser age 2, niveau 3",
+    "laser06": "Laser age 6, niveau 11",
+    "laser10": "Laser age 10, niveau 19",
     "laser15": "Laser age 15, niveau 29",
-    "laser08-temoin": "Laser age 8, niveau 15 : vanilla",
+    "laser-niv1-temoin": "Laser niveau 1 : vanilla",
     "a15-loin": "Age 15 a 300 tuiles du joueur : sans effet (filtre)",
     "mur15": "Mur de 10 tourelles de l'age 15 face aux biters",
 }
-ORDRE_AGES = ["a01", "a05", "a08", "a10", "a15"]
+for _i, _n in enumerate(NOMS_AGES, 1):
+    TITRES["a%02d" % _i] = "Age %d (%s), niveau %d" % (_i, _n, 2 * _i)
+ORDRE_AGES = ["a%02d" % i for i in range(1, 16)]
 
 
 def police(t):
@@ -163,7 +161,7 @@ def main(argv):
                 os.path.join(dst, "planche-%s.png" % site), optimize=True)
     for serie, fichier in (("jour", "planche-jour.png"), ("nuit", "planche-nuit.png"), ("jour-z05", "planche-z05.png")):
         if meilleures[serie]:
-            grille(meilleures[serie], 3, 640, 360, "Tirs par age, %s : l'image ou le tir ajoute le plus de lumiere"
+            grille(meilleures[serie], 5, 384, 216, "Tirs par age, %s : l'image ou le tir ajoute le plus de lumiere"
                    % serie.replace("jour-z05", "jour, zoom 0,5")).save(os.path.join(dst, fichier), optimize=True)
     # contrôle : au zoom 0,5, le gain moyen croît avec l'âge (signature lisible au zoom de défense)
     croit, prev, parts = True, -1.0, []

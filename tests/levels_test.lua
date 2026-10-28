@@ -816,6 +816,7 @@ do
     string.format("laser lourd (DPS × %.2f) entre les niveaux 9 (%.2f) et 10 (%.2f)", dl, dps_at(LZ, 9), dps_at(LZ, 10)))
   -- K9 (hors jeu) : 30 nombres, strictement croissants ; niveaux 1 à 6 = le jeu d'avant ; × 1,2 (± 0,01) d'un âge à
   -- l'autre de l'âge 4 à l'âge 15 ; la même courbe pour la mitrailleuse et le laser (relatifs à leur niveau 1)
+  check(#D.verifier(D.par_niveau) == 0, "dégâts par niveau : règle K9 de shared/tirs/degats.lua (30 nombres croissants, niveaux 1 à 6 d'avant, × 1,2 par âge)")
   check(#D.par_niveau == 30, "dégâts par niveau : 30 nombres")
   local croit, avant = true, true
   for n = 2, 30 do if not (D.par_niveau[n] > D.par_niveau[n - 1]) then croit = false end end
