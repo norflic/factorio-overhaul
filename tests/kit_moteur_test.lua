@@ -109,10 +109,13 @@ local tr1, te1 = hq_turrets({ w = global.fo.war })
 check(tr1 == 8, "kit généreux : 4 tourelles de QG par faction (" .. tr1 .. " pour 2 factions)")
 check(te1 == 6, "kit généreux : technologies de niveau 0 offertes (" .. te1 .. " sur 6)")
 
-section("5. Votre équipe garde son minage (Harvest.PLAYER faux) ; les factions, la correction")
+section("5. Parité de récolte (Harvest.PLAYER vrai) ; témoin PLAYER faux = ancien minage de votre équipe")
 local Harvest = require("script.team.harvest")
-check(Harvest.PLAYER == false, "Harvest.PLAYER est faux par défaut")
-check(Harvest.applies({ is_player = false }) and not Harvest.applies({ is_player = true }), "la correction vise les factions seulement")
+check(Harvest.PLAYER == true, "Harvest.PLAYER est vrai par défaut (parité de récolte des deux équipes)")
+check(Harvest.applies({ is_player = false }) and Harvest.applies({ is_player = true }), "la correction vaut pour les deux équipes")
+Harvest.PLAYER = false
+check(not Harvest.applies({ is_player = true }), "témoin : PLAYER faux, votre équipe garde l'ancien minage")
+Harvest.PLAYER = false
 check(#Harvest.names_for({ is_player = true }, "wood") == 1 and Harvest.names_for({ is_player = true }, "wood")[1] == "wood",
   "votre équipe : l'ancien nom seul (l'objet)")
 check(not Harvest.foreign_resource(game.surfaces[1], { x = 0, y = 0 }, "coal", { is_player = true }), "votre équipe : jamais de ressource étrangère")
