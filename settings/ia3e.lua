@@ -17,7 +17,7 @@ data:extend({
     type = "bool-setting",
     name = "fo-war-ia3e",
     setting_type = "runtime-global",
-    -- ÉTEINT par défaut (règle de l'intégrateur, 27/10 vers 10 h : allumé seulement si la fonderie au contact du gisement
+    -- ALLUMÉ par défaut depuis l'étape 1 (27/10 au soir). Règle d'avant (27/10 vers 10 h : allumé seulement si la fonderie au contact du gisement
     -- et le palier 3 « pas plus tard qu'au témoin » sont tenus en moteur réel ; e11-usine, 73e9118 : fonderies refusées
     -- « gisement : tapis des foreuses (pas de lot) », scarlet sans palier 3 sur la graine 20261020 contre 26,8 min au témoin)
     default_value = true,

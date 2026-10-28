@@ -16,8 +16,9 @@ data:extend({
     type = "bool-setting",
     name = "fo-war-capi",
     setting_type = "runtime-global",
-    -- ÉTEINT par défaut : allumé seulement quand les critères (1) à (5) du DC sont prouvés en moteur réel ET que les
-    -- garde-fous (verif-guide, pnj-reduit, K10) restent verts réglage allumé (BRANCHEMENT.md).
+    -- ALLUMÉ par défaut (étape 1 du 27/10 au soir : comportement par défaut, plus de réglage éteint ; les garde-fous
+    -- verif-guide, pnj-reduit et K10 restent à rejouer à chaque changement, BRANCHEMENT.md). Éteint : les factions
+    -- ne passent plus d'ordre de capitalisation.
     default_value = true,
     order = "e-war-z-capi",
   },

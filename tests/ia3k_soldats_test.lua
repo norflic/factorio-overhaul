@@ -102,6 +102,30 @@ local function suite()
     clearing = { x = 620, y = 0, k = 1 } })
   check(og[1] == nil and sg.far == 1, "égaré sans rôle : aucun ordre (le rappel du chef s'en charge)")
   check(og[2] and og[2].role == "clear", "loin du QG en plein nettoyage : il continue")
+  section("anneaux sûrs (lot CENTRALE : les soldats d'Azure patrouillaient au pied des nids)")
+  local nest = { x = 56.6, y = -56.6 }  -- un nid connu au nord-est, à 80 tuiles du QG (point NE de l'anneau)
+  local function safe(x, y) return (x - nest.x) ^ 2 + (y - nest.y) ^ 2 > Sd.SAFE_R * Sd.SAFE_R end
+  local ring = Sd.safe_ring(HQ, Sd.PATROL_RADII, safe)
+  check(#ring == 7, "anneau : la direction du nid (aucun rayon sûr) est sautée, les 7 autres restent (" .. #ring .. ")")
+  local near_nest = 0
+  for _, p in ipairs(ring) do if not safe(p.x, p.y) then near_nest = near_nest + 1 end end
+  check(near_nest == 0, "aucun point de l'anneau à moins de " .. Sd.SAFE_R .. " tuiles du nid connu")
+  local nest2 = { x = 90, y = -90 }  -- nid plus loin : la direction n'est pas perdue, son point est ramené à 56 tuiles
+  local ring2 = Sd.safe_ring(HQ, Sd.PATROL_RADII, function(x, y) return (x - nest2.x) ^ 2 + (y - nest2.y) ^ 2 > Sd.SAFE_R * Sd.SAFE_R end)
+  local ne = ring2[8]
+  check(#ring2 == 8 and ne and math.abs(math.sqrt(ne.x ^ 2 + ne.y ^ 2) - 56) < 0.01, "nid au-delà de l'anneau : la direction est ramenée à 56 tuiles")
+  local free_ring = Sd.safe_ring(HQ, Sd.PATROL_RADII, function() return true end)
+  check(#free_ring == 8 and math.abs(math.sqrt(free_ring[1].x ^ 2 + free_ring[1].y ^ 2) - 80) < 0.01, "sans danger : l'anneau de 80 tuiles est inchangé")
+  local none = Sd.safe_ring(HQ, Sd.PATROL_RADII, function() return false end)
+  check(#none == 0, "rien de sûr : liste vide")
+  local og2 = Sd.assign({ tick = 100, hq = HQ, agr = 1500, soldiers = soldiers(8), patrol_pts = none, guard_pts = Sd.safe_ring(HQ, Sd.GUARD_RADII, function() return true end) })
+  check(count(og2, "patrol") == 0 and count(og2, "guard") == 8, "aucun point de patrouille sûr : tous en garde près du QG (" .. count(og2, "guard") .. ")")
+  local og3 = Sd.assign({ tick = 100, hq = HQ, agr = 1500, soldiers = soldiers(8), patrol_pts = ring })
+  local far_patrol = true
+  for _, o in pairs(og3) do
+    if o.role == "patrol" and not safe(o.x, o.y) then far_patrol = false end
+  end
+  check(far_patrol, "les patrouilleurs vont aux points de l'anneau sûr")
   section("groupes de menaces")
   local cl = Sd.clusters({ { x = 0, y = 0 }, { x = 10, y = 5 }, { x = 100, y = 0, killed = true }, { x = 112, y = 0 } })
   check(#cl == 2 and cl[1].k == 2 and cl[2].k == 2 and cl[2].killed, "deux groupes de 2 menaces, le second a tué")
@@ -131,6 +155,10 @@ local function mutant(name, apply)
   passes = pp
   check(n > 0, "mutant « " .. name .. " » détecté (" .. n .. ")")
 end
+mutant("anneau sans filtre de sécurité", function()
+  local f0 = Sd.safe_ring
+  patch(Sd, "safe_ring", function(hq, radii) return f0(hq, radii, function() return true end) end)
+end)
 mutant("patrouille égale pour tous", function() patch(Sd, "patrol_share", function() return 500 end) end)
 mutant("nettoyage sans garde-fou de force", function() patch(Sd, "clear_need", function() return 0 end) end)
 mutant("pas de rotation des patrouilles", function() patch(Sd, "PATROL_TICKS", 1e12) end)
