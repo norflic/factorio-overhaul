@@ -355,6 +355,17 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Vue
 ---------------------------------------------------------------------------------------------------
+--- Lot VEILLE : le kit d'un éclaireur du vivier est-il payable sur le stock LIBRE de l'équipe ? `dry` : on ne fait que le vérifier ;
+--- sinon il est prélevé (comme le kit d'un soldat de l'armée, plus bas dans Team.think). Renvoie true si payable (ou payé).
+Team.on_vivier = nil -- posé par script/faction/commander.lua : un éclaireur du vivier vient d'être fabriqué dans une fournée
+function Team.pay_kit(f, kit, tick, dry)
+  if not f.team or not kit then return false end
+  local stock = Board.view_stock(f, stock_of(f), tick)
+  if not has_list(stock, kit) then return false end
+  if not dry then remove_list(f, kit) end
+  return true
+end
+
 function Team.view(f, tick)
   local war = State.war()
   local soldiers_max = f.is_player and 0 or war.settings.soldiers_max
@@ -680,7 +691,11 @@ function Team.think(f, surface, tick)
   if tr and has_list(stock, tr_pay, tr.uses and 1 or tr.count) then
     local kit = T.kits[tr.unit]
     remove_list(f, tr_pay, tr.uses and 1 or tr.count)
-    local made = Military.train(f, surface, tr.unit, tr.count)
+    -- Lot VEILLE : le vivier d'éclaireurs est un soldat de PLUS dans cette fournée de l'armée (marqué, hors garnison et hors effectif :
+    -- le planificateur en refabrique un). Jamais dans une fournée de survie (tr.uses).
+    local vn = (not tr.uses and f.veille and f.veille.want_vivier) and 1 or 0
+    local made = Military.train(f, surface, tr.unit, tr.count, vn)
+    if made > 0 and vn > 0 and Team.on_vivier then Team.on_vivier(f, tick) end
     if made < tr.count then
       for _, it in ipairs(kit) do Stock.insert(f, it[1], it[2] * (tr.count - made)) end
     end

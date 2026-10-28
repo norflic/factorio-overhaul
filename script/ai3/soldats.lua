@@ -196,7 +196,7 @@ local function pass(f, tick)
   local list, group_n = {}, 0
   for _, id in ipairs(ids) do
     local s = soldiers[id]
-    if s.entity and s.entity.valid then
+    if s.entity and s.entity.valid and not s.scout then -- lot VEILLE : le vivier d'éclaireurs n'a pas de rôle
       local ps = per[id]
       if not ps then
         ps = {}

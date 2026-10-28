@@ -23,6 +23,10 @@ local Team = require("script.team.team")
 local PvP = require("script.faction.pvp")
 local Character = require("script.faction.character")
 local Chef = require("script.faction.chef")
+local Veille = require("script.faction.veille") -- lot VEILLE : reconnaissance régulière (vivier d'éclaireurs)
+Veille.install() -- après script/faction/pvp.lua (donc vision.lua) : enveloppe les crochets de Military.scout
+Veille.pay_kit = function(f, kit, tick, dry) return Team.pay_kit(f, kit, tick, dry) end
+Team.on_vivier = function(f, tick) Veille.vivier_made(f, tick, "fournee") end
 
 local Commander = {}
 
@@ -114,6 +118,8 @@ function Commander.think(id, tick)
   Team.think(f, surface, tick)
   Profiler.stop("faction:team")
   Chef.think(f, tick) -- lot IA2-a : une pensée par minute (rien avant l'échéance)
+  Veille.think(f, surface, tick) -- lot VEILLE : vivier d'éclaireurs, départ à intervalle, rayon croissant
+  Veille.report(f, tick)
   Profiler.start("faction:attack")
   local view, target = Commander.view(f, tick)
   PvP.think(f, surface, tick, view, target)
@@ -160,6 +166,16 @@ Events.on(defines.events.on_entity_died, function(e)
   local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
   if dx * dx + dy * dy < THREAT_RADIUS * THREAT_RADIUS then
     f.threatened_until = e.tick + THREAT_TICKS
+  end
+  -- Lot VEILLE : mort d'un soldat de faction (cause, lieu, distance au QG) : aucun éclaireur pendant 5 min, et un journal qui date les
+  -- effondrements de garnison (la base n'avait pas ce journal : RECON, Azure 271828182).
+  local own = entity.unit_number and f.soldiers and f.soldiers[entity.unit_number]
+  if own then
+    Veille.on_soldier_died(f, e.tick, entity.unit_number)
+    f.stats.soldier_deaths = (f.stats.soldier_deaths or 0) + 1
+    log(string.format("[FO-VEILLE] soldat mort tick %d %s : par %s (%s) en (%d, %d), a %d tuiles du QG%s", e.tick, f.key,
+      e.cause and e.cause.valid and e.cause.name or "?", e.force and e.force.name or "?", math.floor(p.x), math.floor(p.y),
+      math.floor(math.sqrt(dx * dx + dy * dy)), own.scout and ", eclaireur du vivier" or ""))
   end
   if e.force and e.force.name == "player" and Commander.on_player_hostility then
     Commander.on_player_hostility(f, e.tick)

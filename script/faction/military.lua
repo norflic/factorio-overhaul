@@ -75,8 +75,12 @@ local function wander(unit, radius)
   unit.set_command({ type = defines.command.wander, radius = radius or GARRISON_RADIUS, distraction = defines.distraction.by_enemy })
 end
 
-function Military.train(f, surface, key, count)
+--- `scout` (lot VEILLE) : true (tous) ou un nombre n (les n premiers) : ce sont des éclaireurs du VIVIER réservé : marqués (s.scout), jamais
+--- comptés dans la garnison ni dans f.soldiers_count (donc ni dans l'armée vue par le planificateur, qui en fabrique un de plus, ni dans
+--- les attaques), jamais choisis pour une attaque ou un rappel.
+function Military.train(f, surface, key, count, scout)
   Profiler.start("military:train")
+  local nscout = scout == true and count or (tonumber(scout) or 0)
   local name = F.unit_name(f.key, key)
   local made = 0
   for i = 1, count do
@@ -85,9 +89,12 @@ function Military.train(f, surface, key, count)
     if pos then
       local u = surface.create_entity({ name = name, position = pos, force = f.force })
       if u then
-        f.soldiers[u.unit_number] = { entity = u, group = nil }
-        f.soldiers_count = f.soldiers_count + 1
-        f.garrison_count = f.garrison_count + 1
+        local is_scout = made < nscout
+        f.soldiers[u.unit_number] = { entity = u, group = nil, scout = is_scout and true or nil }
+        if not is_scout then
+          f.soldiers_count = f.soldiers_count + 1
+          f.garrison_count = f.garrison_count + 1
+        end
         State.own(u, f.id, "soldier")
         wander(u)
         made = made + 1
@@ -179,16 +186,23 @@ end
 --- Military.on_scout_done) est la seule source de ce qu'une faction sait d'un adversaire lointain (brouillard, D-16).
 --- Un éclaireur à la fois par faction (f.scout_pending, puis un groupe à l'état « scout »). Renvoie true s'il part.
 local SCOUT_HANDLER = "fo-war-scout"
-function Military.scout(f, surface, dest, tick, tag, size)
+function Military.scout(f, surface, dest, tick, tag, size, reserve)
   if f.scout_pending then return false end
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     if f.groups[gid].state == "scout" then return false end
   end
   size = size or 1
-  if Military.garrison_near(f) < size then return false end
+  -- Lot VEILLE : `reserve` = l'éclaireur est pris dans le VIVIER (soldats marqués), pas dans la garnison.
+  if reserve then
+    if Military.scouts_ready(f) < 1 then return false end
+    size = 1
+  elseif Military.garrison_near(f) < size then
+    return false
+  end
   local name = F.unit_name(f.key, F.best_soldier(f.tech))
   local gather = surface.find_non_colliding_position(name, home(f), 20, 1) or home(f)
-  f.scout_pending = { gather = { x = gather.x, y = gather.y }, dest = { x = dest.x, y = dest.y }, tick = tick, tag = tag, size = size }
+  f.scout_pending = { gather = { x = gather.x, y = gather.y }, dest = { x = dest.x, y = dest.y }, tick = tick, tag = tag, size = size,
+    reserve = reserve and true or nil }
   f.scout_pending.ticket = PathService.request(SCOUT_HANDLER, f.id, {
     surface = surface.index, proto = name, pad = 0, start = f.scout_pending.gather, goal = f.scout_pending.dest, force = f.force,
     radius = 24, flags = { cache = false, low_priority = true }, res = -2,
@@ -204,7 +218,7 @@ local function launch_group(f, surface, target_faction, rp, path, tick)
   for _, id in ipairs(ids) do
     if #chosen >= rp.count then break end
     local s = f.soldiers[id]
-    if not s.group and s.entity.valid then
+    if not s.group and s.entity.valid and not s.scout then
       local p = s.entity.position
       local dx, dy = p.x - rp.gather.x, p.y - rp.gather.y
       if dx * dx + dy * dy <= r2 then chosen[#chosen + 1] = id else far = far + 1 end
@@ -343,7 +357,7 @@ local function disband(f, gid)
     local s = f.soldiers[id]
     if s.group == gid then
       s.group = nil
-      f.garrison_count = f.garrison_count + 1
+      if not s.scout then f.garrison_count = f.garrison_count + 1 end
       if s.entity.valid then wander(s.entity) end
     end
   end
@@ -420,7 +434,7 @@ local function return_by_route(f, gid, result, tick)
       else
         -- Soldat déjà écarté du groupe par le moteur : rendu à la garnison là où il est (comme avant).
         s.group = nil
-        f.garrison_count = f.garrison_count + 1
+        if not s.scout then f.garrison_count = f.garrison_count + 1 end
       end
     end
   end
@@ -460,7 +474,7 @@ local function release_strays(f, gid, g)
     local s = f.soldiers[id]
     if s.group == gid and not in_group[id] then
       s.group = nil
-      f.garrison_count = f.garrison_count + 1
+      if not s.scout then f.garrison_count = f.garrison_count + 1 end
       if s.entity.valid then wander(s.entity) end
       n = n + 1
     end
@@ -475,13 +489,32 @@ function Military.garrison_split(f)
   local near, far = 0, 0
   for _, id in ipairs(State.sorted_keys(f.soldiers)) do
     local s = f.soldiers[id]
-    if not s.group and s.entity.valid then
+    if not s.group and s.entity.valid and not s.scout then
       local p = s.entity.position
       local dx, dy = p.x - h.x, p.y - h.y
       if dx * dx + dy * dy <= r2 then near = near + 1 else far = far + 1 end
     end
   end
   return near, far
+end
+
+--- Lot VEILLE : éclaireurs du vivier disponibles (sans groupe, vivants) proches du QG, et vivants en tout (en mission compris).
+function Military.scouts_ready(f)
+  local h = home(f)
+  local r2 = GATHER_RADIUS * GATHER_RADIUS
+  local ready, alive = 0, 0
+  for _, id in ipairs(State.sorted_keys(f.soldiers)) do
+    local s = f.soldiers[id]
+    if s.scout and s.entity.valid then
+      alive = alive + 1
+      if not s.group then
+        local p = s.entity.position
+        local dx, dy = p.x - h.x, p.y - h.y
+        if dx * dx + dy * dy <= r2 then ready = ready + 1 end
+      end
+    end
+  end
+  return ready, alive
 end
 
 --- Garnison utile : soldats sans groupe à moins de GATHER_RADIUS tuiles du rassemblement.
@@ -498,7 +531,7 @@ local function recall_far(f, tick)
   local far = {}
   for _, id in ipairs(State.sorted_keys(f.soldiers)) do
     local s = f.soldiers[id]
-    if not s.group and s.entity.valid then
+    if not s.group and s.entity.valid and not s.scout then
       local p = s.entity.position
       local dx, dy = p.x - h.x, p.y - h.y
       if dx * dx + dy * dy > r2 then
@@ -601,23 +634,34 @@ PathService.register_handler(SCOUT_HANDLER, function(fid, path, ticket, reason, 
   end
   local chosen = {}
   local r2 = GATHER_RADIUS * GATHER_RADIUS
+  local cand = {}
   for _, id in ipairs(State.sorted_keys(f.soldiers)) do
-    if #chosen >= (sp.size or 1) then break end
     local s = f.soldiers[id]
-    if not s.group and s.entity.valid then
+    -- Lot VEILLE : un éclaireur du vivier part seul, le plus proche du rassemblement (F173 : un soldat lointain d'un groupe créé
+    -- au rassemblement le quitte) ; un éclaireur de la garnison ne prend jamais un soldat du vivier.
+    local mine = (sp.reserve and s.scout) or (not sp.reserve and not s.scout)
+    if not s.group and s.entity.valid and mine then
       local p = s.entity.position
       local dx, dy = p.x - sp.gather.x, p.y - sp.gather.y
-      if dx * dx + dy * dy <= r2 then chosen[#chosen + 1] = id end
+      if dx * dx + dy * dy <= r2 then cand[#cand + 1] = { id = id, d2 = dx * dx + dy * dy } end
     end
   end
+  if sp.reserve then
+    table.sort(cand, function(a, b)
+      if a.d2 ~= b.d2 then return a.d2 < b.d2 end
+      return a.id < b.id
+    end)
+  end
+  for i = 1, math.min(#cand, sp.size or 1) do chosen[i] = cand[i].id end
   if #chosen == 0 then return end
   local surface = game.surfaces[war.surface]
-  local group = surface.create_unit_group({ position = sp.gather, force = f.force })
+  local at = sp.reserve and f.soldiers[chosen[1]].entity.position or sp.gather
+  local group = surface.create_unit_group({ position = { x = at.x, y = at.y }, force = f.force })
   for _, id in ipairs(chosen) do
     group.add_member(f.soldiers[id].entity)
     f.soldiers[id].group = group.group_number
   end
-  f.garrison_count = f.garrison_count - #chosen
+  if not sp.reserve then f.garrison_count = f.garrison_count - #chosen end
   local route = waypoints_along(path)
   -- Un éclaireur seul passe sans combattre ; une PATROUILLE (après des éclaireurs perdus) riposte.
   local dist = #chosen > 1 and defines.distraction.by_enemy or defines.distraction.none
@@ -694,6 +738,10 @@ function Military.on_soldier_lost(f, unit_number)
   local s = f.soldiers[unit_number]
   if not s then return end
   f.soldiers[unit_number] = nil
+  if s.scout then
+    f.stats.scouts_reserve_lost = (f.stats.scouts_reserve_lost or 0) + 1 -- lot VEILLE : pas une perte de l'armée
+    return
+  end
   f.soldiers_count = f.soldiers_count - 1
   if not s.group then f.garrison_count = f.garrison_count - 1 end
   f.stats.soldiers_lost = f.stats.soldiers_lost + 1

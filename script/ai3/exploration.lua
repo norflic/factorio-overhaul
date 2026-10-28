@@ -54,6 +54,8 @@ local Board = require("script.team.board") -- lot IA-V2 : crochet Board.on_fail 
 -- Lot IA-V2 : le cerveau par besoins (IA3-c) lit les gisements CONNUS par un crochet (module déjà chargé par
 -- script/team/team.lua : l'ordre de chargement, donc des abonnements, ne change pas).
 local Ia3 = require("script.ai3.cerveau")
+local Veille = require("script.faction.veille") -- lot VEILLE : reconnaissance régulière (crochets posés en fin de fichier)
+local V = require("shared.faction.veille")
 
 local X = {}
 
@@ -487,22 +489,21 @@ local function end_mission(f, k, ex, tick, why)
     ex.kind, ex.res and (" " .. ex.res) or "", why, minutes(tick - ex.started), k.m.n))
 end
 
-local function retarget(f, k, a, ex, tick)
-  local e = a.entity
-  local surface = e.surface
-  local me = { x = e.position.x, y = e.position.y }
+--- Secteurs écartés d'une cible d'exploration (table locale, jamais rangée dans global). `ex` : la mission de l'ouvrier (cibles
+--- ratées de cette mission), ou nil (lot VEILLE : l'éclaireur soldat d'une faction, qui n'a pas de mission).
+local function make_exclude(k, tick, ex)
   -- Lot IA-V2 : plusieurs éclaireurs : chacun évite les secteurs proches de la cible d'un autre (exclusion calculée à la
   -- demande, table locale jamais rangée dans global).
   local others = {}
   for _, e in ipairs(k.exl or {}) do
-    if e.tag ~= ex.tag and e.target then
+    if (not ex or e.tag ~= ex.tag) and e.target then
       local ox, oy = K.center(K.xy(e.target))
       others[#others + 1] = { x = ox, y = oy }
     end
   end
   local badt = k.badt or {}
-  local exclude = setmetatable({}, { __index = function(_, key)
-    if ex.bad[key] then return true end
+  return setmetatable({}, { __index = function(_, key)
+    if ex and ex.bad[key] then return true end
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
     local bx, by = K.center(K.xy(key))
@@ -519,6 +520,13 @@ local function retarget(f, k, a, ex, tick)
     end
     return nil
   end })
+end
+
+local function retarget(f, k, a, ex, tick)
+  local e = a.entity
+  local surface = e.surface
+  local me = { x = e.position.x, y = e.position.y }
+  local exclude = make_exclude(k, tick, ex)
   local key = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
     rivals = rivals(f, surface), exclude = exclude })
   if not key then
@@ -1173,6 +1181,83 @@ Board.on_fail = function(f, task, tick)
   for _, key in ipairs(sorted_keys(k.unreach)) do
     if tick - k.unreach[key] >= BAD_TTL then k.unreach[key] = nil end
   end
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot VEILLE : crochets de l'éclaireur SOLDAT d'une faction (script/faction/veille.lua). Même carte, mêmes exclusions (cibles
+-- ratées, régions bloquées, nids vus) que les éclaireurs ouvriers : rien n'est recopié.
+---------------------------------------------------------------------------------------------------
+Veille.fog_on = function() return X.fog_on() end
+
+--- Nombre de secteurs reconnus par l'équipe de la faction (champ n de la carte de connaissance), ou nil.
+Veille.known = function(f)
+  local k = f.ai3f
+  return k and k.m and k.m.n or nil
+end
+
+--- But du prochain trajet : parmi les secteurs GÉNÉRÉS de la bande R ± V.BAND autour du QG, jamais vus ou vus depuis V.STALE, sûrs,
+--- hors exclusions et au trajet dégagé de tout nid ou ver vu, le choix de V.pick (le plus ancien d'abord, octants alternés).
+--- Renvoie { x, y, octant, dh, n (candidats) } ou nil.
+Veille.pick_goal = function(f, tick, radius, last_octant)
+  local k = f.ai3f
+  local surface = surface_of(f)
+  if not (k and surface and f.hq_pos) then return nil end
+  local hq = f.hq_pos
+  local exclude = make_exclude(k, tick, nil)
+  local sb = k.sblocked
+  local span = radius + V.BAND
+  local x0, x1 = math.floor((hq.x - span) / K.SECTOR), math.floor((hq.x + span) / K.SECTOR)
+  local y0, y1 = math.floor((hq.y - span) / K.SECTOR), math.floor((hq.y + span) / K.SECTOR)
+  local rivals_list = rivals(f, surface)
+  local cands = {}
+  for sy = y0, y1 do
+    for sx = x0, x1 do
+      local key = K.key(sx, sy)
+      local cx, cy = K.center(sx, sy)
+      local dh = math.sqrt((cx - hq.x) ^ 2 + (cy - hq.y) ^ 2)
+      if V.in_band(dh, radius) and not exclude[key] then
+        local s = k.m.s[key]
+        local age = s and (tick - s.t) or nil
+        if V.stale(age) and generated(surface, key) and K.sector_risk(k.m, key, tick, rivals_list) < K.DANGER.skip
+          and not (sb and #sb > 0 and K.blocked_near(sb, cx, cy, tick, BLOCK_R, math.huge))
+          and K.path_clear(k.m, hq, { x = cx, y = cy }) then
+          cands[#cands + 1] = { key = key, x = cx, y = cy, dh = dh, age = age, octant = V.octant(cx - hq.x, cy - hq.y) }
+        end
+      end
+    end
+  end
+  local best = V.pick(cands, last_octant)
+  if not best then return nil end
+  return { x = best.x, y = best.y, octant = best.octant, dh = best.dh, n = #cands }
+end
+
+--- Le soldat éclaireur regarde ici : les secteurs de son champ entrent dans la file des regards, et la carte est générée autour de lui.
+Veille.watch = function(f, x, y, tick)
+  local k = f.ai3f
+  local surface = surface_of(f)
+  if not (k and surface) then return end
+  push_eye(k, x, y, K.EYE.scout, tick, K.RELOOK.moving)
+  surface.request_to_generate_chunks({ x = x, y = y }, GEN_RADIUS)
+end
+
+--- Le secteur d'un point est écarté BAD_TTL (chemin raté, éclaireur perdu) ; `danger` : incident daté sur la carte.
+Veille.mark_bad = function(f, x, y, tick, danger)
+  local k = f.ai3f
+  if not k then return end
+  k.badt = k.badt or {}
+  k.badt[K.key_of(x, y)] = tick
+  if danger then K.mark(k.m, x, y, tick, 800) end
+end
+
+--- Aucun chemin de soldat de (ox, oy) vers (x, y) : la région autour de (x, y) et le cône derrière elle sont écartés pour la partie
+--- (mécanisme du lot EXPLO : K.note_blocked / K.blocked_near), valable pour les soldats seulement (k.sblocked).
+Veille.note_nopath = function(f, ox, oy, x, y, tick)
+  local k = f.ai3f
+  if not k then return end
+  k.sblocked = k.sblocked or {}
+  K.note_blocked(k.sblocked, ox, oy, x, y, tick, BLOCK_CAP)
+  k.badt = k.badt or {}
+  k.badt[K.key_of(x, y)] = tick
 end
 
 return X
