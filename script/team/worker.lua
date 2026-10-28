@@ -53,6 +53,7 @@ local MINE_TIMEOUT = 90 * 60
 -- fin du minage, ou CLAIM_TTL ticks si l'ouvrier meurt ou renonce. File d'âges pour l'élagage (aucun `pairs`).
 local CLAIM_TTL = MINE_TIMEOUT + 3600
 Worker.CLAIM_TILES = true -- faux : l'ancien comportement (tests : mutant « sans réservation »)
+Worker.CLAIM_SLACK = 8    -- tuiles : écart de distance au QG toléré entre la première tuile libre et la tuile réservée évitée
 
 --- Lot KIT : l'entité à miner = celle qui est SUR la tuile visée (la plus proche de la cible), pas la première rendue par une
 --- recherche de rayon 2,5 : le moteur la rend dans un ordre quelconque, et une tuile à 2 tuiles de la cible est hors de
@@ -413,7 +414,7 @@ function Worker.program(f, task, surface, tick)
     end)
     -- Tuile LIBRE : sous un four ou une foreuse (avant-poste détruit, restes), l'ouvrier sélectionnait le
     -- bâtiment et ne minait rien (moteur réel, E16 it. 11 : 4 minerais livrés en 50 min).
-    local best, first_free
+    local best, first_free, free_d
     local stride = math.max(1, math.floor(#res / 40))
     for i = 1, #res, stride do
       local r = res[i]
@@ -437,8 +438,15 @@ function Worker.program(f, task, surface, tick)
       if busy == 0 and (task.fond or task.prudent) and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
       -- Lot KIT : la première tuile libre ET non réservée ; à défaut, la première libre (comme avant le lot)
       if busy == 0 then
-        first_free = first_free or r
+        if not first_free then
+          first_free = r
+          free_d = math.sqrt(dist2(p, f.hq_pos))
+        end
         if not tile_claimed(f, p, tick) then best = r break end
+        -- Lot KIT : on évite les tuiles réservées en restant près de la première tuile libre (au plus CLAIM_SLACK tuiles plus
+        -- loin du QG) : sans cette borne, beaucoup de mineurs simultanés (minage de fond de votre équipe) s'éloignaient jusqu'au
+        -- bout de la liste, chez les nids (moteur réel : pnj-reduit et verif-guide graine 1618033988, avant-postes du joueur).
+        if math.sqrt(dist2(p, f.hq_pos)) > free_d + Worker.CLAIM_SLACK then break end
       end
     end
     best = best or first_free
