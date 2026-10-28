@@ -97,6 +97,14 @@ local SPREAD = 160             -- un éclaireur de plus ne vise pas un secteur �
 local BAD_TTL = 10 * 3600      -- cible au chemin raté écartée 10 min (toutes missions de l'équipe)
 local FREE_RADIUS = 24         -- case libre cherchée à 24 tuiles au plus du point de passage
 local FAIL_MAX = 3             -- chemins ratés EN ROUTE repris par une autre cible, par mission d'exploration
+-- Lot EXPLO (moteur réel, 28/10, graine 20261020 : Azur, QG au bord d'un lac de 200 tuiles, 17 fins « chemin » sur 30
+-- départs, 0 gisement trouvé) : un chemin raté vers un point de passage bloque la région autour (BLOCK_R) et le cône
+-- derrière lui (K.blocked_near) pour BLOCK_TTL ;
+-- ni les tours ni les cibles ne la visent, et un tour saute le point raté au lieu de rejouer le même échec.
+local BLOCK_R = 128
+local BLOCK_TTL = 30 * 3600
+local BLOCK_CAP = 16
+local SHORT_MISSION = 600      -- mission « finie » en moins de 10 s à l'aller : demi-tour de danger, pas une fin
 
 Storage.declare("ai3f", function()
   return { fog = true, lc = 0, tc = 0, seq = 0, stats = { looks = 0, skipped = 0, gen = 0, res_looks = 0 } }
@@ -419,9 +427,11 @@ local function start_mission(f, k, a, kind, res, tick)
     local ring = K.ring(f.hq_pos.x, f.hq_pos.y, TOUR_RADIUS, first)
     steps = {}
     local wait = false
+    ex.pts = {}
     for i = k.tour.next, #ring do
       local p = ring[i]
-      if K.sector_risk(k.m, K.key_of(p.x, p.y), tick, rivals(f, surface)) < K.DANGER.skip then
+      if K.sector_risk(k.m, K.key_of(p.x, p.y), tick, rivals(f, surface)) < K.DANGER.skip
+        and not K.blocked_near(k.blocked, p.x, p.y, tick, BLOCK_R, BLOCK_TTL) then
         if not chunk_ready(surface, p) then
           surface.request_to_generate_chunks(p, 1)
           wait = true
@@ -429,6 +439,7 @@ local function start_mission(f, k, a, kind, res, tick)
         -- Lot IA-V2 : point de l'anneau posé sur une case libre (eau, falaise : chemin raté en 0 s).
         local q = chunk_ready(surface, p) and surface.find_non_colliding_position(Rg.BODY, p, FREE_RADIUS, 1) or nil
         steps[#steps + 1] = { "goto", q and { x = q.x, y = q.y } or p, 6 }
+        ex.pts[#ex.pts + 1] = { x = p.x, y = p.y, ring = i }
       end
     end
     if wait then table.insert(steps, 1, { "wait", 120 }) end
@@ -494,6 +505,12 @@ local function retarget(f, k, a, ex, tick)
     if ex.bad[key] then return true end
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
+    local bx, by = K.center(K.xy(key))
+    if k.blocked and #k.blocked > 0 and K.blocked_near(k.blocked, bx, by, tick, BLOCK_R, BLOCK_TTL) then return true end
+    -- Lot EXPLO (moteur réel, 28/10 : votre équipe, 29 fuites sur 44 départs, 5 fois au même nid) : un secteur à portée de fuite
+    -- d'un nid ou d'un ver VU est écarté (l'éclaireur y fuirait de toute façon à FLEE_RADIUS).
+    local nests, worms = K.enemies_near(k.m, bx, by, FLEE_RADIUS)
+    if nests + worms > 0 then return true end
     if #others > 0 then
       local cx, cy = K.center(K.xy(key))
       for _, o in ipairs(others) do
@@ -517,6 +534,7 @@ local function retarget(f, k, a, ex, tick)
     local q = surface.find_non_colliding_position(Rg.BODY, wp, FREE_RADIUS, 1)
     if q then wp = { x = q.x, y = q.y } end
   end
+  ex.wp = { x = wp.x, y = wp.y }
   local steps = { { "goto", wp, 6 }, { "wait", 600 }, { "home" } }
   if not chunk_ready(surface, wp) then
     surface.request_to_generate_chunks(wp, 2)
@@ -548,8 +566,52 @@ local function monitor_one(f, k, ex, tick)
   end
   local t = a.task
   if not (t and t.ai3f == ex.tag) then
+    -- Lot EXPLO (moteur réel, 28/10, graine 20261020 : votre équipe, 20 départs de suite finis en 0,0 min toutes les 12 s) :
+    -- la tâche a disparu moins de 10 s après le départ, l'éclaireur étant encore à l'aller : le demi-tour de danger
+    -- (script/ai3/comportement.lua : tâche abandonnée, puis retour au QG déjà atteint) est passé entre deux surveillances.
+    -- La cible est écartée comme un chemin raté à la 2e fois.
+    if ex.kind == "explore" and ex.state ~= "home" and tick - ex.started < SHORT_MISSION then
+      if ex.target then
+        -- Écartée à la 2e fois sur la même cible (une disparition isolée peut être un chemin raté au hasard).
+        k.short = k.short or {}
+        k.short[ex.target] = (k.short[ex.target] or 0) + 1
+        if k.short[ex.target] >= 2 then
+          k.short[ex.target] = nil
+          k.badt = k.badt or {}
+          k.badt[ex.target] = tick
+        end
+      end
+      end_mission(f, k, ex, tick, "danger")
+      return
+    end
     end_mission(f, k, ex, tick, ex.state == "home" and ex.why or "fini")
     return
+  end
+  if not t.fail then
+    local st = a.steps and a.steps[a.pc]
+    if st and st[1] == "goto" then ex.last_goto, ex.last_pc = { x = st[2].x, y = st[2].y }, a.pc end
+  elseif t.fail == "chemin" and not ex.noted_fail then
+    ex.noted_fail = true
+    -- Lot EXPLO : région bloquée (le point visé, sinon le point de passage de la mission) ; un tour saute le point raté.
+    local gp = ex.last_goto or ex.wp or (ex.pts and ex.pts[1])
+    if gp then
+      k.blocked = k.blocked or {}
+      local me = a.entity.position
+      K.note_blocked(k.blocked, me.x, me.y, gp.x, gp.y, tick, BLOCK_CAP)
+      k.stats.blocked = (k.stats.blocked or 0) + 1
+      log(string.format("[FO-IA3F] %s : eclaireur %d : chemin rate vers (%d, %d), region bloquee (%d en tout)", team_label(f),
+        a.id, math.floor(gp.x), math.floor(gp.y), #k.blocked))
+    end
+    if ex.kind == "tour" and ex.pts then
+      -- Point du tour en cours : le dernier but vu, sinon le premier ; le tour reprend après lui.
+      local idx = 1
+      if ex.last_goto then
+        for i, p in ipairs(ex.pts) do
+          if math.abs(p.x - ex.last_goto.x) < FREE_RADIUS + 2 and math.abs(p.y - ex.last_goto.y) < FREE_RADIUS + 2 then idx = i break end
+        end
+      end
+      k.tour.next = math.min(9, ex.pts[idx].ring + 1)
+    end
   end
   if t.fail then -- chemin raté : le PNJ rentre de lui-même (étape home)
     if ex.target then
@@ -565,6 +627,7 @@ local function monitor_one(f, k, ex, tick)
     if t.fail == "chemin" and ex.kind == "explore" and ex.state ~= "home" and not f.is_player
       and (ex.fails or 0) < FAIL_MAX then
       ex.fails = (ex.fails or 0) + 1
+      ex.noted_fail = nil
       t.fail = nil
       k.stats.rerouted = (k.stats.rerouted or 0) + 1
       log(string.format("[FO-IA3F] %s : eclaireur %d : chemin rate en route, autre cible (%d/%d) a %.1f min", team_label(f),

@@ -230,6 +230,21 @@ local function new_inventory()
     return c
   end
   inv.is_empty = function() return next(inv._items) == nil end
+  -- Lot COFFRE : le mock n'a pas de nombre de cases (#inv = 0, capacité illimitée) ; script/team/stock.lua traite un coffre
+  -- de 0 case comme « capacité inconnue » : ni annexe ni rangement.
+  inv.count_empty_stacks = function() return 0 end
+  -- Étape 1 (défaut 3) : inv[1] (première pile) et clear() pour la reprise d'un four mal chargé.
+  inv.clear = function() inv._items = {} end
+  setmetatable(inv, {
+    __index = function(_, k)
+      if k ~= 1 then return nil end
+      local names = {}
+      for n in pairs(inv._items) do names[#names + 1] = n end
+      table.sort(names)
+      if #names == 0 then return { valid_for_read = false } end
+      return { valid_for_read = true, name = names[1], count = inv._items[names[1]] }
+    end,
+  })
   return inv
 end
 M.new_inventory = new_inventory
@@ -432,6 +447,8 @@ local EntityMT = {
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
     if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
+    -- Étape 1 : service_smelters lit is_crafting ; un four du mock fond d'un coup (pas de fabrication en cours entre deux ticks)
+    if k == "is_crafting" then return function() return false end end
     if k == "get_output_inventory" then
       return function()
         if t.type == "container" then return inv_of(t, defines.inventory.chest) end
@@ -777,6 +794,11 @@ function M.new_world(opts)
       ["fo-war-ia3e"] = (opts.ia3e == true) or (os.getenv("FO_IA3E") == "1"),
       -- Lot CAPITAL : ÉTEINT par défaut comme le jeu (settings/capital.lua) ; allumé par l'option (capital = true) ou FO_CAPITAL=1
       ["fo-war-capital"] = (opts.capital == true) or (os.getenv("FO_CAPITAL") == "1"),
+      -- Lot AMELIORER : remplacement des machines hors famille, ALLUMÉ par défaut comme le jeu (settings/capital.lua)
+      ["fo-war-remplacer"] = opts.remplacer ~= false,
+      -- Lot CAPIB : ÉTEINT par défaut comme le jeu (settings/capi.lua) ; allumé par l'option (capi = true) ou FO_CAPI=1
+      -- (n'agit qu'avec fo-war-ia3e : FO_IA3E=1)
+      ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
     },

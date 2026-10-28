@@ -59,3 +59,5 @@ require("settings.ia3c") -- lot IA3-c : cerveau par besoins (fo-war-ia3-cerveau,
 require("settings.ia3k") -- lot IA3-k : comportements visibles des PNJ (fo-war-ia3-comportement)
 require("settings.ia3e") -- lot IA3-e : automatiser ce qui revient (fo-war-ia3e)
 require("settings.capital") -- lot CAPITAL : améliorer et monter les époques (fo-war-capital, éteint par défaut)
+require("settings.capi") -- lot CAPIB : capitaliser (fo-war-capi, éteint par défaut ; agit avec fo-war-ia3e)
+require("settings.adopte") -- lot ADOPTE : adopter les machines posées à la main (fo-war-adopte)

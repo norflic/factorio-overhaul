@@ -18,6 +18,7 @@ local Render = require("script.companion.render")
 local Brain = require("script.companion.brain")
 local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
@@ -28,6 +29,8 @@ local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
 local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
 local Locomotion = require("script.companion.locomotion")
+local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
+local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
 
 local Worker = {}
 
@@ -137,7 +140,7 @@ local function deposit_inventory(f, inv, keep)
   for _, name in ipairs(names) do
     local n = contents[name] - (keep and keep[name] or 0)
     if n > 0 then
-      local moved = f.hq.insert({ name = name, count = n })
+      local moved = Stock.insert(f, name, n)
       if moved > 0 then
         inv.remove({ name = name, count = moved })
         f.team.delivered[name] = (f.team.delivered[name] or 0) + moved
@@ -171,11 +174,11 @@ local function take(agent, f, list)
   local all = true
   for _, it in ipairs(list) do
     local want = it[2]
-    local n = math.min(want, f.hq.get_item_count(it[1]))
+    local n = math.min(want, Stock.count(f, it[1]))
     if n > 0 then
-      local got = f.hq.remove_item({ name = it[1], count = n })
+      local got = Stock.remove(f, it[1], n)
       local put = inv.insert({ name = it[1], count = got })
-      if put < got then f.hq.insert({ name = it[1], count = got - put }) end
+      if put < got then Stock.insert(f, it[1], got - put) end
       if put < want then all = false end
     else
       all = false
@@ -233,7 +236,7 @@ function Worker.program(f, task, surface, tick)
     if f.is_player then
       local force = game.forces[f.force]
       local rec = force and force.recipes and force.recipes["gun-turret"]
-      local turret_ok = f.hq.get_item_count("gun-turret") > 0 or (rec ~= nil and rec.enabled)
+      local turret_ok = Stock.count(f, "gun-turret") > 0 or (rec ~= nil and rec.enabled)
       local d2 = dist2(site, f.hq_pos)
       local bad = (not turret_ok) and d2 > T.site_max_noturret * T.site_max_noturret
       if not bad then
@@ -337,6 +340,8 @@ function Worker.program(f, task, surface, tick)
     end
     list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
+  elseif k == "equiper" then
+    return Equip.program(f, task) -- lot LEVIERS
   elseif k == "mine" then
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
@@ -456,6 +461,8 @@ ACTS.smelters = function(agent, f, task, surface)
   return n > 0
 end
 
+ACTS.equiper = Equip.act -- lot LEVIERS
+
 ACTS.smelt = function(agent, f, task)
   Outposts.service_smelters(f, main_inv(agent), task.smelt)
   return true
@@ -501,6 +508,27 @@ local function abort(agent, f, tick, reason)
   set(agent, "step", tick)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
+
+--- Lot FUITE : les PNJ au travail à moins de `radius` tuiles de `p` (défaut Poles.LOSS_RADIUS) rentrent au QG (tâche
+-- abandonnée, « danger »), sauf `except` et les tâches de défense (Re.recall_exempt) ; rend leur nombre. Appelé à la mort
+-- d'un PNJ (lieu de la perte) et à la FUITE d'un autre (lieu de la menace) : on n'attend plus la première perte.
+Worker.RECALL_RADIUS = Poles.LOSS_RADIUS
+function Worker.recall_near(f, p, radius, tick, except)
+  local r2 = (radius or Worker.RECALL_RADIUS) ^ 2
+  local n = 0
+  for _, id in ipairs(State.sorted_keys(f.engineers)) do
+    local a = Registry.get(id)
+    local at = a and a.task
+    local e = a and a.entity
+    if a ~= except and at and e and e.valid and not Re.recall_exempt(at.kind, at.defend)
+      and not at.fail and dist2(e.position, p) <= r2 then
+      abort(a, f, tick, "danger")
+      n = n + 1
+    end
+  end
+  f.stats.danger_recalls = (f.stats.danger_recalls or 0) + n
+  return n
+end
 
 local function goto_step(agent, pos, radius, tick)
   local e = agent.entity
@@ -995,17 +1023,7 @@ Registry.on_removed(function(agent)
     -- autres continuaient à miner) : votre équipe, PNJ tué loin du QG : les autres PNJ au travail à moins de
     -- Poles.LOSS_RADIUS tuiles du lieu de la perte rentrent au QG (tâche abandonnée, « danger »), sauf la défense.
     if f.is_player and p and f.hq_pos and dist2(p, f.hq_pos) > Worker.SAFE_HOME * Worker.SAFE_HOME then
-      local r2 = Poles.LOSS_RADIUS * Poles.LOSS_RADIUS
-      for _, id in ipairs(State.sorted_keys(f.engineers)) do
-        local a = Registry.get(id)
-        local at = a and a.task
-        local e = a and a.entity
-        if at and e and e.valid and at.kind ~= "garrison" and at.kind ~= "fortify" and not at.defend
-          and not at.fail and dist2(e.position, p) <= r2 then
-          abort(a, f, game.tick, "danger")
-          f.stats.danger_recalls = (f.stats.danger_recalls or 0) + 1
-        end
-      end
+      Worker.recall_near(f, p, Poles.LOSS_RADIUS, game.tick, nil)
     end
     -- Constructeur de votre équipe tué : les sites connus à moins de 64 tuiles du lieu de la mort sont écartés (les vers
     -- n'existent qu'une fois leur chunk généré, à l'approche : la vérification du site avant le départ ne les voit pas ;

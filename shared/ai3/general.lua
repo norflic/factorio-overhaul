@@ -136,6 +136,12 @@ function Gen.value(cat, ev, state, t, ctx)
       end
     end
   end
+  -- Lot LEVIERS : une recherche à effet que la capitalisation a CHOISIE (retour chiffré sur la capacité qu'elle augmente,
+  -- shared/ai3/leviers.lua) vaut ce que vaut un objet voulu : elle remplace le poids fixe de rôle des bonus.
+  if ctx and ctx.levers and ctx.levers[t] then
+    v = v + math.floor(Gen.V_WANTED * wf(w, Gen.FAMILY.wanted))
+    why[#why + 1] = { "levier", t }
+  end
   for _, fam in ipairs(sorted_keys(spec.bonus)) do
     local base = Gen.V_BONUS[fam] or 0
     local family = fam == "militaire" and "armee" or "capital"
@@ -225,13 +231,19 @@ function Gen.k1(cat, state, cands, chains)
     if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used_pack[ing[1]] = true end end
   end
   for _, c in ipairs(cands) do
-    local auto, pal = false, false
+    local auto, pal, near = false, false, false
     for _, w in ipairs(c.why or {}) do
-      if w[1] == "wanted" then auto = true end
+      if w[1] == "wanted" then auto, near = true, true end -- elle ouvre elle-même l'objet voulu
       if w[1] == "pack" then pal = true end -- ouvre un pack fabricable ensuite (« pack, plus tard » ne compte pas)
     end
     local ch = chains[c.tech]
-    if ch and ch.wanted then auto = true end
+    if ch and ch.wanted then
+      auto = true
+      -- étape 1 du 27/10 au soir : un objet voulu à Gen.K1_NEAR technologies au plus ne recule PAS derrière un palier
+      -- (scarlet : grenades, armure et lampe avant « electronics », 30 min sans électricité ; DC : « ils font rien »)
+      if ch.len and ch.len <= Gen.K1_NEAR then near = true end
+    end
+    c.k1_near = near or nil
     if ch and ch.pack_len and ch.pack_len <= Gen.K1_NEAR then pal = true end
     for _, ing in ipairs(cat.techs[c.tech].ingredients) do
       if cat.packs[ing[1]] and not used_pack[ing[1]] then pal = true end
@@ -239,7 +251,23 @@ function Gen.k1(cat, state, cands, chains)
     c.auto, c.k1_palier = auto or nil, pal or nil
   end
   local top = cands[1]
-  if not (top and top.auto and not top.k1_palier) then return end
+  if not top or top.k1_palier or top.k1_near then return end
+  if not top.auto then
+    -- ni palier ni voulue : la moins chère des voulues PROCHES passe en tête (les paliers ne reculent pas, mais heavy-armor,
+    -- defender et optics n'ont pas à retarder 30 min l'électricité que les chaînes de la capitalisation attendent)
+    local near_best, ni
+    for i, c in ipairs(cands) do
+      if c.k1_near and (not near_best or c.cost < near_best.cost or (c.cost == near_best.cost and c.tech < near_best.tech)) then
+        near_best, ni = c, i
+      end
+    end
+    if near_best then
+      table.remove(cands, ni)
+      table.insert(cands, 1, near_best)
+      near_best.k1 = "voulue proche avant le reste"
+    end
+    return
+  end
   local best, bi
   for i, c in ipairs(cands) do
     if c.k1_palier and (not best or c.cost < best.cost or (c.cost == best.cost and c.tech < best.tech)) then best, bi = c, i end

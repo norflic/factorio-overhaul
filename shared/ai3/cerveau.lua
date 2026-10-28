@@ -35,6 +35,8 @@ local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au 
 P.EMIT.module = A.emit(P)
 local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration » (niveaux, centre), payés par le runtime
 P.EMIT.upgrade = Cap.emit(P)
+local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de la capitalisation (réglage fo-war-capi)
+P.EMIT.capi = Ca.emit(P)
 
 local C = {}
 
@@ -157,6 +159,9 @@ function C.think(view, book, st, ctx)
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
   if ctx.capital then goals[#goals + 1] = ctx.capital end
+  -- Lot CAPIB : un but de FOND par ordre ouvert de la capitalisation (ses exécutants ont reçu l'ordre au runtime ; le but
+  -- fait ce qui leur manque, sur la part capi du stock virtuel).
+  if ctx.capi then Ca.goals(goals, nil, ctx.capi.open) end
   local order, K = P.update(st, goals, tick, s.workers)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)

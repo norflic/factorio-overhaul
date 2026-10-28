@@ -58,17 +58,17 @@ end
 local function k1_cases()
   local r
   -- a. la meilleure est voulue (auto), un palier existe : le moins cher des paliers passe en tête
-  r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" } }), cand("TB", 300, 200, { { "pack", "P3" } }), cand("TE", 200, 100, {}) })
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TB", 300, 200, { { "pack", "P3" } }), cand("TE", 200, 100, {}) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
   check(r == "TB TA TE", "K1 a : pack ouvert devant la chaîne voulue (" .. r .. ")")
   -- b. la meilleure n'est pas « auto » : rien ne bouge
   r = run_k1({ cand("TE", 900, 500, {}), cand("TB", 300, 200, { { "pack", "P3" } }) })
   check(r == "TE TB", "K1 b : meilleure non voulue, ordre gardé (" .. r .. ")")
   -- c. chaîne courte (3) vers un pack : palier ; chaîne longue (4) : pas un palier
-  r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" } }), cand("TC", 300, 50, {}), cand("TE", 250, 10, {}) },
-    { TC = { v = 33, target = "TX", len = 3, pack_len = 3 }, TE = { v = 25, target = "TY", len = 4, pack_len = 4 } })
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TC", 300, 50, {}), cand("TE", 250, 10, {}) },
+    { TA = { v = 25, target = "TX", len = 4, wanted = true }, TC = { v = 33, target = "TX", len = 3, pack_len = 3 }, TE = { v = 25, target = "TY", len = 4, pack_len = 4 } })
   check(r == "TC TA TE", "K1 c : chaîne courte devant, chaîne longue non (" .. r .. ")")
   -- d. première consommation d'un pack (P2 jamais consommé par une technologie faite)
-  r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" } }), cand("TD", 100, 300, {}) })
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TD", 100, 300, {}) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
   check(r == "TD TA", "K1 d : première consommation d'un pack devant (" .. r .. ")")
   -- e. auto par la CHAÎNE (vers un objet voulu) : même règle
   r = run_k1({ cand("TC", 900, 500, {}), cand("TB", 300, 200, { { "pack", "P3" } }) },
@@ -78,11 +78,23 @@ local function k1_cases()
   r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" }, { "pack", "P3" } }), cand("TB", 300, 200, { { "pack", "P4" } }) })
   check(r == "TA TB", "K1 f : voulue qui ouvre un pack, gardée (" .. r .. ")")
   -- g. « pack, plus tard » (pack non fabricable ensuite) n'est pas un palier
-  r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" } }), cand("TB", 300, 200, { { "pack, plus tard", "P3" } }) })
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TB", 300, 200, { { "pack, plus tard", "P3" } }) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
   check(r == "TA TB", "K1 g : pack pas encore fabricable, pas un palier (" .. r .. ")")
   -- h. égalité de coût entre paliers : le nom départage
-  r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" } }), cand("TD", 300, 200, {}), cand("TB", 250, 200, { { "pack", "P3" } }) })
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TD", 300, 200, {}), cand("TB", 250, 200, { { "pack", "P3" } }) }, { TA = { v = 25, target = "TX", len = 4, wanted = true } })
   check(r == "TB TA TD", "K1 h : égalité de coût départagée par le nom (" .. r .. ")")
+  -- i. étape 1 du 27/10 au soir : la voulue DIRECTE (elle ouvre elle-même l'objet attendu) ne recule plus derrière un palier
+  r = run_k1({ cand("TA", 900, 500, { { "wanted", "x" } }), cand("TB", 300, 200, { { "pack", "P3" } }) })
+  check(r == "TA TB", "K1 i : voulue directe gardée devant le palier (" .. r .. ")")
+  -- j. voulue par une chaîne COURTE (2 technologies) : gardée devant le palier ; longue (4) : derrière (cas e)
+  r = run_k1({ cand("TA", 900, 500, {}), cand("TB", 300, 200, { { "pack", "P3" } }) }, { TA = { v = 25, target = "TX", len = 2, wanted = true } })
+  check(r == "TA TB", "K1 j : voulue par chaîne courte gardée devant le palier (" .. r .. ")")
+  -- k. la meilleure n'est ni palier ni voulue et une voulue PROCHE existe : la moins chère des voulues proches passe en tête
+  r = run_k1({ cand("TE", 900, 500, {}), cand("TA", 300, 300, { { "wanted", "x" } }), cand("TC", 250, 120, { { "wanted", "y" } }) })
+  check(r == "TC TE TA", "K1 k : voulue proche la moins chère devant le reste (" .. r .. ")")
+  -- l. la meilleure est un palier : elle reste, même si une voulue proche existe (les paliers ne reculent pas)
+  r = run_k1({ cand("TB", 900, 500, { { "pack", "P3" } }), cand("TA", 300, 300, { { "wanted", "x" } }) })
+  check(r == "TB TA", "K1 l : palier en tête gardé devant la voulue proche (" .. r .. ")")
 end
 section("1. K1 dans le cerveau général (Gen.k1)")
 k1_cases()

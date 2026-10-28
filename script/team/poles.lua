@@ -30,6 +30,7 @@ local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
 local Planner = require("shared.team.planner") -- lot IA1-b2 : avant-postes non défendus (P.undefended)
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Registry = require("script.companion.registry")
 local Board = require("script.team.board")
 
@@ -335,7 +336,7 @@ function Poles.think(f, view, book, tick, plan)
       -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
-      mine_radius = player and T.near_mine or nil })
+      mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f) })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
   end

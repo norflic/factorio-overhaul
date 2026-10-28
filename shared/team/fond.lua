@@ -45,6 +45,11 @@ F.GARRISON_TICKS = 3600  -- une garde dure 60 s sur place
 F.GARRISON_PER_POST = 1  -- une garde par avant-poste (et une au QG)
 F.CRAFT_BATCH = 10       -- une fabrication de fond : 10 objets (essai 1 : 4 objets = 8 s de travail, trop court)
 F.CRAFT_TASKS = 8        -- au plus 8 fabrications de fond par objet et par pensée
+F.AHEAD = 8              -- lot COFFRE : paires d'avance au plus pour la réserve de biens d'équipement (F.potential)
+-- Lot ADOPTE : VOTRE équipe garde moins de paires d'avance que les factions (graine 123456789, 60 min : 8 fours et 8 foreuses d'avance
+-- restaient au coffre toute la partie, les « 12 fours dormants » du constat du DC ; ses extensions réussissent, la réserve ne sert
+-- qu'à gagner quelques secondes de fabrication).
+F.PLAYER_AHEAD = 4
 -- Réserve de biens d'équipement visée (stock + fabrications en cours), ordre FIXE (celui des préférences) : au moins
 -- `min`, et autant que les agrandissements possibles (paires restantes des avant-postes + sites connus), au plus `max`.
 F.RESERVE = {
@@ -218,67 +223,112 @@ local function extraction(view, free, ctx, out)
   end
 end
 
---- Paires encore posables : places restantes des avant-postes non pleins + sites connus (un avant-poste chacun).
---- Lot IA1-b2 (défendre d'abord, ctx.defend_first) : seulement les avant-postes défendus, et les sites connus si une
---- tourelle est au stock libre ou fabricable (ctx.turrets_ok) ; sinon la réserve n'aurait aucun usage.
-function F.potential(view, ctx)
+--- Paires que le fond peut POSER à brève échéance (lot COFFRE, K-D du constat du DC du 27/10, 18 h 50 : « 40 fours en pierre »,
+--- 37 foreuses à combustion dormantes, jamais posés, et leurs plaques manquaient aux tourelles). Ce n'est plus « toutes les
+--- places restantes de la carte » mais ce que les règles d'`extraction` poseraient vraiment :
+---   * un agrandissement (F.PAIRS paires au plus) par avant-poste que le fond agrandirait (ni plein, ni dangereux, ni non défendu ;
+---     ni prudence, ni fond sûr : ces deux-là ne posent rien) ;
+---   * une construction (F.PAIRS paires au plus) par type qui a un site connu et qu'aucun avant-poste ne peut agrandir, et, sous
+---     « défendre d'abord », seulement si les tourelles et leurs chargeurs sont DÉJÀ au stock libre (`free` : fabricables ne
+---     suffit pas, elles viennent du cerveau, pas de la réserve), puisque sinon la construction attend ses tourelles ;
+--- au plus F.AHEAD paires d'avance.
+function F.potential(view, ctx, free)
   ctx = ctx or {}
+  if ctx.prudent or ctx.safe_only then return 0 end
   local undefended = ctx.undefended or {}
+  local danger = ctx.danger or {}
   local n = 0
+  local extendable = {}
   for _, o in ipairs(view.outposts or {}) do
-    if not o.full and not undefended[o.id] then n = n + math.max(0, T.max_drills(o.kind) - (o.drills or 0)) end
-  end
-  if not ctx.defend_first or ctx.turrets_ok then
-    for _, kind in ipairs(T.OUTPOST_ORDER) do
-      n = n + (view.sites and view.sites[kind] or 0) * T.outposts[kind].drills
+    local room = T.max_drills(o.kind) - (o.drills or 0)
+    if not o.full and room > 0 then
+      if undefended[o.id] then
+        extendable[o.kind] = true -- il attend ses tourelles : pas de nouvel avant-poste de ce type
+      elseif not danger[o.id] then
+        extendable[o.kind] = true
+        n = n + math.min(F.PAIRS, room)
+      end
     end
   end
-  return n
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    if not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 then
+      local pairs_n = math.min(F.PAIRS, T.outposts[kind].drills)
+      local ready = true
+      if ctx.defend_first then
+        local t = T.defend_turrets(pairs_n)
+        ready = free ~= nil and (free["gun-turret"] or 0) >= t and (free[T.turret_ammo] or 0) >= t * T.defend_ammo
+      end
+      if ready then n = n + pairs_n end
+    end
+  end
+  return math.min((ctx.reserve ~= nil and ctx.reserve == F.PLAYER_RESERVE) and F.PLAYER_AHEAD or F.AHEAD, n)
 end
 
 local function base(view, free, ctx, out)
   local book = ctx.book
-  -- Cerveau EN MANQUE d'objets (tourelles, packs, plaques…) : le fond ne fabrique rien, les plaques vont à ses
-  -- objectifs. Moteur réel, verif-guide graine 1618033988 : objectif « tourelles » jamais atteint (fer 53 à 206 au
-  -- coffre, réserve de foreuses en cours), coffre détruit vers 22 min.
-  if not book or ctx.brain_short then return end
+  if not book then return end
   local keys = ctx.keys or {}
   local incoming = view.incoming or {}
-  local pot = F.potential(view, ctx)
+  local pot = F.potential(view, ctx, free)
   -- Le fond ne descend pas sous les planchers du cerveau : ils sont retirés du stock libre le temps du calcul.
   local floors = {}
   for _, k in ipairs({ "copper-plate", "iron-plate", "stone" }) do
     floors[k] = math.min(F.FLOOR[k], math.max(0, free[k] or 0))
     free[k] = (free[k] or 0) - floors[k]
   end
-  for _, r in ipairs(ctx.reserve or F.RESERVE) do
-    local item = r[1]
-    local want = math.max(r[2], math.min(r[3] or r[2], pot))
-    -- Lot IA1-b2 : sous « défendre d'abord », pas de plancher de réserve pour les biens d'équipement : rien à poser
-    -- (aucun avant-poste défendu à agrandir, aucun site constructible) = rien à fabriquer d'avance.
-    if (ctx.defend_first or ctx.no_reserve_floor) and F.EQUIPMENT[item] then want = math.min(r[3] or r[2], pot) end
-    if book:handcraftable(item) then
-      local have = (free[item] or 0) + (incoming[item] or 0)
-      local i = 0
-      while have < want and i < F.CRAFT_TASKS do
-        i = i + 1
-        local n = math.min(F.CRAFT_BATCH, want - have)
-        -- Besoin d'accumulation : l'objet lui-même n'est pas pris au stock (comme `fresh` dans le cerveau).
-        local saved = free[item]
-        free[item] = 0
-        local p = book:plan({ { item, n } }, free)
-        free[item] = saved
-        if next(p.raw) ~= nil then break end -- matières premières absentes : rien de plus pour cet objet
-        local key = "fond:craft:" .. item .. ":" .. i
-        if not keys[key] then
-          -- Les ingrédients pris par le plan sortent du stock libre (l'objet lui-même garde son compte).
-          for _, u in ipairs(sorted_uses(p.uses)) do
-            if u[1] ~= item then free[u[1]] = (free[u[1]] or 0) - u[2] end
-          end
-          out[#out + 1] = { key = key, kind = "craft", prio = F.PRIO.craft, item = item, count = n, steps = p.crafts,
-            uses = sorted_uses(p.uses), fond = true, domain = "production", tag = "fond" }
+  local planned = {} -- objets dont une fabrication de fond vient d'être proposée (comptés dans `have` de la suite)
+  -- Fabrique `n` de `item` si le stock libre a la matière ; rend le nombre proposé (0 : matière absente).
+  local function craft(item, n, key)
+    local saved = free[item]
+    free[item] = 0 -- besoin d'accumulation : l'objet lui-même n'est pas pris au stock (comme `fresh` dans le cerveau)
+    local p = book:plan({ { item, n } }, free)
+    free[item] = saved
+    if next(p.raw) ~= nil then return 0 end -- matières premières absentes
+    if not keys[key] then
+      -- Les ingrédients pris par le plan sortent du stock libre (l'objet lui-même garde son compte).
+      for _, u in ipairs(sorted_uses(p.uses)) do
+        if u[1] ~= item then free[u[1]] = (free[u[1]] or 0) - u[2] end
+      end
+      out[#out + 1] = { key = key, kind = "craft", prio = F.PRIO.craft, item = item, count = n, steps = p.crafts,
+        uses = sorted_uses(p.uses), fond = true, domain = "production", tag = "fond" }
+    end
+    planned[item] = (planned[item] or 0) + n
+    return n
+  end
+  -- Cerveau EN MANQUE d'objets (tourelles, packs, plaques…) : le fond ne fabrique rien, les plaques vont à ses
+  -- objectifs. Moteur réel, verif-guide graine 1618033988 : objectif « tourelles » jamais atteint (fer 53 à 206 au
+  -- coffre, réserve de foreuses en cours), coffre détruit vers 22 min.
+  if not ctx.brain_short then
+    for _, r in ipairs(ctx.reserve or F.RESERVE) do
+      local item = r[1]
+      local want = math.max(r[2], math.min(r[3] or r[2], pot))
+      -- Lot COFFRE (K-D) : un bien d'équipement n'est fabriqué que pour ce qui se POSE (F.potential) ; plus de plancher de
+      -- réserve (8 foreuses et 8 fours d'avance pour rien : les factions en gardaient 8, votre équipe 40).
+      if F.EQUIPMENT[item] then want = math.min(r[3] or r[2], pot) end
+      if book:handcraftable(item) then
+        local have = (free[item] or 0) + (incoming[item] or 0) + (planned[item] or 0)
+        local i = 0
+        while have < want and i < F.CRAFT_TASKS do
+          i = i + 1
+          local n = math.min(F.CRAFT_BATCH, want - have)
+          if craft(item, n, "fond:craft:" .. item .. ":" .. i) == 0 then break end
+          have = have + n
         end
-        have = have + n
+      end
+    end
+  end
+  -- Lot COFFRE (K-C) : coffres pour les ANNEXES du QG (script/team/stock.lua) quand les cases se remplissent. Cerveau en
+  -- manque : seulement ceux qui ne coûtent aucune plaque (T.annex.kinds[].cheap), le coffre plein bloque tout le monde.
+  local need = ctx.annex_want or 0
+  if need > 0 then
+    for _, k in ipairs(T.annex.kinds) do
+      need = need - (free[k.item] or 0) - (incoming[k.item] or 0) - (planned[k.item] or 0)
+    end
+    for _, k in ipairs(T.annex.kinds) do
+      if need <= 0 then break end
+      if (k.cheap or not ctx.brain_short) and book:handcraftable(k.item) then
+        local n = craft(k.item, math.min(need, F.CRAFT_BATCH), "fond:craft:" .. k.item .. ":annexe")
+        need = need - n
       end
     end
   end

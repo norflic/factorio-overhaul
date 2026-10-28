@@ -640,7 +640,17 @@ function Military.maintain(f, tick)
   local strays = 0
   for _, gid in ipairs(State.sorted_keys(f.groups)) do
     local g = f.groups[gid]
-    if g.group.valid and #g.group.members > 0 then strays = strays + release_strays(f, gid, g) end
+    if g.group.valid and #g.group.members > 0 then
+      strays = strays + release_strays(f, gid, g)
+      -- Lot ARMEE : point le plus éloigné du QG atteint par une attaque contre une rivale (carré, en tuiles) : sa PORTÉE,
+      -- lue par le chef à l'issue (shared/faction/chef.lua, C.vain_hold). Le chemin contre le joueur n'est pas suivi.
+      if g.state == "attack" and g.target_faction ~= "player" and g.group.valid then
+        local p = g.group.position
+        local dx, dy = p.x - f.hq_pos.x, p.y - f.hq_pos.y
+        local r2 = dx * dx + dy * dy
+        if r2 > (g.reach2 or 0) then g.reach2 = r2 end
+      end
+    end
   end
   if strays > 0 and Profiler.enabled() then
     log(string.format("[FO-ATTACK] tick %d %s : %d soldat(s) retire(s) de leur groupe par le moteur, rendus a la garnison", tick, f.key, strays))

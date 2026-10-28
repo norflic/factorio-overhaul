@@ -22,6 +22,7 @@ local Journal = require("script.faction.journal")
 local Character = require("script.faction.character")
 local V = require("shared.faction.valeur")
 local Tr = require("shared.faction.traits")
+local T = require("shared.team.config")
 
 local Sites = {}
 
@@ -58,32 +59,54 @@ local MIN_RESOURCES = 24      -- tuiles de ressource exploitables dans le chunk 
 local MIN_SITE_RESOURCES = 12 -- tuiles exploitables lues autour du site
 local MIN_DIST_OTHER_HQ = 110
 local MIN_DIST_PLAYER_SPAWN = 140
--- Espacement minimal entre deux avant-postes (tuiles). Session 3 : l'exclusion par chunks voisins
--- (96 × 96 tuiles) interdisait d'exploiter un grand gisement à plusieurs ; on mesure la distance réelle.
-local MIN_SITE_SPACING = 40
+-- Espacement entre deux avant-postes : distance réelle (session 3 : l'exclusion par chunks voisins de 96 × 96 tuiles
+-- interdisait d'exploiter un grand gisement à plusieurs), par RESSOURCE depuis le lot SITES (V.spacing).
 local ENEMY_CLEARANCE = 48
 local CLAIM_SCAN_CHUNKS = 2
 
 local chunk_key = State.chunk_key
 
-local function claimed(war, pos)
+--- Ressource d'une revendication ancienne (écrite avant le lot SITES, sans ressource) : lue sur l'avant-poste de la
+--- faction qui la détient, à la même position. Rend nil si introuvable (la règle prudente de 40 tuiles s'applique).
+local function claim_resource(war, key, entry)
+  local owner = war.claims[key]
+  local f = owner and war.factions and war.factions[owner]
+  if not f then return nil end
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    local dx, dy = o.pos.x - entry.x, o.pos.y - entry.y
+    if dx * dx + dy * dy <= 4 then
+      local spec = o.kind and T.outposts[o.kind]
+      return spec and spec.resource or nil
+    end
+  end
+  return nil
+end
+
+--- Revendication qui bloque le site `site` ({ x, y, resource, radius }) : { dist, x, y } ou nil. Une entrée ancienne
+--- sans ressource est migrée à la lecture (claim_resource) ; sans position : prudence.
+local function claim_blocker(war, site)
   local claims = war.claims
-  if next(claims) == nil then return false end
-  local cx, cy = math.floor(pos.x / 32), math.floor(pos.y / 32)
+  if next(claims) == nil then return nil end
+  local cx, cy = math.floor(site.x / 32), math.floor(site.y / 32)
   local cpos = war.claim_pos or {}
   for dx = -CLAIM_SCAN_CHUNKS, CLAIM_SCAN_CHUNKS do
     for dy = -CLAIM_SCAN_CHUNKS, CLAIM_SCAN_CHUNKS do
       local key = chunk_key(cx + dx, cy + dy)
       if claims[key] then
         local p = cpos[key]
-        if not p then return true end -- ancienne sauvegarde sans position : prudence
-        local ddx, ddy = p.x - pos.x, p.y - pos.y
-        if ddx * ddx + ddy * ddy < MIN_SITE_SPACING * MIN_SITE_SPACING then return true end
+        if not p then return { key = key } end -- ancienne sauvegarde sans position : prudence
+        if p.resource == nil then p.resource = claim_resource(war, key, p) end
+        if V.too_close(site, p) then
+          return { key = key, dist = math.sqrt((p.x - site.x) ^ 2 + (p.y - site.y) ^ 2), x = p.x, y = p.y }
+        end
       end
     end
   end
-  return false
+  return nil
 end
+
+local function claimed(war, site) return claim_blocker(war, site) ~= nil end
 
 local function far_from(pos, others, min_dist)
   for _, o in ipairs(others) do
@@ -99,10 +122,39 @@ local function unreachable(war, pos, tick)
 end
 
 --- Un ingénieur n'a pas trouvé de chemin vers ce site (ou rien n'a pu y être posé) : on l'évite un temps.
-function Sites.mark_unreachable(pos, tick)
+function Sites.mark_unreachable(pos, tick, ttl)
   local war = State.war()
   war.unreachable = war.unreachable or {}
-  war.unreachable[State.site_key(pos)] = tick + UNREACHABLE_TICKS
+  war.unreachable[State.site_key(pos)] = tick + (ttl or UNREACHABLE_TICKS)
+end
+
+--- Lot SITES (mémoire d'échec par site). Moteur réel, graine 1618033988, 28/10 : le seul site de cuivre de votre équipe
+--- (101, -43) était puisé dans la réserve toutes les 35 s pendant toute la partie, puis rendu sans qu'aucun avant-poste
+--- n'y soit posé (projet « extraction:copper actif », jamais de livraison, autre cuivre jamais cherché). Un site remis
+--- à un ouvrier DEUX fois de suite sans revendication entre les deux (Sites.claim : l'ouvrier a franchi tous les
+--- contrôles) est écarté, comme un site injoignable, pendant FAIL_BASE ticks, doublés à chaque nouvel échec (au plus
+--- UNREACHABLE_TICKS). La réserve se vide alors de ce site : le projet demande l'exploration d'un autre gisement
+--- (shared/ai3/projets.lua) et la prospection en trouve un autre. Un seul essai suit chaque attente.
+local FAIL_BASE = 5 * 3600
+local FAIL_FREE = 1          -- remises sans revendication tolérées avant l'écart
+local function note_handout(f, site, tick)
+  f.site_fail = f.site_fail or {}
+  local key = State.site_key(site)
+  local e = f.site_fail[key] or { n = 0 }
+  f.site_fail[key] = e
+  local again = e.out ~= nil
+  if again then e.n = e.n + 1 end
+  if again and e.n > FAIL_FREE then
+    local ttl = math.min(UNREACHABLE_TICKS, FAIL_BASE * 2 ^ (e.n - FAIL_FREE - 1))
+    Sites.mark_unreachable(site, tick, ttl)
+    e.out = nil
+    f.stats.site_backoff = (f.stats.site_backoff or 0) + 1
+    log(string.format("[FO-SITES] ecarte tick %d %s %s : (%d, %d), %d remises sans avant-poste, ecarte %.1f min", tick, f.key,
+      site.resource or "?", math.floor(site.x), math.floor(site.y), e.n, ttl / 3600))
+    return false
+  end
+  e.out = tick
+  return true
 end
 
 local PROBES_PER_STEP = 4
@@ -136,12 +188,30 @@ local function count_resources(surface, area, name, limit)
   return n
 end
 
-local function near_prospect(f, pos)
+--- Site de la réserve qui bloque `pos` ({ x, y, resource, radius }) : { site, dist } ou nil.
+local function prospect_blocker(f, pos)
   for _, p in ipairs(f.prospects) do
     local dx, dy = p.x - pos.x, p.y - pos.y
-    if dx * dx + dy * dy < MIN_SITE_SPACING * MIN_SITE_SPACING then return true end
+    if V.too_close(pos, p) then return { site = p, dist = math.sqrt(dx * dx + dy * dy) } end
   end
-  return false
+  return nil
+end
+
+local function near_prospect(f, pos) return prospect_blocker(f, pos) ~= nil end
+
+--- Lot SITES (trace) : un gisement lu et NON retenu, avec son motif. Compteurs dans f.stats.refus (rendus par le bilan),
+--- une ligne [FO-SITES] par refus, au plus 400 par équipe.
+local REFUS_LOG_MAX = 400
+local function refuse(f, tick, reason, res, site, detail)
+  f.stats.refus = f.stats.refus or {}
+  local k = reason .. ":" .. res
+  f.stats.refus[k] = (f.stats.refus[k] or 0) + 1
+  if (f.stats.refus_logged or 0) >= REFUS_LOG_MAX then return end
+  f.stats.refus_logged = (f.stats.refus_logged or 0) + 1
+  local hq = f.hq_pos
+  local d = hq and math.floor(math.sqrt((site.x - hq.x) ^ 2 + (site.y - hq.y) ^ 2)) or -1
+  log(string.format("[FO-SITES] refus tick %d %s %s : (%d, %d), %d tuiles du QG, motif %s%s", tick, f.key, res,
+    math.floor(site.x), math.floor(site.y), d, reason, detail and (" " .. detail) or ""))
 end
 
 local function prospects_of(f, resource)
@@ -259,9 +329,16 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
   local free = far_from(center, other_hqs, MIN_DIST_OTHER_HQ)
     and (f.is_player or far_from(center, { spawn }, MIN_DIST_PLAYER_SPAWN))
     and surface.is_chunk_generated({ x = cx, y = cy })
-    and not unreachable(war, center, tick) and not claimed(war, center)
+  local why = nil
+  if free and unreachable(war, center, tick) then why = "injoignable" end
+  free = free and why == nil
   Profiler.stop("prospect:checks")
   local area = { { cx * 32, cy * 32 }, { cx * 32 + 32, cy * 32 + 32 } }
+  if why and (f.stats.refus_logged or 0) < REFUS_LOG_MAX and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
+    for _, res in ipairs(wanted) do
+      if count_resources(surface, area, res, 64) >= MIN_SITE_RESOURCES then refuse(f, tick, why, res, center) end
+    end
+  end
   if free and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
     -- Ressource demandée la plus présente dans le chunk.
     local best, best_n = nil, 0
@@ -281,6 +358,27 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
         rich = rich + (r.amount or 0)
       end
       local site = { x = sx / #tiles, y = sy / #tiles, resource = best, front = front and front.key or nil }
+      -- Lot SITES : rayon du site = étendue des tuiles lues autour de leur centre (espacement par ressource, V.spacing).
+      local far2 = 0
+      for _, r in ipairs(tiles) do
+        local d2 = (r.position.x - site.x) ^ 2 + (r.position.y - site.y) ^ 2
+        if d2 > far2 then far2 = d2 end
+      end
+      site.radius = math.ceil(math.sqrt(far2))
+      -- Refus de Lua pur d'abord (injoignable, revendiqué, trop près d'un site de la réserve), avant les lectures moteur.
+      if unreachable(war, site, tick) then
+        refuse(f, tick, "injoignable", best, site)
+        return false
+      end
+      local cb, pb = claim_blocker(war, site), prospect_blocker(f, site)
+      if cb then
+        refuse(f, tick, "revendique", best, site, cb.dist and string.format("a %d tuiles de (%d, %d)", cb.dist, cb.x, cb.y) or "sans position")
+        return false
+      elseif pb then
+        refuse(f, tick, "espacement", best, site, string.format("a %d tuiles du site %s (%d, %d)", pb.dist, pb.site.resource,
+          pb.site.x, pb.site.y))
+        return false
+      end
       -- Lot IA2-b : richesse, eau et terrain lus UNE fois à la découverte (carte de valeur, shared/faction/valeur.lua).
       Profiler.start("prospect:value")
       site.rich, site.tiles = rich, #tiles
@@ -294,7 +392,8 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
       if hostile then
         Sites.mark_unreachable(site, tick)
         f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
-      elseif not unreachable(war, site, tick) and not claimed(war, site) and not near_prospect(f, site) then
+        refuse(f, tick, "hostile", best, site)
+      else
         f.prospects[#f.prospects + 1] = site
         f.stats.prospected = (f.stats.prospected or 0) + 1
         return true
@@ -410,6 +509,80 @@ function Sites.prospect(f, surface, tick)
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Recensement COMPLET d'un gisement (lot CAPIB, préalable bloquant du branchement de la capitalisation : la sonde
+-- ci-dessus ne lit que 64 tuiles d'un chunk, un gisement y paraissait couvert après 4 foreuses électriques)
+---------------------------------------------------------------------------------------------------
+-- Composante connexe (8 voisins) des entités de ressource `name` qui contient la tuile de ce minerai la plus proche de
+-- `pos`, lue dans un carré qui double tant que la composante en touche le bord (Sites.CENSUS_HALF, au plus
+-- Sites.CENSUS_MAX). Rend { tiles, amount, x0, y0, x1, y1, cx, cy, id, cut } (cut : composante tronquée au carré
+-- maximal ou à Sites.CENSUS_TILES) ou nil (aucune tuile). Coût : un find_entities_filtered par carré, puis un parcours en
+-- largeur (8 lectures par tuile) ; mesuré au profileur (clé « sites:census »). Ordre : celui des listes du moteur, puis
+-- une file ; aucun pairs.
+Sites.CENSUS_HALF = 48
+Sites.CENSUS_MAX = 192
+Sites.CENSUS_TILES = 6000
+local OFF = 1048576 -- 2^20 : clé numérique d'une tuile (x + OFF) * 2^21 + (y + OFF)
+local function tkey(x, y) return (x + OFF) * 2097152 + (y + OFF) end
+local N8 = { { -1, -1 }, { 0, -1 }, { 1, -1 }, { -1, 0 }, { 1, 0 }, { -1, 1 }, { 0, 1 }, { 1, 1 } }
+
+function Sites.census(surface, name, pos)
+  Profiler.start("sites:census")
+  local half = Sites.CENSUS_HALF
+  local out = nil
+  while true do
+    local ents = surface.find_entities_filtered({ area = { { pos.x - half, pos.y - half }, { pos.x + half, pos.y + half } },
+      name = name })
+    local idx = {}
+    local seed, sd = nil, nil
+    for _, e in ipairs(ents) do
+      local p = e.position
+      local x, y = math.floor(p.x), math.floor(p.y)
+      local k = tkey(x, y)
+      idx[k] = e.amount or 0
+      local dx, dy = x + 0.5 - pos.x, y + 0.5 - pos.y
+      local d = dx * dx + dy * dy
+      if sd == nil or d < sd or (d == sd and k < seed[3]) then seed, sd = { x, y, k }, d end
+    end
+    if not seed then break end
+    local qx, qy = { seed[1] }, { seed[2] }
+    local seen = { [seed[3]] = true }
+    local head, n, amount = 1, 0, 0
+    local x0, y0, x1, y1 = seed[1], seed[2], seed[1], seed[2]
+    local sx, sy = 0, 0
+    local cut = false
+    while head <= #qx do
+      local x, y = qx[head], qy[head]
+      head = head + 1
+      n = n + 1
+      amount = amount + (idx[tkey(x, y)] or 0)
+      sx, sy = sx + x, sy + y
+      if x < x0 then x0 = x end
+      if x > x1 then x1 = x end
+      if y < y0 then y0 = y end
+      if y > y1 then y1 = y end
+      if n >= Sites.CENSUS_TILES then cut = true break end
+      for _, d in ipairs(N8) do
+        local k = tkey(x + d[1], y + d[2])
+        if idx[k] and not seen[k] then
+          seen[k] = true
+          qx[#qx + 1], qy[#qy + 1] = x + d[1], y + d[2]
+        end
+      end
+    end
+    local touches = x0 <= pos.x - half + 1 or y0 <= pos.y - half + 1 or x1 >= pos.x + half - 2 or y1 >= pos.y + half - 2
+    if touches and not cut and half < Sites.CENSUS_MAX then
+      half = math.min(Sites.CENSUS_MAX, half * 2)
+    else
+      out = { tiles = n, amount = amount, x0 = x0, y0 = y0, x1 = x1 + 1, y1 = y1 + 1, cx = sx / n + 0.5, cy = sy / n + 0.5,
+        id = name .. "@" .. x0 .. "," .. y0, cut = cut or (touches and half >= Sites.CENSUS_MAX) or nil }
+      break
+    end
+  end
+  Profiler.stop("sites:census")
+  return out
+end
+
 --- Nombre de sites en réserve pour une ressource (toutes si nil).
 function Sites.available(f, resource)
   if not resource then return f.prospects and #f.prospects or 0 end
@@ -519,10 +692,11 @@ local function find_by_value(f, tick, resource)
   end
   local chosen, vrank, _, ranked = V.choose(cands, Sites.value_ctx(f, tick), draw_of(f))
   local site = chosen.site
-  Journal.site(f, site, list, valid, tick, { value = chosen.value, rank = vrank, n = #ranked })
   local out = {}
   for _, s in ipairs(keep) do if s ~= site then out[#out + 1] = s end end
   f.prospects = out
+  if not note_handout(f, site, tick) then return nil end -- écarté (mémoire d'échec) : le suivant au prochain appel
+  Journal.site(f, site, list, valid, tick, { value = chosen.value, rank = vrank, n = #ranked })
   return site
 end
 
@@ -538,7 +712,7 @@ function Sites.find(f, surface, tick, resource)
     local site = list[i]
     if resource == nil or site.resource == resource then
       -- Lot IA2-0 : rang du site choisi par distance au QG (journal seul, métrique M1 « plus proche d'abord »).
-      local ok = valid(site)
+      local ok = valid(site) and note_handout(f, site, tick)
       if ok then
         -- Lot IA2-b (journal de référence) : valeur des candidats valides de la même ressource, rang du site puisé.
         local cands = {}
@@ -577,9 +751,10 @@ end)
 function Sites.claim(f, pos)
   local war = State.war()
   local key = State.site_key(pos)
+  if f.site_fail then f.site_fail[key] = nil end -- lot SITES : l'ouvrier a franchi tous les contrôles
   war.claims[key] = f.id
   war.claim_pos = war.claim_pos or {}
-  war.claim_pos[key] = { x = pos.x, y = pos.y }
+  war.claim_pos[key] = { x = pos.x, y = pos.y, resource = pos.resource, radius = pos.radius }
 end
 
 function Sites.release(pos)

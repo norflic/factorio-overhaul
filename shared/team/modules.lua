@@ -319,11 +319,73 @@ function M.choose_inserters(need, from_belt, max_count, allow)
   return nil, 0
 end
 
+--- Lot PLANDIR : poteaux connus, du plus court fil au plus long (portée de fil, puis nom) : le « moins cher » d'abord
+--- (un poteau plus court est une recette plus ancienne et moins chère). Lu dans BASE, aucun nom écrit ailleurs.
+M.DEFAULT_POLE = "medium-electric-pole"
+M.POLES = {}
+for name, s in pairs(BASE) do if s.kind == "pole" then M.POLES[#M.POLES + 1] = name end end
+table.sort(M.POLES, function(a, b)
+  if BASE[a].wire ~= BASE[b].wire then return BASE[a].wire < BASE[b].wire end
+  return a < b
+end)
+
+--- Lot PLANDIR (T2) : bras à combustion (celui des données qui brûle son combustible : il démarre sans courant, la centrale
+--- à vapeur en a besoin) et bras électriques, du plus lent au plus rapide (débit, puis nom). Lus dans BASE.
+M.BURNER_ARM = nil
+M.ELECTRIC_ARMS = {}
+for name, s in pairs(BASE) do
+  if s.kind == "inserter" then
+    if s.burner then
+      if not M.BURNER_ARM or name < M.BURNER_ARM then M.BURNER_ARM = name end
+    elseif s.reach == 1 then
+      M.ELECTRIC_ARMS[#M.ELECTRIC_ARMS + 1] = name
+    end
+  end
+end
+table.sort(M.ELECTRIC_ARMS, function(a, b)
+  if BASE[a].rate ~= BASE[b].rate then return BASE[a].rate < BASE[b].rate end
+  return a < b
+end)
+
+--- Le bras électrique (portée 1) le plus lent que `usable(nom)` accepte et qui porte `need` objets/s depuis un tapis ; à
+--- défaut le plus rapide accepté. nil si aucun n'est accepté.
+function M.electric_arm(usable, need)
+  local fastest
+  for _, name in ipairs(M.ELECTRIC_ARMS) do
+    if usable(name) then
+      fastest = name
+      if BASE[name].rate * M.BELT_PICKUP * M.MARGIN + M.EPS >= (need or 0) then return name end
+    end
+  end
+  return fastest
+end
+
+--- Le poteau le moins cher que `usable(nom)` accepte (vrai quand la recette est débloquée et ses matières à portée), ou
+--- nil si aucun ne l'est.
+function M.cheapest_pole(usable)
+  for _, name in ipairs(M.POLES) do
+    if usable(name) then return name end
+  end
+  return nil
+end
+
+--- Joue `fn(...)` avec `pole` comme poteau par défaut des gabarits (un seul type de poteau par module). Rend ce que
+--- rend `fn`. Poteau nil : le poteau par défaut. Le poteau est rétabli même si `fn` lève une erreur.
+function M.with_pole(pole, fn, ...)
+  local prev = M.current_pole
+  M.current_pole = pole
+  local res = table.pack(pcall(fn, ...))
+  M.current_pole = prev
+  if not res[1] then error(res[2], 0) end
+  return table.unpack(res, 2, res.n)
+end
+
 --- Pose automatique des poteaux moyens : couverture gloutonne (candidats dans l'ordre (y, x), le plus de bâtiments
 --- électriques non couverts d'abord), puis liaisons pour un seul réseau. `cands` : liste {x, y} de tuiles libres.
 function Builder:auto_poles(cands, pole)
-  pole = pole or "medium-electric-pole"
+  pole = pole or M.current_pole or M.DEFAULT_POLE
   local g = self.g
+  g.pole_name = pole
   local sp = BASE[pole]
   local occ = occupancy(g)
   local free = {}
@@ -616,8 +678,8 @@ function G.steam(nb)
     b:put("boiler", x, yb - 1, N, { role = "chaudiere" })
     b:put("steam-engine", x, yb - 6, N, { role = "machine" })
     b:put("steam-engine", x, yb - 11, N, { role = "machine" })
-    b:put("burner-inserter", x, yb + 1, S)
-    b:put("burner-inserter", x + 2, yb + 1, S)
+    b:put(M.BURNER_ARM, x, yb + 1, S)
+    b:put(M.BURNER_ARM, x + 2, yb + 1, S)
   end
   local belt = b:belt_line(W_ - 1, yb + 2, 1, yb + 2, W)
   b:port({ kind = "tapis", io = "in", ent = belt[1], lanes = { "coal", "coal" } })
@@ -1271,15 +1333,16 @@ for _, k in ipairs(M.GENERATORS) do
 end
 M.GEN = GEN
 
---- Refait un gabarit par son générateur, avec des paramètres changés : `changes` = { [indice dans args] = valeur }.
+--- Refait un gabarit par son générateur, avec des paramètres changés : `changes` = { [indice dans args] = valeur }, au poteau
+--- `pole` (par défaut celui du gabarit : une extension garde son poteau).
 --- Rend (gabarit) ou (nil, raison).
-function M.regenerate(g, changes)
+function M.regenerate(g, changes, pole)
   local fn = g and g.gen and GEN[g.gen]
   if not fn then return nil, "gabarit sans générateur (" .. tostring(g and g.key) .. ")" end
   local args = {}
   for i = 1, #g.args do args[i] = g.args[i] end
   if changes then for i = 1, #g.args do if changes[i] ~= nil then args[i] = changes[i] end end end
-  return fn(unpack_(args, 1, #g.args))
+  return M.with_pole(pole or g.pole_name, fn, unpack_(args, 1, #g.args))
 end
 
 --- Gabarit agrandi (ou réduit) : paramètre d'extension à la valeur n. Refusé au-delà de `max`.
@@ -1338,7 +1401,7 @@ local function build_catalogue()
   }
   local list, errs = {}, {}
   for _, c in ipairs(calls) do
-    local g, why = GEN[c[1]](unpack_(c, 2, #c))
+    local g, why = M.with_pole(nil, GEN[c[1]], unpack_(c, 2, #c))
     if g then list[#list + 1] = g else errs[#errs + 1] = c[1] .. " : " .. tostring(why) end
   end
   return list, errs

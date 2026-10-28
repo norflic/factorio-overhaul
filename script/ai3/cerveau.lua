@@ -32,6 +32,7 @@ local P = require("shared.ai3.projets")
 local A = require("shared.ai3.recherche")
 local R = require("shared.ai3.registre") -- lot IA-V2 : contrôle du registre d'IA3-b (interface de lecture)
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Board = require("script.team.board")
 local Profiler = require("script.core.profiler")
 local General = require("script.ai3.general") -- lot IA-G : le cerveau général (choix de recherche sur le graphe)
@@ -42,6 +43,7 @@ local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les b�
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
 
 local Ia3 = {}
 
@@ -438,10 +440,10 @@ local function place_labs(f, st, lab, want)
   -- la grille et vérifiées avant la pose (script/ai3/places_qg.lua).
   return PlacesQG.place(f.hq.surface, lab.entity, f.force, f.hq_pos, T.hq_rows.lab, Pl.need(0, want, T.hq_rows_slack),
     want - #labs, function(pos)
-      if f.hq.get_item_count(lab.item) < 1 then return nil end
+      if Stock.count(f, lab.item) < 1 then return nil end
       local e = f.hq.surface.create_entity({ name = lab.entity, position = pos, force = f.force })
       if not e then return false end
-      f.hq.remove_item({ name = lab.item, count = 1 })
+      Stock.remove(f, lab.item, 1)
       st.labs[#st.labs + 1] = e
       return true
     end)
@@ -467,6 +469,17 @@ local function research_step(f, st, book, w, tick, view)
       local m = {}
       for _, k in ipairs(sorted_keys(wanted)) do m[k] = wanted[k] end
       for _, k in ipairs(sorted_keys(cw)) do m[k] = true end
+      wanted = m
+    end
+    -- Votre équipe défend d'abord, comme un joueur : tant que la tourelle de « défendre d'abord » n'est pas faisable (technologie
+    -- pas faite), elle est un objet voulu, la recherche qui l'ouvre passe devant (moteur réel, etape1-guide : la tourelle
+    -- arrivait à 27 min, les premiers biters détruisaient sans défense les avant-postes de charbon, de pierre et de fer
+    -- de 18 à 25 min, le fer tombait de 997 plaques à 17).
+    local turret_recipe = f.is_player and force.recipes[Rg.TURRET] or nil
+    if turret_recipe and not turret_recipe.enabled then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      m[Rg.TURRET] = true
       wanted = m
     end
     tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, wanted)
@@ -501,6 +514,10 @@ local function research_step(f, st, book, w, tick, view)
   local spare_hands = General.spare_hands(f, view, tick)
   local window = Br.lab_window(Ia3.LAB_WINDOW_S, spare_hands)
   local want = math.min(Br.labs_max(view.workers, Ia3.LABS_MAX), math.max(1, math.ceil(secs / window)))
+  -- Lot CAPIB : sous la capitalisation, ses ordres « labos » fixent le nombre visé (plus de plafond Ia3.LABS_MAX ni
+  -- Br.labs_max) ; le petit nombre d'avant (au plus Ia3.LABS_MAX, fenêtre de recherche) reste un plancher.
+  local capi_labs = Capi.labs_want(f)
+  if capi_labs then want = math.max(capi_labs, math.min(Ia3.LABS_MAX, math.max(1, math.ceil(secs / Ia3.LAB_WINDOW_S)))) end
   if lproto then
     info.lab_item = lproto.item
     local stock = view.stock[lproto.item] or 0
@@ -528,11 +545,11 @@ local function research_step(f, st, book, w, tick, view)
     while lab.paid < need_paid do
       local ok = true
       for _, ing in ipairs(spec.ing) do
-        if f.hq.get_item_count(ing[1]) < ing[2] then ok = false break end
+        if Stock.count(f, ing[1]) < ing[2] then ok = false break end
       end
       if not ok then break end
       for _, ing in ipairs(spec.ing) do
-        f.hq.remove_item({ name = ing[1], count = ing[2] })
+        Stock.remove(f, ing[1], ing[2])
         f.team.consumed[ing[1]] = (f.team.consumed[ing[1]] or 0) + ing[2]
       end
       lab.paid = lab.paid + 1
@@ -652,6 +669,17 @@ end
 
 ---------------------------------------------------------------------------------------------------
 -- Pensée
+--- Votre équipe peut-elle choisir la recherche ? Oui si votre force n'en a aucune en cours, ou si la recherche en cours
+--- est celle que l'équipe a elle-même lancée (st.lab.tech). Vos choix passent toujours avant.
+function Ia3.player_research_free(f, st)
+  local force = game.forces[f.force]
+  if not force then return false end
+  local cur = force.current_research
+  if not cur then return true end
+  local mine = st and st.lab and st.lab.tech
+  return mine ~= nil and cur.name == mine
+end
+
 ---------------------------------------------------------------------------------------------------
 --- Plan d'une équipe (bascule allumée), au format du planificateur.
 function Ia3.plan(f, view, book, surface, tick)
@@ -665,7 +693,9 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.fstop("ia3:reach")
   local research = nil
   Profiler.fstart("ia3:research_step")
-  if not f.is_player then research = research_step(f, st, book, w, tick, view) end
+  -- Votre équipe cherche aussi (27/10 au soir : « on fait de la science rouge, verte, puis la recherche pour toujours plus
+  -- d'assembleurs »), MAIS jamais à votre place : seulement quand votre force n'a aucune recherche en cours, ou la sienne.
+  if (not f.is_player) or Ia3.player_research_free(f, st) then research = research_step(f, st, book, w, tick, view) end
   Profiler.fstop("ia3:research_step")
   Profiler.stop("ia3:research")
   -- Tâches de minage déjà prises, par ressource.
@@ -698,6 +728,10 @@ function Ia3.plan(f, view, book, surface, tick)
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
   local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
+  -- Lot CAPIB : la capitalisation (une étape par pensée, décision une fois par minute) ; nil réglage éteint.
+  Profiler.fstart("ia3:capi")
+  local capi = Capi.think(f, view, book, tick, research, w)
+  Profiler.fstop("ia3:capi")
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
@@ -708,10 +742,15 @@ function Ia3.plan(f, view, book, surface, tick)
     spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
-    capital = (not f.is_player) and Capital.goal(f, view, book, tick, w) or nil }
+    capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
+    capi = capi } -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
+  if capi and capi.tasks then
+    for _, t in ipairs(capi.tasks) do plan.tasks[#plan.tasks + 1] = t end
+  end
   -- Lot IA-G : une ressource INCONNUE qui bloque la recherche de valeur est à explorer (après le regard des abords).
   if not f.is_player and General.on() and home ~= false then
     for _, res in ipairs(sorted_keys(General.explore(f))) do
@@ -809,7 +848,6 @@ end
 
 --- Lot CAPITAL : décisions immédiates sur le stock libre (script/team/team.lua) : paie l'amélioration prête.
 function Ia3.capital_pay(f, surface, tick, plan, stock)
-  if f.is_player then return 0 end
   return Capital.pay(f, surface, tick, plan, stock)
 end
 

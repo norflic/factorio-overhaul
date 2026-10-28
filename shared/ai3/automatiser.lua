@@ -113,8 +113,8 @@ end
 
 --- Résumé d'un gabarit : { key, n_ent, items = { [objet] = n }, nominal = { [objet] = n/s }, inputs = { [objet] = n/s },
 --- power_kw, ext = { arg, max }, args } ou nil, raison. Les entités vanilla se posent par l'objet de même nom.
-function A.template(gen, args)
-  local k = args_key(gen, args)
+function A.template(gen, args, pole)
+  local k = args_key(gen, args) .. (pole and ("#" .. pole) or "")
   local c = cache[k]
   if c ~= nil then
     if c == false then return nil, "gabarit refuse" end
@@ -122,7 +122,16 @@ function A.template(gen, args)
   end
   local fn = M.GEN[gen]
   if not fn then cache[k] = false return nil, "generateur inconnu" end
-  local g, why = fn(table.unpack(args))
+  local g, why = M.with_pole(pole, fn, table.unpack(args))
+  -- un poteau plus court couvre parfois moins bien (bras ou machine hors de l'aire des poteaux, fils trop longs) : le
+  -- gabarit est contrôlé (M.check) et cède au poteau par défaut s'il est refusé
+  if g and pole and pole ~= M.DEFAULT_POLE and #M.check(g) > 0 then g = nil end
+  if not g and pole then
+    -- Lot PLANDIR : le poteau choisi ne couvre pas ce gabarit (portée plus courte) : le poteau par défaut le pose
+    local c2 = A.template(gen, args)
+    cache[k] = c2 or false
+    return c2, c2 == nil and why or nil
+  end
   if not g then cache[k] = false return nil, why end
   local items, recipes = {}, {}
   for _, e in ipairs(g.entities) do
@@ -135,9 +144,28 @@ function A.template(gen, args)
   end
   local ex = g.extensions and g.extensions[1]
   c = { key = g.key, n_ent = #g.entities, items = items, recipes = recipes, nominal = g.nominal or {}, inputs = g.inputs or {},
-    power_kw = g.power_kw or 0, ext = ex and { arg = ex.arg, max = ex.max } or nil, args = args, gen = gen }
+    power_kw = g.power_kw or 0, ext = ex and { arg = ex.arg, max = ex.max } or nil, args = args, gen = gen,
+    pole = g.pole_name }
   cache[k] = c
   return c
+end
+
+--- Lot PLANDIR : poteau des gabarits d'une équipe = le moins cher DONT LA RECETTE EST DÉBLOQUÉE (livre de la main, qui ne
+--- compte que les recettes ouvertes) ou déjà au coffre, et dont les matières NATURELLES (aucune recette ne les produit : le
+--- bois) sont au coffre pour A.POLE_BATCH poteaux. Rend le nom (table triée de shared/team/modules.lua) ou nil : le poteau
+--- par défaut. Les plaques, câbles et bâtons ne bloquent pas : fonderie et main les fournissent.
+A.POLE_BATCH = 20
+function A.choose_pole(book, stock)
+  stock = stock or {}
+  return M.cheapest_pole(function(name)
+    if (stock[name] or 0) >= A.POLE_BATCH then return true end
+    if not book:handcraftable(name) then return false end
+    local plan = book:plan({ { name, A.POLE_BATCH } }, stock)
+    for _, k in ipairs(sorted_keys(plan.raw)) do
+      if book:natural(k) then return false end
+    end
+    return true
+  end)
 end
 
 --- Vide le cache (tests).
@@ -211,8 +239,8 @@ function A.add_executors(exec, recipes)
 end
 
 --- Gabarit d'une méthode dimensionné au débit `rate` (objets/min du produit) : (résumé, args) ou nil, raison.
-function A.sized(method, rate)
-  local base, why = A.template(method.gen, method.args)
+function A.sized(method, rate, pole)
+  local base, why = A.template(method.gen, method.args, pole)
   if not base then return nil, why end
   local nom = (base.nominal[method.product] or 0) * 60
   if nom <= 0 then return nil, "debit nominal nul" end
@@ -225,7 +253,7 @@ function A.sized(method, rate)
     if n > base.ext.max then n = base.ext.max end
     args[base.ext.arg] = n
   end
-  local g, why2 = A.template(method.gen, args)
+  local g, why2 = A.template(method.gen, args, pole)
   if not g then return nil, why2 end
   return g, args
 end
@@ -268,7 +296,7 @@ local function feed_extra(method, g)
     local flow = g.inputs[it]
     if method.ore == it and flow >= A.BELT_FLOW then
       local nd = math.max(1, math.ceil(flow / (2 * A.DRILL_RATE) - 1e-9))
-      local d = A.template("drills", { it, nd })
+      local d = A.template("drills", { it, nd }, g.pole)
       if d then
         for _, name in ipairs(sorted_keys(d.items)) do add(name, d.items[name]) end
       end
@@ -286,7 +314,7 @@ local function feed_extra(method, g)
   local ports = method.gen == "smelter" and 2 or 1
   add(D.PARTS.chest, ports)
   add(outn / ports > A.QUAI_RATE and D.PARTS.fast_arm or D.PARTS.arm, ports)
-  if (g.power_kw or 0) > 0 then add(D.PARTS.pole, A.NET_POLES) end
+  if (g.power_kw or 0) > 0 then add(g.pole or D.PARTS.pole, A.NET_POLES) end
   return items, n, quais_in, ports
 end
 
@@ -299,11 +327,13 @@ function A.cost(method, g, ctx)
   for _, name in ipairs(sorted_keys(extra)) do items[name] = (items[name] or 0) + extra[name] end
   local n_ent = g.n_ent + n_extra
   if (g.power_kw or 0) > 0 and not ctx.has_plant then
-    local pl = A.template(A.PLANT.gen, A.PLANT.args)
+    local pl = A.template(A.PLANT.gen, A.PLANT.args, g.pole)
     if pl then
       for _, name in ipairs(sorted_keys(pl.items)) do items[name] = (items[name] or 0) + pl.items[name] end
       items[D.PARTS.chest] = (items[D.PARTS.chest] or 0) + 1
-      n_ent = n_ent + pl.n_ent + 1
+      -- lot PLANDIR (T2) : le bras du quai de la centrale est à combustion au démarrage (build.lua, plan_feed)
+      items[M.BURNER_ARM] = (items[M.BURNER_ARM] or 0) + 1
+      n_ent = n_ent + pl.n_ent + 2
     end
   end
   local dist = ctx.dist or A.DIST
@@ -361,10 +391,57 @@ local function recipe_index(book)
   return idx
 end
 
+--- Lot PLANDIR (T1) : la MEILLEURE machine de fabrication dont `usable(nom)` est vrai (recette ouverte ou au coffre) parmi
+--- A.MACHINES, qui fait toutes les catégories de `cats` : la plus rapide (données de shared/team/modules.lua), à égalité
+--- la première de la liste. Sans machine utilisable (ou `usable` nil), la première de la liste qui fait les catégories
+--- (comportement d'avant : l'objet impossible fait rechercher). Rend le nom ou nil.
+function A.pick_machine(cats, usable)
+  local first, best, best_speed
+  for _, name in ipairs(A.MACHINES) do
+    local sp = M.spec(name)
+    local ok = sp ~= nil
+    for _, c in ipairs(cats or {}) do
+      local has = false
+      for _, c2 in ipairs(sp and sp.categories or {}) do if c2 == c then has = true end end
+      ok = ok and has
+    end
+    if ok then
+      first = first or name
+      if usable and usable(name) and (not best or (sp.speed or 0) > best_speed) then best, best_speed = name, sp.speed or 0 end
+    end
+  end
+  return best or first
+end
+
+local MACHINE_SET = {}
+for _, name in ipairs(A.MACHINES) do MACHINE_SET[name] = true end
+
 --- Méthode « machine » d'un objet : celle de A.METHODS s'il en a une, sinon un module GÉNÉRÉ depuis la recette de la main
---- (rangée G.simple). Rend la méthode, ou nil et la raison de la limite.
-function A.method_for(item, book)
-  for _, m in ipairs(A.METHODS) do if m.product == item then return m end end
+--- (rangée G.simple). Rend la méthode, ou nil et la raison de la limite. `usable` (facultatif, lot PLANDIR T1) : les
+--- machines du module sont les meilleures utilisables (A.pick_machine), jamais plus lentes que celles écrites.
+function A.method_for(item, book, usable)
+  for _, m in ipairs(A.METHODS) do
+    if m.product == item then
+      if not usable then return m end
+      local args, changed = {}, false
+      for i = 1, #m.args do
+        local a = m.args[i]
+        if type(a) == "string" and MACHINE_SET[a] then
+          local sp = M.spec(a)
+          local best = A.pick_machine(sp and sp.categories, usable)
+          if best and best ~= a and (M.spec(best).speed or 0) > (sp.speed or 0) then a, changed = best, true end
+        end
+        args[i] = a
+      end
+      if not changed then return m end
+      local m2 = {}
+      for k, v in pairs(m) do m2[k] = v end
+      m2.args = args
+      -- une machine plus rapide qui ne passe pas le contrôle du gabarit (bras introuvables…) cède à la machine écrite
+      if not A.template(m2.gen, m2.args) then return m end
+      return m2
+    end
+  end
   local rname = type(book) == "table" and book.recipe_for and book:recipe_for(item) or nil
   if not rname then
     local other = recipe_index(book)[item]
@@ -383,16 +460,14 @@ function A.method_for(item, book)
   if not solid then return nil, "limite : " .. rname .. " demande un fluide" end
   if n_in < 1 or n_in > 2 then return nil, "limite : " .. rname .. " a " .. n_in .. " ingredients (rangee : 1 ou 2)" end
   if #(r.products or {}) ~= 1 then return nil, "limite : " .. rname .. " a plusieurs produits" end
-  local machine = nil
-  for _, name in ipairs(A.MACHINES) do
-    local sp = M.spec(name)
-    for _, c in ipairs(sp and sp.categories or {}) do
-      if c == r.category and not machine then machine = name end
-    end
-  end
+  local machine = A.pick_machine({ r.category }, usable)
   if not machine then return nil, "limite : aucune machine pour la categorie " .. tostring(r.category) end
   local def = { name = rname, category = r.category, energy = r.energy, ingredients = r.ingredients, products = r.products }
-  return { product = item, gen = "simple", args = { def, 1, machine }, feed = true, generic = true }
+  local meth = { product = item, gen = "simple", args = { def, 1, machine }, feed = true, generic = true }
+  -- lot PLANDIR (T1) : la meilleure machine refusée par le gabarit cède à la première de la liste
+  local first = A.pick_machine({ r.category }, nil)
+  if machine ~= first and not A.template(meth.gen, meth.args) then meth.args = { def, 1, first } end
+  return meth
 end
 
 --- Entrées d'un objet dans le graphe : celles du gabarit de sa méthode (ce que le module reçoit du dehors : les
@@ -499,7 +574,7 @@ function A.decide(input)
   local meths, whys = {}, {}
   local function meth_of(item)
     if meths[item] == nil then
-      local m, why = A.method_for(item, book)
+      local m, why = A.method_for(item, book, input.obtainable)
       meths[item] = m or false
       whys[item] = why
     end
@@ -547,7 +622,7 @@ function A.decide(input)
     else
       local rate = math.max(1, D) * (100 + margin) / 100
       if st.fini == 0 and rate > A.FIRST_RATE_MAX then rate = A.FIRST_RATE_MAX end
-      local g, args = A.sized(meth, rate)
+      local g, args = A.sized(meth, rate, input.pole)
       -- Fonderie : la voie de minerai n'est servie par foreuses et tapis qu'au-delà de A.BELT_FLOW (P.AUTO_FLOW) ; en
       -- dessous, c'est un quai que les porteurs remplissent DEPUIS LE COFFRE, où il n'y a pas de minerai (les avant-postes
       -- livrent des plaques) : moteur réel, e6-usine, emerald, seconde fonderie de fer à quai de minerai vide 30 min. La
@@ -558,7 +633,7 @@ function A.decide(input)
           local a2 = {}
           for i = 1, #args do a2[i] = args[i] end
           a2[g.ext.arg] = n
-          local g2 = A.template(meth.gen, a2)
+          local g2 = A.template(meth.gen, a2, input.pole)
           if g2 and belt_ok(g2) then g, args = g2, a2 break end
         end
       end
@@ -578,7 +653,7 @@ function A.decide(input)
           local a2 = {}
           for i = 1, #args do a2[i] = args[i] end
           a2[g.ext.arg] = n
-          local g2 = A.template(meth.gen, a2)
+          local g2 = A.template(meth.gen, a2, input.pole)
           if g2 and belt_ok(g2) and #missing_of(g2) == 0 then g, args = g2, a2 break end
         end
       end
@@ -626,7 +701,8 @@ function A.decide(input)
           else
             v.verdict, v.why = "demande", string.format("charge %.2f PNJ, retour %.1f min <= %d", L, T, H)
             out.requests[#out.requests + 1] = { product = c.item, gen = meth.gen, args = args, rate = rate,
-              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric, gain = G }
+              rate_nom = rate_nom, feed = meth.feed, why = v.why, items = items, electric = electric, gain = G,
+              pole = g.pole }
             open = open + 1
             busy[c.item] = true
           end

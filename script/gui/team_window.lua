@@ -45,6 +45,7 @@ local O = require("shared.team.org")
 local Tr = require("shared.faction.traits")
 local M = require("shared.gui.ia1i")
 local State = require("script.faction.state")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Team = require("script.team.team")
 local Poles = require("script.team.poles")
 local PlayerTeam = require("script.team.player_team")
@@ -355,8 +356,7 @@ tabs.equipe = {
     end
 
     heading(c, { "fo-ia1i.chest" })
-    local inv = f.hq.get_inventory(defines.inventory.chest)
-    local contents = inv and inv.get_contents() or {}
+    local contents = Stock.contents(f)
     local names = State.sorted_keys(contents)
     if #names == 0 then
       label(c, { "fo-ia1i.chest-empty" }, { color = WARN })

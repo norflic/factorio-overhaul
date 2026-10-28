@@ -26,6 +26,7 @@ local Outposts = require("script.faction.outposts")
 local Military = require("script.faction.military")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
+local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
@@ -109,13 +110,13 @@ Events.on_configuration_changed(function()
 end)
 
 local function stock_of(f)
-  return f.hq.get_inventory(defines.inventory.chest).get_contents()
+  return Stock.contents(f)
 end
 
 local function remove_list(f, list, times)
   for _, it in ipairs(list) do
     local n = it[2] * (times or 1)
-    if n > 0 then f.hq.remove_item({ name = it[1], count = n }) end
+    if n > 0 then Stock.remove(f, it[1], n) end
     f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + n
   end
 end
@@ -666,7 +667,7 @@ function Team.think(f, surface, tick)
           (tick - (f.started or State.war().started or 0)) / 3600))
       end
     else
-      for _, it in ipairs(pay) do f.hq.insert({ name = it[1], count = it[2] }) end
+      for _, it in ipairs(pay) do Stock.insert(f, it[1], it[2]) end
     end
     stock = Board.view_stock(f, stock_of(f), tick)
   elseif plan.recruit_unarmed and (f.engineers_count == 0 or (plan.emergency_unarmed and f.engineers_count < 2)) then
@@ -681,7 +682,7 @@ function Team.think(f, surface, tick)
     remove_list(f, tr_pay, tr.uses and 1 or tr.count)
     local made = Military.train(f, surface, tr.unit, tr.count)
     if made < tr.count then
-      for _, it in ipairs(kit) do f.hq.insert({ name = it[1], count = it[2] * (tr.count - made) }) end
+      for _, it in ipairs(kit) do Stock.insert(f, it[1], it[2] * (tr.count - made)) end
     end
     f.team.trained = f.team.trained + made
     if tr.uses and made > 0 then
@@ -701,6 +702,9 @@ function Team.think(f, surface, tick)
   end
   Ia3.measure(f, tick, plan) -- lot IA3-c : paliers de recherche et projets, mesurés avec les deux cerveaux
   Team.effectif_journal(f, view, tick) -- lot IA3-d : ligne minute « [FO-EFFECTIF] »
+  -- Lot COFFRE : l'excédent du coffre du QG passe aux annexes, et un coffre se pose quand les cases se remplissent.
+  Stock.balance(f)
+  Stock.grow(f, surface, tick)
   return plan
 end
 
