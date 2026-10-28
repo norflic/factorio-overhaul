@@ -401,7 +401,7 @@ do
 end
 
 -- §12 Réglage de carte (correction après revue, 27/10) : fo-war-capital existe, est relu en cours de partie
--- (runtime-global), porte le préfixe des réglages des bancs (« fo-war- », interface war_setting) et est ÉTEINT par défaut
+-- (runtime-global), porte le préfixe des réglages des bancs (« fo-war- », interface war_setting) et est ALLUMÉ par défaut (lot AMELIORER)
 -- (D1 ouvert : la recherche des factions est retardée quand il est allumé) ; ses deux traductions existent.
 do
   local got = {}
@@ -413,7 +413,7 @@ do
   local s = got[1]
   check(#got == 1 and s and s.name == "fo-war-capital" and s.type == "bool-setting", "§12 un réglage bool fo-war-capital")
   check(s and s.setting_type == "runtime-global", "§12 réglage de carte relu en cours de partie (runtime-global)")
-  check(s and s.default_value == false, "§12 ÉTEINT par défaut")
+  check(s and s.default_value == true, "§12 ALLUMÉ par défaut (lot AMELIORER)")
   for _, lang in ipairs({ "fr", "en" }) do
     local fh = io.open("locale/" .. lang .. "/capital.cfg", "r")
     local txt = fh and fh:read("*a") or ""
