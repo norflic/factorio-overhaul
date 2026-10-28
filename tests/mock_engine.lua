@@ -816,6 +816,7 @@ function M.new_world(opts)
     -- tests/pvp_test.lua passe sans cette option (596 OK) ; le filtre collision_mask n'y change rien (rejoué sans
     -- lui : journal identique).
     legacy_boxes = opts.legacy_boxes or false,
+    shared_tile_mining = opts.shared_tile_mining or false, -- lot KIT : ancien modèle (chacun reçoit son minerai)
   }
   math.randomseed(W.seed)
 
@@ -1129,12 +1130,17 @@ function M.new_world(opts)
         if dx * dx + dy * dy <= (rad + 4) ^ 2 and name_matches(t.name, p.name or "iron-ore") then
           for ix = -2, 2 do
             for iy = -2, 2 do
+              local ex, ey = p.x + ix * 2, p.y + iy * 2
+              -- Lot KIT : une petite zone (le minage d'une tuile : rayon 2,5) ne rend que les tuiles qui y sont, pas toute la
+              -- grappe du gisement ; les grands rayons gardent le comportement d'avant (grappe entière).
+              if rad <= 5 and (ex - cx) ^ 2 + (ey - cy) ^ 2 > (rad + 0.5) ^ 2 then goto skip_tile end
               -- amount (lot M0) : la quantité du gisement répartie sur ses 25 entités simulées.
               out[#out + 1] = { valid = true, name = p.name or "iron-ore", type = "resource",
                 amount = math.floor((p.amount or 25000) / 25),
                 position = { x = p.x + ix * 2, y = p.y + iy * 2 },
                 prototype = { resource_category = p.category or "basic-solid" }, destroy = function() end }
               if t.limit and #out >= t.limit then return out end
+              ::skip_tile::
             end
           end
         end
@@ -1504,6 +1510,21 @@ local function step_economy(tick)
         if e._mine_acc >= MINE_PERIOD then
           e._mine_acc = 0
           local res = surface_find_resource(e._mining.position)
+          -- Lot KIT (relevé en moteur réel, banc kit-diag) : plusieurs personnages qui minent EN MÊME TEMPS la même tuile ne
+          -- rendent presque rien : seul le premier (le plus bas numéro d'entité) reçoit le minerai. Option
+          -- (shared_tile_mining = true) pour rejouer l'ancien modèle où chacun reçoit le sien.
+          if res and not W.shared_tile_mining then
+            local tx, ty = math.floor(e._mining.position.x), math.floor(e._mining.position.y)
+            for _, o in ipairs(W.entities) do
+              if o ~= e and o.valid and o.type == "character" and o._mining and o._mining.mining
+                and math.floor(o._mining.position.x) == tx and math.floor(o._mining.position.y) == ty
+                and (o.unit_number or 0) < (e.unit_number or 0) then
+                res = nil
+                W.tile_conflicts = (W.tile_conflicts or 0) + 1
+                break
+              end
+            end
+          end
           if res then inv_of(e, defines.inventory.character_main).insert({ name = res, count = 1 }) end
           if not res then
             -- Lot KIT : un arbre sous la cible donne 4 bois et disparaît
