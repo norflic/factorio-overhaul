@@ -122,10 +122,39 @@ local function unreachable(war, pos, tick)
 end
 
 --- Un ingénieur n'a pas trouvé de chemin vers ce site (ou rien n'a pu y être posé) : on l'évite un temps.
-function Sites.mark_unreachable(pos, tick)
+function Sites.mark_unreachable(pos, tick, ttl)
   local war = State.war()
   war.unreachable = war.unreachable or {}
-  war.unreachable[State.site_key(pos)] = tick + UNREACHABLE_TICKS
+  war.unreachable[State.site_key(pos)] = tick + (ttl or UNREACHABLE_TICKS)
+end
+
+--- Lot SITES (mémoire d'échec par site). Moteur réel, graine 1618033988, 28/10 : le seul site de cuivre de votre équipe
+--- (101, -43) était puisé dans la réserve toutes les 35 s pendant toute la partie, puis rendu sans qu'aucun avant-poste
+--- n'y soit posé (projet « extraction:copper actif », jamais de livraison, autre cuivre jamais cherché). Un site remis
+--- à un ouvrier DEUX fois de suite sans revendication entre les deux (Sites.claim : l'ouvrier a franchi tous les
+--- contrôles) est écarté, comme un site injoignable, pendant FAIL_BASE ticks, doublés à chaque nouvel échec (au plus
+--- UNREACHABLE_TICKS). La réserve se vide alors de ce site : le projet demande l'exploration d'un autre gisement
+--- (shared/ai3/projets.lua) et la prospection en trouve un autre. Un seul essai suit chaque attente.
+local FAIL_BASE = 5 * 3600
+local FAIL_FREE = 1          -- remises sans revendication tolérées avant l'écart
+local function note_handout(f, site, tick)
+  f.site_fail = f.site_fail or {}
+  local key = State.site_key(site)
+  local e = f.site_fail[key] or { n = 0 }
+  f.site_fail[key] = e
+  local again = e.out ~= nil
+  if again then e.n = e.n + 1 end
+  if again and e.n > FAIL_FREE then
+    local ttl = math.min(UNREACHABLE_TICKS, FAIL_BASE * 2 ^ (e.n - FAIL_FREE - 1))
+    Sites.mark_unreachable(site, tick, ttl)
+    e.out = nil
+    f.stats.site_backoff = (f.stats.site_backoff or 0) + 1
+    log(string.format("[FO-SITES] ecarte tick %d %s %s : (%d, %d), %d remises sans avant-poste, ecarte %.1f min", tick, f.key,
+      site.resource or "?", math.floor(site.x), math.floor(site.y), e.n, ttl / 3600))
+    return false
+  end
+  e.out = tick
+  return true
 end
 
 local PROBES_PER_STEP = 4
@@ -663,10 +692,11 @@ local function find_by_value(f, tick, resource)
   end
   local chosen, vrank, _, ranked = V.choose(cands, Sites.value_ctx(f, tick), draw_of(f))
   local site = chosen.site
-  Journal.site(f, site, list, valid, tick, { value = chosen.value, rank = vrank, n = #ranked })
   local out = {}
   for _, s in ipairs(keep) do if s ~= site then out[#out + 1] = s end end
   f.prospects = out
+  if not note_handout(f, site, tick) then return nil end -- écarté (mémoire d'échec) : le suivant au prochain appel
+  Journal.site(f, site, list, valid, tick, { value = chosen.value, rank = vrank, n = #ranked })
   return site
 end
 
@@ -682,7 +712,7 @@ function Sites.find(f, surface, tick, resource)
     local site = list[i]
     if resource == nil or site.resource == resource then
       -- Lot IA2-0 : rang du site choisi par distance au QG (journal seul, métrique M1 « plus proche d'abord »).
-      local ok = valid(site)
+      local ok = valid(site) and note_handout(f, site, tick)
       if ok then
         -- Lot IA2-b (journal de référence) : valeur des candidats valides de la même ressource, rang du site puisé.
         local cands = {}
@@ -721,6 +751,7 @@ end)
 function Sites.claim(f, pos)
   local war = State.war()
   local key = State.site_key(pos)
+  if f.site_fail then f.site_fail[key] = nil end -- lot SITES : l'ouvrier a franchi tous les contrôles
   war.claims[key] = f.id
   war.claim_pos = war.claim_pos or {}
   war.claim_pos[key] = { x = pos.x, y = pos.y, resource = pos.resource, radius = pos.radius }

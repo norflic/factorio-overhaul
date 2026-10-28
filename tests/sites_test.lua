@@ -183,5 +183,45 @@ check(got == nil, "entrée migrée : charbon à 27 tuiles toujours pris")
 f.outposts[9001] = nil
 Sites.release(site_coal)
 
+-- Mémoire d'échec par site (graine 1618033988 : un site remis en boucle à l'ouvrier toutes les 35 s pendant toute la partie).
+do
+  local surf = game.surfaces[war.surface]
+  local T0 = 100000
+  local site = { x = A.x, y = A.y + 27, resource = "copper-ore", radius = 6 }
+  local function give(tick)
+    f.prospects = { site }
+    return Sites.find(f, surf, tick, "copper-ore")
+  end
+  f.site_fail, f.stats.site_backoff = nil, nil
+  Sites.release(site)
+  war.unreachable = {}
+  check(give(T0) == site, "1re remise : le site est donné")
+  check(give(T0 + 2100) == site, "2e remise sans revendication : donné encore (une seconde chance)")
+  check(give(T0 + 4200) == nil, "3e remise sans revendication : écarté")
+  check((f.stats.site_backoff or 0) == 1 and #logs("[FO-SITES] ecarte") >= 1, "écart compté et tracé")
+  check(give(T0 + 4300) == nil, "écarté : plus donné pendant l'attente (injoignable)")
+  check(give(T0 + 4200 + 5 * 3600 - 10) == nil, "toujours écarté juste avant la fin de l'attente (5 min)")
+  check(give(T0 + 4200 + 5 * 3600 + 10) == site, "attente finie : un nouvel essai")
+  check(give(T0 + 4200 + 5 * 3600 + 2100) == nil, "nouvel échec : écarté de nouveau")
+  local until1 = war.unreachable[State.site_key(site)] - (T0 + 4200 + 5 * 3600 + 2100)
+  check(until1 == 10 * 3600, "attente doublée (" .. until1 / 3600 .. " min)")
+  -- Une revendication (l'ouvrier a franchi les contrôles) remet le compte à zéro.
+  f.site_fail, war.unreachable = nil, {}
+  check(give(T0 + 900000) == site, "compte neuf : donné")
+  Sites.claim(f, site)
+  Sites.release(site)
+  check(give(T0 + 902000) == site and give(T0 + 904000) == site, "après une revendication : deux remises de plus tolérées")
+  -- Faction : même règle sur le choix par valeur.
+  local g = war.factions[2]
+  g.site_fail, g.prospects = nil, nil
+  local cu2 = { x = g.hq_pos.x + 60, y = g.hq_pos.y, resource = "copper-ore", radius = 6, rich = 50000, tiles = 20 }
+  local got = {}
+  for i = 1, 4 do
+    g.prospects = { cu2 }
+    got[i] = Sites.find(g, surf, T0 + 910000 + i * 2100, "copper-ore")
+  end
+  check(got[1] == cu2 and got[2] == cu2 and got[3] == nil, "faction : donné deux fois, puis écarté")
+end
+
 print(string.format("\n[SITES] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
