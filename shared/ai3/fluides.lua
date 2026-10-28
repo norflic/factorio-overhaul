@@ -1207,7 +1207,6 @@ function Fl.layout(req)
   local first_why
   for _, sh in ipairs(shifts) do
     local lay, why = layout_once(req, sh)
-    if os.getenv("DBGS") then print("SHIFT", sh[1], sh[2], lay ~= nil, why, req.spent) end
     if lay then return lay end
     first_why = first_why or why
     -- un autre décalage ne change rien à l'absence de puits ni aux poteaux (la ligne a son propre A*) ; budget épuisé : fin

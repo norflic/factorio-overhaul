@@ -119,5 +119,34 @@ do
   check(verify(A, B, straight, 30, zone) == false, "§7 mutant : un relais dans la zone interdite est refusé")
 end
 
+-- §8 coffres enfermés (Fl.enclosed_chests) : un coffre entouré de tuyaux et de machines n'est pas atteignable à pied
+do
+  local K = Fl.tkey
+  local function set(list) local o = {} for _, t in ipairs(list) do o[K(t[1], t[2])] = true end return o end
+  local free = function() return false end
+  -- coffre en (10, 10), boîte 0..20 : terrain libre, atteignable
+  check(Fl.enclosed_chests({}, {}, free, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 } }, 3, 3) == nil, "§8 coffre en terrain libre : atteignable")
+  -- anneau de tuyaux de rayon 2 autour du coffre : enfermé
+  local ring = {}
+  for dx = -2, 2 do for dy = -2, 2 do if math.max(math.abs(dx), math.abs(dy)) == 2 then ring[#ring + 1] = { 10 + dx, 10 + dy } end end end
+  local bad = Fl.enclosed_chests({}, set(ring), free, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 } }, 3, 0)
+  check(bad ~= nil and #bad == 1, "§8 anneau de tuyaux : le coffre est enfermé (portée 0)")
+  -- mutant : même anneau avec une brèche d'une tuile : atteignable
+  local gap = {}
+  for _, t in ipairs(ring) do if not (t[1] == 12 and t[2] == 10) then gap[#gap + 1] = t end end
+  check(Fl.enclosed_chests({}, set(gap), free, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 } }, 3, 0) == nil, "§8 mutant : brèche dans l'anneau : atteignable")
+  -- anneau de machines (occupation) : enfermé de même
+  check(Fl.enclosed_chests(set(ring), {}, free, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 } }, 3, 0) ~= nil, "§8 anneau de machines : enfermé")
+  -- terrain bloqué (falaise) en anneau : enfermé
+  local cliff = function(tx, ty) return math.max(math.abs(tx - 10), math.abs(ty - 10)) == 2 end
+  check(Fl.enclosed_chests({}, {}, cliff, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 } }, 3, 0) ~= nil, "§8 anneau de falaises : enfermé")
+  -- portée : un anneau serré mais le coffre à 2 tuiles d'une tuile atteignable avec portée 3 : atteignable
+  check(Fl.enclosed_chests({}, set(ring), free, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 } }, 3, 3) == nil, "§8 portée 3 : une tuile atteignable à moins de 3 du coffre suffit")
+  -- déterminisme
+  local b1 = Fl.enclosed_chests({}, set(ring), free, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 }, { x = 3.5, y = 3.5 } }, 3, 0)
+  local b2 = Fl.enclosed_chests({}, set(ring), free, { { 0, 0, 20, 20 } }, { { x = 10.5, y = 10.5 }, { x = 3.5, y = 3.5 } }, 3, 0)
+  check(b1 and b2 and #b1 == #b2 and b1[1].x == b2[1].x, "§8 déterministe")
+end
+
 print(string.format("[PETROLE-POTEAUX] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
