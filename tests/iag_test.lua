@@ -388,7 +388,7 @@ do
   end
   for _, m in ipairs(ent.machines) do names[m.name] = true end
   for k in pairs(ent.resources) do names[k] = true end
-  for _, it in ipairs(T.start_kit) do names[it[1]] = true end
+  for _, it in ipairs(T.start_kit_generous) do names[it[1]] = true end
   -- Fichiers EXEMPTÉS, nommés et justifiés (demande de l'intégrateur, 27/10) :
   local EXEMPT = {
     ["shared/ai3/reglages.lua"] = "seules données nommées admises (types du moteur, réglages hérités, repli de votre équipe)",

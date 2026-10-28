@@ -41,10 +41,10 @@ local cat = G.new(spec_with(recipes))
 
 local function start_state(known_extra)
   local stock = {}
-  for _, it in ipairs(T.start_kit) do stock[it[1]] = it[2] end
+  for _, it in ipairs(T.start_kit_generous) do stock[it[1]] = it[2] end
   local known = { ["iron-ore"] = true, ["copper-ore"] = true, coal = true, stone = true, water = true }
   for _, k in ipairs(known_extra or {}) do known[k] = true end
-  return { stock = stock, techs = {}, built = { ["stone-furnace"] = T.start_smelters }, known = known }
+  return { stock = stock, techs = {}, built = { ["stone-furnace"] = T.start_smelters_generous }, known = known }
 end
 
 local function find(steps, kind, name)

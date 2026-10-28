@@ -57,6 +57,7 @@ require("settings.team") -- lot IA1-a : taille des équipes de PNJ (shared/team/
 require("settings.ia3b") -- lot IA3-b : place de marché, registre, manque de plaques (fo-war-ia3-marche)
 require("settings.ia3c") -- lot IA3-c : cerveau par besoins (fo-war-ia3-cerveau, éteint par défaut)
 require("settings.ia3k") -- lot IA3-k : comportements visibles des PNJ (fo-war-ia3-comportement)
+require("settings.kit") -- lot KIT : kit de départ des factions (fo-war-kit-genereux, tests)
 require("settings.ia3e") -- lot IA3-e : automatiser ce qui revient (fo-war-ia3e)
 require("settings.capital") -- lot CAPITAL : améliorer et monter les époques (fo-war-capital, éteint par défaut)
 require("settings.capi") -- lot CAPIB : capitaliser (fo-war-capi, éteint par défaut ; agit avec fo-war-ia3e)

@@ -57,7 +57,7 @@ local function obtainable(item) return SOURCE[item] == true end
 
 local function kit_stock()
   local s = {}
-  for _, it in ipairs(T.start_kit) do s[it[1]] = it[2] end
+  for _, it in ipairs(T.start_kit_generous) do s[it[1]] = it[2] end
   return s
 end
 

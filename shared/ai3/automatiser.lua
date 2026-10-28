@@ -155,17 +155,35 @@ end
 --- bois) sont au coffre pour A.POLE_BATCH poteaux. Rend le nom (table triée de shared/team/modules.lua) ou nil : le poteau
 --- par défaut. Les plaques, câbles et bâtons ne bloquent pas : fonderie et main les fournissent.
 A.POLE_BATCH = 20
-function A.choose_pole(book, stock)
+--- Lot KIT : `harvest` = { [matière] = vrai } des matières naturelles que l'équipe peut RÉCOLTER (des arbres à portée pour le
+--- bois, lus à f.team.ia3.reach) : une matière naturelle récoltable n'interdit plus le poteau qui l'utilise, l'ouvrier la
+--- coupe (les factions n'ont plus de bois au coffre de départ). Sans arbre à portée : comportement d'avant (le moyen).
+function A.choose_pole(book, stock, harvest)
   stock = stock or {}
   return M.cheapest_pole(function(name)
     if (stock[name] or 0) >= A.POLE_BATCH then return true end
     if not book:handcraftable(name) then return false end
     local plan = book:plan({ { name, A.POLE_BATCH } }, stock)
     for _, k in ipairs(sorted_keys(plan.raw)) do
-      if book:natural(k) then return false end
+      if book:natural(k) and not (harvest and harvest[k]) then return false end
     end
     return true
   end)
+end
+
+--- Lot KIT : matières NATURELLES (aucune recette ne les produit : le bois) qu'il faut pour A.POLE_BATCH poteaux de chaque
+--- type de poteau, DÉDUITES du livre et de la table des poteaux (shared/team/modules.lua) : aucun nom écrit. Liste triée.
+function A.natural_needs(book)
+  local set = {}
+  for _, name in ipairs(M.POLES) do
+    if book:handcraftable(name) then
+      local plan = book:plan({ { name, A.POLE_BATCH } }, {})
+      for _, k in ipairs(sorted_keys(plan.raw)) do
+        if book:natural(k) then set[k] = true end
+      end
+    end
+  end
+  return sorted_keys(set)
 end
 
 --- Vide le cache (tests).

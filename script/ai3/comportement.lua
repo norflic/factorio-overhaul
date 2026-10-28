@@ -28,6 +28,7 @@ local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Character = require("script.faction.character")
 local Worker = require("script.team.worker")
+local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné (minerai, arbres)
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
@@ -523,7 +524,7 @@ end
 --- Autre tuile de minerai hors danger pour un minage (C5 « change de site ») : ou nil.
 function M.retarget_mine(f, t, task, surface, tick, B)
   if not (task.resource and f.hq_pos) then return nil end
-  local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = task.resource, limit = 256 })
+  local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = Harvest.names(task.resource), limit = 256 })
   table.sort(res, function(x, y)
     local dx, dy = d2(x.position, f.hq_pos), d2(y.position, f.hq_pos)
     if dx ~= dy then return dx < dy end
@@ -535,8 +536,8 @@ function M.retarget_mine(f, t, task, surface, tick, B)
   for i = 1, #res, stride do
     local p = res[i].position
     if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0 then
-      local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource",
-        invert = true, limit = 1 })
+      local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } },
+        type = Harvest.free_types(), invert = true, limit = 1 })
       if busy == 0 then return { x = p.x, y = p.y } end
     end
   end

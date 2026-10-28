@@ -194,6 +194,10 @@ script.on_init(function()
   log("[FO-AUTOTEST] on_init : lancement, scenario " .. SCENARIO
     .. (PLUGIN and (" (greffon scenarios/" .. SCENARIO .. ".lua)") or ""))
   skip_freeplay_intro()
+  -- Lot KIT (28/10) : les bancs gardent le kit de départ généreux des factions (leurs attendus datent de ce kit) ; la partie
+  -- réelle (par défaut) donne aux factions le kit de votre équipe. Le scénario etape1-guide l'éteint pour mesurer le guide.
+  -- Allumé AVANT toute fondation (builtin_init, greffons). Sans le réglage (mod à créer d'une vieille source), rien.
+  pcall(remote.call, "factorio-overhaul", "war_setting", "fo-war-kit-genereux", true)
   if PLUGIN then
     if PLUGIN.base then
       if SCENARIOS[PLUGIN.base] then

@@ -51,6 +51,7 @@ local Profiler = require("script.core.profiler")
 local General = require("script.ai3.general")
 local Auto = require("script.ai3.automatisation")
 local Build = require("script.team.build")
+local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Adopte = require("script.team.adopte") -- lot ADOPTE : machines du joueur que personne ne sert
 local Equip = require("script.team.equiper") -- lot LEVIERS : tâche « equiper »
 local Lv = require("shared.ai3.leviers")
@@ -222,9 +223,9 @@ for _, kind in ipairs(T.OUTPOST_ORDER) do KIND_OF_RES[T.outposts[kind].resource]
 --- fabriquer tous ses objets (comme A.decide : un module plus grand demande des bras rapides ou d'autres objets pas encore
 --- recherchés ; banc p4 du lot : modules à 150/min en réserve 15 min sur « fast-inserter », jamais recherché). Rend
 --- (gabarit, args) ou (nil, objets manquants de la plus petite taille).
-local function fit_module(meth, rate, book, stock, has_plant)
+local function fit_module(meth, rate, book, stock, has_plant, harvest)
   -- lot PLANDIR : poteau du gabarit = le moins cher dont la recette est débloquée (A.choose_pole)
-  local pole = A.choose_pole(book, stock)
+  local pole = A.choose_pole(book, stock, harvest) -- lot KIT : le bois à portée compte (les factions n'en ont plus au départ)
   local g, args = A.sized(meth, rate, pole)
   if not g then return nil, {} end
   local function missing_of(gg)
@@ -249,8 +250,8 @@ local function fit_module(meth, rate, book, stock, has_plant)
   return g, args
 end
 
-local function module_ok(meth, book, stock, has_plant, rate)
-  local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant)
+local function module_ok(meth, book, stock, has_plant, rate, harvest)
+  local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest)
   if not g then return false, miss end
   return true, {}
 end
@@ -661,7 +662,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     local meth = METHOD_OF_ORE[res]
     local ok, miss = false, {}
     if meth and elec_drill and plant_state ~= "refuse" and not wait_plant and not busy and not held(cs, meth.product, tick) then
-      ok, miss = module_ok(meth, book, stock, plant_state ~= nil)
+      ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f))
     end
     if ok then drill_for[res], elec[res] = elec_drill, true
     else drill_for[res] = "" end
@@ -743,7 +744,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
       res = "centrale refusee (" .. tostring(plant_why) .. ")"
     else
-      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil)
+      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f))
       if not ok then
         res = "recherche : " .. table.concat(miss, ",")
         for _, x in ipairs(miss) do wanted[x] = true end
@@ -818,7 +819,7 @@ local function execute(f, cs, o, view, book, tick, research)
       local near = nil
       local ids, why = {}, nil
       for _, part in ipairs(Capi.split(rate)) do
-        local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil)
+        local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
           rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
@@ -882,7 +883,7 @@ local function execute(f, cs, o, view, book, tick, research)
     if not meth then return nil, tostring(why) end
     local ids, why2 = {}, nil
     for _, part in ipairs(Capi.split(o.rate or 0)) do
-      local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil)
+      local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
       if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
         rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,

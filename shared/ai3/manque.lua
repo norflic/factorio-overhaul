@@ -48,7 +48,7 @@ for _, kind in ipairs(T.OUTPOST_ORDER) do
   local input = T.smelter_inputs[spec.product]
   if input and input[1] == spec.resource then X.PLATES[#X.PLATES + 1] = { spec.product, spec.resource, kind } end
 end
-X.SMELTERS = 2        -- fours posés au QG quand une plaque manque (T.start_smelters des factions)
+X.SMELTERS = 2        -- fours posés au QG quand une plaque manque (T.hq_smelters)
 X.SMELTERS_MAX = 4    -- … et 4 pour un manque d'au moins X.SMELT_MORE plaques
 X.SMELT_MORE = 50
 X.PER_MINER = 20      -- plaques manquantes par mineur (manque 62 : 4 mineurs au moins)

@@ -26,6 +26,7 @@ local A = require("shared.ai3.automatiser")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
+local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
 
 local Auto = {}
@@ -477,7 +478,7 @@ function Auto.think(f, view, book, tick, research)
       obtainable = function(item) return book:handcraftable(item) or (stock[item] or 0) > 0 end,
       book = book, stock = stock, sig = st.sig,
       -- lot PLANDIR : poteau des gabarits = le moins cher dont la recette est débloquée (jamais un nom écrit ici)
-      pole = A.choose_pole(book, stock),
+      pole = A.choose_pole(book, stock, Harvest.reachable(f)), -- lot KIT : le bois à portée compte
       has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
       no_power = st.plant_refused and st.plant_refused.reason or nil,
       -- objets du dépliage du cerveau général (IA-G : étapes hand, produce, extract de la dernière décision)

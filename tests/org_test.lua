@@ -1141,7 +1141,7 @@ section("Compatibilité avec le cerveau d'équipe actuel (planner.lua, vraies re
 do
   local book = Book.new(dofile("tests/fixtures/recipes.lua"))
   local stock = {}
-  for _, it in ipairs(T.start_kit) do stock[it[1]] = it[2] end
+  for _, it in ipairs(T.start_kit_generous) do stock[it[1]] = it[2] end
   local view = {
     tech = 0, personality = "balanced", done = { coal = true, iron = true, copper = true, stone = true }, deferred = {},
     stock = stock, incoming = {},
