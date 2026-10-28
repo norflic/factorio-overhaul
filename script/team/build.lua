@@ -2300,14 +2300,6 @@ function Build.status(f, id)
   end
   local missing = {}
   for _, m in ipairs(p.missing or {}) do missing[#missing + 1] = { m[1], m[2] } end
-  -- quais d'entrée : contenu lu au moteur (le cerveau sait ce qui manque ; le banc sait quand renvoyer l'équipe)
-  local quais = {}
-  local surface = surface_of(f)
-  for _, q in ipairs(p.quais) do
-    local chest = surface and surface.find_entity("iron-chest", { q.x, q.y })
-    quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1,
-      task = task_state("ia1d:" .. p.id .. ":q:" .. #quais + 1) }
-  end
   -- Lot QUAI-CHARGE (lecture seule) : la tâche du tableau de ce point d'appui ou de ce quai : absente, libre ou prise, âge (s),
   -- reprise après échec (s)
   local bd = f.team and f.team.board
@@ -2316,6 +2308,14 @@ function Build.status(f, id)
     return { task = tk and (tk.worker and "prise" or "libre") or "aucune",
       age = (tk and tk.created) and math.floor((game.tick - tk.created) / 60) or -1,
       cd = cd and math.max(0, math.floor((cd - game.tick) / 60)) or 0 }
+  end
+  -- quais d'entrée : contenu lu au moteur (le cerveau sait ce qui manque ; le banc sait quand renvoyer l'équipe)
+  local quais = {}
+  local surface = surface_of(f)
+  for _, q in ipairs(p.quais) do
+    local chest = surface and surface.find_entity("iron-chest", { q.x, q.y })
+    quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1,
+      task = task_state("ia1d:" .. p.id .. ":q:" .. #quais + 1) }
   end
   -- entités pas encore bâties (5 au plus, dans l'ordre de pose) : ce qui retient un chantier
   local unbuilt = {}
