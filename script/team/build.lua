@@ -1577,10 +1577,19 @@ end
 
 --- Lot RESEAU-VIVANT : trace d'un poteau posé (qui l'a demandé : projet, rôle) pour établir la cause des poteaux
 --- redondants. Journal seulement ([FO-POLE]), aucune décision n'en dépend.
-local function trace_pole(f, p, e, how)
+local TRACED_KIND = { boiler = true, generator = true, offshore = true }
+local function traced(e)
+  if e.name:find("electric%-pole") then return true end
+  local sp = M.spec(e.name)
+  return sp ~= nil and TRACED_KIND[sp.kind] == true
+end
+
+--- Trace aussi les pièces de la centrale ; « ennemi a 28 tuiles » = un ennemi militaire à moins de 28 tuiles de la pose (critère C6).
+local function trace_pole(surface, f, p, e, how)
   local part = p.parts and p.parts[e.part or 1] or nil
-  log(string.format("[FO-POLE] %s : projet %d (%s), %s role %s %s en (%g, %g)", f.key or "player", p.id,
-    tostring(part and part.key or (p.spec and p.spec.gen) or "?"), e.name, tostring(e.role), how, e.x, e.y))
+  local foe = surface.find_nearest_enemy({ position = { e.x, e.y }, max_distance = 28, force = f.force })
+  log(string.format("[FO-POLE] %s : projet %d (%s), %s role %s %s en (%g, %g) ; ennemi a 28 tuiles : %s", f.key or "player", p.id,
+    tostring(part and part.key or (p.spec and p.spec.gen) or "?"), e.name, tostring(e.role), how, e.x, e.y, foe and "OUI" or "non"))
 end
 
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
@@ -1589,7 +1598,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   local st = f.build.stats
   if find_real(surface, e, f.force) then
     e.built = true
-    if e.name:find("electric%-pole") then trace_pole(f, p, e, "deja") end
+    if e.name:find("electric%-pole") then trace_pole(surface, f, p, e, "deja") end
     return true
   end
   if not e.item or inv.get_item_count(e.item) < 1 then return false end
@@ -1639,7 +1648,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   end
   e.built = true
   st.revived = st.revived + 1
-  if e.name:find("electric%-pole") then trace_pole(f, p, e, "pose") end
+  if traced(e) then trace_pole(surface, f, p, e, "pose") end
   return true
 end
 
