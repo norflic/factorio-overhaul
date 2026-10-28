@@ -71,6 +71,7 @@ end
 local function new_state(field, drill, opts)
   local S = { w = drill.w, speed = drill.speed, opts = opts, memo = {}, occ = {}, keep = {} }
   S.lo, S.hi = LM.cover_offsets(drill.w, drill.reach)
+  S.drop = drill.drop or { 0, -(drill.w / 2 + 0.35) }
   S.bounds = field.bounds
   S.ore = field.ore or index_tiles(field.tiles)
   local bl = field.blocked
@@ -172,6 +173,28 @@ local function runs_of(S, axis, c)
   return out
 end
 
+--- Tuile où tombe le minerai d'une foreuse de coin (ox, oy) tournée vers `dir` : centre + vecteur de sortie (donné vers le
+--- nord, tourné comme la foreuse). Une foreuse de côté pair dépose à une demi-tuile du milieu : la tuile du tapis change.
+local function drop_tile(w, drop, ox, oy, dir)
+  local x, y = drop[1], drop[2]
+  local rx, ry
+  if dir == 0 then rx, ry = x, y elseif dir == 2 then rx, ry = -y, x elseif dir == 4 then rx, ry = -x, -y else rx, ry = y, -x end
+  return floor(ox + w / 2 + rx + EPS), floor(oy + w / 2 + ry + EPS)
+end
+LM.drop_tile = drop_tile
+
+--- Avec colonne de poteaux (gap > 0) : une foreuse n\x27est posee que si une tuile de la colonne exterieure de son cote, face a
+--- ses rangees, est libre et dans la zone (sinon aucun poteau ne peut l\x27alimenter).
+local function pole_room(S, axis, c, side, v0)
+  if S.gap <= 0 then return true end
+  local u = c + side * (S.w + 1)
+  for v = v0, v0 + S.w - 1 do
+    local x, y = xy(axis, u, v)
+    if tile_free(S, x, y) then return true end
+  end
+  return false
+end
+
 local function side_cands(S, axis, c, run, side, phase, res)
   local out = {}
   local w = S.w
@@ -181,8 +204,13 @@ local function side_cands(S, axis, c, run, side, phase, res)
     local u0 = side < 0 and c - w or c + 1
     if axis == "V" then ox, oy = u0, v0 else ox, oy = v0, u0 end
     local d = drill_at(S, ox, oy)
-    if d and d.res == res and footprint_free(S, ox, oy) then
-      out[#out + 1] = { d = d, v0 = v0, side = side, ox = ox, oy = oy, dr = v0 + floor(w / 2) }
+    if d and d.res == res and footprint_free(S, ox, oy) and pole_room(S, axis, c, side, v0) then
+      local tx, ty = drop_tile(w, S.drop, ox, oy, FACE[axis][side])
+      local ut, dr = tx, ty
+      if axis == "H" then ut, dr = ty, tx end
+      if ut == c and dr >= v0 and dr <= v0 + w - 1 then
+        out[#out + 1] = { d = d, v0 = v0, side = side, ox = ox, oy = oy, dr = dr }
+      end
     end
     v0 = v0 + w
   end
@@ -399,25 +427,28 @@ local function assemble(S, strips, cov)
     end
     for _, bt in ipairs(st.belts) do belts[#belts + 1] = { x = bt.x, y = bt.y, dir = bt.dir, strip = i } end
     for _, ex in ipairs(st.exits) do exits[#exits + 1] = { x = ex.x, y = ex.y, dir = ex.dir, flow = ex.flow, drills = ex.drills, strip = i } end
-    -- colonnes extérieures des deux côtés : tuiles pour les poteaux
+    -- colonnes extérieures des deux côtés + deux rangées au-delà de chaque bout (liaison d'un côté à l'autre) : tuiles des poteaux
     local vmin, vmax = math.huge, -math.huge
     for _, e in ipairs(st.drills) do
       vmin = math.min(vmin, e.v0)
       vmax = math.max(vmax, e.v0 + S.w - 1)
     end
+    local function add_pole(u, v)
+      local x, y = xy(st.axis, u, v)
+      local k = tk(x, y)
+      if tile_free(S, x, y) and not pset[k] then pset[k] = true; poles[#poles + 1] = { x = x, y = y } end
+    end
     for _, side in ipairs({ -1, 1 }) do
-      local u = st.c + side * (S.w + 1)
-      for v = vmin, vmax do
-        local x, y = xy(st.axis, u, v)
-        local k = tk(x, y)
-        if tile_free(S, x, y) and not pset[k] then pset[k] = true; poles[#poles + 1] = { x = x, y = y } end
-      end
+      for v = vmin, vmax do add_pole(st.c + side * (S.w + 1), v) end
+    end
+    for _, v in ipairs({ vmin - 1, vmin - 2, vmax + 1, vmax + 2 }) do
+      for u = st.c - (S.w + 1), st.c + (S.w + 1) do add_pole(u, v) end
     end
   end
   table.sort(poles, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
   return { ok = true, strips = strips, drills = drills, belts = belts, exits = exits, pole_tiles = poles,
     drills_n = #drills, strips_n = #strips, covered = amount, covered_tiles = tiles, total = total, rate = rate, w = S.w,
-    lo = S.lo, hi = S.hi, belt_rate = S.lane_cap * 2, gap = S.gap }
+    lo = S.lo, hi = S.hi, belt_rate = S.lane_cap * 2, gap = S.gap, bounds = S.bounds }
 end
 
 --- Plan d'un champ. field = { tiles = { {x, y, res, amount} } (ou ore = { [clé] = {...} }), blocked = fonction (x, y) ou
@@ -432,6 +463,8 @@ function LM.plan(field, drill, opts)
   if drill.h and drill.h ~= drill.w then return nil, "foreuse non carree" end
   if not (field and field.bounds) then return nil, "zone absente" end
   local S = new_state(field, drill, opts)
+  local depth = -S.drop[2] - drill.w / 2
+  if not (depth > 0 and depth < 1) then return nil, "sortie de foreuse non adjacente" end
   if #S.reslist == 0 then return nil, "aucun minerai" end
   local cov = {}
   local single = opts.mode == "single"
@@ -569,14 +602,13 @@ function LM.check(plan, field, drill, opts)
   end
   -- chaque foreuse : sa sortie tombe sur un tapis, rayon d'une seule ressource, active
   local cov, load = {}, {}
-  local DX = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
   for i, d in ipairs(plan.drills) do
-    local v = DX[d.dir]
-    local tx, ty
-    if d.dir == 0 then tx, ty = floor(d.x), d.oy - 1
-    elseif d.dir == 4 then tx, ty = floor(d.x), d.oy + w
-    elseif d.dir == 2 then tx, ty = d.ox + w, floor(d.y)
-    else tx, ty = d.ox - 1, floor(d.y) end
+    -- tuile de sortie recalculée ici (sans drop_tile) : le contrôle ne partage pas le code du plan
+    local cx, cy = d.ox + w / 2, d.oy + w / 2
+    local qx, qy = S.drop[1], S.drop[2]
+    local rx, ry = qx, qy
+    if d.dir == 2 then rx, ry = -qy, qx elseif d.dir == 4 then rx, ry = -qx, -qy elseif d.dir == 6 then rx, ry = qy, -qx end
+    local tx, ty = floor(cx + rx + EPS), floor(cy + ry + EPS)
     local bt = belt[tk(tx, ty)]
     if not bt then err("foreuse " .. i .. " ne depose sur aucun tapis")
     else
@@ -603,7 +635,6 @@ function LM.check(plan, field, drill, opts)
     end
     if res == nil then err("foreuse " .. i .. " inactive (aucun minerai)") end
     if res and res ~= d.res then err("foreuse " .. i .. " : ressource annoncee differente") end
-    v = v
   end
   for _, k in ipairs((function() local t = {} for kk in pairs(load) do t[#t + 1] = kk end table.sort(t) return t end)()) do
     if load[k] > S.lane_cap + 1e-6 then err("voie " .. k .. " au-dessus du debit : " .. load[k]) end

@@ -27,8 +27,10 @@ local function rect(x0, y0, x1, y1, res, amount, t)
   return t
 end
 local BIG = { x0 = -4, y0 = -4, x1 = 24, y1 = 18 }
-local D3 = { w = 3, reach = 2.49, speed = 0.5 }
-local DRILLS = { { w = 2, reach = 0.99, speed = 0.25 }, D3, { w = 4, reach = 2.99, speed = 1 }, { w = 5, reach = 3.49, speed = 1.5 } }
+local D3 = { w = 3, reach = 2.49, speed = 0.5, drop = { 0, -1.85 } }
+-- sortie vers le nord (vecteur du prototype) : un côté pair dépose à une demi-tuile du milieu
+local D2 = { w = 2, reach = 0.99, speed = 0.25, drop = { -0.5, -1.3 } }
+local DRILLS = { D2, D3, { w = 4, reach = 2.99, speed = 1, drop = { -0.5, -2.35 } }, { w = 5, reach = 3.49, speed = 1.5, drop = { 0, -2.85 } } }
 
 -- RNG maison (congruentiel) : aucun math.random
 local function rng(seed)
@@ -341,7 +343,7 @@ end
 do
   local seed, ratios, equal, worst, cases = 20261028, 0, 0, 1, 0
   local R = rng(seed)
-  for _, d in ipairs({ { w = 2, reach = 0.99, speed = 0.25 }, D3 }) do
+  for _, d in ipairs({ D2, D3 }) do
     local per = d.w == 2 and 14 or 14
     for case = 1, per do
       local t, bl = {}, {}
@@ -428,6 +430,7 @@ do
     { "couloir sur obstacle", "local f = tile_free(S, x, y)\n    if f and not a", "local f = true\n    if f and not a" },
     { "bords toujours ouverts", "r.lo_open, r.hi_open = r.a == v0, r.b == v1 - 1", "r.lo_open, r.hi_open = true, true" },
     { "foreuse inactive acceptee", "if n >= S.min_tiles and (not best or a > best_a) then", "if (not best or a > best_a) then" },
+    { "sortie de foreuse sans le demi-pas des cotes pairs", "local x, y = drop[1], drop[2]\n  local rx, ry", "local x, y = 0, drop[2]\n  local rx, ry" },
     { "couverture trop courte", "return math.ceil(c - reach - 0.5 - EPS), floor(c + reach - 0.5 + EPS)", "return math.ceil(c - reach - 0.5 - EPS), floor(c + reach - 1.5 + EPS)" },
     { "colonne de poteaux oubliee", "for y = e.oy - gap, e.oy + w - 1 + gap do\n      for x = e.ox - gap, e.ox + w - 1 + gap do S.keep[tk(x, y)] = true end\n    end",
       "" },

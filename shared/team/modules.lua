@@ -661,6 +661,43 @@ function G.drills(ore, n, drill)
   return b:finish()
 end
 
+--- Lot LAYOUT : gabarit d'un CHAMP de foreuses depuis un plan de shared/team/layout_mine.lua (lignes de foreuses de part et
+--- d'autre de couloirs de tapis, une ou plusieurs sorties). Rend (gabarit) ou (nil, raison). Le gabarit n'a pas de générateur
+--- (`gen` absent) : il est posé tel quel à l'endroit que le plan donne (pas de rotation, pas d'extension). Une tuile libre est
+--- gardée autour : les colonnes de poteaux du plan (`pole_tiles`) en sont les candidates.
+function M.mine_template(plan, ore, drill, pole)
+  local sp, why = machine_spec(drill, "drill", "champ"); if not sp then return nil, why end
+  if not M.ORES[ore] then return fail("champ : minerai « %s » inconnu", tostring(ore)) end
+  if not (plan and plan.drills and #plan.drills > 0) then return fail("champ : plan sans foreuse") end
+  if sp.w ~= plan.w then return fail("champ : emprise %d de la foreuse, %d au plan", sp.w, plan.w) end
+  local x0, y0 = math.huge, math.huge
+  for _, d in ipairs(plan.drills) do x0, y0 = math.min(x0, d.ox), math.min(y0, d.oy) end
+  for _, t in ipairs(plan.belts) do x0, y0 = math.min(x0, t.x), math.min(y0, t.y) end
+  -- une tuile de poteau possible au bord nord et ouest, dans la zone du plan
+  local bd = plan.bounds or { x0 = -math.huge, y0 = -math.huge }
+  x0, y0 = math.max(bd.x0, x0 - 1), math.max(bd.y0, y0 - 1)
+  local n = #plan.drills
+  local b = new_builder("champ-" .. ore_label(ore) .. lvl_tag(sp), "Champ de " .. n .. " foreuses (" .. ore_label(ore) .. ", " .. drill .. ")",
+    "Field of " .. n .. " drills (" .. ore_label_en(ore) .. ", " .. drill .. ")")
+  for _, d in ipairs(plan.drills) do b:put(drill, d.ox - x0, d.oy - y0, d.dir, { role = "foreuse" }) end
+  local idx = {}
+  for _, t in ipairs(plan.belts) do idx[tkey(t.x, t.y)] = b:belt_line(t.x - x0, t.y - y0, t.x - x0, t.y - y0, t.dir)[1] end
+  for _, ex in ipairs(plan.exits) do
+    local i = idx[tkey(ex.x, ex.y)]
+    if not i then return fail("champ : sortie hors des tapis") end
+    b:port({ kind = "tapis", io = "out", ent = i })
+  end
+  local cands = {}
+  for _, t in ipairs(plan.pole_tiles or {}) do
+    if t.x - x0 >= 0 and t.y - y0 >= 0 then cands[#cands + 1] = { t.x - x0, t.y - y0 } end
+  end
+  b.g.power_pole = b:auto_poles(cands, pole)
+  b.g.resource = ore
+  b.g.params = { ore = ore, n = n, drill = drill }
+  b.g.no_rotate = true
+  return b:finish()
+end
+
 --- Centrale à vapeur (époque 3) : pompe de rive à l'ouest, nb chaudières en rangée (l'eau traverse les chaudières),
 --- 2 machines à vapeur au-dessus de chacune, deux bras à combustion par chaudière sur un tapis de charbon qui entre
 --- à l'est. Poteaux : rangée du haut (machines du haut), rangée des bras (machines du bas), bords ouest et est
