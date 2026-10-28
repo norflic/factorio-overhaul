@@ -11,7 +11,12 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
 - Standard de preuve : « Si tu ne peux pas m'assurer que tout fonctionne, c'est que le travail n'est donc pas terminé. »
   Rien n'est terminé sans preuve en **moteur réel**, et sans captures pour ce qui se voit. Seul le DC valide un design.
 - **Méthode depuis le 27/10 au soir** (OBJECTIFS §5, 19 h 05) :
-  - un seul fil de travail, au plus 1 agent à la fois ; pas de workflow, pas de boucle de surveillance ;
+  - **ORCHESTRER pour de vrai** (le DC, 27/10 au soir : « modifiez le fil 1 agent max, le problème était que l'ancien
+    orchestrateur n'orchestrait RIEN DU TOUT, d'où des résultats aléatoires ») : la règle « 1 agent au plus » est
+    ABROGÉE. L'orchestrateur découpe, lance les agents (workflows et « ultracode » permis), tient un plan écrit, relit
+    chaque livraison contre la partie filmée, intègre lui-même. Garde-fous gardés : bancs par la file, un seul
+    intégrateur sur les fichiers partagés, worktree par agent écrivain, aucun réglage « éteint par défaut » ;
+    pas de boucle de surveillance toutes les N minutes ;
   - la seule preuve d'un progrès des IA est **la partie du DC aux réglages livrés, filmée** (scénario `etape1-guide`) ;
   - un défaut à la fois, puis une partie filmée ; arrêt et compte rendu au DC après 2 essais sans progrès visible ;
   - aucun réglage nouveau « éteint par défaut » : on change le comportement par défaut ;

@@ -10,6 +10,14 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **27/10, 21 h : ORCHESTRATION RÉTABLIE (le DC : « le problème était que l'ancien orchestrateur n'orchestrait RIEN DU TOUT »), « 1 agent au plus » ABROGÉ**
+> (CLAUDE.md §1). `capib` = `ddc97b9` : défaut 3 (fours à acier sous-chargés, `f8458cf`), `elec` (`e3c84a3` : fonderie du QG levée par le
+> minerai, chantier payé prioritaire), `coffre` (`581f11e` : annexes du coffre, réserve d'équipement bornée). Partie du guide à 60 min
+> (`fo-logs\2026-10-27_ETAPE1\fusion-60`, BILAN 17 OK) : Écarlate 10 foreuses élec., 402 tapis, 71 fours, 7 assembleurs ; Azure 6, 189, 30, 10 ;
+> VOTRE équipe 0 foreuse élec., 4 assembleurs. Plan de diagnostic du workflow : voir sa clé `plan` (tâche `w0u732ubr`) : reste la recherche
+> de votre équipe (`defender` non payée, poids propres), plan directeur trop tardif (~18-23 min), un seul labo, réserves gelées.
+> NON FAIT : fusion dans `main`, garde-fous complets (pvp_test, levels_test, harnais data vert), `ia1b2`/`verif-guide` multi-graines.
+>
 > **27/10, 19 h 25 : MÉTHODE CHANGÉE** (OBJECTIFS §5, 19 h 05 : le DC ne voit aucun progrès en jeu ; 30 erreurs listées).
 > TOUT est arrêté : workflows `base-joueur`, `tirs-ronde5-degats`, `ia-suite-petrole-perf` et la boucle de 10 min ; tirs,
 > pétrole, PERF2, X3, robots, 3D gelés sur leurs branches. Un seul fil, au plus 1 agent ; seule preuve : la partie du DC
