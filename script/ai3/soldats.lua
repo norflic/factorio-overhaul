@@ -431,29 +431,6 @@ local function pass(f, tick)
   for k, v in pairs(summary.roles) do m.roles[k] = (m.roles[k] or 0) + v end
 end
 
--- Lot CENTRALE : la mort d'un SOLDAT tué par un ennemi est une mort de l'équipe (carte du danger, comme celle d'un PNJ :
--- script/ai3/comportement.lua, Registry.on_removed). Sans cela, les soldats mouraient au même endroit à chaque patrouille,
--- la carte ne le savait pas. Le fait seul est tiré de l'événement (position, force du tueur).
-Events.on(defines.events.on_entity_died, function(e)
-  local ent = e.entity
-  if not (ent and ent.valid and ent.type == "unit") then return end
-  if not (e.force and e.force.name == "enemy") then return end
-  local owner = State.owner(ent.unit_number)
-  if not (owner and owner.kind == "soldier") then return end
-  local f = State.faction(owner.f)
-  if not (f and f.hq_pos and C.enabled()) then return end
-  local t = C.team(f)
-  local p = ent.position
-  local at_home = d2(p, f.hq_pos) <= C.HOME_DEATH_R * C.HOME_DEATH_R
-  D.mark_death(t.map, p.x, p.y, game.tick, at_home)
-  t.epoch = (t.epoch or 0) + 1
-  t.stats.soldier_deaths = (t.stats.soldier_deaths or 0) + 1
-  if Profiler.enabled() then
-    log(string.format("[FO-IA3K] %s : mort d'un soldat marquee en (%d, %d)%s", tostring(f.key), math.floor(p.x), math.floor(p.y),
-      at_home and " (pres du QG)" or ""))
-  end
-end)
-
 Events.on_nth_tick(SD.PERIOD, function(e)
   local alive = State.alive()
   if #alive == 0 then return end
