@@ -936,6 +936,9 @@ function M.new_world(opts)
     -- qu'un conteneur d'interface minimal (gui.screen), tests/ia1i_test.lua y greffe le sien
     on_lua_shortcut = 27, on_gui_selected_tab_changed = 28, on_player_display_resolution_changed = 29,
     on_player_display_scale_changed = 30,
+    -- lot TIRS : effets de tir par âge (script/tirs/tirs.lua) ; le mock ne tire pas : l'événement n'est jamais levé,
+    -- le moteur réel est prouvé par « tirs-ages »
+    on_script_trigger_effect = 31,
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).

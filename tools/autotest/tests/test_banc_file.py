@@ -125,6 +125,8 @@ setlocal
 set NOM=%3
 set D=%~dp0fo-autotest
 if not "%FO_PLACE%"=="" set D=%~dp0fo-autotest-%FO_PLACE%
+if /i "%FAKE_MODE%"=="crash" exit /b 3221225794
+if /i "%FAKE_MODE%"=="muet" exit /b 0
 echo %3>> "%~dp0ordre.txt"
 if not exist "%~dp0actifs" mkdir "%~dp0actifs" 2>nul
 > "%~dp0actifs\%NOM%" echo %NOM%
@@ -135,6 +137,11 @@ if exist "%D%" rmdir /s /q "%D%"
 mkdir "%D%"
 > "%D%\place.txt" echo %NOM% FO_PLACE[%FO_PLACE%] FO_LOCK_HELD[%FO_LOCK_HELD%] FO_AUDIO[%FO_AUDIO%]
 ping -n %2 127.0.0.1 >nul
+> "%D%\create.log" echo cree %NOM%
+> "%D%\benchmark.log" echo [FO-%NOM%] BILAN : 1 OK, 0 ECHEC(S)
+> "%D%\benchmark-stdout.txt" echo t1,0,0,
+if /i not "%FAKE_MODE%"=="interrompu" >> "%D%\benchmark-stdout.txt" echo   Performed 1 updates in 1.000 ms
+> "%D%\done.txt" echo termine
 for %%f in ("%~dp0actifs\*") do if /i not "%%~nxf"=="%NOM%" >> "%~dp0trace-%NOM%.txt" echo avec %%~nxf
 del "%~dp0actifs\%NOM%"
 >> "%~dp0trace-%NOM%.txt" echo fin
@@ -367,6 +374,78 @@ verifie(bool(w) and w[0].startswith("W1 FO_PLACE[] FO_LOCK_HELD[1]") and not ens
         "cohabitation : l'ancien lanceur tourne à la place 1, après V1, jamais en même temps")
 verifie(place_de("Y1") in (2, 3) and place_de("Z1") in (2, 3) and ensemble("V1", "Y1") and ensemble("V1", "Z1"),
         "cohabitation : Y1 et Z1 aux places 2 et 3 pendant que l'ancien attend la place 1")
+
+# 10. Archive ÉCHEC (28/10) : un jeu qui plante ou ne répond pas laissait les journaux PÉRIMÉS du banc précédent, archivés comme
+# les siens. Faux .bat : "crash" (code d'échec sans rien écrire : cmd tronque 3221225794 à -1), "muet" (code 0 sans rien écrire), "interrompu" (écrit tout, sans
+# la ligne « Performed »). Le dossier de la place contient d'abord les fichiers d'un autre lot (vieux, ou récents mais inchangés).
+import gzip  # noqa: E402
+
+
+def planter(vieux):
+    d = os.path.join(tmp, "fo-autotest")
+    shutil.rmtree(d, ignore_errors=True)
+    os.makedirs(d)
+    t = time.time() - 3600 if vieux else time.time() + 30  # « récent » : l'heure du fichier passe pour fraîche
+    for n, txt in (("done.txt", "termine AUTRE"), ("benchmark.log", "[FO-AUTRE] BILAN : 99 OK, 0 ECHEC(S)"),
+                   ("create.log", "cree AUTRE"), ("benchmark-stdout.txt", "t1,\n  Performed 99 updates in 1 ms\n")):
+        with open(os.path.join(d, n), "w") as fh:
+            fh.write(txt)
+        os.utime(os.path.join(d, n), (t, t))
+
+
+def echec(nom, mode, vieux=True):
+    planter(vieux)
+    p = lancer(nom, "ECH", 1, "--places", "1", extra={"FAKE_MODE": mode} if mode else None)
+    code = p.wait(timeout=120)
+    sortie = p.stdout.read().decode("utf-8", "replace")
+    out = os.path.join(tmp, "out", nom)
+    texte = "".join(lignes(os.path.join(out, "ECHEC.txt"))) if os.path.exists(os.path.join(out, "ECHEC.txt")) else None
+    return code, out, texte, sortie
+
+
+code, out, texte, sortie = echec("E_crash", "crash")
+verifie(code not in (0, 12) and texte is not None and "code de sortie" in texte and "PÉRIMÉ" in texte,
+        f"jeu planté : code {code} rendu, ECHEC.txt écrit, journaux périmés signalés")
+verifie(not os.path.exists(os.path.join(out, "benchmark.log.gz")) and not os.path.exists(os.path.join(out, "done.txt"))
+        and not os.path.exists(os.path.join(out, "create.log")),
+        "jeu planté : AUCUN journal périmé archivé (une partie plantée ne se lit pas comme celle d'un autre lot)")
+verifie("ECHEC DU BANC" in sortie, "jeu planté : l'échec est dit sur la sortie du lanceur")
+code, out, texte, sortie = echec("E_muet", "muet")
+verifie(code == 12 and texte is not None and "done.txt PÉRIMÉ" in texte, f"jeu muet (code 0, rien écrit) : code 12 rendu ({code}), ECHEC.txt")
+verifie(not os.path.exists(os.path.join(out, "benchmark.log.gz")), "jeu muet : journal périmé non archivé")
+code, out, texte, sortie = echec("E_recent", "muet", vieux=False)
+verifie(code == 12 and texte is not None and not os.path.exists(os.path.join(out, "benchmark.log.gz")),
+        "journal périmé mais RÉCENT (heure future) : reconnu par sa signature inchangée, code 12")
+code, out, texte, sortie = echec("E_interrompu", "interrompu")
+verifie(code == 12 and texte is not None and "interrompu" in texte and os.path.exists(os.path.join(out, "benchmark.log.gz")),
+        "benchmark interrompu (pas de ligne Performed) : code 12, ECHEC.txt, journaux frais archivés pour le diagnostic")
+code, out, texte, sortie = echec("E_ok", None)
+verifie(code == 0 and texte is None and os.path.exists(os.path.join(out, "benchmark.log.gz"))
+        and "AUTRE" not in gzip.open(os.path.join(out, "benchmark.log.gz"), "rt").read(),
+        "banc normal : code 0, pas de ECHEC.txt, journaux frais (pas ceux du lot précédent)")
+# règle pure
+d = os.path.join(tmp, "diag")
+os.makedirs(d)
+for n in banc.FICHIERS_BANC:
+    with open(os.path.join(d, n), "w") as fh:
+        fh.write("x")
+    os.utime(os.path.join(d, n), (1000.0, 1000.0))
+sig = banc.signature(d)
+pb, per = banc.diagnostic(d, 2000.0, sig, 0, fin=lambda p: True)
+verifie(len(pb) == 4 and per == set(banc.FICHIERS_BANC), "diagnostic : 4 fichiers périmés, 4 problèmes")
+for n in banc.FICHIERS_BANC:
+    os.utime(os.path.join(d, n), (2500.0, 2500.0))
+pb, per = banc.diagnostic(d, 2000.0, sig, 0, fin=lambda p: True)
+verifie(pb == [] and per == set(), "diagnostic : fichiers plus récents que le lancement, tout va bien")
+pb, per = banc.diagnostic(d, 2000.0, sig, 5, fin=lambda p: True)
+verifie(len(pb) == 1 and "code de sortie 5" in pb[0], "diagnostic : code non nul seul = un problème")
+pb, per = banc.diagnostic(d, 2000.0, sig, 0, captures=True, fin=lambda p: False)
+verifie(pb == [], "diagnostic : captures, pas de contrôle de benchmark")
+os.remove(os.path.join(d, "done.txt"))
+pb, per = banc.diagnostic(d, 2000.0, sig, 0, fin=lambda p: True)
+verifie(len(pb) == 1 and "done.txt absent" in pb[0], "diagnostic : done.txt absent")
+pb, per = banc.diagnostic(os.path.join(tmp, "nexistepas"), 2000.0, {}, 0, fin=lambda p: True)
+verifie(len(pb) == 4, "diagnostic : dossier de la place absent = 4 fichiers absents")
 
 # 11. Rien ne reste.
 reste = [d for d in os.listdir(tmp) if d.endswith(".lock")]

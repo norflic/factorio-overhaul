@@ -138,6 +138,24 @@ def fit_times(shots, dets, tol):
 
 
 GAIN_S = 0.9  # s : gain mesuré avant le tir suivant (60 ticks = 0,98 s de sortie)
+SEUIL_COUCHES = 0.25  # corrélation minimale au S0 d'un tir de site à couches TIRS (le reste du mélange la fait baisser)
+
+LUA = os.path.join("C:" + os.sep, "Users", "evan2", "bin", "lua5.2.exe")
+DUMP_COUCHES = (
+    'package.path = "./?.lua;" .. package.path '
+    'local ok, T = pcall(require, "shared.tirs.ages") '
+    'if ok then for e = 1, 15 do local A = T.ages[e] '
+    'if A and A.son and A.son.couches and #A.son.couches > 0 then io.write(e, " ") end end end')
+
+
+def ages_a_couches(mod):
+    """Âges dont le tir porte des couches AJOUTÉES par le lot TIRS (shared/tirs/ages.lua) ; vide sans le lot."""
+    import subprocess
+    try:
+        r = subprocess.run([LUA, "-e", DUMP_COUCHES], cwd=mod, capture_output=True, text=True)
+    except OSError:
+        return set()
+    return {int(v) for v in r.stdout.split()}
 
 
 def volumes_attendus(mod):
@@ -224,6 +242,21 @@ def main():
     print("[FO-TIRS-JOUES] detections (correlation > %.2f, separees de 0,3 s) : %d" % (a.seuil, len(dets)))
 
     tol = a.tol_ms / 1000.0
+    # lot TIRS (27/10) : aux âges à couches ajoutées, le tir n'est plus le S0 seul (le mélange fait baisser la corrélation
+    # et monter le gain) : un tir à couches non apparié est cherché au S0 de son ère, à SEUIL_COUCHES, près de l'instant
+    # prévu ; leur ère est écartée du différentiel de volume
+    # (tools/sound/tirs_couches.py les mesure). Âge d'un niveau n >= 2 : (n + 1) // 2 (prototypes/levels).
+    # (la droite des instants reste ajustée sur tous les tirs, plus bas)
+    couches = ages_a_couches(a.mod)
+    for s in shots:
+        s["couches"] = s["niveau"] >= 2 and (s["niveau"] + 1) // 2 in couches
+    eres_couches = {s["ere"] for s in shots if s["couches"]}
+    if couches:
+        print("[FO-TIRS-JOUES] ages a couches TIRS : %s ; sites a couches : %s" % (
+            ",".join(str(e) for e in sorted(couches)),
+            ", ".join(sorted({"niveau %d" % s["niveau"] for s in shots if s["couches"]})) or "aucun"))
+    # droite ajustée sur TOUS les tirs (ajustée sur les seuls sites sans couche, elle dérive en fin de session : 66 ms
+    # au dernier site de s0-tir, ronde 4) ; les tirs à couches non appariés sont cherchés ensuite près de l'instant prévu
     fit = fit_times(shots, dets, tol)
     if fit is None:
         print("[FO-TIRS-JOUES] ECHEC aucune detection : aucun tir entendu")
@@ -238,6 +271,24 @@ def main():
         r = times[j] - pred
         d = dets[j]
         rec = abs(r) <= tol and j not in used
+        if not rec and s["couches"]:
+            # tir à couches : meilleure corrélation au S0 de son ère près de l'instant prévu
+            i0, i1 = max(0, int((pred - tol) * fs)), min(n, int((pred + tol) * fs) + 1)
+            if i1 > i0:
+                ks = [k for k, t_ in enumerate(tpl) if t_["era"] == s["ere"]]
+                sub = R[ks, i0:i1]
+                kk, jj = np.unravel_index(int(np.argmax(sub)), sub.shape)
+                if sub[kk, jj] >= SEUIL_COUCHES:
+                    k = ks[kk]
+                    oth = R[eras != s["ere"], i0 + jj].max()
+                    oarg = int(np.argmax(np.where(eras != s["ere"], R[:, i0 + jj], -9)))
+                    dets.append({"i": i0 + jj, "t": (i0 + jj) / float(fs), "tpl": tpl[k]["name"], "era": s["ere"],
+                                 "var": tpl[k]["var"], "rho": float(R[k, i0 + jj]), "autre": float(oth),
+                                 "autre_tpl": tpl[oarg]["name"], "k": k, "couches": True})
+                    j = len(dets) - 1
+                    d = dets[j]
+                    r = d["t"] - pred
+                    rec = True
         if rec:
             used.add(j)
             ok_rec += 1
@@ -319,7 +370,8 @@ def main():
                 continue
             rel[e] = 20 * np.log10(float(np.median(gains[e])) / g0)
             gd = 20 * np.log10(np.array(gains[e]) / g0)
-            parts.append("ere %d %+.2f dB (tirs de %+.2f a %+.2f)" % (e, rel[e], gd.min(), gd.max()))
+            parts.append("ere %d %+.2f dB (tirs de %+.2f a %+.2f)%s" % (e, rel[e], gd.min(), gd.max(),
+                         " [site a couches TIRS]" if e in eres_couches else ""))
         print("[FO-TIRS-JOUES] volume en jeu, gain median du tir rapporte au site vanilla (biais de site compris) ; volumes "
               "du prototype lus dans sons.lua : %s : %s" % (", ".join("%d=%.4f" % (e, vols[e]) for e in sorted(vols)),
                                                           " ; ".join(parts)))
@@ -336,6 +388,9 @@ def main():
         vol_ok = bool(rel)
         parts = []
         for e in sorted(rel):
+            if e in eres_couches:
+                parts.append("ere %d : site a couches TIRS, non controle (tools/sound/tirs_couches.py)" % e)
+                continue
             if str(e) not in av_["rel_db"]:
                 vol_ok = False
                 continue

@@ -47,8 +47,9 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
    `factorio.exe` dont la ligne de commande contient le chemin complet du dossier `fo-visual`.
 4. **Bancs toujours par la FILE** : `py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] [--creation <source>]
    [--son] [--captures] [--visuel="<args>"] [--seul] --qui <lot> -- <ticks> <scenario> <source>`. Jusqu'à 3 places
-   (`<racine>\fo-banc-places.txt`, **remettre 1 quand le DC joue**) ; **depuis le 28/10 vers 18 h, ordre du DC : UN SEUL
-   factorio.exe de test à la fois, tests GROUPÉS (scénarios composites), AUCUNE boucle de sondage `until/sleep/tail/grep`**
+   (`<racine>\fo-banc-places.txt`, **remettre 1 quand le DC joue**) ; **depuis le 28/10 vers 18 h, ordre du DC : 1 SEUL
+   factorio.exe de test quand il joue, 3 AU PLUS quand il a fini (« 3 parties max en simultané », 28/10 ~19 h 30) ; tests
+   GROUPÉS (scénarios composites), AUCUNE boucle de sondage plus serrée que `sleep 60`, un seul moniteur par lot**
    (50 `banc.py` en attente et des dizaines de shells par minute rendaient son PC inutilisable ; le fichier de places
    absent vaut 2 : ne jamais le supprimer) ; les images ne tournent qu'à la place 1 ; toute mesure
    de performance se lance avec `--seul`. Ne jamais appeler `fo-autotest.bat` en boucle soi-même. Détails :
@@ -72,6 +73,15 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
   autres bancs : `docs/MEMO_COMPLET.md` §5.
 - Écrire dans un document un texte qui contient une barre oblique inverse : outil Edit ou Write, jamais heredoc ni
   `py -c` (la barre doublée est réduite et corrompt le texte).
+
+## 5 bis. Versions jouables (git ; ordre du DC, 28/10 soir : « utilise également git pour avoir des maj avec des versions qui marchent »)
+- `main` ne reçoit QUE des livraisons dont les critères sont tenus sur 4 graines (ou des outils sans effet sur le jeu) ;
+  le jeu charge ce dossier. Chaque version jouable = `info.json` montée + `changelog.txt` + banc `content` vert en moteur
+  réel + tag `jouable-X.Y.Z`, et la branche `jouable` est déplacée sur ce tag (`git branch -f jouable jouable-X.Y.Z`).
+- Dernière version qui marche : `git tag | grep jouable` (aujourd'hui `jouable-0.6.7`). Retour arrière si une fusion casse le jeu :
+  `git checkout jouable` dans un worktree à part, ou `git revert` de la fusion sur `main` ; ne jamais réécrire l'historique de
+  `main`. Les lots refusés ou parqués restent sur leurs branches (`layout`, `recon`, `fer`, `couverture*`, `petrole2`, `adopte*`…).
+- Aucun envoi à l'extérieur (pas de dépôt distant) sans accord du DC.
 
 ## 6. Règles de code (ARCHITECTURE §2)
 - Cycle settings → data → control. `control.lua` ne contient que des `require`. Abonnements statiques (bus `Events`).

@@ -96,13 +96,28 @@ local function err(ctx, path, msg, sig)
   list[#list + 1] = { where = ctx.proto .. path, msg = msg, sig = ctx.ptype .. "|" .. (sig or msg) }
 end
 
+-- Propriétés « requises » de la doc qui s'excluent l'une l'autre. Doc 1.1.91 : AnimationPrototype marque `layers` ET
+-- `filename` non facultatifs, alors que filename est « Only loaded if `layers` is not defined » (et « Mandatory if
+-- `stripes` is not defined ») ; vanilla n'a aucun AnimationPrototype, le bruit vanilla ne couvre donc pas ce cas (lot
+-- TIRS, 27/10 : flammes de bouche dessinées par rendering.draw_animation).
+local EXCLUSIFS = {
+  AnimationPrototype = { layers = { "filename", "stripes" }, filename = { "layers", "stripes" } },
+}
+
+local function remplace(struct_name, name, v)
+  local e = EXCLUSIFS[struct_name] and EXCLUSIFS[struct_name][name]
+  if not e then return false end
+  for _, k in ipairs(e) do if v[k] ~= nil then return true end end
+  return false
+end
+
 local function check_struct(ctx, v, props, path, struct_name)
   if type(v) ~= "table" then
     err(ctx, path, "table attendue pour " .. struct_name .. ", obtenu " .. type(v), "nottable:" .. struct_name)
     return
   end
   for name, p in sorted_pairs(props) do
-    if not p.optional and v[name] == nil and not (p.alt and v[p.alt] ~= nil) then
+    if not p.optional and v[name] == nil and not (p.alt and v[p.alt] ~= nil) and not remplace(struct_name, name, v) then
       err(ctx, path, "propriété requise absente '" .. name .. "' (" .. struct_name .. ")", "missing:" .. struct_name .. "." .. name)
     end
   end
