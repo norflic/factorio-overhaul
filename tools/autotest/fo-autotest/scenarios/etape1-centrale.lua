@@ -18,6 +18,51 @@ local function factions()
   return out
 end
 
+
+-- Diagnostic des reseaux electriques d'une faction (a 30, 45 et 60 min) : par reseau, poteaux, generateurs, foreuses electriques
+-- (avec leur etat), boite englobante ; puis, pour chaque reseau sans generateur qui porte des foreuses, la plus courte distance
+-- de ses poteaux a un poteau du reseau du generateur et le plus proche poteau du reseau du generateur.
+local function net_diag(s, r, minute)
+  local nets = {}
+  local function net(id) nets[id] = nets[id] or { poles = {}, gens = 0, drills = 0, nopow = 0, work = 0, x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9 } return nets[id] end
+  for _, p in ipairs(s.find_entities_filtered({ force = r.force, type = "electric-pole" })) do
+    local n = net(p.electric_network_id or -1)
+    n.poles[#n.poles + 1] = p.position
+    n.x0, n.y0 = math.min(n.x0, p.position.x), math.min(n.y0, p.position.y)
+    n.x1, n.y1 = math.max(n.x1, p.position.x), math.max(n.y1, p.position.y)
+  end
+  for _, g in ipairs(s.find_entities_filtered({ force = r.force, type = "generator" })) do net(g.electric_network_id or -1).gens = net(g.electric_network_id or -1).gens + 1 end
+  for _, d in ipairs(s.find_entities_filtered({ force = r.force, type = "mining-drill" })) do
+    if d.prototype.electric_energy_source_prototype then
+      local n = net(d.electric_network_id or -1)
+      n.drills = n.drills + 1
+      if d.status == defines.entity_status.working then n.work = n.work + 1
+      elseif d.status == defines.entity_status.no_power or d.status == defines.entity_status.low_power then n.nopow = n.nopow + 1 end
+    end
+  end
+  local ids = {}
+  for id in pairs(nets) do ids[#ids + 1] = id end
+  table.sort(ids)
+  local gen_net
+  for _, id in ipairs(ids) do if nets[id].gens > 0 then gen_net = id end end
+  for _, id in ipairs(ids) do
+    local n = nets[id]
+    local extra = ""
+    if gen_net and id ~= gen_net and n.drills > 0 then
+      local best, bp, bq = 1e9
+      for _, a in ipairs(n.poles) do
+        for _, b in ipairs(nets[gen_net].poles) do
+          local d = math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2)
+          if d < best then best, bp, bq = d, a, b end
+        end
+      end
+      if bp then extra = string.format(" | plus court ecart au reseau du generateur %.1f tuiles entre (%.1f,%.1f) et (%.1f,%.1f)", best, bp.x, bp.y, bq.x, bq.y) end
+    end
+    log(TAG .. string.format("composante minute %d | %s | reseau %d%s | poteaux=%d generateurs=%d foreuses_elec=%d en_marche=%d sans_courant=%d | boite (%.0f,%.0f)-(%.0f,%.0f)%s",
+      minute, r.key, id, id == gen_net and " [GENERATEUR]" or "", #n.poles, n.gens, n.drills, n.work, n.nopow, n.x0, n.y0, n.x1, n.y1, extra))
+  end
+end
+
 base.tick = function(ctx, e)
   if tick0 then tick0(ctx, e) end
   -- chantiers des factions toutes les 2 min (diagnostic : état, entités posées, ce qui reste et pourquoi)
@@ -39,6 +84,9 @@ base.tick = function(ctx, e)
         end
       end
     end
+  end
+  if e.tick == 30 * MIN or e.tick == 45 * MIN or e.tick == 60 * MIN then
+    for _, r in ipairs(factions()) do net_diag(ctx.surface(), r, e.tick / MIN) end
   end
   if e.tick > 0 and e.tick % (5 * MIN) == 0 then
     local s = ctx.surface()
