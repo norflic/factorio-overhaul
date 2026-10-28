@@ -43,7 +43,7 @@ end
 
 --- Une entité de ce GENRE (type du moteur : un niveau supérieur remplace le nom, pas le type) de la force sur la place `e`.
 local function real_of(surface, e, force, types)
-  local found = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.6, force = force, type = types })
+  local found = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.2, force = force, type = types })
   return found[1]
 end
 
