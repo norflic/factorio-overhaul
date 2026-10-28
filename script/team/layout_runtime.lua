@@ -30,26 +30,45 @@ local function drill_protos()
   local names = {}
   for n in pairs(all) do names[#names + 1] = n end
   table.sort(names)
+  local why = {}
+  local function no(r) why[r] = (why[r] or 0) + 1 end
   for _, n in ipairs(names) do
     local p = all[n]
     local sp = M.spec(n)
     local cb = try(function() return p.collision_box end)
     local items = try(function() return p.items_to_place_this end)
     local hidden = try(function() return p.has_flag("hidden") end)
-    if sp and sp.kind == "drill" and sp.usage_kw and cb and items and items[1] and not hidden
-        and try(function() return p.electric_energy_source_prototype end) then
+    local electric = try(function() return p.electric_energy_source_prototype end)
+    if not sp then no("pas de fiche de gabarit")
+    elseif sp.kind ~= "drill" or not sp.usage_kw then no("pas electrique pour le gabarit")
+    elseif not cb then no("boite de collision")
+    elseif not (items and items[1]) then no("pas d'objet pour la poser")
+    elseif hidden then no("cachee")
+    elseif not electric then no("pas electrique au prototype")
+    else
       local w = math.ceil(cb.right_bottom.x - cb.left_top.x - 1e-6)
       local h = math.ceil(cb.right_bottom.y - cb.left_top.y - 1e-6)
-      local drop = try(function() return p.vector_to_place_result end)
+      -- Le vecteur de sortie (`vector_to_place_result`) n'existe QU'A L'ETAPE DATA : au moteur (LuaEntityPrototype) il n'est
+      -- pas lisible (constat en jeu, 28/10 : « vitesse, rayon ou sortie illisibles » pour les 30 foreuses). Il vient de la
+      -- fiche du gabarit (M.spec), calculee comme l'etape data deplace les points de jeu ; le rayon se lit au prototype.
+      local drop = sp.drop
       local speed = try(function() return p.mining_speed end)
-      local radius = try(function() return p.resource_searching_radius end)
+      local radius = try(function() return p.mining_drill_radius end) or sp.radius
       -- l'emprise du gabarit (M.spec) et celle du prototype doivent être les mêmes : sinon la foreuse n'est pas posable ici
-      if w == h and w == sp.w and speed and speed > 0 and radius and drop then
+      if w ~= h or w ~= sp.w then no("emprise differente du gabarit")
+      elseif not (speed and speed > 0 and radius and drop) then no("vitesse, rayon ou sortie illisibles")
+      else
         list[#list + 1] = { name = n, item = items[1].name, w = w, reach = radius, speed = speed,
           drop = { drop[1] or drop.x, drop[2] or drop.y }, cats = try(function() return p.resource_categories end) or {} }
       end
     end
   end
+  local parts = {}
+  local keys = {}
+  for r in pairs(why) do keys[#keys + 1] = r end
+  table.sort(keys)
+  for _, r in ipairs(keys) do parts[#parts + 1] = why[r] .. " " .. r end
+  LayoutRT.proto_why = #names .. " foreuse(s) au total, ecartees : " .. (#parts > 0 and table.concat(parts, ", ") or "aucune")
   table.sort(list, function(a, b)
     if a.speed ~= b.speed then return a.speed > b.speed end
     return a.name < b.name
@@ -85,9 +104,17 @@ function LayoutRT.options(fname, item, in_stock)
   local proto = game.entity_prototypes[item]
   local cat = proto and try(function() return proto.resource_category end)
   local out = {}
+  local protos_n, cat_n = 0, 0
   for _, d in ipairs(drill_protos()) do
-    if cat and d.cats[cat] and (unlocked(force, d.item) or (in_stock and in_stock(d.item) > 0)) then out[#out + 1] = d end
+    protos_n = protos_n + 1
+    if cat and d.cats[cat] then
+      cat_n = cat_n + 1
+      if unlocked(force, d.item) or (in_stock and in_stock(d.item) > 0) then out[#out + 1] = d end
+    end
   end
+  -- raison d'une liste vide (journal [FO-LAYOUT]) : prototypes retenus, de la bonne catégorie
+  LayoutRT.last_why = string.format("%d foreuse(s) electrique(s) retenue(s) aux prototypes, %d de la categorie %s, %d debloquee(s) ; %s",
+    protos_n, cat_n, tostring(cat), #out, tostring(LayoutRT.proto_why))
   return out
 end
 

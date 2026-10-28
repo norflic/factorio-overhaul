@@ -923,7 +923,7 @@ function Build.layout_place(f, surface, p, item, flow, a)
   local b = f.build
   local options = LayoutRT.options(f.force, item, function(name) return Stock.count(f, name) end)
   if #options == 0 then
-    Build.layout_log(f, string.format("%s : aucune foreuse electrique debloquee ni au coffre", item))
+    Build.layout_log(f, string.format("%s : aucune foreuse electrique debloquee ni au coffre (%s)", item, tostring(LayoutRT.last_why)))
     return nil, "foreuse"
   end
   local pole = p.spec and p.spec.pole

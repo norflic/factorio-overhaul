@@ -25,7 +25,8 @@ local function proto_of(name, over)
   local half = sp.w * 0.5 - 0.1
   local p = {
     name = name, type = "mining-drill", collision_box = { left_top = { x = -half, y = -half }, right_bottom = { x = half, y = half } },
-    mining_speed = sp.speed, resource_searching_radius = sp.radius, vector_to_place_result = { sp.drop[1], sp.drop[2] },
+    -- comme au moteur : `mining_drill_radius` se lit, `vector_to_place_result` NON (etape data seulement ; constat en jeu 28/10)
+    mining_speed = sp.speed, mining_drill_radius = sp.radius,
     items_to_place_this = { { name = name } }, electric_energy_source_prototype = {}, resource_categories = { solide = true },
     has_flag = function() return false end,
   }
@@ -75,6 +76,7 @@ do
   o = RT.options("eq", "iron-ore", nil)
   check(o[1].name == lvl(5) and o[2].name == lvl(3) and o[3].name == "electric-mining-drill", "la plus rapide d'abord : " .. names(o))
   check(o[1].speed > o[2].speed and o[2].speed > o[3].speed, "vitesses décroissantes")
+  check(o[1].drop and o[1].drop[2] == M.spec(lvl(5)).drop[2] and o[1].reach == M.spec(lvl(5)).radius, "sortie de la fiche du gabarit, rayon du prototype")
   -- exclusions : à combustion, cachée, emprise différente, autre catégorie de ressource
   enabled["burner-mining-drill"], enabled[lvl(6)], enabled[lvl(7)], enabled[lvl(8)] = true, true, true, true
   o = RT.options("eq", "iron-ore", nil)
