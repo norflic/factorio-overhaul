@@ -184,7 +184,9 @@ for _, kind in ipairs(T.OUTPOST_ORDER) do KIND_OF_RES[T.outposts[kind].resource]
 --- recherchés ; banc p4 du lot : modules à 150/min en réserve 15 min sur « fast-inserter », jamais recherché). Rend
 --- (gabarit, args) ou (nil, objets manquants de la plus petite taille).
 local function fit_module(meth, rate, book, stock, has_plant)
-  local g, args = A.sized(meth, rate)
+  -- lot PLANDIR : poteau du gabarit = le moins cher dont la recette est débloquée (A.choose_pole)
+  local pole = A.choose_pole(book, stock)
+  local g, args = A.sized(meth, rate, pole)
   if not g then return nil, {} end
   local function missing_of(gg)
     local _, items = A.cost(meth, gg, { has_plant = has_plant })
@@ -199,7 +201,7 @@ local function fit_module(meth, rate, book, stock, has_plant)
     local a2 = {}
     for i = 1, #args do a2[i] = args[i] end
     a2[g.ext.arg] = args[g.ext.arg] - 1
-    local g2 = A.template(meth.gen, a2)
+    local g2 = A.template(meth.gen, a2, pole)
     if not g2 then break end
     g, args = g2, a2
     miss = missing_of(g)
@@ -715,7 +717,7 @@ local function execute(f, cs, o, view, book, tick, research)
         local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil)
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
-          rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near,
+          rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
           tick, research)
         if not id then why = "plan directeur : " .. tostring(w2) hold(cs, meth.product, w2, tick) break end
@@ -745,7 +747,7 @@ local function execute(f, cs, o, view, book, tick, research)
       local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil)
       if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
-        rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key,
+        rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
         why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
       if not id then why2 = "plan directeur : " .. tostring(w2) hold(cs, o.item, w2, tick) break end
       ids[#ids + 1] = id
