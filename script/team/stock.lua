@@ -156,6 +156,8 @@ Stock.free_view = nil
 Stock.place_smelters = nil
 --- Registre des fours du QG (Outposts.smelters), idem.
 Stock.smelters = nil
+--- Exemplaires d'un objet que le plan directeur va encore réclamer (posé par script/team/board.lua) : jamais dormants.
+Stock.demand = nil
 
 --- Lot ADOPTE (constat du DC : « les IA se mettent à poser des fours ») : les fours LIBRES au-delà de Ad.IDLE_KEEP sont posés
 --- au QG (registre f.smelters, rangées T.hq_rows.smelter), jusqu'à Br.SMELT_HARD fours en tout (ils sont déjà fabriqués : un four
@@ -168,7 +170,8 @@ function Stock.deploy_idle(f, surface, tick)
   if ok and on == false then return 0 end
   local free = Stock.free_view(f, tick)
   -- Dormant = resté LIBRE toute une fenêtre (A.window) : le kit de départ et les fours qu'une tâche va réclamer ne sont pas posés.
-  local w, lo = Ad.window(f.idle_window, tick, free[T.SMELTER] or 0)
+  local claimed = Stock.demand and Stock.demand(f, T.SMELTER) or 0
+  local w, lo = Ad.window(f.idle_window, tick, math.max(0, (free[T.SMELTER] or 0) - claimed))
   f.idle_window = w
   if lo == nil then return 0 end
   local have = lo
@@ -180,8 +183,8 @@ function Stock.deploy_idle(f, surface, tick)
   f.stats = f.stats or {}
   f.stats.idle_logs = (f.stats.idle_logs or 0) + 1
   if f.stats.idle_logs <= 60 then
-    log(string.format("[FO-ADOPTE] player : fenetre %.1f min : %d four(s) au coffre, %d libre(s) toute la fenetre, registre %d/%d, a poser %d",
-      (tick - (f.started or 0)) / 3600, Stock.count(f, T.SMELTER), have, #registry, cap, n))
+    log(string.format("[FO-ADOPTE] player : fenetre %.1f min : %d four(s) au coffre, %d libre(s) et non reclames toute la fenetre (plan : %d), registre %d/%d, a poser %d",
+      (tick - (f.started or 0)) / 3600, Stock.count(f, T.SMELTER), have, claimed, #registry, cap, n))
   end
   if n <= 0 then return 0 end
   local tmp = game.create_inventory(8)

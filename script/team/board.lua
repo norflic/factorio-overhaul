@@ -260,6 +260,24 @@ end
 Stock.free_view = function(f, tick) return Board.view_stock(f, Stock.contents(f), tick) end
 Stock.place_smelters = function(f, surface, n, carrier) return Outposts.place_smelters(f, surface, n, carrier) end
 Stock.smelters = function(f) return Outposts.smelters(f) end
+-- Exemplaires de `item` que les projets du plan directeur (f.build, données seules : ce fichier ne requiert pas build.lua) vont
+-- encore réclamer : entités planifiées pas encore posées, moins ce que le projet a déjà pris au coffre (p.stock).
+Stock.demand = function(f, item)
+  local b = f.build
+  if not (b and b.order) then return 0 end
+  local n = 0
+  for _, id in ipairs(b.order) do
+    local p = b.projects[id]
+    if p and p.state ~= "fini" and p.state ~= "refuse" then
+      local need = 0
+      for _, e in ipairs(p.ents or {}) do
+        if not e.built and e.item == item then need = need + 1 end
+      end
+      n = n + math.max(0, need - ((p.stock or {})[item] or 0))
+    end
+  end
+  return n
+end
 
 function Board.get(f)
   f.team.board = f.team.board or { tasks = {}, cooldown = {} }
