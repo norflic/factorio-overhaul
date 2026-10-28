@@ -2022,6 +2022,7 @@ local function audit_poles(f, surface, p)
   return lost
 end
 Build.AUDIT_TICKS = 7200 -- un projet fini est recontrôlé toutes les 2 min (poteaux seulement)
+Build.AUDIT_MAX = 5     -- réouvertures d'un même projet au plus (comme Rc.MAX_LOSSES du lot COUVERTURE) : on ne nourrit pas indéfiniment un point que l'ennemi tient
 
 local function all_built(p)
   for _, e in ipairs(p.ents) do if not e.built then return false end end
@@ -2169,7 +2170,7 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "raccordement" then
-    local lost = audit_poles(f, surface, p)
+    local lost = (p.reopened or 0) < Build.AUDIT_MAX and audit_poles(f, surface, p) or 0
     if lost > 0 then
       log(string.format("[FO-IA1D] %s : projet %d, %d poteau(x) detruit(s) avant la fin : remis a batir", f.key or "player", p.id, lost))
       p.state, p.reason, p.reserve_next = "reserve", "poteaux detruits", nil
@@ -2205,7 +2206,7 @@ local function pulse_team(f, tick)
       log(string.format("[FO-IA1D] %s : projet %d reprend son chantier a %.1f min", f.key or "player", p.id, tick / 3600))
     end
     -- lot CENTRALE : un projet fini dont des poteaux ont été détruits repasse en réserve (les poteaux seulement)
-    if p and p.state == "fini" and tick >= (p.audit_next or 0) then
+    if p and p.state == "fini" and tick >= (p.audit_next or 0) and (p.reopened or 0) < Build.AUDIT_MAX then
       p.audit_next = tick + Build.AUDIT_TICKS + (p.id % 7) * 60
       local lost = audit_poles(f, surface, p)
       if lost > 0 then
