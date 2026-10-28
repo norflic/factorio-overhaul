@@ -40,7 +40,8 @@ local function forces_of(ctx)
 end
 
 local init0, tick0 = base.init, base.tick
-base.description = FILL and "STOCK-PLEIN : stock rempli a 100 % (QG et annexes), observation des equipes"
+base.description = FILL == true and "STOCK-PLEIN : stock rempli a 100 % (QG et annexes), observation des equipes"
+  or (FILL == "bruit" and "STOCK-PLEIN BRUIT : temoin + une plaque de fer de plus (mesure de la divergence F252)")
   or "STOCK-PLEIN TEMOIN : meme partie et meme kit, stock non rempli"
 base.check_tick = CHECK
 
@@ -100,7 +101,15 @@ base.tick = function(ctx, e)
   if tick0 then tick0(ctx, e) end
   local s = ctx.surface()
   local st = ctx.state()
-  if FILL and e.tick >= FILL_TICK and e.tick % REFILL == 0 then
+  if FILL == "bruit" and e.tick == FILL_TICK then
+    -- BRUIT : une seule plaque de plus au coffre (perturbation minime, stock loin d'etre plein) : mesure ce que vaut une
+    -- divergence de la partie (F252) sur les memes indicateurs, pour juger l'ecart plein / temoin.
+    for _, force in ipairs(forces_of(ctx)) do
+      local hq = hq_of(s, force)
+      if hq and hq.valid then hq.insert({ name = "iron-plate", count = 1 }) end
+    end
+  end
+  if FILL == true and e.tick >= FILL_TICK and e.tick % REFILL == 0 then
     local put = 0
     for _, force in ipairs(forces_of(ctx)) do
       local hq = hq_of(s, force)
@@ -145,7 +154,7 @@ base.finish = function(ctx)
     ctx.log(TAG .. string.format("RESUME %s | 2e moitie (%d releves) : qg %.1f/%.0f annexes %.1f (%.0f/%.0f cases) | pnj %.1f portes_cases %.1f (%.2f par pnj) sol %.1f | plaques de fer produites %.1f/min",
       force, n, qu, qs, na, fa, fs, pnj, carried, pnj > 0 and carried / pnj or 0, ground, per_min))
   end
-  if FILL then
+  if FILL == true then
     local qu, qs = window(rows, "player", "qu", mid), window(rows, "player", "qs", mid)
     ctx.check(qs > 0 and qu >= 0.95 * qs, "le coffre du QG de votre equipe est plein (>= 95 % des cases) sur la 2e moitie", string.format("%.1f/%.0f", qu, qs))
     local na = window(rows, "player", "na", mid)
