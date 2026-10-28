@@ -39,6 +39,13 @@ local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG 
 local Board = {}
 
 local RETRY_TICKS = 1800
+-- Mémoire d'échec « danger » par tâche (VOTRE équipe et les factions) : une tâche refusée par la porte du danger, de l'abri
+-- ou du programme (trajet dangereux, site gardé) n'est pas reproposée à un PNJ avant une attente qui DOUBLE à chaque échec de
+-- suite (RETRY_TICKS, 2x, 4x… au plus DANGER_RETRY_MAX), remise à zéro à la première réussite. Moteur réel, etape1-guide, VOTRE
+-- équipe, graines 1618033988 et 20261020 : les mêmes clés (minage de cuivre, service d'un avant-poste) échouaient en « danger »
+-- environ 60 fois chacune en 60 min (612 + 170 + 113 échecs sur une graine), chaque essai rendant le PNJ inactif : 31 à 57 % d'inactifs.
+local DANGER_FAILS = { danger = true, abri = true, programme = true }
+local DANGER_RETRY_MAX = 6 * 3600
 
 local function sorted_keys(t)
   local ks = {}
@@ -740,12 +747,20 @@ function Board.finish(f, task, ok, tick)
   st[task.kind] = st[task.kind] or { ok = 0, fail = 0 }
   if ok then
     st[task.kind].ok = st[task.kind].ok + 1
+    if b.dfail then b.dfail[task.key] = nil end
   else
     st[task.kind].fail = st[task.kind].fail + 1
     -- Lot IA3-b : une tâche PRÉEMPTÉE (sa matière est partie à une urgence, règle du registre) n'est pas en faute : elle
     -- peut être replanifiée dès la pensée suivante.
     if task.fail ~= "preempte" then
-      b.cooldown[task.key] = tick + (task.fond and RETRY_TICKS * 2 or RETRY_TICKS)
+      local wait = task.fond and RETRY_TICKS * 2 or RETRY_TICKS
+      b.dfail = b.dfail or {}
+      if DANGER_FAILS[task.fail] then
+        local n = math.min((b.dfail[task.key] or 0) + 1, 8)
+        b.dfail[task.key] = n
+        wait = math.min(wait * 2 ^ (n - 1), DANGER_RETRY_MAX)
+      end
+      b.cooldown[task.key] = tick + wait
     end
     if task.fail then
       f.team.fail_reasons[task.fail] = (f.team.fail_reasons[task.fail] or 0) + 1
