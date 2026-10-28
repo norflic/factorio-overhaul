@@ -133,7 +133,7 @@ local function report_player(s, minute)
     local fs = remote.call("fo-fantomes", "status")
     local scan = #s.find_entities_filtered({ force = "player", name = "entity-ghost", ghost_name = "burner-mining-drill" })
     log(TAG .. string.format("fantomes minute %d | aperceus en cours %d (%d fantomes dont %d foreuses) | carte : %d fantomes de foreuse | ORPHELINS %d | montres %d arrivee %d fin %d balayage %d",
-      minute, fs.entries, fs.live, fs.drills, scan, scan - fs.drills, fs.shown, fs.arrive, fs.fin, fs.balayage))
+      minute, fs.entries or 0, fs.live or 0, fs.drills or 0, scan, scan - (fs.drills or 0), fs.shown, fs.arrive, fs.fin, fs.balayage))
   end
   local techs = 0
   for _, tc in pairs(game.forces.player.technologies) do if tc.researched then techs = techs + 1 end end
