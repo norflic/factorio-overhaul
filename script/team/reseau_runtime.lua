@@ -101,15 +101,18 @@ local function classify_step()
   local last = math.min(w.i + Rt.PROTOS_PER_SLICE - 1, #w.names)
   for i = w.i, last do
     local ep = game.entity_prototypes[w.names[i]]
-    local src = ep and ep.electric_energy_source_prototype
-    if src then
-      local use, prod = ep.max_energy_usage or 0, ep.max_energy_production or 0
-      if use > 0 then
-        w.cons[ep.type] = true
-      elseif prod > 0 and PRODUCER_PRIORITY[src.usage_priority] then
-        w.prod[ep.type] = true
+    -- un prototype qui refuse la lecture d'un attribut (type sans énergie) est simplement ignoré
+    pcall(function()
+      local src = ep and ep.electric_energy_source_prototype
+      if src then
+        local use, prod = ep.max_energy_usage or 0, ep.max_energy_production or 0
+        if use > 0 then
+          w.cons[ep.type] = true
+        elseif prod > 0 and PRODUCER_PRIORITY[src.usage_priority] then
+          w.prod[ep.type] = true
+        end
       end
-    end
+    end)
   end
   w.i = last + 1
   if w.i > #w.names then
@@ -218,8 +221,9 @@ local function producer_record(e)
   local d = power_proto(e.name)
   if d.prod <= 0 then return nil end
   local bb = e.bounding_box
-  local out
-  if e.type == "generator" then out = e.energy_generated_last_tick * Rt.KW end
+  -- production observée : seules les machines génératrices ont ce relevé (les autres types refusent la lecture)
+  local ok, gen = pcall(function() return e.energy_generated_last_tick end)
+  local out = ok and gen and gen * Rt.KW or nil
   return { id = e.unit_number, name = e.name, x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y,
     kw = d.prod, out_kw = out }
 end
@@ -336,11 +340,13 @@ local function template_power_kw(spec)
 end
 
 --- Puissance d'une unité de la centrale existante (production lue aux prototypes des pièces d'un gabarit d'une unité).
+local UNIT_CACHE = {}    -- générateur -> { kw, max } ou false (variable locale : recalculée après un chargement)
 local function plant_unit(spec)
   local fn = spec and spec.gen and M.GEN[spec.gen]
   if not fn then return nil end
+  if UNIT_CACHE[spec.gen] ~= nil then return UNIT_CACHE[spec.gen] or nil end
   local ok, g = pcall(fn, 1)
-  if not (ok and g and g.entities) then return nil end
+  if not (ok and g and g.entities) then UNIT_CACHE[spec.gen] = false return nil end
   local kw = 0
   for _, e in ipairs(g.entities) do
     local ep = game.entity_prototypes[e.name]
@@ -348,7 +354,8 @@ local function plant_unit(spec)
   end
   if kw <= 0 then kw = g.electric_out_kw or 0 end
   local ext = g.extensions and g.extensions[1]
-  return { kw = kw, max = ext and ext.max or 1 }
+  UNIT_CACHE[spec.gen] = { kw = kw, max = ext and ext.max or 1 }
+  return UNIT_CACHE[spec.gen]
 end
 
 local function open_state(s) return s ~= "fini" and s ~= "refuse" and s ~= "bloque" end
@@ -476,7 +483,7 @@ end
 local function apply(f, S, tick)
   local rs = state_of(f)
   local A = S.A
-  local report = { tick = tick, poles = #S.poles, comps = A.ncomp, consumers = #S.cons, producers = #S.prods, powered = A.n_powered,
+  local report = { tick = tick, started = S.t0, poles = #S.poles, comps = A.ncomp, consumers = #S.cons, producers = #S.prods, powered = A.n_powered,
     uncovered = #A.uncovered, orphans = #A.orphans, islands = #A.islands, dead_ends = #A.dead }
   report.check = engine_check(S, A)
   -- zones non couvertes
@@ -556,7 +563,7 @@ local function step_team(f, tick)
   local S = SURVEY[key]
   if not S then
     if tick < rs.next then return end
-    S = { stage = "poles" }
+    S = { stage = "poles", t0 = tick }
     SURVEY[key] = S
   end
   if not Tokens.take(f, tick, Rt.TOKENS) then return end
@@ -605,6 +612,11 @@ end)
 ---------------------------------------------------------------------------------------------------
 -- Lecture
 ---------------------------------------------------------------------------------------------------
+--- Oublie les relevés en cours (tests hors jeu : une équipe remplacée ne doit pas hériter du relevé de la précédente).
+function Rt.reset()
+  for k in pairs(SURVEY) do SURVEY[k] = nil end -- vidage seulement : l'ordre est sans effet
+end
+
 --- Dernier relevé publié d'une équipe (copie superficielle) ou nil.
 function Rt.report(f)
   return f and f.reseau and f.reseau.report or nil
