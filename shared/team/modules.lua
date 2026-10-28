@@ -329,6 +329,37 @@ table.sort(M.POLES, function(a, b)
   return a < b
 end)
 
+--- Lot PLANDIR (T2) : bras à combustion (celui des données qui brûle son combustible : il démarre sans courant, la centrale
+--- à vapeur en a besoin) et bras électriques, du plus lent au plus rapide (débit, puis nom). Lus dans BASE.
+M.BURNER_ARM = nil
+M.ELECTRIC_ARMS = {}
+for name, s in pairs(BASE) do
+  if s.kind == "inserter" then
+    if s.burner then
+      if not M.BURNER_ARM or name < M.BURNER_ARM then M.BURNER_ARM = name end
+    elseif s.reach == 1 then
+      M.ELECTRIC_ARMS[#M.ELECTRIC_ARMS + 1] = name
+    end
+  end
+end
+table.sort(M.ELECTRIC_ARMS, function(a, b)
+  if BASE[a].rate ~= BASE[b].rate then return BASE[a].rate < BASE[b].rate end
+  return a < b
+end)
+
+--- Le bras électrique (portée 1) le plus lent que `usable(nom)` accepte et qui porte `need` objets/s depuis un tapis ; à
+--- défaut le plus rapide accepté. nil si aucun n'est accepté.
+function M.electric_arm(usable, need)
+  local fastest
+  for _, name in ipairs(M.ELECTRIC_ARMS) do
+    if usable(name) then
+      fastest = name
+      if BASE[name].rate * M.BELT_PICKUP * M.MARGIN + M.EPS >= (need or 0) then return name end
+    end
+  end
+  return fastest
+end
+
 --- Le poteau le moins cher que `usable(nom)` accepte (vrai quand la recette est débloquée et ses matières à portée), ou
 --- nil si aucun ne l'est.
 function M.cheapest_pole(usable)
@@ -647,8 +678,8 @@ function G.steam(nb)
     b:put("boiler", x, yb - 1, N, { role = "chaudiere" })
     b:put("steam-engine", x, yb - 6, N, { role = "machine" })
     b:put("steam-engine", x, yb - 11, N, { role = "machine" })
-    b:put("burner-inserter", x, yb + 1, S)
-    b:put("burner-inserter", x + 2, yb + 1, S)
+    b:put(M.BURNER_ARM, x, yb + 1, S)
+    b:put(M.BURNER_ARM, x + 2, yb + 1, S)
   end
   local belt = b:belt_line(W_ - 1, yb + 2, 1, yb + 2, W)
   b:port({ kind = "tapis", io = "in", ent = belt[1], lanes = { "coal", "coal" } })

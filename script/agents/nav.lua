@@ -96,18 +96,6 @@ function Nav.think(agent, tick)
       agent.stuck = agent.stuck + 1
       if agent.stuck >= C.STUCK_LIMIT then
         Registry.stats().stuck = Registry.stats().stuck + 1
-        do -- TMPDIAG
-          local e = agent.entity
-          if e and e.valid and e.force.name == "player" then
-            local p = e.position
-            local near = {}
-            for _, x in ipairs(e.surface.find_entities_filtered({ position = p, radius = 5, limit = 12 })) do near[#near + 1] = x.name end
-            local en = e.surface.count_entities_filtered({ position = p, radius = 40, force = "enemy" })
-            log(string.format("[TMPDIAG] stuck %d,%d tile %s tache %s goal %s,%s ennemis40 %d autour [%s] pause %s tick %d", p.x, p.y,
-              e.surface.get_tile(p.x, p.y).name, tostring(agent.task and agent.task.key), agent.goal and math.floor(agent.goal.x) or -1,
-              agent.goal and math.floor(agent.goal.y) or -1, en, table.concat(near, ","), tostring(agent.pause_until), tick))
-          end
-        end
         Locomotion.stop(agent)
         agent.nav = nil
         agent.nav_fail = "stuck"

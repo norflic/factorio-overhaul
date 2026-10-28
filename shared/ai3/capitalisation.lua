@@ -1764,7 +1764,7 @@ function Ca.decide(input, st)
     end
   end
   local repli = Lv.repli(Ca, ctx, plan, req, orders) -- lot LEVIERS : pourquoi ces leviers, ou pourquoi aucun
-  return { repli = repli, want = Lv.wanted(ctx), orders = orders, refus = refus, explore = explore, s = ctx.ch.s, delta = ctx.ch.delta, alpha = ctx.ch.alpha,
+  return { repli = repli, want = Lv.wanted(ctx), unlocks = ctx.lv_unlock or {}, orders = orders, refus = refus, explore = explore, s = ctx.ch.s, delta = ctx.ch.delta, alpha = ctx.ch.alpha,
     tmax = ctx.ch.tmax, g = ctx.g, lambda = ctx.lambda, Y = ctx.Y, K = plan.K, budget = budget, bank = st.bank,
     flow_part = bank, stock_part = stock_part, spent = spent, labor = ctx.labor, labor_used = work_used,
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,

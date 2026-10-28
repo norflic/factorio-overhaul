@@ -14,7 +14,7 @@
     teams[clé] = { map, epoch, stream, char = { prudence, agressivite } | nil (forcé par un banc), hold, stats,
                    escorts = { [id d'agent] = { units, n, since } } }
     agents[id] = { final, pts, i, epoch, refuge, hold, hold_stop, hp, armed, armed_t, label, label_key, label_t, escort, tour,
-                   backs, back_t, ret_t, flee_t, flee_ep }
+                   backs, back_t, ret_t, flee_t, flee_ep, look_t, shelter_t }
   Flux : Tr.new_stream(graine, 470 + numéro de l'équipe) (sels 470 à 479 : IA3-k ; 479 = votre équipe).
 ]]
 
@@ -189,6 +189,7 @@ end
 -- Ce que l'on voit
 ---------------------------------------------------------------------------------------------------
 local range_cache = {} -- [nom de prototype] = portée (prototypes : identiques chez tous les pairs)
+local speed_cache = {} -- [nom de prototype] = vitesse d'une unité (idem)
 
 local TURRET_TYPES = { ["ammo-turret"] = true, ["electric-turret"] = true, ["fluid-turret"] = true, ["artillery-turret"] = true }
 
@@ -218,6 +219,37 @@ function M.classify(e)
     range_cache[name] = r
   end
   return kind, (r ~= false) and r or nil
+end
+
+--- Vitesse d'une unité ennemie (prototype) ; nil pour les autres (personnage, tourelle…).
+function M.enemy_speed(e)
+  if e.type ~= "unit" then return nil end
+  local name = e.name
+  local v = speed_cache[name]
+  if v == nil then
+    v = e.prototype.speed or false
+    speed_cache[name] = v
+  end
+  return v or nil
+end
+
+--- Tourelles amies debout autour du QG (à moins de Re.RALLY_R tuiles du coffre), en positions { x, y } : celles de l'équipe
+-- ET celles que son joueur a posées (un scan de la zone : appelé seulement quand le QG est menacé ou qu'un PNJ y est blessé).
+local function qg_turret_points(f)
+  local out = {}
+  local surface = f.hq and f.hq.valid and f.hq.surface
+  if not surface then return out end
+  local home = f.home_spot or f.hq_pos
+  local list = surface.find_entities_filtered({ position = home, radius = Re.RALLY_R, force = f.force,
+    type = { "ammo-turret", "electric-turret", "fluid-turret" } })
+  for _, t in ipairs(list) do out[#out + 1] = { x = t.position.x, y = t.position.y, n = t.unit_number or 0 } end
+  table.sort(out, function(a, b) if a.n ~= b.n then return a.n < b.n end if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
+  return out
+end
+
+--- Point de ralliement du QG (derrière ses tourelles, côté coffre) ; nil sans tourelle du QG.
+function M.rally(f)
+  return Re.rally_point(qg_turret_points(f), f.home_spot or f.hq_pos)
 end
 
 local weight_cache = {} -- [nom de prototype] = poids (prototypes : identiques chez tous les pairs)
@@ -279,7 +311,8 @@ local function refuge(f, p, ep, range)
     local t = f.turrets[id]
     if t and t.valid then
       local tp = t.position
-      if d2(tp, ep) >= 144 then
+      -- Ni à 12 tuiles de l'ennemi, ni derrière lui : y courir, c'est courir sur lui (armée en marche sur le QG, int-1).
+      if d2(tp, ep) >= 144 and not Re.on_the_way(p, tp, ep) then
         local dd = d2(tp, p)
         if not bd or dd < bd then best, bd = tp, dd end
       end
@@ -651,7 +684,7 @@ local function resume_now(agent, a, tick)
   a.now = nil
 end
 
-local function act(agent, f, t, a, action, why, ep, kind, tick, range)
+local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to)
   -- Déjà en retraite (demi-tour ou fuite de moins de 10 s) : on ne s'arrête pas de nouveau à chaque regard (le PNJ
   -- rentrerait par saccades, poursuivi) ; l'itinéraire du retour évite déjà ce qui est marqué. Une FUITE n'est jamais
   -- retardée par un demi-tour récent (survie avant tâche) : elle n'est évitée que si elle est déjà engagée vers le même
@@ -698,9 +731,21 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range)
       a.backs, a.back_t = (a.backs or 0) + 1, tick
     end
     if action == "flee" then
-      a.refuge = refuge(f, agent.entity.position, ep, range)
+      a.refuge = refuge_to or refuge(f, agent.entity.position, ep, range)
       a.flee_t, a.flee_ep = tick, { x = ep.x, y = ep.y }
       t.stats.refuges = t.stats.refuges + 1
+      -- Votre équipe : un PNJ qui fuit prévient les autres AVANT la première perte (lieu de la menace) ; hors du QG, qui
+      -- est défendu (même règle que le rappel après une mort : Worker.SAFE_HOME).
+      if f.is_player and f.hq_pos and d2(ep, f.hq_pos) > Worker.SAFE_HOME * Worker.SAFE_HOME then
+        local n = Worker.recall_near(f, ep, nil, tick, agent)
+        if n > 0 then
+          t.stats.flee_recalls = (t.stats.flee_recalls or 0) + n
+          if Profiler.enabled() then
+            log(string.format("[FO-IA3K] %s : PNJ %d fuit (%s) : %d coequipier(s) rappele(s) a moins de %d tuiles de la menace", tostring(f.key),
+              agent.id, why, n, Worker.RECALL_RADIUS))
+          end
+        end
+      end
       if M.on_alert and M.on_alert(f, ep, kind, tick) then t.stats.alerts = t.stats.alerts + 1 end
     end
     if agent.task then
@@ -818,7 +863,11 @@ function M.sense(agent, tick)
   if near_home and not hurt then return false end
   local is_armed = armed(agent, a, tick)
   local fear = hp < Re.fear(prud)
-  if not (walking or hurt or fear or breach or not is_armed) then return false end
+  -- Regard périodique d'un PNJ armé, sain et à l'arrêt (étalé par numéro) : il voyait venir les groupes seulement blessé.
+  if not (walking or hurt or fear or breach or not is_armed) and not Re.idle_look_due(tick, a.look_t, agent.id) then
+    return false
+  end
+  a.look_t = tick
   -- Regard : autour d'un point LOOK_AHEAD tuiles devant (vers le point de passage courant), sinon autour du PNJ.
   local c = p
   if walking and agent.goal then
@@ -878,7 +927,7 @@ function M.sense(agent, tick)
     backs = (a.back_t and tick - a.back_t <= Re.BACK_MEMORY) and a.backs or 0 })
   -- C4 : un soldat ou un ouvrier ADVERSE isolé (force pesée ≤ 1,5, pas la force des déchiqueteurs) vu près du QG : la
   -- garnison est appelée, elle le chasse (au plus une alerte par menace et par minute : script/ai3/soldats.lua).
-  if not K.fixed and enemy.force.name ~= "enemy" and enemies <= 1.5 and M.on_alert then
+  if not K.fixed and enemy.force.name ~= "enemy" and enemies <= Re.ISOLATED and M.on_alert then
     if M.on_alert(f, ep, kind, tick, "hunt") then t.stats.hunts = (t.stats.hunts or 0) + 1 end
   end
   -- Tournée escaladée (risque accepté par la porte) : pas de nouveau détour pour une menace fixe déjà connue (le chemin
@@ -886,16 +935,22 @@ function M.sense(agent, tick)
   if a.risk and K.fixed and action == "detour" then action = "none" end
   -- Près du QG, face à des UNITÉS : sans tourelle où se réfugier, fuir seul est pire que rester groupés (un déchiqueteur
   -- court plus vite qu'un personnage) : on se bat sur place. Même banc : 4 ouvriers sans tâche rattrapés à 11 tuiles du QG.
+  local to = nil
   if near_home and not K.fixed and (action == "flee" or action == "back") then
-    local rf = refuge(f, p, ep)
-    local home = f.home_spot or f.hq_pos
-    local to_turret = rf and d2(rf, home) > 4 and d2(rf, p) > 4 and d2(rf, ep) >= 144
-    local has_turret = false
-    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
-      local tt = f.turrets[id]
-      if tt and tt.valid then has_turret = true break end
+    -- Lot FUITE : pas de combat un par un (int-1 : 5 PNJ tués dans les 32 tuiles du QG). Re.hq_response : assez nombreux,
+    -- on se bat ; sinon on se regroupe derrière les tourelles du QG ; sans tourelle, on s'éloigne d'un ennemi plus lent, et
+    -- face à un plus rapide (déchiqueteur) on se bat, groupés.
+    local rally = M.rally(f)
+    local resp = Re.hq_response({ allies = allies + 1, force = enemies, prudence = prud, agressivite = agr, rally = rally,
+      outrun = Re.outrun(M.enemy_speed(enemy), e.prototype.running_speed) })
+    if resp == "rally" then
+      if d2(p, rally) <= 36 then action, why = "engage", "sous-les-tourelles"
+      else action, why, to = "flee", "ralliement", rally end
+    elseif resp == "away" then
+      action, why, to = "flee", "eloignement", Re.away_from(p, ep, rr)
+    else
+      action, why = "engage", "groupes-au-qg"
     end
-    if not (has_turret and to_turret) then action, why = "engage", "groupes-au-qg" end
   end
   if action == "none" then return false end
   -- MEUTE : le PNJ recule devant un groupe d'unités (force pesée ≥ 0,4) : la zone du groupe (vue + étendue) devient une
@@ -928,7 +983,7 @@ function M.sense(agent, tick)
   end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
-  return act(agent, f, t, a, action, why, ep, kind, tick, range)
+  return act(agent, f, t, a, action, why, ep, kind, tick, range, to)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1018,7 +1073,8 @@ end)
 -- Interface distante « fo-ia3k » (bancs ; le mod de test n'a pas accès à `global` de ce mod)
 --   status(clé)                       -> { enabled, epoch, stats, summary, escorts } ou nil
 --   agents(clé)                       -> { { id, x, y, state, task, hp, hold, refuge, wps, wp_i, final }, ... }
---   trip(clé, id, x, y[, attente[, sx, sy]]) -> numéro de tournée (PNJ sans tâche) ou false ; (sx, sy) : entrée [bancs]
+--   trip(clé, id, x, y[, attente[, sx, sy[, genre]]]) -> numéro de tournée (PNJ sans tâche) ou false ; (sx, sy) : entrée ;
+--                                        genre de la tâche (« garrison » par défaut ; un autre genre n'est pas exempté du rappel) [bancs]
 --   hold(clé, vrai|faux)              -> vrai : la porte refuse toute tâche du cerveau (tournées seules) [bancs]
 --   set_character(clé, prudence, agressivite) -> vrai (nil, nil : caractère de la faction)           [bancs]
 --   mark(clé, x, y, genre, portée), death(clé, x, y), forget(clé) (carte remise à zéro) -> vrai       [bancs]
@@ -1068,13 +1124,13 @@ remote.add_interface("fo-ia3k", {
     end
     return out
   end,
-  trip = function(key, id, x, y, wait, sx, sy)
+  trip = function(key, id, x, y, wait, sx, sy, kind)
     local f = team_by_key(key)
     local ag = Registry.get(id)
     if not (f and ag and ag.faction == f.id and ag.entity.valid) or ag.task then return false end
     local t = M.team(f)
     t.trips = (t.trips or 0) + 1
-    ag.task = { key = "ia3k-trip:" .. t.trips, kind = "garrison", post = "ia3k", trip = t.trips, claimed = game.tick }
+    ag.task = { key = "ia3k-trip:" .. t.trips, kind = kind or "garrison", post = "ia3k", trip = t.trips, claimed = game.tick }
     ag.steps = { { "goto", { x = x, y = y }, 3 }, { "wait", wait or 60 }, { "home" } }
     -- (sx, sy) : entrée du couloir, rejointe d'abord (bancs à couloirs parallèles aux axes).
     if sx and sy then table.insert(ag.steps, 1, { "goto", { x = sx, y = sy }, 2 }) end

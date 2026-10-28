@@ -74,7 +74,7 @@ end
 ---   techs = { [technologie] = { { type = …, modifier = … }, … } } }
 --- dump.techs[t] : count, time, ingredients { {pack, n} }, prerequisites (relevé de la règle).
 function Lv.build(lv, dump, D)
-  local L = { equip = {}, cand = {}, slots = {}, techs = {}, tech_list = {} }
+  local L = { equip = {}, cand = {}, slots = {}, techs = {}, tech_list = {}, all_techs = (dump and dump.techs) or {} }
   if type(lv) ~= "table" then return L end
   for _, name in ipairs(sorted_keys(lv.equip)) do
     local m = lv.equip[name]
@@ -531,6 +531,151 @@ local function tech_options(Ca, ctx, plan, req, out)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Recherche qui débloque une MEILLEURE MACHINE (lot LEVIERS, demande de l'intégrateur du 28/10)
+---------------------------------------------------------------------------------------------------
+Lv.UNLOCK_TMAX = nil     -- nil : Ca.H_LIFE. Une meilleure machine se pose sur place : aucun site à trouver, l'horizon d'un
+                         -- gisement (60 min) borne le retour, retard de la recherche compris.
+
+--- Technologies à faire (la technologie et ses prérequis non faits) et leur coût en MU (packs + secondes de laboratoire) ;
+--- nil et la cause si un pack est introuvable.
+local function research_chain(Ca, ctx, t)
+  local L, D = ctx.D.lv, ctx.D
+  local seen, order = {}, {}
+  local function walk(n)
+    if seen[n] or ctx.techs[n] then return end
+    seen[n] = true
+    local spec = L.all_techs[n]
+    if spec then
+      for _, p in ipairs(spec.prerequisites or {}) do walk(p) end
+    end
+    order[#order + 1] = n
+  end
+  walk(t)
+  local cost, secs = 0, 0
+  for _, n in ipairs(order) do
+    local spec = L.all_techs[n]
+    if not spec or spec.enabled == false then return nil, "technologie " .. n .. " inconnue ou inactive" end
+    for _, ing in ipairs(spec.ingredients or {}) do
+      local mu = D.mu[ing[1]]
+      if mu == nil or not Ca.obtainable(ctx, ing[1]) then return nil, "pack " .. ing[1] .. " non obtenable" end
+      cost = cost + ing[2] * (spec.count or 1) * mu
+    end
+    cost = cost + (spec.count or 1) * (spec.time or 1) * Ca.TIME_MU
+    secs = secs + (spec.count or 1) * (spec.time or 1)
+  end
+  return { techs = order, cost = cost, secs = secs }
+end
+
+--- input.successors = { [machine] = { machines supérieures, vitesse croissante } } (lues aux prototypes par le runtime,
+--- shared/ai3/capital.lua : Cap.successors). Pour chaque machine posée dont un successeur n'est PAS encore fabricable, la
+--- technologie qui le débloque (D.unlocked_by) est chiffrée : gain = vitesse supérieure x machines posées de la famille, borné
+--- par la demande (+ 25 % d'avance, et ce que l'entrée de plus permet), coût = recherche (packs, laboratoire, prérequis) +
+--- machines neuves ; retour = coût ÷ gain + retard. Une technologie retenue demande l'OBJET successeur à la recherche
+--- (ctx.lv_want : le choix de la technologie lui donne la valeur d'un objet voulu et la chaîne de ses prérequis).
+local function unlock_options(Ca, ctx, plan, req)
+  local succ = ctx.input.successors
+  ctx.lv_unlock = {}
+  if not succ then return end
+  local D, L = ctx.D, ctx.D.lv
+  local by_tech, order = {}, {}
+  for _, g in ipairs(ctx.machines) do
+    local list = succ[g.entity]
+    local E, r = D.maker_by[g.entity], D.recipes[g.recipe]
+    if list and E and r and not r.fluid and #r.products > 0 and (g.n or 0) > 0 and not (g.mods and next(g.mods)) then
+      local item = r.products[1].name
+      local Ri = req.R[item] or 0
+      if Ri > 0 then
+        for _, sname in ipairs(list) do
+          local S = D.maker_by[sname]
+          local ready = S == nil or not S.item or D.mu[S.item] == nil or (ctx.stock[S.item] or 0) > 0
+          if not ready then
+            for _, rn in ipairs(D.producers[S.item] or {}) do
+              if Ca.recipe_open(ctx, rn) then ready = true end
+            end
+          end
+          if not ready and S.speed > E.speed then
+            local tech
+            for _, rn in ipairs(D.producers[S.item] or {}) do
+              local tt = D.unlocked_by[rn]
+              if tt and not ctx.techs[tt] and not tech then tech = tt end
+            end
+            if tech then
+              local gq = S.speed / E.speed - 1
+              local stock_i = (ctx.stock[item] or 0) / Ca.H_STOCK
+              local def = Ri - (plan.N[item] or 0) - stock_i
+              local lead_room = math.max(0, Ca.LEAD * Ri - (plan.N[item] or 0) - stock_i)
+              local d_total = g.n * Ca.out_per_min(E, r, item) * gq
+              -- la vitesse de plus exige l'entrée de plus (minerai livré, ingrédient couvert), sinon elle n'est qu'une avance
+              local frac = 1
+              for _, ing in ipairs(r.ingredients) do
+                if not ing.fluid then
+                  local dn = g.n * Ca.in_per_min(E, r, ing.name) * gq
+                  if dn > Ca.EPS then
+                    local avail
+                    if D.res[ing.name] then
+                      avail = Ca.supply_of(ctx, ing.name) - (plan.cons[ing.name] or 0)
+                    else
+                      avail = (plan.N[ing.name] or 0) + (plan.hand[ing.name] or 0) + (ctx.stock[ing.name] or 0) / Ca.H_STOCK
+                        - (plan.cons[ing.name] or 0)
+                    end
+                    frac = math.min(frac, math.max(0, math.min(1, avail / dn)))
+                  end
+                end
+              end
+              local useful = math.min(d_total * frac, math.max(0, def))
+              local extra = math.min(d_total - useful, lead_room) * Ca.AHEAD_PCT / 100
+              local wf = D.packs[item] and ctx.w_rech or ctx.w_cap
+              local d_fuel = 0
+              if D.fuel_kj > 0 then d_fuel = g.n * ((S.kw or 0) - (E.kw or 0)) * 60 / D.fuel_kj end
+              local gain = (useful + extra) * (D.mu[item] or 0) * wf - d_fuel * ctx.fuel_mu
+              if gain > Ca.EPS then
+                local b = by_tech[tech]
+                if not b then
+                  b = { tech = tech, items = {}, gain = 0, repl = 0, n = 0, parts = {} }
+                  by_tech[tech] = b
+                  order[#order + 1] = tech
+                end
+                b.items[S.item] = true
+                b.gain = b.gain + gain
+                b.repl = b.repl + g.n * D.mu[S.item]
+                b.n = b.n + g.n
+                b.parts[#b.parts + 1] = string.format("%d x %s -> %s (vitesse x%s, +%s/min de %s)", g.n, g.entity, sname,
+                  fmt(S.speed / E.speed), fmt(useful + extra), item)
+                break -- le premier successeur non fabricable (le moins rapide) suffit à ce groupe
+              end
+            end
+          end
+        end
+      end
+    end
+  end
+  local lab_cap = math.max(plan.lab_cap, ctx.cap0 or 0, ctx.lab_rate or 0)
+  for _, tech in ipairs(order) do
+    local b = by_tech[tech]
+    local chain, why = research_chain(Ca, ctx, tech)
+    local key = "debloquer:" .. tech
+    if not chain then
+      ctx.refus[key] = { key = key, kind = "debloquer", why = tostring(why) }
+    else
+      local cost = chain.cost + b.repl
+      local delay = chain.secs / math.max(Ca.EPS, lab_cap)
+      local T = cost / b.gain + delay
+      local tmax = math.max(ctx.ch.tmax, (Lv.UNLOCK_TMAX or Ca.H_LIFE) / (ctx.threat and Ca.THREAT_DIV or 1))
+      local items = sorted_keys(b.items)
+      if T <= tmax then
+        for _, it in ipairs(items) do ctx.lv_want[it] = true end
+        ctx.lv_unlock[#ctx.lv_unlock + 1] = { tech = tech, items = items, chain = chain.techs, gain = b.gain, cost = cost,
+          delay = delay, T = T, n = b.n,
+          why = string.format("recherche %s (%d technologie(s)) pour %s : %s ; cout %s MU, retard %s min, retour %s min",
+            tech, #chain.techs, table.concat(items, ", "), table.concat(b.parts, " ; "), fmt(cost), fmt(delay), fmt(T)) }
+      else
+        ctx.refus[key] = { key = key, kind = "debloquer", why = string.format("retour %s min > %s", fmt(T), fmt(tmax)) }
+      end
+    end
+  end
+end
+
+---------------------------------------------------------------------------------------------------
 -- Interface avec la règle
 ---------------------------------------------------------------------------------------------------
 function Lv.prepare(ctx)
@@ -543,6 +688,7 @@ function Lv.options(Ca, ctx, plan, req, out)
   ctx.lv_sites = {}   -- les places dépendent du plan : refait à chaque passe
   module_options(Ca, ctx, plan, req, out)
   tech_options(Ca, ctx, plan, req, out)
+  unlock_options(Ca, ctx, plan, req)
 end
 
 --- Applique un ordre « modules » ou « techno » au plan (pour son reste à poser).

@@ -391,19 +391,47 @@ local function s7()
   local r3 = Ca.decide(blocked_scene(D3), {})
   check(count_kind(r3, "equiper") == 0 and r3.repli and r3.repli.none and r3.repli.text:find("aucun levier", 1, true),
     "§7 sans emplacement dans les données : aucun levier, dit pourquoi (" .. tostring(r3.repli and r3.repli.none) .. ")")
-  -- Tous les noms changés (modules, machines, recettes du test inchangés ici : on renomme les modules) : mêmes ordres.
-  local Dr = C.data(nil, nil, nil, function(lv)
-    local m2 = {}
-    for k, v in pairs(lv.equip) do m2["zz-" .. k] = v end
-    lv.equip = m2
-  end, nil)
-  -- (les recettes des modules gardent leurs noms : ils sortent du relevé de recettes, pas de lv ; le renommage ne
-  -- change donc pas les valeurs) -> on contrôle seulement la décision sur les modules du stock renommés
-  local st2 = {}
-  for k, v in pairs(stock()) do st2["zz-" .. k] = v end
-  st2["electronic-circuit"] = 1000
-  local rr = Ca.decide(blocked_scene(Dr, { stock = st2 }), {})
-  check(count_kind(rr, "equiper") == 0, "§7 modules sans recette (valeur inconnue) : aucun ordre, aucune erreur")
+  -- TOUS les noms changés (objets, recettes, machines, ressources, technologies, modules, recettes permises) : mêmes ordres
+  -- au renommage près, sur trois scènes (repli de fours, repli de foreuses couvertes, recherche à effet).
+  local d0 = C.dump()
+  local map = C.name_map(d0)
+  local unmap = {}
+  for _, k in ipairs(sorted_keys(map)) do unmap[map[k]] = k end
+  local d2 = C.rename(d0, map)
+  local exec2 = {}
+  for _, k in ipairs(sorted_keys(C.EXEC)) do exec2[map[k]] = true end
+  local Da = Ca.data(d0, { exec = C.EXEC, exec_roles = C.ROLES })
+  local Db = Ca.data(d2, { exec = exec2, exec_roles = C.ROLES })
+  Da.mu["chemical-science-pack"] = 12
+  Db.mu[map["chemical-science-pack"]] = 12
+  local function sig(res, un)
+    local t = {}
+    for _, o in ipairs(res.orders) do
+      local key = o.key
+      if un then
+        key = key:gsub("[%w%-_]+", function(w) return un[w] or w end)
+      end
+      t[#t + 1] = string.format("%s|%d|%.6f|%s", key, o.n or 0, o.T, tostring(un and un[o.module or ""] or o.module))
+    end
+    return table.concat(t, ";")
+  end
+  local scenes = {
+    function(D) return blocked_scene(D) end,
+    function(D)
+      local inp = blocked_scene(D, { stock = stock({ ["productivity-module"] = 0, ["productivity-module-2"] = 0 }),
+        flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 180 } } })
+      return inp
+    end,
+    function(D) return tech_scene(D) end,
+  }
+  for k, mk_scene in ipairs(scenes) do
+    local inp_a = mk_scene(Da)
+    local r_a = Ca.decide(inp_a, {})
+    local r_b = Ca.decide(C.rename_input(inp_a, map, Db), {})
+    local sa, sb = sig(r_a), sig(r_b, unmap)
+    check(#r_a.orders >= 1 and sa == sb, string.format("§7 tous les noms changés, scène %d : mêmes ordres (%d)%s", k, #r_a.orders,
+      sa == sb and "" or (" : " .. sa .. " / " .. sb)))
+  end
   -- Déterminisme : deux passages, entrées permutées.
   local a = orders_text(Ca.decide(blocked_scene(D0), {}))
   local b = orders_text(Ca.decide(blocked_scene(D0), {}))
@@ -426,6 +454,89 @@ local function s7()
     return false
   end
   check(not has_fn(res.orders) and not has_fn(res.repli), "§7 ordres et repli sans fonction")
+end
+
+---------------------------------------------------------------------------------------------------
+-- §9 Recherche qui débloque une meilleure machine
+---------------------------------------------------------------------------------------------------
+-- 8 fours en pierre au QG, minerai livré en surplus, demande de 400 plaques/min, 4 laboratoires ; successeurs lus aux
+-- prototypes par le runtime (ici donnés).
+local function furnace_scene(D, over)
+  local inp = C.input(D, {
+    stock = { ["electronic-circuit"] = 1000 }, obtainable = all_ok,
+    machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 8, where = "qg" } },
+    flows = { ["iron-ore"] = { made = 600 }, ["iron-plate"] = { made = 150 } },
+    sinks = { { item = "iron-plate", rate = 400 } }, labs = { { entity = "lab", n = 4 } },
+    successors = { ["stone-furnace"] = { "steel-furnace" } },
+    can_exec = function(kind) if kind ~= "equiper" then return "ordres de machines reserves a un autre decideur" end end })
+  for k, v in pairs(over or {}) do inp[k] = v end
+  return inp
+end
+
+local function unlock_of(res, tech)
+  for _, u in ipairs(res.unlocks or {}) do if u.tech == tech then return u end end
+  return nil
+end
+
+local function s9()
+  local res = Ca.decide(furnace_scene(D0), {})
+  local tech = D0.unlocked_by["steel-furnace"]
+  local u = unlock_of(res, tech)
+  check(u ~= nil and u.items[1] == "steel-furnace", "§9 la recherche qui débloque le four d'acier est chiffrée (" .. tostring(tech) .. ")")
+  local want = false
+  for _, w in ipairs(res.want) do if w == "steel-furnace" then want = true end end
+  check(want, "§9 l'objet successeur est DEMANDÉ à la recherche (valeur d'un objet voulu et chaîne des prérequis)")
+  if not u then return end
+  -- Recalcul par le test : gain = 8 fours x 18,75 plaques/min x (vitesse 2 / 1 - 1), tout servi par le minerai livré.
+  local d_total = 8 * 18.75 * (2 / 1 - 1)
+  local gain = math.min(d_total, 400 - 150) * D0.mu["iron-plate"]
+  check(math.abs(u.gain - gain) < 1e-6, string.format("§9 gain %.3f = vitesse supérieure x fours posés x valeur (%.3f)", u.gain, gain))
+  -- Coût : la technologie et ses prérequis non faits (packs, laboratoire) + les 8 machines neuves.
+  local seen, order = {}, {}
+  local function walk(n)
+    if seen[n] then return end
+    seen[n] = true
+    for _, p in ipairs(D0.lv.all_techs[n].prerequisites) do walk(p) end
+    order[#order + 1] = n
+  end
+  walk(tech)
+  local cost, secs = 8 * D0.mu["steel-furnace"], 0
+  for _, n in ipairs(order) do
+    local sp = D0.lv.all_techs[n]
+    for _, ing in ipairs(sp.ingredients) do cost = cost + ing[2] * sp.count * D0.mu[ing[1]] end
+    cost = cost + sp.count * sp.time * Ca.TIME_MU
+    secs = secs + sp.count * sp.time
+  end
+  check(math.abs(u.cost - cost) < 1e-6 and #u.chain == #order, string.format("§9 coût %.2f MU = recherche de %d technologie(s) + machines neuves (%.2f)", u.cost, #u.chain, cost))
+  check(math.abs(u.delay - secs / (4 * 60)) < 1e-9, "§9 retard = secondes de laboratoire ÷ laboratoires posés")
+  check(math.abs(u.T - (cost / gain + secs / 240)) < 1e-6, "§9 retour = coût ÷ gain + retard")
+  -- Conditions : successeur déjà fabricable (stock), technologie déjà faite, aucune demande, sans successeurs donnés.
+  check(unlock_of(Ca.decide(furnace_scene(D0, { stock = { ["electronic-circuit"] = 1000, ["steel-furnace"] = 3 } }), {}), tech) == nil,
+    "§9 successeur déjà au coffre : rien à rechercher (le remplacement est à l'amélioration)")
+  local done = { automation = true }
+  for _, n in ipairs(order) do done[n] = true end
+  check(unlock_of(Ca.decide(furnace_scene(D0, { state = { techs = done } }), {}), tech) == nil, "§9 technologie déjà faite : rien")
+  check(unlock_of(Ca.decide(furnace_scene(D0, { sinks = {} }), {}), tech) == nil, "§9 aucune demande de plaques : rien")
+  check(unlock_of(Ca.decide(furnace_scene(D0, { successors = {} }), {}), tech) == nil, "§9 aucun successeur donné : rien")
+  -- Moins de fours : moins de gain, retour plus long ; quatre fours seulement : refusé si le retour dépasse l'horizon.
+  local few = Ca.decide(furnace_scene(D0, { machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 2, where = "qg" } } }), {})
+  local uf = unlock_of(few, tech)
+  check(uf == nil or uf.T > u.T, "§9 deux fours au lieu de huit : retour plus long ou refusé")
+  -- Le minerai livré ne suffit pas à la vitesse de plus : seule l'avance (25 %) compte, retour plus long.
+  local ore_short = Ca.decide(furnace_scene(D0, { flows = { ["iron-ore"] = { made = 150 }, ["iron-plate"] = { made = 150 } } }), {})
+  local uo = unlock_of(ore_short, tech)
+  check(uo == nil or uo.T > u.T, "§9 minerai livré juste suffisant : gain d'avance seulement, retour plus long ou refusé")
+  -- Pack introuvable : refus écrit.
+  local nopack = Ca.decide(furnace_scene(D0, { obtainable = function(item) return item ~= "logistic-science-pack" end }), {})
+  local rn = nil
+  for _, r in ipairs(nopack.refus) do if r.key == "debloquer:" .. tech then rn = r end end
+  check(unlock_of(nopack, tech) == nil and rn and rn.why:find("non obtenable", 1, true), "§9 pack introuvable : refus écrit")
+  -- Données changées : un four d'acier de vitesse 4 double le gain.
+  local D4 = C.data(function(d) for _, e in ipairs(d.entities) do if e.name == "steel-furnace" then e.speed = 4 end end end)
+  local u4 = unlock_of(Ca.decide(furnace_scene(D4), {}), tech)
+  check(u4 ~= nil and u4.gain > u.gain * 1.4, "§9 four d'acier à vitesse 4 : gain plus grand, même code")
+  -- Déterminisme : deux passages.
+  check(Ca.decide(furnace_scene(D0), {}).unlocks[1].why == u.why, "§9 deux passages : même texte")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -542,6 +653,37 @@ local function mutants()
       local b = find(Ca.decide(inp, {}), "equiper:electric-furnace")
       return (a and a.d_out or -1) ~= (b and b.d_out or -1)
     end)
+  M("retard de la recherche d'une machine ignoré", "local T = cost / b.gain + delay", "local T = cost / b.gain",
+    function(CaM)
+      local a = (CaM.decide(furnace_scene(D0), {}).unlocks[1] or {}).T
+      local b = (Ca.decide(furnace_scene(D0), {}).unlocks[1] or {}).T
+      return a ~= b
+    end)
+  M("entrée de plus non exigée pour la machine", "frac = math.min(frac, math.max(0, math.min(1, avail / dn)))", "frac = frac",
+    function(CaM)
+      local sc = furnace_scene(D0, { flows = { ["iron-ore"] = { made = 150 }, ["iron-plate"] = { made = 150 } } })
+      local a = (CaM.decide(sc, {}).unlocks[1] or {}).gain
+      local b = (Ca.decide(furnace_scene(D0, { flows = { ["iron-ore"] = { made = 150 }, ["iron-plate"] = { made = 150 } } }), {}).unlocks[1] or {}).gain
+      return a ~= b
+    end)
+  M("successeur déjà fabricable ignoré", "local ready = S == nil or not S.item or D.mu[S.item] == nil or (ctx.stock[S.item] or 0) > 0",
+    "local ready = S == nil or not S.item or D.mu[S.item] == nil",
+    function(CaM)
+      local sc = furnace_scene(D0, { stock = { ["electronic-circuit"] = 1000, ["steel-furnace"] = 3 } })
+      return (CaM.decide(sc, {}).unlocks[1]) ~= nil
+    end)
+  M("machines neuves non comptées au coût", "b.repl = b.repl + g.n * D.mu[S.item]", "b.repl = b.repl",
+    function(CaM)
+      local a = (CaM.decide(furnace_scene(D0), {}).unlocks[1] or {}).cost
+      local b = (Ca.decide(furnace_scene(D0), {}).unlocks[1] or {}).cost
+      return a ~= b
+    end)
+  M("prérequis non comptés au coût", "for _, p in ipairs(spec.prerequisites or {}) do walk(p) end", "",
+    function(CaM)
+      local a = (CaM.decide(furnace_scene(D0), {}).unlocks[1] or {}).cost
+      local b = (Ca.decide(furnace_scene(D0), {}).unlocks[1] or {}).cost
+      return a ~= b
+    end)
   check(n_caught == n_mut, string.format("§8 mutants : %d refusés sur %d", n_caught, n_mut))
   return n_mut, n_caught
 end
@@ -553,6 +695,7 @@ s4()
 s5()
 s6()
 s7()
+s9()
 local n_mut, n_caught = mutants()
 print(string.format("[LEVIERS] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refusés sur %d)", pass, fail, n_caught, n_mut))
 os.exit(fail == 0 and 0 or 1)

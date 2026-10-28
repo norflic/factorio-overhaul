@@ -32,4 +32,10 @@ src.picture = { filename = "__core__/graphics/empty.png", priority = "extra-high
 src.gui_mode = "none"
 src.water_reflection = nil
 
-data:extend({ pole, src })
+-- Lot FUITE : ennemi LENT (0,12 tuile/tick : la vitesse d'un fusilier de faction, un PNJ court a 0,15) pour les bancs de vague.
+local slow = table.deepcopy(data.raw["unit"]["medium-biter"])
+slow.name = "fo-autotest-slow-biter"
+slow.movement_speed = 0.12
+slow.minable = nil
+
+data:extend({ pole, src, slow })

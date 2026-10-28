@@ -73,3 +73,16 @@ jamais à l'horloge.
 - Pollution, sous-produits et recettes à plusieurs produits : ignorés (comme le reste de la règle).
 - Les techs « drones » : seuls les types de `R.LEVER_EFFECT` comptent ; `worker-robot-storage` (une quantité, pas une
   fraction) est écarté.
+
+## Recherche qui débloque une meilleure machine (28/10)
+
+Entrée `input.successors` = machines supérieures de chaque machine posée, lues aux prototypes par le lot AMELIORER
+(`Capital.successors_of`, aucune logique de successeur ici). Pour chaque machine posée dont un successeur n'est pas encore
+fabricable, la technologie qui le débloque (`D.unlocked_by`) est chiffrée : gain = vitesse supérieure × machines posées, borné
+par la demande (+ 25 % d'avance, et par l'entrée de plus : minerai livré, ingrédient couvert) ; coût = packs et secondes de
+laboratoire de la technologie ET de ses prérequis non faits + machines neuves ; retour = coût ÷ gain + retard, accepté jusqu'à
+l'horizon d'un gisement (60 min). Une technologie retenue (`res.unlocks`) donne à toute sa chaîne la valeur d'un objet voulu
+(`Capi.techs_wanted` → `Gen.choose`, sans le quart des machines « pour plus tard »). Journal : `[FO-CERVEAU] … recherche … pour …`.
+Mesuré en moteur réel (4 graines, etape1-guide, avec ameliorer) : le choix de la recherche du four d'acier tombe avant 30 min
+pour 5 forces sur 8 qui ont au moins 6 fours (0 sur 8 au témoin) ; palier 2 inchangé (médiane 11,8 min), palier 3 19,25 → 20,0 min.
+Défaut : le choix n'est pas la fin de la recherche (non mesurée) ; votre équipe n'atteint jamais 6 fours dans ces parties.
