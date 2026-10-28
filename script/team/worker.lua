@@ -54,6 +54,24 @@ local MINE_TIMEOUT = 90 * 60
 local CLAIM_TTL = MINE_TIMEOUT + 3600
 Worker.CLAIM_TILES = true -- faux : l'ancien comportement (tests : mutant « sans réservation »)
 
+--- Lot KIT : l'entité à miner = celle qui est SUR la tuile visée (la plus proche de la cible), pas la première rendue par une
+--- recherche de rayon 2,5 : le moteur la rend dans un ordre quelconque, et une tuile à 2 tuiles de la cible est hors de
+--- portée de l'ouvrier arrêté à 1,5 tuile de l'autre côté (relevé en moteur réel, kit égal : les mineurs d'un même gisement
+--- rendaient 44 ou 0 sur 50 en 91 s, au hasard de la tuile rendue ; le charbon d'Azur, graine 1618033988, 0 huit fois de suite).
+local function mining_entity(surface, target, names)
+  local list = surface.find_entities_filtered({ position = target, radius = 0.9, name = names, limit = 8 })
+  if #list == 0 then list = surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 }) end
+  local best, bd
+  for _, r in ipairs(list) do
+    local dx, dy = r.position.x - target.x, r.position.y - target.y
+    local d = dx * dx + dy * dy
+    if not best or d < bd or (d == bd and (r.position.x < best.position.x or (r.position.x == best.position.x and r.position.y < best.position.y))) then
+      best, bd = r, d
+    end
+  end
+  return best
+end
+
 local function claims_of(f)
   local t = f.team
   t.mine_claims = t.mine_claims or { by_tile = {}, order = {} }
@@ -969,7 +987,7 @@ FSM.define(MACHINE, {
       local item, count = step[2], step[3]
       local got = e.get_item_count(item) - (agent.mine_base or 0)
       local target = agent.task and agent.task.target
-      local res = target and e.surface.find_entities_filtered({ position = target, radius = 2.5, name = Harvest.names(item), limit = 1 })[1]
+      local res = target and mining_entity(e.surface, target, Harvest.names(item))
       if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
         e.mining_state = { mining = false }
         local f = faction_of(agent)
