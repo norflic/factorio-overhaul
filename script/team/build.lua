@@ -386,6 +386,48 @@ local function ore_set(surface, rect, res)
   return set, n
 end
 
+--- Étape 1 / robustesse (28/10, graine 123456789 : Écarlate, QG à (339, −340), AUCUNE eau dans les 121 lots du treillis ni à
+--- moins de 256 tuiles : « centrale REFUSEE : pas de lot » à chaque demande, 0 poteau, 0 centrale, 0 foreuse électrique à
+--- 60 min ; graine 271828182, Azure : de l'eau, mais aucune rive où le gabarit de la pompe tient, « refuse (place) » à chaque
+--- demande, 0 poteau) : sans rive utilisable dans le treillis, la centrale à vapeur n'a nulle part où pomper et
+--- l'électrification d'une faction ne démarre JAMAIS. Comme les gisements garantis (lot M0), l'eau de la
+--- centrale est GARANTIE : un petit étang (Build.POND × Build.POND tuiles) au centre du lot libre le plus proche du QG
+--- (hors lot du QG, hors gisement, hors lot pris), une fois par équipe. Le lot est réévalué (rive) et la centrale replanifiée.
+Build.POND = 6
+local function make_pond(f, surface)  -- factions seulement (le joueur trouve son eau)
+  local b = f.build
+  if b.pond then return false end
+  local best
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") then
+      local d = math.abs(l.i) + math.abs(l.j)
+      if not best or d < best.d then best = { d = d, k = k, l = l } end
+    end
+  end
+  if not best then return false end
+  local c = lot_center(b, best.l)
+  local x0, y0 = math.floor(c.x - Build.POND / 2), math.floor(c.y - Build.POND / 2)
+  local tiles = {}
+  for dx = 0, Build.POND - 1 do
+    for dy = 0, Build.POND - 1 do tiles[#tiles + 1] = { name = "water", position = { x0 + dx, y0 + dy } } end
+  end
+  surface.set_tiles(tiles, true, true)
+  b.pond = best.k
+  -- Les rives naturelles déjà essayées sans succès (la pompe de rive demande 2 tuiles d'eau devant elle et 60 % du gabarit
+  -- mouillé : graine 271828182, Azure, « centrale refusee : place » à chaque demande malgré l'eau) ne sont plus candidates :
+  -- l'étang, au bord rectiligne, l'est seul.
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    if k ~= best.k and (l.water or 0) > 0 then l.bad = math.max(l.bad or 0, 2) end
+  end
+  best.l.state, best.l.reason, best.l.bad = "inconnu", nil, nil
+  b.queue[#b.queue + 1] = { "lot", best.k }
+  log(string.format("[FO-IA1D] %s : aucune rive ne tient la centrale : etang de %d x %d tuiles pose au lot %s (%d, %d) pour la centrale",
+    f.key or "player", Build.POND, Build.POND, best.k, x0, y0))
+  return true
+end
+
 --- Pose un gabarit dans le meilleur lot : { g (tourné), k, ox, oy, lot, inst } ou nil, raison.
 local function place_module(f, surface, g, kind_states, toward, res, opts)
   local b = f.build
@@ -1107,6 +1149,7 @@ local function plan_project(f, surface, p)
       Build.grow(f, b.radius + 1)
       return false, why, true
     end
+    if is_plant and not f.is_player and make_pond(f, surface) then return false, why, true end
     return false, why
   end
   p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot, ox = main.ox, oy = main.oy,
