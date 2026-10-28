@@ -2389,6 +2389,13 @@ function Build.status(f, id)
     if not e.built and #unbuilt < 5 then
       unbuilt[#unbuilt + 1] = { name = e.name, x = e.x, y = e.y, fails = e.fails or 0, npc = e.npc_blocks or 0, anchor = e.anchor,
         have = e.item and (p.stock[e.item] or 0) or -1 }
+      -- tâche du tableau de ce point d'appui (diagnostic) : absente, libre ou prise (âge en secondes), reprise après échec
+      local bd = Board.get(f)
+      local key = "ia1d:" .. p.id .. ":b:" .. tostring(e.anchor)
+      local tk, cd = bd.tasks[key], bd.cooldown[key]
+      unbuilt[#unbuilt].task = tk and (tk.worker and "prise" or "libre") or "aucune"
+      unbuilt[#unbuilt].age = tk and tk.created and math.floor((game.tick - tk.created) / 60) or -1
+      unbuilt[#unbuilt].cd = cd and math.max(0, math.floor((cd - game.tick) / 60)) or 0
     end
   end
   local open_obst = 0
@@ -2441,6 +2448,11 @@ function Build.report(f)
     projects_refused = st.projects_refused, projects_blocked = st.projects_blocked, minutes = st.minutes,
     net = #sorted_keys(b.net), opts = { seul = b.opts.seul, ghosts_ahead = b.opts.ghosts_ahead },
   }
+  -- diagnostic (lot CENTRALE) : échecs des tâches de l'équipe, par raison et par genre
+  local fr, ts = {}, {}
+  for _, k in ipairs(sorted_keys(f.team and f.team.fail_reasons or {})) do fr[#fr + 1] = k .. ":" .. f.team.fail_reasons[k] end
+  for _, k in ipairs(sorted_keys(f.team and f.team.task_stats or {})) do ts[#ts + 1] = k .. " " .. f.team.task_stats[k].ok .. "/" .. f.team.task_stats[k].fail end
+  out.fail_reasons, out.task_stats = table.concat(fr, " "), table.concat(ts, ", ")
   return out
 end
 

@@ -29,7 +29,8 @@ base.tick = function(ctx, e)
           if pr.state ~= "fini" and pr.state ~= "refuse" then
             local ub = {}
             for i, u in ipairs(pr.unbuilt or {}) do
-              if i <= 4 then ub[#ub + 1] = string.format("%s@%d,%d f%d npc%d stock%d", u.name, u.x, u.y, u.fails, u.npc, u.have or -1) end
+              if i <= 4 then ub[#ub + 1] = string.format("%s@%d,%d f%d npc%d stock%d tache %s age%ds cd%ds", u.name, u.x, u.y, u.fails, u.npc, u.have or -1,
+                tostring(u.task), u.age or -1, u.cd or 0) end
             end
             log(TAG .. string.format("chantier minute %d | %s | #%s %s %s (%d/%d) obst %d/%d | non poses %s", e.tick / MIN, r.key,
               tostring(pr.id), tostring(pr.state), tostring(pr.reason), pr.built or 0, pr.total or 0,
@@ -97,6 +98,8 @@ base.tick = function(ctx, e)
         end
         log(TAG .. string.format("quais minute %d | %s | remplis=%d collectes=%d | quais de la centrale : %s", e.tick / MIN, r.key,
           rq.filled or 0, rq.collected or 0, table.concat(qs, " ")))
+        log(TAG .. string.format("taches minute %d | %s | ok/echec {%s} | raisons d'echec {%s}", e.tick / MIN, r.key,
+          tostring(rq.task_stats), tostring(rq.fail_reasons)))
       end
     end
   end
