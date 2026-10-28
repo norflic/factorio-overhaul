@@ -292,6 +292,12 @@ function Cap.candidates(Ld, census, ctx)
   end
   local cands, blocked = {}, {}
   local function add(c)
+    -- Mesure D1 (lot AMELIORER) : ctx.only restreint les buts d'amélioration (jamais le remplacement des machines) :
+    -- « pose » = poser le centre seulement ; « batiments » = tout sauf le passage du centre au niveau suivant.
+    if ctx.only and c.family ~= "remplacer" then
+      if ctx.only == "pose" and not c.build then return end
+      if ctx.only == "batiments" and c.center and not c.build then return end
+    end
     -- Refus récent de l'exécutant (place, condition vue autrement par le jeu) : écarté jusqu'à son échéance (ctx.exclude).
     if ctx.exclude and ctx.exclude[c.key] then
       c.causes = { "refus" }

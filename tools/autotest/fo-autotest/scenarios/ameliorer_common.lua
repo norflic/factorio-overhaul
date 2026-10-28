@@ -27,7 +27,7 @@ local function report(s, minute)
   end
 end
 
-return function(rem, cap)
+return function(rem, cap, mode)
   cap = cap == true
   local base = require("scenarios/etape1-guide")
   local init0, tick0 = base.init, base.tick
@@ -36,6 +36,7 @@ return function(rem, cap)
   base.init = function(ctx)
     local r = ctx.call("war_setting", "fo-war-remplacer", rem)
     ctx.check(r == rem, "reglage fo-war-remplacer " .. (rem and "allume" or "eteint"), tostring(r))
+    if mode then pcall(remote.call, "fo-capital", "set_mode", mode) end
     local c = ctx.call("war_setting", "fo-war-capital", cap)
     ctx.check(c == cap, "reglage fo-war-capital " .. (cap and "allume" or "eteint"), tostring(c))
     if init0 then init0(ctx) end

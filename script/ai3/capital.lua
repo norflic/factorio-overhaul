@@ -350,7 +350,7 @@ function Capital.goal(f, view, book, tick, w)
   for _, k in ipairs(sorted_keys(c.refused_until)) do
     if tick < c.refused_until[k] then exclude[k] = true else c.refused_until[k] = nil end
   end
-  local ctx = { proto = proto, mproto = Capital.mproto, machines = machine_catalog().names,
+  local ctx = { only = (State.war() or {}).capital_mode, proto = proto, mproto = Capital.mproto, machines = machine_catalog().names,
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
@@ -632,6 +632,11 @@ remote.add_interface("fo-capital", {
   set_enabled = function(on)
     local war = State.war()
     if war then war.capital_off = not on or nil end
+  end,
+  -- Mesure D1 : restreint les buts d'amélioration (« pose », « batiments » ; nil : tous). Rangé dans l'état de la guerre.
+  set_mode = function(mode)
+    local war = State.war()
+    if war then war.capital_mode = mode end
   end,
 })
 
