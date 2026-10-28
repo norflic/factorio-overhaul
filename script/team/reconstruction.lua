@@ -65,6 +65,27 @@ end
 
 local function stat(s, k, n) s.stats[k] = (s.stats[k] or 0) + (n or 1) end
 
+--- Releves par nom de piece (mesure, aucun effet sur le jeu) : destruites, refaites par l'equipe (delai en ticks), refaites par
+--- un autre moyen (plan directeur, joueur) vues a la tache ou au balayage de Recon.think.
+local function by_name(s, name)
+  s.stats.byname = s.stats.byname or {}
+  local b = s.stats.byname[name]
+  if not b then
+    b = { rec = 0, own = 0, own_sum = 0, own_max = 0, ext = 0, ext_sum = 0, ext_max = 0 }
+    s.stats.byname[name] = b
+  end
+  return b
+end
+local function delay_note(s, r, kind, tick)
+  if r.counted then return end
+  r.counted = true
+  local d = math.max(0, tick - r.tick)
+  local b = by_name(s, r.name)
+  b[kind] = b[kind] + 1
+  b[kind .. "_sum"] = b[kind .. "_sum"] + d
+  if d > b[kind .. "_max"] then b[kind .. "_max"] = d end
+end
+
 local function team_of(force_name)
   if force_name == "player" then return State.faction("player") end
   return State.by_force(force_name)
@@ -115,6 +136,7 @@ local function on_died(e)
   Rc.record(s, { name = ent.name, x = pos.x, y = pos.y, dir = ent.direction, item = item_of(ent.name), recipe = recipe,
     value = value, kind = kind, oid = oid }, e.tick)
   stat(s, "recorded")
+  by_name(s, ent.name).rec = by_name(s, ent.name).rec + 1
   if s.stats.logs < Recon.LOGS then
     s.stats.logs = s.stats.logs + 1
     log(string.format("[FO-RECON] %s : %s detruit en (%.1f, %.1f) a %.1f min, a refaire (valeur %d, %d en attente)", f.key or "player",
@@ -136,6 +158,19 @@ function Recon.pending(f) return f.recon and Rc.pending(f.recon) or 0 end
 function Recon.think(f, surface, tick)
   local s = f.recon
   if not s or next(s.lost) == nil then return 0 end
+  -- Mesure seule : une pièce perdue revue en place (refaite par le plan directeur, le joueur…) est datée, mais reste au registre.
+  if tick >= (s.scan_at or 0) then
+    s.scan_at = tick + 600
+    local seen = 0
+    for _, k in ipairs(State.sorted_keys(s.lost)) do
+      local r = s.lost[k]
+      if not r.counted and seen < 80 then
+        seen = seen + 1
+        local there = surface.find_entity(r.name, { r.x, r.y })
+        if there and there.valid and there.force.name == f.force then delay_note(s, r, "ext", tick) end
+      end
+    end
+  end
   local b = Board.get(f)
   -- Libère les pièces dont la tâche n'existe plus ou n'a plus d'ouvrier (PNJ mort en route).
   local open = 0
@@ -260,6 +295,7 @@ function Recon.act(agent, f, task, surface)
     if r and not r.abandoned then
       local there = surface.find_entity(r.name, { r.x, r.y })
       if there and there.valid and there.force.name == f.force then
+        delay_note(s, r, "ext", game.tick)
         Rc.done(s, k) -- déjà refaite (par un autre moyen)
       elseif r.item and inv.get_item_count(r.item) >= 1 then
         step_aside(surface, agent.entity, r)
@@ -284,6 +320,7 @@ function Recon.act(agent, f, task, surface)
                 end
               end
             end
+            delay_note(s, r, "own", game.tick)
             Rc.done(s, k)
             placed = placed + 1
             stat(s, "rebuilt")
@@ -334,7 +371,17 @@ remote.add_interface("fo-recon", {
     local ab = 0
     for _, k in ipairs(State.sorted_keys(s.lost)) do if s.lost[k].abandoned then ab = ab + 1 end end
     local st = s.stats
-    return { pending = Rc.pending(s), recorded = st.recorded, rebuilt = st.rebuilt, blocked = st.blocked, deferred = st.deferred,
+    local wait = {}
+    for _, k in ipairs(State.sorted_keys(s.lost)) do
+      local r = s.lost[k]
+      if not r.counted then
+        local w = wait[r.name] or { n = 0, max = 0 }
+        w.n = w.n + 1
+        w.max = math.max(w.max, game.tick - r.tick)
+        wait[r.name] = w
+      end
+    end
+    return { byname = st.byname, wait = wait, pending = Rc.pending(s), recorded = st.recorded, rebuilt = st.rebuilt, blocked = st.blocked, deferred = st.deferred,
       tasks = st.tasks, discarded = st.discarded, hits = #s.hits, abandoned = ab, hold = Recon.hold_upgrades(f) }
   end,
 })

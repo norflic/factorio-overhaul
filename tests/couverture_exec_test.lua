@@ -182,6 +182,8 @@ do
   check(o.drills == 3 and #o.drill_list == 1, "foreuse rendue à son avant-poste (compte et liste)")
   check(owners[surface.created[2].unit_number] and owners[surface.created[2].unit_number].kind == "drill", "propriété rétablie")
   check(Rc.pending(f.recon) == 0 and Recon.hold_upgrades(f) == false and f.recon.stats.rebuilt == 2, "registre vidé, améliorations libres")
+  local bn = f.recon.stats.byname and f.recon.stats.byname["piece-a"]
+  check(bn and bn.rec == 1 and bn.own == 1 and bn.own_sum >= 0 and bn.ext == 0, "mesure : pièce détruite puis refaite par l'équipe, comptée par nom")
   -- place prise : la pièce reste
   died({ entity = ent("piece-b", "assembling-machine", 12, 10), tick = 5000 })
   Recon.think(f, surface, 5000 + Rc.CALM + 5)
