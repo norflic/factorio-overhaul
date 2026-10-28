@@ -356,6 +356,39 @@ function R.check(raw, only, stats)
 
         if (p.max_health and p.max_health <= 0) then add(key, "health", "max_health <= 0") end
 
+        -- Lot TIRS (27/10), moteur réel (F357) : un chargeur dont `ammo_type` est une LISTE exige `source_type` dans
+        -- CHAQUE entrée (« Key "source_type" not found in property tree at ROOT.ammo.<nom>.ammo_type[0] »).
+        if ptype == "ammo" and type(p.ammo_type) == "table" and p.ammo_type.category == nil and p.ammo_type[1] ~= nil then
+          for i, at in ipairs(p.ammo_type) do
+            if type(at) == "table" and at.source_type == nil then
+              add(key .. ".ammo_type[" .. i .. "]", "ammo-list-source-type", "AmmoType en liste sans source_type")
+            end
+          end
+        end
+
+        -- Lot TIRS (27/10) : clés de son que le moteur IGNORE (doc 1.1.91, « Only loaded if ») : sur un Sound à
+        -- `variations`, filename, volume, speed, min_speed, max_speed, preload ne sont pas lus ; dans une variation
+        -- (SoundDefinition), min_speed et max_speed ne sont pas lus si `speed` est défini. Le prototype de la ronde 3
+        -- posait la vitesse sur la couche : chargé sans erreur, joué à la vitesse 1.
+        walk({ v = p }, "", function(k, x, path)
+          if type(x) ~= "table" or type(x.variations) ~= "table" then return end
+          local v1 = x.variations[1]
+          if type(v1) ~= "table" or type(v1.filename) ~= "string" or not (v1.filename:match("%.ogg$")
+              or v1.filename:match("%.wav$") or v1.filename:match("%.voc$")) then
+            return
+          end
+          for _, ik in ipairs({ "filename", "volume", "speed", "min_speed", "max_speed", "preload" }) do
+            if x[ik] ~= nil then
+              add(key .. path, "sound-ignored-key", "clé « " .. ik .. " » à côté de variations : ignorée par le moteur")
+            end
+          end
+          for i, d in ipairs(x.variations) do
+            if type(d) == "table" and d.speed ~= nil and (d.min_speed ~= nil or d.max_speed ~= nil) then
+              add(key .. path .. ".variations[" .. i .. "]", "sound-ignored-key", "min_speed/max_speed ignorés (speed défini)")
+            end
+          end
+        end)
+
         -- Points de jeu : raccords de tuyau et point de dépôt hors de la boîte (en tête du fichier).
         check_points(key, p, add, stats)
       end

@@ -110,7 +110,7 @@ le fichier `<racine>\fo-logs\2026-10-24_A3\STOP` ; **jamais deux lancements à l
 **Bancs hors jeu** (Lua 5.2.4, compilé le 21/10 depuis la source officielle de lua.org, sommes
 vérifiées, avec le gcc de `C:\mingw64` : `C:\Users\evan2\bin\lua5.2.exe`. Ce dossier est dans le PATH
 de Git Bash, donc `lua5.2` y fonctionne tel quel ; sous PowerShell, donner le chemin complet).
-Résultats attendus aujourd'hui :
+Résultats attendus aujourd'hui (MESURÉS LE 28/10 sur `main` 2d0fbc5 fusionné dans la branche `coffre` ; durées sous forte charge : bancs moteur et autres agents, donc 2 à 10 fois celles d'un PC au repos) :
 ```
 lua5.2 tests/run.lua             -> 114 OK
 lua5.2 tests/war_test.lua        -> 105 OK   (13 contrôles des soldats égarés depuis 0.4.12, lot PNJ-VÉRIF)
@@ -119,26 +119,36 @@ lua5.2 tests/pteam_test.lua      -> 37 OK   (reconstruction de votre équipe dé
 lua5.2 tests/migration_test.lua  -> 82 OK
 lua5.2 tests/monde_test.lua      -> 201 OK   (garantie des monnaies des âges 5, 7 et 8, lot M0 : candidats, décision, sites, échec et reprise par paliers)
 lua5.2 tests/levels_test.lua     -> 1667 OK   (+ 11 « écarts connus » au contrat, comptés à part ; dont le contrôle des feuilles de la mitrailleuse, lot A2, celui des feuilles du four depuis 0.4.30, lot F2-B, et celui de l'assembleur depuis 0.4.31, lot F3-B ; rejoue aussi le harness, environ 5 s ; --tables : BALANCE_SHEET §12 ; --calibrate : courbe recalculée sur le calendrier X0 depuis un état de référence fixe ; FO_VERBOSE_CLEAR=1 : détail des cas de « libérer la place »)
-lua5.2 tests/pvp_test.lua        -> 1305 OK   (de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
+lua5.2 tests/pvp_test.lua        -> 1305 OK   (28/10 : 1 714 s sous forte charge, bancs moteur et autres agents ; de 3 à 6 min selon la charge : 198 s, 217 s, 266 s et 373 s le 23/10 pendant des bancs moteur et d'autres agents ; 195 s le 22/10 entre 22 h 50 et 22 h 55, 194 s à 20 h 11, 180 s à 19 h 05, 301 s plus tôt le même jour ; "pure" en argument : 502 OK, partie pure seule)
 lua5.2 tests/epochs_test.lua     -> 16665 OK (graphe de fabrication du lot X0)
 lua5.2 tests/x3_test.lua         -> [X3] BILAN : 6002 OK   (proposition X3 jointe à X0 : voies jamais une porte, cerveau avec technologies, 28 mutants ; environ 48 s ; --court 5963 ; rien en jeu)
-lua5.2 tests/org_test.lua        -> 366 OK   (modèle des rôles des équipes de PNJ, lot IA1)
+lua5.2 tests/org_test.lua        -> 368 OK   (modèle des rôles des équipes de PNJ, lot IA1)
+lua5.2 tests/annexe_test.lua     -> 38 OK   (annexes du QG : règles pures shared/team/annexe.lua et script/team/stock.lua en coffres simulés ; lot COFFRE, 27/10)
+lua5.2 tests/adopte_test.lua     -> [ADOPTE] BILAN : 75 OK   (adoption des machines posées à la main, fours dormants, avant-postes en attente ; lot ADOPTE)
+lua5.2 tests/sites_test.lua      -> [SITES] BILAN : 85 OK   (éclaireurs : régions bloquées, tour sans rejeu du point raté, nids, départs de danger, mémoire d'échec par site ; lot SITES)
+lua5.2 tests/plandir_test.lua    -> [PLANDIR] BILAN : 645 OK   (plan directeur : bras électriques de la centrale, meilleure machine, attente du réseau ; lot PLANDIR)
+lua5.2 tests/leviers_test.lua    -> [LEVIERS] BILAN : 84 OK (dont 21 mutants refusés sur 21)   (recherche qui débloque une meilleure machine : gain, coût, retour ; lot LEVIERS)
+lua5.2 tests/leviers_exec_test.lua -> [LEVIERS-EXEC] BILAN : 19 OK   (exécution des leviers au moteur simulé ; lot LEVIERS ; aide : tests/leviers_common.lua)
+lua5.2 tests/fantomes_test.lua   -> [FANTOMES] BILAN : 17 OK   (aperçu en fantômes des paires que le PNJ va poser, retrait à l'arrivée et par balayage ; lot FANTOMES)
+lua5.2 tests/bras_test.lua       -> [BRAS] BILAN : 21 OK   (bras électriques de la centrale, retour à la combustion si panne à sec ; lot PLANDIR)
+lua5.2 tests/ia3k_reaction_test.lua -> [FUITE] BILAN : 82 OK   (réaction des PNJ armés à l'arrêt, défense groupée du QG, rappel des coéquipiers ; lots DANGER-ARRET et FUITE)
+lua5.2 tests/capi_moteur_test.lua -> [CAPI-MOTEUR] BILAN : 9 OK   (capitalisation branchée, moteur simulé ; lot CAPIB ; 21 s à vide, jusqu'à 2 min sous charge)
 lua5.2 tests/recipe_lots_test.lua -> BILAN : 67 OK   (recettes par lots, 10 mutants refusés, lot MOD-2)
 lua5.2 tests/titanium_test.lua   -> 114 OK   (chaîne du titane de l'âge 11, lot X1)
 lua5.2 tests/traits_test.lua     -> 65 OK   (caractère des factions tiré de la graine, lot IA2-0)
-lua5.2 tests/chef_test.lua       -> 62 OK   (chef de faction adaptatif, lots IA2-a et IA2-a2 ; environ 2 min)
+lua5.2 tests/chef_test.lua       -> 96 OK   (chef de faction adaptatif, lots IA2-a et IA2-a2 ; environ 2 min)
 lua5.2 tests/valeur_test.lua     -> 53 OK   (valeur des sites d'expansion des factions, lot IA2-b ; 51 avant 0.5.0 : renouvellement de la réserve contrôlé dans une partie à l'ancien cerveau, lot IA-V2)
 lua5.2 tests/ia3b_test.lua       -> [IA3-B] BILAN : 31 OK   (marché, registre, manque de plaques ; lot IA3-b, fusionné par IA-V2 en 0.5.0)
 lua5.2 tests/ia3f_test.lua       -> [IA3F] BILAN : 32 OK    (exploration sous brouillard, moteur simulé ; lot IA3-f, par IA-V2)
-lua5.2 tests/ai3_carte_test.lua  -> [AI3-CARTE] BILAN : 55 OK (carte de connaissance, pure ; lot IA3-f)
+lua5.2 tests/ai3_carte_test.lua  -> [AI3-CARTE] BILAN : 66 OK (carte de connaissance, pure ; lot IA3-f)
 lua5.2 tests/ai3_cerveau_test.lua -> [AI3-CERVEAU] BILAN : 49 OK (cerveau par besoins, pur ; lot IA3-c, par IA-V2)
-lua5.2 tests/scale_test.lua       -> [SCALE] BILAN : 46 OK (bras libres, places du QG, garde du QG occupé ; 22 mutants ; lot SCALE, 0.6.4) ; ai3_effectif_test 72 OK (règle d'effectif d'IA3-d)
+lua5.2 tests/scale_test.lua       -> [SCALE] BILAN : 50 OK (bras libres, places du QG, garde du QG occupé ; 22 mutants ; lot SCALE, 0.6.4 ; 46 avant 28/10) ; ai3_effectif_test 72 OK (règle d'effectif d'IA3-d)
 lua5.2 tests/perf_test.lua        -> [PERF] BILAN : 10 OK (A* et champ du danger contre la version 0.6.1 exacte ; lot PERF, 0.6.3) ; perf_profileur_test 9 OK
-lua5.2 tests/auto_test.lua        -> [AUTO] BILAN : 45 OK (exécutants de l'automatisation recette par recette, fonderies au gisement ; lot AUTO, 0.6.3)
-lua5.2 tests/capital_test.lua     -> [CAPITAL] BILAN : 62 OK ; capital_moteur_test 5 OK (améliorations et centre des factions, réglage fo-war-capital ; lot CAPITAL, 0.6.3)
-lua5.2 tests/ai3_capitalisation_test.lua -> [CAPI] BILAN : 151 OK (règle pure de capitalisation des factions, 30 mutants ; environ 10 s ; rien de branché en jeu)
-lua5.2 tests/ai3_automatiser_test.lua -> BILAN : 86 OK (règle « main ou machine » d'IA3-e, 17 mutants ; réglage fo-war-ia3e éteint par défaut ; FO_IA3E=1 l'allume au moteur simulé)
-lua5.2 tests/iag_test.lua         -> [IAG] BILAN : 102 OK   (cerveau général, lot IA-G, 0.6.0 : catalogue des prototypes, choix valeur ÷ coût, H8, ressources clés, généralisation sur 4 jeux de données changés, ANTI-ÉCHELLE sur shared/ai3 et script/ai3, exemptions reglages.lua et paliers.lua ; 9 mutants)
+lua5.2 tests/auto_test.lua        -> [AUTO] BILAN : 49 OK (exécutants de l'automatisation recette par recette, fonderies au gisement ; lot AUTO, 0.6.3)
+lua5.2 tests/capital_test.lua     -> [CAPITAL] BILAN : 104 OK ; capital_moteur_test 5 OK (améliorations et centre des factions, réglage fo-war-capital ; lot CAPITAL, 0.6.3)
+lua5.2 tests/ai3_capitalisation_test.lua -> [CAPI] BILAN : 160 OK (règle pure de capitalisation des factions, 30 mutants ; environ 10 s à vide, plusieurs minutes sous charge ; rien de branché en jeu). §12 (coût de calcul) : depuis le 28/10 le garde-fou est en INSTRUCTIONS de la machine virtuelle (milliers, pire appel : mesuré 46, 122 et 243 ; limites 92, 244 et 486, soit le double), plus en millisecondes (l'ancienne limite 20, 40 et 80 ms échouait dès que le PC était chargé : pics de 76 à 220 ms pendant des bancs) ; les ms restent affichées, avec une limite large (200, 400 et 800 ms) et un AVERTISSEMENT sous l'ancienne limite
+lua5.2 tests/ai3_automatiser_test.lua -> BILAN : 92 OK (règle « main ou machine » d'IA3-e, 17 mutants ; réglage fo-war-ia3e ALLUMÉ par défaut depuis l'étape 1 du 27/10 ; FO_IA3E=1 l'allume au moteur simulé)
+lua5.2 tests/iag_test.lua         -> [IAG] BILAN : 110 OK   (cerveau général, lot IA-G, 0.6.0 : catalogue des prototypes, choix valeur ÷ coût, H8, ressources clés, généralisation sur 4 jeux de données changés, ANTI-ÉCHELLE sur shared/ai3 et script/ai3, exemptions reglages.lua et paliers.lua ; 11 mutants)
 lua5.2 tests/ia3k_regles_test.lua  -> [IA3K-REGLES] BILAN : 106 OK   (carte du danger, itinéraire, réaction ; 9 mutants ; lot IA3-k, 0.5.1)
 lua5.2 tests/ia3k_soldats_test.lua -> [IA3K-SOLDATS] BILAN : 30 OK  (rôles des soldats ; 6 mutants ; lot IA3-k)
 lua5.2 tests/ia3k_moteur_test.lua  -> [IA3K-MOTEUR] BILAN : 41 OK   (moteur simulé : variation, ver sur la route, peur, porte, escalade, changement de site, réglage éteint, déterminisme ; environ 15 s)
@@ -150,14 +160,14 @@ py -3.9 tools/render/pieces/modules/icones.py --check   -> 30 objet(s), 30 techn
 lua5.2 tests/ia1_scale_test.lua  -> 115 OK   (échelle 30 des équipes de PNJ, lot IA1-a)
 lua5.2 tests/ia1_production_test.lua -> [IA1-E1] BILAN : 104 OK   (solveur de débits et diagnostic, lot IA1-e1 ; 18 mutants ; environ 2 s ; livre `tests/fixtures/recipes_ia1e.lua` à régénérer par `harness.lua ... --dump-recipes` si les recettes changent)
 lua5.2 tests/plan_test.lua       -> [IA1-D PLAN] BILAN : 82 OK   (plan directeur pur, lot IA1-d : treillis, lots, rues, placement, tapis, poteaux ; §10 : équivalence des accélérations, 2 mutants)
-lua5.2 tests/ai3_graphe_test.lua -> [AI3-GRAPHE] BILAN : 36 OK ; ai3_groupe_test 28 OK ; ai3_expedition_test 19 OK ; ai3_recherche_test 17 OK (section IA3, règles pures non branchées)
+lua5.2 tests/ai3_graphe_test.lua -> [AI3-GRAPHE] BILAN : 59 OK ; ai3_groupe_test 28 OK ; ai3_expedition_test 19 OK ; ai3_recherche_test 17 OK (section IA3, règles pures non branchées)
 lua5.2 tests/ia1i_test.lua       -> 89 OK   (fenêtre « Équipe et factions », lot IA1-i : bouton contre commande, fenêtre ouverte contre fermée)
 lua5.2 tests/ia1b2_test.lua      -> 62 OK   (votre équipe défend d'abord, coffre défendu, travail des PNJ libres, lot IA1-b2)
-lua5.2 tests/ia1b_test.lua       -> 50 OK   (pôles, travail de fond, danger, prudence, lot IA1-b)
-lua5.2 tests/ia1_modules_test.lua -> BILAN : 1018 OK   (gabarits de modules des équipes organisées, lot IA1-c ; 25 mutants)
+lua5.2 tests/ia1b_test.lua       -> 58 OK   (pôles, travail de fond, danger, prudence, lot IA1-b)
+lua5.2 tests/ia1_modules_test.lua -> BILAN : 1023 OK   (gabarits de modules des équipes organisées, lot IA1-c ; 25 mutants)
 python -B tools/team/test_bp2lua.py   -> 12 OK (conversion de plans en gabarits, lot IA1-c)
-lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 61 / 182 ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 376 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 14 age(s) a 64 directions, 0 a 4, 0 erreur(s), auto-contrôle 4/4 (depuis 0.4.13) ; Feuilles four (graphics/levels/four, D-6) : 208 fichier(s) au manifeste, 0 manquant(s), 0 écart(s), 208 image(s) de sprites.lua relue(s) (depuis 0.4.30, lot F2-B) ; Feuilles assembleur (graphics/levels/assembleur, D-6) : 234 fichier(s) au manifeste, 0 manquant(s), 0 écart(s), 234 image(s) de sprites.lua relue(s) (depuis 0.4.31, lot F3-B) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
-python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 1281 usages, 0 erreur (0.6.4 ; 1273 en 0.6.3 ; 1260 en 0.6.2 ; 1250 en 0.6.1 ; 1235 en 0.6.0 ; 1212 avant IA-G ; 1179 avant IA3-k, 0.5.1 ; 1123 avant IA-V2, 0.5.0 ; 1107 avant le lot IA1-d, 0.4.32 ; 1102 avant le scénario f3-assembleurs, 1098 avant f2-fours) (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
+lua5.2 tests/datastage/harness.lua "<racine>/data" .   -> 0 nouvelle erreur, Règles moteur : 0 violation(s) (les cas faux de l'auto-contrôle y sont comptés), 0 clé manquante ; points de jeu vanilla 18 entités / 51 points, mod 65 / 189 (28/10) ; auto-contrôle 11/11 ; Images : 0 violation(s) (fichier manquant ou rectangle hors image), étalonnage vanilla 0 sur 2 505 prototypes, auto-contrôle 17/17 ; Feuilles mitrailleuse (graphics/levels/gun, D-6) : 376 fichier(s) au manifeste, 0 manquant(s), 0 écart(s) ; Sons : 0 violation(s) (flux Ogg Vorbis relu en entier depuis S0-suite), étalonnage vanilla 0 sur 1 287 fichiers, mod 20 fichier(s) (1 802 prototypes dont 455 avec un son, 5 560 définitions), auto-contrôle 24/24 ; Technologies des équipes (T.unlocks) : 22 nom(s), 0 absent(s), auto-contrôle 2/2 (depuis 0.4.12, lot PNJ-VÉRIF) ; Tetes mitrailleuse (A3-jeu) : 14 age(s) a 64 directions, 0 a 4, 0 erreur(s), auto-contrôle 4/4 (depuis 0.4.13) ; Feuilles four (graphics/levels/four, D-6) : 208 fichier(s) au manifeste, 0 manquant(s), 0 écart(s), 208 image(s) de sprites.lua relue(s) (depuis 0.4.30, lot F2-B) ; Feuilles assembleur (graphics/levels/assembleur, D-6) : 234 fichier(s) au manifeste, 0 manquant(s), 0 écart(s), 234 image(s) de sprites.lua relue(s) (depuis 0.4.31, lot F3-B) ; code de sortie 0 (--dump-proto type/nom, --dump-final type/nom, --verbose)
+python tools/api_lint.py "<racine>/doc-html" "<chemin absolu du mod>"   -> 1345 usages, 0 erreur (main 2d0fbc5 + coffre, 28/10 ; 1281 en 0.6.4 ; 1273 en 0.6.3 ; 1260 en 0.6.2 ; 1250 en 0.6.1 ; 1235 en 0.6.0 ; 1212 avant IA-G ; 1179 avant IA3-k, 0.5.1 ; 1123 avant IA-V2, 0.5.0 ; 1107 avant le lot IA1-d, 0.4.32 ; 1102 avant le scénario f3-assembleurs, 1098 avant f2-fours) (mod de test compris ; chaînes et commentaires ignorés depuis le 21/10)
 python -B tools/autotest/tests/run_d4m.py --logs "<racine>/fo-logs"   -> 5/5 étapes (banc D4m hors jeu ; essai à blanc du greffon 15 OK et BILAN attendu 18 depuis D4m-géant ; unitaires de vram.py 99 OK ; 13 journaux archivés : atlas attendus selon les réglages déclarés par chaque journal ; À LANCER DEPUIS GIT BASH : sous PowerShell, lua5.2 n'est pas dans le PATH et le banc donne 2/5)
 python -B tools/autotest/tests/mut_atlas.py --logs "<racine>/fo-logs" --out <dossier jetable, ni fo-logs ni une archive>   -> 50 OK (depuis le lot A2 : l'atlas [icon] sans linear-mip-level n'est toléré qu'en qualité normale avec la ligne « [FO-GUN-ICONES] » du mod, F125 ; témoins A2 : `<racine>\fo-logs\2026-10-24_A2\correction\d4m\*-galerie`, à GARDER ; 40 avant A2)
 python -B tools/autotest/tests/mut_vram.py [--work <dossier jetable>]   -> témoin nul survivant ; 18/18 mutants détectés (18 par un contrôle, 0 par un plantage), code 0 (règle de l'atlas virtuel de vram.py, hors jeu, environ 10 s, 7 s sur main le 22/10 ; lot R1, RD_LOG E55 ; lua5.2 du PATH par défaut : depuis Git Bash, ou --lua <chemin complet de lua5.2.exe> sous PowerShell)
@@ -175,7 +185,7 @@ py -3.9 tools/render/pieces/levels/laser_e/tests/test_laser.py   -> [F1-LASER] 1
 py -3.9 tools/render/pieces/levels/four_e/tests/test_four.py   -> [F2-FOUR] 179 OK ; avec --sprites "<racine>/fo-logs/2026-10-25_F2/production/sprites" : 193 OK (kit du four, lots F2-A et F2-B)
 PYTHONUTF8=1 py -3.9 tools/render/pieces/levels/assembleur_e/tests/test_assembleur.py   -> [F3-ASM] 217 OK (kit de l'assembleur, lots F3-A et F3-B ; sans PYTHONUTF8, il plante à l'affichage de « ⊂ »)
 PYTHONUTF8=1 py -3.9 -B tools/render/pieces/levels/foreuse_e/tests/test_foreuse.py   -> [F4-FOREUSE] 149 OK (kit de la foreuse, lots F4-A à F4-A3 ; rien en jeu ; lua5.2 du PATH : Git Bash)
-PYTHONUTF8=1 py -3.9 -B tools/render/pieces/levels/centre_e/tests/test_centre.py   -> [F5-CENTRE] 81 OK (kit du centre de commandement, lot F5-A ; rien en jeu)
+PYTHONUTF8=1 py -3.9 -B tools/render/pieces/levels/centre_e/tests/test_centre.py   -> [F5-CENTRE] 105 OK (kit du centre de commandement, lot F5-A ; rien en jeu ; 81 avant le 28/10)
 PYTHONUTF8=1 py -3.9 tools/render/tests/test_produire_a3.py   -> 43 OK (production des têtes à 64 directions : pannes de lecture, exceptions, code de sortie, reprise ; faux rendre.py, sans Blender, environ 50 s ; lit A3\sprites et A3\masques\m16, à GARDER ; lot A3)
 ```
 `levels_test` et `migration_test` acceptent `FO_DATA_DIR=<racine>/data` pour une copie du mod hors de
@@ -384,6 +394,45 @@ sur `main` 0.4.6 le 23/10, `done.txt` 20:54:32,19). Images : `& "<racine>\fo-cap
 depuis PowerShell, 150 captures depuis A3-jeu (90 avant), puis `py -3.9 tools/autotest/gun_rose_images.py "<dossier des captures>" --feuilles "<source>\graphics\levels\gun"` → « BILAN : 280 OK, 0 FAUX, 0 ambigu(s) » aux 15 âges à 64 directions (lot A3-final, 24/10 ; 252 OK et 28 ambigus à 7 âges sur 0.4.9).
 `a2-icones` (images seulement, qualité normale, mode Alt) : « [FO-A2-ICONES] BILAN : 2 OK », 4 captures (correcteur
 d'A2 ; non rejoué sur `main`).
+
+**Attendus des bancs en moteur réel, rejoués le 28/10 (lot DOC ; `main` 2d0fbc5 fusionné dans la branche `coffre`)** : commande type
+`py -3.9 -B tools/autotest/banc.py --out <archive> [--graine N] --qui <lot> -- <ticks> <scénario> <source>` (depuis la racine du mod).
+Source des valeurs : « DOC » = relancé par ce lot (archive `<racine>o-logs6-10-28_DOC\<nom>`, `done.txt` donné) ; « archive du 28/10 »
+= valeur reprise d'une archive existante, NON rejouée sur 2d0fbc5 (la file des bancs comptait plus de 70 tickets : les bancs longs n'ont pas été
+relancés, consigne du lead). Graine 20261020 sauf mention. Un BILAN avec ECHEC est noté tel quel.
+| Scénario | Ticks | BILAN attendu | Observé le 28/10 (source) |
+|---|---|---|---|
+| `content` | 4 000 | 331 OK | 331 OK, `done.txt` 7:05:22 (archive `2026-10-28_MAIN\content`, `main` 6893be8) et 6:44:30 (`2026-10-28_GARDEFOUS`, branche capib) |
+| `monde` | 700 | 116 OK | 116 OK, 6:44:41 (archive GARDEFOUS, capib) |
+| `m0-reprise` | 2 600 | 15 OK | 15 OK, 6:44:49 (archive GARDEFOUS) |
+| `bord-a-bord` | 60 | 12 OK | 12 OK, 6:45:07 (archive GARDEFOUS) |
+| `t2-machines` | 1 500 | 80 OK | 80 OK, 6:45:24 (archive GARDEFOUS) |
+| `t3-libere` | 1 900 | 41 OK | 41 OK, 6:45:42 (archive GARDEFOUS) |
+| `gun-rose` | 1 000 | 13 OK | 13 OK, 6:45:59 (archive GARDEFOUS ; feuilles de la mitrailleuse requises) |
+| `f2-fours` | 400 | 3 OK | 3 OK, 6:46:15 (archive GARDEFOUS) |
+| `f3-assembleurs` | 400 | 6 OK | 6 OK, 6:46:31 (archive GARDEFOUS) |
+| `f4-foreuses` | 800 | 7 OK | 7 OK, 6:46:45 (archive GARDEFOUS) |
+| `mod1-modules` | 2 200 | 85 OK | 85 OK, 6:47:03 (archive GARDEFOUS) |
+| `mod2-lots` | 2 300 | 28 OK | 28 OK, 6:47:07 (archive GARDEFOUS) |
+| `x1-titane` | 3 800 | 27 OK | 27 OK, 6:47:28 (archive GARDEFOUS) |
+| `adopte-manuel` | 1 600 | 16 OK | 16 OK, 6:52:08 (archive GARDEFOUS) ; témoin `adopte-manuel-temoin` (réglage éteint) : mesure, pas de BILAN attendu |
+| `ia3k-immobile` | 18 300 | 5 OK | 5 OK, 3:15:09 (archive `2026-10-28_FUITE2inal-immobile-20261020`, branche fuite, 18 400 ticks) ; le banc GARDEFOUS de 6:52:58 n'a pas de ligne BILAN lisible |
+| `ia3k-arret` | 15 100 | 8 OK | 8 OK, 3:14:48 (archive `2026-10-28_FUITE2inal-arret-20261020`, branche fuite, 15 200 ticks) |
+| `ia3k-vague` | 3 100 | 7 OK | 7 OK, 2:51:25 (archive FUITE2, branche fuite) |
+| `ia3k-vague-lente` | 3 100 | 7 OK attendus ; **6 OK, 1 ECHEC** observé | « PNJ perdus à la vague <= 2 », 2:51:09 (archive FUITE2 `ia3k-vague-lente-r10`, branche fuite, avant la fusion dans `main`) : ECHEC connu, à vérifier sur `main` |
+| `ia3k-vague-travail` | 3 100 | 7 OK | 7 OK, 2:55:07 (archive FUITE2 `travail-apres`) |
+| `coffre-annexes` | 12 200 | 11 OK | 11 OK, 27/10 21:10 (archive `2026-10-27_ETAPE1\coffre-annexes-4`, branche coffre avant la fusion de `main`) |
+| `explo-carte` | 900 à 1 200 | pas de BILAN (relevé de la carte, lignes `[FO-EXPLO-CARTE]`) | archive `2026-10-28_EXPLO\carte` (2:14:48, branche sites, 900 ticks) |
+| `leviers-modules` | 30 000 | non mesuré | pas d'archive de BILAN trouvée ; ticket DOC déposé à 12 h 44 (archive `2026-10-28_DOC\leviers-modules` si le banc a fini) |
+| `leviers-techno` | 43 300 | non mesuré | pas d'archive de BILAN trouvée ; non rejoué |
+| `leviers-libre` | 36 200 | non mesuré | pas d'archive de BILAN trouvée ; non rejoué |
+| `etape1-guide` | 216 300 (216 200 dans l'en-tête du scénario ; le contrôle est au tick 214 000) | 17 OK | **17 OK**, DOC, 12:17:02, `main` 2d0fbc5 + coffre, graine 20261020 (archive `2026-10-28_DOC\etape1-guide`, 442 s en file comprise) ; 7:26:17 sur `main` 6893be8 ; graine 271828182 : 17 OK (12:25:31, archive `2026-10-28_LEVIERS$1-base-271828182`, branche leviers-main) ; **graine 1618033988 : 15 OK, 2 ECHEC** (« équipe du joueur active », « avant-postes de l'équipe du joueur », 12:59:29, archive `2026-10-28_LEVIERS$1-base-1618033988`, branche leviers-main, anomalie signalée au lead) |
+| `verif-guide` | 216 000 | 15 OK | 15 OK sur 271828182 (6:49:02) et sur 1618033988 (6:50:59) (archive GARDEFOUS `vg-271`, `vg-161`, branche capib) |
+| `pnj-reduit` | 108 000 | 12 OK | 12 OK, 6:52:58 (archive GARDEFOUS) |
+| `ameliorer-guide` | 216 300 | non mesuré | pas d'archive de BILAN trouvée (les fichiers de `2026-10-28_AMELIORER-D15` sont des journaux de file) ; la commande est dans l'en-tête de `scenarios/ameliorer_common.lua` (`--graine N --qui AMELIORER`) |
+Durées d'un banc moteur en file chargée (28/10, 3 places ouvertes) : `etape1-guide` 442 s dont 153 s d'attente ; un ticket DOC court a attendu plus de 25 min son tour (74 tickets d'autres lots devant). Les tickets DOC courts (`content`, `bord-a-bord`, `f2-fours`, `f3-assembleurs`, `f4-foreuses`, `gun-rose`, `monde`…) ont aussi été déposés le 28/10 vers 12 h 37 ; leurs archives `2026-10-28_DOC\<nom>` remplacent les lignes « archive GARDEFOUS » ci-dessus quand elles existent.
+
+**Réglages de carte (runtime-global) et défauts au 28/10** (relevés en chargeant `settings.lua`) : ALLUMÉS `fo-war-adopte`, `fo-war-capi`, `fo-war-fantomes`, `fo-war-ia3-cerveau`, `fo-war-ia3-comportement`, `fo-war-ia3-marche`, `fo-war-ia3e`, `fo-war-remplacer` ; ÉTEINTS `fo-war-autostart`, `fo-war-capital` ; `fo-war-factions` 2 (2 à 4), `fo-war-soldiers` 30 (5 à 100), `fo-war-workers` 30 (1 à 60), `fo-pvp-difficulty` normal, `fo-npc-start` 8 (2 à 30), `fo-player-team-npc-max` 30 (6 à 60), `fo-agents-max` 300, `fo-recruit-idle-max` 0, `fo-companion-brain-period` 60, `fo-companion-steer-period` 4, `fo-path-issue-per-tick` 2, `fo-path-max-inflight` 6, `fo-debug-render` faux. `settings/ia3.lua` n'est requis par aucun fichier : `fo-war-ia3-recherche` n'existe pas (seule sa traduction reste dans `locale/*/ia3.cfg`).
 
 Scénarios :
 - `default` : guerre à économie réelle et compagnons ;
