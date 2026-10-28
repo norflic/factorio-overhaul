@@ -40,6 +40,21 @@ local function net_diag(s, r, minute)
       elseif d.status == defines.entity_status.no_power or d.status == defines.entity_status.low_power then n.nopow = n.nopow + 1 end
     end
   end
+  -- etats des foreuses electriques de la faction (noms du moteur) : pourquoi elles ne travaillent pas
+  local hist, names = {}, {}
+  local sname = {}
+  for k, v in pairs(defines.entity_status) do sname[v] = k end
+  for _, d in ipairs(s.find_entities_filtered({ force = r.force, type = "mining-drill" })) do
+    if d.prototype.electric_energy_source_prototype then
+      local k = sname[d.status] or tostring(d.status)
+      hist[k] = (hist[k] or 0) + 1
+    end
+  end
+  for k in pairs(hist) do names[#names + 1] = k end
+  table.sort(names)
+  local hs = {}
+  for _, k in ipairs(names) do hs[#hs + 1] = k .. "=" .. hist[k] end
+  log(TAG .. string.format("etats foreuses minute %d | %s | %s", minute, r.key, table.concat(hs, " ")))
   local ids = {}
   for id in pairs(nets) do ids[#ids + 1] = id end
   table.sort(ids)
