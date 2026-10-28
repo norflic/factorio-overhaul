@@ -193,6 +193,22 @@ local function battery()
     if o.x ~= e.x or o.y ~= e.y then same = false end
   end
   check(same, "même regard, même carte (déterminisme)")
+  -- Anneau : les QG des factions sont à la même distance du départ que le nôtre.
+  local ring = { x = 0, y = 0, r = 500 }
+  check(K.ring_prior(ring, 500, 0) == 2000 and K.ring_prior(ring, 0, -500) == 2000, "sur l'anneau : 2 000")
+  check(K.ring_prior(ring, 0, 0) == 500 and K.ring_prior(ring, 2000, 0) == 500, "loin de l'anneau : 500")
+  check(K.ring_prior(ring, 400, 0) > K.ring_prior(ring, 300, 0) and K.ring_prior(ring, 300, 0) > K.ring_prior(ring, 100, 0),
+    "plus près de l'anneau, plus probable")
+  local m3 = K.new()
+  -- Deux secteurs vus côte à côte ; la frontière offre un secteur sur l'anneau (vers l'est) et un hors anneau (vers le centre).
+  for _, kk in ipairs({ { 7, 0 }, { 8, 0 }, { 8, 1 } }) do K.record(m3, K.key(kk[1], kk[2]), 100, {}) end
+  local flat = K.best_target(m3, { hq = { x = 512, y = 32 }, me = { x = 512, y = 32 }, tick = 200, spawn = { x = 0, y = 0 } })
+  local ringed = K.best_target(m3, { hq = { x = 512, y = 32 }, me = { x = 512, y = 32 }, tick = 200, spawn = { x = 0, y = 0 },
+    ring = { x = 0, y = 0, r = 512 } })
+  local rx, ry = K.xy(ringed)
+  local cx, cy = K.center(rx, ry)
+  check(flat ~= nil and ringed ~= nil and math.abs(math.sqrt(cx * cx + cy * cy) - 512) < 120,
+    "a priori d'anneau : la frontière choisie est près de l'anneau")
 end
 
 local function run(label)

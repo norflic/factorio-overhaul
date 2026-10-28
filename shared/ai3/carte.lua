@@ -383,8 +383,19 @@ function K.prior(m, res, key, spawn, hq)
   return p
 end
 
+--- Lot RECON : a priori (pour mille) d'un secteur quand on cherche une FACTION rivale. Les QG des factions sont tous à la même
+--- distance du point de départ de la carte (réglage de la partie) : un secteur dont la distance au départ est celle de notre
+--- propre QG est plus probable (2 000 sur cet anneau, 500 à K.RING_FAR tuiles d'écart et au-delà). `ring` = { x, y, r }.
+K.RING_FAR = 320
+function K.ring_prior(ring, cx, cy)
+  local off = math.abs(math.sqrt((cx - ring.x) ^ 2 + (cy - ring.y) ^ 2) - ring.r)
+  if off > K.RING_FAR then off = K.RING_FAR end
+  return 2000 - math.floor(1500 * off / K.RING_FAR)
+end
+
 --- Meilleure cible d'exploration. ctx = { hq = {x, y}, me = {x, y}, tick, res (ou nil), spawn = {x, y},
---- rivals = { {x, y} }, exclude = { [clé] = true }, max_dist }. Renvoie clé, note (nil si aucune).
+--- rivals = { {x, y} }, exclude = { [clé] = true }, max_dist, ring (lot RECON : a priori d'une faction rivale) }.
+--- Renvoie clé, note (nil si aucune).
 function K.best_target(m, ctx)
   local best, bs
   local maxd = ctx.max_dist or K.MAX_DIST
@@ -398,7 +409,8 @@ function K.best_target(m, ctx)
         if risk < K.DANGER.skip then
           local me = ctx.me or ctx.hq
           local dm = math.sqrt((cx - me.x) ^ 2 + (cy - me.y) ^ 2)
-          local score = K.prior(m, ctx.res, k, spawn, ctx.hq) * (1000 - risk) / (dh + dm + 100)
+          local prior = ctx.ring and K.ring_prior(ctx.ring, cx, cy) or K.prior(m, ctx.res, k, spawn, ctx.hq)
+          local score = prior * (1000 - risk) / (dh + dm + 100)
           if not bs or score > bs then best, bs = k, score end
         end
       end

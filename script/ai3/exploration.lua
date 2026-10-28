@@ -1225,8 +1225,12 @@ Recon.pick_frontier = function(f, tick)
   local k = f.ai3f
   local surface = surface_of(f)
   if not (k and surface and f.hq_pos) then return nil end
-  local key = K.best_target(k.m, { hq = f.hq_pos, me = f.hq_pos, tick = tick, res = nil, spawn = spawn_of(surface),
-    rivals = rivals(f, surface), exclude = make_exclude(k, tick, nil) })
+  -- A priori d'une FACTION : les QG sont tous à la même distance du départ de la carte que le nôtre (anneau).
+  local sp = spawn_of(surface)
+  local r = math.sqrt(dist2(f.hq_pos, sp))
+  local ring = r >= 100 and { x = sp.x, y = sp.y, r = r } or nil
+  local key = K.best_target(k.m, { hq = f.hq_pos, me = f.hq_pos, tick = tick, res = nil, spawn = sp,
+    rivals = rivals(f, surface), exclude = make_exclude(k, tick, nil), ring = ring })
   if not key then return nil end
   local cx, cy = K.center(K.xy(key))
   return { x = cx, y = cy }
