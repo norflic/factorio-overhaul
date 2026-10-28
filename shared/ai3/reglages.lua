@@ -94,6 +94,21 @@ R.MODIFIER_ROLE = {
   ["worker-robot-storage"] = "capital",
 }
 
+-- Lot LEVIERS (27/10) : types d'effets de technologie qui AUGMENTENT UNE CAPACITÉ de production, et la capacité qu'ils
+-- augmentent (« mine » : débit des foreuses ; « lab_speed » : vitesse des laboratoires ; « lab_prod » : productivité de la
+-- recherche ; « labor » : vitesse du travail des PNJ, construction et fabrication). Le gain et le coût viennent des
+-- DONNÉES (valeur du modificateur, packs, durée) : shared/ai3/leviers.lua. Les effets militaires restent à R.MODIFIER_ROLE.
+R.LEVER_EFFECT = {
+  ["mining-drill-productivity-bonus"] = "mine",
+  ["laboratory-speed"] = "lab_speed",
+  ["laboratory-productivity"] = "lab_prod",
+  ["worker-robot-speed"] = "labor",
+  ["character-crafting-speed"] = "labor",
+  ["character-mining-speed"] = "labor",
+}
+-- Type d'objet du moteur qui porte des effets de module (LuaItemPrototype.type).
+R.ITEM_MODULE = "module"
+
 R.TURRET = "gun-turret"
 
 R.BODY = "character"
