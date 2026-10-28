@@ -74,6 +74,15 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
 - Écrire dans un document un texte qui contient une barre oblique inverse : outil Edit ou Write, jamais heredoc ni
   `py -c` (la barre doublée est réduite et corrompt le texte).
 
+## 5 bis. Versions jouables (git ; ordre du DC, 28/10 soir : « utilise également git pour avoir des maj avec des versions qui marchent »)
+- `main` ne reçoit QUE des livraisons dont les critères sont tenus sur 4 graines (ou des outils sans effet sur le jeu) ;
+  le jeu charge ce dossier. Chaque version jouable = `info.json` montée + `changelog.txt` + banc `content` vert en moteur
+  réel + tag `jouable-X.Y.Z`, et la branche `jouable` est déplacée sur ce tag (`git branch -f jouable jouable-X.Y.Z`).
+- Dernière version qui marche : `git tag | grep jouable` (aujourd'hui `jouable-0.6.7`). Retour arrière si une fusion casse le jeu :
+  `git checkout jouable` dans un worktree à part, ou `git revert` de la fusion sur `main` ; ne jamais réécrire l'historique de
+  `main`. Les lots refusés ou parqués restent sur leurs branches (`layout`, `recon`, `fer`, `couverture*`, `petrole2`, `adopte*`…).
+- Aucun envoi à l'extérieur (pas de dépôt distant) sans accord du DC.
+
 ## 6. Règles de code (ARCHITECTURE §2)
 - Cycle settings → data → control. `control.lua` ne contient que des `require`. Abonnements statiques (bus `Events`).
 - `on_load` ne modifie jamais `global` ; `global` n'est nommé que dans `script/core/storage.lua`.
