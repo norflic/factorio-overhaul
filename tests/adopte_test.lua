@@ -227,6 +227,38 @@ do
 end
 
 do
+  -- laboratoires et annexes
+  world.entities = {}
+  local f = new_team()
+  f.team = {}
+  local lab = new_entity("lab", 15, 0)
+  build(lab)
+  check(#f.smelters == 0 and f.adopt == nil or f.adopt.units[lab.unit_number] == nil, "laboratoire avant l'état du cerveau : pas encore adopté (la migration le reprendra)")
+  f.team.ia3 = {}
+  build(lab)
+  check(f.team.ia3.labs and f.team.ia3.labs[1] == lab and f.adopt.units[lab.unit_number], "laboratoire isolé : inscrit à f.team.ia3.labs")
+  local lab2 = new_entity("lab", -15, 5)
+  new_entity(INSERTER_TYPE, -15, 7)
+  build(lab2)
+  check(#f.team.ia3.labs == 1 and f.adopt.refused[lab2.unit_number] == "ligne", "laboratoire en ligne (bras à côté) : non adopté")
+  local TT = require("shared.team.config")
+  local chest = new_entity("container", 6, 6, { name = TT.annex.kinds[1].item, prototype = { tile_width = 1, tile_height = 1 } })
+  build(chest)
+  check(f.annex and f.annex[1] == chest, "coffre du stock posé à 8 tuiles : inscrit aux annexes")
+  local far = new_entity("container", 30, 0, { name = TT.annex.kinds[1].item, prototype = { tile_width = 1, tile_height = 1 } })
+  build(far)
+  check(#f.annex == 1 and f.adopt.refused[far.unit_number] == "loin", "coffre à 30 tuiles : reste au joueur (rayon des annexes)")
+  local other = new_entity("container", 5, -5, { name = "un-autre-coffre", prototype = { tile_width = 1, tile_height = 1 } })
+  build(other)
+  check(#f.annex == 1, "coffre d'un autre prototype : jamais une annexe")
+  -- un bras posé contre l'annexe adoptée la rend
+  local ins = new_entity(INSERTER_TYPE, 6, 7.5)
+  build(ins)
+  check(#f.annex == 0 and not f.adopt.units[chest.unit_number], "bras posé contre une annexe : rendue")
+  check(destroyed == 0, "aucune destruction")
+end
+
+do
   -- migration : machines déjà posées, triées par numéro d'unité, QG déjà servi non redoublé
   world.entities = {}
   local f = new_team()
