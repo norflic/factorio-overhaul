@@ -198,10 +198,14 @@ steps[T_WAIT + 400] = function(ctx, p, st)
   for _, k in ipairs({ "equipe", "factions", "pnj", "orientation", "partie" }) do
     R(ctx, "select", p.index, k)
     local prof = game.create_profiler()
-    for _ = 1, 20 do R(ctx, "refresh", p.index, false) end
+    -- « partie » se reconstruit une fois sur 3 appels (def.every) : 60 appels = 20 reconstructions ; la moyenne par
+    -- RECONSTRUCTION vaut 3 x la moyenne par appel journalisée.
+    local n = (k == "partie") and 60 or 20
+    for _ = 1, n do R(ctx, "refresh", p.index, false) end
     prof.stop()
-    prof.divide(20)
-    log({ "", "[FO-IA1-GUI] COUT\trafraichissement de l'onglet ", k, " (moyenne de 20, appel distant compris)\t", prof })
+    prof.divide(n)
+    log({ "", "[FO-IA1-GUI] COUT\trafraichissement de l'onglet ", k, " (moyenne de ", tostring(n), " appels, appel distant compris",
+      k == "partie" and " ; une reconstruction sur 3 : x 3 pour une reconstruction" or "", ")\t", prof })
   end
   local prof = game.create_profiler()
   for _ = 1, 100 do R(ctx, "sample") end

@@ -586,7 +586,7 @@ do
   local a, ra = play("cmd", true, "partie")
   local b, rb = play("cmd", false)
   check(a == b, string.format("même état de jeu, onglet Partie ouvert et rafraîchi ou fenêtre fermée (%d contre %d caractères)", #a, #b))
-  check(ra >= 590 and rb == 0, string.format("rafraîchissements : %d fenêtre ouverte, %d fermée", ra, rb))
+  check(ra >= 190 and ra <= 215 and rb == 0, string.format("rafraîchissements : %d fenêtre ouverte sur l'onglet Partie (un toutes les 3 s), %d fermée", ra, rb))
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

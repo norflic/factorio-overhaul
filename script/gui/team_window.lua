@@ -608,6 +608,7 @@ local function task_text(kind)
   return TASK_TEXT[kind] and { "fo-ia1i.task-" .. kind } or kind
 end
 tabs.partie = Partie.tab({ label = label, heading = heading, task_text = task_text })
+tabs.partie.every = 3 -- secondes entre deux rafraîchissements de l'onglet (les débits couvrent 3 min)
 
 tabs.territoire = { fixed = function(c) coming(c, "coming-territoire") end }
 tabs.chantiers = { fixed = function(c) coming(c, "coming-chantiers") end }
@@ -655,9 +656,15 @@ local function build(player, full)
     local live = pane.add({ type = "flow", name = P .. "live", direction = "vertical" })
     live.style.vertical_spacing = 4
     if def.fixed then def.fixed(fixed, player, f, u) end
-    u.sig, u.built = sig, k
+    u.sig, u.built, u.skipped = sig, k, 0
   elseif not def.live then
     return
+  elseif def.every then
+    -- Onglet qui change lentement (« Partie », lot PANEL-STATS) : refait une fois toutes les `every` secondes seulement
+    -- (mesuré : 2,7 ms par rafraîchissement, dont la construction des éléments ; budget du lot 0,05 ms/tick).
+    u.skipped = (u.skipped or 0) + 1
+    if u.skipped < def.every then return end
+    u.skipped = 0
   end
   if def.live then
     local live = pane[P .. "live"]
