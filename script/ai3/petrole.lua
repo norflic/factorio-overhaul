@@ -186,8 +186,16 @@ local function refresh_known(f, st, c, deposits, tick)
   local surface = f.hq.surface
   -- eau : une rive à portée du QG (une fois)
   if st.water == nil then
-    local n = surface.count_tiles_filtered({ position = f.hq_pos, radius = Pet.WATER_R, collision_mask = "water-tile", limit = 1 })
-    st.water = n > 0
+    -- Une FACTION a toujours de l'eau : le plan directeur pose un étang quand aucune rive ne tient sa centrale (Build make_pond)
+    -- et le lot en pose un au gisement quand aucune rive n'est proche. Sans cela, les éclaireurs cherchaient de l'eau au lieu
+    -- du pétrole (moteur simulé, ia3f_test) et, sans eau à 160 tuiles, le pack chimique restait impayable (moteur réel,
+    -- etape1-guide 123456789). Votre équipe, elle, n'a que l'eau que vous lui laissez : une rive à portée du QG.
+    if not f.is_player then
+      st.water = true
+    else
+      local n = surface.count_tiles_filtered({ position = f.hq_pos, radius = Pet.WATER_R, collision_mask = "water-tile", limit = 1 })
+      st.water = n > 0
+    end
   end
   -- … ou l'étang que le plan directeur a posé pour la centrale (aucune rive ne la tenait : Build make_pond) : l'équipe a de
   -- l'eau (moteur réel, etape1-guide 123456789 : aucune eau à 160 tuiles, le pack chimique restait impayable, le pétrole « valait 0 »)
