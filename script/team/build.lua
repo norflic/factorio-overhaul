@@ -1305,6 +1305,7 @@ function Build.cancel(f, id, why)
   local b = f and f.build
   local p = b and b.projects[id]
   if not (p and (p.state == "attente" or p.state == "plan" or p.state == "reserve")) then return false end
+  if p.reopened then return false end -- lot CENTRALE : un projet déjà bâti dont des poteaux sont à refaire n'est pas annulable
   release(f, p)
   for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
   for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
@@ -2005,6 +2006,23 @@ local function wire_project(f, surface, p)
   return n
 end
 
+--- Lot CENTRALE (moteur réel, etape1-guide 123456789, Écarlate : 7 foreuses électriques posées, 0 en marche, 3 réseaux ; journal
+--- [DBG-RESEAU] : deux poteaux de la rue de la fonderie, marqués bâtis, détruits par des biters — restes de poteau et cadavres
+--- de petit mordeur sur place — avant la fin du projet) : une entité marquée bâtie n'était JAMAIS recontrôlée ; la fonderie
+--- restait sur une île à 8,5 tuiles du réseau de la centrale. Les poteaux marqués bâtis mais absents (ou d'une autre force) sont
+--- remis à bâtir ; rend leur nombre. Poteaux seulement : une machine peut avoir été remplacée par un niveau supérieur (autre nom).
+local function audit_poles(f, surface, p)
+  local lost = 0
+  for _, e in ipairs(p.ents) do
+    if e.built and e.name:find("electric%-pole") and not find_real(surface, e, f.force) then
+      e.built, e.ghosted, e.fails, e.npc_blocks = false, nil, 0, 0
+      lost = lost + 1
+    end
+  end
+  return lost
+end
+Build.AUDIT_TICKS = 7200 -- un projet fini est recontrôlé toutes les 2 min (poteaux seulement)
+
 local function all_built(p)
   for _, e in ipairs(p.ents) do if not e.built then return false end end
   return true
@@ -2023,10 +2041,13 @@ local function finish_project(f, surface, p, tick)
   release(f, p)
   p.state = "fini"
   p.finished = tick
-  for _, pt in pairs(p.parts) do
-    if pt then b.stats.modules_done = b.stats.modules_done + 1 end
+  if not p.counted then
+    p.counted = true
+    for _, pt in pairs(p.parts) do
+      if pt then b.stats.modules_done = b.stats.modules_done + 1 end
+    end
+    b.stats.projects_done = b.stats.projects_done + 1
   end
-  b.stats.projects_done = b.stats.projects_done + 1
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n].built = true end end
   log(string.format("[FO-IA1D] %s : projet %d fini (%s, %d entites, %d fils) a %.1f min", f.key or "player", p.id,
     p.parts[1] and p.parts[1].key or "?", #p.ents, p.wired or 0, tick / 3600))
@@ -2148,6 +2169,13 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "raccordement" then
+    local lost = audit_poles(f, surface, p)
+    if lost > 0 then
+      log(string.format("[FO-IA1D] %s : projet %d, %d poteau(x) detruit(s) avant la fin : remis a batir", f.key or "player", p.id, lost))
+      p.state, p.reason, p.reserve_next = "reserve", "poteaux detruits", nil
+      p.reopened = (p.reopened or 0) + 1
+      return
+    end
     finish_project(f, surface, p, tick)
   end
 end
@@ -2175,6 +2203,17 @@ local function pulse_team(f, tick)
       for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
       p.state, p.reason = "chantier", nil
       log(string.format("[FO-IA1D] %s : projet %d reprend son chantier a %.1f min", f.key or "player", p.id, tick / 3600))
+    end
+    -- lot CENTRALE : un projet fini dont des poteaux ont été détruits repasse en réserve (les poteaux seulement)
+    if p and p.state == "fini" and tick >= (p.audit_next or 0) then
+      p.audit_next = tick + Build.AUDIT_TICKS + (p.id % 7) * 60
+      local lost = audit_poles(f, surface, p)
+      if lost > 0 then
+        log(string.format("[FO-IA1D] %s : projet %d fini, %d poteau(x) detruit(s) : remis a batir a %.1f min", f.key or "player", p.id,
+          lost, tick / 3600))
+        p.state, p.reason, p.reserve_next = "reserve", "poteaux detruits", nil
+        p.reopened = (p.reopened or 0) + 1
+      end
     end
     if p and p.state ~= "fini" and p.state ~= "refuse" and p.state ~= "bloque" then
       local was = p.state
