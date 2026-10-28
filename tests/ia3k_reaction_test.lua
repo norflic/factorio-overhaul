@@ -104,11 +104,36 @@ local function suite()
   section("rappel et mise à l'abri : la défense reste à son poste")
   check(Re.recall_exempt("garrison") and Re.recall_exempt("fortify") and Re.recall_exempt("mine", true), "garnison, fortification, defend : exemptées")
   check(not Re.recall_exempt("ghost") and not Re.recall_exempt("service", false) and not Re.recall_exempt(nil), "les autres tâches sont rappelées")
-  check(Re.shelter_needed(false, 0, "garrison") == true, "sans arme : toujours à l'abri")
-  check(Re.shelter_needed(true, 3, "ghost") == true, "armé, occupé, force 3 : à l'abri")
-  check(Re.shelter_needed(true, 1.5, "ghost") == false, "armé, force isolée (1,5) : il se défend seul")
-  check(Re.shelter_needed(true, 3, "garrison") == false and Re.shelter_needed(true, 3, "ghost", true) == false, "armé en garnison ou en défense : reste")
-  check(Re.shelter_needed(true, nil, "ghost") == false, "force inconnue : reste")
+
+  section("QG attaqué : se regrouper sous les tourelles")
+  local home2 = { x = 8, y = 7 }
+  local tur = { { x = 14, y = 0 }, { x = 14, y = 14 }, { x = 300, y = 300 } } -- la 3e est à un avant-poste
+  local rp = Re.rally_point(tur, home2)
+  check(rp ~= nil, "tourelles du QG : point de ralliement")
+  if rp then
+    -- centre des 2 tourelles du QG = (14, 7) ; 3 tuiles derrière, vers le coffre (8, 7) : (11, 7)
+    check(math.abs(rp.x - 11) < 1e-6 and math.abs(rp.y - 7) < 1e-6, "3 tuiles derrière le centre des tourelles du QG, côté coffre")
+  end
+  check(Re.rally_point({ { x = 300, y = 300 } }, home2) == nil, "aucune tourelle du QG (avant-poste seulement) : pas de ralliement")
+  check(Re.rally_point({}, home2) == nil and Re.rally_point(nil, home2) == nil, "aucune tourelle : pas de ralliement")
+  local rp1 = Re.rally_point({ { x = 8, y = 7 } }, home2)
+  check(rp1 and rp1.x == 8 and rp1.y == 7, "tourelle sur le coffre : le point est la tourelle")
+  check(Re.outrun(0.12, 0.15) == true and Re.outrun(0.2, 0.15) == false and Re.outrun(nil, 0.15) == false
+    and Re.outrun(0.135, 0.15) == true, "distancer : vitesse de l'ennemi <= 90 % de la nôtre")
+  -- Journal int-1 : 9 PNJ armés contre 5 soldats d'Azure (force pesée ~13).
+  local base = { allies = 9, force = 13, prudence = 1000, agressivite = 1000 }
+  local function hq(over) local i = {} for k, v in pairs(base) do i[k] = v end for k, v in pairs(over or {}) do i[k] = v end return Re.hq_response(i) end
+  check(hq({ rally = rp }) == "rally", "9 contre force 13, tourelles : ralliement")
+  check(hq({ rally = nil, outrun = true }) == "away", "sans tourelle, ennemi distancé : on s'éloigne")
+  check(hq({ rally = nil, outrun = false }) == "stand", "sans tourelle, ennemi plus rapide : on se bat, groupés")
+  check(hq({ allies = 30, rally = rp }) == "stand", "plus nombreux (30 contre 13) : on se bat")
+  check(hq({ force = 2, allies = 4, rally = rp }) == "stand", "4 contre force 2 : on se bat")
+  check(hq({ force = 2, allies = 2, rally = rp }) == "rally", "2 contre force 2 (ratio 2 000 requis) : ralliement")
+  check(hq({ prudence = 600, agressivite = 1500, allies = 3, force = 2, rally = rp }) == "stand", "un audacieux se bat à 3 contre 2")
+  -- Le refuge ne mène pas sur l'ennemi.
+  check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 5 }) == true, "ennemi sur le chemin")
+  check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 30, y = 60 }) == false, "ennemi sur le côté")
+  check(Re.on_the_way({ x = 0, y = 0 }, { x = 100, y = 0 }, { x = 130, y = 0 }) == false, "ennemi au-delà de la cible")
 end
 
 suite()
@@ -159,9 +184,16 @@ mutant("regard de tous au même tick", function() patch(Re, "idle_look_due", fun
 mutant("regard à chaque pensée", function() patch(Re, "idle_look_due", function() return true end) end)
 mutant("la garnison est rappelée", function() patch(Re, "recall_exempt", function(kind, defend) return defend == true end) end)
 mutant("la défense est rappelée", function() patch(Re, "recall_exempt", function(kind) return Re.EXEMPT[kind] == true end) end)
-mutant("armé toujours à l'abri", function() patch(Re, "shelter_needed", function(armed, force, kind, defend) return true end) end)
-mutant("armé jamais à l'abri", function() patch(Re, "shelter_needed", function(armed) return not armed end) end)
-mutant("armé à l'abri même isolé", function() patch(Re, "ISOLATED", 0) end)
+mutant("tourelles d'avant-poste prises pour celles du QG", function() patch(Re, "RALLY_R", 1e6) end)
+mutant("ralliement jamais", function() patch(Re, "rally_point", function() return nil end) end)
+mutant("point de ralliement devant les tourelles", function() patch(Re, "RALLY_BEHIND", -3) end)
+mutant("toujours plus lent que nous", function() patch(Re, "outrun", function() return true end) end)
+mutant("jamais distancé", function() patch(Re, "outrun", function() return false end) end)
+mutant("on se bat toujours", function() patch(Re, "hq_response", function() return "stand" end) end)
+mutant("on se regroupe toujours", function() patch(Re, "hq_response", function(i) return i.rally and "rally" or "away" end) end)
+mutant("ratio d'engagement ignoré", function() patch(Re, "engage_ratio", function() return 1 end) end)
+mutant("ennemi jamais sur le chemin", function() patch(Re, "on_the_way", function() return false end) end)
+mutant("ennemi toujours sur le chemin", function() patch(Re, "on_the_way", function() return true end) end)
 mutant("QG toujours le refuge", function() patch(Re, "away_point", function() return nil end) end)
 mutant("éloignement vers l'ennemi", function()
   local f = Re.away_point

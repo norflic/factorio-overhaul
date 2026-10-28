@@ -31,6 +31,9 @@ Re.HOME_CONE = 0.5 -- cosinus : l'ennemi est « du côté du QG » s'il est dans
 Re.IDLE_LOOK = 180   -- ticks : un PNJ armé, sain et à l'arrêt regarde autour de lui au plus toutes les 3 s (étalé par numéro)
 Re.ISOLATED = 1.5    -- force pesée au plus : un ennemi « isolé » qu'un ouvrier armé peut chasser ; au-delà, il ne tient pas seul
 Re.EXEMPT = { garrison = true, fortify = true } -- tâches de défense : jamais rappelées ni mises à l'abri quand elles sont armées
+Re.RALLY_R = 40      -- tuiles : les tourelles à moins de 40 tuiles du QG sont celles qui le défendent
+Re.RALLY_BEHIND = 3  -- tuiles : le point de ralliement est 3 tuiles derrière le centre des tourelles, côté coffre
+Re.OUTRUN = 0.9      -- l'ennemi est distancé s'il va à au plus 90 % de la vitesse du PNJ
 Re.FEAR_BASE = 400  -- 40 % de vie (IA_ATTENDUS C3)
 Re.FEAR_MAX = 550
 
@@ -84,14 +87,6 @@ function Re.recall_exempt(kind, defend)
   return Re.EXEMPT[kind] == true or defend == true
 end
 
---- Mise à l'abri (C7) d'un ouvrier occupé quand le QG est menacé : un ouvrier sans arme toujours ; un ouvrier ARMÉ seulement
--- si la force ennemie dépasse Re.ISOLATED (seul, il ne la bat pas) et que sa tâche n'est pas une défense.
-function Re.shelter_needed(armed, force, kind, defend)
-  if not armed then return true end
-  if Re.recall_exempt(kind, defend) then return false end
-  return (force or 0) > Re.ISOLATED
-end
-
 --- Une unité mobile vue pendant un ARRÊT (alerte) a-t-elle franchi portée + marge ? L'arrêt est alors rompu : le PNJ
 -- ne reste pas aveugle 180 ticks devant des soldats qui marchent sur lui (banc fusion-60, PNJ 7 : 38 tuiles à l'arrêt,
 -- 22 à la sortie de l'arrêt, tué 2 regards plus tard).
@@ -109,13 +104,60 @@ end
 --- Refuge « loin de la menace » : si l'ennemi (ep) est du côté du QG (home) depuis le PNJ (p) et plus près que lui, courir
 -- au QG, c'est courir sur l'ennemi. Rend alors le point à Re.away_distance(range) à l'opposé de l'ennemi, sinon nil.
 function Re.away_point(p, home, ep, range)
-  local hx, hy = home.x - p.x, home.y - p.y
+  if not Re.on_the_way(p, home, ep) then return nil end
+  return Re.away_from(p, ep, range)
+end
+
+--- Le point à Re.away_distance(range) de p, à l'opposé de l'ennemi (ep ; confondu avec p : vers l'est).
+function Re.away_from(p, ep, range)
   local ex, ey = ep.x - p.x, ep.y - p.y
-  local hl, el = math.sqrt(hx * hx + hy * hy), math.sqrt(ex * ex + ey * ey)
-  if hl < 1 or el < 1 or el >= hl then return nil end
-  if hx * ex + hy * ey < Re.HOME_CONE * hl * el then return nil end
+  local el = math.sqrt(ex * ex + ey * ey)
+  if el < 1 then ex, ey, el = -1, 0, 1 end
   local d = Re.away_distance(range)
   return { x = p.x - d * ex / el, y = p.y - d * ey / el }
+end
+
+--- L'ennemi (ep) est-il SUR LE CHEMIN de p vers target ? Dans le cône Re.HOME_CONE vers la cible et plus près qu'elle.
+function Re.on_the_way(p, target, ep)
+  local hx, hy = target.x - p.x, target.y - p.y
+  local ex, ey = ep.x - p.x, ep.y - p.y
+  local hl, el = math.sqrt(hx * hx + hy * hy), math.sqrt(ex * ex + ey * ey)
+  if hl < 1 or el < 1 or el >= hl then return false end
+  return hx * ex + hy * ey >= Re.HOME_CONE * hl * el
+end
+
+--- Point de RALLIEMENT d'un QG attaqué : derrière ses tourelles. `turrets` : { {x, y}, ... } (toutes, valides) ; seules celles à
+-- moins de Re.RALLY_R tuiles de `home` comptent (les tourelles du QG, pas celles d'un avant-poste). Le point est à
+-- Re.RALLY_BEHIND tuiles derrière le CENTRE de ces tourelles, du côté de `home` (coffre) ; nil sans tourelle du QG.
+function Re.rally_point(turrets, home)
+  local sx, sy, n = 0, 0, 0
+  for _, t in ipairs(turrets or {}) do
+    local dx, dy = t.x - home.x, t.y - home.y
+    if dx * dx + dy * dy <= Re.RALLY_R * Re.RALLY_R then sx, sy, n = sx + t.x, sy + t.y, n + 1 end
+  end
+  if n == 0 then return nil end
+  local cx, cy = sx / n, sy / n
+  local hx, hy = home.x - cx, home.y - cy
+  local L = math.sqrt(hx * hx + hy * hy)
+  if L < 1 then return { x = cx, y = cy } end
+  return { x = cx + Re.RALLY_BEHIND * hx / L, y = cy + Re.RALLY_BEHIND * hy / L }
+end
+
+--- Un PNJ à pied peut-il distancer l'ennemi ? (vitesses lues aux prototypes ; ennemi inconnu : non)
+function Re.outrun(enemy_speed, own_speed)
+  if not enemy_speed or not own_speed then return false end
+  return enemy_speed <= own_speed * Re.OUTRUN
+end
+
+--- Réponse d'un QG menacé par des UNITÉS (C7, lot FUITE) : "stand" (assez nombreux : on se bat, groupés), "rally" (derrière
+-- les tourelles du QG), "away" (loin de l'ennemi, qu'on distance), sinon "stand" (fuir ne sert à rien : on se bat groupés).
+-- i = { allies (armés près du QG, soi compris), force (pesée), prudence, agressivite, rally (point | nil), outrun (bool) }.
+function Re.hq_response(i)
+  local need = Re.engage_ratio(i.prudence, i.agressivite) * math.max(0.2, i.force or 1)
+  if (i.allies or 0) * 1000 >= need then return "stand" end
+  if i.rally then return "rally" end
+  if i.outrun then return "away" end
+  return "stand"
 end
 
 function Re.decide(s)

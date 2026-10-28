@@ -100,29 +100,59 @@ C.on_alert = function(f, ep, kind, tick, mode)
   return true
 end
 
---- C7 : QG menacé, les ouvriers SANS munitions à moins de 160 tuiles du QG se mettent à l'abri (refuge : tourelle amie,
---- sinon le QG s'il est loin de la menace, sinon à l'opposé de la menace).
--- Lot FUITE : un ouvrier ARMÉ et occupé est aussi mis à l'abri quand la force ennemie près de la menace dépasse Re.ISOLATED
--- (Re.shelter_needed) : seul, il ne la bat pas ; la garnison, la fortification et la défense restent à leur poste.
-local function shelter(f, t, threat, tick, force)
+--- C7 : QG menacé. Réponse de l'équipe (Re.hq_response, lot FUITE) :
+---   "stand"  : assez nombreux, ou rien à faire (ennemi plus rapide, pas de tourelle) : les ouvriers SANS munitions à moins
+---              de 160 tuiles du QG (et à plus de 12 tuiles) se mettent à l'abri (refuge : tourelle amie, sinon le QG s'il est
+---              loin de la menace, sinon à l'opposé) ; les autres restent (ils se battent groupés) ;
+---   "rally"  : TOUS les PNJ occupés ou libres à moins de 160 tuiles vont derrière les tourelles du QG (point de ralliement) ;
+---   "away"   : tous s'éloignent de l'ennemi, qu'ils distancent ;
+--- la garnison, la fortification et la défense (Re.recall_exempt) gardent leur poste.
+local function shelter(f, t, threat, tick, resp, rally, range)
+  local far2 = Re.away_distance(range) ^ 2
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
-    if ag and ag.entity.valid and ag.task then
+    if ag and ag.entity.valid then
       local e = ag.entity
-      local armed = C.has_ammo(e)
-      local dh = d2(e.position, f.hq_pos)
-      if Re.shelter_needed(armed, force, ag.task.kind, ag.task.defend) and dh > 12 * 12 and dh <= Sd.NEAR_HQ * Sd.NEAR_HQ then
+      local p = e.position
+      local dh = d2(p, f.hq_pos)
+      local to = nil
+      if dh <= Sd.NEAR_HQ * Sd.NEAR_HQ and not (ag.task and Re.recall_exempt(ag.task.kind, ag.task.defend)) then
+        if resp == "rally" then
+          if d2(p, rally) > 36 then to = rally end
+        elseif resp == "away" then
+          if d2(p, threat) < far2 then to = Re.away_from(p, threat, range) end
+        elseif ag.task and not C.has_ammo(e) and dh > 12 * 12 then
+          to = C.refuge(f, p, threat)
+        end
+      end
+      if to then
         local a = C.astate(ag)
         if not a.refuge then
-          a.refuge = C.refuge(f, e.position, threat)
+          a.refuge = to
           a.pts, a.final = nil, nil
           Worker.abort(ag, f, tick, "abri")
           C.label(ag, "abri", tick, t.stats)
           t.stats.shelter = (t.stats.shelter or 0) + 1
+          if resp ~= "stand" then t.stats["shelter_" .. resp] = (t.stats["shelter_" .. resp] or 0) + 1 end
         end
       end
     end
   end
+end
+
+--- Armés près du QG (à moins de HQ_THREAT_R) : PNJ avec munitions et soldats ; sert à la réponse de l'équipe.
+local function armed_near_hq(f)
+  local n = 0
+  local r2 = SD.HQ_THREAT_R * SD.HQ_THREAT_R
+  for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+    local ag = Registry.get(id)
+    if ag and ag.entity.valid and d2(ag.entity.position, f.hq_pos) <= r2 and C.has_ammo(ag.entity) then n = n + 1 end
+  end
+  for _, id in ipairs(State.sorted_keys(f.soldiers or {})) do
+    local s = f.soldiers[id]
+    if s.entity and s.entity.valid and d2(s.entity.position, f.hq_pos) <= r2 then n = n + 1 end
+  end
+  return n
 end
 
 local function pass(f, tick)
@@ -145,7 +175,14 @@ local function pass(f, tick)
         type = { "unit", "character" }, limit = 24 })) do
         force = force + C.weight(u)
       end
-      shelter(f, t, threat, tick, force)
+      local prud, agr = C.character(f)
+      local rally = C.rally(f)
+      local _, range = C.classify(en)
+      local own = game.entity_prototypes["character"] and game.entity_prototypes["character"].running_speed or nil
+      local resp = Re.hq_response({ allies = armed_near_hq(f), force = force, prudence = prud, agressivite = agr, rally = rally,
+        outrun = Re.outrun(C.enemy_speed(en), own) })
+      t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
+      shelter(f, t, threat, tick, resp, rally, range)
     end
   end
   local soldiers = f.soldiers or {}

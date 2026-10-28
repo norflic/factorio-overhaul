@@ -189,6 +189,7 @@ end
 -- Ce que l'on voit
 ---------------------------------------------------------------------------------------------------
 local range_cache = {} -- [nom de prototype] = portée (prototypes : identiques chez tous les pairs)
+local speed_cache = {} -- [nom de prototype] = vitesse d'une unité (idem)
 
 local TURRET_TYPES = { ["ammo-turret"] = true, ["electric-turret"] = true, ["fluid-turret"] = true, ["artillery-turret"] = true }
 
@@ -218,6 +219,33 @@ function M.classify(e)
     range_cache[name] = r
   end
   return kind, (r ~= false) and r or nil
+end
+
+--- Vitesse d'une unité ennemie (prototype) ; nil pour les autres (personnage, tourelle…).
+function M.enemy_speed(e)
+  if e.type ~= "unit" then return nil end
+  local name = e.name
+  local v = speed_cache[name]
+  if v == nil then
+    v = e.prototype.speed or false
+    speed_cache[name] = v
+  end
+  return v or nil
+end
+
+--- Tourelles amies valides de l'équipe, en positions { x, y } (triées par numéro).
+local function turret_points(f)
+  local out = {}
+  for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
+    local t = f.turrets[id]
+    if t and t.valid then out[#out + 1] = { x = t.position.x, y = t.position.y } end
+  end
+  return out
+end
+
+--- Point de ralliement du QG (derrière ses tourelles, côté coffre) ; nil sans tourelle du QG.
+function M.rally(f)
+  return Re.rally_point(turret_points(f), f.home_spot or f.hq_pos)
 end
 
 local weight_cache = {} -- [nom de prototype] = poids (prototypes : identiques chez tous les pairs)
@@ -279,7 +307,8 @@ local function refuge(f, p, ep, range)
     local t = f.turrets[id]
     if t and t.valid then
       local tp = t.position
-      if d2(tp, ep) >= 144 then
+      -- Ni à 12 tuiles de l'ennemi, ni derrière lui : y courir, c'est courir sur lui (armée en marche sur le QG, int-1).
+      if d2(tp, ep) >= 144 and not Re.on_the_way(p, tp, ep) then
         local dd = d2(tp, p)
         if not bd or dd < bd then best, bd = tp, dd end
       end
@@ -651,7 +680,7 @@ local function resume_now(agent, a, tick)
   a.now = nil
 end
 
-local function act(agent, f, t, a, action, why, ep, kind, tick, range)
+local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to)
   -- Déjà en retraite (demi-tour ou fuite de moins de 10 s) : on ne s'arrête pas de nouveau à chaque regard (le PNJ
   -- rentrerait par saccades, poursuivi) ; l'itinéraire du retour évite déjà ce qui est marqué. Une FUITE n'est jamais
   -- retardée par un demi-tour récent (survie avant tâche) : elle n'est évitée que si elle est déjà engagée vers le même
@@ -698,7 +727,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range)
       a.backs, a.back_t = (a.backs or 0) + 1, tick
     end
     if action == "flee" then
-      a.refuge = refuge(f, agent.entity.position, ep, range)
+      a.refuge = refuge_to or refuge(f, agent.entity.position, ep, range)
       a.flee_t, a.flee_ep = tick, { x = ep.x, y = ep.y }
       t.stats.refuges = t.stats.refuges + 1
       -- Votre équipe : un PNJ qui fuit prévient les autres AVANT la première perte (lieu de la menace) ; hors du QG, qui
@@ -902,16 +931,22 @@ function M.sense(agent, tick)
   if a.risk and K.fixed and action == "detour" then action = "none" end
   -- Près du QG, face à des UNITÉS : sans tourelle où se réfugier, fuir seul est pire que rester groupés (un déchiqueteur
   -- court plus vite qu'un personnage) : on se bat sur place. Même banc : 4 ouvriers sans tâche rattrapés à 11 tuiles du QG.
+  local to = nil
   if near_home and not K.fixed and (action == "flee" or action == "back") then
-    local rf = refuge(f, p, ep)
-    local home = f.home_spot or f.hq_pos
-    local to_turret = rf and d2(rf, home) > 4 and d2(rf, p) > 4 and d2(rf, ep) >= 144
-    local has_turret = false
-    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
-      local tt = f.turrets[id]
-      if tt and tt.valid then has_turret = true break end
+    -- Lot FUITE : pas de combat un par un (int-1 : 5 PNJ tués dans les 32 tuiles du QG). Re.hq_response : assez nombreux,
+    -- on se bat ; sinon on se regroupe derrière les tourelles du QG ; sans tourelle, on s'éloigne d'un ennemi plus lent, et
+    -- face à un plus rapide (déchiqueteur) on se bat, groupés.
+    local rally = M.rally(f)
+    local resp = Re.hq_response({ allies = allies + 1, force = enemies, prudence = prud, agressivite = agr, rally = rally,
+      outrun = Re.outrun(M.enemy_speed(enemy), e.prototype.running_speed) })
+    if resp == "rally" then
+      if d2(p, rally) <= 36 then action, why = "engage", "sous-les-tourelles"
+      else action, why, to = "flee", "ralliement", rally end
+    elseif resp == "away" then
+      action, why, to = "flee", "eloignement", Re.away_from(p, ep, rr)
+    else
+      action, why = "engage", "groupes-au-qg"
     end
-    if not (has_turret and to_turret) then action, why = "engage", "groupes-au-qg" end
   end
   if action == "none" then return false end
   -- MEUTE : le PNJ recule devant un groupe d'unités (force pesée ≥ 0,4) : la zone du groupe (vue + étendue) devient une
@@ -944,7 +979,7 @@ function M.sense(agent, tick)
   end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
-  return act(agent, f, t, a, action, why, ep, kind, tick, range)
+  return act(agent, f, t, a, action, why, ep, kind, tick, range, to)
 end
 
 ---------------------------------------------------------------------------------------------------
