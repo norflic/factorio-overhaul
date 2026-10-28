@@ -88,10 +88,12 @@ local function technology_names()
   return list
 end
 
---- (recherchées, au total, recherche en cours { name, pct } ou nil) d'une force. Au total : les technologies
---- ACTIVÉES et non cachées (celles de l'arbre que le joueur voit).
-local function engine_techs(force)
-  local done, total, current = 0, 0, nil
+--- (recherchées, au total) d'une force : ~220 technologies × 3 lectures, soit environ 0,6 ms par force (mesuré le 29/10,
+--- ia1-gui) : trop pour un rafraîchissement par seconde. Compté donc à chaque relevé (30 s) et à chaque recherche terminée
+--- (`recount`), et LU dans `ia1i.panel.techs` par l'onglet. Au total : les technologies ACTIVÉES et non cachées (celles de
+--- l'arbre que le joueur voit).
+local function count_techs(force)
+  local done, total = 0, 0
   pcall(function()
     local techs = force.technologies
     for _, name in ipairs(technology_names()) do
@@ -101,10 +103,28 @@ local function engine_techs(force)
         if t.researched then done = done + 1 end
       end
     end
+  end)
+  return done, total
+end
+
+--- Recherche en cours { name, pct } d'une force, ou nil (deux lectures).
+local function engine_research(force)
+  local current
+  pcall(function()
     local cur = force.current_research
     if cur then current = { name = cur.name, pct = S.pct(force.research_progress) } end
   end)
-  return done, total, current
+  return current
+end
+
+--- Recompte les technologies d'une force (recherche terminée) ; sans effet si le panneau n'a pas d'état.
+function Stats.recount(force_name)
+  local P = panel()
+  local force = P and game.forces[force_name]
+  if not force then return end
+  P.techs = P.techs or {}
+  local done, total = count_techs(force)
+  P.techs[force_name] = { done = done, total = total }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -116,10 +136,14 @@ function Stats.sample(tick)
   if not P then return end
   Profiler.start("panel:sample")
   local live = {}
-  for _, t in ipairs(Stats.teams()) do
+  local teams = Stats.teams()
+  local turn = math.floor(tick / S.PERIOD) % #teams -- une équipe recomptée par relevé (étalé) ; l'événement fait le reste
+  for i, t in ipairs(teams) do
     local force = game.forces[t.force]
     if force then
       live[t.key] = true
+      local cached = P.techs and P.techs[t.force]
+      if i == turn + 1 or not cached then Stats.recount(t.force) end
       local prod, cons = engine_counts(force)
       local f = t.f
       local hand = (f and f.team and f.team.delivered) or {}
@@ -134,6 +158,11 @@ function Stats.sample(tick)
   end
   for _, k in ipairs(S.sorted_keys(P.rings)) do
     if not live[k] then P.rings[k] = nil end
+  end
+  local forces = {}
+  for _, t in ipairs(Stats.teams()) do forces[t.force] = true end
+  for _, k in ipairs(S.sorted_keys(P.techs or {})) do
+    if not forces[k] then P.techs[k] = nil end
   end
   Profiler.stop("panel:sample")
 end
@@ -154,7 +183,10 @@ local function team_row(t, war_recs)
   local done, total, current = 0, 0, nil
   if force then
     kills, losses = engine_kills(force)
-    done, total, current = engine_techs(force)
+    local P = panel()
+    local c = P and P.techs and P.techs[t.force]
+    if c then done, total = c.done, c.total else done, total = count_techs(force) end -- avant le premier relevé
+    current = engine_research(force)
   end
   local row = {
     key = t.key, player = t.key == "player", has_team = f ~= nil, force = t.force,

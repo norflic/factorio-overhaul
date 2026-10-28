@@ -275,7 +275,7 @@ end
 -- Recherche en cours et compteurs de kills posés AVANT les contrôles de T_WAIT+280.
 steps[T_WAIT + 240] = function(ctx, p, st)
   local f = game.forces.player
-  local ok = f.add_research("automation")
+  local ok = f.add_research("automation") -- faux si la file a déjà une recherche : le contrôle lit la recherche COURANTE du moteur
   f.research_progress = 0.37
   local ks = f.kill_count_statistics
   ks.set_output_count("small-biter", 37)
@@ -284,14 +284,22 @@ steps[T_WAIT + 240] = function(ctx, p, st)
   ctx.log("Partie : recherche posee " .. tostring(ok) .. ", courante " .. tostring(f.current_research and f.current_research.name))
 end
 steps[T_WAIT + 260] = function(ctx, p) R(ctx, "select", p.index, "partie") end
-steps[T_WAIT + 265] = function(ctx, p) shot(ctx, p, "11-partie-guerre") end
-steps[T_WAIT + 270] = function(ctx, p, st)
+steps[T_WAIT + 262] = function(ctx, p) shot(ctx, p, "11-partie-guerre") end
+steps[T_WAIT + 263] = function(ctx, p) R(ctx, "scroll", p.index, "fo-panel.machines-title") end
+steps[T_WAIT + 265] = function(ctx, p) shot(ctx, p, "11b-partie-machines") end
+steps[T_WAIT + 266] = function(ctx, p) R(ctx, "scroll", p.index, "fo-panel.hands-title") end
+steps[T_WAIT + 268] = function(ctx, p) shot(ctx, p, "11c-partie-mains") end
+steps[T_WAIT + 269] = function(ctx, p) R(ctx, "scroll", p.index, "bottom") end
+steps[T_WAIT + 271] = function(ctx, p) shot(ctx, p, "11d-partie-pnj") end
+steps[T_WAIT + 272] = function(ctx, p, st)
   local first
   for _, r in ipairs(ctx.remote("fo-pvp", "status").factions) do first = first or r.key end
   st.first_faction = first
   R(ctx, "click", p.index, "fo_ia1i_pteam_" .. tostring(first))
 end
 steps[T_WAIT + 275] = function(ctx, p) shot(ctx, p, "12-partie-faction") end
+steps[T_WAIT + 276] = function(ctx, p) R(ctx, "scroll", p.index, "bottom") end
+steps[T_WAIT + 278] = function(ctx, p) shot(ctx, p, "12b-partie-faction-bas") end
 
 steps[T_WAIT + 280] = function(ctx, p, st)
   local d = R(ctx, "panel", "player")
@@ -304,7 +312,7 @@ steps[T_WAIT + 280] = function(ctx, p, st)
     #d.teams .. " lignes, " .. #pvp.factions .. " factions")
   ctx.check(row.techs_done == done and row.techs_total == total, "Partie : technologies recherchees et total egales au moteur",
     string.format("panneau %d / %d, moteur %d / %d", row.techs_done, row.techs_total, done, total))
-  ctx.check(row.research and row.research.name == "automation"
+  ctx.check(row.research and f.current_research and row.research.name == f.current_research.name
     and math.abs(row.research.pct - math.floor(f.research_progress * 100 + 0.5)) <= 2,
     "Partie : recherche en cours et pourcentage a 2 points du moteur",
     string.format("panneau %s %s %%, moteur %s %.0f %%", tostring(row.research and row.research.name),
@@ -361,13 +369,17 @@ steps[T_WAIT + 285] = function(ctx, p, st)
   ctx.log("Partie : etat sauvegarde (serpent.block de ia1i.panel) " .. tostring(bytes) .. " octets")
 end
 
--- Après le renvoi de l'équipe et l'arrêt de la guerre : seule la force du joueur reste (ses machines, sans mains).
+-- Après le renvoi de l'équipe et l'arrêt de la guerre : le coffre reste, l'équipe est à 0 PNJ (le renvoi ne retire pas le
+-- coffre) ; le cas SANS équipe (coffre détruit) est contrôlé en moteur simulé (tests/ia1i_test.lua).
 steps[T_WAIT + 850] = function(ctx, p) R(ctx, "select", p.index, "partie") end
-steps[T_WAIT + 855] = function(ctx, p) shot(ctx, p, "13-partie-sans-equipe") end
+steps[T_WAIT + 855] = function(ctx, p) shot(ctx, p, "13-partie-equipe-renvoyee") end
+steps[T_WAIT + 858] = function(ctx, p) R(ctx, "scroll", p.index, "bottom") end
+steps[T_WAIT + 859] = function(ctx, p) shot(ctx, p, "13b-partie-equipe-renvoyee-bas") end
 steps[T_WAIT + 860] = function(ctx, p, st)
   local s = R(ctx, "state", p.index)
-  ctx.check(s.tab == "partie" and keys_count(s, "fo-panel.machines-title") == 1 and keys_count(s, "fo-panel.no-team") >= 1,
-    "Partie sans equipe de PNJ : les machines de la force restent, mains et PNJ disent qu'il n'y a pas d'equipe")
+  ctx.check(s.tab == "partie" and keys_count(s, "fo-panel.machines-title") == 1 and keys_count(s, "fo-panel.workers-line") == 1
+    and keys_count(s, "fo-panel.tech-value") == 1,
+    "Partie apres le renvoi de l'equipe et l'arret de la guerre : votre ligne seule, 0 PNJ, machines toujours la")
 end
 
 steps[T_WAIT + 600] = function(ctx, p, st)
@@ -495,7 +507,7 @@ return {
       ctx.check(s.refreshes == 0, "sans joueur : aucun rafraichissement d'interface", s.refreshes)
       return
     end
-    ctx.check((st.shots or 0) == 13, "13 captures demandees", st.shots)
+    ctx.check((st.shots or 0) == 18, "18 captures demandees", st.shots)
     local on_refresh = 0
     for _, t in ipairs(st.close_ticks or {}) do if t % 60 == 0 then on_refresh = on_refresh + 1 end end
     ctx.check(on_refresh == 0, "aucune fermeture non demandee au tick d'un rafraichissement",

@@ -824,6 +824,12 @@ end
 Events.on(defines.events.on_player_display_resolution_changed, recenter)
 Events.on(defines.events.on_player_display_scale_changed, recenter)
 
+-- Lot PANEL-STATS : technologies recherchées recomptées dès qu'une recherche se termine (l'onglet « Partie » les lit en cache).
+Events.on(defines.events.on_research_finished, function(e)
+  local r = e.research
+  if r and r.force then Stats.recount(r.force.name) end
+end)
+
 -- Une fois par seconde : relevé du journal, puis rafraîchissement des seules fenêtres OUVERTES.
 Events.on_nth_tick(M.REFRESH, function(e)
   Journal.sample(e.tick)
@@ -933,6 +939,31 @@ remote.add_interface("fo-ia1i", {
   -- forcé des compteurs (même fonction que le relevé de 30 s), anneau de relevés d'une équipe, taille de l'état.
   panel = function(selected)
     return Stats.collect(selected or "player", game.tick)
+  end,
+  -- Défile le volet de l'onglet affiché (captures de l'onglet « Partie », plus haut que la fenêtre) : « top », « bottom »,
+  -- ou la clé de traduction d'un titre à mettre en vue.
+  scroll = function(index, where)
+    local player = get_player(index)
+    local frame = player and frame_of(player)
+    if not frame then return false end
+    local pane = pane_of(frame, M.TABS[ui(player).tab] or "equipe")
+    if where == "top" then
+      pane.scroll_to_top()
+    elseif where == "bottom" then
+      pane.scroll_to_bottom()
+    else
+      local function find_key(el)
+        for _, ch in ipairs(el.children) do
+          if ch.type == "label" and type(ch.caption) == "table" and ch.caption[1] == where then return ch end
+          local r = find_key(ch)
+          if r then return r end
+        end
+      end
+      local el = find_key(pane)
+      if not el then return false end
+      pane.scroll_to_element(el, "top-third")
+    end
+    return true
   end,
   panel_sample = function()
     Stats.sample(game.tick)

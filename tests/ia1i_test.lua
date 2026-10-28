@@ -461,6 +461,23 @@ do
   check(ra >= 590 and rb == 0, string.format("rafraîchissements : %d fenêtre ouverte (une par seconde), %d fermée", ra, rb))
 end
 
+section("Onglet Partie sans équipe de PNJ (aucun coffre posé)")
+do
+  M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
+  setup_gui()
+  local R = W.remote["fo-ia1i"]
+  check(R.open(1, "partie"), "ouverture sur l'onglet Partie sans équipe")
+  local k = keys_of(pane("partie"))
+  check(k["fo-panel.teams-title"] == 1 and k["fo-panel.tech-value"] == 1 and k["fo-panel.machines-title"] == 1
+    and k["fo-panel.no-team"] == 2 and (k["fo-panel.workers-line"] or 0) == 0 and (k["fo-panel.hands-note"] or 0) == 0,
+    "sans équipe : votre ligne et les machines de la force ; mains et PNJ disent qu'il n'y a pas d'équipe",
+    tostring(k["fo-panel.no-team"]))
+  check(R.panel("player").teams[1].has_team == false and R.panel("player").detail.hands == nil, "données : pas de mains sans équipe")
+  M.run_ticks(3600)
+  check(#R.panel_ring("player") >= 1, "les relevés de la force du joueur tournent même sans équipe de PNJ")
+  R.close(1)
+end
+
 section("Onglet Partie : valeurs du panneau contre les compteurs du moteur simulé (lot PANEL-STATS)")
 do
   M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
@@ -505,6 +522,13 @@ do
     pvp_sum = pvp_sum + (fac.pvp and fac.pvp.attacks or 0)
   end
   check(row.attacks_in == pvp_sum and row.attacks_out == nil, "votre ligne : attaques subies = somme des factions, aucune lancée")
+  -- Une recherche TERMINÉE (événement) est comptée tout de suite, sans attendre le relevé suivant.
+  force.add_research(names[6])
+  force.research_progress = 0.5
+  check(R.panel("player").teams[1].research and R.panel("player").teams[1].research.pct == 50, "recherche en cours : 50 %")
+  force.research_progress = 1
+  check(R.panel("player").teams[1].techs_done == done + 1 and R.panel("player").teams[1].research == nil,
+    "recherche terminée : technologies recomptées par l'événement, plus de recherche en cours")
   local m = d.detail.machines
   check(#m == 2 and m[1].name == "obj-a" and m[1].total == input["obj-a"], "machines : l'objet qui coule le plus d'abord, cumul frais")
   check(m[1].rate and math.abs(m[1].rate - 240) <= 12, "machines : débit 240 / min à 5 % près (" .. tostring(m[1].rate) .. ")")
