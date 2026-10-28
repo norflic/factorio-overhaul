@@ -139,9 +139,7 @@ return {
           par_tir[fam][1] > 0 and par_tir[fam][n] / par_tir[fam][1] or 0, D.par_niveau[n])
       end
     end
-    ctx.log("TIRS-DEGATS-TABLE
-" .. table.concat(lignes, "
-"))
+    ctx.log("TIRS-DEGATS-TABLE\n" .. table.concat(lignes, "\n"))
     ctx.check(tous == #st.sites, "chaque tourelle a inflige des degats a sa cible", tous .. " / " .. #st.sites)
     local g1 = dps.gun[1]
     ctx.check(g1 >= 45 and g1 <= 55, "mitrailleuse niveau 1 : 45 a 55 degats par seconde (10 tirs x 5)",
