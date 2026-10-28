@@ -507,7 +507,8 @@ function Auto.think(f, view, book, tick, research)
   if st.plant_id and st.plant_state ~= "fini" and st.plant_state ~= "refuse" then
     local ps = Build.brief(f, st.plant_id)
     if ps then
-      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain,
+        plant = true }
     end
   end
   local feeds = {}

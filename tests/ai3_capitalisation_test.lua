@@ -1483,5 +1483,37 @@ do
   check(w4 < 20 and w60 < 40 and w200 < 80, string.format("§12 pics sous 20, 40 et 80 ms hors jeu (%.1f, %.1f, %.1f)", w4, w60, w200))
 end
 
+-- §13 Lot ELEC2 : un ordre qui étend la capacité d'une matière en manque (o.short posé par le runtime) devient un but
+-- d'INVESTISSEMENT : servi juste après l'objectif du moment et la centrale, AVANT l'armée et les munitions (les familles
+-- permanentes consomment sans fin la matière qu'il produit) et devant les autres projets, y compris les autres buts de
+-- fond ; sans `short`, il reste servi en dernier.
+do
+  local goals = {
+    { key = "recherche", family = "recherche", kind = "research", value = 70 },
+    { key = "extraction:a", family = "extraction", kind = "outpost", value = 60 },
+    { key = "auto:centrale", family = "capital", kind = "module", value = 30, plant = true },
+    { key = "armee", family = "armee", kind = "army", value = 46, permanent = true },
+    { key = "defense:munitions", family = "defense", kind = "ammo", value = 45, permanent = true },
+  }
+  Ca.goals(goals, nil, {
+    { key = "couvrir:fer", kind = "couvrir", item = "iron-ore", value = 38, exec = "module", short = true },
+    { key = "couvrir:cuivre", kind = "couvrir", item = "copper-ore", value = 39, exec = "module" },
+  })
+  local order = P.update({}, goals, 0, 8)
+  local pos = {}
+  for i, p in ipairs(order) do pos[p.key] = i end
+  local by = {}
+  for _, g in ipairs(goals) do by[g.key] = g end
+  check(by["capi:couvrir:fer"].invest == true and by["capi:couvrir:cuivre"].invest == nil,
+    "§13 seul l'ordre marqué `short` devient un investissement")
+  check(pos["recherche"] == 1, "§13 l'objectif du moment reste premier")
+  check(pos["auto:centrale"] < pos["capi:couvrir:fer"], "§13 la centrale passe avant l'investissement qu'elle alimente")
+  check(pos["capi:couvrir:fer"] < pos["armee"] and pos["capi:couvrir:fer"] < pos["defense:munitions"],
+    "§13 investissement : avant l'armée et les munitions")
+  check(pos["capi:couvrir:fer"] < pos["extraction:a"], "§13 investissement : devant les projets ordinaires restants")
+  check(pos["capi:couvrir:fer"] < pos["capi:couvrir:cuivre"] and pos["capi:couvrir:cuivre"] == #order,
+    "§13 sans `short` : un but de fond, servi en dernier")
+end
+
 print(string.format("[CAPI] BILAN : %d OK, %d ECHEC(S) (dont %d mutants refusés sur %d)", pass, fail, n_caught, n_mut))
 if fail > 0 then os.exit(1) end

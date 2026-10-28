@@ -1796,8 +1796,12 @@ function Ca.goals(goals, res, open)
     end
     local fam = (o.kind == "labos" or o.kind == "packs") and "recherche" or "capital"
     -- Une recherche à effet n'a pas de matière à fabriquer : l'exécutant est le choix de technologie (Ca.techs_wanted).
+    -- Lot ELEC2 : `short` (posé par le runtime : ordre qui étend la capacité d'une matière en manque) place le but juste
+    -- après les familles permanentes (shared/ai3/projets.lua, P.update, g.invest), devant les autres projets : une
+    -- extraction qui se rembourse en quelques minutes passe avant ce qui consomme la matière qu'elle produit. L'armée et les
+    -- munitions gardent leur rang, leurs parts restent réservées (Ca.capi_view).
     if o.kind ~= "techno" then goals[#goals + 1] = { key = "capi:" .. o.key, family = fam, kind = "capi", value = o.value or Ca.V_MIN, fond = true,
-      order = copy } end
+      invest = (o.short and true) or nil, order = copy } end
   end
   table.sort(goals, function(a, b)
     if a.value ~= b.value then return a.value > b.value end
