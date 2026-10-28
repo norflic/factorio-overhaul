@@ -754,6 +754,15 @@ function P.pole_chain(a, b, reach, big, free)
   return nil
 end
 
+--- Lot QUAI-CHARGE : charbon à déposer dans le coffre-quai d'une centrale que le PNJ vient de poser. `carried` : objets du
+--- combustible portés par le PNJ ; `keep` : ceux qu'il doit garder (inserteurs à combustible pas encore posés) ; `charge` :
+--- plafond de la charge initiale. Jamais négatif.
+function P.quai_charge(carried, keep, charge)
+  local n = math.min(charge, carried - keep)
+  if n > 0 then return n end
+  return 0
+end
+
 --- Position d'un poteau de carrefour (quart nord-ouest du croisement, hors des lignes de marche).
 function P.node_pole(lat, i, j, big)
   local n = P.node_pos(lat, i, j)

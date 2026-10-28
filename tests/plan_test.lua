@@ -458,5 +458,13 @@ do
   check(same3, "chemin par les rues : identique avec la mémoire des arbres")
 end
 
+-- Lot QUAI-CHARGE : charbon déposé dans le coffre-quai d'une centrale à la pose
+do
+  check(P.quai_charge(80, 0, 50) == 50, "charge du quai : plafonnée à 50")
+  check(P.quai_charge(30, 0, 50) == 30, "charge du quai : tout ce que le PNJ porte, s'il en porte moins")
+  check(P.quai_charge(30, 6, 50) == 24, "charge du quai : les 2 charbons de chaque inserteur à combustible pas posé sont gardés")
+  check(P.quai_charge(6, 6, 50) == 0 and P.quai_charge(2, 6, 50) == 0 and P.quai_charge(0, 0, 50) == 0, "charge du quai : jamais négative, rien s'il ne reste rien")
+end
+
 print(string.format("[IA1-D PLAN] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

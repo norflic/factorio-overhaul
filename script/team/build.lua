@@ -51,6 +51,7 @@ Build.COST_REVIVE_POLE = 300
 Build.COST_PLAN = 200
 Build.QUAI_LOW = 60
 Build.QUAI_FILL = 400
+Build.QUAI_CHARGE = 50       -- lot QUAI-CHARGE : charbon que le PNJ qui pose le coffre-quai d'une centrale y dépose (souple)
 Build.COLLECT_AT = 200
 Build.PRIO = 55
 -- Étape 1 / électrification (27/10 au soir, banc etape1-guide, Azure : matière du module de fonderie réunie à 38 min, puis
@@ -1594,6 +1595,21 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     local fuel = ent.get_fuel_inventory()
     if fuel then fuel.insert({ name = "coal", count = inv.remove({ name = "coal", count = 2 }) }) end
   end
+  local fq = fuel_quai(p, e)
+  if fq and ent.valid then
+    local keep = 0 -- les inserteurs à combustible pas encore posés gardent leurs 2 charbons
+    for _, o in ipairs(p.ents) do if o.name == "burner-inserter" and not o.built then keep = keep + 2 end end
+    local n = P.quai_charge(inv.get_item_count(fq.item), keep, Build.QUAI_CHARGE)
+    local box = n > 0 and ent.get_inventory(defines.inventory.chest) or nil
+    if box then
+      local put = box.insert({ name = fq.item, count = n })
+      if put > 0 then
+        inv.remove({ name = fq.item, count = put })
+        st.quai_charges = (st.quai_charges or 0) + put
+        log(string.format("[FO-IA1D] %s : projet %d, quai de combustible charge de %d %s a la pose", f.key or "player", p.id, put, fq.item))
+      end
+    end
+  end
   e.built = true
   st.revived = st.revived + 1
   return true
@@ -1824,6 +1840,17 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tâches au tableau
 ---------------------------------------------------------------------------------------------------
+--- Lot QUAI-CHARGE (moteur réel, etape1-plant, Azure 123456789 : projet fini à 14 min, chaudière sans combustible jusqu'à
+--- 23 min, quai VIDE alors que le coffre du QG avait 248 à 584 charbons) : le quai de combustible d'une centrale (projet « steam »)
+--- à la place de l'entité `e`, ou nil.
+local function fuel_quai(p, e)
+  if not (p.spec and p.spec.gen == "steam") then return nil end
+  for _, q in ipairs(p.quais) do
+    if math.abs(q.x - e.x) <= 0.3 and math.abs(q.y - e.y) <= 0.3 then return q end
+  end
+  return nil
+end
+
 local function batch_tasks(f, p, out)
   local b = f.build
   local by = {}
@@ -1835,6 +1862,8 @@ local function batch_tasks(f, p, out)
       local bt = by[k]
       bump(bt.items, e.item)
       if e.name == "burner-inserter" then bump(bt.items, "coal", 2) end
+      local fq = fuel_quai(p, e)
+      if fq then bump(bt.items, fq.item, Build.QUAI_CHARGE) end -- souple : jamais dans la réserve (needs_of), le stock libre la fournit
       bt.n = bt.n + 1
     end
   end
@@ -2277,13 +2306,24 @@ function Build.status(f, id)
   local surface = surface_of(f)
   for _, q in ipairs(p.quais) do
     local chest = surface and surface.find_entity("iron-chest", { q.x, q.y })
-    quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1 }
+    quais[#quais + 1] = { x = q.x, y = q.y, item = q.item, count = chest and chest.get_item_count(q.item) or -1,
+      task = task_state("ia1d:" .. p.id .. ":q:" .. #quais + 1) }
+  end
+  -- Lot QUAI-CHARGE (lecture seule) : la tâche du tableau de ce point d'appui ou de ce quai : absente, libre ou prise, âge (s),
+  -- reprise après échec (s)
+  local bd = f.team and f.team.board
+  local function task_state(key)
+    local tk, cd = bd and bd.tasks[key], bd and bd.cooldown[key]
+    return { task = tk and (tk.worker and "prise" or "libre") or "aucune",
+      age = (tk and tk.created) and math.floor((game.tick - tk.created) / 60) or -1,
+      cd = cd and math.max(0, math.floor((cd - game.tick) / 60)) or 0 }
   end
   -- entités pas encore bâties (5 au plus, dans l'ordre de pose) : ce qui retient un chantier
   local unbuilt = {}
   for _, e in ipairs(p.ents) do
     if not e.built and #unbuilt < 5 then
-      unbuilt[#unbuilt + 1] = { name = e.name, x = e.x, y = e.y, fails = e.fails or 0, npc = e.npc_blocks or 0, anchor = e.anchor }
+      unbuilt[#unbuilt + 1] = { name = e.name, x = e.x, y = e.y, fails = e.fails or 0, npc = e.npc_blocks or 0, anchor = e.anchor,
+        task = task_state("ia1d:" .. p.id .. ":b:" .. tostring(e.anchor)) }
     end
   end
   local open_obst = 0
