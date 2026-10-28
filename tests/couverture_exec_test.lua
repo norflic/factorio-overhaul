@@ -273,6 +273,110 @@ do
   require("script.team.couverture")
 end
 
+-- §6 Contrôle de cohérence du plan directeur (lot POTEAUX) : Recon.audit inscrit au registre, ne reconstruit rien lui-même ---------
+do
+  PROTOS["pole-x"] = { type = "electric-pole", items_to_place_this = { { name = "item-p" } } }
+  PROTOS["machine-y"] = { type = "assembling-machine", items_to_place_this = { { name = "item-y" } } }
+  local world = {}
+  local surf
+  surf = {
+    enemies = 0,
+    find_entity = function(name, pos) return world[name .. "@" .. pos[1] .. "," .. pos[2]] end,
+    find_enemy_units = function() local n = {} for i = 1, surf.enemies do n[i] = {} end return n end,
+  }
+  local function pole(x, y, built) return { name = "pole-x", x = x, y = y, built = built } end
+  local function team_with(ents)
+    local f = new_team()
+    f.build = { order = { 1 }, projects = { [1] = { ents = ents } } }
+    f.stock = { ["item-p"] = 3 }
+    return f
+  end
+  local function put(name, x, y, force) world[name .. "@" .. x .. "," .. y] = { valid = true, force = { name = force or "player" } } end
+  local function sorted(t) local ks = {} for key in next, t do ks[#ks + 1] = key end table.sort(ks) return ks end
+  local TICK = 10000
+
+  -- (1) poteau bâti et absent, sans événement : inscrit ; présent, non bâti, autre type : jamais
+  local f = team_with({ pole(10.5, 10.5, true), pole(12.5, 10.5, true), pole(14.5, 10.5, false), pole(16.5, 10.5, true),
+    { name = "machine-y", x = 20.5, y = 10.5, built = true } })
+  put("pole-x", 12.5, 10.5)               -- présent
+  put("pole-x", 16.5, 10.5, "enemy")      -- une autre force à cette place : absent pour l'équipe
+  check(Recon.audit(f, surf, TICK) == 2, "audit : deux poteaux bâtis absents (dont un tenu par une autre force) ; le présent, le non bâti et la machine ignorés")
+  local k = Rc.key({ name = "pole-x", x = 10.5, y = 10.5 })
+  local r = f.recon.lost[k]
+  check(r and r.item == "item-p" and r.value == 1 and r.tick == TICK, "audit : inscrit avec l'objet lu au prototype et la valeur du rôle (logistique)")
+  check(f.recon.stats.audited == 2 and Rc.pending(f.recon) == 2, "audit : compté, en attente")
+  f.build.projects[1].ents[#f.build.projects[1].ents + 1] = pole(18.5, 10.5, true) -- un nouveau poteau absent, dans la minute
+  check(Recon.audit(f, surf, TICK + 100) == 0 and f.recon.stats.audited == 2, "audit : au plus une fois par minute (le nouveau poteau attend)")
+  check(Recon.audit(f, surf, TICK + Recon.AUDIT_TICKS) == 1 and f.recon.stats.audited == 3, "audit : la minute suivante, le nouveau poteau est inscrit")
+
+  -- (2) mort VUE (événement) : déjà au registre, l'audit ne réinscrit pas (pas de perte comptée deux fois)
+  local f2 = team_with({ pole(10.5, 10.5, true) })
+  died({ entity = ent("pole-x", "electric-pole", 10.5, 10.5), tick = TICK - 50 })
+  local k2 = Rc.key({ name = "pole-x", x = 10.5, y = 10.5 })
+  check(f2.recon and f2.recon.lost[k2] and f2.recon.lost[k2].losses == 1, "mort vue : inscrite par l'événement")
+  Recon.audit(f2, surf, TICK)
+  check(f2.recon.lost[k2].losses == 1 and f2.recon.stats.audited == 0, "mort vue puis audit : une seule perte, rien inscrit par l'audit")
+
+  -- (3) objet absent du stock : inscrit, mais AUCUNE tâche (règle du registre), améliorations libres ; l'objet arrive : tâche
+  local f3 = team_with({ pole(10.5, 10.5, true) })
+  f3.stock = {}
+  local n_added = #added
+  Recon.audit(f3, surf, TICK)
+  check(Rc.pending(f3.recon) == 1, "objet absent du stock : la pièce est inscrite")
+  check(Recon.think(f3, surf, TICK + Rc.CALM + 10) == 0 and #added == n_added, "objet absent du stock : pas de tâche (règle du registre)")
+  check(Recon.hold_upgrades(f3) == false, "objet absent du stock : n'empêche pas d'améliorer")
+  f3.stock = { ["item-p"] = 1 }
+  check(Recon.think(f3, surf, TICK + Rc.CALM + 20) == 1 and added[#added].kind == "rebuild", "l'objet arrive au stock : la tâche naît")
+
+  -- (4) pièce ABANDONNÉE : reste abandonnée, jamais réinscrite en boucle, aucune tâche
+  local f4 = team_with({ pole(10.5, 10.5, true) })
+  Recon.audit(f4, surf, TICK)
+  local k4 = Rc.key({ name = "pole-x", x = 10.5, y = 10.5 })
+  f4.recon.lost[k4].abandoned = true
+  local losses = f4.recon.lost[k4].losses
+  n_added = #added
+  local total = 0
+  for i = 1, 30 do total = total + Recon.audit(f4, surf, TICK + i * Recon.AUDIT_TICKS) end
+  check(total == 0 and f4.recon.lost[k4].abandoned and f4.recon.lost[k4].losses == losses, "abandonnée : 30 contrôles, aucune réinscription, toujours abandonnée")
+  check(Recon.think(f4, surf, TICK + 31 * Recon.AUDIT_TICKS) == 0 and #added == n_added, "abandonnée : aucune tâche")
+  -- l'oubli de l'abandon (Rc.TTL) : la place peut être inscrite UNE fois, puis plus
+  local late = TICK + Rc.TTL + 10 * Recon.AUDIT_TICKS
+  Rc.prune(f4.recon, late)
+  check(f4.recon.lost[k4] == nil, "abandon oublié après Rc.TTL")
+  local again = 0
+  for i = 1, 10 do again = again + Recon.audit(f4, surf, late + i * Recon.AUDIT_TICKS) end
+  check(again == 1 and f4.recon.lost[k4] and f4.recon.lost[k4].losses == 1, "après l'oubli : inscrite une fois, pas en boucle (" .. again .. ")")
+
+  -- (5) SÉCURITÉ : ennemis près de la place, la pièce inscrite par l'audit est différée comme toute autre
+  local f5 = team_with({ pole(10.5, 10.5, true) })
+  Recon.audit(f5, surf, TICK)
+  surf.enemies = 3
+  n_added = #added
+  check(Recon.think(f5, surf, TICK + Rc.CALM + 10) == 0 and #added == n_added and f5.recon.stats.deferred == 1,
+    "poteau inscrit par l'audit, ennemis près : différé, aucune tâche")
+  surf.enemies = 0
+  check(Recon.think(f5, surf, TICK + Rc.CALM + Recon.RETRY + 20) == 1, "ennemis partis : la tâche naît")
+
+  -- (6) A/A : deux équipes identiques donnent exactement le même registre et le même journal
+  local function run()
+    local ff = team_with({ pole(30.5, 4.5, true), pole(10.5, 10.5, true), pole(20.5, 7.5, true) })
+    local lg0 = #logs
+    for i = 0, 5 do Recon.audit(ff, surf, TICK + i * 1800) end
+    local out = {}
+    for _, key in ipairs(sorted(ff.recon.lost)) do out[#out + 1] = key .. ":" .. ff.recon.lost[key].tick .. ":" .. ff.recon.lost[key].losses end
+    out[#out + 1] = tostring(#logs - lg0)
+    return table.concat(out, "|")
+  end
+  local a1, a2 = run(), run()
+  check(a1 == a2 and a1:find("pole%-x@10.50,10.50") ~= nil, "A/A : même partie, même registre (" .. a1 .. ")")
+  check(select(2, a1:gsub("|", "|")) == 3, "A/A : trois poteaux, une inscription chacun malgré 6 contrôles")
+
+  -- l'équipe sans plan directeur : rien
+  local fn = new_team()
+  fn.build = nil
+  check(Recon.audit(fn, surf, TICK) == 0, "équipe sans plan directeur : rien à contrôler")
+end
+
 -- §5 Source -----------------------------------------------------------------------------------------------------------------
 for _, file in ipairs({ "script/team/couverture.lua", "script/team/reconstruction.lua" }) do
   local fh = assert(io.open(file, "rb"))

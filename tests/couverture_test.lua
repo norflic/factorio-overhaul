@@ -340,6 +340,15 @@ local function suite(Cov, Rc, n_instances)
     Rc.record(st3, { name = "A", x = 1, y = 1, dir = 0, item = "ia", value = 3 }, 0)
     Rc.prune(st3, Rc.TTL + 1)
     check(Rc.pending(st3) == 0, "§7 une perte jamais refaite finit par être oubliée")
+    -- contrôle de cohérence (lot POTEAUX) : seules les places INCONNUES du registre sont à inscrire
+    local sa = Rc.new()
+    local known = Rc.record(sa, { name = "P", x = 1.5, y = 1.5, dir = 0, item = "ip", value = 1 }, 0)
+    local gone = Rc.record(sa, { name = "P", x = 2.5, y = 1.5, dir = 0, item = "ip", value = 1 }, 0)
+    sa.lost[gone].abandoned = true
+    local unk = Rc.unknown(sa, { { name = "P", x = 1.5, y = 1.5 }, { name = "P", x = 2.5, y = 1.5 }, { name = "P", x = 3.5, y = 1.5 },
+      { name = "Q", x = 1.5, y = 1.5 } })
+    check(#unk == 2 and unk[1].x == 3.5 and unk[2].name == "Q", "§7 contrôle : ni la pièce en attente ni l'abandonnée ne sont réinscrites, les inconnues oui")
+    check(known ~= nil and #Rc.unknown(sa, {}) == 0, "§7 contrôle : liste vide, rien")
     -- pièce sans objet pour la poser : non proposée
     local st4 = Rc.new()
     Rc.record(st4, { name = "A", x = 1, y = 1, dir = 0, value = 3 }, 0)

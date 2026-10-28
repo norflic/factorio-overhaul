@@ -21,6 +21,15 @@
   ennemis sont près de la place (la pièce est différée, puis abandonnée après trop de reports).
   « Améliorer attend » : Reconstruction.hold_upgrades(f) est vrai tant qu'une pièce refaisable attend (Ia3.capital_pay).
   Les destructions servent aussi de MENACE à la couverture des tourelles (f.recon.hits).
+
+  FRONTIÈRE avec le plan directeur (lot POTEAUX, 28/10) : UNE SEULE logique de reconstruction, celle de ce registre
+  (événement de mort, patience, danger, abandon). Le plan directeur (script/team/build.lua) ne rouvre jamais un projet et
+  n'envoie aucun PNJ refaire un poteau. Il reste un CONTRÔLE DE COHÉRENCE (Recon.audit, une fois par minute) : un poteau d'un
+  projet marqué bâti mais ABSENT du monde et INCONNU du registre (retiré sans événement de mort vu, perdu avant la
+  création du registre dans une sauvegarde plus ancienne…) y est inscrit (Rc.unknown) ; ce que le registre connaît déjà, en attente, prise ou ABANDONNÉE, n'est jamais
+  réinscrit (pas de boucle) : l'abandon dure Rc.TTL, puis la place est oubliée et peut être inscrite une fois de nouveau.
+  Une pièce inscrite dont l'objet n'est pas au stock reste en attente SANS tâche (règle du registre : l'objet doit être au
+  stock) ; elle part dès que l'objet y est.
   Déterminisme : listes triées, aucun temps mesuré. État : f.recon (tables simples, dans la sauvegarde).
 ]]
 
@@ -58,7 +67,7 @@ function Recon.state(f)
   if not f.recon then f.recon = Rc.new() end
   local s = f.recon
   s.hits = s.hits or {}
-  s.stats = s.stats or { recorded = 0, rebuilt = 0, blocked = 0, deferred = 0, tasks = 0, discarded = 0, logs = 0 }
+  s.stats = s.stats or { recorded = 0, rebuilt = 0, blocked = 0, deferred = 0, tasks = 0, discarded = 0, logs = 0, audited = 0 }
   return s
 end
 
@@ -131,8 +140,55 @@ end
 
 function Recon.pending(f) return f.recon and Rc.pending(f.recon) or 0 end
 
+Recon.AUDIT_TICKS = 3600    -- le contrôle de cohérence du plan directeur passe une fois par minute
+
+--- Contrôle de cohérence (lot POTEAUX) : les poteaux (R.AUDIT_TYPES) des projets du plan directeur, marqués bâtis et absents du
+--- monde (ou d'une autre force), que le registre ne connaît pas, y sont inscrits ; rien d'autre n'est fait ici (la patience, le
+--- danger et l'abandon sont ceux du registre). Rend le nombre de pièces inscrites.
+function Recon.audit(f, surface, tick)
+  local b = f.build
+  if not b then return 0 end
+  local s = Recon.state(f)
+  if tick < (s.audit_next or 0) then return 0 end
+  s.audit_next = tick + Recon.AUDIT_TICKS
+  local absent = {}
+  for _, pid in ipairs(b.order or {}) do
+    local p = b.projects[pid]
+    if p then
+      for _, e in ipairs(p.ents) do
+        if e.built then
+          local proto = game.entity_prototypes[e.name]
+          if proto and R.AUDIT_TYPES[proto.type] then
+            local there = surface.find_entity(e.name, { e.x, e.y })
+            if not (there and there.valid and there.force.name == f.force) then
+              absent[#absent + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, item = item_of(e.name),
+                value = Cov.role_value(R.ENTITY_ROLE[proto.type]) }
+            end
+          end
+        end
+      end
+    end
+  end
+  table.sort(absent, function(u, v) if u.x ~= v.x then return u.x < v.x end if u.y ~= v.y then return u.y < v.y end return u.name < v.name end)
+  local n = 0
+  for _, rec in ipairs(Rc.unknown(s, absent)) do
+    Rc.record(s, rec, tick)
+    n = n + 1
+  end
+  if n > 0 then
+    stat(s, "audited", n)
+    if s.stats.logs < Recon.LOGS then
+      s.stats.logs = s.stats.logs + 1
+      log(string.format("[FO-RECON] %s : %d poteau(x) marque(s) batis mais absents, inconnus du registre : inscrits a %.1f min (%d en attente)",
+        f.key or "player", n, (tick - (f.started or 0)) / 3600, Rc.pending(s)))
+    end
+  end
+  return n
+end
+
 --- Une pensée de l'équipe : tâches de reconstruction au tableau (après Board.sync, comme le plan directeur).
 function Recon.think(f, surface, tick)
+  Recon.audit(f, surface, tick)
   local s = f.recon
   if not s or next(s.lost) == nil then return 0 end
   local b = Board.get(f)
@@ -299,7 +355,7 @@ remote.add_interface("fo-recon", {
     for _, k in ipairs(State.sorted_keys(s.lost)) do if s.lost[k].abandoned then ab = ab + 1 end end
     local st = s.stats
     return { pending = Rc.pending(s), recorded = st.recorded, rebuilt = st.rebuilt, blocked = st.blocked, deferred = st.deferred,
-      tasks = st.tasks, discarded = st.discarded, hits = #s.hits, abandoned = ab, hold = Recon.hold_upgrades(f) }
+      tasks = st.tasks, discarded = st.discarded, audited = st.audited or 0, hits = #s.hits, abandoned = ab, hold = Recon.hold_upgrades(f) }
   end,
 })
 

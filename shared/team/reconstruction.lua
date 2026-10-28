@@ -16,6 +16,15 @@
       près d'elle) jusqu'à une date, et abandonnée après Rc.MAX_DEFERS reports ;
     - AMÉLIORER ATTEND : tant qu'une pièce refaisable (objet connu, non abandonnée, objet au stock si `have` est donné) est
       en attente, l'équipe n'améliore rien (Rc.hold_upgrades) : refaire ce qui est perdu avant d'améliorer ce qui reste.
+
+  FRONTIÈRE avec le plan directeur (lot POTEAUX, 28/10) : UNE SEULE logique de reconstruction, celle de ce registre
+  (événement de mort, patience, danger, abandon). Le plan directeur (script/team/build.lua) ne rouvre jamais un projet et
+  n'envoie aucun PNJ refaire un poteau. Il reste un CONTRÔLE DE COHÉRENCE (Recon.audit, une fois par minute) : un poteau d'un
+  projet marqué bâti mais ABSENT du monde et INCONNU du registre (retiré sans événement de mort vu, perdu avant la
+  création du registre dans une sauvegarde plus ancienne…) y est inscrit (Rc.unknown) ; ce que le registre connaît déjà, en attente, prise ou ABANDONNÉE, n'est jamais
+  réinscrit (pas de boucle) : l'abandon dure Rc.TTL, puis la place est oubliée et peut être inscrite une fois de nouveau.
+  Une pièce inscrite dont l'objet n'est pas au stock reste en attente SANS tâche (règle du registre : l'objet doit être au
+  stock) ; elle part dès que l'objet y est.
   Déterminisme : clés triées, entiers, aucun `pairs` décisionnel, aucun hasard, aucun temps mesuré.
 ]]
 
@@ -107,6 +116,17 @@ function Rc.items(batch)
   end
   local out = {}
   for _, it in ipairs(sorted_keys(n)) do out[#out + 1] = { it, n[it] } end
+  return out
+end
+
+--- Contrôle de cohérence : parmi les pièces `absent` ({ name, x, y, … } marquées posées par un projet, absentes du monde),
+--- celles que le registre NE CONNAÎT PAS (ni en attente, ni prise, ni abandonnée : une place connue n'est jamais réinscrite).
+--- Ordre d'entrée conservé (l'appelant trie).
+function Rc.unknown(st, absent)
+  local out = {}
+  for _, rec in ipairs(absent) do
+    if not st.lost[Rc.key(rec)] then out[#out + 1] = rec end
+  end
   return out
 end
 

@@ -120,6 +120,10 @@ R.PASSIVE_TYPES = {
   ["electric-pole"] = true, ["pipe"] = true, ["pipe-to-ground"] = true,
 }
 
+-- Lot POTEAUX : types d'entité du moteur que le contrôle de cohérence du plan directeur vérifie (script/team/reconstruction.lua,
+-- Recon.audit) : les poteaux, dont la perte coupe un réseau entier. Pas les machines (un niveau supérieur change leur nom).
+R.AUDIT_TYPES = { ["electric-pole"] = true }
+
 R.BODY = "character"
 
 -- Lot ADOPTE : type -> { role (R.ENTITY_ROLE), registre, ... }.
