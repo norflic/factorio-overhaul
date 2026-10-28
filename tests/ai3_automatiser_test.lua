@@ -201,10 +201,21 @@ do
   local rp = A.decide({ window = wp, obtainable = all_ok, book = book, has_plant = true })
   local vp, qp = verdict(rp, "pipe"), req(rp, "pipe")
   check(vp ~= nil and vp.generic and qp ~= nil and qp.gen == "simple" and type(qp.args[1]) == "table" and qp.args[1].name == "pipe"
-    and qp.args[3] == "assembling-machine-1",
-    "tuyau (aucun gabarit écrit) : rangée d'assembleurs GÉNÉRÉE depuis sa recette, demandée (" .. tostring(vp and vp.why) .. ")")
-  check(qp and qp.rate_nom >= 30 * 1.25 - 1e-6 and qp.items["assembling-machine-1"] == qp.args[2],
+    and qp.args[3] == "assembling-machine-2",
+    "tuyau (aucun gabarit écrit) : rangée d'assembleurs GÉNÉRÉE depuis sa recette, sur la MEILLEURE machine débloquée (lot PLANDIR T1), demandée (" .. tostring(vp and vp.why) .. ")")
+  check(qp and qp.rate_nom >= 30 * 1.25 - 1e-6 and qp.items["assembling-machine-2"] == qp.args[2],
     string.format("tuyau : débit visé 37,5/min, nominal %.1f, %s assembleur(s)", qp and qp.rate_nom or 0, qp and tostring(qp.args[2]) or "?"))
+  -- Lot PLANDIR (T1) : la machine suit ce qui est débloqué (jamais un nom écrit dans le cerveau)
+  local no2 = function(n) return n ~= "assembling-machine-2" and book:handcraftable(n) end
+  local m_no2 = A.method_for("pipe", book, no2)
+  check(m_no2 and m_no2.args[3] == "assembling-machine-1", "tuyau : machine 2 pas débloquée -> la machine 1")
+  local m_none = A.method_for("pipe", book, function() return false end)
+  check(m_none and m_none.args[3] == "assembling-machine-1", "rien d'utilisable : la première machine de la liste (l'objet impossible fait rechercher)")
+  check(A.method_for("pipe", book).args[3] == "assembling-machine-1", "sans filtre : comportement d'avant (première machine)")
+  local mc = A.method_for("electronic-circuit", book, all_ok)
+  check(mc and mc.gen == "circuits" and mc.args[1] == "assembling-machine-2", "circuits (gabarit écrit) : machine 2 quand elle est débloquée")
+  check(A.method_for("electronic-circuit", book, no2).args[1] == "assembling-machine-1", "circuits : machine 1 sinon")
+  check(A.method_for("iron-plate", book, all_ok).args[1] == "stone-furnace", "fonderie : aucune machine de fabrication substituée")
   local g = A.template(qp.gen, qp.args)
   check(g ~= nil and (g.inputs["iron-plate"] or 0) > 0, "le gabarit généré reçoit les plaques de fer par son quai")
   -- Limites écrites.
