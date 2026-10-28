@@ -303,6 +303,18 @@ local function base(view, free, ctx, out)
       -- Lot COFFRE (K-D) : un bien d'équipement n'est fabriqué que pour ce qui se POSE (F.potential) ; plus de plancher de
       -- réserve (8 foreuses et 8 fours d'avance pour rien : les factions en gardaient 8, votre équipe 40).
       if F.EQUIPMENT[item] then want = math.min(r[3] or r[2], pot) end
+      -- Lot ELEC2 : la foreuse que les avant-postes posent AUJOURD'HUI (électrique si le contexte le permet) : on ne
+      -- fabrique plus de réserve de foreuses à combustible inutiles ; une électrique vaut `per` foreuses à combustible.
+      if item == T.DRILL and T.elec then
+        for _, kind in ipairs(T.OUTPOST_ORDER) do
+          local e = T.elec[kind]
+          if e then
+            item = e.drill
+            want = math.ceil(want / (e.per or 2))
+            break
+          end
+        end
+      end
       if book:handcraftable(item) then
         local have = (free[item] or 0) + (incoming[item] or 0) + (planned[item] or 0)
         local i = 0

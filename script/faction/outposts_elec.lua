@@ -20,14 +20,31 @@ local T = require("shared.team.config")
 local M = require("shared.team.modules")
 local P = require("shared.team.plan")
 local State = require("script.faction.state")
+local function sorted_keys(t) return State.sorted_keys(t or {}) end
 local R = require("shared.ai3.reglages") -- types du moteur -> rôle (consommateurs d'électricité)
 
--- Types consommateurs : machines de fabrication, foreuses, laboratoires, et la logistique (pinces : charge moyenne)
-local USERS, LIGHT = {}, {}
-for _, ty in ipairs(R.ENTITY_TYPES) do
-  local role = R.ENTITY_ROLE[ty]
-  if role == "fabrique" or role == "foreuse" or role == "labo" or role == "logistique" then USERS[#USERS + 1] = ty end
-  if role == "logistique" then LIGHT[ty] = true end
+-- Types consommateurs : machines de fabrication, foreuses, laboratoires, et ceux de la logistique qui ont une source
+-- d'énergie électrique (pinces : charge moyenne). Relevé au premier appel (prototypes).
+local USERS, LIGHT = nil, {}
+local function users()
+  if USERS then return USERS end
+  USERS = {}
+  for _, ty in ipairs(R.ENTITY_TYPES) do
+    local role = R.ENTITY_ROLE[ty]
+    if role == "fabrique" or role == "foreuse" or role == "labo" then
+      USERS[#USERS + 1] = ty
+    elseif role == "logistique" then
+      local list = game.get_filtered_entity_prototypes({ { filter = "type", type = ty } })
+      for _, n in ipairs(sorted_keys(list)) do
+        if list[n].electric_energy_source_prototype ~= nil then
+          USERS[#USERS + 1] = ty
+          LIGHT[ty] = true
+          break
+        end
+      end
+    end
+  end
+  return USERS
 end
 
 local Elec = {}
@@ -41,7 +58,6 @@ Elec.GRID_EVERY = 1800     -- ticks entre deux relevés du réseau
 Elec.BACKOFF = 10 * 3600   -- un type d'avant-poste dont la ligne a échoué repasse à combustible pendant ce temps
 Elec.MAX_ATTEMPTS = 120    -- emplacements essayés au plus (une foreuse 3 × 3 en consomme plus qu'une 2 × 2)
 
-local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
 ---------------------------------------------------------------------------------------------------
 -- Prototypes (cache LOCAL : prototypes seulement)
@@ -55,11 +71,11 @@ local function protos()
   for _, name in ipairs(sorted_keys(list)) do
     local p = list[name]
     local spec = M.BASE[name]
-    if spec and spec.kind == "drill" and spec.usage_kw and p.electric_energy_source_prototype ~= nil
+    if spec and spec.kind == "drill" and spec.usage_kw and spec.drop and p.electric_energy_source_prototype ~= nil
       and p.items_to_place_this and #p.items_to_place_this > 0 then
-      local v = p.vector_to_place_result
+      -- point de dépôt : le prototype ne l'expose pas à l'exécution, c'est la donnée du gabarit (modules.lua, `drop`)
       c.drills[#c.drills + 1] = name
-      c.info[name] = { speed = p.mining_speed or 1, kw = (p.max_energy_usage or 0) * 60 / 1000, drop = v and { v[1] or v.x, v[2] or v.y } }
+      c.info[name] = { speed = p.mining_speed or 1, kw = (p.max_energy_usage or 0) * 60 / 1000, drop = spec.drop }
     end
   end
   local pl = game.get_filtered_entity_prototypes({ { filter = "type", type = "electric-pole" } })
@@ -135,7 +151,7 @@ local function grid(f, tick)
   g.poles = n
   local used = 0
   local usage = {}
-  for _, e in ipairs(surface.find_entities_filtered({ area = area, force = f.force, type = USERS })) do
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, force = f.force, type = users() })) do
     local pr = e.prototype
     if pr.electric_energy_source_prototype ~= nil then
       if LIGHT[e.type] then used = used + Elec.INSERTER_KW
@@ -164,7 +180,12 @@ function Elec.context(f, tick, book, stock, choose_pole)
   if g.poles < Elec.MIN_POLES or #g.nets == 0 then return nil end
   local drill
   for _, n in ipairs(c.drills) do
-    if (stock[n] or 0) > 0 or (book and book:handcraftable(n)) then drill = n break end
+    -- au stock, ou fabricable À LA MAIN avec la matière du coffre (sinon le projet attendrait le cuivre de ses circuits
+    -- alors que la foreuse à combustible partirait tout de suite)
+    if (stock[n] or 0) >= 2 or (book and book:handcraftable(n) and next(book:plan({ { n, 2 } }, stock).raw) == nil) then
+      drill = n
+      break
+    end
   end
   if not drill then return nil end
   local pole = choose_pole and choose_pole(book, stock) or nil
@@ -326,7 +347,7 @@ function Elec.place(f, surface, kind, center, carrier, max_n, radius, h)
               and surface.create_entity({ name = spec.sink, position = spos, force = f.force })
             local pole = nil
             if s and s.valid then
-              if supplied(surface, f, pos, half, function(id) return linked and id == net or (not linked) end) then
+              if supplied(surface, f, pos, half, nets_ok) then
                 pole = true
               else
                 for _, r in ipairs(RING) do
@@ -354,7 +375,12 @@ function Elec.place(f, surface, kind, center, carrier, max_n, radius, h)
                 if ok then
                   linked = true
                 else
-                  for _, e in ipairs(made) do if e.valid then e.destroy() end end
+                  for _, e in ipairs(made) do
+                    if e.valid then
+                      carrier.insert({ name = e.name, count = 1 })
+                      e.destroy()
+                    end
+                  end
                   drills, sinks = {}, {}
                   return drills, sinks, "ligne"
                 end
