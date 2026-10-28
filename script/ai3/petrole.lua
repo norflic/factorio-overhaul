@@ -640,7 +640,7 @@ end
 --- Pensée d'une faction (script/ai3/cerveau.lua, après Auto.think) : décisions, état des sites, et leurs projets rendus
 --- au cerveau par le contexte de l'automatisation (A.goals : manques des chantiers, quais d'un site fini).
 function Pet.think(f, view, book, tick, auto, General, deposits)
-  if f.is_player or not Pet.on() or not (f.team and f.hq and f.hq.valid) then return auto end
+  if not Pet.on() or not (f.team and f.hq and f.hq.valid) then return auto end
   Profiler.start("petrole:think")
   local st = state_of(f)
   if tick >= (st.next or 0) then

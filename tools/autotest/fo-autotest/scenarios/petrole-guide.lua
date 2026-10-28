@@ -111,6 +111,7 @@ base.tick = function(ctx, e)
   if tick0 then tick0(ctx, e) end
   if e.tick > 0 and e.tick % 36000 == 0 then
     local s = ctx.surface()
+    ctx.log(TAG .. line_for(s, "player", "player", e.tick))
     for _, r in ipairs(factions()) do
       ctx.log(TAG .. line_for(s, r.key, r.force, e.tick))
       if e.tick % 72000 == 0 then machines_report(s, r.force, r.key, e.tick) end
@@ -146,6 +147,8 @@ base.finish = function(ctx)
   -- Les packs chimiques fabriques A LA MAIN par les PNJ ne comptent pas dans les statistiques de production (F244) : le pack
   -- est PROUVE par une technologie qui le consomme, recherchee (n_pack, a titre informatif, compte les statistiques)
   ctx.log(TAG .. "factions dont les statistiques comptent des packs chimiques : " .. n_pack .. "/" .. n_fac)
+  ctx.log(TAG .. "FIN " .. line_for(s, "player", "player", game.tick))
+  machines_report(s, "player", "player", game.tick)
   ctx.check(n_t4 >= 1, "au moins une faction a recherche une technologie qui consomme le pack chimique (palier 4)", n_t4 .. "/" .. n_fac)
 end
 
