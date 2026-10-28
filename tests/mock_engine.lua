@@ -799,6 +799,8 @@ function M.new_world(opts)
       -- Lot CAPIB : ÉTEINT par défaut comme le jeu (settings/capi.lua) ; allumé par l'option (capi = true) ou FO_CAPI=1
       -- (n'agit qu'avec fo-war-ia3e : FO_IA3E=1)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
+      -- Lot PETROLE : ÉTEINT par défaut comme le jeu (settings/petrole.lua) ; allumé par l'option (petrole = true) ou FO_PETROLE=1
+      ["fo-war-petrole"] = (opts.petrole == true) or (os.getenv("FO_PETROLE") == "1"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
     },
