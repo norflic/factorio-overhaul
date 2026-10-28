@@ -17,4 +17,12 @@ data:extend({
     default_value = true,
     order = "e-war-z-adopte",
   },
+  {
+    -- Lot FANTOMES : les paires que le PNJ va poser sont montrées en fantômes pendant son trajet (script/team/fantomes.lua).
+    type = "bool-setting",
+    name = "fo-war-fantomes",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-adopte-b",
+  },
 })

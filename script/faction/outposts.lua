@@ -56,14 +56,15 @@ end
 -- Pose
 ---------------------------------------------------------------------------------------------------
 --- Emplacement du réceptacle (four 2×2 ou coffre 1×1) couvrant le point de dépôt d'une foreuse.
-local function sink_position(surface, sink, drop, force, drill_pos)
+local function sink_position(surface, sink, drop, force, drill_pos, fits)
+  -- lot FANTOMES : `fits(name, pos)` est la vérification de place (l'aperçu des paires en passe une autre) ; par défaut, celle de la pose.
+  fits = fits or function(name, pos) return surface.can_place_entity({ name = name, position = pos, force = force }) end
   if sink == "stone-furnace" then
     local best, best_d
     for dx = 0, 1 do
       for dy = 0, 1 do
         local c = { x = math.floor(drop.x) + dx, y = math.floor(drop.y) + dy }
-        if math.abs(c.x - drop.x) <= 1 and math.abs(c.y - drop.y) <= 1
-          and surface.can_place_entity({ name = sink, position = c, force = force }) then
+        if math.abs(c.x - drop.x) <= 1 and math.abs(c.y - drop.y) <= 1 and fits(sink, c) then
           local d = (c.x - drill_pos.x) ^ 2 + (c.y - drill_pos.y) ^ 2
           if not best_d or d > best_d then best, best_d = c, d end
         end
@@ -72,7 +73,7 @@ local function sink_position(surface, sink, drop, force, drill_pos)
     return best
   end
   local c = { x = math.floor(drop.x) + 0.5, y = math.floor(drop.y) + 0.5 }
-  if surface.can_place_entity({ name = sink, position = c, force = force }) then return c end
+  if fits(sink, c) then return c end
   return nil
 end
 
@@ -145,6 +146,67 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
     end
   end
   return drills, sinks
+end
+
+--- Lot FANTOMES : APERÇU des paires que `place_pairs` poserait (sans objets, sans rien détruire ni poser) : même parcours des
+--- tuiles de minerai, mêmes orientations, mêmes points de dépôt. Arbres et rochers ne comptent pas (l'ouvrier les abat avant de
+--- poser : vérification « script_ghost » avec `forced`), et deux paires de l'aperçu ne se recouvrent pas. Rend une liste de
+--- { drill = { name, position, direction }, sink = { name, position } }.
+function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius)
+  local spec = T.outposts[kind]
+  local force = f.force
+  local taken = {}
+  local function tiles(name, pos, dir)
+    local p = game.entity_prototypes[name]
+    local w, h = p.tile_width or 1, p.tile_height or 1
+    if dir == defines.direction.east or dir == defines.direction.west then w, h = h, w end
+    local x0, y0 = math.floor(pos.x - w / 2 + 0.01), math.floor(pos.y - h / 2 + 0.01)
+    local out = {}
+    for ty = y0, y0 + h - 1 do
+      for tx = x0, x0 + w - 1 do out[#out + 1] = tx * 65536 + ty end
+    end
+    return out
+  end
+  local function free(name, pos, dir)
+    for _, k in ipairs(tiles(name, pos, dir)) do if taken[k] then return false end end
+    return true
+  end
+  local function fits(name, pos, dir)
+    return free(name, pos, dir) and surface.can_place_entity({ name = name, position = pos, direction = dir, force = force,
+      build_check_type = defines.build_check_type.script_ghost, forced = true })
+  end
+  local resources = surface.find_entities_filtered({ position = center, radius = radius, name = spec.resource })
+  table.sort(resources, function(a, b)
+    local pa, pb = a.position, b.position
+    local da = (pa.x - center.x) ^ 2 + (pa.y - center.y) ^ 2
+    local db = (pb.x - center.x) ^ 2 + (pb.y - center.y) ^ 2
+    if da ~= db then return da < db end
+    if pa.x ~= pb.x then return pa.x < pb.x end
+    return pa.y < pb.y
+  end)
+  local out, tried, attempts = {}, {}, 0
+  for _, res in ipairs(resources) do
+    if #out >= max_pairs or attempts >= MAX_ATTEMPTS then break end
+    local rp = res.position
+    local pos = { x = math.floor(rp.x + 0.5), y = math.floor(rp.y + 0.5) }
+    local key = pos.x * 65536 + pos.y
+    if not tried[key] then
+      tried[key] = true
+      attempts = attempts + 1
+      for _, dir in ipairs(DIRS) do
+        local v = drop_vector(dir)
+        local drop = { x = pos.x + v[1], y = pos.y + v[2] }
+        local spos = sink_position(surface, spec.sink, drop, force, pos, function(name, p) return fits(name, p, 0) end)
+        if spos and fits(T.DRILL, pos, dir) then
+          for _, k in ipairs(tiles(T.DRILL, pos, dir)) do taken[k] = true end
+          for _, k in ipairs(tiles(spec.sink, spos, 0)) do taken[k] = true end
+          out[#out + 1] = { drill = { name = T.DRILL, position = pos, direction = dir }, sink = { name = spec.sink, position = spos } }
+          break
+        end
+      end
+    end
+  end
+  return out
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -245,8 +307,12 @@ end
 
 --- Pose l'avant-poste `kind` autour de `site` avec les objets portés par `carrier` (inventaire de
 --- l'ouvrier). Renvoie l'avant-poste (au moins une paire posée) ou nil.
+-- Crochet posé par script/team/fantomes.lua : le PNJ arrive et va poser, l'aperçu en fantômes de sa tâche part d'abord.
+Outposts.on_arrive = nil
+
 function Outposts.build(f, surface, kind, site, carrier)
   local spec = T.outposts[kind]
+  if Outposts.on_arrive then Outposts.on_arrive(f, site, nil) end
   -- Lot IA2-b (F209) : les réceptacles orphelins d'un avant-poste perdu ici sont repris d'abord (ils libèrent la
   -- place des paires et leurs objets resservent).
   Outposts.reclaim(f, site, carrier, 24)
@@ -272,6 +338,7 @@ end
 --- plafond, l'avant-poste est marqué plein.
 function Outposts.extend(f, surface, o, carrier)
   local spec = T.outposts[o.kind]
+  if Outposts.on_arrive then Outposts.on_arrive(f, nil, o.id) end
   local room = T.max_drills(o.kind) - o.drills
   local drills, sinks = place_pairs(f, surface, o.kind, o.pos, carrier, math.min(spec.drills, room), 18)
   for _, d in ipairs(drills) do
@@ -283,7 +350,11 @@ function Outposts.extend(f, surface, o, carrier)
     State.own(s, f.id, "sink", o.id)
   end
   o.drills = o.drills + #drills
-  if #drills == 0 or o.drills >= T.max_drills(o.kind) then o.full = true end
+  if #drills == 0 or o.drills >= T.max_drills(o.kind) then
+    o.full = true
+    o.hold_until = nil -- plein pour de bon (et non en attente après des échecs, lot ADOPTE)
+  end
+  if #drills > 0 then o.ext_fails = 0 end
   return #drills
 end
 

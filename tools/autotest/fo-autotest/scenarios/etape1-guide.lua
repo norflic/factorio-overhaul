@@ -127,6 +127,14 @@ local function report_player(s, minute)
     for i = 1, math.min(8, #names) do parts[#parts + 1] = names[i] .. "=" .. cont[names[i]] end
     top = table.concat(parts, " ")
   end
+  -- Lot FANTOMES : apercu en fantomes des paires que les PNJ vont poser ; orphelins = fantomes de foreuse sur la carte que
+  -- le registre de l'apercu ne connait pas.
+  if remote.interfaces["fo-fantomes"] then
+    local fs = remote.call("fo-fantomes", "status")
+    local scan = #s.find_entities_filtered({ force = "player", name = "entity-ghost", ghost_name = "burner-mining-drill" })
+    log(TAG .. string.format("fantomes minute %d | aperceus en cours %d (%d fantomes dont %d foreuses) | carte : %d fantomes de foreuse | ORPHELINS %d | montres %d arrivee %d fin %d balayage %d",
+      minute, fs.entries, fs.live, fs.drills, scan, scan - fs.drills, fs.shown, fs.arrive, fs.fin, fs.balayage))
+  end
   local techs = 0
   for _, tc in pairs(game.forces.player.technologies) do if tc.researched then techs = techs + 1 end end
   log(TAG .. string.format("base minute %d | VOTRE EQUIPE | chaudieres=%d vapeur=%d poteaux=%d foreuses_elec=%d foreuses_comb=%d"

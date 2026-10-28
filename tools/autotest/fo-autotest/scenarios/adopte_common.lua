@@ -11,7 +11,7 @@
 ]]
 return function(ON)
 local TAG = "[FO-ADOPTE-MANUEL] "
-local PLACE, CHECK = 120, 1500
+local PLACE, LAB, CHECK = 120, 400, 1500
 
 local function put(s, name, x, y)
   local p = s.find_non_colliding_position(name, { x = x, y = y }, 8, 1)
@@ -81,6 +81,16 @@ return {
       ctx.check(n == 4, "4 fours poses a la main", n)
       ctx.check(not ON or st.api, "interface fo-adopte presente (adoption allumee)")
     end
+    -- Laboratoire isole et coffre de stock a cote du coffre d'equipe (l'etat du cerveau existe apres la premiere pensee).
+    if e.tick == LAB then
+      st.lab = put(s, "lab", c.x - 20, c.y - 16)
+      st.annex = put(s, "iron-chest", c.x + 6, c.y + 8)
+      for _, k in ipairs({ "lab", "annex" }) do
+        if st[k] and st.api then remote.call("fo-adopte", "built", st[k]) end
+        ctx.log(TAG .. string.format("pose %s : %s", k, st[k] and string.format("(%.1f, %.1f)", st[k].position.x, st[k].position.y) or "IMPOSSIBLE"))
+      end
+      ctx.check(st.lab ~= nil and st.annex ~= nil, "laboratoire et coffre poses a la main")
+    end
     -- Session avec images : un VRAI joueur existe, il pose le four de sa main (cursor_stack + build_from_cursor) : c'est le
     -- gestionnaire on_built_entity du mod qui est joue, sans l'interface fo-adopte.built.
     if e.tick == PLACE + 30 and #game.connected_players > 0 then
@@ -129,8 +139,8 @@ return {
     local fa, fb, fl, ff = furnace_state(F.a), furnace_state(F.b), furnace_state(F.line), furnace_state(F.far)
     local stat = st.api and remote.call("fo-adopte", "status") or { listed = 0, n = 0 }
     if ON then
-      local want_n = 2 + ((st.real and st.f.real) and 1 or 0)
-      ctx.check(stat.listed == want_n and stat.n == want_n, want_n .. " fours adoptes exactement (a, b" .. (want_n == 3 and ", real : pose de la main, evenement on_built_entity reel" or "") .. ")", stat.listed .. "/" .. stat.n)
+      local want_n = 4 + ((st.real and st.f.real) and 1 or 0)
+      ctx.check(stat.listed == want_n and stat.n == want_n, want_n .. " fours adoptes exactement (a, b" .. (want_n == 5 and ", real : pose de la main, evenement on_built_entity reel" or "") .. ")", stat.listed .. "/" .. stat.n)
       ctx.check(served(fa) and served(fb), "les 2 fours isolés sont servis par les PNJ (combustible ou minerai ou produits)",
         string.format("a %s/%s/%s/%s b %s/%s/%s/%s", fa.fuel, fa.src, fa.out, fa.made, fb.fuel, fb.src, fb.out, fb.made))
       ctx.check(fa.fuel > 0 and fb.fuel > 0, "combustible mis aux 2 fours", fa.fuel .. " / " .. fb.fuel)
@@ -139,6 +149,15 @@ return {
     else
       ctx.check(not served(fa) and not served(fb), "TEMOIN : adoption coupee, aucun four isole n'est servi",
         string.format("a %s/%s/%s/%s b %s/%s/%s/%s", fa.fuel, fa.src, fa.out, fa.made, fb.fuel, fb.src, fb.out, fb.made))
+    end
+    if ON then
+      local chest = st.chest
+      local counted = false
+      for _, a in ipairs(game.surfaces[1].find_entities_filtered({ position = chest.position, radius = 15, name = "iron-chest", force = "player" })) do
+        if st.annex and a == st.annex then counted = true end
+      end
+      ctx.check(st.annex and st.annex.valid and counted, "le coffre pose de la main est toujours la (annexe adoptee, jamais demolie)")
+      ctx.check(st.lab and st.lab.valid, "le laboratoire pose de la main est toujours la")
     end
     ctx.check(fl.valid and not served(fl), "four sur tapis : intact, ni combustible, ni entree, ni sortie prise",
       string.format("%s/%s/%s/%s", fl.fuel, fl.src, fl.out, fl.made))

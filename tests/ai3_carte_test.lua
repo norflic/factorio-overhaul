@@ -222,5 +222,27 @@ do
   check(closest > 100, string.format("jamais à moins de 100 tuiles des nids (au plus près : %d)", math.floor(closest)))
 end
 
+-- Lot EXPLO : régions bloquées par un chemin raté.
+do
+  local b = {}
+  check(K.blocked_near(b, 0, 0, 0, 128, 1000) == false and K.blocked_near(nil, 0, 0, 0, 128, 1000) == false, "aucune zone bloquée : rien de bloqué")
+  -- éclaireur en (0, 0), point de passage raté en (96, 0) : cône vers l'est
+  K.note_blocked(b, 0, 0, 96, 0, 50, 3)
+  check(K.blocked_near(b, 96, 100, 60, 128, 1000), "à 100 tuiles du point raté : bloqué (disque)")
+  check(K.blocked_near(b, 300, 60, 60, 128, 1000), "dans le cône derrière le point raté (300, 60) : bloqué")
+  check(K.blocked_near(b, 400, 0, 60, 128, 1000), "plein est, loin : bloqué")
+  check(not K.blocked_near(b, 300, 300, 60, 128, 1000), "hors du cône (45°) : libre")
+  check(not K.blocked_near(b, -300, 0, 60, 128, 1000), "direction opposée : libre")
+  check(not K.blocked_near(b, 40, 5, 60, 20, 1000), "plus près que 70 % de la distance et hors du disque : libre")
+  check(not K.blocked_near(b, 300, 0, 1050, 128, 1000), "après la durée : libre")
+  K.note_blocked(b, 5, 5, 100, 10, 900, 3)
+  check(#b == 1 and b[1].tick == 900, "un échec voisin rafraîchit l'entrée au lieu de s'ajouter")
+  K.note_blocked(b, 1000, 0, 1096, 0, 910, 3)
+  K.note_blocked(b, 2000, 0, 2096, 0, 920, 3)
+  K.note_blocked(b, 3000, 0, 3096, 0, 930, 3)
+  check(#b == 3 and b[1].ox == 1000, "plafond : les plus anciennes entrées sont oubliées")
+  check(K.blocked_near(b, 3096, 0, 940, 128, 1000) and not K.blocked_near(b, 300, 0, 940, 128, 1000), "l'entrée oubliée ne bloque plus")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

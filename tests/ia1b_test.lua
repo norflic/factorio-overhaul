@@ -175,6 +175,8 @@ do
   local big = { outposts = {}, sites = { coal = 1, copper = 1, stone = 1 } }
   for i = 1, 6 do big.outposts[#big.outposts + 1] = { id = i, kind = "iron", drills = 2 } end
   check(Fond.potential(big) == Fond.AHEAD, "potentiel : plafonné à F.AHEAD (" .. Fond.potential(big) .. ")")
+  check(Fond.potential(big, { reserve = Fond.PLAYER_RESERVE }) == Fond.PLAYER_AHEAD and Fond.PLAYER_AHEAD < Fond.AHEAD,
+    "potentiel de VOTRE équipe : plafonné à F.PLAYER_AHEAD (" .. Fond.potential(big, { reserve = Fond.PLAYER_RESERVE }) .. "), les factions gardent F.AHEAD (lot ADOPTE)")
   local df = { defend_first = true }
   check(Fond.potential({ outposts = {}, sites = { copper = 1 } }, df) == 0, "sous « défendre d'abord », sans tourelles au stock : un site connu ne compte pas")
   check(Fond.potential({ outposts = {}, sites = { copper = 1 } }, df, { ["gun-turret"] = 1, [T.turret_ammo] = T.defend_ammo }) > 0,

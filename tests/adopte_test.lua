@@ -56,7 +56,8 @@ do
 end
 
 do
-  check(A.deploy(13, 2, 0, 15, 500, 5) == A.DEPLOY_PER_THINK, "13 fours libres : " .. A.DEPLOY_PER_THINK .. " posés par fenêtre")
+  check(not A.hold(0) and not A.hold(A.HOLD_AFTER - 1) and A.hold(A.HOLD_AFTER) and A.hold(9), "mise en attente après A.HOLD_AFTER échecs de suite")
+  check(A.deploy(13, 2, 0, 15) == A.DEPLOY_PER_THINK, "13 fours libres : " .. A.DEPLOY_PER_THINK .. " posés par fenêtre")
   do
     local w, lo = A.window(nil, 0, 8)
     check(w and lo == nil, "fenêtre ouverte au premier appel")
@@ -67,12 +68,11 @@ do
     check(lo == 3, "fermée : minimum observé (" .. tostring(lo) .. ")")
     check(w.t0 == A.IDLE_WINDOW and w.lo == 9, "rouverte à l'état courant")
   end
-  check(A.deploy(3, 2, 0, 15, 500, 5) == 1, "3 libres : un de posé, " .. A.IDLE_KEEP .. " gardés")
-  check(A.deploy(2, 2, 0, 15, 500, 5) == 0 and A.deploy(0, 0, 0, 15, 500, 5) == 0, "pas d'excédent : rien")
-  check(A.deploy(13, 15, 0, 15, 500, 5) == 0 and A.deploy(13, 14, 0, 15, 500, 5) == 1, "plafond du registre")
-  check(A.deploy(13, 10, 5, 15, 500, 5) == 0, "commande en cours comptée")
-  check(A.deploy(13, 2, 0, 15, 7, 5) == 1 and A.deploy(13, 2, 0, 15, 4, 5) == 0, "limité par le combustible libre")
-  check(A.deploy(nil, nil, nil, nil, nil, nil) == 0, "valeurs absentes : rien")
+  check(A.deploy(3, 2, 0, 15) == 1, "3 libres : un de posé, " .. A.IDLE_KEEP .. " gardés")
+  check(A.deploy(2, 2, 0, 15) == 0 and A.deploy(0, 0, 0, 15) == 0, "pas d'excédent : rien")
+  check(A.deploy(13, 15, 0, 15) == 0 and A.deploy(13, 14, 0, 15) == 1, "plafond du registre")
+  check(A.deploy(13, 10, 5, 15) == 0, "commande en cours comptée")
+  check(A.deploy(nil, nil, nil, nil) == 0, "valeurs absentes : rien")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -227,6 +227,38 @@ do
 end
 
 do
+  -- laboratoires et annexes
+  world.entities = {}
+  local f = new_team()
+  f.team = {}
+  local lab = new_entity("lab", 15, 0)
+  build(lab)
+  check(#f.smelters == 0 and f.adopt == nil or f.adopt.units[lab.unit_number] == nil, "laboratoire avant l'état du cerveau : pas encore adopté (la migration le reprendra)")
+  f.team.ia3 = {}
+  build(lab)
+  check(f.team.ia3.labs and f.team.ia3.labs[1] == lab and f.adopt.units[lab.unit_number], "laboratoire isolé : inscrit à f.team.ia3.labs")
+  local lab2 = new_entity("lab", -15, 5)
+  new_entity(INSERTER_TYPE, -15, 7)
+  build(lab2)
+  check(#f.team.ia3.labs == 1 and f.adopt.refused[lab2.unit_number] == "ligne", "laboratoire en ligne (bras à côté) : non adopté")
+  local TT = require("shared.team.config")
+  local chest = new_entity("container", 6, 6, { name = TT.annex.kinds[1].item, prototype = { tile_width = 1, tile_height = 1 } })
+  build(chest)
+  check(f.annex and f.annex[1] == chest, "coffre du stock posé à 8 tuiles : inscrit aux annexes")
+  local far = new_entity("container", 30, 0, { name = TT.annex.kinds[1].item, prototype = { tile_width = 1, tile_height = 1 } })
+  build(far)
+  check(#f.annex == 1 and f.adopt.refused[far.unit_number] == "loin", "coffre à 30 tuiles : reste au joueur (rayon des annexes)")
+  local other = new_entity("container", 5, -5, { name = "un-autre-coffre", prototype = { tile_width = 1, tile_height = 1 } })
+  build(other)
+  check(#f.annex == 1, "coffre d'un autre prototype : jamais une annexe")
+  -- un bras posé contre l'annexe adoptée la rend
+  local ins = new_entity(INSERTER_TYPE, 6, 7.5)
+  build(ins)
+  check(#f.annex == 0 and not f.adopt.units[chest.unit_number], "bras posé contre une annexe : rendue")
+  check(destroyed == 0, "aucune destruction")
+end
+
+do
   -- migration : machines déjà posées, triées par numéro d'unité, QG déjà servi non redoublé
   world.entities = {}
   local f = new_team()
@@ -317,6 +349,21 @@ do
   for k = 4, 14 do Stock.deploy_idle(f, {}, 600 + k * W + 30) end
   check(#reg <= require("shared.ai3.bras").SMELT_HARD and f.stats.idle_deployed == #reg, "jamais au-delà de Br.SMELT_HARD (" .. #reg .. ")")
   check(f.hq.get_item_count(TT.SMELTER) >= 3, "les fours gardés restent au coffre")
+  -- sans charbon libre : les fours sont posés à sec (la tournée de fonte les ravitaille)
+  do
+    local reg2 = {}
+    local d = { key = "player", is_player = true, hq = chest({ [TT.SMELTER] = 9 }), hq_pos = { x = 0, y = 0 }, stats = {}, started = 0, engineers_count = 10 }
+    Stock.free_view = function(team) return { [TT.SMELTER] = team.hq.get_item_count(TT.SMELTER) } end
+    Stock.smelters = function() return reg2 end
+    Stock.place_smelters = function(team, _, n, carrier)
+      local k = math.min(n, carrier.items[TT.SMELTER] or 0)
+      carrier.items[TT.SMELTER] = (carrier.items[TT.SMELTER] or 0) - k
+      for i = 1, k do reg2[#reg2 + 1] = { valid = true } end
+      return k
+    end
+    Stock.deploy_idle(d, {}, 0)
+    check(Stock.deploy_idle(d, {}, A.IDLE_WINDOW) == A.DEPLOY_PER_THINK and #reg2 == A.DEPLOY_PER_THINK, "sans charbon libre : les fours sont posés à sec")
+  end
   local g = { key = "scarlet", hq = chest({ [TT.SMELTER] = 13, [TT.fuel] = 500 }), hq_pos = { x = 0, y = 0 }, started = 0, engineers_count = 10 }
   check(Stock.deploy_idle(g, {}, 600) == 0, "une faction : jamais (ses vagues sont à elles)")
   setting_value = false

@@ -113,11 +113,17 @@ R.TURRET = "gun-turret"
 
 R.BODY = "character"
 
--- Lot ADOPTE : type -> { registre, combustion } ; le rôle (R.ENTITY_ROLE) doit être « fabrique » (machine de fabrication).
--- « smelters » = f.smelters, la fonderie que les tournées « smelt » vident et rechargent (Outposts.service_smelters) ; seule
--- une machine À COMBUSTION y entre (le service y met du charbon).
+-- Lot ADOPTE : type -> { role (R.ENTITY_ROLE), registre, ... }.
+--   « smelters » = f.smelters, la fonderie que les tournées « smelt » vident et rechargent (Outposts.service_smelters) ; seule
+--     une machine À COMBUSTION y entre (burner : le service y met du charbon) ;
+--   « labs » = les laboratoires que l'équipe compte pour sa recherche (f.team.ia3.labs) ;
+--   « annex » = les coffres du stock (f.annex, script/team/stock.lua) ; seuls les coffres de T.annex.kinds, à moins de `radius`
+--     tuiles du coffre d'équipe (un coffre de stockage du joueur au loin n'est pas un coffre de l'équipe : ses piles seraient
+--     rangées et prises par les PNJ).
 R.ADOPT = {
-  ["furnace"] = { registry = "smelters", burner = true },
+  ["furnace"] = { role = "fabrique", registry = "smelters", burner = true },
+  ["lab"] = { role = "labo", registry = "labs" },
+  ["container"] = { role = "logistique", registry = "annex", kinds = true, radius = 12 },
 }
 -- Un de ces types à moins de la marge de la machine : elle fait partie d'une ligne du joueur (ses plaques lui appartiennent),
 -- jamais adoptée (ou plus adoptée si le voisin est posé après elle).

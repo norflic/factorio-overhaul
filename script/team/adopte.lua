@@ -20,6 +20,7 @@ local Events = require("script.core.events")
 local Storage = require("script.core.storage")
 local State = require("script.faction.state")
 local R = require("shared.ai3.reglages")
+local T = require("shared.team.config")
 local A = require("shared.team.adopte")
 local Outposts = require("script.faction.outposts")
 
@@ -40,6 +41,25 @@ function Adopte.on()
 end
 
 local function team() return Storage.ns("pteam").team end
+
+-- Liste d'équipe d'un registre (créée au besoin) ; nil si elle n'existe pas encore (les labos vivent dans l'état du cerveau).
+local function list_of(f, registry)
+  if registry == "labs" then
+    local st = f.team and f.team.ia3
+    if not st then return nil end
+    st.labs = st.labs or {}
+    return st.labs
+  end
+  f[registry] = f[registry] or {}
+  return f[registry]
+end
+
+local function kind_ok(ent)
+  for _, k in ipairs(T.annex.kinds) do
+    if k.item == ent.name then return true end
+  end
+  return false
+end
 
 local function state(f)
   local st = f.adopt
@@ -78,7 +98,7 @@ local function linked(ent)
 end
 
 local function listed(f, registry, ent)
-  for _, e in ipairs(f[registry] or {}) do
+  for _, e in ipairs(list_of(f, registry) or {}) do
     if e == ent then return true end
   end
   return false
@@ -88,14 +108,17 @@ end
 --- (calculés une fois par la migration).
 function Adopte.consider(f, ent, sinks)
   if not (f and f.hq and f.hq.valid and ent and ent.valid and ent.unit_number and ent.force.name == f.force) then return false end
-  local reg = R.ENTITY_ROLE[ent.type] == "fabrique" and R.ADOPT[ent.type] or nil
-  if not reg then return false end
+  local reg = R.ADOPT[ent.type]
+  if not reg or R.ENTITY_ROLE[ent.type] ~= reg.role then return false end
+  if reg.kinds and not kind_ok(ent) then return false end
+  local list = list_of(f, reg.registry)
+  if not list then return false end -- registre pas encore créé (laboratoires avant le cerveau) : la migration reprendra
   local st = state(f)
   local u = ent.unit_number
   local dx, dy = ent.position.x - f.hq_pos.x, ent.position.y - f.hq_pos.y
   local ok, why = A.decide({
     on = Adopte.on(), registry = reg.registry, burner_needed = reg.burner, burner = ent.burner ~= nil,
-    already = st.units[u] or listed(f, reg.registry, ent), dist2 = dx * dx + dy * dy,
+    already = st.units[u] or listed(f, reg.registry, ent), dist2 = dx * dx + dy * dy, radius = reg.radius,
     reserved = (Outposts.reserved and Outposts.reserved(f, ent.name, ent.position, ent.direction)) or (sinks or outpost_sinks(f))[u] or false,
     linked = function() return linked(ent) end, -- lu en dernier : un appel de recherche
   })
@@ -103,8 +126,7 @@ function Adopte.consider(f, ent, sinks)
     if why == "ligne" or why == "loin" or why == "plan" then st.refused[u] = why end
     return false
   end
-  f[reg.registry] = f[reg.registry] or {}
-  table.insert(f[reg.registry], ent)
+  table.insert(list, ent)
   st.units[u] = true
   st.refused[u] = nil
   st.n = st.n + 1
@@ -118,7 +140,7 @@ end
 --- Rend au joueur une machine adoptée (hors de la liste ; l'entité n'est pas touchée).
 local function release(f, registry, ent, why)
   local st = state(f)
-  local list = f[registry] or {}
+  local list = list_of(f, registry) or {}
   for i = #list, 1, -1 do
     if list[i] == ent then table.remove(list, i) end
   end
@@ -138,7 +160,7 @@ local function on_neighbor(f, ent)
   for _, ty in ipairs(ADOPT_TYPES) do
     local registry = R.ADOPT[ty].registry
     local give = {}
-    for _, m in ipairs(f[registry] or {}) do
+    for _, m in ipairs(list_of(f, registry) or {}) do
       if m.valid and st.units[m.unit_number] and m.surface == ent.surface then
         local hw, hh = half_size(m)
         if math.abs(p.x - m.position.x) <= hw + A.CLEAR and math.abs(p.y - m.position.y) <= hh + A.CLEAR then give[#give + 1] = m end
@@ -182,7 +204,7 @@ function Adopte.migrate(f)
     for _, ty in ipairs(ADOPT_TYPES) do
       local registry = R.ADOPT[ty].registry
       local mine = {}
-      for _, m in ipairs(f[registry] or {}) do
+      for _, m in ipairs(list_of(f, registry) or {}) do
         if m.valid and st.units[m.unit_number] then mine[#mine + 1] = m end
       end
       table.sort(mine, function(a, b) return a.unit_number < b.unit_number end)
