@@ -1462,6 +1462,88 @@ local function step_aside(surface, self, e)
   return false
 end
 
+--- Lot ELEC2 : un poteau 1 × 1 refusé « occupe » (une falaise que les masques ne voient pas, F294, ou une foreuse à
+--- combustion d'un avant-poste posée depuis le plan ; banc etape1-guide : fonderie électrique abandonnée à 181 entités
+--- sur 197 sur un seul poteau, 0 foreuse électrique à 60 min) est reposé sur une tuile libre voisine (2 tuiles au plus) qui
+--- laisse le réseau local aussi relié qu'avant : mêmes composantes connexes (fil de 7,5 tuiles, poteaux du projet et du
+--- réseau alentour). Rend vrai si le fantôme a été posé ailleurs (e.x, e.y changent).
+local function shift_pole(f, surface, p, e)
+  local reach = P.wire(e.name)
+  local w, h = P.size(e.name, e.dir)
+  if not reach or w ~= 1 or h ~= 1 then return false end
+  local b = f.build
+  local win = 2 * reach + 2
+  local near = {}
+  for _, o in ipairs(p.ents) do
+    if o ~= e and P.wire(o.name) and math.abs(o.x - e.x) <= win and math.abs(o.y - e.y) <= win then
+      near[#near + 1] = { x = o.x, y = o.y }
+    end
+  end
+  for _, o in ipairs(surface.find_entities_filtered({ position = { e.x, e.y }, radius = win, type = "electric-pole",
+    force = f.force })) do
+    near[#near + 1] = { x = o.position.x, y = o.position.y }
+  end
+  -- composantes connexes de `near` plus un poteau en (x, y)
+  local function components(x, y)
+    local pts = { { x = x, y = y } }
+    for _, n in ipairs(near) do pts[#pts + 1] = n end
+    local comp, count = {}, 0
+    for i = 1, #pts do
+      if not comp[i] then
+        count = count + 1
+        comp[i] = count
+        local stack = { i }
+        while #stack > 0 do
+          local u = table.remove(stack)
+          for v = 1, #pts do
+            if not comp[v] and (pts[u].x - pts[v].x) ^ 2 + (pts[u].y - pts[v].y) ^ 2 <= reach * reach + 1e-9 then
+              comp[v] = count
+              stack[#stack + 1] = v
+            end
+          end
+        end
+      end
+    end
+    return count
+  end
+  local before = components(e.x, e.y)
+  local cands = {}
+  for dy = -2, 2 do
+    for dx = -2, 2 do
+      if dx ~= 0 or dy ~= 0 then cands[#cands + 1] = { x = e.x + dx, y = e.y + dy, d = dx * dx + dy * dy } end
+    end
+  end
+  table.sort(cands, function(a, c)
+    if a.d ~= c.d then return a.d < c.d end
+    if a.y ~= c.y then return a.y < c.y end
+    return a.x < c.x
+  end)
+  local n_occ, n_link, n_ghost = 0, 0, 0
+  for _, c in ipairs(cands) do
+    local k = P.tkey(math.floor(c.x), math.floor(c.y))
+    if b.occ[k] then
+      n_occ = n_occ + 1
+    elseif components(c.x, c.y) > before then
+      n_link = n_link + 1
+    elseif place_ghost(surface, f, { name = e.name, x = c.x, y = c.y, dir = e.dir }) == "ok" then
+      log(string.format("[FO-IA1D] %s : projet %d, %s deplace de (%g, %g) a (%g, %g) (tuile occupee)", f.key or "player", p.id,
+        e.name, e.x, e.y, c.x, c.y))
+      b.occ[k] = p.id
+      e.x, e.y = c.x, c.y
+      b.stats.poles_moved = (b.stats.poles_moved or 0) + 1
+      return true
+    else
+      n_ghost = n_ghost + 1
+    end
+  end
+  if not e.shift_logged then
+    e.shift_logged = true
+    log(string.format("[FO-IA1D] %s : projet %d, %s en (%g, %g) ne peut pas bouger : %d tuile(s) reservee(s), %d coupant le reseau, %d refusee(s)",
+      f.key or "player", p.id, e.name, e.x, e.y, n_occ, n_link, n_ghost))
+  end
+  return false
+end
+
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
 --- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
 local function revive_one(surface, f, p, e, inv, tick, self)
@@ -1480,6 +1562,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     local r = place_ghost(surface, f, e)
     if r == "deja" then e.built = true return true end
     if r == "pnj" then npc_block(f, p, e, surface) return false end
+    if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
     if r ~= "ok" then
       e.fails = (e.fails or 0) + 1
       st.revive_fail = st.revive_fail + 1

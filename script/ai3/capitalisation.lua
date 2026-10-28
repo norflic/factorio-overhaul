@@ -1147,10 +1147,35 @@ function Capi.think(f, view, book, tick, research, w)
   end
   cs.labs_want = labs_want
   -- Buts de fond du cerveau : un par ordre ouvert (Ca.goals), avec ce qui manque à l'exécutant.
+  -- Lot ELEC2 : un ordre qui ÉTEND la capacité d'une matière dont les projets manquent (couvrir, ouvrir : foreuses
+  -- électriques et fours sur place) est servi DEVANT les consommateurs permanents de cette matière (voir Ca.goals).
+  -- Seulement quand la centrale tourne : sans courant le module attend « pas de centrale » et ses matériaux pris d'avance
+  -- ne rapportent rien (moteur réel, etape1-guide 123456789 : l'armée de scarlet à 0 soldat pendant que le module de fer
+  -- était refusé 30 min).
+  local short_now = (f.team.ia3 and f.team.ia3.short) or {}
+  local D0 = Capi.data()
+  local power_up = Auto.plant_state(f) == "fini"
+  -- Amorçage seulement : une matière qui a déjà des foreuses électriques posées reprend le rang ordinaire des buts de fond
+  -- (la défense ne paie pas chaque agrandissement ; moteur réel, 1618033988 : azure perd son armée en 3 fonderies de fer).
+  local elec_on = {}
+  for _, dr in ipairs(cs.scan and cs.scan.drills or {}) do
+    if dr.entity == elec_drill then elec_on[dr.resource] = (elec_on[dr.resource] or 0) + (dr.n or 1) end
+  end
+  local function makes_short(rec)
+    if not power_up or (rec.kind ~= "couvrir" and rec.kind ~= "ouvrir") then return false end
+    if (elec_on[rec.item] or 0) > 0 then return false end
+    if (short_now[rec.item] or 0) > 0 then return true end
+    local r = rec.smelt_recipe and D0.recipes[rec.smelt_recipe]
+    for _, pr in ipairs(r and r.products or {}) do
+      if (short_now[pr.name] or 0) > 0 then return true end
+    end
+    return false
+  end
   local open = {}
   for _, rec in ipairs(cs.open) do
     open[#open + 1] = { key = rec.key, kind = rec.kind, item = rec.item, value = rec.value, exec = rec.exec,
-      outpost_kind = rec.outpost_kind, n_left = rec.n_left, missing = rec.missing, blocked = rec.blocked, tech = rec.tech }
+      outpost_kind = rec.outpost_kind, n_left = rec.n_left, missing = rec.missing, blocked = rec.blocked, tech = rec.tech,
+      short = makes_short(rec) }
   end
   -- Lot LEVIERS : tâches « equiper » (une par ordre : le premier lot de machines non traitées, dès que les modules sont
   -- au coffre) ; renouvelées à chaque pensée, comme le plan.

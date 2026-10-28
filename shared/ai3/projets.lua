@@ -163,19 +163,32 @@ function P.update(st, goals, tick, workers)
   -- le but se dit COURT (recherche peu chère : quelques packs, shared/ai3/buts.lua) passe juste après le premier projet,
   -- devant les familles permanentes. Moteur réel, banc g2 (27/10, graine 271828182) : servie après l'armée et la
   -- réserve de munitions (740 fers), la recherche de 8 packs rouges attendait 9 min ; palier 1 à 10,4 min en médiane.
-  local out, perm, rest, short, fond = {}, {}, {}, {}, {}
+  local out, perm, rest, short, fond, invest, plants, floor = {}, {}, {}, {}, {}, {}, {}, {}
   local first = nil
   for _, p in ipairs(active) do
-    if p.goal.permanent then perm[#perm + 1] = p
+    if p.goal.permanent and p.goal.floor then floor[#floor + 1] = p
+    elseif p.goal.permanent then perm[#perm + 1] = p
     elseif p.goal.fond then
-      if p.goal.short then short[#short + 1] = p else fond[#fond + 1] = p end
+      if p.goal.short then short[#short + 1] = p
+      elseif p.goal.invest then invest[#invest + 1] = p
+      else fond[#fond + 1] = p end
+    elseif p.goal.plant then plants[#plants + 1] = p
     elseif not first then first = p
     elseif p.goal.short then short[#short + 1] = p
     else rest[#rest + 1] = p end
   end
   if first then out[#out + 1] = first end
+  -- Lot ELEC2 : le plancher de l'armée (g.floor, B.ARMY_FIRST_N soldats) puis la centrale (g.plant) passent juste après
+  -- l'objectif du moment. Les investissements de fond qui étendent la capacité d'une matière en manque (g.invest :
+  -- foreuses électriques et fours sur place, retour en quelques minutes) viennent APRÈS les familles permanentes et devant
+  -- les autres projets : servis en dernier, ils n'avaient jamais le fer de la fonderie électrique (moteur réel,
+  -- etape1-guide : 0 foreuse électrique à 60 min avec des dizaines de poteaux). Servis avant l'armée, ils lui coûtaient
+  -- des soldats (mesuré : 0 soldat à 60 min sur 2 graines).
+  for _, p in ipairs(floor) do out[#out + 1] = p end
+  for _, p in ipairs(plants) do out[#out + 1] = p end
   for _, p in ipairs(short) do out[#out + 1] = p end
   for _, p in ipairs(perm) do out[#out + 1] = p end
+  for _, p in ipairs(invest) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(fond) do out[#out + 1] = p end
   for _, p in ipairs(blocked) do out[#out + 1] = p end
