@@ -8,7 +8,15 @@
   l'ignore : crochet de military.lua) ; une attaque du chef le reprend (s.group), son rôle tombe.
 
   État (global, carte de l'équipe de script/ai3/comportement.lua) : t.sd = { per = { [unit] = { role, key, rest_until,
-  escort, label… } }, clearing, free_n, cursor } ; t.alerts = { { x, y, until, n } } ; t.soldiers = mesures (B5).
+  escort, label… } }, clearing, free_n, cursor, nop } ; t.alerts = { { x, y, until, n } } ; t.soldiers = mesures (B5).
+
+  Lot NIDS (réglage fo-war-nids, allumé par défaut, lu à chaque passage) : une faction qui subit des attaques et dont
+  l'armée est assez grosse et libre détruit le nid de biters connu (carte de connaissance de l'exploration) qui menace le
+  plus ses biens (règle pure : shared/ai3/nids.lua). Ici : incidents subis (bâtiments et soldats détruits par la force
+  ennemie), sites de nid connus, lancement par la même attribution que le nettoyage d'avant (Sd.assign), SUIVI par l'état
+  du moteur (nids vivants à 32 tuiles de la cible), repli et attentes 5/10/20/40 min, nids détruits effacés de la carte.
+  État : t.nids = { inc = { {x,y,t,w} }, holds = { {x,y,fails,until} }, stats, sites, sites_t } ; t.sd.nop = opération en
+  cours { x, y, ids, engaged, started, dist, ... }. Interface distante « fo-nids » (bancs, lecture seule).
 ]]
 
 local Events = require("script.core.events")
@@ -20,6 +28,7 @@ local D = require("shared.ai3.danger")
 local K = require("shared.ai3.carte")
 local Re = require("shared.ai3.reaction")
 local Sd = require("shared.ai3.soldats")
+local Nd = require("shared.ai3.nids")
 local C = require("script.ai3.comportement")
 
 local SD = {}
@@ -33,6 +42,9 @@ SD.THREAT_HQ = 220     -- menaces candidates au nettoyage : à moins de 220 tuil
 SD.THREAT_OUTPOST = 64 -- ... ou de 64 tuiles d'un avant-poste
 SD.HQ_THREAT_R = 48
 SD.RING_TICKS = 3600  -- lot CENTRALE : les anneaux sûrs sont recalculés chaque minute
+SD.NIDS_SETTING = "fo-war-nids" -- lot NIDS : allumé par défaut, lu à chaque passage
+SD.NIDS_REFRESH = 3600          -- sites de nid recalculés chaque minute
+SD.NIDS_LOG = 10 * 3600         -- ligne d'état du lot NIDS (bancs) toutes les 10 min par faction
 SD.SHELTER_TICKS = 600 -- ralliement ou éloignement : on y attend 10 s, puis le PNJ rentre et la menace est rejugée
 
 local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse" }
@@ -182,6 +194,97 @@ local function hq_threat(f, t, surface, tick)
   shelter(f, t, threat, tick, resp, rally, range)
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot NIDS : nids menaçants (règle pure : shared/ai3/nids.lua)
+---------------------------------------------------------------------------------------------------
+local function nids_on()
+  local st = settings.global[SD.NIDS_SETTING]
+  return st ~= nil and st.value == true
+end
+
+local function nids_state(t)
+  local n = t.nids
+  if not n then
+    n = {}
+    t.nids = n
+  end
+  n.inc = n.inc or {}
+  n.holds = n.holds or {}
+  n.stats = n.stats or {}
+  return n
+end
+
+--- Biens de la faction que les nids menacent : le QG et les avant-postes (positions d'accès), pondérés.
+local function nids_assets(f)
+  local out = { { x = f.hq_pos.x, y = f.hq_pos.y, w = Nd.W_HQ } }
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    local p = o.access or o.pos
+    out[#out + 1] = { x = p.x, y = p.y, w = Nd.W_OUTPOST }
+  end
+  return out
+end
+
+--- Sites de nid CONNUS (carte de connaissance de l'exploration : nids et vers vus par les regards de la faction) à moins
+--- de Nd.REACH tuiles d'un de ses biens ; recalculés chaque minute (ou après un effacement). Aucun nid non vu n'y figure.
+local function nids_sites(f, ns, assets, tick)
+  if ns.sites and ns.sites_t and tick - ns.sites_t < SD.NIDS_REFRESH then return ns.sites end
+  local km = f.ai3f and f.ai3f.m
+  local sites = {}
+  if km then
+    local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R)
+    sites = Nd.sites(nests, worms)
+    for _, st in ipairs(sites) do st.seen = K.first_seen(km, K.key_of(st.x, st.y)) end
+  end
+  ns.sites, ns.sites_t = sites, tick
+  return sites
+end
+
+-- Incidents subis : un bâtiment ou un soldat d'une faction détruit par la force ennemie (biters). Rattachés plus tard au
+-- site de nid connu le plus proche (Nd.rank). Aucun coût hors de ces morts.
+Events.on(defines.events.on_entity_died, function(e)
+  local ent, killer = e.entity, e.force
+  if not (ent and ent.valid and killer and killer.name == "enemy") then return end
+  if not nids_on() then return end
+  local war = State.war()
+  if not war.active then return end
+  local f = State.by_force(ent.force.name)
+  if not f or f.eliminated then return end
+  local p = ent.position
+  local ns = nids_state(C.team(f))
+  Nd.record_incident(ns.inc, p.x, p.y, e.tick, Nd.incident_w(ent.type))
+  ns.stats.incidents = (ns.stats.incidents or 0) + 1
+end)
+
+--- Fin d'une opération de nid : résultat « done » / « retreat » / « timeout » (Nd.supervise). Le moteur a le dernier mot
+--- (nids vivants à Nd.SPAWNER_CLEAR_R tuiles de la cible) ; un nid détruit sort de la carte de connaissance, un échec
+--- ouvre une attente 5/10/20/40 min.
+local function nids_finish(f, t, ns, sd, op, res, alive, onsite, spawners, tick)
+  local st = ns.stats
+  st.ops_end = (st.ops_end or 0) + 1
+  st[res] = (st[res] or 0) + 1
+  st.lost = (st.lost or 0) + math.max(0, op.engaged - alive)
+  local purged = 0
+  if res == "done" then
+    if (op.onsite_max or 0) > 0 then st.destroyed = (st.destroyed or 0) + 1 end
+    local km = f.ai3f and f.ai3f.m
+    if km then purged = Nd.purge(km, op.x, op.y, Nd.SPAWNER_CLEAR_R) end
+    Nd.success(ns.holds, op)
+    D.forget_unseen(t.map, op.x, op.y, Nd.SPAWNER_CLEAR_R, nil)
+    ns.sites_t = nil
+  else
+    local h = Nd.fail(ns.holds, op, tick)
+    op.wait = math.floor((h["until"] - tick) / 3600)
+  end
+  if Profiler.enabled() then
+    log(string.format("[FO-NIDS] %s : operation en (%d, %d) %s : engages %d, vivants %d, sur place (max) %d, nids restants au moteur %d, duree %d min%s",
+      tostring(f.key), math.floor(op.x), math.floor(op.y), res, op.engaged, alive, op.onsite_max or 0, spawners,
+      math.floor((tick - op.started) / 3600), res == "done" and string.format(", %d nid(s) effaces de la carte", purged)
+      or string.format(", attente %d min", op.wait or 0)))
+  end
+  sd.clearing, sd.nop = nil, nil
+end
+
 local function pass(f, tick)
   local t = C.team(f)
   t.sd = t.sd or { per = {}, cursor = 0 }
@@ -287,6 +390,29 @@ local function pass(f, tick)
     if da ~= db then return da < db end
     return a.x < b.x
   end)
+  -- Lot NIDS : suivi de l'opération de nid en cours, lu sur l'état du MOTEUR (soldats engagés vivants et sur place, nids
+  -- ennemis vivants autour de la cible), pas sur la carte du danger.
+  local ns = nids_state(t)
+  if sd.nop then
+    local op = sd.nop
+    local alive, onsite = 0, 0
+    for _, id in ipairs(op.ids) do
+      local so = soldiers[id]
+      if so and so.entity and so.entity.valid then
+        alive = alive + 1
+        if d2(so.entity.position, op) <= 60 * 60 then onsite = onsite + 1 end
+      end
+    end
+    if onsite > (op.onsite_max or 0) then op.onsite_max = onsite end
+    local spawners = surface.count_entities_filtered({ position = { x = op.x, y = op.y }, radius = Nd.SPAWNER_CLEAR_R,
+      force = "enemy", type = "unit-spawner" })
+    local res = Nd.supervise(op, { tick = tick, alive = alive, spawners = spawners, onsite = onsite })
+    if res ~= "continue" then
+      nids_finish(f, t, ns, sd, op, res, alive, onsite, spawners, tick)
+    else
+      sd.clearing.need = alive -- pas de renfort : ni la garnison gardée, ni d'autres soldats que les engagés
+    end
+  end
   -- Opération de nettoyage en cours : les soldats arrivés sur place sont des YEUX (les ouvriers n'y vont plus) : un
   -- regard autour de la cible efface les menaces qui n'y sont plus (D.forget_unseen).
   if sd.clearing then
@@ -311,7 +437,7 @@ local function pass(f, tick)
     clusters = keep
   end
   -- Opération de nettoyage en cours : finie quand plus aucune menace connue près d'elle, ou au bout de CLEAR_TICKS.
-  if sd.clearing then
+  if sd.clearing and not sd.nop then
     local still = false
     for _, c in ipairs(clusters) do if d2(c, sd.clearing) <= 24 * 24 then still = true end end
     if not still or tick >= sd.clearing["until"] then
@@ -352,6 +478,31 @@ local function pass(f, tick)
     sd.gpts = Sd.safe_ring(f.hq_pos, Sd.GUARD_RADII, safe)
     sd.ring_t, sd.ring_epoch = tick, epoch
   end
+  -- Lot NIDS : une faction qui subit des attaques et dont l'armée libre est assez grosse détruit le nid connu qui la menace
+  -- le plus (règle pure Nd.decide). Priorité à la défense du QG et aux escortes ; une seule opération à la fois.
+  local nid_dec = nil
+  if nids_on() and not sd.clearing and #defend == 0 then
+    local assets = nids_assets(f)
+    local sites = nids_sites(f, ns, assets, tick)
+    local idle = 0
+    for _, so in ipairs(list) do
+      if not (so.rest_until and tick < so.rest_until) and d2(so, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ then idle = idle + 1 end
+    end
+    for _, er in ipairs(escorts) do idle = idle - math.min(er.n or 2, Sd.ESCORT_MAX) end
+    local why
+    nid_dec, why = Nd.decide({ tick = tick, sites = sites, assets = assets, incidents = ns.inc, holds = ns.holds,
+      total = #list + group_n, idle = idle })
+    if Profiler.enabled() and tick - (ns.log_t or -1e9) >= SD.NIDS_LOG then
+      ns.log_t = tick
+      log(string.format("[FO-NIDS] %s etat tick %d : sites connus %d, trop faibles %d, en attente %d, armee trop courte %d, libres %d sur %d soldats, incidents %d, operations %d (detruits %d, replis %d, delais %d)",
+        tostring(f.key), tick, why.sites, why.faibles, why.attente, why.courts, idle, #list + group_n, #ns.inc,
+        ns.stats.ops or 0, ns.stats.destroyed or 0, ns.stats.retreat or 0, ns.stats.timeout or 0))
+    end
+    if nid_dec then
+      table.insert(clusters, 1, { x = nid_dec.x, y = nid_dec.y, k = nid_dec.sp + nid_dec.wm, killed = true, need = nid_dec.need,
+        reserve = nid_dec.reserve, nid = true })
+    end
+  end
   local orders, summary = Sd.assign({
     tick = tick, hq = f.hq_pos, agr = ch_agr, soldiers = list, defend = defend, escorts = escorts,
     threats = clusters, clearing = sd.clearing, marked_outposts = marked, cursor = sd.cursor,
@@ -386,7 +537,25 @@ local function pass(f, tick)
       if was ~= "patrol" and was ~= "guard" then ps.rest_until = tick + Sd.REST end
     end
   end
-  if started_clear then
+  if started_clear and nid_dec and started_clear.x == nid_dec.x and started_clear.y == nid_dec.y then
+    -- Opération de NID : les engagés sont retenus (renfort interdit), le moteur dit quand c'est fini (Nd.supervise).
+    local ids, keep = {}, {}
+    for _, so in ipairs(list) do
+      local o = orders[so.id]
+      if o and o.role == "clear" then ids[#ids + 1] = so.id; keep[so.id] = true end
+    end
+    local dist = math.sqrt(d2(nid_dec, f.hq_pos))
+    sd.nop = { x = nid_dec.x, y = nid_dec.y, ids = ids, keep = keep, engaged = #ids, started = tick, dist = dist,
+      sp = nid_dec.sp, wm = nid_dec.wm, need = nid_dec.need, fails = nid_dec.fails }
+    sd.clearing = { x = nid_dec.x, y = nid_dec.y, ["until"] = tick + 1e9, need = #ids, keep = keep, nid = true }
+    ns.stats.ops = (ns.stats.ops or 0) + 1
+    ns.stats.engaged = (ns.stats.engaged or 0) + #ids
+    if Profiler.enabled() then
+      log(string.format("[FO-NIDS] %s : operation lancee en (%d, %d) a %d tuiles du QG : %d nid(s), %d ver(s), menace %d (biens %d, incidents %d), %d soldat(s) engages (besoin %d, garnison gardee %d, echecs %d), secteur vu au tick %s",
+        tostring(f.key), math.floor(nid_dec.x), math.floor(nid_dec.y), math.floor(dist), nid_dec.sp, nid_dec.wm, nid_dec.menace,
+        nid_dec.prox, nid_dec.inc, #ids, nid_dec.need, nid_dec.reserve, nid_dec.fails or 0, tostring(nid_dec.seen)))
+    end
+  elseif started_clear then
     sd.clearing = { x = started_clear.x, y = started_clear.y, ["until"] = tick + SD.CLEAR_TICKS }
     t.stats.clear_ops = (t.stats.clear_ops or 0) + 1
     if Profiler.enabled() then
@@ -461,6 +630,40 @@ Events.on_nth_tick(120, function(e)
     shelter(f, C.team(f), { x = en.position.x, y = en.position.y }, e.tick)
   end
 end)
+
+-- Interface distante « fo-nids » (bancs, LECTURE SEULE : le mod de test n'a pas accès à `global` de ce mod) :
+--   status(clé) -> { enabled, stats, incidents, holds, sites = { { x, y, sp, wm, menace, prox, inc, seen } },
+--                    menacing (sites de menace >= seuil), op = { x, y, engaged, started } | nil } ou nil.
+-- Les sites sont recalculés à la demande depuis la carte de connaissance, réglage allumé ou non (le témoin éteint les lit).
+remote.add_interface("fo-nids", {
+  status = function(key)
+    local f = C.team_by_key(key)
+    if not (f and f.hq_pos) then return nil end
+    local t = C.team(f)
+    local ns = nids_state(t)
+    local assets = nids_assets(f)
+    local km = f.ai3f and f.ai3f.m
+    local sites = {}
+    if km then
+      local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R)
+      sites = Nd.sites(nests, worms)
+      for _, st in ipairs(sites) do st.seen = K.first_seen(km, K.key_of(st.x, st.y)) end
+      Nd.rank(sites, assets, ns.inc, game.tick)
+    end
+    local menacing, out = 0, {}
+    for i, st in ipairs(sites) do
+      local floor = st.inc > 0 and Nd.MIN_MENACE_HIT or Nd.MIN_MENACE
+      if st.menace >= floor then menacing = menacing + 1 end
+      out[i] = { x = st.x, y = st.y, sp = st.sp, wm = st.wm, menace = st.menace, prox = st.prox, inc = st.inc, seen = st.seen }
+    end
+    local sd = t.sd
+    local op = sd and sd.nop
+    local stats = {}
+    for _, k in ipairs(State.sorted_keys(ns.stats)) do stats[k] = ns.stats[k] end
+    return { enabled = nids_on(), stats = stats, incidents = #ns.inc, holds = #ns.holds, sites = out, menacing = menacing,
+      op = op and { x = op.x, y = op.y, engaged = op.engaged, started = op.started } or nil }
+  end,
+})
 
 SD.pass = pass
 return SD

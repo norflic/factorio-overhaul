@@ -801,6 +801,8 @@ function M.new_world(opts)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
+      -- lot NIDS : nids menaçants détruits par les factions (défaut du jeu : allumé ; opts.nids = false l'éteint)
+      ["fo-war-nids"] = opts.nids ~= false,
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants

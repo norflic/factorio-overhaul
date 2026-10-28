@@ -147,15 +147,17 @@ function Sd.assign(input)
     end
   end
   -- 4. Nettoyage (une opération à la fois : la cible en cours d'abord).
+  -- Lot NIDS : un site de nid décidé par la règle de shared/ai3/nids.lua porte son besoin (`need`, qui monte après un échec)
+  -- et la garnison à garder (`reserve`) : il part seulement si les soldats libres couvrent besoin + garnison.
   local target = input.clearing
   if not target then
     for _, th in ipairs(input.threats or {}) do
       if (input.agr or 1000) >= Sd.CLEAR_AGR or th.killed then
-        if #avail >= Sd.clear_need(th.k or 1) then target = th break end
+        if #avail - (th.reserve or 0) >= (th.need or Sd.clear_need(th.k or 1)) then target = th break end
       end
     end
   end
-  local need = target and Sd.clear_need(target.k or 1) or 0
+  local need = target and (target.need or Sd.clear_need(target.k or 1)) or 0
   for _, s in ipairs(far) do
     if target and s.role == "clear" and need > 0 then
       give(s, { role = "clear", x = target.x, y = target.y })
@@ -166,6 +168,16 @@ function Sd.assign(input)
       if post then give(s, { role = "guard", x = post.x, y = post.y }) else summary.far = (summary.far or 0) + 1 end
     else
       summary.far = (summary.far or 0) + 1
+    end
+  end
+  -- Lot NIDS : les soldats engagés dans l'opération (target.keep = { [id] = true }) restent d'abord, quel que soit leur rang
+  -- de proximité ; le reste du besoin, s'il y en a, vient des plus proches.
+  if target and need > 0 and target.keep then
+    for _, s in ipairs(avail) do
+      if need > 0 and not taken[s.id] and target.keep[s.id] then
+        give(s, { role = "clear", x = target.x, y = target.y })
+        need = need - 1
+      end
     end
   end
   if target and need > 0 then

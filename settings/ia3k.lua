@@ -18,4 +18,13 @@ data:extend({
     default_value = true,
     order = "e-war-z-ia3-k",
   },
+  -- Lot NIDS : une faction dont l'armée est grosse et libre détruit le nid connu qui la menace (shared/ai3/nids.lua).
+  -- ALLUMÉ par défaut ; lu à chaque passage des rôles des soldats (modifiable en cours de partie, réglable par les bancs).
+  {
+    type = "bool-setting",
+    name = "fo-war-nids",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-ia3-k-nids",
+  },
 })
