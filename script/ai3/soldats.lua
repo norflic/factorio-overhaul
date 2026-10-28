@@ -31,6 +31,7 @@ SD.CLEAR_TICKS = 3 * 3600
 SD.THREAT_HQ = 220     -- menaces candidates au nettoyage : à moins de 220 tuiles du QG...
 SD.THREAT_OUTPOST = 64 -- ... ou de 64 tuiles d'un avant-poste
 SD.HQ_THREAT_R = 48
+SD.SHELTER_TICKS = 600 -- ralliement ou éloignement : on y attend 10 s, puis le PNJ rentre et la menace est rejugée
 
 local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse" }
 
@@ -127,10 +128,12 @@ local function shelter(f, t, threat, tick, resp, rally, range)
       end
       if to then
         local a = C.astate(ag)
-        if not a.refuge then
-          a.refuge = to
+        local march = resp ~= "stand" -- ralliement ou éloignement : marche EXPLICITE (un PNJ déjà au QG n'ira nulle part sinon)
+        if march and tick - (a.shelter_t or -1e9) >= SD.SHELTER_TICKS or (not march and not a.refuge) then
+          if march then a.shelter_t = tick else a.refuge = to end
           a.pts, a.final = nil, nil
           Worker.abort(ag, f, tick, "abri")
+          if march then ag.steps, ag.pc = { { "goto", to, 3 }, { "wait", SD.SHELTER_TICKS }, { "home" } }, 1 end
           C.label(ag, "abri", tick, t.stats)
           t.stats.shelter = (t.stats.shelter or 0) + 1
           if resp ~= "stand" then t.stats["shelter_" .. resp] = (t.stats["shelter_" .. resp] or 0) + 1 end

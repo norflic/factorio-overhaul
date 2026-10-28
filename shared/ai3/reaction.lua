@@ -32,7 +32,7 @@ Re.IDLE_LOOK = 180   -- ticks : un PNJ armé, sain et à l'arrêt regarde autour
 Re.ISOLATED = 1.5    -- force pesée au plus : un ennemi « isolé » qu'un ouvrier armé peut chasser ; au-delà, il ne tient pas seul
 Re.EXEMPT = { garrison = true, fortify = true } -- tâches de défense : jamais rappelées ni mises à l'abri quand elles sont armées
 Re.RALLY_R = 40      -- tuiles : les tourelles à moins de 40 tuiles du QG sont celles qui le défendent
-Re.RALLY_BEHIND = 3  -- tuiles : le point de ralliement est 3 tuiles derrière le centre des tourelles, côté coffre
+Re.RALLY_BEHIND = 10 -- tuiles : le point de ralliement est 10 tuiles derrière le centre des tourelles, côté coffre
 Re.OUTRUN = 0.9      -- l'ennemi est distancé s'il va à au plus 90 % de la vitesse du PNJ
 Re.FEAR_BASE = 400  -- 40 % de vie (IA_ATTENDUS C3)
 Re.FEAR_MAX = 550
@@ -150,7 +150,9 @@ function Re.outrun(enemy_speed, own_speed)
 end
 
 --- Réponse d'un QG menacé par des UNITÉS (C7, lot FUITE) : "stand" (assez nombreux : on se bat, groupés), "rally" (derrière
--- les tourelles du QG), "away" (loin de l'ennemi, qu'on distance), sinon "stand" (fuir ne sert à rien : on se bat groupés).
+-- les tourelles du QG : elles tirent pendant que les ennemis s'y heurtent), "away" (loin de l'ennemi, qu'on distance, sans
+-- tourelle), sinon "stand" (fuir ne sert à rien : on se bat groupés). Mesuré (banc ia3k-vague-lente) : s'éloigner AVEC des
+-- tourelles au QG est pire que se rallier (l'ennemi suit les PNJ loin des tourelles : 8 perdus, 1 ennemi tué sur 10).
 -- i = { allies (armés près du QG, soi compris), force (pesée), prudence, agressivite, rally (point | nil), outrun (bool) }.
 function Re.hq_response(i)
   local need = Re.engage_ratio(i.prudence, i.agressivite) * math.max(0.2, i.force or 1)

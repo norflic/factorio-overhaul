@@ -14,7 +14,7 @@
     teams[clé] = { map, epoch, stream, char = { prudence, agressivite } | nil (forcé par un banc), hold, stats,
                    escorts = { [id d'agent] = { units, n, since } } }
     agents[id] = { final, pts, i, epoch, refuge, hold, hold_stop, hp, armed, armed_t, label, label_key, label_t, escort, tour,
-                   backs, back_t, ret_t, flee_t, flee_ep, look_t }
+                   backs, back_t, ret_t, flee_t, flee_ep, look_t, shelter_t }
   Flux : Tr.new_stream(graine, 470 + numéro de l'équipe) (sels 470 à 479 : IA3-k ; 479 = votre équipe).
 ]]
 
@@ -1073,7 +1073,8 @@ end)
 -- Interface distante « fo-ia3k » (bancs ; le mod de test n'a pas accès à `global` de ce mod)
 --   status(clé)                       -> { enabled, epoch, stats, summary, escorts } ou nil
 --   agents(clé)                       -> { { id, x, y, state, task, hp, hold, refuge, wps, wp_i, final }, ... }
---   trip(clé, id, x, y[, attente[, sx, sy]]) -> numéro de tournée (PNJ sans tâche) ou false ; (sx, sy) : entrée [bancs]
+--   trip(clé, id, x, y[, attente[, sx, sy[, genre]]]) -> numéro de tournée (PNJ sans tâche) ou false ; (sx, sy) : entrée ;
+--                                        genre de la tâche (« garrison » par défaut ; un autre genre n'est pas exempté du rappel) [bancs]
 --   hold(clé, vrai|faux)              -> vrai : la porte refuse toute tâche du cerveau (tournées seules) [bancs]
 --   set_character(clé, prudence, agressivite) -> vrai (nil, nil : caractère de la faction)           [bancs]
 --   mark(clé, x, y, genre, portée), death(clé, x, y), forget(clé) (carte remise à zéro) -> vrai       [bancs]
@@ -1123,13 +1124,13 @@ remote.add_interface("fo-ia3k", {
     end
     return out
   end,
-  trip = function(key, id, x, y, wait, sx, sy)
+  trip = function(key, id, x, y, wait, sx, sy, kind)
     local f = team_by_key(key)
     local ag = Registry.get(id)
     if not (f and ag and ag.faction == f.id and ag.entity.valid) or ag.task then return false end
     local t = M.team(f)
     t.trips = (t.trips or 0) + 1
-    ag.task = { key = "ia3k-trip:" .. t.trips, kind = "garrison", post = "ia3k", trip = t.trips, claimed = game.tick }
+    ag.task = { key = "ia3k-trip:" .. t.trips, kind = kind or "garrison", post = "ia3k", trip = t.trips, claimed = game.tick }
     ag.steps = { { "goto", { x = x, y = y }, 3 }, { "wait", wait or 60 }, { "home" } }
     -- (sx, sy) : entrée du couloir, rejointe d'abord (bancs à couloirs parallèles aux axes).
     if sx and sy then table.insert(ag.steps, 1, { "goto", { x = sx, y = sy }, 2 }) end
