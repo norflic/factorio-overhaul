@@ -66,6 +66,8 @@ a = S.decide(inp({ islands = 2, lost_links = 1 }), S.new())
 check(a == "relier", "centrale vivante, ilot et poteau perdu : relier")
 a = S.decide(inp({ islands = 2, lost_links = 0 }), S.new())
 check(a == "ok", "ilot sans poteau perdu : ce n'est pas une remise en etat (autre mecanisme)")
+a = S.decide(inp({ islands = 0, uncovered = 2, lost_links = 1 }), S.new())
+check(a == "relier", "consommateurs sous aucun poteau et poteau perdu : relier")
 
 -- §2 danger persistant
 st = S.new()
@@ -136,7 +138,8 @@ local MUT = {
   { "sans limite de deplacements", "if st.relocations < S.MAX_RELOC then", "if true then" },
   { "pieces perdues ignorees", "if lost > 0 then", "if false then" },
   { "centrale pas finie jugee", "if not inp.fini then", "if false then" },
-  { "ilot sans poteau perdu releve", "if (inp.islands or 0) > 0 and (inp.lost_links or 0) > 0 then", "if (inp.islands or 0) > 0 then" },
+  { "ilot sans poteau perdu releve", "if off > 0 and (inp.lost_links or 0) > 0 then", "if off > 0 then" },
+  { "consommateurs sous aucun poteau ignores", "local off = (inp.islands or 0) + (inp.uncovered or 0)", "local off = (inp.islands or 0)" },
   { "panne sans demande", "demand >= S.MIN_DEMAND_KW", "true" },
   { "combustible confondu", 'if (inp.dry or 0) > 0 then return "combustible"', 'if false then return "combustible"' },
   { "deplacement ne remet pas les compteurs", "st.tries, st.site_losses, st.seen, st.bad = 0, 0, 0, 0", "" },
@@ -162,6 +165,7 @@ local function battery(S2)
   exp((S2.decide(inp({ prod_kw = 0, demand_kw = 0 }), S2.new())) == "ok")
   exp((S2.decide(inp({ islands = 2, lost_links = 0 }), S2.new())) == "ok")
   exp((S2.decide(inp({ islands = 2, lost_links = 1 }), S2.new())) == "relier")
+  exp((S2.decide(inp({ islands = 0, uncovered = 2, lost_links = 1 }), S2.new())) == "relier")
   s3 = S2.new()
   local act
   for _ = 1, S2.DANGER_SEEN - 1 do act = S2.decide(inp({ missing = { source = 1 }, enemies = 2 }), s3) end

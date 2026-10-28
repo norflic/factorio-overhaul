@@ -81,8 +81,9 @@ function S.decide(inp, st)
     return "attendre", "production nulle sans cause lue", detail
   end
   st.bad = 0
-  if (inp.islands or 0) > 0 and (inp.lost_links or 0) > 0 then
-    return "relier", string.format("%d consommateur(s) sur un ilot, %d poteau(x) perdu(s)", inp.islands, inp.lost_links), detail
+  local off = (inp.islands or 0) + (inp.uncovered or 0)
+  if off > 0 and (inp.lost_links or 0) > 0 then
+    return "relier", string.format("%d consommateur(s) hors du reseau de la centrale, %d poteau(x) perdu(s)", off, inp.lost_links), detail
   end
   return "ok", "centrale saine", detail
 end

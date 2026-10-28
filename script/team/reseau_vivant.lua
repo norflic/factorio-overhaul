@@ -284,6 +284,7 @@ function Rv.step(api, f, surface, tick)
     say(f, tick, string.format("centrale: %s ; centrale demandee AILLEURS (projet %s, site ecarte %.0f,%.0f rayon %d)", why,
       tostring(id), site and site.x or 0, site and site.y or 0, S.DANGER_R))
   elseif action == "relier" then
+    if tick < (sv.relier_next or 0) then return end
     nr = nr or net_read(f, surface)
     local cands = lost_poles(f, surface, b)
     local plan_list, txt = repair_plan(f, surface, nr, cands)
@@ -308,7 +309,12 @@ function Rv.step(api, f, surface, tick)
       end
     end
     for _, pid in ipairs(sorted_keys(per)) do Rv.reopen(per[pid].q, per[pid].ents, "reseau: poteaux perdus") end
-    say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s) (les autres : ennemis a %d tuiles)", why, txt, n, Rv.POLE_ENEMY_R))
+    -- rien à rouvrir (poteaux perdus qui ne servent à rien, ennemis à portée) : on ne relit pas ni ne journalise chaque 20 s
+    sv.relier_next = tick + (n > 0 and 1200 or 7200)
+    if n > 0 or sv.relier_quiet ~= txt then
+      sv.relier_quiet = txt
+      say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s) (les autres : ennemis a %d tuiles)", why, txt, n, Rv.POLE_ENEMY_R))
+    end
     sv.net_next = tick + 1200 -- relire vite après la remise en état
   elseif action == "combustible" then
     say(f, tick, "centrale: " .. why .. " (combustible : pas un probleme de reseau, les bras de la centrale s'en chargent)")
