@@ -187,9 +187,9 @@ function P.update(st, goals, tick, workers)
   -- investissement ; au-delà, l'investissement passe devant sa croissance.
   for _, p in ipairs(floor) do out[#out + 1] = p end
   for _, p in ipairs(plants) do out[#out + 1] = p end
-  for _, p in ipairs(invest) do out[#out + 1] = p end
   for _, p in ipairs(short) do out[#out + 1] = p end
   for _, p in ipairs(perm) do out[#out + 1] = p end
+  for _, p in ipairs(invest) do out[#out + 1] = p end
   for _, p in ipairs(rest) do out[#out + 1] = p end
   for _, p in ipairs(fond) do out[#out + 1] = p end
   for _, p in ipairs(blocked) do out[#out + 1] = p end
