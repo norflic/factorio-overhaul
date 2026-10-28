@@ -17,6 +17,7 @@ local Registry = require("script.companion.registry")
 local Worker = require("script.team.worker")
 local Profiler = require("script.core.profiler")
 local D = require("shared.ai3.danger")
+local K = require("shared.ai3.carte")
 local Re = require("shared.ai3.reaction")
 local Sd = require("shared.ai3.soldats")
 local C = require("script.ai3.comportement")
@@ -31,6 +32,7 @@ SD.CLEAR_TICKS = 3 * 3600
 SD.THREAT_HQ = 220     -- menaces candidates au nettoyage : à moins de 220 tuiles du QG...
 SD.THREAT_OUTPOST = 64 -- ... ou de 64 tuiles d'un avant-poste
 SD.HQ_THREAT_R = 48
+SD.RING_TICKS = 3600  -- lot CENTRALE : les anneaux sûrs sont recalculés chaque minute
 SD.SHELTER_TICKS = 600 -- ralliement ou éloignement : on y attend 10 s, puis le PNJ rentre et la menace est rejugée
 
 local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse" }
@@ -109,6 +111,7 @@ end
 ---   "away"   : tous s'éloignent de l'ennemi, qu'ils distancent ;
 --- la garnison, la fortification et la défense (Re.recall_exempt) gardent leur poste.
 local function shelter(f, t, threat, tick, resp, rally, range)
+  resp = resp or "stand" -- l'appel de votre équipe (sans soldats) n'en donne pas : mise à l'abri seule (moteur réel, petrole-guide 20261020 : plantage à la minute 73)
   local far2 = Re.away_distance(range) ^ 2
   for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
     local ag = Registry.get(id)
@@ -332,9 +335,27 @@ local function pass(f, tick)
     if hot then marked[#marked + 1] = { x = p.x, y = p.y } end
   end
   local ch_prud, ch_agr = C.character(f)
+  -- Lot CENTRALE : anneaux de patrouille et de garde réduits aux points SÛRS (nids et vers connus de la carte de connaissance,
+  -- danger et morts de la carte de l'équipe), recalculés chaque minute ou quand la carte de l'équipe change. Nombres seulement.
+  local epoch = t.epoch or 0
+  if not sd.ring_t or tick - sd.ring_t >= SD.RING_TICKS or sd.ring_epoch ~= epoch then
+    local km = f.ai3f and f.ai3f.m
+    local B = D.block(ch_prud)
+    local function safe(x, y)
+      if km then
+        local n, w = K.enemies_near(km, x, y, Sd.SAFE_R)
+        if n + w > 0 then return false end
+      end
+      return D.danger_at(t.map, x, y, tick) < B
+    end
+    sd.ppts = Sd.safe_ring(f.hq_pos, Sd.PATROL_RADII, safe)
+    sd.gpts = Sd.safe_ring(f.hq_pos, Sd.GUARD_RADII, safe)
+    sd.ring_t, sd.ring_epoch = tick, epoch
+  end
   local orders, summary = Sd.assign({
     tick = tick, hq = f.hq_pos, agr = ch_agr, soldiers = list, defend = defend, escorts = escorts,
     threats = clusters, clearing = sd.clearing, marked_outposts = marked, cursor = sd.cursor,
+    patrol_pts = sd.ppts, guard_pts = sd.gpts,
   })
   -- Application : commande seulement quand l'ordre change (l'escorte est relancée à chaque passage : elle suit le PNJ).
   local started_clear = nil
