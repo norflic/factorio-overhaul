@@ -509,47 +509,6 @@ local function abort(agent, f, tick, reason)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
 
---- Un PNJ arrêté en forêt dense (blocage « stuck » : le chemin du moteur passe entre des arbres que le corps ne passe pas) s'ouvre
---- le couloir comme un joueur : arbres et rochers à moins de Worker.CORRIDOR_RADIUS tuiles, devant lui ou sous ses pieds, au plus
---- Worker.CORRIDOR_MAX par blocage (du plus proche au plus loin). Moteur réel, etape1-guide, VOTRE équipe : 170 blocages en
---- 36 min, dans la forêt et le marais du gisement de fer lointain, les tournées de service n'arrivaient plus, 9 foreuses de
---- fer sur 13 à l'arrêt faute de charbon. Rend le nombre retiré.
-Worker.CORRIDOR_RADIUS = 4
-Worker.CORRIDOR_MAX = 10
-local function open_corridor(agent)
-  local e = agent.entity
-  if not (e and e.valid) then return 0 end
-  local p, g = e.position, agent.goal
-  local gx, gy = 0, 0
-  if g then
-    local dx, dy = g.x - p.x, g.y - p.y
-    local len = math.sqrt(dx * dx + dy * dy)
-    if len > 0 then gx, gy = dx / len, dy / len end
-  end
-  local list = {}
-  for _, t in ipairs(e.surface.find_entities_filtered({ position = p, radius = Worker.CORRIDOR_RADIUS, type = { "tree", "simple-entity" } })) do
-    local rx, ry = t.position.x - p.x, t.position.y - p.y
-    if rx * gx + ry * gy >= -1.5 then list[#list + 1] = { t = t, d = rx * rx + ry * ry, x = t.position.x, y = t.position.y } end
-  end
-  table.sort(list, function(a, b)
-    if a.d ~= b.d then return a.d < b.d end
-    if a.x ~= b.x then return a.x < b.x end
-    return a.y < b.y
-  end)
-  local inv = e.get_main_inventory()
-  local n = 0
-  for i = 1, math.min(#list, Worker.CORRIDOR_MAX) do
-    local t = list[i].t
-    if t.valid then
-      if not (inv and t.mine({ inventory = inv, force = e.force, raise_destroyed = true })) and t.valid then
-        t.destroy({ raise_destroy = true })
-      end
-      n = n + 1
-    end
-  end
-  return n
-end
-
 --- Lot FUITE : les PNJ au travail à moins de `radius` tuiles de `p` (défaut Poles.LOSS_RADIUS) rentrent au QG (tâche
 -- abandonnée, « danger »), sauf `except` et les tâches de défense (Re.recall_exempt) ; rend leur nombre. Appelé à la mort
 -- d'un PNJ (lieu de la perte) et à la FUITE d'un autre (lieu de la menace) : on n'attend plus la première perte.
@@ -872,10 +831,6 @@ FSM.define(MACHINE, {
         if H and H.nav_failed(agent, tick) then set(agent, "step", tick) return end
         agent.walk_retries = (agent.walk_retries or 0) + 1
         if f then f.stats.nav_fail = (f.stats.nav_fail or 0) + 1 end
-        if reason == "stuck" and agent.walk_retries <= 3 then
-          local cut = open_corridor(agent)
-          if f and cut > 0 then f.stats.corridor_cut = (f.stats.corridor_cut or 0) + cut end
-        end
         if agent.walk_retries <= 3 and reason ~= "no_path" then
           set(agent, "step", tick) -- nouvel essai depuis la position atteinte
           return
