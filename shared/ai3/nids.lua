@@ -258,6 +258,7 @@ function Nd.decide(ctx)
     local floor = s.inc > 0 and Nd.MIN_MENACE_HIT or Nd.MIN_MENACE
     if s.menace < floor then
       why.faibles = why.faibles + 1
+      if not why.faible then why.faible = { x = s.x, y = s.y, sp = s.sp, wm = s.wm, menace = s.menace, inc = s.inc } end
     else
       local h = Nd.hold_of(ctx.holds, s)
       if h and ctx.tick < h["until"] then
@@ -267,6 +268,7 @@ function Nd.decide(ctx)
         local need = Nd.need(s, fails)
         if spare < need then
           why.courts = why.courts + 1
+          if not why.court then why.court = { x = s.x, y = s.y, sp = s.sp, wm = s.wm, menace = s.menace, inc = s.inc, need = need, spare = spare } end
         else
           s.need, s.reserve, s.fails = need, reserve, fails
           return s, why

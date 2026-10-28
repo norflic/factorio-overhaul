@@ -497,6 +497,15 @@ local function pass(f, tick)
       log(string.format("[FO-NIDS] %s etat tick %d : sites connus %d, trop faibles %d, en attente %d, armee trop courte %d, libres %d sur %d soldats, incidents %d, operations %d (detruits %d, replis %d, delais %d)",
         tostring(f.key), tick, why.sites, why.faibles, why.attente, why.courts, idle, #list + group_n, #ns.inc,
         ns.stats.ops or 0, ns.stats.destroyed or 0, ns.stats.retreat or 0, ns.stats.timeout or 0))
+      local c, w = why.court, why.faible
+      if c then
+        log(string.format("[FO-NIDS] %s   plus menacant hors de portee de l'armee : (%d, %d) %d nid(s) %d ver(s), menace %d (incidents %d), besoin %d, disponibles %d",
+          tostring(f.key), c.x, c.y, c.sp, c.wm, c.menace, c.inc, c.need, c.spare))
+      end
+      if w then
+        log(string.format("[FO-NIDS] %s   plus menacant trop faible : (%d, %d) %d nid(s) %d ver(s), menace %d (incidents %d)",
+          tostring(f.key), w.x, w.y, w.sp, w.wm, w.menace, w.inc))
+      end
     end
     if nid_dec then
       table.insert(clusters, 1, { x = nid_dec.x, y = nid_dec.y, k = nid_dec.sp + nid_dec.wm, killed = true, need = nid_dec.need,
