@@ -1579,8 +1579,11 @@ end
 --- redondants. Journal seulement ([FO-POLE]), aucune décision n'en dépend.
 local function trace_pole(f, p, e, how)
   local part = p.parts and p.parts[e.part or 1] or nil
-  log(string.format("[FO-POLE] %s : projet %d (%s), %s role %s %s en (%g, %g) a %.1f min", f.key or "player", p.id,
-    tostring(part and part.key or (p.spec and p.spec.gen) or "?"), e.name, tostring(e.role), how, e.x, e.y, game.tick / 3600))
+  local sf = surface_of(f)
+  local en = sf and sf.find_nearest_enemy({ position = { x = e.x, y = e.y }, max_distance = 28, force = f.force }) or nil
+  log(string.format("[FO-POLE] %s : projet %d (%s), %s role %s %s en (%g, %g) a %.1f min, ennemi a 28 tuiles : %s", f.key or "player", p.id,
+    tostring(part and part.key or (p.spec and p.spec.gen) or "?"), e.name, tostring(e.role), how, e.x, e.y, game.tick / 3600,
+    en and "OUI" or "non"))
 end
 
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
