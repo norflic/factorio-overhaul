@@ -1142,5 +1142,9 @@ console visible à `py.exe` pendant toute l'attente : `banc.py` cache sa propre 
   fenêtres que le joueur voit.
 
 **Gels périodiques.** `py -3.9 -B tools/autotest/gels.py <archive de banc.py> [...]` : pics de `scriptUpdate`, rythme, alignement sur
-une période, causes par traces `[FO-TRACE]`, postes les plus lourds du profileur. Mesure K10 à faire PC au repos : voir
-`fo-logs\2026-10-28_OUTILLAGE\K10.md` (commandes exactes).
+une période, causes par traces `[FO-TRACE]`, postes les plus lourds du profileur. Mesure K10 à faire PC au repos
+(`--seul`, 72 300 ticks = 20 min de jeu, couvre les ticks 0 et 36 000), avant (source = `git archive ce8d148`) puis après :
+`py -3.9 -B tools/autotest/banc.py --seul --graine 271828182 --qui K10-GELS --out <archive>/avant -- 72300 etape1-guide <source avant>`
+(idem `/apres`), puis `PYTHONUTF8=1 py -3.9 -B tools/autotest/gels.py <archive>/avant <archive>/apres` : le surcoût au tick
+`% 300 == 0` doit se répartir sur des ticks distincts (alignement par fenêtre de 4 ticks plus faible) ; `analyze.py <dossier> --spikes`
+pour le détail.
