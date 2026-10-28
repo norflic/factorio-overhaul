@@ -986,7 +986,7 @@ Worker.far_mine = function(f, task, surface, tick)
     -- Lot IA-V2 : gisement au chemin raté récemment (Board.on_fail) : sauté (moteur réel, ia3c-reduit graine 20261020 :
     -- Azur, 45 minages à la main ratés sur « chemin », toujours vers les mêmes gisements de l'autre côté de l'eau).
     local t0 = unreach[d.key]
-    if t0 and tick - t0 < BAD_TTL then goto continue end
+    if t0 and tick - t0 < ((k.unreach_ttl or {})[d.key] or BAD_TTL) then goto continue end -- lot FER : écart faible = court
     local nests, worms = K.enemies_near(k.m, d.x, d.y, K.NEAR)
     if nests + worms == 0 and K.marks_near(k.m, d.x, d.y, K.NEAR, tick) == 0
       and not (f.is_player and Poles.near_loss(f, d, tick)) then
@@ -1163,15 +1163,35 @@ Ia3.home_known = function(f)
   return (f and f.ai3f and f.ai3f.home_seen) ~= nil
 end
 
--- Lot IA-V2 : un minage lointain raté sur « chemin » marque son gisement injoignable BAD_TTL (Worker.far_mine le saute).
+-- Lot IA-V2 : un minage lointain raté sur « chemin » marque son gisement injoignable (Worker.far_mine le saute).
+-- Lot FER : l'écart dépend du DÉPART de l'échec (K.note_unreach) : depuis le QG, BAD_TTL pour toute l'équipe ; depuis un point
+-- de détour, K.UNREACH.weak_ttl seulement (graine 20261020 : un seul échec à mi-détour écartait l'unique gisement de fer 10 min).
 Board.on_fail = function(f, task, tick)
   if task.kind ~= "mine" or not task.far_key or task.fail ~= "chemin" then return end
   local k = f.ai3f
   if not k then return end
   k.unreach = k.unreach or {}
-  k.unreach[task.far_key] = tick
+  k.unreach_ttl = k.unreach_ttl or {}
+  k.unreach_log = k.unreach_log or {}
+  local p, hq = task.fail_pos, f.hq_pos
+  local level = K.note_unreach(k.unreach_log, task.far_key, p and p.x, p and p.y, hq and hq.x, hq and hq.y, tick)
+  local ttl = K.unreach_ttl(level, BAD_TTL)
+  -- un écart confirmé n'est jamais raccourci par un écart faible arrivé ensuite
+  local t0 = k.unreach[task.far_key]
+  local cur = t0 and (k.unreach_ttl[task.far_key] or BAD_TTL)
+  if not (t0 and cur and t0 + cur > tick + ttl) then
+    k.unreach[task.far_key], k.unreach_ttl[task.far_key] = tick, ttl
+    k.stats.unreach = (k.stats.unreach or 0) + 1
+    log(string.format("[FO-FER] %s : gisement %s ecarte (%s) %.1f min apres un chemin rate depuis (%s, %s) pour %s",
+      team_label(f), tostring(task.far_key), level, ttl / 3600, p and tostring(math.floor(p.x)) or "?",
+      p and tostring(math.floor(p.y)) or "?", tostring(task.key)))
+  end
   for _, key in ipairs(sorted_keys(k.unreach)) do
-    if tick - k.unreach[key] >= BAD_TTL then k.unreach[key] = nil end
+    if tick - k.unreach[key] >= (k.unreach_ttl[key] or BAD_TTL) then k.unreach[key], k.unreach_ttl[key] = nil, nil end
+  end
+  for _, key in ipairs(sorted_keys(k.unreach_log)) do
+    local l = k.unreach_log[key]
+    if #l == 0 or tick - l[#l].tick >= K.UNREACH.window then k.unreach_log[key] = nil end
   end
 end
 

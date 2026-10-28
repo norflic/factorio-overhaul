@@ -866,6 +866,11 @@ FSM.define(MACHINE, {
           log(string.format("[FO-TEAM] %s : ouvrier %d, chemin introuvable (%s) depuis (%d,%d) pour %s",
             f.key, agent.id, reason, math.floor(p.x), math.floor(p.y), agent.task and agent.task.key or "?"))
         end
+        -- Lot FER : d'où le chemin a raté (Board.on_fail : un échec à mi-détour n'écarte pas un gisement 10 min)
+        if agent.task and agent.entity.valid then
+          local ep = agent.entity.position
+          agent.task.fail_pos = { x = math.floor(ep.x), y = math.floor(ep.y) }
+        end
         abort(agent, f, tick, "chemin")
       end,
     },

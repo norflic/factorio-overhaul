@@ -258,6 +258,53 @@ function A.sized(method, rate, pole)
   return g, args
 end
 
+--- Lot FER : la voie de minerai d'une fonderie n'est servie par foreuses et tapis qu'au-delà de A.BELT_FLOW
+--- (script/team/build.lua refuse sinon : « gisement : … sous le seuil du tapis »). Vrai si ce gabarit le respecte (ou si la
+--- méthode n'a pas de minerai).
+function A.belt_ok(method, g)
+  return not method.ore or ((g.inputs or {})[method.ore] or 0) >= A.BELT_FLOW - 1e-9
+end
+
+--- Lot FER : agrandit le gabarit `g` (paramètre d'extension, pas à pas) jusqu'à ce que sa voie de minerai soit servie par
+--- tapis. Rend (gabarit, args) ; le gabarit reçu s'il l'est déjà ; nil si même la plus grande taille ne l'est pas.
+function A.to_belt(method, g, args, pole)
+  if A.belt_ok(method, g) then return g, args end
+  if not g.ext then return nil end
+  for n = args[g.ext.arg] + 1, g.ext.max do
+    local a2 = {}
+    for i = 1, #args do a2[i] = args[i] end
+    a2[g.ext.arg] = n
+    local g2 = A.template(method.gen, a2, pole)
+    if g2 and A.belt_ok(method, g2) then return g2, a2 end
+  end
+  return nil
+end
+
+--- Lot FER : gabarit d'une méthode au débit `rate` (objets/min) que l'équipe sait POSER, par la même règle qu'A.decide :
+--- dimensionné (A.sized), agrandi jusqu'au tapis (A.to_belt), puis RÉDUIT pas à pas tant qu'un objet manque (missing_of(g) :
+--- liste des objets impossibles), sans jamais repasser sous le tapis. Moteur réel, graine 20261020 : l'ordre « ouvrir fer x1 »
+--- (30 plaques/min, une rangée, 0,63 minerai/s) sortait de la capitalisation sans cette règle et était refusé par le plan
+--- directeur à 2,0 min puis à 18,8 min, à l'identique. Rend (gabarit, args), ou (nil, objets manquants de la plus petite
+--- taille permise) ou (nil, {}, raison) quand aucune taille ne tient.
+function A.fit(method, rate, pole, missing_of)
+  local g, args = A.sized(method, rate, pole)
+  if not g then return nil, {}, tostring(args) end
+  g, args = A.to_belt(method, g, args, pole)
+  if not g then return nil, {}, "voie de minerai sous le seuil du tapis a toute taille" end
+  local miss = missing_of(g)
+  while #miss > 0 and g.ext and (args[g.ext.arg] or 1) > 1 do
+    local a2 = {}
+    for i = 1, #args do a2[i] = args[i] end
+    a2[g.ext.arg] = args[g.ext.arg] - 1
+    local g2 = A.template(method.gen, a2, pole)
+    if not g2 or not A.belt_ok(method, g2) then break end
+    g, args = g2, a2
+    miss = missing_of(g)
+  end
+  if #miss > 0 then return nil, miss end
+  return g, args
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Mesures de la fenêtre
 ---------------------------------------------------------------------------------------------------
@@ -627,15 +674,10 @@ function A.decide(input)
       -- dessous, c'est un quai que les porteurs remplissent DEPUIS LE COFFRE, où il n'y a pas de minerai (les avant-postes
       -- livrent des plaques) : moteur réel, e6-usine, emerald, seconde fonderie de fer à quai de minerai vide 30 min. La
       -- plus petite taille servie par tapis, donc.
-      local function belt_ok(gg) return not meth.ore or (gg.inputs[meth.ore] or 0) >= A.BELT_FLOW - 1e-9 end
+      local function belt_ok(gg) return A.belt_ok(meth, gg) end
       if g and g.ext and not belt_ok(g) then
-        for n = args[g.ext.arg] + 1, g.ext.max do
-          local a2 = {}
-          for i = 1, #args do a2[i] = args[i] end
-          a2[g.ext.arg] = n
-          local g2 = A.template(meth.gen, a2, input.pole)
-          if g2 and belt_ok(g2) then g, args = g2, a2 break end
-        end
+        local gb, ab = A.to_belt(meth, g, args, input.pole) -- lot FER : même règle que fit_module (capitalisation)
+        if gb then g, args = gb, ab end
       end
       local function missing_of(gg)
         local _, its = A.cost(meth, gg, { has_plant = true })

@@ -244,5 +244,34 @@ do
   check(K.blocked_near(b, 3096, 0, 940, 128, 1000) and not K.blocked_near(b, 300, 0, 940, 128, 1000), "l'entrée oubliée ne bloque plus")
 end
 
+-- Lot FER : K.note_unreach (échecs « chemin » d'un minage lointain)
+do
+  local U = K.UNREACH
+  local log = {}
+  check(K.note_unreach(log, "g", -134, 35, 5, 5, 1000) == "faible", "FER : un échec isolé à mi-détour est faible")
+  check(K.note_unreach({}, "g", 12, 9, 5, 5, 1000) == "confirme", "FER : un échec depuis le QG est confirmé")
+  check(K.note_unreach({}, "g", nil, nil, 5, 5, 1000) == "faible", "FER : départ inconnu : faible")
+  local l2 = {}
+  K.note_unreach(l2, "g", -134, 35, 5, 5, 1000)
+  check(K.note_unreach(l2, "g", 60, 140, 5, 5, 1100) == "confirme", "FER : deux départs éloignés : confirmé")
+  local l3 = {}
+  K.note_unreach(l3, "g", -134, 35, 5, 5, 1000)
+  check(K.note_unreach(l3, "g", -130, 33, 5, 5, 1100) == "faible", "FER : deux départs voisins : encore faible")
+  check(K.note_unreach(l3, "g", -128, 30, 5, 5, 1200) == "confirme", "FER : troisième échec : confirmé")
+  local l4 = {}
+  K.note_unreach(l4, "g", -134, 35, 5, 5, 1000)
+  check(K.note_unreach(l4, "g", -130, 33, 5, 5, 1000 + U.window + 1) == "faible", "FER : un échec hors fenêtre ne compte plus")
+  check(#l4.g == 1, "FER : les échecs hors fenêtre sont oubliés (état borné)")
+  check(K.unreach_ttl("faible", 36000) == U.weak_ttl and K.unreach_ttl("confirme", 36000) == 36000, "FER : durées des deux niveaux")
+  -- site réellement inaccessible (Azure, 77 échecs répétés, graine 20261020 ia3c-reduit) : les PNJ partent du QG ou de
+  -- points de détour variés ; l'écart plein tombe au plus au 3e échec, pas au 77e
+  local la, firstc = {}, nil
+  for i = 1, 77 do
+    local lvl = K.note_unreach(la, "azur", (i % 7) * 4 - 134, 35 + (i % 3) * 5, 5, 5, 1000 + i * 60)
+    if lvl == "confirme" and not firstc then firstc = i end
+  end
+  check(firstc ~= nil and firstc <= 3, "FER : site inaccessible : écart plein dès l'échec " .. tostring(firstc) .. " (au plus le 3e)")
+end
+
 print(string.format("[AI3-CARTE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

@@ -135,6 +135,77 @@ do
     "ressource inconnue : pas de minage, exploration demandée (minage)")
   local t3 = { kind = "mine", key = "mine:iron-ore", resource = "iron-ore", count = 20, fond = true, radius = 96 }
   check(Worker.program(pf, t3, s, game.tick) == nil, "minage de FOND : jamais au-delà de son rayon")
+
+  -- 3 bis. Lot FER (moteur réel, graine 20261020, 28,9 min : détour de 260 tuiles pour 106, le PNJ 7 en (-134, 35), « no_path » ;
+  -- le SEUL gisement de fer connu écarté 10 min pour toute l'équipe, 97 échecs « programme » d'affilée). Un échec de chemin
+  -- à mi-détour n'écarte plus le seul gisement que brièvement ; un échec depuis le QG, lui, l'écarte 10 min.
+  local Board = require("script.team.board")
+  local KK = require("shared.ai3.carte")
+  local key = task.far_key
+  check(key ~= nil, "lot FER : le minage lointain retient son gisement visé (far_key)")
+  local function reset() pf.ai3f.unreach, pf.ai3f.unreach_ttl, pf.ai3f.unreach_log = {}, {}, {} end
+  local function fail_from(x, y, at)
+    local t = { kind = "mine", key = "mine:iron-ore", resource = "iron-ore", count = 20, far_key = key, fail = "chemin",
+      fail_pos = x and { x = x, y = y } or nil }
+    Board.on_fail(pf, t, at)
+  end
+  local function usable(at)
+    local tk = { kind = "mine", key = "mine:iron-ore", resource = "iron-ore", count = 20 }
+    return Worker.program(pf, tk, s, at) ~= nil
+  end
+  local function fer_checks()
+    local t0 = game.tick
+    local WEAK, FULL = 2 * 3600, 10 * 3600
+    reset()
+    fail_from(-134, 35, t0) -- mi-détour, loin du QG (5, 5)
+    check(not usable(t0 + 60), "lot FER : échec à mi-détour : le gisement est écarté un court moment")
+    check(usable(t0 + WEAK + 60), "lot FER : échec à mi-détour : le seul gisement de fer est de nouveau minable après " .. WEAK / 3600 .. " min")
+    reset()
+    fail_from(12, 9, t0) -- depuis le QG : le trajet QG -> gisement a vraiment raté
+    check(not usable(t0 + WEAK + 60) and not usable(t0 + FULL - 60), "lot FER : échec depuis le QG : écart plein (10 min)")
+    check(usable(t0 + FULL + 60), "lot FER : l'écart plein expire après 10 min")
+    reset()
+    fail_from(-134, 35, t0)
+    fail_from(60, 140, t0 + 600) -- deuxième échec, départ éloigné de plus de 30 tuiles du premier
+    check(not usable(t0 + WEAK + 60), "lot FER : deux échecs de départs éloignés : écart plein")
+    reset()
+    fail_from(-134, 35, t0)
+    fail_from(-130, 33, t0 + 600)
+    check(usable(t0 + 600 + WEAK + 60), "lot FER : deux échecs au même endroit : toujours un écart faible")
+    fail_from(-133, 36, t0 + 1200)
+    check(not usable(t0 + 1200 + WEAK + 60), "lot FER : troisième échec au même endroit : écart plein")
+    reset()
+    fail_from(12, 9, t0)
+    fail_from(-134, 35, t0 + 600) -- un écart faible ne raccourcit pas un écart plein
+    check(not usable(t0 + 600 + WEAK + 60), "lot FER : un écart faible n'efface pas un écart plein")
+    reset()
+    fail_from(nil, nil, t0)
+    check(usable(t0 + WEAK + 60), "lot FER : départ inconnu : un seul échec reste faible")
+    check(pcall(M.serialize, global), "lot FER : global sérialisable (écarts)")
+  end
+  fer_checks()
+  -- mutants : chaque règle retirée fait échouer au moins un contrôle (le module est le même que celui du jeu simulé : les
+  -- champs de KK sont lus à l'appel)
+  local function mutant(name, patch, unpatch)
+    local p0, f0, quiet0 = pass, fail, print
+    print = function() end
+    patch()
+    local ok = pcall(fer_checks)
+    unpatch()
+    print = quiet0
+    local caught = (not ok) or fail > f0
+    pass, fail = p0, f0
+    check(caught, "lot FER : mutant « " .. name .. " » refusé")
+  end
+  local n0, U0 = KK.note_unreach, {}
+  for k2, v in pairs(KK.UNREACH) do U0[k2] = v end
+  local function restoreU() for k2, v in pairs(U0) do KK.UNREACH[k2] = v end end
+  mutant("tout échec confirmé (ancien comportement)", function() KK.note_unreach = function() return "confirme" end end,
+    function() KK.note_unreach = n0 end)
+  mutant("tout échec faible", function() KK.note_unreach = function() return "faible" end end, function() KK.note_unreach = n0 end)
+  mutant("départ du QG jamais confirmé", function() KK.UNREACH.clean = -1 end, restoreU)
+  mutant("jamais de confirmation par répétition", function() KK.UNREACH.max_same = 99; KK.UNREACH.apart = 1e9 end, restoreU)
+  mutant("écart faible aussi long que l'écart plein", function() KK.UNREACH.weak_ttl = 10 * 3600 end, restoreU)
 end
 
 ---------------------------------------------------------------------------------------------------

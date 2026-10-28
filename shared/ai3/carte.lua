@@ -415,6 +415,44 @@ function K.note_blocked(blocked, ox, oy, x, y, tick, cap)
   while #blocked > cap do table.remove(blocked, 1) end
 end
 
+--- Lot FER : un minage lointain raté sur « chemin » ne dit pas, à lui seul, que le gisement est injoignable DEPUIS LE QG.
+--- Moteur réel, graine 20261020, 28,9 min : le détour d'évitement du danger faisait 260 tuiles pour 106 en ligne droite, le
+--- PNJ 7 s'est retrouvé en (-134, 35), 65 tuiles du gisement, le moteur a répondu « no_path » ; le SEUL gisement de fer connu a
+--- été écarté 10 min pour toute l'équipe (97 échecs « programme » d'affilée, fer livré : 50 plaques en 25 min). Un échec
+--- compte donc selon son DÉPART :
+---   - depuis le QG (à moins de `clean` tuiles) : c'est bien le trajet QG -> gisement qui a raté : écart CONFIRMÉ (ttl plein) ;
+---   - ailleurs (mi-détour) : écart FAIBLE (ttl `weak`, court) ; il devient confirmé si un 2e échec vient d'un départ éloigné
+---     d'au moins `apart` tuiles du premier, ou au 3e échec (même lieu : le trajet est vraiment fermé), dans la fenêtre.
+K.UNREACH = { window = 10 * 3600, clean = 40, apart = 30, max_same = 3, weak_ttl = 2 * 3600 }
+
+--- Note un échec « chemin » du gisement `key` depuis (x, y) ; (hx, hy) : le QG. `log` : { [clé] = { { x, y, tick } } } (état
+--- de l'équipe, nombres seulement). Rend "confirme" ou "faible". Un lieu de départ inconnu (nil) compte comme un échec de
+--- plus au même lieu.
+function K.note_unreach(log, key, x, y, hx, hy, tick)
+  local U = K.UNREACH
+  local list = {}
+  for _, e in ipairs(log[key] or {}) do
+    if tick - e.tick < U.window then list[#list + 1] = e end
+  end
+  list[#list + 1] = { x = x, y = y, tick = tick }
+  log[key] = list
+  if x and y and hx and hy and (x - hx) ^ 2 + (y - hy) ^ 2 <= U.clean * U.clean then return "confirme" end
+  if #list >= U.max_same then return "confirme" end
+  for i = 1, #list do
+    for j = i + 1, #list do
+      local a, b = list[i], list[j]
+      if a.x and a.y and b.x and b.y and (a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 >= U.apart * U.apart then return "confirme" end
+    end
+  end
+  return "faible"
+end
+
+--- Durée (ticks) pendant laquelle le gisement reste écarté après un écart de ce niveau.
+function K.unreach_ttl(level, full)
+  if level == "faible" then return K.UNREACH.weak_ttl end
+  return full
+end
+
 --- Anneau du tour du propriétaire : 8 points à r tuiles autour de (x, y), en partant de l'octant `first` (0 à 7).
 function K.ring(x, y, r, first)
   local out = {}

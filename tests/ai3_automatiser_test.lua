@@ -128,6 +128,36 @@ do
   local g5c = q5c and A.template(q5c.gen, q5c.args)
   check(q5c and q5c.args[3] == 2 and g5c and g5c.inputs["iron-ore"] >= A.BELT_FLOW - 1e-9,
     string.format("fonderie servie par tapis : %s rangée(s), minerai %.2f/s", q5c and tostring(q5c.args[3]) or "?", g5c and g5c.inputs["iron-ore"] or 0))
+  -- Lot FER : A.fit, la taille que la capitalisation (script/ai3/capitalisation.lua, fit_module) émet, suit la MÊME règle
+  -- du tapis qu'A.decide. Moteur réel, graine 20261020 : « ouvrir fer x1 » (30 plaques/min) sortait à 1 rangée, 0,63
+  -- minerai/s, refusé par le plan directeur (« sous le seuil du tapis », 1,0/s) à 2,0 puis 18,8 min, à l'identique.
+  do
+    local fe
+    for _, m in ipairs(A.METHODS) do if m.ore == "iron-ore" and not fe then fe = m end end
+    check(fe ~= nil, "lot FER : la méthode de la fonderie de fer existe")
+    local plan = require("shared.team.plan")
+    check(A.BELT_FLOW == plan.AUTO_FLOW, "lot FER : le seuil d'A.decide est celui du plan directeur (build.lua, P.AUTO_FLOW)")
+    local gs = A.sized(fe, 30)
+    check(gs and not A.belt_ok(fe, gs), string.format("lot FER : le dimensionnement seul de 30 plaques/min est SOUS le tapis (%.2f/s)",
+      gs and gs.inputs["iron-ore"] or 0))
+    local gf, af = A.fit(fe, 30, nil, function() return {} end)
+    check(gf and A.belt_ok(fe, gf) and gf.inputs["iron-ore"] >= plan.AUTO_FLOW - 1e-9 and af[gf.ext.arg] == 2,
+      string.format("lot FER : A.fit(30/min) rend la taille servie par tapis (%s rangée(s), %.2f/s)",
+        gf and tostring(af[gf.ext.arg]) or "?", gf and gf.inputs["iron-ore"] or 0))
+    -- grande demande, les bras rapides manquent à partir de 3 rangées : réduit à 2, jamais à 1
+    local small = function(gg) return (gg.args[gg.ext.arg] or 1) > 2 and { "fast-inserter" } or {} end
+    local g3, a3 = A.fit(fe, 150, nil, small)
+    check(g3 and a3[g3.ext.arg] == 2 and A.belt_ok(fe, g3), "lot FER : réduit pour un objet impossible, jamais sous le tapis (" .. tostring(g3 and a3[g3.ext.arg]) .. " rangée(s))")
+    local g4, m4 = A.fit(fe, 150, nil, function() return { "fast-inserter" } end)
+    check(g4 == nil and m4[1] == "fast-inserter", "lot FER : un objet manque même à la plus petite taille servie par tapis : pas d'ordre, l'objet est rendu")
+    -- un gabarit sans minerai (hors fonderie) n'est pas touché par la règle du tapis
+    local plain
+    for _, m in ipairs(A.METHODS) do if not m.ore and not plain then plain = m end end
+    if plain then
+      local gp = A.fit(plain, 10, nil, function() return {} end)
+      check(gp ~= nil, "lot FER : une méthode sans minerai se dimensionne comme avant")
+    end
+  end
   -- Fonderie au débit de 150 plaques/min sans bras rapides : réduite à ce qu'un bras simple décharge à chaque quai.
   local big = win(10, { ["iron-plate"] = 3 * 3600 }, { ["iron-plate"] = 120 })
   local book_nofast = Book.new(recipes, { allowed = function(n) return n ~= "fast-inserter" end })
@@ -514,6 +544,26 @@ mutant("aucun module généré (gabarits écrits seulement)", function()
 end, function() A.method_for = mf0 end)
 local BF = A.BELT_FLOW
 mutant("fonderie à quai de minerai", function() A.BELT_FLOW = 0 end, function() A.BELT_FLOW = BF end)
+local belt0 = A.to_belt
+mutant("capitalisation sans le contrôle du tapis (lot FER)", function() A.to_belt = function(_, g, args) return g, args end end,
+  function() A.to_belt = belt0 end)
+local fit0 = A.fit
+mutant("A.fit qui ignore le tapis en réduisant (lot FER)", function()
+  A.fit = function(method, rate, pole, missing_of)
+    local g, args = A.sized(method, rate, pole)
+    if not g then return nil, {} end
+    local miss = missing_of(g)
+    while #miss > 0 and g.ext and (args[g.ext.arg] or 1) > 1 do
+      local a2 = {}
+      for i = 1, #args do a2[i] = args[i] end
+      a2[g.ext.arg] = args[g.ext.arg] - 1
+      g, args = A.template(method.gen, a2, pole), a2
+      miss = missing_of(g)
+    end
+    if #miss > 0 then return nil, miss end
+    return g, args
+  end
+end, function() A.fit = fit0 end)
 local cost0 = A.cost
 mutant("coût nul", function() A.cost = function(meth, g, ctx) local c, i, n, d = cost0(meth, g, ctx); return 0, i, n, d end end,
   function() A.cost = cost0 end)
