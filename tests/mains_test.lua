@@ -6,7 +6,7 @@
     3. comparaison à une FORCE BRUTE (grille de petits cas, formulation entière indépendante) et propriétés de monotonie ;
     4. fond : ni minage ni fonte de fond d'une matière couverte, le reste inchangé (fond.lua) ;
     5. généralisation : mêmes décisions sur des données aux noms changés (aucun nom dans la règle) ;
-    6. 14 mutants de la règle, tous refusés.
+    6. 17 mutants de la règle, tous refusés.
   Lancement : lua5.2 tests/mains_test.lua (depuis la racine du mod).
 ]]
 package.path = "./?.lua;" .. package.path
@@ -63,7 +63,7 @@ local function rule_checks(M, Tcfg)
   local P, R = smelted.product, smelted.resource
   local function ctx(o)
     o = o or {}
-    return { saturated = o.sat or {}, modules = o.mod or {}, short = o.short or {}, need = o.need or {}, flow = o.flow or {} }
+    return { saturated = o.sat or {}, modules = o.mod or {}, need = o.need or {}, flow = o.flow or {}, hand = o.hand or {} }
   end
   local function flow(rate, n) return { rate = rate, n = n } end
 
@@ -71,17 +71,29 @@ local function rule_checks(M, Tcfg)
   check(M.reason(P, ctx({ sat = { [P] = true } })) == "sature", "saturée : couverte (sature)")
   check(M.reason(P, ctx({ mod = { [P] = true } })) == "module", "module fini : couverte (module)")
   check(M.reason(P, ctx({})) == nil, "aucune mesure : jamais couverte")
-  check(M.reason(P, ctx({ need = { [P] = 100 }, flow = { [P] = flow(10, 5) } })) == "debit",
-    "débit 10/min x 10 min = besoin 100 : couverte (égalité comprise)")
-  check(M.reason(P, ctx({ need = { [P] = 101 }, flow = { [P] = flow(10, 5) } })) == nil, "débit juste sous le besoin : pas couverte")
-  check(M.reason(P, ctx({ need = { [P] = 100 }, flow = { [P] = flow(50, 2) } })) == nil,
+  local W, K, H = M.COVER_MIN, M.MARGINAL, M.HAND_RATE
+  local big = K * H -- débit qui vaut K PNJ au minage à la main
+  check(M.reason(P, ctx({ need = { [P] = big * W }, flow = { [P] = flow(big, 5) } })) == "debit",
+    "débit de " .. big .. "/min = besoin sur la fenêtre : couverte (égalité comprise)")
+  check(M.reason(P, ctx({ need = { [P] = big * W + 1 }, flow = { [P] = flow(big, 5) } })) == nil, "débit juste sous le besoin : pas couverte")
+  check(M.reason(P, ctx({ need = { [P] = 100 }, flow = { [P] = flow(big, 2) } })) == nil,
     "mesure de 2 minutes seulement : pas de verdict « debit »")
-  check(M.reason(P, ctx({ need = { [P] = 100 }, flow = { [P] = flow(50, 3) } })) == "debit", "mesure de 3 minutes : verdict possible")
-  check(M.reason(P, ctx({ need = { [P] = 100 }, short = { [P] = 5 }, flow = { [P] = flow(50, 9) } })) == nil,
-    "la matière MANQUE : jamais couverte par le débit")
+  check(M.reason(P, ctx({ need = { [P] = 100 }, flow = { [P] = flow(big, 3) } })) == "debit", "mesure de 3 minutes : verdict possible")
   check(M.reason(P, ctx({ need = { [P] = 0 }, flow = { [P] = flow(0, 9) } })) == nil, "débit nul : jamais couverte")
-  check(M.reason(P, ctx({ need = { [P] = 100 }, flow = { [raw.product] = flow(50, 9) } })) == nil,
+  check(M.reason(P, ctx({ need = { [P] = 0 }, flow = { [P] = flow(0, 9) }, hand = { [P] = 0 } })) == nil,
+    "débit nul et rendement de main nul : jamais couverte")
+  check(M.reason(P, ctx({ need = { [P] = 100 }, flow = { [raw.product] = flow(big, 9) } })) == nil,
     "le débit d'une AUTRE matière ne couvre pas celle-ci")
+  -- Marge : le débit doit valoir K PNJ au minage à la main (début de partie : un petit avant-poste ne remplace pas la main).
+  check(M.reason(P, ctx({ need = { [P] = 10 }, flow = { [P] = flow(big - 1, 9) } })) == nil,
+    "débit sous " .. K .. " PNJ de minage : la main reste utile même si le besoin est couvert")
+  check(M.reason(P, ctx({ need = { [P] = 10 }, flow = { [P] = flow(big, 9) } })) == "debit", "débit de " .. K .. " PNJ de minage : couverte")
+  check(M.reason(P, ctx({ need = { [P] = 10 }, flow = { [P] = flow(big, 9) }, hand = { [P] = H * 2 } })) == nil,
+    "rendement MESURÉ d'un PNJ plus fort : la marge suit la mesure")
+  check(M.reason(P, ctx({ need = { [P] = 10 }, flow = { [P] = flow(big / 2, 9) }, hand = { [P] = H / 2 } })) == "debit",
+    "rendement mesuré plus faible : la marge baisse avec lui")
+  check(M.hand_rate(50, 100) == nil and M.hand_rate(50, 120) == 25 and M.hand_rate(0, 600) == 0,
+    "rendement mesuré : nil sous " .. M.HAND_MIN_SECS .. " s de minage, sinon unités par minute")
 
   -- Débit moyen : production moins minage à la main, jamais négatif, sur 10 minutes au plus.
   local r, n = M.auto_flow({ { total = 30, hand = 10 }, { total = 20, hand = 0 } })
@@ -104,7 +116,7 @@ local function rule_checks(M, Tcfg)
   check(mine[raw.resource] == "module" and next(smelt) == nil, "produit brut couvert : minage écarté, aucune fonte")
   mine, smelt = M.skips(chains, ctx({}))
   check(next(mine) == nil and next(smelt) == nil, "rien de couvert : rien d'écarté")
-  mine, smelt = M.skips(chains, ctx({ need = { [P] = 40 }, flow = { [P] = flow(4, 6) } }))
+  mine, smelt = M.skips(chains, ctx({ need = { [P] = 40 }, flow = { [P] = flow(big, 6) } }))
   check(mine[R] == "debit" and smelt[P] == "debit" and mine[P] == nil, "le minerai est écarté sous le nom de la RESSOURCE, la fonte sous celui du produit")
 end
 
@@ -143,58 +155,59 @@ do
   -- Oracle indépendant, en entiers : la plaque est couverte quand elle est saturée (stock >= SAT x besoin), fournie par un
   -- module, ou que rien ne manque et que les machines livreraient le besoin en 10 minutes (somme des k dernières minutes
   -- x 10 >= besoin x k), avec au moins 3 minutes de mesure.
-  local function oracle(stock, need, short, module, samples)
+  local function oracle(stock, need, module, samples, hand)
     if stock >= B.SAT_FACTOR * need and need > 0 then return "sature" end
     if module then return "module" end
-    if short > 0 then return nil end
     local k = math.min(#samples, 10)
     if k < 3 then return nil end
     local sum = 0
     for i = #samples - k + 1, #samples do sum = sum + math.max(0, samples[i].total - samples[i].hand) end
-    if sum > 0 and sum * 10 >= need * k then return "debit" end
+    -- sum / k = débit par minute : couvre le besoin sur 10 minutes ET vaut 4 PNJ de minage (entiers : sum >= 4 x hand x k)
+    if sum > 0 and sum * 10 >= need * k and sum >= 4 * hand * k then return "debit" end
     return nil
   end
   local bad, total, covered, uncovered = 0, 0, 0, 0
   for _ = 1, 6000 do
     local need = rnd(40) * 25
     local stock = rnd(3000)
-    local short = (rnd(4) == 0) and rnd(50) + 1 or 0
+    local hand = (rnd(3) == 0) and (10 + rnd(30)) or nil
     local module = rnd(8) == 0
     local k = rnd(14)
     local samples = {}
-    for i = 1, k do samples[i] = { total = rnd(60), hand = rnd(3) == 0 and rnd(80) or 0 } end
+    for i = 1, k do samples[i] = { total = rnd(400), hand = rnd(3) == 0 and rnd(80) or 0 } end
     local rate, n = Mains.auto_flow(samples)
-    local c = { saturated = {}, modules = { [P] = module or nil }, short = { [P] = short }, need = { [P] = need },
-      flow = { [P] = { rate = rate, n = n } } }
+    local c = { saturated = {}, modules = { [P] = module or nil }, need = { [P] = need },
+      flow = { [P] = { rate = rate, n = n } }, hand = { [P] = hand } }
     if need > 0 and stock >= B.SAT_FACTOR * need then c.saturated[P] = true end
     local got = Mains.reason(P, c)
-    local want = oracle(stock, need, short, module, samples)
+    local want = oracle(stock, need, module, samples, hand or Mains.HAND_RATE)
     total = total + 1
     if got ~= want then
       bad = bad + 1
-      if bad <= 3 then print("  écart : stock " .. stock .. " besoin " .. need .. " manque " .. short .. " -> " .. tostring(got) .. " / " .. tostring(want)) end
+      if bad <= 3 then print("  écart : stock " .. stock .. " besoin " .. need .. " -> " .. tostring(got) .. " / " .. tostring(want)) end
     end
     if got then covered = covered + 1 else uncovered = uncovered + 1 end
   end
   check(bad == 0, "force brute : " .. total .. " cas tirés, " .. bad .. " écart(s) avec l'oracle entier")
   check(covered > 500 and uncovered > 500, "force brute : les deux issues sont bien couvertes par le tirage (" .. covered .. "/" .. uncovered .. ")")
-  -- Monotonie : plus de débit ne découvre jamais ; plus de besoin ne couvre jamais ; un manque découvre toujours (hors saturée/module).
-  local mono_flow, mono_need, mono_short = true, true, true
+  -- Monotonie : plus de débit ne découvre jamais ; plus de besoin ne couvre jamais ; un PNJ plus rapide à la main exige plus.
+  local mono_flow, mono_need, mono_hand = true, true, true
   for _ = 1, 3000 do
     local need = rnd(40) * 25
-    local rate = rnd(100)
+    local rate = rnd(400)
     local n = rnd(12)
-    local base = { saturated = {}, modules = {}, short = { [P] = 0 }, need = { [P] = need }, flow = { [P] = { rate = rate, n = n } } }
-    local more = { saturated = {}, modules = {}, short = { [P] = 0 }, need = { [P] = need }, flow = { [P] = { rate = rate + rnd(50), n = n } } }
+    local hand = 10 + rnd(40)
+    local base = { saturated = {}, modules = {}, need = { [P] = need }, flow = { [P] = { rate = rate, n = n } }, hand = { [P] = hand } }
+    local more = { saturated = {}, modules = {}, need = { [P] = need }, flow = { [P] = { rate = rate + rnd(50), n = n } }, hand = { [P] = hand } }
     if Mains.reason(P, base) and not Mains.reason(P, more) then mono_flow = false end
-    local needier = { saturated = {}, modules = {}, short = { [P] = 0 }, need = { [P] = need + rnd(100) }, flow = { [P] = { rate = rate, n = n } } }
+    local needier = { saturated = {}, modules = {}, need = { [P] = need + rnd(100) }, flow = { [P] = { rate = rate, n = n } }, hand = { [P] = hand } }
     if Mains.reason(P, needier) and not Mains.reason(P, base) then mono_need = false end
-    local sh = { saturated = {}, modules = {}, short = { [P] = rnd(20) + 1 }, need = { [P] = need }, flow = { [P] = { rate = rate, n = n } } }
-    if Mains.reason(P, sh) then mono_short = false end
+    local faster = { saturated = {}, modules = {}, need = { [P] = need }, flow = { [P] = { rate = rate, n = n } }, hand = { [P] = hand + rnd(30) } }
+    if Mains.reason(P, faster) and not Mains.reason(P, base) then mono_hand = false end
   end
   check(mono_flow, "monotonie : un débit plus fort ne retire jamais la couverture")
   check(mono_need, "monotonie : un besoin plus fort ne crée jamais la couverture")
-  check(mono_short, "un manque annule toujours le verdict « debit »")
+  check(mono_hand, "monotonie : un PNJ plus rapide à la main ne crée jamais la couverture")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -219,13 +232,13 @@ do
   local m0, s0 = run({})
   check(m0["iron-ore"] and m0["copper-ore"] and s0["iron-plate"] and s0["copper-plate"],
     "sans règle : le fond mine les deux minerais et fond les deux plaques (" .. ser(m0) .. " " .. ser(s0) .. ")")
-  local mine_skip, smelt_skip = Mains.skips(Mains.chains(T), { saturated = { ["iron-plate"] = true }, modules = {}, short = {}, need = {}, flow = {} })
+  local mine_skip, smelt_skip = Mains.skips(Mains.chains(T), { saturated = { ["iron-plate"] = true }, modules = {}, need = {}, flow = {} })
   local m1, s1 = run({ mine_skip = mine_skip, smelt_skip = smelt_skip })
   check(m1["iron-ore"] == nil and s1["iron-plate"] == nil, "fer couvert : ni minage du minerai ni fonte de la plaque")
   check(m1["copper-ore"] and s1["copper-plate"], "fer couvert : le cuivre est travaillé comme avant")
   check(m1.coal or m1.stone, "fer couvert : le charbon et la pierre sont minés comme avant")
   local mine_all, smelt_all = Mains.skips(Mains.chains(T), { saturated = { ["iron-plate"] = true, ["copper-plate"] = true, coal = true, stone = true },
-    modules = {}, short = {}, need = {}, flow = {} })
+    modules = {}, need = {}, flow = {} })
   local m2, s2 = run({ mine_skip = mine_all, smelt_skip = smelt_all })
   check(next(m2) == nil and next(s2) == nil, "tout couvert : aucun minage ni fonte de fond (" .. ser(m2) .. " " .. ser(s2) .. ")")
   -- Les tâches du reste du fond ne bougent pas : mêmes extensions et mêmes constructions avec ou sans règle.
@@ -245,6 +258,69 @@ do
   local a, b = ser(select(1, run({ mine_skip = mine_skip, smelt_skip = smelt_skip }))), ser(select(1, run({ mine_skip = mine_skip, smelt_skip = smelt_skip })))
   check(a == b, "même entrée, même sortie")
 end
+
+---------------------------------------------------------------------------------------------------
+section("4 bis. Appoint du cerveau (shared/ai3/projets.lua, shared/team/planner.lua)")
+local function appoint_checks()
+  local S = require("shared.team.scale")
+  local C = require("shared.ai3.cerveau")
+  local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+  local function view(over)
+    local v = {
+      tech = 0, personality = "balanced", done = {}, deferred = {}, stock = {}, incoming = {}, outposts = {},
+      pending = {}, sites = {}, smelters = 0, smelters_pending = 0, smelter_task = false, smelter_output = 0,
+      smelter_fuel_low = false, smelter_coal = 0, turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 10,
+      workers_max = 30, workers_idle = 10, threatened = false, open = {}, workers_wanted = 10, no_research = true,
+      ladder = T.player_ladder, hq_turrets = T.defend_hq, defend_first = true, is_player = true,
+    }
+    for k, x in pairs(over or {}) do v[k] = x end
+    v.recruit_cost = S.recruit_cost(v.workers)
+    return v
+  end
+  local function op(id, kind, drills)
+    return { id = id, kind = kind, drills = drills, full = false, turrets = 1, coal_needed = 0, fuel_low = false,
+      output = 50, idle_ticks = 0, has_task = false, has_fortify = false }
+  end
+  local function think(outposts, skip)
+    local v = view({ smelters = 2, stock = { stone = 300, coal = 300, ["firearm-magazine"] = 60, ["iron-plate"] = 20 },
+      outposts = outposts, done = { stone = true, iron = true, coal = true } })
+    local plan = C.think(v, book, C.new_state(0), { tick = 0, is_player = true, weights = B.weights({}, nil),
+      reach = { ["iron-ore"] = 80, stone = 40, coal = 80, ["copper-ore"] = 80 }, known = { ["iron-ore"] = true }, hand_skip = skip })
+    local mines, others = 0, {}
+    for _, t in ipairs(plan.tasks) do
+      if t.kind == "mine" and t.resource == "iron-ore" then mines = mines + 1 else others[#others + 1] = t.key .. "@" .. t.prio end
+    end
+    return mines, table.concat(others, ";")
+  end
+  local fed = { op(1, "iron", 8), op(2, "coal", 4), op(3, "stone", 2) }
+  local m0, o0 = think(fed, nil)
+  local m1, o1 = think(fed, { ["iron-ore"] = "debit" })
+  check(m0 >= 2, "fer manquant, avant-poste de fer qui tourne : minage d'appoint à la main (" .. m0 .. " tâches)")
+  check(m1 == 0, "même situation, fer couvert par les machines : plus aucun minage d'appoint (" .. m1 .. ")")
+  check(o0 == o1, "le reste du plan est identique (tournées, fabrications, fonderie)")
+  local m2 = think({ op(2, "coal", 4), op(3, "stone", 2) }, { ["iron-ore"] = "debit" })
+  check(m2 >= 2, "SANS avant-poste de fer : la main reste la source même si la règle dit « couvert » (" .. m2 .. ")")
+  local m3 = think(fed, { stone = "debit" })
+  check(m3 == m0, "une autre matière couverte ne retire pas le minage du fer")
+  -- Matières brutes sans fonte (charbon, pierre) : minage d'appoint du cerveau ET du planificateur.
+  local function think_raw(skip)
+    local v = view({ smelters = 2, stock = { stone = 0, coal = 0, ["firearm-magazine"] = 60, ["iron-plate"] = 900 },
+      outposts = fed, done = { stone = true, iron = true, coal = true } })
+    local plan = C.think(v, book, C.new_state(0), { tick = 0, is_player = true, weights = B.weights({}, nil),
+      reach = { ["iron-ore"] = 80, stone = 40, coal = 80, ["copper-ore"] = 80 }, known = { ["iron-ore"] = true }, hand_skip = skip })
+    local mines, others = 0, {}
+    for _, t in ipairs(plan.tasks) do
+      if t.kind == "mine" and (t.resource == "coal" or t.resource == "stone") then mines = mines + 1
+      else others[#others + 1] = t.key .. "@" .. t.prio end
+    end
+    return mines, table.concat(others, ";")
+  end
+  local r0, ro0 = think_raw(nil)
+  local r1, ro1 = think_raw({ coal = "debit", stone = "debit" })
+  check(r0 >= 4, "charbon et pierre en manque, avant-postes qui tournent : minage d'appoint (" .. r0 .. " tâches)")
+  check(r1 == 0 and ro0 == ro1, "charbon et pierre couverts : plus de minage d'appoint, le reste du plan inchangé (" .. r1 .. ")")
+end
+appoint_checks()
 
 ---------------------------------------------------------------------------------------------------
 section("5. Généralisation : données aux noms changés")
@@ -293,7 +369,9 @@ do
   local mutants = {
     { "débit sans minimum de mesure", "(fl.n or 0) >= M.MIN_SAMPLES", "(fl.n or 0) >= 0" },
     { "égalité exclue", "fl.rate * M.COVER_MIN >= ((c.need", "fl.rate * M.COVER_MIN > ((c.need" },
-    { "manque ignoré", "  if c.short and (c.short[item] or 0) > 0 then return nil end\n", "" },
+    { "marge sur le minage à la main ignorée", "\n    and fl.rate >= M.MARGINAL * hand then", " then" },
+    { "rendement mesuré ignoré", "local hand = (c.hand and c.hand[item]) or M.HAND_RATE", "local hand = M.HAND_RATE" },
+    { "rendement mesuré sur mesure trop courte", "if (secs or 0) < M.HAND_MIN_SECS then return nil end", "if (secs or 0) <= 0 then return nil end" },
     { "minage à la main non retiré du débit", "(s.total or 0) - (s.hand or 0)", "(s.total or 0)" },
     { "débit négatif admis", "math.max(0, (s.total or 0) - (s.hand or 0))", "((s.total or 0) - (s.hand or 0))" },
     { "saturation ignorée", 'if c.saturated and c.saturated[item] then return "sature" end', "" },
@@ -303,7 +381,7 @@ do
     { "minerai écarté sous le nom du produit", "mine[ch.resource] = why", "mine[ch.product] = why" },
     { "toute chaîne dite fondue", "smelted = input ~= nil and input[1] == spec.resource", "smelted = true" },
     { "débit d'une autre matière", "local fl = c.flow and c.flow[item]", "local fl = c.flow and c.flow[next(c.flow)]" },
-    { "besoin ignoré", "and fl.rate * M.COVER_MIN >= ((c.need and c.need[item]) or 0) then", "then" },
+    { "besoin ignoré", "    and fl.rate * M.COVER_MIN >= ((c.need and c.need[item]) or 0)\n", "\n" },
     { "débit nul accepté", "and (fl.rate or 0) > 0\n", "\n" },
   }
   for _, m in ipairs(mutants) do
@@ -322,6 +400,39 @@ do
       end
     end
   end
+end
+
+do
+  -- Mutants des crochets du cerveau : le module muté remplace l'original le temps du contrôle.
+  local function mutate_modules(path, modname, find, repl, label)
+    local src = read(path)
+    local i, j = src:find(find, 1, true)
+    check(i ~= nil, "mutant « " .. label .. " » : motif trouvé dans " .. path)
+    if not i then return end
+    local chunk = load(src:sub(1, i - 1) .. repl .. src:sub(j + 1), "@mutant:" .. modname, "t")
+    check(chunk ~= nil, "mutant « " .. label .. " » : compile")
+    if not chunk then return end
+    local saved = { package.loaded[modname], package.loaded["shared.ai3.cerveau"] }
+    package.loaded[modname], package.loaded["shared.ai3.cerveau"] = nil, nil
+    package.preload[modname] = function() return chunk() end
+    current = {}
+    local ok, perr = pcall(appoint_checks)
+    local killed = (not ok) or #current > 0
+    current = nil
+    package.preload[modname] = nil
+    package.loaded[modname], package.loaded["shared.ai3.cerveau"] = saved[1], saved[2]
+    check(killed, "mutant refusé : " .. label .. (ok and "" or (" (plantage : " .. tostring(perr) .. ")")))
+  end
+  mutate_modules("shared/ai3/projets.lua", "shared.ai3.projets", "if fed and ctx.hand_skip and ctx.hand_skip[item] then",
+    "if false then", "appoint du cerveau jamais écarté")
+  mutate_modules("shared/ai3/projets.lua", "shared.ai3.projets", "if fed and ctx.hand_skip and ctx.hand_skip[item] then",
+    "if ctx.hand_skip and ctx.hand_skip[item] then", "appoint écarté même sans avant-poste")
+  mutate_modules("shared/team/planner.lua", "shared.team.planner", "local covered = has_outpost and view.hand_skip and view.hand_skip[ore]",
+    "local covered = false", "appoint du planificateur (fonte) jamais écarté")
+  mutate_modules("shared/team/planner.lua", "shared.team.planner", "and not (has_outpost and view.hand_skip and view.hand_skip[item])",
+    "", "appoint du planificateur (minage direct) jamais écarté")
+  mutate_modules("shared/ai3/cerveau.lua", "shared.ai3.cerveau", "bview.hand_skip = ctx.hand_skip",
+    "", "règle non transmise au planificateur")
 end
 
 print(string.format("[MAINS] BILAN : %d OK, %d ECHEC(S)", passes, failures))

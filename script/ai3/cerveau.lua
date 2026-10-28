@@ -44,6 +44,7 @@ local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
+local Mains = require("script.team.mains") -- lot MAINS : matières que les machines fournissent déjà (pas de minage d'appoint)
 
 local Ia3 = {}
 
@@ -741,6 +742,8 @@ function Ia3.plan(f, view, book, surface, tick)
     idle_grow = General.idle_grow(f, view, tick),
     spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto,
+    -- Lot MAINS : ressources que les machines fournissent déjà (pas de minage d'appoint à la main).
+    hand_skip = (Mains.skips(f, tick, view.workers)),
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     capi = capi } -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)

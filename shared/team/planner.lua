@@ -835,12 +835,15 @@ function P.plan(view, book)
         if view.smelters > 0 then out.smelt[src.smelt] = (out.smelt[src.smelt] or 0) + n end
         local ore = T.smelter_inputs[src.smelt][1]
         local minable = src.mine and src.mine ~= item
+        -- Lot MAINS : l'appoint à la main (avant-poste présent) est écarté quand les machines fournissent déjà la matière.
+        local covered = has_outpost and view.hand_skip and view.hand_skip[ore]
         if minable and view.smelters > 0 and (view.stock[ore] or 0) < n and (not has_outpost or idle > mines)
-          and not open["mine:" .. ore] and not emerg_mine[ore] then
+          and not covered and not open["mine:" .. ore] and not emerg_mine[ore] then
           add({ key = "mine:" .. ore, kind = "mine", prio = has_outpost and 25 or 45, resource = ore, count = math.min(MINE_BATCH, math.max(n, MINE_MIN)) })
           mines = mines + 1
         end
-      elseif src.mine == item and (not has_outpost or idle > mines) and not open["mine:" .. item] and not emerg_mine[item] then
+      elseif src.mine == item and (not has_outpost or idle > mines) and not (has_outpost and view.hand_skip and view.hand_skip[item])
+        and not open["mine:" .. item] and not emerg_mine[item] then
         add({ key = "mine:" .. item, kind = "mine", prio = has_outpost and 25 or 45, resource = item, count = math.min(MINE_BATCH, math.max(n, MINE_MIN)) })
         mines = mines + 1
       end

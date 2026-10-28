@@ -8,7 +8,7 @@
      parce que les machines les fournissent (saturation, module fini, débit automatique mesuré). Le débit est lu à la
      minute dans les statistiques de production de la force (production − minage à la main des PNJ) ; aucune décision
      n'est pilotée par un temps mesuré (la minute est celle du jeu).
-  État : f.team.mains = { acc, last, flow = { [produit] = { last, ring, hand } }, min, why }.
+  État : f.team.mains = { acc, last, flow = { [produit] = { last, ring, hand, hu, hs } }, min, why }.
 ]]
 
 local State = require("script.faction.state")
@@ -67,6 +67,7 @@ function M.on_done(f, task, ok, tick)
     local fl = st.flow[PRODUCT_OF[task.resource]]
     if not fl then fl = { last = nil, ring = {}, hand = 0 }; st.flow[PRODUCT_OF[task.resource]] = fl end
     fl.hand = (fl.hand or 0) + units
+    fl.hu, fl.hs = (fl.hu or 0) + units, (fl.hs or 0) + secs -- rendement d'un PNJ au minage (unités, secondes)
   end
   local m = math.floor(minutes(f, tick) / M.PERIOD)
   if m > st.last then
@@ -105,14 +106,14 @@ function M.skips(f, tick, workers)
   sample(f, st, tick)
   local ia = f.team.ia3
   local floor = Br.need_floor(workers or f.engineers_count or 0, B.NEED_FLOOR)
-  local c = { saturated = ia and ia.saturated or {}, modules = ia and ia.covered or {}, short = ia and ia.short or {},
-    need = {}, flow = {} }
+  local c = { saturated = ia and ia.saturated or {}, modules = ia and ia.covered or {}, need = {}, flow = {}, hand = {} }
   for _, ch in ipairs(CHAINS) do
     c.need[ch.product] = math.max(floor, ia and ia.need and ia.need[ch.product] or 0)
     local fl = st.flow[ch.product]
     if fl then
       local rate, n = Mains.auto_flow(fl.ring)
       c.flow[ch.product] = { rate = rate, n = n }
+      c.hand[ch.product] = Mains.hand_rate(fl.hu, fl.hs)
     end
   end
   local mine, smelt = Mains.skips(CHAINS, c)

@@ -86,10 +86,16 @@ end
   des mesures du cerveau :
     « sature »  son stock dépasse plusieurs fois le besoin prévu (shared/ai3/buts.lua, B.saturated) ;
     « module »  un module fini la livre (shared/ai3/cerveau.lua, covered) ;
-    « debit »   le débit AUTOMATIQUE mesuré couvre le besoin : sur la fenêtre, (production des machines − ce que les PNJ
-                ont miné à la main) × M.COVER_MIN minutes ≥ le besoin prévu, et rien ne manque aujourd'hui.
-  Une matière qui MANQUE n'est jamais couverte (ses tâches d'urgence, hors fond, s'en occupent : planificateur, manque de
-  plaques, projets). Sans mesure assez longue (M.MIN_SAMPLES minutes), « debit » ne se déclare pas.
+    « debit »   le débit AUTOMATIQUE mesuré couvre le besoin ET écrase le travail à la main : sur la fenêtre, (production des
+                machines − ce que les PNJ ont miné à la main) × M.COVER_MIN minutes ≥ le besoin prévu (manque compris : le
+                besoin du cerveau est « ce qu'il va consommer + ce qui manque »), et ce débit vaut au moins M.MARGINAL PNJ
+                au minage à la main (un PNJ de plus ajouterait au plus 1/M.MARGINAL du débit des machines : sans cela, au
+                début de partie, quand le premier avant-poste ne livre que 30 par minute, le minage à la main reste le
+                moyen de démarrer). Le rendement d'un PNJ est MESURÉ (minage réussi : unités ÷ secondes), M.HAND_RATE sans
+                mesure.
+  Une matière SANS machine (débit nul ou mesure trop courte, M.MIN_SAMPLES minutes) n'est jamais couverte : le travail à la
+  main en est la source. Les tâches d'URGENCE du cerveau (hors fond : planificateur, manque de plaques, matière sans avant-
+  poste) ne passent pas par cette règle.
 
   Chaînes (M.chains, déduites des données de l'exécutant) : un avant-poste dont le produit se fond au QG à partir de sa
   ressource (plaque <- minerai) ; un produit brut sans fonte (produit = ressource). Une plaque couverte retire le minage
@@ -97,12 +103,16 @@ end
   tables de l'exécutant, jamais d'ici.
 
   M.reason(item, c) -> "sature" | "module" | "debit" | nil
-    c = { saturated = {[objet]=vrai}, modules = {[objet]=vrai}, short = {[objet]=n}, need = {[objet]=n} (besoin prévu,
-          plancher compris), flow = {[objet] = {rate = débit automatique par minute, n = minutes mesurées}} }
+    c = { saturated = {[objet]=vrai}, modules = {[objet]=vrai}, need = {[objet]=n} (besoin prévu, manque et plancher
+          compris), flow = {[objet] = {rate = débit automatique par minute, n = minutes mesurées}},
+          hand = {[objet] = unités par minute d'UN PNJ au minage à la main (mesuré)} }
   M.skips(chains, c) -> mine_skip {[ressource]=raison}, smelt_skip {[plaque]=raison}
 ]]
 M.COVER_MIN = 10    -- minutes : le débit automatique doit livrer le besoin prévu en une fenêtre (A.WINDOW de l'automatisation)
 M.MIN_SAMPLES = 3   -- minutes de mesure au moins avant de déclarer « debit »
+M.MARGINAL = 4      -- le débit automatique vaut au moins 4 PNJ au minage à la main (un de plus : au plus 25 % de gain)
+M.HAND_RATE = 30    -- unités par minute d'un PNJ au minage à la main sans mesure (moteur réel, 28/10 : 0,5 par seconde, trajets compris)
+M.HAND_MIN_SECS = 120 -- secondes de minage réussi avant de se fier à la mesure
 
 --- Chaînes d'approvisionnement à la main, tirées des tables de l'exécutant (shared/team/config.lua passé en `T`).
 function M.chains(T)
@@ -134,13 +144,21 @@ end
 function M.reason(item, c)
   if c.saturated and c.saturated[item] then return "sature" end
   if c.modules and c.modules[item] then return "module" end
-  if c.short and (c.short[item] or 0) > 0 then return nil end
   local fl = c.flow and c.flow[item]
+  local hand = (c.hand and c.hand[item]) or M.HAND_RATE
   if fl and (fl.n or 0) >= M.MIN_SAMPLES and (fl.rate or 0) > 0
-    and fl.rate * M.COVER_MIN >= ((c.need and c.need[item]) or 0) then
+    and fl.rate * M.COVER_MIN >= ((c.need and c.need[item]) or 0)
+    and fl.rate >= M.MARGINAL * hand then
     return "debit"
   end
   return nil
+end
+
+--- Rendement mesuré d'un PNJ au minage à la main (unités par minute) : `units` ramassées en `secs` PNJ-secondes de minage
+--- réussi ; nil tant que la mesure est trop courte.
+function M.hand_rate(units, secs)
+  if (secs or 0) < M.HAND_MIN_SECS then return nil end
+  return 60 * (units or 0) / secs
 end
 
 function M.skips(chains, c)

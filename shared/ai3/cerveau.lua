@@ -140,14 +140,17 @@ function C.consumed(base, view)
   return used
 end
 
---- La pensée. ctx = { tick, is_player, weights, research, reach = { [ressource] = rayon }, mines_open, iron_floor,
+--- La pensée. ctx = { tick, is_player, weights, research, reach = { [ressource] = rayon }, mines_open, hand_skip (lot MAINS :
+--- ressources que les machines fournissent déjà, sans minage d'appoint ; shared/team/mains.lua), iron_floor,
 --- army_target, home_known (faux : abords du QG pas encore vus, aucune exploration ; lot IA-V2) }. Renvoie le plan (format du planificateur) ; plan.ia3 = compte rendu (projets, exploration, saturées).
 function C.think(view, book, st, ctx)
   local tick = ctx.tick or 0
   -- 1. Observer.
   local s = C.situation(view, st, ctx)
   -- 2. Familles permanentes (planificateur sans échelle).
-  local base = Planner.plan(C.base_view(view, st), book)
+  local bview = C.base_view(view, st)
+  bview.hand_skip = ctx.hand_skip -- lot MAINS : pas de minage d'appoint d'une matière que les machines fournissent
+  local base = Planner.plan(bview, book)
   local used = C.consumed(base, view)
   local avail = {}
   for _, k in ipairs(sorted_keys(view.stock)) do avail[k] = view.stock[k] end
@@ -171,7 +174,7 @@ function C.think(view, book, st, ctx)
   -- 6. Approvisionnement.
   local raw, minable = C.raw_items()
   P.supply(E, { reach = ctx.reach, known = ctx.known, workers = s.workers, mines_open = ctx.mines_open, minable = minable,
-    cap = s.cap, home_known = ctx.home_known })
+    cap = s.cap, home_known = ctx.home_known, hand_skip = ctx.hand_skip })
   -- Lot IA-V2 : pas d'exploration demandée avant que les abords du QG soient vus (ctx.home_known faux : brouillard
   -- d'IA3-f, regard en cours) ; le projet reste bloqué sur sa cause (« site: »), rien d'autre ne change.
   if ctx.home_known == false then E.explore = {} end

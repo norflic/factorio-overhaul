@@ -657,7 +657,11 @@ function P.supply(E, ctx)
       elseif ctx.minable and ctx.minable[item] then
         -- Miner à la main : plusieurs PNJ en parallèle, sur un gisement connu (sinon explorer).
         local radius = ctx.reach and ctx.reach[item]
-        if not radius then
+        if fed and ctx.hand_skip and ctx.hand_skip[item] then
+          -- Lot MAINS : le minage d'APPOINT n'a plus de sens quand le débit mesuré des machines couvre le besoin et vaut
+          -- plusieurs PNJ au minage (constat du DC : « sachant qu'on a du fer qui sort »). Sans avant-poste (non « fed »),
+          -- la main reste la source.
+        elseif not radius then
           -- Lot IA-V2 : connu mais hors de portée de la main : pas d'exploration (l'avant-poste ira le chercher).
           if not (ctx.known and ctx.known[item]) then E.explore[item] = math.max(E.explore[item] or 0, prio) end
         else
