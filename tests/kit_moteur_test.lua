@@ -85,5 +85,43 @@ print(string.format("   avec réservation : %d conflits de tuile, %d minerais, %
 check(egal.conflicts * 3 < sans.conflicts, "la réservation divise les mineurs sur la même tuile par plus de 3")
 check(egal.mined > sans.mined, "plus de minerai à la main avec la réservation")
 
+section("4. Tourelles de QG et technologies : rien au départ en kit égal, comme votre équipe (décision du 28/10)")
+local function hq_turrets(res)
+  local s = game.surfaces[1]
+  local n, techs = 0, 0
+  for _, f in ipairs(res.w.factions) do
+    n = n + s.count_entities_filtered({ name = "gun-turret", force = f.force })
+    for _, name in ipairs({ "military", "gun-turret", "stone-wall" }) do
+      local t = game.forces[f.force].technologies[name]
+      if t and t.researched then techs = techs + 1 end
+    end
+  end
+  return n, techs
+end
+M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0, kit_egal = true })
+remote.call("factorio-overhaul", "war_start", 2, 100, nil, 320)
+local tr0, te0 = hq_turrets({ w = global.fo.war })
+check(tr0 == 0, "kit égal : aucune tourelle de QG offerte (" .. tr0 .. ")")
+check(te0 == 0, "kit égal : aucune technologie de niveau 0 offerte (" .. te0 .. ")")
+M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0, kit_egal = false })
+remote.call("factorio-overhaul", "war_start", 2, 100, nil, 320)
+local tr1, te1 = hq_turrets({ w = global.fo.war })
+check(tr1 == 8, "kit généreux : 4 tourelles de QG par faction (" .. tr1 .. " pour 2 factions)")
+check(te1 == 6, "kit généreux : technologies de niveau 0 offertes (" .. te1 .. " sur 6)")
+
+section("5. Votre équipe garde son minage (Harvest.PLAYER faux) ; les factions, la correction")
+local Harvest = require("script.team.harvest")
+check(Harvest.PLAYER == false, "Harvest.PLAYER est faux par défaut")
+check(Harvest.applies({ is_player = false }) and not Harvest.applies({ is_player = true }), "la correction vise les factions seulement")
+check(#Harvest.names_for({ is_player = true }, "wood") == 1 and Harvest.names_for({ is_player = true }, "wood")[1] == "wood",
+  "votre équipe : l'ancien nom seul (l'objet)")
+check(not Harvest.foreign_resource(game.surfaces[1], { x = 0, y = 0 }, "coal", { is_player = true }), "votre équipe : jamais de ressource étrangère")
+check(next(Harvest.reachable({ is_player = true, team = { ia3 = { reach = { wood = 40 } } } })) == nil,
+  "votre équipe : aucune matière récoltable à portée pour le cerveau")
+check(#Harvest.free_types("wood", { is_player = true }) == 1, "votre équipe : seules les ressources comptent comme libres")
+Harvest.PLAYER = true
+check(Harvest.applies({ is_player = true }), "Harvest.PLAYER vrai : la correction vaut aussi pour votre équipe (mutant)")
+Harvest.PLAYER = false
+
 print(string.format("\n[KIT-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

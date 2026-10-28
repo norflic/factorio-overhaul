@@ -64,11 +64,18 @@ for _, key in ipairs({ "scarlet", "azure", "emerald", "amber" }) do
   check(game.forces.player.get_cease_fire(f) == true, "cessez-le-feu joueur -> " .. key)
 end
 check(count_entities("fo-faction-hq") == 4, "4 QG posés")
-check(count_entities("gun-turret") == 16, "16 tourelles de QG")
+-- Lot KIT : le kit généreux (défaut du moteur simulé) offre 4 tourelles de QG par faction ; le kit égal (FO_KIT_EGAL=1, le
+-- jeu réel) n'en offre aucune, ni stock de départ au coffre.
+local kit_egal = os.getenv("FO_KIT_EGAL") == "1"
+check(count_entities("gun-turret") == (kit_egal and 0 or 16), kit_egal and "aucune tourelle de QG (kit égal)" or "16 tourelles de QG")
 -- Lot IA1-a : effectif de départ fo-npc-start (8, défaut de shared/team/scale.lua ; 2 avant IA1-a).
 check(count_entities("fo-companion") == 32, "8 ouvriers par faction (fo-npc-start)")
 for _, f in ipairs(global.fo.war.factions) do
-  check(f.hq.get_item_count("burner-mining-drill") > 0 and f.hq.get_item_count("coal") > 0, f.key .. " : stock de depart dans le QG")
+  if kit_egal then
+    check(f.hq.get_item_count("burner-mining-drill") == 0 and f.hq.get_item_count("coal") == 0, f.key .. " : coffre du QG vide (kit égal)")
+  else
+    check(f.hq.get_item_count("burner-mining-drill") > 0 and f.hq.get_item_count("coal") > 0, f.key .. " : stock de depart dans le QG")
+  end
 end
 
 ---------------------------------------------------------------------------------------------------

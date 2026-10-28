@@ -51,6 +51,12 @@ check(same(F.grant(false, false), F.grant(false, false)), "déterminisme : deux 
 check(F.SETTING == "fo-war-kit-genereux", "nom du réglage")
 check(F.grant(false, nil).smelters == 0 and #F.grant(false, nil).chest == 0, "réglage absent (nil) : kit égal")
 check(F.grant(false, "oui").smelters == 0, "seul `true` allume le kit généreux")
+check(faction.hq_turrets == 0 and player.hq_turrets == 0 and not faction.unlock0 and not player.unlock0,
+  "kit égal : ni tourelle de QG ni technologie de niveau 0 (décision du 28/10 : comme votre équipe)")
+check(generous.hq_turrets == 4 and generous.unlock0 == true, "kit généreux : 4 tourelles de QG et technologies de niveau 0")
+check(F.grant(false, false, true).unlock0 == true and F.grant(true, false, true).unlock0 == false,
+  "ancien cerveau (échelle d'objectifs) : une faction garde les technologies de niveau 0, votre équipe jamais")
+check(F.grant(false, false, true).hq_turrets == 0, "ancien cerveau : toujours aucune tourelle offerte")
 
 ---------------------------------------------------------------------------------------------------
 section("2. Kit généreux (bancs) : sur-ensemble strict, sans bois")
