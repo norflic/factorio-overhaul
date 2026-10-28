@@ -29,7 +29,7 @@ base.tick = function(ctx, e)
           if pr.state ~= "fini" and pr.state ~= "refuse" then
             local ub = {}
             for i, u in ipairs(pr.unbuilt or {}) do
-              if i <= 4 then ub[#ub + 1] = string.format("%s@%d,%d f%d npc%d", u.name, u.x, u.y, u.fails, u.npc) end
+              if i <= 4 then ub[#ub + 1] = string.format("%s@%d,%d f%d npc%d stock%d", u.name, u.x, u.y, u.fails, u.npc, u.have or -1) end
             end
             log(TAG .. string.format("chantier minute %d | %s | #%s %s %s (%d/%d) obst %d/%d | non poses %s", e.tick / MIN, r.key,
               tostring(pr.id), tostring(pr.state), tostring(pr.reason), pr.built or 0, pr.total or 0,

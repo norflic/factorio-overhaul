@@ -63,6 +63,7 @@ Build.FINISH_BONUS = 30
 Build.FINISH_CAP = 89         -- … sans jamais atteindre l'urgence (90 : O.URGENT_PRIO, M.URGENT)
 local function finish_prio(base) return math.min(base + Build.FINISH_BONUS, Build.FINISH_CAP) end
 Build.FAIL_LIMIT = 3          -- §6.6 (4) : un fantôme refusé 3 fois bloque son module (raison écrite)
+Build.STALL_TICKS = 10800      -- lot CENTRALE : un chantier sans une entité de plus pendant 3 min redemande ce qui lui manque
 Build.REFUSAL_LOGS = 40       -- refus de fantôme écrits au journal (emprise et occupants), au plus, par équipe
 Build.NPC_BLOCKS_PER_FAIL = 5  -- un PNJ debout sur l'emprise est passager : 5 refus de ce genre comptent pour 1 échec
 Build.RETRY_TICKS = 7200       -- un projet bloqué rend ses PNJ et reprend 2 min plus tard (au plus Build.RETRIES fois)
@@ -2210,6 +2211,28 @@ local function advance(f, surface, p, tick)
     if all_built(p) then
       p.state = "raccordement"
     else
+      -- Lot CENTRALE (moteur réel, etape1-guide, Azure 271828182 : un tapis sur 17 ; Azure 123456789 : 2 poteaux sur 18) : les
+      -- objets portés par un PNJ qui n'a pas pu les poser (mort, perdu, rentré au coffre où d'autres les ont pris) ne
+      -- revenaient jamais à la réserve du chantier : « matériaux : rien » au tableau, personne ne les fabriquait, le chantier
+      -- attendait 13 min ou plus pour un objet. Sans entité de plus depuis Build.STALL_TICKS, la réserve est complétée
+      -- (stock libre du coffre) et ce qui manque encore redevient un manque du chantier, donc fabriqué.
+      if tick >= (p.stall_next or 0) then
+        p.stall_next = tick + 300
+        local nb = count_built(p)
+        if nb ~= p.prog_n then
+          p.prog_n, p.prog_tick = nb, tick
+          if p.topped then p.missing, p.topped = {}, nil end -- le chantier repart : plus de manque annoncé
+        end
+        if tick - (p.prog_tick or tick) >= Build.STALL_TICKS then
+          local was = #(p.missing or {})
+          reserve(f, p)
+          p.topped = true
+          if #p.missing ~= was then
+            log(string.format("[FO-IA1D] %s : projet %d sans progres depuis %.0f min : reserve completee, manque %d objet(s) distinct(s)",
+              f.key or "player", p.id, (tick - p.prog_tick) / 3600, #p.missing))
+          end
+        end
+      end
       -- 3 refus d'un même fantôme : le module est bloqué (raison écrite), §6.6 (4)
       for _, e in ipairs(p.ents) do
         if not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
@@ -2364,7 +2387,8 @@ function Build.status(f, id)
   local unbuilt = {}
   for _, e in ipairs(p.ents) do
     if not e.built and #unbuilt < 5 then
-      unbuilt[#unbuilt + 1] = { name = e.name, x = e.x, y = e.y, fails = e.fails or 0, npc = e.npc_blocks or 0, anchor = e.anchor }
+      unbuilt[#unbuilt + 1] = { name = e.name, x = e.x, y = e.y, fails = e.fails or 0, npc = e.npc_blocks or 0, anchor = e.anchor,
+        have = e.item and (p.stock[e.item] or 0) or -1 }
     end
   end
   local open_obst = 0
