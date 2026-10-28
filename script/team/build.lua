@@ -1645,6 +1645,22 @@ local function not_there(f, agent, job, pos, inv, tick, reach2, give_up)
     t.cut_tries = (t.cut_tries or 0) + 1
     return "again"
   end
+  -- Lot ELEC2 : point d'appui inaccessible à pied (ni arbre à couper ni chemin : emprise cernée par les foreuses d'un
+  -- avant-poste, falaises). Moteur réel, etape1-guide 271828182 : le dernier lot de la fonderie électrique (poteau et 4
+  -- foreuses) abandonné 30 fois en 15 min à 28 tuiles de son point d'appui, 182 entités sur 197, 0 foreuse électrique à
+  -- 60 min. Le bâtisseur est posé sur la case libre la plus proche du point d'appui (une fois par tâche) ; il rentre
+  -- ensuite comme les autres (« home »).
+  if t and not t.teleported and job.ax and agent.entity and agent.entity.valid then
+    local e = agent.entity
+    local spot = e.surface.find_non_colliding_position(e.name, { x = job.ax, y = job.ay }, 8, 0.5)
+    if spot then
+      t.teleported = true
+      e.teleport(spot)
+      f.build.stats.build_teleports = (f.build.stats.build_teleports or 0) + 1
+      log(string.format("[FO-IA1D] %s : batisseur pose pres du point d'appui (%g, %g), inaccessible a pied", f.key or "player", job.ax, job.ay))
+      return "more"
+    end
+  end
   return give_up
 end
 
