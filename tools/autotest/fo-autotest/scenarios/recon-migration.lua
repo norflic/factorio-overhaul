@@ -16,6 +16,7 @@ return {
   init = function(ctx)
     local st = ctx.state()
     st.version_create = script.active_mods["factorio-overhaul"]
+    st.create_has_recon = (pcall(remote.call, "factorio-overhaul", "recon_status")) -- la source de création (0.6.5) ne l'a pas
     if remote.interfaces["fo-pvp"] then remote.call("fo-pvp", "set_difficulty", "peaceful") end
     st.war = remote.call("factorio-overhaul", "war_start", 2, 60, 6, 800)
     remote.call("factorio-overhaul", "war_fund", 3000)
@@ -25,8 +26,8 @@ return {
   finish = function(ctx)
     local st = ctx.state()
     ctx.log(TAG .. "creation avec " .. tostring(st.version_create) .. ", benchmark avec " .. tostring(script.active_mods["factorio-overhaul"]))
-    ctx.check(st.version_create ~= script.active_mods["factorio-overhaul"], "la sauvegarde vient d'une autre version",
-      tostring(st.version_create) .. " -> " .. tostring(script.active_mods["factorio-overhaul"]))
+    ctx.check(st.create_has_recon == false, "la sauvegarde vient d'une source SANS la reconnaissance (main 0.6.5)",
+      tostring(st.create_has_recon))
     local r = ctx.call("recon_status")
     ctx.check(#r.factions == 2, "2 factions vivantes apres le chargement", #r.factions)
     local attacks, scouts, unknown = 0, 0, 0
