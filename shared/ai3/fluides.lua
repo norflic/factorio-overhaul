@@ -824,6 +824,54 @@ function Site:power(electric)
   return #poles, line
 end
 
+--- Coffres (quais et sorties) d'une implantation que les PNJ pourraient ATteindre à pied (lot PETROLE 2). Moteur réel, etape1-guide
+--- 1618033988 : le coffre de sortie du plastique, entouré de tuyaux, de machines et d'un étang, fut déclaré « chemin introuvable »
+--- 32 fois : 732 plastiques jamais rapportés, le pack chimique jamais fabriqué. Rend nil si tout est atteignable, sinon la liste des
+--- coffres enfermés. Parcours en largeur de 4 voisins depuis l'anneau extérieur de l'emprise (élargie de `pad` tuiles), sur les tuiles
+--- sans entité, sans tuyau et sans obstacle de terrain (`blocked`) ; un coffre est atteignable si une tuile parcourue est à moins
+--- de `reach` tuiles (Chebyshev) de lui.
+Fl.WALK_REACH = 3
+function Fl.enclosed_chests(ents_occupied, tubes, blocked, boxes, chests, pad, reach)
+  pad, reach = pad or 3, reach or Fl.WALK_REACH
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  local function grow(tx, ty)
+    x0, y0, x1, y1 = math.min(x0, tx), math.min(y0, ty), math.max(x1, tx), math.max(y1, ty)
+  end
+  for _, c in ipairs(chests) do grow(math.floor(c.x), math.floor(c.y)) end
+  for _, b in ipairs(boxes) do grow(b[1], b[2]); grow(b[3], b[4]) end
+  x0, y0, x1, y1 = x0 - pad, y0 - pad, x1 + pad, y1 + pad
+  local function walkable(tx, ty)
+    local k = tkey(tx, ty)
+    return not (ents_occupied[k] or tubes[k] or blocked(tx, ty))
+  end
+  local seen, queue, qi = {}, {}, 1
+  local function push(tx, ty)
+    local k = tkey(tx, ty)
+    if not seen[k] and walkable(tx, ty) then seen[k] = true; queue[#queue + 1] = { tx, ty } end
+  end
+  for tx = x0, x1 do push(tx, y0); push(tx, y1) end
+  for ty = y0, y1 do push(x0, ty); push(x1, ty) end
+  while qi <= #queue do
+    local cur = queue[qi]; qi = qi + 1
+    for _, d in ipairs(DIRS) do
+      local nx, ny = cur[1] + DV[d][1], cur[2] + DV[d][2]
+      if nx >= x0 and nx <= x1 and ny >= y0 and ny <= y1 then push(nx, ny) end
+    end
+  end
+  local bad
+  for _, c in ipairs(chests) do
+    local cx, cy = math.floor(c.x), math.floor(c.y)
+    local ok = false
+    for ty = cy - reach, cy + reach do
+      for tx = cx - reach, cx + reach do
+        if seen[tkey(tx, ty)] then ok = true end
+      end
+    end
+    if not ok then bad = bad or {}; bad[#bad + 1] = c end
+  end
+  return bad
+end
+
 local function layout_once(req, shift)
   local s = new_site(req)
   Fl.last_site = s
@@ -1097,6 +1145,17 @@ local function layout_once(req, shift)
       x1, y1 = math.max(x1, math.floor(e.x)), math.max(y1, math.floor(e.y))
     end
   end
+  -- Les coffres du site doivent être atteignables à pied (voir Fl.enclosed_chests) : sinon ce décalage est refusé
+  do
+    local chests = {}
+    for _, q in ipairs(s.quais) do chests[#chests + 1] = q end
+    for _, o in ipairs(s.outs) do chests[#chests + 1] = o end
+    local boxes = { { x0, y0, x1, y1 } }
+    local bad = Fl.enclosed_chests(s.occ, s.tube, req.blocked, boxes, chests, 3, Fl.WALK_REACH)
+    if bad then
+      return nil, string.format("coffre enferme par les tuyaux et les machines (%d, %d)", math.floor(bad[1].x), math.floor(bad[1].y))
+    end
+  end
   return { ents = s.ents, quais = s.quais, outs = s.outs, box = { x0, y0, x1, y1 }, pipes = s.npipes, poles = npoles,
     line = line, extractors = #extractors }
 end
@@ -1139,7 +1198,7 @@ end
 --- Décalages essayés de la place des machines quand un tuyau ne se trace pas (sans tuyau souterrain, la disposition décide
 --- des croisements impossibles) : l'écart est de Fl.SHIFT tuiles, dans un ordre fixe.
 Fl.SHIFT = 14
-Fl.LAYOUT_BUDGET = 60000 -- nœuds d'A* des tuyaux au plus pour toutes les tentatives d'une implantation
+Fl.LAYOUT_BUDGET = 120000 -- nœuds d'A* des tuyaux au plus pour toutes les tentatives d'une implantation
 
 function Fl.layout(req)
   local k = Fl.SHIFT
@@ -1148,11 +1207,13 @@ function Fl.layout(req)
   local first_why
   for _, sh in ipairs(shifts) do
     local lay, why = layout_once(req, sh)
+    if os.getenv("DBGS") then print("SHIFT", sh[1], sh[2], lay ~= nil, why, req.spent) end
     if lay then return lay end
     first_why = first_why or why
     -- un autre décalage ne change rien à l'absence de puits ni aux poteaux (la ligne a son propre A*) ; budget épuisé : fin
     local w = tostring(why)
     if req.spent > Fl.LAYOUT_BUDGET or w:find("puits", 1, true) or w:find("poteau", 1, true) then break end
+    if not first_why or not first_why:find("tuyau", 1, true) then first_why = first_why or why end
   end
   return nil, first_why
 end

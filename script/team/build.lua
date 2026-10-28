@@ -1794,10 +1794,22 @@ function Build.work(agent, f, tick)
     local chest = o and surface.find_entity("iron-chest", { o.x, o.y })
     if not chest then return "fail" end
     local got = 0
-    for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
-      local n = chest.get_item_count(it)
-      local put = inv.insert({ name = it, count = n })
-      if put > 0 then chest.remove_item({ name = it, count = put }); got = got + put end
+    local function take(c)
+      for _, it in ipairs(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents())) do
+        local n = c.get_item_count(it)
+        local put = inv.insert({ name = it, count = n })
+        if put > 0 then c.remove_item({ name = it, count = put }); got = got + put end
+      end
+    end
+    take(chest)
+    -- Lot PETROLE 2 : les autres sorties du MÊME projet, à portée de la première, se vident dans le même voyage (moteur réel,
+    -- etape1-guide 1618033988 : la sortie du soufre, de clé plus petite, était toujours vidée la première, celle du plastique
+    -- gardait 732 plaques et le pack chimique ne se fabriquait jamais).
+    for i, o2 in ipairs(p.outs) do
+      if i ~= job.idx and (o2.x - o.x) ^ 2 + (o2.y - o.y) ^ 2 <= 40 * 40 then
+        local c2 = surface.find_entity("iron-chest", { o2.x, o2.y })
+        if c2 and c2.force.name == f.force then take(c2) end
+      end
     end
     b.stats.collected = b.stats.collected + got
     return "done"
