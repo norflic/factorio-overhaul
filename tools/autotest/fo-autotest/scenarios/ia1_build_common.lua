@@ -365,7 +365,7 @@ return function(variant)
       ctx.log("lots : " .. kv(r.lots))
       ctx.log("troncons : " .. kv(r.segs))
       ctx.log("refus de lots (evaluation) : " .. kv(r.lots_refused) .. " | fermetures de rues : " .. kv(r.segs_closed)
-        .. " | refus au plan : " .. kv(r.plan_refused))
+        .. " | refus au plan : " .. kv(r.plan_refused) .. " | agencement des champs : " .. kv(r.layout or {}))
       for _, p in ipairs(r.projects) do
         local parts = {}
         for _, pt in ipairs(p.parts) do parts[#parts + 1] = string.format("%s %s lot %s (%d,%d) r%d", pt.kind, pt.key, pt.lot, pt.x, pt.y, pt.rotation) end

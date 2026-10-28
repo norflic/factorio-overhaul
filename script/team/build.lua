@@ -957,6 +957,10 @@ function Build.layout_place(f, surface, p, item, flow, a)
     Build.layout_log(f, string.format("%s : refus (%s) apres %d lot(s), %d foreuse(s) possible(s) dont %s", item, last, tries, #options, options[1].name))
     return nil, last
   end
+  b.stats.layout = b.stats.layout or {}
+  bump(b.stats.layout, "pose:" .. best.drill.name)
+  bump(b.stats.layout, "foreuses", best.plan.drills_n)
+  bump(b.stats.layout, "tuiles-captees", best.plan.covered_tiles)
   Build.layout_log(f, string.format("%s, lot %s : %d foreuse(s) %s (%.2f/s pour %.2f/s voulus), %d tuile(s) de minerai captee(s) sur %d, sortie vers (%d, %d)",
       item, best.lot, best.plan.drills_n, best.drill.name, best.plan.rate, flow, best.plan.covered_tiles,
       best.plan.total_tiles or 0, best.plan.exits[1].x, best.plan.exits[1].y))
@@ -975,6 +979,8 @@ function Build.plan_drills(f, surface, p, item, flow, a)
   if place then
     local ok, w2 = Build.plan_drills_link(f, surface, p, item, flow, a, place, n)
     if ok then return true end
+    b.stats.layout = b.stats.layout or {}
+    bump(b.stats.layout, "liaison-refusee")
     bump(b.stats.plan_refused, "champ-liaison:" .. tostring(w2))
     Build.layout_log(f, string.format("%s : liaison du champ refusee (%s), ancien gabarit", item, tostring(w2)))
     place = nil
@@ -2404,7 +2410,7 @@ function Build.report(f)
   for _, k in ipairs(sorted_keys(b.segs)) do local s = b.segs[k]; bump(segs, s.state .. (s.reason and (":" .. s.reason) or "")) end
   local out = {
     radius = b.radius, lots = lots, segs = segs, queue = #b.queue - b.qhead + 1, projects = projects,
-    lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
+    lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused, layout = st.layout or {},
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
     cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
     route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = ROUTE_RESETS[f.key or "player"] or 0,
