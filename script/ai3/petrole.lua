@@ -679,8 +679,17 @@ local function decide(f, st, General, deposits, tick)
   for _, res in ipairs(pump_resources(c)) do if st.known[res] then water = res end end
   local force = game.forces[f.force]
   local locked = {}
+  -- chaîne de chaque objet, puis packs COMPLETS : un pack dont un objet n'a pas de chaîne (pétrole pas encore connu) ne fait
+  -- demander aucun site, pas même la cellule sans fluide (Fl.complete_packs)
+  local chains, rows = {}, {}
   for _, it in ipairs(items) do
-    local ch = Fl.chain(REL, INFO, { it }, water and { [water] = "pompe" } or {}, chooser(f))
+    chains[it] = Fl.chain(REL, INFO, { it }, water and { [water] = "pompe" } or {}, chooser(f))
+    rows[#rows + 1] = { item = it, pack = pack_of[it], ok = chains[it] ~= nil }
+  end
+  local complete = Fl.complete_packs(rows)
+  for _, it in ipairs(items) do
+    local ch = chains[it]
+    if pack_of[it] ~= nil and not complete[pack_of[it]] then ch = nil end
     -- une recette de la chaîne encore verrouillée : le GROUPE attend (la machine posée ne pourrait pas la lancer, et un
     -- site bâti pour une partie des objets ne serait pas refait pour les autres)
     local lock = false

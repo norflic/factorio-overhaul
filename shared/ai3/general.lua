@@ -156,6 +156,15 @@ end
 function Gen.chains(cat, ev, state, ctx)
   local out = {}
   local w = ctx and ctx.weights
+  -- lot PETROLE 2 (ctx.new_pack) : packs déjà consommés par une technologie faite (une chaîne dont chaque technologie ne
+  -- consomme que ceux-là se recherche DÈS MAINTENANT : near_len, sa longueur)
+  local used = nil
+  if ctx and ctx.new_pack then
+    used = {}
+    for _, t in ipairs(cat.tech_list) do
+      if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used[ing[1]] = true end end
+    end
+  end
   for _, u in ipairs(cat.tech_list) do
     if not state.techs[u] and ev.tfeas[u] then
       local v, _, palier = Gen.value(cat, ev, state, u, { weights = w, wanted = ctx and ctx.wanted })
@@ -176,6 +185,12 @@ function Gen.chains(cat, ev, state, ctx)
           list[#list + 1] = n
         end
         walk(u)
+        local doable = used ~= nil
+        if doable then
+          for _, n in ipairs(list) do
+            for _, ing in ipairs(cat.techs[n].ingredients) do if not used[ing[1]] then doable = false end end
+          end
+        end
         if #list > 1 then
           local share = math.floor(Gen.CHAIN * wf(w, "recherche") / #list)
           for _, n in ipairs(list) do
@@ -187,6 +202,7 @@ function Gen.chains(cat, ev, state, ctx)
               if palier and (not fl.pack_len or #list < fl.pack_len) then fl.pack_len = #list end
               if not out[n] or share > out[n].v then out[n] = { v = share, target = u, len = #list } end
               out[n].wanted, out[n].pack_len = fl.wanted, fl.pack_len
+              if doable and palier and (not out[n].near_len or #list < out[n].near_len) then out[n].near_len = #list end
             end
           end
         end
@@ -282,6 +298,7 @@ end
 --- Le choix. ctx = { weights, wanted = { [objet] = vrai }, current = techno en cours, disabled = { [techno] = vrai },
 --- lab_speed, k1 = vrai (lot AUTO : automatisation allumée, règles K1 de Gen.k1) }. Rend une décision { tech, value, cost, score, palier, why, chain, ranked, blocked } ou nil (et la
 --- décision porte alors `blocked` : technologies de valeur impayables et leurs causes).
+Gen.PACK_NEAR = 10     -- lot PETROLE 2 (ctx.new_pack) : chaîne de technologies vers un pack fabricable, enchaînée jusqu'à ce nombre
 Gen.V_NEW_PACK = 100   -- lot PETROLE (ctx.new_pack) : PREMIÈRE technologie à consommer un pack fabricable jamais consommé
 function Gen.choose(cat, ev, state, ctx)
   ctx = ctx or {}
@@ -352,6 +369,37 @@ function Gen.choose(cat, ev, state, ctx)
       table.remove(cands, bi)
       table.insert(cands, 1, best)
       best.k1 = "pack nouveau"
+    end
+    -- … et la chaîne qui y MÈNE (lot PETROLE 2) : un joueur qui sait fabriquer le pack d'après ses ressources connues
+    -- (near_len : le pack est fabricable et toute la chaîne se recherche avec les packs déjà consommés, Gen.chains) enchaîne les technologies qui le débloquent au lieu de les mêler à
+    -- des recherches de faible valeur (moteur réel, etape1-guide 20261020 : « logistics », « gate » et 20 min de recherches
+    -- à 40 de valeur avant « engine », puis la chaîne du pétrole seulement à 43 min). La chaîne la plus COURTE (puis sa technologie la moins chère) passe en
+    -- tête, jamais devant un palier, un objet voulu ni un levier de la capitalisation.
+    if used_pack then
+      local top = cands[1]
+      local function urgent(c)
+        if c.palier == true or c.palier == "nouveau" then return true end
+        for _, w in ipairs(c.why or {}) do if w[1] == "wanted" or w[1] == "levier" then return true end end
+        return false
+      end
+      if top and not urgent(top) and top.k1 == nil then
+        local best2, bi2
+        for i, c in ipairs(cands) do
+          local ch = c.chain
+          local nl = ch and ch.near_len
+          if nl and nl <= Gen.PACK_NEAR then
+            local bl = best2 and best2.chain.near_len
+            if not best2 or nl < bl or (nl == bl and (c.cost < best2.cost or (c.cost == best2.cost and c.tech < best2.tech))) then
+              best2, bi2 = c, i
+            end
+          end
+        end
+        if best2 and bi2 > 1 then
+          table.remove(cands, bi2)
+          table.insert(cands, 1, best2)
+          best2.k1 = "chaine du pack nouveau"
+        end
+      end
     end
   end
   local d = cands[1] or { tech = nil }

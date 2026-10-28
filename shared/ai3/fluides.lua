@@ -1343,4 +1343,22 @@ function Fl.check(lay, ents)
   return true
 end
 
+--- Packs dont la chaîne est COMPLÈTE (lot PETROLE 2). rows = { { item, pack, ok } } : un objet à fabriquer pour un pack et
+--- si sa chaîne de cellules existe (Fl.chain n'est pas nil : gisement connu, eau). Rend { [pack] = vrai } pour les packs dont
+--- TOUS les objets ont leur chaîne. Un site n'est demandé que pour un pack complet : sa cellule sans fluide (le moteur) ne
+--- se bâtit pas des dizaines de minutes avant que le pétrole soit connu (moteur réel, etape1-guide 123456789 : cellule du
+--- moteur bâtie à 29 min, 21 moteurs fabriqués, jamais de pétrole ; fer au plus bas, 0 soldat à 60 min).
+function Fl.complete_packs(rows)
+  local seen, bad = {}, {}
+  for _, r in ipairs(rows or {}) do
+    if r.pack ~= nil then
+      seen[r.pack] = true
+      if not r.ok then bad[r.pack] = true end
+    end
+  end
+  local out = {}
+  for pack in pairs(seen) do if not bad[pack] then out[pack] = true end end
+  return out
+end
+
 return Fl

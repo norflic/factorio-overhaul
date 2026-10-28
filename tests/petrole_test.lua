@@ -158,6 +158,52 @@ local function run(d, label, names)
   check(d_on.tech ~= nil and newp, label .. " §2b pack nouveau : la recherche choisie consomme un pack jamais consommé (" .. tostring(d_on.tech) .. ")")
   local d_off = Gen.choose(cat, ev3, st2, {})
   say(label .. " §2b sans la règle : " .. tostring(d_off.tech) .. (consumes(d_off.tech or "") and " (consomme)" or " (ne consomme pas)"))
+  -- §2c la CHAÎNE qui mène au pack nouveau (Gen.PACK_NEAR) : packs rouge, vert et militaire acquis, pétrole connu, la
+  -- technologie choisie est la moins chère de la chaîne vers le pack chimique (moteur réel, etape1-guide 20261020 : la
+  -- chaîne du pétrole commençait à 43 min, après vingt minutes de recherches de faible valeur)
+  do
+    local st3 = { stock = {}, techs = {}, built = {}, known = st_known.known }
+    for _, t in ipairs({ names.auto2, names.mil_tech, names.defender }) do
+      for k in pairs(all_techs_before(cat, t)) do st3.techs[k] = true end
+      st3.techs[t] = true
+    end
+    local inchain = all_techs_before(cat, names.chem_tech)
+    inchain[names.chem_tech] = true
+    for k in pairs(st3.techs) do inchain[k] = nil end
+    local n_chain = 0
+    for _ in pairs(inchain) do n_chain = n_chain + 1 end
+    check(n_chain >= 4 and n_chain <= Gen.PACK_NEAR, label .. " §2c la chaîne restante tient dans Gen.PACK_NEAR (" .. n_chain .. ")")
+    local ev5 = Gen.prepare(cat, st3)
+    local on = Gen.choose(cat, ev5, st3, { new_pack = true })
+    check(inchain[on.tech or ""] == true, label .. " §2c la recherche choisie est sur la chaîne du pack chimique (" .. tostring(on.tech) .. ")")
+    -- tant que la chaîne dure, chaque pas reste sur elle (la moins chère d'abord)
+    local steps, cur = {}, on
+    local st4 = { stock = {}, techs = {}, built = {}, known = st3.known }
+    for k in pairs(st3.techs) do st4.techs[k] = true end
+    local ok_chain = true
+    for _ = 1, n_chain do
+      if not (cur.tech and inchain[cur.tech]) then ok_chain = false break end
+      steps[#steps + 1] = cur.tech
+      st4.techs[cur.tech] = true
+      cur = Gen.choose(cat, Gen.prepare(cat, st4), st4, { new_pack = true })
+    end
+    check(ok_chain, label .. " §2c chaque pas reste sur la chaîne : " .. table.concat(steps, " > "))
+    -- sans la règle (réglage éteint) : la chaîne n'est pas privilégiée
+    local off = Gen.choose(cat, ev5, st3, {})
+    say(label .. " §2c sans la règle : " .. tostring(off.tech))
+    -- mutant : la règle coupée (Gen.PACK_NEAR = 0) ne doit plus produire ce choix, ou le test est trop faible
+    local keep = Gen.PACK_NEAR
+    Gen.PACK_NEAR = 0
+    local mut = Gen.choose(cat, ev5, st3, { new_pack = true })
+    Gen.PACK_NEAR = keep
+    check(not inchain[mut.tech or ""] or mut.tech ~= on.tech or off.tech ~= on.tech,
+      label .. " §2c mutant : règle coupée, choix " .. tostring(mut.tech))
+    check(mut.tech ~= on.tech, label .. " §2c mutant refusé : sans la règle, la recherche choisie n'est plus celle de la chaîne (" .. tostring(mut.tech) .. ")")
+    -- un objet VOULU (tourelle) débloqué par une technologie prête ne recule pas derrière la chaîne
+    local w1 = Gen.choose(cat, ev5, st3, { new_pack = true, wanted = { [names.turret] = true } })
+    check(w1.tech == names.turret or inchain[w1.tech or ""] ~= true,
+      label .. " §2c un objet voulu ne recule pas derrière la chaîne (" .. tostring(w1.tech) .. ")")
+  end
   -- §3 chaîne
   local ch, why = Fl.chain(rel, info, { names.plastic_bar, names.sulfur_item }, { [names.water] = "pompe" })
   check(ch ~= nil, label .. " §3 chaîne plastique + soufre : " .. tostring(why))
@@ -291,7 +337,8 @@ local V = { crude = "crude-oil", pumpjack = "pumpjack", basic = "basic-oil-proce
   plastic = "plastic-bar", sulfur = "sulfur", chem = "chemical-plant", engine = "engine-unit", gear = "iron-gear-wheel",
   chem_tech = "chemical-science-pack", mil_tech = "military-science-pack", chem_pack = "chemical-science-pack", iron = "iron-ore", copper = "copper-ore",
   coal = "coal", stone = "stone", plastic_bar = "plastic-bar", sulfur_item = "sulfur", water = "water",
-  offshore = "offshore-pump", boiler = "boiler", steam = "steam-engine", pipe = "pipe", chest = "iron-chest", arm = "inserter", pole = "medium-electric-pole" }
+  offshore = "offshore-pump", boiler = "boiler", steam = "steam-engine", pipe = "pipe", chest = "iron-chest", arm = "inserter", pole = "medium-electric-pole",
+  auto2 = "automation-2", defender = "defender", turret = "gun-turret" }
 local _, rel0, ch0 = run(F.dump(), "vanilla", V)
 
 -- §7 exploration : les deux ressources inconnues les plus rentables sont explorées ensemble (la première ne cache plus la suivante)
@@ -577,6 +624,25 @@ local VR = {}
 for k, v in pairs(V) do VR[k] = rename(v) end
 local ok_r = pcall(run, d, "renomme", VR)
 check(ok_r, "§5 données renommées : le même code tourne")
+
+-- §9 packs complets (Fl.complete_packs) : aucun site pour un pack dont un objet n'a pas encore de chaîne (pétrole inconnu)
+do
+  local rows = { { item = "engine", pack = "chem", ok = true }, { item = "plastic", pack = "chem", ok = false },
+    { item = "sulfur", pack = "chem", ok = false }, { item = "gear2", pack = "mil", ok = true }, { item = "x", ok = false } }
+  local c = Fl.complete_packs(rows)
+  check(c.chem == nil, "§9 le pack dont le plastique n'a pas de chaîne n'est pas complet (le moteur n'est pas bâti seul)")
+  check(c.mil == true, "§9 un pack dont tous les objets ont une chaîne est complet")
+  check(next(c, next(c)) == nil, "§9 un objet sans pack ne crée aucun pack")
+  rows[2].ok, rows[3].ok = true, true
+  check(Fl.complete_packs(rows).chem == true, "§9 le pétrole connu : le pack devient complet et le site du moteur est demandé")
+  check(next(Fl.complete_packs({})) == nil and next(Fl.complete_packs(nil)) == nil, "§9 rien à fabriquer, aucun pack")
+  -- mutant : un seul objet sans chaîne suffit à retenir le pack, quel que soit son rang dans la liste
+  for i = 1, 3 do
+    local r2 = { { item = "a", pack = "p", ok = true }, { item = "b", pack = "p", ok = true }, { item = "c", pack = "p", ok = true } }
+    r2[i].ok = false
+    check(Fl.complete_packs(r2).p == nil, "§9 mutant refusé : l'objet " .. i .. " sans chaîne retient le pack")
+  end
+end
 
 print(string.format("[PETROLE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
