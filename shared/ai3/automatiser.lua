@@ -48,6 +48,7 @@
 local M = require("shared.team.modules")
 local T = require("shared.team.config")
 local D = require("shared.team.automatisation_donnees") -- lot IA3-e : ce que l'exécutant sait poser (données nommées)
+local Bk = require("shared.team.banque_fours") -- lot FOURS : banque de fours dimensionnée au flux
 local Book = require("shared.team.book") -- lot AUTO : livre de la main, pour A.exec_recipes (même règle que A.method_for)
 
 local A = {}
@@ -238,6 +239,22 @@ function A.add_executors(exec, recipes)
   return exec
 end
 
+--- Lot FOURS : paires de rangées d'une banque de fours pour produire `rate` objets/min, par la règle pure
+--- shared/team/banque_fours.lua. Le four (vitesse, combustible) vient de son prototype (M.spec), le temps et le minerai
+--- par objet de la recette (M.RECIPES) ; method.bank dit où sont le four et les paires dans args. nil : pas une banque.
+function A.bank_pairs(method, args, rate)
+  local b = method.bank
+  if not b then return nil end
+  local sp = M.spec(args[b.furnace])
+  local rec = M.RECIPES[method.product]
+  if not (sp and sp.speed and rec and rec.ingredients[1] and rec.products[1]) then return nil end
+  local per = rec.ingredients[1].amount / rec.products[1].amount
+  local fr = Bk.furnace({ speed = sp.speed, time = rec.time, fuel_kw = sp.burner_kw, fuel_kj = M.COAL_J })
+  local n = Bk.count(rate / 60 * per, fr.rate, Bk.COVER)
+  if not n or n < 1 then return nil end
+  return Bk.pairs(n)
+end
+
 --- Gabarit d'une méthode dimensionné au débit `rate` (objets/min du produit) : (résumé, args) ou nil, raison.
 function A.sized(method, rate, pole)
   local base, why = A.template(method.gen, method.args, pole)
@@ -249,6 +266,10 @@ function A.sized(method, rate, pole)
   if base.ext and base.ext.max >= 1 then
     local cur = args[base.ext.arg]
     local n = math.ceil(cur * rate / nom - 1e-9)
+    -- Lot FOURS : une banque de fours se dimensionne au FLUX de minerai et au débit des fours (prototypes), pas à la
+    -- demande de plaques proportionnée au gabarit de départ : jamais plus de fours que le flux n'en nourrit.
+    local nb = A.bank_pairs(method, args, rate)
+    if nb then n = nb end
     if n < 1 then n = 1 end
     if n > base.ext.max then n = base.ext.max end
     args[base.ext.arg] = n

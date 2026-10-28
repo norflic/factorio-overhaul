@@ -9,10 +9,14 @@ local D = {}
 
 -- Gabarits écrits (générateurs de shared/team/modules.lua), plus efficaces que la rangée générée depuis la recette :
 -- fonderies avec foreuses et tapis, îlots de circuits, packs. ext du gabarit : son paramètre agrandi ; ore : minerai servi
--- par des foreuses ; feed : têtes d'alimentation (« tapis » : voie de minerai par foreuses et tapis seulement).
+-- par des foreuses ; feed : têtes d'alimentation (« tapis » : voie de minerai par foreuses et tapis seulement) ; bank :
+-- le gabarit est une BANQUE DE FOURS (lot FOURS) et dit où sont, dans args, le four et le nombre de paires de rangées :
+-- A.sized la dimensionne au flux avec shared/team/banque_fours.lua au lieu de la proportionner à la demande.
 D.METHODS = {
-  { product = "iron-plate", gen = "smelter", args = { "stone-furnace", "iron-ore", 1 }, ore = "iron-ore", feed = "tapis" },
-  { product = "copper-plate", gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = "tapis" },
+  { product = "iron-plate", gen = "smelter", args = { "stone-furnace", "iron-ore", 1 }, ore = "iron-ore", feed = "tapis",
+    bank = { furnace = 1, pairs = 3 } },
+  { product = "copper-plate", gen = "smelter", args = { "stone-furnace", "copper-ore", 1 }, ore = "copper-ore", feed = "tapis",
+    bank = { furnace = 1, pairs = 3 } },
   { product = "iron-gear-wheel", gen = "gears", args = { 1, "assembling-machine-1" }, feed = true },
   { product = "electronic-circuit", gen = "circuits", args = { "assembling-machine-1", 1 }, feed = true },
   { product = "firearm-magazine", gen = "simple", args = { "firearm-magazine", 1, "assembling-machine-1" }, feed = true },
