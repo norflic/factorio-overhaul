@@ -1371,4 +1371,13 @@ function Fl.pick_unclaimed(list, taken)
   return nil
 end
 
+--- Un point de la liste est-il à r tuiles ou moins de d ? (gisements déjà essayés et refusés, lot PETROLE 2)
+function Fl.near_any(points, d, r)
+  local r2 = r * r
+  for _, p in ipairs(points or {}) do
+    if (p.x - d.x) ^ 2 + (p.y - d.y) ^ 2 <= r2 then return true end
+  end
+  return false
+end
+
 return Fl

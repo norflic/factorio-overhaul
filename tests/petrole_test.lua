@@ -659,5 +659,20 @@ do
   check(ignore(list).id == "a" and Fl.pick_unclaimed(list, pris({ a = true })).id ~= ignore(list).id, "§10 mutant refusé : ignorer la prise recopie le site voisin")
 end
 
+-- §11 gisements refusés (Fl.near_any) : le site refusé n'est pas redemandé au même gisement tant qu'un autre est connu
+do
+  local bad = { { x = 176, y = 336 } }
+  check(Fl.near_any(bad, { x = 176, y = 336 }, 24), "§11 le gisement refusé est reconnu")
+  check(Fl.near_any(bad, { x = 190, y = 350 }, 24), "§11 un puits du même gisement (à 20 tuiles) aussi")
+  check(not Fl.near_any(bad, { x = 400, y = 556 }, 24), "§11 un autre gisement n'est pas évité")
+  check(not Fl.near_any(nil, { x = 0, y = 0 }, 24) and not Fl.near_any({}, { x = 0, y = 0 }, 24), "§11 rien d'essayé : rien d'évité")
+  check(not Fl.near_any(bad, { x = 176, y = 361 }, 24), "§11 à 25 tuiles : hors du rayon (borne incluse à 24)")
+  local list = { { x = 176, y = 336, id = "a" }, { x = 400, y = 556, id = "b" } }
+  local pick = Fl.pick_unclaimed(list, function(d) return Fl.near_any(bad, d, 24) end)
+  check(pick and pick.id == "b", "§11 le gisement refusé cède la place au suivant")
+  -- mutant : sans mémoire des refus, le même gisement serait redemandé indéfiniment
+  check(Fl.pick_unclaimed(list, function(d) return Fl.near_any(nil, d, 24) end).id == "a", "§11 mutant refusé : sans mémoire, retour au premier gisement")
+end
+
 print(string.format("[PETROLE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

@@ -55,6 +55,7 @@ Pet.PUMPS = 8               -- places de pompe essayées au plus (la plus proche
 Pet.PLAN_SLICE = 600          -- nœuds d'A* au plus par passage du plan d'un site (environ 5 à 10 ms ; un plan de 120 000 nœuds : 200 passages)
 Pet.RETRY = 10 * 3600       -- un site refusé est revu 10 min plus tard
 Pet.CLAIM_R = 48           -- un gisement est PRIS si le site d'une autre équipe (demandé ou bâti) est à moins de 48 tuiles de lui
+Pet.BAD_R = 24             -- un gisement dont le site a été refusé est évité (le suivant est essayé) dans ce rayon
 Pet.GAIN = 3                -- PNJ « libérés » (valeur du projet de chantier, comme un module de l'automatisation)
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -745,7 +746,12 @@ local function decide(f, st, General, deposits, tick)
       if grp.res then
         local d = deposits and deposits(f, grp.res, tick)
         extractor = INFO.extract[grp.res] and INFO.extract[grp.res][1]
-        local pick = Fl.pick_unclaimed(d, function(dd) return claimed(f, grp.res, dd, INFO.extract[grp.res]) end)
+        local bad = st.bad and st.bad[grp.res]
+        local pick = Fl.pick_unclaimed(d, function(dd)
+          return Fl.near_any(bad, dd, Pet.BAD_R) or claimed(f, grp.res, dd, INFO.extract[grp.res])
+        end)
+        -- tous essayés (ou pris) : on recommence par le plus proche à la prochaine revue
+        if not pick and bad then st.bad[grp.res] = nil end
         if pick then x, y = pick.x, pick.y else ok = false end
       end
       if ok then
@@ -831,7 +837,15 @@ function Pet.think(f, view, book, tick, auto, General, deposits)
           note(f, st, tick, string.format("site '%s' (projet %d) : %s%s (%d/%d entites)", s.key, s.id, br.state,
             br.reason and (" (" .. br.reason .. ")") or "", br.built or 0, br.total or 0))
         end
-        if br.state == "refuse" then s.retry = tick + Pet.RETRY end
+        if br.state == "refuse" then
+          s.retry = tick + Pet.RETRY
+          -- le gisement refusé est évité à la revue (un autre gisement connu, s'il y en a un, est essayé d'abord)
+          if s.res and s.x then
+            st.bad = st.bad or {}
+            st.bad[s.res] = st.bad[s.res] or {}
+            if not Fl.near_any(st.bad[s.res], s, 1) then st.bad[s.res][#st.bad[s.res] + 1] = { x = s.x, y = s.y } end
+          end
+        end
         s.state = br.state
       end
       s.built, s.total, s.reason = br.built, br.total, br.reason
