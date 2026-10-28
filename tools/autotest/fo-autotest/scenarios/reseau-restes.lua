@@ -11,9 +11,8 @@ local TAG = "[FO-RESEAU-RESTES] "
 local function footprint(x, y) return { { x - 1.6, y - 1.1 }, { x + 1.6, y + 1.1 } } end
 
 local function can(s, check)
-  local q = { name = "boiler", position = { X, Y }, direction = defines.direction.north, force = "player" }
-  if check then q.build_check_type = check end
-  return s.can_place_entity(q)
+  return s.can_place_entity({ name = "boiler", position = { X, Y }, direction = defines.direction.north, force = "player",
+    build_check_type = check })
 end
 
 local function snapshot(ctx, label)

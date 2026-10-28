@@ -38,6 +38,7 @@ end
 
 function World:add(e)
   e.valid = true
+  e.destroy = e.destroy or function() e.valid = false end
   e.force = e.force or "fo-test"
   e.bounding_box = e.bounding_box or { left_top = { x = e.position.x - 0.5, y = e.position.y - 0.5 },
     right_bottom = { x = e.position.x + 0.5, y = e.position.y + 0.5 } }
@@ -68,6 +69,9 @@ function World:surface()
           if q.position then
             local dx, dy = e.position.x - (q.position[1] or q.position.x), e.position.y - (q.position[2] or q.position.y)
             ok = dx * dx + dy * dy <= (q.radius or 0) ^ 2 + 1e-9
+          end
+          if q.area then
+            ok = ok and e.position.x >= q.area[1][1] and e.position.x <= q.area[2][1] and e.position.y >= q.area[1][2] and e.position.y <= q.area[2][2]
           end
           if ok then out[#out + 1] = e end
         end
@@ -130,6 +134,7 @@ local function team(world)
 end
 
 local requested, poles_added, add_calls
+local debris, tree
 local api = {
   pole_of = function() return "small-electric-pole", 7.5 end,
   add_poles = function(f, q, list)
@@ -202,6 +207,13 @@ do
   run(f, w, 1200, 1200 * 3)
   w:remove(parts.boiler)
   w:remove(parts.engine)
+  -- restes de la chaudiere détruite : cadavre et objets au sol (neutres), plus un arbre voisin
+  debris = {
+    w:add({ name = "boiler-remnants", type = "corpse", force = "neutral", position = { x = 10, y = 10 } }),
+    w:add({ name = "item-on-ground", type = "item-entity", force = "neutral", position = { x = 9.5, y = 9.6 } }),
+    w:add({ name = "item-on-ground", type = "item-entity", force = "neutral", position = { x = 10.5, y = 10.4 } }),
+  }
+  tree = w:add({ name = "tree-01", type = "tree", force = "neutral", position = { x = 10.2, y = 9.9 } })
   run(f, w, 1200 * 4, 1200 * 6)
   local q = f.build.projects[1]
   check(unbuilt(q) == 2, "site sur : exactement 2 pièces rouvertes (la chaudière et la machine) : " .. unbuilt(q))
@@ -209,6 +221,8 @@ do
   check(q.state == "reserve", "site sur : le projet repasse en réserve (machinerie de pose habituelle) : " .. tostring(q.state))
   check(q.reopened == 1, "site sur : un seul comptage de réouverture")
   check(requested == nil, "site sur : pas de nouvelle centrale")
+  for _, d in ipairs(debris) do check(not d.valid or d.type == "tree", "reste neutre sur l'emprise retire : " .. d.type .. ":" .. d.name) end
+  check(tree.valid, "un arbre sur l'emprise n'est jamais retire par la reouverture")
   -- tant que le projet est rouvert, la santé attend (centrale pas finie) et ne rouvre pas une seconde fois
   run(f, w, 1200 * 7, 1200 * 14)
   check(q.reopened == 1, "projet rouvert : pas de seconde réouverture pendant la reconstruction")

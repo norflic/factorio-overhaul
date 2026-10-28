@@ -54,7 +54,25 @@ end
 local function is_pole(name) return name:find("electric%-pole") ~= nil end
 
 --- Rouvre : les pièces `ents` (marquées bâties mais absentes) redeviennent à bâtir ; le projet fini repasse en réserve.
-function Rv.reopen(q, ents, why)
+--- Retire les RESTES neutres (cadavres de machine, objets au sol) sur l'emprise de pièces à refaire : mesuré le 29/10 (essai court
+--- 20261020, journal [FO-IA1D]) : le fantôme d'une chaudière détruite était refusé « occupe » 11 min de suite, l'emprise portant un
+--- boiler-remnants et deux item-on-ground neutres, et le projet passait « bloque ». Ce que le PNJ ramasserait en passant ; rien d'autre
+--- n'est retiré (jamais un bâtiment, un arbre ou un joueur).
+local function clear_debris(surface, ents)
+  local n = 0
+  if not (surface and surface.find_entities_filtered) then return 0 end
+  for _, e in ipairs(ents) do
+    local w, h = P.size(e.name, e.dir or 0)
+    for _, d in ipairs(surface.find_entities_filtered({ area = { { e.x - w / 2, e.y - h / 2 }, { e.x + w / 2, e.y + h / 2 } },
+      type = { "corpse", "item-entity" }, force = "neutral" })) do
+      if d.valid then d.destroy() n = n + 1 end
+    end
+  end
+  return n
+end
+
+function Rv.reopen(q, ents, why, surface)
+  Rv.debris = (Rv.debris or 0) + clear_debris(surface, ents)
   for _, e in ipairs(ents) do
     e.built, e.ghosted, e.fails, e.npc_blocks = false, nil, 0, 0
   end
@@ -267,7 +285,7 @@ function Rv.step(api, f, surface, tick)
       if old then
         b.plant = old.id
         local _, lost = plant_read(f, surface, old)
-        Rv.reopen(old, lost, "reseau: centrale de remplacement refusee, retour sur place")
+        Rv.reopen(old, lost, "reseau: centrale de remplacement refusee, retour sur place", surface)
         say(f, tick, string.format("centrale de remplacement refusee (%s) : retour au site d'origine, %d piece(s) rouverte(s)",
           tostring(np and np.reason or "perdue"), #lost))
       end
@@ -328,7 +346,7 @@ function Rv.step(api, f, surface, tick)
   sv.last_why = ""
   sv.decisions = sv.decisions + 1
   if action == "reposer" then
-    Rv.reopen(pp, lost, "reseau: pieces de la centrale perdues")
+    Rv.reopen(pp, lost, "reseau: pieces de la centrale perdues", surface)
     S.applied(sv.st, action, tick)
     say(f, tick, string.format("centrale: %s ; %d piece(s) rouverte(s) (essai %d)", why, #lost, sv.st.tries))
   elseif action == "autre_site" then
@@ -396,10 +414,10 @@ function Rv.step(api, f, surface, tick)
       if owner then
         local ents = api.add_poles(f, owner, fresh)
         added = #ents
-        if added > 0 then Rv.reopen(owner, ents, "reseau: poteaux de couverture") end
+        if added > 0 then Rv.reopen(owner, ents, "reseau: poteaux de couverture", surface) end
       end
     end
-    for _, pid in ipairs(sorted_keys(per)) do Rv.reopen(per[pid].q, per[pid].ents, "reseau: poteaux perdus") end
+    for _, pid in ipairs(sorted_keys(per)) do Rv.reopen(per[pid].q, per[pid].ents, "reseau: poteaux perdus", surface) end
     S.applied(sv.st, action, tick)
     say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s), %d poteau(x) neuf(s) ajoute(s) (les autres : ennemis a %d tuiles ou tuile prise)", why,
       txt, n, added, Rv.POLE_ENEMY_R))
