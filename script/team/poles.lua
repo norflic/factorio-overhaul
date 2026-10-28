@@ -274,7 +274,7 @@ function Poles.think(f, view, book, tick, plan)
     if tick - org.mine_bad[res] < 7200 then skip[res] = true end
   end
   -- Lot MAINS : ni minage ni fonte de fond d'une matière que les machines fournissent déjà (saturée, module fini, débit mesuré).
-  local mine_auto, smelt_auto = Mains.skips(f, tick, #agents)
+  local mine_auto, smelt_auto = Mains.skips(f, tick, #agents, view.stock)
   for _, res in ipairs(State.sorted_keys(mine_auto)) do skip[res] = true end
   local free = Fond.free_stock(view.stock, list)
   local epoch = (f.tech or 0) + 1

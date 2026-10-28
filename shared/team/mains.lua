@@ -106,7 +106,8 @@ end
   M.reason(item, c) -> "sature" | "module" | "debit" | nil
     c = { saturated = {[objet]=vrai}, modules = {[objet]=vrai}, need = {[objet]=n} (besoin prévu, manque et plancher
           compris), flow = {[objet] = {rate = débit automatique par minute, n = minutes mesurées}},
-          hand = {[objet] = unités par minute d'UN PNJ au minage à la main (mesuré)} }
+          hand = {[objet] = unités par minute d'UN PNJ au minage à la main (mesuré)},
+          stock = {[objet] = stock de l'équipe} (facultatif ; « module » et « debit » exigent stock >= besoin quand il est donné) }
   M.skips(chains, c) -> mine_skip {[ressource]=raison}, smelt_skip {[plaque]=raison}
 ]]
 M.COVER_MIN = 10    -- minutes : le débit automatique doit livrer le besoin prévu en une fenêtre (A.WINDOW de l'automatisation)
@@ -147,8 +148,12 @@ function M.reason(item, c)
   local fl = c.flow and c.flow[item]
   local hand = (c.hand and c.hand[item]) or M.HAND_RATE
   -- Le débit automatique mesuré livre le besoin prévu sur la fenêtre (mesure assez longue, débit non nul).
+  -- ET le stock de l'équipe atteint déjà ce besoin (c.stock) : sinon la demande est bridée par la pénurie, le « besoin » prévu
+  -- la sous-estime et des PNJ attendraient la matière les bras ballants (Azure, 20 à 25 min : fer à 0, 63 à 69 % d'inactifs).
+  local need = (c.need and c.need[item]) or 0
   local delivers = fl and (fl.n or 0) >= M.MIN_SAMPLES and (fl.rate or 0) > 0
-    and fl.rate * M.COVER_MIN >= ((c.need and c.need[item]) or 0)
+    and fl.rate * M.COVER_MIN >= need
+    and (c.stock == nil or (c.stock[item] or 0) >= need)
   -- « module » : un module fini la livre ET son débit mesuré livre le besoin (un module qui tourne à moitié de sa cible ne
   -- couvre pas une équipe qui manque : mesuré au moteur réel, la faction Azure restait sans fer et ses PNJ sans travail).
   if c.modules and c.modules[item] and delivers then return "module" end

@@ -101,12 +101,12 @@ local function sample(f, st, tick)
 end
 
 --- Matières à ne pas travailler à la main de fond : mine_skip { [ressource] = raison }, smelt_skip { [plaque] = raison }.
-function M.skips(f, tick, workers)
+function M.skips(f, tick, workers, stock)
   local st = state_of(f)
   sample(f, st, tick)
   local ia = f.team.ia3
   local floor = Br.need_floor(workers or f.engineers_count or 0, B.NEED_FLOOR)
-  local c = { saturated = ia and ia.saturated or {}, modules = ia and ia.covered or {}, need = {}, flow = {}, hand = {} }
+  local c = { saturated = ia and ia.saturated or {}, modules = ia and ia.covered or {}, need = {}, flow = {}, hand = {}, stock = stock }
   for _, ch in ipairs(CHAINS) do
     c.need[ch.product] = math.max(floor, ia and ia.need and ia.need[ch.product] or 0)
     local fl = st.flow[ch.product]

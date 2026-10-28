@@ -743,7 +743,7 @@ function Ia3.plan(f, view, book, surface, tick)
     spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto,
     -- Lot MAINS : ressources que les machines fournissent déjà (pas de minage d'appoint à la main).
-    hand_skip = (Mains.skips(f, tick, view.workers)),
+    hand_skip = (Mains.skips(f, tick, view.workers, view.stock)),
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     capi = capi } -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)

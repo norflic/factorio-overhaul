@@ -66,12 +66,23 @@ local function rule_checks(M, Tcfg)
     return { saturated = o.sat or {}, modules = o.mod or {}, need = o.need or {}, flow = o.flow or {}, hand = o.hand or {} }
   end
   local function flow(rate, n) return { rate = rate, n = n } end
+  local K0, H0 = M.MARGINAL, M.HAND_RATE
 
   -- Cas de la règle.
   check(M.reason(P, ctx({ sat = { [P] = true } })) == "sature", "saturée : couverte (sature)")
   check(M.reason(P, ctx({ mod = { [P] = true }, need = { [P] = 100 }, flow = { [P] = { rate = 10, n = 5 } } })) == "module",
     "module fini dont le débit mesuré couvre le besoin : couverte (module)")
   check(M.reason(P, ctx({ mod = { [P] = true } })) == nil, "module fini sans débit mesuré : pas couverte")
+  do -- stock de l'équipe : le débit ne couvre que si le stock atteint déjà le besoin (pénurie : la demande est bridée)
+    local c1 = ctx({ mod = { [P] = true }, need = { [P] = 100 }, flow = { [P] = { rate = 10, n = 5 } } })
+    c1.stock = { [P] = 99 }
+    check(M.reason(P, c1) == nil, "module fini, débit couvrant, mais stock sous le besoin : pas couverte (Azure, 20 min)")
+    c1.stock = { [P] = 100 }
+    check(M.reason(P, c1) == "module", "module fini, stock = besoin : couverte (égalité comprise)")
+    local c2 = ctx({ need = { [P] = 100 }, flow = { [P] = flow(K0 * H0, 5) } })
+    c2.stock = { [P] = 0 }
+    check(M.reason(P, c2) == nil, "débit couvrant, stock vide : pas couverte")
+  end
   check(M.reason(P, ctx({ mod = { [P] = true }, need = { [P] = 101 }, flow = { [P] = { rate = 10, n = 5 } } })) == nil,
     "module fini dont le débit mesuré est sous le besoin (Azure, 28/10) : pas couverte")
   check(M.reason(P, ctx({ mod = { [P] = true }, need = { [P] = 100 }, flow = { [P] = { rate = 10, n = 2 } } })) == nil,
@@ -168,7 +179,7 @@ do
     local sum = 0
     for i = #samples - k + 1, #samples do sum = sum + math.max(0, samples[i].total - samples[i].hand) end
     -- sum / k = débit par minute : couvre le besoin sur 10 minutes (entiers : sum x 10 >= besoin x k)
-    local delivers = sum > 0 and sum * 10 >= need * k
+    local delivers = sum > 0 and sum * 10 >= need * k and stock >= need
     if module and delivers then return "module" end
     -- ... ET vaut 4 PNJ de minage (entiers : sum >= 4 x hand x k)
     if delivers and sum >= 4 * hand * k then return "debit" end
@@ -184,7 +195,7 @@ do
     local samples = {}
     for i = 1, k do samples[i] = { total = rnd(400), hand = rnd(3) == 0 and rnd(80) or 0 } end
     local rate, n = Mains.auto_flow(samples)
-    local c = { saturated = {}, modules = { [P] = module or nil }, need = { [P] = need },
+    local c = { saturated = {}, modules = { [P] = module or nil }, need = { [P] = need }, stock = { [P] = stock },
       flow = { [P] = { rate = rate, n = n } }, hand = { [P] = hand } }
     if need > 0 and stock >= B.SAT_FACTOR * need then c.saturated[P] = true end
     local got = Mains.reason(P, c)
@@ -376,7 +387,7 @@ do
   local src = read("shared/team/mains.lua")
   local mutants = {
     { "débit sans minimum de mesure", "(fl.n or 0) >= M.MIN_SAMPLES", "(fl.n or 0) >= 0" },
-    { "égalité exclue", "fl.rate * M.COVER_MIN >= ((c.need", "fl.rate * M.COVER_MIN > ((c.need" },
+    { "égalité exclue", "fl.rate * M.COVER_MIN >= need", "fl.rate * M.COVER_MIN > need" },
     { "marge sur le minage à la main ignorée", "if delivers and fl.rate >= M.MARGINAL * hand then", "if delivers then" },
     { "rendement mesuré ignoré", "local hand = (c.hand and c.hand[item]) or M.HAND_RATE", "local hand = M.HAND_RATE" },
     { "rendement mesuré sur mesure trop courte", "if (secs or 0) < M.HAND_MIN_SECS then return nil end", "if (secs or 0) <= 0 then return nil end" },
@@ -384,13 +395,14 @@ do
     { "débit négatif admis", "math.max(0, (s.total or 0) - (s.hand or 0))", "((s.total or 0) - (s.hand or 0))" },
     { "saturation ignorée", 'if c.saturated and c.saturated[item] then return "sature" end', "" },
     { "module ignoré", 'if c.modules and c.modules[item] and delivers then return "module" end', "" },
+    { "stock de l'équipe ignoré", "and (c.stock == nil or (c.stock[item] or 0) >= need)", "" },
     { "module sans le débit mesuré", 'if c.modules and c.modules[item] and delivers then return "module" end', 'if c.modules and c.modules[item] then return "module" end' },
     { "fonte écartée aussi pour un produit brut", "if ch.smelted then smelt[ch.product] = why end", "smelt[ch.product] = why" },
     { "fenêtre sans limite", "local first = math.max(1, n - M.COVER_MIN + 1)", "local first = 1" },
     { "minerai écarté sous le nom du produit", "mine[ch.resource] = why", "mine[ch.product] = why" },
     { "toute chaîne dite fondue", "smelted = input ~= nil and input[1] == spec.resource", "smelted = true" },
     { "débit d'une autre matière", "local fl = c.flow and c.flow[item]", "local fl = c.flow and c.flow[next(c.flow)]" },
-    { "besoin ignoré", "    and fl.rate * M.COVER_MIN >= ((c.need and c.need[item]) or 0)\n", "\n" },
+    { "besoin ignoré", "    and fl.rate * M.COVER_MIN >= need\n", "\n" },
     { "débit nul accepté", "and (fl.rate or 0) > 0\n", "\n" },
   }
   for _, m in ipairs(mutants) do
