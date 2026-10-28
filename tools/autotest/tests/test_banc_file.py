@@ -446,6 +446,21 @@ pb, per = banc.diagnostic(d, 2000.0, sig, 0, fin=lambda p: True)
 verifie(len(pb) == 1 and "done.txt absent" in pb[0], "diagnostic : done.txt absent")
 pb, per = banc.diagnostic(os.path.join(tmp, "nexistepas"), 2000.0, {}, 0, fin=lambda p: True)
 verifie(len(pb) == 4, "diagnostic : dossier de la place absent = 4 fichiers absents")
+# fin_de_benchmark (28/10 : faux ECHEC code 12 sur les longues parties) : « Performed » est AVANT le tableau CSV par tick
+# (plus de 1 Mo), pas dans les 64 derniers Ko ; une ligne coupée par la frontière d'un bloc est aussi trouvée.
+gros = os.path.join(tmp, "gros-stdout.txt")
+with open(gros, "wb") as fh:
+    fh.write(b"debut\nPerformed 216300 updates in 145348 ms\n" + b"t1,12345,6789\n" * 200000)
+verifie(banc.fin_de_benchmark(gros), "fin_de_benchmark : « Performed » au début d'un fichier de plus de 2 Mo est trouvé")
+coupe = os.path.join(tmp, "coupe-stdout.txt")
+with open(coupe, "wb") as fh:
+    fh.write(b"x" * ((1 << 20) - 4) + b"Performed 5 updates\n" + b"y" * 3000)
+verifie(banc.fin_de_benchmark(coupe), "fin_de_benchmark : « Performed » coupé par la frontière d'un bloc de 1 Mo est trouvé")
+vide = os.path.join(tmp, "sans-stdout.txt")
+with open(vide, "wb") as fh:
+    fh.write(b"t1,12345,6789\n" * 200000)
+verifie(not banc.fin_de_benchmark(vide), "fin_de_benchmark : fichier sans « Performed » (jeu interrompu) = faux")
+verifie(not banc.fin_de_benchmark(os.path.join(tmp, "absent-stdout.txt")), "fin_de_benchmark : fichier absent = faux")
 
 # 11. Rien ne reste.
 reste = [d for d in os.listdir(tmp) if d.endswith(".lock")]
