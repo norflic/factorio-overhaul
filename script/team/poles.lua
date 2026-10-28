@@ -33,6 +33,7 @@ local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Registry = require("script.companion.registry")
 local Board = require("script.team.board")
+local Mains = require("script.team.mains") -- lot MAINS : matières que les machines fournissent déjà
 
 local Poles = {}
 
@@ -272,6 +273,9 @@ function Poles.think(f, view, book, tick, plan)
   for _, res in ipairs(State.sorted_keys(org.mine_bad or {})) do
     if tick - org.mine_bad[res] < 7200 then skip[res] = true end
   end
+  -- Lot MAINS : ni minage ni fonte de fond d'une matière que les machines fournissent déjà (saturée, module fini, débit mesuré).
+  local mine_auto, smelt_auto = Mains.skips(f, tick, #agents)
+  for _, res in ipairs(State.sorted_keys(mine_auto)) do skip[res] = true end
   local free = Fond.free_stock(view.stock, list)
   local epoch = (f.tech or 0) + 1
   local mine_cap = O.manual_cap(n_exec, epoch)
@@ -329,7 +333,7 @@ function Poles.think(f, view, book, tick, plan)
   local cands
   if fond_on then
     local player = f.is_player or false
-    cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
+    cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, smelt_skip = smelt_auto, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
       defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
       no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,

@@ -22,6 +22,8 @@
     free : stock LIBRE (stock du QG moins ce que les tâches ouvertes du cerveau y ont réservé ; table modifiée) ;
     ctx  : { book (livre de recettes, shared/team/book.lua), keys = { [clé] = vrai } (tâches déjà au tableau),
              mine_left = minages à la main encore permis (plafond O.manual_cap moins ceux en cours),
+             mine_skip / smelt_skip (lot MAINS) = { [ressource | plaque] = raison } : matières que les machines fournissent
+             déjà, ni minées ni fondues de fond (shared/team/mains.lua ; les tâches d'urgence du cerveau restent),
              reserve = surcharge de F.RESERVE (facultatif),
              lot IA1-b2 (D-17) : defend_first (tourelle possible : un nouvel avant-poste se bâtit avec ses tourelles),
              undefended = { [id] = vrai } avant-postes où l'on ne va pas (shared/team/planner.lua, P.no_go),
@@ -160,7 +162,8 @@ local function extraction(view, free, ctx, out)
     for _, p in ipairs({ "iron-plate", "copper-plate" }) do
       local input = T.smelter_inputs[p]
       local ore = input and (free[input[1]] or 0) or 0
-      if ore >= F.SMELT_MIN then
+      -- Lot MAINS : une plaque que les machines fournissent déjà (ctx.smelt_skip, shared/team/mains.lua) n'est pas fondue de fond
+      if ore >= F.SMELT_MIN and not (ctx.smelt_skip and ctx.smelt_skip[p]) then
         smelt[p] = math.min(F.SMELT_BATCH, math.floor(ore / input[2]))
         any = true
       end
