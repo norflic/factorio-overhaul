@@ -151,6 +151,10 @@ return function(opts)
                   if w then
                     w.destructible = false
                     ev.worm = { x = p.x, y = p.y }
+                    local fr = game.forces[ev.force]
+                    local seen = s.find_nearest_enemy({ position = site, max_distance = DANGER, force = ev.force })
+                    log(TAG .. string.format("%s | dangereux | le moteur voit le ver depuis le site : %s ; cessez-le-feu avec enemy=%s ; ami=%s",
+                      ev.key, tostring(seen ~= nil), tostring(fr and fr.get_cease_fire("enemy")), tostring(fr and fr.get_friend("enemy"))))
                     break
                   end
                 end
