@@ -140,7 +140,7 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 4. Factions : étape « explore » du cerveau pour une ressource jamais vue
 ---------------------------------------------------------------------------------------------------
-local function faction_world(p_nopath, no_oil_brain)
+local function faction_world(p_nopath)
   local out = {}
   local d = 0.7071
   local names = { "coal", "iron-ore", "copper-ore", "stone" }
@@ -152,16 +152,12 @@ local function faction_world(p_nopath, no_oil_brain)
   end
   -- Pétrole loin du QG nord-est (226, -226) : à 620 tuiles vers l'est-nord-est.
   out[#out + 1] = { x = 820, y = -400, name = "crude-oil", amount = 300000 }
-  -- no_oil_brain : réglage fo-war-petrole éteint (lot PETROLE 2, allumé par défaut). Allumé, le cerveau demande LUI-MÊME le pétrole
-  -- (demande « cerveau », épuisée au bout de ses missions puis reprise 10 min plus tard) en plus de la demande de ce test : la
-  -- suite des tirages de chemins ratés change et §6 (reprise d'un chemin raté, pas le pétrole des factions) ne le trouve plus en
-  -- 30 min. Fait noté pour le lot d'exploration : la demande propre au cerveau s'épuise avant le pétrole lointain.
-  M.new_game({ patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0, petrole = not no_oil_brain })
+  M.new_game({ patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0 })
   check(remote.call("factorio-overhaul", "war_start", 4, 20, 4, 320) == true, "guerre lancée (4 factions, 4 PNJ)")
 end
 
-local function run_oil(p_nopath, no_oil_brain)
-  faction_world(p_nopath, no_oil_brain)
+local function run_oil(p_nopath)
+  faction_world(p_nopath)
   M.run_ticks(3 * 3600)
   local war = global.fo.war
   local f1 = war.factions[1]
@@ -211,7 +207,7 @@ check(oilb == snap1.oil and f1b.ai3f.m.n == snap1.n and st5.stats.looks == snap1
 -- 6. Lot IA-V2 (moteur réel, ia3c-reduit graine 20261020 : Écarlate, 32 missions sur 33 finies sur « chemin » EN ROUTE,
 -- puis retour à pied au QG) : chemins introuvables au hasard (30 % des demandes) : la mission prend une autre cible
 -- depuis là où est l'éclaireur, et le pétrole est trouvé quand même.
-local f6, asked6, t6, oil6 = run_oil(0.3, true)
+local f6, asked6, t6, oil6 = run_oil(0.3)
 local rer = count_logs("chemin rate en route, autre cible")
 local ends = count_logs("fin : chemin")
 print(string.format("  chemins rates en route repris : %d ; missions finies sur chemin : %d ; petrole a %s min", rer, ends,
