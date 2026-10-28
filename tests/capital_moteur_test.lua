@@ -49,7 +49,7 @@ local function box(x0, y0, x1, y1) return { left_top = { x = x0, y = y0 }, right
 local function world(on)
   -- Allumé : réglage fo-war-capital allumé (option du moteur simulé) ; témoin : réglage à son défaut du jeu (ÉTEINT).
   M.new_world({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0, difficulty = "normal",
-    groups_hit_player = true, turrets_kill = true, capital = on })
+    groups_hit_player = true, turrets_kill = true, capital = on, remplacer = false })
   local w = W()
   -- Recette du centre (prototypes/levels/common.lua) et objets du coût.
   w.recipes["fo-command-center"] = { name = "fo-command-center", category = "crafting", energy = 5, enabled = true,

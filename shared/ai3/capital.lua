@@ -72,6 +72,10 @@ Cap.GOAL_EPOCH = 6
 -- (tests/capital_moteur_test.lua, 45 min, Normal), les mitrailleuses servies avant l'armée prenaient son fer (59
 -- améliorations, 214 soldats envoyés contre 329 au témoin) ; servies après, elles n'ont que ce que l'armée laisse.
 Cap.SHORT_WORK = 800
+-- Lot AMELIORER : machines HORS des familles à niveaux (celles que les équipes posent réellement avant la première
+-- machine d'une famille : four de pierre, premier assembleur) remplacées SUR PLACE par la machine supérieure, lue dans
+-- les prototypes (Cap.successors). Au plus Cap.REPLACE_BATCH machines identiques par décision (un paiement par pensée).
+Cap.REPLACE_BATCH = 4
 
 local function sorted_keys(t)
   local ks = {}
@@ -145,6 +149,112 @@ function Cap.work_cost(list, ctx)
   return math.floor(c + 0.5), missing, all_in
 end
 
+
+--- Une table de catégories (nom -> vrai) en couvre-t-elle une autre ?
+local function covers(big, small)
+  for k in pairs(small or {}) do
+    if not (big and big[k]) then return false end
+  end
+  return true
+end
+
+--- Lot AMELIORER : machines vers lesquelles `name` se remplace sur place, lues dans les PROTOTYPES (ctx.mproto(nom) ->
+--- { type, group (groupe de remplacement rapide), w, h (emprise), energy (sorte d'énergie), cats (catégories de fabrication,
+--- nom -> vrai), speed, item (objet qui la pose) } ; ctx.machines = noms des machines connues, triés). Une cible a le même
+--- type, le même groupe de remplacement rapide, la même emprise et la même sorte d'énergie, fait au moins les mêmes
+--- catégories, va plus vite, et n'est jamais un niveau supérieur à 1 d'une famille (ceux-là sont l'amélioration
+--- ordinaire, qui exige le centre). Rend les noms triés : vitesse croissante, puis nom. Aucun nom écrit ici.
+function Cap.successors(Ld, ctx, name)
+  local p0 = ctx.mproto and ctx.mproto(name)
+  if not (p0 and p0.group and (p0.speed or 0) > 0) then return {} end
+  local out = {}
+  for _, t in ipairs(ctx.machines or {}) do
+    local p1 = (t ~= name) and ctx.mproto(t) or nil
+    if p1 and p1.item and p1.type == p0.type and p1.group == p0.group and p1.w == p0.w and p1.h == p0.h
+        and p1.energy == p0.energy and (p1.speed or 0) > p0.speed and covers(p1.cats, p0.cats) then
+      local fam, n = Ld.parse(t)
+      if fam == nil or n == 1 then out[#out + 1] = t end
+    end
+  end
+  table.sort(out, function(a, b)
+    local sa, sb = ctx.mproto(a).speed, ctx.mproto(b).speed
+    if sa ~= sb then return sa < sb end
+    return a < b
+  end)
+  return out
+end
+
+--- Candidats « remplacer » (lot AMELIORER) : pour chaque machine du relevé (census.machines : { id, name, working }, triées
+--- par id) hors famille à niveaux, la cible de meilleur score (valeur ÷ coût) parmi ses successeurs payables ; les machines
+--- de même (source, cible) forment UN candidat (au plus Cap.REPLACE_BATCH, moins si le stock libre en tient moins). Valeur
+--- = gain de vitesse × usage (en marche : 1, à l'arrêt : Cap.IDLE_USE) × Cap.V_DEBIT, comme un bâtiment à niveaux.
+--- Rend candidats (non scorés), impayables (cible sans coût connu : la recherche qui la débloque n'est PAS réclamée).
+function Cap.replace_candidates(Ld, census, ctx)
+  local out, blocked = {}, {}
+  if not (ctx.mproto and census.machines) then return out, blocked end
+  local groups, order = {}, {}
+  local blocked_seen = {}
+  local machines = {}
+  for i, m in ipairs(census.machines) do machines[i] = m end
+  table.sort(machines, function(a, b) return a.id < b.id end)
+  for _, m in ipairs(machines) do
+    if Ld.parse(m.name) == nil and not (ctx.exclude and ctx.exclude["m:" .. m.id]) then
+      local p0 = ctx.mproto(m.name)
+      local best
+      local first_missing
+      for _, t in ipairs(Cap.successors(Ld, ctx, m.name)) do
+        local p1 = ctx.mproto(t)
+        local g = p1.speed / p0.speed - 1
+        local use = m.working and 100 or Cap.IDLE_USE
+        local v = math.floor(Cap.V_DEBIT * g * use / 100 * wf(ctx.weights, "capital") + 0.5)
+        local cost, missing = Cap.work_cost({ { p1.item, 1 } }, ctx)
+        -- « Dès qu'elle est débloquée » : une cible que la force ne sait pas encore fabriquer (recette désactivée, ctx.available)
+        -- attend ; sa recherche n'est pas réclamée (no_want) et son coût de recherche n'entre pas dans le choix.
+        if #missing == 0 and ctx.available and not ctx.available(p1.item) then missing = { p1.item } end
+        if #missing > 0 then
+          first_missing = first_missing or { to = t, causes = missing }
+        elseif v > 0 then
+          local score = v * 1000 / (cost + Cap.COST_FLOOR)
+          if not best or score > best.score then best = { to = t, v = v, score = score, item = p1.item } end
+        end
+      end
+      if best then
+        local gk = m.name .. ">" .. best.to
+        local grp = groups[gk]
+        if not grp then
+          grp = { from = m.name, to = best.to, item = best.item, ids = {}, value = 0 }
+          groups[gk] = grp
+          order[#order + 1] = gk
+        end
+        grp.ids[#grp.ids + 1] = m.id
+        grp.value = grp.value + best.v
+        grp.vals = grp.vals or {}
+        grp.vals[#grp.vals + 1] = best.v
+      elseif first_missing then
+        local bk = "remplacer:" .. m.name .. ">" .. first_missing.to
+        if not blocked_seen[bk] then
+          blocked_seen[bk] = true
+          blocked[#blocked + 1] = { key = bk, family = "remplacer", from = 0, to = 1, value = 0, causes = first_missing.causes,
+            no_want = true, cost = { { ctx.mproto(first_missing.to).item, 1 } } }
+        end
+      end
+    end
+  end
+  table.sort(order)
+  for _, gk in ipairs(order) do
+    local grp = groups[gk]
+    local have = (ctx.stock or {})[grp.item] or 0
+    local n = math.max(1, math.min(Cap.REPLACE_BATCH, #grp.ids, have))
+    local ids, value = {}, 0
+    for i = 1, n do ids[i] = grp.ids[i]; value = value + grp.vals[i] end
+    out[#out + 1] = { key = "remplacer:" .. gk .. ":" .. ids[1], id = ids[1], ids = ids, family = "remplacer", from = 0, to = 1,
+      cost = { { grp.item, n } }, value = value, replace = { from = grp.from, to = grp.to, n = n },
+      why = { { "debit", math.floor((ctx.mproto(grp.to).speed / ctx.mproto(grp.from).speed - 1) * 1000 + 0.5) / 10 },
+        { "machines", n } } }
+  end
+  return out, blocked
+end
+
 --- Candidats. census = { list = { {id, name, working} } (bâtiments à niveaux, triés par id), center = { id, name } ou
 --- nil } ; ctx = { proto, unit_cost, stock, weights, threat, current }. Rend { cands (triés : score décroissant, clé),
 --- blocked (impayables ou bloqués, triés), center_fam, blockers }.
@@ -214,7 +324,7 @@ function Cap.candidates(Ld, census, ctx)
   end
   -- Centre : le poser (aucun) ou le monter. Valeur = l'époque + ce que son plafond débloque (÷ LOOK_DIV).
   local blockers = {}
-  if cfam then
+  if cfam and not census.no_center then -- no_center : votre équipe (lot AMELIORER), ni centre ni bâtiments du joueur
     local cap_now = cc_level > 0 and Ld.building_cap(cc_level) or Ld.building_cap(0)
     local unlocked = 0
     for _, o in ipairs(own) do
@@ -256,6 +366,10 @@ function Cap.candidates(Ld, census, ctx)
     end
   end
   for _, r in ipairs(rows) do if r.cand then add(r.cand) end end
+  -- Lot AMELIORER : machines hors famille remplacées sur place par la machine supérieure.
+  local rep, rep_blocked = Cap.replace_candidates(Ld, census, ctx)
+  for _, c in ipairs(rep) do add(c) end
+  for _, c in ipairs(rep_blocked) do blocked[#blocked + 1] = c end
   table.sort(cands, function(a, b)
     if a.score ~= b.score then return a.score > b.score end
     return a.key < b.key
@@ -281,7 +395,8 @@ function Cap.choose(Ld, census, ctx)
   local wanted = {}
   for _, b in ipairs(res.blocked) do
     for _, c in ipairs(b.causes or {}) do
-      if c:sub(1, 10) ~= "condition:" then wanted[c] = true end
+      -- Une machine à remplacer dont la cible n'est pas encore faisable n'attire pas la recherche : elle attend (no_want).
+      if c:sub(1, 10) ~= "condition:" and not b.no_want then wanted[c] = true end
     end
   end
   d.wanted = wanted
@@ -302,7 +417,7 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and d.work <= Cap.SHORT_WORK) or nil }
+    short = (d.center and d.work ~= nil and d.work <= Cap.SHORT_WORK) or nil, replace = d.replace and true or nil }
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
@@ -319,7 +434,7 @@ function Cap.emit(P)
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
       return "ok"
     end
-    if not g.center and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
+    if not g.center and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
     return "matiere"
   end
