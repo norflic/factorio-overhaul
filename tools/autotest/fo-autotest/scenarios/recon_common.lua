@@ -7,7 +7,7 @@
       toute attaque proposée par la sonde `recon_probe` refusée (et comptée) ;
     - « voisines » (60) : leurs QG sont à portée des yeux du chef (160 tuiles). Attendu : chacune VOIT l'autre (QG et avant-
       postes, statut fraîche), la sonde accepte l'attaque, aucun soldat envoyé en reconnaissance ;
-    - « attaque » (60, 50 min, 40 000 plaques) : les mêmes voisines, jouées assez longtemps pour qu'une attaque entre factions PARTE : preuve en
+    - « attaque » (60, 50 min, 40 000 plaques ; ABANDONNÉ : les factions y restent en survie sous les bitters et n'attaquent pas d'elles-mêmes en 50 min, fo-logs/2026-10-28_RECON3/attaque-2) : les mêmes voisines, jouées assez longtemps pour qu'une attaque entre factions PARTE : preuve en
       moteur réel du critère central, « où elles se voient, l'attaque part » (ligne [FO-STRAT] attaque ... savoir N min, lue
       par tools/autotest/recon_mesures.py).
   Journal : [FO-RECON-<CAS>] ; lignes du mod : [FO-RECON]. Lancement : fo-autotest.bat nopause <ticks> recon-<cas> <source>.
@@ -32,6 +32,16 @@ return function(case, distance, ticks)
     end,
 
     tick = function(ctx, e)
+      -- « voisines » : preuve en moteur réel que l'attaque PART après une vue (les parties de 50 min restent en « survie » sous la
+      -- pression des bitters : aucune attaque spontanée). 2 000 ticks avant le contrôle, la 1re faction lance une vraie attaque
+      -- de 2 soldats contre la 2e (Military.attack : filet de connaissance, chemin, groupe, ligne « [FO-STRAT] attaque … savoir
+      -- N min »).
+      if case == "voisines" and e.tick == ticks - 2400 then
+        local r = status(ctx)
+        local a, b = r.factions[1], r.factions[2]
+        local ok = a and b and ctx.call("recon_force_attack", a.key, b.key, 2)
+        ctx.log(TAG .. "attaque forcee " .. tostring(a and a.key) .. " -> " .. tostring(b and b.key) .. " : " .. tostring(ok))
+      end
       if e.tick % 1800 ~= 0 or e.tick == 0 then return end
       local r = status(ctx)
       local parts = {}
@@ -78,6 +88,8 @@ return function(case, distance, ticks)
         ctx.check(seen_all, "chaque faction a vu l'autre (QG a portee des yeux)")
         ctx.check(pa == true and pb == true, "la sonde accepte l'attaque d'une rivale vue", tostring(pa) .. "/" .. tostring(pb))
         ctx.check(scouts == 0, "aucun soldat envoye en reconnaissance quand la rivale est vue", scouts)
+        local ka = r.factions[1] and r.factions[1].know_age
+        ctx.check(ka ~= nil and ka <= 20 * 3600, "l'attaque lancee apres la vue part avec un savoir frais (age en ticks)", tostring(ka))
       end
     end,
   }

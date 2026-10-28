@@ -164,6 +164,7 @@ function Military.attack(f, surface, target_faction, count, tick, opts)
   if Military.attack_known then
     known, know_age = Military.attack_known(f, target_faction, tick)
     if not known then return false end
+    if know_age then f.stats.last_know_age = know_age end -- lot RECON : âge du savoir de la dernière attaque lancée (bancs)
   end
   opts = opts or {}
   local target = opts.target or Military.target_of(target_faction, f.hq_pos)

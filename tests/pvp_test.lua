@@ -1084,6 +1084,12 @@ end
 local function measure(level, minutes)
   new_world(level, { machines = 36 })
   war("start 2 60 6 320")
+  -- Lot RECON (28/10) : cette mesure compare les NIVEAUX de difficulté contre le joueur, avec une rivale CONNUE comme avant le lot
+  -- (brouillard des rivales coupé). Avec le brouillard actif, les deux factions du moteur simulé ne se voient jamais : sans rivale
+  -- reconnue elles ne visent que le joueur (comme toute faction sans rivale, S.decide), d'où 9 attaques à Difficile et 19 à Impitoyable
+  -- au lieu de 6 et 9 (mesuré), et l'ordre de la taille moyenne casse (27,0 puis 26,1). La connaissance des rivales a ses bancs
+  -- (tests/recon_test.lua, scénarios recon-*), la pression sur le joueur en 4 factions son relevé (fo-logs/2026-10-28_RECON3).
+  require("script.core.storage").ns("ai3f").fog = false
   local r = { first = nil, declare = nil }
   for _ = 1, minutes * 12 do
     M.run_ticks(300)

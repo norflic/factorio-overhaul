@@ -117,7 +117,7 @@ remote.add_interface("factorio-overhaul", {
       local f = State.faction(id)
       local row = { key = f.key, attacks = f.stats and f.stats.attacks or 0, scouts = f.stats and f.stats.recon_scouts or 0,
         lost = f.stats and f.stats.recon_lost or 0, refused = f.stats and f.stats.recon_refused or 0,
-        nopath = f.stats and f.stats.recon_nopath or 0, sweeps = f.stats and f.stats.recon_sweeps or 0, rivals = {} }
+        know_age = f.stats and f.stats.last_know_age or nil, nopath = f.stats and f.stats.recon_nopath or 0, sweeps = f.stats and f.stats.recon_sweeps or 0, rivals = {} }
       for _, rid in ipairs(State.alive()) do
         if rid ~= id then
           local k = Recon.known_of(f, rid)
@@ -137,6 +137,19 @@ remote.add_interface("factorio-overhaul", {
     if o and o.ring ~= nil then Recon.ring_on = o.ring and true or false end
     if o and o.scouts ~= nil then Recon.scouts_on = o.scouts and true or false end
     return { ring = Recon.ring_on, scouts = Recon.scouts_on }
+  end,
+  --- Lot RECON (bancs SEULEMENT) : `from` lance VRAIMENT une attaque de `count` soldats contre `to` (Military.attack : le filet
+  --- de connaissance, puis le chemin et le départ du groupe, ligne « [FO-STRAT] attaque … savoir N min »). Rend true si elle part.
+  recon_force_attack = function(from_key, to_key, count)
+    local a, b
+    for _, id in ipairs(State.alive()) do
+      local f = State.faction(id)
+      if f.key == from_key then a = f end
+      if f.key == to_key then b = f end
+    end
+    if not (a and b) then return nil end
+    local war = State.war()
+    return Military.attack(a, game.surfaces[war.surface], b, count or 1, game.tick) and true or false
   end,
   --- Lot RECON (bancs) : l'attaque de `from` contre `to` serait-elle acceptée ? (Military.attack_known ; un refus est compté.)
   recon_probe = function(from_key, to_key)

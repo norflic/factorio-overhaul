@@ -173,7 +173,8 @@ function Recon.think(f, surface, tick)
   local keep = math.ceil(garrison * (ch.war_keep or ch.keep or 0.3) - 1e-9)
   local ok = R.want({ recon = req, tick = tick, next_at = rs.next_at, busy = scout_busy(f), garrison = garrison, size = size,
     keep = keep, threat = st.last_threat, survive = st.survival, alert = tick < (f.threatened_until or 0),
-    hq_ok = hq_defended(f), quiet_until = f.recon_quiet_until })
+    hq_ok = hq_defended(f), quiet_until = f.recon_quiet_until,
+    vs_player = f.pvp ~= nil and (f.pvp.declared == true or f.pvp.provoked == true) })
   if ok and enemies_near_hq(surface, f) then
     rs.next_at = tick + BUSY_WAIT
     return

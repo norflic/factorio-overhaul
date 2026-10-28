@@ -218,13 +218,15 @@ end
 
 --- Un éclaireur doit-il partir ? c = { recon (demande du chef, ou balayage dû, ou nil), tick, next_at, busy (éclaireur en
 --- cours), garrison, size, keep (garnison gardée en soldats), threat, survive, alert (alerte du QG), hq_ok (tourelles du QG
---- complètes ; nil : non contrôlé), enemies (ennemis vus près du QG), quiet_until (tick avant lequel un soldat est mort) }.
+--- complètes ; nil : non contrôlé), vs_player (déclarée ou provoquée contre le joueur : la garnison est la réserve de ses
+--- attaques ; pvp_test, taille moyenne des attaques par niveau), enemies (ennemis vus près du QG), quiet_until (tick avant lequel un soldat est mort) }.
 --- Garnison laissée au QG au départ : au moins max(R.RESERVE, keep, R.START_ARMY). Renvoie (oui, raison).
 function R.want(c)
   if not c.recon then return false, "rien a chercher" end
   if c.busy then return false, "eclaireur en cours" end
   if c.survive then return false, "survie" end
   if c.alert then return false, "alerte" end
+  if c.vs_player then return false, "guerre contre le joueur" end
   if c.hq_ok == false then return false, "defense du debut" end
   if c.enemies then return false, "ennemis pres du QG" end
   if c.tick < (c.quiet_until or 0) then return false, "pertes recentes" end
