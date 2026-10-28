@@ -209,6 +209,7 @@ function Rv.step(api, f, surface, tick)
       b.avoid = nil
       if old then
         b.plant = old.id
+        old.abandoned = nil
         local _, lost = plant_read(f, surface, old)
         Rv.reopen(old, lost, "reseau: centrale de remplacement refusee, retour sur place")
         say(f, tick, string.format("centrale de remplacement refusee (%s) : retour au site d'origine, %d piece(s) rouverte(s)",

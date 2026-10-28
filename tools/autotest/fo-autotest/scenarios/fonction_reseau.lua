@@ -152,11 +152,12 @@ function Z.measure(poles, cons, prods)
     return R
   end
   local single = 0
-  local removable = {}
+  local removable, drop = {}, {}
   for _, i in ipairs(live) do
     local pw = eval({ [i] = true })
-    if pw == powered then single = single + 1; removable[i] = true end
+    if pw == powered then single = single + 1; removable[i] = true else drop[i] = powered - pw end
   end
+  R.drop = drop -- consommateurs éteints si le poteau i disparaît seul (pivots), pour les événements provoqués des bancs
   local gone, glouton = {}, 0
   for _, i in ipairs(live) do
     if removable[i] then

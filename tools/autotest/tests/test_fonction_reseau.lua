@@ -62,6 +62,15 @@ do
   check(R2.poles_hors_service == 2, "antenne : l'ilot sans centrale compte hors service")
 end
 
+-- 5 bis. pertes par poteau (pivots) : le poteau du milieu éteint 2 consommateurs, les extrémités 0 ou 1
+do
+  local poles = { pole(0, 0, { 2 }), pole(7, 0, { 1, 3 }), pole(14, 0, { 2 }) }
+  local R = Z.measure(poles, { box(14, 1), box(7, 1) }, { box(0, 1) })
+  check(R.drop[2] == 2, "pivot : le poteau du milieu eteint 2 consommateurs (" .. tostring(R.drop[2]) .. ")")
+  check(R.drop[3] == 1, "pivot : le poteau terminal seul couvre un consommateur (" .. tostring(R.drop[3]) .. ")")
+  check(R.drop[1] == 2, "pivot : le poteau de la centrale eteint tout (" .. tostring(R.drop[1]) .. ")")
+end
+
 -- 6. déterminisme
 do
   local poles = { pole(0, 0, { 2, 3 }), pole(7, 0, { 1, 3, 4 }), pole(8, 0, { 1, 2, 4 }), pole(14, 0, { 2, 3 }) }

@@ -1579,8 +1579,8 @@ end
 --- redondants. Journal seulement ([FO-POLE]), aucune décision n'en dépend.
 local function trace_pole(f, p, e, how)
   local part = p.parts and p.parts[e.part or 1] or nil
-  log(string.format("[FO-POLE] %s : projet %d (%s), %s role %s %s en (%g, %g)", f.key or "player", p.id,
-    tostring(part and part.key or (p.spec and p.spec.gen) or "?"), e.name, tostring(e.role), how, e.x, e.y))
+  log(string.format("[FO-POLE] %s : projet %d (%s), %s role %s %s en (%g, %g) a %.1f min", f.key or "player", p.id,
+    tostring(part and part.key or (p.spec and p.spec.gen) or "?"), e.name, tostring(e.role), how, e.x, e.y, game.tick / 3600))
 end
 
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
@@ -1640,6 +1640,13 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   e.built = true
   st.revived = st.revived + 1
   if e.name:find("electric%-pole") then trace_pole(f, p, e, "pose") end
+  local sp = M.spec(e.name)
+  if sp and (sp.kind == "boiler" or sp.kind == "generator" or sp.kind == "offshore") then
+    -- lot RESEAU-VIVANT : pièce de centrale posée ; journal seulement (critère « jamais de pose sous le feu » : ennemi à 28 tuiles)
+    local en = surface.find_nearest_enemy({ position = { x = e.x, y = e.y }, max_distance = 28, force = f.force })
+    log(string.format("[FO-POSE] %s : projet %d, %s en (%g, %g), ennemi a 28 tuiles : %s, a %.1f min", f.key or "player", p.id, e.name, e.x, e.y,
+      en and "OUI" or "non", tick / 3600))
+  end
   return true
 end
 
