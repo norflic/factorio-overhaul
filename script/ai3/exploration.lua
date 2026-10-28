@@ -273,7 +273,13 @@ local function look(k, surface, key, tick)
   obs.water = surface.count_tiles_filtered({ area = area, collision_mask = "water-tile", limit = 1 }) > 0
   g.stats.looks = g.stats.looks + 1
   k.stats.looks = (k.stats.looks or 0) + 1
-  return K.record(k.m, key, tick, obs)
+  local fresh, water_new = K.record(k.m, key, tick, obs)
+  -- Lot CENTRALE : l'eau nouvelle est une trouvaille comme un gisement (ferme la demande « eau » de la centrale)
+  if water_new then
+    fresh[#fresh + 1] = K.WATER
+    table.sort(fresh)
+  end
+  return fresh
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -762,6 +768,15 @@ local function inject_known(f, k, surface, res, tick)
 end
 
 local function auto_requests(f, k, surface, tick)
+  -- Lot CENTRALE : la centrale d'une faction attend l'EAU (aucune rive ne tient la pompe au treillis, script/team/lointain.lua) :
+  -- une demande d'exploration de K.WATER, fermée quand la centrale est planifiée ; les secteurs d'eau écartés (danger, trop
+  -- loin, aucune rive) ne comptent plus, seul un secteur d'eau NOUVEAU la satisfait.
+  local rem = f.build and f.build.remote
+  if rem and rem.want_water then
+    open_request(f, k, K.WATER, tick, "centrale")
+  elseif k.req[K.WATER] then
+    close_request(f, k, K.WATER, tick, "satisfait")
+  end
   -- Besoin de site sans site en réserve : d'abord les gisements CONNUS, sinon explorer.
   local needs = f.site_needs or {}
   for _, res in ipairs(sorted_keys(needs)) do

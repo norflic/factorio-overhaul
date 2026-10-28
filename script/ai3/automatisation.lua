@@ -415,8 +415,10 @@ local function submit(f, st, tick, rq, research)
     st.plant_state = "attente"
     note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
   end
+  -- Lot CENTRALE : `electric` (vrai ou faux, jamais absent) laisse un module sans réseau se planifier pendant que la centrale
+  -- cherche son eau lointaine (porte de Build.advance)
   local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
-    pole = rq.pole }
+    pole = rq.pole, electric = rq.electric and true or false }
   if not spec.near and rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
     local ps = Build.brief(f, st.plant_id)
     local pt = ps and ps.parts and ps.parts[1]

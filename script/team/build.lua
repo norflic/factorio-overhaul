@@ -32,6 +32,8 @@ local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR (T2) : bras de la centrale, combustion puis électrique
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
+local L = require("shared.team.lointain") -- lot CENTRALE : règles pures de la centrale à distance
+local Lointain = require("script.team.lointain") -- lot CENTRALE : eau, rive et ligne de poteaux lointaines
 
 local Build = {}
 
@@ -386,46 +388,11 @@ local function ore_set(surface, rect, res)
   return set, n
 end
 
---- Étape 1 / robustesse (28/10, graine 123456789 : Écarlate, QG à (339, −340), AUCUNE eau dans les 121 lots du treillis ni à
---- moins de 256 tuiles : « centrale REFUSEE : pas de lot » à chaque demande, 0 poteau, 0 centrale, 0 foreuse électrique à
---- 60 min ; graine 271828182, Azure : de l'eau, mais aucune rive où le gabarit de la pompe tient, « refuse (place) » à chaque
---- demande, 0 poteau) : sans rive utilisable dans le treillis, la centrale à vapeur n'a nulle part où pomper et
---- l'électrification d'une faction ne démarre JAMAIS. Comme les gisements garantis (lot M0), l'eau de la
---- centrale est GARANTIE : un petit étang (Build.POND × Build.POND tuiles) au centre du lot libre le plus proche du QG
---- (hors lot du QG, hors gisement, hors lot pris), une fois par équipe. Le lot est réévalué (rive) et la centrale replanifiée.
-Build.POND = 6
-local function make_pond(f, surface)  -- factions seulement (le joueur trouve son eau)
-  local b = f.build
-  if b.pond then return false end
-  local best
-  for _, k in ipairs(sorted_keys(b.lots)) do
-    local l = b.lots[k]
-    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") then
-      local d = math.abs(l.i) + math.abs(l.j)
-      if not best or d < best.d then best = { d = d, k = k, l = l } end
-    end
-  end
-  if not best then return false end
-  local c = lot_center(b, best.l)
-  local x0, y0 = math.floor(c.x - Build.POND / 2), math.floor(c.y - Build.POND / 2)
-  local tiles = {}
-  for dx = 0, Build.POND - 1 do
-    for dy = 0, Build.POND - 1 do tiles[#tiles + 1] = { name = "water", position = { x0 + dx, y0 + dy } } end
-  end
-  surface.set_tiles(tiles, true, true)
-  b.pond = best.k
-  -- Les rives naturelles déjà essayées sans succès (la pompe de rive demande 2 tuiles d'eau devant elle et 60 % du gabarit
-  -- mouillé : graine 271828182, Azure, « centrale refusee : place » à chaque demande malgré l'eau) ne sont plus candidates :
-  -- l'étang, au bord rectiligne, l'est seul.
-  for _, k in ipairs(sorted_keys(b.lots)) do
-    local l = b.lots[k]
-    if k ~= best.k and (l.water or 0) > 0 then l.bad = math.max(l.bad or 0, 2) end
-  end
-  best.l.state, best.l.reason, best.l.bad = "inconnu", nil, nil
-  b.queue[#b.queue + 1] = { "lot", best.k }
-  log(string.format("[FO-IA1D] %s : aucune rive ne tient la centrale : etang de %d x %d tuiles pose au lot %s (%d, %d) pour la centrale",
-    f.key or "player", Build.POND, Build.POND, best.k, x0, y0))
-  return true
+--- Résultat d'un placement P.fit : { g (tourné), k, ox, oy, inst, cover, masks } (le lot s'y ajoute, sauf centrale lointaine).
+function Build.main_of(g, fit, masks)
+  local r = fit.k == 0 and g or M.rotate(g, fit.k)
+  local inst = M.instantiate(r, 0, fit.ox, fit.oy)
+  return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, inst = inst, cover = fit.cover, masks = masks }
 end
 
 --- Pose un gabarit dans le meilleur lot : { g (tourné), k, ox, oy, lot, inst } ou nil, raison.
@@ -444,9 +411,9 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.water then fopts.water = masks.water end
     local fit, why = P.fit(g, rect, fopts)
     if fit then
-      local r = fit.k == 0 and g or M.rotate(g, fit.k)
-      local inst = M.instantiate(r, 0, fit.ox, fit.oy)
-      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks }
+      local out = Build.main_of(g, fit, masks)
+      out.lot = c.k
+      return out
     end
     last = why or last
     bump(b.stats.plan_refused, last)
@@ -505,6 +472,13 @@ local function plan_power(f, p, mp, masks)
   local pole, reach = pole_kind(f, mp.name)
   local big = pole == "big-electric-pole"
   local mi, mj = nearest_node(b, mp.x, mp.y)
+  -- Lot CENTRALE : un module HORS du carré évalué du treillis (la centrale lointaine) s'accroche au carrefour de bord le plus
+  -- proche ; une ligne de poteaux lue au moteur l'y relie (fin de la fonction), les rues du treillis font le reste.
+  local far = false
+  do
+    local ci, cj = L.clamp_node(b.radius, mi, mj)
+    if ci ~= mi or cj ~= mj then far, mi, mj = true, ci, cj end
+  end
   local out = {}
   -- poteau d'un carrefour : celui du réseau s'il existe, sinon un quart LIBRE du carrefour (contrôlé au moteur :
   -- falaise, eau, bâti ; arbres et rochers seront défrichés). Correction du 27/10 : le poteau tombait sur le bout d'une
@@ -693,10 +667,41 @@ local function plan_power(f, p, mp, masks)
   -- liaison du module au carrefour le plus proche (poteaux du gabarit : moyens)
   local npos = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
   local link_reach = math.min(reach, P.wire(mp.name) or 9)
-  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free)
-  if not chain then return nil, "liaison electrique" end
+  local chain
+  local role = "liaison"
+  if far then
+    -- Lot CENTRALE : le terrain de la ligne est généré (sinon demandé, nouvel essai plus tard), le tracé lit le moteur tuile
+    -- par tuile (ni eau, ni arbre, ni rocher, ni falaise, ni bâtiment) ; une ligne qui n'arrive pas, ou trop longue, fait
+    -- essayer la rive suivante.
+    local dist = math.sqrt((mp.x - npos.x) ^ 2 + (mp.y - npos.y) ^ 2)
+    if not Lointain.corridor_ready(surface, mp, npos) then
+      p.remote_retry = true
+      return nil, "ligne : terrain en generation", "lointain"
+    end
+    local lfree, lmissing = Lointain.line_free(f, surface, taken)
+    chain = P.pole_line({ x = mp.x, y = mp.y }, npos, link_reach, lfree, L.chain_max(dist, link_reach))
+    if not chain then
+      local miss = lmissing()
+      if #miss > 0 then
+        Lointain.request(surface, miss)
+        p.remote_retry = true
+        return nil, "ligne : terrain en generation", "lointain"
+      end
+      log(string.format("[FO-LOINTAIN] %s : ligne impossible de (%.0f, %.0f) a (%.0f, %.0f), %.0f tuiles : rive suivante", f.key or "player",
+        mp.x, mp.y, npos.x, npos.y, dist))
+      return nil, "ligne", "lointain"
+    end
+    if #chain > L.MAX_POLES then
+      log(string.format("[FO-LOINTAIN] %s : ligne de %d poteaux au-dela de %d : rive suivante", f.key or "player", #chain, L.MAX_POLES))
+      return nil, "ligne trop longue", "lointain"
+    end
+    role = "ligne"
+  else
+    chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free)
+    if not chain then return nil, "liaison electrique" end
+  end
   for _, c in ipairs(chain) do
-    local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
+    local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = role }
     out[#out + 1] = e
     take(e)
   end
@@ -1041,7 +1046,7 @@ end
 --- Arbres et rochers sur l'emprise de TOUTES les entités d'un projet (un appel sur leur boîte englobante, au plan) :
 --- { [tuile] = true }. Correction du 27/10 : seul le relevé du module principal était lu, et les arbres sous les
 --- foreuses et leur tapis n'étaient découverts qu'à la pose (banc ia1-build-foret).
-local STRETCHED = { reseau = true, rue = true, liaison = true, ["liaison-tapis"] = true }
+local STRETCHED = { reseau = true, rue = true, liaison = true, ligne = true, ["liaison-tapis"] = true }
 
 local function wood_of(surface, ents)
   -- une boîte par pièce compacte (module, foreuses, têtes) ; entité par entité pour ce qui s'étire (poteaux de rue et de
@@ -1149,14 +1154,23 @@ local function plan_project(f, surface, p)
       Build.grow(f, b.radius + 1)
       return false, why, true
     end
-    if is_plant and not f.is_player and make_pond(f, surface) then return false, why, true end
-    return false, why
+    -- Lot CENTRALE (28/10, réponse du DC : « si l'eau n'est pas utilisable, il faut aller plus loin ») : aucune rive du
+    -- treillis ne tient la pompe : la faction cherche l'eau qu'elle a vue (elle explore sinon) et y bâtit sa centrale,
+    -- reliée au treillis par une ligne de poteaux. Plus d'étang garanti. Votre équipe : refus comme avant.
+    if not (is_plant and not f.is_player) then return false, why end
+    Profiler.start("build:plan:lointain")
+    local lwhy, lwait
+    main, lwhy, lwait = Lointain.place(f, surface, g, { read_masks = read_masks, fit = P.fit, make_main = Build.main_of, p = p,
+      tick = game.tick })
+    Profiler.stop("build:plan:lointain")
+    if not main then return false, lwhy, lwait end
   end
-  p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot, ox = main.ox, oy = main.oy,
+  p.remote_site = main.remote
+  p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot or "lointain", ox = main.ox, oy = main.oy,
     k = main.k, w = main.g.w, h = main.g.h, power = needs_power(main.g) }
   local ents = inst_entities(main.inst, 1)
   if not reserve_tiles(b, p, ents) then return false, "place" end
-  b.lots[main.lot].used = p.id
+  if main.lot then b.lots[main.lot].used = p.id end
   if spec.feed or is_plant then
     Profiler.start("build:plan:feed")
     local ok, w2 = plan_feed(f, surface, p, main, 1)
@@ -1190,7 +1204,7 @@ local function plan_project(f, surface, p)
           -- relevé autour de CE module (eau, bâtiments, arbres) jusqu'aux carrefours voisins
           local pm = idx == 1 and masks or read_masks(f, surface, pt.ox - 32, pt.oy - 32, pt.ox + pt.w + 32, pt.oy + pt.h + 32)
           local extra, w3, nodes = plan_power(f, p, mp, pm)
-          if not extra then return false, w3, nodes == "net" and "net" or nil end
+          if not extra then return false, w3, (nodes == "net" or nodes == "lointain") and nodes or nil end
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
             local k = P.lot_key(n.i, n.j)
@@ -1208,15 +1222,37 @@ local function plan_project(f, surface, p)
   -- bâtisseur, debout dessus, en empêchait la pose : banc ia1-build-plaine, 25/10)
   local passable = seg_passable(b)
   local wood = wood_of(surface, p.ents)
+  -- Lot CENTRALE : les poteaux de la ligne lointaine sont servis par TRONÇONS de L.GROUP poteaux consécutifs, d'un seul
+  -- point d'appui (une marche de 300 tuiles par tronçon, pas par poteau) ; un tronçon dont un poteau serait hors de portée
+  -- du point d'appui retombe sur le calcul par entité.
+  local line = {}
+  for _, e in ipairs(p.ents) do if e.role == "ligne" then line[#line + 1] = e end end
+  for _, gr in ipairs(L.groups(#line)) do
+    local cx, cy, n = 0, 0, gr.last - gr.first + 1
+    for i = gr.first, gr.last do cx, cy = cx + line[i].x, cy + line[i].y end
+    local fx, fy = free_spot(b, masks, cx / n, cy / n, wood)
+    local ok = true
+    for i = gr.first, gr.last do
+      if (fx - line[i].x) ^ 2 + (fy - line[i].y) ^ 2 > (REACH - 1) ^ 2 then ok = false end
+    end
+    if ok then
+      for i = gr.first, gr.last do
+        line[i].ax, line[i].ay = fx, fy
+        line[i].anchor = string.format("l%g:%g", fx, fy)
+      end
+    end
+  end
   for _, e in ipairs(p.ents) do
-    local a = P.anchor_for(b.lat, e.x, e.y, passable)
-    local ax, ay
-    if a then ax, ay = a.x, a.y
-    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
-    local fx, fy = free_spot(b, masks, ax, ay, wood)
-    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
-    e.ax, e.ay = fx, fy
-    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    if not e.anchor then
+      local a = P.anchor_for(b.lat, e.x, e.y, passable)
+      local ax, ay
+      if a then ax, ay = a.x, a.y
+      else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+      local fx, fy = free_spot(b, masks, ax, ay, wood)
+      if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+      e.ax, e.ay = fx, fy
+      e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    end
     e.item = item_of(e.name)
   end
   P.sort_build(p.ents)
@@ -1230,6 +1266,13 @@ local function plan_project(f, surface, p)
   end
   for _, pt in ipairs(p.parts) do if pt then b.stats.modules_started = b.stats.modules_started + 1 end end
   Profiler.stop("build:plan:anchors")
+  if main.remote then
+    local nl = 0
+    for _, e in ipairs(p.ents) do if e.role == "ligne" then nl = nl + 1 end end
+    log(string.format("[FO-LOINTAIN] %s : projet %d : centrale en (%d, %d), %d poteau(x) de ligne en %d troncon(s)", f.key or "player",
+      p.id, main.remote.x, main.remote.y, nl, #L.groups(nl)))
+    Lointain.found(f, game.tick)
+  end
   return true
 end
 
@@ -1310,6 +1353,7 @@ function Build.cancel(f, id, why)
   for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
   p.ents, p.parts = {}, {}
+  Lointain.release(f, p, true) -- lot CENTRALE : la rive choisie n'est pas en faute
   p.state, p.reason = "refuse", why or "annule"
   b.stats.projects_refused = b.stats.projects_refused + 1
   if b.plant == p.id then b.plant = nil end
@@ -1943,12 +1987,18 @@ local function advance(f, surface, p, tick)
     return
   end
   if p.state == "plan" then
-    if not Tokens.take(f, tick, Build.COST_PLAN) then return end
     -- un projet ne se planifie qu'après la centrale (qui amorce le réseau)
+    local behind_plant = false
     if b.plant and b.plant ~= p.id then
       local pl = b.projects[b.plant]
-      if pl and (pl.state == "attente" or pl.state == "plan") then return end
+      if pl and (pl.state == "attente" or pl.state == "plan") then behind_plant = true end
     end
+    -- Lot CENTRALE : la centrale attend l'eau (exploration : des minutes). Un projet électrique l'attend sans rien dépenser ;
+    -- un projet qui n'a pas besoin du réseau (fonderie à four de pierre) ne reste pas figé.
+    local wait_water = b.remote and b.remote.want_water == true
+    if behind_plant and wait_water and not L.passes_plant_gate(true, p.spec.electric ~= false) then return end
+    if not Tokens.take(f, tick, Build.COST_PLAN) then return end
+    if behind_plant and not (wait_water and L.passes_plant_gate(true, p.spec.electric ~= false)) then return end
     Profiler.start("build:plan")
     local ok, why, wait = plan_project(f, surface, p)
     Profiler.stop("build:plan")
@@ -1967,6 +2017,17 @@ local function advance(f, surface, p, tick)
       p.ents, p.parts = {}, {}
       p.wait_net = (p.wait_net or 0) + 1
       p.plan_after = tick + Build.NET_WAIT_TICKS
+      p.state, p.reason = "attente", why
+    elseif wait == "lointain" then
+      -- Lot CENTRALE : eau à chercher ou rive suivante à essayer ; tout ce qui a été réservé est rendu, la rive n'est rendue
+      -- au secteur que si elle n'est pas en faute (terrain en génération)
+      for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+      for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+      for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+      p.ents, p.parts = {}, {}
+      Lointain.release(f, p, p.remote_retry)
+      p.remote_retry = nil
+      p.plan_after = math.max(p.plan_after or 0, tick + Lointain.POLL_SEARCH)
       p.state, p.reason = "attente", why
     elseif wait == true then
       p.state = "attente"

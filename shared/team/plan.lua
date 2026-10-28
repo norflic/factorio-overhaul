@@ -754,6 +754,47 @@ function P.pole_chain(a, b, reach, big, free)
   return nil
 end
 
+--- Lot CENTRALE : ligne de poteaux de `a` à `b` (centres de tuile) pour une distance de centaines de tuiles. Contrairement à
+--- P.pole_chain (recherche locale à ±3 tuiles autour du pas voulu, 64 poteaux au plus, un lac de 4 tuiles la bloque selon
+--- l'alignement), chaque poteau est la tuile LIBRE à portée du précédent qui se rapproche le plus de `b` (progrès maximal : un
+--- plan d'eau ou un mur étroit est enjambé d'un bond de la portée). free(x, y) : centre de tuile. Ordre des essais : distance
+--- à `b`, puis y, puis x (déterministe). Rend la liste des poteaux (a et b non compris), ou nil (aucun poteau libre qui
+--- progresse, ou plus de max_n poteaux).
+function P.pole_line(a, b, reach, free, max_n)
+  local out = {}
+  local cur = { x = a.x, y = a.y }
+  local function dist(px, py, qx, qy) local dx, dy = px - qx, py - qy; return math.sqrt(dx * dx + dy * dy) end
+  local R = floor(reach)
+  for _ = 1, max_n or 200 do
+    local dcur = dist(cur.x, cur.y, b.x, b.y)
+    if dcur <= reach + 1e-9 then return out end
+    local cands = {}
+    local bx, by = floor(cur.x), floor(cur.y)
+    for dy = -R, R do
+      for dx = -R, R do
+        local px, py = bx + dx + 0.5, by + dy + 0.5
+        if dist(px, py, cur.x, cur.y) <= reach + 1e-9 then
+          local d = dist(px, py, b.x, b.y)
+          if d < dcur - 0.5 then cands[#cands + 1] = { x = px, y = py, d = d } end
+        end
+      end
+    end
+    table.sort(cands, function(p, q)
+      if p.d ~= q.d then return p.d < q.d end
+      if p.y ~= q.y then return p.y < q.y end
+      return p.x < q.x
+    end)
+    local found
+    for _, c in ipairs(cands) do
+      if free(c.x, c.y) then found = c break end
+    end
+    if not found then return nil end
+    out[#out + 1] = { x = found.x, y = found.y }
+    cur = found
+  end
+  return nil
+end
+
 --- Position d'un poteau de carrefour (quart nord-ouest du croisement, hors des lignes de marche).
 function P.node_pole(lat, i, j, big)
   local n = P.node_pos(lat, i, j)
