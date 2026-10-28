@@ -84,6 +84,16 @@ function A.deploy(free, placed, pending, cap, fuel, per_fuel)
   return math.max(0, n)
 end
 
+A.HOLD_AFTER = 2           -- agrandissements d'un même avant-poste échoués de suite (danger, chemin) avant la mise en attente
+A.HOLD_TICKS = 10 * 3600   -- … pendant 10 min : ni commande d'avance, ni nouvel essai (les objets déjà pris sont revenus au coffre)
+
+--- Un avant-poste dont l'agrandissement vient d'échouer `fails` fois de suite est-il mis en attente ? (lot ADOPTE, cause des fours
+--- dormants : 31 agrandissements échoués sur 38 en 60 min, graine 20261020, chacun reprenait puis rendait ses 8 fours et ses
+--- foreuses ; le fond fabriquait pour lui).
+function A.hold(fails)
+  return (fails or 0) >= A.HOLD_AFTER
+end
+
 --- Boîte de recherche des voisins d'une machine : sa boîte de collision élargie de A.CLEAR.
 function A.search_box(pos, half_w, half_h)
   return { { pos.x - half_w - A.CLEAR, pos.y - half_h - A.CLEAR }, { pos.x + half_w + A.CLEAR, pos.y + half_h + A.CLEAR } }

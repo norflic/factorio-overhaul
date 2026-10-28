@@ -56,6 +56,7 @@ do
 end
 
 do
+  check(not A.hold(0) and not A.hold(A.HOLD_AFTER - 1) and A.hold(A.HOLD_AFTER) and A.hold(9), "mise en attente après A.HOLD_AFTER échecs de suite")
   check(A.deploy(13, 2, 0, 15, 500, 5) == A.DEPLOY_PER_THINK, "13 fours libres : " .. A.DEPLOY_PER_THINK .. " posés par fenêtre")
   do
     local w, lo = A.window(nil, 0, 8)

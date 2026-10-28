@@ -32,6 +32,7 @@ local R = require("shared.ai3.registre")
 local X = require("shared.ai3.manque")
 local Registry = require("script.companion.registry")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en attente des avant-postes en échec)
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
 
@@ -258,7 +259,6 @@ function Board.view_stock(f, stock, tick, full)
 end
 
 -- Lot ADOPTE : stock libre pour la pose des fours dormants (script/team/stock.lua).
-Stock.on_think = function(f, tick) Fantomes.sweep(f, tick) end
 Stock.free_view = function(f, tick) return Board.view_stock(f, Stock.contents(f), tick) end
 Stock.place_smelters = function(f, surface, n, carrier) return Outposts.place_smelters(f, surface, n, carrier) end
 Stock.smelters = function(f) return Outposts.smelters(f) end
@@ -689,8 +689,47 @@ Board.on_fail = nil
 -- non) : PNJ-ticks de la tâche attribués à l'objet qu'elle produit (règle main -> machine).
 Board.on_done = nil
 
+--- Lot ADOPTE (cause des fours dormants) : un agrandissement qui échoue (danger, chemin, programme) rend ses objets au coffre ;
+--- l'avant-poste le redemandait aussitôt, et le fond fabriquait pour lui. Après A.HOLD_AFTER échecs de suite, l'avant-poste est
+--- mis en attente (marqué plein, comme le voit le cerveau, le fond et le potentiel de fabrication d'avance) pour A.HOLD_TICKS.
+--- Votre équipe seulement.
+local function note_extend(f, task, ok, tick)
+  if not (f.is_player and task.kind == "extend" and task.fail ~= "preempte") then return end
+  local o = f.outposts and f.outposts[task.outpost]
+  if not o then return end
+  if ok then
+    o.ext_fails = 0
+    return
+  end
+  o.ext_fails = (o.ext_fails or 0) + 1
+  if Ad.hold(o.ext_fails) and not o.full then
+    o.full, o.hold_until = true, tick + Ad.HOLD_TICKS
+    log(string.format("[FO-ADOPTE] player : avant-poste %s en attente %d min (%d agrandissements echoues de suite, dernier : %s)",
+      tostring(task.outpost), Ad.HOLD_TICKS / 3600, o.ext_fails, tostring(task.fail)))
+  end
+end
+
+--- Fin de l'attente des avant-postes (appelé à chaque pensée par Stock.on_think).
+local function release_holds(f, tick)
+  if not f.is_player then return end
+  for _, oid in ipairs(sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    if o.hold_until and tick >= o.hold_until then
+      o.hold_until, o.ext_fails = nil, 0
+      if o.drills < T.max_drills(o.kind) then o.full = false end
+    end
+  end
+end
+
+-- Lot FANTOMES et ADOPTE : balayage des aperçus et fin des attentes, à chaque pensée de l'équipe (Stock.grow).
+Stock.on_think = function(f, tick)
+  Fantomes.sweep(f, tick)
+  release_holds(f, tick)
+end
+
 function Board.finish(f, task, ok, tick)
   Fantomes.finish(f, task.key) -- lot FANTOMES : l'aperçu de la tâche part, réussie ou non
+  note_extend(f, task, ok, tick)
   if not ok and Board.on_fail then Board.on_fail(f, task, tick) end
   if Board.on_done then Board.on_done(f, task, ok, tick) end -- lot IA3-e : charge à la main mesurée (fin de tâche)
   local b = Board.get(f)

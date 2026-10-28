@@ -350,7 +350,11 @@ function Outposts.extend(f, surface, o, carrier)
     State.own(s, f.id, "sink", o.id)
   end
   o.drills = o.drills + #drills
-  if #drills == 0 or o.drills >= T.max_drills(o.kind) then o.full = true end
+  if #drills == 0 or o.drills >= T.max_drills(o.kind) then
+    o.full = true
+    o.hold_until = nil -- plein pour de bon (et non en attente après des échecs, lot ADOPTE)
+  end
+  if #drills > 0 then o.ext_fails = 0 end
   return #drills
 end
 
