@@ -99,3 +99,5 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | FOURS (refill + mains) | corr-fours-mains | passages de refill sur 5 min, aucune tournee de fonte a vide sans courant |
 | ENERGIE | corr-energie | demande > production : 2e centrale avec la regle, reseau sature sans |
 Agents de workflow : NE JAMAIS leur ecrire (SendMessage clone) ; suivi par fo-logs/2026-10-29_CORR/<LOT>/STATUS.md. Nucleaire contre vapeur : decision du DC.
+
+| PANEL (FUSIONNE 11 h 30, version 0.6.11) | onglet Partie de Maj+T ; 0 ecart de partie sur 4 graines ; panel-kills 11 OK, ia1-gui 7 OK, content 331 OK ; tests hors jeu verts ; design a valider par le DC | tag jouable-0.6.11 |
