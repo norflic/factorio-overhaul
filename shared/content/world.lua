@@ -292,9 +292,13 @@ W.resources = {
     -- violets pulsés (3 s) qui luisent dans le noir.
     copy_resource = "iron-ore",
     copy_icon = "iron-ore",
-    tint = { r = 0.95, g = 0.55, b = 1.00 },
-    glint = { tint = { r = 0.85, g = 0.35, b = 1.00 }, min = 0.35, max = 0.75, period = 3 },
-    map_color = { r = 0.80, g = 0.25, b = 0.95 },
+    -- Lot AMELIO-RESSOURCES (30/10 ; retour du DC du 29/10, 22 h 50 : « les pierres violettes/rose pas fou par contre les
+    -- bleues claires sont jolies ») : BLEU GLACIER, celui des éclats de la plaine (fo-crystal-shard) qu'il aime. Avant :
+    -- teinte (0,95 ; 0,55 ; 1,00), éclats (0,85 ; 0,35 ; 1,00), carte (0,80 ; 0,25 ; 0,95), rose-violet.
+    tint = { r = 0.62, g = 0.86, b = 1.00 },
+    glint = { tint = { r = 0.40, g = 0.78, b = 1.00 }, min = 0.35, max = 0.75, period = 3 },
+    -- Azur sur la carte : ΔE76 ≥ 39 de tous les minerais, fluides et sols (tungstène 39 ; galène, pétrole, eau plus loin).
+    map_color = { r = 0.00, g = 0.70, b = 1.00 },
     mining_time = 1.5,
     category = nil, -- basic-solid
     biome = "fo-crystal-flats",
@@ -437,7 +441,7 @@ W.resources = {
     tint = { r = 0.70, g = 0.78, b = 1.00 },
     glint = { tint = { r = 0.75, g = 0.85, b = 1.00 }, min = 0.10, max = 0.35, period = 5 },
     -- Bleu de cobalt sur la carte : le gris est pris (fer, cratères, ilménite à ΔE76 < 20 d'un gris de plomb) ; ΔE76 ≥ 47
-    -- de tous les minerais, fluides et sols du jeu (49,3 au cristal ; tests/galena_test.lua).
+    -- de tous les minerais, fluides et sols du jeu (64,8 au pétrole depuis le cristal bleu ; tests/galena_test.lua).
     map_color = { r = 0.00, g = 0.05, b = 1.00 },
     mining_time = 1,
     category = nil, -- basic-solid (X.resources)
