@@ -322,7 +322,8 @@ end
 --- gisement libre de 192 000 l'attendait à 45). Un avant-poste est SAUTÉ si un site admissible de la même ressource est
 --- connu à moins de 0,6 × sa distance et 60 tuiles plus près (V.extension_refused ; `view.sites_near[type]`, distance au
 --- QG du plus proche site admissible, posée pour les factions seulement) : le projet bâtit alors au site proche.
---- Sans `d2` ni `sites_near` dans la vue (équipe du joueur, bancs), l'ordre est celui d'avant.
+--- Sans `d2` dans la vue (bancs), l'ordre est celui d'avant (à égalité, le plus ancien) ; sans `sites_near` (équipe du
+--- joueur), le plus proche est choisi sans la règle de renoncement.
 local function extendable(view, kind, undefended)
   local near = view.sites_near and view.sites_near[kind] or nil
   local best, best_d2

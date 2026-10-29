@@ -135,14 +135,15 @@ end
 -- fo-logs/2026-10-29_VAGUE4/AUDIT4/site-charbon.md) : le gisement à 45 tuiles, écarté 30 min pour un ennemi vu une fois
 -- (« hostile » puis « injoignable »), n'était plus candidat ; le choix ne refusait JAMAIS un site (valeur -2 083 observée)
 -- et envoyait un ouvrier à 201-357 tuiles. Règles pures dans shared/faction/valeur.lua (V.FLOOR, V.admissible).
---   * mémoire f.site_block : sites de la FACTION vus bloqués (hostile, injoignable, écarté) avec leur échéance, 8 au plus ;
+--   * mémoire f.site_block : sites de la FACTION vus bloqués (hostile, injoignable, écarté) avec leur échéance, 16 au plus
+--     (le plus lointain du QG est oublié le premier) ;
 --   * Sites.available / find_by_value ne comptent et ne puisent que les sites ADMISSIBLES : valeur au moins V.FLOOR, et
 --     pas plus loin que V.suspend_limit tant qu'un site de la MÊME ressource, plus proche, est bloqué (suspendu, pas
 --     perdu : il reste en réserve et redevient admissible à la fin du blocage) ;
 --   * signal f.site_blocked[ressource] = { x, y, why, until_tick, d_blocked, n, since } posé tant qu'au moins un site est
 --     suspendu (pour DEFENSE-FRONT et le cerveau : sécuriser le site proche plutôt que partir loin) ; AUCUNE action ici.
 -- L'équipe du joueur garde la règle d'avant (premier site de la réserve) : rien de ceci ne la concerne.
-local BLOCK_KEEP = 8
+local BLOCK_KEEP = 16
 local BLOCK_LOG_MAX = 200
 
 local function unreachable_until(war, pos)
@@ -167,7 +168,17 @@ local function note_blocked(f, site, resource, why, until_tick)
     end
   end
   f.site_block[#f.site_block + 1] = { key = key, x = site.x, y = site.y, resource = resource, why = why, until_tick = until_tick }
-  while #f.site_block > BLOCK_KEEP do table.remove(f.site_block, 1) end
+  -- Au-delà de la borne, on oublie le blocage le plus LOINTAIN du QG (à égalité, le plus ancien) et non le plus ancien :
+  -- c'est le site proche bloqué qui suspend le lointain, et la prospection note chaque chunk injoignable (un voisinage
+  -- hostile en remplit la mémoire : le proche, noté le premier, aurait été oublié le premier).
+  while #f.site_block > BLOCK_KEEP do
+    local drop, dmax = 1, -1
+    for i, e in ipairs(f.site_block) do
+      local d = dist_hq(f, e)
+      if d > dmax then drop, dmax = i, d end
+    end
+    table.remove(f.site_block, drop)
+  end
 end
 
 --- Site bloqué le plus proche du QG pour `resource` : { d, x, y, why, until_tick } ou nil. Mémoire (échéances passées

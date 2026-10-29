@@ -250,5 +250,44 @@ do
   check(broken, "mutant refusé : R4 qui bloque tout")
 end
 
+---------------------------------------------------------------------------------------------------
+section("R1 dans le planificateur permanent (relecture) : l'agrandissement du charbon sous 1,4 x la consommation")
+do
+  local Book = require("shared.team.book")
+  local S = require("shared.team.scale")
+  local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+  local rich = { ["iron-plate"] = 3000, ["copper-plate"] = 1000, coal = 500, stone = 500, ["firearm-magazine"] = 60,
+    ["burner-mining-drill"] = 20, ["stone-furnace"] = 20, ["iron-chest"] = 8 }
+  local function pop(id, kind, drills, d)
+    return { id = id, kind = kind, drills = drills, full = false, turrets = 0, coal_needed = 0, fuel_low = false, output = 0,
+      idle_ticks = 0, has_task = true, has_fortify = false, d2 = d2(d) }
+  end
+  local function plan_of(outposts, over)
+    local v = { tech = 0, personality = "balanced", done = { coal = true, iron = true, copper = true, stone = true },
+      deferred = {}, stock = rich, incoming = {}, outposts = outposts, pending = {}, sites = {}, smelters = 2,
+      smelters_pending = 0, smelter_task = false, smelter_output = 0, smelter_fuel_low = false, smelter_coal = 0,
+      turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 8, workers_max = 30, workers_idle = 0,
+      threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = {}, hq_turrets = T.defend_hq }
+    for k, x in pairs(over or {}) do v[k] = x end
+    v.recruit_cost = S.recruit_cost(v.workers)
+    return Planner.plan(v, book)
+  end
+  local function has(plan, key) for _, t in ipairs(plan.tasks) do if t.key == key then return true end end return false end
+  -- Charbon : un seul avant-poste a 201 tuiles (4 foreuses), du fer a 20 foreuses brule plus que 1,4 fois le charbon rendu.
+  local outs = { pop(1, "coal", 4, 201), pop(2, "iron", 20, 40) }
+  outs[2].full = true
+  local far = plan_of(outs, { sites = {}, sites_near = {} })
+  check(has(far, "extend:1"), "planificateur : sans site proche connu, on agrandit le charbon lointain")
+  local near = plan_of(outs, { sites = { coal = 1 }, sites_near = { coal = 45 } })
+  check(not has(near, "extend:1") and has(near, "build:coal"),
+    "planificateur : site de charbon admissible a 45 tuiles, on batit au proche au lieu d'agrandir a 201")
+  local mid = plan_of(outs, { sites = { coal = 1 }, sites_near = { coal = 130 } })
+  check(has(mid, "extend:1"), "planificateur : site a 130 tuiles (> 0,6 x 201), on agrandit comme avant")
+  -- Le plus proche d'abord, aussi dans le planificateur.
+  local two = { pop(1, "coal", 4, 201), pop(2, "coal", 4, 45), pop(3, "iron", 20, 40) }
+  two[3].full = true
+  check(has(plan_of(two, { sites = {} }), "extend:2"), "planificateur : deux avant-postes de charbon, le proche s'agrandit")
+end
+
 print(string.format("\n[SITE-PROCHE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

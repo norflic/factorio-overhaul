@@ -29,6 +29,7 @@
 local T = require("shared.team.config")
 local F = require("shared.faction.config") -- drapeau `rocket` : soldat à attaque de zone (lot GRENADES)
 local Guard = require("shared.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
+local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 
 local P = {}
 
@@ -71,15 +72,21 @@ local function capacity(view, kind)
   return drills / T.outposts[kind].drills
 end
 
---- Avant-poste de ce type qui peut encore s'agrandir (le plus ancien d'abord), ou nil. Lot IA1-b2 (défendre d'abord) :
+--- Avant-poste de ce type qui peut encore s'agrandir (le plus proche du QG d'abord, lot SITE-PROCHE), ou nil. Lot IA1-b2 (défendre d'abord) :
 --- un avant-poste de `undefended` (moins de tourelles que T.defend_turrets) ne s'agrandit pas.
 local function extendable(view, kind, undefended)
+  -- Lot SITE-PROCHE (R1, relecture) : le plus PROCHE du QG (`d2`, à égalité le plus ancien), et pas celui qu'un site
+  -- admissible connu bien plus près doit remplacer (V.extension_refused, `view.sites_near`, factions seulement). Ce chemin
+  -- (charbon sous 1,4 × la consommation, goulot de plaques) agrandissait encore l'avant-poste de charbon à 201 tuiles.
+  local near = view.sites_near and view.sites_near[kind] or nil
+  local best, best_d2
   for _, o in ipairs(view.outposts) do
     if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
-      return o
+      local d2 = o.d2 or 0
+      if (near == nil or not V.extension_refused(math.sqrt(d2), near)) and (best == nil or d2 < best_d2) then best, best_d2 = o, d2 end
     end
   end
-  return nil
+  return best
 end
 
 --- Lot IA1-b2 : avant-postes NON défendus (moins de tourelles que T.defend_turrets(foreuses)), { [id] = vrai } ; vide si

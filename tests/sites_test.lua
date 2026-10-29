@@ -339,6 +339,24 @@ do
   g.stats.refus_logged = nil
   W.patches[#W.patches] = nil
 
+  -- 8 bis. Mémoire des blocages pleine : on oublie le plus LOINTAIN, jamais le proche noté le premier (relecture).
+  reset()
+  g.site_block = nil
+  local nearest = coal(45, 10000000)
+  Sites.mark_unreachable(nearest, TK)
+  g.prospects = { nearest, coal(201, 10000000) }
+  Sites.available(g, "coal", TK) -- le proche injoignable est retenu en premier
+  for i = 1, 40 do -- 40 chunks injoignables plus loin (voisinage hostile), tous notés après le proche
+    local far_i = { x = ghq.x - 120 - 32 * i, y = ghq.y + 64, resource = "iron-ore", radius = 6, rich = 1000000, tiles = 60 }
+    Sites.mark_unreachable(far_i, TK)
+    g.prospects[#g.prospects + 1] = far_i
+    Sites.available(g, "iron-ore", TK)
+  end
+  local kept = false
+  for _, e in ipairs(g.site_block or {}) do if e.resource == "coal" and e.x == nearest.x then kept = true end end
+  check(kept and #g.site_block <= 16, "mémoire pleine : le blocage du site proche est gardé (" .. #(g.site_block or {}) .. " entrées)")
+  check(select(1, Sites.available(g, "coal", TK)) == 0, "le charbon lointain reste suspendu après 40 blocages plus loin")
+
   -- 9. L'équipe du joueur garde la règle d'avant : compte brut, un seul résultat, rien de signalé.
   local pf = { is_player = true, key = "player", prospects = { near, far }, stats = {} }
   check(Sites.available(pf, "coal", TK) == 2 and select(2, Sites.available(pf, "coal", TK)) == nil, "joueur : compte brut, sans distance")
