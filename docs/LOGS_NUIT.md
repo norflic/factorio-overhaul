@@ -73,3 +73,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~10 h 10, passage 21
 - Rien de nouveau : 15 archives des 70 dernieres minutes relues (CENTRALE-GARDE c-*, d-*) : 0 erreur Lua, 0 ECHEC. Disque 137 Go ; file vide (0 banc.py, 0 factorio.exe, 0 blender.exe, 3 bash) : plan-directeur ecrit ses corrections, centre-fusee prepare son brief.
+
+## 29/10 ~10 h 30, passage 22
+- Rien de nouveau : 10 archives des 80 dernieres minutes relues : 0 erreur Lua, 0 ECHEC. Disque 136 Go ; file vide (0 banc.py, 0 factorio.exe), 1 blender.exe (CENTRE-FUSEE, verrou de rendu), 8 bash.
