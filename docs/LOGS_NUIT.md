@@ -84,3 +84,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~11 h 30, passage 24
 - Rien de nouveau : 14 archives des 80 dernieres minutes relues (CENTRALE-GARDE, INTEG, CORR) : 0 erreur Lua, 0 ECHEC. Disque 128 Go ; 6 banc.py (tickets en attente de leurs lots), 0 factorio.exe a cet instant (entre deux parties), 1 blender.exe (CENTRE-FUSEE, verrou), 46 bash.
+
+## 29/10 ~11 h 55, passage 25
+- Rien de nouveau : 37 archives des 80 dernieres minutes relues (CORR, CENTRALE-GARDE) : 0 erreur Lua, 0 ECHEC. Disque 126 Go ; 6 banc.py (tickets en attente), 1 factorio.exe, 34 bash, 1 blender.exe (CENTRE-FUSEE, verrou, lance a 11 h 51 : essai de l agent apres sa passe de proprete, a verifier).
