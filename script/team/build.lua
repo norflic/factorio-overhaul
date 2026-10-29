@@ -2452,31 +2452,40 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tâches au tableau
 ---------------------------------------------------------------------------------------------------
-local function batch_tasks(f, p, out)
+local function batch_tasks(f, p, out, free_of)
   local b = f.build
   local by = {}
   local order = {}
   for _, e in ipairs(p.ents) do
     if not e.built and e.item and (e.fails or 0) < Build.FAIL_LIMIT * 2 then
       local k = e.anchor
-      if not by[k] then by[k] = { items = {}, ax = e.ax, ay = e.ay, n = 0, poles = 0 }; order[#order + 1] = k end
+      if not by[k] then by[k] = { items = {}, ax = e.ax, ay = e.ay, n = 0, poles = 0, main = {} }; order[#order + 1] = k end
       local bt = by[k]
       bump(bt.items, e.item)
+      bt.main[#bt.main + 1] = e.item -- relecture REBUILD-RAPIDE : objets qui posent les pièces du lot (Rr.batch_ready)
       if e.name == "burner-inserter" then bump(bt.items, "coal", 2) end
       if e.subst then bump(bt.items, T.fuel, Rr.SUBST_FUEL) end -- lot REBUILD-RAPIDE (d) : combustible porté avec la foreuse de secours
       bt.n = bt.n + 1
     end
   end
   table.sort(order)
+  -- Relecture REBUILD-RAPIDE : un projet ROUVERT entre en chantier sans toute sa matière (Rr.partial_go) ; un lot dont AUCUN objet n'est au
+  -- coffre (réserve du projet + stock libre, comme Build.take_reserved) n'est pas mis au tableau : le PNJ irait au coffre pour rien, à la
+  -- priorité de la reconstruction. Il y revient dès que la matière arrive (pensée suivante) ; le manque reste dit par p.missing.
+  local free = Rr.partial_go(p) and free_of and free_of() or nil
+  local function have(it) return (p.stock[it] or 0) + (free[it] or 0) end
   for _, k in ipairs(order) do
     local bt = by[k]
     local items = {}
     for _, it in ipairs(sorted_keys(bt.items)) do items[#items + 1] = { it, bt.items[it] } end
-    out[#out + 1] = {
-      -- lot REBUILD-RAPIDE (b) : un projet ROUVERT passe à son rang (alimentation 88, production principale 87 ; le reste inchangé)
-      key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = Rr.project_prio(p, finish_prio(p.prio)), domain = p.domain, work = 15 + 2 * bt.n,
-      items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay },
-    }
+    -- rien au coffre pour ce lot : pas de voyage (le manque est au journal [FO-REBUILD-ETAT] et dans p.missing)
+    if not free or Rr.batch_ready(bt.main, have) then
+      out[#out + 1] = {
+        -- lot REBUILD-RAPIDE (b) : un projet ROUVERT passe à son rang (alimentation 88, production principale 87 ; le reste inchangé)
+        key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = Rr.project_prio(p, finish_prio(p.prio)), domain = p.domain, work = 15 + 2 * bt.n,
+        items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay },
+      }
+    end
   end
 end
 
@@ -3222,6 +3231,11 @@ function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
   local tasks = {}
+  local free_cache -- relecture REBUILD-RAPIDE : stock libre lu une fois par pensée, au premier projet rouvert (batch_tasks)
+  local function free_of()
+    if not free_cache then free_cache = free_stock(f) end
+    return free_cache
+  end
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p then
@@ -3232,7 +3246,7 @@ function Build.think(f, surface, tick)
           for _, o in ipairs(p.obstacles) do if not o.done then open = true break end end
           if open then clear_tasks(f, p, tasks) end
         end
-        batch_tasks(f, p, tasks)
+        batch_tasks(f, p, tasks, free_of)
       end
       if p.state == "fini" or p.state == "chantier" then quai_tasks(f, p, surface, tasks) end
     end

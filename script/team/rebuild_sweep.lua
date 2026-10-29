@@ -195,12 +195,15 @@ local function hot_pass(b, force, st, surface, tick, cands, seen)
   if not (st.hot and #st.hot > 0) then return end
   local rank = {}
   for k, pid in ipairs(b.order) do rank[pid] = k end
-  local keep = {}
+  local keep, later, n = {}, {}, 0
   for _, h in ipairs(st.hot) do
-    local q = b.projects[h[1]]
+    n = n + 1
+    local q = n <= Rr.HOT_PER_PASS and b.projects[h[1]] or nil
     local e = q and q.ents and q.ents[h[2]]
     local k = rank[h[1]]
-    if e and k and h[3] and WATCHED[q.state] and not q.abandoned and not (q.spec and q.spec.enceinte) and e.built and e.item
+    if n > Rr.HOT_PER_PASS then
+      later[#later + 1] = h -- relecture : au plus Rr.HOT_PER_PASS lectures par passe, le reste en tête de la suivante
+    elseif e and k and h[3] and WATCHED[q.state] and not q.abandoned and not (q.spec and q.spec.enceinte) and e.built and e.item
       and not e.gave_up and not e.dropped and not e.wall and math.abs(e.x - h[3]) <= Sweep.MATCH and math.abs(e.y - h[4]) <= Sweep.MATCH
       and st.hand[place_key(e.x, e.y)] == nil then
       local ty = type_of(e.name)
@@ -219,7 +222,7 @@ local function hot_pass(b, force, st, surface, tick, cands, seen)
       end
     end
   end
-  Rr.hot_set_list(st, keep)
+  Rr.hot_set_list(st, Rr.hot_next(later, keep))
 end
 
 --- Une passe de l'équipe. Rend le nombre de pièces rouvertes.

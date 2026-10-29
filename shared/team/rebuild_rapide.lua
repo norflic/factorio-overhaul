@@ -61,6 +61,29 @@ function Rr.hot_set_list(st, keep)
   for _, h in ipairs(keep) do st.hot_set[h[1] .. ":" .. h[2]] = true end
 end
 
+-- Relecture REBUILD-RAPIDE : la liste chaude coûtait jusqu'à Rr.HOT_MAX lectures du moteur (count_entities_filtered) par passe et par
+-- équipe tant qu'un ennemi tient la place (pic régulier, 4 factions, jeu en x10). Au plus Rr.HOT_PER_PASS pièces relues par passe (le
+-- budget du curseur, Sw.SLICE) ; les autres passent EN TÊTE de la passe suivante (Rr.hot_next : rotation, aucune n'est oubliée).
+Rr.HOT_PER_PASS = 100
+
+--- Liste chaude après une passe : les entrées non relues (`later`, ordre gardé) d'abord, puis celles gardées après relecture (`kept`).
+function Rr.hot_next(later, kept)
+  local out = {}
+  for _, h in ipairs(later or {}) do out[#out + 1] = h end
+  for _, h in ipairs(kept or {}) do out[#out + 1] = h end
+  return out
+end
+
+--- Relecture REBUILD-RAPIDE : un lot de chantier (une ancre) d'un projet ROUVERT vaut-il un voyage ? Vrai si au moins un objet qui pose
+--- une de ses pièces (`items`) est au coffre pour lui (`have(item)` : réserve du projet + stock libre). Sinon le PNJ irait au coffre pour
+--- rien (abandon « stock », puis 30 s de repos de la tâche) à la priorité de la reconstruction, devant les fabrications qui manquent.
+function Rr.batch_ready(items, have)
+  for _, it in ipairs(items or {}) do
+    if (have(it) or 0) >= 1 then return true end
+  end
+  return false
+end
+
 --- Un projet rouvert par le relevé ou le réseau vivant (date de réouverture connue) reprend son chantier avec la matière qui est au coffre
 --- au lieu d'attendre TOUTE la matière (« reserve[materiaux] » de 40 min pour 2 bras sans cuivre, alors que 27 tapis étaient à refaire).
 --- Les murs d'enceinte rouverts (sans date) gardent la règle du tout-ou-rien.

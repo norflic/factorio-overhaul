@@ -56,6 +56,14 @@ local function suite(Rr)
   c(Rr.partial_go({ reopened = 1, reopened_tick = 5 }) == true, "projet rouvert daté : chantier sans toute la matière")
   c(Rr.partial_go({ reopened = 1 }) == false and Rr.partial_go({}) == false and Rr.partial_go(nil) == false,
     "mur d'enceinte rouvert sans date, projet neuf : tout-ou-rien comme avant")
+  -- relecture : budget de la liste chaude (rotation) et lot de chantier sans aucun objet au coffre
+  local nx = Rr.hot_next({ { 1, 5 }, { 1, 6 } }, { { 1, 2 } })
+  c(#nx == 3 and nx[1][2] == 5 and nx[2][2] == 6 and nx[3][2] == 2, "liste chaude : les pièces non relues passent en tête de la passe suivante")
+  c(type(Rr.HOT_PER_PASS) == "number" and Rr.HOT_PER_PASS >= 1 and Rr.HOT_PER_PASS < Rr.HOT_MAX, "liste chaude : budget de lectures par passe")
+  local inv = { tapis = 0, bras = 2 }
+  local function have(it) return inv[it] or 0 end
+  c(Rr.batch_ready({ "tapis", "bras" }, have) == true, "lot de chantier : un objet au coffre suffit au voyage")
+  c(Rr.batch_ready({ "tapis", "four" }, have) == false and Rr.batch_ready({}, have) == false, "lot de chantier : rien au coffre, pas de voyage")
 
   -- (b) ordre
   c(Rr.project_rank({ gen = "steam" }) == 1 and Rr.project_rank({ gen = "smelter" }) == 2 and Rr.project_rank({ gen = "drills" }) == 2
@@ -133,6 +141,10 @@ local MUTANTS = {
   { "liste chaude sans date de mort", "if not e.miss then e.miss = tick end", "" },
   { "liste chaude avec doublons", "if st.hot_set[key] then return false end", "" },
   { "liste chaude sans borne", "if #st.hot >= Rr.HOT_MAX then", "if false then" },
+  { "pièces non relues oubliées", "for _, h in ipairs(later or {}) do out[#out + 1] = h end", "" },
+  { "pièces non relues en queue", "  for _, h in ipairs(later or {}) do out[#out + 1] = h end\n  for _, h in ipairs(kept or {}) do out[#out + 1] = h end",
+    "  for _, h in ipairs(kept or {}) do out[#out + 1] = h end\n  for _, h in ipairs(later or {}) do out[#out + 1] = h end" },
+  { "voyage même sans rien au coffre", "if (have(it) or 0) >= 1 then return true end\n  end\n  return false", "if (have(it) or 0) >= 1 then return true end\n  end\n  return true" },
   { "mur rouvert sans date en partiel", "return (p and (p.reopened or 0) > 0 and p.reopened_tick ~= nil) or false", "return (p and (p.reopened or 0) > 0) or false" },
   { "réserve partielle jamais", "return (p and (p.reopened or 0) > 0 and p.reopened_tick ~= nil) or false", "return false" },
   { "centrale non prioritaire", "if g and Rr.POWER_GENS[g] then return 1 end", "" },
@@ -249,6 +261,30 @@ do
   Sweep.note_died(f2, { x = 3, y = 500 }, 400)
   Sweep.step(f2, surface, 700)
   check(#f2.build.sweep.hot == 0 and q2.ents[3].built and q2.ents[3].miss == nil, "pièce revue en place : sortie de la liste chaude, rien rouvert")
+end
+
+do
+  -- Relecture : une attaque massive tenue par l'ennemi ne coûte pas plus de Rr.HOT_PER_PASS lectures (liste chaude) par passe ; rotation.
+  local Rr1 = require("shared.team.rebuild_rapide")
+  local nk = Rr1.HOT_PER_PASS + 50
+  local f, q = team("ambre", nk + Sw.SLICE + 10)
+  Sweep.step(f, surface, 300)
+  for i = 1, nk do present[i .. ",500"] = nil Sweep.note_died(f, { x = i, y = 500 }, 400) end
+  enemy = { x = 1, y = 500 }
+  local calls = 0
+  local count0 = surface.count_entities_filtered
+  surface.count_entities_filtered = function(a) calls = calls + 1 return count0(a) end
+  -- curseur placé hors des pièces tuées (aucune lecture du curseur sur elles)
+  f.build.sweep.pi, f.build.sweep.ei = 1, nk + 1
+  Sweep.step(f, surface, 700)
+  local hot_calls = calls - math.min(Sw.SLICE, #q.ents - nk)
+  check(hot_calls <= Rr1.HOT_PER_PASS and #f.build.sweep.hot == nk, "liste chaude : au plus " .. Rr1.HOT_PER_PASS .. " lectures par passe (" .. hot_calls .. "), aucune pièce perdue")
+  check(f.build.sweep.hot[1][2] == Rr1.HOT_PER_PASS + 1, "liste chaude : les pièces non relues passent en tête")
+  enemy = nil
+  local opened = 0
+  for t = 1, 6 do opened = opened + Sweep.step(f, surface, 700 + Sw.CALM + 300 * t) end
+  check(opened == nk and #f.build.sweep.hot == 0, "ennemi parti : toutes les pièces chaudes rouvertes (" .. opened .. " sur " .. nk .. ")")
+  surface.count_entities_filtered = count0
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -392,6 +428,9 @@ do
   check(r and g and m and r < g and g < m, "build.lua : un projet rouvert repart sans toute sa matière (après la réserve, avant l'attente « materiaux »)")
 end
 check(BUILD:find("prio = Rr.project_prio(p, finish_prio(p.prio))", 1, true) ~= nil, "build.lua : tâches d'un projet rouvert à leur rang")
+check(BUILD:find("if not free or Rr.batch_ready(bt.main, have) then", 1, true) ~= nil and BUILD:find("batch_tasks(f, p, tasks, free_of)", 1, true) ~= nil,
+  "build.lua : un lot d'un projet rouvert sans aucun objet au coffre n'envoie pas de PNJ")
+check(read("script/team/rebuild_sweep.lua"):find("Rr.hot_set_list(st, Rr.hot_next(later, keep))", 1, true) ~= nil, "rebuild_sweep.lua : budget et rotation de la liste chaude")
 check(BUILD:find("if e.subst then bump(need, T.fuel, Rr.SUBST_FUEL) end", 1, true) ~= nil
   and BUILD:find("if e.subst then bump(bt.items, T.fuel, Rr.SUBST_FUEL) end", 1, true) ~= nil
   and BUILD:find("if e.subst and inv.get_item_count(T.fuel) >= 1 then", 1, true) ~= nil, "build.lua : combustible réservé, porté et mis dans la foreuse de secours")
