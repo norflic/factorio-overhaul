@@ -32,6 +32,7 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock")
+local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : réparation des tourelles (toutes les équipes)
 local R = require("shared.ai3.reglages")
 local Rc = require("shared.team.reconstruction")
 local Protos = require("script.team.protos")
@@ -599,44 +600,69 @@ end
 --- place (LuaEntity.health est en écriture, bornée à la santé max). Un balayage par Recon.REPAIR_SCAN ticks et par équipe ; une tâche « repair » à la fois.
 Recon.REPAIR_SCAN = 1800 -- 30 s (revue statique 29/10 : le balayage lit TOUS les poteaux de la surface ; 10 s coûtait un pic régulier sur une grosse usine)
 function Recon.repair_think(f, surface, tick)
-  if not f.is_player or (f.repair_at or 0) > tick then return 0 end
-  f.repair_at = tick + Recon.REPAIR_SCAN
+  -- Lot COMPAGNONS-ACTIFS (DC 29/10 : « il y a une tourelle qui est endommagée, ils l'ont même pas réparée ») : les TOURELLES endommagées
+  -- de TOUTES les équipes (factions comprises) sont réparées, relevé toutes les Ac.TURRET_SCAN ticks (10 s), seuil Ac.TURRET_REPAIR_BELOW %.
+  -- L'infrastructure électrique (votre équipe, 30 s, 60 %) garde sa règle et passe d'abord. État écrit : f.repair_at, f.repair_turret_at
+  -- (dates du prochain relevé), lus ici seulement.
+  local infra_due = f.is_player and (f.repair_at or 0) <= tick
+  local turret_due = (f.repair_turret_at or 0) <= tick
+  if not infra_due and not turret_due then return 0 end
+  if infra_due then f.repair_at = tick + Recon.REPAIR_SCAN end
+  if turret_due then f.repair_turret_at = tick + Ac.TURRET_SCAN end
   local b = Board.get(f)
   for _, k in ipairs(State.sorted_keys(b.tasks)) do
     if b.tasks[k].kind == "repair" then return 0 end
   end
-  local types = {}
-  for _, k in ipairs(State.sorted_keys(R.INFRA_TYPES)) do types[#types + 1] = k end
-  local cands = {}
-  for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = types })) do
-    -- get_health_ratio : un seul appel par entité (revue statique 29/10 : e.health + e.prototype.max_health créaient un objet prototype pour
-    -- CHAQUE poteau de la surface à chaque balayage) ; nil sans santé.
-    local ratio = e.valid and e.get_health_ratio() or nil
-    if ratio and ratio < 1 then
-      cands[#cands + 1] = { key = e.name .. "@" .. string.format("%.1f,%.1f", e.position.x, e.position.y), name = e.name,
-        x = e.position.x, y = e.position.y, ratio = ratio }
+  local function scan(types, below)
+    local cands = {}
+    for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = types })) do
+      -- get_health_ratio : un seul appel par entité (revue statique 29/10 : e.health + e.prototype.max_health créaient un objet prototype pour
+      -- CHAQUE poteau de la surface à chaque balayage) ; nil sans santé.
+      local ratio = e.valid and e.get_health_ratio() or nil
+      if ratio and ratio < 1 then
+        cands[#cands + 1] = { key = e.name .. "@" .. string.format("%.1f,%.1f", e.position.x, e.position.y), name = e.name,
+          x = e.position.x, y = e.position.y, ratio = ratio }
+      end
     end
+    return Rc.repair_batch(cands, below)
   end
-  local batch = Rc.repair_batch(cands)
+  local batch = {}
+  if infra_due then
+    local types = {}
+    for _, k in ipairs(State.sorted_keys(R.INFRA_TYPES)) do types[#types + 1] = k end
+    batch = scan(types)
+  end
+  local turrets = false
+  if #batch == 0 and turret_due then
+    batch = scan(Ac.REPAIR_TYPES, Ac.TURRET_REPAIR_BELOW)
+    turrets = #batch > 0
+  end
   if #batch == 0 then return 0 end
   if #surface.find_enemy_units({ x = batch[1].x, y = batch[1].y }, Recon.SAFE_RADIUS, f.force) > 0 then
-    stat(f.recon or Recon.state(f), "repair_deferred")
+    if f.is_player then stat(f.recon or Recon.state(f), "repair_deferred") end
     return 0
   end
   local targets = {}
   for _, c in ipairs(batch) do targets[#targets + 1] = { name = c.name, x = c.x, y = c.y } end
-  return Board.add(f, { { key = "repair:" .. batch[1].key, kind = "repair", prio = Rc.REPAIR_PRIO, domain = "defense", work = 10 + 2 * #batch,
+  local n = Board.add(f, { { key = "repair:" .. batch[1].key, kind = "repair", prio = Rc.REPAIR_PRIO, domain = "defense", work = 10 + 2 * #batch,
     targets = targets, pos = { x = batch[1].x, y = batch[1].y } } }, tick)
+  if turrets and n > 0 then
+    log(string.format("[FO-ACTIF] %s : reparation de %d tourelle(s) endommagee(s) ouverte autour de (%.1f, %.1f) (la plus abimee a %d %%)",
+      tostring(f.key or "player"), #batch, batch[1].x, batch[1].y, math.floor(batch[1].ratio * 100)))
+  end
+  return n
 end
 
 function Recon.repair_program(f, task)
   if not (task.pos and task.targets) then return nil end
-  return { { "home" }, { "goto", task.pos, 4 }, { "act", "repair" }, { "home" } }
+  -- Lot COMPAGNONS-ACTIFS : droit vers la pièce (rien à prendre au coffre : la réparation ne consomme rien), puis retour au QG.
+  return { { "goto", task.pos, 4 }, { "act", "repair" }, { "home" } }
 end
 
 --- Remet à neuf les pièces du lot (ACTS.repair). Vrai si au moins une pièce a été réparée.
 function Recon.repair_act(agent, f, task, surface)
-  local s = Recon.state(f)
+  -- Lot COMPAGNONS-ACTIFS : les factions réparent aussi (tourelles) ; leur état de reconstruction n'est pas créé pour autant.
+  local s = f.is_player and Recon.state(f) or { stats = {} }
   local n = 0
   for _, t in ipairs(task.targets or {}) do
     local e = surface.find_entity(t.name, { t.x, t.y })
