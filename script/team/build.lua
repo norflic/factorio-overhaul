@@ -35,6 +35,7 @@ local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en lo
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
+local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
@@ -297,11 +298,53 @@ local function read_masks(f, surface, x0, y0, x1, y1)
   end
   return {
     water = water, blocked = blocked, clear = clear,
+    rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
     free = function(tx, ty)
       local k = P.tkey(tx, ty)
       return not water[k] and not blocked[k] and not b.occ[k]
     end,
   }
+end
+
+--- Lot POTEAUX-MASQUES : cache LOCAL (jamais dans global, vide à chaque chargement) des relevés par chunk, par surface.
+--- Écrit par masques_view, invalidé par finish_project (Mq.invalidate) et par la péremption (Mq.TTL) ; lu par masques_view seul.
+local MASQ = {}
+local function masq_cache(surface)
+  local c = MASQ[surface.index]
+  if not c then c = Mq.new(); MASQ[surface.index] = c end
+  return c
+end
+
+--- Relevé d'un chunk entier au moteur (même lecture que read_masks, donc mêmes règles : eau, bloqué, défrichable).
+local function chunk_reader(f, surface)
+  return function(cx, cy)
+    local x0, y0 = cx * Mq.CHUNK, cy * Mq.CHUNK
+    local m = read_masks(f, surface, x0, y0, x0 + Mq.CHUNK, y0 + Mq.CHUNK)
+    return { water = m.water, blocked = m.blocked, clear = m.clear }
+  end
+end
+
+--- Lot POTEAUX-MASQUES : vue des masques sur le couloir des `legs` ({ a, b } à relier par P.pole_chain). Rend la vue, ou nil si
+--- l'accord de cet essai (p.masq_n + 1 fois Mq.BUDGET chunks) ne couvre pas tout le couloir : plan_power rend alors le projet
+--- en attente (« masques ») et l'essai suivant accorde Mq.BUDGET chunks de plus. L'accord ne dépend que de p (sauvegardé) :
+--- jamais du contenu du cache.
+local function masques_view(f, surface, p, masks, legs, reach)
+  local b = f.build
+  local list, total = Mq.corridor(legs, Mq.margin(reach))
+  local attempt = (p.masq_n or 0) + 1
+  local granted = Mq.grant(attempt, #list)
+  local ready, reads, hits = Mq.ensure(masq_cache(surface), list, granted, game.tick, chunk_reader(f, surface))
+  local complete = granted >= #list
+  if not complete or attempt > 1 then
+    p.masq_logged = (p.masq_logged or 0) + 1
+    if p.masq_logged <= 6 then
+      log(string.format("[FO-MASQUES] %s : projet %d, couloir de %d chunk(s)%s, essai %d : %d accorde(s) (budget %d), %d lu(s) au moteur, %d en cache%s",
+        f.key or "player", p.id, #list, total > #list and (" sur " .. total .. " (plafond " .. Mq.MAX_CHUNKS .. ")") or "", attempt, math.min(granted, #list),
+        Mq.BUDGET, reads, hits, complete and " : couloir complet" or " : le projet attend la suite"))
+    end
+  end
+  if not complete then return nil end
+  return Mq.view(masks, masks.rect, ready, P.tkey, function(tx, ty) return not b.occ[P.tkey(tx, ty)] end)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -745,9 +788,26 @@ local function plan_power(f, p, mp, masks)
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
   local function take(e) for _, t in ipairs(P.tiles_of(e)) do taken[P.tkey(t[1], t[2])] = true end end
+  -- lot POTEAUX-MASQUES : les obstacles du couloir de CHAQUE liaison (le module au carrefour, puis carrefour à carrefour), pas
+  -- seulement ceux du rectangle relevé autour du module ; hors couloir relevé, une tuile reste « libre » comme avant
+  local view = { free = masks.free, clear = function(tx, ty) return masks.clear[P.tkey(tx, ty)] end }
+  if surface then
+    local legs = {}
+    local npos0 = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
+    legs[1] = { a = { x = mp.x, y = mp.y }, b = npos0 }
+    local pv
+    for _, n in ipairs(nodes) do
+      local pos = spot_of(n.i, n.j)
+      if pv and (not big or (pv.x - pos.x) ^ 2 + (pv.y - pos.y) ^ 2 > reach * reach - 1e-6) then legs[#legs + 1] = { a = pv, b = pos } end
+      pv = pos
+    end
+    local v = masques_view(f, surface, p, masks, legs, reach)
+    if not v then return nil, "masques (couloir des poteaux en cours de releve)", "masques" end
+    view = v
+  end
   local function free(x, y)
     local tx, ty = math.floor(x), math.floor(y)
-    return masks.free(tx, ty) and not taken[P.tkey(tx, ty)] and not masks.clear[P.tkey(tx, ty)]
+    return view.free(tx, ty) and not taken[P.tkey(tx, ty)] and not view.clear(tx, ty)
   end
   -- lot CORR-RESEAU : poteaux déjà prévus ou posés (ce projet, puis les projets en chantier ou finis) que les chaînes traversent au
   -- lieu d'en doubler un (seuls comptent ceux dont la portée de fil atteint celle de la chaîne ; shift_pole n'est pas touché)
@@ -793,6 +853,11 @@ local function plan_power(f, p, mp, masks)
     local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
     out[#out + 1] = e
     take(e)
+  end
+  if view.stats and (p.masq_logged or 0) < 6 then
+    p.masq_logged = (p.masq_logged or 0) + 1
+    log(string.format("[FO-MASQUES] %s : projet %d, %d poteau(x) de liaison et de rue planifie(s) : %d interrogation(s) du rectangle du module, %d d'un chunk releve, %d de tuile inconnue (libre)",
+      f.key or "player", p.id, #out, view.stats.base, view.stats.chunk, view.stats.unknown))
   end
   return out, nil, nodes
 end
@@ -1624,7 +1689,7 @@ local function plan_project(f, surface, p)
           -- relevé autour de CE module (eau, bâtiments, arbres) jusqu'aux carrefours voisins
           local pm = idx == 1 and masks or read_masks(f, surface, pt.ox - 32, pt.oy - 32, pt.ox + pt.w + 32, pt.oy + pt.h + 32)
           local extra, w3, nodes = plan_power(f, p, mp, pm)
-          if not extra then return false, w3, nodes == "net" and "net" or nil end
+          if not extra then return false, w3, (nodes == "net" or nodes == "masques") and nodes or nil end
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
             local k = P.lot_key(n.i, n.j)
@@ -2556,6 +2621,14 @@ local function finish_project(f, surface, p, tick)
       tick / 3600, #p.ents - (p.dropped or 0), p.dropped or 0))
   end
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n].built = true end end
+  -- lot POTEAUX-MASQUES : le terrain a changé là où ce projet a bâti : les relevés de chunk de cette zone tombent
+  if #p.ents > 0 and surface and MASQ[surface.index] then
+    local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+    for _, e in ipairs(p.ents) do
+      x0, y0, x1, y1 = math.min(x0, e.x), math.min(y0, e.y), math.max(x1, e.x), math.max(y1, e.y)
+    end
+    Mq.invalidate(MASQ[surface.index], math.floor(x0) - 4, math.floor(y0) - 4, math.ceil(x1) + 4, math.ceil(y1) + 4)
+  end
   log(string.format("[FO-IA1D] %s : projet %d fini (%s, %d entites, %d fils) a %.1f min", f.key or "player", p.id,
     p.parts[1] and p.parts[1].key or "?", #p.ents, p.wired or 0, tick / 3600))
 end
@@ -2582,10 +2655,21 @@ local function advance(f, surface, p, tick)
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
     Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
     if ok then
+      p.masq_n = nil -- lot POTEAUX-MASQUES : l'accord de chunks repart de zéro au prochain plan de ce projet
       p.state = "reserve"
       p.started = tick
       log(string.format("[FO-IA1D] %s : projet %d plan (%s, lot %s, %d entites, %d obstacles) a %.1f min", f.key or "player", p.id,
         p.parts[1].key, p.parts[1].lot, #p.ents, #p.obstacles, tick / 3600))
+    elseif wait == "masques" then
+      -- lot POTEAUX-MASQUES : le couloir des poteaux n'est pas encore relevé en entier (budget de chunks par essai) ; tout ce qui a
+      -- été réservé est rendu, nouvel essai sous peu avec Mq.BUDGET chunks accordés de plus (p.masq_n, lu par masques_view)
+      for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+      for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+      for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+      p.ents, p.parts = {}, {}
+      p.masq_n = (p.masq_n or 0) + 1
+      p.plan_after = tick + Mq.WAIT_TICKS
+      p.state, p.reason = "attente", why
     elseif wait == "net" and (p.wait_net or 0) < Build.NET_WAIT_MAX then
       -- lot PLANDIR : le réseau d'un autre projet n'est pas bâti ; tout ce qui a été réservé est rendu, nouvel essai plus tard
       for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
@@ -2593,6 +2677,9 @@ local function advance(f, surface, p, tick)
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
       p.wait_net = (p.wait_net or 0) + 1
+      -- lot POTEAUX-MASQUES (relecture) : après 30 s le cache (Mq.TTL) est tombé ; garder l'ancien accord ferait relire jusqu'à 20
+      -- chunks en une seule passe (pic) : l'accord repart de zéro, comme pour tout nouveau plan
+      p.masq_n = nil
       p.plan_after = tick + Build.NET_WAIT_TICKS
       p.state, p.reason = "attente", why
     elseif wait == true then
