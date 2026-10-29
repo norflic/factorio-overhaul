@@ -69,3 +69,6 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 
 | PANEL (05 h 17) | serie v2 : 0 ligne differente sur 4 graines ([FO-FONCTION] 398/398, 380/380, 402/402, 390/390 ; guide idem), 17 OK x8, cout 0,0005 ms/tick ferme et 0,012 ms/tick ouvert (sans --seul) ; Kills/Pertes justes (panel-kills 11 OK, ia1-gui 52 OK) | NON fusionne : design = verdict du DC (captures-DC\ 8 images, question 10) ; reste : cout --seul, captures EN, rechargement de sauvegarde |
 | RECON (veille) | recon-2 silencieux depuis 02 h 05, aucun STATUS | PARQUE, diagnostic demande |
+
+| CAPI-ANNUL (05 h 50) | defaut NON reproduit sur main (14 parties, 7 graines : 41=41 projets finis, rapports 1,00 car journaux identiques) ; cas 314159265 venait du code poteaux-uniques ; defaut voisin 1 graine sur 7 (123456789 scarlet : ordre annule a 32 min, chantier a 0 entite posee pendant 28 min, cause non etudiee) | PARQUE (regle ordre_progres.lua sur la branche capia) |
+| OUTILLAGE-OUTILS (FUSIONNE 05 h 50) | outils seulement : fenetres, sans_fenetre, gels, lot_compare ; test_gels 16, lot_compare 9, sans_fenetre 28, test_banc_file 96 OK | main, version jeu inchangee 0.6.8 |
