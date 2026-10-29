@@ -21,6 +21,8 @@ local K = require("shared.ai3.carte")
 local Re = require("shared.ai3.reaction")
 local Sd = require("shared.ai3.soldats")
 local C = require("script.ai3.comportement")
+local Nt = require("shared.ai3.nettoyage") -- lot NETTOYAGE-SITE : priorité au site proche (Nt.filter_threats)
+local Nts = require("script.ai3.nettoyage") -- lot NETTOYAGE-SITE : opération de nettoyage du site proche bloqué
 
 local SD = {}
 
@@ -180,6 +182,7 @@ local function hq_threat(f, t, surface, tick)
     outrun = Re.outrun(C.enemy_speed(en), own) })
   t.stats["hq_" .. resp] = (t.stats["hq_" .. resp] or 0) + 1
   shelter(f, t, threat, tick, resp, rally, range)
+  return threat -- lot NETTOYAGE-SITE : lu par pass (aucune opération de nettoyage lancée quand le QG est menacé)
 end
 
 local function pass(f, tick)
@@ -190,7 +193,8 @@ local function pass(f, tick)
   local enabled = C.enabled()
   local surface = f.hq and f.hq.valid and f.hq.surface
   if not surface then return end
-  if enabled then hq_threat(f, t, surface, tick) end
+  local hq_en = nil -- lot NETTOYAGE-SITE : menace sur le QG (lue par Nts.pass)
+  if enabled then hq_en = hq_threat(f, t, surface, tick) end
   local soldiers = f.soldiers or {}
   local ids = State.sorted_keys(soldiers)
   local list, group_n = {}, 0
@@ -383,6 +387,29 @@ local function pass(f, tick)
       sd.clearing = nil
     end
   end
+  -- Lot NETTOYAGE-SITE (arbitrage du DC, 29/10) : le site PROCHE bloqué d'une ressource demandée est nettoyé par une opération
+  -- (script/ai3/nettoyage.lua) ; ses soldats sortent de la liste attribuée, et tant qu'elle est préparée (attente d'effectif) ou
+  -- en cours, les expéditions plus lointaines que le site sont retirées des menaces candidates. Coupure de banc : offense.
+  local nt_n = 0
+  if offense then
+    local nt = Nts.pass(f, t, sd, list, soldiers, per, surface, tick,
+      { threatened = hq_en ~= nil or #defend > 0, km = km, command = command_for, expedition = sd.clearing })
+    if nt.n > 0 then
+      local kept = {}
+      for _, s in ipairs(list) do if not nt.taken[s.id] then kept[#kept + 1] = s end end
+      list, nt_n = kept, nt.n
+    end
+    if nt.hold and nt.site then
+      clusters = Nt.filter_threats(clusters, f.hq_pos, nt.site)
+    elseif nt.cleared then
+      clusters = Nt.drop_site(clusters, nt.cleared) -- champ lu avant le nettoyage : aucune expédition vers des nids détruits
+    end
+    -- Soldats rendus par une opération finie à ce passage : repos et rôle relus (sinon Sd.assign les reprend aussitôt).
+    for _, s in ipairs(list) do
+      local ps = per[s.id]
+      s.role, s.rest_until = ps.role, ps.rest_until
+    end
+  end
   -- Avant-postes marqués (menace ou mort à moins de 48 tuiles) : 2 gardes chacun.
   local marked = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
@@ -503,7 +530,7 @@ local function pass(f, tick)
   t.soldiers = m
   m.samples = m.samples + 1
   m.far = (m.far or 0) + (summary.far or 0)
-  m.total = m.total + #list + group_n
+  m.total = m.total + #list + group_n + nt_n
   m.idle = m.idle + summary.idle
   m.rest = m.rest + summary.rest
   m.group = m.group + group_n

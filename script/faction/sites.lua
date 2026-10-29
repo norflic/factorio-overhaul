@@ -203,7 +203,8 @@ local function blocked_nearest(f, resource, tick)
     if s.lost and s.resource == resource then
       for _, l in ipairs(f.lost_sites or {}) do
         local age = tick - (l.tick or 0)
-        if age >= 0 and age < V.LOST_TTL and (l.x - s.x) ^ 2 + (l.y - s.y) ^ 2 <= 4 then
+        -- Lot NETTOYAGE-SITE : une perte dont le site a été nettoyé depuis (l.cleared, Sites.unblock) ne bloque plus.
+        if age >= 0 and age < V.LOST_TTL and not (l.cleared and l.cleared >= l.tick) and (l.x - s.x) ^ 2 + (l.y - s.y) ^ 2 <= 4 then
           offer(dist_hq(f, s), s.x, s.y, "perte", l.tick + V.LOST_TTL)
         end
       end
@@ -953,6 +954,58 @@ function Sites.release(pos)
   local key = State.site_key(pos)
   war.claims[key] = nil
   if war.claim_pos then war.claim_pos[key] = nil end
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot NETTOYAGE-SITE (29/10) : levée du blocage d'un site proche nettoyé par les soldats (script/ai3/nettoyage.lua)
+---------------------------------------------------------------------------------------------------
+Sites.ENEMY_CLEARANCE = ENEMY_CLEARANCE -- rayon qui déclare un site hostile ; lu par shared/ai3/nettoyage.lua (Nt.R, contrôlé)
+local UNBLOCK_R = 16 -- une entrée de blocage ou une perte à moins de 16 tuiles du site est celle de ce site
+
+--- Le site proche `site` ({ x, y }) de `resource` a été nettoyé (ou est connu libre) : le blocage est levé (mémoire f.site_block,
+--- war.unreachable du chunk, pertes marquées l.cleared), puis le chunk est EXAMINÉ de nouveau avec les règles de la prospection
+--- (probe : un ennemi encore à ENEMY_CLEARANCE tuiles le bloque de nouveau, avec une nouvelle échéance). S'il n'est pas déjà en
+--- réserve, la place est faite en oubliant le site le plus LOINTAIN du QG de la même ressource (hors gisements de départ ; ils
+--- sont suspendus à cause de lui). Enfin Sites.available rafraîchit le signal f.site_blocked et écrit « [FO-SITES] debloque ».
+--- Rend { added, in_reserve, still (signal encore posé), n (sites admissibles), near (distance du plus proche) }.
+function Sites.unblock(f, surface, site, resource, tick)
+  local war = State.war()
+  local r2 = UNBLOCK_R * UNBLOCK_R
+  local function near(p) return (p.x - site.x) ^ 2 + (p.y - site.y) ^ 2 <= r2 end
+  war.unreachable = war.unreachable or {}
+  war.unreachable[State.site_key(site)] = nil
+  local keep = {}
+  for _, e in ipairs(f.site_block or {}) do
+    if near(e) then war.unreachable[e.key] = nil else keep[#keep + 1] = e end
+  end
+  f.site_block = keep
+  for _, l in ipairs(f.lost_sites or {}) do
+    if near(l) then l.cleared = tick end
+  end
+  f.prospects = f.prospects or {}
+  local in_reserve = false
+  for _, s in ipairs(f.prospects) do
+    if s.resource == resource and near(s) then in_reserve = true end
+  end
+  local added = false
+  if not in_reserve and f.hq_pos then
+    local function drop_farthest(only_res)
+      local drop, dmax = nil, -1
+      for i, s in ipairs(f.prospects) do
+        if not s.seeded and (not only_res or s.resource == only_res) then
+          local d = (s.x - f.hq_pos.x) ^ 2 + (s.y - f.hq_pos.y) ^ 2
+          if d > dmax then drop, dmax = i, d end
+        end
+      end
+      if drop then table.remove(f.prospects, drop) end
+    end
+    if prospects_of(f, resource) >= (f.is_player and MAX_PER_KIND or FACTION_MAX_PER_KIND) then drop_farthest(resource) end
+    if #f.prospects >= max_prospects(f) then drop_farthest(nil) end
+    added = probe(f, surface, math.floor(site.x / 32), math.floor(site.y / 32), tick, { resource }, nil, other_hqs_of(f),
+      game.forces.player.get_spawn_position(surface), war)
+  end
+  local n, d = Sites.available(f, resource, tick)
+  return { added = added, in_reserve = in_reserve or added, still = (f.site_blocked or {})[resource] ~= nil, n = n, near = d }
 end
 
 return Sites
