@@ -38,6 +38,7 @@ local Front = require("script.team.front") -- lot DEFENSE-FRONT : tourelles pos�
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 
 local Worker = {}
+Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
 
 Worker.DANGER_RADIUS = 40 -- lot IA1-b : rayon « nid ou ver » qui écarte un minage ou une garde de fond
 Worker.SAFE_HOME = 24     -- lot IA-V2 : une perte à moins de 24 tuiles du QG ne rappelle personne (le QG est défendu)
@@ -556,6 +557,25 @@ ACTS.build = function(agent, f, task, surface, tick)
   o.access = { x = p.x, y = p.y }
   task.site_used = true
   f.stats.built = (f.stats.built or 0) + 1
+  -- Lot SCALE-COMPLET : origine et distance de chaque NOUVEL avant-poste (partie du DC, 0.6.18 : l'avant-poste de charbon n° 5
+  -- d'Écarlate, à 157 tuiles, n'était lisible que par [FO-TOUR-POSE]) : qui l'a demandé (fond ou projet du cerveau), et le plus
+  -- proche avant-poste du même type qui avait encore des places. Worker.BUILD_LOGS lignes au plus par équipe.
+  if (f.stats.build_logs or 0) < Worker.BUILD_LOGS then
+    f.stats.build_logs = (f.stats.build_logs or 0) + 1
+    local d_new = math.sqrt((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2)
+    local d_room, n_room = nil, 0
+    for _, oid in ipairs(State.sorted_keys(f.outposts)) do
+      local q = f.outposts[oid]
+      if q ~= o and q.kind == o.kind and not q.full and (q.drills or 0) < T.max_drills(q.kind) then
+        n_room = n_room + 1
+        local d = math.sqrt((q.pos.x - f.hq_pos.x) ^ 2 + (q.pos.y - f.hq_pos.y) ^ 2)
+        if d_room == nil or d < d_room then d_room = d end
+      end
+    end
+    log(string.format("[FO-AVANT-POSTE] %s : avant-poste %d %s bati a %d tuiles du QG a %.1f min, demande par %s ; avant-postes %s avec des places : %d%s",
+      f.key or "?", o.id, o.kind, math.floor(d_new), tick / 3600, task.fond and "le fond" or ("le projet " .. tostring(task.why)),
+      o.kind, n_room, d_room and string.format(" (le plus proche a %d tuiles)", math.floor(d_room)) or ""))
+  end
   -- Lot IA1-b2 (défendre d'abord) : les tourelles portées avec la construction sont posées sur place, à la même visite.
   local inv = main_inv(agent)
   local nt = inv.get_item_count("gun-turret")

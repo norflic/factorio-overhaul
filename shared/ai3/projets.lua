@@ -364,9 +364,16 @@ EMIT.outpost = function(E, proj, g, ctx)
         items = items, ia3 = proj.id, why = proj.key })
       return "ok"
     end
+    -- Lot SCALE-COMPLET : la couverture d'un produit saturé pendant qu'une autre matière manque (g.take_only, B.generate) ne
+    -- prend que ce qui reste au stock virtuel : elle ne fait rien fabriquer (la matière va d'abord à ce qui manque).
+    if g.take_only then return "matiere" end
     P.want(E, proj, items, prio, false, kind)
     return "matiere"
   end
+  -- Lot SCALE-COMPLET : un but de COUVERTURE (g.extend_only, B.generate) n'agrandit qu'un avant-poste existant ; il ne bâtit
+  -- jamais et n'attend pas de tourelles ici (le planificateur permanent les pose) : avant-poste non défendu, ou lointain
+  -- écarté par R1 : bloqué, revu à la pensée suivante.
+  if g.extend_only then return "bloque", "couverture:" .. kind end
   local wait = df and extendable(view, kind)
   if wait then
     -- Défendre d'abord (IA1-b2) : l'avant-poste attend ses tourelles, que le planificateur permanent fabrique et pose

@@ -56,6 +56,11 @@ B.BOOT_RANK = { 92, 82, 70 }
 B.BOOT_FUEL = 90
 B.IRON2 = 66        -- « fer II » (2 capacités de fer et 2 de charbon) : l'économie avant la recherche (revue B3)
 B.GROW = 55         -- croissance d'une ressource qui manque durablement (goulot)
+-- Lot SCALE-COMPLET (retour du DC du 29/10, 21 h 40, en jouant la 0.6.18 : « Le cuivre, ils l'ont pas ils ont pas pris tout le
+-- gisement alors qu'ils auraient pu. Le fer pareil ») : COUVERTURE d'un gisement déjà ouvert, au-delà du besoin. But de FOND
+-- (aucune des K places, servi après tous les autres projets, comme la capitalisation : Ca.V_MIN 35 à Ca.V_MAX 50), au-dessus
+-- du seuil du travail qui fait recruter (35, IA3-d).
+B.COVER = 40
 B.GROW_SHORT = 100  -- manque (objets) qui compte comme « durable » …
 B.GROW_THINKS = 6   -- … pendant au moins 6 pensées de suite (30 s)
 B.GROW_MAX = 5      -- capacités visées au plus, par ressource
@@ -231,6 +236,36 @@ function B.generate(s, st)
       else base = B.GROW + math.min(20, math.floor(((st.short or {})[spec.product] or 0) / 20)) end
       goals[#goals + 1] = { key = "extraction:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
         value = val(base, w.extraction), want = want, why = spec.product }
+    end
+  end
+  -- Lot SCALE-COMPLET : couverture des gisements OUVERTS (factions). Partie du DC (Écarlate, 0.6.18, 46 min) : cuivre et
+  -- charbon « saturés » (stock ≥ B.SAT_FACTOR × besoin) dès 19 et 26 min, donc plus aucun but d'extraction (ci-dessus) :
+  -- cuivre resté à 6 foreuses sur 197 tuiles (121 pour mille), charbon à 12 sur 197 (243 pour mille) ; la couverture
+  -- d'avance de la capitalisation ne pose que des foreuses ÉLECTRIQUES par le plan directeur (Ca.AHEAD_BURNER faux) : refusée
+  -- pour le charbon et la pierre (« aucune fonderie a foreuses pour ce minerai ») et pour le cuivre (« plan directeur occupe »
+  -- par les ordres du fer). Ici : tout type dont un avant-poste a encore des places (s.room, ni plein ni au plafond) et qui
+  -- n'a pas de but d'extraction à cette pensée reçoit un but « couverture:<type> » qui n'AGRANDIT que l'existant (le plus
+  -- proche : EMIT.outpost, extendable ; jamais de build). Garde-fous :
+  --   * type optionnel (sans besoin au dépliage, s.key.optional) : rien ;
+  --   * combustible : un type dont l'agrandissement brûle du combustible (tous sauf le combustible lui-même) attend tant
+  --     que le combustible MANQUE (st.short) : les brûleurs ajoutés vivraient du charbon porté (banc p2 du lot CAPIB : 75 à
+  --     102 foreuses sans charbon) ; le combustible, lui, se ravitaille sur sa propre production ;
+  --   * produit saturé PENDANT qu'une autre matière manque (st.other_short, critère A5) : le but ne prend que le reste du
+  --     stock virtuel, sans rien faire fabriquer (g.take_only) : la matière va d'abord à ce qui manque.
+  if not s.is_player then
+    local emitted = {}
+    for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
+    local fuel_kind = key.fuel
+    local fuel_product = fuel_kind and T.outposts[fuel_kind] and T.outposts[fuel_kind].product
+    local fuel_short = fuel_product ~= nil and ((st.short or {})[fuel_product] or 0) > 0
+    for _, kind in ipairs(T.OUTPOST_ORDER) do
+      local spec = T.outposts[kind]
+      if (s.room or {})[kind] and not emitted[kind] and not (key.optional or {})[kind]
+        and not (kind ~= fuel_kind and fuel_short) then
+        local take_only = st.other_short == true and B.saturated(s, spec.product) or nil
+        goals[#goals + 1] = { key = "couverture:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
+          extend_only = true, take_only = take_only, fond = true, value = val(B.COVER, w.extraction), why = spec.product }
+      end
     end
   end
   -- Capital : fonderie du QG.
