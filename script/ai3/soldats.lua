@@ -512,8 +512,11 @@ local function pass(f, tick)
   -- Sd.assign ou rentrent (rôle « nettoyage-site » sans ordre : branche du rôle perdu plus bas).
   if not offense and sd.nt then sd.nt = nil end
   if offense then
+    -- Intégration 0.6.20 (jonction proposée par ARMEE-ANTICIPATION, rapport §5) : pendant une alerte d'armée (vague annoncée,
+    -- regroupement), aucune opération de nettoyage n'est préparée ni gardée : les soldats restent au regroupement, comme sous une
+    -- menace du QG.
     local nt = Nts.pass(f, t, sd, list, soldiers, per, surface, tick,
-      { threatened = hq_en ~= nil or #defend > 0, km = km, command = command_for, expedition = sd.clearing })
+      { threatened = hq_en ~= nil or #defend > 0 or army_on, km = km, command = command_for, expedition = sd.clearing })
     if nt.n > 0 then
       local kept = {}
       for _, s in ipairs(list) do if not nt.taken[s.id] then kept[#kept + 1] = s end end
