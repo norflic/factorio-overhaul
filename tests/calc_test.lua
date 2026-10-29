@@ -179,11 +179,14 @@ local inc = Eq.incoherences(R, cache, (function()
   end
   return rows
 end)())
-local loops, machine_faults = {}, {}
+local loops, machine_faults, value_faults = {}, {}, {}
 for _, r in ipairs(inc) do
+  if r[1] == "FAUX" and r[2]:find("déclarée") then value_faults[#value_faults + 1] = r[2] end
   if r[2]:find("Boucle productive") then loops[#loops + 1] = r[2] end
   if r[2]:find("^fo%-lvl") or r[2]:find("Machine absente") or r[2]:find("Pile de") then machine_faults[#machine_faults + 1] = r[2] end
 end
+check(#value_faults == 0, "monnaies non provisoires : valeur déclarée à × 1,5 près de la matière brute réelle (sauf rareté voulue)"
+  .. (#value_faults > 0 and (" : " .. value_faults[1]) or ""))
 check(#loops == 0, "aucune boucle productive sous la productivité maximale de chaque époque" .. (#loops > 0 and (" : " .. loops[1]) or ""))
 check(#machine_faults == 0, "machines des niveaux (vitesse, cases, emprise) et piles : étape data = config" .. (#machine_faults > 0 and (" : " .. machine_faults[1]) or ""))
 do -- mutant : la pile d'uranium remise dans la limitation → la boucle revient
