@@ -21,6 +21,7 @@ local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels empl
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : une tourelle ne se pose pas sur une tuile réservée (règle pure)
 local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
+local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
 
 local Outposts = {}
 
@@ -335,7 +336,8 @@ end
 function Outposts.orphan_groups(f, tick)
   local by, list = {}, {}
   for _, o in ipairs(Outposts.orphans(f)) do
-    if tick - (o.tick or 0) >= Outposts.ORPHAN_WAIT then
+    -- Lot REBUILD-AVANT-POSTE : les réceptacles d'un avant-poste dont la ruine vit sont repris à la recréation, jamais démontés avant
+    if tick - (o.tick or 0) >= Outposts.ORPHAN_WAIT and not Ruines.keeps(f.recon, o.oid) then
       local g = by[o.oid]
       if not g then
         g = { oid = o.oid, x = o.x, y = o.y, n = 0 }
@@ -954,7 +956,10 @@ function Outposts.on_drill_lost(f, oid)
     Sites.release(o.pos)
     -- Lot IA2-b : site perdu retenu (danger de la carte de valeur) ; réceptacles restés sur la carte (F209) gardés dans
     -- la liste des orphelins (journal de forme ; repris à la reconstruction ou démontés par un ouvrier).
-    Sites.note_lost(f, o.pos, game.tick)
+    -- Lot REBUILD-AVANT-POSTE : si le registre de reconstruction garde ses foreuses (ruine), le champ sera refait EN PLACE et n'est
+    -- pas pénalisé ; sinon (rien au registre) le comportement d'avant : pénalité de valeur de 30 min.
+    local keep = Ruines.on_total_loss(f, o, game.tick)
+    Sites.note_lost(f, o.pos, game.tick, keep and oid or nil)
     f.orphans = f.orphans or {}
     for _, s in ipairs(o.sinks or {}) do
       if s.valid then f.orphans[#f.orphans + 1] = { e = s, x = o.pos.x, y = o.pos.y, tick = game.tick, oid = oid } end

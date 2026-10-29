@@ -15,6 +15,9 @@
     - les foreuses et réceptacles d'un avant-poste encore vivant (registre des propriétaires, State.owner : « drill », « sink »).
   Les tourelles se refont par « défendre d'abord » (Outposts.fortify, positions par couverture) ; ce que le joueur a posé à la
   main n'est jamais refait par ses PNJ.
+  Lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier (dernière foreuse détruite) n'est plus jeté avec ses pièces : sa RUINE
+  (script/team/ruines.lua) les garde, la première foreuse reposée recrée l'avant-poste, une foreuse électrique sans objet est remplacée
+  par la foreuse à combustion (le lot FOREUSES la repasse en électrique), la pose attend qu'aucun ennemi (unité, nid, ver) ne soit près.
 
   Un lot par voyage : la pièce la plus précieuse et ses voisines à Rc.BATCH_RADIUS tuiles (tâche « rebuild », priorité de 70 à 86,
   sous l'urgence). Le PNJ prend les objets au stock (liste stricte du tableau), va sur place, pose. Pas de pose tant que des
@@ -34,6 +37,9 @@ local Rc = require("shared.team.reconstruction")
 local Protos = require("script.team.protos")
 local Harvest = require("script.team.harvest") -- lot CORR-RECONSTRUIRE : le bois se coupe sur les arbres
 local Sweep = require("script.team.rebuild_sweep") -- lot REBUILD-TOUT : relevé des pièces posées des projets du plan directeur
+local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan, recréé à la première foreuse
+local Ru = require("shared.team.ruines")
+local T = require("shared.team.config")
 
 local Recon = {}
 
@@ -212,6 +218,82 @@ local function refresh_poles(f, s, surface, tick)
   end
 end
 
+--- Lot REBUILD-AVANT-POSTE : une foreuse ÉLECTRIQUE perdue dont l'objet n'est pas au stock (et qui n'est fabriquée d'avance par personne) ne
+--- doit pas laisser le champ muet : elle est remplacée par la foreuse à COMBUSTION du stock, posée pour que son dépôt tombe dans le MÊME
+--- réceptacle (Ru.burner_center, miroir de la règle du lot FOREUSES) ; le lot FOREUSES la repasse en électrique dès que l'objet et le courant
+--- sont là. Même patron que le poteau de remplacement (substitute_poles) : r.place / r.item, plus la place r.px, r.py.
+Recon.SUBST_PER_THINK = 4
+local function tile_size(name)
+  local p = game.entity_prototypes[name]
+  return (p and p.tile_width) or 1, (p and p.tile_height) or 1
+end
+
+--- Boîtes des réceptacles de l'avant-poste `oid` : ceux du registre (détruits) et ceux qui restent sur la carte.
+local function sink_boxes(f, s, surface, r, spec)
+  local boxes = {}
+  for _, k in ipairs(State.sorted_keys(s.lost)) do
+    local q = s.lost[k]
+    if q.kind == "sink" and q.oid == r.oid then
+      local w, h = tile_size(q.name)
+      boxes[#boxes + 1] = { x = q.x, y = q.y, w = w, h = h }
+    end
+  end
+  for _, e in ipairs(surface.find_entities_filtered({ position = { x = r.x, y = r.y }, radius = 4, name = spec.sink, force = f.force })) do
+    if e.valid then
+      local w, h = tile_size(e.name)
+      boxes[#boxes + 1] = { x = e.position.x, y = e.position.y, w = w, h = h }
+    end
+  end
+  table.sort(boxes, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
+  return boxes
+end
+
+--- Lot REBUILD-AVANT-POSTE (relecture) : un réceptacle ne se pose que dans un avant-poste qui a une foreuse vivante ou dont une foreuse
+--- DUE a son objet au stock (Recon.act pose les foreuses d'abord). Sinon la tâche partirait, ne poserait rien et serait redonnée à
+--- chaque pensée : des voyages pour rien pendant toute la vie de la ruine. `due` : pièces dues de la pensée.
+local function sink_waits(f, r, due)
+  if r.kind ~= "sink" then return false end
+  local host = f.outposts and f.outposts[r.oid]
+  if host and (host.drills or 0) > 0 then return false end
+  for _, d in ipairs(due) do
+    if d.kind == "drill" and d.oid == r.oid and d.item and Stock.count(f, d.item) >= 1 then return false end
+  end
+  return true
+end
+
+local function substitute_drills(f, s, surface, tick)
+  local burner_item = item_of(T.DRILL)
+  if not burner_item then return 0 end
+  local n = 0
+  for _, k in ipairs(State.sorted_keys(s.lost)) do
+    local r = s.lost[k]
+    if n < Recon.SUBST_PER_THINK and r.kind == "drill" and r.name == T.DRILL_ELECTRIC and not r.place and not r.abandoned and not r.claimed
+      and not r.subst_fail and r.item and tick - r.tick >= Rc.calm_for(r)
+      and Stock.count(f, r.item) < 1 and Stock.count(f, burner_item) >= 1 then
+      n = n + 1
+      local host = (f.outposts and f.outposts[r.oid]) or (s.ruins and s.ruins[r.oid])
+      local spec = host and T.outposts[host.kind]
+      local bx, by
+      if spec then
+        local sink = Ru.sink_of(r.x, r.y, r.dir, T.drill_electric.drop, sink_boxes(f, s, surface, r, spec))
+        if sink then bx, by = Ru.burner_center(r.x, r.y, r.dir, sink, { size = (tile_size(T.DRILL)), drop = T.drill_drop }, T.drill_electric.size) end
+      end
+      if bx then
+        r.place, r.item, r.px, r.py = T.DRILL, burner_item, bx, by
+        stat(s, "drill_substituted")
+        if s.stats.logs < Recon.LOGS then
+          s.stats.logs = s.stats.logs + 1
+          log(string.format("[FO-RECON] %s : foreuse electrique perdue en (%.1f, %.1f) sans objet au stock : foreuse a combustion posee a sa place en (%.1f, %.1f)",
+            f.key or "player", r.x, r.y, bx, by))
+        end
+      else
+        r.subst_fail = true -- réceptacle introuvable ou géométrie impossible : pas de nouvel essai, la pièce attend son objet
+      end
+    end
+  end
+  return n
+end
+
 --- Une pensée de l'équipe : tâches de reconstruction au tableau (après Board.sync, comme le plan directeur).
 function Recon.think(f, surface, tick)
   Sweep.step(f, surface, tick) -- lot REBUILD-TOUT : relevé par tranches des pièces posées des projets (horloge propre)
@@ -221,6 +303,7 @@ function Recon.think(f, surface, tick)
   -- Fin de vie du registre (une fois par minute) : AVANT les sorties anticipées, sinon la mémoire des destructions (hist) d'un registre
   -- vide ou d'une équipe au tableau plein de tâches « rebuild » ne serait jamais élaguée (sauvegarde qui grossit).
   if Rc.prune_due(s, tick) then Rc.prune(s, tick) end
+  Ruines.step(f, s, tick) -- lot REBUILD-AVANT-POSTE : verdict de chaque ruine (refaite, expirée, remplacée, sans pièce, site pris)
   if next(s.lost) == nil then return 0 end
   -- Mesure seule : une pièce perdue revue en place (refaite par le plan directeur, le joueur…) est datée, mais reste au registre.
   if tick >= (s.scan_at or 0) then
@@ -249,8 +332,9 @@ function Recon.think(f, surface, tick)
       local t = b.tasks[r.claimed]
       if not (t and t.worker) then r.claimed = nil end
     end
-    -- Avant-poste disparu : une foreuse ou un réceptacle seul ne se refait pas.
-    if r.kind and not (f.outposts and f.outposts[r.oid]) then
+    -- Avant-poste disparu : une foreuse ou un réceptacle seul ne se refait pas, SAUF si sa ruine garde le plan (lot REBUILD-AVANT-POSTE :
+    -- la première foreuse reposée recrée l'avant-poste).
+    if r.kind and not (f.outposts and f.outposts[r.oid]) and not Ruines.keeps(s, r.oid) then
       Rc.done(s, k)
       stat(s, "discarded")
     end
@@ -260,13 +344,16 @@ function Recon.think(f, surface, tick)
   end
   if open >= Recon.MAX_OPEN then return 0 end
   refresh_poles(f, s, surface, tick)
+  substitute_drills(f, s, surface, tick)
   local due = Rc.due(s, tick)
   if #due == 0 then return 0 end
   local added, tried = {}, 0
   local have, taken = {}, {}
   for _, seed in ipairs(due) do
     if open + #added >= Recon.MAX_OPEN or tried >= Recon.SEEDS_PER_THINK then break end
-    if not taken[seed.key] and Stock.count(f, seed.item) < 1 then
+    if sink_waits(f, seed, due) then
+      -- réceptacle sans foreuse prête : ni place essayée ni tâche (il attend sa foreuse ou la fin de la ruine)
+    elseif not taken[seed.key] and Stock.count(f, seed.item) < 1 then
       -- Mesure : pièce en attente faute d'objet au stock (elle ne consomme pas l'une des places essayées de la pensée).
       if not seed.nostock then
         seed.nostock = true
@@ -275,8 +362,11 @@ function Recon.think(f, surface, tick)
     elseif not taken[seed.key] then
     tried = tried + 1
     local near = surface.find_enemy_units({ x = seed.x, y = seed.y }, Recon.SAFE_RADIUS, f.force)
-    if #near > 0 then
-      Rc.defer(s, seed.key, tick + Recon.RETRY, tick)
+    -- Lot REBUILD-AVANT-POSTE : une pièce d'avant-poste de ressource attend aussi que nids et vers ne soient plus à portée (le champ est
+    -- loin du QG, le PNJ y mourrait), et attend plus longtemps (priorité des ressources : on n'abandonne pas le champ au bout de 3 min).
+    local foe = seed.kind and surface.find_nearest_enemy({ position = { x = seed.x, y = seed.y }, max_distance = Recon.SAFE_RADIUS, force = f.force })
+    if #near > 0 or (foe and foe.valid) then
+      Rc.defer(s, seed.key, tick + Recon.RETRY, tick, seed.kind and Ru.MAX_DEFERS or nil)
       stat(s, "deferred")
     else
       -- Le lot : les pièces voisines dont l'objet est au stock (compté pièce par pièce).
@@ -293,11 +383,21 @@ function Recon.think(f, surface, tick)
           have[r.item] = left
         end
       end
+      -- réceptacles sans foreuse dans le lot (ni vivante, ni du lot) : retirés, ils attendent leur foreuse
+      local drill_of = {}
+      for _, r in ipairs(batch) do if r.kind == "drill" then drill_of[r.oid] = true end end
+      local kept = {}
+      for _, r in ipairs(batch) do
+        local host = f.outposts and f.outposts[r.oid]
+        if r.kind ~= "sink" or drill_of[r.oid] or (host and (host.drills or 0) > 0) then kept[#kept + 1] = r end
+      end
+      batch = kept
       if #batch > 0 then
         local keys = {}
         for _, r in ipairs(batch) do keys[#keys + 1] = r.key taken[r.key] = true end
         added[#added + 1] = { key = "rebuild:" .. batch[1].key, kind = "rebuild", prio = Rc.task_prio(batch[1].value),
-          domain = "defense", work = 20 + 3 * #batch, items = Rc.items(batch), recs = keys,
+          -- lot REBUILD-AVANT-POSTE : refaire un champ de foreuses est du travail d'EXTRACTION (pôle des gisements), pas de défense
+          domain = batch[1].kind and "gisements" or "defense", work = 20 + 3 * #batch, items = Rc.items(batch), recs = keys,
           pos = { x = batch[1].x, y = batch[1].y } }
       end
     end
@@ -599,19 +699,35 @@ function Recon.act(agent, f, task, surface)
   if not s then return false end
   local inv = agent.entity.get_main_inventory()
   local placed = 0
+  -- Lot REBUILD-AVANT-POSTE : les foreuses d'abord, les réceptacles ensuite (un réceptacle ne recrée jamais un avant-poste sans foreuse).
+  local order, late = {}, {}
   for _, k in ipairs(task.recs or {}) do
+    local q = s.lost[k]
+    if q and q.kind == "sink" then late[#late + 1] = k else order[#order + 1] = k end
+  end
+  for _, k in ipairs(late) do order[#order + 1] = k end
+  local revived = {}
+  for _, k in ipairs(order) do
     local r = s.lost[k]
     if r and not r.abandoned then
-      local there = surface.find_entity(r.place or r.name, { r.x, r.y })
+      local px, py = r.px or r.x, r.py or r.y -- place de la pièce posée (foreuse de remplacement : r.px, r.py)
+      local eff = { name = r.place or r.name, x = px, y = py, dir = r.dir }
+      local there = surface.find_entity(r.place or r.name, { px, py })
       if not (there and there.valid) and r.place then there = surface.find_entity(r.name, { r.x, r.y }) end -- le poteau d'origine a pu être reposé par ailleurs
+      local host = r.kind and f.outposts and f.outposts[r.oid]
       if there and there.valid and there.force.name == f.force then
         delay_note(s, r, "ext", game.tick)
         Rc.done(s, k) -- déjà refaite (par un autre moyen)
+      elseif r.kind == "sink" and not (host and (host.drills or 0) > 0) then
+        -- pas d'avant-poste vivant avec une foreuse : le réceptacle attend (sa foreuse, ou la fin de la ruine)
       elseif r.item and inv.get_item_count(r.item) >= 1 then
-        step_aside(surface, agent.entity, r)
-        clear_items(surface, inv, r)
-        if surface.can_place_entity({ name = r.place or r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force }) then
-          local ent = surface.create_entity({ name = r.place or r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force,
+        step_aside(surface, agent.entity, eff)
+        clear_items(surface, inv, eff)
+        if surface.can_place_entity({ name = r.place or r.name, position = { x = px, y = py }, direction = r.dir, force = f.force })
+          and (host or r.kind ~= "drill" or Ruines.recreate(f, r.oid, game.tick)) then
+          -- Lot REBUILD-AVANT-POSTE : la première foreuse d'une ruine recrée l'avant-poste (Ruines.recreate, avant la pose)
+          if r.kind == "drill" and not host then revived[#revived + 1] = r.oid end
+          local ent = surface.create_entity({ name = r.place or r.name, position = { x = px, y = py }, direction = r.dir, force = f.force,
             raise_built = true })
           if ent and ent.valid then
             inv.remove({ name = r.item, count = 1 })
@@ -635,13 +751,15 @@ function Recon.act(agent, f, task, surface)
             placed = placed + 1
             stat(s, "rebuilt")
           end
+        elseif r.kind == "drill" and not host and not (s.ruins and s.ruins[r.oid]) then
+          -- ruine lâchée à l'instant (champ refait ou site pris) : la pièce est jetée au prochain tour de Recon.think
         else
           stat(s, "blocked")
           Rc.block(s, k)
           -- Diagnostic (hors comportement) : ce qui gêne la pose, pour les premiers cas seulement.
           if (s.stats.dlogs or 0) < Recon.DIAG_LOGS then
             s.stats.dlogs = (s.stats.dlogs or 0) + 1
-            local fp = footprint(r)
+            local fp = footprint(eff)
             local gens = {}
             for _, e2 in ipairs(surface.find_entities({ { fp[1], fp[2] }, { fp[3], fp[4] } })) do
               if e2.valid and #gens < 6 then
@@ -658,6 +776,8 @@ function Recon.act(agent, f, task, surface)
       end
     end
   end
+  -- Lot REBUILD-AVANT-POSTE : un avant-poste recréé dont aucune foreuse n'a finalement été posée (pose refusée après coup) est retiré
+  for _, oid in ipairs(revived) do Ruines.undo(f, oid) end
   Rc.release(s, task.key)
   if placed > 0 and s.stats.logs < Recon.LOGS then
     s.stats.logs = s.stats.logs + 1

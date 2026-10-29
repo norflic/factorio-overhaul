@@ -299,6 +299,9 @@ do
     check(r >= 1 and items >= r, "reprise à la reconstruction : " .. r .. " orphelin(s), " .. items .. " objet(s) rendus")
     inv.destroy()
     -- Démontage : orphelins du 2e site vieillis de 30 min ; un ouvrier part les démonter.
+    -- Lot REBUILD-AVANT-POSTE : tant que la RUINE du site vit (25 min au plus, avant l'attente de 30 min), ses réceptacles sont gardés pour la
+    -- recréation en place ; le test joue la voie de l'attente écoulée : la ruine est lâchée (expiration).
+    if f.recon and f.recon.ruins then f.recon.ruins[pos[2].oid] = nil end
     local left = 0
     for _, o in ipairs(Outposts.orphans(f)) do
       if o.oid == pos[2].oid then
@@ -311,9 +314,11 @@ do
     check(pcall(M.run_ticks, 8 * 3600), "8 min sans erreur après les pertes")
     local still = 0
     for _, o in ipairs(Outposts.orphans(f)) do if o.oid == pos[2].oid then still = still + 1 end end
-    check(still == 0 and (f.stats.orphans_salvaged or 0) >= 1 or (f.stats.orphans_reclaimed or 0) > r,
-      "orphelins du 2e site démontés (démontés " .. tostring(f.stats.orphans_salvaged or 0) .. ", repris "
-      .. tostring(f.stats.orphans_reclaimed or 0) .. ", restants " .. still .. ")")
+    -- Lot REBUILD-AVANT-POSTE : troisième voie légitime, la ruine du site est refaite en place et reprend ses réceptacles survivants.
+    local revived = still == 0 and f.outposts[pos[2].oid] ~= nil and (f.stats.outposts_revived or 0) >= 1
+    check(still == 0 and (f.stats.orphans_salvaged or 0) >= 1 or (f.stats.orphans_reclaimed or 0) > r or revived,
+      "orphelins du 2e site démontés, repris ou adoptés par l'avant-poste recréé (démontés " .. tostring(f.stats.orphans_salvaged or 0) .. ", repris "
+      .. tostring(f.stats.orphans_reclaimed or 0) .. ", recréés " .. tostring(f.stats.outposts_revived or 0) .. ", restants " .. still .. ")")
   end
 end
 

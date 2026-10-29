@@ -649,10 +649,11 @@ function Sites.value_ctx(f, tick)
   return ctx
 end
 
---- Un avant-poste perdu : position retenue (danger des sites voisins pendant V.LOST_TTL).
-function Sites.note_lost(f, pos, tick)
+--- Un avant-poste perdu : position retenue (danger des sites voisins pendant V.LOST_TTL). `keep` (lot REBUILD-AVANT-POSTE) : numéro de
+--- l'avant-poste dont la ruine est à refaire en place ; ce champ-là n'est pas pénalisé (V.components), les autres sites le sont.
+function Sites.note_lost(f, pos, tick, keep)
   f.lost_sites = f.lost_sites or {}
-  table.insert(f.lost_sites, { x = pos.x, y = pos.y, tick = tick })
+  table.insert(f.lost_sites, { x = pos.x, y = pos.y, tick = tick, keep = keep })
   while #f.lost_sites > LOST_KEEP do table.remove(f.lost_sites, 1) end
 end
 
