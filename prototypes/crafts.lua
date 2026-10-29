@@ -19,6 +19,8 @@ local ICON = {
   ["fo-slag"] = { "item", "stone", { r = 0.46, g = 0.46, b = 0.52 } },
   ["fo-cement"] = { "item", "stone-brick", { r = 0.86, g = 0.86, b = 0.84 } },
   ["fo-sand"] = { "item", "stone", { r = 1.00, g = 0.88, b = 0.56 } },
+  ["fo-glass"] = { "item", "plastic-bar", { r = 0.70, g = 0.92, b = 1.00 } },
+  ["fo-manometer"] = { "item", "pipe-to-ground", { r = 0.85, g = 0.92, b = 1.00 } },
   ["fo-graphite"] = { "item", "solid-fuel", { r = 0.36, g = 0.37, b = 0.42 } },
   ["fo-magnetic-steel"] = { "item", "steel-plate", { r = 0.72, g = 0.78, b = 0.95 } },
   ["fo-enameled-wire"] = { "item", "copper-cable", { r = 0.85, g = 0.38, b = 0.26 } },
@@ -51,6 +53,21 @@ for i, name in ipairs(C.ITEMS) do
     lib.tint_sprites(item.pictures, ic[3])
   end
   out[#out + 1] = item
+end
+
+-- Fluides (copie de l'eau, icône de la vapeur teintée, comme X1).
+local FLUID_TINT = { ["fo-ethylene"] = { r = 0.80, g = 0.95, b = 0.70 } }
+for i, name in ipairs(C.FLUIDS) do
+  local f = lib.copy("fluid", "water")
+  local tint = assert(FLUID_TINT[name], "crafts : teinte absente pour " .. name)
+  f.name = name
+  f.localised_name = { "fluid-name." .. name }
+  f.base_color = { r = tint.r * 0.6, g = tint.g * 0.6, b = tint.b * 0.6 }
+  f.flow_color = tint
+  f.order = "a[fluid]-z[fo]-a[crafts]-" .. i
+  local steam = data.raw.fluid["steam"]
+  lib.set_icons(f, { { icon = steam.icon, icon_size = steam.icon_size, icon_mipmaps = steam.icon_mipmaps, tint = tint } })
+  out[#out + 1] = f
 end
 
 for _, c in ipairs(C.new_categories()) do
@@ -228,6 +245,16 @@ for i, x in ipairs(C.all_recipes()) do
       r.icons = icons
     end
   end
+  -- Torchère : aucun produit ; icône du fluide brûlé + petite torchère dans le coin.
+  if #res == 0 then
+    local icons = layers_of(x.ingredients[1][1])
+    for _, l in ipairs(layers_of("fo-flare-stack") or {}) do
+      l.scale = 0.5 * (32 / (l.icon_size or 32))
+      l.shift = { 8, 8 }
+      icons[#icons + 1] = l
+    end
+    r.icons = icons
+  end
   out[#out + 1] = r
 end
 
@@ -254,6 +281,9 @@ local TECH_ICON = {
   ["fo-blast-furnace"] = { "advanced-material-processing", { r = 0.80, g = 0.62, b = 0.52 } },
   ["fo-crushing"] = { "concrete", { r = 0.78, g = 0.70, b = 0.58 } },
   ["fo-cement-concrete"] = { "concrete", { r = 0.86, g = 0.86, b = 0.84 } },
+  ["fo-glassworks"] = { "advanced-material-processing", { r = 0.70, g = 0.92, b = 1.00 } },
+  ["fo-flaring"] = { "fluid-handling", { r = 1.00, g = 0.55, b = 0.40 } },
+  ["fo-steam-cracking"] = { "plastics", { r = 0.80, g = 0.95, b = 0.70 } },
   ["fo-arc-smelting"] = { "advanced-material-processing-2", { r = 0.80, g = 0.93, b = 1.00 } },
   ["fo-electrical-steel"] = { "electric-engine", { r = 0.98, g = 0.80, b = 0.55 } },
   ["fo-titanium-alloys"] = { "low-density-structure", { r = 0.85, g = 0.88, b = 0.96 } },

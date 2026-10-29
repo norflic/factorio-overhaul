@@ -28,9 +28,12 @@ local C = {}
 -- Objets de X0 mis en jeu par ce lot (le coke, le four à coke et le four à arc sont déjà en jeu par X1).
 C.ITEMS = {
   "fo-slag", "fo-cement", "fo-sand",                       -- âge 2 (haut fourneau, concassage)
+  "fo-glass", "fo-manometer",                              -- âge 3 (verrerie)
   "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", -- âge 6 (arc, bobinage)
   "fo-titanium-composite",                                 -- âge 11 (débouché du titane)
 }
+-- Fluides de X0 mis en jeu par ce lot.
+C.FLUIDS = { "fo-ethylene" }
 
 -- Bâtiments de X0 mis en jeu par ce lot. Visuel PROVISOIRE : copie teintée d'une machine vanilla (palette de
 -- docs/DESIGN_EPOQUES.md §1.5 ; F36, F38 : une teinte multiplie).
@@ -39,6 +42,12 @@ C.BUILDINGS = {
   { name = "fo-blast-furnace", copy = { "furnace", "steel-furnace" }, side = 2, tint = { r = 0.80, g = 0.62, b = 0.52 } },
   { name = "fo-crusher", copy = { "assembling-machine", "assembling-machine-1" }, side = 3, tint = { r = 0.78, g = 0.70, b = 0.58 } },
   { name = "fo-coil-winder", copy = { "assembling-machine", "assembling-machine-2" }, side = 3, tint = { r = 0.98, g = 0.80, b = 0.55 } },
+  -- Torchère : X0 en fait un FOUR qui choisirait sa recette d'après le fluide entrant ; un four du moteur 1.1.91 choisit
+  -- sa recette d'après l'OBJET de son entrée (une recette sans objet n'y serait jamais choisie : non prouvé en moteur
+  -- réel, prudence). ÉCART : machine à recette, le joueur choisit le fluide à brûler.
+  { name = "fo-flare-stack", copy = { "assembling-machine", "assembling-machine-1" }, side = 3, tint = { r = 1.00, g = 0.55, b = 0.40 },
+    as_assembler = true },
+  { name = "fo-steam-cracker", copy = { "assembling-machine", "chemical-plant" }, side = 3, tint = { r = 0.92, g = 0.86, b = 0.62 } },
 }
 
 -- Recettes de procédé de X0 mises en jeu (ordre d'affichage) ; main = produit principal d'une recette à plusieurs
@@ -48,6 +57,10 @@ C.RECIPES = {
   { name = "fo-sand" },
   { name = "fo-slag-cement" },
   { name = "fo-cement-concrete" },
+  { name = "fo-glass" },
+  { name = "fo-manometer" },
+  { name = "fo-steam-cracking" },
+  { name = "fo-polyethylene" },
   { name = "fo-graphite" },
   { name = "fo-arc-steel" },
   { name = "fo-magnetic-steel" },
@@ -56,6 +69,13 @@ C.RECIPES = {
   { name = "fo-wound-electric-engine" },
   { name = "fo-titanium-composite", subst = { ["fo-biopolymer"] = "plastic-bar" } },
   { name = "fo-titanium-lds" },
+  -- Torchères (X0 : une recette « sink » par fluide neuf) pour les fluides du mod en jeu : aucun fluide de sous-produit
+  -- ne peut plus bloquer une usine.
+  { name = "fo-flare-ethylene", flare = true },
+  { name = "fo-flare-hydrogen", flare = true },
+  { name = "fo-flare-chlorine", flare = true },
+  { name = "fo-flare-brine", flare = true },
+  { name = "fo-flare-titanium-tetrachloride", flare = true },
 }
 
 -- Recettes HORS X0 (fermeture des boucles en jeu). Même format que les recettes de X0.
@@ -94,6 +114,15 @@ C.TECHS = {
   { name = "fo-cement-concrete", x0 = "fo-cement-concrete", epoch = 3, count = 200, time = 20,
     prerequisites = { "fo-crushing", "concrete", "military-science-pack" },
     unlocks = { "fo-cement-concrete" } },
+  { name = "fo-glassworks", x0 = "fo-glassworks", epoch = 3, count = 150, time = 20,
+    prerequisites = { "fo-crushing", "military-science-pack" },
+    unlocks = { "fo-glass", "fo-manometer" } },
+  { name = "fo-flaring", x0 = "fo-flaring", epoch = 4, count = 100, time = 30,
+    prerequisites = { "fo-glassworks", "chemical-science-pack", "fluid-handling" },
+    unlocks = { "fo-flare-stack", "fo-flare-ethylene" } },
+  { name = "fo-steam-cracking", x0 = "fo-steam-cracking", epoch = 4, count = 200, time = 30,
+    prerequisites = { "fo-flaring", "oil-processing" },
+    unlocks = { "fo-steam-cracker", "fo-steam-cracking", "fo-polyethylene" } },
   { name = "fo-arc-smelting", x0 = "fo-arc-smelting", epoch = 6, count = 200, time = 30,
     prerequisites = { "production-science-pack", "military-science-pack", "fo-coking", "concrete" },
     unlocks = { "fo-arc-furnace", "fo-graphite", "fo-arc-steel" } },
@@ -104,8 +133,9 @@ C.TECHS = {
     prerequisites = { "fo-titanium-processing", "fo-arc-smelting", "low-density-structure" },
     unlocks = { "fo-titanium-composite", "fo-titanium-lds" } },
   { name = "fo-brine-byproducts", epoch = 11, count = 200, time = 30,
-    prerequisites = { "fo-titanium-processing", "advanced-oil-processing", "concrete" },
-    unlocks = { "fo-hydrocracking", "fo-sorel-concrete" } },
+    prerequisites = { "fo-titanium-processing", "advanced-oil-processing", "concrete", "fo-flaring" },
+    unlocks = { "fo-hydrocracking", "fo-sorel-concrete", "fo-flare-hydrogen", "fo-flare-chlorine", "fo-flare-brine",
+                "fo-flare-titanium-tetrachloride" } },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -116,6 +146,7 @@ for _, r in ipairs(C.EXTRA_RECIPES) do extra_by[r.name] = r end
 
 local IN_GAME = {}
 for _, n in ipairs(C.ITEMS) do IN_GAME[n] = true end
+for _, n in ipairs(C.FLUIDS) do IN_GAME[n] = true end
 for _, b in ipairs(C.BUILDINGS) do IN_GAME[b.name] = true end
 
 --- L'objet existe-t-il en jeu avec ce lot et X1 ? (nom vanilla, objet du mod en jeu)
@@ -170,7 +201,8 @@ function C.process_recipe(name)
     end
   end
   return { name = x.name, category = x.category, time = x.time, ingredients = ings, results = x.results,
-           fr = x.fr, en = x.en, epoch = x.epoch, x0 = true, subst = subst, prod = x.prod == true, main = spec.main }
+           fr = x.fr, en = x.en, epoch = x.epoch, x0 = true, subst = subst, prod = x.prod == true, main = spec.main,
+           flare = spec.flare == true }
 end
 
 --- Toutes les recettes de procédé du lot (X0 puis hors X0), dans l'ordre d'affichage.

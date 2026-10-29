@@ -68,7 +68,7 @@ T.BUILDINGS = {
 -- x0 : technologie de X dont elle reprend la partie en jeu.
 T.TECHS = {
   { name = "fo-titanium-processing", x0 = "fo-structural-pack", count = 500, time = 30,
-    prerequisites = { "utility-science-pack", "fo-tungsten-processing", "oil-processing" },
+    prerequisites = { "utility-science-pack", "fo-tungsten-processing", "oil-processing", "fo-electrical-steel" },
     unlocks = { "fo-coke-oven", "fo-coke", "fo-ore-concentrator", "fo-ilmenite-concentrate", "fo-arc-furnace",
                 "fo-ilmenite-smelting", "fo-electrolyzer", "fo-brine-electrolysis", "fo-chlorination", "fo-kroll-reactor",
                 "fo-kroll-reduction", "fo-magnesium-electrolysis", "fo-titanium-plate" } },
@@ -81,6 +81,9 @@ T.PACKS = { "automation-science-pack", "logistic-science-pack", "military-scienc
 
 -- Objets du mod DÉJÀ en jeu avant ce lot (shared/content/world.lua) : ne se déplient pas.
 T.ALREADY = { "fo-tungsten-ore", "fo-tungsten-plate", "fo-resonance-crystal", "fo-methane" }
+-- Objets mis en jeu APRÈS ce lot par le lot AMELIO-CRAFTS (shared/content/crafts.lua, âge 6 : technologie
+-- fo-electrical-steel, prérequis de fo-titanium-processing) : les recettes des bâtiments ne les déplient plus.
+T.FROM_CRAFTS = { "fo-coil" }
 
 ---------------------------------------------------------------------------------------------------
 -- Index de X (construits une fois)
@@ -101,6 +104,7 @@ for _, n in ipairs(T.ITEMS) do IN_GAME[n] = true end
 for _, n in ipairs(T.FLUIDS) do IN_GAME[n] = true end
 for _, b in ipairs(T.BUILDINGS) do IN_GAME[b.name] = true end
 for _, n in ipairs(T.ALREADY) do IN_GAME[n] = true end
+for _, n in ipairs(T.FROM_CRAFTS) do IN_GAME[n] = true end
 
 --- L'objet existe-t-il en jeu avec ce lot ? (nom vanilla, ou objet du mod en jeu)
 function T.present(name)

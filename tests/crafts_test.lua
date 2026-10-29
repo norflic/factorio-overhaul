@@ -137,7 +137,8 @@ local function graph_faults(Cm)
     for _, tn in ipairs(g.tech_of[r.name] or {}) do
       local cl = closure(g, tn)
       for _, i in ipairs(r.ingredients) do
-        if i[1]:find("^fo%-") and makers[i[1]] and not outside[i[1]] then
+        -- une torchère (aucun produit) ouverte avant son fluide est sans effet : exemptée
+        if i[1]:find("^fo%-") and makers[i[1]] and not outside[i[1]] and #(r.results or {}) > 0 then
           local ok = false
           for _, m in ipairs(makers[i[1]]) do
             for _, mt in ipairs(g.tech_of[m] or {}) do if cl[mt] then ok = true end end
@@ -175,11 +176,14 @@ section("1. Ce qui vient de X0 est X0")
 for _, n in ipairs(C.ITEMS) do
   local x = T.x_item(n)
   check(x and x.type == "item", n .. " : objet de X0")
-  check(not T.present(n), n .. " : pas déjà en jeu par X1 (aucun doublon)")
+  local dup = false
+  for _, m in ipairs(T.ITEMS) do if m == n then dup = true end end
+  for _, m in ipairs(T.ALREADY) do if m == n then dup = true end end
+  check(not dup, n .. " : pas déjà créé par X1 ni par world.lua (aucun doublon)")
 end
 for _, b in ipairs(C.BUILDINGS) do
   local x = T.x_building(b.name)
-  check(x and x.proto == "assembling-machine" and x.size[1] == x.size[2], b.name .. " : machine carrée de X0")
+  check(x and (x.proto == "assembling-machine" or b.as_assembler) and x.size[1] == x.size[2], b.name .. " : machine carrée de X0")
   check(x and x.size[1] <= X.LIMITS.new_building_side_max, b.name .. " : 10 × 10 au plus")
 end
 for _, rr in ipairs(C.RECIPES) do
@@ -233,7 +237,7 @@ for _, t in ipairs(C.TECHS) do
   for _, p in ipairs(packs) do check(not p:find("^fo%-"), t.name .. " : aucun pack du mod (" .. p .. ")") end
   check(C.tech_count(t) >= 10, t.name .. " : au moins 10 unités")
 end
-check(#C.new_categories() == 3, "3 catégories neuves (" .. table.concat(C.new_categories(), ", ") .. ")")
+check(#C.new_categories() == 5, "5 catégories neuves (" .. table.concat(C.new_categories(), ", ") .. ")")
 
 ---------------------------------------------------------------------------------------------------
 section("2 à 4. Graphe en jeu : présence, impasses, ordre de recherche")
@@ -353,9 +357,18 @@ do
       end
     end)(Cm.all_recipes)
   end)
-  mutant("composite sans le prérequis de la fusion à l'arc (graphite)", function(Cm)
+  mutant("sans composite : la plaque de titane redevient une impasse (état d'avant le lot)", function(Cm)
+    Cm.all_recipes = (function(prev)
+      return function()
+        local out = {}
+        for _, r in ipairs(prev()) do if r.name ~= "fo-titanium-composite" and r.name ~= "fo-titanium-lds" then out[#out + 1] = r end end
+        return out
+      end
+    end)(Cm.all_recipes)
+  end)
+  mutant("composite sans le titane ni le graphite en prérequis", function(Cm)
     for _, t in ipairs(Cm.TECHS) do
-      if t.name == "fo-titanium-alloys" then t.prerequisites = { "fo-titanium-processing", "low-density-structure" } end
+      if t.name == "fo-titanium-alloys" then t.prerequisites = { "low-density-structure" } end
     end
   end)
   mutant("tôle magnétique sans le concassage (sable)", function(Cm)
