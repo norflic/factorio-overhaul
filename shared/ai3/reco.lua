@@ -53,6 +53,7 @@ Rc.COOL_FOUND = 5 * 3600    -- délai d'une direction après un retour avec nid 
 Rc.COOL_EMPTY = 15 * 3600   -- délai après un retour sans nid (portée atteinte, chemin raté)
 Rc.COOL_DEATH = 10 * 3600   -- délai après la mort de l'éclaireur (la direction reste suspecte)
 Rc.HOLD_AFTER = 5 * 3600    -- la direction reste tenue (sans décroissance) ce temps APRÈS le délai : fenêtre du renvoi
+Rc.DEATH_DOUBLE_MAX = 3     -- morts de suite dans une direction : le délai double à chaque fois, au plus 2^3 (10, 20, 40, 80 min)
 Rc.CARNET_MAX = 64          -- secteurs notés au plus par carnet
 Rc.MARKS_MAX = 8            -- ennemis notés au plus (fuites)
 Rc.CARRY_MAX = 2            -- carnets portés par des PNJ dont la mission est finie mais qui ne sont pas encore rentrés
@@ -214,24 +215,32 @@ end
 
 function Rc.on_back(s, d, nests, tick)
   s.back = s.back + 1
+  if s.deaths then s.deaths[d + 1] = nil end
   if nests > 0 then s.found = s.found + 1 end
   s.cool[d + 1] = tick + (nests > 0 and Rc.COOL_FOUND or Rc.COOL_EMPTY)
   if s.busy == d then s.busy = nil end
 end
 
 --- L'éclaireur n'est pas revenu : c'est un indice de plus. La direction reste suspecte (score tenu au moins à Rc.SEND_MIN, sans
---- décroissance jusqu'à Rc.HOLD_AFTER après la fin du délai) et un nouvel envoi n'est possible qu'après Rc.COOL_DEATH.
+--- décroissance jusqu'à Rc.HOLD_AFTER après la fin du délai) et un nouvel envoi n'est possible qu'après le délai : Rc.COOL_DEATH,
+--- doublé à chaque mort de suite dans cette direction (au plus 2^Rc.DEATH_DOUBLE_MAX fois ; un retour remet le compte à zéro) :
+--- on n'envoie pas un ouvrier à la mort toutes les 10 min. Rend le délai.
 function Rc.on_lost(s, d, tick)
   Rc.decay(s, tick)
   s.lost = s.lost + 1
-  s.cool[d + 1] = tick + Rc.COOL_DEATH
+  s.deaths = s.deaths or {}
+  local n = (s.deaths[d + 1] or 0) + 1
+  s.deaths[d + 1] = n
+  local cool = Rc.COOL_DEATH * 2 ^ math.min(n - 1, Rc.DEATH_DOUBLE_MAX)
+  s.cool[d + 1] = tick + cool
   s.hold = s.hold or {}
-  s.hold[d + 1] = tick + Rc.COOL_DEATH + Rc.HOLD_AFTER
+  s.hold[d + 1] = tick + cool + Rc.HOLD_AFTER
   local c = s.sec[d + 1]
   if c then
     if c.w < Rc.SEND_MIN then c.w = Rc.SEND_MIN end
   end
   if s.busy == d then s.busy = nil end
+  return cool
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -137,6 +137,15 @@ local function suite(Rc, quiet)
     Rc.on_back(s, 0, 0, 2000)
     check(s.cool[1] == 2000 + Rc.COOL_EMPTY, "retour sans nid : délai long")
     check(s.sent == 1 and s.lost == 1 and s.back == 2, "compteurs d'envois, de pertes et de retours")
+    -- Morts de suite : le délai double (10, 20, 40, 80 min au plus), un retour le remet à zéro.
+    local s2 = Rc.new(0)
+    Rc.record(s2, HQ, 0, -200, 300, 0)
+    local cools = {}
+    for i = 1, 6 do cools[i] = Rc.on_lost(s2, 6, i * 100) end
+    check(cools[1] == Rc.COOL_DEATH and cools[2] == 2 * Rc.COOL_DEATH and cools[3] == 4 * Rc.COOL_DEATH, "délai doublé à chaque mort de suite")
+    check(cools[4] == 8 * Rc.COOL_DEATH and cools[6] == 8 * Rc.COOL_DEATH, "délai plafonné (80 min)")
+    Rc.on_back(s2, 6, 1, 1000)
+    check(Rc.on_lost(s2, 6, 2000) == Rc.COOL_DEATH, "un retour remet le compte des morts à zéro")
   end
 
   -- 6. Étapes de proche en proche.
@@ -311,6 +320,7 @@ local mutants = {
       M.candidates = function(s, tick) local saved = s.cool; s.cool = {}; local r = c(s, tick); s.cool = saved; return r end
     end },
   { "mort sans délai", function(M) M.COOL_DEATH = 0 end },
+  { "délai non doublé après des morts de suite", function(M) M.DEATH_DOUBLE_MAX = 0 end },
   { "tenue ignorée (la direction décroît pendant le délai)", function(M)
       local d = M.decay
       M.decay = function(s, tick) s.hold = {}; return d(s, tick) end

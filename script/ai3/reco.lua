@@ -199,9 +199,9 @@ end
 
 local function lose(f, c, agent_id, d, tick, how)
   local s = Reco.state(f, tick)
-  Rc.on_lost(s, d, tick)
-  say(f, s, "ECLAIREUR %d %s en reconnaissance %s a %.1f min : carnet perdu (%d secteur(s), %d nid(s) vus) ; %s reste suspecte, nouvel envoi dans %d min au plus tot",
-    agent_id, how, Rc.name(d), minutes(tick), c and c.n or 0, c and c.nests or 0, Rc.name(d), Rc.COOL_DEATH / 3600)
+  local cool = Rc.on_lost(s, d, tick)
+  say(f, s, "ECLAIREUR %d %s en reconnaissance %s a %.1f min : carnet perdu (%d secteur(s), %d nid(s) vus) ; %s reste suspecte, nouvel envoi dans %d min au plus tot (%d mort(s) de suite)",
+    agent_id, how, Rc.name(d), minutes(tick), c and c.n or 0, c and c.nests or 0, Rc.name(d), cool / 3600, s.deaths[d + 1] or 0)
 end
 
 --- Surveillance d'une mission « reco » (appelée par monitor_one d'exploration.lua, agent valide, tâche en place, sans chemin raté).
