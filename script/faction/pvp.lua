@@ -55,6 +55,8 @@ local Character = require("script.faction.character")
 local Chef = require("script.faction.chef")
 local Vision = require("script.faction.vision")
 local A = require("shared.faction.adversaire")
+local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : pas d'attaque entre factions tant que la base n'est pas sûre
+local Dc = require("shared.team.defchoix")
 
 local PvP = {}
 
@@ -390,11 +392,28 @@ function PvP.think(f, surface, tick, view, target)
         end
       end
     elseif target and a.attack.target == target.id then
-      -- Lot IA2-a : point visé (raid : avant-poste vu le plus faible) et côté d'arrivée choisis par le chef.
-      local opts = Chef.attack_opts(f, target, a.attack, tick)
-      -- Lot IA2-c : défense estimée au départ (go / no-go au rassemblement avancé).
-      if opts and view.enemy_defense and view.enemy_defense < math.huge then opts.launch_def = view.enemy_defense end
-      Military.attack(f, surface, target, a.attack.count, tick, opts)
+      -- Lot DEFENSE-CHOIX (défaut 6 du DC, 0.6.18 : « ils vont quand même pas attaquer une équipe alors qu'ils [...] ont pas du tout
+      -- sécurisé ») : aucune attaque ni raid contre une autre faction tant que la base est menacée ou envahie (shared/team/defchoix.lua,
+      -- Dc.base) ; les soldats restent à la défense. Journal [FO-DEFCHOIX] quand la cause change, au plus une ligne par minute sinon
+      -- (relecture : une base envahie longtemps écrivait une ligne à chaque pensée PvP, 5 s) ; fp.defchoix_why et fp.defchoix_log
+      -- écrits et lus ICI seulement (nil dans une sauvegarde 0.6.18 : première ligne écrite).
+      local bs = DefChoix.base(f, surface, tick)
+      if not Dc.may_attack(bs) then
+        fp.defchoix_held = (fp.defchoix_held or 0) + 1
+        local quiet = fp.defchoix_why == bs.why and fp.defchoix_log and tick - fp.defchoix_log < 3600
+        fp.defchoix_why = bs.why
+        if not quiet then fp.defchoix_log = tick end
+        if not quiet then log(string.format("[FO-DEFCHOIX] %s : attaque%s contre %s RETENUE a %.1f min : base %s (derniere perte pres du QG il y a %s ticks, %d unite(s) ennemie(s) a moins de %d tuiles) ; %d attaque(s) retenue(s) en tout",
+          tostring(f.key), a.attack.raid and " (raid)" or "", tostring(target.key or target.id), tick / 3600, tostring(bs.why),
+          bs.ago and tostring(bs.ago) or "?", bs.invaders or 0, Dc.BASE_R, fp.defchoix_held)) end
+      else
+        fp.defchoix_why = nil
+        -- Lot IA2-a : point visé (raid : avant-poste vu le plus faible) et côté d'arrivée choisis par le chef.
+        local opts = Chef.attack_opts(f, target, a.attack, tick)
+        -- Lot IA2-c : défense estimée au départ (go / no-go au rassemblement avancé).
+        if opts and view.enemy_defense and view.enemy_defense < math.huge then opts.launch_def = view.enemy_defense end
+        Military.attack(f, surface, target, a.attack.count, tick, opts)
+      end
     end
   end
   return a

@@ -48,6 +48,7 @@ local Effectif = require("shared.ai3.effectif") -- lot IA3-d : une faction grand
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : réserve de fer de votre équipe
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
+local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base menacée ou envahie (tourelles du QG avant les soldats)
 
 local Team = {}
 
@@ -646,6 +647,10 @@ function Team.think(f, surface, tick)
   Trace.log("team", f.key, #State.sorted_keys(f.outposts))
   Profiler.start("team:view")
   local view = Team.view(f, tick)
+  -- Lot DEFENSE-CHOIX : base d'une FACTION menacée ou envahie (script/faction/defchoix.lua) ; lu par shared/team/planner.lua (Dc.turrets).
+  -- Votre équipe garde sa règle (T.defend_hq tourelles au QG, toujours voulues).
+  local base_state = (not f.is_player) and DefChoix.base(f, surface, tick) or nil
+  view.base_alert = (base_state and base_state.insecure) or nil
   Profiler.stop("team:view")
   Profiler.start("team:plan")
   -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
@@ -660,6 +665,16 @@ function Team.think(f, surface, tick)
   end
   Profiler.stop("team:plan")
   DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
+  -- Lot DEFENSE-CHOIX : journal [FO-DEFCHOIX], une ligne quand « tourelles du QG d'abord » commence ou finit (f.team.defchoix_first, écrit et
+  -- lu ICI seulement, en événement).
+  local dcp = plan.defchoix
+  local dfirst = (dcp and dcp.first) or false
+  if dfirst ~= (f.team.defchoix_first or false) then
+    f.team.defchoix_first = dfirst
+    log(string.format("[FO-DEFCHOIX] %s : %s a %.1f min : base %s, QG %d tourelle(s) sur %d voulue(s), %d payable(s) au-dessus des planchers, soldats %d",
+      f.key or "?", dfirst and "TOURELLES DU QG AVANT LES SOLDATS" or "fin des tourelles d'abord", tick / 3600,
+      tostring(base_state and base_state.why or "sure"), view.hq_turrets or 0, dcp and dcp.want or 0, dcp and dcp.paid or 0, view.soldiers or 0))
+  end
 
   for _, key in ipairs(plan.reached) do
     if not f.team.done[key] then

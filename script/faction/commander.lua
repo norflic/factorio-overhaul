@@ -29,7 +29,7 @@ local Commander = {}
 
 Commander.LANE = "fo-commander"
 
-local THREAT_TICKS = 900
+local THREAT_TICKS = require("shared.team.defchoix").THREAT_TICKS -- lot DEFENSE-CHOIX : 900, une seule source (Dc.base relit l'alerte)
 local THREAT_RADIUS = 90
 
 local function surface_of(war) return game.surfaces[war.surface] end
