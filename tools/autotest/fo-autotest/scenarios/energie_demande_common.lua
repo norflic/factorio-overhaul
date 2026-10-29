@@ -41,7 +41,7 @@ local function water_disc(tiles, cx, cy, r)
 end
 
 --- Terrain : tout vidé puis herbe, deux lacs (nord et sud : de la rive pour plusieurs centrales), charbon.
-local function shape(ctx, c)
+local function shape(ctx, c, lake)
   local s = ctx.surface()
   s.request_to_generate_chunks({ c.x, c.y }, 6)
   s.force_generate_chunk_requests()
@@ -53,8 +53,8 @@ local function shape(ctx, c)
   for y = c.y - HALF, c.y + HALF - 1 do for x = c.x - HALF, c.x + HALF - 1 do tiles[#tiles + 1] = { name = "grass-1", position = { x, y } } end end
   s.set_tiles(tiles, true)
   local water = {}
-  water_disc(water, c.x + 4, c.y + 78, 20)
-  water_disc(water, c.x + 4, c.y - 78, 20)
+  water_disc(water, c.x + 4, c.y + 78 + (lake - 20), lake)
+  water_disc(water, c.x + 4, c.y - 78 - (lake - 20), lake)
   s.set_tiles(water, true) -- eau AVANT les entités (F135)
   deposit(s, "coal", c.x - 56, c.y - 56, 8, 30000)
   deposit(s, "iron-ore", c.x + 56, c.y - 28, 6, 4000)
@@ -186,7 +186,7 @@ return function(variant, opts)
       local st = ctx.state()
       local c = { x = 0, y = 0 }
       st.c = c
-      shape(ctx, c)
+      shape(ctx, c, opts.lake or 20)
       -- le banc tient le rôle du cerveau : l'automatisation (fo-war-ia3e) éteindrait le plan directeur vide (Auto.IDLE_OFF)
       local a = ctx.call("war_setting", "fo-war-ia3e", false)
       ctx.check(a == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)", tostring(a))

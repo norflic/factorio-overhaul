@@ -150,7 +150,8 @@ end
 
 --- Lot CORR-ENERGIE : relevé de TOUTES les centrales à vapeur de l'équipe, toutes les 5 s (indépendant du moniteur ci-dessus) :
 --- production et capacité des machines à vapeur bâties, projets de centrale finis, ouverts et refusés. Rend le nombre de
---- chaudières de la centrale à demander (règle pure shared/team/centrale.lua) ou nil ; la demande est faite par Build.grow_plant.
+--- chaudières de la centrale à demander (règle pure shared/team/centrale.lua) ou nil, puis la liste des centrales de plus à abandonner
+--- (réserve de matériaux incomplète depuis trop longtemps) ; la demande est faite par Build.grow_plant, l'abandon par Build.cancel.
 PA.WATCH_EVERY = 300
 function PA.watch(f, surface, tick)
   local b = f.build
@@ -170,9 +171,12 @@ function PA.watch(f, surface, tick)
         done = done + 1
         for _, e in ipairs(p.ents) do
           if (M.spec(e.name) or {}).power_out then
-            capacity = capacity + M.spec(e.name).power_out * 1000 / 60
+            -- la capacité ne compte que les machines VIVES : une centrale détruite ne cache pas la saturation des autres
             local r = real_of(surface, e, f.force)
-            if r then power = power + (r.energy_generated_last_tick or 0) end
+            if r then
+              capacity = capacity + M.spec(e.name).power_out * 1000 / 60
+              power = power + (r.energy_generated_last_tick or 0)
+            end
           end
         end
       elseif p.state ~= "refuse" then
@@ -187,20 +191,25 @@ function PA.watch(f, surface, tick)
     log(string.format("[FO-ENERGIE] %s : centrale saturee a %.1f min (%.0f J/tick sur %.0f, %d centrale(s) finie(s), %d en projet)",
       f.key or "player", tick / 3600, power, capacity, done, pending))
   end
-  local refused = 0
+  local refused, stale = 0, {}
   for _, id in ipairs(b.extra_plants or {}) do
     local p = b.projects[id]
-    if p and p.state == "refuse" then refused = refused + 1 end
+    if p and p.state == "refuse" and p.reason ~= C.STALE_REASON then refused = refused + 1 end
+    if p and C.stale(p.state, p.reason, tick - (p.started or tick)) then stale[#stale + 1] = id end
   end
   g.refused = refused
+  if #stale > 0 then g.cool_until = tick + C.COOL end
   local hold = b.grow_hold == true
-  local nb, why = C.growth(g, { done = done, pending = pending, refused = refused, hold = hold, off = b.opts and b.opts.no_grow == true })
+  local nb, why = C.growth(g, { done = done, pending = pending, refused = refused, hold = hold, cool = tick < (g.cool_until or 0),
+    off = b.opts and b.opts.no_grow == true })
   if not nb and g.saturated and why ~= g.why then
     g.why = why
     log(string.format("[FO-ENERGIE] %s : centrale saturee a %.1f min, pas de centrale de plus : %s", f.key or "player", tick / 3600, tostring(why)))
   end
   if nb then C.requested(g); g.why = nil end
-  return nb
+  return nb, stale
 end
+
+PA.STALE_REASON = C.STALE_REASON
 
 return PA

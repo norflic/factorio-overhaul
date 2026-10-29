@@ -69,6 +69,23 @@ local function battery(C)
   C.requested(s7)
   check(C.growth(s7, free()) == nil and s7.sat == 0, "apres la demande : a remesurer")
 
+  n = free(); n.cool = true
+  nb, why = C.growth(s, n)
+  check(nb == nil and why ~= nil, "pause apres une centrale abandonnee : rien")
+  local s8 = { saturated = true, requests = C.MAX_REQUESTS - 1 }
+  check(C.growth(s8, free()) == 1, "derniere demande permise")
+  s8.requests = C.MAX_REQUESTS
+  check(C.growth(s8, free()) == nil, "borne des demandes sur la partie : rien")
+  C.requested(s8)
+  check(s8.requests == C.MAX_REQUESTS + 1, "chaque demande est comptee")
+
+  section("2 bis. Reserve abandonnee (crise de matiere)")
+  check(C.stale("reserve", "materiaux", C.STALE) == true, "reserve incomplete depuis 30 min : abandon")
+  check(C.stale("reserve", "materiaux", C.STALE - 1) == false, "pas encore 30 min : on attend")
+  check(C.stale("reserve", nil, C.STALE * 3) == false, "reserve sans manque : jamais abandonnee")
+  check(C.stale("chantier", "materiaux", C.STALE * 3) == false, "en chantier : jamais abandonnee")
+  check(C.stale("attente", "materiaux", C.STALE * 3) == false, "en attente de plan : jamais abandonnee")
+
   section("3. Plafond jamais depasse en simulation")
   local sim, done, pending, asked = { }, 1, 0, 0
   for step = 1, 400 do
@@ -117,6 +134,11 @@ local mutants = {
   { "demande sans remise a zero", "st.sat, st.saturated = 0, false", "st.sat = st.sat" },
   { "deux chaudieres", "C.BOILERS = 1 ", "C.BOILERS = 2 " },
   { "relevé sans remise a zero", "else st.sat = 0 end", "end" },
+  { "pause apres abandon ignoree", "if n.cool then", "if false then" },
+  { "borne des demandes ignoree", "(st.requests or 0) >= C.MAX_REQUESTS", "false" },
+  { "demandes non comptees", "st.requests = (st.requests or 0) + 1", "st.requests = st.requests" },
+  { "abandon sans delai", "state == \"reserve\" and reason == \"materiaux\" and waited >= C.STALE", "state == \"reserve\" and reason == \"materiaux\"" },
+  { "abandon d'un chantier", "state == \"reserve\" and reason", "state ~= \"fini\" and reason" },
 }
 local refused = 0
 for _, m in ipairs(mutants) do

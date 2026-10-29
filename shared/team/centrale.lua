@@ -16,6 +16,10 @@ C.SAT_CHECKS = 6     -- relevés (5 s) de suite : 30 s
 C.MAX_PLANTS = 3     -- centrales finies au plus par équipe
 C.MAX_REFUSED = 2    -- demandes de centrale refusées par le plan (pas de rive libre) avant d'y renoncer
 C.BOILERS = 1        -- chaudières de la centrale demandée (2 machines à vapeur chacune)
+C.MAX_REQUESTS = 6   -- demandes de centrale de plus, au total, sur toute la partie d'une équipe (borne des abandons et des pertes)
+C.STALE = 108000     -- ticks (30 min) d'une réserve de matériaux incomplète au bout desquels la centrale de plus est abandonnée
+C.COOL = 36000       -- ticks (10 min) de pause après un abandon
+C.STALE_REASON = "delai" -- raison du projet annulé (ne compte pas comme un refus du plan)
 
 --- Un relevé : power et capacity en J/tick (production totale et capacité des machines à vapeur bâties). Rend vrai quand la
 --- saturation dure depuis C.SAT_CHECKS relevés. Une capacité nulle ou une production nulle (panne : 0 < 80 % de la capacité) n'est pas une demande.
@@ -26,7 +30,7 @@ function C.observe(st, power, capacity)
 end
 
 --- Nombre de chaudières de la centrale à demander, ou (nil, raison). n : { done = centrales finies, pending = centrales en
---- projet (ni finies ni refusées), refused = demandes de croissance refusées, hold = repli de l'équipe, off = règle coupée }.
+--- projet (ni finies ni refusées), refused = demandes de croissance refusées, hold = repli de l'équipe, cool = pause après un abandon, off = règle coupée }.
 function C.growth(st, n)
   if n.off then return nil, "regle coupee" end
   if not st.saturated then return nil, "pas saturee" end
@@ -35,12 +39,21 @@ function C.growth(st, n)
   if n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
   if (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse deux fois" end
   if n.hold then return nil, "repli de l'equipe (manque de matiere)" end
+  if n.cool then return nil, "pause apres une centrale abandonnee" end
+  if (st.requests or 0) >= C.MAX_REQUESTS then return nil, "trop de demandes" end
   return C.BOILERS
 end
 
 --- La demande est partie : la saturation est à remesurer avec la nouvelle capacité.
 function C.requested(st)
   st.sat, st.saturated = 0, false
+  st.requests = (st.requests or 0) + 1
+end
+
+--- Une centrale de plus dont la réserve de matériaux reste incomplète depuis `waited` ticks est abandonnée (crise de matière :
+--- les pièces réservées retournent au coffre pour les autres chantiers).
+function C.stale(state, reason, waited)
+  return state == "reserve" and reason == "materiaux" and waited >= C.STALE
 end
 
 return C

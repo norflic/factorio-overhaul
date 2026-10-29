@@ -2202,7 +2202,8 @@ local function pulse_team(f, tick)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
-  local nb = PlantArms.watch(f, surface, tick)
+  local nb, stale = PlantArms.watch(f, surface, tick)
+  for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
   if nb then Build.grow_plant(f, nb, tick) end
 end
 
