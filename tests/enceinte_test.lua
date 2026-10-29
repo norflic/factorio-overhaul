@@ -445,6 +445,22 @@ do
   -- E.inside : le mur lui-meme n'est pas "dedans"
   check(E.inside(tb, { x0 = tb[1] + 1, y0 = tb[2] + 1, x1 = tb[3], y1 = tb[4] }) and not E.inside(tb, { x0 = tb[1], y0 = tb[2] + 1, x1 = tb[3], y1 = tb[4] }),
     "E.inside : l'interieur exclut la tuile du mur")
+  -- relecture : le contour ne depasse JAMAIS l'anneau du rayon (marge 9 > 7 tuiles de l'anneau quand l'empreinte touche le dernier rang)
+  do
+    local edge = lots({ { 3, 0 }, { -3, 0 }, { 0, 3 }, { 0, -3 }, { 1, 0 }, { 2, 0 }, { -1, 0 }, { -2, 0 }, { 0, 1 }, { 0, 2 }, { 0, -1 }, { 0, -2 } })
+    local ox0, oy0, ox1, oy1 = E.bounds(az, 3)
+    local wide = E.tight_bounds(az, edge, {})
+    check(wide[3] > ox1 and wide[1] < ox0, "sans clamp, l'empreinte au dernier rang depasse l'anneau du rayon (" .. wide[1] .. ".." .. wide[3] .. " contre " .. ox0 .. ".." .. ox1 .. ")")
+    local cl = E.tight_bounds(az, edge, {}, { clamp = { ox0, oy0, ox1, oy1 } })
+    check(cl[1] == ox0 and cl[2] == oy0 and cl[3] == ox1 and cl[4] == oy1, "avec clamp : exactement l'anneau du rayon")
+    local tur = { { x0 = 440, y0 = 339, x1 = 443, y1 = 342 } } -- tourelle au-dela du treillis, a moins de 36 tuiles du lot (3, 0)
+    local ct = E.tight_bounds(az, { box(3, 0), tur[1] }, {}, { clamp = { ox0, oy0, ox1, oy1 } })
+    check(ct[3] <= ox1 and ct[4] <= oy1 and ct[1] >= ox0 and ct[2] >= oy0, "avec clamp : une tourelle hors treillis ne tire pas le mur plus loin")
+    check(E.max_walls(3, { bounds = cl }) == E.max_walls(3), "avec clamp : jamais plus de murs que l'ancien anneau")
+    -- un contour interieur n'est pas modifie par le clamp
+    local t_in = E.tight_bounds(az, used, {}, { clamp = { ox0, oy0, ox1, oy1 } })
+    check(t_in[1] == tb[1] and t_in[2] == tb[2] and t_in[3] == tb[3] and t_in[4] == tb[4], "avec clamp : un contour interieur est inchange")
+  end
 end
 
 -- 10. Lot ENCEINTE3 (lot A) : le segment démarre au bout du tronçon le plus proche du QG / de la menace, pas dans un coin

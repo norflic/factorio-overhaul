@@ -1245,7 +1245,8 @@ local function enc_tight_bounds(f)
       rects[#rects + 1] = { x0 = math.floor(x - 1), y0 = math.floor(y - 1), x1 = math.ceil(x + 1), y1 = math.ceil(y + 1) }
     end
   end
-  local bounds, info = Enc.tight_bounds(b.lat, rects, room)
+  local cx0, cy0, cx1, cy1 = Enc.bounds(b.lat, b.radius) -- relecture ENCEINTE3 : jamais plus large que l'anneau du rayon
+  local bounds, info = Enc.tight_bounds(b.lat, rects, room, { clamp = { cx0, cy0, cx1, cy1 } })
   if not Enc.gates_inside(b.lat, bounds) then return nil end
   return bounds, info
 end

@@ -241,8 +241,15 @@ function E.tight_bounds(lat, rects, room, opts)
   for i, r in ipairs(rects or {}) do
     if kept[i] then core = core + 1 else excluded[#excluded + 1] = r end
   end
-  return { bx0 - margin - 1, by0 - margin - 1, bx1 + margin, by1 + margin },
-    { core = core, excluded = excluded, room = kept_room, box = { bx0, by0, bx1, by1 } }
+  local out = { bx0 - margin - 1, by0 - margin - 1, bx1 + margin, by1 + margin }
+  -- relecture ENCEINTE3 : jamais au-delà de l'anneau du rayon (opts.clamp = E.bounds du rayon figé) : la marge de 9 tuiles dépasse
+  -- de 2 tuiles l'anneau (7 tuiles du bord du treillis) quand l'empreinte touche le dernier rang de lots, et une chaîne de tourelles
+  -- pouvait tirer le mur hors du treillis (terrain non défriché, plus de murs que l'ancien anneau)
+  if opts.clamp then
+    out[1], out[2] = math.max(out[1], opts.clamp[1]), math.max(out[2], opts.clamp[2])
+    out[3], out[4] = math.min(out[3], opts.clamp[3]), math.min(out[4], opts.clamp[4])
+  end
+  return out, { core = core, excluded = excluded, room = kept_room, box = { bx0, by0, bx1, by1 } }
 end
 
 --- Le rectangle { x0, y0, x1, y1 } (fin exclue) est-il entièrement à l'INTÉRIEUR du contour (les tuiles du mur exclues) ?

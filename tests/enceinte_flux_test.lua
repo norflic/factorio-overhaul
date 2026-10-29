@@ -361,7 +361,7 @@ do
   local tight_bounds_of, mark_out, release = code()
   local az = P.lattice({ x = 339.5, y = 339.5 })
   local function mk(lots, projects, turrets)
-    local b = { lat = az, lots = {}, projects = projects or {} }
+    local b = { lat = az, radius = 3, lots = {}, projects = projects or {} }
     for _, l in ipairs(lots) do b.lots[P.lot_key(l.i, l.j)] = l end
     return { build = b, turrets = turrets }
   end
