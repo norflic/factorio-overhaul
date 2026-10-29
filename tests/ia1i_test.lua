@@ -34,7 +34,8 @@ do
   check(G.clock(3600 * 60 + 61 * 60) == "1:01:01", "horloge 1:01:01 (" .. G.clock(3600 * 60 + 61 * 60) .. ")")
   check(G.minutes(0) == 0 and G.minutes(-5) == 0, "minutes : 0 et négatif")
   check(G.minutes(1) == 1 and G.minutes(3600) == 1 and G.minutes(3601) == 2, "minutes arrondies au-dessus")
-  check(#G.TABS == 6 and G.TAB_INDEX.factions == 3 and G.TABS[G.TAB_INDEX.pnj] == "pnj", "onglets et index")
+  check(#G.TABS == 7 and G.TAB_INDEX.factions == 3 and G.TABS[G.TAB_INDEX.pnj] == "pnj" and G.TAB_INDEX.partie == 5
+    and G.TAB_INDEX.territoire == 6, "onglets et index (Partie ajouté en 5e position par le lot PANEL-STATS)")
   check(G.REFRESH <= 60, "rafraîchissement : au plus une fois par seconde (" .. G.REFRESH .. " ticks)")
 end
 
@@ -222,7 +223,7 @@ do
   check(toggled["fo-team-gui"] == true, "raccourci allumé")
   check(W.player.opened == frame(), "fenêtre ouverte comme `opened` (Échap la ferme)")
   local tp = find(frame(), "fo_ia1i_tabs")
-  check(tp and #tp.tabs == 6, "6 onglets")
+  check(tp and #tp.tabs == 7, "7 onglets")
   local k = keys_of(pane("equipe"))
   check(k["fo-ia1i.none-title"] == 1 and k["fo-ia1i.none-how"] == 1, "sans équipe : comment poser un coffre")
   M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "autre", player_index = 1 })
@@ -400,11 +401,14 @@ end
 
 local function game_state() return dump(global.fo) end
 
-local function play(by_gui, gui_open)
+local function play(by_gui, gui_open, tab)
   M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
   setup_gui()
   place_chest()
-  if gui_open then M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "fo-team-gui", player_index = 1 }) end
+  if gui_open then
+    M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "fo-team-gui", player_index = 1 })
+    if tab then select_tab(G.TAB_INDEX[tab]) end
+  end
   M.run_ticks(600)
   if by_gui == "gui" then
     if not frame() then M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "fo-team-gui", player_index = 1 }) end
@@ -428,7 +432,10 @@ local function play(by_gui, gui_open)
     M.command("fo-team", "dismiss")
     M.command("fo-war", "stop")
   end
-  if gui_open and not frame() then M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "fo-team-gui", player_index = 1 }) end
+  if gui_open and not frame() then
+    M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "fo-team-gui", player_index = 1 })
+    if tab then select_tab(G.TAB_INDEX[tab]) end
+  end
   M.run_ticks(5 * 3600)
   return game_state(), global.fo.ia1i.refreshes
 end
@@ -452,6 +459,135 @@ do
   local b, rb = play("cmd", false)
   check(a == b, string.format("même état de jeu, fenêtre ouverte et rafraîchie ou fermée (%d contre %d caractères)", #a, #b))
   check(ra >= 590 and rb == 0, string.format("rafraîchissements : %d fenêtre ouverte (une par seconde), %d fermée", ra, rb))
+end
+
+section("Onglet Partie sans équipe de PNJ (aucun coffre posé)")
+do
+  M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
+  setup_gui()
+  local R = W.remote["fo-ia1i"]
+  check(R.open(1, "partie"), "ouverture sur l'onglet Partie sans équipe")
+  local k = keys_of(pane("partie"))
+  check(k["fo-panel.teams-title"] == 1 and k["fo-panel.tech-value"] == 1 and k["fo-panel.machines-title"] == 1
+    and k["fo-panel.no-team"] == 2 and (k["fo-panel.workers-line"] or 0) == 0 and (k["fo-panel.hands-note"] or 0) == 0,
+    "sans équipe : votre ligne et les machines de la force ; mains et PNJ disent qu'il n'y a pas d'équipe",
+    tostring(k["fo-panel.no-team"]))
+  check(R.panel("player").teams[1].has_team == false and R.panel("player").detail.hands == nil, "données : pas de mains sans équipe")
+  M.run_ticks(3600)
+  check(#R.panel_ring("player") >= 1, "les relevés de la force du joueur tournent même sans équipe de PNJ")
+  R.close(1)
+end
+
+section("Onglet Partie : valeurs du panneau contre les compteurs du moteur simulé (lot PANEL-STATS)")
+do
+  M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 })
+  setup_gui()
+  place_chest()
+  M.command("fo-war", "start 2 30")
+  local pf = global.fo.pteam.team
+  local force = game.forces[pf.force]
+  -- Statistiques du moteur simulées (le mock n'en a pas) : le panneau doit les relire telles quelles.
+  local input, output = { ["obj-a"] = 0, ["obj-b"] = 50 }, { ["obj-a"] = 0 }
+  force.item_production_statistics = { input_counts = input, output_counts = output }
+  -- Sens du moteur réel (banc panel-kills) : input = ennemis détruits par la force, output = entités de la force détruites.
+  force.kill_count_statistics = { input_counts = { b1 = 30, b2 = 12 }, output_counts = { u1 = 4, u2 = 6 } }
+  local names, expected_total = {}, 0
+  for name, proto in pairs(game.technology_prototypes) do
+    names[#names + 1] = name
+    if not proto.hidden then expected_total = expected_total + 1 end
+  end
+  table.sort(names)
+  for i = 1, 5 do force.technologies[names[i]].researched = true end
+  for _ = 1, 6 do -- 3 min : 120 objets « obj-a » par relevé de 30 s, soit 240 par minute
+    M.run_ticks(1800)
+    input["obj-a"] = input["obj-a"] + 120
+  end
+  local R = W.remote["fo-ia1i"]
+  local d = R.panel("player")
+  local alive = State.alive()
+  check(#d.teams == 1 + #alive and d.teams[1].key == "player" and d.teams[1].player, "une ligne par équipe : la vôtre, puis les factions (" .. #d.teams .. ")")
+  local row = d.teams[1]
+  check(row.kills == 42 and row.losses == 10, "kills = somme des entrées (ennemis détruits), pertes = somme des sorties (entités de la force détruites) (" .. tostring(row.kills) .. ", " .. tostring(row.losses) .. ")")
+  local done = 0 -- relu ici, indépendamment du panneau : les 5 posées plus celles que le jeu a payées lui-même
+  for _, name in ipairs(names) do if force.technologies[name].researched then done = done + 1 end end
+  check(done >= 5 and row.techs_done == done and row.techs_total == expected_total,
+    "technologies : " .. done .. " recherchées sur " .. expected_total .. " (" .. tostring(row.techs_done) .. " sur " .. tostring(row.techs_total) .. ")")
+  check(row.soldiers == (pf.soldiers_count or 0) and row.engineers == pf.engineers_count and row.outposts == (pf.outposts_count or 0)
+    and row.npc_max == require("script.team.team").npc_max(pf), "soldats, PNJ, avant-postes = état de l'équipe")
+  local pvp_sum = 0
+  for i, id in ipairs(alive) do
+    local fac = State.faction(id)
+    local r = d.teams[i + 1]
+    check(r.key == fac.key and r.attacks_in == (fac.pvp and fac.pvp.attacks or 0) and r.attacks_out == fac.stats.attacks
+      and r.level == (fac.tech or 0), "faction " .. fac.key .. " : attaques et niveau = état de la faction")
+    pvp_sum = pvp_sum + (fac.pvp and fac.pvp.attacks or 0)
+  end
+  check(row.attacks_in == pvp_sum and row.attacks_out == nil, "votre ligne : attaques subies = somme des factions, aucune lancée")
+  -- Une recherche TERMINÉE (événement) est comptée tout de suite, sans attendre le relevé suivant.
+  force.add_research(names[6])
+  force.research_progress = 0.5
+  check(R.panel("player").teams[1].research and R.panel("player").teams[1].research.pct == 50, "recherche en cours : 50 %")
+  force.research_progress = 1
+  check(R.panel("player").teams[1].techs_done == done + 1 and R.panel("player").teams[1].research == nil,
+    "recherche terminée : technologies recomptées par l'événement, plus de recherche en cours")
+  local m = d.detail.machines
+  check(#m == 2 and m[1].name == "obj-a" and m[1].total == input["obj-a"], "machines : l'objet qui coule le plus d'abord, cumul frais")
+  check(m[1].rate and math.abs(m[1].rate - 240) <= 12, "machines : débit 240 / min à 5 % près (" .. tostring(m[1].rate) .. ")")
+  check(m[2].name == "obj-b" and m[2].total == 50 and m[2].rate == 0, "machines : un compteur immobile a un débit nul")
+  check(d.detail.prod_total == input["obj-a"] + 50 and d.detail.span >= 3600, "cumul total et durée des relevés (" .. tostring(d.detail.span) .. " ticks)")
+  local w = d.detail.workers
+  local sum = 0
+  for _, t in ipairs(w.tasks) do sum = sum + t.n end
+  check(w.alive == pf.engineers_count and sum == pf.engineers_count and w.total == sum,
+    "PNJ : la somme des tâches vaut l'effectif vivant (" .. sum .. " sur " .. pf.engineers_count .. ")")
+  check(d.detail.hands and d.detail.hands.mined == (pf.stats.mined or 0) and d.detail.hands.crafted == (pf.stats.crafted or 0),
+    "mains : minerai miné et fabrications = compteurs du mod, à part des machines")
+
+  -- Affichage
+  R.close(1)
+  check(R.open(1, "partie") and R.state(1).tab == "partie" and R.state(1).selected == G.TAB_INDEX.partie, "ouverture sur l'onglet Partie")
+  local k = keys_of(pane("partie"))
+  check(k["fo-panel.head"] == 1 and k["fo-panel.teams-title"] == 1 and k["fo-panel.tech-value"] == #d.teams
+    and k["fo-panel.research-title"] == 1, "avancée : une ligne par équipe")
+  check(k["fo-panel.machines-title"] == 1 and k["fo-panel.machines-note"] == 1 and k["fo-panel.hands-title"] == 1
+    and k["fo-panel.hands-note"] == 1 and k["fo-panel.workers-title"] == 1,
+    "machines, mains et PNJ : trois blocs séparés, chacun avec sa note")
+  check((k["fo-panel.research-line"] or 0) + (k["fo-panel.research-none"] or 0) == #d.teams, "recherche en cours : une ligne par équipe")
+  check(find(frame(), "fo_ia1i_pteam_player").style_name == "green_button", "équipe détaillée : la vôtre en vert")
+  local function caption_of(el, key)
+    for _, ch in ipairs(el.children) do
+      if type(ch.caption) == "table" and ch.caption[1] == key then return ch.caption end
+      local r = caption_of(ch, key)
+      if r then return r end
+    end
+  end
+  local fk = State.faction(alive[1]).key
+  check(click("fo_ia1i_pteam_" .. fk), "clic sur le bouton d'une faction")
+  local cap = caption_of(pane("partie"), "fo-panel.workers-title")
+  check(cap and cap[2][1] == "fo-faction.name-" .. fk and find(frame(), "fo_ia1i_pteam_" .. fk).style_name == "green_button"
+    and find(frame(), "fo_ia1i_pteam_player").style_name == "button", "équipe détaillée : la faction choisie")
+  check(R.panel(fk).detail.key == fk, "interface distante : détail de la faction")
+  -- Relevés tenus fenêtre fermée
+  R.close(1)
+  local n0 = #R.panel_ring("player")
+  local r0 = R.state(1).refreshes
+  M.run_ticks(1800 * 3)
+  check(R.state(1).refreshes == r0, "fenêtre fermée : aucun rafraîchissement ajouté")
+  check(#R.panel_ring("player") == math.min(n0 + 3, 7), "les relevés continuent fenêtre fermée (anneau borné à 7)")
+  local ring = R.panel_ring("player")
+  check(#ring <= 7 and ring[#ring].tick > ring[1].tick, "anneau borné et daté")
+  -- Équipe disparue : son anneau est retiré
+  State.faction(alive[1]).eliminated = true
+  M.run_ticks(1800)
+  check(#R.panel_ring(fk) == 0, "faction anéantie : son anneau est retiré")
+end
+
+section("Onglet Partie : lecture seule (fenêtre ouverte sur l'onglet contre fermée)")
+do
+  local a, ra = play("cmd", true, "partie")
+  local b, rb = play("cmd", false)
+  check(a == b, string.format("même état de jeu, onglet Partie ouvert et rafraîchi ou fenêtre fermée (%d contre %d caractères)", #a, #b))
+  check(ra >= 190 and ra <= 215 and rb == 0, string.format("rafraîchissements : %d fenêtre ouverte sur l'onglet Partie (un toutes les 3 s), %d fermée", ra, rb))
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

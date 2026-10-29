@@ -7,6 +7,14 @@
     sans images (aucun joueur : prototypes, interface distante, journal, aucun rafraîchissement) :
       & "<racine>\fo-autotest.bat" nopause 16600 ia1-gui "<source>"
   Journal : [FO-IA1-GUI].
+  Lot PANEL-STATS : onglet « Partie » (valeurs contre le moteur, coût, captures, état sauvegardé) ; voir les pas 3600,
+  7200 et T_WAIT+60 à T_WAIT+290. Les débits de MACHINES sont alimentés par le banc (`on_flow` toutes les secondes sur
+  la force du joueur : un cuivre produit, un cuivre consommé) pour avoir un flux constant à comparer ; la LECTURE par
+  le panneau est celle du moteur réel. KILLS ET PERTES : de VRAIES morts (correction du 29/10, un relecteur avait
+  prouvé le sens inversé et vu que l'ancien banc écrivait lui-même l'hypothèse avec `set_*_count`) : une tourelle de
+  votre force tue des petits mordeurs, une tourelle de la première faction en tue aussi, un coffre de votre force est
+  détruit par `die("enemy")`. Aucun `set_*_count` : le sens (kills = `input_counts`, pertes = `output_counts`) est établi
+  à part par le banc `panel-kills` et relu ici contre ces morts connues.
 
   Carte : coffre d'équipe garni près du point de départ ; réglages de carte 3 factions, 30 soldats, 4 ouvriers ;
   difficulté Facile ; la guerre n'est PAS lancée : c'est le bouton de l'interface qui la lance.
@@ -190,13 +198,17 @@ end
 
 -- Coût du rafraîchissement (partie vivante, fenêtre ouverte) par onglet, et du relevé du journal.
 steps[T_WAIT + 400] = function(ctx, p, st)
-  for _, k in ipairs({ "equipe", "factions", "pnj", "orientation" }) do
+  for _, k in ipairs({ "equipe", "factions", "pnj", "orientation", "partie" }) do
     R(ctx, "select", p.index, k)
     local prof = game.create_profiler()
-    for _ = 1, 20 do R(ctx, "refresh", p.index, false) end
+    -- « partie » se reconstruit une fois sur 3 appels (def.every) : 60 appels = 20 reconstructions ; la moyenne par
+    -- RECONSTRUCTION vaut 3 x la moyenne par appel journalisée.
+    local n = (k == "partie") and 60 or 20
+    for _ = 1, n do R(ctx, "refresh", p.index, false) end
     prof.stop()
-    prof.divide(20)
-    log({ "", "[FO-IA1-GUI] COUT\trafraichissement de l'onglet ", k, " (moyenne de 20, appel distant compris)\t", prof })
+    prof.divide(n)
+    log({ "", "[FO-IA1-GUI] COUT\trafraichissement de l'onglet ", k, " (moyenne de ", tostring(n), " appels, appel distant compris",
+      k == "partie" and " ; une reconstruction sur 3 : x 3 pour une reconstruction" or "", ")\t", prof })
   end
   local prof = game.create_profiler()
   for _ = 1, 100 do R(ctx, "sample") end
@@ -209,6 +221,231 @@ steps[T_WAIT + 400] = function(ctx, p, st)
   prof0.divide(100)
   log({ "", "[FO-IA1-GUI] COUT\tappel distant temoin (state sans joueur, moyenne de 100)\t", prof0 })
   st.costs = true
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot PANEL-STATS : onglet « Partie », valeurs du panneau contre le moteur réel
+---------------------------------------------------------------------------------------------------
+local function engine_sum(t)
+  local n = 0
+  for _, v in pairs(t) do n = n + v end
+  return n
+end
+
+-- Technologies relues sans passer par le code du panneau : activées et non cachées.
+local function engine_techs(force)
+  local done, total = 0, 0
+  for name, proto in pairs(game.technology_prototypes) do
+    local t = force.technologies[name]
+    if not proto.hidden and t and t.enabled then
+      total = total + 1
+      if t.researched then done = done + 1 end
+    end
+  end
+  return done, total
+end
+
+local function row_of(d, key)
+  for _, r in ipairs(d.teams) do if r.key == key then return r end end
+  return nil
+end
+
+-- Débit des machines : deux lectures du compteur du moteur à 3 600 ticks d'écart, comparées au débit du panneau.
+steps[3600] = function(ctx, p, st)
+  local ps = game.forces.player.item_production_statistics
+  st.copper0 = ps.get_input_count("copper-plate")
+  st.copper0_cons = ps.get_output_count("copper-plate")
+end
+steps[7200] = function(ctx, p, st)
+  local ps = game.forces.player.item_production_statistics
+  local engine_rate = ps.get_input_count("copper-plate") - st.copper0 -- sur 3 600 ticks : par minute
+  local engine_cons = ps.get_output_count("copper-plate") - st.copper0_cons
+  local d = R(ctx, "panel", "player")
+  local rate, cons, total, ctot
+  for _, m in ipairs(d.detail.machines) do
+    if m.name == "copper-plate" then rate, cons, total, ctot = m.rate, m.cons_rate, m.total, m.cons_total end
+  end
+  ctx.check(engine_rate > 1000 and rate ~= nil and math.abs(rate - engine_rate) <= 0.05 * engine_rate,
+    "Partie, machines : debit produit par minute a 5 % pres du debit du moteur (deux releves a 3 600 ticks)",
+    string.format("panneau %s /min, moteur %d /min", tostring(rate), engine_rate))
+  ctx.check(engine_cons > 200 and cons ~= nil and math.abs(cons - engine_cons) <= 0.05 * engine_cons,
+    "Partie, machines : debit consomme par minute a 5 % pres du moteur",
+    string.format("panneau %s /min, moteur %d /min", tostring(cons), engine_cons))
+  ctx.check(total == ps.get_input_count("copper-plate") and ctot == ps.get_output_count("copper-plate"),
+    "Partie, machines : cumuls produit et consomme egaux au moteur (ecart 0)",
+    string.format("%s / %d ; %s / %d", tostring(total), ps.get_input_count("copper-plate"), tostring(ctot),
+      ps.get_output_count("copper-plate")))
+  ctx.log(string.format("Partie : debit cuivre panneau %s /min, moteur %d /min ; consomme %s contre %d ; releves %d sur %d ticks",
+    tostring(rate), engine_rate, tostring(cons), engine_cons, d.detail.samples, d.detail.span))
+end
+
+-- Vrais combats : une tourelle chargée de la force donnée tue n petits mordeurs posés à 14 tuiles. Rend le nombre de
+-- mordeurs posés et la position de la tourelle (nil si la place manque).
+local function fight(ctx, force, cx, cy, n)
+  local s = ctx.surface()
+  local tp = s.find_non_colliding_position("gun-turret", { cx, cy }, 40, 1)
+  local t = tp and s.create_entity({ name = "gun-turret", position = tp, force = force })
+  if not t then return 0, nil end
+  t.insert({ name = "firearm-magazine", count = 40 })
+  local placed = 0
+  for i = 1, n do
+    local bp = s.find_non_colliding_position("small-biter", { tp.x + 14, tp.y - 6 + 4 * i }, 8, 0.5)
+    local b = bp and s.create_entity({ name = "small-biter", position = bp, force = "enemy" })
+    if b then placed = placed + 1 end
+  end
+  return placed, tp
+end
+
+-- Combats REELS au tick T_WAIT+60 (3 mordeurs pour votre tourelle, 2 pour celle de la premiere faction), coffre detruit
+-- par l'ennemi au tick T_WAIT+99 : les compteurs sont lus a T_WAIT+280, 180 ticks plus tard.
+steps[T_WAIT + 60] = function(ctx, p, st)
+  local c = st.chest_pos
+  local placed, tp = fight(ctx, "player", c.x + 40, c.y - 40, 3)
+  st.fight_player = placed
+  local s = ctx.surface()
+  local cp = s.find_non_colliding_position("wooden-chest", { c.x + 40, c.y + 40 }, 30, 1)
+  local chest = cp and s.create_entity({ name = "wooden-chest", position = cp, force = "player" })
+  st.fight_chest = chest and chest.position
+  local d = R(ctx, "panel", "player")
+  local fr = d.teams[2]
+  st.fight_faction_force = fr and fr.force
+  st.fight_faction_key = fr and fr.key
+  local fplaced = 0
+  if fr and game.forces[fr.force] then fplaced = fight(ctx, fr.force, c.x - 40, c.y - 40, 2) end
+  st.fight_faction = fplaced
+  ctx.log(string.format("Partie : combats poses, tourelle player %s (%d mordeurs), coffre %s, tourelle %s %s (%d mordeurs)",
+    tostring(tp ~= nil), placed, tostring(chest ~= nil), tostring(fr and fr.force), tostring(fplaced > 0), fplaced))
+end
+-- (tick +99 et non +100 : le pas +100 appartient a la boucle des onglets, ma premiere version l'avait ecrase)
+steps[T_WAIT + 99] = function(ctx, p, st)
+  local c = st.fight_chest and ctx.surface().find_entity("wooden-chest", st.fight_chest)
+  st.fight_chest_found = c ~= nil
+  if c then c.die("enemy") end
+end
+
+-- Recherche en cours posee AVANT les contrôles de T_WAIT+280 (les kills viennent des combats ci-dessus).
+steps[T_WAIT + 240] = function(ctx, p, st)
+  local f = game.forces.player
+  local ok = f.add_research("automation") -- faux si la file a déjà une recherche : le contrôle lit la recherche COURANTE du moteur
+  f.research_progress = 0.37
+  ctx.log("Partie : recherche posee " .. tostring(ok) .. ", courante " .. tostring(f.current_research and f.current_research.name))
+end
+steps[T_WAIT + 260] = function(ctx, p) R(ctx, "select", p.index, "partie") end
+steps[T_WAIT + 262] = function(ctx, p) shot(ctx, p, "11-partie-guerre") end
+steps[T_WAIT + 263] = function(ctx, p) R(ctx, "scroll", p.index, "fo-panel.machines-title") end
+steps[T_WAIT + 265] = function(ctx, p) shot(ctx, p, "11b-partie-machines") end
+steps[T_WAIT + 266] = function(ctx, p) R(ctx, "scroll", p.index, "fo-panel.hands-title") end
+steps[T_WAIT + 268] = function(ctx, p) shot(ctx, p, "11c-partie-mains") end
+steps[T_WAIT + 269] = function(ctx, p) R(ctx, "scroll", p.index, "bottom") end
+steps[T_WAIT + 271] = function(ctx, p) shot(ctx, p, "11d-partie-pnj") end
+steps[T_WAIT + 272] = function(ctx, p, st)
+  local first
+  for _, r in ipairs(ctx.remote("fo-pvp", "status").factions) do first = first or r.key end
+  st.first_faction = first
+  R(ctx, "click", p.index, "fo_ia1i_pteam_" .. tostring(first))
+end
+steps[T_WAIT + 275] = function(ctx, p) shot(ctx, p, "12-partie-faction") end
+steps[T_WAIT + 276] = function(ctx, p) R(ctx, "scroll", p.index, "bottom") end
+steps[T_WAIT + 278] = function(ctx, p) shot(ctx, p, "12b-partie-faction-bas") end
+
+steps[T_WAIT + 280] = function(ctx, p, st)
+  local d = R(ctx, "panel", "player")
+  local pvp = ctx.remote("fo-pvp", "status")
+  local team = team_row(ctx)
+  local row = row_of(d, "player")
+  local f = game.forces.player
+  local done, total = engine_techs(f)
+  ctx.check(#d.teams == 1 + #pvp.factions and row ~= nil, "Partie : une ligne par equipe (la votre et les factions)",
+    #d.teams .. " lignes, " .. #pvp.factions .. " factions")
+  ctx.check(row.techs_done == done and row.techs_total == total, "Partie : technologies recherchees et total egales au moteur",
+    string.format("panneau %d / %d, moteur %d / %d", row.techs_done, row.techs_total, done, total))
+  ctx.check(row.research and f.current_research and row.research.name == f.current_research.name
+    and math.abs(row.research.pct - math.floor(f.research_progress * 100 + 0.5)) <= 2,
+    "Partie : recherche en cours et pourcentage a 2 points du moteur",
+    string.format("panneau %s %s %%, moteur %s %.0f %%", tostring(row.research and row.research.name),
+      tostring(row.research and row.research.pct), tostring(f.current_research and f.current_research.name),
+      f.research_progress * 100))
+  -- Kills = ENTREES du moteur (ennemis detruits PAR la force), pertes = SORTIES (entites DE la force detruites) : sens
+  -- etabli par `panel-kills`. Ici les morts sont connues : 3 mordeurs tues par votre tourelle, 1 coffre detruit.
+  local ks = f.kill_count_statistics
+  local biters_killed = ks.input_counts["small-biter"] or 0
+  local chests_lost = ks.output_counts["wooden-chest"] or 0
+  ctx.check(st.fight_player == 3 and st.fight_chest_found == true and biters_killed >= 3 and chests_lost >= 1
+    and (ks.output_counts["small-biter"] or 0) == 0,
+    "Partie : les vrais combats ont eu lieu (3 mordeurs tues par votre tourelle en entree, 1 coffre detruit en sortie)",
+    string.format("poses %s, coffre %s ; moteur input small-biter %d, output wooden-chest %d", tostring(st.fight_player),
+      tostring(st.fight_chest_found), biters_killed, chests_lost))
+  ctx.check(row.kills == engine_sum(ks.input_counts) and row.kills >= biters_killed and row.losses == engine_sum(ks.output_counts)
+    and row.losses >= chests_lost,
+    "Partie : kills = entrees du moteur et pertes = sorties, sur de vraies morts (ecart 0, sens non echange)",
+    string.format("panneau %d / %d, moteur %d / %d", row.kills, row.losses, engine_sum(ks.input_counts),
+      engine_sum(ks.output_counts)))
+  ctx.check(team and row.engineers == team.n and row.soldiers == team.soldiers and row.outposts == team.outposts
+    and row.npc_max == team.max, "Partie : PNJ, soldats, avant-postes et plafond egaux a fo-ia1 teams",
+    string.format("panneau %s/%s/%s/%s", tostring(row.engineers), tostring(row.soldiers), tostring(row.outposts),
+      tostring(row.npc_max)))
+  local sum_in, ok_att = 0, true
+  for _, fr in ipairs(pvp.factions) do
+    local r = row_of(d, fr.key)
+    sum_in = sum_in + fr.attacks
+    local force = r and game.forces[r.force]
+    local fdone, ftotal = 0, 0
+    if force then fdone, ftotal = engine_techs(force) end
+    ok_att = ok_att and r ~= nil and force ~= nil and r.attacks_in == fr.attacks and r.techs_done == fdone
+      and r.techs_total == ftotal and r.kills == engine_sum(force.kill_count_statistics.input_counts)
+      and r.losses == engine_sum(force.kill_count_statistics.output_counts) and r.level == fr.tech
+  end
+  ctx.check(ok_att and row.attacks_in == sum_in,
+    "Partie : chaque faction (attaques sur vous, technologies, kills, pertes, niveau) egale au moteur et a fo-pvp status ; votre ligne = somme des attaques subies",
+    string.format("somme %d, panneau %s", sum_in, tostring(row.attacks_in)))
+  -- Une faction a elle aussi tue de vrais mordeurs avec sa tourelle : sa colonne Kills doit les compter (et pas ses Pertes).
+  local fk = st.fight_faction_key and row_of(d, st.fight_faction_key)
+  local fforce = st.fight_faction_force and game.forces[st.fight_faction_force]
+  local fkilled = fforce and (fforce.kill_count_statistics.input_counts["small-biter"] or 0) or 0
+  ctx.check(fk ~= nil and (st.fight_faction or 0) == 2 and fkilled >= 2 and fk.kills >= fkilled
+    and fk.kills == engine_sum(fforce.kill_count_statistics.input_counts),
+    "Partie : la faction dont la tourelle a tue 2 mordeurs les a en Kills (sens non echange)",
+    string.format("faction %s, mordeurs poses %s, moteur input small-biter %d, panneau kills %s", tostring(st.fight_faction_key),
+      tostring(st.fight_faction), fkilled, tostring(fk and fk.kills)))
+  local w = d.detail.workers
+  local tasks = 0
+  for _, t in ipairs(w and w.tasks or {}) do tasks = tasks + t.n end
+  ctx.check(w and team and tasks == team.n and w.alive == team.n, "Partie, PNJ : la somme des taches egale l'effectif vivant",
+    string.format("%d taches, %s PNJ", tasks, tostring(team and team.n)))
+  local last = team and team.last
+  ctx.check(w and last and math.abs((w.busy or -99) - (100 - last.idle_pct)) <= 1,
+    "Partie, PNJ : part au travail a 1 point de fo-ia1 teams",
+    string.format("panneau %s %%, fo-ia1 %s %%", tostring(w and w.busy), tostring(last and (100 - last.idle_pct))))
+  ctx.log(string.format("Partie : %d equipes, techs %d/%d, recherche %s %s%%, kills %d, pertes %d, taches %d, releves %d sur %d ticks",
+    #d.teams, row.techs_done, row.techs_total, tostring(row.research and row.research.name),
+    tostring(row.research and row.research.pct), row.kills, row.losses, tasks, d.detail.samples, d.detail.span))
+end
+
+-- Un seul bloc par type, et les blocs « machines » et « mains » restent séparés dans l'affichage.
+steps[T_WAIT + 285] = function(ctx, p, st)
+  local s = R(ctx, "state", p.index)
+  ctx.check(s.tab == "partie" and keys_count(s, "fo-panel.machines-title") == 1 and keys_count(s, "fo-panel.hands-title") == 1
+    and keys_count(s, "fo-panel.workers-title") == 1 and keys_count(s, "fo-panel.machines-note") == 1
+    and keys_count(s, "fo-panel.hands-note") == 1 and keys_count(s, "fo-panel.tech-value") >= 2,
+    "Partie : tableau des equipes, machines et mains separees avec leur note, PNJ", "onglet " .. tostring(s.tab))
+  ctx.check(names_has(s, "fo_ia1i_pteam_player") and names_has(s, "fo_ia1i_pteam_" .. tostring(st.first_faction)),
+    "Partie : un bouton par equipe")
+  local bytes = R(ctx, "panel_bytes")
+  ctx.check(bytes < 50 * 1024, "Partie : etat sauvegarde < 50 Ko", tostring(bytes))
+  ctx.log("Partie : etat sauvegarde (serpent.block de ia1i.panel) " .. tostring(bytes) .. " octets")
+end
+
+-- Après le renvoi de l'équipe et l'arrêt de la guerre : le coffre reste, l'équipe est à 0 PNJ (le renvoi ne retire pas le
+-- coffre) ; le cas SANS équipe (coffre détruit) est contrôlé en moteur simulé (tests/ia1i_test.lua).
+steps[T_WAIT + 850] = function(ctx, p) R(ctx, "select", p.index, "partie") end
+steps[T_WAIT + 855] = function(ctx, p) shot(ctx, p, "13-partie-equipe-renvoyee") end
+steps[T_WAIT + 858] = function(ctx, p) R(ctx, "scroll", p.index, "bottom") end
+steps[T_WAIT + 859] = function(ctx, p) shot(ctx, p, "13b-partie-equipe-renvoyee-bas") end
+steps[T_WAIT + 860] = function(ctx, p, st)
+  local s = R(ctx, "state", p.index)
+  ctx.check(s.tab == "partie" and keys_count(s, "fo-panel.machines-title") == 1 and keys_count(s, "fo-panel.workers-line") == 1
+    and keys_count(s, "fo-panel.tech-value") == 1,
+    "Partie apres le renvoi de l'equipe et l'arret de la guerre : votre ligne seule, 0 PNJ, machines toujours la")
 end
 
 steps[T_WAIT + 600] = function(ctx, p, st)
@@ -317,6 +554,11 @@ return {
         R(ctx, "open", p.index, s.tab or "equipe")
       end
     end
+    if e.tick % 60 == 0 and e.tick >= 60 then -- lot PANEL-STATS : flux constant des machines du joueur (voir l'en-tête)
+      local ps = game.forces.player.item_production_statistics
+      ps.on_flow("copper-plate", 50)
+      ps.on_flow("copper-plate", -10)
+    end
     local fn = steps[e.tick]
     if fn then fn(ctx, p, st) end
   end,
@@ -331,7 +573,7 @@ return {
       ctx.check(s.refreshes == 0, "sans joueur : aucun rafraichissement d'interface", s.refreshes)
       return
     end
-    ctx.check((st.shots or 0) == 10, "10 captures demandees", st.shots)
+    ctx.check((st.shots or 0) == 18, "18 captures demandees", st.shots)
     local on_refresh = 0
     for _, t in ipairs(st.close_ticks or {}) do if t % 60 == 0 then on_refresh = on_refresh + 1 end end
     ctx.check(on_refresh == 0, "aucune fermeture non demandee au tick d'un rafraichissement",

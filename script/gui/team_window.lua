@@ -12,6 +12,8 @@
     Factions     une carte par faction (caractère, relation avec vous, posture du chef, cible, forces, ce qu'elle sait
                  de vous) ; lancer ou arrêter la guerre (arrêt confirmé dans la fenêtre) ;
     PNJ          un PNJ par ligne (rôle, pôle, tâche, pôle de destination) ;
+    Partie       statistiques de la partie (lot PANEL-STATS) : avancée et forces de chaque équipe, production des machines
+                 et des mains des PNJ (séparées), tâches des PNJ ; lecture seule (script/gui/partie.lua) ;
     Territoire, Chantiers : « à venir » (lots IA1-g, IA1-d, IA1-f), sans faux chiffres.
 
   AUCUNE seconde logique : chaque bouton appelle la fonction de la commande correspondante :
@@ -57,6 +59,9 @@ local War = require("script.faction.war")
 local PvP = require("script.faction.pvp")
 local Vision = require("script.faction.vision")
 local Journal = require("script.gui.ia1i_journal")
+local Stats = require("script.gui.ia1i_stats") -- lot PANEL-STATS
+local SM = require("shared.gui.stats")
+local Partie = require("script.gui.partie")
 
 local Gui = {}
 
@@ -597,6 +602,17 @@ tabs.pnj = {
   end,
 }
 
+-- Partie (lot PANEL-STATS) : statistiques de la partie, lecture seule (script/gui/partie.lua).
+local PANEL_TASKS = { idle = true, norole = true, ghost = true, equiper = true, centrale = true, explore = true, clear = true,
+  carry = true }
+local function task_text(kind)
+  if PANEL_TASKS[kind] then return { "fo-panel.task-" .. kind } end
+  if TASK_TEXT[kind] then return { "fo-ia1i.task-" .. kind } end
+  return { "fo-panel.task-other", tostring(kind) } -- type de tâche sans texte propre : traduit quand même, avec son nom
+end
+tabs.partie = Partie.tab({ label = label, heading = heading, task_text = task_text })
+tabs.partie.every = 3 -- secondes entre deux rafraîchissements de l'onglet (les débits couvrent 3 min)
+
 tabs.territoire = { fixed = function(c) coming(c, "coming-territoire") end }
 tabs.chantiers = { fixed = function(c) coming(c, "coming-chantiers") end }
 
@@ -643,9 +659,15 @@ local function build(player, full)
     local live = pane.add({ type = "flow", name = P .. "live", direction = "vertical" })
     live.style.vertical_spacing = 4
     if def.fixed then def.fixed(fixed, player, f, u) end
-    u.sig, u.built = sig, k
+    u.sig, u.built, u.skipped = sig, k, 0
   elseif not def.live then
     return
+  elseif def.every then
+    -- Onglet qui change lentement (« Partie », lot PANEL-STATS) : refait une fois toutes les `every` secondes seulement
+    -- (mesuré : 2,7 ms par rafraîchissement, dont la construction des éléments ; budget du lot 0,05 ms/tick).
+    u.skipped = (u.skipped or 0) + 1
+    if u.skipped < def.every then return end
+    u.skipped = 0
   end
   if def.live then
     local live = pane[P .. "live"]
@@ -731,7 +753,11 @@ local function on_click(e)
   local u = ui(player)
   local f = player_team()
   local preset = name:match("^fo_ia1i_preset_(.+)$")
-  if preset then
+  local pteam = name:match("^fo_ia1i_pteam_(.+)$")
+  if pteam then
+    -- Onglet « Partie » : équipe détaillée (affichage seulement, aucun effet sur le jeu).
+    u.pteam = pteam
+  elseif preset then
     -- /fo-team orientation <préréglage>
     local pts = f and Poles.set_orientation(f, preset)
     if pts then player.print({ "fo-ia1b.orientation-set", pts[1], pts[2], pts[3] }) end
@@ -808,9 +834,16 @@ end
 Events.on(defines.events.on_player_display_resolution_changed, recenter)
 Events.on(defines.events.on_player_display_scale_changed, recenter)
 
+-- Lot PANEL-STATS : technologies recherchées recomptées dès qu'une recherche se termine (l'onglet « Partie » les lit en cache).
+Events.on(defines.events.on_research_finished, function(e)
+  local r = e.research
+  if r and r.force then Stats.recount(r.force.name) end
+end)
+
 -- Une fois par seconde : relevé du journal, puis rafraîchissement des seules fenêtres OUVERTES.
 Events.on_nth_tick(M.REFRESH, function(e)
   Journal.sample(e.tick)
+  if e.tick % SM.PERIOD == 0 then Stats.sample(e.tick) end -- lot PANEL-STATS : relevé des compteurs (30 s)
   for _, player in ipairs(game.connected_players) do
     if frame_of(player) then build(player, false) end
   end
@@ -911,6 +944,47 @@ remote.add_interface("fo-ia1i", {
   sample = function()
     Journal.sample(game.tick)
     return #Journal.ns().journal
+  end,
+  -- Lot PANEL-STATS (bancs et captures) : ce que l'onglet « Partie » affiche (données, pas d'objet du moteur), relevé
+  -- forcé des compteurs (même fonction que le relevé de 30 s), anneau de relevés d'une équipe, taille de l'état.
+  panel = function(selected)
+    return Stats.collect(selected or "player", game.tick)
+  end,
+  -- Défile le volet de l'onglet affiché (captures de l'onglet « Partie », plus haut que la fenêtre) : « top », « bottom »,
+  -- ou la clé de traduction d'un titre à mettre en vue.
+  scroll = function(index, where)
+    local player = get_player(index)
+    local frame = player and frame_of(player)
+    if not frame then return false end
+    local pane = pane_of(frame, M.TABS[ui(player).tab] or "equipe")
+    if where == "top" then
+      pane.scroll_to_top()
+    elseif where == "bottom" then
+      pane.scroll_to_bottom()
+    else
+      local function find_key(el)
+        for _, ch in ipairs(el.children) do
+          if ch.type == "label" and type(ch.caption) == "table" and ch.caption[1] == where then return ch end
+          local r = find_key(ch)
+          if r then return r end
+        end
+      end
+      local el = find_key(pane)
+      if not el then return false end
+      pane.scroll_to_element(el, "top-third")
+    end
+    return true
+  end,
+  panel_sample = function()
+    Stats.sample(game.tick)
+    return game.tick
+  end,
+  panel_ring = function(key)
+    return Stats.ring(key or "player")
+  end,
+  panel_bytes = function()
+    local P = Journal.ns().panel
+    return P and #serpent.block(P, { comment = false, sortkeys = false }) or 0
   end,
   journal = function()
     local out = {}
