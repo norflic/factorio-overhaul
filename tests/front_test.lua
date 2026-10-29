@@ -350,11 +350,16 @@ local ph3 = F.plan({ cells = hi_cells, turrets = {}, hq = { x = 100 + F.NEAR_HQ 
 check(ph2.pick.near_hq == true and ph3.pick.near_hq == false and ph.pick.near_hq == nil, "D5 : cellule à moins de F.NEAR_HQ du QG marquée, plus loin non, sans QG rien")
 -- D5 : ordre des postes dans le planificateur (stock pour un seul poste)
 local one_post = { ["gun-turret"] = 2, [T.turret_ammo] = 40, ["iron-plate"] = 0, ["copper-plate"] = 0 }
-local und = { { id = "o1", kind = "iron", drills = 8, turrets = 1, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } }
+local und = { { id = "o1", kind = "copper", drills = 8, turrets = 1, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } }
 local pn = Planner.plan(view({ stock = one_post, outposts = und, front = { pick = ph2.pick, busy = false } }), book)
 local pfar = Planner.plan(view({ stock = one_post, outposts = und, front = { pick = ph3.pick, busy = false } }), book)
 check(task_of(pn, "front") ~= nil and task_of(pn, "o1") == nil, "D5 : cellule à moins de 40 tuiles du QG : le front est servi AVANT l'avant-poste non défendu")
 check(task_of(pfar, "o1") ~= nil and task_of(pfar, "front") == nil, "D5 : cellule lointaine : l'avant-poste non défendu d'abord, comme avant")
+
+-- correction après relecture : un avant-poste de FER non défendu reste servi avant le front, même près du QG (le fer d'abord)
+local und_fe = { { id = "o1", kind = "iron", drills = 8, turrets = 1, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } }
+local pfe = Planner.plan(view({ stock = one_post, outposts = und_fe, front = { pick = ph2.pick, busy = false } }), book)
+check(task_of(pfe, "o1") ~= nil and task_of(pfe, "front") == nil, "D5 : avant-poste de FER non défendu : servi avant le front même près du QG")
 
 -- mutants du lot
 local real_fl = F.floors

@@ -464,7 +464,9 @@ function P.plan(view, book)
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         waiting = waiting + 1
-        posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify }
+        local ospec = T.outposts[o.kind]
+        posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify,
+          iron = (ospec and ospec.product == def_iron) or nil } -- lot DEFENSE-FACTIONS : un avant-poste de fer non défendu passe AVANT le front (D5)
       end
     end
     -- Lot CENTRALE-GARDE : la centrale FINIE (view.plant) est un poste comme un avant-poste : K tourelles ARMÉES à portée de toutes ses
@@ -488,7 +490,15 @@ function P.plan(view, book)
         sites = pk.sites, pos = { x = pk.x, y = pk.y }, cell_key = pk.key, score = pk.score }
       -- Lot DEFENSE-FACTIONS D5 : une cellule à moins de Fr.NEAR_HQ tuiles du QG (là où les PNJ vivent et meurent) passe APRÈS le QG mais AVANT les
       -- avant-postes non défendus et la centrale ; sinon, ordre d'avant (la fabrication du front venait après tout le reste et le fer n'y arrivait pas).
-      if pk.near_hq then table.insert(posts, 2, fp) else posts[#posts + 1] = fp end
+      -- (correction après relecture : jamais devant un avant-poste de FER non défendu, remarque du DC « si on manque cruellement de ressources,
+      -- l'objectif est ces ressources, la défense vient juste après » : le fer que le front prendrait d'abord retarderait le fer lui-même.)
+      if pk.near_hq then
+        local at = 2
+        while posts[at] and posts[at].iron do at = at + 1 end
+        table.insert(posts, at, fp)
+      else
+        posts[#posts + 1] = fp
+      end
     end
     -- Lot DEFENSE-FACTIONS D1 : pourquoi chaque poste n'est pas servi (journal [FO-DEFENSE], script/team/defense_log.lua) ; aucune décision n'en dépend.
     local dposts = {}
