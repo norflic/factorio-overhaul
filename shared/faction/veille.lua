@@ -82,6 +82,11 @@ function V.stale(age)
   return age == nil or age >= V.STALE
 end
 
+--- PNJ libres en surplus : libres moins tâches libres prenables (jamais négatif).
+function V.surplus(idle, open_tasks)
+  return math.max(0, (idle or 0) - (open_tasks or 0))
+end
+
 --- Un ouvrier doit-il partir en veille ? c = { tick, next_at, threat, survive, alert, tour_done (le tour de fondation est fini ou
 --- abandonné), request (une exploration de ressource est demandée), open_tasks (tâches libres au tableau), idle (PNJ libres), missing
 --- (une matière manque : crise) }. Renvoie (oui, raison). L'ordre des refus est celui des compteurs.
@@ -91,9 +96,12 @@ function V.want(c)
   if (c.threat or 0) > V.THREAT_MAX then return false, "menace" end
   if c.request then return false, "demande de ressource" end
   if c.tour_done == false then return false, "tour non fini" end
-  if (c.open_tasks or 0) > 0 then return false, "tache libre" end
   if (c.idle or 0) < 1 then return false, "pas de PNJ libre" end
-  if (c.idle or 0) < (c.missing and V.IDLE_MIN_CRISIS or V.IDLE_MIN) then return false, "ouvriers pris" end
+  local need = c.missing and V.IDLE_MIN_CRISIS or V.IDLE_MIN
+  if (c.idle or 0) < need then return false, "ouvriers pris" end
+  -- Lot CORR-RECON : un ouvrier part s'il y a des PNJ libres EN SURPLUS (libres moins tâches prenables, au moins `need`), et non plus
+  -- seulement quand aucune tâche n'est prenable (10 433 refus « tache libre » alors que des PNJ libres attendaient, RAPPORT RECON 29/10).
+  if V.surplus(c.idle, c.open_tasks) < need then return false, "tache libre" end
   if c.tick < (c.next_at or 0) then return false, "delai" end
   return true, "ok"
 end

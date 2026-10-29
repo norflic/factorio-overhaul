@@ -111,7 +111,23 @@ remote.add_interface("factorio-overhaul", {
   --- (témoin sur la MÊME source : mêmes relevés de secteurs, aucune mission de veille).
   veille_options = function(o)
     if o and o.on ~= nil then Veille.on = o.on and true or false end
-    return { on = Veille.on }
+    -- Lot CORR-RECON : règle « PNJ libres en surplus » (surplus), premier départ avancé (start), comptes imposés (force = { idle, open }
+    -- ou false pour les lever) : scénarios provoqués seulement.
+    if o and o.surplus ~= nil then Veille.surplus = o.surplus and true or false end
+    if o and o.start ~= nil then Veille.start = o.start or nil end
+    if o and o.force ~= nil then Veille.force = o.force or nil end
+    return { on = Veille.on, surplus = Veille.surplus, start = Veille.start, force = Veille.force }
+  end,
+  --- Lot CORR-RECON (lecture seule, bancs) : par faction, départs de veille et refus par raison.
+  veille_probe = function()
+    local out = {}
+    for _, f in ipairs(State.war().factions or {}) do
+      local vs = f.veille or {}
+      local refus = {}
+      for r, n in pairs(vs.refus or {}) do refus[r] = n end
+      out[#out + 1] = { key = f.key, sent = vs.sent or 0, arrived = vs.arrived or 0, refus = refus }
+    end
+    return out
   end,
   points_of_interest = function()
     local function team(f)

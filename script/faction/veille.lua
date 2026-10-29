@@ -22,6 +22,14 @@ local Veille = {}
 local REPORT_EVERY = 10 * 3600
 
 Veille.on = true -- bancs de mesure SEULEMENT : témoin sans veille, même source
+-- Lot CORR-RECON (bancs de mesure SEULEMENT, jamais rangés dans global, défauts = la partie réelle) :
+--   surplus : true (défaut) = règle « PNJ libres en surplus » ; false = ancienne règle (une tâche prenable bloque le départ) ;
+--   start   : tick du premier départ au plus tôt (défaut : V.START) ;
+--   force   : { idle = n, open = m } impose les comptes de PNJ libres et de tâches prenables lus par la décision de départ
+--             (scénario provoqué : la mission, elle, est la vraie).
+Veille.surplus = true
+Veille.start = nil
+Veille.force = nil
 Veille.known = nil
 Veille.pick_goal = nil
 

@@ -926,9 +926,15 @@ local function team_pass(f, tick)
     local vs = Veille.state(f)
     local st = f.chef
     local open = Board.takeable(f) -- tâches libres PRENABLES : un PNJ libre devant elles serait utile ; devant des tâches bloquées, non
-    local ok, why = V.want({ tick = tick, next_at = vs.next_at, threat = st and st.last_threat or 0, survive = st and st.survival or false,
+    local idle = idle_count(f)
+    local next_at = vs.next_at
+    -- Bancs de mesure seulement (lot CORR-RECON) : comptes imposés, premier départ avancé, ancienne règle.
+    if Veille.force then idle, open = Veille.force.idle or idle, Veille.force.open or open end
+    if Veille.start and vs.sent == 0 then next_at = math.min(next_at, Veille.start) end
+    if not Veille.surplus and open > 0 then open = math.max(open, idle) end -- ancienne règle : une tâche prenable bloque
+    local ok, why = V.want({ tick = tick, next_at = next_at, threat = st and st.last_threat or 0, survive = st and st.survival or false,
       alert = tick < (f.threatened_until or 0), tour_done = k.tour.state ~= "todo", request = false, open_tasks = open,
-      idle = idle_count(f), missing = f.team ~= nil and f.team.missing ~= nil and #f.team.missing > 0 })
+      idle = idle, missing = f.team ~= nil and f.team.missing ~= nil and #f.team.missing > 0 })
     if ok then kind, veille = "explore", true else Veille.refuse(f, why) end
   end
   if not kind then return end
