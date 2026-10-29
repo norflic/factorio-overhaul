@@ -1252,6 +1252,11 @@ function M.new_world(opts)
     assert(t.position and t.max_distance, "find_nearest_enemy : position et max_distance attendus")
     return nil
   end
+  -- Lot REBUILD-TOUT : la reconstruction des factions (Recon.think) cherche les unités ennemies près de la place ; le moteur simulé n'en a pas.
+  surface.find_enemy_units = function(pos, radius, force)
+    assert(pos and radius, "find_enemy_units : position et rayon attendus")
+    return {}
+  end
   W.surface = surface
 
   local player_char = new_entity("character", 0, 0, surface, "player")
