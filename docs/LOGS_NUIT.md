@@ -143,3 +143,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~20 h 45, passage 43
 - content-0618 (VAGUE7/INTEG, 0.6.18) : 331 OK, 0 erreur Lua. pvp_test 0.6.18 = 1305 OK. Regression trouvee a l'integration (survie_moteur_test 61/63 : commande partielle du QG sans demande de matieres, mesure par bissection) et corrigee (58b430b) avant la fusion. Aucun factorio.exe, file vide, places = 1 ; Blender (design v6, mur) tourne.
+
+## 29/10 ~20 h 50, passage 44
+- Rien de nouveau : aucune archive depuis content-0618 (331 OK, 0 erreur) ; aucune partie ni banc ; file vide, places = 1. Vague 8 + PILE-PRIORITE en statique ; design : workflow centre v6 (socle, essais carcasse) et mur-opus sur le verrou Blender ; centre-fusee et centre-opus arretes (aucun Blender a eux).
