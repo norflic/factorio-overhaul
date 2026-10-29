@@ -37,11 +37,13 @@ local env = {
   enc_tight_bounds = function() if W.tight then return W.tight, W.tight_info end return nil end,
   enc_mark_out = function() W.marked = (W.marked or 0) + 1 return 7 end,
   enc_release = function() W.released = (W.released or 0) + 1 end,
+  -- lot ILOTS-MURS : le pas des îlots est appelé à chaque décision d'une équipe murée (joué en vrai par tests/ilots_flux_test.lua)
+  Ilots = { step = function(_, _, _, ctx) W.ilots_calls = (W.ilots_calls or 0) + 1; W.ilots_ctx = ctx end },
 }
 local chunk = assert(load("local Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
-  .. "enc_tight_bounds, enc_mark_out, enc_release = "
+  .. "enc_tight_bounds, enc_mark_out, enc_release, Ilots = "
   .. "Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
-  .. "enc_tight_bounds, enc_mark_out, enc_release\n"
+  .. "enc_tight_bounds, enc_mark_out, enc_release, Ilots\n"
   .. chunk_src .. "\nreturn Build", "enceinte_flux", "t", setmetatable(env, { __index = _G })))
 chunk()
 
@@ -416,6 +418,24 @@ do
   check(src:find('if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end', 1, true) ~= nil, "candidates() ecarte les lots libres dehors")
   check(src:find('and not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then', 1, true) ~= nil
     or src:find('(l.state == "libre" or l.state == "defricher") and not l.out then', 1, true) ~= nil, "make_pond() ecarte les lots libres dehors")
+end
+
+-- Lot ILOTS-MURS : le pas des îlots est appelé à chaque décision d'une équipe murée, avec son contexte (enceinte principale occupée ou non)
+do
+  requests = {}
+  W.ilots_calls, W.ilots_ctx, W.tight = 0, nil, nil
+  local f = new_team()
+  W.stock_wall = 120
+  step(f) -- premier segment : pas encore d'enceinte au début du pas, aucun appel
+  check(W.ilots_calls == 0, "ilots : aucun appel avant l'enceinte (" .. W.ilots_calls .. ")")
+  step(f)
+  check(W.ilots_calls == 1 and W.ilots_ctx ~= nil and W.ilots_ctx.main_busy == true, "ilots : appele une fois, enceinte principale occupee (segment en cours)")
+  check(type(W.ilots_ctx.equiv) == "function" and W.ilots_ctx.equiv() == 120 and type(W.ilots_ctx.request) == "function"
+    and type(W.ilots_ctx.cancel) == "function" and type(W.ilots_ctx.repair) == "function" and W.ilots_ctx.prio == Build.PRIO - 15,
+    "ilots : contexte complet (stock equivalent 120, demande, annulation, reparation, priorite des murs)")
+  finish(f, requests[1], tick)
+  step(f)
+  check(W.ilots_calls == 2 and W.ilots_ctx.main_busy == false, "ilots : segment fini, enceinte principale libre au moment de l'appel")
 end
 
 print(string.format("[ENCEINTE-FLUX] BILAN : %d OK, %d ECHEC(S)", passes, failures))

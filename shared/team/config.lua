@@ -83,14 +83,13 @@ T.outposts = {
   stone  = { resource = "stone",      sink = "iron-chest",    product = "stone",        drills = 2 },
 }
 T.OUTPOST_ORDER = { "coal", "iron", "copper", "stone" }
--- Un avant-poste s'agrandit sur son gisement jusqu'à 12 foreuses avant qu'on en cherche un autre (moteur
--- réel : à 480 tuiles du centre, la carte n'offre souvent qu'un gisement de chaque minerai par faction).
--- Un palier « N avant-postes de fer » se lit donc « N × drills foreuses de fer ».
-T.outpost_max_drills = 12
--- Session 4, moteur réel (E16 it. 8) : le fer est le goulot de toute l'échelle (armée, recherche) ; le
--- gisement de fer de départ est plus large et accueille 20 foreuses, la pierre (peu demandée) 8.
-T.outpost_max = { iron = 20, stone = 8 }
-function T.max_drills(kind) return T.outpost_max[kind] or T.outpost_max_drills end
+-- Lot PLAFOND-FOREUSES (arbitrage du DC, 29/10, 20 h 50 : « Supprimer le plafond ») : plus AUCUN plafond de foreuses par
+-- avant-poste, pour TOUS les minerais (le DC parlait du fer ; rien ne justifie de garder 12 pour le charbon et le cuivre, ni 8
+-- pour la pierre). Un avant-poste s'agrandit jusqu'au verdict « plein » de shared/team/pose_paires.lua (balayage COMPLET du
+-- gisement sans emplacement, ou couverture P.KAPPA = Ca.KAPPA) : seul arrêt. T.max_drills reste pour ses lecteurs (planner,
+-- projets, fond, survie, poles, board, fantomes, team_window, outposts) et rend l'infini. Avant (0.6.18) : 12, fer 20, pierre
+-- 8 ; la migration de script/faction/outposts.lua (Outposts.uncap) rouvre les avant-postes fermés à ce plafond.
+function T.max_drills(kind) return math.huge end
 -- Rayon des gisements de la zone de départ, par type d'avant-poste (tuiles).
 T.seed_radius = { coal = 8, iron = 11, copper = 8, stone = 6 }
 T.fuel = "coal"
@@ -105,10 +104,17 @@ T.service_period = 3 * 3600 -- tournée d'entretien au moins toutes les 3 minute
 -- seule demande (shared/team/ligne.lua, shared/team/rangees.lua, script/team/build.lua line_rows et plan_drills).
 -- grow : faux = la taille de la demande seule (le comportement d'avant) ; cover : part des tuiles minées qui doit porter du minerai
 -- (essayée d'abord ; « 80 % des tuiles quand c'est possible ») ; top_lots : lots de gisement lus pour estimer ce que le gisement
--- porte ; rows_floor : rangées (2 fours chacune) toujours payables, 4 = les 8 fours « en réserve » que le DC voyait inutilisés ; row_cost : plaques d'une rangée avec ses foreuses (2 fours,
+-- porte ; row_cost : plaques d'une rangée avec ses foreuses (2 fours,
 -- 4 bras, tapis, 1 paire de foreuses électriques : environ 80 plaques de fer) ; stock_share : part du stock de plaques qu'une
 -- croissance de la ligne peut engager.
-T.ligne = { grow = true, cover = 0.8, top_lots = 3, rows_floor = 4, row_cost = 80, stock_share = 0.5 }
+-- Lot FONDERIE-DYNAMIQUE (arbitrage du DC du 29/10 au soir : « la fonderie grandit en fonction du nombre de foreuses qu'elle a en
+-- input, donc dynamiquement, ni 2, ni 4, ni 8, mais dynamique ») : plus de plancher de rangées (rows_floor = 4 retiré) ; la place de la
+-- ligne entière est réservée au plan, les rangées et les paires de foreuses sont posées par étapes (shared/team/fonte.lua, Fonte.initial
+-- et Fonte.step ; script/team/build.lua, Build.ligne_step). dyn : faux = toute la ligne posée d'un coup (comportement de 0.6.18 sans
+-- plancher) ; every : ticks entre deux relevés des lignes d'une équipe ; settle : ticks d'attente après la fin d'un chantier avant de
+-- relire la ligne ; step_rows / step_pairs : rangées / paires ajoutées au plus par pas.
+T.ligne = { grow = true, cover = 0.8, top_lots = 3, row_cost = 80, stock_share = 0.5,
+  dyn = true, every = 3600, settle = 1800, step_rows = 2, step_pairs = 1 }
 
 -- Fonderie du QG : fours alimentés par les ouvriers (acier, briques, minerai d'appoint).
 T.SMELTER = "stone-furnace"

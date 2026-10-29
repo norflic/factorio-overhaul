@@ -35,6 +35,8 @@ local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
 local Tr = require("shared.faction.traits")
+local Base = require("shared.ai3.base") -- lot PORTE-BASE : zone de base par densité de bâtiments
+local Rg = require("shared.ai3.reglages") -- lot PORTE-BASE : rôles des types du moteur (bâtiments qui font une base)
 
 local M = {}
 
@@ -556,6 +558,57 @@ function M.retarget_mine(f, t, task, surface, tick, B)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot PORTE-BASE : zone de base de l'équipe (densité de bâtiments, règle pure shared/ai3/base.lua)
+---------------------------------------------------------------------------------------------------
+-- Types relevés : ceux dont le rôle pèse (fabriques, foreuses, labos, centrale, tourelles), dans l'ordre trié de R.ENTITY_TYPES.
+M.BASE_TYPES = Base.scan_types(Rg.ENTITY_TYPES, Rg.ENTITY_ROLE)
+
+--- Zone de base de l'équipe, en cache dans t.base (au plus un relevé par Base.PERIOD ticks et par équipe ; appelé seulement par la
+--- porte d'une tâche de défense qui a des morts sur sa route, et par l'interface « base »). État écrit : t.base (zone),
+--- t.base_log_t, t.base_log_n (journal) ; lecteurs : M.gate (Base.split_deaths), M.gate_report (taille), l'interface « base ».
+function M.base_zone(f, t, surface, tick)
+  if not Base.stale(t.base, tick) then return t.base end
+  local hq = f.hq_pos
+  local ents = {}
+  if hq and surface and surface.valid ~= false then
+    local sr = Base.SCAN_R
+    for _, e in ipairs(surface.find_entities_filtered({ area = { { hq.x - sr, hq.y - sr }, { hq.x + sr, hq.y + sr } }, force = f.force,
+      type = M.BASE_TYPES })) do
+      local p = e.position
+      ents[#ents + 1] = { x = p.x, y = p.y, w = 1 }
+    end
+  end
+  local zone = Base.build(ents, hq, tick)
+  t.base = zone
+  if t.base_log_t == nil or t.base_log_n ~= zone.n or tick - t.base_log_t >= M.REPORT_EVERY then
+    t.base_log_t, t.base_log_n = tick, zone.n
+    log(string.format("[FO-BASE] %s : zone de base a %.1f min : %d cases de %d tuiles (%d tuiles carrees, marge comprise), %d case(s) dense(s), %d composante(s) gardee(s) sur %d, %d batiment(s) comptes (poids %d)",
+      tostring(f.key), tick / 3600, zone.n, Base.CELL, Base.area(zone), zone.dense, zone.comps, zone.comps_all, zone.ents, zone.w))
+  end
+  return zone
+end
+
+--- Danger des seules MENACES (morts de PNJ exclues) le plus fort le long d'un itinéraire, 6 premières tuiles exclues (même
+--- échantillonnage que M.plan pour exact_max). Lot PORTE-BASE : porte d'une défense dont les morts sont toutes dans la base.
+local function threat_max(map, p, pts, goal, tick)
+  local qs = R.samples(p, pts, goal, R.SAMPLE)
+  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
+  for _, q in ipairs(qs) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
+  local mx = 0
+  for _, q in ipairs(qs) do
+    if d2(q, p) > 36 then
+      local v = D.exact_at(prep, q.x, q.y, true)
+      if v > mx then mx = v end
+    end
+  end
+  return mx
+end
+
+---------------------------------------------------------------------------------------------------
 -- Crochet : porte d'une tâche (C5, C6)
 ---------------------------------------------------------------------------------------------------
 function M.gate(f, agent, task, steps, tick)
@@ -583,6 +636,19 @@ function M.gate(f, agent, task, steps, tick)
   local prud = M.character(f)
   local free = M.escort_free and M.escort_free(f) or 0
   local ginfo = { blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far }
+  -- Lot PORTE-BASE (arbitrage du DC, 29/10) : une tâche de DÉFENSE (« fortify », « refill ») dont les morts de la route sont TOUTES
+  -- dans la zone de base (densité de bâtiments, M.base_zone) part comme s'il n'y avait pas de morts : la base se défend ; la porte ne
+  -- juge que les menaces connues (route et but, morts exclues). Une mort HORS de la base (route vers un avant-poste lointain) garde la
+  -- règle d'IA3-k : aucune exemption (refus, sans escalade, voir defense_free plus bas). Compteurs : t.stats.porte_zone (M.gate_report).
+  local is_def = task.kind == "fortify" or task.kind == "refill"
+  local d_in, d_out = 0, deaths
+  if is_def and deaths > 0 then
+    d_in, d_out = Base.split_deaths(M.base_zone(f, t, e.surface, tick), t.map.deaths, pts, D.HOUR_R, tick, D.HOUR)
+    if d_out == 0 then
+      local tm = threat_max(t.map, p, res.pts, dest, tick)
+      ginfo = { blocked = res.blocked and tm >= res.B, max_d = tm, goal_d = res.threat_goal or res.exact_goal, deaths = 0, far = far }
+    end
+  end
   local sv_deaths = Survie.gate_deaths(f, task.kind) -- lot SURVIE-PENURIE : mode survie ET tâche de ressources (nil sinon)
   local decision, why = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2, survie_deaths = sv_deaths })
   if sv_deaths then
@@ -624,7 +690,8 @@ function M.gate(f, agent, task, steps, tick)
   -- morts : les pièces tombent là où l'on meurt, et la porte bloquait alors le renfort une heure entière (D.HOUR). L'escalade
   -- ci-dessous la laisse partir après W attentes, risque accepté (les réflexes du PNJ restent). Les autres tâches gardent la règle
   -- d'IA3-k (la mort reste un refus sans issue) ; un but à portée d'une menace connue reste refusé pour tous.
-  local defense_free = (task.kind == "fortify" or task.kind == "refill") and (res.threat_goal or res.exact_goal) < res.B
+  -- Lot PORTE-BASE : plus d'exemption quand une mort de la route est HORS de la zone de base (d_out > 0).
+  local defense_free = is_def and d_out == 0 and (res.threat_goal or res.exact_goal) < res.B
   local goal_free = res.exact_goal < res.B or defense_free
   if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) then
     local w = t.waits[dk]
@@ -675,6 +742,20 @@ function M.gate(f, agent, task, steps, tick)
   end
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
+  if is_def and deaths > 0 then
+    -- Lot PORTE-BASE : compteurs de la porte de défense PAR ZONE (« base » : toutes les morts de la route dans la base ; « hors » : au
+    -- moins une hors d'elle), lus par M.gate_report ; une ligne [FO-BASE] par cause au plus toutes les 10 s par équipe.
+    local zk = d_out > 0 and "hors" or "base"
+    t.stats.porte_zone = t.stats.porte_zone or {}
+    inc(t.stats.porte_zone, zk .. ":" .. decision)
+    t.base_cause_t = t.base_cause_t or {}
+    if not t.base_cause_t[zk] or tick - t.base_cause_t[zk] >= 600 then
+      t.base_cause_t[zk] = tick
+      log(string.format("[FO-BASE] %s : defense (%s) vers (%d, %d) : %d mort(s) de la route dans la base, %d hors de la base -> %s (%s)%s",
+        tostring(f.key), tostring(task.kind), math.floor(dest.x), math.floor(dest.y), d_in, d_out, decision, why,
+        zk == "base" and " : la base se defend, morts ignorees" or " : route meurtriere hors de la base, prudence gardee"))
+    end
+  end
   if decision == "wait" then Survie.note_wait(f, tick) end -- lot SURVIE-PENURIE : un refus de plus (paralysie, shared/team/survie.lua)
   if decision == "wait" then
     -- Lot DEFENSE-FACTIONS D6 : « Trop dangereux » seulement au 2e refus de suite (ou si des morts le disent) ; le premier refus ne réécrit pas
@@ -739,6 +820,16 @@ function M.gate_report(f, tick)
   log(string.format("[FO-IA3K] %s : bilan de la porte a %.1f min%s : %d decisions (+%d en 5 min) {%s} ; escalades %d (dont defense malgre des morts %d), passe-droits %d, reciblages %d, morts marquees %d",
     tostring(f.key), tick / 3600, first and " (premier)" or "", total, d_total, table.concat(parts, ", "), t.stats.escalade or 0,
     t.stats.escalade_defense or 0, t.stats.passe_droit or 0, t.stats.retarget or 0, t.stats.deaths or 0))
+  -- Lot PORTE-BASE : porte de la défense par zone (cumul) et taille de la zone de base en cache (aucun relevé ici).
+  local pz, zparts = t.stats.porte_zone or {}, {}
+  local zkeys = {}
+  for k in pairs(pz) do zkeys[#zkeys + 1] = k end
+  table.sort(zkeys)
+  for _, k in ipairs(zkeys) do zparts[#zparts + 1] = string.format("%s %d", k, pz[k]) end
+  local z = t.base
+  log(string.format("[FO-BASE] %s : bilan a %.1f min : zone %s ; porte de la defense avec morts sur la route {%s}",
+    tostring(f.key), tick / 3600, z and string.format("%d cases (%d tuiles carrees, %d composante(s), calculee a %.1f min)", z.n, Base.area(z), z.comps, z.t / 3600) or "jamais calculee",
+    table.concat(zparts, ", ")))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1243,6 +1334,18 @@ remote.add_interface("fo-ia3k", {
     D.mark_death(t.map, x, y, game.tick)
     t.epoch = t.epoch + 1
     return true
+  end,
+  -- Lot PORTE-BASE : zone de base de l'équipe (recalculée si elle a plus de Base.PERIOD ticks, ou si `fresh`) ; résumé + test d'un point.
+  base = function(key, fresh, x, y)
+    local f = team_by_key(key)
+    if not f then return nil end
+    local t = M.team(f)
+    if fresh then t.base = nil end
+    local z = M.base_zone(f, t, (f.hq and f.hq.valid and f.hq.surface) or game.surfaces[1], game.tick)
+    local inside = nil
+    if x ~= nil and y ~= nil then inside = Base.contains(z, x, y) end
+    return { n = z.n, dense = z.dense, comps = z.comps, comps_all = z.comps_all, w = z.w, ents = z.ents, t = z.t,
+      inside = inside, porte_zone = copy(t.stats.porte_zone or {}) }
   end,
   danger = function(key)
     local f = team_by_key(key)

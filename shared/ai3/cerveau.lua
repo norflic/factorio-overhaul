@@ -38,6 +38,7 @@ local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration
 P.EMIT.upgrade = Cap.emit(P)
 local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de la capitalisation (réglage fo-war-capi)
 P.EMIT.capi = Ca.emit(P)
+local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
 
 local C = {}
 
@@ -156,18 +157,53 @@ function C.think(view, book, st, ctx)
   for _, k in ipairs(sorted_keys(used)) do avail[k] = math.max(0, (avail[k] or 0) - used[k]) end
   local avail0 = {}
   for k, v in pairs(avail) do avail0[k] = v end
+  -- 2 bis. Lot PILE-PRIORITE : la pile de priorité de l'équipe (shared/ai3/pile.lua), recalculée à chaque pensée depuis le
+  -- planificateur permanent (postes sous leur minimum, manques bruts et leur priorité) et le runtime (ctx.pile : pièces
+  -- détruites du registre, projet du plan directeur rouvert ; script/team/pile.lua). État dans st.pile (global).
+  st.pile = st.pile or Pi.new()
+  local pile = Pi.update(st.pile, Pi.signals(view, base, ctx.pile, s, ctx), tick)
+  s.focus = pile.hold and pile.focus or nil -- lu par B.targets : une matière d'un cadre ouvert fait grandir son extraction
   -- 3. Buts ; 4. projets.
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
-  if ctx.capital then goals[#goals + 1] = ctx.capital end
+  -- Lot PILE-PRIORITE : suspendu tant qu'un cadre de rang inférieur retient (il ne réserve plus sa matière, audit A3).
+  if ctx.capital and Pi.allows(pile, "capital") then goals[#goals + 1] = ctx.capital end
   -- Lot CAPIB : un but de FOND par ordre ouvert de la capitalisation (ses exécutants ont reçu l'ordre au runtime ; le but
   -- fait ce qui leur manque, sur la part capi du stock virtuel).
-  if ctx.capi then Ca.goals(goals, nil, ctx.capi.open) end
+  -- Lot PILE-PRIORITE : pile retenue, seuls ses INVESTISSEMENTS de production (g.invest : capacité d'une matière en manque)
+  -- restent ; le reste de la capitalisation attend.
+  if ctx.capi then
+    if Pi.allows(pile, "capi") then Ca.goals(goals, nil, ctx.capi.open)
+    else
+      local held = {}
+      Ca.goals(held, nil, ctx.capi.open)
+      for _, g in ipairs(held) do if g.invest then goals[#goals + 1] = g end end
+    end
+  end
+  -- Lot PILE-PRIORITE (le cerveau principal aussi) : pile retenue, une recherche CHÈRE ne dépasse pas B.RESEARCH_PRE (sous
+  -- l'extraction et l'armée de départ) ; une recherche peu chère (g.short) ou attendue par l'automatisation garde sa valeur.
+  if not Pi.allows(pile, "recherche") then
+    for _, g in ipairs(goals) do
+      if g.family == "recherche" and g.kind == "research" and not g.short and g.value > B.RESEARCH_PRE
+        and not (s.research and s.research.for_auto) then g.value = B.RESEARCH_PRE end
+    end
+  end
   local order, K = P.update(st, goals, tick, s.workers)
   -- 5. Dépliage.
   local E = P.context(avail, book, view, st)
   E.priorite = base.priorite -- lot PRIORITE-RESSOURCES : production d'abord quand le fer ne paie pas la défense et la production
-  for k, n in pairs(base.smelt or {}) do E.smelt[k] = n end
+  -- Lot PILE-PRIORITE : les manques des rangs R0 et R1 (fer des tourelles, survie, reconstruction d'un avant-poste) entrent
+  -- dans E.raw AVEC leur priorité : P.supply en fait la fonte, le minage par plusieurs PNJ, l'exploration ; st.short_n en fait
+  -- la croissance de l'extraction (B.targets) : « pour protéger […] construire une usine, aller chercher un nouveau gisement ».
+  -- Leur fonte n'est pas comptée deux fois (base.smelt les portait déjà).
+  local pile_proj = { id = 0, key = "pile:proteger" }
+  for _, k in ipairs(sorted_keys(pile.short)) do P.short_raw(E, pile_proj, k, pile.short[k].n, pile.short[k].prio) end
+  for k, n in pairs(base.smelt or {}) do if not pile.short[k] then E.smelt[k] = n end end
+  -- Pièces à refaire : leur objet au stock leur est gardé AVANT les projets (audit M7) ; l'objet qui manque est fabriqué au
+  -- rang R1 (audit M4 : « perte sans objet » n'était ni fabriquée ni demandée), sa matière héritant de la priorité de la pièce.
+  for _, it in ipairs(pile.reserve or {}) do E.avail[it[1]] = math.max(0, (E.avail[it[1]] or 0) - it[2]) end
+  local repair_proj = { id = 0, key = "pile:reparer" }
+  for _, it in ipairs(pile.crafts or {}) do P.want(E, repair_proj, { { it[1], it[2] } }, it[3], false, "pile") end
   P.boot_smelters(E, st, s.cap) -- lot IA-V2 : fours du QG avant les projets (chemin critique)
   for _, proj in ipairs(order) do P.emit(E, proj, ctx, tick) end
   -- 6. Approvisionnement.
@@ -227,10 +263,21 @@ function C.think(view, book, st, ctx)
   -- avant-postes dont le produit est COUVERT par un module fini sont retirées (le module livre ce flux).
   local covered = (ctx.auto and ctx.auto.covered) or {}
   st.covered = covered
+  -- Lot PILE-PRIORITE : le minage d'appoint du planificateur (25 ou 45) d'une matière reprise par la pile est retiré quand le
+  -- cerveau par besoins mine déjà cette ressource à la priorité héritée (les urgences à 90 restent).
+  local ia3_mined = {}
+  for _, t in ipairs(E.tasks) do if t.kind == "mine" and t.resource then ia3_mined[t.resource] = true end end
+  local pile_mined = {}
+  for _, k in ipairs(sorted_keys(pile.short)) do
+    pile_mined[k] = true
+    if T.smelter_inputs[k] then pile_mined[T.smelter_inputs[k][1]] = true end
+  end
   for _, t in ipairs(base.tasks or {}) do
     local prod = product_of[t.outpost] or ""
     local drop = (other_short and t.kind == "service" and t.prio < 90 and saturated[prod])
-      or (t.kind == "service" and t.prio < 90 and covered[prod]) or false
+      or (t.kind == "service" and t.prio < 90 and covered[prod])
+      or (t.kind == "mine" and t.prio < 90 and t.resource ~= nil and pile_mined[t.resource] and ia3_mined[t.resource]
+        and t.key == "mine:" .. t.resource) or false
     if drop then dropped = dropped + 1 else
       tasks[#tasks + 1] = t
       keys[t.key] = true
@@ -296,6 +343,7 @@ function C.think(view, book, st, ctx)
     coal_rate = base.coal_rate, burn_rate = base.burn_rate, defend = base.defend, priorite = base.priorite,
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
+      pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)
       pay = E.pay }, -- lot CAPITAL : améliorations dont le coût est réservé au stock virtuel, payées par le runtime
   }
 end

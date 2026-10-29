@@ -568,6 +568,12 @@ function Auto.think(f, view, book, tick, research)
         local have = stock[it] or 0
         if makeable and have < Auto.FEED_STOCK then items[#items + 1] = { it, Auto.FEED_STOCK - have } end
       end
+      -- lot FONDERIE-DYNAMIQUE : pièces du prochain pas de sa ligne (fours, foreuses, bras) qui manquent au coffre, en quantité exacte
+      -- (Build.brief.grow, posé seulement quand le stock de plaques paie le pas) : sans ce but, personne ne les fabriquait
+      for _, g in ipairs(s and s.grow or {}) do
+        local makeable = (book and book.handcraftable and book:handcraftable(g[1])) or T.smelter_inputs[g[1]] ~= nil
+        if makeable and (g[2] or 0) > 0 then items[#items + 1] = { g[1], g[2] } end
+      end
       if #items > 0 then feeds[#feeds + 1] = { product = m.product, id = m.id, items = items, gain = m.gain } end
     end
     if m.state == "fini" then

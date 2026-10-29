@@ -101,8 +101,10 @@ section("2. D2 : le module réduit n'est pas remonté par AGENCEMENT")
 ---------------------------------------------------------------------------------------------------
 local Li = require("shared.team.ligne")
 local grown = Li.rows_wanted({ rows_rate = 1, pairs_dep = 8, drill_rate = 0.5, cap = 0.3, pairs_line = 8, rows_max = 12, grow = true,
-  rows_fit = 12, budget_rows = Li.budget_rows(0, T.ligne.row_cost, T.ligne.stock_share, T.ligne.rows_floor) })
-check(grown >= T.ligne.rows_floor, "fait de départ : sans garde, une demande de 1 rangée remonte à " .. grown .. " (plancher " .. T.ligne.rows_floor .. ")")
+  rows_fit = 12, budget_rows = Li.budget_rows(0, T.ligne.row_cost, T.ligne.stock_share, 0) })
+-- lot FONDERIE-DYNAMIQUE : le plancher de 4 rangées est retiré (« ni 2, ni 4, ni 8, mais dynamique ») : sans stock, une demande de 1 rangée
+-- n'est plus remontée ; la garde spec.shrunk reste (une ligne réduite ne grandit pas au-delà de sa taille demandée)
+check(T.ligne.rows_floor == nil and grown == 1, "sans plancher : une demande de 1 rangée sans stock reste à 1 (" .. grown .. ")")
 local cap_src, auto_src, build_src = read_src("script/ai3/capitalisation.lua"), read_src("script/ai3/automatisation.lua"), read_src("script/team/build.lua")
 check(cap_src:find("shrunk = shrunk or nil", 1, true) and cap_src:find("Rp.factor(repli, rkey, tick) < 1", 1, true), "CAPI : le module réduit porte shrunk")
 check(auto_src:find("shrunk = rq.shrunk or nil", 1, true), "automatisation : spec.shrunk repris de la demande")

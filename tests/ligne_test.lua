@@ -328,8 +328,8 @@ do
   local bad = suite(Li, true)
   check(bad == 0, "la suite de contrôles passe sur les règles réelles (" .. bad .. " échec(s))")
   local cfg = T.ligne
-  check(type(cfg) == "table" and cfg.grow == true and cfg.cover == 0.8 and cfg.top_lots >= 1 and cfg.rows_floor >= 1 and cfg.row_cost > 0
-    and cfg.stock_share > 0 and cfg.stock_share <= 1, "réglages T.ligne présents et sensés")
+  check(type(cfg) == "table" and cfg.grow == true and cfg.cover == 0.8 and cfg.top_lots >= 1 and cfg.rows_floor == nil and cfg.row_cost > 0
+    and cfg.stock_share > 0 and cfg.stock_share <= 1, "réglages T.ligne présents et sensés (plancher de rangées retiré, lot FONDERIE-DYNAMIQUE)")
 end
 
 section("5. De bout en bout, sans le moteur")
@@ -351,7 +351,7 @@ do
             rows_rate = 2, pairs_dep = pd, drill_rate = dsp.speed, cap = cap, pairs_line = pairs_line, rows_max = g0.extensions[1].max, grow = true,
             rows_fit = Li.rows_fit(P.LOT, 1, P.FEED_DEPTH, sortie == "centre" and 2 or 0, M.spec(furnace).w),
             out_ok = function(r) return M.choose_inserters(r * cap, true, Li.MAX_ARMS) ~= nil end,
-            budget_rows = Li.budget_rows(stock, T.ligne.row_cost, T.ligne.stock_share, T.ligne.rows_floor),
+            budget_rows = Li.budget_rows(stock, T.ligne.row_cost, T.ligne.stock_share, 0), -- lot FONDERIE-DYNAMIQUE : plus de plancher
           })
           local g = M.GEN.smelter(furnace, "iron-ore", rows, sortie)
           local tag = string.format("%s %s gisement %d, stock %d, %d rangées", furnace, sortie, pd, stock, rows)

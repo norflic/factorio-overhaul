@@ -249,6 +249,7 @@ function P.plan(view, book)
   end
 
   local raw_short = {}   -- matières premières manquantes (toutes demandes confondues)
+  local raw_prio = {}    -- lot PILE-PRIORITE : priorité la plus haute des demandes de chaque matière manquante (out.raw_need)
   local last_raw = {}    -- matières manquantes de la dernière demande (affichage « il manque »)
   local crafts = 0
   --- Fait fabriquer `list` (fabrication à la main depuis le stock virtuel). Renvoie true si tout est servi.
@@ -260,6 +261,7 @@ function P.plan(view, book)
     local function short_raw(item, n)
       raw_short[item] = (raw_short[item] or 0) + n
       last_raw[item] = (last_raw[item] or 0) + n
+      if (raw_prio[item] or -1) < prio then raw_prio[item] = prio end -- lot PILE-PRIORITE : le manque garde la priorité de son demandeur
     end
     for _, it in ipairs(list) do
       local item, n = it[1], it[2]
@@ -380,6 +382,14 @@ function P.plan(view, book)
         posts[#posts + 1] = fp
       end
     end
+    -- Lot ILOTS-MURS (arbitrage du DC, 29/10 : « l'entourer d'un mur et d'une ou 2 tourelle », « ressources d'abord ») : l'îlot isolé hors de
+    -- l'enceinte le plus en manque (script/team/ilots.lua, attaqué d'abord) ; poste FACULTATIF, le dernier : hors du coût de la défense
+    -- (jamais il ne fait passer la défense avant la production), servi seulement hors « production d'abord », au-dessus de planchers doublés.
+    if view.ilot and view.ilot.pick then
+      local pk = view.ilot.pick
+      posts[#posts + 1] = { id = "ilot", want = pk.want, have = pk.have, busy = view.ilot.busy, sites = pk.sites, pos = pk.pos,
+        ilot = pk.key, box = pk.box, optional = true, floor_i = view.ilot.floor_i, floor_cu = view.ilot.floor_cu }
+    end
   end
   -- Lot PRIORITE-RESSOURCES (remarque du DC, 29/10 : « si on manque cruellement de ressources, l'objectif est justement ces
   -- ressources, pas la défense […] mais si on peut pas se l'acheter, on investit les ressources dans la production de plus de
@@ -398,7 +408,7 @@ function P.plan(view, book)
     -- que la défense se servait dès 230.
     local n_miss, n_part = 0, 0
     for _, p in ipairs(posts) do
-      if p.have < p.want and not p.busy and not open["fortify:" .. p.id] then
+      if p.have < p.want and not p.busy and not open["fortify:" .. p.id] and not p.optional then -- (ILOTS-MURS : poste facultatif hors du coût)
         local n = p.want - p.have
         if not turret_craftable then n = math.min(n, avail[T.turret] or 0) end
         if PARTIAL_POSTS[p.id] then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end
@@ -636,9 +646,26 @@ function P.plan(view, book)
             local items = turret_items(n)
             local function task_of(list)
               add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = list, defend = true,
-                sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key })
+                sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key,
+                ilot = p.ilot, box = p.box }) -- (ILOTS-MURS : îlot et emprise de la pose)
             end
-            if take(items) then
+            if p.optional then
+              -- Lot ILOTS-MURS : « ressources d'abord ». Rien en « production d'abord » (pénurie comprise) ni pour une équipe décimée ; sinon
+              -- les tourelles du stock, ou leur fabrication si elle est payable au-dessus des planchers doublés (I.floors) ; pas payable : rien,
+              -- et aucune demande de matière (pas de minage ni de fonte pour un îlot).
+              d.floor_i, d.floor_cu = p.floor_i, p.floor_cu
+              if pri.production_first or decimated then
+                d.why = "ressources"
+              elseif take(items) then
+                task_of(items)
+                d.why = "tache_creee"
+              elseif affordable(items, p.floor_i or T.defend_iron_floor, p.floor_cu or T.defend_copper_floor) then
+                d.why = want_defense(items, p.floor_i, p.floor_cu) and "fabrication" or "manque"
+                if d.why == "manque" then d.raw = last_raw end
+              else
+                d.why = "ressources" -- attente voulue (pas un blocage de la défense : [FO-DEFENSE] ne la compte pas, BLOCKED)
+              end
+            elseif take(items) then
               task_of(items)
               d.why = "tache_creee"
             elseif PARTIAL_POSTS[p.id] then
@@ -673,7 +700,10 @@ function P.plan(view, book)
                     local ks = {}
                     for k in pairs(pp.raw) do ks[#ks + 1] = k end
                     table.sort(ks)
-                    for _, k in ipairs(ks) do raw_short[k] = (raw_short[k] or 0) + pp.raw[k] end
+                    for _, k in ipairs(ks) do
+                      raw_short[k] = (raw_short[k] or 0) + pp.raw[k]
+                      if (raw_prio[k] or -1) < T.defend_prio then raw_prio[k] = T.defend_prio end -- lot PILE-PRIORITE
+                    end
                   end
                 end
               end
@@ -1062,6 +1092,11 @@ function P.plan(view, book)
   local raws = {}
   for k in pairs(raw_short) do raws[#raws + 1] = k end
   table.sort(raws)
+  -- Lot PILE-PRIORITE (ajout pur) : chaque matière manquante avec la priorité la plus haute de ses demandeurs (défense 90,
+  -- survie, reconstruction 60…). Lecteur : shared/ai3/cerveau.lua (C.think) -> shared/ai3/pile.lua (Pi.signals) : les
+  -- manques des rangs R0 et R1 passent au cerveau par besoins avec leur priorité (fonte, minage, croissance de l'extraction).
+  out.raw_need = {}
+  for _, k in ipairs(raws) do out.raw_need[k] = { n = raw_short[k], prio = raw_prio[k] or 0 } end
   -- Ouvriers sans tâche : ils minent à la main la matière qui manque le plus (comme un joueur au début),
   -- le minerai est fondu dans la fonderie du QG. Moteur réel (session 4) : sans cela, une équipe privée de
   -- plaques de fer (avant-poste de fer perdu ou introuvable) restait bloquée pour toute la partie.

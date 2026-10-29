@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.19
+Date: 2026-10-29
+  Changes:
+    - Pile de priorite (DC : « on répare + protège, puis on améliore ; la pile s'applique aussi au cerveau principal ») : rangs survivre > s'adapter (reparer + proteger) > produire > ameliorer, communs aux factions et a votre equipe ; un besoin de protection qui manque de fer cree ses sous-buts (fonte, minage, extraction, exploration) ; cadres fermes par evenement, jamais par horloge. Journal [FO-PILE].
+    - Plus de gel des ameliorations pendant un siege (remplace par la pile).
+    - Plus de plafond de foreuses par avant-poste (tous minerais) : arret a 80 % de couverture du gisement ; ravitaillement en charbon du bruleur le plus a sec d'abord ([FO-CHARBON]) ; les avant-postes fermes a l'ancien plafond sont rouverts.
+    - Fonderie dynamique : la ligne de fours suit le nombre de foreuses en entree (plus de taille fixe), fours ajoutes au bout quand le minerai s'accumule ; equilibre fours/foreuses actif ([FO-FONTE]).
+    - Porte « trop dangereux » selon la base : les morts de PNJ dans la zone de base (densite de batiments) n'empechent plus la defense de partir ; les morts sur un trajet lointain gardent la prudence ([FO-BASE]).
+    - Nettoyage de site : des soldats nettoient les nids qui bloquent le gisement le plus proche, sans vider la defense du QG ni operation suicide ([FO-NETTOYAGE]).
+    - Ilots : les lots isoles hors de l'enceinte (centrale, fonderie, avant-poste de valeur) recoivent un petit enclos de murs et 1 ou 2 tourelles quand les ressources le permettent ([FO-ILOT]) ; ce poste facultatif ne bloque jamais la production.
+    - Rien n'a ete rejoue en partie : relecture statique de chaque lot, integration verifiee, tests hors jeu verts (pvp 1305), un content.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.18
 Date: 2026-10-29
   Changes:

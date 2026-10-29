@@ -188,12 +188,29 @@ Events.on(defines.events.on_player_mined_entity, on_hand_removed)
 Events.on(defines.events.on_robot_mined_entity, on_hand_removed)
 
 --- Y a-t-il des pièces refaisables en attente ? (« améliorer attend » : Ia3.capital_pay)
+--- Lot SANS-GEL : les projets du plan directeur rouverts ne retiennent plus les améliorations dans le temps (gel de D4 supprimé, arbitrage du
+--- DC « Supprimer le gel ») ; ils ne retiennent que leur MATIÈRE, par Recon.upgrade_stock.
 function Recon.hold_upgrades(f)
-  -- lot INTEG-RECONSTRUCTION (D4) : un projet du plan directeur rouvert retient aussi (ses pièces ne sont pas au registre)
-  if Sweep.hold(f, game.tick) then return true end
   local s = f.recon
   if not s then return false end
   return Rc.hold_upgrades(s, function(item) return Stock.count(f, item) end, game.tick)
+end
+
+--- Lot SANS-GEL : stock sur lequel Capital.pay paie une amélioration (script/team/team.lua) : `stock` moins ce que la reconstruction des
+--- projets rouverts prendra encore au coffre (Sweep.upgrade_stock : « refaire d'abord » à matière égale, sans durée). Rien à payer
+--- (plan.ia3.pay vide) : `stock` tel quel, sans calcul.
+function Recon.upgrade_stock(f, book, stock, tick, plan)
+  local pay = plan and plan.ia3 and plan.ia3.pay
+  if not pay or #pay == 0 then return stock end
+  local c = f.team and f.team.capital
+  -- Relecture SANS-GEL : le journal [FO-REBUILD-PRIO] ne cite l'amélioration décidée que si Capital.pay la paierait (une cible de
+  -- plan.ia3.pay porte sa clé, comme la boucle de Capital.pay) ; sinon ce n'est pas la reconstruction qui la fait attendre.
+  local cur = c and c.current
+  local due = false
+  if cur and cur.key then
+    for _, p in ipairs(pay) do if p.target == cur.key then due = true break end end
+  end
+  return Sweep.upgrade_stock(f, stock, book, tick, due and cur or nil)
 end
 
 function Recon.pending(f) return f.recon and Rc.pending(f.recon) or 0 end

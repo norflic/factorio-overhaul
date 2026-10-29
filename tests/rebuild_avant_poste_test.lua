@@ -135,7 +135,9 @@ end
 -- 3. Exécutant : doublures
 ---------------------------------------------------------------------------------------------------
 local handlers = {}
-package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end }
+-- Intégration 0.6.19 : outposts.lua s'abonne aussi à on_configuration_changed (réouverture des avant-postes, lot EXTENSION-FER) ;
+-- sans ce champ, le banc plantait au require (déjà sur main 0.6.18).
+package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end, on_configuration_changed = function() end }
 defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3 }, entity_status = { no_power = 7, working = 1 },
   direction = { north = 0, east = 2, south = 4, west = 6 }, inventory = setmetatable({}, { __index = function() return 1 end }),
   build_check_type = {}, flow_precision_index = {} }

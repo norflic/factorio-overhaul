@@ -168,7 +168,11 @@ function B.targets(s, st)
     local product = T.outposts[kind].product
     local n = (st.short_n or {})[product] or 0
     local short = (st.short or {})[product] or 0
-    if n >= B.GROW_THINKS and short >= B.GROW_SHORT and not B.saturated(s, product) and tg[kind] < grow_max
+    -- Lot PILE-PRIORITE : le produit d'un cadre ouvert de la pile (fer des tourelles d'un poste sous son minimum, objet d'une
+    -- pièce à refaire ; s.focus, shared/ai3/pile.lua) grandit dès qu'il manque durablement, quelle que soit la quantité (la
+    -- commande partielle d'une tourelle coûte moins que B.GROW_SHORT : audit C1).
+    local grow_short = (s.focus and s.focus[product]) and 1 or B.GROW_SHORT
+    if n >= B.GROW_THINKS and short >= grow_short and not B.saturated(s, product) and tg[kind] < grow_max
       and (s.cap[kind] or 0) >= tg[kind] * 0.75 then
       tg[kind] = tg[kind] + 1
       st.short_n[product] = 0

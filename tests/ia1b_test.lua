@@ -99,7 +99,8 @@ local function view(opts)
 end
 do
   local v = view({
-    outposts = { { id = 1, kind = "iron", drills = 8 }, { id = 2, kind = "coal", drills = 12 }, { id = 3, kind = "copper", drills = 3, full = true } },
+    -- lot PLAFOND-FOREUSES : plus de plafond de foreuses ; le charbon « au maximum » est désormais un gisement plein (full)
+    outposts = { { id = 1, kind = "iron", drills = 8 }, { id = 2, kind = "coal", drills = 12, full = true }, { id = 3, kind = "copper", drills = 3, full = true } },
     sites = { stone = 1 }, smelters = 2,
     stock = { ["burner-mining-drill"] = 4, ["stone-furnace"] = 10, ["iron-chest"] = 4, coal = 300, stone = 300,
       ["iron-plate"] = 1000, ["copper-plate"] = 200, ["iron-ore"] = 40 },

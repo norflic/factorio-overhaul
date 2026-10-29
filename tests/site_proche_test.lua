@@ -94,9 +94,10 @@ local function scenario()
     local t = task_of(tasks, "extend")
     r[5] = st == "ok" and t ~= nil and t.outpost == 7
   end
-  -- 6. Deux avant-postes, le proche déjà au plafond de foreuses : on agrandit le lointain (site proche absent).
+  -- 6. Deux avant-postes, le proche déjà plein (son gisement : plus de plafond de foreuses depuis le lot PLAFOND-FOREUSES) : on
+  -- agrandit le lointain (site proche absent).
   do
-    local st, _, tasks = emit({ outposts = { op(1, 201), op(2, 45, { drills = T.max_drills(KIND) }) }, sites = {} })
+    local st, _, tasks = emit({ outposts = { op(1, 201), op(2, 45, { drills = 60, full = true }) }, sites = {} })
     local t = task_of(tasks, "extend")
     r[6] = st == "ok" and t ~= nil and t.outpost == 1
   end
