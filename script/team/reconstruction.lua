@@ -203,7 +203,14 @@ function Recon.upgrade_stock(f, book, stock, tick, plan)
   local pay = plan and plan.ia3 and plan.ia3.pay
   if not pay or #pay == 0 then return stock end
   local c = f.team and f.team.capital
-  return Sweep.upgrade_stock(f, stock, book, tick, c and c.current)
+  -- Relecture SANS-GEL : le journal [FO-REBUILD-PRIO] ne cite l'amélioration décidée que si Capital.pay la paierait (une cible de
+  -- plan.ia3.pay porte sa clé, comme la boucle de Capital.pay) ; sinon ce n'est pas la reconstruction qui la fait attendre.
+  local cur = c and c.current
+  local due = false
+  if cur and cur.key then
+    for _, p in ipairs(pay) do if p.target == cur.key then due = true break end end
+  end
+  return Sweep.upgrade_stock(f, stock, book, tick, due and cur or nil)
 end
 
 function Recon.pending(f) return f.recon and Rc.pending(f.recon) or 0 end

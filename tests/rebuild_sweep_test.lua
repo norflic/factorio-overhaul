@@ -668,7 +668,7 @@ do
   do
     local src_rc, src_team = read("script/team/reconstruction.lua"), read("script/team/team.lua")
     check(not src_rc:find("Sweep.hold(", 1, true), "SANS-GEL : Recon.hold_upgrades ne gèle plus pour les projets rouverts")
-    check(src_rc:find("return Sweep.upgrade_stock(f, stock, book, tick, c and c.current)", 1, true), "SANS-GEL : Recon.upgrade_stock passe par la règle de matière")
+    check(src_rc:find("return Sweep.upgrade_stock(f, stock, book, tick, due and cur or nil)", 1, true), "SANS-GEL : Recon.upgrade_stock passe par la règle de matière")
     check(src_team:find("Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))", 1, true),
       "SANS-GEL : Capital.pay paie sur le stock laissé par la reconstruction")
   end

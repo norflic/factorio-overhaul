@@ -559,6 +559,18 @@ do
   check(free["item-p"] == 3 and free["item-r"] == 9, "§12 bis la reconstruction garde sa matière (2), le reste reste aux améliorations")
   check(Recon.upgrade_stock(f, nil, stock, 200, { ia3 = { pay = {} } }) == stock and Recon.upgrade_stock(f, nil, stock, 200, nil) == stock,
     "§12 bis rien à payer : stock tel quel, sans calcul")
+  local function prio_lines()
+    local n = 0
+    for _, s in ipairs(logs) do if s:find("[FO-REBUILD-PRIO]", 1, true) then n = n + 1 end end
+    return n
+  end
+  check(prio_lines() == 1, "§12 bis amélioration payable sur le stock, pas sur le stock libre : une ligne [FO-REBUILD-PRIO]")
+  -- Relecture SANS-GEL : une amélioration que Capital.pay ne paierait pas (aucune cible de plan.ia3.pay ne porte sa clé) n'est pas dite
+  -- « en attente de la reconstruction » ; la matière reste retenue quand même.
+  f.team.capital.current = { key = "autre", cost = { { "item-p", 4 } } }
+  free = Recon.upgrade_stock(f, nil, stock, 200, plan)
+  check(free["item-p"] == 3 and prio_lines() == 1, "§12 bis amélioration hors de plan.ia3.pay : matière retenue, aucune ligne de journal")
+  f.team.capital.current = { key = "amelio", cost = { { "item-p", 4 } } }
   f.build.projects[1].stock = { ["item-p"] = 2 }
   free = Recon.upgrade_stock(f, nil, stock, 200, plan)
   check(free["item-p"] == 5, "§12 bis réserve du projet déjà prise : rien de plus retenu")
