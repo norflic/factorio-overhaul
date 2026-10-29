@@ -207,28 +207,74 @@ local function suite(Sw)
     c(Sw.gave_expired({ gave_t = 1000 }, 10 * Sw.GAVE_KEEP) == false, "D3 : pièce non abandonnée : rien à lever")
     c(Sw.GAVE_KEEP > Sw.FORGET, "D3 : l'abandon dure plus que l'oubli de l'historique")
   end
-  -- Lot INTEG-RECONSTRUCTION (D4) : un projet rouvert retient les améliorations
+  -- Lot SANS-GEL (remplace le gel D4) : un projet rouvert ne retient que sa MATIÈRE, jamais dans le temps
   do
-    local q = { reopened = 1, reopened_tick = 5000, state = "reserve", ents = { { item = "a", built = false } } }
-    c(Sw.project_holds(q, 5000 + 60) == true, "D4 : projet rouvert à refaire : retient")
-    c(Sw.project_holds(q, 5000 + Sw.HOLD_MAX) == true and Sw.project_holds(q, 5000 + Sw.HOLD_MAX + 1) == false, "D4 : ne retient que Sw.HOLD_MAX ticks")
+    local function n_of(list, k) for _, it in ipairs(list) do if it[1] == k then return it[2] end end return 0 end
+    local q = { reopened = 1, reopened_tick = 5000, state = "reserve",
+      ents = { { item = "a", built = false }, { item = "a", built = false }, { item = "b", built = false }, { item = "c", built = true } } }
+    local need = Sw.project_needs(q)
+    c(#need == 2 and n_of(need, "a") == 2 and n_of(need, "b") == 1 and n_of(need, "c") == 0, "SANS-GEL : besoins = pièces à refaire")
+    q.stock = { a = 1, b = 3 }
+    need = Sw.project_needs(q)
+    c(#need == 1 and n_of(need, "a") == 1, "SANS-GEL : la réserve du projet (déjà retirée du coffre) est déduite")
+    q.stock = nil
     for _, st in ipairs({ "fantomes", "chantier", "defrichage" }) do
       q.state = st
-      c(Sw.project_holds(q, 5100) == true, "D4 : « " .. st .. " » retient")
+      c(#Sw.project_needs(q) == 2, "SANS-GEL : « " .. st .. " » demande sa matière")
     end
     for _, st in ipairs({ "fini", "raccordement", "bloque", "refuse", "plan" }) do
       q.state = st
-      c(Sw.project_holds(q, 5100) == false, "D4 : « " .. st .. " » ne retient pas")
+      c(#Sw.project_needs(q) == 0, "SANS-GEL : « " .. st .. " » ne retient rien")
     end
     q.state = "chantier"
-    q.ents[1].built = true
-    c(Sw.project_holds(q, 5100) == false, "D4 : plus rien à refaire : ne retient plus")
-    q.ents[1].built = false
-    q.ents[1].gave_up = true
-    c(Sw.project_holds(q, 5100) == false, "D4 : pièce abandonnée : ne retient pas")
-    c(Sw.project_holds({ state = "chantier", ents = { { item = "a", built = false } } }, 5100) == false, "D4 : projet jamais rouvert : ne retient pas")
-    c(Sw.project_holds({ reopened = 1, state = "chantier", ents = { { item = "a", built = false } } }, 5100) == false, "D4 : sans date de réouverture (murs d'enceinte) : ne retient pas")
-    c(Sw.project_holds(nil, 5100) == false, "D4 : projet absent")
+    q.ents[3].gave_up = true
+    q.ents[1].dropped = true
+    need = Sw.project_needs(q)
+    c(#need == 1 and n_of(need, "a") == 1, "SANS-GEL : pièces abandonnées ou retirées : rien de retenu pour elles")
+    c(#Sw.project_needs({ state = "chantier", ents = { { item = "a", built = false } } }) == 0, "SANS-GEL : projet jamais rouvert : rien")
+    c(#Sw.project_needs({ reopened = 1, state = "chantier", ents = { { item = "a", built = false } } }) == 0, "SANS-GEL : sans date de réouverture (murs d'enceinte) : rien")
+    c(#Sw.project_needs(nil) == 0, "SANS-GEL : projet absent")
+    -- somme sur l'équipe, ordre déterministe
+    local projects = {
+      [7] = { reopened = 1, reopened_tick = 1, state = "chantier",
+        ents = { { item = "b", built = false }, { item = "a", built = false }, { item = "a", built = false } } },
+      [3] = { reopened = 2, reopened_tick = 9, state = "reserve", ents = { { item = "b", built = false } } },
+      [5] = { state = "chantier", ents = { { item = "z", built = false } } },
+    }
+    local all, ids = Sw.rebuild_needs(projects, { 3, 5, 7 })
+    c(#all == 2 and all[1][1] == "a" and all[1][2] == 2 and all[2][1] == "b" and all[2][2] == 2, "SANS-GEL : besoins sommés, triés par nom")
+    c(#ids == 2 and ids[1] == 3 and ids[2] == 7, "SANS-GEL : projets en cause dans l'ordre de l'équipe")
+    local none, nids = Sw.rebuild_needs(projects, {})
+    c(#none == 0 and #nids == 0, "SANS-GEL : équipe sans projet : rien")
+    -- arbitrage de matière (sans livre : les objets eux-mêmes)
+    local stock = { a = 5, p = 10 }
+    local free, held = Sw.upgrade_stock(stock, { { "a", 2 } })
+    c(free.a == 3 and free.p == 10 and stock.a == 5, "SANS-GEL : la reconstruction prend d'abord sa part, le reste est libre, stock non modifié")
+    c(#held == 1 and held[1][1] == "a" and held[1][2] == 2, "SANS-GEL : retenu = ce que la reconstruction prendra")
+    local f2, h2 = Sw.upgrade_stock(stock, {})
+    c(f2 == stock and #h2 == 0, "SANS-GEL : rien à refaire : rien de retenu")
+    local f3 = Sw.upgrade_stock({ a = 1 }, { { "a", 4 } })
+    c(f3.a == 0, "SANS-GEL : jamais négatif")
+    -- avec un livre : les ingrédients d'un objet à refaire qui manque sont retenus (matière partagée), rien d'autre
+    local book = { plan = function(_, wants, st)
+      local avail = {} for k, v in pairs(st) do avail[k] = v end
+      for _, w in ipairs(wants) do
+        local have = math.min(avail[w[1]] or 0, w[2])
+        avail[w[1]] = (avail[w[1]] or 0) - have
+        local miss = w[2] - have
+        if miss > 0 and w[1] == "m" then avail.p = math.max(0, (avail.p or 0) - 3 * miss) end
+      end
+      return { avail = avail }
+    end }
+    local f4, h4 = Sw.upgrade_stock({ p = 10, q = 4 }, { { "m", 2 } }, book)
+    c(f4.p == 4 and f4.q == 4 and #h4 == 1 and h4[1][1] == "p" and h4[1][2] == 6, "SANS-GEL : livre : ingrédients d'une pièce à fabriquer retenus, le reste libre")
+    -- amélioration différée seulement si la reconstruction lui prend la matière
+    c(Sw.defers({ p = 10 }, { p = 4 }, { { "p", 5 } }) == true, "SANS-GEL : même matière, pas assez après la reconstruction : différée")
+    c(Sw.defers({ p = 10 }, { p = 4 }, { { "p", 4 } }) == false, "SANS-GEL : assez après la reconstruction : payée tout de suite")
+    c(Sw.defers({ p = 3 }, { p = 0 }, { { "p", 5 } }) == false, "SANS-GEL : pas payable de toute façon : pas imputé à la reconstruction")
+    c(Sw.defers({ p = 10, q = 1 }, { p = 4, q = 1 }, { { "q", 1 } }) == false, "SANS-GEL : autre matière : jamais différée")
+    c(Sw.defers({ p = 10 }, { p = 4 }, nil) == false and Sw.defers({ p = 10 }, { p = 4 }, {}) == false, "SANS-GEL : sans coût : rien")
+    c(Sw.HOLD_MAX == nil and Sw.project_holds == nil, "SANS-GEL : plus aucune durée de gel dans la règle")
   end
   return ok, bad
 end
@@ -268,10 +314,17 @@ local MUTANTS = {
   { "D3 : abandon levé sans attendre", "return tick - e.gave_t >= Sw.GAVE_KEEP", "return true" },
   { "D3 : retrait à la main levé", "if not e.gave_up or e.hand_gave or not e.gave_t then return false end", "if not e.gave_up or not e.gave_t then return false end" },
   { "D3 : abandon sans date levé", "if not e.gave_up or e.hand_gave or not e.gave_t then return false end", "if not e.gave_up or e.hand_gave then return false end" },
-  { "D4 : jamais retenu", "return pieces > 0\nend", "return false\nend" },
-  { "D4 : retenu sans fin", "if tick - q.reopened_tick > Sw.HOLD_MAX then return false end", "" },
-  { "D4 : retenu une fois fini", "and Sw.HOLD_STATES[q.state]) then", ") then" },
-  { "D4 : retenu sans pièce à refaire", "return pieces > 0\nend", "return true\nend" },
+  { "SANS-GEL : rien retenu", "if n > 0 then out[#out + 1] = { it[1], n } end", "" },
+  { "SANS-GEL : réserve du projet ignorée", "local n = it[2] - (held[it[1]] or 0)", "local n = it[2]" },
+  { "SANS-GEL : retenu une fois fini", "and Sw.HOLD_STATES[q.state]) then return out end", ") then return out end" },
+  { "SANS-GEL : murs sans date retenus", "if not (q and q.reopened and q.reopened_tick and", "if not (q and q.reopened and" },
+  { "SANS-GEL : somme perdue", "count[it[1]] = count[it[1]] + it[2]", "count[it[1]] = it[2]" },
+  { "SANS-GEL : besoins non triés", "  table.sort(names)\n  local out = {}\n  for i, n in ipairs(names) do out[i] = { n, count[n] } end\n  return out, ids",
+    "  local out = {}\n  for i, n in ipairs(names) do out[i] = { n, count[n] } end\n  return out, ids" },
+  { "SANS-GEL : retenue de tout le stock", "if free[it[1]] then free[it[1]] = math.max(0, free[it[1]] - it[2]) end", "if free[it[1]] then free[it[1]] = 0 end" },
+  { "SANS-GEL : livre ignoré", "free = book:plan(needs, stock).avail", "free = stock" },
+  { "SANS-GEL : différée sans manque", "return covers(stock) and not covers(free)", "return not covers(free)" },
+  { "SANS-GEL : jamais différée", "return covers(stock) and not covers(free)", "return false" },
 }
 local refused = 0
 for _, mu in ipairs(MUTANTS) do
@@ -533,13 +586,45 @@ do
   Sweep.step(f, surface, 10 + 360 + Sw.CALM)
   check(q.state == "reserve" and q.retries == 0 and q.retry_at == nil, "D2 : projet rouvert : reprises remises à zéro (" .. tostring(q.retries) .. ")")
 
-  -- D4 : le projet rouvert retient les améliorations (Sweep.hold), puis plus rien une fois refait
-  check(Sweep.hold(f, q.reopened_tick + 60) == true, "D4 : l'équipe retient les améliorations tant que le projet rouvert est à refaire")
-  check(Sweep.hold(f, q.reopened_tick + Sw.HOLD_MAX + 1) == false, "D4 : plus de retenue après Sw.HOLD_MAX")
-  q.ents[1].built = true
-  q.state = "fini"
-  check(Sweep.hold(f, q.reopened_tick + 60) == false, "D4 : projet refait : plus de retenue")
-  check(Sweep.hold({ key = "x" }, 100) == false and Sweep.hold({ key = "x", build = {} }, 100) == false, "D4 : équipe sans projets : rien")
+  -- SANS-GEL (remplace le gel D4) : le projet rouvert ne retient que sa matière, et pas plus longtemps qu'il n'en a besoin
+  do
+    local item = q.ents[1].item
+    local cur = { key = "amelio-x", cost = { { item, 2 } } }
+    local stock = { [item] = 2, autre = 7 }
+    local before = #logs
+    local free = Sweep.upgrade_stock(f, stock, nil, q.reopened_tick + 60, cur)
+    check(free[item] == 1 and free.autre == 7 and stock[item] == 2, "SANS-GEL : la pièce à refaire garde son objet, le reste est libre")
+    local prio = {}
+    for i = before + 1, #logs do if logs[i]:find("[FO-REBUILD-PRIO]", 1, true) then prio[#prio + 1] = logs[i] end end
+    check(#prio == 1 and prio[1]:find("amelio%-x") and prio[1]:find("integ%-d2"), "SANS-GEL : l'amélioration différée est écrite au journal [FO-REBUILD-PRIO] (" .. tostring(prio[1]) .. ")")
+    Sweep.upgrade_stock(f, stock, nil, q.reopened_tick + 120, cur)
+    check(#logs == before + 1, "SANS-GEL : une ligne par changement, pas à chaque pensée")
+    -- aucune durée : longtemps après la réouverture, la matière reste à la reconstruction tant qu'elle en a besoin (pas de dégel à l'aveugle)
+    local late = Sweep.upgrade_stock(f, stock, nil, q.reopened_tick + 1000 * 3600, cur)
+    check(late[item] == 1, "SANS-GEL : la priorité de matière ne dépend pas du temps")
+    -- assez pour les deux : l'amélioration passe tout de suite (rien n'est gelé)
+    local both = Sweep.upgrade_stock(f, { [item] = 5 }, nil, q.reopened_tick + 60, cur)
+    check(both[item] == 4, "SANS-GEL : assez pour refaire ET améliorer : l'amélioration se paie tout de suite")
+    -- autre matière : jamais retenue
+    local other = Sweep.upgrade_stock(f, { autre = 3 }, nil, q.reopened_tick + 60, { key = "amelio-y", cost = { { "autre", 3 } } })
+    check(other.autre == 3, "SANS-GEL : une amélioration d'une autre matière n'attend pas")
+    q.ents[1].built = true
+    q.state = "fini"
+    local done = Sweep.upgrade_stock(f, stock, nil, q.reopened_tick + 60, cur)
+    check(done == stock, "SANS-GEL : projet refait : plus rien de retenu")
+    check(Sweep.upgrade_stock({ key = "x" }, stock, nil, 100) == stock and Sweep.upgrade_stock({ key = "x", build = {} }, stock, nil, 100) == stock,
+      "SANS-GEL : équipe sans projets : stock tel quel")
+    check(Sweep.hold == nil, "SANS-GEL : plus de Sweep.hold (gel D4)")
+    -- vrai livre de recettes (fixture du jeu) : une machine à refaire qui manque retient les plaques de sa fabrication, à matière égale
+    local Book = require("shared.team.book")
+    local book = Book.new(dofile("tests/fixtures/recipes_ia1e.lua"))
+    local fr, hr = Rule.upgrade_stock({ ["iron-plate"] = 30, ["copper-plate"] = 10, ["stone"] = 4 }, { { "assembling-machine-1", 1 } }, book)
+    check(fr["iron-plate"] == 8 and fr["copper-plate"] == 5 and fr["stone"] == 4,
+      "SANS-GEL : livre réel : 22 fer et 5 cuivre retenus pour la machine à refaire, le reste libre (" .. tostring(fr["iron-plate"]) .. ", " .. tostring(fr["copper-plate"]) .. ")")
+    check(#hr == 2 and hr[1][1] == "copper-plate" and hr[2][1] == "iron-plate", "SANS-GEL : retenu trié par nom")
+    check(Rule.defers({ ["iron-plate"] = 30 }, fr, { { "iron-plate", 20 } }) and not Rule.defers({ ["iron-plate"] = 30 }, fr, { { "iron-plate", 8 } }),
+      "SANS-GEL : l'amélioration de 20 fer attend la machine, celle de 8 fer passe")
+  end
 
   -- D3 : un abandon est écrit au journal, puis levé après Sw.GAVE_KEEP ; un retrait à la main ne l'est jamais
   local f3, q3 = team("integ-d3", "fini", { { "belt", 9101, 5 }, { "belt", 9201, 5 } })
@@ -580,7 +665,13 @@ do
   check(src_rv:find("q.retries, q.retry_at = 0, nil", 1, true) and src_rs:find("q.retries, q.retry_at = 0, nil", 1, true),
     "D2 : les deux réouvertures (relevé, réseau vivant) remettent les reprises à zéro")
   check(src_auto:find("Sweep.goal_for_module(m)", 1, true), "D1 : le suivi du cerveau décide du but « auto » par Sweep.goal_for_module")
-  check(read("script/team/reconstruction.lua"):find("Sweep.hold(f, game.tick)", 1, true), "D4 : Recon.hold_upgrades lit aussi les projets rouverts")
+  do
+    local src_rc, src_team = read("script/team/reconstruction.lua"), read("script/team/team.lua")
+    check(not src_rc:find("Sweep.hold(", 1, true), "SANS-GEL : Recon.hold_upgrades ne gèle plus pour les projets rouverts")
+    check(src_rc:find("return Sweep.upgrade_stock(f, stock, book, tick, c and c.current)", 1, true), "SANS-GEL : Recon.upgrade_stock passe par la règle de matière")
+    check(src_team:find("Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))", 1, true),
+      "SANS-GEL : Capital.pay paie sur le stock laissé par la reconstruction")
+  end
   check(src_build:find("refresh_missing(f, p)", 1, true) and src_build:find("p.miss_next = tick + 60", 1, true), "D6 : build.lua relit les manques d'un projet rouvert hors « reserve »")
 end
 -- D6 : refresh_missing extrait de build.lua (texte réel), joué avec un coffre simulé
