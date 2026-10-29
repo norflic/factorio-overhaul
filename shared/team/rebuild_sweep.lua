@@ -138,8 +138,8 @@ Sw.ETAT_LOGS = 60      -- lignes [FO-REBUILD-ETAT] par équipe au plus
 Sw.ETAT_ITEMS = 6      -- objets manquants cités au plus par ligne
 
 --- Un module `m` (enregistrement du cerveau) tenu pour fini dont le projet `s` (Build.brief) est de nouveau à faire : il redevient
---- un module OUVERT (état, manques, construits relus ; production mesurée remise à 0), donc visible des buts « module ». Rend vrai
---- si l'enregistrement a changé. Écrit m.state, m.reason, m.missing, m.built, m.total, m.reopened_at, m.reopened_n, m.rate_meas.
+--- un module OUVERT (état, manques, construits relus ; production mesurée et compteur de fabrication remis à 0), donc visible des buts « module ». Rend vrai
+--- si l'enregistrement a changé. Écrit m.state, m.reason, m.missing, m.built, m.total, m.reopened_at, m.reopened_n, m.rate_meas, m.made_prev.
 function Sw.follow(m, s, tick)
   if not (m and s and m.state == "fini" and Sw.REOPEN_STATES[s.state]) then return false end
   m.state, m.reason = s.state, s.reason
@@ -148,6 +148,7 @@ function Sw.follow(m, s, tick)
   m.reopened_at = m.reopened_at or tick
   m.reopened_n = (m.reopened_n or 0) + 1
   m.rate_meas = 0
+  m.made_prev = nil -- compteur de fabrication relu à zéro au retour à « fini » (sinon la production de toute la réparation compte dans UNE minute)
   m.reserve_since, m.reserve_left = nil, nil
   return true
 end

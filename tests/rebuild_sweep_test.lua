@@ -132,7 +132,7 @@ local function suite(Sw)
   end
   -- lot REBUILD-SUIVI : suivi d'un module que le cerveau croyait fini
   do
-    local m = { state = "fini", rate_meas = 76, built = 95, total = 95, finished = 100 }
+    local m = { state = "fini", rate_meas = 76, built = 95, total = 95, finished = 100, made_prev = 4000 }
     c(Sw.follow(m, { state = "fini" }, 500) == false and m.state == "fini", "suivi : un projet toujours fini ne change rien")
     c(Sw.follow(m, { state = "refuse" }, 500) == false and m.state == "fini", "suivi : un projet refusé n'est pas un module rouvert")
     c(Sw.follow(m, nil, 500) == false and m.state == "fini", "suivi : projet inconnu : rien")
@@ -141,6 +141,7 @@ local function suite(Sw)
     c(Sw.follow(m, s, 500) == true and m.state == "reserve" and m.reason == "materiaux" and #m.missing == 2 and m.built == 52 and m.total == 95,
       "suivi : module fini dont le projet est en réserve : état, manques et construits relus")
     c(m.reopened_at == 500 and m.reopened_n == 1 and m.rate_meas == 0, "suivi : date de réouverture notée, production mesurée remise à 0")
+    c(m.made_prev == nil, "suivi : compteur de fabrication remis à zéro (pas de pic de débit au retour à fini)")
     c(Sw.follow(m, { state = "chantier" }, 900) == false and m.state == "reserve", "suivi : un module déjà rouvert n'est pas relu par ce chemin")
     m.state = "fini"
     c(Sw.follow(m, { state = "chantier", missing = {}, built = 60, total = 95 }, 900) == true and m.reopened_at == 500 and m.reopened_n == 2,
@@ -214,6 +215,7 @@ local MUTANTS = {
   { "un seul compteur horaire", "local used = c.class == 1 and q.sw_n1 or q.sw_n", "local used = q.sw_n" },
   { "suivi : projet fini rouvert", "if not (m and s and m.state == \"fini\" and Sw.REOPEN_STATES[s.state]) then return false end", "if not (m and s) then return false end" },
   { "suivi : production mesurée gardée", "  m.rate_meas = 0\n", "" },
+  { "suivi : compteur de fabrication gardé", "  m.made_prev = nil", "  local _keep = nil" },
   { "suivi : manques non relus", "  m.missing = s.missing or {}\n", "" },
   { "suivi : date de début écrasée", "m.reopened_at = m.reopened_at or tick", "m.reopened_at = tick" },
   { "suivi : marque non effacée", "  m.reopened_at = nil\n", "" },
