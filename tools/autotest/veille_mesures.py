@@ -19,8 +19,8 @@ import os
 import re
 import sys
 
-SOLD = re.compile(r"(?:ETAPE1|RECON)-GUIDE\] minute (\d+) \| vivantes \d+ \| (.*?) \| ouvriers du joueur")
-TOUR = re.compile(r"(?:ETAPE1|RECON)-GUIDE\] mesure minute (\d+) \| (\w+) \|.* tourelles=(\d+)")
+SOLD = re.compile(r"(?:ETAPE1-GUIDE|RECON-GUIDE|VEILLE-TEMOIN)\] minute (\d+) \| vivantes \d+ \| (.*?) \| ouvriers du joueur")
+TOUR = re.compile(r"(?:ETAPE1-GUIDE|RECON-GUIDE|VEILLE-TEMOIN)\] mesure minute (\d+) \| (\w+) \|.* tourelles=(\d+)")
 ATT = re.compile(r"\[FO-STRAT\] attaque tick (\d+) (\w+) -> (\w+) : (\d+) soldats")
 DEP = re.compile(r"\[FO-VEILLE\] depart tick (\d+) (\w+) :")
 PERDU = re.compile(r"\[FO-VEILLE\] perdu tick (\d+) (\w+) :")
