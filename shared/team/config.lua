@@ -104,10 +104,17 @@ T.service_period = 3 * 3600 -- tournée d'entretien au moins toutes les 3 minute
 -- seule demande (shared/team/ligne.lua, shared/team/rangees.lua, script/team/build.lua line_rows et plan_drills).
 -- grow : faux = la taille de la demande seule (le comportement d'avant) ; cover : part des tuiles minées qui doit porter du minerai
 -- (essayée d'abord ; « 80 % des tuiles quand c'est possible ») ; top_lots : lots de gisement lus pour estimer ce que le gisement
--- porte ; rows_floor : rangées (2 fours chacune) toujours payables, 4 = les 8 fours « en réserve » que le DC voyait inutilisés ; row_cost : plaques d'une rangée avec ses foreuses (2 fours,
+-- porte ; row_cost : plaques d'une rangée avec ses foreuses (2 fours,
 -- 4 bras, tapis, 1 paire de foreuses électriques : environ 80 plaques de fer) ; stock_share : part du stock de plaques qu'une
 -- croissance de la ligne peut engager.
-T.ligne = { grow = true, cover = 0.8, top_lots = 3, rows_floor = 4, row_cost = 80, stock_share = 0.5 }
+-- Lot FONDERIE-DYNAMIQUE (arbitrage du DC du 29/10 au soir : « la fonderie grandit en fonction du nombre de foreuses qu'elle a en
+-- input, donc dynamiquement, ni 2, ni 4, ni 8, mais dynamique ») : plus de plancher de rangées (rows_floor = 4 retiré) ; la place de la
+-- ligne entière est réservée au plan, les rangées et les paires de foreuses sont posées par étapes (shared/team/fonte.lua, Fonte.initial
+-- et Fonte.step ; script/team/build.lua, Build.ligne_step). dyn : faux = toute la ligne posée d'un coup (comportement de 0.6.18 sans
+-- plancher) ; every : ticks entre deux relevés des lignes d'une équipe ; settle : ticks d'attente après la fin d'un chantier avant de
+-- relire la ligne ; step_rows / step_pairs : rangées / paires ajoutées au plus par pas.
+T.ligne = { grow = true, cover = 0.8, top_lots = 3, row_cost = 80, stock_share = 0.5,
+  dyn = true, every = 3600, settle = 1800, step_rows = 2, step_pairs = 1 }
 
 -- Fonderie du QG : fours alimentés par les ouvriers (acier, briques, minerai d'appoint).
 T.SMELTER = "stone-furnace"
