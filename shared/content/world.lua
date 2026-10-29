@@ -234,12 +234,14 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
 -- Lot X2 : la monazite (âge 12), 2 taches de sables noirs (X.resources : placement.guaranteed.count = 2).
-W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite" }
+-- Lot AMELIO-RESSOURCES (30/10) : la galène (âge 9), 2 gisements de 200 000 à 300-600 tuiles, SANS biome (X.resources :
+-- « gisements classiques à plus de 300 tuiles du départ ») ; en DERNIER : les sites d'avant gardent leur place.
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena" }
 
 W.resources = {
   tungsten = {
@@ -406,6 +408,37 @@ W.resources = {
     category = nil, -- basic-solid (X.resources)
     biome = "fo-black-sands",
     autoplace = { base_density = 5, base_spots_per_km2 = 1.4, random_spot_size_minimum = 1, random_spot_size_maximum = 3, seed1 = 7106 },
+  },
+  -- Lot AMELIO-RESSOURCES (30/10) : GALÈNE, minerai du plomb (âge 9, Atome ; X.resources : fo-galena, catégorie
+  -- basic-solid, produit fo-galena ; minage 1 s). « Gisements classiques à plus de 300 tuiles du départ » : AUCUN biome ;
+  -- l'autoplace a son jeu de gisements propre (graine numérique, F198 ; jamais le compteur partagé des minerais vanilla :
+  -- X dit « vanilla-like », ce qui déplacerait fer, cuivre, charbon, pierre, uranium et pétrole sur toutes les graines) et
+  -- un masque de DISTANCE au lieu d'une région (autoplace.distance_min). Chaîne : shared/content/galena.lua.
+  galena = {
+    resource = "fo-galena",
+    kind = "ore",
+    epoch = 9,
+    -- Sites garantis (X : « 2 gisements de 200 000 posés par script si l'autoplace n'en a mis aucun à cette distance ») :
+    -- environ 200 000 chacun (rayon 7, 2 000 par tuile au centre) ; un gisement naturel connu de 130 000 en vaut un
+    -- (min_total : le site posé en fait au moins 1,5 fois, règle des autres sites). Pas de biome : aucun disque de sol, arbres et rochers
+    -- retirés sur le gisement (clear_trees) ; une eau comblée (palier 2 de la garantie) prend fill_tile.
+    guarantee = { site_radius = 9, ore_radius = 7, amount = 2000, min_total = 130000, clear_trees = true, fill_tile = "dirt-4" },
+    item = "fo-galena",
+    -- Cubes de la pierre (forme en blocs, comme le tungstène d'avant M1), gris de plomb neutre : la texture de la pierre
+    -- est beige (0,69 ; 0,61 ; 0,43) ; × (0,70 ; 0,78 ; 1,00) donne un gris (0,48 ; 0,48 ; 0,43) (F36, F38 : une teinte
+    -- ne fait que multiplier). Éclats d'argent froid (galène : éclat métallique), discrets de jour.
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 0.70, g = 0.78, b = 1.00 },
+    glint = { tint = { r = 0.75, g = 0.85, b = 1.00 }, min = 0.10, max = 0.35, period = 5 },
+    -- Bleu de cobalt sur la carte : le gris est pris (fer, cratères, ilménite à ΔE76 < 20 d'un gris de plomb) ; ΔE76 ≥ 47
+    -- de tous les minerais, fluides et sols du jeu (49,3 au cristal ; tests/galena_test.lua).
+    map_color = { r = 0.00, g = 0.05, b = 1.00 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X.resources)
+    biome = nil,
+    autoplace = { base_density = 6, base_spots_per_km2 = 1.0, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
+      seed1 = 7107, distance_min = 300 },
   },
 }
 

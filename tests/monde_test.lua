@@ -29,10 +29,11 @@ local LV = require("shared.levels.config")
 section("Spécifications tirées des données")
 ---------------------------------------------------------------------------------------------------
 local specs = G.specs()
-check(#specs == 5, "5 ressources garanties (" .. #specs .. ")")
+check(#specs == 6, "6 ressources garanties (" .. #specs .. ")")
 local expect = { { "tungsten", "fo-tungsten-ore", 5, "ore" }, { "crystal", "fo-resonance-crystal", 7, "ore" },
   { "methane", "fo-methane", 8, "fluid" }, { "ilmenite", "fo-ilmenite", 11, "ore" },
-  { "monazite", "fo-monazite", 12, "ore" } } -- lot X2
+  { "monazite", "fo-monazite", 12, "ore" }, -- lot X2
+  { "galena", "fo-galena", 9, "ore" } } -- lot AMELIO-RESSOURCES : sans biome
 for i, e in ipairs(expect) do
   local s = specs[i]
   check(s and s.key == e[1] and s.resource == e[2] and s.epoch == e[3] and s.kind == e[4],
@@ -46,10 +47,18 @@ for i, e in ipairs(expect) do
   check(W.resources[e[1]].epoch == base.epoch and W.resources[e[1]].kind == s.kind,
     e[1] .. " : époque et genre de world.lua cohérents avec X.base_resources")
   check(s.tile == W.resources[e[1]].biome, e[1] .. " : tuile du site = biome de la ressource (" .. tostring(s.tile) .. ")")
-  local biome_ok = false
-  for _, b in ipairs(W.biomes) do if b.name == s.tile then biome_ok = true end end
-  check(biome_ok, e[1] .. " : le biome existe dans W.biomes")
-  check(#s.decoratives >= 3, e[1] .. " : décoratifs du biome régénérés (" .. #s.decoratives .. ")")
+  if W.resources[e[1]].biome then
+    local biome_ok = false
+    for _, b in ipairs(W.biomes) do if b.name == s.tile then biome_ok = true end end
+    check(biome_ok, e[1] .. " : le biome existe dans W.biomes")
+    check(#s.decoratives >= 3, e[1] .. " : décoratifs du biome régénérés (" .. #s.decoratives .. ")")
+    check(s.fill_tile == nil, e[1] .. " : pas de tuile de comblement à part (le biome comble l'eau)")
+  else
+    -- Lot AMELIO-RESSOURCES : sans biome (galène), aucun disque de sol, aucun décor régénéré ; l'eau comblée prend une
+    -- tuile naturelle vanilla.
+    check(s.tile == nil and #s.decoratives == 0 and s.fill_tile == "dirt-4",
+      e[1] .. " : sans biome, ni sol posé ni décor, eau comblée en dirt-4")
+  end
   check(s.dmin + s.core_radius + 1 < s.dmax - s.core_radius - 1, e[1] .. " : anneau non vide")
 end
 check(G.spec("tungsten").resource == "fo-tungsten-ore" and G.spec("inconnu") == nil, "G.spec par clé")
@@ -559,12 +568,13 @@ section("Interface distante fo-monde")
 do
   ME.new_game({ seed = 20261020 })
   local st2 = remote.call("fo-monde", "status")
-  check(st2.runs == 1 and #st2.done == 5 and st2.done[1].key == "tungsten" and st2.done[4].key == "ilmenite"
-    and st2.done[5].key == "monazite" and st2.tags_pending == 0, "status : 5 garanties, ordre des époques")
+  check(st2.runs == 1 and #st2.done == 6 and st2.done[1].key == "tungsten" and st2.done[4].key == "ilmenite"
+    and st2.done[5].key == "monazite" and st2.done[6].key == "galena" and st2.tags_pending == 0,
+    "status : 6 garanties, ordre des époques (galène en dernier : les sites d'avant gardent leur place)")
   local c = remote.call("fo-monde", "candidates", "nauvis", "crystal", 3)
   local g = G.candidates(20261020, G.spec("crystal"), 3)
   check(#c == 3 and c[2].x == g[2].x and c[2].y == g[2].y, "candidates : ceux de la règle pure")
-  check(#remote.call("fo-monde", "specs") == 5, "specs")
+  check(#remote.call("fo-monde", "specs") == 6, "specs")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

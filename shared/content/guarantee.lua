@@ -117,6 +117,9 @@ function G.specs()
         kind = r.kind,
         epoch = base.epoch,
         tile = r.biome,
+        -- Sans biome (lot AMELIO-RESSOURCES, galène) : aucun disque de sol ; seule une eau comblée (palier 2) prend
+        -- cette tuile naturelle.
+        fill_tile = (not r.biome) and assert(gu.fill_tile, "garantie : " .. key .. " sans biome ni fill_tile") or nil,
         count = g.count,
         dmin = g.distance[1],
         dmax = g.distance[2],

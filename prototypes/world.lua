@@ -299,12 +299,25 @@ end
 
 --- Autoplace d'un gisement lié à un biome, sans toucher au placement des minerais vanilla : le compteur de
 --- jeux de gisements partagé (skip_span des minerais vanilla) est restauré après coup.
-local function biome_bound_autoplace(params, region, seed1)
+--- Masque de DISTANCE (lot AMELIO-RESSOURCES, galène : « à plus de 300 tuiles du départ », sans biome) : 0 avant
+--- distance_min, 1 au-delà de distance_min + 64 tuiles ; jamais sous l'eau (même facteur d'altitude que region_mask).
+local function distance_mask(distance_min)
+  return noise.clamp((noise.var("distance") - distance_min) / 64, 0, 1) * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
+end
+
+local function biome_bound_autoplace(params, region, seed1, mask)
   local counter = data.raw["noise-expression"][PATCH_SET_COUNT]
   local saved = counter and counter.expression
   local ap = resource_autoplace.resource_autoplace_settings(params)
   if counter then counter.expression = saved end
-  return bind_spots_to_region(ap, region_mask(region), seed1)
+  return bind_spots_to_region(ap, mask or region_mask(region), seed1)
+end
+
+--- Région de placement d'une ressource : son biome, ou (sans biome) le masque de distance.
+local function resource_region(spec)
+  if spec.biome then return biome_by_name[spec.biome].region, nil end
+  assert(spec.autoplace.distance_min, "factorio-overhaul : ressource sans biome ni distance_min : " .. spec.resource)
+  return nil, distance_mask(spec.autoplace.distance_min)
 end
 
 local function solid_resource(spec, order)
@@ -383,6 +396,7 @@ local function solid_resource(spec, order)
     lib.set_icons(res, { { icon = res.icon, icon_size = res.icon_size, icon_mipmaps = res.icon_mipmaps, tint = spec.tint } })
   end
 
+  local region, mask = resource_region(spec)
   res.autoplace = biome_bound_autoplace({
     name = spec.resource,
     order = "d",
@@ -392,7 +406,7 @@ local function solid_resource(spec, order)
     random_spot_size_minimum = spec.autoplace.random_spot_size_minimum,
     random_spot_size_maximum = spec.autoplace.random_spot_size_maximum,
     regular_rq_factor_multiplier = 1,
-  }, biome_by_name[spec.biome].region, spec.autoplace.seed1)
+  }, region, spec.autoplace.seed1, mask)
   return res
 end
 

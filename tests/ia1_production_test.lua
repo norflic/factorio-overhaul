@@ -54,10 +54,12 @@ local function suite(P, quiet)
   -- Lot X2 (livre régénéré) : + 13 recettes de la chaîne de la bobine (9 de procédé, 4 machines), + 6 recettes de
   -- barils (oxygène, azote et oxygène liquides), + 24 lots MOD-2 de 10 et 100 (catégories vanilla : lessivage, cryostat,
   -- 4 machines, 6 barils ; les catégories « fo-* » restent exclues).
-  check(#book.names == 825, "825 recettes au livre (" .. #book.names .. ")")
+  -- Lot AMELIO-RESSOURCES (livre régénéré) : + 6 recettes (plomb, blindage, grillage, cellule de sel au thorium,
+  -- retraitement, réacteur à sels fondus), + 8 lots MOD-2 (catégories vanilla : four, assembleur, chimie, centrifugeuse).
+  check(#book.names == 839, "839 recettes au livre (" .. #book.names .. ")")
   local n_lots = 0
   for _, rn in ipairs(book.names) do if RL.parse(rn) then n_lots = n_lots + 1 end end
-  check(n_lots == 524, "524 recettes par lots (MOD-2) au livre (" .. n_lots .. ")")
+  check(n_lots == 532, "532 recettes par lots (MOD-2) au livre (" .. n_lots .. ")")
   check(ser(book.lots["iron-gear-wheel"]) == "{1=1,2=10,3=100}", "lots de l'engrenage : 1, 10, 100")
   local lot = book.recipes["fo-lot10-iron-gear-wheel"]
   check(lot and lot.hidden and near(lot.energy, 5) and lot.products[1].amount == 10 and lot.ingredients[1].amount == 20,
