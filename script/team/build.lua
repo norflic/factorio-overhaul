@@ -2416,6 +2416,8 @@ function Build.space_step(f, surface, tick)
   local enc = b.enc
   if enc then
     local p = b.projects[enc.pid]
+    -- matière absente depuis 5 min (briques dépensées ailleurs) : annulée, sinon le rayon resterait figé pour toujours
+    if p and Enc.reserve_stalled(p.state, p.started, p.finished, tick) then Build.cancel(f, enc.pid, "materiaux") end
     if not p or p.state == "refuse" then
       -- plan refusé : le rayon est libéré, nouvel essai plus tard
       space_log(b, string.format("[FO-ESPACE] %s : enceinte refusee (%s) : rayon libere, nouvel essai a %.1f min", f.key or "player",

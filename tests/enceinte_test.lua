@@ -178,5 +178,15 @@ do
   check(E.affordable(10, 4, 6) and not E.affordable(10, 4, 5), "affordable : exact")
 end
 
+-- 7. Enceinte bloquée en réserve (matière absente)
+do
+  local T0 = 1000
+  check(not E.reserve_stalled("reserve", T0, nil, T0 + E.RESERVE_TICKS - 1), "reserve_stalled : pas encore")
+  check(E.reserve_stalled("reserve", T0, nil, T0 + E.RESERVE_TICKS), "reserve_stalled : a l'heure dite")
+  check(not E.reserve_stalled("chantier", T0, nil, T0 + 10 * E.RESERVE_TICKS), "reserve_stalled : jamais en chantier")
+  check(not E.reserve_stalled("reserve", T0, T0 + 5, T0 + 10 * E.RESERVE_TICKS), "reserve_stalled : jamais pour une enceinte finie (reparation)")
+  check(not E.reserve_stalled("reserve", nil, nil, T0 + 10 * E.RESERVE_TICKS), "reserve_stalled : pas de depart connu")
+end
+
 print(string.format("[ENCEINTE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

@@ -34,6 +34,7 @@ E.CHECK_TICKS = 1800      -- période (ticks) des décisions de croissance et d'
 E.REPAIR_TICKS = 18000    -- période (ticks) du contrôle des murs détruits (5 min)
 E.REPAIR_BATCH = 200      -- murs contrôlés par passe
 E.RETRY_TICKS = 108000    -- après un refus du plan de l'enceinte : nouvel essai 30 min plus tard
+E.RESERVE_TICKS = 18000    -- enceinte restée 5 min « en réserve » sans ses murs (briques prises ailleurs) : annulée, rayon libéré
 
 local function sorted_keys(t)
   local out = {}
@@ -75,6 +76,14 @@ function E.enclosure_due(info)
   if (info.done or 0) < E.MIN_PROJECTS then return false, "base trop jeune" end
   if info.radius < info.rmax and (info.free or 0) < E.GROW_FREE_MIN then return false, "croissance voulue" end
   return true
+end
+
+--- Une enceinte pas encore finie reste-t-elle bloquée en réserve (matière absente) depuis assez longtemps pour être
+--- annulée ? Le rayon est figé dès la demande : sans cette sortie, des briques dépensées ailleurs le figeraient pour toujours.
+--- Jamais pour une enceinte déjà finie (finished non nil) : annuler sa réparation libérerait le rayon et provoquerait une
+--- seconde enceinte dont l'anneau couperait les lots du nouveau rayon.
+function E.reserve_stalled(state, started, finished, tick)
+  return finished == nil and state == "reserve" and started ~= nil and tick - started >= E.RESERVE_TICKS
 end
 
 --- Bornes de l'anneau (tuiles du mur, incluses) pour un treillis ancré en lat = { ox, oy } et de rayon r.
