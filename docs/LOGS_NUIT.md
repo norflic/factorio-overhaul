@@ -134,3 +134,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~19 h, passage 40
 - Rien de nouveau : aucune archive depuis content-0617 (17 h 50, 331 OK, 0 erreur) ; aucune partie ni banc ; file vide, places = 1. Vague 6 et relecture d'integration 0.6.17 en statique ; centre v5 livree (page publiee), essai 6 lance (Blender, un seul) ; mur F6 en cours.
+
+## 29/10 ~19 h 20, passage 41
+- Rien de nouveau : aucune archive depuis content-0617 (17 h 50, 331 OK, 0 erreur) ; aucune partie ni banc ; file vide, places = 1. integration-0618 (vague 6 : survie, migration, masques) : tests hors jeu verts, en attente des 3 lots d'integration (defense, economie, reconstruction) avant le content unique.
