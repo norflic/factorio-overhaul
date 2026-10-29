@@ -13,6 +13,7 @@
 local Profiler = require("script.core.profiler")
 local Bench = require("script.companion.bench")
 local War = require("script.faction.war")
+local Military = require("script.faction.military")
 local F = require("shared.faction.config")
 local State = require("script.faction.state")
 local Director = require("script.td.director") -- require interdit dans un gestionnaire d'événement
@@ -80,6 +81,17 @@ remote.add_interface("factorio-overhaul", {
   end,
   war_stop = function()
     return War.stop()
+  end,
+  -- Bancs (lot CORR-SOLDATS) : `count` soldats de plus à la garnison d'une faction (le meilleur soldat de sa technologie),
+  -- sans passer par son économie ; rend le nombre posé.
+  war_train = function(key, count)
+    for _, id in ipairs(State.alive()) do
+      local f = State.faction(id)
+      if f and f.key == key and f.hq and f.hq.valid and f.hq_pos then
+        return Military.train(f, f.hq.surface, F.best_soldier(f.tech or 0), count or 1)
+      end
+    end
+    return 0
   end,
   war_option = function(key, value)
     local s = State.war().settings

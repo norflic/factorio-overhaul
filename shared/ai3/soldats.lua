@@ -32,6 +32,16 @@ Sd.SAFE_R = 56 -- lot CENTRALE : un point de patrouille ou de garde n'est pas à
 Sd.PATROL_RADII = { 80, 56, 32 } -- anneau de patrouille : le rayon le plus grand dont le point est sûr, dans chaque direction
 Sd.GUARD_RADII = { 28, 16 }
 Sd.NEAR_HQ = 160 -- au-delà : un soldat n'est pas pris pour une escorte, une patrouille ou une garde du QG
+-- Lot CORR-SOLDATS (remarque 4 du DC : « 25 soldats inactifs [...] alors qu'ils pourraient détruire la base de biters »).
+-- EXPÉDITION des soldats inactifs : un champ de nids CONNU à moins de OFFENSE_R tuiles du QG est attaqué dès que le besoin
+-- (clear_need) tient dans le SURPLUS (inactifs moins la réserve gardée au QG) ; jamais toute la garnison, rien si le champ
+-- est trop gros ; retraite si plus de la moitié de la force de départ est morte, site non retenté pendant RETREAT_COOL.
+Sd.OFFENSE_R = 130
+Sd.RESERVE_MIN = 8
+Sd.RESERVE_SHARE = 350 -- pour mille des inactifs gardés au QG
+Sd.RETREAT_COOL = 20 * 3600
+Sd.BLOCK_R = 24
+Sd.WIDE_R = 40 -- le champ ENTIER : toutes les menaces connues à moins de 40 tuiles du groupe (un champ étalé fait plusieurs groupes de 24)
 
 -- 8 directions (vecteurs unitaires approchés en rationnels : aucune trigonométrie).
 local DIRS = { { 1, 0 }, { 0.7071, 0.7071 }, { 0, 1 }, { -0.7071, 0.7071 }, { -1, 0 }, { -0.7071, -0.7071 }, { 0, -1 }, { 0.7071, -0.7071 } }
@@ -52,6 +62,41 @@ end
 
 --- Soldats nécessaires pour nettoyer un groupe de k menaces.
 function Sd.clear_need(k) return Sd.CLEAR_BASE + Sd.CLEAR_PER * k end
+
+--- Réserve gardée au QG quand `idle` soldats sont inactifs (au moins RESERVE_MIN, ou RESERVE_SHARE pour mille).
+function Sd.reserve(idle)
+  local r = math.ceil(idle * Sd.RESERVE_SHARE / 1000)
+  if r < Sd.RESERVE_MIN then r = Sd.RESERVE_MIN end
+  return r
+end
+
+--- Soldats inactifs qu'une expédition peut prendre sans toucher à la réserve.
+function Sd.surplus(idle)
+  local s = idle - Sd.reserve(idle)
+  if s < 0 then s = 0 end
+  return s
+end
+
+--- Retraite : plus de la moitié de la force de départ n0 est morte (lost).
+function Sd.retreat(n0, lost) return (n0 or 0) > 0 and lost * 2 > n0 end
+
+--- Le groupe th est-il un site abandonné (liste { x, y, ["until"] }) encore interdit au tick donné ?
+function Sd.is_blocked(blocked, th, tick)
+  for _, b in ipairs(blocked or {}) do
+    if tick < b["until"] and d2(b, th) <= Sd.BLOCK_R * Sd.BLOCK_R then return true end
+  end
+  return false
+end
+
+--- Un groupe de menaces peut-il être attaqué par EXPÉDITION avec `idle` soldats inactifs ? Au moins un nid, aucune tourelle
+--- adverse (une faction n'est pas un nid), à portée du QG, et un besoin qui tient dans le surplus.
+function Sd.offense_ok(th, hq, idle)
+  if (th.nests or 0) < 1 or (th.rival or 0) > 0 then return false end
+  if d2(th, hq) > Sd.OFFENSE_R * Sd.OFFENSE_R then return false end
+  local k = th.k or 1
+  if (th.wide or 0) > k then k = th.wide end
+  return Sd.clear_need(k) <= Sd.surplus(idle)
+end
 
 --- Lot CENTRALE (moteur réel, etape1-guide 123456789 et 271828182, Azure : QG à 70-90 tuiles de groupes de nids ; les 5 soldats
 --- partaient en patrouille sur l'anneau de 80 tuiles, au pied des nids et des vers, y mouraient (5, 3, 0 soldat de 5 à 7 min,
@@ -89,9 +134,9 @@ end
 ---   tick, hq = {x,y}, agr, soldiers = { { id, x, y, role, rest_until, escort = aid } } (triés par id),
 ---   defend = { { key, x, y, n } } (n = nil : tous), escorts = { { aid, x, y, n } } (triés par aid),
 ---   threats = { { x, y, k, killed } } (menaces fixes candidates au nettoyage, déjà filtrées par l'appelant),
----   clearing = { x, y } | nil (opération en cours), patrol_pts = { {x,y} } (nil : anneau du QG), guard_pts (nil : postes
+---   clearing = { x, y } | nil (opération en cours), blocked = { { x, y, until } } (sites abandonnés), offense = false (coupure), patrol_pts = { {x,y} } (nil : anneau du QG), guard_pts (nil : postes
 ---   du QG), marked_outposts = { {x,y} }, cursor = entier (rotation des patrouilles) }
---- Renvoie orders = { [id] = { role, x, y, aid, key } }, et le résumé { idle, rest, far, roles = { [rôle] = n } } (far :
+--- Renvoie orders = { [id] = { role, x, y, aid, key } }, et le résumé { idle, rest, far, offense, roles = { [rôle] = n } } (far :
 --- soldats égarés loin du QG sans rôle à poursuivre, laissés au rappel du chef).
 function Sd.assign(input)
   local orders, taken = {}, {}
@@ -148,14 +193,26 @@ function Sd.assign(input)
   end
   -- 4. Nettoyage (une opération à la fois : la cible en cours d'abord).
   local target = input.clearing
+  local by_offense = false
   if not target then
+    local offense = input.offense ~= false -- coupure de banc : input.offense == false (ni expédition ni site interdit)
     for _, th in ipairs(input.threats or {}) do
-      if (input.agr or 1000) >= Sd.CLEAR_AGR or th.killed then
-        if #avail >= Sd.clear_need(th.k or 1) then target = th break end
+      if not (offense and Sd.is_blocked(input.blocked, th, tick)) then
+        if ((input.agr or 1000) >= Sd.CLEAR_AGR or th.killed) and #avail >= Sd.clear_need(th.k or 1) then
+          target = th
+          break
+        elseif offense and Sd.offense_ok(th, hq, #avail) then
+          target, by_offense = th, true
+          break
+        end
       end
     end
   end
-  local need = target and Sd.clear_need(target.k or 1) or 0
+  summary.offense = by_offense
+  summary.target = target
+  -- Opération en cours : `need` = force encore en vie (posée par l'appelant), sinon le besoin du groupe (sans cela, après le
+  -- premier passage, seuls clear_need(1) = 5 soldats auraient gardé leur ordre et les autres seraient repartis en patrouille).
+  local need = target and (target.need or Sd.clear_need(target.k or 1)) or 0
   for _, s in ipairs(far) do
     if target and s.role == "clear" and need > 0 then
       give(s, { role = "clear", x = target.x, y = target.y })
@@ -213,12 +270,22 @@ function Sd.clusters(threats)
     for _, c in ipairs(out) do
       if d2(c, t) <= 24 * 24 then hit = c break end
     end
+    local nest = t.kind == "spawner" and 1 or 0
+    local rival = t.kind == "turret" and 1 or 0
     if hit then
       hit.k = hit.k + 1
+      hit.nests, hit.rival = hit.nests + nest, hit.rival + rival
       if t.killed then hit.killed = true end
     else
-      out[#out + 1] = { x = t.x, y = t.y, k = 1, killed = t.killed }
+      out[#out + 1] = { x = t.x, y = t.y, k = 1, killed = t.killed, nests = nest, rival = rival }
     end
+  end
+  -- Champ entier autour de chaque groupe (lot CORR-SOLDATS) : le besoin d'une expédition se compte sur TOUT ce qui l'attend.
+  local w2 = Sd.WIDE_R * Sd.WIDE_R
+  for _, c in ipairs(out) do
+    local n = 0
+    for _, t in ipairs(threats) do if d2(c, t) <= w2 then n = n + 1 end end
+    c.wide = n
   end
   return out
 end
