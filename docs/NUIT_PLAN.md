@@ -53,3 +53,6 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | RECONSTRUIRE | 2 essais faits, R1 à R3 non tenus, 4 graines identiques à la base, divergence après le 1er événement, plantage corrigé 74edb3e | PARQUE (questions DC 14 et 15 : fusion malgré les écarts ? source de bois) |
 | PLANDIR-SURE | criteres S1 a S5 tenus | 2 sceptiques lances (sceptique-sure1, sceptique-sure2) avant fusion |
 | KIT (kit-a) | tout vert sauf ia1-scale (effectif joueur 19/30) | temoin demande a kit-2 ; fusion bloquee jusqu'a explication |
+
+| POTEAUX-UNIQUES | 4 graines tenues (paires 0,09 ; alimentes 1,16) ; 314159265 : 0 contre 69 alimentes, bifurcation par arbitrage des PNJ + annulation CAPI a 30 min (mesure) ; sceptique-pu en cours ; 2 graines de plus (987654321, 112358132) demandees | fusion si mediane >= 0,95 et <= 1 graine sur 6 sous 0,75 |
+| DEFAUT CAPI (nouveau) | une CAPI annule un projet en reserve qui attend encore des materiaux (aucun progres en 30 min) : 314159265 scarlet projets 3 et 4 a 34,1 min | lot separe a ouvrir apres la vague (regle pure dans ai3_capitalisation) |
