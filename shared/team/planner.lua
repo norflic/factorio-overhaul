@@ -249,6 +249,7 @@ function P.plan(view, book)
   end
 
   local raw_short = {}   -- matières premières manquantes (toutes demandes confondues)
+  local raw_prio = {}    -- lot PILE-PRIORITE : priorité la plus haute des demandes de chaque matière manquante (out.raw_need)
   local last_raw = {}    -- matières manquantes de la dernière demande (affichage « il manque »)
   local crafts = 0
   --- Fait fabriquer `list` (fabrication à la main depuis le stock virtuel). Renvoie true si tout est servi.
@@ -260,6 +261,7 @@ function P.plan(view, book)
     local function short_raw(item, n)
       raw_short[item] = (raw_short[item] or 0) + n
       last_raw[item] = (last_raw[item] or 0) + n
+      if (raw_prio[item] or -1) < prio then raw_prio[item] = prio end -- lot PILE-PRIORITE : le manque garde la priorité de son demandeur
     end
     for _, it in ipairs(list) do
       local item, n = it[1], it[2]
@@ -673,7 +675,10 @@ function P.plan(view, book)
                     local ks = {}
                     for k in pairs(pp.raw) do ks[#ks + 1] = k end
                     table.sort(ks)
-                    for _, k in ipairs(ks) do raw_short[k] = (raw_short[k] or 0) + pp.raw[k] end
+                    for _, k in ipairs(ks) do
+                      raw_short[k] = (raw_short[k] or 0) + pp.raw[k]
+                      if (raw_prio[k] or -1) < T.defend_prio then raw_prio[k] = T.defend_prio end -- lot PILE-PRIORITE
+                    end
                   end
                 end
               end
@@ -1062,6 +1067,11 @@ function P.plan(view, book)
   local raws = {}
   for k in pairs(raw_short) do raws[#raws + 1] = k end
   table.sort(raws)
+  -- Lot PILE-PRIORITE (ajout pur) : chaque matière manquante avec la priorité la plus haute de ses demandeurs (défense 90,
+  -- survie, reconstruction 60…). Lecteur : shared/ai3/cerveau.lua (C.think) -> shared/ai3/pile.lua (Pi.signals) : les
+  -- manques des rangs R0 et R1 passent au cerveau par besoins avec leur priorité (fonte, minage, croissance de l'extraction).
+  out.raw_need = {}
+  for _, k in ipairs(raws) do out.raw_need[k] = { n = raw_short[k], prio = raw_prio[k] or 0 } end
   -- Ouvriers sans tâche : ils minent à la main la matière qui manque le plus (comme un joueur au début),
   -- le minerai est fondu dans la fonderie du QG. Moteur réel (session 4) : sans cela, une équipe privée de
   -- plaques de fer (avant-poste de fer perdu ou introuvable) restait bloquée pour toute la partie.
