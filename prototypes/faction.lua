@@ -96,13 +96,31 @@ end
 
 -- Grenadier (session 4) : son équipement réel est fait de grenades (fer + charbon, sans pétrole) ; il les
 -- lance comme la grenade vanilla (projectile "grenade", explosion de zone de 35).
+-- Lot GRENADES (retour du DC du 29/10) : l'explosion de la grenade vanilla est un déclencheur « area » sans filtre de camp
+-- (ForceCondition par défaut : toutes les forces), donc elle blesse aussi les bâtiments et les soldats du lanceur. Le
+-- grenadier lance une COPIE dont chaque déclencheur de zone ne touche que les camps ennemis du lanceur.
+local GRENADE_PROJECTILE = "fo-grenadier-grenade"
+do
+  local proj = lib.copy("projectile", "grenade")
+  proj.name = GRENADE_PROJECTILE
+  local n_area = 0
+  for _, trigger in ipairs(proj.action) do
+    if trigger.type == "area" then
+      trigger.force = "enemy"
+      n_area = n_area + 1
+    end
+  end
+  assert(n_area > 0, "fo-faction : la grenade vanilla n'a plus de déclencheur de zone")
+  out[#out + 1] = proj
+end
+
 local function grenade_ammo()
   return {
     category = "grenade",
     target_type = "position",
     action = {
       type = "direct",
-      action_delivery = { type = "projectile", projectile = "grenade", starting_speed = 0.3 },
+      action_delivery = { type = "projectile", projectile = GRENADE_PROJECTILE, starting_speed = 0.3 },
     },
   }
 end

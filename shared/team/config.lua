@@ -51,6 +51,12 @@ T.kits = {
   gunner    = { { "submachine-gun", 1 }, { "piercing-rounds-magazine", 5 }, { "light-armor", 1 } },
   rocketeer = { { "grenade", 8 }, { "light-armor", 1 } }, -- grenadier (clé historique « rocketeer »)
 }
+-- Échelle des soldats que l'équipe FABRIQUE : { technologie minimale, clé de T.kits }. Le grenadier (« rocketeer ») y reste,
+-- mais un soldat à attaque de ZONE (shared/faction/config.lua, F.soldiers[clé].rocket : la grenade vanilla, qui blesse tout
+-- dans 6,5 tuiles, force « all » par défaut) n'est choisi que si T.zone_units est vrai. Retour du DC du 29/10 (0.6.13) :
+-- « il y a des grenades qui ont été produites [...] ça fait des dégâts de zone, [...] ça détruit la base » (lot GRENADES).
+T.unit_ladder = { { 0, "rifleman" }, { 1, "gunner" }, { 2, "rocketeer" } }
+T.zone_units = false
 -- Munitions que l'ouvrier garde sur lui pour se défendre (prélevées de son équipement).
 T.worker_gun = "pistol"
 T.worker_ammo = "firearm-magazine"
