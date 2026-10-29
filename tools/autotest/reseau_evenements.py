@@ -132,11 +132,11 @@ def analyse(arch, n2, n3, n4, ratio, poles_max):
         if g == "pivot":
             n_reopen = 0
             for k, txt, mn in reseau:
-                if k == key and mn * 3600 >= e["t"] - 1 and txt.startswith("reseau:"):
+                if k == key and e["t"] - 1 <= mn * 3600 <= e["t"] + n4 * 3600 and txt.startswith("reseau:"):
                     mm = re.search(r"(\d+) rouvert", txt)
                     if mm:
                         n_reopen += int(mm.group(1))
-            d.append(f"poteaux rouverts par la decision (journal [FO-RESEAU]) : {n_reopen} (limite {poles_max})")
+            d.append(f"poteaux rouverts par les decisions des N4 minutes qui suivent (journal [FO-RESEAU]) : {n_reopen} (limite {poles_max})")
             ok = ok and n_reopen <= poles_max
         res["verdict"] = "OK" if ok else "ECHEC"
         res["detail"] = " ; ".join(d)
