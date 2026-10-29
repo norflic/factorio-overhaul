@@ -180,6 +180,9 @@ function Inter.think(f, tick)
   local product_of = {}
   for _, m in ipairs(mods_of(f)) do if m.id then product_of[m.id] = m.product end end
   local skip, over = s.skip, s.over
+  -- Rien de coupé ni au plafond (cas courant) : pas de parcours trié du tableau (Board.drop_free trie toutes les clés).
+  -- `next` ne sert qu'à tester le vide : aucune décision ne dépend de l'ordre.
+  if next(over) == nil and (survie or next(skip) == nil) then return 0 end
   local nm, nf = 0, 0
   local n = Board.drop_free(f, function(t)
     if t.kind == "mine" and t.resource and skip[t.resource] and not survie and not I.exempt_key(t.key) then
