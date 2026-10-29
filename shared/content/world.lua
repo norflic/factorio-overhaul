@@ -156,9 +156,11 @@ W.decor = {
       { name = "fo-ash-cinders", copy = "rock-small", density = 0.05, tint = { r = 0.28, g = 0.24, b = 0.24 } },
       -- Croûtes de braise : rougeoient la nuit (moteur réel : à 0,03 et sans lueur, un tapis rouge mat).
       -- Piste AMELIO-BIOMES : de grandes taches rouge sombre « sang » de jour (0,02 ; teinte 0,45 ; 0,14 ; 0,06, lueur
-      -- 0,40 ; 0,10 ; 0,01) : plus rares, brun de croûte de jour, orange braise la nuit.
-      { name = "fo-ash-embers", copy = "red-desert-decal", density = 0.012, tint = { r = 0.40, g = 0.26, b = 0.14 },
-        glow = { r = 0.55, g = 0.24, b = 0.02, a = 0.45 } },
+      -- 0,40 ; 0,10 ; 0,01) : plus rares, brun de croûte de jour, orange braise la nuit. Premier essai en moteur (lueur
+      -- 0,55 ; 0,24 ; 0,02 ; a 0,45) : la couche « draw_as_glow » se voit aussi DE JOUR, bien plus que le modèle
+      -- base × (t + g × a) ne le dit (taches orange vif) : lueur réduite de moitié.
+      { name = "fo-ash-embers", copy = "red-desert-decal", density = 0.010, tint = { r = 0.40, g = 0.26, b = 0.14 },
+        glow = { r = 0.50, g = 0.20, b = 0.02, a = 0.22 } },
     },
   },
   ["fo-crystal-flats"] = {
