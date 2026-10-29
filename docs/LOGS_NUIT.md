@@ -99,3 +99,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~13 h 40, passage 29 : fumee 0.6.13
 - 2 parties completes (20261020, 1618033988 ; 216300 ticks) : BILAN 18 OK, 0 erreur Lua. Journaux des nouveautes presents : [FO-BILAN] 36 lignes (lecture reelle des flux OK), [FO-CENTRALE-GARDE] 51-53, [FO-VEILLE] 35-47, [FO-TOUR-POSE] 14-16, [FO-ESPACE] 1-9, [FO-RECON] 0-4. Pas de [FO-CENTRALE-MORT] (aucune centrale perdue). Aucun journal pour soldats-expedition, convoyeurs, fer-equipe : non declenches ou muets (a verifier si le DC voit un defaut).
+
+## 29/10 ~13 h 50, passage 30
+- Lecture approfondie des 2 parties de fumee 0.6.13 (FUMEE) : 0 warning du mod, 0 erreur Lua. Centrales : sur 33 releves « centrale presente », 4 a 0 kW (azure 20261020 min 20 ; scarlet 20261020 min 20 et 30 ; azure 1618033988 min 60) : demarrages (mesure) sauf azure min 60 (cause non lue, plausiblement quai a sec : lot quai-charge jamais fusionne). Pensees : pics de 70 a 150 ms au tick 4 (initialisation capi:think / lane fo-pteam), ponctuels. Aucun refus repete anormal (lignes de bilan de blocage = une par minute et par equipe). Rien a ouvrir.
