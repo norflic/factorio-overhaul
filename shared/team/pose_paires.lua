@@ -11,8 +11,9 @@
     * un emplacement DÉJÀ OCCUPÉ (tuiles de la foreuse prises) est écarté SANS COÛT : il ne compte pas dans les essais ;
     * un emplacement essayé en vain est mémorisé (`dead`) : l'appel suivant reprend où le précédent s'est arrêté, au lieu de
       refaire les mêmes 40 essais ;
-    * `full` n'est dit que par un balayage COMPLET (`exhausted`) sans pose, ou au plafond de foreuses (P.verdict) ; jamais parce
-      que le plafond d'essais a été atteint ni parce que l'ouvrier n'avait plus d'objets.
+    * `full` n'est dit que par un balayage COMPLET (`exhausted`) sans pose, ou à la couverture P.KAPPA (P.verdict ; le plafond de
+      foreuses est supprimé depuis le lot PLAFOND-FOREUSES) ; jamais parce que le plafond d'essais a été atteint ni parce que
+      l'ouvrier n'avait plus d'objets.
 
   Le parcours d'agrandissement ne retient que les tuiles du MÊME gisement que le centre (composante connexe, trous de P.GAP
   tuiles tolérés) dans un rayon de P.EXTEND_RADIUS : le gisement entier, sans aller prendre celui d'un autre avant-poste.
@@ -34,9 +35,14 @@ local P = {}
 P.MAX_ATTEMPTS = 40     -- essais AU MOTEUR (emplacements libres) par appel : celui d'avant le lot
 P.BUILD_RADIUS = 14     -- rayon de la construction initiale (inchangé)
 P.EXTEND_RADIUS = 32    -- rayon d'agrandissement (18 avant le lot) ; le gisement entier, borné par la portée des tourelles
+-- (lot PLAFOND-FOREUSES : FAUX sans plafond de foreuses ; les tourelles des 8 points à 9 tuiles du centre couvrent environ 27
+-- tuiles avec la portée vanilla de 18 : l'anneau de 27 à 32 tuiles n'est pas protégé, décision du DC attendue)
 P.GAP = 2               -- tuiles vides tolérées entre deux tuiles de minerai d'un même gisement
 P.SEED_MAX = 18         -- le gisement du centre commence à moins de 18 tuiles (portée des tourelles) ; sinon il est épuisé ici
 P.LOGS = 60             -- lignes [FO-EXTEND] au plus par équipe
+-- Lot PLAFOND-FOREUSES : couverture (‰ des tuiles du gisement minées par une foreuse de l'avant-poste) qui rend le gisement plein ;
+-- la même que la capitalisation (Ca.KAPPA, shared/ai3/capitalisation.lua ; égalité vérifiée par tests/pose_paires_test.lua).
+P.KAPPA = 800
 local EPS = 0.01
 
 function P.key(x, y) return x * 65536 + y end
@@ -120,11 +126,16 @@ function P.new(spec)
   local w, h = spec.w or 2, spec.h or 2
   local occupied = spec.occupied or {}
   local dead = spec.dead or {}
+  local mined = spec.mined or {} -- lot PLAFOND-FOREUSES : tuiles minées par une foreuse de l'avant-poste (lu par report().covered)
   local pl = { attempts = 0, skipped_occupied = 0, skipped_dead = 0, exhausted = false, capped = false }
   local tried, i = {}, 0
 
   function pl.occupy(keys)
     for _, k in ipairs(keys) do occupied[k] = true end
+  end
+
+  function pl.cover(keys)
+    for _, k in ipairs(keys) do mined[k] = true end
   end
 
   function pl.fail(pos)
@@ -169,18 +180,31 @@ function P.new(spec)
   end
 
   function pl.report()
+    -- covered : tuiles du parcours (le gisement) minées par une foreuse (spec.mined, complété par pl.cover)
+    local covered = 0
+    for _, r in ipairs(res) do
+      if mined[P.key(math.floor(r.x), math.floor(r.y))] then covered = covered + 1 end
+    end
     return { attempts = pl.attempts, occupied = pl.skipped_occupied, dead = pl.skipped_dead,
-      exhausted = pl.exhausted, capped = pl.capped, tiles = #res }
+      exhausted = pl.exhausted, capped = pl.capped, tiles = #res, covered = covered }
   end
   return pl
 end
 
---- Fin d'un agrandissement. v = { placed, drills_after, drills_max, exhausted, capped, lacking }.
---- Rend { full, fail, why } : full = l'avant-poste ne peut plus grandir (plafond de foreuses atteint, ou balayage COMPLET du
---- gisement sans emplacement restant) ; fail = rien posé faute d'essais (le prochain appel reprend plus loin).
+--- Couverture en ‰ (entier) : `covered` tuiles minées sur `tiles` ; 0 sans tuile.
+function P.permille(covered, tiles)
+  if not tiles or tiles <= 0 then return 0 end
+  return math.floor(1000 * (covered or 0) / tiles)
+end
+
+--- Fin d'un agrandissement. v = { placed, drills_after, drills_max, exhausted, capped, lacking, covered, tiles }.
+--- Rend { full, fail, why } : full = l'avant-poste ne peut plus grandir : balayage COMPLET du gisement sans emplacement restant,
+--- ou gisement couvert à P.KAPPA ‰ (lot PLAFOND-FOREUSES) ; `drills_max` (facultatif, l'infini depuis ce lot : T.max_drills) n'est
+--- plus qu'un garde-fou ; fail = rien posé faute d'essais (le prochain appel reprend plus loin).
 function P.verdict(v)
-  if v.drills_after >= v.drills_max then return { full = true, fail = false, why = "plafond" } end
+  if v.drills_max and v.drills_after >= v.drills_max then return { full = true, fail = false, why = "plafond" } end
   if v.exhausted then return { full = true, fail = false, why = "gisement" } end
+  if (v.tiles or 0) > 0 and P.permille(v.covered, v.tiles) >= P.KAPPA then return { full = true, fail = false, why = "couverture" } end
   if v.placed > 0 then return { full = false, fail = false, why = "pose" } end
   if v.lacking then return { full = false, fail = false, why = "objets" } end
   if v.capped then return { full = false, fail = true, why = "essais" } end

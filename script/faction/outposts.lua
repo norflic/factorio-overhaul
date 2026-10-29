@@ -53,6 +53,24 @@ local function resource_tiles(surface, spec, center, radius, same_deposit)
   return sorted
 end
 
+--- Lot PLAFOND-FOREUSES : clés des tuiles minées par la foreuse `d` (zone de minage du prototype, sinon son emprise).
+local function mined_keys(d)
+  local p = d.position
+  local r = d.prototype and d.prototype.mining_drill_radius
+  if r and r > 0 then return Paires.box_tiles(p.x - r, p.y - r, p.x + r, p.y + r) end
+  local bb = d.bounding_box
+  return Paires.box_tiles(bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y)
+end
+
+--- Lot PLAFOND-FOREUSES : ensemble des tuiles minées par les foreuses de l'avant-poste `o` (lu par Paires report().covered).
+local function mined_set(o)
+  local set = {}
+  for _, d in ipairs(o.drill_list or {}) do
+    if d.valid then for _, k in ipairs(mined_keys(d)) do set[k] = true end end
+  end
+  return set
+end
+
 -- Point de dépôt de la foreuse à combustible vanilla (vector_to_place_result = {-0.5, -1.3} vers le nord),
 -- tourné selon l'orientation (sens horaire).
 local function drop_vector(dir)
@@ -145,9 +163,16 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
   local pl = Paires.new({
     resources = resource_tiles(surface, spec, center, radius, o ~= nil), cap = Paires.MAX_ATTEMPTS,
     w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
-    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil })
+    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil,
+    mined = o and mined_set(o) or nil }) -- lot PLAFOND-FOREUSES : couverture du gisement (verdict « couverture »)
   local drills, sinks = {}, {}
   local lacking = false
+  -- lot PLAFOND-FOREUSES : gisement déjà couvert à Paires.KAPPA (foreuses électriques du lot FOREUSES, zone de minage 5 x 5) : rien
+  -- de plus à poser, le verdict dira « couverture »
+  if o then
+    local r0 = pl.report()
+    if Paires.permille(r0.covered, r0.tiles) >= Paires.KAPPA then max_pairs = 0 end
+  end
   while #drills < max_pairs do
     if carrier.get_item_count(T.DRILL) < 1 or carrier.get_item_count(spec.sink) < 1 then
       lacking = true
@@ -185,6 +210,7 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
               local bb = e.bounding_box
               pl.occupy(Paires.box_tiles(bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y))
             end
+            pl.cover(mined_keys(d))
             done = true
             break
           end
@@ -382,8 +408,9 @@ end
 
 --- Agrandit un avant-poste existant (même gisement). Renvoie le nombre de paires ajoutées.
 --- Lot EXTENSION-FER (audit du 29/10 : l'agrandissement ne posait plus rien et marquait l'avant-poste plein pour toute la partie) :
---- l'avant-poste n'est marqué plein (`o.full`) que par shared/team/pose_paires.lua (verdict) : plafond de foreuses, ou balayage
---- COMPLET du gisement (rayon Outposts.RADIUS.extend, emplacements occupés écartés sans coût) sans emplacement restant. Plafond
+--- l'avant-poste n'est marqué plein (`o.full`) que par shared/team/pose_paires.lua (verdict) : balayage COMPLET du gisement (rayon
+--- Outposts.RADIUS.extend, emplacements occupés écartés sans coût) sans emplacement restant, ou gisement couvert à Paires.KAPPA ‰
+--- (lot PLAFOND-FOREUSES : le plafond de foreuses est supprimé, T.max_drills rend l'infini). Plafond
 --- d'essais atteint ou ouvrier sans objets : pas plein, le prochain appel reprend. Journal [FO-EXTEND].
 function Outposts.extend(f, surface, o, carrier)
   if o.migr then return 0 end -- lot MIGRATION-CHAMP : le champ est migré vers des foreuses électriques en rangées, pas de paire thermique de plus
@@ -402,10 +429,11 @@ function Outposts.extend(f, surface, o, carrier)
   end
   o.drills = o.drills + #drills
   local v = Paires.verdict({ placed = #drills, drills_after = o.drills, drills_max = T.max_drills(o.kind),
-    exhausted = rep.exhausted, capped = rep.capped, lacking = rep.lacking })
+    exhausted = rep.exhausted, capped = rep.capped, lacking = rep.lacking, covered = rep.covered, tiles = rep.tiles })
   if v.full then
     o.full = true
     o.full_by = "pose_paires" -- plein selon la règle d'EXTENSION-FER (et non par l'ancien défaut : Outposts.reopen)
+    o.full_why = v.why -- lot PLAFOND-FOREUSES : motif du plein (lecteur : Outposts.uncap, migration du plafond supprimé)
     o.hold_until = nil -- plein pour de bon (et non en attente après des échecs, lot ADOPTE)
   end
   if #drills > 0 then o.ext_fails = 0 elseif v.fail then o.ext_fails = (o.ext_fails or 0) + 1 end
@@ -414,8 +442,9 @@ function Outposts.extend(f, surface, o, carrier)
   if v.full then f.stats.extend_full = (f.stats.extend_full or 0) + 1 end
   if (f.stats.extend_logs or 0) < Paires.LOGS then
     f.stats.extend_logs = (f.stats.extend_logs or 0) + 1
-    log(string.format("[FO-EXTEND] tick %d %s avant-poste %d %s : %d posee(s) / %d voulue(s), foreuses %d/%d, essais %d, occupees %d, ecartees %d, tuiles %d, plein=%s (%s)",
-      game.tick, tostring(f.key), o.id, o.kind, #drills, want, o.drills, T.max_drills(o.kind), rep.attempts, rep.occupied, rep.dead, rep.tiles,
+    -- lot PLAFOND-FOREUSES : plus de plafond de foreuses à écrire ; la couverture du gisement (‰, seuil Paires.KAPPA) le remplace
+    log(string.format("[FO-EXTEND] tick %d %s avant-poste %d %s : %d posee(s) / %d voulue(s), foreuses %d, couverture %d/%d pour mille, essais %d, occupees %d, ecartees %d, tuiles %d, plein=%s (%s)",
+      game.tick, tostring(f.key), o.id, o.kind, #drills, want, o.drills, Paires.permille(rep.covered, rep.tiles), Paires.KAPPA, rep.attempts, rep.occupied, rep.dead, rep.tiles,
       v.full and "oui" or "non", v.why))
   end
   return #drills
@@ -437,16 +466,45 @@ function Outposts.reopen(f)
   return n
 end
 
+-- Lot PLAFOND-FOREUSES : plafond de foreuses par avant-poste de 0.6.18 et avant (shared/team/config.lua : 12, fer 20, pierre 8),
+-- lu seulement par la migration ci-dessous.
+Outposts.CAP_0618 = { iron = 20, stone = 8 }
+Outposts.CAP_0618_OTHER = 12
+
+--- Lot PLAFOND-FOREUSES : rouvre les avant-postes fermés par l'ancien plafond de foreuses (verdict « plafond » de pose_paires, avant le
+--- lot : `full_by` = "pose_paires" sans `full_why`, au moins autant de foreuses que le plafond de 0.6.18). Un avant-poste fermé par un
+--- balayage complet sous le plafond reste fermé ; à égalité (plein au balayage pile au plafond), il est rouvert : l'agrandissement
+--- suivant le referme sans essai au moteur s'il est vraiment saturé. Ni en attente (ADOPTE), ni migré (MIGRATION-CHAMP). Rend le nombre.
+function Outposts.uncap(f)
+  local n = 0
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    local cap = Outposts.CAP_0618[o.kind] or Outposts.CAP_0618_OTHER
+    if o.full and o.full_by == "pose_paires" and o.full_why == nil and not o.migr and not o.hold_until and (o.drills or 0) >= cap then
+      o.full, o.full_by = false, nil
+      n = n + 1
+    end
+  end
+  return n
+end
+
 Events.on_configuration_changed(function()
   local war = State.war()
-  local total = 0
+  local total, uncapped = 0, 0
   for _, id in ipairs(State.sorted_keys(war and war.factions or {})) do
     local f = war.factions[id]
-    if f then total = total + Outposts.reopen(f) end
+    if f then
+      total = total + Outposts.reopen(f)
+      uncapped = uncapped + Outposts.uncap(f)
+    end
   end
   local team = State.faction("player")
-  if team then total = total + Outposts.reopen(team) end
+  if team then
+    total = total + Outposts.reopen(team)
+    uncapped = uncapped + Outposts.uncap(team)
+  end
   if total > 0 then log("[FO-EXTEND] migration : " .. total .. " avant-poste(s) rouvert(s) (marques pleins par l'ancien defaut d'agrandissement)") end
+  if uncapped > 0 then log("[FO-PLAFOND] migration : " .. uncapped .. " avant-poste(s) rouvert(s) (fermes par l'ancien plafond de foreuses, supprime)") end
 end)
 
 local TURRET_OFFSETS = { { 7, 7 }, { -7, -7 }, { 7, -7 }, { -7, 7 }, { 9, 0 }, { -9, 0 }, { 0, 9 }, { 0, -9 } }
@@ -646,17 +704,39 @@ local function collect(sinks, carrier)
 end
 
 local function refuel(burners, carrier)
+  -- Lot PLAFOND-FOREUSES : sans plafond, un avant-poste peut compter des centaines de brûleurs et le charbon porté ne suffit plus à
+  -- tous ; le plus à court d'abord (à égalité, l'ordre de la liste), et non plus toujours les foreuses avant les fours de la liste.
+  local order = {}
+  for i, b in ipairs(burners) do order[i] = { b = b, fuel = fuel_of(b), i = i } end
+  table.sort(order, function(a, c) if a.fuel ~= c.fuel then return a.fuel < c.fuel end return a.i < c.i end)
+  burners = {}
+  for i, it in ipairs(order) do burners[i] = it.b end
+  local short = 0
   for _, b in ipairs(burners) do
     local n = math.min(T.fuel_refill_to - fuel_of(b), carrier.get_item_count(T.fuel))
     if n > 0 then b.get_fuel_inventory().insert({ name = T.fuel, count = carrier.remove({ name = T.fuel, count = n }) }) end
+    if fuel_of(b) < T.fuel_low then short = short + 1 end
   end
+  return short
 end
+
+Outposts.COAL_SHORT_LOGS = 5 -- lot PLAFOND-FOREUSES : lignes [FO-CHARBON] au plus par avant-poste
 
 --- Tournée sur place : ramasse la production (un avant-poste de charbon se ravitaille sur la sienne) puis
 --- complète le charbon de chaque brûleur. Renvoie le nombre d'objets ramassés.
+--- Lot PLAFOND-FOREUSES : brûleurs laissés sous T.fuel_low faute de charbon porté comptés dans `o.coal_short` (tournées courtes ;
+--- lecteur : le journal [FO-CHARBON], les premières fois seulement, et tests/extension_fer_moteur_test.lua).
 function Outposts.service(o, carrier, tick)
   local collected = collect(valid_list(o.sinks), carrier)
-  refuel(Outposts.burners(o), carrier)
+  local burners = Outposts.burners(o)
+  local short = refuel(burners, carrier)
+  if short > 0 then
+    o.coal_short = (o.coal_short or 0) + 1
+    if o.coal_short <= Outposts.COAL_SHORT_LOGS then
+      log(string.format("[FO-CHARBON] tick %d avant-poste %s %s : %d bruleur(s) sur %d sous %d charbons apres la tournee (charbon porte insuffisant, tournee courte n. %d)",
+        tick, tostring(o.id), tostring(o.kind), short, #burners, T.fuel_low, o.coal_short))
+    end
+  end
   o.last_service = tick
   return collected
 end

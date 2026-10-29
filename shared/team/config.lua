@@ -83,14 +83,13 @@ T.outposts = {
   stone  = { resource = "stone",      sink = "iron-chest",    product = "stone",        drills = 2 },
 }
 T.OUTPOST_ORDER = { "coal", "iron", "copper", "stone" }
--- Un avant-poste s'agrandit sur son gisement jusqu'à 12 foreuses avant qu'on en cherche un autre (moteur
--- réel : à 480 tuiles du centre, la carte n'offre souvent qu'un gisement de chaque minerai par faction).
--- Un palier « N avant-postes de fer » se lit donc « N × drills foreuses de fer ».
-T.outpost_max_drills = 12
--- Session 4, moteur réel (E16 it. 8) : le fer est le goulot de toute l'échelle (armée, recherche) ; le
--- gisement de fer de départ est plus large et accueille 20 foreuses, la pierre (peu demandée) 8.
-T.outpost_max = { iron = 20, stone = 8 }
-function T.max_drills(kind) return T.outpost_max[kind] or T.outpost_max_drills end
+-- Lot PLAFOND-FOREUSES (arbitrage du DC, 29/10, 20 h 50 : « Supprimer le plafond ») : plus AUCUN plafond de foreuses par
+-- avant-poste, pour TOUS les minerais (le DC parlait du fer ; rien ne justifie de garder 12 pour le charbon et le cuivre, ni 8
+-- pour la pierre). Un avant-poste s'agrandit jusqu'au verdict « plein » de shared/team/pose_paires.lua (balayage COMPLET du
+-- gisement sans emplacement, ou couverture P.KAPPA = Ca.KAPPA) : seul arrêt. T.max_drills reste pour ses lecteurs (planner,
+-- projets, fond, survie, poles, board, fantomes, team_window, outposts) et rend l'infini. Avant (0.6.18) : 12, fer 20, pierre
+-- 8 ; la migration de script/faction/outposts.lua (Outposts.uncap) rouvre les avant-postes fermés à ce plafond.
+function T.max_drills(kind) return math.huge end
 -- Rayon des gisements de la zone de départ, par type d'avant-poste (tuiles).
 T.seed_radius = { coal = 8, iron = 11, copper = 8, stone = 6 }
 T.fuel = "coal"
