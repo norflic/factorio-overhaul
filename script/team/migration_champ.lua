@@ -288,6 +288,7 @@ local function finish(f, ms, o, st, how, text)
   st.stage, st.pid, st.ids = "veille", nil, nil
   if how == "abandon" then
     st.abandoned = true
+    st.abandoned_at = game.tick -- lot MIGRATION-DECLENCHE : reprise d'un état neuf après CFG.revive (start_next)
     o.migr = nil
     o.full = false
     o.full_by = nil
@@ -305,6 +306,14 @@ end
 local function failed(f, ms, o, st, tick, why)
   st.fails = st.fails + 1
   st.retry = tick + CFG.retry
+  -- lot MIGRATION-DECLENCHE : le plan a REFUSÉ cette partie (ex. « tapis des foreuses (minerai) ») : elle est écartée des choix suivants
+  -- (Mg.pick_band, ctx.skip) et une AUTRE partie est essayée sous une minute (la même était redemandée 3 fois à 15 min d'écart, puis abandon)
+  if why == "refuse" and st.band_key then
+    st.bad = st.bad or {}
+    if #st.bad < CFG.max_bad then st.bad[#st.bad + 1] = st.band_key end
+    st.retry = tick + CFG.retry_refuse
+  end
+  st.band_key = nil
   st.stage, st.pid, st.ids, st.gate_t0, st.t_done = "veille", nil, nil, nil, nil
   ms.cur = nil
   if st.done == 0 and st.produced == 0 then o.migr, o.full, o.full_by = nil, false, nil end -- rien de migré : l'avant-poste est rendu en attendant
@@ -323,12 +332,14 @@ local function begin_part(f, surface, ms, o, st, list, rects, tick)
   local m = method_of(o.kind)
   local rates = m and rates_of(m)
   if not rates then
-    st.abandoned = true
+    st.abandoned, st.sans_gabarit = true, true -- abandon définitif (lot MIGRATION-DECLENCHE : jamais repris)
     say(f, ms, string.format("avant-poste %d : pas de gabarit de fonderie pour %s, migration impossible", o.id, tostring(o.kind)), true)
     return false
   end
+  local skip = {}
+  for _, k in ipairs(st.bad or {}) do skip[k] = true end
   local band, why = Mg.pick_band(list, { rects = rects, toward = f.hq_pos, produced = st.produced > 0,
-    line = line_of(m.args[2]), rates = rates })
+    line = line_of(m.args[2]), rates = rates, skip = skip })
   if not band then
     if why == "vide" then
       finish(f, ms, o, st, "fini", string.format("avant-poste %d : champ migre en entier (%d partie(s), %d ligne(s) ont produit)", o.id,
@@ -340,6 +351,7 @@ local function begin_part(f, surface, ms, o, st, list, rects, tick)
       st.retry = tick + CFG.retry
       if st.fails >= CFG.max_fails then
         st.abandoned = true
+        st.abandoned_at = tick -- lot MIGRATION-DECLENCHE : reprise d'un état neuf après CFG.revive
         say(f, ms, string.format("avant-poste %d : aucune partie ne libere assez de place (%s), %d paire(s) : migration abandonnee", o.id,
           why, #list), true)
       else
@@ -358,7 +370,7 @@ local function begin_part(f, surface, ms, o, st, list, rects, tick)
     say_why(f, ms, st, "req:" .. tostring(rwhy), string.format("avant-poste %d : demande au plan impossible (%s)", o.id, tostring(rwhy)))
     return false
   end
-  st.stage, st.pid, st.ids, st.t0 = "projet", id, band.ids, tick
+  st.stage, st.pid, st.ids, st.t0, st.band_key = "projet", id, band.ids, tick, band.key
   st.cx, st.cy, st.gate_t0, st.why_last, st.retired = band.cx, band.cy, nil, nil, nil
   o.migr, o.full, o.full_by = "en cours", true, "migration"
   ms.cur = o.id
@@ -476,6 +488,15 @@ local function start_next(f, surface, ms, free, obtainable, tick)
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
     local st = ms.o[oid]
+    -- lot MIGRATION-DECLENCHE : un abandon (échecs de suite, ligne perdue) n'est plus définitif : après CFG.revive, l'avant-poste repart
+    -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
+    -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
+    local since = st and st.abandoned and not st.sans_gabarit and (st.abandoned_at or 0) or nil
+    if since and tick >= since + CFG.revive and is_furnace_kind(o.kind) and o.migr == nil then
+      st = new_state()
+      ms.o[oid] = st
+      say(f, ms, string.format("avant-poste %d (%s) : migration reprise apres abandon (%.0f min)", o.id, o.kind, CFG.revive / 3600), true)
+    end
     if is_furnace_kind(o.kind) and not (st and st.abandoned) and o.migr ~= "fini" and o.migr ~= "partiel" then
       st = st or new_state()
       ms.o[oid] = st
@@ -523,7 +544,10 @@ function Mig.think(f, surface, book, free, tick)
       if s2 and s2.stage == "projet" and s2.pid then Build.cancel(f, s2.pid, "migration: avant-poste perdu") end
       return 0
     end
-    purge_recon(f, o)
+    -- lot MIGRATION-DECLENCHE : le registre n'est purgé qu'APRÈS un retrait (étape « chantier ») ; en « projet » rien n'est retiré, et
+    -- une paire tuée par une attaque pendant l'attente des matières (30 min au plus) doit être refaite (scarlet, avant-poste 6 : 8 paires
+    -- avant la vague, 3 après, demande annulée sans rien migrer)
+    if st.stage == "chantier" then purge_recon(f, o) end
     if st.stage == "projet" then step_project(f, surface, ms, o, st, tick)
     elseif st.stage == "chantier" then step_build(f, surface, ms, o, st, tick)
     else ms.cur = nil end
@@ -532,6 +556,17 @@ function Mig.think(f, surface, book, free, tick)
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
   return start_next(f, surface, ms, free or {}, obtainable, tick) and 1 or 0
+end
+
+--- Lot MIGRATION-DECLENCHE : numéro du projet du plan directeur de la partie en cours (étapes « projet » et « chantier »), ou nil.
+--- Lecteur : script/ai3/automatisation.lua (Auto.think) en fait un projet du cerveau, qui FABRIQUE ses matières manquantes : la réserve
+--- de la ligne neuve attendait 30 min sans que personne ne fabrique ses foreuses électriques, bras, tapis (journal du DC, 0.6.18,
+--- scarlet : projets 4, 10, 21 et 23 « reserve:materiaux », 0 entité bâtie, annulés). Lecture seule.
+function Mig.project(f)
+  local ms = f and f.migration
+  local st = ms and ms.cur and ms.o and ms.o[ms.cur]
+  if st and (st.stage == "projet" or st.stage == "chantier") and st.pid then return st.pid end
+  return nil
 end
 
 --- Résumé pour les bancs et la fenêtre (lecture seule) : nombres seulement.

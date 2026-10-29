@@ -62,6 +62,12 @@ M.CFG = {
   produce_min = 10,       -- produits finis par la ligne neuve avant de passer à la partie suivante
   logs = 60,              -- lignes de journal [FO-MIGRATION] au plus par équipe
   prio = 52,              -- priorité des tâches du chantier
+  -- lot MIGRATION-DECLENCHE (retour du DC du 29/10 en jouant la 0.6.18 : « ils peuvent plus laisser des foreuses thermiques comme ça
+  -- posées ») : une partie REFUSÉE par le plan n'est plus redemandée telle quelle (partie de scarlet refusée 3 fois à l'identique,
+  -- « tapis des foreuses (minerai) », puis champ de 20 paires abandonné pour toujours) ; un abandon n'est plus définitif.
+  retry_refuse = 3600,    -- 1 min : nouvel essai après un refus du plan (une AUTRE partie : la refusée est écartée)
+  max_bad = 8,            -- parties refusées retenues au plus par avant-poste
+  revive = 30 * 3600,     -- 30 min : un avant-poste abandonné (échecs de suite) repart d'un état neuf
 }
 
 local EPS = 1e-6
@@ -201,6 +207,11 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Choix de la partie
 ---------------------------------------------------------------------------------------------------
+--- Clé d'une partie (lot et paires triées) : une partie refusée par le plan est écartée des choix suivants (ctx.skip).
+function M.band_key(lot, ids)
+  return tostring(lot) .. "/" .. table.concat(ids, ",")
+end
+
 local function d2(ax, ay, bx, by) return (ax - bx) * (ax - bx) + (ay - by) * (ay - by) end
 
 local function by_dist(list, cx, cy)
@@ -220,11 +231,13 @@ end
 ---   toward = { x, y }                        point que la partie doit regarder (le QG : la ligne neuve près de la base) ;
 ---   produced = vrai quand une ligne neuve de cet avant-poste a déjà produit ;
 ---   line   = function(n) -> w, h | nil        emprise d'une ligne de n paires de foreuses (le gabarit) ;
----   rates  = r de M.sizing ; cfg }
+---   rates  = r de M.sizing ;
+---   skip   = { [clé de partie] = true }       parties refusées par le plan (M.band_key), jamais rendues ; cfg }
 --- Rend { lot, ids (triés), n, pairs, rows, rate, thaw (tuiles à compter comme libres, liste plate), fit, zone (où le plan peut poser la
 --- ligne : la ligne promise et CFG.zone_slack tuiles de jeu), cx, cy } ou nil et une raison :
 --- "vide" (plus de paire), "garde" (la dernière paire qui produit reste), "treillis" (aucune paire dans un lot de gisement),
---- "gabarit" (le gabarit refuse), "place" (aucune partie ne libère assez de place).
+--- "gabarit" (le gabarit refuse), "place" (aucune partie ne libère assez de place), "refusees" (seules des parties déjà refusées
+--- par le plan tiennent).
 function M.pick_band(plist, ctx)
   local cfg = ctx.cfg or M.CFG
   local total = #plist
@@ -284,9 +297,14 @@ function M.pick_band(plist, ctx)
           local ids, sx, sy = {}, 0, 0
           for _, it in ipairs(boxes) do ids[#ids + 1] = it.p.id; sx, sy = sx + it.cx, sy + it.cy end
           table.sort(ids)
-          local z = cfg.zone_slack
-          return { lot = key, ids = ids, n = k, pairs = sz.pairs, rows = sz.rows, rate = sz.rate, thaw = freed, fit = fit,
-            zone = { x0 = fit.x - z, y0 = fit.y - z, x1 = fit.x + fit.w + z, y1 = fit.y + fit.h + z }, cx = sx / k, cy = sy / k }
+          local bkey = M.band_key(key, ids)
+          if ctx.skip and ctx.skip[bkey] then
+            why = "refusees" -- lot MIGRATION-DECLENCHE : partie déjà refusée par le plan, on cherche plus loin (k + 1, autre départ, autre lot)
+          else
+            local z = cfg.zone_slack
+            return { lot = key, ids = ids, key = bkey, n = k, pairs = sz.pairs, rows = sz.rows, rate = sz.rate, thaw = freed, fit = fit,
+              zone = { x0 = fit.x - z, y0 = fit.y - z, x1 = fit.x + fit.w + z, y1 = fit.y + fit.h + z }, cx = sx / k, cy = sy / k }
+          end
         end
       end
     end
