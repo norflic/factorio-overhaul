@@ -258,8 +258,14 @@ function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius, o)
   local pl = Paires.new({
     resources = resource_tiles(surface, spec, center, radius, o ~= nil), cap = Paires.MAX_ATTEMPTS,
     w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
-    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil })
+    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil,
+    mined = o and mined_set(o) or nil })
   local out = {}
+  -- lot PLAFOND-FOREUSES (relecture) : même arrêt que place_pairs, un gisement couvert à Paires.KAPPA n'a pas d'aperçu à poser
+  if o then
+    local r0 = pl.report()
+    if Paires.permille(r0.covered, r0.tiles) >= Paires.KAPPA then max_pairs = 0 end
+  end
   while #out < max_pairs do
     local pos = pl.next()
     if not pos then break end
