@@ -182,6 +182,26 @@ def main():
         if s in L:
             for t in L[s]["dec"][:12]:
                 print("   [%s] %s" % (s, t))
+    # C2 a C4 : evenements provoques a 35 min (scenarios reseau-detruit et reseau-detruit-temoin)
+    print("== C2 a C4 : courant revenu apres destruction a la minute 35 (limites 10, 20 et 5 min), code du lot / temoin")
+    bil = re.compile(r"\[FO-RESEAU-DETRUIT\] bilan (\w+) \| (\w+) \| retour du courant : (.*?) \| distance au ver de la centrale actuelle : (.*?) \| ")
+    ver = re.compile(r"\[FO-RESEAU-DETRUIT-?\w*\] (OK|ECHEC)\s+(C[234].*)")
+    for pre, tag in (("detruit", "LOT"), ("detruitT", "TEMOIN")):
+        for sd in seeds:
+            d = os.path.join(a.root, "%s-%s" % (pre, sd))
+            if not os.path.isdir(d):
+                continue
+            rows, checks = [], []
+            for line in lines(d):
+                m = bil.search(line)
+                if m:
+                    rows.append("%s(%s) : %s ; ver a %s" % (m.group(1), m.group(2), m.group(3), m.group(4)))
+                m = ver.search(line)
+                if m and tag == "LOT":
+                    checks.append("%s %s" % (m.group(1), m.group(2)[:110]))
+            print("  %-6s %s : %s" % (tag, sd, " || ".join(rows) if rows else "pas de bilan (archive incomplete ?)"))
+            for c in checks:
+                print("         %s" % c)
     return 0
 
 
