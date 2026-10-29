@@ -2,7 +2,7 @@
   Lot RESEAU-VIVANT (29/10) : ÉVÉNEMENTS PROVOQUÉS sur la partie du guide (etape1-guide, 216 300 ticks, mesures [FO-FONCTION]
   comprises). À la minute 35 (tick 126 000), le script détruit par die() (donc avec on_entity_died, comme une attaque) :
     - faction 1 (clé triée) : « site SÛR »      toutes ses chaudières et machines à vapeur (critère C2) ;
-    - faction 2 (clé triée) : « site DANGEREUX » les mêmes, ET pose un ver MOYEN INDESTRUCTIBLE à 34 tuiles du site (critère C3) ;
+    - faction 2 (clé triée) : « site DANGEREUX » les mêmes, ET pose un ver MOYEN à 34 tuiles du site (destructible : un ver indestructible n'est pas une cible militaire pour find_nearest_enemy, mesuré le 29/10) (critère C3) ;
     - votre équipe (player) : « PIVOT »         le poteau dont la perte éteint le plus de consommateurs parmi les 30 plus proches de
                                                  la centrale (modèle Z.measure/R.eval, critère C4).
   Relevé toutes les 10 s après l'événement : production lue, chaudières, machines, consommateurs électriques posés et ceux dont le
@@ -149,8 +149,8 @@ return function(opts)
                 if p and dist(p.x, p.y, site.x, site.y) >= 30 and dist(p.x, p.y, site.x, site.y) < DANGER - 1 then
                   local w = s.create_entity({ name = "medium-worm-turret", position = p, force = "enemy" })
                   if w then
-                    w.destructible = false
                     ev.worm = { x = p.x, y = p.y }
+                    ev.worm_ent = w
                     local fr = game.forces[ev.force]
                     local seen = s.find_nearest_enemy({ position = site, max_distance = DANGER, force = ev.force })
                     log(TAG .. string.format("%s | dangereux | le moteur voit le ver depuis le site : %s ; cessez-le-feu avec enemy=%s ; ami=%s",
@@ -217,6 +217,8 @@ return function(opts)
           ev.role == "sur" and "C2" or (ev.role == "dangereux" and "C3" or "C4"), ev.key, lim), detail)
         if ev.role == "dangereux" then
           ctx.check(ev.worm ~= nil, "C3 : le ver (danger) a ete pose a moins de 40 tuiles du site", ev.worm and "oui" or "non")
+          ctx.check(ev.worm_ent ~= nil and ev.worm_ent.valid, "C3 : le ver est reste en vie (sinon le danger a disparu et le test ne dit rien)",
+            (ev.worm_ent ~= nil and ev.worm_ent.valid) and "oui" or "non")
           ctx.check(wdist ~= nil and wdist > DANGER, "C3 : la centrale de remplacement est a plus de 40 tuiles du ver",
             wdist and string.format("%.1f", wdist) or "-")
         end

@@ -28,6 +28,7 @@ function C.candidates(boxes, poles, free, o)
   local step, limit = o.step or C.STEP, o.max or C.MAX
   local seen, cover, grid = {}, {}, {}
   local skipped = {}
+  local nearest = nil -- distance (tuiles) du consommateur découvert le plus proche à un poteau vivant (diagnostic du journal)
   local order = {}
   for i = 1, #boxes do order[i] = i end
   table.sort(order, function(a, b)
@@ -50,6 +51,7 @@ function C.candidates(boxes, poles, free, o)
       local d = (p.x - cx) ^ 2 + (p.y - cy) ^ 2
       if not qd or d < qd - 1e-9 then qi, qd = j, d end
     end
+    if qd and (not nearest or math.sqrt(qd) < nearest) then nearest = math.sqrt(qd) end
     if not qi or qd > C.REACH_MAX * C.REACH_MAX then
       skipped[#skipped + 1] = i
     else
@@ -81,7 +83,7 @@ function C.candidates(boxes, poles, free, o)
   emit(cover)
   emit(grid)
   table.sort(out, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
-  return { cands = out, skipped = skipped }
+  return { cands = out, skipped = skipped, nearest = nearest }
 end
 
 return C

@@ -63,7 +63,8 @@ local function clear_debris(surface, ents)
   if not (surface and surface.find_entities_filtered) then return 0 end
   for _, e in ipairs(ents) do
     local w, h = P.size(e.name, e.dir or 0)
-    for _, d in ipairs(surface.find_entities_filtered({ area = { { e.x - w / 2, e.y - h / 2 }, { e.x + w / 2, e.y + h / 2 } },
+    -- marge de 0,6 : les objets au sol se posent au bord de l'emprise (mesuré : à 1,0 du centre d'une chaudière 3 × 2, bord exact)
+    for _, d in ipairs(surface.find_entities_filtered({ area = { { e.x - w / 2 - 0.6, e.y - h / 2 - 0.6 }, { e.x + w / 2 + 0.6, e.y + h / 2 + 0.6 } },
       type = { "corpse", "item-entity" }, force = "neutral" })) do
       if d.valid then d.destroy() n = n + 1 end
     end
@@ -242,6 +243,8 @@ local function repair_plan(api, f, surface, b, nr, cands, want_new)
       end
       local res = C.candidates(nr.cons, live, free, { supply = pr.supply_area_distance or 2.5, wire = pr.max_wire_distance or 7.5 })
       fresh = res.cands
+      nr.cover_diag = string.format("%d poteau(x) vivant(s), %d consommateur(s) hors d'atteinte, le plus proche a %s tuiles", #live,
+        #res.skipped, res.nearest and string.format("%.1f", res.nearest) or "?")
       for _, c in ipairs(fresh) do model[#model + 1] = c end
     end
   end
@@ -251,8 +254,9 @@ local function repair_plan(api, f, surface, b, nr, cands, want_new)
     if j <= nl then lost_sel[#lost_sel + 1] = cands[j]
     else new_sel[#new_sel + 1] = { name = new_name, x = model[j].x, y = model[j].y } end
   end
-  local txt = string.format("%d poteau(x) a relever sur %d perdu(s) + %d poteau(x) neuf(s) sur %d candidat(s), %d consommateur(s) a rallumer, "
-    .. "%d hors d'atteinte", #lost_sel, #cands, #new_sel, #fresh, plan.restored or 0, #(plan.unreachable or {}))
+  local txt = string.format("%d poteau(x) a relever sur %d perdu(s) + %d poteau(x) neuf(s) sur %d candidat(s) [%s], %d consommateur(s) a rallumer, "
+    .. "%d hors d'atteinte", #lost_sel, #cands, #new_sel, #fresh, nr.cover_diag or "pas de poteau en usage", plan.restored or 0,
+    #(plan.unreachable or {}))
   return lost_sel, new_sel, txt, plan
 end
 
@@ -312,7 +316,7 @@ function Rv.step(api, f, surface, tick)
   local inp, lost = plant_read(f, surface, pp)
   inp.demand_kw = sv.demand
   inp.islands, inp.uncovered, inp.lost_links = sv.islands, sv.uncovered, sv.lost_links
-  inp.uncov_reads, inp.cover_busy = sv.uncov_reads or 0, rebuilding(b, tick)
+  inp.uncov_reads, inp.cover_busy = sv.uncov_reads or 0, rebuilding(b, tick) or tick < (sv.idle_until or 0)
   local site = site_of(pp)
   inp.enemies = 0
   if site then
@@ -418,7 +422,8 @@ function Rv.step(api, f, surface, tick)
       end
     end
     for _, pid in ipairs(sorted_keys(per)) do Rv.reopen(per[pid].q, per[pid].ents, "reseau: poteaux perdus", surface) end
-    S.applied(sv.st, action, tick)
+    -- un essai qui ne pose ni ne rouvre rien n'est pas un essai : on se tait 5 min (le compte d'essais ne s'use que sur du travail fait)
+    if n + added > 0 then S.applied(sv.st, action, tick) else sv.idle_until = tick + 18000 end
     say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s), %d poteau(x) neuf(s) ajoute(s) (les autres : ennemis a %d tuiles ou tuile prise)", why,
       txt, n, added, Rv.POLE_ENEMY_R))
     sv.net_next = tick + 1200 -- relire vite après la remise en état
