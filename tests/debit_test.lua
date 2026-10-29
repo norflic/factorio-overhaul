@@ -55,12 +55,38 @@ do
   end
 end
 
+-- 2 bis. Relecture : ce que le DC a vu en 0.6.18 (8 fours, 6 foreuses) vient du BUDGET de main (Li.budget_rows, plancher 4 rangées),
+-- pas du tapis : 600 plaques -> 4 rangées -> 3 paires. La borne du tapis ne mord jamais avec les données de base (le gabarit bornait
+-- déjà par M.LANE_RATE) ; seule la ligne dynamique (lot FONDERIE-DYNAMIQUE, T.ligne.dyn) fait grandir la ligne au-delà.
+do
+  local dsp = M.spec(T.DRILL_ELECTRIC)
+  local emprise = M.GEN.drills("iron-ore", 1).extensions[1].max
+  for _, sp in ipairs({ 0.03125, 0.0625, 0.09375 }) do
+    check(math.min(Db.belt_pairs(Db.lane_capacity(sp), dsp.speed, nil), emprise) == emprise,
+      string.format("tapis %.5f : la borne retenue est l'emprise (%d paires), le tapis ne retire rien", sp, emprise))
+  end
+  local g1 = M.GEN.smelter("stone-furnace", "iron-ore", 1)
+  if g1 and not (T.ligne and T.ligne.dyn) then
+    local cap = g1.nominal["iron-plate"] / 2
+    local budget = Li.budget_rows(600, T.ligne.row_cost, T.ligne.stock_share, T.ligne.rows_floor)
+    local demand_pairs = math.ceil(2 * budget * cap / (2 * dsp.speed) - 1e-9)
+    check(budget == 4 and demand_pairs == 3, string.format("main sans ligne dynamique : 600 plaques -> %d rangees, %d paires (le paquet de 6 du DC)", budget, demand_pairs))
+  end
+end
+
 -- 3. Réglages et branchements (lecture des sources : un lecteur par état écrit)
 check(type(T.debit) == "table" and T.debit.belt == true and T.debit.shrunk_grows == true, "reglages T.debit presents")
 local build = read("script/team/build.lua")
 check(build:find("pairs_line = Build.debit_pairs(f, prm.ore, pairs_line, dsp.speed)", 1, true) ~= nil, "line_rows lit la borne du tapis")
 check(build:find("[FO-DEBIT]", 1, true) ~= nil, "journal [FO-DEBIT] dans build.lua")
 check(build:find('require("shared.team.debit")', 1, true) ~= nil, "build.lua charge la regle au chargement du fichier")
+do -- relecture : Build.debit_pairs ne passe pas par Conv.choose (journal [FO-CONVOYEURS] « premier choix » réservé au vrai tracé)
+  local s = build:find("function Build.debit_pairs", 1, true)
+  local e = s and build:find("\nend", s, true)
+  local body = s and e and build:sub(s, e) or ""
+  check(body ~= "" and not body:find("Conv.choose", 1, true) and body:find("Cv.pick", 1, true) ~= nil,
+    "Build.debit_pairs lit le tapis par la regle pure, sans ecrire le journal du premier trace")
+end
 local auto = read("script/ai3/automatisation.lua")
 check(auto:find("spec.shrunk and T.debit and T.debit.shrunk_grows and T.ligne and T.ligne.dyn", 1, true) ~= nil,
   "un module reduit n'est plus fige quand la ligne est dynamique (seulement elle)")
