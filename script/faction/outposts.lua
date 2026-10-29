@@ -15,6 +15,8 @@ local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local R = require("shared.ai3.reglages") -- lot TOURELLES : rôles des types du moteur (bâtiments à protéger)
+local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels emplacements prendre (règle pure)
 
 local Outposts = {}
 
@@ -359,24 +361,83 @@ function Outposts.extend(f, surface, o, carrier)
 end
 
 local TURRET_OFFSETS = { { 7, 7 }, { -7, -7 }, { 7, -7 }, { -7, 7 }, { 9, 0 }, { -9, 0 }, { 0, 9 }, { 0, -9 } }
+local TURRET = "gun-turret"
+Outposts.ASSET_RADIUS_OUT = 24 -- lot TOURELLES : tuiles autour d'un avant-poste où les bâtiments de l'équipe sont à protéger
+Outposts.ASSET_RADIUS_HQ = 40  -- ... autour du QG
+Outposts.POSE_LOGS = 40        -- lignes de journal [FO-TOUR-POSE] au plus par équipe
 
---- Pose jusqu'à `count` tourelles autour de l'avant-poste avec les objets portés.
+--- Lot TOURELLES : bâtiments de l'équipe autour du centre, { {x, y, w} } (w = aire de l'emprise × facteur du rôle).
+local function assets_around(f, surface, center, radius)
+  local types = {}
+  for _, ty in ipairs(R.ENTITY_TYPES) do
+    if Pose.role_factor(R.ENTITY_ROLE[ty]) > 0 then types[#types + 1] = ty end
+  end
+  local out = {}
+  local hq = f.hq and f.hq.valid and f.hq or nil
+  for _, e in ipairs(surface.find_entities_filtered({ position = center, radius = radius, force = f.force, type = types })) do
+    local bb = e.bounding_box
+    local area = math.max(1, math.floor((bb.right_bottom.x - bb.left_top.x) * (bb.right_bottom.y - bb.left_top.y) + 0.5))
+    local w = area * Pose.role_factor(R.ENTITY_ROLE[e.type])
+    if hq and e.unit_number == hq.unit_number then w = Pose.HQ_WEIGHT end
+    out[#out + 1] = { x = e.position.x, y = e.position.y, w = w }
+  end
+  return out
+end
+
+--- Lot TOURELLES : positions de pose dans l'ordre. Les emplacements sont ceux d'avant le lot (les 8 de TURRET_OFFSETS avec leur
+--- repli du moteur, sans doublon) ; seul l'ORDRE change : celui qui couvre le plus de bâtiments de l'équipe (règle pure :
+--- shared/team/pose_tourelles.lua). Sans portée lue ni bâtiment : l'ancien ordre.
+local function pose_order(f, surface, outpost, count)
+  local raw = {}
+  for _, o in ipairs(TURRET_OFFSETS) do
+    local pos = surface.find_non_colliding_position(TURRET, { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
+    if pos then raw[#raw + 1] = { x = pos.x, y = pos.y } end
+  end
+  local cands = Pose.dedup(raw)
+  local proto = game.entity_prototypes[TURRET]
+  local range = proto and proto.turret_range or 0
+  if range <= 0 or #cands == 0 then return cands end
+  local center = outpost.pos
+  local is_hq = outpost.id == nil
+  local radius = is_hq and Outposts.ASSET_RADIUS_HQ or Outposts.ASSET_RADIUS_OUT
+  local existing = {}
+  for _, t in ipairs(surface.find_entities_filtered({ position = center, radius = radius + range, force = f.force, name = TURRET })) do
+    existing[#existing + 1] = { x = t.position.x, y = t.position.y }
+  end
+  table.sort(existing, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
+  local assets = assets_around(f, surface, center, radius)
+  local pick = Pose.choose({ candidates = cands, assets = assets, range = range, existing = existing, count = count })
+  local out = {}
+  for _, i in ipairs(pick.order) do out[#out + 1] = cands[i] end
+  f.stats = f.stats or {}
+  f.stats.pose_logs = (f.stats.pose_logs or 0) + 1
+  if f.stats.pose_logs <= Outposts.POSE_LOGS then
+    local before, tot = Pose.covered(assets, existing, range)
+    local after = {}
+    for _, t in ipairs(existing) do after[#after + 1] = t end
+    for i = 1, math.min(count, pick.chosen) do after[#after + 1] = out[i] end
+    local cov = Pose.covered(assets, after, range)
+    log(string.format("[FO-TOUR-POSE] %s %s en (%.0f, %.0f) : %d tourelle(s) voulue(s), %d emplacement(s), %d batiment(s), aire protegee %d -> %d sur %d",
+      f.key or "?", is_hq and "QG" or ("avant-poste " .. tostring(outpost.id)), center.x, center.y, count, #cands, #assets, before, cov, tot))
+  end
+  return out
+end
+
+--- Pose jusqu'à `count` tourelles autour de l'avant-poste (ou du QG) avec les objets portés. Lot TOURELLES : mêmes emplacements
+--- qu'avant, pris dans l'ordre qui protège le plus de bâtiments de l'équipe.
 function Outposts.fortify(f, surface, outpost, count, carrier)
   local placed = 0
-  for _, o in ipairs(TURRET_OFFSETS) do
-    if placed >= count or carrier.get_item_count("gun-turret") < 1 then break end
-    local pos = surface.find_non_colliding_position("gun-turret", { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
-    if pos then
-      local t = surface.create_entity({ name = "gun-turret", position = pos, force = f.force, raise_built = true })
-      if t then
-        carrier.remove({ name = "gun-turret", count = 1 })
-        for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
-          local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
-          if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
-        end
-        Outposts.add_turret(f, t, outpost.id, 0)
-        placed = placed + 1
+  for _, pos in ipairs(pose_order(f, surface, outpost, count)) do
+    if placed >= count or carrier.get_item_count(TURRET) < 1 then break end
+    local t = surface.create_entity({ name = TURRET, position = pos, force = f.force, raise_built = true })
+    if t then
+      carrier.remove({ name = TURRET, count = 1 })
+      for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
+        local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
+        if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
       end
+      Outposts.add_turret(f, t, outpost.id, 0)
+      placed = placed + 1
     end
   end
   return placed
