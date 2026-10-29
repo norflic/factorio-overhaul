@@ -67,6 +67,15 @@ T.worker_ammo_keep = 10
 ---------------------------------------------------------------------------------------------------
 T.DRILL = "burner-mining-drill"
 T.drill_drop = { -0.5, -1.3 } -- vector_to_place_result vanilla de la foreuse à combustible (orientation nord)
+-- Lot FOREUSES (retour du DC du 29/10 : « des foreuses thermiques encore presentes malgre la tech 2 ») : la foreuse ELECTRIQUE qui
+-- remplace une foreuse a combustion sur place quand l'objet est obtenable et le courant arrive (shared/team/foreuse_swap.lua,
+-- script/faction/foreuse_swap.lua). size : emprise ; drop : point de depot vers le nord (vector_to_place_result vanilla).
+T.DRILL_ELECTRIC = "electric-mining-drill"
+T.drill_electric = { size = 3, drop = { 0, -1.85 } }
+-- every : ticks entre deux passes ; per_pass : remplacements au plus par passe ; craft_cap : foreuses electriques fabriquees d'avance
+-- au plus ; radius : tuiles autour d'un avant-poste ou l'on cherche les poteaux ; prio : priorite de la fabrication (sous le fer des
+-- objectifs, au-dessus de l'armee).
+T.swap = { every = 300, per_pass = 2, craft_cap = 4, radius = 24, prio = 47 }
 T.outposts = {
   coal   = { resource = "coal",       sink = "iron-chest",    product = "coal",         drills = 4 },
   iron   = { resource = "iron-ore",   sink = "stone-furnace", product = "iron-plate",   drills = 8 },
