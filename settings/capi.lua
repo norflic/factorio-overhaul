@@ -2,7 +2,7 @@
   Réglage du lot CAPIB « brancher la capitalisation » (fo-logs/2026-10-27_CAPI/BRANCHEMENT.md). Étape settings
   uniquement ; requis par settings.lua.
 
-  fo-war-capi   les factions (pas votre équipe) réinvestissent leur production en capacité : couvrir leurs gisements de
+  fo-war-capi   les factions ET votre équipe de PNJ (Capi.on n'exclut pas is_player) réinvestissent leur production en capacité : couvrir leurs gisements de
                 foreuses (jusqu'à 80 % des tuiles), en ouvrir d'autres, des fours au débit du minerai livré, des rangées
                 d'assembleurs, des laboratoires (règle shared/ai3/capitalisation.lua, runtime script/ai3/capitalisation.lua).
                 N'agit qu'avec fo-war-ia3e allumé (l'automatisation est son exécutant : fonderies à foreuses, rangées).

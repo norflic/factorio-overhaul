@@ -4,7 +4,9 @@
   implémenter », « Et concernant la recherche IA ? » ; 12 h 15 : « A ne pas oublier toute la partie plus de gisements.
   Plus de fours (dans la limite de ce qu'on peut faire fondre évidemment), si assembleurs disponibles alors on ajoute des
   chaînes de production etc etc. »). Conception : docs/IA_CAPITALISATION.md. PUR (aucune API Factorio), testé hors jeu
-  (tests/ai3_capitalisation_test.lua). RIEN N'EST BRANCHÉ EN JEU dans ce lot.
+  (tests/ai3_capitalisation_test.lua). (Texte d'origine : « rien n'est branché en jeu » ; périmé : branchée par le lot CAPIB,
+  script/ai3/capitalisation.lua, allumée par défaut, tournante dans la partie du DC du 29/10. Le repli des ordres refusés est
+  dans shared/ai3/repli.lua, lot CAPI-REPLI.)
 
   Ce qu'un joueur fait : il RÉINVESTIT sa production dans plus de capacité de production, là où elle rapporte le plus vite
   et seulement là où ce qu'elle produit a un débouché. Il couvre ses gisements de foreuses puis en ouvre d'autres, met
