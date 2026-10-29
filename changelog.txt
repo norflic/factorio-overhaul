@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.17
+Date: 2026-10-29
+  Changes:
+    - Ressources d'abord (retour du DC) : quand le fer ne paie pas la defense ET le prochain pas de production, la production passe devant ; la defense revient des que le fer depasse le prix d'un pas. Journal [FO-PRIORITE].
+    - Fonderie en longue ligne (jusqu'a 9 rangees, 18 fours) avec second bras et second coffre, sortie au centre ou a l'exterieur ; foreuses en rangees (jusqu'a 7 paires par collecteur). Repli sur la taille d'avant si rien ne tient. Journal [FO-LIGNE].
+    - Avant-postes : l'agrandissement pose enfin des foreuses (il en posait 0 et marquait l'avant-poste plein pour toujours) ; journal [FO-EXTEND] ; libelles lisibles agrandir / nouvel avant-poste / reconstruire.
+    - Sites proches avant lointains : plancher de valeur, site lointain suspendu tant que le proche n'est que bloque, plus de construction d'avant-poste d'un produit ssature. Journal [FO-SITES] suspendu.
+    - Capitalisation : repli par (produit, gisement) remis a zero apres un module termine, echec de materiaux = module reduit et fabrication des manques ; journaux [FO-CAPI-COUV], [FO-CAPI-ALERTE], [FO-CAPI-REPLI].
+    - Reconstruction : une fonderie rouverte redevient visible du cerveau (buts de fabrication des pieces manquantes), journal [FO-REBUILD-ETAT] ; un avant-poste detruit en entier est rebati au meme site (ruine).
+    - Defense des factions : journal [FO-DEFENSE] (cause de chaque non-pose), recherche de tourelle plus tot, poste de tourelles du QG apres perte, commande partielle et plancher reduit pour le front, front proche du QG apres les avant-postes de fer.
+    - Enceinte : contour serre sur l'empreinte reelle (plafonne a l'ancien anneau), segments demarres a l'ouverture de rue ou pres de la menace, lots lointains isoles exclus.
+    - Poteaux : recherche de chemin (graphe borne) quand la chaine droite echoue ou gaspille ; repli sur l'ancienne.
+    - Tests : le moteur simule expose LuaEntity.burner (pvp_test 1305 OK, les 5 echecs de la 0.6.15 venaient de ce moteur simule). Rien n'a ete rejoue en partie : relecture statique + tests hors jeu + un content.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.16
 Date: 2026-10-29
   Changes:
