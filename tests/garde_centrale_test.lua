@@ -204,5 +204,86 @@ do
     "mutant « places vides ignorées » refusé : il reposerait 2 tourelles par-dessus les vides")
 end
 
+section("7. Plusieurs centrales (lot GARDE-MULTI) : la moins gardée d'abord, une tâche à la fois, plafond d'équipe")
+do
+  local function shift(pc, dx, dy) local o = {} for i, q in ipairs(pc) do o[i] = { x = q.x + dx, y = q.y + dy } end return o end
+  local A = { id = 10, pieces = pieces, boilers = 1 }
+  local B = { id = 11, pieces = shift(pieces, 300, 0), boilers = 1 }
+  local C = { id = 12, pieces = shift(pieces, 0, 300), boilers = 2 }
+  local gA = { { x = 8, y = 7, rounds = 20 }, { x = -6, y = 7, rounds = 20 } }              -- A gardée à 2 sur 2
+  local pl = G.plan({ A, B }, gA, RANGE, LOW)
+  check(pl and pl.pick and pl.pick.id == 11 and pl.pick.missing == 2, "A gardée, B nue : on garde B (2 manquent)")
+  check(pl and #pl.rows == 2 and pl.total == 2 and pl.left == G.TEAM_MAX - 2, "total des places occupées et places restantes")
+  local pl2 = G.plan({ B, A }, gA, RANGE, LOW)
+  check(pl2.pick.id == 11, "l'ordre de la liste ne change pas le choix quand une seule manque")
+  -- la moins gardée d'abord : B a 1 sur 2, C en a 0 sur 3
+  local gB = { { x = 308, y = 7, rounds = 20 } }
+  local pl3 = G.plan({ A, B, C }, { gA[1], gA[2], gB[1] }, RANGE, LOW)
+  check(pl3.pick.id == 12 and pl3.pick.missing == 3, "B a 1 sur 2, C 0 sur 3 : C d'abord")
+  local pl4 = G.plan({ A, B, C }, { gA[1], gA[2], gB[1], { x = 8, y = 307, rounds = 20 } }, RANGE, LOW)
+  check(pl4.pick.id == 12 and pl4.pick.missing == 2, "C a 1 sur 3 (0,33), B 1 sur 2 (0,5) : C d'abord, 2 manquent")
+  -- égalité de ratio : la première de la liste
+  local pl5 = G.plan({ B, C }, {}, RANGE, LOW)
+  check(pl5.pick.id == 11, "égalité (aucune garde) : la première de la liste (B, 2 voulues), puis C")
+  -- tout gardé : rien à poser
+  local pl6 = G.plan({ A }, gA, RANGE, LOW)
+  check(pl6 and pl6.pick == nil and #pl6.rows == 1, "tout est gardé : pas de pick")
+  -- infaisable ignorée ; aucune centrale faisable : nil
+  local wide = { id = 13, pieces = { { x = 0, y = 500 }, { x = 80, y = 500 } }, boilers = 1 }
+  local pl7 = G.plan({ wide, B }, {}, RANGE, LOW)
+  check(pl7.pick.id == 11 and #pl7.rows == 1, "centrale infaisable ignorée, la suivante est gardée")
+  check(G.plan({ wide }, {}, RANGE, LOW) == nil and G.plan({}, {}, RANGE, LOW) == nil and G.plan(nil, nil, RANGE, LOW) == nil, "aucune centrale faisable : nil")
+  -- plafond : l'équipe a déjà `cap` tourelles autour de ses centrales
+  local plc = G.plan({ A, B }, gA, RANGE, LOW, 2)
+  check(plc.pick == nil and plc.left == 0 and plc.total == 2, "plafond atteint : aucune pose de plus")
+  local pld = G.plan({ A, B }, gA, RANGE, LOW, 3)
+  check(pld.pick and pld.pick.id == 11 and pld.pick.missing == 1 and pld.left == 1, "plafond à 3 : une seule de plus, bornée par la place restante")
+  check(G.plan({ A, B }, {}, RANGE, LOW).left == G.TEAM_MAX, "défaut du plafond : G.TEAM_MAX")
+  -- une tourelle à portée de deux centrales voisines n'est comptée qu'une fois pour le plafond
+  local A2 = { id = 20, pieces = shift(pieces, 6, 0), boilers = 1 }
+  local mid = { { x = 11, y = 7, rounds = 20 } }
+  check(G.covers(A.pieces, 11, 7, RANGE) and G.covers(A2.pieces, 11, 7, RANGE), "(prémisse) le point (11, 7) voit les deux centrales voisines")
+  check(G.near_any({ A, A2 }, mid, RANGE) == 1 and G.near_any({ A, B }, mid, RANGE) == 1 and G.near_any({ B }, mid, RANGE) == 0, "tourelle partagée comptée une fois")
+  -- centrale vide de gardes mais proche d'une autre déjà gardée : la tourelle partagée compte pour les deux
+  local pl8 = G.plan({ A, A2 }, { mid[1], { x = 5, y = 7, rounds = 20 } }, RANGE, LOW)
+  check(pl8.pick == nil and pl8.total == 2, "deux centrales voisines, deux tourelles communes : les deux sont gardées")
+
+  -- Planificateur : une SEULE tâche « fortify:plant », pour la centrale choisie, qui porte son identifiant, ses emplacements et ses pièces
+  local multi = plant({ plants = { A, B }, turrets = gA })
+  local pm = Planner.plan(view({ stock = rich, plant = multi }), book)
+  local tm = guard_task(pm)
+  local nplant = 0
+  for _, t in ipairs(pm.tasks) do if t.kind == "fortify" and t.outpost == "plant" then nplant = nplant + 1 end end
+  check(nplant == 1 and tm and tm.plant_id == 11, "deux centrales : une seule tâche, pour B (la nue)")
+  check(tm and tm.pieces == B.pieces and G.covers(tm.pieces, tm.sites[1].x, tm.sites[1].y, RANGE) and tm.pos.x > 200, "la tâche porte les pièces et les emplacements de B")
+  check(tm and qty(tm, "gun-turret") == 2, "coût : les 2 tourelles de B")
+  local pm2 = Planner.plan(view({ stock = rich, plant = plant({ plants = { A, B }, turrets = gA, fortify = true }) }), book)
+  check(guard_task(pm2) == nil, "tâche de garde déjà prise : aucune autre, même pour une 2e centrale nue")
+  local pm3 = Planner.plan(view({ stock = rich, plant = plant({ plants = { A, B }, turrets = gA, pause = true }) }), book)
+  check(guard_task(pm3) == nil, "pause : aucune tâche")
+  local pm4 = Planner.plan(view({ stock = rich, plant = plant({ plants = { A, B }, turrets = gA, cap = 2 }) }), book)
+  check(guard_task(pm4) == nil, "plafond de l'équipe (cap = 2) atteint : aucune tâche")
+  local pm5 = Planner.plan(view({ stock = rich, plant = plant({ plants = { A, B }, turrets = gA, cap = 3 }) }), book)
+  local tm5 = guard_task(pm5)
+  check(tm5 and qty(tm5, "gun-turret") == 1, "plafond à 3 : une seule tourelle demandée")
+  local pm6 = Planner.plan(view({ stock = rich, plant = plant({ plants = { A, B }, turrets = { gA[1], gA[2], { x = 308, y = 7, rounds = 20 }, { x = 292, y = 7, rounds = 20 } } }) }), book)
+  check(guard_task(pm6) == nil, "toutes les centrales gardées : aucune tâche")
+
+  -- Mutants
+  local real_near_any = G.near_any
+  G.near_any = function() return 0 end -- mutant : plafond jamais atteint
+  local mc = G.plan({ A, B }, gA, RANGE, LOW, 2)
+  G.near_any = real_near_any
+  check(mc.pick ~= nil and G.plan({ A, B }, gA, RANGE, LOW, 2).pick == nil, "mutant « plafond ignoré » refusé")
+  local real_need = G.need
+  G.need = function(pc, bo, ts, r, low) -- mutant : toujours la première centrale, même gardée
+    local n = real_need(pc, bo, {}, r, low)
+    return n
+  end
+  local mn = G.plan({ A, B }, gA, RANGE, LOW)
+  G.need = real_need
+  check(mn.pick.id == 10 and G.plan({ A, B }, gA, RANGE, LOW).pick.id == 11, "mutant « tourelles ignorées » refusé : il garderait A déjà gardée")
+end
+
 print(string.format("[GARDE-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
