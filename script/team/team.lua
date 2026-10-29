@@ -33,6 +33,7 @@ local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
+local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
@@ -582,7 +583,7 @@ function Team.view(f, tick)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
     plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0, -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Front.hq_post(f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
@@ -630,6 +631,7 @@ function Team.think(f, surface, tick)
       collect_min = T.smelt_collect_min })
   end
   Profiler.stop("team:plan")
+  DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
 
   for _, key in ipairs(plan.reached) do
     if not f.team.done[key] then
