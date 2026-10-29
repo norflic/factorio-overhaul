@@ -90,6 +90,23 @@ def deficit(R, minute=60):
     return out
 
 
+def split_deficit(R, minute=60):
+    """Par equipe : (hors reseau d'une centrale, sur le reseau mais sans courant, pose). DECLARE APRES COUP (29/10) pour expliquer C1 :
+    `pose - reseau` = defaut de reseau (le perimetre de ce lot) ; `reseau - alimentes` = energie manquante (chaudiere a sec, capacite)."""
+    out = {}
+    for (m, team), kv in R["elec"].items():
+        if m != minute:
+            continue
+        try:
+            pose = sum(int(kv[c + "_pose"]) for c in CLASSES)
+            res = sum(int(kv[c + "_reseau"]) for c in CLASSES)
+            al = sum(int(kv[c + "_alimentes"]) for c in CLASSES)
+        except KeyError:
+            continue
+        out[team] = (pose - res, res - al, pose)
+    return out
+
+
 def med(v):
     return statistics.median(v) if v else float("nan")
 
@@ -138,6 +155,25 @@ def main():
         rap = tot["lot"] / max(1, tot["base"])
         print("  JUGEMENT C1 (4 graines) : lot %d / base %d -> rapport %.2f (seuil 0.50) ; equipes pires que la base de plus de 5 : %s -> %s"
               % (tot["lot"], tot["base"], rap, worse or "aucune", "TENU" if rap <= 0.5 and not worse else "NON TENU"))
+    print("== C1 bis (explication, declaree apres coup) : hors reseau / sur le reseau sans courant (chaudiere a sec, capacite) / poses, a 60 min")
+    tt = collections.Counter()
+    for s in seeds:
+        if s not in L:
+            continue
+        a_, b_, c_ = split_deficit(L[s]), split_deficit(B[s]) if s in B else {}, split_deficit(T[s]) if s in T else {}
+        row = []
+        for team in sorted(a_):
+            x, y, z = a_[team], b_.get(team), c_.get(team)
+            row.append("%s lot %d/%d/%d base %s temoin %s" % (team, x[0], x[1], x[2], "%d/%d/%d" % y if y else "-", "%d/%d/%d" % z if z else "-"))
+            if s in judged:
+                tt["lot_hors"] += x[0]; tt["lot_sec"] += x[1]
+                if y:
+                    tt["base_hors"] += y[0]; tt["base_sec"] += y[1]
+                if z:
+                    tt["tem_hors"] += z[0]; tt["tem_sec"] += z[1]
+        print("  %s : %s" % (s, " ; ".join(row)))
+    print("  TOTAL 4 graines : hors reseau lot %d / base %d / temoin %d ; sur le reseau sans courant lot %d / base %d / temoin %d"
+          % (tt["lot_hors"], tt["base_hors"], tt["tem_hors"], tt["lot_sec"], tt["base_sec"], tt["tem_sec"]))
     print("== C5 : paires de poteaux < 2 tuiles (seuil <= 2 par equipe) ; poteaux par consommateur alimente")
     bad5, pa_l, pa_t = [], [], []
     for s in seeds:
