@@ -6,6 +6,7 @@ require("prototypes.titanium")
 require("prototypes.superconductors")
 require("prototypes.galena") -- lot AMELIO-RESSOURCES : plomb (âge 9), thorium (âge 12)
 require("prototypes.tin") -- lot AMELIO-RESSOURCES, piste ÉTAIN : carte imprimée (âge 4, X3) ; après prototypes.crafts
+require("prototypes.spent_fuel") -- lot AMELIO-RESSOURCES : combustible usé de l'âge 9 (piscine, vitrification, dépôt)
 require("prototypes.modules")
 require("prototypes.enemies")
 require("prototypes.arsenal")
