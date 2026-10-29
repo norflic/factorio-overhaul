@@ -34,14 +34,14 @@ def ty(t):
 def rprof(x):
     if x <= X_NEZ:
         return 0.0
-    if x < -2.0:
-        t = (-2.0 - x) / (-2.0 - X_NEZ)
-        return R * math.sqrt(max(0.0, 1 - t * t))
-    if x <= 2.0:
+    if x < -1.4:
+        t = (-1.4 - x) / (-1.4 - X_NEZ)
+        return R * (1 - t ** 1.6) ** 0.6
+    if x <= 1.6:
         return R
-    if x <= 3.3:
-        return R * (1 - 0.25 * (x - 2.0) / 1.3)
-    return 0.75 * R
+    if x <= 3.0:
+        return R * (1 - 0.3 * (x - 1.6) / 1.4)
+    return 0.7 * R
 
 
 def poutre(g, p0, p1, w, m, what="poutre", h=None):
@@ -93,10 +93,10 @@ PAL = {
             mur2=("rawiron",), toit=("wood2",), pad=("concrete",), pad2=("armor2",), acc=("redpaint",), vit=("glass_dk",)),
     1: dict(peau=("peau_prop",), bande=("armor2",), os=("wood",), aile=("redpaint",), tuy=("rawiron",), mur=("wood",),
             mur2=("wood2",), toit=("canvas",), pad=("wood2",), pad2=("wood",), acc=("cream",), vit=("emit_soft",)),
-    4: dict(peau=("peau_prop",), bande=("noir_capot",), os=("noir_capot",), aile=("jaune_capot",), tuy=("galva",),
-            mur=("jaune_capot",), mur2=("noir_capot",), toit=("noir_capot",), pad=("tole_larmee",),
-            pad2=("noir_capot",), acc=("noir_capot",), vit=("emit_soft",)),
-    8: dict(peau=("peau_prop",), bande=("cuivre_terni",), os=("cuivre_terni",), aile=("vdg_capot",),
+    4: dict(peau=("peau_prop",), bande=("noir_capot",), os=("noir_capot",), aile=("noir_capot",), tuy=("galva",),
+            mur=("jaune_capot",), mur2=("noir_capot",), toit=("noir_capot",), pad=("concrete",),
+            pad2=("noir_capot",), acc=("jaune_capot",), vit=("emit_soft",)),
+    8: dict(peau=("peau_prop",), bande=("cuivre_terni",), os=("steel_dk",), aile=("vdg_capot",),
             tuy=("cuivre_terni",), mur=("bois_mouille",), mur2=("bois_mousse",), toit=("vdg_capot",),
             pad=("bois_mouille",), pad2=("bois_mousse",), acc=("cuivre_terni",), vit=("verre_toxique",)),
     15: dict(peau=("peau_prop",), bande=("noir_chaud",), os=("or_blanc_chaud",), aile=("noir_chaud2",),
@@ -183,11 +183,12 @@ def hublots(c, x0=-3.2, x1=-0.9, pas=0.46, vitre=None):
         g.cyl(p + n * 0.02, n, 0.14 * min(1.0, r / R + 0.2), 0.04, M["steel_dk"], n=14, style="hard", what="cadre_hublot")
         g.cyl(p + n * 0.045, n, 0.1 * min(1.0, r / R + 0.2), 0.03, vit, n=14, style="flat", what="hublot")
         x += pas
-    # verrière du cockpit sur le dessus du crâne
-    r = rprof(-3.0)
-    g.box((-3.0, 0, Z0 + r + 0.01), (0.7, 0.55, 0.05), M["steel_dk"], "hard", R=Matrix.Rotation(0.0, 3, "Y"), what="cadre_verriere")
-    g.box((-3.0, 0, Z0 + r + 0.04), (0.6, 0.45, 0.03), vit, "flat", what="verriere")
-    g.halo((-3.0, -0.4, Z0 + r + 0.2), M["_emit_rgb"], 2.5)
+    # verrière du cockpit : bulle de verre sombre sertie d'un cadre d'acier, sur le dessus du crâne
+    r = rprof(-2.6)
+    g.sphere((-2.6, 0, Z0 + r - 0.1), 0.6, M["glass_dk"], n=24, m=12, scale=(1.35, 0.75, 0.5), what="verriere")
+    for dx in (-0.45, 0.0, 0.45):
+        poutre(g, (-2.6 + dx, -0.42, Z0 + r - 0.08), (-2.6 + dx, 0.42, Z0 + r - 0.08), 0.03, M["steel_hi"], "meneau", h=0.5)
+    g.dome((-2.2, -0.2, Z0 + r + 0.08), (0, 0, 1), 0.05, M["emit_soft"], n=6, what="voyant_cockpit")
 
 
 def queue(c, k=1.0, intacte=True):
@@ -261,6 +262,19 @@ def rapiece(c, liste):
                 g.dome((x + dx, -r * math.sin(a2), Z0 + r * math.cos(a2)), (0, -math.sin(a2), math.cos(a2)), 0.02, M["rivet"], n=6)
 
 
+def joints_aire(c, x0, x1, y, z, pas=1.0):
+    """Joints de dalles sur une aire : un trait sombre tous les `pas` en x et en y (pas constant, grille régulière)."""
+    g, M = c.g, c.M
+    n = int((x1 - x0) / pas)
+    for k in range(1, n):
+        x = x0 + k * (x1 - x0) / n
+        box(g, x - 0.012, x + 0.012, -y + 0.05, y - 0.05, z, z + 0.012, M["seam"], "joint_aire", style="flat")
+    m = int(2 * y / pas)
+    for k in range(1, m):
+        yy = -y + k * 2 * y / m
+        box(g, x0 + 0.05, x1 - 0.05, yy - 0.012, yy + 0.012, z, z + 0.012, M["seam"], "joint_aire", style="flat")
+
+
 def aire(c, x0=XC - HX, x1=XC + HX, y=None, z=0.1, plan="rect"):
     g = c.g
     y = y if y is not None else ty(2.0) - 0.05
@@ -269,6 +283,7 @@ def aire(c, x0=XC - HX, x1=XC + HX, y=None, z=0.1, plan="rect"):
         box(g, x0, x1, sy * (y - 0.05), sy * y, z, z + 0.05, c["pad2"], "bord_aire")
     for xe in (x0, x1):
         box(g, xe - 0.025, xe + 0.025, -y, y, z, z + 0.05, c["pad2"], "bord_aire")
+    joints_aire(c, x0, x1, y, z)
 
 
 # ------------------------------------------------------------------------------------------------
@@ -353,7 +368,16 @@ def age01(c):
         zb = Z0 + R - 0.08
         box(g, x0, x1, -0.6, 0.6, Z0 + 0.8, zb + h, M["wood"], "cabane")
         pans(g, x0, x1, -0.6, 0.6, zb + h, 0.55, M["canvas"], "toit_cabane", debord=0.1)
-        box(g, (x0 + x1) / 2 - 0.2, (x0 + x1) / 2 + 0.2, -0.62, -0.58, zb + 0.25, zb + 0.6, M["emit_soft"], "fenetre", style="flat")
+        poutre(g, (x0 - 0.1, 0, zb + h + 0.55), (x1 + 0.1, 0, zb + h + 0.55), 0.07, M["wood"], "faitage", h=0.07)
+        n = max(3, int((x1 - x0) / 0.3))
+        for k in range(n + 1):
+            xr = x0 - 0.1 + (x1 - x0 + 0.2) * k / n
+            for sg in (-1, 1):
+                poutre(g, (xr, sg * 0.7, zb + h - 0.03), (xr, 0, zb + h + 0.55), 0.04, M["wood"], "chevron", h=0.04)
+        xm = (x0 + x1) / 2
+        box(g, xm - 0.26, xm + 0.26, -0.64, -0.6, zb + 0.2, zb + 0.66, M["wood2"], "cadre_fenetre")
+        box(g, xm - 0.2, xm + 0.2, -0.66, -0.62, zb + 0.26, zb + 0.6, M["emit_soft"], "fenetre", style="flat")
+        box(g, xm - 0.01, xm + 0.01, -0.67, -0.63, zb + 0.26, zb + 0.6, M["wood2"], "croisillon")
     g.cyl((0.8, 0.3, Z0 + R + 1.35), "z", 0.08, 0.5, M["blackiron"], n=8, style="smooth", what="cheminee")
     # passerelle de bois le long du flanc sud, poteaux, garde-corps, rampe vers le sol
     ys = -(R + 0.55)
@@ -363,7 +387,7 @@ def age01(c):
         poutre(g, (x, ys - 0.27, 0.1), (x, ys - 0.27, zp + 0.6), 0.07, M["wood"], "poteau")
         g.cyl((x, ys - 0.27, zp + 0.72), "z", 0.07, 0.14, M["emit"], n=8, style="flat", what="lanterne")
         g.halo((x, ys - 0.5, zp + 0.7), M["_emit_rgb"], 3.0)
-    poutre(g, (-2.3, ys - 0.27, zp + 0.5), (1.7, ys - 0.27, zp + 0.5), 0.04, M["wood"], "lisse")
+    poutre(g, (-2.3, ys - 0.27, zp + 0.5), (1.7, ys - 0.27, zp + 0.5), 0.07, M["wood"], "lisse")
     poutre(g, (-2.3, ys, zp + 0.03), (-3.3, ys - 0.1, 0.12), 0.06, M["wood"], "rampe", h=0.28)
     # mât et fanion à l'avant, sur l'épine
     poutre(g, (-2.2, 0, Z0 + R), (-2.2, 0, Z0 + R + 1.4), 0.06, M["wood"], "mat")
@@ -447,7 +471,7 @@ def age08(c):
     # côtes qui dépassent du toit : anneaux pleins sur toute la halle
     cotes(c, [-1.9, -1.1, -0.3, 0.5, 1.3, 2.1], k=1.0)
     cotes(c, [-2.7, 2.9])
-    epine(c, X_NEZ + 0.1, 3.3, mat=M["cuivre_terni"], w=0.2)
+    epine(c, X_NEZ + 0.1, 3.3, mat=M["steel_hi"], w=0.18)
     queue(c)
     hublots(c, -3.4, -2.6, 0.4, vitre=M["verre_toxique"])
     g.pop()
@@ -507,10 +531,16 @@ def age15(c):
     hublots(c, -3.4, -2.8, 0.4, vitre=M["emit_soft"])
     # grandes arches d'or : les côtes, plus grandes que la coque, à cheval sur la halle
     for x in (-1.8, -0.8, 0.2, 1.2, 2.2):
-        g.tube_shell((x, 0, Z0), "x", 2.15, 2.0, 0.17, M["or_blanc_chaud"], n=36, what="arche")
-    # épine : faîtière d'or sur les arches
-    poutre(g, (-2.3, 0, Z0 + 2.15), (2.6, 0, Z0 + 2.15), 0.3, M["or_blanc_chaud"], "epine", h=0.24)
-    poutre(g, (-3.8, 0, Z0 + 0.15 * R), (-2.3, 0, Z0 + 2.15), 0.14, M["or_chauffe"], "epine_crane", h=0.14)
+        g.tube_shell((x, 0, Z0), "x", 1.95, 1.8, 0.17, M["or_chauffe"], n=36, what="arche")
+        for sy in (-1, 1):                      # consoles : l'arche repose sur le mur par un sabot d'or visible
+            box(g, x - 0.17, x + 0.17, sy * 1.74, sy * 2.08, 1.95, 2.45, M["or_blanc_chaud"], "console")
+            box(g, x - 0.24, x + 0.24, sy * 1.7, sy * 2.12, 2.4, 2.5, M["or_chauffe"], "sabot")
+    # épine : faîtière d'or posée sur le sommet des arches (de la première à la dernière), puis crête vers le crâne
+    poutre(g, (-1.8, 0, Z0 + 1.95), (2.2, 0, Z0 + 1.95), 0.3, M["or_blanc_chaud"], "epine", h=0.24)
+    poutre(g, (-3.7, 0, Z0 + 0.2 * R), (-1.8, 0, Z0 + 1.95), 0.16, M["or_chauffe"], "epine_crane", h=0.16)
+    for x in (-2.8, -2.3):
+        zc = Z0 + 0.2 * R + (Z0 + 1.95 - Z0 - 0.2 * R) * (x + 3.7) / 1.9
+        poutre(g, (x, 0, 2.0), (x, 0, zc - 0.05), 0.1, M["or_chauffe"], "pilier_epine")
     # halle noire à créneaux
     box(g, -2.3, 2.8, -1.85, 1.85, 0.16, 2.2, M["noir_chaud"], "halle")
     for z in (0.7, 1.6):
@@ -529,7 +559,7 @@ def age15(c):
     for x in (-1.8, -0.8, 0.2, 1.2, 2.2):
         box(g, x - 0.1, x + 0.1, -2.05, -1.84, 0.16, 2.2, M["or_blanc_chaud"], "pilastre")
     # donjon étagé (octogonal) sur la halle
-    for (r, z0_, z1_, m) in ((1.45, 2.2, 3.2, "or_chauffe"), (1.05, 3.2, 4.0, "noir_chaud2"), (0.65, 4.0, 4.6, "or_blanc_chaud")):
+    for (r, z0_, z1_, m) in ((1.45, 2.2, 3.2, "or_chauffe"), (1.05, 3.2, 4.0, "noir_chaud2"), (0.65, 4.0, 4.6, "or_chauffe")):
         g.cyl((0.35, 0, (z0_ + z1_) / 2), "z", r, z1_ - z0_, M[m], n=8, style="hard", phase=math.pi / 8, what="donjon")
         g.tube_shell((0.35, 0, z1_), "z", r + 0.07, r - 0.02, 0.12, M["or_chauffe"], n=8, what="corniche_donjon")
     for k in range(8):
