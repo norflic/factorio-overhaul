@@ -821,8 +821,10 @@ function P.plan(view, book)
       end
     end
   end
-  if em and (em.rebuild or view.threatened) and (view.done or {})["army"] then
+  if em and (em.rebuild or view.threatened or view.army_alert) and (view.done or {})["army"] then
     local guard = math.min(math.max(5, math.floor(P.army_target(view) / 3)), view.soldiers_max)
+    -- Lot ARMEE-ANTICIPATION : vague annoncée : la garde équipée au QG pendant la survie couvre le besoin estimé.
+    if view.army_alert and view.army_need then guard = math.min(math.max(guard, view.army_need), view.soldiers_max) end
     if view.soldiers < guard then
       local n = math.min(T.kit_batch, guard - view.soldiers)
       local units = { P.best_unit(view.tech) }
@@ -1012,8 +1014,15 @@ function P.plan(view, book)
   end
 
   local army_goal_passed = done["army"] or army_now
-  if view.threatened or army_goal_passed then
-    local target = view.threatened and math.max(P.army_target(view), view.soldiers + T.kit_batch) or P.army_target(view)
+  -- Lot ARMEE-ANTICIPATION (« recruter un maximum de soldats », DC 29/10) : une vague annoncée (view.army_alert) arme l'équipe
+  -- AVANT la première perte, jusqu'au besoin estimé (view.army_need), avec la priorité de la défense (protéger avant produire)
+  -- tant que l'effectif est SOUS ce besoin ; au-delà, l'armée visée ordinaire garde sa priorité (45 : produire d'abord).
+  local alert_need = (view.army_alert and view.army_need) or 0
+  local urgent = view.threatened or view.soldiers < alert_need
+  if view.threatened or alert_need > 0 or army_goal_passed then
+    local target = view.threatened and math.max(P.army_target(view), view.soldiers + T.kit_batch)
+      or (army_goal_passed and P.army_target(view) or 0)
+    if alert_need > target then target = alert_need end
     if army_now and goal and goal.need.soldiers then target = math.max(target, goal.need.soldiers) end
     target = math.min(target, view.soldiers_max)
     if view.soldiers < target and not out.train then -- lot IA2-a2 : garde déjà équipée au QG à cette pensée
@@ -1024,7 +1033,7 @@ function P.plan(view, book)
         out.train = { unit = unit, count = n }
       else
         -- Repli sur le fusilier si l'équipement du meilleur soldat n'est pas encore fabricable.
-        local ok = want(kits, view.threatened and 85 or 45, "armee")
+        local ok = want(kits, urgent and 85 or 45, "armee")
         if not ok and army_now then add_missing(last_raw) end
         if not ok and unit ~= "rifleman" then
           local fallback = kit_list("rifleman", n)

@@ -68,6 +68,15 @@ end
 --- Soldats nécessaires pour nettoyer un groupe de k menaces.
 function Sd.clear_need(k) return Sd.CLEAR_BASE + Sd.CLEAR_PER * k end
 
+--- Lot ARMEE-ANTICIPATION (« ils ont envoyé quatre soldats dans un endroit trop dangereux », DC 29/10) : besoin d'un nettoyage
+--- compté sur le CHAMP ENTIER (th.wide, menaces à moins de WIDE_R), pas sur le seul groupe de 24 tuiles autour de la menace vue :
+--- un ver qui a tué au bord d'un champ de 2 nids et 4 vers demandait clear_need(1) = 5 soldats, envoyés au pied du champ.
+function Sd.field_need(th)
+  local k = th.k or 1
+  if (th.wide or 0) > k then k = th.wide end
+  return Sd.clear_need(k)
+end
+
 --- Réserve gardée au QG quand `idle` soldats sont inactifs (au moins RESERVE_MIN, ou RESERVE_SHARE pour mille).
 function Sd.reserve(idle)
   local r = math.ceil(idle * Sd.RESERVE_SHARE / 1000)
@@ -161,7 +170,10 @@ end
 ---   defend = { { key, x, y, n } } (n = nil : tous), escorts = { { aid, x, y, n } } (triés par aid),
 ---   threats = { { x, y, k, killed } } (menaces fixes candidates au nettoyage, déjà filtrées par l'appelant),
 ---   clearing = { x, y } | nil (opération en cours), blocked = { { x, y, until } } (sites abandonnés), offense = false (coupure), patrol_pts = { {x,y} } (nil : anneau du QG), guard_pts (nil : postes
----   du QG), marked_outposts = { {x,y} }, cursor = entier (rotation des patrouilles) }
+---   du QG), marked_outposts = { {x,y} }, cursor = entier (rotation des patrouilles),
+---   muster = {x,y} | nil (lot ARMEE-ANTICIPATION : alerte, les soldats libres s'y regroupent au lieu de patrouiller ou garder),
+---   raid = { x, y, k, wide, nests, need, reserve } | nil (raid contre le champ menaçant, shared/ai3/armee.lua) }
+--- summary.raid = "lance" | "effectif" (soldats libres insuffisants) | "bloque" (site d'une retraite récente) | nil.
 --- Renvoie orders = { [id] = { role, x, y, aid, key } }, et le résumé { idle, rest, far, offense, roles = { [rôle] = n } } (far :
 --- soldats égarés loin du QG sans rôle à poursuivre, laissés au rappel du chef).
 function Sd.assign(input)
@@ -222,10 +234,24 @@ function Sd.assign(input)
   local by_offense = false
   if not target then
     local offense = input.offense ~= false -- coupure de banc : input.offense == false (ni expédition ni site interdit)
-    for _, th in ipairs(input.threats or {}) do
+    -- Lot ARMEE-ANTICIPATION : RAID contre le champ qui prépare une vague (shared/ai3/armee.lua), seulement si les soldats libres
+    -- couvrent son besoin et la réserve ; sinon, pendant l'alerte (input.muster), aucune autre expédition : regroupement d'abord.
+    local r = input.raid
+    if r and offense then
+      if Sd.is_blocked(input.blocked, r, tick) then
+        summary.raid = "bloque"
+      elseif #avail >= r.need + (r.reserve or 0) then
+        target, by_offense = { x = r.x, y = r.y, k = r.k or 1, wide = r.wide, nests = r.nests, need = r.need, raid = true }, true
+        summary.raid = "lance"
+      else
+        summary.raid = "effectif"
+      end
+    end
+    for _, th in ipairs((not target and not input.muster) and input.threats or {}) do
       if not (offense and Sd.is_blocked(input.blocked, th, tick)) then
         -- Vieux seuil d'agressivité : seulement si au moins une menace du groupe a été VUE en marche (pas connue de la seule carte).
-        if ((input.agr or 1000) >= Sd.CLEAR_AGR or th.killed) and (th.known or 0) < (th.k or 1) and #avail >= Sd.clear_need(th.k or 1) then
+        -- Besoin compté sur le champ entier (Sd.field_need, lot ARMEE-ANTICIPATION).
+        if ((input.agr or 1000) >= Sd.CLEAR_AGR or th.killed) and (th.known or 0) < (th.k or 1) and #avail >= Sd.field_need(th) then
           target = th
           break
         elseif offense and Sd.offense_ok(th, hq, #avail) then
@@ -240,9 +266,7 @@ function Sd.assign(input)
   -- Opération en cours : `need` = force encore en vie (posée par l'appelant), sinon le besoin du groupe (sans cela, après le
   -- premier passage, seuls clear_need(1) = 5 soldats auraient gardé leur ordre et les autres seraient repartis en patrouille).
   -- Expédition : la force envoyée est celle que offense_ok a contrôlée (le champ entier, pas le seul groupe de 24 tuiles).
-  local kk = target and (target.k or 1) or 1
-  if by_offense and (target.wide or 0) > kk then kk = target.wide end
-  local need = target and (target.need or Sd.clear_need(kk)) or 0
+  local need = target and (target.need or Sd.field_need(target)) or 0
   for _, s in ipairs(far) do
     if target and s.role == "clear" and need > 0 then
       give(s, { role = "clear", x = target.x, y = target.y })
@@ -276,8 +300,13 @@ function Sd.assign(input)
   end
   local cur = input.cursor or 0
   local slot = math.floor(tick / Sd.PATROL_TICKS)
+  local mu = input.muster
   for i, s in ipairs(rest_av) do
-    if i <= n_patrol then
+    if mu then
+      -- Lot ARMEE-ANTICIPATION (« 13 soldats [...] tous séparés, ils vont se faire bouffer ; regroupés, c'est pas la même ») : une
+      -- vague se prépare : tous les soldats libres tiennent UN point, entre le QG et la menace, au lieu des paires de patrouille.
+      give(s, { role = "muster", x = mu.x, y = mu.y })
+    elseif i <= n_patrol then
       -- par paires : soldats 2j-1 et 2j au même point ; le point tourne d'un cran toutes les PATROL_TICKS
       local j = math.floor((i - 1) / 2)
       local p = ppts[(j + slot + cur) % #ppts + 1]
