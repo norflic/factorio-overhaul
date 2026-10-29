@@ -440,9 +440,9 @@ function P.plan(view, book)
     -- pièces (shared/team/garde_centrale.lua), posées par la même tâche « fortify », payées sur le stock.
     if view.plant then
       local pl = view.plant
-      local need = Guard.need(pl.pieces, pl.boilers, pl.turrets, pl.range, pl.low)
+      local need = (not pl.pause) and Guard.need(pl.pieces, pl.boilers, pl.turrets, pl.range, pl.low) or nil
       if need then
-        posts[#posts + 1] = { id = "plant", want = need.wanted, have = need.have, busy = pl.fortify,
+        posts[#posts + 1] = { id = "plant", want = need.wanted, have = need.near, busy = pl.fortify,
           sites = need.sites, pos = need.center, range = pl.range, pieces = pl.pieces }
       end
     end

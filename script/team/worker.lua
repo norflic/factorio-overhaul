@@ -1104,6 +1104,8 @@ Registry.on_removed(function(agent)
       agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
       game.tick / 3600, p and string.format("(%d, %d)", math.floor(p.x), math.floor(p.y)) or "inconnue",
       t and t.outpost ~= nil and tostring(t.outpost) or "aucun"))
+    -- Lot CENTRALE-GARDE : porteur tué en allant poser les tourelles de la centrale : pause de la garde (comme un avant-poste meurtrier)
+    if t and t.kind == "fortify" and t.outpost == "plant" then GardeCentrale.on_lost(f, agent.id, agent.death_cause) end
     -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
     -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
     -- T.hq_lethal_ticks (script/team/team.lua, view.hold_recruits). Dates gardées : les T.hq_lethal_deaths dernières.

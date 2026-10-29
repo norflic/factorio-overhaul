@@ -22,24 +22,25 @@ local function range_of_turret()
   return ap and ap.range or nil
 end
 
---- Pièces (chaudières, machines à vapeur, pompes) de la centrale finie de l'équipe et nombre de chaudières ; nil sans centrale finie.
-local function pieces_of(f)
+--- Pièces VIVANTES (chaudières, machines à vapeur, pompes) de LA centrale de l'équipe (b.plant, finie) et nombre de chaudières vivantes ;
+--- nil sans centrale finie ou sans chaudière vivante (centrale détruite : on ne remplace pas des tourelles autour des ruines). Une seule
+--- centrale lue : deux projets éloignés ne donneraient aucun emplacement qui couvre tout (correctif du 2e relecteur).
+local function pieces_of(f, surface)
   local b = f.build
-  if not b then return nil end
+  local p = b and b.plant and b.projects[b.plant]
+  if not (p and p.state == "fini" and p.spec and p.spec.gen == D.PLANT.gen) then return nil end
   local pieces, boilers = {}, 0
-  for _, pid in ipairs(b.order) do
-    local p = b.projects[pid]
-    if p and p.state == "fini" and p.spec and p.spec.gen == D.PLANT.gen then
-      for _, e in ipairs(p.ents) do
-        local sp = M.spec(e.name) or {}
-        if sp.water or sp.power_out or sp.kind == "offshore" then
-          pieces[#pieces + 1] = { x = e.x, y = e.y }
-          if sp.water then boilers = boilers + 1 end
-        end
+  for _, e in ipairs(p.ents) do
+    local sp = M.spec(e.name) or {}
+    if sp.water or sp.power_out or sp.kind == "offshore" then
+      local real = surface.find_entity(e.name, { e.x, e.y })
+      if real and real.valid and real.force.name == f.force then
+        pieces[#pieces + 1] = { x = e.x, y = e.y }
+        if sp.water then boilers = boilers + 1 end
       end
     end
   end
-  if #pieces == 0 then return nil end
+  if #pieces == 0 or boilers == 0 then return nil end
   return pieces, boilers
 end
 
@@ -59,17 +60,31 @@ end
 -- 3 minutes (tourelles armées à portée, tâche ouverte, fer au stock), chaque pose (cumul, délai depuis la centrale finie).
 local STATUS_EVERY = 3 * 3600
 
+--- Pause de la garde après la mort d'un porteur en route (comme un avant-poste MEURTRIER : T.lethal_ticks) ; journalise le trajet perdu.
+function GC.on_lost(f, agent_id, cause)
+  local b = f.build
+  if not b then return end
+  b.garde = b.garde or { poses = 0 }
+  local tick = game.tick
+  b.garde.pause_until = tick + T.lethal_ticks
+  b.garde.lost = (b.garde.lost or 0) + 1
+  log(string.format("[FO-CENTRALE-GARDE] %s : PNJ %s tue en allant poser les tourelles de la centrale (%s) a %.1f min ; garde en pause jusqu'a %.1f min (trajets perdus : %d)",
+    f.key or "player", tostring(agent_id), tostring(cause), tick / 3600, b.garde.pause_until / 3600, b.garde.lost))
+end
+
 function GC.view(f, fortify_open, iron)
-  local pieces, boilers = pieces_of(f)
+  local surface = f.hq and f.hq.valid and f.hq.surface or nil
+  if not surface then return nil end
+  local pieces, boilers = pieces_of(f, surface)
   if not pieces then return nil end
   local range = range_of_turret()
   if not range then return nil end
   local turrets = turrets_of(f)
-  local view = { pieces = pieces, boilers = boilers, turrets = turrets, range = range, low = T.turret_ammo_low,
-    fortify = fortify_open and fortify_open["plant"] or false }
   local b = f.build
   b.garde = b.garde or { poses = 0 }
   local g, tick = b.garde, game.tick
+  local view = { pieces = pieces, boilers = boilers, turrets = turrets, range = range, low = T.turret_ammo_low,
+    fortify = fortify_open and fortify_open["plant"] or false, pause = (g.pause_until or 0) > tick }
   local have = Guard.guards(pieces, turrets, range, T.turret_ammo_low)
   local want = Guard.wanted(boilers)
   if not g.fini then

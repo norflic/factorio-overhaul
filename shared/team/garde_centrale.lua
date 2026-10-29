@@ -8,7 +8,10 @@
   Données lues par l'appelant : pieces = { { x, y } } (chaudières, machines à vapeur, pompes) ; turrets = { { x, y, rounds } } (tourelles de
   l'équipe) ; range = portée de la tourelle lue au prototype ; low = seuil « armée » (munitions).
   - K (G.wanted) : tourelles armées voulues, selon le nombre de chaudières (une de plus qu'une chaudière, au moins G.MIN, au plus G.MAX) ;
-  - une tourelle GARDE la centrale si elle est armée et si TOUTES les pièces sont à moins de `range` d'elle (G.guards) ;
+  - une tourelle GARDE la centrale si elle est armée et si TOUTES les pièces sont à moins de `range` d'elle (G.guards) ; une tourelle
+    à portée de toutes les pièces OCCUPE une place même vide (G.near) : sous 8 chargeurs elle n'est plus armée mais on la ravitaille
+    (groupe « oplant »), on n'en pose pas une de plus par-dessus (borne de la sur-pose, correctif du 2e relecteur) ;
+  - une centrale trop étendue pour qu'un même point voie toutes ses pièces à portée est INFAISABLE (G.feasible) : aucune pose ;
   - G.sites : emplacements candidats, anneau autour du centre des pièces, rayon pris pour que toute pièce reste à portée ;
   - G.covers : une position de pose est acceptée si toutes les pièces sont à portée.
 ]]
@@ -36,6 +39,15 @@ function G.covers(pieces, x, y, range)
     if dist2(p.x, p.y, x, y) > r2 then return false end
   end
   return true
+end
+
+--- Nombre de tourelles à portée de toutes les pièces, armées ou non (places occupées).
+function G.near(pieces, turrets, range)
+  local n = 0
+  for _, t in ipairs(turrets or {}) do
+    if G.covers(pieces, t.x, t.y, range) then n = n + 1 end
+  end
+  return n
 end
 
 --- Nombre de tourelles ARMÉES qui gardent la centrale (toutes les pièces à portée).
@@ -82,15 +94,24 @@ function G.sites(pieces, range, n)
   return out, { x = cx, y = cy }
 end
 
---- Besoin d'une centrale : { wanted, have, missing, sites, center } ou nil sans pièce.
+--- Un même point voit-il toutes les pièces à portée (avec la marge) ? Faux pour une centrale trop étendue.
+function G.feasible(pieces, range)
+  if not pieces or #pieces == 0 then return false end
+  local _, _, far = G.center(pieces)
+  return range - far - G.MARGIN >= 1
+end
+
+--- Besoin d'une centrale : { wanted, have (armées), near (places occupées), missing, sites, center } ou nil sans pièce ou si infaisable.
+--- missing = wanted - near : une tourelle vide occupe sa place (elle est ravitaillée, pas remplacée).
 function G.need(pieces, boilers, turrets, range, low)
-  if not pieces or #pieces == 0 then return nil end
+  if not G.feasible(pieces, range) then return nil end
   local want = G.wanted(boilers)
   local have = G.guards(pieces, turrets, range, low)
-  local missing = want - have
+  local near = G.near(pieces, turrets, range)
+  local missing = want - near
   if missing < 0 then missing = 0 end
   local sites, center = G.sites(pieces, range, math.max(want, missing + 2))
-  return { wanted = want, have = have, missing = missing, sites = sites, center = center }
+  return { wanted = want, have = have, near = near, missing = missing, sites = sites, center = center }
 end
 
 return G

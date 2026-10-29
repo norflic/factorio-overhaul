@@ -110,7 +110,50 @@ local p9 = Planner.plan(view({ stock = rich, plant = plant({ turrets = { turrets
 local t9 = guard_task(p9)
 check(t9 and qty(t9, "gun-turret") == 1, "une garde déjà là pour une chaudière : une seule de plus")
 
-section("5. Mutants")
+section("5. Sur-pose bornée, centrale détruite, pièces éloignées, grande centrale")
+do
+  -- (C) deux tourelles vides à portée occupent leurs places : rien de plus à poser (le ravitaillement s'en charge)
+  local empty = { { x = 8, y = 7, rounds = 0 }, { x = -6, y = 7, rounds = 2 } }
+  local ne = G.need(pieces, 1, empty, RANGE, LOW)
+  check(ne.have == 0 and ne.near == 2 and ne.missing == 0, "deux tourelles vides à portée : 0 gardes armées, 2 places occupées, rien à ajouter")
+  local pe = Planner.plan(view({ stock = rich, plant = plant({ turrets = empty }) }), book)
+  check(guard_task(pe) == nil, "planificateur : pas de tourelle de plus au-dessus de deux tourelles vides")
+  local ne1 = G.need(pieces, 1, { { x = 8, y = 7, rounds = 0 } }, RANGE, LOW)
+  check(ne1.missing == 1, "une vide pour deux voulues : une seule de plus")
+  -- (A) centrale détruite : plus de pièce => pas de besoin, pas de tâche
+  check(G.need({}, 1, {}, RANGE, LOW) == nil, "centrale détruite (aucune pièce vivante) : aucun besoin")
+  local pd = Planner.plan(view({ stock = rich, plant = nil }), book)
+  check(guard_task(pd) == nil, "centrale détruite (view.plant nil) : aucune tâche")
+  -- une seule pièce vivante
+  local one = { { x = 3, y = 3 } }
+  local n1 = G.need(one, 1, {}, RANGE, LOW)
+  check(n1 and n1.missing == 2 and #n1.sites >= 2, "une seule pièce vivante : deux gardes voulues, emplacements trouvés")
+  for i, st in ipairs(n1.sites) do check(G.covers(one, st.x, st.y, RANGE), "une pièce : emplacement " .. i .. " à portée") end
+  -- (A) pièces éloignées : infaisable, aucune pose répétée
+  local apart = { { x = 0, y = 0 }, { x = 80, y = 0 } }
+  check(not G.feasible(apart, RANGE) and G.need(apart, 2, {}, RANGE, LOW) == nil, "deux groupes de pièces à 80 tuiles : infaisable, aucun besoin")
+  local near2 = { { x = 0, y = 0 }, { x = 40, y = 0 } }
+  check(not G.feasible(near2, RANGE) and G.need(near2, 2, {}, RANGE, LOW) == nil, "deux pièces à 40 tuiles : infaisable")
+  check(G.feasible(pieces, RANGE), "la centrale du gabarit est faisable")
+  -- plus de 6 chaudières : K plafonné, emplacements encore à portée
+  local big = {}
+  for k = 0, 8 do big[#big + 1] = { x = 1 + 3 * k, y = 12 } ; big[#big + 1] = { x = 1 + 3 * k, y = 6 } ; big[#big + 1] = { x = 1 + 3 * k, y = 1 } end
+  big[#big + 1] = { x = -6, y = 12 }
+  local nb = G.need(big, 9, {}, RANGE, LOW)
+  if nb then
+    check(nb.wanted == G.MAX, "9 chaudières : K plafonné à " .. G.MAX)
+    for i, st in ipairs(nb.sites) do check(G.covers(big, st.x, st.y, RANGE), "grande centrale : emplacement " .. i .. " à portée") end
+  else
+    check(not G.feasible(big, RANGE), "grande centrale infaisable : aucun besoin plutôt qu'une pose impossible")
+  end
+  -- (B) pause après la mort d'un porteur en route : pas de tâche
+  local pp = Planner.plan(view({ stock = rich, plant = plant({ pause = true }) }), book)
+  check(guard_task(pp) == nil, "pause (PNJ tué en route vers la centrale) : aucune tâche")
+  local pq = Planner.plan(view({ stock = rich, plant = plant({ pause = false }) }), book)
+  check(guard_task(pq) ~= nil, "fin de la pause : la tâche revient")
+end
+
+section("6. Mutants")
 do
   local real_guards = G.guards
   G.guards = function(pc, ts, r, low) -- mutant : tout ce qui est près compte, même vide
@@ -119,20 +162,37 @@ do
     return n
   end
   local m = G.need(pieces, 1, { { x = 8, y = 7, rounds = 0 }, { x = -6, y = 7, rounds = 0 } }, RANGE, LOW)
-  check(m.missing == 0, "(témoin du mutant) tourelles vides comptées comme gardes")
   G.guards = real_guards
   local ok = G.need(pieces, 1, { { x = 8, y = 7, rounds = 0 }, { x = -6, y = 7, rounds = 0 } }, RANGE, LOW)
-  check(ok.missing == 2, "mutant « tourelle vide = garde » refusé : 2 manquent avec des tourelles vides")
+  check(m.have == 2 and ok.have == 0, "mutant « tourelle vide = garde armée » refusé : 0 armée avec des tourelles vides")
   local real_covers = G.covers
   G.covers = function() return true end -- mutant : la portée n'est plus vérifiée
   local far = G.guards(pieces, { { x = 400, y = 400, rounds = 20 } }, RANGE, LOW)
+  local far_n = G.near(pieces, { { x = 400, y = 400, rounds = 20 } }, RANGE)
+  local far_sites = G.sites({ { x = 0, y = 0 }, { x = 80, y = 0 } }, RANGE, 2)
+  local sites_ok = true
+  for _, st in ipairs(far_sites) do if not real_covers({ { x = 0, y = 0 }, { x = 80, y = 0 } }, st.x, st.y, RANGE) then sites_ok = false end end
   G.covers = real_covers
-  check(far == 1 and G.guards(pieces, { { x = 400, y = 400, rounds = 20 } }, RANGE, LOW) == 0, "mutant « portée ignorée » refusé : une tourelle à 400 tuiles ne garde pas")
+  check(far == 1 and far_n == 1 and G.guards(pieces, { { x = 400, y = 400, rounds = 20 } }, RANGE, LOW) == 0
+    and G.near(pieces, { { x = 400, y = 400, rounds = 20 } }, RANGE) == 0, "mutant « portée ignorée » refusé : une tourelle à 400 tuiles ne garde pas et n'occupe aucune place")
+  check(not sites_ok, "G.covers rejette les emplacements qui ne voient pas toutes les pièces (témoin : ils existent mais ne couvrent pas)")
   local real_wanted = G.wanted
   G.wanted = function() return 0 end -- mutant : K nul
   local nul = G.need(pieces, 1, {}, RANGE, LOW)
   G.wanted = real_wanted
   check(nul.missing == 0 and G.need(pieces, 1, {}, RANGE, LOW).missing == 2, "mutant « K nul » refusé")
+  local real_sites = G.sites
+  G.sites = function(pc, r, n) return { { x = 400, y = 400 } }, { x = 400, y = 400 } end -- mutant : emplacements hors portée
+  local msite = G.need(pieces, 1, {}, RANGE, LOW)
+  G.sites = real_sites
+  check(not G.covers(pieces, msite.sites[1].x, msite.sites[1].y, RANGE) and G.covers(pieces, G.need(pieces, 1, {}, RANGE, LOW).sites[1].x,
+    G.need(pieces, 1, {}, RANGE, LOW).sites[1].y, RANGE), "mutant « emplacements hors portée » refusé")
+  local real_near = G.near
+  G.near = function() return 0 end -- mutant : les tourelles vides ne tiennent plus leur place (sur-pose)
+  local sur = G.need(pieces, 1, { { x = 8, y = 7, rounds = 0 }, { x = -6, y = 7, rounds = 0 } }, RANGE, LOW)
+  G.near = real_near
+  check(sur.missing == 2 and G.need(pieces, 1, { { x = 8, y = 7, rounds = 0 }, { x = -6, y = 7, rounds = 0 } }, RANGE, LOW).missing == 0,
+    "mutant « places vides ignorées » refusé : il reposerait 2 tourelles par-dessus les vides")
 end
 
 print(string.format("[GARDE-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
