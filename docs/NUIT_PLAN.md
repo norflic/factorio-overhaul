@@ -62,3 +62,7 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | MAINS-CHAINE | cause du brief refutee (minerai non garde) ; 40 % des tournees de fonte partent a vide ; regle chaine_main.lua (33 OK, 25 mutants) sans gain mesurable | PARQUE par mainsc |
 
 | POTEAUX-UNIQUES (decision 04 h 25) | criteres de fusion tenus sur 6 graines (mediane alimentes 1,34 ; paires 0,11) MAIS sceptique-pu : NON VALIDE : connectivite en baisse non mesuree par les criteres (poteaux hors reseau de la centrale 15,0 % contre 9,4 %, ilots 109 contre 90, shift_pole bloque 15 fois contre 2 : sans poteaux redondants un poteau gene ne peut plus bouger) ; « alimentes » confond capacite de la centrale et poteaux ; 123456789 -26 % = panne de centrale | PARQUE ; le DC veut « autre voie, pas de redondance » : a reprendre avec shift_pole + critere de connectivite (composantes, poteaux hors service) |
+
+| PLANDIR-SURE (FUSIONNE 04 h 50) | 2 sceptiques valides ; PNJ inertes m60 29,5=29,5 ; migration des bras (bras_retour, micro-banc plandir-retour 12 OK, etat herite reproduit, pas une vraie sauvegarde) ; content 331 OK | version 0.6.8, tag jouable-0.6.8, branche jouable deplacee |
+| PANEL | Kills/Pertes corriges (panel-kills 11 OK, ia1-gui 52 OK sans set_*_count), tests verts ; etape1-guide 4 graines non rejoue apres correction | attend verdict visuel du DC (question 10) ; rejeu 4 graines demande a panel |
+| CAPI-ANNUL (nouveau) | agent capi-annul : regle « aucun progres en 30 min » vs projet en reserve qui attend des materiaux | en cours |
