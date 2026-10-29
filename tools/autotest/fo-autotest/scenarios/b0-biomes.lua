@@ -309,7 +309,11 @@ return {
       elseif cristal then
         -- Les nids et vers vanilla posent leur propre décor à la génération (spawn_decoration : enemy-decal,
         -- shroom-decal, red-pita...) : il n'est pas autoplacé, il reste (compté à part).
-        if s.count_entities_filtered({ position = { p.x + 0.5, p.y + 0.5 }, radius = 10, force = "enemy" }) > 0 then
+        -- Piste AMELIO-BIOMES : un décoratif SANS autoplacement (enemy-decal-transparent des nids, posé jusqu'à plus de
+        -- 10 tuiles du nid : 8 cas sur les cendres au premier passage) n'est pas du décor autoplacé : compté avec les nids.
+        local dp = game.decorative_prototypes[d.decorative.name]
+        if (dp and dp.autoplace_specification == nil)
+          or s.count_entities_filtered({ position = { p.x + 0.5, p.y + 0.5 }, radius = 10, force = "enemy" }) > 0 then
           nid = nid + 1
           nom = nom .. "[nid]"
         else
