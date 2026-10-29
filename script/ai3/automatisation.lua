@@ -472,7 +472,7 @@ function Auto.think(f, view, book, tick, research)
   refresh(f, st, tick)
   -- Lot CORR-ENERGIE : pendant le repli de l'équipe (réserves affamées : crise de matière), le plan directeur ne demande pas
   -- de centrale de plus (script/team/plant_arms.lua, PA.watch)
-  if f.build then f.build.grow_hold = tick < (st.hold_until or 0) end
+  if f.build then f.build.grow_hold_until = st.hold_until or 0 end -- (une ECHEANCE : cerveau éteint ensuite, le repli finit seul)
   if tick >= (st.next_decide or 0) then
     st.next_decide = tick + Auto.EVERY
     local stock = view.stock or {}

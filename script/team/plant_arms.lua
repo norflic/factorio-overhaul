@@ -179,8 +179,8 @@ function PA.watch(f, surface, tick)
             end
           end
         end
-      elseif p.state ~= "refuse" then
-        pending = pending + 1
+      elseif p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
+        pending = pending + 1 -- (un chantier bloqué sans reprise prévue est abandonné : il compte plus bas comme un refus)
       end
     end
   end
@@ -194,12 +194,12 @@ function PA.watch(f, surface, tick)
   local refused, stale = 0, {}
   for _, id in ipairs(b.extra_plants or {}) do
     local p = b.projects[id]
-    if p and p.state == "refuse" and p.reason ~= C.STALE_REASON then refused = refused + 1 end
+    if p and ((p.state == "refuse" and p.reason ~= C.STALE_REASON) or (p.state == "bloque" and not p.retry_at)) then refused = refused + 1 end
     if p and C.stale(p.state, p.reason, tick - (p.started or tick)) then stale[#stale + 1] = id end
   end
   g.refused = refused
   if #stale > 0 then g.cool_until = tick + C.COOL end
-  local hold = b.grow_hold == true
+  local hold = tick < (b.grow_hold_until or 0)
   local nb, why = C.growth(g, { done = done, pending = pending, refused = refused, hold = hold, cool = tick < (g.cool_until or 0),
     off = b.opts and b.opts.no_grow == true })
   if not nb and g.saturated and why ~= g.why then
