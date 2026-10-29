@@ -444,6 +444,13 @@ end
 Build.AVOID_MARGIN = 8 -- tuiles ajoutées au rayon d'un site écarté (le lot fait 32 tuiles de côté)
 local REUSE_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true } -- projets dont les poteaux existent ou vont exister
 
+--- Lot ENERGIE-CROISSANCE : numéro du projet `pid` si c'est une centrale à vapeur FINIE (sa rive peut en recevoir une autre), sinon nil.
+local function plant_owner(b, pid)
+  local p = b.projects[pid]
+  if p and p.state == "fini" and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then return pid end
+  return nil
+end
+
 local function candidates(b, states, toward, res)
   local out = {}
   for _, k in ipairs(sorted_keys(b.lots)) do
@@ -453,7 +460,11 @@ local function candidates(b, states, toward, res)
     -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
     if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end -- lot ENCEINTE3 : dehors du contour
-    if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
+    -- lot ENERGIE-CROISSANCE : une rive déjà prise par une centrale FINIE reçoit une centrale de plus sur un autre bord de la même
+    -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
+    -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
+    local shared = l.used and l.state ~= "gisement" and states.rive and plant_owner(b, l.used) or nil
+    if (not l.used or l.state == "gisement" or shared) and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
       local avoided = false
@@ -464,7 +475,7 @@ local function candidates(b, states, toward, res)
         end
       end
       if not avoided then
-        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
+        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k, shared = shared }
       end
     end
   end
@@ -577,7 +588,8 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
       local inst = M.instantiate(r, 0, fit.ox, fit.oy)
-      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan }
+      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan,
+        shared = c.shared }
     end
     last = why or last
     bump(b.stats.plan_refused, last)
@@ -585,7 +597,9 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     -- n, n-1, … 1 foreuses dans les MÊMES lots : chaque taille refusée y comptait un échec, et le lot était exclu après la
     -- deuxième (« tapis des foreuses (pas de lot) » alors qu'une ligne plus courte y tenait).
     if opts and opts.diag then opts.diag[#opts.diag + 1] = c.k .. ":" .. tostring(why) end
-    if not (opts and opts.nobad) then c.l.bad = (c.l.bad or 0) + 1 end
+    -- (lot ENERGIE-CROISSANCE : la rive d'une centrale qui n'a plus de bord libre n'est pas un mauvais lot : sa centrale y reste et
+    -- la remplacer doit pouvoir y revenir)
+    if not (opts and opts.nobad) and not c.shared then c.l.bad = (c.l.bad or 0) + 1 end
   end
   return nil, last
 end
@@ -1673,6 +1687,13 @@ local function plan_project(f, surface, p)
   local ents = inst_entities(main.inst, 1)
   if not reserve_tiles(b, p, ents) then return false, "place" end
   b.lots[main.lot].used = p.id
+  -- lot ENERGIE-CROISSANCE : la rive partagée reste au nom de sa première centrale (un refus ou un abandon de la centrale de plus
+  -- libère les lots à son nom : il ne doit pas libérer celui d'une centrale bâtie, que l'enceinte et l'évaluation lisent pris)
+  if main.shared then
+    b.lots[main.lot].used = main.shared
+    log(string.format("[FO-ENERGIE] %s : projet %d, centrale posee sur la rive de la centrale %d (lot %s, autre bord de la meme eau)",
+      f.key or "player", p.id, main.shared, main.lot))
+  end
   if spec.feed or is_plant then
     Profiler.start("build:plan:feed")
     local ok, w2 = plan_feed(f, surface, p, main, 1)
@@ -1773,9 +1794,23 @@ function Build.grow_plant(f, nb, tick)
   if not id then return nil end
   b.extra_plants = b.extra_plants or {}
   b.extra_plants[#b.extra_plants + 1] = id
+  -- lot ENERGIE-CROISSANCE : le courant qui manque arrête la production principale : la centrale de plus est un besoin de PRODUCTION
+  -- servi en premier (réserve au coffre, plan), APRÈS ce qui répare et protège (projets rouverts, enceinte, îlots) et les autres
+  -- centrales ; Build.request la mettait en queue, derrière tous les projets ouverts.
+  local front, rest = {}, {}
+  for _, x in ipairs(b.order) do
+    local q = b.projects[x]
+    if x ~= id then
+      if q and (q.reopened or (q.spec and (q.spec.enceinte or q.spec.ilot or q.spec.gen == first.spec.gen))) then front[#front + 1] = x
+      else rest[#rest + 1] = x end
+    end
+  end
+  front[#front + 1] = id
+  for _, x in ipairs(rest) do front[#front + 1] = x end
+  b.order = front
   local g = b.grow or {}
-  log(string.format("[FO-ENERGIE] %s : centrale de %d chaudiere(s) demandee a %.1f min (projet %d ; %.0f J/tick sur %.0f, %d centrale(s) finie(s))",
-    f.key or "player", nb, tick / 3600, id, g.power or 0, g.capacity or 0, g.done or 0))
+  log(string.format("[FO-ENERGIE] %s : decision : centrale de %d chaudiere(s) demandee a %.1f min (projet %d, rang %d sur %d ; production %.0f kW sur %.0f kW de capacite, %d centrale(s) finie(s))",
+    f.key or "player", nb, tick / 3600, id, #front - #rest, #front, (g.power or 0) * 60 / 1000, (g.capacity or 0) * 60 / 1000, g.done or 0))
   return id
 end
 
