@@ -204,6 +204,57 @@ function K.enemies_near(m, x, y, r)
   return nests, worms
 end
 
+--- Nids et vers VUS à moins de r tuiles de (x, y), un par un : { x, y, kind = "spawner" | "worm" }, en ordre fixe (secteurs
+--- par ligne puis par colonne, points dans l'ordre du regard). Lu par l'expédition des soldats (shared/ai3/soldats.lua,
+--- Sd.add_known) : jusqu'ici la carte de connaissance ne servait qu'aux sites et aux anneaux de patrouille.
+function K.enemy_points(m, x, y, r)
+  local out = {}
+  local r2 = r * r
+  local x0, x1 = math.floor((x - r) / K.SECTOR), math.floor((x + r) / K.SECTOR)
+  local y0, y1 = math.floor((y - r) / K.SECTOR), math.floor((y + r) / K.SECTOR)
+  for sy = y0, y1 do
+    for sx = x0, x1 do
+      local s = m.s[A.key(sx, sy)]
+      if s then
+        for _, p in ipairs(s.sp or {}) do
+          if (p.x - x) ^ 2 + (p.y - y) ^ 2 <= r2 then out[#out + 1] = { x = p.x, y = p.y, kind = "spawner" } end
+        end
+        for _, p in ipairs(s.wm or {}) do
+          if (p.x - x) ^ 2 + (p.y - y) ^ 2 <= r2 then out[#out + 1] = { x = p.x, y = p.y, kind = "worm" } end
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Oublie les nids et vers à moins de r tuiles de (x, y) : des soldats sur place les ont vus détruits (ou absents). Un
+--- nouveau regard sur le secteur (K.record) remplace de toute façon la liste. Renvoie le nombre de points oubliés.
+function K.forget_enemies(m, x, y, r)
+  local n = 0
+  local r2 = r * r
+  local x0, x1 = math.floor((x - r) / K.SECTOR), math.floor((x + r) / K.SECTOR)
+  local y0, y1 = math.floor((y - r) / K.SECTOR), math.floor((y + r) / K.SECTOR)
+  for sy = y0, y1 do
+    for sx = x0, x1 do
+      local s = m.s[A.key(sx, sy)]
+      if s then
+        for _, field in ipairs({ "sp", "wm" }) do
+          local list = s[field]
+          if list then
+            local keep = {}
+            for _, p in ipairs(list) do
+              if (p.x - x) ^ 2 + (p.y - y) ^ 2 <= r2 then n = n + 1 else keep[#keep + 1] = p end
+            end
+            if #keep ~= #list then s[field] = #keep > 0 and keep or nil end
+          end
+        end
+      end
+    end
+  end
+  return n
+end
+
 --- Incidents récents (moins de mark_ttl) à moins de r tuiles.
 function K.marks_near(m, x, y, r, tick)
   local n = 0
