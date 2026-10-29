@@ -85,6 +85,23 @@ local function battery(Qm)
     for x = 6.5, 34.5, 7 do kk[#kk + 1] = { x = x, y = 0.5 } end
     local c6 = Qm.path({ x = 0.5, y = 0.5 }, { x = 41.5, y = 0.5 }, 9, false, free, kk)
     ck(c6 ~= nil and #c6 == 0)
+    -- (h) grands poteaux : les QUATRE tuiles de l'empreinte 2 x 2 sont libres (relecture : 86 chaînes sur 400 en posaient une sur du bloqué)
+    local sd = 12345
+    local function rnd(n) sd = (sd * 1103515245 + 12345) % 2147483648; return sd % n end
+    for _ = 1, 60 do
+      local bigblk = {}
+      for _ = 1, 6 do
+        local x0, y0 = rnd(80) - 10, rnd(60) - 30
+        for y = y0, y0 + rnd(12) do for x = x0, x0 + rnd(30) do bigblk[P.tkey(x, y)] = true end end
+      end
+      bigblk[P.tkey(0, 0)] = nil
+      local cb = Qm.path({ x = 0, y = 0 }, { x = 70 + rnd(30), y = rnd(40) - 20 }, 30, true, freefn(bigblk))
+      for _, p in ipairs(cb or {}) do
+        for _, t in ipairs(P.tiles_of({ name = "big-electric-pole", x = p.x, y = p.y, dir = 0 })) do
+          if bigblk[P.tkey(t[1], t[2])] then ck(false) end
+        end
+      end
+    end
     -- (f) le but trop loin du dernier poteau n'est pas accepté (aucune tuile libre sauf le départ : nil)
     local none = Qm.path(a3, b3, 9, false, function() return false end)
     ck(none == nil)
@@ -389,7 +406,8 @@ do
   end
   mutant("arête plus longue que la portée", "if d <= reach + EPS then", "if d <= reach + 3 then")
   mutant("bout trop loin du but", "if db <= reach + EPS then", "if db <= reach * 2 then")
-  mutant("tuile non libre acceptée", "if free(px, py) then", "if true then")
+  mutant("tuile non libre acceptée", "if site_free(px, py) then", "if true then")
+  mutant("grand poteau : une seule tuile contrôlée", "if not big then return free(px, py) end", "do return free(px, py) end")
   mutant("poteaux connus rendus comme neufs", "if not nodes[id].known then table.insert", "if true then table.insert")
   mutant("poteaux connus payés", "(m.known and 0 or Q.W)", "Q.W")
   mutant("couloir étroit seulement", "Q.WIDTHS = { 1, 2, 3.5 }", "Q.WIDTHS = { 1 }")

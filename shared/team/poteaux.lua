@@ -99,12 +99,18 @@ function Q.path(a, b, reach, big, free, known, opts)
   local shift = big and 0 or 0.5
   -- tuiles d'une cellule, de la plus proche du centre à la plus éloignée (égalités : y, puis x)
   local offs = {}
-  for oy = 0, s - 1 do for ox = 0, s - 1 do offs[#offs + 1] = { ox, oy, (ox - mid) ^ 2 + (oy - mid) ^ 2 } end end
+  for oy = 0, s - 1 do for ox = 0, s - 1 do offs[#offs + 1] = { ox, oy, (ox - mid) * (ox - mid) + (oy - mid) * (oy - mid) } end end
   table.sort(offs, function(p, q)
     if p[3] ~= q[3] then return p[3] < q[3] end
     if p[2] ~= q[2] then return p[2] < q[2] end
     return p[1] < q[1]
   end)
+  -- Un grand poteau (2 x 2, centre sur un coin) couvre QUATRE tuiles, dont la tuile de `free(px, py)` n'est que la quatrième :
+  -- contrôle des quatre (correction de la relecture : 86 chaînes sur 400 posaient un grand poteau sur une tuile bloquée).
+  local function site_free(px, py)
+    if not big then return free(px, py) end
+    return free(px - 0.5, py - 0.5) and free(px + 0.5, py - 0.5) and free(px - 0.5, py + 0.5) and free(px + 0.5, py + 0.5)
+  end
   local memo = {}                                 -- cellule -> candidat ou false (gardé d'un couloir à l'autre)
   local function cand_of(gx, gy)
     local key = ckey(gx, gy)
@@ -113,8 +119,9 @@ function Q.path(a, b, reach, big, free, known, opts)
     for _, o in ipairs(offs) do
       local px, py = gx * s + o[1] + shift, gy * s + o[2] + shift
       S.free_calls = S.free_calls + 1
-      if free(px, py) then
-        local da, db = (px - a.x) ^ 2 + (py - a.y) ^ 2, (px - b.x) ^ 2 + (py - b.y) ^ 2
+      if site_free(px, py) then
+        local da = (px - a.x) * (px - a.x) + (py - a.y) * (py - a.y)
+        local db = (px - b.x) * (px - b.x) + (py - b.y) * (py - b.y)
         if da >= 0.25 and db >= 0.25 then c = { x = px, y = py } break end
       end
     end
@@ -234,6 +241,22 @@ function Q.path(a, b, reach, big, free, known, opts)
       while id and id ~= sid do
         if not nodes[id].known then table.insert(out, 1, { x = nodes[id].x, y = nodes[id].y }) end
         id = parent[id]
+      end
+      if big then
+        -- deux grands poteaux d'une même chaîne (ou un poteau et le départ ou le but) ne se chevauchent pas (cellules voisines,
+        -- candidats au bord de leur cellule) : sinon la chaîne est refusée (l'appelant garde la gloutonne)
+        local pts = { a, b }
+        for _, p in ipairs(out) do pts[#pts + 1] = p end
+        for i = 1, #pts do
+          for j = i + 1, #pts do
+            if i ~= 1 or j ~= 2 then
+              if math.abs(pts[i].x - pts[j].x) < 2 and math.abs(pts[i].y - pts[j].y) < 2 then
+                S.none = S.none + 1
+                return nil, "chevauchement de grands poteaux"
+              end
+            end
+          end
+        end
       end
       S.found = S.found + 1
       return out

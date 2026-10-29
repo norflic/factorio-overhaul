@@ -799,7 +799,7 @@ function P.pole_chain(a, b, reach, big, free, known, opts)
   local greedy = pole_chain_greedy(a, b, reach, big, free, known)
   if opts and opts.no_astar then return greedy end
   if greedy then
-    local d = math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2)
+    local d = math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))
     local lb = math.max(0, math.ceil((d - reach) / reach - 1e-9))
     if #greedy <= lb + 1 then return greedy end
   end
