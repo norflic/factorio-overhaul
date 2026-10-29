@@ -145,6 +145,9 @@ T.turret_ammo_low = 8
 -- Les tourelles reçoivent des chargeurs standard (bon marché) ; l'acier va aux mitrailleurs.
 T.turret_ammo = "firearm-magazine"
 
+-- Lot ESPACE : mur de l'enceinte des équipes (shared/team/enceinte.lua, script/team/build.lua). Sa recette est lue au moteur.
+T.wall = "stone-wall"
+
 -- DÉFENDRE D'ABORD (lot IA1-b2, décision D-17 du 25/10 : « l'équipe pose des tourelles à un avant-poste AVANT d'y
 -- envoyer des ouvriers »). Tourelles voulues par avant-poste : 1, plus 1 par tranche de 8 foreuses (un avant-poste qui
 -- s'agrandit pollue plus et attire plus d'attaques : il se défend de nouveau avant le prochain agrandissement).

@@ -30,6 +30,8 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
+local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
+local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
@@ -37,6 +39,7 @@ local Build = {}
 
 Build.RADIUS = 3              -- carré de lots évalué au départ (7 × 7)
 Build.RADIUS_MAX = 5
+P.declare_size(T.wall, 1, 1)  -- lot ESPACE : emprise du mur, connue dès le chargement (les PNJ la lisent avant tout plan)
 Build.PULSE = 5               -- ticks entre deux passes de travail
 Build.NET_WAIT_TICKS = 1800   -- lot PLANDIR : attente (30 s) entre deux essais d'un projet dont le réseau passe par un projet pas bâti
 Build.NET_WAIT_MAX = 40       -- au plus 40 essais (20 min) avant le refus
@@ -156,6 +159,8 @@ end
 function Build.grow(f, r)
   local b = f.build
   r = math.min(r, Build.RADIUS_MAX)
+  -- lot ESPACE : le rayon est figé par l'enceinte (un lot posé après l'anneau serait dehors, ou l'anneau couperait un lot)
+  if b.enc then r = math.min(r, b.enc.r) end
   if r <= b.radius then return end
   for _, l in ipairs(P.lots_within(r)) do
     local k = P.lot_key(l.i, l.j)
@@ -173,6 +178,10 @@ function Build.grow(f, r)
   end
   b.radius = r
 end
+
+--- Lot ESPACE : le treillis peut-il encore grandir ? (rayon maximal ou enceinte : non). Les replans qui attendent une
+--- croissance s'y réfèrent, sinon ils attendraient pour toujours un rayon figé.
+function Build.can_grow(b) return b.radius < Build.RADIUS_MAX and not b.enc end
 
 local function seg_ok(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state == "ouvert" end end
 local function seg_passable(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state ~= "ferme" and s.state ~= "inconnu" end end
@@ -1116,10 +1125,93 @@ local function review_obstacles(surface, p)
   return left
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot ESPACE : enceinte (anneau de murs au-delà du treillis ; règle pure : shared/team/enceinte.lua)
+---------------------------------------------------------------------------------------------------
+--- Relevé des quatre bandes de l'anneau (11 tuiles d'épaisseur vers l'intérieur : de quoi y placer les points d'appui,
+--- sur la dernière rue) : eau, bloqué, défrichable (read_masks) et tuiles de RESSOURCE (jamais murées).
+local function enc_masks(f, surface, x0, y0, x1, y1)
+  local m = { water = {}, blocked = {}, clear = {}, ore = {} }
+  local bands = {
+    { x0 - 1, y0 - 1, x1 + 2, y0 + 10 }, { x0 - 1, y1 - 9, x1 + 2, y1 + 2 },
+    { x0 - 1, y0 - 1, x0 + 10, y1 + 2 }, { x1 - 9, y0 - 1, x1 + 2, y1 + 2 },
+  }
+  for _, bd in ipairs(bands) do
+    local r = read_masks(f, surface, bd[1], bd[2], bd[3], bd[4])
+    for k in pairs(r.water) do m.water[k] = true end
+    for k in pairs(r.blocked) do m.blocked[k] = true end
+    for k in pairs(r.clear) do m.clear[k] = true end
+    for _, e in ipairs(surface.find_entities_filtered({ area = { { bd[1], bd[2] }, { bd[3], bd[4] } }, type = "resource" })) do
+      m.ore[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
+    end
+  end
+  return m
+end
+
+--- Plan du projet « enceinte » : (true) ou (false, raison). Mêmes champs qu'un projet de module (entités, points d'appui,
+--- obstacles) : la machine d'états d'`advance` ne change pas.
+local function plan_enceinte(f, surface, p)
+  local b = f.build
+  local enc = b.enc
+  if not enc then return false, "enceinte annulee" end
+  local item = item_of(T.wall)
+  if not item then return false, "mur sans objet" end
+  local x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r)
+  local m = enc_masks(f, surface, x0, y0, x1, y1)
+  local ring = Enc.ring(b.lat, enc.r, { skip = function(tx, ty)
+    local k = P.tkey(tx, ty)
+    if m.water[k] then return "eau" end
+    if m.ore[k] then return "ressource" end
+    if m.blocked[k] then return "bloque" end
+    if b.occ[k] then return "reserve" end
+    return nil
+  end })
+  if #ring.walls == 0 then return false, "aucun mur posable" end
+  local ents = {}
+  for _, w in ipairs(ring.walls) do
+    ents[#ents + 1] = { name = T.wall, x = w.x, y = w.y, dir = 0, part = 1, role = "enceinte", wall = true, item = item }
+  end
+  if not reserve_tiles(b, p, ents) then return false, "place" end
+  local passable = seg_passable(b)
+  local spots = {}
+  for _, e in ipairs(p.ents) do
+    local a = P.anchor_for(b.lat, e.x, e.y, passable)
+    local ax, ay
+    if a then ax, ay = a.x, a.y else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+    local ck = ax .. ":" .. ay
+    local sp = spots[ck]
+    if not sp then sp = { free_spot(b, m, ax, ay, nil) }; spots[ck] = sp end
+    local fx, fy = sp[1], sp[2]
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, m, e.x, e.y, nil) end
+    e.ax, e.ay = fx, fy
+    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+  end
+  P.sort_build(p.ents)
+  p.obstacles, p.obst_keys = {}, {}
+  for _, e in ipairs(p.ents) do
+    local tx, ty = math.floor(e.x), math.floor(e.y)
+    if m.clear[P.tkey(tx, ty)] then add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
+  end
+  -- ox, oy : le milieu de l'ouverture nord (la rue principale qui y mène est défrichée la première) ; l'anneau en `ring`
+  p.parts[1] = { kind = "enceinte", key = "enceinte", ox = b.lat.ox + 14, oy = y0, w = 1, h = 1, power = false,
+    ring = { x0, y0, x1, y1 } }
+  b.stats.modules_started = b.stats.modules_started + 1
+  enc.walls, enc.gates, enc.skipped = #ring.walls, ring.gates, ring.skipped
+  log(string.format("[FO-ESPACE] %s : enceinte planifiee (rayon %d, anneau %d,%d a %d,%d) : %d murs, %d tuiles d'ouverture, tuiles non murees %s, %d obstacles a defricher",
+    f.key or "player", enc.r, x0, y0, x1, y1, #ring.walls, ring.gates,
+    (function()
+      local out = {}
+      for _, k in ipairs(sorted_keys(ring.skipped)) do out[#out + 1] = k .. "=" .. ring.skipped[k] end
+      return #out > 0 and table.concat(out, " ") or "aucune"
+    end)(), #p.obstacles))
+  return true
+end
+
 --- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
+  if spec.enceinte then return plan_enceinte(f, surface, p) end
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   local g, why = template_of(spec)
   if not g then return false, why end
@@ -1145,7 +1237,7 @@ local function plan_project(f, surface, p)
   end
   Profiler.stop("build:plan:place")
   if not main then
-    if b.radius < Build.RADIUS_MAX then
+    if Build.can_grow(b) then
       Build.grow(f, b.radius + 1)
       return false, why, true
     end
@@ -1266,6 +1358,56 @@ end
 --- (critère K4 : 0 échec « stock »).
 local function free_stock(f)
   return Board.view_stock(f, Stock.contents(f), game.tick)
+end
+
+--- Lot ESPACE : recette du mur lue au moteur (ingrédients-objets seuls) : { item, ings, per } ou nil (pas de mur, recette
+--- inconnue ou fermée à l'équipe, fluide en ingrédient). Les ingrédients ne sont écrits nulle part : ni nom ni quantité.
+local function wall_recipe(f)
+  local item = item_of(T.wall)
+  local rec = game.recipe_prototypes[T.wall]
+  local fo = game.forces[f.force]
+  local fr = fo and fo.recipes[T.wall]
+  if not (item and rec and fr and fr.enabled) then return nil end
+  local ings = {}
+  for _, ing in ipairs(rec.ingredients) do
+    if ing.type ~= "item" then return nil end
+    ings[#ings + 1] = { name = ing.name, amount = ing.amount }
+  end
+  local per = 1
+  for _, pr in ipairs(rec.products) do if pr.name == item then per = pr.amount or 1 end end
+  return { item = item, ings = ings, per = per }
+end
+
+--- Lot ESPACE : murs que les ingrédients du coffre permettent de fabriquer d'un coup (fabrication « au coffre », instantanée,
+--- payée en ingrédients : personne ne fabrique de mur sinon).
+local function craftable_walls(f, wr)
+  return Enc.crafts_possible(wr.ings, function(n) return Stock.count(f, n) end) * wr.per
+end
+
+--- Lot ESPACE : transforme au coffre les ingrédients en murs pour couvrir ce qui manque au projet (une réserve d'enceinte).
+local function craft_walls(f, p)
+  local wr = wall_recipe(f)
+  if not wr then return end
+  local need = needs_of(p)[wr.item] or 0
+  local missing = need - (p.stock[wr.item] or 0) - Stock.count(f, wr.item)
+  local runs = Enc.crafts_to_run(missing, wr.per, Enc.crafts_possible(wr.ings, function(n) return Stock.count(f, n) end))
+  if runs <= 0 then return end
+  for i, ing in ipairs(wr.ings) do
+    local want = ing.amount * runs
+    local got = Stock.remove(f, ing.name, want)
+    if got < want then -- ne devrait pas arriver (compté dans le même tick) : tout est rendu, rien n'est fabriqué
+      Stock.insert(f, ing.name, got)
+      for j = 1, i - 1 do Stock.insert(f, wr.ings[j].name, wr.ings[j].amount * runs) end
+      return
+    end
+  end
+  local made = wr.per * runs
+  local put = Stock.insert(f, wr.item, made)
+  if put < made then -- coffre plein : les fabrications entières qui n'ont pas tenu rendent leurs ingrédients
+    local back = math.floor((made - put) / wr.per)
+    if back > 0 then for _, ing in ipairs(wr.ings) do Stock.insert(f, ing.name, ing.amount * back) end end
+  end
+  p.crafted = (p.crafted or 0) + put
 end
 
 local function reserve(f, p)
@@ -2027,6 +2169,10 @@ local function finish_project(f, surface, p, tick)
     if pt then b.stats.modules_done = b.stats.modules_done + 1 end
   end
   b.stats.projects_done = b.stats.projects_done + 1
+  if p.spec.enceinte then
+    log(string.format("[FO-ESPACE] %s : enceinte finie a %.1f min : %d murs, %d abandonne(s) (tuile refusee 3 fois)", f.key or "player",
+      tick / 3600, #p.ents - (p.dropped or 0), p.dropped or 0))
+  end
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n].built = true end end
   log(string.format("[FO-IA1D] %s : projet %d fini (%s, %d entites, %d fils) a %.1f min", f.key or "player", p.id,
     p.parts[1] and p.parts[1].key or "?", #p.ents, p.wired or 0, tick / 3600))
@@ -2087,6 +2233,7 @@ local function advance(f, surface, p, tick)
     -- lot IA3-e : une réserve incomplète n'est relue qu'une fois par seconde (elle relisait le coffre et le registre
     -- toutes les 5 ticks : chantiers des factions en attente de matériaux pendant des dizaines de minutes, K10)
     if p.reserve_next and tick < p.reserve_next then return end
+    if p.spec.enceinte then craft_walls(f, p) end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
     if reserve(f, p) then
       p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
@@ -2134,7 +2281,11 @@ local function advance(f, surface, p, tick)
     else
       -- 3 refus d'un même fantôme : le module est bloqué (raison écrite), §6.6 (4)
       for _, e in ipairs(p.ents) do
-        if not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
+        if e.wall and not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
+          -- lot ESPACE : un mur refusé 3 fois (tuile prise, falaise cachée) est abandonné : il ne bloque pas toute l'enceinte
+          e.built, e.dropped = true, true
+          p.dropped = (p.dropped or 0) + 1
+        elseif not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
           p.state, p.reason = "bloque", "fantome refuse (" .. e.name .. " en " .. e.x .. "," .. e.y .. ")"
           b.stats.projects_blocked = b.stats.projects_blocked + 1
           p.retries = (p.retries or 0) + 1
@@ -2208,6 +2359,101 @@ Events.on_nth_tick(Build.PULSE, function(e)
   end
 end)
 
+---------------------------------------------------------------------------------------------------
+-- Lot ESPACE : croissance du treillis et enceinte (décisions toutes les Enc.CHECK_TICKS ; règles pures : shared/team/enceinte.lua)
+---------------------------------------------------------------------------------------------------
+local ACTIVE = { attente = true, plan = true, reserve = true, defrichage = true, fantomes = true, chantier = true, raccordement = true }
+
+local function space_info(b)
+  local busy = 0
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and ACTIVE[p.state] then busy = busy + 1 end
+  end
+  return { radius = b.radius, rmax = Build.RADIUS_MAX, pending = math.max(0, #b.queue - b.qhead + 1), free = Enc.free_count(b.lots),
+    busy = busy, done = b.stats.projects_done, enc = b.enc ~= nil }
+end
+
+local function space_log(b, text)
+  b.space_logs = (b.space_logs or 0) + 1
+  if b.space_logs <= 40 then log(text) end
+end
+
+--- Contrôle des murs d'une enceinte finie, par paquets : un mur détruit rouvre le projet (réserve, fantômes, chantier).
+local function repair_enclosure(f, surface, p, tick)
+  local b, enc = f.build, f.build.enc
+  if not enc.repair_at then enc.repair_at = (p.finished or tick) + Enc.REPAIR_TICKS end
+  if tick < enc.repair_at then return end
+  local from = enc.cursor or 1
+  local last = math.min(#p.ents, from + Enc.REPAIR_BATCH - 1)
+  local lost = enc.lost or 0
+  for i = from, last do
+    local e = p.ents[i]
+    if e.built and not e.dropped
+      and surface.count_entities_filtered({ position = { e.x, e.y }, radius = 0.4, type = { "wall", "gate" }, limit = 1 }) == 0 then
+      e.built, e.ghosted, e.fails, e.npc_blocks = false, false, 0, 0
+      lost = lost + 1
+    end
+  end
+  if last >= #p.ents then
+    enc.cursor, enc.repair_at, enc.lost = nil, tick + Enc.REPAIR_TICKS, nil
+    if lost > 0 then
+      p.state, p.reason, p.reserve_next = "reserve", nil, nil
+      b.stats.projects_done = b.stats.projects_done - 1
+      b.stats.modules_done = b.stats.modules_done - 1
+      space_log(b, string.format("[FO-ESPACE] %s : %d mur(s) detruit(s) : l'enceinte reprend son chantier a %.1f min", f.key or "player", lost, tick / 3600))
+    end
+  else
+    enc.cursor, enc.lost = last + 1, lost
+  end
+end
+
+--- Une décision de croissance ou d'enceinte (appelée à chaque pensée d'équipe, utile seulement toutes les Enc.CHECK_TICKS).
+function Build.space_step(f, surface, tick)
+  local b = f.build
+  if b.opts.espace == false or tick < (b.space_next or 0) then return end
+  b.space_next = tick + Enc.CHECK_TICKS
+  local enc = b.enc
+  if enc then
+    local p = b.projects[enc.pid]
+    if not p or p.state == "refuse" then
+      -- plan refusé : le rayon est libéré, nouvel essai plus tard
+      space_log(b, string.format("[FO-ESPACE] %s : enceinte refusee (%s) : rayon libere, nouvel essai a %.1f min", f.key or "player",
+        p and tostring(p.reason) or "projet perdu", (tick + Enc.RETRY_TICKS) / 3600))
+      b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
+    elseif p.state == "fini" then
+      repair_enclosure(f, surface, p, tick)
+    end
+    return
+  end
+  local info = space_info(b)
+  if Enc.grow_due(info) then
+    space_log(b, string.format("[FO-ESPACE] %s : le treillis grandit au rayon %d (lots libres %d < %d, chantiers %d, projets finis %d)",
+      f.key or "player", b.radius + 1, info.free, Enc.GROW_FREE_MIN, info.busy, info.done))
+    Build.grow(f, b.radius + 1)
+    return
+  end
+  local on = b.opts.enceinte
+  if on == nil then on = not f.is_player end  -- le joueur garde la main sur ses propres murs
+  if not on or tick < (b.enc_retry or 0) or not Enc.enclosure_due(info) then return end
+  local wr = wall_recipe(f)
+  if not wr then return end
+  local need = Enc.max_walls(b.radius)
+  if not Enc.affordable(need, Stock.count(f, wr.item), craftable_walls(f, wr)) then
+    if not b.space_poor then
+      b.space_poor = true
+      space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, %d murs au plus), stock insuffisant (%d murs, %d fabricables) : attente",
+        f.key or "player", b.radius, need, Stock.count(f, wr.item), craftable_walls(f, wr)))
+    end
+    return
+  end
+  local id, why = Build.request(f, { enceinte = true, prio = Build.PRIO - 15, domain = "infrastructures" })
+  if not id then space_log(b, "[FO-ESPACE] " .. tostring(f.key or "player") .. " : enceinte impossible (" .. tostring(why) .. ")") return end
+  b.enc = { r = b.radius, pid = id, tick = tick }
+  space_log(b, string.format("[FO-ESPACE] %s : enceinte demandee (projet %d, rayon %d fige, %d murs au plus) a %.1f min", f.key or "player", id,
+    b.radius, need, tick / 3600))
+end
+
 --- Pensée d'équipe (script/team/team.lua, après l'organisation) : tâches au tableau, réévaluation des rues
 --- défrichées, mesures par minute. Sans plan directeur : rien.
 function Build.think(f, surface, tick)
@@ -2242,6 +2488,7 @@ function Build.think(f, surface, tick)
       s.cleared_tick = nil
     end
   end
+  Build.space_step(f, surface, tick)
   -- mesures par minute
   local st = b.stats
   local m = math.floor(tick / 3600)
@@ -2335,6 +2582,7 @@ function Build.report(f)
     modules_started = st.modules_started, modules_done = st.modules_done, projects_done = st.projects_done,
     projects_refused = st.projects_refused, projects_blocked = st.projects_blocked, minutes = st.minutes,
     net = #sorted_keys(b.net), opts = { seul = b.opts.seul, ghosts_ahead = b.opts.ghosts_ahead },
+    enceinte = b.enc and { r = b.enc.r, pid = b.enc.pid, walls = b.enc.walls, gates = b.enc.gates } or nil,
   }
   return out
 end
