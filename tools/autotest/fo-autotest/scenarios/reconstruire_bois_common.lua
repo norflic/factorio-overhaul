@@ -53,11 +53,10 @@ return function(with_rule)
       local chest = s.create_entity({ name = "fo-team-chest", position = { c.x + 0.5, c.y + 0.5 }, force = "player", raise_built = true })
       ctx.check(chest ~= nil, "coffre d'equipe pose")
       if not chest then return end
-      -- Stock : du fer et du cuivre, AUCUN bois, AUCUN acier, AUCUN poteau tout fait.
-      for _, it in ipairs({ { "iron-plate", 400 }, { "copper-plate", 200 }, { "stone", 100 }, { "coal", 200 },
-          { "pistol", 10 }, { "firearm-magazine", 100 }, { "iron-gear-wheel", 40 } }) do
-        chest.insert({ name = it[1], count = it[2] })
-      end
+      -- Stock : du CUIVRE seulement (un poteau = 1 bois + 1 cuivre). Ni fer ni pierre ni charbon : l'equipe ne peut poser aucun avant-poste,
+      -- dont le chantier abat des arbres et rapporte du bois au coffre (constat du 29/10 : la premiere version du scenario, avec du fer,
+      -- recevait du bois par ce biais a 1 min et la regle coupee refaisait quand meme les poteaux). AUCUN bois, AUCUN acier.
+      chest.insert({ name = "copper-plate", count = 200 })
       -- Des arbres a 20-30 tuiles du coffre (aucun nid : la carte est nettoyee)
       local tn = tree_name()
       ctx.check(tn ~= nil, "un arbre qui donne du bois existe", tn)
@@ -88,6 +87,10 @@ return function(with_rule)
           st.sw_checked = true
           ctx.check(got == with_rule, "regle " .. (with_rule and "allumee" or "coupee"))
         end
+      end
+      if t % 600 == 0 and t <= 9000 then
+        local ch = s.find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1]
+        ctx.log(string.format("%sbois au coffre a %d ticks : %d", TAG, t, ch and ch.valid and ch.get_item_count("wood") or -1))
       end
       if t == 600 and not st.killed then
         st.killed = t
