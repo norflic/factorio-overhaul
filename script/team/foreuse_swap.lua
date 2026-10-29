@@ -23,6 +23,7 @@ local S = require("shared.team.foreuse_swap")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock")
+local Outposts = require("script.faction.outposts") -- crochet des tuiles reservees par le plan directeur (Outposts.reserved)
 
 local Swap = {}
 
@@ -118,6 +119,13 @@ local function swap_one(f, surface, ref, cx, cy, tick)
   local dir = d.direction
   if surface.find_nearest_enemy({ position = pos, max_distance = Swap.SAFE, force = f.force }) then return false end
   local item = T.DRILL_ELECTRIC
+  local st = f.swap
+  -- Relecture statique : la place de la future boite est peut-etre reservee par le plan directeur (meme garde que place_pairs) ;
+  -- on le sait AVANT de retirer l'ancienne foreuse.
+  if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, dir) then
+    st.retry[ref.key] = tick + Swap.RETRY
+    return false
+  end
   if Stock.remove(f, item, 1) < 1 then return false end
   local inv = d.get_fuel_inventory()
   local fuel = inv and inv.get_item_count(T.fuel) or 0
@@ -131,9 +139,11 @@ local function swap_one(f, surface, ref, cx, cy, tick)
   end
   local new
   if surface.can_place_entity({ name = item, position = { x = cx, y = cy }, direction = dir, force = f.force }) then
-    new = surface.create_entity({ name = item, position = { x = cx, y = cy }, direction = dir, force = f.force })
+    -- raise_built : les niveaux et les modules (famille « drill ») enregistrent la foreuse, comme pour les pieces refaites (F40 : nil si
+    -- un gestionnaire la detruit).
+    new = surface.create_entity({ name = item, position = { x = cx, y = cy }, direction = dir, force = f.force, raise_built = true })
+    if new and not new.valid then new = nil end
   end
-  local st = f.swap
   if not new then
     place_back(f, surface, pos, dir, fuel, o, ref.index)
     Stock.insert(f, item, 1)
@@ -161,7 +171,15 @@ local function craft(f, book, free, want, tick)
   for _, k in ipairs(sorted_keys(free)) do avail[k] = free[k] end
   avail[item] = 0 -- besoin d'accumulation : l'objet lui-meme n'est pas pris au stock
   local q = book:plan({ { item, want } }, avail)
-  if next(q.raw) ~= nil then return 0 end
+  if next(q.raw) ~= nil then
+    -- La matiere ne couvre pas toujours tout le besoin : on fabrique ce qu'elle permet (meme regle que Recon.craft_spares).
+    local found = false
+    for m = want - 1, 1, -1 do
+      local q2 = book:plan({ { item, m } }, avail)
+      if next(q2.raw) == nil then q, want, found = q2, m, true break end
+    end
+    if not found then return 0 end
+  end
   local list = {}
   for _, k in ipairs(sorted_keys(q.uses)) do list[#list + 1] = { k, q.uses[k] } end
   return Board.add(f, { { key = "craft:" .. item .. ":foreuse", kind = "craft", prio = T.swap.prio, item = item, count = want,
@@ -180,8 +198,13 @@ function Swap.think(f, surface, book, free, tick)
   st.next = tick + T.swap.every
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
-  local have = Stock.count(f, item)
+  -- Stock LIBRE seulement : ce que le plan directeur a reserve (registre) n'est pas pris.
+  local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
+  if not obtainable then
+    st.ready = 0
+    return 0 -- objet pas encore debloque : pas de releve (le cas de presque toute la partie au debut)
+  end
   local entries, refs, poles = survey(f, surface)
   if #entries == 0 or #poles == 0 then return 0 end
   local out, n_ready = S.plan(entries, { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable,
