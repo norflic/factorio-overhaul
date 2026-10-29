@@ -97,6 +97,10 @@ function C.situation(view, st, ctx)
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
     sites = view.sites or {}, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
+    -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : l'équipe recrute encore vers son effectif voulu (lecteur : B.generate,
+    -- buts de couverture).
+    recruiting = (view.workers or 0) < (view.workers_wanted or 0) and not view.recruit_blocked and not view.recruit_held
+      and not view.hold_recruits,
     weights = ctx.weights or {}, research = ctx.research, army_target = ctx.army_target or 0, need = st.need,
     army_alert = view.army_alert or false, army_need = view.army_need or 0, -- lot ARMEE-ANTICIPATION : vague annoncée (B.goals)
     at_war = ctx.at_war or view.threatened or false,

@@ -265,7 +265,11 @@ function B.generate(s, st)
   --     102 foreuses sans charbon) ; le combustible, lui, se ravitaille sur sa propre production ;
   --   * produit saturé PENDANT qu'une autre matière manque (st.other_short, critère A5) : le but ne prend que le reste du
   --     stock virtuel, sans rien faire fabriquer (g.take_only) : la matière va d'abord à ce qui manque.
-  if not s.is_player then
+  -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : sans plafond de foreuses, la couverture restait ouverte tant qu'un
+  -- gisement n'était pas couvert à KAPPA et mangeait le fer qu'une recrue accumule (la recrue n'est réservée que quand elle se paie) :
+  -- au moteur simulé (ia1_scale_test), Écarlate et Ambre finissaient à 22 et 24 PNJ en 12 min au lieu de 30 et 29. La couverture,
+  -- « au-delà du besoin », attend que l'effectif voulu soit atteint (ou la recrue retenue ou bloquée).
+  if not s.is_player and not s.recruiting then
     local emitted = {}
     for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
     local fuel_kind = key.fuel

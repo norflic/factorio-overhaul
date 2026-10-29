@@ -321,6 +321,13 @@ local function scene_pile()
   return st6.pile and st6.pile.hold == true
 end
 check(scene_pile(), "6.6 pile retenue par une pièce à refaire : aucun projet de couverture (réparer d'abord)")
+-- 6.7 Intégration 0.6.20 (avec PLAFOND-FOREUSES) : aucune couverture tant que l'équipe recrute vers son effectif voulu.
+local function scene_recruit()
+  local _, st7 = think(fview({ workers = 8, workers_wanted = 20 }))
+  for _, p in ipairs(st7.projects or {}) do if p.key:match("^couverture:") then return false end end
+  return true
+end
+check(scene_recruit(), "6.7 équipe sous son effectif voulu (8 sur 20) : aucun projet de couverture (les recrues d'abord)")
 
 ---------------------------------------------------------------------------------------------------
 section("7. Mutants (chacun doit faire échouer une scène de référence)")
@@ -350,7 +357,8 @@ local function scene_take()
     { ["iron-plate"] = 500, stone = 500 })
   return #E3.tasks == 0
 end
-check(scene_far() and scene_cover() and scene_never_build() and scene_fuel() and scene_take() and scene_pile(), "7.0 scènes de référence vertes")
+check(scene_far() and scene_cover() and scene_never_build() and scene_fuel() and scene_take() and scene_pile()
+  and scene_recruit(), "7.0 scènes de référence vertes")
 local function mutant(name, scene, apply, restore)
   apply()
   local ok, res = pcall(scene)
@@ -383,6 +391,8 @@ do
   local saved_allows = Pi.allows
   mutant("couverture hors de la pile (intégration 0.6.20)", scene_pile, function() Pi.allows = function() return true end end,
     function() Pi.allows = saved_allows end)
+  mutant("couverture pendant le recrutement (intégration 0.6.20)", scene_recruit, function()
+    C.situation = function(...) local s = saved_sit(...) s.recruiting = nil return s end end, function() C.situation = saved_sit end)
   local saved_key = B.key
   mutant("garde du combustible sans effet", scene_fuel, function()
     B.key = function(s) local k = saved_key(s) return { top = k.top, fuel = nil, order = k.order, optional = k.optional } end
