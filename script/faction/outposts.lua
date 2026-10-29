@@ -504,7 +504,8 @@ end
 
 function Outposts.burners(o)
   local list = {}
-  for _, d in ipairs(valid_list(o.drill_list)) do list[#list + 1] = d end
+  -- Lot FOREUSES : une foreuse électrique de l'avant-poste (remplacement sur place) ne brûle rien : ni ravitaillement ni « manque de charbon ».
+  for _, d in ipairs(valid_list(o.drill_list)) do if d.burner then list[#list + 1] = d end end
   for _, s in ipairs(valid_list(o.sinks)) do if s.type == "furnace" then list[#list + 1] = s end end
   return list
 end
