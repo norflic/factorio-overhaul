@@ -56,6 +56,8 @@ PROTOS["pole-m"] = { items_to_place_this = { { name = "item-m" } }, supply_area_
 PROTOS["pole-s"] = { items_to_place_this = { { name = "item-s" } }, supply_area_distance = 1, max_wire_distance = 5 }
 function game.get_filtered_entity_prototypes() return setmetatable({}, { __pairs = function() local ks = { "pole-x", "pole-m", "pole-s" } local i = 0 return function() i = i + 1 if ks[i] then return ks[i], PROTOS[ks[i]] end end end }) end
 
+-- Lot CORR-RECONSTRUIRE : le bois vient des arbres, tout le reste porte le nom de son entité (script/team/harvest.lua, balayage des prototypes).
+package.loaded["script.team.harvest"] = { names = function(item) if item == "bois" then return { "arbre-a" } end return { item } end }
 local R = require("shared.ai3.reglages")
 check(R.RECON_ALL_PIECES == false, "réglage : portée par défaut = infrastructure électrique seule")
 R.RECON_ALL_PIECES = true -- les sections 1 à 5 testent le mécanisme général ; la section 8 la portée par défaut
@@ -413,6 +415,64 @@ do
   surface.corpses = {}
   R.RECON_ALL_PIECES = true
 end
+
+
+-- §11 Récolte du bois quand aucun poteau n'est fabricable (lot CORR-RECONSTRUIRE) ---------------------------------------------
+do
+  R.RECON_ALL_PIECES = false
+  local function lost_pole()
+    local f = new_team()
+    local pm = ent("pole-m", "electric-pole", 80, 80)
+    pm.neighbours = { copper = { { valid = true, position = { x = 86, y = 80 } } } }
+    died({ entity = pm, tick = 6000 })
+    f.stock["item-m"] = 0
+    f.stock["item-p"] = 0
+    return f
+  end
+  -- item-m : de l'acier (ne se coupe pas) ; item-p : du bois ; item-s : non fabricable à la main
+  local function book_of(raw_of)
+    return { handcraftable = function(_, it) return raw_of[it] ~= nil end,
+      plan = function(_, list) return { raw = raw_of[list[1][1]] or {}, crafts = {}, uses = {} } end }
+  end
+  local at = 6000 + Rc.CALM_INFRA + 5
+  local f = lost_pole()
+  local n = Recon.craft_spares(f, book_of({ ["item-m"] = { acier = 2 }, ["item-p"] = { bois = 1 } }), {}, at)
+  local t = f.team.board.tasks["recon:gather:bois"]
+  check(t and t.kind == "mine" and t.resource == "bois" and t.trees == true and t.prudent == true and t.count == Rc.GATHER_BATCH,
+    "aucun poteau fabricable, le bois manque : tâche de minage sur les arbres")
+  check(t and t.prio == Rc.task_prio(Rc.INFRA_VALUE) and t.domain == "defense", "récolte : priorité de l'infrastructure, domaine défense")
+  check(f.recon.stats.gathers == 1 and n == 0, "récolte comptée (aucune fabrication encore)")
+  local lg = false
+  for _, l in ipairs(logs) do if l:find("recolte de bois", 1, true) then lg = true end end
+  check(lg, "récolte : journal [FO-RECON]")
+  check(Recon.craft_spares(f, book_of({ ["item-m"] = { acier = 2 }, ["item-p"] = { bois = 1 } }), {}, at + 1) == 0, "récolte : pas de doublon au tableau")
+  -- l'acier seul manque : récolter ne débloque rien
+  local f2 = lost_pole()
+  Recon.craft_spares(f2, book_of({ ["item-m"] = { acier = 2 }, ["item-p"] = { acier = 1 } }), {}, at)
+  check(next(f2.team.board.tasks) == nil, "seul l'acier manque : aucune récolte")
+  -- poteaux non fabricables à la main
+  local f3 = lost_pole()
+  Recon.craft_spares(f3, book_of({}), {}, at)
+  check(next(f3.team.board.tasks) == nil, "rien de fabricable à la main : aucune récolte")
+  -- règle coupée (« sans la règle » du banc)
+  local f4 = lost_pole()
+  Recon.GATHER = false
+  Recon.craft_spares(f4, book_of({ ["item-m"] = { acier = 2 }, ["item-p"] = { bois = 1 } }), {}, at)
+  Recon.GATHER = true
+  check(next(f4.team.board.tasks) == nil, "règle coupée : aucune récolte (comportement d'avant)")
+  -- une fois le bois au stock, le petit poteau est fabriqué à la place du moyen (récolte -> remplaçant -> fabrication)
+  local f5 = lost_pole()
+  local r5 = f5.recon.lost[Rc.key({ name = "pole-m", x = 80, y = 80 })]
+  Recon.craft_spares(f5, { handcraftable = function(_, it) return it == "item-p" end, plan = function() return { raw = {}, crafts = { { "r", 1 } }, uses = { ["copper-plate"] = 1 } } end },
+    { ["copper-plate"] = 10 }, at)
+  check(r5.place == "pole-x" and f5.team.board.tasks["craft:item-p:reconstruction"], "bois récolté : le petit poteau est posé à la place et fabriqué")
+  -- le remplaçant le plus « récoltable » est choisi parmi plusieurs
+  local f6 = lost_pole()
+  Recon.craft_spares(f6, book_of({ ["item-m"] = { bois = 4 }, ["item-p"] = { bois = 1 } }), {}, at)
+  check(f6.team.board.tasks["recon:gather:bois"] and f6.team.board.tasks["recon:gather:bois"].count == Rc.GATHER_BATCH, "récolte : un seul objet, une seule tâche")
+  R.RECON_ALL_PIECES = true
+end
+
 
 
 -- §5 Source -----------------------------------------------------------------------------------------------------------------

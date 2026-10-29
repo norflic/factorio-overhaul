@@ -165,6 +165,45 @@ function Rc.pick_alt(cands, reach, can)
   return nil
 end
 
+--- RÉCOLTE DE LA MATIÈRE NATURELLE d'un poteau (le bois). Quand AUCUN poteau n'est ni au stock ni fabricable (le bois du départ est
+--- épuisé, l'acier absent), la pièce attendait jusqu'à 32 min (mesuré, 555555555). Règle : parmi les poteaux dont le fil couvre `reach`,
+--- celui dont TOUT ce qui manque se récolte (arbres), au moins de manque (puis zone, fil, nom) ; on rend { candidat, { {objet, n} } }.
+--- `missing_of(c)` : la matière brute qui manque pour fabriquer c à la main { [objet] = n }, ou nil (non fabricable à la main) ;
+--- `harvestable(objet)` : une entité du monde donne-t-elle cet objet SANS gisement de minerai (arbres) ? Une matière non récoltable
+--- (acier, cuivre absent) écarte le candidat : récolter ne débloquerait rien.
+Rc.GATHER_BATCH = 10     -- bois récolté par tâche (au moins) : 2 arbres donnent 8
+Rc.GATHER_MAX = 20
+function Rc.gather_qty(n) return math.min(Rc.GATHER_MAX, math.max(Rc.GATHER_BATCH, n or 0)) end
+
+function Rc.pick_gather(cands, reach, missing_of, harvestable)
+  local list = {}
+  for _, c in ipairs(cands) do list[#list + 1] = c end
+  table.sort(list, function(a, b)
+    if a.supply ~= b.supply then return a.supply > b.supply end
+    if a.wire ~= b.wire then return a.wire > b.wire end
+    return a.name < b.name
+  end)
+  local best, best_list, best_total
+  for _, c in ipairs(list) do
+    if c.wire >= (reach or 0) then
+      local miss = missing_of(c)
+      if miss then
+        local out, total, ok = {}, 0, true
+        for _, k in ipairs(sorted_keys(miss)) do
+          if miss[k] > 0 then
+            if not harvestable(k) then ok = false break end
+            out[#out + 1] = { k, Rc.gather_qty(miss[k]) }
+            total = total + miss[k]
+          end
+        end
+        if ok and #out > 0 and (not best or total < best_total) then best, best_list, best_total = c, out, total end
+      end
+    end
+  end
+  if not best then return nil end
+  return best, best_list
+end
+
 local function d2(a, b) local dx, dy = a.x - b.x, a.y - b.y; return dx * dx + dy * dy end
 
 --- Lot d'un voyage : la pièce `seed` d'abord, puis celles de `due` à `radius` tuiles d'elle, `max` pièces au plus.

@@ -119,6 +119,11 @@ check(not Harvest.foreign_resource(game.surfaces[1], { x = 0, y = 0 }, "coal", {
 check(next(Harvest.reachable({ is_player = true, team = { ia3 = { reach = { wood = 40 } } } })) == nil,
   "votre équipe : aucune matière récoltable à portée pour le cerveau")
 check(#Harvest.free_types("wood", { is_player = true }) == 1, "votre équipe : seules les ressources comptent comme libres")
+-- Lot CORR-RECONSTRUIRE : une tâche « trees » (récolte du bois pour un poteau) vaut pour votre équipe, sans changer son minage de minerai
+local tw = Harvest.names_for({ is_player = true }, "wood", true)
+check(#tw >= 1 and tw[1] ~= "wood", "tâche « trees » : votre équipe coupe les arbres (" .. tostring(tw[1]) .. ")")
+check(#Harvest.free_types("wood", { is_player = true }, true) == 2, "tâche « trees » : un arbre sur la tuile est libre")
+check(Harvest.names_for({ is_player = true }, "iron-ore", true)[1] == "iron-ore", "tâche « trees » : un minerai garde son entité")
 Harvest.PLAYER = true
 check(Harvest.applies({ is_player = true }), "Harvest.PLAYER vrai : la correction vaut aussi pour votre équipe (mutant)")
 Harvest.PLAYER = false

@@ -174,6 +174,45 @@ local function suite(Rc)
     check(a.name == "a", "§7e égalité : le nom décide (déterminisme)")
   end
 
+  -- §7f Récolte de la matière naturelle d'un poteau (aucun remplaçant fabricable) ------------------------------
+  do
+    local cands = {
+      { name = "petit", item = "ip", supply = 2.5, wire = 7.5 }, { name = "moyen", item = "im", supply = 3.5, wire = 9 },
+      { name = "grand", item = "ig", supply = 2, wire = 30 },
+    }
+    -- ip : 1 bois manque ; im : 2 acier (non récoltable) ; ig : non fabricable à la main
+    local miss = { ip = { bois = 1 }, im = { acier = 2 }, ig = nil }
+    local function missing_of(c) return miss[c.item] end
+    local function tree(k) return k == "bois" end
+    local c, list = Rc.pick_gather(cands, 0, missing_of, tree)
+    check(c and c.name == "petit" and #list == 1 and list[1][1] == "bois", "§7f le poteau dont tout le manque se récolte est choisi")
+    check(list[1][2] == Rc.GATHER_BATCH, "§7f quantité : au moins un lot (" .. tostring(list[1][2]) .. ")")
+    check(Rc.pick_gather(cands, 8, missing_of, tree) == nil, "§7f fil trop court pour les voisins : rien à récolter")
+    check(Rc.pick_gather(cands, 0, missing_of, function() return false end) == nil, "§7f rien de récoltable : pas de tâche")
+    check(Rc.pick_gather(cands, 0, function(c2) return c2.item == "im" and { acier = 2 } or nil end, tree) == nil,
+      "§7f l'acier ne se coupe pas : récolter ne débloquerait rien")
+    check(Rc.pick_gather(cands, 0, function() return { bois = 1, acier = 1 } end, tree) == nil, "§7f une seule matière non récoltable écarte le candidat")
+    check(Rc.pick_gather({}, 0, missing_of, tree) == nil, "§7f aucun candidat : nil")
+    check(Rc.pick_gather(cands, 0, function() return {} end, tree) == nil, "§7f rien ne manque : rien à récolter")
+    -- le moins de manque d'abord, puis la plus grande zone, puis le nom
+    local m2 = { ip = { bois = 5 }, ig = { bois = 2 } }
+    local c2 = Rc.pick_gather(cands, 0, function(x) return m2[x.item] end, tree)
+    check(c2 and c2.name == "grand", "§7f le moins de manque d'abord")
+    local m3 = { ip = { bois = 3 }, im = { bois = 3 } }
+    local c3 = Rc.pick_gather(cands, 0, function(x) return m3[x.item] end, tree)
+    check(c3 and c3.name == "moyen", "§7f à manque égal, la plus grande zone d'alimentation")
+    check(Rc.gather_qty(1) == Rc.GATHER_BATCH and Rc.gather_qty(15) == 15 and Rc.gather_qty(500) == Rc.GATHER_MAX, "§7f quantité bornée")
+    local m4 = { ip = { bois = 30 } }
+    local _, l4 = Rc.pick_gather(cands, 0, function(x) return m4[x.item] end, tree)
+    check(l4 and l4[1][2] == Rc.GATHER_MAX, "§7f quantité plafonnée dans la tâche")
+    local m6 = { ip = { bois = 1, acier = 0 } }
+    local c6, l6 = Rc.pick_gather(cands, 0, function(x) return m6[x.item] end, tree)
+    check(c6 and #l6 == 1 and l6[1][1] == "bois", "§7f une matière à 0 manquant ne compte pas")
+    local m5 = { ip = { bois = 1, cuivre = 1 } }
+    local _, l5 = Rc.pick_gather(cands, 0, function(x) return m5[x.item] end, function() return true end)
+    check(l5 and #l5 == 2 and l5[1][1] == "bois" and l5[2][1] == "cuivre", "§7f liste triée par objet")
+  end
+
   return pass, fail, msgs
 end
 
@@ -222,6 +261,13 @@ local MUTANTS = {
   { "remplaçant sans fil suffisant", "if c.wire >= (reach or 0) and can(c) then return c end", "if can(c) then return c end" },
   { "remplaçant sans disponibilité", "if c.wire >= (reach or 0) and can(c) then return c end", "if c.wire >= (reach or 0) then return c end" },
   { "remplaçant : moins bon niveau", "if a.supply ~= b.supply then return a.supply > b.supply end", "if a.supply ~= b.supply then return a.supply < b.supply end" },
+  { "récolte : fil ignoré", "if c.wire >= (reach or 0) then", "if true then" },
+  { "récolte : matière non récoltable acceptée", "if not harvestable(k) then ok = false break end", "" },
+  { "récolte : rien à récolter accepté", "if ok and #out > 0 and (not best or total < best_total)", "if ok and (not best or total < best_total)" },
+  { "récolte : plus de manque d'abord", "(not best or total < best_total)", "(not best or total > best_total)" },
+  { "récolte : sans plafond", "return math.min(Rc.GATHER_MAX, math.max(Rc.GATHER_BATCH, n or 0))", "return math.max(Rc.GATHER_BATCH, n or 0)" },
+  { "récolte : sans lot minimal", "return math.min(Rc.GATHER_MAX, math.max(Rc.GATHER_BATCH, n or 0))", "return math.min(Rc.GATHER_MAX, n or 0)" },
+  { "récolte : manque nul compté", "if miss[k] > 0 then", "if true then" },
   { "pose refusée sans abandon", "if r.blocks > Rc.MAX_BLOCKS then r.abandoned = true end", "" },
 }
 local refused, kept = 0, {}

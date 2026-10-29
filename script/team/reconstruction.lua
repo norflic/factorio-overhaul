@@ -32,6 +32,7 @@ local Stock = require("script.team.stock")
 local R = require("shared.ai3.reglages")
 local Rc = require("shared.team.reconstruction")
 local Protos = require("script.team.protos")
+local Harvest = require("script.team.harvest") -- lot CORR-RECONSTRUIRE : le bois se coupe sur les arbres
 
 local Recon = {}
 
@@ -42,6 +43,10 @@ Recon.SEEDS_PER_THINK = 3   -- places essayées (épreuve « ennemis près ») p
 Recon.MATCH = 0.3           -- tolérance de position (tuiles) pour reconnaître une pièce d'un projet
 Recon.LOGS = 60
 Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par force
+-- Lot CORR-RECONSTRUIRE : un poteau perdu dont aucun remplaçant n'est fabricable (bois et acier absents) fait COUPER le bois
+-- (tâche de minage sur les arbres, Rc.pick_gather) au lieu d'attendre 32 min. Faux : l'ancien comportement (mutant des tests
+-- et « sans la règle » du banc reconstruire-bois, réglé par l'interface fo-recon).
+Recon.GATHER = true
 
 local ITEM_OF = {}          -- mémoire LOCALE (prototypes seulement)
 local function item_of(name)
@@ -321,6 +326,49 @@ local function available_or_craftable(book, free, item)
   return next(book:plan({ { item, 1 } }, avail).raw) == nil
 end
 
+--- Matière brute qui manque pour fabriquer 1 `item` à la main avec le stock libre : { [objet] = n }, ou nil (non fabricable à la main).
+local function missing_raw(book, free, item)
+  if not book:handcraftable(item) then return nil end
+  local avail = {}
+  for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
+  avail[item] = 0
+  return book:plan({ { item, 1 } }, avail).raw
+end
+
+--- Une matière que seules des entités du monde donnent SANS gisement de minerai (le bois : arbres) ?
+local function from_trees(item)
+  local names = Harvest.names(item)
+  return #names > 0 and not (#names == 1 and names[1] == item)
+end
+
+--- Lot CORR-RECONSTRUIRE : aucun poteau remplaçant n'est fabricable : tâche de minage de la matière récoltable qui manque (le bois),
+--- sur les arbres, loin des nids (prudent). Une tâche par objet (clé stable).
+function Recon.gather(f, s, book, free, r, tick)
+  if not Recon.GATHER then return 0 end
+  local c, list = Rc.pick_gather(pole_cands(), r.reach or 0, function(x) return missing_raw(book, free, x.item) end, from_trees)
+  if not c then return 0 end
+  local tasks = {}
+  for _, u in ipairs(list) do
+    tasks[#tasks + 1] = { key = "recon:gather:" .. u[1], kind = "mine", prio = Rc.task_prio(Rc.INFRA_VALUE), resource = u[1], count = u[2],
+      trees = true, prudent = true, domain = "defense", tag = "reconstruction" }
+  end
+  -- Le tableau est resynchronisé à chaque pensée (les tâches libres non replanifiées disparaissent) : la tâche est rouverte tant que
+  -- le besoin dure ; une tâche échouée (aucun arbre sûr à portée) est mise en pause par Board.finish (RETRY_TICKS).
+  local n = Board.add(f, tasks, tick)
+  s.gather_log = s.gather_log or {}
+  local first = tasks[1] and tasks[1].resource
+  if n > 0 and first and tick - (s.gather_log[first] or -math.huge) >= 3600 then
+    s.gather_log[first] = tick
+    stat(s, "gathers")
+    if (s.stats.gather_logs or 0) < Recon.LOGS then
+      s.stats.gather_logs = (s.stats.gather_logs or 0) + 1
+      log(string.format("[FO-RECON] %s : aucun poteau fabricable pour remplacer %s : recolte de %s (%s) a %.1f min", f.key or "player", r.name,
+        first, c.name, tick / 3600))
+    end
+  end
+  return n
+end
+
 --- Poteau perdu dont l'objet manque ET ne peut être fabriqué : on pose le poteau du meilleur niveau fabricable (r.place / r.item).
 local function substitute_poles(f, s, book, free, tick)
   for _, k in ipairs(State.sorted_keys(s.lost)) do
@@ -328,6 +376,7 @@ local function substitute_poles(f, s, book, free, tick)
     if r.infra and r.etype == "electric-pole" and not r.place and not r.abandoned and not r.claimed
       and tick - r.tick >= Rc.calm_for(r) and not available_or_craftable(book, free, r.item) then
       local c = Rc.pick_alt(pole_cands(), r.reach or 0, function(x) return available_or_craftable(book, free, x.item) end)
+      if not c then Recon.gather(f, s, book, free, r, tick) end
       if c and c.item ~= r.item then
         r.place, r.item = c.name, c.item
         stat(s, "substituted")
@@ -585,6 +634,8 @@ function Recon.act(agent, f, task, surface)
 end
 
 remote.add_interface("fo-recon", {
+  -- Banc seulement (reconstruire-bois : « avec » et « sans » la récolte du bois). Mémoire LOCALE, hors sauvegarde.
+  set_gather = function(on) Recon.GATHER = on and true or false return Recon.GATHER end,
   status = function(key)
     local f = (key == nil or key == "player") and State.faction("player") or nil
     if not f and key ~= nil then
