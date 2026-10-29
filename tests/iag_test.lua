@@ -145,6 +145,26 @@ local function run_all()
   local d_tech = decide(cat, st, { weights = { armee = 500, recherche = 2000, capital = 1000 } })
   check(d_army.tech ~= d_tech.tech, "§2 le caractère pondère le choix (armée : " .. tostring(d_army.tech) .. ", recherche : " .. tostring(d_tech.tech) .. ")")
   check(cat.role[(d_army.why[1] or {})[2] or ""] == "militaire", "§2 le conquérant choisit une technologie militaire")
+  -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un PALIER pour une faction (ctx.defense = la recette), jamais un don :
+  -- en tête de la liste quand elle est payable et pas faite, quelle que soit la règle K1 ; rien de changé sinon.
+  local tt = cat.g.unlocked_by[T.turret]
+  local d_nodef = decide(cat, st)
+  local d_def = decide(cat, st, { defense = T.turret })
+  check(tt ~= nil and d_nodef.tech ~= tt, "§2 bis D2 : sans la règle, la technologie de la tourelle n'est pas en tête (" .. tostring(d_nodef.tech) .. ")")
+  check(d_def.tech == tt and d_def.defense == true and d_def.k1 == Gen.DEFENSE_TAG,
+    "§2 bis D2 : avec la règle, la technologie de la tourelle passe en tête (" .. tostring(d_def.tech) .. ")")
+  local d_def_k1 = decide(cat, st, { defense = T.turret, k1 = true, wanted = {} })
+  check(d_def_k1.tech == tt, "§2 bis D2 : même avec les règles K1, la défense passe avant (" .. tostring(d_def_k1.tech) .. ")")
+  local st_done = F.start_state()
+  st_done.techs[tt] = true
+  local d_done = decide(cat, st_done, { defense = T.turret })
+  check(d_done.tech ~= tt and not d_done.defense, "§2 bis D2 : technologie déjà faite : rien n'est forcé")
+  local st_cu = F.start_state({ unknown = { T.outposts.copper.resource } })
+  st_cu.stock[T.outposts.copper.product] = nil
+  local d_cu = decide(cat, st_cu, { defense = T.turret })
+  check(d_cu.tech ~= tt, "§2 bis D2 : impayable (cuivre inconnu) : pas de don, la règle H8 reste (" .. tostring(d_cu.tech) .. ")")
+  check(Gen.defense_first(cat, st, {}, T.turret) == nil and Gen.defense_first(cat, st, { { tech = "x" } }, nil) == nil,
+    "§2 bis D2 : liste vide ou sans recette : rien")
   -- Valeur propre (H9) : une technologie prête qui ouvre un pack fabricable vaut au moins 100 (constante littérale : le
   -- mutant « packs à 0 » doit être vu) ; un objet sans source (bois) ne vaut qu'un quart (40 + 40/4 + 40 = 90).
   local best_pack = 0
@@ -345,6 +365,8 @@ do
       return choose0(cat, fake, state, ctx)
     end
   end, function() Gen.choose = choose0 end)
+  local df0 = Gen.defense_first
+  M("défense : la tourelle ne passe plus en tête (D2)", function() Gen.defense_first = function() end end, function() Gen.defense_first = df0 end)
   local kr0 = Gen.key_resources
   M("ressources clés par ordre alphabétique", function()
     Gen.key_resources = function(cat, sum, kinds, kind_of)

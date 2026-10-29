@@ -56,6 +56,11 @@ M.PRUNE_PERIOD = 3600
 -- jusqu'à 9 s trop tard (final-050-2c49ceb peur-20261020 : sans munitions, 2 fuites sur 4 après 541 ticks ; C3 : <= 1 s).
 M.ARMED_TTL = 60
 M.RETARGET_PERIOD = 600 -- un minage refusé cherche un autre site au plus toutes les 10 s (coût : une recherche de tuiles)
+-- Lot DEFENSE-FACTIONS D6 (audit tourelles-danger du 29/10, « boucle Trop dangereux » d'Émeraude ; AUCUN seuil de la porte ne change) :
+M.PASS_TICKS = 18000    -- 5 min : une destination dont l'escalade a été accordée garde son PASSE-DROIT (au lieu de repartir à 0 refus : 4 refus de
+                        -- 30 s, un départ, puis encore 4 refus, à chaque tâche), tant que son but n'est pas à portée d'une menace
+M.LABEL_AFTER = 2       -- l'étiquette « Trop dangereux » ne s'affiche qu'au 2e refus de suite pour la même destination (sauf morts)
+M.REPORT_EVERY = 18000  -- 5 min : une ligne de bilan de la porte par équipe (M.gate_report), sans profileur
 M.MACHINE = "worker"
 
 local COLORS = {
@@ -604,6 +609,7 @@ function M.gate(f, agent, task, steps, tick)
   -- La menace qui bloque est signalée aux soldats (nettoyage quel que soit le caractère, script/ai3/soldats.lua).
   local dk = D.key(D.cell(dest.x), D.cell(dest.y))
   t.waits = t.waits or {}
+  local refused_n = nil -- refus de suite pour cette destination (lot DEFENSE-FACTIONS D6 : étiquette au 2e)
   if decision == "wait" and why ~= "morts" and why ~= "mort" then
     local w = t.waits[dk]
     if not w then
@@ -626,22 +632,36 @@ function M.gate(f, agent, task, steps, tick)
       end
     end
     local W = math.max(2, math.min(6, math.floor(4 * prud / 1000)))
+    refused_n = w.n
     -- Jamais d'escalade vers un BUT à portée réelle d'une menace connue (D.danger_exact au but >= seuil) : le PNJ y
     -- mourrait ou ferait demi-tour à portée ; seuls un nettoyage ou un autre site le débloquent (final-3958412
     -- memoire-123456789 : PNJ tué par un ver après une escalade vers un but à 4 150 de danger, seuil 650).
-    if w.n > W and res.exact_goal < res.B then
+    if w.pass and tick < w.pass and res.exact_goal < res.B then
+      -- Lot DEFENSE-FACTIONS D6 : passe-droit de M.PASS_TICKS après une escalade accordée (même condition qu'elle : but hors de portée)
+      decision, why = "go", "passe-droit"
+      a.risk = true
+      w.n = 0 -- (le cycle de refus repart de zéro à l'expiration du passe-droit)
+      refused_n = nil
+      t.stats.passe_droit = (t.stats.passe_droit or 0) + 1
+    elseif w.n > W and res.exact_goal < res.B then
       decision, why = "go", "escalade"
       a.risk = true
       w.n = 0
+      w.pass = tick + M.PASS_TICKS
+      refused_n = nil
       t.stats.escalade = (t.stats.escalade or 0) + 1
     end
   elseif decision ~= "wait" then
-    t.waits[dk] = nil
+    -- (le passe-droit survit à un « go » ordinaire tant qu'il dure : une destination qui redevient dangereuse ne repart pas à zéro)
+    local w = t.waits[dk]
+    if w and w.pass and tick < w.pass then w.n = 0 else t.waits[dk] = nil end
   end
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
   if decision == "wait" then
-    label(agent, "attente", tick, t.stats)
+    -- Lot DEFENSE-FACTIONS D6 : « Trop dangereux » seulement au 2e refus de suite (ou si des morts le disent) ; le premier refus ne réécrit pas
+    -- l'étiquette du PNJ. La décision, elle, ne change pas.
+    if refused_n == nil or refused_n >= M.LABEL_AFTER then label(agent, "attente", tick, t.stats) end
     if Profiler.enabled() then
       log(string.format("[FO-IA3K] %s : PNJ %d attend (%s) : tache %s vers (%d, %d), morts de l'heure %d, danger %d (seuil %d)",
         tostring(f.key), agent.id, why, tostring(task.kind), math.floor(dest.x), math.floor(dest.y), deaths, res.max_d, res.B))
@@ -673,6 +693,34 @@ function M.gate(f, agent, task, steps, tick)
     end
   end
   return true
+end
+
+--- Lot DEFENSE-FACTIONS D1 : bilan de la porte, SANS profileur (le journal « PNJ attend » exigeait Profiler.enabled() et la durée de la boucle
+--- « Trop dangereux » n'était pas mesurable). Une ligne [FO-IA3K] au plus toutes les M.REPORT_EVERY ticks par équipe : décisions de la porte et
+--- motifs (cumul depuis le début de la partie, puis les 5 dernières minutes), escalades, passe-droits. Lecture seule ; appelé par
+--- script/team/defense_log.lua. État : t.report_t, t.report_prev (nombres), créés ici en événement.
+function M.gate_report(f, tick)
+  if not M.enabled() then return end
+  local t = M.team(f)
+  if t.report_t and tick - t.report_t < M.REPORT_EVERY then return end
+  local prev = t.report_prev or {}
+  local now = {}
+  local keys = {}
+  for k, n in pairs(t.stats.gate_why or {}) do keys[#keys + 1] = k now[k] = n end
+  table.sort(keys)
+  local first = t.report_t == nil
+  t.report_t = tick
+  t.report_prev = now
+  if #keys == 0 then return end
+  local total, d_total, parts = 0, 0, {}
+  for _, k in ipairs(keys) do
+    local d = now[k] - (prev[k] or 0)
+    total, d_total = total + now[k], d_total + d
+    parts[#parts + 1] = string.format("%s %d (+%d)", k, now[k], d)
+  end
+  log(string.format("[FO-IA3K] %s : bilan de la porte a %.1f min%s : %d decisions (+%d en 5 min) {%s} ; escalades %d, passe-droits %d, reciblages %d, morts marquees %d",
+    tostring(f.key), tick / 3600, first and " (premier)" or "", total, d_total, table.concat(parts, ", "), t.stats.escalade or 0,
+    t.stats.passe_droit or 0, t.stats.retarget or 0, t.stats.deaths or 0))
 end
 
 ---------------------------------------------------------------------------------------------------

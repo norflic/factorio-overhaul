@@ -53,6 +53,39 @@ F.REST = 7200             -- ticks : repos d'une cellule dont la pose n'a rien p
 F.CHECK_EVERY = 600       -- ticks : durée de validité d'un « le moteur autorise » (lu par l'appelant)
 F.COVER_EVERY = 1800      -- ticks : relevé des bâtiments d'amélioration (lu par l'appelant)
 
+-- Lot DEFENSE-FACTIONS (audit tourelles-danger du 29/10 ; constantes ICI et non dans shared/team/config.lua, partagé avec d'autres lots) :
+F.SCAN = 8                -- cellules examinées AVANT la coupe à F.MAX_CELLS : une cellule que le moteur refuse (rasée, ennemi sur place) ne compte pas dans la coupe (D5)
+F.NEAR_HQ = 40            -- tuiles : une cellule à moins de cela du QG passe AVANT la centrale et les avant-postes non défendus (D5)
+F.HIGH_SCORE = 400        -- centièmes : « score élevé » (deux morts de tourelle ou de mur) : le plancher de fer baisse pour le front (D4)
+F.FLOOR_IRON = 60         -- plaques de fer gardées au coffre quand le front est servi à plancher réduit (T.defend_iron_floor = 150 sinon) : jamais 0
+F.FLOOR_COPPER = 10       -- plaques de cuivre gardées (T.defend_copper_floor = 30 sinon)
+F.PARTIAL_COUNT = 1       -- tourelles d'une commande partielle (D4)
+F.PARTIAL_AMMO = 10       -- chargeurs par tourelle d'une commande partielle (D4 ; commande complète : T.defend_ammo)
+F.HQ_POST = 2             -- tourelles voulues au QG d'une faction qui en a perdu une sous attaque (D3)
+F.HQ_MEMORY = 108000      -- ticks (30 min) : le QG compte comme « attaqué » ce temps après la dernière occupation par les biters (D3)
+F.LOG_EVERY = 18000       -- ticks (5 min) : une ligne [FO-DEFENSE] au plus par faction (D1)
+
+--- D3 : tourelles voulues au QG d'une FACTION. a = { turrets = tourelles du QG, peak = le plus grand nombre déjà vu, ago = ticks depuis la
+--- dernière occupation du QG par les biters (nil : jamais) }. 0 tant que le QG n'a pas perdu de tourelle OU n'a pas été attaqué récemment
+--- (la tourelle offerte au départ, F.HQ_POST ensuite : une faction ne refait pas un QG de 4 tourelles, elle en garde 2).
+function F.hq_post(a)
+  local lost = (a.turrets or 0) < (a.peak or 0)
+  local attacked = a.ago ~= nil and a.ago >= 0 and a.ago < F.HQ_MEMORY
+  if lost and attacked then return F.HQ_POST end
+  return 0
+end
+
+--- D4 : planchers de fer et de cuivre du front. Plancher réduit seulement si la cellule a un score élevé ET si l'équipe produit encore du fer
+--- (`producing` : sinon le coffre est la dernière réserve du redémarrage et la défense n'y touche pas : remarque du DC du 29/10, « si on manque
+--- cruellement de ressources, l'objectif est ces ressources, la défense vient juste après »). `base_iron`, `base_copper` : planchers ordinaires.
+--- Rend fer, cuivre, réduit (vrai si réduit).
+function F.floors(score, producing, base_iron, base_copper)
+  if producing and (score or 0) >= F.HIGH_SCORE then
+    return math.min(base_iron, F.FLOOR_IRON), math.min(base_copper, F.FLOOR_COPPER), true
+  end
+  return base_iron, base_copper, false
+end
+
 local function d2(ax, ay, bx, by) local dx, dy = ax - bx, ay - by; return dx * dx + dy * dy end
 
 local function floor(x) return math.floor(x) end
@@ -213,31 +246,44 @@ end
 function F.accepts(cx, cy, px, py) return d2(cx, cy, px, py) <= F.ACCEPT * F.ACCEPT end
 
 --- Plan de l'équipe. Entrées (table p) :
----   cells   = F.top(mem) : cellules attaquées ;
+---   cells   = F.top(mem, F.SCAN) : cellules attaquées (au plus F.MAX_CELLS sont gardées APRÈS le contrôle du moteur, lot DEFENSE-FACTIONS D5) ;
 ---   cover   = F.cover_clusters(...) : bâtiments d'amélioration ;
 ---   turrets = { { x, y } } toutes les tourelles de l'équipe (armées ou non) ;
 ---   placed  = tourelles du front déjà posées (plafond d'équipe) ;
 ---   near    = portée de couverture (défaut F.NEAR) ;
 ---   rest    = { [clé] = vrai } cellules au repos (porteur tué en route, pose sans résultat) ;
 ---   pause   = vrai : rien ;
----   allow   = function(row) -> vrai si le moteur autorise ce lieu (facultatif ; appelée seulement pour une cellule en manque).
---- Rend { rows, pick, left } : rows = { { key, kind = "attaque"|"couverture", x, y, score, have, want, missing } } dans l'ordre de service ;
---- pick = { key, kind, x, y, have, want, count, sites } ou nil ; left = places restantes sous le plafond.
+---   hq      = { x, y } : le QG (facultatif ; sert à marquer `near_hq` la cellule choisie, D5) ;
+---   allow   = function(row) -> vrai si le moteur autorise ce lieu (facultatif ; appelée pour une cellule en manque qui n'est pas au repos).
+--- Rend { rows, pick, left } : rows = { { key, kind = "attaque"|"couverture", x, y, score, have, want, missing, skip } } dans l'ordre de service
+--- (skip : pourquoi la ligne n'est pas servie, pour le journal [FO-DEFENSE] : "servie", "repos", "refus", "doublon", "plafond") ;
+--- pick = { key, kind, x, y, score, have, want, count, sites, near_hq } ou nil ; left = places restantes sous le plafond.
 function F.plan(p)
   local near = p.near or F.NEAR
   local turrets = p.turrets or {}
   local left = F.TEAM_CAP - (p.placed or 0)
   if left < 0 then left = 0 end
   local rows = {}
+  -- Lot DEFENSE-FACTIONS D5 : le moteur est consulté AVANT la coupe à F.MAX_CELLS. Avant, les 3 cellules les plus attaquées étaient
+  -- gardées puis seulement jugées : si elles étaient rasées (aucun bâtiment à portée) ou sous les nids, rien n'était servi même
+  -- quand une 4e cellule l'aurait été. Une cellule refusée ne compte plus dans la coupe.
+  local kept = 0
   for _, c in ipairs(p.cells or {}) do
+    if kept >= F.MAX_CELLS then break end
     local have = F.count_near(turrets, c.x, c.y, near)
     local want = F.want(c.score)
-    rows[#rows + 1] = { key = c.key, kind = "attaque", x = c.x, y = c.y, score = c.score, have = have, want = want,
+    local row = { key = c.key, kind = "attaque", x = c.x, y = c.y, score = c.score, have = have, want = want,
       missing = math.max(0, want - have) }
+    if row.missing > 0 and not (p.rest and p.rest[c.key]) and p.allow and not p.allow(row) then
+      row.skip = "refus"
+    else
+      kept = kept + 1
+    end
+    rows[#rows + 1] = row
   end
   for _, c in ipairs(p.cover or {}) do
     local have = F.count_near(turrets, c.x, c.y, near)
-    rows[#rows + 1] = { key = c.key, kind = "couverture", x = c.x, y = c.y, score = 0, have = have, want = F.COVER_WANT,
+    rows[#rows + 1] = { kind = "couverture", key = c.key, x = c.x, y = c.y, score = 0, have = have, want = F.COVER_WANT,
       missing = math.max(0, F.COVER_WANT - have) }
   end
   local pick = nil
@@ -250,13 +296,29 @@ function F.plan(p)
       if r.kind == "couverture" then
         for _, a in ipairs(rows) do if a.kind == "attaque" and a.key == r.key then dup = true end end
       end
-      if r.missing > 0 and room > 0 and not dup and not (p.rest and p.rest[r.key]) and (not p.allow or p.allow(r)) then
+      local resting = p.rest and p.rest[r.key]
+      if r.skip == "refus" then
+        -- déjà jugée par le moteur plus haut
+      elseif r.missing <= 0 then
+        r.skip = "servie"
+      elseif room <= 0 then
+        r.skip = "plafond"
+      elseif dup then
+        r.skip = "doublon"
+      elseif resting then
+        r.skip = "repos"
+      elseif r.kind == "couverture" and p.allow and not p.allow(r) then
+        r.skip = "refus"
+      else
         local count = math.min(r.missing, F.BATCH, room)
-        pick = { key = r.key, kind = r.kind, x = r.x, y = r.y, have = r.have, want = r.want, count = count,
+        pick = { key = r.key, kind = r.kind, x = r.x, y = r.y, score = r.score, have = r.have, want = r.want, count = count,
           sites = F.sites(r.x, r.y, turrets) }
+        if p.hq then pick.near_hq = d2(r.x, r.y, p.hq.x, p.hq.y) <= F.NEAR_HQ * F.NEAR_HQ end
         break
       end
     end
+  elseif p.pause or left <= 0 then
+    for _, r in ipairs(rows) do if r.missing > 0 and not r.skip then r.skip = p.pause and "pause" or "plafond" end end
   end
   return { rows = rows, pick = pick, left = left }
 end

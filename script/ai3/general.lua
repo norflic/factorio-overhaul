@@ -421,7 +421,10 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local Capi = package.loaded["script.ai3.capitalisation"]
   local levers = Capi and Capi.techs_wanted and Capi.techs_wanted(f) or nil
   local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
-    k1 = k1 or nil, levers = levers })
+    k1 = k1 or nil, levers = levers,
+    -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier pour une FACTION (votre équipe cherche à la main) ; la recette
+    -- est celle que les planificateurs commandent (T.turret), la règle pure ne la nomme pas.
+    defense = (not f.is_player) and T.turret or nil })
   -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
   -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
   local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })

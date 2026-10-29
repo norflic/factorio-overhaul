@@ -232,5 +232,149 @@ local inv = F.top(rk)
 F.top = real_top
 check(inv[1].score <= inv[#inv].score and real_top(rk)[1].score > real_top(rk)[#real_top(rk)].score, "mutant « classement inversé » refusé")
 
+
+---------------------------------------------------------------------------------------------------
+section("10. Lot DEFENSE-FACTIONS (D3 poste du QG, D4 commande partielle et plancher, D5 front avant le reste)")
+-- D3 : poste de tourelles du QG d'une faction
+check(F.hq_post({ turrets = 4, peak = 4, ago = 100 }) == 0, "D3 : QG attaqué mais aucune tourelle perdue : aucun poste")
+check(F.hq_post({ turrets = 1, peak = 4, ago = nil }) == 0, "D3 : tourelle perdue mais QG jamais attaqué : aucun poste")
+check(F.hq_post({ turrets = 1, peak = 4, ago = F.HQ_MEMORY + 1 }) == 0, "D3 : attaque trop ancienne : aucun poste")
+check(F.hq_post({ turrets = 1, peak = 4, ago = 600 }) == F.HQ_POST and F.HQ_POST == 2, "D3 : tourelle perdue ET QG attaqué : 2 tourelles voulues")
+check(F.hq_post({ turrets = 0, peak = 0, ago = 600 }) == 0, "D3 : jamais eu de tourelle au QG : aucun poste")
+local function task_of(plan, id)
+  for _, t in ipairs(plan.tasks) do if t.kind == "fortify" and t.outpost == id then return t end end
+  return nil
+end
+local hq_stock = { ["gun-turret"] = 2, [T.turret_ammo] = 40, ["iron-plate"] = 0 }
+local th = task_of(Planner.plan(view({ stock = hq_stock, hq_turrets = 1, hq_defend = F.HQ_POST }), book), "hq")
+check(th and qty(th, "gun-turret") == 1, "D3 : poste du QG de 2 tourelles, une présente : une seule commandée")
+check(task_of(Planner.plan(view({ stock = hq_stock, hq_turrets = 1, hq_defend = 0 }), book), "hq") == nil, "D3 : poste à 0 : aucune tâche au QG")
+check(task_of(Planner.plan(view({ stock = hq_stock, hq_turrets = 2, hq_defend = F.HQ_POST }), book), "hq") == nil, "D3 : deux tourelles présentes : rien de plus")
+
+-- D4 : plancher du front
+local fi, fc, red = F.floors(F.HIGH_SCORE, true, 150, 30)
+check(fi == F.FLOOR_IRON and fc == F.FLOOR_COPPER and red == true and fi > 0, "D4 : score élevé et fer produit : plancher réduit, jamais 0")
+local ni, nc, nred = F.floors(F.HIGH_SCORE, false, 150, 30)
+check(ni == 150 and nc == 30 and nred == false, "D4 : fer plus produit (remarque du DC) : plancher ordinaire, le coffre n'est pas vidé")
+local li, _, lred = F.floors(F.HIGH_SCORE - 1, true, 150, 30)
+check(li == 150 and lred == false, "D4 : score faible : plancher ordinaire")
+check(select(1, F.floors(F.HIGH_SCORE, true, 40, 30)) == 40, "D4 : le plancher ordinaire plus bas que le réduit est gardé")
+
+-- D4 : commande partielle et plancher dans le planificateur
+local hi_cells = { { key = "6,6", cx = 6, cy = 6, score = 400, x = 100, y = 100 } }
+local ph = F.plan({ cells = hi_cells, turrets = {} })
+local function plan_front(stock, over)
+  local v = view({ stock = stock, front = { pick = ph.pick, busy = false } })
+  for k, x in pairs(over or {}) do v[k] = x end
+  return Planner.plan(v, book)
+end
+local function crafts_of(plan, tag)
+  local n = 0
+  for _, t in ipairs(plan.tasks) do if t.kind == "craft" and t.tag == tag then n = n + 1 end end
+  return n
+end
+local function front_post(plan)
+  for _, d in ipairs(plan.defend and plan.defend.posts or {}) do if d.id == "front" then return d end end
+  return nil
+end
+local prod = { { id = "o1", kind = "iron", drills = 8, turrets = 2, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } }
+local cu = 100
+-- fer 250, sans production : la commande complète (240 fer + plancher 150) n'est pas payable, la partielle (80 fer) l'est
+local a250 = plan_front({ ["iron-plate"] = 250, ["copper-plate"] = cu })
+check(front_post(a250) and front_post(a250).why == "fabrication" and front_post(a250).partial == true and crafts_of(a250, "defense") >= 2,
+  "D4 : fer 250 : commande PARTIELLE fabriquée (1 tourelle, 10 chargeurs) au lieu du tout-ou-rien")
+-- fer 200, sans production : même la partielle ne passe pas (200 - 150 = 50 < 80) : cause « fer » avec le manque en chiffres
+local a200 = plan_front({ ["iron-plate"] = 200, ["copper-plate"] = cu })
+local f200 = front_post(a200)
+check(f200 and f200.why == "fer" and f200.raw and f200.raw[T.outposts.iron.product] == 30 and crafts_of(a200, "defense") == 0,
+  "D4 : fer 200 sous le plancher : rien n'est fabriqué, le journal dit « fer » et le manque (30)")
+-- le fer est produit et le score est élevé : plancher 60, 200 suffit pour la partielle (80 + 60 = 140, après les besoins plus urgents)
+local b200 = plan_front({ ["iron-plate"] = 200, ["copper-plate"] = cu }, { outposts = prod })
+check(front_post(b200) and front_post(b200).reduced == true and front_post(b200).floor_i == F.FLOOR_IRON and front_post(b200).why == "fabrication"
+  and crafts_of(b200, "defense") >= 2, "D4 : fer produit, score élevé, fer 200 : plancher réduit, partielle fabriquée")
+-- même fer, mais plus de production : le plancher ordinaire protège le coffre (remarque du DC)
+local c200 = plan_front({ ["iron-plate"] = 200, ["copper-plate"] = cu })
+check(front_post(c200) and front_post(c200).reduced == nil and crafts_of(c200, "defense") == 0 and front_post(c200).why == "fer",
+  "D4 : fer 200 sans production de fer : la défense ne vide pas le coffre")
+-- jamais sous le plancher réduit
+local d100 = plan_front({ ["iron-plate"] = 100, ["copper-plate"] = cu }, { outposts = prod })
+check(front_post(d100) and front_post(d100).why == "fer" and crafts_of(d100, "defense") == 0, "D4 : fer 100 : sous 60 + 80, rien (le plancher réduit reste un plancher)")
+-- score faible : plancher ordinaire même avec production
+local low = F.plan({ cells = { { key = "6,6", cx = 6, cy = 6, score = 200, x = 100, y = 100 } }, turrets = {} })
+local e = Planner.plan(view({ stock = { ["iron-plate"] = 200, ["copper-plate"] = cu }, outposts = prod, front = { pick = low.pick, busy = false } }), book)
+check(front_post(e) and front_post(e).reduced == nil and crafts_of(e, "defense") == 0, "D4 : score faible : plancher ordinaire")
+-- la partielle est posée quand le stock la contient (1 tourelle, 10 chargeurs), sans attendre la commande complète
+local g = plan_front({ ["iron-plate"] = 150, ["copper-plate"] = cu, ["gun-turret"] = 1, [T.turret_ammo] = 10 })
+local gt = task_of(g, "front")
+check(gt and qty(gt, "gun-turret") == F.PARTIAL_COUNT and qty(gt, T.turret_ammo) == F.PARTIAL_COUNT * F.PARTIAL_AMMO,
+  "D4 : 1 tourelle et 10 chargeurs au stock : tâche « fortify front » partielle")
+-- la commande complète reste la règle quand elle est payable
+local h = plan_front({ ["iron-plate"] = 2000, ["copper-plate"] = 500, ["gun-turret"] = 2, [T.turret_ammo] = 40 })
+local ht = task_of(h, "front")
+check(ht and qty(ht, "gun-turret") == 2 and qty(ht, T.turret_ammo) == 2 * T.defend_ammo, "D4 : stock complet : commande complète, comme avant")
+-- D1 : recette fermée = cause « recette »
+local closed_recipes = {}
+for name, rec in pairs(dofile("tests/fixtures/recipes.lua")) do if name ~= "gun-turret" then closed_recipes[name] = rec end end
+local closed_book = Book.new(closed_recipes)
+local cv = view({ stock = { ["iron-plate"] = 2000, ["copper-plate"] = 500 }, front = { pick = ph.pick, busy = false } })
+local cp = Planner.plan(cv, closed_book)
+check(front_post(cp) and front_post(cp).why == "recette" and task_of(cp, "front") == nil, "D1 : recette de la tourelle fermée : cause « recette », aucune tâche")
+local opened = plan_front({ ["iron-plate"] = 2000, ["copper-plate"] = 500 })
+check(front_post(opened) and front_post(opened).why == "fabrication", "D1 : recette ouverte et fer suffisant : « fabrication »")
+
+-- D5 : F.plan, le moteur est consulté AVANT la coupe à F.MAX_CELLS
+local four = {
+  { key = "9,9", cx = 9, cy = 9, score = 900, x = 150, y = 150 }, { key = "8,8", cx = 8, cy = 8, score = 800, x = 130, y = 130 },
+  { key = "7,7", cx = 7, cy = 7, score = 700, x = 110, y = 110 }, { key = "6,6", cx = 6, cy = 6, score = 600, x = 100, y = 100 },
+}
+local pf = F.plan({ cells = four, turrets = {}, allow = function(r) return r.key == "6,6" end })
+check(pf.pick and pf.pick.key == "6,6", "D5 : les 3 plus attaquées refusées par le moteur : la 4e est servie")
+local skips = {}
+for _, r in ipairs(pf.rows) do skips[r.key] = r.skip end
+check(skips["9,9"] == "refus" and skips["8,8"] == "refus" and skips["6,6"] == nil, "D5 : les lignes disent pourquoi (refus)")
+check(F.plan({ cells = four, turrets = {}, allow = function() return false end }).pick == nil, "D5 : toutes refusées : rien")
+local pk3 = F.plan({ cells = four, turrets = {} })
+local nrows = 0
+for _, r in ipairs(pk3.rows) do if r.kind == "attaque" then nrows = nrows + 1 end end
+check(nrows == F.MAX_CELLS and pk3.pick.key == "9,9", "D5 : toutes autorisées : coupe à F.MAX_CELLS cellules, la plus attaquée d'abord")
+local rest_plan = F.plan({ cells = four, turrets = {}, rest = { ["9,9"] = true, ["8,8"] = true, ["7,7"] = true } })
+check(rest_plan.pick == nil, "D5 : trois cellules au REPOS comptent dans la coupe (temporaire) : la 4e n'est pas servie")
+local sk = {}
+for _, r in ipairs(rest_plan.rows) do sk[r.key] = r.skip end
+check(sk["9,9"] == "repos", "D5 : cause « repos » écrite")
+check(F.plan({ cells = four, turrets = {}, placed = F.TEAM_CAP }).rows[1].skip == "plafond", "D1 : plafond d'équipe écrit")
+check(F.plan({ cells = cells, turrets = { near[1], near[2], { x = 100, y = 108 } } }).rows[1].skip == "servie", "D1 : cellule servie écrite")
+-- D5 : QG proche
+local ph2 = F.plan({ cells = hi_cells, turrets = {}, hq = { x = 100 + F.NEAR_HQ - 1, y = 100 } })
+local ph3 = F.plan({ cells = hi_cells, turrets = {}, hq = { x = 100 + F.NEAR_HQ + 1, y = 100 } })
+check(ph2.pick.near_hq == true and ph3.pick.near_hq == false and ph.pick.near_hq == nil, "D5 : cellule à moins de F.NEAR_HQ du QG marquée, plus loin non, sans QG rien")
+-- D5 : ordre des postes dans le planificateur (stock pour un seul poste)
+local one_post = { ["gun-turret"] = 2, [T.turret_ammo] = 40, ["iron-plate"] = 0, ["copper-plate"] = 0 }
+local und = { { id = "o1", kind = "iron", drills = 8, turrets = 1, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } }
+local pn = Planner.plan(view({ stock = one_post, outposts = und, front = { pick = ph2.pick, busy = false } }), book)
+local pfar = Planner.plan(view({ stock = one_post, outposts = und, front = { pick = ph3.pick, busy = false } }), book)
+check(task_of(pn, "front") ~= nil and task_of(pn, "o1") == nil, "D5 : cellule à moins de 40 tuiles du QG : le front est servi AVANT l'avant-poste non défendu")
+check(task_of(pfar, "o1") ~= nil and task_of(pfar, "front") == nil, "D5 : cellule lointaine : l'avant-poste non défendu d'abord, comme avant")
+
+-- mutants du lot
+local real_fl = F.floors
+F.floors = function(_, _, bi, bc) return bi, bc, false end
+local m1 = plan_front({ ["iron-plate"] = 200, ["copper-plate"] = cu }, { outposts = prod })
+F.floors = real_fl
+check(crafts_of(m1, "defense") == 0 and crafts_of(b200, "defense") >= 2, "mutant « plancher jamais réduit » refusé")
+local real_pc = F.PARTIAL_AMMO
+F.PARTIAL_AMMO = 1000
+local m2 = plan_front({ ["iron-plate"] = 250, ["copper-plate"] = cu })
+F.PARTIAL_AMMO = real_pc
+check(not (front_post(m2) and front_post(m2).why == "fabrication") and front_post(a250).why == "fabrication", "mutant « commande partielle hors de prix (retour au tout-ou-rien) » refusé")
+local real_hp = F.hq_post
+F.hq_post = function(a) return (a.turrets or 0) < (a.peak or 0) and F.HQ_POST or 0 end
+local m3 = F.hq_post({ turrets = 1, peak = 4, ago = nil })
+F.hq_post = real_hp
+check(m3 == F.HQ_POST and F.hq_post({ turrets = 1, peak = 4, ago = nil }) == 0, "mutant « QG pas attaqué ignoré » refusé")
+-- mutant : la coupe à 3 cellules AVANT le moteur (comportement d'avant le lot) ne sert rien quand les 3 premières sont refusées
+local cut_first = F.plan({ cells = { four[1], four[2], four[3] }, turrets = {}, allow = function(r) return r.key == "6,6" end })
+check(cut_first.pick == nil and pf.pick ~= nil, "mutant « coupe avant le moteur » refusé (c'était le défaut d'avant le lot)")
+
 print(string.format("[FRONT] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
