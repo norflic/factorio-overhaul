@@ -90,7 +90,9 @@ do
   logs = {}
   local n = Outposts.fortify(f, s, { pos = { x = 0, y = 0 } }, 1, carrier(5))
   check(n == 1 and placed[1].position.x == -9 and placed[1].position.y == 0, "QG : (-9,0) couvre le coffre et le four lointain")
-  check(#logs == 1 and logs[1]:find("%[FO%-TOUR%-POSE%]") and logs[1]:find("QG"), "une ligne de journal [FO-TOUR-POSE]")
+  -- (lot PD-ESPACEMENT : la pose écrit aussi une ligne [FO-TOUR-ECART], après celle-ci)
+  check(#logs == 2 and logs[1]:find("%[FO%-TOUR%-POSE%]") and logs[1]:find("QG") and logs[2]:find("%[FO%-TOUR%-ECART%]"),
+    "une ligne de journal [FO-TOUR-POSE] (puis [FO-TOUR-ECART])")
 end
 -- 7. Portée inconnue : ancien ordre
 do
