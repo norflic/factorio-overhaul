@@ -40,6 +40,8 @@ local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressour
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
+local Harvest = require("script.team.harvest") -- lot KIT : arbres qui donnent le bois (matière naturelle des poteaux)
+local Au = require("shared.ai3.automatiser")
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
@@ -632,12 +634,39 @@ Ia3.REACH_SEEN = 96 -- au-delà, sous brouillard, seulement un gisement CONNU (l
 Ia3.REACH_EVERY_SHORT = 1 -- … à chaque pensée tant qu'une ressource n'est ni à portée ni connue (lot IA-V2 : à 2, la 2e pensée
                           -- lisait encore le cache de la 1re, carte pas ouverte : exploration du fer demandée à 0,1 min)
 
-local function reach_of(f, st, tick)
+-- Lot KIT : matières NATURELLES des poteaux (le bois) que l'on récolte sans gisement de minerai : arbres. Déduites du livre
+-- et des poteaux (Au.natural_needs), jamais un nom ; seulement celles qu'une entité donne (Harvest.any) et qui ne sont pas
+-- déjà des minerais (MINABLE). Liste triée, gardée par livre (le livre se reconstruit rarement).
+local harvest_of_book = setmetatable({}, { __mode = "k" })
+local function harvest_items(book)
+  local list = harvest_of_book[book]
+  if list then return list end
+  list = {}
+  for _, k in ipairs(Au.natural_needs(book)) do
+    if not MINABLE[k] and Harvest.any(k) then list[#list + 1] = k end
+  end
+  harvest_of_book[book] = list
+  return list
+end
+
+local function reach_of(f, st, tick, extra)
   st.reach_n = (st.reach_n or 0) - 1
   if st.reach and st.reach_n > 0 then return st.reach, st.known or {} end
   st.reach_n = Ia3.REACH_EVERY
   local out, known = {}, {}
   local surface = f.hq.surface
+  -- Lot KIT : les matières récoltables (arbres) se lisent à la suite des minerais, d'abord les mêmes rayons, SANS la carte de
+  -- connaissance (réservée aux gisements) ; une matière absente ne force pas la relecture à chaque pensée (REACH_EVERY_SHORT).
+  for _, item in ipairs(extra or {}) do
+    local names = Harvest.names(item)
+    for _, r in ipairs(Ia3.REACH_RADII) do
+      if #names > 0 and surface.count_entities_filtered({ position = f.hq_pos, radius = r, name = names, limit = 1 }) > 0 then
+        out[item] = r
+        break
+      end
+    end
+    if out[item] then known[item] = true end
+  end
   for _, res in ipairs(sorted_keys(MINABLE)) do
     -- Lot IA-V2 : gisement CONNU de l'équipe (carte d'IA3-f), même hors de portée de la main : la ressource n'est pas
     -- « à explorer » (moteur réel, ia3c-dc-apres, 27/10 : exploration du fer demandée à 0,1 min, gisement vu à 127
@@ -689,7 +718,8 @@ function Ia3.plan(f, view, book, surface, tick)
   local w = B.weights(f.chef and f.chef.mix, f.traits)
   -- Lot IA-G : gisements relus AVANT la recherche (le cerveau général en a besoin dès la première pensée).
   Profiler.fstart("ia3:reach")
-  local reach, known = reach_of(f, st, tick)
+  local harvest = Harvest.applies(f) and harvest_items(book) or {} -- lot KIT : les factions seulement (Harvest.PLAYER)
+  local reach, known = reach_of(f, st, tick, harvest)
   Profiler.fstop("ia3:reach")
   local research = nil
   Profiler.fstart("ia3:research_step")
@@ -733,7 +763,7 @@ function Ia3.plan(f, view, book, surface, tick)
   local capi = Capi.think(f, view, book, tick, research, w)
   Profiler.fstop("ia3:capi")
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
-    reach = reach, known = known, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
+    reach = reach, known = known, harvest = harvest, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false,
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).

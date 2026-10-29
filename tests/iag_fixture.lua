@@ -149,11 +149,14 @@ function F.start_state(opts)
   opts = opts or {}
   local T = require("shared.team.config")
   local stock = {}
-  for _, it in ipairs(T.start_kit) do stock[it[1]] = it[2] end
+  -- Lot KIT : opts.kit = "egal" : le kit RÉEL d'une faction (coffre vide, aucun four) ; défaut : le kit généreux des bancs.
+  local egal = opts.kit == "egal"
+  for _, it in ipairs(egal and T.start_kit or T.start_kit_generous) do stock[it[1]] = it[2] end
   local known = {}
   for _, kind in ipairs(T.OUTPOST_ORDER) do known[T.outposts[kind].resource] = true end
   for _, k in ipairs(opts.unknown or {}) do known[k] = nil end
-  return { stock = stock, techs = opts.techs or {}, built = { [T.SMELTER] = T.start_smelters }, known = known }
+  return { stock = stock, techs = opts.techs or {},
+    built = { [T.SMELTER] = egal and T.start_smelters or T.start_smelters_generous }, known = known }
 end
 
 return F

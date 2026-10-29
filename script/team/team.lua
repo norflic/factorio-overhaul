@@ -12,6 +12,7 @@
 
 local Events = require("script.core.events")
 local T = require("shared.team.config")
+local Fondation = require("shared.team.fondation") -- lot KIT : kit de départ commun aux deux équipes
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
 local Scale = require("shared.team.scale")
@@ -208,6 +209,25 @@ local function first_workers(f, surface)
   return n
 end
 
+--- Lot KIT : le kit généreux (réglage fo-war-kit-genereux, bancs seulement) est-il demandé ? Faux par défaut et quand le
+--- réglage n'existe pas (moteur simulé des tests hors jeu).
+function Team.kit_generous()
+  local g = settings and settings.global
+  local s = g and g[Fondation.SETTING]
+  return s ~= nil and s.value == true
+end
+
+--- Lot KIT : le cerveau par besoins (réglage fo-war-ia3-cerveau, défaut vrai) est-il éteint ? Vrai seulement si le réglage
+--- existe et vaut faux.
+function Team.brain_off()
+  local g = settings and settings.global
+  local s = g and g[Ia3.SETTING]
+  return s ~= nil and s.value == false
+end
+
+--- Lot KIT : ce que reçoit une faction à la fondation (règle pure : shared/team/fondation.lua).
+function Team.faction_grant() return Fondation.grant(false, Team.kit_generous(), Team.brain_off()) end
+
 --- Prépare l'équipe d'un QG fraîchement posé : stock de départ, technologies de base, premiers ouvriers.
 function Team.init(f, surface)
   if f.is_player then
@@ -222,6 +242,12 @@ function Team.init(f, surface)
     }
     f.team.goal = T.player_ladder[1].key
     f.smelters = f.smelters or {}
+    -- Lot KIT : la même règle que les factions (F.grant) : aucun objet au coffre d'équipe ; lu ici pour que le kit des deux
+    -- équipes ait une seule source (test pur : tests/kit_test.lua).
+    for _, it in ipairs(Fondation.grant(true, false).chest) do
+      local chest = f.hq or f.chest
+      if chest and chest.valid then chest.get_inventory(defines.inventory.chest).insert({ name = it[1], count = it[2] }) end
+    end
     f.prospects = f.prospects or {}
     f.home_spot = surface.find_non_colliding_position("fo-companion", { x = f.hq_pos.x, y = f.hq_pos.y + 3 }, 20, 0.5)
       or { x = f.hq_pos.x, y = f.hq_pos.y + 3 }
@@ -235,20 +261,25 @@ function Team.init(f, surface)
   }
   f.team.goal = T.ladder[1].key
   f.smelters = {}
+  -- Lot KIT : même kit que votre équipe (coffre vide, aucun four) ; le kit généreux d'avant n'est offert qu'aux bancs
+  -- (réglage fo-war-kit-genereux). Lu à chaque fondation et refondation : une sauvegarde existante ne change pas.
+  local grant = Team.faction_grant()
   local inv = f.hq.get_inventory(defines.inventory.chest)
-  for _, it in ipairs(T.start_kit) do inv.insert({ name = it[1], count = it[2] }) end
+  for _, it in ipairs(grant.chest) do inv.insert({ name = it[1], count = it[2] }) end
   f.home_spot = surface.find_non_colliding_position("fo-companion", { x = f.hq_pos.x - 6, y = f.hq_pos.y + 8 }, 20, 0.5)
     or { x = f.hq_pos.x - 6, y = f.hq_pos.y + 8 }
-  unlock(f, 0)
+  if grant.unlock0 then unlock(f, 0) end -- lot KIT : sans kit généreux, une faction recherche comme votre équipe
   seed_resources(f, surface)
-  -- Fonderie de départ : les fours sont posés avec le stock (comme les premiers fours d'un joueur).
-  local inv2 = f.hq.get_inventory(defines.inventory.chest)
-  local tmp = game.create_inventory(8)
-  tmp.insert({ name = T.SMELTER, count = inv2.remove({ name = T.SMELTER, count = T.start_smelters }) })
-  tmp.insert({ name = T.fuel, count = inv2.remove({ name = T.fuel, count = T.fuel_per_burner * T.start_smelters }) })
-  Outposts.place_smelters(f, surface, T.start_smelters, tmp)
-  for name, n in pairs(tmp.get_contents()) do inv2.insert({ name = name, count = n }) end
-  tmp.destroy()
+  -- Fonderie de départ : les fours sont posés avec le stock (comme les premiers fours d'un joueur). Aucun en kit égal.
+  if grant.smelters > 0 then
+    local inv2 = f.hq.get_inventory(defines.inventory.chest)
+    local tmp = game.create_inventory(8)
+    tmp.insert({ name = T.SMELTER, count = inv2.remove({ name = T.SMELTER, count = grant.smelters }) })
+    tmp.insert({ name = T.fuel, count = inv2.remove({ name = T.fuel, count = T.fuel_per_burner * grant.smelters }) })
+    Outposts.place_smelters(f, surface, grant.smelters, tmp)
+    for name, n in pairs(tmp.get_contents()) do inv2.insert({ name = name, count = n }) end
+    tmp.destroy()
+  end
   first_workers(f, surface) -- lot IA1-a : fo-npc-start (8) au lieu de T.start_workers (2)
 end
 
@@ -528,7 +559,7 @@ function Team.view(f, tick)
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0,
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0, -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,

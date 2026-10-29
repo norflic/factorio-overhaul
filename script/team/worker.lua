@@ -31,6 +31,7 @@ local Build = require("script.team.build") -- lot IA1-d : plan directeur, constr
 local Locomotion = require("script.companion.locomotion")
 local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
 local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
+local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné à la main (minerai, arbres)
 
 local Worker = {}
 
@@ -44,6 +45,67 @@ local MACHINE = "worker"
 local HOME_RADIUS = 6
 local MAX_STEPS_PER_THINK = 6
 local MINE_TIMEOUT = 90 * 60
+-- Lot KIT : UN SEUL mineur par tuile de minerai. Relevé en moteur réel (graine 1618033988, kit égal, banc kit-diag) : les
+-- ouvriers qui minent EN MÊME TEMPS la même tuile (la plus proche du QG, la même pour tous) ne rendent presque rien : 3
+-- mineurs de charbon sur la tuile (324, 303), 0 charbon chacun en 91 s ; 2 mineurs de fer, un seul rapporte (44 sur 50).
+-- Les factions n'ayant plus de stock de départ, tout l'amorçage (pierre des fours, charbon, fer) en dépendait : 10 minutes
+-- sans fonte. Chaque tâche de minage réserve donc sa tuile (f.team.mine_claims, dans `global` via la faction) jusqu'à la
+-- fin du minage, ou CLAIM_TTL ticks si l'ouvrier meurt ou renonce. File d'âges pour l'élagage (aucun `pairs`).
+local CLAIM_TTL = MINE_TIMEOUT + 3600
+Worker.CLAIM_TILES = true -- faux : l'ancien comportement (tests : mutant « sans réservation »)
+Worker.CLAIM_SLACK = 8    -- tuiles : écart de distance au QG toléré entre la première tuile libre et la tuile réservée évitée
+
+--- Lot KIT : l'entité à miner = celle qui est SUR la tuile visée (la plus proche de la cible), pas la première rendue par une
+--- recherche de rayon 2,5 : le moteur la rend dans un ordre quelconque, et une tuile à 2 tuiles de la cible est hors de
+--- portée de l'ouvrier arrêté à 1,5 tuile de l'autre côté (relevé en moteur réel, kit égal : les mineurs d'un même gisement
+--- rendaient 44 ou 0 sur 50 en 91 s, au hasard de la tuile rendue ; le charbon d'Azur, graine 1618033988, 0 huit fois de suite).
+local function mining_entity(surface, target, names, f)
+  if not names or #names == 0 then return nil end -- rien à récolter (Harvest.names vide) : jamais de recherche sans nom
+  if not Harvest.applies(f) then return surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 1 })[1] end
+  local list = surface.find_entities_filtered({ position = target, radius = 0.9, name = names, limit = 8 })
+  if #list == 0 then list = surface.find_entities_filtered({ position = target, radius = 2.5, name = names, limit = 16 }) end
+  local best, bd
+  for _, r in ipairs(list) do
+    local dx, dy = r.position.x - target.x, r.position.y - target.y
+    local d = dx * dx + dy * dy
+    if not best or d < bd or (d == bd and (r.position.x < best.position.x or (r.position.x == best.position.x and r.position.y < best.position.y))) then
+      best, bd = r, d
+    end
+  end
+  return best
+end
+
+local function claims_of(f)
+  local t = f.team
+  t.mine_claims = t.mine_claims or { by_tile = {}, order = {} }
+  return t.mine_claims
+end
+
+local function tile_key(p) return math.floor(p.x) .. "," .. math.floor(p.y) end
+
+--- La tuile est-elle réservée par un autre minage en cours ?
+local function tile_claimed(f, p, tick)
+  if not Worker.CLAIM_TILES or not Harvest.applies(f) then return false end
+  local c = claims_of(f).by_tile[tile_key(p)]
+  return c ~= nil and tick - c < CLAIM_TTL
+end
+
+local function claim_tile(f, p, tick)
+  if not Harvest.applies(f) then return end
+  local cl = claims_of(f)
+  local key = tile_key(p)
+  cl.by_tile[key] = tick
+  cl.order[#cl.order + 1] = { key, tick }
+  -- élagage : les plus anciennes réservations échues (ticks croissants dans la file)
+  while #cl.order > 0 and tick - cl.order[1][2] >= CLAIM_TTL do
+    local old = table.remove(cl.order, 1)
+    if cl.by_tile[old[1]] == old[2] then cl.by_tile[old[1]] = nil end
+  end
+end
+
+local function release_tile(f, p)
+  if p and Harvest.applies(f) then claims_of(f).by_tile[tile_key(p)] = nil end
+end
 local CRAFT_TIMEOUT = 5 * 60 * 60
 local DEFENSE_PERIOD = 60
 local DEFENSE_RADIUS = 18
@@ -346,7 +408,9 @@ function Worker.program(f, task, surface, tick)
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
     -- Lot IA1-b2 (R-QCM-25c (c)) : task.radius (minage de fond de votre équipe : près du coffre, T.near_mine).
-    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = task.resource, limit = 256 })
+    local names = Harvest.names_for(f, task.resource)
+    if #names == 0 then return nil end -- lot KIT : un objet sans entité récoltable ne se mine pas à la main
+    local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 }) -- lot KIT : minerai = l'entité du même nom, bois = arbres
     table.sort(res, function(a, b)
       local da, db = dist2(a.position, f.hq_pos), dist2(b.position, f.hq_pos)
       if da ~= db then return da < db end
@@ -355,17 +419,19 @@ function Worker.program(f, task, surface, tick)
     end)
     -- Tuile LIBRE : sous un four ou une foreuse (avant-poste détruit, restes), l'ouvrier sélectionnait le
     -- bâtiment et ne minait rien (moteur réel, E16 it. 11 : 4 minerais livrés en 50 min).
-    local best
+    local best, first_free, free_d
     local stride = math.max(1, math.floor(#res / 40))
     for i = 1, #res, stride do
       local r = res[i]
       local p = r.position
       local busy = surface.count_entities_filtered({
-        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = "resource", invert = true, limit = 1,
+        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource, f), invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
       -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
       -- ia3c-default graine 20261020, Ambre, 28 PNJ tués en minage à la main près d'un nid à 35 tuiles de son QG.
+      -- Lot KIT : une autre ressource sur la même tuile (cristal sur du charbon) : le moteur sélectionne l'autre, rien ne vient
+      if busy == 0 and Harvest.foreign_resource(surface, p, task.resource, f) then busy = 1 end
       if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
@@ -375,8 +441,21 @@ function Worker.program(f, task, surface, tick)
       -- 7e3e4ad : 8 PNJ tués en minage à la main à 51-57 tuiles du QG en 40 min (0.4.30 : 1), recrues de survie payées
       -- en fer, fer à 0 à 40 min, munitions épuisées, coffre perdu à 45 min.
       if busy == 0 and (task.fond or task.prudent) and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
-      if busy == 0 then best = r break end
+      -- Lot KIT : la première tuile libre ET non réservée ; à défaut, la première libre (comme avant le lot)
+      if busy == 0 then
+        if not first_free then
+          first_free = r
+          free_d = math.sqrt(dist2(p, f.hq_pos))
+        end
+        if not tile_claimed(f, p, tick) then best = r break end
+        -- Lot KIT : on évite les tuiles réservées en restant près de la première tuile libre (au plus CLAIM_SLACK tuiles plus
+        -- loin du QG) : sans cette borne, beaucoup de mineurs simultanés (minage de fond de votre équipe) s'éloignaient jusqu'au
+        -- bout de la liste, chez les nids (moteur réel : pnj-reduit et verif-guide graine 1618033988, avant-postes du joueur).
+        if math.sqrt(dist2(p, f.hq_pos)) > free_d + Worker.CLAIM_SLACK then break end
+      end
     end
+    best = best or first_free
+    if best then claim_tile(f, best.position, tick) end
     -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
     -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
     local far = not best and not task.fond and Worker.far_mine and Worker.far_mine(f, task, surface, tick)
@@ -384,7 +463,18 @@ function Worker.program(f, task, surface, tick)
       task.target = far
       return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
     end
-    if not best then return nil end
+    if not best then
+      -- Lot KIT (diagnostic) : un minage à la main sans tuile libre ni sûre à portée (au plus une ligne par ressource et par
+      -- minute) ; sans stock de départ, une faction qui ne trouve pas de charbon ne fond rien.
+      f.stats.mine_none = f.stats.mine_none or {}
+      local last = f.stats.mine_none[task.resource]
+      if not last or tick - last >= 3600 then
+        f.stats.mine_none[task.resource] = tick
+        log(string.format("[FO-TEAM] %s : minage a la main de '%s' sans tuile libre ni sure (rayon %d, %d entite(s) trouvee(s)) a %.1f min",
+          f.key or "?", tostring(task.resource), task.radius or 96, #res, tick / 3600))
+      end
+      return nil
+    end
     task.target = { x = best.position.x, y = best.position.y }
     return { { "home" }, { "goto", task.target, 1.5 }, { "mine", task.resource, task.count }, { "home" } }
   end
@@ -910,10 +1000,16 @@ FSM.define(MACHINE, {
       local item, count = step[2], step[3]
       local got = e.get_item_count(item) - (agent.mine_base or 0)
       local target = agent.task and agent.task.target
-      local res = target and e.surface.find_entities_filtered({ position = target, radius = 2.5, name = item, limit = 1 })[1]
+      local f = faction_of(agent)
+      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item), f)
       if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
         e.mining_state = { mining = false }
-        local f = faction_of(agent)
+        -- Lot KIT (mesure, journal seul) : rendement de chaque minage à la main, pour la part des minages à 0 sur N.
+        if f then
+          log(string.format("[FO-MINAGE] %s min=%.2f %s got=%d/%d dt=%.1f %s", f.key or "?", tick / 3600, tostring(item), got, count,
+            (tick - (agent.mine_started or tick)) / 60, got >= count and "complet" or (res and "delai" or "sans-entite")))
+        end
+        if f and agent.task then release_tile(f, agent.task.target) end -- lot KIT : la tuile est rendue
         if f then f.stats.mined = (f.stats.mined or 0) + got end
         agent.pc = agent.pc + 1
         set(agent, "step", tick)

@@ -13,15 +13,29 @@ local T = {}
 ---------------------------------------------------------------------------------------------------
 -- Stock de départ (dans le QG) : de quoi lancer charbon et fer sans attendre, comme l'épave du joueur.
 ---------------------------------------------------------------------------------------------------
-T.start_kit = {
+-- Lot KIT (28/10, réponse du DC : « idéalement il faudrait vraiment pas leur donner de ressources : ils ne doivent pas avoir
+-- plus que le joueur principal, ils doivent eux-mêmes récolter les ressources nécessaires au début ; évidemment pour les
+-- tests c'est beaucoup plus simple qu'ils aient des ressources de base »). Le kit de départ d'une faction est celui de
+-- votre équipe : AUCUN objet au coffre, AUCUN four posé (seuls les fo-npc-start ouvriers armés, T.kits.worker, sont
+-- communs). Source unique des deux équipes : shared/team/fondation.lua (F.grant). Le kit GÉNÉREUX d'avant (de quoi lancer
+-- charbon et fer sans attendre, comme l'épave du joueur) ne sert plus qu'aux bancs : réglage fo-war-kit-genereux,
+-- allumé par tools/autotest/fo-autotest/control.lua. Les 50 bois du lot PLANDIR sont retirés (le bois se récolte).
+T.start_kit = {}
+T.start_smelters = 0
+T.start_kit_generous = {
   { "burner-mining-drill", 12 }, { "stone-furnace", 8 }, { "iron-chest", 4 },
   { "coal", 150 }, { "iron-plate", 200 }, { "copper-plate", 60 }, { "stone", 80 },
   { "firearm-magazine", 40 },
-  -- lot PLANDIR : du bois pour les petits poteaux des premiers modules (A.choose_pole : seul le bois du coffre compte, les
-  -- équipes n'en reçoivent que des arbres de leurs avant-postes ; 50 bois = 100 poteaux)
-  { "wood", 50 },
 }
-T.start_smelters = 2       -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
+T.start_smelters_generous = 2 -- fours posés au QG dès la fondation (fonderie : minerai d'appoint, acier, briques)
+T.hq_smelters = 2             -- taille de la fonderie du QG reposée en secours (planificateur, manque de plaques)
+-- Lot KIT (décision de l'orchestrateur, 28/10, veto possible du DC) : une faction n'a pas de technologie au départ (votre
+-- équipe n'en a pas : elle recherche « gun-turret »). EXCEPTION DOCUMENTÉE : les 4 tourelles de QG (chargées de 20 chargeurs,
+-- script/faction/war.lua) restent offertes aux factions, plancher de défense : aucun joueur humain ne défend une faction, et
+-- sans elles l'économie de fer sans stock ne tient pas la défense du début (mesuré en moteur réel, etape1-guide 123456789 :
+-- 0 soldat et 0 tourelle à 60 min pour les deux factions, contre 5 à 7 et 5 à 6 sur main). Votre équipe n'en reçoit jamais.
+T.start_hq_turrets = 4
+T.start_hq_turrets_generous = 4
 T.hq_inventory = 200
 -- Avant IA1-a : 2 ouvriers de départ et « 2 + 1 par avant-poste » (T.workers_wanted). Depuis IA1-a, le départ
 -- est le réglage fo-npc-start (8) et le plafond fo-war-workers (shared/team/scale.lua) ; ces valeurs ne servent

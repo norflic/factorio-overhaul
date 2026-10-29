@@ -57,7 +57,7 @@ local function obtainable(item) return SOURCE[item] == true end
 
 local function kit_stock()
   local s = {}
-  for _, it in ipairs(T.start_kit) do s[it[1]] = it[2] end
+  for _, it in ipairs(T.start_kit_generous) do s[it[1]] = it[2] end
   return s
 end
 
@@ -117,6 +117,17 @@ do
   local d2 = A.plan({ tech = 0, levels = T.research, stock = stock, book = book, obtainable = obtainable,
     avail = { ["iron-plate"] = 150, ["copper-plate"] = 60 }, floor = { ["iron-plate"] = 160 }, economy_done = false, lean = 0 })
   check(#d2.wants == 0 and d2.held == "plancher de l'economie", "sous le plancher : aucun pack (l'avant-poste de fer passe d'abord)")
+end
+
+-- 4 bis (lot KIT). Le kit RÉEL d'une faction (coffre vide, comme votre équipe) : la recherche est demandée, payable, et les 30
+-- packs rouges de départ le sont aussi (la matière se récolte ; le plafond reste celui du niveau, pas du coffre).
+do
+  check(next((function() local s = {} for _, it in ipairs(T.start_kit) do s[it[1]] = it[2] end return s end)()) == nil,
+    "kit réel : coffre de départ vide (T.start_kit)")
+  local d = A.plan({ tech = 0, levels = T.research, stock = {}, book = book_at(0), obtainable = obtainable, avail = {},
+    economy_done = false, lean = 0 })
+  check(d.payable and #d.wants == 1 and d.wants[1][1] == "automation-science-pack" and d.wants[1][2] == 30,
+    "niveau 0 depuis le kit réel : 30 packs rouges demandés (payable, coffre vide)")
 end
 
 -- 4. Dès le départ, au plus 30 par sorte.

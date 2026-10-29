@@ -801,6 +801,10 @@ function M.new_world(opts)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
+      -- Lot KIT : kit de départ des factions. Défaut du JEU = égal à votre équipe (faux) ; les tests hors jeu et les bancs gardent
+      -- le kit généreux d'avant (leurs attendus datent de ce kit, comme control.lua des bancs en moteur réel) ; l'option
+      -- (kit_egal = true) ou FO_KIT_EGAL=1 joue le kit égal du jeu.
+      ["fo-war-kit-genereux"] = not ((opts.kit_egal == true) or (os.getenv("FO_KIT_EGAL") == "1")),
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
     turrets_kill = opts.turrets_kill or false, -- lot IA0 : les tourelles du joueur tuent les attaquants
@@ -812,6 +816,7 @@ function M.new_world(opts)
     -- tests/pvp_test.lua passe sans cette option (596 OK) ; le filtre collision_mask n'y change rien (rejoué sans
     -- lui : journal identique).
     legacy_boxes = opts.legacy_boxes or false,
+    shared_tile_mining = opts.shared_tile_mining or (os.getenv("FO_SHARED_TILE") == "1"), -- lot KIT : ancien modèle (chacun reçoit son minerai)
   }
   math.randomseed(W.seed)
 
@@ -827,6 +832,9 @@ function M.new_world(opts)
   local MASK_CHARACTER = { ["player-layer"] = true, ["train-layer"] = true, ["consider-tile-transitions"] = true }
   local MASK_UNIT = { ["player-layer"] = true, ["train-layer"] = true, ["not-colliding-with-itself"] = true }
   W.prototypes = {
+    -- Lot KIT : un arbre qui donne du bois (minage à la main des matières naturelles, shared/team/harvest.lua).
+    ["tree-01"] = { type = "tree", max_health = 20, collision_box = box(-0.4, -0.4, 0.4, 0.4), collision_mask = MASK_BUILDING,
+      mineable_properties = { minable = true, products = { { type = "item", name = "wood", amount = 4 } } } },
     ["fo-companion"] = {
       type = "character", running_speed = 0.15, max_health = 250,
       collision_box = box(-0.2, -0.2, 0.2, 0.2), collision_mask = MASK_CHARACTER,
@@ -1125,12 +1133,17 @@ function M.new_world(opts)
         if dx * dx + dy * dy <= (rad + 4) ^ 2 and name_matches(t.name, p.name or "iron-ore") then
           for ix = -2, 2 do
             for iy = -2, 2 do
+              local ex, ey = p.x + ix * 2, p.y + iy * 2
+              -- Lot KIT : une petite zone (le minage d'une tuile : rayon 2,5) ne rend que les tuiles qui y sont, pas toute la
+              -- grappe du gisement ; les grands rayons gardent le comportement d'avant (grappe entière).
+              if rad <= 5 and (ex - cx) ^ 2 + (ey - cy) ^ 2 > (rad + 0.5) ^ 2 then goto skip_tile end
               -- amount (lot M0) : la quantité du gisement répartie sur ses 25 entités simulées.
               out[#out + 1] = { valid = true, name = p.name or "iron-ore", type = "resource",
                 amount = math.floor((p.amount or 25000) / 25),
                 position = { x = p.x + ix * 2, y = p.y + iy * 2 },
                 prototype = { resource_category = p.category or "basic-solid" }, destroy = function() end }
               if t.limit and #out >= t.limit then return out end
+              ::skip_tile::
             end
           end
         end
@@ -1365,8 +1378,11 @@ function M.new_world(opts)
       assert(type(filters) == "table" and filters[1] and filters[1].filter == "type", "get_filtered_entity_prototypes : filtre de type attendu")
       local out = {}
       local want = filters[1].type
-      for name, p in pairs(W.prototypes) do if p.type == want then out[name] = p end end
-      if want == "resource" then
+      -- Lot KIT : `type` est une chaîne OU une liste de chaînes (doc 1.1.91 : EntityPrototypeFilter « type »).
+      local wanted = {}
+      for _, ty in ipairs(type(want) == "table" and want or { want }) do wanted[ty] = true end
+      for name, p in pairs(W.prototypes) do if wanted[p.type] then out[name] = p end end
+      if wanted["resource"] then
         -- Lot IA-G : catégorie et produit du minage (relevé du cerveau général).
         local function res(n)
           return { name = n, type = "resource", resource_category = "basic-solid",
@@ -1497,7 +1513,32 @@ local function step_economy(tick)
         if e._mine_acc >= MINE_PERIOD then
           e._mine_acc = 0
           local res = surface_find_resource(e._mining.position)
+          -- Lot KIT (relevé en moteur réel, banc kit-diag) : plusieurs personnages qui minent EN MÊME TEMPS la même tuile ne
+          -- rendent presque rien : seul le premier (le plus bas numéro d'entité) reçoit le minerai. Option
+          -- (shared_tile_mining = true) pour rejouer l'ancien modèle où chacun reçoit le sien.
+          if res and not W.shared_tile_mining then
+            local tx, ty = math.floor(e._mining.position.x), math.floor(e._mining.position.y)
+            for _, o in ipairs(W.entities) do
+              if o ~= e and o.valid and o.type == "character" and o._mining and o._mining.mining
+                and math.floor(o._mining.position.x) == tx and math.floor(o._mining.position.y) == ty
+                and (o.unit_number or 0) < (e.unit_number or 0) then
+                res = nil
+                W.tile_conflicts = (W.tile_conflicts or 0) + 1
+                break
+              end
+            end
+          end
           if res then inv_of(e, defines.inventory.character_main).insert({ name = res, count = 1 }) end
+          if not res then
+            -- Lot KIT : un arbre sous la cible donne 4 bois et disparaît
+            for _, o in ipairs(W.entities) do
+              if o.valid and o.type == "tree" and math.abs(o._x - e._mining.position.x) < 1 and math.abs(o._y - e._mining.position.y) < 1 then
+                inv_of(e, defines.inventory.character_main).insert({ name = "wood", count = 4 })
+                o.destroy()
+                break
+              end
+            end
+          end
         end
       end
       if e.name == "burner-mining-drill" then

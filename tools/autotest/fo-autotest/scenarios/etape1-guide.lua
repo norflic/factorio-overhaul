@@ -65,9 +65,26 @@ local function report(s, minute)
       c[ty] = s.count_entities_filtered({ force = r.force, type = ty })
     end
     local de, db = 0, 0
+    local per_target = {}
     for _, d in ipairs(s.find_entities_filtered({ force = r.force, type = "mining-drill" })) do
       if d.prototype.electric_energy_source_prototype then de = de + 1 else db = db + 1 end
+      local tg = d.mining_target and d.mining_target.name or "?"
+      per_target[tg] = (per_target[tg] or 0) + 1
     end
+    -- Lot KIT : foreuses par minerai visé et recherches FAITES de la force (critères : au moins 6 foreuses de minerai,
+    -- une centrale à 30 min, plus de 5 recherches à 40 min)
+    local tnames = {}
+    for tg in pairs(per_target) do tnames[#tnames + 1] = tg end
+    table.sort(tnames)
+    local tparts = {}
+    for _, tg in ipairs(tnames) do tparts[#tparts + 1] = tg .. ":" .. per_target[tg] end
+    local fr, nres = game.forces[r.force], 0
+    if fr then for _, tc in pairs(fr.technologies) do if tc.researched then nres = nres + 1 end end end
+    local hq0 = hq_of(s, r.force)
+    local inv0 = hq0 and hq0.get_inventory(defines.inventory.chest)
+    local wood = inv0 and inv0.get_item_count("wood") or 0
+    log(TAG .. string.format("kit-mesure minute %d | %s | foreuses %s | recherches_faites=%d | bois_coffre=%d",
+      minute, r.key, table.concat(tparts, " "), nres, wood))
     local hq = hq_of(s, r.force)
     local fill, top = "?", ""
     local inv = hq and hq.get_inventory(defines.inventory.chest)
@@ -154,6 +171,10 @@ base.description = "ETAPE1 : partie du guide, 30 ouvriers, automatisation et cap
 base.init = function(ctx)
   local a = ctx.call("war_setting", "fo-war-ia3e", true)
   ctx.check(a == true, "reglage fo-war-ia3e allume", tostring(a))
+  -- Lot KIT : la partie du guide RÉELLE donne aux factions le kit de votre équipe (control.lua allume le kit généreux pour tous
+  -- les bancs ; ici on l'éteint, avant la fondation par le lancement automatique).
+  local k = ctx.call("war_setting", "fo-war-kit-genereux", false)
+  ctx.check(k == false, "kit genereux des factions eteint (kit egal a celui du joueur)", tostring(k))
   local b = ctx.call("war_setting", "fo-war-capi", true)
   ctx.check(b == true, "reglage fo-war-capi allume", tostring(b))
   if init0 then init0(ctx) end
