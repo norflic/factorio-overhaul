@@ -532,12 +532,14 @@ function Outposts.service_smelters(f, carrier, smelt)
 end
 
 function Outposts.smelters_status(f)
-  local out, low = 0, false
+  local out, low, free = 0, false, 0
   for _, s in ipairs(Outposts.smelters(f)) do
     out = out + s.get_output_inventory().get_item_count()
     if fuel_of(s) < T.fuel_low then low = true end
+    -- Lot MAINS-CHAINE : fours dont l'entrée est vide (ceux qu'une tournée peut charger, Outposts.service_smelters).
+    if s.get_inventory(defines.inventory.furnace_source).is_empty() then free = free + 1 end
   end
-  return out, low
+  return out, low, free
 end
 
 ---------------------------------------------------------------------------------------------------

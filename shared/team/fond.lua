@@ -31,6 +31,7 @@
 ]]
 
 local T = require("shared.team.config")
+local ChaineMain = require("shared.team.chaine_main") -- lot MAINS-CHAINE
 
 local F = {}
 
@@ -155,7 +156,8 @@ local function extraction(view, free, ctx, out)
     end
   end
   -- 3. Fondre le minerai rapporté au QG.
-  if (view.smelters or 0) > 0 and not keys["smelt"] then
+  -- Lot MAINS-CHAINE : et un four libre (view.smelters_free, nil = inconnu) : sinon la tournée repart à vide.
+  if (view.smelters or 0) > 0 and not keys["smelt"] and (view.smelters_free == nil or view.smelters_free > 0) then
     local smelt, any = {}, false
     for _, p in ipairs({ "iron-plate", "copper-plate" }) do
       local input = T.smelter_inputs[p]
@@ -201,9 +203,10 @@ local function extraction(view, free, ctx, out)
     for i, m in ipairs(F.MINE_TARGETS) do
       if (not m[3] or (view.smelters or 0) > 0) and not (ctx.mine_skip and ctx.mine_skip[m[1]]) then
         local have = math.max(0, free[m[1]] or 0)
-        list[#list + 1] = { res = m[1], gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2]), i = i }
+        list[#list + 1] = { res = m[1], gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2]), i = i, ore = m[3] or false }
       end
     end
+    list = ChaineMain.mine_candidates(list) -- lot MAINS-CHAINE : pas de minerai en plus tant qu'une autre ressource manque
     table.sort(list, function(a, b)
       if a.gap ~= b.gap then return a.gap > b.gap end
       return a.i < b.i

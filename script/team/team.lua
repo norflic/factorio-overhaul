@@ -14,6 +14,7 @@ local Events = require("script.core.events")
 local T = require("shared.team.config")
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
+local ChaineMain = require("shared.team.chaine_main") -- lot MAINS-CHAINE : pas de tournée de fonte à vide
 local Scale = require("shared.team.scale")
 local O = require("shared.team.org")
 local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
@@ -464,7 +465,7 @@ function Team.view(f, tick)
     end
   end
   if grow_due then recruit_held = false end
-  local smelter_out, smelter_low = Outposts.smelters_status(f)
+  local smelter_out, smelter_low, smelter_free = Outposts.smelters_status(f)
   -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
   local stock_free = Board.view_stock(f, stock_of(f), tick, true)
   local threatened = tick < (f.threatened_until or 0)
@@ -502,6 +503,7 @@ function Team.view(f, tick)
     outposts = outposts, pending = pend, sites = sites,
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
+    smelters_free = smelter_free, -- lot MAINS-CHAINE : fours à l'entrée vide
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
@@ -568,6 +570,10 @@ function Team.think(f, surface, tick)
   -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
   local ia3 = Ia3.active(f, tick)
   local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
+  -- Lot MAINS-CHAINE : une tournée de fonte ne part que s'il y a du minerai à charger dans un four libre, une sortie à vider ou un four
+  -- à ravitailler (mesuré : 40 % des tournées repartaient à vide, 100 % pendant 30 min sur la graine 1618033988).
+  plan.tasks = ChaineMain.filter_tasks(plan.tasks, { inputs = T.smelter_inputs, stock = view.stock, output = view.smelter_output,
+    fuel_low = view.smelter_fuel_low, free = view.smelters_free })
   Profiler.stop("team:plan")
 
   for _, key in ipairs(plan.reached) do

@@ -42,13 +42,16 @@ base.tick = function(ctx, e)
   if tick0 then tick0(ctx, e) end
   if e.tick >= CUT and e.tick % 1800 == 0 then cut(ctx, ctx.surface(), e) end
   if e.tick == CUT + 900 then
-    -- 15 s apres : plus aucun courant produit par les generateurs
-    local kw = 0
+    -- 15 s apres : les generateurs poses avant la coupure sont a l'arret. NE PAS lire energy_generated_last_tick : un generateur
+    -- desactive garde sa derniere valeur (418 a 2 447 kW lus apres la coupure, alors que [FO-FONCTION] statut donne
+    -- `disabled_by_script` et les bras `no_power` : archives MAINS du 29/10). On compte l'etat reel.
+    local off, on = 0, 0
     for _, ent in ipairs(ctx.surface().find_entities_filtered({ type = "generator" })) do
-      kw = kw + (ent.energy_generated_last_tick or 0) * 60 / 1000
+      if ent.status == defines.entity_status.disabled_by_script then off = off + 1 else on = on + 1 end
     end
-    ctx.state().kw_after = kw
-    ctx.log(string.format("coupure : puissance produite 15 s apres = %.1f kW", kw))
+    local st = ctx.state()
+    st.gen_off, st.gen_on = off, on
+    ctx.log(string.format("coupure : generateurs desactives %d, encore actifs %d (15 s apres)", off, on))
   end
 end
 
@@ -56,7 +59,8 @@ base.finish = function(ctx)
   if finish0 then finish0(ctx) end
   local st = ctx.state()
   ctx.check((st.cut_total or 0) >= 1, "coupure : au moins un generateur arrete", st.cut_total)
-  ctx.check(st.kw_after ~= nil and st.kw_after < 1, "coupure : plus de courant produit 15 s apres", st.kw_after)
+  -- (un generateur pose par un PNJ dans les 15 s apres la coupure compte dans gen_on : il n'est coupe qu'a la reprise suivante)
+  ctx.check((st.gen_off or 0) >= 1, "coupure : au moins un generateur desactive (statut) 15 s apres", (st.gen_off or 0) .. "/" .. (st.gen_on or 0))
 end
 
 return base
