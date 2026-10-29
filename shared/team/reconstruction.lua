@@ -109,15 +109,25 @@ end
 --- poteaux détruits ne font pas fabriquer cent poteaux). `have(item)` : stock libre de l'équipe.
 Rc.SPARE_CAP = 6
 function Rc.demand(st, tick, have)
-  local need = {}
+  local need, top = {}, {}
   for _, r in ipairs(Rc.due(st, tick)) do
-    if r.infra then need[r.item] = (need[r.item] or 0) + 1 end
+    if r.infra then
+      need[r.item] = (need[r.item] or 0) + 1
+      if r.value > (top[r.item] or -1) then top[r.item] = r.value end
+    end
   end
   local out = {}
   for _, item in ipairs(sorted_keys(need)) do
     local n = math.min(Rc.SPARE_CAP, need[item]) - have(item)
     if n > 0 then out[#out + 1] = { item, n } end
   end
+  -- Ordre de la VALEUR de la pièce la plus précieuse qui l'attend (chaudière 14 avant poteau 2 à 12), puis le nom : la matière rare
+  -- (le fer) va d'abord à la centrale, pas au premier objet dans l'ordre alphabétique (la tâche de fabrication déduit les matières
+  -- de ce qui précède).
+  table.sort(out, function(a, b)
+    if top[a[1]] ~= top[b[1]] then return top[a[1]] > top[b[1]] end
+    return a[1] < b[1]
+  end)
   return out
 end
 
@@ -290,6 +300,7 @@ end
 
 --- Oublie les pertes jamais refaites depuis plus de Rc.TTL et les mémoires de destruction périmées.
 function Rc.prune(st, tick)
+  st.lost, st.hist = st.lost or {}, st.hist or {}
   for _, k in ipairs(sorted_keys(st.lost)) do
     local r = st.lost[k]
     if tick - r.tick > Rc.TTL then st.lost[k] = nil end
@@ -297,6 +308,14 @@ function Rc.prune(st, tick)
   for _, k in ipairs(sorted_keys(st.hist)) do
     if tick - st.hist[k].tick > Rc.TTL then st.hist[k] = nil end
   end
+end
+
+--- Faut-il un balayage de fin de vie ? Au plus un par Rc.PRUNE_EVERY ticks ; `st.prune_at` est une date simple (sauvegarde).
+Rc.PRUNE_EVERY = 3600
+function Rc.prune_due(st, tick)
+  if tick < (st.prune_at or 0) then return false end
+  st.prune_at = tick + Rc.PRUNE_EVERY
+  return true
 end
 
 return Rc

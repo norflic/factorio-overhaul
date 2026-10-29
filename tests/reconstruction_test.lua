@@ -136,6 +136,27 @@ local function suite(Rc)
     Rc.record(only, { name = "P", x = 1, y = 1, dir = 0, item = "ip", value = 2, infra = true }, 0)
     Rc.record(only, { name = "P", x = 2, y = 1, dir = 0, item = "ip", value = 2, infra = true }, 0)
     check(Rc.demand(only, Rc.CALM_INFRA, none)[1][2] == 2, "§7c deux poteaux perdus : deux à fabriquer")
+    -- Ordre de la VALEUR, pas du nom : la centrale (14) avant le poteau (12 au plus) même si son objet vient plus tard dans l'alphabet.
+    local ord = Rc.new()
+    Rc.record(ord, { name = "P", x = 1, y = 1, dir = 0, item = "aa-pole", value = Rc.POLE_CAP, infra = true }, 0)
+    Rc.record(ord, { name = "E", x = 30, y = 30, dir = 0, item = "zz-engine", value = Rc.INFRA_VALUE, infra = true }, 0)
+    local od = Rc.demand(ord, Rc.CALM_INFRA, none)
+    check(#od == 2 and od[1][1] == "zz-engine" and od[2][1] == "aa-pole", "§7c la centrale (14) se fabrique avant le poteau (12), malgré l'ordre alphabétique")
+  end
+
+  -- §7e Fin de vie du registre ---------------------------------------------------------------------------
+  do
+    local st = Rc.new()
+    Rc.record(st, { name = "P", x = 1, y = 1, dir = 0, item = "ip", value = 2, infra = true }, 0)
+    Rc.done(st, "P@1.00,1.00")
+    check(next(st.lost) == nil and next(st.hist) ~= nil, "§7e refaite : plus de perte, mais la mémoire des destructions reste")
+    check(Rc.prune_due(st, 0) and not Rc.prune_due(st, Rc.PRUNE_EVERY - 1) and Rc.prune_due(st, Rc.PRUNE_EVERY), "§7e balayage au plus une fois par période")
+    Rc.prune(st, Rc.TTL)
+    check(next(st.hist) ~= nil, "§7e mémoire récente gardée")
+    Rc.prune(st, Rc.TTL + 1)
+    check(next(st.hist) == nil, "§7e mémoire périmée oubliée même registre vide")
+    local old = { lost = {} } -- registre d'une version d'essai sans hist
+    check(pcall(Rc.prune, old, 5) and old.hist ~= nil, "§7e registre sans mémoire : élagage sans erreur")
   end
 
   -- §7d Réparation des pièces endommagées ------------------------------------------------------------------
@@ -254,7 +275,7 @@ local MUTANTS = {
   { "infra non marquée", "infra = rec.infra or nil,", "" },
   { "demande non bornée", "math.min(Rc.SPARE_CAP, need[item]) - have(item)", "need[item] - have(item)" },
   { "demande du stock ignoré", "math.min(Rc.SPARE_CAP, need[item]) - have(item)", "math.min(Rc.SPARE_CAP, need[item])" },
-  { "demande aussi hors infrastructure", "if r.infra then need[r.item] = (need[r.item] or 0) + 1 end", "need[r.item] = (need[r.item] or 0) + 1" },
+  { "demande aussi hors infrastructure", "if r.infra then", "if true then" },
   { "réparation sans seuil", "if c.ratio * 100 < (below or Rc.REPAIR_BELOW) then low[#low + 1] = c end", "low[#low + 1] = c" },
   { "réparation sans rayon", "if #out < Rc.REPAIR_MAX and (c == seed or ((c.x - seed.x) ^ 2 + (c.y - seed.y) ^ 2) <= Rc.BATCH_RADIUS * Rc.BATCH_RADIUS) then", "if #out < Rc.REPAIR_MAX then" },
   { "réparation sans plus abîmée d'abord", "if a.ratio ~= b.ratio then return a.ratio < b.ratio end", "" },
@@ -268,6 +289,8 @@ local MUTANTS = {
   { "récolte : sans plafond", "return math.min(Rc.GATHER_MAX, math.max(Rc.GATHER_BATCH, n or 0))", "return math.max(Rc.GATHER_BATCH, n or 0)" },
   { "récolte : sans lot minimal", "return math.min(Rc.GATHER_MAX, math.max(Rc.GATHER_BATCH, n or 0))", "return math.min(Rc.GATHER_MAX, n or 0)" },
   { "récolte : manque nul compté", "if miss[k] > 0 then", "if true then" },
+  { "demande : ordre alphabétique", "if top[a[1]] ~= top[b[1]] then return top[a[1]] > top[b[1]] end", "" },
+  { "élagage de la mémoire oublié", "if tick - st.hist[k].tick > Rc.TTL then st.hist[k] = nil end", "" },
   { "pose refusée sans abandon", "if r.blocks > Rc.MAX_BLOCKS then r.abandoned = true end", "" },
 }
 local refused, kept = 0, {}

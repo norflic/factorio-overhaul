@@ -63,6 +63,7 @@ end
 function Recon.state(f)
   if not f.recon then f.recon = Rc.new() end
   local s = f.recon
+  s.lost, s.hist = s.lost or {}, s.hist or {} -- sauvegarde d'une version d'essai sans l'un des deux : jamais d'erreur à l'indexation
   s.stats = s.stats or { recorded = 0, rebuilt = 0, blocked = 0, deferred = 0, tasks = 0, discarded = 0, logs = 0 }
   return s
 end
@@ -183,9 +184,10 @@ local function refresh_poles(f, s, surface, tick)
   local n = 0
   for _, k in ipairs(State.sorted_keys(s.lost)) do
     local r = s.lost[k]
-    if r.infra and r.name and not r.abandoned and (r.vtick or -999) + 60 <= tick and n < 8 and Rc.is_pole_value(r) then
+    if r.infra and r.name and not r.abandoned and (r.vtick or -999) + ((r.nread or 0) < 3 and 60 or 300) <= tick and n < 8 and Rc.is_pole_value(r) then
       n = n + 1
       r.vtick = tick
+      r.nread = (r.nread or 0) + 1 -- trois relevés par seconde, puis un toutes les 5 s : une pièce qui attend ses matériaux ne coûte presque rien
       local cut = 0
       for _, c in ipairs(surface.find_entities_filtered({ force = f.force, type = R.CONSUMER_TYPES,
           area = { { r.x - Recon.CUT_RADIUS, r.y - Recon.CUT_RADIUS }, { r.x + Recon.CUT_RADIUS, r.y + Recon.CUT_RADIUS } } })) do
@@ -200,7 +202,11 @@ end
 --- Une pensée de l'équipe : tâches de reconstruction au tableau (après Board.sync, comme le plan directeur).
 function Recon.think(f, surface, tick)
   local s = f.recon
-  if not s or next(s.lost) == nil then return 0 end
+  if not s then return 0 end
+  -- Fin de vie du registre (une fois par minute) : AVANT les sorties anticipées, sinon la mémoire des destructions (hist) d'un registre
+  -- vide ou d'une équipe au tableau plein de tâches « rebuild » ne serait jamais élaguée (sauvegarde qui grossit).
+  if Rc.prune_due(s, tick) then Rc.prune(s, tick) end
+  if next(s.lost) == nil then return 0 end
   -- Mesure seule : une pièce perdue revue en place (refaite par le plan directeur, le joueur…) est datée, mais reste au registre.
   if tick >= (s.scan_at or 0) then
     s.scan_at = tick + 600
@@ -233,7 +239,6 @@ function Recon.think(f, surface, tick)
     if b.tasks[key].kind == "rebuild" then open = open + 1 end
   end
   if open >= Recon.MAX_OPEN then return 0 end
-  Rc.prune(s, tick)
   refresh_poles(f, s, surface, tick)
   local due = Rc.due(s, tick)
   if #due == 0 then return 0 end
@@ -570,6 +575,7 @@ function Recon.act(agent, f, task, surface)
     local r = s.lost[k]
     if r and not r.abandoned then
       local there = surface.find_entity(r.place or r.name, { r.x, r.y })
+      if not (there and there.valid) and r.place then there = surface.find_entity(r.name, { r.x, r.y }) end -- le poteau d'origine a pu être reposé par ailleurs
       if there and there.valid and there.force.name == f.force then
         delay_note(s, r, "ext", game.tick)
         Rc.done(s, k) -- déjà refaite (par un autre moyen)
