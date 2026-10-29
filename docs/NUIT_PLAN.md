@@ -66,3 +66,6 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | PLANDIR-SURE (FUSIONNE 04 h 50) | 2 sceptiques valides ; PNJ inertes m60 29,5=29,5 ; migration des bras (bras_retour, micro-banc plandir-retour 12 OK, etat herite reproduit, pas une vraie sauvegarde) ; content 331 OK | version 0.6.8, tag jouable-0.6.8, branche jouable deplacee |
 | PANEL | Kills/Pertes corriges (panel-kills 11 OK, ia1-gui 52 OK sans set_*_count), tests verts ; etape1-guide 4 graines non rejoue apres correction | attend verdict visuel du DC (question 10) ; rejeu 4 graines demande a panel |
 | CAPI-ANNUL (nouveau) | agent capi-annul : regle « aucun progres en 30 min » vs projet en reserve qui attend des materiaux | en cours |
+
+| PANEL (05 h 17) | serie v2 : 0 ligne differente sur 4 graines ([FO-FONCTION] 398/398, 380/380, 402/402, 390/390 ; guide idem), 17 OK x8, cout 0,0005 ms/tick ferme et 0,012 ms/tick ouvert (sans --seul) ; Kills/Pertes justes (panel-kills 11 OK, ia1-gui 52 OK) | NON fusionne : design = verdict du DC (captures-DC\ 8 images, question 10) ; reste : cout --seul, captures EN, rechargement de sauvegarde |
+| RECON (veille) | recon-2 silencieux depuis 02 h 05, aucun STATUS | PARQUE, diagnostic demande |
