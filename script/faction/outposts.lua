@@ -362,19 +362,30 @@ local TURRET_OFFSETS = { { 7, 7 }, { -7, -7 }, { 7, -7 }, { -7, 7 }, { 9, 0 }, {
 
 --- Pose jusqu'à `count` tourelles autour de l'avant-poste avec les objets portés.
 function Outposts.fortify(f, surface, outpost, count, carrier)
+  -- lot CENTRALE-GARDE : même pose que fortify_at (emplacements = les huit points autour du poste), chargeurs perforants d'abord
+  local sites = {}
+  for _, o in ipairs(TURRET_OFFSETS) do sites[#sites + 1] = { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] } end
+  return Outposts.fortify_at(f, surface, outpost.id, sites, count, carrier, nil, { "piercing-rounds-magazine", T.turret_ammo })
+end
+
+--- Lot CENTRALE-GARDE : pose jusqu'à `count` tourelles aux emplacements `sites` ({ x, y }, dans l'ordre), pleines de munitions, pour le
+--- poste `oid` (ex. "plant" : groupe de ravitaillement « o<oid> »). `accept(pos)` refuse une position trouvée hors de la zone voulue.
+--- Les objets viennent de l'inventaire `carrier` (déjà pris au stock par la tâche). Rend le nombre posé.
+function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, ammos)
   local placed = 0
-  for _, o in ipairs(TURRET_OFFSETS) do
-    if placed >= count or carrier.get_item_count("gun-turret") < 1 then break end
-    local pos = surface.find_non_colliding_position("gun-turret", { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
-    if pos then
-      local t = surface.create_entity({ name = "gun-turret", position = pos, force = f.force, raise_built = true })
+  ammos = ammos or { T.turret_ammo }
+  for _, s in ipairs(sites) do
+    if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
+    local pos = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
+    if pos and (accept == nil or accept(pos)) then
+      local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
       if t then
-        carrier.remove({ name = "gun-turret", count = 1 })
-        for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
+        carrier.remove({ name = T.turret, count = 1 })
+        for _, ammo in ipairs(ammos) do
           local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
           if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
         end
-        Outposts.add_turret(f, t, outpost.id, 0)
+        Outposts.add_turret(f, t, oid, 0)
         placed = placed + 1
       end
     end

@@ -31,6 +31,7 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
+local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -412,6 +413,7 @@ function Team.view(f, tick)
   -- recherche : votre équipe à 10 PNJ et 6 avant-postes à 8 min, coffre détruit à 17 min (main : 4 avant-postes, vivante).
   -- R-QCM-25c : la croissance reste à votre équipe (une faction a sa taille réglée, fo-war-workers).
   local stock0 = stock_of(f)
+  local iron0 = stock0["iron-plate"] or 0 -- fer au coffre (hausse de croissance et journal [FO-CENTRALE-GARDE])
   local grow = f.is_player and ((stock0["gun-turret"] or 0) > 0 or book_for(f):handcraftable("gun-turret")) or false
   local on_fond, backlog = 0, 0
   for _, t in ipairs(Board.get(f).list or {}) do
@@ -488,7 +490,7 @@ function Team.view(f, tick)
   local grow_due = false
   if grow and (f.engineers_count or 0) >= floor and backlog > 0
     and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
-    and (stock0["iron-plate"] or 0) >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
+    and iron0 >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
     grow_due = true
     for _, o in ipairs(outposts) do
       if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
@@ -559,6 +561,7 @@ function Team.view(f, tick)
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
+    plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0, -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
