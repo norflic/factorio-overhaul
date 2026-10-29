@@ -126,3 +126,6 @@ Agents de workflow : ne pas leur ecrire. Integration : je fusionne les branches 
 
 ## Vague 3 (29/10 14 h 50) : fusionnee en 0.6.15
 FONDERIES, FOREUSES, REBUILD-TOUT, DEFENSE-FRONT, GRENADES, FACTIONS-BLOQUEES : relecture statique OK (3 lots corriges par le relecteur), tests hors jeu verts, content 331 OK. Reste : rangees compactes de foreuses, equilibre fours/foreuses actif, Emeraude sans courant, Ecarlate sans electricite (cause non trouvee).
+
+## Vague 4 (29/10 17 h 50) : fusionnee en 0.6.17
+10 lots relus statiquement et fusionnes ; content 331 OK. Reste a lancer (apres verif pvp_test final) : MODE-SURVIE, MIGRATION-CHAMP, CAPI-PENURIE, CAPI-DEBIT, POTEAUX (releve paresseux).
