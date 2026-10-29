@@ -800,7 +800,9 @@ local function bg_close_job(agent, f, job, ok, tick, cause)
       cause, tick / 3600))
   end
   Board.finish(f, task, ok, tick)
-  Poles.task_done(f, task, ok, tick)
+  -- Relecture : durée mesurée de la prise à la FIN DE LA FABRICATION (comme avant ce lot, où le PNJ rentrait aussitôt) ; l'attente
+  -- de la livraison (le PNJ fait autre chose) gonflerait org.dur.craft, donc la demande du pôle (O.demand_from_tasks).
+  Poles.task_done(f, task, ok, ok and job.ready_tick or tick)
   bg_report(f, tick)
 end
 
@@ -833,13 +835,23 @@ local function bg_tick(agent, tick)
     if not nxt and j.i <= #j.list then nxt = j end
   end
   if e.crafting_queue_size > 0 then
-    if cur and tick - cur.t0 > CRAFT_TIMEOUT then
-      bg_close_job(agent, f, cur, false, tick, "delai")
+    -- Relecture : file occupée SANS travail lancé (restes d'un travail clos au délai) : le premier travail qui attend a son délai
+    -- compté de là (bg.wait0) ; sans quoi une file bloquée le garderait pris au tableau pour toujours (Board.incoming le compte :
+    -- le cerveau ne le redemanderait plus) et le PNJ exclu des gardes, avant-postes et explorations.
+    local late, since = cur, cur and cur.t0
+    if not cur then
+      bg.wait0 = bg.wait0 or tick
+      late, since = nxt, bg.wait0
+    end
+    if late and tick - since > CRAFT_TIMEOUT then
+      bg.wait0 = nil
+      bg_close_job(agent, f, late, false, tick, "delai")
       return
     end
     bg_absorb(agent, bg) -- intermédiaires sortis de la file depuis la pensée précédente
     return
   end
+  bg.wait0 = nil
   -- File vide : tout travail entièrement lancé est fabriqué.
   for _, j in ipairs(bg.jobs) do
     if not j.ready and j.i > #j.list then j.ready, j.ready_tick = true, tick end
@@ -878,9 +890,13 @@ Board.bg_view = function(agent)
   return { left = CB.left_jobs(bg.jobs), full = #bg.jobs >= CB.MAX_JOBS }
 end
 
---- Le PNJ peut-il passer sa tâche « craft » en arrière-plan (réglage, place parmi ses travaux) ?
-local function bg_room(agent)
-  return Worker.CRAFT_BG and agent.task ~= nil and not (agent.bg and #agent.bg.jobs >= CB.MAX_JOBS)
+--- Le PNJ peut-il passer sa tâche « craft » en arrière-plan (réglage, place de marché, place parmi ses travaux) ?
+--- Relecture : place de marché ÉTEINTE (réglage fo-war-ia3-marche) : ancien chemin, car la porte Board.bg_view (gardes,
+--- avant-postes, durée bornée par la file, MAX_JOBS) n'existe que dans claim_market ; la prise classique (O.pick_task) donnerait
+--- à un PNJ qui fabrique une garde de 5 min ou un avant-poste lointain, produits en poche.
+local function bg_room(agent, f)
+  return Worker.CRAFT_BG and agent.task ~= nil and f ~= nil and Board.market(f)
+    and not (agent.bg and #agent.bg.jobs >= CB.MAX_JOBS)
 end
 
 --- Étape « craft » : la fabrication passe en arrière-plan, le PNJ est rendu au tableau (sa tâche « craft » reste prise à son nom).
@@ -1060,7 +1076,7 @@ local function run_steps(agent, tick)
     elseif kind == "craft" then
       -- Lot CRAFT-PARALLELE : en arrière-plan, derrière ses autres travaux s'il en a ; au-delà de CB.MAX_JOBS (hors place de
       -- marché seulement, qui ne lui en donne pas plus), ancien chemin : le PNJ attend que sa file se vide.
-      if bg_room(agent) then
+      if bg_room(agent, f) then
         to_background(agent, f, step[2], 1, nil, tick)
         return
       end
@@ -1280,12 +1296,10 @@ FSM.define(MACHINE, {
       local e = agent.entity
       -- Lot CRAFT-PARALLELE : PNJ d'une sauvegarde 0.6.18 arrêté en pleine fabrication : il passe en arrière-plan à sa pensée
       -- (étape en cours, file déjà lancée gardée ; bg_tick attend qu'elle se vide).
-      if bg_room(agent) and agent.steps and agent.steps[agent.pc] then
-        local fb = faction_of(agent)
-        if fb and fb.team then
-          to_background(agent, fb, agent.steps[agent.pc][2], agent.craft_i or 1, agent.craft_started or tick, tick)
-          return
-        end
+      local fb = faction_of(agent)
+      if fb and fb.team and bg_room(agent, fb) and agent.steps and agent.steps[agent.pc] then
+        to_background(agent, fb, agent.steps[agent.pc][2], agent.craft_i or 1, agent.craft_started or tick, tick)
+        return
       end
       if e.crafting_queue_size > 0 then
         if tick - agent.craft_started > CRAFT_TIMEOUT then

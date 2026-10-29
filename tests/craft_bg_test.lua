@@ -244,5 +244,45 @@ if victim then
   check(seen, "journal [FO-CRAFT] « perdue : mort »")
 end
 
+---------------------------------------------------------------------------------------------------
+section("6. Relecture : file bloquée (travail qui attend derrière des restes) : délai, rien de pris pour toujours")
+---------------------------------------------------------------------------------------------------
+f = new_team(42)
+local stuckq
+for _ = 1, 1200 do
+  M.run_ticks(30)
+  f = global.fo.pteam.team
+  for _, id in ipairs(State.sorted_keys(f.engineers)) do
+    local a = Registry.get(id)
+    if a and a.bg and a.entity.valid and a.entity.crafting_queue_size > 0 then stuckq = a break end
+  end
+  if stuckq then break end
+end
+check(stuckq ~= nil, "un PNJ dont la file fabrique en arrière-plan")
+if stuckq then
+  local keys0 = {}
+  for _, j in ipairs(stuckq.bg.jobs) do keys0[#keys0 + 1] = j.task.key end
+  -- Une entrée qui ne finit jamais, en tête de file (le moteur simulé sort la file dans l'ordre) : la file reste occupée.
+  table.insert(stuckq.entity._craft, 1, { recipe = "iron-gear-wheel", due = math.huge })
+  M.run_ticks(16 * 3600)
+  f = global.fo.pteam.team
+  local still = false
+  for _, k in ipairs(keys0) do if Board.get(f).tasks[k] then still = true end end
+  check(not still, "travaux d'avant le blocage clos (délai) et rendus au tableau")
+  local oldest = 0
+  for _, j in ipairs((stuckq.bg and stuckq.bg.jobs) or {}) do oldest = math.max(oldest, game.tick - j.at) end
+  check(oldest <= 11 * 3600, string.format("aucun travail gardé plus de 11 min derrière une file bloquée (%.1f min)", oldest / 3600))
+  table.remove(stuckq.entity._craft, 1)
+end
+
+---------------------------------------------------------------------------------------------------
+section("7. Relecture : place de marché éteinte : ancien chemin (la porte de board.lua n'existe que sur la place)")
+---------------------------------------------------------------------------------------------------
+f = new_team(42)
+f.team.marche = false
+local rm = sample(f, 5 * 60)
+check(rm.bg == 0, "aucun travail en arrière-plan sans place de marché (" .. rm.bg .. ")")
+check(rm.craft > 0, "le PNJ fabrique à l'ancienne (" .. rm.craft .. " échantillons en « craft »)")
+
 print(string.format("[CRAFT-BG] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
