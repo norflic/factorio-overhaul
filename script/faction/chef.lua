@@ -269,6 +269,7 @@ function Chef.think(f, tick)
   local v = Chef.view(f, tick)
   v.jitter = f.attack_jitter
   local d = C.think(st, v, draw_of(st))
+  st.last_threat = d.threat -- lot VEILLE : menace de la dernière pensée (lue par script/ai3/exploration.lua et script/faction/veille.lua)
   log(string.format("[FO-STRAT] posture tick %d %s : %s, raison %s, menace %d, mult %d, cible %s, raid %s%s",
     tick, f.key, mix_text(d), (d.reason:gsub(" ", "_")), d.threat, d.war_mult,
     d.target and (State.faction(d.target) and State.faction(d.target).key or tostring(d.target)) or "-",

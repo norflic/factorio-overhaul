@@ -54,6 +54,8 @@ local Board = require("script.team.board") -- lot IA-V2 : crochet Board.on_fail 
 -- Lot IA-V2 : le cerveau par besoins (IA3-c) lit les gisements CONNUS par un crochet (module déjà chargé par
 -- script/team/team.lua : l'ordre de chargement, donc des abonnements, ne change pas).
 local Ia3 = require("script.ai3.cerveau")
+local Veille = require("script.faction.veille") -- lot VEILLE : reconnaissance régulière par ouvrier libre (état, compteurs, bilans)
+local V = require("shared.faction.veille")
 
 local X = {}
 
@@ -414,11 +416,11 @@ local function chunk_ready(surface, p)
   return surface.is_chunk_generated({ x = math.floor(p.x / 32), y = math.floor(p.y / 32) })
 end
 
-local function start_mission(f, k, a, kind, res, tick)
+local function start_mission(f, k, a, kind, res, tick, veille)
   local g = G()
   g.seq = g.seq + 1
   local surface = a.entity.surface
-  local ex = { tag = g.seq, agent = a.id, kind = kind, res = res, started = tick, state = "out", bad = {} }
+  local ex = { tag = g.seq, agent = a.id, kind = kind, res = res, started = tick, state = "out", bad = {}, veille = veille and true or nil }
   a.task = { kind = "explore", key = "ai3f:" .. kind .. ":" .. g.seq, ai3f = g.seq, claimed = tick, res = res }
   a.ai3f_eye = K.EYE.explorer
   local steps
@@ -446,7 +448,7 @@ local function start_mission(f, k, a, kind, res, tick)
     ex.ring_first = k.tour.next
     steps[#steps + 1] = { "home" }
   else
-    ex.known0 = K.count(k.m, res)
+    ex.known0 = res and K.count(k.m, res) or 0
     steps = { { "wait", 120 }, { "home" } } -- la cible est choisie à la première surveillance (au plus 15 ticks)
     ex.next_target = tick
   end
@@ -455,7 +457,8 @@ local function start_mission(f, k, a, kind, res, tick)
   k.stats.missions = (k.stats.missions or 0) + 1
   set_steps(a, steps, tick)
   log(string.format("[FO-IA3F] %s : eclaireur %d part (%s%s) a %.1f min, secteurs vus %d, eclaireurs %d", team_label(f), a.id,
-    kind, res and (" " .. res) or "", minutes(tick), k.m.n, #k.exl))
+    kind, res and (" " .. res) or (veille and " veille" or ""), minutes(tick), k.m.n, #k.exl))
+  if veille then Veille.on_start(f, tick) end
 end
 
 local function end_mission(f, k, ex, tick, why)
@@ -484,25 +487,25 @@ local function end_mission(f, k, ex, tick, why)
     end
   end
   log(string.format("[FO-IA3F] %s : eclaireur %d (%s%s) fin : %s apres %.1f min, secteurs vus %d", team_label(f), ex.agent,
-    ex.kind, ex.res and (" " .. ex.res) or "", why, minutes(tick - ex.started), k.m.n))
+    ex.kind, ex.res and (" " .. ex.res) or (ex.veille and " veille" or ""), why, minutes(tick - ex.started), k.m.n))
+  if ex.veille then Veille.on_end(f, tick, tick - ex.started, why) end
 end
 
-local function retarget(f, k, a, ex, tick)
-  local e = a.entity
-  local surface = e.surface
-  local me = { x = e.position.x, y = e.position.y }
+--- Secteurs écartés d'une cible d'exploration (table locale, jamais rangée dans global). `ex` : la mission du PNJ (cibles ratées de
+--- cette mission), ou nil (lot VEILLE : choix du but d'une mission avant son départ).
+local function make_exclude(k, tick, ex)
   -- Lot IA-V2 : plusieurs éclaireurs : chacun évite les secteurs proches de la cible d'un autre (exclusion calculée à la
   -- demande, table locale jamais rangée dans global).
   local others = {}
   for _, e in ipairs(k.exl or {}) do
-    if e.tag ~= ex.tag and e.target then
+    if (not ex or e.tag ~= ex.tag) and e.target then
       local ox, oy = K.center(K.xy(e.target))
       others[#others + 1] = { x = ox, y = oy }
     end
   end
   local badt = k.badt or {}
-  local exclude = setmetatable({}, { __index = function(_, key)
-    if ex.bad[key] then return true end
+  return setmetatable({}, { __index = function(_, key)
+    if ex and ex.bad[key] then return true end
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
     local bx, by = K.center(K.xy(key))
@@ -519,8 +522,32 @@ local function retarget(f, k, a, ex, tick)
     end
     return nil
   end })
-  local key = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
-    rivals = rivals(f, surface), exclude = exclude })
+end
+
+local function retarget(f, k, a, ex, tick)
+  local e = a.entity
+  local surface = e.surface
+  local me = { x = e.position.x, y = e.position.y }
+  local exclude = make_exclude(k, tick, ex)
+  local key
+  if ex.veille then
+    -- Lot VEILLE : le but est celui de la règle pure (secteur de la bande du rayon, le plus ancien d'abord), gardé jusqu'à ce qu'il soit
+    -- vu ; seul le point de passage change d'une étape à l'autre.
+    if ex.target then
+      key = ex.target
+    else
+      local vs = Veille.state(f)
+      local g = Veille.pick_goal(f, tick, V.radius(vs.trips), vs.last_oct)
+      if g then
+        key = g.key
+        vs.last_oct = g.octant
+        Veille.on_goal(f, tick, g, V.radius(vs.trips))
+      end
+    end
+  else
+    key = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
+      rivals = rivals(f, surface), exclude = exclude })
+  end
   if not key then
     local r = ex.res and k.req[ex.res]
     if r then r.exhausted = tick end
@@ -653,14 +680,25 @@ local function monitor_one(f, k, ex, tick)
     return
   end
   if ex.kind == "explore" then
-    if K.count(k.m, ex.res) > (ex.known0 or 0) then
+    if ex.res and K.count(k.m, ex.res) > (ex.known0 or 0) then
       go_home(a, ex, "trouve", tick)
       return
     end
     -- Nouvelle cible : la précédente est vue, ou le point de passage est atteint (étape « wait » après le goto).
     local step = a.steps and a.steps[a.pc]
     local arrived = step and step[1] == "wait" and (step[2] or 0) >= 600
-    if tick >= (ex.next_target or 0) and (not ex.target or K.seen(k.m, ex.target) or arrived) then
+    if ex.veille then
+      -- Lot VEILLE : la mission finit quand son but est vu depuis son départ (l'œil du PNJ, 128 tuiles) ; sinon étape suivante vers lui.
+      if ex.target and (K.seen(k.m, ex.target) or -1) >= ex.started then
+        go_home(a, ex, "fini", tick)
+        return
+      end
+      if tick >= (ex.next_target or 0) and (not ex.target or arrived) then
+        retarget(f, k, a, ex, tick)
+      elseif step and step[1] == "home" and ex.state ~= "home" then
+        retarget(f, k, a, ex, tick)
+      end
+    elseif tick >= (ex.next_target or 0) and (not ex.target or K.seen(k.m, ex.target) or arrived) then
       retarget(f, k, a, ex, tick)
     elseif step and step[1] == "home" and ex.state ~= "home" then
       retarget(f, k, a, ex, tick) -- ne jamais rentrer avant la fin de la mission
@@ -881,6 +919,18 @@ local function team_pass(f, tick)
     res = next_request(k, tick)
     if res then kind = "explore" end
   end
+  -- Lot VEILLE : sans demande de ressource ni tour, une faction envoie à intervalle un ouvrier LIBRE reconnaître la carte (rayon
+  -- croissant). Aucun soldat, aucun kit ; jamais votre équipe ; jamais un ouvrier utile (tâche libre au tableau, crise).
+  local veille = false
+  if not kind and n == 0 and not f.is_player and k.home_seen and Veille.enabled() then
+    local vs = Veille.state(f)
+    local st = f.chef
+    local open = Board.takeable(f) -- tâches libres PRENABLES : un PNJ libre devant elles serait utile ; devant des tâches bloquées, non
+    local ok, why = V.want({ tick = tick, next_at = vs.next_at, threat = st and st.last_threat or 0, survive = st and st.survival or false,
+      alert = tick < (f.threatened_until or 0), tour_done = k.tour.state ~= "todo", request = false, open_tasks = open,
+      idle = idle_count(f), missing = f.team ~= nil and f.team.missing ~= nil and #f.team.missing > 0 })
+    if ok then kind, veille = "explore", true else Veille.refuse(f, why) end
+  end
   if not kind then return end
   if n > 0 then
     -- Lot IA-V2 (B4 : « met plusieurs personnes sur l'urgence ») : un éclaireur de plus seulement si des PNJ attendent
@@ -909,8 +959,10 @@ local function team_pass(f, tick)
   end
   local a = pick_idle(f)
   if a then
-    start_mission(f, k, a, kind, res, tick)
+    start_mission(f, k, a, kind, res, tick, veille)
     if kind == "explore" then k.next_mission = tick + EXTRA_GAP end
+  elseif veille then
+    Veille.refuse(f, "pas de PNJ libre")
   end
 end
 
@@ -1173,6 +1225,49 @@ Board.on_fail = function(f, task, tick)
   for _, key in ipairs(sorted_keys(k.unreach)) do
     if tick - k.unreach[key] >= BAD_TTL then k.unreach[key] = nil end
   end
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot VEILLE : crochets lus par script/faction/veille.lua (carte de connaissance, choix du but)
+---------------------------------------------------------------------------------------------------
+--- Nombre de secteurs reconnus par l'équipe (champ n de la carte de connaissance), ou nil.
+Veille.known = function(f)
+  local k = f.ai3f
+  return k and k.m and k.m.n or nil
+end
+
+--- But de la prochaine mission : parmi les secteurs GÉNÉRÉS de la bande R ± V.BAND autour du QG, jamais vus ou vus depuis V.STALE,
+--- sûrs, hors exclusions et au trajet dégagé de tout nid ou ver vu, le choix de V.pick (le plus ancien d'abord, octants alternés).
+--- Renvoie { key, x, y, octant, dh, n (candidats) } ou nil.
+Veille.pick_goal = function(f, tick, radius, last_octant)
+  local k = f.ai3f
+  local surface = surface_of(f)
+  if not (k and surface and f.hq_pos) then return nil end
+  local hq = f.hq_pos
+  local exclude = make_exclude(k, tick, nil)
+  local span = radius + V.BAND
+  local x0, x1 = math.floor((hq.x - span) / K.SECTOR), math.floor((hq.x + span) / K.SECTOR)
+  local y0, y1 = math.floor((hq.y - span) / K.SECTOR), math.floor((hq.y + span) / K.SECTOR)
+  local rivals_list = rivals(f, surface)
+  local cands = {}
+  for sy = y0, y1 do
+    for sx = x0, x1 do
+      local key = K.key(sx, sy)
+      local cx, cy = K.center(sx, sy)
+      local dh = math.sqrt((cx - hq.x) ^ 2 + (cy - hq.y) ^ 2)
+      if V.in_band(dh, radius) and not exclude[key] then
+        local s = k.m.s[key]
+        local age = s and (tick - s.t) or nil
+        if V.stale(age) and generated(surface, key) and K.sector_risk(k.m, key, tick, rivals_list) < K.DANGER.skip
+          and K.path_clear(k.m, hq, { x = cx, y = cy }) then
+          cands[#cands + 1] = { key = key, x = cx, y = cy, dh = dh, age = age, octant = V.octant(cx - hq.x, cy - hq.y) }
+        end
+      end
+    end
+  end
+  local best = V.pick(cands, last_octant)
+  if not best then return nil end
+  return { key = best.key, x = best.x, y = best.y, octant = best.octant, dh = best.dh, n = #cands }
 end
 
 return X
