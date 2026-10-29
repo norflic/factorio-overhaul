@@ -812,7 +812,8 @@ function Team.think(f, surface, tick)
   Recon.craft_spares(f, book_for(f), stock, tick) -- lot RECONSTRUIRE : objets d'infrastructure électrique à fabriquer
   FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
   MigChamp.think(f, surface, book_for(f), stock, tick) -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques
-  if ia3 and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, stock) end
+  -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
+  if ia3 and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan)) end
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])
     f.tech = plan.research

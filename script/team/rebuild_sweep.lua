@@ -133,14 +133,32 @@ local function report(f, b, st, tick)
   end
 end
 
---- Lot INTEG-RECONSTRUCTION (D4) : l'équipe a-t-elle un projet du plan directeur rouvert à refaire ? (Recon.hold_upgrades : « améliorer attend »)
-function Sweep.hold(f, tick)
+Sweep.PRIO_LOGS = 40 -- lignes [FO-REBUILD-PRIO] par équipe
+
+--- Lot SANS-GEL (arbitrage du DC, 29/10 : « Supprimer le gel ») : stock laissé aux améliorations quand des projets rouverts sont à refaire
+--- (Rule.upgrade_stock : ce que la reconstruction prendra encore au coffre, ingrédients compris, est retiré de `stock` ; AUCUNE durée).
+--- Remplace Sweep.hold (D4, gel de 20 min après la dernière réouverture). `cur` : l'amélioration décidée (f.team.capital.current : clé,
+--- coût) ; si elle était payable sur `stock` et ne l'est plus sur le stock libre, une ligne [FO-REBUILD-PRIO] le dit (une par changement
+--- d'amélioration ou de projets en cause, Sweep.PRIO_LOGS au plus). État écrit : b.sweep.prio_sig, b.sweep.prio_logs (lus ici seulement,
+--- pour borner le journal). Lecteur du stock rendu : script/team/reconstruction.lua (Recon.upgrade_stock) -> script/team/team.lua (Capital.pay).
+function Sweep.upgrade_stock(f, stock, book, tick, cur)
   local b = f.build
-  if not (R.REBUILD_SWEEP and b and b.projects and b.order) then return false end
-  for _, pid in ipairs(b.order) do
-    if Rule.project_holds(b.projects[pid], tick) then return true end
+  if not (R.REBUILD_SWEEP and b and b.projects and b.order) then return stock end
+  local needs, ids = Rule.rebuild_needs(b.projects, b.order)
+  if #needs == 0 then return stock end
+  local free, held = Rule.upgrade_stock(stock, needs, book)
+  if cur and cur.key and Rule.defers(stock, free, cur.cost) then
+    local st = state_of(b, tick)
+    local sig = cur.key .. "|" .. table.concat(ids, ",")
+    if st.prio_sig ~= sig and (st.prio_logs or 0) < Sweep.PRIO_LOGS then
+      st.prio_sig = sig
+      st.prio_logs = (st.prio_logs or 0) + 1
+      log(string.format("[FO-REBUILD-PRIO] %s : amelioration '%s' attend : la reconstruction des projets {%s} rouverts passe d'abord " ..
+        "(a refaire {%s}, retenu au coffre {%s}) a %.1f min", f.key or "player", cur.key, table.concat(ids, ","),
+        Rule.items_text(needs), Rule.items_text(held), tick / 3600))
+    end
   end
-  return false
+  return free
 end
 
 --- Une passe de l'équipe. Rend le nombre de pièces rouvertes.

@@ -155,19 +155,88 @@ function Sw.follow(m, s, tick)
   return true
 end
 
---- Lot INTEG-RECONSTRUCTION (D4) : un projet du plan directeur ROUVERT retient-il les améliorations ? (« refaire avant d'améliorer » : le
---- registre de reconstruction, seul lu par Rc.hold_upgrades, ne contient plus les pièces des projets depuis REBUILD-TOUT, donc Capital.pay
---- dépensait les plaques de la réserve d'une fonderie à refaire.) Vrai si le projet a été rouvert il y a au plus Sw.HOLD_MAX ticks
---- (q.reopened_tick, écrit par le relevé et le réseau vivant), est encore à refaire (réserve, défrichage, fantômes, chantier) et garde
---- des pièces à refaire (Sw.todo). Pas de condition sur le stock : ce qui manque se fabrique avec les plaques que l'amélioration prendrait.
---- Lecteur : script/team/reconstruction.lua (Recon.hold_upgrades) -> script/team/team.lua (Capital.pay).
-Sw.HOLD_MAX = 20 * 3600  -- comme Rc.HOLD_MAX : un site tenu par l'ennemi ne gèle pas les améliorations
+--- Lot SANS-GEL (arbitrage du DC, 29/10 vers 20 h 50, gel des améliorations pendant un siège : « Supprimer le gel »). INTEG-RECONSTRUCTION
+--- (D4, 0.6.18) retenait TOUTES les améliorations (Capital.pay) jusqu'à 20 min après la dernière réouverture d'un projet : un gel dans le temps,
+--- supprimé. Reste un ARBITRAGE DE MATIÈRE, sans durée : une amélioration ne se paie que sur le stock qui reste APRÈS ce que la reconstruction
+--- des projets rouverts doit encore prendre au coffre (« refaire d'abord » à matière égale) ; tout ce que la reconstruction ne demande pas
+--- reste libre pour améliorer, tout de suite.
+--- Projets concernés (comme D4) : rouverts par le relevé ou le réseau vivant (q.reopened, q.reopened_tick : les murs d'enceinte rouverts sans
+--- date n'en sont pas), encore à refaire (réserve, défrichage, fantômes, chantier), pièces à refaire (Sw.todo : ni abandonnées ni retirées).
 Sw.HOLD_STATES = { reserve = true, defrichage = true, fantomes = true, chantier = true }
-function Sw.project_holds(q, tick)
-  if not (q and q.reopened and q.reopened_tick and Sw.HOLD_STATES[q.state]) then return false end
-  if tick - q.reopened_tick > Sw.HOLD_MAX then return false end
-  local _, pieces = Sw.todo(q)
-  return pieces > 0
+
+--- Objets qu'un projet rouvert doit encore prendre au coffre : ses pièces à refaire (Sw.todo) moins ce que sa réserve tient déjà (q.stock,
+--- retiré du coffre). Liste { {objet, n} } (ordre de Sw.todo), vide si le projet n'est pas concerné. Lecteur : Sw.rebuild_needs.
+function Sw.project_needs(q)
+  local out = {}
+  if not (q and q.reopened and q.reopened_tick and Sw.HOLD_STATES[q.state]) then return out end
+  local held = q.stock or {}
+  for _, it in ipairs((Sw.todo(q))) do
+    local n = it[2] - (held[it[1]] or 0)
+    if n > 0 then out[#out + 1] = { it[1], n } end
+  end
+  return out
+end
+
+--- Besoins de reconstruction d'une équipe : somme de Sw.project_needs sur ses projets, dans l'ordre `order` (b.order). Rend la liste
+--- { {objet, n} } triée par nom et la liste des projets concernés (identifiants, ordre de `order`). Lecteur : script/team/rebuild_sweep.lua
+--- (Sweep.upgrade_stock).
+function Sw.rebuild_needs(projects, order)
+  local count, names, ids = {}, {}, {}
+  for _, pid in ipairs(order or {}) do
+    local need = Sw.project_needs(projects and projects[pid])
+    if #need > 0 then
+      ids[#ids + 1] = pid
+      for _, it in ipairs(need) do
+        if not count[it[1]] then count[it[1]] = 0 names[#names + 1] = it[1] end
+        count[it[1]] = count[it[1]] + it[2]
+      end
+    end
+  end
+  table.sort(names)
+  local out = {}
+  for i, n in ipairs(names) do out[i] = { n, count[n] } end
+  return out, ids
+end
+
+--- Stock laissé aux améliorations : `stock` ({ [objet] = n }, non modifié) moins ce que la reconstruction (`needs`, Sw.rebuild_needs) y
+--- prendra, objets à refaire ET, s'ils manquent, leurs ingrédients (livre de recettes `book`, shared/team/book.lua : Book:plan dépile le
+--- stock comme le ferait la fabrication). Sans livre : les objets eux-mêmes seulement. Rend le stock libre et ce qui est retenu
+--- ({ {objet, n} } trié par nom, vide si rien). Aucune durée : dès que la reconstruction est couverte ou finie, plus rien n'est retenu.
+function Sw.upgrade_stock(stock, needs, book)
+  stock = stock or {}
+  if not needs or #needs == 0 then return stock, {} end
+  local names = {}
+  for k in next, stock do names[#names + 1] = k end -- clés seules, aussitôt triées : aucun ordre de parcours n'est suivi
+  table.sort(names)
+  local free
+  if book then
+    free = book:plan(needs, stock).avail
+  else
+    free = {}
+    for _, k in ipairs(names) do free[k] = stock[k] end
+    for _, it in ipairs(needs) do
+      if free[it[1]] then free[it[1]] = math.max(0, free[it[1]] - it[2]) end
+    end
+  end
+  local held = {}
+  for _, k in ipairs(names) do
+    local n = (stock[k] or 0) - (free[k] or 0)
+    if n > 0 then held[#held + 1] = { k, n } end
+  end
+  return free, held
+end
+
+--- L'amélioration de coût `cost` ({ {objet, n} }) est-elle payable sur `stock` mais pas sur `free` (la reconstruction passe d'abord) ?
+--- Lecteur : script/team/rebuild_sweep.lua (journal [FO-REBUILD-PRIO]).
+function Sw.defers(stock, free, cost)
+  if not cost or #cost == 0 then return false end
+  local function covers(s)
+    for _, it in ipairs(cost) do
+      if ((s or {})[it[1]] or 0) < it[2] then return false end
+    end
+    return true
+  end
+  return covers(stock) and not covers(free)
 end
 
 --- Lot INTEG-RECONSTRUCTION (D3) : l'abandon d'une pièce détruite trop souvent (e.gave_up par Sw.select) est-il levé ? Vrai au bout de
