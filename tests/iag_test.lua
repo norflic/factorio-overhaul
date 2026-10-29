@@ -479,7 +479,7 @@ do
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
     ["script/team/build.lua"] = { "EXEC", 23, "construction : pièces posées (tapis, coffre, poteaux, bras)" },
-    ["script/team/plant_arms.lua"] = { "EXEC", 3, "bras de la centrale (chaudière, machine à vapeur)" },
+    ["script/team/plant_arms.lua"] = { "EXEC", 1, "journal de la centrale : le fluide « vapeur » lu dans les chaudières (diagnostic)" },
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
     ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },
     ["script/modules/mult.lua"] = { "TYPE", 2, "types du moteur des machines à modules" },

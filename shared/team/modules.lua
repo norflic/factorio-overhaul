@@ -329,35 +329,19 @@ table.sort(M.POLES, function(a, b)
   return a < b
 end)
 
---- Lot PLANDIR (T2) : bras à combustion (celui des données qui brûle son combustible : il démarre sans courant, la centrale
---- à vapeur en a besoin) et bras électriques, du plus lent au plus rapide (débit, puis nom). Lus dans BASE.
+--- Lot PLANDIR : le bras à combustion des données (celui qui brûle son combustible : il se recharge seul avec le charbon qu'il
+--- déplace, la centrale à vapeur en nourrit ses chaudières ; un bras électrique y ferait un blackout sans reprise).
 M.BURNER_ARM = nil
-M.ELECTRIC_ARMS = {}
+M.ELECTRIC_ARM = nil -- banc seulement (migration) : le bras électrique de portée 1 le plus lent
 for name, s in pairs(BASE) do
   if s.kind == "inserter" then
     if s.burner then
       if not M.BURNER_ARM or name < M.BURNER_ARM then M.BURNER_ARM = name end
-    elseif s.reach == 1 then
-      M.ELECTRIC_ARMS[#M.ELECTRIC_ARMS + 1] = name
+    elseif s.reach == 1 and (not M.ELECTRIC_ARM or s.rate < BASE[M.ELECTRIC_ARM].rate or
+      (s.rate == BASE[M.ELECTRIC_ARM].rate and name < M.ELECTRIC_ARM)) then
+      M.ELECTRIC_ARM = name
     end
   end
-end
-table.sort(M.ELECTRIC_ARMS, function(a, b)
-  if BASE[a].rate ~= BASE[b].rate then return BASE[a].rate < BASE[b].rate end
-  return a < b
-end)
-
---- Le bras électrique (portée 1) le plus lent que `usable(nom)` accepte et qui porte `need` objets/s depuis un tapis ; à
---- défaut le plus rapide accepté. nil si aucun n'est accepté.
-function M.electric_arm(usable, need)
-  local fastest
-  for _, name in ipairs(M.ELECTRIC_ARMS) do
-    if usable(name) then
-      fastest = name
-      if BASE[name].rate * M.BELT_PICKUP * M.MARGIN + M.EPS >= (need or 0) then return name end
-    end
-  end
-  return fastest
 end
 
 --- Le poteau le moins cher que `usable(nom)` accepte (vrai quand la recette est débloquée et ses matières à portée), ou

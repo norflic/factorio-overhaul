@@ -30,7 +30,7 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
-local PlantArms = require("script.team.plant_arms") -- lot PLANDIR (T2) : bras de la centrale, combustion puis électrique
+local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -799,8 +799,8 @@ local function plan_feed(f, surface, p, place, part)
       end
       -- centrale : bras À COMBUSTION au quai (correction du 27/10 : avec un bras électrique, pas de charbon sans courant
       -- ni de courant sans charbon, 0 kW au banc ia1-build-plaine) ; il se ravitaille avec le charbon qu'il porte. Lot
-      -- PLANDIR (T2) : démarrage seulement, PlantArms le remplace par un bras électrique dès que la centrale produit ;
-      -- son poteau de quai est donc posé dès maintenant
+      -- PLANDIR (28/10) : ils le RESTENT, mesuré : passés à l'électrique, les bras de la centrale la tuaient en 1,5 à 3,5 min
+      -- (6 cas sur 6)
       local quai_ins = (g.gen == "steam") and M.BURNER_ARM or "inserter"
       local fd = P.feeder(port, sources, quai_ins)
       for _, e in ipairs(fd.entities) do e.part = part end
@@ -2182,7 +2182,7 @@ local function pulse_team(f, tick)
       if was == "plan" and p.state ~= "plan" then break end
     end
   end
-  -- 3. lot PLANDIR (T2) : bras de la centrale finie, combustion au démarrage puis électriques
+  -- 3. lot PLANDIR : moniteur de la centrale finie (premier courant, pannes)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
 end
@@ -2376,6 +2376,12 @@ remote.add_interface("fo-ia1d", {
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
   layout = function(key) return Build.layout(team_of_key(key)) end,
+  -- banc seulement (migration des bras de la centrale, lot PLANDIR) : reproduit la conversion électrique des versions 0.6.5 à 0.6.7
+  legacy_electric_arms = function(key)
+    local f = team_of_key(key)
+    local surface = f and surface_of(f)
+    return (f and f.build and surface) and PlantArms.legacy_electric(f, surface) or 0
+  end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
     if not (f and f.build and (name == "seul" or name == "ghosts_ahead")) then return nil end
