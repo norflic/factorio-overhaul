@@ -247,6 +247,10 @@ do
   local l = last_ecart()
   check(l and l:find(": plancher ;"), "journal [FO-TOUR-ECART] cause « plancher »")
   check(l and l:find("poste plant"), "le journal nomme le poste")
+  -- relecture : la passe 2 sert l'emplacement resté vide ((0,3), à 4,2 tuiles), elle ne repasse pas sur (-3,0) déjà tenu (dont
+  -- l'anneau donnait (0,0), à 3 tuiles de deux tourelles)
+  local g = Pose.min_gap(all_pos(turrets))
+  check(g ~= nil and g >= 4, string.format("passe 2 : pas de 2e tourelle sur un emplacement déjà tenu (écart %.1f >= 4)", g or -1))
 end
 
 section("8. Place impossible même au plancher : moins posées, pas d'erreur, cause « manque »")

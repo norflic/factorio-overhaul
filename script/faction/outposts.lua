@@ -537,10 +537,15 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
   local near = Outposts.turrets_near(f, surface, sites)
   local gaps = { Pose.gap(Outposts.turret_range()), Pose.GAP_MIN }
   local ec = { refused = 0, by_pass = { 0, 0 }, near0 = #near, min = nil }
+  -- relecture : la passe 2 saute un emplacement déjà TENU par une tourelle de cette pose (à moins de Pose.GAP_MIN de son point) ; sinon,
+  -- au plancher, l'anneau de cet emplacement donnait une 2e tourelle à 3 tuiles de la 1re avant de servir les emplacements restés
+  -- vides (l'amas que le DC reproche ; moteur factice : (0,0) entre (3,0) et (-3,0) au lieu de (0,3))
+  local mine = {}
   for pass = 1, 2 do -- (corps de passe non réindenté : diff minimal pour la fusion avec TOURELLES-HORS-AXE)
   local gap = gaps[pass]
   for _, s in ipairs(sites) do
     if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
+    if pass == 2 and not Pose.spaced(s.x, s.y, mine, gaps[2]) then goto suivant end
     -- lot FACTIONS-BLOQUEES : jamais sur une tuile réservée par un projet du plan directeur (moteur réel, 20261020 et 1618033988 :
     -- fantôme du tapis d'une fonderie refusé « occupe » par une tourelle de l'équipe, projet bloqué de 36 min à la fin de la partie) ;
     -- aucune place libre alentour : l'ancienne position (le projet se débloque alors par la reprise de build.lua)
@@ -566,8 +571,10 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
         if d and (ec.min == nil or d < ec.min) then ec.min = d end
         near[#near + 1] = { x = t.position.x, y = t.position.y }
         ec.by_pass[pass] = ec.by_pass[pass] + 1
+        mine[#mine + 1] = { x = t.position.x, y = t.position.y }
       end
     end
+    ::suivant::
   end
   if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
   end
