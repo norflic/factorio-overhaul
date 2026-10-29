@@ -277,6 +277,10 @@ end
 
 --- Masques d'un rectangle lus au moteur (une fois par plan) : eau, bloqué (bâtiments, falaises, nids : non
 --- défrichable), obstacles défrichables (arbres, rochers) ; plus les tuiles réservées par nos projets.
+-- Lot MIGRATION-CHAMP : tuiles d'une partie de champ que le plan compte comme LIBRES le temps de planifier le projet qui la remplace
+-- (liste plate { tx, ty, ... } de spec.degel.tiles ; mémoire LOCALE posée autour de plan_project, jamais dans global).
+local THAW = nil
+
 local function read_masks(f, surface, x0, y0, x1, y1)
   local b = f.build
   local water, blocked, clear = {}, {}, {}
@@ -294,6 +298,9 @@ local function read_masks(f, surface, x0, y0, x1, y1)
         if soft then clear[k] = true else blocked[k] = true end
       end
     end
+  end
+  if THAW then
+    for i = 1, #THAW - 1, 2 do blocked[P.tkey(THAW[i], THAW[i + 1])] = nil end
   end
   return {
     water = water, blocked = blocked, clear = clear,
@@ -518,6 +525,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.head_toward then fopts.head_toward = opts.head_toward end
     -- lot AGENCEMENT : couverture visée des foreuses (80 % d'abord) et bras de sortie par quai (P.fit : place du second bras)
     if opts and opts.cover_min then fopts.cover_min = opts.cover_min end
+    if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
     if res then fopts.ore = ores end
     if opts and opts.water then fopts.water = masks.water end
@@ -884,6 +892,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
   local cfg = T.ligne
   local prm = g.params or {}
   if not (cfg and cfg.grow and g.gen == "smelter" and spec.feed == "tapis" and prm.ore and prm.n and prm.n > 0) then return cur end
+  if spec.fixe then return cur end -- lot MIGRATION-CHAMP : la ligne d'une partie de champ a la taille de la partie, pas celle du gisement
   local b = f.build
   local plate = M.PLATE_OF[prm.ore]
   local main = g.nominal and plate and g.nominal[plate]
@@ -1120,6 +1129,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local g1 = M.GEN.drills(item, 1)
   local pmax = g1 and g1.extensions and g1.extensions[1] and g1.extensions[1].max or n
   local top = math.max(1, math.min(n, pmax))
+  if p.spec and p.spec.paires then top = math.max(1, math.min(top, p.spec.paires)) end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
   local cfg = T.ligne or {}
   local cache, picked = scan_cache(f), nil
   for _, at in ipairs(Rg.attempts(top, top, { high = cfg.cover })) do
@@ -1128,7 +1138,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
     if g then
       place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
-        { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache })
+        { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
+          within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
       if place then picked = at break end
     end
   end
@@ -2577,7 +2588,12 @@ local function advance(f, surface, p, tick)
       if pl and (pl.state == "attente" or pl.state == "plan") then return end
     end
     Profiler.start("build:plan")
+    -- lot MIGRATION-CHAMP : les tuiles de la partie de champ à remplacer comptent comme libres pour CE plan seulement (relevés de
+    -- tuiles du tick jetés avant et après : un autre plan du même tick ne les verrait pas libres)
+    THAW = p.spec.degel and p.spec.degel.tiles or nil
+    if THAW then SCAN.tick = nil end
     local ok, why, wait = plan_project(f, surface, p)
+    if THAW then THAW = nil; SCAN.tick = nil end
     Profiler.stop("build:plan")
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
     Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
@@ -2618,6 +2634,12 @@ local function advance(f, surface, p, tick)
     if p.spec.enceinte then craft_walls(f, p) end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
     if reserve(f, p) then
+      -- lot MIGRATION-CHAMP : matières réunies, la partie de champ à remplacer est retirée par script/team/migration_champ.lua (qui pose
+      -- p.degele) : le chantier ne commence qu'ensuite, et le champ produit jusque-là
+      if p.spec.degel and not p.degele then
+        p.reason, p.reserve_next = "degel", tick + 60
+        return
+      end
       p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
     else
       p.reason, p.reserve_next = "materiaux", tick + 60
