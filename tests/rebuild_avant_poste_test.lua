@@ -404,9 +404,15 @@ do
   m.team.board.tasks.autre = { key = "autre", kind = "craft", worker = 3 }
   for _, r in pairs(m.recon.lost) do if r.kind == "drill" then r.claimed = "autre" end end -- les foreuses sont prises par une autre tâche
   Recon.think(m, surface, 1000 + Rc.CALM + 5)
-  local task = rebuild_task(m)
-  check(task ~= nil and #task.recs == 1, "seul le réceptacle est dû")
-  if task then
+  -- relecture : un réceptacle dont l'avant-poste n'a aucune foreuse prête n'envoie personne (sinon un voyage pour rien à chaque pensée)
+  check(rebuild_task(m) == nil, "réceptacle seul sans foreuse prête : aucune tâche donnée")
+  for _ = 1, 3 do Recon.think(m, surface, 1000 + Rc.CALM + 5) end
+  check(rebuild_task(m) == nil, "... et aux pensées suivantes non plus")
+  -- Garde de l'exécutant (une tâche donnée avant coup) : le réceptacle seul n'est pas posé et ne recrée aucun avant-poste.
+  local sk
+  for k, r in pairs(m.recon.lost) do if r.kind == "sink" then sk = k end end
+  local task = { key = "rebuild:" .. tostring(sk), kind = "rebuild", recs = { sk }, items = { { "item:" .. SINK, 1 } }, pos = { x = 98, y = 98 } }
+  if sk then
     task.worker = 1
     Recon.program(m, task)
     local inv2 = { items = { ["item:" .. SINK] = 1 } }
@@ -415,7 +421,22 @@ do
     surface.created = {}
     Recon.act({ entity = { get_main_inventory = function() return inv2 end } }, m, task, surface)
     check(#surface.created == 0 and m.outposts[5] == nil, "un réceptacle seul n'est pas posé et ne recrée aucun avant-poste")
+  else
+    check(false, "le réceptacle est au registre")
   end
+  -- Quand une foreuse devient prête (objet au stock), le réceptacle repart avec elle dans le même lot.
+  for _, r in pairs(m.recon.lost) do if r.kind == "drill" then r.claimed = nil end end
+  m.stock["item:" .. DRILL] = 2
+  m.stock["item:" .. SINK] = 1
+  Recon.think(m, surface, 1000 + Rc.CALM + 10)
+  local t2 = rebuild_task(m)
+  local has_sink, has_drill = false, false
+  for _, k in ipairs(t2 and t2.recs or {}) do
+    local q = m.recon.lost[k]
+    if q and q.kind == "sink" then has_sink = true end
+    if q and q.kind == "drill" then has_drill = true end
+  end
+  check(t2 ~= nil and has_drill, "foreuse prête : le lot repart avec elle")
 end
 
 ---------------------------------------------------------------------------------------------------

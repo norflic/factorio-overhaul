@@ -248,6 +248,19 @@ local function sink_boxes(f, s, surface, r, spec)
   return boxes
 end
 
+--- Lot REBUILD-AVANT-POSTE (relecture) : un réceptacle ne se pose que dans un avant-poste qui a une foreuse vivante ou dont une foreuse
+--- DUE a son objet au stock (Recon.act pose les foreuses d'abord). Sinon la tâche partirait, ne poserait rien et serait redonnée à
+--- chaque pensée : des voyages pour rien pendant toute la vie de la ruine. `due` : pièces dues de la pensée.
+local function sink_waits(f, r, due)
+  if r.kind ~= "sink" then return false end
+  local host = f.outposts and f.outposts[r.oid]
+  if host and (host.drills or 0) > 0 then return false end
+  for _, d in ipairs(due) do
+    if d.kind == "drill" and d.oid == r.oid and d.item and Stock.count(f, d.item) >= 1 then return false end
+  end
+  return true
+end
+
 local function substitute_drills(f, s, surface, tick)
   local burner_item = item_of(T.DRILL)
   if not burner_item then return 0 end
@@ -338,7 +351,9 @@ function Recon.think(f, surface, tick)
   local have, taken = {}, {}
   for _, seed in ipairs(due) do
     if open + #added >= Recon.MAX_OPEN or tried >= Recon.SEEDS_PER_THINK then break end
-    if not taken[seed.key] and Stock.count(f, seed.item) < 1 then
+    if sink_waits(f, seed, due) then
+      -- réceptacle sans foreuse prête : ni place essayée ni tâche (il attend sa foreuse ou la fin de la ruine)
+    elseif not taken[seed.key] and Stock.count(f, seed.item) < 1 then
       -- Mesure : pièce en attente faute d'objet au stock (elle ne consomme pas l'une des places essayées de la pensée).
       if not seed.nostock then
         seed.nostock = true
@@ -368,6 +383,15 @@ function Recon.think(f, surface, tick)
           have[r.item] = left
         end
       end
+      -- réceptacles sans foreuse dans le lot (ni vivante, ni du lot) : retirés, ils attendent leur foreuse
+      local drill_of = {}
+      for _, r in ipairs(batch) do if r.kind == "drill" then drill_of[r.oid] = true end end
+      local kept = {}
+      for _, r in ipairs(batch) do
+        local host = f.outposts and f.outposts[r.oid]
+        if r.kind ~= "sink" or drill_of[r.oid] or (host and (host.drills or 0) > 0) then kept[#kept + 1] = r end
+      end
+      batch = kept
       if #batch > 0 then
         local keys = {}
         for _, r in ipairs(batch) do keys[#keys + 1] = r.key taken[r.key] = true end
