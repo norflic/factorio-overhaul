@@ -1113,14 +1113,15 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local place, why
   local diag = {}
   -- lot AGENCEMENT (retour du DC du 29/10 : « on veut des rangées de foreuses ») : la ligne ne dépasse pas ce qu'un collecteur porte
-  -- (le gabarit le dit), s'essaie d'abord à 80 % de tuiles minées portant du minerai, puis redescend comme avant (n, n−1, … 1) ;
+  -- (le gabarit le dit), s'essaie d'abord à 80 % de tuiles minées portant du minerai SANS réduire la ligne (relecture : une ligne
+  -- plus courte à 80 % n'a pas le droit de battre la ligne voulue à la couverture d'avant), puis redescend comme avant (n, n−1, … 1) ;
   -- les relevés d'un lot servent à toutes les tailles essayées (`cache`)
   local g1 = M.GEN.drills(item, 1)
   local pmax = g1 and g1.extensions and g1.extensions[1] and g1.extensions[1].max or n
   local top = math.max(1, math.min(n, pmax))
   local cfg = T.ligne or {}
   local cache, picked = scan_cache(f), nil
-  for _, at in ipairs(Rg.attempts(top, math.ceil(top / 2), { high = cfg.cover })) do
+  for _, at in ipairs(Rg.attempts(top, top, { high = cfg.cover })) do
     local nn = at.n
     local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
     if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
@@ -1495,14 +1496,34 @@ local function plan_project(f, surface, p)
     end
     -- lot FONDERIES (retour du DC du 29/10 : tapis en crochet, fours posés « à l'envers ») : une fonderie servie par un
     -- tapis de foreuses est tournée tête vers le gisement ; la colonne de fours s'étend à l'opposé, sans retour.
-    local fopts = (spec.feed == "tapis" and dep) and { head_toward = dep } or nil
-    -- lot AGENCEMENT : deux bras par tapis de sortie quand un seul étranglerait la ligne (place du second réservée par P.fit)
-    if topts then
-      local _, arms = out_arms(g, Li.MAX_ARMS)
-      if arms > 1 then fopts = fopts or {}; fopts.fan = arms end
+    local function try_place(gx)
+      local fopts = (spec.feed == "tapis" and dep) and { head_toward = dep } or nil
+      -- lot AGENCEMENT : deux bras par tapis de sortie quand un seul étranglerait la ligne (place du second réservée par P.fit)
+      if topts then
+        local _, arms = out_arms(gx, Li.MAX_ARMS)
+        if arms > 1 then fopts = fopts or {}; fopts.fan = arms end
+      end
+      local m, w = place_module(f, surface, gx, { libre = true, defricher = true }, toward, nil, fopts)
+      if not m then m, w = place_module(f, surface, gx, { gisement = true }, toward, nil, fopts) end
+      return m, w
     end
-    main, why = place_module(f, surface, g, { libre = true, defricher = true }, toward, nil, fopts)
-    if not main then main, why = place_module(f, surface, g, { gisement = true }, toward, nil, fopts) end
+    main, why = try_place(g)
+    -- lot AGENCEMENT (relecture) : la ligne agrandie ne tient dans aucun lot (relief, eau, bâtiments) : repli sur la taille de la
+    -- demande, qui se posait avant le lot. Sans cela le projet restait refusé (et le treillis grandissait pour rien).
+    if not main and topts then
+      local g0 = template_of(spec, { sortie = topts.sortie })
+      if g0 and (g0.params or {}).n ~= (g.params or {}).n then
+        local m0, w0 = try_place(g0)
+        if m0 then
+          b.line_logs = (b.line_logs or 0) + 1
+          if b.line_logs <= Build.LINE_LOGS then
+            log(string.format("[FO-LIGNE] %s : projet %d, fonderie de %d rangee(s) sans place (%s) : repli sur %d rangee(s) de la demande",
+              f.key or "player", p.id, (g.params or {}).n or 0, tostring(why), (g0.params or {}).n or 0))
+          end
+          main, why, g = m0, w0, g0
+        end
+      end
+    end
   end
   Profiler.stop("build:plan:place")
   if not main then
