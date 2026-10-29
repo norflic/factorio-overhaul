@@ -32,6 +32,7 @@ local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
+local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
@@ -2418,6 +2419,55 @@ local function advance(f, surface, p, tick)
   end
 end
 
+--- Lot FACTIONS-BLOQUEES : enlève les tourelles de l'équipe qui recouvrent seules l'emprise d'une entité encore à poser du projet
+--- (moteur réel, 20261020 : fantôme d'un tapis refusé « occupe » par gun-turret de la même équipe, 30 refus, fonderie bloquée à 111
+--- entités sur 113 de 36 min à la fin ; la pose des tourelles évite désormais les tuiles réservées, ceci reprend les chantiers
+--- déjà pris). Rend le nombre d'entités enlevées. Une autre entité sur l'emprise (arbre, falaise, bâtiment) : rien n'est touché.
+local function free_own_turrets(f, surface, p)
+  local n = 0
+  for _, e in ipairs(p.ents) do
+    if not e.built then
+      local found, list = surface.find_entities_filtered({ area = footprint(e) }), {}
+      for _, x in ipairs(found) do list[#list + 1] = { name = x.name, force = x.force.name } end
+      if Blocage.own_blockers(list, f.force, T.turret) then
+        for _, x in ipairs(found) do
+          if x.valid then x.destroy() n = n + 1 end
+        end
+      end
+    end
+  end
+  return n
+end
+
+--- Lot FACTIONS-BLOQUEES : un projet qui n'avance plus depuis 10 min (aucune entité bâtie de plus) est écrit UNE fois par équipe et
+--- par cause, journal [FO-BLOQUE] (retour du DC du 29/10 : « elles avancent pas »). Horloge propre (tous les 600 ticks), rien à
+--- l'état du jeu hors f.build.noprog (nombres et chaînes).
+local STALL_STATES = { plan = true, reserve = true, chantier = true, raccordement = true, bloque = true }
+local function watch_stall(f, tick)
+  local b = f.build
+  if tick < (b.noprog_next or 0) then return end
+  b.noprog_next = tick + 600
+  b.noprog = b.noprog or {}
+  b.noprog_dits = b.noprog_dits or {}
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and STALL_STATES[p.state] then
+      if p.state == "bloque" then p.bloc_cause = Blocage.cause(p.state, p.reason) end
+      local cause = p.bloc_cause or Blocage.cause(p.state, p.reason)
+      local rec, say = Blocage.stall(b.noprog[pid], count_built(p), cause, tick)
+      b.noprog[pid] = rec
+      if say and not b.noprog_dits[say] then
+        b.noprog_dits[say] = true
+        log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min",
+          f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
+          p.state, tick / 3600))
+      end
+    elseif b.noprog[pid] then
+      b.noprog[pid] = nil
+    end
+  end
+end
+
 local function pulse_team(f, tick)
   local b = f.build
   local surface = surface_of(f)
@@ -2438,6 +2488,11 @@ local function pulse_team(f, tick)
     -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
     if p and p.state == "bloque" and p.retry_at and tick >= p.retry_at then
       p.retry_at = nil
+      local freed = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES
+      if freed > 0 then
+        b.stats.turrets_freed = (b.stats.turrets_freed or 0) + freed
+        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier", f.key or "player", p.id, freed))
+      end
       for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
       p.state, p.reason = "chantier", nil
       log(string.format("[FO-IA1D] %s : projet %d reprend son chantier a %.1f min", f.key or "player", p.id, tick / 3600))
@@ -2448,6 +2503,7 @@ local function pulse_team(f, tick)
       if was == "plan" and p.state ~= "plan" then break end
     end
   end
+  watch_stall(f, tick) -- lot FACTIONS-BLOQUEES
   -- 3. lot PLANDIR : moniteur de la centrale finie (premier courant, pannes)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
