@@ -18,6 +18,7 @@ local T = require("shared.team.config")
 local Fr = require("shared.team.front")
 local Pose = require("shared.team.pose_tourelles")
 local Outposts = require("script.faction.outposts")
+local Sec = require("shared.team.site_securise") -- lot INTEG-ECONOMIE (D5) : sites proches bloqués à couvrir
 
 local Front = {}
 
@@ -110,7 +111,16 @@ function Front.view(f, fortify_open)
   refresh_cover(f, st, surface, tick)
   -- Lot DEFENSE-FACTIONS D5 : Fr.SCAN cellules examinées ; la coupe à Fr.MAX_CELLS se fait dans Fr.plan, APRÈS le contrôle du moteur.
   local cells = Fr.top(st.mem, Fr.SCAN)
-  if #cells == 0 and #st.cover == 0 then
+  -- Lot INTEG-ECONOMIE (D5) : le site proche BLOQUÉ (signal f.site_blocked de script/faction/sites.lua) est un lieu à couvrir, comme un
+  -- groupe de laboratoires (règle pure : shared/team/site_securise.lua) ; vide pour votre équipe (le signal est propre aux factions).
+  local cover = st.cover
+  local sites = Sec.covers(f.site_blocked, tick)
+  if #sites > 0 then
+    cover = {}
+    for _, c in ipairs(st.cover) do cover[#cover + 1] = c end
+    for _, c in ipairs(sites) do cover[#cover + 1] = c end
+  end
+  if #cells == 0 and #cover == 0 then
     st.rows = nil
     return { busy = fortify_open and fortify_open["front"] or false }
   end
@@ -133,7 +143,7 @@ function Front.view(f, fortify_open)
     return ok
   end
   local turrets, placed = turrets_of(f)
-  local plan = Fr.plan({ cells = cells, cover = st.cover, turrets = turrets, placed = placed, near = range_near(), rest = rest, allow = allow,
+  local plan = Fr.plan({ cells = cells, cover = cover, turrets = turrets, placed = placed, near = range_near(), rest = rest, allow = allow,
     hq = f.hq_pos })
   local pick = plan.pick
   -- Lot DEFENSE-FACTIONS D1 : les lignes du plan (cause de chaque cellule non servie), lues par script/team/defense_log.lua ; nombres et chaînes.
