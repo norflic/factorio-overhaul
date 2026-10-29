@@ -414,8 +414,8 @@ do
   check(not f.build.lots["8:8"].out and not f.build.lots["5:0"].out, "liberation : plus aucun lot ecarte")
   -- le code lit bien le drapeau aux deux endroits qui choisissent un lot libre
   check(src:find('if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end', 1, true) ~= nil, "candidates() ecarte les lots libres dehors")
-  check(src:find('and not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then', 1, true) ~= nil
-    or src:find('(l.state == "libre" or l.state == "defricher") and not l.out then', 1, true) ~= nil, "make_pond() ecarte les lots libres dehors")
+  -- lot PD-CENTRALE (décision du DC D-24 (1)) : make_pond, second lecteur du drapeau, est retiré (plus d'étang garanti)
+  check(src:find("local function make_pond", 1, true) == nil, "make_pond() retire (D-24) : plus d'etang garanti dans un lot libre")
 end
 
 print(string.format("[ENCEINTE-FLUX] BILAN : %d OK, %d ECHEC(S)", passes, failures))
