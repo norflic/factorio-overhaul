@@ -15,6 +15,9 @@ local State = require("script.faction.state")
 local Sites = require("script.faction.sites")
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
+local R = require("shared.ai3.reglages") -- lot TOURELLES : rôles des types du moteur (bâtiments à protéger)
+local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels emplacements prendre (règle pure)
+local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
 
 local Outposts = {}
 
@@ -359,22 +362,98 @@ function Outposts.extend(f, surface, o, carrier)
 end
 
 local TURRET_OFFSETS = { { 7, 7 }, { -7, -7 }, { 7, -7 }, { -7, 7 }, { 9, 0 }, { -9, 0 }, { 0, 9 }, { 0, -9 } }
+local TURRET = "gun-turret"
+Outposts.ASSET_RADIUS_OUT = 24 -- lot TOURELLES : tuiles autour d'un avant-poste où les bâtiments de l'équipe sont à protéger
+Outposts.ASSET_RADIUS_HQ = 40  -- ... autour du QG
+Outposts.POSE_LOGS = 40        -- lignes de journal [FO-TOUR-POSE] au plus par équipe
+
+--- Lot TOURELLES : bâtiments de l'équipe autour du centre, { {x, y, w} } (w = aire de l'emprise × facteur du rôle).
+local function assets_around(f, surface, center, radius)
+  local types = {}
+  for _, ty in ipairs(R.ENTITY_TYPES) do
+    if Pose.role_factor(R.ENTITY_ROLE[ty]) > 0 then types[#types + 1] = ty end
+  end
+  local out = {}
+  local hq = f.hq and f.hq.valid and f.hq or nil
+  for _, e in ipairs(surface.find_entities_filtered({ position = center, radius = radius, force = f.force, type = types })) do
+    local bb = e.bounding_box
+    local area = math.max(1, math.floor((bb.right_bottom.x - bb.left_top.x) * (bb.right_bottom.y - bb.left_top.y) + 0.5))
+    local w = area * Pose.role_factor(R.ENTITY_ROLE[e.type])
+    if hq and e.unit_number and e.unit_number == hq.unit_number then w = Pose.HQ_WEIGHT end
+    out[#out + 1] = { x = e.position.x, y = e.position.y, w = w }
+  end
+  return out
+end
+
+--- Lot TOURELLES : positions de pose dans l'ordre. Les emplacements sont ceux d'avant le lot (les 8 de TURRET_OFFSETS avec leur
+--- repli du moteur, sans doublon) ; seul l'ORDRE change : celui qui couvre le plus de bâtiments de l'équipe (règle pure :
+--- shared/team/pose_tourelles.lua). Sans portée lue ni bâtiment : l'ancien ordre.
+local function pose_order(f, surface, outpost, count)
+  local raw = {}
+  for _, o in ipairs(TURRET_OFFSETS) do
+    local pos = surface.find_non_colliding_position(TURRET, { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
+    if pos then raw[#raw + 1] = { x = pos.x, y = pos.y } end
+  end
+  local cands = Pose.dedup(raw)
+  local proto = game.entity_prototypes[TURRET]
+  local range = proto and proto.turret_range or 0
+  if range <= 0 or #cands == 0 then return cands end
+  local center = outpost.pos
+  local is_hq = outpost.id == nil
+  local radius = is_hq and Outposts.ASSET_RADIUS_HQ or Outposts.ASSET_RADIUS_OUT
+  local existing = {}
+  for _, t in ipairs(surface.find_entities_filtered({ position = center, radius = radius + range, force = f.force, name = TURRET })) do
+    existing[#existing + 1] = { x = t.position.x, y = t.position.y }
+  end
+  table.sort(existing, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
+  local assets = assets_around(f, surface, center, radius)
+  local pick = Pose.choose({ candidates = cands, assets = assets, range = range, existing = existing, count = count })
+  local out = {}
+  for _, i in ipairs(pick.order) do out[#out + 1] = cands[i] end
+  f.stats = f.stats or {}
+  f.stats.pose_logs = (f.stats.pose_logs or 0) + 1
+  if f.stats.pose_logs <= Outposts.POSE_LOGS then
+    local before, tot = Pose.covered(assets, existing, range)
+    local after = {}
+    for _, t in ipairs(existing) do after[#after + 1] = t end
+    for i = 1, math.min(count, pick.chosen) do after[#after + 1] = out[i] end
+    local cov = Pose.covered(assets, after, range)
+    log(string.format("[FO-TOUR-POSE] %s %s en (%.0f, %.0f) : %d tourelle(s) voulue(s), %d emplacement(s), %d batiment(s), aire protegee %d -> %d sur %d",
+      f.key or "?", is_hq and "QG" or ("avant-poste " .. tostring(outpost.id)), center.x, center.y, count, #cands, #assets, before, cov, tot))
+  end
+  return out
+end
+
 
 --- Pose jusqu'à `count` tourelles autour de l'avant-poste avec les objets portés.
 function Outposts.fortify(f, surface, outpost, count, carrier)
+  -- lot CENTRALE-GARDE : même pose que fortify_at (emplacements = les huit points autour du poste), chargeurs perforants d'abord
+  -- lot TOURELLES : mêmes emplacements qu'avant, pris dans l'ordre qui protège le plus de bâtiments de l'équipe
+  local sites = pose_order(f, surface, outpost, count)
+  -- repli d'avant le lot : les huit points d'origine, résolus APRÈS chaque pose (deux points qui se replient sur la même place avant
+  -- toute pose ne font pas perdre une tourelle)
+  for _, o in ipairs(TURRET_OFFSETS) do sites[#sites + 1] = { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] } end
+  return Outposts.fortify_at(f, surface, outpost.id, sites, count, carrier, nil, { "piercing-rounds-magazine", T.turret_ammo })
+end
+
+--- Lot CENTRALE-GARDE : pose jusqu'à `count` tourelles aux emplacements `sites` ({ x, y }, dans l'ordre), pleines de munitions, pour le
+--- poste `oid` (ex. "plant" : groupe de ravitaillement « o<oid> »). `accept(pos)` refuse une position trouvée hors de la zone voulue.
+--- Les objets viennent de l'inventaire `carrier` (déjà pris au stock par la tâche). Rend le nombre posé.
+function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, ammos)
   local placed = 0
-  for _, o in ipairs(TURRET_OFFSETS) do
-    if placed >= count or carrier.get_item_count("gun-turret") < 1 then break end
-    local pos = surface.find_non_colliding_position("gun-turret", { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
-    if pos then
-      local t = surface.create_entity({ name = "gun-turret", position = pos, force = f.force, raise_built = true })
+  ammos = ammos or { T.turret_ammo }
+  for _, s in ipairs(sites) do
+    if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
+    local pos = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
+    if pos and (accept == nil or accept(pos)) then
+      local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
       if t then
-        carrier.remove({ name = "gun-turret", count = 1 })
-        for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
+        carrier.remove({ name = T.turret, count = 1 })
+        for _, ammo in ipairs(ammos) do
           local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
           if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
         end
-        Outposts.add_turret(f, t, outpost.id, 0)
+        Outposts.add_turret(f, t, oid, 0)
         placed = placed + 1
       end
     end
@@ -482,7 +561,77 @@ function Outposts.service(o, carrier, tick)
   return collected
 end
 
---- Fonderie du QG : vide les sorties, charge les entrées selon `smelt` ({ [produit] = n }), ravitaille.
+-- Lot FOURS : interrupteur de banc de la règle (`fo-ia1`, set_regle_four) ; allumée par défaut. Éteinte : le comportement de
+-- 0.6.10 (10 fabrications au plus dans un four vide, tournée dès qu'une plaque attend), pour les témoins des bancs.
+function Outposts.four_rule(f)
+  return not (f.team and f.team.four_regle == false)
+end
+
+-- Entrée de fonderie -> plus petite (RATIO) et plus grande (MAXR) quantité par fabrication (T.smelter_inputs, listes triées).
+local RATIO, MAXR = {}, {}
+for _, p in ipairs(State.sorted_keys(T.smelter_inputs)) do
+  local inp = T.smelter_inputs[p]
+  if not RATIO[inp[1]] or inp[2] < RATIO[inp[1]] then RATIO[inp[1]] = inp[2] end
+  if not MAXR[inp[1]] or inp[2] > MAXR[inp[1]] then MAXR[inp[1]] = inp[2] end
+end
+
+local function stack_of(item)
+  local proto = game.item_prototypes[item]
+  return proto and proto.stack_size or 50
+end
+
+local function demanded_item(products, item)
+  for _, p in ipairs(products) do
+    local inp = T.smelter_inputs[p]
+    if inp and inp[1] == item then return true end
+  end
+  return false
+end
+
+-- Four dont l'entrée est inférieure à une fabrication et à l'arrêt : bloqué (son contenu est repris, il compte comme libre).
+local function stuck(s, c)
+  local r = c.valid_for_read and MAXR[c.name]
+  return r and r > 1 and c.count < r and not s.is_crafting()
+end
+
+--- Lot FOURS : fours à charger, dans l'ordre de la fonderie. `products` = produits demandés (triés). Un four vide reçoit un
+--- produit à tour de rôle ; un four tombé au tiers de sa pile est complété avec SON entrée (une entrée qui est elle-même un
+--- produit de fonte, la plaque de l'acier, seulement pour une demande). Rend { { s, item, ratio, room, free } ... }.
+function Outposts.smelt_loads(f, products, list)
+  local out = {}
+  list = list or Outposts.smelters(f)
+  -- Fours multi-types : un four vide va à l'entrée demandée qui a le moins de fours (et non plus toujours à la première).
+  local items, counts = {}, {}
+  for k, p in ipairs(products) do
+    local input = T.smelter_inputs[p]
+    items[k] = input and input[1] or p
+  end
+  for _, s in ipairs(list) do
+    local c = s.get_inventory(defines.inventory.furnace_source)[1]
+    if c and c.valid_for_read then counts[c.name] = (counts[c.name] or 0) + 1 end
+  end
+  for _, s in ipairs(list) do
+    local c = s.get_inventory(defines.inventory.furnace_source)[1]
+    if c and c.valid_for_read then
+      local ratio = RATIO[c.name]
+      if ratio and not stuck(s, c) and (not T.smelter_inputs[c.name] or demanded_item(products, c.name)) then
+        local room = Charge.room(c.count, stack_of(c.name), ratio)
+        if room >= ratio then out[#out + 1] = { s = s, item = c.name, ratio = ratio, room = room, free = false } end
+      end
+    elseif #products > 0 then
+      local input = T.smelter_inputs[products[Charge.least_served(items, counts)]]
+      if input then
+        counts[input[1]] = (counts[input[1]] or 0) + 1
+        local room = Charge.room(0, stack_of(input[1]), input[2])
+        if room >= input[2] then out[#out + 1] = { s = s, item = input[1], ratio = input[2], room = room, free = true } end
+      end
+    end
+  end
+  return out
+end
+
+--- Fonderie du QG : vide les sorties, charge les entrées selon `smelt` ({ [produit] = n }), ravitaille. Rend (collecté,
+--- chargé, combustible posé) ; f.stats.smelt compte les visites, dont celles « à vide » (rien chargé, rien vidé, rien ravitaillé).
 function Outposts.service_smelters(f, carrier, smelt)
   local list = Outposts.smelters(f)
   local collected = collect(list, carrier)
@@ -498,29 +647,109 @@ function Outposts.service_smelters(f, carrier, smelt)
     local inp = T.smelter_inputs[p]
     if inp[2] > 1 then ratio[inp[1]] = math.max(ratio[inp[1]] or 0, inp[2]) end
   end
-  local i = 0
-  for _, s in ipairs(list) do
-    local src = s.get_inventory(defines.inventory.furnace_source)
-    if not src.is_empty() and not s.is_crafting() then
-      local c = src[1]
-      if c.valid_for_read and ratio[c.name] and c.count < ratio[c.name] then
-        carrier.insert({ name = c.name, count = c.count })
-        src.clear()
+  local loaded = 0
+  if Outposts.four_rule(f) then
+    for _, s in ipairs(list) do
+      local src = s.get_inventory(defines.inventory.furnace_source)
+      if not src.is_empty() and not s.is_crafting() then
+        local c = src[1]
+        -- même définition du « bloqué » que la décision (smelters_gate) : sinon un four compté libre ne serait jamais vidé
+        if stuck(s, c) then
+          carrier.insert({ name = c.name, count = c.count })
+          src.clear()
+        end
       end
     end
-    if src.is_empty() and #products > 0 then
-      i = i % #products + 1
-      local input = T.smelter_inputs[products[i]]
-      if input then
-        -- jamais moins d'une fabrication complète, et un multiple de l'entrée
-        local n = math.min(input[2] * 10, carrier.get_item_count(input[1]))
-        n = n - n % input[2]
-        if n > 0 then src.insert({ name = input[1], count = carrier.remove({ name = input[1], count = n }) }) end
+    -- Lot FOURS (remarque 12 du DC) : chaque four à charger est rempli jusqu'à sa pile (shared/team/charge_four.lua), à égalité
+    -- entre les fours qui reçoivent la même entrée.
+    local items = {}
+    for _, l in ipairs(Outposts.smelt_loads(f, products, list)) do
+      items[l.item] = items[l.item] or {}
+      local g = items[l.item]
+      g[#g + 1] = l
+    end
+    for _, item in ipairs(State.sorted_keys(items)) do
+      local g = items[item]
+      local rooms = {}
+      for k, l in ipairs(g) do rooms[k] = l.room end
+      local avail = carrier.get_item_count(item)
+      -- Une entrée qui est elle-même un produit de fonte (la plaque de l'acier) n'est chargée que pour la demande : le porteur
+      -- a aussi les plaques qu'il vient de vider des fours, qui ne doivent pas toutes partir en acier.
+      if T.smelter_inputs[item] then
+        local cap = 0
+        for _, p in ipairs(products) do
+          local inp = T.smelter_inputs[p]
+          if inp and inp[1] == item then cap = cap + inp[2] * ((smelt and smelt[p]) or 0) end
+        end
+        if cap < avail then avail = cap end
+      end
+      local amounts = Charge.split(avail, rooms, g[1].ratio)
+      for k, l in ipairs(g) do
+        local n = amounts[k]
+        if n > 0 then
+          local took = carrier.remove({ name = item, count = n })
+          local put = l.s.get_inventory(defines.inventory.furnace_source).insert({ name = item, count = took })
+          if put < took then carrier.insert({ name = item, count = took - put }) end
+          loaded = loaded + put
+        end
+      end
+    end
+  else
+    local i = 0
+    for _, s in ipairs(list) do
+      local src = s.get_inventory(defines.inventory.furnace_source)
+      if not src.is_empty() and not s.is_crafting() then
+        local c = src[1]
+        if c.valid_for_read and ratio[c.name] and c.count < ratio[c.name] then
+          carrier.insert({ name = c.name, count = c.count })
+          src.clear()
+        end
+      end
+      if src.is_empty() and #products > 0 then
+        i = i % #products + 1
+        local input = T.smelter_inputs[products[i]]
+        if input then
+          -- jamais moins d'une fabrication complète, et un multiple de l'entrée
+          local n = math.min(input[2] * 10, carrier.get_item_count(input[1]))
+          n = n - n % input[2]
+          if n > 0 then
+            local took = carrier.remove({ name = input[1], count = n })
+            src.insert({ name = input[1], count = took })
+            loaded = loaded + took
+          end
+        end
       end
     end
   end
-  refuel(list, carrier)
-  return collected
+  local fuel_before = carrier.get_item_count(T.fuel)
+  if Outposts.four_rule(f) then
+    -- Lot FOURS : combustible jusqu'à T.smelter_fuel_to, seulement dans les fours tombés au tiers de la cible.
+    local fl = Outposts.smelter_fuel_loads(f, list)
+    local rooms = {}
+    for k, l in ipairs(fl) do rooms[k] = l.room end
+    local amounts = Charge.split(carrier.get_item_count(T.fuel), rooms, 1)
+    for k, l in ipairs(fl) do
+      if amounts[k] > 0 then
+        local took = carrier.remove({ name = T.fuel, count = amounts[k] })
+        local put = l.s.get_fuel_inventory().insert({ name = T.fuel, count = took })
+        if put < took then carrier.insert({ name = T.fuel, count = took - put }) end
+      end
+    end
+  else
+    refuel(list, carrier)
+  end
+  local fueled = math.max(0, fuel_before - carrier.get_item_count(T.fuel))
+  local st = f.stats
+  if st then
+    local m = st.smelt or {}
+    st.smelt = m
+    m.visits = (m.visits or 0) + 1
+    m.loaded = (m.loaded or 0) + loaded
+    m.collected = (m.collected or 0) + collected
+    m.fueled = (m.fueled or 0) + fueled
+    if loaded == 0 and collected == 0 and fueled == 0 then m.empty = (m.empty or 0) + 1 end
+  end
+  return collected, loaded, fueled
 end
 
 function Outposts.smelters_status(f)
@@ -530,6 +759,31 @@ function Outposts.smelters_status(f)
     if fuel_of(s) < T.fuel_low then low = true end
   end
   return out, low
+end
+
+--- Lot FOURS : fours du QG à ravitailler (tombés au tiers de T.smelter_fuel_to ou moins), { { s, room } } dans l'ordre de la fonderie.
+function Outposts.smelter_fuel_loads(f, list)
+  local out = {}
+  for _, s in ipairs(list or Outposts.smelters(f)) do
+    local room = Charge.room(fuel_of(s), T.smelter_fuel_to, 1)
+    if room > 0 then out[#out + 1] = { s = s, room = room } end
+  end
+  return out
+end
+
+--- Lot FOURS : ce que la décision d'une tournée de fonte lit (shared/team/chaine_main.lua) : fours libres (entrée vide ou
+--- bloquée) et, par entrée, fours tombés au tiers de leur pile. Rend (libres, { [entrée] = nombre }).
+function Outposts.smelters_gate(f)
+  local free, loads = 0, {}
+  for _, s in ipairs(Outposts.smelters(f)) do
+    local c = s.get_inventory(defines.inventory.furnace_source)[1]
+    if not (c and c.valid_for_read) or stuck(s, c) then
+      free = free + 1
+    elseif RATIO[c.name] and Charge.room(c.count, stack_of(c.name), RATIO[c.name]) >= RATIO[c.name] then
+      loads[c.name] = (loads[c.name] or 0) + 1
+    end
+  end
+  return free, loads
 end
 
 ---------------------------------------------------------------------------------------------------

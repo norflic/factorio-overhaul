@@ -15,6 +15,7 @@ local T = require("shared.team.config")
 local Fondation = require("shared.team.fondation") -- lot KIT : kit de départ commun aux deux équipes
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
+local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
 local Scale = require("shared.team.scale")
 local O = require("shared.team.org")
 local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
@@ -31,6 +32,8 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
+local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
+local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -412,6 +415,7 @@ function Team.view(f, tick)
   -- recherche : votre équipe à 10 PNJ et 6 avant-postes à 8 min, coffre détruit à 17 min (main : 4 avant-postes, vivante).
   -- R-QCM-25c : la croissance reste à votre équipe (une faction a sa taille réglée, fo-war-workers).
   local stock0 = stock_of(f)
+  local iron0 = stock0["iron-plate"] or 0 -- fer au coffre (hausse de croissance et journal [FO-CENTRALE-GARDE])
   local grow = f.is_player and ((stock0["gun-turret"] or 0) > 0 or book_for(f):handcraftable("gun-turret")) or false
   local on_fond, backlog = 0, 0
   for _, t in ipairs(Board.get(f).list or {}) do
@@ -488,7 +492,7 @@ function Team.view(f, tick)
   local grow_due = false
   if grow and (f.engineers_count or 0) >= floor and backlog > 0
     and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
-    and (stock0["iron-plate"] or 0) >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
+    and iron0 >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
     grow_due = true
     for _, o in ipairs(outposts) do
       if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
@@ -496,6 +500,10 @@ function Team.view(f, tick)
   end
   if grow_due then recruit_held = false end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
+  -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
+  local four_rule = Outposts.four_rule(f)
+  local smelter_free, smelter_loads
+  if four_rule then smelter_free, smelter_loads = Outposts.smelters_gate(f) end
   -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
   local stock_free = Board.view_stock(f, stock_of(f), tick, true)
   local threatened = tick < (f.threatened_until or 0)
@@ -534,6 +542,7 @@ function Team.view(f, tick)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
+    four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
@@ -559,6 +568,7 @@ function Team.view(f, tick)
     -- après une perte récente.
     defend_first = defend_first or nil, hold_recruits = hold_recruits or nil,
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
+    plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0, -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
@@ -599,6 +609,13 @@ function Team.think(f, surface, tick)
   -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
   local ia3 = Ia3.active(f, tick)
   local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
+  -- Lot FOURS (remarque 13 du DC) : une tournée de fonte ne part que si elle sert (shared/team/chaine_main.lua) : minerai à
+  -- charger dans un four libre ou à compléter, sortie qui vaut le déplacement, four à ravitailler avec du charbon au coffre.
+  if view.four_rule then
+    plan.tasks = ChaineMain.filter_tasks(plan.tasks, { inputs = T.smelter_inputs, stock = view.stock, output = view.smelter_output,
+      fuel_low = view.smelter_fuel_low, fuel_stock = view.stock[T.fuel] or 0, free = view.smelters_free, loads = view.smelter_loads,
+      collect_min = T.smelt_collect_min })
+  end
   Profiler.stop("team:plan")
 
   for _, key in ipairs(plan.reached) do
@@ -644,6 +661,9 @@ function Team.think(f, surface, tick)
     Build.think(f, surface, tick)
     Profiler.stop("team:build")
   end
+  -- Lot COUVERTURE : pièces de l'équipe détruites, à refaire (tâches « rebuild » ; rien tant que rien n'a été détruit).
+  Recon.think(f, surface, tick)
+  Recon.repair_think(f, surface, tick) -- lot RECONSTRUIRE : infrastructure électrique endommagée remise à neuf
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.start("team:market")
@@ -724,7 +744,9 @@ function Team.think(f, surface, tick)
     stock = Board.view_stock(f, stock_of(f), tick)
   end
   -- Lot CAPITAL : amélioration d'un bâtiment à niveaux ou du centre, payée sur le stock LIBRE après les recrues et l'armée.
-  if ia3 then Ia3.capital_pay(f, surface, tick, plan, stock) end
+  -- Lot COUVERTURE : refaire ce qui est détruit AVANT d'améliorer ce qui reste (constat du DC du 28/10).
+  Recon.craft_spares(f, book_for(f), stock, tick) -- lot RECONSTRUIRE : objets d'infrastructure électrique à fabriquer
+  if ia3 and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, stock) end
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])
     f.tech = plan.research

@@ -24,6 +24,8 @@ local Scale = require("shared.team.scale")
 local Team = require("script.team.team")
 local Poles = require("script.team.poles")
 local Config = require("script.core.config")
+local Outposts = require("script.faction.outposts") -- lot FOURS (bancs : fours posés, interrupteur, compteurs de visites)
+local T = require("shared.team.config")
 
 -- Lot IA1-b (docs §8.6, pilotage sans clic) :
 --   team_status(key)                 -> état d'organisation publié (Poles.status) ou nil ;
@@ -143,6 +145,45 @@ remote.add_interface("fo-ia1", {
     settings.global[name] = { value = v }
     Config.invalidate()
     return Scale.read(name, function(n) return settings.global[n].value end)
+  end,
+  -- Lot FOURS (bancs seulement) : interrupteur de la règle de charge des fours et de tournée de fonte utile (faux : le comportement
+  -- de 0.6.10, pour les témoins) ; compteurs de visites de la fonderie ; pose de n fours au QG (le banc les fabrique).
+  set_regle_four = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    if key == "*" then -- toutes les équipes vivantes (factions et la vôtre), pour le témoin d'une partie entière
+      local n = 0
+      local list = { State.faction("player") }
+      for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+      for _, f in ipairs(list) do
+        if f and f.team then
+          f.team.four_regle = on
+          n = n + 1
+        end
+      end
+      return n
+    end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    f.team.four_regle = on
+    return Outposts.four_rule(f)
+  end,
+  smelt_stats = function(key)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    local m = (f.stats and f.stats.smelt) or {}
+    return { visits = m.visits or 0, empty = m.empty or 0, loaded = m.loaded or 0, collected = m.collected or 0,
+      fueled = m.fueled or 0, smelters = #Outposts.smelters(f), rule = Outposts.four_rule(f) }
+  end,
+  bench_smelters = function(key, n)
+    local f = team_of(key)
+    local chest = f and (f.hq or f.chest)
+    if not (chest and chest.valid) or type(n) ~= "number" then return nil end
+    local tmp = game.create_inventory(4)
+    tmp.insert({ name = T.SMELTER, count = n })
+    tmp.insert({ name = T.fuel, count = T.fuel_per_burner * n })
+    local placed = Outposts.place_smelters(f, chest.surface, n, tmp)
+    tmp.destroy()
+    return placed
   end,
   team_status = function(key)
     local f = team_of(key)

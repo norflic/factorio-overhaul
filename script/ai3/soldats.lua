@@ -276,7 +276,7 @@ local function pass(f, tick)
     end
     if ok then
       -- « a tué » ou BLOQUE une tournée (porte, escalade) : nettoyée quel que soit le caractère de la faction.
-      cand[#cand + 1] = { x = th.x, y = th.y, killed = D.deaths_near(t.map, { th }, 48, tick) > 0 or (th.b ~= nil and tick - th.b < 3600) }
+      cand[#cand + 1] = { x = th.x, y = th.y, kind = th.k, killed = D.deaths_near(t.map, { th }, 48, tick) > 0 or (th.b ~= nil and tick - th.b < 3600) }
     end
   end
   table.sort(cand, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
@@ -323,6 +323,41 @@ local function pass(f, tick)
       sd.clearing = nil
     end
   end
+  -- Lot CORR-SOLDATS : EXPÉDITION des soldats inactifs contre un champ de nids connu (règle pure Sd.offense_ok), avec RETRAITE :
+  -- si plus de la moitié de la force de départ est morte, les survivants rentrent et le site n'est pas retenté avant
+  -- Sd.RETREAT_COOL. Coupure de banc : war_option « soldats_offensive » = false (ni expédition, ni retraite, ni site interdit).
+  local ws = State.war().settings
+  local offense = not (ws and ws.soldats_offensive == false)
+  local keep_b = {}
+  for _, b in ipairs(sd.blocked or {}) do if tick < b["until"] then keep_b[#keep_b + 1] = b end end
+  sd.blocked = keep_b
+  if offense and sd.clearing and sd.clearing.ids then
+    local lost = 0
+    for _, id in ipairs(sd.clearing.ids) do
+      local sl = soldiers[id]
+      if not (sl and sl.entity and sl.entity.valid) then lost = lost + 1 end
+    end
+    sd.clearing.lost = lost
+    sd.clearing.need = #sd.clearing.ids - lost -- force encore en vie : les survivants gardent leur ordre, pas de renfort
+    if Sd.retreat(#sd.clearing.ids, lost) then
+      sd.blocked[#sd.blocked + 1] = { x = sd.clearing.x, y = sd.clearing.y, ["until"] = tick + Sd.RETREAT_COOL }
+      for _, id in ipairs(sd.clearing.ids) do
+        local sl, ps = soldiers[id], per[id]
+        if sl and sl.entity and sl.entity.valid and ps and not sl.group then
+          command_for(sl.entity, { role = "home" }, f)
+          ps.role, ps.key, ps.escort = nil, nil, nil
+          ps.rest_until = tick + Sd.REST
+          sl.ia3k = nil
+        end
+      end
+      t.stats.retreats = (t.stats.retreats or 0) + 1
+      if Profiler.enabled() then
+        log(string.format("[FO-IA3K] %s : RETRAITE du nettoyage en (%d, %d) : %d mort(s) sur %d", tostring(f.key),
+          math.floor(sd.clearing.x), math.floor(sd.clearing.y), lost, #sd.clearing.ids))
+      end
+      sd.clearing = nil
+    end
+  end
   -- Avant-postes marqués (menace ou mort à moins de 48 tuiles) : 2 gardes chacun.
   local marked = {}
   for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
@@ -355,7 +390,7 @@ local function pass(f, tick)
   local orders, summary = Sd.assign({
     tick = tick, hq = f.hq_pos, agr = ch_agr, soldiers = list, defend = defend, escorts = escorts,
     threats = clusters, clearing = sd.clearing, marked_outposts = marked, cursor = sd.cursor,
-    patrol_pts = sd.ppts, guard_pts = sd.gpts,
+    patrol_pts = sd.ppts, guard_pts = sd.gpts, offense = offense, blocked = sd.blocked,
   })
   -- Application : commande seulement quand l'ordre change (l'escorte est relancée à chaque passage : elle suit le PNJ).
   local started_clear = nil
@@ -387,11 +422,22 @@ local function pass(f, tick)
     end
   end
   if started_clear then
-    sd.clearing = { x = started_clear.x, y = started_clear.y, ["until"] = tick + SD.CLEAR_TICKS }
+    local ids = {}
+    for _, sl in ipairs(list) do
+      local o = orders[sl.id]
+      if o and o.role == "clear" then ids[#ids + 1] = sl.id end
+    end
+    sd.clearing = { x = started_clear.x, y = started_clear.y, ["until"] = tick + SD.CLEAR_TICKS, ids = ids, need = #ids }
     t.stats.clear_ops = (t.stats.clear_ops or 0) + 1
+    if summary.offense then
+      t.stats.offense_ops = (t.stats.offense_ops or 0) + 1
+      t.stats.offense_sent = (t.stats.offense_sent or 0) + #ids
+    end
     if Profiler.enabled() then
-      log(string.format("[FO-IA3K] %s : nettoyage lance en (%d, %d) avec %d soldat(s)", tostring(f.key), math.floor(started_clear.x),
-        math.floor(started_clear.y), summary.roles.clear or 0))
+      log(string.format("[FO-IA3K] %s : nettoyage lance en (%d, %d) avec %d soldat(s)%s ; groupe k=%s champ=%s nids=%s, %d menace(s) connue(s)", tostring(f.key),
+        math.floor(started_clear.x), math.floor(started_clear.y), summary.roles.clear or 0,
+        summary.offense and " (expedition des inactifs)" or "", tostring(summary.target and summary.target.k), tostring(summary.target and summary.target.wide),
+        tostring(summary.target and summary.target.nests), #cand))
     end
   end
   -- Escorte prête : le PNJ qui attend au QG part dès que la moitié de son escorte est près de lui.

@@ -12,6 +12,7 @@ require("script.team.centrale_mort") -- lot INSTRUMENT-CENTRALE : journal de la 
 local T = require("shared.team.config")
 local Stock = require("script.team.stock")
 local Bras = require("shared.team.bras_retour")
+local C = require("shared.team.centrale") -- lot CORR-ENERGIE : croissance de la centrale
 
 local PA = {}
 
@@ -146,5 +147,69 @@ function PA.step(f, surface, p, tick)
   end
   st.was_dry = dry and power <= 0
 end
+
+--- Lot CORR-ENERGIE : relevé de TOUTES les centrales à vapeur de l'équipe, toutes les 5 s (indépendant du moniteur ci-dessus) :
+--- production et capacité des machines à vapeur bâties, projets de centrale finis, ouverts et refusés. Rend le nombre de
+--- chaudières de la centrale à demander (règle pure shared/team/centrale.lua) ou nil, puis la liste des centrales de plus à abandonner
+--- (réserve de matériaux incomplète depuis trop longtemps) ; la demande est faite par Build.grow_plant, l'abandon par Build.cancel.
+PA.WATCH_EVERY = 300
+function PA.watch(f, surface, tick)
+  local b = f.build
+  b.grow = b.grow or { sat = 0 }
+  local g = b.grow
+  if tick < (g.next or 0) then return nil end
+  g.next = tick + PA.WATCH_EVERY
+  local power, capacity, done, pending = 0, 0, 0, 0
+  -- les projets de centrale : la première (b.plant) et celles demandées par la croissance (b.extra_plants)
+  local ids = {}
+  if b.plant then ids[1] = b.plant end
+  for _, id in ipairs(b.extra_plants or {}) do ids[#ids + 1] = id end
+  for _, pid in ipairs(ids) do
+    local p = b.projects[pid]
+    if p then
+      if p.state == "fini" then
+        done = done + 1
+        for _, e in ipairs(p.ents) do
+          if (M.spec(e.name) or {}).power_out then
+            -- la capacité ne compte que les machines VIVES : une centrale détruite ne cache pas la saturation des autres
+            local r = real_of(surface, e, f.force)
+            if r then
+              capacity = capacity + M.spec(e.name).power_out * 1000 / 60
+              power = power + (r.energy_generated_last_tick or 0)
+            end
+          end
+        end
+      elseif p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
+        pending = pending + 1 -- (un chantier bloqué sans reprise prévue est abandonné : il compte plus bas comme un refus)
+      end
+    end
+  end
+  g.done, g.pending, g.capacity, g.power = done, pending, capacity, power
+  local was = g.saturated
+  C.observe(g, power, capacity)
+  if g.saturated and not was then
+    log(string.format("[FO-ENERGIE] %s : centrale saturee a %.1f min (%.0f J/tick sur %.0f, %d centrale(s) finie(s), %d en projet)",
+      f.key or "player", tick / 3600, power, capacity, done, pending))
+  end
+  local refused, stale = 0, {}
+  for _, id in ipairs(b.extra_plants or {}) do
+    local p = b.projects[id]
+    if p and ((p.state == "refuse" and p.reason ~= C.STALE_REASON) or (p.state == "bloque" and not p.retry_at)) then refused = refused + 1 end
+    if p and C.stale(p.state, p.reason, tick - (p.started or tick)) then stale[#stale + 1] = id end
+  end
+  g.refused = refused
+  if #stale > 0 then g.cool_until = tick + C.COOL end
+  local hold = tick < (b.grow_hold_until or 0)
+  local nb, why = C.growth(g, { done = done, pending = pending, refused = refused, hold = hold, cool = tick < (g.cool_until or 0),
+    off = b.opts and b.opts.no_grow == true })
+  if not nb and g.saturated and why ~= g.why then
+    g.why = why
+    log(string.format("[FO-ENERGIE] %s : centrale saturee a %.1f min, pas de centrale de plus : %s", f.key or "player", tick / 3600, tostring(why)))
+  end
+  if nb then C.requested(g); g.why = nil end
+  return nb, stale
+end
+
+PA.STALE_REASON = C.STALE_REASON
 
 return PA

@@ -96,7 +96,7 @@ local function bump(f, k, n)
 end
 
 -- Liste prise STRICTEMENT par le programme de l'ouvrier (script/team/worker.lua, étape « take » avec strict = true).
-local STRICT = { craft = "uses", build = "items", extend = "items", fortify = "items", smelters = "items", equiper = "items" }
+local STRICT = { craft = "uses", build = "items", extend = "items", fortify = "items", smelters = "items", equiper = "items", rebuild = "items" }
 function Board.strict_list(t)
   local fld = STRICT[t.kind]
   return fld and t[fld] or nil
@@ -762,6 +762,27 @@ function Board.incoming(f)
     if t.worker and t.kind == "craft" then inc[t.item] = (inc[t.item] or 0) + t.count end
   end
   return inc
+end
+
+--- Lot VEILLE : tâches libres PRENABLES, c'est-à-dire dont la matière stricte est libre au registre (une tâche bloquée par une matière
+--- réservée ne rend aucun PNJ libre « utile » : ce sont ces PNJ qui attendent, K5 du lot IA-V2). Sans registre (réglage éteint), toutes les
+--- tâches libres comptent. Ne crée rien.
+function Board.takeable(f)
+  local b = Board.get(f)
+  local reg = f.team and f.team.reg
+  local n = 0
+  for _, t in ipairs(b.list) do
+    if not t.worker then
+      local ok = true
+      if reg then
+        for _, it in ipairs(Board.strict_list(t) or {}) do
+          if R.free(reg, it[1]) < it[2] then ok = false break end
+        end
+      end
+      if ok then n = n + 1 end
+    end
+  end
+  return n
 end
 
 function Board.count(f)

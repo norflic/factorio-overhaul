@@ -13,6 +13,7 @@
 local Profiler = require("script.core.profiler")
 local Bench = require("script.companion.bench")
 local War = require("script.faction.war")
+local Military = require("script.faction.military")
 local F = require("shared.faction.config")
 local State = require("script.faction.state")
 local Director = require("script.td.director") -- require interdit dans un gestionnaire d'événement
@@ -20,6 +21,7 @@ local Team = require("script.team.team")
 local Levels = require("script.levels.levels")
 local Free = require("script.levels.free")
 local Storage = require("script.core.storage")
+local Veille = require("script.faction.veille") -- lot VEILLE
 local Config = require("script.core.config")
 
 local function surface() return game.surfaces[1] end
@@ -81,6 +83,17 @@ remote.add_interface("factorio-overhaul", {
   war_stop = function()
     return War.stop()
   end,
+  -- Bancs (lot CORR-SOLDATS) : `count` soldats de plus à la garnison d'une faction (le meilleur soldat de sa technologie),
+  -- sans passer par son économie ; rend le nombre posé.
+  war_train = function(key, count)
+    for _, id in ipairs(State.alive()) do
+      local f = State.faction(id)
+      if f and f.key == key and f.hq and f.hq.valid and f.hq_pos then
+        return Military.train(f, f.hq.surface, F.best_soldier(f.tech or 0), count or 1)
+      end
+    end
+    return 0
+  end,
   war_option = function(key, value)
     local s = State.war().settings
     if s then s[key] = value end
@@ -106,6 +119,28 @@ remote.add_interface("factorio-overhaul", {
   end,
   -- Points d'intérêt (lecture seule) pour la revue visuelle : QG et avant-postes des factions et de
   -- l'équipe du joueur. Le mod de test n'a pas accès à `global` de ce mod (une table par mod).
+  --- Lot VEILLE (bancs de mesure SEULEMENT, rien n'est rangé dans global) : { on = bool } éteint la reconnaissance régulière
+  --- (témoin sur la MÊME source : mêmes relevés de secteurs, aucune mission de veille).
+  veille_options = function(o)
+    if o and o.on ~= nil then Veille.on = o.on and true or false end
+    -- Lot CORR-RECON : règle « PNJ libres en surplus » (surplus), premier départ avancé (start), comptes imposés (force = { idle, open }
+    -- ou false pour les lever) : scénarios provoqués seulement.
+    if o and o.surplus ~= nil then Veille.surplus = o.surplus and true or false end
+    if o and o.start ~= nil then Veille.start = o.start or nil end
+    if o and o.force ~= nil then Veille.force = o.force or nil end
+    return { on = Veille.on, surplus = Veille.surplus, start = Veille.start, force = Veille.force }
+  end,
+  --- Lot CORR-RECON (lecture seule, bancs) : par faction, départs de veille et refus par raison.
+  veille_probe = function()
+    local out = {}
+    for _, f in ipairs(State.war().factions or {}) do
+      local vs = f.veille or {}
+      local refus = {}
+      for r, n in pairs(vs.refus or {}) do refus[r] = n end
+      out[#out + 1] = { key = f.key, sent = vs.sent or 0, arrived = vs.arrived or 0, refus = refus }
+    end
+    return out
+  end,
   points_of_interest = function()
     local function team(f)
       if not (f and f.hq and f.hq.valid) then return nil end

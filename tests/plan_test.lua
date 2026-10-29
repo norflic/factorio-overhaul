@@ -458,5 +458,30 @@ do
   check(same3, "chemin par les rues : identique avec la mémoire des arbres")
 end
 
+-- lot CORR-RESEAU : la chaîne traverse un poteau connu à portée au lieu d'en poser un second à côté (pas de doublon), sinon inchangée
+do
+  local free = function() return true end
+  local a, b = { x = 0.5, y = 0.5 }, { x = 40.5, y = 0.5 }
+  local base = P.pole_chain(a, b, 9, false, free)
+  local none = P.pole_chain(a, b, 9, false, free, {})
+  check(#base == #none and base[1].x == none[1].x, "chaîne : liste de poteaux connus vide = comportement inchangé")
+  local known = {}
+  for _, c in ipairs(base) do known[#known + 1] = { x = c.x, y = c.y } end
+  local again = P.pole_chain(a, b, 9, false, free, known)
+  check(#again == 0, "chaîne : la même rue déjà jalonnée de poteaux ne reçoit AUCUN poteau neuf (" .. #again .. ")")
+  -- des poteaux connus décalés d'une tuile (le doublon mesuré) sont traversés, pas doublés
+  local shifted = {}
+  for _, c in ipairs(base) do shifted[#shifted + 1] = { x = c.x - 1, y = c.y + 1 } end
+  local shifted_new = #P.pole_chain(a, b, 9, false, free, shifted)
+  check(shifted_new <= 1 and shifted_new < #base, "chaîne : poteaux connus décalés d'une tuile : traversés, au plus un de bout (" .. shifted_new .. " contre " .. #base .. ")")
+  -- un poteau connu qui n'avance pas vers le but (derrière) est ignoré ; un trou dans la rue est comblé et seulement lui
+  local hole = {}
+  for k, c in ipairs(base) do if k ~= 2 then hole[#hole + 1] = { x = c.x, y = c.y } end end
+  hole[#hole + 1] = { x = -5.5, y = 0.5 }
+  local fill = P.pole_chain(a, b, 9, false, free, hole)
+  check(fill ~= nil and #fill >= 1 and #fill <= 2, "chaîne : un trou est comblé par peu de poteaux neufs (" .. tostring(fill and #fill) .. ")")
+  check(P.pole_chain(a, b, 9, false, function() return false end, known) ~= nil, "chaîne : traverser les poteaux connus n'exige aucune tuile libre")
+end
+
 print(string.format("[IA1-D PLAN] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

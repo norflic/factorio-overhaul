@@ -63,8 +63,9 @@ function Harvest.names(item)
 end
 
 --- Idem pour une équipe : l'ancien nom seul (l'objet) pour votre équipe tant que la correction ne la vise pas.
-function Harvest.names_for(f, item)
-  if Harvest.applies(f) then return Harvest.names(item) end
+--- `trees` (lot CORR-RECONSTRUIRE, tâche « trees ») : la tâche vise un objet des ARBRES (le bois) : valable pour votre équipe aussi.
+function Harvest.names_for(f, item, trees)
+  if trees or Harvest.applies(f) then return Harvest.names(item) end
   return { item }
 end
 
@@ -73,8 +74,8 @@ function Harvest.any(item) return #Harvest.names(item) > 0 end
 
 --- Types qui comptent comme « libre » au test de tuile du minage de `item` (ressources ; les arbres aussi quand l'objet vient
 --- d'un arbre).
-function Harvest.free_types(item, f)
-  if not Harvest.applies(f) then return { H.RESOURCE_TYPE } end
+function Harvest.free_types(item, f, trees)
+  if not (trees or Harvest.applies(f)) then return { H.RESOURCE_TYPE } end
   return H.free_types(item, Harvest.names(item))
 end
 

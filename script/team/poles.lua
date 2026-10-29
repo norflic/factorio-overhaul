@@ -87,7 +87,7 @@ function Poles.task_done(f, task, ok, tick)
   -- tuile libre à 96 tuiles du QG) est écartée du minage de fond pendant 2 min (essai 5 : tâches perdues en pause).
   if task.kind == "mine" and task.resource then
     if ok then
-      org.last_mined = task.resource
+      if not task.trees then org.last_mined = task.resource end -- lot CORR-RECONSTRUIRE : le bois des arbres ne sert pas de ressource de crise
     elseif task.fail == "programme" then
       org.mine_bad = org.mine_bad or {}
       org.mine_bad[task.resource] = tick

@@ -25,7 +25,16 @@ local Q = {}
 function Q.place(surface, name, force, origin, spec, need, count, make)
   local proto = game.entity_prototypes[name]
   local w, h = Pl.tiles(proto and proto.collision_box)
-  local list = Pl.rows(spec, w, h, need)
+  return Q.place_list(surface, name, force, origin, Pl.rows(spec, w, h, need), spec.search, count, make)
+end
+
+--- Même pose sur une LISTE de décalages { { dx, dy } } déjà calculée (lot STOCKAGE : bloc des annexes, de la place la plus
+--- proche à la plus lointaine). search : rayon de la passe de secours (nil ou 0 : AUCUNE passe de secours, la liste est
+--- bornée par construction et ne déborde pas sur les rues du plan directeur).
+function Q.place_list(surface, name, force, origin, list, search, count, make)
+  local proto = game.entity_prototypes[name]
+  local w, h = Pl.tiles(proto and proto.collision_box)
+  local spec = { search = search }
   local placed = 0
   local function try(p)
     if not surface.can_place_entity({ name = name, position = p, force = force }) then return true end
@@ -38,6 +47,7 @@ function Q.place(surface, name, force, origin, spec, need, count, make)
     if placed >= count then return placed end
     if not try({ x = Pl.snap(origin.x + o[1], w), y = Pl.snap(origin.y + o[2], h) }) then return placed end
   end
+  if not spec.search or spec.search <= 0 then return placed end
   for _, o in ipairs(list) do
     if placed >= count then return placed end
     local c = { x = Pl.snap(origin.x + o[1], w), y = Pl.snap(origin.y + o[2], h) }

@@ -94,12 +94,16 @@ local function new_chest(size)
   return e
 end
 
+local last_search
 package.loaded["script.ai3.places_qg"] = {
-  place = function(surface, name, force, origin, spec, need, count, make)
+  place = function() error("les annexes passent par place_list") end,
+  -- Moteur simulé : essaie les places de la liste dans l'ordre (comme le vrai), sans passe de secours quand search est nul.
+  place_list = function(surface, name, force, origin, list, search, count, make)
+    last_search = search
     local placed = 0
-    for i = 1, need do
+    for _, o in ipairs(list) do
       if placed >= count then break end
-      local r = make({ x = i, y = 0 })
+      local r = make({ x = origin.x + o[1], y = origin.y + o[2] })
       if r == nil then break end
       if r then placed = placed + 1 end
     end
@@ -183,6 +187,121 @@ do
   for i = 1, T.annex.max do h.annex[i] = new_chest(0) end
   h.hq.items["iron-chest"] = 1
   check(not Stock.grow(h, surface, 0), "maximum d'annexes atteint : plus de pose")
+end
+
+---------------------------------------------------------------------------------------------------
+section("Lot STOCKAGE : règles pures (bloc, fenêtre, plafond)")
+do
+  -- Bloc des annexes : 48 places au sud, 32 au nord, toutes dans le lot (0, 0) du treillis (demi-côté 12), distinctes, de la
+  -- plus proche à la plus lointaine, jamais au contact du QG (near).
+  local S, N = A.slots(1, 1, 1), A.slots(-1, 1, 1)
+  local B = T.annex.block
+  check(#S == 48 and #N == 32 and T.annex.max == #S, "places du bloc : 48 au sud (= T.annex.max), 32 au nord")
+  check(A.capacity(1, 1, 1) == 48 and A.capacity(-1, 1, 1) == 32, "capacité = nombre de places")
+  local seen, inside, sorted = {}, true, true
+  local prev
+  for _, p in ipairs(S) do
+    local k = p[1] .. ":" .. p[2]
+    check(not seen[k], "place unique " .. k)
+    seen[k] = true
+    if math.abs(p[1]) > B.half_south or p[2] < B.near or p[2] > B.far then inside = false end
+    local d = p[1] * p[1] + p[2] * p[2]
+    if prev and d < prev then sorted = false end
+    prev = d
+  end
+  local outward = true
+  for _, p in ipairs(N) do
+    if p[2] > -B.near or p[2] < -B.far or math.abs(p[1]) > B.half_north then outward = false end
+  end
+  check(inside, "le bloc sud reste dans le lot du QG (colonnes -11..11, rangées 5..11)")
+  check(sorted, "du plus proche du QG au plus lointain (le bloc grandit vers l'extérieur)")
+  check(outward, "le bloc nord est au nord, hors des fours (est) et des laboratoires (ouest)")
+  check(#A.slots(1, 2, 2) > 0 and #A.slots(1, 2, 2) < #S, "un coffre plus grand : moins de places")
+  check(A.outward(-40) == -1 and A.outward(40) == 1 and A.outward(0) == 1 and A.outward(nil) == 1, "face extérieure selon l'origine de la carte")
+  -- Fenêtre : 60 % pendant 5 min, une baisse brève ne la relance pas, sous 55 % elle se ferme.
+  local st = {}
+  A.watch(st, 40, 96, 0)
+  check(st.since == nil and not A.early_due(st, 99999), "42 % : pas de fenêtre")
+  A.watch(st, 58, 96, 1000)
+  check(st.since == 1000 and not A.early_due(st, 1000 + T.annex.early_ticks - 1), "60 % : la fenêtre s'ouvre, pas encore due")
+  check(A.early_due(st, 1000 + T.annex.early_ticks), "60 % pendant 5 min : un coffre de plus")
+  A.watch(st, 55, 96, 2000)
+  check(st.since == 1000, "57 % (entre 55 et 60) : la fenêtre n'est pas relancée")
+  A.watch(st, 50, 96, 3000)
+  check(st.since == nil, "52 % : la fenêtre se ferme")
+  A.watch(st, 0, 0, 3000)
+  check(st.since == nil, "capacité inconnue : pas de fenêtre")
+  check(A.early_due(nil, 5000, 4000) and not A.early_due(nil, 4000 + T.annex.refused_ticks + 1, 4000)
+    and not A.early_due(nil, 3000, 4000), "dépôt refusé : anticipation pendant T.annex.refused_ticks seulement")
+  check(not A.early_due({ placed_at = 4500 }, 5000, 4000), "juste après une pose : un refus ne redéclenche pas")
+  local later = 4500 + T.annex.refused_ticks
+  check(A.early_due({ placed_at = 4500 }, later, later - 10), "une minute après la pose : un refus redéclenche")
+  check(A.need_chest(70, 100, 0, false) and not A.need_chest(65, 100, 0, false) and A.need_chest(65, 100, 0, true),
+    "70 % : posé ; 65 % : seulement par anticipation")
+  check(not A.need_chest(65, 100, 32, true, 32) and A.need_chest(65, 100, 32, true, 48), "plafond = capacité du bloc, anticipation comprise")
+  check(A.wanted(65, 100, 0, 0, true) == T.annex.want and A.wanted(65, 100, 0, 0, false) == 0 and A.wanted(65, 100, 48, 0, true, 48) == 0,
+    "coffres demandés par anticipation, jamais au plafond")
+end
+
+section("Lot STOCKAGE : Stock.grow avec des coffres simulés")
+do
+  local pos = {}
+  local surface = { create_entity = function(s) local e = new_chest(32); e.name = s.name; pos[#pos + 1] = s.position; return e end }
+  game.tick = 0
+  -- Partie d'avant (annexes déjà posées) : face SUD gardée, même à y < 0.
+  local f = team(10)
+  f.hq_pos = { x = 0, y = -80 }
+  f.annex = { new_chest(10) }
+  Stock.grow(f, surface, 100)
+  check(f.annex_sy == 1, "annexes déjà là : la face sud est gardée (migration)")
+  -- QG neuf au nord de l'origine : bloc au nord ; 60 % pendant 5 min, sans arriver à 70 %.
+  local g = team(10)
+  g.hq_pos = { x = 0, y = -80 }
+  g.hq.items.coal = 50 * 5
+  g.hq.items["wooden-chest"] = 2 -- 6 cases sur 10 : 60 %
+  check(not Stock.grow(g, surface, 1000) and g.annex_sy == -1, "QG au nord : bloc au nord")
+  check(not Stock.grow(g, surface, 1000 + T.annex.early_ticks - 1), "avant 5 min : rien posé")
+  check(Stock.grow(g, surface, 1000 + T.annex.early_ticks) and #g.annex == 1, "après 5 min à 60 % : un coffre posé par anticipation")
+  check(pos[#pos].y < g.hq_pos.y and last_search == 0, "posé au nord du QG (extérieur), sans passe de secours")
+  check(g.stock_watch.since == 1000 + T.annex.early_ticks and g.stock_watch.placed_at == g.stock_watch.since, "la fenêtre repart à la pose")
+  check(not Stock.grow(g, surface, 1000 + T.annex.early_ticks + 1), "pas de seconde pose aussitôt")
+  -- Position du QG pas encore connue : la face n'est pas figée au sud pour toujours.
+  local u = team(10)
+  u.hq_pos = nil
+  check(Stock.wanted(u) >= 0 and u.annex_sy == nil, "sans position du QG : face non figée")
+  u.hq_pos = { x = 0, y = -80 }
+  Stock.wanted(u)
+  check(u.annex_sy == -1, "position connue ensuite : face de l'extérieur (nord)")
+  -- Dépôt refusé : un coffre sans attendre.
+  local h = team(10)
+  h.hq.items.coal = 50 * 9
+  h.hq.items["wooden-chest"] = 1
+  game.tick = 500
+  check(Stock.insert(h, "coal", 500) == 0 and h.refused_at == 500, "dépôt refusé : noté")
+  check(Stock.wanted(h) == T.annex.want - 1, "un coffre en main : le fond en demande un de moins")
+  check(Stock.grow(h, surface, 600) and #h.annex == 1 and h.refused_at == nil, "refus : coffre posé, refus consommé")
+  local k = team(10)
+  k.hq.items.coal = 50 * 10
+  check(Stock.insert(k, "coal", 50) == 0 and Stock.wanted(k) == T.annex.want, "refus sans coffre en main : le fond en fabrique")
+  -- Plan directeur : une place réservée est sautée ; sans place libre on réessaie plus tard.
+  local r = team(10)
+  r.hq.items.coal = 50 * 9
+  r.hq.items["iron-chest"] = 1
+  Stock.reserved = function() return true end
+  check(not Stock.grow(r, surface, 0) and r.stock_watch.retry == T.annex.retry and #(r.annex or {}) == 0,
+    "toutes les places réservées : rien posé, nouvel essai plus tard")
+  Stock.reserved = function(_, _, p) return p.x < 0 end
+  check(not Stock.grow(r, surface, T.annex.retry - 1), "attente après un échec de pose")
+  check(Stock.grow(r, surface, T.annex.retry) and #r.annex == 1 and pos[#pos].x >= 0, "après l'attente : posé sur une place non réservée")
+  Stock.reserved = nil
+  -- Coffre réclamé par le plan directeur : pas posé en annexe.
+  local d = team(10)
+  d.hq.items.coal = 50 * 9
+  d.hq.items["iron-chest"] = 1
+  Stock.demand = function(_, item) return item == "iron-chest" and 1 or 0 end
+  check(not Stock.grow(d, surface, 0) and Stock.wanted(d) == T.annex.want, "coffre déjà réclamé par le plan : ni posé ni compté en main")
+  Stock.demand = nil
+  game.tick = nil
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

@@ -356,9 +356,14 @@ local EXTRA = {
   ["iron-chest"] = { w = 1, h = 1 }, ["wooden-chest"] = { w = 1, h = 1 }, ["steel-chest"] = { w = 1, h = 1 },
   ["small-electric-pole"] = { w = 1, h = 1, wire = 7.5 }, ["medium-electric-pole"] = { w = 1, h = 1, wire = 9 },
 }
+--- Lot ESPACE : une pièce d'un lot (le mur de l'enceinte) déclare son emprise par son nom lu dans T, sans l'écrire ici.
+local DECLARED = {}
+function P.declare_size(name, w, h) DECLARED[name] = { w = w, h = h } end
 function P.size(name, dir)
-  local x = EXTRA[name]
+  local x = EXTRA[name] or DECLARED[name]
   if x then return x.w, x.h end
+  -- Lot CONVOYEURS : un tapis des données du jeu que modules.lua ne connaît pas (niveau supérieur) occupe une tuile.
+  if not M.BASE[name] and name:find("belt", 1, true) and not M.spec(name) then return 1, 1 end
   return M.size(name, dir or 0)
 end
 
@@ -562,8 +567,8 @@ end
 --- x, y, dir } } (tuile et direction de la dernière tuile d'un tapis qui arrive), chests = { {x, y, item, lane} } }.
 --- Voie 1 = gauche du sens de marche. Un bras dépose sur la voie LOINTAINE : le quai d'une voie est de l'autre côté.
 --- Un chargement latéral sur une seule voie exige un tapis DERRIÈRE la tuile chargée (sinon elle devient un virage) :
---- bout mort à 3 tuiles.
-function P.feeder(port, sources, quai_inserter)
+--- bout mort à 3 tuiles. `belt` (lot CONVOYEURS) : le tapis des têtes, "transport-belt" par défaut.
+function P.feeder(port, sources, quai_inserter, belt)
   local d = port.dir
   local v = DV[d]
   local lx, ly = left_of(d)
@@ -573,7 +578,7 @@ function P.feeder(port, sources, quai_inserter)
   local depth = any_belt and 3 or 1
   for k = 1, depth do
     local x, y = at(k, 0)
-    ents[#ents + 1] = { name = "transport-belt", x = x + 0.5, y = y + 0.5, dir = d, role = "tete" }
+    ents[#ents + 1] = { name = belt or "transport-belt", x = x + 0.5, y = y + 0.5, dir = d, role = "tete" }
   end
   for lane = 1, 2 do
     local item = port.lanes and port.lanes[lane]
@@ -714,13 +719,23 @@ end
 --- Chaîne de poteaux de `a` à `b` (centres) : positions intermédiaires (centres de tuile pour un poteau 1 × 1, coin
 --- pour un 2 × 2) à `reach` au plus l'une de l'autre, chacune sur une tuile libre (free(x, y) : centre). nil si
 --- impossible. a et b ne sont pas rendus.
-function P.pole_chain(a, b, reach, big, free)
+--- Lot CORR-RESEAU : `known` (facultatif) = poteaux déjà prévus ou posés { x, y } (de portée de fil >= reach) ; quand l'un est à
+--- portée du point courant et plus près du but d'au moins 0,5 tuile, la chaîne PASSE PAR LUI (le plus avancé ; ex æquo : y, puis x)
+--- au lieu d'en poser un second à côté (doublons mesurés : deux chaînes de rue sur la même rue, 196 paires à moins de 2 tuiles à 60 min).
+function P.pole_chain(a, b, reach, big, free, known)
   local out = {}
   local cur = { x = a.x, y = a.y }
   local function dist(p, q) local dx, dy = p.x - q.x, p.y - q.y; return math.sqrt(dx * dx + dy * dy) end
   for _ = 1, 64 do
     if dist(cur, b) <= reach + 1e-9 then return out end
     local d = dist(cur, b)
+    local via, vd
+    for _, k in ipairs(known or {}) do
+      local dk = dist(k, b)
+      if dist(k, cur) <= reach + 1e-9 and dk < d - 0.5 and (not via or dk < vd - 1e-9
+        or (math.abs(dk - vd) <= 1e-9 and (k.y < via.y or (k.y == via.y and k.x < via.x)))) then via, vd = k, dk end
+    end
+    if via then cur = { x = via.x, y = via.y } goto continue end
     local step = reach - 0.5
     local tx = cur.x + (b.x - cur.x) * step / d
     local ty = cur.y + (b.y - cur.y) * step / d
@@ -750,6 +765,7 @@ function P.pole_chain(a, b, reach, big, free)
     if not found then return nil end
     out[#out + 1] = found
     cur = found
+    ::continue::
   end
   return nil
 end

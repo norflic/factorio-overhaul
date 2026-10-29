@@ -28,10 +28,13 @@ local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
 local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
+local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
 local Locomotion = require("script.companion.locomotion")
 local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
 local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné à la main (minerai, arbres)
+local Charge = require("shared.team.charge_four") -- lot FOURS : quantité emportée pour remplir les fours à la pile
+local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 
 local Worker = {}
 
@@ -332,6 +335,10 @@ function Worker.program(f, task, surface, tick)
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
+  elseif k == "rebuild" then
+    return Recon.program(f, task)
+  elseif k == "repair" then
+    return Recon.repair_program(f, task)
   elseif k == "garrison" then
     -- Lot IA1-b (fond du pôle Territoire) : garde d'un avant-poste ou du QG ; le PNJ tire sur ce qui approche
     -- (autodéfense, rayon DEFENSE_RADIUS) pendant task.wait ticks, puis rentre.
@@ -382,6 +389,11 @@ function Worker.program(f, task, surface, tick)
   elseif k == "fortify" then
     -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
     if task.outpost == "hq" then return { { "home" }, { "take", task.items, strict = true }, { "act", "fortify" }, { "home" } } end
+    -- Lot CENTRALE-GARDE : la centrale finie ; on va jusqu'à son centre
+    if task.outpost == "plant" then
+      if not task.pos then return nil end
+      return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
+    end
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "fortify" }, { "home" } }
@@ -392,15 +404,52 @@ function Worker.program(f, task, surface, tick)
     local products = {}
     for p in pairs(task.smelt or {}) do products[#products + 1] = p end
     table.sort(products)
-    for _, p in ipairs(products) do
-      local input = T.smelter_inputs[p]
-      -- Lot SCALE : la fournée suit le nombre de fours (données nommées et justifiées de shared/team/config.lua :
-      -- T.smelt_per_furnace entrées par four, au moins T.smelt_trip_min) : une fonderie agrandie (shared/ai3/bras.lua,
-      -- Br.smelters) n'est pas limitée par une tournée de 20 minerais.
-      local per_trip = math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))
-      if input then list[#list + 1] = { input[1], math.min(input[2] * per_trip, input[2] * task.smelt[p]) } end
+    if Outposts.four_rule(f) then
+      -- Lot FOURS (remarque 12 du DC) : le porteur prend de quoi remplir chaque four à charger jusqu'à sa pile
+      -- (shared/team/charge_four.lua : place, part du stock, borne par la demande pour une entrée qui est elle-même un produit).
+      local by_item = {}
+      for _, l in ipairs(Outposts.smelt_loads(f, products)) do
+        local g = by_item[l.item]
+        if not g then
+          g = { room = 0, loads = 0, ratio = l.ratio }
+          by_item[l.item] = g
+        end
+        g.room = g.room + l.room
+        g.loads = g.loads + 1
+      end
+      for _, item in ipairs(State.sorted_keys(by_item)) do
+        local g = by_item[item]
+        local demand
+        if T.smelter_inputs[item] then
+          demand = 0
+          for _, p in ipairs(products) do
+            local inp = T.smelter_inputs[p]
+            if inp and inp[1] == item then demand = demand + (task.smelt[p] or 0) end
+          end
+        end
+        local n = Charge.carry({ room = g.room, stock = Stock.count(f, item), ratio = g.ratio, loads = g.loads, demand_crafts = demand })
+        if n > 0 then list[#list + 1] = { item, n } end
+      end
+    else
+      for _, p in ipairs(products) do
+        local input = T.smelter_inputs[p]
+        -- Lot SCALE : la fournée suit le nombre de fours (données nommées et justifiées de shared/team/config.lua :
+        -- T.smelt_per_furnace entrées par four, au moins T.smelt_trip_min) : une fonderie agrandie (shared/ai3/bras.lua,
+        -- Br.smelters) n'est pas limitée par une tournée de 20 minerais.
+        local per_trip = math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))
+        if input then list[#list + 1] = { input[1], math.min(input[2] * per_trip, input[2] * task.smelt[p]) } end
+      end
     end
-    list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
+    if Outposts.four_rule(f) then
+      -- Lot FOURS : combustible pour les fours tombés au tiers de T.smelter_fuel_to (part du stock, plancher de 10 par four).
+      local fl = Outposts.smelter_fuel_loads(f)
+      local room = 0
+      for _, l in ipairs(fl) do room = room + l.room end
+      local n = Charge.carry({ room = room, stock = Stock.count(f, T.fuel), ratio = 1, loads = #fl })
+      if n > 0 then list[#list + 1] = { T.fuel, n } end
+    else
+      list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
+    end
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
   elseif k == "equiper" then
     return Equip.program(f, task) -- lot LEVIERS
@@ -408,7 +457,7 @@ function Worker.program(f, task, surface, tick)
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
     -- Lot IA1-b2 (R-QCM-25c (c)) : task.radius (minage de fond de votre équipe : près du coffre, T.near_mine).
-    local names = Harvest.names_for(f, task.resource)
+    local names = Harvest.names_for(f, task.resource, task.trees)
     if #names == 0 then return nil end -- lot KIT : un objet sans entité récoltable ne se mine pas à la main
     local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 }) -- lot KIT : minerai = l'entité du même nom, bois = arbres
     table.sort(res, function(a, b)
@@ -425,7 +474,7 @@ function Worker.program(f, task, surface, tick)
       local r = res[i]
       local p = r.position
       local busy = surface.count_entities_filtered({
-        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource, f), invert = true, limit = 1,
+        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource, f, task.trees), invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
       -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
@@ -538,6 +587,11 @@ ACTS.refill = function(agent, f, task)
 end
 
 ACTS.fortify = function(agent, f, task, surface)
+  if task.outpost == "plant" then
+    local n = GardeCentrale.place(f, surface, task, main_inv(agent))
+    if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
+    return n > 0
+  end
   -- Lot IA1-b2 : « hq » = autour du QG (tourelles du groupe « hq », Outposts.turret_groups).
   local o = task.outpost == "hq" and { pos = f.hq_pos } or f.outposts[task.outpost]
   if not o then return false end
@@ -552,6 +606,9 @@ ACTS.smelters = function(agent, f, task, surface)
 end
 
 ACTS.equiper = Equip.act -- lot LEVIERS
+
+ACTS.rebuild = function(agent, f, task, surface) return Recon.act(agent, f, task, surface) end -- lot COUVERTURE
+ACTS.repair = function(agent, f, task, surface) return Recon.repair_act(agent, f, task, surface) end -- lot RECONSTRUIRE
 
 ACTS.smelt = function(agent, f, task)
   Outposts.service_smelters(f, main_inv(agent), task.smelt)
@@ -1001,7 +1058,7 @@ FSM.define(MACHINE, {
       local got = e.get_item_count(item) - (agent.mine_base or 0)
       local target = agent.task and agent.task.target
       local f = faction_of(agent)
-      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item), f)
+      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item, agent.task and agent.task.trees), f)
       if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
         e.mining_state = { mining = false }
         -- Lot KIT (mesure, journal seul) : rendement de chaque minage à la main, pour la part des minages à 0 sur N.
@@ -1089,9 +1146,12 @@ Registry.on_removed(function(agent)
     local p = agent.death_pos
     local d = (p and f.hq_pos) and math.floor(math.sqrt(dist2(p, f.hq_pos))) or -1
     local t = agent.task
-    log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min", f.key or "player",
+    log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min ; position %s, poste %s", f.key or "player",
       agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
-      game.tick / 3600))
+      game.tick / 3600, p and string.format("(%d, %d)", math.floor(p.x), math.floor(p.y)) or "inconnue",
+      t and t.outpost ~= nil and tostring(t.outpost) or "aucun"))
+    -- Lot CENTRALE-GARDE : porteur tué en allant poser les tourelles de la centrale : pause de la garde (comme un avant-poste meurtrier)
+    if t and t.kind == "fortify" and t.outpost == "plant" then GardeCentrale.on_lost(f, agent.id, agent.death_cause) end
     -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
     -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
     -- T.hq_lethal_ticks (script/team/team.lua, view.hold_recruits). Dates gardées : les T.hq_lethal_deaths dernières.

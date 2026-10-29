@@ -1,4 +1,24 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.12
+Date: 2026-10-29
+  Changes:
+    - Reseau electrique : une centrale detruite est rouverte sur place, ou ailleurs si le site est dangereux ; un poteau pivot detruit est
+      rouvert ; deux poteaux d'une meme rue ne se doublent plus a une tuile l'un de l'autre.
+    - Reconstruction : poteaux, chaudieres, machines a vapeur et pompes de VOTRE equipe detruits sont refaits (poteau de meilleur niveau
+      fabricable, bois coupe au besoin, restes retires avant la pose), meme poses a la main ; reparation gratuite sous 60 % de sante pour
+      l'electricite de l'equipe.
+    - Centrale : des tourelles armees se posent a portee de toutes les pieces (tourelles de garde) ; une deuxieme centrale s'ajoute
+      quand les machines tournent a 80 % pendant 30 s (3 centrales au plus).
+    - Soldats : une faction envoie une expedition partielle contre un champ de nids connu au lieu de laisser ses soldats inactifs.
+    - Reconnaissance : des ouvriers libres en surplus partent explorer ; les secteurs reconnus augmentent.
+    - Fours : un four est charge d'un coup jusqu'a la pile ; plus de tournee de fonte a vide quand le courant est coupe.
+    - Tourelles : l'ordre de pose couvre le plus de batiments de l'equipe (memes emplacements, meme nombre).
+    - Stockage : agrandissement regulier (annexes plus tot, jusqu'a 48 places, cote exterieur).
+    - Espace : le treillis grandit vers l'exterieur et une enceinte de murs se planifie (cout eleve en briques).
+    - Convoyeurs : les equipes construisent avec le meilleur tapis disponible et ameliorent les anciens.
+    - Centre de commandement : il part en epave et se repare avant d'etre utilisable (les IA n'en dependent pas) ; une sauvegarde
+      existante le considere deja repare.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.11
 Date: 2026-10-29
   Changes:
