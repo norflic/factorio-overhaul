@@ -508,7 +508,7 @@ end
 ---------------------------------------------------------------------------------------------------
 --- s (‰ réinvesti), delta (‰ défense), alpha (‰ armée), tmax (min). Traits d'IA2-0 et poids d'IA2-a, pour mille.
 --- Lot PRIORITE-RESSOURCES : `production_first` (le fer ne paie pas la défense ET la production, shared/team/priorite.lua) :
---- aucune part n'est prise pour la défense ni l'armée SANS menace (sous menace, lot INTEG-DEFENSE D-C : elles restent), tout le budget va à la production (« si on peut pas se l'acheter, on
+--- aucune part n'est prise pour la défense ni l'armée, tout le budget va à la production (« si on peut pas se l'acheter, on
 --- investit les ressources dans la production de plus de ressources ») ; elles reviennent dès que le fer paie les deux.
 function Ca.character(traits, weights, threat, production_first)
   local tr, w = traits or {}, weights or {}
@@ -523,9 +523,7 @@ function Ca.character(traits, weights, threat, production_first)
     local k = Ca.SHARE_MAX / (delta + alpha)
     delta, alpha = math.floor(delta * k), math.floor(alpha * k)
   end
-  -- Lot INTEG-DEFENSE D-C : sous MENACE, la part de défense et d'armée est gardée même en « production d'abord » (la menace est le cas où la
-  -- défense « vient juste après » les ressources, elle ne disparaît pas) ; sans menace, elles sont rendues à la production.
-  if production_first and not threat then delta, alpha = 0, 0 end
+  if production_first then delta, alpha = 0, 0 end
   local tmax = clamp(Ca.T0 * amb / pru, Ca.T_MIN, Ca.T_MAX)
   if threat then tmax = tmax / Ca.THREAT_DIV end
   return { s = s, delta = delta, alpha = alpha, tmax = tmax }

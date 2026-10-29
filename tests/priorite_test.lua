@@ -390,10 +390,9 @@ local b1 = Ca.budget(ch1, 100, 1000, 1, 0)
 check(b1 > b0, "le budget d'investissement grandit des parts rendues (" .. string.format("%.1f -> %.1f", b0, b1) .. ")")
 local cv = Ca.capi_view({ x = 1000 }, ch1)
 check(cv.x == 1000, "la part capi du stock virtuel est entière")
-local cth = Ca.character({}, {}, true, true)
-local cth0 = Ca.character({}, {}, true, false)
-check(cth.delta == cth0.delta and cth.alpha == cth0.alpha and cth.delta > 0,
-  "INTEG-DEFENSE D-C : menace + production d'abord : les parts de défense (" .. cth.delta .. " ‰) et d'armée restent, la menace compte")
+check(Ca.character({}, {}, true, true).delta == 0, "menace + production d'abord : la production d'abord l'emporte sur la part de menace")
+-- (lot INTEG-DEFENSE D-C : arbitrage laissé tel quel, remarque du DC « si on manque cruellement de ressources, l'objectif est ces ressources » ;
+-- la défense sous menace est servie par le planificateur (commande partielle, coût partiel compté), pas par la part de capitalisation)
 
 ---------------------------------------------------------------------------------------------------
 section("6. Déterminisme")
@@ -589,8 +588,7 @@ local mutants = {
   { "planificateur : la défense compte les commandes complètes du QG, de la centrale et du front", "Pl", "if PARTIAL_POSTS[p.id] then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end", "n_miss = n_miss + n" },
   { "planificateur : la bascule n'est plus confirmée", "Pl", "prev_pf = view.priorite_pf,", "prev_pf = nil," },
   { "règle pure : la bascule est immédiate", "Pr", "num(a.streak) + 1 < Pr.CONFIRM", "num(a.streak) + 1 < 0" },
-  { "capitalisation : la menace ne garde pas ses parts", "Ca", "  if production_first and not threat then delta, alpha = 0, 0 end\n", "  if production_first then delta, alpha = 0, 0 end\n" },
-  { "capitalisation : les parts défense et armée restent", "Ca", "  if production_first and not threat then delta, alpha = 0, 0 end\n", "" },
+  { "capitalisation : les parts défense et armée restent", "Ca", "  if production_first then delta, alpha = 0, 0 end\n", "" },
 }
 local killed = 0
 for _, m in ipairs(mutants) do

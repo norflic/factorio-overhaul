@@ -599,7 +599,7 @@ function Team.view(f, tick)
     front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
     plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Front.hq_post(f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
-    iron_flow = iron_flow(f) or nil, -- lot INTEG-DEFENSE D-A : lu par shared/team/planner.lua (iron_producing)
+    iron_flow = ((not f.is_player) and iron_flow(f)) or nil, -- lot INTEG-DEFENSE D-A : lu par shared/team/planner.lua (iron_producing) ; factions seulement : les statistiques de la force « player » comptent l'usine du joueur, pas le coffre de l'équipe
     -- Lot INTEG-DEFENSE D-D : dernier choix « production d'abord » retenu et nombre de pensées de suite qui ont demandé le contraire (hystérésis
     -- de Pr.decide ; écrits plus bas par Team.think, f.team.priorite_pf et f.team.priorite_streak)
     priorite_pf = (f.team.priorite_pf or false), priorite_streak = f.team.priorite_streak or 0,
