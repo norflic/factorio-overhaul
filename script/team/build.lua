@@ -2608,15 +2608,18 @@ local function segment_failed(f, tick, i, p)
     transient and " : tuiles rendues, nouvel essai plus tard" or " : tuiles non murables, gardees"))
   table.remove(enc.segs, i)
   enc.cur_s, enc.cur_e = nil, nil
-  if not transient then return end
-  if p and p.spec and p.spec.walls then
-    local list = {}
-    for _, w in ipairs(p.spec.walls) do list[#list + 1] = { tx = w[1], ty = w[2] } end
-    Enc.claim(enc.claimed, list, nil)
+  if transient then
+    if p and p.spec and p.spec.walls then
+      local list = {}
+      for _, w in ipairs(p.spec.walls) do list[#list + 1] = { tx = w[1], ty = w[2] } end
+      Enc.claim(enc.claimed, list, nil)
+    end
+    enc.complete = nil
+    enc.retry = tick + Enc.SEG_RETRY_TICKS
   end
-  enc.complete = nil
-  enc.retry = tick + Enc.SEG_RETRY_TICKS
-  if #enc.segs == 0 then
+  -- plus aucun segment : rayon libere (refus durable de l'enceinte d'une sauvegarde d'avant, dont l'etat « complete » ne
+  -- demanderait plus jamais de segment, ou anneau entierement refuse)
+  if #enc.segs == 0 and (transient or enc.complete) then
     b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
     space_log(b, string.format("[FO-ESPACE] %s : aucun segment pose, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
   end
@@ -2664,6 +2667,10 @@ function Build.space_step(f, surface, tick)
     local ok, why, equiv = request_segment(f, enc, tick)
     if ok then
       enc.poor = nil
+    elseif why == "complet" and #enc.segs == 0 then
+      -- toutes les tuiles de l'anneau sont non murables et aucun segment n'existe : le rayon n'a pas de raison d'etre fige
+      b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
+      space_log(b, string.format("[FO-ESPACE] %s : aucune tuile murable, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
     elseif why == "stock" and not enc.poor then
       enc.poor = true
       space_log(b, string.format("[FO-ESPACE] %s : segment suivant attendu : stock equivalent %d murs, un quart = %d (minimum %d)", f.key or "player",

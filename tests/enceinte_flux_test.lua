@@ -222,5 +222,31 @@ do
   check(rep.segments == 1 and rep.complete == true, "rapport d'une ancienne enceinte")
 end
 
+-- 10. Ancienne enceinte refusee pour une raison durable (aucun mur posable) : le rayon est libere, pas fige pour toujours
+do
+  requests = {}
+  local f = new_team()
+  local id = Build.request(f, { enceinte = true })
+  f.build.enc = { r = 3, pid = id, tick = 5 }
+  f.build.projects[id].state, f.build.projects[id].reason = "refuse", "aucun mur posable"
+  W.stock_wall = 400
+  step(f)
+  check(f.build.enc == nil and f.build.enc_retry ~= nil, "ancienne enceinte refusee pour de bon : rayon libere, nouvel essai plus tard")
+end
+
+-- 11. Segment neuf refuse pour de bon (aucun mur posable), seul de l'enceinte : tuiles gardees, le suivant est tente
+do
+  requests = {}
+  local f = new_team()
+  W.stock_wall = 400
+  step(f)
+  local p1 = requests[1]
+  p1.state, p1.reason = "refuse", "aucun mur posable"
+  step(f)
+  check(f.build.enc ~= nil and #requests == 2, "refus durable : rayon garde, un autre segment est demande")
+  check(requests[2].spec.walls[1][1] ~= p1.spec.walls[1][1] or requests[2].spec.walls[1][2] ~= p1.spec.walls[1][2],
+    "refus durable : le segment refuse n'est pas redemande")
+end
+
 print(string.format("[ENCEINTE-FLUX] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
