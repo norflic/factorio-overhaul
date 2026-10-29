@@ -232,7 +232,7 @@ local function nids_sites(f, ns, assets, tick)
   local km = f.ai3f and f.ai3f.m
   local sites = {}
   if km then
-    local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R)
+    local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R + Nd.COMBAT_R)
     sites = Nd.sites(nests, worms)
     for _, st in ipairs(sites) do
       st.seen = K.first_seen(km, K.key_of(st.x, st.y))
@@ -679,7 +679,7 @@ remote.add_interface("fo-nids", {
     local km = f.ai3f and f.ai3f.m
     local sites = {}
     if km then
-      local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R)
+      local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R + Nd.COMBAT_R)
       sites = Nd.sites(nests, worms)
       for _, st in ipairs(sites) do
         st.seen = K.first_seen(km, K.key_of(st.x, st.y))
