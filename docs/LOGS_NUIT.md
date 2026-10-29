@@ -49,3 +49,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~06 h, passage 13
 - Rien de nouveau : 50 fichiers lus, 0 erreur Lua, 0 ECHEC reel. Disque 136 Go. File vide (0 banc.py, 0 factorio.exe, 5 bash) : POTEAUX-V2 en phase de code et de criteres.
+
+## 29/10 ~06 h 30, passage 14
+- Rien de nouveau : 64 fichiers lus, 0 erreur Lua, 0 ECHEC reel (series INTEG 0.6.9 et POTEAUX-V2 en code 0). Disque 136 Go ; 1 banc.py pour 1 lot, 1 factorio.exe, 10 bash.
