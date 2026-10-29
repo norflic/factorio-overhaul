@@ -378,7 +378,7 @@ DIRECTIONS["Z3"]["blocs"] = (6, 5, 4, 3, 3, 2, 1, 1)
 # plus gris que la pierre (beige), sans la croûte crème de l'ilménite ni le noir du tungstène. Choix provisoire, sans
 # verdict du DC.
 MAT.update({
-    "galene": dict(color=(0.50, 0.51, 0.55), rough=0.22, met=0.70, grain=0.12, gscale=55.0, dirt=0.35),
+    "galene": dict(color=(0.62, 0.63, 0.67), rough=0.22, met=0.70, grain=0.12, gscale=55.0, dirt=0.35),
     "galene_sombre": dict(color=(0.22, 0.23, 0.25), rough=0.28, met=0.60, grain=0.15, gscale=55.0, dirt=0.4),
     "calcite": dict(color=(0.70, 0.69, 0.64), rough=0.60, met=0.0, grain=0.30, gscale=30.0, dirt=0.45),
     "blende": dict(color=(0.30, 0.16, 0.04), rough=0.35, met=0.20, grain=0.25, gscale=40.0, dirt=0.4),
@@ -388,15 +388,17 @@ DIRECTIONS["G1"] = dict(
     touffes=(0, 0, 0, 0, 0, 0, 0, 0), lames=(0, 0),
     lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("galene",),
     # gangue : quelques roches de calcite (et de galène massive sombre)
-    roches=(5, 4, 4, 3, 3, 2, 2, 1), roche_taille=(0.13, 0.21),
-    roche_mats=("calcite", "calcite", "galene_sombre", "calcite"),
+    # essai 1 (32 éch.) : couverture 0,19 au stade 1 (0,32 en vanilla), pièces trop petites et galets de calcite épars
+    # (« neige ») : cubes plus gros et plus nombreux, disque plus serré, calcite en grains seulement.
+    roches=(3, 3, 3, 2, 2, 2, 1, 1), roche_taille=(0.16, 0.24),
+    roche_mats=("galene_sombre", "calcite", "galene_sombre"),
     # cubes : le corps du gisement (hauteur = côté)
-    blocs=(10, 9, 8, 7, 6, 5, 3, 2), bloc_taille=(0.10, 0.17), bloc_haut=(0.09, 0.16),
+    blocs=(12, 10, 9, 8, 7, 5, 3, 2), bloc_taille=(0.15, 0.24), bloc_haut=(0.13, 0.22),
     bloc_mats=("galene", "galene", "galene", "galene_sombre", "blende"),
-    grains=(18, 15, 13, 11, 9, 7, 5, 3), grain_mats=("galene", "calcite", "galene_sombre"),
+    grains=(18, 15, 13, 11, 9, 7, 5, 3), grain_mats=("galene", "galene_sombre", "calcite"),
     fins=(110, 95, 82, 70, 58, 46, 32, 18),
     fin_mats=("calcite", "galene_sombre", "calcite", "galene"),
-    rayon=0.62,
+    rayon=0.55,
     effet="eclats",
 )
 CALIB["G1"] = {"SKY_GLOSSY_FACTOR": 2.5}
@@ -426,7 +428,9 @@ DIRECTIONS["K1"] = dict(
     touffes=(6, 5, 5, 4, 3, 3, 2, 1), lames=(3, 6),
     lame_long=(0.18, 0.32), lame_larg=(0.10, 0.16), lame_ep=(0.07, 0.11), lame_incl=(5, 35),
     lame_mats=("cristal_glacier", "cristal_glacier", "cristal_profond", "cristal_givre"),
-    roches=(3, 3, 3, 2, 2, 1, 1, 1), roche_taille=(0.15, 0.24), roche_mats=("roche_grise", "roche_grise", "cristal_profond"),
+    # essai 1 (32 éch.) : couverture 0,235 au stade 1 ; les galets « cristal_profond » sortaient en billes bleues lisses :
+    # roches grises seulement, druses plus nombreuses (échelle 1,3).
+    roches=(3, 3, 3, 2, 2, 1, 1, 1), roche_taille=(0.15, 0.24), roche_mats=("roche_grise",),
     blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("cristal_glacier",),
     grains=(16, 14, 12, 10, 8, 6, 4, 3), grain_mats=("cristal_givre", "cristal_glacier", "roche_grise"),
     fin_mats=("cristal_givre", "roche_grise", "cristal_glacier", "cristal_givre"),
@@ -456,7 +460,7 @@ EFFET["I2S"] = dict(teinte=(0.85, 0.93, 1.0), seuil=(0.22, 0.45),
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.0, "I2S": 1.45}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
