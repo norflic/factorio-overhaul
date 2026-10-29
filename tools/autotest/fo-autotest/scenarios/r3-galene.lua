@@ -116,14 +116,19 @@ return {
         sites[2] and string.format("(%d, %d) a %.1f", sites[2].x, sites[2].y, sites[2].dist) or "pas de 2e") or "absent")
     if not (spec and #sites == 2) then return end
     st.sites = { { x = sites[1].x, y = sites[1].y }, { x = sites[2].x, y = sites[2].y } }
-    local bad, trees, total, biome = {}, 0, 0, 0
+    local bad, trees, total, posed, n_ent = {}, 0, 0, 0, 0
+    local names, order = {}, {}
     for i, site in ipairs(sites) do
+      posed = posed + (site.tiles or 0) - (site.filled or 0)
+      n_ent = n_ent + site.entities
       local c = { site.x + 0.5, site.y + 0.5 }
       local ore = s.find_entities_filtered({ name = "fo-galena", position = c, radius = spec.core_radius + 1.5 })
       local amt = 0
       for _, r in ipairs(ore) do
         amt = amt + r.amount
-        if s.get_tile(math.floor(r.position.x), math.floor(r.position.y)).name:find("^fo%-") then biome = biome + 1 end
+        local tn = s.get_tile(math.floor(r.position.x), math.floor(r.position.y)).name
+        if not names[tn] then names[tn] = 0; order[#order + 1] = tn end
+        names[tn] = names[tn] + 1
       end
       total = total + amt
       if not (#ore == site.entities and amt == site.total and amt >= spec.min_total and site.dist >= spec.dmin and site.dist <= spec.dmax) then
@@ -133,11 +138,17 @@ return {
     end
     ctx.check(#bad == 0, "2 gisements complets (>= min_total chacun) a 300-600 tuiles",
       #bad > 0 and table.concat(bad, " ; ") or string.format("%d galenes en tout", total))
-    ctx.check(biome == 0, "aucun sol de biome pose sous la galene (ressource sans biome)", biome)
+    -- 1er banc (30/10, 0 h 10) : 298 tuiles « fo-* » sous le minerai, mais ce sont les biomes NATURELS du lieu (la garantie
+    -- n'en pose aucun) : le contrôle juste est le rapport de la garantie (tuiles posées hors eau comblée = 0).
+    table.sort(order)
+    local parts = {}
+    for _, tn in ipairs(order) do parts[#parts + 1] = tn .. " " .. names[tn] end
+    ctx.check(posed == 0, "aucun sol pose par la garantie sous la galene (ressource sans biome ; sol naturel garde)",
+      posed .. " ; sols sous le minerai : " .. table.concat(parts, ", "))
     ctx.check(trees == 0, "aucun arbre ni rocher sur le minerai", trees)
     local spawn = game.forces.player.get_spawn_position(s)
     local nearby = s.count_entities_filtered({ name = "fo-galena", position = spawn, radius = 280 })
-    local natural = s.count_entities_filtered({ name = "fo-galena" }) - total
+    local natural = s.count_entities_filtered({ name = "fo-galena" }) - n_ent
     ctx.check(nearby == 0, "aucune galene a moins de 280 tuiles du depart (masque de distance de l'autoplace)",
       string.format("%d ; galene naturelle generee ailleurs : %d tuiles", nearby, natural))
     local c1 = sites[1]
