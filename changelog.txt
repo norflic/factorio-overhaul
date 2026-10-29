@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.10
+Date: 2026-10-29
+  Changes:
+    - Journal de diagnostic [FO-CENTRALE-MORT] : la destruction d'une chaudiere, d'une machine a vapeur ou d'une pompe de centrale
+      d'equipe ecrit une ligne (minute, tueur, distance au QG, tourelles proches). Lecture seule : aucun effet sur la partie.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.9
 Date: 2026-10-29
   Changes:
