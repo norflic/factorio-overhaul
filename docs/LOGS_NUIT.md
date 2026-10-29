@@ -90,3 +90,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~12 h 30, passage 26
 - Rien de nouveau : archives des 80 dernieres minutes relues (parties arretees a 12 h 05 et CENTRALE-GARDE) : 0 erreur Lua, 0 ECHEC reel. Disque 124 Go ; plus aucune partie (methode statique), 1 blender.exe (CENTRE-FUSEE).
+
+## 29/10 ~13 h, passage 27
+- Rien de nouveau : content-0612 (integration 0.6.12) 0 erreur Lua, 0 warning du mod ; 6 archives des 90 dernieres minutes : 0 erreur ; aucune partie ni rendu en cours. Nettoyage : 0 worktrees de lots fusionnes retires (branches gardees), centre-fusee conserve.
