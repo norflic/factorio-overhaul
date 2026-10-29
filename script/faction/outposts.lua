@@ -594,7 +594,18 @@ function Outposts.service_smelters(f, carrier, smelt)
       local g = items[item]
       local rooms = {}
       for k, l in ipairs(g) do rooms[k] = l.room end
-      local amounts = Charge.split(carrier.get_item_count(item), rooms, g[1].ratio)
+      local avail = carrier.get_item_count(item)
+      -- Une entrée qui est elle-même un produit de fonte (la plaque de l'acier) n'est chargée que pour la demande : le porteur
+      -- a aussi les plaques qu'il vient de vider des fours, qui ne doivent pas toutes partir en acier.
+      if T.smelter_inputs[item] then
+        local cap = 0
+        for _, p in ipairs(products) do
+          local inp = T.smelter_inputs[p]
+          if inp and inp[1] == item then cap = cap + inp[2] * ((smelt and smelt[p]) or 0) end
+        end
+        if cap < avail then avail = cap end
+      end
+      local amounts = Charge.split(avail, rooms, g[1].ratio)
       for k, l in ipairs(g) do
         local n = amounts[k]
         if n > 0 then
