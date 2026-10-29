@@ -445,6 +445,14 @@ local function submit(f, st, tick, rq, research)
   local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
     pole = rq.pole,
     shrunk = rq.shrunk or nil } -- lot INTEG-ECONOMIE (D2) : la ligne ne grandit pas au-delà de la taille réduite demandée (line_rows)
+  -- Lot RANGEES-DEBIT : une ligne DYNAMIQUE (T.ligne.dyn) pose ses rangées par étapes, bornées par le stock (Fonte.initial, Fonte.step) :
+  -- la réduction n'a plus lieu d'être et la figeait à sa taille réduite (2 rangées : les « 4 fours » que le DC voit encore en 0.6.18,
+  -- « ne devraient pas exister [...] faut que ce soit scalable ») ; elle réserve la ligne entière comme les autres (line_rows).
+  if spec.shrunk and T.debit and T.debit.shrunk_grows and T.ligne and T.ligne.dyn then
+    spec.shrunk = nil
+    log(string.format("[FO-DEBIT] %s : %s reduit apres un echec de materiaux : ligne dynamique entiere reservee, posee par etapes (plus de module fige)",
+      f.key or "player", tostring(rq.product)))
+  end
   if not spec.near and rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
     local ps = Build.brief(f, st.plant_id)
     local pt = ps and ps.parts and ps.parts[1]

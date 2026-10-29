@@ -343,6 +343,13 @@ T.army_share = { conqueror = 0.8, technocrat = 0.45, builder = 0.4, balanced = 0
 T.kit_batch = 5             -- équipements fabriqués par lot
 
 -- Ouvriers voulus : 2 + 1 par avant-poste, plafonné par engineers_max.
+-- Lot RANGEES-DEBIT (retour du DC du 29/10 en jouant la 0.6.18 : « un pack de N en fonction du débit ») : la ligne de foreuses d'une
+-- fonderie à tapis est bornée par ce que porte une voie du tapis réel (vitesse lue dans les prototypes, shared/team/debit.lua ;
+-- script/team/build.lua, Build.debit_pairs), puis par l'emprise d'un lot et le gisement. belt : faux = la seule borne du gabarit.
+-- shrunk_grows : une ligne DYNAMIQUE (T.ligne.dyn, lot FONDERIE-DYNAMIQUE) réduite après un échec de matériaux (CAPI-REPLI) réserve
+-- quand même la ligne entière et grandit par étapes (sinon elle restait à 2 rangées, les « 4 fours » que le DC voit encore).
+T.debit = { belt = true, shrunk_grows = true }
+
 function T.workers_wanted(outposts, max)
   return math.min(max, T.start_workers + outposts)
 end
