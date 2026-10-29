@@ -360,6 +360,23 @@ function Recon.craft_spares(f, book, free, tick)
           if u[1] ~= item then avail[u[1]] = (avail[u[1]] or 0) - u[2] end
         end
         stat(s, "spares")
+      else
+        -- Mesure : matière première qui manque pour fabriquer l'objet (une ligne par objet et par matière manquante).
+        s.stats.rawlog = s.stats.rawlog or {}
+        local miss = {}
+        for k in next, q.raw do miss[#miss + 1] = k end
+        table.sort(miss)
+        local sig = item .. ":" .. table.concat(miss, ",")
+        if not s.stats.rawlog[sig] and #miss > 0 then
+          s.stats.rawlog[sig] = true
+          log(string.format("[FO-RECON] %s : %s non fabricable, matiere manquante : %s", f.key or "player", item, table.concat(miss, ", ")))
+        end
+      end
+    else
+      s.stats.rawlog = s.stats.rawlog or {}
+      if not s.stats.rawlog[item .. ":main"] then
+        s.stats.rawlog[item .. ":main"] = true
+        log(string.format("[FO-RECON] %s : %s non fabricable a la main (recette inconnue de l'equipe ou non manuelle)", f.key or "player", item))
       end
     end
   end
