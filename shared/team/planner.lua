@@ -27,6 +27,7 @@
 ]]
 
 local T = require("shared.team.config")
+local Guard = require("shared.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
 
 local P = {}
 
@@ -435,6 +436,16 @@ function P.plan(view, book)
         posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify }
       end
     end
+    -- Lot CENTRALE-GARDE : la centrale FINIE (view.plant) est un poste comme un avant-poste : K tourelles ARMÉES à portée de toutes ses
+    -- pièces (shared/team/garde_centrale.lua), posées par la même tâche « fortify », payées sur le stock.
+    if view.plant then
+      local pl = view.plant
+      local need = Guard.need(pl.pieces, pl.boilers, pl.turrets, pl.range, pl.low)
+      if need then
+        posts[#posts + 1] = { id = "plant", want = need.wanted, have = need.have, busy = pl.fortify,
+          sites = need.sites, pos = need.center, range = pl.range, pieces = pl.pieces }
+      end
+    end
     for _, p in ipairs(posts) do
       local key = "fortify:" .. p.id
       if p.have < p.want and not p.busy and not open[key] then
@@ -443,7 +454,8 @@ function P.plan(view, book)
         if n > 0 then
           local items = turret_items(n)
           if take(items) then
-            add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = items, defend = true })
+            add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = items, defend = true,
+              sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces })
           else
             want_defense(items)
           end

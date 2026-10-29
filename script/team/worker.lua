@@ -28,6 +28,7 @@ local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Foot = require("shared.levels.footprint")
 local Build = require("script.team.build") -- lot IA1-d : plan directeur, construction par fantômes, marche par les rues
+local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
 local Locomotion = require("script.companion.locomotion")
 local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
 local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
@@ -382,6 +383,11 @@ function Worker.program(f, task, surface, tick)
   elseif k == "fortify" then
     -- Lot IA1-b2 : tourelles du QG (défendre d'abord), posées sans quitter le QG.
     if task.outpost == "hq" then return { { "home" }, { "take", task.items, strict = true }, { "act", "fortify" }, { "home" } } end
+    -- Lot CENTRALE-GARDE : la centrale finie ; on va jusqu'à son centre
+    if task.outpost == "plant" then
+      if not task.pos then return nil end
+      return { { "home" }, { "take", task.items, strict = true }, { "goto", task.pos, 5 }, { "act", "fortify" }, { "home" } }
+    end
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "fortify" }, { "home" } }
@@ -538,6 +544,11 @@ ACTS.refill = function(agent, f, task)
 end
 
 ACTS.fortify = function(agent, f, task, surface)
+  if task.outpost == "plant" then
+    local n = GardeCentrale.place(f, surface, task, main_inv(agent))
+    if task.defend then f.stats.defend_fortified = (f.stats.defend_fortified or 0) + n end
+    return n > 0
+  end
   -- Lot IA1-b2 : « hq » = autour du QG (tourelles du groupe « hq », Outposts.turret_groups).
   local o = task.outpost == "hq" and { pos = f.hq_pos } or f.outposts[task.outpost]
   if not o then return false end

@@ -388,6 +388,28 @@ end
 -- Fours du QG (lot SCALE, correction après revue) : places en rangées depuis l'EMPRISE du four (collision_box du
 -- prototype) et la disposition nommée de shared/team/config.lua (T.hq_rows.smelter), recalées sur la grille et VÉRIFIÉES
 -- avant la pose (script/ai3/places_qg.lua : la pose d'avant chevauchait, capture s4-qg). Bloc de départ = places de main.
+--- Lot CENTRALE-GARDE : pose jusqu'à `count` tourelles aux emplacements `sites` ({ x, y }, dans l'ordre), pleines de munitions, pour le
+--- poste `oid` (ex. "plant" : groupe de ravitaillement « o<oid> »). `accept(pos)` refuse une position trouvée hors de la zone voulue.
+--- Les objets viennent de l'inventaire `carrier` (déjà pris au stock par la tâche). Rend le nombre posé.
+function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept)
+  local placed = 0
+  for _, s in ipairs(sites) do
+    if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
+    local pos = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
+    if pos and (accept == nil or accept(pos)) then
+      local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
+      if t then
+        carrier.remove({ name = T.turret, count = 1 })
+        local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(T.turret_ammo))
+        if n > 0 then t.insert({ name = T.turret_ammo, count = carrier.remove({ name = T.turret_ammo, count = n }) }) end
+        Outposts.add_turret(f, t, oid, 0)
+        placed = placed + 1
+      end
+    end
+  end
+  return placed
+end
+
 function Outposts.place_smelters(f, surface, count, carrier)
   f.smelters = f.smelters or {}
   return PlacesQG.place(surface, T.SMELTER, f.force, f.hq_pos, T.hq_rows.smelter,
