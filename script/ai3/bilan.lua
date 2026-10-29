@@ -18,7 +18,7 @@ local Bilan = {}
 
 -- Aucun réglage de carte (settings.lua est un fichier de l'intégrateur) : Bilan.ENABLED = false rend le cerveau d'avant.
 Bilan.ENABLED = true
-Bilan.READ_MAX = 160 -- objets lus au plus par relevé (les clés des compteurs cumulés, triées)
+Bilan.READ_MAX = 600 -- objets lus au plus par relevé (clés des compteurs cumulés, triées : garde-fou ; 160 coupait par ordre alphabétique les objets de fin de liste)
 
 local function sorted_union(a, b)
   local seen, ks = {}, {}
@@ -62,7 +62,10 @@ function Bilan.think(f, view, tick)
   if not st then return nil end
   st.bilan = st.bilan or Bi.new()
   local b = st.bilan
-  if Bi.due(b, tick) then
+  -- `b.try` : dernier essai de lecture. Une lecture impossible (force absente, statistiques illisibles) ne se retente
+  -- qu'à la période suivante, pas à chaque pensée.
+  if Bi.due(b, tick) and (b.try == nil or tick - b.try >= Bi.PERIOD) then
+    b.try = tick
     local force = game and game.forces and game.forces[f.force]
     local rows = force and force.valid ~= false and read_rows(force, view.stock or {}) or nil
     if rows then Bi.update(b, tick, rows) end
