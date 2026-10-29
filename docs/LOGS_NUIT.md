@@ -43,3 +43,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~04 h 55, passage 11
 - Rien de nouveau : une seule ligne hors bilan, RECONSTRUIRE/invalide/lot7-987654321 (archive deja ecartee), reconstruction.lua:307 « poteau __self ecarte des remplacants » = lecture protegee de 74edb3e qui ecarte l entree __self du moteur (mesure), pas un plantage. 0 erreur Lua dans les series actives (CAPIA, PANELS). Disque 135 Go ; 2 banc.py pour 2 lots, 1 factorio.exe, 15 bash (pic normal en mesure).
+
+## 29/10 ~05 h 25, passage 12
+- Rien de nouveau : 108 fichiers lus, 0 erreur Lua, 0 ECHEC reel. Disque 136 Go. File vide (0 banc.py, 0 factorio.exe, 3 bash) : la serie 2 de CAPIA est finie ou entre deux parties.
