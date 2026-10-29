@@ -195,7 +195,8 @@ local function destroy_entity(e)
   end
 end
 
-local WRITABLE = { active = "_active", operable = "_operable", health = "_health", minable = "_minable" } -- minable : lot CENTRE-JEU
+local WRITABLE = { active = "_active", operable = "_operable", health = "_health", minable = "_minable", -- minable : lot CENTRE-JEU
+  destructible = "_destructible" } -- lot PD-CENTREQG : centre lié au QG d'une faction
 
 ---------------------------------------------------------------------------------------------------
 -- Inventaires (capacité illimitée : le mock valide la logique, pas la place disponible)
@@ -371,6 +372,9 @@ local new_entity -- déclarée plus bas (revive, lot V3-T3, en a besoin dans Ent
 local EntityMT = {
   __index = function(t, k)
     if k == "position" then return { x = t._x, y = t._y } end
+    -- Lot PD-CENTREQG : drapeaux du moteur (vrais par défaut, comme en jeu).
+    if k == "destructible" then return rawget(t, "_destructible") ~= false end
+    if k == "minable" then return rawget(t, "_minable") ~= false end
     if k == "unit_group" then return (t._group and t._group.valid) and t._group or nil end
     if k == "bounding_box" then
       -- Lot V3-T3 : un fantôme a la boîte de l'entité qu'il porte.
