@@ -1,6 +1,7 @@
 --[[
   Lot ILOTS-MURS, côté RUNTIME (règle pure : shared/team/ilots.lua). Arbitrage du DC (QCU du 29/10) : les lots lointains isolés restent
-  « hors du mur mais potentiellement l'entourer d'un mur et d'une ou 2 tourelle » ; « Oui, ressources d'abord ».
+  « hors du mur mais potentiellement l'entourer d'un mur et d'une ou 2 tourelle » ; la dépense suit par extension « Oui, ressources
+  d'abord » (arbitrage de la faction ruinée sans tourelle, même QCU ; voir shared/team/ilots.lua).
 
   Trois services :
     - Il.step(f, surface, tick, ctx) : appelé par Build.space_step (script/team/build.lua) toutes les Enc.CHECK_TICKS. Il retient les îlots
@@ -149,7 +150,7 @@ local function discover(f, h, tick)
     end
   end
   local clusters = I.clusters(cands)
-  local pick, why, rows = I.pick_new(clusters, h.list, front_cells(f), hq_of(b), I.MAX)
+  local pick, why, rows = I.pick_new(clusters, h.list, front_cells(f), hq_of(b), I.MAX, bounds) -- (relecture : emprise entièrement dehors)
   if not pick then
     if why ~= h.why then
       h.why = why

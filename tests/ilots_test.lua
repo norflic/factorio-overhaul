@@ -103,6 +103,14 @@ do
   local near = I.clusters({ lot(6, 0, 4, 30) })
   local pick5, why5 = I.pick_new(near, { { key = "5:0", box = cl[1].box } }, {}, hq)
   check(pick5 == nil and why5 == "voisins", "lot voisin d'un îlot retenu : pas de second mur dans la même rue")
+  -- relecture : deux lots dehors en diagonale autour du coin nord-est du contour forment un îlot dont l'EMPRISE couvre le coin
+  local corner = I.clusters({ lot(2, -3, 1, 20), lot(3, -2, 2, 20) })
+  check(#corner == 1 and I.outside(bounds, lot(2, -3)) and I.outside(bounds, lot(3, -2)) and not I.outside(bounds, corner[1].box),
+    "coin : deux lots dehors, un seul îlot, emprise qui croise le contour")
+  local pick6, why6 = I.pick_new(corner, {}, {}, hq, nil, bounds)
+  check(pick6 == nil and why6 == "contour", "coin : îlot écarté (son anneau croiserait l'enceinte) (" .. tostring(why6) .. ")")
+  local pick7 = I.pick_new(cl, {}, {}, hq, nil, bounds)
+  check(pick7 and pick7.key == "5:0", "contour donné : un îlot entièrement dehors reste choisi")
 end
 
 ---------------------------------------------------------------------------------------------------

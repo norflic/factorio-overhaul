@@ -4,7 +4,8 @@
   lue hors jeu (tests/ilots_test.lua) et en jeu (script/team/ilots.lua, appelé par Build.space_step et le planificateur).
 
   Arbitrage du DC (QCU du 29/10, 20 h 50), mot pour mot : « oui hors du mur mais potentiellement l'entourer d'un mur et d'une ou 2
-  tourelle » ; et, pour la dépense : « Oui, ressources d'abord ».
+  tourelle ». La dépense suit, PAR EXTENSION, un autre arbitrage du même QCU (celui de la faction ruinée sans tourelle : « Oui,
+  ressources d'abord ») : le DC ne l'a pas dit des îlots eux-mêmes (précision de la relecture).
 
   1. ÎLOTS : les lots pris par un projet FINI dont le rectangle n'est pas dans le contour figé de l'enceinte sont regroupés de proche
      en proche (I.JOIN : deux lots voisins, une rue entre eux, font un seul îlot). Un îlot est IMPORTANT si sa valeur (pièces bâties de
@@ -175,14 +176,17 @@ end
 --- Nouvel îlot à retenir : parmi `clusters` (I.clusters), ceux qui sont importants (valeur >= I.MIN_VALUE), pas déjà retenus (clé) et
 --- pas collés à un îlot retenu (`islands` : { { key, box } }, écart <= I.NEAR_ISLAND), triés par I.sort. `cells` : mémoire du front.
 --- Rend (îlot choisi ou nil, raison ou nil, liste triée des admissibles). Plus de place (I.MAX atteint) : (nil, "plafond").
-function I.pick_new(clusters, islands, cells, hq, max)
+--- `bounds` (facultatif, contour de l'enceinte, I.outside) : un groupe dont l'EMPRISE (rectangle englobant) n'est pas entièrement dehors
+--- est écarté (relecture ILOTS-MURS : deux lots dehors en diagonale autour d'un coin du contour ont une emprise qui couvre le coin, et
+--- leur anneau croiserait l'enceinte) ; raison « contour » s'il ne reste rien d'autre.
+function I.pick_new(clusters, islands, cells, hq, max, bounds)
   max = max or I.MAX
   islands = islands or {}
   if #islands >= max then return nil, "plafond", {} end
   local known = {}
   for _, il in ipairs(islands) do known[il.key] = true end
   local rows = {}
-  local small, near = 0, 0
+  local small, near, cut = 0, 0, 0
   for _, c in ipairs(clusters or {}) do
     if not known[c.key] then
       local close = false
@@ -191,6 +195,8 @@ function I.pick_new(clusters, islands, cells, hq, max)
       end
       if close then
         near = near + 1
+      elseif bounds and not I.outside(bounds, c.box) then
+        cut = cut + 1
       elseif (c.value or 0) < I.MIN_VALUE then
         small = small + 1
       else
@@ -203,6 +209,7 @@ function I.pick_new(clusters, islands, cells, hq, max)
   if #rows == 0 then
     if small > 0 then return nil, "petits", rows end
     if near > 0 then return nil, "voisins", rows end
+    if cut > 0 then return nil, "contour", rows end
     return nil, "aucun", rows
   end
   return rows[1], nil, rows
@@ -298,7 +305,7 @@ function I.guards(box, turrets, cover)
   return n
 end
 
---- Une pose en (x, y) est-elle acceptée pour l'îlot ? La tourelle entière DANS l'emprise (centre à I.ACCEPT = -1 : une tuile en retrait) :
+--- Une pose en (x, y) est-elle acceptée pour l'îlot ? La tourelle entière DANS l'emprise (centre à I.ACCEPT = -2 : deux tuiles en retrait) :
 --- jamais sur la rue (les PNJ y marchent) ni sur la tuile du mur.
 function I.accepts(box, x, y) return I.near_box(box, x, y, I.ACCEPT) end
 
