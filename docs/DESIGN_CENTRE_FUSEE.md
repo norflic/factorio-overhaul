@@ -1,48 +1,45 @@
-# Centre de commandement = la fusée de départ : brief de design (lot CENTRE-FUSEE, 29/10, premier jet)
+# Centre de commandement = le vaisseau de départ qui devient bâtiment : brief de design v2 (lot CENTRE-FUSEE, 29/10)
 
-**Directive du DC** (OBJECTIFS, 28/10 soir et 29/10 vers 9 h 45) : « c'est la fusée de départ, qu'on doit réparer, puis améliorer (évidemment par défaut on a nos IA, et tout le monde a ses IA, pas besoin de la réparer pour l'avoir) » ; « passer les âges et il aurait un style par âge ». Le centre n'est donc plus un « hôtel de ville » : c'est **une seule fusée**, épave au départ, réparée, puis transformée âge par âge **sans que sa silhouette disparaisse**.
-Statut : concept à valider par le DC sur captures (`fo-logs\2026-10-29_NUIT\CENTRE-FUSEE\planches\`). Rien n'est en jeu.
+**Le DC a tranché** : « vaisseau couché, long » ; « en fonction des âges, la fusée se métamorphose en bâtiment, une sorte de mix entre les 2, du coup c'est un bâtiment mais on peut observer que c'était une fusée avant » ; « un bâtiment construit sur une carcasse de squelette qui garderait son côté de dinosaure visible mais c'est clairement un bâtiment ». La v1 (fusée debout) est refusée et gardée comme essai (`fusee.py`). Concept à valider sur captures (`fo-logs\2026-10-29_NUIT\CENTRE-FUSEE\planches\`) ; rien n'est en jeu. Les IA existent dès le départ et n'exigent pas la réparation.
 
-## 1. La forme (silhouette fixe, tous âges)
-Fusée à étages **debout sur son aire**, vue du jeu en trois quarts (kit `tools/render/pieces/levels/fusee_e/`) :
-- **de bas en haut** : 3 tuyères sous un jupon ; coque basse (porte éclairée au SUD, bande de danger) ; anneau d'inter-étage ; coque haute (3 hublots au sud) ; ogive ; antenne et feu. **4 ailettes en diagonale** (2 visibles à l'avant) sur **4 pieds**.
-- **Proportions** (échelle ×1,15 comprise) : fût de 1,7 tuile de large, ailettes sur 3,7 tuiles, hauteur au feu de nez ≈ 7 unités = **≈ 315 px HR (157 px au zoom 1)**, soit 5 tuiles d'écran. Sprite le plus grand : voir RAPPORT (âge 15 : 1 076 × 948 px HR pour 8×8).
-- **Emprise** : celle du centre actuel, carrée, **4×4 (âges 1-3), 5×5 (4-6), 6×6 (7-9), 7×7 (10-12), 8×8 (13-15)** (`shared/levels/config.lua`, `L.footprints.command`). La fusée garde la même taille ; **l'aire et les modules grandissent** avec l'emprise. Les ailettes de l'âge 1 dépassent l'aire de 4×4 d'un demi-pied (acceptable, comme les sprites vanilla).
-- **Signal de jeu fixe** : porte éclairée au sud (comme tous les bâtiments du mod). La nuit, hublots et porte restent allumés ; la couleur du foyer suit la famille de l'âge (`ages.FOYER`).
+## 1. Forme et empreinte
+Vaisseau **couché, plus long que large** : **nez (crâne) à l'ouest**, **3 tuyères (queue) à l'est**, coque cylindrique à ogive, 2 ailes en flèche, dérive sur le dos, hublots et cockpit à l'avant, porte éclairée au SUD (signal de jeu fixe). Une seule pose (un conteneur ne tourne pas).
+- **Empreinte rectangulaire 2 : 1** (largeur = le côté carré actuel) : **8×4 (âges 1-3), 10×5 (4-6), 12×6 (7-9), 14×7 (10-12), 16×8 (13-15)**, au lieu de 4×4 à 8×8. À 16×8 on retrouve la boîte de l'épave vanilla (15,6 × 7,8).
+- **Hauteur** (z, 1 unité = 0,707 tuile d'écran) : mât ou flèche compris, ≈ 3,5 tuiles d'écran à l'âge 1, ≈ 6 à 6,5 à l'âge 15 ; le reste du bâtiment reste sous 4 tuiles.
+- **Ce que cela implique pour le jeu (sans y toucher)** : `L.footprints.command` passe de « un côté » à « largeur × longueur » (`shared/levels/footprint.lua`, règle de place Q24, `apply_footprint`, contour, migration depuis les carrés actuels) ; boîtes de collision et de sélection rectangulaires (prototypes/levels/command.lua) ; conteneur non rotatif donc UNE orientation (nez à l'ouest) ; sprites plus grands (le plus grand ≈ 1 880 × 1 230 px HR avec les marges du rendu, à mesurer en vram : D4m, atlas virtuel plein au plancher, F186) ; `fo-faction-hq` prendrait la même épave (boîte déjà 2 : 1).
 
-## 2. Les états
-| État | Image | Emprise |
+## 2. La carcasse (l'image du DC) et la règle de métamorphose
+| Os du dinosaure | Pièce du vaisseau | Devient à l'âge élevé |
 |---|---|---|
-| **Épave (âge 0, départ)** | fusée **couchée** dans un cratère roussi, étage haut éventré (dents de tôle, nervures), ogive arrachée posée à côté, une ailette perdue, tuyère éclatée, braises, fumée figée, bourrelet de roches | 4×4 (sprite plus large, ≈ 6 tuiles) |
-| **Réparée (âge 1, Pionnier)** | la même fusée **dressée**, coque jaune de l'épave rapiécée (tôles, bâche, cordage), ailettes et nez rouges, échafaudage de bois, rampe, lanternes, fanion | 4×4 |
-| **Âges 2 à 15** | la même fusée, matière et modules de l'âge (§3) | 4 à 8 |
-Le jaune de l'épave est celui du vaisseau vanilla : le joueur reconnaît **sa** fusée.
+| **crâne** | nez : ogive, hublots, verrière | proue du bâtiment, toujours en peau, hublots → fenêtres |
+| **épine** | quille sur le dos | faîtière du toit (bois, cuivre, or) |
+| **côtes** | anneaux de coque | arches qui sortent des murs et dépassent du toit |
+| **queue** | collerette et 3 tuyères à l'arrière | colonnes de pied, en peau jusqu'à l'âge 15 |
+| **flancs** | 2 ailes + dérive | hangars, galeries, puis contreforts et tours |
+**Règles** : (1) le crâne, l'épine, les côtes et les tuyères restent visibles à TOUS les âges ; (2) la **peau** de la coque est remplacée par les murs du bâtiment en partant du VENTRE (le milieu), jamais par les bouts ; (3) un âge ajoute un module et ne retire que ce que le bâtiment remplace ; (4) la matière de l'âge (`ages.py`) habille le bâtiment ET la peau restante.
+Schéma texte (`=` peau de vaisseau, `#` bâtiment, `A` côtes) :
+```
+0  épave   ==  ==A==A==  ==      40 % de peau, ventre ouvert, crâne arraché à côté
+1  réparé  =========A====A=====  100 % peau, cabanes de bois sur le dos, passerelle
+4  mi-mi   ====A###A###A###A===  45 % peau (nez, queue), ventre en bâtiment à 2 niveaux
+8  bâtiment ==A#########A===    30 % peau (nez, queue), grande halle, côtes au-dessus du toit
+15 citadelle =A###A###A###A==    10 % peau (crâne noir, tuyères d'or), arches et faîtière d'or
+```
+| Âge | Part de peau | Ce qui s'ajoute | Ce qui disparaît |
+|---|---|---|---|
+| 0 | 40 % | cratère, débris, braises | ailette, ogive (arrachée), ventre |
+| 1 | 100 % | cabanes de bois, passerelle, rampe, fanion, pièces de tôle | cratère |
+| 2-3 | 90 → 75 % | forge de briques et cheminée ; chaudière dans le ventre | pieds d'atterrissage |
+| 4 | 45 % | rez + étage jaune et noir, portique radio, cuves, torchère, hangars d'aile | peau du ventre, pieds |
+| 5-7 | 40 → 35 % | coulée de lave ; pylônes Tesla ; toit de cristal | hangars → annexes |
+| 8 | 30 % | halle de bois et cuivre sur pilotis, serre, galeries, bocaux verts | cockpit à l'air |
+| 9-12 | 25 → 15 % | dôme de confinement ; paraboles ; radar, titane ; anneau supraconducteur | ailes en flèche → galeries |
+| 13-14 | 15 → 12 % | cuve de confinement, anneau de la Porte | |
+| 15 | 10 % | citadelle noire à créneaux, donjon étagé, tours aux bouts d'aile, arches et épine d'or | ailes (→ contreforts) |
+Les 5 états du premier jet suivent cette courbe (épave, 1, 4, 8, 15). Pas de 15 âges avant le verdict du DC.
 
-## 3. Comment chaque âge transforme la même fusée
-Règles : (a) la **coque** (fût, ailettes, ogive, porte) prend la matière et les bandes de l'âge (`ages.py`, mêmes palettes que mitrailleuse, four, etc.) ; (b) les **modules** se posent **autour** (jamais devant la porte, jamais sur la silhouette) ; (c) un module **nouveau par âge**, les précédents restent (sauf quand l'âge change de matière) ; (d) un détail de **nez** propre à l'ère ; (e) lueur et halo à la couleur de l'âge.
+## 3. Mécanique (proposition, rien de codé)
+Épave au départ pour chaque camp (niveau 0 : ce qu'est « sans centre » aujourd'hui) ; **Réparer** une fois (paquets de réparation + matériaux de l'âge 1, ordre de grandeur d'un niveau 1 → 2 actuel, à chiffrer en BALANCE_SHEET) → centre niveau 1, plafond des autres familles comme aujourd'hui (`L.CC_MAX`) ; **Améliorer** : les 15 niveaux actuels, un niveau = un âge = une étape de la métamorphose ; le remplacement garde contenu et réglages (F39). Les IA gardent leur QG (`fo-faction-hq`, 25 000 PV) sans réparer.
 
-| Ère | Âges | Coque | Modules autour | Nez |
-|---|---|---|---|---|
-| I | 1 Pionnier, 2 Forge, 3 Vapeur | jaune rapiécé → fer martelé, briques → laiton, cuivre | échafaudage de bois (1), forge et enclume + cheminée (2), chaudière et sifflet de vapeur (3) | fanion, brasero, soupape |
-| II | 4 Pétrole, 5 Volcan, 6 Électricité | jaune et noir de chantier → basalte et lave → blanc et bleu | portique d'acier, cuves, torchère (4) ; coulée de lave et cheminée volcanique (5) ; pylônes Tesla (6) | mât radio, braise, arcs bleus |
-| III | 7 Cristal, 8 Marais, 9 Atome | cristal violet → vert-de-gris → béton plombé | clusters de cristaux (7) ; pilotis, serre, bocal vert (8) ; dôme de confinement et radôme (9) | cristal, bocal, radôme |
-| IV | 10 Haute techno, 11 Titane, 12 Supraconducteurs | acier bleuté → titane clair → givre | paraboles et passerelles (10) ; radar tournant (11) ; anneau supraconducteur givré (12) | parabole, ailerons, anneau |
-| V | 13 Antimatière, 14 La Porte, 15 Néant | noir et violet → pierre blanche → noir et or | cuve de confinement et bouteilles (13) ; anneau de la Porte sur pieds (14) ; **disque segmenté en lévitation** et obélisques d'or (15) | éclairs, étoile, sphère noire flottante |
-Rendus du premier jet : épave, 1, 4, 8, 15. Les 10 autres âges se déduisent de la table (même code, un module par âge ; 4 à 6 h de rendu pour tout produire à 128 échantillons, comme les autres kits).
-
-## 4. Réparation et amélioration (proposition)
-- **Départ** : l'épave est posée à l'emplacement de départ, **un seul exemplaire par camp** (votre équipe et chaque faction). Les IA (équipe du joueur, factions) existent **sans** réparation : elles gardent leur QG, leur stock et leur cerveau actuels (`fo-faction-hq` : 25 000 PV, non minable ; devient l'épave des factions, même sprite teinté de leur couleur).
-- **Épave = niveau 0** du centre : rien de plus que maintenant sans centre (les autres familles restent à leur niveau 1 vanilla).
-- **Réparer** (une fois, bouton sur la fenêtre de l'épave) : coût proposé = paquets de réparation + matériaux de l'âge 1 (de l'ordre du coût actuel d'un niveau 1 → 2 ; chiffres à fixer en BALANCE_SHEET). Effet : l'épave devient le **centre niveau 1** (fusée dressée) et **débloque le plafond des autres bâtiments** comme le centre actuel (`L.CC_MAX`, niveau du centre = niveau maximal des familles).
-- **Améliorer** : le bouton et les paniers actuels (niveaux 1 → 15), un niveau = un âge ; l'image change à chaque niveau (même fusée, modules de l'âge). Aucun démontage : le remplacement garde contenu et réglages (F39).
-- **Faction IA** : par défaut leur QG reste l'épave (aucun coût) ; option : il se « répare » visuellement avec leur âge de recherche (voir Q17-f).
-
-## 5. Questions à trancher par le DC (question 17 de `docs/QUESTIONS_DC.md`, option par défaut en gras)
-- **a. Forme** : fusée **debout** réparée / couchée comme un vaisseau de l'âge 1 à 15 (épave seule couchée).
-- **b. Départ** : **une épave par camp dès le tick 0** / seulement pour le joueur.
-- **c. Coût de réparation** : **paquets de réparation + matériaux de l'âge 1** / gratuit.
-- **d. Nombre d'images** : **épave + 15 âges** / épave + 5 ères.
-- **e. Évolution** : **la fusée ne change pas de taille, les modules grandissent avec l'emprise** / la fusée grandit aussi.
-- **f. QG des factions** : **épave fixe, teintée de leur couleur** / se répare avec leur âge.
-- **g. Plafond** : **le plafond des autres bâtiments suit le niveau du centre, comme aujourd'hui** / la réparation donne un plafond fixe.
-- **h. Tourelles de pied** : **les 2 mitrailleuses d'âge aux coins avant de l'aire (déjà composées par `centre_e/satellites.py`)** / aucune.
+## 4. Question 17 (défauts)
+**a.** Forme : **vaisseau couché long** (tranché). **b.** Épave dès le tick 0 pour **chaque camp** (défaut). **c.** Coût : **paquets de réparation + matériaux de l'âge 1**. **d.** Images : **épave + 15 âges** (après verdict). **e.** Emprise : **2 : 1, 8×4 à 16×8** (le DC dit s'il veut une emprise plus petite, p. ex. 6×3 à 12×6, ou carrée). **f.** QG des factions : **même épave fixe, teintée de leur couleur**. **g.** Plafond : **suit le niveau du centre**. **h.** Orientation : **une seule (nez à l'ouest)** / deux (nez à l'ouest ou au nord, coût : double de sprites). **i.** Mitrailleuses d'âge aux coins avant : **non** (la forme longue n'a pas de coin avant ; `satellites.py` à réécrire si oui).

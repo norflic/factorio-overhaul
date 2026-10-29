@@ -18,9 +18,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "commun"))
 import compo as K  # noqa: E402
 
-TITRES = {"epave": "Fusée · épave (âge 0)", "age01": "Fusée · réparée (âge 1)", "age04": "Fusée · âge 4",
-          "age08": "Fusée · âge 8", "age15": "Fusée · âge 15"}
-EMPRISE = {"epave": 4, "age01": 4, "age04": 5, "age08": 6, "age15": 8}
+TITRES = {"epave": "Épave (âge 0) : le vaisseau écrasé", "age01": "Réparé (âge 1) : encore un vaisseau",
+          "age04": "Âge 4 : moitié vaisseau, moitié bâtiment", "age08": "Âge 8 : un bâtiment, la coque aux deux bouts",
+          "age15": "Âge 15 : citadelle sur la carcasse"}
+EMPRISE = {"epave": 4, "age01": 4, "age04": 5, "age08": 6, "age15": 8}   # largeur ; longueur = 2 × largeur
 AGE = {"epave": 0, "age01": 1, "age04": 4, "age08": 8, "age15": 15}
 
 
@@ -42,27 +43,28 @@ def main():
     ap.add_argument("--nuit", action="store_true")
     ap.add_argument("--largeur", type=int, default=2400)
     ap.add_argument("--titre", default="")
-    ap.add_argument("--fen", default="8.6,10.4,6.9", help="largeur, hauteur de la case en tuiles et y du pied")
+    ap.add_argument("--fen", default="3,13,8.4", help="marge en largeur (tuiles, ajoutée à la longueur), hauteur de la case et y du centre de l'emprise")
     a = ap.parse_args()
     noms = [n for n in a.noms.split(",") if n]
-    Wt, Ht, oy = [float(x) for x in a.fen.split(",")]
+    Wt0, Ht, oy = [float(x) for x in a.fen.split(",")]
     ppt = 64 if a.zoom == 2 else 32
-    cw, ch = int(Wt * ppt), int(Ht * ppt)
+    ch = int(Ht * ppt)
     gap, hd, lab = 6, 46, 44
-    cols = len(noms)
-    W = cols * cw + (cols + 1) * gap
+    cw = [int((2 * EMPRISE[n] + Wt0) * ppt) for n in noms]
+    W = sum(cw) + (len(noms) + 1) * gap
     H = hd + ch + lab + gap
     sheet = Image.new("RGB", (W, H), (22, 22, 26))
     dr = ImageDraw.Draw(sheet)
-    dr.text((10, 8), a.titre or "Centre de commandement = la fusée de départ · concept · zoom %d · %s" % (
+    dr.text((10, 8), a.titre or "Centre de commandement = la fusée de départ, vaisseau couché qui devient bâtiment · concept v2 · zoom %d · %s" % (
         a.zoom, "nuit" if a.nuit else "jour"), fill=(255, 205, 120), font=K.font(24 if a.zoom == 2 else 20))
+    x = gap
     for i, n in enumerate(noms):
-        x = gap + i * (cw + gap)
-        sheet.paste(cellule(a.src, n, Wt, Ht, oy, a.zoom, a.nuit), (x, hd))
-        dr.text((x + 8, hd + ch + 4), TITRES.get(n, n), fill=(240, 240, 240), font=K.font(22 if a.zoom == 2 else 17))
+        sheet.paste(cellule(a.src, n, cw[i] / float(ppt), Ht, oy, a.zoom, a.nuit), (x, hd))
+        dr.text((x + 8, hd + ch + 4), TITRES.get(n, n), fill=(240, 240, 240), font=K.font(21 if a.zoom == 2 else 15))
         e = AGE[n]
-        sub = "emprise %d×%d" % (EMPRISE[n], EMPRISE[n]) + ("" if e == 0 else " · %s" % K.NAME[e])
-        dr.text((x + 8, hd + ch + 4 + (26 if a.zoom == 2 else 20)), sub, fill=(170, 170, 175), font=K.font(16 if a.zoom == 2 else 13, False))
+        sub = "emprise %d×%d tuiles" % (2 * EMPRISE[n], EMPRISE[n]) + ("" if e == 0 else " · %s" % K.NAME[e])
+        dr.text((x + 8, hd + ch + 4 + (26 if a.zoom == 2 else 19)), sub, fill=(170, 170, 175), font=K.font(16 if a.zoom == 2 else 12, False))
+        x += cw[i] + gap
     if W > a.largeur:
         k = a.largeur / float(W)
         sheet = sheet.resize((a.largeur, int(H * k)), Image.LANCZOS)

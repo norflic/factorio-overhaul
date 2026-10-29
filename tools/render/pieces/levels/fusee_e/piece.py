@@ -24,7 +24,7 @@ def nom(e):
 
 def _variants():
     v = {}
-    for e in range(0, 16):
+    for e in (0, 1, 4, 8, 15):
         v[nom(e)] = {"epoch": e, "side": COTE[e], "dest": "levels/fusee_e/" + nom(e), "anchor_tiles": (0.0, 0.0)}
     return v
 
@@ -33,7 +33,7 @@ PIECE = {"name": "fus", "variants": _variants(), "margin_px": 40, "calib": {"LIG
 
 
 def margin_px(name):
-    return 40 + int(64 * 1.2)
+    return 40 + int(64 * 1.5)
 
 
 class _Ep:
@@ -52,13 +52,13 @@ class _Ep:
 
 def build(S, C, variant):
     import kit as K
-    import fusee
+    import vaisseau
     K.PREFIXE = PREFIXE
     v = PIECE["variants"][variant]
     e = v["epoch"]
     M = K.materials(S, e, _Ep(e))
     g = K.Geo(S, C, M, "F%02d" % e, 0.0, seed=300 + e)
-    fusee.fusee(g, e, v["side"])
+    vaisseau.vaisseau(g, e)
     count = dict(g.count)
     g.flush()
     return {"count": count, "halos": len(g.halos)}
