@@ -269,6 +269,16 @@ do
   local pm6 = Planner.plan(view({ stock = rich, plant = plant({ plants = { A, B }, turrets = { gA[1], gA[2], { x = 308, y = 7, rounds = 20 }, { x = 292, y = 7, rounds = 20 } } }) }), book)
   check(guard_task(pm6) == nil, "toutes les centrales gardées : aucune tâche")
 
+  -- Repos : la moins gardée (B) vient de rater sa pose, C (moins prioritaire) est choisie ; tout au repos : rien ; la centrale au repos compte au plafond
+  local Brest = { id = 11, pieces = B.pieces, boilers = 1, rest = true }
+  local plr = G.plan({ A, Brest, C }, gA, RANGE, LOW)
+  check(plr.pick and plr.pick.id == 12 and #plr.rows == 3, "B au repos : on garde C, B reste une ligne du plan")
+  check(G.plan({ A, Brest }, gA, RANGE, LOW).pick == nil, "toutes les centrales à garder au repos : aucune tâche")
+  local plr2 = G.plan({ A, { id = 11, pieces = B.pieces, boilers = 1, rest = false } }, gA, RANGE, LOW)
+  check(plr2.pick and plr2.pick.id == 11, "repos terminé : B est de nouveau choisie")
+  local pmr = Planner.plan(view({ stock = rich, plant = plant({ plants = { A, Brest, C }, turrets = gA }) }), book)
+  check(guard_task(pmr) and guard_task(pmr).plant_id == 12, "planificateur : la tâche va à C pendant le repos de B")
+
   -- Mutants
   local real_near_any = G.near_any
   G.near_any = function() return 0 end -- mutant : plafond jamais atteint

@@ -147,7 +147,7 @@ function G.plan(plants, turrets, range, low, cap)
       local row = { id = pl.id, need = need, pieces = pl.pieces }
       rows[#rows + 1] = row
       -- la moins gardée : near/wanted le plus bas (produit en croix, pas de division), puis le moins de places occupées ; égalité : la première
-      if need.missing > 0 then
+      if need.missing > 0 and not pl.rest then -- (pl.rest : au repos après une pose à zéro, comptée mais non choisie)
         if not best then best = row
         else
           local a, b = need.near * best.need.wanted, best.need.near * need.wanted

@@ -54,9 +54,14 @@ local function plants_of(f, surface)
   if not b then return plants end
   if b.plant then ids[1] = b.plant end
   for _, id in ipairs(b.extra_plants or {}) do ids[#ids + 1] = id end
+  local done = {}
   for _, pid in ipairs(ids) do
-    local pieces, boilers = pieces_of(f, surface, pid)
-    if pieces then plants[#plants + 1] = { id = pid, pieces = pieces, boilers = boilers } end
+    -- (une centrale de plus peut devenir b.plant quand la première est annulée, tout en restant dans b.extra_plants : une seule fois)
+    if not done[pid] then
+      done[pid] = true
+      local pieces, boilers = pieces_of(f, surface, pid)
+      if pieces then plants[#plants + 1] = { id = pid, pieces = pieces, boilers = boilers } end
+    end
   end
   return plants
 end
@@ -76,6 +81,7 @@ end
 -- Journal [FO-CENTRALE-GARDE] (lecture seule : l'état ne sert qu'à ne pas répéter une ligne) : la centrale vue finie, un état toutes les
 -- 3 minutes (tourelles armées à portée, tâche ouverte, fer au stock), chaque pose (cumul, délai depuis la centrale finie).
 local STATUS_EVERY = 3 * 3600
+local REST_TICKS = 2 * 3600 -- repos d'une centrale dont la dernière pose n'a rien posé
 
 --- Pause de la garde après la mort d'un porteur en route (comme un avant-poste MEURTRIER : T.lethal_ticks) ; journalise le trajet perdu.
 function GC.on_lost(f, agent_id, cause)
@@ -105,6 +111,7 @@ function GC.view(f, fortify_open, iron)
   local have, want, npieces, nboilers = 0, 0, 0, 0
   g.seen = g.seen or {}
   for _, pl in ipairs(plants) do
+    pl.rest = ((g.rest or {})[pl.id] or 0) > tick -- pose sans résultat récente : on passe à une autre centrale (pas de famine)
     local h = Guard.guards(pl.pieces, turrets, range, T.turret_ammo_low)
     local w = Guard.wanted(pl.boilers)
     have, want, npieces, nboilers = have + h, want + w, npieces + #pl.pieces, nboilers + pl.boilers
@@ -133,6 +140,12 @@ function GC.place(f, surface, task, carrier)
     b.garde = b.garde or { poses = 0 }
     local g, tick = b.garde, game.tick
     g.poses = g.poses + n
+    if task.plant_id then
+      -- Lot GARDE-MULTI : une pose à zéro (emplacements bloqués, plus de tourelle au porteur) met CETTE centrale au repos : sinon la moins
+      -- gardée, toujours la même, monopoliserait l'unique tâche de garde et les autres centrales resteraient nues.
+      g.rest = g.rest or {}
+      g.rest[task.plant_id] = n == 0 and tick + REST_TICKS or nil
+    end
     if n > 0 and not g.pose1 then g.pose1 = tick end
     local have = Guard.guards(pieces, turrets_of(f), range, T.turret_ammo_low)
     log(string.format("[FO-CENTRALE-GARDE] %s : pose de %d tourelle(s) sur %d demandee(s) a la centrale %s a %.1f min (cumul %d), armees a portee %d, delai depuis la centrale finie %s%s",
