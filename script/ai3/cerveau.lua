@@ -827,9 +827,14 @@ function Ia3.plan(f, view, book, surface, tick)
   do
     local fq = st.fq
     local k = fq and (fq.cap .. ":" .. fq.auto .. ":" .. fq.why) or ""
+    -- au plus 60 lignes par faction : la borne suit la couverture mesurée (débit ≥ la moitié du visé) et les manques
+    -- durables, qui peuvent osciller d'une pensée à l'autre dans une longue partie (journal sans fin sinon)
     if k ~= (st.fq_logged or "") then
       st.fq_logged = k
-      if fq then
+      st.fq_logs = (st.fq_logs or 0) + 1 -- au-delà de 60, plus de ligne : l'état courant reste dans st.fq
+      if st.fq_logs > 60 then
+        st.fq_logs = 61
+      elseif fq then
         log(string.format("[FO-FONDERIE-QG] %s : %d plaque(s) fondue(s) par ligne a tapis : fours du QG bornes a %d (borne d'avant %d, %d pose(s) ou en cours)%s a %.1f min",
           f.key, fq.auto, fq.cap, fq.max, fq.have, fq.why ~= "" and "" or " (borne d'avant plus basse)", minutes(f, tick)))
       else
