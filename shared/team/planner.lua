@@ -32,6 +32,7 @@ local Guard = require("shared.team.garde_centrale") -- lot CENTRALE-GARDE : tour
 local Pr = require("shared.team.priorite") -- lot PRIORITE-RESSOURCES : production avant défense quand le fer ne paie pas les deux
 local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du front, commande partielle (constantes de ce module)
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
+local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
 
 local P = {}
 
@@ -342,8 +343,23 @@ function P.plan(view, book)
   -- Postes à défendre (le QG, les avant-postes sans leurs tourelles, la centrale, le front), dans l'ordre où l'urgence les sert.
   -- Lot PRIORITE-RESSOURCES : construits ICI (sans effet de bord) parce que leur coût décide de l'ordre production / défense.
   local posts = {}
+  -- Lot DEFENSE-CHOIX (défaut 5 du DC, 0.6.18 : « 600 de fer [...] ils peuvent faire des tourelles [...] payer des soldats, des fois c'est
+  -- peut-être pas la meilleure solution ») : base menacée (view.base_alert, script/faction/defchoix.lua) et fer + cuivre au-dessus des
+  -- planchers qui paient une tourelle avec ses chargeurs : le QG veut des tourelles (jusqu'à Dc.HQ_CAP), AVANT la levée de soldats
+  -- d'urgence plus bas (shared/team/defchoix.lua). Lecteurs de out.defchoix : la levée d'urgence ci-dessous, le journal [FO-DEFCHOIX]
+  -- (script/team/team.lua).
+  local dc = { want = view.hq_defend or T.defend_hq, first = false, hold_soldiers = false }
+  if df and view.base_alert then
+    local cu_key = T.outposts.copper.product
+    local rc = book:raw_cost(turret_items(1))
+    dc = Dc.turrets({ alert = true, want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, ok = turret_ok,
+      busy = (view.hq_fortify or open["fortify:hq"]) and true or false,
+      funds_iron = (avail[iron_key] or 0) - T.defend_iron_floor, cost_iron = rc[iron_key] or 0,
+      funds_copper = (avail[cu_key] or 0) - T.defend_copper_floor, cost_copper = rc[cu_key] or 0 })
+  end
+  out.defchoix = dc
   if df then
-    posts[1] = { id = "hq", want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, busy = view.hq_fortify }
+    posts[1] = { id = "hq", want = dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         local ospec = T.outposts[o.kind]
@@ -1012,8 +1028,11 @@ function P.plan(view, book)
   end
 
   local army_goal_passed = done["army"] or army_now
-  if view.threatened or army_goal_passed then
-    local target = view.threatened and math.max(P.army_target(view), view.soldiers + T.kit_batch) or P.army_target(view)
+  -- Lot DEFENSE-CHOIX : la pensée qui commande les tourelles du QG (dc.hold_soldiers) ne lance pas aussi la levée d'urgence ; elle
+  -- reprend à la pensée suivante (tâche de pose ouverte) avec le fer qui reste. L'armée ordinaire (army_goal_passed) n'est pas touchée.
+  local surge = view.threatened and not dc.hold_soldiers
+  if surge or army_goal_passed then
+    local target = surge and math.max(P.army_target(view), view.soldiers + T.kit_batch) or P.army_target(view)
     if army_now and goal and goal.need.soldiers then target = math.max(target, goal.need.soldiers) end
     target = math.min(target, view.soldiers_max)
     if view.soldiers < target and not out.train then -- lot IA2-a2 : garde déjà équipée au QG à cette pensée
@@ -1024,7 +1043,7 @@ function P.plan(view, book)
         out.train = { unit = unit, count = n }
       else
         -- Repli sur le fusilier si l'équipement du meilleur soldat n'est pas encore fabricable.
-        local ok = want(kits, view.threatened and 85 or 45, "armee")
+        local ok = want(kits, surge and 85 or 45, "armee")
         if not ok and army_now then add_missing(last_raw) end
         if not ok and unit ~= "rifleman" then
           local fallback = kit_list("rifleman", n)

@@ -294,6 +294,7 @@ function C.think(view, book, st, ctx)
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
     grow_short = base.grow_short, -- lot FER-EQUIPE : la réserve de fer a retenu une recrue (journal [FO-FER])
     coal_rate = base.coal_rate, burn_rate = base.burn_rate, defend = base.defend, priorite = base.priorite,
+    defchoix = base.defchoix, -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats (journal [FO-DEFCHOIX], script/team/team.lua)
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pay = E.pay }, -- lot CAPITAL : améliorations dont le coût est réservé au stock virtuel, payées par le runtime
