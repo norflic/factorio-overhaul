@@ -524,7 +524,7 @@ end
 --- Autre tuile de minerai hors danger pour un minage (C5 « change de site ») : ou nil.
 function M.retarget_mine(f, t, task, surface, tick, B)
   if not (task.resource and f.hq_pos) then return nil end
-  local names = Harvest.names_for(f, task.resource)
+  local names = Harvest.names_for(f, task.resource, task.trees)
   if #names == 0 then return nil end -- lot KIT : rien à récolter pour cet objet
   local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 })
   table.sort(res, function(x, y)
@@ -539,7 +539,7 @@ function M.retarget_mine(f, t, task, surface, tick, B)
     local p = res[i].position
     if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0 then
       local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } },
-        type = Harvest.free_types(task.resource, f), invert = true, limit = 1 })
+        type = Harvest.free_types(task.resource, f, task.trees), invert = true, limit = 1 })
       if busy == 0 and Harvest.foreign_resource(surface, p, task.resource, f) then busy = 1 end -- lot KIT : ressource étrangère sur la tuile
       if busy == 0 then return { x = p.x, y = p.y } end
     end

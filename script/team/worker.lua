@@ -34,6 +34,7 @@ local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exe
 local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné à la main (minerai, arbres)
 local Charge = require("shared.team.charge_four") -- lot FOURS : quantité emportée pour remplir les fours à la pile
+local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 
 local Worker = {}
 
@@ -334,6 +335,10 @@ function Worker.program(f, task, surface, tick)
     local o = f.outposts[task.outpost]
     if not o then return nil end
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
+  elseif k == "rebuild" then
+    return Recon.program(f, task)
+  elseif k == "repair" then
+    return Recon.repair_program(f, task)
   elseif k == "garrison" then
     -- Lot IA1-b (fond du pôle Territoire) : garde d'un avant-poste ou du QG ; le PNJ tire sur ce qui approche
     -- (autodéfense, rayon DEFENSE_RADIUS) pendant task.wait ticks, puis rentre.
@@ -452,7 +457,7 @@ function Worker.program(f, task, surface, tick)
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
     -- Lot IA1-b2 (R-QCM-25c (c)) : task.radius (minage de fond de votre équipe : près du coffre, T.near_mine).
-    local names = Harvest.names_for(f, task.resource)
+    local names = Harvest.names_for(f, task.resource, task.trees)
     if #names == 0 then return nil end -- lot KIT : un objet sans entité récoltable ne se mine pas à la main
     local res = surface.find_entities_filtered({ position = f.hq_pos, radius = task.radius or 96, name = names, limit = 256 }) -- lot KIT : minerai = l'entité du même nom, bois = arbres
     table.sort(res, function(a, b)
@@ -469,7 +474,7 @@ function Worker.program(f, task, surface, tick)
       local r = res[i]
       local p = r.position
       local busy = surface.count_entities_filtered({
-        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource, f), invert = true, limit = 1,
+        area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } }, type = Harvest.free_types(task.resource, f, task.trees), invert = true, limit = 1,
       })
       -- Lot IA1-b : un minage de FOND ne va pas miner à moins de 40 tuiles d'un nid ou d'un ver (morts des PNJ).
       -- Lot IA-V2 : les minages du cerveau par besoins et du manque de plaques aussi (task.prudent) : moteur réel,
@@ -601,6 +606,9 @@ ACTS.smelters = function(agent, f, task, surface)
 end
 
 ACTS.equiper = Equip.act -- lot LEVIERS
+
+ACTS.rebuild = function(agent, f, task, surface) return Recon.act(agent, f, task, surface) end -- lot COUVERTURE
+ACTS.repair = function(agent, f, task, surface) return Recon.repair_act(agent, f, task, surface) end -- lot RECONSTRUIRE
 
 ACTS.smelt = function(agent, f, task)
   Outposts.service_smelters(f, main_inv(agent), task.smelt)
@@ -1050,7 +1058,7 @@ FSM.define(MACHINE, {
       local got = e.get_item_count(item) - (agent.mine_base or 0)
       local target = agent.task and agent.task.target
       local f = faction_of(agent)
-      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item), f)
+      local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item, agent.task and agent.task.trees), f)
       if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
         e.mining_state = { mining = false }
         -- Lot KIT (mesure, journal seul) : rendement de chaque minage à la main, pour la part des minages à 0 sur N.

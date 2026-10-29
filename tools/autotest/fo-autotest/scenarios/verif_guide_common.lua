@@ -112,6 +112,37 @@ return {
         e.tick / 3600, tag, r.n, r.recruited, r.lost or -1, r.lost_enemy or -1, r.iron or iron, r.outposts,
         r.outposts_defended or -1, r.turrets or count(s, "ammo-turret", r.force), r.produced_mu, r.hq_turrets or -1,
         idle_pct, r.idle_rien or -1, r.idle_bloque or -1, r.idle_manque or -1))
+      -- Lot COUVERTURE (mesure, hors bilan) : bilan de la reconstruction de la force (interface fo-recon, lecture seule).
+      local okr, rs = pcall(ctx.remote, "fo-recon", "status", r.key)
+      if okr and type(rs) == "table" then
+        ctx.log(string.format("recon minute %d | %s | enregistrees=%s refaites=%s bloquees=%s differees=%s taches=%s abandonnees=%s a_refaire=%s",
+          e.tick / 3600, tag, tostring(rs.recorded), tostring(rs.rebuilt), tostring(rs.blocked), tostring(rs.deferred),
+          tostring(rs.tasks), tostring(rs.abandoned), tostring(rs.pending)))
+      end
+      -- Lot COUVERTURE (mesure, hors bilan) : delai destruction -> reconstruction par nom de piece (minutes : moyenne/max ;
+      -- o = refaite par l'equipe, x = vue refaite par un autre moyen, r = detruites, att = encore en attente avec son age max, ns = pieces attendant l'objet au stock)
+      -- et consommateurs electriques de la force sans courant (inserter, foreuse, assembleur, labo).
+      if okr and type(rs) == "table" and rs.byname then
+        local names, parts = {}, {}
+        for nm in pairs(rs.byname) do names[#names + 1] = nm end
+        table.sort(names)
+        for _, nm in ipairs(names) do
+          local b = rs.byname[nm]
+          local w = rs.wait and rs.wait[nm]
+          parts[#parts + 1] = string.format("%s:r%d,o%d@%.1f/%.1f,x%d@%.1f/%.1f,att%d@%.1f,ns%d", nm, b.rec, b.own,
+            b.own > 0 and b.own_sum / b.own / 3600 or 0, b.own_max / 3600, b.ext, b.ext > 0 and b.ext_sum / b.ext / 3600 or 0,
+            b.ext_max / 3600, w and w.n or 0, w and w.max / 3600 or 0, b.nostock or 0)
+        end
+        ctx.log("delais minute " .. math.floor(e.tick / 3600) .. " | " .. tag .. " | " .. table.concat(parts, " "))
+      end
+      do
+        local tot, cut = 0, 0
+        for _, en in ipairs(s.find_entities_filtered({ force = r.force, type = { "inserter", "mining-drill", "assembling-machine", "lab" } })) do
+          tot = tot + 1
+          if en.status == defines.entity_status.no_power then cut = cut + 1 end
+        end
+        ctx.log(string.format("coupes minute %d | %s | consommateurs=%d sans_courant=%d", math.floor(e.tick / 3600), tag, tot, cut))
+      end
     end
   end,
 
