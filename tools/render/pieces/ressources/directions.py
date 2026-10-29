@@ -278,12 +278,107 @@ ICONE["I3"] = dict(ICONE["I1"], roche_mats=("ilmenite_brun", "leucoxene_roux", "
                    bloc_mats=("ilmenite_roux", "ilmenite_brun"))
 EFFET["I3"] = dict(EFFET["I2"])
 
+# ------------------------------------------------------------------------------------------------
+# MONAZITE (lot X2, 25/10) : minerai des terres rares, âge 12, SABLES NOIRS (docs/SCENARIO_EPOQUES.md : « sables
+# noirs (rivages, ou dunes) »). Forme PROPRE : un PLACER, tas de grains arrondis (galets de plage) et de petits prismes
+# trapus (la monazite cristallise en prismes en coin), éclat RÉSINEUX (rugosité moyenne, aucun métal), couleur MIEL
+# à brun-rouge (la monazite réelle), mêlés de grains noirs de magnétite (le sable noir lui-même). Ni les druses
+# dressées du tungstène, ni les nodules à croûte de l'ilménite, ni les blocs anguleux de la pierre. Pas de lueur bleue
+# (défaut de l'ilménite, trop claire la nuit) : une couche d'effet très faible, AMBRE, sur les faces claires seulement
+# (le thorium est faiblement radioactif ; à juger en moteur). Choix provisoires, sans verdict du DC.
+# ------------------------------------------------------------------------------------------------
+MAT.update({
+    # monazite miel (cérium, lanthane) : jaune ambré résineux
+    "monazite_miel": dict(color=(0.55, 0.27, 0.045), rough=0.38, met=0.0, grain=0.25, gscale=36.0, dirt=0.35),
+    # monazite brun-rouge (thorium) : la part sombre et chaude
+    "monazite_brun": dict(color=(0.26, 0.085, 0.022), rough=0.40, met=0.0, grain=0.3, gscale=36.0, dirt=0.4),
+    # monazite claire (faces au soleil) : jaune paille
+    "monazite_paille": dict(color=(0.70, 0.45, 0.12), rough=0.42, met=0.0, grain=0.2, gscale=36.0, dirt=0.3),
+    # magnétite : grains noirs du sable noir, éclat métallique sourd
+    "magnetite": dict(color=(0.030, 0.030, 0.034), rough=0.35, met=0.5, grain=0.2, gscale=40.0, dirt=0.3),
+    # sable noir (tapis de grains fins, plus clair que le sol pour se lire)
+    "sable_noir": dict(color=(0.060, 0.058, 0.060), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.2),
+})
+DIRECTIONS["Z1"] = dict(
+    nom="placer de monazite miel et brun-rouge dans le sable noir",
+    touffes=(0, 0, 0, 0, 0, 0, 0, 0), lames=(0, 0),
+    lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("monazite_miel",),
+    # galets arrondis : le corps du placer (peu de coupes, très lissés : grains roulés par les vagues)
+    roches=(10, 9, 8, 7, 6, 5, 3, 2), roche_taille=(0.11, 0.19),
+    roche_mats=("monazite_miel", "monazite_miel", "monazite_brun", "monazite_paille", "magnetite"),
+    # prismes trapus de monazite (cristaux en coin), hauts
+    blocs=(5, 4, 4, 3, 3, 2, 1, 1), bloc_taille=(0.09, 0.14), bloc_haut=(0.07, 0.12),
+    bloc_mats=("monazite_miel", "monazite_brun", "monazite_paille"),
+    grains=(26, 22, 19, 16, 13, 10, 7, 4), grain_mats=("monazite_miel", "monazite_brun", "magnetite", "monazite_paille"),
+    fins=(150, 130, 112, 95, 78, 62, 42, 24),
+    fin_mats=("sable_noir", "monazite_miel", "magnetite", "monazite_brun", "monazite_miel"),
+    rayon=0.62,
+    effet="eclats",
+)
+CALIB["Z1"] = {"SKY_GLOSSY_FACTOR": 2.0}
+ROCHE_COUPES["Z1"] = 4
+ROCHE_LISSE["Z1"] = 38
+ROCHE_APLAT["Z1"] = 0.70
+ROCHE_CASSURE["Z1"] = (0.60, 0.90)
+ICONE["Z1"] = dict(lames=(0, 0), roches=(5, 6), roche_taille=(0.15, 0.22), roche_coupes=3, roche_cassure=(0.60, 0.90),
+                   roche_aplat=0.75, roche_mats=("monazite_miel", "monazite_brun", "monazite_paille", "monazite_miel"),
+                   blocs=2, bloc_taille=(0.16, 0.22), bloc_haut=(0.10, 0.15), bloc_mats=("monazite_miel", "monazite_brun"))
+# Couche d'effet : ambre très faible sur les faces claires seulement (aucune lueur sur tout le minerai).
+EFFET["Z1"] = dict(teinte=(1.0, 0.62, 0.20), seuil=(0.40, 0.75))
+
+# Z2 (25/10, après mesure.py sur Z1, 2e essai à 32 échantillons, couverture réglée : 0,257 → 0,055) : ΔE76 à la PIERRE
+# vanilla 8 seulement (moyenne brun-beige, teinte 38°, saturation 0,48, contre 42° et 0,44 pour la pierre ; cuivre 21,
+# fer 30, charbon 34, uranium 46). Visée : s'écarter de la pierre par la SATURATION et la teinte (miel doré franc, vers le
+# jaune) et par la luminance (un tiers de magnétite noire : moyenne plus sombre que la pierre), brun-rouge rare.
+MAT.update({
+    "monazite_or": dict(color=(0.62, 0.40, 0.035), rough=0.36, met=0.0, grain=0.22, gscale=36.0, dirt=0.3),
+    "monazite_soufre": dict(color=(0.78, 0.62, 0.11), rough=0.40, met=0.0, grain=0.2, gscale=36.0, dirt=0.3),
+})
+DIRECTIONS["Z2"] = dict(DIRECTIONS["Z1"], nom="placer de monazite miel doré dans le sable noir, un tiers de magnétite",
+                        roche_mats=("monazite_or", "monazite_or", "magnetite", "monazite_soufre", "magnetite",
+                                    "monazite_brun"),
+                        bloc_mats=("monazite_or", "monazite_soufre", "monazite_or"),
+                        grain_mats=("monazite_or", "magnetite", "monazite_soufre", "magnetite"),
+                        fin_mats=("sable_noir", "monazite_or", "magnetite", "monazite_soufre", "sable_noir"))
+CALIB["Z2"] = dict(CALIB["Z1"])
+ROCHE_COUPES["Z2"], ROCHE_LISSE["Z2"] = 4, 38
+ROCHE_APLAT["Z2"], ROCHE_CASSURE["Z2"] = 0.70, (0.60, 0.90)
+ICONE["Z2"] = dict(ICONE["Z1"], roche_mats=("monazite_or", "magnetite", "monazite_soufre", "monazite_or"),
+                   bloc_mats=("monazite_or", "monazite_soufre"))
+EFFET["Z2"] = dict(teinte=(1.0, 0.70, 0.20), seuil=(0.40, 0.75))
+
+# Z3 (après mesure de Z2 : ΔE76 à la pierre 6, PIRE) : la magnétite noire mêlée au miel donne en MOYENNE un brun-beige
+# désaturé, celui de la pierre vanilla (L moy 98 contre 98 ; saturation 0,43 contre 0,44). Une moyenne loin de la pierre
+# demande soit beaucoup plus sombre (on tombe sur le charbon), soit plus clair ET plus saturé : jaune d'or franc, qu'aucun
+# minerai n'a (pierre beige, cuivre orange-rouge, uranium vert, ilménite saumon-crème). Galets et prismes or et soufre,
+# brun-rouge rare, magnétite réduite aux grains fins (le sable noir du sol fait le contraste).
+MAT["monazite_soufre_clair"] = dict(color=(0.86, 0.70, 0.16), rough=0.40, met=0.0, grain=0.18, gscale=36.0, dirt=0.25)
+DIRECTIONS["Z3"] = dict(DIRECTIONS["Z1"], nom="placer de monazite jaune d'or dans le sable noir",
+                        roche_mats=("monazite_soufre_clair", "monazite_or", "monazite_soufre", "monazite_or",
+                                    "monazite_soufre_clair", "monazite_brun"),
+                        bloc_mats=("monazite_soufre_clair", "monazite_or", "monazite_soufre"),
+                        grain_mats=("monazite_soufre", "monazite_or", "monazite_soufre_clair", "magnetite"),
+                        fin_mats=("monazite_or", "monazite_soufre", "sable_noir", "monazite_or", "magnetite"))
+CALIB["Z3"] = dict(CALIB["Z1"])
+ROCHE_COUPES["Z3"], ROCHE_LISSE["Z3"] = 4, 38
+ROCHE_APLAT["Z3"], ROCHE_CASSURE["Z3"] = 0.70, (0.60, 0.90)
+ICONE["Z3"] = dict(ICONE["Z1"], roche_mats=("monazite_soufre_clair", "monazite_or", "monazite_soufre", "monazite_brun"),
+                   bloc_mats=("monazite_soufre_clair", "monazite_or"))
+EFFET["Z3"] = dict(teinte=(1.0, 0.78, 0.25), seuil=(0.45, 0.80))
+# Production de Z3 à 128 échantillons : stade 1 à 0,256 de couverture contre 0,316 (écart 0,060 > 0,05 toléré par
+# check_gisement.py) ; les stades 1 et 2 reçoivent plus de galets et de grains (les autres inchangés).
+DIRECTIONS["Z3"]["roches"] = (13, 10, 8, 7, 6, 5, 3, 2)
+DIRECTIONS["Z3"]["grains"] = (34, 26, 19, 16, 13, 10, 7, 4)
+DIRECTIONS["Z3"]["blocs"] = (6, 5, 4, 3, 3, 2, 1, 1)
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
-ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45}
+ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
-GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111}
+GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
+          "Z1": 6212, "Z2": 6212, "Z3": 6212}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
