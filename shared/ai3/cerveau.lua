@@ -291,6 +291,7 @@ function C.think(view, book, st, ctx)
     recruit_workers = base.recruit_workers, recruit_uses = base.recruit_uses, recruit_unarmed = base.recruit_unarmed,
     emergency_unarmed = base.emergency_unarmed, emergency_recruit = base.emergency_recruit,
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
+    grow_short = base.grow_short, -- lot FER-EQUIPE : la réserve de fer a retenu une recrue (journal [FO-FER])
     coal_rate = base.coal_rate, burn_rate = base.burn_rate, defend = base.defend,
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,

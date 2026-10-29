@@ -104,5 +104,31 @@ check(mines(Fond.candidates(fview(), {}, { mine_left = 0 }), ore) == 0, "sans re
 local c3 = Fond.candidates(fview(), {}, { mine_left = 2, iron_extra = { res = ore, n = 2 } })
 check(mines(c3, ore) >= 2, "le renfort s'ajoute au plafond ordinaire")
 
+-- §5 : le renfort doit aussi servir votre équipe SOUS son effectif de départ (fond coupé). Constat des parties du 29/10
+-- (fo-logs/2026-10-29_VAGUE2/FUMEE, graine 1618033988) : équipe à 6 PNJ sur 8 de la minute 26 à la 60, 100 % inactifs, fer à 0 :
+-- fond coupé (script/team/poles.lua : full/safe exigent n >= effectif de départ), donc aucun minage de renfort, donc aucune recrue.
+check(FE.recruit_iron({ { "pistol", 1 }, { "x-plate", 70 }, { "x-plate", 5 } }, "x-plate") == 75 and FE.recruit_iron(nil, "x-plate") == 0, "fer d'une recrue (journal)")
+check(type(FE.off_fond) == "function", "FE.off_fond existe")
+if type(FE.off_fond) == "function" then
+  check(FE.off_fond({ player = true, fond_on = false, threat = false }), "votre équipe, fond coupé (sous l'effectif) : renfort permis")
+  check(not FE.off_fond({ player = true, fond_on = true, threat = false }), "fond allumé : le chemin ordinaire s'en charge")
+  check(not FE.off_fond({ player = true, fond_on = false, threat = true }), "QG menacé : tout le monde au coffre, aucun renfort")
+  check(not FE.off_fond({ player = false, fond_on = false, threat = false }), "une faction : jamais")
+  check(not FE.off_fond({}), "entrées vides : non")
+end
+check(type(Fond.iron_extra_tasks) == "function", "Fond.iron_extra_tasks existe")
+if type(Fond.iron_extra_tasks) == "function" then
+  local ts = Fond.iron_extra_tasks({ iron_extra = { res = ore, n = 3 }, mine_radius = 96 })
+  check(#ts == 3 and ts[1].kind == "mine" and ts[1].resource == ore and ts[1].fond and ts[1].radius == 96, "3 tâches de minage de fer de fond")
+  check(#Fond.iron_extra_tasks({ iron_extra = { res = ore, n = 3 }, keys = { [ts[1].key] = true } }) == 2, "clé déjà au tableau : pas de doublon")
+  check(#Fond.iron_extra_tasks({ iron_extra = { res = ore, n = 3 }, prudent = true }) == 0, "prudence : rien")
+  check(#Fond.iron_extra_tasks({ iron_extra = { res = ore, n = 3 }, mine_skip = { [ore] = true } }) == 0, "échec récent : rien")
+  check(#Fond.iron_extra_tasks({}) == 0 and #Fond.iron_extra_tasks({ iron_extra = { res = ore, n = 0 } }) == 0, "sans renfort : rien")
+  -- mêmes tâches que par Fond.candidates (fond allumé)
+  local viaC = Fond.candidates(fview(), {}, { mine_left = 0, mine_radius = 96, iron_extra = { res = ore, n = 3 } })
+  local _, kc = mines(viaC, ore)
+  check(#kc == 3 and kc[1] == ts[1].key and kc[2] == ts[2].key and kc[3] == ts[3].key, "mêmes clés par les deux chemins")
+end
+
 print(string.format("[FER-EQUIPE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
