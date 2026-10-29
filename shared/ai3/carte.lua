@@ -344,6 +344,19 @@ function K.prior(m, res, key, spawn, hq)
   return p
 end
 
+--- Lot VEILLE : le trajet en ligne droite de `a` à `b` passe-t-il loin de tout nid et de tout ver VUS ? Un point échantillonné tous les
+--- 64 tuiles (extrémités comprises) ne doit avoir ni nid ni ver à moins de K.PATH_CLEAR_NEST tuiles. Aucune trigonométrie.
+K.PATH_CLEAR_NEST = 64
+function K.path_clear(m, a, b)
+  local dx, dy = b.x - a.x, b.y - a.y
+  local n = math.max(1, math.floor(math.sqrt(dx * dx + dy * dy) / 64))
+  for i = 0, n do
+    local nests, worms = K.enemies_near(m, a.x + dx * i / n, a.y + dy * i / n, K.PATH_CLEAR_NEST)
+    if nests + worms > 0 then return false end
+  end
+  return true
+end
+
 --- Meilleure cible d'exploration. ctx = { hq = {x, y}, me = {x, y}, tick, res (ou nil), spawn = {x, y},
 --- rivals = { {x, y} }, exclude = { [clé] = true }, max_dist }. Renvoie clé, note (nil si aucune).
 function K.best_target(m, ctx)

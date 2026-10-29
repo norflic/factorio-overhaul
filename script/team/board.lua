@@ -764,6 +764,27 @@ function Board.incoming(f)
   return inc
 end
 
+--- Lot VEILLE : tâches libres PRENABLES, c'est-à-dire dont la matière stricte est libre au registre (une tâche bloquée par une matière
+--- réservée ne rend aucun PNJ libre « utile » : ce sont ces PNJ qui attendent, K5 du lot IA-V2). Sans registre (réglage éteint), toutes les
+--- tâches libres comptent. Ne crée rien.
+function Board.takeable(f)
+  local b = Board.get(f)
+  local reg = f.team and f.team.reg
+  local n = 0
+  for _, t in ipairs(b.list) do
+    if not t.worker then
+      local ok = true
+      if reg then
+        for _, it in ipairs(Board.strict_list(t) or {}) do
+          if R.free(reg, it[1]) < it[2] then ok = false break end
+        end
+      end
+      if ok then n = n + 1 end
+    end
+  end
+  return n
+end
+
 function Board.count(f)
   local b = Board.get(f)
   local open, taken = 0, 0
