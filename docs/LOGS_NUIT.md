@@ -70,3 +70,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~09 h 35, passage 20
 - Rien de nouveau : 22 archives des 70 dernieres minutes relues (CENTRALE-GARDE b-*, RECON6 lot et temoin) : 0 erreur Lua, 0 ECHEC. Disque 137 Go ; 1 banc.py pour 1 lot, 1 factorio.exe, 0 blender.exe (banc 3D fini), 7 bash. Note : le sceptique-cg1 a efface par erreur des .py du scratchpad partage (scan_logs.py, scan2.py) ; releve fait par boucle directe.
+
+## 29/10 ~10 h 10, passage 21
+- Rien de nouveau : 15 archives des 70 dernieres minutes relues (CENTRALE-GARDE c-*, d-*) : 0 erreur Lua, 0 ECHEC. Disque 137 Go ; file vide (0 banc.py, 0 factorio.exe, 0 blender.exe, 3 bash) : plan-directeur ecrit ses corrections, centre-fusee prepare son brief.
