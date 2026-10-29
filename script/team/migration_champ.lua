@@ -382,6 +382,32 @@ local function begin_part(f, surface, ms, o, st, list, rects, tick)
   return true
 end
 
+--- Relecture MIGRATION-DECLENCHE : paires de la partie, y compris celles REFAITES par la reconstruction pendant l'attente des matières
+--- (nouveaux numéros d'unité, mêmes tuiles). Le registre n'est plus purgé en étape « projet » : une paire tuée puis refaite sur la
+--- partie doit être retirée elle aussi, sinon elle occupe les tuiles promises au plan (`thaw`) et la ligne neuve ne se pose pas
+--- (build.lua ne libère rien au dégel). Rend les numéros triés et le nombre de paires ajoutées. Lecture seule.
+local function part_ids(st, list, thaw)
+  local set, ids = {}, {}
+  for _, id in ipairs(st.ids or {}) do
+    if not set[id] then set[id] = true; ids[#ids + 1] = id end
+  end
+  local tset = {}
+  for i = 1, #(thaw or {}) - 1, 2 do tset[P.tkey(thaw[i], thaw[i + 1])] = true end
+  local added = 0
+  for _, pr in ipairs(list) do
+    if not set[pr.id] then
+      local t = Mg.tiles({ Mg.box(pr.drill) })
+      local inside = #t > 0
+      for i = 1, #t - 1, 2 do
+        if not tset[P.tkey(t[i], t[i + 1])] then inside = false; break end
+      end
+      if inside then set[pr.id] = true; ids[#ids + 1] = pr.id; added = added + 1 end
+    end
+  end
+  table.sort(ids)
+  return ids, added
+end
+
 --- Projet demandé : attend le plan et les matières ; au moment du « degel », retire la partie.
 local function step_project(f, surface, ms, o, st, tick)
   local b = f.build
@@ -391,6 +417,12 @@ local function step_project(f, surface, ms, o, st, tick)
   if p and p.state == "reserve" and p.reason == "degel" then
     st.gate_t0 = st.gate_t0 or tick
     list, ents = survey(o)
+    local ids, added = part_ids(st, list, p.spec and p.spec.degel and p.spec.degel.tiles)
+    if added > 0 then
+      st.ids = ids
+      say(f, ms, string.format("avant-poste %d : %d paire(s) refaite(s) par la reconstruction sur la partie du projet %d : retirees avec elle",
+        o.id, added, st.pid), true)
+    end
     local present = 0
     local alive = {}
     for _, pr in ipairs(list) do alive[pr.id] = true end

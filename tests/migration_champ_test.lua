@@ -1177,6 +1177,38 @@ do
 end
 
 do
+  -- K10 bis (relecture). Une paire de la partie tuée PUIS refaite par la reconstruction pendant l'attente (nouveaux numéros, mêmes tuiles)
+  -- est retirée avec la partie : sinon elle occupe les tuiles promises au plan et la ligne neuve ne se pose pas.
+  local E = executor_run({ pairs = 8 })
+  E.think()
+  local p = E.project()
+  drive_plan(E, p, "materiaux"); E.think()
+  local st = E.f.migration.o[1]
+  local d0 = E.by_unit[st.ids[1]]
+  local s0
+  for _, pr in ipairs(E.pl) do
+    if pr.drill.x == d0.position.x and pr.drill.y == d0.position.y then
+      for _, s in ipairs(E.o.sinks) do if s.position.x == pr.sink.x and s.position.y == pr.sink.y then s0 = s end end
+    end
+  end
+  local function clone(e, u)
+    local c = {}
+    for k, v in pairs(e) do c[k] = v end
+    c.unit_number, c.valid = u, true
+    c.destroy = function() c.valid = false end
+    return c
+  end
+  d0.valid, s0.valid = false, false -- tuée par une vague
+  local nd, ns = clone(d0, 9001), clone(s0, 9002) -- refaite par la reconstruction (Recon : o.drill_list, o.sinks)
+  E.o.drill_list[#E.o.drill_list + 1] = nd
+  E.o.sinks[#E.o.sinks + 1] = ns
+  drive_plan(E, p, "degel"); E.think()
+  check(not nd.valid and not ns.valid, "K10 bis : la paire refaite sur la partie est retirée avec elle")
+  check(table.concat(E.logs, "\n"):find("refaite(s) par la reconstruction sur la partie", 1, true) ~= nil, "K10 ter : journal [FO-MIGRATION] de la cause")
+  E.restore()
+end
+
+do
   -- K11-K12. Le projet de la migration est lu par le cerveau : Mig.project, puis but « auto:migration » qui émet ses manques
   local E = executor_run({ pairs = 8 })
   check(E.Mig.project(E.f) == nil, "K11a : aucune migration en cours : pas de projet")
