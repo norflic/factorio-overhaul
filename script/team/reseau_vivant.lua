@@ -197,15 +197,33 @@ end
 --- découverts) rallument tout ce qui est hors réseau, au coût minimal (R.repair). Rend les poteaux perdus choisis { { e, q } }, les
 --- nouveaux choisis { { name, x, y } }, le texte du plan. Les nouveaux ne sont proposés que si l'équipe a un poteau 1 × 1 en usage.
 local function repair_plan(api, f, surface, b, nr, cands, want_new)
-  local poles, live = {}, {}
-  for _, p in ipairs(surface.find_entities_filtered({ force = f.force, type = "electric-pole" })) do
+  local ents, live = surface.find_entities_filtered({ force = f.force, type = "electric-pole" }), {}
+  table.sort(ents, function(a, c)
+    if a.position.y ~= c.position.y then return a.position.y < c.position.y end
+    if a.position.x ~= c.position.x then return a.position.x < c.position.x end
+    return (a.unit_number or 0) < (c.unit_number or 0)
+  end)
+  local poles, idx = {}, {}
+  for i, p in ipairs(ents) do
     local pr = p.prototype
-    poles[#poles + 1] = { x = p.position.x, y = p.position.y, wire = pr.max_wire_distance or 0, supply = pr.supply_area_distance or 0 }
+    poles[i] = { x = p.position.x, y = p.position.y, wire = pr.max_wire_distance or 0, supply = pr.supply_area_distance or 0 }
+    if p.unit_number then idx[p.unit_number] = i end
     local id = p.electric_network_id
     if id and nr.gnets[id] then live[#live + 1] = { x = p.position.x, y = p.position.y } end
   end
-  table.sort(poles, function(a, c) if a.y ~= c.y then return a.y < c.y end return a.x < c.x end)
-  table.sort(live, function(a, c) if a.y ~= c.y then return a.y < c.y end return a.x < c.x end)
+  -- les fils REELS du moteur entre poteaux vivants (voir R.repair) ; sans acces aux voisins (moteur simule) : le modele a la portee
+  local edges, have_edges = {}, false
+  for i, p in ipairs(ents) do
+    local okn, nbs = pcall(function() return p.neighbours end)
+    if okn and type(nbs) == "table" then
+      have_edges = true
+      for _, o in ipairs(nbs.copper or {}) do
+        local j = o.valid and o.unit_number and idx[o.unit_number]
+        if j and j > i then edges[#edges + 1] = { i, j } end
+      end
+    end
+  end
+  table.sort(edges, function(a, c) if a[1] ~= c[1] then return a[1] < c[1] end return a[2] < c[2] end)
   local model = {}
   for i, c in ipairs(cands) do
     local pr = game.entity_prototypes[c.e.name]
@@ -229,7 +247,7 @@ local function repair_plan(api, f, surface, b, nr, cands, want_new)
       for _, c in ipairs(fresh) do model[#model + 1] = c end
     end
   end
-  local plan = R.repair({ poles = poles, consumers = nr.cons, producers = nr.gens }, model)
+  local plan = R.repair({ poles = poles, consumers = nr.cons, producers = nr.gens, edges = have_edges and edges or nil }, model)
   local lost_sel, new_sel = {}, {}
   for _, j in ipairs(plan.chosen) do
     if j <= nl then lost_sel[#lost_sel + 1] = cands[j]
