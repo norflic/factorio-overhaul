@@ -512,13 +512,28 @@ end
 --- défaut : un poteau à relever). Rend { chosen = indices de cands à relever (triés), cost, targets, restored,
 --- unreachable } : `targets` = consommateurs éteints que les poteaux perdus, TOUS relevés, rallumeraient ; `restored` = ceux
 --- que le plan rallume (tous les atteignables : `unreachable` pour les autres, faute de producteur à portée).
+--- Lot RESEAU-VIVANT : `net.edges` (facultatif) = les fils RÉELS du moteur entre poteaux vivants ({ i, j } sur net.poles). Le modèle
+--- « tous les poteaux à portée sont reliés » surestime la connexité (le moteur ne relie pas toute paire à portée) : sur le moteur
+--- réel, des consommateurs sur îlot étaient jugés alimentés par le modèle et le plan restait vide. Avec `edges`, les paires
+--- vivant-vivant sont celles du moteur ; les paires où entre un poteau perdu restent calculées à la portée.
+local function edges_with(net, poles, nlive)
+  if not net.edges then return nil end
+  local out = {}
+  for _, e in ipairs(net.edges) do out[#out + 1] = e end
+  for _, e in ipairs(R.links(poles)) do
+    if e[2] > nlive then out[#out + 1] = e end
+  end
+  table.sort(out, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
+  return out
+end
+
 function R.repair(net, cands)
   local nlive = #(net.poles or {})
   local all = {}
   for i = 1, nlive do all[i] = net.poles[i] end
   for j, c in ipairs(cands) do all[nlive + j] = c end
   local nall = #all
-  local netall = { poles = all, consumers = net.consumers, producers = net.producers }
+  local netall = { poles = all, consumers = net.consumers, producers = net.producers, edges = edges_with(net, all, nlive) }
   local A0 = R.analyse(net)
   local Aa = R.analyse(netall)
   local cons = net.consumers or {}
@@ -571,7 +586,7 @@ function R.repair(net, cands)
     local poles = {}
     for i = 1, nlive do poles[i] = net.poles[i] end
     for j = 1, #cands do if set[j] then poles[#poles + 1] = cands[j] end end
-    local A = R.analyse({ poles = poles, consumers = cons, producers = net.producers })
+    local A = R.analyse({ poles = poles, consumers = cons, producers = net.producers, edges = edges_with(net, poles, nlive) })
     for _, k in ipairs(must) do if not A.powered[k] then return false end end
     return true
   end

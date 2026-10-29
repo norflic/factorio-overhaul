@@ -1263,6 +1263,57 @@ local function plan_project(f, surface, p)
   return true
 end
 
+--- Lot RESEAU-VIVANT : PONT. Projet de poteaux seuls `name` aux positions `pts` ({ x, y }, centres de tuile), qui relie un îlot de
+--- poteaux au réseau d'une centrale (script/team/reseau_vivant.lua). Même machinerie que les autres projets (réserve au coffre,
+--- fantômes, PNJ, raccordement des fils) ; état directement « reserve » (pas de plan de gabarit). Rend l'identifiant ou nil, raison.
+function Build.bridge(f, name, pts)
+  local b = f.build
+  local surface = surface_of(f)
+  if not (b and surface and #pts > 0) then return nil, "equipe" end
+  local id = b.next_id
+  local p = { id = id, spec = { bridge = true }, state = "reserve", created = game.tick, reason = nil,
+    parts = {}, ents = {}, wires = {}, stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0,
+    prio = Build.PRIO + 4, domain = "infrastructures" }
+  local list = {}
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, q in ipairs(pts) do
+    list[#list + 1] = { name = name, x = q.x, y = q.y, dir = 0, role = "pont" }
+    x0, y0, x1, y1 = math.min(x0, q.x), math.min(y0, q.y), math.max(x1, q.x), math.max(y1, q.y)
+  end
+  if not reserve_tiles(b, p, list) then return nil, "place" end
+  b.next_id = id + 1
+  b.projects[id] = p
+  b.order[#b.order + 1] = id
+  p.parts[1] = { kind = "liaison", key = "pont-reseau", lot = "-", ox = (x0 + x1) / 2, oy = (y0 + y1) / 2, w = 1, h = 1, k = 0, power = false }
+  local masks = read_masks(f, surface, x0 - 8, y0 - 8, x1 + 8, y1 + 8)
+  local passable = seg_passable(b)
+  local wood = wood_of(surface, p.ents)
+  for _, e in ipairs(p.ents) do
+    local a = P.anchor_for(b.lat, e.x, e.y, passable)
+    local ax, ay
+    if a then ax, ay = a.x, a.y
+    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+    local fx, fy = free_spot(b, masks, ax, ay, wood)
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+    e.ax, e.ay = fx, fy
+    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    e.item = item_of(e.name)
+  end
+  P.sort_build(p.ents)
+  p.obstacles, p.obst_keys = {}, {}
+  for _, e in ipairs(p.ents) do
+    for _, t in ipairs(P.tiles_of(e)) do
+      local k = P.tkey(t[1], t[2])
+      if masks.clear[k] or wood[k] then add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
+    end
+  end
+  b.stats.modules_started = b.stats.modules_started + 1
+  p.started = game.tick
+  log(string.format("[FO-IA1D] %s : projet %d pont (%d poteau(x) %s, de %.0f,%.0f a %.0f,%.0f, %d obstacle(s))", f.key or "player", id, #p.ents,
+    name, x0, y0, x1, y1, #p.obstacles))
+  return id
+end
+
 --- Centrale de l'équipe (une demande, si aucune n'existe).
 function Build.plant(f, pole)
   local b = f.build
@@ -2265,7 +2316,7 @@ local function pulse_team(f, tick)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot RESEAU-VIVANT : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
-  Rv.step({ plant = Build.plant }, f, surface, tick)
+  Rv.step({ plant = Build.plant, bridge = Build.bridge, cancel = Build.cancel }, f, surface, tick)
 end
 
 local function teams()

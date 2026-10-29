@@ -59,6 +59,7 @@ local function new_world()
     end
     return out
   end
+  function S.can_place_entity() return true end
   function S.find_nearest_enemy(a)
     if W.enemy and (W.enemy.x - a.position.x) ^ 2 + (W.enemy.y - a.position.y) ^ 2 <= a.max_distance ^ 2 then return W.enemy end
     return nil
@@ -83,13 +84,14 @@ local function plant_project(W, id)
     burner = { remaining_burning_fuel = 5 } })
   W.add({ type = "generator", name = "steam-engine", x = 104, y = 100, energy_generated_last_tick = 15000, electric_network_id = 1 })
   W.add({ type = "offshore-pump", name = "offshore-pump", x = 98, y = 100 })
-  W.add({ type = "electric-pole", name = "medium-electric-pole", x = 102, y = 98, electric_network_id = 1 })
+  W.add({ type = "electric-pole", name = "medium-electric-pole", x = 102, y = 98, electric_network_id = 1,
+    prototype = { max_wire_distance = 9, supply_area_distance = 3.5 } })
   return p
 end
 
 local function team(W)
   local p = plant_project(W, 1)
-  local b = { projects = { [1] = p }, order = { 1 }, plant = 1, next_id = 2 }
+  local b = { projects = { [1] = p }, order = { 1 }, plant = 1, next_id = 2, occ = {} }
   local f = { key = "azure", force = "f1", build = b }
   return f, b, p
 end
@@ -199,6 +201,43 @@ do
   check(useful.built == false, "ilot : le poteau perdu qui relie est rouvert")
   check(useless.built == true, "ilot : le poteau perdu qui ne sert a rien n'est PAS rouvert (pas de redondance)")
   check(p.reopened == 1 and p.state == "reserve", "ilot : projet rouvert une fois")
+end
+
+-- §5 bis : îlot sans poteau perdu : un PONT (chaîne de poteaux) vers le réseau de la centrale
+do
+  LOG = {}
+  local W = new_world()
+  local f, b, p = team(W)
+  local api = tmpl_api(b)
+  local bridges, cancels = {}, {}
+  api.bridge = function(_, name, pts)
+    bridges[#bridges + 1] = { name = name, pts = pts }
+    local id = b.next_id
+    b.next_id = id + 1
+    b.projects[id] = { id = id, state = "reserve", ents = {}, parts = {} }
+    return id
+  end
+  api.cancel = function(_, id, why) cancels[#cancels + 1] = id b.projects[id].state = "refuse" return true end
+  W.add({ type = "assembling-machine", name = "assembling-machine-1", x = 130, y = 98, w = 3, h = 3, electric_network_id = 2,
+    prototype = { electric_energy_source_prototype = {} } })
+  W.add({ type = "electric-pole", name = "small-electric-pole", x = 128, y = 98, electric_network_id = 2,
+    prototype = { max_wire_distance = 7.5, supply_area_distance = 2.5 } })
+  local t = 1200
+  for _ = 1, 8 do Rv.step(api, f, W.surface, t) t = t + 1200 end
+  check(#bridges == 1, "ilot a 26 tuiles sans poteau perdu : un pont demande (" .. #bridges .. ")")
+  check(bridges[1] and bridges[1].name == "small-electric-pole" and #bridges[1].pts >= 3, "le pont pose des poteaux du type de l'ilot, au moins 3")
+  local ok = true
+  local prev = { x = 128, y = 98 }
+  for _, q in ipairs(bridges[1] and bridges[1].pts or {}) do
+    if (q.x - prev.x) ^ 2 + (q.y - prev.y) ^ 2 > 7.5 ^ 2 + 1e-6 then ok = false end
+    prev = q
+  end
+  check(ok and (prev.x - 102) ^ 2 + (prev.y - 98) ^ 2 <= 7.5 ^ 2 + 1e-6, "chaque fil du pont tient dans la portee commune (7,5)")
+  check(b.sante.bridge and b.sante.bridge.pid, "le pont est suivi")
+  -- pont en réserve trop longtemps : annulé
+  for _ = 1, 12 do t = t + 3600 Rv.step(api, f, W.surface, t) end
+  check(#cancels == 1, "pont sans poteaux au coffre apres 10 min : annule (" .. #cancels .. ")")
+  check(b.sante.bridge == nil, "pont annule : plus suivi")
 end
 
 -- §6 déterminisme

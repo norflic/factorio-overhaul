@@ -19,6 +19,7 @@
     "reposer"     pièces perdues, site sûr : rouvrir le projet pour les refaire sur place ;
     "autre_site"  pièces perdues et site DANGEREUX (persistant) ou refait en vain : la centrale est demandée AILLEURS ;
     "relier"      centrale vivante mais des consommateurs sur un îlot : relever les poteaux perdus qui les rallument ;
+    "ponter"      idem sans poteau perdu : un projet de poteaux (pont) entre l'îlot et le réseau alimenté ;
     "combustible" sources présentes, à sec, production nulle : ce n'est pas un problème de réseau (diagnostic publié).
   Option par défaut de la question au DC : reconstruire AILLEURS dans la zone sûre la plus proche du réseau.
   Déterminisme : entiers et booléens, aucune horloge mesurée, aucun hasard, aucun pairs.
@@ -84,6 +85,10 @@ function S.decide(inp, st)
   local off = (inp.islands or 0) + (inp.uncovered or 0)
   if off > 0 and (inp.lost_links or 0) > 0 then
     return "relier", string.format("%d consommateur(s) hors du reseau de la centrale, %d poteau(x) perdu(s)", off, inp.lost_links), detail
+  end
+  -- pas de poteau perdu qui l'explique : un ilot de poteaux jamais relie au reseau d'une centrale, a portee d'un PONT
+  if off > 0 and (inp.bridges or 0) > 0 and not inp.bridging then
+    return "ponter", string.format("%d consommateur(s) hors du reseau de la centrale, %d ilot(s) a relier par un pont", off, inp.bridges), detail
   end
   return "ok", "centrale saine", detail
 end

@@ -68,6 +68,14 @@ a = S.decide(inp({ islands = 2, lost_links = 0 }), S.new())
 check(a == "ok", "ilot sans poteau perdu : ce n'est pas une remise en etat (autre mecanisme)")
 a = S.decide(inp({ islands = 0, uncovered = 2, lost_links = 1 }), S.new())
 check(a == "relier", "consommateurs sous aucun poteau et poteau perdu : relier")
+a = S.decide(inp({ islands = 3, lost_links = 0, bridges = 1 }), S.new())
+check(a == "ponter", "ilot sans poteau perdu, un pont possible : ponter")
+a = S.decide(inp({ islands = 3, lost_links = 0, bridges = 1, bridging = true }), S.new())
+check(a == "ok", "un pont deja en chantier : on n'en empile pas")
+a = S.decide(inp({ islands = 3, lost_links = 2, bridges = 1 }), S.new())
+check(a == "relier", "poteaux perdus d'abord : relier avant de ponter")
+a = S.decide(inp({ islands = 0, uncovered = 0, bridges = 2 }), S.new())
+check(a == "ok", "aucun consommateur hors reseau : pas de pont")
 
 -- §2 danger persistant
 st = S.new()
@@ -139,6 +147,8 @@ local MUT = {
   { "pieces perdues ignorees", "if lost > 0 then", "if false then" },
   { "centrale pas finie jugee", "if not inp.fini then", "if false then" },
   { "ilot sans poteau perdu releve", "if off > 0 and (inp.lost_links or 0) > 0 then", "if off > 0 then" },
+  { "pont sans consommateur hors reseau", "if off > 0 and (inp.bridges or 0) > 0 and not inp.bridging then", "if (inp.bridges or 0) > 0 and not inp.bridging then" },
+  { "ponts empiles", "(inp.bridges or 0) > 0 and not inp.bridging then", "(inp.bridges or 0) > 0 then" },
   { "consommateurs sous aucun poteau ignores", "local off = (inp.islands or 0) + (inp.uncovered or 0)", "local off = (inp.islands or 0)" },
   { "panne sans demande", "demand >= S.MIN_DEMAND_KW", "true" },
   { "combustible confondu", 'if (inp.dry or 0) > 0 then return "combustible"', 'if false then return "combustible"' },
@@ -166,6 +176,10 @@ local function battery(S2)
   exp((S2.decide(inp({ islands = 2, lost_links = 0 }), S2.new())) == "ok")
   exp((S2.decide(inp({ islands = 2, lost_links = 1 }), S2.new())) == "relier")
   exp((S2.decide(inp({ islands = 0, uncovered = 2, lost_links = 1 }), S2.new())) == "relier")
+  exp((S2.decide(inp({ islands = 3, lost_links = 0, bridges = 1 }), S2.new())) == "ponter")
+  exp((S2.decide(inp({ islands = 3, lost_links = 0, bridges = 1, bridging = true }), S2.new())) == "ok")
+  exp((S2.decide(inp({ islands = 3, lost_links = 2, bridges = 1 }), S2.new())) == "relier")
+  exp((S2.decide(inp({ islands = 0, uncovered = 0, bridges = 2 }), S2.new())) == "ok")
   s3 = S2.new()
   local act
   for _ = 1, S2.DANGER_SEEN - 1 do act = S2.decide(inp({ missing = { source = 1 }, enemies = 2 }), s3) end

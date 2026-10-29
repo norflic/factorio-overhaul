@@ -18,6 +18,8 @@
 local M = require("shared.team.modules")
 local S = require("shared.team.reseau_sante")
 local R = require("shared.team.reseau")
+local P = require("shared.team.plan")
+local Br = require("shared.team.reseau_pont")
 
 local Rv = {}
 
@@ -27,6 +29,8 @@ Rv.POLE_REOPEN_MAX = 5    -- réouvertures d'un même projet pour ses poteaux (o
 Rv.POLE_ENEMY_R = 28      -- jamais de pose de poteau avec un ennemi à cette portée
 Rv.CAND_MAX = 40          -- poteaux perdus examinés par cycle
 Rv.RELOC_BLOCK = 5 * 3600  -- pas de nouvelle demande d'autre site pendant 5 min après un refus du plan
+Rv.BRIDGE_WAIT = 10 * 3600  -- un pont qui attend ses poteaux au coffre plus de 10 min est annulé
+Rv.BRIDGE_BLOCK = 5 * 3600
 Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
 
 local TYPES = {
@@ -116,9 +120,9 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Relevé du réseau (engine = vérité : l'identifiant de réseau de chaque consommateur)
 ---------------------------------------------------------------------------------------------------
-local function box_of(e)
+local function box_of(e, id)
   local bb = e.bounding_box
-  return { x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y, kw = 0 }
+  return { x0 = bb.left_top.x, y0 = bb.left_top.y, x1 = bb.right_bottom.x, y1 = bb.right_bottom.y, kw = 0, id = id }
 end
 
 --- { islands = n, uncovered = n, cons = { boîtes des consommateurs hors réseau de centrale }, gens = { boîtes } }
@@ -138,7 +142,7 @@ local function net_read(f, surface)
         out.cons[#out.cons + 1] = box_of(e)
       elseif not gnets[id] then
         out.islands = out.islands + 1
-        out.cons[#out.cons + 1] = box_of(e)
+        out.cons[#out.cons + 1] = box_of(e, id)
       end
     end
   end
@@ -165,22 +169,76 @@ end
 --- Plan de relève : quels poteaux perdus rallument les consommateurs hors réseau (coût minimal, R.repair). Rend la liste
 --- { { e, q } } et le texte du plan.
 local function repair_plan(f, surface, nr, cands)
-  local poles = {}
-  for _, p in ipairs(surface.find_entities_filtered({ force = f.force, type = "electric-pole" })) do
+  local poles, ents, idx = {}, surface.find_entities_filtered({ force = f.force, type = "electric-pole" }), {}
+  table.sort(ents, function(a, c) return a.unit_number < c.unit_number end)
+  for i, p in ipairs(ents) do
     local pr = p.prototype
-    poles[#poles + 1] = { x = p.position.x, y = p.position.y, wire = pr.max_wire_distance or 0, supply = pr.supply_area_distance or 0 }
+    poles[i] = { x = p.position.x, y = p.position.y, wire = pr.max_wire_distance or 0, supply = pr.supply_area_distance or 0 }
+    idx[p.unit_number] = i
+  end
+  -- les fils RÉELS du moteur entre poteaux vivants (le modèle à la portée surestime la connexité)
+  local edges, have_edges = {}, false
+  for i, p in ipairs(ents) do
+    local okn, nbs = pcall(function() return p.neighbours end)
+    if okn and nbs then have_edges = true end
+    for _, o in ipairs((okn and nbs and nbs.copper) or {}) do
+      local j = o.valid and idx[o.unit_number]
+      if j and j > i then edges[#edges + 1] = { i, j } end
+    end
   end
   local model = {}
   for i, c in ipairs(cands) do
     local pr = game.entity_prototypes[c.e.name]
     model[i] = { x = c.e.x, y = c.e.y, wire = pr and pr.max_wire_distance or 7.5, supply = pr and pr.supply_area_distance or 2.5, cost = 1 }
   end
-  local plan = R.repair({ poles = poles, consumers = nr.cons, producers = nr.gens }, model)
+  local plan = R.repair({ poles = poles, consumers = nr.cons, producers = nr.gens, edges = have_edges and edges or nil }, model)
   local out = {}
   for _, j in ipairs(plan.chosen) do out[#out + 1] = cands[j] end
   local txt = string.format("%d poteau(x) a relever sur %d perdu(s), %d consommateur(s) a rallumer, %d hors d'atteinte", #out, #cands,
     plan.restored or 0, #(plan.unreachable or {}))
   return out, txt, plan
+end
+
+---------------------------------------------------------------------------------------------------
+-- Ponts : îlots de poteaux jamais reliés au réseau d'une centrale
+---------------------------------------------------------------------------------------------------
+--- Poteaux du moteur et écarts îlot -> réseau alimenté (shared/team/reseau_pont.lua). Rend la liste d'écarts et les poteaux.
+local function bridge_gaps(f, surface, nr)
+  local need = {}
+  for _, c in ipairs(nr.cons) do if c.id then need[c.id] = true end end
+  local ents = surface.find_entities_filtered({ force = f.force, type = "electric-pole" })
+  table.sort(ents, function(a, c) return a.unit_number < c.unit_number end)
+  local poles = {}
+  for i, e in ipairs(ents) do
+    poles[i] = { x = e.position.x, y = e.position.y, id = e.electric_network_id, wire = e.prototype.max_wire_distance or 0, name = e.name }
+  end
+  return Br.gaps(poles, need, nr.gnets), poles, ents
+end
+
+--- Lance un pont pour le plus court écart. Rend un texte (journal) et vrai si un projet ou un fil a été posé.
+local function make_bridge(api, f, surface, sv, nr, tick)
+  local b = f.build
+  local gaps, poles, ents = bridge_gaps(f, surface, nr)
+  local g
+  for _, x in ipairs(gaps) do if Br.useful(x) then g = x break end end
+  if not g then return "aucun ecart utile", false end
+  local pa, pb = poles[g.a], poles[g.b]
+  if g.d <= g.reach + 1e-6 then
+    -- déjà à portée de fil mais pas reliés : on tire le fil (un fil, pas un chantier)
+    local ok = pcall(function() return ents[g.a].connect_neighbour({ wire = defines.wire_type.copper, target_entity = ents[g.b] }) end)
+    return string.format("fil tire entre deux poteaux a %.1f tuiles (%s)", g.d, ok and "ok" or "refuse"), ok
+  end
+  local function free(x, y)
+    local tx, ty = math.floor(x), math.floor(y)
+    if b.occ[P.tkey(tx, ty)] then return false end
+    return surface.can_place_entity({ name = pa.name, position = { x, y }, force = f.force })
+  end
+  local chain = P.pole_chain({ x = pa.x, y = pa.y }, { x = pb.x, y = pb.y }, g.reach, false, free)
+  if not chain or #chain == 0 then return string.format("aucune chaine de poteaux entre l'ilot et le reseau (ecart %.1f)", g.d), false end
+  local id, why = api.bridge(f, pa.name, chain)
+  if not id then return "pont refuse : " .. tostring(why), false end
+  sv.bridge = { pid = id, since = tick }
+  return string.format("pont %d : %d poteau(x) sur %.1f tuiles entre l'ilot (reseau %s) et la centrale", id, #chain, g.d, tostring(g.id)), true
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -224,6 +282,18 @@ function Rv.step(api, f, surface, tick)
       sv.reloc = nil
     end
   end
+  if sv.bridge then
+    local bp = b.projects[sv.bridge.pid]
+    if not bp or bp.state == "fini" or bp.state == "refuse" then
+      if bp and bp.state == "fini" then say(f, tick, "pont " .. bp.id .. " FINI") end
+      sv.bridge = nil
+      sv.net_next = tick + 1200
+    elseif bp.state == "reserve" and tick - sv.bridge.since > Rv.BRIDGE_WAIT then
+      api.cancel(f, bp.id, "pont: poteaux introuvables au coffre")
+      say(f, tick, "pont " .. bp.id .. " annule (poteaux introuvables au coffre apres 10 min)")
+      sv.bridge, sv.bridge_block = nil, tick + Rv.BRIDGE_BLOCK
+    end
+  end
   local pp = b.plant and b.projects[b.plant]
   if not pp or pp.state == "refuse" or pp.state == "attente" or pp.state == "plan" then return end
   -- consommateurs sur îlot (période longue)
@@ -233,12 +303,17 @@ function Rv.step(api, f, surface, tick)
     nr = net_read(f, surface)
     sv.islands, sv.uncovered = nr.islands, nr.uncovered
     sv.demand = nominal_demand(b)
-    sv.lost_links = 0
-    if nr.islands + nr.uncovered > 0 then sv.lost_links = #lost_poles(f, surface, b) end
+    sv.lost_links, sv.bridges = 0, 0
+    if nr.islands + nr.uncovered > 0 then
+      sv.lost_links = #lost_poles(f, surface, b)
+      if sv.lost_links == 0 then sv.bridges = #(bridge_gaps(f, surface, nr)) end
+    end
   end
   local inp, lost = plant_read(f, surface, pp)
   inp.demand_kw = sv.demand
   inp.islands, inp.uncovered, inp.lost_links = sv.islands, sv.uncovered, sv.lost_links
+  inp.bridges = (tick >= (sv.bridge_block or 0)) and (sv.bridges or 0) or 0
+  inp.bridging = sv.bridge ~= nil
   local site = site_of(pp)
   inp.enemies = 0
   if site then
@@ -327,6 +402,12 @@ function Rv.step(api, f, surface, tick)
       say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s) (les autres : ennemis a %d tuiles)", why, txt, n, Rv.POLE_ENEMY_R))
     end
     sv.net_next = tick + 1200 -- relire vite après la remise en état
+  elseif action == "ponter" then
+    nr = nr or net_read(f, surface)
+    local txt, made = make_bridge(api, f, surface, sv, nr, tick)
+    say(f, tick, string.format("reseau: %s ; %s", why, txt))
+    if not made then sv.bridge_block = tick + Rv.BRIDGE_BLOCK end
+    sv.net_next = tick + 1200
   elseif action == "combustible" then
     if tick >= (sv.comb_next or 0) then
       sv.comb_next = tick + Rv.LOG_EVERY
