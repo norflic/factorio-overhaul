@@ -17,7 +17,9 @@
      possible, la cause est rendue (le journal la dit ; le bilan du charbon compte les chaudières nourries à la main).
   2. AUTOMATISATION (Cc.want_alim) : une centrale finie encore nourrie par son coffre demande un projet « alimentation de la
      centrale » (foreuses sur le gisement de charbon le plus proche, tapis jusqu'à sa tête d'alimentation) ; un seul ouvert à la fois
-     par équipe ; après un refus, pause de Cc.RETRY_TICKS ; Cc.MAX_TRIES refus au plus. Le coffre RESTE en secours : sur un tapis plein
+     par équipe ; après un refus, pause de Cc.RETRY_TICKS, puis de Cc.LONG_RETRY_TICKS à partir de Cc.MAX_TRIES refus (relecture :
+     JAMAIS d'abandon définitif ; un refus passager, centrale rouverte ou gisement hors du treillis qui grandit, ne doit pas laisser la
+     centrale à la main pour toute la partie : « on automatise tout »). Le coffre RESTE en secours : sur un tapis plein
      (foreuses qui suffisent) son bras ne dépose rien ; il ne se vide que si les foreuses ne suffisent plus (gisement épuisé, foreuses
      détruites, centrale arrêtée : les foreuses sont électriques), et la règle 1 le remplit alors en urgence.
 ]]
@@ -30,8 +32,9 @@ Cc.MIN_FILL = 400       -- cible jamais plus basse que la charge d'avant le lot 
 Cc.CAP_SHARE = 0.9      -- part de la place du coffre visée au plus
 Cc.PRIO = 91            -- URGENCE (O.URGENT_PRIO = M.URGENT = 90) : le courant de toute la base, juste devant « défendre d'abord » (90)
 Cc.EVERY = 600          -- ticks entre deux relevés des centrales (projet d'alimentation)
-Cc.MAX_TRIES = 4        -- refus du projet d'alimentation au plus, par centrale
+Cc.MAX_TRIES = 4        -- refus du projet d'alimentation à la pause courte, par centrale (ensuite : pause longue)
 Cc.RETRY_TICKS = 18000  -- 5 min de pause après un refus
+Cc.LONG_RETRY_TICKS = 108000 -- 30 min de pause après Cc.MAX_TRIES refus (relecture : jamais d'abandon définitif)
 Cc.PROJECT_PRIO = 80    -- priorité du projet d'alimentation (ses tâches de chantier : min(80 + 30, 89) = 89, Build.FINISH_CAP)
 Cc.LOGS = 40            -- lignes [FO-CHARBON-CENTRALE] au plus par équipe
 
@@ -79,15 +82,19 @@ function Cc.want_alim(st, c)
   if not c.quai then return false, "pas de coffre de charbon" end
   if c.alim_open then return false, "projet en cours" end
   if c.other_open then return false, "un autre projet d'alimentation est en cours" end
-  if (st.tries or 0) >= Cc.MAX_TRIES then return false, "refuse trop souvent" end
   if (c.tick or 0) < (st.retry_at or 0) then return false, "pause apres un refus" end
   return true
+end
+
+--- Pause (ticks) après le refus numéro `tries` : courte jusqu'à Cc.MAX_TRIES, longue ensuite (jamais d'abandon définitif).
+function Cc.pause(tries)
+  return ((tries or 0) < Cc.MAX_TRIES) and Cc.RETRY_TICKS or Cc.LONG_RETRY_TICKS
 end
 
 --- Le projet d'alimentation a été refusé (plan impossible : pas de gisement à portée, pas de tracé) ou abandonné.
 function Cc.refused(st, tick)
   st.tries = (st.tries or 0) + 1
-  st.retry_at = tick + Cc.RETRY_TICKS
+  st.retry_at = tick + Cc.pause(st.tries)
   st.alim = nil
 end
 

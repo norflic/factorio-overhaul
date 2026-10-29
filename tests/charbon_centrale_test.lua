@@ -90,8 +90,15 @@ local function battery(Cc)
   c.tick = 1000 + Cc.RETRY_TICKS
   check(Cc.want_alim(st, c) == true, "apres la pause : nouvel essai")
   for _ = 2, Cc.MAX_TRIES do Cc.refused(st, 1000) end
-  c.tick = 10 ^ 9
-  check(not Cc.want_alim(st, c), "plafond de refus : abandon (le coffre reste rempli en urgence)")
+  check(st.tries == Cc.MAX_TRIES and st.retry_at == 1000 + Cc.LONG_RETRY_TICKS and Cc.LONG_RETRY_TICKS > Cc.RETRY_TICKS,
+    "plafond de refus atteint : pause LONGUE")
+  check(Cc.LONG_RETRY_TICKS <= 216000, "pause longue d'une heure au plus (jamais d'abandon de fait)")
+  c.tick = 1000 + Cc.LONG_RETRY_TICKS - 1
+  check(not Cc.want_alim(st, c), "pendant la pause longue : rien")
+  c.tick = 1000 + Cc.LONG_RETRY_TICKS
+  check(Cc.want_alim(st, c) == true, "apres la pause longue : nouvel essai (jamais d'abandon definitif, « on automatise tout »)")
+  Cc.refused(st, 5000)
+  check(st.retry_at == 5000 + Cc.LONG_RETRY_TICKS, "au-dela du plafond : toujours la pause longue")
 
   section("5. Arrivees du tapis a la tete")
   -- tete en (10, 5), sens ouest (6) : derriere = est (11, 5) vers l'ouest ; gauche de l'ouest = sud
@@ -234,7 +241,7 @@ do
   W.tick = W.tick + Cc0.EVERY
   X.charbon_step(f, W.tick)
   check(b.charbon[1].tries == 1 and #W.requests == 1, "refus : compte, pas de nouvelle demande pendant la pause")
-  check(W.logs[#W.logs]:find("refus 1 sur", 1, true) ~= nil, "journal du refus")
+  check(W.logs[#W.logs]:find("refus 1 (pause courte", 1, true) ~= nil, "journal du refus")
   W.tick = W.tick + Cc0.RETRY_TICKS
   X.charbon_step(f, W.tick)
   check(#W.requests == 2 and b.charbon[1].alim == 5, "apres la pause : nouvel essai")
@@ -271,6 +278,8 @@ check(src:find("charbon_step(f, tick)\nend", 1, true) ~= nil, "pulse_team appell
 check(src:find("if hand and sp and sp.water and sp.burner_kw then", 1, true) ~= nil, "Build.burn_rate compte les chaudieres nourries a la main")
 check(src:find("local r = Cc.refill(", 1, true) ~= nil, "quai_tasks lit la regle de remplissage")
 check(src:find("name == \"no_alim\"", 1, true) ~= nil, "reglage de banc no_alim")
+check(src:find("if p.state == \"fini\" or p.state == \"chantier\" or (p.reopened and p.state ~= \"refuse\" and is_plant_project(p)) then\n        quai_tasks(f, p, surface, tasks)", 1, true) ~= nil,
+  "Build.think : le coffre d'une centrale ROUVERTE (reserve, fantomes...) se remplit aussi")
 
 ---------------------------------------------------------------------------------------------------
 -- Mutants
@@ -300,6 +309,7 @@ mutant("plusieurs projets ouverts", function(C)
   C.want_alim = function(st, c) local c2 = copy(c); c2.other_open = false; return old(st, c2) end
 end)
 mutant("pas de pause apres un refus", function(C) C.RETRY_TICKS = 0 end)
+mutant("abandon definitif apres le plafond", function(C) C.LONG_RETRY_TICKS = 10 ^ 12 end)
 mutant("arrivee unique", function(C) local old = C.arrivals; C.arrivals = function(...) local a = old(...); return { a[1] } end end)
 
 print(string.format("[CHARBON-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))

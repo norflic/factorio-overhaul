@@ -3047,10 +3047,9 @@ local function charbon_step(f, tick)
       Cc.refused(st, tick)
       b.charbon_logs = (b.charbon_logs or 0) + 1
       if b.charbon_logs <= Cc.LOGS then
-        log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, projet d'alimentation %d %s (%s) a %.1f min : refus %d sur %d%s",
-          f.key or "player", p.id, alim.id, alim.state, why, tick / 3600, st.tries, Cc.MAX_TRIES,
-          st.tries < Cc.MAX_TRIES and string.format(", nouvel essai a %.1f min ; le coffre reste rempli en urgence", st.retry_at / 3600)
-            or " : abandon, le coffre reste rempli en urgence"))
+        log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, projet d'alimentation %d %s (%s) a %.1f min : refus %d (pause %s apres %d), nouvel essai a %.1f min ; le coffre reste rempli en urgence",
+          f.key or "player", p.id, alim.id, alim.state, why, tick / 3600, st.tries, st.tries < Cc.MAX_TRIES and "courte" or "longue",
+          Cc.MAX_TRIES, st.retry_at / 3600))
       end
       alim = nil
     end
@@ -3416,7 +3415,12 @@ function Build.think(f, surface, tick)
         end
         batch_tasks(f, p, tasks)
       end
-      if p.state == "fini" or p.state == "chantier" then quai_tasks(f, p, surface, tasks) end
+      -- lot CHARBON-CENTRALE (relecture) : une centrale ROUVERTE (pièce détruite : reserve, defrichage, fantomes, raccordement, bloque)
+      -- garde ses chaudières debout qui brûlent : son coffre se remplit aussi (avant : seulement fini ou chantier, coffre oublié pendant
+      -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
+      if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
+        quai_tasks(f, p, surface, tasks)
+      end
     end
   end
   street_clear_tasks(f, tasks)
