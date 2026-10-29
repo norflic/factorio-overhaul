@@ -782,7 +782,7 @@ function Board.pending(f)
     if t.worker then
       if t.kind == "build" or t.kind == "extend" then pend[t.outpost_kind] = (pend[t.outpost_kind] or 0) + 1 end
       if t.kind == "smelters" then smelters = smelters + t.count end
-      if t.kind == "fortify" then fortify[t.outpost] = true end
+      if t.kind == "fortify" and t.outpost then fortify[t.outpost] = true end -- un poste avancé (t.post) n'a pas d'avant-poste
     end
   end
   return pend, smelters, fortify

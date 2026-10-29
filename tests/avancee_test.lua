@@ -132,5 +132,31 @@ for i, mu in ipairs(MUT) do
   check(killed, "mutant " .. i .. " refusé : " .. mu[2])
 end
 
+section("tâche de poste dans le tableau (moteur simulé)")
+do
+  -- Défaut trouvé en moteur réel (p3, 29/10) : Board.pending indexait fortify[t.outpost] avec outpost nil pour une tâche de
+  -- poste PRISE par un PNJ, le jeu s'arrêtait. Le test pose une tâche de poste prise et appelle Board.pending.
+  local M = require("tests.mock_engine")
+  M.new_game({ seed = 4242, patches = {}, p_busy = 0, p_nopath = 0, p_lost = 0 })
+  local Board = require("script.team.board")
+  local Av = require("script.team.avancee")
+  local f = { is_player = true, id = "player", key = "player", hq_pos = { x = 0, y = 0 }, stats = {},
+    team = { board = { tasks = {}, cooldown = {}, list = {} } } }
+  f.team.avance = A.new()
+  local task = { key = "avance:2:0", kind = "fortify", prio = 74, post = { x = 72, y = 0 }, post_key = "2:0", worker = 3,
+    items = { { "gun-turret", 2 }, { "firearm-magazine", 40 } }, defend = true }
+  f.team.board.tasks[task.key] = task
+  local ok, pend, smelters, fortify = pcall(Board.pending, f)
+  check(ok, "Board.pending accepte une tâche de poste prise : " .. tostring(pend))
+  check(ok and next(fortify) == nil, "un poste avancé n'occupe aucun avant-poste")
+  -- une tâche de fortification d'avant-poste, elle, est comptée comme avant
+  f.team.board.tasks["fortify:7"] = { key = "fortify:7", kind = "fortify", outpost = 7, worker = 4 }
+  local _, _, fort2 = Board.pending(f)
+  check(fort2[7] == true, "la fortification d'un avant-poste est toujours comptée")
+  -- la tâche émise par le branchement porte les champs que les lecteurs attendent (kind, items, post)
+  f.stock_fake = nil
+  check(type(Av.tasks) == "function", "Av.tasks existe")
+end
+
 print(string.format("[AVANCEE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
