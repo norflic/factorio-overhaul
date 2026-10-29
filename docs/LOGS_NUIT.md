@@ -146,3 +146,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~20 h 50, passage 44
 - Rien de nouveau : aucune archive depuis content-0618 (331 OK, 0 erreur) ; aucune partie ni banc ; file vide, places = 1. Vague 8 + PILE-PRIORITE en statique ; design : workflow centre v6 (socle, essais carcasse) et mur-opus sur le verrou Blender ; centre-fusee et centre-opus arretes (aucun Blender a eux).
+
+## 29/10 ~21 h 20, passage 45
+- Rien de nouveau : aucune archive depuis content-0618 ; aucune partie ni banc ; file vide, places = 1. Vague 8 + PILE en statique (5 lots sur 7 avec commit) ; centre v6 : 14 etats en design sur le verrou Blender (2 places).
