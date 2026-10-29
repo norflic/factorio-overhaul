@@ -185,6 +185,18 @@ function C.think(view, book, st, ctx)
       for _, g in ipairs(held) do if g.invest then goals[#goals + 1] = g end end
     end
   end
+  -- Intégration 0.6.20 (SCALE-COMPLET x PILE-PRIORITE, rapport de SCALE-COMPLET §7) : la COUVERTURE (but de fond au-delà du
+  -- besoin, « couverture:<type> », B.generate) passe elle aussi par la pile : réparer, protéger et survivre d'abord ; une
+  -- matière d'un cadre ouvert (pile.focus) garde la sienne.
+  if pile.hold then
+    local kept = {}
+    for _, g in ipairs(goals) do
+      if not (type(g.key) == "string" and g.key:sub(1, 11) == "couverture:") or Pi.allows(pile, "extraction", g.why) then
+        kept[#kept + 1] = g
+      end
+    end
+    goals = kept
+  end
   -- Lot PILE-PRIORITE (le cerveau principal aussi) : pile retenue, une recherche CHÈRE ne dépasse pas B.RESEARCH_PRE (sous
   -- l'extraction et l'armée de départ) ; une recherche peu chère (g.short) ou attendue par l'automatisation garde sa valeur.
   if not Pi.allows(pile, "recherche") then

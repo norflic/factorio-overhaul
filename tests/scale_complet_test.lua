@@ -308,6 +308,19 @@ do
   for _, p in ipairs(st5.projects or {}) do if p.key:match("^couverture:") then any = true end end
   check(not any, "6.5 tous les avant-postes pleins : projets de couverture finis")
 end
+-- 6.6 Intégration 0.6.20 (avec PILE-PRIORITE) : une pièce détruite à refaire (cadre « réparer », rang R1) retient la couverture.
+local function think_repair(view)
+  local st = C.new_state(0)
+  local pile_in = { repair = { { key = "r1", item = "stone-wall", value = 50, prio = 60, have = 0, craftable = true, claimed = false,
+    enemy = false, infra = false } }, plan_reopened = false, plan_path = true }
+  return C.think(view, book, st, { tick = 46 * 3600, weights = B.weights({}, nil), reach = {}, iron_floor = 0, pile = pile_in }), st
+end
+local function scene_pile()
+  local _, st6 = think_repair(fview())
+  for _, p in ipairs(st6.projects or {}) do if p.key:match("^couverture:") then return false end end
+  return st6.pile and st6.pile.hold == true
+end
+check(scene_pile(), "6.6 pile retenue par une pièce à refaire : aucun projet de couverture (réparer d'abord)")
 
 ---------------------------------------------------------------------------------------------------
 section("7. Mutants (chacun doit faire échouer une scène de référence)")
@@ -337,7 +350,7 @@ local function scene_take()
     { ["iron-plate"] = 500, stone = 500 })
   return #E3.tasks == 0
 end
-check(scene_far() and scene_cover() and scene_never_build() and scene_fuel() and scene_take(), "7.0 scènes de référence vertes")
+check(scene_far() and scene_cover() and scene_never_build() and scene_fuel() and scene_take() and scene_pile(), "7.0 scènes de référence vertes")
 local function mutant(name, scene, apply, restore)
   apply()
   local ok, res = pcall(scene)
@@ -366,6 +379,10 @@ do
       g2.take_only = nil
       return saved_emit(E, proj, g2, ctx)
     end end, function() P.EMIT.outpost = saved_emit end)
+  local Pi = require("shared.ai3.pile")
+  local saved_allows = Pi.allows
+  mutant("couverture hors de la pile (intégration 0.6.20)", scene_pile, function() Pi.allows = function() return true end end,
+    function() Pi.allows = saved_allows end)
   local saved_key = B.key
   mutant("garde du combustible sans effet", scene_fuel, function()
     B.key = function(s) local k = saved_key(s) return { top = k.top, fuel = nil, order = k.order, optional = k.optional } end
