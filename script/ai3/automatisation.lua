@@ -470,6 +470,9 @@ function Auto.think(f, view, book, tick, research)
   roll(f, st, tick)
   st.sig = signature(f, tick, st)
   refresh(f, st, tick)
+  -- Lot CORR-ENERGIE : pendant le repli de l'équipe (réserves affamées : crise de matière), le plan directeur ne demande pas
+  -- de centrale de plus (script/team/plant_arms.lua, PA.watch)
+  if f.build then f.build.grow_hold = tick < (st.hold_until or 0) end
   if tick >= (st.next_decide or 0) then
     st.next_decide = tick + Auto.EVERY
     local stock = view.stock or {}
@@ -508,6 +511,14 @@ function Auto.think(f, view, book, tick, research)
   if st.plant_id and st.plant_state ~= "fini" and st.plant_state ~= "refuse" then
     local ps = Build.brief(f, st.plant_id)
     if ps then
+      mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+    end
+  end
+  -- Lot CORR-ENERGIE : une centrale de plus, demandée par le plan directeur (saturation), est un projet du cerveau comme la
+  -- première : ses matériaux (chaudière, machines à vapeur) sont fabriqués pour elle
+  for _, id in ipairs(f.build and f.build.extra_plants or {}) do
+    local ps = Build.brief(f, id)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end
