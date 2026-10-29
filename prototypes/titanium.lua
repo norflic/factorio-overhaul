@@ -255,3 +255,8 @@ for _, t in ipairs(T.TECHS) do
 end
 
 data:extend(out)
+
+-- Lot AMELIO-CRAFTS : chaînes des âges 2, 3, 6 et 11 et débouchés des sous-produits du titane (elles réutilisent le
+-- coke, le four à coke, le four à arc et les fluides de la saumure). Chargé ici pour ne pas toucher data.lua (fichier
+-- de l'intégrateur) ; à déplacer dans data.lua à l'intégration.
+require("prototypes.crafts")
