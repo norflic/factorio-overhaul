@@ -6,6 +6,7 @@
 ]]
 package.path = "./?.lua;" .. package.path
 local Sd = require("shared.ai3.soldats")
+local K = require("shared.ai3.carte")
 
 local quiet = false
 local passes, failures = 0, 0
@@ -36,6 +37,28 @@ local function field(x, y, nests, worms, over)
   local c = Sd.clusters(th)[1]
   for k, v in pairs(over or {}) do c[k] = v end
   return c
+end
+
+-- Carte de connaissance minimale : points { x, y, "spawner" | "worm" } rangés par secteur (K.record remplace tout un secteur).
+local function known_map(points)
+  local m = K.new()
+  local by = {}
+  for _, p in ipairs(points) do
+    local key = K.key_of(p[1], p[2])
+    by[key] = by[key] or { nests = {}, worms = {} }
+    local l = p[3] == "spawner" and by[key].nests or by[key].worms
+    l[#l + 1] = { x = p[1], y = p[2] }
+  end
+  for _, key in ipairs(K.sorted_keys(by)) do K.record(m, key, 0, by[key]) end
+  return m
+end
+-- Chaîne du script : menaces vues en marche (`seen`), puis nids connus (Sd.add_known), triées, groupées.
+local function known_clusters(km, seen)
+  local cand = {}
+  for _, t in ipairs(seen) do cand[#cand + 1] = t end
+  Sd.add_known(cand, K.enemy_points(km, HQ.x, HQ.y, Sd.KNOWN_R))
+  table.sort(cand, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
+  return Sd.clusters(cand)
 end
 
 local function suite()
@@ -131,6 +154,52 @@ local function suite()
   check(count(old, "clear") == 7, "faction agressive, menace sans genre : 7 soldats comme avant")
   local old2 = Sd.assign({ tick = 100, hq = HQ, agr = 700, soldiers = soldiers(10), threats = { { x = 120, y = 0, k = 2 } } })
   check(count(old2, "clear") == 0, "faction pacifique, menace sans genre et sans mort : rien")
+
+  section("carte de connaissance : les nids vus par les yeux du QG sont candidats (lot ACT-SOLDATS)")
+  -- Défaut de la fumée 0.6.13 : les candidats ne venaient que de la carte du danger (nids vus en marche) ; la carte de
+  -- connaissance (nids vus par les yeux du QG, des avant-postes, des éclaireurs) n'arrivait jamais à Sd.assign.
+  local km = known_map({ { 60, 0, "spawner" }, { 61, 0, "spawner" }, { 60, 1, "worm" }, { 60, 2, "worm" } })
+  local pts = K.enemy_points(km, 0, 0, Sd.KNOWN_R)
+  check(#pts == 4, "K.enemy_points : 4 points lus à 170 tuiles (" .. #pts .. ")")
+  -- Chemin d'AVANT (carte du danger seule, vide ici) : rien ne part, c'est le défaut observé.
+  local avant = Sd.assign({ tick = 100, hq = HQ, agr = 700, soldiers = soldiers(25), threats = Sd.clusters({}) })
+  check(count(avant, "clear") == 0, "avant : carte du danger vide, 25 inactifs, nids connus de la carte de connaissance : rien ne part")
+  local cl_k = known_clusters(km, {})
+  check(#cl_k == 1 and cl_k[1].nests == 2 and cl_k[1].k == 4 and cl_k[1].known == 4, "les nids connus forment un groupe (2 nids, k 4, known 4)")
+  local ok1, sm1 = Sd.assign({ tick = 100, hq = HQ, agr = 700, soldiers = soldiers(25), threats = cl_k })
+  check(count(ok1, "clear") == 11 and sm1.offense == true, "après : 25 inactifs, 2 nids + 2 vers connus : 11 soldats partent en expédition (" .. count(ok1, "clear") .. ")")
+  -- Doublon : le même nid vu en marche (60,5 ; 0,5) et connu (60 ; 0) ne compte qu'une fois.
+  local cand_d = { { x = 60.5, y = 0.5, kind = "spawner" } }
+  local add = Sd.add_known(cand_d, { { x = 60, y = 0, kind = "spawner" }, { x = 61, y = 0, kind = "worm" } })
+  check(add == 1 and #cand_d == 2, "doublon (même genre à moins de 4 tuiles) ignoré, un ver voisin gardé (" .. add .. ")")
+  -- Le vieux seuil d'agressivité ne s'applique pas à une menace connue de la seule carte : la réserve est gardée.
+  local km3 = known_map({ { 60, 0, "spawner" }, { 62, 0, "spawner" }, { 64, 0, "spawner" } })
+  local o_ag = Sd.assign({ tick = 100, hq = HQ, agr = 1500, soldiers = soldiers(11), threats = known_clusters(km3, {}) })
+  check(count(o_ag, "clear") == 0, "faction agressive, 3 nids connus de la seule carte, 11 inactifs : la réserve reste (surplus 3 < 9) (" .. count(o_ag, "clear") .. ")")
+  local o_ag2 = Sd.assign({ tick = 100, hq = HQ, agr = 1500, soldiers = soldiers(11), threats = Sd.clusters({ { x = 60, y = 0, kind = "spawner" }, { x = 62, y = 0, kind = "spawner" }, { x = 64, y = 0, kind = "spawner" } }) })
+  check(count(o_ag2, "clear") == 9, "les mêmes nids VUS en marche : ancien seuil inchangé, 9 soldats (" .. count(o_ag2, "clear") .. ")")
+  -- Portée.
+  local km_far = known_map({ { 150, 0, "spawner" } })
+  check(#K.enemy_points(km_far, 0, 0, Sd.KNOWN_R) == 1, "nid à 150 tuiles : lu")
+  local o_far = Sd.assign({ tick = 100, hq = HQ, agr = 700, soldiers = soldiers(25), threats = known_clusters(km_far, {}) })
+  check(count(o_far, "clear") == 0, "nid connu à 150 tuiles (> 130) : pas d'expédition")
+  check(#K.enemy_points(known_map({ { 175, 0, "spawner" } }), 0, 0, Sd.KNOWN_R) == 0, "nid à 175 tuiles (> 170) : non lu")
+  -- Champ trop gros connu de la carte seule : pas d'attaque suicide.
+  local big = {}
+  for i = 1, 8 do big[#big + 1] = { 60 + i, 0, "spawner" } end
+  for i = 1, 4 do big[#big + 1] = { 60, i, "worm" } end
+  local o_big = Sd.assign({ tick = 100, hq = HQ, agr = 700, soldiers = soldiers(25), threats = known_clusters(known_map(big), {}) })
+  check(count(o_big, "clear") == 0, "champ connu de 8 nids + 4 vers : hors de portée (27 > 16)")
+  -- Secteurs voisins : les points de part et d'autre de la frontière x = 64 sont lus, dans un ordre fixe.
+  local km_b = known_map({ { 63, 0, "spawner" }, { 65, 0, "spawner" }, { 63, 70, "worm" } })
+  local pb = K.enemy_points(km_b, 64, 30, 60)
+  check(#pb == 3 and pb[1].x == 63 and pb[2].x == 65 and pb[3].kind == "worm", "points de secteurs voisins lus, ordre fixe")
+  -- Oubli (soldats sur place : nids détruits) : le groupe disparaît, plus d'expédition.
+  local gone = K.forget_enemies(km, 60, 0, 32)
+  check(gone == 4 and #K.enemy_points(km, 0, 0, Sd.KNOWN_R) == 0, "K.forget_enemies : 4 points oubliés (" .. gone .. ")")
+  check(#known_clusters(km, {}) == 0, "plus aucun groupe après l'oubli")
+  local km_p = known_map({ { 60, 0, "spawner" }, { 120, 0, "spawner" } })
+  check(K.forget_enemies(km_p, 60, 0, 10) == 1 and #K.enemy_points(km_p, 0, 0, Sd.KNOWN_R) == 1, "l'oubli ne touche que le rayon demandé")
 end
 
 local function run_quiet()
@@ -188,6 +257,14 @@ mutant("champ entier ignoré (sous-groupe attaqué seul)", function()
   local f = Sd.clusters
   patch(Sd, "clusters", function(th) local out = f(th) for _, c in ipairs(out) do c.wide = nil end return out end)
 end)
+mutant("carte de connaissance ignorée (add_known inactif)", function() patch(Sd, "add_known", function() return 0 end) end)
+mutant("doublons de la carte du danger comptés deux fois", function() patch(Sd, "DUP_R", 0) end)
+mutant("portée de lecture des nids connus nulle", function() patch(Sd, "KNOWN_R", 0) end)
+mutant("nids connus pris pour des nids vus (ancien seuil d'agressivité)", function()
+  local f = Sd.clusters
+  patch(Sd, "clusters", function(th) local out = f(th) for _, c in ipairs(out) do c.known = 0 end return out end)
+end)
+mutant("oubli de la carte de connaissance inactif", function() patch(K, "forget_enemies", function() return 0 end) end)
 mutant("nids non comptés par les groupes", function()
   local f = Sd.clusters
   patch(Sd, "clusters", function(th)

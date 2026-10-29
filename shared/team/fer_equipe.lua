@@ -48,4 +48,19 @@ function FE.extra_mines(a)
   return math.max(0, math.min(FE.EXTRA_CAP, a.idle or 0))
 end
 
+--- Quantité de `item` (le fer, nommé par l'appelant) dans une liste de coût { { item, n }, ... } (journal [FO-FER]).
+function FE.recruit_iron(cost, item)
+  local n = 0
+  for _, it in ipairs(cost or {}) do if it[1] == item then n = n + it[2] end end
+  return n
+end
+
+--- Le renfort de fer sert-il AUSSI quand le fond est coupé ? a = { player, fond_on, threat (QG menacé) }. Le fond n'est allumé
+--- pour votre équipe qu'à partir de son effectif de départ (script/team/poles.lua) : sous cet effectif, sans fer pour recruter,
+--- elle restait 100 % inactive (parties du 29/10, graine 1618033988 : 6 PNJ sur 8 de la minute 26 à la 60, fer à 0). Le QG menacé
+--- garde tout le monde au coffre ; une faction n'a pas de renfort.
+function FE.off_fond(a)
+  return (a.player and not a.fond_on and not a.threat) and true or false
+end
+
 return FE

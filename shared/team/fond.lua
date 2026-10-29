@@ -231,8 +231,20 @@ local function extraction(view, free, ctx, out)
   end
   -- 4 bis. Lot FER-EQUIPE (ctx.iron_extra = { res, n }, shared/team/fer_equipe.lua) : minage à la main de renfort pour le
   -- PNJ inactif, hors du plafond du travail manuel ; clés propres, jamais deux fois sur le tableau.
+  for _, t in ipairs(F.iron_extra_tasks({ iron_extra = ctx.iron_extra, keys = keys, mine_skip = ctx.mine_skip, prudent = prudent,
+    mine_radius = ctx.mine_radius })) do
+    out[#out + 1] = t
+  end
+end
+
+--- Lot FER-EQUIPE : tâches de minage de fer de renfort (ctx.iron_extra = { res, n }, ctx.keys, ctx.mine_skip, ctx.prudent,
+--- ctx.mine_radius). À part : script/team/poles.lua l'appelle aussi quand le fond est COUPÉ (votre équipe sous son effectif de
+--- départ, qui ne peut plus recruter faute de fer : parties du 29/10, 6 PNJ sur 8, 100 % inactifs, fer à 0 pendant 34 min).
+function F.iron_extra_tasks(ctx)
+  local out = {}
   local ie = ctx.iron_extra
-  if ie and (ie.n or 0) > 0 and not prudent and not (ctx.mine_skip and ctx.mine_skip[ie.res]) then
+  local keys = ctx.keys or {}
+  if ie and (ie.n or 0) > 0 and not ctx.prudent and not (ctx.mine_skip and ctx.mine_skip[ie.res]) then
     for j = 1, ie.n do
       local key = "fond:mine:" .. ie.res .. ":fer:" .. j
       if not keys[key] then
@@ -241,6 +253,7 @@ local function extraction(view, free, ctx, out)
       end
     end
   end
+  return out
 end
 
 --- Paires que le fond peut POSER à brève échéance (lot COFFRE, K-D du constat du DC du 27/10, 18 h 50 : « 40 fours en pierre »,

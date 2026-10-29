@@ -64,9 +64,35 @@ local function item_of(name)
   return nil
 end
 
+--- Noms des tapis débloqués pour la force de l'équipe, du plus lent au plus rapide.
+local function unlocked(f)
+  local usable, out = Conv.usable(f), {}
+  for _, b in ipairs(Conv.belts()) do if usable(b.name) then out[#out + 1] = b.name end end
+  return out
+end
+
+--- Journal [FO-CONVOYEURS], UNE fois par équipe et par sujet (f.build.conv_noted, booléens seuls) : sans lui, une partie où
+--- le tapis rapide est débloqué mais où aucun débit n'atteint la saturation d'une voie jaune (6/s) est muette, et l'on ne
+--- peut pas distinguer « la règle a tourné et gardé le jaune » de « la règle n'a jamais été appelée » (parties 0.6.13 du
+--- 29/10 : logistics-2 terminée par azure à 44,5 min, aucune ligne).
+local function note(f, topic, text)
+  local b = f.build
+  if not b then return end
+  b.conv_noted = b.conv_noted or {}
+  if b.conv_noted[topic] then return end
+  b.conv_noted[topic] = true
+  log(string.format("[FO-CONVOYEURS] %s : %s a %.1f min", f.key or "player", text, (game.tick or 0) / 3600))
+end
+
 --- Tapis d'un nouveau tracé dont `flow` objets/s passent sur une voie. nil : aucun tapis débloqué.
 function Conv.choose(f, flow)
-  return (C.pick(Conv.belts(), Conv.usable(f), flow, { need_only = Conv.MODE == "besoin" }))
+  local name = C.pick(Conv.belts(), Conv.usable(f), flow, { need_only = Conv.MODE == "besoin" })
+  if f.build then
+    local ok = unlocked(f)
+    note(f, "choix", string.format("premier choix de tapis : %s (mode %s, débit voulu %.2f/s sur une voie, un tapis jaune sature à %.1f/s ; débloqués : %s)",
+      tostring(name), Conv.MODE, flow or 0, C.SATURATION * C.capacity(0.03125), #ok > 0 and table.concat(ok, ", ") or "aucun"))
+  end
+  return name
 end
 
 --- Objet neuf qu'il faudrait fabriquer pour la prochaine amélioration d'un tracé de l'équipe : { item, count } ou nil
@@ -128,6 +154,11 @@ function Conv.step(f, surface, tick)
   local belts = Conv.belts()
   if #belts < 2 then return end
   local usable = Conv.usable(f)
+  local ok = unlocked(f)
+  if #ok >= 2 then
+    note(f, "debloque", string.format("tapis plus rapide débloqué (%s) ; les nouveaux tracés le prennent dès que leur débit atteint %.1f/s par voie (mode %s), les tracés finis passent au niveau supérieur à ce débit, avec ses tapis au stock",
+      table.concat(ok, ", "), C.SATURATION * C.capacity(0.03125), Conv.MODE))
+  end
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and p.state == "fini" then
