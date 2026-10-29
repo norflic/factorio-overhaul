@@ -264,6 +264,10 @@ local function pass(f, tick)
     end
   end
   t.alerts = alerts
+  -- Coupure de banc : war_option « soldats_offensive » = false (ni expédition, ni nids de la carte de connaissance, ni retraite).
+  local ws = State.war().settings
+  local offense = not (ws and ws.soldats_offensive == false)
+  local km = f.ai3f and f.ai3f.m
   -- Menaces candidates au nettoyage (vues par l'équipe), regroupées ; « a tué » : une mort de l'heure à 48 tuiles.
   local cand = {}
   for _, th in ipairs(t.map.threats) do
@@ -277,6 +281,22 @@ local function pass(f, tick)
     if ok then
       -- « a tué » ou BLOQUE une tournée (porte, escalade) : nettoyée quel que soit le caractère de la faction.
       cand[#cand + 1] = { x = th.x, y = th.y, kind = th.k, killed = D.deaths_near(t.map, { th }, 48, tick) > 0 or (th.b ~= nil and tick - th.b < 3600) }
+    end
+  end
+  -- Lot ACT-SOLDATS : les nids et vers de la carte de CONNAISSANCE (yeux du QG, des avant-postes, éclaireurs) à moins de
+  -- Sd.KNOWN_R tuiles du QG sont aussi candidats, pour l'EXPÉDITION seulement (Sd.add_known). Sans cela, seuls les nids vus en
+  -- marche par un PNJ armé comptaient : fumée 0.6.13, 24 soldats inactifs pendant 35 min et aucune expédition (RD_LOG, lot ACT-SOLDATS).
+  if offense and km then
+    local added = Sd.add_known(cand, K.enemy_points(km, f.hq_pos.x, f.hq_pos.y, Sd.KNOWN_R))
+    if added > 0 then
+      t.stats.known_threats = (t.stats.known_threats or 0) + 1
+      if not sd.known_logged then
+        sd.known_logged = true
+        local nn = 0
+        for _, c in ipairs(cand) do if c.known and c.kind == "spawner" then nn = nn + 1 end end
+        log(string.format("[FO-SOLDATS-CONN] %s : premiers nids de la carte de connaissance lus par l'expedition : %d nid(s) et %d ver(s) a moins de %d tuiles du QG, %d soldat(s) sans groupe",
+          tostring(f.key), nn, added - nn, Sd.KNOWN_R, #list))
+      end
     end
   end
   table.sort(cand, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
@@ -300,12 +320,19 @@ local function pass(f, tick)
       t.stats.forgot = (t.stats.forgot or 0) + D.forget_unseen(t.map, sd.clearing.x, sd.clearing.y, 32, nd)
       -- Plus aucun ennemi militaire à 32 tuiles : les menaces fixes connues dans ce rayon sont effacées toutes.
       if not en then t.stats.forgot = t.stats.forgot + D.forget_unseen(t.map, sd.clearing.x, sd.clearing.y, 34, nil) end
+      -- Même oubli sur la carte de connaissance (sinon un nid détruit y reste jusqu'au prochain regard du secteur, 30 min).
+      if offense and km then
+        local lim = (nd and math.min(nd, 32) or 34) - 2
+        if lim > 0 then t.stats.forgot_known = (t.stats.forgot_known or 0) + K.forget_enemies(km, sd.clearing.x, sd.clearing.y, lim) end
+      end
     end
     -- Menaces candidates recalculées après le regard.
     local keep = {}
     for _, c in ipairs(clusters) do
       local alive = false
       for _, th in ipairs(t.map.threats) do if d2(th, c) <= 24 * 24 then alive = true break end end
+      -- Groupe fait (en tout ou en partie) de nids connus : vivant tant que la carte de connaissance en garde près de lui.
+      if not alive and (c.known or 0) > 0 and km then alive = #K.enemy_points(km, c.x, c.y, 24) > 0 end
       if alive then keep[#keep + 1] = c end
     end
     clusters = keep
@@ -326,8 +353,6 @@ local function pass(f, tick)
   -- Lot CORR-SOLDATS : EXPÉDITION des soldats inactifs contre un champ de nids connu (règle pure Sd.offense_ok), avec RETRAITE :
   -- si plus de la moitié de la force de départ est morte, les survivants rentrent et le site n'est pas retenté avant
   -- Sd.RETREAT_COOL. Coupure de banc : war_option « soldats_offensive » = false (ni expédition, ni retraite, ni site interdit).
-  local ws = State.war().settings
-  local offense = not (ws and ws.soldats_offensive == false)
   local keep_b = {}
   for _, b in ipairs(sd.blocked or {}) do if tick < b["until"] then keep_b[#keep_b + 1] = b end end
   sd.blocked = keep_b
@@ -432,6 +457,13 @@ local function pass(f, tick)
     if summary.offense then
       t.stats.offense_ops = (t.stats.offense_ops or 0) + 1
       t.stats.offense_sent = (t.stats.offense_sent or 0) + #ids
+      if not sd.offense_logged then
+        sd.offense_logged = true
+        local tg = summary.target or {}
+        log(string.format("[FO-SOLDATS-CONN] %s : premiere expedition en (%d, %d) : %d soldat(s) sur %d sans groupe (reserve %d), champ de %s menace(s) dont %s nid(s), %s connue(s) de la seule carte de connaissance",
+          tostring(f.key), math.floor(started_clear.x), math.floor(started_clear.y), #ids, #list, Sd.reserve(#list),
+          tostring(tg.wide or tg.k), tostring(tg.nests), tostring(tg.known or 0)))
+      end
     end
     if Profiler.enabled() then
       log(string.format("[FO-IA3K] %s : nettoyage lance en (%d, %d) avec %d soldat(s)%s ; groupe k=%s champ=%s nids=%s, %d menace(s) connue(s)", tostring(f.key),

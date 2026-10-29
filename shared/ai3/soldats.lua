@@ -42,6 +42,11 @@ Sd.RESERVE_SHARE = 350 -- pour mille des inactifs gardés au QG
 Sd.RETREAT_COOL = 20 * 3600
 Sd.BLOCK_R = 24
 Sd.WIDE_R = 40 -- le champ ENTIER : toutes les menaces connues à moins de 40 tuiles du groupe (un champ étalé fait plusieurs groupes de 24)
+-- Lot ACT-SOLDATS (fumée 0.6.13 : deux parties de 60 min, 24 soldats inactifs pendant 35 min chez Scarlet, aucune expédition) : les
+-- candidats de l'expédition ne venaient QUE de la carte du danger (nids vus en marche par un PNJ armé : 0 à 1 nid en 60 min), jamais de
+-- la carte de CONNAISSANCE (nids vus par les yeux du QG, des avant-postes et des éclaireurs), que le lot CORR-SOLDATS citait pourtant.
+Sd.KNOWN_R = Sd.OFFENSE_R + Sd.WIDE_R -- nids connus lus autour du QG : la portée de l'expédition et le champ entier derrière
+Sd.DUP_R = 4 -- un point connu à moins de 4 tuiles d'une menace vue du même genre est la même menace
 
 -- 8 directions (vecteurs unitaires approchés en rationnels : aucune trigonométrie).
 local DIRS = { { 1, 0 }, { 0.7071, 0.7071 }, { 0, 1 }, { -0.7071, 0.7071 }, { -1, 0 }, { -0.7071, -0.7071 }, { 0, -1 }, { 0.7071, -0.7071 } }
@@ -86,6 +91,27 @@ function Sd.is_blocked(blocked, th, tick)
     if tick < b["until"] and d2(b, th) <= Sd.BLOCK_R * Sd.BLOCK_R then return true end
   end
   return false
+end
+
+--- Complète `cand` (menaces fixes vues par les PNJ en marche : { x, y, kind, killed }) avec les nids et vers de la carte de
+--- connaissance (`points` : K.enemy_points, { x, y, kind }), sans doublon. Les ajouts portent `known = true` : ils ne servent
+--- qu'à l'EXPÉDITION (réserve gardée, champ entier mesuré), jamais au vieux seuil d'agressivité. Renvoie le nombre d'ajouts.
+function Sd.add_known(cand, points)
+  local added = 0
+  local dup2 = Sd.DUP_R * Sd.DUP_R
+  local seen = #cand
+  for _, p in ipairs(points or {}) do
+    local same = false
+    for i = 1, seen do
+      local c = cand[i]
+      if c.kind == p.kind and d2(c, p) <= dup2 then same = true break end
+    end
+    if not same then
+      cand[#cand + 1] = { x = p.x, y = p.y, kind = p.kind, known = true }
+      added = added + 1
+    end
+  end
+  return added
 end
 
 --- Un groupe de menaces peut-il être attaqué par EXPÉDITION avec `idle` soldats inactifs ? Au moins un nid, aucune tourelle
@@ -198,7 +224,8 @@ function Sd.assign(input)
     local offense = input.offense ~= false -- coupure de banc : input.offense == false (ni expédition ni site interdit)
     for _, th in ipairs(input.threats or {}) do
       if not (offense and Sd.is_blocked(input.blocked, th, tick)) then
-        if ((input.agr or 1000) >= Sd.CLEAR_AGR or th.killed) and #avail >= Sd.clear_need(th.k or 1) then
+        -- Vieux seuil d'agressivité : seulement si au moins une menace du groupe a été VUE en marche (pas connue de la seule carte).
+        if ((input.agr or 1000) >= Sd.CLEAR_AGR or th.killed) and (th.known or 0) < (th.k or 1) and #avail >= Sd.clear_need(th.k or 1) then
           target = th
           break
         elseif offense and Sd.offense_ok(th, hq, #avail) then
@@ -278,9 +305,10 @@ function Sd.clusters(threats)
     if hit then
       hit.k = hit.k + 1
       hit.nests, hit.rival = hit.nests + nest, hit.rival + rival
+      if t.known then hit.known = hit.known + 1 end
       if t.killed then hit.killed = true end
     else
-      out[#out + 1] = { x = t.x, y = t.y, k = 1, killed = t.killed, nests = nest, rival = rival }
+      out[#out + 1] = { x = t.x, y = t.y, k = 1, killed = t.killed, nests = nest, rival = rival, known = t.known and 1 or 0 }
     end
   end
   -- Champ entier autour de chaque groupe (lot CORR-SOLDATS) : le besoin d'une expédition se compte sur TOUT ce qui l'attend.
