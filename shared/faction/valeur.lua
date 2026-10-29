@@ -45,6 +45,7 @@ V.CONTEST = 400
 V.LOST_R = 64           -- notre site perdu à moins de 64 tuiles…
 V.LOST_TTL = 30 * 3600  -- … depuis moins de 30 min : danger dégressif
 V.LOST = 600
+V.LOST_SAME_R = 12      -- lot REBUILD-AVANT-POSTE : un site perdu marqué « à refaire en place » (keep) ne pénalise pas le champ à moins de 12 tuiles de lui
 V.NEAR = 100            -- hasard borné : marge de V.NEAR pour mille de |meilleure valeur|, au moins MARGIN_MIN
 V.MARGIN_MIN = 60
 
@@ -118,7 +119,8 @@ function V.components(site, ctx)
   end
   for _, l in ipairs(ctx.lost or {}) do
     local age = (ctx.tick or 0) - (l.tick or 0)
-    if age >= 0 and age < V.LOST_TTL and dist(site, l) < V.LOST_R then
+    local dl = dist(site, l)
+    if age >= 0 and age < V.LOST_TTL and dl < V.LOST_R and not (l.keep and dl <= V.LOST_SAME_R) then
       danger = danger + V.LOST * (V.LOST_TTL - age) / V.LOST_TTL
     end
   end
