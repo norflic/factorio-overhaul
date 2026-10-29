@@ -138,6 +138,25 @@ local function suite(Rc)
     check(Rc.demand(only, Rc.CALM_INFRA, none)[1][2] == 2, "§7c deux poteaux perdus : deux à fabriquer")
   end
 
+  -- §7d Réparation des pièces endommagées ------------------------------------------------------------------
+  do
+    local c = {
+      { key = "a", x = 0, y = 0, ratio = 0.9 }, { key = "b", x = 2, y = 0, ratio = 0.3 }, { key = "c", x = 4, y = 0, ratio = 0.5 },
+      { key = "d", x = 100, y = 0, ratio = 0.1 }, { key = "e", x = 3, y = 3, ratio = 0.59 }, { key = "f", x = 1, y = 1, ratio = 0.61 },
+    }
+    local out = Rc.repair_batch(c)
+    check(#out == 1 and out[1].key == "d", "§7d la plus abîmée est la graine du lot (ses voisines seules l'accompagnent)")
+    local out3 = Rc.repair_batch({ c[1], c[2], c[3], c[5], c[6] })
+    check(#out3 == 3 and out3[1].key == "b" and out3[2].key == "c" and out3[3].key == "e", "§7d lot : voisines sous le seuil, plus abîmée d'abord")
+    check(Rc.repair_batch({ c[1], c[6] }) and #Rc.repair_batch({ c[1], c[6] }) == 0, "§7d au-dessus du seuil (60 %) : rien à réparer")
+    local near = {}
+    for i = 1, 10 do near[i] = { key = "k" .. i, x = i, y = 0, ratio = 0.2 + i / 100 } end
+    check(#Rc.repair_batch(near) == Rc.REPAIR_MAX, "§7d lot borné à Rc.REPAIR_MAX")
+    local o2 = Rc.repair_batch({ c[2], c[3], c[5] })
+    check(o2[1].key == "b" and o2[2].key == "c" and o2[3].key == "e", "§7d ordre : santé croissante")
+    check(Rc.REPAIR_PRIO < Rc.PRIO_BASE, "§7d réparer passe après refaire")
+  end
+
   return pass, fail, msgs
 end
 
@@ -180,6 +199,9 @@ local MUTANTS = {
   { "demande non bornée", "math.min(Rc.SPARE_CAP, need[item]) - have(item)", "need[item] - have(item)" },
   { "demande du stock ignoré", "math.min(Rc.SPARE_CAP, need[item]) - have(item)", "math.min(Rc.SPARE_CAP, need[item])" },
   { "demande aussi hors infrastructure", "if r.infra then need[r.item] = (need[r.item] or 0) + 1 end", "need[r.item] = (need[r.item] or 0) + 1" },
+  { "réparation sans seuil", "if c.ratio * 100 < (below or Rc.REPAIR_BELOW) then low[#low + 1] = c end", "low[#low + 1] = c" },
+  { "réparation sans rayon", "if #out < Rc.REPAIR_MAX and (c == seed or ((c.x - seed.x) ^ 2 + (c.y - seed.y) ^ 2) <= Rc.BATCH_RADIUS * Rc.BATCH_RADIUS) then", "if #out < Rc.REPAIR_MAX then" },
+  { "réparation sans plus abîmée d'abord", "if a.ratio ~= b.ratio then return a.ratio < b.ratio end", "" },
   { "pose refusée sans abandon", "if r.blocks > Rc.MAX_BLOCKS then r.abandoned = true end", "" },
 }
 local refused, kept = 0, {}

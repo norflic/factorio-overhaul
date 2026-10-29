@@ -315,6 +315,40 @@ do
 end
 
 
+-- §9 Réparation ----------------------------------------------------------------------------------------------------------
+do
+  local f = new_team()
+  local function dmg(name, x, y, hp, mx)
+    local e = ent(name, "electric-pole", x, y)
+    e.health = hp
+    e.prototype = { max_health = mx }
+    return e
+  end
+  local a, b, c = dmg("pole-x", 10, 10, 20, 100), dmg("pole-x", 12, 10, 90, 100), dmg("pole-x", 14, 10, 50, 100)
+  surface.consumers = { a, b, c }
+  surface.find_entity = function(_, p) for _, e in ipairs({ a, b, c }) do if e.position.x == p[1] and e.position.y == p[2] then return e end end end
+  local n = Recon.repair_think(f, surface, 5000)
+  local t
+  for _, tk in pairs(f.team.board.tasks) do if tk.kind == "repair" then t = tk end end
+  check(n == 1 and t and #t.targets == 2 and t.targets[1].x == 10, "pièces d'infrastructure sous 60 % de santé : une tâche de réparation (deux pièces, la plus abîmée d'abord)")
+  check(Recon.repair_think(f, surface, 5001) == 0, "balayage une fois par seconde")
+  check(Recon.repair_think(f, surface, 5000 + Recon.REPAIR_SCAN + 1) == 0, "une seule tâche de réparation à la fois")
+  check(Recon.repair_program(f, t) ~= nil and Recon.repair_program(f, {}) == nil, "programme : aller sur place, réparer")
+  local ok = Recon.repair_act({}, f, t, surface)
+  check(ok and a.health == 100 and c.health == 100 and b.health == 90, "santé remise au maximum pour les pièces du lot seulement")
+  check(Recon.repair_act({}, f, t, surface) == false, "rien à réparer : faux")
+  f.team.board.tasks = {}
+  surface.enemies = 3
+  surface.consumers = { dmg("pole-x", 10, 10, 10, 100) }
+  check(Recon.repair_think(f, surface, 9000) == 0 and next(f.team.board.tasks) == nil, "ennemis près de la pièce : pas de réparation")
+  surface.enemies = 0
+  local fa = new_team()
+  fa.is_player = false
+  check(Recon.repair_think(fa, surface, 9000) == 0, "les factions ne réparent pas (votre équipe seule)")
+  surface.consumers = {}
+end
+
+
 -- §5 Source -----------------------------------------------------------------------------------------------------------------
 for _, file in ipairs({ "script/team/reconstruction.lua" }) do
   local fh = assert(io.open(file, "rb"))

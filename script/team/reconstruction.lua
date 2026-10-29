@@ -302,6 +302,70 @@ function Recon.craft_spares(f, book, free, tick)
   return 0
 end
 
+--- RÉPARATION : l'infrastructure électrique ENDOMMAGÉE de votre équipe (santé sous Rc.REPAIR_BELOW %) est remise à neuf par un PNJ sur
+--- place (LuaEntity.health est en écriture, bornée à la santé max). Un balayage par seconde et par équipe ; une tâche « repair » à la fois.
+Recon.REPAIR_SCAN = 600
+function Recon.repair_think(f, surface, tick)
+  if not f.is_player or (f.repair_at or 0) > tick then return 0 end
+  f.repair_at = tick + Recon.REPAIR_SCAN
+  local b = Board.get(f)
+  for _, k in ipairs(State.sorted_keys(b.tasks)) do
+    if b.tasks[k].kind == "repair" then return 0 end
+  end
+  local types = {}
+  for _, k in ipairs(State.sorted_keys(R.INFRA_TYPES)) do types[#types + 1] = k end
+  local cands = {}
+  for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = types })) do
+    if e.valid and e.health then
+      local mx = e.prototype.max_health
+      if mx and mx > 0 and e.health < mx then
+        cands[#cands + 1] = { key = e.name .. "@" .. string.format("%.1f,%.1f", e.position.x, e.position.y), name = e.name,
+          x = e.position.x, y = e.position.y, ratio = e.health / mx }
+      end
+    end
+  end
+  local batch = Rc.repair_batch(cands)
+  if #batch == 0 then return 0 end
+  if #surface.find_enemy_units({ x = batch[1].x, y = batch[1].y }, Recon.SAFE_RADIUS, f.force) > 0 then
+    stat(f.recon or Recon.state(f), "repair_deferred")
+    return 0
+  end
+  local targets = {}
+  for _, c in ipairs(batch) do targets[#targets + 1] = { name = c.name, x = c.x, y = c.y } end
+  return Board.add(f, { { key = "repair:" .. batch[1].key, kind = "repair", prio = Rc.REPAIR_PRIO, domain = "defense", work = 10 + 2 * #batch,
+    targets = targets, pos = { x = batch[1].x, y = batch[1].y } } }, tick)
+end
+
+function Recon.repair_program(f, task)
+  if not (task.pos and task.targets) then return nil end
+  return { { "home" }, { "goto", task.pos, 4 }, { "act", "repair" }, { "home" } }
+end
+
+--- Remet à neuf les pièces du lot (ACTS.repair). Vrai si au moins une pièce a été réparée.
+function Recon.repair_act(agent, f, task, surface)
+  local s = Recon.state(f)
+  local n = 0
+  for _, t in ipairs(task.targets or {}) do
+    local e = surface.find_entity(t.name, { t.x, t.y })
+    if e and e.valid and e.force.name == f.force and e.health then
+      local mx = e.prototype.max_health
+      if mx and e.health < mx then
+        e.health = mx
+        n = n + 1
+      end
+    end
+  end
+  if n > 0 then
+    stat(s, "repaired", n)
+    s.stats.repair_logs = (s.stats.repair_logs or 0) + 1
+    if s.stats.repair_logs <= 20 then
+      log(string.format("[FO-RECON] %s : %d piece(s) endommagee(s) reparee(s) en (%.1f, %.1f) a %.1f min", f.key or "player", n, task.pos.x,
+        task.pos.y, (game.tick - (f.started or 0)) / 3600))
+    end
+  end
+  return n > 0
+end
+
 --- Programme de l'ouvrier qui prend la tâche (script/team/worker.lua, Worker.program). Les pièces sont marquées prises.
 function Recon.program(f, task)
   local s = f.recon
@@ -448,7 +512,7 @@ remote.add_interface("fo-recon", {
       end
     end
     return { byname = st.byname, wait = wait, pending = Rc.pending(s), recorded = st.recorded, rebuilt = st.rebuilt, blocked = st.blocked, deferred = st.deferred,
-      tasks = st.tasks, discarded = st.discarded, abandoned = ab, hold = Recon.hold_upgrades(f) }
+      tasks = st.tasks, discarded = st.discarded, repaired = st.repaired or 0, abandoned = ab, hold = Recon.hold_upgrades(f) }
   end,
 })
 

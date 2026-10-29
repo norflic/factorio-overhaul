@@ -121,6 +121,32 @@ function Rc.demand(st, tick, have)
   return out
 end
 
+--- RÉPARATION des pièces ENDOMMAGÉES (LuaEntity.health, lecture/écriture : doc runtime 1.1.91, bornée à [0, max]). `cands` :
+--- { { key, x, y, ratio } } (ratio = santé / santé max). Rend, pour la plus abîmée sous Rc.REPAIR_BELOW (en %), le lot de ses voisines à
+--- Rc.BATCH_RADIUS tuiles (elles aussi sous le seuil), au plus Rc.REPAIR_MAX pièces : ordre ratio croissant puis clé.
+Rc.REPAIR_BELOW = 60
+Rc.REPAIR_MAX = 6
+Rc.REPAIR_PRIO = 66      -- sous la reconstruction (70 et plus) : refaire avant de réparer
+function Rc.repair_batch(cands, below)
+  local low = {}
+  for _, c in ipairs(cands) do
+    if c.ratio * 100 < (below or Rc.REPAIR_BELOW) then low[#low + 1] = c end
+  end
+  table.sort(low, function(a, b)
+    if a.ratio ~= b.ratio then return a.ratio < b.ratio end
+    return a.key < b.key
+  end)
+  local out = {}
+  local seed = low[1]
+  if not seed then return out end
+  for _, c in ipairs(low) do
+    if #out < Rc.REPAIR_MAX and (c == seed or ((c.x - seed.x) ^ 2 + (c.y - seed.y) ^ 2) <= Rc.BATCH_RADIUS * Rc.BATCH_RADIUS) then
+      out[#out + 1] = c
+    end
+  end
+  return out
+end
+
 local function d2(a, b) local dx, dy = a.x - b.x, a.y - b.y; return dx * dx + dy * dy end
 
 --- Lot d'un voyage : la pièce `seed` d'abord, puis celles de `due` à `radius` tuiles d'elle, `max` pièces au plus.

@@ -273,6 +273,8 @@ function Worker.program(f, task, surface, tick)
     return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
   elseif k == "rebuild" then
     return Recon.program(f, task)
+  elseif k == "repair" then
+    return Recon.repair_program(f, task)
   elseif k == "garrison" then
     -- Lot IA1-b (fond du pôle Territoire) : garde d'un avant-poste ou du QG ; le PNJ tire sur ce qui approche
     -- (autodéfense, rayon DEFENSE_RADIUS) pendant task.wait ticks, puis rentre.
@@ -467,6 +469,7 @@ end
 ACTS.equiper = Equip.act -- lot LEVIERS
 
 ACTS.rebuild = function(agent, f, task, surface) return Recon.act(agent, f, task, surface) end -- lot COUVERTURE
+ACTS.repair = function(agent, f, task, surface) return Recon.repair_act(agent, f, task, surface) end -- lot RECONSTRUIRE
 
 ACTS.smelt = function(agent, f, task)
   Outposts.service_smelters(f, main_inv(agent), task.smelt)
