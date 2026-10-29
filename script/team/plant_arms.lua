@@ -8,6 +8,7 @@
   combustion se recharge seul avec le charbon qu'il déplace. Ce qui manque est le charbon du quai (mesuré : coffre à 0, 123456789, 32,7 min) : lot quai-charge, branche quai-charge.
 ]]
 local M = require("shared.team.modules")
+require("script.team.centrale_mort") -- lot INSTRUMENT-CENTRALE : journal de la mort des pièces de centrale (abonnement au bus)
 local T = require("shared.team.config")
 local Stock = require("script.team.stock")
 local Bras = require("shared.team.bras_retour")
