@@ -92,8 +92,8 @@ local build = read("script/team/build.lua")
 local pa = read("script/team/plant_arms.lua")
 local function has(src, pat, msg) check(src:find(pat, 1, true) ~= nil, msg) end
 check(build:find("Build.POND = " .. POND, 1, true) ~= nil, "etang de " .. POND .. " x " .. POND .. " (Build.POND) : la geometrie testee est la vraie")
-has(build, 'if p and p.state == "fini" and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then return pid end',
-  "plant_owner : seule une centrale FINIE partage sa rive")
+has(build, 'if p and p.state == "fini" and not p.abandoned and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then return pid end',
+  "plant_owner : seule une centrale FINIE et non abandonnee (site dangereux) partage sa rive")
 has(build, 'local shared = l.used and l.state ~= "gisement" and states.rive and plant_owner(b, l.used) or nil',
   "candidates : la rive d'une centrale finie est candidate (states.rive seulement : aucun autre module)")
 has(build, '(not l.used or l.state == "gisement" or shared)', "candidates : condition du lot pris elargie a la rive partagee")
@@ -109,6 +109,29 @@ has(pa, 'cool = tick < (g.cool_until or 0)', "plant_arms : la pause est lue par 
 has(pa, '[FO-ENERGIE] %s : bilan a %.1f min', "plant_arms : bilan [FO-ENERGIE] (production, capacite, charge, decision)")
 has(pa, '[FO-ENERGIE] %s : decision : pas de centrale de plus', "plant_arms : decision negative journalisee avec sa raison")
 has(build, '[FO-ENERGIE] %s : decision : centrale de %d chaudiere(s) demandee', "grow_plant : decision positive journalisee")
+
+print("== 3. Etangs de plus (relecture : l'etang garanti ne porte que 2 centrales)")
+check(C.MAX_PONDS * 2 >= C.MAX_PLANTS, "C.MAX_PONDS etangs portent C.MAX_PLANTS centrales (2 par etang)")
+check(C.pond_allowed(1, "rive") == true, "1 etang releve : un etang de plus est permis")
+check(C.pond_allowed(0, nil) == true, "aucun etang garanti (rive naturelle pleine) : un etang est permis")
+local ok1, why1 = C.pond_allowed(1, "inconnu")
+check(ok1 == false and why1 == "dernier etang pas encore releve", "dernier etang pas encore releve : pas d'autre etang (pas de rafale)")
+local ok2, why2 = C.pond_allowed(C.MAX_PONDS, "rive")
+check(ok2 == false and why2 == "plafond d'etangs", "plafond d'etangs : C.MAX_PONDS au plus")
+check(C.pond_allowed(C.MAX_PONDS - 1, "rive") == true, "sous le plafond : permis")
+-- mutant : sans garde du releve, deux etangs d'affilee
+do
+  local real = C.pond_allowed
+  local mut = function(ponds) return (ponds or 0) < C.MAX_PONDS end
+  check(mut(1, "inconnu") ~= real(1, "inconnu"), "mutant (garde du releve retiree) refuse par le test")
+end
+has(build, 'make_pond(f, surface, b.plant ~= p.id)', "plan_project : une centrale DE PLUS (pas b.plant) peut recevoir un etang de plus")
+has(build, 'if b.pond and not extra then return false end', "make_pond : la premiere centrale garde la regle d'origine (un etang)")
+has(build, 'surface.set_tiles(tiles, true, "abort_on_collision")', "make_pond : l'etang de plus ne retire aucune entite (abort_on_collision)")
+has(build, 'best.l.pond_fail = true', "make_pond : un lot dont la pose echoue n'est plus essaye")
+has(build, 'if b.occ[P.tkey(px + dx, py + dy)] then clear = false end', "make_pond : aucune tuile reservee sous l'etang de plus")
+has(build, 'Cen.pond_allowed(n, last and last.state)', "make_pond : regle pure Cen.pond_allowed branchee")
+
 -- aucun nom d'objet ecrit dans le code ajoute (iag_test section 8 : les noms viennent des donnees)
 local added = build:match("local function plant_owner.-\nend") or ""
 check(not added:find("boiler") and not added:find("steam%-engine") and not added:find("offshore"), "plant_owner : aucun nom d'objet")

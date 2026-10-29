@@ -71,6 +71,19 @@ function C.load(power, capacity)
   return math.min(1, (power or 0) / capacity)
 end
 
+--- Lot ENERGIE-CROISSANCE (relecture) : étangs garantis au plus par équipe. L'étang de Build.POND × Build.POND tuiles porte 2 centrales
+--- d'une chaudière (tests/energie_croissance_test.lua) : C.MAX_PLANTS centrales demandent C.MAX_PLANTS / 2 étangs.
+C.MAX_PONDS = 3
+
+--- Un étang de plus pour une centrale de plus ? `ponds` = étangs déjà posés (le premier compris), `last_state` = état du lot du
+--- dernier étang posé (« inconnu » tant que son relevé n'est pas fait : sa rive n'a pas encore été proposée à la centrale).
+--- Rend vrai, ou (false, raison).
+function C.pond_allowed(ponds, last_state)
+  if (ponds or 0) >= C.MAX_PONDS then return false, "plafond d'etangs" end
+  if last_state == "inconnu" then return false, "dernier etang pas encore releve" end
+  return true
+end
+
 --- La demande est partie : la saturation est à remesurer avec la nouvelle capacité.
 function C.requested(st)
   st.sat, st.saturated = 0, false

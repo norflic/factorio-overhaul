@@ -38,6 +38,7 @@ local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enc
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
+local Cen = require("shared.team.centrale") -- lot ENERGIE-CROISSANCE : étangs de plus (règle pure Cen.pond_allowed)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
@@ -445,9 +446,11 @@ Build.AVOID_MARGIN = 8 -- tuiles ajoutées au rayon d'un site écarté (le lot f
 local REUSE_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true } -- projets dont les poteaux existent ou vont exister
 
 --- Lot ENERGIE-CROISSANCE : numéro du projet `pid` si c'est une centrale à vapeur FINIE (sa rive peut en recevoir une autre), sinon nil.
+--- (relecture : une centrale ABANDONNÉE par la santé du réseau, site jugé dangereux, ne prête pas sa rive : b.avoid ne garde que
+--- 6 sites, le sien peut en être sorti)
 local function plant_owner(b, pid)
   local p = b.projects[pid]
-  if p and p.state == "fini" and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then return pid end
+  if p and p.state == "fini" and not p.abandoned and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then return pid end
   return nil
 end
 
@@ -501,23 +504,84 @@ end
 --- centrale est GARANTIE : un petit étang (Build.POND × Build.POND tuiles) au centre du lot libre le plus proche du QG
 --- (hors lot du QG, hors gisement, hors lot pris), une fois par équipe. Le lot est réévalué (rive) et la centrale replanifiée.
 Build.POND = 6
-local function make_pond(f, surface)  -- factions seulement (le joueur trouve son eau)
+--- Lot ENERGIE-CROISSANCE (relecture) : `extra` = étang pour une centrale DE PLUS (la première centrale, b.plant, garde la règle
+--- d'origine, une fois). L'étang garanti ne porte que 2 centrales d'une chaudière (tests/energie_croissance_test.lua) : la 3e était
+--- refusée « pas de lot » à chaque essai (« ils auraient dû aller vraiment beaucoup plus loin », retour du DC du 29/10). Un étang de
+--- plus est posé, au plus Cen.MAX_PONDS en tout (règle pure Cen.pond_allowed), dans un lot LIBRE (sans arbre) dans le contour, le plus
+--- proche de la première centrale (l'énergie reste groupée), sans tuile réservée (b.occ) ; set_tiles « abort_on_collision » : rien
+--- n'est retiré (PNJ, objets au sol) ; une pose refusée par le moteur marque le lot (l.pond_fail) et la centrale réessaie plus tard.
+local function make_pond(f, surface, extra)  -- factions seulement (le joueur trouve son eau)
   local b = f.build
-  if b.pond then return false end
-  local best
+  if b.pond and not extra then return false end
+  local ref = { i = 0, j = 0 }
+  if extra then
+    local n = b.ponds or (b.pond and 1 or 0)
+    local last = b.lots[b.pond_last or b.pond or ""]
+    local ok, why = Cen.pond_allowed(n, last and last.state)
+    if not ok then
+      if why ~= b.pond_why then
+        b.pond_why = why
+        log(string.format("[FO-ENERGIE] %s : pas d'etang de plus : %s (%d etang(s))", f.key or "player", why, n))
+      end
+      return false
+    end
+    local pp = b.plant and b.projects[b.plant]
+    local pl = pp and pp.parts and pp.parts[1] and b.lots[pp.parts[1].lot]
+    if pl then ref = { i = pl.i, j = pl.j } end
+  end
+  local best, x0, y0
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
-    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then
-      local d = math.abs(l.i) + math.abs(l.j)
-      if not best or d < best.d then best = { d = d, k = k, l = l } end
+    -- (étang de plus : lot libre seulement, aucun arbre à retirer, ni lot dont la pose a échoué ou écarté)
+    local fits = not extra or (l.state == "libre" and not l.pond_fail and not (l.bad and l.bad >= 2))
+    if fits and not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then
+      local d = math.abs(l.i - ref.i) + math.abs(l.j - ref.j)
+      if not best or d < best.d then
+        local c = lot_center(b, l)
+        local px, py = math.floor(c.x - Build.POND / 2), math.floor(c.y - Build.POND / 2)
+        local clear = true
+        if extra then -- aucune tuile de l'étang n'est réservée par un autre projet (tapis, poteaux planifiés)
+          for dx = 0, Build.POND - 1 do
+            for dy = 0, Build.POND - 1 do if b.occ[P.tkey(px + dx, py + dy)] then clear = false end end
+          end
+        end
+        if clear then best, x0, y0 = { d = d, k = k, l = l }, px, py end
+      end
     end
   end
-  if not best then return false end
-  local c = lot_center(b, best.l)
-  local x0, y0 = math.floor(c.x - Build.POND / 2), math.floor(c.y - Build.POND / 2)
+  if not best then
+    if extra and b.pond_why ~= "aucun lot libre" then
+      b.pond_why = "aucun lot libre"
+      log(string.format("[FO-ENERGIE] %s : pas d'etang de plus : aucun lot libre dans le contour", f.key or "player"))
+    end
+    return false
+  end
   local tiles = {}
   for dx = 0, Build.POND - 1 do
     for dy = 0, Build.POND - 1 do tiles[#tiles + 1] = { name = "water", position = { x0 + dx, y0 + dy } } end
+  end
+  if extra then
+    surface.set_tiles(tiles, true, "abort_on_collision")
+    local wet = 0
+    for _, t in ipairs(tiles) do
+      local tl = surface.get_tile(t.position[1], t.position[2])
+      if tl and tl.valid and tl.collides_with("water-tile") then wet = wet + 1 end
+    end
+    if wet < #tiles then
+      best.l.pond_fail = true
+      if wet > 0 then best.l.state = "inconnu"; b.queue[#b.queue + 1] = { "lot", best.k } end -- (pose partielle : le lot est relevé)
+      log(string.format("[FO-ENERGIE] %s : etang de plus refuse par le moteur au lot %s (%d tuile(s) d'eau sur %d : entite sur la place)",
+        f.key or "player", best.k, wet, #tiles))
+      return false
+    end
+    b.ponds = (b.ponds or (b.pond and 1 or 0)) + 1
+    b.pond_last, b.pond_why = best.k, nil
+    best.l.state, best.l.reason, best.l.bad = "inconnu", nil, nil
+    -- relevé du lot en TÊTE de file : la centrale qui attend le replanifie à la passe suivante
+    if b.qhead <= #b.queue + 1 then table.insert(b.queue, b.qhead, { "lot", best.k }) else b.queue[#b.queue + 1] = { "lot", best.k } end
+    log(string.format("[FO-ENERGIE] %s : etang de plus (%d en tout) pose au lot %s (%d, %d) pour une centrale de plus",
+      f.key or "player", b.ponds, best.k, x0, y0))
+    return true
   end
   surface.set_tiles(tiles, true, true)
   b.pond = best.k
@@ -1679,7 +1743,8 @@ local function plan_project(f, surface, p)
       Build.grow(f, b.radius + 1)
       return false, why, true
     end
-    if is_plant and not f.is_player and make_pond(f, surface) then return false, why, true end
+    -- (lot ENERGIE-CROISSANCE, relecture : une centrale de plus, rive partagée pleine, reçoit un étang de plus, make_pond)
+    if is_plant and not f.is_player and make_pond(f, surface, b.plant ~= p.id) then return false, why, true end
     return false, why
   end
   p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot, ox = main.ox, oy = main.oy,
