@@ -25,3 +25,7 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 - 229 fichiers (derniere heure, y compris benchmark-stdout) : aucune erreur Lua. Le plantage de FORTIFY/p3 (board.lua:785) est corrige par l agent (garde + test).
 - 4 nouveaux ECHEC.txt FAUX (Performed present) malgre la copie du banc.py corrige : NIDS/lot3-271828182, RECONSTRUIRE/lot-314159265, KIT2/K2-etape1-271828182, QUAI/bq-314159265 : ces pilotes appellent un banc.py hors des worktrees synchronises (supposé) ; renommes ECHEC-FAUX-POSITIF.txt. A traiter : corriger la source du banc.py appele par ces pilotes.
 - Charge normale : 7 banc.py, 42 bash, disque 126 Go libres.
+
+## 29/10 ~03 h 00, passage 6 et 7
+- Passages 6 et 7 : aucune erreur Lua, aucun plantage, aucun ECHEC.txt reel (les faux positifs de banc.py sont renommes au fil de l eau). Disque 123-124 Go libres, charge normale (6 banc.py, 35 bash).
+- Constat d organisation : lot MAINS sans agent vivant depuis ~00 h (trois agents de workflow arretes, pilote de bancs poursuivi) ; repris par l agent nomme mainsc a 02 h 30.
