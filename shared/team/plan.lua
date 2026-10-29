@@ -356,8 +356,11 @@ local EXTRA = {
   ["iron-chest"] = { w = 1, h = 1 }, ["wooden-chest"] = { w = 1, h = 1 }, ["steel-chest"] = { w = 1, h = 1 },
   ["small-electric-pole"] = { w = 1, h = 1, wire = 7.5 }, ["medium-electric-pole"] = { w = 1, h = 1, wire = 9 },
 }
+--- Lot ESPACE : une pièce d'un lot (le mur de l'enceinte) déclare son emprise par son nom lu dans T, sans l'écrire ici.
+local DECLARED = {}
+function P.declare_size(name, w, h) DECLARED[name] = { w = w, h = h } end
 function P.size(name, dir)
-  local x = EXTRA[name]
+  local x = EXTRA[name] or DECLARED[name]
   if x then return x.w, x.h end
   -- Lot CONVOYEURS : un tapis des données du jeu que modules.lua ne connaît pas (niveau supérieur) occupe une tuile.
   if not M.BASE[name] and name:find("belt", 1, true) and not M.spec(name) then return 1, 1 end
