@@ -37,6 +37,7 @@ local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon l
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
+local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
@@ -1140,6 +1141,74 @@ end
 Outposts.reserved = function(f, name, pos, dir) return Build.reserved_entity(f, name, pos, dir) end
 -- Lot STOCKAGE : les annexes du QG (script/team/stock.lua) sautent une place réservée par le plan directeur.
 Stock.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos) end
+
+--- Lot TOURELLES-HORS-AXE (retour du DC du 29/10 sur 0.6.18, défaut 4 : « le canon est en plein milieu [...] si on voulait étendre
+--- sur la gauche [...] on pourrait pas »). Couloirs d'extension des lignes extensibles de l'équipe : la ligne de fours à tapis
+--- (partie 1 d'un projet smelter à feed « tapis ») et chaque rangée de foreuses (partie « foreuses »). Couloir = toute la longueur
+--- du lot le long de l'axe de la ligne (sa longueur maximale prévue, Li.rows_fit et P.fit : le lot), bout du tapis et quai compris,
+--- sur la largeur du module plus Axe.SIDE tuile(s) de chaque côté (shared/team/axe.lua). Calculé à la demande depuis p.parts et
+--- p.ents, sans état écrit : les projets des sauvegardes 0.6.18 ont leurs couloirs comme les nouveaux. Ligne fixe (MIGRATION-CHAMP,
+--- spec.fixe), projet abandonné ou refusé : aucun couloir. Lecteurs : Outposts.fortify_at (crochet Outposts.corridors) et
+--- move_turrets_off (une tourelle déplacée ne retombe pas dans un couloir). Liste dans l'ordre b.order, puis des parties.
+function Build.corridors(f)
+  local b = f and f.build
+  if not (b and b.order and b.projects and b.lat) then return {} end
+  local out = {}
+  -- relecture : un tapis se reconnaît aussi par la liste des tapis des données (Conv.belts), pas au seul gabarit (M.spec ne connaît
+  -- que le tapis de base) ; le tapis d'une rangée de foreuses est choisi au débit et amélioré en place (script/team/convoyeurs.lua
+  -- réécrit e.name) : sans cela le couloir d'une rangée à tapis rapide disparaissait sans un mot. Aucun nom en dur.
+  local belt_of = {}
+  for _, bt in ipairs(Conv.belts()) do belt_of[bt.name] = true end
+  local function is_belt(name) return belt_of[name] or (M.spec(name) or {}).kind == "belt" end
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    local spec = p and p.spec or {}
+    if p and p.parts and not p.abandoned and p.state ~= "refuse" and not spec.fixe then
+      for i = 1, #p.parts do
+        local pt = p.parts[i]
+        local ext = pt and ((i == 1 and spec.gen == "smelter" and spec.feed == "tapis") or pt.kind == "foreuses")
+        if ext and pt.ox and pt.w then
+          local dirs = {}
+          for _, e in ipairs(p.ents) do
+            if e.part == i and e.x > pt.ox and e.x < pt.ox + pt.w and e.y > pt.oy and e.y < pt.oy + pt.h
+                and is_belt(e.name) then dirs[#dirs + 1] = e.dir or 0 end
+          end
+          local li, lj = P.lot_of(b.lat, pt.ox + pt.w / 2, pt.oy + pt.h / 2)
+          if li then
+            local x0, y0, x1, y1 = P.lot_rect(b.lat, li, lj)
+            local c = Axe.corridor({ x0 = pt.ox, y0 = pt.oy, x1 = pt.ox + pt.w, y1 = pt.oy + pt.h },
+              { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, Axe.axis_of(dirs))
+            if c then c.pid, c.part = pid, i; out[#out + 1] = c end
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Lot TOURELLES-HORS-AXE : couloir que recouvre l'emprise d'une entité `name` en `pos` (ou nil). `cors` : Build.corridors(f).
+function Build.axis_entity(cors, name, pos)
+  if not (cors and #cors > 0 and pos) then return nil end
+  local pr = game.entity_prototypes[name]
+  if not pr then return nil end
+  return (Axe.hit(cors, Axe.tile_rect(pos.x, pos.y, pr.tile_width or 1, pr.tile_height or 1)))
+end
+
+--- Lot TOURELLES-HORS-AXE : une ligne [FO-AXE] (au plus Build.AXE_LOGS par équipe, compteur b.stats.axe_logs).
+Build.AXE_LOGS = 40
+function Build.axe_log(f, text)
+  local st = f and f.build and f.build.stats
+  if st then
+    st.axe_logs = (st.axe_logs or 0) + 1
+    if st.axe_logs > Build.AXE_LOGS then return end
+  end
+  log("[FO-AXE] " .. tostring(f and f.key or "player") .. " : " .. text)
+end
+
+-- Crochets des poseurs de tourelles (script/faction/outposts.lua, Outposts.fortify_at)
+Outposts.corridors = function(f) return Build.corridors(f) end
+Outposts.axe_log = function(f, text) return Build.axe_log(f, text) end
 
 Build.ROUTE_WEIGHT = 2        -- lot AUTO : poids de l'heuristique du second tracé du tapis des foreuses (A* pondéré)
 Build.DRILL_DIAG_LOGS = 24    -- lot AUTO : lignes de diagnostic des foreuses refusées, au plus, par équipe
@@ -2291,6 +2360,44 @@ local function place_ghost(surface, f, e)
   return "ok"
 end
 
+--- Lot TOURELLES-HORS-AXE : une tourelle ENREGISTRÉE de l'équipe (f.turrets, posée par les avant-postes ; jamais celle d'un joueur) qui
+--- occupe seule l'emprise d'une pièce à poser du projet n'est plus enlevée : elle est DÉPLACÉE à côté (teleport : munitions, santé et
+--- registre gardés), d'abord sur le côté de la ligne dont elle bloque le couloir (Axe.side_spots), sinon sur l'anneau voisin
+--- (Blocage.spots), jamais sur une tuile réservée (Build.reserved_entity : b.occ) ni dans un couloir (Build.axis_entity). Appelé au
+--- refus « occupe » d'un fantôme (revive_one, phase « fantomes ») : la ligne qui s'étend la pousse tout de suite, sans attendre le
+--- blocage du projet. Rend vrai si TOUTES les tourelles de l'emprise ont été déplacées. Journal [FO-AXE], une ligne par tourelle.
+local function move_turrets_off(f, surface, p, e)
+  if not (f.turrets and f.build) then return false end
+  local found = surface.find_entities_filtered({ area = footprint(e) })
+  local list = {}
+  for _, x in ipairs(found) do
+    local mine = x.unit_number ~= nil and f.turrets[x.unit_number] ~= nil
+    list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree" }
+  end
+  if not Blocage.own_blockers(list, f.force, T.turret) then return false end
+  local cors = Build.corridors(f)
+  for _, x in ipairs(found) do
+    if x.valid then
+      local from = x.position
+      local pr = game.entity_prototypes[x.name] or {}
+      local spots = Axe.side_spots(from.x, from.y, cors, pr.tile_width or 1, pr.tile_height or 1)
+      for _, s in ipairs(Blocage.spots(from.x, from.y)) do spots[#spots + 1] = s end
+      local pos = Blocage.first_free(spots,
+        function(c) return surface.find_non_colliding_position(x.name, { x = c.x, y = c.y }, 4, 1) end,
+        function(q) return Build.reserved_entity(f, x.name, q) or Build.axis_entity(cors, x.name, q) ~= nil end)
+      if not (pos and x.teleport(pos)) then
+        Build.axe_log(f, string.format("projet %d : tourelle en (%g, %g) sur l'emprise de %s en (%g, %g), aucune place libre hors des couloirs : non deplacee",
+          p.id, from.x, from.y, tostring(e.name), e.x, e.y))
+        return false
+      end
+      f.build.stats.turrets_moved = (f.build.stats.turrets_moved or 0) + 1
+      Build.axe_log(f, string.format("projet %d : tourelle deplacee de (%g, %g) a (%g, %g) : elle occupait l'emprise de %s en (%g, %g) ; %d couloir(s) d'extension",
+        p.id, from.x, from.y, x.position.x, x.position.y, tostring(e.name), e.x, e.y, #cors))
+    end
+  end
+  return true
+end
+
 --- Refus passager (un personnage sur l'emprise) : compté à part ; Build.NPC_BLOCKS_PER_FAIL refus valent un échec.
 local function npc_block(f, p, e, surface)
   local st = f.build.stats
@@ -2444,6 +2551,8 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     local r = place_ghost(surface, f, e)
     if r == "deja" then e.built = true return true end
     if r == "pnj" then npc_block(f, p, e, surface) return false end
+    if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
+    if r == "deja" then e.built = true return true end
     if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
     if r ~= "ok" then
       e.fails = (e.fails or 0) + 1
@@ -3040,6 +3149,7 @@ local function advance(f, surface, p, tick)
         if placed >= Build.GHOSTS_PER_PULSE then pending = pending + 1 break end
         if not Tokens.take(f, tick, Build.COST_GHOST) then return end
         local r = place_ghost(surface, f, e)
+        if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
         if r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
         elseif r == "deja" then e.built = true
         elseif r == "obstacle" then
@@ -3101,7 +3211,7 @@ end
 --- entités sur 113 de 36 min à la fin ; la pose des tourelles évite désormais les tuiles réservées, ceci reprend les chantiers
 --- déjà pris). Rend le nombre d'entités enlevées. Une autre entité sur l'emprise (arbre, falaise, bâtiment) : rien n'est touché.
 local function free_own_turrets(f, surface, p)
-  local n, n_back = 0, 0
+  local n, n_back, n_moved = 0, 0, 0
   for _, e in ipairs(p.ents) do
     if not e.built then
       local found, list = surface.find_entities_filtered({ area = footprint(e) }), {}
@@ -3110,7 +3220,11 @@ local function free_own_turrets(f, surface, p)
         local mine = x.unit_number ~= nil and f.turrets ~= nil and f.turrets[x.unit_number] ~= nil
         list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree" }
       end
-      if Blocage.own_blockers(list, f.force, T.turret) then
+      -- lot TOURELLES-HORS-AXE : d'abord déplacée à côté (move_turrets_off) ; récupérée au coffre seulement si aucune place
+      if Blocage.own_blockers(list, f.force, T.turret) and move_turrets_off(f, surface, p, e) then
+        n, n_moved = n + #list, n_moved + #list
+      elseif Blocage.own_blockers(list, f.force, T.turret) then
+        found = surface.find_entities_filtered({ area = footprint(e) }) -- relu : une tourelle déjà déplacée n'est plus sur l'emprise
         for _, x in ipairs(found) do
           if x.valid then
             -- Lot INTEG-DEFENSE 4.1 : la tourelle (et ses chargeurs) RETOURNE au coffre de l'équipe (la détruire perdait ~40 de fer, 10 de
@@ -3129,7 +3243,7 @@ local function free_own_turrets(f, surface, p)
       end
     end
   end
-  return n, n_back
+  return n, n_back, n_moved
 end
 
 --- Lot FACTIONS-BLOQUEES : un projet qui n'avance plus depuis 10 min (aucune entité bâtie de plus) est écrit UNE fois par équipe et
@@ -3183,10 +3297,10 @@ local function pulse_team(f, tick)
     -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
     if p and p.state == "bloque" and p.retry_at and tick >= p.retry_at then
       p.retry_at = nil
-      local freed, back = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES
+      local freed, back, moved = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES (TOURELLES-HORS-AXE : déplacées d'abord)
       if freed > 0 then
         b.stats.turrets_freed = (b.stats.turrets_freed or 0) + freed
-        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier (%d rendue(s) au coffre avec leurs chargeurs)", f.key or "player", p.id, freed, back or 0))
+        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier (%d deplacee(s) a cote, %d rendue(s) au coffre avec leurs chargeurs)", f.key or "player", p.id, freed, moved or 0, back or 0))
       end
       for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
       p.state, p.reason = "chantier", nil

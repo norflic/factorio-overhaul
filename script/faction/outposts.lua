@@ -19,6 +19,7 @@ local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pos
 local R = require("shared.ai3.reglages") -- lot TOURELLES : rôles des types du moteur (bâtiments à protéger)
 local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels emplacements prendre (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : une tourelle ne se pose pas sur une tuile réservée (règle pure)
+local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règle pure)
 local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
@@ -594,17 +595,38 @@ end
 function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, ammos)
   local placed = 0
   ammos = ammos or { T.turret_ammo }
+  -- lot TOURELLES-HORS-AXE : couloirs d'extension des lignes de l'équipe (Build.corridors, crochet posé par script/team/build.lua),
+  -- lus une fois par pose ; emprise de la tourelle en tuiles (prototype)
+  local cors = (Outposts.corridors ~= nil and Outposts.corridors(f)) or {}
+  local tp = game.entity_prototypes[T.turret]
+  local tw, th = tp and tp.tile_width or 2, tp and tp.tile_height or 2
+  local function in_axe(q) return Axe.hit(cors, Axe.tile_rect(q.x, q.y, tw, th)) end
   for _, s in ipairs(sites) do
     if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
     -- lot FACTIONS-BLOQUEES : jamais sur une tuile réservée par un projet du plan directeur (moteur réel, 20261020 et 1618033988 :
     -- fantôme du tapis d'une fonderie refusé « occupe » par une tourelle de l'équipe, projet bloqué de 36 min à la fin de la partie) ;
     -- aucune place libre alentour : l'ancienne position (le projet se débloque alors par la reprise de build.lua)
-    local pos = Blocage.first_free(Blocage.spots(s.x, s.y),
+    -- lot TOURELLES-HORS-AXE : ni dans le couloir d'extension d'une ligne (retour du DC sur 0.6.18 : « le canon est en plein milieu
+    -- [...] si on voulait étendre sur la gauche [...] on pourrait pas ») ; un emplacement qui tombe dans un couloir essaie d'abord les
+    -- places sur le CÔTÉ de la ligne (Axe.side_spots), puis les anneaux voisins ; le repli sans contrôle ne tombe jamais dans un couloir
+    local spots = Axe.side_spots(s.x, s.y, cors, tw, th)
+    local hit = #spots > 0 and in_axe(s) or nil
+    for _, q in ipairs(Blocage.spots(s.x, s.y)) do spots[#spots + 1] = q end
+    local pos = Blocage.first_free(spots,
       function(c) return surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1) end,
-      function(q) -- réservée, ou hors de la zone voulue (accept) : on passe à la position suivante
-        return (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or (accept ~= nil and not accept(q))
+      function(q) -- réservée, dans un couloir d'extension, ou hors de la zone voulue (accept) : on passe à la position suivante
+        return (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or in_axe(q) ~= nil or (accept ~= nil and not accept(q))
       end)
-      or surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
+    if not pos then
+      local q = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
+      if q and not in_axe(q) then pos = q end
+    end
+    if hit and Outposts.axe_log then
+      Outposts.axe_log(f, pos and string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s) -> tourelle en (%g, %g), hors du couloir",
+          tostring(oid), s.x, s.y, hit.pid or 0, hit.part or 0, hit.axis, pos.x, pos.y)
+        or string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s), aucune place hors des couloirs : emplacement saute",
+          tostring(oid), s.x, s.y, hit.pid or 0, hit.part or 0, hit.axis))
+    end
     if pos and (accept == nil or accept(pos)) then
       local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
       if t then
