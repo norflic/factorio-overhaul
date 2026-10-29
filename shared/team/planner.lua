@@ -666,6 +666,15 @@ function P.plan(view, book)
                 else
                   local _, pp = affordable(part, fi, fc)
                   d.why, d.partial, d.raw = "fer", true, pp.raw
+                  -- Intégration 0.6.18 : le QG et la centrale gardent leur DEMANDE de matières (ce qui manque à la commande partielle
+                  -- au-dessus des planchers), comme want_defense le faisait avant 3.4 ; sans elle, ni minage ni fonte du fer de leurs
+                  -- tourelles (tests/survie_moteur_test.lua §4). Le front garde la règle de D4 (aucune demande).
+                  if p.id ~= "front" then
+                    local ks = {}
+                    for k in pairs(pp.raw) do ks[#ks + 1] = k end
+                    table.sort(ks)
+                    for _, k in ipairs(ks) do raw_short[k] = (raw_short[k] or 0) + pp.raw[k] end
+                  end
                 end
               end
             else
