@@ -532,8 +532,9 @@ local function retarget(f, k, a, ex, tick)
   local key
   if ex.veille then
     -- Lot VEILLE : le but est celui de la règle pure (secteur de la bande du rayon, le plus ancien d'abord), gardé jusqu'à ce qu'il soit
-    -- vu ; seul le point de passage change d'une étape à l'autre.
-    if ex.target then
+    -- vu ; seul le point de passage change d'une étape à l'autre. Un but dont le chemin a raté (ex.bad) n'est PAS regardé de nouveau :
+    -- la reprise (FAIL_MAX) en choisit un autre (pick_goal l'écarte par k.badt).
+    if ex.target and not ex.bad[ex.target] then
       key = ex.target
     else
       local vs = Veille.state(f)
