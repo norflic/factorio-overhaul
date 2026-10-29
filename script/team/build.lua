@@ -1168,15 +1168,11 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Lot ESPACE : enceinte (anneau de murs au-delà du treillis ; règle pure : shared/team/enceinte.lua)
 ---------------------------------------------------------------------------------------------------
---- Relevé des quatre bandes de l'anneau (11 tuiles d'épaisseur vers l'intérieur : de quoi y placer les points d'appui,
---- sur la dernière rue) : eau, bloqué, défrichable (read_masks) et tuiles de RESSOURCE (jamais murées).
-local function enc_masks(f, surface, x0, y0, x1, y1)
+--- Relevé des zones d'un projet d'enceinte (rectangles { x0, y0, x1, y1 }) : eau, bloqué, défrichable (read_masks) et
+--- tuiles de RESSOURCE (jamais murées).
+local function enc_masks(f, surface, areas)
   local m = { water = {}, blocked = {}, clear = {}, ore = {} }
-  local bands = {
-    { x0 - 1, y0 - 1, x1 + 2, y0 + 10 }, { x0 - 1, y1 - 9, x1 + 2, y1 + 2 },
-    { x0 - 1, y0 - 1, x0 + 10, y1 + 2 }, { x1 - 9, y0 - 1, x1 + 2, y1 + 2 },
-  }
-  for _, bd in ipairs(bands) do
+  for _, bd in ipairs(areas) do
     local r = read_masks(f, surface, bd[1], bd[2], bd[3], bd[4])
     for k in pairs(r.water) do m.water[k] = true end
     for k in pairs(r.blocked) do m.blocked[k] = true end
@@ -1188,6 +1184,15 @@ local function enc_masks(f, surface, x0, y0, x1, y1)
   return m
 end
 
+--- Zones à relever pour l'anneau ENTIER (projet d'une sauvegarde d'avant ENCEINTE2) : quatre bandes de 11 tuiles d'épaisseur
+--- vers l'intérieur (de quoi y placer les points d'appui, sur la dernière rue).
+local function ring_areas(x0, y0, x1, y1)
+  return {
+    { x0 - 1, y0 - 1, x1 + 2, y0 + 10 }, { x0 - 1, y1 - 9, x1 + 2, y1 + 2 },
+    { x0 - 1, y0 - 1, x0 + 10, y1 + 2 }, { x1 - 9, y0 - 1, x1 + 2, y1 + 2 },
+  }
+end
+
 --- Plan du projet « enceinte » : (true) ou (false, raison). Mêmes champs qu'un projet de module (entités, points d'appui,
 --- obstacles) : la machine d'états d'`advance` ne change pas.
 local function plan_enceinte(f, surface, p)
@@ -1197,15 +1202,40 @@ local function plan_enceinte(f, surface, p)
   local item = item_of(T.wall)
   if not item then return false, "mur sans objet" end
   local x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r)
-  local m = enc_masks(f, surface, x0, y0, x1, y1)
-  local ring = Enc.ring(b.lat, enc.r, { skip = function(tx, ty)
+  -- lot ENCEINTE2 : un projet = un SEGMENT (spec.walls : tuiles { {tx, ty} ... }) ; sans liste (projet d'une sauvegarde d'avant),
+  -- l'anneau entier
+  local seg = p.spec.walls
+  local areas, tiles
+  if seg then
+    local ax0, ay0, ax1, ay1 = math.huge, math.huge, -math.huge, -math.huge
+    tiles = {}
+    for _, w in ipairs(seg) do
+      tiles[#tiles + 1] = { tx = w[1], ty = w[2], x = w[1] + 0.5, y = w[2] + 0.5 }
+      ax0, ay0, ax1, ay1 = math.min(ax0, w[1]), math.min(ay0, w[2]), math.max(ax1, w[1]), math.max(ay1, w[2])
+    end
+    areas = { { ax0 - 11, ay0 - 11, ax1 + 12, ay1 + 12 } } -- 11 tuiles tout autour : de quoi poser les points d'appui
+  else
+    areas = ring_areas(x0, y0, x1, y1)
+  end
+  local m = enc_masks(f, surface, areas)
+  local function skip(tx, ty)
     local k = P.tkey(tx, ty)
     if m.water[k] then return "eau" end
     if m.ore[k] then return "ressource" end
     if m.blocked[k] then return "bloque" end
     if b.occ[k] then return "reserve" end
     return nil
-  end })
+  end
+  local ring
+  if tiles then
+    ring = { walls = {}, gates = 0, skipped = {} }
+    for _, w in ipairs(tiles) do
+      local why = skip(w.tx, w.ty)
+      if why then ring.skipped[why] = (ring.skipped[why] or 0) + 1 else ring.walls[#ring.walls + 1] = w end
+    end
+  else
+    ring = Enc.ring(b.lat, enc.r, { skip = skip })
+  end
   if #ring.walls == 0 then return false, "aucun mur posable" end
   local ents = {}
   for _, w in ipairs(ring.walls) do
@@ -1232,13 +1262,18 @@ local function plan_enceinte(f, surface, p)
     local tx, ty = math.floor(e.x), math.floor(e.y)
     if m.clear[P.tkey(tx, ty)] then add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
   end
-  -- ox, oy : le milieu de l'ouverture nord (la rue principale qui y mène est défrichée la première) ; l'anneau en `ring`
-  p.parts[1] = { kind = "enceinte", key = "enceinte", ox = b.lat.ox + 14, oy = y0, w = 1, h = 1, power = false,
+  -- ox, oy : le milieu du segment (la rue qui y mène est défrichée la première) ; ancien projet entier : l'ouverture nord
+  local ox, oy = b.lat.ox + 14, y0
+  if tiles then
+    local mid = ring.walls[math.ceil(#ring.walls / 2)]
+    ox, oy = mid.x, mid.y
+  end
+  p.parts[1] = { kind = "enceinte", key = "enceinte", ox = ox, oy = oy, w = 1, h = 1, power = false,
     ring = { x0, y0, x1, y1 } }
   b.stats.modules_started = b.stats.modules_started + 1
-  enc.walls, enc.gates, enc.skipped = #ring.walls, ring.gates, ring.skipped
-  log(string.format("[FO-ESPACE] %s : enceinte planifiee (rayon %d, anneau %d,%d a %d,%d) : %d murs, %d tuiles d'ouverture, tuiles non murees %s, %d obstacles a defricher",
-    f.key or "player", enc.r, x0, y0, x1, y1, #ring.walls, ring.gates,
+  p.walls_planned = #ring.walls
+  log(string.format("[FO-ESPACE] %s : enceinte %s planifiee (rayon %d, anneau %d,%d a %d,%d) : %d murs, tuiles non murees %s, %d obstacles a defricher",
+    f.key or "player", tiles and ("segment " .. tostring(p.spec.side)) or "entiere", enc.r, x0, y0, x1, y1, #ring.walls,
     (function()
       local out = {}
       for _, k in ipairs(sorted_keys(ring.skipped)) do out[#out + 1] = k .. "=" .. ring.skipped[k] end
@@ -2250,7 +2285,7 @@ local function finish_project(f, surface, p, tick)
     b.stats.projects_done = b.stats.projects_done + 1
   end
   if p.spec.enceinte then
-    log(string.format("[FO-ESPACE] %s : enceinte finie a %.1f min : %d murs, %d abandonne(s) (tuile refusee 3 fois)", f.key or "player",
+    log(string.format("[FO-ESPACE] %s : segment d'enceinte fini a %.1f min : %d murs, %d abandonne(s) (tuile refusee 3 fois)", f.key or "player",
       tick / 3600, #p.ents - (p.dropped or 0), p.dropped or 0))
   end
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n].built = true end end
@@ -2465,36 +2500,144 @@ local function space_log(b, text)
   if b.space_logs <= 40 then log(text) end
 end
 
---- Contrôle des murs d'une enceinte finie, par paquets : un mur détruit rouvre le projet (réserve, fantômes, chantier).
-local function repair_enclosure(f, surface, p, tick)
+--- Segment d'enceinte en cours (demandé, pas fini ni refusé) : numéro dans enc.segs, ou nil.
+local function active_segment(b, enc)
+  for i, sg in ipairs(enc.segs) do
+    local p = b.projects[sg.pid]
+    if p and p.state ~= "fini" and p.state ~= "refuse" then return i end
+  end
+  return nil
+end
+
+--- Contrôle des murs des segments finis, par paquets de Enc.REPAIR_BATCH murs : un segment qui a perdu un mur est rouvert SEUL
+--- (réserve, fantômes, chantier) ; les autres ne bougent pas (lot ENCEINTE2). Les statistiques de projets ne sont pas touchées
+--- (un projet rouvert ne se recompte pas : le « fini » suivant l'ignore).
+local function repair_enclosure(f, surface, tick)
   local b, enc = f.build, f.build.enc
-  if not enc.repair_at then enc.repair_at = (p.finished or tick) + Enc.REPAIR_TICKS end
+  if not enc.repair_at then
+    for _, sg in ipairs(enc.segs) do
+      local p = b.projects[sg.pid]
+      if p and p.state == "fini" then enc.repair_at = (p.finished or tick) + Enc.REPAIR_TICKS break end
+    end
+    if not enc.repair_at then return end
+  end
   if tick < enc.repair_at then return end
-  local from = enc.cursor or 1
-  local last = math.min(#p.ents, from + Enc.REPAIR_BATCH - 1)
-  local lost = enc.lost or 0
-  for i = from, last do
-    local e = p.ents[i]
-    if e.built and not e.dropped
-      and surface.count_entities_filtered({ position = { e.x, e.y }, radius = 0.4, type = { "wall", "gate" }, limit = 1 }) == 0 then
-      e.built, e.ghosted, e.fails, e.npc_blocks = false, false, 0, 0
-      lost = lost + 1
+  local si, ei = enc.cur_s or 1, enc.cur_e or 1
+  local budget = Enc.REPAIR_BATCH
+  while si <= #enc.segs and budget > 0 do
+    local sg = enc.segs[si]
+    local p = b.projects[sg.pid]
+    if p and p.state == "fini" then
+      local last = math.min(#p.ents, ei + budget - 1)
+      for i = ei, last do
+        local e = p.ents[i]
+        if e.built and not e.dropped
+          and surface.count_entities_filtered({ position = { e.x, e.y }, radius = 0.4, type = { "wall", "gate" }, limit = 1 }) == 0 then
+          e.built, e.ghosted, e.fails, e.npc_blocks = false, false, 0, 0
+          sg.lost = (sg.lost or 0) + 1
+        end
+      end
+      budget = budget - math.max(1, last - ei + 1)
+      if last >= #p.ents then
+        if (sg.lost or 0) > 0 then
+          p.state, p.reason, p.reserve_next = "reserve", nil, nil
+          p.reopened = (p.reopened or 0) + 1 -- non annulable (Build.cancel) tant que ses murs ne sont pas refaits
+          space_log(b, string.format("[FO-ESPACE] %s : %d mur(s) detruit(s) au segment %d (%s) : il reprend son chantier a %.1f min",
+            f.key or "player", sg.lost, si, tostring(sg.side), tick / 3600))
+        end
+        sg.lost = nil
+        si, ei = si + 1, 1
+      else
+        ei = last + 1
+      end
+    else
+      si, ei = si + 1, 1
     end
   end
-  if last >= #p.ents then
-    enc.cursor, enc.repair_at, enc.lost = nil, tick + Enc.REPAIR_TICKS, nil
-    if lost > 0 then
-      p.state, p.reason, p.reserve_next = "reserve", nil, nil
-      -- revue globale 1 : finish_project ne compte un projet qu'une fois (p.counted, lot CORR-RESEAU) ; sans cette remise à zéro, la
-      -- soustraction ci-dessous n'était jamais rendue au « fini » suivant et projects_done / modules_done dérivaient vers le bas
-      p.counted = nil
-      b.stats.projects_done = b.stats.projects_done - 1
-      b.stats.modules_done = b.stats.modules_done - 1
-      space_log(b, string.format("[FO-ESPACE] %s : %d mur(s) detruit(s) : l'enceinte reprend son chantier a %.1f min", f.key or "player", lost, tick / 3600))
-    end
+  if si > #enc.segs then
+    enc.cur_s, enc.cur_e, enc.repair_at = nil, nil, tick + Enc.REPAIR_TICKS
   else
-    enc.cursor, enc.lost = last + 1, lost
+    enc.cur_s, enc.cur_e = si, ei
   end
+end
+
+--- Menaces connues de l'équipe (nids et vers de sa carte de connaissance, lot IA3-f) : liste { x, y, w } (shared/team/enceinte.lua).
+local function known_threats(f)
+  local m = f.ai3f and f.ai3f.m
+  return Enc.known_threats(m and m.s, f.build.lat, Enc.THREAT_RANGE)
+end
+
+--- Demande le segment suivant de l'enceinte `enc` (table de b.enc, ou candidate au premier segment) : (true) ou (false, raison).
+--- Le segment est payé sur le stock : au plus un quart de ce que le coffre contient en murs ou permet d'en fabriquer.
+local function request_segment(f, enc, tick)
+  local b = f.build
+  local wr = wall_recipe(f)
+  if not wr then return false, "recette" end
+  local runs = Enc.runs(b.lat, enc.r)
+  local equiv = Stock.count(f, wr.item) + craftable_walls(f, wr)
+  local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, known_threats(f)), enc.claimed, Enc.segment_cap(equiv))
+  if not seg then
+    if why == "complet" then enc.complete = true end
+    return false, why, equiv
+  end
+  local tiles = {}
+  for _, w in ipairs(seg.walls) do tiles[#tiles + 1] = { w.tx, w.ty } end
+  local id, rwhy = Build.request(f, { enceinte = true, walls = tiles, side = seg.side, prio = Build.PRIO - 15, domain = "infrastructures" })
+  if not id then return false, rwhy end
+  Enc.claim(enc.claimed, seg.walls, true)
+  enc.segs[#enc.segs + 1] = { pid = id, n = #seg.walls, side = seg.side }
+  space_log(b, string.format("[FO-ESPACE] %s : segment d'enceinte %d demande (projet %d, cote %s, %d murs, stock equivalent %d murs, reste %d a reserver) a %.1f min",
+    f.key or "player", #enc.segs, id, seg.side, #seg.walls, equiv, Enc.unclaimed(runs, enc.claimed), tick / 3600))
+  return true
+end
+
+--- Sauvegarde d'avant ENCEINTE2 : un seul projet pour l'anneau entier. Il devient l'unique segment, et l'enceinte est complète.
+local function upgrade_legacy_enclosure(enc)
+  enc.claimed = enc.claimed or {}
+  enc.segs = { { pid = enc.pid, n = enc.walls or 0, side = "tous" } }
+  enc.complete = true
+end
+
+--- Un segment refusé ou annulé : ses tuiles sont rendues si c'est la place ou la matière qui a manqué (autrement, les tuiles ne
+--- sont pas murables et restent réservées : pas de boucle) ; si rien n'est encore posé, le rayon est libéré comme avant.
+local function segment_failed(f, tick, i, p)
+  local b, enc = f.build, f.build.enc
+  local why = p and p.reason or "projet perdu"
+  local transient = why == "materiaux" or why == "place" or p == nil
+  space_log(b, string.format("[FO-ESPACE] %s : segment d'enceinte %d refuse (%s)%s", f.key or "player", i, tostring(why),
+    transient and " : tuiles rendues, nouvel essai plus tard" or " : tuiles non murables, gardees"))
+  table.remove(enc.segs, i)
+  enc.cur_s, enc.cur_e = nil, nil
+  if transient then
+    if p and p.spec and p.spec.walls then
+      local list = {}
+      for _, w in ipairs(p.spec.walls) do list[#list + 1] = { tx = w[1], ty = w[2] } end
+      Enc.claim(enc.claimed, list, nil)
+    end
+    enc.complete = nil
+    enc.retry = tick + Enc.SEG_RETRY_TICKS
+  end
+  -- plus aucun segment : rayon libere (refus durable de l'enceinte d'une sauvegarde d'avant, dont l'etat « complete » ne
+  -- demanderait plus jamais de segment, ou anneau entierement refuse)
+  if #enc.segs == 0 and (transient or enc.complete) then
+    b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
+    space_log(b, string.format("[FO-ESPACE] %s : aucun segment pose, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
+  end
+end
+
+--- Rapport de l'enceinte (Build.report) : rayon, segments (finis / demandés), murs planifiés, ouvertures.
+function Build.enclosure_report(b)
+  local enc = b.enc
+  local fin, walls = 0, 0
+  for _, sg in ipairs(enc.segs or {}) do
+    local p = b.projects[sg.pid]
+    if p then
+      if p.state == "fini" then fin = fin + 1 end
+      walls = walls + (p.walls_planned or sg.n or 0)
+    end
+  end
+  return { r = enc.r, segments = #(enc.segs or {}), finished = fin, walls = walls, gates = enc.gates or Enc.gate_count(),
+    complete = enc.complete == true }
 end
 
 --- Une décision de croissance ou d'enceinte (appelée à chaque pensée d'équipe, utile seulement toutes les Enc.CHECK_TICKS).
@@ -2504,16 +2647,34 @@ function Build.space_step(f, surface, tick)
   b.space_next = tick + Enc.CHECK_TICKS
   local enc = b.enc
   if enc then
-    local p = b.projects[enc.pid]
-    -- matière absente depuis 5 min (briques dépensées ailleurs) : annulée, sinon le rayon resterait figé pour toujours
-    if p and Enc.reserve_stalled(p.state, p.started, p.finished, tick) then Build.cancel(f, enc.pid, "materiaux") end
-    if not p or p.state == "refuse" then
-      -- plan refusé : le rayon est libéré, nouvel essai plus tard
-      space_log(b, string.format("[FO-ESPACE] %s : enceinte refusee (%s) : rayon libere, nouvel essai a %.1f min", f.key or "player",
-        p and tostring(p.reason) or "projet perdu", (tick + Enc.RETRY_TICKS) / 3600))
+    if not enc.segs then upgrade_legacy_enclosure(enc) end
+    local ai = active_segment(b, enc)
+    if ai then
+      -- matière absente depuis 5 min (briques dépensées ailleurs) : segment annulé, sinon il bloquerait le suivant
+      local p = b.projects[enc.segs[ai].pid]
+      if p and Enc.reserve_stalled(p.state, p.started, p.finished, tick) then Build.cancel(f, p.id, "materiaux") end
+    end
+    -- segments refusés (plan refusé, annulé) : le dernier d'abord, les numéros restent valables
+    for i = #enc.segs, 1, -1 do
+      local p = b.projects[enc.segs[i].pid]
+      if not p or p.state == "refuse" then
+        segment_failed(f, tick, i, p)
+        if not b.enc then return end
+      end
+    end
+    repair_enclosure(f, surface, tick)
+    if enc.complete or active_segment(b, enc) or tick < (enc.retry or 0) then return end
+    local ok, why, equiv = request_segment(f, enc, tick)
+    if ok then
+      enc.poor = nil
+    elseif why == "complet" and #enc.segs == 0 then
+      -- toutes les tuiles de l'anneau sont non murables et aucun segment n'existe : le rayon n'a pas de raison d'etre fige
       b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
-    elseif p.state == "fini" then
-      repair_enclosure(f, surface, p, tick)
+      space_log(b, string.format("[FO-ESPACE] %s : aucune tuile murable, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
+    elseif why == "stock" and not enc.poor then
+      enc.poor = true
+      space_log(b, string.format("[FO-ESPACE] %s : segment suivant attendu : stock equivalent %d murs, un quart = %d (minimum %d)", f.key or "player",
+        equiv or 0, Enc.segment_cap(equiv or 0), Enc.SEG_MIN))
     end
     return
   end
@@ -2527,22 +2688,20 @@ function Build.space_step(f, surface, tick)
   local on = b.opts.enceinte
   if on == nil then on = not f.is_player end  -- le joueur garde la main sur ses propres murs
   if not on or tick < (b.enc_retry or 0) or not Enc.enclosure_due(info) then return end
-  local wr = wall_recipe(f)
-  if not wr then return end
-  local need = Enc.max_walls(b.radius)
-  if not Enc.affordable(need, Stock.count(f, wr.item), craftable_walls(f, wr)) then
-    if not b.space_poor then
+  -- premier segment : le rayon n'est figé (b.enc) que si un segment est vraiment demandé
+  local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count() }
+  local ok, why, equiv = request_segment(f, cand, tick)
+  if not ok then
+    if why == "stock" and not b.space_poor then
       b.space_poor = true
-      space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, %d murs au plus), stock insuffisant (%d murs, %d fabricables) : attente",
-        f.key or "player", b.radius, need, Stock.count(f, wr.item), craftable_walls(f, wr)))
+      space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, %d murs au plus), stock equivalent %d murs : un quart = %d, minimum %d : attente",
+        f.key or "player", b.radius, Enc.max_walls(b.radius), equiv or 0, Enc.segment_cap(equiv or 0), Enc.SEG_MIN))
     end
     return
   end
-  local id, why = Build.request(f, { enceinte = true, prio = Build.PRIO - 15, domain = "infrastructures" })
-  if not id then space_log(b, "[FO-ESPACE] " .. tostring(f.key or "player") .. " : enceinte impossible (" .. tostring(why) .. ")") return end
-  b.enc = { r = b.radius, pid = id, tick = tick }
-  space_log(b, string.format("[FO-ESPACE] %s : enceinte demandee (projet %d, rayon %d fige, %d murs au plus) a %.1f min", f.key or "player", id,
-    b.radius, need, tick / 3600))
+  b.enc = cand
+  space_log(b, string.format("[FO-ESPACE] %s : enceinte progressive commencee (rayon %d fige, %d murs au plus en tout) a %.1f min", f.key or "player",
+    b.radius, Enc.max_walls(b.radius), tick / 3600))
 end
 
 --- Pensée d'équipe (script/team/team.lua, après l'organisation) : tâches au tableau, réévaluation des rues
@@ -2674,7 +2833,7 @@ function Build.report(f)
     modules_started = st.modules_started, modules_done = st.modules_done, projects_done = st.projects_done,
     projects_refused = st.projects_refused, projects_blocked = st.projects_blocked, minutes = st.minutes,
     net = #sorted_keys(b.net), opts = { seul = b.opts.seul, ghosts_ahead = b.opts.ghosts_ahead },
-    enceinte = b.enc and { r = b.enc.r, pid = b.enc.pid, walls = b.enc.walls, gates = b.enc.gates } or nil,
+    enceinte = b.enc and Build.enclosure_report(b) or nil,
   }
   return out
 end
