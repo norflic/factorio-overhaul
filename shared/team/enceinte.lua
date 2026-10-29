@@ -285,6 +285,12 @@ end
 --- l'ordre de E.ring (nord, sud, ouest, est). `mx, my` : le mur du milieu (centre de la tuile). Rend aussi l'anneau.
 function E.runs(lat, r, opts)
   local ring = E.ring(lat, r, opts)
+  return E.split_runs(ring), ring
+end
+
+--- Lot ILOTS-MURS : tronçons d'une liste de murs { walls = { { tx, ty, x, y, side } ... } } dans l'ordre de pose (coupés aux ouvertures et aux
+--- coins), même forme que E.runs : l'anneau d'un îlot (shared/team/ilots.lua) passe par la même machinerie de segments que l'enceinte.
+function E.split_runs(ring)
   local runs, cur = {}, nil
   for _, w in ipairs(ring.walls) do
     local prev = cur and cur.walls[#cur.walls]
@@ -298,7 +304,7 @@ function E.runs(lat, r, opts)
     local m = run.walls[math.ceil(#run.walls / 2)]
     run.mx, run.my = m.x, m.y
   end
-  return runs, ring
+  return runs
 end
 
 --- Côté de l'anneau tourné vers le point (x, y), vu du centre du treillis : axe dominant (égalité : nord/sud).

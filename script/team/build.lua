@@ -42,6 +42,7 @@ local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
+local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
 
 local Build = {}
 
@@ -1501,10 +1502,12 @@ end
 local function plan_enceinte(f, surface, p)
   local b = f.build
   local enc = b.enc
-  if not enc then return false, "enceinte annulee" end
+  local isl = p.spec.ilot and p.spec.walls -- lot ILOTS-MURS : segment du mur d'un îlot (script/team/ilots.lua), sans l'anneau de l'enceinte
+  if not enc and not isl then return false, "enceinte annulee" end
   local item = item_of(T.wall)
   if not item then return false, "mur sans objet" end
-  local x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r, nil, enc.bounds) -- lot ENCEINTE3 : contour serré s'il y en a un
+  local x0, y0, x1, y1 = 0, 0, 0, 0
+  if enc then x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r, nil, enc.bounds) end -- lot ENCEINTE3 : contour serré s'il y en a un
   -- lot ENCEINTE2 : un projet = un SEGMENT (spec.walls : tuiles { {tx, ty} ... }) ; sans liste (projet d'une sauvegarde d'avant),
   -- l'anneau entier
   local seg = p.spec.walls
@@ -1517,6 +1520,7 @@ local function plan_enceinte(f, surface, p)
       ax0, ay0, ax1, ay1 = math.min(ax0, w[1]), math.min(ay0, w[2]), math.max(ax1, w[1]), math.max(ay1, w[2])
     end
     areas = { { ax0 - 11, ay0 - 11, ax1 + 12, ay1 + 12 } } -- 11 tuiles tout autour : de quoi poser les points d'appui
+    if isl then x0, y0, x1, y1 = ax0, ay0, ax1, ay1 end -- lot ILOTS-MURS : bornes du segment (pas d'anneau d'enceinte)
   else
     areas = ring_areas(x0, y0, x1, y1)
   end
@@ -1575,6 +1579,14 @@ local function plan_enceinte(f, surface, p)
     ring = { x0, y0, x1, y1 } }
   b.stats.modules_started = b.stats.modules_started + 1
   p.walls_planned = #ring.walls
+  if isl then -- lot ILOTS-MURS : journal propre (pas de rayon d'enceinte)
+    local sk = {}
+    for _, k in ipairs(sorted_keys(ring.skipped)) do sk[#sk + 1] = k .. "=" .. ring.skipped[k] end
+    log(string.format("[FO-ILOT] %s : segment de l'ilot %s planifie (projet %d, cote %s, %d,%d a %d,%d) : %d murs, tuiles laissees ouvertes %s, %d obstacles a defricher",
+      f.key or "player", tostring(p.spec.ilot), p.id, tostring(p.spec.side), x0, y0, x1, y1, #ring.walls,
+      #sk > 0 and table.concat(sk, " ") or "aucune", #p.obstacles))
+    return true
+  end
   log(string.format("[FO-ESPACE] %s : enceinte %s planifiee (rayon %d, anneau %d,%d a %d,%d) : %d murs, tuiles non murees %s, %d obstacles a defricher",
     f.key or "player", tiles and ("segment " .. tostring(p.spec.side)) or "entiere", enc.r, x0, y0, x1, y1, #ring.walls,
     (function()
@@ -2653,7 +2665,10 @@ local function finish_project(f, surface, p, tick)
     end
     b.stats.projects_done = b.stats.projects_done + 1
   end
-  if p.spec.enceinte then
+  if p.spec.ilot then -- lot ILOTS-MURS
+    log(string.format("[FO-ILOT] %s : segment de l'ilot %s fini (projet %d) a %.1f min : %d murs, %d abandonne(s) (tuile refusee 3 fois)", f.key or "player",
+      tostring(p.spec.ilot), p.id, tick / 3600, #p.ents - (p.dropped or 0), p.dropped or 0))
+  elseif p.spec.enceinte then
     log(string.format("[FO-ESPACE] %s : segment d'enceinte fini a %.1f min : %d murs, %d abandonne(s) (tuile refusee 3 fois)", f.key or "player",
       tick / 3600, #p.ents - (p.dropped or 0), p.dropped or 0))
   end
@@ -2999,8 +3014,9 @@ end
 --- Contrôle des murs des segments finis, par paquets de Enc.REPAIR_BATCH murs : un segment qui a perdu un mur est rouvert SEUL
 --- (réserve, fantômes, chantier) ; les autres ne bougent pas (lot ENCEINTE2). Les statistiques de projets ne sont pas touchées
 --- (un projet rouvert ne se recompte pas : le « fini » suivant l'ignore).
-local function repair_enclosure(f, surface, tick)
-  local b, enc = f.build, f.build.enc
+--- Lot ILOTS-MURS : `hold` (facultatif) = l'état des îlots (f.build.ilots : mêmes champs segs, repair_at, cur_s, cur_e), `tag` son journal.
+local function repair_enclosure(f, surface, tick, hold, tag)
+  local b, enc = f.build, hold or f.build.enc
   if not enc.repair_at then
     for _, sg in ipairs(enc.segs) do
       local p = b.projects[sg.pid]
@@ -3029,8 +3045,8 @@ local function repair_enclosure(f, surface, tick)
         if (sg.lost or 0) > 0 then
           p.state, p.reason, p.reserve_next = "reserve", nil, nil
           p.reopened = (p.reopened or 0) + 1 -- non annulable (Build.cancel) tant que ses murs ne sont pas refaits
-          space_log(b, string.format("[FO-ESPACE] %s : %d mur(s) detruit(s) au segment %d (%s) : il reprend son chantier a %.1f min",
-            f.key or "player", sg.lost, si, tostring(sg.side), tick / 3600))
+          space_log(b, string.format("%s %s : %d mur(s) detruit(s) au segment %d (%s) : il reprend son chantier a %.1f min",
+            tag or "[FO-ESPACE]", f.key or "player", sg.lost, si, tostring(sg.side), tick / 3600))
         end
         sg.lost = nil
         si, ei = si + 1, 1
@@ -3154,6 +3170,11 @@ function Build.space_step(f, surface, tick)
       end
     end
     repair_enclosure(f, surface, tick)
+    -- lot ILOTS-MURS : les îlots isolés hors du contour (shared/team/ilots.lua), APRÈS l'enceinte principale (complète, sans chantier)
+    Ilots.step(f, surface, tick, { prio = Build.PRIO - 15, main_busy = active_segment(b, enc) ~= nil,
+      equiv = function() local wr = wall_recipe(f) return wr and (Stock.count(f, wr.item) + craftable_walls(f, wr)) or 0 end,
+      request = function(spec) return Build.request(f, spec) end, cancel = function(pid, why) return Build.cancel(f, pid, why) end,
+      repair = function(hold) repair_enclosure(f, surface, tick, hold, "[FO-ILOT]") end })
     if enc.complete or active_segment(b, enc) or tick < (enc.retry or 0) then return end
     local ok, why, equiv = request_segment(f, enc, tick)
     if ok then
@@ -3361,6 +3382,7 @@ function Build.report(f)
     projects_refused = st.projects_refused, projects_blocked = st.projects_blocked, minutes = st.minutes,
     net = #sorted_keys(b.net), opts = { seul = b.opts.seul, ghosts_ahead = b.opts.ghosts_ahead },
     enceinte = b.enc and Build.enclosure_report(b) or nil,
+    ilots = Ilots.report(b), -- lot ILOTS-MURS
   }
   return out
 end
