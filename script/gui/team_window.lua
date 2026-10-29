@@ -53,7 +53,7 @@ local Poles = require("script.team.poles")
 local PlayerTeam = require("script.team.player_team")
 local Auto3e = require("shared.ai3.automatiser")
 -- Objets dont le module a sa propre clé de traduction (locale/*/ia3e.cfg) : les gabarits écrits, et la centrale.
-local AUTO_NAMED = { centrale = true }
+local AUTO_NAMED = { centrale = true, migration = true } -- migration : lot MIGRATION-DECLENCHE (fo-team.goal-ia3-auto-migration)
 for _, m in ipairs(Auto3e.METHODS) do AUTO_NAMED[m.product] = true end
 local War = require("script.faction.war")
 local PvP = require("script.faction.pvp")

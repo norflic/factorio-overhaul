@@ -29,6 +29,7 @@ local Build = require("script.team.build")
 local Sweep = require("shared.team.rebuild_sweep") -- lot REBUILD-SUIVI : règles pures du suivi d'un projet rouvert
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
+local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
 
 local Auto = {}
 
@@ -547,6 +548,17 @@ function Auto.think(f, view, book, tick, research)
     local ps = Build.brief(f, id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+    end
+  end
+  -- Lot MIGRATION-DECLENCHE (retour du DC du 29/10, 0.6.18 : « ils doivent automatiser, ils peuvent plus laisser des foreuses
+  -- thermiques comme ça posées ») : la ligne électrique demandée par la migration du champ (script/team/migration_champ.lua) est un
+  -- projet du cerveau comme la centrale : ses matériaux manquants (foreuses électriques, bras, tapis, poteaux) deviennent des buts
+  -- « auto:migration » (fabriquer, fondre). Avant, personne ne les fabriquait : réserve « materiaux » 30 min, demande annulée, 0 partie migrée.
+  local mig_id = MigChamp.project(f)
+  if mig_id then
+    local ps = Build.brief(f, mig_id)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
+      mods[#mods + 1] = { product = "migration", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0 } -- valeur de base d'un module
     end
   end
   local feeds = {}

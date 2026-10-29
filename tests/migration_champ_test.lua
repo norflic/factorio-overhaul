@@ -1079,5 +1079,184 @@ do
   print(string.format("[MIGRATION-CHAMP] mutants : %d refusés sur %d", #mutants - survivors, #mutants))
 end
 
+---------------------------------------------------------------------------------------------------
+-- 9. Lot MIGRATION-DECLENCHE (retour du DC du 29/10 en jouant la 0.6.18 ; journal de sa partie, scarlet : parties refusées 3 fois à
+--    l'identique puis champ abandonné ; réserves « materiaux » jamais servies ; paires tuées pendant l'attente jamais refaites)
+---------------------------------------------------------------------------------------------------
+section("9. MIGRATION-DECLENCHE")
+do
+  -- K1-K3. Règle pure : une partie refusée est écartée, une autre est choisie ; tout refusé : nil, « refusees »
+  local rect = rect_at(0, 0)
+  local pl = field(8, 0, 0, "0:0")
+  local ctx = ctx_for(rect, false, { x = 0, y = -100 })
+  local b1 = Mg.pick_band(pl, ctx)
+  check(b1 and b1.key == Mg.band_key(b1.lot, b1.ids), "K1 : la partie porte sa clé (lot et paires triées)")
+  ctx.skip = { [b1.key] = true }
+  local b2 = Mg.pick_band(pl, ctx)
+  check(b2 ~= nil and b2.key ~= b1.key, "K2 : la partie refusée est écartée, une autre est choisie (" .. tostring(b2 and b2.key) .. ")")
+  local seen, last, why = {}, nil, nil
+  ctx.skip = {}
+  for _ = 1, 200 do
+    last, why = Mg.pick_band(pl, ctx)
+    if not last then break end
+    check(not seen[last.key], "K3a : jamais deux fois la même partie")
+    seen[last.key] = true
+    ctx.skip[last.key] = true
+  end
+  check(last == nil and why == "refusees", "K3 : toutes les parties refusées : aucune, raison « refusees » (" .. tostring(why) .. ")")
+  ctx.skip = nil
+  local b0 = Mg.pick_band(pl, ctx)
+  check(b0 and b0.key == b1.key, "K3 bis : sans liste d'écart, le choix est inchangé (déterminisme)")
+end
+
+do
+  -- K4-K6. Exécutant : un refus du plan fait demander une AUTRE partie, sous CFG.retry_refuse
+  local E = executor_run({ pairs = 8 })
+  E.think()
+  local p1 = E.project()
+  local ids1 = table.concat(E.f.migration.o[1].ids, ",")
+  p1.state, p1.reason = "refuse", "gisement : tapis des foreuses (minerai)"
+  E.think()
+  local st = E.f.migration.o[1]
+  check(st.bad and #st.bad == 1 and st.retry - game.tick <= CFG.retry_refuse, "K4 : partie refusée retenue, nouvel essai sous " .. CFG.retry_refuse / 60 .. " s")
+  for _ = 1, math.ceil(CFG.retry_refuse / CFG.every) + 1 do E.think() end
+  check(#E.Build.requests == 2, "K5 : nouvelle demande après le délai court (" .. #E.Build.requests .. ")")
+  local ids2 = table.concat(E.f.migration.o[1].ids or {}, ",")
+  check(ids2 ~= "" and ids2 ~= ids1, "K6 : la nouvelle demande porte une autre partie (" .. ids1 .. " puis " .. ids2 .. ")")
+  E.restore()
+end
+
+do
+  -- K7-K8. Un abandon n'est plus définitif : après CFG.revive, l'avant-poste repart d'un état neuf
+  local E = executor_run({ pairs = 8 })
+  for _ = 1, CFG.max_fails do
+    E.think()
+    local p = E.project()
+    p.state, p.reason = "refuse", "pas de lot"
+    E.think()
+    game.tick = game.tick + CFG.retry
+  end
+  check(E.f.migration.o[1].abandoned == true, "K7a : abandon après " .. CFG.max_fails .. " échecs")
+  local n = #E.Build.requests
+  game.tick = game.tick + CFG.revive
+  E.think(); E.think()
+  check(#E.Build.requests == n + 1 and not E.f.migration.o[1].abandoned, "K7 : reprise après " .. CFG.revive / 3600 .. " min : nouvelle demande")
+  check(table.concat(E.logs, "\n"):find("migration reprise apres abandon", 1, true) ~= nil, "K8 : journal [FO-MIGRATION] de la reprise")
+  E.restore()
+end
+
+do
+  -- K8 bis. Sauvegarde 0.6.18 : un avant-poste abandonné SANS date (champ de scarlet) est repris ; l'abandon « pas de gabarit » ne l'est jamais
+  local E = executor_run({ pairs = 8 })
+  game.tick = CFG.revive + 600
+  E.f.migration = { next = 0, logs = 0, logs_f = 0, o = { [1] = { stage = "veille", fails = 3, noop = 0, done = 0, produced = 0, retry = 0, abandoned = true } } }
+  E.think()
+  check(#E.Build.requests == 1, "K8 bis : abandon d'une sauvegarde 0.6.18 (sans date) : repris, nouvelle demande")
+  E.restore()
+  local E2 = executor_run({ pairs = 8 })
+  game.tick = 10 * CFG.revive
+  E2.f.migration = { next = 0, logs = 0, logs_f = 0, o = { [1] = { stage = "veille", fails = 0, noop = 0, done = 0, produced = 0, retry = 0, abandoned = true,
+    sans_gabarit = true } } }
+  for _ = 1, 3 do E2.think() end
+  check(#E2.Build.requests == 0, "K8 ter : abandon « pas de gabarit » : jamais repris")
+  E2.restore()
+end
+
+do
+  -- K9-K10. Registre de reconstruction : gardé pendant l'attente des matières (rien n'est retiré), purgé après le retrait
+  local E = executor_run({ pairs = 8 })
+  E.f.recon = { lost = { a = { oid = 1, kind = "drill" }, b = { oid = 1, kind = "sink" }, c = { oid = 2, kind = "drill" } } }
+  E.think()
+  local p = E.project()
+  drive_plan(E, p, "plan"); E.think()
+  drive_plan(E, p, "materiaux"); E.think(); E.think()
+  check(E.f.recon.lost.a ~= nil and E.f.recon.lost.b ~= nil, "K9 : en attente des matières, les paires tuées restent à refaire")
+  drive_plan(E, p, "degel"); E.think()
+  check(E.f.recon.lost.a == nil and E.f.recon.lost.b == nil and E.f.recon.lost.c ~= nil, "K10 : après le retrait, les paires de l'avant-poste migré ne sont plus refaites (les autres si)")
+  E.restore()
+end
+
+do
+  -- K10 bis (relecture). Une paire de la partie tuée PUIS refaite par la reconstruction pendant l'attente (nouveaux numéros, mêmes tuiles)
+  -- est retirée avec la partie : sinon elle occupe les tuiles promises au plan et la ligne neuve ne se pose pas.
+  local E = executor_run({ pairs = 8 })
+  E.think()
+  local p = E.project()
+  drive_plan(E, p, "materiaux"); E.think()
+  local st = E.f.migration.o[1]
+  local d0 = E.by_unit[st.ids[1]]
+  local s0
+  for _, pr in ipairs(E.pl) do
+    if pr.drill.x == d0.position.x and pr.drill.y == d0.position.y then
+      for _, s in ipairs(E.o.sinks) do if s.position.x == pr.sink.x and s.position.y == pr.sink.y then s0 = s end end
+    end
+  end
+  local function clone(e, u)
+    local c = {}
+    for k, v in pairs(e) do c[k] = v end
+    c.unit_number, c.valid = u, true
+    c.destroy = function() c.valid = false end
+    return c
+  end
+  d0.valid, s0.valid = false, false -- tuée par une vague
+  local nd, ns = clone(d0, 9001), clone(s0, 9002) -- refaite par la reconstruction (Recon : o.drill_list, o.sinks)
+  E.o.drill_list[#E.o.drill_list + 1] = nd
+  E.o.sinks[#E.o.sinks + 1] = ns
+  drive_plan(E, p, "degel"); E.think()
+  check(not nd.valid and not ns.valid, "K10 bis : la paire refaite sur la partie est retirée avec elle")
+  check(table.concat(E.logs, "\n"):find("refaite(s) par la reconstruction sur la partie", 1, true) ~= nil, "K10 ter : journal [FO-MIGRATION] de la cause")
+  E.restore()
+end
+
+do
+  -- K11-K12. Le projet de la migration est lu par le cerveau : Mig.project, puis but « auto:migration » qui émet ses manques
+  local E = executor_run({ pairs = 8 })
+  check(E.Mig.project(E.f) == nil, "K11a : aucune migration en cours : pas de projet")
+  E.think()
+  local p = E.project()
+  check(E.Mig.project(E.f) == p.id, "K11 : en étape « projet », le numéro du projet est rendu")
+  E.restore()
+  local A = require("shared.ai3.automatiser")
+  local goals = A.goals({}, { mods = { { product = "migration", state = "reserve", missing = { { T.DRILL_ELECTRIC, 2 } }, reason = "materiaux", gain = 0 } } },
+    {}, nil)
+  local g
+  for _, it in ipairs(goals) do if it.key == "auto:migration" then g = it end end
+  check(g ~= nil and g.missing[1][1] == T.DRILL_ELECTRIC and g.value >= A.VALUE, "K12 : but « auto:migration » avec ses manques (valeur " .. tostring(g and g.value) .. ")")
+  local fh = io.open("script/ai3/automatisation.lua", "rb")
+  local src = fh and fh:read("*a") or ""
+  if fh then fh:close() end
+  check(src:find("local mig_id = MigChamp.project(f)", 1, true) ~= nil and src:find('product = "migration", state = ps.state, missing = ps.missing', 1, true) ~= nil,
+    "K12 bis : câblage : Auto.think met la ligne de la migration dans les projets du cerveau")
+  local a1 = src:find("local mig_id = MigChamp.project(f)", 1, true)
+  local a2 = src:find("return { mods = mods", 1, true)
+  check(a1 and a2 and a1 < a2, "K12 ter : avant le retour du contexte du cerveau")
+end
+
+do
+  -- K13. Mutants des règles du lot
+  local orig_pick = Mg.pick_band
+  Mg.pick_band = function(pl, ctx) local c2 = {}; for k, v in pairs(ctx) do c2[k] = v end; c2.skip = nil; return orig_pick(pl, c2) end
+  local E = executor_run({ pairs = 8 })
+  E.think()
+  local ids1 = table.concat(E.f.migration.o[1].ids, ",")
+  E.project().state = "refuse"
+  E.think()
+  for _ = 1, math.ceil(CFG.retry_refuse / CFG.every) + 1 do E.think() end
+  local ids2 = table.concat(E.f.migration.o[1].ids or {}, ",")
+  check(ids2 == ids1, "K13a : mutant « liste d'écart ignorée » : la même partie revient (refusé par K6)")
+  E.restore()
+  Mg.pick_band = orig_pick
+  local saved = CFG.revive
+  CFG.revive = math.huge
+  local E2 = executor_run({ pairs = 8 })
+  for _ = 1, CFG.max_fails do E2.think(); E2.project().state = "refuse"; E2.think(); game.tick = game.tick + CFG.retry end
+  local n = #E2.Build.requests
+  game.tick = game.tick + saved
+  E2.think(); E2.think()
+  check(#E2.Build.requests == n, "K13b : mutant « abandon définitif » : aucune reprise (refusé par K7)")
+  E2.restore()
+  CFG.revive = saved
+end
+
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
