@@ -14,7 +14,7 @@ end
 -- Doublures --------------------------------------------------------------------------------------------------------
 local handlers = {}
 package.loaded["script.core.events"] = { on = function(id, fn) handlers[id] = fn end }
-defines = { events = { on_entity_died = 1 }, entity_status = { no_power = 7, working = 1 }, direction = { north = 0, east = 2, south = 4, west = 6 } }
+defines = { events = { on_entity_died = 1, on_player_mined_entity = 2, on_robot_mined_entity = 3 }, entity_status = { no_power = 7, working = 1 }, direction = { north = 0, east = 2, south = 4, west = 6 } }
 local ns = { ia3k = { teams = {} } }
 package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end }
 local player
@@ -59,8 +59,10 @@ function game.get_filtered_entity_prototypes() return setmetatable({}, { __pairs
 -- Lot CORR-RECONSTRUIRE : le bois vient des arbres, tout le reste porte le nom de son entité (script/team/harvest.lua, balayage des prototypes).
 package.loaded["script.team.harvest"] = { names = function(item) if item == "bois" then return { "arbre-a" } end return { item } end }
 local R = require("shared.ai3.reglages")
-check(R.RECON_ALL_PIECES == false, "réglage : portée par défaut = infrastructure électrique seule")
-R.RECON_ALL_PIECES = true -- les sections 1 à 5 testent le mécanisme général ; la section 8 la portée par défaut
+-- Lot REBUILD-TOUT (29/10) : tout est allumé par défaut ; les sections 1 à 11 testent le mécanisme GÉNÉRAL du registre (relevé des projets
+-- éteint : le registre refait aussi les pièces des projets), la section 12 le branchement du relevé.
+check(R.RECON_ALL_PIECES == true and R.RECON_FACTIONS == true and R.REBUILD_SWEEP == true, "réglages par défaut : factions, toutes les pièces et relevé allumés (lot REBUILD-TOUT)")
+R.REBUILD_SWEEP = false
 local Rc = require("shared.team.reconstruction")
 local Recon = require("script.team.reconstruction")
 local died = handlers[1]
@@ -286,7 +288,7 @@ do
     hq = { valid = true, position = { x = 0, y = 0 }, unit_number = 2 }, stock = { ["item-a"] = 5 }, outposts = {}, team = { board = { tasks = {} } },
     build = { order = { 1 }, projects = { [1] = { ents = { { name = "piece-a", x = 10, y = 10 } } } } } }
   package.loaded.__scarlet = sc
-  check(R.RECON_FACTIONS == false, "réglage : les factions ne refont pas leurs pièces par défaut")
+  R.RECON_FACTIONS = false
   died({ entity = ent("piece-a", "assembling-machine", 10, 10, "scarlet"), tick = 1000 })
   check(sc.recon == nil or Rc.pending(sc.recon) == 0, "faction : pièce détruite non inscrite (réglage éteint)")
   R.RECON_FACTIONS = true
@@ -515,6 +517,29 @@ do
   Recon.think(f2, surface, 100 + 650)
   surface.find_entity = old_find
   check(f2.recon.lost[k] ~= nil, "§4bis : pièce réclamée par un PNJ gardée (la tâche la résout)")
+end
+
+-- §12 Lot REBUILD-TOUT : le relevé des projets prend les pièces du plan, le registre garde l'infrastructure et les avant-postes ---------------
+do
+  R.REBUILD_SWEEP = true
+  local f = new_team()
+  died({ entity = ent("piece-a", "assembling-machine", 10, 10), tick = 1000 })
+  check(f.recon == nil or Rc.pending(f.recon) == 0, "§12 relevé allumé : une pièce d'un projet n'est pas inscrite au registre")
+  died({ entity = ent("pole-x", "electric-pole", 60, 60), tick = 1000 })
+  check(Rc.pending(f.recon) == 1, "§12 relevé allumé : le poteau est inscrit")
+  local drill = ent("piece-d", "mining-drill", 40, 40)
+  owners[drill.unit_number] = { f = "player", kind = "drill", oid = 7 }
+  died({ entity = drill, tick = 1000 })
+  check(Rc.pending(f.recon) == 2, "§12 relevé allumé : la foreuse d'un avant-poste est inscrite")
+  -- retrait à la main : mémorisé par le relevé
+  local hand = handlers[2]
+  check(hand ~= nil and handlers[3] ~= nil, "§12 l'exécutant s'abonne aux retraits du joueur et de ses robots")
+  f.build.projects[1].state = "fini"
+  hand({ entity = ent("piece-a", "assembling-machine", 10, 10), tick = 2000 })
+  check(f.build.sweep and f.build.sweep.hand["10.0,10.0"] == 2000, "§12 pièce retirée à la main : mémorisée")
+  hand({ entity = ent("piece-a", "assembling-machine", 10, 10, "scarlet"), tick = 2000 })
+  check(f.build.sweep.hand_cnt == 1, "§12 une pièce d'une autre force n'est pas mémorisée")
+  R.REBUILD_SWEEP = false
 end
 
 -- §5 Source -----------------------------------------------------------------------------------------------------------------
