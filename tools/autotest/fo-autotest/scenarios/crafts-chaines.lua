@@ -48,7 +48,7 @@ local POSTES = {
   { key = "fil", m = "fo-coil-winder", r = "fo-enameled-wire", p = "fo-enameled-wire", items = { { "copper-cable", 8 }, { "plastic-bar", 4 } } },
   { key = "bobine", m = "fo-coil-winder", r = "fo-coil", p = "fo-coil", items = { { "fo-enameled-wire", 8 }, { "fo-magnetic-steel", 4 } } },
   { key = "moteur", m = "assembling-machine-3", r = "fo-wound-electric-engine", p = "electric-engine-unit",
-    items = { { "engine-unit", 2 }, { "fo-coil", 2 }, { "electronic-circuit", 4 } }, fluids = { { "lubricant", 100 } } },
+    items = { { "engine-unit", 2 }, { "fo-coil", 2 }, { "electronic-circuit", 4 } } },
   { key = "composite", m = "assembling-machine-3", r = "fo-titanium-composite", p = "fo-titanium-composite",
     items = { { "fo-titanium-plate", 2 }, { "plastic-bar", 4 }, { "fo-graphite", 2 } } },
   { key = "lds", m = "assembling-machine-3", r = "fo-titanium-lds", p = "low-density-structure", items = { { "fo-titanium-composite", 2 }, { "copper-plate", 8 } } },

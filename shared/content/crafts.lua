@@ -66,7 +66,10 @@ C.RECIPES = {
   { name = "fo-magnetic-steel" },
   { name = "fo-enameled-wire" },
   { name = "fo-coil" },
-  { name = "fo-wound-electric-engine" },
+  -- ÉCART de coût (audit AMELIO-CRAFTS) : dans X0, la bobine ne remplace que 5 lubrifiants sur 15, pour environ 10 fers,
+  -- 10 gaz et 1 cuivre de plus : une variante que personne ne prendrait. Ici elle SUPPRIME le lubrifiant (assemblage
+  -- sans fluide, à la main ou en assembleur sans tuyau) : un vrai choix, solides contre pétrole.
+  { name = "fo-wound-electric-engine", drop = { "lubricant" }, category = "crafting" },
   { name = "fo-titanium-composite", subst = { ["fo-biopolymer"] = "plastic-bar" } },
   { name = "fo-titanium-lds" },
   -- Torchères (X0 : une recette « sink » par fluide neuf) pour les fluides du mod en jeu : aucun fluide de sous-produit
@@ -81,7 +84,7 @@ C.RECIPES = {
 -- Recettes HORS X0 (fermeture des boucles en jeu). Même format que les recettes de X0.
 C.EXTRA_RECIPES = {
   -- Laitier : sans béton à faire, le haut fourneau se bloquerait. Le remblai l'absorbe sans limite
-  -- (vanilla : 50 pierres pour 1 remblai).
+  -- (vanilla : 20 pierres pour 1 remblai ; ici 20 laitiers, un déchet).
   { name = "fo-slag-landfill", epoch = 2, category = "crafting", time = 0.5,
     ingredients = { { "fo-slag", 20 } }, results = { { "landfill", 1 } },
     fr = "Remblai de laitier", en = "Slag landfill" },
@@ -190,19 +193,23 @@ function C.process_recipe(name)
              fr = e.fr, en = e.en, epoch = e.epoch, x0 = false, subst = {}, prod = false }
   end
   local x = assert(T.x_recipe(name), "crafts : recette X0 absente " .. name)
-  local ings, subst = {}, {}
+  local ings, subst, dropped = {}, {}, {}
+  local drop = {}
+  for _, d in ipairs(spec.drop or {}) do drop[d] = true end
   for _, i in ipairs(x.ingredients) do
     local to = spec.subst and spec.subst[i[1]]
-    if to then
+    if drop[i[1]] then
+      dropped[#dropped + 1] = i[1]
+    elseif to then
       subst[#subst + 1] = { i[1], to }
       ings[#ings + 1] = { to, i[2] }
     else
       ings[#ings + 1] = { i[1], i[2] }
     end
   end
-  return { name = x.name, category = x.category, time = x.time, ingredients = ings, results = x.results,
-           fr = x.fr, en = x.en, epoch = x.epoch, x0 = true, subst = subst, prod = x.prod == true, main = spec.main,
-           flare = spec.flare == true }
+  return { name = x.name, category = spec.category or x.category, time = x.time, ingredients = ings, results = x.results,
+           fr = x.fr, en = x.en, epoch = x.epoch, x0 = true, subst = subst, dropped = dropped, prod = x.prod == true,
+           main = spec.main, flare = spec.flare == true }
 end
 
 --- Toutes les recettes de procédé du lot (X0 puis hors X0), dans l'ordre d'affichage.
@@ -238,6 +245,92 @@ function C.productivity_recipes()
   local out = {}
   for _, r in ipairs(C.all_recipes()) do if r.prod then out[#out + 1] = r.name end end
   return out
+end
+
+
+---------------------------------------------------------------------------------------------------
+-- Calcul : coût en matières premières des variantes contre la recette vanilla (BALANCE_SHEET, partie AMELIO-CRAFTS)
+---------------------------------------------------------------------------------------------------
+-- Matières premières comptées (le reste se déplie) ; les sous-produits du mod sont gratuits (on les a de toute façon).
+C.RAW = { ["iron-plate"] = "fer", ["iron-ore"] = "fer", ["copper-plate"] = "cuivre", ["stone"] = "pierre", ["coal"] = "charbon",
+          ["petroleum-gas"] = "gaz", ["heavy-oil"] = "huile lourde", ["water"] = "eau", ["steam"] = "eau",
+          ["fo-titanium-plate"] = "titane", ["engine-unit"] = "moteur" }
+C.FREE = { ["fo-slag"] = true, ["fo-magnesium-chloride"] = true, ["fo-caustic-soda"] = true, ["fo-hydrogen"] = true }
+C.RAW_ORDER = { "fer", "cuivre", "pierre", "charbon", "gaz", "huile lourde", "eau", "titane", "moteur" }
+-- Recettes vanilla 1.1.91 de référence (data/base/prototypes/recipe.lua, mode normal) : { ingrédients }, quantité produite.
+C.VANILLA_REF = {
+  ["steel-plate"] = { { { "iron-plate", 5 } }, 1 },
+  ["stone-brick"] = { { { "stone", 2 } }, 1 },
+  ["concrete"] = { { { "stone-brick", 5 }, { "iron-ore", 1 }, { "water", 100 } }, 10 },
+  ["refined-concrete"] = { { { "concrete", 20 }, { "iron-stick", 8 }, { "steel-plate", 1 }, { "water", 100 } }, 10 },
+  ["iron-stick"] = { { { "iron-plate", 1 } }, 2 },
+  ["iron-gear-wheel"] = { { { "iron-plate", 2 } }, 1 },
+  ["pipe"] = { { { "iron-plate", 1 } }, 1 },
+  ["plastic-bar"] = { { { "petroleum-gas", 20 }, { "coal", 1 } }, 2 },
+  ["copper-cable"] = { { { "copper-plate", 1 } }, 2 },
+  ["electronic-circuit"] = { { { "iron-plate", 1 }, { "copper-cable", 3 } }, 1 },
+  ["low-density-structure"] = { { { "steel-plate", 2 }, { "copper-plate", 20 }, { "plastic-bar", 5 } }, 1 },
+  ["electric-engine-unit"] = { { { "engine-unit", 1 }, { "lubricant", 15 }, { "electronic-circuit", 2 } }, 1 },
+  ["lubricant"] = { { { "heavy-oil", 10 } }, 10 },
+  ["landfill"] = { { { "stone", 20 } }, 1 },
+  ["light-oil"] = { { { "heavy-oil", 40 }, { "water", 30 } }, 30 },
+}
+
+--- Coût en matières premières d'UNE unité de `item` : table { [matière] = quantité }. `via` : nom de la recette du lot
+--- à employer pour cet objet (sinon recette vanilla de référence, puis recette du lot ou de X1 qui le fabrique).
+function C.raw_cost(item, via, depth)
+  depth = depth or 0
+  assert(depth < 12, "crafts : dépliage trop profond pour " .. item)
+  local out = {}
+  local function add(t, k)
+    for _, m in ipairs(C.RAW_ORDER) do if t[m] then out[m] = (out[m] or 0) + t[m] * k end end
+  end
+  if C.FREE[item] then return out end
+  if C.RAW[item] then out[C.RAW[item]] = 1; return out end
+  local ings, per
+  if via then
+    local r = C.process_recipe(via)
+    ings = r.ingredients
+    for _, p in ipairs(r.results) do if p[1] == item then per = p[2] end end
+  elseif C.VANILLA_REF[item] then
+    ings, per = C.VANILLA_REF[item][1], C.VANILLA_REF[item][2]
+  else
+    local maker
+    for _, r in ipairs(C.all_recipes()) do
+      for _, p in ipairs(r.results) do if p[1] == item and not maker then maker, per = r, p[2] end end
+    end
+    if not maker then
+      for _, rr in ipairs(T.RECIPES) do
+        local r = T.process_recipe(rr.name)
+        for _, p in ipairs(r.results) do if p[1] == item and not maker then maker, per = r, p[2] end end
+      end
+    end
+    assert(maker, "crafts : aucune recette pour " .. item)
+    ings = maker.ingredients
+  end
+  assert(per and per > 0, "crafts : quantité produite inconnue pour " .. item)
+  for _, i in ipairs(ings) do add(C.raw_cost(i[1], nil, depth + 1), i[2] / per) end
+  return out
+end
+
+--- Bilan des variantes (recettes du lot dont le produit principal est vanilla) : liste triée de
+--- { recipe, product, variant = coût, vanilla = coût, saves = { matière économisée }, costs = { matière en plus } }.
+function C.bilan()
+  local rows = {}
+  for _, r in ipairs(C.all_recipes()) do
+    local main = r.main or (#r.results == 1 and r.results[1][1]) or nil
+    if main and not main:find("^fo%-") and C.VANILLA_REF[main] then
+      local v = C.raw_cost(main, r.name)
+      local w = C.raw_cost(main)
+      local saves, costs = {}, {}
+      for _, m in ipairs(C.RAW_ORDER) do
+        local a, b = v[m] or 0, w[m] or 0
+        if a < b - 1e-9 then saves[#saves + 1] = m elseif a > b + 1e-9 then costs[#costs + 1] = m end
+      end
+      rows[#rows + 1] = { recipe = r.name, product = main, variant = v, vanilla = w, saves = saves, costs = costs }
+    end
+  end
+  return rows
 end
 
 return C

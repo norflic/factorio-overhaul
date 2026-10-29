@@ -189,12 +189,17 @@ end
 for _, rr in ipairs(C.RECIPES) do
   local x = T.x_recipe(rr.name)
   local r = C.process_recipe(rr.name)
-  check(x and r.time == x.time and r.category == x.category and #r.ingredients == #x.ingredients and r.results == x.results,
-    rr.name .. " : durée, catégorie, produits de X0")
-  local same = true
-  for i, ing in ipairs(x.ingredients) do
-    local to = rr.subst and rr.subst[ing[1]]
-    if r.ingredients[i][1] ~= (to or ing[1]) or r.ingredients[i][2] ~= ing[2] then same = false end
+  local drop = {}
+  for _, d in ipairs(rr.drop or {}) do drop[d] = true end
+  check(x and r.time == x.time and r.category == (rr.category or x.category) and #r.ingredients + #(rr.drop or {}) == #x.ingredients
+    and r.results == x.results, rr.name .. " : durée, catégorie, produits de X0 (écarts marqués seulement)")
+  local same, k = true, 0
+  for _, ing in ipairs(x.ingredients) do
+    if not drop[ing[1]] then
+      k = k + 1
+      local to = rr.subst and rr.subst[ing[1]]
+      if not r.ingredients[k] or r.ingredients[k][1] ~= (to or ing[1]) or r.ingredients[k][2] ~= ing[2] then same = false end
+    end
   end
   check(same, rr.name .. " : ingrédients de X0 (substitutions marquées seulement)")
   for _, s in ipairs(r.subst) do
@@ -281,6 +286,36 @@ do
     and amount(C.process_recipe("fo-slag-cement"), "fo-slag", "ingredients") > 0, "laitier : deux débouchés (ciment, remblai)")
   -- Remblai de laitier : moins cher en matière que le remblai vanilla (50 pierres), sans être gratuit.
   check(amount(C.process_recipe("fo-slag-landfill"), "fo-slag", "ingredients") >= 10, "remblai : au moins 10 laitiers")
+end
+
+---------------------------------------------------------------------------------------------------
+section("5 bis. Calcul : chaque variante économise une matière sur la recette vanilla")
+---------------------------------------------------------------------------------------------------
+do
+  local rows = C.bilan()
+  local function f(t)
+    local o = {}
+    for _, m in ipairs(C.RAW_ORDER) do if (t[m] or 0) > 0 then o[#o + 1] = string.format("%s %.2f", m, t[m]) end end
+    return #o > 0 and table.concat(o, ", ") or "rien (sous-produit)"
+  end
+  check(#rows >= 9, #rows .. " variantes chiffrées")
+  for _, r in ipairs(rows) do
+    print(string.format("    %-26s %-22s variante : %s | vanilla : %s", r.recipe, r.product, f(r.variant), f(r.vanilla)))
+    check(#r.saves >= 1, r.recipe .. " : économise au moins une matière (" .. table.concat(r.saves, ", ") .. ")")
+    -- Gratuite seulement si elle ne consomme qu'un sous-produit (puits voulu : remblai de laitier).
+    local any = false
+    for _, m in ipairs(C.RAW_ORDER) do if (r.variant[m] or 0) > 0 then any = true end end
+    check(any or r.recipe == "fo-slag-landfill", r.recipe .. " : jamais gratuite, sauf le puits du laitier")
+  end
+  -- Valeurs attendues (recalcul à la main, BALANCE_SHEET) : acier au haut fourneau 4 fers + 1,5 charbon ; acier
+  -- électrique 3 fers + 2 charbons ; polyéthylène 6,67 gaz par plastique (vanilla 10).
+  local by = {}
+  for _, r in ipairs(rows) do by[r.recipe] = r end
+  check(by["fo-blast-furnace-steel"] and math.abs(by["fo-blast-furnace-steel"].variant["fer"] - 4) < 1e-9
+    and math.abs(by["fo-blast-furnace-steel"].variant["charbon"] - 1.5) < 1e-9, "acier au haut fourneau : 4 fers + 1,5 charbon")
+  check(by["fo-arc-steel"] and math.abs(by["fo-arc-steel"].variant["fer"] - 3) < 1e-9
+    and math.abs(by["fo-arc-steel"].variant["charbon"] - 2) < 1e-9, "acier électrique : 3 fers + 2 charbons")
+  check(by["fo-polyethylene"] and math.abs(by["fo-polyethylene"].variant["gaz"] - 20 / 3) < 1e-9, "polyéthylène : 6,67 gaz par plastique")
 end
 
 ---------------------------------------------------------------------------------------------------
