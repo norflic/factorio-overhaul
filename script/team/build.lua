@@ -30,6 +30,7 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
+local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
@@ -464,6 +465,8 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
     local masks = read_masks(f, surface, x0 - 8, y0 - 8, x1 + 8, y1 + 8)
     local fopts = { free = masks.free, toward = toward, margin = (opts and opts.margin) or 1 }
+    -- lot FONDERIES : la tête d'alimentation regarde le gisement (shared/team/plan.lua, P.fit)
+    if opts and opts.head_toward then fopts.head_toward = opts.head_toward end
     if res then fopts.ore = ore_set(surface, rect, res) end
     if opts and opts.water then fopts.water = masks.water end
     local fit, why = P.fit(g, rect, fopts)
@@ -865,6 +868,7 @@ local function plan_feed(f, surface, p, place, part)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
             return false, "gisement : tapis des foreuses (" .. tostring(why) .. ")"
           end
+          if ok then Build.fonte_equilibre(f, p, g, d, #p.parts) end
           if not ok then
             -- repli : quai sur cette voie (le tapis n'a pas pu être tracé ou le gisement manque)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
@@ -951,6 +955,25 @@ function Build.drill_diag(f, item, n, a, why, diag, s)
     #lots > 0 and table.concat(lots, " ") or "aucun", (diag and #diag > 0) and table.concat(diag, " ") or "-"))
 end
 
+--- Lot FONDERIES : le plan d'une fonderie à tapis tient-il l'équilibre entre les foreuses RÉELLEMENT planifiées (la ligne
+--- peut avoir été raccourcie : plan_drills essaie n, n-1, … 1) et ses fours ? Règle pure shared/team/fonte.lua ; ici,
+--- DIAGNOSTIC seulement (une ligne [FO-FONTE] et p.equilibre), rien n'est retiré ni ajouté au plan.
+function Build.fonte_equilibre(f, p, g, d, part)
+  local dp = p.parts[part]
+  local prm = g.params or {}
+  local plate = M.PLATE_OF[d.item]
+  local main = g.nominal and plate and g.nominal[plate]
+  if not (dp and dp.drills and dp.drills > 0 and prm.n and prm.n > 0 and main and main > 0) then return end
+  local drill_rate = dp.drill_rate or 0
+  local dec = Fonte.balance({ input = dp.drills * drill_rate, capacity = main / (2 * prm.n), furnaces = 2 * prm.n,
+    max_furnaces = 2 * prm.n, drills = dp.drills, drill_rate = drill_rate, max_drills = dp.drills })
+  p.equilibre = { action = dec.action, wanted = dec.wanted, furnaces = 2 * prm.n, drills = dp.drills }
+  if dec.action ~= "equilibre" then
+    log(string.format("[FO-FONTE] %s : projet %d, fonderie de %d fours pour %d foreuses (%s) : equilibre %s, %d four(s) voulu(s)",
+      f.key or "player", p.id, 2 * prm.n, dp.drills, d.item, dec.action, dec.wanted))
+  end
+end
+
 --- Foreuses de ravitaillement d'une voie et leur tapis jusqu'à l'arrivée `a`. Rend true, ou false et raison.
 function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local b = f.build
@@ -972,7 +995,9 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   end
   local part = #p.parts + 1
   p.parts[part] = { kind = "foreuses", key = place.g.key, lot = place.lot, ox = place.ox, oy = place.oy, k = place.k,
-    w = place.g.w, h = place.g.h, power = needs_power(place.g), belt = belt, flow = flow }
+    w = place.g.w, h = place.g.h, power = needs_power(place.g), belt = belt, flow = flow,
+    drills = 2 * ((place.g.params or {}).n or 0),
+    drill_rate = (M.spec((place.g.params or {}).drill or "") or {}).speed or 0 }
   local ents = inst_entities(place.inst, part, belt)
   -- tapis : queue des foreuses → arrivée
   local tail
@@ -1299,16 +1324,20 @@ local function plan_project(f, surface, p)
   elseif g.resource then
     main, why = place_module(f, surface, g, { gisement = true }, toward or { x = b.lat.ox, y = b.lat.oy }, spec.resource or g.resource)
   else
+    local best, bf
+    for _, k in ipairs(sorted_keys(g.inputs or {})) do
+      if M.ORES[k] and k ~= "coal" and (not bf or g.inputs[k] > bf) then best, bf = k, g.inputs[k] end
+    end
+    local dep = (best and (not toward or spec.feed == "tapis")) and deposit_toward(b, best) or nil
     if not toward then
       -- « les fonderies vont vers le minerai » : vers le gisement de l'entrée principale
-      local best, bf
-      for _, k in ipairs(sorted_keys(g.inputs or {})) do
-        if M.ORES[k] and k ~= "coal" and (not bf or g.inputs[k] > bf) then best, bf = k, g.inputs[k] end
-      end
-      toward = (best and deposit_toward(b, best)) or { x = b.lat.ox, y = b.lat.oy }
+      toward = dep or { x = b.lat.ox, y = b.lat.oy }
     end
-    main, why = place_module(f, surface, g, { libre = true, defricher = true }, toward, nil)
-    if not main then main, why = place_module(f, surface, g, { gisement = true }, toward, nil) end
+    -- lot FONDERIES (retour du DC du 29/10 : tapis en crochet, fours posés « à l'envers ») : une fonderie servie par un
+    -- tapis de foreuses est tournée tête vers le gisement ; la colonne de fours s'étend à l'opposé, sans retour.
+    local fopts = (spec.feed == "tapis" and dep) and { head_toward = dep } or nil
+    main, why = place_module(f, surface, g, { libre = true, defricher = true }, toward, nil, fopts)
+    if not main then main, why = place_module(f, surface, g, { gisement = true }, toward, nil, fopts) end
   end
   Profiler.stop("build:plan:place")
   if not main then

@@ -432,7 +432,11 @@ end
 --- Meilleur placement d'un gabarit dans un rectangle (lot) : { k, ox, oy, cover, score } ou nil, raison.
 --- opts : ore = { [tkey] = true } (tuiles de minerai de la ressource visée ; foreuses) ; toward = {x, y} (entrées et
 --- consommateurs : le placement le plus proche gagne) ; free(tx, ty) -> bool (tuile utilisable : ni eau, ni falaise,
---- ni bâtiment) ; margin (tuiles libres entre l'emprise et les rues, défaut 1) ; step (défaut 1).
+--- ni bâtiment) ; margin (tuiles libres entre l'emprise et les rues, défaut 1) ; step (défaut 1) ;
+--- head_toward = {x, y} (lot FONDERIES, retour du DC du 29/10 : « l'input le plus proche du gisement, puis ligne droite de
+--- fours, dans un sens unique, vers l'extérieur, sans revenir vers l'intérieur ») : le gabarit est TOURNÉ de façon que son
+--- port d'entrée tapis (la tête d'alimentation) regarde ce point, et placé le bout de la tête au plus près ; la colonne
+--- s'étend à l'opposé. Sans port d'entrée tapis, ou sans cette option, le score est celui d'avant.
 function P.fit(g, rect, opts)
   opts = opts or {}
   local margin = opts.margin or 1
@@ -488,7 +492,19 @@ function P.fit(g, rect, opts)
           end
         end
       end
-      local room0 = P.port_room(M.instantiate(r, 0, 0, 0))
+      local inst0 = M.instantiate(r, 0, 0, 0)
+      local room0 = P.port_room(inst0)
+      -- bout de la tête d'alimentation du port d'entrée (FEED_DEPTH tuiles derrière le port), relatif à l'origine
+      local tip
+      if opts.head_toward then
+        for _, bp in ipairs(P.belt_ports(inst0)) do
+          if bp.io == "in" then
+            local bv = DV[bp.dir]
+            tip = { bp.x - P.FEED_DEPTH * bv[1] + 0.5, bp.y - P.FEED_DEPTH * bv[2] + 0.5 }
+            break
+          end
+        end
+      end
       -- pompe de rive (centrale) : la tuile devant la pompe et 60 % des tuiles d'eau du gabarit doivent être de l'eau
       local wt, adj, adj_side
       if r.water and #r.water > 0 then
@@ -547,7 +563,9 @@ function P.fit(g, rect, opts)
           if ok then
             local cx, cy = ox + r.w / 2, oy + r.h / 2
             local d = 0
-            if opts.toward then d = math.abs(cx - opts.toward.x) + math.abs(cy - opts.toward.y) end
+            if tip then
+              d = math.abs(ox + tip[1] - opts.head_toward.x) + math.abs(oy + tip[2] - opts.head_toward.y)
+            elseif opts.toward then d = math.abs(cx - opts.toward.x) + math.abs(cy - opts.toward.y) end
             local score = d - (res and cover * 100 or 0)
             if not best or score < best.score - 1e-9 then best = { k = k, ox = ox, oy = oy, cover = cover, score = score, w = r.w, h = r.h } end
           end
