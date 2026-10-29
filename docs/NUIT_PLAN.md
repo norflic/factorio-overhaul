@@ -50,6 +50,6 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | STOCK | non valide : verdict « sans defaut » contredit le critere B3 ecrit avant (fenetre de mesure, temoin de bruit apres coup) | rien a fusionner ; a rouvrir seulement si le DC le demande (question 9) |
 | REFILL | non valide : valeur_test 52 OK 1 ECHEC, regression 1618033988 confirmee par A/A (QG a 16 fours) | PARQUE |
 | MAINS | livraison vide (aucune mesure rendue par les agents du workflow) | repris par l'agent nomme `mainsc` |
-| RECONSTRUIRE | criteres R1 a R4, R6 non tous tenus (9 graines) ; effet local, reste identique a la base | essai 2 en cours (poteau fabricable, rebuild vs PNJ utiles, divergence prouvee) ; questions DC 12 et 13 |
+| RECONSTRUIRE | 2 essais faits, R1 à R3 non tenus, 4 graines identiques à la base, divergence après le 1er événement, plantage corrigé 74edb3e | PARQUE (questions DC 14 et 15 : fusion malgré les écarts ? source de bois) |
 | PLANDIR-SURE | criteres S1 a S5 tenus | 2 sceptiques lances (sceptique-sure1, sceptique-sure2) avant fusion |
 | KIT (kit-a) | tout vert sauf ia1-scale (effectif joueur 19/30) | temoin demande a kit-2 ; fusion bloquee jusqu'a explication |
