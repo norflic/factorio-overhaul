@@ -360,5 +360,64 @@ do
   end, function() A.exec_recipes = er0 end, exec_cases)
 end
 
+---------------------------------------------------------------------------------------------------
+-- 6. Lot REBUILD-SUIVI : un module FINI que le relevé de reconstruction a rouvert redevient un but du cerveau
+---------------------------------------------------------------------------------------------------
+-- Défaut (audit 29/10, Ligue Azur) : script/ai3/automatisation.lua ne relisait plus un module « fini » ; le relevé repassait le projet en
+-- « reserve », l'enregistrement restait « fini » (OPEN[fini] faux), aucun but « auto:<objet> » ne fabriquait les objets à refaire.
+-- Ici : la règle pure du suivi (shared/team/rebuild_sweep.lua) + les buts (A.goals) + la décision (A.decide : un module ouvert empêche
+-- une NOUVELLE demande du même objet).
+section("6. module fini rouvert (Sw.follow, A.goals, A.decide)")
+local Sw = require("shared.team.rebuild_sweep")
+local function goals_of(rec)
+  local goals = A.goals({}, { mods = { { product = rec.product, state = rec.state, missing = rec.missing, reason = rec.reason, gain = rec.gain } } }, nil, nil)
+  local out = {}
+  for _, g in ipairs(goals) do out[g.key] = g end
+  return out
+end
+local function reopen_cases()
+  local rec = { product = "plaque", state = "fini", missing = {}, built = 95, total = 95, rate_meas = 76, gain = 1 }
+  check(next(goals_of(rec)) == nil, "module fini : aucun but (rien à fabriquer)")
+  local brief = { state = "reserve", reason = "reconstruction", missing = { { "four", 40 }, { "tapis", 77 } }, built = 52, total = 95 }
+  check(Sw.follow(rec, brief, 3000) == true, "le relevé a rouvert le projet : l'enregistrement est suivi de nouveau")
+  local g = goals_of(rec)["auto:plaque"]
+  check(g ~= nil and g.status == "reserve" and g.kind == "module" and g.family == "capital", "but « auto:plaque » créé pour la fonderie rouverte")
+  check(g and g.missing and #g.missing == 2 and g.missing[1][1] == "four" and g.missing[1][2] == 40, "les objets à refaire sont les manques du but (fours, tapis)")
+  local dec = A.decide({ window = {}, mods = { { product = "plaque", state = rec.state, reason = rec.reason, sig = "s" } }, sig = "s" })
+  local v = nil
+  for _, x in ipairs(dec.verdicts) do if x.product == "plaque" then v = x end end
+  check(#dec.requests == 0 and (v == nil or v.verdict == "en_cours"), "la décision ne demande pas une NOUVELLE fonderie tant que celle-ci est en réparation")
+  -- la réparation avance puis finit
+  check(Sw.follow(rec, { state = "chantier", missing = {}, built = 90, total = 95 }, 3600) == false, "module rouvert : pas de deuxième réouverture par ce chemin")
+  rec.state = "fini"
+  check(Sw.repaired(rec, 3000 + 7200) == 7200, "module refini : durée de la réparation")
+  check(next(goals_of(rec)) == nil, "module refini : le but disparaît")
+end
+reopen_cases()
+do
+  local follow = Sw.follow
+  mutant("suivi : un module fini n'est jamais rouvert", function() Sw.follow = function() return false end end, function() Sw.follow = follow end, reopen_cases)
+  mutant("suivi : rouvert sans relire l'état", function()
+    Sw.follow = function(m, s, tick) m.reopened_at = tick return true end
+  end, function() Sw.follow = follow end, reopen_cases)
+  mutant("suivi : manques non relus", function()
+    Sw.follow = function(m, s, tick) local r = follow(m, s, tick) m.missing = {} return r end
+  end, function() Sw.follow = follow end, reopen_cases)
+  local open0 = A.OPEN_STATES.reserve
+  mutant("état « reserve » hors des états ouverts", function() A.OPEN_STATES.reserve = nil end, function() A.OPEN_STATES.reserve = open0 end, reopen_cases)
+end
+-- Source : le suivi du cerveau relit les modules finis (la règle seule ne suffit pas : l'exécutant doit l'appeler)
+do
+  local f = assert(io.open("script/ai3/automatisation.lua", "rb"))
+  local src = f:read("*a")
+  f:close()
+  check(src:find('require("shared.team.rebuild_sweep")', 1, true) and src:find("Sweep.follow(m, Build.brief(f, m.id), tick)", 1, true),
+    "automatisation.lua : relit les modules finis (Sweep.follow) avant le suivi des modules ouverts")
+  check(src:find("Sweep.repaired(m, tick)", 1, true), "automatisation.lua : note la fin de la réparation")
+  local pos_follow = src:find("Sweep.follow(m, Build.brief(f, m.id), tick)", 1, true)
+  local pos_open = src:find('if m.state ~= "fini" and m.state ~= "refuse" then', 1, true)
+  check(pos_follow and pos_open and pos_follow < pos_open, "automatisation.lua : la relecture des modules finis précède le suivi des modules ouverts")
+end
+
 print(string.format("[AUTO] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end

@@ -2491,8 +2491,8 @@ local function watch_stall(f, tick)
       local cause = (p.bloc_cause and p.bloc_built == built) and p.bloc_cause or Blocage.cause(p.state, p.reason)
       local rec, say = Blocage.stall(b.noprog[pid], count_built(p), cause, tick)
       b.noprog[pid] = rec
-      if say and not b.noprog_dits[say] then
-        b.noprog_dits[say] = true
+      if say and not b.noprog_dits[pid .. ":" .. say] then -- lot REBUILD-SUIVI : une fois par (projet, cause), non par cause
+        b.noprog_dits[pid .. ":" .. say] = true
         log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min",
           f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
           p.state, tick / 3600))
