@@ -155,3 +155,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~22 h 55, passage 47
 - Rien de nouveau : aucune archive de banc depuis content-0618 ; file vide (3 places ouvertes, le DC ne joue plus). 0.6.19 en tests (7 lots integres, interaction ILOTS/PILE corrigee) ; retours 6-9 en relecture ; piste amelioration lancee ; centre v6 arrete sur consigne du DC.
+
+## 29/10 ~23 h 20, passage 48
+- Pas d'archive de banc terminee a lire (content-0619 et bancs de la piste amelio en cours ; 3 places prises, 2 tickets biomes en file). Sorties de bancs de la piste lues (.out BIOMES/CRAFTS) : voir lignes ci-dessus si echec. Journal de la partie du DC 0.6.18 archive par la piste dans fo-logs/2026-10-30_AMELIO/journaux-DC (factorio-current du 29/10 21 h 23).
