@@ -169,7 +169,9 @@ do
   local free = { [ore] = 400, coal = 0, stone = 0, ["copper-ore"] = 0 }
   local _, c = fond_run(view, free, { keys = {}, mine_left = 8 })
   local s = kinds(c)
-  check(not s:find("mine:" .. ore, 1, true), "§4 fond : le minerai de fer en écart 0 n'est pas miné quand charbon, pierre et cuivre manquent (« " .. s .. " »)")
+  -- Essai 2 du lot : la règle de minage (C.mine_candidates) n'est PAS branchée (essai 1 : parties divergentes, plaques en baisse sur
+  -- 20261020, une équipe anéantie sur 271828182) ; le minage de fond reste celui d'avant.
+  check(s:find("mine:" .. ore, 1, true) ~= nil, "§4 fond : minage de fond inchangé, le minerai de fer reste dans la rotation (« " .. s .. " »)")
   check(s:find("smelt:", 1, true) ~= nil, "§4 fond : 400 minerais au coffre et des fours : tournée de fond")
   view.smelters_free = 0
   _, c = fond_run(view, { [ore] = 400, coal = 0, stone = 0, ["copper-ore"] = 0 }, { keys = {}, mine_left = 8 })

@@ -206,7 +206,6 @@ local function extraction(view, free, ctx, out)
         list[#list + 1] = { res = m[1], gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2]), i = i, ore = m[3] or false }
       end
     end
-    list = ChaineMain.mine_candidates(list) -- lot MAINS-CHAINE : pas de minerai en plus tant qu'une autre ressource manque
     table.sort(list, function(a, b)
       if a.gap ~= b.gap then return a.gap > b.gap end
       return a.i < b.i
