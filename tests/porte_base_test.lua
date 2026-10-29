@@ -47,10 +47,10 @@ local function all_checks()
   end
   check(has_furnace and not has_belt, "types relevés : fours oui, tapis non (" .. #st .. " types)")
 
-  -- 2. QG seul (aucun bâtiment) : la case du QG et sa marge (3 x 3 cases).
+  -- 2. QG seul (aucun bâtiment) : la case du QG et sa marge (7 x 7 cases).
   local z0 = Base.build({}, HQ, 10)
-  check(z0.n == 9 and Base.contains(z0, 1, 1) and Base.contains(z0, -7, -7) and not Base.contains(z0, 17, 1),
-    "QG seul : 9 cases (" .. z0.n .. "), le QG dedans, 17 tuiles plus loin dehors")
+  check(z0.n == 49 and Base.contains(z0, 1, 1) and Base.contains(z0, -23, -23) and not Base.contains(z0, 33, 1),
+    "QG seul : 49 cases (" .. z0.n .. "), le QG dedans, 33 tuiles plus loin dehors")
 
   -- 3. Base principale : 16 machines jointives autour du QG ; avant-poste bâti de 8 machines à 200 tuiles ; paire de tourelles
   --    isolée sur la route (x = 100) ; ligne de tapis (poids 0) et machines espacées d'une case sur deux entre les deux.
@@ -72,9 +72,9 @@ local function all_checks()
   check(z.comps_all == 3, "3 composantes denses (dont la paire de tourelles) (" .. z.comps_all .. ")")
   check(z.ents == #ents and z.w == #main + #outpost + #pair + #sparse, "bâtiments lus et poids compté")
 
-  -- 4. Marge : une case autour de la zone gardée (« proche de la base »), pas deux.
-  -- La base principale couvre les cases 0..1 (x de 2 à 11) : la case 2 (16-23) est dans la marge, la case 3 (24-31) non.
-  check(Base.contains(z, 20, 5) and not Base.contains(z, 28, 5), "marge d'une case : 20 dedans, 28 dehors")
+  -- 4. Marge : trois cases autour de la zone gardée (« proche de la base »), ni deux ni quatre.
+  -- La base principale couvre les cases 0..1 (x de 2 à 11) : la case 4 (32-39) est dans la marge, la case 5 (40-47) non.
+  check(Base.contains(z, 36, 5) and not Base.contains(z, 44, 5), "marge de trois cases : 36 dedans, 44 dehors")
 
   -- 5. Déterminisme : ordre d'entrée inversé, même zone.
   local rev = {}
@@ -94,7 +94,7 @@ local function all_checks()
 
   -- 7. Composante VOISINE du QG gardée même légère (le QG en fait partie).
   local zq = Base.build({ { x = 9, y = 1, w = 1 }, { x = 10, y = 2, w = 1 } }, HQ, 0)
-  check(zq.comps == 1 and Base.contains(zq, 20, 1) and not Base.contains(zq, 25, 1), "paire voisine du QG : base principale (marge comprise)")
+  check(zq.comps == 1 and Base.contains(zq, 36, 1) and not Base.contains(zq, 41, 1), "paire voisine du QG : base principale (marge comprise)")
 
   -- 8. Répartition des morts de l'heure le long d'une route (r = 32) : dans la base, hors d'elle, au QG (exclue), trop vieille.
   local H = 216000
@@ -156,6 +156,8 @@ local mutants = {
   { "aucune composante minimale", function() Base.MIN_W = 0 end },
   { "pas de marge", function() Base.MARGIN = 0 end },
   { "marge de 2 cases", function() Base.MARGIN = 2 end },
+  { "marge de 4 cases", function() Base.MARGIN = 4 end },
+  { "marge d'une case (avant la relecture)", function() Base.MARGIN = 1 end },
   { "murs comptés", function() Base.LINEAR_TYPES = {} end },
   { "logistique comptée", function() Base.ROLE_W.logistique = 1 end },
   { "QG hors de la zone", function()

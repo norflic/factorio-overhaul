@@ -334,8 +334,10 @@ check(global.fo.ia3k.agents[ag.id].risk ~= true, "PORTE-BASE : départ ordinaire
 local cause_log = false
 for i = logs0 + 1, #W().logs do if W().logs[i]:find("la base se defend", 1, true) then cause_log = true end end
 check(cause_log, "PORTE-BASE : journal [FO-BASE] de la cause (la base se défend)")
--- Une mort de plus JUSTE HORS de la zone (30 tuiles au nord du but, au-delà de la marge) : plus d'exemption, refus sans escalade.
-remote.call("fo-ia3k", "death", "player", gx4, gy4 - 30)
+-- Une mort de plus HORS de la zone, sur la route (40 tuiles avant le but en diagonale, au-delà de la marge de 3 cases) : plus
+-- d'exemption, refus sans escalade. Une mort JUSTE devant l'îlot (20 tuiles) reste « proche de la base » (relecture PORTE-BASE).
+check(remote.call("fo-ia3k", "base", "player", false, gx4, gy4 - 22).inside == true, "PORTE-BASE : 22 tuiles devant l'îlot : proche de la base (marge)")
+remote.call("fo-ia3k", "death", "player", gx4 - 40, gy4 - 40)
 local mix_ref = 0
 for i = 1, 10 do
   if not C.gate(f, ag, { key = "test:fortify4b", kind = "fortify", defend = true }, steps4, t4 + 200 + i) then mix_ref = mix_ref + 1 end

@@ -27,9 +27,15 @@ local Base = {}
 
 Base.CELL = 8           -- tuiles par côté de case (le DC : « un carré de 6x6 par exemple » ; 8 : 4 cases par chunk, une machine
                         -- 3x3 et ses bras tiennent dans une case)
-Base.DENSE = 2          -- poids minimal d'une case dense (une machine et un bras ; une foreuse et sa voisine)
+Base.DENSE = 2          -- poids minimal d'une case dense (deux bâtiments qui pèsent : deux machines, une foreuse et sa voisine ;
+                        -- bras, tapis, poteaux et murs ne pèsent rien)
 Base.MIN_W = 6          -- poids minimal d'une composante gardée hors du QG (une paire de tourelles : 2, refusée)
-Base.MARGIN = 1         -- cases ajoutées autour de la zone gardée (« proche de la base » : 8 tuiles)
+-- Relecture PORTE-BASE : marge portée de 1 à 3 cases. Avec 1 case (8 à 15 tuiles au-delà du dernier bâtiment), un PNJ tué juste devant
+-- la ligne de tourelles d'une base attaquée (portée d'une tourelle : 18 tuiles et plus ; une cellule du front n'est servie qu'à moins
+-- de 24 tuiles d'un bâtiment, shared/team/front.lua F.ASSET_R) comptait « hors de la base » : la porte refusait alors le renfort
+-- (fortify, refill) une heure, sans escalade, ce que l'arbitrage du DC (« garder ») ne demande pas pour des morts « proche de la base ».
+-- 3 cases : 24 à 31 tuiles ; une route vers un avant-poste lointain (« à perpète les oies ») en sort toujours.
+Base.MARGIN = 3         -- cases ajoutées autour de la zone gardée (« proche de la base » : 24 tuiles au moins)
 Base.SCAN_R = 320       -- rayon (tuiles, carré) du relevé autour du QG ; au-delà, rien n'est « base » (côté prudent)
 Base.PERIOD = 3600      -- une zone sert au plus 1 min, puis elle est recalculée (au plus un relevé par minute et par équipe)
 Base.OFF = 32768
