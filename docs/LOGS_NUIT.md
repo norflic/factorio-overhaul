@@ -161,3 +161,8 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~23 h 55, passage 49
 - content-0619 : 331 OK, 0 erreur Lua (2417 s : disque F: sature par 3 copies de bancs en parallele, places ramenees a 2). Aucune autre archive de banc terminee depuis (bancs de la piste amelio en cours). Aucun processus parasite ; 2 Blender (mur-opus et une piste).
+
+## 30/10 ~0 h 20, passage 50
+- 14 archives de la piste amelio/petites demandes lues : 0 erreur Lua partout ; content 331 OK sur pd-elec, pd-espacement, pd-fonderieqg, pd-intermediaires, calculs ; centre-qg 12 OK ; crafts-chaines 7 OK ; sc-journal 18 OK ; monde 116 OK.
+- ANOMALIE (mesuree) : BIOMES/apres-1-captures : [FO-B0-BIOMES] 10 OK, 1 ECHEC apres le changement de couleurs des biomes (ligne ci-dessus) ; la verification de la piste doit le traiter, sinon a corriger avant fusion d'amelio-biomes (pas de message : agent de workflow).
+- Snapshots src-0.6.18 des pistes : sources de migration (src-0.*), gardes.
