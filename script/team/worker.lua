@@ -33,6 +33,7 @@ local Locomotion = require("script.companion.locomotion")
 local Re = require("shared.ai3.reaction") -- lot FUITE : tâches de défense exemptées du rappel
 local Equip = require("script.team.equiper") -- lot LEVIERS : modules insérés dans les machines posées
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné à la main (minerai, arbres)
+local Charge = require("shared.team.charge_four") -- lot FOURS : quantité emportée pour remplir les fours à la pile
 
 local Worker = {}
 
@@ -398,15 +399,52 @@ function Worker.program(f, task, surface, tick)
     local products = {}
     for p in pairs(task.smelt or {}) do products[#products + 1] = p end
     table.sort(products)
-    for _, p in ipairs(products) do
-      local input = T.smelter_inputs[p]
-      -- Lot SCALE : la fournée suit le nombre de fours (données nommées et justifiées de shared/team/config.lua :
-      -- T.smelt_per_furnace entrées par four, au moins T.smelt_trip_min) : une fonderie agrandie (shared/ai3/bras.lua,
-      -- Br.smelters) n'est pas limitée par une tournée de 20 minerais.
-      local per_trip = math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))
-      if input then list[#list + 1] = { input[1], math.min(input[2] * per_trip, input[2] * task.smelt[p]) } end
+    if Outposts.four_rule(f) then
+      -- Lot FOURS (remarque 12 du DC) : le porteur prend de quoi remplir chaque four à charger jusqu'à sa pile
+      -- (shared/team/charge_four.lua : place, part du stock, borne par la demande pour une entrée qui est elle-même un produit).
+      local by_item = {}
+      for _, l in ipairs(Outposts.smelt_loads(f, products)) do
+        local g = by_item[l.item]
+        if not g then
+          g = { room = 0, loads = 0, ratio = l.ratio }
+          by_item[l.item] = g
+        end
+        g.room = g.room + l.room
+        g.loads = g.loads + 1
+      end
+      for _, item in ipairs(State.sorted_keys(by_item)) do
+        local g = by_item[item]
+        local demand
+        if T.smelter_inputs[item] then
+          demand = 0
+          for _, p in ipairs(products) do
+            local inp = T.smelter_inputs[p]
+            if inp and inp[1] == item then demand = demand + (task.smelt[p] or 0) end
+          end
+        end
+        local n = Charge.carry({ room = g.room, stock = Stock.count(f, item), ratio = g.ratio, loads = g.loads, demand_crafts = demand })
+        if n > 0 then list[#list + 1] = { item, n } end
+      end
+    else
+      for _, p in ipairs(products) do
+        local input = T.smelter_inputs[p]
+        -- Lot SCALE : la fournée suit le nombre de fours (données nommées et justifiées de shared/team/config.lua :
+        -- T.smelt_per_furnace entrées par four, au moins T.smelt_trip_min) : une fonderie agrandie (shared/ai3/bras.lua,
+        -- Br.smelters) n'est pas limitée par une tournée de 20 minerais.
+        local per_trip = math.max(T.smelt_trip_min, T.smelt_per_furnace * #Outposts.smelters(f))
+        if input then list[#list + 1] = { input[1], math.min(input[2] * per_trip, input[2] * task.smelt[p]) } end
+      end
     end
-    list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
+    if Outposts.four_rule(f) then
+      -- Lot FOURS : combustible pour les fours tombés au tiers de T.smelter_fuel_to (part du stock, plancher de 10 par four).
+      local fl = Outposts.smelter_fuel_loads(f)
+      local room = 0
+      for _, l in ipairs(fl) do room = room + l.room end
+      local n = Charge.carry({ room = room, stock = Stock.count(f, T.fuel), ratio = 1, loads = #fl })
+      if n > 0 then list[#list + 1] = { T.fuel, n } end
+    else
+      list[#list + 1] = { T.fuel, Outposts.coal_needed_for(Outposts.smelters(f)) }
+    end
     return { { "home" }, { "take", list }, { "act", "smelt" }, { "home" } }
   elseif k == "equiper" then
     return Equip.program(f, task) -- lot LEVIERS
