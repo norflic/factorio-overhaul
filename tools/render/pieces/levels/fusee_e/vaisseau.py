@@ -411,7 +411,7 @@ def age04(c):
     g, M = c.g, c.M
     aire(c, z=0.14)
     peau(c, [(X_NEZ, -2.1), (2.1, 3.5)])
-    cotes(c, [-1.7, -0.9, -0.1, 0.7, 1.5, -2.6, 2.4])
+    cotes(c, [-1.7, -0.9, -0.1, 0.7, 1.5, -2.6, 2.4], mat=M["steel_hi"], ep=0.13)
     longerons(c, -2.1, 2.1, 6)
     epine(c, X_NEZ + 0.1, 3.3)
     queue(c)
@@ -439,6 +439,9 @@ def age04(c):
         for (a, b) in (((-0.3, -0.3), (0.3, -0.3)), ((0.3, -0.3), (0.3, 0.3)), ((0.3, 0.3), (-0.3, 0.3)), ((-0.3, 0.3), (-0.3, -0.3))):
             poutre(g, (-2.6 + a[0], 1.9 + a[1], z), (-2.6 + b[0], 1.9 + b[1], z + 0.0), 0.06, M["steel_dk"], "entretoise")
         poutre(g, (-2.9, 1.6, z - 1.0), (-2.3, 2.2, z), 0.04, M["steel_dk"], "croisillon")
+    for zb_ in (1.0, 2.0, 3.0):                       # bras de liaison portique -> halle et côtes, avec consoles inclinées
+        poutre(g, (-2.35, 1.7, zb_), (-1.95, 1.12, zb_), 0.12, M["noir_capot"], "bras_portique", h=0.14)
+        poutre(g, (-2.6, 1.9, zb_ - 0.6), (-2.0, 1.15, zb_ - 0.05), 0.07, M["noir_capot"], "console_portique")
     poutre(g, (-2.6, 1.9, 4.2), (-2.6, 1.9, 5.0), 0.05, M["steel"], "mat_radio")
     g.dome((-2.6, 1.9, 5.05), (0, 0, 1), 0.05, M["emit"], what="feu_mat")
     # torchère à l'est, côté nord
@@ -613,7 +616,7 @@ GEN = {
     9: dict(a=2.5, hw=1.55, h=(2.0, 0.7), toit="coupole", ailes="galerie", ra=R),
     10: dict(a=2.6, hw=1.65, h=(2.1, 0.8), toit="plat", ailes="galerie", ra=R),
     11: dict(a=2.7, hw=1.7, h=(2.1, 0.8), toit="plat", ailes="galerie", ra=R),
-    12: dict(a=2.8, hw=1.75, h=(2.15, 0.8), toit="coupole", ailes="contrefort", ra=1.7),
+    12: dict(a=2.8, hw=1.75, h=(2.15, 0.8), toit="coupole", ailes="contrefort", ra=1.7, toit_mat="noir_miroir"),
     13: dict(a=2.8, hw=1.8, h=(2.2, 0.8), toit="plat", ailes="contrefort", ra=1.85),
     14: dict(a=2.9, hw=1.85, h=(2.2, 0.9), toit="plat", ailes="contrefort", ra=1.95),
 }
@@ -628,41 +631,38 @@ def ribs_gen(c, a, ra, zroof, mat, console=None):
         xs.append(round(x, 3))
         x += 0.8
     for x in xs:
-        g.tube_shell((x, 0, Z0), "x", ra + 0.07 * (1 if ra == R else 1.2), ra - 0.03, 0.09 if ra == R else 0.15, mat, n=36, what="cote")
+        g.tube_shell((x, 0, Z0), "x", ra + 0.08, ra - 0.04, 0.13 if ra == R else 0.17, mat, n=36, what="cote")
         if console is not None and ra > R + 0.05 and abs(zroof - Z0) < ra:
             yc = math.sqrt(ra * ra - (zroof - Z0) ** 2)
             for sy in (-1, 1):
-                box(g, x - 0.16, x + 0.16, sy * (yc - 0.16), sy * (yc + 0.16), zroof - 0.25, zroof + 0.25, console, "console")
+                box(g, x - 0.2, x + 0.2, sy * (yc - 0.22), sy * (yc + 0.22), zroof - 0.3, zroof + 0.3, console, "console")
+                box(g, x - 0.27, x + 0.27, sy * (yc - 0.28), sy * (yc + 0.28), zroof + 0.28, zroof + 0.38, c["bande"], "sabot")
     return xs
 
 
-def ailes_galerie(c, portee=2.75, mat=None, dessus=None, tours=False):
-    """Ailes devenues galeries (pont plat à garde-corps) ou contreforts à tour (ères IV et V)."""
+def ailes_galerie(c, S, tours=False, xs=()):
+    """Flancs devenus galeries : un pont plat le long de la halle (poteaux et balustres au pas de 0,8, main courante),
+    puis, aux âges 12 à 14, contreforts pleins aux côtes et tours d'angle."""
     g, M = c.g, c.M
-    z = Z0 - 0.3
+    a, hw, h0 = S["a"], S["hw"], S["h"][0]
+    zd = 0.14 + h0 * 0.55
+    y0, y1 = hw + 0.02, hw + 0.72
+    x0, x1 = -a + 0.1, a
+    n = max(1, int(round((x1 - x0) / 0.8)))
     for sg in (-1, 1):
-        pts = [(-2.3, sg * R * 0.8), (3.1, sg * R * 0.8), (3.5, sg * portee), (2.3, sg * portee)]
-        h = 0.2 if not tours else 1.3
-        zb = z - 0.1 if not tours else 0.14
-        lo = [(x, y, zb) for x, y in pts]
-        hi = [(x, y, z + (0.1 if not tours else 0.8)) for x, y in pts]
-        g.hexa(lo + hi, mat or c["aile"], "soft", "pont_aile")
-        n = 7
+        box(g, x0, x1, min(sg * y0, sg * y1), max(sg * y0, sg * y1), zd - 0.1, zd, c["mur2"], "pont_galerie")
         for k in range(n + 1):
-            t = k / n
-            x = 2.3 + (3.5 - 2.3) * t - 0.0
-            y = sg * portee
-            x = -2.3 + (2.3 + 2.3) * t
-            yy = sg * (R * 0.8 + (portee - R * 0.8) * t)
-            zt = z + (0.1 if not tours else 0.8)
-            poutre(g, (x, yy, zt), (x, yy, zt + 0.3), 0.05, dessus or c["os"], "balustre")
-        poutre(g, (-2.3, sg * R * 0.8, z + 0.4 + (0 if not tours else 0.8)), (2.3, sg * portee, z + 0.4 + (0 if not tours else 0.8)), 0.06,
-               dessus or c["os"], "main_courante", h=0.05)
+            x = x0 + k * (x1 - x0) / n
+            poutre(g, (x, sg * (y1 - 0.07), 0.14), (x, sg * (y1 - 0.07), zd - 0.1), 0.1, c["os"], "pilier_galerie")
+            poutre(g, (x, sg * (y1 - 0.07), zd), (x, sg * (y1 - 0.07), zd + 0.42), 0.05, c["os"], "balustre")
+        poutre(g, (x0, sg * (y1 - 0.07), zd + 0.44), (x1, sg * (y1 - 0.07), zd + 0.44), 0.07, c["os"], "main_courante", h=0.05)
         if tours:
-            g.cyl((3.0, sg * (portee - 0.35), 1.5), "z", 0.4, 2.6, c["mur2"], n=10, style="hard", what="tour_aile")
-            g.cyl((3.0, sg * (portee - 0.35), 3.0), "z", 0.46, 0.5, c["mur"], n=10, r2=0.0, style="hard", what="toit_tour")
-        else:
-            g.cyl((3.0, sg * (portee - 0.35), z + 0.12), "x", 0.17, 0.9, c["tuy"], n=14, r2=0.22, style="smooth", what="nacelle")
+            for x in xs:
+                box(g, x - 0.12, x + 0.12, min(sg * y0, sg * y1), max(sg * y0, sg * y1), 0.14, zd - 0.1, c["mur"], "contrefort")
+            xt = x1 + 0.35
+            g.cyl((xt, sg * (y1 - 0.2), 1.3), "z", 0.38, 2.3, c["mur2"], n=10, style="hard", what="tour_aile")
+            g.tube_shell((xt, sg * (y1 - 0.2), 2.4), "z", 0.46, 0.34, 0.12, c["bande"], n=10, what="corniche_tour")
+            g.cyl((xt, sg * (y1 - 0.2), 2.9), "z", 0.46, 0.8, c["toit"], n=10, r2=0.0, style="hard", what="toit_tour")
 
 
 def halle_gen(c, e, S, pilotis=0.0):
@@ -711,7 +711,7 @@ def toit_gen(c, S, z, hw, x0=None):
     elif kind == "gradins":
         box(g, -a, a, -hw, hw, z, z + 0.05, c["bande"], "assise")
     elif kind == "coupole":
-        g.sphere((0, 0, z - 0.1), 1.0, c["toit"], n=32, m=14, scale=(a * 0.97, hw * 0.97, 0.9), what="coupole")
+        g.sphere((0, 0, z - 0.1), 1.0, M[S["toit_mat"]] if "toit_mat" in S else c["toit"], n=32, m=14, scale=(a * 0.97, hw * 0.97, 0.9), what="coupole")
 
 
 def age_generique(c, e):
@@ -730,15 +730,14 @@ def age_generique(c, e):
     queue(c)
     if S["ailes"] == "delta":
         ailes(c)
-    elif S["ailes"] == "galerie":
-        ailes_galerie(c)
-    else:
-        ailes_galerie(c, tours=True)
-    cockpit_ok = True
     if a > 0:
         z, hwt = halle_gen(c, e, S)
         epine(c, X_NEZ + 0.1, 3.3, mat=c["os"], w=0.18)
-        xs = ribs_gen(c, a, S["ra"], 0.14 + S["h"][0], c["os"], console=c["bande"] if S["ra"] > R else None)
+        xs = ribs_gen(c, a, S["ra"], 0.14 + S["h"][0], M["steel_hi"], console=M["steel_hi"] if S["ra"] > R else None)
+        if S["ailes"] == "galerie":
+            ailes_galerie(c, S)
+        elif S["ailes"] == "contrefort":
+            ailes_galerie(c, S, tours=True, xs=xs)
         toit_gen(c, S, z, hwt)
         zr = z + (0.2 if S["toit"] == "plat" else 0.0) + 0.3
         poutre(g, (-a, 0, zr), (a, 0, zr), 0.2, c["os"], "epine_halle", h=0.16)
@@ -788,17 +787,23 @@ def mod03(c, e, S, z, hw):
 
 
 def mod05(c, e, S, z, hw):
-    """Volcan : coulée de lave dans une rigole le long de l'aire, cône de basalte à cratère rougeoyant."""
+    """Volcan : cône de basalte à cratère rougeoyant au sud-est, d'où part une coulée de lave dans un LIT de basalte
+    (deux bords relevés), qui longe la halle jusqu'au bord ouest de l'aire."""
     g, M = c.g, c.M
-    box(g, -1.8, 3.4, -2.5, -2.1, 0.14, 0.2, M["fonte_v"], "rigole")
-    box(g, -1.7, 3.3, -2.45, -2.15, 0.2, 0.24, M["emit"], "lave", style="flat")
-    g.halo((0.8, -2.8, 0.3), M["_emit_rgb"], 5.0)
-    g.cyl((3.0, 1.9, 0.14 + 0.75), "z", 0.85, 1.5, M["basalte_capot"], n=14, r2=0.35, style="hard", what="cone_volcan")
-    g.cyl((3.0, 1.9, 1.62), "z", 0.34, 0.06, M["emit"], n=14, style="flat", what="cratere")
-    g.halo((3.0, 1.6, 1.9), M["_emit_rgb"], 5.0)
-    for k in range(7):
-        a_ = TAU * k / 7
-        g.sphere((3.0 + 0.7 * math.cos(a_), 1.9 + 0.7 * math.sin(a_), 0.3), 0.18 + 0.07 * (k % 3), M["basalte_capot"], n=8, m=5,
+    xc, yc = 3.0, -2.0
+    g.cyl((xc, yc, 0.14 + 0.75), "z", 0.85, 1.5, M["basalte_capot"], n=14, r2=0.35, style="hard", what="cone_volcan")
+    g.cyl((xc, yc, 1.62), "z", 0.34, 0.06, M["emit"], n=14, style="flat", what="cratere")
+    g.halo((xc, yc - 0.3, 1.9), M["_emit_rgb"], 5.0)
+    # lit : fond et deux bords en basalte, lave en retrait entre les bords
+    box(g, -2.2, 2.3, -2.55, -2.05, 0.14, 0.26, M["basalte_capot"], "lit_lave")
+    for yb in (-2.55, -2.1):
+        box(g, -2.2, 2.3, yb - 0.02, yb + 0.07, 0.26, 0.38, M["fonte_v"], "bord_lit")
+    box(g, -2.18, 2.3, -2.46, -2.14, 0.26, 0.29, M["emit"], "lave", style="flat")
+    box(g, -2.26, -2.16, -2.55, -2.05, 0.26, 0.38, M["fonte_v"], "butee_lit")
+    g.halo((0.0, -2.9, 0.4), M["_emit_rgb"], 5.0)
+    for k in range(6):
+        a_ = TAU * k / 6
+        g.sphere((xc + 0.95 * math.cos(a_), yc + 0.95 * math.sin(a_) * 0.7, 0.3), 0.18 + 0.06 * (k % 3), M["basalte_capot"], n=8, m=5,
                  scale=(1, 1, 0.7), what="bloc_basalte")
 
 
@@ -875,8 +880,8 @@ def mod11(c, e, S, z, hw):
 def mod12(c, e, S, z, hw):
     """Supraconducteurs : anneau givré incandescent cyan autour de la halle, sur deux pieds, voyants cyan."""
     g, M = c.g, c.M
-    g.torus((0.4, 0, Z0 + 0.5), "x", 2.05, 0.12, M["frost"], n=48, m=10, what="anneau_supra")
-    g.torus((0.4, 0, Z0 + 0.5), "x", 2.05, 0.05, M["emit"], n=48, m=8, what="coeur_supra")
+    g.torus((0.4, 0, Z0 + 0.5), "x", 2.1, 0.14, M["frost"], n=48, m=10, what="anneau_supra")
+    g.torus((0.4, 0, Z0 + 0.5), "x", 2.1, 0.07, M["emit"], n=48, m=8, what="coeur_supra")
     for sy in (-1, 1):
         poutre(g, (0.4, sy * 1.9, 0.14), (0.4, sy * 1.9, 1.25), 0.2, M["noir_miroir"], "pied_anneau")
     g.halo((0.4, -2.2, 2.2), M["_emit_rgb"], 5.0)
@@ -886,13 +891,18 @@ def mod12(c, e, S, z, hw):
 def mod13(c, e, S, z, hw):
     """Antimatière : cuve de confinement sur le toit, quatre bouteilles couchées, éclairs violets entre deux pointes."""
     g, M = c.g, c.M
+    g.cyl((0.3, 0.0, z + 0.05), "z", 0.95, 0.1, M["steel_dk"], n=26, style="hard", what="embase_cuve")
     g.cyl((0.3, 0.0, z + 0.6), "z", 0.75, 1.2, M["acier_canon"], n=26, style="smooth", what="cuve_confinement")
     for dz in (0.2, 1.0):
         g.tube_shell((0.3, 0.0, z + dz), "z", 0.78, 0.7, 0.1, M["cuivre_bobine"], n=26, what="bobine")
     g.dome((0.3, 0.0, z + 1.25), (0, 0, 1), 0.3, M["emit"], n=12, h=0.5, what="coeur_cuve")
     for k in range(4):
         x = -1.8 + 1.2 * k
-        g.cyl((x, 0.0 + (-0.6 if k % 2 == 0 else 0.6), z + 0.3), "y", 0.25, 1.2, M["acier_noir"], n=16, style="smooth", what="bouteille")
+        yb = -0.6 if k % 2 == 0 else 0.6
+        g.cyl((x, yb, z + 0.3), "y", 0.25, 1.2, M["acier_noir"], n=16, style="smooth", what="bouteille")
+        for dy in (-0.4, 0.4):                              # berceaux : deux selles à l'aplomb de chaque bouteille
+            box(g, x - 0.18, x + 0.18, yb + dy - 0.07, yb + dy + 0.07, z, z + 0.2, M["steel_dk"], "berceau")
+            box(g, x - 0.1, x + 0.1, yb + dy - 0.07, yb + dy + 0.07, z + 0.2, z + 0.27, M["steel_dk"], "selle")
         g.dome((x, (-1.2 if k % 2 == 0 else 1.2), z + 0.3), (0, -1 if k % 2 == 0 else 1, 0), 0.2, M["emit"], n=8, what="cap_bouteille")
     for sx in (-1, 1):
         poutre(g, (0.3 + sx * 1.3, 0.0, z), (0.3 + sx * 1.3, 0.0, z + 1.9), 0.05, M["steel"], "pointe_eclair")
@@ -902,22 +912,27 @@ def mod13(c, e, S, z, hw):
 
 
 def mod14(c, e, S, z, hw):
-    """La Porte : grand anneau blanc debout (axe y, face au sud) sur deux piliers, voile d'étoiles, pierre lunaire."""
+    """La Porte : grand anneau blanc debout (axe y, face au sud) planté sur l'aire DEVANT la porte de la halle, sur deux
+    piliers et une plaque ; liseré lumineux ; semis d'étoiles sur la plaque."""
     g, M = c.g, c.M
-    zc = z + 1.55
-    g.torus((0.4, 0.0, zc), "y", 1.35, 0.14, M["blanc_lunaire"], n=48, m=10, what="anneau_porte")
-    g.torus((0.4, -0.04, zc), "y", 1.2, 0.05, M["emit"], n=48, m=8, what="liseré_porte")
+    xc, yc, zc = 0.1, -2.35, 1.75
+    box(g, xc - 1.7, xc + 1.7, yc - 0.35, yc + 0.35, 0.14, 0.24, M["blanc_lunaire"], "plaque_porte")
+    g.torus((xc, yc, zc), "y", 1.35, 0.15, M["blanc_lunaire"], n=48, m=10, what="anneau_porte")
+    g.torus((xc, yc - 0.06, zc), "y", 1.2, 0.05, M["emit"], n=48, m=8, what="lisere_porte")
     for sx in (-1, 1):
-        box(g, 0.4 + sx * 1.1 - 0.2, 0.4 + sx * 1.1 + 0.2, -0.25, 0.25, z, zc - 0.7, M["blanc_lunaire"], "pilier_porte")
-    for k in range(14):
-        a_ = TAU * k / 14
-        g.dome((0.4 + 1.0 * math.cos(a_) * 0.8, -0.1, zc + 0.9 * math.sin(a_) * 0.8), (0, -1, 0), 0.04, M["emit"], n=5, what="etoile")
-    g.halo((0.4, -0.6, zc), M["_emit_rgb"], 5.0)
+        box(g, xc + sx * 1.15 - 0.22, xc + sx * 1.15 + 0.22, yc - 0.28, yc + 0.28, 0.24, zc - 0.5, M["blanc_lunaire"], "pilier_porte")
+    for k in range(16):
+        a_ = TAU * k / 16
+        g.dome((xc + 0.95 * math.cos(a_), yc - 0.08, zc + 0.95 * math.sin(a_)), (0, -1, 0), 0.045, M["emit"], n=5, what="etoile")
+    g.halo((xc, yc - 0.6, zc), M["_emit_rgb"], 5.0)
 
 
 MODULE_GEN = {2: mod02, 3: mod03, 5: mod05, 6: mod06, 7: mod07, 9: mod09, 10: mod10, 11: mod11, 12: mod12, 13: mod13, 14: mod14}
 for _e in MODULE_GEN:
     pass
+
+
+PAD_GEN = {3: ("verdigris", "cuivre_sombre"), 14: ("concrete", "indigo_nuit")}
 
 
 def pal_gen(e, M):
@@ -927,8 +942,9 @@ def pal_gen(e, M):
     dom = (p.get("dominante") or ("armor",))[0] if isinstance(p.get("dominante"), tuple) else (p.get("dominante") or "armor")
     sec = (p.get("secondaire") or ("armor2",))[0] if isinstance(p.get("secondaire"), tuple) else (p.get("secondaire") or "armor2")
     pont = p["pont"]
+    pad, pad2 = PAD_GEN.get(e, (pont.get("mat") or "concrete", pont.get("mat2") or "armor2"))
     return dict(peau=("peau_prop",), bande=(sec,), os=(p.get("acier") or "steel_dk",), aile=(dom,), tuy=(sec,), mur=(dom,),
-                mur2=(sec,), toit=(dom,), pad=(pont.get("mat") or "concrete",), pad2=(pont.get("mat2") or "armor2",),
+                mur2=(sec,), toit=(dom,), pad=(pad,), pad2=(pad2,),
                 acc=(sec,), vit=("emit_soft",))
 
 
