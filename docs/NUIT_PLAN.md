@@ -72,3 +72,5 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 
 | CAPI-ANNUL (05 h 50) | defaut NON reproduit sur main (14 parties, 7 graines : 41=41 projets finis, rapports 1,00 car journaux identiques) ; cas 314159265 venait du code poteaux-uniques ; defaut voisin 1 graine sur 7 (123456789 scarlet : ordre annule a 32 min, chantier a 0 entite posee pendant 28 min, cause non etudiee) | PARQUE (regle ordre_progres.lua sur la branche capia) |
 | OUTILLAGE-OUTILS (FUSIONNE 05 h 50) | outils seulement : fenetres, sans_fenetre, gels, lot_compare ; test_gels 16, lot_compare 9, sans_fenetre 28, test_banc_file 96 OK | main, version jeu inchangee 0.6.8 |
+
+| KIT-A (FUSIONNE 06 h, version 0.6.9) | approuve avant (K2 tout vert sauf ia1-scale, defaut anterieur : 19/30 aussi sur main a2ccb0f) ; re-controle apres fusion avec 0.6.8 : content 331 OK, kit-egal 19 OK, etape1-guide 18 OK sur 20261020 et 1618033988, 0 erreur Lua ; tests hors jeu verts (kit 56, kit_moteur 28, levels 1690, iag 202...) | tag jouable-0.6.9, branche jouable deplacee |
