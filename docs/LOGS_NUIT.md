@@ -104,3 +104,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 - Lecture approfondie des 2 parties de fumee 0.6.13 (FUMEE) : 0 warning du mod, 0 erreur Lua. Centrales : sur 33 releves « centrale presente », 4 a 0 kW (azure 20261020 min 20 ; scarlet 20261020 min 20 et 30 ; azure 1618033988 min 60) : demarrages (mesure) sauf azure min 60 (cause non lue, plausiblement quai a sec : lot quai-charge jamais fusionne). Pensees : pics de 70 a 150 ms au tick 4 (initialisation capi:think / lane fo-pteam), ponctuels. Aucun refus repete anormal (lignes de bilan de blocage = une par minute et par equipe). Rien a ouvrir.
 
 - 29/10 ~14 h : un factorio.exe sans argument tourne depuis 13 h 26 (partie du DC) : fo-banc-places.txt remis a 1, aucun banc moteur tant qu elle dure. Mes 2 parties de fumee de 13 h 33 ont tourne en meme temps que sa partie (2 places) : a ne plus faire.
+
+## 29/10 ~14 h 20, passage 31
+- Rien de nouveau : seule archive recente content-0614 (VAGUE3/INTEG) : BILAN 331 OK, 0 erreur Lua, 0 plantage. Aucune partie ni banc en cours (aucun factorio.exe, file vide, places = 1), 1 processus python sans rapport avec banc.py. Vague 3 en developpement statique (FONDERIES livre, 5 lots en cours).
