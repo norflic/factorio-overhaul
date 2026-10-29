@@ -27,6 +27,9 @@ local BIOMES = {
   { tile = "fo-toxic-marsh", key = "marais" },
   { tile = "fo-volcanic-ash", key = "cendres" },
 }
+-- Piste AMELIO-BIOMES (30/10) : les QUATRE biomes du mod, pour le contrôle « aucun arbre, aucune roche, aucun décoratif
+-- vanilla sur un biome du mod » et le relevé du mélange entre biomes (voisins, journal).
+local MOD_BIOMES = { "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "fo-crater-fields" }
 local HERBE = { "grass-1", "grass-2", "grass-3", "grass-4" }
 local DESERT = { "sand-1", "sand-2", "sand-3", "red-desert-0", "red-desert-1", "red-desert-2", "red-desert-3" }
 
@@ -153,10 +156,21 @@ return {
       if f.key == "cristal" or f.key == "vanilla" then
         add("large-" .. f.key .. "-z025", f.x, f.y, 0.25, 0, sans)
       end
+      -- Piste AMELIO-BIOMES : de NUIT (0,5 = minuit), lueur des cristaux et des braises (jamais capturée avant).
+      if f.key == "cristal" or f.key == "cendres" then
+        add("nuit-" .. f.key .. "-z1", f.x, f.y, 1, 0.5, sans)
+      end
     end
     if st.site then
       add("site-cristal-z05", st.site.x, st.site.y, 0.5, 0, sans)
       add("site-cristal-z1", st.site.x, st.site.y, 1, 0, sans)
+      add("site-cristal-z2", st.site.x, st.site.y, 2, 0, sans)
+      add("nuit-site-cristal-z1", st.site.x, st.site.y, 1, 0.5, sans)
+    end
+    -- Frontières ENTRE deux biomes du mod (piste AMELIO-BIOMES, « des biomes mélangés »), quand il y en a une.
+    for _, f in ipairs(st.melanges or {}) do
+      add("melange-" .. f.key .. "-z05", f.x, f.y, 0.5, 0, sans)
+      add("melange-" .. f.key .. "-z1", f.x, f.y, 1, 0, sans)
     end
     if st.disques then
       local n = #NUANCIER[1].disques
@@ -180,7 +194,7 @@ return {
     if remote.interfaces["fo-monde"] then
       for _, d in ipairs(remote.call("fo-monde", "status").done or {}) do
         for _, site in ipairs(d.sites or {}) do
-          exclus[#exclus + 1] = { x = site.x, y = site.y, r = 20 }
+          exclus[#exclus + 1] = { x = site.x, y = site.y, r = 26 }
           if d.key == "crystal" and not st.site then st.site = { x = site.x + 0.5, y = site.y + 0.5 } end
         end
       end
@@ -206,6 +220,21 @@ return {
       ctx.log(string.format("frontiere vanilla herbe/desert : (%.1f, %.1f)%s", p.x, p.y, p.fige and " FIGEE" or ""))
     end
     if st.site then ctx.log(string.format("site garanti du cristal : (%.1f, %.1f)", st.site.x, st.site.y)) end
+    -- Mélange entre biomes du mod (piste AMELIO-BIOMES) : voisins de la plaine des cratères (absente du relevé de B0), et
+    -- meilleure frontière entre deux biomes du mod, par paire (journal, hors bilan ; captures si elle existe).
+    ctx.log("voisins de fo-crater-fields : " .. voisins(s, "fo-crater-fields"))
+    st.melanges = {}
+    local paires = { { "cendres-cristal", "fo-volcanic-ash", "fo-crystal-flats" }, { "cendres-crateres", "fo-volcanic-ash", "fo-crater-fields" },
+      { "cristal-crateres", "fo-crystal-flats", "fo-crater-fields" }, { "cristal-marais", "fo-crystal-flats", "fo-toxic-marsh" } }
+    for _, pr in ipairs(paires) do
+      local q = frontiere(s, { pr[2] }, { pr[3] }, exclus)
+      if q then
+        ctx.log(string.format("frontiere entre biomes %s : (%.1f, %.1f), disque %d / %d", pr[1], q.x, q.y, q.na, q.nb))
+        if math.min(q.na, q.nb) >= 20 then st.melanges[#st.melanges + 1] = { key = pr[1], x = q.x, y = q.y } end
+      else
+        ctx.log("frontiere entre biomes " .. pr[1] .. " : aucune")
+      end
+    end
     ctx.prepare_area(NX - NPAS, NY - NPAS, NX + #NUANCIER[1].disques * NPAS, NY + #NUANCIER * NPAS, "grass-2")
     st.disques = nuancier(s)
     local poses = 0
@@ -244,6 +273,14 @@ return {
     ctx.log("decor (nombre/somme x,y) : " .. table.concat(dec, " ; "))
     -- Décoratifs (verdict « B4 B ») : vanilla posés SUR la plaine de cristal (attendu 0), et empreinte de ceux posés
     -- AILLEURS (hors des tuiles de cristal), pour voir que la restriction ne change rien hors de la plaine.
+    local est_biome = {}
+    for _, n in ipairs(MOD_BIOMES) do est_biome[n] = true end
+    local function dans_site(x, y)
+      for _, e in ipairs(exclus) do
+        if (x - e.x) ^ 2 + (y - e.y) ^ 2 < e.r * e.r then return true end
+      end
+      return false
+    end
     local sur, n_ail, sx_ail, sy_ail, n_fo = 0, 0, 0, 0, 0
     local n_loin, sx_loin, sy_loin, nid = 0, 0, 0, 0
     local n_tres, sx_tres, sy_tres = 0, 0, 0 -- hors des chunks qui ont du cristal et de leurs 8 voisins (32 tuiles et plus)
@@ -264,7 +301,9 @@ return {
     for _, d in ipairs(s.find_decoratives_filtered({ area = { { -Z, -Z }, { Z, Z } } })) do
       local p = d.position
       local nom = d.decorative.name
-      local cristal = s.get_tile(p.x, p.y).name == "fo-crystal-flats"
+      -- Piste AMELIO-BIOMES : « sur un biome du mod » (les quatre ; la plaine de cristal seule avant), hors des disques des
+      -- sites garantis (tuiles posées par script après la génération).
+      local cristal = est_biome[s.get_tile(p.x, p.y).name] and not dans_site(p.x + 0.5, p.y + 0.5)
       if nom:find("^fo%-") then
         n_fo = n_fo + 1
       elseif cristal then
@@ -291,13 +330,33 @@ return {
     local parts = {}
     for _, n in ipairs(noms) do parts[#parts + 1] = n .. " " .. hist[n] end
     st.decor_vanilla_sur_cristal = sur
+    -- Arbres et grosses roches VANILLA sur un biome du mod (piste AMELIO-BIOMES ; attendu 0 hors des sites garantis).
+    local ent_sur, ent_hist, ent_noms, ent_ex = 0, {}, {}, {}
+    for _, e in ipairs(s.find_entities_filtered({ area = { { -Z, -Z }, { Z, Z } }, type = { "tree", "simple-entity" } })) do
+      local nom = e.name
+      if not nom:find("^fo%-") then
+        local p = e.position
+        if est_biome[s.get_tile(math.floor(p.x), math.floor(p.y)).name] and not dans_site(p.x, p.y) then
+          ent_sur = ent_sur + 1
+          if not ent_hist[nom] then ent_hist[nom] = 0; ent_noms[#ent_noms + 1] = nom end
+          ent_hist[nom] = ent_hist[nom] + 1
+          if #ent_ex < 8 then ent_ex[#ent_ex + 1] = string.format("%s(%.1f,%.1f)", nom, p.x, p.y) end
+        end
+      end
+    end
+    table.sort(ent_noms)
+    local ent_parts = {}
+    for _, n in ipairs(ent_noms) do ent_parts[#ent_parts + 1] = n .. " " .. ent_hist[n] end
+    st.entites_vanilla_sur_biomes = ent_sur
+    ctx.log(string.format("arbres et roches vanilla SUR un biome du mod a moins de %d tuiles (hors sites garantis) : %d (%s ; %s)",
+      Z, ent_sur, table.concat(ent_parts, ", "), table.concat(ent_ex, " ")))
     ctx.log(string.format("decoratifs a moins de %d tuiles : vanilla SUR le cristal %d hors nids, %d pres d'un nid (%s ; %s) ;"
       .. " vanilla ailleurs %d/%d,%d, dont a plus de %d tuiles du cristal %d/%d,%d, dont hors des chunks du cristal %d/%d,%d ;"
       .. " du mod %d",
       Z, sur, nid, table.concat(parts, ", "), table.concat(exemples, " "), n_ail, sx_ail, sy_ail, MARGE, n_loin, sx_loin, sy_loin,
       n_tres, sx_tres, sy_tres, n_fo))
     local layers = {}
-    for _, n in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "grass-1", "grass-2", "sand-1",
+    for _, n in ipairs({ "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "fo-crater-fields", "grass-1", "grass-2", "sand-1",
       "red-desert-0", "dirt-1", "water-shallow", "water-mud", "nuclear-ground" }) do
       local tp = game.tile_prototypes[n]
       layers[#layers + 1] = n .. " " .. (tp and tp.layer or "?")
@@ -321,8 +380,10 @@ return {
         tostring(st.comptes[b.key]) .. " tuile(s)")
     end
     ctx.check(par.vanilla ~= nil, "frontiere vanilla herbe / desert trouvee")
-    ctx.check(st.decor_vanilla_sur_cristal == 0, "aucun decoratif vanilla autoplace sur la plaine de cristal (400 tuiles autour du depart ; decor des nids compte a part)",
+    ctx.check(st.decor_vanilla_sur_cristal == 0, "aucun decoratif vanilla autoplace sur un biome du mod (400 tuiles autour du depart ; decor des nids compte a part, sites garantis exclus)",
       tostring(st.decor_vanilla_sur_cristal))
+    ctx.check(st.entites_vanilla_sur_biomes == 0, "aucun arbre ni roche vanilla sur un biome du mod (400 tuiles autour du depart, sites garantis exclus)",
+      tostring(st.entites_vanilla_sur_biomes))
     ctx.check(st.site ~= nil, "site garanti du cristal connu")
     ctx.check(st.disques and st.disques_poses == #st.disques, "nuancier : un disque de chaque sol sur chaque fond",
       tostring(st.disques_poses) .. " / " .. tostring(st.disques and #st.disques))
