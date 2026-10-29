@@ -15,9 +15,9 @@ from geo import surface
 
 EPOQUE = 8
 NOM = "Marais"
-Z_W, Z_R = 1.10, 1.32          # haut de la maçonnerie, faîtage du toit
-HW0, HW1 = 0.46, 0.36
-ASSISES = (0.0, 0.2, 0.37, 0.53, 0.68, 0.82, 0.96, Z_W)
+Z_W, Z_R = 0.90, 1.04          # haut de la maçonnerie, faîtage du chaperon de cuivre (essai e2 : section en coin)
+HW0, HW1 = 0.46, 0.17
+ASSISES = (0.0, 0.17, 0.32, 0.46, 0.59, 0.71, 0.81, Z_W)
 SQ2 = math.sqrt(2.0)
 
 
@@ -25,27 +25,37 @@ def hw(z):
     return HW0 + (HW1 - HW0) * z / Z_W
 
 
+RIV = 0.016
+
+
 def mats(S):
     M = {}
     M["pierre"] = surface("m8_pierre", (0.13, 0.15, 0.12), (0.075, 0.085, 0.07), rough=0.9, var=0.7, var_scale=7.0,
                           grain=0.25, bump=0.8, bump_scale=35.0, edge=((0.27, 0.29, 0.24), 0.55, 0.035), cavity=0.6,
-                          cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.85, 0.45),
-                          bottom=((0.025, 0.03, 0.022), 0.45, 0.75), seed=3.0)
+                          cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
+                          bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=3.0,
+                          stain=((0.03, 0.04, 0.025), 0.5, 5.0))
     M["pierre2"] = surface("m8_pierre2", (0.16, 0.165, 0.14), (0.09, 0.095, 0.08), rough=0.9, var=0.7, var_scale=6.0,
                            grain=0.25, bump=0.8, bump_scale=30.0, edge=((0.30, 0.31, 0.27), 0.55, 0.035), cavity=0.6,
-                           cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.85, 0.45),
-                           bottom=((0.025, 0.03, 0.022), 0.45, 0.75), seed=9.0)
+                           cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
+                           bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=9.0,
+                           stain=((0.035, 0.03, 0.02), 0.5, 4.0))
     M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
                            top=((0.06, 0.12, 0.02), 0.7, 0.4))
     M["cuivre"] = surface("m8_cuivre", (0.10, 0.27, 0.20), (0.055, 0.16, 0.12), rough=0.55, rough2=0.8, metal=0.35,
                           var=0.8, var_scale=8.0, grain=0.2, bump=0.3, bump_scale=90.0,
-                          edge=((0.42, 0.19, 0.08), 0.7, 0.025), cavity=0.45, streak=0.35)
+                          edge=((0.45, 0.22, 0.09), 0.75, 0.02), cavity=0.45, streak=0.35,
+                          stain=((0.18, 0.36, 0.28), 0.45, 6.0))
     M["cuivre_sombre"] = surface("m8_cuivre2", (0.05, 0.13, 0.10), (0.11, 0.06, 0.03), rough=0.6, metal=0.4, var=0.6,
                                  grain=0.2, edge=((0.45, 0.22, 0.09), 0.8, 0.02), cavity=0.4)
+    M["chaperon"] = surface("m8_chaperon", (0.20, 0.215, 0.18), (0.11, 0.12, 0.10), rough=0.92, var=0.7,
+                            var_scale=7.0, grain=0.28, bump=0.8, bump_scale=40.0, edge=((0.36, 0.38, 0.33), 0.6, 0.02),
+                            cavity=0.55, streak=0.4, top=((0.12, 0.22, 0.04), 0.7, 0.35),
+                            stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["mousse"] = surface("m8_mousse", (0.06, 0.14, 0.02), (0.03, 0.07, 0.012), rough=1.0, var=0.8, var_scale=12.0,
                           grain=0.35, bump=1.0, bump_scale=120.0, cavity=0.5, spec=0.2)
     M["vide"] = surface("m8_vide", (0.006, 0.008, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0, spec=0.0)
-    M["verre"] = geo.emissive(S, "m8_verre", (0.6, 1.0, 0.04), strength=5.0, base=(0.04, 0.06, 0.01))
+    M["verre"] = geo.emissive(S, "m8_verre", (0.6, 1.0, 0.04), strength=0.9, base=(0.04, 0.06, 0.01))
     return M
 
 
@@ -57,12 +67,12 @@ def _bloc(g, M, x0, x1, z0, z1, k, tilt):
     for (x, z, yy) in ((x0, z0, yb), (x1, z0, yb), (x0, z1, yt), (x1, z1, yt)):
         pts.append((x + g.rnd(-j, j), -yy + g.rnd(-0.01, 0.006), z + g.rnd(-j, j) * 0.5))
         pts.append((x + g.rnd(-j, j), yy - g.rnd(-0.01, 0.006), z + g.rnd(-j, j) * 0.5))
-    # bombé de la face avant et des faces latérales
-    xm, zm = 0.5 * (x0 + x1), 0.5 * (z0 + z1)
-    b = 0.018 + tilt
-    pts.append((xm, -(hw(zm) * k + 0.012 + b), zm))
-    pts.append((xm, (hw(zm) * k + 0.012 + b), zm))
-    return g.hull(pts, M["pierre"] if g.rnd() < 0.55 else M["pierre2"], bev=0.012, seg=2)
+    # face avant taillée : un léger bossage plat (4 points en retrait des arêtes, en saillie de tilt)
+    zm0, zm1 = z0 + 0.3 * (z1 - z0), z0 + 0.7 * (z1 - z0)
+    xm0, xm1 = x0 + 0.25 * (x1 - x0), x1 - 0.25 * (x1 - x0)
+    for (x, z) in ((xm0, zm0), (xm1, zm0), (xm0, zm1), (xm1, zm1)):
+        pts.append((x, -(hw(z) * k + 0.012 + 0.006 + tilt * g.rnd(0.3, 1.0)), z))
+    return g.hull(pts, M["pierre"] if g.rnd() < 0.55 else M["pierre2"], bev=0.016, seg=2)
 
 
 def _maconnerie(g, M, B):
@@ -90,23 +100,20 @@ def _maconnerie(g, M, B):
 
 
 def _toit(g, M, x0, x1, k, seams=True):
-    """Toit de cuivre à deux pentes sur le mur, débord, joints debout et faîtage roulé."""
-    e = 0.05
-    g.prism([(-(HW1 + 0.07) * k, Z_W - 0.02), ((HW1 + 0.07) * k, Z_W - 0.02), ((HW1 + 0.07) * k, Z_W + 0.02),
-             (0.0, Z_R), (-(HW1 + 0.07) * k, Z_W + 0.02)], x0, x1, M["cuivre"], bev=0.008)
-    g.cyl((0.5 * (x0 + x1), 0, Z_R + 0.002), "x", 0.03, x1 - x0, M["cuivre"], n=12, bev=0)
+    """Chaperon de pierre moussue à deux pentes, faîtière de cuivre vert-de-gris (couvre-joints debout)."""
+    hc = HW1 + 0.045
+    g.prism([(-hc * k, Z_W - 0.02), (hc * k, Z_W - 0.02), (hc * k, Z_W + 0.025), (0.06 * k, Z_R - 0.03),
+             (-0.06 * k, Z_R - 0.03), (-hc * k, Z_W + 0.025)], x0, x1, M["chaperon"], bev=0.012)
+    # faîtière de cuivre (petit toit sur l'arête) et boudin
+    g.prism([(-0.085 * k, Z_R - 0.045), (0.085 * k, Z_R - 0.045), (0.085 * k, Z_R - 0.03), (0.0, Z_R + 0.02),
+             (-0.085 * k, Z_R - 0.03)], x0, x1, M["cuivre"], bev=0.004)
+    g.cyl((0.5 * (x0 + x1), 0, Z_R + 0.02), "x", 0.022, x1 - x0, M["cuivre"], n=10, bev=0)
     if seams:
         n = max(1, int(round((x1 - x0) / 0.125)))
-        for i in range(n + 1):
+        for i in range(1, n):
             x = x0 + i * (x1 - x0) / n
-            if i in (0, n):
-                continue
-            for s in (-1, 1):
-                ya, yb = s * (HW1 + 0.07) * k, s * 0.02
-                g.loft_z([(x - 0.008, min(ya, yb)), (x + 0.008, min(ya, yb)), (x + 0.008, max(ya, yb)),
-                          (x - 0.008, max(ya, yb))], Z_W + 0.02, Z_W + 0.05, M["cuivre_sombre"], bev=0)
-    # chéneau (gouttière) sous le débord avant
-    g.cyl((0.5 * (x0 + x1), -(HW1 + 0.08) * k, Z_W - 0.035), "x", 0.03, x1 - x0, M["cuivre_sombre"], n=10, bev=0)
+            g.prism([(-0.095 * k, Z_R - 0.05), (0.095 * k, Z_R - 0.05), (0.0, Z_R + 0.035)], x - 0.014, x + 0.014,
+                    M["cuivre_sombre"], bev=0, ends=True)
 
 
 def bras(g, M, B):
@@ -143,31 +150,26 @@ def _mousse(g, M, x, y, z, r):
 
 
 def _contrefort(g, M):
-    """Contrefort de pierre au milieu de la case, hublot à lumière acide cerclé de cuivre."""
+    """Contrefort de pierre à deux ressauts au milieu de la case, tirant de cuivre riveté, mousse au pied."""
     k = SQ2
-    yb = -(HW0 + 0.13) * k
-    for (z0, z1, d0, d1, w) in ((0.0, 0.42, 0.13, 0.11, 0.13), (0.42, 0.82, 0.10, 0.05, 0.115)):
-        pa = [(-w, -(HW0 + d0) * k), (w, -(HW0 + d0) * k), (w, -0.1 * k), (-w, -0.1 * k)]
+    for (z0, z1, d0, d1, w) in ((0.0, 0.40, 0.11, 0.08, 0.12), (0.40, 0.76, 0.07, 0.03, 0.10)):
+        pa = [(-w, -(hw(z0) + d0) * k), (w, -(hw(z0) + d0) * k), (w, -0.1 * k), (-w, -0.1 * k)]
         pb = [(-w + 0.01, -(hw(z1) + d1) * k), (w - 0.01, -(hw(z1) + d1) * k), (w - 0.01, -0.1 * k),
               (-w + 0.01, -0.1 * k)]
         g.loft_z(pa, z0, z1, M["pierre2"], poly1=pb, bev=0.015)
-        g.box(-w - 0.012, w + 0.012, -(hw(z1) + d1 + 0.02) * k, -0.1 * k, z1, z1 + 0.035, M["pierre"], bev=0.01)
-    # hublot (dans la maçonnerie, au-dessus du contrefort)
-    yf = -(hw(0.95) + 0.012) * k
-    g.cyl((0, yf - 0.004, 0.95), "y", 0.07, 0.03, M["cuivre"], n=20, bev=0.004)
-    g.cyl((0, yf - 0.02, 0.95), "y", 0.05, 0.012, M["verre"], n=20, bev=0)
-    for a in range(6):
-        ang = a * math.pi / 3
-        g.rivets([(0.072 * math.cos(ang), yf - 0.022, 0.95 + 0.072 * math.sin(ang), "y")], 0.008, M["cuivre_sombre"])
-    _mousse(g, M, 0.04, -(HW0 + 0.1) * k, 0.0, 0.1)
+        g.box(-w - 0.012, w + 0.012, -(hw(z1) + d1 + 0.025) * k, -0.1 * k, z1, z1 + 0.035, M["pierre"], bev=0.01)
+    # tirant de cuivre (plaque rivetée) sur le ressaut haut
+    y = -(hw(0.58) + 0.055) * k
+    g.box(-0.075, 0.075, y - 0.018, y + 0.02, 0.52, 0.64, M["cuivre"], bev=0.005)
+    g.rivets([(x, y - 0.02, z, "y") for x in (-0.05, 0.05) for z in (0.55, 0.61)], RIV, M["cuivre_sombre"])
+    _mousse(g, M, 0.04, -(HW0 + 0.09) * k, 0.0, 0.1)
 
 
 def _tour(g, M):
-    """Tour ronde de pierre, toit conique de cuivre, hublot."""
-    R0, R1, zt = 0.48, 0.44, 1.30
-    g.cyl((0, 0, 0.06), "z", R0 + 0.03, 0.12, M["pierre2"], n=40, r2=R0 + 0.01, bev=0.01)
-    # assises de la tour : anneaux de blocs
-    zs = (0.12, 0.33, 0.52, 0.70, 0.87, 1.04, 1.20, zt)
+    """Tour ronde de pierre en talus, toit conique de cuivre à nervures, hublot et épi à lumière acide."""
+    R0, R1, zt, HT = 0.47, 0.37, 1.04, 0.42
+    g.cyl((0, 0, 0.05), "z", R0 + 0.03, 0.10, M["pierre2"], n=40, r2=R0 + 0.01, bev=0.01)
+    zs = (0.10, 0.27, 0.43, 0.58, 0.72, 0.85, 0.95, zt)
     for i in range(len(zs) - 1):
         z0, z1 = zs[i] + 0.006, zs[i + 1] - 0.006
         r0 = R0 + (R1 - R0) * (z0 / zt)
@@ -180,37 +182,37 @@ def _tour(g, M):
             pts = []
             for a in (a0, 0.5 * (a0 + a1), a1):
                 for (z, r) in ((z0, r0), (z1, r1)):
-                    bulge = 0.012 if a == 0.5 * (a0 + a1) else 0.0
+                    bulge = 0.014 if a == 0.5 * (a0 + a1) else 0.0
                     pts.append(((r + bulge) * math.cos(a), (r + bulge) * math.sin(a), z))
                     pts.append(((r - 0.12) * math.cos(a), (r - 0.12) * math.sin(a), z))
             g.hull(pts, M["pierre"] if g.rnd() < 0.5 else M["pierre2"], bev=0.01, seg=2)
     g.cyl((0, 0, 0.5 * zt), "z", R1 - 0.02, zt - 0.02, M["mortier"], n=32, bev=0)
-    # corniche et toit conique
-    g.cyl((0, 0, zt + 0.02), "z", R1 + 0.06, 0.04, M["pierre2"], n=40, bev=0.01)
-    g.cyl((0, 0, zt + 0.08), "z", R1 + 0.09, 0.08, M["cuivre"], n=40, r2=R1 + 0.05, bev=0.006)
-    g.cyl((0, 0, zt + 0.12 + 0.27), "z", R1 + 0.05, 0.54, M["cuivre"], n=40, r2=0.03, bev=0.004)
-    # nervures du toit
+    # corniche, égout et toit conique
+    g.cyl((0, 0, zt + 0.02), "z", R1 + 0.05, 0.04, M["pierre2"], n=40, bev=0.01)
+    g.cyl((0, 0, zt + 0.07), "z", R1 + 0.08, 0.06, M["cuivre"], n=40, r2=R1 + 0.05, bev=0.006)
+    g.cyl((0, 0, zt + 0.10 + HT / 2), "z", R1 + 0.05, HT, M["cuivre"], n=40, r2=0.03, bev=0.004)
+    import mathutils
     for j in range(12):
         a = j * 2 * math.pi / 12
-        p0 = ((R1 + 0.055) * math.cos(a), (R1 + 0.055) * math.sin(a), zt + 0.12)
-        p1 = (0.04 * math.cos(a), 0.04 * math.sin(a), zt + 0.64)
+        p0 = ((R1 + 0.055) * math.cos(a), (R1 + 0.055) * math.sin(a), zt + 0.10)
+        p1 = (0.04 * math.cos(a), 0.04 * math.sin(a), zt + 0.10 + HT)
         v = (p1[0] - p0[0], p1[1] - p0[1], p1[2] - p0[2])
         ln = math.sqrt(sum(c * c for c in v))
-        o = g.cyl((0, 0, 0), "z", 0.012, ln, M["cuivre_sombre"], n=6, bev=0)
-        import mathutils
+        o = g.cyl((0, 0, 0), "z", 0.014, ln, M["cuivre_sombre"], n=6, bev=0)
         rot = mathutils.Vector((0, 0, 1)).rotation_difference(mathutils.Vector(v).normalized()).to_matrix().to_4x4()
-        o.data.transform(mathutils.Matrix.Translation(((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2, (p0[2] + p1[2]) / 2))
-                         @ rot)
-    # épi de faîtage : boule de verre acide dans une cage de cuivre
-    g.cyl((0, 0, zt + 0.70), "z", 0.012, 0.14, M["cuivre_sombre"], n=8, bev=0)
-    g.sphere((0, 0, zt + 0.80), 0.045, M["verre"])
-    # hublot sur la face avant
-    g.cyl((0, -R1 - 0.005, 0.86), "y", 0.08, 0.04, M["cuivre"], n=20, bev=0.004)
-    g.cyl((0, -R1 - 0.025, 0.86), "y", 0.058, 0.012, M["verre"], n=20, bev=0)
+        o.data.transform(mathutils.Matrix.Translation(((p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2,
+                                                         (p0[2] + p1[2]) / 2)) @ rot)
+    # épi de faîtage : boule de verre acide
+    g.cyl((0, 0, zt + 0.10 + HT + 0.05), "z", 0.014, 0.10, M["cuivre_sombre"], n=8, bev=0)
+    g.sphere((0, 0, zt + 0.10 + HT + 0.12), 0.04, M["verre"])
+    # hublot sur la face avant (dans le talus)
+    zh = 0.70
+    rh = R0 + (R1 - R0) * (zh / zt)
+    g.cyl((0, -rh - 0.005, zh), "y", 0.075, 0.04, M["cuivre"], n=20, bev=0.004)
+    g.cyl((0, -rh - 0.025, zh), "y", 0.052, 0.012, M["verre"], n=20, bev=0)
     for a in range(8):
         ang = a * math.pi / 4
-        g.rivets([(0.082 * math.cos(ang), -R1 - 0.028, 0.86 + 0.082 * math.sin(ang), "y")], 0.008, M["cuivre_sombre"])
-    # mousse au pied
+        g.rivets([(0.075 * math.cos(ang), -rh - 0.028, zh + 0.075 * math.sin(ang), "y")], 0.013, M["cuivre_sombre"])
     _mousse(g, M, -0.3, -0.32, 0.0, 0.12)
     _mousse(g, M, 0.33, -0.25, 0.0, 0.09)
 

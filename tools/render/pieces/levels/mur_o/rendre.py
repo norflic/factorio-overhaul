@@ -42,8 +42,9 @@ def attendre_pc_libre():
 
 
 def session(names, a):
-    attente = attendre_pc_libre()
-    cmd = [sys.executable, LOCK, "--slots", "1", "--disque", a.cache, "--", BLENDER, "-b", "--factory-startup",
+    # 29/10 22 h 40 (orchestrateur) : le verrou a 2 places partagées avec le centre ; on le prend tel quel
+    attente = 0.0
+    cmd = [sys.executable, LOCK, "--disque", a.cache, "--", BLENDER, "-b", "--factory-startup",
            "-noaudio", "--python-exit-code", "1", "-P", os.path.join(HERE, "batch.py"), "--",
            "--names", ",".join(names), "--out", a.cache, "--samples", str(a.samples)]
     t0 = time.time()

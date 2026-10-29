@@ -14,27 +14,28 @@ from geo import surface
 
 EPOQUE = 15
 NOM = "Néant"
-Z_B, Z_K, Z_A = 0.13, 0.86, 1.42       # socle, cassure des facettes, arête
-Z_C0, Z_C1 = 1.52, 1.72                # crête flottante
+Z_B, Z_K, Z_A = 0.13, 0.70, 1.36       # socle, cassure des facettes, arête (e2 : plus raide)
+Z_C0, Z_C1 = 1.46, 1.66                # crête flottante
 SQ2 = math.sqrt(2.0)
 # profil (demi-épaisseur en tuiles, z) : socle droit, corps en deux facettes
-P_BAS, P_K, P_A = 0.44, 0.38, 0.05
+P_BAS, P_K, P_A = 0.44, 0.29, 0.06
 
 
 def mats(S):
     M = {}
-    M["obsidienne"] = surface("m15_obs", (0.014, 0.013, 0.016), (0.03, 0.026, 0.034), rough=0.16, rough2=0.3,
+    M["obsidienne"] = surface("m15_obs", (0.022, 0.02, 0.026), (0.045, 0.04, 0.05), rough=0.16, rough2=0.3,
                               metal=0.0, spec=0.9, var=0.7, var_scale=5.0, grain=0.3, bump=0.15, bump_scale=30.0,
-                              edge=((0.16, 0.15, 0.18), 0.5, 0.02), cavity=0.3)
+                              edge=((0.16, 0.15, 0.18), 0.5, 0.02), cavity=0.3,
+                              veins=((0.85, 0.58, 0.22), 0.05, 3.2))
     M["obs_mat"] = surface("m15_obsm", (0.03, 0.028, 0.034), (0.012, 0.011, 0.014), rough=0.45, metal=0.0, spec=0.6,
                            var=0.6, var_scale=9.0, grain=0.3, bump=0.3, bump_scale=60.0,
                            edge=((0.18, 0.17, 0.2), 0.6, 0.02), cavity=0.4)
-    M["or"] = surface("m15_or", (0.80, 0.55, 0.20), (0.55, 0.36, 0.12), rough=0.28, rough2=0.42, metal=1.0, var=0.5,
+    M["or"] = surface("m15_or", (0.80, 0.55, 0.20), (0.55, 0.36, 0.12), rough=0.38, rough2=0.5, metal=1.0, var=0.5,
                       var_scale=10.0, grain=0.12, bump=0.1, edge=((1.0, 0.85, 0.55), 0.4, 0.015), cavity=0.35)
     M["or_sombre"] = surface("m15_ors", (0.45, 0.30, 0.10), rough=0.35, metal=1.0, var=0.3, grain=0.1, cavity=0.3)
     M["vide"] = surface("m15_vide", (0.004, 0.003, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0,
                         spec=0.0)
-    M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.86, 0.6), strength=7.0, base=(0.05, 0.04, 0.02))
+    M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.78, 0.45), strength=1.0, base=(0.05, 0.04, 0.02))
     return M
 
 
@@ -54,33 +55,26 @@ def bras(g, M, B):
     # âme d'or (se voit dans les filets entre panneaux)
     g.prism(_profil(k, inset=0.012), x0, L, M["or_sombre"], bev=0)
     # panneaux d'obsidienne : un par quart de case ; filet de 0,012 ; panneau du joint de case plus étroit
-    cuts = [B.t0] + [t for t in (0.25, 0.5, 0.75) if B.t0 < t < B.t1 - 1e-3] + [B.t1]
+    cuts = [B.t0] + [t for t in (0.5,) if B.t0 < t < B.t1 - 1e-3] + [B.t1]
     for a, b in zip(cuts[:-1], cuts[1:]):
         xa, xb = B.x(a), min(B.x(b), L)
-        ia = 0.008 if a > B.t0 + 1e-3 else 0.0
-        ib = 0.008 if b < B.t1 - 1e-3 else 0.0
+        ia = 0.016 if a > B.t0 + 1e-3 else 0.0
+        ib = 0.016 if b < B.t1 - 1e-3 else 0.0
         if abs(a - 0.5) < 1e-3:
-            ia = 0.02
+            ia = 0.03
         if abs(b - 0.5) < 1e-3:
-            ib = 0.02
+            ib = 0.03
         g.prism(_profil(k), xa + ia, xb - ib, M["obsidienne"], bev=0.006, ends=bool(ia or ib))
     # nervure d'or au joint de case (t = 0,5) : suit le profil, légèrement en saillie
     xj = B.x(0.5)
     if B.t0 < 0.5 < B.t1:
         prof = [(y * 1.0, z) for (y, z) in _profil(k, inset=-0.015)]
-        g.prism(prof, xj - 0.016, xj + 0.016, M["or"], bev=0.004, ends=True)
-    # crête flottante : lames d'obsidienne (une par demi-case), tranche d'or, fissure de feu dessous
+        g.prism(prof, xj - 0.026, xj + 0.026, M["or"], bev=0.006, ends=True)
+    # crête flottante : éclats d'obsidienne en losange (un par demi-case), arête d'or, au-dessus d'un vide
     for c in (0.0, 0.5, 1.0):
-        sp = B.span(c - 0.21, c + 0.21) if (c > 0.0 or S_) else None
-        if not sp:
+        if c == 0.0 and not S_:
             continue
-        xa, xb = B.x(sp[0]), min(B.x(sp[1]), L)
-        ta = 0.03 if sp[0] > B.t0 + 1e-3 and abs(sp[0] - (c - 0.21)) < 1e-6 else 0.0
-        tb = 0.03 if sp[1] < B.t1 - 1e-3 and abs(sp[1] - (c + 0.21)) < 1e-6 else 0.0
-        g.prism([(-0.06 * k, Z_C0), (0.06 * k, Z_C0), (0.035 * k, Z_C1 - 0.03), (0.0, Z_C1),
-                 (-0.035 * k, Z_C1 - 0.03)], xa + ta, xb - tb, M["obsidienne"], bev=0.004, ends=True)
-        g.prism([(-0.012 * k, Z_C1 - 0.02), (0.012 * k, Z_C1 - 0.02), (0.0, Z_C1 + 0.012)], xa + ta, xb - tb,
-                M["or"], bev=0, ends=True)
+        _eclat(g, M, B.x(c), 0.19 * B.ka, k, B.x(B.t0), L)
     # fissure d'incandescence sur l'arête (continue)
     g.prism([(-0.018 * k, Z_A - 0.004), (0.018 * k, Z_A - 0.004), (0.01 * k, Z_A + 0.012), (-0.01 * k, Z_A + 0.012)],
             x0, L, M["feu"], bev=0)
@@ -91,6 +85,42 @@ def bras(g, M, B):
         g.rivets([(B.x((i + 0.5) * 0.125), -0.462 * k - 0.004, Z_B - 0.01, "y") for i in range(n)
                   if B.t0 < (i + 0.5) * 0.125 < B.t1], 0.011, M["or"])
         g.pop()
+
+
+def _eclat(g, M, xc, h, k, xa, xb):
+    """Éclat flottant en losange centré en xc (demi-longueur h), borné à [xa, xb] (coupe nette au bord de case)."""
+    zm = 0.5 * (Z_C0 + Z_C1)
+    w = 0.055 * k
+
+    def sec(x, f):
+        return [(x, -w * f, zm), (x, w * f, zm), (x, 0.0, zm - (zm - Z_C0) * f), (x, 0.0, zm + (Z_C1 - zm) * f)]
+    pts = []
+    for x in (xc - h, xc, xc + h):
+        f = 1.0 - abs(x - xc) / h
+        if x < xa:
+            x, f = xa, 1.0 - abs(xa - xc) / h
+        if x > xb:
+            x, f = xb, 1.0 - abs(xb - xc) / h
+        if f <= 0.0:
+            pts.append((x, 0.0, zm))
+        else:
+            pts += sec(x, f)
+    if max(p[0] for p in pts) - min(p[0] for p in pts) < 0.02:
+        return
+    g.hull(pts, M["obsidienne"], bev=0.004, seg=1)
+    # arête d'or sur le dessus de l'éclat
+    top = [p for p in pts if p[2] >= zm + 1e-6] or [(xc, 0.0, Z_C1)]
+    xs = [p[0] for p in pts]
+    x0, x1 = max(min(xs), xc - 0.7 * h), min(max(xs), xc + 0.7 * h)
+    if x1 - x0 > 0.02:
+        f0, f1 = 1 - abs(x0 - xc) / h, 1 - abs(x1 - xc) / h
+        g.hull([(x0, -0.012, zm + (Z_C1 - zm) * f0 - 0.01), (x0, 0.012, zm + (Z_C1 - zm) * f0 - 0.01),
+                (x0, 0.0, zm + (Z_C1 - zm) * f0 + 0.012),
+                (xc, -0.014, Z_C1 - 0.01) if x0 < xc < x1 else (x1, -0.012, zm + (Z_C1 - zm) * f1 - 0.01),
+                (xc, 0.014, Z_C1 - 0.01) if x0 < xc < x1 else (x1, 0.012, zm + (Z_C1 - zm) * f1 - 0.01),
+                (xc, 0.0, Z_C1 + 0.014) if x0 < xc < x1 else (x1, 0.0, zm + (Z_C1 - zm) * f1 + 0.012),
+                (x1, -0.012, zm + (Z_C1 - zm) * f1 - 0.01), (x1, 0.012, zm + (Z_C1 - zm) * f1 - 0.01),
+                (x1, 0.0, zm + (Z_C1 - zm) * f1 + 0.012)], M["or"], bev=0, seg=1)
 
 
 def _aileron(g, M):
@@ -104,17 +134,8 @@ def _aileron(g, M):
     g.loft_z([(-0.012, yb - 0.012), (0.012, yb - 0.012), (0.012, yb + 0.02), (-0.012, yb + 0.02)], Z_B, 1.05,
              M["or"], poly1=[(-0.01, -(P_K * 0.9) * k - 0.012), (0.01, -(P_K * 0.9) * k - 0.012),
                              (0.01, -(P_K * 0.9) * k + 0.02), (-0.01, -(P_K * 0.9) * k + 0.02)], bev=0)
-    # fente de feu de part et d'autre de l'aileron
-    for s in (-1, 1):
-        x = s * 0.1
-        y = -(P_BAS - (P_BAS - P_K) * (0.55 - Z_B) / (Z_K - Z_B)) * k
-        g.box(x - 0.012, x + 0.012, y - 0.004, y + 0.03, 0.40, 0.70, M["vide"], bev=0)
-        g.box(x - 0.007, x + 0.007, y - 0.006, y + 0.02, 0.43, 0.67, M["feu"], bev=0)
-    # lame flottante centrale (le bras n'en porte pas en t = 0)
-    g.prism([(-0.06 * k, Z_C0), (0.06 * k, Z_C0), (0.035 * k, Z_C1 - 0.03), (0.0, Z_C1), (-0.035 * k, Z_C1 - 0.03)],
-            -0.18, 0.18, M["obsidienne"], bev=0.004, ends=True)
-    g.prism([(-0.012 * k, Z_C1 - 0.02), (0.012 * k, Z_C1 - 0.02), (0.0, Z_C1 + 0.012)], -0.18, 0.18, M["or"], bev=0,
-            ends=True)
+    # éclat flottant central (le bras n'en porte pas en t = 0)
+    _eclat(g, M, 0.0, 0.19, k, -1.0, 1.0)
 
 
 def _obelisque(g, M):
@@ -160,5 +181,4 @@ def noeud(g, M, forme, bras):
     elif forme == "horiz":
         _aileron(g, M)
     elif forme == "tee":
-        g.prism([(-0.06 * SQ2, Z_C0), (0.06 * SQ2, Z_C0), (0.035 * SQ2, Z_C1 - 0.03), (0.0, Z_C1),
-                 (-0.035 * SQ2, Z_C1 - 0.03)], -0.18, 0.18, M["obsidienne"], bev=0.004, ends=True)
+        _eclat(g, M, 0.0, 0.19, SQ2, -1.0, 1.0)

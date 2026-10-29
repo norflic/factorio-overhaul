@@ -191,7 +191,7 @@ def _nn(N, kind, **kw):
 
 def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0, grain=0.12, grain_scale=90.0,
             bump=0.25, bump_scale=70.0, edge=None, cavity=0.45, cavity_dist=0.10, streak=0.0, top=None,
-            bottom=None, brick=None, rough2=None, spec=0.5, seed=0.0):
+            bottom=None, brick=None, rough2=None, spec=0.5, seed=0.0, stain=None, veins=None):
     """Surface « usée » :
     col, col2  : couleurs (linéaires) mêlées par un bruit lent (var : part de col2 au plus) ;
     grain      : ± grain fin ; bump : relief fin ;
@@ -337,16 +337,47 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
         bz = rng(sep2.outputs["Z"], 0.0, z1, bpart, 0.0)
         bnz = rng(noise(10.0, 3.0, 0.6), 0.3, 0.7, 0.5, 1.0)
         color = mix(math_("MULTIPLY", bz, bnz), color, tuple(bcol))
+    if stain:
+        scol, spart, sscale = stain
+        sn = rng(noise(sscale, 6.0, 0.7, distortion=0.6), 0.5, 0.72, 0.0, spart)
+        color = mix(sn, color, tuple(scol))
     if edge:
+        # arêtes : écart entre la normale arrondie (nœud Bevel, rayon edge[2]) et la normale vraie
         ecol, epart = edge[0], edge[1]
-        ao = N.new("ShaderNodeAmbientOcclusion")
-        ao.inside = True
-        ao.samples = 6
-        ao.inputs["Distance"].default_value = edge[2] if len(edge) > 2 else 0.03
-        e = rng(ao.outputs["AO"], 0.55, 0.95, 1.0, 0.0)
-        en = rng(noise(40.0, 3.0, 0.6), 0.35, 0.6, 0.15, 1.0)
+        bv = N.new("ShaderNodeBevel")
+        bv.samples = 8
+        bv.inputs["Radius"].default_value = edge[2] if len(edge) > 2 else 0.03
+        dp = N.new("ShaderNodeVectorMath")
+        dp.operation = "DOT_PRODUCT"
+        L.new(bv.outputs["Normal"], dp.inputs[0])
+        L.new(geo.outputs["Normal"], dp.inputs[1])
+        e = rng(dp.outputs["Value"], 0.90, 0.995, 1.0, 0.0)
+        en = rng(noise(35.0, 4.0, 0.65), 0.3, 0.6, 0.1, 1.0)
         f = math_("MULTIPLY", math_("MULTIPLY", e, en), epart)
         color = mix(f, color, tuple(ecol))
+    metal_out = None
+    if veins:
+        # veines (kintsugi) : distance au bord des cellules de Voronoi déformées par un bruit, mêlées d'or métallique
+        vcol, vw, vscale = veins[0], veins[1], veins[2]
+        dist = N.new("ShaderNodeVectorMath")
+        dist.operation = "ADD"
+        nv = N.new("ShaderNodeTexNoise")
+        nv.inputs["Scale"].default_value = vscale * 0.8
+        nv.inputs["Detail"].default_value = 3.0
+        L.new(pos, nv.inputs["Vector"])
+        sc = N.new("ShaderNodeVectorMath")
+        sc.operation = "SCALE"
+        sc.inputs["Scale"].default_value = 0.18
+        L.new(nv.outputs["Color"], sc.inputs[0])
+        L.new(pos, dist.inputs[0])
+        L.new(sc.outputs["Vector"], dist.inputs[1])
+        vo = N.new("ShaderNodeTexVoronoi")
+        vo.feature = "DISTANCE_TO_EDGE"
+        vo.inputs["Scale"].default_value = vscale
+        L.new(dist.outputs["Vector"], vo.inputs["Vector"])
+        vm = rng(vo.outputs["Distance"], 0.0, vw, 1.0, 0.0)
+        color = mix(vm, color, tuple(vcol))
+        metal_out = vm
     if cavity > 0:
         ao2 = N.new("ShaderNodeAmbientOcclusion")
         ao2.samples = 6
@@ -357,6 +388,9 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
     # rugosité
     r = rng(noise(20.0, 3.0, 0.5), 0.3, 0.7, rough, rough2 if rough2 is not None else min(1.0, rough + 0.12))
     L.new(r, p.inputs["Roughness"])
+    if metal_out is not None:
+        mm = rng(metal_out, 0.0, 1.0, metal, 1.0, smooth=False)
+        L.new(mm, p.inputs["Metallic"])
     # relief
     if bump > 0:
         bn = N.new("ShaderNodeBump")
@@ -371,8 +405,9 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
     return m
 
 
-def emissive(S, name, color, strength=6.0, base=(0.04, 0.03, 0.02)):
-    m = S.mat_emissive(name, color, strength=strength, base=base, main_scale=0.0)
+def emissive(S, name, color, strength=1.0, base=(0.04, 0.03, 0.02), crust=None):
+    """Lueur : la passe glow est écrêtée à 1 (PNG) : couleur × force ≤ 1 sinon la teinte part au jaune ou au blanc."""
+    m = S.mat_emissive(name, color, strength=strength, base=base, main_scale=0.0, crust=crust)
     bsdf = m.node_tree.nodes["Principled BSDF"]
     bsdf.inputs["Roughness"].default_value = 1.0
     if "Specular IOR Level" in bsdf.inputs:
