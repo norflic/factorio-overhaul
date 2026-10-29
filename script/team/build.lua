@@ -2376,6 +2376,12 @@ remote.add_interface("fo-ia1d", {
   status = function(key, id) return Build.status(team_of_key(key), id) end,
   report = function(key) return Build.report(team_of_key(key)) end,
   layout = function(key) return Build.layout(team_of_key(key)) end,
+  -- banc seulement (migration des bras de la centrale, lot PLANDIR) : reproduit la conversion électrique des versions 0.6.5 à 0.6.7
+  legacy_electric_arms = function(key)
+    local f = team_of_key(key)
+    local surface = f and surface_of(f)
+    return (f and f.build and surface) and PlantArms.legacy_electric(f, surface) or 0
+  end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
     if not (f and f.build and (name == "seul" or name == "ghosts_ahead")) then return nil end

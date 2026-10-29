@@ -332,8 +332,16 @@ end)
 --- Lot PLANDIR : le bras à combustion des données (celui qui brûle son combustible : il se recharge seul avec le charbon qu'il
 --- déplace, la centrale à vapeur en nourrit ses chaudières ; un bras électrique y ferait un blackout sans reprise).
 M.BURNER_ARM = nil
+M.ELECTRIC_ARM = nil -- banc seulement (migration) : le bras électrique de portée 1 le plus lent
 for name, s in pairs(BASE) do
-  if s.kind == "inserter" and s.burner and (not M.BURNER_ARM or name < M.BURNER_ARM) then M.BURNER_ARM = name end
+  if s.kind == "inserter" then
+    if s.burner then
+      if not M.BURNER_ARM or name < M.BURNER_ARM then M.BURNER_ARM = name end
+    elseif s.reach == 1 and (not M.ELECTRIC_ARM or s.rate < BASE[M.ELECTRIC_ARM].rate or
+      (s.rate == BASE[M.ELECTRIC_ARM].rate and name < M.ELECTRIC_ARM)) then
+      M.ELECTRIC_ARM = name
+    end
+  end
 end
 
 --- Le poteau le moins cher que `usable(nom)` accepte (vrai quand la recette est débloquée et ses matières à portée), ou

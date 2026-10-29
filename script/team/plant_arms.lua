@@ -8,6 +8,9 @@
   combustion se recharge seul avec le charbon qu'il déplace. Ce qui manque est le charbon du quai (mesuré : coffre à 0, 123456789, 32,7 min) : lot quai-charge, branche quai-charge.
 ]]
 local M = require("shared.team.modules")
+local T = require("shared.team.config")
+local Stock = require("script.team.stock")
+local Bras = require("shared.team.bras_retour")
 
 local PA = {}
 
@@ -59,6 +62,57 @@ local function snapshot(f, surface, p, st, tag, tick)
     table.concat(parts, " ; ")))
 end
 
+--- Remplace sur place le bras réel `real` par `name` ; rend la nouvelle entité ou nil.
+local function swap(surface, real, name, force)
+  return surface.create_entity({ name = name, position = real.position, direction = real.direction, force = force,
+    fast_replace = true, spill = false, raise_built = true })
+end
+
+--- Migration (versions 0.6.5 à 0.6.7 : bras de centrale passés à l'électrique) : les bras marqués `was_burner` repassent à
+--- combustion, avec du combustible du coffre (règle pure : shared/team/bras_retour.lua). Repris à chaque relevé tant qu'il en
+--- reste (bras réel introuvable, pas de place). Rend le nombre de bras repassés.
+local function restore(f, surface, p, tick)
+  local todo = Bras.to_restore(p.ents, M.BURNER_ARM)
+  if #todo == 0 then return 0 end
+  local done = 0
+  for _, i in ipairs(todo) do
+    local e = p.ents[i]
+    local r = real_of(surface, e, f.force)
+    if r then
+      local new = swap(surface, r, M.BURNER_ARM, f.force)
+      if new and new.valid then
+        local fuel = new.get_fuel_inventory()
+        if fuel and Stock.count(f, T.fuel) >= T.fuel_per_burner then
+          fuel.insert({ name = T.fuel, count = Stock.remove(f, T.fuel, T.fuel_per_burner) })
+        end
+        Bras.restored(e, M.BURNER_ARM)
+        done = done + 1
+      end
+    end
+  end
+  log(string.format("[FO-PLANDIR] %s : centrale, %d bras electrique(s) remis a la combustion (%d a remettre) a %.1f min",
+    f.key or "player", done, #todo, tick / 3600))
+  return done
+end
+
+--- Banc seulement (remote fo-ia1d) : reproduit la conversion des versions 0.6.5 à 0.6.7 (bras de la centrale passés au bras
+--- électrique le plus lent de portée 1, entrée marquée `was_burner`), pour prouver la migration. Rend le nombre de bras convertis.
+function PA.legacy_electric(f, surface)
+  local b = f.build
+  local p = b and b.plant and b.projects[b.plant]
+  if not (p and p.state == "fini") then return 0 end
+  local name = M.ELECTRIC_ARM
+  local done = 0
+  for _, e in ipairs(p.ents) do
+    if e.name == M.BURNER_ARM then
+      local r = real_of(surface, e, f.force)
+      local new = r and swap(surface, r, name, f.force)
+      if new and new.valid then e.name, e.item, e.was_burner = name, name, true; done = done + 1 end
+    end
+  end
+  return done
+end
+
 --- Relevé de la centrale (projet `p` fini), toutes les 5 s : premier courant et pannes (journal).
 PA.EVERY = 300
 function PA.step(f, surface, p, tick)
@@ -67,6 +121,7 @@ function PA.step(f, surface, p, tick)
   local st = b.plant_watch
   if tick < (st.next or 0) then return end
   st.next = tick + PA.EVERY
+  restore(f, surface, p, tick)
   local power, dry = 0, false
   for _, e in ipairs(p.ents) do
     local sp = M.spec(e.name) or {}
