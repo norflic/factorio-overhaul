@@ -1110,3 +1110,6 @@ OBJECTIFS §6) :**
    - H-V2 ;
    - H-B1 ;
    - H-T4-1 (lot V3-T4, non intégré) : cause du plafond de 30 tirs/s de la mitrailleuse (F111).
+
+## 29/10 14 h 50 : main = 0.6.15 (tag jouable-0.6.15, branche jouable deplacee)
+Vague 3 (retour du DC apres 1 h 30 sur 0.6.13) fusionnee apres relecture statique independante : FONDERIES (tete tournee vers le gisement, equilibre en diagnostic [FO-FONTE]), FOREUSES (remplacement sur place thermique -> electrique), REBUILD-TOUT (releve par tranches, toutes equipes), DEFENSE-FRONT (memoire des attaques par cellule), GRENADES, FACTIONS-BLOQUEES ([FO-BLOQUE]). Preuves : tests hors jeu verts (run 114, iag 235, war 105, migration 82, levels 1690, harnais 0, api_lint 1496/0, tests des 6 lots), content 331 OK 0 erreur Lua (fo-logs/2026-10-29_VAGUE3/INTEG/content-0615). Rien rejoue en partie. Non traite : pose de foreuses en rangees compactes, equilibre fours/foreuses automatique (diagnostic seulement), Emeraude sans courant au gisement, cause de l'Ecarlate sans electricite. A confirmer par le DC en jeu. Branches corr-* gardees, worktrees retires.
