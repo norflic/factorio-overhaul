@@ -180,12 +180,14 @@ function Rp.pick(st, tick)
   return out, skipped
 end
 
---- Tâche du tableau pour un lot (Recon.repair_program / Recon.repair_act l'exécutent : kind « repair », cibles nom + position).
+--- Tâche du tableau pour un lot. Kind « repare » (pas « repair ») : la réparation des tourelles et de l'électrique
+--- (Recon.repair_think) ne s'ouvre que sans tâche « repair » en cours ; une réparation de labo en cours ne doit pas la retarder.
+--- Le programme et l'acte sont les mêmes (script/team/worker.lua : Recon.repair_program, ACTS.repare = ACTS.repair).
 function Rp.task(batch)
   local s = batch[1]
   local targets = {}
   for _, c in ipairs(batch) do targets[#targets + 1] = { name = c.name, x = c.x, y = c.y, unit = c.unit } end
-  return { key = string.format("repare:%s@%.1f,%.1f", s.name, s.x, s.y), kind = "repair", prio = Rp.PRIO[s.cls] or 58,
+  return { key = string.format("repare:%s@%.1f,%.1f", s.name, s.x, s.y), kind = "repare", prio = Rp.PRIO[s.cls] or 58,
     domain = Rp.DOMAIN[s.cls] or "production", work = 10 + 2 * #batch, targets = targets, pos = { x = s.x, y = s.y }, repare = s.cls }
 end
 

@@ -11,8 +11,9 @@
        lot à la fois par équipe ; lot choisi par Rp.pick (importance, puis la plus abîmée ; pas sous attaque locale) ; les
        pièces du lot sont relues au moteur (au plus Rp.BATCH_MAX lectures, détruites ou déjà réparées retirées) ; unités
        ennemies à moins de Recon.SAFE_RADIUS de la pièce : report (attaque locale).
-    3. EXÉCUTION : la tâche a le kind « repair » des lots RECONSTRUIRE et COMPAGNONS-ACTIFS : même programme
-       (Recon.repair_program) et même acte (Recon.repair_act : santé remise au maximum, GRATUIT, Q12) ; rien n'est dupliqué.
+    3. EXÉCUTION : kind « repare » (distinct de « repair », pour ne pas retenir la réparation des tourelles et de l'électrique,
+       qui attend qu'aucune tâche « repair » ne soit en cours), mais même programme (Recon.repair_program) et même acte
+       (Recon.repair_act : santé remise au maximum, GRATUIT, Q12) que les lots RECONSTRUIRE et COMPAGNONS-ACTIFS.
     4. FIN : la tâche prise a quitté le tableau : ses pièces sont relues, réparées comptées, journal.
 
   ATTENTION (bus d'événements) : le filtre de on_entity_damaged vaut pour TOUT le mod. Un autre module qui s'abonne à cet

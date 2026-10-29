@@ -138,8 +138,8 @@ do
   local b4, skipped = Rp.pick(s4, T0)
   check(#b4 == 0 and skipped == 1, "pendant l'attaque : aucune réparation")
   local t = Rp.task(b)
-  check(t.kind == "repair" and t.prio == Rp.PRIO.production and t.domain == "production" and #t.targets == #b and t.targets[1].unit == b[1].unit,
-    "tâche : kind repair (même exécutant que RECONSTRUIRE et COMPAGNONS-ACTIFS), priorité et domaine de la classe")
+  check(t.kind == "repare" and t.prio == Rp.PRIO.production and t.domain == "production" and #t.targets == #b and t.targets[1].unit == b[1].unit,
+    "tâche : kind repare (programme et acte de RECONSTRUIRE ; ne bloque pas la réparation des tourelles), priorité et domaine de la classe")
   check(Rp.PRIO.production < Rp.PRIO.energie + 2 and Rp.PRIO.production < 66 and Rp.PRIO.logistique < Rp.PRIO.defense,
     "priorités : sous la reconstruction (70) et la réparation des tourelles (66) ; production > énergie > défense passive > logistique")
 end
@@ -219,7 +219,7 @@ do
   check(Rep.think(fa, surface, T2) == 1 and grep("[FO-REPARE] scarlet : reparation ouverte") == 1, "calme revenu : tâche ouverte, journal [FO-REPARE]")
   local key = st.open.key
   local task = fa.team.board.tasks[key]
-  check(task and task.kind == "repair" and task.targets[1].name == "labo-x", "tâche au tableau : réparer le labo")
+  check(task and task.kind == "repare" and task.targets[1].name == "labo-x", "tâche au tableau : réparer le labo")
   -- Board.sync retire une tâche libre ; la pensée suivante la rouvre sans compter une ouverture de plus
   fa.team.board.tasks = {}
   check(Rep.think(fa, surface, T2 + 300) == 1 and st.stats.opened == 1 and grep("reparation ouverte") == 1, "rouverte après Board.sync : ni compte ni ligne de plus")
@@ -244,6 +244,15 @@ do
   -- Bilan périodique
   Rep.think(fa, surface, T2 + 1000 + Rp.CALM + Rp.REPORT_EVERY + 1)
   check(grep("[FO-REPARE] scarlet : bilan") >= 1 and grep("cout : gratuit") >= 1, "bilan [FO-REPARE] toutes les 5 min, coût affiché")
+end
+
+-- §5 bis Exécutant du PNJ : le kind « repare » est branché sur le programme et l'acte de « repair » (script/team/worker.lua)
+do
+  local fh = io.open("script/team/worker.lua", "r")
+  local src = fh and fh:read("*a") or ""
+  if fh then fh:close() end
+  check(src:find('k == "repare" then%s+return Recon%.repair_program%(f, task%)') ~= nil, "worker : programme du kind repare = Recon.repair_program")
+  check(src:find("ACTS.repare = ACTS.repair", 1, true) ~= nil, "worker : ACTS.repare = ACTS.repair (même acte, gratuit)")
 end
 
 -- §6 Équipe sans relevé, ou réglage éteint : rien -------------------------------------------------------------------------
