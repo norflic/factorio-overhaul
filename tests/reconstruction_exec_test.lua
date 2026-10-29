@@ -374,7 +374,36 @@ do
   surface.enemies = 0
   local fa = new_team()
   fa.is_player = false
-  check(Recon.repair_think(fa, surface, 9000) == 0, "les factions ne réparent pas (votre équipe seule)")
+  -- Lot COMPAGNONS-ACTIFS : les factions ne réparent pas l'INFRASTRUCTURE électrique (votre équipe seule) mais réparent leurs TOURELLES
+  -- (seuil Ac.TURRET_REPAIR_BELOW, relevé toutes les Ac.TURRET_SCAN ticks). Le relevé filtre par type comme le moteur.
+  local Ac = require("shared.team.actif")
+  local fef = surface.find_entities_filtered
+  surface.find_entities_filtered = function(args)
+    if args and type(args.type) == "table" then
+      local want, out = {}, {}
+      for _, ty in ipairs(args.type) do want[ty] = true end
+      for _, e in ipairs(surface.consumers) do if want[e.type] then out[#out + 1] = e end end
+      return out
+    end
+    return fef(args)
+  end
+  check(Recon.repair_think(fa, surface, 9000) == 0, "les factions ne réparent pas l'infrastructure électrique (votre équipe seule)")
+  local tu = ent("turret-x", "ammo-turret", 30, 30)
+  tu.health = 80
+  tu.prototype = { max_health = 100 }
+  tu.get_health_ratio = function() return tu.health / 100 end
+  surface.consumers = { tu }
+  check(Recon.repair_think(fa, surface, 9001) == 0, "tourelles : un relevé au plus toutes les Ac.TURRET_SCAN ticks")
+  local nt = Recon.repair_think(fa, surface, 9000 + Ac.TURRET_SCAN)
+  local tt
+  for _, tk in pairs(fa.team.board.tasks) do if tk.kind == "repair" then tt = tk end end
+  check(nt == 1 and tt and tt.targets[1].x == 30, "COMPAGNONS-ACTIFS : une faction ouvre la réparation d'une tourelle à 80 % (seuil 90 %)")
+  check(tt and Recon.repair_program(fa, tt)[1][1] == "goto", "COMPAGNONS-ACTIFS : la réparation va droit à la pièce (pas de détour par le coffre)")
+  surface.find_entity = function(_, p) if p[1] == 30 and p[2] == 30 then return tu end end
+  tu.force = { name = fa.force }
+  check(tt and Recon.repair_act({}, fa, tt, surface) and tu.health == 100 and fa.recon == nil,
+    "COMPAGNONS-ACTIFS : tourelle de faction remise à neuf, sans état de reconstruction créé pour la faction")
+  surface.find_entities_filtered = fef
   surface.consumers = {}
 end
 

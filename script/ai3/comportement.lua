@@ -35,6 +35,8 @@ local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
 local Tr = require("shared.faction.traits")
+local Board = require("script.team.board") -- lot COMPAGNONS-ACTIFS : crochet du bilan [FO-ACTIF]
+local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : la peur sert à fuir une attaque en cours, puis on revient agir
 
 local M = {}
 
@@ -556,6 +558,28 @@ function M.retarget_mine(f, t, task, surface, tick, B)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot COMPAGNONS-ACTIFS : danger des seules MENACES (morts de PNJ exclues) le plus fort le long d'un itinéraire, 6 premières tuiles
+-- exclues (même échantillonnage que M.plan pour exact_max). Lu seulement par M.gate (tâche proche aux morts toutes anciennes).
+---------------------------------------------------------------------------------------------------
+local function actif_threat_max(map, p, pts, goal, tick)
+  local qs = R.samples(p, pts, goal, R.SAMPLE)
+  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
+  for _, q in ipairs(qs) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
+  local mx = 0
+  for _, q in ipairs(qs) do
+    if d2(q, p) > 36 then
+      local v = D.exact_at(prep, q.x, q.y, true)
+      if v > mx then mx = v end
+    end
+  end
+  return mx
+end
+
+---------------------------------------------------------------------------------------------------
 -- Crochet : porte d'une tâche (C5, C6)
 ---------------------------------------------------------------------------------------------------
 function M.gate(f, agent, task, steps, tick)
@@ -583,6 +607,15 @@ function M.gate(f, agent, task, steps, tick)
   local prud = M.character(f)
   local free = M.escort_free and M.escort_free(f) or 0
   local ginfo = { blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far }
+  -- Lot COMPAGNONS-ACTIFS (DC 29/10 : « la peur c'est bien, mais pour fuir si jamais ils se font attaquer. Mais sinon il faut revenir,
+  -- il faut agir ») : une tâche PROCHE (but à moins de M.SAFE_RADIUS du QG) dont les morts de la route sont TOUTES plus anciennes que
+  -- Ac.FEAR_TICKS (attaque finie) est jugée sans elles : seules les menaces connues (fixes, mobiles) de la route et du but comptent.
+  -- Une mort récente (attaque en cours) ou une tâche LOINTAINE garde la règle d'IA3-k. État écrit : t.actif (compteurs, journal),
+  -- lu par M.gate (ici, journal [FO-ACTIF]) et par Board.actif_report (bilan).
+  local calm = deaths > 0 and Ac.calm(far, deaths, Ac.recent_deaths(t.map.deaths, pts, D.HOUR_R, tick))
+  if calm then
+    ginfo = Ac.calm_info(ginfo, actif_threat_max(t.map, p, res.pts, dest, tick), res.threat_goal or res.exact_goal, res.B)
+  end
   local sv_deaths = Survie.gate_deaths(f, task.kind) -- lot SURVIE-PENURIE : mode survie ET tâche de ressources (nil sinon)
   local decision, why = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2, survie_deaths = sv_deaths })
   if sv_deaths then
@@ -625,7 +658,7 @@ function M.gate(f, agent, task, steps, tick)
   -- ci-dessous la laisse partir après W attentes, risque accepté (les réflexes du PNJ restent). Les autres tâches gardent la règle
   -- d'IA3-k (la mort reste un refus sans issue) ; un but à portée d'une menace connue reste refusé pour tous.
   local defense_free = (task.kind == "fortify" or task.kind == "refill") and (res.threat_goal or res.exact_goal) < res.B
-  local goal_free = res.exact_goal < res.B or defense_free
+  local goal_free = res.exact_goal < res.B or defense_free or (calm and ginfo.goal_d < res.B) -- COMPAGNONS-ACTIFS : but jugé sans morts anciennes
   if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) then
     local w = t.waits[dk]
     if not w then
@@ -675,6 +708,17 @@ function M.gate(f, agent, task, steps, tick)
   end
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
+  if calm then
+    t.actif = t.actif or { calm = 0, calm_go = 0 }
+    t.actif.calm = t.actif.calm + 1
+    if decision ~= "wait" then t.actif.calm_go = t.actif.calm_go + 1 end
+    if not t.actif.log_t or tick - t.actif.log_t >= Ac.LOG_GAP then
+      t.actif.log_t = tick
+      log(string.format("[FO-ACTIF] %s : porte : tache %s vers (%d, %d) proche du QG, %d mort(s) de l'heure toutes anciennes (> %d s) : jugee sur les menaces seules (danger %d, but %d, seuil %d) -> %s (%s)",
+        tostring(f.key), tostring(task.kind), math.floor(dest.x), math.floor(dest.y), deaths, Ac.FEAR_TICKS / 60, ginfo.max_d or 0,
+        ginfo.goal_d or 0, res.B, decision, why))
+    end
+  end
   if decision == "wait" then Survie.note_wait(f, tick) end -- lot SURVIE-PENURIE : un refus de plus (paralysie, shared/team/survie.lua)
   if decision == "wait" then
     -- Lot DEFENSE-FACTIONS D6 : « Trop dangereux » seulement au 2e refus de suite (ou si des morts le disent) ; le premier refus ne réécrit pas
@@ -1251,6 +1295,13 @@ remote.add_interface("fo-ia3k", {
     return { threats = copy(t.map.threats), deaths = copy(t.map.deaths), summary = D.summary(t.map, game.tick) }
   end,
 })
+
+-- Lot COMPAGNONS-ACTIFS : compteurs de la porte (t.actif, écrits par M.gate) lus par le bilan [FO-ACTIF] (Board.actif_report) ; lecture seule.
+Board.gate_actif = function(f)
+  local st = S()
+  local t = st and st.teams and st.teams[M.team_key(f)]
+  return t and t.actif or nil
+end
 
 Worker.hook = M
 return M
