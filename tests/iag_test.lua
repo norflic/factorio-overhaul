@@ -481,7 +481,7 @@ do
   --            rapport du lot) ; le plafond est l'état du 28/10 et ne peut que BAISSER.
   -- Tout autre fichier de ces dossiers : aucun nom. Une ligne en plus dans un fichier : ECHEC.
   local LEDGER = {
-    ["shared/team/config.lua"] = { "EXEC", 41, "table nommée de l'exécutant (kit, avant-postes, fonte, munitions, pièces)" },
+    ["shared/team/config.lua"] = { "EXEC", 42, "table nommée de l'exécutant (kit, avant-postes, fonte, munitions, pièces, tourelle de garde, mur de l'enceinte : T.turret et T.wall, recette et portée lues au moteur)" },
     ["shared/team/modules.lua"] = { "EXEC", 203, "gabarits de modules : catalogue d'usines posables, noms de leurs pièces" },
     ["shared/team/automatisation_donnees.lua"] = { "EXEC", 11, "données de l'exécutant d'IA3-e (machines et pièces posables)" },
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
