@@ -10,7 +10,7 @@
   le treillis (plus d'étang) ; les poteaux du projet ne sont pas sur l'eau et forment UN seul réseau à portée de fil (de la
   centrale au carrefour de bord) ; au moins un poteau de ligne entre le treillis et la centrale. Mesuré (hors bilan) : pièces
   bâties et machine à vapeur au réseau à la fin.
-  Lancement : banc.py ... -- 7200 pd-centrale <source> ; journal : [FO-PD-CENTRALE] (et [FO-CENTRALE-LOIN] du mod).
+  Lancement : banc.py ... -- 7300 pd-centrale <source> ; journal : [FO-PD-CENTRALE] (et [FO-CENTRALE-LOIN] du mod).
 ]]
 
 local HALF = 160
@@ -25,7 +25,7 @@ end
 
 return {
   description = "PD-CENTRALE : centrale lointaine sans etang garanti",
-  check_tick = 7200,
+  check_tick = 7000,
 
   init = function(ctx)
     local s = ctx.surface()
@@ -53,6 +53,9 @@ return {
     end
     s.set_tiles(land, true)
     s.set_tiles(water, true)
+    -- le banc tient le rôle du cerveau : l'automatisation (fo-war-ia3e) éteindrait le plan directeur vide (Auto.IDLE_OFF)
+    local a = ctx.call("war_setting", "fo-war-ia3e", false)
+    ctx.check(a == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)", tostring(a))
     ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
     local chest = s.create_entity({ name = "fo-team-chest", position = { 0.5, 0.5 }, force = "player", raise_built = true })
     ctx.check(chest ~= nil, "coffre d'equipe pose")
