@@ -10,7 +10,7 @@
 
 ## Étape 1 — 2026-10-27 (soir) à 2026-10-28 (matin) : les IA jouent, orchestration rétablie (0.6.5)
 
-> Prochains identifiants libres (28/10, 7 h 30) : **F383** et **E258** hors blocs. Attribués ici : F372 à F382, E249 à E257.
+> Prochains identifiants libres (28/10, 7 h 30) : **F389** et **E258** hors blocs. Attribués ici : F372 à F388, E249 à E257.
 
 ### Décisions
 - **D-22** (DC, 27/10 au soir, « modifiez le fil 1 agent max, le problème était que l'ancien orchestrateur n'orchestrait RIEN DU TOUT, d'où des résultats aléatoires ») : la règle « 1 agent au plus » est abrogée. L'orchestrateur découpe en lots, lance les agents (workflows permis), relit chaque livraison contre la partie rejouée et intègre seul. « Vérifiez » (boucle de 10 min) veut dire : le développement continue.
@@ -29,6 +29,12 @@
 - **F380 · FAIT** (`FUITE`) : après une alerte « stop », `sense()` restait aveugle 180 ticks ; l'état `step` n'avait pas d'`enter` (60 ticks d'attente après chaque réaction) ; le refuge pouvait être du côté de l'ennemi ; `soldats.pass` (abri C7) ne tournait que pour les factions. Réaction avant la première blessure : 0/8 → 8/8 (`ia3k-immobile`). Gain sur la vague de 55 min NON démontré (aucune des 4 parties rejouées n'en contient).
 - **F381 · FAIT** (`AMELIORER`) : `fo-war-capital` allumé retarde le palier 3 de recherche de façon non isolée (1618033988 : 19,8 min → jamais avec 0 remplacement payé) : D1 reste OUVERT ; le remplacement sur place des machines suivies est découplé (`fo-war-remplacer`).
 - **F382 · FAIT** : les parties de 60 min DIVERGENT au moindre changement (F252 confirmé) ; une graine rejouée une fois ne prouve rien : conclure sur 4 graines (20261020, 123456789, 271828182, 1618033988) ou sur des bancs isolés.
+- **F383 · FAIT** (29/10, mesuré, fo-logs/2026-10-28_PLANDIR t1/s1) : passer à l'électrique les bras qui nourrissent les chaudières tue la centrale en 1,5 à 3,5 min (6 cas sur 6) ; le témoin convertit sur 4 graines sur 5, plandir-sure sur 0 (0.6.8).
+- **F384 · FAIT** (mesuré, CENTRALE-PERTE/RAPPORT-INSTRUMENT.md) : 7 pertes de centrale sur 25 équipes, toutes par des ennemis « small » (6 small-biter, 1 small-spitter), 5 sur 7 sans tourelle armée à moins de 25 tuiles, sites à 59-119 tuiles du QG ; pièces détruites en rafale (2 à 4 en moins d'une minute).
+- **F385 · FAIT** (mesuré POTEAUX-UNIQUES, cause déduite) : retirer les poteaux redondants sans toucher shift_pole dégrade la connectivité (poteaux hors du réseau de la centrale 15,0 % contre 9,4 %, îlots 109 contre 90 sur 4 graines) : sans voisin, un poteau gêné ne peut plus bouger.
+- **F386 · FAIT** (moteur réel, banc panel-kills 11 OK) : pour la force du joueur, kill_count_statistics.input_counts = ennemis tués par la force et output_counts = entités de la force détruites (le panneau 0.6.7-dev lisait l'inverse).
+- **F387 · FAIT** (mesuré, archives K2-ia1scale) : le plafond de 18-19 PNJ de votre équipe dans ia1-scale vient d'un coffre vide (2 500 plaques dépensées en 10 recrues avant la minute 4, fer au coffre 6 à 259 pour un seuil de 428), pas d'une panne de la règle de croissance ; le même échec existe sur main 5ceea7e, a5d813b, 85cbeaa.
+- **F388 · FAIT** (moteur réel, lot RECONSTRUIRE) : énumérer game.entity_prototypes avec next rend l'entrée __self et plantait le mod à 42 min ; passer par pairs sur la table du moteur avec des noms triés ; une pièce détruite laisse des restes (corpse) et des objets au sol (item-entity) qui bloquent le fantôme de reposage (refus « occupé » 11 min de suite) : les retirer avant la pose.
 
 ### Expériences
 - **E249** : `acier-r1` (acier 0 → 37-43 à 40 min).

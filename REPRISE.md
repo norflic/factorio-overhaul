@@ -10,6 +10,16 @@
 > Ce fichier dit OÙ on en est, CE QUI TOURNE et QUOI FAIRE ENSUITE. Ne recommence rien de ce qui est
 > marqué fait.
 >
+> **29/10, 8 h 40 : `main` = 0.6.10 (`jouable-0.6.10`)**. Depuis la version jouable 0.6.7 du DC : 0.6.8 (bras de centrale a combustion, retour a la
+> combustion des sauvegardes 0.6.5-0.6.7), 0.6.9 (kit egal des factions, 4 tourelles de QG, recolte des factions), 0.6.10 (journal [FO-CENTRALE-MORT],
+> lecture seule). **Audit du 29/10 (wf_78236b79-ba7) : sur les 15 remarques de D-26, UNE seule est dans main et prouvee** (bras de centrale) ;
+> 8 sont PARQUEES avec leur code sur branche (reseau `reseauv`/`reseauv-code`, poteaux `poteaux-uniques`/`poteaux-v2`, reconstruction `reconstruire`,
+> panel `panel` (attend le verdict visuel du DC), nids `nids`, refill `refills`, minage a la main `mains*`, fortification `fortify`, quai `quai-charge`) ;
+> 5 n'ont AUCUN code (enceinte/espace, fichier de scenarios introuvable, niveaux de convoyeurs, centre de commandement par age, bilan production-consommation).
+> **EN COURS** : `CENTRALE-GARDE` (branche `centrale-garde` 5054ee3, tourelles armees a portee de la centrale ; assaut provoque : 10 centrales vivantes sur 11
+> contre 5 sur 11 ; parties libres B sur 6 graines en cours) et `RENDU3D` (banc des kits Blender + planches pour le DC). Questions du DC : docs/QUESTIONS_DC.md
+> (n 1 a 16). Etat de la nuit : docs/NUIT_PLAN.md ; journaux : docs/LOGS_NUIT.md. Banc : `fo-banc-places.txt` = 1 (le DC est revenu).
+>
 > **28/10, 7 h 30 : `main` = 0.6.5 (`capib` f1dea2e fusionné + documents)**. Garde-fous verts : batterie hors jeu (pvp 1305, levels 1667,
 > x3 6002, iag 110, harnais 0) ; moteur réel (content 331, monde 116, verif-guide 15 OK × 2 graines, pnj-reduit 12, machines, modules,
 > 14 migrations d'anciennes sauvegardes) : `fo-logs\2026-10-28_GARDEFOUS`, `_MIGRATIONS`. **PAS ENCORE FUSIONNÉ** (branches en cours) :

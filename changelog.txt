@@ -9,6 +9,8 @@ Version: 0.6.9
 Date: 2026-10-29
   Changes:
     - Les factions partent avec le meme kit de depart que votre equipe (parite des factions) et posent 4 tourelles autour de leur QG.
+    - Les factions recoltent mieux (le lot KIT, qui ne touche pas votre equipe) : le bois vient des arbres, une tuile de minage
+      recouverte par une autre ressource est ecartee (cristal sur charbon : 0 charbon), une tuile par mineur.
     - Outils de banc : fenetres, gels, comparaison de lots (aucun effet en jeu).
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.8
