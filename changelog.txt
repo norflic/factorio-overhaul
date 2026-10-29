@@ -1,4 +1,17 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.15
+Date: 2026-10-29
+  Changes:
+    - Fonderies a tapis : la tete d'alimentation est tournee vers le gisement et la colonne de fours s'etend a l'oppose (fin du tapis en crochet).
+      Regle d'equilibre fours/foreuses (module pur) et diagnostic [FO-FONTE] : rien n'est encore ajoute ni retire automatiquement.
+    - Foreuses : une foreuse a combustion d'avant-poste est remplacee sur place par l'electrique quand l'objet est obtenable et que le courant arrive
+      (2 remplacements par passe de 5 s). Non traite : Consortium Emeraude sans courant au gisement, pose en rangees compactes.
+    - Reconstruction de tout : le releve par tranches rouvre les pieces posees des projets pour toutes les equipes (factions comprises).
+    - Defense au front : memoire des attaques par cellule de 16 tuiles, tourelles en plus et remplacees, couverture minimale des laboratoires.
+    - Grenades : l'equipe ne fabrique plus de soldat a attaque de zone et le grenadier ne blesse plus son camp.
+    - Factions bloquees : tourelles hors des tuiles reservees du plan, chantier libere des tourelles de l'equipe, journal [FO-BLOQUE].
+    - Rien n'a ete rejoue en partie : relecture statique par un agent independant, tests hors jeu verts, un seul content (331 OK).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.14
 Date: 2026-10-29
   Changes:
