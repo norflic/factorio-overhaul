@@ -1,0 +1,139 @@
+--[[
+  CONVOYEURS (lot CONVOYEURS, remarque 6 du DC) : le tapis des équipes de PNJ suit la technologie. Règle pure :
+  shared/team/convoyeurs.lua. Ce fichier lit les DONNÉES du jeu (prototypes de type transport-belt triés par vitesse, recette
+  débloquée pour la force) : aucun nom d'objet écrit ici.
+
+    Conv.choose(f, flow)        tapis d'un nouveau tracé de l'équipe (nil : aucun tapis débloqué, l'appelant garde le sien)
+    Conv.step(f, surface, tick) amélioration sur place, en tâche de fond bornée (appelée par Build.think)
+
+  Amélioration : un tracé de foreuses FINI dont le tapis sature (débit voulu >= 80 % d'une voie) passe au niveau supérieur
+  débloqué, Conv.BATCH tuiles par passage toutes les Conv.EVERY ticks, par fast_replace (même groupe : le contenu du tapis
+  reste). Matière : les tapis neufs sortent du stock de l'équipe, les anciens y retournent. Le script remplace SANS
+  déplacement de PNJ (la main-d'oeuvre n'est pas comptée) ; sans tapis neuf en stock, rien ne se passe (Conv.wanted dit
+  lesquels il faudrait fabriquer).
+]]
+
+local C = require("shared.team.convoyeurs")
+local Stock = require("script.team.stock")
+
+local Conv = {}
+
+Conv.MODE = "meilleur"  -- "meilleur" : le meilleur tapis débloqué ; "besoin" : le plus lent qui suffit au débit du tracé
+Conv.EVERY = 1800       -- ticks entre deux passages d'amélioration par équipe
+Conv.BATCH = 8          -- tuiles remplacées au plus par passage
+
+local LIST = nil -- cache local (les prototypes ne changent pas dans une session ; jamais dans global)
+
+--- Tapis des données { name, speed, item } triés par vitesse puis nom. Les prototypes cachés ou sans objet sont ignorés.
+function Conv.belts()
+  if LIST then return LIST end
+  local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = "transport-belt" } })
+  local names = {}
+  for name in pairs(protos) do names[#names + 1] = name end
+  table.sort(names)
+  local out = {}
+  for _, name in ipairs(names) do
+    local pr = protos[name]
+    local items = pr.items_to_place_this
+    if items and items[1] and not pr.has_flag("hidden") then
+      out[#out + 1] = { name = name, speed = pr.belt_speed, item = items[1].name }
+    end
+  end
+  LIST = C.sorted(out)
+  return LIST
+end
+
+--- Prédicat « ce tapis est disponible pour la force de l'équipe » : la recette de son objet est débloquée.
+function Conv.usable(f)
+  local force = game.forces[f.force]
+  local item = {}
+  for _, b in ipairs(Conv.belts()) do item[b.name] = b.item end
+  return function(name)
+    local it = item[name]
+    local r = it and force and force.recipes[it]
+    return r ~= nil and r.enabled == true
+  end
+end
+
+local function item_of(name)
+  for _, b in ipairs(Conv.belts()) do if b.name == name then return b.item end end
+  return nil
+end
+
+--- Tapis d'un nouveau tracé dont `flow` objets/s passent sur une voie. nil : aucun tapis débloqué.
+function Conv.choose(f, flow)
+  return (C.pick(Conv.belts(), Conv.usable(f), flow, { need_only = Conv.MODE == "besoin" }))
+end
+
+--- Objet neuf qu'il faudrait fabriquer pour la prochaine amélioration d'un tracé de l'équipe : { item, count } ou nil
+--- (pour le cerveau : pas branché, voir le rapport du lot).
+function Conv.wanted(f)
+  return f.build and f.build.conv_wait or nil
+end
+
+local function remaining(p, idx, name)
+  local n = 0
+  for _, e in ipairs(p.ents) do if e.part == idx and e.name == name then n = n + 1 end end
+  return n
+end
+
+--- Remplace jusqu'à Conv.BATCH tuiles du tracé `idx` du projet `p` par `target`. Rend le nombre remplacé.
+local function upgrade(f, surface, p, idx, part, target)
+  local b = f.build
+  local new_item, old_item = item_of(target), item_of(part.belt)
+  if not (new_item and old_item) then return 0 end
+  local sub = {}
+  for _, e in ipairs(p.ents) do if e.part == idx then sub[#sub + 1] = e end end
+  local done = 0
+  for _, i in ipairs(C.next_batch(sub, part.belt, Conv.BATCH)) do
+    local e = sub[i]
+    if Stock.count(f, new_item) < 1 then
+      b.conv_wait = { item = new_item, count = remaining(p, idx, part.belt) }
+      break
+    end
+    local old = surface.find_entity(e.name, { e.x, e.y })
+    if old and old.valid and old.force.name == f.force then
+      local ne = surface.create_entity({ name = target, position = old.position, direction = old.direction, force = f.force,
+        fast_replace = true, spill = false, raise_built = false })
+      if ne then
+        Stock.remove(f, new_item, 1)
+        Stock.insert(f, old_item, 1)
+        e.name, e.item = target, new_item
+        done = done + 1
+      end
+    end
+  end
+  if remaining(p, idx, part.belt) == 0 then part.belt = target; b.conv_wait = nil end
+  return done
+end
+
+function Conv.step(f, surface, tick)
+  local b = f.build
+  if not b or tick < (b.conv_next or 0) then return end
+  b.conv_next = tick + Conv.EVERY
+  local belts = Conv.belts()
+  if #belts < 2 then return end
+  local usable = Conv.usable(f)
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.state == "fini" then
+      for idx = 1, #p.parts do
+        local part = p.parts[idx]
+        if part.belt and part.flow then
+          local target = C.upgrade_target(belts, usable, part.belt, part.flow)
+          if target then
+            local from = part.belt
+            local n = upgrade(f, surface, p, idx, part, target)
+            if n > 0 then
+              log(string.format("[FO-CONVOYEURS] %s : projet %d, tracé %d : %d tuile(s) %s -> %s (débit %.2f/s sur une voie)",
+                f.key or "player", p.id, idx, n, from, target, part.flow))
+            end
+            return
+          end
+        end
+      end
+    end
+  end
+end
+
+return Conv
