@@ -2485,6 +2485,9 @@ local function repair_enclosure(f, surface, p, tick)
     enc.cursor, enc.repair_at, enc.lost = nil, tick + Enc.REPAIR_TICKS, nil
     if lost > 0 then
       p.state, p.reason, p.reserve_next = "reserve", nil, nil
+      -- revue globale 1 : finish_project ne compte un projet qu'une fois (p.counted, lot CORR-RESEAU) ; sans cette remise à zéro, la
+      -- soustraction ci-dessous n'était jamais rendue au « fini » suivant et projects_done / modules_done dérivaient vers le bas
+      p.counted = nil
       b.stats.projects_done = b.stats.projects_done - 1
       b.stats.modules_done = b.stats.modules_done - 1
       space_log(b, string.format("[FO-ESPACE] %s : %d mur(s) detruit(s) : l'enceinte reprend son chantier a %.1f min", f.key or "player", lost, tick / 3600))
