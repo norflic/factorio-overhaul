@@ -40,3 +40,16 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | FORTIFY | plantage board.lua:785 corrige ; p4 joue | lecture attendue |
 | RECON (veille) | essai 1 refuse (cout du vivier = -12 tourelles) ; essai 2 : ouvrier libre | code en ecriture |
 | ENERGIE | n ajoute aucune decision | parquee |
+
+## Etat de la nuit (29/10 ~03 h 45) : fin du workflow nuit-lots-1 (18 agents), verdicts des sceptiques
+| Lot | Verdict sceptiques | Decision |
+|---|---|---|
+| RESEAU-VIVANT | non valide (garde du pont sans delai ; pole_chain traverse des poteaux de projets en chantier ; C1, C5b, C6 non tenus) | lot complet PARQUE ; correctif des poteaux uniques extrait en lot POTEAUX-UNIQUES (RESEAUV, mesure seule) ; la decouverte restes (corpse) + objets au sol transmise a RECONSTRUIRE |
+| PANEL | non valide : colonnes Kills/Pertes INVERSEES (ia1i_stats.lua:73, prouve en moteur par un sceptique), tests circulaires (ia1-gui.lua:285-287) | agent nomme `panel` lance pour corriger (jalons dans PANEL/STATUS.md, RAPPORT2.md) ; design : verdict DC (question 10) |
+| NIDS | non valide : inerte, defaut latent de chargement des nids voisins, reglage allume par defaut sans preuve | PARQUE |
+| STOCK | non valide : verdict « sans defaut » contredit le critere B3 ecrit avant (fenetre de mesure, temoin de bruit apres coup) | rien a fusionner ; a rouvrir seulement si le DC le demande (question 9) |
+| REFILL | non valide : valeur_test 52 OK 1 ECHEC, regression 1618033988 confirmee par A/A (QG a 16 fours) | PARQUE |
+| MAINS | livraison vide (aucune mesure rendue par les agents du workflow) | repris par l'agent nomme `mainsc` |
+| RECONSTRUIRE | criteres R1 a R4, R6 non tous tenus (9 graines) ; effet local, reste identique a la base | essai 2 en cours (poteau fabricable, rebuild vs PNJ utiles, divergence prouvee) ; questions DC 12 et 13 |
+| PLANDIR-SURE | criteres S1 a S5 tenus | 2 sceptiques lances (sceptique-sure1, sceptique-sure2) avant fusion |
+| KIT (kit-a) | tout vert sauf ia1-scale (effectif joueur 19/30) | temoin demande a kit-2 ; fusion bloquee jusqu'a explication |
