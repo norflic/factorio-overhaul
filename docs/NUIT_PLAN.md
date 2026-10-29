@@ -23,3 +23,20 @@ en branche parquée**, jamais prouvées sur 4 graines. Protocole : critères éc
 
 Lots d'avant la nuit encore en mesure : kit-2, leviers, améliorer, plan-directeur, equipe-joueur, recon-eclaireurs, outillage.
 Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, adopte*, poteaux*.
+
+## Etat de la nuit (29/10 ~03 h)
+| Lot | Resultat | Decision |
+|---|---|---|
+| STOCK | aucun defaut de capacite a 60 min ; code inchange | rien a fusionner ; question DC n 9 |
+| PANEL | onglet Partie livre (ed025f3), 0 ecart de partie, 50 OK ia1-gui | a fusionner apres sceptiques + verdict visuel DC (question n 10) |
+| REFILL | C3 tenu, C1/C2/C4 non tenus de justesse ; regression equipe sur 1618033988 | parque (3 versions) |
+| NIDS | lot inerte en 60 min (0 operation), ne degrade rien | parque ; vrai lot suivant : constituer la force + reconnaitre le champ de nids (apres recon-veille) |
+| LEVIERS v2 | simplification (retrait du bloc), preuve mince (2 graines) | priorite basse, a completer a 4 graines |
+| KIT (kit-a) | criteres tenus (15/12/12), approuve | fusion EN DERNIER apres la vague + passe d integration |
+| PLANDIR-SURE | chaine 10 parties jouee | tableau attendu |
+| RESEAU-VIVANT | deux lignes (RESEAUV / reseauv-code) en mesure | comparaison a la fin |
+| RECONSTRUIRE | signal positif sur 1618033988, echecs programme 110 vs 17 sur une graine | en mesure |
+| MAINS-CHAINE | agent repris (mainsc) apres arret des agents du workflow | analyse des temoins en cours |
+| FORTIFY | plantage board.lua:785 corrige ; p4 joue | lecture attendue |
+| RECON (veille) | essai 1 refuse (cout du vivier = -12 tourelles) ; essai 2 : ouvrier libre | code en ecriture |
+| ENERGIE | n ajoute aucune decision | parquee |
