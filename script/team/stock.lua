@@ -164,8 +164,10 @@ local function side(f)
   if f.annex_sy then return f.annex_sy end
   if f.annex and #f.annex > 0 then
     f.annex_sy = 1
+  elseif f.hq_pos then
+    f.annex_sy = A.outward(f.hq_pos.y)
   else
-    f.annex_sy = A.outward(f.hq_pos and f.hq_pos.y)
+    return 1 -- position du QG pas encore connue : rien n'est figé (la face se fixe à la première lecture avec position)
   end
   return f.annex_sy
 end

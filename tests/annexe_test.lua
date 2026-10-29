@@ -265,6 +265,13 @@ do
   check(pos[#pos].y < g.hq_pos.y and last_search == 0, "posé au nord du QG (extérieur), sans passe de secours")
   check(g.stock_watch.since == 1000 + T.annex.early_ticks and g.stock_watch.placed_at == g.stock_watch.since, "la fenêtre repart à la pose")
   check(not Stock.grow(g, surface, 1000 + T.annex.early_ticks + 1), "pas de seconde pose aussitôt")
+  -- Position du QG pas encore connue : la face n'est pas figée au sud pour toujours.
+  local u = team(10)
+  u.hq_pos = nil
+  check(Stock.wanted(u) >= 0 and u.annex_sy == nil, "sans position du QG : face non figée")
+  u.hq_pos = { x = 0, y = -80 }
+  Stock.wanted(u)
+  check(u.annex_sy == -1, "position connue ensuite : face de l'extérieur (nord)")
   -- Dépôt refusé : un coffre sans attendre.
   local h = team(10)
   h.hq.items.coal = 50 * 9
