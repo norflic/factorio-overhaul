@@ -29,3 +29,7 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 ## 29/10 ~03 h 00, passage 6 et 7
 - Passages 6 et 7 : aucune erreur Lua, aucun plantage, aucun ECHEC.txt reel (les faux positifs de banc.py sont renommes au fil de l eau). Disque 123-124 Go libres, charge normale (6 banc.py, 35 bash).
 - Constat d organisation : lot MAINS sans agent vivant depuis ~00 h (trois agents de workflow arretes, pilote de bancs poursuivi) ; repris par l agent nomme mainsc a 02 h 30.
+
+## 29/10 ~03 h 30, passage 8
+- Derniere heure : aucune erreur Lua ni plantage ; aucun ECHEC.txt reel. Disque 123 Go, charge normale.
+- Lecture directe des archives K2-* (kit-a) : tout vert sauf K2-ia1scale (effectif joueur 19/30 au lieu de >= 27, recrues payees 11) : temoin main demande a kit-2.
