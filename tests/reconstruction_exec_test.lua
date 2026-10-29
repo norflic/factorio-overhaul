@@ -320,6 +320,20 @@ do
   local book2 = { handcraftable = function() return true end, plan = function() return { raw = { ["iron-ore"] = 3 }, crafts = {}, uses = {} } end }
   check(Recon.craft_spares(f, book2, free, 1000 + Rc.CALM_INFRA + 7) == 0 and next(f.team.board.tasks) == nil, "matière première absente : rien de fabriqué")
   check(Recon.craft_spares(f, nil, free, 1000 + Rc.CALM_INFRA + 8) == 0, "sans livre de recettes : rien")
+  -- Revue statique 29/10 : la matière ne couvre qu'une partie du besoin (3 poteaux perdus, matière pour 2) : on fabrique les 2
+  local f7 = new_team()
+  for i = 1, 3 do died({ entity = ent("pole-x", "electric-pole", 60 + 10 * i, 60), tick = 1000 }) end
+  f7.stock["item-p"] = 0
+  local book3 = {
+    handcraftable = function(_, item) return item == "item-p" end,
+    plan = function(_, list)
+      local m = list[1][2]
+      if m > 2 then return { raw = { ["item-bois"] = m - 2 }, crafts = {}, uses = {} } end
+      return { raw = {}, crafts = { { "recette-p", m } }, uses = { ["copper-plate"] = m } }
+    end,
+  }
+  check(Recon.craft_spares(f7, book3, { ["copper-plate"] = 50 }, 1000 + Rc.CALM_INFRA + 5) == 1
+    and f7.team.board.tasks["craft:item-p:reconstruction"].count == 2, "matière pour 2 sur 3 poteaux : la tâche fabrique 2, pas rien")
   R.RECON_ALL_PIECES = true
 end
 

@@ -203,6 +203,7 @@ end
 function Recon.think(f, surface, tick)
   local s = f.recon
   if not s then return 0 end
+  s.lost, s.hist = s.lost or {}, s.hist or {} -- registre d'une version d'essai : jamais d'erreur à l'indexation
   -- Fin de vie du registre (une fois par minute) : AVANT les sorties anticipées, sinon la mémoire des destructions (hist) d'un registre
   -- vide ou d'une équipe au tableau plein de tâches « rebuild » ne serait jamais élaguée (sauvegarde qui grossit).
   if Rc.prune_due(s, tick) then Rc.prune(s, tick) end
@@ -398,7 +399,7 @@ end
 
 function Recon.craft_spares(f, book, free, tick)
   local s = f.recon
-  if not (s and next(s.lost) and book and free) then return 0 end
+  if not (s and s.lost and next(s.lost) and book and free) then return 0 end
   substitute_poles(f, s, book, free, tick)
   local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end)
   if #wanted == 0 then return 0 end
@@ -411,6 +412,14 @@ function Recon.craft_spares(f, book, free, tick)
       local saved = avail[item]
       avail[item] = 0 -- besoin d'accumulation : l'objet lui-même n'est pas pris au stock
       local q = book:plan({ { item, n } }, avail)
+      -- Relecture de la relève (revue statique 29/10) : la matière ne couvre pas toujours TOUT le besoin (3 poteaux perdus, bois pour 2) ;
+      -- tout ou rien bloquait alors la fabrication ET la récolte (le poteau est « fabricable » pour 1). On fabrique ce que la matière permet.
+      if next(q.raw) ~= nil then
+        for m = n - 1, 1, -1 do
+          local q2 = book:plan({ { item, m } }, avail)
+          if next(q2.raw) == nil then q, n = q2, m break end
+        end
+      end
       avail[item] = saved
       if next(q.raw) == nil then
         local uses = {}
@@ -449,8 +458,8 @@ function Recon.craft_spares(f, book, free, tick)
 end
 
 --- RÉPARATION : l'infrastructure électrique ENDOMMAGÉE de votre équipe (santé sous Rc.REPAIR_BELOW %) est remise à neuf par un PNJ sur
---- place (LuaEntity.health est en écriture, bornée à la santé max). Un balayage par seconde et par équipe ; une tâche « repair » à la fois.
-Recon.REPAIR_SCAN = 600
+--- place (LuaEntity.health est en écriture, bornée à la santé max). Un balayage par Recon.REPAIR_SCAN ticks et par équipe ; une tâche « repair » à la fois.
+Recon.REPAIR_SCAN = 1800 -- 30 s (revue statique 29/10 : le balayage lit TOUS les poteaux de la surface ; 10 s coûtait un pic régulier sur une grosse usine)
 function Recon.repair_think(f, surface, tick)
   if not f.is_player or (f.repair_at or 0) > tick then return 0 end
   f.repair_at = tick + Recon.REPAIR_SCAN
