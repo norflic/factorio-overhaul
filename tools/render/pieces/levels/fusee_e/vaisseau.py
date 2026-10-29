@@ -90,16 +90,16 @@ PAL = {
     0: dict(peau=("hazy",), bande=("hazk",), os=("rawiron",), aile=("hazy",), tuy=("armor2",), mur=("armor",),
             mur2=("rawiron",), toit=("wood2",), pad=("concrete",), pad2=("armor2",), acc=("redpaint",), vit=("glass_dk",)),
     1: dict(peau=("hazy",), bande=("armor2",), os=("wood",), aile=("redpaint",), tuy=("rawiron",), mur=("wood",),
-            mur2=("wood2",), toit=("canvas",), pad=("wood2",), pad2=("wood",), acc=("redpaint",), vit=("emit_soft",)),
+            mur2=("wood2",), toit=("canvas",), pad=("wood2",), pad2=("wood",), acc=("cream",), vit=("emit_soft",)),
     4: dict(peau=("jaune_capot",), bande=("noir_capot",), os=("noir_capot",), aile=("noir_capot",), tuy=("galva",),
             mur=("jaune_capot",), mur2=("noir_capot",), toit=("noir_capot",), pad=("tole_larmee",),
             pad2=("noir_capot",), acc=("redpaint",), vit=("emit_soft",)),
     8: dict(peau=("vdg_capot",), bande=("cuivre_terni",), os=("cuivre_terni",), aile=("vdg_capot",),
             tuy=("cuivre_terni",), mur=("bois_mouille",), mur2=("bois_mousse",), toit=("vdg_capot",),
             pad=("bois_mouille",), pad2=("bois_mousse",), acc=("cuivre_terni",), vit=("verre_toxique",)),
-    15: dict(peau=("noir_chaud",), bande=("or_chauffe",), os=("or_chauffe",), aile=("noir_chaud2",),
+    15: dict(peau=("or_blanc_chaud",), bande=("noir_chaud",), os=("or_blanc_chaud",), aile=("noir_chaud2",),
              tuy=("or_chauffe",), mur=("noir_chaud",), mur2=("noir_chaud2",), toit=("noir_chaud2",),
-             pad=("noir_chaud",), pad2=("noir_chaud2",), acc=("or_vif",), vit=("noir_profond",)),
+             pad=("concrete",), pad2=("noir_chaud2",), acc=("or_vif",), vit=("noir_profond",)),
 }
 
 
@@ -201,17 +201,19 @@ def queue(c, k=1.0, intacte=True):
     g.halo((4.9, -0.3, Z0), M["_emit_rgb"], 3.0)
 
 
-def ailes(c, portee=2.9, ep=0.14, z=None, mat=None, perdues=()):
+def ailes(c, portee=3.3, ep=0.14, z=None, mat=None, perdues=()):
     g = c.g
     z = Z0 - 0.3 if z is None else z
     for sg in (-1, 1):
         if sg in perdues:
             continue
-        pts = [(-1.6, sg * R * 0.8), (2.9, sg * R * 0.8), (3.5, sg * portee), (1.3, sg * portee)]
+        pts = [(-2.3, sg * R * 0.8), (3.1, sg * R * 0.8), (3.5, sg * portee), (2.3, sg * portee)]
         lo = [(x, y, z - ep / 2) for x, y in pts]
         hi = [(x, y, z + ep / 2) for x, y in pts]
         g.hexa(lo + hi, mat or c["aile"], "hard", "aile")
-        poutre(g, (1.3, sg * portee, z), (-1.6, sg * R * 0.8, z), 0.07, c["bande"], "chant_aile", h=0.17)
+        poutre(g, (2.3, sg * portee, z), (-2.3, sg * R * 0.8, z), 0.09, c["acc"], "chant_aile", h=0.2)
+        poutre(g, (3.5, sg * portee, z), (3.1, sg * R * 0.8, z), 0.07, c["bande"], "bord_fuite", h=0.17)
+        g.cyl((3.0, sg * (portee - 0.35), z + 0.1), "x", 0.17, 0.9, c["tuy"], n=14, r2=0.22, style="smooth", what="nacelle")
     # dérive sur le dos, à l'arrière
     zt = Z0 + 0.8 * R * 0.97
     pts = [(1.3, zt + 0.05), (3.4, zt - 0.1), (3.8, zt + 1.9), (2.8, zt + 1.9)]
@@ -445,7 +447,15 @@ def age08(c):
     # halle : parois de bois flotté, étage de vert-de-gris, toit à deux pans, galerie sud sur pilotis
     box(g, -2.4, 2.6, -1.75, 1.75, zb, zb + 1.25, M["bois_mouille"], "halle")
     box(g, -2.45, 2.65, -1.8, 1.8, zb + 1.25, zb + 1.35, M["cuivre_terni"], "corniche")
-    pans(g, -2.4, 2.6, -1.75, 1.75, zb + 1.35, 0.8, M["vdg_capot"], "toit_halle", debord=0.12)
+    pans(g, -2.4, 2.6, -1.75, 1.75, zb + 1.35, 0.8, M["brick2"], "toit_halle", debord=0.12)
+    for k in range(18):
+        x = -2.35 + 0.28 * k
+        for sg in (-1, 1):
+            poutre(g, (x, sg * 1.87, zb + 1.33), (x, 0.0, zb + 2.17), 0.02, M["seam"], "ligne_tuile", h=0.02)
+    poutre(g, (-2.52, 0, zb + 2.17), (2.72, 0, zb + 2.17), 0.1, M["brick"], "faitage", h=0.1)
+    for (x, y) in ((-1.2, 0.7), (1.6, -0.6)):
+        box(g, x - 0.18, x + 0.18, y - 0.18, y + 0.18, zb + 1.5, zb + 2.55, M["brick"], "cheminee")
+        box(g, x - 0.22, x + 0.22, y - 0.22, y + 0.22, zb + 2.55, zb + 2.65, M["steel_dk"], "chapeau_cheminee")
     for k in range(8):
         x = -2.0 + k * 0.62
         box(g, x - 0.17, x + 0.17, -1.8, -1.75, zb + 0.45, zb + 1.05, M["emit_soft"], "fenetre", style="flat")
@@ -483,7 +493,7 @@ def age15(c):
     arches d'or, épine en faîtière d'or, crâne noir en proue, tuyères d'or en pied ; sphère noire sur le donjon."""
     g, M = c.g, c.M
     # aire noire à liserés incandescents
-    box(g, -4.0, 4.0, -2.8, 2.8, 0.0, 0.16, M["noir_chaud"], "aire")
+    box(g, -4.0, 4.0, -2.8, 2.8, 0.0, 0.16, M["concrete"], "aire")
     for sy in (-1, 1):
         box(g, -3.95, 3.95, sy * 2.7, sy * 2.74, 0.16, 0.19, M["emit"], "lisere", style="flat")
     for sx in (-1, 1):
@@ -494,9 +504,9 @@ def age15(c):
     hublots(c, -3.4, -2.8, 0.4, vitre=M["emit_soft"])
     # grandes arches d'or : les côtes, plus grandes que la coque, à cheval sur la halle
     for x in (-1.8, -0.8, 0.2, 1.2, 2.2):
-        g.tube_shell((x, 0, Z0), "x", 2.15, 2.03, 0.14, M["or_chauffe"], n=36, what="arche")
+        g.tube_shell((x, 0, Z0), "x", 2.15, 2.0, 0.17, M["or_blanc_chaud"], n=36, what="arche")
     # épine : faîtière d'or sur les arches
-    poutre(g, (-2.3, 0, Z0 + 2.15), (2.6, 0, Z0 + 2.15), 0.22, M["or_chauffe"], "epine", h=0.18)
+    poutre(g, (-2.3, 0, Z0 + 2.15), (2.6, 0, Z0 + 2.15), 0.3, M["or_blanc_chaud"], "epine", h=0.24)
     poutre(g, (-3.8, 0, Z0 + 0.15 * R), (-2.3, 0, Z0 + 2.15), 0.14, M["or_chauffe"], "epine_crane", h=0.14)
     # halle noire à créneaux
     box(g, -2.3, 2.8, -1.85, 1.85, 0.16, 2.2, M["noir_chaud"], "halle")
@@ -512,8 +522,12 @@ def age15(c):
             box(g, x, x + 0.22, sy * 1.7, sy * 1.85, 2.2, 2.5, M["noir_chaud2"], "creneau")
     box(g, -0.4, 0.6, -1.95, -1.84, 0.16, 1.3, M["noir_profond"], "porte")
     box(g, -0.5, 0.7, -1.97, -1.9, 1.3, 1.4, M["or_chauffe"], "linteau")
+    # contreforts clairs sur la façade sud de la halle
+    for k in range(7):
+        x = -2.1 + 0.8 * k
+        box(g, x - 0.1, x + 0.1, -2.05, -1.84, 0.16, 2.2, M["or_blanc_chaud"], "pilastre")
     # donjon étagé (octogonal) sur la halle
-    for (r, z0_, z1_, m) in ((1.45, 2.2, 3.2, "noir_chaud"), (1.05, 3.2, 4.0, "noir_chaud2"), (0.65, 4.0, 4.6, "noir_chaud")):
+    for (r, z0_, z1_, m) in ((1.45, 2.2, 3.2, "or_chauffe"), (1.05, 3.2, 4.0, "noir_chaud2"), (0.65, 4.0, 4.6, "or_blanc_chaud")):
         g.cyl((0.35, 0, (z0_ + z1_) / 2), "z", r, z1_ - z0_, M[m], n=8, style="hard", phase=math.pi / 8, what="donjon")
         g.tube_shell((0.35, 0, z1_), "z", r + 0.07, r - 0.02, 0.12, M["or_chauffe"], n=8, what="corniche_donjon")
     for k in range(8):
@@ -528,9 +542,9 @@ def age15(c):
     for sg in (-1, 1):
         box(g, -0.2, 2.8, sg * 1.85, sg * 2.2, 0.16, 1.5, M["noir_chaud2"], "contrefort")
         box(g, -0.2, 2.8, sg * 1.83, sg * 2.22, 1.5, 1.6, M["or_chauffe"], "bande_contrefort")
-        g.cyl((3.0, sg * 2.45, 1.3), "z", 0.42, 2.3, M["noir_chaud"], n=10, style="hard", what="tour")
+        g.cyl((3.0, sg * 2.45, 1.3), "z", 0.42, 2.3, M["noir_chaud2"], n=10, style="hard", what="tour")
         g.tube_shell((3.0, sg * 2.45, 2.45), "z", 0.5, 0.38, 0.14, M["or_chauffe"], n=10, what="corniche_tour")
-        g.cyl((3.0, sg * 2.45, 3.0), "z", 0.5, 0.9, M["noir_chaud2"], n=10, r2=0.0, style="hard", what="toit_tour")
+        g.cyl((3.0, sg * 2.45, 3.0), "z", 0.5, 0.9, M["or_chauffe"], n=10, r2=0.0, style="hard", what="toit_tour")
         g.dome((3.0, sg * 2.45, 3.45), (0, 0, 1), 0.07, M["emit"], n=6, what="feu_tour")
         g.halo((3.0, sg * 2.45 - 0.3, 2.0), M["_emit_rgb"], 3.0)
     # crâne : proue noire, anneau d'or
