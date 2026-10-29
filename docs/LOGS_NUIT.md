@@ -37,3 +37,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 ## 29/10 ~04 h, passage 9
 - PLANTAGE reel (mesure) : fo-logs/2026-10-29_NUIT/RECONSTRUIRE/invalide/lot5/lot6-987654321, benchmark-stdout.txt.gz, ~42 min : reconstruction.lua:296 (pole_cands) « attempt to index local p (a userdata value) » ; deja trouve par l agent RECONSTRUIRE (archives rangees en invalide/), corrige sur la branche reconstruire (74edb3e : enumeration des prototypes par pairs sur la table du moteur, lecture protegee), rejeu lot8 en cours. Aucun effet sur main.
 - Rien d autre : pas d ECHEC reel hors ces deux archives, disque 125 Go, 3 banc.py pour 3 lots, aucun factorio.exe parasite.
+
+## 29/10 ~04 h 30, passage 10
+- Rien de nouveau : seules anomalies = les 2 archives deja connues (RECONSTRUIRE/invalide/lot5-6, plantage corrige 74edb3e). Disque 137 Go. Machine au repos : 0 banc.py, 0 factorio.exe, 3 bash (file vide, 3 places libres).
