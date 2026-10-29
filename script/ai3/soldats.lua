@@ -277,12 +277,14 @@ local function nids_finish(f, t, ns, sd, op, res, alive, onsite, spawners, tick)
   else
     local h = Nd.fail(ns.holds, op, tick)
     op.wait = math.floor((h["until"] - tick) / 3600)
+    if res == "surprise" then ns.stats.retreat = (ns.stats.retreat or 0) + 1 end
   end
   if Profiler.enabled() then
     log(string.format("[FO-NIDS] %s : operation en (%d, %d) %s : engages %d, vivants %d, sur place (max) %d, nids restants au moteur %d, duree %d min%s",
       tostring(f.key), math.floor(op.x), math.floor(op.y), res, op.engaged, alive, op.onsite_max or 0, spawners,
       math.floor((tick - op.started) / 3600), res == "done" and string.format(", %d nid(s) effaces de la carte", purged)
-      or string.format(", attente %d min", op.wait or 0)))
+      or string.format(", attente %d min%s", op.wait or 0,
+      res == "surprise" and string.format(" (surprise : %d nid(s) a portee de combat, %d point(s) appris)", op.nests_seen or 0, op.learned or 0) or "")))
   end
   sd.clearing, sd.nop = nil, nil
 end
@@ -408,7 +410,27 @@ local function pass(f, tick)
     if onsite > (op.onsite_max or 0) then op.onsite_max = onsite end
     local spawners = surface.count_entities_filtered({ position = { x = op.x, y = op.y }, radius = Nd.SPAWNER_CLEAR_R,
       force = "enemy", type = "unit-spawner" })
-    local res = Nd.supervise(op, { tick = tick, alive = alive, spawners = spawners, onsite = onsite })
+    -- Les soldats sur place voient ce qui l'entoure (nids à portée de combat) : une surprise (bien plus de nids que la carte n'en
+    -- savait) fait replier l'opération et complète la carte (Nd.learn).
+    local nests_near, ents
+    if onsite > 0 then
+      ents = surface.find_entities_filtered({ position = { x = op.x, y = op.y }, radius = Nd.COMBAT_R, force = "enemy",
+        type = { "unit-spawner", "turret" } })
+      nests_near = 0
+      for _, en in ipairs(ents) do if en.type == "unit-spawner" then nests_near = nests_near + 1 end end
+    end
+    local res = Nd.supervise(op, { tick = tick, alive = alive, spawners = spawners, onsite = onsite, nests_near = nests_near })
+    if res == "surprise" then
+      local km = f.ai3f and f.ai3f.m
+      local ns_, ws_ = {}, {}
+      for _, en in ipairs(ents) do
+        local p = { x = en.position.x, y = en.position.y }
+        if en.type == "unit-spawner" then ns_[#ns_ + 1] = p else ws_[#ws_ + 1] = p end
+      end
+      op.learned = km and Nd.learn(km, ns_, ws_, tick) or 0
+      op.nests_seen = nests_near
+      ns.sites_t = nil
+    end
     if res ~= "continue" then
       nids_finish(f, t, ns, sd, op, res, alive, onsite, spawners, tick)
     else

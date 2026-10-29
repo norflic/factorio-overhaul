@@ -159,6 +159,42 @@ function Nd.surroundings_known(m, x, y, r)
   return true
 end
 
+--- SURPRISE : les engagés sont sur place et le moteur montre bien plus de nids que la carte n'en savait (la carte est un
+--- instantané : les biters bâtissent de nouveaux nids ; moteur réel, etape1-guide 20261020 : 1 nid connu, 5 sur place, 3 morts
+--- sur 7 en moins d'une minute). Vrai quand le moteur montre au moins le double des nids connus à portée de combat, plus 2.
+function Nd.surprise(op, nests_now)
+  return (nests_now or 0) >= 2 * (op.sp_near or op.sp or 1) + 2
+end
+
+--- Les soldats sur place ont VU des nids et des vers que la carte ne contenait pas : ils y sont ajoutés (au plus
+--- K.NEST_KEEP par secteur), pour que le besoin de la prochaine opération soit juste. nests, worms : { {x, y} }.
+--- Renvoie le nombre de points ajoutés.
+function Nd.learn(m, nests, worms, tick)
+  local added = 0
+  local function add(list, field)
+    for _, p in ipairs(list or {}) do
+      local key = K.key_of(p.x, p.y)
+      local s = m.s[key]
+      if not s then
+        K.record(m, key, tick, { nests = field == "sp" and { p } or {}, worms = field == "wm" and { p } or {} })
+        added = added + 1
+      else
+        local l = s[field] or {}
+        local known = false
+        for _, q in ipairs(l) do if (q.x - p.x) ^ 2 + (q.y - p.y) ^ 2 <= 9 then known = true break end end
+        if not known and #l < K.NEST_KEEP then
+          l[#l + 1] = { x = math.floor(p.x), y = math.floor(p.y) }
+          s[field] = l
+          added = added + 1
+        end
+      end
+    end
+  end
+  add(nests, "sp")
+  add(worms, "wm")
+  return added
+end
+
 --- Nids et vers vus de la carte de connaissance m, dans le rayon r (tuiles) autour d'au moins un des points `around`
 --- ({x, y}). Parcours des secteurs par clés triées. Rend nests, worms (listes de { x, y }).
 function Nd.known(m, around, r)
@@ -331,6 +367,7 @@ function Nd.supervise(op, now)
   local lost = (op.engaged or 0) - (now.alive or 0)
   if (op.engaged or 0) > 0 and lost * 1000 >= Nd.LOSS_MAX * op.engaged then return "retreat" end
   if (now.alive or 0) <= 0 then return "retreat" end
+  if (now.onsite or 0) > 0 and Nd.surprise(op, now.nests_near) then return "surprise" end
   if now.tick >= Nd.deadline(op.started, op.dist) then return "timeout" end
   return "continue"
 end

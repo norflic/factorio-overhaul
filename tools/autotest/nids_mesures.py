@@ -44,7 +44,7 @@ RE_KV = re.compile(r"(\w+)=(-?\d+)")
 RE_LAUNCH = re.compile(r"\[FO-NIDS\] (\w+) : operation lancee en \((-?\d+), (-?\d+)\) a (\d+) tuiles du QG : (\d+) nid\(s\), (\d+) ver\(s\)(?: \(a portee de combat : (\d+) nid\(s\), (\d+) ver\(s\)\))?, "
                        r"menace (\d+) \(biens (\d+), incidents (\d+)\), (\d+) soldat\(s\) engages \(besoin (\d+), garnison gardee (\d+), "
                        r"echecs (\d+)\), secteur vu au tick (\S+)")
-RE_END = re.compile(r"\[FO-NIDS\] (\w+) : operation en \((-?\d+), (-?\d+)\) (done|retreat|timeout) : engages (\d+), vivants (\d+), "
+RE_END = re.compile(r"\[FO-NIDS\] (\w+) : operation en \((-?\d+), (-?\d+)\) (done|retreat|timeout|surprise) : engages (\d+), vivants (\d+), "
                     r"sur place \(max\) (\d+), nids restants au moteur (\d+), duree (\d+) min")
 RE_BASE_MIN = re.compile(r"\[FO-[\w-]+\] minute (\d+) \| vivantes \d+ \| (.*?) \| ouvriers du joueur")
 RE_BASE_MES = re.compile(r"\[FO-[\w-]+\] mesure minute (\d+) \| (\w+) \| (.*)$")

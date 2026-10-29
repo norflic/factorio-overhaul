@@ -133,6 +133,19 @@ M.run_ticks(3600 * 3)
 check(stats(f5).ops == 2 and op(f5) ~= nil, "attente écoulée : nouvelle opération (ops " .. tostring(stats(f5).ops) .. ")")
 check(op(f5) and op(f5).engaged > need0 and op(f5).fails == 1, "plus de soldats après un échec (" .. tostring(op(f5) and op(f5).engaged) .. " contre " .. need0 .. ")")
 
+section("Surprise sur place : plus de nids que la carte n'en savait")
+local f9, s9 = fresh()
+M.run_ticks(3600)
+local o9 = op(f9)
+check(o9 ~= nil, "opération lancée")
+for _, id in ipairs(o9.ids) do f9.soldiers[id].entity.teleport({ x = o9.x, y = o9.y }) end
+for i = 1, 5 do s9.create_entity({ name = "biter-spawner", position = { x = o9.x + 10 + i * 6, y = o9.y + 30 }, force = "enemy" }) end
+M.run_ticks(900)
+check(stats(f9).surprise == 1 and op(f9) == nil, "5 nids en plus sur place : repli sur surprise (" .. tostring(stats(f9).surprise) .. ")")
+local k9 = Nd.known(f9.ai3f.m, { { x = f9.hq_pos.x, y = f9.hq_pos.y } }, 400)
+check(#k9 >= 6, "les nids vus sur place sont ajoutés à la carte de connaissance (" .. #k9 .. ")")
+check(#team(f9).nids.holds == 1, "attente ouverte")
+
 section("Délai dépassé")
 local f6 = fresh()
 M.run_ticks(3600)

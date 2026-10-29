@@ -125,6 +125,17 @@ local function suite()
   check(Nd.supervise(op, { tick = 16401, alive = 10, spawners = 0 }) == "done", "nid détruit juste après le délai : terminé, pas abandon")
   check(Nd.deadline(0, 400) > Nd.deadline(0, 100), "une cible lointaine laisse plus de temps")
 
+  section("surprise sur place")
+  local ops = { engaged = 10, started = 0, dist = 100, sp = 1, sp_near = 1 }
+  check(Nd.surprise(ops, 4) and not Nd.surprise(ops, 3), "1 nid connu : 4 nids au moteur = surprise, 3 non")
+  check(Nd.supervise(ops, { tick = 600, alive = 10, spawners = 4, onsite = 5, nests_near = 5 }) == "surprise", "sur place, 5 nids au lieu d'1 : repli sur surprise")
+  check(Nd.supervise(ops, { tick = 600, alive = 10, spawners = 4, onsite = 0, nests_near = 5 }) == "continue", "personne sur place : rien n'a été vu, on continue")
+  local ml = K.new()
+  K.record(ml, K.key_of(100, 100), 10, { nests = { { x = 100, y = 100 } } })
+  check(Nd.learn(ml, { { x = 100, y = 100 }, { x = 120, y = 110 }, { x = 300, y = 300 } }, { { x = 105, y = 100 } }, 50) == 3, "apprendre : le nid connu n'est pas recompté, 2 nids et 1 ver ajoutés")
+  local nl = Nd.known(ml, { { x = 100, y = 100 } }, 400)
+  check(#nl == 3, "la carte contient maintenant 3 nids (" .. #nl .. ")")
+
   section("carte de connaissance")
   local m = K.new()
   K.record(m, K.key_of(100, 0), 10, { nests = { { x = 100, y = 0 }, { x = 110, y = 4 } }, worms = { { x = 104, y = 0 } } })
@@ -224,6 +235,8 @@ mutant("voisinage jamais vérifié", function() patch(Nd, "surroundings_known", 
     local ss = {} for i, s in ipairs(c.sites or {}) do local t = {} for k, v in pairs(s) do t[k] = v end t.complete = nil ss[i] = t end
     j.sites = ss return d0(j) end) end)
 mutant("besoin sans les nids voisins", function() patch(Nd, "COMBAT_R", 0) end)
+mutant("pas de repli sur surprise", function() patch(Nd, "surprise", function() return false end) end)
+mutant("rien appris de la surprise", function() patch(Nd, "learn", function() return 0 end) end)
 mutant("portée des biens nulle", function() patch(Nd, "REACH", 0) end)
 mutant("repli jamais décidé", function() patch(Nd, "LOSS_MAX", 1001) end)
 mutant("repli trop tôt", function() patch(Nd, "LOSS_MAX", 100) end)
