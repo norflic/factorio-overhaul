@@ -762,14 +762,14 @@ function P.plan(view, book)
       -- Correction IA1-a (frein par le travail, réglage fo-recruit-idle-max) : trop de PNJ sans tâche, aucune
       -- recrue ; le stock n'est ni pris ni demandé (pas de pistolet fabriqué pour une recrue inutile).
       out.recruit_held = true
-    elseif view.grow_reserve and view.workers >= (view.recover_floor or 0)
-      and (avail["iron-plate"] or 0) < view.grow_reserve + (function()
+    elseif (view.iron_reserve or view.grow_reserve) and view.workers >= (view.recover_floor or 0)
+      and (avail["iron-plate"] or 0) < (view.iron_reserve or view.grow_reserve) + (function()
         local n = 0
         for _, it in ipairs(recruit_cost) do if it[1] == "iron-plate" then n = n + it[2] end end
         return n
       end)() then
-      -- Lot IA1-b2 : votre équipe ne GRANDIT (au-delà de son effectif de départ) qu'en gardant view.grow_reserve plaques
-      -- de fer au coffre (munitions, tourelles, recrues de survie). Essai 6, ia1b2-guide graine 577215664 : 8 -> 14 PNJ
+      -- Lot IA1-b2 : votre équipe ne GRANDIT (au-delà de son effectif de départ) qu'en gardant view.iron_reserve (lot FER-EQUIPE :
+      -- shared/team/fer_equipe.lua ; à défaut view.grow_reserve) plaques de fer au coffre (munitions, tourelles, recrues de survie). Essai 6, ia1b2-guide graine 577215664 : 8 -> 14 PNJ
       -- de 17 à 25 min, fer à 56, QG perdu à 52 min.
       out.recruit_held = true
       out.grow_short = true
