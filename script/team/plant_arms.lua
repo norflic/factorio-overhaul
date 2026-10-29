@@ -161,9 +161,12 @@ function PA.watch(f, surface, tick)
   g.next = tick + PA.WATCH_EVERY
   local power, capacity, done, pending = 0, 0, 0, 0
   -- les projets de centrale : la première (b.plant) et celles demandées par la croissance (b.extra_plants)
-  local ids = {}
-  if b.plant then ids[1] = b.plant end
-  for _, id in ipairs(b.extra_plants or {}) do ids[#ids + 1] = id end
+  -- (revue globale 1 : un projet de croissance devenu LA centrale quand la première a été refusée ou annulée ne se compte qu'une fois)
+  local ids, seen = {}, {}
+  if b.plant then ids[1] = b.plant; seen[b.plant] = true end
+  for _, id in ipairs(b.extra_plants or {}) do
+    if not seen[id] then seen[id] = true; ids[#ids + 1] = id end
+  end
   for _, pid in ipairs(ids) do
     local p = b.projects[pid]
     if p then

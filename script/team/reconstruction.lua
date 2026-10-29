@@ -217,7 +217,12 @@ function Recon.think(f, surface, tick)
       if not r.counted and seen < 80 then
         seen = seen + 1
         local there = surface.find_entity(r.name, { r.x, r.y })
-        if there and there.valid and there.force.name == f.force then delay_note(s, r, "ext", tick) end
+        if there and there.valid and there.force.name == f.force then
+          delay_note(s, r, "ext", tick)
+          -- revue globale 1 : la pièce refaite par un autre moyen (plan directeur, réseau vivant, joueur) sort du registre ; restée
+          -- inscrite, elle faisait fabriquer des pièces de rechange (Rc.demand) et envoyer un PNJ pour rien jusqu'à l'oubli à 90 min
+          if not r.claimed then Rc.done(s, k) end
+        end
       end
     end
   end
