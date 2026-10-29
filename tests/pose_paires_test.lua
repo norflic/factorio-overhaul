@@ -5,7 +5,7 @@
   tuile essayée, libre ou non, jusqu'à 40, depuis le même centre ; un agrandissement retombait sur les 40 tuiles déjà occupées par la
   construction, ne posait rien et marquait l'avant-poste `full` pour toute la partie.
   Cas : géométrie (tuiles, boîtes), tri, composante connexe d'un gisement, parcours (occupé écarté sans coût, plafond d'essais,
-  mémoire des échecs, reprise), verdict (full seulement par plafond de foreuses ou balayage complet), libellé du projet, et un
+  mémoire des échecs, reprise), verdict (full seulement par balayage complet ou couverture P.KAPPA ; plafond de foreuses supprimé au lot PLAFOND-FOREUSES, garde-fou facultatif), libellé du projet, et un
   SIMULATEUR de gisement : l'ancienne règle ne pose plus rien à l'agrandissement, la nouvelle remplit jusqu'au plafond de foreuses ;
   absence de `pairs`, de nom d'objet, de hasard ; MUTANTS refusés.
 ]]
@@ -499,6 +499,53 @@ do
   kill("emprise décalée d'une tuile", function()
     P.tiles = function(pos, w, h) return tiles({ x = pos.x + 1, y = pos.y }, w, h) end
   end)
+end
+
+---------------------------------------------------------------------------------------------------
+section("12. Lot PLAFOND-FOREUSES : plus de plafond, la couverture P.KAPPA (= Ca.KAPPA) et le balayage complet arrêtent seuls")
+do
+  local Ca = require("shared.ai3.capitalisation")
+  local T = require("shared.team.config")
+  check(P.KAPPA == Ca.KAPPA, "P.KAPPA = Ca.KAPPA (" .. P.KAPPA .. ", " .. Ca.KAPPA .. ")")
+  check(T.max_drills("iron") == math.huge and T.max_drills("copper") == math.huge and T.max_drills("coal") == math.huge
+    and T.max_drills("stone") == math.huge, "T.max_drills : l'infini pour tous les minerais")
+  -- verdict sans plafond : 500 foreuses, pas plein ; drills_max absent accepté
+  local v = P.verdict({ placed = 8, drills_after = 500, drills_max = T.max_drills("iron"), covered = 100, tiles = 1000 })
+  check(not v.full and v.why == "pose", "500 foreuses, 10 % couvert : pas plein (" .. v.why .. ")")
+  v = P.verdict({ placed = 8, drills_after = 500, covered = 799, tiles = 1000 })
+  check(not v.full, "79,9 % : pas plein (drills_max absent)")
+  v = P.verdict({ placed = 8, drills_after = 500, covered = 800, tiles = 1000 })
+  check(v.full and v.why == "couverture", "80 % : plein, motif « couverture »")
+  v = P.verdict({ placed = 0, drills_after = 0, covered = 0, tiles = 0, capped = true })
+  check(not v.full and v.why == "essais", "aucune tuile lue : jamais plein par la couverture")
+  check(P.permille(1, 3) == 333 and P.permille(5, 0) == 0 and P.permille(nil, 10) == 0, "permille entier, sans division par zéro")
+  -- report().covered : tuiles du parcours minées (spec.mined puis pl.cover)
+  local res = { { x = 0.5, y = 0.5 }, { x = 1.5, y = 0.5 }, { x = 2.5, y = 0.5 }, { x = 3.5, y = 0.5 } }
+  local pl = P.new({ resources = res, mined = set_of({ P.key(0, 0) }) })
+  check(pl.report().covered == 1 and pl.report().tiles == 4, "couverture lue depuis spec.mined (1 sur 4)")
+  pl.cover({ P.key(1, 0), P.key(2, 0), P.key(9, 9) })
+  check(pl.report().covered == 3, "pl.cover compte les tuiles du gisement seulement (3 sur 4)")
+  check(P.new({ resources = res }).report().covered == 0, "sans spec.mined : 0")
+  -- mutants de la couverture
+  local verdict, permille = P.verdict, P.permille
+  local function ref()
+    return P.verdict({ placed = 8, drills_after = 500, covered = 800, tiles = 1000 }).full
+      and not P.verdict({ placed = 8, drills_after = 500, covered = 799, tiles = 1000 }).full
+      and not P.verdict({ placed = 8, drills_after = 500, drills_max = math.huge, covered = 10, tiles = 1000 }).full
+  end
+  check(ref(), "référence de la couverture")
+  local function kill2(name, mutate)
+    local sk, sp = P.KAPPA, P.permille
+    mutate()
+    local ok_run, ok = pcall(ref)
+    P.KAPPA, P.permille, P.verdict = sk, sp, verdict
+    check(not (ok_run and ok), "mutant refusé : " .. name)
+  end
+  kill2("couverture ignorée", function() P.permille = function() return 0 end end)
+  kill2("seuil à 0 (plein dès la première foreuse)", function() P.KAPPA = 0 end)
+  kill2("plafond de 20 rétabli", function() P.verdict = function(x) x.drills_max = 20 return verdict(x) end end)
+  kill2("seuil à 100 %", function() P.KAPPA = 1000 end)
+  check(P.permille == permille, "règle restaurée")
 end
 
 print(string.format("[POSE-PAIRES] BILAN : %d OK, %d ECHEC(S)", passes, failures))

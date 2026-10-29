@@ -313,7 +313,18 @@ do
     dropped = dropped + (f.stats.reserve_dropped or 0)
     turns = turns + (f.scan_turn or 0)
   end
-  check(fronts + in_reserve >= 1, "des sites trouvés depuis un front (choisis " .. fronts .. ", en réserve " .. in_reserve .. ")")
+  -- Lot PLAFOND-FOREUSES : sans plafond de foreuses, un avant-poste s'agrandit jusqu'à son gisement plein avant qu'un autre site du
+  -- même type soit cherché ; en 15 min, aucun n'est plein ici, et ne rien chercher depuis un front est alors le comportement voulu
+  -- (« exploiter leur gisement au maximum », DC, 29/10). Le contrôle porte sur le cas où un avant-poste est plein.
+  local any_full = false
+  for _, f in ipairs(war.factions) do
+    local ids = {}
+    for oid in pairs(f.outposts or {}) do ids[#ids + 1] = oid end
+    table.sort(ids)
+    for _, oid in ipairs(ids) do if f.outposts[oid].full then any_full = true end end
+  end
+  check(fronts + in_reserve >= 1 or not any_full, "des sites trouvés depuis un front (choisis " .. fronts .. ", en réserve " .. in_reserve
+    .. ") ou aucun avant-poste plein (" .. tostring(any_full) .. ")")
   -- Lot IA-V2 : le cerveau par besoins (allumé par défaut) ne demande un site que pour un projet ouvert : la réserve
   -- d'une ressource n'atteint pas sa borne, rien n'y est à renouveler (0 site oublié). Le renouvellement (mécanisme
   -- d'IA2-b, inchangé) est contrôlé avec l'ancien cerveau, section « réserve renouvelée » plus bas.

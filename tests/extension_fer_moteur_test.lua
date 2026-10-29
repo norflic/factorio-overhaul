@@ -3,7 +3,9 @@
   (surface à collisions par tuile, gisement en tuiles, objets portés). Complète tests/pose_paires_test.lua (règle pure) :
   ici l'EXÉCUTANT est joué, y compris sur une sauvegarde d'avant le lot (avant-poste sans `ext_dead` ni `full_by`).
   Usage :  lua5.2 tests/extension_fer_moteur_test.lua   (depuis la racine du mod)
-  Vérifie : trois agrandissements de suite posent 8 + 8 + 4 foreuses (plafond du fer), sans recouvrement, `full_by` posé au plafond ;
+  Vérifie : lot PLAFOND-FOREUSES : agrandissements de suite à 8 foreuses chacun AU-DELÀ de l'ancien plafond de 20, jusqu'au
+  balayage complet du gisement, sans recouvrement, `full_by` et `full_why` posés par la règle ; couverture Paires.KAPPA par des
+  foreuses électriques : plein sans rien poser ; Outposts.uncap (migration du plafond supprimé) ;
   gisement trop petit : `full` après un balayage complet seulement, `ext_dead` vidé ; ouvrier sans objets : pas plein ; plafond d'essais :
   pas plein, reprise au même endroit ; sauvegarde ancienne (`ext_dead` absent) acceptée ; Outposts.reopen (rouvre le plein par
   l'ancien défaut, ne touche ni l'attente, ni le plein de la règle, ni le plafond) ; abonnement on_configuration_changed.
@@ -134,19 +136,32 @@ local function overlaps(s)
 end
 
 ---------------------------------------------------------------------------------------------------
-section("1. Gisement large : 8 + 8 + 4 foreuses, plafond du fer, aucun recouvrement")
+section("1. Gisement large : 8 + 8 + 8 foreuses, AU-DELÀ de l'ancien plafond de 20, puis plein au balayage complet")
 do
-  local s, f, o, c = world(40), fac(), new_outpost(), carrier(40)
+  check(T.max_drills("iron") == math.huge and T.max_drills("coal") == math.huge and T.max_drills("stone") == math.huge,
+    "plus de plafond de foreuses, pour aucun minerai")
+  local s, f, o, c = world(40), fac(), new_outpost(), carrier(400)
   local n1 = Outposts.extend(f, s, o, c)
   check(n1 == 8 and o.drills == 8 and not o.full, "1er agrandissement depuis un avant-poste vide : 8 posées, pas plein (" .. n1 .. ")")
   local n2 = Outposts.extend(f, s, o, c)
   check(n2 == 8 and o.drills == 16 and not o.full, "2e agrandissement : 8 de plus (reprend où le 1er s'est arrêté)")
   local n3 = Outposts.extend(f, s, o, c)
-  check(n3 == 4 and o.drills == T.max_drills("iron") and o.full and o.full_by == "pose_paires", "3e : 4 de plus, plafond de 20, plein par la règle")
-  check(#o.drill_list == 20 and #o.sinks == 20, "listes de l'avant-poste tenues à jour (20 foreuses, 20 fours)")
-  check(overlaps(s) == 0, "aucun recouvrement entre les 40 objets posés")
-  check(f.stats.extend_calls == 3 and f.stats.extend_full == 1 and #logs >= 3, "compteurs et journal [FO-EXTEND]")
-  check(logs[#logs]:find("%[FO%-EXTEND%]") and logs[#logs]:find("plein=oui"), "dernière ligne du journal : plein=oui")
+  check(n3 == 8 and o.drills == 24 and not o.full, "3e : 8 de plus, 24 > ancien plafond de 20, pas plein (" .. n3 .. ")")
+  local calls = 3
+  while not o.full and calls < 60 do
+    Outposts.extend(f, s, o, c)
+    calls = calls + 1
+  end
+  check(o.full and o.full_by == "pose_paires" and o.full_why == "gisement", "plein par le balayage complet (" .. tostring(o.full_why) .. ")")
+  check(o.drills > 100, "gisement de 40 x 40 exploité : " .. o.drills .. " foreuses (20 avant le lot)")
+  check(#o.drill_list == o.drills and #o.sinks == o.drills, "listes de l'avant-poste tenues à jour")
+  check(overlaps(s) == 0, "aucun recouvrement entre les " .. (2 * o.drills) .. " objets posés")
+  check(f.stats.extend_full == 1 and #logs >= 3, "compteurs et journal [FO-EXTEND]")
+  check(logs[#logs]:find("%[FO%-EXTEND%]") and logs[#logs]:find("plein=oui") and logs[#logs]:find("couverture %d+/800 pour mille"),
+    "dernière ligne du journal : plein=oui, couverture en pour mille")
+  local cov = logs[#logs]:match("couverture (%d+)/")
+  check(cov and tonumber(cov) < P.KAPPA, "foreuses à combustible en paires : couverture " .. tostring(cov) .. " pour mille, sous P.KAPPA (le balayage arrête)")
+  print("  (gisement de 40 x 40 : " .. o.drills .. " foreuses en " .. calls .. " agrandissements, couverture " .. tostring(cov) .. " pour mille)")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -198,14 +213,15 @@ do
     [1] = { id = 1, kind = "iron", drills = 8, full = true },                                       -- ancien défaut : rouvert
     [2] = { id = 2, kind = "iron", drills = 8, full = true, full_by = "pose_paires" },              -- plein par la règle : laissé
     [3] = { id = 3, kind = "iron", drills = 8, full = true, hold_until = 99999 },                    -- en attente (ADOPTE) : laissé
-    [4] = { id = 4, kind = "iron", drills = T.max_drills("iron"), full = true },                     -- au plafond : laissé
+    [4] = { id = 4, kind = "iron", drills = 20, full = true },                                       -- à l'ancien plafond : rouvert (PLAFOND-FOREUSES)
     [5] = { id = 5, kind = "iron", drills = 8, full = false },                                       -- ouvert : inchangé
     [6] = { id = 6, kind = "coal", drills = 4, full = true, ext_dead = { [1] = true } },             -- rouvert, mémoire vidée
   }
   local n = Outposts.reopen(f)
-  check(n == 2, "2 avant-postes rouverts (" .. n .. ")")
+  check(n == 3, "3 avant-postes rouverts (" .. n .. ")")
   check(not f.outposts[1].full and not f.outposts[6].full and f.outposts[6].ext_dead == nil, "1 et 6 rouverts, mémoire de 6 vidée")
-  check(f.outposts[2].full and f.outposts[3].full and f.outposts[4].full, "2 (règle), 3 (attente), 4 (plafond) intacts")
+  check(not f.outposts[4].full, "4 (ancien plafond, plafond supprimé) rouvert")
+  check(f.outposts[2].full and f.outposts[3].full, "2 (règle), 3 (attente) intacts")
   check(not f.outposts[5].full, "5 inchangé")
   check(Outposts.reopen(f) == 0, "idempotent : un second passage ne rouvre rien")
   check(Outposts.reopen({}) == 0, "équipe sans avant-postes : 0")
@@ -233,6 +249,98 @@ do
   war.factions, pteam.team = {}, nil
   local ok = pcall(config_fns[1], {})
   check(ok, "aucune guerre, aucune équipe : sans erreur")
+end
+
+---------------------------------------------------------------------------------------------------
+section("7. Lot PLAFOND-FOREUSES : Outposts.uncap rouvre ce que l'ancien plafond avait fermé, rien d'autre")
+do
+  local f = fac()
+  f.outposts = {
+    [1] = { id = 1, kind = "iron", drills = 20, full = true, full_by = "pose_paires" },                    -- ancien plafond du fer : rouvert
+    [2] = { id = 2, kind = "iron", drills = 14, full = true, full_by = "pose_paires" },                    -- balayage sous le plafond : laissé
+    [3] = { id = 3, kind = "stone", drills = 8, full = true, full_by = "pose_paires" },                    -- ancien plafond de la pierre : rouvert
+    [4] = { id = 4, kind = "coal", drills = 12, full = true, full_by = "pose_paires", ext_dead = { [5] = true } }, -- charbon (12) : rouvert, mémoire gardée
+    [5] = { id = 5, kind = "iron", drills = 30, full = true, full_by = "pose_paires", full_why = "gisement" }, -- plein du nouveau verdict : laissé
+    [6] = { id = 6, kind = "iron", drills = 20, full = true, full_by = "pose_paires", hold_until = 5 },     -- en attente : laissé
+    [7] = { id = 7, kind = "iron", drills = 20, full = true, full_by = "migration", migr = "fini" },        -- migré : laissé
+    [8] = { id = 8, kind = "copper", drills = 11, full = true, full_by = "pose_paires" },                  -- cuivre sous 12 : laissé
+  }
+  local n = Outposts.uncap(f)
+  check(n == 3, "3 avant-postes rouverts (" .. n .. ")")
+  check(not f.outposts[1].full and not f.outposts[3].full and not f.outposts[4].full and f.outposts[4].ext_dead ~= nil,
+    "1 (fer 20), 3 (pierre 8), 4 (charbon 12) rouverts ; mémoire des échecs gardée")
+  check(f.outposts[2].full and f.outposts[5].full and f.outposts[6].full and f.outposts[7].full and f.outposts[8].full, "2, 5, 6, 7, 8 intacts")
+  check(Outposts.uncap(f) == 0, "idempotent")
+  -- refermé ensuite par le balayage : full_why posé, plus jamais rouvert par la migration
+  local s, o = world(4), new_outpost({ id = 9 })
+  local c = carrier(40)
+  local guard = 0
+  while not o.full and guard < 10 do Outposts.extend(f, s, o, c) guard = guard + 1 end
+  check(o.full and o.full_why ~= nil, "plein du nouveau verdict : motif écrit (" .. tostring(o.full_why) .. ")")
+  o.drills = 25
+  f.outposts = { [9] = o }
+  check(Outposts.uncap(f) == 0, "un plein du nouveau verdict n'est jamais rouvert par la migration")
+  -- journal de la migration
+  logs = {}
+  war.factions = { [1] = { id = 1, outposts = { [1] = { id = 1, kind = "iron", drills = 20, full = true, full_by = "pose_paires" } } } }
+  config_fns[1]({})
+  check(not war.factions[1].outposts[1].full, "abonnement : rouvert à la migration")
+  local seen = false
+  for _, l in ipairs(logs) do if l:find("%[FO%-PLAFOND%] migration : 1 avant%-poste") then seen = true end end
+  check(seen, "journal [FO-PLAFOND] de la migration")
+  war.factions = {}
+end
+
+---------------------------------------------------------------------------------------------------
+section("8. Lot PLAFOND-FOREUSES : gisement couvert à P.KAPPA par des foreuses électriques : plein sans rien poser")
+do
+  local s, f = world(10), fac()
+  local function electric(x, y)
+    return { valid = true, position = { x = x, y = y }, prototype = { mining_drill_radius = 2.49 },
+      bounding_box = { left_top = { x = x - 1.4, y = y - 1.4 }, right_bottom = { x = x + 1.4, y = y + 1.4 } } }
+  end
+  local o = new_outpost({ id = 11, drills = 4, drill_list = { electric(-2.5, -2.5), electric(2.5, -2.5), electric(-2.5, 2.5), electric(2.5, 2.5) } })
+  local before = s.creates
+  local n = Outposts.extend(f, s, o, carrier(40))
+  check(n == 0 and s.creates == before, "rien posé (" .. n .. ")")
+  check(o.full and o.full_why == "couverture", "plein par la couverture (" .. tostring(o.full_why) .. ")")
+  check(logs[#logs]:find("couverture 1000/800"), "journal : couverture 1000 pour mille")
+  -- moitié couverte : l'agrandissement pose
+  local s2 = world(10)
+  local o2 = new_outpost({ id = 12, drills = 2, drill_list = { electric(-2.5, -2.5), electric(2.5, -2.5) } })
+  local n2 = Outposts.extend(f, s2, o2, carrier(40))
+  check(n2 > 0 and not o2.full, "gisement couvert à moitié : " .. n2 .. " paire(s) posée(s), pas plein")
+end
+
+---------------------------------------------------------------------------------------------------
+section("9. Lot PLAFOND-FOREUSES : charbon insuffisant pour un grand avant-poste : le plus à court d'abord")
+do
+  local function burner(kind, fuel)
+    local e = { valid = true, type = kind, burner = true, fuel = fuel }
+    e.get_fuel_inventory = function()
+      return { get_item_count = function() return e.fuel end, insert = function(q) e.fuel = e.fuel + q.count return q.count end }
+    end
+    e.get_output_inventory = function() return { get_contents = function() return {} end } end
+    return e
+  end
+  -- 3 foreuses pleines à 6, 2 fours vides : 12 charbons portés (l'ancien ordre : 4 + 4 + 4 aux foreuses, fours à 0)
+  local o = { drill_list = { burner("mining-drill", 6), burner("mining-drill", 6), burner("mining-drill", 6) },
+    sinks = { burner("furnace", 0), burner("furnace", 0) } }
+  local c = carrier(0)
+  c.items[T.fuel] = 12
+  Outposts.service(o, c, 1)
+  check(o.sinks[1].fuel == 10 and o.sinks[2].fuel == 2, "fours vides servis d'abord (" .. o.sinks[1].fuel .. ", " .. o.sinks[2].fuel .. ")")
+  check(o.drill_list[1].fuel == 6 and o.drill_list[2].fuel == 6, "foreuses encore à 6 attendent la tournée suivante")
+  check(c.items[T.fuel] == 0, "tout le charbon porté est posé")
+  check(o.coal_short == 1, "le second four reste à 2, sous T.fuel_low : tournée courte comptée")
+  -- 3 fours vides et 5 charbons : 2 restent sous T.fuel_low, tournée courte comptée et journalisée
+  logs = {}
+  local o2 = { drill_list = {}, sinks = { burner("furnace", 0), burner("furnace", 0), burner("furnace", 0) } }
+  local c2 = carrier(0)
+  c2.items[T.fuel] = 5
+  Outposts.service(o2, c2, 2)
+  check(o2.coal_short == 1 and logs[#logs] and logs[#logs]:find("%[FO%-CHARBON%]") and logs[#logs]:find("2 bruleur%(s%) sur 3"),
+    "tournée courte : o.coal_short = 1, journal [FO-CHARBON] (" .. tostring(logs[#logs]) .. ")")
 end
 
 print(string.format("\n[EXTENSION-FER-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
