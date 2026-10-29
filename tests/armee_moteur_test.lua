@@ -135,6 +135,18 @@ local function run()
   out.alert_worm = C.on_alert(f, ep, "worm", game.tick)
   out.alert_nest = C.on_alert(f, { x = ep.x + 40, y = ep.y }, "spawner", game.tick)
   out.alert_unit = C.on_alert(f, { x = ep.x - 40, y = ep.y }, "unit", game.tick)
+  -- Relecture : pendant l'alerte, une alerte de défense PRÈS du QG prend toute la force libre (`cond and nil or 0` valait toujours
+  -- 0 : personne n'y allait) ; une alerte LOIN du QG (au-delà de Sd.NEAR_HQ) n'envoie personne.
+  t.escorts = {}
+  SD.pass(f, game.tick + 2)
+  out.alert_near = roles(f, t.sd.per)
+  local Sd = require("shared.ai3.soldats")
+  t.alerts = {}
+  out.alert_far_ok = C.on_alert(f, { x = f.hq_pos.x + Sd.NEAR_HQ + 20, y = f.hq_pos.y }, "unit", game.tick)
+  t.escorts = {}
+  SD.pass(f, game.tick + 3)
+  out.alert_far = roles(f, t.sd.per)
+  t.alerts = {}
 
   -- Recrues de l'alerte : la faction joue 5 min avec la vague en approche ; son coffre a de quoi équiper 40 soldats (le moteur
   -- simulé ne fabrique pas assez vite pour ce contrôle : on prouve la DÉCISION, pas l'économie).
@@ -164,6 +176,10 @@ check(r.view_ok and r.view_alert == true and r.view_need == r.need, "vue de l'é
 check((r.hq.defense or 0) >= 13, "ennemi dans le rayon du QG : tous en défense (" .. tostring(r.hq.defense) .. ", régression b390ad3)")
 check(r.alert_worm == false and r.alert_nest == false, "fuite devant un ver ou un nid : aucune alerte de 4 soldats")
 check(r.alert_unit == true, "fuite devant une unité : alerte")
+check((r.alert_near.defense or 0) >= 13, "alerte près du QG pendant la vague : toute la force libre en défense (" .. tostring(r.alert_near.defense) .. ")")
+check(r.alert_far_ok == true and (r.alert_far.defense or 0) == 0 and (r.alert_far.muster or 0) >= 13,
+  string.format("alerte loin du QG pendant la vague : personne n'y va, regroupement gardé (défense %d, regroupement %d)",
+    r.alert_far.defense or 0, r.alert_far.muster or 0))
 check(r.s1 > r.s0, string.format("alerte : la faction s'arme (soldats %d -> %d)", r.s0, r.s1))
 check(r.ser, "global sérialisable")
 

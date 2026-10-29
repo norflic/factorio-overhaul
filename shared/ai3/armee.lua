@@ -119,8 +119,8 @@ end
 ---   fields = { { x, y, k, wide, nests, units (poids), polluted } } (A.fields, complétés par l'appelant),
 ---   approach = { { x, y, w } } (unités ennemies à moins de HQ_R du QG, triées), fails = { { x, y, n, until } },
 ---   soldiers (effectif), free (soldats sans groupe) }
---- Rend { threat, incoming, hot = { champs menaçants }, nests, worms, units, need, alert, muster, raid = { x, y, k, wide, nests,
---- need, reserve, units } | nil }.
+--- Rend { threat, incoming, hot = { champs menaçants }, nests, worms, units, need, recruit (effectif à recruter : max(need, besoin
+--- du raid + réserve)), alert, muster, raid = { x, y, k, wide, nests, need, reserve, units } | nil }.
 function A.estimate(input)
   local hq = input.hq
   local out = { threat = 0, incoming = 0, hot = {}, nests = 0, worms = 0, units = 0, need = 0, alert = false }
@@ -154,7 +154,24 @@ function A.estimate(input)
       end
     end
   end
+  -- Relecture : l'effectif à RECRUTER couvre aussi le raid visé (son besoin + la réserve). Sans cela, la faction s'armait au seul
+  -- besoin de la menace (champ de 2 nids et 4 vers, 6 défenseurs : 15 soldats) alors que le raid en demande 24 + 2 : le raid
+  -- restait « différé » pour toujours, le nid grandissait (« recruter un maximum de soldats et de faire des raids », DC 29/10).
+  out.recruit = out.need
+  if out.raid and out.raid.need + out.raid.reserve > out.recruit then out.recruit = out.raid.need + out.raid.reserve end
   return out
+end
+
+--- Relecture : le raid visé (estimé jusqu'à A.PERIOD ticks plus tôt) vise-t-il encore une menace connue ? `clusters` : groupes de
+--- menaces candidates du passage (Sd.clusters, après l'oubli des nids détruits). Sans ce contrôle, un champ tout juste nettoyé était
+--- visé de nouveau par un raid « fantôme » jusqu'à la réévaluation suivante (marche inutile, nettoyage compté deux fois).
+function A.raid_alive(raid, clusters)
+  if not raid then return false end
+  local r2 = Sd.BLOCK_R * Sd.BLOCK_R
+  for _, c in ipairs(clusters or {}) do
+    if d2(c, raid) <= r2 then return true end
+  end
+  return false
 end
 
 --- Alerte en cours au tick donné ? st = état de l'équipe (f.armee) ou nil.

@@ -88,9 +88,16 @@ local function body()
   check(e1.nests == 2 and e1.worms == 4, "2 nids et 4 vers comptés (" .. e1.nests .. ", " .. e1.worms .. ")")
   check(e1.muster and e1.muster.x > 0 and e1.muster.x <= A.MUSTER_R, "regroupement entre le QG et le champ")
   check(e1.raid and e1.raid.need == Sd.clear_need(6) + A.need(6, 1), "raid : champ entier + défenseurs (" .. tostring(e1.raid and e1.raid.need) .. ")")
+  -- Relecture : l'effectif recruté couvre le raid visé (+ réserve), sinon le raid reste différé pour toujours.
+  check(e1.raid and e1.recruit == e1.raid.need + A.RAID_RESERVE and e1.recruit > e1.need,
+    "recrutement : besoin du raid + réserve (" .. tostring(e1.recruit) .. ", menace seule " .. tostring(e1.need) .. ")")
+  check(A.raid_alive(e1.raid, { { x = e1.raid.x + 10, y = e1.raid.y } }), "raid visé : groupe encore connu")
+  check(not A.raid_alive(e1.raid, { { x = e1.raid.x + 60, y = e1.raid.y } }) and not A.raid_alive(e1.raid, {}) and not A.raid_alive(nil, {}),
+    "raid visé : champ nettoyé depuis l'estimation : plus de raid")
   local far = field(150, 0, 2, 0, 0, true)
   local e2 = A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = { far }, approach = {} })
   check(e2.alert and e2.raid == nil, "champ menaçant hors de portée d'expédition : alerte sans raid")
+  check(e2.recruit == e2.need, "sans raid : recrutement au besoin de la menace")
   local e3 = A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = {},
     approach = { { x = 0, y = 60, w = 1 }, { x = 2, y = 60, w = 1.5 } } })
   check(e3.alert and e3.incoming == 2.5 and e3.muster.y > 0, "vague déjà en approche : alerte, regroupement de son côté")
@@ -242,6 +249,18 @@ end
 do
   local orig = A.RAID_RESERVE
   run("réserve du raid supprimée", function() A.RAID_RESERVE = 0 end, function() A.RAID_RESERVE = orig end)
+end
+
+do
+  local orig = A.estimate
+  run("recrutement au seul besoin de la menace (raid jamais payable)", function()
+    A.estimate = function(input) local o = orig(input) o.recruit = o.need return o end
+  end, function() A.estimate = orig end)
+end
+do
+  local orig = A.raid_alive
+  run("raid fantôme sur un champ nettoyé", function() A.raid_alive = function(r) return r ~= nil end end,
+    function() A.raid_alive = orig end)
 end
 
 passes, failures = main_pass, main_fail

@@ -214,7 +214,7 @@ local function armee_eval(f, surface, km, list, tick)
   st.raid = est.raid
   if est.alert then
     st.alert_until = tick + A.HOLD
-    st.muster, st.need, st.threat = est.muster, est.need, est.threat
+    st.muster, st.need, st.threat = est.muster, est.recruit, est.threat -- relecture : besoin = menace ET raid visé (+ réserve)
   end
   return st
 end
@@ -227,9 +227,9 @@ local function armee_journal(f, st, summary, list, tick)
   local e = st.est or {}
   local soldiers = f.soldiers_count or 0
   local function state_line(what)
-    log(string.format("[FO-ARMEE] %s : menace %s a %.1f min : estimee %.1f (vague en approche %.1f ; champs menacants %d : %d nid(s), %d ver(s), unites %.1f), soldats %d (sans groupe %d), besoin %d, regroupement en (%d, %d)%s",
+    log(string.format("[FO-ARMEE] %s : menace %s a %.1f min : estimee %.1f (vague en approche %.1f ; champs menacants %d : %d nid(s), %d ver(s), unites %.1f), soldats %d (sans groupe %d), besoin %d (menace seule %d), regroupement en (%d, %d)%s",
       tostring(f.key), what, tick / 3600, e.threat or 0, e.incoming or 0, e.hot or 0, e.nests or 0, e.worms or 0, e.units or 0,
-      soldiers, #list, st.need or 0, math.floor(st.muster and st.muster.x or 0), math.floor(st.muster and st.muster.y or 0),
+      soldiers, #list, st.need or 0, e.need or 0, math.floor(st.muster and st.muster.x or 0), math.floor(st.muster and st.muster.y or 0),
       st.raid and string.format(", raid vise (%d, %d) besoin %d", math.floor(st.raid.x), math.floor(st.raid.y), st.raid.need) or ""))
   end
   if on and not st.on then
@@ -366,7 +366,11 @@ local function pass(f, tick)
     if tick < a["until"] then
       alerts[#alerts + 1] = a
       local n = a.n
-      if army_on and not a.role then n = (d2(a, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ) and nil or 0 end
+      -- Relecture : `cond and nil or 0` valait TOUJOURS 0 (Lua : `nil or 0`) : pendant l'alerte, aucune alerte de défense ne
+      -- partait, même au pied du QG ; écrit en deux branches.
+      if army_on and not a.role then
+        if d2(a, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ then n = nil else n = 0 end
+      end
       if n ~= 0 then defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n, role = a.role } end
     end
   end
@@ -529,11 +533,13 @@ local function pass(f, tick)
   -- Lot ARMEE-ANTICIPATION : menace estimée (au plus toutes les A.PERIOD ticks), alerte, regroupement et raid.
   local ast = armee_eval(f, surface, km, list, tick)
   army_on = A.alert_on(ast, tick)
+  -- Relecture : le raid estimé (jusqu'à A.PERIOD ticks plus tôt) n'est lancé que s'il vise encore une menace des groupes du passage.
+  local raid = (army_on and offense and A.raid_alive(ast.raid, clusters)) and ast.raid or nil
   local orders, summary = Sd.assign({
     tick = tick, hq = f.hq_pos, agr = ch_agr, soldiers = list, defend = defend, escorts = escorts,
     threats = clusters, clearing = sd.clearing, marked_outposts = marked, cursor = sd.cursor,
     patrol_pts = sd.ppts, guard_pts = sd.gpts, offense = offense, blocked = sd.blocked,
-    muster = army_on and ast.muster or nil, raid = (army_on and offense) and ast.raid or nil,
+    muster = army_on and ast.muster or nil, raid = raid,
   })
   armee_journal(f, ast, summary, list, tick)
   -- Application : commande seulement quand l'ordre change (l'escorte est relancée à chaque passage : elle suit le PNJ).
