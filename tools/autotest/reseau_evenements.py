@@ -22,6 +22,7 @@ REL = re.compile(r"\[FO-RESEAU-BANC\] releve t=(\d+) \| (\w+) \| genre=(\S+) kw=
 EVT = re.compile(r"\[FO-RESEAU-BANC\] evenement t=(\d+) \| (\w+) \| genre=(\S+)(.*)$")
 POSE = re.compile(r"\[FO-POSE\] (\w+) : projet (\d+), (\S+) en \(([-\d.]+), ([-\d.]+)\), ennemi a 28 tuiles : (OUI|non), a ([\d.]+) min")
 POLE = re.compile(r"\[FO-POLE\] (\w+) : projet (\d+) .* pose en \(")
+ELEC = re.compile(r"\[FO-FONCTION\] elec minute (\d+) \| (\w+) \| .*bras_elec_reseau=(\d+)")
 RESEAU = re.compile(r"\[FO-RESEAU\] (\w+) : (.*) a ([\d.]+) min")
 
 
@@ -38,7 +39,12 @@ def lines(arch):
 
 def analyse(arch, n2, n3, n4, ratio, poles_max):
     rel, evt, pose, reseau, poles = {}, {}, [], [], []
+    avant = {}   # (minute, equipe) -> bras electriques sur un reseau de centrale AVANT l'evenement (ligne elec de la meme minute, lue avant l'evenement)
     for line in lines(arch):
+        m = ELEC.search(line)
+        if m:
+            avant[(int(m.group(1)), m.group(2))] = int(m.group(3))
+            continue
         m = REL.search(line)
         if m:
             t, key = int(m.group(1)), m.group(2)
@@ -75,21 +81,41 @@ def analyse(arch, n2, n3, n4, ratio, poles_max):
             out.append(res)
             continue
         base_pose = max(1, rows[0]["pose"])
-        rec = None
-        for r in rows:
+        # reference : les bras electriques sur un reseau de centrale AVANT l'evenement (ligne elec de la minute de l'evenement, ecrite
+        # avant l'evenement dans le meme tick) ; a defaut, le nombre de consommateurs poses. Correction du 29/10 : la reference
+        # « poses apres l'evenement » donnait un faux retour au temoin (de nouvelles machines allumees par un autre chantier).
+        av = avant.get((int(e["t"] // 3600), key))
+        use_arms = av is not None and av >= 3
+        ref = av if use_arms else base_pose
+        def good(r):
+            have = r["bnet"] if use_arms else r["net"]
             if g in ("sur", "danger"):
-                if r["kw"] > 0 and r["net"] >= ratio * base_pose:
+                return r["kw"] > 0 and have >= ratio * ref
+            return have >= ratio * ref and r["t"] > e["t"]
+        # retour = premier releve dont la condition tient ensuite au moins STABLE minutes de suite (ou jusqu'a la fin du banc) :
+        # un retour passager (la condition tenue 20 s puis perdue) n'est pas un retour (temoin evtt3-20261020, « pivot »)
+        STABLE = 5 * 3600
+        rec = None
+        for k, r in enumerate(rows):
+            if good(r):
+                j = k
+                while j + 1 < len(rows) and good(rows[j + 1]):
+                    j += 1
+                if rows[j]["t"] - r["t"] >= STABLE or j == len(rows) - 1 and rows[j]["t"] - r["t"] >= STABLE // 2:
                     rec = r
                     break
-            elif g == "pivot":
-                if r["net"] >= ratio * base_pose and r["t"] > e["t"]:
-                    rec = r
-                    break
+        rec_def = None
+        for k in range(len(rows) - 1, -1, -1):
+            if good(rows[k]):
+                rec_def = rows[k]
+            else:
+                break
         minutes = (rec["t"] - e["t"]) / 3600.0 if rec else None
+        minutes_def = (rec_def["t"] - e["t"]) / 3600.0 if rec_def else None
         res["minutes"] = minutes
         lim = {"sur": n2, "danger": n3, "pivot": n4}.get(g, n2)
         ok = minutes is not None and minutes <= lim
-        d = [f"retour {'%.1f min' % minutes if minutes is not None else 'JAMAIS'} (limite {lim})",
+        d = [f"retour {'%.1f min' % minutes if minutes is not None else 'JAMAIS'} (limite {lim}) ; retour definitif {'%.1f min' % minutes_def if minutes_def is not None else 'JAMAIS'} ; reference {ref} {'bras sur reseau avant' if use_arms else 'consommateurs poses'}",
              f"fin: kw={rows[-1]['kw']:.0f} chaudieres={rows[-1]['chd']} machines={rows[-1]['mach']} conso {rows[-1]['net']}/{rows[-1]['pose']}"]
         if g == "danger":
             under = [p for p in pose if p["key"] == key and p["minute"] * 3600 >= e["t"] and p["enemy"]]
