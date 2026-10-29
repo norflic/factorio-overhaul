@@ -93,3 +93,7 @@ grandes idées ; le détail des commandes et interdits est dans `CLAUDE.md` du m
 ## 7. Rapport du matin (3 lignes + images)
 Ce qui est fusionné (version jouable, tag), ce qui est refusé/parqué et pourquoi (une ligne), les questions pour le DC avec
 l'option par défaut. Les détails vont dans `REPRISE.md` et `OBJECTIFS.md`.
+
+
+## Porte de fusion simplifiee (consigne du DC, 29/10 vers 12 h 05)
+Remplace les points 5 a 8 du cycle de vie d'un lot : relecture STATIQUE par un agent independant (logique, bugs, cas oublies, invariants), tests hors jeu rapides, UN `content` en moteur reel, fusion. Plus d'A/A', plus de series de graines avant la fusion, plus de critere statistique. Un scenario provoque deja ecrit peut etre joue UNE fois s'il coute moins de 3 minutes. Le DC accepte le risque de regression non vue ; les journaux et ses parties servent de controle a posteriori.
