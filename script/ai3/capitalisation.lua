@@ -54,6 +54,7 @@ local Build = require("script.team.build")
 local Adopte = require("script.team.adopte") -- lot ADOPTE : machines du joueur que personne ne sert
 local Equip = require("script.team.equiper") -- lot LEVIERS : tâche « equiper »
 local Lv = require("shared.ai3.leviers")
+local Op = require("shared.ai3.ordre_progres") -- lot CAPI-ANNULATION : progrès d'un ordre (baisse du manque comprise)
 local MM = require("shared.content.module_mult")
 
 local Capi = {}
@@ -65,7 +66,8 @@ Capi.SCAN_R = 160            -- tuiles autour du QG : machines, foreuses, giseme
 Capi.HQ_R = 40               -- une machine à moins de 40 tuiles du QG est « au QG »
 Capi.DEP_MAX = 16            -- gisements suivis au plus par faction (les plus proches)
 Capi.CENSUS_EVERY = 5 * 3600 -- un gisement est relu toutes les 5 min
-Capi.ORDER_TTL = 30 * 3600   -- un ordre qui n'avance plus depuis 30 min est retiré (refus écrit)
+Capi.ORDER_TTL = Op.TTL      -- un ordre qui n'avance plus depuis 30 min est retiré (refus écrit) ; la règle du progrès
+                             -- (entités posées OU manque qui baisse, plafond de 60 min) est shared/ai3/ordre_progres.lua
 Capi.LOG_ORDERS = 64         -- lignes d'ordres gardées pour l'interface des bancs
 Capi.QUEUE_MAX = 12          -- technologies au plus dans la file de recherche vue par la règle (recherche élastique)
 Capi.BACKOFF = 10 * 3600     -- un produit refusé par le plan directeur n'est plus demandé pendant 10 min × 2^(refus - 1),
@@ -902,6 +904,7 @@ local function follow(f, cs, rec, tick)
   if rec.exec == "module" then
     -- plusieurs modules par ordre : fini quand tous sont finis ou refusés (au moins un fini) ; échec si tous refusés
     local missing, n_fini, n_ref, built, total, why = {}, 0, 0, 0, 0, nil
+    local in_reserve = 0
     local blocked = nil
     for _, id in ipairs(rec.mod_ids or { rec.module }) do
       local m = Auto.module(f, id)
@@ -910,18 +913,28 @@ local function follow(f, cs, rec, tick)
         why = m and tostring(m.reason) or "module perdu"
       elseif m.state == "fini" then n_fini = n_fini + 1
       else
-        if m.state == "reserve" then for _, it in ipairs(m.missing or {}) do missing[#missing + 1] = it end end
+        if m.state == "reserve" then
+          in_reserve = in_reserve + 1
+          for _, it in ipairs(m.missing or {}) do missing[#missing + 1] = it end
+        end
         if m.state == "bloque" then blocked = tostring(m.reason) end
       end
       if m then built, total = built + (m.built or 0), total + (m.total or 0) end
     end
     local n_mod = #(rec.mod_ids or { rec.module })
     rec.missing, rec.blocked = missing, blocked
+    -- Lot CAPI-ANNULATION : la réserve qui se remplit est un progrès (comme pour AUTO, reserve_clock) ; sans module en
+    -- réserve, aucune mesure du manque (nil).
+    local miss_total
+    if in_reserve > 0 then
+      miss_total = 0
+      for _, it in ipairs(missing) do miss_total = miss_total + (it[2] or 0) end
+    end
     if n_fini + n_ref >= n_mod then
       if n_fini > 0 then return "fini" end
       return "echec", "plan directeur : " .. tostring(why)
     end
-    if built ~= rec.built then rec.built, rec.progress_tick = built, tick end
+    Op.observe(rec, tick, built, miss_total)
     if total > 0 then rec.n_left = math.max(0, math.ceil((rec.n or 0) * (total - built) / total)) end
     return "ouvert"
   elseif rec.exec == "equiper" then
@@ -1108,8 +1121,10 @@ function Capi.think(f, view, book, tick, research, w)
   local keep = {}
   for _, rec in ipairs(cs.open) do
     local state, why = follow(f, cs, rec, tick)
-    if state == "ouvert" and tick - (rec.progress_tick or rec.opened) > Capi.ORDER_TTL then
-      state, why = "echec", "aucun progres en " .. math.floor(Capi.ORDER_TTL / 3600) .. " min"
+    local expired, cause = false, nil
+    if state == "ouvert" then expired, cause = Op.expired(rec, tick) end
+    if expired then
+      state, why = "echec", Op.reason(cause)
       if rec.exec == "module" then
         for _, id in ipairs(rec.mod_ids or { rec.module }) do Build.cancel(f, id, "CAPI : " .. why) end
       end
