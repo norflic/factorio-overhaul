@@ -1123,6 +1123,13 @@ function Capi.think(f, view, book, tick, research, w)
     local state, why = follow(f, cs, rec, tick)
     local expired, cause = false, nil
     if state == "ouvert" then expired, cause = Op.expired(rec, tick) end
+    -- Compteur de déclenchement du lot CAPI-ANNULATION : une fois par ordre, quand la règle du progrès garde un ordre que la
+    -- règle d'avant (entités posées seulement) aurait retiré.
+    if state == "ouvert" and not expired and rec.exec == "module" and not rec.kept_noted and Op.old_expired(rec, tick) then
+      rec.kept_noted = true
+      note(f, cs, tick, string.format("ordre %s GARDE : manque %d (plus bas vu), l'ancienne regle l'aurait retire apres %.1f min",
+        tostring(rec.key), rec.best_missing or -1, (tick - (rec.built_tick or rec.opened)) / 3600))
+    end
     if expired then
       state, why = "echec", Op.reason(cause)
       if rec.exec == "module" then

@@ -33,9 +33,9 @@ Op.MAX_UNBUILT = 60 * 3600  -- ticks d'âge au plus pour un ordre mesuré sans a
 
 --- Enregistre une observation. `built` : entités posées (nombre) ; `missing` : somme des quantités encore manquantes de
 --- ses modules EN RÉSERVE, ou nil quand aucun module n'est en réserve (pas de mesure : la valeur 0 d'une liste pas
---- encore remplie ne doit jamais devenir le minimum). Met à jour rec.built, rec.best_missing, rec.progress_tick.
+--- encore remplie ne doit jamais devenir le minimum). Met à jour rec.built, rec.built_tick, rec.best_missing, rec.progress_tick.
 function Op.observe(rec, tick, built, missing)
-  if built ~= rec.built then rec.built, rec.progress_tick = built, tick end
+  if built ~= rec.built then rec.built, rec.progress_tick, rec.built_tick = built, tick, tick end
   if missing ~= nil then
     if rec.best_missing == nil then
       rec.best_missing = missing
@@ -53,6 +53,13 @@ function Op.expired(rec, tick)
     return true, "plafond"
   end
   return false
+end
+
+--- Compteur de déclenchement (protocole de preuve) : l'ANCIENNE règle (seules les entités posées comptaient) aurait-elle
+--- retiré l'ordre ? Sert à journaliser les ordres que la règle garde (rec.built_tick : dernier changement du nombre
+--- d'entités posées ; absent : l'ouverture).
+function Op.old_expired(rec, tick)
+  return tick - (rec.built_tick or rec.opened or tick) > Op.TTL
 end
 
 --- Texte de la raison du retrait (journal [FO-CAPI] et cs.done) ; « aucun progres en 30 min » est l'ancien texte.

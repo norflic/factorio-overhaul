@@ -43,9 +43,10 @@ end
 --- Référence : l'ordre est-il à retirer à l'observation i de l'historique ? (recalcul complet, sans état)
 local function ref_expired(hist, i)
   local last, prev_built, min_m, measured = 0, nil, nil, false
+  local last_built = 0
   for j = 1, i do
     local h = hist[j]
-    if h.built ~= prev_built then last = h.t end
+    if h.built ~= prev_built then last = h.t; last_built = h.t end
     prev_built = h.built
     if h.m ~= nil then
       if min_m ~= nil and h.m < min_m then last = h.t end
@@ -54,20 +55,22 @@ local function ref_expired(hist, i)
     end
   end
   local now = hist[i].t
-  if now - last > TTL_REF then return true end
-  if measured and hist[i].built == 0 and now > MAX_REF then return true end
-  return false
+  local old = now - last_built > TTL_REF -- ancienne règle : seules les entités posées comptent
+  if now - last > TTL_REF then return true, old end
+  if measured and hist[i].built == 0 and now > MAX_REF then return true, old end
+  return false, old
 end
 
 --- Joue l'historique avec la règle ; rend la liste des verdicts à chaque observation.
 local function play(Op, hist)
   local rec = { opened = 0, progress_tick = 0 }
-  local out = {}
+  local out, olds = {}, {}
   for i, h in ipairs(hist) do
     Op.observe(rec, h.t, h.built, h.m)
     out[i] = Op.expired(rec, h.t) and true or false
+    olds[i] = Op.old_expired(rec, h.t) and true or false
   end
-  return out, rec
+  return out, rec, olds
 end
 
 local function suite(Op)
@@ -110,6 +113,11 @@ local function suite(Op)
     last_verdict({ { 1, 0, nil }, { 29, 0, nil } }) == false, "§1n ordre sans mesure : pas de plafond de 60 min, seulement 30 min")
   check(last_verdict({ { 1, 0, nil }, { 25, 0, nil }, { 61, 0, nil } }) == true,
     "§1o ordre sans mesure ni progrès : retiré (ancienne règle)")
+  do
+    local o, _, olds = play(Op, H({ { 1, 0, 100 }, { 20, 0, 90 }, { 40, 0, 80 }, { 55, 0, 70 } }))
+    check(o[4] == false and olds[4] == true, "§1y la règle garde un ordre que l'ancienne aurait retiré (compteur de déclenchement)")
+    check(olds[2] == false and olds[3] == true, "§1z l'ancienne règle retire à 30 min d'âge sans pose (39 min : oui)")
+  end
   -- manque nul avant la première mesure : jamais le minimum
   do
     local rec = { opened = 0, progress_tick = 0 }
@@ -143,10 +151,11 @@ local function suite(Op)
   local bad = nil
   local function expand(hist, t, depth, max_depth, dts_l, built_l, miss_l)
     if depth > 0 then
-      local o = play(Op, hist)
+      local o, _, olds = play(Op, hist)
       for i = 1, #hist do
         cases = cases + 1
-        if o[i] ~= ref_expired(hist, i) and not bad then
+        local want, want_old = ref_expired(hist, i)
+        if (o[i] ~= want or olds[i] ~= want_old) and not bad then
           local d = {}
           for _, h in ipairs(hist) do d[#d + 1] = string.format("(%d,%s,%s)", h.t / MIN, tostring(h.built), tostring(h.m)) end
           bad = table.concat(d, " ") .. " en " .. i
@@ -208,11 +217,15 @@ local MUTANTS = {
   { "première mesure comptée comme progrès", "    if rec.best_missing == nil then\n      rec.best_missing = missing",
     "    if rec.best_missing == nil then\n      rec.best_missing, rec.progress_tick = missing, tick" },
   { "oscillation comptée", "elseif missing < rec.best_missing then", "elseif missing ~= rec.best_missing then" },
-  { "entités posées sans effet", "if built ~= rec.built then rec.built, rec.progress_tick = built, tick end",
+  { "entités posées sans effet", "if built ~= rec.built then rec.built, rec.progress_tick, rec.built_tick = built, tick, tick end",
     "if built ~= rec.built then rec.built = built end" },
   { "délai strict relâché", "if tick - last > Op.TTL then", "if tick - last >= Op.TTL then" },
   { "délai de 30 min allongé", "Op.TTL = 30 * 3600", "Op.TTL = 60 * 3600" },
   { "délai de 30 min raccourci", "Op.TTL = 30 * 3600", "Op.TTL = 15 * 3600" },
+  { "compteur de l'ancienne règle sans pose", "rec.built, rec.progress_tick, rec.built_tick = built, tick, tick",
+    "rec.built, rec.progress_tick = built, tick" },
+  { "ancienne règle prise pour la nouvelle", "return tick - (rec.built_tick or rec.opened or tick) > Op.TTL",
+    "return tick - (rec.progress_tick or rec.opened or tick) > Op.TTL" },
   { "plafond supprimé", "tick - rec.opened > Op.MAX_UNBUILT then", "tick - rec.opened > 1e12 then" },
   { "plafond même chantier commencé", "(rec.built or 0) == 0 and rec.opened", "rec.opened" },
   { "plafond même sans mesure", "if rec.best_missing ~= nil and (rec.built or 0) == 0", "if (rec.built or 0) == 0" },
