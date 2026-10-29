@@ -1478,11 +1478,28 @@ end
 
 --- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "pnj" (un personnage
 --- debout dessus, passager), "occupe" (autre).
+--- Lot RESEAU-VIVANT : retire les RESTES neutres (cadavres de machine, objets au sol) de l'emprise d'une pièce à poser, marge de 0,6.
+--- Mesuré le 29/10 (essai court 20261020, journal [FO-IA1D]) : la chaudière détruite d'une centrale n'était jamais reposée, son fantôme
+--- refusé « occupe » 11 min de suite, l'emprise ne portant plus que deux item-on-ground neutres au bord (les bras à combustion de la
+--- centrale y lâchent leur charbon, la cible ayant disparu) ; un cadavre seul ne bloque pas (expérience reseau-restes). Rend le nombre retiré.
+local function clear_floor(surface, e)
+  local a = footprint(e)
+  local n = 0
+  for _, d in ipairs(surface.find_entities_filtered({ area = { { a[1][1] - 0.6, a[1][2] - 0.6 }, { a[2][1] + 0.6, a[2][2] + 0.6 } },
+    type = { "corpse", "item-entity" }, force = "neutral" })) do
+    if d.valid then d.destroy() n = n + 1 end
+  end
+  return n
+end
+
 local function place_ghost(surface, f, e)
   if find_real(surface, e, f.force) then return "deja" end
   if find_ghost(surface, e, f.force) then return "ok" end
-  if not surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
-    build_check_type = defines.build_check_type.ghost_revive }) then
+  local function can_place()
+    return surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
+      build_check_type = defines.build_check_type.ghost_revive })
+  end
+  if not can_place() and not (clear_floor(surface, e) > 0 and can_place()) then
     local area = footprint(e)
     if surface.count_entities_filtered({ area = area, type = TREE_TYPES, limit = 1 }) > 0 then return "obstacle" end
     if npc_on(surface, e) then return "pnj" end
@@ -1685,6 +1702,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
       return false
     end
   end
+  clear_floor(surface, e) -- les bras de la centrale relâchent du charbon sur l'emprise d'une chaudière détruite, même sous le fantôme
   inv.remove({ name = e.item, count = 1 })
   local _, ent = gh.revive({ raise_revive = true })
   if not (ent and ent.valid) then

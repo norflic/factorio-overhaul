@@ -2,7 +2,7 @@
   Lot RESEAU-VIVANT (29/10) : ÉVÉNEMENTS PROVOQUÉS sur la partie du guide (etape1-guide, 216 300 ticks, mesures [FO-FONCTION]
   comprises). À la minute 35 (tick 126 000), le script détruit par die() (donc avec on_entity_died, comme une attaque) :
     - faction 1 (clé triée) : « site SÛR »      toutes ses chaudières et machines à vapeur (critère C2) ;
-    - faction 2 (clé triée) : « site DANGEREUX » les mêmes, ET pose un ver MOYEN à 34 tuiles du site (destructible : un ver indestructible n'est pas une cible militaire pour find_nearest_enemy, mesuré le 29/10) (critère C3) ;
+    - faction 2 (clé triée) : « site DANGEREUX » les mêmes, ET pose un ver GRAND (big-worm-turret : portée 38, 750 PV, les 15 soldats d'une faction ne le tuent pas en 20 min) à 34 tuiles du site (destructible : un ver indestructible n'est pas une cible militaire pour find_nearest_enemy, mesuré le 29/10) (critère C3) ;
     - votre équipe (player) : « PIVOT »         le poteau dont la perte éteint le plus de consommateurs parmi les 30 plus proches de
                                                  la centrale (modèle Z.measure/R.eval, critère C4).
   Relevé toutes les 10 s après l'événement : production lue, chaudières, machines, consommateurs électriques posés et ceux dont le
@@ -145,9 +145,9 @@ return function(opts)
             if ev.role == "dangereux" then
               for _, d in ipairs({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 }, { 0.7, 0.7 }, { -0.7, 0.7 }, { 0.7, -0.7 }, { -0.7, -0.7 } }) do
                 local want = { x = site.x + d[1] * WORM_AT, y = site.y + d[2] * WORM_AT }
-                local p = s.find_non_colliding_position("medium-worm-turret", want, 6, 1)
+                local p = s.find_non_colliding_position("big-worm-turret", want, 6, 1)
                 if p and dist(p.x, p.y, site.x, site.y) >= 30 and dist(p.x, p.y, site.x, site.y) < DANGER - 1 then
-                  local w = s.create_entity({ name = "medium-worm-turret", position = p, force = "enemy" })
+                  local w = s.create_entity({ name = "big-worm-turret", position = p, force = "enemy" })
                   if w then
                     ev.worm = { x = p.x, y = p.y }
                     ev.worm_ent = w

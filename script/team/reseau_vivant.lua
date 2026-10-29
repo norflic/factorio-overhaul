@@ -54,26 +54,7 @@ end
 local function is_pole(name) return name:find("electric%-pole") ~= nil end
 
 --- Rouvre : les pièces `ents` (marquées bâties mais absentes) redeviennent à bâtir ; le projet fini repasse en réserve.
---- Retire les RESTES neutres (cadavres de machine, objets au sol) sur l'emprise de pièces à refaire : mesuré le 29/10 (essai court
---- 20261020, journal [FO-IA1D]) : le fantôme d'une chaudière détruite était refusé « occupe » 11 min de suite, l'emprise portant un
---- boiler-remnants et deux item-on-ground neutres, et le projet passait « bloque ». Ce que le PNJ ramasserait en passant ; rien d'autre
---- n'est retiré (jamais un bâtiment, un arbre ou un joueur).
-local function clear_debris(surface, ents)
-  local n = 0
-  if not (surface and surface.find_entities_filtered) then return 0 end
-  for _, e in ipairs(ents) do
-    local w, h = P.size(e.name, e.dir or 0)
-    -- marge de 0,6 : les objets au sol se posent au bord de l'emprise (mesuré : à 1,0 du centre d'une chaudière 3 × 2, bord exact)
-    for _, d in ipairs(surface.find_entities_filtered({ area = { { e.x - w / 2 - 0.6, e.y - h / 2 - 0.6 }, { e.x + w / 2 + 0.6, e.y + h / 2 + 0.6 } },
-      type = { "corpse", "item-entity" }, force = "neutral" })) do
-      if d.valid then d.destroy() n = n + 1 end
-    end
-  end
-  return n
-end
-
 function Rv.reopen(q, ents, why, surface)
-  Rv.debris = (Rv.debris or 0) + clear_debris(surface, ents)
   for _, e in ipairs(ents) do
     e.built, e.ghosted, e.fails, e.npc_blocks = false, nil, 0, 0
   end
