@@ -24,6 +24,14 @@
      E.SEG_MAX murs. L'anneau est à E.GAP = 3 tuiles du treillis. Un segment dont les murs sont détruits est rouvert
      tout seul (script/team/build.lua). Le rayon est figé dès le premier segment demandé.
 
+  4. CONTOUR SERRÉ (lot ENCEINTE3, 29/10, retour du DC sur Azur : « ils ont vraiment placé super loin ») : l'anneau n'est plus au-delà
+  du treillis ENTIER (rayon figé) mais sur l'EMPREINTE réelle de la base : lots pris ou planifiés, lot du QG, tourelles, plus
+  E.MARGIN tuiles (E.tight_bounds). Les bornes { x0, y0, x1, y1 } sont figées avec le rayon au premier segment (b.enc.bounds) ;
+  une enceinte d'une sauvegarde d'avant n'en a pas et garde l'anneau du rayon (E.bounds). Les lots ou tourelles ISOLÉS (plus de
+  E.ISOLATED_GAP tuiles de l'empreinte) restent dehors ; E.ROOM_LOTS lots libres restent dedans ; les lots libres que le mur coupe
+  ou laisse dehors ne reçoivent plus de module (drapeau `out`, script/team/build.lua). Chaque segment démarre au bout de son tronçon
+  le plus proche de la menace connue de son côté, à défaut du QG (E.run_refs, E.next_segment), jamais dans un coin.
+
   Déterminisme : listes triées, aucun `pairs`, aucune trigonométrie.
 ]]
 
@@ -51,6 +59,10 @@ E.W_NEST = 3              -- poids d'un nid dans la menace d'un côté
 E.W_WORM = 1              -- poids d'un ver
 E.SIDES = { "n", "e", "s", "o" } -- ordre des côtés à menace égale
 E.RESERVE_TICKS = 18000   -- enceinte restée 5 min « en réserve » sans ses murs (briques prises ailleurs) : annulée, rayon libéré
+E.LOT = 24                -- côté d'un lot (shared/team/plan.lua : P.LOT)
+E.MARGIN = 9              -- (lot ENCEINTE3) tuiles libres entre l'EMPREINTE de la base et le mur du contour serré (8 à 10 demandées)
+E.ISOLATED_GAP = 36       -- (lot ENCEINTE3) un lot ou une tourelle à plus de 36 tuiles (Chebyshev) de l'empreinte est ISOLÉ : dehors du contour
+E.ROOM_LOTS = 4           -- (lot ENCEINTE3) lots libres les plus proches gardés DANS le contour (de quoi bâtir encore ; le rayon est figé)
 
 local function sorted_keys(t)
   local out = {}
@@ -65,7 +77,7 @@ function E.free_count(lots)
   for _, k in ipairs(sorted_keys(lots or {})) do
     local l = lots[k]
     if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher")
-      and not (l.bad and l.bad >= 2) then
+      and not (l.bad and l.bad >= 2) and not l.out then
       n = n + 1
     end
   end
@@ -103,7 +115,10 @@ function E.reserve_stalled(state, started, finished, tick)
 end
 
 --- Bornes de l'anneau (tuiles du mur, incluses) pour un treillis ancré en lat = { ox, oy } et de rayon r.
-function E.bounds(lat, r, gap)
+--- `tight` (lot ENCEINTE3) : bornes { x0, y0, x1, y1 } d'un contour serré (E.tight_bounds), figées à la première demande ;
+--- elles remplacent le rayon (une enceinte d'une sauvegarde d'avant n'en a pas : le rayon, comme avant).
+function E.bounds(lat, r, gap, tight)
+  if tight then return tight[1], tight[2], tight[3], tight[4] end
   gap = gap or E.GAP
   local h = E.PITCH * r + E.HALF + E.STREET + gap
   return lat.ox - h - 1, lat.oy - h - 1, lat.ox + h, lat.oy + h
@@ -123,7 +138,7 @@ end
 --- (eau, ressource, bâtiment, tuile réservée), sinon nil. Ordre : côté nord, côté sud, ouest, est (puis x, y croissants).
 function E.ring(lat, r, opts)
   opts = opts or {}
-  local x0, y0, x1, y1 = E.bounds(lat, r, opts.gap)
+  local x0, y0, x1, y1 = E.bounds(lat, r, opts.gap, opts.bounds)
   local mains = opts.mains or E.MAIN_STREETS
   local out = { walls = {}, gates = 0, skipped = {}, bounds = { x0, y0, x1, y1 } }
   local function add(tx, ty, side, gate)
@@ -142,9 +157,115 @@ end
 --- Murs d'un anneau sans obstacle (borne haute du coût) : périmètre moins les tuiles d'ouverture.
 function E.max_walls(r, opts)
   opts = opts or {}
+  if opts.bounds then
+    -- contour serré (rectangle, pas forcément carré) : 2 (largeur + hauteur) - 4 tuiles, moins les ouvertures
+    local x0, y0, x1, y1 = E.bounds(nil, r, nil, opts.bounds)
+    return 2 * ((x1 - x0 + 1) + (y1 - y0 + 1)) - 4 - 4 * #(opts.mains or E.MAIN_STREETS) * E.STREET
+  end
   local h = E.PITCH * r + E.HALF + E.STREET + (opts.gap or E.GAP)
   local side = 2 * h + 2
   return 4 * (side - 1) - 4 * #(opts.mains or E.MAIN_STREETS) * E.STREET
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot ENCEINTE3 : contour SERRÉ sur l'empreinte réelle de la base
+---------------------------------------------------------------------------------------------------
+-- Retour du DC (29/10, Azur) : « ils ont investi dedans, par contre ils ont vraiment placé super loin […] si on devait placer
+-- des murs pour protéger notre base, on s'attendrait pas à les mettre aussi loin ». L'anneau était posé au-delà du treillis
+-- ENTIER (rayon figé, ici 235..442 autour du QG (339, 339) : 103 tuiles du QG) alors que la base n'occupait que quelques lots.
+-- Le contour serré est le rectangle de l'empreinte (lots pris ou planifiés, lot du QG, tourelles) plus E.MARGIN tuiles.
+-- Un lot ou une tourelle ISOLÉ (à plus de E.ISOLATED_GAP tuiles de l'empreinte, qui grandit de proche en proche) reste DEHORS
+-- du contour (avant-poste lointain, mine) : il ne tire pas le mur vers lui. Les ouvertures des rues principales restent
+-- dans le contour par construction (le lot du QG est dans l'empreinte et E.MARGIN > E.STREET).
+
+--- Écart de Chebyshev entre un rectangle { x0, y0, x1, y1 } (fin exclue) et une boîte { bx0, by0, bx1, by1 } (fin exclue) : 0 si
+--- elles se touchent ou se recouvrent.
+local function box_gap(r, bx0, by0, bx1, by1)
+  local dx = math.max(r.x0 - bx1, bx0 - r.x1, 0)
+  local dy = math.max(r.y0 - by1, by0 - r.y1, 0)
+  return math.max(dx, dy)
+end
+
+--- Lot (i, j) du treillis : rectangle { x0, y0, x1, y1 } (fin exclue), même repère que P.lot_rect.
+function E.lot_box(lat, i, j)
+  local x0, y0 = lat.ox + E.PITCH * i - E.HALF, lat.oy + E.PITCH * j - E.HALF
+  return { x0 = x0, y0 = y0, x1 = x0 + E.LOT, y1 = y0 + E.LOT }
+end
+
+--- Contour serré. `rects` : empreinte candidate { { x0, y0, x1, y1 (fin exclue), ... } ... } (lots pris ou planifiés, tourelles) ;
+--- `room` : lots LIBRES candidats { { x0, y0, x1, y1, k } ... } dont les E.ROOM_LOTS plus proches de l'empreinte sont gardés.
+--- Le lot du QG est toujours dans l'empreinte. Rend ({ x0, y0, x1, y1 } = tuiles du mur, incluses, ou nil si la graine manque), info
+--- = { core = nombre de rectangles gardés, excluded = { rectangles isolés }, room = nombre de lots libres gardés, box = { bx0, by0,
+--- bx1, by1 } l'empreinte (fin exclue) }. Déterministe : le point fixe de la croissance ne dépend pas de l'ordre des rectangles ;
+--- les lots libres sont départagés par écart puis par clé.
+function E.tight_bounds(lat, rects, room, opts)
+  opts = opts or {}
+  local gap = opts.isolated_gap or E.ISOLATED_GAP
+  local margin = opts.margin or E.MARGIN
+  local seed = E.lot_box(lat, 0, 0)
+  local bx0, by0, bx1, by1 = seed.x0, seed.y0, seed.x1, seed.y1
+  local kept = {}
+  -- croissance de proche en proche jusqu'au point fixe : un rectangle à moins de `gap` de la boîte courante la rejoint
+  local function grow()
+    local changed = true
+    while changed do
+      changed = false
+      for i, r in ipairs(rects or {}) do
+        if not kept[i] and box_gap(r, bx0, by0, bx1, by1) <= gap then
+          kept[i] = true
+          changed = true
+          bx0, by0 = math.min(bx0, r.x0), math.min(by0, r.y0)
+          bx1, by1 = math.max(bx1, r.x1), math.max(by1, r.y1)
+        end
+      end
+    end
+  end
+  grow()
+  -- de la place pour bâtir encore : les lots libres les plus proches de l'empreinte (à portée d'elle seulement)
+  local cand = {}
+  for _, r in ipairs(room or {}) do
+    local g = box_gap(r, bx0, by0, bx1, by1)
+    if g <= gap then cand[#cand + 1] = { r = r, g = g, k = tostring(r.k or "") } end
+  end
+  table.sort(cand, function(a, b) if a.g ~= b.g then return a.g < b.g end return a.k < b.k end)
+  local kept_room = 0
+  for i = 1, math.min(opts.room_lots or E.ROOM_LOTS, #cand) do
+    local r = cand[i].r
+    bx0, by0 = math.min(bx0, r.x0), math.min(by0, r.y0)
+    bx1, by1 = math.max(bx1, r.x1), math.max(by1, r.y1)
+    kept_room = kept_room + 1
+  end
+  -- les lots libres ont pu rapprocher la boîte d'un rectangle isolé : il la rejoint alors (jamais coupé par le mur)
+  grow()
+  local excluded, core = {}, 0
+  for i, r in ipairs(rects or {}) do
+    if kept[i] then core = core + 1 else excluded[#excluded + 1] = r end
+  end
+  local out = { bx0 - margin - 1, by0 - margin - 1, bx1 + margin, by1 + margin }
+  -- relecture ENCEINTE3 : jamais au-delà de l'anneau du rayon (opts.clamp = E.bounds du rayon figé) : la marge de 9 tuiles dépasse
+  -- de 2 tuiles l'anneau (7 tuiles du bord du treillis) quand l'empreinte touche le dernier rang de lots, et une chaîne de tourelles
+  -- pouvait tirer le mur hors du treillis (terrain non défriché, plus de murs que l'ancien anneau)
+  if opts.clamp then
+    out[1], out[2] = math.max(out[1], opts.clamp[1]), math.max(out[2], opts.clamp[2])
+    out[3], out[4] = math.min(out[3], opts.clamp[3]), math.min(out[4], opts.clamp[4])
+  end
+  return out, { core = core, excluded = excluded, room = kept_room, box = { bx0, by0, bx1, by1 } }
+end
+
+--- Le rectangle { x0, y0, x1, y1 } (fin exclue) est-il entièrement à l'INTÉRIEUR du contour (les tuiles du mur exclues) ?
+function E.inside(bounds, r)
+  return r.x0 >= bounds[1] + 1 and r.y0 >= bounds[2] + 1 and r.x1 <= bounds[3] and r.y1 <= bounds[4]
+end
+
+--- Les ouvertures des rues principales tiennent-elles dans les bornes ? (invariant du contour serré ; jamais faux avec le lot du QG
+--- dans l'empreinte.)
+function E.gates_inside(lat, bounds, mains)
+  mains = mains or E.MAIN_STREETS
+  for _, m in ipairs(mains) do
+    local ax, ay = lat.ox + E.PITCH * m + E.HALF, lat.oy + E.PITCH * m + E.HALF
+    if ax < bounds[1] or ax + E.STREET - 1 > bounds[3] or ay < bounds[2] or ay + E.STREET - 1 > bounds[4] then return false end
+  end
+  return true
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -243,14 +364,40 @@ function E.segment_cap(equiv)
   return math.min(E.SEG_MAX, math.floor(math.max(0, equiv) / E.STOCK_DIV))
 end
 
---- Prochain segment : le premier bloc de murs NON réservés d'un tronçon, par ordre de priorité, de `cap` murs au plus.
+--- Point de référence de chaque tronçon (lot ENCEINTE3, lot A) : la menace connue la plus proche du milieu du tronçon, parmi celles
+--- de SON côté ; à défaut, le QG (centre du treillis). Le segment d'un tronçon démarre au bout le plus proche de ce point, jamais
+--- dans un coin au hasard de l'ordre de pose. Rend { [id du tronçon] = { x, y } }.
+function E.run_refs(runs, lat, threats)
+  local by_side = { n = {}, e = {}, s = {}, o = {} }
+  for _, t in ipairs(threats or {}) do
+    local sd = E.side_of(lat, t.x, t.y)
+    by_side[sd][#by_side[sd] + 1] = t
+  end
+  local refs = {}
+  for _, run in ipairs(runs) do
+    local best, bd = nil, math.huge
+    for _, t in ipairs(by_side[run.side]) do
+      local d = (t.x - run.mx) ^ 2 + (t.y - run.my) ^ 2
+      if d < bd then best, bd = t, d end
+    end
+    refs[run.id] = best and { x = best.x, y = best.y } or { x = lat.ox + 0.5, y = lat.oy + 0.5 }
+  end
+  return refs
+end
+
+--- Prochain segment : un bloc de murs NON réservés d'un tronçon, par ordre de priorité, de `cap` murs au plus.
 --- Rend { run, side, walls = { {tx, ty, x, y, side} ... } } ou (nil, "complet") quand tout est réservé, (nil, "stock") quand
 --- le plafond `cap` ne permet aucun segment d'au moins min(E.SEG_MIN, bloc) murs. `claimed` : { [E.key] = true }.
-function E.next_segment(runs, order, claimed, cap)
+--- `refs` (facultatif, E.run_refs) : dans un tronçon, les blocs libres sont pris du plus proche du point de référence au plus loin,
+--- et un segment plus court que son bloc démarre par le bout le PLUS PROCHE de ce point (les murs sont rendus de ce bout vers
+--- l'autre). Sans `refs` : le premier bloc du tronçon, par son début (comportement d'avant ENCEINTE3).
+function E.next_segment(runs, order, claimed, cap, refs)
   local why = "complet"
   for _, ri in ipairs(order) do
     local run = runs[ri]
     local n = #run.walls
+    local ref = refs and refs[ri] or nil
+    local blocks = {}
     local i = 1
     while i <= n do
       local w = run.walls[i]
@@ -259,16 +406,33 @@ function E.next_segment(runs, order, claimed, cap)
       else
         local j = i
         while j < n and not claimed[E.key(run.walls[j + 1].tx, run.walls[j + 1].ty)] do j = j + 1 end
-        local len = j - i + 1
-        local take = math.min(cap, len, E.SEG_MAX)
-        if take >= 1 and take >= math.min(E.SEG_MIN, len) then
-          local out = {}
-          for k = i, i + take - 1 do out[#out + 1] = run.walls[k] end
-          return { run = ri, side = run.side, walls = out }
+        local b = { i = i, j = j }
+        if ref then
+          local a, z = run.walls[i], run.walls[j]
+          b.da = (a.x - ref.x) ^ 2 + (a.y - ref.y) ^ 2
+          b.dz = (z.x - ref.x) ^ 2 + (z.y - ref.y) ^ 2
+          b.d = math.min(b.da, b.dz)
         end
-        why = "stock"
+        blocks[#blocks + 1] = b
         i = j + 1
       end
+    end
+    if ref then
+      table.sort(blocks, function(p, q) if p.d ~= q.d then return p.d < q.d end return p.i < q.i end)
+    end
+    for _, b in ipairs(blocks) do
+      local len = b.j - b.i + 1
+      local take = math.min(cap, len, E.SEG_MAX)
+      if take >= 1 and take >= math.min(E.SEG_MIN, len) then
+        local out = {}
+        if ref and b.dz < b.da then
+          for k = b.j, b.j - take + 1, -1 do out[#out + 1] = run.walls[k] end
+        else
+          for k = b.i, b.i + take - 1 do out[#out + 1] = run.walls[k] end
+        end
+        return { run = ri, side = run.side, walls = out }
+      end
+      why = "stock"
     end
   end
   return nil, why

@@ -33,9 +33,15 @@ local env = {
   craftable_walls = function() return 0 end,
   space_log = function(_, text) W.logs[#W.logs + 1] = text end,
   space_info = function() return { radius = 3, rmax = 5, pending = 0, free = 5, busy = 0, done = 10, enc = false } end,
+  -- lot ENCEINTE3 : par defaut, pas de contour serre (le rayon, comme avant) ; les essais du contour serre posent W.tight
+  enc_tight_bounds = function() if W.tight then return W.tight, W.tight_info end return nil end,
+  enc_mark_out = function() W.marked = (W.marked or 0) + 1 return 7 end,
+  enc_release = function() W.released = (W.released or 0) + 1 end,
 }
-local chunk = assert(load("local Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info = "
-  .. "Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info\n"
+local chunk = assert(load("local Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
+  .. "enc_tight_bounds, enc_mark_out, enc_release = "
+  .. "Enc, Build, ipairs, math, table, string, tostring, Stock, wall_recipe, craftable_walls, space_log, space_info, "
+  .. "enc_tight_bounds, enc_mark_out, enc_release\n"
   .. chunk_src .. "\nreturn Build", "enceinte_flux", "t", setmetatable(env, { __index = _G })))
 chunk()
 
@@ -246,6 +252,170 @@ do
   check(f.build.enc ~= nil and #requests == 2, "refus durable : rayon garde, un autre segment est demande")
   check(requests[2].spec.walls[1][1] ~= p1.spec.walls[1][1] or requests[2].spec.walls[1][2] ~= p1.spec.walls[1][2],
     "refus durable : le segment refuse n'est pas redemande")
+end
+
+-- 12. Lot ENCEINTE3 : contour serré — les bornes sont figées avec le rayon, lues par request_segment, la pose couvre exactement ce contour
+do
+  requests = {}
+  W.marked, W.released = nil, nil
+  local tb = Enc.tight_bounds(lat, { Enc.lot_box(lat, 1, 0), Enc.lot_box(lat, 0, 1) }, {})
+  W.tight, W.tight_info = tb, { core = 2, excluded = {}, room = 0 }
+  local f = new_team()
+  W.stock_wall = 100000
+  step(f)
+  local b = f.build
+  check(b.enc ~= nil and b.enc.bounds == tb and b.enc.r == 3, "contour serre : bornes et rayon figes ensemble au premier segment")
+  check(W.marked == 1, "les lots hors du contour sont ecartes une fois, a la creation (" .. tostring(W.marked) .. ")")
+  local p1 = requests[1]
+  local on_ring = true
+  for _, w in ipairs(p1.spec.walls) do
+    local x, y = w[1], w[2]
+    if not (x == tb[1] or x == tb[3] or y == tb[2] or y == tb[4]) then on_ring = false end
+  end
+  check(on_ring and #p1.spec.walls >= 1 and #p1.spec.walls <= Enc.SEG_MAX, "le premier segment est sur le contour serre, pas sur l'anneau du rayon")
+  -- lot A : il demarre a l'ouverture (bout du troncon le plus proche du QG), pas au coin
+  local w1 = p1.spec.walls[1]
+  check(not ((w1[1] == tb[1] or w1[1] == tb[3]) and (w1[2] == tb[2] or w1[2] == tb[4])), "le premier segment ne commence pas dans un coin")
+  local guard = 0
+  while guard < 200 do
+    guard = guard + 1
+    local last = requests[#requests]
+    if last and last.state ~= "fini" then finish(f, last, tick) end
+    step(f)
+    if b.enc and b.enc.complete then break end
+  end
+  local total, seen, dup, outside = 0, {}, 0, 0
+  for _, rq in ipairs(requests) do
+    for _, w in ipairs(rq.spec.walls) do
+      total = total + 1
+      local k = w[1] .. ":" .. w[2]
+      if seen[k] then dup = dup + 1 end
+      seen[k] = true
+      if not (w[1] >= tb[1] and w[1] <= tb[3] and w[2] >= tb[2] and w[2] <= tb[4]) then outside = outside + 1 end
+    end
+  end
+  check(b.enc.complete and total == Enc.max_walls(3, { bounds = tb }) and dup == 0 and outside == 0,
+    "contour serre : pose complete en " .. #requests .. " segments (" .. total .. " / " .. Enc.max_walls(3, { bounds = tb }) .. ")")
+  check(total < Enc.max_walls(3) / 2, "et bien moins de murs que l'anneau du rayon (" .. total .. " contre " .. Enc.max_walls(3) .. ")")
+  local rep = Build.enclosure_report(b)
+  check(rep.tight == true and rep.bounds == tb and rep.complete == true, "rapport : contour serre, bornes, complet")
+  W.tight, W.tight_info = nil, nil
+end
+
+-- 13. Contour serré : premier segment refusé pour la place -> rayon et lots écartés libérés
+do
+  requests = {}
+  W.marked, W.released = nil, nil
+  W.tight = Enc.tight_bounds(lat, { Enc.lot_box(lat, 1, 0) }, {})
+  W.tight_info = { core = 1, excluded = {}, room = 0 }
+  local f = new_team()
+  W.stock_wall = 400
+  step(f)
+  check(f.build.enc ~= nil and W.marked == 1, "contour serre pose")
+  requests[1].state, requests[1].reason = "refuse", "place"
+  step(f)
+  check(f.build.enc == nil and W.released == 1, "rien de pose : le rayon et les lots ecartes sont liberes")
+  W.tight, W.tight_info = nil, nil
+end
+
+-- 14. Contour serré et menace connue : le segment démarre au bout du tronçon le plus proche du nid
+do
+  requests = {}
+  local tb = Enc.tight_bounds(lat, { Enc.lot_box(lat, 1, 0), Enc.lot_box(lat, -1, 0), Enc.lot_box(lat, 0, 1), Enc.lot_box(lat, 0, -1) }, {})
+  W.tight, W.tight_info = tb, { core = 4, excluded = {}, room = 0 }
+  local f = new_team()
+  W.stock_wall = 400
+  local nest = { x = lat.ox + 170, y = lat.oy - 30 }
+  f.ai3f = { m = { s = { [1] = { sp = { nest } } } } }
+  step(f)
+  local p1 = requests[1]
+  check(p1 and p1.spec.side == "e", "nid a l'est : segment du cote est")
+  local runs = Enc.runs(lat, 3, { bounds = tb })
+  local best, bd = nil, math.huge
+  for _, run in ipairs(runs) do
+    if run.side == "e" then
+      for _, w in ipairs({ run.walls[1], run.walls[#run.walls] }) do
+        local d = (w.x - nest.x) ^ 2 + (w.y - nest.y) ^ 2
+        if d < bd then best, bd = w, d end
+      end
+    end
+  end
+  check(p1.spec.walls[1][1] == best.tx and p1.spec.walls[1][2] == best.ty,
+    "le segment demarre au bout de troncon le plus proche du nid (" .. p1.spec.walls[1][1] .. "," .. p1.spec.walls[1][2] .. ")")
+  W.tight, W.tight_info = nil, nil
+end
+
+-- 15. Lot ENCEINTE3 : le relevé de l'empreinte de build.lua (enc_tight_bounds, enc_mark_out, enc_release), extrait du code lui-même
+do
+  local a2 = assert(src:find("--- Lot ENCEINTE3 (retour du DC, Azur", 1, true), "repere du releve de l'empreinte absent")
+  local b2 = assert(src:find("--- Plan du projet « enceinte » : (true) ou (false, raison)", 1, true), "repere de fin du releve absent")
+  local env2 = setmetatable({ Enc = Enc, P = P, ipairs = ipairs, table = table, math = math, type = type, pairs = pairs,
+    sorted_keys = function(t)
+      local ks = {}
+      for k in pairs(t) do ks[#ks + 1] = k end
+      table.sort(ks, function(x, y) if type(x) == type(y) then return x < y end return type(x) == "number" end)
+      return ks
+    end }, { __index = _G })
+  local code = assert(load("local Enc, P, ipairs, table, math, type, pairs, sorted_keys = Enc, P, ipairs, table, math, type, pairs, sorted_keys\n"
+    .. src:sub(a2, b2 - 1) .. "\nreturn enc_tight_bounds, enc_mark_out, enc_release", "releve", "t", env2))
+  local tight_bounds_of, mark_out, release = code()
+  local az = P.lattice({ x = 339.5, y = 339.5 })
+  local function mk(lots, projects, turrets)
+    local b = { lat = az, radius = 3, lots = {}, projects = projects or {} }
+    for _, l in ipairs(lots) do b.lots[P.lot_key(l.i, l.j)] = l end
+    return { build = b, turrets = turrets }
+  end
+  local function turret(x, y, valid) return { valid = valid ~= false, position = { x = x, y = y } } end
+  local lots = {
+    { i = 0, j = 0, state = "occupe", used = 1 },       -- le lot du QG
+    { i = 1, j = 0, state = "libre", used = 2 },        -- pris par un projet fini
+    { i = 0, j = 1, state = "libre", used = 3 },        -- pris par un projet refuse : ne compte pas
+    { i = 0, j = -1, state = "libre", used = 4 },       -- pris par un projet d'enceinte : ne compte pas
+    { i = 5, j = 0, state = "gisement", used = 5 },     -- mine lointaine : isolee
+    { i = -1, j = 0, state = "libre" },                 -- libre, voisin : garde dedans
+    { i = 0, j = 2, state = "libre" },                  -- libre
+    { i = -2, j = 0, state = "defricher" },             -- libre
+    { i = 2, j = 1, state = "libre", bad = 2 },         -- ecarte par des echecs : jamais "libre garde"
+    { i = 8, j = 8, state = "libre" },                  -- libre, hors de portee
+  }
+  local projects = { [1] = { state = "fini" }, [2] = { state = "fini", spec = {} }, [3] = { state = "refuse" },
+    [4] = { state = "fini", spec = { enceinte = true } }, [5] = { state = "fini" } }
+  local f = mk(lots, projects, { [11] = turret(339 + 20, 339), [12] = turret(339 + 200, 339), [13] = turret(339 + 22, 339, false) })
+  local tb, info = tight_bounds_of(f)
+  check(tb ~= nil and info.core >= 2 and info.room >= 1, "releve : empreinte, lots libres gardes (" .. tostring(info and info.core) .. ", " .. tostring(info and info.room) .. ")")
+  -- exclus : la mine lointaine (5, 0) et la tourelle a 200 tuiles
+  check(#info.excluded == 2, "releve : la mine lointaine et la tourelle d'avant-poste sont dehors (" .. #info.excluded .. ")")
+  check(tb[3] < az.ox + 100, "le contour ne va pas jusqu'a la mine lointaine (x1 " .. tb[3] .. ")")
+  -- le lot refuse (0, 1) et celui de l'enceinte (0, -1) ne tirent pas le contour : a l'est, le lot (1, 0) donne 339+12+28 = 379
+  local f2 = mk({ { i = 0, j = 0, state = "occupe", used = 1 }, { i = 0, j = 1, state = "libre", used = 3 }, { i = 0, j = -1, state = "libre", used = 4 } },
+    projects, {})
+  local t2 = tight_bounds_of(f2)
+  check(t2[2] == 339 - 12 - Enc.MARGIN - 1 and t2[4] == 339 + 12 + Enc.MARGIN, "projet refuse ou d'enceinte : ne compte pas dans l'empreinte")
+  -- une tourelle invalide ne compte pas
+  local f3 = mk({ { i = 0, j = 0, state = "occupe", used = 1 } }, projects, { [1] = turret(339 + 22, 339, false) })
+  local t3 = tight_bounds_of(f3)
+  check(t3[3] == 339 + 12 + Enc.MARGIN, "tourelle invalide ignoree")
+  -- determinisme : deux releves identiques
+  local tb2 = tight_bounds_of(mk(lots, projects, { [11] = turret(339 + 20, 339), [12] = turret(339 + 200, 339) }))
+  check(tb2[1] == tb[1] and tb2[2] == tb[2] and tb2[3] == tb[3] and tb2[4] == tb[4], "releve deterministe")
+  -- marquage : les lots libres dehors ou coupes sont ecartes, ceux de dedans non ; le lot du QG jamais
+  local n = mark_out(f.build, tb)
+  local inside_free, outside_free = f.build.lots["-1:0"], f.build.lots["8:8"]
+  check(not inside_free.out and outside_free.out == true and not f.build.lots["0:0"].out, "marquage : (8,8) ecarte, (-1,0) dedans, le lot du QG jamais")
+  check(f.build.lots["5:0"].out == true and n >= 2, "marquage : la mine lointaine est dehors (mais un gisement reste utilisable : le drapeau n'agit pas sur lui)")
+  -- Enc.free_count ignore les lots ecartes
+  local fc = Enc.free_count(f.build.lots)
+  local expect = 0
+  for _, l in pairs(f.build.lots) do
+    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not (l.bad and l.bad >= 2) and not l.out then expect = expect + 1 end
+  end
+  check(fc == expect and fc >= 1, "free_count ne compte pas les lots ecartes (" .. fc .. ")")
+  release(f.build)
+  check(not f.build.lots["8:8"].out and not f.build.lots["5:0"].out, "liberation : plus aucun lot ecarte")
+  -- le code lit bien le drapeau aux deux endroits qui choisissent un lot libre
+  check(src:find('if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end', 1, true) ~= nil, "candidates() ecarte les lots libres dehors")
+  check(src:find('and not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then', 1, true) ~= nil
+    or src:find('(l.state == "libre" or l.state == "defricher") and not l.out then', 1, true) ~= nil, "make_pond() ecarte les lots libres dehors")
 end
 
 print(string.format("[ENCEINTE-FLUX] BILAN : %d OK, %d ECHEC(S)", passes, failures))
