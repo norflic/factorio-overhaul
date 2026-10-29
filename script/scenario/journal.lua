@@ -302,6 +302,16 @@ remote.add_interface("fo-journal", {
     end
     return out
   end,
+  --- Ouvre la fenêtre chez le joueur : k = 0 pour l'intro, sinon une époque déjà atteinte par sa force (captures).
+  open = function(player_index, k)
+    local player = game.get_player(player_index)
+    local st = S()
+    if not (player and st) then return false end
+    if k == 0 then Journal.show_intro(player); return true end
+    if type(k) ~= "number" or k < 1 or k > (st.reached[player.force.name] or 0) then return false end
+    Journal.show_epoch(player, k)
+    return true
+  end,
   --- Relève tout de suite l'époque de la force (sans attendre le relevé périodique).
   check = function(force_name)
     local force = game.forces[force_name or "player"]

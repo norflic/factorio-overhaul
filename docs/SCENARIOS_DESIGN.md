@@ -282,7 +282,8 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
   - Arrivée : Codex IX : l'**Ordre Écarlate** voit une arme dans l'antimatière.
   - Montée : mine d'uranium (acide), centrifugeuses, premier réacteur.
   - Sortie : 600 uranium 238 + 560 barils de méthane.
-- **Objectifs du journal** : centre 10 ; plafond 18 ; gisement : uranium.
+- **Objectifs du journal** : centre 10 ; plafond 18 (la galène du jalon X0 n'existe pas : aucun gisement affiché ;
+  l'uranium est vanilla, sur toute carte).
 - **Menace** : l'**Ordre Écarlate** cherche l'arme absolue (proposé : il vise d'abord le réacteur, ce que la valeur
   militaire des cibles permet déjà) ; évolution des déchiqueteurs élevée.
 - **Moment fort** : le premier réacteur démarre pendant une attaque de l'Ordre ; il faut le défendre avant qu'il ne

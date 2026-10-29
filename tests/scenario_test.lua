@@ -440,6 +440,9 @@ do -- Partie neuve
   local res = {}
   for _, o in ipairs(ob) do if o.kind == "resource" then res[#res + 1] = o.name end end
   check(table.concat(res, ",") == "fo-tungsten-ore", "interface : la fumerolle (absente du jeu) n'est pas proposée")
+  check(env.remotes["fo-journal"].open(1, 0) == true and flat(env.frame().caption):find("intro%-title"), "interface : open 0 = intro")
+  check(env.remotes["fo-journal"].open(1, 2) == true and flat(env.frame().caption):find("title|2|"), "interface : open 2")
+  check(env.remotes["fo-journal"].open(1, 9) == false, "interface : open d'une époque non atteinte refusé")
   check(no_functions(env.st()), "stockage : aucune fonction (sérialisable)")
 end
 

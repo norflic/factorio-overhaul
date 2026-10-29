@@ -13,6 +13,8 @@
   4. Objectifs relus par l'interface, sur les prototypes du jeu chargé : la fumerolle (X0, absente) n'est pas
      proposée à l'époque 5, le tungstène l'est ; pétrole à l'époque 4 ; ilménite et saumure à l'époque 11 ; Porte et
      aucun passage de centre à l'époque 15.
+  5. Images (banc.py --captures) : le joueur de la session reçoit les fenêtres comme en partie ; captures de la
+     fenêtre de l'époque 1 (relevé), de l'époque 3 (crochet), de l'intro et de l'époque 2 relue (interface open).
 ]]
 
 local LV = require("__factorio-overhaul__/shared/levels/config")
@@ -20,6 +22,18 @@ local CC = LV.by_key.command
 local X, Y = 260.5, 260.5
 local FX, FY = 300.5, 260.5
 local FACTION = "fo-sc-faction"
+
+local function player() return game.connected_players[1] end
+
+local function shot(ctx, p, name)
+  local st = ctx.state()
+  local r = p.display_resolution
+  local w, h = math.min(4096, math.max(640, r.width)), math.min(4096, math.max(360, r.height))
+  game.take_screenshot({ path = "fo-shots/x-journal-" .. name .. ".png", player = p, show_gui = true,
+    position = { X, Y }, zoom = 1, resolution = { w, h }, daytime = 0, force_render = true, allow_in_replay = true })
+  st.shots = (st.shots or 0) + 1
+  ctx.log(string.format("capture x-journal-%s.png demandee au tick %d (%d x %d)", name, game.tick, w, h))
+end
 
 local function fill(cc, n)
   local inv = cc.get_inventory(defines.inventory.chest)
@@ -36,6 +50,7 @@ return {
   description = "sc-journal : journal d'epoque (annonces, crochet du centre, factions ignorees, objectifs)",
   base = nil,
   check_tick = 600,
+  shots_delay = 650,
 
   init = function(ctx)
     local s = ctx.surface()
@@ -69,6 +84,15 @@ return {
       local s = remote.call("fo-journal", "status", "player")
       st["up" .. n] = { ok = r and r.ok, reason = r and r.reason, reached = s.reached, announced = s.announced }
     end
+    local p = player()
+    if not p then return end
+    if e.tick == 330 then shot(ctx, p, "01-epoque-1")
+    elseif e.tick == 480 then shot(ctx, p, "02-epoque-3")
+    elseif e.tick == 500 then remote.call("fo-journal", "open", p.index, 0)
+    elseif e.tick == 530 then shot(ctx, p, "03-intro")
+    elseif e.tick == 550 then remote.call("fo-journal", "open", p.index, 2)
+    elseif e.tick == 580 then shot(ctx, p, "04-epoque-2-relue")
+    end
   end,
 
   finish = function(ctx)
@@ -98,5 +122,10 @@ return {
     local k15 = kinds(remote.call("fo-journal", "objectives", 15))
     ctx.check(k15 == "cap,gate,threat", "epoque 15 : plafond, Porte, menace (aucun passage)", k15)
     ctx.log("objectifs 5 : " .. k5 .. " ; 11 : " .. k11)
+    if player() then ctx.check((st.shots or 0) == 4, "4 captures de la fenetre demandees", st.shots) end
+  end,
+
+  shots = function(ctx, add)
+    add("centre-sol", X, Y, 1, 0)
   end,
 }
