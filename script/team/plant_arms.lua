@@ -153,6 +153,7 @@ end
 --- chaudières de la centrale à demander (règle pure shared/team/centrale.lua) ou nil, puis la liste des centrales de plus à abandonner
 --- (réserve de matériaux incomplète depuis trop longtemps) ; la demande est faite par Build.grow_plant, l'abandon par Build.cancel.
 PA.WATCH_EVERY = 300
+PA.LOG_EVERY = 5 * 3600 -- lot ENERGIE-CROISSANCE : bilan [FO-ENERGIE] toutes les 5 min
 function PA.watch(f, surface, tick)
   local b = f.build
   b.grow = b.grow or { sat = 0 }
@@ -202,12 +203,28 @@ function PA.watch(f, surface, tick)
   end
   g.refused = refused
   if #stale > 0 then g.cool_until = tick + C.COOL end
+  -- lot ENERGIE-CROISSANCE : un refus du plan n'est plus définitif, il ouvre une pause de C.COOL puis la croissance réessaie
+  if C.after_refusal(g, refused, tick) then
+    log(string.format("[FO-ENERGIE] %s : centrale de plus refusee par le plan (%d refus sur %d permis) : nouvel essai a %.1f min",
+      f.key or "player", refused, C.MAX_REFUSED, (g.cool_until or tick) / 3600))
+  end
   local hold = tick < (b.grow_hold_until or 0)
   local nb, why = C.growth(g, { done = done, pending = pending, refused = refused, hold = hold, cool = tick < (g.cool_until or 0),
     off = b.opts and b.opts.no_grow == true })
+  local load = C.load(power, capacity)
   if not nb and g.saturated and why ~= g.why then
     g.why = why
-    log(string.format("[FO-ENERGIE] %s : centrale saturee a %.1f min, pas de centrale de plus : %s", f.key or "player", tick / 3600, tostring(why)))
+    log(string.format("[FO-ENERGIE] %s : decision : pas de centrale de plus a %.1f min : %s (production %.0f kW sur %.0f kW, %.0f %% ; saturee depuis %d s)",
+      f.key or "player", tick / 3600, tostring(why), power * 60 / 1000, capacity * 60 / 1000, (load or 0) * 100, (g.sat or 0) * PA.WATCH_EVERY / 60))
+  end
+  -- bilan toutes les C.LOG_EVERY (aucune décision ne le lit) : production, capacité, charge (la demande, quand elle dépasse la
+  -- capacité, ne se mesure pas : la centrale saturée produit sa capacité), centrales, dernière décision
+  if capacity > 0 and tick >= (g.log_next or 0) then
+    g.log_next = tick + PA.LOG_EVERY
+    log(string.format("[FO-ENERGIE] %s : bilan a %.1f min : production %.0f kW, capacite %.0f kW, charge %.0f %% (%s), %d centrale(s) finie(s), %d en projet, %d refus, %d demande(s) ; decision : %s",
+      f.key or "player", tick / 3600, power * 60 / 1000, capacity * 60 / 1000, (load or 0) * 100,
+      g.saturated and "saturee : la demande atteint la production" or "marge", done, pending, refused, g.requests or 0,
+      nb and ("centrale de " .. nb .. " chaudiere(s)") or tostring(why)))
   end
   if nb then C.requested(g); g.why = nil end
   return nb, stale
