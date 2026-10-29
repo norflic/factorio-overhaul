@@ -172,6 +172,19 @@ check(status().wreck, "(nouvelle partie) épave posée")
 M.dispatch(w.events[defines.events.on_entity_died], { entity = wreck })
 check(status().wreck == false and status().lost == 1, "épave détruite : état effacé")
 
+-- 2d bis. Épave disparue SANS événement (destroy par script), puis un autre centre : l'état périmé ne fige pas le
+-- nouveau centre au niveau 0 (relecture statique, 29/10).
+w = world()
+player_created(w)
+wreck = find_cc(w)
+wreck.destroy()
+check(Levels.cc(w.forces.player) == nil and Levels.cc_level(w.forces.player) == 0, "épave détruite sans événement : plus de centre")
+local fresh = w.surface.create_entity({ name = CCN, position = { x = 20, y = 20 }, force = "player", raise_built = true })
+check(fresh ~= nil and Levels.cc(w.forces.player) == fresh, "un nouveau centre est enregistré")
+check(Levels.cc_level(w.forces.player) == 1 and status().wreck == false, "état périmé ignoré : le nouveau centre est niveau 1")
+local infoF = Levels.preview(fresh, nil, true)
+check(infoF and infoF.reason ~= "wreck", "le nouveau centre n'est pas refusé comme épave")
+
 -- 2e. Départ coupé (scénarios de banc) et autres forces non touchées.
 w = world()
 remote.call("fo-centre", "disable_start", true)

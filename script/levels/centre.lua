@@ -38,9 +38,16 @@ local CC = L.by_key.command
 -- Lecture de l'état
 ---------------------------------------------------------------------------------------------------
 --- L'équipe a-t-elle une épave de centre (pas encore réparée) ?
+--- Le registre doit désigner le centre VALIDE actuel de l'équipe : si l'épave a disparu sans événement (destroy par
+--- script) et qu'un autre centre a été fabriqué, l'ancien état est périmé et ne doit pas figer le nouveau centre au
+--- niveau 0. Lecture seule (aucune écriture de `global` ici) ; on_configuration_changed nettoie les restes.
 function Centre.is_wreck(force)
   local st = S()
-  return st ~= nil and force ~= nil and st.wreck[force.name] ~= nil
+  if not (st and force) then return false end
+  local un = st.wreck[force.name]
+  if un == nil then return false end
+  local cc = Levels.cc(force)
+  return cc ~= nil and cc.unit_number == un
 end
 
 --- Cette entité est-elle l'épave de son équipe ?
@@ -153,7 +160,10 @@ Events.on(defines.events.on_player_created, function(e)
   local st = S()
   if not st then return end
   local player = game.get_player(e.player_index)
-  if not (player and player.valid and player.character) then return end
+  -- Pas de garde sur player.character : en freeplay le personnage existe à cet événement (la scène d'introduction ne
+  -- vient qu'après) et la position du joueur est valide quel que soit son contrôleur ; une garde fausse supprimerait
+  -- l'épave en silence.
+  if not (player and player.valid) then return end
   local force = player.force
   local has = Levels.cc(force) ~= nil
   if not C.should_start(has, st.started[force.name], st.disabled) then return end
