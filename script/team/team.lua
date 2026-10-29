@@ -441,7 +441,11 @@ function Team.view(f, tick)
   local on_fond, backlog = 0, 0
   for _, t in ipairs(Board.get(f).list or {}) do
     local soft = t.fond and (not grow or t.kind == "mine" or t.kind == "garrison")
-    if t.worker and soft then on_fond = on_fond + 1 end
+    -- Lot CRAFT-PARALLELE : la tâche de fond qu'un PNJ mène PENDANT sa fabrication en arrière-plan ne le rend pas disponible (avant
+    -- ce lot, il était dans sa tâche « craft » et ne l'aurait pas prise) : frein des recrues inchangé à charge de fabrication égale.
+    -- Cohérence seulement : aucun effet mesuré au moteur simulé (scénario de pteam_test, 6 graines, chiffres identiques).
+    local ag = soft and t.worker and Registry.get(t.worker)
+    if t.worker and soft and not (ag and ag.task == t and Worker.crafting(ag)) then on_fond = on_fond + 1 end
     -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue.
     if not t.worker and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
   end

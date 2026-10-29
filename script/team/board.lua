@@ -413,6 +413,9 @@ for _, k in ipairs(sorted_keys(O.DESIGN_KINDS)) do
   CANNOT_EXEC_UNARMED[k] = true
 end
 local CANNOT_UNARMED = { garrison = true }
+local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : genres refusés pendant une fabrication en arrière-plan
+-- Lot CRAFT-PARALLELE : crochet posé par script/team/worker.lua (seul lecteur de agent.bg) : nil ou { left = s de file restante }.
+Board.bg_view = nil
 
 --- PNJ vu par la place de marché : rôle (sans organisation : neutre, comme NEUTRAL), pôle EFFECTIF, position, projet
 --- précédent (ou celui qu'il mène), ce qu'il ne sait pas faire (conception : exécutant ; garde : sans munitions).
@@ -424,9 +427,13 @@ local function market_npc(agent)
   local cannot
   if role ~= "generalist" then cannot = armed and CANNOT_EXEC or CANNOT_EXEC_UNARMED
   elseif not armed then cannot = CANNOT_UNARMED end
+  -- Lot CRAFT-PARALLELE : un PNJ dont la file fabrique en arrière-plan (vue Board.bg_view, posée par script/team/worker.lua) ne
+  -- prend ni une garde, ni un nouvel avant-poste lointain (CB.EXCLUDED), ni une fabrication de plus au-delà de CB.MAX_JOBS.
+  local bv = Board.bg_view and Board.bg_view(agent)
+  if bv then cannot = CB.cannot_with(cannot, bv.full) end
   local p = e.position
   return { id = agent.id, role = role, pole = org and O.effective_pole(org) or nil, pos = { x = p.x, y = p.y },
-    last_project = (org and org.project) or agent.last_project, cannot = cannot }
+    last_project = (org and org.project) or agent.last_project, cannot = cannot, bg_left = bv and bv.left or nil }
 end
 
 --- Point de départ d'une tâche (trajet de la note) : la case du QG pour toute tâche qui commence au coffre ; le poste
@@ -482,6 +489,8 @@ local function claim_market(f, agent, tick, b)
   ctx.rush = rush_of(list)
   local fresh = b.hint_tick ~= nil and tick - b.hint_tick <= Board.HINT_TICKS
   ctx.skip = function(t)
+    -- Lot CRAFT-PARALLELE : PNJ qui fabrique : seulement une tâche qui finit avec sa file (+ CB.SLACK_S), ou une urgence.
+    if npc.bg_left and not CB.fits(t.kind, t.work or O.TASK_WORK[t.kind] or O.DEFAULT_WORK, t.prio, M.URGENT, npc.bg_left) then return true end
     local h = hinted[t.key]
     if h == nil or h == agent.id or not fresh then return false end
     local ha = Registry.get(h)
