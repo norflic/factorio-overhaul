@@ -38,6 +38,7 @@ local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense su
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
+local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
@@ -810,10 +811,21 @@ function Team.think(f, surface, tick)
   -- Lot CAPITAL : amélioration d'un bâtiment à niveaux ou du centre, payée sur le stock LIBRE après les recrues et l'armée.
   -- Lot COUVERTURE : refaire ce qui est détruit AVANT d'améliorer ce qui reste (constat du DC du 28/10).
   Recon.craft_spares(f, book_for(f), stock, tick) -- lot RECONSTRUIRE : objets d'infrastructure électrique à fabriquer
-  FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
-  MigChamp.think(f, surface, book_for(f), stock, tick) -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques
+  -- Lot PILE-PRIORITE (« on répare + protège […] et ensuite on continue et on améliore », DC 29/10) : tant qu'un cadre réparer,
+  -- protéger ou survivre retient (shared/ai3/pile.lua, f.team.ia3.pile, écrit par la pensée juste avant), ni changement de
+  -- foreuses, ni migration du champ, ni amélioration payée. Garde AJOUTÉE à côté de celle de la reconstruction (lot SANS-GEL).
+  local pile_hold = ia3 and PileRt.hold(f)
+  if not pile_hold then
+    FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
+  end
+  -- (relecture PILE : une migration déjà EN CHANTIER continue pendant la retenue, elle ne retire plus rien ; PileRt.migration_building)
+  if not pile_hold or PileRt.migration_building(f) then
+    MigChamp.think(f, surface, book_for(f), stock, tick) -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques
+  end
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
-  if ia3 and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan)) end
+  -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
+  if ia3 and not pile_hold and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan)) end
+  if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])
     f.tech = plan.research

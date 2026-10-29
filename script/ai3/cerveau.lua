@@ -47,6 +47,7 @@ local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
 local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consommation, pondération des besoins
+local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
 
 local Ia3 = {}
 
@@ -776,7 +777,8 @@ function Ia3.plan(f, view, book, surface, tick)
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
-    capi = capi } -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
+    capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
+    pile = PileRt.inputs(f, book, tick) } -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
