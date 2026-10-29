@@ -129,3 +129,12 @@ FONDERIES, FOREUSES, REBUILD-TOUT, DEFENSE-FRONT, GRENADES, FACTIONS-BLOQUEES : 
 
 ## Vague 4 (29/10 17 h 50) : fusionnee en 0.6.17
 10 lots relus statiquement et fusionnes ; content 331 OK. Reste a lancer (apres verif pvp_test final) : MODE-SURVIE, MIGRATION-CHAMP, CAPI-PENURIE, CAPI-DEBIT, POTEAUX (releve paresseux).
+
+## Nuit du 29 au 30/10 (autonomie de 10 h donnee par le DC a 22 h 40)
+Places du banc : 3 (le DC ne joue plus ; remettre 1 s'il relance une partie). Plan :
+1. 0.6.19 = vague 8 (SANS-GEL, PLAFOND-FOREUSES, FONDERIE-DYNAMIQUE, PORTE-BASE, NETTOYAGE-SITE, PILE-PRIORITE, ILOTS-MURS) : integrateur integ-0619 en cours ; puis content, tag.
+2. 0.6.20 = retours en direct 6 a 9 (SCALE-COMPLET, ARMEE-ANTICIPATION, DETOUR-BOUCLE, COMPAGNONS-ACTIFS, RANGEES-DEBIT, MIGRATION-DECLENCHE, DEFENSE-CHOIX, ENERGIE-CROISSANCE, REBUILD-RAPIDE, TOURELLES-HORS-AXE, RECO-DIRECTION, CRAFT-PARALLELE, CHARBON-CENTRALE) : integration par lot valide + relecteur d'INTEGRATION (interactions) avant le content.
+3. Apres 0.6.20 : PREVISION (un seul estimateur de menace, arbitrages du DC « comme le joueur » et « compter la defense ») ; fuites de la pile (capitalisation pendant une reparation, module rouvert contre module neuf) ; CAPI-DEBIT.
+4. Fin de nuit : fumee en moteur reel de la derniere version sur 2 graines (verif-guide), journaux lus (erreurs Lua, [FO-PILE], [FO-SURVIE], [FO-ACTIF], [FO-REBUILD-RAPIDE], [FO-ENERGIE]) pour le rapport du matin.
+5. Design : workflow centre v6 (16 etats Opus + critiques) et mur-opus ; planches en .html LOCAL seulement (consigne du DC : plus d'artefact).
+Question DC en attente (QUESTIONS_DC.md) : extension des avant-postes au-dela de la portee des tourelles (defaut : les tourelles suivent).
