@@ -55,7 +55,9 @@ Sv.MINERS_MAX = 8
 Sv.MINE_MIN, Sv.MINE_MAX = 25, 50   -- minerais visés par tâche (comme le manque de plaques, shared/ai3/manque.lua)
 Sv.SMELTERS_MAX = 8           -- fours posés au QG au plus (« huit fours en réserve » du retour du DC)
 Sv.EXTEND_MAX = 2             -- agrandissements demandés à la fois
-Sv.PRIO = 86                  -- sous l'urgence (90, réservée à la défense et aux relais), au-dessus des objectifs (80)
+Sv.PRIO = 84                  -- sous l'urgence (90, réservée à la défense et aux relais) ET sous la garde du QG de votre équipe (T.guard_prio = 85 :
+                              -- relevée par les PNJ qui finissent une garde, elle ne doit pas être mangée par le minage de survie), au-dessus des
+                              -- objectifs (80)
 Sv.REPEAT = 1200              -- une tâche de survie redemandée dans ce délai (le tableau est refait à chaque pensée) n'est pas recomptée
 
 local function num(x)

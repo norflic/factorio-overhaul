@@ -592,6 +592,9 @@ do
   if ok2 then killed = killed + 1 end
   check(ok2, "mutant « priorité : la survie des effectifs ne garde plus la main » détecté")
 end
+-- Priorité des tâches de survie : sous la garde du QG (T.guard_prio) et l'urgence, au-dessus des objectifs (80) : la production ne mange
+-- ni la relève des gardes du QG ni les urgences de la défense.
+check(Sv.PRIO < T.guard_prio and Sv.PRIO < 90 and Sv.PRIO > 80, "priorité de survie (" .. tostring(Sv.PRIO) .. ") sous la garde du QG (" .. tostring(T.guard_prio) .. ") et au-dessus des objectifs")
 local total_mut = #mutants + #gmut + 2
 print(string.format("[SURVIE] mutants refusés : %d sur %d", killed, total_mut))
 check(killed == total_mut, "tous les mutants sont refusés")
