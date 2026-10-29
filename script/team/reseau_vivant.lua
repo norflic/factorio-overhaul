@@ -58,6 +58,7 @@ function Rv.reopen(q, ents, why, surface)
   if q.state == "fini" then
     q.counted = true -- déjà compté aux statistiques : une sauvegarde d'avant ce drapeau ne recompte pas au « fini » suivant
     q.state, q.reason, q.reserve_next = "reserve", why, nil
+    q.retries, q.retry_at = 0, nil -- lot INTEG-RECONSTRUCTION (D2) : les reprises de la construction ne comptent pas pour la reconstruction
   end
   q.reopened = (q.reopened or 0) + 1
   q.reopened_tick = game.tick

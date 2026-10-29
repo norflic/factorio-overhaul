@@ -552,7 +552,9 @@ function Auto.think(f, view, book, tick, research)
   local stock = view.stock or {}
   for _, m in ipairs(st.mods) do
     -- Lot CAPIB : un module demandé par la capitalisation est un projet « capi » du cerveau (but de fond), pas « auto ».
-    if not m.capi then
+    -- Lot INTEG-RECONSTRUCTION (D1) : sauf rouvert par le relevé de reconstruction : l'ordre CAPI est alors fermé depuis longtemps
+    -- (Capi.think le ferme quand tous ses modules sont finis), personne d'autre ne ferait de but « auto:<produit> » pour les objets à refaire.
+    if Sweep.goal_for_module(m) then
       mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain }
     end
     if m.state == "fini" and f.build then
