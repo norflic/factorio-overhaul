@@ -292,12 +292,24 @@ local function pole_cands()
   for name in next, protos do names[#names + 1] = name end
   table.sort(names)
   for _, name in ipairs(names) do
-    local p = protos[name]
-    local it = p.items_to_place_this and p.items_to_place_this[1]
-    if it and not (p.flags and p.flags["hidden"]) then
-      POLE_CANDS[#POLE_CANDS + 1] = { name = name, item = it.name, supply = p.supply_area_distance or 0, wire = p.max_wire_distance or 0 }
+    -- Lecture protégée : un prototype de poteau qui refuse l'un de ces attributs (moteur réel : « attempt to index … userdata »,
+    -- planté à 42 min sur 987654321) est simplement écarté de la liste des remplaçants.
+    local ok, it_name, supply, wire = pcall(function()
+      local p = protos[name]
+      local list = p.items_to_place_this
+      local it = list and list[1]
+      if not it then return nil end
+      return it.name, p.supply_area_distance or 0, p.max_wire_distance or 0
+    end)
+    if ok and it_name then
+      POLE_CANDS[#POLE_CANDS + 1] = { name = name, item = it_name, supply = supply, wire = wire }
+    elseif not ok then
+      log("[FO-RECON] poteau " .. name .. " ecarte des remplacants : " .. tostring(it_name))
     end
   end
+  local lst = {}
+  for _, c in ipairs(POLE_CANDS) do lst[#lst + 1] = string.format("%s(%s, zone %.1f, fil %.1f)", c.name, c.item, c.supply, c.wire) end
+  log("[FO-RECON] poteaux remplacants : " .. #POLE_CANDS .. " : " .. table.concat(lst, " ; "))
   return POLE_CANDS
 end
 
