@@ -27,6 +27,7 @@
 ]]
 
 local T = require("shared.team.config")
+local F = require("shared.faction.config") -- drapeau `rocket` : soldat à attaque de zone (lot GRENADES)
 local Guard = require("shared.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
 
 local P = {}
@@ -187,10 +188,20 @@ local function goal_status(goal, view)
   return reached, parts
 end
 
+--- Un soldat à attaque de zone (grenade) ? Lu à la donnée qui fabrique son prototype (prototypes/faction.lua : drapeau
+--- `rocket`), sans nom. Sa grenade blesse tout dans 6,5 tuiles, base comprise (lot GRENADES).
+function P.zone_unit(unit)
+  local s = F.soldiers[unit]
+  return s ~= nil and s.rocket == true
+end
+
+--- Meilleur soldat que l'équipe fabrique au niveau `tech` : le plus haut barreau de T.unit_ladder débloqué, hors soldat de
+--- zone tant que T.zone_units est faux (on reste alors sur le barreau précédent : plus de grenades fabriquées).
 function P.best_unit(tech)
-  local best = "rifleman"
-  if tech >= 1 then best = "gunner" end
-  if tech >= 2 then best = "rocketeer" end
+  local best = T.unit_ladder[1][2]
+  for _, step in ipairs(T.unit_ladder) do
+    if tech >= step[1] and (T.zone_units or not P.zone_unit(step[2])) then best = step[2] end
+  end
   return best
 end
 
