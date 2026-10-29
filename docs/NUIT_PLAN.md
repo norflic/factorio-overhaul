@@ -79,3 +79,5 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | PERTE DE CENTRALE a 50-60 min (nouveau) | 3 a 4 equipes sur 18 sans generateur a 60 min (ex. scarlet 20261020 : 762 kW a 50 min puis 0), cause non etablie (attaque supposee) | diagnostic lecture seule demande a plan-directeur sur les archives existantes |
 
 | INSTRUMENT-CENTRALE (FUSIONNE 07 h 40, version 0.6.10) | A/A : 0 ligne differente sur 2 graines (jusqu a 1316 lignes) ; 0 erreur Lua sur 6 parties ; 1re mesure d une mort de centrale : 20261020 azure 58,6 min, chaudiere et pompe tuees par un small-biter a 1-2 tuiles, QG a 66 tuiles, AUCUNE tourelle a moins de 25 tuiles (mesure) ; content 331 OK | tag jouable-0.6.10 ; rejeu de 5 graines avec journal demande |
+
+| CENTRALE-PERTE (07 h 57) | 9 parties avec journal : 19 lignes, 7 incidents sur 25 equipes (12 % hors graines choisies), tous « small » (6 small-biter, 1 small-spitter), 5 sur 7 SANS tourelle armee a moins de 25 tuiles, sites a 59-119 tuiles du QG (mediane 75), aucun a moins de 23 tuiles | lot CENTRALE-GARDE lance (plan-directeur) : K tourelles armees a portee de la centrale, scenario provoque + 6 graines |
