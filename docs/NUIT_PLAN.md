@@ -119,3 +119,5 @@ Porte de fusion : relecture STATIQUE qui corrige + tests hors jeu rapides + UN c
 | CENTRE-JEU (mecanique reparation) | corr-centre-jeu | main |
 | CENTRALE-GARDE | centrale-garde | d0c0b1b (plan-directeur, relecture a lancer) |
 Agents de workflow : ne pas leur ecrire. Integration : je fusionne les branches valides dans une branche integration, tests hors jeu, UN content, puis main (0.6.12).
+
+| VAGUE PARALLELE (FUSIONNEE 13 h, version 0.6.12) | 11 lots developpes puis relus en statique par des agents independants qui ont corrige (reseau, reconstruction, soldats, fours+mains, energie, reconnaissance, tourelles, stockage, espace, convoyeurs, centre-jeu) + CENTRALE-GARDE ; 4 conflits de fusion resolus a la main (requires, build.lua, outposts.lua) ; plafond iag_test de config.lua a 42 (T.wall) ; tests hors jeu verts ; content 331 OK 0 erreur Lua | tag jouable-0.6.12 |
