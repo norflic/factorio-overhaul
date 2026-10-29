@@ -110,3 +110,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~15 h 10, passage 32
 - Rien de nouveau : content-0615 et content-0616 (VAGUE3/INTEG) 331 OK, 0 erreur Lua, 0 plantage. Aucun factorio.exe, file des bancs vide. Workflow wf_90c72aba-bba (PRIORITE-RESSOURCES + audit capitalisation) en cours, statique, aucun banc.
+
+## 29/10 ~15 h 25, passage 33
+- Rien de nouveau cote archives (aucune nouvelle depuis content-0616 ; file des bancs vide). La partie du DC (0.6.16, factorio.exe PID 28932) tourne : son journal vivant n'est pas aux emplacements habituels (factorio-current.log racine = 26/10, %APPDATA% = juin) : a ne pas lire a la place d'une archive ; ses retours dictes (RETOUR_DC_2 a 5) tiennent lieu de releve. 5 workflows en cours (statique) : PRIORITE, AGENCEMENT, EXTENSION-FER + REBUILD-SUIVI, POTEAUX + audit murs, audit Emeraude ; centre-fusee relance (v5).
