@@ -64,6 +64,7 @@ B.SMELTERS = 45
 B.SMELTERS_WANT = 4
 B.AMMO = 55
 B.AMMO_STOCK = 60   -- réserve de munitions visée (ancienne marche « defense »)
+B.AMMO_MIN = 20     -- lot INTEG-ECONOMIE (D1) : réserve MINIMALE de munitions, jamais retenue par « production d'abord » (shared/team/priorite.lua)
 B.RESEARCH = 62
 B.RESEARCH_PALIER = 14 -- la technologie suivante ouvre un pack (« la recherche vaut ce qu'elle débloque », H9)
 B.RESEARCH_PRE = 44    -- plafond avant « fer II » (économie d'abord, revue B3)
@@ -250,7 +251,9 @@ function B.generate(s, st)
   local ammo = T.turret_ammo
   if boot and (s.stock[ammo] or 0) < B.AMMO_STOCK then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,
-      n = B.AMMO_STOCK - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense), permanent = true }
+      n = B.AMMO_STOCK - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense), permanent = true,
+      -- lot INTEG-ECONOMIE (D1) : sous B.AMMO_MIN, la part jusqu'au minimum reste payée même quand la production passe d'abord
+      minimal_n = math.max(0, B.AMMO_MIN - (s.stock[ammo] or 0)) }
   end
   -- Recherche (factions) : la technologie choisie par le runtime. ÉCONOMIE D'ABORD (revue B3 : IA2-a, 3e essai, une
   -- faction qui payait sa recherche avant son fer II s'est effondrée ; moteur simulé de pvp_test, essai 3 de ce lot :
@@ -280,8 +283,9 @@ function B.generate(s, st)
     local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
     local war = s.at_war and B.ARMY_WAR_PCT or 100
     if (s.soldiers or 0) < first then
+      -- lot INTEG-ECONOMIE (D1) : les premiers soldats sont la défense MINIMALE, jamais retenue par « production d'abord »
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = first,
-        value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true }
+        value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true, minimal = true }
     elseif (s.soldiers or 0) < (s.army_target or 0) then
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = s.army_target,
         value = val(math.floor(B.ARMY_MORE * war / 100), w.armee), permanent = true }

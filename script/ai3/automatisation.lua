@@ -443,7 +443,8 @@ local function submit(f, st, tick, rq, research)
     note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier module electrique")
   end
   local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
-    pole = rq.pole }
+    pole = rq.pole,
+    shrunk = rq.shrunk or nil } -- lot INTEG-ECONOMIE (D2) : la ligne ne grandit pas au-delà de la taille réduite demandée (line_rows)
   if not spec.near and rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
     local ps = Build.brief(f, st.plant_id)
     local pt = ps and ps.parts and ps.parts[1]

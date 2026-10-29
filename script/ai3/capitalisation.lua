@@ -879,10 +879,12 @@ local function execute(f, cs, o, view, book, tick, research)
       local ids, why = {}, nil
       local rkey = Rp.key(meth.product, o.deposit)
       local repli = repli_book(cs)
+      local shrunk = Rp.factor(repli, rkey, tick) < 1 -- lot INTEG-ECONOMIE (D2) : module réduit après un échec de matériaux
       for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick))) do
         local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
+          shrunk = shrunk or nil,
           rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
           tick, research)

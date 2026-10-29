@@ -545,6 +545,7 @@ function P.plan(view, book)
       burn_rate = burn_rate + o.drills * 0.0375 + (spec.sink == "stone-furnace" and o.drills * 0.0225 or 0)
     end
     burn_rate = burn_rate + view.smelters * 0.0225
+    burn_rate = burn_rate + (view.build_burn or 0) -- lot INTEG-ECONOMIE (D4) : fours à combustible du plan directeur (relevé de script/team/build.lua)
     out.coal_rate, out.burn_rate = coal_rate, burn_rate
     if #view.outposts > 0 and coal_rate < 1.4 * burn_rate and (view.pending.coal or 0) == 0 then
       local items = outpost_items("coal")
