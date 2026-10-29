@@ -29,6 +29,7 @@ local Build = require("script.team.build")
 local Sweep = require("shared.team.rebuild_sweep") -- lot REBUILD-SUIVI : règles pures du suivi d'un projet rouvert
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
+local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D10) : module au plafond de son produit, plus nourri
 
 local Auto = {}
 
@@ -558,7 +559,8 @@ function Auto.think(f, view, book, tick, research)
     if Sweep.goal_for_module(m) then
       mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain }
     end
-    if m.state == "fini" and f.build then
+    -- Lot MAIN-ET-INTERMEDIAIRES (D10) : produit au plafond de stock (script/team/intermediaires.lua) : rien n'est fabriqué pour ses quais.
+    if m.state == "fini" and f.build and not Inter.over(f, m.product) then
       -- Objets de ses quais d'entrée qui manquent au coffre : fabriqués ou fondus pour lui (pas les minerais ni le
       -- charbon : avant-postes ; un quai de minerai est un défaut du plan, la fonderie se dimensionne pour le tapis).
       local s = Build.brief(f, m.id)

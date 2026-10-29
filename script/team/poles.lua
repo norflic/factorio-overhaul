@@ -29,6 +29,7 @@ local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : minage de fer de renfort pour les inactifs
+local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09) : ressources que les machines sortent en quantité
 local Planner = require("shared.team.planner") -- lot IA1-b2 : avant-postes non défendus (P.undefended)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
@@ -273,6 +274,9 @@ function Poles.think(f, view, book, tick, plan)
   for _, res in ipairs(State.sorted_keys(org.mine_bad or {})) do
     if tick - org.mine_bad[res] < 7200 then skip[res] = true end
   end
+  -- Lot MAIN-ET-INTERMEDIAIRES (D09) : ni fond ni renfort de fer sur une ressource que les machines de l'équipe sortent en quantité
+  -- (décision de la pensée précédente, script/team/intermediaires.lua ; mode survie : rien de coupé).
+  for _, res in ipairs(State.sorted_keys(Inter.mine_skip(f))) do skip[res] = true end
   local free = Fond.free_stock(view.stock, list)
   local epoch = (f.tech or 0) + 1
   local mine_cap = O.manual_cap(n_exec, epoch)
