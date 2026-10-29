@@ -149,3 +149,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~21 h 20, passage 45
 - Rien de nouveau : aucune archive depuis content-0618 ; aucune partie ni banc ; file vide, places = 1. Vague 8 + PILE en statique (5 lots sur 7 avec commit) ; centre v6 : 14 etats en design sur le verrou Blender (2 places).
+
+## 29/10 ~22 h, passage 46
+- Rien de nouveau cote archives (derniere : content-0618) ; aucun banc (le DC joue, places = 1). Retours en direct du DC (RETOUR_DC_6 et _7) traites en lots : SCALE-COMPLET, ARMEE-ANTICIPATION, DETOUR-BOUCLE, COMPAGNONS-ACTIFS, RANGEES-DEBIT, MIGRATION-DECLENCHE, DEFENSE-CHOIX ; conception PREVISION ; vague 8 en relecture.
