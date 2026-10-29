@@ -33,10 +33,10 @@ local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
-local Or = require("shared.team.orient")      -- lot PD-FONDERIEQG (D82) : sens du gisement (règle pure)
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
+local Or = require("shared.team.orient")      -- lot PD-FONDERIEQG (D82) : sens du gisement (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
@@ -578,8 +578,8 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
     if res then fopts.ore = ores end
-    -- lot PD-FONDERIEQG (D82) : ligne de foreuses dans le sens du gisement, sortie du collecteur vers l'arrivée
-    if res and opts and opts.follow then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
+    -- lot PD-FONDERIEQG (D82) : ligne de foreuses (gabarit « drills ») dans le sens du gisement, sortie du collecteur vers l'arrivée
+    if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
     local fit, why = P.fit(g, rect, fopts)
     if fit then
@@ -1214,7 +1214,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if g then
       place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
         { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
-          within = p.spec and p.spec.degel and p.spec.degel.zone or nil, follow = true })
+          within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
       if place then picked = at break end
     end
   end
