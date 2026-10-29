@@ -46,3 +46,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~05 h 25, passage 12
 - Rien de nouveau : 108 fichiers lus, 0 erreur Lua, 0 ECHEC reel. Disque 136 Go. File vide (0 banc.py, 0 factorio.exe, 3 bash) : la serie 2 de CAPIA est finie ou entre deux parties.
+
+## 29/10 ~06 h, passage 13
+- Rien de nouveau : 50 fichiers lus, 0 erreur Lua, 0 ECHEC reel. Disque 136 Go. File vide (0 banc.py, 0 factorio.exe, 5 bash) : POTEAUX-V2 en phase de code et de criteres.
