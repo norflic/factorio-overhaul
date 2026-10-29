@@ -140,3 +140,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~19 h 50, passage 42
 - Rien de nouveau : aucune archive depuis content-0617 (17 h 50) ; aucune partie ni banc ; file vide, places = 1. Les 3 lots d'integration (defense, economie, reconstruction) sont en relecture statique ; integration-0618 attend leur fusion avant le content unique.
+
+## 29/10 ~20 h 45, passage 43
+- content-0618 (VAGUE7/INTEG, 0.6.18) : 331 OK, 0 erreur Lua. pvp_test 0.6.18 = 1305 OK. Regression trouvee a l'integration (survie_moteur_test 61/63 : commande partielle du QG sans demande de matieres, mesure par bissection) et corrigee (58b430b) avant la fusion. Aucun factorio.exe, file vide, places = 1 ; Blender (design v6, mur) tourne.
