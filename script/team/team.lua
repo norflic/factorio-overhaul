@@ -479,8 +479,8 @@ function Team.view(f, tick)
   end
   Profiler.fstop("view:2-avant-postes")
   Profiler.fstart("view:3-sites")
-  local sites = {}
-  for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind] = Sites.available(f, T.outposts[kind].resource) end
+  local sites, sites_near = {}, {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind], sites_near[kind] = Sites.available(f, T.outposts[kind].resource, tick) end
   Profiler.fstop("view:3-sites")
   Profiler.fstart("view:4-fin")
   local groups = {}
@@ -550,7 +550,7 @@ function Team.view(f, tick)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = Board.incoming(f),
-    outposts = outposts, pending = pend, sites = sites,
+    outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),

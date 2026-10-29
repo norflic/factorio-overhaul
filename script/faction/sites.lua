@@ -128,6 +128,79 @@ function Sites.mark_unreachable(pos, tick, ttl)
   war.unreachable[State.site_key(pos)] = tick + (ttl or UNREACHABLE_TICKS)
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot SITE-PROCHE (29/10) : plancher de valeur, site proche bloqué, signal `f.site_blocked`
+---------------------------------------------------------------------------------------------------
+-- Constat du DC (29/10, partie réelle, Emeraude, « ils vont vachement loin pour le charbon », audit
+-- fo-logs/2026-10-29_VAGUE4/AUDIT4/site-charbon.md) : le gisement à 45 tuiles, écarté 30 min pour un ennemi vu une fois
+-- (« hostile » puis « injoignable »), n'était plus candidat ; le choix ne refusait JAMAIS un site (valeur -2 083 observée)
+-- et envoyait un ouvrier à 201-357 tuiles. Règles pures dans shared/faction/valeur.lua (V.FLOOR, V.admissible).
+--   * mémoire f.site_block : sites de la FACTION vus bloqués (hostile, injoignable, écarté) avec leur échéance, 8 au plus ;
+--   * Sites.available / find_by_value ne comptent et ne puisent que les sites ADMISSIBLES : valeur au moins V.FLOOR, et
+--     pas plus loin que V.suspend_limit tant qu'un site de la MÊME ressource, plus proche, est bloqué (suspendu, pas
+--     perdu : il reste en réserve et redevient admissible à la fin du blocage) ;
+--   * signal f.site_blocked[ressource] = { x, y, why, until_tick, d_blocked, n, since } posé tant qu'au moins un site est
+--     suspendu (pour DEFENSE-FRONT et le cerveau : sécuriser le site proche plutôt que partir loin) ; AUCUNE action ici.
+-- L'équipe du joueur garde la règle d'avant (premier site de la réserve) : rien de ceci ne la concerne.
+local BLOCK_KEEP = 8
+local BLOCK_LOG_MAX = 200
+
+local function unreachable_until(war, pos)
+  return war.unreachable and war.unreachable[State.site_key(pos)] or nil
+end
+
+local function dist_hq(f, p)
+  local hq = f.hq_pos
+  return math.floor(math.sqrt((p.x - hq.x) ^ 2 + (p.y - hq.y) ^ 2))
+end
+
+--- Retient qu'un site de `resource` est bloqué jusqu'à `until_tick` (même site et même ressource : échéance prolongée).
+local function note_blocked(f, site, resource, why, until_tick)
+  if not (f.hq_pos and resource and until_tick) then return end
+  f.site_block = f.site_block or {}
+  local key = State.site_key(site)
+  for _, e in ipairs(f.site_block) do
+    if e.key == key and e.resource == resource then
+      if until_tick > e.until_tick then e.until_tick = until_tick end
+      e.why = why
+      return
+    end
+  end
+  f.site_block[#f.site_block + 1] = { key = key, x = site.x, y = site.y, resource = resource, why = why, until_tick = until_tick }
+  while #f.site_block > BLOCK_KEEP do table.remove(f.site_block, 1) end
+end
+
+--- Site bloqué le plus proche du QG pour `resource` : { d, x, y, why, until_tick } ou nil. Mémoire (échéances passées
+--- retirées) et sites PERDUS récemment revenus à la réserve (le danger de perte dure V.LOST_TTL).
+local function blocked_nearest(f, resource, tick)
+  local best
+  local function offer(d, x, y, why, until_tick)
+    if not best or d < best.d then best = { d = d, x = x, y = y, why = why, until_tick = until_tick } end
+  end
+  local mem = f.site_block
+  if mem then
+    local keep = {}
+    for _, e in ipairs(mem) do
+      if e.until_tick > tick then
+        keep[#keep + 1] = e
+        if e.resource == resource then offer(dist_hq(f, e), e.x, e.y, e.why, e.until_tick) end
+      end
+    end
+    if #keep ~= #mem then f.site_block = keep end
+  end
+  for _, s in ipairs(f.prospects or {}) do
+    if s.lost and s.resource == resource then
+      for _, l in ipairs(f.lost_sites or {}) do
+        local age = tick - (l.tick or 0)
+        if age >= 0 and age < V.LOST_TTL and (l.x - s.x) ^ 2 + (l.y - s.y) ^ 2 <= 4 then
+          offer(dist_hq(f, s), s.x, s.y, "perte", l.tick + V.LOST_TTL)
+        end
+      end
+    end
+  end
+  return best
+end
+
 --- Lot SITES (mémoire d'échec par site). Moteur réel, graine 1618033988, 28/10 : le seul site de cuivre de votre équipe
 --- (101, -43) était puisé dans la réserve toutes les 35 s pendant toute la partie, puis rendu sans qu'aucun avant-poste
 --- n'y soit posé (projet « extraction:copper actif », jamais de livraison, autre cuivre jamais cherché). Un site remis
@@ -147,6 +220,7 @@ local function note_handout(f, site, tick)
   if again and e.n > FAIL_FREE then
     local ttl = math.min(UNREACHABLE_TICKS, FAIL_BASE * 2 ^ (e.n - FAIL_FREE - 1))
     Sites.mark_unreachable(site, tick, ttl)
+    note_blocked(f, site, site.resource, "ecarte", tick + ttl)
     e.out = nil
     f.stats.site_backoff = (f.stats.site_backoff or 0) + 1
     log(string.format("[FO-SITES] ecarte tick %d %s %s : (%d, %d), %d remises sans avant-poste, ecarte %.1f min", tick, f.key,
@@ -334,9 +408,13 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
   free = free and why == nil
   Profiler.stop("prospect:checks")
   local area = { { cx * 32, cy * 32 }, { cx * 32 + 32, cy * 32 + 32 } }
-  if why and (f.stats.refus_logged or 0) < REFUS_LOG_MAX and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
+  -- Lot SITE-PROCHE : le chunk injoignable est retenu (site bloqué) même quand le journal des refus est plein.
+  if why and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
     for _, res in ipairs(wanted) do
-      if count_resources(surface, area, res, 64) >= MIN_SITE_RESOURCES then refuse(f, tick, why, res, center) end
+      if count_resources(surface, area, res, 64) >= MIN_SITE_RESOURCES then
+        refuse(f, tick, why, res, center)
+        note_blocked(f, center, res, why, unreachable_until(war, center))
+      end
     end
   end
   if free and count_resources(surface, area, nil, MIN_RESOURCES) >= MIN_RESOURCES then
@@ -368,6 +446,7 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
       -- Refus de Lua pur d'abord (injoignable, revendiqué, trop près d'un site de la réserve), avant les lectures moteur.
       if unreachable(war, site, tick) then
         refuse(f, tick, "injoignable", best, site)
+        note_blocked(f, site, best, "injoignable", unreachable_until(war, site))
         return false
       end
       local cb, pb = claim_blocker(war, site), prospect_blocker(f, site)
@@ -391,6 +470,7 @@ local function probe(f, surface, cx, cy, tick, wanted, front, other_hqs, spawn, 
       local hostile = surface.count_entities_filtered({ position = site, radius = ENEMY_CLEARANCE, force = "enemy", limit = 1 }) > 0
       if hostile then
         Sites.mark_unreachable(site, tick)
+        note_blocked(f, site, best, "hostile", tick + UNREACHABLE_TICKS)
         f.stats.prospect_hostile = (f.stats.prospect_hostile or 0) + 1
         refuse(f, tick, "hostile", best, site)
       else
@@ -583,10 +663,98 @@ function Sites.census(surface, name, pos)
   return out
 end
 
---- Nombre de sites en réserve pour une ressource (toutes si nil).
-function Sites.available(f, resource)
+--- Sites VALIDES de la réserve (ni revendiqués, ni injoignables : un injoignable est retenu comme bloqué) avec leur
+--- verdict d'admission : liste { site, value, d_hq, ok, why, block }, `ctx` de la carte de valeur. `resource` nil : toutes.
+--- Réservé aux factions (la réserve du joueur garde la règle d'avant).
+local function admit(f, tick, resource)
+  local war = State.war()
+  local list = {}
+  for _, s in ipairs(f.prospects or {}) do
+    if resource == nil or s.resource == resource then
+      if unreachable(war, s, tick) then
+        note_blocked(f, s, s.resource, "injoignable", unreachable_until(war, s))
+      elseif not claimed(war, s) then
+        list[#list + 1] = { site = s }
+      end
+    end
+  end
+  local ctx = Sites.value_ctx(f, tick)
+  local blocked = {}
+  for _, e in ipairs(list) do
+    local res = e.site.resource
+    if blocked[res] == nil then blocked[res] = blocked_nearest(f, res, tick) or false end
+    local comp = V.components(e.site, ctx)
+    e.value, e.d_hq = comp.value, comp.d_hq
+    local b = blocked[res] or nil
+    e.ok, e.why = V.admissible({ value = comp.value, d_hq = comp.d_hq, seeded = e.site.seeded }, b and b.d or nil)
+    e.block = b
+  end
+  return list, ctx
+end
+
+--- Trace et signal d'une passe d'admission sur une ressource : un site sous le plancher (une ligne par site), des sites
+--- suspendus (une ligne par épisode, signal f.site_blocked[ressource] tant qu'il y en a), fin du blocage.
+local function report(f, resource, list, tick)
+  local first, n = nil, 0
+  for _, e in ipairs(list) do
+    if not e.ok then
+      if e.why == "suspendu" then
+        n = n + 1
+        if not first or e.d_hq < first.d_hq then first = e end
+      elseif not e.site.floor_logged then
+        e.site.floor_logged = true
+        f.stats.plancher = (f.stats.plancher or 0) + 1
+        if (f.stats.site_block_logged or 0) < BLOCK_LOG_MAX then
+          f.stats.site_block_logged = (f.stats.site_block_logged or 0) + 1
+          log(string.format("[FO-SITES] plancher tick %d %s %s : (%d, %d), %d tuiles du QG, valeur %d sous le plancher %d", tick,
+            f.key, resource, math.floor(e.site.x), math.floor(e.site.y), e.d_hq, e.value, V.FLOOR))
+        end
+      end
+    end
+  end
+  local sig = f.site_blocked and f.site_blocked[resource]
+  if first then
+    local b = first.block
+    f.site_blocked = f.site_blocked or {}
+    if not sig or sig.x ~= b.x or sig.y ~= b.y then
+      sig = { since = tick }
+      f.site_blocked[resource] = sig
+      f.stats.suspendu = (f.stats.suspendu or 0) + 1
+      if (f.stats.site_block_logged or 0) < BLOCK_LOG_MAX then
+        f.stats.site_block_logged = (f.stats.site_block_logged or 0) + 1
+        log(string.format("[FO-SITES] suspendu tick %d %s %s : %d site(s) lointain(s) suspendu(s) (le plus proche a %d tuiles, valeur %d), site proche (%d, %d) a %d tuiles bloque (%s) jusqu'a %.1f min",
+          tick, f.key, resource, n, first.d_hq, first.value, math.floor(b.x), math.floor(b.y), b.d, b.why, b.until_tick / 3600))
+      end
+    end
+    sig.x, sig.y, sig.why, sig.until_tick, sig.d_blocked, sig.n = b.x, b.y, b.why, b.until_tick, b.d, n
+  elseif sig then
+    f.site_blocked[resource] = nil
+    if (f.stats.site_block_logged or 0) < BLOCK_LOG_MAX then
+      f.stats.site_block_logged = (f.stats.site_block_logged or 0) + 1
+      log(string.format("[FO-SITES] debloque tick %d %s %s : plus aucun site suspendu (site proche (%d, %d) libre ou blocage fini)",
+        tick, f.key, resource, math.floor(sig.x), math.floor(sig.y)))
+    end
+  end
+end
+
+--- Nombre de sites en réserve pour une ressource (toutes si nil). Pour une FACTION et une ressource : les seuls sites
+--- ADMISSIBLES (lot SITE-PROCHE, valeur au moins V.FLOOR, non suspendus), et en second résultat la distance au QG du plus
+--- proche d'entre eux (nil sans site : lue par shared/ai3/projets.lua, R1). L'équipe du joueur : compte brut, sans distance.
+function Sites.available(f, resource, tick)
   if not resource then return f.prospects and #f.prospects or 0 end
-  return prospects_of(f, resource)
+  if f.is_player or not f.hq_pos then return prospects_of(f, resource) end
+  tick = tick or game.tick
+  local list = {}
+  if prospects_of(f, resource) > 0 then list = admit(f, tick, resource) end
+  report(f, resource, list, tick)
+  local n, near = 0, nil
+  for _, e in ipairs(list) do
+    if e.ok then
+      n = n + 1
+      if not near or e.d_hq < near then near = e.d_hq end
+    end
+  end
+  return n, near
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -660,6 +828,13 @@ end
 --- « meilleur site connu » de la posture « expansion »).
 function Sites.best_value(f, tick)
   local war = State.war()
+  if not f.is_player and f.hq_pos then -- lot SITE-PROCHE : seuls les sites admissibles comptent
+    local list, ctx = admit(f, tick, nil)
+    local ok = {}
+    for _, e in ipairs(list) do if e.ok then ok[#ok + 1] = e.site end end
+    if #ok == 0 then return nil end
+    return V.rank(ok, ctx)[1].value
+  end
   local cands = {}
   for _, s in ipairs(f.prospects or {}) do
     if not claimed(war, s) and not unreachable(war, s, tick) then cands[#cands + 1] = s end
@@ -675,22 +850,26 @@ local function find_by_value(f, tick, resource)
   local war = State.war()
   local list = f.prospects or {}
   local function valid(s) return not claimed(war, s) and not unreachable(war, s, tick) end
-  local cands, keep = {}, {}
-  for _, s in ipairs(list) do
-    if resource == nil or s.resource == resource then
-      if valid(s) then
-        cands[#cands + 1] = s
-        keep[#keep + 1] = s
-      end
-    else
-      keep[#keep + 1] = s
+  -- Lot SITE-PROCHE : seuls les sites ADMISSIBLES sont puisés ; un site valide mais inadmissible (sous le plancher,
+  -- suspendu) reste en réserve, un site invalide en est retiré comme avant (son blocage est retenu : admit).
+  local adm, ctx = admit(f, tick, resource)
+  local is_valid, cands = {}, {}
+  for _, e in ipairs(adm) do
+    is_valid[e.site] = true
+    if e.ok then
+      cands[#cands + 1] = e.site
     end
+  end
+  if resource ~= nil then report(f, resource, adm, tick) end
+  local keep = {}
+  for _, s in ipairs(list) do
+    if (resource ~= nil and s.resource ~= resource) or is_valid[s] then keep[#keep + 1] = s end
   end
   if #cands == 0 then
     f.prospects = keep
     return nil
   end
-  local chosen, vrank, _, ranked = V.choose(cands, Sites.value_ctx(f, tick), draw_of(f))
+  local chosen, vrank, _, ranked = V.choose(cands, ctx, draw_of(f))
   local site = chosen.site
   local out = {}
   for _, s in ipairs(keep) do if s ~= site then out[#out + 1] = s end end

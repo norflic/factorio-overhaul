@@ -223,5 +223,130 @@ do
   check(got[1] == cu2 and got[2] == cu2 and got[3] == nil, "faction : donné deux fois, puis écarté")
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot SITE-PROCHE (29/10) : plancher de valeur, site proche bloqué (suspension du lointain), signal f.site_blocked
+-- Constat du DC : Emeraude partait chercher du charbon à 201-357 tuiles pendant que le gisement à 45 tuiles, écarté 30 min
+-- pour un ennemi vu une fois, était « injoignable » ; le choix ne refusait jamais un site (valeur -2 083 observée).
+---------------------------------------------------------------------------------------------------
+section("Site proche bloqué, plancher, signal (lot SITE-PROCHE)")
+do
+  local surf = game.surfaces[war.surface]
+  local g = war.factions[2]
+  local ghq = g.hq_pos
+  local saved_traits = g.traits
+  g.traits = nil -- ambition 1 000 : portée 220 tuiles, valeurs de test indépendantes du caractère tiré
+  local TK = 500000
+  local function coal(d, rich) return { x = ghq.x - d, y = ghq.y, resource = "coal", radius = 6, rich = rich, tiles = 60 } end
+  local function reset()
+    war.unreachable, war.claims, war.claim_pos = {}, {}, {}
+    g.prospects, g.site_block, g.site_blocked, g.lost_sites, g.site_fail = {}, nil, nil, {}, nil
+    for _, k in ipairs({ "plancher", "suspendu", "refus" }) do g.stats[k] = nil end
+    g.stats.site_block_logged = nil
+  end
+  local function nlogs(p) return #logs(p) end
+
+  -- 1. Un site lointain RICHE (valeur -106, au-dessus du plancher), seul : admissible, distance rendue.
+  reset()
+  local near, far = coal(45, 10000000), coal(201, 10000000)
+  g.prospects = { far }
+  local n, d = Sites.available(g, "coal", TK)
+  check(n == 1 and d == 201, "lointain seul : un site admissible, distance au QG rendue (" .. tostring(n) .. ", " .. tostring(d) .. ")")
+  check(g.site_blocked == nil or g.site_blocked.coal == nil, "aucun signal sans site proche bloqué")
+
+  -- 2. Le site proche devient injoignable (hostile, injoignable : même mémoire) : le lointain est SUSPENDU, le signal est
+  --    posé, la trace est écrite UNE fois, le site lointain reste en réserve.
+  g.prospects = { near, far }
+  Sites.mark_unreachable(near, TK)
+  n, d = Sites.available(g, "coal", TK)
+  check(n == 0 and d == nil, "proche injoignable : le lointain à 201 tuiles est suspendu (" .. tostring(n) .. ")")
+  local sig = g.site_blocked and g.site_blocked.coal
+  check(sig and sig.why == "injoignable" and sig.d_blocked == 45 and sig.n == 1 and sig.until_tick == TK + 108000,
+    "signal f.site_blocked.coal : site proche, motif, échéance, nombre de sites suspendus")
+  check(nlogs("[FO-SITES] suspendu tick") == 1 and nlogs("site proche (") == 1, "trace [FO-SITES] suspendu écrite une fois")
+  Sites.available(g, "coal", TK + 60)
+  check(nlogs("[FO-SITES] suspendu tick") == 1, "pas de nouvelle ligne pour le même blocage")
+  local got = Sites.find(g, surf, TK + 60, "coal")
+  check(got == nil, "find : aucun ouvrier envoyé au lointain tant que le proche est bloqué")
+  check(#g.prospects == 1 and g.prospects[1] == far, "le lointain suspendu reste en réserve, le proche invalide en est retiré")
+  n = Sites.available(g, "coal", TK + 120)
+  check(n == 0 and (g.site_blocked or {}).coal ~= nil, "la mémoire garde le blocage après le retrait du proche de la réserve")
+  check(Sites.best_value(g, TK + 120) == nil, "valeur du meilleur site connu : nil (rien d'admissible pour le chef)")
+
+  -- 3. Fin du blocage : le lointain redevient admissible, le signal tombe, la trace le dit.
+  n, d = Sites.available(g, "coal", TK + 108000 + 1)
+  check(n == 1 and d == 201, "blocage fini : le lointain est de nouveau admissible")
+  check((g.site_blocked or {}).coal == nil and nlogs("[FO-SITES] debloque tick") == 1, "signal retiré et trace [FO-SITES] debloque")
+  got = Sites.find(g, surf, TK + 108000 + 1, "coal")
+  check(got == far, "find : le lointain est puisé une fois le blocage fini")
+
+  -- 4. Un site proche bloqué d'une AUTRE ressource ne suspend rien.
+  reset()
+  local cu_near = { x = ghq.x - 45, y = ghq.y, resource = "copper-ore", radius = 6, rich = 10000000, tiles = 60 }
+  g.prospects = { cu_near, far }
+  Sites.mark_unreachable(cu_near, TK)
+  n = Sites.available(g, "coal", TK)
+  check(n == 1 and (g.site_blocked == nil or g.site_blocked.coal == nil), "cuivre proche bloqué : le charbon lointain n'est pas suspendu")
+
+  -- 5. Un site à la limite (105 tuiles pour un proche à 45) n'est pas suspendu ; un à 130 l'est.
+  reset()
+  local mid_ok, mid_far = coal(105, 10000000), coal(130, 10000000)
+  g.prospects = { near, mid_ok, mid_far }
+  Sites.mark_unreachable(near, TK)
+  n, d = Sites.available(g, "coal", TK)
+  check(n == 1 and d == 105, "limite 1,5 × d ou d + 60 : le site à 105 reste, celui à 130 est suspendu (" .. tostring(n) .. ", " .. tostring(d) .. ")")
+
+  -- 6. Le plancher : un site de valeur < V.FLOOR n'est ni compté ni puisé, reste en réserve, tracé une fois ; un gisement
+  --    de départ garanti (seeded) n'y est pas soumis.
+  reset()
+  local poor = coal(201, 100000)
+  g.prospects = { poor }
+  local comp = V.components(poor, Sites.value_ctx(g, TK))
+  check(comp.value < V.FLOOR, "site de test sous le plancher (valeur " .. comp.value .. ")")
+  n = Sites.available(g, "coal", TK)
+  check(n == 0, "sous le plancher : non compté")
+  Sites.available(g, "coal", TK + 10)
+  check(nlogs("[FO-SITES] plancher tick") == 1 and (g.stats.plancher or 0) == 1, "sous le plancher : tracé une seule fois")
+  check(Sites.find(g, surf, TK, "coal") == nil and #g.prospects == 1, "sous le plancher : jamais puisé, gardé en réserve")
+  poor.seeded = true
+  check(Sites.available(g, "coal", TK) == 1 and Sites.find(g, surf, TK, "coal") == poor, "gisement de départ garanti : hors plancher")
+
+  -- 7. Un site PERDU récemment (revenu à la réserve) compte comme site proche bloqué pour le lointain.
+  reset()
+  local lost = coal(45, 10000000)
+  lost.lost = true
+  g.prospects = { lost, far }
+  g.lost_sites = { { x = lost.x, y = lost.y, tick = TK - 100 } }
+  n = Sites.available(g, "coal", TK)
+  local cl = V.components(lost, Sites.value_ctx(g, TK))
+  check(g.site_blocked and g.site_blocked.coal and g.site_blocked.coal.why == "perte" and g.site_blocked.coal.d_blocked == 45,
+    "site perdu récent : signal motif perte")
+  check(n == (cl.value >= V.FLOOR and 1 or 0), "le perdu (valeur " .. cl.value .. ") est lui-même compté s'il est au-dessus du plancher, le lointain est suspendu")
+  n = Sites.available(g, "coal", TK + V.LOST_TTL + 1)
+  check((g.site_blocked or {}).coal == nil and n == 2, "perte oubliée après V.LOST_TTL : les deux sites admissibles")
+
+  -- 8. Probe : un chunk injoignable est retenu comme site bloqué, même journal de refus plein.
+  reset()
+  g.stats.refus_logged = 400
+  local pc = coal(45, 10000000)
+  W.patches[#W.patches + 1] = { x = pc.x, y = pc.y, name = "coal", amount = 500000 }
+  Sites.mark_unreachable(pc, game.tick)
+  g.site_needs = { coal = 2 }
+  g.site_cursor, g.prospect_wide, g.prospect_idle_until, g.scan_idle = 1, nil, 0, false
+  Sites.seen_filter = nil
+  for _ = 1, 400 do Sites.prospect(g, surf, game.tick) end
+  local mem = g.site_block and g.site_block[1]
+  check(mem and mem.resource == "coal" and mem.why == "injoignable", "prospection : chunk injoignable retenu bloqué (journal des refus plein)")
+  g.stats.refus_logged = nil
+  W.patches[#W.patches] = nil
+
+  -- 9. L'équipe du joueur garde la règle d'avant : compte brut, un seul résultat, rien de signalé.
+  local pf = { is_player = true, key = "player", prospects = { near, far }, stats = {} }
+  check(Sites.available(pf, "coal", TK) == 2 and select(2, Sites.available(pf, "coal", TK)) == nil, "joueur : compte brut, sans distance")
+  check(Sites.available(g, nil) == (g.prospects and #g.prospects or 0), "sans ressource : compte brut")
+  g.site_blocked, g.site_block = nil, nil
+  g.traits = saved_traits
+  war.unreachable = {}
+end
+
 print(string.format("\n[SITES] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

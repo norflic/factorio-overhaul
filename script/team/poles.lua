@@ -354,7 +354,8 @@ function Poles.think(f, view, book, tick, plan)
       -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
-      mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra })
+      mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra,
+      saturated = f.team.ia3 and f.team.ia3.saturated or nil }) -- lot SITE-PROCHE (R4)
   else
     cands = { extraction = {}, base = {}, territoire = {} }
     -- Lot FER-EQUIPE : fond coupé pour votre équipe SOUS son effectif de départ (hors QG menacé) : seul le renfort de fer reste.
