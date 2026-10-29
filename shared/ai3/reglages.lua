@@ -67,6 +67,11 @@ R.ENTITY_TYPES = {}
 for k in pairs(R.ENTITY_ROLE) do R.ENTITY_TYPES[#R.ENTITY_TYPES + 1] = k end
 table.sort(R.ENTITY_TYPES)
 
+-- Lot INSTRUMENT-CENTRALE : types du moteur d'une centrale à vapeur (chaudière, machine à vapeur, pompe de rive) et des tourelles qui
+-- peuvent la couvrir ; lus par le journal [FO-CENTRALE-MORT] (script/team/centrale_mort.lua), qui ne décide de rien.
+R.PLANT_TYPES = { "boiler", "generator", "offshore-pump" }
+R.TURRET_TYPES = { "ammo-turret", "electric-turret", "fluid-turret" }
+
 R.ITEM_ROLE = {
   ["ammo"] = "militaire",
   ["gun"] = "militaire",
