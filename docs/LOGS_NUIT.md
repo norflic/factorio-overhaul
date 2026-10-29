@@ -79,3 +79,5 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~10 h 55, passage 23
 - Rien de nouveau dans les 8 archives des 80 dernieres minutes : 0 erreur Lua, 0 ECHEC. Disque 129 Go (worktrees de la vague CORR). 5 banc.py pour 5 lots, 0 factorio.exe a cet instant. A SURVEILLER : 51 processus bash (5 agents de workflow + 5 autres agents) ; pas de rafale ; au-dela de 80 ou si le PC ralentit, mettre un lot en pause. Correction : deux horodatages d OBJECTIFS (~10 h 40 et 10 h 50) avaient ete ecrits « 11 h » par erreur.
+
+- 29/10 ~11 h 20 : le DC demande d ouvrir la 2e place de banc (fo-banc-places.txt = 2). A remettre a 1 si le DC rejoue ou si le PC ralentit.
