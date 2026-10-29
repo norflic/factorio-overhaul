@@ -463,6 +463,21 @@ function Team.view(f, tick)
       if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
     end
   end
+  -- Lot EFFECTIF (diagnostic, lecture seule) : une ligne par minute pour VOTRE équipe, une valeur par condition de la règle
+  -- de croissance ci-dessus (moteur réel, ia1-scale : l'équipe plafonne à 18 PNJ sur 30).
+  if f.is_player then
+    local m = math.floor(tick / 3600)
+    if f.team.eff_log ~= m then
+      f.team.eff_log = m
+      local undef = 0
+      for _, o in ipairs(outposts) do if (o.turrets or 0) < T.defend_turrets(o.drills) then undef = undef + 1 end end
+      log(string.format("[FO-EFFECTIF] player minute %d | n=%d plancher=%d visé=%d max=%d | grow(tourelle faisable)=%s | travail_en_attente=%d | depuis_derniere_croissance=%.1f min (période %.0f) | tourelles_QG=%d/%d | avant-postes_sans_défense=%d/%d | fer_coffre=%d seuil=%d | inactifs=%d fond=%d | frein_initial=%s grow_due=%s | bloque_agents=%s",
+        m, f.engineers_count or 0, floor, workers_wanted, workers_max, tostring(grow), backlog,
+        (tick - (f.team.last_grow or -T.grow_period)) / 3600, T.grow_period / 3600, hq_turrets, T.defend_hq, undef, #outposts,
+        stock0["iron-plate"] or 0, T.grow_iron_reserve + 10 + (f.engineers_count or 0), workers_idle, on_fond, tostring(recruit_held),
+        tostring(grow_due), tostring(recruit_blocked)))
+    end
+  end
   if grow_due then recruit_held = false end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
