@@ -328,17 +328,25 @@ function Poles.think(f, view, book, tick, plan)
   local fond_on = (full or safe) and not view.hq_threat -- QG menacé : tout le monde au coffre (script/team/team.lua)
   org.fond_on = fond_on
   local cands
-  if fond_on then
-    local player = f.is_player or false
-    -- Lot FER-EQUIPE : PNJ inactifs de votre équipe + coffre pauvre en fer et en minerai : minage de fer à la main de renfort.
-    local iron_extra
-    local spec = player and T.outposts.iron
-    if spec then
-      local idle_n = 0
-      for _, np in ipairs(npcs) do if np.idle and np.role ~= "generalist" then idle_n = idle_n + 1 end end
-      iron_extra = { res = spec.resource, n = FerEquipe.extra_mines({ idle = idle_n, plates = free[spec.product],
-        ore = free[spec.resource], smelters = view.smelters, prudent = prudent, skip = skip[spec.resource] }) }
+  -- Lot FER-EQUIPE : PNJ inactifs de votre équipe + coffre pauvre en fer et en minerai : minage de fer à la main de renfort.
+  -- Calculé AUSSI quand le fond est coupé (FerEquipe.off_fond : votre équipe sous son effectif de départ, sans fer pour recruter).
+  local player = f.is_player or false
+  local fer_off = FerEquipe.off_fond({ player = player, fond_on = fond_on, threat = view.hq_threat })
+  local iron_extra
+  local spec = player and T.outposts.iron
+  if spec then
+    local idle_n = 0
+    for _, np in ipairs(npcs) do if np.idle and np.role ~= "generalist" then idle_n = idle_n + 1 end end
+    iron_extra = { res = spec.resource, n = FerEquipe.extra_mines({ idle = idle_n, plates = free[spec.product],
+      ore = free[spec.resource], smelters = view.smelters, prudent = prudent, skip = skip[spec.resource] }) }
+    if iron_extra.n > 0 and (fond_on or fer_off) and not org.fer_logged then
+      org.fer_logged = tick
+      log(string.format("[FO-FER] %s : minage de fer de renfort, %d PNJ inactif(s) sur %d, fer %d, minerai %d, effectif %d/%d%s a %.1f min",
+        f.key or "?", iron_extra.n, idle_n, free[spec.product] or 0, free[spec.resource] or 0, n, floor0,
+        fond_on and "" or " (fond coupe, sous l'effectif de depart)", tick / 3600))
     end
+  end
+  if fond_on then
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
       defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
@@ -349,6 +357,11 @@ function Poles.think(f, view, book, tick, plan)
       mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
+    -- Lot FER-EQUIPE : fond coupé pour votre équipe SOUS son effectif de départ (hors QG menacé) : seul le renfort de fer reste.
+    if iron_extra and fer_off then
+      cands.extraction = Fond.iron_extra_tasks({ iron_extra = iron_extra, keys = keys, mine_skip = skip, prudent = prudent,
+        mine_radius = T.near_mine })
+    end
   end
   local room_now = {}
   for p, name in ipairs(POLE_KEYS) do room_now[p] = #cands[name] + fond_busy[p] end

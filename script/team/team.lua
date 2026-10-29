@@ -703,6 +703,14 @@ function Team.think(f, surface, tick)
   Worker.check_slots(f, surface, Scale.SLOT_CHECKS_PER_THINK)
   if plan.recruit_blocked then f.stats.recruit_guard = (f.stats.recruit_guard or 0) + 1 end
   if plan.recruit_held then f.stats.recruit_held = (f.stats.recruit_held or 0) + 1 end
+  -- Lot FER-EQUIPE : première recrue retenue par la réserve de fer (une fois par équipe ; journal seul, aucune décision).
+  if plan.grow_short and view.iron_reserve and not f.team.fer_reserve_logged then
+    f.team.fer_reserve_logged = tick
+    log(string.format("[FO-FER] %s : reserve de fer active, recrue retenue : fer %d, reserve %d + cout %d, effectif %d/%d a %.1f min",
+      f.key or "?", view.stock[T.outposts.iron.product] or 0, view.iron_reserve,
+      FerEquipe.recruit_iron(view.recruit_cost, T.outposts.iron.product), view.workers or 0,
+      view.workers_wanted or 0, tick / 3600))
+  end
   Profiler.stop("team:scale")
 
   -- Décisions immédiates sur le stock (relu : les tâches n'ont encore rien pris). Lot IA3-b : stock LIBRE (réglage).
