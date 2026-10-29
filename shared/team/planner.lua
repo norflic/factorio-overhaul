@@ -382,6 +382,14 @@ function P.plan(view, book)
         posts[#posts + 1] = fp
       end
     end
+    -- Lot ILOTS-MURS (arbitrage du DC, 29/10 : « l'entourer d'un mur et d'une ou 2 tourelle », « ressources d'abord ») : l'îlot isolé hors de
+    -- l'enceinte le plus en manque (script/team/ilots.lua, attaqué d'abord) ; poste FACULTATIF, le dernier : hors du coût de la défense
+    -- (jamais il ne fait passer la défense avant la production), servi seulement hors « production d'abord », au-dessus de planchers doublés.
+    if view.ilot and view.ilot.pick then
+      local pk = view.ilot.pick
+      posts[#posts + 1] = { id = "ilot", want = pk.want, have = pk.have, busy = view.ilot.busy, sites = pk.sites, pos = pk.pos,
+        ilot = pk.key, box = pk.box, optional = true, floor_i = view.ilot.floor_i, floor_cu = view.ilot.floor_cu }
+    end
   end
   -- Lot PRIORITE-RESSOURCES (remarque du DC, 29/10 : « si on manque cruellement de ressources, l'objectif est justement ces
   -- ressources, pas la défense […] mais si on peut pas se l'acheter, on investit les ressources dans la production de plus de
@@ -400,7 +408,7 @@ function P.plan(view, book)
     -- que la défense se servait dès 230.
     local n_miss, n_part = 0, 0
     for _, p in ipairs(posts) do
-      if p.have < p.want and not p.busy and not open["fortify:" .. p.id] then
+      if p.have < p.want and not p.busy and not open["fortify:" .. p.id] and not p.optional then -- (ILOTS-MURS : poste facultatif hors du coût)
         local n = p.want - p.have
         if not turret_craftable then n = math.min(n, avail[T.turret] or 0) end
         if PARTIAL_POSTS[p.id] then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end
@@ -638,9 +646,26 @@ function P.plan(view, book)
             local items = turret_items(n)
             local function task_of(list)
               add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = list, defend = true,
-                sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key })
+                sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key,
+                ilot = p.ilot, box = p.box }) -- (ILOTS-MURS : îlot et emprise de la pose)
             end
-            if take(items) then
+            if p.optional then
+              -- Lot ILOTS-MURS : « ressources d'abord ». Rien en « production d'abord » (pénurie comprise) ni pour une équipe décimée ; sinon
+              -- les tourelles du stock, ou leur fabrication si elle est payable au-dessus des planchers doublés (I.floors) ; pas payable : rien,
+              -- et aucune demande de matière (pas de minage ni de fonte pour un îlot).
+              d.floor_i, d.floor_cu = p.floor_i, p.floor_cu
+              if pri.production_first or decimated then
+                d.why = "ressources"
+              elseif take(items) then
+                task_of(items)
+                d.why = "tache_creee"
+              elseif affordable(items, p.floor_i or T.defend_iron_floor, p.floor_cu or T.defend_copper_floor) then
+                d.why = want_defense(items, p.floor_i, p.floor_cu) and "fabrication" or "manque"
+                if d.why == "manque" then d.raw = last_raw end
+              else
+                d.why = "ressources" -- attente voulue (pas un blocage de la défense : [FO-DEFENSE] ne la compte pas, BLOCKED)
+              end
+            elseif take(items) then
               task_of(items)
               d.why = "tache_creee"
             elseif PARTIAL_POSTS[p.id] then
