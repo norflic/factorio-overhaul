@@ -20,6 +20,7 @@ local Team = require("script.team.team")
 local Levels = require("script.levels.levels")
 local Free = require("script.levels.free")
 local Storage = require("script.core.storage")
+local Veille = require("script.faction.veille") -- lot VEILLE
 local Config = require("script.core.config")
 
 local function surface() return game.surfaces[1] end
@@ -106,6 +107,12 @@ remote.add_interface("factorio-overhaul", {
   end,
   -- Points d'intérêt (lecture seule) pour la revue visuelle : QG et avant-postes des factions et de
   -- l'équipe du joueur. Le mod de test n'a pas accès à `global` de ce mod (une table par mod).
+  --- Lot VEILLE (bancs de mesure SEULEMENT, rien n'est rangé dans global) : { on = bool } éteint la reconnaissance régulière
+  --- (témoin sur la MÊME source : mêmes relevés de secteurs, aucune mission de veille).
+  veille_options = function(o)
+    if o and o.on ~= nil then Veille.on = o.on and true or false end
+    return { on = Veille.on }
+  end,
   points_of_interest = function()
     local function team(f)
       if not (f and f.hq and f.hq.valid) then return nil end
