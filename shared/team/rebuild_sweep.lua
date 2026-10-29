@@ -14,7 +14,9 @@
       doit pas se confondre avec une perte). Revue en place : l'inscription est effacée.
     - ORDRE : d'abord les ENTRÉES DE PRODUCTION (classe 1 : foreuses, tapis, bras, fours), puis le reste (classe 2), puis le projet
       et la place dans le projet.
-    - PLAFONDS : au plus Sw.PASS_MAX pièces rouvertes par passe ; par projet et par heure, max(Sw.HOUR_MIN, la moitié du projet) ;
+    - PLAFONDS : au plus Sw.PASS_MAX pièces rouvertes par passe ; par projet et par heure, max(Sw.HOUR_MIN, la moitié du projet) pour le
+      reste (classe 2) et max(Sw.HOUR_MIN, le projet entier) pour les ENTRÉES DE PRODUCTION (classe 1, compteur à part : lot REBUILD-SUIVI,
+      la fonderie 6 d'Azur, 122 pièces, en rouvrait 61 puis attendait l'heure suivante) ;
       une même pièce détruite plus de Sw.MAX_REBUILD fois en Sw.FORGET ticks est ABANDONNÉE (e.gave_up : on ne nourrit pas
       indéfiniment un point que l'ennemi tient).
     - DANGER : `safe(c)` (fourni par l'exécutant : aucun ennemi près de la place) est consulté pièce par pièce ; une pièce en danger
@@ -42,8 +44,12 @@ function Sw.class_of(ty, first, skip)
   return 2
 end
 
---- Plafond horaire de réouvertures d'un projet de `n` pièces.
-function Sw.hour_cap(n) return math.max(Sw.HOUR_MIN, math.floor((n or 0) / 2)) end
+--- Plafond horaire de réouvertures d'un projet de `n` pièces : la moitié du projet (au moins Sw.HOUR_MIN), le projet entier pour les
+--- entrées de production (`class` = 1 ; compteur q.sw_n1 à part de q.sw_n).
+function Sw.hour_cap(n, class)
+  if class == 1 then return math.max(Sw.HOUR_MIN, n or 0) end
+  return math.max(Sw.HOUR_MIN, math.floor((n or 0) / 2))
+end
 
 --- Tranche suivante. `sizes` : nombre de pièces de chaque projet (dans l'ordre du plan) ; (pi, ei) : curseur (projet, pièce) ; `budget` :
 --- pièces à regarder au plus. Rend les segments { { pi, de, a }, ... } et le nouveau curseur (pi, ei). Le curseur boucle ; un projet
@@ -103,9 +109,10 @@ function Sw.select(cands, tick, safe)
         e.gave_up = true
         gave[#gave + 1] = c
       else
-        if not q.sw_t or tick - q.sw_t >= Sw.HOUR then q.sw_t, q.sw_n = tick, 0 end
-        if (q.sw_n or 0) < Sw.hour_cap(#q.ents) and (not safe or safe(c)) then
-          q.sw_n = (q.sw_n or 0) + 1
+        if not q.sw_t or tick - q.sw_t >= Sw.HOUR then q.sw_t, q.sw_n, q.sw_n1 = tick, 0, 0 end
+        local used = c.class == 1 and q.sw_n1 or q.sw_n
+        if (used or 0) < Sw.hour_cap(#q.ents, c.class) and (not safe or safe(c)) then
+          if c.class == 1 then q.sw_n1 = (q.sw_n1 or 0) + 1 else q.sw_n = (q.sw_n or 0) + 1 end
           e.rb, e.rb_t = (e.rb or 0) + 1, tick
           picked[#picked + 1] = c
         end
@@ -113,6 +120,76 @@ function Sw.select(cands, tick, safe)
     end
   end
   return picked, gave
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot REBUILD-SUIVI : suivi d'un projet ROUVERT par le relevé (règles pures, appelées par les exécutants)
+---------------------------------------------------------------------------------------------------
+-- Cause (audit 29/10, Ligue Azur) : le cerveau suit ses demandes de module (script/ai3/automatisation.lua) tant qu'elles ne sont pas
+-- « fini » ; un module fini n'était plus relu. Le relevé repassait la fonderie en « reserve » sans que personne le sache : aucun but
+-- ne fabriquait les fours, tapis et bras à refaire, et la fonderie restait « fini(95/95)=0/min » plus d'une heure.
+
+--- États d'un projet de plan directeur qui valent « encore à faire » pour un module que le cerveau croyait fini.
+Sw.REOPEN_STATES = { reserve = true, defrichage = true, fantomes = true, chantier = true, raccordement = true, bloque = true }
+
+--- Lignes d'état d'un projet rouvert : toutes les 5 minutes de jeu.
+Sw.ETAT_EVERY = 5 * 3600
+Sw.ETAT_LOGS = 60      -- lignes [FO-REBUILD-ETAT] par équipe au plus
+Sw.ETAT_ITEMS = 6      -- objets manquants cités au plus par ligne
+
+--- Un module `m` (enregistrement du cerveau) tenu pour fini dont le projet `s` (Build.brief) est de nouveau à faire : il redevient
+--- un module OUVERT (état, manques, construits relus ; production mesurée remise à 0), donc visible des buts « module ». Rend vrai
+--- si l'enregistrement a changé. Écrit m.state, m.reason, m.missing, m.built, m.total, m.reopened_at, m.reopened_n, m.rate_meas.
+function Sw.follow(m, s, tick)
+  if not (m and s and m.state == "fini" and Sw.REOPEN_STATES[s.state]) then return false end
+  m.state, m.reason = s.state, s.reason
+  m.missing = s.missing or {}
+  m.built, m.total = s.built or m.built, s.total or m.total
+  m.reopened_at = m.reopened_at or tick
+  m.reopened_n = (m.reopened_n or 0) + 1
+  m.rate_meas = 0
+  m.reserve_since, m.reserve_left = nil, nil
+  return true
+end
+
+--- Le module `m` est de nouveau fini : rend la durée de la réparation en ticks (nil s'il n'avait pas été rouvert) et efface la marque.
+function Sw.repaired(m, tick)
+  if not (m and m.reopened_at) then return nil end
+  local d = tick - m.reopened_at
+  m.reopened_at = nil
+  return d
+end
+
+--- Objets à refaire d'un projet (pièces `built = false` qui ont un objet) : liste { { objet, nombre } } triée par nombre décroissant
+--- puis par nom, et le nombre de pièces à refaire.
+function Sw.todo(q)
+  local count, names, pieces = {}, {}, 0
+  for _, e in ipairs(q.ents or {}) do
+    if not e.built and not e.gave_up and not e.dropped then
+      pieces = pieces + 1
+      if e.item then
+        if not count[e.item] then count[e.item] = 0 names[#names + 1] = e.item end
+        count[e.item] = count[e.item] + 1
+      end
+    end
+  end
+  table.sort(names, function(a, b)
+    if count[a] ~= count[b] then return count[a] > count[b] end
+    return a < b
+  end)
+  local out = {}
+  for i, n in ipairs(names) do out[i] = { n, count[n] } end
+  return out, pieces
+end
+
+--- Texte « objet xN, ... » (au plus `max` objets, puis « ... »).
+function Sw.items_text(list, max)
+  local parts = {}
+  for i, it in ipairs(list or {}) do
+    if i > (max or Sw.ETAT_ITEMS) then parts[#parts + 1] = "..." break end
+    parts[#parts + 1] = it[1] .. "x" .. it[2]
+  end
+  return table.concat(parts, ",")
 end
 
 return Sw

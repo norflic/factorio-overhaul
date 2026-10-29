@@ -26,6 +26,7 @@ local A = require("shared.ai3.automatiser")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Build = require("script.team.build")
+local Sweep = require("shared.team.rebuild_sweep") -- lot REBUILD-SUIVI : règles pures du suivi d'un projet rouvert
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
 
@@ -40,6 +41,7 @@ Auto.RADIUS = 3             -- treillis du plan directeur évalué au départ (7
 Auto.REFUSE_EPOCH = 30 * 3600 -- un refus est revu quand le contexte change, et au plus tard toutes les 30 min
 Auto.LOG_MAX = 16
 Auto.FEED_STOCK = 200        -- objets au coffre du QG pour les quais d'un module fini (Build.QUAI_LOW déclenche le remplissage)
+Auto.FOLLOW_EVERY = 60       -- ticks entre deux relectures d'un module tenu pour fini (lot REBUILD-SUIVI : le relevé a pu le rouvrir)
 Auto.IDLE_OFF = true          -- plan directeur éteint quand tous ses projets sont refusés et qu'aucun module n'est fini
 Auto.STARVE_HOLD = 15 * 3600 -- repli après une réserve affamée (× leur nombre)
 Auto.RESERVE_MAX = 15 * 3600 -- une demande qui attend ses matériaux plus de 15 min est annulée (objets rendus au coffre) :
@@ -298,6 +300,16 @@ local function refresh(f, st, tick)
     end
   end
   for _, m in ipairs(st.mods) do
+    -- Lot REBUILD-SUIVI : un module FINI dont le relevé de reconstruction a rouvert le projet (pièces détruites remises à bâtir,
+    -- état « reserve ») redevient un module OUVERT : ses manques deviennent des buts (fabriquer les fours, tapis et bras à refaire).
+    -- Avant, l'enregistrement restait « fini » (étiquette figée, aucun but) : audit 29/10, Ligue Azur, fonderies à 0 plaque/min 1 h.
+    if m.state == "fini" and tick >= (m.follow_next or 0) then
+      m.follow_next = tick + Auto.FOLLOW_EVERY
+      if Sweep.follow(m, Build.brief(f, m.id), tick) then
+        note(f, st, tick, string.format("module '%s' ROUVERT (%s, %d/%d entites) : %s", m.product, tostring(m.state), m.built or 0, m.total or 0,
+          Sweep.items_text(m.missing)))
+      end
+    end
     if m.state ~= "fini" and m.state ~= "refuse" then
       local s = Build.brief(f, m.id)
       if not s then
@@ -305,12 +317,13 @@ local function refresh(f, st, tick)
       else
         local was = m.state
         local state = s.state
-        if state == "bloque" and not s.retry_at then state, s.reason = "refuse", "abandon : " .. tostring(s.reason) end
+        -- (un module rouvert par le relevé garde son projet : « bloque » sans reprise reste suivi, il n'est pas refusé)
+        if state == "bloque" and not s.retry_at and not m.reopened_at then state, s.reason = "refuse", "abandon : " .. tostring(s.reason) end
         m.state, m.reason, m.missing = state, s.reason, s.missing or {}
         m.built, m.total = s.built or 0, s.total or 0
         if state == "reserve" then
           reserve_clock(m, "reserve_since", "reserve_left", s, tick)
-          if tick - m.reserve_since > Auto.RESERVE_MAX and Build.cancel(f, m.id, "materiaux introuvables (15 min sans progres)") then
+          if tick - m.reserve_since > Auto.RESERVE_MAX and not m.reopened_at and Build.cancel(f, m.id, "materiaux introuvables (15 min sans progres)") then
             state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables (15 min sans progres)"
             -- Repli de l'équipe : plus de NOUVELLE demande pendant 15 min × le nombre de réserves affamées (moteur réel,
             -- e6 et e7-usine, amber : 4 réserves de 15 min en 70 min, la recherche des packs militaires arrêtée, palier 3
@@ -325,7 +338,12 @@ local function refresh(f, st, tick)
           if state == "fini" then
             m.finished = tick
             m.finished_m = math.floor(tick / 3600)
-            note(f, st, tick, string.format("module '%s' FINI (%d entites, %.0f objets/min nominal)", m.product, m.total, m.rate_nom or 0))
+            local d = Sweep.repaired(m, tick)
+            if d then
+              note(f, st, tick, string.format("module '%s' REFAIT en %.1f min (%d entites)", m.product, d / 3600, m.total))
+            else
+              note(f, st, tick, string.format("module '%s' FINI (%d entites, %.0f objets/min nominal)", m.product, m.total, m.rate_nom or 0))
+            end
           elseif state == "refuse" then
             m.sig = st.sig
             note(f, st, tick, string.format("module '%s' REFUSE par le plan directeur : %s", m.product, tostring(m.reason)))
