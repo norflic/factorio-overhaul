@@ -112,6 +112,11 @@ local function suite(K, report)
   t(sum == 77, "rien n'est perdu : 77 répartis")
   s = K.split(7, { 50, 50 }, 5)
   t(s[1] + s[2] == 5, "7 pour un rapport de 5 : une seule fabrication")
+  -- fours multi-types : un four vide va à l'entrée la moins servie
+  t(K.least_served({ "a", "b" }, {}) == 1, "multi-types : à égalité, la première entrée")
+  t(K.least_served({ "a", "b" }, { a = 1 }) == 2, "multi-types : un four vide va à l'entrée sans four")
+  t(K.least_served({ "a", "b", "c" }, { a = 2, b = 1, c = 1 }) == 2, "multi-types : égalité entre deux entrées, la première")
+  t(K.least_served({}, {}) == nil and K.least_served(nil, nil) == nil, "multi-types : liste vide, rien")
   return bad, n
 end
 
@@ -165,6 +170,7 @@ local MUTANTS = {
   { "if left < n then n = left end", "", "borne du reste retirée" },
   { "left = left - n", "", "reste non décompté" },
   { "if share < n then n = share end", "", "égalité de la répartition retirée" },
+  { "if best == nil or n < best_n then best, best_n = i, n end", "if best == nil then best, best_n = i, n end", "entrée la moins servie ignorée" },
 }
 local detected = 0
 for _, m in ipairs(MUTANTS) do

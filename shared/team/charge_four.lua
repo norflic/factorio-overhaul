@@ -94,4 +94,16 @@ function K.split(avail, rooms, ratio)
   return out
 end
 
+--- `items` = liste d'entrées candidates (dans l'ordre), `counts` = { [entrée] = fours qui la portent déjà }. Rend l'indice de
+--- l'entrée qui en a le moins (égalité : la première de la liste) ; nil si la liste est vide. Fours multi-types : un four vide
+--- va à l'entrée la moins servie, pas toujours à la première.
+function K.least_served(items, counts)
+  local best, best_n
+  for i = 1, #(items or {}) do
+    local n = (counts and counts[items[i]]) or 0
+    if best == nil or n < best_n then best, best_n = i, n end
+  end
+  return best
+end
+
 return K

@@ -520,8 +520,19 @@ end
 --- produit à tour de rôle ; un four tombé au tiers de sa pile est complété avec SON entrée (une entrée qui est elle-même un
 --- produit de fonte, la plaque de l'acier, seulement pour une demande). Rend { { s, item, ratio, room, free } ... }.
 function Outposts.smelt_loads(f, products, list)
-  local out, i = {}, 0
-  for _, s in ipairs(list or Outposts.smelters(f)) do
+  local out = {}
+  list = list or Outposts.smelters(f)
+  -- Fours multi-types : un four vide va à l'entrée demandée qui a le moins de fours (et non plus toujours à la première).
+  local items, counts = {}, {}
+  for k, p in ipairs(products) do
+    local input = T.smelter_inputs[p]
+    items[k] = input and input[1] or p
+  end
+  for _, s in ipairs(list) do
+    local c = s.get_inventory(defines.inventory.furnace_source)[1]
+    if c and c.valid_for_read then counts[c.name] = (counts[c.name] or 0) + 1 end
+  end
+  for _, s in ipairs(list) do
     local c = s.get_inventory(defines.inventory.furnace_source)[1]
     if c and c.valid_for_read then
       local ratio = RATIO[c.name]
@@ -530,9 +541,9 @@ function Outposts.smelt_loads(f, products, list)
         if room >= ratio then out[#out + 1] = { s = s, item = c.name, ratio = ratio, room = room, free = false } end
       end
     elseif #products > 0 then
-      i = i % #products + 1
-      local input = T.smelter_inputs[products[i]]
+      local input = T.smelter_inputs[products[Charge.least_served(items, counts)]]
       if input then
+        counts[input[1]] = (counts[input[1]] or 0) + 1
         local room = Charge.room(0, stack_of(input[1]), input[2])
         if room >= input[2] then out[#out + 1] = { s = s, item = input[1], ratio = input[2], room = room, free = true } end
       end
@@ -564,7 +575,8 @@ function Outposts.service_smelters(f, carrier, smelt)
       local src = s.get_inventory(defines.inventory.furnace_source)
       if not src.is_empty() and not s.is_crafting() then
         local c = src[1]
-        if c.valid_for_read and ratio[c.name] and c.count < ratio[c.name] then
+        -- même définition du « bloqué » que la décision (smelters_gate) : sinon un four compté libre ne serait jamais vidé
+        if stuck(s, c) then
           carrier.insert({ name = c.name, count = c.count })
           src.clear()
         end
