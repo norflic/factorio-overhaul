@@ -258,9 +258,11 @@ do
   check(C.gate(f, ag, { key = "test:actif", kind = "service" }, steps, ta + Ac.FEAR_TICKS + 60) == true,
     "COMPAGNONS-ACTIFS : 2 morts de plus de 1 min, aucune menace connue, but proche : la tâche repart (avant : 1 h d'attente)")
   check(global.fo.ia3k.teams["player"].actif.calm == ca0 + 1, "COMPAGNONS-ACTIFS : porte comptée (bilan [FO-ACTIF])")
+  check(C.astate(ag).calm == true, "COMPAGNONS-ACTIFS (relecture) : départ « au calme » noté sur le PNJ (lu par M.leg et le recontrôle d'époque)")
   remote.call("fo-ia3k", "mark", "player", -5, 142, "worm", 25)
   check(C.gate(f, ag, { key = "test:actif2", kind = "service" }, steps, ta + Ac.FEAR_TICKS + 120) == false,
     "COMPAGNONS-ACTIFS : morts anciennes mais but à portée d'un ver connu : attente (la menace reste jugée)")
+  check(C.astate(ag).calm == nil, "COMPAGNONS-ACTIFS (relecture) : refus : plus de départ « au calme » sur le PNJ")
   remote.call("fo-ia3k", "forget", "player")
 end
 -- Pas d'escalade vers un but À PORTÉE d'un ver connu (11 tuiles d'un ver de portée 25) : refusé à chaque fois.

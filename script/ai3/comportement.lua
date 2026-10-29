@@ -439,6 +439,29 @@ function M.plan(f, agent, p, goal, tick, opts)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot COMPAGNONS-ACTIFS : danger des seules MENACES (morts de PNJ exclues) le plus fort le long d'un itinéraire, 6 premières tuiles
+-- exclues (même échantillonnage que M.plan pour exact_max). Lu par M.gate (tâche proche aux morts toutes anciennes) et par M.leg
+-- (itinéraire de secours d'une tâche partie ainsi : a.calm), défini avant eux.
+---------------------------------------------------------------------------------------------------
+local function actif_threat_max(map, p, pts, goal, tick)
+  local qs = R.samples(p, pts, goal, R.SAMPLE)
+  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
+  for _, q in ipairs(qs) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
+  local mx = 0
+  for _, q in ipairs(qs) do
+    if d2(q, p) > 36 then
+      local v = D.exact_at(prep, q.x, q.y, true)
+      if v > mx then mx = v end
+    end
+  end
+  return mx
+end
+
+---------------------------------------------------------------------------------------------------
 -- Crochet : prochain point de passage d'une étape « aller »
 ---------------------------------------------------------------------------------------------------
 function M.leg(agent, pos, radius, tick, depth)
@@ -473,7 +496,11 @@ function M.leg(agent, pos, radius, tick, depth)
       -- Le chemin qui minimise le danger : pris s'il reste hors de PORTÉE réelle des menaces (profil géométrique sous le
       -- seuil), ou faute de mieux pour rentrer au QG, passer escorté ou avec le risque accepté.
       local res2 = M.plan(f, agent, p, pos, tick, { B = 1e9, same = res })
-      if home or a.escort or a.risk or res2.exact_max < res.B then
+      -- Lot COMPAGNONS-ACTIFS (relecture) : une tâche partie « au calme » (a.calm, écrit par M.gate) est jugée ici comme à la porte, sur
+      -- les menaces seules ; sinon le champ, qui compte les morts anciennes, la renvoyait au QG (« sans-issue ») et elle repartait 10 s
+      -- plus tard, en boucle.
+      if home or a.escort or a.risk or res2.exact_max < res.B
+        or (a.calm and actif_threat_max(t.map, p, res2.pts, pos, tick) < res.B) then
         res = res2
       else
         -- Aller sans issue sûre : on ne traverse pas ; demi-tour à la pensée suivante (sense).
@@ -558,28 +585,6 @@ function M.retarget_mine(f, t, task, surface, tick, B)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Lot COMPAGNONS-ACTIFS : danger des seules MENACES (morts de PNJ exclues) le plus fort le long d'un itinéraire, 6 premières tuiles
--- exclues (même échantillonnage que M.plan pour exact_max). Lu seulement par M.gate (tâche proche aux morts toutes anciennes).
----------------------------------------------------------------------------------------------------
-local function actif_threat_max(map, p, pts, goal, tick)
-  local qs = R.samples(p, pts, goal, R.SAMPLE)
-  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
-  for _, q in ipairs(qs) do
-    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
-    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
-  end
-  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
-  local mx = 0
-  for _, q in ipairs(qs) do
-    if d2(q, p) > 36 then
-      local v = D.exact_at(prep, q.x, q.y, true)
-      if v > mx then mx = v end
-    end
-  end
-  return mx
-end
-
----------------------------------------------------------------------------------------------------
 -- Crochet : porte d'une tâche (C5, C6)
 ---------------------------------------------------------------------------------------------------
 function M.gate(f, agent, task, steps, tick)
@@ -596,9 +601,10 @@ function M.gate(f, agent, task, steps, tick)
   local p = e.position
   local res = M.plan(f, agent, p, dest, tick)
   -- Bloqué au sens des cases : le chemin qui minimise le danger est-il hors de portée réelle des menaces ?
+  local alt = nil -- lot COMPAGNONS-ACTIFS (relecture) : ce chemin de secours, celui que M.leg prendra, jugé « au calme » ci-dessous
   if res.blocked then
     local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9, same = res })
-    if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 end
+    if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 else alt = res2 end
   end
   Profiler.fstart("gate:post")
   local pts = R.samples(p, res.pts, dest, 8)
@@ -614,7 +620,7 @@ function M.gate(f, agent, task, steps, tick)
   -- lu par M.gate (ici, journal [FO-ACTIF]) et par Board.actif_report (bilan).
   local calm = deaths > 0 and Ac.calm(far, deaths, Ac.recent_deaths(t.map.deaths, pts, D.HOUR_R, tick))
   if calm then
-    ginfo = Ac.calm_info(ginfo, actif_threat_max(t.map, p, res.pts, dest, tick), res.threat_goal or res.exact_goal, res.B)
+    ginfo = Ac.calm_info(ginfo, actif_threat_max(t.map, p, (alt or res).pts, dest, tick), res.threat_goal or res.exact_goal, res.B)
   end
   local sv_deaths = Survie.gate_deaths(f, task.kind) -- lot SURVIE-PENURIE : mode survie ET tâche de ressources (nil sinon)
   local decision, why = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2, survie_deaths = sv_deaths })
@@ -625,7 +631,7 @@ function M.gate(f, agent, task, steps, tick)
   end
   Profiler.fstop("gate:post")
   local a = astate(agent)
-  a.escort, a.risk = nil, nil
+  a.escort, a.risk, a.calm = nil, nil, nil
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
   -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
   -- Lot IA3-k sur 0.5.0 : réessayé au plus toutes les RETARGET_PERIOD ticks pour la même tâche (le tableau garde ses
@@ -709,6 +715,8 @@ function M.gate(f, agent, task, steps, tick)
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
   if calm then
+    -- Lot COMPAGNONS-ACTIFS (relecture) : la tâche part « au calme » : M.leg et le recontrôle d'époque (M.sense) la jugent pareil.
+    if decision ~= "wait" then a.calm = true end
     t.actif = t.actif or { calm = 0, calm_go = 0 }
     t.actif.calm = t.actif.calm + 1
     if decision ~= "wait" then t.actif.calm_go = t.actif.calm_go + 1 end
@@ -838,6 +846,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
   elseif action == "back" or action == "flee" then
     if agent.nav then Nav.stop(agent, tick) end
     a.pts, a.final, a.hold, a.hold_stop = nil, nil, nil, nil
+    a.calm = nil -- lot COMPAGNONS-ACTIFS (relecture) : la tâche est abandonnée, la porte rejugera la suivante
     a.ret_t = tick
     if action == "back" and (kind == "unit" or kind == "character") then
       -- Mémoire des demi-tours devant des unités : le suivant, dans Re.BACK_MEMORY ticks, devient une fuite.
@@ -966,8 +975,12 @@ function M.sense(agent, tick)
     a.epoch = t.epoch
     t.stats.epoch_checks = t.stats.epoch_checks + 1
     local res = M.plan(f, agent, p, a.final, tick)
-    local deaths = D.deaths_near(t.map, R.samples(p, res.pts, a.final, 8), D.HOUR_R, tick)
-    if deaths >= 2 and not a.escort and agent.task then
+    local spts = R.samples(p, res.pts, a.final, 8)
+    local deaths = D.deaths_near(t.map, spts, D.HOUR_R, tick)
+    -- Lot COMPAGNONS-ACTIFS (relecture) : une tâche partie « au calme » ne rentre que si une de ces morts est RÉCENTE (attaque en cours) ;
+    -- une mort lointaine de l'équipe (nouvelle époque) ne la renvoie plus au QG pour des morts anciennes.
+    if deaths >= 2 and not a.escort and agent.task
+      and not (a.calm and Ac.recent_deaths(t.map.deaths, spts, D.HOUR_R, tick) == 0) then
       return act(agent, f, t, a, "back", "morts", a.final, "mort", tick)
     end
     a.pts = nil
