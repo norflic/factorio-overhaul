@@ -16,6 +16,14 @@
   tuiles [ox - (28 r + 16), ox + 28 r + 15] (lots de 24, rues de 4, pas de 28). Le mur est sur la tuile
   ox - (28 r + 16) - GAP - 1 à l'ouest et ox + 28 r + 16 + GAP à l'est (idem en y).
 
+  3. SEGMENTS (lot ENCEINTE2, 29/10) : l'anneau entier coûtait ~800 murs (4 000 briques) d'un coup, donc il ne se posait
+     jamais. L'enceinte est maintenant PARTIELLE et PROGRESSIVE : l'anneau est découpé en TRONÇONS continus (entre les
+     ouvertures, par côté), classés par menace connue (côté tourné vers les nids et vers vus, puis le plus proche du
+     nid), et posé SEGMENT par SEGMENT (un seul en cours), chaque segment payé sur le stock disponible : jamais plus de
+     un quart du stock de murs (ou de ce que ses ingrédients permettent de fabriquer) par segment, entre E.SEG_MIN et
+     E.SEG_MAX murs. L'anneau est à E.GAP = 3 tuiles du treillis. Un segment dont les murs sont détruits est rouvert
+     tout seul (script/team/build.lua). Le rayon est figé dès le premier segment demandé.
+
   Déterminisme : listes triées, aucun `pairs`, aucune trigonométrie.
 ]]
 
@@ -25,7 +33,7 @@ E.PITCH = 28
 E.HALF = 12
 E.STREET = 4
 
-E.GAP = 4                 -- tuiles libres entre le bord du treillis et le mur
+E.GAP = 3                 -- (lot ENCEINTE2 : 4 -> 3, le minimum utile) tuiles libres entre le bord du treillis et le mur
 E.MAIN_STREETS = { -1, 0 } -- rues principales : rangées/colonnes -1 et 0 (celles qui bordent le lot (0, 0) du QG)
 E.GROW_FREE_MIN = 3       -- croissance quand moins de 3 lots libres (et utilisables) dans le rayon
 E.BUSY_MAX = 2            -- … et au plus 2 chantiers en cours
@@ -34,7 +42,15 @@ E.CHECK_TICKS = 1800      -- période (ticks) des décisions de croissance et d'
 E.REPAIR_TICKS = 18000    -- période (ticks) du contrôle des murs détruits (5 min)
 E.REPAIR_BATCH = 200      -- murs contrôlés par passe
 E.RETRY_TICKS = 108000    -- après un refus du plan de l'enceinte : nouvel essai 30 min plus tard
-E.RESERVE_TICKS = 18000    -- enceinte restée 5 min « en réserve » sans ses murs (briques prises ailleurs) : annulée, rayon libéré
+E.SEG_MAX = 40            -- murs au plus par segment
+E.SEG_MIN = 8             -- murs au moins par segment (sauf le reste d'un tronçon, plus court)
+E.STOCK_DIV = 4           -- un segment coûte au plus 1/4 du stock de murs (en équivalent : murs + fabricables)
+E.SEG_RETRY_TICKS = 18000 -- segment refusé pour la place ou annulé faute de matière : nouvel essai 5 min plus tard
+E.THREAT_RANGE = 300      -- nids et vers connus pris en compte : à moins de 300 tuiles (Chebyshev) du QG
+E.W_NEST = 3              -- poids d'un nid dans la menace d'un côté
+E.W_WORM = 1              -- poids d'un ver
+E.SIDES = { "n", "e", "s", "o" } -- ordre des côtés à menace égale
+E.RESERVE_TICKS = 18000   -- enceinte restée 5 min « en réserve » sans ses murs (briques prises ailleurs) : annulée, rayon libéré
 
 local function sorted_keys(t)
   local out = {}
@@ -129,6 +145,147 @@ function E.max_walls(r, opts)
   local h = E.PITCH * r + E.HALF + E.STREET + (opts.gap or E.GAP)
   local side = 2 * h + 2
   return 4 * (side - 1) - 4 * #(opts.mains or E.MAIN_STREETS) * E.STREET
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot ENCEINTE2 : tronçons, menace, segments
+---------------------------------------------------------------------------------------------------
+
+--- Clé d'une tuile de mur (chaîne ; propre à l'enceinte, pas celle de b.occ).
+function E.key(tx, ty) return tx .. ":" .. ty end
+
+--- Tuiles d'ouverture de l'anneau (4 côtés x rues principales x largeur de rue).
+function E.gate_count(opts)
+  opts = opts or {}
+  return 4 * #(opts.mains or E.MAIN_STREETS) * E.STREET
+end
+
+--- Tronçons continus de l'anneau (coupés aux ouvertures et aux coins) : { { id, side, walls = {...}, mx, my } ... }, dans
+--- l'ordre de E.ring (nord, sud, ouest, est). `mx, my` : le mur du milieu (centre de la tuile). Rend aussi l'anneau.
+function E.runs(lat, r, opts)
+  local ring = E.ring(lat, r, opts)
+  local runs, cur = {}, nil
+  for _, w in ipairs(ring.walls) do
+    local prev = cur and cur.walls[#cur.walls]
+    if not (prev and prev.side == w.side and math.abs(w.tx - prev.tx) + math.abs(w.ty - prev.ty) == 1) then
+      cur = { id = #runs + 1, side = w.side, walls = {} }
+      runs[#runs + 1] = cur
+    end
+    cur.walls[#cur.walls + 1] = w
+  end
+  for _, run in ipairs(runs) do
+    local m = run.walls[math.ceil(#run.walls / 2)]
+    run.mx, run.my = m.x, m.y
+  end
+  return runs, ring
+end
+
+--- Côté de l'anneau tourné vers le point (x, y), vu du centre du treillis : axe dominant (égalité : nord/sud).
+function E.side_of(lat, x, y)
+  local dx, dy = x - lat.ox, y - lat.oy
+  if math.abs(dy) >= math.abs(dx) then return dy < 0 and "n" or "s" end
+  return dx < 0 and "o" or "e"
+end
+
+--- Menaces connues d'une carte de connaissance (secteurs `s[clé] = { sp = { {x,y} }, wm = { {x,y} } }`, shared/ai3/carte.lua) :
+--- liste { { x, y, w } ... } des nids (E.W_NEST) et vers (E.W_WORM) à moins de `range` tuiles (Chebyshev) du centre du treillis.
+function E.known_threats(sectors, lat, range)
+  local out = {}
+  if not sectors then return out end
+  range = range or E.THREAT_RANGE
+  for _, k in ipairs(sorted_keys(sectors)) do
+    local s = sectors[k]
+    for _, kind in ipairs({ "sp", "wm" }) do
+      for _, p in ipairs(s[kind] or {}) do
+        if math.max(math.abs(p.x - lat.ox), math.abs(p.y - lat.oy)) <= range then
+          out[#out + 1] = { x = p.x, y = p.y, w = kind == "sp" and E.W_NEST or E.W_WORM }
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Ordre de pose des tronçons : liste d'identifiants. Clés, dans l'ordre : menace du côté (décroissante), distance du milieu
+--- du tronçon à la menace la plus proche de CE côté (croissante), ordre fixe des côtés, identifiant. Sans menace connue :
+--- l'ordre fixe seul (nord, est, sud, ouest).
+function E.run_order(runs, lat, threats)
+  local weight, side_idx = {}, {}
+  for i, sd in ipairs(E.SIDES) do weight[sd] = 0; side_idx[sd] = i end
+  local by_side = { n = {}, e = {}, s = {}, o = {} }
+  for _, t in ipairs(threats or {}) do
+    local sd = E.side_of(lat, t.x, t.y)
+    weight[sd] = weight[sd] + (t.w or 1)
+    by_side[sd][#by_side[sd] + 1] = t
+  end
+  local near, side_of_run, ids = {}, {}, {}
+  for _, run in ipairs(runs) do
+    local best = math.huge
+    for _, t in ipairs(by_side[run.side]) do
+      local d = (t.x - run.mx) ^ 2 + (t.y - run.my) ^ 2
+      if d < best then best = d end
+    end
+    near[run.id], side_of_run[run.id] = best, run.side
+    ids[#ids + 1] = run.id
+  end
+  table.sort(ids, function(a, b)
+    local sa, sb = side_of_run[a], side_of_run[b]
+    if weight[sa] ~= weight[sb] then return weight[sa] > weight[sb] end
+    if near[a] ~= near[b] then return near[a] < near[b] end
+    if sa ~= sb then return side_idx[sa] < side_idx[sb] end
+    return a < b
+  end)
+  return ids
+end
+
+--- Taille permise d'un segment pour un stock de `equiv` murs (murs en stock + fabricables) : au plus un quart du stock.
+function E.segment_cap(equiv)
+  return math.min(E.SEG_MAX, math.floor(math.max(0, equiv) / E.STOCK_DIV))
+end
+
+--- Prochain segment : le premier bloc de murs NON réservés d'un tronçon, par ordre de priorité, de `cap` murs au plus.
+--- Rend { run, side, walls = { {tx, ty, x, y, side} ... } } ou (nil, "complet") quand tout est réservé, (nil, "stock") quand
+--- le plafond `cap` ne permet aucun segment d'au moins min(E.SEG_MIN, bloc) murs. `claimed` : { [E.key] = true }.
+function E.next_segment(runs, order, claimed, cap)
+  local why = "complet"
+  for _, ri in ipairs(order) do
+    local run = runs[ri]
+    local n = #run.walls
+    local i = 1
+    while i <= n do
+      local w = run.walls[i]
+      if claimed[E.key(w.tx, w.ty)] then
+        i = i + 1
+      else
+        local j = i
+        while j < n and not claimed[E.key(run.walls[j + 1].tx, run.walls[j + 1].ty)] do j = j + 1 end
+        local len = j - i + 1
+        local take = math.min(cap, len, E.SEG_MAX)
+        if take >= 1 and take >= math.min(E.SEG_MIN, len) then
+          local out = {}
+          for k = i, i + take - 1 do out[#out + 1] = run.walls[k] end
+          return { run = ri, side = run.side, walls = out }
+        end
+        why = "stock"
+        i = j + 1
+      end
+    end
+  end
+  return nil, why
+end
+
+--- Réserve (ou libère, si `value` est nil) les tuiles d'une liste de murs { {tx, ty} ... } dans `claimed`.
+function E.claim(claimed, walls, value)
+  for _, w in ipairs(walls) do claimed[E.key(w.tx, w.ty)] = value end
+end
+
+--- Murs de l'anneau pas encore réservés.
+function E.unclaimed(runs, claimed)
+  local n = 0
+  for _, run in ipairs(runs) do
+    for _, w in ipairs(run.walls) do if not claimed[E.key(w.tx, w.ty)] then n = n + 1 end end
+  end
+  return n
 end
 
 --- Nombre de fabrications d'une recette que le stock permet. ings = { { name, amount } ... }, count(name) = stock.

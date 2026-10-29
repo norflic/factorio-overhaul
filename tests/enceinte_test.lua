@@ -188,5 +188,139 @@ do
   check(not E.reserve_stalled("reserve", nil, nil, T0 + 10 * E.RESERVE_TICKS), "reserve_stalled : pas de depart connu")
 end
 
+-- 8. Lot ENCEINTE2 : tronçons, menace, segments payés sur le stock
+do
+  check(E.GAP == 3, "l'anneau est a 3 tuiles du treillis au plus (GAP = " .. E.GAP .. ")")
+  for r = 1, 5 do
+    local runs, ring = E.runs(lat, r)
+    local n, seen, dup, cont = 0, {}, 0, true
+    for _, run in ipairs(runs) do
+      n = n + #run.walls
+      for i, w in ipairs(run.walls) do
+        local k = E.key(w.tx, w.ty)
+        if seen[k] then dup = dup + 1 end
+        seen[k] = true
+        if i > 1 then
+          local q = run.walls[i - 1]
+          if math.abs(w.tx - q.tx) + math.abs(w.ty - q.ty) ~= 1 or w.side ~= q.side then cont = false end
+        end
+      end
+    end
+    check(n == #ring.walls and n == E.max_walls(r) and dup == 0, "r=" .. r .. " : les troncons recouvrent l'anneau une fois (" .. n .. ")")
+    check(cont, "r=" .. r .. " : chaque troncon est continu et d'un seul cote")
+    check(#runs == 4 * (#E.MAIN_STREETS + 1), "r=" .. r .. " : 12 troncons (3 par cote, coupes aux 2 ouvertures) : " .. #runs)
+    check(E.gate_count() == ring.gates, "gate_count = ouvertures de l'anneau")
+  end
+  -- côté d'une menace
+  check(E.side_of(lat, lat.ox, lat.oy - 50) == "n" and E.side_of(lat, lat.ox, lat.oy + 50) == "s"
+    and E.side_of(lat, lat.ox - 50, lat.oy) == "o" and E.side_of(lat, lat.ox + 50, lat.oy) == "e", "side_of : 4 cotes")
+  check(E.side_of(lat, lat.ox + 30, lat.oy - 40) == "n" and E.side_of(lat, lat.ox + 40, lat.oy - 30) == "e", "side_of : axe dominant")
+  -- menaces connues : portée, poids
+  local sectors = {
+    [5] = { sp = { { x = lat.ox + 100, y = lat.oy } }, wm = { { x = lat.ox + 100, y = lat.oy + 5 } } },
+    [2] = { sp = { { x = lat.ox - 200, y = lat.oy - 10 } } },
+    [9] = { sp = { { x = lat.ox + E.THREAT_RANGE + 1, y = lat.oy } } },
+  }
+  local th = E.known_threats(sectors, lat)
+  local wsum = 0
+  for _, t in ipairs(th) do wsum = wsum + t.w end
+  check(#th == 3 and wsum == 2 * E.W_NEST + E.W_WORM, "known_threats : 3 menaces dans la portee, la 4e (hors portee) ignoree")
+  check(#E.known_threats(nil, lat) == 0 and #E.known_threats({}, lat) == 0, "known_threats : rien de connu")
+  -- ordre : le côté menacé d'abord, le plus proche du nid d'abord
+  local runs = E.runs(lat, 3)
+  local function first_side(threats) return runs[E.run_order(runs, lat, threats)[1]].side end
+  check(first_side({}) == "n", "sans menace : l'ordre fixe (nord d'abord)")
+  check(first_side({ { x = lat.ox + 150, y = lat.oy + 20, w = 3 } }) == "e", "un nid a l'est : cote est d'abord")
+  check(first_side({ { x = lat.ox - 150, y = lat.oy + 20, w = 3 } }) == "o", "un nid a l'ouest : cote ouest d'abord")
+  check(first_side({ { x = lat.ox, y = lat.oy + 150, w = 1 }, { x = lat.ox - 150, y = lat.oy, w = 3 } }) == "o", "le cote le plus menace d'abord")
+  do
+    local order = E.run_order(runs, lat, { { x = lat.ox + 150, y = lat.oy + 100, w = 3 } })
+    local r1 = runs[order[1]]
+    check(r1.side == "e" and r1.my > lat.oy, "nid a l'est-sud : le troncon est le plus proche du nid (" .. r1.side .. ")")
+    local late_east, seen_other = 0, false
+    local ids, dup = {}, 0
+    for _, id in ipairs(order) do
+      local sd = runs[id].side
+      if sd == "e" then if seen_other then late_east = late_east + 1 end else seen_other = true end
+      if ids[id] then dup = dup + 1 end
+      ids[id] = true
+    end
+    check(late_east == 0, "tous les troncons du cote menace passent avant les autres")
+    check(#order == #runs and dup == 0, "l'ordre est une permutation des troncons")
+  end
+  -- plafond de coût : un quart du stock
+  check(E.segment_cap(0) == 0 and E.segment_cap(31) == 7 and E.segment_cap(32) == 8 and E.segment_cap(10000) == E.SEG_MAX, "segment_cap : un quart, plafonne")
+  check(E.segment_cap(-5) == 0, "segment_cap : stock negatif")
+  -- pose complète par segments, à plusieurs plafonds : couverture exacte, aucun recouvrement, jamais au-dessus du plafond
+  for _, cap in ipairs({ 8, 13, 40 }) do
+    local claimed = {}
+    local order = E.run_order(runs, lat, { { x = lat.ox + 150, y = lat.oy, w = 3 } })
+    local total, nseg, bad, tiny, why = 0, 0, 0, 0, nil
+    while true do
+      local seg
+      seg, why = E.next_segment(runs, order, claimed, cap)
+      if not seg then break end
+      nseg = nseg + 1
+      if #seg.walls > cap or #seg.walls > E.SEG_MAX then bad = bad + 1 end
+      if #seg.walls < E.SEG_MIN then tiny = tiny + 1 end
+      for _, w in ipairs(seg.walls) do
+        if claimed[E.key(w.tx, w.ty)] then bad = bad + 1 end
+        if w.side ~= seg.side then bad = bad + 1 end
+      end
+      E.claim(claimed, seg.walls, true)
+      total = total + #seg.walls
+      if nseg > 1000 then break end
+    end
+    check(why == "complet" and total == E.max_walls(3) and bad == 0, "cap " .. cap .. " : l'anneau est pose en " .. nseg .. " segments, exactement (" .. total .. " / " .. E.max_walls(3) .. ", " .. tostring(why) .. ")")
+    check(tiny <= #runs, "cap " .. cap .. " : seuls les restes de troncons sont sous SEG_MIN (" .. tiny .. ")")
+    check(E.unclaimed(runs, claimed) == 0, "cap " .. cap .. " : plus rien a reserver")
+  end
+  -- stock trop pauvre : aucun segment (plafond sous SEG_MIN), et rien n'est réservé
+  do
+    local claimed = {}
+    local order = E.run_order(runs, lat, {})
+    local seg, why = E.next_segment(runs, order, claimed, E.SEG_MIN - 1)
+    check(seg == nil and why == "stock" and next(claimed) == nil, "plafond sous SEG_MIN : on attend (stock)")
+    local seg0, why0 = E.next_segment(runs, order, claimed, 0)
+    check(seg0 == nil and why0 == "stock", "plafond 0 : on attend")
+    -- le reste d'un tronçon plus court que SEG_MIN reste payable s'il tient dans le plafond
+    local run1 = runs[order[1]]
+    for i = 1, #run1.walls - 3 do claimed[E.key(run1.walls[i].tx, run1.walls[i].ty)] = true end
+    local tail = E.next_segment({ run1 }, { 1 }, claimed, 3)
+    check(tail and #tail.walls == 3, "reste de 3 murs : posable avec un plafond de 3")
+    check(E.next_segment({ run1 }, { 1 }, claimed, 2) == nil, "reste de 3 murs : pas avec un plafond de 2")
+  end
+  -- les tuiles rendues (segment annulé) reviennent dans le pool, au même endroit
+  do
+    local claimed = {}
+    local order = E.run_order(runs, lat, {})
+    local s1 = E.next_segment(runs, order, claimed, 20)
+    E.claim(claimed, s1.walls, true)
+    local s2 = E.next_segment(runs, order, claimed, 20)
+    check(s2.walls[1].tx ~= s1.walls[1].tx or s2.walls[1].ty ~= s1.walls[1].ty, "le segment suivant ne recouvre pas le premier")
+    E.claim(claimed, s1.walls, nil)
+    local s3 = E.next_segment(runs, order, claimed, 20)
+    check(s3.walls[1].tx == s1.walls[1].tx and s3.walls[1].ty == s1.walls[1].ty and #s3.walls == #s1.walls, "segment rendu : de nouveau le premier")
+    local again = E.next_segment(runs, order, {}, 20)
+    check(again.walls[1].tx == s1.walls[1].tx and #again.walls == #s1.walls, "deterministe")
+  end
+  -- coût réel : un quart du stock au plus, par segment, sur toute la pose
+  do
+    local stock, spent, worst = 400, 0, 0   -- 400 murs équivalents (2 000 briques)
+    local claimed = {}
+    local order = E.run_order(runs, lat, {})
+    for _ = 1, 60 do
+      local seg = E.next_segment(runs, order, claimed, E.segment_cap(stock))
+      if not seg then break end
+      worst = math.max(worst, #seg.walls / stock)
+      E.claim(claimed, seg.walls, true)
+      stock = stock - #seg.walls
+      spent = spent + #seg.walls
+    end
+    check(worst <= 1 / E.STOCK_DIV + 1e-9, "aucun segment ne depasse un quart du stock du moment (" .. string.format("%.3f", worst) .. ")")
+    check(spent < 400, "le stock n'est jamais vide d'un coup (" .. spent .. " murs poses sur 400)")
+  end
+end
+
 print(string.format("[ENCEINTE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
