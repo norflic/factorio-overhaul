@@ -378,7 +378,7 @@ local function assets_around(f, surface, center, radius)
     local bb = e.bounding_box
     local area = math.max(1, math.floor((bb.right_bottom.x - bb.left_top.x) * (bb.right_bottom.y - bb.left_top.y) + 0.5))
     local w = area * Pose.role_factor(R.ENTITY_ROLE[e.type])
-    if hq and e.unit_number == hq.unit_number then w = Pose.HQ_WEIGHT end
+    if hq and e.unit_number and e.unit_number == hq.unit_number then w = Pose.HQ_WEIGHT end
     out[#out + 1] = { x = e.position.x, y = e.position.y, w = w }
   end
   return out
@@ -427,8 +427,7 @@ end
 --- qu'avant, pris dans l'ordre qui protège le plus de bâtiments de l'équipe.
 function Outposts.fortify(f, surface, outpost, count, carrier)
   local placed = 0
-  for _, pos in ipairs(pose_order(f, surface, outpost, count)) do
-    if placed >= count or carrier.get_item_count(TURRET) < 1 then break end
+  local function put(pos)
     local t = surface.create_entity({ name = TURRET, position = pos, force = f.force, raise_built = true })
     if t then
       carrier.remove({ name = TURRET, count = 1 })
@@ -438,6 +437,19 @@ function Outposts.fortify(f, surface, outpost, count, carrier)
       end
       Outposts.add_turret(f, t, outpost.id, 0)
       placed = placed + 1
+    end
+  end
+  for _, pos in ipairs(pose_order(f, surface, outpost, count)) do
+    if placed >= count or carrier.get_item_count(TURRET) < 1 then break end
+    put(pos)
+  end
+  -- Repli (lot TOURELLES) : les positions ont été calculées avant toute pose ; si certaines se gênent (deux replis voisins) ou
+  -- sont refusées, on complète comme avant le lot, un emplacement à la fois, la place cherchée APRÈS les tourelles déjà posées.
+  if placed < count and carrier.get_item_count(TURRET) >= 1 then
+    for _, o in ipairs(TURRET_OFFSETS) do
+      if placed >= count or carrier.get_item_count(TURRET) < 1 then break end
+      local pos = surface.find_non_colliding_position(TURRET, { x = outpost.pos.x + o[1], y = outpost.pos.y + o[2] }, 4, 1)
+      if pos then put(pos) end
     end
   end
   return placed

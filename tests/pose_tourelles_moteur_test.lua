@@ -100,5 +100,18 @@ do
   check(n == 1 and placed[1].position.x == 7, "portée inconnue : ancien ordre")
 end
 
+-- 8. Repli ancien : tous les emplacements se replient sur le même point avant toute pose (doublons écartés) ; les tourelles
+--    suivantes sont complétées une à une, la place cherchée après les tourelles déjà posées (comme avant le lot)
+do
+  _G.game.entity_prototypes["gun-turret"] = { turret_range = 18 }
+  local s, placed = world({ building(0, 0, "mining-drill", 3, 1) })
+  s.find_non_colliding_position = function(_, c)
+    if #placed == 0 then return { x = 7, y = 7 } end
+    return { x = c.x + #placed * 0.01, y = c.y }
+  end
+  local n = Outposts.fortify(fac(), s, { id = 1, pos = { x = 0, y = 0 } }, 3, carrier(5))
+  check(n == 3, "emplacements confondus avant la pose : le nombre voulu est quand même posé (repli ancien)")
+end
+
 print(string.format("[TOURELLES-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 if failures > 0 then os.exit(1) end
