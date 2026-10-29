@@ -38,6 +38,7 @@ local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense su
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
+local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -452,7 +453,9 @@ function Team.view(f, tick)
     local o = f.outposts[oid]
     local st = Outposts.status(o, tick)
     outposts[#outposts + 1] = {
-      id = oid, kind = o.kind, drills = o.drills, full = o.full or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
+      -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
+      -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
+      id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
@@ -784,6 +787,7 @@ function Team.think(f, surface, tick)
   -- Lot COUVERTURE : refaire ce qui est détruit AVANT d'améliorer ce qui reste (constat du DC du 28/10).
   Recon.craft_spares(f, book_for(f), stock, tick) -- lot RECONSTRUIRE : objets d'infrastructure électrique à fabriquer
   FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
+  MigChamp.think(f, surface, book_for(f), stock, tick) -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques
   if ia3 and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, stock) end
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])

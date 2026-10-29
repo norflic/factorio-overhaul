@@ -67,7 +67,8 @@ local function survey(f, surface)
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
     local any = false
-    for i, d in ipairs(o.drill_list or {}) do
+    -- lot MIGRATION-CHAMP : un champ en cours de migration (rangees electriques du plan directeur) ne recoit pas de remplacement sur place
+    for i, d in ipairs(o.migr == "en cours" and {} or (o.drill_list or {})) do
       if d.valid and d.name == T.DRILL and d.unit_number then
         local pos = d.position
         local key = pos.x .. ":" .. pos.y
