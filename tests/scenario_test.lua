@@ -119,6 +119,33 @@ do
   check(not pcall(J.objectives, 0) and not pcall(J.objectives, 16), "époque hors bornes refusée")
 end
 
+section("1 ter. Recherches de l'époque (classement des niveaux)")
+do
+  local function tech(name, packs, unlocks, researched)
+    local ing, eff = {}, {}
+    for _, p in ipairs(packs) do ing[#ing + 1] = { name = p, amount = 1 } end
+    for _, r in ipairs(unlocks or {}) do eff[#eff + 1] = { type = "unlock-recipe", recipe = r } end
+    return { name = name, effects = eff, unit = { ingredients = ing }, researched = researched }
+  end
+  local red = { "automation-science-pack" }
+  local green = { "automation-science-pack", "logistic-science-pack" }
+  local list = { tech("t-a", red, nil, true), tech("t-b", red, nil, false), tech("t-c", red, nil, false),
+    tech("t-d", green, nil, true) }
+  for _, t in ipairs(list) do check(J.tech_epoch(t) == L.vanilla_tech_epoch(t), "J.tech_epoch = règle des niveaux (" .. t.name .. ")") end
+  local e1 = J.tech_epoch(list[1])
+  local done, target, total = J.research_progress(list, e1)
+  check(total == 3 and done == 1 and target == math.ceil(X.MILESTONE_RESEARCH_SHARE * 3), "progrès des recherches : 1 / " .. target .. " sur 3")
+  local with = J.objectives(e1, nil, list)
+  local r
+  for _, o in ipairs(with) do if o.kind == "research" then r = o end end
+  check(r and r.done == 1 and r.total == 3, "objectif de recherche présent quand l'époque a des technologies")
+  local none = J.objectives(15, nil, list)
+  local has = false
+  for _, o in ipairs(none) do if o.kind == "research" then has = true end end
+  check(not has, "aucun objectif de recherche pour une époque sans technologie")
+  check(kinds_of(J.objectives(1, function() return false end)) == "centre,cap,chart,defense,threat", "sans liste de technologies : pas de recherche")
+end
+
 section("1 bis. Annonce et commande")
 local function decide_ok(Jm)
   local ok = true
@@ -300,6 +327,8 @@ local function setup(opts)
     return function() i = i + 1; if i <= 10 then return { x = i, y = 0 } end end
   end }
   local force = { name = "player", valid = true, players = {}, connected_players = {},
+    technologies = { ["t-red"] = { enabled = true, upgrade = false, effects = {}, researched = true,
+      research_unit_ingredients = { { type = "item", name = "automation-science-pack", amount = 1 } } } },
     is_chunk_charted = function(_, c) return c.x <= 7 end }
   local faction = { name = "fo-faction-scarlet", valid = true, players = {}, connected_players = {} }
   cc_level[faction.name] = 5
@@ -393,6 +422,7 @@ do -- Partie neuve
     "fenêtre : Codex, centre suivant, plafond, menace")
   check(texts:find("%[item=iron%-plate%] 310 / 310") ~= nil, "coût du centre 2 lu avec ce que contient le centre (fer 500 ≥ 310)")
   check(texts:find("obj%-chart|7|64") ~= nil, "cartographie : chunks comptés (7) et cible (64)")
+  check(texts:find("obj%-research|1|1|1") ~= nil, "recherches de l'époque 1 lues sur la force : 1 / 1")
   check(#env.chat == 1 and flat(env.chat[1].msg):find("chat%-epoch|1|"), "ligne de chat à l'annonce")
   env.poll()
   check(env.st().stats.announced == 1, "époque 1 jamais annoncée deux fois")

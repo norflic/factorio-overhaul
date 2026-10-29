@@ -117,7 +117,9 @@ remet en marche, pas avant.
   2. **Plafond des bâtiments** : niveau 2k (`L.building_cap`) ;
   3. **Gisement de l'époque** : la ressource de la fiche (X0) si son prototype existe en jeu, sinon rien ;
   4. **Cartographier** : la cible d'exploration X0 de l'époque (64 × k chunks aux époques qui en ont une) ;
-  5. **Menace** : une ligne par époque (texte de ce document, FR et EN).
+  5. **Recherches** : 60 % des technologies classées à l'époque (annexe A), si elle en a ;
+  6. **Défense** : détruire 2 + k nids pendant l'époque (jalon X0, compté par force, sans récompense) ;
+  7. **Menace** : une ligne par époque (texte de ce document, FR et EN).
 - **Multijoueur** : une fenêtre par joueur (pas de `show_message_dialog`, qui n'accepte qu'un joueur unique dans la
   partie) ; une ligne dans le chat pour toute la force.
 - **Sauvegardes 0.6.18** : au premier chargement, le journal s'aligne sur l'époque actuelle de chaque force **sans
@@ -154,12 +156,13 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 2 : Forge (0,5 h, 1 h)
 - **Objectif** : faire de l'**acier** en quantité, monnaie de l'époque.
-- **Nouveautés** : acier ; **four à coke** et **coke** (`fo-coke-oven`, `fo-coke`, *en jeu*) ; science verte ;
-  bâtiments niveaux 3-4 (deuxième silhouette).
+- **Nouveautés** : acier, science verte, murs et portes, armure lourde, modules 1 (18 technologies classées à
+  l'époque 2, annexe A) ; bâtiments niveaux 3-4. **Coke** : prévu X0 ici, mais en jeu le four à coke (`fo-coke-oven`)
+  n'est débloqué que par la recherche du titane (`fo-titanium-processing`, classée époque 10) : **écart**, §6.
 - **Ressources** : charbon (coke), fer.
 - **Déroulement**.
   - Arrivée : le journal annonce que les **quatre balises** du Convoi répondent : les factions existent.
-  - Montée : une ligne fer → acier de 12 fours ; un four à coke alimente les fours (coke : combustible dense).
+  - Montée : une ligne fer → acier de 12 fours ; premiers murs de pierre et portes autour des foreuses.
   - Sortie : 80 acier dans le centre (plus le panier de base).
 - **Objectifs du journal** : centre 3 (fer 360, cuivre 180, briques 180, circuits 70, **acier 80**) ; plafond 4 ;
   cartographier 128 chunks.
@@ -172,8 +175,8 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 3 : Vapeur (1,5 h, 1 h 30)
 - **Objectif** : l'**électricité à vapeur** et les **moteurs**.
-- **Nouveautés** : chaudières et machines à vapeur (vanilla) ; moteurs ; science militaire ; **lance-grenades et
-  mortier** (`fo-grenade-launcher`, `fo-mortar-turret`, *en jeu*).
+- **Nouveautés** : moteurs, science militaire, automatisation 2, rails et trains, voitures, réseau de circuits
+  (21 technologies classées à l'époque 3). Chaudières et machines à vapeur dès le départ (vanilla).
 - **Ressources** : eau, charbon, fer, acier.
 - **Déroulement**.
   - Arrivée : Codex III, le bilan thermique « ne ferme pas ».
@@ -181,14 +184,15 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
   - Sortie : 70 moteurs (+ 85 acier) dans le centre.
 - **Objectifs du journal** : centre 4 ; plafond 6 ; cartographier 192 chunks.
 - **Menace** : **raids de déchiqueteurs plus gros** (la pollution de la centrale les attire).
-- **Moment fort** : la centrale tombe en panne de charbon pendant un raid : le joueur découvre que ses tourelles
-  électriques… n'existent pas encore ; ses mitrailleuses de niveau 6 tiennent. Leçon : stock de charbon.
+- **Moment fort** : la centrale tombe en panne de charbon pendant un raid ; les mitrailleuses de niveau 6, elles, ne
+  dépendent pas du courant et tiennent. Leçon : stock de charbon, et premier train de charbon.
 - **Codex III** : « Le bilan thermique ne ferme pas : Érèbe rayonne plus de chaleur que son étoile ne lui en donne.
   Quelque chose chauffe la planète par en dessous. »
 
 #### Époque 4 : Pétrole (3 h, 2 h)
 - **Objectif** : le **plastique**, monnaie de l'époque (1 200 pour le centre 5 : la première grosse marche).
-- **Nouveautés** : raffinerie, usine chimique, plastique, science bleue (vanilla).
+- **Nouveautés** : raffinerie, usine chimique, plastique, science bleue, lasers, robots, roquettes, béton : la plus
+  grosse vague de l'acte 1 (47 technologies classées à l'époque 4).
 - **Ressources** : **pétrole brut** (*en jeu*, gisement à trouver, souvent loin).
 - **Déroulement**.
   - Arrivée : Codex IV : le pétrole est « jeune ». Objectif d'exploration : **trouver un gisement de pétrole**.
@@ -206,9 +210,10 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 5 : Volcan (5 h, 2 h 30)
 - **Objectif** : le **tungstène**, minerai dur des **cendres volcaniques**.
-- **Nouveautés** : minerai dur (catégorie `fo-hard-solid` : les foreuses à combustible ne le minent pas) ;
-  traitement du tungstène, munitions et obus au tungstène, **mur blindé** (`fo-tungsten-*`, `fo-armored-wall`,
-  *en jeu*) ; voie humide (`fo-wet-tungsten`, *en jeu*). Géothermie et fumerolles : *prévu X0, absent*.
+- **Nouveautés** (*en jeu*, 4 technologies classées à l'époque 5) : minerai dur (catégorie `fo-hard-solid` : les
+  foreuses à combustible ne le minent pas) ; plaque de tungstène (`fo-tungsten-processing`) ; **armes lourdes 1**
+  (munitions au tungstène, mitrailleuse lourde, tourelle lourde, mur renforcé) ; **armes de siège** (canon, mortier,
+  lance-grenades, obus au tungstène) ; char. Géothermie et fumerolles : *prévu X0, absent*.
 - **Ressources** : tungstène (**garanti** sur toute carte, lot M0), cendres volcaniques (marche −10 %, véhicules
   freinés, *en jeu*). Fumerolle : *absente*.
 - **Déroulement**.
@@ -226,13 +231,13 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 6 : Électricité (7,5 h, 3 h)
 - **Objectif** : les **batteries** et un réseau électrique qui tient sous l'orage.
-- **Nouveautés** : accumulateurs, haute tension (vanilla) ; **tourelle Tesla, fusil à arc, cellule à arc**
-  (`fo-tesla-turret`, `fo-arc-gun`, `fo-arc-cell`, *en jeu*) ; **four à arc** (`fo-arc-furnace`, *en jeu*, sert aussi
-  au titane à l'époque 11).
+- **Nouveautés** (24 technologies classées à l'époque 6) : batteries, accumulateurs, haute tension, **tourelle
+  laser**, panneaux solaires, modules de vitesse et de productivité, science de production. La tourelle Tesla et le
+  fusil à arc (`fo-arc-and-acid`) viennent à l'époque 8 ; le four à arc avec le titane.
 - **Ressources** : cuivre, acide sulfurique (soufre), fer.
 - **Déroulement**.
   - Arrivée : Codex VI : les orages « suivent les anomalies ».
-  - Montée : chaîne de batteries ; premiers accumulateurs ; tourelles Tesla sur les lignes.
+  - Montée : chaîne de batteries ; premiers accumulateurs ; tourelles laser sur les lignes.
   - Sortie : 410 batteries + 620 tungstène.
 - **Objectifs du journal** : centre 7 ; plafond 12 ; cartographier 384 chunks.
 - **Menace** : **foudroyants** attirés par les réseaux (famille *en jeu* ; l'attraction par le réseau : *prévu X0*).
@@ -242,8 +247,9 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 7 : Cristal (10,5 h, 3 h 30)
 - **Objectif** : récolter le **cristal de résonance** de la **plaine de cristal**.
-- **Nouveautés** : cristal de résonance (combustible qui accélère les véhicules, *en jeu*) ; modules 4 et plus
-  (*en jeu*, lot MOD).
+- **Nouveautés** : cristal de résonance (combustible qui accélère les véhicules, *en jeu*) ; balises (transmission
+  d'effet), tapis express, productivité minière 2 : seulement **3 technologies** classées à l'époque 7 (époque creuse
+  en recherche, annexe A).
 - **Ressources** : cristal de résonance (**garanti**, lot M0) ; plaine de cristal (marche +10 %, régénère les
   personnages : *en jeu*).
 - **Déroulement**.
@@ -260,8 +266,9 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 8 : Marais (14 h, 4 h)
 - **Objectif** : le **méthane** des marais, en barils.
-- **Nouveautés** : méthane, craquage du méthane, barils (`fo-methane`, `fo-methane-cracking`, `fo-methane-barrel`,
-  *en jeu*) ; **pulvérisateur d'acide** (`fo-acid-sprayer`, *en jeu*). Turbine à gaz, bioréacteur : *prévu X0*.
+- **Nouveautés** (*en jeu*, 4 technologies) : méthane, craquage du méthane, barils ; lance-flammes ; **arc et acide**
+  (tourelle Tesla, pulvérisateur d'acide, fusil et cellule à arc) ; **armes lourdes 2** (balles explosives et
+  incendiaires, tourelle laser lourde, mur blindé). Turbine à gaz, bioréacteur : *prévu X0*.
 - **Ressources** : méthane (**garanti**, lot M0) ; marais toxique (marche −30 %, poison 2 dégâts/s, *en jeu*).
 - **Déroulement**.
   - Arrivée : Codex VIII : « tout ici se nourrit de la même chaleur ».
@@ -275,8 +282,8 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 9 : Atome (18 h, 4 h 30)
 - **Objectif** : l'**uranium 238** et la fission.
-- **Nouveautés** : centrifugeuse, réacteur nucléaire (vanilla) ; **canon électrique** (`fo-railgun`, `fo-rail-slug`,
-  *en jeu*). Galène, piège à positons : *prévu X0, absent*.
+- **Nouveautés** (4 technologies) : traitement de l'uranium, énergie nucléaire, retraitement, munitions à l'uranium.
+  Galène, piège à positons : *prévu X0, absent*.
 - **Ressources** : uranium (vanilla, acide sulfurique requis). Galène : *absente*.
 - **Déroulement**.
   - Arrivée : Codex IX : l'**Ordre Écarlate** voit une arme dans l'antimatière.
@@ -295,8 +302,9 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 10 : Haute technologie (22,5 h, 5 h)
 - **Objectif** : les **processeurs** en série.
-- **Nouveautés** : processeurs, science jaune (vanilla) ; **tourelle laser lourde** et munitions à plasma
-  (`fo-heavy-laser-turret`, `fo-plasma-rounds-magazine`, *en jeu*). Concentrés ρ8, cristal temporel : *prévu X0*.
+- **Nouveautés** : la plus grosse vague du jeu, **62 technologies** classées à l'époque 10 : processeurs, science
+  jaune, robots logistiques, artillerie, Kovarex, modules 4-5, munitions à plasma (armes lourdes 3), **et déjà le
+  titane** (`fo-titanium-processing`) et la voie humide du tungstène. Concentrés ρ8, cristal temporel : *prévu X0*.
 - **Ressources** : aucune nouvelle (X0 : concentrés).
 - **Déroulement**.
   - Arrivée : Codex X : la **Dynastie Ambre** voit l'éternité dans un cristal temporel.
@@ -310,8 +318,9 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 11 : Titane (27,5 h, 5 h 30)
 - **Objectif** : la **plaque de titane** par la chaîne de Kroll, dans le **champ de cratères**.
-- **Nouveautés** (*toutes en jeu*, lot X1) : concentrateur, électrolyseur, chloration, réacteur de Kroll, four à arc ;
-  coke, saumure, chlore, hydrogène, soude, magnésium, tétrachlorure, éponge.
+- **Nouveautés** (*toutes en jeu*, lot X1, mais débloquées à l'époque 10 : **aucune** technologie classée à l'époque
+  11) : concentrateur, électrolyseur, chloration, réacteur de Kroll, four à arc ; coke, saumure, chlore, hydrogène,
+  soude, magnésium, tétrachlorure, éponge.
 - **Ressources** : **ilménite** et **saumure** (**garanties**, champ de cratères, lot X1).
 - **Déroulement**.
   - Arrivée : Codex XI : le **Consortium Émeraude** veut tout transmuter.
@@ -326,8 +335,8 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 12 : Supraconducteurs (33 h, 6 h)
 - **Objectif** : la monnaie voulue (bobine supraconductrice) est **provisoire** : **moteur électrique** en jeu.
-- **Nouveautés** : *prévu X0* : sels fondus, haloscope, accumulateur supraconducteur. En jeu : moteurs électriques,
-  lubrifiant (vanilla).
+- **Nouveautés** : *prévu X0* : sels fondus, haloscope, accumulateur supraconducteur. En jeu : **canon électrique**
+  (`fo-railgun`, seule technologie classée à l'époque 12) ; moteurs électriques et lubrifiant (débloqués plus tôt).
 - **Ressources** : veine de caustique : *absente*.
 - **Déroulement**.
   - Arrivée : Codex XII : la Caustique a une **marée**.
@@ -342,7 +351,8 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 13 : Fusion (39 h, 6 h 30)
 - **Objectif** : monnaie **provisoire** : **uranium 235** (Kovarex) ; voulue : hélium-3.
-- **Nouveautés** : *prévu X0* : fusion D-³He, **Serment** (choix de doctrine). En jeu : Kovarex (vanilla).
+- **Nouveautés** : *prévu X0* : fusion D-³He, **Serment** (choix de doctrine). En jeu : réacteur à fusion portatif,
+  araignée (2 technologies) ; Kovarex depuis l'époque 10.
 - **Déroulement**.
   - Arrivée : Codex XIII : « Il faut choisir sa doctrine : le Serment. »
   - Montée : Kovarex en série.
@@ -358,7 +368,8 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 14 : Orbite (45,5 h, 7 h)
 - **Objectif** : lancer une fusée ; monnaie **provisoire** : **unité de contrôle de fusée**.
-- **Nouveautés** : silo, fusée, satellite (vanilla). Rectenna, superalliage, météorites : *prévu X0*.
+- **Nouveautés** : silo, fusée, pack spatial, modules 6 à 10 (17 technologies). Rectenna, superalliage, météorites :
+  *prévu X0*.
 - **Déroulement**.
   - Arrivée : Codex XIV, **la révélation** : le Convoi venait ouvrir une Porte.
   - Montée : silo, pièces de fusée ; le premier lancement donne le pack spatial.
@@ -371,7 +382,8 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 #### Époque 15 : Légende (52,5 h, 7 h et au-delà)
 - **Objectif** : bâtiments aux niveaux 29 et 30, puis la Porte (*prévu X0*).
-- **Nouveautés** : niveaux 29-30 de toutes les familles (*en jeu*). Porte, Clé de phase, Marée du Cœur : *prévu X0*.
+- **Nouveautés** : niveaux 29-30 de toutes les familles (*en jeu*) ; **aucune** technologie. Porte, Clé de phase,
+  Marée du Cœur : *prévu X0*.
 - **Déroulement**.
   - Arrivée : Codex XV (**proposé** : X0 n'a pas de texte pour l'époque 15, le tableau §1.6 s'arrête au XIV).
   - Montée : tout monter au niveau 30.
@@ -411,8 +423,41 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
      joueur, mais change `config.lua` et l'équilibre ;
    - doux : les **jalons** donnent une récompense (caisse de 5 % du lot du centre, X0 `X.MILESTONE_CRATE_SHARE`) sans
      rien exiger.
-5. **`control.lua`** : une ligne `require("script.scenario.journal")` après `require("script.levels.panel")`
+5. **Recherche mal répartie (constat, annexe A)** : 62 technologies à l'époque 10, 47 à la 4, mais 0 aux époques 11
+   et 15, 1 à la 12, 2 à la 13, 3 à la 7. Le joueur n'a presque rien à chercher pendant les 18 h des époques 11 à 13.
+   Proposition : reclasser le titane (`fo-titanium-processing`, `fo-wet-tungsten`) à l'époque 11 ; étaler les
+   modules 6-10 de 11 à 15 ; à trancher avec le lot X3 (graphe de fabrication).
+6. **Coke** : X0 le place à l'époque 2 (Forge) ; en jeu, le four à coke n'existe qu'avec le titane (époque 10).
+   Proposition : une technologie « Cokerie » à l'époque 2 (packs rouge et vert) qui débloque `fo-coke-oven` et
+   `fo-coking` ; la recherche du titane garde le reste.
+7. **`control.lua`** : une ligne `require("script.scenario.journal")` après `require("script.levels.panel")`
    (seul fichier partagé à toucher pour livrer le journal).
+
+---
+
+## Annexe A : technologies par époque (en jeu, 29/10)
+
+Classement de la règle des niveaux (`L.vanilla_tech_epoch` : la plus haute époque des recettes débloquées, sinon
+des packs), appliqué aux technologies FINALES du mod (`harness.lua --dump-techs`). C'est ce que lit l'objectif
+« Recherches de l'époque » du journal (60 %, part X0).
+
+| Époque | Nombre | Exemples |
+|---|---|---|
+| 1 | 7 | électronique, tourelle, logistique, militaire 1 |
+| 2 | 18 | acier, science verte, murs, portes, modules, armure lourde |
+| 3 | 21 | automatisation 2, moteur, rails, voitures, réseau de circuits, science militaire |
+| 4 | 47 | pétrole, plastique, science bleue, lasers, robots, roquettes, béton |
+| 5 | 4 | tungstène, armes lourdes 1, armes de siège, char |
+| 6 | 24 | batteries, accumulateurs, tourelle laser, solaire, modules, science de production |
+| 7 | 3 | transmission d'effet, logistique 3, productivité minière 2 |
+| 8 | 4 | lance-flammes, arc et acide, armes lourdes 2, méthane |
+| 9 | 4 | uranium, nucléaire, retraitement, munitions à l'uranium |
+| 10 | 62 | processeurs, science jaune, robots logistiques, artillerie, Kovarex, titane, modules 4-5 |
+| 11 | 0 | aucune |
+| 12 | 1 | canon électrique |
+| 13 | 2 | fusion portative, araignée |
+| 14 | 17 | silo, pack spatial, modules 6-10 |
+| 15 | 0 | aucune |
 
 ---
 

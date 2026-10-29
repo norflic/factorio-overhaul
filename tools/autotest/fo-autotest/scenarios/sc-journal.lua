@@ -122,6 +122,11 @@ return {
     ctx.check(o5[1] and o5[1].kind == "centre" and o5[1].target == 6, "epoque 5 : passage du centre vers 6", k5)
     local k4 = kinds(remote.call("fo-journal", "objectives", 4))
     ctx.check(k4:find("resource:crude-oil", 1, true), "epoque 4 : petrole brut", k4)
+    local o4 = remote.call("fo-journal", "objectives", 4, "player")
+    local r4
+    for _, o in ipairs(o4) do if o.kind == "research" then r4 = o end end
+    ctx.check(r4 and r4.total and r4.total >= 10 and r4.research_target == math.ceil(0.6 * r4.total),
+      "epoque 4 : objectif de recherche sur les technologies du jeu (60 %)", r4 and (r4.research_target .. " / " .. r4.total) or "absent")
     local k11 = kinds(remote.call("fo-journal", "objectives", 11))
     ctx.check(k11:find("resource:fo-ilmenite", 1, true) and k11:find("resource:fo-brine", 1, true), "epoque 11 : ilmenite et saumure", k11)
     local k15 = kinds(remote.call("fo-journal", "objectives", 15))

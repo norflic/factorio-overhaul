@@ -79,6 +79,22 @@ local function charted_chunks(force, surface)
   return n
 end
 
+--- Technologies de la force, triées par nom, au format de J.research_progress (lu à l'ouverture de la fenêtre).
+local function force_techs(force)
+  local names = {}
+  for name in pairs(force.technologies) do names[#names + 1] = name end
+  table.sort(names)
+  local out = {}
+  for _, name in ipairs(names) do
+    local t = force.technologies[name]
+    if t.enabled and not t.upgrade then
+      out[#out + 1] = { name = name, effects = t.effects, unit = { ingredients = t.research_unit_ingredients },
+                        researched = t.researched }
+    end
+  end
+  return out
+end
+
 --- Combien d'`item` dans le centre de la force et sur le joueur.
 local function have(force, player, item)
   local n = 0
@@ -159,6 +175,9 @@ local function objective_line(frame, player, o)
     text(frame, lk("obj-resource", "[entity=" .. o.name .. "]", p and p.localised_name or o.name))
   elseif o.kind == "chart" then
     text(frame, lk("obj-chart", charted_chunks(force, player.surface), o.chunks))
+  elseif o.kind == "research" then
+    text(frame, lk("obj-research", math.min(o.done, o.target), o.target, o.total),
+      o.done >= o.target and { r = 0.6, g = 1, b = 0.6 } or nil)
   elseif o.kind == "defense" then
     local st = S()
     local base = st.base and st.base[force.name] and st.base[force.name][o.epoch_shown]
@@ -182,7 +201,7 @@ function Journal.show_epoch(player, k)
   text(frame, lk("codex-" .. k), nil, "default-semibold")
   frame.add({ type = "line" })
   text(frame, lk("objectives"), nil, "default-bold")
-  for _, o in ipairs(J.objectives(k, resource_exists)) do
+  for _, o in ipairs(J.objectives(k, resource_exists, force_techs(player.force))) do
     o.epoch_shown = k
     objective_line(frame, player, o)
   end
@@ -329,10 +348,12 @@ remote.add_interface("fo-journal", {
              intros = st.stats.intros or 0, aligned = st.stats.aligned or 0, born = st.born }
   end,
   --- Objectifs de l'époque k, filtrés par les prototypes du jeu chargé (données simples).
-  objectives = function(k)
+  objectives = function(k, force_name)
     local out = {}
-    for _, o in ipairs(J.objectives(k, resource_exists)) do
+    local force = game.forces[force_name or "player"]
+    for _, o in ipairs(J.objectives(k, resource_exists, force and force_techs(force))) do
       out[#out + 1] = { kind = o.kind, target = o.target, level = o.level, name = o.name, chunks = o.chunks, nests = o.nests,
+                        done = o.done, total = o.total, research_target = o.target and o.kind == "research" and o.target or nil,
                         items = o.cost and #o.cost or nil }
     end
     return out

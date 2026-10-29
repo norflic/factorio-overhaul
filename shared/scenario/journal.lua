@@ -11,6 +11,8 @@
                   shared/content/world.lua (W.resources[clé].epoch == k, dans l'ordre W.resource_order), filtrées par un prédicat `exists` (le
                   prototype doit exister en jeu : la fumerolle, la galène… prévues par X0 n'apparaissent pas) ;
         chart   : cartographier N chunks (jalon d'exploration X0, s'il en a un) ;
+        research: rechercher 60 % des technologies DU JEU CHARGÉ classées à l'époque k (classement des niveaux,
+                  L.vanilla_tech_epoch ; part X0 X.MILESTONE_RESEARCH_SHARE) ; absent si l'époque n'en a aucune ;
         defense : détruire N nids pendant l'époque (jalon de défense X0, X.milestone_defense_nests(k) = 2 + k) ;
         gate    : la Porte (époque 15 seulement ; « à venir » tant qu'elle n'existe pas) ;
         threat  : la menace de l'époque (clé fo-journal.threat-k).
@@ -27,7 +29,7 @@ local J = {}
 
 J.MAX = 15
 J.LOCALE = "fo-journal"
-J.KINDS = { "centre", "cap", "resource", "chart", "defense", "gate", "threat" }
+J.KINDS = { "centre", "cap", "resource", "chart", "research", "defense", "gate", "threat" }
 
 local CC = L.by_key.command
 
@@ -68,9 +70,26 @@ function J.chart_target(k)
   return ex and ex.chart or nil
 end
 
+--- Époque d'une technologie : { name, effects = { {type, recipe}… }, unit = { ingredients = … } } (règle des niveaux).
+function J.tech_epoch(tech) return L.vanilla_tech_epoch(tech) end
+
+--- Recherches de l'époque k : `techs` = liste { name, effects, unit, researched }. Renvoie (faites, cible, total) ;
+--- cible = ⌈part X0 × total⌉ (0 si l'époque n'a aucune technologie).
+function J.research_progress(techs, k)
+  local total, done = 0, 0
+  for _, t in ipairs(techs or {}) do
+    if J.tech_epoch(t) == k then
+      total = total + 1
+      if t.researched then done = done + 1 end
+    end
+  end
+  return done, math.ceil(X.MILESTONE_RESEARCH_SHARE * total), total
+end
+
 --- Objectifs de l'époque k : liste ordonnée d'enregistrements { kind = …, … }. `exists(nom)` dit si un prototype
---- de ressource existe en jeu (nil : tout existe, pour les tests).
-function J.objectives(k, exists)
+--- de ressource existe en jeu (nil : tout existe, pour les tests). `techs` (facultatif) : technologies de la force
+--- (voir J.research_progress) ; sans elles, pas d'objectif de recherche.
+function J.objectives(k, exists, techs)
   assert(type(k) == "number" and k >= 1 and k <= J.MAX, "époque hors bornes")
   local out = {}
   if k < J.MAX then
@@ -82,6 +101,10 @@ function J.objectives(k, exists)
   end
   local chart = J.chart_target(k)
   if chart then out[#out + 1] = { kind = "chart", chunks = chart } end
+  if techs then
+    local done, target, total = J.research_progress(techs, k)
+    if total > 0 then out[#out + 1] = { kind = "research", done = done, target = target, total = total } end
+  end
   out[#out + 1] = { kind = "defense", nests = X.milestone_defense_nests(k) }
   if k == J.MAX then out[#out + 1] = { kind = "gate" } end
   out[#out + 1] = { kind = "threat", epoch = k }
