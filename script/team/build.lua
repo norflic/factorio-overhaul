@@ -383,6 +383,7 @@ local function candidates(b, states, toward, res)
     -- lot IA3-e : la centrale peut aussi aller dans un lot refusé pour l'EAU (plus de la moitié d'eau) : sa rive y est
     -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
+    if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end -- lot ENCEINTE3 : dehors du contour
     if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
@@ -426,7 +427,7 @@ local function make_pond(f, surface)  -- factions seulement (le joueur trouve so
   local best
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
-    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") then
+    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then
       local d = math.abs(l.i) + math.abs(l.j)
       if not best or d < best.d then best = { d = d, k = k, l = l } end
     end
@@ -1219,6 +1220,56 @@ local function ring_areas(x0, y0, x1, y1)
   }
 end
 
+--- Lot ENCEINTE3 (retour du DC, Azur : « ils ont vraiment placé super loin ») : contour SERRÉ sur l'empreinte réelle de la base.
+--- Empreinte = lots pris par un projet vivant (planifié ou fini), lot du QG, tourelles de l'équipe ; + E.MARGIN tuiles ; les lots
+--- et tourelles ISOLÉS (plus de E.ISOLATED_GAP tuiles) restent dehors ; les E.ROOM_LOTS lots libres les plus proches restent dedans.
+--- Rend ({ x0, y0, x1, y1 } = tuiles du mur, incluses, info) ou nil (ouvertures hors bornes : repli sur le rayon d'avant).
+local function enc_tight_bounds(f)
+  local b = f.build
+  local rects, room = {}, {}
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+    local box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1, k = k }
+    if l.used then
+      local p = b.projects[l.used]
+      if p and p.state ~= "refuse" and not (p.spec and p.spec.enceinte) then rects[#rects + 1] = box end
+    elseif (l.state == "libre" or l.state == "defricher") and not (l.i == 0 and l.j == 0) and not (l.bad and l.bad >= 2) and not l.out then
+      room[#room + 1] = box
+    end
+  end
+  for _, id in ipairs(sorted_keys(f.turrets or {})) do
+    local t = f.turrets[id]
+    if t and t.valid then
+      local x, y = t.position.x, t.position.y
+      rects[#rects + 1] = { x0 = math.floor(x - 1), y0 = math.floor(y - 1), x1 = math.ceil(x + 1), y1 = math.ceil(y + 1) }
+    end
+  end
+  local bounds, info = Enc.tight_bounds(b.lat, rects, room)
+  if not Enc.gates_inside(b.lat, bounds) then return nil end
+  return bounds, info
+end
+
+--- Lot ENCEINTE3 : les lots libres que le mur coupe ou laisse dehors ne reçoivent plus de module (drapeau `out`, lu par
+--- `candidates`, `make_pond` et Enc.free_count) ; un lot de GISEMENT reste utilisable dehors (les mines d'avant-poste).
+local function enc_mark_out(b, bounds)
+  local n = 0
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+    if not (l.i == 0 and l.j == 0) and not Enc.inside(bounds, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }) then
+      l.out = true
+      n = n + 1
+    end
+  end
+  return n
+end
+
+--- Lot ENCEINTE3 : rayon libéré (aucun segment posé) : les lots écartés par le contour redeviennent utilisables.
+local function enc_release(b)
+  for _, k in ipairs(sorted_keys(b.lots)) do b.lots[k].out = nil end
+end
+
 --- Plan du projet « enceinte » : (true) ou (false, raison). Mêmes champs qu'un projet de module (entités, points d'appui,
 --- obstacles) : la machine d'états d'`advance` ne change pas.
 local function plan_enceinte(f, surface, p)
@@ -1227,7 +1278,7 @@ local function plan_enceinte(f, surface, p)
   if not enc then return false, "enceinte annulee" end
   local item = item_of(T.wall)
   if not item then return false, "mur sans objet" end
-  local x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r)
+  local x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r, nil, enc.bounds) -- lot ENCEINTE3 : contour serré s'il y en a un
   -- lot ENCEINTE2 : un projet = un SEGMENT (spec.walls : tuiles { {tx, ty} ... }) ; sans liste (projet d'une sauvegarde d'avant),
   -- l'anneau entier
   local seg = p.spec.walls
@@ -1260,7 +1311,7 @@ local function plan_enceinte(f, surface, p)
       if why then ring.skipped[why] = (ring.skipped[why] or 0) + 1 else ring.walls[#ring.walls + 1] = w end
     end
   else
-    ring = Enc.ring(b.lat, enc.r, { skip = skip })
+    ring = Enc.ring(b.lat, enc.r, { skip = skip, bounds = enc.bounds })
   end
   if #ring.walls == 0 then return false, "aucun mur posable" end
   local ents = {}
@@ -2664,9 +2715,12 @@ local function request_segment(f, enc, tick)
   local b = f.build
   local wr = wall_recipe(f)
   if not wr then return false, "recette" end
-  local runs = Enc.runs(b.lat, enc.r)
+  local runs = Enc.runs(b.lat, enc.r, { bounds = enc.bounds })
   local equiv = Stock.count(f, wr.item) + craftable_walls(f, wr)
-  local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, known_threats(f)), enc.claimed, Enc.segment_cap(equiv))
+  local threats = known_threats(f)
+  -- lot ENCEINTE3 (lot A) : le segment démarre au bout du tronçon le plus proche de la menace connue de son côté, à défaut du QG
+  local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, threats), enc.claimed, Enc.segment_cap(equiv),
+    Enc.run_refs(runs, b.lat, threats))
   if not seg then
     if why == "complet" then enc.complete = true end
     return false, why, equiv
@@ -2712,6 +2766,7 @@ local function segment_failed(f, tick, i, p)
   -- demanderait plus jamais de segment, ou anneau entierement refuse)
   if #enc.segs == 0 and (transient or enc.complete) then
     b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
+    enc_release(b) -- lot ENCEINTE3
     space_log(b, string.format("[FO-ESPACE] %s : aucun segment pose, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
   end
 end
@@ -2728,7 +2783,7 @@ function Build.enclosure_report(b)
     end
   end
   return { r = enc.r, segments = #(enc.segs or {}), finished = fin, walls = walls, gates = enc.gates or Enc.gate_count(),
-    complete = enc.complete == true }
+    complete = enc.complete == true, bounds = enc.bounds, tight = enc.bounds ~= nil }
 end
 
 --- Une décision de croissance ou d'enceinte (appelée à chaque pensée d'équipe, utile seulement toutes les Enc.CHECK_TICKS).
@@ -2761,6 +2816,7 @@ function Build.space_step(f, surface, tick)
     elseif why == "complet" and #enc.segs == 0 then
       -- toutes les tuiles de l'anneau sont non murables et aucun segment n'existe : le rayon n'a pas de raison d'etre fige
       b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
+      enc_release(b) -- lot ENCEINTE3
       space_log(b, string.format("[FO-ESPACE] %s : aucune tuile murable, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
     elseif why == "stock" and not enc.poor then
       enc.poor = true
@@ -2780,19 +2836,26 @@ function Build.space_step(f, surface, tick)
   if on == nil then on = not f.is_player end  -- le joueur garde la main sur ses propres murs
   if not on or tick < (b.enc_retry or 0) or not Enc.enclosure_due(info) then return end
   -- premier segment : le rayon n'est figé (b.enc) que si un segment est vraiment demandé
-  local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count() }
+  -- lot ENCEINTE3 : contour serré sur l'empreinte (bornes figées avec le rayon) ; nil : le rayon, comme avant
+  local tight, tinfo = enc_tight_bounds(f)
+  local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count(), bounds = tight }
   local ok, why, equiv = request_segment(f, cand, tick)
   if not ok then
     if why == "stock" and not b.space_poor then
       b.space_poor = true
       space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, %d murs au plus), stock equivalent %d murs : un quart = %d, minimum %d : attente",
-        f.key or "player", b.radius, Enc.max_walls(b.radius), equiv or 0, Enc.segment_cap(equiv or 0), Enc.SEG_MIN))
+        f.key or "player", b.radius, Enc.max_walls(b.radius, { bounds = tight }), equiv or 0, Enc.segment_cap(equiv or 0), Enc.SEG_MIN))
     end
     return
   end
   b.enc = cand
+  local out_n = tight and enc_mark_out(b, tight) or 0
   space_log(b, string.format("[FO-ESPACE] %s : enceinte progressive commencee (rayon %d fige, %d murs au plus en tout) a %.1f min", f.key or "player",
-    b.radius, Enc.max_walls(b.radius), tick / 3600))
+    b.radius, Enc.max_walls(b.radius, { bounds = tight }), tick / 3600))
+  if tight then
+    space_log(b, string.format("[FO-ESPACE] %s : contour serre %d,%d a %d,%d (QG %d,%d ; empreinte %d lots/tourelles gardes, %d isoles dehors, %d lots libres gardes dedans, %d lots ecartes du contour)",
+      f.key or "player", tight[1], tight[2], tight[3], tight[4], b.lat.ox, b.lat.oy, tinfo.core, #tinfo.excluded, tinfo.room, out_n))
+  end
 end
 
 --- Pensée d'équipe (script/team/team.lua, après l'organisation) : tâches au tableau, réévaluation des rues

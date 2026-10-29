@@ -322,5 +322,224 @@ do
   end
 end
 
+-- 9. Lot ENCEINTE3 : contour SERRÉ sur l'empreinte réelle (retour du DC, Azur : murs « super loin »)
+do
+  local az = P.lattice({ x = 339.5, y = 339.5 })              -- le QG d'Azur : (339, 339)
+  -- non-régression : l'anneau d'avant (rayon 3) est inchangé, 235..442
+  do
+    local x0, y0, x1, y1 = E.bounds(az, 3)
+    check(x0 == 235 and y0 == 235 and x1 == 442 and y1 == 442, "Azur, rayon 3 : l'anneau d'avant est toujours 235..442 (" .. x0 .. ".." .. x1 .. ")")
+    local ring = E.ring(az, 3)
+    check(#ring.walls == E.max_walls(3) and ring.bounds[1] == 235 and ring.bounds[4] == 442, "Azur : l'anneau d'avant, murs = formule")
+    check(E.bounds(az, 3, nil, nil) == 235, "E.bounds sans bornes figees : le rayon")
+  end
+  local function box(i, j) return E.lot_box(az, i, j) end
+  local function lots(list) local out = {} for _, ij in ipairs(list) do out[#out + 1] = box(ij[1], ij[2]) end return out end
+  -- une base de 5 lots autour du QG : (0,0), (1,0), (-1,0), (0,1), (0,-1), sans lot libre ni tourelle
+  local used = lots({ { 1, 0 }, { -1, 0 }, { 0, 1 }, { 0, -1 } })
+  local tb, info = E.tight_bounds(az, used, {})
+  -- empreinte : x de 339-12-28 = 299 à 339+12+28 = 379 (fin exclue), idem y ; mur à 9 tuiles libres
+  check(tb[1] == 299 - E.MARGIN - 1 and tb[3] == 379 + E.MARGIN and tb[2] == 299 - E.MARGIN - 1 and tb[4] == 379 + E.MARGIN,
+    "contour serre : empreinte 299..379 + marge " .. E.MARGIN .. " (" .. table.concat(tb, ",") .. ")")
+  check(info.core == 4 and #info.excluded == 0, "les 4 lots voisins sont dans l'empreinte")
+  check(tb[1] > 235 and tb[3] < 442, "le contour serre est strictement a l'interieur de l'anneau d'Azur")
+  check(E.gates_inside(az, tb), "les ouvertures des rues principales sont dans le contour")
+  -- la distance de l'empreinte au mur est exactement la marge, sur les 4 cotes
+  local ring = E.ring(az, 0, { bounds = tb })
+  local mn = math.huge
+  for _, w in ipairs(ring.walls) do
+    local dx = math.max(299 - w.tx - 1, w.tx - 379, 0) -- tuiles libres entre le bord de l'empreinte et le mur
+    local dy = math.max(299 - w.ty - 1, w.ty - 379, 0)
+    mn = math.min(mn, math.max(dx, dy))
+  end
+  check(mn == E.MARGIN, "aucun mur a moins de " .. E.MARGIN .. " tuiles libres de l'empreinte, et il y en a a exactement " .. E.MARGIN .. " (" .. mn .. ")")
+  check(#ring.walls == E.max_walls(0, { bounds = tb }), "max_walls(contour serre) = murs de l'anneau (" .. #ring.walls .. " / " .. E.max_walls(0, { bounds = tb }) .. ")")
+  check(ring.gates == E.gate_count(), "toujours 32 tuiles d'ouverture")
+  check(#ring.walls < E.max_walls(3) / 2, "bien moins de murs que l'anneau d'avant (" .. #ring.walls .. " contre " .. E.max_walls(3) .. ")")
+  -- aucun mur dans un lot de l'empreinte
+  local inlot = 0
+  for _, w in ipairs(ring.walls) do
+    for _, r in ipairs(used) do if w.tx >= r.x0 and w.tx < r.x1 and w.ty >= r.y0 and w.ty < r.y1 then inlot = inlot + 1 end end
+  end
+  check(inlot == 0, "aucun mur dans un lot de l'empreinte")
+  -- troncons : 12, continus
+  local runs = E.runs(az, 0, { bounds = tb })
+  check(#runs == 12, "contour serre : 12 troncons (" .. #runs .. ")")
+  local n = 0
+  for _, run in ipairs(runs) do n = n + #run.walls end
+  check(n == #ring.walls, "les troncons recouvrent le contour serre une fois")
+
+  -- lot isole : (4, 0) est a 60 tuiles de l'empreinte (hors portee), (3, 0) a 32 (dans la portee)
+  local far = lots({ { 1, 0 }, { 4, 0 } })
+  local t1, i1 = E.tight_bounds(az, far, {})
+  check(i1.core == 1 and #i1.excluded == 1 and i1.excluded[1].x0 == box(4, 0).x0, "lot isole a 60 tuiles : exclu du contour")
+  check(t1[3] == box(1, 0).x1 + E.MARGIN, "le contour ne s'etire pas vers le lot isole (x1 " .. t1[3] .. ")")
+  local near = lots({ { 1, 0 }, { 3, 0 } })
+  local t2, i2 = E.tight_bounds(az, near, {})
+  check(i2.core == 2 and #i2.excluded == 0 and t2[3] == box(3, 0).x1 + E.MARGIN, "un lot a 32 tuiles (un lot vide entre) est dans l'empreinte")
+  -- croissance de proche en proche : (1,0), (3,0) puis (5,0) forment une chaine ; (8,0) reste dehors
+  local chain = lots({ { 1, 0 }, { 3, 0 }, { 5, 0 }, { 8, 0 } })
+  local t3, i3 = E.tight_bounds(az, chain, {})
+  check(i3.core == 3 and #i3.excluded == 1 and i3.excluded[1].x0 == box(8, 0).x0, "chaine de lots a un lot d'ecart : suivie jusqu'au bout, le plus loin dehors")
+  -- tourelles : une tourelle a 14 tuiles du lot du QG est dedans, une tourelle d'avant-poste a 150 tuiles dehors
+  local tur = { { x0 = 339 + 25, y0 = 338, x1 = 339 + 27, y1 = 340 }, { x0 = 339 + 150, y0 = 338, x1 = 339 + 152, y1 = 340 } }
+  local t4, i4 = E.tight_bounds(az, tur, {})
+  check(i4.core == 1 and #i4.excluded == 1 and t4[3] == 339 + 27 + E.MARGIN, "tourelle proche dans l'empreinte, tourelle d'avant-poste dehors")
+  -- l'empreinte ne contient QUE le lot du QG si rien n'est pris : le contour reste valide
+  local t5 = E.tight_bounds(az, {}, {})
+  check(t5[1] == 339 - 12 - E.MARGIN - 1 and t5[3] == 339 + 12 + E.MARGIN and E.gates_inside(az, t5), "empreinte vide : le lot du QG seul, ouvertures dedans")
+  -- lots libres gardes dedans : les ROOM_LOTS plus proches, departages par ecart puis par cle
+  local roomlots = {}
+  for _, ij in ipairs({ { 0, 2 }, { 2, 0 }, { -2, 0 }, { 0, -2 }, { 2, 2 }, { 6, 6 } }) do
+    local r = box(ij[1], ij[2]); r.k = ij[1] .. ":" .. ij[2]; roomlots[#roomlots + 1] = r
+  end
+  local t6, i6 = E.tight_bounds(az, used, roomlots)
+  check(i6.room == E.ROOM_LOTS, "les " .. E.ROOM_LOTS .. " lots libres les plus proches sont gardes (" .. i6.room .. ")")
+  check(t6[3] > tb[3] or t6[4] > tb[4], "le contour s'elargit pour garder de la place")
+  -- le lot libre lointain (6,6) n'est pas gardé
+  check(t6[3] < box(6, 6).x0 and t6[4] < box(6, 6).y0, "un lot libre lointain n'etire pas le contour")
+  local no_room = E.tight_bounds(az, used, { box(9, 9) })
+  check(no_room[1] == tb[1] and no_room[3] == tb[3], "un lot libre hors de portee n'est pas garde")
+  -- un lot libre garde peut rapprocher un lot isole : celui-ci rejoint alors l'empreinte (le mur ne le coupe jamais)
+  do
+    local base = lots({ { 1, 0 } })
+    local isolated = lots({ { 4, 0 } })                               -- 60 tuiles de l'empreinte : dehors
+    local r2 = box(2, 1); r2.k = "2:1"                                -- libre, a 4 tuiles de l'empreinte : garde, et rapproche (4,0)
+    local _, ii = E.tight_bounds(az, { base[1], isolated[1] }, { r2 })
+    check(ii.core == 2 and #ii.excluded == 0, "le lot libre garde rapproche le lot isole : il rejoint l'empreinte")
+  end
+  -- determinisme et independance de l'ordre
+  local mixed = lots({ { 3, 0 }, { 0, 1 }, { -1, 0 }, { 1, 0 }, { 5, 0 }, { 9, 9 }, { 0, -1 } })
+  local ordered = lots({ { 9, 9 }, { 5, 0 }, { 3, 0 }, { 1, 0 }, { 0, 1 }, { 0, -1 }, { -1, 0 } })
+  local ta, ia = E.tight_bounds(az, mixed, {})
+  local tc, ic = E.tight_bounds(az, ordered, {})
+  check(ta[1] == tc[1] and ta[2] == tc[2] and ta[3] == tc[3] and ta[4] == tc[4] and ia.core == ic.core, "l'ordre des lots ne change pas le contour")
+  local ta2 = E.tight_bounds(az, mixed, {})
+  check(ta2[1] == ta[1] and ta2[3] == ta[3], "meme entree, meme contour")
+  -- propriete : sur 300 empreintes pseudo-aleatoires, un rectangle exclu est toujours hors du contour (ni coupe, ni dedans),
+  -- tout rectangle garde est dedans, les ouvertures sont dedans
+  do
+    local seed = 12345
+    local function rnd(m) seed = (seed * 1103515245 + 12345) % 2147483648; return math.floor(seed / 65536) % m end
+    local bad_cut, bad_in, bad_gate, total_excl = 0, 0, 0, 0
+    for _ = 1, 300 do
+      local rects, rooms = {}, {}
+      for _ = 1, 3 + rnd(10) do rects[#rects + 1] = box(rnd(15) - 7, rnd(15) - 7) end
+      for _ = 1, rnd(5) do local r = box(rnd(15) - 7, rnd(15) - 7); r.k = tostring(rnd(1000)); rooms[#rooms + 1] = r end
+      local tbb, inf = E.tight_bounds(az, rects, rooms)
+      if not E.gates_inside(az, tbb) then bad_gate = bad_gate + 1 end
+      local is_ex = {}
+      for _, r in ipairs(inf.excluded) do
+        is_ex[r] = true
+        total_excl = total_excl + 1
+        -- un rectangle exclu ne recouvre ni n'enferme aucune tuile de la boite du mur
+        if r.x1 > tbb[1] and r.x0 <= tbb[3] and r.y1 > tbb[2] and r.y0 <= tbb[4] then bad_cut = bad_cut + 1 end
+      end
+      for _, r in ipairs(rects) do
+        if not is_ex[r] and not E.inside(tbb, r) then bad_in = bad_in + 1 end
+      end
+    end
+    check(bad_cut == 0 and bad_in == 0 and bad_gate == 0 and total_excl > 0,
+      "300 empreintes au hasard : aucun lot exclu coupe ou enferme (" .. bad_cut .. "), aucun lot garde dehors (" .. bad_in .. "), ouvertures dedans (" .. bad_gate .. "), exclus vus " .. total_excl)
+  end
+  -- E.inside : le mur lui-meme n'est pas "dedans"
+  check(E.inside(tb, { x0 = tb[1] + 1, y0 = tb[2] + 1, x1 = tb[3], y1 = tb[4] }) and not E.inside(tb, { x0 = tb[1], y0 = tb[2] + 1, x1 = tb[3], y1 = tb[4] }),
+    "E.inside : l'interieur exclut la tuile du mur")
+end
+
+-- 10. Lot ENCEINTE3 (lot A) : le segment démarre au bout du tronçon le plus proche du QG / de la menace, pas dans un coin
+do
+  local az = P.lattice({ x = 339.5, y = 339.5 })
+  local runs = E.runs(az, 3)
+  local order = E.run_order(runs, az, {})
+  local refs = E.run_refs(runs, az, {})
+  -- sans menace : la reference de chaque troncon est le QG
+  local ok_qg = true
+  for _, run in ipairs(runs) do if math.abs(refs[run.id].x - 339.5) > 1e-9 or math.abs(refs[run.id].y - 339.5) > 1e-9 then ok_qg = false end end
+  check(ok_qg, "run_refs sans menace : le QG")
+  -- premier tronçon (nord, de l'angle ouest a la 1re ouverture) : le segment de 12 murs commence a la tuile de l'OUVERTURE, pas au coin
+  local r1 = runs[order[1]]
+  local first, last = r1.walls[1], r1.walls[#r1.walls]
+  local seg = E.next_segment(runs, order, {}, 12, refs)
+  local d_first = (first.x - 339.5) ^ 2 + (first.y - 339.5) ^ 2
+  local d_last = (last.x - 339.5) ^ 2 + (last.y - 339.5) ^ 2
+  local want = d_last < d_first and last or first
+  check(seg.walls[1].tx == want.tx and seg.walls[1].ty == want.ty and #seg.walls == 12,
+    "sans menace : le segment demarre au bout du troncon le plus proche du QG (" .. seg.walls[1].tx .. "," .. seg.walls[1].ty .. ")")
+  check(d_last < d_first and (seg.walls[1].tx ~= first.tx), "le premier troncon (angle ouest -> ouverture) : on ne commence pas par le coin")
+  local old = E.next_segment(runs, order, {}, 12)
+  check(old.walls[1].tx == first.tx and old.walls[1].ty == first.ty, "sans refs : l'ancien comportement (debut du troncon)")
+  -- les segments suivants du même tronçon se suivent : chacun touche le précédent, de l'ouverture vers le coin
+  do
+    local claimed, prev = {}, nil
+    local ok_adj, n = true, 0
+    while true do
+      local s2 = E.next_segment(runs, order, claimed, 12, refs)
+      if not s2 or s2.run ~= order[1] then break end
+      if prev then
+        local a = prev.walls[#prev.walls]
+        local b = s2.walls[1]
+        if math.abs(a.tx - b.tx) + math.abs(a.ty - b.ty) ~= 1 then ok_adj = false end
+      end
+      E.claim(claimed, s2.walls, true)
+      prev = s2
+      n = n + 1
+      if n > 50 then break end
+    end
+    check(ok_adj and n >= 2, "les segments d'un troncon se suivent bout a bout depuis l'ouverture (" .. n .. " segments)")
+  end
+  -- menace connue : le segment demarre au bout le plus proche de la menace
+  for _, th in ipairs({ { x = 339 + 150, y = 339 - 100 }, { x = 339 - 160, y = 339 + 120 }, { x = 339 + 20, y = 339 + 200 }, { x = 339 - 30, y = 339 - 230 } }) do
+    local threats = { { x = th.x, y = th.y, w = 3 } }
+    local o2 = E.run_order(runs, az, threats)
+    local rf = E.run_refs(runs, az, threats)
+    local r = runs[o2[1]]
+    local s3 = E.next_segment(runs, o2, {}, 10, rf)
+    local ref = rf[r.id]
+    check(ref.x == th.x and ref.y == th.y, "run_refs : la menace du cote (" .. th.x .. "," .. th.y .. ")")
+    local da = (r.walls[1].x - th.x) ^ 2 + (r.walls[1].y - th.y) ^ 2
+    local dz = (r.walls[#r.walls].x - th.x) ^ 2 + (r.walls[#r.walls].y - th.y) ^ 2
+    local want2 = dz < da and r.walls[#r.walls] or r.walls[1]
+    check(s3.walls[1].tx == want2.tx and s3.walls[1].ty == want2.ty and s3.run == r.id,
+      "menace (" .. th.x .. "," .. th.y .. ") : le segment demarre au bout du troncon le plus proche d'elle")
+  end
+  -- couverture exacte conservee avec refs, a plusieurs plafonds
+  for _, cap in ipairs({ 8, 13, 40 }) do
+    local claimed, total, dup, nseg = {}, 0, 0, 0
+    local th = { { x = 339 + 150, y = 339, w = 3 } }
+    local o3, rf = E.run_order(runs, az, th), E.run_refs(runs, az, th)
+    while true do
+      local sg = E.next_segment(runs, o3, claimed, cap, rf)
+      if not sg then break end
+      for _, w in ipairs(sg.walls) do if claimed[E.key(w.tx, w.ty)] then dup = dup + 1 end end
+      E.claim(claimed, sg.walls, true)
+      total = total + #sg.walls
+      nseg = nseg + 1
+      if nseg > 1000 then break end
+    end
+    check(total == E.max_walls(3) and dup == 0, "refs, plafond " .. cap .. " : l'anneau est pose exactement (" .. total .. " / " .. E.max_walls(3) .. ")")
+  end
+  -- un bloc libre au milieu d'un troncon (segment rendu) : le segment prend le bout le plus proche de la reference
+  do
+    local r = runs[order[1]]
+    local claimed = {}
+    for i = 1, #r.walls do if i < 5 or i > #r.walls - 4 then claimed[E.key(r.walls[i].tx, r.walls[i].ty)] = true end end
+    local mid_first, mid_last = r.walls[5], r.walls[#r.walls - 4]
+    local sgw = E.next_segment(runs, order, claimed, 8, { [order[1]] = { x = mid_last.x + 300, y = mid_last.y } })
+    check(sgw.run == order[1] and sgw.walls[1].tx == mid_last.tx and #sgw.walls == 8, "bloc central : demarre par le bout le plus proche de la reference")
+    local sgw2 = E.next_segment(runs, order, claimed, 8, { [order[1]] = { x = mid_first.x - 300, y = mid_first.y } })
+    check(sgw2.walls[1].tx == mid_first.tx, "bloc central : et par l'autre bout si la reference est de l'autre cote")
+  end
+  -- deux blocs libres dans le meme troncon : le plus proche de la reference d'abord
+  do
+    local r = runs[order[1]]
+    local claimed = {}
+    for i = 10, 14 do claimed[E.key(r.walls[i].tx, r.walls[i].ty)] = true end
+    local ref = { [order[1]] = { x = r.walls[#r.walls].x + 200, y = r.walls[#r.walls].y } }
+    local sg = E.next_segment(runs, order, claimed, 8, ref)
+    check(sg.walls[1].tx == r.walls[#r.walls].tx, "deux blocs libres : le bloc le plus proche de la reference d'abord")
+  end
+end
+
 print(string.format("[ENCEINTE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
