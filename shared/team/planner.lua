@@ -449,6 +449,13 @@ function P.plan(view, book)
           sites = pick.need.sites, pos = pick.need.center, range = pl.range, pieces = pick.pieces, plant_id = pick.id }
       end
     end
+    -- Lot DEFENSE-FRONT : la cellule la plus attaquée (ou un groupe de laboratoires à couvrir) reçoit ses tourelles en plus, par lots,
+    -- sous le plafond de l'équipe (shared/team/front.lua) ; un seul poste « front » à la fois, payé sur le stock comme les autres.
+    if view.front and view.front.pick then
+      local pk = view.front.pick
+      posts[#posts + 1] = { id = "front", want = pk.have + pk.count, have = pk.have, busy = view.front.busy,
+        sites = pk.sites, pos = { x = pk.x, y = pk.y }, cell_key = pk.key }
+    end
     for _, p in ipairs(posts) do
       local key = "fortify:" .. p.id
       if p.have < p.want and not p.busy and not open[key] then
@@ -458,7 +465,7 @@ function P.plan(view, book)
           local items = turret_items(n)
           if take(items) then
             add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = items, defend = true,
-              sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id })
+              sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key })
           else
             want_defense(items)
           end
