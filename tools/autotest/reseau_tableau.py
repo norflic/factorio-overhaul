@@ -15,6 +15,7 @@ import sys
 
 PE = re.compile(r"\[FO-FONCTION\] elec minute (\d+) \| (\w+) \| (.*)$")
 PR = re.compile(r"\[FO-FONCTION\] reseau minute (\d+) \| (\w+) \| (.*)$")
+PS = re.compile(r"\[FO-FONCTION\] statut minute (\d+) \| (\w+) \| classe=(\w+) n=(\d+) samples=(\d+) (.*)$")
 PT = re.compile(r"\[FO-FONCTION\] tourelles minute (\d+) \| (\w+) \| (.*)$")
 PP = re.compile(r"\[FO-FONCTION\] prod minute (\d+) \| (\w+) \| (.*)$")
 POSE = re.compile(r"\[FO-(?:POSE|POLE)\] .*ennemi a 28 tuiles : (OUI|non)")
@@ -37,7 +38,8 @@ def lines(d):
 
 
 def read(d):
-    R = dict(deficit={}, red={}, tour={}, prod={}, pnj={}, feu=0, poses=0, decisions=collections.Counter(), reopen=0, dec_lines=[])
+    R = dict(deficit={}, red={}, tour={}, prod={}, pnj={}, feu=0, poses=0, decisions=collections.Counter(), reopen=0, dec_lines=[],
+             bad=collections.Counter(), samples=collections.Counter())
     performed = False
     for line in lines(d):
         m = PE.search(line)
@@ -54,6 +56,14 @@ def read(d):
                 R["red"][(int(m.group(1)), m.group(2))] = dict(pot=int(kv["poteaux"]), svc=int(kv["en_service"]), p2=int(kv["paires_lt2"]),
                                                                glou=int(kv["redondants_glouton"]), ilots=int(kv["ilots"]),
                                                                alim=int(kv["alimentes"]))
+            continue
+        m = PS.search(line)
+        if m:
+            if m.group(3) in ("foreuse_elec", "bras_elec", "assembleur") and int(m.group(1)) in (40, 50, 60):
+                kv = kvs(m.group(6))
+                ns = int(m.group(5)) * max(1, int(m.group(4)))
+                R["samples"]["all"] += int(m.group(5)) * int(m.group(4))
+                R["bad"]["all"] += sum(int(v) for k, v in kv.items() if k in ("no_power", "not_plugged_in_electric_network", "low_power")) * int(m.group(4))
             continue
         m = PT.search(line)
         if m:
@@ -152,6 +162,8 @@ def main():
     print(f"POOLE poteaux par consommateur alimente m60 : lot {pp[0]:.2f} / temoin {pp[1]:.2f} -> rapport {pp[0] / max(1e-9, pp[1]):.2f}  (C5 : <= 1.05)")
     for k in sorted(pt[0]):
         print(f"POOLE C6 {k} : lot {pt[0][k]:.0f} / temoin {pt[1][k]:.0f} -> rapport {pt[0][k] / max(1, pt[1][k]):.2f}  (C6 : >= 0.85)")
+    sb = [sum(R[s]["bad"]["all"] for s in R) / max(1, sum(R[s]["samples"]["all"] for s in R)) for R in (L, T)]
+    print(f"SUPPL. part des releves (30 s) 'sans courant / courant faible' des foreuses et bras electriques et assembleurs, fenetres 30 a 60 min : lot {sb[0]:.3f} / temoin {sb[1]:.3f}")
     feu = sum(L[s]["feu"] for s in L)
     print(f"C6 poses (poteaux, pieces de centrale) avec un ennemi a 28 tuiles : {feu}  (C6 : 0)")
     for s in L:
