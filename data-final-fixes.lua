@@ -20,6 +20,13 @@ do
     if S.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
   end
 end
+-- Lot AMELIO-RESSOURCES : celles du plomb et du thorium que X0 marque « prod » (plomb, blindage plombé) ; aucune réversible.
+do
+  local P = require("shared.content.galena")
+  for _, rr in ipairs(P.RECIPES) do
+    if P.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
 
 local base = data.raw.module["productivity-module-3"]
 local limitation = table.deepcopy(base and base.limitation or {})
