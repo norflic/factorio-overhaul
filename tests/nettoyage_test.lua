@@ -119,6 +119,9 @@ local function props(Nt)
   local cl = Nt.filter_threats({ { x = 30, y = 0 }, { x = 200, y = 0 }, { x = 110, y = 10 }, { x = 0, y = 90 } }, { x = 0, y = 0 },
     { x = 100, y = 0 })
   add(#cl == 2 and cl[1].x == 30 and cl[2].y == 90, "priorité : expéditions plus lointaines que le site retirées, champ du site aussi")
+  local ck = Nt.filter_threats({ { x = 200, y = 0, killed = true }, { x = 0, y = 250 }, { x = 105, y = 0, killed = true } },
+    { x = 0, y = 0 }, { x = 100, y = 0 })
+  add(#ck == 1 and ck[1].x == 200, "priorité : un groupe qui a tué (tournée) reste, même plus loin que le site ; hors du champ du site seulement")
   local dr = Nt.drop_site({ { x = 30, y = 0 }, { x = 200, y = 0 }, { x = 110, y = 10 } }, { x = 100, y = 0 })
   add(#dr == 2 and dr[1].x == 30 and dr[2].x == 200, "site nettoyé : son champ retiré des menaces, les autres gardés")
   return out
@@ -139,7 +142,8 @@ local MUTANTS = {
   { "rassemblement au pied du site", "local along = d - keep", "local along = d" },
   { "jamais d'abandon", "if tick - (op.t_phase or 0) >= Nt.ATTACK_TICKS then", "if false then" },
   { "jamais de retraite", "Sd.retreat(op.n0, obs.dead or 0) or ", "" },
-  { "pas de priorité", "if d2(c, hq) <= ds and d2(c, site) > r * r then", "if true then" },
+  { "pas de priorité", "if d2(c, site) > r * r and (c.killed or d2(c, hq) <= ds) then", "if true then" },
+  { "tournée harcelée sacrifiée", "(c.killed or d2(c, hq) <= ds)", "(d2(c, hq) <= ds)" },
   { "blocage échu retenu", "(s.until_tick or 0) > tick", "true" },
   { "QG menacé ignoré", "if input.threatened then", "if false then" },
   { "priorité tenue sur un champ trop fort", 'decision.reason == "effectif"', 'decision.reason ~= "qg-menace"' },
@@ -426,6 +430,39 @@ do
   S.add_soldiers(30)
   S.SD.pass(S.f, S.TK + 30)
   check(S.C.team(S.f).sd.nt == nil and #logs(S.W, "[FO-NETTOYAGE]") == 0, "coupure soldats_offensive : aucune opération")
+end
+do
+  -- Relecture : coupure posée PENDANT une opération : elle tombe, ses soldats ne gardent pas le rôle « nettoyage-site ».
+  local S = scenario()
+  local f = S.f
+  local t = S.C.team(f)
+  S.add_soldiers(20)
+  S.SD.pass(f, S.TK + 30)
+  local ids = t.sd.nt and t.sd.nt.ids or {}
+  S.war.settings = S.war.settings or {}
+  S.war.settings.soldats_offensive = false
+  S.SD.pass(f, S.TK + 60)
+  local stale = 0
+  for _, id in ipairs(ids) do if t.sd.per[id] and t.sd.per[id].role == "nettoyage-site" then stale = stale + 1 end end
+  check(#ids == 10 and t.sd.nt == nil and stale == 0, "coupure pendant l'opération : opération tombée, aucun rôle figé")
+end
+do
+  -- Relecture : nettoyage d'un site encore hostile, réserve pleine pour la ressource : l'examen refuse le site et la réserve
+  -- n'y perd rien (avant : le site le plus lointain était oublié AVANT l'examen, même refusé).
+  local S = scenario()
+  local f = S.f
+  local hq = S.hq
+  f.prospects = {
+    { x = S.far.x, y = S.far.y, resource = "coal", radius = 6, rich = 10000000, tiles = 60 },
+    { x = hq.x - 300, y = hq.y, resource = "coal", radius = 6, rich = 10000000, tiles = 60 },
+    { x = hq.x, y = hq.y - 400, resource = "coal", radius = 6, rich = 10000000, tiles = 60 },
+  }
+  local before = {}
+  for i, s in ipairs(f.prospects) do before[i] = s end
+  local u = S.Sites.unblock(f, S.surface, S.near, "coal", S.TK + 30)
+  local same = #f.prospects == 3
+  for i = 1, 3 do same = same and f.prospects[i] == before[i] end
+  check(not u.added and u.still and same, "examen refusé (ennemis encore là) : réserve intacte, même ordre ; signal reposé")
 end
 
 ---------------------------------------------------------------------------------------------------

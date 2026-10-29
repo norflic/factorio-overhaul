@@ -989,6 +989,7 @@ function Sites.unblock(f, surface, site, resource, tick)
   end
   local added = false
   if not in_reserve and f.hq_pos then
+    local dropped = {} -- { { i, site } } dans l'ordre des retraits : rendus à leur place si l'examen refuse le site
     local function drop_farthest(only_res)
       local drop, dmax = nil, -1
       for i, s in ipairs(f.prospects) do
@@ -997,12 +998,16 @@ function Sites.unblock(f, surface, site, resource, tick)
           if d > dmax then drop, dmax = i, d end
         end
       end
-      if drop then table.remove(f.prospects, drop) end
+      if drop then dropped[#dropped + 1] = { drop, table.remove(f.prospects, drop) } end
     end
     if prospects_of(f, resource) >= (f.is_player and MAX_PER_KIND or FACTION_MAX_PER_KIND) then drop_farthest(resource) end
     if #f.prospects >= max_prospects(f) then drop_farthest(nil) end
     added = probe(f, surface, math.floor(site.x / 32), math.floor(site.y / 32), tick, { resource }, nil, other_hqs_of(f),
       game.forces.player.get_spawn_position(surface), war)
+    -- Relecture : examen refusé (ennemi encore là, espacement, revendiqué) : la réserve n'y perd rien (ordre inverse des retraits).
+    if not added then
+      for k = #dropped, 1, -1 do table.insert(f.prospects, dropped[k][1], dropped[k][2]) end
+    end
   end
   local n, d = Sites.available(f, resource, tick)
   return { added = added, in_reserve = in_reserve or added, still = (f.site_blocked or {})[resource] ~= nil, n = n, near = d }

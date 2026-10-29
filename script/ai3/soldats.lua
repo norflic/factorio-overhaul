@@ -239,6 +239,7 @@ local function pass(f, tick)
       end
     end
     sd.free_n = 0
+    sd.nt = nil -- lot NETTOYAGE-SITE (relecture) : ses soldats viennent d'être rendus ci-dessus ; aucune opération figée au rallumage
     return
   end
   -- Escortes demandées (triées par PNJ) : PNJ vivant, même tâche (ou tâche pas encore prise : 120 ticks de grâce).
@@ -391,6 +392,9 @@ local function pass(f, tick)
   -- (script/ai3/nettoyage.lua) ; ses soldats sortent de la liste attribuée, et tant qu'elle est préparée (attente d'effectif) ou
   -- en cours, les expéditions plus lointaines que le site sont retirées des menaces candidates. Coupure de banc : offense.
   local nt_n = 0
+  -- Coupure coupée en cours d'opération (relecture) : l'opération tombe ; ses soldats, restés dans `list`, reçoivent un ordre de
+  -- Sd.assign ou rentrent (rôle « nettoyage-site » sans ordre : branche du rôle perdu plus bas).
+  if not offense and sd.nt then sd.nt = nil end
   if offense then
     local nt = Nts.pass(f, t, sd, list, soldiers, per, surface, tick,
       { threatened = hq_en ~= nil or #defend > 0, km = km, command = command_for, expedition = sd.clearing })

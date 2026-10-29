@@ -180,13 +180,16 @@ end
 
 --- Priorité au site proche : retire des groupes de menaces des soldats (Sd.clusters, déjà triés) ceux plus LOINTAINS du QG que
 --- le site (les expéditions lointaines) et ceux du site lui-même (à moins de R + NEAR_SITE tuiles : c'est l'opération qui les
---- traite). Les groupes plus proches du QG que le site restent (une menace près du QG passe toujours avant).
+--- traite). Les groupes plus proches du QG que le site restent (une menace près du QG passe toujours avant), et ceux qui ONT TUÉ
+--- ou bloquent une tournée (c.killed, script/ai3/soldats.lua) restent quelle que soit leur distance : ce ne sont pas des
+--- expéditions mais la défense de la production déjà en place (relecture : sans cela, une attente d'effectif qui dure laissait
+--- les avant-postes harcelés sans nettoyage).
 function Nt.filter_threats(clusters, hq, site)
   local out = {}
   local ds = d2(site, hq)
   local r = Nt.R + Nt.NEAR_SITE
   for _, c in ipairs(clusters or {}) do
-    if d2(c, hq) <= ds and d2(c, site) > r * r then out[#out + 1] = c end
+    if d2(c, site) > r * r and (c.killed or d2(c, hq) <= ds) then out[#out + 1] = c end
   end
   return out
 end
