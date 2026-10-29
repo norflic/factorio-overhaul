@@ -69,9 +69,15 @@ function Levels.cc(force)
   return nil
 end
 
+--- Crochet du lot CENTRE-JEU (posé par script/levels/centre.lua) : le centre de l'équipe est-il une ÉPAVE non réparée ?
+-- Par défaut non (tests sans le lot, sauvegardes d'avant).
+Levels.is_wreck = function() return false end
+
+--- Niveau EFFECTIF du centre : 0 pour une épave (aucun plafond pour les autres familles), sinon son niveau.
 function Levels.cc_level(force)
   local cc = Levels.cc(force)
   if not cc then return 0 end
+  if Levels.is_wreck(force) then return 0 end
   local _, n = L.parse(cc.name)
   return n or 0
 end
@@ -1119,6 +1125,8 @@ function Levels.preview(entity, player, fresh, opts)
   end
   info.cost = L.cost(family, n + 1)
   info.ok, info.reason = L.check(family, n + 1, info.cc_level)
+  -- Lot CENTRE-JEU : une épave doit d'abord être réparée (script/levels/centre.lua).
+  if family.key == "command" and Levels.is_wreck(force) then info.ok, info.reason = false, "wreck" end
   info.required_cc = L.required_cc(family, n + 1)
   -- Un objet de coût absent du jeu (table d'indirection pointant vers un objet pas encore livré) : on
   -- refuse proprement au lieu de laisser le moteur lever une erreur sur un nom d'objet inconnu.
