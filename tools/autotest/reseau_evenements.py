@@ -122,8 +122,8 @@ def analyse(arch, n2, n3, n4, ratio, poles_max):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("archives", nargs="+")
-    ap.add_argument("--n2", type=float, default=10)
-    ap.add_argument("--n3", type=float, default=15)
+    ap.add_argument("--n2", type=float, default=12)
+    ap.add_argument("--n3", type=float, default=20)
     ap.add_argument("--n4", type=float, default=6)
     ap.add_argument("--ratio", type=float, default=0.9)
     ap.add_argument("--poles-max", type=int, default=3)
