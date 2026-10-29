@@ -29,6 +29,8 @@ local State = require("script.faction.state")
 local Character = require("script.faction.character")
 local Worker = require("script.team.worker")
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné (minerai, arbres)
+local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (porte assouplie pour les tâches de ressources)
+local Sv = require("shared.team.survie")
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
@@ -579,8 +581,14 @@ function M.gate(f, agent, task, steps, tick)
   local far = d2(f.hq_pos, dest) > M.SAFE_RADIUS * M.SAFE_RADIUS
   local prud = M.character(f)
   local free = M.escort_free and M.escort_free(f) or 0
-  local decision, why = D.gate({ blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far },
-    { B = res.B, prudence = prud, escort_ok = free >= 2 })
+  local ginfo = { blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far }
+  local sv_deaths = Survie.gate_deaths(f, task.kind) -- lot SURVIE-PENURIE : mode survie ET tâche de ressources (nil sinon)
+  local decision, why = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2, survie_deaths = sv_deaths })
+  if sv_deaths then
+    -- Même entrée sans le mode : la décision ordinaire, pour compter ce que le mode a changé (journal [FO-SURVIE]).
+    local d0, w0 = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2 })
+    Survie.note_gate(f, tick, d0, w0, decision, why)
+  end
   Profiler.fstop("gate:post")
   local a = astate(agent)
   a.escort, a.risk = nil, nil
@@ -631,7 +639,7 @@ function M.gate(f, agent, task, steps, tick)
         if d2(q, th) <= (th.r + 16) * (th.r + 16) then th.b = tick break end
       end
     end
-    local W = math.max(2, math.min(6, math.floor(4 * prud / 1000)))
+    local W = Sv.escalade_w(math.max(2, math.min(6, math.floor(4 * prud / 1000))), sv_deaths ~= nil) -- lot SURVIE-PENURIE : escalade dès 2 refus
     refused_n = w.n
     -- Jamais d'escalade vers un BUT à portée réelle d'une menace connue (D.danger_exact au but >= seuil) : le PNJ y
     -- mourrait ou ferait demi-tour à portée ; seuls un nettoyage ou un autre site le débloquent (final-3958412
@@ -658,6 +666,7 @@ function M.gate(f, agent, task, steps, tick)
   end
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
+  if decision == "wait" then Survie.note_wait(f, tick) end -- lot SURVIE-PENURIE : un refus de plus (paralysie, shared/team/survie.lua)
   if decision == "wait" then
     -- Lot DEFENSE-FACTIONS D6 : « Trop dangereux » seulement au 2e refus de suite (ou si des morts le disent) ; le premier refus ne réécrit pas
     -- l'étiquette du PNJ. La décision, elle, ne change pas.
