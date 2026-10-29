@@ -27,6 +27,9 @@ local CHAINE = {
     fluids = { { "sulfuric-acid", 40 } } },
   { k = "adv", machine = "assembling-machine-2", recipe = "fo-pcb-advanced-circuit",
     items = { { "fo-printed-circuit-board", 3 }, { "electronic-circuit", 12 }, { "plastic-bar", 12 }, { "copper-cable", 6 } } },
+  -- Combustible usé (âge 9, X0) : vitrification au four à arc ; piscine (sans énergie) et dépôt posés.
+  { k = "vitr", machine = "fo-arc-furnace", recipe = "fo-vitrification", items = { { "fo-cooled-spent-cell", 4 }, { "fo-glass", 8 } } },
+  { k = "pool", machine = "fo-cooling-pool", recipe = "fo-spent-fuel-cooling", items = { { "used-up-uranium-fuel-cell", 10 } } },
 }
 
 return {
@@ -51,7 +54,8 @@ return {
       and p.mineable_properties.mining_time == 1 and game.autoplace_control_prototypes["fo-cassiterite"] ~= nil,
       "cassiterite : basic-solid, minage 1 s, produit fo-cassiterite, reglage de carte")
     local f = game.forces.player
-    for _, t in ipairs({ "fo-glassworks", "fo-flaring", "fo-steam-cracking", "fo-printed-circuits" }) do
+    for _, t in ipairs({ "fo-glassworks", "fo-flaring", "fo-steam-cracking", "fo-printed-circuits", "fo-lead-processing",
+      "fo-arc-smelting", "fo-spent-fuel" }) do
       if f.technologies[t] then f.technologies[t].researched = true end
     end
     local closed = {}
@@ -80,8 +84,11 @@ return {
         bad[#bad + 1] = c.k
       end
     end
-    ctx.check(placed == #CHAINE, "5 machines posees avec leur recette", #bad > 0 and table.concat(bad, ", ") or nil)
+    ctx.check(placed == #CHAINE, "7 machines posees avec leur recette", #bad > 0 and table.concat(bad, ", ") or nil)
     ctx.power(CX - 8, CY + 8)
+    st.repo = s.create_entity({ name = "fo-geological-repository", position = { CX + 40, CY + 20 }, force = "player", raise_built = true })
+    ctx.check(st.repo and st.repo.get_inventory(defines.inventory.chest) and #st.repo.get_inventory(defines.inventory.chest) == 200,
+      "depot geologique pose : coffre de 200 cases (X0)")
   end,
 
   tick = function(ctx, e)
@@ -131,6 +138,11 @@ return {
     ctx.check(done("lam") >= 2, "usine chimique : stratifie cuivre (cuivre, verre, resine)", done("lam"))
     ctx.check(done("pcb") >= 2, "imprimante de circuits : carte imprimee (stratifie, etain, acide)", done("pcb"))
     ctx.check(done("adv") >= 2, "assembleur : circuit avance sur carte imprimee (variante)", done("adv"))
+    ctx.check(done("vitr") >= 1 and m.vitr.get_inventory(defines.inventory.assembling_machine_output).get_item_count("uranium-238") >= 1,
+      "four a arc : vitrification (cellules refroidies, verre) -> colis vitrifie + U-238", done("vitr"))
+    local pool = m.pool
+    ctx.check(pool and pool.valid and pool.is_crafting() and pool.crafting_progress > 0,
+      "piscine d'entreposage : refroidit les cellules usees sans energie", pool and pool.valid and string.format("%.3f", pool.crafting_progress) or "absente")
   end,
 
   shots = function(ctx, add)

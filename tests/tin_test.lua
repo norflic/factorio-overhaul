@@ -103,6 +103,32 @@ for _, p in ipairs(t.prerequisites) do check(known[p] or not p:find("^fo%-"), "p
 check(Sn.tech_count(t) >= 10 and #Sn.packs(4) >= 3, "unités (règle QX9) et packs de l'âge 4 (" .. table.concat(Sn.packs(4), ", ") .. ")")
 
 ---------------------------------------------------------------------------------------------------
+section("Combustible usé (âge 9, X0) : le débouché du plomb à son âge")
+---------------------------------------------------------------------------------------------------
+do
+  local F = require("shared.content.spent_fuel")
+  local T = require("shared.content.titanium")
+  for _, rr in ipairs(F.RECIPES) do
+    local r = F.recipe(rr.name)
+    check(r.epoch == 9, rr.name .. " : recette d'X0, âge 9")
+    for _, i in ipairs(r.ingredients) do check(F.present(i[1]), rr.name .. " : ingrédient en jeu " .. i[1]) end
+    for _, p in ipairs(r.results) do check(F.present(p[1]), rr.name .. " : produit en jeu " .. p[1]) end
+  end
+  for _, b in ipairs(F.BUILDINGS) do
+    local x = F.building(b.name)
+    check(x.epoch == 9, b.name .. " : bâtiment d'X0, âge 9 (" .. x.proto .. ")")
+    for _, i in ipairs(F.recipe(b.name).ingredients) do check(F.present(i[1]), b.name .. " : ingrédient en jeu " .. i[1]) end
+  end
+  check(F.shielding_for_buildings() == 70, "piscine et dépôt : 70 blindages plombés (X0) : le plomb a son usage à l'âge 9")
+  local tx = T.x_tech(F.TECH.x0)
+  local same = tx and #tx.unlocks == #F.TECH.unlocks
+  for i, u in ipairs(F.TECH.unlocks) do if tx.unlocks[i] ~= u then same = false end end
+  check(same, "technologie fo-spent-fuel : déblocages d'X0")
+  check(F.building("fo-cooling-pool").energy.type == "void" and F.recipe("fo-spent-fuel-cooling").time == 600,
+    "piscine sans énergie, 10 min de refroidissement (X0)")
+end
+
+---------------------------------------------------------------------------------------------------
 section("Mutants")
 ---------------------------------------------------------------------------------------------------
 do
