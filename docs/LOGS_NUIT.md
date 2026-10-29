@@ -128,3 +128,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~17 h 55, passage 38
 - content-0617 (VAGUE4/INTEG, 0.6.17) : 331 OK, 0 erreur Lua, 0 avertissement du mod. pvp_test sur main 0.6.17 = 1305 OK, 0 ECHEC (resultat final apres toutes les fusions). Aucun factorio.exe, file des bancs vide. Rien d'anormal.
+
+## 29/10 ~18 h 20, passage 39
+- Rien de nouveau : aucune archive depuis content-0617 (17 h 50, 331 OK, 0 erreur) ; aucun factorio.exe, file vide, places = 1. Vague 6 (SURVIE-PENURIE, MIGRATION-CHAMP, POTEAUX-MASQUES) en developpement statique ; centre v5 session c en rendu.
