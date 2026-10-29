@@ -299,4 +299,44 @@ function V.too_close(a, b)
   return dx * dx + dy * dy < d * d
 end
 
+---------------------------------------------------------------------------------------------------
+-- Le site proche d'abord (lot SITE-PROCHE, 29/10) : plancher de valeur, site proche bloqué, agrandissement lointain
+---------------------------------------------------------------------------------------------------
+-- Constat du DC (29/10, partie réelle, Emeraude) : « ils vont vachement loin pour le charbon », alors qu'un gisement de
+-- 192 000 était libre à 45 tuiles (valeur 551). Trois mécanismes (fo-logs/2026-10-29_VAGUE4/AUDIT4/site-charbon.md) :
+-- agrandir un avant-poste à 201 tuiles sans regarder le site proche (R1), le choix qui ne refuse jamais un site de
+-- valeur -2 083 (R2 a), un site proche écarté pour un ennemi qui fait partir un ouvrier à 201-357 tuiles (R2 b).
+-- RÉGLÉES SUR 8 OBSERVATIONS D'UNE SEULE FACTION (Emeraude, un seul journal) : 551, 420, -7, -99 passent ; -324, -408,
+-- -852, -913, -1 899, -2 083 sont refusés. À REJOUER sur plusieurs graines (verif-guide) avant d'être tenues pour justes.
+-- Toutes en entiers (pour mille), aucune trigonométrie, aucune table parcourue par pairs.
+V.FLOOR = -150          -- valeur minimale d'un site pour être puisé (hors gisements de départ garantis)
+V.NEAR_RATIO = 600      -- R1 : un site connu à moins de 0,6 × la distance d'un avant-poste…
+V.NEAR_GAP = 60         -- … ET au moins 60 tuiles plus près : on n'agrandit pas l'avant-poste lointain, on bâtit au proche
+V.BLOCK_RATIO = 1500    -- R2 b : un site proche bloqué suspend tout site plus lointain que 1,5 × sa distance…
+V.BLOCK_GAP = 60        -- … ou que sa distance + 60 tuiles (le plus grand des deux)
+
+--- Distance au QG (tuiles) au-delà de laquelle un site est suspendu tant qu'un site de la même ressource, à `d_blocked`
+--- tuiles, est bloqué : max(1,5 × d_blocked, d_blocked + 60).
+function V.suspend_limit(d_blocked)
+  local a = math.floor(d_blocked * V.BLOCK_RATIO / 1000)
+  local b = d_blocked + V.BLOCK_GAP
+  return a > b and a or b
+end
+
+--- R2 : un site (`entry` = { value, d_hq, seeded }) peut-il être puisé ? `d_blocked` = distance au QG du site le plus proche
+--- de la MÊME ressource connu mais bloqué (hostile, injoignable, perte récente), nil s'il n'y en a pas. Renvoie
+--- (vrai) ou (faux, motif) : "plancher" (valeur < V.FLOOR ; un gisement de départ garanti n'y est pas soumis) ou "suspendu".
+function V.admissible(entry, d_blocked)
+  if not entry.seeded and entry.value < V.FLOOR then return false, "plancher" end
+  if d_blocked ~= nil and entry.d_hq > V.suspend_limit(d_blocked) then return false, "suspendu" end
+  return true
+end
+
+--- R1 : faut-il renoncer à agrandir un avant-poste à `d_outpost` tuiles du QG parce qu'un site admissible de la même
+--- ressource est connu à `d_site` tuiles (nil : aucun) ? Oui s'il est à moins de 0,6 × d_outpost ET à 60 tuiles de plus près.
+function V.extension_refused(d_outpost, d_site)
+  if d_site == nil then return false end
+  return d_site * 1000 <= d_outpost * V.NEAR_RATIO and d_site + V.NEAR_GAP <= d_outpost
+end
+
 return V
