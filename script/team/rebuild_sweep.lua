@@ -120,16 +120,23 @@ function Sweep.step(f, surface, tick)
     local q = b.projects[b.order[sg[1]]]
     for i = sg[2], sg[3] do
       local e = q.ents[i]
-      if e and e.built and not e.gave_up and not e.dropped and not e.wall and not st.hand[place_key(e.x, e.y)] then
+      -- Sans objet qui la pose (e.item), une pièce rouverte ne pourrait jamais être refaite et bloquerait son projet : laissée.
+      if e and e.built and e.item and not e.gave_up and not e.dropped and not e.wall then
         local ty = type_of(e.name)
         local cls = Rule.class_of(ty, R.REBUILD_FIRST, R.INFRA_TYPES)
         if cls then
-          st.seen = st.seen + 1
+          local hand = st.hand[place_key(e.x, e.y)] ~= nil
+          if not hand then st.seen = st.seen + 1 end
           local present = surface.count_entities_filtered({ position = { e.x, e.y }, radius = Sweep.RADIUS, type = ty, force = f.force,
             limit = 1 }) > 0
-          local r = Rule.observe(e, present, tick)
-          if r == "marque" and e.miss == tick then st.marked = st.marked + 1 end
-          if r == "due" then cands[#cands + 1] = { q = q, pi = sg[1], i = i, e = e, class = cls, ty = ty } end
+          if hand then
+            -- retirée à la main : abandonnée pour de bon (la mémoire des retraits expire au bout d'une heure, la pièce ne revient pas)
+            if not present then e.gave_up = true end
+          else
+            local r = Rule.observe(e, present, tick)
+            if r == "marque" and e.miss == tick then st.marked = st.marked + 1 end
+            if r == "due" then cands[#cands + 1] = { q = q, pi = sg[1], i = i, e = e, class = cls, ty = ty } end
+          end
         end
       end
     end

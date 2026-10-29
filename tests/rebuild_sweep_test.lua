@@ -185,7 +185,7 @@ local surface = {
 local function team(name, state, defs)
   local q = { id = 1, state = state, ents = {}, spec = {} }
   for i, d in ipairs(defs) do
-    q.ents[i] = { name = d[1], x = d[2], y = d[3], built = true }
+    q.ents[i] = { name = d[1], x = d[2], y = d[3], built = true, item = "item-" .. d[1] }
     present[d[2] .. "," .. d[3]] = true
   end
   return { key = name, force = name, build = { order = { 1 }, projects = { [1] = q } } }, q
@@ -261,6 +261,14 @@ do
   Sweep.step(f, surface, 10 + 180)
   local n = Sweep.step(f, surface, 10 + 360 + Sw.CALM)
   check(n == 1 and q.ents[1].built and not q.ents[2].built, "retiré à la main : conservé au plan, l'autre pièce est rouverte")
+  check(q.ents[1].gave_up == true, "retiré à la main : abandonné pour de bon (ne revient pas à l'expiration de la mémoire)")
+  -- sans objet pour la poser : jamais rouverte
+  local fi, qi = team("i", "fini", { { "asm", 301, 1 } })
+  qi.ents[1].item = nil
+  Sweep.step(fi, surface, 10)
+  present["301,1"] = nil
+  Sweep.step(fi, surface, 10 + 180)
+  check(Sweep.step(fi, surface, 10 + 360 + Sw.CALM) == 0 and qi.ents[1].built, "pièce sans objet pour la poser : laissée")
   -- mémoire bornée
   local f2 = team("e", "fini", {})
   for i = 1, Sweep.HAND_MAX * 2 + 5 do Sweep.note_hand(f2, { valid = true, position = { x = i, y = 0 } }, i) end
