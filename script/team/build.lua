@@ -2677,6 +2677,9 @@ local function advance(f, surface, p, tick)
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
       p.wait_net = (p.wait_net or 0) + 1
+      -- lot POTEAUX-MASQUES (relecture) : après 30 s le cache (Mq.TTL) est tombé ; garder l'ancien accord ferait relire jusqu'à 20
+      -- chunks en une seule passe (pic) : l'accord repart de zéro, comme pour tout nouveau plan
+      p.masq_n = nil
       p.plan_after = tick + Build.NET_WAIT_TICKS
       p.state, p.reason = "attente", why
     elseif wait == true then
