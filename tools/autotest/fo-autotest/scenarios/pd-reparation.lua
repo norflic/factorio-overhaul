@@ -85,11 +85,11 @@ return {
       for _, p in ipairs(st.p) do
         local real = p.name and s.find_entity(p.name, { p.x, p.y })
         if real and real.valid then
-          -- Coups de 10 % jusqu'à la santé visée : les résistances (mur : physique) rognent chaque coup (1er banc : mur à 52 %).
+          -- Coups physiques de 10 % jusqu'à la santé visée : les résistances rognent chaque coup.
           local mx = real.prototype.max_health
           local n = 0
           while real.valid and real.health > mx * p.frac and n < 50 do
-            real.damage(mx * 0.1, "enemy")
+            real.damage(mx * 0.1, "enemy", "physical") -- type par défaut « impact » : le mur y résiste presque en entier (banc 2)
             n = n + 1
           end
           p.after = real.valid and real.health / mx or 0
