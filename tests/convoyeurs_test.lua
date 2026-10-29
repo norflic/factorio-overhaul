@@ -44,8 +44,13 @@ check(C.pick(BELTS, only("a"), 99, { need_only = true }) == "a", "besoin énorme
 -- choix selon le besoin
 local need = { need_only = true }
 check(C.pick(BELTS, ALL, 5, need) == "a", "besoin 5/s : le plus lent suffit")
-check(C.pick(BELTS, ALL, 6.75, need) == "a", "besoin 6,75/s = 90 % de 7,5 : encore le plus lent")
-check(C.pick(BELTS, ALL, 6.76, need) == "b", "juste au-dessus : le suivant")
+check(C.pick(BELTS, ALL, 5.99, need) == "a", "besoin 5,99/s, sous 80 % de 7,5 : encore le plus lent")
+check(C.pick(BELTS, ALL, 6, need) == "b", "6/s = 80 % : saturé, le suivant")
+for _, v in ipairs({ 0, 3, 5.99, 6, 6.5, 11.99, 12, 14, 30 }) do
+  local nm, spd = C.pick(BELTS, ALL, v, need)
+  check(nm == "c" or not C.saturated(v, spd), "un tracé neuf choisi n'est jamais aussitôt amélioré, besoin " .. v)
+  check(nm == "c" or C.upgrade_target(BELTS, ALL, nm, v) == nil, "pas d'amélioration d'un choix fait selon le besoin, " .. v)
+end
 check(C.pick(BELTS, ALL, 14, need) == "c", "besoin 14/s : le troisième (13,5 < 14)")
 check(C.pick(BELTS, ALL, 100, need) == "c", "besoin hors de portée : le plus rapide")
 check(C.pick(BELTS, ALL, nil, need) == "c", "besoin inconnu : le meilleur")

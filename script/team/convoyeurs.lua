@@ -18,9 +18,13 @@ local Stock = require("script.team.stock")
 
 local Conv = {}
 
-Conv.MODE = "meilleur"  -- "meilleur" : le meilleur tapis débloqué ; "besoin" : le plus lent qui suffit au débit du tracé
+-- "besoin" (défaut, relecture statique) : le plus lent tapis débloqué qui ne sature pas au débit du tracé, donc le tapis d'avant
+-- tant que le débit tient ; "meilleur" : le meilleur tapis débloqué (coûte ~8 fois plus, sans gain tant que les gabarits de
+-- modules restent bornés sur le tapis jaune, voir le rapport du lot)
+Conv.MODE = "besoin"
 Conv.EVERY = 1800       -- ticks entre deux passages d'amélioration par équipe
 Conv.BATCH = 8          -- tuiles remplacées au plus par passage
+Conv.TRIES = 3          -- essais en vain par tuile avant qu'elle soit écartée
 
 local LIST = nil -- cache local (les prototypes ne changent pas dans une session ; jamais dans global)
 
@@ -73,7 +77,9 @@ end
 
 local function remaining(p, idx, name)
   local n = 0
-  for _, e in ipairs(p.ents) do if e.part == idx and e.name == name then n = n + 1 end end
+  for _, e in ipairs(p.ents) do
+    if e.part == idx and e.name == name and (e.conv_fails or 0) < Conv.TRIES then n = n + 1 end
+  end
   return n
 end
 
@@ -83,7 +89,11 @@ local function upgrade(f, surface, p, idx, part, target)
   local new_item, old_item = item_of(target), item_of(part.belt)
   if not (new_item and old_item) then return 0 end
   local sub = {}
-  for _, e in ipairs(p.ents) do if e.part == idx then sub[#sub + 1] = e end end
+  -- tuiles déjà essayées en vain (détruite, remplacement refusé) : écartées après Conv.TRIES essais, sinon elles
+  -- occuperaient seules le lot à chaque passage et le tracé ne finirait jamais (relecture statique)
+  for _, e in ipairs(p.ents) do
+    if e.part == idx and (e.conv_fails or 0) < Conv.TRIES then sub[#sub + 1] = e end
+  end
   local done = 0
   for _, i in ipairs(C.next_batch(sub, part.belt, Conv.BATCH)) do
     local e = sub[i]
@@ -100,7 +110,11 @@ local function upgrade(f, surface, p, idx, part, target)
         Stock.insert(f, old_item, 1)
         e.name, e.item = target, new_item
         done = done + 1
+      else
+        e.conv_fails = (e.conv_fails or 0) + 1
       end
+    else
+      e.conv_fails = (e.conv_fails or 0) + 1
     end
   end
   if remaining(p, idx, part.belt) == 0 then part.belt = target; b.conv_wait = nil end
@@ -127,8 +141,8 @@ function Conv.step(f, surface, tick)
             if n > 0 then
               log(string.format("[FO-CONVOYEURS] %s : projet %d, tracé %d : %d tuile(s) %s -> %s (débit %.2f/s sur une voie)",
                 f.key or "player", p.id, idx, n, from, target, part.flow))
+              return
             end
-            return
           end
         end
       end

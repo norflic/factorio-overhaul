@@ -16,8 +16,7 @@
 local C = {}
 
 C.LANE_FACTOR = 240   -- objets/s par unité de belt_speed et par voie (8 objets par tuile pour 2 voies, 60 ticks/s, / 2)
-C.MARGIN = 0.9        -- part de la capacité comptée utilisable (un tapis ne se remplit jamais à 100 %)
-C.SATURATION = 0.8    -- un tapis sature quand le débit voulu dépasse cette part de sa capacité de voie
+C.SATURATION = 0.8    -- un tapis sature quand le débit voulu atteint cette part de sa capacité de voie (un tapis ne se remplit jamais à 100 %)
 
 function C.capacity(speed) return (speed or 0) * C.LANE_FACTOR end
 
@@ -43,14 +42,14 @@ local function usable_list(belts, usable)
 end
 
 --- Tapis d'un nouveau tracé. `need` (objets/s sur une voie) n'est lu qu'avec opts.need_only : le plus lent disponible dont
---- la capacité (× C.MARGIN) suffit, à défaut le plus rapide. Sinon : le plus rapide disponible. Rend nom, vitesse ; nil
+--- ne sature pas au débit voulu (même seuil que l'amélioration sur place : un tracé neuf n'est jamais aussitôt amélioré), à défaut le plus rapide. Sinon : le plus rapide disponible. Rend nom, vitesse ; nil
 --- quand aucun tapis n'est disponible.
 function C.pick(belts, usable, need, opts)
   local list = usable_list(belts, usable)
   if #list == 0 then return nil end
   if opts and opts.need_only and need then
     for _, b in ipairs(list) do
-      if C.capacity(b.speed) * C.MARGIN + 1e-9 >= need then return b.name, b.speed end
+      if not C.saturated(need, b.speed) then return b.name, b.speed end
     end
   end
   local last = list[#list]
