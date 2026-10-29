@@ -113,3 +113,15 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~15 h 25, passage 33
 - Rien de nouveau cote archives (aucune nouvelle depuis content-0616 ; file des bancs vide). La partie du DC (0.6.16, factorio.exe PID 28932) tourne : son journal vivant n'est pas aux emplacements habituels (factorio-current.log racine = 26/10, %APPDATA% = juin) : a ne pas lire a la place d'une archive ; ses retours dictes (RETOUR_DC_2 a 5) tiennent lieu de releve. 5 workflows en cours (statique) : PRIORITE, AGENCEMENT, EXTENSION-FER + REBUILD-SUIVI, POTEAUX + audit murs, audit Emeraude ; centre-fusee relance (v5).
+
+## 29/10 ~15 h 55, passage 34
+- Rien de nouveau : aucune archive de partie ou de banc depuis content-0616 (INTEG, 15 h 10) ; aucun factorio.exe, file des bancs vide. 8 lots en statique (PRIORITE, AGENCEMENT, EXTENSION-FER, REBUILD-SUIVI, POTEAUX relus ; DEFENSE-FACTIONS, SITE-PROCHE, ENCEINTE3 en dev) + centre-fusee (v5). Note outil : ne pas lancer find sur tout fo-logs (plus de 120 s).
+
+## 29/10 ~16 h 20, passage 35
+- Rien de nouveau : aucune archive de partie ou de banc depuis content-0616 (15 h 10) ; aucun factorio.exe, file vide, places = 1 (le DC joue a autre chose, une seule instance Factorio autorisee). 5 lots valides fusionnes dans integration-0617 ; AGENCEMENT, DEFENSE-FACTIONS, SITE-PROCHE, CAPI-REPLI, REBUILD-AVANT-POSTE en cours (statique) ; Blender (centre v5) tourne. Aucune erreur Lua a signaler.
+
+## 29/10 ~16 h 50, passage 36
+- Rien de nouveau : aucune archive de partie ou de banc depuis content-0616 (15 h 10) ; aucun factorio.exe, file vide, places = 1. Travail en statique (5 lots dans integration-0617, 5 en relecture/dev) ; Blender (centre v5 sessions b et c) tourne ; pvp_test lance en parallele par un agent de verification (6 processus lua, pas d'archive).
+
+## 29/10 ~17 h 25, passage 37
+- Rien de nouveau cote archives (derniere : content-0616, 15 h 10 ; aucun factorio.exe, file vide). Resultat hors jeu notable : pvp_test integration-0617 = 1305 OK, 0 ECHEC ; les 5 echecs de la 0.6.15 etaient un ecart du moteur simule (LuaEntity.burner absent de tests/mock_engine.lua, mesure par bissection des branches), pas une regression de jeu ; pvp_test entre desormais dans la porte de fusion.
