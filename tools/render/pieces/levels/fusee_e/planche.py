@@ -18,11 +18,20 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "commun"))
 import compo as K  # noqa: E402
 
+NOMS_AGE = {0: "Épave", 1: "Pionnier", 2: "Forge", 3: "Vapeur", 4: "Pétrole", 5: "Volcan", 6: "Électricité", 7: "Cristal",
+            8: "Marais", 9: "Atome", 10: "Haute technologie", 11: "Titane", 12: "Supraconducteurs", 13: "Antimatière",
+            14: "La Porte", 15: "Néant"}
+COTE = {0: 4, 1: 4, 2: 4, 3: 4, 4: 5, 5: 5, 6: 5, 7: 6, 8: 6, 9: 6, 10: 7, 11: 7, 12: 7, 13: 8, 14: 8, 15: 8}
+EMPRISE = {}
+AGE = {}
 TITRES = {"epave": "Épave (âge 0) : le vaisseau écrasé", "age01": "Réparé (âge 1) : encore un vaisseau",
           "age04": "Âge 4 : moitié vaisseau, moitié bâtiment", "age08": "Âge 8 : un bâtiment, la coque aux deux bouts",
           "age15": "Âge 15 : citadelle sur la carcasse"}
-EMPRISE = {"epave": 4, "age01": 4, "age04": 5, "age08": 6, "age15": 8}   # largeur ; longueur = 2 × largeur
-AGE = {"epave": 0, "age01": 1, "age04": 4, "age08": 8, "age15": 15}
+for _e in range(16):
+    _n = "epave" if _e == 0 else "age%02d" % _e
+    EMPRISE[_n] = COTE[_e]
+    AGE[_n] = _e
+    TITRES.setdefault(_n, "Âge %d : %s" % (_e, NOMS_AGE[_e]))
 
 
 def cellule(src, nom, Wt, Ht, oy, zoom, nuit):
@@ -58,7 +67,7 @@ def main():
     H = hd + ch + lab + gap
     sheet = Image.new("RGB", (W, H), (22, 22, 26))
     dr = ImageDraw.Draw(sheet)
-    dr.text((10, 8), a.titre or "Centre de commandement = la fusée de départ, vaisseau couché qui devient bâtiment · concept v2 · zoom %d · %s" % (
+    dr.text((10, 8), a.titre or "Centre de commandement = le vaisseau de départ qui devient bâtiment · v5 · zoom %d · %s" % (
         a.zoom, "nuit" if a.nuit else "jour"), fill=(255, 205, 120), font=K.font(24 if a.zoom == 2 else 20))
     x = gap
     for i, n in enumerate(noms):

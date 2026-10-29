@@ -24,7 +24,7 @@ def nom(e):
 
 def _variants():
     v = {}
-    for e in (0, 1, 4, 8, 15):
+    for e in range(0, 16):
         v[nom(e)] = {"epoch": e, "side": COTE[e], "dest": "levels/fusee_e/" + nom(e), "anchor_tiles": (0.0, 0.0)}
     return v
 
@@ -39,7 +39,11 @@ def margin_px(name):
 # couleur, métallicité, rouille, taches de la coque propre, par âge
 COQUE = {0: ((0.5, 0.38, 0.05), 0.3, 0.2, 0.3), 1: ((0.62, 0.46, 0.06), 0.3, 0.08, 0.14),
          4: ((0.72, 0.6, 0.03), 0.2, 0.06, 0.12), 8: ((0.27, 0.46, 0.39), 0.2, 0.08, 0.12),
-         15: ((0.82, 0.62, 0.3), 0.55, 0.0, 0.1)}
+         15: ((0.82, 0.62, 0.3), 0.55, 0.0, 0.1),
+         2: ((0.2, 0.17, 0.15), 0.5, 0.15, 0.15), 3: ((0.5, 0.33, 0.1), 0.6, 0.05, 0.12), 5: ((0.09, 0.075, 0.07), 0.3, 0.0, 0.12),
+         6: ((0.5, 0.56, 0.64), 0.4, 0.0, 0.1), 7: ((0.3, 0.2, 0.4), 0.3, 0.0, 0.1), 9: ((0.27, 0.3, 0.25), 0.2, 0.04, 0.12),
+         10: ((0.55, 0.58, 0.62), 0.4, 0.0, 0.08), 11: ((0.62, 0.66, 0.7), 0.6, 0.0, 0.08), 12: ((0.5, 0.7, 0.78), 0.3, 0.0, 0.08),
+         13: ((0.11, 0.08, 0.17), 0.4, 0.0, 0.1), 14: ((0.66, 0.67, 0.74), 0.2, 0.0, 0.08)}
 
 
 class _Ep:
@@ -55,9 +59,27 @@ class _Ep:
         if self.e:
             ages.matieres(self.e, metal, M)
         # coque PROPRE (v3 propreté) : peinture unie de l'âge, patine légère et régulière, sans grandes taches
-        col, met, ra, st = COQUE[self.e]
+        if self.e in COQUE:
+            col, met, ra, st = COQUE[self.e]
+        else:
+            p = ages.palette(self.e)
+            dom = p.get("dominante")
+            dom = dom[0] if isinstance(dom, tuple) else dom
+            col = (0.4, 0.4, 0.4)
+            if dom in M:
+                n = M[dom].node_tree.nodes.get("Principled BSDF")
+                if n is not None:
+                    col = tuple(min(0.9, max(0.04, x)) for x in n.inputs["Base Color"].default_value[:3])
+            met, ra, st = 0.3, 0.05, 0.12
         metal("peau_prop", col, rough=0.42, met=met, grain=0.1, gscale=40.0, rust=(0.2, 0.09, 0.04), ra=ra, dirt=0.45,
               stain=st, sscale=9.0, wear=0.7)
+        # reflets moins vifs (v5) : or du Néant et acier clair du Marais
+        for key in ("or_chauffe", "or_blanc_chaud", "or_vif", "steel_hi"):
+            if key in M and (self.e == 15 or (self.e == 8 and key == "steel_hi")):
+                pb = M[key].node_tree.nodes.get("Principled BSDF")
+                if pb is not None:
+                    pb.inputs["Roughness"].default_value = 0.55
+                    pb.inputs["Metallic"].default_value = 0.3
 
 
 def build(S, C, variant):
