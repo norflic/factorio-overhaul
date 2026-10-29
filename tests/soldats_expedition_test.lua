@@ -90,6 +90,15 @@ local function suite()
   check(launched == 0, "aucun sous-groupe d'un champ de 8 nids n'est attaqué (besoin 19 > surplus 16) (" .. launched .. ")")
   check(cl[1].wide == 8, "le groupe voit les 8 nids du champ (" .. tostring(cl[1].wide) .. ")")
 
+  -- 5 nids en 2 groupes (3 + 2) : le champ (wide = 5, besoin 13) tient dans le surplus 16 ; la force envoyée = 13, pas 9.
+  local th5 = {}
+  for i = 1, 3 do th5[#th5 + 1] = { x = 60 + (i - 1) * 5, y = 0, kind = "spawner" } end
+  for i = 1, 2 do th5[#th5 + 1] = { x = 60 + (i - 1) * 5, y = 30, kind = "spawner" } end
+  local cl5 = Sd.clusters(th5)
+  check(#cl5 == 2 and cl5[1].k == 3 and cl5[1].wide == 5, "champ de 5 nids en 2 groupes (3 + 2), wide = 5")
+  local o5b = Sd.assign({ tick = 100, hq = HQ, agr = 700, soldiers = soldiers(25), threats = { cl5[1] } })
+  check(count(o5b, "clear") == Sd.clear_need(5), "expédition dimensionnée sur le champ entier (" .. count(o5b, "clear") .. " = " .. Sd.clear_need(5) .. ")")
+
   section("expédition : site abandonné")
   local blocked = { { x = 61, y = 1, ["until"] = 5000 } }
   local o9 = Sd.assign({ tick = 100, hq = HQ, agr = 700, soldiers = soldiers(25), blocked = blocked, threats = { field(60, 0, 2, 2) } })

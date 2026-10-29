@@ -212,7 +212,10 @@ function Sd.assign(input)
   summary.target = target
   -- Opération en cours : `need` = force encore en vie (posée par l'appelant), sinon le besoin du groupe (sans cela, après le
   -- premier passage, seuls clear_need(1) = 5 soldats auraient gardé leur ordre et les autres seraient repartis en patrouille).
-  local need = target and (target.need or Sd.clear_need(target.k or 1)) or 0
+  -- Expédition : la force envoyée est celle que offense_ok a contrôlée (le champ entier, pas le seul groupe de 24 tuiles).
+  local kk = target and (target.k or 1) or 1
+  if by_offense and (target.wide or 0) > kk then kk = target.wide end
+  local need = target and (target.need or Sd.clear_need(kk)) or 0
   for _, s in ipairs(far) do
     if target and s.role == "clear" and need > 0 then
       give(s, { role = "clear", x = target.x, y = target.y })
