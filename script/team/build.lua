@@ -1241,7 +1241,7 @@ local function plan_project(f, surface, p)
     end
   end
   Profiler.stop("build:plan:power")
-  if is_plant then b.plant = p.id end
+  if is_plant and not b.plant then b.plant = p.id end -- (lot CORR-ENERGIE : une centrale de plus ne devient pas LA centrale)
   Profiler.start("build:plan:anchors")
   -- points d'appui : sur une rue praticable à 16 tuiles au plus, sinon au centre de la case de 8 × 8 ; dans les deux
   -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
@@ -1284,6 +1284,22 @@ function Build.plant(f, pole)
   local order = { id }
   for _, x in ipairs(b.order) do if x ~= id then order[#order + 1] = x end end
   b.order = order
+  return id
+end
+
+--- Lot CORR-ENERGIE : une centrale de plus (nb chaudières), demandée comme la première ; son chantier est un projet du plan
+--- directeur (réserve de matériaux au coffre d'équipe, plan sur une autre rive libre). Suivi dans b.extra_plants.
+function Build.grow_plant(f, nb, tick)
+  local b = f.build
+  local first = b.plant and b.projects[b.plant]
+  if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
+  local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures" })
+  if not id then return nil end
+  b.extra_plants = b.extra_plants or {}
+  b.extra_plants[#b.extra_plants + 1] = id
+  local g = b.grow or {}
+  log(string.format("[FO-ENERGIE] %s : centrale de %d chaudiere(s) demandee a %.1f min (projet %d ; %.0f J/tick sur %.0f, %d centrale(s) finie(s))",
+    f.key or "player", nb, tick / 3600, id, g.power or 0, g.capacity or 0, g.done or 0))
   return id
 end
 
@@ -2251,6 +2267,10 @@ local function pulse_team(f, tick)
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
+  -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
+  local nb, stale = PlantArms.watch(f, surface, tick)
+  for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
+  if nb then Build.grow_plant(f, nb, tick) end
 end
 
 local function teams()
@@ -2451,7 +2471,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante")) then return nil end
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow")) then return nil end -- no_grow : coupe la croissance de la centrale (bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,
