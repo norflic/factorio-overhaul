@@ -101,3 +101,21 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 Agents de workflow : NE JAMAIS leur ecrire (SendMessage clone) ; suivi par fo-logs/2026-10-29_CORR/<LOT>/STATUS.md. Nucleaire contre vapeur : decision du DC.
 
 | PANEL (FUSIONNE 11 h 30, version 0.6.11) | onglet Partie de Maj+T ; 0 ecart de partie sur 4 graines ; panel-kills 11 OK, ia1-gui 7 OK, content 331 OK ; tests hors jeu verts ; design a valider par le DC | tag jouable-0.6.11 |
+
+## Vague parallele statique (29/10 12 h 15, wf_97824227-9cd) : nouvelle methode du DC
+Porte de fusion : relecture STATIQUE qui corrige + tests hors jeu rapides + UN content sur l ensemble ; plus de parties ni de statistiques. Les deux workflows CORR (wf_5db5c5ed-6e1, wf_f610afec-487) ont ete arretes et leurs tickets de banc retires ; leurs branches et rapports sont conserves.
+| Lot | Branche | Base |
+|---|---|---|
+| RESEAU | corr-reseau | 9853511 |
+| RECONSTRUIRE | corr-reconstruire | 5df9c58 |
+| SOLDATS | corr-soldats | main |
+| FOURS (refill + mains) | corr-fours-mains | 279c043 |
+| ENERGIE | corr-energie | b2878f6 |
+| RECON | corr-recon | 7ae60b4 |
+| TOURELLES | corr-tourelles | main |
+| STOCKAGE | corr-stockage | main |
+| ESPACE (croissance + enceinte) | corr-espace | main |
+| CONVOYEURS | corr-convoyeurs | main |
+| CENTRE-JEU (mecanique reparation) | corr-centre-jeu | main |
+| CENTRALE-GARDE | centrale-garde | d0c0b1b (plan-directeur, relecture a lancer) |
+Agents de workflow : ne pas leur ecrire. Integration : je fusionne les branches valides dans une branche integration, tests hors jeu, UN content, puis main (0.6.12).
