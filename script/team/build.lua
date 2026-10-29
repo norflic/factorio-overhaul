@@ -361,6 +361,7 @@ end
 
 --- Lots candidats d'une sorte, triés par distance à `toward` (puis i, j).
 Build.AVOID_MARGIN = 8 -- tuiles ajoutées au rayon d'un site écarté (le lot fait 32 tuiles de côté)
+local REUSE_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true } -- projets dont les poteaux existent ou vont exister
 
 local function candidates(b, states, toward, res)
   local out = {}
@@ -680,6 +681,17 @@ local function plan_power(f, p, mp, masks)
     local tx, ty = math.floor(x), math.floor(y)
     return masks.free(tx, ty) and not taken[P.tkey(tx, ty)] and not masks.clear[P.tkey(tx, ty)]
   end
+  -- lot CORR-RESEAU : poteaux déjà prévus ou posés (ce projet, puis les projets en chantier ou finis) que les chaînes traversent au
+  -- lieu d'en doubler un (seuls comptent ceux dont la portée de fil atteint celle de la chaîne ; shift_pole n'est pas touché)
+  local known = {}
+  local function add_known(e)
+    if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= reach - 1e-9 then known[#known + 1] = { x = e.x, y = e.y } end
+  end
+  for _, e in ipairs(p.ents) do add_known(e) end
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q ~= p and REUSE_STATES[q.state] then for _, e in ipairs(q.ents) do add_known(e) end end
+  end
   local prev
   for _, n in ipairs(nodes) do
     local k = P.lot_key(n.i, n.j)
@@ -693,7 +705,7 @@ local function plan_power(f, p, mp, masks)
     -- poteaux de rue : moyens, ou grands quand deux carrefours décalés passent la portée
     local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
     if prev and (not big or d2 > reach * reach - 1e-6) then
-      local chain = P.pole_chain(prev, pos, reach, big, free)
+      local chain = P.pole_chain(prev, pos, reach, big, free, known)
       if not chain then return nil, "poteaux de rue" end
       for _, c in ipairs(chain) do
         local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
@@ -706,7 +718,7 @@ local function plan_power(f, p, mp, masks)
   -- liaison du module au carrefour le plus proche (poteaux du gabarit : moyens)
   local npos = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
   local link_reach = math.min(reach, P.wire(mp.name) or 9)
-  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free)
+  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
   if not chain then return nil, "liaison electrique" end
   for _, c in ipairs(chain) do
     local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }

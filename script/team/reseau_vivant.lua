@@ -23,7 +23,7 @@ local Rv = {}
 
 Rv.PERIOD = 1200          -- 20 s : relevé de la centrale
 Rv.NET_PERIOD = 7200      -- 2 min : consommateurs sur îlot, poteaux perdus
-Rv.POLE_REOPEN_MAX = 5    -- réouvertures d'un même projet pour ses poteaux (on ne nourrit pas un point que l'ennemi tient)
+Rv.POLE_REOPEN_MAX = 5    -- réouvertures d'un même projet POUR SES POTEAUX (q.poles_reopened ; les reposes de la centrale ont leur plafond : S.MAX_TRIES, S.SITE_LOSSES, S.MAX_RELOC)
 Rv.POLE_ENEMY_R = 28      -- jamais de pose de poteau avec un ennemi à cette portée
 Rv.CAND_MAX = 40          -- poteaux perdus examinés par cycle
 Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
@@ -157,7 +157,7 @@ local function lost_poles(f, surface, b)
   local out = {}
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
-    if q and (q.reopened or 0) < Rv.POLE_REOPEN_MAX and (q.state == "fini" or q.state == "chantier" or q.state == "raccordement") then
+    if q and not q.abandoned and (q.poles_reopened or 0) < Rv.POLE_REOPEN_MAX and (q.state == "fini" or q.state == "chantier" or q.state == "raccordement") then
       for _, e in ipairs(q.ents) do
         if e.built and is_pole(e.name) and not real_of(surface, e, f.force, "electric-pole") then
           out[#out + 1] = { e = e, q = q }
@@ -232,6 +232,7 @@ function Rv.step(api, f, surface, tick)
   inp.islands, inp.uncovered, inp.lost_links = sv.islands, sv.uncovered, sv.lost_links
   local site = site_of(pp)
   inp.enemies = 0
+  sv.enemy_x, sv.enemy_y = nil, nil -- le danger VU à ce relevé seulement : pas de position périmée dans les sites écartés (pertes seules : le lot perdu)
   if site then
     local en = surface.find_nearest_enemy({ position = site, max_distance = S.DANGER_R, force = f.force })
     if en and en.valid then
@@ -304,7 +305,11 @@ function Rv.step(api, f, surface, tick)
         n = n + 1
       end
     end
-    for _, pid in ipairs(sorted_keys(per)) do Rv.reopen(per[pid].q, per[pid].ents, "reseau: poteaux perdus", surface) end
+    for _, pid in ipairs(sorted_keys(per)) do
+      local q = per[pid].q
+      Rv.reopen(q, per[pid].ents, "reseau: poteaux perdus", surface)
+      q.poles_reopened = (q.poles_reopened or 0) + 1 -- le plafond des poteaux ne se mêle pas aux reposes de la centrale
+    end
     -- un essai qui ne rouvre rien n'est pas un essai : on se tait 5 min (le compte d'essais ne s'use que sur du travail fait)
     if n > 0 then S.applied(sv.st, action, tick) else sv.idle_until = tick + 18000 end
     say(f, tick, string.format("reseau: %s ; %d poteau(x) perdu(s) rouvert(s) (les autres : ennemi a moins de %d tuiles)", why, n, Rv.POLE_ENEMY_R))

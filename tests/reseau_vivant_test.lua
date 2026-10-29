@@ -297,6 +297,45 @@ do
     "îlot + ennemi à 28 tuiles : poteau pas rouvert (pas de pose sous le feu)")
 end
 
+-- §5 bis plafond de réouvertures des poteaux : propre aux poteaux (la centrale rouverte n'en use pas), et jamais pour une centrale abandonnée
+do
+  logs = {}
+  local w, f = island_world(false)
+  f.build.projects[2].reopened = 5 -- reposes de la centrale / autres réouvertures : ne comptent pas pour les poteaux
+  run(f, w, 1200, 7200 + 1200 * 6)
+  check(not f.build.projects[2].ents[1].built, "plafond : 5 réouvertures d'un autre genre n'empêchent pas la réouverture d'un poteau perdu")
+
+  logs = {}
+  w, f = island_world(false)
+  f.build.projects[2].poles_reopened = Rv.POLE_REOPEN_MAX
+  run(f, w, 1200, 7200 + 1200 * 6)
+  check(f.build.projects[2].ents[1].built == true and f.build.projects[2].state == "fini", "plafond : poteaux déjà rouverts au plafond : plus de réouverture")
+
+  logs = {}
+  w, f = island_world(false)
+  f.build.projects[2].abandoned = true -- projet d'une centrale quittée : on n'y dépense plus de matières
+  run(f, w, 1200, 7200 + 1200 * 6)
+  check(f.build.projects[2].ents[1].built == true, "projet abandonné : ses poteaux perdus ne sont pas rouverts")
+end
+
+-- §3 bis un danger vu une fois puis parti ne reste pas dans les sites écartés d'une décision prise sur des pertes seules
+do
+  logs, requested = {}, nil
+  local w = new_world()
+  local f, parts = team(w)
+  run(f, w, 1200, 1200 * 3)
+  w.enemies[1] = { valid = true, position = { x = 40, y = 12 } }
+  run(f, w, 1200 * 4, 1200 * 5) -- vu 2 fois, puis parti
+  w.enemies[1].valid = false
+  f.build.sante.st.site_losses = 2 -- pertes répétées sur le site
+  w:remove(parts.boiler)
+  w:remove(parts.engine)
+  run(f, w, 1200 * 6, 1200 * 8)
+  local only_lot = f.build.avoid ~= nil
+  for _, a in ipairs(f.build.avoid or {}) do if a.r ~= Rv.LOT_AVOID_R then only_lot = false end end
+  check(requested == 3 and only_lot, "pertes seules : seul le lot perdu est écarté (pas de position d'ennemi périmée)")
+end
+
 ---------------------------------------------------------------------------------------------------
 -- §6 déterminisme
 ---------------------------------------------------------------------------------------------------

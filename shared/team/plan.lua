@@ -714,13 +714,23 @@ end
 --- Chaîne de poteaux de `a` à `b` (centres) : positions intermédiaires (centres de tuile pour un poteau 1 × 1, coin
 --- pour un 2 × 2) à `reach` au plus l'une de l'autre, chacune sur une tuile libre (free(x, y) : centre). nil si
 --- impossible. a et b ne sont pas rendus.
-function P.pole_chain(a, b, reach, big, free)
+--- Lot CORR-RESEAU : `known` (facultatif) = poteaux déjà prévus ou posés { x, y } (de portée de fil >= reach) ; quand l'un est à
+--- portée du point courant et plus près du but d'au moins 0,5 tuile, la chaîne PASSE PAR LUI (le plus avancé ; ex æquo : y, puis x)
+--- au lieu d'en poser un second à côté (doublons mesurés : deux chaînes de rue sur la même rue, 196 paires à moins de 2 tuiles à 60 min).
+function P.pole_chain(a, b, reach, big, free, known)
   local out = {}
   local cur = { x = a.x, y = a.y }
   local function dist(p, q) local dx, dy = p.x - q.x, p.y - q.y; return math.sqrt(dx * dx + dy * dy) end
   for _ = 1, 64 do
     if dist(cur, b) <= reach + 1e-9 then return out end
     local d = dist(cur, b)
+    local via, vd
+    for _, k in ipairs(known or {}) do
+      local dk = dist(k, b)
+      if dist(k, cur) <= reach + 1e-9 and dk < d - 0.5 and (not via or dk < vd - 1e-9
+        or (math.abs(dk - vd) <= 1e-9 and (k.y < via.y or (k.y == via.y and k.x < via.x)))) then via, vd = k, dk end
+    end
+    if via then cur = { x = via.x, y = via.y } goto continue end
     local step = reach - 0.5
     local tx = cur.x + (b.x - cur.x) * step / d
     local ty = cur.y + (b.y - cur.y) * step / d
@@ -750,6 +760,7 @@ function P.pole_chain(a, b, reach, big, free)
     if not found then return nil end
     out[#out + 1] = found
     cur = found
+    ::continue::
   end
   return nil
 end
