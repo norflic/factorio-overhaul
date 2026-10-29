@@ -61,3 +61,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~07 h 55, passage 17
 - Rien de nouveau : 12 archives des 70 dernieres minutes relues (collecte m-* de CENTRALE-PERTE, INTEG content-0610) : 0 erreur Lua, 0 ECHEC. Disque 138 Go ; file vide (0 banc.py, 0 factorio.exe, 3 bash).
+
+## 29/10 ~08 h 30, passage 18
+- Rien de nouveau : 16 archives des 70 dernieres minutes relues (CENTRALE-GARDE a-lot/a-tem, parties libres B en cours) : 0 erreur Lua, 0 ECHEC. Disque 136 Go ; 1 banc.py pour 1 lot, 1 factorio.exe, 7 bash.
