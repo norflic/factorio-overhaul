@@ -52,3 +52,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~06 h 30, passage 14
 - Rien de nouveau : 64 fichiers lus, 0 erreur Lua, 0 ECHEC reel (series INTEG 0.6.9 et POTEAUX-V2 en code 0). Disque 136 Go ; 1 banc.py pour 1 lot, 1 factorio.exe, 10 bash.
+
+## 29/10 ~06 h 55, passage 15
+- Rien de nouveau : 25 archives des 70 dernieres minutes relues (stdout et benchmark.log : Error while running, attempt to, stack traceback, non-recoverable) : 0 occurrence ; 0 ECHEC reel. Disque 136 Go ; 1 banc.py pour 1 lot, 1 factorio.exe, 7 bash. Note : /tmp/scan2.py attend maintenant un argument (ancienne version perdue) ; releve fait par boucle directe.
