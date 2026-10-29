@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.11
+Date: 2026-10-29
+  Changes:
+    - Nouvel onglet « Partie » dans la fenetre « Equipe et factions » (Maj+T) : avancee, ressources (production, consommation, bilan
+      par objet), kills et pertes, attaques, liste des taches de vos PNJ. Il ne change rien a la partie (0 ecart sur 4 graines).
+      Le design est a valider par le DC.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.10
 Date: 2026-10-29
   Changes:
