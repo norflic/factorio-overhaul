@@ -218,6 +218,21 @@ do
   local same = #a == #b
   for i = 1, math.min(#a, #b) do if a[i].key ~= b[i].key or a[i].value ~= b[i].value then same = false end end
   check(same, "4.7 déterminisme")
+  -- 4.8 (relecture) Chef « expansion » (poids d'extraction 2 000) : la couverture reste sous B.COVER_MAX (tâche sous les
+  -- tournées à 70) ; le poids bas la baisse toujours.
+  local gH = goal(B.generate(sit({ stock = SAT, cap = cap_all(2), room = { [COPPER] = true }, weights = { extraction = 2000 } }), stD()),
+    "couverture:" .. COPPER)
+  local gL = goal(B.generate(sit({ stock = SAT, cap = cap_all(2), room = { [COPPER] = true }, weights = { extraction = 500 } }), stD()),
+    "couverture:" .. COPPER)
+  check(gH and gH.value == B.COVER_MAX and P.prio_of(math.floor(gH.value * (100 + P.INERTIA_PCT) / 100)) + P.FINISH_BONUS < 70,
+    "4.8 poids 2 000 : valeur bornée à B.COVER_MAX, tâche sous les tournées (70) : " .. tostring(gH and gH.value))
+  check(gL and gL.value < B.COVER, "4.8 poids 500 : valeur plus basse : " .. tostring(gL and gL.value))
+  -- 4.9 (relecture) Produit couvert par un module fini (st.covered) : ses tournées sont retirées, aucune couverture.
+  local st9 = stD()
+  st9.covered = { [T.outposts[COPPER].product] = true }
+  local g9 = B.generate(sit({ stock = SAT, cap = cap_all(2), room = { [COPPER] = true, [COAL] = true } }), st9)
+  check(goal(g9, "couverture:" .. COPPER) == nil and goal(g9, "couverture:" .. COAL) ~= nil,
+    "4.9 produit couvert par un module fini : pas de brûleurs ajoutés")
 end
 
 ---------------------------------------------------------------------------------------------------

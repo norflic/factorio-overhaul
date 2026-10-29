@@ -61,6 +61,11 @@ B.GROW = 55         -- croissance d'une ressource qui manque durablement (goulot
 -- (aucune des K places, servi après tous les autres projets, comme la capitalisation : Ca.V_MIN 35 à Ca.V_MAX 50), au-dessus
 -- du seuil du travail qui fait recruter (35, IA3-d).
 B.COVER = 40
+-- Relecture SCALE-COMPLET : la couverture est un but AU-DELÀ du besoin ; le poids du chef (500 à 2 000 pour mille) la portait
+-- jusqu'à 80 (priorité de tâche 40 + 0,45 × (80 + 20 % d'inertie) + 3 = 86), au-dessus des tournées des avant-postes (70) et
+-- des tourelles d'avant-poste (75) : un chef « expansion » aurait agrandi pendant que ses brûleurs s'éteignaient. Bornée à
+-- B.COVER_MAX (tâche à 68 au plus, hors vieillissement), dans la bande de la capitalisation (Ca.V_MIN 35 à Ca.V_MAX 50).
+B.COVER_MAX = 48
 B.GROW_SHORT = 100  -- manque (objets) qui compte comme « durable » …
 B.GROW_THINKS = 6   -- … pendant au moins 6 pensées de suite (30 s)
 B.GROW_MAX = 5      -- capacités visées au plus, par ressource
@@ -258,13 +263,17 @@ function B.generate(s, st)
     local fuel_kind = key.fuel
     local fuel_product = fuel_kind and T.outposts[fuel_kind] and T.outposts[fuel_kind].product
     local fuel_short = fuel_product ~= nil and ((st.short or {})[fuel_product] or 0) > 0
+    -- Relecture : un produit COUVERT par un module fini (st.covered, lot IA3-e, posé par C.think à la pensée précédente) perd
+    -- ses tournées ordinaires (C.think les retire) : des brûleurs ajoutés là ne seraient jamais ravitaillés ni vidés.
+    local covered = st.covered or {}
     for _, kind in ipairs(T.OUTPOST_ORDER) do
       local spec = T.outposts[kind]
       if (s.room or {})[kind] and not emitted[kind] and not (key.optional or {})[kind]
-        and not (kind ~= fuel_kind and fuel_short) then
+        and not (kind ~= fuel_kind and fuel_short) and not covered[spec.product] then
         local take_only = st.other_short == true and B.saturated(s, spec.product) or nil
         goals[#goals + 1] = { key = "couverture:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
-          extend_only = true, take_only = take_only, fond = true, value = val(B.COVER, w.extraction), why = spec.product }
+          extend_only = true, take_only = take_only, fond = true,
+          value = math.min(B.COVER_MAX, val(B.COVER, w.extraction)), why = spec.product }
       end
     end
   end

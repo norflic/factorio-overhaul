@@ -566,14 +566,14 @@ ACTS.build = function(agent, f, task, surface, tick)
     local d_room, n_room = nil, 0
     for _, oid in ipairs(State.sorted_keys(f.outposts)) do
       local q = f.outposts[oid]
-      if q ~= o and q.kind == o.kind and not q.full and (q.drills or 0) < T.max_drills(q.kind) then
+      if q ~= o and q.kind == o.kind and not q.full and not q.migr and (q.drills or 0) < T.max_drills(q.kind) then
         n_room = n_room + 1
         local d = math.sqrt((q.pos.x - f.hq_pos.x) ^ 2 + (q.pos.y - f.hq_pos.y) ^ 2)
         if d_room == nil or d < d_room then d_room = d end
       end
     end
     log(string.format("[FO-AVANT-POSTE] %s : avant-poste %d %s bati a %d tuiles du QG a %.1f min, demande par %s ; avant-postes %s avec des places : %d%s",
-      f.key or "?", o.id, o.kind, math.floor(d_new), tick / 3600, task.fond and "le fond" or ("le projet " .. tostring(task.why)),
+      f.key or "?", o.id, o.kind, math.floor(d_new), tick / 3600, task.fond and "le fond" or (task.why and ("le projet " .. tostring(task.why)) or ("la tache " .. tostring(task.key))),
       o.kind, n_room, d_room and string.format(" (le plus proche a %d tuiles)", math.floor(d_room)) or ""))
   end
   -- Lot IA1-b2 (défendre d'abord) : les tourelles portées avec la construction sont posées sur place, à la même visite.

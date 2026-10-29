@@ -364,8 +364,18 @@ function Poles.think(f, view, book, tick, plan)
     cands = Fond.candidates(view, free, fctx)
     -- Lot SCALE-COMPLET : builds LOINTAINS refusés par le fond (shared/team/fond.lua, F.far_build ; écrits dans fctx.far_builds) :
     -- un avant-poste proche du même type a encore des places. Journal [FO-LOIN], Poles.FAR_LOGS lignes au plus par équipe.
+    -- Relecture : une ligne quand un type ENTRE dans le refus (f.stats.far_on[type]), et non à chaque pensée : sinon les
+    -- Poles.FAR_LOGS lignes partaient en 20 pensées (100 s) et le journal se taisait pour le reste de la partie.
+    local far_now = {}
+    for _, fb in ipairs(fctx.far_builds or {}) do far_now[fb.kind] = true end
+    f.stats.far_on = f.stats.far_on or {}
+    for _, kind in ipairs(T.OUTPOST_ORDER) do
+      if not far_now[kind] then f.stats.far_on[kind] = nil end
+    end
     for _, fb in ipairs(fctx.far_builds or {}) do
-      if (f.stats.far_logs or 0) < Poles.FAR_LOGS then
+      local first = not f.stats.far_on[fb.kind]
+      f.stats.far_on[fb.kind] = true
+      if first and (f.stats.far_logs or 0) < Poles.FAR_LOGS then
         f.stats.far_logs = (f.stats.far_logs or 0) + 1
         log(string.format("[FO-LOIN] %s : fond, nouvel avant-poste %s refuse a %.1f min : site admissible le plus proche a %d tuiles du QG, avant-poste %s avec des places a %d tuiles (on agrandit le proche)",
           f.key or "?", fb.kind, tick / 3600, math.floor(fb.d_site), fb.kind, math.floor(fb.d_room)))
