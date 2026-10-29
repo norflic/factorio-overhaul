@@ -33,3 +33,7 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 ## 29/10 ~03 h 30, passage 8
 - Derniere heure : aucune erreur Lua ni plantage ; aucun ECHEC.txt reel. Disque 123 Go, charge normale.
 - Lecture directe des archives K2-* (kit-a) : tout vert sauf K2-ia1scale (effectif joueur 19/30 au lieu de >= 27, recrues payees 11) : temoin main demande a kit-2.
+
+## 29/10 ~04 h, passage 9
+- PLANTAGE reel (mesure) : fo-logs/2026-10-29_NUIT/RECONSTRUIRE/invalide/lot5/lot6-987654321, benchmark-stdout.txt.gz, ~42 min : reconstruction.lua:296 (pole_cands) « attempt to index local p (a userdata value) » ; deja trouve par l agent RECONSTRUIRE (archives rangees en invalide/), corrige sur la branche reconstruire (74edb3e : enumeration des prototypes par pairs sur la table du moteur, lecture protegee), rejeu lot8 en cours. Aucun effet sur main.
+- Rien d autre : pas d ECHEC reel hors ces deux archives, disque 125 Go, 3 banc.py pour 3 lots, aucun factorio.exe parasite.
