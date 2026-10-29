@@ -157,6 +157,23 @@ local function suite(Rc)
     check(Rc.REPAIR_PRIO < Rc.PRIO_BASE, "§7d réparer passe après refaire")
   end
 
+  -- §7e Pièce de remplacement (poteau du meilleur niveau fabricable) ------------------------------------------
+  do
+    local cands = {
+      { name = "petit", item = "ip", supply = 2.5, wire = 7.5 }, { name = "moyen", item = "im", supply = 3.5, wire = 9 },
+      { name = "grand", item = "ig", supply = 2, wire = 30 }, { name = "enorme", item = "ie", supply = 7, wire = 64 },
+    }
+    local function only(...) local set = {} for _, k in ipairs({ ... }) do set[k] = true end return function(c) return set[c.item] end end
+    check(Rc.pick_alt(cands, 0, only("ip", "ig")).name == "petit", "§7e meilleur niveau fabricable : la plus grande zone d'alimentation parmi les disponibles")
+    check(Rc.pick_alt(cands, 0, only("ie", "im", "ip")).name == "enorme", "§7e le meilleur niveau d'abord")
+    check(Rc.pick_alt(cands, 8, only("ip")) == nil, "§7e fil trop court pour les voisins qui restent : pas de remplaçant")
+    check(Rc.pick_alt(cands, 8, only("ip", "ig")).name == "grand", "§7e fil assez long : le remplaçant couvrant la portée")
+    check(Rc.pick_alt(cands, 0, only()) == nil, "§7e rien de fabricable : nil")
+    check(Rc.pick_alt({}, 0, only("ip")) == nil, "§7e aucun candidat : nil")
+    local a = Rc.pick_alt({ { name = "b", item = "x", supply = 2, wire = 7 }, { name = "a", item = "y", supply = 2, wire = 7 } }, 0, only("x", "y"))
+    check(a.name == "a", "§7e égalité : le nom décide (déterminisme)")
+  end
+
   return pass, fail, msgs
 end
 
@@ -202,6 +219,9 @@ local MUTANTS = {
   { "réparation sans seuil", "if c.ratio * 100 < (below or Rc.REPAIR_BELOW) then low[#low + 1] = c end", "low[#low + 1] = c" },
   { "réparation sans rayon", "if #out < Rc.REPAIR_MAX and (c == seed or ((c.x - seed.x) ^ 2 + (c.y - seed.y) ^ 2) <= Rc.BATCH_RADIUS * Rc.BATCH_RADIUS) then", "if #out < Rc.REPAIR_MAX then" },
   { "réparation sans plus abîmée d'abord", "if a.ratio ~= b.ratio then return a.ratio < b.ratio end", "" },
+  { "remplaçant sans fil suffisant", "if c.wire >= (reach or 0) and can(c) then return c end", "if can(c) then return c end" },
+  { "remplaçant sans disponibilité", "if c.wire >= (reach or 0) and can(c) then return c end", "if c.wire >= (reach or 0) then return c end" },
+  { "remplaçant : moins bon niveau", "if a.supply ~= b.supply then return a.supply > b.supply end", "if a.supply ~= b.supply then return a.supply < b.supply end" },
   { "pose refusée sans abandon", "if r.blocks > Rc.MAX_BLOCKS then r.abandoned = true end", "" },
 }
 local refused, kept = 0, {}

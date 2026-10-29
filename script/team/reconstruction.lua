@@ -134,8 +134,23 @@ local function on_died(e)
     local ok, r = pcall(function() local x = ent.get_recipe() return x and x.name end)
     recipe = ok and r or nil
   end
-  Rc.record(s, { name = ent.name, x = pos.x, y = pos.y, dir = ent.direction, item = item_of(ent.name), recipe = recipe,
+  local reach
+  if ent.type == "electric-pole" then
+    -- Plus grande distance aux poteaux voisins qui restent : le remplaçant éventuel doit avoir le fil pour les rejoindre.
+    local ok, nb = pcall(function() return ent.neighbours end)
+    reach = 0
+    if ok and type(nb) == "table" and nb.copper then
+      for _, n in ipairs(nb.copper) do
+        if n.valid then
+          local d = math.sqrt((n.position.x - pos.x) ^ 2 + (n.position.y - pos.y) ^ 2)
+          if d > reach then reach = d end
+        end
+      end
+    end
+  end
+  local k = Rc.record(s, { name = ent.name, x = pos.x, y = pos.y, dir = ent.direction, item = item_of(ent.name), recipe = recipe,
     value = value, kind = kind, oid = oid, infra = infra or nil }, e.tick)
+  if reach and s.lost[k] then s.lost[k].reach = reach; s.lost[k].etype = ent.type end
   stat(s, "recorded")
   by_name(s, ent.name).rec = by_name(s, ent.name).rec + 1
   if s.stats.logs < Recon.LOGS then
@@ -268,9 +283,59 @@ end
 --- Fabrication des objets d'INFRASTRUCTURE qui manquent au stock (poteaux, chaudières, machines à vapeur, pompes détruits) : une
 --- tâche « craft » par objet, à la priorité de la reconstruction ; le livre de recettes de l'équipe dit si la fabrication à la main
 --- est possible avec le stock libre (sinon rien : le manque reste lisible aux relevés « ns »). `free` : stock libre de la pensée.
+local POLE_CANDS -- mémoire LOCALE (prototypes seulement) : les poteaux du jeu, { name, item, supply, wire }
+local function pole_cands()
+  if POLE_CANDS then return POLE_CANDS end
+  POLE_CANDS = {}
+  local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = "electric-pole" } })
+  local names = {}
+  for name in next, protos do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local p = protos[name]
+    local it = p.items_to_place_this and p.items_to_place_this[1]
+    if it and not (p.flags and p.flags["hidden"]) then
+      POLE_CANDS[#POLE_CANDS + 1] = { name = name, item = it.name, supply = p.supply_area_distance or 0, wire = p.max_wire_distance or 0 }
+    end
+  end
+  return POLE_CANDS
+end
+
+--- L'objet de `item` est-il au stock libre ou fabricable à la main avec ce stock ?
+local function available_or_craftable(book, free, item)
+  if (free[item] or 0) >= 1 then return true end
+  if not book:handcraftable(item) then return false end
+  local avail = {}
+  for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
+  avail[item] = 0
+  return next(book:plan({ { item, 1 } }, avail).raw) == nil
+end
+
+--- Poteau perdu dont l'objet manque ET ne peut être fabriqué : on pose le poteau du meilleur niveau fabricable (r.place / r.item).
+local function substitute_poles(f, s, book, free, tick)
+  for _, k in ipairs(State.sorted_keys(s.lost)) do
+    local r = s.lost[k]
+    if r.infra and r.etype == "electric-pole" and not r.place and not r.abandoned and not r.claimed
+      and tick - r.tick >= Rc.calm_for(r) and not available_or_craftable(book, free, r.item) then
+      local c = Rc.pick_alt(pole_cands(), r.reach or 0, function(x) return available_or_craftable(book, free, x.item) end)
+      if c and c.item ~= r.item then
+        r.place, r.item = c.name, c.item
+        stat(s, "substituted")
+        by_name(s, r.name).subst = (by_name(s, r.name).subst or 0) + 1
+        if s.stats.logs < Recon.LOGS then
+          s.stats.logs = s.stats.logs + 1
+          log(string.format("[FO-RECON] %s : %s introuvable ni fabricable : %s posé à sa place (portée de fil %.1f, voisins à %.1f)",
+            f.key or "player", r.name, c.name, c.wire, r.reach or 0))
+        end
+      end
+    end
+  end
+end
+
 function Recon.craft_spares(f, book, free, tick)
   local s = f.recon
   if not (s and next(s.lost) and book and free) then return 0 end
+  substitute_poles(f, s, book, free, tick)
   local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end)
   if #wanted == 0 then return 0 end
   local added = {}
@@ -401,7 +466,8 @@ end
 --- les ramasse, ce qui ne tient pas dans son sac est laissé.
 local function clear_items(surface, inv, r)
   local fp = footprint(r)
-  for _, e in ipairs(surface.find_entities_filtered({ area = { { fp[1], fp[2] }, { fp[3], fp[4] } }, type = "item-entity" })) do
+  local area = { { fp[1], fp[2] }, { fp[3], fp[4] } }
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, type = "item-entity" })) do
     if e.valid then
       local st = e.stack
       if st and st.valid_for_read then
@@ -411,6 +477,10 @@ local function clear_items(surface, inv, r)
         e.destroy()
       end
     end
+  end
+  -- Restes de la pièce détruite (et cadavres) : ils refusent aussi le fantôme de reposage (mesuré par le lot réseau) ; on les retire.
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, type = "corpse" })) do
+    if e.valid then e.destroy() end
   end
 end
 
@@ -423,15 +493,15 @@ function Recon.act(agent, f, task, surface)
   for _, k in ipairs(task.recs or {}) do
     local r = s.lost[k]
     if r and not r.abandoned then
-      local there = surface.find_entity(r.name, { r.x, r.y })
+      local there = surface.find_entity(r.place or r.name, { r.x, r.y })
       if there and there.valid and there.force.name == f.force then
         delay_note(s, r, "ext", game.tick)
         Rc.done(s, k) -- déjà refaite (par un autre moyen)
       elseif r.item and inv.get_item_count(r.item) >= 1 then
         step_aside(surface, agent.entity, r)
         clear_items(surface, inv, r)
-        if surface.can_place_entity({ name = r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force }) then
-          local ent = surface.create_entity({ name = r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force,
+        if surface.can_place_entity({ name = r.place or r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force }) then
+          local ent = surface.create_entity({ name = r.place or r.name, position = { x = r.x, y = r.y }, direction = r.dir, force = f.force,
             raise_built = true })
           if ent and ent.valid then
             inv.remove({ name = r.item, count = 1 })

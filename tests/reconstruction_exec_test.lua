@@ -50,6 +50,11 @@ local PROTOS = {
   ["tourelle-x"] = { turret_range = 18, items_to_place_this = { { name = "tourelle-x" } } },
 }
 game = { tick = 0, entity_prototypes = PROTOS }
+PROTOS["pole-x"].supply_area_distance = 2.5
+PROTOS["pole-x"].max_wire_distance = 7.5
+PROTOS["pole-m"] = { items_to_place_this = { { name = "item-m" } }, supply_area_distance = 3.5, max_wire_distance = 9 }
+PROTOS["pole-s"] = { items_to_place_this = { { name = "item-s" } }, supply_area_distance = 1, max_wire_distance = 5 }
+function game.get_filtered_entity_prototypes() return { ["pole-x"] = PROTOS["pole-x"], ["pole-m"] = PROTOS["pole-m"], ["pole-s"] = PROTOS["pole-s"] } end
 
 local R = require("shared.ai3.reglages")
 check(R.RECON_ALL_PIECES == false, "réglage : portée par défaut = infrastructure électrique seule")
@@ -85,8 +90,10 @@ surface = {
   find_entities = function() return {} end,
   floor_items = {},
   consumers = {},
+  corpses = {},
   find_entities_filtered = function(args)
     if args and type(args.type) == "table" then return surface.consumers end
+    if args and args.type == "corpse" then return surface.corpses end
     local l = {} for i, e in ipairs(surface.floor_items) do l[i] = e end return l end,
   get_tile = function() return { name = "grass-1" } end,
   can_place_entity = function() return surface.placeable and #surface.floor_items == 0 end,
@@ -346,6 +353,65 @@ do
   fa.is_player = false
   check(Recon.repair_think(fa, surface, 9000) == 0, "les factions ne réparent pas (votre équipe seule)")
   surface.consumers = {}
+end
+
+
+-- §10 Pièce de remplacement et restes ------------------------------------------------------------------------------------
+do
+  local f = new_team()
+  R.RECON_ALL_PIECES = false
+  -- poteau « moyen » perdu : objet absent, non fabricable ; le petit poteau est au stock
+  local pm = ent("pole-m", "electric-pole", 80, 80)
+  pm.neighbours = { copper = { { valid = true, position = { x = 86, y = 80 } } } }
+  died({ entity = pm, tick = 3000 })
+  local r = f.recon.lost[Rc.key({ name = "pole-m", x = 80, y = 80 })]
+  check(r and r.etype == "electric-pole" and math.abs(r.reach - 6) < 1e-9 and r.item == "item-m", "poteau perdu : portée de fil vers les voisins notée")
+  f.stock["item-m"] = 0
+  local book = { handcraftable = function(_, it) return it == "item-p" end, plan = function() return { raw = {}, crafts = {}, uses = {} } end }
+  local free = { ["item-p"] = 2, ["item-m"] = 0 }
+  Recon.craft_spares(f, book, free, 3000 + Rc.CALM_INFRA + 5)
+  check(r.place == "pole-x" and r.item == "item-p", "objet ni au stock ni fabricable : le poteau du meilleur niveau disponible est posé à la place")
+  check(f.recon.stats.substituted == 1, "remplacement compté")
+  -- Pose : la pièce de remplacement est posée sous son propre nom
+  f.stock["item-p"] = 2
+  Recon.think(f, surface, 3000 + Rc.CALM_INFRA + 10)
+  local t
+  for _, tk in pairs(f.team.board.tasks) do if tk.kind == "rebuild" then t = tk end end
+  check(t and t.items[1][1] == "item-p", "tâche : l'objet du remplaçant est pris au stock")
+  t.worker = 1
+  Recon.program(f, t)
+  local inv = { items = { ["item-p"] = 1 } }
+  inv.get_item_count = function(n) return inv.items[n] or 0 end
+  inv.remove = function(sp) inv.items[sp.name] = (inv.items[sp.name] or 0) - sp.count end
+  surface.created = {}
+  check(Recon.act({ entity = { get_main_inventory = function() return inv end } }, f, t, surface), "pose du remplaçant")
+  check(surface.created[1] and surface.created[1].name == "pole-x", "créé sous le nom du remplaçant, à la place exacte")
+  -- Fil trop court : pas de remplaçant
+  local f2 = new_team()
+  local pm2 = ent("pole-m", "electric-pole", 90, 90)
+  pm2.neighbours = { copper = { { valid = true, position = { x = 99, y = 90 } } } }
+  died({ entity = pm2, tick = 4000 })
+  Recon.craft_spares(f2, book, { ["item-p"] = 2 }, 4000 + Rc.CALM_INFRA + 5)
+  local r2 = f2.recon.lost[Rc.key({ name = "pole-m", x = 90, y = 90 })]
+  check(r2.place == nil, "voisin à 9 tuiles : le petit poteau (fil 7,5) ne convient pas, pas de remplaçant")
+  -- Restes et cadavres de la place retirés avant la pose
+  local f3 = new_team()
+  died({ entity = ent("pole-x", "electric-pole", 60, 60), tick = 5000 })
+  Recon.think(f3, surface, 5000 + Rc.CALM_INFRA + 5)
+  local t3
+  for _, tk in pairs(f3.team.board.tasks) do if tk.kind == "rebuild" then t3 = tk end end
+  t3.worker = 1
+  Recon.program(f3, t3)
+  local gone = 0
+  surface.corpses = { { valid = true, destroy = function() gone = gone + 1 end }, { valid = true, destroy = function() gone = gone + 1 end } }
+  local inv3 = { items = { ["item-p"] = 1 } }
+  inv3.get_item_count = function(n) return inv3.items[n] or 0 end
+  inv3.remove = function(sp) inv3.items[sp.name] = (inv3.items[sp.name] or 0) - sp.count end
+  surface.created = {}
+  Recon.act({ entity = { get_main_inventory = function() return inv3 end } }, f3, t3, surface)
+  check(gone == 2 and #surface.created == 1, "restes (corpse) de la pièce détruite retirés avant la pose")
+  surface.corpses = {}
+  R.RECON_ALL_PIECES = true
 end
 
 

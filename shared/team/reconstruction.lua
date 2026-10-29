@@ -147,6 +147,24 @@ function Rc.repair_batch(cands, below)
   return out
 end
 
+--- PIÈCE DE REMPLACEMENT : quand l'objet d'un poteau perdu ne peut être ni pris au stock ni fabriqué (matière absente), on pose le
+--- poteau du meilleur niveau FABRICABLE (zone d'alimentation, puis portée de fil, puis nom). `cands` : { { name, item, supply, wire } }
+--- (lus aux prototypes par le runtime, type « electric-pole ») ; `reach` : la plus grande distance aux voisins qui restent (le fil
+--- du remplaçant doit la couvrir, sinon la ligne resterait coupée) ; `can(c)` : l'objet de c est au stock ou fabricable. Rend c ou nil.
+function Rc.pick_alt(cands, reach, can)
+  local list = {}
+  for _, c in ipairs(cands) do list[#list + 1] = c end
+  table.sort(list, function(a, b)
+    if a.supply ~= b.supply then return a.supply > b.supply end
+    if a.wire ~= b.wire then return a.wire > b.wire end
+    return a.name < b.name
+  end)
+  for _, c in ipairs(list) do
+    if c.wire >= (reach or 0) and can(c) then return c end
+  end
+  return nil
+end
+
 local function d2(a, b) local dx, dy = a.x - b.x, a.y - b.y; return dx * dx + dy * dy end
 
 --- Lot d'un voyage : la pièce `seed` d'abord, puis celles de `due` à `radius` tuiles d'elle, `max` pièces au plus.
