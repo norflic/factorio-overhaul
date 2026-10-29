@@ -61,4 +61,91 @@ function F.balance(s)
   return out
 end
 
+--[[
+  LIGNE DYNAMIQUE (lot FONDERIE-DYNAMIQUE, arbitrage du DC du 29/10 au soir) : « la fonderie grandit en fonction du nombre de
+  foreuses qu'elle a en input, donc dynamiquement, ni 2, ni 4, ni 8, mais dynamique ».
+
+  Le plan réserve la place de la ligne entière (rangées de fours et paires de foreuses que le gisement porte, Ligne.rows_wanted
+  sans budget) ; seules les pièces voulues MAINTENANT sont posées. Une rangée = 2 fours (un de chaque côté du tapis) et leurs bras ;
+  une paire = 2 foreuses. Une UNITÉ de budget = une rangée avec sa paire de foreuses (T.ligne.row_cost plaques).
+
+  Fonte.initial(s) -> rows, pairs, why     taille de départ (au plan) ; s : rows_max (rangées réservées), pairs_max (paires
+                                           planifiées), drill_rate, cap (objets/s d'UN four), budget (unités payables, nil : sans borne).
+  Fonte.step(s)    -> { action, rows, pairs, furnaces, want, why }
+                                           pas de croissance d'une ligne bâtie (lu au moteur) ; s : input (objets/s des foreuses qui
+                                           PRODUISENT), cap, rows (rangées posées), rows_max, drills (foreuses qui produisent),
+                                           drill_rate, pairs (paires posées), pairs_max, budget (unités, nil : sans borne),
+                                           step_rows, step_pairs (rangées / paires au plus par pas).
+  Actions de Fonte.step : "ajouter_fours" (rows > 0 : l'entrée dépasse les fours), "ajouter_foreuses" (pairs > 0 : des fours
+  attendent du minerai, ou la ligne est juste et des paires réservées restent : la ligne va vers sa taille prévue), "budget"
+  (croissance voulue, stock insuffisant ; want = pièces voulues), "plein" (toutes les rangées réservées sont posées), "sans_minerai"
+  (fours en trop et plus aucune foreuse à poser : jamais de nouveaux fours), "equilibre" (ligne entière, à l'équilibre), "invalide".
+  JAMAIS de retrait : une ligne ne rétrécit pas (les fours en trop attendent le minerai).
+]]
+local function clamp_int(x, lo, hi)
+  x = math.floor((x or lo) + EPS)
+  if x < lo then return lo end
+  if hi and x > hi then return hi end
+  return x
+end
+
+function F.initial(s)
+  local rmax = clamp_int(s.rows_max or 1, 1)
+  local pmax = clamp_int(s.pairs_max or 0, 0)
+  local units = s.budget and clamp_int(s.budget, 1) or math.huge -- au moins une unité : une ligne sans rangée n'existe pas
+  local pairs = math.min(pmax, units)
+  local fed = math.ceil(F.furnaces_wanted(2 * pairs * (s.drill_rate or 0), s.cap or 0, 2 * rmax) / 2 - EPS)
+  local rows = math.max(1, math.min(fed, rmax))
+  local why = "foreuses"
+  if rows > units then rows, why = math.max(1, units), "budget" end
+  if pairs < pmax then why = "budget" end
+  return rows, pairs, why
+end
+
+function F.step(s)
+  local out = { action = "invalide", rows = 0, pairs = 0, furnaces = 0, want = 0 }
+  local rows, rmax = clamp_int(s.rows or 0, 0), clamp_int(s.rows_max or 0, 0)
+  local pairs, pmax = clamp_int(s.pairs or 0, 0), clamp_int(s.pairs_max or 0, 0)
+  local cap, dr = s.cap or 0, s.drill_rate or 0
+  if cap <= 0 or rmax <= 0 or rows < 1 then return out end
+  if rows > rmax then rows = rmax end
+  if pairs > pmax then pmax = pairs end
+  local left = pmax - pairs
+  local budget = s.budget and clamp_int(s.budget, 0) or math.huge
+  local step_r, step_p = clamp_int(s.step_rows or 1, 1), clamp_int(s.step_pairs or 1, 1)
+  local drills = math.max(0, s.drills or 0)
+  local dec = F.balance({ input = s.input or 0, capacity = cap, furnaces = 2 * rows, max_furnaces = 2 * rmax, drills = drills,
+    drill_rate = dr, max_drills = drills + 2 * left })
+  out.furnaces = dec.wanted
+  if dec.action == "invalide" then return out end
+  if dec.action == "ajouter_fours" or dec.action == "retirer_foreuses" then
+    -- l'entrée dépasse les fours posés : des rangées au bout de la ligne (place réservée), jamais au-delà
+    local add = math.min(rmax, math.ceil(dec.wanted / 2 - EPS)) - rows
+    if add <= 0 then out.action = "plein" return out end
+    add = math.min(add, step_r)
+    out.want = add
+    if budget < 1 then out.action = "budget" return out end
+    out.action, out.rows = "ajouter_fours", math.min(add, budget)
+    return out
+  end
+  -- fours en trop, ligne juste ou aucune entrée : des foreuses réservées s'il en reste, sinon RIEN (pas de nouveaux fours)
+  if left <= 0 then
+    out.action = (dec.action == "equilibre") and "equilibre" or "sans_minerai"
+    return out
+  end
+  -- croissance d'une ligne juste : seulement si la ligne RÉSERVÉE entière a encore de la capacité libre (sinon la paire de plus
+  -- n'aurait aucun four où aller : elle attendrait sur le tapis)
+  if dec.action == "equilibre" and drills * dr >= 2 * rmax * cap - EPS then out.action = "equilibre" return out end
+  local add = 1 -- croissance : la ligne va vers sa taille prévue, une paire à la fois au moins
+  if dec.action == "ajouter_foreuses" and dr > 0 then add = math.max(1, math.ceil(((dec.drills or 0) - drills) / 2 - EPS)) end
+  if dec.action == "retirer_fours" or dec.action == "sans_entree" then
+    add = math.max(1, math.ceil((2 * rows * cap / math.max(dr, EPS) - drills) / 2 - EPS))
+  end
+  add = math.min(add, left, step_p)
+  out.want = add
+  if budget < 1 then out.action = "budget" return out end
+  out.action, out.pairs = "ajouter_foreuses", math.min(add, budget)
+  return out
+end
+
 return F

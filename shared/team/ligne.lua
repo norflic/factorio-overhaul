@@ -21,6 +21,8 @@
                                          -> rangées payables avec une part du stock de plaques (jamais sous floor_rows).
   Ligne.rows_wanted(s)                   -> rangées voulues et sa raison (voir ci-dessous).
   Ligne.fan(count)                       -> disposition des bras et coffres de sortie autour du bout d'un tapis.
+  Ligne.rows_of(list, side, offset, is_piece)
+                                         -> rangée de chaque pièce d'une rangée (lot FONDERIE-DYNAMIQUE : pièces posées par étapes).
 ]]
 local L = {}
 
@@ -83,6 +85,22 @@ function L.rows_wanted(s)
   end
   if rows <= base then return base, why == "gisement" and "demande" or why end
   return rows, why
+end
+
+--- Lot FONDERIE-DYNAMIQUE : rangée (1..n) de chaque pièce « d'une rangée » d'un gabarit NON tourné (y local le long de la ligne).
+--- rows[i] = rangée de l'entité list[i], nil pour le squelette (tapis, poteaux : posés dès le départ, sur toute la place réservée).
+--- side : pas d'une rangée (côté du four ; de la foreuse) ; offset : y local du début de la première rangée (0 pour la fonderie, 1 pour
+--- la ligne de foreuses dont la rangée 0 porte la tête du tapis) ; is_piece(e) : vrai pour une pièce d'une rangée (four, bras ; foreuse).
+function L.rows_of(list, side, offset, is_piece)
+  local rows = {}
+  if type(side) ~= "number" or side <= 0 then return rows end
+  for i, e in ipairs(list or {}) do
+    if is_piece(e) and type(e.y) == "number" then
+      local r = floor((e.y - (offset or 0)) / side + EPS) + 1
+      if r >= 1 then rows[i] = r end
+    end
+  end
+  return rows
 end
 
 --- Disposition des bras et des coffres de sortie autour du DERNIER tuile d'un tapis. Coordonnées (a, l) : `a` le long du

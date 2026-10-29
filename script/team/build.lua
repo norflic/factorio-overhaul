@@ -993,7 +993,9 @@ local function line_rows(f, surface, spec, g, cur, rev)
     pairs_line = pairs_line, rows_max = g.extensions[1].max, grow = true,
     rows_fit = Li.rows_fit(P.LOT, 1, P.FEED_DEPTH, rev and 0 or 2, fsp.w),
     out_ok = function(r) return M.choose_inserters(r * cap, true, Li.MAX_ARMS) ~= nil end,
-    budget_rows = Li.budget_rows(Stock.count(f, T.outposts.iron.product), cfg.row_cost, cfg.stock_share, cfg.rows_floor),
+    -- lot FONDERIE-DYNAMIQUE : plus de plancher de 4 rangées ; ligne dynamique : la PLACE de la ligne entière est réservée (sans
+    -- budget), les rangées sont posées par étapes (ligne_split au plan, Build.ligne_step ensuite) ; sinon le stock borne la ligne
+    budget_rows = (not cfg.dyn) and Li.budget_rows(Stock.count(f, T.outposts.iron.product), cfg.row_cost, cfg.stock_share, 0) or nil,
   })
   if rows ~= cur then
     b.line_logs = (b.line_logs or 0) + 1
@@ -1181,6 +1183,221 @@ function Build.fonte_equilibre(f, p, g, d, part)
   end
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot FONDERIE-DYNAMIQUE : la ligne de fours suit les foreuses qui l'alimentent (arbitrage du DC du 29/10 au soir : « la fonderie
+-- grandit en fonction du nombre de foreuses qu'elle a en input, donc dynamiquement, ni 2, ni 4, ni 8, mais dynamique »).
+-- Chaîne : plan_project (place de la ligne ENTIÈRE réservée, line_rows sans budget ni plancher) -> Build.ligne_split (pièces des rangées et
+-- paires au-delà de Fonte.initial gardées dans p.ligne.held, tuiles toujours à ce projet dans b.occ) -> Build.think -> Build.ligne_step
+-- (toutes les T.ligne.every ticks, projet « fini ») -> read_line (foreuses qui PRODUISENT, fours posés, au moteur) -> Fonte.step ->
+-- ligne_open (pièces rendues à p.ents, projet rouvert en « reserve ») -> chantier ordinaire (réserve au coffre, fantômes, PNJ) ->
+-- fours ou foreuses posés au bout de la ligne. Journal : [FO-FONTE] (une ligne par action, par changement d'état, au plus
+-- Build.FONTE_LOGS par équipe). État écrit : p.ligne (lecteurs : Build.ligne_step, ligne_open, Build.status), p.ents (chantier).
+-- Projets d'avant ce lot (sans p.ligne) : inchangés, jamais relus.
+---------------------------------------------------------------------------------------------------
+Build.FONTE_LOGS = 40 -- lignes [FO-FONTE] de la ligne dynamique, au plus, par équipe
+
+local ROW_KINDS = { drill = { drill = true }, four = { furnace = true, inserter = true } }
+local SIDE_KIND = { drill = "drill", four = "furnace" }
+
+--- Marque `field` (row : rangée de fours ; pair : paire de foreuses) sur les entités `ents` (même ordre que g.entities, g NON tourné).
+function Build.tag_rows(ents, g, offset, which, field)
+  if not (g and g.entities and ROW_KINDS[which]) then return end
+  local kinds, side = ROW_KINDS[which], nil
+  for _, e in ipairs(g.entities) do
+    local sp = M.spec(e.name)
+    if sp and sp.kind == SIDE_KIND[which] then side = sp.w break end
+  end
+  if not side then return end
+  local rows = Li.rows_of(g.entities, side, offset, function(e)
+    local sp = M.spec(e.name)
+    return sp ~= nil and kinds[sp.kind] == true
+  end)
+  for i, e in ipairs(ents) do if rows[i] then e[field] = rows[i] end end
+end
+
+local function fonte_log(f, text)
+  local b = f.build
+  b.fonte_logs = (b.fonte_logs or 0) + 1
+  if b.fonte_logs <= Build.FONTE_LOGS then log("[FO-FONTE] " .. tostring(f.key or "player") .. " : " .. text) end
+end
+
+--- Au plan (fin de plan_project) : taille de départ de la ligne (Fonte.initial : les fours que les foreuses planifiées nourrissent, borné
+--- par le stock, sans plancher) ; le reste attend dans p.ligne.held. Rien pour une ligne fixe (MIGRATION-CHAMP) ou sans foreuses.
+function Build.ligne_split(f, p, g)
+  local cfg = T.ligne or {}
+  if not cfg.dyn or p.spec.fixe then return end
+  local prm = g.params or {}
+  if not (g.gen == "smelter" and p.spec.feed == "tapis" and prm.ore and prm.n and prm.n > 0) then return end
+  local dpi, dp
+  for i = 2, #p.parts do
+    local pt = p.parts[i]
+    if pt and pt.kind == "foreuses" and pt.ore == prm.ore then dpi, dp = i, pt break end
+  end
+  if not (dp and (dp.pairs or 0) > 0) then return end
+  local plate = M.PLATE_OF[prm.ore]
+  local main = g.nominal and plate and g.nominal[plate]
+  if not (main and main > 0) then return end
+  local cap = main / (2 * prm.n)
+  local budget = Li.budget_rows(Stock.count(f, T.outposts.iron.product), cfg.row_cost, cfg.stock_share, 0)
+  local rows, prs, why = Fonte.initial({ rows_max = prm.n, pairs_max = dp.pairs, drill_rate = dp.drill_rate or 0, cap = cap, budget = budget })
+  local keep, held = {}, {}
+  for _, e in ipairs(p.ents) do
+    if (e.part == 1 and e.row and e.row > rows) or (e.part == dpi and e.pair and e.pair > prs) then held[#held + 1] = e
+    else keep[#keep + 1] = e end
+  end
+  p.ents = keep
+  p.ligne = { ore = prm.ore, rows = rows, rows_max = prm.n, pairs = prs, pairs_max = dp.pairs, part = dpi, cap = cap,
+    drill_rate = dp.drill_rate or 0, furnace = prm.furnace, drill = dp.drill, held = held, steps = 0 }
+  fonte_log(f, string.format("projet %d, ligne dynamique %s : %d/%d rangee(s) posee(s) (%d fours), %d/%d paire(s) de foreuses (%s, budget %d unite(s)) ; place de la ligne entiere reservee, %d piece(s) en attente",
+    p.id, tostring(prm.ore), rows, prm.n, 2 * rows, prs, dp.pairs, why, budget, #held))
+end
+
+local PRODUCING, DEPLETED -- mémoire LOCALE (constantes du moteur), jamais dans global
+local function in_part(pt, pos) return pos.x > pt.ox and pos.x < pt.ox + pt.w and pos.y > pt.oy and pos.y < pt.oy + pt.h end
+
+--- Relevé au moteur d'une ligne bâtie : foreuses de sa partie (qui produisent, épuisées, autres), entrée réelle (vitesse du prototype
+--- posé, niveaux compris, et productivité minière de la force), fours de son module et leur capacité. Lecture seulement.
+local function read_line(f, surface, p, ln)
+  if not PRODUCING then
+    local s = defines.entity_status
+    PRODUCING = { [s.working] = true, [s.low_power] = true, [s.waiting_for_space_in_destination] = true }
+    DEPLETED = s.no_minable_resources
+  end
+  local fo = game.forces[f.force]
+  local dpt, mpt = p.parts[ln.part], p.parts[1]
+  if not (fo and dpt and mpt) then return nil, "parties absentes" end
+  local bonus = 1 + (fo.mining_drill_productivity_bonus or 0)
+  local dbase = ln.drill and game.entity_prototypes[ln.drill]
+  local fbase = ln.furnace and game.entity_prototypes[ln.furnace]
+  local r = { drills = 0, live = 0, dead = 0, other = 0, input = 0, furnaces = 0, capsum = 0 }
+  local found = surface.find_entities_filtered({ area = { { dpt.ox, dpt.oy }, { dpt.ox + dpt.w, dpt.oy + dpt.h } }, type = "mining-drill", force = fo })
+  for _, d in ipairs(found) do
+    if in_part(dpt, d.position) then -- F96 : une foreuse voisine qui touche seulement le bord ne compte pas
+      r.drills = r.drills + 1
+      local st = d.status
+      if PRODUCING[st] then
+        r.live = r.live + 1
+        local k = (dbase and dbase.mining_speed > 0) and (d.prototype.mining_speed / dbase.mining_speed) or 1
+        r.input = r.input + ln.drill_rate * k * bonus
+      elseif st == DEPLETED then r.dead = r.dead + 1
+      else r.other = r.other + 1 end
+    end
+  end
+  found = surface.find_entities_filtered({ area = { { mpt.ox, mpt.oy }, { mpt.ox + mpt.w, mpt.oy + mpt.h } }, type = "furnace", force = fo })
+  for _, m in ipairs(found) do
+    if in_part(mpt, m.position) then
+      r.furnaces = r.furnaces + 1
+      local k = (fbase and fbase.crafting_speed > 0) and (m.prototype.crafting_speed / fbase.crafting_speed) or 1
+      r.capsum = r.capsum + ln.cap * k
+    end
+  end
+  return r
+end
+
+--- Rend à p.ents les pièces des rangées 1..rows+add_r et des paires 1..pairs+add_p ; le projet fini est rouvert (« reserve ») et suit
+--- le chantier ordinaire. p.reopened : non annulable tant que ses pièces ne sont pas posées (Build.cancel) ; reopened_tick n'est PAS
+--- écrit (un agrandissement ne retient pas les améliorations, Sw.project_holds). Rend le nombre de pièces rendues.
+local function ligne_takes(ln, e, nr, np)
+  return (e.part == 1 and e.row and e.row <= nr) or (e.part == ln.part and e.pair and e.pair <= np)
+end
+
+--- « Ressources d'abord » : objets qui MANQUENT au stock libre (coffre moins les réserves des tâches, Board.view_stock) pour les pièces
+--- d'un pas. Un pas n'est lancé que tout réuni : un projet rouvert qui attend ses matériaux en « reserve » ne sert plus ses quais (charbon
+--- des fours, quai_tasks ne tourne qu'en « fini » et « chantier ») et la partie déjà bâtie s'arrêterait. Rend une liste { objet, n } triée.
+local function ligne_missing(f, ln, nr, np)
+  local need = {}
+  for _, e in ipairs(ln.held) do
+    if ligne_takes(ln, e, nr, np) and e.item then need[e.item] = (need[e.item] or 0) + 1 end
+  end
+  local free = Board.view_stock(f, Stock.contents(f), game.tick)
+  local out = {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local have = math.min(Stock.count(f, it), free[it] or 0)
+    if have < need[it] then out[#out + 1] = { it, need[it] - have } end
+  end
+  return out
+end
+
+local function ligne_open(p, ln, add_r, add_p, tick)
+  local nr, np = ln.rows + add_r, ln.pairs + add_p
+  local keep, moved = {}, 0
+  for _, e in ipairs(ln.held) do
+    if ligne_takes(ln, e, nr, np) then
+      e.built, e.ghosted, e.fails, e.npc_blocks = false, nil, 0, 0
+      p.ents[#p.ents + 1] = e
+      moved = moved + 1
+    else
+      keep[#keep + 1] = e
+    end
+  end
+  ln.held, ln.rows, ln.pairs = keep, nr, np
+  if moved > 0 then
+    ln.steps = (ln.steps or 0) + 1
+    ln.grown = tick
+    p.counted = true -- déjà compté aux statistiques
+    p.state, p.reason, p.reserve_next = "reserve", "fonderie : agrandissement", nil
+    p.retries, p.retry_at = 0, nil
+    p.reopened = (p.reopened or 0) + 1
+  end
+  return moved
+end
+
+--- Une ligne bâtie : relevé, décision (Fonte.step), action. Rend vrai si la ligne a été agrandie.
+local function ligne_one(f, surface, p, ln, cfg, tick)
+  local r, why = read_line(f, surface, p, ln)
+  local action, dec, cause = "attente", nil, "parties"
+  if r and (r.drills < 2 * ln.pairs or r.furnaces < 2 * ln.rows) then
+    cause = "pieces"
+    why = string.format("pieces manquantes (%d/%d foreuses, %d/%d fours) : releve de reconstruction", r.drills, 2 * ln.pairs, r.furnaces, 2 * ln.rows)
+  elseif r and r.other > 0 then
+    cause = "arret"
+    why = string.format("%d foreuse(s) a l'arret (courant, commande) : rien a mesurer", r.other)
+  elseif r then
+    local budget = Li.budget_rows(Stock.count(f, T.outposts.iron.product), cfg.row_cost, cfg.stock_share, 0)
+    dec = Fonte.step({ input = r.input, cap = r.capsum / r.furnaces, rows = ln.rows, rows_max = ln.rows_max, drills = r.live,
+      drill_rate = r.live > 0 and (r.input / r.live) or ln.drill_rate, pairs = ln.pairs, pairs_max = ln.pairs_max, budget = budget,
+      step_rows = cfg.step_rows, step_pairs = cfg.step_pairs })
+    action, cause = dec.action, dec.action
+    why = string.format("entree %.2f/s de %d foreuse(s) qui produisent (%d epuisee(s)), %d four(s) a %.3f/s (%d voulu(s)), budget %d unite(s)",
+      r.input, r.live, r.dead, r.furnaces, r.capsum / r.furnaces, dec.furnaces, budget)
+  end
+  local moved = 0
+  if dec and (dec.rows > 0 or dec.pairs > 0) then
+    local miss = ligne_missing(f, ln, ln.rows + dec.rows, ln.pairs + dec.pairs)
+    if #miss > 0 then
+      local parts = {}
+      for _, m in ipairs(miss) do parts[#parts + 1] = m[1] .. " x" .. m[2] end
+      action, cause = "materiaux", "materiaux:" .. dec.action
+      why = why .. " ; manque au coffre {" .. table.concat(parts, ", ") .. "} (" .. dec.action .. " remis)"
+    else
+      moved = ligne_open(p, ln, dec.rows, dec.pairs, tick)
+    end
+  end
+  if moved > 0 or cause ~= ln.cause then -- une ligne par action, et par changement d'état ou de cause d'attente
+    ln.last, ln.cause = action, cause
+    fonte_log(f, string.format("projet %d, ligne %s : action %s (+%d rangee(s), +%d paire(s), %d piece(s) a poser) -> %d/%d rangee(s), %d/%d paire(s) ; %s a %.1f min",
+      p.id, tostring(ln.ore), action, dec and dec.rows or 0, dec and dec.pairs or 0, moved, ln.rows, ln.rows_max, ln.pairs, ln.pairs_max,
+      tostring(why), tick / 3600))
+  end
+  return moved > 0
+end
+
+--- Relevé des lignes dynamiques d'une équipe (appelé par Build.think) : au plus un agrandissement par équipe et par relevé.
+function Build.ligne_step(f, surface, tick)
+  local b = f.build
+  local cfg = T.ligne or {}
+  if not (b and surface and cfg.dyn) then return end
+  if tick < (b.ligne_next or 0) then return end
+  b.ligne_next = tick + (cfg.every or 3600)
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    local ln = p and p.ligne
+    if ln and p.state == "fini" and not p.abandoned and tick - (p.finished or 0) >= (cfg.settle or 0) then
+      if ligne_one(f, surface, p, ln, cfg, tick) then return end
+    end
+  end
+end
+
 --- Foreuses de ravitaillement d'une voie et leur tapis jusqu'à l'arrivée `a`. Rend true, ou false et raison.
 function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local b = f.build
@@ -1197,7 +1414,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local top = math.max(1, math.min(n, pmax))
   if p.spec and p.spec.paires then top = math.max(1, math.min(top, p.spec.paires)) end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
   local cfg = T.ligne or {}
-  local cache, picked = scan_cache(f), nil
+  local cache, picked, pg = scan_cache(f), nil, nil -- pg : le gabarit NON tourné posé (lot FONDERIE-DYNAMIQUE : paires de foreuses)
   for _, at in ipairs(Rg.attempts(top, top, { high = cfg.cover })) do
     local nn = at.n
     local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
@@ -1206,7 +1423,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
       place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
         { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
           within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
-      if place then picked = at break end
+      if place then picked, pg = at, g break end
     end
   end
   if not place then
@@ -1218,7 +1435,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     w = place.g.w, h = place.g.h, power = needs_power(place.g), belt = belt, flow = flow,
     drills = 2 * ((place.g.params or {}).n or 0),
     drill_rate = (M.spec((place.g.params or {}).drill or "") or {}).speed or 0,
-    pairs = (place.g.params or {}).n, cover = place.cover }
+    pairs = (place.g.params or {}).n, cover = place.cover, ore = item, drill = (place.g.params or {}).drill }
   b.stats.rangees = (b.stats.rangees or 0) + 1
   if b.stats.rangees <= Build.LINE_LOGS then
     log(string.format("[FO-RANGEES] %s : projet %d, foreuses %s : %d paire(s) (%d foreuses) visees %d, couverture %d%% (visee %d%%), %.2f minerai/s demandes",
@@ -1226,6 +1443,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
       math.floor((place.cover or 0) * 100 + 0.5), picked and picked.cover and math.floor(picked.cover * 100 + 0.5) or math.floor(P.DRILL_COVER * 100 + 0.5), flow))
   end
   local ents = inst_entities(place.inst, part, belt)
+  Build.tag_rows(ents, pg, 1, "drill", "pair") -- lot FONDERIE-DYNAMIQUE : paire de chaque foreuse (pose par étapes, ligne_split)
   -- tapis : queue des foreuses → arrivée
   local tail
   for _, port in ipairs(P.belt_ports(place.inst)) do if port.io == "out" then tail = port end end
@@ -1599,7 +1817,7 @@ local function plan_project(f, surface, p)
     local use = spec.use or ((plate and plate_used_elsewhere(b, p, plate)) and "usine" or nil)
     local sortie = Li.sortie_for(use)
     -- lot INTEG-ECONOMIE (D2) : un module réduit après un échec de matériaux (CAPI-REPLI, spec.shrunk) garde la taille demandée ;
-    -- sans cela line_rows le remontait à Li.budget_rows >= T.ligne.rows_floor (4 rangées) et annulait la réduction
+    -- sans cela line_rows le remontait au plancher de 4 rangées (retiré au lot FONDERIE-DYNAMIQUE) et annulait la réduction
     topts = { sortie = sortie, grow = function(g1, cur)
       if spec.shrunk then return cur end
       return line_rows(f, surface, spec, g1, cur, sortie == "exterieur")
@@ -1671,6 +1889,7 @@ local function plan_project(f, surface, p)
   p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot, ox = main.ox, oy = main.oy,
     k = main.k, w = main.g.w, h = main.g.h, power = needs_power(main.g) }
   local ents = inst_entities(main.inst, 1)
+  if topts then Build.tag_rows(ents, g, 0, "four", "row") end -- lot FONDERIE-DYNAMIQUE : rangée de chaque four et de ses bras (ligne_split)
   if not reserve_tiles(b, p, ents) then return false, "place" end
   b.lots[main.lot].used = p.id
   if spec.feed or is_plant then
@@ -1746,6 +1965,7 @@ local function plan_project(f, surface, p)
   end
   for _, pt in ipairs(p.parts) do if pt then b.stats.modules_started = b.stats.modules_started + 1 end end
   Profiler.stop("build:plan:anchors")
+  if topts then Build.ligne_split(f, p, g) end -- lot FONDERIE-DYNAMIQUE : rangées et paires posées par étapes, la place reste réservée
   return true
 end
 
@@ -3230,6 +3450,7 @@ function Build.think(f, surface, tick)
   end
   if #tasks > 0 then Board.add(f, tasks, tick) end
   Conv.step(f, surface, tick) -- lot CONVOYEURS : amélioration des tapis saturés, tâche de fond bornée
+  Build.ligne_step(f, surface, tick) -- lot FONDERIE-DYNAMIQUE : la ligne de fours suit ses foreuses (relevé borné)
   -- tronçons encombrés : réévalués (défrichés par les PNJ)
   for _, key in ipairs(sorted_keys(b.segs)) do
     local s = b.segs[key]
@@ -3288,7 +3509,10 @@ function Build.status(f, id)
   return { id = p.id, state = p.state, reason = p.reason, built = count_built(p), total = #p.ents, parts = parts,
     unbuilt = unbuilt, open_obstacles = open_obst,
     obstacles = #p.obstacles, quais = quais, outs = #p.outs, missing = missing, created = p.created, started = p.started,
-    finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries }
+    finished = p.finished, wires = p.wired, links = p.links, retry_at = p.retry_at, retries = p.retries,
+    -- lot FONDERIE-DYNAMIQUE : taille posée et réservée d'une ligne dynamique (nil pour les autres projets)
+    ligne = p.ligne and { rows = p.ligne.rows, rows_max = p.ligne.rows_max, pairs = p.ligne.pairs, pairs_max = p.ligne.pairs_max,
+      held = #p.ligne.held, last = p.ligne.last, steps = p.ligne.steps } or nil }
 end
 
 --- Lot IA3-e : état court d'une demande, SANS appel du moteur (lu à chaque pensée par le cerveau ; Build.status relit les
