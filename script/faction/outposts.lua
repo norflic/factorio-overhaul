@@ -12,6 +12,7 @@
 local F = require("shared.faction.config")
 local T = require("shared.team.config")
 local State = require("script.faction.state")
+local Events = require("script.core.events")
 local Sites = require("script.faction.sites")
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
@@ -19,11 +20,37 @@ local R = require("shared.ai3.reglages") -- lot TOURELLES : rôles des types du 
 local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels emplacements prendre (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : une tourelle ne se pose pas sur une tuile réservée (règle pure)
 local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
+local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 
 local Outposts = {}
 
 local DIRS = { defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west }
-local MAX_ATTEMPTS = 40
+Outposts.RADIUS = { build = Paires.BUILD_RADIUS, extend = Paires.EXTEND_RADIUS } -- rayons de place_pairs (lus aussi par script/team/fantomes.lua)
+-- Lot EXTENSION-FER : types du moteur dont l'emprise occupe déjà une tuile de minerai (écartée sans coût, sans essai au moteur).
+local OCCUPY_TYPES = { "mining-drill", "furnace", "container", "electric-pole", "ammo-turret", "wall", "assembling-machine" }
+
+--- Lot EXTENSION-FER : ensemble des tuiles déjà prises autour de `center` (foreuses, fours, coffres, poteaux, tourelles...).
+local function occupied_tiles(surface, center, radius)
+  local occ = {}
+  for _, e in ipairs(surface.find_entities_filtered({ position = center, radius = radius + 3, type = OCCUPY_TYPES })) do
+    if e.valid then
+      local bb = e.bounding_box
+      for _, k in ipairs(Paires.box_tiles(bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y)) do occ[k] = true end
+    end
+  end
+  return occ
+end
+
+--- Lot EXTENSION-FER : tuiles de minerai à parcourir, triées ; pour un agrandissement, seules celles du gisement du centre.
+local function resource_tiles(surface, spec, center, radius, same_deposit)
+  local raw = {}
+  for _, r in ipairs(surface.find_entities_filtered({ position = center, radius = radius, name = spec.resource })) do
+    if r.valid then raw[#raw + 1] = { x = r.position.x, y = r.position.y } end
+  end
+  local sorted = Paires.sorted(raw, center)
+  if same_deposit then return Paires.component(sorted, Paires.GAP, center) end
+  return sorted
+end
 
 -- Point de dépôt de la foreuse à combustible vanilla (vector_to_place_result = {-0.5, -1.3} vers le nord),
 -- tourné selon l'orientation (sens horaire).
@@ -81,46 +108,57 @@ local function sink_position(surface, sink, drop, force, drill_pos, fits)
   return nil
 end
 
---- Pose jusqu'à `max_pairs` paires foreuse + réceptacle sur le gisement `kind` autour de `center`, avec
---- les objets portés par `carrier` (inventaire de l'ouvrier). Renvoie drills, sinks.
-local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
-  local spec = T.outposts[kind]
-  local force = f.force
-  -- L'ouvrier dégage le chantier : arbres et rochers abattus (le bois revient à l'équipe).
-  for _, e in ipairs(surface.find_entities_filtered({ position = center, radius = radius, type = { "tree", "simple-entity" } })) do
+--- Lot EXTENSION-FER : l'ouvrier dégage arbres et rochers du disque (`center`, `radius`) ou de la zone `area` (le bois revient à l'équipe).
+local function clear_trees(surface, carrier, center, radius, area)
+  local found
+  if area then
+    found = surface.find_entities_filtered({ area = area, type = { "tree", "simple-entity" } })
+  else
+    found = surface.find_entities_filtered({ position = center, radius = radius, type = { "tree", "simple-entity" } })
+  end
+  for _, e in ipairs(found) do
     if e.valid then
       if e.type == "tree" then carrier.insert({ name = "wood", count = 4 }) end
       e.destroy()
     end
   end
-  local resources = surface.find_entities_filtered({ position = center, radius = radius, name = spec.resource })
-  table.sort(resources, function(a, b)
-    local pa, pb = a.position, b.position
-    local da = (pa.x - center.x) ^ 2 + (pa.y - center.y) ^ 2
-    local db = (pb.x - center.x) ^ 2 + (pb.y - center.y) ^ 2
-    if da ~= db then return da < db end
-    if pa.x ~= pb.x then return pa.x < pb.x end
-    return pa.y < pb.y
-  end)
+end
+
+--- Pose jusqu'à `max_pairs` paires foreuse + réceptacle sur le gisement `kind` autour de `center`, avec
+--- les objets portés par `carrier` (inventaire de l'ouvrier). Renvoie drills, sinks, rapport.
+--- Lot EXTENSION-FER : `o` (l'avant-poste, agrandissement seulement) limite le parcours au gisement du centre et mémorise dans
+--- `o.ext_dead` les emplacements essayés en vain ; les emplacements déjà occupés ne comptent plus dans les essais (rapport :
+--- attempts, occupied, dead, exhausted, capped, lacking).
+local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius, o)
+  local spec = T.outposts[kind]
+  local force = f.force
+  -- Construction : l'ouvrier dégage tout le chantier d'abord. Agrandissement (rayon jusqu'à 32) : seulement autour de chaque
+  -- emplacement essayé, pour ne pas raser toute la couronne du gisement.
+  if not o then clear_trees(surface, carrier, center, radius) end
   -- Moteur réel (session 4) : poser une foreuse pour lire son point de dépôt, puis la détruire quand le
   -- réceptacle ne passait pas, coûtait jusqu'à 400 ms sur un gisement déjà occupé (centaines de tuiles ×
   -- 4 orientations). Le point de dépôt est désormais calculé (vecteur du prototype vanilla), chaque
   -- emplacement n'est essayé qu'une fois et le nombre d'essais est plafonné.
+  local dp = game.entity_prototypes[T.DRILL]
+  if o then o.ext_dead = o.ext_dead or {} end
+  local pl = Paires.new({
+    resources = resource_tiles(surface, spec, center, radius, o ~= nil), cap = Paires.MAX_ATTEMPTS,
+    w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
+    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil })
   local drills, sinks = {}, {}
-  local tried, attempts = {}, 0
-  for _, res in ipairs(resources) do
-    if #drills >= max_pairs or attempts >= MAX_ATTEMPTS then break end
-    if carrier.get_item_count(T.DRILL) < 1 or carrier.get_item_count(spec.sink) < 1 then break end
-    local rp = res.position
-    local pos = { x = math.floor(rp.x + 0.5), y = math.floor(rp.y + 0.5) } -- foreuse 2×2 : centre entier
-    local key = pos.x * 65536 + pos.y
-    if not tried[key] then
-      tried[key] = true
-      attempts = attempts + 1
-    else
-      pos = nil
+  local lacking = false
+  while #drills < max_pairs do
+    if carrier.get_item_count(T.DRILL) < 1 or carrier.get_item_count(spec.sink) < 1 then
+      lacking = true
+      break
     end
-    for _, dir in ipairs(pos and DIRS or {}) do
+    local pos = pl.next()
+    if not pos then break end
+    if o then
+      clear_trees(surface, carrier, nil, nil, { { pos.x - 4, pos.y - 4 }, { pos.x + 4, pos.y + 4 } })
+    end
+    local done = false
+    for _, dir in ipairs(DIRS) do
       local v = drop_vector(dir)
       local drop = { x = pos.x + v[1], y = pos.y + v[2] }
       local spos = sink_position(surface, spec.sink, drop, force, pos)
@@ -142,21 +180,31 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius)
             end
             drills[#drills + 1] = d
             sinks[#sinks + 1] = s
+            for _, e in ipairs({ d, s }) do
+              local bb = e.bounding_box
+              pl.occupy(Paires.box_tiles(bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y))
+            end
+            done = true
             break
           end
           d.destroy()
         end
       end
     end
+    if not done then pl.fail(pos) end
   end
-  return drills, sinks
+  local rep = pl.report()
+  rep.lacking = lacking
+  if o and rep.exhausted then o.ext_dead = nil end -- balayage complet : le prochain repart de zéro (un obstacle a pu partir)
+  return drills, sinks, rep
 end
 
 --- Lot FANTOMES : APERÇU des paires que `place_pairs` poserait (sans objets, sans rien détruire ni poser) : même parcours des
 --- tuiles de minerai, mêmes orientations, mêmes points de dépôt. Arbres et rochers ne comptent pas (l'ouvrier les abat avant de
 --- poser : vérification « script_ghost » avec `forced`), et deux paires de l'aperçu ne se recouvrent pas. Rend une liste de
 --- { drill = { name, position, direction }, sink = { name, position } }.
-function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius)
+--- Lot EXTENSION-FER : `o` (agrandissement) : même gisement, mêmes emplacements écartés que la pose (`o.ext_dead` en lecture).
+function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius, o)
   local spec = T.outposts[kind]
   local force = f.force
   local taken = {}
@@ -179,34 +227,26 @@ function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius)
     return free(name, pos, dir) and surface.can_place_entity({ name = name, position = pos, direction = dir, force = force,
       build_check_type = defines.build_check_type.script_ghost, forced = true })
   end
-  local resources = surface.find_entities_filtered({ position = center, radius = radius, name = spec.resource })
-  table.sort(resources, function(a, b)
-    local pa, pb = a.position, b.position
-    local da = (pa.x - center.x) ^ 2 + (pa.y - center.y) ^ 2
-    local db = (pb.x - center.x) ^ 2 + (pb.y - center.y) ^ 2
-    if da ~= db then return da < db end
-    if pa.x ~= pb.x then return pa.x < pb.x end
-    return pa.y < pb.y
-  end)
-  local out, tried, attempts = {}, {}, 0
-  for _, res in ipairs(resources) do
-    if #out >= max_pairs or attempts >= MAX_ATTEMPTS then break end
-    local rp = res.position
-    local pos = { x = math.floor(rp.x + 0.5), y = math.floor(rp.y + 0.5) }
-    local key = pos.x * 65536 + pos.y
-    if not tried[key] then
-      tried[key] = true
-      attempts = attempts + 1
-      for _, dir in ipairs(DIRS) do
-        local v = drop_vector(dir)
-        local drop = { x = pos.x + v[1], y = pos.y + v[2] }
-        local spos = sink_position(surface, spec.sink, drop, force, pos, function(name, p) return fits(name, p, 0) end)
-        if spos and fits(T.DRILL, pos, dir) then
-          for _, k in ipairs(tiles(T.DRILL, pos, dir)) do taken[k] = true end
-          for _, k in ipairs(tiles(spec.sink, spos, 0)) do taken[k] = true end
-          out[#out + 1] = { drill = { name = T.DRILL, position = pos, direction = dir }, sink = { name = spec.sink, position = spos } }
-          break
-        end
+  local dp = game.entity_prototypes[T.DRILL]
+  local pl = Paires.new({
+    resources = resource_tiles(surface, spec, center, radius, o ~= nil), cap = Paires.MAX_ATTEMPTS,
+    w = dp and dp.tile_width or 2, h = dp and dp.tile_height or 2,
+    occupied = occupied_tiles(surface, center, radius), dead = o and o.ext_dead or nil })
+  local out = {}
+  while #out < max_pairs do
+    local pos = pl.next()
+    if not pos then break end
+    for _, dir in ipairs(DIRS) do
+      local v = drop_vector(dir)
+      local drop = { x = pos.x + v[1], y = pos.y + v[2] }
+      local spos = sink_position(surface, spec.sink, drop, force, pos, function(name, p) return fits(name, p, 0) end)
+      if spos and fits(T.DRILL, pos, dir) then
+        for _, k in ipairs(tiles(T.DRILL, pos, dir)) do taken[k] = true end
+        for _, k in ipairs(tiles(spec.sink, spos, 0)) do taken[k] = true end
+        pl.occupy(tiles(T.DRILL, pos, dir))
+        pl.occupy(tiles(spec.sink, spos, 0))
+        out[#out + 1] = { drill = { name = T.DRILL, position = pos, direction = dir }, sink = { name = spec.sink, position = spos } }
+        break
       end
     end
   end
@@ -320,7 +360,7 @@ function Outposts.build(f, surface, kind, site, carrier)
   -- Lot IA2-b (F209) : les réceptacles orphelins d'un avant-poste perdu ici sont repris d'abord (ils libèrent la
   -- place des paires et leurs objets resservent).
   Outposts.reclaim(f, site, carrier, 24)
-  local drills, sinks = place_pairs(f, surface, kind, site, carrier, spec.drills, 14)
+  local drills, sinks = place_pairs(f, surface, kind, site, carrier, spec.drills, Outposts.RADIUS.build)
   if #drills == 0 then return nil end
   f.next_oid = f.next_oid + 1
   local oid = f.next_oid
@@ -338,13 +378,17 @@ function Outposts.build(f, surface, kind, site, carrier)
   return outpost
 end
 
---- Agrandit un avant-poste existant (même gisement). Renvoie le nombre de paires ajoutées ; à 0 ou au
---- plafond, l'avant-poste est marqué plein.
+--- Agrandit un avant-poste existant (même gisement). Renvoie le nombre de paires ajoutées.
+--- Lot EXTENSION-FER (audit du 29/10 : l'agrandissement ne posait plus rien et marquait l'avant-poste plein pour toute la partie) :
+--- l'avant-poste n'est marqué plein (`o.full`) que par shared/team/pose_paires.lua (verdict) : plafond de foreuses, ou balayage
+--- COMPLET du gisement (rayon Outposts.RADIUS.extend, emplacements occupés écartés sans coût) sans emplacement restant. Plafond
+--- d'essais atteint ou ouvrier sans objets : pas plein, le prochain appel reprend. Journal [FO-EXTEND].
 function Outposts.extend(f, surface, o, carrier)
   local spec = T.outposts[o.kind]
   if Outposts.on_arrive then Outposts.on_arrive(f, nil, o.id) end
   local room = T.max_drills(o.kind) - o.drills
-  local drills, sinks = place_pairs(f, surface, o.kind, o.pos, carrier, math.min(spec.drills, room), 18)
+  local want = math.min(spec.drills, room)
+  local drills, sinks, rep = place_pairs(f, surface, o.kind, o.pos, carrier, want, Outposts.RADIUS.extend, o)
   for _, d in ipairs(drills) do
     o.drill_list[#o.drill_list + 1] = d
     State.own(d, f.id, "drill", o.id)
@@ -354,13 +398,53 @@ function Outposts.extend(f, surface, o, carrier)
     State.own(s, f.id, "sink", o.id)
   end
   o.drills = o.drills + #drills
-  if #drills == 0 or o.drills >= T.max_drills(o.kind) then
+  local v = Paires.verdict({ placed = #drills, drills_after = o.drills, drills_max = T.max_drills(o.kind),
+    exhausted = rep.exhausted, capped = rep.capped, lacking = rep.lacking })
+  if v.full then
     o.full = true
+    o.full_by = "pose_paires" -- plein selon la règle d'EXTENSION-FER (et non par l'ancien défaut : Outposts.reopen)
     o.hold_until = nil -- plein pour de bon (et non en attente après des échecs, lot ADOPTE)
   end
-  if #drills > 0 then o.ext_fails = 0 end
+  if #drills > 0 then o.ext_fails = 0 elseif v.fail then o.ext_fails = (o.ext_fails or 0) + 1 end
+  f.stats = f.stats or {}
+  f.stats.extend_calls = (f.stats.extend_calls or 0) + 1
+  if v.full then f.stats.extend_full = (f.stats.extend_full or 0) + 1 end
+  if (f.stats.extend_logs or 0) < Paires.LOGS then
+    f.stats.extend_logs = (f.stats.extend_logs or 0) + 1
+    log(string.format("[FO-EXTEND] tick %d %s avant-poste %d %s : %d posee(s) / %d voulue(s), foreuses %d/%d, essais %d, occupees %d, ecartees %d, tuiles %d, plein=%s (%s)",
+      game.tick, tostring(f.key), o.id, o.kind, #drills, want, o.drills, T.max_drills(o.kind), rep.attempts, rep.occupied, rep.dead, rep.tiles,
+      v.full and "oui" or "non", v.why))
+  end
   return #drills
 end
+
+--- Lot EXTENSION-FER : rouvre les avant-postes d'une équipe marqués pleins par l'ancien défaut (0.6.16 et avant : un agrandissement
+--- qui ne posait rien marquait l'avant-poste plein pour toute la partie). Seuls sont rouverts ceux dont le `full` ne vient pas de la
+--- règle de pose_paires, qui ne sont pas en attente (lot ADOPTE) et qui restent sous leur plafond de foreuses : le prochain
+--- agrandissement les referme s'ils sont vraiment saturés. Rend le nombre rouvert.
+function Outposts.reopen(f)
+  local n = 0
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    if o.full and o.full_by ~= "pose_paires" and not o.hold_until and (o.drills or 0) < T.max_drills(o.kind) then
+      o.full, o.ext_dead = false, nil
+      n = n + 1
+    end
+  end
+  return n
+end
+
+Events.on_configuration_changed(function()
+  local war = State.war()
+  local total = 0
+  for _, id in ipairs(State.sorted_keys(war and war.factions or {})) do
+    local f = war.factions[id]
+    if f then total = total + Outposts.reopen(f) end
+  end
+  local team = State.faction("player")
+  if team then total = total + Outposts.reopen(team) end
+  if total > 0 then log("[FO-EXTEND] migration : " .. total .. " avant-poste(s) rouvert(s) (marques pleins par l'ancien defaut d'agrandissement)") end
+end)
 
 local TURRET_OFFSETS = { { 7, 7 }, { -7, -7 }, { 7, -7 }, { -7, 7 }, { 9, 0 }, { -9, 0 }, { 0, 9 }, { 0, -9 } }
 local TURRET = "gun-turret"

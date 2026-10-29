@@ -22,7 +22,7 @@ package.loaded["script.faction.state"] = { sorted_keys = function(t)
   return k
 end }
 local previews = 0
-local Outposts = { preview_pairs = function(_, _, kind, center, max_pairs)
+local Outposts = { RADIUS = { build = 14, extend = 32 }, preview_pairs = function(_, _, kind, center, max_pairs)
   previews = previews + 1
   local out = {}
   for i = 1, math.min(max_pairs, 2) do

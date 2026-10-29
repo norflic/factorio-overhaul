@@ -26,7 +26,7 @@ local Fantomes = {}
 Fantomes.SETTING = "fo-war-fantomes"
 Fantomes.MAX_AGE = 20 * 3600 -- ticks : un aperçu plus vieux est purgé (tâche bloquée)
 Fantomes.KINDS = { build = true, extend = true }
-Fantomes.RADIUS = { build = 14, extend = 18 } -- ceux de Outposts.build et Outposts.extend (place_pairs)
+Fantomes.RADIUS = Outposts.RADIUS -- ceux de Outposts.build et Outposts.extend (place_pairs ; lot EXTENSION-FER : 14 et 32)
 
 function Fantomes.on()
   local ok, v = pcall(function() return settings.global[Fantomes.SETTING].value end)
@@ -60,7 +60,7 @@ function Fantomes.show(f, task, tick)
   f.fantomes = f.fantomes or {}
   if f.fantomes[task.key] then return 0 end
   local surface = f.hq.surface
-  local kind, center, max_pairs, site, oid
+  local kind, center, max_pairs, site, oid, ext
   if task.kind == "build" then
     kind, site = task.outpost_kind, task.site
     center = site and { x = site.x, y = site.y }
@@ -68,12 +68,12 @@ function Fantomes.show(f, task, tick)
   else
     local o = f.outposts and f.outposts[task.outpost]
     if o then
-      kind, oid, center = o.kind, o.id, o.pos
+      kind, oid, center, ext = o.kind, o.id, o.pos, o
       max_pairs = math.min(T.outposts[kind].drills, T.max_drills(kind) - o.drills)
     end
   end
   if not (kind and center and center.x and max_pairs and max_pairs > 0 and T.outposts[kind]) then return 0 end
-  local pairs_ = Outposts.preview_pairs(f, surface, kind, center, max_pairs, Fantomes.RADIUS[task.kind])
+  local pairs_ = Outposts.preview_pairs(f, surface, kind, center, max_pairs, Fantomes.RADIUS[task.kind], ext)
   local ents = {}
   for _, p in ipairs(pairs_) do
     for _, part in ipairs({ p.drill, p.sink }) do

@@ -62,6 +62,8 @@ local Journal = require("script.gui.ia1i_journal")
 local Stats = require("script.gui.ia1i_stats") -- lot PANEL-STATS
 local SM = require("shared.gui.stats")
 local Partie = require("script.gui.partie")
+local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : libellé d'un projet d'avant-poste (agrandir, nouvel avant-poste, reconstruire)
+local TCfg = require("shared.team.config")
 
 local Gui = {}
 
@@ -195,6 +197,25 @@ local function ia3_list(names, max)
   return parts
 end
 
+--- Lot EXTENSION-FER : libellé d'un projet « extraction:<minerai> » selon ce qu'il fait (pose_paires.mode), ou nil.
+local function ia3_outpost_name(f, p, cause)
+  local kind = p.key:match("^extraction:(.+)$")
+  if not (kind and TCfg.outposts[kind]) then return nil end
+  local tasks = {}
+  local b = f.team and f.team.board
+  for _, tk in ipairs((b and b.list) or {}) do
+    if tk.ia3 == p.id then tasks[#tasks + 1] = { kind = tk.kind, lost = tk.site and tk.site.lost or false } end
+  end
+  local extendable = false
+  for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
+    local o = f.outposts[oid]
+    if o.kind == kind and not o.full and o.drills < TCfg.max_drills(kind) then extendable = true end
+  end
+  local mode = Paires.mode({ tasks = tasks, cause = cause, extendable = extendable })
+  if not mode then return nil end
+  return { "fo-team.goal-ia3-extraction-" .. mode, { "fo-team.outpost-" .. kind } }
+end
+
 local function ia3_projects(parent, f, w, compact)
   local t = f.team
   if not (t and t.ia3c and t.ia3) then
@@ -230,6 +251,7 @@ local function ia3_projects(parent, f, w, compact)
   for i, p in ipairs(list) do
     if compact and i > 4 then break end
     local name = { "fo-team.goal-" .. ("ia3-" .. p.key):gsub(":", "-") }
+    name = ia3_outpost_name(f, p, p.cause or "") or name -- lot EXTENSION-FER
     -- Lot IA3-e : module GÉNÉRÉ pour un objet quelconque (sans clé de traduction propre) : nom de l'objet du jeu.
     local auto_item = p.key:match("^auto:(.+)$")
     if auto_item and not AUTO_NAMED[auto_item] then

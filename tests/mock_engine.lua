@@ -1241,6 +1241,8 @@ function M.new_world(opts)
     W.decoratives_cleared = W.decoratives_cleared or {}
     W.decoratives_cleared[#W.decoratives_cleared + 1] = t.area or t.position
   end
+  -- Lot EXTENSION-FER : LuaSurface.find_entities(area) (le diagnostic de reconstruction.lua l'appelle quand une pièce est bloquée).
+  surface.find_entities = function(area) return surface.find_entities_filtered({ area = area }) end
   surface.find_entity = function(name, pos)
     local x, y = pos.x or pos[1], pos.y or pos[2]
     for _, o in ipairs(W.entities) do
