@@ -100,6 +100,7 @@ local function suite(Rc, quiet)
     check(R == 400 + Rc.BEYOND, "attaques à 400 tuiles : portée " .. R)
     local p8 = Rc.waypoint(HQ, 0, 8, R)
     check(p8 ~= nil and Rc.waypoint(HQ, 0, 8) == nil, "les étapes vont au-delà de MAX_R quand les attaques sont lointaines")
+    check(Rc.reach({ w = 200, mx = 5000, my = 0, n = 2 }, HQ) == Rc.REACH_CAP, "portée plafonnée (avant-poste très lointain) : REACH_CAP")
     check(Rc.explained(far, 0, HQ, { { x = 640, y = 0, kind = "spawner" } }) and not Rc.explained(far, 0, HQ, { { x = 800, y = 0, kind = "spawner" } }),
       "explication à la même portée que la recherche")
   end
@@ -299,6 +300,7 @@ local mutants = {
   { "écart d'octant non cyclique", function(M) M.gap = function(a, b) return math.abs(a - b) end end },
   { "aucune décroissance", function(M) M.decay = function() return 0 end end },
   { "seuil d'envoi à zéro", function(M) M.SEND_MIN = 0 end },
+  { "portée sans plafond", function(M) M.REACH_CAP = 10 ^ 9 end },
   { "expliqué sans regarder l'octant", function(M)
       M.explained = function(sec, d, hq, points)
         for _, p in ipairs(points or {}) do

@@ -21,7 +21,9 @@
 
   État : f.reco (nombres, chaînes, tables simples ; créé en événement, jamais à on_load) ; sur la mission (k.exl) : ex.d, ex.leg, ex.wp,
   ex.c (carnet) ; sur l'agent : a.reco_tag (numéro de la mission). Aucun temps mesuré, listes triées.
-  Bancs de mesure seulement : Reco.on = false (interface fo-ia3f, set_reco) coupe tout (aucun envoi, aucun relevé).
+  Bancs de mesure seulement : l'interface fo-ia3f, set_reco(false), coupe tout (aucun envoi, aucun relevé) ; le drapeau est rangé dans
+  global.fo.ai3f.reco_off (relecture : une variable de module serait perdue au chargement d'une sauvegarde et désynchroniserait une
+  partie à plusieurs).
 ]]
 
 local Rc = require("shared.ai3.reco")
@@ -32,7 +34,6 @@ local Front = require("script.team.front")
 
 local Reco = {}
 
-Reco.on = true
 Reco.LOGS = 400               -- lignes [FO-RECO] au plus par équipe (les envois et retours sont rares ; garde-fou)
 local LOOK_EVERY = 30         -- ticks : regard de l'éclaireur (nids à Rc.EYE, ennemi à Rc.FLEE)
 local IDLE_LOG = 5 * 3600     -- « pas de PNJ libre » : une ligne au plus toutes les 5 min par équipe
@@ -45,6 +46,9 @@ local WANT_EVERY = 300        -- ticks : une décision d'envoi au plus toutes le
 -- Crochets de script/ai3/exploration.lua (fonctions locales de la voie, posées une fois au chargement : Reco.bind).
 local H = nil
 function Reco.bind(h) H = h end
+
+--- Reconnaissance active ? (drapeau des bancs dans global, lu par la voie : H.off).
+function Reco.enabled() return not (H and H.off and H.off()) end
 
 local function label(f) return f.key or tostring(f.id) end
 local function minutes(t) return t / 3600 end
@@ -67,7 +71,7 @@ local function dist(a, x, y) return math.floor(math.sqrt((a.x - x) ^ 2 + (a.y - 
 ---------------------------------------------------------------------------------------------------
 --- Pièce de l'équipe f tuée (filtres du front déjà passés). Seules les forces hostiles qui ne sont pas des équipes comptent.
 Front.on_hit = function(f, ent, e, w)
-  if not Reco.on or not f.hq_pos then return end
+  if not f.hq_pos or not Reco.enabled() then return end
   local killer = e.force
   if not killer or killer.name == "player" or State.by_force(killer.name) then return end
   local cause = e.cause and e.cause.valid and e.cause or nil
@@ -92,7 +96,7 @@ end
 
 --- Direction à reconnaître pour l'équipe (candidate de Rc.pick) ou nil. Écrit au journal les directions expliquées par un nid connu.
 function Reco.want(f, k, tick)
-  if not Reco.on then return nil end
+  if not Reco.enabled() then return nil end
   local s = f.reco
   if not (s and k and k.m and f.hq_pos) then return nil end
   if reco_mission(k) then return nil end
@@ -100,8 +104,17 @@ function Reco.want(f, k, tick)
   s.want_at = tick + WANT_EVERY
   s.busy = nil
   local hq = f.hq_pos
+  -- Relecture : UNE lecture de la carte de connaissance par décision (au rayon le plus grand des directions notées, plafonné par
+  -- Rc.REACH_CAP), au lieu d'une par candidate ; Rc.explained refiltre au rayon de chacune.
+  local r = 0
+  for i = 1, 8 do
+    local sec = s.sec[i]
+    if sec then r = math.max(r, Rc.explain_r(sec, hq)) end
+  end
+  local points = nil
   local c, skipped = Rc.pick(s, tick, function(d, sec)
-    return Rc.explained(sec, d, hq, K.enemy_points(k.m, hq.x, hq.y, Rc.explain_r(sec, hq)))
+    points = points or K.enemy_points(k.m, hq.x, hq.y, r)
+    return Rc.explained(sec, d, hq, points)
   end)
   s.expl = s.expl or {}
   for _, sk in ipairs(skipped) do

@@ -1071,7 +1071,11 @@ Registry.on_removed(function(agent)
   if not f then return end
   local t = M.team(f)
   -- Morts tuées par un ennemi seulement (« cause/force:dégâts »).
-  if agent.death_cause and agent.death_cause:find("/", 1, true) then
+  -- Lot RECO-DIRECTION (relecture) : un éclaireur de reconnaissance (agent.reco_tag) mort en route ne laisse aucune marque : l'équipe ne
+  -- sait pas où il est tombé (demande du DC : ce qu'il a vu n'est transmis que s'il revient). Compté à part.
+  if agent.reco_tag and agent.death_cause and agent.death_cause:find("/", 1, true) then
+    t.stats.deaths_reco = (t.stats.deaths_reco or 0) + 1
+  elseif agent.death_cause and agent.death_cause:find("/", 1, true) then
     local at_home = f.hq_pos and d2(agent.death_pos, f.hq_pos) <= M.HOME_DEATH_R * M.HOME_DEATH_R
     D.mark_death(t.map, agent.death_pos.x, agent.death_pos.y, game.tick, at_home)
     if at_home then t.stats.deaths_home = (t.stats.deaths_home or 0) + 1 end

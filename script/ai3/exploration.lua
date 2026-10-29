@@ -1214,9 +1214,10 @@ remote.add_interface("fo-ia3f", {
   --- Lot RECO-DIRECTION (bancs de mesure seulement) : false coupe la reconnaissance par la direction des attaques (aucun relevé, aucun
   --- envoi) ; rend l'état.
   set_reco = function(on)
-    Reco.on = on and true or false
-    log("[FO-RECO] reconnaissance par la direction des attaques " .. (Reco.on and "ACTIVE" or "COUPEE"))
-    return Reco.on
+    local g = G()
+    if g then g.reco_off = (not on) or nil end -- dans global (relecture : survit au chargement, identique pour tous les joueurs)
+    log("[FO-RECO] reconnaissance par la direction des attaques " .. (Reco.enabled() and "ACTIVE" or "COUPEE"))
+    return Reco.enabled()
   end,
   status = function()
     local out = { fog = X.fog_on(), stats = G().stats, teams = {} }
@@ -1321,6 +1322,10 @@ Reco.bind({
   observe = function(surface, key)
     local f0 = { stats = {} }
     return observe(f0, surface, key)
+  end,
+  off = function()
+    local g = G()
+    return g ~= nil and g.reco_off == true
   end,
   generated = generated, chunk_ready = chunk_ready, eye_keys = eye_keys, set_steps = set_steps, go_home = go_home, body = Rg.BODY,
   on_fresh = function(f, k, surface, key, names, tick) on_fresh(f, k, surface, key, names, tick) end,

@@ -178,7 +178,7 @@ do
   run(3 * 3600)
   kill_piece(f2, s2, 60, 4)
   kill_piece(f2, s2, 64, -6)
-  local killed_at, scout_id = nil, nil
+  local killed_at, scout_id, death_p = nil, nil, nil
   run_until(10 * 3600, function(t)
     quiet()
     for _, ex in ipairs(f2.ai3f.exl or {}) do
@@ -188,7 +188,12 @@ do
           local p = a.entity.position
           if p.x > 150 then
             scout_id = a.id
-            a.entity.die("enemy")
+            death_p = { x = p.x, y = p.y }
+            -- Relecture : tué PAR UN BITER (cause « small-biter/enemy », comme en jeu ; le die() du moteur simulé ne donne pas de
+            -- tueur, la carte du danger d'IA3-k ne l'aurait pas noté de toute façon), puis corps détruit.
+            local biter = M.new_entity("small-biter", p.x + 2, p.y, a.entity.surface, "enemy")
+            W().events[defines.events.on_entity_died]({ entity = a.entity, force = biter.force, cause = biter, tick = game.tick })
+            a.entity.destroy()
             killed_at = t
             return true
           end
@@ -206,6 +211,12 @@ do
   local marks_far = 0
   for _, mk in ipairs(f2.ai3f.m.marks) do if mk.x > 120 then marks_far = marks_far + 1 end end
   check(marks_far == 0, "aucune marque de danger à l'endroit de sa mort (l'équipe ne sait pas où il est tombé)")
+  -- Relecture : ni dans la carte du danger d'IA3-k (réflexes de route de toute l'équipe, D.mark_death).
+  local Cm = require("script.ai3.comportement")
+  local Dg = require("shared.ai3.danger")
+  local tm = Cm.team(f2)
+  check(death_p ~= nil and Dg.deaths_near(tm.map, { death_p }, 48, game.tick) == 0 and (tm.stats.deaths_reco or 0) == 1,
+    "aucune mort marquée dans la carte du danger d'IA3-k à l'endroit de sa mort (" .. tostring(tm.stats.deaths_reco) .. " mort compté à part)")
   local sent0 = f2.reco.sent
   run(require("shared.ai3.reco").COOL_DEATH - 1800)
   check(f2.reco.sent == sent0, "aucun renvoi pendant le délai")
@@ -240,12 +251,14 @@ end
 do
   local f3, s3 = pteam_world()
   remote.call("fo-ia3f", "set_reco", false)
+  check(global.fo.ai3f.reco_off == true, "coupure rangée dans global (survit au chargement d'une sauvegarde)")
   M.run_ticks(3 * 3600)
   kill_piece(f3, s3, 60, 4)
   kill_piece(f3, s3, 64, -6)
   M.run_ticks(5 * 3600)
   check(f3.reco == nil and #logs("[FO-RECO] player : eclaireur") == 0, "reconnaissance coupée : aucun relevé, aucun envoi")
   remote.call("fo-ia3f", "set_reco", true)
+  check(global.fo.ai3f.reco_off == nil, "reconnaissance rallumée : drapeau retiré de global")
 end
 ---------------------------------------------------------------------------------------------------
 -- 3. Une faction : même chaîne

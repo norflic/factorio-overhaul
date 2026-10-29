@@ -44,6 +44,8 @@ Rc.BEYOND = 192             -- tuiles : la reconnaissance va au moins jusque-là
 Rc.R0 = 96                  -- tuiles du QG : première étape de l'éclaireur
 Rc.LEG = 64                 -- tuiles gagnées par étape (de proche en proche)
 Rc.MAX_R = 480              -- tuiles du QG : portée maximale de la reconnaissance
+Rc.REACH_CAP = 1536         -- tuiles du QG : plafond de la portée, même pour un avant-poste très lointain attaqué (relecture : lecture
+                            -- de la carte de connaissance bornée, environ 2 700 secteurs au plus ; marche bornée par Rc.MAX_TICKS)
 Rc.LAT = 48                 -- tuiles : zigzag de part et d'autre de l'axe (l'octant fait 250 tuiles de large à 300)
 Rc.EYE = 96                 -- tuiles : un nid à cette distance de l'éclaireur est vu
 Rc.FLEE = 48                -- tuiles : un ennemi plus près le fait rentrer (il rapporte ce qu'il a vu)
@@ -140,11 +142,11 @@ function Rc.record(s, hq, x, y, w, tick)
 end
 
 --- Portée de la reconnaissance d'une direction (tuiles du QG) : Rc.MAX_R, ou Rc.BEYOND au-delà du point moyen des attaques s'il
---- est plus loin.
+--- est plus loin, au plus Rc.REACH_CAP.
 function Rc.reach(sec, hq)
   if not sec then return Rc.MAX_R end
   local dm = math.sqrt((sec.mx - hq.x) ^ 2 + (sec.my - hq.y) ^ 2)
-  return math.max(Rc.MAX_R, floor(dm) + Rc.BEYOND)
+  return math.min(Rc.REACH_CAP, math.max(Rc.MAX_R, floor(dm) + Rc.BEYOND))
 end
 
 --- Rayon (tuiles du QG) dans lequel un nid connu peut expliquer la direction : ce que l'éclaireur aurait vu de sa dernière étape.
