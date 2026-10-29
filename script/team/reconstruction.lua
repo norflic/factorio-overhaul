@@ -40,13 +40,17 @@ local Sweep = require("script.team.rebuild_sweep") -- lot REBUILD-TOUT : relevé
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan, recréé à la première foreuse
 local Ru = require("shared.team.ruines")
 local T = require("shared.team.config")
+local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : ordre de la reconstruction (alimentation, production principale, le reste)
+local RrRt = require("script.team.rebuild_rapide") -- lot REBUILD-RAPIDE : foreuse thermique de secours dans un projet rouvert
 
 local Recon = {}
 
-Recon.MAX_OPEN = 3          -- tâches « rebuild » au tableau en même temps
+-- Lot REBUILD-RAPIDE (retour du DC du 29/10 : « on reconstruit directement, on perd pas de temps ») : 6 lots en même temps (3 avant),
+-- donc jusqu'à 6 PNJ en parallèle sur le registre, et 6 places essayées par pensée de 5 s (3 avant).
+Recon.MAX_OPEN = 6          -- tâches « rebuild » au tableau en même temps
 Recon.SAFE_RADIUS = 28      -- tuiles : pas de pose si des unités ennemies sont plus près de la place
 Recon.RETRY = 600           -- 10 s : report quand des ennemis sont près de la place
-Recon.SEEDS_PER_THINK = 3   -- places essayées (épreuve « ennemis près ») par pensée
+Recon.SEEDS_PER_THINK = 6   -- places essayées (épreuve « ennemis près ») par pensée
 Recon.MATCH = 0.3           -- tolérance de position (tuiles) pour reconnaître une pièce d'un projet
 Recon.LOGS = 60
 Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par force
@@ -143,7 +147,10 @@ local function on_died(e)
   elseif not in_project(f, pos) then
     return
   elseif R.REBUILD_SWEEP then
-    return -- lot REBUILD-TOUT : une pièce d'un projet du plan est refaite par le relevé (script/team/rebuild_sweep.lua), pas par le registre
+    -- lot REBUILD-TOUT : une pièce d'un projet du plan est refaite par le relevé (script/team/rebuild_sweep.lua), pas par le registre ;
+    -- lot REBUILD-RAPIDE : elle y entre tout de suite (liste chaude), sans attendre le curseur du relevé
+    Sweep.note_died(f, pos, e.tick)
+    return
   end
   local recipe
   if ent.type == "assembling-machine" then
@@ -397,7 +404,8 @@ function Recon.think(f, surface, tick)
       if #batch > 0 then
         local keys = {}
         for _, r in ipairs(batch) do keys[#keys + 1] = r.key taken[r.key] = true end
-        added[#added + 1] = { key = "rebuild:" .. batch[1].key, kind = "rebuild", prio = Rc.task_prio(batch[1].value),
+        -- lot REBUILD-RAPIDE (b) : l'infrastructure électrique d'abord, puis les champs de minerai, puis le reste (Rr.registry_prio)
+        added[#added + 1] = { key = "rebuild:" .. batch[1].key, kind = "rebuild", prio = Rr.registry_prio(batch[1], Rc.task_prio(batch[1].value)),
           -- lot REBUILD-AVANT-POSTE : refaire un champ de foreuses est du travail d'EXTRACTION (pôle des gisements), pas de défense
           domain = batch[1].kind and "gisements" or "defense", work = 20 + 3 * #batch, items = Rc.items(batch), recs = keys,
           pos = { x = batch[1].x, y = batch[1].y } }
@@ -519,6 +527,7 @@ local function substitute_poles(f, s, book, free, tick)
 end
 
 function Recon.craft_spares(f, book, free, tick)
+  RrRt.drill_swap(f, book, free, tick) -- lot REBUILD-RAPIDE (d) : foreuse thermique de secours (avant la sortie anticipée : registre vide compris)
   local s = f.recon
   if not (s and s.lost and next(s.lost) and book and free) then return 0 end
   substitute_poles(f, s, book, free, tick)
@@ -709,6 +718,7 @@ function Recon.act(agent, f, task, surface)
   end
   for _, k in ipairs(late) do order[#order + 1] = k end
   local revived = {}
+  local lag, head -- lot REBUILD-RAPIDE : plus long délai entre la destruction et la pose, et la pièce concernée
   for _, k in ipairs(order) do
     local r = s.lost[k]
     if r and not r.abandoned then
@@ -749,6 +759,7 @@ function Recon.act(agent, f, task, surface)
               end
             end
             delay_note(s, r, "own", game.tick)
+            if not lag or game.tick - r.tick > lag then lag, head = game.tick - r.tick, r end
             Rc.done(s, k)
             placed = placed + 1
             stat(s, "rebuilt")
@@ -781,6 +792,12 @@ function Recon.act(agent, f, task, surface)
   -- Lot REBUILD-AVANT-POSTE : un avant-poste recréé dont aucune foreuse n'a finalement été posée (pose refusée après coup) est retiré
   for _, oid in ipairs(revived) do Ruines.undo(f, oid) end
   Rc.release(s, task.key)
+  if lag and (s.stats.rr_logs or 0) < Recon.LOGS then
+    s.stats.rr_logs = (s.stats.rr_logs or 0) + 1
+    log(string.format("[FO-REBUILD-RAPIDE] %s : %d piece(s) du registre reposee(s) en (%.1f, %.1f), la plus ancienne %.0f s apres sa destruction (%s%s), " ..
+      "priorite %d a %.1f min", f.key or "player", placed, task.pos.x, task.pos.y, lag / 60, head.name, head.place and (" remplace par " .. head.place) or "",
+      task.prio or 0, (game.tick - (f.started or 0)) / 3600))
+  end
   if placed > 0 and s.stats.logs < Recon.LOGS then
     s.stats.logs = s.stats.logs + 1
     log(string.format("[FO-RECON] %s : %d piece(s) refaite(s) en (%.1f, %.1f) a %.1f min, %d en attente", f.key or "player", placed,
