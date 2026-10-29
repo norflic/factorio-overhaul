@@ -368,12 +368,6 @@ function Outposts.fortify(f, surface, outpost, count, carrier)
   return Outposts.fortify_at(f, surface, outpost.id, sites, count, carrier, nil, { "piercing-rounds-magazine", T.turret_ammo })
 end
 
----------------------------------------------------------------------------------------------------
--- Fonderie du QG
----------------------------------------------------------------------------------------------------
--- Fours du QG (lot SCALE, correction après revue) : places en rangées depuis l'EMPRISE du four (collision_box du
--- prototype) et la disposition nommée de shared/team/config.lua (T.hq_rows.smelter), recalées sur la grille et VÉRIFIÉES
--- avant la pose (script/ai3/places_qg.lua : la pose d'avant chevauchait, capture s4-qg). Bloc de départ = places de main.
 --- Lot CENTRALE-GARDE : pose jusqu'à `count` tourelles aux emplacements `sites` ({ x, y }, dans l'ordre), pleines de munitions, pour le
 --- poste `oid` (ex. "plant" : groupe de ravitaillement « o<oid> »). `accept(pos)` refuse une position trouvée hors de la zone voulue.
 --- Les objets viennent de l'inventaire `carrier` (déjà pris au stock par la tâche). Rend le nombre posé.
@@ -399,6 +393,12 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
   return placed
 end
 
+---------------------------------------------------------------------------------------------------
+-- Fonderie du QG
+---------------------------------------------------------------------------------------------------
+-- Fours du QG (lot SCALE, correction après revue) : places en rangées depuis l'EMPRISE du four (collision_box du
+-- prototype) et la disposition nommée de shared/team/config.lua (T.hq_rows.smelter), recalées sur la grille et VÉRIFIÉES
+-- avant la pose (script/ai3/places_qg.lua : la pose d'avant chevauchait, capture s4-qg). Bloc de départ = places de main.
 function Outposts.place_smelters(f, surface, count, carrier)
   f.smelters = f.smelters or {}
   return PlacesQG.place(surface, T.SMELTER, f.force, f.hq_pos, T.hq_rows.smelter,
