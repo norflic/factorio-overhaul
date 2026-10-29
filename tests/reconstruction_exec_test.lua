@@ -345,6 +345,7 @@ do
     local e = ent(name, "electric-pole", x, y)
     e.health = hp
     e.prototype = { max_health = mx }
+    e.get_health_ratio = function() return e.health / mx end -- (le balayage lit le ratio : un seul appel moteur par entité)
     return e
   end
   local a, b, c = dmg("pole-x", 10, 10, 20, 100), dmg("pole-x", 12, 10, 90, 100), dmg("pole-x", 14, 10, 50, 100)

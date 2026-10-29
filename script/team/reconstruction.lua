@@ -471,12 +471,12 @@ function Recon.repair_think(f, surface, tick)
   for _, k in ipairs(State.sorted_keys(R.INFRA_TYPES)) do types[#types + 1] = k end
   local cands = {}
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = types })) do
-    if e.valid and e.health then
-      local mx = e.prototype.max_health
-      if mx and mx > 0 and e.health < mx then
-        cands[#cands + 1] = { key = e.name .. "@" .. string.format("%.1f,%.1f", e.position.x, e.position.y), name = e.name,
-          x = e.position.x, y = e.position.y, ratio = e.health / mx }
-      end
+    -- get_health_ratio : un seul appel par entité (revue statique 29/10 : e.health + e.prototype.max_health créaient un objet prototype pour
+    -- CHAQUE poteau de la surface à chaque balayage) ; nil sans santé.
+    local ratio = e.valid and e.get_health_ratio() or nil
+    if ratio and ratio < 1 then
+      cands[#cands + 1] = { key = e.name .. "@" .. string.format("%.1f,%.1f", e.position.x, e.position.y), name = e.name,
+        x = e.position.x, y = e.position.y, ratio = ratio }
     end
   end
   local batch = Rc.repair_batch(cands)
