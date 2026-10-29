@@ -82,6 +82,10 @@ B.RESEARCH_CHEAP = 60  -- … sauf une recherche PEU CHÈRE : fer encore à dép
 B.ARMY_FIRST = 58      -- les 10 premiers soldats (ancienne marche « army »)
 B.ARMY_FIRST_N = 10
 B.ARMY_MORE = 46       -- l'armée qui grandit (l'ancien cerveau : 45, sous l'objectif courant à 50)
+-- Lot ARMEE-ANTICIPATION (« recruter un maximum de soldats », DC 29/10) : vague annoncée (shared/ai3/armee.lua) : l'armée monte
+-- jusqu'au besoin estimé avec la valeur de la PROTECTION (au-dessus de la croissance, de « fer II » et de la recherche, sous les
+-- premiers avant-postes), jamais retenue par « production d'abord » (minimal).
+B.ARMY_ALERT = 86
 B.ARMY_WAR_PCT = 150   -- en guerre : × 1,5 (pvp_test allumé, essai 2 : sans cette règle, Difficile et Impitoyable
                        -- n'attaquaient pas plus que Normal, ordre strict perdu : 2 < 3 = 3 attaques)
 -- Besoin prévu d'une matière brute (horizon) : au-delà de SAT_FACTOR fois ce besoin, plus aucune extraction n'est
@@ -330,7 +334,11 @@ function B.generate(s, st)
   if boot and not s.is_player and (s.soldiers_max or 0) > 0 then
     local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
     local war = s.at_war and B.ARMY_WAR_PCT or 100
-    if (s.soldiers or 0) < first then
+    local alert_need = s.army_alert and math.min(s.army_need or 0, s.soldiers_max) or 0
+    if (s.soldiers or 0) < alert_need then
+      goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = alert_need,
+        value = val(B.ARMY_ALERT, w.armee), permanent = true, minimal = true, alert = true }
+    elseif (s.soldiers or 0) < first then
       -- lot INTEG-ECONOMIE (D1) : les premiers soldats sont la défense MINIMALE, jamais retenue par « production d'abord »
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = first,
         value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true, minimal = true }

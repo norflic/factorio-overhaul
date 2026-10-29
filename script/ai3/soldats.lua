@@ -16,6 +16,9 @@ local State = require("script.faction.state")
 local Registry = require("script.companion.registry")
 local Worker = require("script.team.worker")
 local Profiler = require("script.core.profiler")
+local A = require("shared.ai3.armee") -- lot ARMEE-ANTICIPATION : menace estimée, regroupement, raid
+local FC = require("shared.faction.config")
+local FS = require("shared.faction.strategy")
 local D = require("shared.ai3.danger")
 local K = require("shared.ai3.carte")
 local Re = require("shared.ai3.reaction")
@@ -37,7 +40,8 @@ SD.HQ_THREAT_R = 48
 SD.RING_TICKS = 3600  -- lot CENTRALE : les anneaux sûrs sont recalculés chaque minute
 SD.SHELTER_TICKS = 600 -- ralliement ou éloignement : on y attend 10 s, puis le PNJ rentre et la menace est rejugée
 
-local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse" }
+local LABEL = { patrol = "patrouille", guard = "garde", escort = "escorte", clear = "nettoyage", defense = "defense", hunt = "chasse",
+  muster = "regroupement" }
 
 local function d2(a, b)
   local dx, dy = a.x - b.x, a.y - b.y
@@ -58,6 +62,8 @@ local function command_for(u, o, f, agent_entity)
     compound(u, { go(p, 8), wander(12) })
   elseif o.role == "guard" then
     compound(u, { go(p, 4), wander(4) })
+  elseif o.role == "muster" then
+    compound(u, { go(p, 6), wander(8) }) -- lot ARMEE-ANTICIPATION : une seule force, serrée, qui réagit à l'ennemi (distraction)
   elseif o.role == "escort" and agent_entity and agent_entity.valid then
     compound(u, { { type = defines.command.go_to_location, destination_entity = agent_entity, radius = 5,
       distraction = defines.distraction.by_enemy }, wander(6) })
@@ -87,6 +93,10 @@ end
 --- Alerte d'un PNJ en fuite : les soldats les plus proches vont vers la menace (si elle est près du QG).
 --- mode « hunt » (C4) : un adversaire isolé vu par un ouvrier : 3 soldats le chassent (rôle « hunt »).
 C.on_alert = function(f, ep, kind, tick, mode)
+  -- Lot ARMEE-ANTICIPATION (« ils ont envoyé quatre soldats dans un endroit trop dangereux », DC 29/10) : la fuite devant un NID,
+  -- un VER ou une tourelle n'appelle pas 4 soldats en attaque de zone au pied du champ (aucune mesure de sa force) ; ces menaces
+  -- fixes sont déjà dans la carte de l'équipe (t.map.threats) : le nettoyage les prend, compté sur le champ entier (Sd.field_need).
+  if kind == "spawner" or kind == "worm" or kind == "turret" then return false end
   if not (f.soldiers and f.hq_pos) or (f.soldiers_count or 0) == 0 or d2(ep, f.hq_pos) > Sd.NEAR_HQ * Sd.NEAR_HQ * 2 then
     return false
   end
@@ -161,6 +171,94 @@ local function armed_near_hq(f)
     if s.entity and s.entity.valid and d2(s.entity.position, f.hq_pos) <= r2 then n = n + 1 end
   end
   return n
+end
+
+--- Lot ARMEE-ANTICIPATION : force d'un soldat de l'équipe (meilleur soldat débloqué ; fusilier de niveau 0 = 1).
+local function strength_of(f)
+  return FS.soldier_strength(FC.best_soldier(f.tech or 0), f.tech or 0, f.upgrades or 0)
+end
+
+--- Lot ARMEE-ANTICIPATION : menace qui va venir (shared/ai3/armee.lua), au plus toutes les A.PERIOD ticks. État f.armee (créé
+--- ici, en événement) : { t, alert_until, threat, need, muster, raid, fails, est, on, log_t, seen, raid_why } ; lecteurs : ce
+--- fichier (regroupement, raid, alertes, journal) et script/team/team.lua (Team.view : army_alert, army_need, lus par
+--- shared/team/planner.lua).
+local function armee_eval(f, surface, km, list, tick)
+  local st = f.armee
+  if not st then
+    st = { fails = {} }
+    f.armee = st
+  end
+  if st.t and tick - st.t < A.PERIOD then return st end
+  st.t = tick
+  local pts = km and K.enemy_points(km, f.hq_pos.x, f.hq_pos.y, Sd.KNOWN_R) or {}
+  table.sort(pts, function(a, b)
+    if a.x ~= b.x then return a.x < b.x end
+    if a.y ~= b.y then return a.y < b.y end
+    return a.kind < b.kind
+  end)
+  local fields = A.fields(Sd.clusters(pts), f.hq_pos)
+  for _, c in ipairs(fields) do
+    c.polluted = surface.get_pollution({ x = c.x, y = c.y }) > 0
+    local w = 0
+    for _, u in ipairs(surface.find_enemy_units({ x = c.x, y = c.y }, A.FIELD_R, f.force)) do w = w + C.weight(u) end
+    c.units = w
+  end
+  local approach = {}
+  for _, u in ipairs(surface.find_enemy_units(f.hq_pos, A.HQ_R, f.force)) do
+    local p = u.position
+    approach[#approach + 1] = { x = p.x, y = p.y, w = C.weight(u), id = u.unit_number or 0 }
+  end
+  table.sort(approach, function(a, b) return a.id < b.id end)
+  local est = A.estimate({ tick = tick, hq = f.hq_pos, home = home(f), strength = strength_of(f), fields = fields,
+    approach = approach, fails = st.fails, soldiers = f.soldiers_count or 0, free = #list })
+  st.est = { threat = est.threat, incoming = est.incoming, hot = #est.hot, nests = est.nests, worms = est.worms, units = est.units,
+    need = est.need }
+  st.raid = est.raid
+  if est.alert then
+    st.alert_until = tick + A.HOLD
+    st.muster, st.need, st.threat = est.muster, est.recruit, est.threat -- relecture : besoin = menace ET raid visé (+ réserve)
+  end
+  return st
+end
+
+--- Lot ARMEE-ANTICIPATION : journal [FO-ARMEE] : début et fin d'alerte, état toutes les 5 min pendant l'alerte, recrues de
+--- l'alerte, raid différé (au changement de motif). Une ligne par cause.
+local function armee_journal(f, st, summary, list, tick)
+  if not st then return end
+  local on = A.alert_on(st, tick)
+  local e = st.est or {}
+  local soldiers = f.soldiers_count or 0
+  local function state_line(what)
+    log(string.format("[FO-ARMEE] %s : menace %s a %.1f min : estimee %.1f (vague en approche %.1f ; champs menacants %d : %d nid(s), %d ver(s), unites %.1f), soldats %d (sans groupe %d), besoin %d (menace seule %d), regroupement en (%d, %d)%s",
+      tostring(f.key), what, tick / 3600, e.threat or 0, e.incoming or 0, e.hot or 0, e.nests or 0, e.worms or 0, e.units or 0,
+      soldiers, #list, st.need or 0, e.need or 0, math.floor(st.muster and st.muster.x or 0), math.floor(st.muster and st.muster.y or 0),
+      st.raid and string.format(", raid vise (%d, %d) besoin %d", math.floor(st.raid.x), math.floor(st.raid.y), st.raid.need) or ""))
+  end
+  if on and not st.on then
+    st.on, st.log_t = true, tick
+    state_line("ANNONCEE")
+  elseif not on and st.on then
+    st.on, st.raid_why = nil, nil
+    state_line("retombee")
+  elseif on and tick - (st.log_t or 0) >= 5 * 3600 then
+    st.log_t = tick
+    state_line("en cours")
+  end
+  if on and st.seen and soldiers > st.seen then
+    log(string.format("[FO-ARMEE] %s : recrues de l'alerte a %.1f min : +%d soldat(s), effectif %d, besoin %d", tostring(f.key),
+      tick / 3600, soldiers - st.seen, soldiers, st.need or 0))
+  end
+  st.seen = soldiers
+  local why = summary and summary.raid or nil
+  if why ~= st.raid_why then
+    st.raid_why = why
+    if (why == "effectif" or why == "bloque") and st.raid then
+      log(string.format("[FO-ARMEE] %s : raid differe en (%d, %d) a %.1f min : %s ; regroupement et recrutement d'abord",
+        tostring(f.key), math.floor(st.raid.x), math.floor(st.raid.y), tick / 3600,
+        why == "effectif" and string.format("%d soldat(s) libres pour un besoin de %d + reserve %d", #list, st.raid.need, st.raid.reserve or 0)
+          or "champ d'une retraite recente"))
+    end
+  end
 end
 
 --- Menace sur le QG (C7) : l'ennemi militaire le plus proche à moins de HQ_THREAT_R tuiles ; réponse de l'équipe (shelter).
@@ -260,12 +358,23 @@ local function pass(f, tick)
   end
   -- Points à défendre.
   local defend = {}
-  if threat then defend[#defend + 1] = { key = "hq", x = threat.x, y = threat.y } end
+  -- Lot ARMEE-ANTICIPATION : `threat` n'était plus défini ici depuis le lot FUITE (b390ad3, 28/10 : la menace a été déplacée dans
+  -- hq_threat) ; la défense du QG par TOUS les soldats ne partait plus jamais. La menace rendue par hq_threat est relue.
+  if hq_en then defend[#defend + 1] = { key = "hq", x = hq_en.x, y = hq_en.y } end
   local alerts = {}
+  -- Lot ARMEE-ANTICIPATION : pendant une alerte (vague annoncée, f.armee), une alerte de défense prend TOUTE la force libre si
+  -- elle est près du QG (à moins de Sd.NEAR_HQ), personne sinon : plus d'envoi de 4 soldats isolés loin du regroupement.
+  local army_on = A.alert_on(f.armee, tick)
   for _, a in ipairs(t.alerts or {}) do
     if tick < a["until"] then
       alerts[#alerts + 1] = a
-      defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = a.n, role = a.role }
+      local n = a.n
+      -- Relecture : `cond and nil or 0` valait TOUJOURS 0 (Lua : `nil or 0`) : pendant l'alerte, aucune alerte de défense ne
+      -- partait, même au pied du QG ; écrit en deux branches.
+      if army_on and not a.role then
+        if d2(a, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ then n = nil else n = 0 end
+      end
+      if n ~= 0 then defend[#defend + 1] = { key = "alerte", x = a.x, y = a.y, n = n, role = a.role } end
     end
   end
   t.alerts = alerts
@@ -381,6 +490,13 @@ local function pass(f, tick)
         end
       end
       t.stats.retreats = (t.stats.retreats or 0) + 1
+      if sd.clearing.raid and f.armee then
+        -- Lot ARMEE-ANTICIPATION : raid repoussé : le prochain raid sur ce champ demandera au moins A.FAIL_MULT × cette force.
+        f.armee.fails = A.record_fail(f.armee.fails, sd.clearing.x, sd.clearing.y, #sd.clearing.ids, tick)
+        log(string.format("[FO-ARMEE] %s : raid repousse en (%d, %d) a %.1f min : %d mort(s) sur %d, retraite ; prochain raid sur ce champ avec au moins %d soldat(s), pas avant %d min",
+          tostring(f.key), math.floor(sd.clearing.x), math.floor(sd.clearing.y), tick / 3600, lost, #sd.clearing.ids,
+          #sd.clearing.ids * A.FAIL_MULT, math.floor(Sd.RETREAT_COOL / 3600)))
+      end
       if Profiler.enabled() then
         log(string.format("[FO-IA3K] %s : RETRAITE du nettoyage en (%d, %d) : %d mort(s) sur %d", tostring(f.key),
           math.floor(sd.clearing.x), math.floor(sd.clearing.y), lost, #sd.clearing.ids))
@@ -443,11 +559,18 @@ local function pass(f, tick)
     sd.gpts = Sd.safe_ring(f.hq_pos, Sd.GUARD_RADII, safe)
     sd.ring_t, sd.ring_epoch = tick, epoch
   end
+  -- Lot ARMEE-ANTICIPATION : menace estimée (au plus toutes les A.PERIOD ticks), alerte, regroupement et raid.
+  local ast = armee_eval(f, surface, km, list, tick)
+  army_on = A.alert_on(ast, tick)
+  -- Relecture : le raid estimé (jusqu'à A.PERIOD ticks plus tôt) n'est lancé que s'il vise encore une menace des groupes du passage.
+  local raid = (army_on and offense and A.raid_alive(ast.raid, clusters)) and ast.raid or nil
   local orders, summary = Sd.assign({
     tick = tick, hq = f.hq_pos, agr = ch_agr, soldiers = list, defend = defend, escorts = escorts,
     threats = clusters, clearing = sd.clearing, marked_outposts = marked, cursor = sd.cursor,
     patrol_pts = sd.ppts, guard_pts = sd.gpts, offense = offense, blocked = sd.blocked,
+    muster = army_on and ast.muster or nil, raid = raid,
   })
+  armee_journal(f, ast, summary, list, tick)
   -- Application : commande seulement quand l'ordre change (l'escorte est relancée à chaque passage : elle suit le PNJ).
   local started_clear = nil
   for _, s in ipairs(list) do
@@ -483,7 +606,14 @@ local function pass(f, tick)
       local o = orders[sl.id]
       if o and o.role == "clear" then ids[#ids + 1] = sl.id end
     end
-    sd.clearing = { x = started_clear.x, y = started_clear.y, ["until"] = tick + SD.CLEAR_TICKS, ids = ids, need = #ids }
+    sd.clearing = { x = started_clear.x, y = started_clear.y, ["until"] = tick + SD.CLEAR_TICKS, ids = ids, need = #ids,
+      raid = (summary.target and summary.target.raid) or nil } -- lot ARMEE-ANTICIPATION : raid (retraite mémorisée dans f.armee.fails)
+    if summary.target and summary.target.raid then
+      log(string.format("[FO-ARMEE] %s : raid lance en (%d, %d) a %.1f min avec %d soldat(s) sur %d libres (besoin %d) : champ de %s nid(s), %s menace(s), defenseurs %.1f",
+        tostring(f.key), math.floor(started_clear.x), math.floor(started_clear.y), tick / 3600, #ids, #list,
+        summary.target.need or 0, tostring(summary.target.nests), tostring(summary.target.wide or summary.target.k),
+        (ast and ast.raid and ast.raid.units) or 0))
+    end
     t.stats.clear_ops = (t.stats.clear_ops or 0) + 1
     if summary.offense then
       t.stats.offense_ops = (t.stats.offense_ops or 0) + 1

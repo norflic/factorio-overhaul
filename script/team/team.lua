@@ -588,6 +588,9 @@ function Team.view(f, tick)
     -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = threatened,
+    -- Lot ARMEE-ANTICIPATION : vague annoncée (script/ai3/soldats.lua, f.armee) : l'armée visée monte au besoin estimé, avec la
+    -- priorité de la défense (shared/team/planner.lua). Factions seulement (votre équipe n'a pas de soldats : soldiers_max = 0).
+    army_alert = (f.armee and tick < (f.armee.alert_until or 0)) or nil, army_need = (f.armee and f.armee.need) or nil,
     survie = Survie.on(f) or nil, -- lot SURVIE-PENURIE : mode survie (décidé à la pensée précédente) : la production passe avant la défense
     open = Board.open(f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)
