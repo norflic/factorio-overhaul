@@ -113,6 +113,19 @@ do
   local view5 = { outposts = { op(2, COAL, 42, { drills = 8 }) }, sites = { [COAL] = 1 }, stock = {} }
   local c5 = Fond.candidates(view5, free_all(), { keys = {}, danger = { [2] = true } })
   check(#tasks_of(c5.extraction, "build", COAL) == 1, "2.5 sans sites_near (votre équipe) : comportement d'avant")
+  -- 2.6 Le cas EXACT d'Écarlate : charbon de départ à 12 foreuses (243 pour mille), sûr. Sur 0.6.18, 12 = le plafond
+  -- (T.max_drills) : avant-poste plein, le fond bâtit à 157 tuiles (cause mesurée, réglée par le lot PLAFOND-FOREUSES). Plafond
+  -- supprimé (branche fusionnée) : le fond agrandit le proche et ne bâtit pas au loin.
+  local view6 = { outposts = { op(2, COAL, 42, { drills = 12 }) }, sites = { [COAL] = 1 }, sites_near = { [COAL] = 157 }, stock = {} }
+  local c6 = Fond.candidates(view6, free_all(), { keys = {} })
+  if T.max_drills(COAL) > 12 then
+    check(#tasks_of(c6.extraction, "extend") == 1 and #tasks_of(c6.extraction, "build", COAL) == 0,
+      "2.6 Écarlate, plafond supprimé : le charbon proche s'agrandit, aucun build lointain")
+  else
+    check(#tasks_of(c6.extraction, "build", COAL) == 1,
+      "2.6 Écarlate sur 0.6.18 (plafond 12) : le build lointain est reproduit (à régler par PLAFOND-FOREUSES)")
+    print("  (2.6 : plafond de " .. T.max_drills(COAL) .. " foreuses présent : défaut reproduit, il disparaît avec PLAFOND-FOREUSES)")
+  end
 end
 
 ---------------------------------------------------------------------------------------------------
