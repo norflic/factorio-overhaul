@@ -33,11 +33,11 @@ local Worker = require("script.team.worker")
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné (minerai, arbres)
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (porte assouplie pour les tâches de ressources)
 local Sv = require("shared.team.survie")
+local Dt = require("shared.ai3.detour") -- lot DETOUR-BOUCLE : mémoire des détours et des buts où l'on tourne en rond
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
 local Tr = require("shared.faction.traits")
-local Dt = require("shared.ai3.detour") -- lot DETOUR-BOUCLE : mémoire des détours et des buts où l'on tourne en rond
 
 local M = {}
 
