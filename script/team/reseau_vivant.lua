@@ -323,7 +323,7 @@ function Rv.step(api, f, surface, tick)
     sv.lost_links, sv.bridges = 0, 0
     if nr.islands + nr.uncovered > 0 then
       sv.lost_links = #lost_poles(f, surface, b)
-      if sv.lost_links == 0 then sv.bridges = #(bridge_gaps(f, surface, nr)) end
+      sv.bridges = #(bridge_gaps(f, surface, nr))
     end
     sv.bridge_seen = sv.bridges > 0 and ((sv.bridge_seen or 0) + 1) or 0
   end
@@ -418,6 +418,12 @@ function Rv.step(api, f, surface, tick)
     if n > 0 or sv.relier_quiet ~= txt then
       sv.relier_quiet = txt
       say(f, tick, string.format("reseau: %s ; %s ; %d rouvert(s) (les autres : ennemis a %d tuiles)", why, txt, n, Rv.POLE_ENEMY_R))
+    end
+    -- les poteaux perdus n'expliquent pas l'îlot (aucun ne le rallume) : un pont, comme si aucun n'était perdu
+    if n == 0 and #plan_list == 0 and not sv.bridge and tick >= (sv.bridge_block or 0) and (sv.bridge_seen or 0) >= Rv.BRIDGE_SEEN and (sv.bridges or 0) > 0 then
+      local btxt, made = make_bridge(api, f, surface, sv, nr, tick)
+      say(f, tick, string.format("reseau: poteaux perdus sans effet sur l'ilot ; %s", btxt))
+      if not made then sv.bridge_block = tick + (btxt:find("chantier en cours", 1, true) and 7200 or Rv.BRIDGE_BLOCK) end
     end
     sv.net_next = tick + 1200 -- relire vite après la remise en état
   elseif action == "ponter" then

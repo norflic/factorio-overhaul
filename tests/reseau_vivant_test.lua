@@ -255,6 +255,32 @@ do
   check(b.sante.bridge_block and b.sante.bridge_block > t, "pont annule : pas de nouvelle demande avant 5 min")
 end
 
+-- §5 ter : poteaux perdus qui ne rallument rien ET un îlot loin du réseau : le pont est tenté quand même
+do
+  LOG = {}
+  local W = new_world()
+  local f, b, p = team(W)
+  local api = tmpl_api(b)
+  local bridges = {}
+  api.bridge = function(_, name, pts)
+    bridges[#bridges + 1] = pts
+    local id = b.next_id
+    b.next_id = id + 1
+    b.projects[id] = { id = id, state = "reserve", ents = {}, parts = {} }
+    return id
+  end
+  api.cancel = function() return true end
+  W.add({ type = "assembling-machine", name = "assembling-machine-1", x = 130, y = 98, w = 3, h = 3, electric_network_id = 2,
+    prototype = { electric_energy_source_prototype = {} } })
+  W.add({ type = "electric-pole", name = "small-electric-pole", x = 128, y = 98, electric_network_id = 2,
+    prototype = { max_wire_distance = 7.5, supply_area_distance = 2.5 } })
+  -- un poteau perdu loin de tout (ne rallume rien)
+  p.ents[#p.ents + 1] = { name = "medium-electric-pole", x = 40.5, y = 40.5, built = true, role = "rue" }
+  local t = 1200
+  for _ = 1, 40 do Rv.step(api, f, W.surface, t) t = t + 1200 end
+  check(#bridges == 1, "poteau perdu sans effet + ilot a 26 tuiles : un pont demande quand meme (" .. #bridges .. ")")
+end
+
 -- §6 déterminisme
 do
   local function run()
