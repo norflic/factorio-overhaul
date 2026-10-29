@@ -56,3 +56,7 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 
 | POTEAUX-UNIQUES | 4 graines tenues (paires 0,09 ; alimentes 1,16) ; 314159265 : 0 contre 69 alimentes, bifurcation par arbitrage des PNJ + annulation CAPI a 30 min (mesure) ; sceptique-pu en cours ; 2 graines de plus (987654321, 112358132) demandees | fusion si mediane >= 0,95 et <= 1 graine sur 6 sous 0,75 |
 | DEFAUT CAPI (nouveau) | une CAPI annule un projet en reserve qui attend encore des materiaux (aucun progres en 30 min) : 314159265 scarlet projets 3 et 4 a 34,1 min | lot separe a ouvrir apres la vague (regle pure dans ai3_capitalisation) |
+
+| FORTIFY | 5 graines : 0 erreur, PNJ et tourelles tenus, fer -33 % sur 314159265 et -18 % sur 123456789 a 40 min, sans gain demontre | PARQUE |
+| EFFECTIF | plafond 18-19 PNJ = pas de fer au coffre apres 10 recrues a 4 min, pas une panne de la regle | CLOS ; question DC 16 |
+| MAINS-CHAINE | cause du brief refutee (minerai non garde) ; 40 % des tournees de fonte partent a vide ; regle chaine_main.lua (33 OK, 25 mutants) sans gain mesurable | PARQUE par mainsc |
