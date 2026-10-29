@@ -359,6 +359,8 @@ local EXTRA = {
 function P.size(name, dir)
   local x = EXTRA[name]
   if x then return x.w, x.h end
+  -- Lot CONVOYEURS : un tapis des données du jeu que modules.lua ne connaît pas (niveau supérieur) occupe une tuile.
+  if not M.BASE[name] and name:find("belt", 1, true) and not M.spec(name) then return 1, 1 end
   return M.size(name, dir or 0)
 end
 
@@ -562,8 +564,8 @@ end
 --- x, y, dir } } (tuile et direction de la dernière tuile d'un tapis qui arrive), chests = { {x, y, item, lane} } }.
 --- Voie 1 = gauche du sens de marche. Un bras dépose sur la voie LOINTAINE : le quai d'une voie est de l'autre côté.
 --- Un chargement latéral sur une seule voie exige un tapis DERRIÈRE la tuile chargée (sinon elle devient un virage) :
---- bout mort à 3 tuiles.
-function P.feeder(port, sources, quai_inserter)
+--- bout mort à 3 tuiles. `belt` (lot CONVOYEURS) : le tapis des têtes, "transport-belt" par défaut.
+function P.feeder(port, sources, quai_inserter, belt)
   local d = port.dir
   local v = DV[d]
   local lx, ly = left_of(d)
@@ -573,7 +575,7 @@ function P.feeder(port, sources, quai_inserter)
   local depth = any_belt and 3 or 1
   for k = 1, depth do
     local x, y = at(k, 0)
-    ents[#ents + 1] = { name = "transport-belt", x = x + 0.5, y = y + 0.5, dir = d, role = "tete" }
+    ents[#ents + 1] = { name = belt or "transport-belt", x = x + 0.5, y = y + 0.5, dir = d, role = "tete" }
   end
   for lane = 1, 2 do
     local item = port.lanes and port.lanes[lane]

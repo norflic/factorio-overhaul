@@ -491,6 +491,7 @@ do
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
     ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },
     ["script/modules/mult.lua"] = { "TYPE", 2, "types du moteur des machines à modules" },
+    ["script/team/convoyeurs.lua"] = { "TYPE", 1, "type du moteur transport-belt (filtre des prototypes de tapis, lot CONVOYEURS)" },
     ["script/gui/team_window.lua"] = { "EXEC", 2, "coffre d'équipe : entité du mod" },
     ["shared/team/production.lua"] = { "DETTE", 16, "solveur de débits (lot IA1-e1) : machine par catégorie, matières brutes, recette par défaut du gaz : lire le catalogue du cerveau" },
     ["script/core/path_service.lua"] = { "TYPE", 1, "masque de collision d'eau" },

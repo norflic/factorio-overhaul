@@ -30,6 +30,7 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
+local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
@@ -488,10 +489,13 @@ local function reserve_tiles(b, p, list)
   return true
 end
 
-local function inst_entities(inst, part)
+local function inst_entities(inst, part, belt)
   local out = {}
   for _, e in ipairs(inst.entities) do
-    out[#out + 1] = { name = e.name, x = e.position.x, y = e.position.y, dir = e.direction or 0, recipe = e.recipe, part = part }
+    -- Lot CONVOYEURS : `belt` remplace le tapis du gabarit (le collecteur des foreuses suit le tracé qui l'achemine)
+    local name = e.name
+    if belt and (M.BASE[name] or {}).kind == "belt" then name = belt end
+    out[#out + 1] = { name = name, x = e.position.x, y = e.position.y, dir = e.direction or 0, recipe = e.recipe, part = part }
   end
   return out
 end
@@ -828,7 +832,14 @@ local function plan_feed(f, surface, p, place, part)
       -- PLANDIR (28/10) : ils le RESTENT, mesuré : passés à l'électrique, les bras de la centrale la tuaient en 1,5 à 3,5 min
       -- (6 cas sur 6)
       local quai_ins = (g.gen == "steam") and M.BURNER_ARM or "inserter"
-      local fd = P.feeder(port, sources, quai_ins)
+      -- Lot CONVOYEURS : la tête et le tracé des foreuses ont le même tapis (le meilleur débloqué, ou celui que le débit exige)
+      local head_belt
+      do
+        local top = 0
+        for lane = 1, 2 do if drills[lane] and drills[lane].flow > top then top = drills[lane].flow end end
+        if top > 0 then head_belt = Conv.choose(f, top) end
+      end
+      local fd = P.feeder(port, sources, quai_ins, head_belt)
       for _, e in ipairs(fd.entities) do e.part = part end
       if not reserve_tiles(b, p, fd.entities) then return false, "tete d'alimentation" end
       for _, c in ipairs(fd.chests) do p.quais[#p.quais + 1] = { x = c.x, y = c.y, item = c.item } end
@@ -840,7 +851,7 @@ local function plan_feed(f, surface, p, place, part)
       for _, a in ipairs(fd.arrivals) do
         local d = drills[a.lane]
         if d then
-          local ok, why = Build.plan_drills(f, surface, p, d.item, d.flow, a)
+          local ok, why = Build.plan_drills(f, surface, p, d.item, d.flow, a, head_belt)
           if not ok and p.spec.feed == "tapis" then
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
             return false, "gisement : tapis des foreuses (" .. tostring(why) .. ")"
@@ -848,7 +859,7 @@ local function plan_feed(f, surface, p, place, part)
           if not ok then
             -- repli : quai sur cette voie (le tapis n'a pas pu être tracé ou le gisement manque)
             bump(b.stats.plan_refused, "tapis:" .. tostring(why))
-            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins)
+            local alt = P.feeder(port, { a.lane == 1 and "quai" or nil, a.lane == 2 and "quai" or nil }, quai_ins, head_belt)
             local extra = {}
             for _, e in ipairs(alt.entities) do if e.role ~= "tete" then e.part = part; extra[#extra + 1] = e end end
             if reserve_tiles(b, p, extra) then
@@ -932,8 +943,9 @@ function Build.drill_diag(f, item, n, a, why, diag, s)
 end
 
 --- Foreuses de ravitaillement d'une voie et leur tapis jusqu'à l'arrivée `a`. Rend true, ou false et raison.
-function Build.plan_drills(f, surface, p, item, flow, a)
+function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local b = f.build
+  belt = belt or Conv.choose(f, flow) or "transport-belt" -- lot CONVOYEURS
   local n = math.max(1, math.ceil(flow / (2 * M.spec("electric-mining-drill").speed) - 1e-9))
   local place, why
   local diag = {}
@@ -951,8 +963,8 @@ function Build.plan_drills(f, surface, p, item, flow, a)
   end
   local part = #p.parts + 1
   p.parts[part] = { kind = "foreuses", key = place.g.key, lot = place.lot, ox = place.ox, oy = place.oy, k = place.k,
-    w = place.g.w, h = place.g.h, power = needs_power(place.g) }
-  local ents = inst_entities(place.inst, part)
+    w = place.g.w, h = place.g.h, power = needs_power(place.g), belt = belt, flow = flow }
+  local ents = inst_entities(place.inst, part, belt)
   -- tapis : queue des foreuses → arrivée
   local tail
   for _, port in ipairs(P.belt_ports(place.inst)) do if port.io == "out" then tail = port end end
@@ -1016,7 +1028,7 @@ function Build.plan_drills(f, surface, p, item, flow, a)
     Build.drill_diag(f, item, n, a, "tapis " .. tostring(n2), nil, s)
     return false, n2
   end
-  for _, t in ipairs(tiles) do ents[#ents + 1] = { name = "transport-belt", x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, part = part, role = "liaison-tapis" } end
+  for _, t in ipairs(tiles) do ents[#ents + 1] = { name = belt, x = t.x + 0.5, y = t.y + 0.5, dir = t.dir, part = part, role = "liaison-tapis" } end
   if not reserve_tiles(b, p, ents) then p.parts[part] = nil; return false, "place" end
   b.lots[place.lot].used = p.id
   return true
@@ -2288,6 +2300,7 @@ function Build.think(f, surface, tick)
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
   if #tasks > 0 then Board.add(f, tasks, tick) end
+  Conv.step(f, surface, tick) -- lot CONVOYEURS : amélioration des tapis saturés, tâche de fond bornée
   -- tronçons encombrés : réévalués (défrichés par les PNJ)
   for _, key in ipairs(sorted_keys(b.segs)) do
     local s = b.segs[key]
