@@ -30,3 +30,15 @@ donc AUCUN soldat : un OUVRIER LIBRE part à intervalle, sans kit, par la voie d
 
 Verdict par graine : tenu / non tenu pour chaque critère, avec la cause quand une graine dégrade ; pas de fusion si une graine dégrade
 sans cause établie (règle du DC).
+
+## Tolérances ajoutées le 29/10 AVANT la lecture des parties de l'essai 2 (décision du lead : un seuil se déclare avant, il ne se règle pas après)
+- Secteurs reconnus (critère 3) : une graine compte « au moins le témoin » si la SOMME des deux factions à 60 min est d'au moins 95 % de celle
+  du témoin (bruit de trajectoire : un secteur de plus ou de moins vu par hasard), et « en hausse » si elle dépasse 110 %. Les relevés à 20 et
+  40 min sont rapportés, jamais bloquants. Une faction à 0 mission de veille est rapportée mais comptée dans la somme.
+- Minutes d'ouvrier absent (critère 6) : tenu si la somme des durées de mission de veille ne dépasse pas 15 min par faction et par heure
+  (environ 3 % du temps de travail d'une équipe de 8 PNJ). Au-delà : NON TENU pour le travail, bloquant seulement si la défense ou les PNJ de
+  l'équipe sont aussi en baisse (alors la cause est l'absence des ouvriers).
+- Étiquetage des causes (rapporté, non bloquant) : part des missions finies en « fini » (but vu), « fuite » (ennemi à 64 tuiles), « perdu »,
+  « chemin », « rien », « duree » ; pour chaque écart de défense, cause étiquetée mesuré / déduit / supposé.
+- Le test `war_test` « scarlet : avant-poste de pierre reconstruit » (104 OK sur 105) est consigné tel quel : passe veille éteinte (105), passe
+  avec un premier départ à 12 ou 17 min (105) ; sensibilité de trajectoire, non corrigée par une constante.

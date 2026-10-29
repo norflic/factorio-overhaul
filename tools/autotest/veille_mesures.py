@@ -142,9 +142,10 @@ def run(base_dir, lot_dir, pref_base, pref_lot, seeds):
             print("  %-8s base/lot  %s" % (f, " | ".join(cells)))
             print("  %-8s veille : departs %d (%.2f par 10 min), issues %s, ouvrier absent %.1f min ; secteurs 20/40/60 base/lot : %s" % (
                 "", len(dep), len(dep) / 6.0, why or "-", absent, " ; ".join(sectors)))
-        if s60[1] >= s60[0]:
+        # Tolerances declarees avant la lecture des parties (docs/CRITERES_VEILLE.md) : >= 95 % du temoin, en hausse au-dela de 110 %.
+        if s60[1] >= 0.95 * s60[0]:
             tot["seed_sect_ok"] += 1
-        if s60[1] > s60[0]:
+        if s60[1] > 1.10 * s60[0]:
             tot["seed_sect_up"] += 1
         print("  secteurs reconnus a 60 min, somme des factions : base %d lot %d" % (s60[0], s60[1]))
         pb = [a for a in b["att"] if a[2] == "player"]
@@ -185,7 +186,13 @@ def run(base_dir, lot_dir, pref_base, pref_lot, seeds):
     cost = PLATES_PAR_OUVRIER * tot["perdu"] / tot["dep"] if tot["dep"] else 0.0
     print("5. cout en fer : %.1f plaque(s) par depart (%d x %d / %d) -> %s" % (cost, tot["perdu"], PLATES_PAR_OUVRIER, tot["dep"],
           "tenu" if cost <= 5 else "NON TENU"))
-    print("6. cout en travail : %.1f min d'ouvrier absent en tout, %.1f par faction et par heure" % (tot["absent"], tot["absent"] / n_f))
+    per_fac = tot["absent"] / n_f
+    print("6. cout en travail : %.1f min d'ouvrier absent en tout, %.1f par faction et par heure (tolerance 15) -> %s" % (
+        tot["absent"], per_fac, "tenu" if per_fac <= 15 else "NON TENU (bloquant seulement avec une defense en baisse)"))
+    if tot["dep"]:
+        print("   issues des missions de veille : fini %d (%.0f %%), fuite %d (%.0f %%), perdu %d, autres %d" % (
+            tot["arr"], 100.0 * tot["arr"] / tot["dep"], tot["fuite"], 100.0 * tot["fuite"] / tot["dep"], tot["perdu"],
+            tot["dep"] - tot["arr"] - tot["fuite"] - tot["perdu"]))
     return 0 if ok4 else 1
 
 
