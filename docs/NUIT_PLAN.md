@@ -89,3 +89,13 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | CENTRE-FUSEE (29/10 09 h 45) | verdict du DC sur les planches : « ça ne suit pas ce que j'avais demandé » : le centre doit etre la FUSEE de depart (epave, reparation, amelioration par ages, IA dispo d'emblee) ; le kit F5 (hotel de ville) est a refaire | lot lance : brief de design + premier jet (epave, repare, ages 4 / 8 / 15), validation du DC avant les 15 ages |
 
 | CENTRE-FUSEE : forme tranchee (09 h 55) | le DC : « Vaisseau couche, long » (horizontal, plus long que large : nez, coque, reacteurs a l arriere ; les ages ajoutent ailes, tours et modules le long de la coque) ; il avait refuse l hotel de ville du kit F5 | agent centre-fusee : brief + premier jet 5 etats sur cette forme |
+
+## Vague CORR (29/10 11 h 20) : corrections des remarques du DC, versions simples (wf_5db5c5ed-6e1)
+| Lot | Branche | Preuve visee |
+|---|---|---|
+| RESEAU | corr-reseau | scenario provoque : courant revenu apres destruction de la centrale ou du pivot, absent sans la regle |
+| RECONSTRUIRE | corr-reconstruire | micro-banc reconstruire-infra + A/A prime des 3 graines en echec |
+| SOLDATS | corr-soldats | scenario : 25 soldats inactifs + champ de nids a 60 tuiles : expedition avec la regle, rien sans |
+| FOURS (refill + mains) | corr-fours-mains | passages de refill sur 5 min, aucune tournee de fonte a vide sans courant |
+| ENERGIE | corr-energie | demande > production : 2e centrale avec la regle, reseau sature sans |
+Agents de workflow : NE JAMAIS leur ecrire (SendMessage clone) ; suivi par fo-logs/2026-10-29_CORR/<LOT>/STATUS.md. Nucleaire contre vapeur : decision du DC.
