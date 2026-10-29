@@ -336,6 +336,10 @@ EMIT.outpost = function(E, proj, g, ctx)
   if (view.pending[kind] or 0) > 0 then return "en_cours" end
   local df = view.defend_first and true or false
   local turret_ok = df and (E.book:handcraftable(P.TURRET) or (E.avail[P.TURRET] or 0) > 0) or false
+  -- Lot PRIORITE-RESSOURCES : le fer ne paie pas la défense ET la production (E.priorite, décidé par le planificateur permanent) :
+  -- la production d'abord, l'avant-poste s'agrandit et se bâtit sans attendre ses tourelles.
+  local pf = E.priorite ~= nil and E.priorite.production_first == true
+  if pf then turret_ok = false end
   local und = Planner.no_go(view, turret_ok)
   local items = Planner.outpost_items(kind)
   local ext = extendable(view, kind, und)

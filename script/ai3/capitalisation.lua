@@ -770,6 +770,8 @@ local function build_input(f, cs, view, book, tick, D, w)
     limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = view.threatened or false, dt = 1, lag = cs.lag,
+    -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
+    production_first = (f.team and f.team.priorite_pf) or false,
   }
 end
 
