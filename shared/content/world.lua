@@ -297,6 +297,16 @@ W.resources = {
     -- teinte (0,95 ; 0,55 ; 1,00), éclats (0,85 ; 0,35 ; 1,00), carte (0,80 ; 0,25 ; 0,95), rose-violet.
     tint = { r = 0.62, g = 0.86, b = 1.00 },
     glint = { tint = { r = 0.40, g = 0.78, b = 1.00 }, min = 0.35, max = 0.75, period = 3 },
+    -- Feuille PROPRE du kit minerai (lot M1 ; direction K1, tools/render/pieces/ressources/directions.py : druses de
+    -- prismes bleu glacier sur roche grise, givre ; check_gisement 7 OK) : remplace le fer teinté pour le gisement, son
+    -- icône et l'objet ; `tint` reste la couleur de la technologie et des dérivés. Lueur bleu clair pulsée (3 s), faible de
+    -- jour, franche de nuit (la couche d'effet couvre 69 % du minerai). Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/cristal",
+      name = "cristal",
+      mining_visualisation_tint = { r = 0.55, g = 0.82, b = 1.00, a = 1 },
+      effet = { period = 3, deviation = 1, darkness_multiplier = 60, min = 0.03, max = 0.10 },
+    },
     -- Azur sur la carte : ΔE76 ≥ 39 de tous les minerais, fluides et sols (tungstène 39 ; galène, pétrole, eau plus loin).
     map_color = { r = 0.00, g = 0.70, b = 1.00 },
     mining_time = 1.5,

@@ -390,13 +390,16 @@ DIRECTIONS["G1"] = dict(
     # gangue : quelques roches de calcite (et de galène massive sombre)
     # essai 1 (32 éch.) : couverture 0,19 au stade 1 (0,32 en vanilla), pièces trop petites et galets de calcite épars
     # (« neige ») : cubes plus gros et plus nombreux, disque plus serré, calcite en grains seulement.
-    roches=(3, 3, 3, 2, 2, 2, 1, 1), roche_taille=(0.16, 0.24),
+    # production 1 (128 éch.) : couverture 0,240 / 0,246 / 0,251 / 0,234 / 0,226 / 0,180 / 0,109 / 0,079 contre la vanilla
+    # 0,316 / 0,270 / 0,231 / 0,202 / 0,165 / 0,138 / 0,090 / 0,055 (check_gisement : écart 0,076) : comptes recalés au
+    # rapport vanilla / mesuré, stade par stade.
+    roches=(4, 3, 3, 2, 1, 1, 1, 1), roche_taille=(0.16, 0.24),
     roche_mats=("galene_sombre", "calcite", "galene_sombre"),
     # cubes : le corps du gisement (hauteur = côté)
-    blocs=(12, 10, 9, 8, 7, 5, 3, 2), bloc_taille=(0.15, 0.24), bloc_haut=(0.13, 0.22),
+    blocs=(16, 11, 8, 7, 5, 4, 3, 1), bloc_taille=(0.15, 0.24), bloc_haut=(0.13, 0.22),
     bloc_mats=("galene", "galene", "galene", "galene_sombre", "blende"),
-    grains=(18, 15, 13, 11, 9, 7, 5, 3), grain_mats=("galene", "galene_sombre", "calcite"),
-    fins=(110, 95, 82, 70, 58, 46, 32, 18),
+    grains=(24, 16, 12, 9, 7, 5, 4, 2), grain_mats=("galene", "galene_sombre", "calcite"),
+    fins=(140, 100, 75, 60, 42, 35, 26, 13),
     fin_mats=("calcite", "galene_sombre", "calcite", "galene"),
     rayon=0.55,
     effet="eclats",
