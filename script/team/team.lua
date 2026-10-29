@@ -36,6 +36,7 @@ local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARD
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
+local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
@@ -720,6 +721,7 @@ function Team.think(f, surface, tick)
   -- Lot COUVERTURE : pièces de l'équipe détruites, à refaire (tâches « rebuild » ; rien tant que rien n'a été détruit).
   Recon.think(f, surface, tick)
   Recon.repair_think(f, surface, tick) -- lot RECONSTRUIRE : infrastructure électrique endommagée remise à neuf
+  Reparation.think(f, surface, tick) -- lot PD-REPARATION (D79) : autres bâtiments endommagés (labos, fours, assembleurs, foreuses...), toutes les équipes
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.start("team:market")
