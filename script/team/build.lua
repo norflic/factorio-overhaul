@@ -2428,7 +2428,11 @@ local function free_own_turrets(f, surface, p)
   for _, e in ipairs(p.ents) do
     if not e.built then
       local found, list = surface.find_entities_filtered({ area = footprint(e) }), {}
-      for _, x in ipairs(found) do list[#list + 1] = { name = x.name, force = x.force.name } end
+      -- seules les tourelles ENREGISTRÉES de l'équipe (posées par les avant-postes) comptent : jamais celle qu'un joueur a posée
+      for _, x in ipairs(found) do
+        local mine = x.unit_number ~= nil and f.turrets ~= nil and f.turrets[x.unit_number] ~= nil
+        list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree" }
+      end
       if Blocage.own_blockers(list, f.force, T.turret) then
         for _, x in ipairs(found) do
           if x.valid then x.destroy() n = n + 1 end
@@ -2452,8 +2456,10 @@ local function watch_stall(f, tick)
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p and STALL_STATES[p.state] then
-      if p.state == "bloque" then p.bloc_cause = Blocage.cause(p.state, p.reason) end
-      local cause = p.bloc_cause or Blocage.cause(p.state, p.reason)
+      local built = count_built(p)
+      if p.state == "bloque" then p.bloc_cause, p.bloc_built = Blocage.cause(p.state, p.reason), built end
+      -- la cause d'un blocage reste celle du blocage tant qu'aucune entité de plus n'est bâtie (reprise en « chantier » comprise)
+      local cause = (p.bloc_cause and p.bloc_built == built) and p.bloc_cause or Blocage.cause(p.state, p.reason)
       local rec, say = Blocage.stall(b.noprog[pid], count_built(p), cause, tick)
       b.noprog[pid] = rec
       if say and not b.noprog_dits[say] then

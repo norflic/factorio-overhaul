@@ -450,7 +450,9 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
     -- aucune place libre alentour : l'ancienne position (le projet se débloque alors par la reprise de build.lua)
     local pos = Blocage.first_free(Blocage.spots(s.x, s.y),
       function(c) return surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1) end,
-      function(q) return Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q) end)
+      function(q) -- réservée, ou hors de la zone voulue (accept) : on passe à la position suivante
+        return (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or (accept ~= nil and not accept(q))
+      end)
       or surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
     if pos and (accept == nil or accept(pos)) then
       local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
