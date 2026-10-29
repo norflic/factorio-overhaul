@@ -67,7 +67,7 @@ def minute_missing(txt):
 
 def analyse(arch):
     lines = lines_of(arch)
-    res = {"ttl": [], "plafond": [], "fini": {}, "annule": {}, "garde": [], "bilan": None, "erreurs": 0,
+    res = {"ttl": [], "plafond": [], "fini": {}, "annule": {}, "garde": [], "ordres_ttl": [], "bilan": None, "erreurs": 0,
            "capi_ordres": {}}
     hist = {}      # (faction, id) -> [(minute, total)]
     last_min = {}  # faction -> derniere minute vue
@@ -110,6 +110,11 @@ def analyse(arch):
         if m:
             d = res["capi_ordres"].setdefault(m.group(1), {"FINI": 0, "ECHOUE": 0})
             d[m.group(3)] += 1
+            why = m.group(5) or ""
+            if m.group(3) == "ECHOUE" and m.group(4) == "module" and ("aucun progres" in why or "plafond" in why):
+                # M-1 lu sur les lignes CAPI (le journal du plan directeur n'ecrit pas toujours « annule »)
+                res["ordres_ttl"].append({"faction": m.group(1), "ordre": m.group(2), "age": float(m.group(6)),
+                                          "minute": float(m.group(7)), "cause": "plafond" if "plafond" in why else "ttl"})
     # indicateurs fonctionnels
     data = FM.parse_lines(lines)
     fonc = {}
@@ -204,6 +209,8 @@ def main(argv):
             print(f"     temoin : {lt[:260] if lt else None}\n     lot    : {ll[:260] if ll else None}")
         for v, r in (("temoin", t), ("lot", l)):
             nb = sum(1 for x in r["ttl"] if x["baisse_30min"])
+            print(f"  {v:6s} M-1b (lignes CAPI ECHOUE aucun progres/plafond) : {len(r['ordres_ttl'])} " +
+                  "; ".join(f"{x['faction']} {x['ordre']} a {x['minute']} min (age {x['age']}, {x['cause']})" for x in r["ordres_ttl"]))
             print(f"  {v:6s} M-1 : annulations TTL {len(r['ttl'])} dont avec manque en baisse {nb} ; plafond {len(r['plafond'])} ; GARDE {len(r['garde'])} ; BILAN {r['bilan']} ; erreurs Lua {r['erreurs']}")
             for x in r["ttl"] + r["plafond"]:
                 print(f"           {x['faction']} projet {x['projet']} a {x['minute']} min : baisse={x['baisse_30min']} manque_affiche={x['manque_affiche']} serie={x['serie']}")
