@@ -107,3 +107,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~14 h 20, passage 31
 - Rien de nouveau : seule archive recente content-0614 (VAGUE3/INTEG) : BILAN 331 OK, 0 erreur Lua, 0 plantage. Aucune partie ni banc en cours (aucun factorio.exe, file vide, places = 1), 1 processus python sans rapport avec banc.py. Vague 3 en developpement statique (FONDERIES livre, 5 lots en cours).
+
+## 29/10 ~15 h 10, passage 32
+- Rien de nouveau : content-0615 et content-0616 (VAGUE3/INTEG) 331 OK, 0 erreur Lua, 0 plantage. Aucun factorio.exe, file des bancs vide. Workflow wf_90c72aba-bba (PRIORITE-RESSOURCES + audit capitalisation) en cours, statique, aucun banc.
