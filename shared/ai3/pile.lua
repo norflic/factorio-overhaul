@@ -61,6 +61,10 @@ Pi.LOG_EVERY = 5 * 3600 -- journal [FO-PILE] : toutes les 5 min (et à chaque ch
 -- Postes dont le manque est une CROISSANCE (lot DEFENSE-FRONT : tourelles en plus là où les pièces tombent) : leur manque
 -- de matière reste demandé, mais ils n'ouvrent pas de cadre (sinon la pile ne se viderait jamais).
 Pi.GROWTH_POSTS = { front = true }
+-- Intégration 0.6.19 (PILE-PRIORITE x ILOTS-MURS) : le poste de l'îlot isolé est FACULTATIF (shared/team/planner.lua, optional,
+-- « ressources d'abord », jamais devant la production) : il n'ouvre pas de cadre « protéger », sinon un îlot sans tourelles
+-- retiendrait le changement de foreuses, la migration du champ et l'amélioration (script/team/team.lua, PileRt.hold).
+Pi.OPTIONAL_POSTS = { ilot = true }
 -- Raisons du planificateur (plan.defend.posts[i].why) qui avancent ou peuvent avancer ; « recette » : aucune voie.
 Pi.POST_STUCK = { recette = true }
 
@@ -147,7 +151,7 @@ function Pi.update(st, sig, tick)
   end
   -- R1 : protéger (postes sous leur minimum).
   for _, p in ipairs(sig.posts or {}) do
-    if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] then
+    if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id] then
       local exec = not Pi.POST_STUCK[p.why or ""]
       for _, m in ipairs(sorted_keys(p.raw)) do
         if not has_source(sig, m) then exec = false end

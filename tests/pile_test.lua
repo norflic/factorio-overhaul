@@ -139,6 +139,9 @@ local function battery(Pi, C, B)
   -- h. Front exclu ; R0 ; pénurie.
   st = Pi.update(Pi.new(), sig({ posts = { { id = "front", have = 0, want = 6, why = "fer", raw = { [IRON] = 80 } } } }), 0)
   check(not st.hold and #st.frames == 0, "la croissance du front n'ouvre pas de cadre (sinon la pile ne se viderait jamais)")
+  -- Intégration 0.6.19 : le poste facultatif de l'îlot (ILOTS-MURS, « ressources d'abord ») n'ouvre pas de cadre non plus.
+  st = Pi.update(Pi.new(), sig({ posts = { { id = "ilot", have = 0, want = 2, why = "ressources" } } }), 0)
+  check(not st.hold and #st.frames == 0, "l'îlot isolé sans tourelles (poste facultatif) ne retient pas l'amélioration")
   st = Pi.update(Pi.new(), sig({ survive = "effectif" }), 0)
   check(st.top == Pi.SURVIVRE and st.hold, "sous l'effectif de départ : sommet survivre")
   -- Relecture : R0 n'est jamais « bloqué » ; sans recrue possible (plafond global d'agents), il gelait l'amélioration à vie.
@@ -309,6 +312,8 @@ local MUTANTS = {
     from = "    blocked = true\n", to = "    blocked = false\n" },
   { name = "front qui ouvre un cadre", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
     from = "Pi.GROWTH_POSTS = { front = true }", to = "Pi.GROWTH_POSTS = {}" },
+  { name = "îlot facultatif qui ouvre un cadre", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "Pi.OPTIONAL_POSTS = { ilot = true }", to = "Pi.OPTIONAL_POSTS = {}" },
   { name = "ordre interne ignoré", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
     from = "local pf = sig.production_first and true or false", to = "local pf = false" },
   { name = "pas de sous-cadre minerai", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
