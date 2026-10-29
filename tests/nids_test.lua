@@ -137,6 +137,19 @@ local function suite()
   local still = Nd.known(m, { { x = -300, y = 0 } }, 50)
   check(#still == 1, "le nid voisin non détruit reste connu")
 
+  section("voisinage connu")
+  local mk = K.new()
+  K.record(mk, K.key_of(100, 100), 10, { nests = { { x = 100, y = 100 } } })
+  check(not Nd.surroundings_known(mk, 100, 100, 56), "un seul secteur regardé : voisinage incomplet")
+  for sy = 0, 3 do for sx = 0, 3 do if not mk.s[K.key(sx, sy)] then K.record(mk, K.key(sx, sy), 10, { nests = {} }) end end end
+  check(Nd.surroundings_known(mk, 100, 100, 56), "tous les secteurs autour regardés : voisinage connu")
+  local many = {}
+  for i = 1, K.NEST_KEEP do many[i] = { x = 70 + i, y = 70 } end
+  K.record(mk, K.key_of(70, 70), 20, { nests = many })
+  check(not Nd.surroundings_known(mk, 100, 100, 56), "secteur à la limite de nids retenus : carte tronquée, voisinage incomplet")
+  local dp, wp = Nd.decide(ctx({ sites = { { x = 100, y = 0, sp = 2, wm = 1, complete = false } } }))
+  check(dp == nil and wp.partiels == 1, "site à voisinage incomplet : jamais une cible")
+
   section("attribution des rôles (Sd.assign)")
   local function soldiers(n)
     local out = {}
@@ -201,6 +214,11 @@ mutant("seuil de menace nul", function() patch(Nd, "MIN_MENACE", 0) patch(Nd, "M
 mutant("seuil du site frappé égal au seuil sans incident", function() patch(Nd, "MIN_MENACE_HIT", Nd.MIN_MENACE) end)
 mutant("seuil jamais abaissé par le surplus", function() patch(Nd, "SURPLUS_MAX", 1) end)
 mutant("plancher absolu nul", function() patch(Nd, "MIN_ABS", 0) end)
+mutant("voisinage jamais vérifié", function() patch(Nd, "surroundings_known", function() return true end)
+  local d0 = Nd.decide
+  patch(Nd, "decide", function(c) local j = {} for k, v in pairs(c) do j[k] = v end
+    local ss = {} for i, s in ipairs(c.sites or {}) do local t = {} for k, v in pairs(s) do t[k] = v end t.complete = nil ss[i] = t end
+    j.sites = ss return d0(j) end) end)
 mutant("portée des biens nulle", function() patch(Nd, "REACH", 0) end)
 mutant("repli jamais décidé", function() patch(Nd, "LOSS_MAX", 1001) end)
 mutant("repli trop tôt", function() patch(Nd, "LOSS_MAX", 100) end)

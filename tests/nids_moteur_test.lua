@@ -42,7 +42,19 @@ local function fresh(opts)
   if opts.known ~= false then
     local pts = {}
     for _, d in ipairs(list) do pts[#pts + 1] = { x = hx + d[1], y = hy + d[2] } end
+    if opts.partial then f.ai3f.m.s, f.ai3f.m.n = {}, 0 end -- seul le secteur du nid sera connu
     K.record(f.ai3f.m, K.key_of(pts[1].x, pts[1].y), game.tick, { nests = pts })
+    if opts.partial then
+      if W().remote["fo-ia3f"] then remote.call("fo-ia3f", "set_fog", false) end -- plus de regards : les secteurs voisins restent inconnus
+      return f, s, nests
+    end
+    -- le voisinage du site est regardé en entier (secteurs voisins vides)
+    for sy = -2, 2 do
+      for sx = -2, 2 do
+        local key = K.key(math.floor(pts[1].x / K.SECTOR) + sx, math.floor(pts[1].y / K.SECTOR) + sy)
+        if not f.ai3f.m.s[key] then K.record(f.ai3f.m, key, game.tick, { nests = {} }) end
+      end
+    end
   end
   return f, s, nests
 end
@@ -70,6 +82,12 @@ for _, ps in pairs(team(f).sd.per) do if ps.role == "clear" then clearing = clea
 check(o and clearing == o.engaged, "les engagés portent le rôle de nettoyage (" .. clearing .. ")")
 M.run_ticks(1200)
 check(stats(f).ops == 1, "toujours une seule opération à la fois")
+
+section("Voisinage du site pas entièrement regardé")
+local fp = fresh({ partial = true })
+M.run_ticks(3600 * 3)
+check((stats(fp).ops or 0) == 0, "un seul secteur regardé autour du nid : le nombre de nids connus est un minimum, on ne part pas")
+check(remote.call("fo-nids", "status", fp.key).sites[1].complete == false, "interface : site marqué incomplet")
 
 section("Nid inconnu, réglage éteint")
 local f2 = fresh({ known = false })

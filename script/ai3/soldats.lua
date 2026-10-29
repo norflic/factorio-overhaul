@@ -234,7 +234,10 @@ local function nids_sites(f, ns, assets, tick)
   if km then
     local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R)
     sites = Nd.sites(nests, worms)
-    for _, st in ipairs(sites) do st.seen = K.first_seen(km, K.key_of(st.x, st.y)) end
+    for _, st in ipairs(sites) do
+      st.seen = K.first_seen(km, K.key_of(st.x, st.y))
+      st.complete = Nd.surroundings_known(km, st.x, st.y, Nd.SURROUND_R)
+    end
   end
   ns.sites, ns.sites_t = sites, tick
   return sites
@@ -494,8 +497,8 @@ local function pass(f, tick)
       total = #list + group_n, idle = idle })
     if Profiler.enabled() and tick - (ns.log_t or -1e9) >= SD.NIDS_LOG then
       ns.log_t = tick
-      log(string.format("[FO-NIDS] %s etat tick %d : sites connus %d, trop faibles %d, en attente %d, armee trop courte %d, libres %d sur %d soldats, incidents %d, operations %d (detruits %d, replis %d, delais %d)",
-        tostring(f.key), tick, why.sites, why.faibles, why.attente, why.courts, idle, #list + group_n, #ns.inc,
+      log(string.format("[FO-NIDS] %s etat tick %d : sites connus %d, trop faibles %d, en attente %d, armee trop courte %d, voisinage a moitie connu %d, libres %d sur %d soldats, incidents %d, operations %d (detruits %d, replis %d, delais %d)",
+        tostring(f.key), tick, why.sites, why.faibles, why.attente, why.courts, why.partiels, idle, #list + group_n, #ns.inc,
         ns.stats.ops or 0, ns.stats.destroyed or 0, ns.stats.retreat or 0, ns.stats.timeout or 0))
       local c, w = why.court, why.faible
       if c then
@@ -656,14 +659,18 @@ remote.add_interface("fo-nids", {
     if km then
       local nests, worms = Nd.known(km, assets, Nd.REACH + Nd.SITE_R)
       sites = Nd.sites(nests, worms)
-      for _, st in ipairs(sites) do st.seen = K.first_seen(km, K.key_of(st.x, st.y)) end
+      for _, st in ipairs(sites) do
+        st.seen = K.first_seen(km, K.key_of(st.x, st.y))
+        st.complete = Nd.surroundings_known(km, st.x, st.y, Nd.SURROUND_R)
+      end
       Nd.rank(sites, assets, ns.inc, game.tick)
     end
     local menacing, out = 0, {}
     for i, st in ipairs(sites) do
       local floor = st.inc > 0 and Nd.MIN_MENACE_HIT or Nd.MIN_MENACE
       if st.menace >= floor then menacing = menacing + 1 end
-      out[i] = { x = st.x, y = st.y, sp = st.sp, wm = st.wm, menace = st.menace, prox = st.prox, inc = st.inc, seen = st.seen }
+      out[i] = { x = st.x, y = st.y, sp = st.sp, wm = st.wm, menace = st.menace, prox = st.prox, inc = st.inc, seen = st.seen,
+        complete = st.complete }
     end
     local sd = t.sd
     local op = sd and sd.nop

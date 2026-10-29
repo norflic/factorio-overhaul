@@ -33,6 +33,7 @@ Nd.ATTR_R = 240           -- un incident est rattaché au site le plus proche, �
 Nd.INC_TTL = 40 * 3600    -- un incident pèse de moins en moins et ne compte plus après 40 min
 Nd.MIN_MENACE = 250       -- menace minimale d'un site qui n'a encore rien frappé (nid à ~110 tuiles du QG, ou ~60 d'un avant-poste)
 Nd.MIN_MENACE_HIT = 120   -- menace minimale d'un site auquel un incident est rattaché
+Nd.SURROUND_R = 56        -- carré de demi-côté 56 (SITE_R + WORM_R) autour du site : tous ses secteurs doivent être regardés
 Nd.MIN_ABS = 60           -- jamais sous 60 de menace (un nid hors de portee de tout bien et sans incident n'est pas une cible)
 Nd.SURPLUS_MAX = 3        -- une armée libre qui dépasse le besoin de 2, 3 fois ... abaisse le seuil de menace (÷ 2, ÷ 3 au plus)
 Nd.KEEP_PM = 250          -- garnison gardée au QG : 25 % de l'effectif (pour mille)...
@@ -129,6 +130,23 @@ function Nd.purge(m, x, y, r)
     end
   end
   return n
+end
+
+--- Le voisinage d'un site est-il CONNU en entier ? Tous les secteurs qui touchent le carré de demi-côté r autour de (x, y)
+--- ont été regardés, et aucun n'a atteint la limite de nids retenus par secteur (K.NEST_KEEP : au-delà, la carte est tronquée).
+--- Un nid « vu » dans un secteur dont le voisin n'a jamais été regardé est le seul que l'on connaisse d'un champ qui en
+--- compte peut-être cinq (moteur réel, etape1-guide 20261020 : 1 nid connu, 5 au moteur, repli après 3 morts sur 7).
+function Nd.surroundings_known(m, x, y, r)
+  local x0, x1 = math.floor((x - r) / K.SECTOR), math.floor((x + r) / K.SECTOR)
+  local y0, y1 = math.floor((y - r) / K.SECTOR), math.floor((y + r) / K.SECTOR)
+  for sy = y0, y1 do
+    for sx = x0, x1 do
+      local s = m.s[K.key(sx, sy)]
+      if not s or not s.t then return false end
+      if #(s.sp or {}) >= K.NEST_KEEP or #(s.wm or {}) >= K.NEST_KEEP then return false end
+    end
+  end
+  return true
 end
 
 --- Nids et vers vus de la carte de connaissance m, dans le rayon r (tuiles) autour d'au moins un des points `around`
@@ -241,10 +259,10 @@ end
 --- Renvoie decision, why. decision = { x, y, sp, wm, menace, prox, inc, need, reserve, fails } ou nil ; why = { sites,
 --- faibles, attente, courts } (comptes, journal et mesure).
 function Nd.decide(ctx)
-  local why = { sites = 0, faibles = 0, attente = 0, courts = 0 }
+  local why = { sites = 0, faibles = 0, attente = 0, courts = 0, partiels = 0 }
   local sites = {}
   for _, s in ipairs(ctx.sites or {}) do
-    if (s.sp or 0) > 0 then sites[#sites + 1] = { x = s.x, y = s.y, sp = s.sp, wm = s.wm or 0, seen = s.seen } end
+    if (s.sp or 0) > 0 then sites[#sites + 1] = { x = s.x, y = s.y, sp = s.sp, wm = s.wm or 0, seen = s.seen, complete = s.complete } end
   end
   why.sites = #sites
   if #sites == 0 then return nil, why end
@@ -265,21 +283,20 @@ function Nd.decide(ctx)
     local floor = s.inc > 0 and Nd.MIN_MENACE_HIT or Nd.MIN_MENACE
     local k = (spare >= need and need > 0) and math.min(Nd.SURPLUS_MAX, math.floor(spare / need)) or 1
     floor = math.max(Nd.MIN_ABS, math.floor(floor / k))
-    if s.menace < floor then
+    if s.complete == false then
+      -- voisinage pas entièrement regardé (ou carte tronquée) : le nombre de nids connus est un minimum, on ne part pas
+      why.partiels = why.partiels + 1
+    elseif s.menace < floor then
       why.faibles = why.faibles + 1
       if not why.faible then why.faible = { x = s.x, y = s.y, sp = s.sp, wm = s.wm, menace = s.menace, inc = s.inc } end
+    elseif h and ctx.tick < h["until"] then
+      why.attente = why.attente + 1
+    elseif spare < need then
+      why.courts = why.courts + 1
+      if not why.court then why.court = { x = s.x, y = s.y, sp = s.sp, wm = s.wm, menace = s.menace, inc = s.inc, need = need, spare = spare } end
     else
-      if h and ctx.tick < h["until"] then
-        why.attente = why.attente + 1
-      else
-        if spare < need then
-          why.courts = why.courts + 1
-          if not why.court then why.court = { x = s.x, y = s.y, sp = s.sp, wm = s.wm, menace = s.menace, inc = s.inc, need = need, spare = spare } end
-        else
-          s.need, s.reserve, s.fails = need, reserve, fails
-          return s, why
-        end
-      end
+      s.need, s.reserve, s.fails = need, reserve, fails
+      return s, why
     end
   end
   return nil, why
