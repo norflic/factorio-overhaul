@@ -523,11 +523,38 @@ do -- ressources d'abord : un pas sans ses matériaux au coffre n'est pas lancé
   local n0 = #p.ents
   local h = play(f, p, 1, 0)
   check(h[1][3] == "materiaux" and #p.ents == n0 and p.state == "fini" and p.ligne.rows == 1, "fours absents du coffre : rien n'est rouvert (" .. tostring(h[1][3]) .. ")")
-  check((LOGS[1] or ""):find("manque au coffre {stone-furnace x2} (ajouter_fours remis)", 1, true) ~= nil, "journal : ce qui manque est dit : " .. tostring(LOGS[1]))
+  check((LOGS[1] or ""):find("manque au coffre {stone-furnace x2} (ajouter_fours remis, demande au cerveau)", 1, true) ~= nil, "journal : ce qui manque est dit : " .. tostring(LOGS[1]))
+  -- relecture : le manque est DEMANDÉ au cerveau (Build.brief.grow -> automatisation, but « alim ») ; sinon personne ne fabriquait les fours
+  local br = Build.brief(f, p.id)
+  check(br and br.grow and #br.grow == 1 and br.grow[1][1] == "stone-furnace" and br.grow[1][2] == 2,
+    "Build.brief.grow : les 2 fours du pas à fabriquer (" .. tostring(br and br.grow and #br.grow) .. ")")
   ITEMS = { ["inserter"] = 10, ["stone-furnace"] = 2 }
   h = play(f, p, 1, 0)
   check(h[1][3] == "ajouter_fours" and p.ligne.rows == 2, "fours arrivés au coffre : la rangée est lancée")
+  check(p.ligne.missing == nil and Build.brief(f, p.id).grow == nil, "pas lancé : plus rien demandé au cerveau")
   ITEMS = nil
+end
+
+do -- relecture : une pièce abandonnée (refus répétés, e.dropped) n'est plus attendue ; la ligne n'est pas figée en « pieces »
+  STOCK = 0
+  local p, g = make_project(6, 4)
+  local f = team(p)
+  game = FAKE_GAME
+  Build.ligne_split(f, p, g)
+  game = real_game
+  play(f, p, 1, 0)
+  local gone
+  for _, e in ipairs(p.ents) do if kind(e) == "furnace" then e.dropped = true; gone = string.format("%g,%g", e.x, e.y) break end end
+  STOCK = 1000
+  LOGS = {}
+  local h = play(f, p, 1, 0, { missing = { [gone] = true } })
+  check(h[1][3] ~= "attente" and not (LOGS[1] or ""):find("pieces manquantes", 1, true), "four abandonné : la ligne est relue (" .. tostring(h[1][3]) .. ")")
+  -- un four NON abandonné absent du monde : toujours « pieces » (le relevé de reconstruction le refait)
+  local gone2
+  for _, e in ipairs(p.ents) do if kind(e) == "furnace" and not e.dropped then gone2 = string.format("%g,%g", e.x, e.y) break end end
+  LOGS = {}
+  h = play(f, p, 1, 0, { missing = { [gone] = true, [gone2] = true } })
+  check((LOGS[1] or ""):find("pieces manquantes", 1, true) ~= nil or h[1][3] == "attente", "four détruit non abandonné : attente")
 end
 
 game, log, Stock.count, defines.entity_status = real_game, real_log, real_count, real_status
@@ -543,6 +570,11 @@ do
   check(src:find("if topts then Build.ligne_split(f, p, g) end", 1, true) ~= nil, "plan_project pose par étapes")
   check(src:find("Build.ligne_step(f, surface, tick) -- lot FONDERIE-DYNAMIQUE", 1, true) ~= nil, "Build.think relève les lignes")
   check(src:find("cfg.rows_floor", 1, true) == nil, "plus de plancher de rangées dans build.lua")
+  local auto_src = read("script/ai3/automatisation.lua")
+  check(auto_src:find("for _, g in ipairs(s and s.grow or {}) do", 1, true) ~= nil, "automatisation : les pièces du pas suivant (Build.brief.grow) deviennent un but « alim »")
+  check(src:find("if ligne_takes(ln, e, nr, np) and e.item then piece_needs(need, e) end", 1, true) ~= nil
+    and src:find("if M.BURNER_ARM and e.name == M.BURNER_ARM then bump(need, T.outposts.coal.product, 2) end", 1, true) ~= nil,
+    "ligne_missing compte comme needs_of (charbon d'amorce des bras à combustible)")
   check(src:find("if spec.shrunk then return cur end", 1, true) ~= nil, "garde CAPI-REPLI (spec.shrunk) intacte")
   local a = src:find("-- Lot FONDERIE-DYNAMIQUE : la ligne de fours suit", 1, true)
   local b = src:find("--- Foreuses de ravitaillement d'une voie", 1, true)

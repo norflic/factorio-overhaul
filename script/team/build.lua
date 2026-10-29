@@ -1191,7 +1191,8 @@ end
 -- (toutes les T.ligne.every ticks, projet « fini ») -> read_line (foreuses qui PRODUISENT, fours posés, au moteur) -> Fonte.step ->
 -- ligne_open (pièces rendues à p.ents, projet rouvert en « reserve ») -> chantier ordinaire (réserve au coffre, fantômes, PNJ) ->
 -- fours ou foreuses posés au bout de la ligne. Journal : [FO-FONTE] (une ligne par action, par changement d'état, au plus
--- Build.FONTE_LOGS par équipe). État écrit : p.ligne (lecteurs : Build.ligne_step, ligne_open, Build.status), p.ents (chantier).
+-- Build.FONTE_LOGS par équipe). État écrit : p.ligne (lecteurs : Build.ligne_step, ligne_open, Build.status ; p.ligne.missing : Build.brief.grow -> script/ai3/automatisation.lua,
+-- but « alim », le cerveau fabrique les pièces du pas suivant), p.ents (chantier).
 -- Projets d'avant ce lot (sans p.ligne) : inchangés, jamais relus.
 ---------------------------------------------------------------------------------------------------
 Build.FONTE_LOGS = 40 -- lignes [FO-FONTE] de la ligne dynamique, au plus, par équipe
@@ -1301,13 +1302,22 @@ local function ligne_takes(ln, e, nr, np)
   return (e.part == 1 and e.row and e.row <= nr) or (e.part == ln.part and e.pair and e.pair <= np)
 end
 
+--- Objets d'une pièce à poser, comme needs_of les compte pour la réserve (charbon d'amorce d'un bras à combustible compris, noms lus
+--- dans les données : M.BURNER_ARM, T.outposts.coal) ; sinon le pas rouvert attendait en « reserve » un charbon jamais compté
+--- (relecture FONDERIE-DYNAMIQUE).
+local function piece_needs(need, e)
+  bump(need, e.item)
+  if M.BURNER_ARM and e.name == M.BURNER_ARM then bump(need, T.outposts.coal.product, 2) end
+end
+
 --- « Ressources d'abord » : objets qui MANQUENT au stock libre (coffre moins les réserves des tâches, Board.view_stock) pour les pièces
 --- d'un pas. Un pas n'est lancé que tout réuni : un projet rouvert qui attend ses matériaux en « reserve » ne sert plus ses quais (charbon
---- des fours, quai_tasks ne tourne qu'en « fini » et « chantier ») et la partie déjà bâtie s'arrêterait. Rend une liste { objet, n } triée.
+--- des fours, quai_tasks ne tourne qu'en « fini » et « chantier ») et la partie déjà bâtie s'arrêterait. Rend une liste { objet, n } triée ;
+--- ligne_one la garde dans ln.missing, que le cerveau fabrique (Build.brief.grow).
 local function ligne_missing(f, ln, nr, np)
   local need = {}
   for _, e in ipairs(ln.held) do
-    if ligne_takes(ln, e, nr, np) and e.item then need[e.item] = (need[e.item] or 0) + 1 end
+    if ligne_takes(ln, e, nr, np) and e.item then piece_needs(need, e) end
   end
   local free = Board.view_stock(f, Stock.contents(f), game.tick)
   local out = {}
@@ -1342,13 +1352,31 @@ local function ligne_open(p, ln, add_r, add_p, tick)
   return moved
 end
 
---- Une ligne bâtie : relevé, décision (Fonte.step), action. Rend vrai si la ligne a été agrandie.
+--- Pièces POSÉES attendues d'une ligne (foreuses de ses paires, fours de ses rangées), lues dans p.ents : une pièce abandonnée (e.dropped :
+--- refus répétés ; e.gave_up : le relevé de reconstruction y a renoncé) n'est plus au monde et n'est plus attendue. Sans cela (2 × paires,
+--- 2 × rangées) une seule pièce abandonnée laissait la ligne en « pieces » pour toute la partie, sans croissance (relecture du lot).
+local function ligne_expected(p, ln)
+  local nd, nf = 0, 0
+  for _, e in ipairs(p.ents) do
+    if not (e.dropped or e.gave_up) then
+      if e.part == ln.part and e.pair then nd = nd + 1
+      elseif e.part == 1 and e.row and (M.spec(e.name) or {}).kind == "furnace" then nf = nf + 1 end
+    end
+  end
+  return nd, nf
+end
+
+--- Une ligne bâtie : relevé, décision (Fonte.step), action. Rend vrai si la ligne a été agrandie. Écrit ln.missing (lecteur : Build.brief,
+--- champ `grow`, puis script/ai3/automatisation.lua qui en fait un but « alim:<produit> » : le cerveau FABRIQUE les fours et foreuses du
+--- pas suivant ; sans lecteur, un pas « materiaux » n'avançait que si le coffre avait par hasard des pièces de rechange).
 local function ligne_one(f, surface, p, ln, cfg, tick)
   local r, why = read_line(f, surface, p, ln)
   local action, dec, cause = "attente", nil, "parties"
-  if r and (r.drills < 2 * ln.pairs or r.furnaces < 2 * ln.rows) then
+  ln.missing = nil
+  local want_d, want_f = ligne_expected(p, ln)
+  if r and (r.drills < want_d or r.furnaces < want_f or r.furnaces < 1) then
     cause = "pieces"
-    why = string.format("pieces manquantes (%d/%d foreuses, %d/%d fours) : releve de reconstruction", r.drills, 2 * ln.pairs, r.furnaces, 2 * ln.rows)
+    why = string.format("pieces manquantes (%d/%d foreuses, %d/%d fours) : releve de reconstruction", r.drills, want_d, r.furnaces, want_f)
   elseif r and r.other > 0 then
     cause = "arret"
     why = string.format("%d foreuse(s) a l'arret (courant, commande) : rien a mesurer", r.other)
@@ -1368,7 +1396,8 @@ local function ligne_one(f, surface, p, ln, cfg, tick)
       local parts = {}
       for _, m in ipairs(miss) do parts[#parts + 1] = m[1] .. " x" .. m[2] end
       action, cause = "materiaux", "materiaux:" .. dec.action
-      why = why .. " ; manque au coffre {" .. table.concat(parts, ", ") .. "} (" .. dec.action .. " remis)"
+      ln.missing = miss -- à fabriquer par le cerveau (Build.brief.grow -> automatisation, but « alim »)
+      why = why .. " ; manque au coffre {" .. table.concat(parts, ", ") .. "} (" .. dec.action .. " remis, demande au cerveau)"
     else
       moved = ligne_open(p, ln, dec.rows, dec.pairs, tick)
     end
@@ -3532,8 +3561,14 @@ function Build.brief(f, id)
   for _, q in ipairs(p.quais or {}) do
     if q.item and not seen[q.item] then seen[q.item] = true; quais[#quais + 1] = q.item end
   end
+  -- lot FONDERIE-DYNAMIQUE (relecture) : pièces du prochain pas d'une ligne dynamique FINIE qui manquent au coffre (ligne_one, ln.missing)
+  local grow
+  if p.state == "fini" and not p.abandoned and p.ligne and p.ligne.missing then
+    grow = {}
+    for _, m in ipairs(p.ligne.missing) do grow[#grow + 1] = { m[1], m[2] } end
+  end
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
-    retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais }
+    retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow }
 end
 
 Build.BURN_EVERY = 600 -- ticks : le relevé du charbon brûlé par les fours du plan se refait au plus toutes les 10 s
