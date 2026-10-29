@@ -1295,7 +1295,9 @@ function Build.add_poles(f, p, list)
   local added = {}
   for _, c in ipairs(list) do
     local tx, ty = math.floor(c.x), math.floor(c.y)
-    if masks.free(tx, ty) and not masks.clear[P.tkey(tx, ty)] then
+    -- masks.clear (arbres, rochers, objets neutres) n'écarte plus la tuile : l'appelant a déjà demandé au moteur si le poteau tient (arbre :
+    -- refusé là), et un objet au sol est retiré à la pose (clear_floor). Mesuré le 29/10 : tuile écartée ici, chaîne de couverture cassée.
+    if masks.free(tx, ty) then
       local e = { name = c.name, x = tx + 0.5, y = ty + 0.5, dir = 0, role = "couverture", part = 1 }
       if reserve_tiles(b, p, { e }) then added[#added + 1] = e end
     end
