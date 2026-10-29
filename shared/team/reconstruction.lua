@@ -171,7 +171,7 @@ end
 --- `missing_of(c)` : la matière brute qui manque pour fabriquer c à la main { [objet] = n }, ou nil (non fabricable à la main) ;
 --- `harvestable(objet)` : une entité du monde donne-t-elle cet objet SANS gisement de minerai (arbres) ? Une matière non récoltable
 --- (acier, cuivre absent) écarte le candidat : récolter ne débloquerait rien.
-Rc.GATHER_BATCH = 10     -- bois récolté par tâche (au moins) : 2 arbres donnent 8
+Rc.GATHER_BATCH = 2      -- bois récolté par tâche (au moins) : 1 bois = 2 petits poteaux ; mesuré en moteur réel : couper 10 prend plus de 90 s
 Rc.GATHER_MAX = 20
 function Rc.gather_qty(n) return math.min(Rc.GATHER_MAX, math.max(Rc.GATHER_BATCH, n or 0)) end
 

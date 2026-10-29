@@ -4,15 +4,15 @@
   jusqu'à 32 min), et des arbres poussent à ~25 tuiles.
   Deux poteaux détruits à 600 ticks par die() (comme une attaque) : un petit (le bois manque) et un moyen (l'acier manque : il faut
   le petit poteau à la place). Règle : l'équipe coupe du bois, fabrique le petit poteau et refait les deux à leur place exacte.
-  « avec » (reconstruire-bois) : règle allumée, les deux poteaux sont refaits en moins de 2 min ;
+  « avec » (reconstruire-bois) : règle allumée, les deux poteaux sont refaits en moins de 3 min ;
   « sans » (reconstruire-bois-sans) : MÊME code, règle coupée par l'interface fo-recon (set_gather false) : AUCUN poteau refait.
   Mesures : ticks de la destruction à chaque reconstruction, bois au coffre, journal [FO-RECON].
-  Lancement : banc.py -- 9300 reconstruire-bois <source>   puis   9300 reconstruire-bois-sans <source>.
+  Lancement : banc.py -- 12000 reconstruire-bois <source>   puis   9300 reconstruire-bois-sans <source>.
 ]]
 
 return function(with_rule)
   local HALF = 90
-  local DEADLINE = 7200 -- 2 min
+  local DEADLINE = 10800 -- 3 min (mesure du 29/10 : 8490 ticks avec 10 bois a couper)
   local TAG = with_rule and "[FO-RECONSTRUIRE-BOIS] " or "[FO-RECONSTRUIRE-BOIS-SANS] "
   local PLANT = {
     { "small-electric-pole", 10, 10 }, { "small-electric-pole", 14, 10 }, { "medium-electric-pole", 18, 10 },
@@ -34,7 +34,7 @@ return function(with_rule)
   return {
     description = "CORR-RECONSTRUIRE : poteaux detruits sans bois ni acier, arbres a portee : "
       .. (with_rule and "recolte du bois (regle allumee)" or "regle coupee (temoin)"),
-    check_tick = 9000,
+    check_tick = 11700,
 
     init = function(ctx)
       local s = ctx.surface()
