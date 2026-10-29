@@ -7,6 +7,7 @@
 ]]
 package.path = "./?.lua;" .. package.path
 local FE = require("shared.team.fer_equipe")
+local RES = 750 -- valeur arbitraire de réserve pour les contrôles du planificateur (le plancher du lot est supprimé)
 local Fond = require("shared.team.fond")
 local Planner = require("shared.team.planner")
 local Book = require("shared.team.book")
@@ -25,12 +26,12 @@ check(not FE.defended({ turret_ok = false, hq_turrets = 4, defend_hq = 4, outpos
 check(not FE.defended({ turret_ok = true, hq_turrets = 3, defend_hq = 4, outposts = {} }), "QG 3/4 : non couvert")
 check(not FE.defended({ turret_ok = true, hq_turrets = 4, defend_hq = 4, outposts = { { turrets = 0, need = 1 } } }), "un avant-poste nu : non couvert")
 check(FE.defended({ turret_ok = true, hq_turrets = 0, defend_hq = 0 }), "sans exigence : couvert")
-check(FE.reserve(nil, false) == FE.START_RESERVE, "non couvert, sans croissance : réserve de départ")
-check(FE.reserve(400, false) == FE.START_RESERVE, "non couvert, réserve de croissance 400 : la plus haute")
-check(FE.reserve(900, false) == 900, "non couvert, croissance 900 : la plus haute")
+check(FE.reserve(nil, false) == nil, "non couvert, sans croissance : aucune réserve (plancher supprimé)")
+check(FE.reserve(400, false) == 400, "non couvert, réserve de croissance 400 : la réserve habituelle seule")
+check(FE.reserve(900, false) == 900, "non couvert, croissance 900 : la réserve habituelle")
 check(FE.reserve(400, true) == 400, "couvert : réserve de croissance")
 check(FE.reserve(nil, true) == nil and FE.reserve(0, true) == nil, "couvert sans croissance : aucune réserve")
-check(FE.START_RESERVE == 750, "30 % de 2 500")
+check(FE.START_RESERVE == nil, "plancher de 750 supprimé")
 
 -- §2
 local function em(over)
@@ -62,20 +63,20 @@ local function view(over)
   return v
 end
 local function stock(iron) return { ["iron-plate"] = iron, ["copper-plate"] = 200, pistol = 5, ["firearm-magazine"] = 50, coal = 100 } end
-local rich = Planner.plan(view({ stock = stock(2500), iron_reserve = FE.START_RESERVE }), book)
+local rich = Planner.plan(view({ stock = stock(2500), iron_reserve = RES }), book)
 check(rich.recruit_workers == 1, "2 500 plaques, réserve 750 : la recrue part")
-local poor = Planner.plan(view({ stock = stock(FE.START_RESERVE + 20), iron_reserve = FE.START_RESERVE }), book)
+local poor = Planner.plan(view({ stock = stock(RES + 20), iron_reserve = RES }), book)
 check(not poor.recruit_workers and poor.recruit_held and poor.grow_short, "coffre à la réserve : recrue retenue")
-local edge_need = FE.START_RESERVE
+local edge_need = RES
 for _, it in ipairs(cost) do if it[1] == "iron-plate" then edge_need = edge_need + it[2] end end
 -- (le plan retire d'abord ~40 plaques d'autres besoins : on contrôle un peu au-dessus et un peu au-dessous du seuil)
-local edge = Planner.plan(view({ stock = stock(edge_need + 60), iron_reserve = FE.START_RESERVE }), book)
+local edge = Planner.plan(view({ stock = stock(edge_need + 60), iron_reserve = RES }), book)
 check(edge.recruit_workers == 1, "réserve + coût + 60 : la recrue part")
-local below = Planner.plan(view({ stock = stock(edge_need - 1), iron_reserve = FE.START_RESERVE }), book)
+local below = Planner.plan(view({ stock = stock(edge_need - 1), iron_reserve = RES }), book)
 check(not below.recruit_workers and below.grow_short, "un de moins : retenue")
-local sans = Planner.plan(view({ stock = stock(FE.START_RESERVE + 20) }), book)
+local sans = Planner.plan(view({ stock = stock(RES + 20) }), book)
 check(sans.recruit_workers == 1, "sans iron_reserve (factions, tests d'avant) : règle d'avant")
-local floorv = Planner.plan(view({ workers = 5, stock = stock(100), iron_reserve = FE.START_RESERVE }), book)
+local floorv = Planner.plan(view({ workers = 5, stock = stock(100), iron_reserve = RES }), book)
 check(not floorv.grow_short, "sous l'effectif de départ : la réserve ne retient pas (survie)")
 local old = Planner.plan(view({ stock = stock(300), grow_reserve = 400 }), book)
 check(not old.recruit_workers and old.grow_short, "ancienne réserve de croissance seule : inchangée")

@@ -5,9 +5,9 @@
   Constat mesuré (fo-logs/2026-10-29_NUIT/EFFECTIF) : votre équipe dépensait ses 2 500 plaques de départ en 10 recrues avant la
   4e minute, puis son coffre restait entre 6 et 259 plaques ; 48 à 80 % de ses PNJ étaient inactifs, sans site de fer libre.
 
-  1. RÉSERVE de fer (FE.reserve) : tant que la défense n'est pas couverte (tourelles du QG, avant-postes défendus, tourelle
-     possible), les recrues AU-DELÀ de l'effectif de départ ne peuvent pas descendre le coffre sous FE.START_RESERVE plaques
-     (au moins la réserve de croissance habituelle). Avant le lot, sans tourelle possible, aucune réserve ne s'appliquait.
+  1. RÉSERVE de fer (FE.reserve) : SUPPRIMÉE le 29/10 sur décision du DC (« enlevez la limite, le vrai problème du fer c'est
+     principalement le fait qu'ils ne capitalisent pas assez »). La réserve de 750 plaques retenait les recrues au-delà de
+     l'effectif de départ ; il ne reste que la réserve de croissance habituelle (T.grow_iron_reserve), quelle que soit la défense.
   2. MINAGE DE FER pour les inactifs (FE.extra_mines) : tant que le coffre est pauvre en fer ET en minerai, jusqu'à
      FE.EXTRA_CAP PNJ sans tâche minent du minerai de fer À LA MAIN près du coffre (rayon T.near_mine), en plus du plafond
      général du travail manuel (O.manual_cap, qui bridait à 20 % des exécutants). Sans gisement libre à portée, le minage
@@ -16,7 +16,6 @@
 
 local FE = {}
 
-FE.START_RESERVE = 750 -- 30 % du coffre de départ de référence (2 500 plaques) : fer gardé tant que la défense n'est pas couverte
 FE.IRON_ENOUGH = 1000  -- au-delà, plus de minage de renfort : le coffre a du fer
 FE.ORE_ENOUGH = 300    -- minerai déjà au coffre (à fondre) au-delà duquel on ne mine pas plus
 FE.EXTRA_CAP = 4       -- PNJ de renfort au plus (en plus du plafond général du minage à la main)
@@ -33,11 +32,9 @@ function FE.defended(a)
 end
 
 --- Fer à garder au coffre avant une recrue de croissance. base = réserve de croissance habituelle (nombre, ou nil/0 si elle ne
---- s'applique pas), defended = FE.defended. Rend un nombre ou nil (aucune réserve).
-function FE.reserve(base, defended)
-  base = (base and base > 0) and base or nil
-  if defended then return base end
-  return (base and base > FE.START_RESERVE) and base or FE.START_RESERVE
+--- s'applique pas). Rend un nombre ou nil (aucune réserve). `defended` est ignoré : plus de plancher de défense (décision du DC).
+function FE.reserve(base, _defended)
+  return (base and base > 0) and base or nil
 end
 
 --- Nombre de minages à la main de fer de renfort. a = { idle (PNJ sans tâche), plates (fer libre au coffre), ore (minerai libre),

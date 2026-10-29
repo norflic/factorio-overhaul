@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.16
+Date: 2026-10-29
+  Changes:
+    - Fer de votre equipe : la reserve de 750 plaques est supprimee (decision du DC : le vrai probleme est la capitalisation, pas la limite).
+      Il ne reste que la reserve de croissance habituelle ; les recrues au-dela de l'effectif de depart ne sont plus retenues.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.15
 Date: 2026-10-29
   Changes:
