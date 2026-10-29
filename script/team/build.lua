@@ -31,6 +31,7 @@ local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
+local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -359,6 +360,9 @@ local function lot_center(b, l)
 end
 
 --- Lots candidats d'une sorte, triés par distance à `toward` (puis i, j).
+Build.AVOID_MARGIN = 8 -- tuiles ajoutées au rayon d'un site écarté (le lot fait 32 tuiles de côté)
+local REUSE_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true } -- projets dont les poteaux existent ou vont exister
+
 local function candidates(b, states, toward, res)
   local out = {}
   for _, k in ipairs(sorted_keys(b.lots)) do
@@ -369,7 +373,17 @@ local function candidates(b, states, toward, res)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
     if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
-      out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
+      -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
+      local avoided = false
+      if states.rive and b.avoid then
+        for _, a in ipairs(b.avoid) do
+          local m = a.r + Build.AVOID_MARGIN
+          if (c.x - a.x) * (c.x - a.x) + (c.y - a.y) * (c.y - a.y) <= m * m then avoided = true break end
+        end
+      end
+      if not avoided then
+        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
+      end
     end
   end
   table.sort(out, function(a, c) if a.d ~= c.d then return a.d < c.d end return a.k < c.k end)
@@ -667,6 +681,18 @@ local function plan_power(f, p, mp, masks)
     local tx, ty = math.floor(x), math.floor(y)
     return masks.free(tx, ty) and not taken[P.tkey(tx, ty)] and not masks.clear[P.tkey(tx, ty)]
   end
+  -- lot CORR-RESEAU : poteaux déjà prévus ou posés (ce projet, puis les projets en chantier ou finis) que les chaînes traversent au
+  -- lieu d'en doubler un (seuls comptent ceux dont la portée de fil atteint celle de la chaîne ; shift_pole n'est pas touché)
+  local known = {}
+  local function add_known(e)
+    if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= reach - 1e-9 then known[#known + 1] = { x = e.x, y = e.y } end
+  end
+  for _, e in ipairs(p.ents) do add_known(e) end
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    -- centrale abandonnée exclue : reseau_vivant ne rouvre plus ses poteaux, on ne s'appuie pas sur eux
+    if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then for _, e in ipairs(q.ents) do add_known(e) end end
+  end
   local prev
   for _, n in ipairs(nodes) do
     local k = P.lot_key(n.i, n.j)
@@ -680,7 +706,7 @@ local function plan_power(f, p, mp, masks)
     -- poteaux de rue : moyens, ou grands quand deux carrefours décalés passent la portée
     local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
     if prev and (not big or d2 > reach * reach - 1e-6) then
-      local chain = P.pole_chain(prev, pos, reach, big, free)
+      local chain = P.pole_chain(prev, pos, reach, big, free, known)
       if not chain then return nil, "poteaux de rue" end
       for _, c in ipairs(chain) do
         local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
@@ -693,7 +719,7 @@ local function plan_power(f, p, mp, masks)
   -- liaison du module au carrefour le plus proche (poteaux du gabarit : moyens)
   local npos = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
   local link_reach = math.min(reach, P.wire(mp.name) or 9)
-  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free)
+  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
   if not chain then return nil, "liaison electrique" end
   for _, c in ipairs(chain) do
     local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
@@ -1305,6 +1331,9 @@ function Build.cancel(f, id, why)
   local b = f and f.build
   local p = b and b.projects[id]
   if not (p and (p.state == "attente" or p.state == "plan" or p.state == "reserve")) then return false end
+  if p.reopened then return false end -- lot CORR-RESEAU : un projet déjà bâti dont des pièces sont à refaire n'est pas annulable
+  -- lot CORR-RESEAU : la centrale de remplacement (p.keep) n'est annulée que par la santé du réseau (raison « reseau: ... »)
+  if p.keep and not tostring(why):find("^reseau") then return false end
   release(f, p)
   for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
   for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
@@ -1393,11 +1422,28 @@ end
 
 --- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "pnj" (un personnage
 --- debout dessus, passager), "occupe" (autre).
+--- Lot CORR-RESEAU : retire les RESTES neutres (cadavres de machine, objets au sol) de l'emprise d'une pièce à poser, marge de 0,6.
+--- Mesuré le 29/10 (essai court 20261020, journal [FO-IA1D]) : la chaudière détruite d'une centrale n'était jamais reposée, son
+--- fantôme refusé « occupe » 11 min de suite, l'emprise ne portant plus que deux item-on-ground neutres au bord (les bras à combustion
+--- de la centrale y lâchent leur charbon, la cible ayant disparu) ; un cadavre seul ne bloque pas (expérience reseau-restes).
+local function clear_floor(surface, e)
+  local a = footprint(e)
+  local n = 0
+  for _, d in ipairs(surface.find_entities_filtered({ area = { { a[1][1] - 0.6, a[1][2] - 0.6 }, { a[2][1] + 0.6, a[2][2] + 0.6 } },
+    type = { "corpse", "item-entity" }, force = "neutral" })) do
+    if d.valid then d.destroy() n = n + 1 end
+  end
+  return n
+end
+
 local function place_ghost(surface, f, e)
   if find_real(surface, e, f.force) then return "deja" end
   if find_ghost(surface, e, f.force) then return "ok" end
-  if not surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
-    build_check_type = defines.build_check_type.ghost_revive }) then
+  local function can_place()
+    return surface.can_place_entity({ name = e.name, position = { e.x, e.y }, direction = e.dir, force = f.force,
+      build_check_type = defines.build_check_type.ghost_revive })
+  end
+  if not can_place() and not (clear_floor(surface, e) > 0 and can_place()) then
     local area = footprint(e)
     if surface.count_entities_filtered({ area = area, type = TREE_TYPES, limit = 1 }) > 0 then return "obstacle" end
     if npc_on(surface, e) then return "pnj" end
@@ -1579,6 +1625,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
       return false
     end
   end
+  clear_floor(surface, e) -- les bras de la centrale relâchent du charbon sur l'emprise d'une chaudière détruite, même sous le fantôme
   inv.remove({ name = e.item, count = 1 })
   local _, ent = gh.revive({ raise_revive = true })
   if not (ent and ent.valid) then
@@ -2023,10 +2070,13 @@ local function finish_project(f, surface, p, tick)
   release(f, p)
   p.state = "fini"
   p.finished = tick
-  for _, pt in pairs(p.parts) do
-    if pt then b.stats.modules_done = b.stats.modules_done + 1 end
+  if not p.counted then -- lot CORR-RESEAU : un projet rouvert puis refini ne compte qu'une fois
+    p.counted = true
+    for _, pt in pairs(p.parts) do
+      if pt then b.stats.modules_done = b.stats.modules_done + 1 end
+    end
+    b.stats.projects_done = b.stats.projects_done + 1
   end
-  b.stats.projects_done = b.stats.projects_done + 1
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n].built = true end end
   log(string.format("[FO-IA1D] %s : projet %d fini (%s, %d entites, %d fils) a %.1f min", f.key or "player", p.id,
     p.parts[1] and p.parts[1].key or "?", #p.ents, p.wired or 0, tick / 3600))
@@ -2185,6 +2235,8 @@ local function pulse_team(f, tick)
   -- 3. lot PLANDIR : moniteur de la centrale finie (premier courant, pannes)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
+  -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
+  Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
 end
 
 local function teams()
@@ -2384,7 +2436,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead")) then return nil end
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante")) then return nil end
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

@@ -255,6 +255,14 @@ local function reserve_clock(obj, since_key, left_key, brief, tick)
 end
 
 local function refresh(f, st, tick)
+  -- Lot CORR-RESEAU : la centrale détruite en site dangereux a été redemandée AILLEURS (script/team/reseau_vivant.lua) : le
+  -- suivi (objets à réunir, état) passe à la nouvelle demande.
+  if st.plant_id and f.build and f.build.plant and f.build.plant ~= st.plant_id then
+    local old = f.build.projects[st.plant_id]
+    if old and old.abandoned then
+      st.plant_id, st.plant_state, st.plant_reserve_since, st.plant_reserve_left = f.build.plant, nil, nil, nil
+    end
+  end
   -- Centrale (demandée AVANT le premier module électrique) : son état ; refusée, les modules électriques attendent que la
   -- raison change (signature).
   if st.plant_id and f.build then
