@@ -31,6 +31,7 @@
 ]]
 
 local T = require("shared.team.config")
+local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
 
 local F = {}
 
@@ -164,6 +165,12 @@ local function extraction(view, free, ctx, out)
         smelt[p] = math.min(F.SMELT_BATCH, math.floor(ore / input[2]))
         any = true
       end
+    end
+    -- Lot FOURS : et seulement si la tournée sert (view.four_rule : fours libres ou à compléter, shared/team/chaine_main.lua).
+    if any and view.four_rule and not ChaineMain.smelt_worth({ smelt = smelt, inputs = T.smelter_inputs, stock = free,
+      output = view.smelter_output, fuel_low = view.smelter_fuel_low, fuel_stock = free[T.fuel] or 0, free = view.smelters_free,
+      loads = view.smelter_loads, collect_min = T.smelt_collect_min }) then
+      any = false
     end
     if any then
       out[#out + 1] = { key = "smelt", kind = "smelt", prio = F.PRIO.smelt, smelt = smelt, fond = true, domain = "gisements" }

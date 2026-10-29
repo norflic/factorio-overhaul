@@ -138,6 +138,13 @@ T.hq_rows.annex = { origin = { -5, 5 }, dir = { 1, 1 }, gap = { 1, 1 }, first = 
 -- limitée à 20 minerais par tournée.
 T.smelt_per_furnace = 5
 T.smelt_trip_min = 20
+-- Lot FOURS : en dessous de ce nombre de plaques en sortie des fours, une tournée de fonte ne part pas pour les vider seules
+-- (shared/team/chaine_main.lua ; abaissé à la demande quand elle est plus petite).
+T.smelt_collect_min = 10
+-- Lot FOURS (remarque 12 : « en charbon... en mettre un max ») : combustible visé dans un four du QG, et rechargé seulement quand il
+-- est tombé au tiers de cette cible (hystérésis : une visite pour vider les plaques ne rajoute plus « un charbon par passage »).
+-- 20 charbons = 14 min de fonte d'un four de pierre (90 kW, 4 MJ le charbon) ; la pile de 50 minerais en demande 4.
+T.smelter_fuel_to = 20
 
 -- Tourelles : munitions visées par tourelle, seuil de ravitaillement.
 T.turret_ammo_target = 20

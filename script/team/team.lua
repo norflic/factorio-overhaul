@@ -15,6 +15,7 @@ local T = require("shared.team.config")
 local Fondation = require("shared.team.fondation") -- lot KIT : kit de départ commun aux deux équipes
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
+local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
 local Scale = require("shared.team.scale")
 local O = require("shared.team.org")
 local ChefRules = require("shared.faction.chef") -- lot IA2-a : ordre des objectifs choisi par le chef
@@ -496,6 +497,10 @@ function Team.view(f, tick)
   end
   if grow_due then recruit_held = false end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
+  -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
+  local four_rule = Outposts.four_rule(f)
+  local smelter_free, smelter_loads
+  if four_rule then smelter_free, smelter_loads = Outposts.smelters_gate(f) end
   -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
   local stock_free = Board.view_stock(f, stock_of(f), tick, true)
   local threatened = tick < (f.threatened_until or 0)
@@ -534,6 +539,7 @@ function Team.view(f, tick)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
+    four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
@@ -599,6 +605,13 @@ function Team.think(f, surface, tick)
   -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
   local ia3 = Ia3.active(f, tick)
   local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
+  -- Lot FOURS (remarque 13 du DC) : une tournée de fonte ne part que si elle sert (shared/team/chaine_main.lua) : minerai à
+  -- charger dans un four libre ou à compléter, sortie qui vaut le déplacement, four à ravitailler avec du charbon au coffre.
+  if view.four_rule then
+    plan.tasks = ChaineMain.filter_tasks(plan.tasks, { inputs = T.smelter_inputs, stock = view.stock, output = view.smelter_output,
+      fuel_low = view.smelter_fuel_low, fuel_stock = view.stock[T.fuel] or 0, free = view.smelters_free, loads = view.smelter_loads,
+      collect_min = T.smelt_collect_min })
+  end
   Profiler.stop("team:plan")
 
   for _, key in ipairs(plan.reached) do
