@@ -55,7 +55,10 @@ function Rv.reopen(q, ents, why, surface)
   for _, e in ipairs(ents) do
     e.built, e.ghosted, e.fails, e.npc_blocks = false, nil, 0, 0
   end
-  if q.state == "fini" then q.state, q.reason, q.reserve_next = "reserve", why, nil end
+  if q.state == "fini" then
+    q.counted = true -- déjà compté aux statistiques : une sauvegarde d'avant ce drapeau ne recompte pas au « fini » suivant
+    q.state, q.reason, q.reserve_next = "reserve", why, nil
+  end
   q.reopened = (q.reopened or 0) + 1
   q.reopened_tick = game.tick
 end

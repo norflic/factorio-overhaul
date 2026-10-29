@@ -202,6 +202,7 @@ do
   check(not q.ents[1].built and not q.ents[2].built and q.ents[3].built and q.ents[4].built, "site sur : la pompe et le poteau restent bâtis")
   check(q.state == "reserve", "site sur : le projet repasse en réserve (machinerie de pose habituelle) : " .. tostring(q.state))
   check(q.reopened == 1, "site sur : un seul comptage de réouverture")
+  check(q.counted == true, "site sur : le projet rouvert est marqué compté (pas de double compte aux statistiques au « fini » suivant)")
   check(requested == nil, "site sur : pas de nouvelle centrale")
   -- tant que le projet est rouvert, la santé attend (centrale pas finie) et ne rouvre pas une seconde fois
   run(f, w, 1200 * 7, 1200 * 14)

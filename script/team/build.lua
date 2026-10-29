@@ -690,7 +690,8 @@ local function plan_power(f, p, mp, masks)
   for _, e in ipairs(p.ents) do add_known(e) end
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
-    if q and q ~= p and REUSE_STATES[q.state] then for _, e in ipairs(q.ents) do add_known(e) end end
+    -- centrale abandonnée exclue : reseau_vivant ne rouvre plus ses poteaux, on ne s'appuie pas sur eux
+    if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then for _, e in ipairs(q.ents) do add_known(e) end end
   end
   local prev
   for _, n in ipairs(nodes) do
