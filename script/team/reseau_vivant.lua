@@ -328,7 +328,10 @@ function Rv.step(api, f, surface, tick)
     end
     sv.net_next = tick + 1200 -- relire vite après la remise en état
   elseif action == "combustible" then
-    say(f, tick, "centrale: " .. why .. " (combustible : pas un probleme de reseau, les bras de la centrale s'en chargent)")
+    if tick >= (sv.comb_next or 0) then
+      sv.comb_next = tick + Rv.LOG_EVERY
+      say(f, tick, "centrale: " .. why .. " (combustible : pas un probleme de reseau, les bras de la centrale s'en chargent)")
+    end
   end
 end
 
