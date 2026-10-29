@@ -117,7 +117,7 @@ T.hq_rows_slack = 2
 -- ANNEXES du QG (lot COFFRE, constat du DC du 27/10, 18 h 50 : « le coffre est complètement rempli depuis un bon moment mais
 -- il est jamais vidé, il y a jamais d'autres coffres alors qu'il y a 15 coffres [en stock] »). Le coffre du QG a un nombre de
 -- cases fini (T.hq_inventory ; 96 pour le coffre de votre équipe) : plein, plus aucun ouvrier ne peut y déposer et la partie
--- s'arrête. Des coffres supplémentaires se posent donc autour du QG (rangées `T.hq_rows.annex`, sud) dès que les cases se
+-- s'arrête. Des coffres supplémentaires se posent donc autour du QG (bloc `T.annex.block`, côté extérieur) dès que les cases se
 -- remplissent ; le STOCK de l'équipe est le coffre du QG ET ses annexes (script/team/stock.lua : toute lecture, prise et
 -- dépôt passe par là). Données (aucun objet écrit dans le cerveau) :
 --   kinds    : coffres posables, dans l'ordre de préférence ; `slots` = cases (pour estimer le besoin) ; `cheap` = ne coûte
@@ -125,13 +125,25 @@ T.hq_rows_slack = 2
 --   grow_at  : remplissage (cases prises / cases) du total QG + annexes à partir duquel un coffre se pose ;
 --   park_at  : remplissage du coffre du QG à partir duquel l'excédent passe aux annexes, jusqu'à park_to ;
 --   keep     : piles d'un même objet laissées dans le coffre du QG au rangement (le reste, par piles entières, part aux annexes) ;
---   max      : annexes au plus.
+--   max      : annexes au plus (= les places du bloc ci-dessous au sud ; A.capacity les recompte selon la face et l'emprise) ;
+--   early_*  : AGRANDISSEMENT RÉGULIER (lot STOCKAGE, remarque 9 du DC : « agrandir régulièrement le stockage »). Sans attendre
+--              grow_at, un coffre de plus se pose quand le total QG + annexes reste à early_at ou plus pendant early_ticks de
+--              suite (la fenêtre repart si le remplissage tombe sous early_keep, et repart à chaque pose : au plus un coffre
+--              toutes les 5 min par ce chemin), OU quand un dépôt a été refusé il y a moins de refused_ticks (coffre plein
+--              pour l'objet, quel qu'il soit : aucun nom d'objet en dur) ;
+--   retry    : ticks d'attente après un échec de pose avec un coffre en main (plus de place libre dans le bloc) ;
+--   gap      : tuiles libres autour d'une annexe (les PNJ passent) ;
+--   block    : BLOC des annexes, en tuiles depuis le centre du QG : rangées de near à far dans le sens de l'EXTÉRIEUR, colonnes
+--              de -half à +half. Il reste DANS le lot (0, 0) du treillis (shared/team/plan.lua : 24 × 24, demi-côté 12) : ni
+--              rue (tapis, poteaux) ni lot voisin du plan directeur. Au sud, 12 colonnes × 4 rangées = 48 places (24 avant) ;
+--              au nord (QG au nord de l'origine de la carte), half = 7 pour laisser les fours (est, x >= 8) et les laboratoires
+--              (ouest, x <= -8,5) : 8 colonnes × 4 rangées = 32 places. Les places les plus proches du QG d'abord.
 T.annex = {
   kinds = { { item = "iron-chest", slots = 32 }, { item = "wooden-chest", slots = 16, cheap = true } },
-  grow_at = 0.70, park_at = 0.80, park_to = 0.60, keep = 1, max = 24, want = 2,
+  grow_at = 0.70, park_at = 0.80, park_to = 0.60, keep = 1, max = 48, want = 2,
+  early_at = 0.60, early_keep = 0.55, early_ticks = 5 * 3600, refused_ticks = 3600, retry = 1800, gap = 1,
+  block = { near = 5, far = 11, half_south = 11, half_north = 7 },
 }
--- Rangées des annexes : au sud du QG, un coffre sur deux (une tuile libre autour de chacun : les PNJ passent).
-T.hq_rows.annex = { origin = { -5, 5 }, dir = { 1, 1 }, gap = { 1, 1 }, first = { 6, 12 }, per_row = 6, search = 4 }
 -- Fournée d'une tournée « smelt » (script/team/worker.lua) : minerai porté = T.smelt_per_furnace entrées par four du QG,
 -- au moins T.smelt_trip_min (la fournée de main 0.6.1 : 20 entrées pour les 4 fours de la fonderie de base d'une
 -- faction, d'où 5 par four) : une fonderie agrandie par les bras libres (shared/ai3/bras.lua, Br.smelters) n'est pas

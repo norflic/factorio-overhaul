@@ -904,6 +904,8 @@ end
 -- Crochet des avant-postes (script/faction/outposts.lua, déjà chargé par script/team/worker.lua avant ce fichier : ni
 -- l'ordre des require ni celui des abonnements ne change).
 Outposts.reserved = function(f, name, pos, dir) return Build.reserved_entity(f, name, pos, dir) end
+-- Lot STOCKAGE : les annexes du QG (script/team/stock.lua) sautent une place réservée par le plan directeur.
+Stock.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos) end
 
 Build.ROUTE_WEIGHT = 2        -- lot AUTO : poids de l'heuristique du second tracé du tapis des foreuses (A* pondéré)
 Build.DRILL_DIAG_LOGS = 24    -- lot AUTO : lignes de diagnostic des foreuses refusées, au plus, par équipe
