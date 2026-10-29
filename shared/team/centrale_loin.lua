@@ -109,6 +109,17 @@ function Cl.outside(ext, x, y)
   return x < ext.x0 - h or x >= ext.x1 + h or y < ext.y0 - h or y >= ext.y1 + h
 end
 
+--- La rive (x, y) est-elle dans un site écarté ? avoid = { { x, y, r } } (b.avoid, sites de centrale jugés dangereux), margin
+--- ajoutée au rayon (défaut 8, comme Build.AVOID_MARGIN).
+function Cl.avoided(avoid, x, y, margin)
+  local mg = margin or 8
+  for _, a in ipairs(avoid or {}) do
+    local m = a.r + mg
+    if (x + 0.5 - a.x) * (x + 0.5 - a.x) + (y + 0.5 - a.y) * (y + 0.5 - a.y) <= m * m then return true end
+  end
+  return false
+end
+
 --- Carrefour (i, j) ramené dans le carré [−R, R]² du treillis.
 function Cl.clamp_node(R, i, j)
   local function c(v) if v < -R then return -R elseif v > R then return R end return v end

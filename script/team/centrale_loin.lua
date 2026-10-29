@@ -140,7 +140,10 @@ function Far.place(f, surface, g, ctx)
       water[P.tkey(floor(t.position.x), floor(t.position.y))] = true
     end
     local shores = Cl.shores(function(tx, ty) return water[P.tkey(tx, ty)] == true end, area, hq, {
-      keep = function(tx, ty) return Cl.outside(ext, tx, ty) and not s.bad[Cl.shore_key(tx, ty)] end })
+      -- (b.avoid : sites de centrale jugés dangereux par script/team/reseau_vivant.lua, comme pour les lots, Build.AVOID_MARGIN)
+      keep = function(tx, ty)
+        return Cl.outside(ext, tx, ty) and not s.bad[Cl.shore_key(tx, ty)] and not Cl.avoided(b.avoid, tx, ty, ctx.avoid_margin)
+      end })
     local all_failed = true
     for _, sh in ipairs(shores) do
       if fits >= Cl.FITS_PER_PASS then all_failed = false pending = true break end

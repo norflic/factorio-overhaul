@@ -75,6 +75,9 @@ local function battery_pure(C, quiet)
   local ext = { x0 = -100, y0 = -100, x1 = 100, y1 = 100 }
   chk(not C.outside(ext, 0, 0) and not C.outside(ext, 100 + C.WINDOW / 2 - 1, 0) and C.outside(ext, 100 + C.WINDOW / 2, 0)
     and C.outside(ext, -100 - C.WINDOW / 2 - 1, 0), "hors du treillis : marge d'un demi-carre d'essai")
+  -- 1e bis. site écarté (b.avoid) : rayon + marge
+  chk(C.avoided({ { x = 100, y = 0, r = 10 } }, 115, 0, 8) and not C.avoided({ { x = 100, y = 0, r = 10 } }, 120, 0, 8) and not C.avoided(nil, 0, 0),
+    "site ecarte : rayon plus marge")
   -- 1f. carrefour de bord
   local ci, cj = C.clamp_node(3, 9, -1)
   chk(ci == 3 and cj == -1 and C.is_far(3, 9, -1) and not C.is_far(3, 3, -3), "carrefour ramene au bord du treillis")
@@ -176,8 +179,8 @@ local function both(tx, ty) return east(tx, ty) or west(tx, ty) end
 
 local function place_once(water, team, surface, tick)
   local main, why, wait
-  for _ = 1, 40 do
-    main, why, wait = Far.place(team, surface, G, { read_masks = masks_reader(water), tick = tick or 0, why = "pas de lot" })
+  for _ = 1, 60 do
+    main, why, wait = Far.place(team, surface, G, { read_masks = masks_reader(water), tick = tick or 0, why = "pas de lot", avoid_margin = 8 })
     if main or wait ~= "loin" then break end
   end
   return main, why, wait
@@ -220,6 +223,12 @@ if m1 then
   local m2 = place_once(both, f1, s1)
   check(m2 and m2.far and m2.far.key ~= m1.far.key, "apres l'ecart : une autre rive (" .. tostring(m2 and m2.far and m2.far.key) .. ")")
 end
+
+-- site écarté (b.avoid) sur le lac de l'est : la centrale va à l'ouest
+local fa = make_team(2)
+fa.build.avoid = { { x = 260, y = 0, r = 60 } }
+local ma = place_once(both, fa, make_surface(both))
+check(ma and ma.far and ma.far.x < 0, "site ecarte (b.avoid) : le lac de l'est est evite (" .. tostring(ma and ma.far and ma.far.x) .. ")")
 
 -- aucune eau : refus (pas d'attente infinie), journal
 LOGS = {}
@@ -320,6 +329,7 @@ local mutants = {
   { "secteurs epuises non ecartes", function(C) local o = C.order_sectors; C.order_sectors = function(l, h) return o(l, h, nil) end end },
   { "carre d'essai sans marge", function(C) C.outside = function(ext, x, y) return x < ext.x0 or x >= ext.x1 or y < ext.y0 or y >= ext.y1 end end },
   { "budget par defaut", function(C) C.path_opts = function() return nil end end },
+  { "site ecarte ignore", function(C) C.avoided = function() return false end end },
   { "carrefour non ramene", function(C) C.clamp_node = function(R, i, j) return i, j end end },
   { "point d'appui le plus lointain", function(C) local o = C.anchor_spot; C.anchor_spot = function(st, x, y, r)
     for k = r, 0, -1 do local ax, ay = o(function(tx, ty) return st(tx, ty) and math.max(math.abs(tx - math.floor(x)), math.abs(ty - math.floor(y))) == k end, x, y, r) if ax then return ax, ay end end

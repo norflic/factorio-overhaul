@@ -1652,7 +1652,7 @@ local function plan_project(f, surface, p)
     if not is_plant then return false, why end
     Profiler.start("build:plan:loin")
     local lwhy, lwait
-    main, lwhy, lwait = Far.place(f, surface, g, { read_masks = read_masks, tick = game.tick, why = why })
+    main, lwhy, lwait = Far.place(f, surface, g, { read_masks = read_masks, tick = game.tick, why = why, avoid_margin = Build.AVOID_MARGIN })
     Profiler.stop("build:plan:loin")
     if not main then return false, lwhy, lwait end
   end
