@@ -46,6 +46,7 @@ local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
+local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consommation, pondération des besoins
 
 local Ia3 = {}
 
@@ -762,6 +763,7 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.fstart("ia3:capi")
   local capi = Capi.think(f, view, book, tick, research, w)
   Profiler.fstop("ia3:capi")
+  local bilan = Bilan.think(f, view, tick) -- lot BILAN : pondération des récoltes et fabrications (nil : éteint)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, harvest = harvest, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
@@ -773,6 +775,7 @@ function Ia3.plan(f, view, book, surface, tick)
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
+    bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi } -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
