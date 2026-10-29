@@ -158,3 +158,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~23 h 20, passage 48
 - Pas d'archive de banc terminee a lire (content-0619 et bancs de la piste amelio en cours ; 3 places prises, 2 tickets biomes en file). Sorties de bancs de la piste lues (.out BIOMES/CRAFTS) : voir lignes ci-dessus si echec. Journal de la partie du DC 0.6.18 archive par la piste dans fo-logs/2026-10-30_AMELIO/journaux-DC (factorio-current du 29/10 21 h 23).
+
+## 29/10 ~23 h 55, passage 49
+- content-0619 : 331 OK, 0 erreur Lua (2417 s : disque F: sature par 3 copies de bancs en parallele, places ramenees a 2). Aucune autre archive de banc terminee depuis (bancs de la piste amelio en cours). Aucun processus parasite ; 2 Blender (mur-opus et une piste).
