@@ -28,6 +28,7 @@ Nd.REACH = 200            -- un site menace les biens (QG, avant-postes) à moin
 Nd.W_HQ = 1000            -- poids du QG
 Nd.W_OUTPOST = 400        -- poids d'un avant-poste (gisement exploité)
 Nd.SITE_R = 24            -- des nids à moins de 24 tuiles de l'ancre d'un site en font partie (un champ de nids se mange par le bord : sous-sites)
+Nd.COMBAT_R = 48          -- tout nid et tout ver à moins de 48 tuiles de la cible répond au combat : le besoin les compte tous
 Nd.WORM_R = 32            -- vers comptés dans le besoin d'un site : à moins de 32 tuiles de son centre
 Nd.ATTR_R = 240           -- un incident est rattaché au site le plus proche, à moins de 240 tuiles
 Nd.INC_TTL = 40 * 3600    -- un incident pèse de moins en moins et ne compte plus après 40 min
@@ -105,6 +106,15 @@ function Nd.sites(nests, worms)
       if d <= w2 and (not bd or d < bd) then best, bd = s, d end
     end
     if best then best.wm = best.wm + 1 end
+  end
+  -- Nids et vers à portée de combat (Nd.COMBAT_R) du centre : un champ de nids se mange par le bord, mais tous les nids
+  -- voisins envoient leurs biters (moteur réel : 1 nid « du site », 5 nids à 32 tuiles au moteur, repli après 3 morts sur 7).
+  local c2 = Nd.COMBAT_R * Nd.COMBAT_R
+  for _, s in ipairs(out) do
+    local sn, wn = 0, 0
+    for _, p in ipairs(pts) do if d2(s, p) <= c2 then sn = sn + 1 end end
+    for _, w in ipairs(worms or {}) do if d2(s, w) <= c2 then wn = wn + 1 end end
+    s.sp_near, s.wm_near = sn, wn
   end
   table.sort(out, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
   return out
@@ -212,7 +222,9 @@ end
 
 --- Soldats nécessaires pour un site : la règle des rôles (nids + vers), + Nd.FAIL_PM pour mille par échec précédent.
 function Nd.need(site, fails)
-  local base = Sd.clear_need((site.sp or 1) + (site.wm or 0))
+  local sp = math.max(site.sp or 1, site.sp_near or 0)
+  local wm = math.max(site.wm or 0, site.wm_near or 0)
+  local base = Sd.clear_need(sp + wm)
   local f = fails or 0
   return base + math.floor((base * Nd.FAIL_PM * f + 999) / 1000)
 end
@@ -262,7 +274,8 @@ function Nd.decide(ctx)
   local why = { sites = 0, faibles = 0, attente = 0, courts = 0, partiels = 0 }
   local sites = {}
   for _, s in ipairs(ctx.sites or {}) do
-    if (s.sp or 0) > 0 then sites[#sites + 1] = { x = s.x, y = s.y, sp = s.sp, wm = s.wm or 0, seen = s.seen, complete = s.complete } end
+    if (s.sp or 0) > 0 then sites[#sites + 1] = { x = s.x, y = s.y, sp = s.sp, wm = s.wm or 0, sp_near = s.sp_near, wm_near = s.wm_near, seen = s.seen,
+      complete = s.complete } end
   end
   why.sites = #sites
   if #sites == 0 then return nil, why end

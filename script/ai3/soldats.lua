@@ -563,8 +563,8 @@ local function pass(f, tick)
     ns.stats.ops = (ns.stats.ops or 0) + 1
     ns.stats.engaged = (ns.stats.engaged or 0) + #ids
     if Profiler.enabled() then
-      log(string.format("[FO-NIDS] %s : operation lancee en (%d, %d) a %d tuiles du QG : %d nid(s), %d ver(s), menace %d (biens %d, incidents %d), %d soldat(s) engages (besoin %d, garnison gardee %d, echecs %d), secteur vu au tick %s",
-        tostring(f.key), math.floor(nid_dec.x), math.floor(nid_dec.y), math.floor(dist), nid_dec.sp, nid_dec.wm, nid_dec.menace,
+      log(string.format("[FO-NIDS] %s : operation lancee en (%d, %d) a %d tuiles du QG : %d nid(s), %d ver(s) (a portee de combat : %d nid(s), %d ver(s)), menace %d (biens %d, incidents %d), %d soldat(s) engages (besoin %d, garnison gardee %d, echecs %d), secteur vu au tick %s",
+        tostring(f.key), math.floor(nid_dec.x), math.floor(nid_dec.y), math.floor(dist), nid_dec.sp, nid_dec.wm, nid_dec.sp_near or 0, nid_dec.wm_near or 0, nid_dec.menace,
         nid_dec.prox, nid_dec.inc, #ids, nid_dec.need, nid_dec.reserve, nid_dec.fails or 0, tostring(nid_dec.seen)))
     end
   elseif started_clear then
@@ -669,7 +669,7 @@ remote.add_interface("fo-nids", {
     for i, st in ipairs(sites) do
       local floor = st.inc > 0 and Nd.MIN_MENACE_HIT or Nd.MIN_MENACE
       if st.menace >= floor then menacing = menacing + 1 end
-      out[i] = { x = st.x, y = st.y, sp = st.sp, wm = st.wm, menace = st.menace, prox = st.prox, inc = st.inc, seen = st.seen,
+      out[i] = { x = st.x, y = st.y, sp = st.sp, wm = st.wm, sp_near = st.sp_near, wm_near = st.wm_near, menace = st.menace, prox = st.prox, inc = st.inc, seen = st.seen,
         complete = st.complete }
     end
     local sd = t.sd

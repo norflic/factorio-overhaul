@@ -38,6 +38,10 @@ local function suite()
   local a = Nd.sites({ { x = 5, y = 5 }, { x = 6, y = 6 }, { x = 200, y = 0 } }, {})
   local b = Nd.sites({ { x = 200, y = 0 }, { x = 6, y = 6 }, { x = 5, y = 5 } }, {})
   check(#a == #b and a[1].x == b[1].x and a[1].y == b[1].y and a[2].x == b[2].x and a[1].sp == b[1].sp, "indépendant de l'ordre d'entrée (déterminisme)")
+  local field = Nd.sites({ { x = 0, y = 0 }, { x = 40, y = 0 }, { x = 80, y = 0 } }, { { x = 20, y = 0 } })
+  check(#field == 3 and field[1].sp == 1 and field[1].sp_near == 2 and field[2].sp_near == 3 and field[2].wm_near == 1,
+    "un champ de nids : sous-sites d'un nid, mais tous les nids à 48 tuiles répondent au combat (" .. tostring(field[2].sp_near) .. ")")
+  check(Nd.need(field[2], 0) == Sd.clear_need(3 + 1) and Nd.need(field[2], 0) > Nd.need({ sp = 1, wm = 0 }, 0), "le besoin compte les nids voisins")
   check(#Nd.sites({}, { { x = 1, y = 1 } }) == 0, "des vers seuls ne font pas un site de nid")
 
   section("menace : biens et incidents")
@@ -219,6 +223,7 @@ mutant("voisinage jamais vérifié", function() patch(Nd, "surroundings_known", 
   patch(Nd, "decide", function(c) local j = {} for k, v in pairs(c) do j[k] = v end
     local ss = {} for i, s in ipairs(c.sites or {}) do local t = {} for k, v in pairs(s) do t[k] = v end t.complete = nil ss[i] = t end
     j.sites = ss return d0(j) end) end)
+mutant("besoin sans les nids voisins", function() patch(Nd, "COMBAT_R", 0) end)
 mutant("portée des biens nulle", function() patch(Nd, "REACH", 0) end)
 mutant("repli jamais décidé", function() patch(Nd, "LOSS_MAX", 1001) end)
 mutant("repli trop tôt", function() patch(Nd, "LOSS_MAX", 100) end)
