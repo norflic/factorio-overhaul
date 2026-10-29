@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.14
+Date: 2026-10-29
+  Changes:
+    - Soldats : l'expedition contre un champ de nids lit enfin la carte de connaissance de la faction (nids vus par le QG, les
+      avant-postes et les eclaireurs, jusqu'a 170 tuiles) ; avant, elle ne voyait que les nids apercus par un PNJ en marche, donc
+      ne partait presque jamais. Journal [FO-SOLDATS-CONN].
+    - Fer de votre equipe : le minage de fer de renfort sert aussi quand l'equipe est sous son effectif de depart et sans fer
+      pour recruter (elle restait 100 % inactive) ; journaux [FO-FER] (recrue retenue par la reserve, premier minage de renfort).
+      A noter : la reserve de 750 plaques retient toute recrue au-dela de l'effectif de depart tant que le coffre est plus pauvre.
+    - Convoyeurs : journaux [FO-CONVOYEURS] (premier choix de tapis, tapis plus rapide debloque). Le tapis rapide n'est choisi
+      que si le debit voulu depasse 6 objets par seconde sur une voie, ce qui n'arrive pas avec les tracés de foreuses actuels.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.13
 Date: 2026-10-29
   Changes:
