@@ -17,3 +17,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 ## 29/10 ~00 h 55, passage 3
 - 208 fichiers (derniere heure, motifs elargis : Lua error, warning, ERREUR, ECHEC DU BANC) : aucune occurrence. Disque 130 Go libres, 12 processus banc.py (11 tickets en file, 3 places pleines), 58 bash : charge normale.
 - Point de vigilance (supposé) : deux tickets du meme nom RESEAUV dans la file (instance autoritaire et relecteur reseauv) ; consigne donnee a reseauv de ne plus lancer de ticket du lot.
+
+## 29/10 ~01 h 30, passage 4
+- 192 fichiers (derniere heure) : aucune erreur Lua ni plantage. MAIS 53 archives portaient un ECHEC.txt FAUX (« benchmark interrompu » alors que « Performed N updates » est present) : les worktrees des lots avaient encore le banc.py d AVANT le correctif 8bf71c2. Corrige : banc.py de main copie dans 38 worktrees, 53 fichiers renommes ECHEC-FAUX-POSITIF.txt (resultats valides). Un ECHEC.txt reel reste : voir ci-dessous.
