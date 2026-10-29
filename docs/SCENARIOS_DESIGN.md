@@ -439,7 +439,9 @@ sortie), **objectifs du journal**, **menace** (déchiqueteurs et factions), **mo
 
 Classement de la règle des niveaux (`L.vanilla_tech_epoch` : la plus haute époque des recettes débloquées, sinon
 des packs), appliqué aux technologies FINALES du mod (`harness.lua --dump-techs`). C'est ce que lit l'objectif
-« Recherches de l'époque » du journal (60 %, part X0).
+« Recherches de l'époque » du journal (60 %, part X0). Les nombres ci-dessous comptent TOUTES les technologies ;
+le journal ne compte pas les technologies d'amélioration (`upgrade`, bonus de dégâts ou de vitesse en série) : en
+moteur réel, l'époque 4 en a 23 au journal pour 47 ici (banc `sc-journal`, 30/10).
 
 | Époque | Nombre | Exemples |
 |---|---|---|
