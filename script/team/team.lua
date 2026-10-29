@@ -452,7 +452,9 @@ function Team.view(f, tick)
     local o = f.outposts[oid]
     local st = Outposts.status(o, tick)
     outposts[#outposts + 1] = {
-      id = oid, kind = o.kind, drills = o.drills, full = o.full or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
+      -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
+      -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
+      id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).

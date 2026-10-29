@@ -866,6 +866,8 @@ do
   check(outposts:find("if o.migr then return 0 end", 1, true) ~= nil, "C10 : Outposts.extend ne pose plus de paire thermique sur un champ migré")
   check(outposts:find("not o.migr and not o.hold_until", 1, true) ~= nil, "C11 : Outposts.reopen ne rouvre pas un champ migré")
   check(swap:find('o.migr == "en cours"', 1, true) ~= nil, "C12 : foreuse_swap laisse le champ en cours de migration")
+  check(team:find("full = (o.full or o.migr ~= nil) or false", 1, true) ~= nil,
+    "C12 bis : la vue des avant-postes (lue par les planificateurs) dit « plein » pour tout champ migré, même quand une attente (release_holds) a remis o.full à faux")
   -- les trois étapes du THAW sont dans le bon ordre : posé, plan, retiré
   local a = build:find("THAW = p.spec.degel", 1, true)
   local b2 = build:find("plan_project(f, surface, p)", a, true)
