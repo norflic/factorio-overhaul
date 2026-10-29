@@ -27,6 +27,7 @@ local function need(dotted, slashed)
   return require("__factorio-overhaul__/" .. slashed)
 end
 local M = need("shared.team.modules", "shared/team/modules")
+local Poteaux = need("shared.team.poteaux", "shared/team/poteaux") -- lot POTEAUX-ASTAR : chaîne par recherche de chemin
 
 local P = {}
 
@@ -740,7 +741,7 @@ end
 --- Lot CORR-RESEAU : `known` (facultatif) = poteaux déjà prévus ou posés { x, y } (de portée de fil >= reach) ; quand l'un est à
 --- portée du point courant et plus près du but d'au moins 0,5 tuile, la chaîne PASSE PAR LUI (le plus avancé ; ex æquo : y, puis x)
 --- au lieu d'en poser un second à côté (doublons mesurés : deux chaînes de rue sur la même rue, 196 paires à moins de 2 tuiles à 60 min).
-function P.pole_chain(a, b, reach, big, free, known)
+local function pole_chain_greedy(a, b, reach, big, free, known)
   local out = {}
   local cur = { x = a.x, y = a.y }
   local function dist(p, q) local dx, dy = p.x - q.x, p.y - q.y; return math.sqrt(dx * dx + dy * dy) end
@@ -786,6 +787,25 @@ function P.pole_chain(a, b, reach, big, free, known)
     ::continue::
   end
   return nil
+end
+
+--- Lot POTEAUX-ASTAR : la chaîne gloutonne ci-dessus avance en ligne droite (les diagonales, elle les fait déjà) mais ne recule
+--- jamais : une falaise, de l'eau ou une zone interdite l'arrête (nil). Cette version essaie D'ABORD la gloutonne (rapide, sans
+--- changement tant qu'elle réussit près du minimum), puis, si elle échoue ou pose au moins 2 poteaux de plus que le minimum
+--- théorique, une recherche de chemin A* sur un graphe borné de positions candidates (shared/team/poteaux.lua). Le résultat de
+--- l'A* n'est gardé que s'il existe et pose strictement moins de poteaux ; sinon la gloutonne reste (même signature, mêmes
+--- règles pour `known`). `opts` (facultatif) : max_cells, div, no_astar (true : ancienne chaîne seule).
+function P.pole_chain(a, b, reach, big, free, known, opts)
+  local greedy = pole_chain_greedy(a, b, reach, big, free, known)
+  if opts and opts.no_astar then return greedy end
+  if greedy then
+    local d = math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2)
+    local lb = math.max(0, math.ceil((d - reach) / reach - 1e-9))
+    if #greedy <= lb + 1 then return greedy end
+  end
+  local path = Poteaux.path(a, b, reach, big, free, known, opts)
+  if path and (not greedy or #path < #greedy) then return path end
+  return greedy
 end
 
 --- Position d'un poteau de carrefour (quart nord-ouest du croisement, hors des lignes de marche).
