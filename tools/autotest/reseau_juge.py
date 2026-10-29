@@ -120,6 +120,8 @@ def main():
     ap.add_argument("--reglage", default="314159265")
     ap.add_argument("--lot", default="lot")
     ap.add_argument("--temoin", default="temoin")
+    ap.add_argument("--detruit", default="rvdet2")
+    ap.add_argument("--detruit-t", dest="detruit_t", default="rvdetT")
     a = ap.parse_args()
     base_root = os.path.abspath(a.base)
     seeds = a.graines.split(",") + ([a.reglage] if a.reglage else [])
@@ -222,7 +224,7 @@ def main():
     print("== C2 a C4 : courant revenu apres destruction a la minute 35 (limites 10, 20 et 5 min), code du lot / temoin")
     bil = re.compile(r"\[FO-RESEAU-DETRUIT\] bilan (\w+) \| (\w+) \| retour du courant : (.*?) \| distance au ver de la centrale actuelle : (.*?) \| ")
     ver = re.compile(r"\[FO-RESEAU-DETRUIT-?\w*\] (OK|ECHEC)\s+(C[234].*)")
-    for pre, tag in (("detruit", "LOT"), ("detruitT", "TEMOIN")):
+    for pre, tag in ((a.detruit, "LOT"), (a.detruit_t, "TEMOIN")):
         for sd in seeds:
             d = os.path.join(a.root, "%s-%s" % (pre, sd))
             if not os.path.isdir(d):
