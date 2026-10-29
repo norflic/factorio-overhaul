@@ -31,6 +31,7 @@ local Board = require("script.team.board")
 local Stock = require("script.team.stock")
 local R = require("shared.ai3.reglages")
 local Rc = require("shared.team.reconstruction")
+local Protos = require("script.team.protos")
 
 local Recon = {}
 
@@ -287,15 +288,12 @@ local POLE_CANDS -- mémoire LOCALE (prototypes seulement) : les poteaux du jeu,
 local function pole_cands()
   if POLE_CANDS then return POLE_CANDS end
   POLE_CANDS = {}
-  local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = "electric-pole" } })
-  local names = {}
-  for name in next, protos do names[#names + 1] = name end
-  table.sort(names)
+  local names = Protos.names_of_type("electric-pole")
   for _, name in ipairs(names) do
     -- Lecture protégée : un prototype de poteau qui refuse l'un de ces attributs (moteur réel : « attempt to index … userdata »,
     -- planté à 42 min sur 987654321) est simplement écarté de la liste des remplaçants.
     local ok, it_name, supply, wire = pcall(function()
-      local p = protos[name]
+      local p = game.entity_prototypes[name]
       local list = p.items_to_place_this
       local it = list and list[1]
       if not it then return nil end

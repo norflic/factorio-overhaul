@@ -54,7 +54,7 @@ PROTOS["pole-x"].supply_area_distance = 2.5
 PROTOS["pole-x"].max_wire_distance = 7.5
 PROTOS["pole-m"] = { items_to_place_this = { { name = "item-m" } }, supply_area_distance = 3.5, max_wire_distance = 9 }
 PROTOS["pole-s"] = { items_to_place_this = { { name = "item-s" } }, supply_area_distance = 1, max_wire_distance = 5 }
-function game.get_filtered_entity_prototypes() return { ["pole-x"] = PROTOS["pole-x"], ["pole-m"] = PROTOS["pole-m"], ["pole-s"] = PROTOS["pole-s"] } end
+function game.get_filtered_entity_prototypes() return setmetatable({}, { __pairs = function() local ks = { "pole-x", "pole-m", "pole-s" } local i = 0 return function() i = i + 1 if ks[i] then return ks[i], PROTOS[ks[i]] end end end }) end
 
 local R = require("shared.ai3.reglages")
 check(R.RECON_ALL_PIECES == false, "réglage : portée par défaut = infrastructure électrique seule")
