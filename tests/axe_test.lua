@@ -32,7 +32,8 @@ local T = require("shared.team.config")
 
 _G.game = { entity_prototypes = {
   ["gun-turret"] = { tile_width = 2, tile_height = 2, turret_range = 18 },
-  ["transport-belt"] = { tile_width = 1, tile_height = 1 },
+  ["transport-belt"] = { tile_width = 1, tile_height = 1, type = "transport-belt" },
+  ["fast-transport-belt"] = { tile_width = 1, tile_height = 1, type = "transport-belt" }, -- relecture : tapis amélioré (Conv)
   ["stone-furnace"] = { tile_width = 2, tile_height = 2 },
 } }
 
@@ -111,7 +112,9 @@ local Build = {}
 local Outposts, Stock = {}, {}
 local function load_build(src, A)
   local chunk_src = extract(src, "--- Lot AUTO : l'emprise d'une entité `name`", "Build.ROUTE_WEIGHT")
-  local env = setmetatable({ Build = Build, Outposts = Outposts, Stock = Stock, P = P, M = M, Axe = A }, { __index = _G })
+  -- Conv.belts : tapis des données (relecture : un tapis amélioré en place garde le couloir)
+  local Conv = { belts = function() return { { name = "transport-belt" }, { name = "fast-transport-belt" } } end }
+  local env = setmetatable({ Build = Build, Outposts = Outposts, Stock = Stock, P = P, M = M, Axe = A, Conv = Conv }, { __index = _G })
   assert(load("local Build, Outposts, Stock, P, M, Axe = Build, Outposts, Stock, P, M, Axe\n" .. chunk_src, "build_axe", "t", env))()
 end
 load_build(BUILD_SRC, Axe)
@@ -153,6 +156,10 @@ do
   cors = Build.corridors(f)
   check(#cors == 2 and cors[2].axis == "x" and cors[2].part == 2 and cors[2].x0 == 16 and cors[2].x1 == 40,
     "rangée de foreuses : couloir horizontal rogné à son lot")
+  -- relecture : tapis de la rangée amélioré en place (script/team/convoyeurs.lua réécrit e.name) : le couloir reste
+  for _, e in ipairs(p.ents) do if e.part == 2 then e.name = "fast-transport-belt" end end
+  cors = Build.corridors(f)
+  check(#cors == 2 and cors[2].axis == "x" and cors[2].part == 2, "rangée à tapis amélioré : couloir gardé (type du prototype)")
 end
 do
   local f = team()
@@ -411,6 +418,17 @@ mutant("ligne sans couloir", BUILD_SRC, "%(i == 1 and spec%.gen == \"smelter\" a
   function(m)
     load_build(m, Axe)
     local r = #Build.corridors(line_team()) == 1
+    load_build(BUILD_SRC, Axe)
+    return r
+  end)
+mutant("tapis amélioré ignoré", BUILD_SRC, "for _, bt in ipairs%(Conv%.belts%(%)%) do belt_of%[bt%.name%] = true end", "",
+  function(m)
+    load_build(m, Axe)
+    local f = line_team()
+    local p = f.build.projects[1]
+    p.parts[2] = { kind = "foreuses", ox = 30, oy = -4, w = 16, h = 6 }
+    for x = 30.5, 45.5 do p.ents[#p.ents + 1] = { name = "fast-transport-belt", x = x, y = -0.5, dir = 6, part = 2 } end
+    local r = #Build.corridors(f) == 2
     load_build(BUILD_SRC, Axe)
     return r
   end)

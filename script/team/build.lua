@@ -1151,6 +1151,12 @@ function Build.corridors(f)
   local b = f and f.build
   if not (b and b.order and b.projects and b.lat) then return {} end
   local out = {}
+  -- relecture : un tapis se reconnaît aussi par la liste des tapis des données (Conv.belts), pas au seul gabarit (M.spec ne connaît
+  -- que le tapis de base) ; le tapis d'une rangée de foreuses est choisi au débit et amélioré en place (script/team/convoyeurs.lua
+  -- réécrit e.name) : sans cela le couloir d'une rangée à tapis rapide disparaissait sans un mot. Aucun nom en dur.
+  local belt_of = {}
+  for _, bt in ipairs(Conv.belts()) do belt_of[bt.name] = true end
+  local function is_belt(name) return belt_of[name] or (M.spec(name) or {}).kind == "belt" end
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     local spec = p and p.spec or {}
@@ -1162,7 +1168,7 @@ function Build.corridors(f)
           local dirs = {}
           for _, e in ipairs(p.ents) do
             if e.part == i and e.x > pt.ox and e.x < pt.ox + pt.w and e.y > pt.oy and e.y < pt.oy + pt.h
-                and (M.spec(e.name) or {}).kind == "belt" then dirs[#dirs + 1] = e.dir or 0 end
+                and is_belt(e.name) then dirs[#dirs + 1] = e.dir or 0 end
           end
           local li, lj = P.lot_of(b.lat, pt.ox + pt.w / 2, pt.oy + pt.h / 2)
           if li then
