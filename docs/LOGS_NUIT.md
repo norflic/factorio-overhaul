@@ -152,3 +152,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~22 h, passage 46
 - Rien de nouveau cote archives (derniere : content-0618) ; aucun banc (le DC joue, places = 1). Retours en direct du DC (RETOUR_DC_6 et _7) traites en lots : SCALE-COMPLET, ARMEE-ANTICIPATION, DETOUR-BOUCLE, COMPAGNONS-ACTIFS, RANGEES-DEBIT, MIGRATION-DECLENCHE, DEFENSE-CHOIX ; conception PREVISION ; vague 8 en relecture.
+
+## 29/10 ~22 h 55, passage 47
+- Rien de nouveau : aucune archive de banc depuis content-0618 ; file vide (3 places ouvertes, le DC ne joue plus). 0.6.19 en tests (7 lots integres, interaction ILOTS/PILE corrigee) ; retours 6-9 en relecture ; piste amelioration lancee ; centre v6 arrete sur consigne du DC.
