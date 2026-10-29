@@ -96,3 +96,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~13 h 30, passage 28
 - Rien de nouveau : aucune partie ni rendu depuis 13 h (methode statique) ; archives des 90 dernieres minutes : 0 erreur Lua, 0 ECHEC. Disque 154 Go. Vague 2 et revues globales en cours (statique, aucun banc).
+
+## 29/10 ~13 h 40, passage 29 : fumee 0.6.13
+- 2 parties completes (20261020, 1618033988 ; 216300 ticks) : BILAN 18 OK, 0 erreur Lua. Journaux des nouveautes presents : [FO-BILAN] 36 lignes (lecture reelle des flux OK), [FO-CENTRALE-GARDE] 51-53, [FO-VEILLE] 35-47, [FO-TOUR-POSE] 14-16, [FO-ESPACE] 1-9, [FO-RECON] 0-4. Pas de [FO-CENTRALE-MORT] (aucune centrale perdue). Aucun journal pour soldats-expedition, convoyeurs, fer-equipe : non declenches ou muets (a verifier si le DC voit un defaut).
