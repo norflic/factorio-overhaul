@@ -116,6 +116,22 @@ R.ITEM_MODULE = "module"
 
 R.TURRET = "gun-turret"
 
+-- Lot RECONSTRUIRE : types d'entité du moteur (LuaEntityPrototype.type) de l'INFRASTRUCTURE ÉLECTRIQUE refaite quand elle est
+-- détruite, même posée à la main par le joueur (décision par défaut de la nuit du 29/10 ; ses coffres ne sont pas refaits) :
+-- le poteau, la chaudière, la machine à vapeur (type « generator ») et la pompe. Même justification que R.ENTITY_ROLE.
+R.INFRA_TYPES = { ["electric-pole"] = true, ["boiler"] = true, ["generator"] = true, ["offshore-pump"] = true }
+-- Types des CONSOMMATEURS dont l'état « sans courant » mesure ce qu'un poteau détruit coupe.
+R.CONSUMER_TYPES = { "inserter", "mining-drill", "assembling-machine", "lab" }
+-- Lot RECONSTRUIRE : les FACTIONS refont-elles aussi leurs pieces detruites ? Eteint (29/10) : mesure du lot sur 5 graines, la
+-- reconstruction des factions fait diverger la partie (dont la perte du QG du joueur a 58 min sur 271828182, absente du temoin) sans
+-- gain demontre ; la remarque du DC porte sur SON installation. Allume, le registre sert aux factions comme a votre equipe.
+R.RECON_FACTIONS = false
+-- Lot RECONSTRUIRE : portee de la reconstruction de votre equipe. Mesure du 29/10 (variante « infrastructure seule » contre la
+-- reconstruction large, 20261020) : refaire aussi les tapis, bras, fours, foreuses et coffres degrade tourelles, avant-postes
+-- defendus et fer livre de votre equipe sur 3 graines de 5 ; l'infrastructure electrique seule laisse la partie identique au temoin.
+-- Eteint : seule l'infrastructure electrique (R.INFRA_TYPES) est refaite.
+R.RECON_ALL_PIECES = false
+
 R.BODY = "character"
 
 -- Lot ADOPTE : type -> { role (R.ENTITY_ROLE), registre, ... }.

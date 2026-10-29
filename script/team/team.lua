@@ -31,6 +31,7 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
+local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -644,6 +645,9 @@ function Team.think(f, surface, tick)
     Build.think(f, surface, tick)
     Profiler.stop("team:build")
   end
+  -- Lot COUVERTURE : pièces de l'équipe détruites, à refaire (tâches « rebuild » ; rien tant que rien n'a été détruit).
+  Recon.think(f, surface, tick)
+  Recon.repair_think(f, surface, tick) -- lot RECONSTRUIRE : infrastructure électrique endommagée remise à neuf
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.start("team:market")
@@ -724,7 +728,9 @@ function Team.think(f, surface, tick)
     stock = Board.view_stock(f, stock_of(f), tick)
   end
   -- Lot CAPITAL : amélioration d'un bâtiment à niveaux ou du centre, payée sur le stock LIBRE après les recrues et l'armée.
-  if ia3 then Ia3.capital_pay(f, surface, tick, plan, stock) end
+  -- Lot COUVERTURE : refaire ce qui est détruit AVANT d'améliorer ce qui reste (constat du DC du 28/10).
+  Recon.craft_spares(f, book_for(f), stock, tick) -- lot RECONSTRUIRE : objets d'infrastructure électrique à fabriquer
+  if ia3 and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, stock) end
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])
     f.tech = plan.research
