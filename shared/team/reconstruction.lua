@@ -254,13 +254,14 @@ end
 
 function Rc.done(st, key) st.lost[key] = nil end
 
---- Ennemis près de la place : à refaire plus tard (date `until_tick`) ; trop de reports, abandonnée.
-function Rc.defer(st, key, until_tick, tick)
+--- Ennemis près de la place : à refaire plus tard (date `until_tick`) ; trop de reports, abandonnée. `max` (facultatif) : plafond de
+--- reports propre à la pièce (lot REBUILD-AVANT-POSTE : une pièce d'avant-poste de ressource attend plus longtemps, Ru.MAX_DEFERS).
+function Rc.defer(st, key, until_tick, tick, max)
   local r = st.lost[key]
   if not r then return end
   r.retry = until_tick
   r.defers = (r.defers or 0) + 1
-  if r.defers > Rc.MAX_DEFERS then r.abandoned = true end
+  if r.defers > (max or Rc.MAX_DEFERS) then r.abandoned = true end
 end
 
 --- Le moteur refuse la pose (place prise) : trop de refus, la pièce est abandonnée (elle ne gèle plus « améliorer attend »).

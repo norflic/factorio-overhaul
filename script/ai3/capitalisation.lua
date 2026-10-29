@@ -5,8 +5,11 @@
   peut faire fondre évidemment), si assembleurs disponibles alors on ajoute des chaînes de production etc etc. » ; 12 h 30
   « un joueur […] aurait maximisé vraiment tout le gisement, il aurait mis des foreuses partout »).
   Côté RUNTIME de la règle pure shared/ai3/capitalisation.lua (conception : docs/IA_CAPITALISATION.md ; plan de
-  branchement : fo-logs/2026-10-27_CAPI/INTEGRATION.md §5). Pour les FACTIONS seulement, réglage de carte fo-war-capi
-  (ÉTEINT par défaut) ET automatisation allumée (fo-war-ia3e : sans son exécutant, ni foreuses électriques ni chaînes).
+  branchement : fo-logs/2026-10-27_CAPI/INTEGRATION.md §5). Factions ET votre équipe de PNJ (Capi.on n'exclut pas is_player ;
+  Auto.FACTIONS_ONLY = false), réglage de carte fo-war-capi (ALLUMÉ par défaut depuis le 27/10 au soir) ET automatisation
+  allumée (fo-war-ia3e, allumé par défaut : sans son exécutant, ni foreuses électriques ni chaînes). Mesuré le 29/10 sur
+  la partie du DC : 691 décisions [FO-CAPI] en 198 min, branchée et tournante ; texte « éteint par défaut, factions seulement »
+  périmé et corrigé ici (lot CAPI-REPLI + CAPI-MESURE).
 
   Cycle d'une faction : une pensée sur 12 (une minute à une pensée toutes les 300 ticks), chaque pensée à son créneau
   de l'ordonnanceur (les factions sont décalées) et UNE seule étape coûteuse par pensée (coût étalé : jamais deux lectures
@@ -29,10 +32,18 @@
     energie                             la centrale est demandée par AUTO avant le premier module électrique.
   Restent à leur décideur d'avant (refus écrit) : les avant-postes à COMBUSTION (croissance des buts, vagues de SCALE :
   leur charbon est porté par les PNJ, travail récurrent que la règle ne compte pas) et les fours du QG nourris par les PNJ
-  (Br.smelters).
+  (Br.smelters). CONTRADICTION NON TRANCHÉE (audit 29/10, T10) : ce texte dit aussi, plus bas, que « les vagues de fours
+  de SCALE (Br.smelters) s'éteignent » sous la capitalisation ; execute() refuse bien les ordres « fours » (decideur SCALE), mais
+  qui des deux sert réellement les fours du QG n'a pas été relu ni mesuré dans ce lot.
   Ce qui s'éteint sous la capitalisation : les demandes d'A.decide (il mesure encore), les vagues d'extraction et la
   croissance des capacités par manque (B.targets : s.capi), les vagues de fours de SCALE (Br.smelters) et le plafond de
-  laboratoires (Br.labs_max, Ia3.LABS_MAX). Aucun nom du jeu ici (anti-échelle, tests/iag_test.lua §8) : objets,
+  laboratoires (Br.labs_max, Ia3.LABS_MAX).
+  Lot CAPI-REPLI (29/10) : le repli d'un module refusé par le plan directeur est porté par (produit, gisement) et non plus
+  par le produit (shared/ai3/repli.lua) : remis à zéro par un module terminé, décroissant avec le temps, plafonné à 5 min
+  quand la couverture est sous 50 % et le besoin non servi ; un échec « materiaux introuvables » ne ferme pas le gisement
+  (module suivant réduit, objets manquants gardés en but de fabrication Rp.PREP_TTL). Lot CAPI-MESURE : journaux
+  [FO-CAPI-COUV] (par gisement toutes les 5 min : couverture, places libres, raison de drill_for = "", repli, refus de la
+  règle, ordres) et [FO-CAPI-ALERTE] (capacité posée qui produit 0/min mesurés). Aucun nom du jeu ici (anti-échelle, tests/iag_test.lua §8) : objets,
   recettes, machines viennent des prototypes, des données de l'exécutant (shared/team/config.lua,
   shared/team/automatisation_donnees.lua par A.METHODS) et de la règle.
   Déterminisme : listes triées, aucun hasard, aucun temps mesuré ; état dans f.team.capi (global : nombres, chaînes,
@@ -41,6 +52,7 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
 local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
 local Pl = require("shared.team.plan")
@@ -69,9 +81,12 @@ Capi.CENSUS_EVERY = 5 * 3600 -- un gisement est relu toutes les 5 min
 Capi.ORDER_TTL = 30 * 3600   -- un ordre qui n'avance plus depuis 30 min est retiré (refus écrit)
 Capi.LOG_ORDERS = 64         -- lignes d'ordres gardées pour l'interface des bancs
 Capi.QUEUE_MAX = 12          -- technologies au plus dans la file de recherche vue par la règle (recherche élastique)
-Capi.BACKOFF = 10 * 3600     -- un produit refusé par le plan directeur n'est plus demandé pendant 10 min × 2^(refus - 1),
+Capi.BACKOFF = 10 * 3600     -- une clé de levier (équiper, technologie) refusée n'est plus demandée pendant 10 min × 2^(refus - 1),
 Capi.BACKOFF_MAX = 40 * 3600 -- au plus 40 min (banc p3 du lot : 63 demandes refusées d'un même produit en 50 min, un plan
-                             -- coûte 25 à 40 ms : comme AUTO, un refus vaut tant que le contexte n'a pas changé)
+                             -- coûte 25 à 40 ms : comme AUTO, un refus vaut tant que le contexte n'a pas changé).
+                             -- Les MODULES du plan directeur (fonderies à foreuses, chaînes) n'utilisent plus ce repli depuis
+                             -- le lot CAPI-REPLI (29/10) : ils passent par shared/ai3/repli.lua, par (produit, gisement).
+Capi.COUV_EVERY = 5 * 3600   -- lot CAPI-MESURE : une ligne [FO-CAPI-COUV] par gisement toutes les 5 min
 Capi.EQUIP_BATCH = 6         -- lot LEVIERS : machines équipées par tâche de PNJ (Equip.BATCH)
 Capi.UNITS_MAX = 48          -- lot LEVIERS : machines gardées par groupe au relevé (positions, pour la tâche « equiper »)
 Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (chacun au plus A.FIRST_RATE_MAX objets/min :
@@ -598,7 +613,8 @@ local function research_of(f, cs)
   return { queue = q, rate = rate, starved = starved }, nlabs
 end
 
---- Produit en repli après un refus du plan directeur (rend la raison, ou nil).
+--- Clé en repli après un refus (leviers « equiper » et « techno » seulement depuis CAPI-REPLI ; les modules du plan
+--- directeur passent par shared/ai3/repli.lua) : rend la raison, ou nil.
 local function held(cs, product, tick)
   local b = (cs.backoff or {})[product]
   if b and tick < b.until_tick then
@@ -614,6 +630,21 @@ local function hold(cs, product, why, tick)
   b.why = why
   b.until_tick = tick + math.min(Capi.BACKOFF_MAX, Capi.BACKOFF * 2 ^ (b.n - 1))
   cs.backoff[product] = b
+end
+
+--- Lot CAPI-REPLI : livre des replis des modules, par (produit, gisement) (shared/ai3/repli.lua). Créé à la demande, dans un
+--- événement (jamais à on_load) ; une sauvegarde d'avant le lot n'a que cs.backoff, dont les clés de produit ne sont plus lues.
+local function repli_book(cs)
+  cs.repli = cs.repli or {}
+  return cs.repli
+end
+
+--- Couverture (‰) d'un gisement suivi et « besoin non servi » de son produit (pénurie mesurée du cerveau) : ce que lit le
+--- plafond court du repli (Rp.held).
+local function repli_opts(f, d, product)
+  local kappa = (d and (d.tiles or 0) > 0) and math.floor(1000 * (d.covered or 0) / d.tiles) or 1000
+  local short = (f.team.ia3 and f.team.ia3.short) or {}
+  return { kappa = kappa, unserved = product ~= nil and (short[product] or 0) > 0 }
 end
 
 -- Lot LEVIERS : machines supérieures de chaque machine posée, lues aux prototypes par le lot AMELIORER (Cap.successors, via
@@ -658,17 +689,33 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- directeur ne doit pas vider le coffre (banc p4).
   local busy = elec_open >= A.MAX_OPEN
   local wanted = {}
+  -- Lot CAPI-MESURE : la RAISON de chaque `drill_for = ""` (audit 29/10 : jamais journalisée), relue par [FO-CAPI-COUV].
+  -- Lot CAPI-REPLI : le repli ne ferme plus la ressource (il était porté par le produit : tous les gisements à la fois) ; il
+  -- ferme le GISEMENT en cause (boucle des gisements ci-dessous, Rp.held).
+  local drill_why = {}
   for _, res in ipairs(D.res_list) do
     local meth = METHOD_OF_ORE[res]
     local ok, miss = false, {}
-    if meth and elec_drill and plant_state ~= "refuse" and not wait_plant and not busy and not held(cs, meth.product, tick) then
+    local why = nil
+    if not meth then why = "aucune fonderie a foreuses pour ce minerai"
+    elseif not elec_drill then why = "aucune foreuse electrique de l'executant"
+    elseif plant_state == "refuse" then why = "centrale refusee (" .. tostring(plant_why) .. ")"
+    elseif wait_plant then why = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
+    elseif busy then why = "plan directeur occupe (" .. elec_open .. " module(s) ouvert(s), au plus " .. A.MAX_OPEN .. ")"
+    else
       ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f))
+      if not ok then why = "objets impossibles : " .. table.concat(miss, ",") end
     end
     if ok then drill_for[res], elec[res] = elec_drill, true
-    else drill_for[res] = "" end
+    else
+      drill_for[res] = ""
+      drill_why[res] = why or "?"
+    end
     for _, m in ipairs(miss) do wanted[m] = true end
   end
+  cs.drill_why = drill_why
   cs.wanted_set = wanted
+  local repli = repli_book(cs)
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
   local reach = (Build.RADIUS_MAX + 0.5) * Pl.PITCH
   local open_dep = {}
@@ -684,6 +731,10 @@ local function build_input(f, cs, view, book, tick, D, w)
       if far > reach then blocked = "hors du plan directeur" end
       local meth = METHOD_OF_ORE[d.resource]
       smelter = meth.args[1]
+      -- Lot CAPI-REPLI : repli par (produit, gisement) ; plafonné à 5 min si la couverture est sous 50 % et le besoin non servi
+      if not blocked then
+        blocked = Rp.held(repli, Rp.key(meth.product, id), tick, repli_opts(f, d, meth.product))
+      end
       for _, rn in ipairs(D.producers[meth.product] or {}) do
         local r = D.recipes[rn]
         for _, i in ipairs(r.ingredients) do if i.name == d.resource and not smelt then smelt = rn end end
@@ -735,7 +786,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     if m ~= nil then return m or nil end
     local meth, why = A.method_for(item, book, function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end)
     local res = nil
-    local hw = held(cs, item, tick)
+    local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
     if not meth then res = tostring(why)
     elseif hw then res = hw
     elseif busy then res = "plan directeur occupe (" .. elec_open .. " module(s) ouvert(s), au plus " .. A.MAX_OPEN .. ")"
@@ -770,6 +821,8 @@ local function build_input(f, cs, view, book, tick, D, w)
     limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = view.threatened or false, dt = 1, lag = cs.lag,
+    -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
+    production_first = (f.team and f.team.priorite_pf) or false,
   }
 end
 
@@ -781,8 +834,9 @@ local function note(f, cs, tick, text)
 end
 
 --- Débit d'un ordre découpé en modules d'au plus A.FIRST_RATE_MAX objets/min (au plus Capi.MODULES_PER_ORDER).
-function Capi.split(rate)
-  local cap = A.FIRST_RATE_MAX
+--- Lot CAPI-REPLI : `factor` (1, 1/2, 1/4 ; Rp.factor) réduit la taille du module après un échec de matériaux.
+function Capi.split(rate, factor)
+  local cap = A.FIRST_RATE_MAX * (factor or 1)
   local k = math.max(1, math.min(Capi.MODULES_PER_ORDER, math.ceil((rate or 0) / cap - 1e-9)))
   local each = math.min(cap, (rate or 0) / k)
   local out = {}
@@ -818,14 +872,20 @@ local function execute(f, cs, o, view, book, tick, research)
       -- foreuses (minerai) » et 124 « (trop loin) ».
       local near = nil
       local ids, why = {}, nil
-      for _, part in ipairs(Capi.split(rate)) do
+      local rkey = Rp.key(meth.product, o.deposit)
+      local repli = repli_book(cs)
+      for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick))) do
         local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
           rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
           tick, research)
-        if not id then why = "plan directeur : " .. tostring(w2) hold(cs, meth.product, w2, tick) break end
+        if not id then
+          why = "plan directeur : " .. tostring(w2)
+          Rp.fail(repli, rkey, w2, tick, nil) -- lot CAPI-REPLI : repli de CE gisement seulement
+          break
+        end
         ids[#ids + 1] = id
         -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_MAX)
         if f.build and dep then
@@ -835,6 +895,10 @@ local function execute(f, cs, o, view, book, tick, research)
       end
       if #ids == 0 then return nil, why end
       rec.exec, rec.mod_ids, rec.product = "module", ids, meth.product
+      if Rp.factor(repli, rkey, tick) < 1 then
+        note(f, cs, tick, string.format("ordre %s : module reduit a %d %% apres un echec de materiaux (%s)", o.key,
+          math.floor(100 * Rp.factor(repli, rkey, tick) + 0.5), rkey))
+      end
       return rec
     end
     return nil, "foreuses a combustion : decideur d'avant (SCALE)"
@@ -882,13 +946,19 @@ local function execute(f, cs, o, view, book, tick, research)
     local meth, why = A.method_for(o.item, book, function(n) return book:handcraftable(n) or (vstock[n] or 0) > 0 end)
     if not meth then return nil, tostring(why) end
     local ids, why2 = {}, nil
-    for _, part in ipairs(Capi.split(o.rate or 0)) do
+    local rkey = Rp.key(o.item, nil)
+    local repli = repli_book(cs)
+    for _, part in ipairs(Capi.split(o.rate or 0, Rp.factor(repli, rkey, tick))) do
       local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
       if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
         rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
         why = string.format("CAPI %s x%d T=%.2f", o.kind, o.n or 0, o.T or 0) }, tick, research)
-      if not id then why2 = "plan directeur : " .. tostring(w2) hold(cs, o.item, w2, tick) break end
+      if not id then
+        why2 = "plan directeur : " .. tostring(w2)
+        Rp.fail(repli, rkey, w2, tick, nil)
+        break
+      end
       ids[#ids + 1] = id
     end
     if #ids == 0 then return nil, why2 end
@@ -904,11 +974,13 @@ local function follow(f, cs, rec, tick)
     -- plusieurs modules par ordre : fini quand tous sont finis ou refusés (au moins un fini) ; échec si tous refusés
     local missing, n_fini, n_ref, built, total, why = {}, 0, 0, 0, 0, nil
     local blocked = nil
+    local lost = {} -- lot CAPI-REPLI : objets qui manquaient au module refusé (derniers manques connus de l'exécutant)
     for _, id in ipairs(rec.mod_ids or { rec.module }) do
       local m = Auto.module(f, id)
       if not m or m.state == "refuse" then
         n_ref = n_ref + 1
         why = m and tostring(m.reason) or "module perdu"
+        for _, it in ipairs(m and m.missing or {}) do lost[#lost + 1] = it end
       elseif m.state == "fini" then n_fini = n_fini + 1
       else
         if m.state == "reserve" then for _, it in ipairs(m.missing or {}) do missing[#missing + 1] = it end end
@@ -920,6 +992,7 @@ local function follow(f, cs, rec, tick)
     rec.missing, rec.blocked = missing, blocked
     if n_fini + n_ref >= n_mod then
       if n_fini > 0 then return "fini" end
+      rec.lost = lost
       return "echec", "plan directeur : " .. tostring(why)
     end
     if built ~= rec.built then rec.built, rec.progress_tick = built, tick end
@@ -980,6 +1053,108 @@ local function follow(f, cs, rec, tick)
     return "ouvert"
   end
   return "echec", "executant inconnu"
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot CAPI-MESURE : couverture par gisement et capacité posée contre capacité MESURÉE
+---------------------------------------------------------------------------------------------------
+Capi.ZERO_ALERT = 2 -- relevés de suite (5 min chacun) à 0/min avant l'alerte d'une capacité posée
+Capi.ZERO_REMIND = 6 -- puis un rappel tous les 6 relevés (30 min)
+
+--- Alerte « capacité posée, 0/min mesuré » : écrite au deuxième relevé nul de suite, puis en rappel ; la reprise est écrite.
+local function zero_watch(f, cs, label, placed, rate, tick, detail)
+  cs.zero = cs.zero or {}
+  if placed > 0 and rate ~= nil and rate <= 0 then
+    local n = (cs.zero[label] or 0) + 1
+    cs.zero[label] = n
+    if n == Capi.ZERO_ALERT or (n > Capi.ZERO_ALERT and (n - Capi.ZERO_ALERT) % Capi.ZERO_REMIND == 0) then
+      log(string.format("[FO-CAPI-ALERTE] %s : capacite posee qui produit 0/min depuis %d min : %s (%s) a %.1f min", f.key or "?",
+        n * Capi.COUV_EVERY / 3600, label, detail, minutes(f, tick)))
+    end
+  elseif rate ~= nil then
+    if (cs.zero[label] or 0) >= Capi.ZERO_ALERT then
+      log(string.format("[FO-CAPI-ALERTE] %s : %s produit de nouveau (%.1f/min mesures) a %.1f min", f.key or "?", label, rate, minutes(f, tick)))
+    end
+    cs.zero[label] = nil
+  end
+end
+
+--- Une ligne [FO-CAPI-COUV] par gisement suivi toutes les Capi.COUV_EVERY : couverture, places libres, raison de
+--- `drill_for = ""`, repli en cours, refus de la règle, ordre ouvert ; une ligne par minerai : foreuses posées, débit théorique
+--- et débit MESURÉ (compteurs de production de la force sur la fenêtre). Aucune décision modifiée.
+local function couv_report(f, cs, res, input, D, tick)
+  if cs.couv_next and tick < cs.couv_next then return end
+  cs.couv_next = tick + Capi.COUV_EVERY
+  local who, mn = f.key or "?", math.floor(minutes(f, tick) + 0.5)
+  local repli = repli_book(cs)
+  local cov = {}
+  for _, c in ipairs(res.coverage or {}) do cov[tostring(c.id)] = c end
+  local refus = {}
+  for _, r in ipairs(res.refus or {}) do refus[tostring(r.key)] = tostring(r.why) end
+  -- foreuses posées par gisement et par minerai (relevé de la minute), débit théorique
+  local per_dep, per_res = {}, {}
+  for _, g in ipairs(cs.scan and cs.scan.drills or {}) do
+    per_dep[g.deposit] = (per_dep[g.deposit] or 0) + (g.n or 0)
+    local r = per_res[g.resource] or { n = 0, rate = 0 }
+    r.n = r.n + (g.n or 0)
+    local dm = D.drill_by[g.entity]
+    if dm and D.res[g.resource] then r.rate = r.rate + (g.n or 0) * Ca.drill_per_min(D, dm, g.resource) end
+    per_res[g.resource] = r
+  end
+  local by_recipe = {}
+  for _, m in ipairs(cs.scan and cs.scan.machines or {}) do
+    local r = m.recipe and D.recipes[m.recipe]
+    local out = r and r.products and r.products[1]
+    if out and out.name then
+      local e = by_recipe[m.recipe] or { n = 0, product = out.name }
+      e.n = e.n + (m.n or 1)
+      by_recipe[m.recipe] = e
+    end
+  end
+  -- fenêtre de mesure : compteurs absolus de la force (cs.prod, relevé par flows_of à chaque décision)
+  local cur, snap = cs.prod or {}, cs.couv_snap
+  local dt = snap and (tick - snap.tick) / 3600 or nil
+  local function measured(item)
+    if not (snap and dt and dt > 0.5) or snap.v[item] == nil then return nil end
+    return math.max(0, ((cur[item] or 0) - snap.v[item]) / dt)
+  end
+  local wanted_items = {}
+  for _, rn in ipairs(sorted_keys(per_res)) do wanted_items[rn] = true end
+  for _, rn in ipairs(sorted_keys(by_recipe)) do wanted_items[by_recipe[rn].product] = true end
+  for _, id in ipairs(sorted_keys(cs.deps)) do
+    local d = cs.deps[id]
+    local c = cov[tostring(id)]
+    local n_open = {}
+    for _, rec in ipairs(cs.open) do
+      if tostring(rec.deposit) == tostring(id) then n_open[#n_open + 1] = rec.key .. "(" .. tostring(rec.exec) .. ")" end
+    end
+    local meth = METHOD_OF_ORE[d.resource]
+    local rk = meth and Rp.key(meth.product, id) or nil
+    local df = input.drill_for[d.resource]
+    local why_dep = refus["couvrir:" .. id] or refus["ouvrir:" .. id]
+    log(string.format("[FO-CAPI-COUV] %s minute %d | gisement %s %s | couverture %d/%d (%d pour mille) | places libres %s | foreuses posees %d | %s%s | foreuse %s | repli %s | refus %s | ordres %s",
+      who, mn, tostring(id), tostring(d.resource), d.covered or 0, d.tiles or 0,
+      (d.tiles or 0) > 0 and math.floor(1000 * (d.covered or 0) / d.tiles) or 0, c and tostring(c.free) or "?", per_dep[id] or 0,
+      (c and c.open or (per_dep[id] or 0) > 0) and "ouvert" or "connu", d.danger and ", danger" or "",
+      (df == nil or df == "") and ("\"\" (" .. tostring(cs.drill_why and cs.drill_why[d.resource] or "?") .. ")") or tostring(df),
+      rk and Rp.describe(repli, rk, tick, repli_opts(f, d, meth.product)) or "-", why_dep or "-",
+      #n_open > 0 and table.concat(n_open, ",") or "-"))
+  end
+  for _, rn in ipairs(sorted_keys(per_res)) do
+    local r = per_res[rn]
+    local got = measured(rn)
+    log(string.format("[FO-CAPI-COUV] %s minute %d | minerai %s | foreuses posees %d, %.1f/min theoriques | extrait mesure %s/min",
+      who, mn, rn, r.n, r.rate, got and string.format("%.1f", got) or "?"))
+    zero_watch(f, cs, "foreuses " .. rn, r.n, got, tick, string.format("%d foreuse(s), %.1f/min theoriques", r.n, r.rate))
+  end
+  for _, rc in ipairs(sorted_keys(by_recipe)) do
+    local e = by_recipe[rc]
+    local got = measured(e.product)
+    zero_watch(f, cs, "machines " .. rc, e.n, got, tick, string.format("%d machine(s) de la recette, produit %s", e.n, e.product))
+  end
+  local v = {}
+  for _, it in ipairs(sorted_keys(wanted_items)) do v[it] = cur[it] or 0 end
+  cs.couv_snap = { tick = tick, v = v }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1067,6 +1242,7 @@ local function decide(f, cs, view, book, tick, research, w)
       cs.st.bank = (cs.st.bank or 0) + (o.cost_m or 0)
     end
   end
+  couv_report(f, cs, res, input, D, tick) -- lot CAPI-MESURE
   -- couverture relue et dépôts suivis (journal : critères (1) et (3))
   local deps = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do
@@ -1117,6 +1293,10 @@ function Capi.think(f, view, book, tick, research, w)
     end
     if state == "ouvert" then keep[#keep + 1] = rec
     else
+      if state == "fini" and rec.exec == "module" and rec.product then
+        -- Lot CAPI-REPLI : un module terminé remet à zéro le repli et la réduction de sa clé (produit, gisement)
+        Rp.done(repli_book(cs), Rp.key(rec.product, rec.deposit))
+      end
       if state == "fini" then
         cs.lag_hist = cs.lag_hist or {}
         cs.lag_hist[#cs.lag_hist + 1] = (tick - rec.opened) / 3600
@@ -1125,7 +1305,15 @@ function Capi.think(f, view, book, tick, research, w)
         for _, x in ipairs(cs.lag_hist) do s = s + x end
         cs.lag = s / #cs.lag_hist
       end
-      if state == "echec" and rec.exec == "module" and rec.product then hold(cs, rec.product, why, tick) end
+      if state == "echec" and rec.exec == "module" and rec.product then
+        -- Lot CAPI-REPLI : repli de (produit, gisement) ; un échec de matériaux ne ferme PAS le gisement (module réduit,
+        -- objets manquants gardés en préparation)
+        local rkey = Rp.key(rec.product, rec.deposit)
+        local kind = Rp.fail(repli_book(cs), rkey, why, tick, rec.lost)
+        log(string.format("[FO-CAPI-REPLI] %s : %s : echec %s (%s) -> %s a %.1f min", f.key or "?", rkey, kind, tostring(why),
+          kind == "materiaux" and "gisement ouvert, module suivant a 1/" .. (2 ^ Rp.eff(repli_book(cs)[rkey], tick, "shrink")) .. " et materiaux en preparation"
+            or Rp.describe(repli_book(cs), rkey, tick, nil), minutes(f, tick)))
+      end
       if state == "echec" and (rec.exec == "equiper" or rec.exec == "techno") then hold(cs, rec.key, why, tick) end
       -- Lot LEVIERS : le relevé des machines (une fois par minute) ne montre pas encore les modules qu'un PNJ vient de poser :
       -- cette clé n'est pas redécidée avant le relevé suivant (banc leviers-modules : le même ordre, réémis sur l'ancien relevé).
@@ -1177,6 +1365,25 @@ function Capi.think(f, view, book, tick, research, w)
     open[#open + 1] = { key = rec.key, kind = rec.kind, item = rec.item, value = rec.value, exec = rec.exec,
       outpost_kind = rec.outpost_kind, n_left = rec.n_left, missing = rec.missing, blocked = rec.blocked, tech = rec.tech,
       short = makes_short(rec) }
+  end
+  -- Lot CAPI-REPLI : objets qui manquaient à un module refusé pour « materiaux introuvables » : but de FABRICATION gardé
+  -- Rp.PREP_TTL après l'échec (le module suivant, réduit, les trouvera au coffre). Un ordre ouvert de la même clé reprend
+  -- ses manques lui-même (pas de doublon). `short` : la matière du produit manque et la centrale tourne, comme makes_short
+  -- (« si on manque cruellement de ressources, l'objectif est ces ressources », DC 29/10).
+  do
+    local book_r = repli_book(cs)
+    local live = {}
+    for _, rec in ipairs(cs.open) do
+      if rec.exec == "module" and rec.product then live[Rp.key(rec.product, rec.deposit)] = true end
+    end
+    for _, pr in ipairs(Rp.prep(book_r, tick)) do
+      if not live[pr.key] then
+        local product = pr.key:match("^([^@]*)")
+        open[#open + 1] = { key = "prep:" .. pr.key, kind = "prep", item = product, value = Ca.V_MIN, exec = "prep",
+          missing = pr.missing, short = (power_up and (short_now[product] or 0) > 0) or nil }
+      end
+    end
+    Rp.prune(book_r, tick)
   end
   -- Lot LEVIERS : tâches « equiper » (une par ordre : le premier lot de machines non traitées, dès que les modules sont
   -- au coffre) ; renouvelées à chaque pensée, comme le plan.
@@ -1273,6 +1480,9 @@ remote.add_interface("fo-capi", {
         refused = rec.refused, why_refused = rec.why_refused, tech = rec.tech, announced = rec.announced }
     end
     for _, d in ipairs(cs.done) do out.done[#out.done + 1] = d end
+    -- lot CAPI-REPLI / CAPI-MESURE : repli par (produit, gisement) et raison de chaque foreuse refusée (bancs)
+    out.repli, out.drill_why = {}, cs.drill_why
+    for _, k in ipairs(sorted_keys(cs.repli or {})) do out.repli[k] = Rp.describe(cs.repli, k, game.tick, nil) end
     -- lot LEVIERS : machines relevées (groupes) pour les bancs
     out.machines = {}
     for _, m in ipairs(cs.scan and cs.scan.machines or {}) do

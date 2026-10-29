@@ -28,6 +28,7 @@ local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
 local R = require("shared.ai3.reglages") -- lot IA-G : la tourelle de « défendre d'abord » (nom déplacé, inchangé)
 local Bi = require("shared.ai3.bilan") -- lot BILAN : pondération des récoltes par production moins consommation
+local V = require("shared.faction.valeur") -- lot SITE-PROCHE : règle pure d'agrandissement lointain (V.extension_refused)
 
 local P = {}
 
@@ -316,13 +317,25 @@ local function count_kind(view, kind)
   return n
 end
 
+--- Avant-poste du type qui peut encore s'agrandir : LE PLUS PROCHE du QG (`d2`, la vue ; à égalité, l'ordre de la vue),
+--- et non plus le plus ancien (lot SITE-PROCHE, R1 : Emeraude agrandissait son charbon à 201 tuiles pendant qu'un
+--- gisement libre de 192 000 l'attendait à 45). Un avant-poste est SAUTÉ si un site admissible de la même ressource est
+--- connu à moins de 0,6 × sa distance et 60 tuiles plus près (V.extension_refused ; `view.sites_near[type]`, distance au
+--- QG du plus proche site admissible, posée pour les factions seulement) : le projet bâtit alors au site proche.
+--- Sans `d2` dans la vue (bancs), l'ordre est celui d'avant (à égalité, le plus ancien) ; sans `sites_near` (équipe du
+--- joueur), le plus proche est choisi sans la règle de renoncement.
 local function extendable(view, kind, undefended)
+  local near = view.sites_near and view.sites_near[kind] or nil
+  local best, best_d2
   for _, o in ipairs(view.outposts or {}) do
     if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
-      return o
+      local d2 = o.d2 or 0
+      if near == nil or not V.extension_refused(math.sqrt(d2), near) then
+        if best == nil or d2 < best_d2 then best, best_d2 = o, d2 end
+      end
     end
   end
-  return nil
+  return best
 end
 
 local EMIT = {}
@@ -336,6 +349,10 @@ EMIT.outpost = function(E, proj, g, ctx)
   if (view.pending[kind] or 0) > 0 then return "en_cours" end
   local df = view.defend_first and true or false
   local turret_ok = df and (E.book:handcraftable(P.TURRET) or (E.avail[P.TURRET] or 0) > 0) or false
+  -- Lot PRIORITE-RESSOURCES : le fer ne paie pas la défense ET la production (E.priorite, décidé par le planificateur permanent) :
+  -- la production d'abord, l'avant-poste s'agrandit et se bâtit sans attendre ses tourelles.
+  local pf = E.priorite ~= nil and E.priorite.production_first == true
+  if pf then turret_ok = false end
   local und = Planner.no_go(view, turret_ok)
   local items = Planner.outpost_items(kind)
   local ext = extendable(view, kind, und)
@@ -383,6 +400,10 @@ EMIT.outpost = function(E, proj, g, ctx)
   E.site_needs[kind] = math.max(E.site_needs[kind] or 0, 1)
   local key = "build:" .. kind
   if E.open[key] then return "en_cours" end
+  -- Porte au build (lot SITE-PROCHE, audit « avant-poste de fer ») : tant qu'un avant-poste du type a des places libres
+  -- (ni plein, ni au plafond de foreuses), le projet reste en « agrandir » ; on ne bâtit qu'au-delà, ou quand R1 a écarté
+  -- l'agrandissement lointain au profit d'un site proche. `view.sites` ne compte que des sites ADMISSIBLES (valeur au
+  -- moins V.FLOOR, non suspendus : script/faction/sites.lua) : un site trop mauvais ou trop loin ne déclenche plus de build.
   if (view.sites[kind] or 0) > 0 then
     if P.take(E, list) then
       P.add(E, { key = key, kind = "build", prio = prio + P.FINISH_BONUS, outpost_kind = kind, items = list,

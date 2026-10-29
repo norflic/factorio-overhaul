@@ -31,6 +31,8 @@ local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
+local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
+local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
@@ -333,15 +335,30 @@ function Build.request(f, spec)
   return id
 end
 
---- Gabarit d'une demande, dimensionné au débit : (gabarit) ou (nil, raison).
-local function template_of(spec)
+--- Lot AGENCEMENT : le gabarit `g` refait avec `n` pour paramètre d'extension (au poteau du gabarit, sinon au poteau par
+--- défaut quand le poteau court ne couvre plus ni ne relie l'extension, lot PLANDIR) ; `g` tel quel si l'extension est refusée.
+local function extend_to(g, n)
+  local g2 = M.extend(g, n)
+  -- lot PLANDIR : l'extension qui ne passe pas avec un poteau court (ni couverture, ni fils) est refaite au poteau par défaut
+  if g2 and g.pole_name ~= M.DEFAULT_POLE and #M.check(g2) > 0 then g2 = M.regenerate(g, { [g.extensions[1].arg] = n }, M.DEFAULT_POLE) end
+  return g2 or g
+end
+
+--- Gabarit d'une demande, dimensionné au débit : (gabarit) ou (nil, raison). `opts` (lot AGENCEMENT) : sortie = "exterieur"
+--- (la fonderie à tapis finit côté tête, ses coffres vers l'extérieur) ; grow(g, n) -> n' : taille de la ligne décidée APRÈS
+--- celle du débit (la fonderie suit le gisement et le minerai livré, line_rows).
+local function template_of(spec, opts)
   local g, why
   if spec.gen then
     local fn = M.GEN[spec.gen]
     if not fn then return nil, "generateur inconnu" end
-    g, why = M.with_pole(spec.pole, fn, table.unpack(spec.args or {}))
+    local args = spec.args or {}
+    if opts and opts.sortie == "exterieur" and spec.gen == "smelter" then
+      args = { args[1], args[2], args[3], "exterieur" }
+    end
+    g, why = M.with_pole(spec.pole, fn, table.unpack(args))
     -- lot PLANDIR : un poteau plus court qui ne couvre pas le gabarit cède au poteau par défaut
-    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = fn(table.unpack(spec.args or {})) end
+    if spec.pole and spec.pole ~= M.DEFAULT_POLE and (not g or #M.check(g) > 0) then g, why = fn(table.unpack(args)) end
   elseif spec.key then
     g = M.get_any(spec.key)
     if not g then why = "gabarit inconnu" end
@@ -355,13 +372,14 @@ local function template_of(spec)
       local ex = g.extensions[1]
       local cur = g.args[ex.arg]
       local n = math.max(1, math.min(ex.max, math.ceil(cur * want / g.nominal[main] - 1e-9)))
-      if n ~= cur then
-        local g2 = M.extend(g, n)
-        -- lot PLANDIR : l'extension qui ne passe pas avec un poteau court (ni couverture, ni fils) est refaite au poteau par défaut
-        if g2 and g.pole_name ~= M.DEFAULT_POLE and #M.check(g2) > 0 then g2 = M.regenerate(g, { [ex.arg] = n }, M.DEFAULT_POLE) end
-        if g2 then g = g2 end
-      end
+      if n ~= cur then g = extend_to(g, n) end
     end
+  end
+  if opts and opts.grow and g.extensions and g.extensions[1] then
+    local ex = g.extensions[1]
+    local cur = g.args[ex.arg]
+    local n = opts.grow(g, cur)
+    if type(n) == "number" and n ~= cur and n >= 1 and n <= ex.max then g = extend_to(g, n) end
   end
   return g
 end
@@ -383,6 +401,7 @@ local function candidates(b, states, toward, res)
     -- lot IA3-e : la centrale peut aussi aller dans un lot refusé pour l'EAU (plus de la moitié d'eau) : sa rive y est
     -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
+    if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end -- lot ENCEINTE3 : dehors du contour
     if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
@@ -426,7 +445,7 @@ local function make_pond(f, surface)  -- factions seulement (le joueur trouve so
   local best
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
-    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") then
+    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then
       local d = math.abs(l.i) + math.abs(l.j)
       if not best or d < best.d then best = { d = d, k = k, l = l } end
     end
@@ -454,6 +473,34 @@ local function make_pond(f, surface)  -- factions seulement (le joueur trouve so
   return true
 end
 
+--- Lot AGENCEMENT : relevés d'un lot (masques de place, tuiles de minerai `res`) gardés pour la passe de plan en cours. Mémoire
+--- LOCALE (jamais dans global), valable pour un tick et une équipe : plan_project lit les lots pour dimensionner la ligne
+--- (line_rows) puis pour poser les foreuses (plan_drills, place_module) sans relire le terrain ; vide après un chargement.
+local SCAN = { tick = -1, key = nil, data = {} }
+local function scan_cache(f)
+  local key = tostring(f.key or "player")
+  if SCAN.tick ~= game.tick or SCAN.key ~= key then SCAN.tick, SCAN.key, SCAN.data = game.tick, key, {} end
+  return SCAN.data
+end
+
+--- Relevés du lot `c` (élément de candidates) : masks, et les tuiles de `res` si demandées. `cache` : scan_cache(f) ou nil.
+local function lot_scan(f, surface, c, rect, res, cache)
+  local masks = cache and cache["m" .. c.k]
+  if not masks then
+    masks = read_masks(f, surface, rect.x0 - 8, rect.y0 - 8, rect.x1 + 8, rect.y1 + 8)
+    if cache then cache["m" .. c.k] = masks end
+  end
+  local ores
+  if res then
+    ores = cache and cache["o" .. c.k .. res]
+    if not ores then
+      ores = ore_set(surface, rect, res)
+      if cache then cache["o" .. c.k .. res] = ores end
+    end
+  end
+  return masks, ores
+end
+
 --- Pose un gabarit dans le meilleur lot : { g (tourné), k, ox, oy, lot, inst } ou nil, raison.
 local function place_module(f, surface, g, kind_states, toward, res, opts)
   local b = f.build
@@ -464,17 +511,21 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if tries > 8 then break end
     local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
     local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
-    local masks = read_masks(f, surface, x0 - 8, y0 - 8, x1 + 8, y1 + 8)
+    -- lot AGENCEMENT : `opts.cache` (scan_cache) garde les relevés d'un lot entre deux tailles essayées
+    local masks, ores = lot_scan(f, surface, c, rect, res, opts and opts.cache)
     local fopts = { free = masks.free, toward = toward, margin = (opts and opts.margin) or 1 }
     -- lot FONDERIES : la tête d'alimentation regarde le gisement (shared/team/plan.lua, P.fit)
     if opts and opts.head_toward then fopts.head_toward = opts.head_toward end
-    if res then fopts.ore = ore_set(surface, rect, res) end
+    -- lot AGENCEMENT : couverture visée des foreuses (80 % d'abord) et bras de sortie par quai (P.fit : place du second bras)
+    if opts and opts.cover_min then fopts.cover_min = opts.cover_min end
+    if opts and opts.fan then fopts.fan = opts.fan end
+    if res then fopts.ore = ores end
     if opts and opts.water then fopts.water = masks.water end
     local fit, why = P.fit(g, rect, fopts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
       local inst = M.instantiate(r, 0, fit.ox, fit.oy)
-      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks }
+      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan }
     end
     last = why or last
     bump(b.stats.plan_refused, last)
@@ -798,6 +849,88 @@ local function quai_poles(b, p, list, masks, pole_name)
   return extra
 end
 
+--- Lot AGENCEMENT : bras de sortie par tapis de sortie d'un gabarit : (nom du bras, nombre) pour au plus `fan_max` bras (1 : le
+--- quai d'avant seul, comme avant le lot ; 2 : un second bras et son coffre sur le côté extérieur du bout du tapis, dont la place
+--- est réservée par P.fit via `fan`). Un bras seul ne suit pas une longue ligne (le plafond de la ligne était son débit).
+local function out_arms(g, fan_max)
+  local outn = 0
+  for _, k in ipairs(sorted_keys(g.nominal or {})) do if k ~= "electricity-kw" then outn = outn + g.nominal[k] end end
+  local nports = 0
+  for _, q in ipairs(g.ports or {}) do if q.kind == "tapis" and q.io == "out" then nports = nports + 1 end end
+  local per = outn / math.max(1, nports)
+  local cmax = math.max(1, math.min(fan_max or 1, Li.MAX_ARMS))
+  local ins, cnt = M.choose_inserters(per, true, cmax)
+  if not ins then ins, cnt = "fast-inserter", cmax end
+  return ins, cnt
+end
+
+--- Lot AGENCEMENT : un AUTRE projet du plan consomme-t-il `plate` ? (`p.consumes`, posé au plan de chaque projet : les entrées de
+--- son gabarit.) Plaques qui nourrissent un module de l'usine : la ligne finit côté tête, coffres vers l'extérieur.
+local function plate_used_elsewhere(b, p, plate)
+  for _, id in ipairs(b.order) do
+    local q = b.projects[id]
+    if q and q ~= p and q.consumes and q.consumes[plate] then return true end
+  end
+  return false
+end
+
+Build.LINE_LOGS = 24 -- lignes [FO-LIGNE] au plus, par équipe
+
+--- Lot AGENCEMENT (retour du DC du 29/10 : « ils peuvent pas vraiment étendre plus loin », « 4 foreuses ») : taille de la fonderie
+--- à tapis, décidée APRÈS celle de la demande. La ligne suit les foreuses que le gisement le plus proche porte à 80 % de
+--- couverture (Rg.pairs_for_tiles : tuiles de minerai du lot, relevé du plan, sans appel moteur), bornée par l'emprise d'un lot,
+--- le débit des bras de sortie et une part du stock de plaques. Règle pure : shared/team/ligne.lua. Rend le nombre de rangées.
+local function line_rows(f, surface, spec, g, cur, rev)
+  local cfg = T.ligne
+  local prm = g.params or {}
+  if not (cfg and cfg.grow and g.gen == "smelter" and spec.feed == "tapis" and prm.ore and prm.n and prm.n > 0) then return cur end
+  local b = f.build
+  local plate = M.PLATE_OF[prm.ore]
+  local main = g.nominal and plate and g.nominal[plate]
+  local fsp, dsp = M.spec(prm.furnace or ""), M.spec(T.DRILL_ELECTRIC)
+  if not (main and main > 0 and fsp and dsp) then return cur end
+  local cap = main / (2 * prm.n) -- plaques/s d'UN four
+  local gd = M.GEN.drills(prm.ore, 1)
+  local pairs_line = gd and gd.extensions and gd.extensions[1] and gd.extensions[1].max or 0
+  local reach = Rg.reach(dsp.radius, dsp.w)
+  -- ce que les lots de gisement les plus proches portent : le comptage des tuiles du relevé de lot donne une BORNE HAUTE
+  -- (Rg.pairs_for_tiles), puis P.fit lui-même (pur) dit quelle ligne de foreuses y TIENT à la couverture visée
+  local tiles, pairs_dep, bound = 0, 0, 0
+  local cache = scan_cache(f)
+  for i, c in ipairs(candidates(b, { gisement = true }, { x = b.lat.ox, y = b.lat.oy }, prm.ore)) do
+    if i > cfg.top_lots then break end
+    local nt = c.l.ore_n or 0
+    if nt > tiles then tiles = nt end
+    local ub = math.min(Rg.pairs_for_tiles(nt, dsp.w, reach, cfg.cover, pairs_line), pairs_line)
+    bound = math.max(bound, ub)
+    if ub > pairs_dep then
+      local x0, y0, x1, y1 = P.lot_rect(b.lat, c.l.i, c.l.j)
+      local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+      local masks, ores = lot_scan(f, surface, c, rect, prm.ore, cache)
+      for n = ub, pairs_dep + 1, -1 do
+        local gd2 = M.GEN.drills(prm.ore, n)
+        if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, cover_min = cfg.cover }) then pairs_dep = n break end
+      end
+    end
+  end
+  local rows, why = Li.rows_wanted({
+    rows_rate = cur, pairs_dep = pairs_dep, drill_rate = dsp.speed, cap = cap,
+    pairs_line = pairs_line, rows_max = g.extensions[1].max, grow = true,
+    rows_fit = Li.rows_fit(P.LOT, 1, P.FEED_DEPTH, rev and 0 or 2, fsp.w),
+    out_ok = function(r) return M.choose_inserters(r * cap, true, Li.MAX_ARMS) ~= nil end,
+    budget_rows = Li.budget_rows(Stock.count(f, T.outposts.iron.product), cfg.row_cost, cfg.stock_share, cfg.rows_floor),
+  })
+  if rows ~= cur then
+    b.line_logs = (b.line_logs or 0) + 1
+    if b.line_logs <= Build.LINE_LOGS then
+      log(string.format("[FO-LIGNE] %s : fonderie %s, %d rangee(s) demandee(s) -> %d (%s) ; gisement %d tuiles (borne %d paire(s)) = %d paire(s) de foreuses a %d%% verifiees, sortie %s",
+        f.key or "player", tostring(prm.ore), cur, rows, why, tiles, bound, pairs_dep, math.floor(cfg.cover * 100 + 0.5),
+        rev and "exterieur" or "centre"))
+    end
+  end
+  return rows
+end
+
 --- Têtes d'alimentation et quais d'un module posé ; foreuses de ravitaillement et tapis. Rend true ou false, raison.
 local function plan_feed(f, surface, p, place, part)
   local b = f.build
@@ -888,18 +1021,16 @@ local function plan_feed(f, surface, p, place, part)
         if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
       end
     else
-      local outn = 0
-      for _, k in ipairs(sorted_keys(g.nominal or {})) do if k ~= "electricity-kw" then outn = outn + g.nominal[k] end end
-      local nports = 0
-      for _, q in ipairs(P.belt_ports(place.inst)) do if q.io == "out" then nports = nports + 1 end end
-      local per = outn / math.max(1, nports)
-      local ins = M.choose_inserters(per, true, 1) or "fast-inserter"
-      local q = P.out_quai(port, ins)
+      -- lot AGENCEMENT : jusqu'à `place.fan` bras par tapis de sortie (2 pour une longue ligne), le second du côté extérieur
+      local ins, arms = out_arms(g, place.fan)
+      local q = P.out_quai(port, ins, arms, arms > 1 and P.out_side(place.inst, port) or nil)
       for _, e in ipairs(q) do e.part = part end
       if not reserve_tiles(b, p, q) then return false, "quai de sortie" end
       local qp = quai_poles(b, p, q, place.masks, g.pole_name)
       if #qp > 0 and not reserve_tiles(b, p, qp) then return false, "poteau de quai" end
-      p.outs[#p.outs + 1] = { x = q[2].x, y = q[2].y }
+      for _, e in ipairs(q) do
+        if e.role == "sortie" then p.outs[#p.outs + 1] = { x = e.x, y = e.y } end
+      end
     end
   end
   return true
@@ -982,12 +1113,23 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local n = math.max(1, math.ceil(flow / (2 * M.spec("electric-mining-drill").speed) - 1e-9))
   local place, why
   local diag = {}
-  for nn = n, 1, -1 do
+  -- lot AGENCEMENT (retour du DC du 29/10 : « on veut des rangées de foreuses ») : la ligne ne dépasse pas ce qu'un collecteur porte
+  -- (le gabarit le dit), s'essaie d'abord à 80 % de tuiles minées portant du minerai SANS réduire la ligne (relecture : une ligne
+  -- plus courte à 80 % n'a pas le droit de battre la ligne voulue à la couverture d'avant), puis redescend comme avant (n, n−1, … 1) ;
+  -- les relevés d'un lot servent à toutes les tailles essayées (`cache`)
+  local g1 = M.GEN.drills(item, 1)
+  local pmax = g1 and g1.extensions and g1.extensions[1] and g1.extensions[1].max or n
+  local top = math.max(1, math.min(n, pmax))
+  local cfg = T.ligne or {}
+  local cache, picked = scan_cache(f), nil
+  for _, at in ipairs(Rg.attempts(top, top, { high = cfg.cover })) do
+    local nn = at.n
     local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, nn)
     if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
     if g then
-      place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item, { nobad = true, diag = nn == 1 and diag or nil })
-      if place then break end
+      place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
+        { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache })
+      if place then picked = at break end
     end
   end
   if not place then
@@ -998,7 +1140,14 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   p.parts[part] = { kind = "foreuses", key = place.g.key, lot = place.lot, ox = place.ox, oy = place.oy, k = place.k,
     w = place.g.w, h = place.g.h, power = needs_power(place.g), belt = belt, flow = flow,
     drills = 2 * ((place.g.params or {}).n or 0),
-    drill_rate = (M.spec((place.g.params or {}).drill or "") or {}).speed or 0 }
+    drill_rate = (M.spec((place.g.params or {}).drill or "") or {}).speed or 0,
+    pairs = (place.g.params or {}).n, cover = place.cover }
+  b.stats.rangees = (b.stats.rangees or 0) + 1
+  if b.stats.rangees <= Build.LINE_LOGS then
+    log(string.format("[FO-RANGEES] %s : projet %d, foreuses %s : %d paire(s) (%d foreuses) visees %d, couverture %d%% (visee %d%%), %.2f minerai/s demandes",
+      f.key or "player", p.id, item, (place.g.params or {}).n or 0, 2 * ((place.g.params or {}).n or 0), n,
+      math.floor((place.cover or 0) * 100 + 0.5), picked and picked.cover and math.floor(picked.cover * 100 + 0.5) or math.floor(P.DRILL_COVER * 100 + 0.5), flow))
+  end
   local ents = inst_entities(place.inst, part, belt)
   -- tapis : queue des foreuses → arrivée
   local tail
@@ -1219,6 +1368,57 @@ local function ring_areas(x0, y0, x1, y1)
   }
 end
 
+--- Lot ENCEINTE3 (retour du DC, Azur : « ils ont vraiment placé super loin ») : contour SERRÉ sur l'empreinte réelle de la base.
+--- Empreinte = lots pris par un projet vivant (planifié ou fini), lot du QG, tourelles de l'équipe ; + E.MARGIN tuiles ; les lots
+--- et tourelles ISOLÉS (plus de E.ISOLATED_GAP tuiles) restent dehors ; les E.ROOM_LOTS lots libres les plus proches restent dedans.
+--- Rend ({ x0, y0, x1, y1 } = tuiles du mur, incluses, info) ou nil (ouvertures hors bornes : repli sur le rayon d'avant).
+local function enc_tight_bounds(f)
+  local b = f.build
+  local rects, room = {}, {}
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+    local box = { x0 = x0, y0 = y0, x1 = x1, y1 = y1, k = k }
+    if l.used then
+      local p = b.projects[l.used]
+      if p and p.state ~= "refuse" and not (p.spec and p.spec.enceinte) then rects[#rects + 1] = box end
+    elseif (l.state == "libre" or l.state == "defricher") and not (l.i == 0 and l.j == 0) and not (l.bad and l.bad >= 2) and not l.out then
+      room[#room + 1] = box
+    end
+  end
+  for _, id in ipairs(sorted_keys(f.turrets or {})) do
+    local t = f.turrets[id]
+    if t and t.valid then
+      local x, y = t.position.x, t.position.y
+      rects[#rects + 1] = { x0 = math.floor(x - 1), y0 = math.floor(y - 1), x1 = math.ceil(x + 1), y1 = math.ceil(y + 1) }
+    end
+  end
+  local cx0, cy0, cx1, cy1 = Enc.bounds(b.lat, b.radius) -- relecture ENCEINTE3 : jamais plus large que l'anneau du rayon
+  local bounds, info = Enc.tight_bounds(b.lat, rects, room, { clamp = { cx0, cy0, cx1, cy1 } })
+  if not Enc.gates_inside(b.lat, bounds) then return nil end
+  return bounds, info
+end
+
+--- Lot ENCEINTE3 : les lots libres que le mur coupe ou laisse dehors ne reçoivent plus de module (drapeau `out`, lu par
+--- `candidates`, `make_pond` et Enc.free_count) ; un lot de GISEMENT reste utilisable dehors (les mines d'avant-poste).
+local function enc_mark_out(b, bounds)
+  local n = 0
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+    if not (l.i == 0 and l.j == 0) and not Enc.inside(bounds, { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }) then
+      l.out = true
+      n = n + 1
+    end
+  end
+  return n
+end
+
+--- Lot ENCEINTE3 : rayon libéré (aucun segment posé) : les lots écartés par le contour redeviennent utilisables.
+local function enc_release(b)
+  for _, k in ipairs(sorted_keys(b.lots)) do b.lots[k].out = nil end
+end
+
 --- Plan du projet « enceinte » : (true) ou (false, raison). Mêmes champs qu'un projet de module (entités, points d'appui,
 --- obstacles) : la machine d'états d'`advance` ne change pas.
 local function plan_enceinte(f, surface, p)
@@ -1227,7 +1427,7 @@ local function plan_enceinte(f, surface, p)
   if not enc then return false, "enceinte annulee" end
   local item = item_of(T.wall)
   if not item then return false, "mur sans objet" end
-  local x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r)
+  local x0, y0, x1, y1 = Enc.bounds(b.lat, enc.r, nil, enc.bounds) -- lot ENCEINTE3 : contour serré s'il y en a un
   -- lot ENCEINTE2 : un projet = un SEGMENT (spec.walls : tuiles { {tx, ty} ... }) ; sans liste (projet d'une sauvegarde d'avant),
   -- l'anneau entier
   local seg = p.spec.walls
@@ -1260,7 +1460,7 @@ local function plan_enceinte(f, surface, p)
       if why then ring.skipped[why] = (ring.skipped[why] or 0) + 1 else ring.walls[#ring.walls + 1] = w end
     end
   else
-    ring = Enc.ring(b.lat, enc.r, { skip = skip })
+    ring = Enc.ring(b.lat, enc.r, { skip = skip, bounds = enc.bounds })
   end
   if #ring.walls == 0 then return false, "aucun mur posable" end
   local ents = {}
@@ -1314,8 +1514,20 @@ local function plan_project(f, surface, p)
   local spec = p.spec
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
-  local g, why = template_of(spec)
+  -- lot AGENCEMENT : la fonderie à tapis est une LIGNE qui suit le gisement (line_rows) ; ses coffres vont vers le centre (la
+  -- source de ressources de la base, défaut) ou vers l'extérieur (les plaques nourrissent un autre module du plan)
+  local topts
+  if spec.gen == "smelter" and spec.feed == "tapis" then
+    local plate = M.PLATE_OF[(spec.args or {})[2]]
+    local use = spec.use or ((plate and plate_used_elsewhere(b, p, plate)) and "usine" or nil)
+    local sortie = Li.sortie_for(use)
+    topts = { sortie = sortie, grow = function(g1, cur) return line_rows(f, surface, spec, g1, cur, sortie == "exterieur") end }
+    p.sortie = sortie
+  end
+  local g, why = template_of(spec, topts)
   if not g then return false, why end
+  p.consumes = {}
+  for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true end
   local main
   local is_plant = g.gen == "steam"
   local toward
@@ -1336,9 +1548,34 @@ local function plan_project(f, surface, p)
     end
     -- lot FONDERIES (retour du DC du 29/10 : tapis en crochet, fours posés « à l'envers ») : une fonderie servie par un
     -- tapis de foreuses est tournée tête vers le gisement ; la colonne de fours s'étend à l'opposé, sans retour.
-    local fopts = (spec.feed == "tapis" and dep) and { head_toward = dep } or nil
-    main, why = place_module(f, surface, g, { libre = true, defricher = true }, toward, nil, fopts)
-    if not main then main, why = place_module(f, surface, g, { gisement = true }, toward, nil, fopts) end
+    local function try_place(gx)
+      local fopts = (spec.feed == "tapis" and dep) and { head_toward = dep } or nil
+      -- lot AGENCEMENT : deux bras par tapis de sortie quand un seul étranglerait la ligne (place du second réservée par P.fit)
+      if topts then
+        local _, arms = out_arms(gx, Li.MAX_ARMS)
+        if arms > 1 then fopts = fopts or {}; fopts.fan = arms end
+      end
+      local m, w = place_module(f, surface, gx, { libre = true, defricher = true }, toward, nil, fopts)
+      if not m then m, w = place_module(f, surface, gx, { gisement = true }, toward, nil, fopts) end
+      return m, w
+    end
+    main, why = try_place(g)
+    -- lot AGENCEMENT (relecture) : la ligne agrandie ne tient dans aucun lot (relief, eau, bâtiments) : repli sur la taille de la
+    -- demande, qui se posait avant le lot. Sans cela le projet restait refusé (et le treillis grandissait pour rien).
+    if not main and topts then
+      local g0 = template_of(spec, { sortie = topts.sortie })
+      if g0 and (g0.params or {}).n ~= (g.params or {}).n then
+        local m0, w0 = try_place(g0)
+        if m0 then
+          b.line_logs = (b.line_logs or 0) + 1
+          if b.line_logs <= Build.LINE_LOGS then
+            log(string.format("[FO-LIGNE] %s : projet %d, fonderie de %d rangee(s) sans place (%s) : repli sur %d rangee(s) de la demande",
+              f.key or "player", p.id, (g.params or {}).n or 0, tostring(why), (g0.params or {}).n or 0))
+          end
+          main, why, g = m0, w0, g0
+        end
+      end
+    end
   end
   Profiler.stop("build:plan:place")
   if not main then
@@ -2491,8 +2728,8 @@ local function watch_stall(f, tick)
       local cause = (p.bloc_cause and p.bloc_built == built) and p.bloc_cause or Blocage.cause(p.state, p.reason)
       local rec, say = Blocage.stall(b.noprog[pid], count_built(p), cause, tick)
       b.noprog[pid] = rec
-      if say and not b.noprog_dits[say] then
-        b.noprog_dits[say] = true
+      if say and not b.noprog_dits[pid .. ":" .. say] then -- lot REBUILD-SUIVI : une fois par (projet, cause), non par cause
+        b.noprog_dits[pid .. ":" .. say] = true
         log(string.format("[FO-BLOQUE] %s : projet %d (%s) sans progres depuis %d min : %s ; %d entite(s) baties sur %d, etat %s a %.1f min",
           f.key or "player", p.id, tostring(p.spec.key or p.spec.gen or "?"), math.floor((tick - rec.since) / 3600), say, count_built(p), #p.ents,
           p.state, tick / 3600))
@@ -2664,9 +2901,12 @@ local function request_segment(f, enc, tick)
   local b = f.build
   local wr = wall_recipe(f)
   if not wr then return false, "recette" end
-  local runs = Enc.runs(b.lat, enc.r)
+  local runs = Enc.runs(b.lat, enc.r, { bounds = enc.bounds })
   local equiv = Stock.count(f, wr.item) + craftable_walls(f, wr)
-  local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, known_threats(f)), enc.claimed, Enc.segment_cap(equiv))
+  local threats = known_threats(f)
+  -- lot ENCEINTE3 (lot A) : le segment démarre au bout du tronçon le plus proche de la menace connue de son côté, à défaut du QG
+  local seg, why = Enc.next_segment(runs, Enc.run_order(runs, b.lat, threats), enc.claimed, Enc.segment_cap(equiv),
+    Enc.run_refs(runs, b.lat, threats))
   if not seg then
     if why == "complet" then enc.complete = true end
     return false, why, equiv
@@ -2712,6 +2952,7 @@ local function segment_failed(f, tick, i, p)
   -- demanderait plus jamais de segment, ou anneau entierement refuse)
   if #enc.segs == 0 and (transient or enc.complete) then
     b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
+    enc_release(b) -- lot ENCEINTE3
     space_log(b, string.format("[FO-ESPACE] %s : aucun segment pose, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
   end
 end
@@ -2728,7 +2969,7 @@ function Build.enclosure_report(b)
     end
   end
   return { r = enc.r, segments = #(enc.segs or {}), finished = fin, walls = walls, gates = enc.gates or Enc.gate_count(),
-    complete = enc.complete == true }
+    complete = enc.complete == true, bounds = enc.bounds, tight = enc.bounds ~= nil }
 end
 
 --- Une décision de croissance ou d'enceinte (appelée à chaque pensée d'équipe, utile seulement toutes les Enc.CHECK_TICKS).
@@ -2761,6 +3002,7 @@ function Build.space_step(f, surface, tick)
     elseif why == "complet" and #enc.segs == 0 then
       -- toutes les tuiles de l'anneau sont non murables et aucun segment n'existe : le rayon n'a pas de raison d'etre fige
       b.enc, b.enc_retry = nil, tick + Enc.RETRY_TICKS
+      enc_release(b) -- lot ENCEINTE3
       space_log(b, string.format("[FO-ESPACE] %s : aucune tuile murable, rayon libere, nouvel essai a %.1f min", f.key or "player", (tick + Enc.RETRY_TICKS) / 3600))
     elseif why == "stock" and not enc.poor then
       enc.poor = true
@@ -2780,19 +3022,26 @@ function Build.space_step(f, surface, tick)
   if on == nil then on = not f.is_player end  -- le joueur garde la main sur ses propres murs
   if not on or tick < (b.enc_retry or 0) or not Enc.enclosure_due(info) then return end
   -- premier segment : le rayon n'est figé (b.enc) que si un segment est vraiment demandé
-  local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count() }
+  -- lot ENCEINTE3 : contour serré sur l'empreinte (bornes figées avec le rayon) ; nil : le rayon, comme avant
+  local tight, tinfo = enc_tight_bounds(f)
+  local cand = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count(), bounds = tight }
   local ok, why, equiv = request_segment(f, cand, tick)
   if not ok then
     if why == "stock" and not b.space_poor then
       b.space_poor = true
       space_log(b, string.format("[FO-ESPACE] %s : enceinte voulue (rayon %d, %d murs au plus), stock equivalent %d murs : un quart = %d, minimum %d : attente",
-        f.key or "player", b.radius, Enc.max_walls(b.radius), equiv or 0, Enc.segment_cap(equiv or 0), Enc.SEG_MIN))
+        f.key or "player", b.radius, Enc.max_walls(b.radius, { bounds = tight }), equiv or 0, Enc.segment_cap(equiv or 0), Enc.SEG_MIN))
     end
     return
   end
   b.enc = cand
+  local out_n = tight and enc_mark_out(b, tight) or 0
   space_log(b, string.format("[FO-ESPACE] %s : enceinte progressive commencee (rayon %d fige, %d murs au plus en tout) a %.1f min", f.key or "player",
-    b.radius, Enc.max_walls(b.radius), tick / 3600))
+    b.radius, Enc.max_walls(b.radius, { bounds = tight }), tick / 3600))
+  if tight then
+    space_log(b, string.format("[FO-ESPACE] %s : contour serre %d,%d a %d,%d (QG %d,%d ; empreinte %d lots/tourelles gardes, %d isoles dehors, %d lots libres gardes dedans, %d lots ecartes du contour)",
+      f.key or "player", tight[1], tight[2], tight[3], tight[4], b.lat.ox, b.lat.oy, tinfo.core, #tinfo.excluded, tinfo.room, out_n))
+  end
 end
 
 --- Pensée d'équipe (script/team/team.lua, après l'organisation) : tâches au tableau, réévaluation des rues

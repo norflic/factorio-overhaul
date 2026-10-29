@@ -26,13 +26,16 @@
              lot FER-EQUIPE : iron_extra = { res, n } (minages de fer de renfort pour les inactifs),
              lot IA1-b2 (D-17) : defend_first (tourelle possible : un nouvel avant-poste se bâtit avec ses tourelles),
              undefended = { [id] = vrai } avant-postes où l'on ne va pas (shared/team/planner.lua, P.no_go),
-             turrets_ok, no_outpost_guard (votre équipe : plus de garde d'avant-poste), no_reserve_floor }.
+             turrets_ok, no_outpost_guard (votre équipe : plus de garde d'avant-poste), no_reserve_floor,
+             lot SITE-PROCHE (R4) : saturated = { [produit] = vrai } (matières saturées du cerveau, `f.team.ia3.saturated`) :
+             le fond ne BÂTIT plus d'avant-poste d'un produit saturé, même quand aucune autre matière ne manque }.
   Déterminisme : avant-postes dans l'ordre de la vue (id), types dans T.OUTPOST_ORDER, ressources dans un ordre fixe,
   aucun `pairs` dans une décision.
 ]]
 
 local T = require("shared.team.config")
 local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
+local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 
 local F = {}
 
@@ -119,6 +122,23 @@ local function with_turrets(free, ctx, items, np)
   return nil
 end
 
+--- Lot SITE-PROCHE (R4) : vrai si le produit de ce type d'avant-poste est SATURÉ (ctx.saturated) : le fond n'y bâtit pas
+--- de nouvel avant-poste (agrandir et miner restent permis : proches). Le retrait du fond saturé par le cerveau
+--- (script/ai3/cerveau.lua, Ia3.after_poles) est désarmé quand aucune autre matière ne manque ; celui-ci ne l'est pas.
+function F.saturated_build(ctx, kind)
+  local sat = ctx and ctx.saturated
+  local spec = T.outposts[kind]
+  return sat ~= nil and spec ~= nil and sat[spec.product] == true
+end
+
+--- Lot SITE-PROCHE (R1) : vrai si l'avant-poste `o` est trop LOIN pour que le fond l'agrandisse parce qu'un site admissible
+--- de la même ressource est connu bien plus près (V.extension_refused, `view.sites_near`, factions seulement) : le fond
+--- bâtit alors au site proche (ni agrandissement, ni « il reste de la place » qui interdit le build).
+function F.far_from_site(view, o)
+  local near = view.sites_near and view.sites_near[o.kind] or nil
+  return near ~= nil and V.extension_refused(math.sqrt(o.d2 or 0), near)
+end
+
 local function extraction(view, free, ctx, out)
   local keys = ctx.keys or {}
   -- Prudence (pertes récentes de PNJ, script/team/poles.lua) : rien hors du QG ; seule la fonderie du QG reste.
@@ -132,6 +152,7 @@ local function extraction(view, free, ctx, out)
   local safe = ctx.safe_only
   for _, o in ipairs(view.outposts or {}) do
     local room = T.max_drills(o.kind) - (o.drills or 0)
+    if F.far_from_site(view, o) then room = 0 end -- lot SITE-PROCHE (R1) : site proche libre, on n'agrandit pas le lointain
     if undefended[o.id] and not o.full and room > 0 then extendable[o.kind] = true end -- il attend ses tourelles
     if not o.full and room > 0 and not danger[o.id] and not undefended[o.id] and not prudent and not safe then
       extendable[o.kind] = true
@@ -150,7 +171,7 @@ local function extraction(view, free, ctx, out)
     local pairs_n = math.min(F.PAIRS, T.outposts[kind].drills)
     local items = with_turrets(free, ctx, F.pair_items(kind, pairs_n), pairs_n)
     if items and not prudent and not safe and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0
-      and not keys[key] and has(free, items) then
+      and not F.saturated_build(ctx, kind) and not keys[key] and has(free, items) then
       take(free, items)
       out[#out + 1] = { key = key, kind = "build", prio = F.PRIO.build, outpost_kind = kind, items = items,
         fond = true, domain = "gisements" }
@@ -274,6 +295,7 @@ function F.potential(view, ctx, free)
   local extendable = {}
   for _, o in ipairs(view.outposts or {}) do
     local room = T.max_drills(o.kind) - (o.drills or 0)
+    if F.far_from_site(view, o) then room = 0 end -- lot SITE-PROCHE (R1)
     if not o.full and room > 0 then
       if undefended[o.id] then
         extendable[o.kind] = true -- il attend ses tourelles : pas de nouvel avant-poste de ce type
@@ -284,7 +306,7 @@ function F.potential(view, ctx, free)
     end
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do
-    if not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 then
+    if not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not F.saturated_build(ctx, kind) then
       local pairs_n = math.min(F.PAIRS, T.outposts[kind].drills)
       local ready = true
       if ctx.defend_first then

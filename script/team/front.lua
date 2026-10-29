@@ -108,8 +108,12 @@ function Front.view(f, fortify_open)
   local st = state(f, tick)
   Fr.decay(st.mem, tick)
   refresh_cover(f, st, surface, tick)
-  local cells = Fr.top(st.mem)
-  if #cells == 0 and #st.cover == 0 then return { busy = fortify_open and fortify_open["front"] or false } end
+  -- Lot DEFENSE-FACTIONS D5 : Fr.SCAN cellules examinées ; la coupe à Fr.MAX_CELLS se fait dans Fr.plan, APRÈS le contrôle du moteur.
+  local cells = Fr.top(st.mem, Fr.SCAN)
+  if #cells == 0 and #st.cover == 0 then
+    st.rows = nil
+    return { busy = fortify_open and fortify_open["front"] or false }
+  end
   if tick - st.chk_tick > 3600 then st.chk, st.chk_tick = {}, tick end
   local rest = {}
   for _, key in ipairs(State.sorted_keys(st.rest)) do
@@ -129,8 +133,11 @@ function Front.view(f, fortify_open)
     return ok
   end
   local turrets, placed = turrets_of(f)
-  local plan = Fr.plan({ cells = cells, cover = st.cover, turrets = turrets, placed = placed, near = range_near(), rest = rest, allow = allow })
+  local plan = Fr.plan({ cells = cells, cover = st.cover, turrets = turrets, placed = placed, near = range_near(), rest = rest, allow = allow,
+    hq = f.hq_pos })
   local pick = plan.pick
+  -- Lot DEFENSE-FACTIONS D1 : les lignes du plan (cause de chaque cellule non servie), lues par script/team/defense_log.lua ; nombres et chaînes.
+  st.rows, st.rows_tick, st.placed = plan.rows, tick, placed
   if pick and st.logs < Front.LOGS and st.last_pick ~= pick.key .. ":" .. pick.have then
     st.last_pick = pick.key .. ":" .. pick.have
     st.logs = st.logs + 1
@@ -138,6 +145,17 @@ function Front.view(f, fortify_open)
       f.key or "player", pick.key, pick.kind, pick.x, pick.y, tick / 3600, pick.have, pick.want, pick.count, placed, Fr.TEAM_CAP))
   end
   return { pick = pick, busy = fortify_open and fortify_open["front"] or false }
+end
+
+--- Lot DEFENSE-FACTIONS D3 : tourelles voulues au QG d'une FACTION (votre équipe garde sa règle : T.defend_hq). `peak` : le plus grand nombre de
+--- tourelles du QG déjà vu (f.team.hq_peak, créé ici à la première pensée d'après le départ) ; `f.hq_lethal_tick` : dernière occupation du QG
+--- par les biters (script/team/worker.lua). Aucune tourelle voulue tant que le QG n'a perdu aucune tourelle ET n'a pas été attaqué.
+function Front.hq_post(f, hq_turrets, tick)
+  local team = f.team
+  if not team then return 0 end
+  if hq_turrets > (team.hq_peak or 0) then team.hq_peak = hq_turrets end
+  local ago = f.hq_lethal_tick and tick - f.hq_lethal_tick or nil
+  return Fr.hq_post({ turrets = hq_turrets, peak = team.hq_peak or 0, ago = ago })
 end
 
 --- Pose des tourelles de la tâche (emplacements de la règle, refus au-delà de Fr.ACCEPT tuiles du centre).

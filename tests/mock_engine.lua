@@ -445,6 +445,7 @@ local EntityMT = {
       end
     end
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
+    if k == "burner" then return W.prototype(t.name).burner_prototype and {} or nil end -- LuaEntity.burner : seulement une machine a combustion (pvp_test, lot FOREUSES)
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
     if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
     -- Étape 1 : service_smelters lit is_crafting ; un four du mock fond d'un coup (pas de fabrication en cours entre deux ticks)
@@ -1241,6 +1242,8 @@ function M.new_world(opts)
     W.decoratives_cleared = W.decoratives_cleared or {}
     W.decoratives_cleared[#W.decoratives_cleared + 1] = t.area or t.position
   end
+  -- Lot EXTENSION-FER : LuaSurface.find_entities(area) (le diagnostic de reconstruction.lua l'appelle quand une pièce est bloquée).
+  surface.find_entities = function(area) return surface.find_entities_filtered({ area = area }) end
   surface.find_entity = function(name, pos)
     local x, y = pos.x or pos[1], pos.y or pos[2]
     for _, o in ipairs(W.entities) do

@@ -33,6 +33,7 @@ local Worker = require("script.team.worker")
 local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, généralistes, travail de fond
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
+local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
@@ -479,8 +480,8 @@ function Team.view(f, tick)
   end
   Profiler.fstop("view:2-avant-postes")
   Profiler.fstart("view:3-sites")
-  local sites = {}
-  for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind] = Sites.available(f, T.outposts[kind].resource) end
+  local sites, sites_near = {}, {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind], sites_near[kind] = Sites.available(f, T.outposts[kind].resource, tick) end
   Profiler.fstop("view:3-sites")
   Profiler.fstart("view:4-fin")
   local groups = {}
@@ -550,7 +551,7 @@ function Team.view(f, tick)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = Board.incoming(f),
-    outposts = outposts, pending = pend, sites = sites,
+    outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
@@ -582,7 +583,7 @@ function Team.view(f, tick)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
     plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
-    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0, -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats
+    hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Front.hq_post(f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
@@ -630,6 +631,7 @@ function Team.think(f, surface, tick)
       collect_min = T.smelt_collect_min })
   end
   Profiler.stop("team:plan")
+  DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
 
   for _, key in ipairs(plan.reached) do
     if not f.team.done[key] then
@@ -652,6 +654,17 @@ function Team.think(f, surface, tick)
   f.team.goal = plan.goal
   f.team.missing = plan.missing
   f.team.unreachable = plan.unreachable
+  -- Lot PRIORITE-RESSOURCES : journal du passage « production d'abord » (le fer ne paie pas la défense ET la production,
+  -- shared/team/priorite.lua), une ligne par changement ; aucune décision n'en dépend.
+  local pri = plan.priorite
+  local pf = (pri and pri.production_first) or false
+  if pf ~= (f.team.priorite_pf or false) then
+    f.team.priorite_pf = pf
+    log(string.format("[FO-PRIORITE] %s : %s a %.1f min : fer %d, defense %d, prochain pas de production %s, mis de cote %d, objectifs militaires sautes %d",
+      f.key or "?", pf and "PRODUCTION d'abord" or "defense et production payees", tick / 3600, math.floor(pri and pri.funds or 0),
+      math.floor(pri and pri.defense_cost or 0), tostring(pri and pri.production_cost and math.floor(pri.production_cost) or "aucun"),
+      math.floor(pri and pri.hold or 0), plan.skipped_goals or 0))
+  end
 
   -- Besoins de prospection, par ressource.
   local needs = {}

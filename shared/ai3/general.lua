@@ -279,6 +279,28 @@ function Gen.k1(cat, state, cands, chains)
   end
 end
 
+--- Lot DEFENSE-FACTIONS D2 (audit tourelles-danger du 29/10 : la technologie de la tourelle terminée à 101 min pour Émeraude contre 18 à 45
+--- min pour les trois autres, parce que « electronics » et « fast-inserter » la devançaient, puis plus aucune recherche de 30 à 87 min) : la
+--- DÉFENSE FIXE est un palier, pas une option classée par valeur. `recipe` : la recette de la tourelle (donnée par l'appelant, jamais nommée
+--- ici). Si la technologie qui la débloque n'est pas faite et figure parmi les candidates (donc PAYABLE : règle H8, jamais de don), elle passe
+--- en tête, quelle que soit la règle K1 ; sinon rien ne change. Pas de don gratuit : la décision « kit égal » reste. En place.
+Gen.DEFENSE_TAG = "defense : tourelle avant le reste"
+function Gen.defense_first(cat, state, cands, recipe)
+  local t = recipe and cat.g.unlocked_by[recipe] or nil
+  if not t or state.techs[t] then return end
+  for i, c in ipairs(cands) do
+    if c.tech == t then
+      c.defense = true
+      if i > 1 then
+        table.remove(cands, i)
+        table.insert(cands, 1, c)
+        c.k1 = Gen.DEFENSE_TAG
+      end
+      return
+    end
+  end
+end
+
 --- Le choix. ctx = { weights, wanted = { [objet] = vrai }, current = techno en cours, disabled = { [techno] = vrai },
 --- lab_speed, k1 = vrai (lot AUTO : automatisation allumée, règles K1 de Gen.k1) }. Rend une décision { tech, value, cost, score, palier, why, chain, ranked, blocked } ou nil (et la
 --- décision porte alors `blocked` : technologies de valeur impayables et leurs causes).
@@ -313,6 +335,7 @@ function Gen.choose(cat, ev, state, ctx)
     return a.tech < b.tech
   end)
   if ctx.k1 then Gen.k1(cat, state, cands, chains) end
+  if ctx.defense then Gen.defense_first(cat, state, cands, ctx.defense) end -- lot DEFENSE-FACTIONS D2
   local d = cands[1] or { tech = nil }
   d.ranked = {}
   for i = 1, math.min(Gen.TOP, #cands) do d.ranked[i] = { cands[i].tech, cands[i].score } end

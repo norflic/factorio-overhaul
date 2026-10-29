@@ -20,7 +20,11 @@
     §8 données CHANGÉES (même code) et TOUS les noms changés : mêmes ordres au renommage près ;
     §9 modèle simulé (données jouets, ordres payés en VRAIS ingrédients) : le capital qui rapporte ;
     §10 déterminisme (entrées permutées, puits en double) ; §11 mutants ; §12 coût de calcul (4, 60 et 200 gisements) ;
-    §13 cerveau : buts de FOND réémis tant que l'ordre est ouvert (vrai P.update), la recherche garde sa place.
+    §13 cerveau : buts de FOND réémis tant que l'ordre est ouvert (vrai P.update), la recherche garde sa place ;
+    §14 repli des ordres refusés (lot CAPI-REPLI, shared/ai3/repli.lua) : par (produit, gisement), remis à zéro après un
+       module terminé, décroissant avec le temps, un échec de matériaux ne bloque pas (module réduit, objets en préparation),
+       plafond de 5 min couverture basse et besoin non servi, le cas mesuré d'Azur (79,6 à 119,8 min sans ordre de fer) ;
+       ses mutants sont dans §11.
   Usage : lua5.2 tests/ai3_capitalisation_test.lua   (depuis la racine du mod)
   Ce fichier est du TEST : il nomme les prototypes vanilla (comme le moteur) ; la règle n'en voit rien.
 ]]
@@ -31,6 +35,7 @@ local Ca = require("shared.ai3.capitalisation")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
 local K = require("shared.ai3.catalogue")
+local Rp = require("shared.ai3.repli")
 local Tr = require("shared.faction.traits")
 
 local pass, fail = 0, 0
@@ -1351,6 +1356,131 @@ big_scene = function(D, n, circuits, mult)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §14 Lot CAPI-REPLI : repli des ordres refusés (règle pure shared/ai3/repli.lua)
+---------------------------------------------------------------------------------------------------
+local function s14()
+  local MIN = 3600
+  local PLAN = "plan directeur : pas de lot"
+  local MAT = "plan directeur : materiaux introuvables (15 min sans progres)"
+  -- a. PAR GISEMENT : un refus sur un gisement ne ferme ni l'autre gisement du produit, ni un autre produit
+  do
+    local b = {}
+    local kA, kB, kC = Rp.key("p1", "A"), Rp.key("p1", "B"), Rp.key("p2", "A")
+    check(kA ~= kB and kA ~= kC, "§14a clés distinctes par produit ET par gisement")
+    check(Rp.key("p1", nil) == "p1" and Rp.key("p1", "") == "p1", "§14a sans gisement : le produit seul (chaînes)")
+    check(Rp.fail(b, kA, PLAN, 10 * MIN) == "plan", "§14a refus du plan : repli")
+    check(Rp.held(b, kA, 11 * MIN) ~= nil, "§14a le gisement refusé est en repli")
+    check(Rp.held(b, kB, 11 * MIN) == nil, "§14a l'autre gisement du même produit reste ouvert")
+    check(Rp.held(b, kC, 11 * MIN) == nil, "§14a un autre produit sur le même gisement reste ouvert")
+    check(Rp.held(b, kA, 10 * MIN + Rp.BASE - 1) ~= nil and Rp.held(b, kA, 10 * MIN + Rp.BASE) == nil,
+      "§14a premier repli = Rp.BASE exactement")
+  end
+  -- b. n REMIS À ZÉRO par un module terminé
+  do
+    local b, k = {}, Rp.key("p1", "A")
+    for i = 1, 4 do Rp.fail(b, k, PLAN, i * MIN) end
+    check(b[k].n == 4, "§14b quatre refus : n = 4")
+    check(b[k].until_tick - 4 * MIN == Rp.MAX, "§14b le repli plafonne à Rp.MAX")
+    Rp.done(b, k)
+    check(Rp.held(b, k, 5 * MIN) == nil, "§14b module terminé : plus de repli")
+    Rp.fail(b, k, PLAN, 100 * MIN)
+    check(b[k].n == 1 and b[k].until_tick - 100 * MIN == Rp.BASE, "§14b après un module terminé, le refus suivant repart de n = 1")
+  end
+  -- c. n DÉCROÎT avec le temps (un cran par Rp.DECAY sans échec)
+  do
+    local b, k = {}, Rp.key("p1", "A")
+    Rp.fail(b, k, PLAN, 0)
+    Rp.fail(b, k, PLAN, 1 * MIN)
+    Rp.fail(b, k, PLAN, 2 * MIN)
+    check(b[k].n == 3 and Rp.eff(b[k], 2 * MIN, "n") == 3, "§14c trois refus rapprochés : n = 3")
+    check(Rp.eff(b[k], 2 * MIN + Rp.DECAY, "n") == 2, "§14c un cran de moins après Rp.DECAY")
+    check(Rp.eff(b[k], 2 * MIN + 3 * Rp.DECAY, "n") == 0, "§14c retombé à zéro après 3 × Rp.DECAY")
+    local t = 2 * MIN + Rp.DECAY
+    Rp.fail(b, k, PLAN, t)
+    check(b[k].n == 3 and b[k].until_tick - t == Rp.BASE * 4, "§14c refus après décroissance : n = 2 + 1, repli 10 × 2^2 min")
+    local b2 = {}
+    Rp.fail(b2, k, PLAN, 0)
+    Rp.fail(b2, k, PLAN, 3 * Rp.DECAY)
+    check(b2[k].n == 1 and b2[k].until_tick - 3 * Rp.DECAY == Rp.BASE, "§14c un vieux refus ne compte plus : repli de base")
+  end
+  -- d. UN ÉCHEC DE MATÉRIAUX NE BLOQUE PAS : module réduit, objets en préparation
+  do
+    local b, k = {}, Rp.key("p1", "A")
+    check(Rp.is_material(MAT) and not Rp.is_material(PLAN) and not Rp.is_material(nil), "§14d classement des raisons")
+    check(Rp.factor(b, k, 0) == 1, "§14d sans échec : module entier")
+    local miss = { { "x", 30 }, { "y", 4 }, { "z", 0 } }
+    check(Rp.fail(b, k, MAT, 80 * MIN, miss) == "materiaux", "§14d échec de matériaux reconnu")
+    check(Rp.held(b, k, 80 * MIN) == nil and Rp.held(b, k, 81 * MIN) == nil, "§14d le gisement n'est PAS en repli")
+    check(Rp.factor(b, k, 80 * MIN) == 0.5, "§14d module suivant réduit de moitié")
+    Rp.fail(b, k, MAT, 95 * MIN, miss)
+    check(Rp.factor(b, k, 95 * MIN) == 0.25, "§14d deuxième échec : un quart")
+    Rp.fail(b, k, MAT, 110 * MIN, miss)
+    check(Rp.factor(b, k, 110 * MIN) == 0.25, "§14d réduction bornée à 1/2^Rp.SHRINK_MAX")
+    local prep = Rp.prep(b, 111 * MIN)
+    check(#prep == 1 and prep[1].key == k and #prep[1].missing == 2 and prep[1].missing[1][1] == "x" and prep[1].missing[1][2] == 30,
+      "§14d objets manquants gardés (quantité nulle écartée)")
+    check(#Rp.prep(b, 110 * MIN + Rp.PREP_TTL) == 0, "§14d préparation expirée après Rp.PREP_TTL")
+    check(Rp.factor(b, k, 110 * MIN + Rp.DECAY) == 0.5 and Rp.factor(b, k, 110 * MIN + 2 * Rp.DECAY) == 1,
+      "§14d la réduction décroît avec le temps")
+    Rp.done(b, k)
+    check(Rp.factor(b, k, 111 * MIN) == 1 and #Rp.prep(b, 111 * MIN) == 0, "§14d module terminé : taille entière, plus de préparation")
+    -- un échec de matériaux garde un repli du PLAN déjà posé, sans le prolonger
+    local b2 = {}
+    Rp.fail(b2, k, PLAN, 10 * MIN)
+    local u = b2[k].until_tick
+    Rp.fail(b2, k, MAT, 12 * MIN, miss)
+    check(b2[k].until_tick == u and b2[k].n == 1, "§14d le repli du plan déjà posé n'est ni retiré ni prolongé par un échec de matériaux")
+  end
+  -- e. PLAFOND de 5 min : couverture sous 50 % ET besoin non servi
+  do
+    local b, k = {}, Rp.key("p1", "A")
+    for _ = 1, 3 do Rp.fail(b, k, PLAN, 0) end
+    local low = { kappa = 400, unserved = true }
+    check(Rp.held(b, k, 30 * MIN) ~= nil, "§14e sans plafond : 40 min de repli après 3 refus")
+    check(Rp.held(b, k, 30 * MIN, { kappa = 400, unserved = false }) ~= nil, "§14e besoin servi : pas de plafond")
+    check(Rp.held(b, k, 30 * MIN, { kappa = 500, unserved = true }) ~= nil, "§14e couverture à 50 % : pas de plafond")
+    check(Rp.held(b, k, 30 * MIN, { kappa = 900, unserved = true }) ~= nil, "§14e gisement couvert : pas de plafond")
+    check(Rp.held(b, k, 4 * MIN, low) ~= nil, "§14e plafonné : encore en repli à 4 min")
+    check(Rp.held(b, k, Rp.MAX_STARVED - 1, low) ~= nil and Rp.held(b, k, Rp.MAX_STARVED, low) == nil, "§14e plafonné : libre à 5 min exactement")
+    check(Rp.held(b, k, 6 * MIN, low) == nil and Rp.held(b, k, 6 * MIN) ~= nil, "§14e le plafond ne vaut que dans les conditions")
+  end
+  -- f. le cas MESURÉ d'Azur (partie du DC) : refus à 3,9 min, échecs de matériaux à 78,8 et 79,6 min ; avant : fer fermé
+  -- jusqu'à 119,8 min avec 281 places libres
+  do
+    local b = {}
+    local kA, kB = Rp.key("plaque", "A"), Rp.key("plaque", "B")
+    Rp.fail(b, kA, PLAN, math.floor(3.9 * MIN))
+    check(Rp.held(b, kA, 79 * MIN) == nil, "§14f le refus du plan de 3,9 min est fini à 79 min")
+    Rp.fail(b, kB, MAT, math.floor(78.8 * MIN), { { "x", 10 } })
+    Rp.fail(b, kB, MAT, math.floor(79.6 * MIN), { { "x", 10 } })
+    check(Rp.held(b, kB, math.floor(79.7 * MIN)) == nil and Rp.held(b, kA, math.floor(79.7 * MIN)) == nil,
+      "§14f à 79,7 min aucun gisement de fer n'est fermé (l'ancien repli : 40 min)")
+    check(Rp.held(b, kB, 100 * MIN) == nil and Rp.held(b, kA, 119 * MIN) == nil, "§14f ni à 100 min, ni à 119 min")
+    check(Rp.factor(b, kB, math.floor(79.7 * MIN)) == 0.25, "§14f le prochain module de ce gisement est réduit au quart")
+  end
+  -- g. déterminisme : préparation triée, quel que soit l'ordre d'insertion ; élagage des entrées mortes
+  do
+    local function build(order)
+      local b = {}
+      for _, name in ipairs(order) do Rp.fail(b, Rp.key("p", name), MAT, 5 * MIN, { { name, 1 } }) end
+      return b
+    end
+    local a = Rp.prep(build({ "c", "a", "b" }), 6 * MIN)
+    local c = Rp.prep(build({ "b", "c", "a" }), 6 * MIN)
+    local sa, sc = {}, {}
+    for i = 1, #a do sa[i] = a[i].key end
+    for i = 1, #c do sc[i] = c[i].key end
+    check(table.concat(sa, ",") == "p@a,p@b,p@c" and table.concat(sa, ",") == table.concat(sc, ","), "§14g préparation triée par clé")
+    local b = build({ "a", "b" })
+    Rp.fail(b, "plan", PLAN, 5 * MIN)
+    check(Rp.prune(b, 6 * MIN) == 0, "§14g rien à élaguer tant que tout est vivant")
+    check(Rp.prune(b, 5 * MIN + 4 * Rp.DECAY) == 3 and next(b) == nil, "§14g tout est élagué quand repli, préparation et compteurs sont éteints")
+    check(Rp.eff(nil, 0, "n") == 0 and Rp.factor({}, "k", 0) == 1 and Rp.held({}, "k", 0) == nil and Rp.describe({}, "k", 0) == "-",
+      "§14g clé inconnue : aucune erreur, rien en repli")
+  end
+end
+
+---------------------------------------------------------------------------------------------------
 -- Exécution
 ---------------------------------------------------------------------------------------------------
 local function run_all()
@@ -1365,6 +1495,7 @@ local function run_all()
   s9()
   s10()
   s13()
+  s14()
 end
 
 local t0 = os.clock()
@@ -1455,6 +1586,30 @@ do
   end)
   MF("valeur pleine à chaque étage (retour de chaîne coupé)", "share", function() return function() return 1 end end)
   MF("goulot sous une demi-machine ignoré", "count_for", function() return function(def, unit) return Ca.count(def, unit) end end)
+  -- Lot CAPI-REPLI : chaque règle du repli cassée doit faire échouer un contrôle de §14.
+  local function MR(name, field, make)
+    local old = Rp[field]
+    M(name, function() Rp[field] = make(old) end, function() Rp[field] = old end)
+  end
+  local function MRV(name, field, value)
+    local old = Rp[field]
+    M(name, function() Rp[field] = value end, function() Rp[field] = old end)
+  end
+  MR("repli porté par le produit (gisement ignoré)", "key", function() return function(product) return tostring(product) end end)
+  MR("n jamais remis à zéro", "done", function() return function() end end)
+  MR("n sans décroissance", "eff", function() return function(b, _, field) return b and b[field] or 0 end end)
+  MR("échec de matériaux traité comme un refus du plan", "is_material", function() return function() return false end end)
+  MR("échec de matériaux sans réduction", "factor", function() return function() return 1 end end)
+  MR("préparation oubliée", "prep", function() return function() return {} end end)
+  MRV("plafond de 5 min supprimé", "MAX_STARVED", 40 * 3600)
+  MR("plafond de 5 min toujours appliqué", "starved", function() return function() return true end end)
+  MR("plafond de 5 min sans le besoin non servi", "starved", function()
+    return function(o) return o ~= nil and (o.kappa or 1000) < Rp.COVER_LOW end
+  end)
+  MRV("repli sans plafond de durée", "MAX", 1e12)
+  MRV("réduction sans borne", "SHRINK_MAX", 6)
+  MR("repli ignoré", "held", function() return function() return nil end end)
+  MR("élagage qui garde tout", "prune", function() return function() return 0 end end)
 end
 check(n_caught == n_mut, string.format("mutants : %d refusés sur %d", n_caught, n_mut))
 

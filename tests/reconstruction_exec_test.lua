@@ -26,7 +26,10 @@ package.loaded["script.faction.state"] = {
   faction = function(id) if id == "player" then return player end end,
   by_force = function(fn) return fn == "scarlet" and package.loaded.__scarlet or nil end,
   alive = function() return {} end,
+  war = function() return { claims = {} } end, -- lot REBUILD-AVANT-POSTE : revendications de sites (script/team/ruines.lua)
+  site_key = function(pos) return math.floor(pos.x / 32) .. ":" .. math.floor(pos.y / 32) end,
 }
+package.loaded["script.faction.sites"] = { claim = function() end, release = function() end }
 local added = {}
 package.loaded["script.team.board"] = {
   get = function(f) return f.team.board end,
@@ -90,6 +93,7 @@ local surface
 surface = {
   enemies = 0, placeable = true, created = {},
   find_enemy_units = function(self) local n = {} for i = 1, surface.enemies do n[i] = {} end return n end,
+  find_nearest_enemy = function() return nil end, -- lot REBUILD-AVANT-POSTE : nids et vers près d'une pièce d'avant-poste
   find_entity = function() return nil end,
   find_entities = function() return {} end,
   floor_items = {},

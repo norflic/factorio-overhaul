@@ -27,6 +27,8 @@ local function need(dotted, slashed)
   return require("__factorio-overhaul__/" .. slashed)
 end
 local M = need("shared.team.modules", "shared/team/modules")
+local Poteaux = need("shared.team.poteaux", "shared/team/poteaux") -- lot POTEAUX-ASTAR : chaîne par recherche de chemin
+local Ligne = need("shared.team.ligne", "shared/team/ligne") -- lot AGENCEMENT : disposition des bras de sortie
 
 local P = {}
 
@@ -411,9 +413,20 @@ function P.belt_ports(inst)
   return out
 end
 
+--- Côté EXTÉRIEUR d'un port de sortie (lot AGENCEMENT) : +1 si la gauche du sens du tapis s'éloigne du centre du module, sinon
+--- -1. `inst` : gabarit posé par M.instantiate (champ gabarit = le gabarit tourné, w et h) ; port : un élément de P.belt_ports.
+function P.out_side(inst, port)
+  local lx, ly = left_of(port.dir)
+  local e, ge = inst.entities[port.ent], inst.gabarit.entities[port.ent]
+  local cx, cy = e.position.x - ge.x + inst.w / 2, e.position.y - ge.y + inst.h / 2
+  local d = (port.x + 0.5 - cx) * lx + (port.y + 0.5 - cy) * ly
+  return d >= 0 and 1 or -1
+end
+
 --- Tuiles réservées hors de l'emprise pour les ports tapis : têtes d'alimentation (3 tuiles derrière, ± 2 de côté)
---- et quais de sortie (2 tuiles devant). Liste {x, y}.
-function P.port_room(inst)
+--- et quais de sortie (2 tuiles devant). Liste {x, y}. `fan` (lot AGENCEMENT) : nombre de bras par quai de sortie ; à 2, le bras
+--- et le coffre du côté EXTÉRIEUR du dernier tuile du tapis (2 tuiles en travers) sont aussi réservés. Sans `fan` : comme avant.
+function P.port_room(inst, fan)
   local out = {}
   for _, p in ipairs(P.belt_ports(inst)) do
     local v = DV[p.dir]
@@ -424,6 +437,10 @@ function P.port_room(inst)
       end
     else
       for k = 1, 2 do out[#out + 1] = { p.x + k * v[1], p.y + k * v[2] } end
+      if (fan or 1) >= 2 then
+        local sd = P.out_side(inst, p)
+        for k = 1, 2 do out[#out + 1] = { p.x + sd * k * lx, p.y + sd * k * ly } end
+      end
     end
   end
   return out
@@ -437,6 +454,8 @@ end
 --- fours, dans un sens unique, vers l'extérieur, sans revenir vers l'intérieur ») : le gabarit est TOURNÉ de façon que son
 --- port d'entrée tapis (la tête d'alimentation) regarde ce point, et placé le bout de la tête au plus près ; la colonne
 --- s'étend à l'opposé. Sans port d'entrée tapis, ou sans cette option, le score est celui d'avant.
+--- cover_min (lot AGENCEMENT) : part des tuiles minées qui doit porter le minerai (défaut P.DRILL_COVER) ; fan : bras par quai de
+--- sortie (P.port_room), 1 par défaut.
 function P.fit(g, rect, opts)
   opts = opts or {}
   local margin = opts.margin or 1
@@ -493,7 +512,7 @@ function P.fit(g, rect, opts)
         end
       end
       local inst0 = M.instantiate(r, 0, 0, 0)
-      local room0 = P.port_room(inst0)
+      local room0 = P.port_room(inst0, opts.fan)
       -- bout de la tête d'alimentation du port d'entrée (FEED_DEPTH tuiles derrière le port), relatif à l'origine
       local tip
       if opts.head_toward then
@@ -558,7 +577,7 @@ function P.fit(g, rect, opts)
               for _, t in ipairs(res) do if opts.ore[tkey(ox + t[1], oy + t[2])] then hit = hit + 1 end end
             end
             cover = #res > 0 and hit / #res or 0
-            if cover < P.DRILL_COVER then ok = false end
+            if cover < (opts.cover_min or P.DRILL_COVER) - 1e-9 then ok = false end
           end
           if ok then
             local cx, cy = ox + r.w / 2, oy + r.h / 2
@@ -617,15 +636,25 @@ function P.feeder(port, sources, quai_inserter, belt)
   return { entities = ents, arrivals = arrivals, chests = chests }
 end
 
---- Quai de sortie d'un port tapis (queue en (x, y), direction d) : bras qui prend au bout du tapis, coffre devant.
-function P.out_quai(port, inserter)
+--- Quai de sortie d'un port tapis (queue en (x, y), direction d) : bras qui prend au bout du tapis, coffre devant. Lot AGENCEMENT :
+--- `count` = 2 ajoute un second bras et son coffre sur le côté EXTÉRIEUR du dernier tuile (`side` : +1 ou -1 selon
+--- P.out_side), car un seul bras plafonne une longue ligne (≈ 1,8 plaque/s pour un bras rapide). Disposition : Ligne.fan.
+--- Sans `count` : le quai d'avant seul, identique à celui d'avant le lot. Rend { bras 1, coffre 1 [, bras 2, coffre 2] }.
+function P.out_quai(port, inserter, count, side)
   local v = DV[port.dir]
-  local ix, iy = port.x + v[1], port.y + v[2]
-  local cx, cy = port.x + 2 * v[1], port.y + 2 * v[2]
-  return {
-    { name = inserter or "inserter", x = ix + 0.5, y = iy + 0.5, dir = dir_of(-v[1], -v[2]), role = "sortie-bras" },
-    { name = "iron-chest", x = cx + 0.5, y = cy + 0.5, dir = 0, role = "sortie" },
-  }
+  local lx, ly = left_of(port.dir)
+  local sd = side or 1
+  local out = {}
+  for _, f in ipairs(Ligne.fan(count)) do
+    -- (a, l) : a le long du sens du tapis, l en travers vers l'extérieur du module
+    local function at(c) return port.x + c[1] * v[1] + sd * c[2] * lx, port.y + c[1] * v[2] + sd * c[2] * ly end
+    local ix, iy = at(f.arm)
+    local cx, cy = at(f.chest)
+    local dx, dy = f.drop[1] * v[1] + sd * f.drop[2] * lx, f.drop[1] * v[2] + sd * f.drop[2] * ly
+    out[#out + 1] = { name = inserter or "inserter", x = ix + 0.5, y = iy + 0.5, dir = dir_of(-dx, -dy), role = "sortie-bras" }
+    out[#out + 1] = { name = "iron-chest", x = cx + 0.5, y = cy + 0.5, dir = 0, role = "sortie" }
+  end
+  return out
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -740,7 +769,7 @@ end
 --- Lot CORR-RESEAU : `known` (facultatif) = poteaux déjà prévus ou posés { x, y } (de portée de fil >= reach) ; quand l'un est à
 --- portée du point courant et plus près du but d'au moins 0,5 tuile, la chaîne PASSE PAR LUI (le plus avancé ; ex æquo : y, puis x)
 --- au lieu d'en poser un second à côté (doublons mesurés : deux chaînes de rue sur la même rue, 196 paires à moins de 2 tuiles à 60 min).
-function P.pole_chain(a, b, reach, big, free, known)
+local function pole_chain_greedy(a, b, reach, big, free, known)
   local out = {}
   local cur = { x = a.x, y = a.y }
   local function dist(p, q) local dx, dy = p.x - q.x, p.y - q.y; return math.sqrt(dx * dx + dy * dy) end
@@ -786,6 +815,25 @@ function P.pole_chain(a, b, reach, big, free, known)
     ::continue::
   end
   return nil
+end
+
+--- Lot POTEAUX-ASTAR : la chaîne gloutonne ci-dessus avance en ligne droite (les diagonales, elle les fait déjà) mais ne recule
+--- jamais : une falaise, de l'eau ou une zone interdite l'arrête (nil). Cette version essaie D'ABORD la gloutonne (rapide, sans
+--- changement tant qu'elle réussit près du minimum), puis, si elle échoue ou pose au moins 2 poteaux de plus que le minimum
+--- théorique, une recherche de chemin A* sur un graphe borné de positions candidates (shared/team/poteaux.lua). Le résultat de
+--- l'A* n'est gardé que s'il existe et pose strictement moins de poteaux ; sinon la gloutonne reste (même signature, mêmes
+--- règles pour `known`). `opts` (facultatif) : max_cells, div, no_astar (true : ancienne chaîne seule).
+function P.pole_chain(a, b, reach, big, free, known, opts)
+  local greedy = pole_chain_greedy(a, b, reach, big, free, known)
+  if opts and opts.no_astar then return greedy end
+  if greedy then
+    local d = math.sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y))
+    local lb = math.max(0, math.ceil((d - reach) / reach - 1e-9))
+    if #greedy <= lb + 1 then return greedy end
+  end
+  local path = Poteaux.path(a, b, reach, big, free, known, opts)
+  if path and (not greedy or #path < #greedy) then return path end
+  return greedy
 end
 
 --- Position d'un poteau de carrefour (quart nord-ouest du croisement, hors des lignes de marche).

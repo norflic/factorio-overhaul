@@ -269,6 +269,33 @@ check(global.fo.ia3k.agents[ag.id].risk == true, "tournée escaladée marquée �
 local blocking = false
 for _, th in ipairs(global.fo.ia3k.teams["player"].map.threats) do if th.b then blocking = true end end
 check(blocking, "le ver qui bloque est signalé aux soldats")
+-- Lot DEFENSE-FACTIONS D6 : PASSE-DROIT de C.PASS_TICKS après l'escalade accordée (avant : le compteur repartait à 0, 4 refus puis un départ,
+-- à chaque tâche ; la « boucle Trop dangereux »). Aucun seuil ne change : le but doit toujours être hors de portée d'une menace.
+local tstats = global.fo.ia3k.teams["player"].stats
+local pd0 = tstats.passe_droit or 0
+local t_esc = game.tick
+check(C.gate(f, ag, { key = "test:service2b", kind = "service" }, steps2, t_esc + 60) == true and (tstats.passe_droit or 0) == pd0 + 1,
+  "D6 : juste après l'escalade, la même destination repart tout de suite (passe-droit)")
+check(C.gate(f, ag, { key = "test:service2c", kind = "service" }, steps2, t_esc + C.PASS_TICKS - 60) == true and (tstats.passe_droit or 0) == pd0 + 2,
+  "D6 : encore dans les 5 minutes : le passe-droit tient")
+local refusals_after = 0
+for i = 1, 8 do
+  if C.gate(f, ag, { key = "test:service2d", kind = "service" }, steps2, t_esc + C.PASS_TICKS + 600 + i) then break end
+  refusals_after = refusals_after + 1
+end
+check(refusals_after == 4, "D6 : passe-droit expiré : le cycle recommence (4 refus avant le départ, " .. refusals_after .. " observés)")
+-- Lot DEFENSE-FACTIONS D6 : l'étiquette « Trop dangereux » ne s'affiche qu'au 2e refus de suite pour la même destination
+local gx3, gy3 = -150, -200
+for _, o in ipairs(ring) do remote.call("fo-ia3k", "mark", "player", gx3 + o[1], gy3 + o[2], "worm", 25) end
+local steps3 = { { "home" }, { "goto", { x = gx3, y = gy3 }, 3 }, { "act", "service" }, { "home" } }
+local lab0 = tstats.labels.attente or 0
+local tt = t_esc + 3 * C.PASS_TICKS
+local r1 = C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt)
+local lab1 = tstats.labels.attente or 0
+local r2 = C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt + 400)
+local lab2 = tstats.labels.attente or 0
+check(r1 == false and r2 == false and lab1 == lab0 and lab2 == lab0 + 1,
+  "D6 : 1er refus sans étiquette « Trop dangereux », 2e refus avec (" .. lab0 .. " -> " .. lab1 .. " -> " .. lab2 .. ")")
 -- C5 « change de site » : un minage vers un gisement gardé par un ver va miner une autre tuile du même minerai.
 local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } -- gisement de fer du moteur simulé
 remote.call("fo-ia3k", "mark", "player", ip.x, ip.y, "worm", 25)

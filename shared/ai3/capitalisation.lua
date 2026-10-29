@@ -4,7 +4,9 @@
   implémenter », « Et concernant la recherche IA ? » ; 12 h 15 : « A ne pas oublier toute la partie plus de gisements.
   Plus de fours (dans la limite de ce qu'on peut faire fondre évidemment), si assembleurs disponibles alors on ajoute des
   chaînes de production etc etc. »). Conception : docs/IA_CAPITALISATION.md. PUR (aucune API Factorio), testé hors jeu
-  (tests/ai3_capitalisation_test.lua). RIEN N'EST BRANCHÉ EN JEU dans ce lot.
+  (tests/ai3_capitalisation_test.lua). (Texte d'origine : « rien n'est branché en jeu » ; périmé : branchée par le lot CAPIB,
+  script/ai3/capitalisation.lua, allumée par défaut, tournante dans la partie du DC du 29/10. Le repli des ordres refusés est
+  dans shared/ai3/repli.lua, lot CAPI-REPLI.)
 
   Ce qu'un joueur fait : il RÉINVESTIT sa production dans plus de capacité de production, là où elle rapporte le plus vite
   et seulement là où ce qu'elle produit a un débouché. Il couvre ses gisements de foreuses puis en ouvre d'autres, met
@@ -505,7 +507,10 @@ end
 -- 2. Caractère, budget, prix du travail, croissance
 ---------------------------------------------------------------------------------------------------
 --- s (‰ réinvesti), delta (‰ défense), alpha (‰ armée), tmax (min). Traits d'IA2-0 et poids d'IA2-a, pour mille.
-function Ca.character(traits, weights, threat)
+--- Lot PRIORITE-RESSOURCES : `production_first` (le fer ne paie pas la défense ET la production, shared/team/priorite.lua) :
+--- aucune part n'est prise pour la défense ni l'armée, tout le budget va à la production (« si on peut pas se l'acheter, on
+--- investit les ressources dans la production de plus de ressources ») ; elles reviennent dès que le fer paie les deux.
+function Ca.character(traits, weights, threat, production_first)
   local tr, w = traits or {}, weights or {}
   local amb = clamp(tr.ambition or 1000, 0, 2000)
   local agr = clamp(tr.agressivite or 1000, 0, 2000)
@@ -518,6 +523,7 @@ function Ca.character(traits, weights, threat)
     local k = Ca.SHARE_MAX / (delta + alpha)
     delta, alpha = math.floor(delta * k), math.floor(alpha * k)
   end
+  if production_first then delta, alpha = 0, 0 end
   local tmax = clamp(Ca.T0 * amb / pru, Ca.T_MIN, Ca.T_MAX)
   if threat then tmax = tmax / Ca.THREAT_DIV end
   return { s = s, delta = delta, alpha = alpha, tmax = tmax }
@@ -975,7 +981,7 @@ local function prepare(input, st)
     dt = input.dt or Ca.CYCLE_MIN, threat = input.threat and true or false, power_block = {}, rec_memo = {}, cc = {},
     cs = {}, ds = {} }
   Lv.prepare(ctx)
-  ctx.ch = Ca.character(input.traits, input.weights, ctx.threat)
+  ctx.ch = Ca.character(input.traits, input.weights, ctx.threat, input.production_first)
   local w = input.weights or {}
   ctx.w_cap = (w.capital or 1000) / 1000
   ctx.w_rech = (w.recherche or 1000) / 1000

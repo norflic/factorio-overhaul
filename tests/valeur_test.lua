@@ -133,6 +133,83 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("Site proche d'abord : plancher, site proche bloqué, agrandissement lointain (pur, lot SITE-PROCHE)")
+do
+  -- Les 10 valeurs MESURÉES au journal du DC (Emeraude, 29/10, audit AUDIT4/site-charbon.md) : 551, 420, -7 et -99 sont
+  -- puisés, les six autres (-324 à -2 083) refusés. Seuils réglés sur ces seules observations (une faction).
+  local passes_floor = { 551, 420, -7, -99, -150 }
+  local refused_floor = { -151, -324, -408, -852, -913, -1899, -2083 }
+  for _, v in ipairs(passes_floor) do
+    check(V.admissible({ value = v, d_hq = 100 }, nil) == true, "valeur " .. v .. " : admissible")
+  end
+  for _, v in ipairs(refused_floor) do
+    local ok, why = V.admissible({ value = v, d_hq = 100 }, nil)
+    check(ok == false and why == "plancher", "valeur " .. v .. " : refusée sous le plancher")
+  end
+  check(V.admissible({ value = -2083, d_hq = 357, seeded = true }, nil) == true, "gisement de départ garanti : hors plancher")
+  -- Site proche bloqué : tout site plus loin que max(1,5 × d, d + 60) est suspendu.
+  check(V.suspend_limit(45) == 105 and V.suspend_limit(42) == 102 and V.suspend_limit(200) == 300 and V.suspend_limit(120) == 180,
+    "limite de suspension : max(1,5 d ; d + 60)")
+  check(select(2, V.admissible({ value = -7, d_hq = 201 }, 45)) == "suspendu", "charbon à 201 tuiles, proche (45) bloqué : suspendu")
+  check(V.admissible({ value = 300, d_hq = 105 }, 45) == true, "à la limite exacte (105) : admissible")
+  check(select(2, V.admissible({ value = 300, d_hq = 106 }, 45)) == "suspendu", "une tuile au-delà de la limite : suspendu")
+  check(V.admissible({ value = -7, d_hq = 201 }, nil) == true, "sans site proche bloqué : le lointain à -7 est admissible")
+  check(V.admissible({ value = -7, d_hq = 201 }, 150) == true, "proche bloqué à 150 : 201 sous la limite (225)")
+  check(select(2, V.admissible({ value = -300, d_hq = 90 }, 45)) == "plancher", "sous le plancher ET suspendu : motif plancher d'abord")
+  -- Agrandissement lointain (R1) : un site connu à moins de 0,6 × d ET 60 tuiles plus près fait renoncer.
+  check(V.extension_refused(201, 45) == true, "avant-poste à 201, site à 45 : agrandissement refusé")
+  check(V.extension_refused(201, 120) == true and V.extension_refused(201, 121) == false, "borne du rapport 0,6 (120,6)")
+  check(V.extension_refused(201, 130) == false, "site à 130 (> 0,6 × 201) : on agrandit")
+  check(V.extension_refused(201, nil) == false, "aucun site connu : on agrandit")
+  check(V.extension_refused(100, 45) == false and V.extension_refused(105, 45) == true, "écart d'au moins 60 tuiles")
+  check(V.extension_refused(45, 10) == false, "avant-poste proche (45) : jamais refusé par un site à 10 (écart < 60)")
+  -- Mutants : chacun doit être refusé par au moins un des contrôles ci-dessus.
+  local function props(W)
+    local r = {}
+    r[1] = W.admissible({ value = -324, d_hq = 100 }, nil) == false
+    r[2] = W.admissible({ value = -99, d_hq = 100 }, nil) == true
+    r[3] = W.admissible({ value = -2083, d_hq = 357, seeded = true }, nil) == true
+    r[4] = W.admissible({ value = -7, d_hq = 201 }, 45) == false
+    r[5] = W.admissible({ value = 300, d_hq = 105 }, 45) == true
+    r[6] = W.admissible({ value = -7, d_hq = 201 }, nil) == true
+    r[7] = W.extension_refused(201, 45) == true
+    r[8] = W.extension_refused(201, 130) == false
+    r[9] = W.extension_refused(100, 45) == false
+    r[10] = W.extension_refused(201, nil) == false
+    r[11] = W.admissible({ value = -7, d_hq = 201 }, 150) == true
+    r[12] = W.admissible({ value = 300, d_hq = 120 }, 45) == false
+    for i = 1, 12 do if not r[i] then return false end end
+    return true
+  end
+  check(props(V), "propriétés du plancher, de la suspension et de R1 vraies sur le code")
+  local function mut(name, patch)
+    local m = setmetatable({}, { __index = V })
+    patch(m)
+    check(props(m) == false, "mutant refusé : " .. name)
+  end
+  mut("pas de plancher", function(m) m.admissible = function(e, d) if d ~= nil and e.d_hq > V.suspend_limit(d) then return false, "suspendu" end return true end end)
+  mut("plancher sans exception de départ", function(m) m.admissible = function(e, d)
+    if e.value < V.FLOOR then return false, "plancher" end
+    if d ~= nil and e.d_hq > V.suspend_limit(d) then return false, "suspendu" end
+    return true end end)
+  mut("jamais de suspension", function(m) m.admissible = function(e) if not e.seeded and e.value < V.FLOOR then return false, "plancher" end return true end end)
+  -- (V.admissible lit V.suspend_limit : le mutant remplace la fonction du module puis la remet)
+  local function mut_limit(name, fn)
+    local real = V.suspend_limit
+    V.suspend_limit = fn
+    local caught = props(V) == false
+    V.suspend_limit = real
+    check(caught, "mutant refusé : " .. name)
+  end
+  mut_limit("suspension à 1 × d", function(d) return d end)
+  mut_limit("suspension à 3 × d", function(d) return d * 3 end)
+  mut("R1 toujours refusé", function(m) m.extension_refused = function(_, s) return s ~= nil end end)
+  mut("R1 jamais refusé", function(m) m.extension_refused = function() return false end end)
+  mut("R1 sans écart de 60", function(m) m.extension_refused = function(o, s) return s ~= nil and s * 1000 <= o * V.NEAR_RATIO end end)
+  mut("R1 sans rapport 0,6", function(m) m.extension_refused = function(o, s) return s ~= nil and s + V.NEAR_GAP <= o end end)
+end
+
+---------------------------------------------------------------------------------------------------
 section("Éventail de départ (pur, sans trigonométrie en jeu)")
 do
   local min_pair, min_hq, same_side = math.huge, math.huge, true
@@ -299,6 +376,9 @@ do
     check(r >= 1 and items >= r, "reprise à la reconstruction : " .. r .. " orphelin(s), " .. items .. " objet(s) rendus")
     inv.destroy()
     -- Démontage : orphelins du 2e site vieillis de 30 min ; un ouvrier part les démonter.
+    -- Lot REBUILD-AVANT-POSTE : tant que la RUINE du site vit (25 min au plus, avant l'attente de 30 min), ses réceptacles sont gardés pour la
+    -- recréation en place ; le test joue la voie de l'attente écoulée : la ruine est lâchée (expiration).
+    if f.recon and f.recon.ruins then f.recon.ruins[pos[2].oid] = nil end
     local left = 0
     for _, o in ipairs(Outposts.orphans(f)) do
       if o.oid == pos[2].oid then
@@ -311,9 +391,11 @@ do
     check(pcall(M.run_ticks, 8 * 3600), "8 min sans erreur après les pertes")
     local still = 0
     for _, o in ipairs(Outposts.orphans(f)) do if o.oid == pos[2].oid then still = still + 1 end end
-    check(still == 0 and (f.stats.orphans_salvaged or 0) >= 1 or (f.stats.orphans_reclaimed or 0) > r,
-      "orphelins du 2e site démontés (démontés " .. tostring(f.stats.orphans_salvaged or 0) .. ", repris "
-      .. tostring(f.stats.orphans_reclaimed or 0) .. ", restants " .. still .. ")")
+    -- Lot REBUILD-AVANT-POSTE : troisième voie légitime, la ruine du site est refaite en place et reprend ses réceptacles survivants.
+    local revived = still == 0 and f.outposts[pos[2].oid] ~= nil and (f.stats.outposts_revived or 0) >= 1
+    check(still == 0 and (f.stats.orphans_salvaged or 0) >= 1 or (f.stats.orphans_reclaimed or 0) > r or revived,
+      "orphelins du 2e site démontés, repris ou adoptés par l'avant-poste recréé (démontés " .. tostring(f.stats.orphans_salvaged or 0) .. ", repris "
+      .. tostring(f.stats.orphans_reclaimed or 0) .. ", recréés " .. tostring(f.stats.outposts_revived or 0) .. ", restants " .. still .. ")")
   end
 end
 

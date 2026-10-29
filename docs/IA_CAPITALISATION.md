@@ -1,8 +1,25 @@
 # La capitalisation des factions (lot CAPI)
 
 Règle pure : `shared/ai3/capitalisation.lua`. Test hors jeu : `tests/ai3_capitalisation_test.lua`.
-Lot **hors jeu** : rien n'est branché en jeu, aucun banc en moteur réel n'a été lancé. Le branchement viendra **après les
-fusions des lots SCALE, AUTO et CAPITAL** (plan pas à pas : `fo-logs\2026-10-27_CAPI\INTEGRATION.md`).
+**Mise à jour du 29/10 (lots CAPI-REPLI et CAPI-MESURE)** : le paragraphe d'origine ci-dessous (« rien n'est branché en jeu »)
+est PÉRIMÉ. La capitalisation est **branchée et allumée par défaut** (`fo-war-capi` et `fo-war-ia3e` vrais, `fo-war-capital`
+faux), pour les factions ET votre équipe de PNJ (`Capi.on` n'exclut pas `is_player`, `Auto.FACTIONS_ONLY = false`). Mesuré sur la
+partie du DC (audit `fo-logs\2026-10-29_VAGUE4\CAPI-AUDIT`, 198 min, 691 décisions `[FO-CAPI]`) : elle tourne, mais n'émettait un
+ordre de fer que dans 2 à 5 % des décisions où un gisement avait des places libres et moins de 80 % de couverture.
+- **Repli (CAPI-REPLI, `shared/ai3/repli.lua`)** : le repli d'un module refusé n'est plus porté par le produit mais par
+  (produit, gisement) ; il est remis à zéro quand un module de cette clé est terminé, décroît d'un cran par 30 min sans échec,
+  et est plafonné à 5 min quand la couverture du gisement est sous 50 % et que le besoin n'est pas servi. Un échec
+  « materiaux introuvables » ne ferme plus le gisement : le module suivant est réduit (1/2, puis 1/4) et les objets qui
+  manquaient restent un but de fabrication 20 min. Les leviers « equiper » et « techno » gardent l'ancien repli par clé.
+- **Mesure (CAPI-MESURE)** : `[FO-CAPI-COUV]` (par gisement toutes les 5 min : couverture, places libres, foreuses posées,
+  raison de `drill_for = ""`, repli en cours, refus de la règle, ordres ouverts ; par minerai : débit théorique et débit mesuré
+  sur la fenêtre), `[FO-CAPI-ALERTE]` (capacité posée qui produit 0/min mesuré sur deux relevés de suite, puis rappel toutes
+  les 30 min, puis reprise), `[FO-CAPI-REPLI]` (chaque échec d'un module et son effet).
+- **Non traité par ces lots** (audit §5, T2 à T12) : débit d'exécution (un module par ordre, 2 ouverts au plus), fabrication à
+  la main des matériaux, voie combustion en pénurie, défense avant production sous menace, fours en pierre figés.
+
+Texte d'origine : lot **hors jeu**, rien n'est branché en jeu, aucun banc en moteur réel n'a été lancé. Le branchement viendra
+**après les fusions des lots SCALE, AUTO et CAPITAL** (plan pas à pas : `fo-logs\2026-10-27_CAPI\INTEGRATION.md`).
 
 Version corrigée le 27/10 après la revue adverse (34 entrées sous deux lectures, 16 majeures, 29 défauts distincts) :
 §9 et §10 disent ce qui reste ouvert et ce qui a changé.

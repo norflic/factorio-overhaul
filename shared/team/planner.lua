@@ -29,6 +29,9 @@
 local T = require("shared.team.config")
 local F = require("shared.faction.config") -- drapeau `rocket` : soldat à attaque de zone (lot GRENADES)
 local Guard = require("shared.team.garde_centrale") -- lot CENTRALE-GARDE : tourelles armées autour de la centrale
+local Pr = require("shared.team.priorite") -- lot PRIORITE-RESSOURCES : production avant défense quand le fer ne paie pas les deux
+local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du front, commande partielle (constantes de ce module)
+local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 
 local P = {}
 
@@ -71,15 +74,21 @@ local function capacity(view, kind)
   return drills / T.outposts[kind].drills
 end
 
---- Avant-poste de ce type qui peut encore s'agrandir (le plus ancien d'abord), ou nil. Lot IA1-b2 (défendre d'abord) :
+--- Avant-poste de ce type qui peut encore s'agrandir (le plus proche du QG d'abord, lot SITE-PROCHE), ou nil. Lot IA1-b2 (défendre d'abord) :
 --- un avant-poste de `undefended` (moins de tourelles que T.defend_turrets) ne s'agrandit pas.
 local function extendable(view, kind, undefended)
+  -- Lot SITE-PROCHE (R1, relecture) : le plus PROCHE du QG (`d2`, à égalité le plus ancien), et pas celui qu'un site
+  -- admissible connu bien plus près doit remplacer (V.extension_refused, `view.sites_near`, factions seulement). Ce chemin
+  -- (charbon sous 1,4 × la consommation, goulot de plaques) agrandissait encore l'avant-poste de charbon à 201 tuiles.
+  local near = view.sites_near and view.sites_near[kind] or nil
+  local best, best_d2
   for _, o in ipairs(view.outposts) do
     if o.kind == kind and not o.full and o.drills < T.max_drills(kind) and not (undefended and undefended[o.id]) then
-      return o
+      local d2 = o.d2 or 0
+      if (near == nil or not V.extension_refused(math.sqrt(d2), near)) and (best == nil or d2 < best_d2) then best, best_d2 = o, d2 end
     end
   end
-  return nil
+  return best
 end
 
 --- Lot IA1-b2 : avant-postes NON défendus (moins de tourelles que T.defend_turrets(foreuses)), { [id] = vrai } ; vide si
@@ -320,32 +329,172 @@ function P.plan(view, book)
   -- `undefended` : avant-postes où l'on ne va ni agrandir ni travailler au fond (P.no_go) ; `lacking` : tous les non
   -- défendus (tourelles à poser dès qu'elles existent).
   local lacking = P.undefended(view)
-  local undefended = P.no_go(view, turret_ok)
   -- Équipe DÉCIMÉE (sous son effectif de départ) : le QG et les recrues d'abord ; ni tourelle d'avant-poste ni nouvel
   -- avant-poste (essai 3 du lot, ia1b2-guide graine 1618033988 : tourelles portées par des PNJ tués en route, fer à 0
   -- pendant 30 min, QG perdu à 45 min).
   local floor0 = view.recover_floor or (view.emergency and view.emergency.floor) or 0
   local decimated = df and view.workers < floor0
-  local function turret_items(n) return { { "gun-turret", n }, { T.turret_ammo, n * T.defend_ammo } } end
+  local function turret_items(n, ammo_each) return { { "gun-turret", n }, { T.turret_ammo, n * (ammo_each or T.defend_ammo) } } end
+  local iron_key = T.outposts.iron.product -- (PRIORITE-RESSOURCES) clé du fer, lue à la config ; remontée avant les postes pour le drapeau `iron` (DEFENSE-FACTIONS D5)
+  -- Postes à défendre (le QG, les avant-postes sans leurs tourelles, la centrale, le front), dans l'ordre où l'urgence les sert.
+  -- Lot PRIORITE-RESSOURCES : construits ICI (sans effet de bord) parce que leur coût décide de l'ordre production / défense.
+  local posts = {}
+  if df then
+    posts[1] = { id = "hq", want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, busy = view.hq_fortify }
+    for _, o in ipairs(view.outposts) do
+      if lacking[o.id] then
+        local ospec = T.outposts[o.kind]
+        posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify,
+          iron = (ospec and ospec.product == iron_key) or nil } -- lot DEFENSE-FACTIONS D5 : un avant-poste de fer non défendu passe AVANT le front
+      end
+    end
+    -- Lot CENTRALE-GARDE : la centrale FINIE (view.plant) est un poste comme un avant-poste : K tourelles ARMÉES à portée de toutes ses
+    -- pièces (shared/team/garde_centrale.lua), posées par la même tâche « fortify », payées sur le stock.
+    if view.plant then
+      local pl = view.plant
+      -- Lot GARDE-MULTI : TOUTES les centrales finies (pl.plants) ; un seul poste « plant » à la fois (une tâche ouverte par équipe),
+      -- la centrale la moins gardée d'abord, sous le plafond de tourelles de l'équipe (Guard.plan). Forme ancienne : une centrale (pl).
+      local plan = (not pl.pause) and Guard.plan(pl.plants or { pl }, pl.turrets, pl.range, pl.low, pl.cap) or nil
+      local pick = plan and plan.pick
+      if pick then
+        posts[#posts + 1] = { id = "plant", want = pick.need.near + pick.missing, have = pick.need.near, busy = pl.fortify,
+          sites = pick.need.sites, pos = pick.need.center, range = pl.range, pieces = pick.pieces, plant_id = pick.id }
+      end
+    end
+    -- Lot DEFENSE-FRONT : la cellule la plus attaquée (ou un groupe de laboratoires à couvrir) reçoit ses tourelles en plus, par lots,
+    -- sous le plafond de l'équipe (shared/team/front.lua) ; un seul poste « front » à la fois, payé sur le stock comme les autres.
+    if view.front and view.front.pick then
+      local pk = view.front.pick
+      local fp = { id = "front", want = pk.have + pk.count, have = pk.have, busy = view.front.busy,
+        sites = pk.sites, pos = { x = pk.x, y = pk.y }, cell_key = pk.key, score = pk.score }
+      -- Lot DEFENSE-FACTIONS D5 : une cellule à moins de Fr.NEAR_HQ tuiles du QG passe APRÈS le QG mais AVANT les avant-postes non défendus
+      -- et la centrale ; jamais devant un avant-poste de FER non défendu (remarque du DC : les ressources d'abord, la défense juste après).
+      if pk.near_hq then
+        local at = 2
+        while posts[at] and posts[at].iron do at = at + 1 end
+        table.insert(posts, at, fp)
+      else
+        posts[#posts + 1] = fp
+      end
+    end
+  end
+  -- Lot PRIORITE-RESSOURCES (remarque du DC, 29/10 : « si on manque cruellement de ressources, l'objectif est justement ces
+  -- ressources, pas la défense […] mais si on peut pas se l'acheter, on investit les ressources dans la production de plus de
+  -- ressources ») : le fer paie-t-il la défense voulue ET le prochain pas de production ? Sinon la production passe d'abord
+  -- (shared/team/priorite.lua). Tout en plaques de la clé (le fer), lues au livre de recettes. Sans « défendre d'abord » : règle d'avant.
+  local pri = Pr.decide({})
+  if df then
+    -- Fer total d'une liste (déjà au stock compris), `stock` : le stock à compter ; nil si une autre matière manque (pas faisable).
+    local function iron_cost(list, stock)
+      local p = book:plan(list, stock or avail)
+      return (p.uses[iron_key] or 0) + (p.raw[iron_key] or 0), p
+    end
+    local n_miss = 0
+    for _, p in ipairs(posts) do
+      if p.have < p.want and not p.busy and not open["fortify:" .. p.id] then
+        local n = p.want - p.have
+        if not turret_craftable then n = math.min(n, avail[T.turret] or 0) end
+        n_miss = n_miss + n
+      end
+    end
+    local cd = n_miss > 0 and iron_cost(turret_items(n_miss)) or 0
+    -- Premier objectif de l'échelle non atteint, s'il est militaire : son coût s'ajoute (les tourelles sont déjà comptées).
+    do
+      local done_g, deferred_g = view.done or {}, view.deferred or {}
+      for _, g in ipairs(view.ladder or T.ladder) do
+        if not done_g[g.key] and not deferred_g[g.key] then
+          local reached, parts0 = goal_status(g, view)
+          if not reached then
+            if Pr.military_need(g.need, T.turret_ammo) then
+              for _, part in ipairs(parts0) do
+                if part.soldiers then
+                  cd = cd + iron_cost(kit_list(P.best_unit(view.tech), part.soldiers))
+                elseif part.item then
+                  cd = cd + iron_cost({ { part.item, part.n } }, {})
+                end
+              end
+            end
+            break
+          end
+        end
+      end
+    end
+    -- Pas de production utile (le moins cher des FAISABLES : aucune autre matière ne manque que le fer ; ni un avant-poste
+    -- meurtrier, ni un pas déjà au tableau) : agrandir un avant-poste (2 paires), bâtir le premier d'un type (2 paires) ou, quand
+    -- aucun avant-poste du type ne peut s'agrandir, en bâtir un autre : celui-là porte ses tourelles (build_items), dont le coût
+    -- s'ajoute à la défense à payer.
+    local steps = {}
+    local function step(kind)
+      local c, p = iron_cost(minimal_items(kind))
+      for r in pairs(p.raw) do if r ~= iron_key then return false end end
+      steps[#steps + 1] = c
+      return true
+    end
+    local lethal_only = P.no_go(view, false)
+    local growable, stepped = {}, {}
+    for _, o in ipairs(view.outposts) do
+      if not o.full and o.drills < T.max_drills(o.kind) and not lethal_only[o.id] then
+        growable[o.kind] = true
+        if not stepped[o.kind] and not open["extend:" .. o.id] and (view.pending[o.kind] or 0) == 0 then
+          stepped[o.kind] = true -- un seul calcul par type (même coût d'un avant-poste à l'autre)
+          step(o.kind)
+        end
+      end
+    end
+    for _, kind in ipairs(T.OUTPOST_ORDER) do
+      if not growable[kind] and (view.pending[kind] or 0) == 0 and (view.sites[kind] or 0) > 0 and not open["build:" .. kind] then
+        if step(kind) and turret_ok and count_kind(view, kind) > 0 then
+          cd = cd + iron_cost(turret_items(T.defend_turrets(T.outposts[kind].drills)))
+        end
+      end
+    end
+    -- Fer que la défense peut dépenser : au-dessus de T.defend_iron_floor (la fabrication des tourelles ne descend pas dessous,
+    -- want_defense) ; sans cela le mode « défense payée » restait vrai à 140 de fer alors que rien ne pouvait s'acheter.
+    pri = Pr.decide({ funds = (avail[iron_key] or 0) - T.defend_iron_floor, defense_cost = cd, production_cost = Pr.cheapest(steps), survival = decimated })
+  end
+  out.priorite = pri
+  -- Production d'abord : un avant-poste sans sa tourelle s'agrandit quand même et un nouvel avant-poste se bâtit sans les siennes
+  -- (ils attendaient leurs tourelles, que le fer ne paie pas) ; seul un avant-poste MEURTRIER (un PNJ tué en y allant) reste exclu.
+  local block = turret_ok and not pri.production_first
+  local undefended = P.no_go(view, block)
   --- Fabrication des tourelles (et de leurs chargeurs) SANS descendre sous T.defend_iron_floor plaques de fer : la
   --- défense ne prend pas le fer des recrues de survie (essai 1 du lot, ia1b2-guide graine 1618033988 : fer 615 -> 26 en
   --- 5 min, tourelles perdues avec leurs porteurs, équipe perdue à 23 min).
-  local function want_defense(list)
+  --- Lot DEFENSE-FACTIONS : `floor_i` et `floor_cu` (facultatifs) remplacent les planchers ordinaires (poste « front » à score élevé,
+  --- shared/team/front.lua F.floors) ; rend vrai si tout est servi (fabrications lancées ou au stock), faux sinon (`last_raw` dit quoi).
+  local function want_defense(list, floor_i, floor_cu)
     -- Fer ET cuivre (essai 6, ia1b2-guide graine 314159265 : 8 tourelles mangent les 100 cuivres du coffre, aucun
     -- gisement de cuivre trouvé, plus un seul pistolet pour les recrues pendant 20 min).
-    local keep = math.min(avail["iron-plate"] or 0, T.defend_iron_floor)
-    local keep_cu = math.min(avail["copper-plate"] or 0, T.defend_copper_floor)
+    local keep = math.min(avail["iron-plate"] or 0, floor_i or T.defend_iron_floor)
+    local keep_cu = math.min(avail["copper-plate"] or 0, floor_cu or T.defend_copper_floor)
     avail["iron-plate"] = (avail["iron-plate"] or 0) - keep
     avail["copper-plate"] = (avail["copper-plate"] or 0) - keep_cu
-    want(list, T.defend_prio, "defense")
+    local ok = want(list, T.defend_prio, "defense")
     avail["iron-plate"] = (avail["iron-plate"] or 0) + keep
     avail["copper-plate"] = (avail["copper-plate"] or 0) + keep_cu
+    return ok
+  end
+  --- Lot DEFENSE-FACTIONS : `list` est-elle faisable (stock et fabrication à la main) au-dessus des planchers donnés ? Sans effet de bord.
+  local def_iron, def_copper = T.outposts.iron.product, T.outposts.copper.product
+  local function affordable(list, floor_i, floor_cu)
+    local si, sc = avail[def_iron] or 0, avail[def_copper] or 0
+    avail[def_iron], avail[def_copper] = si - math.min(si, floor_i), sc - math.min(sc, floor_cu)
+    local p = book:plan(list, avail)
+    avail[def_iron], avail[def_copper] = si, sc
+    return next(p.raw) == nil, p
+  end
+  -- L'équipe produit-elle encore du fer ? (un avant-poste de fer avec des foreuses) : sinon le coffre est sa dernière réserve et le plancher
+  -- du front ne baisse pas (F.floors).
+  local iron_producing = false
+  for _, o in ipairs(view.outposts) do
+    local spec = T.outposts[o.kind]
+    if spec and spec.product == def_iron and (o.drills or 0) > 0 then iron_producing = true end
   end
   --- Objets d'une construction d'avant-poste `kind` de `n_drills` foreuses : `items`, plus ses tourelles si elles sont
   --- au stock virtuel. nil : la construction attend ses tourelles (demandées ici si la recette est connue) ou n'a pas
   --- lieu (règle de repli).
   local function build_items(kind, items, n_drills)
-    if not turret_ok then return items end -- règle de repli : construction comme avant
+    if not block then return items end -- règle de repli (et production d'abord, lot PRIORITE-RESSOURCES) : construction comme avant
     if decimated and count_kind(view, kind) > 0 then return nil end -- décimée : pas de nouvel avant-poste
     local t = turret_items(T.defend_turrets(n_drills))
     local have_t = true
@@ -440,50 +589,67 @@ function P.plan(view, book)
   -- QG attaqué dès 17 min, équipe perdue à 23 min). Un avant-poste MEURTRIER ne reçoit plus que ses tourelles.
   if df then
     local waiting = 0
-    local posts = { { id = "hq", want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, busy = view.hq_fortify } }
-    for _, o in ipairs(view.outposts) do
-      if lacking[o.id] then
-        waiting = waiting + 1
-        posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify }
-      end
-    end
-    -- Lot CENTRALE-GARDE : la centrale FINIE (view.plant) est un poste comme un avant-poste : K tourelles ARMÉES à portée de toutes ses
-    -- pièces (shared/team/garde_centrale.lua), posées par la même tâche « fortify », payées sur le stock.
-    if view.plant then
-      local pl = view.plant
-      -- Lot GARDE-MULTI : TOUTES les centrales finies (pl.plants) ; un seul poste « plant » à la fois (une tâche ouverte par équipe),
-      -- la centrale la moins gardée d'abord, sous le plafond de tourelles de l'équipe (Guard.plan). Forme ancienne : une centrale (pl).
-      local plan = (not pl.pause) and Guard.plan(pl.plants or { pl }, pl.turrets, pl.range, pl.low, pl.cap) or nil
-      local pick = plan and plan.pick
-      if pick then
-        posts[#posts + 1] = { id = "plant", want = pick.need.near + pick.missing, have = pick.need.near, busy = pl.fortify,
-          sites = pick.need.sites, pos = pick.need.center, range = pl.range, pieces = pick.pieces, plant_id = pick.id }
-      end
-    end
-    -- Lot DEFENSE-FRONT : la cellule la plus attaquée (ou un groupe de laboratoires à couvrir) reçoit ses tourelles en plus, par lots,
-    -- sous le plafond de l'équipe (shared/team/front.lua) ; un seul poste « front » à la fois, payé sur le stock comme les autres.
-    if view.front and view.front.pick then
-      local pk = view.front.pick
-      posts[#posts + 1] = { id = "front", want = pk.have + pk.count, have = pk.have, busy = view.front.busy,
-        sites = pk.sites, pos = { x = pk.x, y = pk.y }, cell_key = pk.key }
-    end
+    for _, o in ipairs(view.outposts) do if lacking[o.id] then waiting = waiting + 1 end end
+    -- Lot PRIORITE-RESSOURCES : en « production d'abord », le fer du prochain pas de production (pri.hold) est mis de côté le temps
+    -- d'acheter la défense : elle ne dépense que le fer au-delà. Il revient au stock juste après (reconstruction, objectif).
+    local held = math.min(pri.hold or 0, avail[iron_key] or 0)
+    avail[iron_key] = (avail[iron_key] or 0) - held
+    -- Lot DEFENSE-FACTIONS D1 : pourquoi chaque poste n'est pas servi (journal [FO-DEFENSE], script/team/defense_log.lua) ; aucune décision n'en dépend.
+    local dposts = {}
     for _, p in ipairs(posts) do
       local key = "fortify:" .. p.id
-      if p.have < p.want and not p.busy and not open[key] then
-        local n = p.want - p.have
-        if not turret_craftable then n = math.min(n, avail["gun-turret"] or 0) end
-        if n > 0 then
-          local items = turret_items(n)
-          if take(items) then
-            add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = items, defend = true,
-              sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key })
+      local d = nil
+      if p.have < p.want then
+        d = { id = p.id, have = p.have, want = p.want, iron = avail[def_iron] or 0, copper = avail[def_copper] or 0 }
+        if p.busy or open[key] then
+          d.why = "tache"
+        else
+          local n = p.want - p.have
+          if not turret_craftable then n = math.min(n, avail["gun-turret"] or 0) end
+          if n <= 0 then
+            d.why = "recette"
           else
-            want_defense(items)
+            local items = turret_items(n)
+            local function task_of(list)
+              add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = list, defend = true,
+                sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key })
+            end
+            if take(items) then
+              task_of(items)
+              d.why = "tache_creee"
+            elseif p.id == "front" then
+              -- Lot DEFENSE-FACTIONS D4 : plancher réduit si la cellule est très attaquée et que le fer est encore produit (Fr.floors), puis,
+              -- si la commande complète n'est pas payable, une commande PARTIELLE (Fr.PARTIAL_COUNT tourelle, Fr.PARTIAL_AMMO chargeurs)
+              -- au lieu du tout-ou-rien d'avant (240 fer pour 2 tourelles pleines au-dessus d'un plancher de 150).
+              local fi, fc, reduced = Fr.floors(p.score, iron_producing, T.defend_iron_floor, T.defend_copper_floor)
+              d.floor_i, d.floor_cu, d.reduced = fi, fc, reduced or nil
+              if affordable(items, fi, fc) then
+                d.why = want_defense(items, fi, fc) and "fabrication" or "manque"
+                if d.why == "manque" then d.raw = last_raw end
+              else
+                local part = turret_items(math.min(n, math.max(1, Fr.PARTIAL_COUNT)), math.max(1, Fr.PARTIAL_AMMO))
+                if take(part) then
+                  task_of(part)
+                  d.why, d.partial = "tache_creee", true
+                elseif affordable(part, fi, fc) then
+                  d.why, d.partial = want_defense(part, fi, fc) and "fabrication" or "manque", true
+                  if d.why == "manque" then d.raw = last_raw end
+                else
+                  local _, pp = affordable(part, fi, fc)
+                  d.why, d.partial, d.raw = "fer", true, pp.raw
+                end
+              end
+            else
+              d.why = want_defense(items) and "fabrication" or "manque"
+              if d.why == "manque" then d.raw = last_raw end
+            end
           end
         end
       end
+      if d then dposts[#dposts + 1] = d end
     end
-    out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0 }
+    avail[iron_key] = (avail[iron_key] or 0) + held
+    out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0, posts = dposts }
   end
   -- R-QCM-25c (b) « L'équipe le défend » : view.hq_guards PNJ armés au coffre (guerre déclarée au joueur), relevés.
   -- QG menacé (view.hq_threat) : gardes en URGENCE (T.guard_threat_prio), courtes (T.guard_threat_ticks).
@@ -655,6 +821,10 @@ function P.plan(view, book)
       local reached, p = goal_status(g, view)
       if reached then
         out.reached[#out.reached + 1] = g.key
+      elseif Pr.skip_goal(pri, g.need, T.turret_ammo) then
+        -- Lot PRIORITE-RESSOURCES : le fer ne paie pas la défense ET la production : un objectif MILITAIRE (armée, fortifier,
+        -- munitions) passe après les objectifs de production (il revient dès que le fer paie les deux). Sauté, ni atteint ni retenu.
+        out.skipped_goals = (out.skipped_goals or 0) + 1
       else
         goal, parts = g, p
         break

@@ -96,6 +96,40 @@ local function reopen(q, list, tick)
   q.reopened = (q.reopened or 0) + 1 -- non annulable (Build.cancel) tant que ses pièces ne sont pas refaites
   q.reopened_tick = tick
   q.rebuilt_pieces = (q.rebuilt_pieces or 0) + #list
+  -- lot REBUILD-SUIVI : suivi au journal ([FO-REBUILD-ETAT]) jusqu'à ce que le projet soit refini
+  if not q.etat_open then q.etat_open, q.etat_from, q.etat_n, q.etat_next = true, tick, 0, tick + Rule.ETAT_EVERY end
+  q.etat_n = (q.etat_n or 0) + #list
+end
+
+--- Lot REBUILD-SUIVI : une ligne toutes les Rule.ETAT_EVERY ticks par projet rouvert (pièces à refaire, objets à refaire et manquants
+--- au coffre, état, danger), une ligne à la fin (refait en N min). Avant, le journal s'arrêtait à la réouverture et `[FO-BLOQUE]` ne
+--- dit chaque cause qu'une fois : une fonderie rouverte restait muette pendant plus d'une heure (audit 29/10, Ligue Azur).
+local function report(f, b, st, tick)
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q.etat_open then
+      if q.state == "fini" then
+        q.etat_open = nil
+        if (st.etat_logs or 0) < Rule.ETAT_LOGS then
+          st.etat_logs = (st.etat_logs or 0) + 1
+          log(string.format("[FO-REBUILD-ETAT] %s : projet %d (%s) REFAIT en %.1f min (%d piece(s) rouverte(s)) a %.1f min", f.key or "player",
+            q.id or 0, tostring(q.spec and (q.spec.key or q.spec.gen) or "?"), (tick - (q.etat_from or tick)) / 3600, q.etat_n or 0, tick / 3600))
+        end
+      elseif q.abandoned or q.state == "refuse" then
+        q.etat_open = nil
+      elseif tick >= (q.etat_next or 0) then
+        q.etat_next = tick + Rule.ETAT_EVERY
+        if (st.etat_logs or 0) < Rule.ETAT_LOGS then
+          st.etat_logs = (st.etat_logs or 0) + 1
+          local todo, pieces = Rule.todo(q)
+          log(string.format("[FO-REBUILD-ETAT] %s : projet %d (%s) etat %s[%s], %d piece(s) a refaire sur %d, a refaire {%s}, manque au coffre {%s}, " ..
+            "%d rouverte(s) depuis %.1f min, danger %d, a %.1f min", f.key or "player", q.id or 0,
+            tostring(q.spec and (q.spec.key or q.spec.gen) or "?"), tostring(q.state), tostring(q.reason or ""), pieces, #q.ents,
+            Rule.items_text(todo), Rule.items_text(q.missing), q.etat_n or 0, (tick - (q.etat_from or tick)) / 3600, st.danger or 0, tick / 3600))
+        end
+      end
+    end
+  end
 end
 
 --- Une passe de l'équipe. Rend le nombre de pièces rouvertes.
@@ -106,6 +140,7 @@ function Sweep.step(f, surface, tick)
   if tick < st.next then return 0 end
   st.next = tick + Rule.EVERY
   if tick >= (st.hand_next or 0) then st.hand_next = tick + Sweep.HAND_KEEP / 4 prune_hand(st, tick) end
+  report(f, b, st, tick)
 
   local sizes = {}
   for k, pid in ipairs(b.order) do

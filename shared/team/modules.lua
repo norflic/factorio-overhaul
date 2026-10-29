@@ -563,16 +563,22 @@ end
 
 --- Colonne de fours électrique (époque ≥ 3) : tapis central d'entrée (voie gauche : minerai, voie droite : charbon),
 --- deux rangées de fours, deux tapis de sortie vers le sud. `furnace` : stone-furnace, steel-furnace ou un niveau.
-function G.smelter(furnace, ore, n)
+--- `sortie` (lot AGENCEMENT, retour du DC du 29/10 : coffres « plus proches du centre » pour la source de ressources de la base,
+--- « vers l'extérieur » pour un flux d'usine) : absent ou "centre" = les tapis de sortie vont au bout opposé à la tête
+--- d'alimentation (le gabarit d'avant, clé et paramètres inchangés) ; "exterieur" = ils reviennent vers la tête, leurs quais
+--- (bras et coffre) finissent du côté de la tête, donc du gisement une fois la tête tournée vers lui (shared/team/plan.lua).
+function G.smelter(furnace, ore, n, sortie)
   local sp, why = machine_spec(furnace, "furnace", "fonderie"); if not sp then return nil, why end
   local plate = M.PLATE_OF[ore]
   if not plate then return fail("fonderie : minerai « %s » sans plaque", tostring(ore)) end
   local ok, why2 = count_ok(n, "fonderie"); if not ok then return nil, why2 end
   local s = sp.w
   local tag = (sp.base or furnace) == "stone-furnace" and "pierre" or "acier"
-  local b = new_builder("fonderie-" .. ore_label(ore) .. "-" .. tag .. lvl_tag(sp),
-    "Fonderie électrique (" .. ore_label(ore) .. ", " .. furnace .. ", " .. 2 * n .. " fours)",
-    "Electric smelter (" .. ore_label_en(ore) .. ", " .. furnace .. ", " .. 2 * n .. " furnaces)")
+  if sortie ~= nil and sortie ~= "centre" and sortie ~= "exterieur" then return fail("fonderie : sortie « %s » inconnue", tostring(sortie)) end
+  local rev = sortie == "exterieur"
+  local b = new_builder("fonderie-" .. ore_label(ore) .. "-" .. tag .. lvl_tag(sp) .. (rev and "-ext" or ""),
+    "Fonderie électrique (" .. ore_label(ore) .. ", " .. furnace .. ", " .. 2 * n .. " fours" .. (rev and ", sortie vers la tête" or "") .. ")",
+    "Electric smelter (" .. ore_label_en(ore) .. ", " .. furnace .. ", " .. 2 * n .. " furnaces" .. (rev and ", output at the head" or "") .. ")")
   local rate = sp.speed / R[plate].time
   local fuel = (sp.burner_kw or 0) / M.COAL_J
   local in_k = M.choose_inserters(rate + fuel, true, 1)
@@ -585,8 +591,14 @@ function G.smelter(furnace, ore, n)
   local x_f_e, x_ins_e, x_out_e = 5 + s, 5 + 2 * s, 6 + 2 * s
   local H = n * s
   local main = b:belt_line(x_belt, 0, x_belt, H - 1, S)
-  local ow = b:belt_line(x_out_w, 0, x_out_w, H - 1, S)
-  local oe = b:belt_line(x_out_e, 0, x_out_e, H - 1, S)
+  local ow, oe
+  if rev then
+    ow = b:belt_line(x_out_w, H - 1, x_out_w, 0, N)
+    oe = b:belt_line(x_out_e, H - 1, x_out_e, 0, N)
+  else
+    ow = b:belt_line(x_out_w, 0, x_out_w, H - 1, S)
+    oe = b:belt_line(x_out_e, 0, x_out_e, H - 1, S)
+  end
   for i = 0, n - 1 do
     local y = i * s
     b:put(furnace, x_f_w, y, N, { recipe = plate, rate = rate, role = "four" })
@@ -605,7 +617,8 @@ function G.smelter(furnace, ore, n)
   end
   b.g.power_pole = b:auto_poles(cands)
   b.g.params = { furnace = furnace, ore = ore, n = n }
-  b.g.gen, b.g.args, b.g.level_arg = "smelter", { furnace, ore, n }, 1
+  b.g.gen, b.g.level_arg = "smelter", 1
+  b.g.args = rev and { furnace, ore, n, "exterieur" } or { furnace, ore, n }
   -- bornes : hauteur n·s ; voie de minerai (2n fours) ; voie de charbon ; une voie de sortie par rangée (n fours) ;
   -- largeur 7 + 2s
   local bounds = { floor_eps(M.MAX_SIDE / s), floor_eps(M.LANE_RATE / (2 * rate)), floor_eps(M.LANE_RATE / rate) }
