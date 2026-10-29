@@ -18,6 +18,7 @@
 
 local R = require("shared.ai3.reglages")
 local Rule = require("shared.team.rebuild_sweep")
+local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : liste chaude, ordre, foreuse thermique de secours (règles pures)
 
 local Sweep = {}
 
@@ -83,9 +84,16 @@ end
 --- Rouvre les pièces `list` d'un même projet : « à bâtir », fantômes puis ravivage par les PNJ du plan. Un projet fini repasse en réserve
 --- (comme reseau_vivant.reopen : déjà compté aux statistiques) ; un projet en raccordement repasse en chantier.
 local function reopen(q, list, tick)
+  local lag -- lot REBUILD-RAPIDE : plus long délai entre la mort d'une pièce et sa réouverture (nil : aucune pièce tuée datée)
   for _, c in ipairs(list) do
     local e = c.e
     e.built, e.ghosted, e.fails, e.npc_blocks, e.miss = false, false, 0, 0, nil
+    -- lot REBUILD-RAPIDE : date de la première destruction encore à refaire (journal du délai total, [FO-REBUILD-RAPIDE] à la fin)
+    if e.died_t then
+      if not q.rr_died or e.died_t < q.rr_died then q.rr_died = e.died_t end
+      if not lag or tick - e.died_t > lag then lag = tick - e.died_t end
+      e.died_t = nil
+    end
   end
   if q.state == "fini" then
     q.counted = true
@@ -100,7 +108,11 @@ local function reopen(q, list, tick)
   -- lot REBUILD-SUIVI : suivi au journal ([FO-REBUILD-ETAT]) jusqu'à ce que le projet soit refini
   if not q.etat_open then q.etat_open, q.etat_from, q.etat_n, q.etat_next = true, tick, 0, tick + Rule.ETAT_EVERY end
   q.etat_n = (q.etat_n or 0) + #list
+  return lag
 end
+
+--- Lot REBUILD-RAPIDE (d) : réouverture d'une pièce rendue à l'électrique par script/team/rebuild_rapide.lua (même règle que le relevé).
+function Sweep.reopen_pieces(q, list, tick) return reopen(q, list, tick) end
 
 --- Lot REBUILD-SUIVI : une ligne toutes les Rule.ETAT_EVERY ticks par projet rouvert (pièces à refaire, objets à refaire et manquants
 --- au coffre, état, danger), une ligne à la fin (refait en N min). Avant, le journal s'arrêtait à la réouverture et `[FO-BLOQUE]` ne
@@ -111,6 +123,14 @@ local function report(f, b, st, tick)
     if q and q.etat_open then
       if q.state == "fini" then
         q.etat_open = nil
+        if q.rr_died then -- lot REBUILD-RAPIDE : délai total, de la première destruction au projet refini
+          if (st.rr_logs or 0) < Sweep.RAPIDE_LOGS then
+            st.rr_logs = (st.rr_logs or 0) + 1
+            log(string.format("[FO-REBUILD-RAPIDE] %s : projet %d (%s) refait %.0f s apres la premiere destruction (rang %d) a %.1f min", f.key or "player",
+              q.id or 0, tostring(q.spec and (q.spec.key or q.spec.gen) or "?"), (tick - q.rr_died) / 60, Rr.project_rank(q.spec), tick / 3600))
+          end
+          q.rr_died = nil
+        end
         if (st.etat_logs or 0) < Rule.ETAT_LOGS then
           st.etat_logs = (st.etat_logs or 0) + 1
           log(string.format("[FO-REBUILD-ETAT] %s : projet %d (%s) REFAIT en %.1f min (%d piece(s) rouverte(s)) a %.1f min", f.key or "player",
@@ -161,6 +181,68 @@ function Sweep.upgrade_stock(f, stock, book, tick, cur)
   return free
 end
 
+Sweep.MATCH = 0.3       -- tuiles : tolérance de position d'une pièce du plan (comme Recon.MATCH)
+Sweep.RAPIDE_LOGS = 60  -- lignes [FO-REBUILD-RAPIDE] par équipe
+
+--- Lot REBUILD-RAPIDE (a) : une pièce d'un projet du plan tuée (on_entity_died, lu par script/team/reconstruction.lua) entre dans la liste
+--- chaude : elle est marquée absente à la date de sa mort et relue à CHAQUE passe du relevé, sans attendre que le curseur (Rule.SLICE pièces
+--- par passe, une passe par pensée d'équipe) repasse deux fois sur elle (de 1 à 4 min mesurées sur la partie du DC du 29/10, Scarlet).
+--- Rend vrai si une pièce du plan a été trouvée à cette place.
+function Sweep.note_died(f, pos, tick)
+  local b = f and f.build
+  if not (R.REBUILD_SWEEP and b and b.projects and b.order and pos) then return false end
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q.ents and WATCHED[q.state] and not q.abandoned then
+      for i, e in ipairs(q.ents) do
+        if math.abs(e.x - pos.x) <= Sweep.MATCH and math.abs(e.y - pos.y) <= Sweep.MATCH then
+          local st = state_of(b, tick)
+          if Rr.hot_add(st, pid, i, e, tick) then st.hot[#st.hot][3], st.hot[#st.hot][4] = e.x, e.y end
+          return true
+        end
+      end
+    end
+  end
+  return false
+end
+
+--- Lot REBUILD-RAPIDE (a) : passe sur la liste chaude. Les pièces dues entrent dans `cands` (même règle que le curseur : deux vues, la
+--- première étant la mort) ; `seen[e]` évite que le curseur les relise dans la même passe. Une pièce revue en place, rouverte ou qui n'est
+--- plus au plan sort de la liste ; une pièce encore marquée ou due mais non choisie (ennemi sur place, plafond) y reste.
+local function hot_pass(b, force, st, surface, tick, cands, seen)
+  if not (st.hot and #st.hot > 0) then return end
+  local rank = {}
+  for k, pid in ipairs(b.order) do rank[pid] = k end
+  local keep, later, n = {}, {}, 0
+  for _, h in ipairs(st.hot) do
+    n = n + 1
+    local q = n <= Rr.HOT_PER_PASS and b.projects[h[1]] or nil
+    local e = q and q.ents and q.ents[h[2]]
+    local k = rank[h[1]]
+    if n > Rr.HOT_PER_PASS then
+      later[#later + 1] = h -- relecture : au plus Rr.HOT_PER_PASS lectures par passe, le reste en tête de la suivante
+    elseif e and k and h[3] and WATCHED[q.state] and not q.abandoned and not (q.spec and q.spec.enceinte) and e.built and e.item
+      and not e.gave_up and not e.dropped and not e.wall and math.abs(e.x - h[3]) <= Sweep.MATCH and math.abs(e.y - h[4]) <= Sweep.MATCH
+      and st.hand[place_key(e.x, e.y)] == nil then
+      local ty = type_of(e.name)
+      local cls = Rule.class_of(ty, R.REBUILD_FIRST, R.INFRA_TYPES)
+      if cls then
+        seen[e] = true
+        local present = surface.count_entities_filtered({ position = { e.x, e.y }, radius = Sweep.RADIUS, type = ty, force = force,
+          limit = 1 }) > 0
+        local r = Rule.observe(e, present, tick)
+        if r == "due" then
+          cands[#cands + 1] = { q = q, pi = k, i = h[2], e = e, class = cls, ty = ty, hot = true }
+          keep[#keep + 1] = h
+        elseif r == "marque" then
+          keep[#keep + 1] = h
+        end
+      end
+    end
+  end
+  Rr.hot_set_list(st, Rr.hot_next(later, keep))
+end
+
 --- Une passe de l'équipe. Rend le nombre de pièces rouvertes.
 function Sweep.step(f, surface, tick)
   local b = f.build
@@ -171,6 +253,10 @@ function Sweep.step(f, surface, tick)
   if tick >= (st.hand_next or 0) then st.hand_next = tick + Sweep.HAND_KEEP / 4 prune_hand(st, tick) end
   report(f, b, st, tick)
 
+  -- Lot REBUILD-RAPIDE (a) : la liste chaude d'abord (pièces tuées depuis les dernières passes), puis la tranche du curseur.
+  local cands, seen = {}, {}
+  hot_pass(b, f.force, st, surface, tick, cands, seen)
+
   local sizes = {}
   for k, pid in ipairs(b.order) do
     local q = b.projects[pid]
@@ -179,7 +265,6 @@ function Sweep.step(f, surface, tick)
   local segs, pi, ei = Rule.slice(sizes, st.pi, st.ei, Rule.SLICE)
   st.pi, st.ei = pi, ei
 
-  local cands = {}
   for _, sg in ipairs(segs) do
     local q = b.projects[b.order[sg[1]]]
     for i = sg[2], sg[3] do
@@ -189,7 +274,7 @@ function Sweep.step(f, surface, tick)
         -- lot INTEG-RECONSTRUCTION (D3) : abandon levé (80 min), la pièce est de nouveau relevée
         e.gave_up, e.gave_t, e.rb, e.rb_t, e.miss = nil, nil, nil, nil, nil
       end
-      if e and e.built and e.item and not e.gave_up and not e.dropped and not e.wall then
+      if e and e.built and e.item and not e.gave_up and not e.dropped and not e.wall and not seen[e] then
         local ty = type_of(e.name)
         local cls = Rule.class_of(ty, R.REBUILD_FIRST, R.INFRA_TYPES)
         if cls then
@@ -248,8 +333,15 @@ function Sweep.step(f, surface, tick)
   local total = 0
   for _, k in ipairs(keys) do
     local g = by[k]
-    reopen(g.q, g.list, tick)
+    local lag = reopen(g.q, g.list, tick)
     total = total + #g.list
+    if lag and (st.rr_logs or 0) < Sweep.RAPIDE_LOGS then -- lot REBUILD-RAPIDE : latence de détection et rang de la reconstruction
+      st.rr_logs = (st.rr_logs or 0) + 1
+      local c1 = g.list[1]
+      log(string.format("[FO-REBUILD-RAPIDE] %s : projet %d (%s), %d piece(s) rouverte(s) %.0f s apres leur destruction (%s en %.1f, %.1f), rang %d " ..
+        "(1 alimentation, 2 production principale, 3 le reste), chantier sans attendre toute la matiere a %.1f min", f.key or "player", g.q.id or 0,
+        tostring(g.q.spec and (g.q.spec.key or g.q.spec.gen) or "?"), #g.list, lag / 60, c1.e.name, c1.e.x, c1.e.y, Rr.project_rank(g.q.spec), tick / 3600))
+    end
     st.reopened = st.reopened + #g.list
     if st.logs < Sweep.LOGS then
       st.logs = st.logs + 1
