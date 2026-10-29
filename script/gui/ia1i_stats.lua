@@ -9,7 +9,8 @@
     - UN RELEVÉ toutes les S.PERIOD ticks (30 s), fenêtre ouverte ou non : les compteurs CUMULÉS de chaque équipe
       (production et consommation de la force, objets portés au coffre par les PNJ) entrent dans l'anneau de l'équipe ;
       les débits par minute sont des écarts de deux relevés (F242 : les compteurs, pas la moyenne du moteur) ;
-    - UNE LECTURE par seconde, fenêtre OUVERTE sur l'onglet seulement (script/gui/team_window.lua) : `collect`.
+    - UNE LECTURE (`collect`) à chaque reconstruction de l'onglet, soit toutes les 3 s, fenêtre OUVERTE sur l'onglet
+      seulement (script/gui/team_window.lua, `every = 3`).
 
   Machines et mains restent SÉPARÉES (consigne du lot, F319/F244) :
     machines  statistiques de production du moteur de la force : toutes ses machines, qui qu'ait posé la machine ;
@@ -55,22 +56,34 @@ end
 
 --- Compteurs cumulés du moteur d'une force : (production, consommation), tables {objet = n}. Lecture protégée : le
 --- moteur simulé des tests hors jeu n'a pas de statistiques.
+--- Rend aussi `hot` = { prod, cons } : le débit de la dernière minute de chaque objet (get_flow_count du moteur), pour que
+--- le relevé garde un objet récent à fort débit même si son cumul est encore petit (S.trim). Une fois par relevé (30 s).
 local function engine_counts(force)
   local prod, cons = {}, {}
+  local hot = { prod = {}, cons = {} }
   pcall(function()
     local st = force.item_production_statistics
     prod, cons = st.input_counts, st.output_counts
+    local idx = defines.flow_precision_index.one_minute
+    for _, name in ipairs(S.sorted_keys(prod)) do
+      hot.prod[name] = st.get_flow_count({ name = name, input = true, precision_index = idx })
+    end
+    for _, name in ipairs(S.sorted_keys(cons)) do
+      hot.cons[name] = st.get_flow_count({ name = name, input = false, precision_index = idx })
+    end
   end)
-  return prod or {}, cons or {}
+  return prod or {}, cons or {}, hot
 end
 
---- (kills, pertes) d'une force : somme des sorties et des entrées de `kill_count_statistics` (ennemis détruits par la
---- force ; entités de la force détruites).
+--- (kills, pertes) d'une force : somme des ENTRÉES et des SORTIES de `kill_count_statistics`. Sens établi en moteur réel
+--- le 29/10 par de vraies morts (banc `panel-kills`, 11 OK) : `input_counts` = ennemis détruits PAR la force (une tourelle
+--- du joueur tue 3 petits mordeurs : input{small-biter=3}) ; `output_counts` = entités DE la force détruites (un coffre
+--- du joueur tué par l'ennemi : output{wooden-chest=1}). Même sens que data/core/lualib/kill-score.lua.
 local function engine_kills(force)
   local kills, losses = 0, 0
   pcall(function()
     local st = force.kill_count_statistics
-    kills, losses = S.sum(st.output_counts), S.sum(st.input_counts)
+    kills, losses = S.sum(st.input_counts), S.sum(st.output_counts)
   end)
   return kills, losses
 end
@@ -144,7 +157,7 @@ function Stats.sample(tick)
       live[t.key] = true
       local cached = P.techs and P.techs[t.force]
       if i == turn + 1 or not cached then Stats.recount(t.force) end
-      local prod, cons = engine_counts(force)
+      local prod, cons, hot = engine_counts(force)
       local f = t.f
       local hand = (f and f.team and f.team.delivered) or {}
       local st = (f and f.stats) or {}
@@ -153,7 +166,7 @@ function Stats.sample(tick)
         ring = {}
         P.rings[t.key] = ring
       end
-      S.push(ring, S.make_sample(tick, prod, cons, hand, st.mined, st.crafted), S.RING)
+      S.push(ring, S.make_sample(tick, prod, cons, hand, st.mined, st.crafted, hot), S.RING)
     end
   end
   for _, k in ipairs(S.sorted_keys(P.rings)) do

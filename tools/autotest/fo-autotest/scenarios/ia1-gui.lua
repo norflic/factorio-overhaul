@@ -8,10 +8,13 @@
       & "<racine>\fo-autotest.bat" nopause 16600 ia1-gui "<source>"
   Journal : [FO-IA1-GUI].
   Lot PANEL-STATS : onglet « Partie » (valeurs contre le moteur, coût, captures, état sauvegardé) ; voir les pas 3600,
-  7200 et T_WAIT+240 à T_WAIT+290. Les débits de MACHINES sont alimentés par le banc (`on_flow` toutes les secondes sur
+  7200 et T_WAIT+60 à T_WAIT+290. Les débits de MACHINES sont alimentés par le banc (`on_flow` toutes les secondes sur
   la force du joueur : un cuivre produit, un cuivre consommé) pour avoir un flux constant à comparer ; la LECTURE par
-  le panneau est celle du moteur réel. Les compteurs de kills sont posés par `set_*_count` pour la même raison (aucun
-  combat dans les 5 premières minutes).
+  le panneau est celle du moteur réel. KILLS ET PERTES : de VRAIES morts (correction du 29/10, un relecteur avait
+  prouvé le sens inversé et vu que l'ancien banc écrivait lui-même l'hypothèse avec `set_*_count`) : une tourelle de
+  votre force tue des petits mordeurs, une tourelle de la première faction en tue aussi, un coffre de votre force est
+  détruit par `die("enemy")`. Aucun `set_*_count` : le sens (kills = `input_counts`, pertes = `output_counts`) est établi
+  à part par le banc `panel-kills` et relu ici contre ces morts connues.
 
   Carte : coffre d'équipe garni près du point de départ ; réglages de carte 3 factions, 30 soldats, 4 ouvriers ;
   difficulté Facile ; la guerre n'est PAS lancée : c'est le bouton de l'interface qui la lance.
@@ -276,15 +279,55 @@ steps[7200] = function(ctx, p, st)
     tostring(rate), engine_rate, tostring(cons), engine_cons, d.detail.samples, d.detail.span))
 end
 
--- Recherche en cours et compteurs de kills posés AVANT les contrôles de T_WAIT+280.
+-- Vrais combats : une tourelle chargée de la force donnée tue n petits mordeurs posés à 14 tuiles. Rend le nombre de
+-- mordeurs posés et la position de la tourelle (nil si la place manque).
+local function fight(ctx, force, cx, cy, n)
+  local s = ctx.surface()
+  local tp = s.find_non_colliding_position("gun-turret", { cx, cy }, 40, 1)
+  local t = tp and s.create_entity({ name = "gun-turret", position = tp, force = force })
+  if not t then return 0, nil end
+  t.insert({ name = "firearm-magazine", count = 40 })
+  local placed = 0
+  for i = 1, n do
+    local bp = s.find_non_colliding_position("small-biter", { tp.x + 14, tp.y - 6 + 4 * i }, 8, 0.5)
+    local b = bp and s.create_entity({ name = "small-biter", position = bp, force = "enemy" })
+    if b then placed = placed + 1 end
+  end
+  return placed, tp
+end
+
+-- Combats REELS au tick T_WAIT+60 (3 mordeurs pour votre tourelle, 2 pour celle de la premiere faction), coffre detruit
+-- par l'ennemi au tick T_WAIT+99 : les compteurs sont lus a T_WAIT+280, 180 ticks plus tard.
+steps[T_WAIT + 60] = function(ctx, p, st)
+  local c = st.chest_pos
+  local placed, tp = fight(ctx, "player", c.x + 40, c.y - 40, 3)
+  st.fight_player = placed
+  local s = ctx.surface()
+  local cp = s.find_non_colliding_position("wooden-chest", { c.x + 40, c.y + 40 }, 30, 1)
+  local chest = cp and s.create_entity({ name = "wooden-chest", position = cp, force = "player" })
+  st.fight_chest = chest and chest.position
+  local d = R(ctx, "panel", "player")
+  local fr = d.teams[2]
+  st.fight_faction_force = fr and fr.force
+  st.fight_faction_key = fr and fr.key
+  local fplaced = 0
+  if fr and game.forces[fr.force] then fplaced = fight(ctx, fr.force, c.x - 40, c.y - 40, 2) end
+  st.fight_faction = fplaced
+  ctx.log(string.format("Partie : combats poses, tourelle player %s (%d mordeurs), coffre %s, tourelle %s %s (%d mordeurs)",
+    tostring(tp ~= nil), placed, tostring(chest ~= nil), tostring(fr and fr.force), tostring(fplaced > 0), fplaced))
+end
+-- (tick +99 et non +100 : le pas +100 appartient a la boucle des onglets, ma premiere version l'avait ecrase)
+steps[T_WAIT + 99] = function(ctx, p, st)
+  local c = st.fight_chest and ctx.surface().find_entity("wooden-chest", st.fight_chest)
+  st.fight_chest_found = c ~= nil
+  if c then c.die("enemy") end
+end
+
+-- Recherche en cours posee AVANT les contrôles de T_WAIT+280 (les kills viennent des combats ci-dessus).
 steps[T_WAIT + 240] = function(ctx, p, st)
   local f = game.forces.player
   local ok = f.add_research("automation") -- faux si la file a déjà une recherche : le contrôle lit la recherche COURANTE du moteur
   f.research_progress = 0.37
-  local ks = f.kill_count_statistics
-  ks.set_output_count("small-biter", 37)
-  ks.set_output_count("medium-biter", 5)
-  ks.set_input_count("gun-turret", 3)
   ctx.log("Partie : recherche posee " .. tostring(ok) .. ", courante " .. tostring(f.current_research and f.current_research.name))
 end
 steps[T_WAIT + 260] = function(ctx, p) R(ctx, "select", p.index, "partie") end
@@ -322,11 +365,21 @@ steps[T_WAIT + 280] = function(ctx, p, st)
     string.format("panneau %s %s %%, moteur %s %.0f %%", tostring(row.research and row.research.name),
       tostring(row.research and row.research.pct), tostring(f.current_research and f.current_research.name),
       f.research_progress * 100))
+  -- Kills = ENTREES du moteur (ennemis detruits PAR la force), pertes = SORTIES (entites DE la force detruites) : sens
+  -- etabli par `panel-kills`. Ici les morts sont connues : 3 mordeurs tues par votre tourelle, 1 coffre detruit.
   local ks = f.kill_count_statistics
-  ctx.check(row.kills == engine_sum(ks.output_counts) and row.kills >= 42 and row.losses == engine_sum(ks.input_counts)
-    and row.losses >= 3, "Partie : kills et pertes egaux aux statistiques du moteur (ecart 0)",
-    string.format("panneau %d / %d, moteur %d / %d", row.kills, row.losses, engine_sum(ks.output_counts),
-      engine_sum(ks.input_counts)))
+  local biters_killed = ks.input_counts["small-biter"] or 0
+  local chests_lost = ks.output_counts["wooden-chest"] or 0
+  ctx.check(st.fight_player == 3 and st.fight_chest_found == true and biters_killed >= 3 and chests_lost >= 1
+    and (ks.output_counts["small-biter"] or 0) == 0,
+    "Partie : les vrais combats ont eu lieu (3 mordeurs tues par votre tourelle en entree, 1 coffre detruit en sortie)",
+    string.format("poses %s, coffre %s ; moteur input small-biter %d, output wooden-chest %d", tostring(st.fight_player),
+      tostring(st.fight_chest_found), biters_killed, chests_lost))
+  ctx.check(row.kills == engine_sum(ks.input_counts) and row.kills >= biters_killed and row.losses == engine_sum(ks.output_counts)
+    and row.losses >= chests_lost,
+    "Partie : kills = entrees du moteur et pertes = sorties, sur de vraies morts (ecart 0, sens non echange)",
+    string.format("panneau %d / %d, moteur %d / %d", row.kills, row.losses, engine_sum(ks.input_counts),
+      engine_sum(ks.output_counts)))
   ctx.check(team and row.engineers == team.n and row.soldiers == team.soldiers and row.outposts == team.outposts
     and row.npc_max == team.max, "Partie : PNJ, soldats, avant-postes et plafond egaux a fo-ia1 teams",
     string.format("panneau %s/%s/%s/%s", tostring(row.engineers), tostring(row.soldiers), tostring(row.outposts),
@@ -339,12 +392,21 @@ steps[T_WAIT + 280] = function(ctx, p, st)
     local fdone, ftotal = 0, 0
     if force then fdone, ftotal = engine_techs(force) end
     ok_att = ok_att and r ~= nil and force ~= nil and r.attacks_in == fr.attacks and r.techs_done == fdone
-      and r.techs_total == ftotal and r.kills == engine_sum(force.kill_count_statistics.output_counts)
-      and r.losses == engine_sum(force.kill_count_statistics.input_counts) and r.level == fr.tech
+      and r.techs_total == ftotal and r.kills == engine_sum(force.kill_count_statistics.input_counts)
+      and r.losses == engine_sum(force.kill_count_statistics.output_counts) and r.level == fr.tech
   end
   ctx.check(ok_att and row.attacks_in == sum_in,
     "Partie : chaque faction (attaques sur vous, technologies, kills, pertes, niveau) egale au moteur et a fo-pvp status ; votre ligne = somme des attaques subies",
     string.format("somme %d, panneau %s", sum_in, tostring(row.attacks_in)))
+  -- Une faction a elle aussi tue de vrais mordeurs avec sa tourelle : sa colonne Kills doit les compter (et pas ses Pertes).
+  local fk = st.fight_faction_key and row_of(d, st.fight_faction_key)
+  local fforce = st.fight_faction_force and game.forces[st.fight_faction_force]
+  local fkilled = fforce and (fforce.kill_count_statistics.input_counts["small-biter"] or 0) or 0
+  ctx.check(fk ~= nil and (st.fight_faction or 0) == 2 and fkilled >= 2 and fk.kills >= fkilled
+    and fk.kills == engine_sum(fforce.kill_count_statistics.input_counts),
+    "Partie : la faction dont la tourelle a tue 2 mordeurs les a en Kills (sens non echange)",
+    string.format("faction %s, mordeurs poses %s, moteur input small-biter %d, panneau kills %s", tostring(st.fight_faction_key),
+      tostring(st.fight_faction), fkilled, tostring(fk and fk.kills)))
   local w = d.detail.workers
   local tasks = 0
   for _, t in ipairs(w and w.tasks or {}) do tasks = tasks + t.n end

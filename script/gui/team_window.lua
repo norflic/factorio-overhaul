@@ -603,10 +603,12 @@ tabs.pnj = {
 }
 
 -- Partie (lot PANEL-STATS) : statistiques de la partie, lecture seule (script/gui/partie.lua).
-local PANEL_TASKS = { idle = true, norole = true, ghost = true, equiper = true, centrale = true }
+local PANEL_TASKS = { idle = true, norole = true, ghost = true, equiper = true, centrale = true, explore = true, clear = true,
+  carry = true }
 local function task_text(kind)
   if PANEL_TASKS[kind] then return { "fo-panel.task-" .. kind } end
-  return TASK_TEXT[kind] and { "fo-ia1i.task-" .. kind } or kind
+  if TASK_TEXT[kind] then return { "fo-ia1i.task-" .. kind } end
+  return { "fo-panel.task-other", tostring(kind) } -- type de tâche sans texte propre : traduit quand même, avec son nom
 end
 tabs.partie = Partie.tab({ label = label, heading = heading, task_text = task_text })
 tabs.partie.every = 3 -- secondes entre deux rafraîchissements de l'onglet (les débits couvrent 3 min)

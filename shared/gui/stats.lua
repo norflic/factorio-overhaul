@@ -24,7 +24,7 @@ local M = {}
 
 M.PERIOD = 1800                          -- ticks entre deux relevés (30 s)
 M.RING = 7                               -- relevés gardés par équipe (historique de 3 min)
-M.KEEP = { prod = 16, cons = 12, hand = 8 } -- objets gardés par relevé
+M.KEEP = { prod = 16, cons = 12, hand = 16 } -- objets gardés par relevé (prod et cons : jusqu'à le double avec `hot`)
 M.SHOWN = 8                              -- objets montrés par tableau
 M.TICKS_PER_MIN = 3600
 
@@ -68,10 +68,20 @@ function M.top(counts, n)
   return list
 end
 
---- Table { [clé] = valeur } réduite aux n plus grandes valeurs (ce qu'un relevé garde).
-function M.trim(counts, n)
+--- Table { [clé] = valeur } réduite aux n plus grandes valeurs (ce qu'un relevé garde). Avec `hot` ({ [clé] = débit récent },
+--- lu par l'appelant au moteur), on garde aussi les n objets au plus fort débit RÉCENT : un objet nouveau, à fort débit
+--- mais à faible cumul (nouveau pack de science, nouvelle machine), ne disparaît pas derrière les gros cumuls anciens
+--- (défaut de tri par flux vu par un relecteur le 29/10). Au plus 2 n objets, donc l'état reste borné.
+function M.trim(counts, n, hot)
   local out = {}
   for _, e in ipairs(M.top(counts, n)) do out[e.name] = e.v end
+  if hot then
+    local live = {}
+    for _, k in ipairs(M.sorted_keys(hot)) do
+      if type(counts[k]) == "number" and counts[k] > 0 then live[k] = hot[k] end
+    end
+    for _, e in ipairs(M.top(live, n)) do out[e.name] = counts[e.name] end
+  end
   return out
 end
 
@@ -79,10 +89,12 @@ end
 -- Relevés et débits
 ---------------------------------------------------------------------------------------------------
 --- Relevé : { tick, prod, cons, hand, mined, crafted } construit à partir des compteurs cumulés (tables {objet = n}).
-function M.make_sample(tick, prod, cons, hand, mined, crafted)
+--- `hot` = { prod = { [objet] = débit récent }, cons = { ... } } (facultatif, lu au moteur par l'appelant) : voir M.trim.
+function M.make_sample(tick, prod, cons, hand, mined, crafted, hot)
   return {
     tick = tick,
-    prod = M.trim(prod, M.KEEP.prod), cons = M.trim(cons, M.KEEP.cons), hand = M.trim(hand, M.KEEP.hand),
+    prod = M.trim(prod, M.KEEP.prod, hot and hot.prod), cons = M.trim(cons, M.KEEP.cons, hot and hot.cons),
+    hand = M.trim(hand, M.KEEP.hand),
     mined = mined or 0, crafted = crafted or 0,
   }
 end

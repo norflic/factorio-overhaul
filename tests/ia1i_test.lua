@@ -489,7 +489,8 @@ do
   -- Statistiques du moteur simulées (le mock n'en a pas) : le panneau doit les relire telles quelles.
   local input, output = { ["obj-a"] = 0, ["obj-b"] = 50 }, { ["obj-a"] = 0 }
   force.item_production_statistics = { input_counts = input, output_counts = output }
-  force.kill_count_statistics = { input_counts = { u1 = 4, u2 = 6 }, output_counts = { b1 = 30, b2 = 12 } }
+  -- Sens du moteur réel (banc panel-kills) : input = ennemis détruits par la force, output = entités de la force détruites.
+  force.kill_count_statistics = { input_counts = { b1 = 30, b2 = 12 }, output_counts = { u1 = 4, u2 = 6 } }
   local names, expected_total = {}, 0
   for name, proto in pairs(game.technology_prototypes) do
     names[#names + 1] = name
@@ -506,7 +507,7 @@ do
   local alive = State.alive()
   check(#d.teams == 1 + #alive and d.teams[1].key == "player" and d.teams[1].player, "une ligne par équipe : la vôtre, puis les factions (" .. #d.teams .. ")")
   local row = d.teams[1]
-  check(row.kills == 42 and row.losses == 10, "kills et pertes = somme des sorties et des entrées du moteur (" .. tostring(row.kills) .. ", " .. tostring(row.losses) .. ")")
+  check(row.kills == 42 and row.losses == 10, "kills = somme des entrées (ennemis détruits), pertes = somme des sorties (entités de la force détruites) (" .. tostring(row.kills) .. ", " .. tostring(row.losses) .. ")")
   local done = 0 -- relu ici, indépendamment du panneau : les 5 posées plus celles que le jeu a payées lui-même
   for _, name in ipairs(names) do if force.technologies[name].researched then done = done + 1 end end
   check(done >= 5 and row.techs_done == done and row.techs_total == expected_total,

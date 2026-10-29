@@ -73,6 +73,31 @@ local function run_all(S)
     np .. "/" .. nc .. "/" .. nh)
   check(sb.prod.item100 == 100 and sb.prod.item001 == nil, "relevé : garde les plus gros")
   check(sb.mined == 0 and sb.crafted == 0, "relevé : scalaires absents = 0")
+  -- Un objet récent à faible cumul mais à fort débit entre dans le relevé grâce au débit récent lu au moteur (`hot`).
+  local base = {}
+  for i = 1, 40 do base["old" .. string.format("%02d", i)] = 1000 + i end
+  local cur, hot = {}, { prod = {}, cons = {} }
+  for k, v in pairs(base) do cur[k] = v; hot.prod[k] = 1 end
+  cur.newpack = 300 -- cumul faible (300 < 1000) mais 300 de plus par minute
+  hot.prod.newpack = 300
+  local s_with = S.make_sample(S.PERIOD, cur, {}, {}, 0, 0, hot)
+  local s_without = S.make_sample(S.PERIOD, cur, {}, {})
+  check(s_with.prod.newpack == 300 and s_without.prod.newpack == nil,
+    "relevé : l'objet récent à fort débit entre grâce au débit récent (et pas sans lui)")
+  local n_with = 0
+  for _ in pairs(s_with.prod) do n_with = n_with + 1 end
+  check(n_with <= 2 * S.KEEP.prod, "relevé : borné à 2 x la limite avec le débit récent", tostring(n_with))
+  hot.prod.ghost = 999 -- un débit récent sans compteur (objet absent) ne crée rien
+  check(S.make_sample(S.PERIOD, cur, {}, {}, 0, 0, hot).prod.ghost == nil, "relevé : débit récent d'un objet sans compteur ignoré")
+  local ring = {}
+  S.push(ring, s_with, S.RING)
+  local nxt = {}
+  for k, v in pairs(cur) do nxt[k] = v + 1 end
+  nxt.newpack = 600
+  S.push(ring, S.make_sample(2 * S.PERIOD, nxt, {}, {}, 0, 0, hot), S.RING)
+  local rows = S.flows(ring, "prod", 3)
+  check(rows[1] and rows[1].name == "newpack" and rows[1].rate and rows[1].rate > 300, "flux : l'objet récent est en tête du tableau par débit",
+    rows[1] and (rows[1].name .. " " .. tostring(rows[1].rate)))
 
   local ring = {}
   for i = 1, 20 do S.push(ring, S.make_sample(i * S.PERIOD, { x = i }, {}, {}), S.RING) end
@@ -268,7 +293,7 @@ do
   for _, k in ipairs({ "team", "level", "tech", "outposts", "soldiers", "pnj", "kills", "lost", "att-out", "att-in" }) do
     used["fo-panel.col-" .. k], used["fo-panel.tip-" .. k] = true, true
   end
-  for _, k in ipairs({ "idle", "norole", "ghost", "equiper", "centrale" }) do used["fo-panel.task-" .. k] = true end
+  for _, k in ipairs({ "idle", "norole", "ghost", "equiper", "centrale", "explore", "clear", "carry", "other" }) do used["fo-panel.task-" .. k] = true end
   used["fo-panel.col-rate-hand"] = true
   local absent = {}
   for k in pairs(used) do
@@ -308,7 +333,8 @@ local mutants = {
     "local d = (last[field] or 0) - (first[field] or 0)\n  if d < 0 then d = 0 end\n  return d" },
   { "débit inconnu trié en tête", "if (ra ~= nil) ~= (rb ~= nil) then return ra ~= nil end", "if (ra ~= nil) ~= (rb ~= nil) then return ra == nil end" },
   { "flux triés par cumul", "if ra and ra ~= rb then return ra > rb end", "if false then return ra > rb end" },
-  { "relevé non borné", "prod = M.trim(prod, M.KEEP.prod)", "prod = prod or {}" },
+  { "relevé non borné", "prod = M.trim(prod, M.KEEP.prod, hot and hot.prod)", "prod = prod or {}" },
+  { "relevé sans les objets qui grandissent", "    for _, e in ipairs(M.top(live, n)) do out[e.name] = counts[e.name] end", "" },
   { "relevé garde les plus petits", "table.sort(list, function(a, b)\n    if a.v ~= b.v then return a.v > b.v end", "table.sort(list, function(a, b)\n    if a.v ~= b.v then return a.v < b.v end" },
   { "PNJ sans rôle oubliés", "if extra > 0 then by.norole = extra end", "" },
   { "PNJ sans tâche comptés ailleurs", "local k = n.task or \"idle\"", "local k = n.task or \"none\"" },

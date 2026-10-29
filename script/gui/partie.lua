@@ -14,7 +14,7 @@
        - PNJ : combien font quoi (minage avec la ressource visée, fabrication, tournée…), part au travail, causes
          d'inactivité.
 
-  LECTURE SEULE, rien n'est décidé ici. Rafraîchi une fois par seconde, fenêtre ouverte sur l'onglet seulement (comme les
+  LECTURE SEULE, rien n'est décidé ici. Reconstruit toutes les 3 s (`every = 3` dans team_window.lua : 2,7 à 4,0 ms par reconstruction), fenêtre ouverte sur l'onglet seulement (comme les
   autres onglets, script/gui/team_window.lua). Aucun nom d'objet du jeu en dur : les objets sont affichés par leur
   nom localisé, triés par flux.
 ]]
