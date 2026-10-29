@@ -488,6 +488,7 @@ local function pass(f, tick)
       if not (so.rest_until and tick < so.rest_until) and d2(so, f.hq_pos) <= Sd.NEAR_HQ * Sd.NEAR_HQ then idle = idle + 1 end
     end
     for _, er in ipairs(escorts) do idle = idle - math.min(er.n or 2, Sd.ESCORT_MAX) end
+    if idle < 0 then idle = 0 end
     local why
     nid_dec, why = Nd.decide({ tick = tick, sites = sites, assets = assets, incidents = ns.inc, holds = ns.holds,
       total = #list + group_n, idle = idle })
