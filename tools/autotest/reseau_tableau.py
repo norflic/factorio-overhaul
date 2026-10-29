@@ -39,7 +39,7 @@ def lines(d):
 
 def read(d):
     R = dict(deficit={}, red={}, tour={}, prod={}, pnj={}, feu=0, poses=0, decisions=collections.Counter(), reopen=0, dec_lines=[],
-             bad=collections.Counter(), samples=collections.Counter())
+             bad=collections.Counter(), samples=collections.Counter(), nopow=collections.Counter(), lowpow=collections.Counter())
     performed = False
     for line in lines(d):
         m = PE.search(line)
@@ -64,6 +64,8 @@ def read(d):
                 ns = int(m.group(5)) * max(1, int(m.group(4)))
                 R["samples"]["all"] += int(m.group(5)) * int(m.group(4))
                 R["bad"]["all"] += sum(int(v) for k, v in kv.items() if k in ("no_power", "not_plugged_in_electric_network", "low_power")) * int(m.group(4))
+                R["nopow"]["all"] += sum(int(v) for k, v in kv.items() if k in ("no_power", "not_plugged_in_electric_network")) * int(m.group(4))
+                R["lowpow"]["all"] += int(kv.get("low_power", 0)) * int(m.group(4))
             continue
         m = PT.search(line)
         if m:
@@ -164,6 +166,10 @@ def main():
         print(f"POOLE C6 {k} : lot {pt[0][k]:.0f} / temoin {pt[1][k]:.0f} -> rapport {pt[0][k] / max(1, pt[1][k]):.2f}  (C6 : >= 0.85)")
     sb = [sum(R[s]["bad"]["all"] for s in R) / max(1, sum(R[s]["samples"]["all"] for s in R)) for R in (L, T)]
     print(f"SUPPL. part des releves (30 s) 'sans courant / courant faible' des foreuses et bras electriques et assembleurs, fenetres 30 a 60 min : lot {sb[0]:.3f} / temoin {sb[1]:.3f}")
+    den = [max(1, sum(R[s]["samples"]["all"] for s in R)) for R in (L, T)]
+    npw = [sum(R[s]["nopow"]["all"] for s in R) / den[i] for i, R in enumerate((L, T))]
+    lpw = [sum(R[s]["lowpow"]["all"] for s in R) / den[i] for i, R in enumerate((L, T))]
+    print(f"SUPPL. dont SANS COURANT (reseau / centrale a l'arret) : lot {npw[0]:.3f} / temoin {npw[1]:.3f} ; dont COURANT FAIBLE (centrale saturee : capacite, hors lot) : lot {lpw[0]:.3f} / temoin {lpw[1]:.3f}")
     feu = sum(L[s]["feu"] for s in L)
     print(f"C6 poses (poteaux, pieces de centrale) avec un ennemi a 28 tuiles : {feu}  (C6 : 0)")
     for s in L:
