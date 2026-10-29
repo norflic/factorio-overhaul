@@ -5,7 +5,7 @@
   électrique sur une chaudière est un blackout en attente : au moindre creux (démarrage, charge au-delà de la production, coffre de
   charbon vide un instant), le bras s'arrête faute de courant, la chaudière s'éteint et la centrale ne repart jamais. Passés à
   l'électrique, les bras de la centrale la tuaient en 1,5 à 3,5 min dans 6 cas sur 6 (archives 2026-10-28_PLANDIR). Un bras à
-  combustion se recharge seul avec le charbon qu'il déplace. Seul le charbon du quai manque : voir docs, approvisionnement par tapis.
+  combustion se recharge seul avec le charbon qu'il déplace. Ce qui manque est le charbon du quai (mesuré : coffre à 0, 123456789, 32,7 min) : lot quai-charge, branche quai-charge.
 ]]
 local M = require("shared.team.modules")
 
