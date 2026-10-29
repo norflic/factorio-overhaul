@@ -25,6 +25,7 @@ local Storage = require("script.core.storage")
 local L = require("shared.levels.config")
 local Levels = require("script.levels.levels")
 local Free = require("script.levels.free")
+local Centre = require("script.levels.centre") -- lot CENTRE-JEU : épave de départ et réparation
 
 local FRAME = "fo_lvl_panel"
 
@@ -89,6 +90,7 @@ local function reason_message(info, reason)
   if reason == "cc-too-low" and info then
     return { "fo-levels.reason-cc-too-low", info.required_cc or L.required_cc(info.family, info.next) }
   end
+  if reason == "wreck" then return { "fo-centre.reason-wreck" } end
   if reason == "cc-families" and info then
     return { "fo-epochs.reason-cc-families", info.condition_level, families_text(info.blocking) }
   end
@@ -184,7 +186,9 @@ local function refresh(player)
   -- Plafond des BÂTIMENTS (2 × centre), quelle que soit la famille survolée (le centre lui-même va à 15).
   frame.add({ type = "label", caption = { "fo-epochs.cc-line", ccl, L.building_cap(ccl) } })
 
-  if n >= family.max then
+  if Centre.panel(frame, player, target) then
+    -- Épave du centre : section de réparation (bouton fo_centre_repair), à la place de l'amélioration.
+  elseif n >= family.max then
     frame.add({ type = "label", caption = { "fo-levels.maxed" } })
   else
     local ne = L.epoch_of(family, info.next)
@@ -297,8 +301,24 @@ local function refresh(player)
   frame.add({ type = "button", name = "fo_lvl_close", caption = { "fo-levels.close" } })
 end
 
+--- Lot CENTRE-JEU : réparer l'épave du centre (payé sur l'inventaire du joueur) et le dire.
+local function try_repair(player, entity)
+  if not (entity and entity.valid) then return end
+  local ok, reason, info = Centre.repair(entity, player)
+  local text
+  if ok then
+    text = { "fo-centre.msg-repaired" }
+  elseif reason == "no-resources" then
+    text = { "fo-centre.reason-no-resources", missing_text(info.missing or {}) }
+  else
+    text = { "fo-centre.reason-" .. tostring(reason) }
+  end
+  player.create_local_flying_text({ text = text, position = entity.position })
+end
+
 local function try_upgrade(player, entity, row)
   if not (entity and entity.valid) then return end
+  if Centre.is_wreck_entity(entity) then return try_repair(player, entity) end
   local where = entity.position
   if row then
     local done = Levels.start_row(entity, player)
@@ -346,7 +366,7 @@ Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
   if not (el and el.valid) then return end
   local name = el.name
-  if name ~= "fo_lvl_up" and name ~= "fo_lvl_row" and name ~= "fo_lvl_close" and name ~= "fo_lvl_free" and name ~= "fo_lvl_free_cancel" then return end
+  if name ~= "fo_lvl_up" and name ~= "fo_lvl_row" and name ~= "fo_lvl_close" and name ~= "fo_lvl_free" and name ~= "fo_lvl_free_cancel" and name ~= "fo_centre_repair" then return end
   local player = game.get_player(e.player_index)
   if name == "fo_lvl_close" then
     close(player)
@@ -367,6 +387,8 @@ Events.on(defines.events.on_gui_click, function(e)
     end
   elseif name == "fo_lvl_free_cancel" then
     Free.cancel(target, "cancelled")
+  elseif name == "fo_centre_repair" then
+    try_repair(player, target)
   else
     try_upgrade(player, target, name == "fo_lvl_row")
   end

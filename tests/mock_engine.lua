@@ -195,7 +195,7 @@ local function destroy_entity(e)
   end
 end
 
-local WRITABLE = { active = "_active", operable = "_operable", health = "_health" }
+local WRITABLE = { active = "_active", operable = "_operable", health = "_health", minable = "_minable" } -- minable : lot CENTRE-JEU
 
 ---------------------------------------------------------------------------------------------------
 -- Inventaires (capacité illimitée : le mock valide la logique, pas la place disponible)
@@ -939,6 +939,8 @@ function M.new_world(opts)
     -- lot TIRS : effets de tir par âge (script/tirs/tirs.lua) ; le mock ne tire pas : l'événement n'est jamais levé,
     -- le moteur réel est prouvé par « tirs-ages »
     on_script_trigger_effect = 31,
+    -- lot CENTRE-JEU : épave du centre posée au premier joueur (script/levels/centre.lua) ; levé à la main par tests/centre_test.lua
+    on_player_created = 32,
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
