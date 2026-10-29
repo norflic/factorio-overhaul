@@ -9,8 +9,9 @@
   Décision par défaut (question 7 du DC, docs/QUESTIONS_DC.md, option par défaut du lot) : de quoi tenir `horizon` ticks de
   fonte (10 minutes) au débit du four, borné par
     - la PILE de la case source (taille lue au prototype) ;
-    - la demande restante (jamais plus que ce qui manque), sauf le plancher de main 0.6.7 (`base_fabs` fabrications) ;
-    - une PART du stock libre de l'objet (`share`), pour ne pas immobiliser tout le coffre dans les fours.
+    - une PART du stock libre de l'objet (`share`), pour ne pas immobiliser tout le coffre dans les fours, avec le plancher
+      de main 0.6.7 (`base_fabs` fabrications par four) ;
+    la demande du moment ne choisit que les PRODUITS (elle ne borne pas la charge : v2, mesurée, la chargeait à 10).
   Un four déjà garni est COMPLÉTÉ quand il est sous `low` de sa cible. Une tournée n'est justifiée que s'il y a quelque
   chose à faire (`C.due`, `C.visit_due`) : de la place à charger ET de la matière au coffre, un combustible bas, ou une
   sortie qui s'accumule.
@@ -183,27 +184,24 @@ function C.distribute(assign, avail)
 end
 
 --- Ce que le porteur prend au coffre : { [objet] = n } (multiple de la recette). Pour chaque objet : la place totale à
---- combler, bornée par la demande (`demand[produit]`, en produits) et par `share` du stock libre, sauf le plancher
---- `base_fabs` fabrications par four ; jamais plus que le stock.
-function C.take(assign, demand, stock, P)
+--- combler, bornée par `share` du stock libre, sauf le plancher `base_fabs` fabrications par four ; jamais plus que le
+--- stock. La DEMANDE ne borne pas la charge (mesure du 29/10, v2 : bornée par la pénurie du moment, la charge médiane restait
+--- à 10 minerais par four, celle de main 0.6.7) : elle choisit seulement les produits (C.assign) ; un four se remplit pour
+--- `horizon` ticks, comme un joueur y jette une pile.
+function C.take(assign, stock, P)
   P = P_of(P)
   local items, by_item = load_items(assign)
   local out = {}
   for _, item in ipairs(items) do
-    local room, base, dem = 0, 0, 0
+    local room, base = 0, 0
     local per = assign.loads[by_item[item][1]].per
-    local seen = {}
     for _, i in ipairs(by_item[item]) do
       local l = assign.loads[i]
       room = room + l.room
       base = base + math.min(l.room, l.per * P.base_fabs)
-      if not seen[l.product] then -- la demande est celle du PRODUIT, comptée une seule fois
-        seen[l.product] = true
-        dem = dem + l.per * ((demand or {})[l.product] or 0)
-      end
     end
     local s = math.max(0, math.floor(stock[item] or 0))
-    local want = math.min(room, dem, math.floor(P.share * s))
+    local want = math.min(room, math.floor(P.share * s))
     want = math.max(want, base)
     want = multiple(math.min(want, room, s), per)
     if want > 0 then out[item] = want end

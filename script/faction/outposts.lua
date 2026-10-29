@@ -549,12 +549,12 @@ local function smelter_fuels(list)
 end
 
 --- Liste { {objet, n} } que la tournée « smelt » prend au coffre (stock = { [objet] = n } libre) : entrées selon la règle
---- de charge, plus le combustible. smelt = { [produit] = demande }.
+--- de charge, plus le combustible. smelt = { [produit] = demande } (choisit les produits, ne borne pas la charge).
 function Outposts.smelt_take(f, smelt, stock)
   local list, fs, specs = smelter_context(f)
   local products = State.sorted_keys(smelt or {})
   local assign = Charge.assign(fs, products, specs, T.charge)
-  local take = Charge.take(assign, smelt, stock, T.charge)
+  local take = Charge.take(assign, stock, T.charge)
   local out = {}
   for _, item in ipairs(State.sorted_keys(take)) do out[#out + 1] = { item, take[item] } end
   local fuels, ftarget = smelter_fuels(list)

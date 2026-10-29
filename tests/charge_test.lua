@@ -126,28 +126,24 @@ local function suite(C)
   d = C.distribute(small, { ["iron-ore"] = 1000 })
   check(d[1].n == 30, "jamais plus que la place du four (50 - 20)")
 
-  -- 5. Prise au coffre.
-  local t = C.take(lf, { ["iron-plate"] = 1000 }, { ["iron-ore"] = 1000 })
-  check(t["iron-ore"] == 200, "stock 1000, demande 1000 : tout ce que les 4 fours acceptent (200)")
-  t = C.take(lf, { ["iron-plate"] = 1000 }, { ["iron-ore"] = 240 })
+  -- 5. Prise au coffre (la demande ne borne pas la charge).
+  local t = C.take(lf, { ["iron-ore"] = 1000 })
+  check(t["iron-ore"] == 200, "stock 1000 : tout ce que les 4 fours acceptent (200)")
+  t = C.take(lf, { ["iron-ore"] = 240 })
   check(t["iron-ore"] == 120, "part du stock : la moitié de 240")
-  t = C.take(lf, { ["iron-plate"] = 1000 }, { ["iron-ore"] = 30 })
+  t = C.take(lf, { ["iron-ore"] = 30 })
   check(t["iron-ore"] == 30, "stock plus petit que le plancher (40) : tout le stock")
-  t = C.take(lf, { ["iron-plate"] = 1000 }, { ["iron-ore"] = 60 })
+  t = C.take(lf, { ["iron-ore"] = 60 })
   check(t["iron-ore"] == 40, "plancher de 10 fabrications par four (4 x 10) au-dessus de la part (30)")
-  t = C.take(lf, { ["iron-plate"] = 70 }, { ["iron-ore"] = 1000 })
-  check(t["iron-ore"] == 70, "demande de 70 plaques : 70 minerais")
-  t = C.take(lf, { ["iron-plate"] = 5 }, { ["iron-ore"] = 1000 })
-  check(t["iron-ore"] == 40, "petite demande : le plancher de 40 (4 x 10)")
-  t = C.take(ls, { ["steel-plate"] = 100 }, { ["iron-plate"] = 2000 })
+  t = C.take(ls, { ["iron-plate"] = 2000 })
   check(t["iron-plate"] == 300, "acier : 3 fours x 100 plaques")
-  t = C.take(ls, { ["steel-plate"] = 4 }, { ["iron-plate"] = 2000 })
-  check(t["iron-plate"] == 150 and t["iron-plate"] % 5 == 0, "acier, demande de 4 : plancher 3 x 50")
-  t = C.take(ls, { ["steel-plate"] = 100 }, { ["iron-plate"] = 4 })
+  t = C.take(ls, { ["iron-plate"] = 4 })
   check(t["iron-plate"] == nil, "moins d'une fabrication au coffre : rien")
-  t = C.take(ls, { ["steel-plate"] = 100 }, { ["iron-plate"] = 400 }, { share = 0.25 })
-  check(t["iron-plate"] == 150, "part réglable (25 % de 400 = 100, plancher 150)")
-  check(next(C.take(C.assign(fs, {}, S), {}, { ["iron-ore"] = 100 })) == nil, "rien à charger : rien à prendre")
+  t = C.take(ls, { ["iron-plate"] = 400 }, { share = 0.25 })
+  check(t["iron-plate"] == 150, "part réglable (25 % de 400 = 100, plancher 3 x 50 = 150)")
+  t = C.take(ls, { ["iron-plate"] = 401 })
+  check(t["iron-plate"] % 5 == 0, "acier : multiple de 5")
+  check(next(C.take(C.assign(fs, {}, S), { ["iron-ore"] = 100 })) == nil, "rien à charger : rien à prendre")
 
   -- 6. Tournée justifiée.
   local due = C.due({ furnace({ item = "iron-ore", n = 45, crafting = true, fuel = 14 }) }, S, { ["iron-ore"] = 500 }, 14)
@@ -217,7 +213,7 @@ local function suite(C)
         visits = visits + 1
         for _, f in ipairs(fsim) do f.out = 0 end
         local asg = C.assign(fsim, { "iron-plate" }, S)
-        local give = C.distribute(asg, { ["iron-ore"] = C.take(asg, { ["iron-plate"] = 1000 }, stock)["iron-ore"] or 0 })
+        local give = C.distribute(asg, { ["iron-ore"] = C.take(asg, stock)["iron-ore"] or 0 })
         for i, g in pairs(give) do fsim[i].item = g.item; fsim[i].n = fsim[i].n + g.n end
       end
     end
@@ -234,8 +230,8 @@ local function suite(C)
   for _, k in ipairs({ "stone-brick", "steel-plate", "copper-plate", "iron-plate" }) do S2[k] = specs()[k] end
   local a3 = C.assign(fs, { "iron-plate", "steel-plate" }, S2)
   check(a3.loads[1].product == a2.loads[1].product and a3.loads[2].room == a2.loads[2].room, "ordre d'insertion des produits sans effet")
-  local t1 = C.take(lf, { ["iron-plate"] = 70 }, { ["iron-ore"] = 1000 })
-  local t2 = C.take(lf, { ["iron-plate"] = 70 }, { ["iron-ore"] = 1000 })
+  local t1 = C.take(lf, { ["iron-ore"] = 1000 })
+  local t2 = C.take(lf, { ["iron-ore"] = 1000 })
   check(t1["iron-ore"] == t2["iron-ore"], "deux appels, même résultat")
   return pass, fail, msgs
 end
@@ -272,8 +268,7 @@ local MUTANTS = {
   { "complément hors multiple", "local room = multiple(target - n, spec.per)", "local room = target - n" },
   { "répartition au-delà de la place", "if a >= per and given[i] + per <= assign.loads[i].room then", "if a >= per then" },
   { "répartition au-delà du porteur", "if a >= per and given[i] + per <= assign.loads[i].room then", "if given[i] + per <= assign.loads[i].room then" },
-  { "part du stock ignorée", "local want = math.min(room, dem, math.floor(P.share * s))", "local want = math.min(room, dem, s)" },
-  { "demande ignorée", "local want = math.min(room, dem, math.floor(P.share * s))", "local want = math.min(room, math.floor(P.share * s))" },
+  { "part du stock ignorée", "local want = math.min(room, math.floor(P.share * s))", "local want = math.min(room, s)" },
   { "plancher retiré", "    want = math.max(want, base)\n", "" },
   { "stock dépassé", "want = multiple(math.min(want, room, s), per)", "want = multiple(math.min(want, room), per)" },
   { "tournée sans matière au coffre", "if (stock[spec.input] or 0) >= spec.per then", "if true then" },
