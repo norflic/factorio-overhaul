@@ -77,7 +77,9 @@ S.BUILDINGS = {
   { name = "fo-cryogenic-unit", copy = "oil-refinery", side = 5, keep_fluid_boxes = true, tint = { r = 0.70, g = 0.86, b = 1.00 } },
   { name = "fo-extraction-column", copy = "chemical-plant", side = 3, tint = { r = 0.95, g = 0.86, b = 0.55 } },
   { name = "fo-sintering-furnace", copy = "assembling-machine-3", side = 3, tint = { r = 1.00, g = 0.66, b = 0.48 } },
-  { name = "fo-coil-winder", copy = "assembling-machine-1", side = 3, tint = { r = 0.62, g = 0.80, b = 1.00 } },
+  -- Bobineuse (âge 6) : mise en jeu par le lot AMELIO-CRAFTS (shared/content/crafts.lua, technologie fo-electrical-steel) ;
+  -- external : ce module ne crée ni la machine, ni son objet, ni sa recette (doublon écrasé sans erreur par data:extend).
+  { name = "fo-coil-winder", copy = "assembling-machine-1", side = 3, tint = { r = 0.62, g = 0.80, b = 1.00 }, external = "crafts" },
 }
 
 -- Technologies EN JEU (aucun pack de X n'est en jeu : packs vanilla de l'âge 10, comme au lot X1). Unités : celles du
@@ -88,10 +90,10 @@ S.TECHS = {
   { name = "fo-cryostat", x0 = "fo-cryostat", count = 200, time = 30,
     prerequisites = { "fo-titanium-processing" }, unlocks = { "fo-cryostat" } },
   { name = "fo-superconductors", x0 = "fo-magnetic-pack", count = 800, time = 30,
-    prerequisites = { "fo-cryostat", "advanced-oil-processing" },
+    prerequisites = { "fo-cryostat", "advanced-oil-processing", "fo-electrical-steel" },
     unlocks = { "fo-monazite-concentrate", "fo-extraction-column", "fo-monazite-leaching", "fo-solvent-extraction",
                 "fo-cryogenic-unit", "fo-air-distillation", "fo-water-electrolysis", "fo-sintering-furnace",
-                "fo-superconducting-tape", "fo-permanent-magnet", "fo-coil-winder", "fo-superconducting-coil" } },
+                "fo-superconducting-tape", "fo-permanent-magnet", "fo-superconducting-coil" } },
 }
 S.PACKS = T.PACKS
 
@@ -135,8 +137,10 @@ end
 function S.new_categories()
   local out, seen = {}, {}
   for _, b in ipairs(S.BUILDINGS) do
-    for _, c in ipairs(T.x_building(b.name).categories or {}) do
-      if not seen[c] then seen[c] = true; out[#out + 1] = c end
+    if not b.external then -- la catégorie d'une machine d'un autre lot est créée par ce lot
+      for _, c in ipairs(T.x_building(b.name).categories or {}) do
+        if not seen[c] then seen[c] = true; out[#out + 1] = c end
+      end
     end
   end
   return out

@@ -123,6 +123,7 @@ return {
     ctx.check(lt and lt.default_temperature == -196, "azote liquide : -196 degres (X0)", lt and lt.default_temperature)
     local f = game.forces.player
     f.technologies["fo-cryostat"].researched = true
+    if f.technologies["fo-electrical-steel"] then f.technologies["fo-electrical-steel"].researched = true end -- bobineuse (AMELIO-CRAFTS)
     f.technologies["fo-superconductors"].researched = true
     local closed = {}
     for _, r in ipairs({ "fo-monazite-concentrate", "fo-monazite-leaching", "fo-solvent-extraction", "fo-air-distillation",

@@ -54,8 +54,12 @@ for _, k in ipairs(W.resource_order) do
   seeds[s] = true
 end
 check(not dup, "graines d'autoplace toutes différentes (jeu de gisements propre, F198)")
-check(W.resource_order[#W.resource_order] == "galena" and W.guarantee_order[#W.guarantee_order] == "galena",
-  "galène en DERNIER (lettres d'ordre et sites d'avant inchangés)")
+do -- la galène suit toutes les ressources d'avant elle (lettres d'ordre et sites d'avant inchangés) ; la piste ÉTAIN en ajoute après
+  local ir, ig
+  for i, k in ipairs(W.resource_order) do if k == "galena" then ir = i end end
+  for i, k in ipairs(W.guarantee_order) do if k == "galena" then ig = i end end
+  check(ir == 7 and ig == 6, "galène après les ressources d'avant (ordre 7, garantie 6)")
+end
 
 -- Couleur de carte : ΔE76 contre tous les minerais, fluides et sols (sRGB D65 → Lab).
 local function lab(c)

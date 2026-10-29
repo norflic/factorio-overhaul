@@ -27,6 +27,7 @@
 
 local W = require("shared.content.world")
 local X = require("shared.content.epochs")
+local X3 = require("shared.content.x3") -- piste ÉTAIN : cassitérite (proposition X3 mise en jeu)
 
 local G = {}
 
@@ -88,6 +89,10 @@ local function base_resource(name)
     if r.name == name then return r end
   end
   for _, r in ipairs(X.resources) do
+    if r.name == name then return r end
+  end
+  -- Lot AMELIO-RESSOURCES (piste ÉTAIN) : ressources d'X3 mises en jeu (cassitérite), données pures.
+  for _, r in ipairs(X3.resources) do
     if r.name == name then return r end
   end
   return nil

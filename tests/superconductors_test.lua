@@ -49,7 +49,7 @@ for _, b in ipairs(S.BUILDINGS) do
 end
 check(T.x_building("fo-cryogenic-unit").fluid_in == 2 and T.x_building("fo-cryogenic-unit").fluid_out == 3,
   "unité cryogénique : 2 entrées, 3 sorties (la raffinerie copiée a les mêmes : contrôlé à l'étape data)")
-check(#S.new_categories() == 4, "4 catégories neuves (" .. table.concat(S.new_categories(), ", ") .. ")")
+check(#S.new_categories() == 3, "3 catégories neuves, la 4e (fo-winding, bobineuse) vient d'AMELIO-CRAFTS (" .. table.concat(S.new_categories(), ", ") .. ")")
 for _, c in ipairs(S.new_categories()) do
   local clash = false
   for _, c2 in ipairs(T.new_categories()) do if c == c2 then clash = true end end
@@ -116,7 +116,8 @@ check(stone == 20 and not glass and #col.trace == 2,
 check(#S.building_recipe("fo-cryogenic-unit").trace == 0 and #S.building_recipe("fo-sintering-furnace").trace == 0
   and #S.building_recipe("fo-coil-winder").trace == 0, "unité cryogénique, four de frittage, bobineuse : rien à déplier")
 -- La règle du lot X1 garde son comportement (présence par défaut).
-check(#T.building_recipe("fo-electrolyzer").trace > 0, "lot X1 : T.expand garde sa règle de présence par défaut")
+-- (Fusion avec AMELIO-CRAFTS : la bobine de l'électrolyseur est en jeu ; le verre, lui, reste déplié par la règle du lot X1.)
+check(#select(2, T.expand({ { "fo-glass", 1 } })) > 0, "lot X1 : T.expand garde sa règle de présence par défaut")
 
 ---------------------------------------------------------------------------------------------------
 section("Technologies")
@@ -130,7 +131,17 @@ for _, t in ipairs(S.TECHS) do
   end
 end
 for _, rr in ipairs(S.RECIPES) do check(unlocked[rr.name], rr.name .. " : ouverte par une technologie") end
-for _, b in ipairs(S.BUILDINGS) do check(unlocked[b.name], b.name .. " : ouverte par une technologie") end
+for _, b in ipairs(S.BUILDINGS) do
+  if b.external then
+    -- machine d'un autre lot (bobineuse : AMELIO-CRAFTS) : ouverte par SA technologie, pas par celles de ce lot
+    local C = require("shared.content.crafts")
+    local by = nil
+    for _, t in ipairs(C.TECHS) do for _, u in ipairs(t.unlocks) do if u == b.name then by = t.name end end end
+    check(by ~= nil and not unlocked[b.name], b.name .. " : ouverte par la technologie de " .. b.external .. " (" .. tostring(by) .. ")")
+  else
+    check(unlocked[b.name], b.name .. " : ouverte par une technologie")
+  end
+end
 check(unlocked["fo-cryostat"] == "fo-cryostat" and unlocked["fo-superconducting-coil"] == "fo-superconductors",
   "cryostat (âge 11) et bobine (âge 12) : leurs technologies de X")
 local xpack = T.x_tech("fo-magnetic-pack")
