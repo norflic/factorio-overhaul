@@ -84,7 +84,7 @@ function G.sites(pieces, range, n)
   local cx, cy, far = G.center(pieces)
   local rho = range - far - G.MARGIN
   if rho > G.RHO_MAX then rho = G.RHO_MAX end
-  if rho < 3 then rho = 3 end
+  if rho < 3 then rho = math.min(3, range - far - G.MARGIN) end -- jamais au-delà de ce que la portée permet (centrale presque infaisable)
   local out = {}
   for i = 1, math.min(n or 4, #DIRS) do
     local d = DIRS[i]

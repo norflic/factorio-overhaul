@@ -146,6 +146,15 @@ do
   else
     check(not G.feasible(big, RANGE), "grande centrale infaisable : aucun besoin plutôt qu'une pose impossible")
   end
+  -- centrale à la limite du faisable : tous les emplacements restent à portée de toutes les pièces
+  local edge = { { x = 0, y = 0 }, { x = 33, y = 0 } }  -- centre à 16,5 : portée 18 - 16,5 - 1 = 0,5 : infaisable
+  check(not G.feasible(edge, RANGE), "centrale à 33 tuiles de large : infaisable")
+  local edge2 = { { x = 0, y = 0 }, { x = 31, y = 0 } } -- centre à 15,5 : 18 - 15,5 - 1 = 1,5 : faisable de justesse
+  local sedge = G.sites(edge2, RANGE, 4)
+  check(G.feasible(edge2, RANGE), "centrale de 31 tuiles : faisable de justesse")
+  local covered = 0
+  for _, st in ipairs(sedge) do if G.covers(edge2, st.x, st.y, RANGE) then covered = covered + 1 end end
+  check(covered >= 2, "à la limite du faisable, au moins deux emplacements de l'anneau voient toutes les pièces (" .. covered .. " sur 4)")
   -- (B) pause après la mort d'un porteur en route : pas de tâche
   local pp = Planner.plan(view({ stock = rich, plant = plant({ pause = true }) }), book)
   check(guard_task(pp) == nil, "pause (PNJ tué en route vers la centrale) : aucune tâche")
