@@ -121,3 +121,5 @@ Porte de fusion : relecture STATIQUE qui corrige + tests hors jeu rapides + UN c
 Agents de workflow : ne pas leur ecrire. Integration : je fusionne les branches valides dans une branche integration, tests hors jeu, UN content, puis main (0.6.12).
 
 | VAGUE PARALLELE (FUSIONNEE 13 h, version 0.6.12) | 11 lots developpes puis relus en statique par des agents independants qui ont corrige (reseau, reconstruction, soldats, fours+mains, energie, reconnaissance, tourelles, stockage, espace, convoyeurs, centre-jeu) + CENTRALE-GARDE ; 4 conflits de fusion resolus a la main (requires, build.lua, outposts.lua) ; plafond iag_test de config.lua a 42 (T.wall) ; tests hors jeu verts ; content 331 OK 0 erreur Lua | tag jouable-0.6.12 |
+
+| VAGUE 2 (FUSIONNEE 14 h, version 0.6.13) | ENCEINTE2 (segments, 1/4 du stock), GARDE-MULTI, FER-EQUIPE, BILAN + revue-globale-1 (3 defauts d'interaction corriges) + revue-globale-2 (2 couts reduits) ; 1 conflit de build.lua resolu (repair_enclosure : version segments) ; iag 227, enceinte 127, enceinte_flux 30, garde 87, reconstruction_exec 84 ; content 331 OK 0 erreur Lua | tag jouable-0.6.13 |
