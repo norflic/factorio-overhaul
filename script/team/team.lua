@@ -720,8 +720,8 @@ function Team.think(f, surface, tick)
   end
   -- Lot COUVERTURE : pièces de l'équipe détruites, à refaire (tâches « rebuild » ; rien tant que rien n'a été détruit).
   Recon.think(f, surface, tick)
-  Recon.repair_think(f, surface, tick) -- lot RECONSTRUIRE : infrastructure électrique endommagée remise à neuf
   Reparation.think(f, surface, tick) -- lot PD-REPARATION (D79) : autres bâtiments endommagés (labos, fours, assembleurs, foreuses...), toutes les équipes
+  Recon.repair_think(f, surface, tick) -- lot RECONSTRUIRE : infrastructure électrique endommagée remise à neuf
   -- Lot IA3-b : meilleures paires PNJ inactif × tâche (place de marché, réglage allumé). Fusion IA-V2 : APRÈS le plan
   -- directeur (le plan crée ses tâches, puis le marché les attribue ; consigne de l'intégrateur, 27/10).
   Profiler.start("team:market")
