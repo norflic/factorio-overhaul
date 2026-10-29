@@ -43,8 +43,11 @@ def main():
     ap.add_argument("--nuit", action="store_true")
     ap.add_argument("--largeur", type=int, default=2400)
     ap.add_argument("--titre", default="")
+    ap.add_argument("--fond", default="sol", choices=("sol", "uni"), help="sol vanilla ou fond uni (ombre propre)")
     ap.add_argument("--fen", default="3,13,8.4", help="marge en largeur (tuiles, ajoutée à la longueur), hauteur de la case et y du centre de l'emprise")
     a = ap.parse_args()
+    if a.fond == "uni":
+        K.ground_tile = lambda: np.full((256, 256, 3), (0.50, 0.44, 0.36))
     noms = [n for n in a.noms.split(",") if n]
     Wt0, Ht, oy = [float(x) for x in a.fen.split(",")]
     ppt = 64 if a.zoom == 2 else 32

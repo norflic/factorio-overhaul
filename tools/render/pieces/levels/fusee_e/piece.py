@@ -36,6 +36,12 @@ def margin_px(name):
     return 40 + int(64 * 1.5)
 
 
+# couleur, métallicité, rouille, taches de la coque propre, par âge
+COQUE = {0: ((0.5, 0.38, 0.05), 0.3, 0.2, 0.3), 1: ((0.62, 0.46, 0.06), 0.3, 0.08, 0.14),
+         4: ((0.72, 0.6, 0.03), 0.2, 0.06, 0.12), 8: ((0.27, 0.46, 0.39), 0.2, 0.08, 0.12),
+         15: ((0.82, 0.62, 0.3), 0.55, 0.0, 0.1)}
+
+
 class _Ep:
     """Âge pour kit.materials : foyer et matières propres de l'âge (aucun module d'âge du centre n'est importé)."""
 
@@ -48,6 +54,10 @@ class _Ep:
         import ages
         if self.e:
             ages.matieres(self.e, metal, M)
+        # coque PROPRE (v3 propreté) : peinture unie de l'âge, patine légère et régulière, sans grandes taches
+        col, met, ra, st = COQUE[self.e]
+        metal("peau_prop", col, rough=0.42, met=met, grain=0.1, gscale=40.0, rust=(0.2, 0.09, 0.04), ra=ra, dirt=0.45,
+              stain=st, sscale=9.0, wear=0.7)
 
 
 def build(S, C, variant):
