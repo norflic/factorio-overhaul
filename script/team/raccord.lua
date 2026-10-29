@@ -47,12 +47,18 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Relevé
 ---------------------------------------------------------------------------------------------------
-local function start_cycle(f, surface, b)
+--- Réseaux alimentés (au moins une machine génératrice de l'équipe) : { [numéro] = true }, nombre.
+local function live_networks(f, surface)
   local live, n = {}, 0
   for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = GEN_TYPES })) do
     local id = g.electric_network_id
     if id and not live[id] then live[id] = true; n = n + 1 end
   end
+  return live, n
+end
+
+local function start_cycle(f, surface, b)
+  local live, n = live_networks(f, surface)
   local units = {}
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
@@ -253,7 +259,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         st.n.repares = st.n.repares + 1
         say(f, tick, string.format("groupe %s : plus de machine sans courant (%d raccordement(s) tente(s))", key, st.tries[key]))
       end
-      st.seen[key], st.tries[key], st.said[key] = nil, nil, nil
+      st.seen[key], st.tries[key], st.said[key], st.last_try[key] = nil, nil, nil, nil
     end
   end
   local open_total = #sorted_keys(st.open)
@@ -270,8 +276,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   local asked = false
   for idx, g in ipairs(groups) do
     if idx > DECIDE_MAX then break end
+    local last = st.last_try[g.key]
     local inp = { has_live = c.n_live > 0, open = st.open[g.key] ~= nil, open_total = open_total, seen = st.seen[g.key],
-      tries = st.tries[g.key] or 0 }
+      tries = st.tries[g.key] or 0, since_try = last and (tick - last) or R.RETRY_AFTER }
     if inp.has_live and not inp.open then
       inp.lost = lost_near(f, surface, b, g)
       if inp.lost == 0 then inp.pending = pending_near(b, g) end
@@ -282,10 +289,24 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     end
     local action, why = R.decide(inp)
     if action == "relier" and asked then action, why = "attendre", "un raccordement par releve" end
+    -- relecture au moment d'agir : le relevé s'étale sur plusieurs passes et le moteur renumérote un réseau qui se coupe ou se
+    -- joint ; un numéro périmé gâcherait un essai (R.MAX_TRIES) sur un groupe déjà alimenté ou sur un départ introuvable
+    local live = c.live
+    if action == "relier" then
+      live = live_networks(f, surface)
+      local m = surface.find_entities_filtered({ position = { g.x, g.y }, radius = 0.5, force = f.force, type = ELEC_TYPES, limit = 1 })[1]
+      local net = m and m.electric_network_id
+      if not m then action, why = "attendre", "machine introuvable a la relecture"
+      elseif net and live[net] then action, why = "attendre", "alimentee a la relecture"
+      elseif g.kind == "ile" and not net then action, why = "attendre", "ile sans poteau a la relecture"
+      elseif g.kind == "ile" then g.net = net end
+    end
     if action == "relier" then
       asked = true
-      local spec, err = ends_of(f, surface, g, c.live)
+      local spec, err = ends_of(f, surface, g, live)
+      if (st.tries[g.key] or 0) >= R.MAX_TRIES then st.tries[g.key] = R.MAX_TRIES - 1 end -- essai de plus après R.RETRY_AFTER
       st.tries[g.key] = (st.tries[g.key] or 0) + 1
+      st.last_try[g.key] = tick
       if spec then
         local id = api.request(f, { raccord = spec, prio = api.prio, domain = "infrastructures" })
         if id then
@@ -322,10 +343,11 @@ function Ra.step(api, f, surface, tick)
   if b.opts and b.opts.raccord == false then return end -- interrupteur D'ESSAI (remote fo-ia1d set_option) : témoin des bancs
   local st = b.raccord
   if not st then
-    st = { next = tick + R.PERIOD, seen = {}, tries = {}, open = {}, said = {}, log_next = 0, last_groups = 0,
+    st = { next = tick + R.PERIOD, seen = {}, tries = {}, last_try = {}, open = {}, said = {}, log_next = 0, last_groups = 0,
       n = { demandes = 0, finis = 0, refuses = 0, repares = 0, fils = 0 } }
     b.raccord = st
   end
+  st.last_try = st.last_try or {} -- (état d'un premier relevé de ce lot sans ce champ)
   local c = st.cyc
   if not c then
     if tick < st.next then return end

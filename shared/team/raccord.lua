@@ -25,6 +25,7 @@ R.UNITS_PER_PULSE = 1    -- parties de module relevées par passe de Build (Buil
 R.CONFIRM = 2            -- relevés de suite où le groupe est vu avant d'agir (une coupure d'un instant ne se raccorde pas)
 R.MAX_OPEN = 2           -- raccordements ouverts au plus par équipe
 R.MAX_TRIES = 3          -- raccordements tentés au plus pour un même groupe
+R.RETRY_AFTER = 30 * 3600 -- ticks : essais épuisés, un essai de plus après 30 min (le réseau a pu s'étendre ; jamais abandonné pour toujours)
 R.LOST_NEAR = 32         -- tuiles : un poteau perdu (ou un poteau d'un chantier pas fini) à cette distance laisse la main
 R.MAX_DIST = 160         -- tuiles : au-delà, pas de chaîne (le graphe borné de la recherche de chemin n'y suffit plus)
 R.ENEMY_R = 28           -- tuiles : jamais de pose avec un ennemi à cette portée du départ
@@ -85,7 +86,8 @@ end
 
 --- Décision pour un groupe. inp = { has_live (un réseau alimenté existe), lost (poteaux perdus des projets du groupe ou à
 --- R.LOST_NEAR), pending (poteaux pas encore bâtis d'un chantier à R.LOST_NEAR), open (raccordement de CE groupe en cours),
---- open_total (raccordements ouverts de l'équipe), seen (relevés de suite), tries (raccordements déjà tentés), enemies }.
+--- open_total (raccordements ouverts de l'équipe), seen (relevés de suite), tries (raccordements déjà tentés), since_try (ticks
+--- depuis le dernier essai ; nil : 0, essais épuisés laissés), enemies }.
 --- Rend action ("relier" | "attendre" | "laisser"), raison.
 function R.decide(inp)
   if not inp.has_live then return "attendre", "aucun reseau alimente (la centrale d'abord : [FO-RESEAU])" end
@@ -93,7 +95,9 @@ function R.decide(inp)
   if inp.open then return "attendre", "raccordement deja en cours" end
   if (inp.pending or 0) > 0 then return "attendre", string.format("%d poteau(x) d'un chantier voisin pas encore bati(s)", inp.pending) end
   if (inp.seen or 0) < R.CONFIRM then return "attendre", string.format("a confirmer (%d releve(s) sur %d)", inp.seen or 0, R.CONFIRM) end
-  if (inp.tries or 0) >= R.MAX_TRIES then return "laisser", string.format("%d raccordement(s) tente(s) sans effet", inp.tries) end
+  if (inp.tries or 0) >= R.MAX_TRIES and (inp.since_try or 0) < R.RETRY_AFTER then
+    return "laisser", string.format("%d raccordement(s) tente(s) sans effet (nouvel essai %d min apres le dernier)", inp.tries, R.RETRY_AFTER / 3600)
+  end
   if (inp.enemies or 0) > 0 then return "attendre", string.format("ennemi a moins de %d tuiles", R.ENEMY_R) end
   if (inp.open_total or 0) >= R.MAX_OPEN then return "attendre", string.format("%d raccordement(s) deja ouvert(s)", inp.open_total) end
   return "relier", "machines sans courant sans poteau perdu"

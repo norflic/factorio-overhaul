@@ -67,6 +67,8 @@ check(R.decide(inp({ tries = R.MAX_TRIES })) == "laisser", "3.7 essais epuises :
 check(R.decide(inp({ enemies = 1 })) == "attendre", "3.8 ennemi : attendre")
 check(R.decide(inp({ open_total = R.MAX_OPEN })) == "attendre", "3.9 plafond des raccordements ouverts : attendre")
 check(R.decide(inp({ lost = 1, has_live = false })) == "attendre", "3.10 la centrale d'abord, avant le poteau perdu")
+check(R.decide(inp({ tries = R.MAX_TRIES, since_try = R.RETRY_AFTER - 1 })) == "laisser", "3.11 essais epuises, dernier essai recent : laisser")
+check(R.decide(inp({ tries = R.MAX_TRIES, since_try = R.RETRY_AFTER })) == "relier", "3.12 essais epuises depuis R.RETRY_AFTER : un essai de plus (jamais abandonne pour toujours)")
 
 -- §4 paire de bouts
 local s, t, d = R.best_pair({ { x = 0, y = 0 }, { x = 10, y = 0 } }, { { x = 30, y = 0 }, { x = 0, y = 40 } }, 100)

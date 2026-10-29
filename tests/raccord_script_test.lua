@@ -201,6 +201,34 @@ run(2 * (R.PERIOD + 100))
 check(#REQ == nreq6, "6.1 aucun raccordement quand un poteau du plan est perdu")
 check(logs_with("u5:1 .*laisser : 1 poteau%(x%) perdu%(s%) a portee") == 1, "6.2 laisse a [FO-RESEAU] (journal)")
 
+-- 6 bis. relecture au moment d'agir : un groupe vu sans courant mais alimenté entre le relevé et la décision ne coûte pas d'essai ;
+-- essais épuisés : un essai de plus après R.RETRY_AFTER seulement
+local st = b.raccord
+local drill
+for _, e in ipairs(ENTS) do if e.position.x == 10 and e.position.y == 40 then drill = e end end
+st.open["u4:2"] = nil
+st.tries["u4:2"] = R.MAX_TRIES
+st.last_try["u4:2"] = tick
+local nreq6b = #REQ
+run(2 * (R.PERIOD + 100))
+check(#REQ == nreq6b and st.tries["u4:2"] == R.MAX_TRIES, "6.3 essais epuises, dernier essai recent : rien demande")
+st.last_try["u4:2"] = tick - R.RETRY_AFTER
+local real_find = surface.find_entities_filtered
+surface.find_entities_filtered = function(fl) -- la foreuse est reliée juste après le relevé : la relecture la voit alimentée
+  if fl.position and fl.limit == 1 and fl.position[1] == 10 and fl.position[2] == 40 then drill.electric_network_id = 1 end
+  return real_find(fl)
+end
+run(R.PERIOD + 100)
+surface.find_entities_filtered = real_find
+drill.electric_network_id = nil
+check(#REQ == nreq6b and st.tries["u4:2"] == R.MAX_TRIES, "6.4 alimentee a la relecture : aucun essai gache")
+check(logs_with("u4:2 .*attendre : alimentee a la relecture") == 1, "6.5 relecture ecrite au journal")
+st.last_try["u4:2"] = tick - R.RETRY_AFTER
+run(R.PERIOD + 100)
+check(#REQ == nreq6b + 1 and REQ[#REQ].key == "u4:2", "6.6 essais epuises depuis R.RETRY_AFTER : un essai de plus")
+check(st.tries["u4:2"] == R.MAX_TRIES and st.last_try["u4:2"] > tick - R.PERIOD - 100, "6.7 compteur borne a R.MAX_TRIES, date du dernier essai")
+check(no_function(b.raccord), "6.8 etat sans fonction")
+
 -- 7. interrupteur d'essai
 local before = #LOGS
 b.opts.raccord = false
