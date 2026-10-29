@@ -89,6 +89,21 @@ local function run_all()
   check(calls.swap == 0 and calls.mig == 0 and calls.pay == 0,
     string.format("aucun changement de foreuses, migration ni paiement pendant la retenue (%d, %d, %d)", calls.swap, calls.mig, calls.pay))
   check(crafted or (f.recon.lost[key] == nil), "l'objet de la pièce est fabriqué (tâche au tableau) ou la pièce déjà refaite")
+  -- Relecture : une migration du champ déjà EN CHANTIER (paires retirées) continue pendant la retenue (compte de la ligne, purge du
+  -- registre) ; une migration qui n'a rien retiré attend. L'étape réelle est neutralisée (ms.next lointain) : seul l'appel est observé.
+  local PileRt = require("script.team.pile")
+  local saved_ms = f.migration
+  f.migration = { next = 1e12, logs = 0, logs_f = 0, cur = 1, o = { [1] = { stage = "projet" } } }
+  check(not PileRt.migration_building(f), "migration à l'étape projet (rien retiré) : elle attend la fin de la retenue")
+  calls.mig = 0
+  M.run_ticks(300)
+  check(f.team.ia3.pile.hold and calls.mig == 0, "retenue : la migration qui n'a rien retiré n'est pas appelée (" .. calls.mig .. ")")
+  f.migration.o[1].stage = "chantier"
+  M.run_ticks(300)
+  check(f.team.ia3.pile.hold and calls.mig >= 1,
+    "retenue : la migration EN CHANTIER continue (ligne comptée, registre purgé) (" .. calls.mig .. ")")
+  f.migration = saved_ms
+  calls.mig = 0
   local susp = logs_with("SUSPENDU")
   check(#susp >= 1, "journal : la pile annonce l'amélioration SUSPENDUE au changement de sommet")
   trace[#trace + 1] = susp[1] or "?"
@@ -103,6 +118,30 @@ local function run_all()
   local back = logs_with("ameliorer permis")
   check(#back >= 2, "journal : retour à « ameliorer permis » noté")
   trace[#trace + 1] = back[#back] or "?"
+
+  section("3 bis. Projet du plan directeur rouvert (relecture : sans Sweep.hold, sans durée)")
+  do
+    local PileRt = require("script.team.pile")
+    local bk = require("shared.team.book").new(dofile("tests/fixtures/recipes.lua"))
+    local b0 = f.build
+    local q = { reopened = 1, reopened_tick = game.tick, state = "reserve", stock = {},
+      ents = { { item = "iron-chest" }, { item = "iron-chest" } } }
+    f.build = { projects = { [7] = q }, order = { 7 } }
+    local inp = PileRt.inputs(f, bk, game.tick)
+    check(inp.plan_reopened and inp.plan_path, "projet rouvert, objets à prendre au coffre (fabricables) : retient, avec une voie")
+    q.stock = { ["iron-chest"] = 2 }
+    inp = PileRt.inputs(f, bk, game.tick)
+    check(not inp.plan_reopened, "matière déjà réservée par le projet : ne retient plus (siège compris)")
+    q.stock, q.reopened_tick = {}, game.tick - 100 * 3600
+    inp = PileRt.inputs(f, bk, game.tick)
+    check(inp.plan_reopened, "aucune durée : 100 min après la réouverture, le besoin retient encore")
+    q.ents = { { item = "x-objet-inconnu" } }
+    inp = PileRt.inputs(f, bk, game.tick)
+    check(inp.plan_reopened and not inp.plan_path, "objet ni au coffre ni fabricable : aucune voie (la pile ne gèle pas)")
+    q.state = "fini"
+    check(not PileRt.inputs(f, bk, game.tick).plan_reopened, "projet fini : ne retient pas")
+    f.build = b0
+  end
 
   section("4. État sérialisable")
   local function deep_ok(t, seen)

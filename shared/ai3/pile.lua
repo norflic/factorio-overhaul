@@ -87,7 +87,8 @@ end
 --- Met la pile à jour. sig = {
 ---   survive     = raison (chaîne) ou nil : R0 ;
 ---   repair      = { { key, item, value, prio, have, craftable, claimed, enemy, infra } } : pièces du registre (non abandonnées) ;
----   plan_reopened = vrai : un projet du plan directeur est rouvert (ses pièces ne sont pas au registre) ;
+---   plan_reopened = vrai : un projet du plan directeur rouvert doit encore prendre des objets au coffre (ses pièces ne sont pas
+---                   au registre) ; plan_path = faux : un de ces objets n'est ni au coffre ni fabricable (aucune voie) ;
 ---   posts       = { { id, have, want, why, raw = { [matière] = n } } } : postes du planificateur (plan.defend.posts) ;
 ---   raw_need    = { [matière] = { n, prio } } : manque brut des demandes du planificateur permanent (Planner.plan) ;
 ---   sources     = { [matière] = vrai } : matières qui ont une source connue (avant-poste, site, gisement à portée) ;
@@ -140,8 +141,9 @@ function Pi.update(st, sig, tick)
     end
   end
   if sig.plan_reopened then
-    frames[#frames + 1] = { key = "reparer:plan", rank = Pi.ADAPTER, kind = "reparer", exec = true, sub = pf and 0 or 1,
-      depth = 0 }
+    -- (relecture : voie = chaque objet qui manque au projet est au coffre ou fabricable ; sinon le cadre ne retient pas seul)
+    frames[#frames + 1] = { key = "reparer:plan", rank = Pi.ADAPTER, kind = "reparer", exec = sig.plan_path ~= false,
+      sub = pf and 0 or 1, depth = 0 }
   end
   -- R1 : protéger (postes sous leur minimum).
   for _, p in ipairs(sig.posts or {}) do
@@ -264,7 +266,10 @@ function Pi.signals(view, base, inp, s, ctx)
   local survive = nil
   local em = view.emergency
   local floor = (em and em.floor) or view.recover_floor
-  if floor and (view.workers or 0) < floor then survive = "effectif"
+  -- Relecture PILE : sous l'effectif de départ, R0 ne retient que si une recrue est POSSIBLE. Plafond global d'agents atteint
+  -- (view.recruit_blocked, script/team/team.lua : Registry.count() >= fo-agents-max) : l'effectif ne remontera jamais par
+  -- cette voie, et R0 (jamais « bloqué ») aurait gelé l'amélioration pour toute la partie.
+  if floor and (view.workers or 0) < floor and not view.recruit_blocked then survive = "effectif"
   elseif view.hq_threat then survive = "qg" end
   local inputs, sources = {}, {}
   for _, p in ipairs(sorted_keys(T.smelter_inputs)) do inputs[p] = T.smelter_inputs[p][1] end
@@ -281,7 +286,7 @@ function Pi.signals(view, base, inp, s, ctx)
   for _, d in ipairs((base.defend and base.defend.posts) or {}) do
     posts[#posts + 1] = { id = d.id, have = d.have, want = d.want, why = d.why, raw = d.raw }
   end
-  return { survive = survive, repair = inp.repair, plan_reopened = inp.plan_reopened, posts = posts,
+  return { survive = survive, repair = inp.repair, plan_reopened = inp.plan_reopened, plan_path = inp.plan_path, posts = posts,
     raw_need = base.raw_need, sources = sources, inputs = inputs,
     production_first = (base.priorite and base.priorite.production_first) or false,
     penurie = view.survie and true or false }

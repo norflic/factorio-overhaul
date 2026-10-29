@@ -817,6 +817,9 @@ function Team.think(f, surface, tick)
   local pile_hold = ia3 and PileRt.hold(f)
   if not pile_hold then
     FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
+  end
+  -- (relecture PILE : une migration déjà EN CHANTIER continue pendant la retenue, elle ne retire plus rien ; PileRt.migration_building)
+  if not pile_hold or PileRt.migration_building(f) then
     MigChamp.think(f, surface, book_for(f), stock, tick) -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques
   end
   if ia3 and not pile_hold and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, stock) end

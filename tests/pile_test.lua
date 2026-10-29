@@ -114,6 +114,11 @@ local function battery(Pi, C, B)
   check(#st.crafts == 0 and st.hold, "infrastructure électrique : retenue, mais pas de 2e fabrication (Rc.demand la fait)")
   st = Pi.update(Pi.new(), sig({ repair = { { key = "k1", item = REPAIR_ITEM, value = 5, prio = 75, have = 0, craftable = false } } }), 0)
   check(st.blocked and not st.hold, "pièce ni au stock ni fabricable : bloqué, rien n'est gelé")
+  -- e bis. Projet du plan directeur rouvert (relecture) : retient s'il a une voie, bloqué sinon.
+  st = Pi.update(Pi.new(), sig({ plan_reopened = true }), 0)
+  check(st.hold and has_frame(st, "reparer:plan") ~= nil, "projet rouvert qui doit encore prendre des objets : réparer retient")
+  st = Pi.update(Pi.new(), sig({ plan_reopened = true, plan_path = false }), 0)
+  check(st.blocked and not st.hold, "projet rouvert dont un objet n'est ni au coffre ni fabricable : bloqué, rien n'est gelé")
   -- f. Place tenue par l'ennemi : sous-but « protéger ou nettoyer », pas de gel ; dépilée à l'abandon.
   local pst = Pi.new()
   Pi.update(pst, sig({ repair = { { key = "k9", item = REPAIR_ITEM, value = 5, prio = 75, have = 0, craftable = true, enemy = true } } }), 0)
@@ -136,6 +141,15 @@ local function battery(Pi, C, B)
   check(not st.hold and #st.frames == 0, "la croissance du front n'ouvre pas de cadre (sinon la pile ne se viderait jamais)")
   st = Pi.update(Pi.new(), sig({ survive = "effectif" }), 0)
   check(st.top == Pi.SURVIVRE and st.hold, "sous l'effectif de départ : sommet survivre")
+  -- Relecture : R0 n'est jamais « bloqué » ; sans recrue possible (plafond global d'agents), il gelait l'amélioration à vie.
+  local sg = Pi.signals({ workers = 3, recover_floor = 8 }, {}, nil, { cap = {} }, nil)
+  check(sg.survive == "effectif", "signaux : sous l'effectif de départ, recrue possible : R0 survivre")
+  sg = Pi.signals({ workers = 3, recover_floor = 8, recruit_blocked = true }, {}, nil, { cap = {} }, nil)
+  st = Pi.update(Pi.new(), sg, 0)
+  check(sg.survive == nil and not st.hold and st.top == Pi.AMELIORER,
+    "signaux : plafond global d'agents atteint (aucune recrue possible) : pas de R0, l'amélioration n'est pas gelée à vie")
+  sg = Pi.signals({ workers = 3, emergency = { floor = 8 }, recruit_blocked = true, hq_threat = true }, {}, nil, { cap = {} }, nil)
+  check(sg.survive == "qg", "signaux : QG menacé retient même sans recrue possible")
   st = Pi.update(Pi.new(), sig({ penurie = true }), 0)
   check(st.top == Pi.PRODUIRE and st.hold and Pi.allows(st, "extraction") and not Pi.allows(st, "capital"),
     "mode pénurie : sommet produire, extraction permise, capital suspendu")
@@ -303,6 +317,10 @@ local MUTANTS = {
     from = "elseif not src and depth + 1 <= Pi.DEPTH_MAX then", to = "elseif false then" },
   { name = "une horloge ferme la pile", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
     from = "local hold = top < Pi.AMELIORER and not blocked", to = "local hold = top < Pi.AMELIORER and not blocked and tick < 20 * 3600" },
+  { name = "R0 sans recrue possible (gel à vie)", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "(view.workers or 0) < floor and not view.recruit_blocked then", to = "(view.workers or 0) < floor then" },
+  { name = "projet rouvert sans voie qui gèle", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "exec = sig.plan_path ~= false,", to = "exec = true," },
   { name = "croissance sans le seuil de la pile", mod = "shared.ai3.buts", file = "shared/ai3/buts.lua",
     from = "local grow_short = (s.focus and s.focus[product]) and 1 or B.GROW_SHORT", to = "local grow_short = B.GROW_SHORT" },
   { name = "capital non suspendu au cerveau", mod = "shared.ai3.cerveau", file = "shared/ai3/cerveau.lua",
