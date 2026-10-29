@@ -303,7 +303,8 @@ function D.exact_prep(map, tick, x0, y0, x1, y1)
   return { tx = tx, ty = ty, tr2 = tr2, tw = tw, nt = nt, dx = dx_, dy = dy_, dw = dw, nd = nd, cells = map.cells, tick = tick }
 end
 
-function D.exact_at(prep, x, y)
+--- `no_deaths` (facultatif, lot INTEG-DEFENSE) : les morts de PNJ ne comptent pas, seules les menaces (fixes et mobiles) comptent.
+function D.exact_at(prep, x, y, no_deaths)
   local s = 0
   local tx, ty, tr2, tw = prep.tx, prep.ty, prep.tr2, prep.tw
   for i = 1, prep.nt do
@@ -312,7 +313,7 @@ function D.exact_at(prep, x, y)
   end
   local ex, ey, ew = prep.dx, prep.dy, prep.dw
   local R2 = D.DEATH_R * D.DEATH_R
-  for i = 1, prep.nd do
+  for i = 1, (no_deaths and 0 or prep.nd) do
     local dx, dy = ex[i] - x, ey[i] - y
     if dx * dx + dy * dy <= R2 then s = s + ew[i] end
   end

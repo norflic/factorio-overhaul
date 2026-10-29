@@ -2837,7 +2837,7 @@ end
 --- entités sur 113 de 36 min à la fin ; la pose des tourelles évite désormais les tuiles réservées, ceci reprend les chantiers
 --- déjà pris). Rend le nombre d'entités enlevées. Une autre entité sur l'emprise (arbre, falaise, bâtiment) : rien n'est touché.
 local function free_own_turrets(f, surface, p)
-  local n = 0
+  local n, n_back = 0, 0
   for _, e in ipairs(p.ents) do
     if not e.built then
       local found, list = surface.find_entities_filtered({ area = footprint(e) }), {}
@@ -2848,12 +2848,24 @@ local function free_own_turrets(f, surface, p)
       end
       if Blocage.own_blockers(list, f.force, T.turret) then
         for _, x in ipairs(found) do
-          if x.valid then x.destroy() n = n + 1 end
+          if x.valid then
+            -- Lot INTEG-DEFENSE 4.1 : la tourelle (et ses chargeurs) RETOURNE au coffre de l'équipe (la détruire perdait ~40 de fer, 10 de
+            -- cuivre et 80 de fer de munitions, sans remboursement) ; coffre plein ou aucun coffre : détruite comme avant, pour que le
+            -- chantier reprenne. Même effet sur le registre qu'avant (aucun événement levé).
+            local taken = false
+            if f.hq and f.hq.valid then
+              for _, inv in ipairs(Stock.inventories(f)) do
+                if inv and inv.valid and x.mine({ inventory = inv, force = false, raise_destroyed = false }) then taken = true break end
+              end
+            end
+            if taken then n_back = n_back + 1 elseif x.valid then x.destroy() end
+            n = n + 1
+          end
         end
       end
     end
   end
-  return n
+  return n, n_back
 end
 
 --- Lot FACTIONS-BLOQUEES : un projet qui n'avance plus depuis 10 min (aucune entité bâtie de plus) est écrit UNE fois par équipe et
@@ -2907,10 +2919,10 @@ local function pulse_team(f, tick)
     -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
     if p and p.state == "bloque" and p.retry_at and tick >= p.retry_at then
       p.retry_at = nil
-      local freed = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES
+      local freed, back = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES
       if freed > 0 then
         b.stats.turrets_freed = (b.stats.turrets_freed or 0) + freed
-        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier", f.key or "player", p.id, freed))
+        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier (%d rendue(s) au coffre avec leurs chargeurs)", f.key or "player", p.id, freed, back or 0))
       end
       for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
       p.state, p.reason = "chantier", nil

@@ -381,5 +381,57 @@ check(m3 == F.HQ_POST and F.hq_post({ turrets = 1, peak = 4, ago = nil }) == 0, 
 local cut_first = F.plan({ cells = { four[1], four[2], four[3] }, turrets = {}, allow = function(r) return r.key == "6,6" end })
 check(cut_first.pick == nil and pf.pick ~= nil, "mutant « coupe avant le moteur » refusé (c'était le défaut d'avant le lot)")
 
+---------------------------------------------------------------------------------------------------
+section("11. Lot INTEG-DEFENSE (D3 plancher >= pas de production, D-A fer des fonderies, D-C coût partiel, 3.3 hold et QG, 3.4 partielle du QG)")
+-- D3 : règle pure
+check(select(1, F.floors(F.HIGH_SCORE, true, 150, 30, 72)) == 72, "D3 : plancher réduit = fer du pas de production quand il dépasse 60")
+check(select(1, F.floors(F.HIGH_SCORE, true, 150, 30, 40)) == F.FLOOR_IRON, "D3 : pas moins cher que 60 : plancher réduit inchangé")
+check(select(1, F.floors(F.HIGH_SCORE, true, 150, 30, 500)) == 150, "D3 : jamais au-dessus du plancher ordinaire")
+check(select(1, F.floors(F.HIGH_SCORE, true, 150, 30, nil)) == F.FLOOR_IRON, "D3 : sans pas de production : 60")
+check(select(1, F.floors(F.HIGH_SCORE, false, 150, 30, 72)) == 150, "D3 : fer non produit : plancher ordinaire")
+-- D3 dans le planificateur : un avant-poste de fer qui peut grandir (4 foreuses sur 8) : le pas d'agrandissement coûte 18 de fer avec
+-- les recettes du banc ; le plancher réduit (60) est abaissé à 10 pour que le pas le dépasse, comme les ~72 de fer du jeu réel.
+local grow = { { id = "o1", kind = "iron", drills = 4, turrets = 2, output = 0, idle_ticks = 0, has_task = false, full = false, coal_needed = 0 } }
+local real_floor = F.FLOOR_IRON
+F.FLOOR_IRON = 10
+local stepc = plan_front({ ["iron-plate"] = 300, ["copper-plate"] = cu, coal = 100, stone = 100 }, { outposts = grow })
+F.FLOOR_IRON = real_floor
+local cp_step = stepc.priorite and stepc.priorite.production_cost
+check(cp_step ~= nil and cp_step > 10, "D3 : le pas d'agrandissement coûte du fer (" .. tostring(cp_step) .. ")")
+check(front_post(stepc) and front_post(stepc).reduced == true and front_post(stepc).floor_i == cp_step,
+  "D3 : plancher réduit du front = coût du pas, pas le 10 de la constante (" .. tostring(front_post(stepc) and front_post(stepc).floor_i) .. ")")
+local nostep = plan_front({ ["iron-plate"] = 300, ["copper-plate"] = cu }, { outposts = prod })
+check(front_post(nostep) and front_post(nostep).floor_i == F.FLOOR_IRON, "D3 : aucun pas de production (avant-poste plein) : plancher réduit de la constante")
+-- D-A : le fer des fonderies du plan directeur (view.iron_flow), sans avant-poste de fer, réduit le plancher
+local noflow = plan_front({ ["iron-plate"] = 230, ["copper-plate"] = cu })
+local flow = plan_front({ ["iron-plate"] = 230, ["copper-plate"] = cu }, { iron_flow = true })
+check(front_post(noflow) and front_post(noflow).reduced == nil, "D-A : sans fer produit connu : plancher ordinaire")
+check(front_post(flow) and front_post(flow).reduced == true, "D-A : fer qui coule des fonderies (iron_flow) : plancher réduit")
+-- 3.4 : commande partielle du QG
+local hq_poor = Planner.plan(view({ stock = { ["iron-plate"] = 300, ["copper-plate"] = cu }, hq_turrets = 0 }), book)
+local function post_of(plan, id)
+  for _, d in ipairs(plan.defend and plan.defend.posts or {}) do if d.id == id then return d end end
+  return nil
+end
+local hqd = post_of(hq_poor, "hq")
+check(hqd and hqd.partial == true and hqd.why == "fabrication" and crafts_of(hq_poor, "defense") >= 2,
+  "3.4 : QG sans tourelle, fer 300 (la commande de 4 n'est pas payable) : commande PARTIELLE fabriquée")
+local hq_nope = Planner.plan(view({ stock = { ["iron-plate"] = 160, ["copper-plate"] = cu }, hq_turrets = 0 }), book)
+check(post_of(hq_nope, "hq") and post_of(hq_nope, "hq").why == "fer" and crafts_of(hq_nope, "defense") == 0, "3.4 : fer 160 : même la partielle ne passe pas, le plancher ordinaire est gardé")
+local hq_full = Planner.plan(view({ stock = { ["iron-plate"] = 2000, ["copper-plate"] = 500 }, hq_turrets = 0 }), book)
+check(post_of(hq_full, "hq") and post_of(hq_full, "hq").partial == nil and post_of(hq_full, "hq").why == "fabrication", "3.4 : fer largement suffisant : commande complète, comme avant")
+-- 3.3 (le hold ne retient pas le QG) : tests/priorite_test.lua, section 6 bis et mutant.
+
+-- mutant : le plancher réduit ignore le pas de production (D3)
+do
+  local real = F.floors
+  F.floors = function(sc, pr, bi, bc) return real(sc, pr, bi, bc, nil) end
+  F.FLOOR_IRON = 10
+  local mm = plan_front({ ["iron-plate"] = 300, ["copper-plate"] = cu, coal = 100, stone = 100 }, { outposts = grow })
+  F.FLOOR_IRON = real_floor
+  F.floors = real
+  check(front_post(mm) and front_post(mm).floor_i == 10 and front_post(stepc).floor_i > 10, "mutant « plancher réduit sans le pas de production » refusé")
+end
+
 print(string.format("[FRONT] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
