@@ -29,6 +29,8 @@
              turrets_ok, no_outpost_guard (votre équipe : plus de garde d'avant-poste), no_reserve_floor,
              lot SITE-PROCHE (R4) : saturated = { [produit] = vrai } (matières saturées du cerveau, `f.team.ia3.saturated`) :
              le fond ne BÂTIT plus d'avant-poste d'un produit saturé, même quand aucune autre matière ne manque }.
+  Lot SCALE-COMPLET : F.candidates ÉCRIT ctx.far_builds = { { kind, d_room, d_site }, ... } (builds lointains refusés par
+  F.far_build ; lecteur : le journal [FO-LOIN] de script/team/poles.lua).
   Déterminisme : avant-postes dans l'ordre de la vue (id), types dans T.OUTPOST_ORDER, ressources dans un ordre fixe,
   aucun `pairs` dans une décision.
 ]]
@@ -139,6 +141,19 @@ function F.far_from_site(view, o)
   return near ~= nil and V.extension_refused(math.sqrt(o.d2 or 0), near)
 end
 
+--- Lot SCALE-COMPLET (retour du DC du 29/10, 21 h 40, Écarlate en 0.6.18 : avant-poste de charbon n° 5 bâti à 157 tuiles vers
+--- 27 min alors que le charbon de départ, à 42 tuiles, n'était couvert qu'à 243 pour mille) : vrai si un NOUVEL avant-poste de
+--- ce type serait LOINTAIN alors qu'un avant-poste du type a encore des places, plus près (V.build_refused : à moins de 0,6 × la
+--- distance du site admissible le plus proche, `view.sites_near`, et 60 tuiles plus près ; factions seulement). L'avant-poste
+--- proche compte même dangereux ou non défendu : on l'agrandit quand il redevient sûr (ou le lot NETTOYAGE-SITE le dégage), on
+--- ne part pas au loin. Rend aussi les deux distances (journal [FO-LOIN] de script/team/poles.lua).
+function F.far_build(view, kind)
+  local near = view.sites_near and view.sites_near[kind] or nil
+  local d_room = V.room_distance(view.outposts, kind, T.max_drills(kind))
+  if V.build_refused(d_room, near) then return true, d_room, near end
+  return false
+end
+
 local function extraction(view, free, ctx, out)
   local keys = ctx.keys or {}
   -- Prudence (pertes récentes de PNJ, script/team/poles.lua) : rien hors du QG ; seule la fonderie du QG reste.
@@ -170,8 +185,16 @@ local function extraction(view, free, ctx, out)
     local key = "build:" .. kind
     local pairs_n = math.min(F.PAIRS, T.outposts[kind].drills)
     local items = with_turrets(free, ctx, F.pair_items(kind, pairs_n), pairs_n)
+    local far, d_room, d_site = false, nil, nil
+    if items and not prudent and not safe and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 then
+      far, d_room, d_site = F.far_build(view, kind) -- lot SCALE-COMPLET
+      if far then
+        ctx.far_builds = ctx.far_builds or {}
+        ctx.far_builds[#ctx.far_builds + 1] = { kind = kind, d_room = d_room, d_site = d_site }
+      end
+    end
     if items and not prudent and not safe and not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0
-      and not F.saturated_build(ctx, kind) and not keys[key] and has(free, items) then
+      and not far and not F.saturated_build(ctx, kind) and not keys[key] and has(free, items) then
       take(free, items)
       out[#out + 1] = { key = key, kind = "build", prio = F.PRIO.build, outpost_kind = kind, items = items,
         fond = true, domain = "gisements" }
@@ -306,7 +329,8 @@ function F.potential(view, ctx, free)
     end
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do
-    if not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not F.saturated_build(ctx, kind) then
+    if not extendable[kind] and (view.sites and view.sites[kind] or 0) > 0 and not F.saturated_build(ctx, kind)
+      and not F.far_build(view, kind) then -- lot SCALE-COMPLET : pas de build lointain, donc pas de paires d'avance pour lui
       local pairs_n = math.min(F.PAIRS, T.outposts[kind].drills)
       local ready = true
       if ctx.defend_first then

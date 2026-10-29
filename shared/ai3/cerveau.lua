@@ -77,8 +77,12 @@ end
 --- 1. Situation.
 function C.situation(view, st, ctx)
   local cap = {}
+  -- Lot SCALE-COMPLET : types dont un avant-poste a encore des places (ni plein, sous le plafond de foreuses ; lecteur :
+  -- B.generate, buts de couverture).
+  local room = {}
   for _, o in ipairs(view.outposts or {}) do
     cap[o.kind] = (cap[o.kind] or 0) + (o.drills or 0) / T.outposts[o.kind].drills
+    if not o.full and (o.drills or 0) < T.max_drills(o.kind) then room[o.kind] = true end
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do if (cap[kind] or 0) > 0 then st.ever[kind] = true end end
   -- Lot IA3-e : un module FINI (fonderie électrique et ses foreuses) compte comme capacité d'extraction de son produit
@@ -92,7 +96,7 @@ function C.situation(view, st, ctx)
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
-    sites = view.sites or {}, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
+    sites = view.sites or {}, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     weights = ctx.weights or {}, research = ctx.research, army_target = ctx.army_target or 0, need = st.need,
     at_war = ctx.at_war or view.threatened or false,
     -- Lot IA-V2 : l'économie est « faite » au fer II de l'ancienne échelle OU quand un avant-poste de fer tourne et que
