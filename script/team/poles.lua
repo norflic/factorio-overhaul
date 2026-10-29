@@ -28,6 +28,7 @@ local Events = require("script.core.events")
 local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
+local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : minage de fer de renfort pour les inactifs
 local Planner = require("shared.team.planner") -- lot IA1-b2 : avant-postes non défendus (P.undefended)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
@@ -232,7 +233,7 @@ function Poles.think(f, view, book, tick, plan)
       if t.worker then
         local p = O.POLE_INDEX[t.pole or O.task_pole(t)] or 2
         fond_busy[p] = fond_busy[p] + 1
-        if t.kind == "mine" then mine_fond_busy = mine_fond_busy + 1 end
+        if t.kind == "mine" and not t.key:find(":fer:", 1, true) then mine_fond_busy = mine_fond_busy + 1 end -- lot FER-EQUIPE : le renfort de fer a son propre plafond
       end
     else
       real[#real + 1] = t
@@ -329,6 +330,15 @@ function Poles.think(f, view, book, tick, plan)
   local cands
   if fond_on then
     local player = f.is_player or false
+    -- Lot FER-EQUIPE : PNJ inactifs de votre équipe + coffre pauvre en fer et en minerai : minage de fer à la main de renfort.
+    local iron_extra
+    local spec = player and T.outposts.iron
+    if spec then
+      local idle_n = 0
+      for _, np in ipairs(npcs) do if np.idle and np.role ~= "generalist" then idle_n = idle_n + 1 end end
+      iron_extra = { res = spec.resource, n = FerEquipe.extra_mines({ idle = idle_n, plates = free[spec.product],
+        ore = free[spec.resource], smelters = view.smelters, prudent = prudent, skip = skip[spec.resource] }) }
+    end
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
       defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
@@ -336,7 +346,7 @@ function Poles.think(f, view, book, tick, plan)
       -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
-      mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f) })
+      mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra })
   else
     cands = { extraction = {}, base = {}, territoire = {} }
   end

@@ -38,6 +38,7 @@ local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
 local Effectif = require("shared.ai3.effectif") -- lot IA3-d : une faction grandit quand le travail attend (A7)
+local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : réserve de fer de votre équipe
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
 
@@ -499,6 +500,15 @@ function Team.view(f, tick)
     end
   end
   if grow_due then recruit_held = false end
+  -- Lot FER-EQUIPE : fer gardé au coffre tant que la défense n'est pas couverte (shared/team/fer_equipe.lua), même sans tourelle
+  -- possible (avant le lot, la réserve ne valait que `grow`, et 2 500 plaques partaient en 10 recrues avant la 4e minute).
+  local iron_reserve
+  if f.is_player then
+    local needs = {}
+    for _, o in ipairs(outposts) do needs[#needs + 1] = { turrets = o.turrets, need = T.defend_turrets(o.drills) } end
+    local defended = FerEquipe.defended({ turret_ok = grow, hq_turrets = hq_turrets, defend_hq = T.defend_hq, outposts = needs })
+    iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended)
+  end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
   local four_rule = Outposts.four_rule(f)
@@ -570,7 +580,7 @@ function Team.view(f, tick)
     -- Tourelles du QG voulues : votre équipe seulement (une faction garde son QG avec ses soldats ; T.defend_first_factions).
     plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or 0, -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats
-    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, grow_due = grow_due or nil,
+    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }
