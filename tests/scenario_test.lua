@@ -503,6 +503,11 @@ end
 do -- Sauvegarde 0.6.18 (pas d'espace « journal ») : alignement sans annonce
   local env = setup({ players = 1 })
   env.cc_level.player = 6
+  -- Levels.repair (emprises) remplace le centre et appelle le crochet AVANT l'alignement du journal.
+  env.create_namespaces()
+  package.loaded["script.levels.levels"].on_replaced[1](41, { valid = true, name = L.name(CC, 6), force = env.force })
+  check(env.st().stats.announced == 0 and env.frame() == nil and (env.st().reached.player or 0) == 0,
+    "migration : crochet du centre avant l'alignement, rien d'annoncé")
   env.config_changed()
   check(env.st().born == "migration" and env.st().reached.player == 6, "sauvegarde existante : alignée sur l'époque 6")
   check(env.st().stats.announced == 0 and env.frame() == nil, "aucune annonce ni fenêtre à la migration")

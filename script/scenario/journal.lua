@@ -233,6 +233,10 @@ end
 function Journal.check_force(force)
   local st = S()
   if not (st and force and force.valid) then return end
+  -- Sauvegarde d'avant le journal : tant que l'alignement (on_configuration_changed, plus bas) n'a pas eu lieu,
+  -- rien n'est annoncé. Levels.repair (emprises, chantiers hérités) peut remplacer le centre et appeler
+  -- Levels.on_replaced AVANT notre gestionnaire : sans ce garde, l'époque actuelle serait annoncée au chargement.
+  if st.born == nil then return end
   local k, reached = J.decide(st.reached[force.name], Levels.cc_level(force))
   st.reached[force.name] = reached
   if k then announce(force, k) end
