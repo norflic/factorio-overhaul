@@ -462,7 +462,20 @@ local function fluid_prototypes(spec, key, letter)
   well.order = "a-b-z-" .. letter
   well.map_color = spec.map_color
   well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = 10, amount_max = 10, probability = 1 } }
-  lib.tint_sprites(well.stages, spec.tint)
+  if spec.stages_sheet then
+    -- Feuille propre (lot AMELIO-RESSOURCES, saumure) : découpe EXACTE de la flaque vanilla copiée (4 variantes),
+    -- seuls les fichiers changent ; aucune teinte.
+    local sh = spec.stages_sheet
+    local function swap(t, prefix)
+      t.filename = sh.dir .. "/" .. prefix .. sh.name .. ".png"
+      t.tint = nil
+    end
+    local s = well.stages.sheet
+    swap(s, "")
+    if s.hr_version then swap(s.hr_version, "hr-") end
+  else
+    lib.tint_sprites(well.stages, spec.tint)
+  end
   lib.set_icons(well, { { icon = well.icon, icon_size = well.icon_size, icon_mipmaps = well.icon_mipmaps, tint = spec.tint } })
   well.autoplace = biome_bound_autoplace({
     name = spec.resource,

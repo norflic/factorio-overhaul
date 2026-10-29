@@ -371,6 +371,11 @@ W.resources = {
     copy_resource = "crude-oil",
     copy_fluid = "water",
     tint = { r = 0.55, g = 0.82, b = 0.80 },
+    -- Lot AMELIO-RESSOURCES (30/10 ; réponse du DC du 25/10, D-17 : « saumure au visuel propre ») : feuille PROPRE, la
+    -- silhouette de la flaque de pétrole vanilla (mêmes variantes et découpe : le chevalet s'y pose de même) recolorée en
+    -- eau turquoise bordée d'une croûte de sel blanche (tools/render/pieces/ressources/saumure.py, sans Blender). Avant :
+    -- la flaque noire du pétrole teintée.
+    stages_sheet = { dir = "__factorio-overhaul__/graphics/ressources/saumure", name = "saumure" },
     map_color = { r = 0.36, g = 0.78, b = 0.70 },
     biome = "fo-crater-fields",
     autoplace = { base_density = 5, base_spots_per_km2 = 1.5, random_probability = 1 / 40, additional_richness = 200000, seed1 = 7105 },

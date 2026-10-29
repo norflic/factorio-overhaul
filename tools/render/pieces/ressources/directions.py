@@ -371,14 +371,96 @@ DIRECTIONS["Z3"]["roches"] = (13, 10, 8, 7, 6, 5, 3, 2)
 DIRECTIONS["Z3"]["grains"] = (34, 26, 19, 16, 13, 10, 7, 4)
 DIRECTIONS["Z3"]["blocs"] = (6, 5, 4, 3, 3, 2, 1, 1)
 
+# G1 (lot AMELIO-RESSOURCES, 30/10) : GALÈNE, minerai du plomb de l'âge 9 (Atome), gisements classiques hors biome (sol
+# vanilla : herbe, terre, désert). Ce qui la distingue de tous les minerais : des CUBES (la galène cristallise en cubes,
+# arêtes vives) gris ARGENT à éclat métallique franc, pris dans une gangue de CALCITE blanche ; accent rare de blende
+# brun résine (la blende accompagne la galène). Visée : plus clair et plus neutre que le fer (bleu-gris), plus froid et
+# plus gris que la pierre (beige), sans la croûte crème de l'ilménite ni le noir du tungstène. Choix provisoire, sans
+# verdict du DC.
+MAT.update({
+    "galene": dict(color=(0.50, 0.51, 0.55), rough=0.22, met=0.70, grain=0.12, gscale=55.0, dirt=0.35),
+    "galene_sombre": dict(color=(0.22, 0.23, 0.25), rough=0.28, met=0.60, grain=0.15, gscale=55.0, dirt=0.4),
+    "calcite": dict(color=(0.70, 0.69, 0.64), rough=0.60, met=0.0, grain=0.30, gscale=30.0, dirt=0.45),
+    "blende": dict(color=(0.30, 0.16, 0.04), rough=0.35, met=0.20, grain=0.25, gscale=40.0, dirt=0.4),
+})
+DIRECTIONS["G1"] = dict(
+    nom="cubes de galène argentée dans une gangue de calcite",
+    touffes=(0, 0, 0, 0, 0, 0, 0, 0), lames=(0, 0),
+    lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("galene",),
+    # gangue : quelques roches de calcite (et de galène massive sombre)
+    roches=(5, 4, 4, 3, 3, 2, 2, 1), roche_taille=(0.13, 0.21),
+    roche_mats=("calcite", "calcite", "galene_sombre", "calcite"),
+    # cubes : le corps du gisement (hauteur = côté)
+    blocs=(10, 9, 8, 7, 6, 5, 3, 2), bloc_taille=(0.10, 0.17), bloc_haut=(0.09, 0.16),
+    bloc_mats=("galene", "galene", "galene", "galene_sombre", "blende"),
+    grains=(18, 15, 13, 11, 9, 7, 5, 3), grain_mats=("galene", "calcite", "galene_sombre"),
+    fins=(110, 95, 82, 70, 58, 46, 32, 18),
+    fin_mats=("calcite", "galene_sombre", "calcite", "galene"),
+    rayon=0.62,
+    effet="eclats",
+)
+CALIB["G1"] = {"SKY_GLOSSY_FACTOR": 2.5}
+ROCHE_COUPES["G1"] = 5
+ROCHE_LISSE["G1"] = 28
+ROCHE_APLAT["G1"] = 0.60
+ROCHE_CASSURE["G1"] = (0.45, 0.80)
+ICONE["G1"] = dict(lames=(0, 0), roches=(2, 3), roche_taille=(0.18, 0.24), roche_coupes=5, roche_cassure=(0.45, 0.80),
+                   roche_aplat=0.7, roche_mats=("calcite", "calcite"),
+                   blocs=4, bloc_taille=(0.20, 0.28), bloc_haut=(0.18, 0.26), bloc_mats=("galene", "galene", "galene_sombre"))
+# Couche d'effet : éclats d'argent froid sur les faces les plus claires des cubes (de nuit surtout).
+EFFET["G1"] = dict(teinte=(0.80, 0.90, 1.0), seuil=(0.45, 0.80))
+
+# K1 (lot AMELIO-RESSOURCES, 30/10) : CRISTAL DE RÉSONANCE (âge 7, plaine de cristal). Avant : copie du minerai de fer
+# teintée rose-violet (shared/content/world.lua). Retour du DC (29/10, 22 h 50) : « les pierres violettes/rose pas fou par
+# contre les bleues claires sont jolies ». Druses de PRISMES bleu glacier dressés (la forme du tungstène, d'autres
+# matières : verre de glace, pas de métal), pied de roche grise, givre blanc ; lueur bleu clair de nuit (gisements
+# luminescents, X). Choix provisoire, sans verdict du DC.
+MAT.update({
+    "cristal_glacier": dict(color=(0.42, 0.68, 0.92), rough=0.10, met=0.0, grain=0.08, gscale=50.0, dirt=0.15),
+    "cristal_profond": dict(color=(0.14, 0.34, 0.62), rough=0.12, met=0.0, grain=0.10, gscale=50.0, dirt=0.2),
+    "cristal_givre": dict(color=(0.80, 0.90, 0.98), rough=0.30, met=0.0, grain=0.15, gscale=40.0, dirt=0.15),
+    "roche_grise": dict(color=(0.16, 0.16, 0.18), rough=0.80, met=0.0, grain=0.40, gscale=26.0, dirt=0.6),
+})
+DIRECTIONS["K1"] = dict(
+    nom="druses de prismes bleu glacier",
+    touffes=(6, 5, 5, 4, 3, 3, 2, 1), lames=(3, 6),
+    lame_long=(0.18, 0.32), lame_larg=(0.10, 0.16), lame_ep=(0.07, 0.11), lame_incl=(5, 35),
+    lame_mats=("cristal_glacier", "cristal_glacier", "cristal_profond", "cristal_givre"),
+    roches=(3, 3, 3, 2, 2, 1, 1, 1), roche_taille=(0.15, 0.24), roche_mats=("roche_grise", "roche_grise", "cristal_profond"),
+    blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("cristal_glacier",),
+    grains=(16, 14, 12, 10, 8, 6, 4, 3), grain_mats=("cristal_givre", "cristal_glacier", "roche_grise"),
+    fin_mats=("cristal_givre", "roche_grise", "cristal_glacier", "cristal_givre"),
+    rayon=0.60,
+    effet="eclats",
+)
+CALIB["K1"] = {"SKY_GLOSSY_FACTOR": 4.0}
+EFFET["K1"] = dict(teinte=(0.55, 0.85, 1.0), seuil=(0.30, 0.60),
+                   lueur=dict(lum=(0.03, 0.15), froid=(-1.0, -0.95), gain=0.8))
+
+# I2S (lot AMELIO-RESSOURCES, 30/10) : réponse du DC du 25/10 (D-17, RD_LOG) : « ilménite feuille I2 sombre, nuit
+# assombrie ». I2 (déjà jugée par lui) avec moins de croûte claire : un nodule sur cinq en leucoxène clair au lieu de
+# deux, un leucoxène plus sombre, tapis de régolithe sombre ; lueur de nuit réduite (gain 0,5 au lieu de 0,85 ; le
+# multiplicateur d'obscurité baisse aussi dans shared/content/world.lua). Choix provisoire, sans verdict du DC.
+MAT["leucoxene_sombre"] = dict(color=(0.42, 0.355, 0.25), rough=0.85, met=0.0, grain=0.35, gscale=30.0, dirt=0.5)
+DIRECTIONS["I2S"] = dict(DIRECTIONS["I2"], nom="nodules d'ilménite bronze sombre, croûte de leucoxène rare",
+                         roche_mats=("ilmenite_brun", "ilmenite_bronze", "leucoxene_sombre", "ilmenite_brun", "leucoxene_clair"),
+                         grain_mats=("leucoxene_sombre", "regolithe", "ilmenite_brun", "leucoxene_clair"),
+                         fin_mats=("regolithe", "leucoxene_sombre", "regolithe_clair", "ilmenite_brun", "regolithe"))
+CALIB["I2S"] = dict(CALIB["I2"])
+ROCHE_COUPES["I2S"], ROCHE_LISSE["I2S"] = ROCHE_COUPES["I2"], ROCHE_LISSE["I2"]
+ROCHE_APLAT["I2S"], ROCHE_CASSURE["I2S"] = ROCHE_APLAT["I2"], ROCHE_CASSURE["I2"]
+ICONE["I2S"] = dict(ICONE["I2"], roche_mats=("ilmenite_brun", "leucoxene_sombre", "ilmenite_bronze", "ilmenite_brun"))
+EFFET["I2S"] = dict(teinte=(0.85, 0.93, 1.0), seuil=(0.22, 0.45),
+                    lueur=dict(lum=(0.02, 0.10), froid=(-1.0, -0.95), gain=0.5))
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.0, "I2S": 1.45}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8

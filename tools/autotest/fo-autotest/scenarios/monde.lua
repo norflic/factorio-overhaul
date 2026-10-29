@@ -38,7 +38,7 @@ local function new_surface(name, seed, no_resources)
   local mgs = game.surfaces[1].map_gen_settings
   mgs.seed = seed
   if no_resources then
-    for _, r in ipairs({ "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane", "fo-ilmenite", "fo-brine", "fo-monazite" }) do
+    for _, r in ipairs({ "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane", "fo-ilmenite", "fo-brine", "fo-monazite", "fo-galena" }) do
       local c = mgs.autoplace_controls[r] or {}
       mgs.autoplace_controls[r] = { frequency = c.frequency or 1, size = 0, richness = c.richness or 1 }
     end
@@ -59,7 +59,8 @@ local function site_ok(s, spec, site, spawn)
   local wrong_tile, out_ring = 0, 0
   local function look(e)
     local t = s.get_tile(math.floor(e.position.x), math.floor(e.position.y))
-    if t.name ~= spec.tile or t.collides_with("water-tile") then wrong_tile = wrong_tile + 1 end
+    -- Lot AMELIO-RESSOURCES : une ressource sans biome (galène, spec.tile nil) n'exige qu'une terre ferme.
+    if (spec.tile and t.name ~= spec.tile) or t.collides_with("water-tile") then wrong_tile = wrong_tile + 1 end
     local dx, dy = e.position.x - spawn.x, e.position.y - spawn.y
     local d = math.sqrt(dx * dx + dy * dy)
     if d < spec.dmin or d > spec.dmax then out_ring = out_ring + 1 end
