@@ -131,6 +131,8 @@ local function minimal_items(kind)
   return { { T.DRILL, n }, { spec.sink, n }, { T.fuel, fuel } }
 end
 
+function P.minimal_items(kind) return minimal_items(kind) end -- lot SURVIE-PENURIE (shared/team/survie.lua : agrandissement avec 2 paires)
+
 --- Le palier `goal` est-il atteint ? Renvoie atteint, liste des besoins (avant-postes, objets...).
 local function goal_status(goal, view)
   local need = goal.need
@@ -450,7 +452,9 @@ function P.plan(view, book)
     end
     -- Fer que la défense peut dépenser : au-dessus de T.defend_iron_floor (la fabrication des tourelles ne descend pas dessous,
     -- want_defense) ; sans cela le mode « défense payée » restait vrai à 140 de fer alors que rien ne pouvait s'acheter.
-    pri = Pr.decide({ funds = (avail[iron_key] or 0) - T.defend_iron_floor, defense_cost = cd, production_cost = Pr.cheapest(steps), survival = decimated })
+    pri = Pr.decide({ funds = (avail[iron_key] or 0) - T.defend_iron_floor, defense_cost = cd, production_cost = Pr.cheapest(steps),
+      survie = view.survie, -- lot SURVIE-PENURIE : mode survie de l'équipe (script/team/survie.lua) -> la production d'abord
+      survival = decimated })
   end
   out.priorite = pri
   -- Production d'abord : un avant-poste sans sa tourelle s'agrandit quand même et un nouvel avant-poste se bâtit sans les siennes

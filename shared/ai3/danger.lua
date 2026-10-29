@@ -355,14 +355,20 @@ end
 function D.gate(info, ctx)
   local B = ctx.B or D.block(ctx.prudence)
   local esc = ctx.escort_ok and true or false
-  if (info.deaths or 0) >= 2 then return "wait", "morts" end
-  if info.blocked or (info.goal_d or 0) >= B or (info.deaths or 0) == 1 then
-    if esc then return "escort", info.blocked and "bloque" or ((info.deaths or 0) == 1 and "mort" or "but") end
-    return "wait", info.blocked and "bloque" or ((info.deaths or 0) == 1 and "mort" or "but")
+  -- Lot SURVIE-PENURIE : `ctx.survie_deaths` (nombre, mode survie d'une équipe en pénurie, tâche productive : shared/team/survie.lua)
+  -- = morts de l'heure à partir desquelles on attend ; en dessous, la mort est ignorée (le but, lui, reste jugé) et un champ de
+  -- danger moyen sur la route ne bloque plus faute d'escorte. Sans lui, les règles d'avant.
+  local sv = ctx.survie_deaths
+  local deaths = info.deaths or 0
+  if sv and deaths < sv then deaths = 0 end
+  if deaths >= 2 then return "wait", "morts" end
+  if info.blocked or (info.goal_d or 0) >= B or deaths == 1 then
+    if esc then return "escort", info.blocked and "bloque" or (deaths == 1 and "mort" or "but") end
+    return "wait", info.blocked and "bloque" or (deaths == 1 and "mort" or "but")
   end
   if (info.max_d or 0) * 2 >= B then
     if esc then return "escort", "marque" end
-    if (ctx.prudence or 1000) >= 1000 then return "wait", "marque" end
+    if (ctx.prudence or 1000) >= 1000 and not sv then return "wait", "marque" end
     return "go", "marque"
   end
   if info.far and esc then return "escort", "loin" end

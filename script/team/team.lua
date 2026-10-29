@@ -37,6 +37,7 @@ local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : 
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
+local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -565,6 +566,7 @@ function Team.view(f, tick)
     -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = threatened,
+    survie = Survie.on(f) or nil, -- lot SURVIE-PENURIE : mode survie (décidé à la pensée précédente) : la production passe avant la défense
     open = Board.open(f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)
     -- Lot IA3-d : effectif visé atteint selon la règle (aucun bras ne manque) ; le cerveau d'IA-V2 attendait sinon le
@@ -674,6 +676,7 @@ function Team.think(f, surface, tick)
 
   Profiler.start("team:board")
   Board.sync(f, plan.tasks, tick, plan, view, book_for(f)) -- lot IA3-b : manque de plaques (réglage allumé)
+  Survie.think(f, view, plan, tick) -- lot SURVIE-PENURIE : entrée / sortie du mode survie et ses tâches (minage à la main, fours, foreuses)
   Profiler.stop("team:board")
 
   -- Lot IA1-b : organisation (pôles, managers, généralistes) et travail de fond, sur le tableau synchronisé.

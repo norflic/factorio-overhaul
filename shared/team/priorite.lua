@@ -17,6 +17,7 @@
     production_cost fer du PROCHAIN pas de production utile (le moins cher : 2 paires foreuse + four, ou reconstruction minimale) ;
                     nil : aucun pas de production à faire ; 0 : un pas qui ne coûte pas de fer (objets déjà au stock)
     survival        l'équipe est sous son effectif de départ : la survie (recrues équipées) garde la main, règle d'avant
+    survie          lot SURVIE-PENURIE : mode survie de l'équipe (pénurie durable d'une matière clé) : la production d'abord, toujours
   Modes :
     survie              règle d'avant (rien ne change)
     rien                ni défense ni production à faire
@@ -41,6 +42,7 @@ Pr.MODE_DEFENSE = "defense"
 Pr.MODE_PRODUCTION = "production"
 Pr.MODE_DEFENSE_D_ABORD = "defense_d_abord"
 Pr.MODE_PRODUCTION_D_ABORD = "production_d_abord"
+Pr.MODE_SURVIE_PENURIE = "survie_penurie" -- lot SURVIE-PENURIE (shared/team/survie.lua) : la production d'abord, même si le fer paie les deux
 
 local function num(x)
   if type(x) ~= "number" or x ~= x or x < 0 then return 0 end
@@ -67,6 +69,15 @@ function Pr.decide(a)
     out.mode = Pr.MODE_DEFENSE_D_ABORD
   else
     out.mode = Pr.MODE_PRODUCTION_D_ABORD
+    out.production_first = true
+    out.hold = math.min(funds, cp)
+    out.defense_budget = funds - out.hold
+  end
+  -- Lot SURVIE-PENURIE (`survie` : l'équipe est en mode survie, une matière clé lui manque durablement) : la production passe d'abord
+  -- QUEL QUE SOIT l'état du fer, dès qu'un pas de production existe ; le pas est réservé, la défense a le reste. La survie des
+  -- effectifs (`survival`) garde la main : une équipe décimée équipe d'abord ses recrues.
+  if a.survie and not a.survival and has_step then
+    out.mode = Pr.MODE_SURVIE_PENURIE
     out.production_first = true
     out.hold = math.min(funds, cp)
     out.defense_budget = funds - out.hold
