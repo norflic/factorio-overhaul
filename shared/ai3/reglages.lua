@@ -117,6 +117,10 @@ R.TURRET = "gun-turret"
 R.INFRA_TYPES = { ["electric-pole"] = true, ["boiler"] = true, ["generator"] = true, ["offshore-pump"] = true }
 -- Types des CONSOMMATEURS dont l'état « sans courant » mesure ce qu'un poteau détruit coupe.
 R.CONSUMER_TYPES = { "inserter", "mining-drill", "assembling-machine", "lab" }
+-- Lot RECONSTRUIRE : les FACTIONS refont-elles aussi leurs pieces detruites ? Eteint (29/10) : mesure du lot sur 5 graines, la
+-- reconstruction des factions fait diverger la partie (dont la perte du QG du joueur a 58 min sur 271828182, absente du temoin) sans
+-- gain demontre ; la remarque du DC porte sur SON installation. Allume, le registre sert aux factions comme a votre equipe.
+R.RECON_FACTIONS = false
 
 R.BODY = "character"
 

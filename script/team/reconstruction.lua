@@ -112,6 +112,7 @@ local function on_died(e)
   if not role or role == "main" then return end
   local f = team_of(ent.force.name)
   if not (f and not f.eliminated and f.hq and f.hq.valid) then return end
+  if not f.is_player and not R.RECON_FACTIONS then return end
   local s = Recon.state(f)
   local pos = ent.position
   local infra = R.INFRA_TYPES[ent.type] or false

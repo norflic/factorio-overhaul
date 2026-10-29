@@ -24,7 +24,7 @@ package.loaded["script.faction.state"] = {
   owner = function(u) return owners[u] end,
   own = function(e, fid, kind, oid) owners[e.unit_number] = { f = fid, kind = kind, oid = oid } end,
   faction = function(id) if id == "player" then return player end end,
-  by_force = function() return nil end,
+  by_force = function(fn) return fn == "scarlet" and package.loaded.__scarlet or nil end,
   alive = function() return {} end,
 }
 local added = {}
@@ -267,6 +267,22 @@ do
   local bn = f2.recon.stats.byname["pole-x"]
   check(bn and bn.nostock == 1 and #added == 0, "faute d'objet au stock : pas de tâche, pièce comptée en attente de stock")
   surface.consumers = {}
+end
+
+-- §7 Factions : réglage R.RECON_FACTIONS -------------------------------------------------------------------------------
+do
+  local sc = { id = "scarlet", key = "scarlet", force = "scarlet", started = 0, stats = {},
+    hq = { valid = true, position = { x = 0, y = 0 }, unit_number = 2 }, stock = { ["item-a"] = 5 }, outposts = {}, team = { board = { tasks = {} } },
+    build = { order = { 1 }, projects = { [1] = { ents = { { name = "piece-a", x = 10, y = 10 } } } } } }
+  package.loaded.__scarlet = sc
+  check(R.RECON_FACTIONS == false, "réglage : les factions ne refont pas leurs pièces par défaut")
+  died({ entity = ent("piece-a", "assembling-machine", 10, 10, "scarlet"), tick = 1000 })
+  check(sc.recon == nil or Rc.pending(sc.recon) == 0, "faction : pièce détruite non inscrite (réglage éteint)")
+  R.RECON_FACTIONS = true
+  died({ entity = ent("piece-a", "assembling-machine", 10, 10, "scarlet"), tick = 1000 })
+  check(sc.recon and Rc.pending(sc.recon) == 1, "faction : inscrite quand le réglage est allumé")
+  R.RECON_FACTIONS = false
+  package.loaded.__scarlet = nil
 end
 
 -- §5 Source -----------------------------------------------------------------------------------------------------------------
