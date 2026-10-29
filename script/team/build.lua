@@ -33,6 +33,8 @@ local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
+local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
+local Cv = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
@@ -1029,6 +1031,40 @@ local function plate_used_elsewhere(b, p, plate)
 end
 
 Build.LINE_LOGS = 24 -- lignes [FO-LIGNE] au plus, par équipe
+Build.DEBIT_LOGS = 24 -- lignes [FO-DEBIT] au plus, par équipe
+
+--- Lot RANGEES-DEBIT (retour du DC du 29/10 en jouant la 0.6.18 : « il faut faire des packs de N [...] en fonction du débit », « huit
+--- d'un côté, huit de l'autre au lieu d'en avoir six ») : paires de foreuses qu'UN collecteur porte, lues sur le tapis que la ligne
+--- entière demanderait (Conv.choose : vitesse lue dans les prototypes, technologie de l'équipe ; débit d'une foreuse : M.spec), bornées
+--- par l'emprise du gabarit `emprise` (M.GEN.drills, longueur d'un lot). Règle pure : shared/team/debit.lua. Lecteur : line_rows, qui
+--- borne ensuite par le gisement (80 % de couverture) puis donne aux fours les rangées que ces foreuses nourrissent ; la ligne de
+--- foreuses posée suit ces fours (plan_drills, demande). Journal [FO-DEBIT] : une ligne par minerai et par borne retenue.
+--- Relecture : le tapis est lu par la règle pure (Cv.pick, même choix que Conv.choose) et NON par Conv.choose, qui écrit une fois par
+--- équipe la ligne [FO-CONVOYEURS] « premier choix de tapis » : appelée ici, au plan, avec un débit HYPOTHÉTIQUE, elle prenait la place
+--- de celle du premier vrai tracé (plan_feed). Avec les données de base, la borne retenue est l'emprise (7 paires, M.MAX_SIDE), jamais le
+--- tapis (15 foreuses par côté sur une voie jaune) : le gabarit (M.GEN.drills) bornait déjà par M.LANE_RATE, le plus lent des tapis.
+function Build.debit_pairs(f, ore, emprise, drill_rate)
+  local dc = T.debit or {}
+  if not dc.belt or type(drill_rate) ~= "number" or drill_rate <= 0 then return emprise end
+  -- une voie = un côté de la ligne entière
+  local belt, speed = Cv.pick(Conv.belts(), Conv.usable(f), (emprise or 0) * drill_rate, { need_only = Conv.MODE == "besoin" })
+  local lane = Db.lane_capacity(speed)
+  local by_belt = Db.belt_pairs(lane, drill_rate, nil)
+  if by_belt <= 0 then return emprise end -- aucun tapis lisible : la borne du gabarit (comportement d'avant)
+  local np, why = math.min(by_belt, emprise or by_belt), (by_belt < (emprise or by_belt)) and "tapis" or "emprise"
+  local b = f.build
+  b.debit_seen = b.debit_seen or {}
+  local key = tostring(ore) .. ":" .. tostring(belt) .. ":" .. np
+  if not b.debit_seen[key] then
+    b.debit_seen[key] = true
+    b.debit_logs = (b.debit_logs or 0) + 1
+    if b.debit_logs <= Build.DEBIT_LOGS then
+      log(string.format("[FO-DEBIT] %s : foreuses %s : tapis %s, %.2f/s par voie / %.2f/s par foreuse = %d foreuse(s) par cote ; emprise d'un lot %d paire(s) -> ligne de %d paire(s) au plus (%d foreuses, borne %s), puis le gisement et les fours",
+        f.key or "player", tostring(ore), tostring(belt), lane, drill_rate, by_belt, emprise or 0, np, 2 * np, why))
+    end
+  end
+  return np
+end
 
 --- Lot AGENCEMENT (retour du DC du 29/10 : « ils peuvent pas vraiment étendre plus loin », « 4 foreuses ») : taille de la fonderie
 --- à tapis, décidée APRÈS celle de la demande. La ligne suit les foreuses que le gisement le plus proche porte à 80 % de
@@ -1047,6 +1083,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
   local cap = main / (2 * prm.n) -- plaques/s d'UN four
   local gd = M.GEN.drills(prm.ore, 1)
   local pairs_line = gd and gd.extensions and gd.extensions[1] and gd.extensions[1].max or 0
+  pairs_line = Build.debit_pairs(f, prm.ore, pairs_line, dsp.speed) -- lot RANGEES-DEBIT : le collecteur réel borne la ligne
   local reach = Rg.reach(dsp.radius, dsp.w)
   -- ce que les lots de gisement les plus proches portent : le comptage des tuiles du relevé de lot donne une BORNE HAUTE
   -- (Rg.pairs_for_tiles), puis P.fit lui-même (pur) dit quelle ligne de foreuses y TIENT à la couverture visée
