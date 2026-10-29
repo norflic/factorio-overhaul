@@ -14,7 +14,9 @@
     teams[clé] = { map, epoch, stream, char = { prudence, agressivite } | nil (forcé par un banc), hold, stats,
                    escorts = { [id d'agent] = { units, n, since } } }
     agents[id] = { final, pts, i, epoch, refuge, hold, hold_stop, hp, armed, armed_t, label, label_key, label_t, escort, tour,
-                   backs, back_t, ret_t, flee_t, flee_ep, look_t, shelter_t }
+                   backs, back_t, ret_t, flee_t, flee_ep, look_t, shelter_t, dmem, dloop }
+  Lot DETOUR-BOUCLE : agents[id].dmem (série de détours, shared/ai3/detour.lua), dloop (boucle cassée vers ce but : plus de
+  détour devant une menace fixe) ; teams[clé].dfail (buts où un PNJ a tourné en rond : refusés par la porte), dloop_log_t.
   Flux : Tr.new_stream(graine, 470 + numéro de l'équipe) (sels 470 à 479 : IA3-k ; 479 = votre équipe).
 ]]
 
@@ -31,6 +33,7 @@ local Worker = require("script.team.worker")
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné (minerai, arbres)
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (porte assouplie pour les tâches de ressources)
 local Sv = require("shared.team.survie")
+local Dt = require("shared.ai3.detour") -- lot DETOUR-BOUCLE : mémoire des détours et des buts où l'on tourne en rond
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
@@ -458,6 +461,7 @@ function M.leg(agent, pos, radius, tick, depth)
     a.final = { x = pos.x, y = pos.y }
     a.pts = nil
     a.urep = nil -- arrêts et détours devant des unités : comptés par destination
+    a.dmem, a.dloop = nil, nil -- lot DETOUR-BOUCLE : série de détours et boucle cassée, par destination
   end
   -- Sortie d'une zone marquée faite : l'itinéraire est recalculé depuis la case sûre.
   if a.pts and a.partial and not a.pts[a.i] then a.pts, a.partial = nil, nil end
@@ -547,7 +551,8 @@ function M.retarget_mine(f, t, task, surface, tick, B)
   local stride = math.max(1, math.floor(#res / 40))
   for i = 1, #res, stride do
     local p = res[i].position
-    if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0 then
+    if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0
+      and not Dt.failed(t.dfail, p.x, p.y, tick) then -- lot DETOUR-BOUCLE : pas la case où l'on a tourné en rond
       local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } },
         type = Harvest.free_types(task.resource, f, task.trees), invert = true, limit = 1 })
       if busy == 0 and Harvest.foreign_resource(surface, p, task.resource, f) then busy = 1 end -- lot KIT : ressource étrangère sur la tuile
@@ -657,6 +662,13 @@ function M.gate(f, agent, task, steps, tick)
     Survie.note_gate(f, tick, d0, w0, decision, why)
   end
   Profiler.fstop("gate:post")
+  -- Lot DETOUR-BOUCLE : un but où un PNJ de l'équipe a tourné en rond (boucle de détours cassée, M.detour_guard) est refusé
+  -- Dt.FAIL_TICKS : un minage cherche un autre site (ci-dessous), les autres tâches passent leur tour ; l'escalade reste
+  -- possible (départ « risque accepté » : plus de détour devant une menace fixe, donc plus de boucle).
+  if decision ~= "wait" and Dt.failed(t.dfail, dest.x, dest.y, tick) then
+    decision, why = "wait", "boucle"
+    t.stats.dloop_refus = (t.stats.dloop_refus or 0) + 1
+  end
   local a = astate(agent)
   a.escort, a.risk = nil, nil
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
@@ -932,6 +944,38 @@ function M.hold_breached(f, e)
   return Re.breach(kind, math.sqrt(d2(p, enemy.position)), range)
 end
 
+--- Lot DETOUR-BOUCLE : un DÉTOUR est demandé (réaction ou menace d'un camarade). Rend "detour" (le faire), "back" (boucle
+--- cassée sur l'aller d'une tâche : demi-tour, tâche rendue, but refusé par la porte Dt.FAIL_TICKS) ou "none" (boucle
+--- cassée sur un retour ou sans tâche : le PNJ suit son itinéraire, sans plus de détour vers ce but : a.dloop).
+--- État écrit : a.dmem, a.dloop (lus ici et par M.sense, remis à zéro par M.leg quand le but change), t.dfail (lu par
+--- M.gate), t.stats.dloops, t.dloop_log_t (journal).
+function M.detour_guard(agent, f, t, a, why, ep, kind, tick)
+  local p = agent.entity.position
+  a.dmem = Dt.note(a.dmem, p, a.final, tick)
+  if not Dt.loop(a.dmem) then return "detour" end
+  local m = a.dmem
+  a.dmem, a.dloop = nil, true
+  t.stats.dloops = (t.stats.dloops or 0) + 1
+  local step = agent.steps and agent.pc and agent.steps[agent.pc]
+  local out = Dt.outcome(agent.task ~= nil, step and step[1])
+  -- But refusé : celui de l'étape « goto » en cours (la clé que M.gate relit : dest = s[2]) ; a.final peut dater d'un autre
+  -- trajet quand l'étape marche sans M.leg (rues du plan directeur, worker.lua).
+  local fg = (out == "abandon" and type(step[2]) == "table" and step[2].x and step[2].y) and step[2] or a.final
+  if out == "abandon" and fg then
+    t.dfail = t.dfail or {}
+    Dt.fail(t.dfail, fg.x, fg.y, tick)
+  end
+  if not t.dloop_log_t or tick - t.dloop_log_t >= 600 then
+    t.dloop_log_t = tick
+    log(string.format("[FO-DETOUR] %s : PNJ %d tourne en rond : %d detours en %d ticks a moins de %d tuiles de (%d, %d) (dernier : %s, %s en (%d, %d)), but %s, tache %s -> %s ; cumul %d boucle(s) cassee(s), %d refus de la porte",
+      tostring(f.key), agent.id, m.n, m.t - m.t0, Dt.NEAR, math.floor(m.x), math.floor(m.y), tostring(why), tostring(kind),
+      math.floor(ep.x), math.floor(ep.y), a.final and string.format("(%d, %d)", math.floor(a.final.x), math.floor(a.final.y)) or "aucun",
+      agent.task and tostring(agent.task.kind) or "aucune", out == "abandon" and "demi-tour, but refuse 5 min" or "suit son itineraire sans detour",
+      t.stats.dloops, t.stats.dloop_refus or 0))
+  end
+  return out == "abandon" and "back" or "none"
+end
+
 function M.sense(agent, tick)
   if not M.enabled() then return false end
   local e = agent.entity
@@ -997,7 +1041,7 @@ function M.sense(agent, tick)
     end
   end
   -- Une menace fixe NOUVELLE vue par un camarade touche le reste de notre trajet : nouvel itinéraire (détour).
-  if walking and a.pts and not a.risk and (a.mver or 0) < (t.mver or 0) then
+  if walking and a.pts and not a.risk and not a.dloop and (a.mver or 0) < (t.mver or 0) then
     local hit = nil
     for _, nt in ipairs(t.new_threats or {}) do
       if nt.v > (a.mver or 0) and d_route(p, a, nt) <= nt.r + Re.MARGIN then hit = nt end
@@ -1005,7 +1049,8 @@ function M.sense(agent, tick)
     a.mver = t.mver
     if hit then
       t.stats.shared = (t.stats.shared or 0) + 1
-      return act(agent, f, t, a, "detour", "camarade", hit, hit.k, tick)
+      local ac = M.detour_guard(agent, f, t, a, "camarade", hit, hit.k, tick) -- lot DETOUR-BOUCLE
+      if ac ~= "none" then return act(agent, f, t, a, ac, ac == "back" and "boucle" or "camarade", hit, hit.k, tick) end
     end
   end
   -- Une mort de l'équipe depuis le calcul de l'itinéraire : le reste du trajet est rejugé (C5).
@@ -1093,7 +1138,8 @@ function M.sense(agent, tick)
   end
   -- Tournée escaladée (risque accepté par la porte) : pas de nouveau détour pour une menace fixe déjà connue (le chemin
   -- qui minimise le danger la contourne déjà au mieux) ; le demi-tour à portée reste.
-  if a.risk and K.fixed and action == "detour" then action = "none" end
+  -- Lot DETOUR-BOUCLE : de même après une boucle de détours cassée vers ce but (a.dloop).
+  if (a.risk or a.dloop) and K.fixed and action == "detour" then action = "none" end
   -- Près du QG, face à des UNITÉS : sans tourelle où se réfugier, fuir seul est pire que rester groupés (un déchiqueteur
   -- court plus vite qu'un personnage) : on se bat sur place. Même banc : 4 ouvriers sans tâche rattrapés à 11 tuiles du QG.
   local to = nil
@@ -1143,6 +1189,12 @@ function M.sense(agent, tick)
     end
   end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
+  if action == "detour" then
+    -- Lot DETOUR-BOUCLE : au-delà de Dt.MAX détours au même endroit vers le même but, la boucle est cassée (M.detour_guard).
+    local ac = M.detour_guard(agent, f, t, a, why, ep, kind, tick)
+    if ac == "none" then return false end
+    if ac == "back" then action, why = "back", "boucle" end
+  end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
   return act(agent, f, t, a, action, why, ep, kind, tick, range, to)
 end
