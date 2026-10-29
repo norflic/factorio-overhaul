@@ -41,7 +41,7 @@ def read_seed(arch):
 RE_MIN = re.compile(r"\[FO-NIDS-MES\] minute (\d+) \| (\w+) \| (.*)$")
 RE_SAMPLE = re.compile(r"\[FO-NIDS-MES\] echantillon tick (\d+) \| (\w+) \| (.*)$")
 RE_KV = re.compile(r"(\w+)=(-?\d+)")
-RE_LAUNCH = re.compile(r"\[FO-NIDS\] (\w+) : operation lancee en \((-?\d+), (-?\d+)\) a (\d+) tuiles du QG : (\d+) nid\(s\), (\d+) ver\(s\), "
+RE_LAUNCH = re.compile(r"\[FO-NIDS\] (\w+) : operation lancee en \((-?\d+), (-?\d+)\) a (\d+) tuiles du QG : (\d+) nid\(s\), (\d+) ver\(s\)(?: \(a portee de combat : (\d+) nid\(s\), (\d+) ver\(s\)\))?, "
                        r"menace (\d+) \(biens (\d+), incidents (\d+)\), (\d+) soldat\(s\) engages \(besoin (\d+), garnison gardee (\d+), "
                        r"echecs (\d+)\), secteur vu au tick (\S+)")
 RE_END = re.compile(r"\[FO-NIDS\] (\w+) : operation en \((-?\d+), (-?\d+)\) (done|retreat|timeout) : engages (\d+), vivants (\d+), "
@@ -71,8 +71,9 @@ def parse_run(arch):
         if m:
             g = m.groups()
             out["launch"].append({"f": g[0], "x": int(g[1]), "y": int(g[2]), "dist": int(g[3]), "sp": int(g[4]), "wm": int(g[5]),
-                                  "menace": int(g[6]), "engages": int(g[9]), "besoin": int(g[10]), "garnison": int(g[11]),
-                                  "echecs": int(g[12]), "seen": g[13]})
+                                  "sp_near": int(g[6] or 0), "wm_near": int(g[7] or 0), "menace": int(g[8]),
+                                  "engages": int(g[11]), "besoin": int(g[12]), "garnison": int(g[13]), "echecs": int(g[14]),
+                                  "seen": g[15]})
             continue
         m = RE_END.search(line)
         if m:
