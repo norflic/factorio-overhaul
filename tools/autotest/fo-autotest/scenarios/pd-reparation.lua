@@ -5,7 +5,7 @@
   Attendu : labo, assembleur, foreuse, convoyeur et mur à 40 % remis à neuf par des PNJ (tâche « repair » de ce lot) ; le four
   seulement APRÈS la fin de son attaque + Rp.CALM ; le mur à 90 % (au-dessus du seuil de 50 %) laissé tel quel ; le poteau
   réparé par RECONSTRUIRE (pas par ce lot).
-  Lancement : banc.py -- 7000 pd-reparation <source>.
+  Lancement : banc.py -- 7000 pd-reparation <source> (contrôle final au tick 6 000).
 ]]
 
 local HALF = 90
@@ -41,7 +41,7 @@ end
 
 return {
   description = "PD-REPARATION : batiments endommages (labo, assembleur, foreuse, four...) repares par les PNJ, pas pendant l'attaque",
-  check_tick = 7000,
+  check_tick = 6000, -- 1er banc : check_tick = ticks du banc, le contrôle final n'a pas tourné
 
   init = function(ctx)
     local s = ctx.surface()
@@ -85,9 +85,14 @@ return {
       for _, p in ipairs(st.p) do
         local real = p.name and s.find_entity(p.name, { p.x, p.y })
         if real and real.valid then
+          -- Coups de 10 % jusqu'à la santé visée : les résistances (mur : physique) rognent chaque coup (1er banc : mur à 52 %).
           local mx = real.prototype.max_health
-          real.damage(mx * (1 - p.frac), "enemy")
-          p.after = real.health / mx
+          local n = 0
+          while real.valid and real.health > mx * p.frac and n < 50 do
+            real.damage(mx * 0.1, "enemy")
+            n = n + 1
+          end
+          p.after = real.valid and real.health / mx or 0
         end
       end
       ctx.log(string.format("%d piece(s) blessee(s) par damage() a %d ticks", #st.p, t))
