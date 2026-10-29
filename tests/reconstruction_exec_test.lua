@@ -345,6 +345,7 @@ do
     local e = ent(name, "electric-pole", x, y)
     e.health = hp
     e.prototype = { max_health = mx }
+    e.get_health_ratio = function() return e.health / mx end -- (le balayage lit le ratio : un seul appel moteur par entité)
     return e
   end
   local a, b, c = dmg("pole-x", 10, 10, 20, 100), dmg("pole-x", 12, 10, 90, 100), dmg("pole-x", 14, 10, 50, 100)
@@ -488,6 +489,33 @@ do
 end
 
 
+
+-- §4 bis Pièce refaite par un autre moyen (revue globale 1) ----------------------------------------------------------------
+do
+  local f = new_team()
+  surface.enemies = 0
+  died({ entity = ent("piece-a", "assembling-machine", 10, 10), tick = 100 })
+  check(Rc.pending(f.recon) == 1, "§4bis : pièce inscrite")
+  -- le plan directeur (ou le joueur) la repose : le balayage la voit en place et la retire du registre
+  local there = ent("piece-a", "assembling-machine", 10, 10)
+  local old_find = surface.find_entity
+  surface.find_entity = function(name, pos) if name == "piece-a" and pos[1] == 10 and pos[2] == 10 then return there end return nil end
+  Recon.think(f, surface, 100 + 650)
+  surface.find_entity = old_find
+  check(Rc.pending(f.recon) == 0 and next(f.recon.lost) == nil, "§4bis : pièce revue en place retirée du registre (plus de pièce de rechange demandée)")
+  local bn = f.recon.stats.byname and f.recon.stats.byname["piece-a"]
+  check(bn and bn.rec == 1 and bn.ext == 1 and bn.own == 0, "§4bis : comptée comme refaite par un autre moyen")
+  -- une pièce dont un PNJ tient la tâche n'est pas retirée sous ses pieds
+  local f2 = new_team()
+  died({ entity = ent("piece-b", "assembling-machine", 12, 10), tick = 100 })
+  local k = Rc.key({ name = "piece-b", x = 12, y = 10 })
+  f2.recon.lost[k].claimed = "rebuild:x"
+  f2.team.board.tasks["rebuild:x"] = { key = "rebuild:x", kind = "rebuild", worker = 3 }
+  surface.find_entity = function(name) if name == "piece-b" then return ent("piece-b", "assembling-machine", 12, 10) end return nil end
+  Recon.think(f2, surface, 100 + 650)
+  surface.find_entity = old_find
+  check(f2.recon.lost[k] ~= nil, "§4bis : pièce réclamée par un PNJ gardée (la tâche la résout)")
+end
 
 -- §5 Source -----------------------------------------------------------------------------------------------------------------
 for _, file in ipairs({ "script/team/reconstruction.lua" }) do

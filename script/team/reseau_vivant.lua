@@ -145,11 +145,12 @@ local function net_read(f, surface, b)
   end
   local out = { islands = 0, uncovered = 0 }
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = ELEC_TYPES })) do
-    if e.prototype.electric_energy_source_prototype then
-      local id = e.electric_network_id
-      if not (id and gnets[id]) and not in_construction(b, e.position.x, e.position.y) then
-        if id then out.islands = out.islands + 1 else out.uncovered = out.uncovered + 1 end
-      end
+    -- Le réseau d'abord : la quasi-totalité des machines est sur un réseau avec centrale, et le prototype (objet créé à chaque lecture)
+    -- ne se lit que pour les autres (revue statique 29/10 : le relevé touchait toutes les machines de la force toutes les 2 min).
+    local id = e.electric_network_id
+    if not (id and gnets[id]) and e.prototype.electric_energy_source_prototype
+      and not in_construction(b, e.position.x, e.position.y) then
+      if id then out.islands = out.islands + 1 else out.uncovered = out.uncovered + 1 end
     end
   end
   return out

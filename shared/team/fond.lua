@@ -23,6 +23,7 @@
     ctx  : { book (livre de recettes, shared/team/book.lua), keys = { [clé] = vrai } (tâches déjà au tableau),
              mine_left = minages à la main encore permis (plafond O.manual_cap moins ceux en cours),
              reserve = surcharge de F.RESERVE (facultatif),
+             lot FER-EQUIPE : iron_extra = { res, n } (minages de fer de renfort pour les inactifs),
              lot IA1-b2 (D-17) : defend_first (tourelle possible : un nouvel avant-poste se bâtit avec ses tourelles),
              undefended = { [id] = vrai } avant-postes où l'on ne va pas (shared/team/planner.lua, P.no_go),
              turrets_ok, no_outpost_guard (votre équipe : plus de garde d'avant-poste), no_reserve_floor }.
@@ -226,6 +227,18 @@ local function extraction(view, free, ctx, out)
         left = left - 1
       end
       if k > 64 then break end
+    end
+  end
+  -- 4 bis. Lot FER-EQUIPE (ctx.iron_extra = { res, n }, shared/team/fer_equipe.lua) : minage à la main de renfort pour le
+  -- PNJ inactif, hors du plafond du travail manuel ; clés propres, jamais deux fois sur le tableau.
+  local ie = ctx.iron_extra
+  if ie and (ie.n or 0) > 0 and not prudent and not (ctx.mine_skip and ctx.mine_skip[ie.res]) then
+    for j = 1, ie.n do
+      local key = "fond:mine:" .. ie.res .. ":fer:" .. j
+      if not keys[key] then
+        out[#out + 1] = { key = key, kind = "mine", prio = F.PRIO.mine, resource = ie.res, count = F.MINE_BATCH,
+          fond = true, domain = "gisements", radius = ctx.mine_radius }
+      end
     end
   end
 end

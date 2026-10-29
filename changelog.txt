@@ -1,4 +1,19 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.13
+Date: 2026-10-29
+  Changes:
+    - Enceinte : elle se pose segment par segment (un a la fois, au plus un quart du stock de murs par segment), en commencant par
+      le cote tourne vers les nids connus, et un segment detruit est refait seul. Les statistiques de projets ne derivent plus.
+    - Garde de centrale : toutes les centrales finies et vivantes sont gardees, y compris les centrales supplementaires ; une
+      centrale detruite ou trop etalee ne declenche plus de pose.
+    - Votre equipe : une reserve de fer du coffre protege les tourelles du QG et la defense, les PNJ inactifs minent le fer, et sans
+      gisement libre ils minent a la main pres du QG.
+    - Bilan production moins consommation : un objet en sous-production durable pese plus dans les besoins de fabrication et de
+      recolte des equipes (journal [FO-BILAN] toutes les 5 minutes).
+    - Corrections de revue : une piece refaite par un autre moyen sort du registre de reconstruction ; la reparation de l'enceinte
+      ne fausse plus les compteurs ; une centrale de croissance n'est plus comptee deux fois ; deux releves lourds (sante des
+      pieces, reseau) coutent beaucoup moins sur une grosse usine.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.12
 Date: 2026-10-29
   Changes:

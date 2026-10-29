@@ -14,12 +14,20 @@
   - une centrale trop étendue pour qu'un même point voie toutes ses pièces à portée est INFAISABLE (G.feasible) : aucune pose ;
   - G.sites : emplacements candidats, anneau autour du centre des pièces, rayon pris pour que toute pièce reste à portée ;
   - G.covers : une position de pose est acceptée si toutes les pièces sont à portée.
+
+  Lot GARDE-MULTI (plusieurs centrales, ajoutées par CORR-ENERGIE) : CHAQUE centrale finie (la principale et les supplémentaires) est un
+  poste à garder. G.plan lit la liste des centrales et la liste commune des tourelles de l'équipe, et choisit LA centrale à garder
+  maintenant : la moins gardée d'abord (places occupées / tourelles voulues, la plus basse ; à égalité, moins de places occupées, puis
+  l'ordre de la liste). Le budget est partagé : une seule tâche de garde est ouverte par équipe à la fois (le planificateur n'en ouvre
+  qu'une, clé « fortify:plant »), et les tourelles de garde de toute l'équipe ne dépassent pas G.TEAM_MAX (comptées une fois même si une
+  tourelle garde deux centrales voisines).
 ]]
 local G = {}
 
 G.MIN = 2
 G.MAX = 6
 G.MARGIN = 1   -- tuile gardée entre la portée et la pièce la plus éloignée
+G.TEAM_MAX = 12 -- tourelles de garde de centrale, au plus, par équipe (toutes centrales confondues : 2 centrales à 6 au plus)
 
 --- Tourelles armées voulues pour `boilers` chaudières.
 function G.wanted(boilers)
@@ -112,6 +120,51 @@ function G.need(pieces, boilers, turrets, range, low)
   if missing < 0 then missing = 0 end
   local sites, center = G.sites(pieces, range, math.max(want, missing + 2))
   return { wanted = want, have = have, near = near, missing = missing, sites = sites, center = center }
+end
+
+--- Tourelles (armées ou non) à portée de toutes les pièces d'AU MOINS une centrale de la liste, chacune comptée une fois.
+function G.near_any(plants, turrets, range)
+  local n = 0
+  for _, t in ipairs(turrets or {}) do
+    for _, pl in ipairs(plants or {}) do
+      if G.covers(pl.pieces, t.x, t.y, range) then n = n + 1; break end
+    end
+  end
+  return n
+end
+
+--- Plan de garde de l'équipe : plants = { { id, pieces, boilers } } (centrales vivantes, dans l'ordre de la liste), turrets = tourelles de
+--- l'équipe, cap = plafond de tourelles de garde de l'équipe (défaut G.TEAM_MAX). Rend { pick, rows, total, left } ou nil sans centrale
+--- faisable. rows = { { id, need } } (need = G.need de la centrale, nil si infaisable) ; total = places occupées par l'équipe ;
+--- left = places restantes sous le plafond ; pick = { id, need, missing, pieces } ou nil : la centrale à garder maintenant, `missing`
+--- étant bornée par `left`. Rien à garder (tout est gardé) ou plafond atteint : pick = nil.
+function G.plan(plants, turrets, range, low, cap)
+  cap = cap or G.TEAM_MAX
+  local rows, best = {}, nil
+  for _, pl in ipairs(plants or {}) do
+    local need = G.need(pl.pieces, pl.boilers, turrets, range, low)
+    if need then
+      local row = { id = pl.id, need = need, pieces = pl.pieces }
+      rows[#rows + 1] = row
+      -- la moins gardée : near/wanted le plus bas (produit en croix, pas de division), puis le moins de places occupées ; égalité : la première
+      if need.missing > 0 and not pl.rest then -- (pl.rest : au repos après une pose à zéro, comptée mais non choisie)
+        if not best then best = row
+        else
+          local a, b = need.near * best.need.wanted, best.need.near * need.wanted
+          if a < b or (a == b and need.near < best.need.near) then best = row end
+        end
+      end
+    end
+  end
+  if #rows == 0 then return nil end
+  local total = G.near_any(plants, turrets, range)
+  local left = cap - total
+  if left < 0 then left = 0 end
+  local pick = nil
+  if best and left > 0 then
+    pick = { id = best.id, need = best.need, pieces = best.pieces, missing = math.min(best.need.missing, left) }
+  end
+  return { pick = pick, rows = rows, total = total, left = left }
 end
 
 return G
