@@ -100,6 +100,16 @@ T.fuel_low = 3              -- en dessous : ravitaillement urgent
 T.collect_at = 40           -- production en attente qui justifie une tournée
 T.service_period = 3 * 3600 -- tournée d'entretien au moins toutes les 3 minutes
 
+-- Lot AGENCEMENT (retour du DC du 29/10 en jouant la 0.6.16 : « ils peuvent pas vraiment étendre plus loin », « on veut des
+-- rangées de foreuses ») : la fonderie à tapis du plan directeur est une LIGNE qui suit le gisement et le minerai livré, pas la
+-- seule demande (shared/team/ligne.lua, shared/team/rangees.lua, script/team/build.lua line_rows et plan_drills).
+-- grow : faux = la taille de la demande seule (le comportement d'avant) ; cover : part des tuiles minées qui doit porter du minerai
+-- (essayée d'abord ; « 80 % des tuiles quand c'est possible ») ; top_lots : lots de gisement lus pour estimer ce que le gisement
+-- porte ; rows_floor : rangées (2 fours chacune) toujours payables, 4 = les 8 fours « en réserve » que le DC voyait inutilisés ; row_cost : plaques d'une rangée avec ses foreuses (2 fours,
+-- 4 bras, tapis, 1 paire de foreuses électriques : environ 80 plaques de fer) ; stock_share : part du stock de plaques qu'une
+-- croissance de la ligne peut engager.
+T.ligne = { grow = true, cover = 0.8, top_lots = 3, rows_floor = 4, row_cost = 80, stock_share = 0.5 }
+
 -- Fonderie du QG : fours alimentés par les ouvriers (acier, briques, minerai d'appoint).
 T.SMELTER = "stone-furnace"
 T.smelter_inputs = {        -- produit visé -> (entrée, quantité d'entrée par produit)
