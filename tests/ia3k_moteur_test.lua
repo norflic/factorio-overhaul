@@ -296,11 +296,26 @@ local r2 = C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt
 local lab2 = tstats.labels.attente or 0
 check(r1 == false and r2 == false and lab1 == lab0 and lab2 == lab0 + 1,
   "D6 : 1er refus sans étiquette « Trop dangereux », 2e refus avec (" .. lab0 .. " -> " .. lab1 .. " -> " .. lab2 .. ")")
--- Lot INTEG-DEFENSE D-B : une tâche de DÉFENSE (fortify, refill) vers un but sans menace connue n'est plus refusée indéfiniment pour des
--- MORTS de PNJ (2 morts : refus d'une heure, sans issue, pour toute tâche) : elle part après W attentes (escalade), risque accepté.
--- Une autre tâche garde la règle (refus à chaque fois) ; un but À PORTÉE d'une menace connue reste refusé même pour la défense.
+-- Lot INTEG-DEFENSE D-B, revu au lot PORTE-BASE (arbitrage du DC, 29/10) : une tâche de DÉFENSE (fortify, refill) dont les morts de la
+-- route sont TOUTES dans la zone de base (densité de bâtiments, shared/ai3/base.lua) part tout de suite : la base se défend. Une mort HORS
+-- de la base (route vers un lieu sans bâtiments) garde la règle d'IA3-k : refus à chaque fois, sans escalade. Une autre tâche garde la
+-- règle partout ; un but À PORTÉE d'une menace connue reste refusé même pour la défense.
 remote.call("fo-ia3k", "forget", "player")
 local gx4, gy4 = 200, 200
+local ilot = {}
+for ix = -1, 1 do
+  for iy = -1, 1 do
+    ilot[#ilot + 1] = game.surfaces[1].create_entity({ name = "assembling-machine-1", position = { x = gx4 + ix * 3, y = gy4 + iy * 3 }, force = "player" })
+  end
+end
+local logs0 = #W().logs
+local bz = remote.call("fo-ia3k", "base", "player", true, gx4, gy4)
+-- (les sections d'avant ont bâti des avant-postes : foreuses, fours, tourelles ; ils comptent aussi)
+check(bz.inside == true and bz.ents >= 9 and bz.comps >= 2, "PORTE-BASE : îlot de 9 machines autour du but : zone de base (" .. bz.n .. " cases, " .. bz.comps .. " composante(s), " .. bz.ents .. " bâtiments)")
+check(remote.call("fo-ia3k", "base", "player", false, 100, 100).inside == false, "PORTE-BASE : la route à mi-chemin n'est pas la base")
+local base_log = false
+for i = logs0 + 1, #W().logs do if W().logs[i]:find("[FO-BASE] player : zone de base", 1, true) then base_log = true end end
+check(base_log, "PORTE-BASE : journal [FO-BASE] de la taille de la zone")
 remote.call("fo-ia3k", "death", "player", gx4, gy4 - 5)
 remote.call("fo-ia3k", "death", "player", gx4 - 5, gy4)
 local steps4 = { { "home" }, { "goto", { x = gx4, y = gy4 }, 3 }, { "act", "fortify" }, { "home" } }
@@ -310,15 +325,46 @@ for i = 1, 10 do
   if not C.gate(f, ag, { key = "test:service4", kind = "service" }, steps4, t4 + i) then refused_service = refused_service + 1 end
 end
 check(refused_service == 10, "D-B : 2 morts au but, tâche ordinaire : refus à chaque fois (" .. refused_service .. " sur 10)")
-local def_ref, def_went = 0, false
+local pz0 = (remote.call("fo-ia3k", "base", "player").porte_zone["base:go"] or 0)
+local base_went = C.gate(f, ag, { key = "test:fortify4", kind = "fortify", defend = true }, steps4, t4 + 101)
+local pz = remote.call("fo-ia3k", "base", "player").porte_zone
+check(base_went == true and (pz["base:go"] or 0) == pz0 + 1,
+  "PORTE-BASE : 2 morts DANS la base, tâche « fortify » : départ au premier appel, compté base:go")
+check(global.fo.ia3k.agents[ag.id].risk ~= true, "PORTE-BASE : départ ordinaire (pas une escalade, pas de « risque accepté »)")
+local cause_log = false
+for i = logs0 + 1, #W().logs do if W().logs[i]:find("la base se defend", 1, true) then cause_log = true end end
+check(cause_log, "PORTE-BASE : journal [FO-BASE] de la cause (la base se défend)")
+-- Une mort de plus JUSTE HORS de la zone (30 tuiles au nord du but, au-delà de la marge) : plus d'exemption, refus sans escalade.
+remote.call("fo-ia3k", "death", "player", gx4, gy4 - 30)
+local mix_ref = 0
+for i = 1, 10 do
+  if not C.gate(f, ag, { key = "test:fortify4b", kind = "fortify", defend = true }, steps4, t4 + 200 + i) then mix_ref = mix_ref + 1 end
+end
+check(mix_ref == 10, "PORTE-BASE : 2 morts dans la base + 1 hors d'elle sur la route : défense refusée à chaque fois (" .. mix_ref .. " sur 10)")
+check((remote.call("fo-ia3k", "base", "player").porte_zone["hors:wait"] or 0) >= 10, "PORTE-BASE : refus comptés hors:wait")
+for _, en in ipairs(ilot) do en.destroy() end
+-- Même but SANS bâtiments (îlot détruit, zone recalculée) : les morts sont « à perpète », la défense ne part plus (avant ce lot : 4 attentes
+-- puis départ, risque accepté).
+remote.call("fo-ia3k", "forget", "player")
+remote.call("fo-ia3k", "base", "player", true)
+remote.call("fo-ia3k", "death", "player", gx4, gy4 - 5)
+remote.call("fo-ia3k", "death", "player", gx4 - 5, gy4)
+local def_ref = 0
 local ed0 = tstats.escalade_defense or 0
 for i = 1, 10 do
-  if C.gate(f, ag, { key = "test:fortify4", kind = "fortify", defend = true }, steps4, t4 + 100 + i) then def_went = true break end
-  def_ref = def_ref + 1
+  if not C.gate(f, ag, { key = "test:fortify4c", kind = "fortify", defend = true }, steps4, t4 + 400 + i) then def_ref = def_ref + 1 end
 end
-check(def_went and def_ref == 4, "D-B : 2 morts au but, tâche « fortify » : 4 attentes puis départ (" .. def_ref .. " refus)")
-check(global.fo.ia3k.agents[ag.id].risk == true and (tstats.escalade_defense or 0) == ed0 + 1,
-  "D-B : départ marqué « risque accepté » et compté (escalade_defense)")
+check(def_ref == 10 and (tstats.escalade_defense or 0) == ed0,
+  "PORTE-BASE : 2 morts HORS de la base, tâche « fortify » : refus à chaque fois, aucune escalade (" .. def_ref .. " sur 10)")
+local hors_log = false
+for i = logs0 + 1, #W().logs do if W().logs[i]:find("prudence gardee", 1, true) then hors_log = true end end
+check(hors_log, "PORTE-BASE : journal [FO-BASE] de la cause (route meurtrière hors de la base)")
+local logs1 = #W().logs
+C.gate_report(f, t4 + 1000)
+local bilan = nil
+for i = logs1 + 1, #W().logs do if W().logs[i]:find("[FO-BASE] player : bilan", 1, true) then bilan = W().logs[i] end end
+check(bilan ~= nil and bilan:find("base:go 1", 1, true) ~= nil and bilan:find("hors:wait", 1, true) ~= nil,
+  "PORTE-BASE : bilan [FO-BASE] avec les compteurs de la porte par zone (" .. tostring(bilan) .. ")")
 local gx5, gy5 = -200, 200
 remote.call("fo-ia3k", "death", "player", gx5, gy5 - 5)
 remote.call("fo-ia3k", "death", "player", gx5 - 5, gy5)
