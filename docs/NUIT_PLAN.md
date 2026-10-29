@@ -60,3 +60,5 @@ Parqués : layout, recon (visée), fer, couverture, couverture-reco, petrole2, a
 | FORTIFY | 5 graines : 0 erreur, PNJ et tourelles tenus, fer -33 % sur 314159265 et -18 % sur 123456789 a 40 min, sans gain demontre | PARQUE |
 | EFFECTIF | plafond 18-19 PNJ = pas de fer au coffre apres 10 recrues a 4 min, pas une panne de la regle | CLOS ; question DC 16 |
 | MAINS-CHAINE | cause du brief refutee (minerai non garde) ; 40 % des tournees de fonte partent a vide ; regle chaine_main.lua (33 OK, 25 mutants) sans gain mesurable | PARQUE par mainsc |
+
+| POTEAUX-UNIQUES (decision 04 h 25) | criteres de fusion tenus sur 6 graines (mediane alimentes 1,34 ; paires 0,11) MAIS sceptique-pu : NON VALIDE : connectivite en baisse non mesuree par les criteres (poteaux hors reseau de la centrale 15,0 % contre 9,4 %, ilots 109 contre 90, shift_pole bloque 15 fois contre 2 : sans poteaux redondants un poteau gene ne peut plus bouger) ; « alimentes » confond capacite de la centrale et poteaux ; 123456789 -26 % = panne de centrale | PARQUE ; le DC veut « autre voie, pas de redondance » : a reprendre avec shift_pole + critere de connectivite (composantes, poteaux hors service) |
