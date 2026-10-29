@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.8
+Date: 2026-10-29
+  Changes:
+    - Les bras qui nourrissent les chaudieres de la centrale restent a combustion : passes a l'electrique, ils tuaient la centrale
+      en 1,5 a 3,5 min dans 6 cas sur 6 (blackout). Mesure : la centrale garde sa puissance sur 5 graines.
+    - Une sauvegarde 0.6.5 a 0.6.7 dont les bras de centrale sont deja electriques les voit repasser a la combustion au premier
+      releve de la centrale (journal [FO-PLANDIR]).
+    - Un moniteur de centrale ecrit au journal le diagnostic d'une centrale sans courant (charbon du quai, chaudieres, bras).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.7
 Date: 2026-10-28
   Changes:
