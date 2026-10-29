@@ -37,6 +37,8 @@ local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : 
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
+local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
+local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
@@ -390,6 +392,21 @@ function Team.effectif_text(f)
   return { "fo-ia3d.recruit-line", why }
 end
 
+--- Lot INTEG-DEFENSE D-A : la force produit-elle du fer (statistiques de production de la dernière minute) ? Lecture seule, aucun état.
+--- Les fonderies du plan directeur ne sont pas des avant-postes : sans cela, une faction qui forge à plein débit était jugée « sans production »
+--- et gardait le plancher de fer ordinaire (planner : iron_producing, Fr.floors). Moteur simulé sans statistiques : faux.
+local function iron_flow(f)
+  local force = game.forces[f.force]
+  local stats = nil
+  pcall(function() stats = force and force.item_production_statistics end)
+  if not stats then return false end
+  local n = 0
+  pcall(function()
+    n = stats.get_flow_count({ name = T.outposts.iron.product, input = true, precision_index = defines.flow_precision_index.one_minute })
+  end)
+  return type(n) == "number" and n > 0
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Vue
 ---------------------------------------------------------------------------------------------------
@@ -451,7 +468,9 @@ function Team.view(f, tick)
     local o = f.outposts[oid]
     local st = Outposts.status(o, tick)
     outposts[#outposts + 1] = {
-      id = oid, kind = o.kind, drills = o.drills, full = o.full or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
+      -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
+      -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
+      id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
@@ -555,6 +574,7 @@ function Team.view(f, tick)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
+    build_burn = Build.burn_rate(f, game.tick), -- lot INTEG-ECONOMIE (D4) : charbon/s des fours du plan directeur (bilan du charbon du planificateur)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
@@ -565,6 +585,7 @@ function Team.view(f, tick)
     -- prérequis gardés) ; sans chef (avant sa première pensée), T.ladder.
     ladder = f.is_player and T.player_ladder or ChefRules.ladder_entries(f.chef), no_research = f.is_player or false,
     threatened = threatened,
+    survie = Survie.on(f) or nil, -- lot SURVIE-PENURIE : mode survie (décidé à la pensée précédente) : la production passe avant la défense
     open = Board.open(f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)
     -- Lot IA3-d : effectif visé atteint selon la règle (aucun bras ne manque) ; le cerveau d'IA-V2 attendait sinon le
@@ -584,6 +605,10 @@ function Team.view(f, tick)
     front = Front.view(f, fortify_open), -- lot DEFENSE-FRONT : tourelles en plus là où les pièces de l'équipe tombent, et près des laboratoires
     plant = GardeCentrale.view(f, fortify_open, iron0), -- lot CENTRALE-GARDE : tourelles armées à portée de toutes les pièces de la centrale finie
     hq_turrets = hq_turrets, hq_fortify = fortify_open["hq"] or false, hq_defend = f.is_player and T.defend_hq or Front.hq_post(f, hq_turrets, tick), -- une faction garde son QG avec ses 4 tourelles offertes (Fondation.grant) et ses soldats ; lot DEFENSE-FACTIONS D3 : 2 tourelles refaites si une a été perdue ET que le QG a été attaqué
+    iron_flow = ((not f.is_player) and iron_flow(f)) or nil, -- lot INTEG-DEFENSE D-A : lu par shared/team/planner.lua (iron_producing) ; factions seulement : les statistiques de la force « player » comptent l'usine du joueur, pas le coffre de l'équipe
+    -- Lot INTEG-DEFENSE D-D : dernier choix « production d'abord » retenu et nombre de pensées de suite qui ont demandé le contraire (hystérésis
+    -- de Pr.decide ; écrits plus bas par Team.think, f.team.priorite_pf et f.team.priorite_streak)
+    priorite_pf = (f.team.priorite_pf or false), priorite_streak = f.team.priorite_streak or 0,
     hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
@@ -658,6 +683,10 @@ function Team.think(f, surface, tick)
   -- shared/team/priorite.lua), une ligne par changement ; aucune décision n'en dépend.
   local pri = plan.priorite
   local pf = (pri and pri.production_first) or false
+  -- Lot INTEG-DEFENSE D-D : pensées de suite où la règle brute (sans hystérésis) demande l'autre mode que le retenu ; lu par Team.view
+  -- (view.priorite_streak) puis par Pr.decide. Écrit ici, en événement (jamais à on_load).
+  local raw = (pri and pri.raw_first) or pf
+  f.team.priorite_streak = (raw ~= pf) and ((f.team.priorite_streak or 0) + 1) or 0
   if pf ~= (f.team.priorite_pf or false) then
     f.team.priorite_pf = pf
     log(string.format("[FO-PRIORITE] %s : %s a %.1f min : fer %d, defense %d, prochain pas de production %s, mis de cote %d, objectifs militaires sautes %d",
@@ -674,6 +703,7 @@ function Team.think(f, surface, tick)
 
   Profiler.start("team:board")
   Board.sync(f, plan.tasks, tick, plan, view, book_for(f)) -- lot IA3-b : manque de plaques (réglage allumé)
+  Survie.think(f, view, plan, tick) -- lot SURVIE-PENURIE : entrée / sortie du mode survie et ses tâches (minage à la main, fours, foreuses)
   Profiler.stop("team:board")
 
   -- Lot IA1-b : organisation (pôles, managers, généralistes) et travail de fond, sur le tableau synchronisé.
@@ -781,6 +811,7 @@ function Team.think(f, surface, tick)
   -- Lot COUVERTURE : refaire ce qui est détruit AVANT d'améliorer ce qui reste (constat du DC du 28/10).
   Recon.craft_spares(f, book_for(f), stock, tick) -- lot RECONSTRUIRE : objets d'infrastructure électrique à fabriquer
   FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
+  MigChamp.think(f, surface, book_for(f), stock, tick) -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques
   if ia3 and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, stock) end
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])

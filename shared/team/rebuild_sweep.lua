@@ -36,6 +36,7 @@ Sw.HOUR = 3600 * 60    -- 1 h
 Sw.HOUR_MIN = 40       -- plafond horaire par projet (au moins) ; la moitié du projet au-delà de 80 pièces
 Sw.MAX_REBUILD = 4     -- détruite plus de 4 fois dans Sw.FORGET : abandonnée
 Sw.FORGET = 40 * 3600  -- 40 min
+Sw.GAVE_KEEP = 2 * Sw.FORGET -- lot INTEG-RECONSTRUCTION (D3) : un abandon (point tenu par l'ennemi) est levé au bout de 80 min
 
 --- Classe d'une pièce selon le TYPE du moteur : 1 = entrée de production, 2 = le reste, nil = laissée à un autre mécanisme.
 function Sw.class_of(ty, first, skip)
@@ -107,6 +108,7 @@ function Sw.select(cands, tick, safe)
       if e.rb and e.rb_t and tick - e.rb_t > Sw.FORGET then e.rb = nil end
       if (e.rb or 0) >= Sw.MAX_REBUILD then
         e.gave_up = true
+        e.gave_t = tick -- lot INTEG-RECONSTRUCTION (D3) : date de l'abandon (Sw.gave_expired)
         gave[#gave + 1] = c
       else
         if not q.sw_t or tick - q.sw_t >= Sw.HOUR then q.sw_t, q.sw_n, q.sw_n1 = tick, 0, 0 end
@@ -151,6 +153,46 @@ function Sw.follow(m, s, tick)
   m.made_prev = nil -- compteur de fabrication relu à zéro au retour à « fini » (sinon la production de toute la réparation compte dans UNE minute)
   m.reserve_since, m.reserve_left = nil, nil
   return true
+end
+
+--- Lot INTEG-RECONSTRUCTION (D4) : un projet du plan directeur ROUVERT retient-il les améliorations ? (« refaire avant d'améliorer » : le
+--- registre de reconstruction, seul lu par Rc.hold_upgrades, ne contient plus les pièces des projets depuis REBUILD-TOUT, donc Capital.pay
+--- dépensait les plaques de la réserve d'une fonderie à refaire.) Vrai si le projet a été rouvert il y a au plus Sw.HOLD_MAX ticks
+--- (q.reopened_tick, écrit par le relevé et le réseau vivant), est encore à refaire (réserve, défrichage, fantômes, chantier) et garde
+--- des pièces à refaire (Sw.todo). Pas de condition sur le stock : ce qui manque se fabrique avec les plaques que l'amélioration prendrait.
+--- Lecteur : script/team/reconstruction.lua (Recon.hold_upgrades) -> script/team/team.lua (Capital.pay).
+Sw.HOLD_MAX = 20 * 3600  -- comme Rc.HOLD_MAX : un site tenu par l'ennemi ne gèle pas les améliorations
+Sw.HOLD_STATES = { reserve = true, defrichage = true, fantomes = true, chantier = true }
+function Sw.project_holds(q, tick)
+  if not (q and q.reopened and q.reopened_tick and Sw.HOLD_STATES[q.state]) then return false end
+  if tick - q.reopened_tick > Sw.HOLD_MAX then return false end
+  local _, pieces = Sw.todo(q)
+  return pieces > 0
+end
+
+--- Lot INTEG-RECONSTRUCTION (D3) : l'abandon d'une pièce détruite trop souvent (e.gave_up par Sw.select) est-il levé ? Vrai au bout de
+--- Sw.GAVE_KEEP ticks : le point n'est plus tenu depuis longtemps, la pièce redevient observable (historique remis à zéro). Jamais pour une
+--- pièce retirée à la main (e.hand_gave : voulu par le joueur) ni pour un abandon sans date (sauvegarde d'avant ce lot : on ne sait pas si
+--- c'était un retrait à la main, il reste définitif comme avant). Lecteur : script/team/rebuild_sweep.lua (Sweep.step).
+function Sw.gave_expired(e, tick)
+  if not e.gave_up or e.hand_gave or not e.gave_t then return false end
+  return tick - e.gave_t >= Sw.GAVE_KEEP
+end
+
+--- Lot INTEG-RECONSTRUCTION (D2) : un fantôme refusé trop souvent dans un projet. Un projet ordinaire est « bloque » (reprises à retardement,
+--- puis abandon du projet) ; un projet ROUVERT (`reopened` > 0) dont les `max_retries` reprises sont épuisées abandonne la PIÈCE refusée
+--- ("abandon") : sans cela il mourait « bloque » sans reprise, objets réservés gelés et emplacement d'automatisation (A.MAX_OPEN) occupé
+--- pour la partie. Lecteur : script/team/build.lua (advance, état « chantier »).
+function Sw.refusal_verdict(reopened, retries, max_retries)
+  if (reopened or 0) > 0 and (retries or 0) >= max_retries then return "abandon" end
+  return "bloque"
+end
+
+--- Lot INTEG-RECONSTRUCTION (D1) : l'enregistrement `m` du cerveau fait-il un but « auto:<produit> » ? Un module ordinaire : oui. Un module
+--- demandé par la capitalisation (m.capi) : non, son ordre CAPI porte le but, SAUF s'il a été rouvert par le relevé (m.reopened_at) : l'ordre
+--- est alors fermé depuis que tous ses modules étaient finis, et aucun autre émetteur ne demanderait les objets à refaire.
+function Sw.goal_for_module(m)
+  return not m.capi or m.reopened_at ~= nil
 end
 
 --- Le module `m` est de nouveau fini : rend la durée de la réparation en ticks (nil s'il n'avait pas été rouvert) et efface la marque.

@@ -386,6 +386,7 @@ end
 --- COMPLET du gisement (rayon Outposts.RADIUS.extend, emplacements occupés écartés sans coût) sans emplacement restant. Plafond
 --- d'essais atteint ou ouvrier sans objets : pas plein, le prochain appel reprend. Journal [FO-EXTEND].
 function Outposts.extend(f, surface, o, carrier)
+  if o.migr then return 0 end -- lot MIGRATION-CHAMP : le champ est migré vers des foreuses électriques en rangées, pas de paire thermique de plus
   local spec = T.outposts[o.kind]
   if Outposts.on_arrive then Outposts.on_arrive(f, nil, o.id) end
   local room = T.max_drills(o.kind) - o.drills
@@ -428,7 +429,7 @@ function Outposts.reopen(f)
   local n = 0
   for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
     local o = f.outposts[oid]
-    if o.full and o.full_by ~= "pose_paires" and not o.hold_until and (o.drills or 0) < T.max_drills(o.kind) then
+    if o.full and o.full_by ~= "pose_paires" and not o.migr and not o.hold_until and (o.drills or 0) < T.max_drills(o.kind) then
       o.full, o.ext_dead = false, nil
       n = n + 1
     end
@@ -613,7 +614,10 @@ function Outposts.status(o, tick)
   end
   for _, s in ipairs(valid_list(o.sinks)) do output = output + output_of(s) end
   o.turret_list = valid_list(o.turret_list)
-  return { fuel_low = low, output = output, turrets = #o.turret_list, idle_ticks = tick - (o.last_service or 0) }
+  -- Lot MIGRATION-CHAMP : un champ entièrement migré n'a plus rien à ravitailler ni à collecter ici (la fonderie du plan a ses coffres) :
+  -- pas de tournée d'entretien « à l'heure » (les tourelles gardent leur ravitaillement par leurs propres tâches)
+  local idle = (o.migr == "fini" and #valid_list(o.drill_list) == 0) and 0 or (tick - (o.last_service or 0))
+  return { fuel_low = low, output = output, turrets = #o.turret_list, idle_ticks = idle }
 end
 
 --- Charbon à apporter pour compléter tous les brûleurs d'une liste.

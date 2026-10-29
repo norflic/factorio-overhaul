@@ -131,6 +131,8 @@ local function minimal_items(kind)
   return { { T.DRILL, n }, { spec.sink, n }, { T.fuel, fuel } }
 end
 
+function P.minimal_items(kind) return minimal_items(kind) end -- lot SURVIE-PENURIE (shared/team/survie.lua : agrandissement avec 2 paires)
+
 --- Le palier `goal` est-il atteint ? Renvoie atteint, liste des besoins (avant-postes, objets...).
 local function goal_status(goal, view)
   local need = goal.need
@@ -335,6 +337,7 @@ function P.plan(view, book)
   local floor0 = view.recover_floor or (view.emergency and view.emergency.floor) or 0
   local decimated = df and view.workers < floor0
   local function turret_items(n, ammo_each) return { { "gun-turret", n }, { T.turret_ammo, n * (ammo_each or T.defend_ammo) } } end
+  local PARTIAL_POSTS = { hq = true, plant = true, front = true } -- postes servis par une commande partielle (lot INTEG-DEFENSE 3.4)
   local iron_key = T.outposts.iron.product -- (PRIORITE-RESSOURCES) clé du fer, lue à la config ; remontée avant les postes pour le drapeau `iron` (DEFENSE-FACTIONS D5)
   -- Postes à défendre (le QG, les avant-postes sans leurs tourelles, la centrale, le front), dans l'ordre où l'urgence les sert.
   -- Lot PRIORITE-RESSOURCES : construits ICI (sans effet de bord) parce que leur coût décide de l'ordre production / défense.
@@ -389,15 +392,24 @@ function P.plan(view, book)
       local p = book:plan(list, stock or avail)
       return (p.uses[iron_key] or 0) + (p.raw[iron_key] or 0), p
     end
-    local n_miss = 0
+    -- Lot INTEG-DEFENSE D-C : le coût de la défense est celui de ce qui est RÉELLEMENT servi : le QG, la centrale et le front le sont par
+    -- une commande PARTIELLE quand la complète n'est pas payable (Fr.PARTIAL_COUNT tourelle, Fr.PARTIAL_AMMO chargeurs) ; compter leur
+    -- commande complète (240 de fer pour 2 tourelles du front, 480 pour le QG) gardait « production d'abord » jusqu'à ~410 de fer alors
+    -- que la défense se servait dès 230.
+    local n_miss, n_part = 0, 0
     for _, p in ipairs(posts) do
       if p.have < p.want and not p.busy and not open["fortify:" .. p.id] then
         local n = p.want - p.have
         if not turret_craftable then n = math.min(n, avail[T.turret] or 0) end
-        n_miss = n_miss + n
+        if PARTIAL_POSTS[p.id] then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end
       end
     end
-    local cd = n_miss > 0 and iron_cost(turret_items(n_miss)) or 0
+    local cd = 0
+    if n_miss + n_part > 0 then
+      local list = turret_items(n_miss + n_part)
+      list[2][2] = n_miss * T.defend_ammo + n_part * math.max(1, Fr.PARTIAL_AMMO)
+      cd = iron_cost(list)
+    end
     -- Premier objectif de l'échelle non atteint, s'il est militaire : son coût s'ajoute (les tourelles sont déjà comptées).
     do
       local done_g, deferred_g = view.done or {}, view.deferred or {}
@@ -450,7 +462,10 @@ function P.plan(view, book)
     end
     -- Fer que la défense peut dépenser : au-dessus de T.defend_iron_floor (la fabrication des tourelles ne descend pas dessous,
     -- want_defense) ; sans cela le mode « défense payée » restait vrai à 140 de fer alors que rien ne pouvait s'acheter.
-    pri = Pr.decide({ funds = (avail[iron_key] or 0) - T.defend_iron_floor, defense_cost = cd, production_cost = Pr.cheapest(steps), survival = decimated })
+    pri = Pr.decide({ funds = (avail[iron_key] or 0) - T.defend_iron_floor, defense_cost = cd, production_cost = Pr.cheapest(steps),
+      survie = view.survie, -- lot SURVIE-PENURIE : mode survie de l'équipe (script/team/survie.lua) -> la production d'abord
+      survival = decimated,
+      prev_pf = view.priorite_pf, streak = view.priorite_streak or 0 }) -- lot INTEG-DEFENSE D-D : bascule confirmée sur 2 pensées
   end
   out.priorite = pri
   -- Production d'abord : un avant-poste sans sa tourelle s'agrandit quand même et un nouvel avant-poste se bâtit sans les siennes
@@ -490,6 +505,8 @@ function P.plan(view, book)
     local spec = T.outposts[o.kind]
     if spec and spec.product == def_iron and (o.drills or 0) > 0 then iron_producing = true end
   end
+  -- Lot INTEG-DEFENSE D-A : le fer qui coule des fonderies du plan directeur (pas des avant-postes) compte aussi (view.iron_flow, statistiques de la force)
+  if view.iron_flow then iron_producing = true end
   --- Objets d'une construction d'avant-poste `kind` de `n_drills` foreuses : `items`, plus ses tourelles si elles sont
   --- au stock virtuel. nil : la construction attend ses tourelles (demandées ici si la recette est connue) ou n'a pas
   --- lieu (règle de repli).
@@ -541,6 +558,7 @@ function P.plan(view, book)
       burn_rate = burn_rate + o.drills * 0.0375 + (spec.sink == "stone-furnace" and o.drills * 0.0225 or 0)
     end
     burn_rate = burn_rate + view.smelters * 0.0225
+    burn_rate = burn_rate + (view.build_burn or 0) -- lot INTEG-ECONOMIE (D4) : fours à combustible du plan directeur (relevé de script/team/build.lua)
     out.coal_rate, out.burn_rate = coal_rate, burn_rate
     if #view.outposts > 0 and coal_rate < 1.4 * burn_rate and (view.pending.coal or 0) == 0 then
       local items = outpost_items("coal")
@@ -592,11 +610,17 @@ function P.plan(view, book)
     for _, o in ipairs(view.outposts) do if lacking[o.id] then waiting = waiting + 1 end end
     -- Lot PRIORITE-RESSOURCES : en « production d'abord », le fer du prochain pas de production (pri.hold) est mis de côté le temps
     -- d'acheter la défense : elle ne dépense que le fer au-delà. Il revient au stock juste après (reconstruction, objectif).
+    -- Lot INTEG-DEFENSE 3.3 : le QG est servi AVANT le hold (le fer mis de côté ne retient pas le QG : « le QG d'abord » d'IA1-b2 ne devient
+    -- pas « le QG après un pas de production ») ; le hold est retiré du stock au premier poste suivant, et rendu après la boucle.
     local held = math.min(pri.hold or 0, avail[iron_key] or 0)
-    avail[iron_key] = (avail[iron_key] or 0) - held
+    local held_taken = false
     -- Lot DEFENSE-FACTIONS D1 : pourquoi chaque poste n'est pas servi (journal [FO-DEFENSE], script/team/defense_log.lua) ; aucune décision n'en dépend.
     local dposts = {}
     for _, p in ipairs(posts) do
+      if p.id ~= "hq" and not held_taken then
+        avail[iron_key] = (avail[iron_key] or 0) - held
+        held_taken = true
+      end
       local key = "fortify:" .. p.id
       local d = nil
       if p.have < p.want then
@@ -617,11 +641,16 @@ function P.plan(view, book)
             if take(items) then
               task_of(items)
               d.why = "tache_creee"
-            elseif p.id == "front" then
+            elseif PARTIAL_POSTS[p.id] then
               -- Lot DEFENSE-FACTIONS D4 : plancher réduit si la cellule est très attaquée et que le fer est encore produit (Fr.floors), puis,
               -- si la commande complète n'est pas payable, une commande PARTIELLE (Fr.PARTIAL_COUNT tourelle, Fr.PARTIAL_AMMO chargeurs)
               -- au lieu du tout-ou-rien d'avant (240 fer pour 2 tourelles pleines au-dessus d'un plancher de 150).
-              local fi, fc, reduced = Fr.floors(p.score, iron_producing, T.defend_iron_floor, T.defend_copper_floor)
+              -- (lot INTEG-DEFENSE 3.4 : le QG et la centrale ont la même commande partielle, aux planchers ordinaires ;
+              -- D3 : le plancher réduit du front garde au moins le fer du prochain pas de production, pri.production_cost)
+              local fi, fc, reduced = T.defend_iron_floor, T.defend_copper_floor, false
+              if p.id == "front" then
+                fi, fc, reduced = Fr.floors(p.score, iron_producing, T.defend_iron_floor, T.defend_copper_floor, pri.production_cost)
+              end
               d.floor_i, d.floor_cu, d.reduced = fi, fc, reduced or nil
               if affordable(items, fi, fc) then
                 d.why = want_defense(items, fi, fc) and "fabrication" or "manque"
@@ -637,6 +666,15 @@ function P.plan(view, book)
                 else
                   local _, pp = affordable(part, fi, fc)
                   d.why, d.partial, d.raw = "fer", true, pp.raw
+                  -- Intégration 0.6.18 : le QG et la centrale gardent leur DEMANDE de matières (ce qui manque à la commande partielle
+                  -- au-dessus des planchers), comme want_defense le faisait avant 3.4 ; sans elle, ni minage ni fonte du fer de leurs
+                  -- tourelles (tests/survie_moteur_test.lua §4). Le front garde la règle de D4 (aucune demande).
+                  if p.id ~= "front" then
+                    local ks = {}
+                    for k in pairs(pp.raw) do ks[#ks + 1] = k end
+                    table.sort(ks)
+                    for _, k in ipairs(ks) do raw_short[k] = (raw_short[k] or 0) + pp.raw[k] end
+                  end
                 end
               end
             else
@@ -648,7 +686,7 @@ function P.plan(view, book)
       end
       if d then dposts[#dposts + 1] = d end
     end
-    avail[iron_key] = (avail[iron_key] or 0) + held
+    if held_taken then avail[iron_key] = (avail[iron_key] or 0) + held end
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0, posts = dposts }
   end
   -- R-QCM-25c (b) « L'équipe le défend » : view.hq_guards PNJ armés au coffre (guerre déclarée au joueur), relevés.

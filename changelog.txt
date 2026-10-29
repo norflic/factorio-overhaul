@@ -1,4 +1,16 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.18
+Date: 2026-10-29
+  Changes:
+    - Mode survie (retour du DC) : une equipe en penurie durable ET paralysee (porte « trop dangereux », menace) recolte a la main hors du danger immediat, pose ses fours de reserve et agrandit l'avant-poste le plus proche et sur ; la production passe d'abord ; sortie 5 min apres la fin du manque. Journal [FO-SURVIE].
+    - Migration du champ : un avant-poste de paires foreuse thermique + four sur le minerai est migre par parties vers des foreuses electriques en rangees reliees a une ligne de fonte, sans que la production tombe a 0 ; rien n'est demonte pres d'un nid. Journal [FO-MIGRATION].
+    - Poteaux : releve paresseux des obstacles par chunk le long du trajet, borne par tick, pour que la recherche de chemin contourne falaises et eau loin du module. Journal [FO-MASQUES].
+    - Corrections d'integration (relecture des interactions entre lots de la 0.6.17) :
+      defense : une tache de pose ou de ravitaillement de tourelle n'attend plus une heure a cause de morts de PNJ quand aucune menace connue n'est au but (part apres quelques attentes, risque accepte) ; commande partielle pour le QG et la centrale ; le fer retenu pour la production ne bloque plus les tourelles du QG ; bascule production/defense confirmee sur 2 pensees ; tourelle genante recuperee au lieu d'etre detruite ;
+      economie : le cerveau des factions respecte « les ressources d'abord » pour ses kits de soldats ; un module reduit apres un echec reste reduit ; le charbon des fonderies entre dans le bilan du charbon ; le signal de site proche bloque est lu ;
+      reconstruction : corrections du suivi des projets rouverts et des pieces abandonnees (journal [FO-REBUILD]).
+    - Rien n'a ete rejoue en partie : relecture statique independante de chaque lot, tests hors jeu verts (pvp_test 1305), un content.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.17
 Date: 2026-10-29
   Changes:

@@ -68,6 +68,8 @@ local Adopte = require("script.team.adopte") -- lot ADOPTE : machines du joueur 
 local Equip = require("script.team.equiper") -- lot LEVIERS : tâche « equiper »
 local Lv = require("shared.ai3.leviers")
 local MM = require("shared.content.module_mult")
+local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie (la production passe avant la défense)
+local Sv = require("shared.team.survie")
 
 local Capi = {}
 
@@ -673,6 +675,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.mining = (force and force.mining_drill_productivity_bonus) or 0
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
+  local threat, production_first = Sv.capi(Survie.on(f), view.threatened or false, (f.team and f.team.priorite_pf) or false)
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
   -- d'avant (croissance des buts et vagues de SCALE) : leur combustible est porté par les PNJ, un travail récurrent que
@@ -820,9 +823,11 @@ local function build_input(f, cs, view, book, tick, D, w)
     deposits = deposits, open = open, sinks = cs.bench_sinks or {}, need = need, research = research, drill_for = drill_for,
     limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
-    weights = w or {}, threat = view.threatened or false, dt = 1, lag = cs.lag,
+    weights = w or {}, threat = threat, dt = 1, lag = cs.lag,
     -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
-    production_first = (f.team and f.team.priorite_pf) or false,
+    -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
+    -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
+    production_first = production_first,
   }
 end
 
@@ -874,10 +879,12 @@ local function execute(f, cs, o, view, book, tick, research)
       local ids, why = {}, nil
       local rkey = Rp.key(meth.product, o.deposit)
       local repli = repli_book(cs)
+      local shrunk = Rp.factor(repli, rkey, tick) < 1 -- lot INTEG-ECONOMIE (D2) : module réduit après un échec de matériaux
       for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick))) do
         local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
+          shrunk = shrunk or nil,
           rate_nom = (g.nominal[meth.product] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, near = near, pole = g.pole,
           capi = o.key, why = string.format("CAPI %s %s x%d T=%.2f", o.kind, tostring(o.deposit), o.n or 0, o.T or 0) },
           tick, research)

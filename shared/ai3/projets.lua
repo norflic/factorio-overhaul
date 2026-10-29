@@ -435,9 +435,42 @@ EMIT.smelters = function(E, proj, g)
   return "matiere"
 end
 
---- Réserve d'un objet (munitions) : besoin d'accumulation.
+--- Lot INTEG-ECONOMIE (D1) : « la production d'abord » (E.priorite, shared/team/priorite.lua) était lue par EMIT.outpost seulement ;
+--- les projets d'ARMÉE et de RÉSERVE de munitions de la famille permanente puisaient le fer que le planificateur venait de
+--- réserver au pas de production (`hold`) : Écarlate, pauvre en fer, payait ses soldats et ses chargeurs avant ses fonderies.
+--- `fn` s'exécute avec le fer RÉSERVÉ à la production retiré du stock virtuel (la défense ne dépense que le fer au-delà : la
+--- même règle que `defense_budget` du planificateur) ; rendu ensuite. Sans `production_first`, ou pour une part MINIMALE
+--- (`minimal` : premiers soldats, réserve de chargeurs jusqu'à B.AMMO_MIN), rien ne change.
+local function with_hold(E, minimal, fn)
+  local pri = E.priorite
+  if minimal or not (pri and pri.production_first) then return fn() end
+  local hold = pri.hold or 0
+  local keep = math.min(E.avail[P.IRON] or 0, hold)
+  if keep <= 0 then return fn() end
+  E.avail[P.IRON] = (E.avail[P.IRON] or 0) - keep
+  local a, b = fn()
+  E.avail[P.IRON] = (E.avail[P.IRON] or 0) + keep
+  return a, b
+end
+
+--- Réserve d'un objet (munitions) : besoin d'accumulation. Production d'abord : la part MINIMALE (g.minimal_n) est servie
+--- comme avant, le reste après le fer réservé à la production (lot INTEG-ECONOMIE, D1).
 EMIT.stock = function(E, proj, g)
-  return P.want(E, proj, { { g.item, g.n } }, proj.prio, true, "stock") and "ok" or "matiere"
+  local pf = E.priorite ~= nil and E.priorite.production_first == true
+  local mini = pf and math.min(g.n or 0, g.minimal_n or 0) or 0
+  if mini <= 0 then
+    return with_hold(E, false, function()
+      return P.want(E, proj, { { g.item, g.n } }, proj.prio, true, "stock") and "ok" or "matiere"
+    end)
+  end
+  local ok1 = P.want(E, proj, { { g.item, mini } }, proj.prio, true, "stock-min")
+  local ok2 = true
+  if (g.n or 0) - mini > 0 then
+    ok2 = with_hold(E, false, function()
+      return P.want(E, proj, { { g.item, g.n - mini } }, proj.prio, true, "stock")
+    end)
+  end
+  return (ok1 and ok2) and "ok" or "matiere"
 end
 
 --- Armée : un lot de T.kit_batch soldats. Le soldat est le MEILLEUR dont l'équipement est au stock ou se fabrique
@@ -446,6 +479,9 @@ end
 --- Moteur simulé de pvp_test, essai 6 de ce lot : toujours le grenadier (8 grenades, 80 charbons par soldat) faute
 --- de mieux, charbon à 9, l'armée ne se refaisait plus après une attaque (19 soldats de 20 à 30 min).
 EMIT.army = function(E, proj, g, ctx)
+  return with_hold(E, g.minimal, function() return P.EMIT_army(E, proj, g, ctx) end)
+end
+P.EMIT_army = function(E, proj, g, ctx)
   local view = E.view
   local n = math.min(T.kit_batch, (g.target or 0) - (view.soldiers or 0))
   if n <= 0 or E.train then return "ok" end

@@ -189,6 +189,8 @@ Events.on(defines.events.on_robot_mined_entity, on_hand_removed)
 
 --- Y a-t-il des pièces refaisables en attente ? (« améliorer attend » : Ia3.capital_pay)
 function Recon.hold_upgrades(f)
+  -- lot INTEG-RECONSTRUCTION (D4) : un projet du plan directeur rouvert retient aussi (ses pièces ne sont pas au registre)
+  if Sweep.hold(f, game.tick) then return true end
   local s = f.recon
   if not s then return false end
   return Rc.hold_upgrades(s, function(item) return Stock.count(f, item) end, game.tick)

@@ -828,7 +828,8 @@ function A.emit(P)
   return function(E, proj, g)
     local state = g.status
     if state == "bloque" then return "bloque", "module:" .. tostring(g.reason or "?") end
-    if state == "reserve" and g.missing and #g.missing > 0 then
+    -- Lot INTEG-RECONSTRUCTION (D6) : un projet ROUVERT garde ses manques aussi en fantômes / chantier (refresh_missing de build.lua les relit)
+    if (state == "reserve" or state == "defrichage" or state == "fantomes" or state == "chantier") and g.missing and #g.missing > 0 then
       P.want(E, proj, g.missing, proj.prio, false, "module")
       return "matiere"
     end

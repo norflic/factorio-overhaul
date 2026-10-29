@@ -29,6 +29,8 @@ local State = require("script.faction.state")
 local Character = require("script.faction.character")
 local Worker = require("script.team.worker")
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné (minerai, arbres)
+local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (porte assouplie pour les tâches de ressources)
+local Sv = require("shared.team.survie")
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
@@ -429,6 +431,7 @@ function M.plan(f, agent, p, goal, tick, opts)
   end
   res.exact_max = mx
   res.exact_goal = D.exact_at(prep, goal.x, goal.y)
+  res.threat_goal = D.exact_at(prep, goal.x, goal.y, true) -- lot INTEG-DEFENSE : le même sans les morts de PNJ (menaces seules)
   Profiler.fstop("plan:exact")
   return res
 end
@@ -579,8 +582,14 @@ function M.gate(f, agent, task, steps, tick)
   local far = d2(f.hq_pos, dest) > M.SAFE_RADIUS * M.SAFE_RADIUS
   local prud = M.character(f)
   local free = M.escort_free and M.escort_free(f) or 0
-  local decision, why = D.gate({ blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far },
-    { B = res.B, prudence = prud, escort_ok = free >= 2 })
+  local ginfo = { blocked = res.blocked, max_d = res.exact_max, goal_d = res.exact_goal, deaths = deaths, far = far }
+  local sv_deaths = Survie.gate_deaths(f, task.kind) -- lot SURVIE-PENURIE : mode survie ET tâche de ressources (nil sinon)
+  local decision, why = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2, survie_deaths = sv_deaths })
+  if sv_deaths then
+    -- Même entrée sans le mode : la décision ordinaire, pour compter ce que le mode a changé (journal [FO-SURVIE]).
+    local d0, w0 = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2 })
+    Survie.note_gate(f, tick, d0, w0, decision, why)
+  end
   Profiler.fstop("gate:post")
   local a = astate(agent)
   a.escort, a.risk = nil, nil
@@ -610,7 +619,14 @@ function M.gate(f, agent, task, steps, tick)
   local dk = D.key(D.cell(dest.x), D.cell(dest.y))
   t.waits = t.waits or {}
   local refused_n = nil -- refus de suite pour cette destination (lot DEFENSE-FACTIONS D6 : étiquette au 2e)
-  if decision == "wait" and why ~= "morts" and why ~= "mort" then
+  -- Lot INTEG-DEFENSE D-B : une tâche de DÉFENSE (poser ou ravitailler les tourelles de l'équipe : « fortify », « refill ») vers un but
+  -- sans menace CONNUE à portée (menaces fixes ou mobiles ; les MORTS de PNJ n'en sont pas) n'est pas refusée indéfiniment pour des
+  -- morts : les pièces tombent là où l'on meurt, et la porte bloquait alors le renfort une heure entière (D.HOUR). L'escalade
+  -- ci-dessous la laisse partir après W attentes, risque accepté (les réflexes du PNJ restent). Les autres tâches gardent la règle
+  -- d'IA3-k (la mort reste un refus sans issue) ; un but à portée d'une menace connue reste refusé pour tous.
+  local defense_free = (task.kind == "fortify" or task.kind == "refill") and (res.threat_goal or res.exact_goal) < res.B
+  local goal_free = res.exact_goal < res.B or defense_free
+  if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) then
     local w = t.waits[dk]
     if not w then
       w = { n = 0 }
@@ -631,19 +647,20 @@ function M.gate(f, agent, task, steps, tick)
         if d2(q, th) <= (th.r + 16) * (th.r + 16) then th.b = tick break end
       end
     end
-    local W = math.max(2, math.min(6, math.floor(4 * prud / 1000)))
+    local W = Sv.escalade_w(math.max(2, math.min(6, math.floor(4 * prud / 1000))), sv_deaths ~= nil) -- lot SURVIE-PENURIE : escalade dès 2 refus
     refused_n = w.n
     -- Jamais d'escalade vers un BUT à portée réelle d'une menace connue (D.danger_exact au but >= seuil) : le PNJ y
     -- mourrait ou ferait demi-tour à portée ; seuls un nettoyage ou un autre site le débloquent (final-3958412
     -- memoire-123456789 : PNJ tué par un ver après une escalade vers un but à 4 150 de danger, seuil 650).
-    if w.pass and tick < w.pass and res.exact_goal < res.B then
+    if w.pass and tick < w.pass and goal_free then
       -- Lot DEFENSE-FACTIONS D6 : passe-droit de M.PASS_TICKS après une escalade accordée (même condition qu'elle : but hors de portée)
       decision, why = "go", "passe-droit"
       a.risk = true
       w.n = 0 -- (le cycle de refus repart de zéro à l'expiration du passe-droit)
       refused_n = nil
       t.stats.passe_droit = (t.stats.passe_droit or 0) + 1
-    elseif w.n > W and res.exact_goal < res.B then
+    elseif w.n > W and goal_free then
+      if defense_free and (why == "morts" or why == "mort" or res.exact_goal >= res.B) then t.stats.escalade_defense = (t.stats.escalade_defense or 0) + 1 end -- lu par gate_report
       decision, why = "go", "escalade"
       a.risk = true
       w.n = 0
@@ -658,6 +675,7 @@ function M.gate(f, agent, task, steps, tick)
   end
   inc(t.stats.gate, decision)
   inc(t.stats.gate_why, decision .. ":" .. why)
+  if decision == "wait" then Survie.note_wait(f, tick) end -- lot SURVIE-PENURIE : un refus de plus (paralysie, shared/team/survie.lua)
   if decision == "wait" then
     -- Lot DEFENSE-FACTIONS D6 : « Trop dangereux » seulement au 2e refus de suite (ou si des morts le disent) ; le premier refus ne réécrit pas
     -- l'étiquette du PNJ. La décision, elle, ne change pas.
@@ -718,9 +736,9 @@ function M.gate_report(f, tick)
     total, d_total = total + now[k], d_total + d
     parts[#parts + 1] = string.format("%s %d (+%d)", k, now[k], d)
   end
-  log(string.format("[FO-IA3K] %s : bilan de la porte a %.1f min%s : %d decisions (+%d en 5 min) {%s} ; escalades %d, passe-droits %d, reciblages %d, morts marquees %d",
+  log(string.format("[FO-IA3K] %s : bilan de la porte a %.1f min%s : %d decisions (+%d en 5 min) {%s} ; escalades %d (dont defense malgre des morts %d), passe-droits %d, reciblages %d, morts marquees %d",
     tostring(f.key), tick / 3600, first and " (premier)" or "", total, d_total, table.concat(parts, ", "), t.stats.escalade or 0,
-    t.stats.passe_droit or 0, t.stats.retarget or 0, t.stats.deaths or 0))
+    t.stats.escalade_defense or 0, t.stats.passe_droit or 0, t.stats.retarget or 0, t.stats.deaths or 0))
 end
 
 ---------------------------------------------------------------------------------------------------

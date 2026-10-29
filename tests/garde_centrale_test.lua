@@ -295,5 +295,26 @@ do
   check(mn.pick.id == 10 and G.plan({ A, B }, gA, RANGE, LOW).pick.id == 11, "mutant « tourelles ignorées » refusé : il garderait A déjà gardée")
 end
 
+-- Lot INTEG-DEFENSE 3.4 : une faction pauvre garde sa centrale par une commande PARTIELLE (1 tourelle, 10 chargeurs) au lieu d'attendre
+-- les 240 de fer de 2 tourelles pleines (+ le plancher : 390).
+do
+  local function plant_post(plan)
+    for _, d in ipairs(plan.defend and plan.defend.posts or {}) do if d.id == "plant" then return d end end
+    return nil
+  end
+  local function crafts(plan)
+    local n = 0
+    for _, t in ipairs(plan.tasks) do if t.kind == "craft" and t.tag == "defense" then n = n + 1 end end
+    return n
+  end
+  local pp = Planner.plan(view({ stock = { ["iron-plate"] = 300, ["copper-plate"] = 100 }, plant = plant() }), book)
+  check(plant_post(pp) and plant_post(pp).partial == true and plant_post(pp).why == "fabrication" and crafts(pp) >= 2,
+    "3.4 : fer 300 (< 390) : la centrale est servie par la commande partielle (" .. tostring(plant_post(pp) and plant_post(pp).why) .. ")")
+  local pq = Planner.plan(view({ stock = { ["iron-plate"] = 170, ["copper-plate"] = 100 }, plant = plant() }), book)
+  check(plant_post(pq) and plant_post(pq).why == "fer" and crafts(pq) == 0, "3.4 : fer 170 : sous le plancher ordinaire, rien n'est fabriqué")
+  local pr2 = Planner.plan(view({ stock = { ["iron-plate"] = 2000, ["copper-plate"] = 500 }, plant = plant() }), book)
+  check(plant_post(pr2) and plant_post(pr2).partial == nil and plant_post(pr2).why == "fabrication", "3.4 : fer largement suffisant : commande complète, comme avant")
+end
+
 print(string.format("[GARDE-CENTRALE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

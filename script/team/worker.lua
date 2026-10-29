@@ -487,7 +487,9 @@ function Worker.program(f, task, surface, tick)
       -- ia3c-default graine 20261020, Ambre, 28 PNJ tués en minage à la main près d'un nid à 35 tuiles de son QG.
       -- Lot KIT : une autre ressource sur la même tuile (cristal sur du charbon) : le moteur sélectionne l'autre, rien ne vient
       if busy == 0 and Harvest.foreign_resource(surface, p, task.resource, f) then busy = 1 end
-      if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = Worker.DANGER_RADIUS,
+      -- Lot SURVIE-PENURIE : un minage du mode survie (task.danger_radius, shared/team/survie.lua) tolère un nid ou un ver plus proche
+      -- (30 tuiles au lieu de 40) : « hors du danger immédiat », sans quoi un QG encerclé de nids ne trouve plus aucune tuile.
+      if busy == 0 and (task.fond or task.prudent) and surface.count_entities_filtered({ position = p, radius = task.danger_radius or Worker.DANGER_RADIUS,
         force = "enemy", type = { "unit-spawner", "turret" }, limit = 1 }) > 0 then
         busy = 1
       end

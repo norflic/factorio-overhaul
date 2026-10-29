@@ -296,6 +296,40 @@ local r2 = C.gate(f, ag, { key = "test:service3", kind = "service" }, steps3, tt
 local lab2 = tstats.labels.attente or 0
 check(r1 == false and r2 == false and lab1 == lab0 and lab2 == lab0 + 1,
   "D6 : 1er refus sans étiquette « Trop dangereux », 2e refus avec (" .. lab0 .. " -> " .. lab1 .. " -> " .. lab2 .. ")")
+-- Lot INTEG-DEFENSE D-B : une tâche de DÉFENSE (fortify, refill) vers un but sans menace connue n'est plus refusée indéfiniment pour des
+-- MORTS de PNJ (2 morts : refus d'une heure, sans issue, pour toute tâche) : elle part après W attentes (escalade), risque accepté.
+-- Une autre tâche garde la règle (refus à chaque fois) ; un but À PORTÉE d'une menace connue reste refusé même pour la défense.
+remote.call("fo-ia3k", "forget", "player")
+local gx4, gy4 = 200, 200
+remote.call("fo-ia3k", "death", "player", gx4, gy4 - 5)
+remote.call("fo-ia3k", "death", "player", gx4 - 5, gy4)
+local steps4 = { { "home" }, { "goto", { x = gx4, y = gy4 }, 3 }, { "act", "fortify" }, { "home" } }
+local t4 = t_esc + 6 * C.PASS_TICKS
+local refused_service = 0
+for i = 1, 10 do
+  if not C.gate(f, ag, { key = "test:service4", kind = "service" }, steps4, t4 + i) then refused_service = refused_service + 1 end
+end
+check(refused_service == 10, "D-B : 2 morts au but, tâche ordinaire : refus à chaque fois (" .. refused_service .. " sur 10)")
+local def_ref, def_went = 0, false
+local ed0 = tstats.escalade_defense or 0
+for i = 1, 10 do
+  if C.gate(f, ag, { key = "test:fortify4", kind = "fortify", defend = true }, steps4, t4 + 100 + i) then def_went = true break end
+  def_ref = def_ref + 1
+end
+check(def_went and def_ref == 4, "D-B : 2 morts au but, tâche « fortify » : 4 attentes puis départ (" .. def_ref .. " refus)")
+check(global.fo.ia3k.agents[ag.id].risk == true and (tstats.escalade_defense or 0) == ed0 + 1,
+  "D-B : départ marqué « risque accepté » et compté (escalade_defense)")
+local gx5, gy5 = -200, 200
+remote.call("fo-ia3k", "death", "player", gx5, gy5 - 5)
+remote.call("fo-ia3k", "death", "player", gx5 - 5, gy5)
+remote.call("fo-ia3k", "mark", "player", gx5 + 3, gy5 + 3, "worm", 25) -- le but est À PORTÉE d'un ver connu
+local steps5 = { { "home" }, { "goto", { x = gx5, y = gy5 }, 3 }, { "act", "fortify" }, { "home" } }
+local ref5 = 0
+for i = 1, 10 do
+  if not C.gate(f, ag, { key = "test:refill5", kind = "refill" }, steps5, game.tick + i) then ref5 = ref5 + 1 end
+end
+check(ref5 == 10, "D-B : but à portée d'une menace connue : la défense reste refusée (" .. ref5 .. " sur 10)")
+remote.call("fo-ia3k", "forget", "player")
 -- C5 « change de site » : un minage vers un gisement gardé par un ver va miner une autre tuile du même minerai.
 local ip = { x = math.cos(math.pi / 6) * 60, y = math.sin(math.pi / 6) * 60 } -- gisement de fer du moteur simulé
 remote.call("fo-ia3k", "mark", "player", ip.x, ip.y, "worm", 25)

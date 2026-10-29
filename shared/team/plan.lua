@@ -541,6 +541,11 @@ function P.fit(g, rect, opts)
         for ox = rect.x0 + margin, rect.x1 - margin - r.w, opts.step or 1 do
           tried = tried + 1
           local ok = (not sat) or blocked(ox - rect.x0, oy - rect.y0, r.w, r.h) == 0
+          -- lot MIGRATION-CHAMP : placement borné à une zone { x0, y0, x1, y1 } (x1, y1 exclus) : la place libérée par une partie de champ
+          if ok and opts.within then
+            local wz = opts.within
+            if ox < wz.x0 or oy < wz.y0 or ox + r.w > wz.x1 or oy + r.h > wz.y1 then ok = false end
+          end
           -- place des ports dans le lot (marge 0 : la tête peut toucher le bord du lot)
           if ok then
             for _, t0 in ipairs(room0) do

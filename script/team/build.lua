@@ -35,10 +35,12 @@ local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en lo
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
+local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
+local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -277,6 +279,10 @@ end
 
 --- Masques d'un rectangle lus au moteur (une fois par plan) : eau, bloqué (bâtiments, falaises, nids : non
 --- défrichable), obstacles défrichables (arbres, rochers) ; plus les tuiles réservées par nos projets.
+-- Lot MIGRATION-CHAMP : tuiles d'une partie de champ que le plan compte comme LIBRES le temps de planifier le projet qui la remplace
+-- (liste plate { tx, ty, ... } de spec.degel.tiles ; mémoire LOCALE posée autour de plan_project, jamais dans global).
+local THAW = nil
+
 local function read_masks(f, surface, x0, y0, x1, y1)
   local b = f.build
   local water, blocked, clear = {}, {}, {}
@@ -295,13 +301,58 @@ local function read_masks(f, surface, x0, y0, x1, y1)
       end
     end
   end
+  if THAW then
+    for i = 1, #THAW - 1, 2 do blocked[P.tkey(THAW[i], THAW[i + 1])] = nil end
+  end
   return {
     water = water, blocked = blocked, clear = clear,
+    rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, -- lot POTEAUX-MASQUES : où ce relevé fait foi (Mq.view)
     free = function(tx, ty)
       local k = P.tkey(tx, ty)
       return not water[k] and not blocked[k] and not b.occ[k]
     end,
   }
+end
+
+--- Lot POTEAUX-MASQUES : cache LOCAL (jamais dans global, vide à chaque chargement) des relevés par chunk, par surface.
+--- Écrit par masques_view, invalidé par finish_project (Mq.invalidate) et par la péremption (Mq.TTL) ; lu par masques_view seul.
+local MASQ = {}
+local function masq_cache(surface)
+  local c = MASQ[surface.index]
+  if not c then c = Mq.new(); MASQ[surface.index] = c end
+  return c
+end
+
+--- Relevé d'un chunk entier au moteur (même lecture que read_masks, donc mêmes règles : eau, bloqué, défrichable).
+local function chunk_reader(f, surface)
+  return function(cx, cy)
+    local x0, y0 = cx * Mq.CHUNK, cy * Mq.CHUNK
+    local m = read_masks(f, surface, x0, y0, x0 + Mq.CHUNK, y0 + Mq.CHUNK)
+    return { water = m.water, blocked = m.blocked, clear = m.clear }
+  end
+end
+
+--- Lot POTEAUX-MASQUES : vue des masques sur le couloir des `legs` ({ a, b } à relier par P.pole_chain). Rend la vue, ou nil si
+--- l'accord de cet essai (p.masq_n + 1 fois Mq.BUDGET chunks) ne couvre pas tout le couloir : plan_power rend alors le projet
+--- en attente (« masques ») et l'essai suivant accorde Mq.BUDGET chunks de plus. L'accord ne dépend que de p (sauvegardé) :
+--- jamais du contenu du cache.
+local function masques_view(f, surface, p, masks, legs, reach)
+  local b = f.build
+  local list, total = Mq.corridor(legs, Mq.margin(reach))
+  local attempt = (p.masq_n or 0) + 1
+  local granted = Mq.grant(attempt, #list)
+  local ready, reads, hits = Mq.ensure(masq_cache(surface), list, granted, game.tick, chunk_reader(f, surface))
+  local complete = granted >= #list
+  if not complete or attempt > 1 then
+    p.masq_logged = (p.masq_logged or 0) + 1
+    if p.masq_logged <= 6 then
+      log(string.format("[FO-MASQUES] %s : projet %d, couloir de %d chunk(s)%s, essai %d : %d accorde(s) (budget %d), %d lu(s) au moteur, %d en cache%s",
+        f.key or "player", p.id, #list, total > #list and (" sur " .. total .. " (plafond " .. Mq.MAX_CHUNKS .. ")") or "", attempt, math.min(granted, #list),
+        Mq.BUDGET, reads, hits, complete and " : couloir complet" or " : le projet attend la suite"))
+    end
+  end
+  if not complete then return nil end
+  return Mq.view(masks, masks.rect, ready, P.tkey, function(tx, ty) return not b.occ[P.tkey(tx, ty)] end)
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -518,6 +569,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.head_toward then fopts.head_toward = opts.head_toward end
     -- lot AGENCEMENT : couverture visée des foreuses (80 % d'abord) et bras de sortie par quai (P.fit : place du second bras)
     if opts and opts.cover_min then fopts.cover_min = opts.cover_min end
+    if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
     if res then fopts.ore = ores end
     if opts and opts.water then fopts.water = masks.water end
@@ -745,9 +797,26 @@ local function plan_power(f, p, mp, masks)
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
   local function take(e) for _, t in ipairs(P.tiles_of(e)) do taken[P.tkey(t[1], t[2])] = true end end
+  -- lot POTEAUX-MASQUES : les obstacles du couloir de CHAQUE liaison (le module au carrefour, puis carrefour à carrefour), pas
+  -- seulement ceux du rectangle relevé autour du module ; hors couloir relevé, une tuile reste « libre » comme avant
+  local view = { free = masks.free, clear = function(tx, ty) return masks.clear[P.tkey(tx, ty)] end }
+  if surface then
+    local legs = {}
+    local npos0 = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
+    legs[1] = { a = { x = mp.x, y = mp.y }, b = npos0 }
+    local pv
+    for _, n in ipairs(nodes) do
+      local pos = spot_of(n.i, n.j)
+      if pv and (not big or (pv.x - pos.x) ^ 2 + (pv.y - pos.y) ^ 2 > reach * reach - 1e-6) then legs[#legs + 1] = { a = pv, b = pos } end
+      pv = pos
+    end
+    local v = masques_view(f, surface, p, masks, legs, reach)
+    if not v then return nil, "masques (couloir des poteaux en cours de releve)", "masques" end
+    view = v
+  end
   local function free(x, y)
     local tx, ty = math.floor(x), math.floor(y)
-    return masks.free(tx, ty) and not taken[P.tkey(tx, ty)] and not masks.clear[P.tkey(tx, ty)]
+    return view.free(tx, ty) and not taken[P.tkey(tx, ty)] and not view.clear(tx, ty)
   end
   -- lot CORR-RESEAU : poteaux déjà prévus ou posés (ce projet, puis les projets en chantier ou finis) que les chaînes traversent au
   -- lieu d'en doubler un (seuls comptent ceux dont la portée de fil atteint celle de la chaîne ; shift_pole n'est pas touché)
@@ -793,6 +862,11 @@ local function plan_power(f, p, mp, masks)
     local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
     out[#out + 1] = e
     take(e)
+  end
+  if view.stats and (p.masq_logged or 0) < 6 then
+    p.masq_logged = (p.masq_logged or 0) + 1
+    log(string.format("[FO-MASQUES] %s : projet %d, %d poteau(x) de liaison et de rue planifie(s) : %d interrogation(s) du rectangle du module, %d d'un chunk releve, %d de tuile inconnue (libre)",
+      f.key or "player", p.id, #out, view.stats.base, view.stats.chunk, view.stats.unknown))
   end
   return out, nil, nodes
 end
@@ -884,6 +958,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
   local cfg = T.ligne
   local prm = g.params or {}
   if not (cfg and cfg.grow and g.gen == "smelter" and spec.feed == "tapis" and prm.ore and prm.n and prm.n > 0) then return cur end
+  if spec.fixe then return cur end -- lot MIGRATION-CHAMP : la ligne d'une partie de champ a la taille de la partie, pas celle du gisement
   local b = f.build
   local plate = M.PLATE_OF[prm.ore]
   local main = g.nominal and plate and g.nominal[plate]
@@ -1120,6 +1195,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local g1 = M.GEN.drills(item, 1)
   local pmax = g1 and g1.extensions and g1.extensions[1] and g1.extensions[1].max or n
   local top = math.max(1, math.min(n, pmax))
+  if p.spec and p.spec.paires then top = math.max(1, math.min(top, p.spec.paires)) end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
   local cfg = T.ligne or {}
   local cache, picked = scan_cache(f), nil
   for _, at in ipairs(Rg.attempts(top, top, { high = cfg.cover })) do
@@ -1128,7 +1204,8 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, nn) end
     if g then
       place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
-        { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache })
+        { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
+          within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
       if place then picked = at break end
     end
   end
@@ -1521,7 +1598,12 @@ local function plan_project(f, surface, p)
     local plate = M.PLATE_OF[(spec.args or {})[2]]
     local use = spec.use or ((plate and plate_used_elsewhere(b, p, plate)) and "usine" or nil)
     local sortie = Li.sortie_for(use)
-    topts = { sortie = sortie, grow = function(g1, cur) return line_rows(f, surface, spec, g1, cur, sortie == "exterieur") end }
+    -- lot INTEG-ECONOMIE (D2) : un module réduit après un échec de matériaux (CAPI-REPLI, spec.shrunk) garde la taille demandée ;
+    -- sans cela line_rows le remontait à Li.budget_rows >= T.ligne.rows_floor (4 rangées) et annulait la réduction
+    topts = { sortie = sortie, grow = function(g1, cur)
+      if spec.shrunk then return cur end
+      return line_rows(f, surface, spec, g1, cur, sortie == "exterieur")
+    end }
     p.sortie = sortie
   end
   local g, why = template_of(spec, topts)
@@ -1624,7 +1706,7 @@ local function plan_project(f, surface, p)
           -- relevé autour de CE module (eau, bâtiments, arbres) jusqu'aux carrefours voisins
           local pm = idx == 1 and masks or read_masks(f, surface, pt.ox - 32, pt.oy - 32, pt.ox + pt.w + 32, pt.oy + pt.h + 32)
           local extra, w3, nodes = plan_power(f, p, mp, pm)
-          if not extra then return false, w3, nodes == "net" and "net" or nil end
+          if not extra then return false, w3, (nodes == "net" or nodes == "masques") and nodes or nil end
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
             local k = P.lot_key(n.i, n.j)
@@ -1787,6 +1869,25 @@ local function reserve(f, p)
   end
   p.missing = missing
   return #missing == 0
+end
+
+--- Lot INTEG-RECONSTRUCTION (D6) : les objets qui MANQUENT au coffre pour les pièces à refaire d'un projet ROUVERT qui n'est plus en
+--- « reserve » (fantômes, chantier : le relevé en rouvre par passes de 40, Rv et une nouvelle destruction aussi). `reserve` n'est lu qu'en état
+--- « reserve » : sans cela p.missing restait périmé, le cerveau ne fabriquait rien (A.emit) et le PNJ abandonnait « stock » en boucle. Ne retire
+--- RIEN au coffre (le PNJ complète sur le stock libre à sa prise, Build.take_reserved) ; écrit seulement p.missing. Un objet que le PNJ porte déjà
+--- vers sa pièce compte encore comme besoin (écart transitoire de quelques objets, borné par le nombre de PNJ).
+local function refresh_missing(f, p)
+  local need = needs_of(p)
+  local free = free_stock(f)
+  local missing = {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local want = need[it] - (p.stock[it] or 0)
+    if want > 0 then
+      local have = math.min(Stock.count(f, it), free[it] or 0)
+      if want > have then missing[#missing + 1] = { it, want - have } end
+    end
+  end
+  p.missing = missing
 end
 
 local function release(f, p)
@@ -2542,6 +2643,7 @@ local function finish_project(f, surface, p, tick)
   local b = f.build
   p.wired = wire_project(f, surface, p)
   release(f, p)
+  p.missing = {} -- lot INTEG-RECONSTRUCTION (D6) : plus rien à réunir (refresh_missing ne tourne plus)
   p.state = "fini"
   p.finished = tick
   if not p.counted then -- lot CORR-RESEAU : un projet rouvert puis refini ne compte qu'une fois
@@ -2556,6 +2658,14 @@ local function finish_project(f, surface, p, tick)
       tick / 3600, #p.ents - (p.dropped or 0), p.dropped or 0))
   end
   for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n].built = true end end
+  -- lot POTEAUX-MASQUES : le terrain a changé là où ce projet a bâti : les relevés de chunk de cette zone tombent
+  if #p.ents > 0 and surface and MASQ[surface.index] then
+    local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+    for _, e in ipairs(p.ents) do
+      x0, y0, x1, y1 = math.min(x0, e.x), math.min(y0, e.y), math.max(x1, e.x), math.max(y1, e.y)
+    end
+    Mq.invalidate(MASQ[surface.index], math.floor(x0) - 4, math.floor(y0) - 4, math.ceil(x1) + 4, math.ceil(y1) + 4)
+  end
   log(string.format("[FO-IA1D] %s : projet %d fini (%s, %d entites, %d fils) a %.1f min", f.key or "player", p.id,
     p.parts[1] and p.parts[1].key or "?", #p.ents, p.wired or 0, tick / 3600))
 end
@@ -2577,15 +2687,31 @@ local function advance(f, surface, p, tick)
       if pl and (pl.state == "attente" or pl.state == "plan") then return end
     end
     Profiler.start("build:plan")
+    -- lot MIGRATION-CHAMP : les tuiles de la partie de champ à remplacer comptent comme libres pour CE plan seulement (relevés de
+    -- tuiles du tick jetés avant et après : un autre plan du même tick ne les verrait pas libres)
+    THAW = p.spec.degel and p.spec.degel.tiles or nil
+    if THAW then SCAN.tick = nil end
     local ok, why, wait = plan_project(f, surface, p)
+    if THAW then THAW = nil; SCAN.tick = nil end
     Profiler.stop("build:plan")
     -- lot IA3-e : minuteurs des parties arrêtés aussi après un retour anticipé du plan (refus, attente)
     Profiler.stop("build:plan:place"); Profiler.stop("build:plan:feed"); Profiler.stop("build:plan:power"); Profiler.stop("build:plan:anchors")
     if ok then
+      p.masq_n = nil -- lot POTEAUX-MASQUES : l'accord de chunks repart de zéro au prochain plan de ce projet
       p.state = "reserve"
       p.started = tick
       log(string.format("[FO-IA1D] %s : projet %d plan (%s, lot %s, %d entites, %d obstacles) a %.1f min", f.key or "player", p.id,
         p.parts[1].key, p.parts[1].lot, #p.ents, #p.obstacles, tick / 3600))
+    elseif wait == "masques" then
+      -- lot POTEAUX-MASQUES : le couloir des poteaux n'est pas encore relevé en entier (budget de chunks par essai) ; tout ce qui a
+      -- été réservé est rendu, nouvel essai sous peu avec Mq.BUDGET chunks accordés de plus (p.masq_n, lu par masques_view)
+      for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+      for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+      for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+      p.ents, p.parts = {}, {}
+      p.masq_n = (p.masq_n or 0) + 1
+      p.plan_after = tick + Mq.WAIT_TICKS
+      p.state, p.reason = "attente", why
     elseif wait == "net" and (p.wait_net or 0) < Build.NET_WAIT_MAX then
       -- lot PLANDIR : le réseau d'un autre projet n'est pas bâti ; tout ce qui a été réservé est rendu, nouvel essai plus tard
       for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
@@ -2593,6 +2719,9 @@ local function advance(f, surface, p, tick)
       for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
       p.ents, p.parts = {}, {}
       p.wait_net = (p.wait_net or 0) + 1
+      -- lot POTEAUX-MASQUES (relecture) : après 30 s le cache (Mq.TTL) est tombé ; garder l'ancien accord ferait relire jusqu'à 20
+      -- chunks en une seule passe (pic) : l'accord repart de zéro, comme pour tout nouveau plan
+      p.masq_n = nil
       p.plan_after = tick + Build.NET_WAIT_TICKS
       p.state, p.reason = "attente", why
     elseif wait == true then
@@ -2618,11 +2747,21 @@ local function advance(f, surface, p, tick)
     if p.spec.enceinte then craft_walls(f, p) end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
     if reserve(f, p) then
+      -- lot MIGRATION-CHAMP : matières réunies, la partie de champ à remplacer est retirée par script/team/migration_champ.lua (qui pose
+      -- p.degele) : le chantier ne commence qu'ensuite, et le champ produit jusque-là
+      if p.spec.degel and not p.degele then
+        p.reason, p.reserve_next = "degel", tick + 60
+        return
+      end
       p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
     else
       p.reason, p.reserve_next = "materiaux", tick + 60
     end
     return
+  end
+  if p.reopened and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
+    p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
+    refresh_missing(f, p)
   end
   if p.state == "defrichage" then
     if review_obstacles(surface, p) == 0 then p.state = "fantomes" end
@@ -2667,6 +2806,14 @@ local function advance(f, surface, p, tick)
           -- lot ESPACE : un mur refusé 3 fois (tuile prise, falaise cachée) est abandonné : il ne bloque pas toute l'enceinte
           e.built, e.dropped = true, true
           p.dropped = (p.dropped or 0) + 1
+        elseif not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 and Sweep.refusal_verdict(p.reopened, p.retries, Build.RETRIES) == "abandon" then
+          -- lot INTEG-RECONSTRUCTION (D2) : un projet ROUVERT dont les reprises sont épuisées abandonne la pièce refusée (emprise reprise par un
+          -- arbre, un ouvrage du joueur, un nid) au lieu de mourir « bloque » sans reprise : le reste du module se refait, la fin (raccordement,
+          -- fini) rend l'objet réservé et libère l'emplacement d'automatisation (A.MAX_OPEN). Lecteurs : all_built, Sw.todo, le relevé (e.dropped).
+          e.built, e.dropped = true, true
+          p.dropped = (p.dropped or 0) + 1
+          log(string.format("[FO-IA1D] %s : projet %d rouvert, piece abandonnee apres %d reprises : %s en %s,%s (refus repetes)", f.key or "player",
+            p.id, p.retries or 0, tostring(e.name), tostring(e.x), tostring(e.y)))
         elseif not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
           p.state, p.reason = "bloque", "fantome refuse (" .. e.name .. " en " .. e.x .. "," .. e.y .. ")"
           b.stats.projects_blocked = b.stats.projects_blocked + 1
@@ -2690,7 +2837,7 @@ end
 --- entités sur 113 de 36 min à la fin ; la pose des tourelles évite désormais les tuiles réservées, ceci reprend les chantiers
 --- déjà pris). Rend le nombre d'entités enlevées. Une autre entité sur l'emprise (arbre, falaise, bâtiment) : rien n'est touché.
 local function free_own_turrets(f, surface, p)
-  local n = 0
+  local n, n_back = 0, 0
   for _, e in ipairs(p.ents) do
     if not e.built then
       local found, list = surface.find_entities_filtered({ area = footprint(e) }), {}
@@ -2701,12 +2848,24 @@ local function free_own_turrets(f, surface, p)
       end
       if Blocage.own_blockers(list, f.force, T.turret) then
         for _, x in ipairs(found) do
-          if x.valid then x.destroy() n = n + 1 end
+          if x.valid then
+            -- Lot INTEG-DEFENSE 4.1 : la tourelle (et ses chargeurs) RETOURNE au coffre de l'équipe (la détruire perdait ~40 de fer, 10 de
+            -- cuivre et 80 de fer de munitions, sans remboursement) ; coffre plein ou aucun coffre : détruite comme avant, pour que le
+            -- chantier reprenne. Même effet sur le registre qu'avant (aucun événement levé).
+            local taken = false
+            if f.hq and f.hq.valid then
+              for _, inv in ipairs(Stock.inventories(f)) do
+                if inv and inv.valid and x.mine({ inventory = inv, force = false, raise_destroyed = false }) then taken = true break end
+              end
+            end
+            if taken then n_back = n_back + 1 elseif x.valid then x.destroy() end
+            n = n + 1
+          end
         end
       end
     end
   end
-  return n
+  return n, n_back
 end
 
 --- Lot FACTIONS-BLOQUEES : un projet qui n'avance plus depuis 10 min (aucune entité bâtie de plus) est écrit UNE fois par équipe et
@@ -2760,10 +2919,10 @@ local function pulse_team(f, tick)
     -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
     if p and p.state == "bloque" and p.retry_at and tick >= p.retry_at then
       p.retry_at = nil
-      local freed = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES
+      local freed, back = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES
       if freed > 0 then
         b.stats.turrets_freed = (b.stats.turrets_freed or 0) + freed
-        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier", f.key or "player", p.id, freed))
+        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier (%d rendue(s) au coffre avec leurs chargeurs)", f.key or "player", p.id, freed, back or 0))
       end
       for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
       p.state, p.reason = "chantier", nil
@@ -3151,6 +3310,34 @@ function Build.brief(f, id)
   end
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
     retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais }
+end
+
+Build.BURN_EVERY = 600 -- ticks : le relevé du charbon brûlé par les fours du plan se refait au plus toutes les 10 s
+
+--- Lot INTEG-ECONOMIE (D4) : charbon par seconde que brûlent les fours à COMBUSTIBLE déjà posés par le plan directeur (les fonderies
+--- en ligne : le charbon leur vient du coffre du QG, quais d'entrée). Le bilan du charbon du planificateur (shared/team/planner.lua,
+--- `burn_rate`) ne comptait que les foreuses et les fours des avant-postes et du QG : une faction à 3 fonderies de 12 fours
+--- manquait de charbon sans qu'aucun avant-poste de charbon ne soit demandé. La puissance vient des DONNÉES (M.spec(...).burner_kw,
+--- niveaux compris), jamais d'un nom écrit ici. Relevé mis en cache dans `f.build` (nombres seulement). 0 sans plan directeur.
+function Build.burn_rate(f, tick)
+  local b = f and f.build
+  if not b then return 0 end
+  tick = tick or game.tick
+  if b.burn_tick and tick - b.burn_tick < Build.BURN_EVERY and b.burn_v then return b.burn_v end
+  local kw = 0
+  for _, id in ipairs(b.order) do
+    local p = b.projects[id]
+    if p and p.state ~= "bloque" then
+      for _, e in ipairs(p.ents) do
+        if e.built and not e.dropped then
+          local sp = M.spec(e.name)
+          if sp and sp.kind == "furnace" and sp.burner_kw then kw = kw + sp.burner_kw end
+        end
+      end
+    end
+  end
+  b.burn_tick, b.burn_v = tick, kw / M.COAL_J
+  return b.burn_v
 end
 
 function Build.report(f)
