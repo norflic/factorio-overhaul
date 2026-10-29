@@ -652,6 +652,17 @@ function Team.think(f, surface, tick)
   f.team.goal = plan.goal
   f.team.missing = plan.missing
   f.team.unreachable = plan.unreachable
+  -- Lot PRIORITE-RESSOURCES : journal du passage « production d'abord » (le fer ne paie pas la défense ET la production,
+  -- shared/team/priorite.lua), une ligne par changement ; aucune décision n'en dépend.
+  local pri = plan.priorite
+  local pf = (pri and pri.production_first) or false
+  if pf ~= (f.team.priorite_pf or false) then
+    f.team.priorite_pf = pf
+    log(string.format("[FO-PRIORITE] %s : %s a %.1f min : fer %d, defense %d, prochain pas de production %s, mis de cote %d, objectifs militaires sautes %d",
+      f.key or "?", pf and "PRODUCTION d'abord" or "defense et production payees", tick / 3600, math.floor(pri and pri.funds or 0),
+      math.floor(pri and pri.defense_cost or 0), tostring(pri and pri.production_cost and math.floor(pri.production_cost) or "aucun"),
+      math.floor(pri and pri.hold or 0), plan.skipped_goals or 0))
+  end
 
   -- Besoins de prospection, par ressource.
   local needs = {}

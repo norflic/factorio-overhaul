@@ -346,10 +346,14 @@ function Poles.think(f, view, book, tick, plan)
         fond_on and "" or " (fond coupe, sous l'effectif de depart)", tick / 3600))
     end
   end
+  -- Lot PRIORITE-RESSOURCES : le cerveau a décidé « production d'abord » (le fer ne paie pas la défense ET la production,
+  -- shared/team/priorite.lua) : le fond agrandit et bâtit sans attendre les tourelles, seul un avant-poste meurtrier reste exclu.
+  local prod_first = plan ~= nil and plan.priorite ~= nil and plan.priorite.production_first == true
+  local block_turrets = turrets_ok and not prod_first
   if fond_on then
     cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
-      defend_first = turrets_ok, undefended = Planner.no_go(view, turrets_ok), no_outpost_guard = player,
+      defend_first = block_turrets, undefended = Planner.no_go(view, block_turrets), no_outpost_guard = player,
       no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,
       -- Transport sans limite de distance (essai 7 : à 64 tuiles, presque aucun avant-poste n'était assez proche) ; un
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
