@@ -41,13 +41,14 @@ Pr.MODE_DEFENSE = "defense"
 Pr.MODE_PRODUCTION = "production"
 Pr.MODE_DEFENSE_D_ABORD = "defense_d_abord"
 Pr.MODE_PRODUCTION_D_ABORD = "production_d_abord"
+Pr.CONFIRM = 2 -- pensées de suite qui doivent demander la bascule « défense d'abord » / « production d'abord » (hystérésis, lot INTEG-DEFENSE D-D)
 
 local function num(x)
   if type(x) ~= "number" or x ~= x or x < 0 then return 0 end
   return x
 end
 
---- a = { funds, defense_cost, production_cost (nil : aucun pas), survival }.
+--- a = { funds, defense_cost, production_cost (nil : aucun pas), survival, prev_pf, streak (hystérésis, facultatifs) }.
 --- Rend { mode, production_first (vrai : la production passe avant la défense), hold (fer réservé à la production pendant
 --- l'achat de la défense), defense_budget (fer que la défense peut dépenser), funds, defense_cost, production_cost }.
 function Pr.decide(a)
@@ -70,6 +71,23 @@ function Pr.decide(a)
     out.production_first = true
     out.hold = math.min(funds, cp)
     out.defense_budget = funds - out.hold
+  end
+  out.raw_first = out.production_first
+  -- Lot INTEG-DEFENSE D-D : HYSTÉRÉSIS. Entre « défense d'abord » et « production d'abord » (les deux modes où le fer est compté), la bascule
+  -- n'est prise qu'à la Pr.CONFIRM-ième pensée de suite qui la demande : `prev_pf` est le dernier choix retenu (facultatif : sans lui, aucune
+  -- hystérésis), `streak` le nombre de pensées de suite, avant celle-ci, qui ont demandé le contraire. Une faction au bord du seuil ne fait
+  -- plus alterner capitalisation, extension sans tourelles et journal à chaque pensée.
+  if a.prev_pf ~= nil and (out.mode == Pr.MODE_PRODUCTION_D_ABORD or out.mode == Pr.MODE_DEFENSE_D_ABORD)
+    and out.production_first ~= (a.prev_pf and true or false) and num(a.streak) + 1 < Pr.CONFIRM then
+    out.held_back = true
+    if a.prev_pf then
+      out.mode, out.production_first = Pr.MODE_PRODUCTION_D_ABORD, true
+      out.hold = math.min(funds, cp)
+      out.defense_budget = funds - out.hold
+    else
+      out.mode, out.production_first = Pr.MODE_DEFENSE_D_ABORD, false
+      out.hold, out.defense_budget = 0, funds
+    end
   end
   return out
 end

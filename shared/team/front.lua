@@ -79,9 +79,12 @@ end
 --- (`producing` : sinon le coffre est la dernière réserve du redémarrage et la défense n'y touche pas : remarque du DC du 29/10, « si on manque
 --- cruellement de ressources, l'objectif est ces ressources, la défense vient juste après »). `base_iron`, `base_copper` : planchers ordinaires.
 --- Rend fer, cuivre, réduit (vrai si réduit).
-function F.floors(score, producing, base_iron, base_copper)
+--- Lot INTEG-DEFENSE D3 : `step_iron` (facultatif) est le fer du prochain pas de production (shared/team/priorite.lua) : le plancher réduit
+--- ne descend pas sous lui (60 laissait moins que le pas d'agrandissement réel, environ 72 de fer : la défense servie, plus de quoi agrandir).
+function F.floors(score, producing, base_iron, base_copper, step_iron)
   if producing and (score or 0) >= F.HIGH_SCORE then
-    return math.min(base_iron, F.FLOOR_IRON), math.min(base_copper, F.FLOOR_COPPER), true
+    local fi = math.max(F.FLOOR_IRON, type(step_iron) == "number" and step_iron or 0)
+    return math.min(base_iron, fi), math.min(base_copper, F.FLOOR_COPPER), true
   end
   return base_iron, base_copper, false
 end

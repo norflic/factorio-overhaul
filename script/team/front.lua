@@ -60,6 +60,15 @@ local function on_died(e)
   if not (killer and killer.name ~= ent.force.name and not ent.force.get_cease_fire(killer)) then return end
   local f = team_of(ent.force.name)
   if not (f and not f.eliminated and f.hq and f.hq.valid) then return end
+  -- Lot INTEG-DEFENSE 6 : la force « player » est aussi celle de VOS bâtiments : pour l'équipe du joueur, seule une pièce enregistrée à elle
+  -- (State.own : tourelles, foreuses, fours, QG, pièces refaites) ou adoptée compte ; une pièce posée à la main loin du QG, détruite, ne
+  -- fait plus partir un PNJ y poser des tourelles. (Compromis : les murs, tapis et poteaux du plan, non enregistrés, ne comptent plus
+  -- non plus ; les factions, dont la force ne porte que leurs pièces, gardent tout.)
+  if f.is_player then
+    local u = ent.unit_number
+    local o = u and State.owner(u)
+    if not ((o and o.f == f.id) or (u and f.adopt and f.adopt.units and f.adopt.units[u])) then return end
+  end
   local st = state(f, e.tick)
   Fr.decay(st.mem, e.tick) -- la mémoire est à jour avant d'y ajouter : l'ancien poids décroît, le nouveau non
   local pos = ent.position

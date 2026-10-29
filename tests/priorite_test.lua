@@ -390,7 +390,10 @@ local b1 = Ca.budget(ch1, 100, 1000, 1, 0)
 check(b1 > b0, "le budget d'investissement grandit des parts rendues (" .. string.format("%.1f -> %.1f", b0, b1) .. ")")
 local cv = Ca.capi_view({ x = 1000 }, ch1)
 check(cv.x == 1000, "la part capi du stock virtuel est entière")
-check(Ca.character({}, {}, true, true).delta == 0, "menace + production d'abord : la production d'abord l'emporte sur la part de menace")
+local cth = Ca.character({}, {}, true, true)
+local cth0 = Ca.character({}, {}, true, false)
+check(cth.delta == cth0.delta and cth.alpha == cth0.alpha and cth.delta > 0,
+  "INTEG-DEFENSE D-C : menace + production d'abord : les parts de défense (" .. cth.delta .. " ‰) et d'armée restent, la menace compte")
 
 ---------------------------------------------------------------------------------------------------
 section("6. Déterminisme")
@@ -400,6 +403,78 @@ local db = plan2(with(kit, with(poor0, { [IRON] = 100 })))
 check(sig(da) == sig(db), "deux pensées identiques : même plan et même décision")
 local dc = Planner.plan(view({ stock = with(kit, with(poor0, { [IRON] = 100 })), outposts = outs2, done = done2, sites = { iron = 1 } }), book)
 check(sig(dc) == sig(da), "ordre des champs de la vue sans effet")
+
+---------------------------------------------------------------------------------------------------
+section("6 bis. Lot INTEG-DEFENSE : hystérésis (D-D), coût partiel (D-C), hold et QG (3.3)")
+---------------------------------------------------------------------------------------------------
+-- Seul le QG manque de tourelles ; l'avant-poste de fer, défendu, peut encore grandir (un pas de production existe).
+local outs_g = { op(1, "coal", 4, T.defend_turrets(4)), op(2, "iron", 4, T.defend_turrets(4)), op(3, "copper", 3, T.defend_turrets(3)), op(4, "stone", 2, T.defend_turrets(2)) }
+local function dh(prev, streak, funds, over)
+  local a = { funds = funds, defense_cost = 100, production_cost = 50, prev_pf = prev, streak = streak }
+  for k, x in pairs(over or {}) do a[k] = x end
+  return Pr.decide(a)
+end
+check(Pr.CONFIRM == 2, "D-D : la bascule se confirme sur 2 pensées")
+local h1 = dh(false, 0, 120) -- règle brute : production d'abord (120 < 150) ; dernier choix retenu : défense d'abord
+check(h1.mode == Pr.MODE_DEFENSE_D_ABORD and not h1.production_first and h1.held_back and h1.raw_first == true and h1.hold == 0 and h1.defense_budget == 120,
+  "D-D : 1re pensée qui demande la production d'abord : on garde « défense d'abord »")
+local h2 = dh(false, 1, 120)
+check(h2.mode == Pr.MODE_PRODUCTION_D_ABORD and h2.production_first and not h2.held_back and h2.hold == 50, "D-D : 2e pensée de suite : la bascule est prise")
+local h3 = dh(true, 0, 150)
+check(h3.mode == Pr.MODE_PRODUCTION_D_ABORD and h3.production_first and h3.held_back and h3.hold == 50 and h3.defense_budget == 100,
+  "D-D : retour demandé une seule fois : on garde « production d'abord » (et son hold)")
+check(dh(true, 1, 150).mode == Pr.MODE_DEFENSE_D_ABORD and not dh(true, 1, 150).production_first, "D-D : retour confirmé sur 2 pensées")
+check(dh(nil, 0, 120).production_first and not dh(nil, 0, 120).held_back, "D-D : sans dernier choix (prev_pf absent) : aucune hystérésis, règle d'avant")
+check(dh(true, 0, 500, { defense_cost = 0 }).mode == Pr.MODE_PRODUCTION and not dh(true, 0, 500, { defense_cost = 0 }).production_first,
+  "D-D : rien à défendre : pas de maintien de « production d'abord »")
+check(dh(true, 0, 1, { survival = true }).mode == Pr.MODE_SURVIE and not dh(true, 0, 1, { survival = true }).production_first, "D-D : la survie n'est jamais retenue")
+-- Une faction au bord du seuil (la règle brute alterne à chaque pensée) ne bascule jamais ; une demande constante bascule à la 2e pensée.
+do
+  local stored, streak, flips = false, 0, 0
+  for i = 1, 20 do
+    local r = dh(stored, streak, (i % 2 == 0) and 120 or 150)
+    local pf, raw = r.production_first, r.raw_first
+    streak = (raw ~= pf) and streak + 1 or 0
+    if pf ~= stored then flips = flips + 1; stored = pf end
+  end
+  check(flips == 0, "D-D : seuil franchi une pensée sur deux : aucune bascule (" .. flips .. ")")
+  stored, streak, flips = false, 0, 0
+  local first
+  for i = 1, 6 do
+    local r = dh(stored, streak, 120)
+    local pf, raw = r.production_first, r.raw_first
+    streak = (raw ~= pf) and streak + 1 or 0
+    if pf ~= stored then flips = flips + 1; stored = pf; first = first or i end
+  end
+  check(flips == 1 and first == 2, "D-D : seuil franchi pour de bon : une seule bascule, à la 2e pensée (" .. tostring(first) .. ")")
+end
+-- dans le planificateur : le fer du cas « un de moins que défense + production »
+local pm_stock = with(no_kit, { [IRON] = f_cd + cd + cp - 1 })
+check(plan2(pm_stock, nil, { priorite_pf = false, priorite_streak = 0 }).priorite.mode == Pr.MODE_DEFENSE_D_ABORD,
+  "D-D : planificateur, fer au bord du seuil, dernier choix « défense d'abord », 1re pensée : on garde la défense d'abord")
+check(plan2(pm_stock, nil, { priorite_pf = false, priorite_streak = 1 }).priorite.production_first, "D-D : planificateur, 2e pensée de suite : la production d'abord")
+check(plan2(pm_stock).priorite.production_first, "D-D : planificateur sans dernier choix dans la vue : règle d'avant")
+
+-- D-C : le coût de la défense du QG est celui de la commande PARTIELLE (1 tourelle, Fr.PARTIAL_AMMO chargeurs), pas des 4 tourelles voulues
+local hq_view = function(stock) return plan2(stock, outs_g, { hq_turrets = T.defend_hq - 3 }) end
+local cd_hq1 = plan2(with(no_kit, { [IRON] = 3000 }), outs_g, { hq_turrets = T.defend_hq - 1 }).priorite.defense_cost
+local cd_hq3 = hq_view(with(no_kit, { [IRON] = 3000 })).priorite.defense_cost
+check(cd_hq3 == cd_hq1, "D-C : le QG sans 3 de ses 4 tourelles coûte comme le QG sans 1 : la commande partielle (" .. cd_hq3 .. " contre " .. cd_hq1 .. ")")
+check(cd_hq3 < 3 * cd_hq1, "D-C : et bien moins que les 3 tourelles complètes (" .. cd_hq3 .. ")")
+
+-- 3.3 : le hold ne retient pas le QG. Le fer le plus bas où la tourelle du QG se fabrique (le QG à 3 tourelles sur 4).
+local function hq_edge(hq_turrets)
+  for fe = f_cd, f_cd + 600 do
+    local pl = plan2(with(no_kit, { [IRON] = fe }), outs_g, { hq_turrets = hq_turrets })
+    if find(pl, function(t) return t.kind == "craft" and t.item == "gun-turret" and t.tag == "defense" end) then return fe, pl end
+  end
+  return nil
+end
+local hq_fe, hq_pl = hq_edge(T.defend_hq - 1)
+check(hq_fe ~= nil and hq_pl.priorite.production_first and hq_pl.priorite.hold > 0, "3.3 : le QG se sert en production d'abord, avec un pas à réserver (fer " .. tostring(hq_fe) .. ")")
+local hq_post0
+for _, d in ipairs(hq_pl.defend and hq_pl.defend.posts or {}) do if d.id == "hq" then hq_post0 = d end end
+check(hq_post0 and hq_post0.partial == true and hq_post0.why == "fabrication", "3.3 / 3.4 : le QG est servi par la commande partielle (" .. tostring(hq_post0 and hq_post0.why) .. ")")
 
 ---------------------------------------------------------------------------------------------------
 section("7. Mutants : chaque règle retirée change au moins un fait")
@@ -446,6 +521,17 @@ local function facts(W)
   put("armee.riche.goal", ar2.goal)
   local lt = Pn.plan(view({ stock = poor, outposts = lost, done = done2, sites = { iron = 1 } }), book)
   put("reconstruction", has(lt, "build:iron"))
+  -- lot INTEG-DEFENSE : le QG se sert sans attendre le hold ; hystérésis ; coût partiel
+  for fe = f_cd, f_cd + 600 do
+    local q = Pn.plan(view({ stock = with(no_kit, { [IRON] = fe }), outposts = outs_g, done = done2, sites = { iron = 1 }, hq_turrets = T.defend_hq - 1 }), book)
+    if find(q, function(t) return t.kind == "craft" and t.item == "gun-turret" end) then put("hq.edge", fe) break end
+  end
+  local hy = Pn.plan(view({ stock = with(no_kit, { [IRON] = f_cd + cd + cp - 1 }), outposts = outs2, done = done2, sites = { iron = 1 },
+    priorite_pf = false, priorite_streak = 0 }), book)
+  put("hyst.mode", hy.priorite.mode)
+  put("hq.cd", Pn.plan(view({ stock = with(no_kit, { [IRON] = 3000 }), outposts = outs_g, done = done2, sites = { iron = 1 }, hq_turrets = T.defend_hq - 3 }), book).priorite.defense_cost)
+  put("pur.hyst", W.Pr.decide({ funds = 120, defense_cost = 100, production_cost = 50, prev_pf = false, streak = 0 }).mode)
+  put("capi.menace", (function() local c = W.Ca.character({}, {}, true, true) return c.delta .. "/" .. c.alpha end)())
   -- cerveau par besoins
   local E = W.P.context(with(poor, {}), book, view({ stock = poor, outposts = outs2, done = done2, sites = { iron = 1 } }), {})
   E.priorite = a.priorite
@@ -495,11 +581,16 @@ local mutants = {
   { "planificateur : le pas de production n'est pas réservé", "Pl", "local held = math.min(pri.hold or 0, avail[iron_key] or 0)", "local held = 0" },
   { "planificateur : le fer sous le plancher compte pour la défense", "Pl", "funds = (avail[iron_key] or 0) - T.defend_iron_floor,", "funds = (avail[iron_key] or 0)," },
   { "planificateur : l'objectif militaire n'est plus sauté", "Pl", "elseif Pr.skip_goal(pri, g.need, T.turret_ammo) then", "elseif false then" },
-  { "planificateur : la survie ne protège plus", "Pl", "survival = decimated })", "survival = false })" },
+  { "planificateur : la survie ne protège plus", "Pl", "survival = decimated,", "survival = false," },
   { "planificateur : un avant-poste meurtrier devient agrandissable", "Pl", "o.drills < T.max_drills(o.kind) and not lethal_only[o.id] then\n        growable", "o.drills < T.max_drills(o.kind) then\n        growable" },
-  { "planificateur : le coût de la défense est nul", "Pl", "local cd = n_miss > 0 and iron_cost(turret_items(n_miss)) or 0", "local cd = 0" },
+  { "planificateur : le coût de la défense est nul", "Pl", "      cd = iron_cost(list)", "      cd = 0" },
   { "cerveau par besoins : l'avant-poste attend ses tourelles", "Pj", "  if pf then turret_ok = false end\n", "" },
-  { "capitalisation : les parts défense et armée restent", "Ca", "  if production_first then delta, alpha = 0, 0 end\n", "" },
+  { "planificateur : le hold retient aussi le QG", "Pl", 'if p.id ~= "hq" and not held_taken then', "if not held_taken then" },
+  { "planificateur : la défense compte les commandes complètes du QG, de la centrale et du front", "Pl", "if PARTIAL_POSTS[p.id] then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end", "n_miss = n_miss + n" },
+  { "planificateur : la bascule n'est plus confirmée", "Pl", "prev_pf = view.priorite_pf,", "prev_pf = nil," },
+  { "règle pure : la bascule est immédiate", "Pr", "num(a.streak) + 1 < Pr.CONFIRM", "num(a.streak) + 1 < 0" },
+  { "capitalisation : la menace ne garde pas ses parts", "Ca", "  if production_first and not threat then delta, alpha = 0, 0 end\n", "  if production_first then delta, alpha = 0, 0 end\n" },
+  { "capitalisation : les parts défense et armée restent", "Ca", "  if production_first and not threat then delta, alpha = 0, 0 end\n", "" },
 }
 local killed = 0
 for _, m in ipairs(mutants) do

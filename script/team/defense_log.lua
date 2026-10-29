@@ -59,8 +59,18 @@ function D.think(f, view, plan, tick)
     why = {}
     team.def_why = why
   end
+  -- Lot INTEG-DEFENSE 5 : le cumul est regroupé par TYPE de poste (hq, front, plant, outpost) : le numéro d'un avant-poste change à chaque
+  -- reconstruction, le cumul et la ligne grossissaient sans fin. Les clés d'avant (« 3:fer ») sont fondues dans « outpost: » (clés triées).
+  for _, k in ipairs(sorted(why)) do
+    local rest = k:match("^%d+:(.+)$")
+    if rest then
+      why["outpost:" .. rest] = (why["outpost:" .. rest] or 0) + why[k]
+      why[k] = nil
+    end
+  end
   for _, p in ipairs(blocked) do
-    local k = p.id .. ":" .. p.why
+    local kind = (p.id == "hq" or p.id == "front" or p.id == "plant") and p.id or "outpost"
+    local k = kind .. ":" .. p.why
     why[k] = (why[k] or 0) + 1
   end
   for _, r in ipairs(cells) do
