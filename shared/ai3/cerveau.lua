@@ -31,6 +31,7 @@ local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
+local Bi = require("shared.ai3.bilan") -- lot BILAN : fabrications pondérées par production moins consommation
 
 P.EMIT.module = A.emit(P)
 local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration » (niveaux, centre), payés par le runtime
@@ -174,7 +175,7 @@ function C.think(view, book, st, ctx)
   -- comme un minerai, quand elles sont à portée (ctx.reach) ; sans arbre à portée, elles restent « inaccessibles ».
   for _, k in ipairs(ctx.harvest or {}) do raw[k] = true minable[k] = true end
   P.supply(E, { reach = ctx.reach, known = ctx.known, workers = s.workers, mines_open = ctx.mines_open, minable = minable,
-    cap = s.cap, home_known = ctx.home_known })
+    cap = s.cap, home_known = ctx.home_known, bilan = ctx.bilan })
   -- Lot IA-V2 : pas d'exploration demandée avant que les abords du QG soient vus (ctx.home_known faux : brouillard
   -- d'IA3-f, regard en cours) ; le projet reste bloqué sur sa cause (« site: »), rien d'autre ne change.
   if ctx.home_known == false then E.explore = {} end
@@ -235,6 +236,8 @@ function C.think(view, book, st, ctx)
     end
   end
   for _, t in ipairs(E.tasks) do
+    -- Lot BILAN : une fabrication d'un objet en sous-production durable passe devant (jamais au niveau d'une urgence).
+    if t.kind == "craft" and t.item and ctx.bilan then t.prio = Bi.craft(t.prio, ctx.bilan[t.item]) end
     if not keys[t.key] then
       tasks[#tasks + 1] = t
       keys[t.key] = true

@@ -27,6 +27,7 @@
 local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
 local R = require("shared.ai3.reglages") -- lot IA-G : la tourelle de « défendre d'abord » (nom déplacé, inchangé)
+local Bi = require("shared.ai3.bilan") -- lot BILAN : pondération des récoltes par production moins consommation
 
 local P = {}
 
@@ -567,6 +568,7 @@ function P.supply(E, ctx)
   local smelters = (view.smelters or 0) + (view.smelters_pending or 0)
   -- Jusqu'à la moitié des PNJ au minage à la main d'une matière qui manque (constat du DC : « plein qui foutent rien »).
   local mine_room = math.max(1, math.floor((ctx.workers or 0) / 2))
+  local bilan = ctx.bilan or {} -- lot BILAN : { [objet] = points de priorité } (shared/ai3/bilan.lua, Bi.weights)
   -- Lot IA-V2 (chemin critique, §3.5) : une plaque fondue au QG qu'aucun avant-poste ne produit, et qui manque, bloque
   -- tous les projets qui en ont besoin : les AUTRES matières brutes de leurs composants (pierre des fours d'avant-poste…)
   -- attendent (P.DEFER_PRIO), sauf celles de la fonderie d'amorçage (« fonderie »). Moteur réel, ia3b-fer sur c06a97b :
@@ -614,6 +616,9 @@ function P.supply(E, ctx)
       end
       local fed = kind ~= nil and ((ctx.cap or {})[kind] or 0) > 0
       if fed then prio = math.min(prio, P.APPOINT_PRIO) end
+      -- Lot BILAN : un objet en sous-production durable (production moins consommation négative) pèse plus, un objet en
+      -- sur-production moins ; bornes de Bi.clamp, et l'amorçage critique (plus bas) garde la main.
+      prio = Bi.clamp(prio, bilan[item])
       -- Lot IA-V2 (K3, constat du DC « plein qui foutent rien ») : une matière qui manque alors qu'un avant-poste la produit
       -- déjà garde son minage d'APPOINT à priorité basse, mais avec autant de mineurs que de PNJ sans tâche (au plus la
       -- moitié de l'équipe) : moteur réel, ia3c-reduit graine 20261020 (938e08e), seul le fer manquait, tout le reste
