@@ -262,6 +262,11 @@ do
     local br = T.building_recipe(b.name)
     for _, tr in ipairs(br.trace) do TITANIUM_READS[tr[2]] = true end
   end
+  -- Lot AMELIO-CRAFTS : les recettes de X0 mises en jeu par shared/content/crafts.lua (bobine comprise, que le titane
+  -- ne déplie plus) sont EN JEU au même titre.
+  local C = require("shared.content.crafts")
+  for _, rr in ipairs(C.RECIPES) do TITANIUM_READS[rr.name] = true end
+  for _, b in ipairs(C.BUILDINGS) do TITANIUM_READS[b.name] = true end
 end
 --- Règle T.maker de titanium.lua, rejouée sur une liste de recettes.
 local function maker(recipes, name)
