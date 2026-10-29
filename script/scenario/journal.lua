@@ -15,7 +15,10 @@
   - Sauvegarde d'avant le journal (0.6.18) : au premier chargement, chaque force est ALIGNÉE sur son époque actuelle
     sans rien annoncer, chaque joueur existant est réputé avoir lu l'intro ; une ligne de chat signale /fo-journal.
   - Aucun effet sur l'équilibre : rien n'est donné ni exigé.
-  Stockage : espace « journal » { reached = { [force] = époque }, intro = { [index du joueur] = true }, born, stats }.
+  - Jalon de défense (X0, sans récompense) : nids détruits par la force pendant l'époque (on_entity_died, type
+    unit-spawner, force du tueur) ; le total est noté à chaque annonce.
+  Stockage : espace « journal » { reached = { [force] = époque }, intro = { [index du joueur] = true },
+    nests = { [force] = total }, base = { [force] = { [époque] = total à l'annonce } }, born, stats }.
 ]]
 
 local Events = require("script.core.events")
@@ -32,7 +35,7 @@ local POLL = 120
 local WIDTH = 460
 
 Storage.declare("journal", function()
-  return { reached = {}, intro = {}, born = nil, stats = { announced = 0, intros = 0, aligned = 0 } }
+  return { reached = {}, intro = {}, nests = {}, base = {}, born = nil, stats = { announced = 0, intros = 0, aligned = 0 } }
 end)
 
 local function S() return Storage.ns("journal") end
@@ -156,6 +159,12 @@ local function objective_line(frame, player, o)
     text(frame, lk("obj-resource", "[entity=" .. o.name .. "]", p and p.localised_name or o.name))
   elseif o.kind == "chart" then
     text(frame, lk("obj-chart", charted_chunks(force, player.surface), o.chunks))
+  elseif o.kind == "defense" then
+    local st = S()
+    local base = st.base and st.base[force.name] and st.base[force.name][o.epoch_shown]
+    local got = J.nests_progress(st.nests and st.nests[force.name], base)
+    text(frame, lk("obj-defense", math.min(got, o.nests), o.nests),
+      got >= o.nests and { r = 0.6, g = 1, b = 0.6 } or nil)
   elseif o.kind == "gate" then
     text(frame, lk("obj-gate"))
   elseif o.kind == "threat" then
@@ -173,16 +182,27 @@ function Journal.show_epoch(player, k)
   text(frame, lk("codex-" .. k), nil, "default-semibold")
   frame.add({ type = "line" })
   text(frame, lk("objectives"), nil, "default-bold")
-  for _, o in ipairs(J.objectives(k, resource_exists)) do objective_line(frame, player, o) end
+  for _, o in ipairs(J.objectives(k, resource_exists)) do
+    o.epoch_shown = k
+    objective_line(frame, player, o)
+  end
   buttons(frame, k, reached)
 end
 
 ---------------------------------------------------------------------------------------------------
 -- Annonces
 ---------------------------------------------------------------------------------------------------
+local function note_base(st, force_name, k)
+  st.nests = st.nests or {}
+  st.base = st.base or {}
+  st.base[force_name] = st.base[force_name] or {}
+  st.base[force_name][k] = st.nests[force_name] or 0
+end
+
 local function announce(force, k)
   local st = S()
   st.stats.announced = st.stats.announced + 1
+  note_base(st, force.name, k)
   log("[FO-JOURNAL] force " .. force.name .. " : epoque " .. k .. " annoncee (tick " .. game.tick .. ")")
   for _, p in ipairs(connected_players(force)) do
     p.print(lk("chat-epoch", k, { "fo-epochs.name-" .. J.epoch_key(k) }))
@@ -230,6 +250,7 @@ Events.on_configuration_changed(function()
   for _, force in ipairs(tracked_forces()) do
     local _, reached = J.decide(st.reached[force.name], Levels.cc_level(force))
     st.reached[force.name] = reached
+    if reached > 0 then note_base(st, force.name, reached) end
     st.stats.aligned = st.stats.aligned + 1
   end
   local idx = {}
@@ -254,6 +275,18 @@ Levels.on_replaced[#Levels.on_replaced + 1] = function(_, new)
     if force.name == "player" or #force.players > 0 then Journal.check_force(force) end
   end
 end
+
+-- Jalon de défense : nids détruits, par force du tueur (forces suivies seulement).
+Events.on(defines.events.on_entity_died, function(e)
+  local ent = e.entity
+  if not (ent and ent.valid and ent.type == "unit-spawner") then return end
+  local force = e.force
+  if not (force and force.valid and (force.name == "player" or #force.players > 0)) then return end
+  local st = S()
+  if not st then return end
+  st.nests = st.nests or {}
+  st.nests[force.name] = (st.nests[force.name] or 0) + 1
+end)
 
 Events.on(defines.events.on_gui_click, function(e)
   local el = e.element
@@ -290,14 +323,16 @@ remote.add_interface("fo-journal", {
   --- État : { reached, announced, intros, aligned, born }.
   status = function(force_name)
     local st = S() or { reached = {}, stats = {} }
-    return { reached = st.reached[force_name or "player"] or 0, announced = st.stats.announced or 0,
+    local fname = force_name or "player"
+    return { reached = st.reached[fname] or 0, announced = st.stats.announced or 0,
+             nests = st.nests and st.nests[fname] or 0,
              intros = st.stats.intros or 0, aligned = st.stats.aligned or 0, born = st.born }
   end,
   --- Objectifs de l'époque k, filtrés par les prototypes du jeu chargé (données simples).
   objectives = function(k)
     local out = {}
     for _, o in ipairs(J.objectives(k, resource_exists)) do
-      out[#out + 1] = { kind = o.kind, target = o.target, level = o.level, name = o.name, chunks = o.chunks,
+      out[#out + 1] = { kind = o.kind, target = o.target, level = o.level, name = o.name, chunks = o.chunks, nests = o.nests,
                         items = o.cost and #o.cost or nil }
     end
     return out

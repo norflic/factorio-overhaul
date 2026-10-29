@@ -67,6 +67,9 @@ local function objectives_ok(Jm)
       if o.kind == "cap" then cap = o.level end
     end
     if gate ~= (k == 15 and 1 or 0) then ok = false end
+    local def = 0
+    for _, o in ipairs(list) do if o.kind == "defense" then def = def + 1; if o.nests ~= X.milestone_defense_nests(k) then ok = false end end end
+    if def ~= 1 then ok = false end
     if threat ~= 1 or list[#list].kind ~= "threat" then ok = false end
     if cap ~= math.min(30, 2 * k) then ok = false end
   end
@@ -77,8 +80,8 @@ check(objectives_ok(J), "centre (coût exact L.cost), plafond 2k, Porte à l'ép
 do
   local all = function() return true end
   local none = function() return false end
-  check(kinds_of(J.objectives(1, none)) == "centre,cap,chart,threat", "époque 1 sans ressource : " .. kinds_of(J.objectives(1, none)))
-  check(kinds_of(J.objectives(15, none)) == "cap,gate,threat", "époque 15 : " .. kinds_of(J.objectives(15, none)))
+  check(kinds_of(J.objectives(1, none)) == "centre,cap,chart,defense,threat", "époque 1 sans ressource : " .. kinds_of(J.objectives(1, none)))
+  check(kinds_of(J.objectives(15, none)) == "cap,defense,gate,threat", "époque 15 : " .. kinds_of(J.objectives(15, none)))
   -- Gisements : jalon X0 puis garanties de world.lua, filtrés par le prédicat.
   local c5 = J.resource_candidates(5)
   check(c5[1] == "fo-fumarole" and c5[2] == "fo-tungsten-ore" and #c5 == 2, "époque 5 : fumerolle (X0) puis tungstène (garanti) : " .. table.concat(c5, ","))
@@ -309,7 +312,7 @@ local function setup(opts)
   end
   local protos = { ["crude-oil"] = { type = "resource", localised_name = "Crude oil" } }
   for _, key in ipairs(W.resource_order) do local r = W.resources[key]; protos[r.resource] = { type = "resource", localised_name = r.resource } end
-  _G.defines = { events = { on_gui_click = "on_gui_click" }, controllers = { character = 1, cutscene = 7 },
+  _G.defines = { events = { on_gui_click = "on_gui_click", on_entity_died = "on_entity_died" }, controllers = { character = 1, cutscene = 7 },
     inventory = { chest = 1 } }
   _G.game = {
     tick = 0,
@@ -409,11 +412,23 @@ do -- Partie neuve
   check(env.st().reached.player == 3 and env.st().stats.announced == 2, "centre perdu puis reconstruit : rien de rejoué")
   env.cc_level.player = 4; env.poll()
   check(env.st().reached.player == 4 and env.st().stats.announced == 3, "époque 4 annoncée")
+  check(env.st().base.player[4] == 0, "base des nids notée à l'annonce")
+  -- Jalon de défense : nids détruits pendant l'époque 4 (base notée à l'annonce).
+  local function die(type_, force) for _, fn in ipairs(env.handlers.on.on_entity_died or {}) do fn({ entity = { valid = true, type = type_ }, force = force }) end end
+  die("unit-spawner", env.force); die("unit-spawner", env.force); die("unit", env.force); die("unit-spawner", env.faction); die("unit-spawner", nil)
+  check(env.st().nests.player == 2 and env.st().nests[env.faction.name] == nil, "nids comptés pour la force du joueur seulement (2)")
+  env.cmd(1, "4")
+  check(flat(find_texts(env.frame())):find("obj%-defense|2|6") ~= nil, "jalon de défense de l'époque 4 : 2 / 6")
+  env.cc_level.player = 5; env.poll()
+  check(flat(find_texts(env.frame())):find("obj%-defense|0|7") ~= nil, "époque 5 : compteur repart de la base notée (0 / 7)")
+  env.cmd(1, "4")
+  check(flat(find_texts(env.frame())):find("obj%-defense|2|6") ~= nil, "époque 4 relue : 2 / 6 (total moins base, sans borne haute)")
+  env.cc_level.player = 4
   -- Factions : jamais suivies.
   check(env.st().reached[env.faction.name] == nil, "faction (sans joueur) ignorée")
   -- Commande et boutons.
   env.cmd(1, nil)
-  check(flat(env.frame().caption):find("title|4|") ~= nil, "/fo-journal : époque actuelle (4)")
+  check(flat(env.frame().caption):find("title|5|") ~= nil, "/fo-journal : époque actuelle (5)")
   env.cmd(1, "2")
   check(flat(env.frame().caption):find("title|2|") ~= nil, "/fo-journal 2 : époque 2")
   local nchat = #env.chat
@@ -426,15 +441,15 @@ do -- Partie neuve
   check(nxt and nxt.tags.epoch == 3 and prv and prv.tags.epoch == 1, "boutons précédent (1) et suivant (3) depuis l'époque 2")
   env.click(1, nxt)
   check(flat(env.frame().caption):find("title|3|") ~= nil, "bouton suivant : époque 3")
-  env.cmd(1, "4")
+  env.cmd(1, "5")
   check(find_button(env.frame(), "fo_journal_next") == nil, "pas de bouton suivant à l'époque atteinte la plus haute")
   env.click(1, { valid = true, name = "fo_journal_next", tags = { epoch = 9 } })
-  check(flat(env.frame().caption):find("title|4|") ~= nil, "bouton forgé vers une époque non atteinte : ignoré")
+  check(flat(env.frame().caption):find("title|5|") ~= nil, "bouton forgé vers une époque non atteinte : ignoré")
   env.click(1, find_button(env.frame(), "fo_journal_close"))
   check(env.frame() == nil, "bouton fermer")
   -- Interface distante.
   local s = env.remotes["fo-journal"].status("player")
-  check(s.reached == 4 and s.announced == 3 and s.intros == 1 and s.born == "init", "interface : status")
+  check(s.reached == 5 and s.announced == 4 and s.intros == 1 and s.born == "init" and s.nests == 2, "interface : status")
   local ob = env.remotes["fo-journal"].objectives(5)
   check(ob[1].kind == "centre" and ob[1].target == 6, "interface : objectifs de l'époque 5")
   local res = {}

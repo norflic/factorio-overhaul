@@ -9,6 +9,7 @@
      l'époque 1 (aucun joueur dans un banc : seules l'annonce au journal et l'état comptent).
   2. Deux passages du centre par l'interface du mod (levels_upgrade, coût exact L.cost mis dans le coffre) : le
      crochet Levels.on_replaced annonce l'époque 2 puis 3 DANS LE MÊME TICK ; aucun relevé ne rejoue une annonce.
+  3 bis. Un nid ennemi tué par la force player (die) : le jalon de défense compte 1.
   3. Une force de faction sans joueur, avec un centre de niveau 5 : jamais suivie.
   4. Objectifs relus par l'interface, sur les prototypes du jeu chargé : la fumerolle (X0, absente) n'est pas
      proposée à l'époque 5, le tungstène l'est ; pétrole à l'époque 4 ; ilménite et saumure à l'époque 11 ; Porte et
@@ -84,6 +85,10 @@ return {
       local s = remote.call("fo-journal", "status", "player")
       st["up" .. n] = { ok = r and r.ok, reason = r and r.reason, reached = s.reached, announced = s.announced }
     end
+    if e.tick == 520 then
+      local sp = ctx.surface().create_entity({ name = "biter-spawner", position = { X, Y + 14 }, force = "enemy" })
+      st.nest_killed = sp ~= nil and sp.die(game.forces.player) == true
+    end
     local p = player()
     if not p then return end
     if e.tick == 330 then shot(ctx, p, "01-epoque-1")
@@ -120,7 +125,8 @@ return {
     local k11 = kinds(remote.call("fo-journal", "objectives", 11))
     ctx.check(k11:find("resource:fo-ilmenite", 1, true) and k11:find("resource:fo-brine", 1, true), "epoque 11 : ilmenite et saumure", k11)
     local k15 = kinds(remote.call("fo-journal", "objectives", 15))
-    ctx.check(k15 == "cap,gate,threat", "epoque 15 : plafond, Porte, menace (aucun passage)", k15)
+    ctx.check(k15 == "cap,defense,gate,threat", "epoque 15 : plafond, nids, Porte, menace (aucun passage)", k15)
+    ctx.check(st.nest_killed and s.nests == 1, "jalon de defense : un nid tue par la force player compte 1", tostring(st.nest_killed) .. " / " .. tostring(s.nests))
     ctx.log("objectifs 5 : " .. k5 .. " ; 11 : " .. k11)
     if player() then ctx.check((st.shots or 0) == 4, "4 captures de la fenetre demandees", st.shots) end
   end,

@@ -11,6 +11,7 @@
                   shared/content/world.lua (W.resources[clé].epoch == k, dans l'ordre W.resource_order), filtrées par un prédicat `exists` (le
                   prototype doit exister en jeu : la fumerolle, la galène… prévues par X0 n'apparaissent pas) ;
         chart   : cartographier N chunks (jalon d'exploration X0, s'il en a un) ;
+        defense : détruire N nids pendant l'époque (jalon de défense X0, X.milestone_defense_nests(k) = 2 + k) ;
         gate    : la Porte (époque 15 seulement ; « à venir » tant qu'elle n'existe pas) ;
         threat  : la menace de l'époque (clé fo-journal.threat-k).
   Annonce : une force annonce l'époque k la PREMIÈRE fois que son centre l'atteint ; jamais deux fois ; un centre
@@ -26,7 +27,7 @@ local J = {}
 
 J.MAX = 15
 J.LOCALE = "fo-journal"
-J.KINDS = { "centre", "cap", "resource", "chart", "gate", "threat" }
+J.KINDS = { "centre", "cap", "resource", "chart", "defense", "gate", "threat" }
 
 local CC = L.by_key.command
 
@@ -81,6 +82,7 @@ function J.objectives(k, exists)
   end
   local chart = J.chart_target(k)
   if chart then out[#out + 1] = { kind = "chart", chunks = chart } end
+  out[#out + 1] = { kind = "defense", nests = X.milestone_defense_nests(k) }
   if k == J.MAX then out[#out + 1] = { kind = "gate" } end
   out[#out + 1] = { kind = "threat", epoch = k }
   return out
@@ -108,6 +110,14 @@ function J.pick(arg, reached)
   if not n or n < 1 or n > J.MAX then return nil, "invalid" end
   if n > reached then return nil, "not-reached" end
   return n, nil
+end
+
+--- Nids détruits PENDANT l'époque : total de la force moins le total noté à l'annonce de l'époque (`base`, nil
+--- pour une époque atteinte avant le suivi : compté depuis le début du suivi, base 0).
+function J.nests_progress(total, base)
+  local n = (total or 0) - (base or 0)
+  if n < 0 then n = 0 end
+  return n
 end
 
 --- Clés de locale (section fo-journal) qu'utilise le journal pour l'époque k : codex, menace, acte.
