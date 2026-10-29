@@ -440,10 +440,13 @@ function P.plan(view, book)
     -- pièces (shared/team/garde_centrale.lua), posées par la même tâche « fortify », payées sur le stock.
     if view.plant then
       local pl = view.plant
-      local need = (not pl.pause) and Guard.need(pl.pieces, pl.boilers, pl.turrets, pl.range, pl.low) or nil
-      if need then
-        posts[#posts + 1] = { id = "plant", want = need.wanted, have = need.near, busy = pl.fortify,
-          sites = need.sites, pos = need.center, range = pl.range, pieces = pl.pieces }
+      -- Lot GARDE-MULTI : TOUTES les centrales finies (pl.plants) ; un seul poste « plant » à la fois (une tâche ouverte par équipe),
+      -- la centrale la moins gardée d'abord, sous le plafond de tourelles de l'équipe (Guard.plan). Forme ancienne : une centrale (pl).
+      local plan = (not pl.pause) and Guard.plan(pl.plants or { pl }, pl.turrets, pl.range, pl.low, pl.cap) or nil
+      local pick = plan and plan.pick
+      if pick then
+        posts[#posts + 1] = { id = "plant", want = pick.need.near + pick.missing, have = pick.need.near, busy = pl.fortify,
+          sites = pick.need.sites, pos = pick.need.center, range = pl.range, pieces = pick.pieces, plant_id = pick.id }
       end
     end
     for _, p in ipairs(posts) do
@@ -455,7 +458,7 @@ function P.plan(view, book)
           local items = turret_items(n)
           if take(items) then
             add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = items, defend = true,
-              sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces })
+              sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id })
           else
             want_defense(items)
           end
