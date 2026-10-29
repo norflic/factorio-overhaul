@@ -57,9 +57,22 @@ grandes idées ; le détail des commandes et interdits est dans `CLAUDE.md` du m
   mettre à jour les documents ; rapport au DC en 3 lignes seulement si quelque chose a changé.
 - **Deux fois par heure** (`17,47 * * * *`) : relecture des logs (`docs/LOGS_NUIT.md`, script `scan_logs.py`) : erreurs Lua,
   plantages, boucles de tâches, fer gardé en inventaire, gels, centrales à 0 kW, processus parasites.
+- **Ne JAMAIS écrire (SendMessage) à un agent d'un workflow en cours** (ids `a…` sans nom) : cela le « reprend » et crée
+  un DOUBLON cloné qui écrit dans le même worktree (arrivé le 29/10 sur le lot RESEAU, d'où des commits étrangers, un
+  agent arrêté, un lot repris par un agent nommé). On les suit par leur `STATUS.md` et leurs archives ; pour parler à un
+  lot, utiliser un agent NOMMÉ (Agent avec `name`), joignable par SendMessage.
 - Ces tâches vivent dans la session (7 jours au plus) : si la session redémarre, les recréer en premier.
 - Un agent n'est jamais « laissé tranquille » : s'il n'a rien produit (archive, commit, rapport) depuis 20 minutes, je lui
   écris ; s'il est silencieux depuis 40 minutes, je lis son worktree et ses archives moi-même.
+
+## 4 ter. Disque F: (arrivé le 29/10 à 0 h : disque plein, tous les bancs bloqués)
+- Chaque worktree coûte environ 650 Mo (feuilles graphiques copiées) et chaque `src-*` de banc environ 770 Mo : 94 worktrees
+  et des centaines de snapshots ont rempli 954 Go. Règle : **un worktree et ses `src-*` sont supprimés dès que le lot est fusionné
+  ou parqué** (`git worktree remove --force <chemin>` : la BRANCHE reste, le code aussi ; `rm -rf` du `src-*` sauf `src-0.*`
+  qui sont des sources de création de migration à GARDER).
+- Le pilotage de 10 minutes regarde `df -h` sur F: ; en dessous de 40 Go libres : nettoyer d'abord, puis seulement relancer.
+- 29/10 0 h 30 : 47 worktrees de lots finis ou parqués supprimés (branches gardées), 106 snapshots `src` de campagnes terminées
+  supprimés (130 Go libres). Les archives de résultats (`benchmark.log.gz`, tableaux, rapports) ne sont jamais supprimées.
 
 ## 5. Gouvernance
 - Seul l'intégrateur (moi) touche `info.json`, `data.lua`, `control.lua`, `settings.lua`, les documents partagés et `main`.
