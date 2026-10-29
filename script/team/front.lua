@@ -74,6 +74,8 @@ local function on_died(e)
   Fr.decay(st.mem, e.tick) -- la mémoire est à jour avant d'y ajouter : l'ancien poids décroît, le nouveau non
   local pos = ent.position
   Fr.record(st.mem, pos.x, pos.y, Fr.weight(role))
+  -- Lot RECO-DIRECTION : la même attaque donne une DIRECTION (script/ai3/reco.lua : crochet posé au chargement, nil sans ce module).
+  if Front.on_hit then Front.on_hit(f, ent, e, Fr.weight(role)) end
 end
 Events.on(defines.events.on_entity_died, on_died)
 

@@ -56,6 +56,8 @@ local Board = require("script.team.board") -- lot IA-V2 : crochet Board.on_fail 
 local Ia3 = require("script.ai3.cerveau")
 local Veille = require("script.faction.veille") -- lot VEILLE : reconnaissance régulière par ouvrier libre (état, compteurs, bilans)
 local V = require("shared.faction.veille")
+-- Lot RECO-DIRECTION : reconnaissance par la direction des attaques (mission « reco », carnet transmis au retour).
+local Reco = require("script.ai3.reco")
 
 local X = {}
 
@@ -226,8 +228,9 @@ end
 
 local ENEMY_TYPES = { "unit-spawner", "turret" }
 
---- REGARDER un secteur : comptages du moteur, rien d'autre. Renvoie les ressources nouvelles du secteur.
-local function look(k, surface, key, tick)
+--- Ce que montre un secteur : comptages du moteur, rien d'autre (lot RECO-DIRECTION : séparé de l'enregistrement, pour le carnet
+--- d'un éclaireur de reconnaissance qui ne transmet qu'à son retour).
+local function observe(k, surface, key)
   local g = G()
   local sx, sy = K.xy(key)
   local x0, y0 = sx * K.SECTOR, sy * K.SECTOR
@@ -275,7 +278,12 @@ local function look(k, surface, key, tick)
   obs.water = surface.count_tiles_filtered({ area = area, collision_mask = "water-tile", limit = 1 }) > 0
   g.stats.looks = g.stats.looks + 1
   k.stats.looks = (k.stats.looks or 0) + 1
-  return K.record(k.m, key, tick, obs)
+  return obs
+end
+
+--- REGARDER un secteur : observé et rangé tout de suite dans la carte de l'équipe. Renvoie les ressources nouvelles du secteur.
+local function look(k, surface, key, tick)
+  return K.record(k.m, key, tick, observe(k, surface, key))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -416,7 +424,7 @@ local function chunk_ready(surface, p)
   return surface.is_chunk_generated({ x = math.floor(p.x / 32), y = math.floor(p.y / 32) })
 end
 
-local function start_mission(f, k, a, kind, res, tick, veille)
+local function start_mission(f, k, a, kind, res, tick, veille, reco)
   local g = G()
   g.seq = g.seq + 1
   local surface = a.entity.surface
@@ -447,6 +455,8 @@ local function start_mission(f, k, a, kind, res, tick, veille)
     if wait then table.insert(steps, 1, { "wait", 120 }) end
     ex.ring_first = k.tour.next
     steps[#steps + 1] = { "home" }
+  elseif kind == "reco" then
+    steps = Reco.start(f, k, ex, a, reco, tick) -- lot RECO-DIRECTION : direction, carnet ; étapes posées à la surveillance
   else
     ex.known0 = res and K.count(k.m, res) or 0
     steps = { { "wait", 120 }, { "home" } } -- la cible est choisie à la première surveillance (au plus 15 ticks)
@@ -489,6 +499,7 @@ local function end_mission(f, k, ex, tick, why)
   log(string.format("[FO-IA3F] %s : eclaireur %d (%s%s) fin : %s apres %.1f min, secteurs vus %d", team_label(f), ex.agent,
     ex.kind, ex.res and (" " .. ex.res) or (ex.veille and " veille" or ""), why, minutes(tick - ex.started), k.m.n))
   if ex.veille then Veille.on_end(f, tick, tick - ex.started, why) end
+  if ex.kind == "reco" then Reco.on_end(f, k, ex, tick, why) end
 end
 
 --- Secteurs écartés d'une cible d'exploration (table locale, jamais rangée dans global). `ex` : la mission du PNJ (cibles ratées de
@@ -666,6 +677,10 @@ local function monitor_one(f, k, ex, tick)
     if ex.state ~= "home" then ex.state, ex.why = "home", "chemin" end
     return
   end
+  if ex.kind == "reco" then -- lot RECO-DIRECTION : marche de proche en proche, nid vu, fuite, transmission à l'arrivée
+    Reco.monitor(f, k, ex, a, tick)
+    return
+  end
   if ex.state == "home" then return end
   if tick >= (ex.next_enemy or 0) then
     ex.next_enemy = tick + ENEMY_PERIOD
@@ -774,7 +789,8 @@ local function moving_eyes(f, k, surface, tick)
       elseif (p.x - a.k_x) ^ 2 + (p.y - a.k_y) ^ 2 >= K.STEP * K.STEP then
         a.k_x, a.k_y = p.x, p.y
         local r = a.ai3f_eye or K.EYE.walker
-        push_eye(k, p.x, p.y, r, tick, K.RELOOK.moving)
+        -- Lot RECO-DIRECTION : l'œil d'un éclaireur de reconnaissance remplit son carnet, pas la carte (transmis à son retour).
+        if not (a.reco_tag and Reco.eye(f, k, a, p, tick)) then push_eye(k, p.x, p.y, r, tick, K.RELOOK.moving) end
         -- Un éclaireur fait générer la carte autour de lui, comme la présence d'un joueur.
         if a.ai3f_eye then surface.request_to_generate_chunks(p, GEN_RADIUS) end
       end
@@ -912,6 +928,20 @@ local function team_pass(f, tick)
   if tick < k.next_mission then return end
   local n = #k.exl
   for _, ex in ipairs(k.exl) do if ex.kind == "tour" then return end end
+  -- Lot RECO-DIRECTION : une direction d'où viennent les attaques, sans nid connu pour l'expliquer : un ouvrier libre va voir (un seul à
+  -- la fois par équipe ; factions et votre équipe ; abords du QG déjà vus).
+  if k.home_seen then
+    local rc = Reco.want(f, k, tick)
+    if rc then
+      local a = pick_idle(f)
+      if a then
+        start_mission(f, k, a, "reco", nil, tick, nil, rc)
+        k.next_mission = tick + EXTRA_GAP
+        return
+      end
+      Reco.no_idle(f, rc, tick)
+    end
+  end
   local kind, res
   if k.tour.state == "todo" and n == 0 then
     if tick - k.born > TOUR_DEADLINE then k.tour.state = "skip" else kind = "tour" end
@@ -986,6 +1016,7 @@ Scheduler.define_lane(X.EYE_LANE, EYE_PERIOD, function(_, tick)
   Profiler.start("ai3f:eyes")
   for _, f in ipairs(list) do
     if f.ai3f and f.ai3f.exl and #f.ai3f.exl > 0 then monitor(f, f.ai3f, tick) end
+    if f.ai3f and f.reco then Reco.carry_pass(f, f.ai3f, tick) end -- lot RECO-DIRECTION : carnets portés
   end
   g.tc = g.tc % #list + 1
   team_pass(list[g.tc], tick)
@@ -1010,7 +1041,8 @@ Registry.on_removed(function(agent)
   local p = agent.death_pos
   local by_enemy = agent.death_cause:find("/enemy:", 1, true) ~= nil
   local scout = agent.task and agent.task.ai3f ~= nil
-  if p and (by_enemy or scout) then K.mark(k.m, p.x, p.y, game.tick, scout and 800 or 300) end
+  -- Lot RECO-DIRECTION : un éclaireur de reconnaissance mort ne transmet rien, pas même le lieu de sa mort (script/ai3/reco.lua).
+  if p and (by_enemy or scout) and not agent.reco_tag then K.mark(k.m, p.x, p.y, game.tick, scout and 800 or 300) end
   if scout then
     k.stats.deaths = (k.stats.deaths or 0) + 1
     log(string.format("[FO-IA3F] %s : ECLAIREUR %d TUE (%s) en (%d, %d) a %.1f min", team_label(f), agent.id,
@@ -1167,7 +1199,7 @@ local function team_report(f)
     looks = k.stats.looks, missions = k.stats.missions or 0, flees = k.stats.flees or 0, deaths = k.stats.deaths or 0,
     injected = k.stats.injected or 0, far_mine = k.stats.far_mine or 0, audit_ok = k.audit.ok, audit_bad = #k.audit.bad,
     found_after = k.stats.found, outposts_at = mm.out, site_at = mm.site,
-    marks = #k.m.marks, explorer_eye = K.EYE.explorer,
+    marks = #k.m.marks, explorer_eye = K.EYE.explorer, reco = Reco.report(f),
   }
 end
 
@@ -1179,6 +1211,13 @@ remote.add_interface("fo-ia3f", {
     return G().fog
   end,
   fog = function() return X.fog_on() end,
+  --- Lot RECO-DIRECTION (bancs de mesure seulement) : false coupe la reconnaissance par la direction des attaques (aucun relevé, aucun
+  --- envoi) ; rend l'état.
+  set_reco = function(on)
+    Reco.on = on and true or false
+    log("[FO-RECO] reconnaissance par la direction des attaques " .. (Reco.on and "ACTIVE" or "COUPEE"))
+    return Reco.on
+  end,
   status = function()
     local out = { fog = X.fog_on(), stats = G().stats, teams = {} }
     for _, f in ipairs(teams()) do out.teams[#out.teams + 1] = team_report(f) end
@@ -1276,5 +1315,15 @@ Veille.pick_goal = function(f, tick, radius, last_octant)
   if not best then return nil end
   return { key = best.key, x = best.x, y = best.y, octant = best.octant, dh = best.dh, n = #cands }
 end
+
+-- Lot RECO-DIRECTION : fonctions de la voie prêtées à script/ai3/reco.lua (posées une fois au chargement, jamais dans global).
+Reco.bind({
+  observe = function(surface, key)
+    local f0 = { stats = {} }
+    return observe(f0, surface, key)
+  end,
+  generated = generated, chunk_ready = chunk_ready, eye_keys = eye_keys, set_steps = set_steps, go_home = go_home, body = Rg.BODY,
+  on_fresh = function(f, k, surface, key, names, tick) on_fresh(f, k, surface, key, names, tick) end,
+})
 
 return X
