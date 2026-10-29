@@ -224,7 +224,17 @@ do
     prototype = { max_wire_distance = 7.5, supply_area_distance = 2.5 } })
   local t = 1200
   for _ = 1, 8 do Rv.step(api, f, W.surface, t) t = t + 1200 end
-  check(#bridges == 1, "ilot a 26 tuiles sans poteau perdu : un pont demande (" .. #bridges .. ")")
+  check(#bridges == 0, "ilot vu une seule fois (relevé de 2 min) : pas de pont encore (" .. #bridges .. ")")
+  -- un poteau PRÉVU près de l'écart (chantier qui avance) suspend le pont
+  local planned = { name = "small-electric-pole", x = 115, y = 98, built = false, role = "rue" }
+  p.ents[#p.ents + 1] = planned
+  p.state = "chantier"
+  for _ = 1, 20 do Rv.step(api, f, W.surface, t) t = t + 1200 end
+  check(#bridges == 0, "poteau prevu non pose pres de l'ecart : pas de pont (" .. #bridges .. ")")
+  p.ents[#p.ents] = nil
+  p.state = "fini"
+  for _ = 1, 20 do Rv.step(api, f, W.surface, t) t = t + 1200 end
+  check(#bridges == 1, "ilot a 26 tuiles sans poteau perdu, sans chantier : un pont demande (" .. #bridges .. ")")
   check(bridges[1] and bridges[1].name == "small-electric-pole" and #bridges[1].pts >= 3, "le pont pose des poteaux du type de l'ilot, au moins 3")
   local ok = true
   local prev = { x = 128, y = 98 }
@@ -235,9 +245,14 @@ do
   check(ok and (prev.x - 102) ^ 2 + (prev.y - 98) ^ 2 <= 7.5 ^ 2 + 1e-6, "chaque fil du pont tient dans la portee commune (7,5)")
   check(b.sante.bridge and b.sante.bridge.pid, "le pont est suivi")
   -- pont en réserve trop longtemps : annulé
-  for _ = 1, 12 do t = t + 3600 Rv.step(api, f, W.surface, t) end
+  for _ = 1, 12 do
+    t = t + 3600
+    Rv.step(api, f, W.surface, t)
+    if #cancels == 1 then break end
+  end
   check(#cancels == 1, "pont sans poteaux au coffre apres 10 min : annule (" .. #cancels .. ")")
   check(b.sante.bridge == nil, "pont annule : plus suivi")
+  check(b.sante.bridge_block and b.sante.bridge_block > t, "pont annule : pas de nouvelle demande avant 5 min")
 end
 
 -- §6 déterminisme

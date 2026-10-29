@@ -29,6 +29,8 @@ Rv.POLE_REOPEN_MAX = 5    -- réouvertures d'un même projet pour ses poteaux (o
 Rv.POLE_ENEMY_R = 28      -- jamais de pose de poteau avec un ennemi à cette portée
 Rv.CAND_MAX = 40          -- poteaux perdus examinés par cycle
 Rv.RELOC_BLOCK = 5 * 3600  -- pas de nouvelle demande d'autre site pendant 5 min après un refus du plan
+Rv.PLANNED_R = 15         -- tuiles : un poteau prévu non posé à cette distance de l'écart suspend le pont
+Rv.BRIDGE_SEEN = 2        -- relevés de réseau de suite avec un îlot pontable avant de poser un pont
 Rv.BRIDGE_WAIT = 10 * 3600  -- un pont qui attend ses poteaux au coffre plus de 10 min est annulé
 Rv.BRIDGE_BLOCK = 5 * 3600
 Rv.LOG_EVERY = 5 * 3600   -- une ligne de synthèse par équipe et par 5 min
@@ -223,6 +225,21 @@ local function make_bridge(api, f, surface, sv, nr, tick)
   for _, x in ipairs(gaps) do if Br.useful(x) then g = x break end end
   if not g then return "aucun ecart utile", false end
   local pa, pb = poles[g.a], poles[g.b]
+  -- un poteau PRÉVU et pas encore posé près de l'écart (un chantier qui avance) : ce n'est pas un îlot oublié, le chantier le relie
+  -- (un pont ferait un doublon, exactement ce que le lot supprime)
+  for k = 0, 6 do
+    local qx, qy = pa.x + (pb.x - pa.x) * k / 6, pa.y + (pb.y - pa.y) * k / 6
+    for _, pid in ipairs(b.order) do
+      local q = b.projects[pid]
+      if q and q.state ~= "refuse" and q.state ~= "fini" then
+        for _, e in ipairs(q.ents) do
+          if not e.built and is_pole(e.name) and (e.x - qx) ^ 2 + (e.y - qy) ^ 2 <= Rv.PLANNED_R * Rv.PLANNED_R then
+            return string.format("chantier en cours : poteau prevu en (%g, %g) pres de l'ecart (projet %d)", e.x, e.y, q.id), false
+          end
+        end
+      end
+    end
+  end
   if g.d <= g.reach + 1e-6 then
     -- déjà à portée de fil mais pas reliés : on tire le fil (un fil, pas un chantier)
     local ok = pcall(function() return ents[g.a].connect_neighbour({ wire = defines.wire_type.copper, target_entity = ents[g.b] }) end)
@@ -308,11 +325,12 @@ function Rv.step(api, f, surface, tick)
       sv.lost_links = #lost_poles(f, surface, b)
       if sv.lost_links == 0 then sv.bridges = #(bridge_gaps(f, surface, nr)) end
     end
+    sv.bridge_seen = sv.bridges > 0 and ((sv.bridge_seen or 0) + 1) or 0
   end
   local inp, lost = plant_read(f, surface, pp)
   inp.demand_kw = sv.demand
   inp.islands, inp.uncovered, inp.lost_links = sv.islands, sv.uncovered, sv.lost_links
-  inp.bridges = (tick >= (sv.bridge_block or 0)) and (sv.bridges or 0) or 0
+  inp.bridges = (tick >= (sv.bridge_block or 0) and (sv.bridge_seen or 0) >= Rv.BRIDGE_SEEN) and (sv.bridges or 0) or 0
   inp.bridging = sv.bridge ~= nil
   local site = site_of(pp)
   inp.enemies = 0
@@ -406,7 +424,7 @@ function Rv.step(api, f, surface, tick)
     nr = nr or net_read(f, surface)
     local txt, made = make_bridge(api, f, surface, sv, nr, tick)
     say(f, tick, string.format("reseau: %s ; %s", why, txt))
-    if not made then sv.bridge_block = tick + Rv.BRIDGE_BLOCK end
+    if not made then sv.bridge_block = tick + (txt:find("chantier en cours", 1, true) and 7200 or Rv.BRIDGE_BLOCK) end
     sv.net_next = tick + 1200
   elseif action == "combustible" then
     if tick >= (sv.comb_next or 0) then
