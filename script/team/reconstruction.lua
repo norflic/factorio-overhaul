@@ -118,6 +118,7 @@ local function on_died(e)
   local infra = R.INFRA_TYPES[ent.type] or false
   local value = infra and (ent.type == "electric-pole" and Rc.pole_value(0) or Rc.INFRA_VALUE) or Rc.role_value(role)
   if value <= 0 then return end
+  if not infra and not R.RECON_ALL_PIECES then return end -- portée : infrastructure électrique seule par défaut
   local kind, oid
   local owner = ent.unit_number and State.owner(ent.unit_number)
   if infra then
@@ -261,6 +262,43 @@ function Recon.think(f, surface, tick)
     stat(s, "tasks", n)
     return n
   end
+  return 0
+end
+
+--- Fabrication des objets d'INFRASTRUCTURE qui manquent au stock (poteaux, chaudières, machines à vapeur, pompes détruits) : une
+--- tâche « craft » par objet, à la priorité de la reconstruction ; le livre de recettes de l'équipe dit si la fabrication à la main
+--- est possible avec le stock libre (sinon rien : le manque reste lisible aux relevés « ns »). `free` : stock libre de la pensée.
+function Recon.craft_spares(f, book, free, tick)
+  local s = f.recon
+  if not (s and next(s.lost) and book and free) then return 0 end
+  local wanted = Rc.demand(s, tick, function(item) return free[item] or 0 end)
+  if #wanted == 0 then return 0 end
+  local added = {}
+  local avail = {}
+  for _, k in ipairs(State.sorted_keys(free)) do avail[k] = free[k] end
+  for _, w in ipairs(wanted) do
+    local item, n = w[1], w[2]
+    if book:handcraftable(item) then
+      local saved = avail[item]
+      avail[item] = 0 -- besoin d'accumulation : l'objet lui-même n'est pas pris au stock
+      local q = book:plan({ { item, n } }, avail)
+      avail[item] = saved
+      if next(q.raw) == nil then
+        local uses = {}
+        for k in next, q.uses do uses[#uses + 1] = k end
+        table.sort(uses)
+        local list = {}
+        for _, k in ipairs(uses) do list[#list + 1] = { k, q.uses[k] } end
+        added[#added + 1] = { key = "craft:" .. item .. ":reconstruction", kind = "craft", prio = Rc.task_prio(Rc.INFRA_VALUE), item = item,
+          count = n, steps = q.crafts, uses = list, tag = "reconstruction", domain = "defense" }
+        for _, u in ipairs(list) do
+          if u[1] ~= item then avail[u[1]] = (avail[u[1]] or 0) - u[2] end
+        end
+        stat(s, "spares")
+      end
+    end
+  end
+  if #added > 0 then return Board.add(f, added, tick) end
   return 0
 end
 

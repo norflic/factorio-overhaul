@@ -121,6 +121,11 @@ R.CONSUMER_TYPES = { "inserter", "mining-drill", "assembling-machine", "lab" }
 -- reconstruction des factions fait diverger la partie (dont la perte du QG du joueur a 58 min sur 271828182, absente du temoin) sans
 -- gain demontre ; la remarque du DC porte sur SON installation. Allume, le registre sert aux factions comme a votre equipe.
 R.RECON_FACTIONS = false
+-- Lot RECONSTRUIRE : portee de la reconstruction de votre equipe. Mesure du 29/10 (variante « infrastructure seule » contre la
+-- reconstruction large, 20261020) : refaire aussi les tapis, bras, fours, foreuses et coffres degrade tourelles, avant-postes
+-- defendus et fer livre de votre equipe sur 3 graines de 5 ; l'infrastructure electrique seule laisse la partie identique au temoin.
+-- Eteint : seule l'infrastructure electrique (R.INFRA_TYPES) est refaite.
+R.RECON_ALL_PIECES = false
 
 R.BODY = "character"
 

@@ -116,6 +116,28 @@ local function suite(Rc)
     check(Rc.calm_for(st.lost[kp2]) == 2 * c1, "§7b une deuxième destruction double aussi la patience courte")
   end
 
+  -- §7c Objets à fabriquer pour l'infrastructure -----------------------------------------------------------
+  do
+    local st = Rc.new()
+    for i = 1, 10 do Rc.record(st, { name = "P", x = i, y = 0, dir = 0, item = "ip", value = 2, infra = true }, 1000) end
+    Rc.record(st, { name = "B", x = 50, y = 50, dir = 0, item = "ib", value = Rc.INFRA_VALUE, infra = true }, 1000)
+    Rc.record(st, { name = "L", x = 70, y = 70, dir = 0, item = "il", value = 8 }, 1000)
+    local none = function() return 0 end
+    check(#Rc.demand(st, 1000 + Rc.CALM_INFRA - 1, none) == 0, "§7c rien à fabriquer avant la patience")
+    local d = Rc.demand(st, 1000 + Rc.CALM_INFRA, none)
+    check(#d == 2 and d[1][1] == "ib" and d[1][2] == 1 and d[2][1] == "ip" and d[2][2] == Rc.SPARE_CAP, "§7c chaudière et poteaux demandés, bornés, triés ; pas le laboratoire")
+    local dl = Rc.demand(st, 1000 + Rc.CALM, none)
+    check(#dl == 2 and dl[1][1] == "ib" and dl[2][1] == "ip", "§7c le laboratoire ordinaire (due aussi) n'est pas fabriqué par cette règle")
+    local d2 = Rc.demand(st, 1000 + Rc.CALM_INFRA, function(i) return i == "ip" and 4 or 0 end)
+    check(#d2 == 2 and d2[2][2] == Rc.SPARE_CAP - 4, "§7c le stock déjà là est déduit")
+    local d3 = Rc.demand(st, 1000 + Rc.CALM_INFRA, function(i) return i == "ip" and 99 or 0 end)
+    check(#d3 == 1 and d3[1][1] == "ib", "§7c objet en stock : plus rien à fabriquer pour lui")
+    local only = Rc.new()
+    Rc.record(only, { name = "P", x = 1, y = 1, dir = 0, item = "ip", value = 2, infra = true }, 0)
+    Rc.record(only, { name = "P", x = 2, y = 1, dir = 0, item = "ip", value = 2, infra = true }, 0)
+    check(Rc.demand(only, Rc.CALM_INFRA, none)[1][2] == 2, "§7c deux poteaux perdus : deux à fabriquer")
+  end
+
   return pass, fail, msgs
 end
 
@@ -155,6 +177,9 @@ local MUTANTS = {
   { "poteau sans plafond", "math.min(Rc.POLE_CAP - Rc.POLE_BASE, cut or 0)", "(cut or 0)" },
   { "poteau sans consommateurs coupés", "Rc.POLE_BASE + math.max(0, math.min(Rc.POLE_CAP - Rc.POLE_BASE, cut or 0))", "Rc.POLE_BASE" },
   { "infra non marquée", "infra = rec.infra or nil,", "" },
+  { "demande non bornée", "math.min(Rc.SPARE_CAP, need[item]) - have(item)", "need[item] - have(item)" },
+  { "demande du stock ignoré", "math.min(Rc.SPARE_CAP, need[item]) - have(item)", "math.min(Rc.SPARE_CAP, need[item])" },
+  { "demande aussi hors infrastructure", "if r.infra then need[r.item] = (need[r.item] or 0) + 1 end", "need[r.item] = (need[r.item] or 0) + 1" },
   { "pose refusée sans abandon", "if r.blocks > Rc.MAX_BLOCKS then r.abandoned = true end", "" },
 }
 local refused, kept = 0, {}

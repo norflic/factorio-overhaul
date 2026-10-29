@@ -52,6 +52,8 @@ local PROTOS = {
 game = { tick = 0, entity_prototypes = PROTOS }
 
 local R = require("shared.ai3.reglages")
+check(R.RECON_ALL_PIECES == false, "réglage : portée par défaut = infrastructure électrique seule")
+R.RECON_ALL_PIECES = true -- les sections 1 à 5 testent le mécanisme général ; la section 8 la portée par défaut
 local Rc = require("shared.team.reconstruction")
 local Recon = require("script.team.reconstruction")
 local died = handlers[1]
@@ -284,6 +286,34 @@ do
   R.RECON_FACTIONS = false
   package.loaded.__scarlet = nil
 end
+
+-- §8 Portée par défaut : infrastructure seule ; fabrication des objets d'infrastructure ----------------------------------
+do
+  R.RECON_ALL_PIECES = false
+  local f = new_team()
+  died({ entity = ent("piece-a", "assembling-machine", 10, 10), tick = 1000 })
+  died({ entity = ent("pole-x", "electric-pole", 60, 60), tick = 1000 })
+  check(Rc.pending(f.recon) == 1 and f.recon.lost[Rc.key({ name = "pole-x", x = 60, y = 60 })], "portée par défaut : le poteau seul est inscrit")
+  -- craft_spares : objet absent du stock libre, livre de recettes qui sait le faire
+  f.stock["item-p"] = 0
+  local made = {}
+  local book = {
+    handcraftable = function(_, item) return item == "item-p" end,
+    plan = function(_, list) return { raw = {}, crafts = { { "recette-p", list[1][2] } }, uses = { ["copper-plate"] = 1, ["iron-plate"] = 2 } } end,
+  }
+  local free = { ["iron-plate"] = 50, ["copper-plate"] = 50 }
+  local n = Recon.craft_spares(f, book, free, 1000 + Rc.CALM_INFRA + 5)
+  local t = f.team.board.tasks["craft:item-p:reconstruction"]
+  check(n == 1 and t and t.kind == "craft" and t.item == "item-p" and t.count == 1 and t.uses[1][1] == "copper-plate" and t.uses[2][1] == "iron-plate",
+    "objet d'infrastructure manquant : une tâche de fabrication, matières triées")
+  check(Recon.craft_spares(f, book, free, 1000 + Rc.CALM_INFRA + 6) == 0, "même objet : pas de doublon au tableau")
+  f.team.board.tasks = {}
+  local book2 = { handcraftable = function() return true end, plan = function() return { raw = { ["iron-ore"] = 3 }, crafts = {}, uses = {} } end }
+  check(Recon.craft_spares(f, book2, free, 1000 + Rc.CALM_INFRA + 7) == 0 and next(f.team.board.tasks) == nil, "matière première absente : rien de fabriqué")
+  check(Recon.craft_spares(f, nil, free, 1000 + Rc.CALM_INFRA + 8) == 0, "sans livre de recettes : rien")
+  R.RECON_ALL_PIECES = true
+end
+
 
 -- §5 Source -----------------------------------------------------------------------------------------------------------------
 for _, file in ipairs({ "script/team/reconstruction.lua" }) do

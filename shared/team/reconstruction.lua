@@ -104,6 +104,23 @@ function Rc.due(st, tick)
   return out
 end
 
+--- Objets à FABRIQUER pour refaire l'infrastructure électrique : les pièces d'infrastructure dues (patience écoulée, non prises, non
+--- abandonnées) dont l'objet manque au stock. Rend { { objet, quantité } } trié par objet, au plus Rc.SPARE_CAP par objet (deux
+--- poteaux détruits ne font pas fabriquer cent poteaux). `have(item)` : stock libre de l'équipe.
+Rc.SPARE_CAP = 6
+function Rc.demand(st, tick, have)
+  local need = {}
+  for _, r in ipairs(Rc.due(st, tick)) do
+    if r.infra then need[r.item] = (need[r.item] or 0) + 1 end
+  end
+  local out = {}
+  for _, item in ipairs(sorted_keys(need)) do
+    local n = math.min(Rc.SPARE_CAP, need[item]) - have(item)
+    if n > 0 then out[#out + 1] = { item, n } end
+  end
+  return out
+end
+
 local function d2(a, b) local dx, dy = a.x - b.x, a.y - b.y; return dx * dx + dy * dy end
 
 --- Lot d'un voyage : la pièce `seed` d'abord, puis celles de `due` à `radius` tuiles d'elle, `max` pièces au plus.
