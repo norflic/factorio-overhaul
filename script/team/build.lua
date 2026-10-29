@@ -40,6 +40,7 @@ local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourel
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
+local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 
 local Build = {}
@@ -1865,6 +1866,25 @@ local function reserve(f, p)
   return #missing == 0
 end
 
+--- Lot INTEG-RECONSTRUCTION (D6) : les objets qui MANQUENT au coffre pour les pièces à refaire d'un projet ROUVERT qui n'est plus en
+--- « reserve » (fantômes, chantier : le relevé en rouvre par passes de 40, Rv et une nouvelle destruction aussi). `reserve` n'est lu qu'en état
+--- « reserve » : sans cela p.missing restait périmé, le cerveau ne fabriquait rien (A.emit) et le PNJ abandonnait « stock » en boucle. Ne retire
+--- RIEN au coffre (le PNJ complète sur le stock libre à sa prise, Build.take_reserved) ; écrit seulement p.missing. Un objet que le PNJ porte déjà
+--- vers sa pièce compte encore comme besoin (écart transitoire de quelques objets, borné par le nombre de PNJ).
+local function refresh_missing(f, p)
+  local need = needs_of(p)
+  local free = free_stock(f)
+  local missing = {}
+  for _, it in ipairs(sorted_keys(need)) do
+    local want = need[it] - (p.stock[it] or 0)
+    if want > 0 then
+      local have = math.min(Stock.count(f, it), free[it] or 0)
+      if want > have then missing[#missing + 1] = { it, want - have } end
+    end
+  end
+  p.missing = missing
+end
+
 local function release(f, p)
   for _, it in ipairs(sorted_keys(p.stock)) do
     local n = p.stock[it]
@@ -2618,6 +2638,7 @@ local function finish_project(f, surface, p, tick)
   local b = f.build
   p.wired = wire_project(f, surface, p)
   release(f, p)
+  p.missing = {} -- lot INTEG-RECONSTRUCTION (D6) : plus rien à réunir (refresh_missing ne tourne plus)
   p.state = "fini"
   p.finished = tick
   if not p.counted then -- lot CORR-RESEAU : un projet rouvert puis refini ne compte qu'une fois
@@ -2733,6 +2754,10 @@ local function advance(f, surface, p, tick)
     end
     return
   end
+  if p.reopened and tick >= (p.miss_next or 0) and (p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier") then
+    p.miss_next = tick + 60 -- lot INTEG-RECONSTRUCTION (D6) : une fois par seconde
+    refresh_missing(f, p)
+  end
   if p.state == "defrichage" then
     if review_obstacles(surface, p) == 0 then p.state = "fantomes" end
     return
@@ -2776,6 +2801,14 @@ local function advance(f, surface, p, tick)
           -- lot ESPACE : un mur refusé 3 fois (tuile prise, falaise cachée) est abandonné : il ne bloque pas toute l'enceinte
           e.built, e.dropped = true, true
           p.dropped = (p.dropped or 0) + 1
+        elseif not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 and Sweep.refusal_verdict(p.reopened, p.retries, Build.RETRIES) == "abandon" then
+          -- lot INTEG-RECONSTRUCTION (D2) : un projet ROUVERT dont les reprises sont épuisées abandonne la pièce refusée (emprise reprise par un
+          -- arbre, un ouvrage du joueur, un nid) au lieu de mourir « bloque » sans reprise : le reste du module se refait, la fin (raccordement,
+          -- fini) rend l'objet réservé et libère l'emplacement d'automatisation (A.MAX_OPEN). Lecteurs : all_built, Sw.todo, le relevé (e.dropped).
+          e.built, e.dropped = true, true
+          p.dropped = (p.dropped or 0) + 1
+          log(string.format("[FO-IA1D] %s : projet %d rouvert, piece abandonnee apres %d reprises : %s en %s,%s (refus repetes)", f.key or "player",
+            p.id, p.retries or 0, tostring(e.name), tostring(e.x), tostring(e.y)))
         elseif not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
           p.state, p.reason = "bloque", "fantome refuse (" .. e.name .. " en " .. e.x .. "," .. e.y .. ")"
           b.stats.projects_blocked = b.stats.projects_blocked + 1

@@ -95,6 +95,7 @@ local function reopen(q, list, tick)
   end
   q.reopened = (q.reopened or 0) + 1 -- non annulable (Build.cancel) tant que ses pièces ne sont pas refaites
   q.reopened_tick = tick
+  q.retries, q.retry_at = 0, nil -- lot INTEG-RECONSTRUCTION (D2) : les reprises de la construction ne comptent pas pour la reconstruction
   q.rebuilt_pieces = (q.rebuilt_pieces or 0) + #list
   -- lot REBUILD-SUIVI : suivi au journal ([FO-REBUILD-ETAT]) jusqu'à ce que le projet soit refini
   if not q.etat_open then q.etat_open, q.etat_from, q.etat_n, q.etat_next = true, tick, 0, tick + Rule.ETAT_EVERY end
@@ -132,6 +133,16 @@ local function report(f, b, st, tick)
   end
 end
 
+--- Lot INTEG-RECONSTRUCTION (D4) : l'équipe a-t-elle un projet du plan directeur rouvert à refaire ? (Recon.hold_upgrades : « améliorer attend »)
+function Sweep.hold(f, tick)
+  local b = f.build
+  if not (R.REBUILD_SWEEP and b and b.projects and b.order) then return false end
+  for _, pid in ipairs(b.order) do
+    if Rule.project_holds(b.projects[pid], tick) then return true end
+  end
+  return false
+end
+
 --- Une passe de l'équipe. Rend le nombre de pièces rouvertes.
 function Sweep.step(f, surface, tick)
   local b = f.build
@@ -156,6 +167,10 @@ function Sweep.step(f, surface, tick)
     for i = sg[2], sg[3] do
       local e = q.ents[i]
       -- Sans objet qui la pose (e.item), une pièce rouverte ne pourrait jamais être refaite et bloquerait son projet : laissée.
+      if e and e.gave_up and Rule.gave_expired(e, tick) then
+        -- lot INTEG-RECONSTRUCTION (D3) : abandon levé (80 min), la pièce est de nouveau relevée
+        e.gave_up, e.gave_t, e.rb, e.rb_t, e.miss = nil, nil, nil, nil, nil
+      end
       if e and e.built and e.item and not e.gave_up and not e.dropped and not e.wall then
         local ty = type_of(e.name)
         local cls = Rule.class_of(ty, R.REBUILD_FIRST, R.INFRA_TYPES)
@@ -166,7 +181,7 @@ function Sweep.step(f, surface, tick)
             limit = 1 }) > 0
           if hand then
             -- retirée à la main : abandonnée pour de bon (la mémoire des retraits expire au bout d'une heure, la pièce ne revient pas)
-            if not present then e.gave_up = true end
+            if not present then e.gave_up, e.hand_gave = true, true end
           else
             local r = Rule.observe(e, present, tick)
             if r == "marque" and e.miss == tick then st.marked = st.marked + 1 end
@@ -191,7 +206,16 @@ function Sweep.step(f, surface, tick)
     return ok
   end
   local picked, gave = Rule.select(cands, tick, safe)
-  if #gave > 0 then st.gave_up = st.gave_up + #gave end
+  if #gave > 0 then
+    st.gave_up = st.gave_up + #gave
+    -- lot INTEG-RECONSTRUCTION (D3) : l'abandon se dit au journal (il restait silencieux : trou définitif dans une ligne de production)
+    if st.logs < Sweep.LOGS then
+      st.logs = st.logs + 1
+      local c1 = gave[1]
+      log(string.format("[FO-REBUILD] %s : %d piece(s) ABANDONNEE(S) (detruites %d fois en %d min, %s en %.1f, %.1f), reprises dans %d min a %.1f min",
+        f.key or "player", #gave, Rule.MAX_REBUILD, math.floor(Rule.FORGET / 3600), c1.e.name, c1.e.x, c1.e.y, math.floor(Rule.GAVE_KEEP / 3600), tick / 3600))
+    end
+  end
   if #picked == 0 then return 0 end
 
   local by = {}

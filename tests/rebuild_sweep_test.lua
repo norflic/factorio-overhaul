@@ -178,6 +178,7 @@ local function suite(Sw)
     local got = Sw.select({ { q = qa, pi = 1, i = 1, e = ea, class = 1 } }, 5000 + k * 10, nil)
     if #got == 1 then rounds = rounds + 1 end
   end
+  c(ea.gave_t == 5000 + (Sw.MAX_REBUILD + 1) * 10, "D3 : l'abandon est daté (Sw.select)")
   c(rounds == Sw.MAX_REBUILD and ea.gave_up == true, "pièce détruite sans cesse : abandonnée après " .. Sw.MAX_REBUILD .. " réouvertures (" .. rounds .. ")")
   -- oubli de l'historique
   local qb = proj(3)
@@ -192,6 +193,43 @@ local function suite(Sw)
   picked = Sw.select(cd, 1000, function(x) return x.i > 50 end)
   c(#picked == Sw.PASS_MAX and picked[1].i == 51 and (qd.sw_n or 0) == Sw.PASS_MAX and (qd.ents[1].rb or 0) == 0,
     "danger : les pièces en danger restent inscrites et ne comptent pas")
+  -- Lot INTEG-RECONSTRUCTION (D2) : refus répété d'un fantôme
+  c(Sw.refusal_verdict(nil, 5, 3) == "bloque" and Sw.refusal_verdict(0, 5, 3) == "bloque", "D2 : projet jamais rouvert : bloqué comme avant, quelles que soient les reprises")
+  c(Sw.refusal_verdict(1, 0, 3) == "bloque" and Sw.refusal_verdict(2, 2, 3) == "bloque", "D2 : projet rouvert avec des reprises restantes : bloqué puis repris")
+  c(Sw.refusal_verdict(1, 3, 3) == "abandon" and Sw.refusal_verdict(4, nil, 0) == "abandon", "D2 : projet rouvert aux reprises épuisées : la pièce est abandonnée")
+  -- Lot INTEG-RECONSTRUCTION (D3) : abandon levé après Sw.GAVE_KEEP
+  do
+    local e1 = { gave_up = true, gave_t = 1000 }
+    c(Sw.gave_expired(e1, 1000 + Sw.GAVE_KEEP - 1) == false, "D3 : abandon tenu avant la durée")
+    c(Sw.gave_expired(e1, 1000 + Sw.GAVE_KEEP) == true, "D3 : abandon levé à la durée")
+    c(Sw.gave_expired({ gave_up = true, gave_t = 1000, hand_gave = true }, 1000 + 10 * Sw.GAVE_KEEP) == false, "D3 : retrait à la main : jamais levé")
+    c(Sw.gave_expired({ gave_up = true }, 10 * Sw.GAVE_KEEP) == false, "D3 : abandon sans date (sauvegarde d'avant) : jamais levé")
+    c(Sw.gave_expired({ gave_t = 1000 }, 10 * Sw.GAVE_KEEP) == false, "D3 : pièce non abandonnée : rien à lever")
+    c(Sw.GAVE_KEEP > Sw.FORGET, "D3 : l'abandon dure plus que l'oubli de l'historique")
+  end
+  -- Lot INTEG-RECONSTRUCTION (D4) : un projet rouvert retient les améliorations
+  do
+    local q = { reopened = 1, reopened_tick = 5000, state = "reserve", ents = { { item = "a", built = false } } }
+    c(Sw.project_holds(q, 5000 + 60) == true, "D4 : projet rouvert à refaire : retient")
+    c(Sw.project_holds(q, 5000 + Sw.HOLD_MAX) == true and Sw.project_holds(q, 5000 + Sw.HOLD_MAX + 1) == false, "D4 : ne retient que Sw.HOLD_MAX ticks")
+    for _, st in ipairs({ "fantomes", "chantier", "defrichage" }) do
+      q.state = st
+      c(Sw.project_holds(q, 5100) == true, "D4 : « " .. st .. " » retient")
+    end
+    for _, st in ipairs({ "fini", "raccordement", "bloque", "refuse", "plan" }) do
+      q.state = st
+      c(Sw.project_holds(q, 5100) == false, "D4 : « " .. st .. " » ne retient pas")
+    end
+    q.state = "chantier"
+    q.ents[1].built = true
+    c(Sw.project_holds(q, 5100) == false, "D4 : plus rien à refaire : ne retient plus")
+    q.ents[1].built = false
+    q.ents[1].gave_up = true
+    c(Sw.project_holds(q, 5100) == false, "D4 : pièce abandonnée : ne retient pas")
+    c(Sw.project_holds({ state = "chantier", ents = { { item = "a", built = false } } }, 5100) == false, "D4 : projet jamais rouvert : ne retient pas")
+    c(Sw.project_holds({ reopened = 1, state = "chantier", ents = { { item = "a", built = false } } }, 5100) == false, "D4 : sans date de réouverture (murs d'enceinte) : ne retient pas")
+    c(Sw.project_holds(nil, 5100) == false, "D4 : projet absent")
+  end
   return ok, bad
 end
 
@@ -222,6 +260,18 @@ local MUTANTS = {
   { "à refaire : abandonnées comptées", "if not e.built and not e.gave_up and not e.dropped then", "if not e.built then" },
   { "à refaire : tri inversé", "return count[a] > count[b]", "return count[a] < count[b]" },
   { "infra refaite", "if not ty or (skip and skip[ty]) then return nil end", "if not ty then return nil end" },
+  { "D2 : jamais d'abandon de la pièce", "if (reopened or 0) > 0 and (retries or 0) >= max_retries then return \"abandon\" end", "" },
+  { "D2 : abandon avant les reprises", "(retries or 0) >= max_retries then return \"abandon\"", "(retries or 0) >= 0 then return \"abandon\"" },
+  { "D2 : abandon d'un projet jamais rouvert", "if (reopened or 0) > 0 and (retries", "if (retries" },
+  { "D3 : date de l'abandon non écrite", "        e.gave_t = tick -- lot INTEG-RECONSTRUCTION (D3) : date de l'abandon (Sw.gave_expired)\n", "" },
+  { "D3 : abandon jamais levé", "return tick - e.gave_t >= Sw.GAVE_KEEP", "return false" },
+  { "D3 : abandon levé sans attendre", "return tick - e.gave_t >= Sw.GAVE_KEEP", "return true" },
+  { "D3 : retrait à la main levé", "if not e.gave_up or e.hand_gave or not e.gave_t then return false end", "if not e.gave_up or not e.gave_t then return false end" },
+  { "D3 : abandon sans date levé", "if not e.gave_up or e.hand_gave or not e.gave_t then return false end", "if not e.gave_up or e.hand_gave then return false end" },
+  { "D4 : jamais retenu", "return pieces > 0\nend", "return false\nend" },
+  { "D4 : retenu sans fin", "if tick - q.reopened_tick > Sw.HOLD_MAX then return false end", "" },
+  { "D4 : retenu une fois fini", "and Sw.HOLD_STATES[q.state]) then", ") then" },
+  { "D4 : retenu sans pièce à refaire", "return pieces > 0\nend", "return true\nend" },
 }
 local refused = 0
 for _, mu in ipairs(MUTANTS) do
@@ -470,6 +520,105 @@ do
   local before = #logs
   Sweep.step(f2, surface, 5 + 180)
   check(#logs == before, "lignes d'état bornées par équipe (" .. Rule.ETAT_LOGS .. ")")
+end
+
+-- 10. Lot INTEG-RECONSTRUCTION : exécutant (D2 reprises remises à zéro, D3 abandon levé, D4 retenue des améliorations), sources (D1, D2, D6)
+do
+  -- D2 : les reprises de la construction ne comptent pas pour la reconstruction
+  local f, q = team("integ-d2", "fini", { { "belt", 9001, 5 } })
+  q.retries, q.retry_at = 3, nil
+  Sweep.step(f, surface, 10)
+  present["9001,5"] = nil
+  Sweep.step(f, surface, 10 + 180)
+  Sweep.step(f, surface, 10 + 360 + Sw.CALM)
+  check(q.state == "reserve" and q.retries == 0 and q.retry_at == nil, "D2 : projet rouvert : reprises remises à zéro (" .. tostring(q.retries) .. ")")
+
+  -- D4 : le projet rouvert retient les améliorations (Sweep.hold), puis plus rien une fois refait
+  check(Sweep.hold(f, q.reopened_tick + 60) == true, "D4 : l'équipe retient les améliorations tant que le projet rouvert est à refaire")
+  check(Sweep.hold(f, q.reopened_tick + Sw.HOLD_MAX + 1) == false, "D4 : plus de retenue après Sw.HOLD_MAX")
+  q.ents[1].built = true
+  q.state = "fini"
+  check(Sweep.hold(f, q.reopened_tick + 60) == false, "D4 : projet refait : plus de retenue")
+  check(Sweep.hold({ key = "x" }, 100) == false and Sweep.hold({ key = "x", build = {} }, 100) == false, "D4 : équipe sans projets : rien")
+
+  -- D3 : un abandon est écrit au journal, puis levé après Sw.GAVE_KEEP ; un retrait à la main ne l'est jamais
+  local f3, q3 = team("integ-d3", "fini", { { "belt", 9101, 5 }, { "belt", 9201, 5 } })
+  Sweep.step(f3, surface, 100)
+  local e = q3.ents[1]
+  local t0 = 100
+  present["9101,5"] = nil
+  e.rb, e.rb_t = Sw.MAX_REBUILD, t0
+  local before = #logs
+  Sweep.step(f3, surface, t0 + 180)
+  Sweep.step(f3, surface, t0 + 360 + Sw.CALM)
+  check(e.gave_up == true and e.gave_t ~= nil and q3.state == "fini", "D3 : pièce détruite trop souvent : abandonnée, datée, rien rouvert")
+  local found = false
+  for i = before + 1, #logs do if logs[i]:find("ABANDONNEE") and logs[i]:find("belt") then found = true end end
+  check(found, "D3 : l'abandon est écrit au journal [FO-REBUILD]")
+  local t1 = e.gave_t + Sw.GAVE_KEEP + 10
+  Sweep.step(f3, surface, t1)
+  check(e.gave_up == nil and e.gave_t == nil and e.rb == nil, "D3 : abandon levé après " .. Sw.GAVE_KEEP .. " ticks, historique remis à zéro")
+  Sweep.step(f3, surface, t1 + 180 + 1)
+  Sweep.step(f3, surface, t1 + 360 + Sw.CALM + 2)
+  check(not e.built and q3.state == "reserve", "D3 : la pièce abandonnée puis levée est refaite")
+  -- retrait à la main
+  local e2 = q3.ents[2]
+  local t2 = t1 + 360 + Sw.CALM + 2 + 400
+  Sweep.note_hand(f3, { valid = true, position = { x = 9201, y = 5 } }, t2)
+  present["9201,5"] = nil
+  Sweep.step(f3, surface, t2 + 200)
+  check(e2.gave_up == true and e2.hand_gave == true, "D3 : retrait à la main : abandon marqué « main »")
+  Sweep.step(f3, surface, t2 + 200 + Sw.GAVE_KEEP + 500)
+  Sweep.step(f3, surface, t2 + 200 + Sw.GAVE_KEEP + 1000)
+  check(e2.gave_up == true and e2.built == true, "D3 : retrait à la main : jamais refait, même après la durée")
+end
+do
+  local src_build, src_rv, src_rs, src_auto = read("script/team/build.lua"), read("script/team/reseau_vivant.lua"), read("script/team/rebuild_sweep.lua"),
+    read("script/ai3/automatisation.lua")
+  check(src_build:find('Sweep.refusal_verdict(p.reopened, p.retries, Build.RETRIES) == "abandon"', 1, true)
+    and src_build:find("e.built, e.dropped = true, true", 1, true), "D2 : build.lua abandonne la pièce refusée d'un projet rouvert (Sweep.refusal_verdict)")
+  check(src_rv:find("q.retries, q.retry_at = 0, nil", 1, true) and src_rs:find("q.retries, q.retry_at = 0, nil", 1, true),
+    "D2 : les deux réouvertures (relevé, réseau vivant) remettent les reprises à zéro")
+  check(src_auto:find("Sweep.goal_for_module(m)", 1, true), "D1 : le suivi du cerveau décide du but « auto » par Sweep.goal_for_module")
+  check(read("script/team/reconstruction.lua"):find("Sweep.hold(f, game.tick)", 1, true), "D4 : Recon.hold_upgrades lit aussi les projets rouverts")
+  check(src_build:find("refresh_missing(f, p)", 1, true) and src_build:find("p.miss_next = tick + 60", 1, true), "D6 : build.lua relit les manques d'un projet rouvert hors « reserve »")
+end
+-- D6 : refresh_missing extrait de build.lua (texte réel), joué avec un coffre simulé
+do
+  local src = read("script/team/build.lua")
+  local a = assert(src:find("local function needs_of(p)", 1, true))
+  local b = assert(src:find("--- Stock LIBRE du coffre", 1, true))
+  local c1 = assert(src:find("--- Lot INTEG-RECONSTRUCTION (D6)", 1, true))
+  local d = assert(src:find("local function release(f, p)", 1, true))
+  local chunk = src:sub(a, b - 1) .. "\n" .. src:sub(c1, d - 1) .. "\nreturn refresh_missing, needs_of"
+  local chest, freed = {}, nil
+  local env = {
+    ipairs = ipairs, pairs = pairs, math = math, table = table, type = type,
+    bump = function(t, k, n) t[k] = (t[k] or 0) + (n or 1) end,
+    sorted_keys = function(t) local ks = {} for k in pairs(t) do ks[#ks + 1] = k end table.sort(ks) return ks end,
+    Stock = { count = function(_, it) return chest[it] or 0 end },
+    free_stock = function() return freed or chest end,
+  }
+  local fn = assert(load(chunk, "=build_d6", "t", env))
+  local refresh = fn()
+  local p = { stock = { belt = 1 }, ents = {
+    { item = "belt", built = false }, { item = "belt", built = false }, { item = "belt", built = false },
+    { item = "furnace", built = false }, { item = "furnace", built = true }, { item = "pole", built = false } } }
+  chest = { belt = 1, furnace = 0, pole = 5 }
+  refresh({}, p)
+  local m = {}
+  for _, x in ipairs(p.missing) do m[x[1]] = x[2] end
+  check(#p.missing == 2 and m.belt == 1 and m.furnace == 1 and m.pole == nil, "D6 : manques = besoin - réservé - coffre libre (belt 3-1-1, four 1, poteau couvert)")
+  check(chest.belt == 1 and chest.pole == 5 and p.stock.belt == 1, "D6 : rien n'est retiré au coffre ni ajouté au stock du projet")
+  freed = { belt = 0, furnace = 3, pole = 5 }
+  chest = { belt = 9, furnace = 3, pole = 5 }
+  refresh({}, p)
+  m = {}
+  for _, x in ipairs(p.missing) do m[x[1]] = x[2] end
+  check(#p.missing == 1 and m.belt == 2, "D6 : le stock LIBRE compte, pas le coffre brut (objets promis à une tâche)")
+  for _, e in ipairs(p.ents) do e.built = true end
+  refresh({}, p)
+  check(#p.missing == 0, "D6 : plus rien à refaire : aucun manque")
 end
 
 -- 9. Source : ni pairs, ni hasard, ni nom du jeu, ni global

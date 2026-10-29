@@ -406,6 +406,51 @@ do
   local open0 = A.OPEN_STATES.reserve
   mutant("état « reserve » hors des états ouverts", function() A.OPEN_STATES.reserve = nil end, function() A.OPEN_STATES.reserve = open0 end, reopen_cases)
 end
+-- Lot INTEG-RECONSTRUCTION (D1) : un module CAPI rouvert par le relevé fait un but « auto:<produit> » (son ordre CAPI est fermé)
+local function capi_cases()
+  local m = { product = "plaque", state = "fini", capi = "fonderie:plaque", missing = {}, built = 95, total = 95 }
+  check(Sw.goal_for_module(m) == false, "module CAPI fini : pas de but « auto » (son ordre CAPI le porte)")
+  check(Sw.goal_for_module({ product = "plaque", state = "reserve", capi = "k" }) == false, "module CAPI en construction : toujours porté par l'ordre CAPI")
+  check(Sw.goal_for_module({ product = "plaque", state = "reserve" }) == true, "module ordinaire : but « auto »")
+  Sw.follow(m, { state = "reserve", reason = "reconstruction", missing = { { "four", 12 } }, built = 60, total = 95 }, 5000)
+  check(Sw.goal_for_module(m) == true, "module CAPI ROUVERT par le relevé : but « auto » pour les objets à refaire")
+  local goals = A.goals({}, { mods = Sw.goal_for_module(m) and { { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = 1 } } or {} }, nil, nil)
+  check(#goals == 1 and goals[1].key == "auto:plaque" and goals[1].missing[1][1] == "four", "le but porte les objets à refaire (fours)")
+  m.state = "fini"
+  Sw.repaired(m, 9000)
+  check(Sw.goal_for_module(m) == false, "module CAPI refait : de nouveau porté par l'ordre CAPI seul")
+end
+capi_cases()
+do
+  local g0 = Sw.goal_for_module
+  mutant("D1 : le module CAPI rouvert n'a pas de but", function() Sw.goal_for_module = function(m) return not m.capi end end,
+    function() Sw.goal_for_module = g0 end, capi_cases)
+  mutant("D1 : tout module CAPI fait un but (double emetteur)", function() Sw.goal_for_module = function() return true end end,
+    function() Sw.goal_for_module = g0 end, capi_cases)
+end
+-- Lot INTEG-RECONSTRUCTION (D6) : les manques d'un projet ROUVERT deviennent des sous-buts aussi en fantômes / chantier
+local function emit_cases()
+  local wanted = {}
+  local P = { want = function(E, proj, items, prio, craft, why) wanted[#wanted + 1] = items return true end }
+  local emit = A.emit(P)
+  local miss = { { "four", 4 } }
+  for _, st in ipairs({ "reserve", "defrichage", "fantomes", "chantier" }) do
+    wanted = {}
+    local r = emit({}, { prio = 10 }, { status = st, missing = miss })
+    check(r == "matiere" and #wanted == 1 and wanted[1][1][1] == "four", "A.emit : l'état « " .. st .. " » avec des manques les demande (" .. tostring(r) .. ")")
+  end
+  wanted = {}
+  check(emit({}, { prio = 10 }, { status = "chantier", missing = {} }) == "en_cours" and #wanted == 0, "A.emit : chantier sans manque : en cours, rien demandé")
+  check(emit({}, { prio = 10 }, { status = "plan", missing = miss }) == "en_cours" and #wanted == 0, "A.emit : projet au plan : rien demandé")
+  check(emit({}, { prio = 10 }, { status = "bloque", reason = "x" }) == "bloque", "A.emit : projet bloqué")
+end
+emit_cases()
+do
+  local emit0 = A.emit
+  mutant("D6 : manques ignorés hors réserve", function()
+    A.emit = function(P) return function(E, proj, g) if g.status ~= "reserve" then return "en_cours" end return emit0(P)(E, proj, g) end end
+  end, function() A.emit = emit0 end, emit_cases)
+end
 -- Source : le suivi du cerveau relit les modules finis (la règle seule ne suffit pas : l'exécutant doit l'appeler)
 do
   local f = assert(io.open("script/ai3/automatisation.lua", "rb"))
@@ -414,6 +459,8 @@ do
   check(src:find('require("shared.team.rebuild_sweep")', 1, true) and src:find("Sweep.follow(m, Build.brief(f, m.id), tick)", 1, true),
     "automatisation.lua : relit les modules finis (Sweep.follow) avant le suivi des modules ouverts")
   check(src:find("Sweep.repaired(m, tick)", 1, true), "automatisation.lua : note la fin de la réparation")
+  check(src:find("if Sweep.goal_for_module(m) then", 1, true) and not src:find("if not m.capi then", 1, true),
+    "automatisation.lua : le but « auto » d'un module CAPI rouvert passe par Sweep.goal_for_module (D1)")
   local pos_follow = src:find("Sweep.follow(m, Build.brief(f, m.id), tick)", 1, true)
   local pos_open = src:find('if m.state ~= "fini" and m.state ~= "refuse" then', 1, true)
   check(pos_follow and pos_open and pos_follow < pos_open, "automatisation.lua : la relecture des modules finis précède le suivi des modules ouverts")
