@@ -29,6 +29,7 @@ local Tokens = require("script.team.tokens")
 local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
+local Dedupe = require("shared.team.pole_dedupe") -- lot POTEAUX-V2 : doublon de poteau à la pose
 local M = require("shared.team.modules")
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
@@ -1544,11 +1545,59 @@ local function shift_pole(f, surface, p, e)
   return false
 end
 
+Build.DEDUPE_RETRY = 600 -- ticks entre deux examens du même poteau (lot POTEAUX-V2)
+
+--- Lot POTEAUX-V2 : le poteau planifié `e` est-il un DOUBLON d'un poteau déjà POSÉ et alimenté par une centrale (règle pure :
+--- shared/team/pole_dedupe.lua) ? Les poteaux posés sont lus au moteur (réseau électrique de chacun) ; les poteaux prévus sont ceux des
+--- projets non refusés (pas encore bâtis, pas déjà sautés). Rien n'est écrit ici.
+local function dedupe_pole(f, surface, p, e, tick)
+  if (e.dd_next or 0) > tick then return false end
+  e.dd_next = tick + Build.DEDUPE_RETRY
+  local reach = P.wire(e.name)
+  if not reach then return false end
+  local gen = {}
+  for _, g in ipairs(surface.find_entities_filtered({ force = f.force, type = "generator" })) do
+    local id = g.electric_network_id
+    if id then gen[id] = true end
+  end
+  if next(gen) == nil then return false end
+  local R = reach + Dedupe.DUP_R + 0.5
+  local poles = {}
+  for _, o in ipairs(surface.find_entities_filtered({ position = { e.x, e.y }, radius = R, type = "electric-pole", force = f.force })) do
+    if o.position.x ~= e.x or o.position.y ~= e.y then
+      poles[#poles + 1] = { x = o.position.x, y = o.position.y, wire = o.prototype.max_wire_distance or 0, posed = true, net = o.electric_network_id }
+    end
+  end
+  local b = f.build
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q.state ~= "refuse" and q.state ~= "attente" then
+      for _, o in ipairs(q.ents) do
+        if o ~= e and not o.built and not o.deduped and P.wire(o.name) and o.name:find("electric%-pole")
+          and math.abs(o.x - e.x) <= R and math.abs(o.y - e.y) <= R then
+          poles[#poles + 1] = { x = o.x, y = o.y, wire = P.wire(o.name), posed = false }
+        end
+      end
+    end
+  end
+  return Dedupe.redundant({ x = e.x, y = e.y, wire = reach }, poles, gen)
+end
+
 --- Ravive (ou pose puis ravive) une entité planifiée avec l'objet porté par le PNJ `self` : true si bâtie. Une
 --- entité sous les pieds du bâtisseur lui-même est laissée (ni essai, ni échec) : un autre passage la fera.
 local function revive_one(surface, f, p, e, inv, tick, self)
   local st = f.build.stats
   if find_real(surface, e, f.force) then e.built = true return true end
+  if e.name:find("electric%-pole") and dedupe_pole(f, surface, p, e, tick) then
+    -- doublon d'un poteau déjà posé et alimenté : compté posé, l'objet n'est pas consommé, le fantôme éventuel est retiré
+    local gh = find_ghost(surface, e, f.force)
+    if gh then gh.destroy() end
+    e.built, e.deduped = true, true
+    st.poles_deduped = (st.poles_deduped or 0) + 1
+    log(string.format("[FO-DEDUPE] %s : projet %d, %s en (%g, %g) saute : doublon d'un poteau deja pose (%d saute(s)) a %.1f min", f.key or "player", p.id,
+      e.name, e.x, e.y, st.poles_deduped, tick / 3600))
+    return true
+  end
   if not e.item or inv.get_item_count(e.item) < 1 then return false end
   if self and self.valid then
     local a, q = footprint(e), self.position
