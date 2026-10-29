@@ -40,3 +40,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~04 h 30, passage 10
 - Rien de nouveau : seules anomalies = les 2 archives deja connues (RECONSTRUIRE/invalide/lot5-6, plantage corrige 74edb3e). Disque 137 Go. Machine au repos : 0 banc.py, 0 factorio.exe, 3 bash (file vide, 3 places libres).
+
+## 29/10 ~04 h 55, passage 11
+- Rien de nouveau : une seule ligne hors bilan, RECONSTRUIRE/invalide/lot7-987654321 (archive deja ecartee), reconstruction.lua:307 « poteau __self ecarte des remplacants » = lecture protegee de 74edb3e qui ecarte l entree __self du moteur (mesure), pas un plantage. 0 erreur Lua dans les series actives (CAPIA, PANELS). Disque 135 Go ; 2 banc.py pour 2 lots, 1 factorio.exe, 15 bash (pic normal en mesure).
