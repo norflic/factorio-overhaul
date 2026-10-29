@@ -354,6 +354,11 @@ function Rv.step(api, f, surface, tick)
       sv.enemy_x and string.format("%.0f,%.0f ecarte de %d tuiles", sv.enemy_x, sv.enemy_y, S.DANGER_R + 16) or "non vu"))
   elseif action == "relier" or action == "couvrir" then
     nr = nr or net_read(f, surface, b)
+    if nr.islands + nr.uncovered == 0 then
+      -- le relevé qui a déclenché la décision est périmé : les poteaux posés depuis couvrent tout, rien à faire
+      sv.islands, sv.uncovered, sv.uncov_reads, sv.lost_links = 0, 0, 0, 0
+      return
+    end
     local cands = lost_poles(f, surface, b)
     local lost_sel, new_sel, txt = repair_plan(api, f, surface, b, nr, cands, true)
     if #lost_sel == 0 and #new_sel == 0 and #cands > 0 and (nr.islands + nr.uncovered) > 0 then
@@ -397,8 +402,11 @@ function Rv.step(api, f, surface, tick)
       end
       if not owner and pp.state == "fini" then owner = pp end
       if owner then
-        local ents = api.add_poles(f, owner, fresh)
+        local ents, refused = api.add_poles(f, owner, fresh)
         added = #ents
+        local rs = {}
+        for _, k in ipairs(sorted_keys(refused or {})) do rs[#rs + 1] = k .. "=" .. refused[k] end
+        if #rs > 0 then txt = txt .. " ; tuiles refusees a la pose : " .. table.concat(rs, " ") end
         if added > 0 then Rv.reopen(owner, ents, "reseau: poteaux de couverture", surface) end
       end
     end

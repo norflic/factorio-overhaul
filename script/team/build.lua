@@ -1292,15 +1292,18 @@ function Build.add_poles(f, p, list)
     x0, y0, x1, y1 = math.min(x0, c.x), math.min(y0, c.y), math.max(x1, c.x), math.max(y1, c.y)
   end
   local masks = read_masks(f, surface, x0 - 8, y0 - 8, x1 + 8, y1 + 8)
-  local added = {}
+  local added, why = {}, {}
   for _, c in ipairs(list) do
     local tx, ty = math.floor(c.x), math.floor(c.y)
+    local k = P.tkey(tx, ty)
     -- masks.clear (arbres, rochers, objets neutres) n'écarte plus la tuile : l'appelant a déjà demandé au moteur si le poteau tient (arbre :
     -- refusé là), et un objet au sol est retiré à la pose (clear_floor). Mesuré le 29/10 : tuile écartée ici, chaîne de couverture cassée.
     if masks.free(tx, ty) then
       local e = { name = c.name, x = tx + 0.5, y = ty + 0.5, dir = 0, role = "couverture", part = 1 }
-      if reserve_tiles(b, p, { e }) then added[#added + 1] = e end
-    end
+      if reserve_tiles(b, p, { e }) then added[#added + 1] = e else why.reserve = (why.reserve or 0) + 1 end
+    elseif b.occ[k] then why.occ = (why.occ or 0) + 1
+    elseif masks.water[k] then why.eau = (why.eau or 0) + 1
+    else why.bloque = (why.bloque or 0) + 1 end
   end
   local wood = wood_of(surface, added)
   local passable = seg_passable(b)
@@ -1316,7 +1319,7 @@ function Build.add_poles(f, p, list)
     e.item = item_of(e.name)
   end
   P.sort_build(p.ents)
-  return added
+  return added, why
 end
 
 --- Centrale de l'équipe (une demande, si aucune n'existe).
