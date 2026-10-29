@@ -215,6 +215,20 @@ for i = 1, 8 do
 end
 check(went_b and refus_b == 4 and global.fo.ia3k.agents[ag.id].risk == true,
   "escalade après 4 refus (neutre), départ « risque accepté » (" .. refus_b .. " refus)")
+-- Relecture : un minage refusé cherche une autre tuile HORS de la case où l'on a tourné en rond (M.retarget_mine).
+local tmr = global.fo.ia3k.teams["player"]
+local mtask = { key = "test:mine", kind = "mine", resource = "iron-ore", radius = 96 }
+local q1 = C.retarget_mine(f, tmr, mtask, game.surfaces[1], game.tick, 1e9)
+check(q1 ~= nil, "retarget_mine : une tuile de minerai trouvée (témoin)")
+if q1 then
+  local saved = tmr.dfail
+  tmr.dfail = {}
+  Dt.fail(tmr.dfail, q1.x, q1.y, game.tick)
+  local q2 = C.retarget_mine(f, tmr, mtask, game.surfaces[1], game.tick, 1e9)
+  check(q2 == nil or Dt.key(q2.x, q2.y) ~= Dt.key(q1.x, q1.y),
+    "retarget_mine : la case refusée par la boucle n'est plus proposée (" .. (q2 and string.format("%.0f, %.0f", q2.x, q2.y) or "rien") .. ")")
+  tmr.dfail = saved
+end
 local later = game.tick + Dt.FAIL_TICKS + 60
 check(C.gate(f, ag, { key = "test:boucle2", kind = "service" }, steps, later) == true,
   "5 min plus tard : le but est rendu à la porte (trajet jugé sûr)")

@@ -549,7 +549,8 @@ function M.retarget_mine(f, t, task, surface, tick, B)
   local stride = math.max(1, math.floor(#res / 40))
   for i = 1, #res, stride do
     local p = res[i].position
-    if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0 then
+    if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0
+      and not Dt.failed(t.dfail, p.x, p.y, tick) then -- lot DETOUR-BOUCLE : pas la case où l'on a tourné en rond
       local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } },
         type = Harvest.free_types(task.resource, f, task.trees), invert = true, limit = 1 })
       if busy == 0 and Harvest.foreign_resource(surface, p, task.resource, f) then busy = 1 end -- lot KIT : ressource étrangère sur la tuile
@@ -866,9 +867,12 @@ function M.detour_guard(agent, f, t, a, why, ep, kind, tick)
   t.stats.dloops = (t.stats.dloops or 0) + 1
   local step = agent.steps and agent.pc and agent.steps[agent.pc]
   local out = Dt.outcome(agent.task ~= nil, step and step[1])
-  if out == "abandon" and a.final then
+  -- But refusé : celui de l'étape « goto » en cours (la clé que M.gate relit : dest = s[2]) ; a.final peut dater d'un autre
+  -- trajet quand l'étape marche sans M.leg (rues du plan directeur, worker.lua).
+  local fg = (out == "abandon" and type(step[2]) == "table" and step[2].x and step[2].y) and step[2] or a.final
+  if out == "abandon" and fg then
     t.dfail = t.dfail or {}
-    Dt.fail(t.dfail, a.final.x, a.final.y, tick)
+    Dt.fail(t.dfail, fg.x, fg.y, tick)
   end
   if not t.dloop_log_t or tick - t.dloop_log_t >= 600 then
     t.dloop_log_t = tick
