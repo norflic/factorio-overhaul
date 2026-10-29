@@ -83,6 +83,19 @@ import subprocess
 import sys
 import time
 
+try:  # lot OUTILLAGE : aucun sous-processus ne doit ouvrir de fenêtre chez le joueur (tools/autotest/sans_fenetre.py)
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import sans_fenetre
+except ImportError:  # copie isolée de ce fichier : mêmes drapeaux, en minimal
+    class sans_fenetre:  # noqa: N801
+        @staticmethod
+        def run(cmd, **kw):
+            if os.name == "nt":
+                si = subprocess.STARTUPINFO()
+                si.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                kw.update(creationflags=0x08000000 | 0x4000, startupinfo=si)
+            return subprocess.run(cmd, **kw)
+
 _kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
 
 MAX_PLACES = 3
@@ -166,7 +179,7 @@ def jeux_de_test(p=None):
     else:
         motif = "$_.CommandLine -like '*\\%s\\*'" % os.path.basename(dossier(p))
     try:
-        out = subprocess.run(["powershell", "-NoProfile", "-Command",
+        out = sans_fenetre.run(["powershell", "-NoProfile", "-Command",
                               "@(Get-CimInstance Win32_Process -Filter \"Name='factorio.exe'\" | "
                               "? { %s -or $_.CommandLine -like '*fo-visual*' }).Count" % motif],
                              capture_output=True, text=True, timeout=60).stdout.strip()
@@ -582,6 +595,8 @@ def montrer_file(option_places, memoire_min_go):
 
 
 def main(argv):
+    if hasattr(sans_fenetre, "cacher_ma_console"):
+        sans_fenetre.cacher_ma_console()  # lot OUTILLAGE : lanceur sans console -> pas de fenêtre ouverte pendant des heures
     ap = argparse.ArgumentParser()
     ap.add_argument("--out")
     ap.add_argument("--graine")
@@ -691,7 +706,9 @@ def main(argv):
             cmd = [os.path.join(RACINE, "fo-captures.bat"), scenario, source]
         else:
             cmd = [os.path.join(RACINE, "fo-autotest.bat"), "nopause", str(ticks), scenario, source]
-        p = subprocess.run(cmd, env=env, cwd=RACINE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        # Lot OUTILLAGE : sans fenêtre (CREATE_NO_WINDOW), priorité réduite pour la création de la carte et les copies ;
+        # le benchmark reste lancé par « start /ABOVENORMAL » dans fo-autotest.bat (mesures inchangées).
+        p = sans_fenetre.run(cmd, env=env, cwd=RACINE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         t2 = time.time()
         os.makedirs(out, exist_ok=True)
         with open(os.path.join(out, "banc-sortie.txt"), "wb") as f:

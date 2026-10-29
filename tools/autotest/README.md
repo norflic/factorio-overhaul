@@ -1137,3 +1137,28 @@ force, puis distribution médiane / min / max sur plusieurs archives, forces mor
 `lua5.2 tools/autotest/tests/test_fonction.lua` (moteur simulé) et
 `PYTHONUTF8=1 py -3.9 -B tools/autotest/tests/test_fonction_mesures.py` (journal synthétique, dont 54 fours en carré
 jamais alimentés). Ce que chaque indicateur prouve ou non, et la règle des seuils : `docs/PORTES_MESURES.md`.
+
+## 7. Fenêtres de console et gels périodiques (lot OUTILLAGE, 28/10)
+
+**Aucune fenêtre chez le joueur.** `sans_fenetre.py` lance les programmes de console du banc (`fo-autotest.bat` par `banc.py`,
+`powershell` de `jeux_de_test` et de `visual_session.py`, `ia3d_run.py`) avec `CREATE_NO_WINDOW`, un `STARTUPINFO` caché et la
+priorité réduite (le benchmark reste lancé par `start /ABOVENORMAL` dans le `.bat` : mesures inchangées ; `FO_BANC_PRIORITE=normal`
+supprime la priorité réduite). Un lanceur SANS console (tâche de fond, planificateur) qui démarre `py -3.9 banc.py` fait ouvrir une
+console visible à `py.exe` pendant toute l'attente : `banc.py` cache sa propre console quand elle n'est qu'à lui et à `py.exe`
+(jamais celle d'un `cmd`, PowerShell ou Git Bash). Le jeu avec images (`fo-visual`) garde sa fenêtre réduite.
+- Preuve : `py -3.9 -B tools/autotest/tests/test_sans_fenetre.py` (28 OK) : banc.py lancé par `pythonw` (aucune console) sur une
+  racine jetable ; l'ancien (`ce8d148`) ouvre une console visible, le nouveau aucune ; 4 mutants.
+- Mesure : `py -3.9 -B tools/autotest/fenetres.py [--detache] -- <commande>` (EnumWindows toutes les 5 ms, verdict sur les seuls
+  descendants de la commande) ; code 1 si une fenêtre visible.
+- **Veille avant de jouer** : `py -3.9 -B tools/autotest/fenetres.py --veille 3600 --garder fenetres-veille.jsonl` note, pour chaque
+  fenêtre de type shell qui devient visible, l'heure, la chaîne des parents et la LIGNE DE COMMANDE : c'est ce qui dit QUI ouvre les
+  fenêtres que le joueur voit.
+
+**Gels périodiques.** `py -3.9 -B tools/autotest/gels.py <archive de banc.py> [...]` : pics de `scriptUpdate`, rythme, alignement sur
+une période, causes par traces `[FO-TRACE]`, postes les plus lourds du profileur. Mesure K10 à faire PC au repos
+(`--seul`, 72 300 ticks = 20 min de jeu, couvre les ticks 0 et 36 000), avant (source = `git archive ce8d148`) puis après :
+`py -3.9 -B tools/autotest/banc.py --seul --graine 271828182 --qui K10-GELS --out <archive>/avant -- 72300 etape1-guide <source avant>`
+(idem `/apres`), puis `PYTHONUTF8=1 py -3.9 -B tools/autotest/gels.py <archive>/avant <archive>/apres` : le surcoût au tick
+`% 300 == 0` doit se répartir sur des ticks distincts (alignement par fenêtre de 4 ticks plus faible) ; `analyze.py <dossier> --spikes`
+pour le détail. (L'étalement des pensées de factions du lot OUTILLAGE n'est PAS dans `main` : parqué le 28/10, bénéfice non établi par
+les 4 parties du lot MESURES ; cette section ne décrit que les outils du banc.)

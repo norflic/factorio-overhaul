@@ -9,6 +9,9 @@ import subprocess
 import sys
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sans_fenetre  # noqa: E402  (lot OUTILLAGE : sans fenêtre)
+
 RACINE = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 # Lot IA3-a : dossier de sortie réglable par IA3D_OUT (défaut : les bancs d'IA3-DIAG).
 OUT = os.environ.get("IA3D_OUT") or os.path.join(RACINE, "fo-logs", "2026-10-25_IA3-DIAG", "bancs")
@@ -27,8 +30,8 @@ def run(source, nom, scenario, ticks, graine):
     env.pop("FO_AUDIO", None)
     t0 = time.time()
     while True:
-        p = subprocess.run([BAT, "nopause", str(ticks), scenario, source], env=env, cwd=RACINE,
-                           stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        p = sans_fenetre.run([BAT, "nopause", str(ticks), scenario, source], env=env, cwd=RACINE,
+                             stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         if p.returncode not in (0, 2):
             print(p.stdout.decode("cp850", "replace")[-1500:], flush=True)
         if p.returncode != 2:

@@ -126,6 +126,8 @@ def derive(slot):
             out["fours_part_nominale_stats"] = pct(eqs, cap)
             out["fours_equivalents"] = (eqs / (cap / n)) if cap and n else None
         out["fours_jeunes"] = get(fo, "jeunes")
+        out["fours_a50_n"] = a50  # nombre de fours à >= 50 % de la cadence nominale
+        out["fours_prod_n"] = prod  # nombre de fours ayant produit
     if pr:
         out["plaques_min"] = get(pr, "plaques_min", 0.0)
         out["minerai_min"] = sum(get(pr, k, 0.0) for k in ("ore_fer_min", "ore_cuivre_min", "charbon_min", "pierre_min"))
@@ -142,8 +144,11 @@ def derive(slot):
             out[tag + "_no_fuel"] = status_share(slot, cls, ["no_fuel"])
             out[tag + "_epuisees"] = status_share(slot, cls, ["no_minable_resources"])
             out[tag + "_sortie_pleine"] = status_share(slot, cls, ["waiting_for_space_in_destination"])
+            out[tag + "_working_n"] = get(st, "n") * (out[tag + "_working"] or 0.0) / 100.0
         else:
             out[tag + "_n"] = 0
+            out[tag + "_working_n"] = 0.0
+    out["foreuses_working_n"] = out.get("fe_working_n", 0.0) + out.get("fc_working_n", 0.0)
     # électricité
     el = slot.get("elec")
     if el:
@@ -171,6 +176,7 @@ def derive(slot):
     if tu:
         out["tourelles"] = get(tu, "n")
         out["tourelles_part_armee"] = pct(get(tu, "armees"), get(tu, "n"))
+        out["tourelles_armees_n"] = get(tu, "armees")
     co = slot.get("corps")
     if co:
         b = get(co, "relevés") or get(co, "releves")
