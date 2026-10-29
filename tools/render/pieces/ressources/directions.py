@@ -460,14 +460,39 @@ ICONE["I2S"] = dict(ICONE["I2"], roche_mats=("ilmenite_brun", "leucoxene_sombre"
 EFFET["I2S"] = dict(teinte=(0.85, 0.93, 1.0), seuil=(0.22, 0.45),
                     lueur=dict(lum=(0.02, 0.10), froid=(-1.0, -0.95), gain=0.5))
 
+# C1 (lot AMELIO-RESSOURCES, piste ÉTAIN, 30/10) : CASSITÉRITE, minerai de l'étain (âge 4, proposition X3 : « galets brun
+# chocolat à éclat adamantin, éclats blancs de quartz (pour ne pas la confondre avec le charbon) »). Un PLACER comme la
+# monazite (galets roulés et petits prismes), brun chocolat très brillant (éclat adamantin : rugosité basse, un peu de
+# métal), grains de quartz blanc ; tapis de sable clair. Choix provisoire, sans verdict du DC.
+MAT.update({
+    "cassiterite_brun": dict(color=(0.13, 0.060, 0.028), rough=0.20, met=0.35, grain=0.2, gscale=40.0, dirt=0.35),
+    "cassiterite_roux": dict(color=(0.30, 0.13, 0.05), rough=0.22, met=0.30, grain=0.2, gscale=40.0, dirt=0.35),
+    "quartz_blanc": dict(color=(0.82, 0.82, 0.79), rough=0.25, met=0.0, grain=0.15, gscale=40.0, dirt=0.2),
+    "sable_clair": dict(color=(0.42, 0.37, 0.29), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.2),
+})
+DIRECTIONS["C1"] = dict(DIRECTIONS["Z1"], nom="placer de galets de cassitérite brun chocolat et de quartz blanc",
+                        roches=(13, 10, 8, 7, 6, 5, 3, 2),
+                        roche_mats=("cassiterite_brun", "cassiterite_brun", "cassiterite_roux", "quartz_blanc", "cassiterite_brun"),
+                        blocs=(6, 5, 4, 3, 3, 2, 1, 1),
+                        bloc_mats=("cassiterite_brun", "cassiterite_roux", "quartz_blanc"),
+                        grains=(34, 26, 19, 16, 13, 10, 7, 4),
+                        grain_mats=("cassiterite_brun", "quartz_blanc", "cassiterite_roux", "cassiterite_brun"),
+                        fin_mats=("sable_clair", "cassiterite_brun", "quartz_blanc", "sable_clair", "cassiterite_roux"))
+CALIB["C1"] = dict(CALIB["Z1"])
+ROCHE_COUPES["C1"], ROCHE_LISSE["C1"] = 4, 38
+ROCHE_APLAT["C1"], ROCHE_CASSURE["C1"] = 0.70, (0.60, 0.90)
+ICONE["C1"] = dict(ICONE["Z1"], roche_mats=("cassiterite_brun", "quartz_blanc", "cassiterite_roux", "cassiterite_brun"),
+                   bloc_mats=("cassiterite_brun", "quartz_blanc"))
+EFFET["C1"] = dict(teinte=(1.0, 0.97, 0.90), seuil=(0.45, 0.80))
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
