@@ -1100,9 +1100,10 @@ Registry.on_removed(function(agent)
     local p = agent.death_pos
     local d = (p and f.hq_pos) and math.floor(math.sqrt(dist2(p, f.hq_pos))) or -1
     local t = agent.task
-    log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min", f.key or "player",
+    log(string.format("[FO-TEAM] %s : PNJ %d tue (%s) a %d tuiles du QG, tache %s%s, %.1f min ; position %s, poste %s", f.key or "player",
       agent.id, agent.death_cause, d, t and t.kind or "aucune", (t and t.fond) and " (fond)" or "",
-      game.tick / 3600))
+      game.tick / 3600, p and string.format("(%d, %d)", math.floor(p.x), math.floor(p.y)) or "inconnue",
+      t and t.outpost ~= nil and tostring(t.outpost) or "aucun"))
     -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
     -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
     -- T.hq_lethal_ticks (script/team/team.lua, view.hold_recruits). Dates gardées : les T.hq_lethal_deaths dernières.
