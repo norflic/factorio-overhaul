@@ -67,7 +67,8 @@ end
 
 --- Tourelles voulues au QG. a = { alert (base menacée), want (tourelles voulues sans cette règle), have (tourelles du QG), ok (une tourelle
 --- est fabricable ou au stock), busy (tâche de pose du QG déjà ouverte), funds_iron, cost_iron, funds_copper, cost_copper (fer et cuivre
---- AU-DESSUS des planchers de la défense ; coût d'UNE tourelle avec ses chargeurs) }.
+--- AU-DESSUS des planchers de la défense ; coût d'UNE tourelle avec ses chargeurs), stock (tourelles déjà au stock : déjà payées, payables
+--- au moins en ce nombre ; relecture du lot : sans elles, des tourelles au coffre restaient au coffre quand le fer était au plancher) }.
 --- Rend { want, first (des tourelles du QG manquent et se paient : elles passent avant les soldats), hold_soldiers (cette pensée ne lance
 --- pas la levée d'urgence), paid (tourelles payables), why }.
 function D.turrets(a)
@@ -85,6 +86,7 @@ function D.turrets(a)
   end
   local paid = math.min(count(a.funds_iron, a.cost_iron), count(a.funds_copper, a.cost_copper))
   if paid == math.huge then paid = D.HQ_CAP end
+  paid = math.min(D.HQ_CAP, math.max(paid, math.floor(num(a.stock) or 0))) -- le plus grand : une somme dépassait le stock (fabrication avant pose)
   out.paid = paid
   if paid < 1 then out.why = "fonds" return out end
   local target = math.max(want0, math.min(D.HQ_CAP, have + paid))

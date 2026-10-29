@@ -355,7 +355,7 @@ function P.plan(view, book)
     dc = Dc.turrets({ alert = true, want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, ok = turret_ok,
       busy = (view.hq_fortify or open["fortify:hq"]) and true or false,
       funds_iron = (avail[iron_key] or 0) - T.defend_iron_floor, cost_iron = rc[iron_key] or 0,
-      funds_copper = (avail[cu_key] or 0) - T.defend_copper_floor, cost_copper = rc[cu_key] or 0 })
+      funds_copper = (avail[cu_key] or 0) - T.defend_copper_floor, cost_copper = rc[cu_key] or 0, stock = avail[T.turret] or 0 })
   end
   out.defchoix = dc
   if df then
@@ -704,6 +704,16 @@ function P.plan(view, book)
     end
     if held_taken then avail[iron_key] = (avail[iron_key] or 0) + held end
     out.defend = { undefended = waiting, craftable = turret_craftable, hq = view.hq_turrets or 0, posts = dposts }
+    -- Lot DEFENSE-CHOIX (relecture) : la levée d'urgence n'est retenue que si le QG est RÉELLEMENT servi à cette pensée (tâche de pose
+    -- créée ou tourelles en fabrication). Dc.turrets juge sur le stock d'avant les recharges ; si elles ont mangé le fer (QG « fer » ou
+    -- « manque »), retenir la levée laissait la base sans tourelle NI soldat à chaque pensée de l'alerte (famine). Lecteur : la levée plus bas.
+    if dc.hold_soldiers then
+      local served = false
+      for _, d in ipairs(dposts) do
+        if d.id == "hq" and (d.why == "tache_creee" or d.why == "fabrication") then served = true end
+      end
+      if not served then dc.hold_soldiers, dc.why = false, "non_servi" end
+    end
   end
   -- R-QCM-25c (b) « L'équipe le défend » : view.hq_guards PNJ armés au coffre (guerre déclarée au joueur), relevés.
   -- QG menacé (view.hq_threat) : gardes en URGENCE (T.guard_threat_prio), courtes (T.guard_threat_ticks).

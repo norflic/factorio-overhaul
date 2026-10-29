@@ -82,6 +82,14 @@ local function turret_cases()
   for k, v in pairs(rich) do keep[k] = v end
   keep.want = 6
   c(D.turrets(keep).want == 6, "un besoin plus grand (F.hq_post, règle d'avant) est gardé")
+  -- relecture : tourelles déjà au stock, fer au plancher : elles sont posées (déjà payées)
+  local st = {}
+  for k, v in pairs(rich) do st[k] = v end
+  st.funds_iron, st.stock = 0, 3
+  r = D.turrets(st)
+  c(r.paid == 3 and r.want == 5 and r.first, "fer au plancher, 3 tourelles au stock : le QG les veut")
+  st.stock = 100
+  c(D.turrets(st).want == D.HQ_CAP, "stock compté sous le plafond")
   return ok
 end
 turret_cases()
@@ -140,6 +148,13 @@ local function planner_cases()
   c(ft ~= nil and ft.items[1][1] == T.turret and ft.items[1][2] >= 1, "tourelles au stock : tâche « fortify » du QG")
   local poor = Planner.plan(view({ stock = { [IRON] = 160, [COPPER] = 600, coal = 100, stone = 100 }, base_alert = true }), book)
   c(not poor.defchoix.first and hq_task(poor) == nil, "fer au plancher : aucune tourelle, règle d'avant")
+  -- relecture (famine) : Dc.turrets juge 1 tourelle payable sur le stock d'avant les recharges ; une recharge de tourelle mange le fer,
+  -- le QG n'est plus servi (« fer ») : la levée d'urgence ne doit PAS être retenue (sinon ni tourelle ni soldat pendant toute l'alerte).
+  local lean = { [IRON] = T.defend_iron_floor + 125, [COPPER] = 600, coal = 100, stone = 100 }
+  local pr = Planner.plan(view({ stock = lean, base_alert = true,
+    turret_groups = { { key = "o1", low = 1, has_task = false } } }), book)
+  c(pr.defchoix.paid == 1 and not pr.defchoix.hold_soldiers and army_wants(pr),
+    "recharges qui mangent le fer, QG non servi : la levée d'urgence n'est pas retenue")
   local pl = Planner.plan(view({ stock = stock(), base_alert = true, defend_first = false }), book)
   c(not pl.defchoix.first, "sans « défendre d'abord » : règle d'avant")
   return ok
@@ -193,6 +208,7 @@ mutant("tourelles sans alerte", function() local f = D.turrets D.turrets = funct
 mutant("cuivre ignoré", function() local f = D.turrets D.turrets = function(a) a.cost_copper = 0 return f(a) end end, turret_cases)
 mutant("plafond retiré", function() D.HQ_CAP = 1000 end, turret_cases)
 mutant("levée jamais retenue", function() local f = D.turrets D.turrets = function(a) local r = f(a) r.hold_soldiers = false return r end end, planner_cases)
+mutant("stock de tourelles ignoré", function() local f = D.turrets D.turrets = function(a) a.stock = 0 return f(a) end end, turret_cases)
 mutant("tourelles jamais voulues", function() local f = D.turrets D.turrets = function(a) a.alert = false return f(a) end end, planner_cases)
 print = quiet
 
