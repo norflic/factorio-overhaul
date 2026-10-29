@@ -51,6 +51,12 @@ T.kits = {
   gunner    = { { "submachine-gun", 1 }, { "piercing-rounds-magazine", 5 }, { "light-armor", 1 } },
   rocketeer = { { "grenade", 8 }, { "light-armor", 1 } }, -- grenadier (clé historique « rocketeer »)
 }
+-- Échelle des soldats que l'équipe FABRIQUE : { technologie minimale, clé de T.kits }. Le grenadier (« rocketeer ») y reste,
+-- mais un soldat à attaque de ZONE (shared/faction/config.lua, F.soldiers[clé].rocket : la grenade vanilla, qui blesse tout
+-- dans 6,5 tuiles, force « all » par défaut) n'est choisi que si T.zone_units est vrai. Retour du DC du 29/10 (0.6.13) :
+-- « il y a des grenades qui ont été produites [...] ça fait des dégâts de zone, [...] ça détruit la base » (lot GRENADES).
+T.unit_ladder = { { 0, "rifleman" }, { 1, "gunner" }, { 2, "rocketeer" } }
+T.zone_units = false
 -- Munitions que l'ouvrier garde sur lui pour se défendre (prélevées de son équipement).
 T.worker_gun = "pistol"
 T.worker_ammo = "firearm-magazine"
@@ -61,6 +67,15 @@ T.worker_ammo_keep = 10
 ---------------------------------------------------------------------------------------------------
 T.DRILL = "burner-mining-drill"
 T.drill_drop = { -0.5, -1.3 } -- vector_to_place_result vanilla de la foreuse à combustible (orientation nord)
+-- Lot FOREUSES (retour du DC du 29/10 : « des foreuses thermiques encore presentes malgre la tech 2 ») : la foreuse ELECTRIQUE qui
+-- remplace une foreuse a combustion sur place quand l'objet est obtenable et le courant arrive (shared/team/foreuse_swap.lua,
+-- script/faction/foreuse_swap.lua). size : emprise ; drop : point de depot vers le nord (vector_to_place_result vanilla).
+T.DRILL_ELECTRIC = "electric-mining-drill"
+T.drill_electric = { size = 3, drop = { 0, -1.85 } }
+-- every : ticks entre deux passes ; per_pass : remplacements au plus par passe ; craft_cap : foreuses electriques fabriquees d'avance
+-- au plus ; radius : tuiles autour d'un avant-poste ou l'on cherche les poteaux ; prio : priorite de la fabrication (sous le fer des
+-- objectifs, au-dessus de l'armee).
+T.swap = { every = 300, per_pass = 2, craft_cap = 4, radius = 24, prio = 47 }
 T.outposts = {
   coal   = { resource = "coal",       sink = "iron-chest",    product = "coal",         drills = 4 },
   iron   = { resource = "iron-ore",   sink = "stone-furnace", product = "iron-plate",   drills = 8 },

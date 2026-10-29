@@ -33,6 +33,7 @@ local R = require("shared.ai3.reglages")
 local Rc = require("shared.team.reconstruction")
 local Protos = require("script.team.protos")
 local Harvest = require("script.team.harvest") -- lot CORR-RECONSTRUIRE : le bois se coupe sur les arbres
+local Sweep = require("script.team.rebuild_sweep") -- lot REBUILD-TOUT : relevé des pièces posées des projets du plan directeur
 
 local Recon = {}
 
@@ -135,6 +136,8 @@ local function on_died(e)
     kind, oid = owner.kind, owner.oid
   elseif not in_project(f, pos) then
     return
+  elseif R.REBUILD_SWEEP then
+    return -- lot REBUILD-TOUT : une pièce d'un projet du plan est refaite par le relevé (script/team/rebuild_sweep.lua), pas par le registre
   end
   local recipe
   if ent.type == "assembling-machine" then
@@ -167,6 +170,16 @@ local function on_died(e)
   end
 end
 Events.on(defines.events.on_entity_died, on_died)
+
+--- Lot REBUILD-TOUT : ce que le joueur (ou ses robots) retire À LA MAIN n'est pas refait par ses PNJ (mémoire du relevé).
+local function on_hand_removed(e)
+  local ent = e.entity
+  if not (ent and ent.valid) then return end
+  local f = State.faction("player")
+  if f and f.build and ent.force.name == f.force then Sweep.note_hand(f, ent, e.tick or game.tick) end
+end
+Events.on(defines.events.on_player_mined_entity, on_hand_removed)
+Events.on(defines.events.on_robot_mined_entity, on_hand_removed)
 
 --- Y a-t-il des pièces refaisables en attente ? (« améliorer attend » : Ia3.capital_pay)
 function Recon.hold_upgrades(f)
@@ -201,6 +214,7 @@ end
 
 --- Une pensée de l'équipe : tâches de reconstruction au tableau (après Board.sync, comme le plan directeur).
 function Recon.think(f, surface, tick)
+  Sweep.step(f, surface, tick) -- lot REBUILD-TOUT : relevé par tranches des pièces posées des projets (horloge propre)
   local s = f.recon
   if not s then return 0 end
   s.lost, s.hist = s.lost or {}, s.hist or {} -- registre d'une version d'essai : jamais d'erreur à l'indexation

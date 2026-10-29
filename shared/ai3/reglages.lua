@@ -122,15 +122,26 @@ R.TURRET = "gun-turret"
 R.INFRA_TYPES = { ["electric-pole"] = true, ["boiler"] = true, ["generator"] = true, ["offshore-pump"] = true }
 -- Types des CONSOMMATEURS dont l'état « sans courant » mesure ce qu'un poteau détruit coupe.
 R.CONSUMER_TYPES = { "inserter", "mining-drill", "assembling-machine", "lab" }
--- Lot RECONSTRUIRE : les FACTIONS refont-elles aussi leurs pieces detruites ? Eteint (29/10) : mesure du lot sur 5 graines, la
--- reconstruction des factions fait diverger la partie (dont la perte du QG du joueur a 58 min sur 271828182, absente du temoin) sans
--- gain demontre ; la remarque du DC porte sur SON installation. Allume, le registre sert aux factions comme a votre equipe.
-R.RECON_FACTIONS = false
--- Lot RECONSTRUIRE : portee de la reconstruction de votre equipe. Mesure du 29/10 (variante « infrastructure seule » contre la
--- reconstruction large, 20261020) : refaire aussi les tapis, bras, fours, foreuses et coffres degrade tourelles, avant-postes
--- defendus et fer livre de votre equipe sur 3 graines de 5 ; l'infrastructure electrique seule laisse la partie identique au temoin.
--- Eteint : seule l'infrastructure electrique (R.INFRA_TYPES) est refaite.
-R.RECON_ALL_PIECES = false
+-- Lot RECONSTRUIRE : les FACTIONS refont-elles aussi leurs pieces detruites ? Allume (lot REBUILD-TOUT, 29/10) : le DC, apres 1 h 30 de
+-- partie sur 0.6.13 : « il y a des productions qui ont ete detruites, des batiments, convoyeurs, ameliorations qui n'ont pas ete
+-- remplaces [...] il faut reconstruire imperativement parce que la production peut tres vite se couper ». Avant (28/10) : eteint, car la
+-- reconstruction faisait diverger la trajectoire des factions d'un temoin sans reconstruction (dont la perte du QG du joueur a 58 min sur
+-- 271828182) ; une divergence n'est pas un defaut, la partie du DC dit que ne pas reconstruire en est un.
+R.RECON_FACTIONS = true
+-- Lot RECONSTRUIRE : portee du registre de reconstruction (pieces detruites, tache « rebuild »). Allume (lot REBUILD-TOUT) : les foreuses et
+-- reservoirs des avant-postes encore vivants sont refaits avec l'infrastructure electrique (R.INFRA_TYPES). Les pieces des projets du plan
+-- directeur sont refaites par le releve de R.REBUILD_SWEEP, pas par le registre. Mesure du 29/10 (avant l'allumage) : refaire aussi les
+-- tapis, bras, fours, foreuses et coffres degradait tourelles, avant-postes defendus et fer livre de votre equipe sur 3 graines de 5 ; la
+-- mesure de l'allumage actuel n'a pas ete rejouee en moteur reel (le DC joue).
+R.RECON_ALL_PIECES = true
+-- Lot REBUILD-TOUT : releve de reconstruction des projets du plan directeur de TOUTES les equipes (shared/team/rebuild_sweep.lua) : une piece
+-- posee (e.built) dont l'entite n'existe plus est remise « a batir » (fantome, PNJ du plan, cout sur le stock). Eteint : le registre de
+-- reconstruction refait les pieces des projets comme avant (si R.RECON_ALL_PIECES), le releve ne tourne pas.
+R.REBUILD_SWEEP = true
+-- Lot REBUILD-TOUT : types du moteur des ENTREES DE PRODUCTION, refaites d'abord par le releve (foreuse, tapis, tapis souterrain, repartiteur,
+-- bras, four). Meme justification que R.ENTITY_ROLE : le moteur classe ses batiments par TYPE, aucun nom de batiment ici.
+R.REBUILD_FIRST = { ["mining-drill"] = true, ["transport-belt"] = true, ["underground-belt"] = true, ["splitter"] = true, ["inserter"] = true,
+  ["furnace"] = true }
 
 R.BODY = "character"
 
