@@ -103,10 +103,11 @@ return function(with_rule)
         st.done = st.done or {}
         for i, tg in ipairs(st.targets) do
           if not st.done[i] then
-            local real = s.find_entity(tg.name, { tg.x, tg.y })
-            if real and real.valid and real.force.name == "player" then
+            -- n'importe quel poteau a la place exacte : le moyen peut etre remplace par un petit (acier absent)
+            local real = s.find_entities_filtered({ position = { tg.x, tg.y }, radius = 0.3, type = "electric-pole", force = "player" })[1]
+            if real and real.valid then
               st.done[i] = t - st.killed
-              ctx.log(string.format("%s%s refait %d ticks (%.1f s) apres la destruction", TAG, tg.name, t - st.killed, (t - st.killed) / 60))
+              ctx.log(string.format("%s%s refait (%s) %d ticks (%.1f s) apres la destruction", TAG, tg.name, real.name, t - st.killed, (t - st.killed) / 60))
             end
           end
         end
