@@ -93,3 +93,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 29/10 ~13 h, passage 27
 - Rien de nouveau : content-0612 (integration 0.6.12) 0 erreur Lua, 0 warning du mod ; 6 archives des 90 dernieres minutes : 0 erreur ; aucune partie ni rendu en cours. Nettoyage : tous les worktrees de lots fusionnes retires (branches gardees), centre-fusee conserve.
+
+## 29/10 ~13 h 30, passage 28
+- Rien de nouveau : aucune partie ni rendu depuis 13 h (methode statique) ; archives des 90 dernieres minutes : 0 erreur Lua, 0 ECHEC. Disque 154 Go. Vague 2 et revues globales en cours (statique, aucun banc).
