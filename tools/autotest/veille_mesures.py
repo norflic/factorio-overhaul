@@ -76,9 +76,9 @@ def parse(folder):
         if m:
             f, mi = m.group(2), int(m.group(3))
             d["bilan"][(f, mi)] = {"partis": int(m.group(4)), "arrives": int(m.group(5)), "fuites": int(m.group(6)),
-                                   "perdus": int(m.group(7)), "absent": float(m.group(11)), "refus": m.group(14)}
-            if m.group(13).isdigit():
-                d["sect"].setdefault(f, []).append((float(mi), int(m.group(13))))
+                                   "perdus": int(m.group(7)), "absent": float(m.group(10)), "refus": m.group(13)}
+            if m.group(12).isdigit():
+                d["sect"].setdefault(f, []).append((float(mi), int(m.group(12))))
     return d
 
 
