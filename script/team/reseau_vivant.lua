@@ -282,19 +282,25 @@ function Rv.step(api, f, surface, tick)
   -- une centrale de remplacement refusée : retour à la centrale d'origine, rouverte sur place (dernier recours)
   if sv.reloc then
     local np = b.projects[sv.reloc.new]
-    if not np or np.state == "refuse" then
+    local foe0 = sv.reloc.x and surface.find_nearest_enemy({ position = { x = sv.reloc.x, y = sv.reloc.y }, max_distance = S.DANGER_R,
+      force = f.force })
+    local verdict, vwhy = S.reloc_verdict({ new_state = np and np.state or nil, enemies = foe0 and 1 or 0 }, sv.st)
+    if verdict == "rentrer" then
       local old = b.projects[sv.reloc.old]
+      -- un remplacement pas commencé est annulé (matières rendues au coffre) ; l'automatisation suit la centrale qui reste
+      if np and np.state ~= "refuse" and api.cancel then api.cancel(f, np.id, "reseau: retour au site d'origine") end
+      if np then np.abandoned = true end
       b.avoid = nil
       if old then
+        old.abandoned = nil
         b.plant = old.id
         local _, lost = plant_read(f, surface, old)
-        Rv.reopen(old, lost, "reseau: centrale de remplacement refusee, retour sur place", surface)
-        say(f, tick, string.format("centrale de remplacement refusee (%s) : retour au site d'origine, %d piece(s) rouverte(s)",
-          tostring(np and np.reason or "perdue"), #lost))
+        Rv.reopen(old, lost, "reseau: retour sur place", surface)
+        say(f, tick, string.format("retour au site d'origine : %s ; %d piece(s) rouverte(s)", vwhy, #lost))
       end
       sv.reloc = nil
       return
-    elseif np.state == "fini" then
+    elseif verdict == "fini" then
       say(f, tick, "centrale de remplacement FINIE (projet " .. np.id .. ")")
       sv.reloc = nil
     end
@@ -365,7 +371,9 @@ function Rv.step(api, f, surface, tick)
     old.abandoned = true
     b.plant = nil
     local id = api.plant(f)
-    sv.reloc = { old = old.id, new = id }
+    sv.reloc = { old = old.id, new = id, x = site and site.x, y = site and site.y }
+    local np = id and b.projects[id]
+    if np then np.keep = true end -- l'automatisation ne l'annule pas (15 min sans progrès) : seul ce module décide du retour
     S.applied(sv.st, action, tick)
     say(f, tick, string.format("centrale: %s ; centrale demandee AILLEURS (projet %s, site ecarte %.0f,%.0f, danger %s)", why,
       tostring(id), site and site.x or 0, site and site.y or 0,

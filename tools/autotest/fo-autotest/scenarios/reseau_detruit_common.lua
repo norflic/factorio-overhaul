@@ -173,6 +173,16 @@ return function(opts)
     end
     if e.tick > KILL and (e.tick - KILL) % STEP == 0 then
       for _, ev in ipairs(st.ev) do
+        -- danger PERSISTANT : un ver tué par les soldats de la faction est reposé au même endroit (le test porte sur la décision de
+        -- la centrale face à un danger qui tient, pas sur la force de l'armée) ; le nombre de reposes est au journal
+        if ev.worm and not (ev.worm_ent and ev.worm_ent.valid) then
+          local w2 = s.create_entity({ name = "big-worm-turret", position = ev.worm, force = "enemy" })
+          if w2 then
+            ev.worm_ent = w2
+            ev.respawns = (ev.respawns or 0) + 1
+            log(TAG .. string.format("%s | dangereux | ver tue, repose (%d) a la minute %.1f", ev.key, ev.respawns, e.tick / MIN))
+          end
+        end
         local r = read(s, ev.force)
         ev.last = r
         local back = (ev.role == "pivot") and (r.on >= ev.pre.on) or (r.prod > 0 and r.on >= ev.pre.on)
@@ -217,8 +227,8 @@ return function(opts)
           ev.role == "sur" and "C2" or (ev.role == "dangereux" and "C3" or "C4"), ev.key, lim), detail)
         if ev.role == "dangereux" then
           ctx.check(ev.worm ~= nil, "C3 : le ver (danger) a ete pose a moins de 40 tuiles du site", ev.worm and "oui" or "non")
-          ctx.check(ev.worm_ent ~= nil and ev.worm_ent.valid, "C3 : le ver est reste en vie (sinon le danger a disparu et le test ne dit rien)",
-            (ev.worm_ent ~= nil and ev.worm_ent.valid) and "oui" or "non")
+          ctx.check(ev.worm_ent ~= nil and ev.worm_ent.valid, "C3 : un ver est en place en fin de partie (danger persistant)",
+            string.format("%s, %d repose(s)", (ev.worm_ent ~= nil and ev.worm_ent.valid) and "oui" or "non", ev.respawns or 0))
           ctx.check(wdist ~= nil and wdist > DANGER, "C3 : la centrale de remplacement est a plus de 40 tuiles du ver",
             wdist and string.format("%.1f", wdist) or "-")
         end

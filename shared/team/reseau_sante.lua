@@ -35,11 +35,12 @@ S.MAX_TRIES = 2        -- reposes sur place sans que la production revienne, ava
 S.SITE_LOSSES = 2      -- pertes de pièces sur le site (déjà refait) au-delà desquelles il est jugé dangereux
 S.MAX_RELOC = 3        -- centrales de remplacement demandées au plus
 S.MIN_DEMAND_KW = 1    -- demande en dessous de laquelle une production nulle n'est pas une panne
+S.CALM_READS = 3      -- relevés de suite sans ennemi au site d'origine avant de rentrer (centrale de remplacement pas commencée)
 S.COVER_CONFIRM = 2    -- relevés du réseau de suite avec des consommateurs découverts (hors chantier) avant de poser des poteaux
 S.MAX_COVER = 4        -- poses de couverture au plus pour un même épisode (remis à zéro quand plus rien n'est découvert)
 
 function S.new()
-  return { bad = 0, seen = 0, tries = 0, relocations = 0, site_losses = 0, cover_tries = 0, last = nil, last_tick = nil }
+  return { bad = 0, seen = 0, tries = 0, relocations = 0, site_losses = 0, cover_tries = 0, calm = 0, last = nil, last_tick = nil }
 end
 
 local function lost_of(inp)
@@ -96,6 +97,24 @@ function S.decide(inp, st)
   return "ok", "centrale saine", detail
 end
 
+--- Centrale de remplacement demandée AILLEURS : la garder, rentrer au site d'origine, ou constater qu'elle est finie.
+--- info = { new_state = état du projet de remplacement (nil : perdu), enemies = ennemis à portée du SITE D'ORIGINE }.
+--- Mesuré le 29/10 (détruit-20261020) : le remplacement (28 pièces dont une chaîne de poteaux) est resté 15 min « en réserve » faute de
+--- matériaux et a été annulé par l'automatisation, pendant que le ver avait disparu : refaire 3 pièces sur place coûtait bien moins.
+--- Règle : un remplacement PAS COMMENCÉ (attente, plan, réserve) est abandonné si le site d'origine est calme depuis S.CALM_READS relevés ;
+--- un remplacement commencé (fantômes, chantier, raccordement) est gardé tant qu'il avance ; refusé ou perdu : retour sur place.
+function S.reloc_verdict(info, st)
+  local ns = info.new_state
+  if ns == "fini" then st.calm = 0 return "fini", "centrale de remplacement finie" end
+  if ns == nil or ns == "refuse" then return "rentrer", "centrale de remplacement refusee ou perdue" end
+  if (info.enemies or 0) > 0 then st.calm = 0 else st.calm = (st.calm or 0) + 1 end
+  local started = ns ~= "attente" and ns ~= "plan" and ns ~= "reserve"
+  if not started and st.calm >= S.CALM_READS then
+    return "rentrer", string.format("site d'origine calme depuis %d releves, remplacement pas commence (%s)", st.calm, tostring(ns))
+  end
+  return "garder", started and "remplacement en chantier" or "remplacement en attente de matieres, site d'origine encore tenu"
+end
+
 --- Une décision exécutée : note l'action (essais, déménagements) pour les décisions suivantes.
 function S.applied(st, action, tick)
   st.last, st.last_tick = action, tick
@@ -103,7 +122,7 @@ function S.applied(st, action, tick)
   if action == "couvrir" then st.cover_tries = st.cover_tries + 1 end
   if action == "autre_site" then
     st.relocations = st.relocations + 1
-    st.tries, st.site_losses, st.seen, st.bad = 0, 0, 0, 0
+    st.tries, st.site_losses, st.seen, st.bad, st.calm = 0, 0, 0, 0, 0
   end
 end
 

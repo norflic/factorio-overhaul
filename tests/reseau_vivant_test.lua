@@ -133,10 +133,11 @@ local function team(world)
   return f, { boiler = boiler, engine = engine }
 end
 
-local requested, poles_added, add_calls
+local requested, poles_added, add_calls, cancelled
 
 local api = {
   pole_of = function() return "small-electric-pole", 7.5 end,
+  cancel = function(f, id, why) cancelled = { id = id, why = why }; f.build.projects[id].state = "refuse"; return true end,
   add_poles = function(f, q, list)
     local out = {}
     for _, c in ipairs(list) do
@@ -253,6 +254,26 @@ do
   run(f, w, 1200 * 10, 1200 * 11)
   check(f.build.plant == 1 and f.build.avoid == nil, "remplacement refusé : retour à la centrale d'origine, sites écartés effacés")
   check(unbuilt(f.build.projects[1]) == 2 and f.build.projects[1].state == "reserve", "remplacement refusé : les 2 pièces perdues rouvertes sur place")
+end
+
+-- §4 bis centrale de remplacement en attente de matieres : gardee tant que le danger tient, abandonnee quand le site d'origine est calme
+do
+  logs, requested, cancelled = {}, nil, nil
+  local w = new_world()
+  local f, parts = team(w)
+  run(f, w, 1200, 1200 * 3)
+  w:remove(parts.boiler)
+  w:remove(parts.engine)
+  w.enemies[1] = { valid = true, position = { x = 40, y = 12 } }
+  run(f, w, 1200 * 4, 1200 * 9)
+  check(requested == 3 and f.build.projects[3].keep == true, "remplacement demande, marque a garder (l'automatisation ne l'annule pas)")
+  run(f, w, 1200 * 10, 1200 * 30)
+  check(f.build.plant == 3 and cancelled == nil, "ennemi toujours la : le remplacement est garde longtemps (pas de retour)")
+  w.enemies[1].valid = false
+  run(f, w, 1200 * 31, 1200 * 33)
+  check(f.build.plant == 1 and cancelled ~= nil and cancelled.id == 3, "site d'origine calme, remplacement pas commence : annule, retour a la centrale d'origine")
+  check(f.build.projects[3].abandoned == true and f.build.projects[1].abandoned == nil, "l'automatisation suit : remplacement abandonne, origine reprise")
+  check(unbuilt(f.build.projects[1]) == 2 and f.build.projects[1].state == "reserve", "les pieces perdues de l'origine sont rouvertes")
 end
 
 ---------------------------------------------------------------------------------------------------

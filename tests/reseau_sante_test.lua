@@ -151,6 +151,34 @@ do
   check(act == "reposer", "centrale amputee : la centrale d'abord, la couverture ensuite")
 end
 
+-- §1 ter centrale de remplacement : garder, rentrer, finie
+do
+  local st = S.new()
+  check(S.reloc_verdict({ new_state = "fini", enemies = 0 }, st) == "fini", "remplacement fini : fini")
+  check(S.reloc_verdict({ new_state = "refuse", enemies = 3 }, S.new()) == "rentrer", "remplacement refuse : rentrer")
+  check(S.reloc_verdict({ new_state = nil, enemies = 3 }, S.new()) == "rentrer", "remplacement perdu : rentrer")
+  local s2 = S.new()
+  local v
+  for i = 1, S.CALM_READS - 1 do v = S.reloc_verdict({ new_state = "reserve", enemies = 0 }, s2) end
+  check(v == "garder", "remplacement en reserve, site d'origine calme depuis moins de CALM_READS releves : garder")
+  check(S.reloc_verdict({ new_state = "reserve", enemies = 0 }, s2) == "rentrer", "site d'origine calme depuis CALM_READS releves, remplacement pas commence : rentrer")
+  local s3 = S.new()
+  for i = 1, 10 do v = S.reloc_verdict({ new_state = "reserve", enemies = 2 }, s3) end
+  check(v == "garder", "ennemi toujours la : le remplacement est garde, aussi longtemps que necessaire")
+  local s4 = S.new()
+  S.reloc_verdict({ new_state = "reserve", enemies = 0 }, s4)
+  S.reloc_verdict({ new_state = "reserve", enemies = 0 }, s4)
+  S.reloc_verdict({ new_state = "reserve", enemies = 1 }, s4)
+  check(S.reloc_verdict({ new_state = "reserve", enemies = 0 }, s4) == "garder", "un ennemi revu remet le compte de calme a zero")
+  local s5 = S.new()
+  for i = 1, 10 do v = S.reloc_verdict({ new_state = "chantier", enemies = 0 }, s5) end
+  check(v == "garder", "remplacement deja en chantier : jamais abandonne pour un site calme")
+  local s6 = S.new()
+  s6.calm = 2
+  S.applied(s6, "autre_site", 1)
+  check(s6.calm == 0, "un deplacement remet le compte de calme a zero")
+end
+
 -- §6 mutants
 local MUT = {
   { "pas de confirmation de la production nulle", "if st.bad < S.CONFIRM then", "if false then" },
@@ -164,13 +192,17 @@ local MUT = {
   { "ilot sans poteau perdu releve", "if (inp.islands or 0) > 0 and (inp.lost_links or 0) > 0 then", "if (inp.islands or 0) > 0 then" },
   { "panne sans demande", "demand >= S.MIN_DEMAND_KW", "true" },
   { "combustible confondu", 'if (inp.dry or 0) > 0 then return "combustible"', 'if false then return "combustible"' },
-  { "deplacement ne remet pas les compteurs", "st.tries, st.site_losses, st.seen, st.bad = 0, 0, 0, 0", "" },
+  { "deplacement ne remet pas les compteurs", "st.tries, st.site_losses, st.seen, st.bad, st.calm = 0, 0, 0, 0, 0", "" },
   { "pompe non comptee", "(m.source or 0) + (m.gen or 0) + (m.eau or 0)", "(m.source or 0) + (m.gen or 0) + (m.tuyau or 0)" },
   { "tuyaux non comptes", "+ (m.tuyau or 0)", "" },
   { "couverture sans confirmation", "(inp.uncov_reads or 0) >= S.COVER_CONFIRM", "true" },
   { "couverture sans garde de projet en cours", "and not inp.cover_busy then", "then" },
   { "couverture sans limite", "if st.cover_tries >= S.MAX_COVER then", "if false then" },
   { "essais de couverture non comptes", 'if action == "couvrir" then st.cover_tries = st.cover_tries + 1 end', "" },
+  { "remplacement refuse non repris", 'if ns == nil or ns == "refuse" then return "rentrer"', 'if false then return "rentrer"' },
+  { "calme sans compte", "not started and st.calm >= S.CALM_READS", "not started" },
+  { "chantier abandonne", 'local started = ns ~= "attente" and ns ~= "plan" and ns ~= "reserve"', "local started = false" },
+  { "ennemi ne remet pas le calme a zero", "if (info.enemies or 0) > 0 then st.calm = 0 else", "if false then else" },
   { "essais de couverture jamais remis a zero", "if (inp.uncovered or 0) == 0 then st.cover_tries = 0 end", "" },
 }
 local function battery(S2)
@@ -182,6 +214,19 @@ local function battery(S2)
   exp((S2.decide(inp({ missing = { eau = 1 } }), S2.new())) == "reposer")
   exp((S2.decide(inp({ missing = { source = 1 }, enemies = 3 }), S2.new())) == "attendre")
   exp((S2.decide(inp({ missing = { tuyau = 2 } }), S2.new())) == "reposer")
+  exp((S2.reloc_verdict({ new_state = "refuse" }, S2.new())) == "rentrer")
+  do
+    local s7 = S2.new()
+    for _ = 1, S2.CALM_READS - 1 do S2.reloc_verdict({ new_state = "reserve", enemies = 0 }, s7) end
+    exp((S2.reloc_verdict({ new_state = "reserve", enemies = 0 }, s7)) == "rentrer")
+    local s8 = S2.new()
+    for _ = 1, 10 do S2.reloc_verdict({ new_state = "chantier", enemies = 0 }, s8) end
+    exp((S2.reloc_verdict({ new_state = "chantier", enemies = 0 }, s8)) == "garder")
+    local s9 = S2.new()
+    for _ = 1, S2.CALM_READS - 1 do S2.reloc_verdict({ new_state = "reserve", enemies = 0 }, s9) end
+    S2.reloc_verdict({ new_state = "reserve", enemies = 2 }, s9)
+    exp((S2.reloc_verdict({ new_state = "reserve", enemies = 0 }, s9)) == "garder")
+  end
   exp((S2.decide(inp({ uncovered = 3, uncov_reads = 1 }), S2.new())) == "ok")
   exp((S2.decide(inp({ uncovered = 3, uncov_reads = 9 }), S2.new())) == "couvrir")
   exp((S2.decide(inp({ uncovered = 3, uncov_reads = 9, cover_busy = true }), S2.new())) == "ok")

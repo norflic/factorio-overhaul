@@ -1395,6 +1395,8 @@ function Build.cancel(f, id, why)
   local p = b and b.projects[id]
   if not (p and (p.state == "attente" or p.state == "plan" or p.state == "reserve")) then return false end
   if p.reopened then return false end -- lot RESEAU-VIVANT : un projet déjà bâti dont des pièces sont à refaire n'est pas annulable
+  -- lot RESEAU-VIVANT : la centrale de remplacement (p.keep) n'est annulée que par la santé du réseau (raison « reseau: ... »)
+  if p.keep and not tostring(why):find("^reseau") then return false end
   release(f, p)
   for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
   for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
@@ -2319,7 +2321,7 @@ local function pulse_team(f, tick)
   local pp = b.plant and b.projects[b.plant]
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot RESEAU-VIVANT : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
-  Rv.step({ plant = Build.plant, add_poles = Build.add_poles, pole_of = Build.pole_of }, f, surface, tick)
+  Rv.step({ plant = Build.plant, add_poles = Build.add_poles, pole_of = Build.pole_of, cancel = Build.cancel }, f, surface, tick)
 end
 
 local function teams()
