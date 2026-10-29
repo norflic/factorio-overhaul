@@ -33,6 +33,7 @@ local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
+local Or = require("shared.team.orient")      -- lot PD-FONDERIEQG (D82) : sens du gisement (règle pure)
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
@@ -472,13 +473,18 @@ local function candidates(b, states, toward, res)
   return out
 end
 
---- Tuiles de minerai `res` d'un lot (un appel).
+--- Tuiles de minerai `res` d'un lot (un appel). Lot PD-FONDERIEQG (D82) : `set.axis` = sens du gisement dans le lot ("x", "y"
+--- ou nil : rond ou trop petit ; shared/team/orient.lua), lu par place_module pour orienter une ligne de foreuses.
 local function ore_set(surface, rect, res)
   local set, n = {}, 0
+  local m = Or.moments()
   for _, e in ipairs(surface.find_entities_filtered({ area = { { rect.x0 + 0.01, rect.y0 + 0.01 }, { rect.x1 - 0.01, rect.y1 - 0.01 } }, name = res })) do
-    set[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
+    local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
+    set[P.tkey(tx, ty)] = true
+    Or.add(m, tx - rect.x0, ty - rect.y0)
     n = n + 1
   end
+  set.axis = Or.axis(m)
   return set, n
 end
 
@@ -572,12 +578,15 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
     if res then fopts.ore = ores end
+    -- lot PD-FONDERIEQG (D82) : ligne de foreuses dans le sens du gisement, sortie du collecteur vers l'arrivée
+    if res and opts and opts.follow then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
     local fit, why = P.fit(g, rect, fopts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
       local inst = M.instantiate(r, 0, fit.ox, fit.oy)
-      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan }
+      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan,
+        axis = fopts.axis, pen = fit.pen, d = fit.d }
     end
     last = why or last
     bump(b.stats.plan_refused, last)
@@ -1205,7 +1214,7 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if g then
       place, why = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
         { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
-          within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
+          within = p.spec and p.spec.degel and p.spec.degel.zone or nil, follow = true })
       if place then picked = at break end
     end
   end
@@ -1224,6 +1233,18 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     log(string.format("[FO-RANGEES] %s : projet %d, foreuses %s : %d paire(s) (%d foreuses) visees %d, couverture %d%% (visee %d%%), %.2f minerai/s demandes",
       f.key or "player", p.id, item, (place.g.params or {}).n or 0, 2 * ((place.g.params or {}).n or 0), n,
       math.floor((place.cover or 0) * 100 + 0.5), picked and picked.cover and math.floor(picked.cover * 100 + 0.5) or math.floor(P.DRILL_COVER * 100 + 0.5), flow))
+  end
+  -- lot PD-FONDERIEQG (D82) : sens du gisement dans le lot, sens du collecteur choisi, distance de sa sortie à l'arrivée
+  do
+    local la
+    for _, port in ipairs(P.belt_ports(place.inst)) do if port.io == "out" then la = Or.line_axis(port.dir) end end
+    b.stats.orient = (b.stats.orient or 0) + 1
+    if b.stats.orient <= Build.LINE_LOGS then
+      log(string.format("[FO-ORIENT] %s : projet %d, foreuses %s : gisement %s dans le lot %s, collecteur %s%s, sortie a %d tuile(s) de l'arrivee",
+        f.key or "player", p.id, item, place.axis == "y" and "vertical" or (place.axis == "x" and "horizontal" or "sans sens (rond ou petit)"),
+        place.lot, la == "y" and "vertical" or "horizontal", (place.pen or 0) > 0 and " (en travers : meilleure couverture ou place)" or "",
+        math.floor((place.d or 0) + 0.5)))
+    end
   end
   local ents = inst_entities(place.inst, part, belt)
   -- tapis : queue des foreuses → arrivée

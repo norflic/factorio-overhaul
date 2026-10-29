@@ -46,6 +46,7 @@ P.AUTO_FLOW = 1.0           -- objets/s : au-delà, une voie est servie par tapi
 P.PLANT_WET = 0.2           -- part d'eau du gabarit d'eau de la centrale (lot IA3-e ; 0,6 avant)
 P.STREET_COST = 3           -- coût d'une tuile de rue pour un tapis (traverser oui, longer non)
 P.ASTAR_MAX = 6000          -- nœuds développés au plus par tracé
+P.AXIS_PENALTY = 10         -- lot PD-FONDERIEQG (D82) : collecteur en travers du sens du gisement (tuiles de distance)
 
 P.N, P.E, P.S, P.W = 0, 2, 4, 6
 local DV = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
@@ -456,6 +457,11 @@ end
 --- s'étend à l'opposé. Sans port d'entrée tapis, ou sans cette option, le score est celui d'avant.
 --- cover_min (lot AGENCEMENT) : part des tuiles minées qui doit porter le minerai (défaut P.DRILL_COVER) ; fan : bras par quai de
 --- sortie (P.port_room), 1 par défaut.
+--- Lot PD-FONDERIEQG (D82, retour du DC du 29/10, 14 h : « ça dépend de la forme du gisement », « on monte puis on redescend ») :
+--- out_toward = vrai : la distance à `toward` part de la SORTIE du collecteur (tuile après son port de sortie tapis) au lieu du
+--- centre : la sortie regarde l'arrivée, sans tapis qui contourne la ligne ; axis = "x" | "y" (sens du gisement,
+--- shared/team/orient.lua) : un gabarit dont le port de sortie tapis court en travers de ce sens prend P.AXIS_PENALTY.
+--- Sans ces options, le score est celui d'avant.
 function P.fit(g, rect, opts)
   opts = opts or {}
   local margin = opts.margin or 1
@@ -514,6 +520,19 @@ function P.fit(g, rect, opts)
       local inst0 = M.instantiate(r, 0, 0, 0)
       local room0 = P.port_room(inst0, opts.fan)
       -- bout de la tête d'alimentation du port d'entrée (FEED_DEPTH tuiles derrière le port), relatif à l'origine
+      -- lot PD-FONDERIEQG (D82) : sortie du collecteur et son sens (premier port de sortie tapis)
+      local out_tip, pen = nil, 0
+      if opts.out_toward or opts.axis then
+        for _, bp in ipairs(P.belt_ports(inst0)) do
+          if bp.io == "out" then
+            local bv = DV[bp.dir]
+            out_tip = { bp.x + bv[1] + 0.5, bp.y + bv[2] + 0.5 }
+            local la = (bp.dir == 0 or bp.dir == 4) and "y" or "x"
+            if opts.axis and la ~= opts.axis then pen = P.AXIS_PENALTY end
+            break
+          end
+        end
+      end
       local tip
       if opts.head_toward then
         for _, bp in ipairs(P.belt_ports(inst0)) do
@@ -589,9 +608,11 @@ function P.fit(g, rect, opts)
             local d = 0
             if tip then
               d = math.abs(ox + tip[1] - opts.head_toward.x) + math.abs(oy + tip[2] - opts.head_toward.y)
+            elseif out_tip and opts.out_toward and opts.toward then
+              d = math.abs(ox + out_tip[1] - opts.toward.x) + math.abs(oy + out_tip[2] - opts.toward.y)
             elseif opts.toward then d = math.abs(cx - opts.toward.x) + math.abs(cy - opts.toward.y) end
-            local score = d - (res and cover * 100 or 0)
-            if not best or score < best.score - 1e-9 then best = { k = k, ox = ox, oy = oy, cover = cover, score = score, w = r.w, h = r.h } end
+            local score = d + pen - (res and cover * 100 or 0)
+            if not best or score < best.score - 1e-9 then best = { k = k, ox = ox, oy = oy, cover = cover, score = score, w = r.w, h = r.h, pen = pen, d = d } end
           end
         end
       end

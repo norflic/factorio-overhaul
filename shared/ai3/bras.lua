@@ -25,6 +25,7 @@
 ]]
 
 local Br = {}
+local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
 
 -- 0. Bras libres DURABLES : moyenne glissante des PNJ sans tâche (en dixièmes, entiers), sur environ Br.EMA_THINKS
 -- pensées (1 min). Diagnostic du lot (moteur simulé, 4 factions à 30 PNJ, minutes 18 à 20 : 7,8 à 9,5 PNJ sans tâche
@@ -115,7 +116,8 @@ end
 --- Br.SMELT_STEP fours de plus quand une plaque fondue au QG MANQUE durablement (st.short_n ≥ grow_thinks) alors que son
 --- minerai attend au coffre (stock ≥ Br.ORE_WAIT × ce qu'il faut pour le manque), au plus une vague par Br.SMELT_EVERY,
 --- jamais au-delà de Br.smelt_max ni avant que les fours visés soient posés. Rend le nombre de fours visés.
---- s = { workers, stock, smelters, smelters_pending, tick, smelter_inputs = { {plaque, minerai, quantité}, ... } triée },
+--- s = { workers, stock, smelters, smelters_pending, tick, smelter_inputs = { {plaque, minerai, quantité}, ... } triée,
+---       covered = { [plaque] = vrai } (plaques fondues par un module fini, st.covered ; lot PD-FONDERIEQG) },
 --- shortage : { [plaque] = manque } (st.short), short_n : { [plaque] = pensées de suite }.
 function Br.smelters(s, st, base, grow_thinks)
   local have = (s.smelters or 0) + (s.smelters_pending or 0)
@@ -123,12 +125,23 @@ function Br.smelters(s, st, base, grow_thinks)
   local target = math.max(base or 0, st.smelt_target or 0, have)
   local max = Br.smelt_max(s.workers, base)
   -- … et la borne monte avec le minerai qui attend au coffre (jamais sous la borne de l'effectif).
+  -- Lot PD-FONDERIEQG (D77) : le minerai d'une plaque fondue par une ligne à tapis (module fini) n'agrandit plus la fonderie
+  -- nourrie à la main : c'est le travail de la ligne (shared/ai3/fonderie_qg.lua).
+  local covered = s.covered or {}
   local by_ore = 0
   for _, it in ipairs(s.smelter_inputs or {}) do
-    local extra = math.floor(((s.stock or {})[it[2]] or 0) / ((it[3] or 1) * Br.ORE_PER_FURNACE))
-    if extra > by_ore then by_ore = extra end
+    if not covered[it[1]] then
+      local extra = math.floor(((s.stock or {})[it[2]] or 0) / ((it[3] or 1) * Br.ORE_PER_FURNACE))
+      if extra > by_ore then by_ore = extra end
+    end
   end
   if by_ore > max then max = math.min(by_ore, math.max(max, Br.SMELT_HARD)) end
+  -- … et dès qu'une plaque est automatisée, la fonderie à la main est BORNÉE (base, plus une vague par plaque non couverte
+  -- qui manque durablement). st.fq : la borne et sa raison, lues par le runtime pour le journal [FO-FONDERIE-QG].
+  local n_auto = #FQ.automated(s.smelter_inputs, covered)
+  local lim, why = FQ.limit(max, base, n_auto, FQ.open_short(s.smelter_inputs, covered, st, grow_thinks), Br.SMELT_STEP)
+  if n_auto > 0 then st.fq = { cap = lim, why = why or "", auto = n_auto, have = have, max = max } else st.fq = nil end
+  max = lim
   if target > max then target = max end
   local due = (s.tick or 0) - (st.smelt_tick or -Br.SMELT_EVERY) >= Br.SMELT_EVERY
   if due and have >= target and target < max then
@@ -136,7 +149,7 @@ function Br.smelters(s, st, base, grow_thinks)
       local plate, ore, per = it[1], it[2], it[3] or 1
       local short = (st.short or {})[plate] or 0
       local n = (st.short_n or {})[plate] or 0
-      if short > 0 and n >= (grow_thinks or 0) and (s.stock[ore] or 0) >= Br.ORE_WAIT * short * per then
+      if not covered[plate] and short > 0 and n >= (grow_thinks or 0) and (s.stock[ore] or 0) >= Br.ORE_WAIT * short * per then
         target = math.min(max, target + Br.SMELT_STEP)
         st.smelt_tick = s.tick or 0
         st.smelt_waves = (st.smelt_waves or 0) + 1

@@ -822,6 +822,22 @@ function Ia3.plan(f, view, book, surface, tick)
       st.log_seen = e.seq
     end
   end
+  -- Lot PD-FONDERIEQG (D77) : la fonderie nourrie à la main est bornée dès qu'une ligne à tapis fond une plaque
+  -- (shared/ai3/fonderie_qg.lua, st.fq posé par Br.smelters) : une ligne à chaque changement de la borne.
+  do
+    local fq = st.fq
+    local k = fq and (fq.cap .. ":" .. fq.auto .. ":" .. fq.why) or ""
+    if k ~= (st.fq_logged or "") then
+      st.fq_logged = k
+      if fq then
+        log(string.format("[FO-FONDERIE-QG] %s : %d plaque(s) fondue(s) par ligne a tapis : fours du QG bornes a %d (borne d'avant %d, %d pose(s) ou en cours)%s a %.1f min",
+          f.key, fq.auto, fq.cap, fq.max, fq.have, fq.why ~= "" and "" or " (borne d'avant plus basse)", minutes(f, tick)))
+      else
+        log(string.format("[FO-FONDERIE-QG] %s : plus aucune plaque fondue par ligne a tapis : borne d'avant rendue a %.1f min",
+          f.key, minutes(f, tick)))
+      end
+    end
+  end
   -- L'échelle n'existe plus : la patience de l'ancien cerveau ne s'applique pas (script/team/team.lua). Les champs
   -- lus ailleurs (bancs, fenêtre) gardent leur sens : un type d'avant-poste bâti une fois est « atteint ».
   t.goal_since = tick
