@@ -58,7 +58,7 @@ end
 local ig, ir = 0, 0
 for i, k in ipairs(W.guarantee_order) do if k == "cassiterite" then ig = i end end
 for i, k in ipairs(W.resource_order) do if k == "cassiterite" then ir = i end end
-check(ig == #W.guarantee_order and ir == #W.resource_order, "cassitérite en dernier (sites et lettres d'avant inchangés)")
+check(ig == 7 and ir == 8, "cassitérite après la galène (sites et lettres d'avant inchangés ; la piste BAUXITE en ajoute après)")
 
 ---------------------------------------------------------------------------------------------------
 section("Objets, recettes, bâtiment : ceux d'X3, tout en jeu")

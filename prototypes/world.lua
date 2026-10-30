@@ -328,6 +328,9 @@ local function resource_region(spec)
     })
     mask = mask * noise.clamp((n - rg.threshold) * 6, 0, 1)
     if rg.elevation_max then mask = mask * noise.clamp((rg.elevation_max - noise.var("elevation")) / 2, 0, 1) end
+    -- Piste BAUXITE (X3) : climat du désert rouge vanilla, mêmes rampes que region_mask (humidité, aux).
+    if rg.moisture_max then mask = mask * noise.clamp((rg.moisture_max - noise.var("moisture")) * 8, 0, 1) end
+    if rg.aux_min then mask = mask * noise.clamp((noise.var("aux") - rg.aux_min) * 8, 0, 1) end
   end
   return nil, mask
 end

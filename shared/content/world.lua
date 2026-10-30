@@ -234,7 +234,7 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
@@ -242,7 +242,8 @@ W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "mon
 -- Lot AMELIO-RESSOURCES (30/10) : la galène (âge 9), 2 gisements de 200 000 à 300-600 tuiles, SANS biome (X.resources :
 -- « gisements classiques à plus de 300 tuiles du départ ») ; en DERNIER : les sites d'avant gardent leur place.
 -- Piste ÉTAIN : la cassitérite (âge 4, X3), 2 gisements de 150 000 à 120-350 tuiles, sans biome, après la galène.
-W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite" }
+-- Piste BAUXITE : la bauxite (âge 6, X3), 3 gisements de 300 000 à 300-600 tuiles, sans biome, après la cassitérite.
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite", "bauxite" }
 
 W.resources = {
   tungsten = {
@@ -485,6 +486,33 @@ W.resources = {
     biome = nil,
     autoplace = { base_density = 4, base_spots_per_km2 = 1.4, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
       seed1 = 7302, distance_min = 120, region = { seed1 = 7312, threshold = 0.45, scale = 1 / 180, elevation_max = 6 } },
+  },
+  -- Lot AMELIO-RESSOURCES, piste BAUXITE (30/10) : BAUXITE, minerai de l'aluminium (âge 6, Électricité ; proposition X3,
+  -- chaîne C, module x3.lua : fo-bauxite, basic-solid, minage 1 s). « Climat du désert rouge vanilla (aux ≥ 0,6, humidité
+  -- ≤ 0,3), à plus de 300 tuiles » : sans biome, jeu de gisements propre (graine X3 7303) sur une région de bruit propre
+  -- (graine 7313) restreinte à ce climat. Chaîne : shared/content/bauxite.lua (alumine, boue rouge, aluminium, pylône).
+  bauxite = {
+    resource = "fo-bauxite",
+    kind = "ore",
+    epoch = 6,
+    -- X3 : « 3 gisements de 300 000 posés par script si l'autoplace n'en a mis aucun à cette distance » ; rayon 8, 2 300
+    -- par tuile au centre : environ 300 000 (tests/bauxite_test.lua) ; un gisement naturel de 190 000 en vaut un.
+    guarantee = { site_radius = 10, ore_radius = 8, amount = 2300, min_total = 190000, clear_trees = true, fill_tile = "red-desert-0" },
+    item = "fo-bauxite",
+    -- Pisolithes mates brique-ocre (X3 : « dans une terre rouille ») : la pierre (beige 0,69 ; 0,61 ; 0,43) × (1,00 ; 0,62 ;
+    -- 0,45) donne un brique (0,69 ; 0,38 ; 0,19) (F36, F38 : une teinte ne fait que multiplier). Sans éclat (minerai mat).
+    -- Feuille M1 propre à faire.
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 1.00, g = 0.62, b = 0.45 },
+    -- Chartreuse sur la carte : rouges et bruns sont pris (ennemis, cuivre, désert rouge, cassitérite) ; ΔE76 ≥ 45 de tous
+    -- les minerais, fluides et sols (recherche sur une grille de 21³ couleurs, tests/bauxite_test.lua).
+    map_color = { r = 0.80, g = 1.00, b = 0.00 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X3)
+    biome = nil,
+    autoplace = { base_density = 5, base_spots_per_km2 = 1.2, random_spot_size_minimum = 1, random_spot_size_maximum = 3,
+      seed1 = 7303, distance_min = 300, region = { seed1 = 7313, threshold = 0.4, scale = 1 / 240, moisture_max = 0.3, aux_min = 0.6 } },
   },
 }
 
