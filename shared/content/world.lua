@@ -534,9 +534,11 @@ W.resources = {
     yield = 200,
     copy_resource = "crude-oil",
     copy_fluid = "petroleum-gas",
-    -- Croûte de soufre jaune pâle sur la flaque (teinte provisoire du pétrole ; une feuille propre comme la saumure est à
-    -- faire) ; gaz jaune-blanc.
+    -- Gaz jaune-blanc (teinte du fluide et de l'icône).
     tint = { r = 0.95, g = 0.90, b = 0.55 },
+    -- Feuille PROPRE (comme la saumure) : la flaque du pétrole vanilla recolorée en bouche de cendre brûlée bordée d'une
+    -- croûte de soufre jaune (tools/render/pieces/ressources/fumerolle.py, sans Blender). Choix provisoire, sans verdict.
+    stages_sheet = { dir = "__factorio-overhaul__/graphics/ressources/fumerolle", name = "fumerolle" },
     fluid_temperature = 300, -- X0 : temperature = 300
     -- Crème soufrée sur la carte : un puits est un point, pas une tache ; ΔE76 ≥ 35 de tous les minerais, fluides et sols
     -- (≥ 45 n'est plus possible hors du bleu marine, invisible sur la carte sombre : tests/geothermal_test.lua).

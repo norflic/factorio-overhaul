@@ -30,8 +30,11 @@ def melange(a, b, t):
     return tuple(int(round(a[i] + (b[i] - a[i]) * t)) for i in range(3))
 
 
-def recolorer(src):
-    """src : image RGBA hr de la flaque vanilla (4 cadres côte à côte). Renvoie l'image recolorée."""
+def recolorer(src, eau=EAU, eau_claire=EAU_CLAIRE, sel=SEL, sel_ombre=SEL_OMBRE, anneau=ANNEAU, graine=GRAINE,
+              cristal=(250, 252, 248), gain_eau=0.6):
+    """src : image RGBA hr de la flaque vanilla (4 cadres côte à côte). Renvoie l'image recolorée. Les arguments
+    (palette, anneau, graine) servent aussi à la fumerolle (fumerolle.py) ; par défaut, la saumure."""
+    EAU, EAU_CLAIRE, SEL, SEL_OMBRE, ANNEAU, GRAINE = eau, eau_claire, sel, sel_ombre, anneau, graine
     w, h = src.size
     a = src.getchannel("A")
     plein = a.point(lambda v: 255 if v >= 128 else 0)
@@ -66,14 +69,14 @@ def recolorer(src):
             else:
                 # eau : relief de la flaque vanilla (lum 0 à ~0,8) étiré vers l'eau claire
                 k = min(1.0, lum * 3.2)
-                op[x, y] = melange(EAU, EAU_CLAIRE, k * 0.6) + (al,)
+                op[x, y] = melange(EAU, EAU_CLAIRE, k * gain_eau) + (al,)
     # cristaux de sel épars sur la croûte (2 px), hors de l'eau
     for _ in range(w * h // 260):
         x, y = rng.randrange(w - 2), rng.randrange(h - 2)
         if 0 < erode[0].getpixel((x, y)) and erode[ANNEAU].getpixel((x, y)) == 0 and op[x, y][3] > 0:
             for dx in (0, 1):
                 for dy in (0, 1):
-                    op[x + dx, y + dy] = (250, 252, 248, 255)
+                    op[x + dx, y + dy] = tuple(cristal) + (255,)
     return out
 
 
