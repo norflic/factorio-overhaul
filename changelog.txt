@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.26
+Date: 2026-10-30
+  Changes:
+    - Famine (votre principe : « si on manque cruellement de ressources, l'objectif est justement ces ressources ») : en mode survie, un gisement ferme seulement par le passage des vagues (marques mobiles) n'est plus refuse sans fin : l'equipe y part au 3e refus, avec escorte si des soldats sont libres ; les nids fixes et un but ou 3 PNJ sont morts dans l'heure gardent la prudence ; un regard qui ne voit aucun ennemi efface les marques mobiles vides. Toutes les equipes. [FO-FAMINE]
+      (Mesure a l'origine : dans la partie du guide, graine 1618033988, votre equipe restait sans fer 47 min, son seul gisement ferme a chaque vague.)
+    - Banc verif-guide : nouveau controle « livre fer » par tranche de 10 min.
+    - Rien n'a ete rejoue en partie longue : relecture statique, integration verifiee, tests hors jeu verts (pvp 1305), bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.25
 Date: 2026-10-30
   Changes:
