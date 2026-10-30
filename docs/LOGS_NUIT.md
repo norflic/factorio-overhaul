@@ -202,3 +202,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~4 h 55, passage 57
 - 4 archives (PREVISION prev-vague-final 11 OK, JOURNAUX-DC victoire 8 OK, CAPI-DEBIT content 331 + pnj-auto 7 OK), 0 erreur Lua, 0 ECHEC, codes 0. Rien de nouveau ; le point PREVISION (seuils du scenario) reste a verifier dans le diff a la fin du workflow.
+
+## 30/10 ~5 h 25, passage 58
+- 14 archives (INTEG-0622 x13, JOURNAUX relecture content 331), 0 erreur Lua, codes 0. Echecs tous expliques : migration-content 3 ECHEC (machines du titane sans bobines, connu, au changelog 0.6.22) ; sc-journal 1 ECHEC = controle du scenario perime (fumerolle desormais en jeu) corrige par l'orchestrateur, sc-journal-2 18 OK [mesure].
