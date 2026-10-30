@@ -194,7 +194,9 @@ local function setup_recipes(s, S)
         if m.burner then m.get_fuel_inventory().insert({ name = "coal", count = 10 }) end
         for _, ing in ipairs(r.ingredients) do
           if ing.type == "fluid" then
-            m.insert_fluid({ name = ing.name, amount = math.min(ing.amount * 4, 200) })
+            -- Lot CALCUL : au moins la quantité d'UNE fabrication (centre de calcul : 3 000 eau par fabrication de 300 s ;
+            -- 200 au plus ne la lançait jamais). Inchangé pour toute recette de 200 ou moins.
+            m.insert_fluid({ name = ing.name, amount = math.max(math.min(ing.amount * 4, 200), ing.amount) })
           else
             m.insert({ name = ing.name, count = ing.amount * 4 })
           end

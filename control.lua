@@ -54,6 +54,9 @@ require("script.scenario.journal") -- piste SCENARIOS : journal d'époque (intro
 -- Modules multiplicatifs (lot MOD-1, D-15) : balise cachée de complément par machine, balayage tournant
 require("script.modules.mult")
 
+-- Calcul (lot CALCUL, D-19, D-20 (4)) : centres de calcul lus toutes les 60 ticks, calcul non stockable, bonus de recherche
+require("script.compute.compute")
+
 -- Tirs des tourelles par âge (lot TIRS) : bouche, traçante, impact et trait des âges de shared/tirs/ages.lua
 require("script.tirs.tirs")
 
