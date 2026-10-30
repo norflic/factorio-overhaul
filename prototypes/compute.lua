@@ -17,25 +17,28 @@ for _, c in ipairs(Cp.NEW_CATEGORIES) do
   if not data.raw["recipe-category"][c] then out[#out + 1] = { type = "recipe-category", name = c } end
 end
 
--- Icônes PROVISOIRES : { type, nom vanilla, teinte }.
+-- Lot CALC-ICONES-A (30/10) : icônes DESSINÉES des puces et composants (8 objets, 2 fluides), générées par
+-- tools/render/pieces/calcul/icones_composants.py (palette commune tools/render/pieces/calcul/palette.py).
+local ICONES_A = require("__factorio-overhaul__/graphics/calcul/icones/icons-a")
+local DIR_ICONES_A = "__factorio-overhaul__/graphics/calcul/icones/"
+local function icone_a(name)
+  local ic = ICONES_A.icones[name]
+  if not ic then return nil end
+  return { { icon = DIR_ICONES_A .. ic.fichier, icon_size = ic.icon_size, icon_mipmaps = ic.icon_mipmaps } }
+end
+
+-- Icônes PROVISOIRES restantes (lot CALC-ICONES-B à venir) : { type, nom vanilla, teinte }.
 local ICON = {
-  ["fo-photomask"] = { "item", "solar-panel", { r = 0.80, g = 0.92, b = 1.00 } },
-  ["fo-etched-wafer"] = { "item", "processing-unit", { r = 0.78, g = 0.86, b = 1.00 } },
-  ["fo-crystal-laser"] = { "item", "laser-turret", { r = 0.70, g = 0.90, b = 1.00 } },
-  ["fo-logic-die"] = { "item", "processing-unit", { r = 1.00, g = 0.85, b = 0.45 } },
-  ["fo-dram-die"] = { "item", "advanced-circuit", { r = 0.55, g = 1.00, b = 0.80 } },
-  ["fo-sram-die"] = { "item", "advanced-circuit", { r = 0.85, g = 0.60, b = 1.00 } },
-  ["fo-heat-sink"] = { "item", "heat-pipe", { r = 0.90, g = 0.92, b = 1.00 } },
   ["fo-memory-module"] = { "item", "electronic-circuit", { r = 0.45, g = 0.95, b = 0.55 } },
   ["fo-motherboard"] = { "item", "advanced-circuit", { r = 0.40, g = 0.75, b = 0.45 } },
   ["fo-server-blade"] = { "item", "beacon", { r = 0.60, g = 0.65, b = 0.85 } },
   ["fo-graphics-card"] = { "item", "processing-unit", { r = 1.00, g = 0.45, b = 0.40 } },
   ["fo-gpu-blade"] = { "item", "beacon", { r = 0.95, g = 0.55, b = 0.50 } },
-  ["fo-degassed-ilmenite"] = { "item", "stone", { r = 0.55, g = 0.50, b = 0.52 } },
   ["fo-qubit-chip"] = { "item", "processing-unit", { r = 0.40, g = 1.00, b = 1.00 } },
   ["fo-dilution-stage"] = { "item", "accumulator", { r = 0.75, g = 0.95, b = 1.00 } },
   ["fo-quantum-processor"] = { "item", "processing-unit", { r = 1.00, g = 0.45, b = 1.00 } },
 }
+-- Fluides : prototype vanilla copié (propriétés) et couleur dans les tuyaux ; icône dessinée (CALC-ICONES-A).
 local FLUID = {
   ["fo-photoresist"] = { "heavy-oil", { r = 0.90, g = 0.55, b = 0.20 } },
   ["fo-helium-3"] = { "petroleum-gas", { r = 0.95, g = 0.95, b = 0.60 } },
@@ -47,11 +50,15 @@ local function icon_of(ptype, name, tint)
 end
 
 for i, it in ipairs(Cp.ITEMS) do
-  local ic = ICON[it.name]
+  local icons = icone_a(it.name)
+  if not icons then
+    local ic = assert(ICON[it.name], "calcul : icône absente pour " .. it.name)
+    icons = icon_of(ic[1], ic[2], ic[3])
+  end
   out[#out + 1] = {
     type = "item", name = it.name,
     localised_name = { "item-name." .. it.name }, localised_description = { "item-description." .. it.name },
-    icons = icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
+    icons = icons, subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
     stack_size = it.stack,
   }
 end
@@ -67,7 +74,7 @@ for i, fl in ipairs(Cp.FLUIDS) do
   f.fuel_value = nil
   f.auto_barrel = false
   f.order = "a[fluid]-z[fo]-j[compute]-" .. i
-  lib.set_icons(f, { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = tint } })
+  lib.set_icons(f, icone_a(fl.name) or { { icon = f.icon, icon_size = f.icon_size, icon_mipmaps = f.icon_mipmaps, tint = tint } })
   out[#out + 1] = f
 end
 

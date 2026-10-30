@@ -290,6 +290,12 @@ return {
       local cx = x0 + half / 2 + k * half
       add(string.format("rangee-%d-z1-jour", k + 1), cx, Y0, 1, 0, { res = { (half + 4) * 32, 12 * 32 }, info = false, aa = true })
     end
+    -- Lot CALC-ICONES-A : les mêmes rangées en mode Alt (icônes des recettes sur les machines), au zoom 2.
+    local quart = math.ceil((x1 - x0) / 4)
+    for k = 0, 3 do
+      local cx = x0 + quart / 2 + k * quart
+      add(string.format("rangee-%d-z2-alt", k + 1), cx, Y0, 2, 0, { res = { (quart + 4) * 64, 10 * 64 }, info = true, aa = true })
+    end
     for _, c in ipairs(st.centres or {}) do
       add("centre-" .. c.key .. "-z2-jour", c.x, c.y, 2, 0, { res = { (c.side + 6) * 64, (c.side + 6) * 64 }, info = true, aa = true })
     end
