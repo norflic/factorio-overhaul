@@ -581,3 +581,119 @@ GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "
 COLONNES = 8
 STADES = 8
 PAS = 3          # écart entre deux cellules, en tuiles (aucune ombre d'une cellule ne déborde sur sa voisine)
+
+# ------------------------------------------------------------------------------------------------
+# BLENDE, REFAITE (lot DESIGN-BLENDE, 30/10, retour du DC du matin : « je n'aime pas du tout la forme de ces minerais :
+# Blende, ... Il faut les refaire »). S2 (livrée) : petits CUBES biseautés (la recette de la galène G1, réutilisée) et
+# galets rouges lisses : se lisait « dés et bonbons », doublon de forme de la galène, confettis au zoom 1, sans gros
+# morceau dominant. Trois formes nouvelles, même teinte (miel, ambre, rubis) plus le noir résineux de la blende réelle
+# (« black jack ») qui donne la profondeur que S2 n'avait pas :
+#   S3 : MORCEAUX CLIVÉS (la blende massive se casse en faces planes brillantes, clivage parfait) : des blocs de la
+#        taille des cailloux vanilla, à grandes facettes nettes, sur un tapis de poussière miel ;
+#   S4 : DRUSES DE TÉTRAÈDRES tronqués (la forme cristalline de la sphalérite), pointes dressées, sur une matrice sombre ;
+#   S5 : MIXTE : morceaux clivés sombres (noir résineux, rubis) d'où sortent des tétraèdres miel et ambre.
+# ------------------------------------------------------------------------------------------------
+MAT.update({
+    # blende noire (« black jack », riche en fer) : brun-noir résineux, reflets francs
+    "blende_noire": dict(color=(0.040, 0.018, 0.009), rough=0.14, met=0.08, grain=0.15, gscale=45.0, dirt=0.3),
+    # poussière de blende : tapis de grains fins miel-brun (plus clair que la terre pour se lire)
+    "poussiere_miel": dict(color=(0.30, 0.17, 0.05), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.2),
+})
+_S_BASE = dict(
+    touffes=(0, 0, 0, 0, 0, 0, 0, 0), lames=(0, 0),
+    lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("blende_miel",),
+    blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("blende_miel",),
+    grains=(16, 14, 12, 10, 8, 6, 4, 3), grain_mats=("blende_miel", "blende_noire", "blende_rubis", "blende_ambre"),
+    fins=(110, 96, 82, 70, 58, 46, 30, 16),
+    fin_mats=("poussiere_miel", "poussiere_miel", "blende_noire", "blende_rubis", "blende_miel"),
+    rayon=0.60,
+    effet="eclats",
+)
+DIRECTIONS["S3"] = dict(_S_BASE, nom="morceaux clivés de blende miel, rubis et noire",
+                        roches=(9, 8, 7, 6, 5, 4, 3, 2), roche_taille=(0.24, 0.34),
+                        roche_mats=("blende_noire", "blende_miel", "blende_rubis", "blende_miel", "blende_ambre",
+                                    "blende_noire"))
+DIRECTIONS["S4"] = dict(_S_BASE, nom="druses de tétraèdres de blende sur matrice sombre",
+                        roches=(3, 3, 2, 2, 2, 1, 1, 1), roche_taille=(0.14, 0.22),
+                        roche_mats=("blende_noire", "blende_noire", "blende_rubis"),
+                        tetras=(7, 6, 5, 4, 4, 3, 2, 1), tetra_n=(2, 4), tetra_taille=(0.20, 0.30),
+                        tetra_mats=("blende_miel", "blende_ambre", "blende_rubis", "blende_noire", "blende_miel"))
+DIRECTIONS["S5"] = dict(_S_BASE, nom="morceaux clivés noirs et rubis hérissés de tétraèdres miel",
+                        roches=(6, 5, 5, 4, 3, 3, 2, 1), roche_taille=(0.24, 0.32),
+                        roche_mats=("blende_noire", "blende_rubis", "blende_noire", "blende_miel"),
+                        tetras=(4, 4, 3, 3, 2, 2, 1, 1), tetra_n=(1, 3), tetra_taille=(0.18, 0.26),
+                        tetra_mats=("blende_miel", "blende_ambre", "blende_miel", "blende_rubis"))
+for _k in ("S3", "S4", "S5"):
+    CALIB[_k] = {"SKY_GLOSSY_FACTOR": 2.0}
+    ROCHE_COUPES[_k] = 9            # clivage : beaucoup de plans de cassure, faces planes
+    ROCHE_LISSE[_k] = 10            # arêtes vives (lissé 10° seulement)
+    ROCHE_APLAT[_k] = 0.62
+    ROCHE_CASSURE[_k] = (0.30, 0.62)
+    EFFET[_k] = dict(EFFET["S2"])
+    ECHELLE[_k] = 1.0
+    GRAINE[_k] = 6818
+
+# Ronde 2 (DESIGN-BLENDE, 30/10, 9 h 25 ; planche variantes/planche-variantes.png à 16 échantillons) : S3 sort en FLOCONS
+# couchés (les coupes profondes aplatissent les morceaux) : écartée. S4 (tétraèdres) a la meilleure silhouette, mais son
+# miel sort KAKI et mat (même teinte que la terre dirt-4 : invisible sur le sol de la garantie), ses galets rubis de
+# matrice restent des pastilles plates, et sa couverture est à 0,24 au stade 1 (vanilla 0,316). S6 : druses de S4 en noir
+# résineux majoritaire (contraste sur la terre et l'herbe), ambre et rubis VIFS et brillants (l'éclat résineux), matrice
+# noire TRAPUE (aplat 0,85, cassures moins profondes), tapis de poussière dense comme la vanilla ; comptes recalés au
+# rapport vanilla / mesuré de S4 (× 1,3 ; stades 4 et 5 corrigés à part). S7 : la même forme, ambre majoritaire.
+MAT.update({
+    "blende_ambre_vif": dict(color=(0.80, 0.42, 0.05), rough=0.12, met=0.05, grain=0.15, gscale=45.0, dirt=0.3),
+    "blende_rubis_vif": dict(color=(0.42, 0.040, 0.015), rough=0.12, met=0.05, grain=0.15, gscale=45.0, dirt=0.3),
+})
+DIRECTIONS["S6"] = dict(DIRECTIONS["S4"], nom="druses de tétraèdres de blende noire résineuse, ambre et rubis",
+                        roches=(3, 3, 2, 2, 2, 1, 1, 1), roche_taille=(0.13, 0.20), roche_mats=("blende_noire",),
+                        tetras=(7, 6, 5, 4.5, 3.4, 3, 2, 1), tetra_n=(2, 4), tetra_taille=(0.20, 0.30),
+                        tetra_mats=("blende_noire", "blende_noire", "blende_rubis_vif", "blende_ambre_vif",
+                                    "blende_noire", "blende_ambre_vif", "blende_rubis_vif"),
+                        grain_mats=("blende_ambre_vif", "blende_noire", "blende_rubis_vif", "blende_noire"),
+                        fins=(180, 155, 130, 110, 90, 70, 45, 25),
+                        fin_mats=("poussiere_miel", "blende_noire", "poussiere_miel", "blende_rubis_vif", "blende_noire"))
+DIRECTIONS["S7"] = dict(DIRECTIONS["S6"], nom="druses de tétraèdres de blende ambre, rubis et noire",
+                        tetra_mats=("blende_ambre_vif", "blende_ambre_vif", "blende_rubis_vif", "blende_noire",
+                                    "blende_ambre_vif"))
+for _k in ("S6", "S7"):
+    CALIB[_k] = {"SKY_GLOSSY_FACTOR": 3.0}
+    ROCHE_COUPES[_k] = 6
+    ROCHE_LISSE[_k] = 25
+    ROCHE_APLAT[_k] = 0.85
+    ROCHE_CASSURE[_k] = (0.50, 0.80)
+    EFFET[_k] = dict(EFFET["S2"])
+    ECHELLE[_k] = 1.3
+    GRAINE[_k] = 6818
+ICONE["S6"] = dict(lames=(0, 0), roches=(1, 2), roche_taille=(0.16, 0.22), roche_coupes=6, roche_cassure=(0.5, 0.8),
+                   roche_aplat=0.85, roche_mats=("blende_noire",),
+                   tetras=4, tetra_taille=(0.40, 0.50), tetra_mats=("blende_ambre_vif", "blende_noire", "blende_rubis_vif",
+                                                                   "blende_ambre_vif"))
+ICONE["S7"] = dict(ICONE["S6"])
+
+# Ronde 3 (9 h 35, planche variantes/planche-S6-S7.png) : S6 et S7 ont la bonne silhouette mais se lisent en CONFETTIS
+# tricolores (pièces noires, rouges et jaune moutarde séparées : un minerai vanilla est UNE matière qui varie en valeur),
+# le jaune sort moutarde mat, et les faces plates sans reflet franc font « low poly » à côté du cuivre. S8 : une seule
+# famille de teinte, brun-rouge résineux sombre → rubis → ambre rouge (le « miel à rubis » d'X3 sans la moutarde), matière
+# plus lisse et reflets du ciel plus forts (éclat résineux net sur les facettes), tailles et troncatures plus variées.
+MAT.update({
+    "blende_brune": dict(color=(0.085, 0.026, 0.010), rough=0.09, met=0.05, grain=0.22, gscale=45.0, dirt=0.3),
+    "blende_rubis_r": dict(color=(0.34, 0.050, 0.016), rough=0.08, met=0.05, grain=0.22, gscale=45.0, dirt=0.3),
+    "blende_ambre_r": dict(color=(0.58, 0.22, 0.035), rough=0.08, met=0.05, grain=0.22, gscale=45.0, dirt=0.3),
+})
+DIRECTIONS["S8"] = dict(DIRECTIONS["S6"], nom="druses de tétraèdres de blende résineuse brun-rouge, rubis et ambre",
+                        roche_mats=("blende_noire",),
+                        tetras=(7.8, 6, 5, 4.5, 3.1, 2.85, 1.8, 1), tetra_taille=(0.17, 0.32), tetra_tronc=(0.10, 0.34),
+                        tetra_mats=("blende_brune", "blende_brune", "blende_rubis_r", "blende_noire", "blende_rubis_r",
+                                    "blende_brune", "blende_ambre_r"),
+                        grain_mats=("blende_rubis_r", "blende_noire", "blende_ambre_r", "blende_brune"),
+                        fin_mats=("poussiere_miel", "blende_brune", "poussiere_miel", "blende_rubis_r", "blende_noire"))
+CALIB["S8"] = {"SKY_GLOSSY_FACTOR": 5.0}
+ROCHE_COUPES["S8"], ROCHE_LISSE["S8"] = ROCHE_COUPES["S6"], ROCHE_LISSE["S6"]
+ROCHE_APLAT["S8"], ROCHE_CASSURE["S8"] = ROCHE_APLAT["S6"], ROCHE_CASSURE["S6"]
+EFFET["S8"] = dict(EFFET["S2"])
+ECHELLE["S8"] = 1.3
+GRAINE["S8"] = 6818
+ICONE["S8"] = dict(ICONE["S6"], tetra_mats=("blende_rubis_r", "blende_brune", "blende_ambre_r", "blende_rubis_r"))
+# Icône de S8 (après la production à 128 échantillons, icones.png) : un seul grand tétraèdre au centre se lisait « toit de
+# tente ». Comme les icônes vanilla (3 ou 4 morceaux qui remplissent le cadre) : 5 tétraèdres moyens et un éclat noir.
+ICONE["S8"] = dict(ICONE["S8"], roches=(1, 1), tetras=5, tetra_taille=(0.27, 0.34), tetra_tronc=(0.12, 0.28))
