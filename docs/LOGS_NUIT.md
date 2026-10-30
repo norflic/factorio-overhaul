@@ -186,3 +186,11 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~3 h 25, passage 54
 - 6 archives, 0 erreur Lua. Crafts e5 : content 387 OK (nouvelles recettes) ; chaines e8 : 10 OK. Centrale lointaine v5 : 11 OK, 0 ECHEC (poteaux relies en un seul reseau : corrige) + content 331 OK. Temoins de migration : 310 OK, 21 ECHEC = artefact du banc (modules non suivis), deja explique ; corrige par corr-modules-migration (test seulement). content-0620 en cours.
+
+## 30/10 ~3 h 50, passage 55
+- 9 archives (content-0620, RESSOURCES 15/16/20/21/22, CRAFTS verif x2, pd-centrale-7300), 0 erreur Lua, 0 ECHEC.txt.
+- CRAFTS verif-migration-content 307 OK / 24 ECHEC : 21 « module » = defaut du TEST en double source (temoin main identique ;
+  corrige par corr-modules-migration, dans la 0.6.21) ; 3 « recette fo-electrolyzer / fo-kroll-reactor / fo-ore-concentrator :
+  rien produit, statut 21 » = vrai arret visible apres migration d'une sauvegarde 0.6.18 (les machines du titane demandent des
+  bobines ; assembleur arrete jusqu'a ce qu'on lui en donne) [mesure, RAPPORT CRAFTS §2]. A ECRIRE au changelog de la 0.6.22.
+- Processus : 41 bash (shells d'agents et workflows), aucun factorio.exe orphelin ; mur-opus : verrou de rendu orphelin retire.
