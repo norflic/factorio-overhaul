@@ -157,6 +157,9 @@ return {
       end
     end
     ctx.check(#poles > 0 and comp == #poles, "poteaux du projet relies a portee de fil (un seul reseau)", comp .. "/" .. #poles)
+    local pl = {}
+    for i, en in ipairs(poles) do pl[#pl + 1] = string.format("%d:%s(%.1f,%.1f)%s", i, en.name, en.x, en.y, seen[i] and "" or "*") end
+    ctx.log("mesure (hors bilan) : poteaux du projet (* hors du reseau du premier) " .. table.concat(pl, " "))
     -- mesuré (hors bilan) : chantier et machine à vapeur au réseau
     local eng = s.find_entities_filtered({ name = "steam-engine", force = "player" })[1]
     ctx.log(string.format("mesure (hors bilan) : %s/%s pieces baties, etat %s, machine a vapeur %s%s", tostring(p and p.built), tostring(p and p.total),
