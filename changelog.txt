@@ -1,4 +1,15 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.23
+Date: 2026-10-30
+  Changes:
+    - Suite du rapport des « cinq points » (journaux de vos parties du 29/10) :
+      fin de guerre : « remporte la guerre » seulement si le dernier rival a ete vaincu par une faction, sinon message neutre ; journal [FO-ANEANTI] (cause, PNJ restants, stock perdu avec le QG) ;
+      journal [FO-REGLAGES] des reglages de carte fo-war-* au lancement et a chaque changement ; [FO-PLAFOND] et ligne dans l'onglet « Partie » (Maj+T) quand une equipe est au plafond d'ouvriers depuis 30 min avec un stock inemploye ;
+      [FO-MUR] quand toutes les recherches restantes d'une equipe sont impayables ; repli de recherche : une equipe bloquee sur une technologie impayable passe a une payable ;
+      [FO-PTEAM] pour votre equipe (creee, perdue, renvoyee).
+    - Chaine du petrole des factions (branche petrole2 reprise) : reglage de carte fo-war-petrole, ETEINT par defaut (question Q20).
+    - Rien n'a ete rejoue en partie longue : relecture statique, integration verifiee, tests hors jeu verts (pvp 1305), bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.22
 Date: 2026-10-30
   Changes:
