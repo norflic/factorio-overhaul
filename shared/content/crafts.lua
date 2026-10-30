@@ -82,8 +82,9 @@ C.RECIPES = {
   { name = "fo-coil" },
   -- ÉCART de coût (audit AMELIO-CRAFTS) : dans X0, la bobine ne remplace que 5 lubrifiants sur 15, pour environ 10 fers,
   -- 10 gaz et 1 cuivre de plus : une variante que personne ne prendrait. Ici elle SUPPRIME le lubrifiant (assemblage
-  -- sans fluide, à la main ou en assembleur sans tuyau) : un vrai choix, solides contre pétrole.
-  { name = "fo-wound-electric-engine", drop = { "lubricant" }, category = "crafting" },
+  -- sans fluide, en assembleur sans tuyau) : un vrai choix, solides contre pétrole. Catégorie « advanced-crafting » : en
+  -- assembleur SEULEMENT, comme le moteur électrique vanilla (jamais à la main ; étape 7, revue des biais).
+  { name = "fo-wound-electric-engine", drop = { "lubricant" }, category = "advanced-crafting" },
   { name = "fo-titanium-composite", subst = { ["fo-biopolymer"] = "plastic-bar" } },
   { name = "fo-titanium-lds" },
   -- Torchères (X0 : une recette « sink » par fluide neuf) pour les fluides du mod en jeu : aucun fluide de sous-produit
