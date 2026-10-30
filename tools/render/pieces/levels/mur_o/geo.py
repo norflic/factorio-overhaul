@@ -337,7 +337,7 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
         sep2 = N.new("ShaderNodeSeparateXYZ")
         L.new(geo.outputs["Position"], sep2.inputs["Vector"])
         bz = rng(sep2.outputs["Z"], 0.0, z1, bpart, 0.0)
-        bnz = rng(noise(10.0, 3.0, 0.6), 0.3, 0.7, 0.5, 1.0)
+        bnz = rng(noise(10.0, 3.0, 0.6), 0.3, 0.7, 0.85, 1.0)      # v4 : pied noir franc
         color = mix(math_("MULTIPLY", bz, bnz), color, tuple(bcol))
     if stain:
         scol, spart, sscale = stain

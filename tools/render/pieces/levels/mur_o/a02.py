@@ -89,10 +89,10 @@ def _jupe(g, M, x0, x1, k, y0):
     for i in range(n):
         a = x0 + i * (x1 - x0) / n
         b = x0 + (i + 1) * (x1 - x0) / n
-        h = g.rnd(0.03, 0.07)
+        h = g.rnd(0.015, 0.035)
         pts = []
         for x in (a - 0.02, b + 0.02, 0.5 * (a + b)):
-            pts += [(x, y0 - g.rnd(0.03, 0.08), 0.0), (x, y0 + 0.04, 0.0), (x, y0 + 0.02, h * g.rnd(0.6, 1.0))]
+            pts += [(x, y0 - g.rnd(0.02, 0.05), 0.0), (x, y0 + 0.03, 0.0), (x, y0 + 0.01, h * g.rnd(0.6, 1.0))]
         g.hull(pts, M["terre"], bev=0.01, seg=1)
 
 
