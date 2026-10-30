@@ -42,8 +42,8 @@ def mats(S):
                           stain=((0.04, 0.03, 0.022), 0.6, 4.0), bottom=PIED)
     M["refractaire"] = surface("m2_refr", (0.30, 0.08, 0.042), (0.16, 0.042, 0.024), rough=0.9, var=0.6, var_scale=4.0,
                                grain=0.25, bump=0.6, bump_scale=55.0,
-                               brick=dict(w=0.125, h=0.05, mortar=0.012, c1=(0.32, 0.085, 0.045),
-                                          c2=(0.15, 0.04, 0.022), col_m=(0.12, 0.10, 0.08)),
+                               brick=dict(w=0.125, h=0.05, mortar=0.018, c1=(0.32, 0.085, 0.045),
+                                          c2=(0.09, 0.024, 0.013), col_m=(0.012, 0.01, 0.008)),
                                edge=((0.50, 0.27, 0.15), 0.6, 0.02), cavity=0.6, streak=0.5,
                                stain=((0.04, 0.02, 0.012), 0.5, 4.0), bottom=PIED)
     # acier chaud et rouillé (#5C6168 réchauffé par la rouille et la crasse, comme les aciers vanilla)
@@ -118,7 +118,7 @@ def bras(g, M, B):
                 xa, xb = B.x(sp[0]), min(B.x(sp[1]), L)
                 mat = M["acier"] if g.rnd() < 0.5 else M["acier2"]
                 # v6 : creux noirs (joint ouvert derrière la tôle, évent au pied) : vrais noirs sans assombrir la face
-                _plaque(g, M["vide"], xa - 0.012, xb + 0.012, 0.34, 0.68, k, 0.004, 0.03)
+                _plaque(g, M["vide"], xa - 0.022, xb + 0.022, 0.33, 0.69, k, 0.004, 0.03)
                 xe = 0.5 * (xa + xb)
                 _plaque(g, M["vide"], xe - 0.05, xe + 0.05, 0.03, 0.07, k, 0.004, 0.05)
                 _plaque(g, M["acier"], xe - 0.065, xe + 0.065, 0.07, 0.09, k, 0.012, 0.02)
