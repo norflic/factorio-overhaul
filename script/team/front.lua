@@ -77,6 +77,8 @@ local function on_died(e)
   local pos = ent.position
   local key = Fr.record(st.mem, pos.x, pos.y, Fr.weight(role))
   Rr.wave_note(st, key, e.tick) -- lot REBUILD-RAPIDE (c) : vagues distinctes par cellule (une mort après 30 s de calme en ouvre une nouvelle)
+  -- Lot RECO-DIRECTION : la même attaque donne une DIRECTION (script/ai3/reco.lua : crochet posé au chargement, nil sans ce module).
+  if Front.on_hit then Front.on_hit(f, ent, e, Fr.weight(role)) end
 end
 Events.on(defines.events.on_entity_died, on_died)
 
