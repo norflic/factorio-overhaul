@@ -491,6 +491,17 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   g.mur = nil
   g.explore = {}
   if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 40 end
+  -- Relecture JOURNAUX-DC : le repli (technologie de valeur nulle, Gen.fallback) ne vaut que faute de candidate de valeur
+  -- payable ; l'exploration des ressources inconnues qui bloquent la meilleure technologie de valeur reste donc celle de la
+  -- branche « rien de payable » ci-dessus (priorité 60), sinon le repli ferait chercher moins ce qui débloquerait l'équipe.
+  if d.repli then
+    if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 60 end
+    if d.blocked and d.blocked[1] then
+      for _, res in ipairs(Gen.summary(c, ev, state, { { tech = d.blocked[1].tech } }).explore) do
+        if explorable(c, res) then g.explore[res] = 60 end
+      end
+    end
+  end
   g.blocked_sig = nil
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
   -- Lot IA3-e (points de jonction « hand », « produce », « extract », INTEGRATION.md §3) : objets que le dépliage fait
