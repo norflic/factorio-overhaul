@@ -268,6 +268,54 @@ function D.danger_exact(map, x, y, tick)
   return s
 end
 
+--- Lot FER-MARQUE : D.danger_exact DÉCOMPOSÉ en un point : menaces FIXES (vers, nids, tourelles, meutes), MORTS de PNJ (hors QG), cases
+--- MOBILES (unités vues, attaques subies). Mêmes tests et mêmes poids que D.danger_exact : fixed + deaths + mobile = D.danger_exact
+--- (tests/fer_marque_test.lua). Lu par shared/team/famine.lua (Fa.goal : un but marqué SEULEMENT par des cases mobiles).
+function D.exact_parts(map, x, y, tick)
+  local fixed, deaths, mobile = 0, 0, 0
+  for _, t in ipairs(map.threats) do
+    local K = D.KINDS[t.k] or D.KINDS.unit
+    local r = t.r + D.EXACT_MARGIN
+    local dx, dy = t.x - x, t.y - y
+    if dx * dx + dy * dy <= r * r then
+      fixed = fixed + math.floor(K.w * (K.fast and D.dec10(tick - t.t) or D.dec2(tick - t.t)) / 1000)
+    end
+  end
+  for _, d in ipairs(map.deaths) do
+    local dx, dy = d.x - x, d.y - y
+    if not d.home and dx * dx + dy * dy <= D.DEATH_R * D.DEATH_R then deaths = deaths + death_w(d, tick) end
+  end
+  local c = map.cells[D.key(D.cell(x), D.cell(y))]
+  if c then mobile = mobile_now(c, tick) end
+  return { fixed = fixed, deaths = deaths, mobile = mobile }
+end
+
+--- Lot FER-MARQUE : un regard centré en (x, y), de rayon r, a vu son ennemi le plus proche à la distance `nearest` (nil : aucun) :
+--- les cases MOBILES entièrement plus près que lui (moins 2 tuiles, comme D.forget_unseen) sont VIDES (les unités qui les ont marquées
+--- sont passées) : effacées. Les menaces fixes et les morts ne sont pas touchées. Ordre (cy, cx) croissant ; rend le nombre de cases
+--- effacées. Appelé seulement pour une équipe en mode survie (script/ai3/comportement.lua, regard).
+function D.forget_mobile(map, x, y, r, nearest)
+  local lim = (nearest and math.min(nearest, r) or r) - 2
+  if lim <= 0 then return 0 end
+  local l2 = lim * lim
+  local n = 0
+  cells_within(x, y, lim, function(cx, cy)
+    local k = D.key(cx, cy)
+    if map.cells[k] then
+      -- coin le plus éloigné de la case : la case entière doit être dans le disque vu vide
+      local x0, y0 = cx * D.CELL, cy * D.CELL
+      local fx = math.max(math.abs(x - x0), math.abs(x - (x0 + D.CELL)))
+      local fy = math.max(math.abs(y - y0), math.abs(y - (y0 + D.CELL)))
+      if fx * fx + fy * fy <= l2 then
+        map.cells[k] = nil
+        map.n_cells = math.max(0, (map.n_cells or 1) - 1)
+        n = n + 1
+      end
+    end
+  end)
+  return n
+end
+
 --- Lot PERF : D.danger_exact PRÉPARÉ pour une série de points (profil d'un itinéraire : un appel par échantillon, 4 tuiles,
 --- chacun relisant toutes les menaces et toutes les morts avec leurs décroissances). prep = D.exact_prep(map, tick, x0, y0,
 --- x1, y1) : poids décrus calculés UNE fois ; menaces et morts qui ne peuvent toucher aucun point du rectangle
