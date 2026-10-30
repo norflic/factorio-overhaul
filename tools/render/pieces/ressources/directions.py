@@ -710,3 +710,9 @@ ROCHE_BOSSE["J7"] = (0.84, 1.14)
 EFFET["J7"] = dict(EFFET["I2S"])
 ECHELLE["J7"], GRAINE["J7"] = 1.0, 6818
 ICONE["J7"] = dict(ICONE["J4"], lames=(1, 2), echelle=1.4, lame_mats=("ilmenite_k", "ilmenite_bronze"))
+# J7, nuit (captures en moteur de x1-titane, tools/autotest/x1_lisibilite.py, 30/10) : avec la couche d'effet de I2S, J7
+# passe 4 critères sur 9 (I2S : 8 sur 9) ; de nuit, ses morceaux sombres allument moins (alpha moyen de l'effet sur le
+# minerai livré 0,47 contre 0,62 pour I2S). Réglage recalé pour la MÊME énergie que I2S (environ 0,60), pas plus : le DC a
+# demandé le 25/10 une nuit assombrie (D-17).
+EFFET["J7"] = dict(teinte=(0.85, 0.93, 1.0), seuil=(0.18, 0.40),
+                   lueur=dict(lum=(0.02, 0.10), froid=(-1.0, -0.95), gain=0.7))

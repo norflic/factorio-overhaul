@@ -29,15 +29,15 @@
     -1.0,
     -0.95
    ],
-   "gain": 0.5,
+   "gain": 0.7,
    "lum": [
     0.02,
     0.1
    ]
   },
   "seuil": [
-   0.22,
-   0.45
+   0.18,
+   0.4
   ],
   "teinte": [
    0.85,
@@ -75,13 +75,13 @@
  },
  "secondes_blender": 974.81,
  "sha256": {
-  "hr-ilmenite-effet.png": "c901a3970d0f5280780cd68d40260e25cf0f6bcf68b9c3e9adc062c2dd97ce63",
+  "hr-ilmenite-effet.png": "838bb0a2232ebf7ee52ad8f0fe69fc9d13ed92a839b9d7dd4bab5f69bedead09",
   "hr-ilmenite.png": "51ffbc96437e06464811b79d05ee789fb5c4f47e068aeafc99b048cf9a887c6d",
   "icone-1.png": "7140e07423f33ae73fb83abf5e70b87ed667973282231ae10cd869360e046088",
   "icone-2.png": "e68e6ac3def99e07d58edaaefe71d4b1c251d7c645f2dcaf9465e85613d353fe",
   "icone-3.png": "9d02959823d0fce2a338c1a86034a7672134798fa5ffcdabe9d2fa121064d251",
   "icone.png": "b55588f0a73dd79fffe4d1c2d09e82184e4c6b7e36afa391bc5e43969e12fee6",
-  "ilmenite-effet.png": "ab6b03bc39bd417f280c36952a3719df17870a7cae58301847b6d8f20d594dc6",
+  "ilmenite-effet.png": "de729554fa16adf2958a161215696718121d67be46c802496f6b5edea4239097",
   "ilmenite.png": "4449fcfeb3ed8eed557dfcf59cc42d6a49be4e643bc91b11c013f1a24e69f573"
  }
 }
