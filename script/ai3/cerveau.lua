@@ -39,6 +39,7 @@ local General = require("script.ai3.general") -- lot IA-G : le cerveau général
 local Rg = require("shared.ai3.reglages") -- lot IA-G : types du moteur, ressources clés de repli
 local Paliers = require("script.ai3.paliers") -- lot IA-G : paliers de MESURE (déplacés ; aucune décision ne les lit)
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : automatiser ce qui revient (plan directeur d'IA1-d)
+local Pet = require("script.ai3.petrole") -- lot PETROLE : aller au pétrole (sites des chaînes à fluides)
 local Capital = require("script.ai3.capital") -- lot CAPITAL : améliorer les bâtiments à niveaux, monter le centre
 local Harvest = require("script.team.harvest") -- lot KIT : arbres qui donnent le bois (matière naturelle des poteaux)
 local Au = require("shared.ai3.automatiser")
@@ -486,6 +487,14 @@ local function research_step(f, st, book, w, tick, view)
       m[Rg.TURRET] = true
       wanted = m
     end
+    -- Lot PETROLE (réglage allumé) : objets qu'un site ou sa centrale attend sans recette ouverte (nil : rien, éteint)
+    local pw = Pet.wanted(f)
+    if pw then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      for _, k in ipairs(sorted_keys(pw)) do m[k] = true end
+      wanted = m
+    end
     tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, wanted)
   else
     tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)
@@ -765,6 +774,8 @@ function Ia3.plan(f, view, book, surface, tick)
   local capi = Capi.think(f, view, book, tick, research, w)
   Profiler.fstop("ia3:capi")
   local bilan = Bilan.think(f, view, tick) -- lot BILAN : pondération des récoltes et fabrications (nil : éteint)
+  -- lot PETROLE (réglage fo-war-petrole, ÉTEINT par défaut ; éteint, rend `auto` tel quel) : sites des chaînes à fluides
+  auto = Pet.think(f, view, book, tick, auto, General, Ia3.known_deposits)
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
     reach = reach, known = known, harvest = harvest, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,

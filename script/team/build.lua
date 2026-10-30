@@ -86,6 +86,7 @@ Build.ANCHOR_SEARCH = 6        -- rayon (tuiles) de la recherche d'une tuile lib
 Build.OBST_CHECKS = 8          -- obstacles revus par passe (défrichage et chantier), à tour de rôle
 Build.CUT_WIDTH = 1.5          -- demi-largeur (tuiles) du couloir qu'un défricheur arrêté s'ouvre vers son point d'appui
 Build.CUT_TRIES = 6            -- marches refaites après une coupe, par tâche
+Build.SITES = {}               -- lot PETROLE : planificateurs de sites { [nom] = fn(f, surface, p, aides) } (script/ai3/petrole.lua)
 
 local REACH = P.BUILD_DISTANCE
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
@@ -2101,12 +2102,67 @@ local function plan_alim(f, surface, p)
 end
 
 --- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
+--- Fin du plan d'un projet (points d'appui, ordre de pose, obstacles) ; commune aux modules et aux SITES (lot PETROLE).
+local function anchors_and_obstacles(f, surface, p, masks)
+  local b = f.build
+  Profiler.start("build:plan:anchors")
+  -- points d'appui : sur une rue praticable à 16 tuiles au plus, sinon au centre de la case de 8 × 8 ; dans les deux
+  -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
+  -- bâtisseur, debout dessus, en empêchait la pose : banc ia1-build-plaine, 25/10)
+  local passable = seg_passable(b)
+  local wood = wood_of(surface, p.ents)
+  for _, e in ipairs(p.ents) do
+    local a = P.anchor_for(b.lat, e.x, e.y, passable)
+    local ax, ay
+    if a then ax, ay = a.x, a.y
+    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+    local fx, fy = free_spot(b, masks, ax, ay, wood)
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+    e.ax, e.ay = fx, fy
+    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    e.item = item_of(e.name)
+  end
+  P.sort_build(p.ents)
+  -- obstacles à défricher sous les entités planifiées (toutes les pièces du projet)
+  p.obstacles, p.obst_keys = {}, {}
+  for _, e in ipairs(p.ents) do
+    for _, t in ipairs(P.tiles_of(e)) do
+      local k = P.tkey(t[1], t[2])
+      if masks.clear[k] or wood[k] then add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
+    end
+  end
+  for _, pt in ipairs(p.parts) do if pt then b.stats.modules_started = b.stats.modules_started + 1 end end
+  Profiler.stop("build:plan:anchors")
+  return true
+end
+
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
+  -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
+  -- d'un fluide) ; le chantier qui suit est le même (réserve, défrichage, fantômes, ravivage, fils, quais).
+  if spec.site then
+    local fn = Build.SITES[spec.site]
+    if not fn then return false, "site inconnu" end
+    local lay, swhy, wait = fn(f, surface, p, {
+      read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end,
+      plant = function() return Build.plant(f) end })
+    if not lay then return false, swhy, wait end
+    p.parts[1] = { kind = "module", key = lay.key, lot = "site", ox = lay.box[1], oy = lay.box[2], k = 0,
+      w = lay.box[3] - lay.box[1] + 1, h = lay.box[4] - lay.box[2] + 1, power = true }
+    local ents = {}
+    for _, e in ipairs(lay.ents) do
+      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role }
+    end
+    if not reserve_tiles(b, p, ents) then return false, "place" end
+    for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item } end
+    for _, o in ipairs(lay.outs or {}) do p.outs[#p.outs + 1] = { x = o.x, y = o.y, at = lay.out_at } end
+    Profiler.stop("build:plan:place")
+    return anchors_and_obstacles(f, surface, p, lay.masks)
+  end
   -- lot AGENCEMENT : la fonderie à tapis est une LIGNE qui suit le gisement (line_rows) ; ses coffres vont vers le centre (la
   -- source de ressources de la base, défaut) ou vers l'extérieur (les plaques nourrissent un autre module du plan)
   local topts
@@ -2249,34 +2305,7 @@ plan_finish = function(f, surface, p, masks, is_plant)
   end
   Profiler.stop("build:plan:power")
   if is_plant and not b.plant then b.plant = p.id end -- (lot CORR-ENERGIE : une centrale de plus ne devient pas LA centrale)
-  Profiler.start("build:plan:anchors")
-  -- points d'appui : sur une rue praticable à 16 tuiles au plus, sinon au centre de la case de 8 × 8 ; dans les deux
-  -- cas déplacés sur une tuile LIBRE (correction du 27/10 : le repli tombait sur l'emprise de la chaudière, et le PNJ
-  -- bâtisseur, debout dessus, en empêchait la pose : banc ia1-build-plaine, 25/10)
-  local passable = seg_passable(b)
-  local wood = wood_of(surface, p.ents)
-  for _, e in ipairs(p.ents) do
-    local a = P.anchor_for(b.lat, e.x, e.y, passable)
-    local ax, ay
-    if a then ax, ay = a.x, a.y
-    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
-    local fx, fy = free_spot(b, masks, ax, ay, wood)
-    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
-    e.ax, e.ay = fx, fy
-    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
-    e.item = item_of(e.name)
-  end
-  P.sort_build(p.ents)
-  -- obstacles à défricher sous les entités planifiées (toutes les pièces du projet)
-  p.obstacles, p.obst_keys = {}, {}
-  for _, e in ipairs(p.ents) do
-    for _, t in ipairs(P.tiles_of(e)) do
-      local k = P.tkey(t[1], t[2])
-      if masks.clear[k] or wood[k] then add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
-    end
-  end
-  for _, pt in ipairs(p.parts) do if pt then b.stats.modules_started = b.stats.modules_started + 1 end end
-  Profiler.stop("build:plan:anchors")
+  anchors_and_obstacles(f, surface, p, masks) -- lot PETROLE : fin de plan commune aux modules et aux sites (même code qu'avant)
   if topts then Build.ligne_split(f, p, g) end -- lot FONDERIE-DYNAMIQUE : rangées et paires posées par étapes, la place reste réservée
   return true
 end
@@ -2772,7 +2801,9 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     if r == "deja" then e.built = true return true end
     if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
     if r ~= "ok" then
-      e.fails = (e.fails or 0) + 1
+      -- lot PETROLE : sur un site défriché pendant le chantier (spec.lazy_clear), un arbre sous l'emprise n'est pas un
+      -- échec (il est coupé par la tâche de défrichage ; moteur réel, petrole-site : raffinerie « bloquée » par un arbre)
+      if not (r == "obstacle" and p.spec and p.spec.lazy_clear) then e.fails = (e.fails or 0) + 1 end
       st.revive_fail = st.revive_fail + 1
       log_refusal(f, p, e, r, surface)
       if r == "obstacle" then add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
@@ -2974,13 +3005,26 @@ function Build.work(agent, f, tick)
     return "done"
   elseif job.mode == "collect" then
     local o = p.outs[job.idx]
-    local chest = o and surface.find_entity("iron-chest", { o.x, o.y })
+    local function out_chest(q) return surface.find_entity("iron-chest", { q.x, q.y }) end
+    local chest = o and out_chest(o)
     if not chest then return "fail" end
     local got = 0
-    for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
-      local n = chest.get_item_count(it)
-      local put = inv.insert({ name = it, count = n })
-      if put > 0 then chest.remove_item({ name = it, count = put }); got = got + put end
+    local function take(c)
+      for _, it in ipairs(sorted_keys(c.get_inventory(defines.inventory.chest).get_contents())) do
+        local n = c.get_item_count(it)
+        local put = inv.insert({ name = it, count = n })
+        if put > 0 then c.remove_item({ name = it, count = put }); got = got + put end
+      end
+    end
+    take(chest)
+    -- Lot PETROLE 2 : les autres sorties du MÊME projet, à portée de la première, se vident dans le même voyage (moteur réel,
+    -- etape1-guide 1618033988 : la sortie du soufre, de clé plus petite, était toujours vidée la première, celle du plastique
+    -- gardait 732 plaques et le pack chimique ne se fabriquait jamais).
+    for i, o2 in ipairs(p.spec and p.spec.site and p.outs or {}) do -- sites seulement (les autres projets gardent une sortie par voyage)
+      if i ~= job.idx and (o2.x - o.x) ^ 2 + (o2.y - o.y) ^ 2 <= 40 * 40 then
+        local c2 = out_chest(o2)
+        if c2 and c2.force.name == f.force then take(c2) end
+      end
     end
     b.stats.collected = b.stats.collected + got
     return "done"
@@ -3201,7 +3245,7 @@ local function quai_tasks(f, p, surface, out)
     local chest = surface.find_entity("iron-chest", { o.x, o.y })
     if chest and chest.force.name == f.force then
       local n = chest.get_inventory(defines.inventory.chest).get_item_count()
-      if n >= Build.COLLECT_AT then
+      if n >= (o.at or Build.COLLECT_AT) then -- lot PETROLE : seuil propre d'une sortie de site
         local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
         if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
         out[#out + 1] = {
@@ -3372,6 +3416,10 @@ local function advance(f, surface, p, tick)
       p.masq_n = nil
       p.plan_after = tick + Build.NET_WAIT_TICKS
       p.state, p.reason = "attente", why
+    elseif wait == "calcul" then
+      -- lot PETROLE 2 : le plan d'un site se calcule par tranches (Fl.layout_step) ; le projet reste en « plan » et reprend à la
+      -- prochaine passe (rien n'a été réservé)
+      p.reason = why
     elseif wait == true then
       p.state = "attente"
       p.reason = why
@@ -3401,12 +3449,15 @@ local function advance(f, surface, p, tick)
         p.reason, p.reserve_next = "degel", tick + 60
         return
       end
-      p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
+      -- lot PETROLE : un site étendu (spec.lazy_clear) ne défriche pas tout d'abord : ses fantômes se posent, et les
+      -- arbres sont coupés pendant le chantier, entité par entité (moteur réel, petrole-site : 58 arbres sur un site
+      -- de 92 entités, chantier jamais commencé en 8 min)
+      p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear) and "defrichage" or "fantomes", nil, nil
     elseif Rr.partial_go(p) and not (p.spec.degel and not p.degele) then
       -- lot REBUILD-RAPIDE (a) : un projet ROUVERT reprend son chantier avec ce qui est au coffre (réservé par `reserve` ci-dessus) au lieu
       -- d'attendre toute sa matière (Scarlet, partie du DC du 29/10 : fonderie 7 en « reserve[materiaux] » 40 min pour 2 bras sans cuivre,
       -- 27 tapis à refaire) ; le reste est pris au coffre par le PNJ à sa prise (Build.take_reserved) et suivi par refresh_missing.
-      p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
+      p.state, p.reason, p.reserve_next = (#p.obstacles > 0 and not p.spec.lazy_clear) and "defrichage" or "fantomes", nil, nil
     else
       p.reason, p.reserve_next = "materiaux", tick + 60
     end

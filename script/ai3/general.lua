@@ -32,6 +32,7 @@ local Planner = require("shared.team.planner")
 local State = require("script.faction.state")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot AUTO : exécutants de l'automatisation (Auto.on, Auto.exec_entities)
+local Pet = require("script.ai3.petrole") -- lot PETROLE : exécutants des chaînes à fluides (Pet.on, réglage ÉTEINT par défaut)
 
 local General = {}
 
@@ -161,9 +162,12 @@ end
 --- ne fait que les recettes que son exécutant sait LANCER (Auto.add_executors : gabarits écrits et rangées générées,
 --- ni fluide ni plus de 2 ingrédients hors d'un gabarit écrit), pas toutes celles de ses catégories. `recipes` : le
 --- relevé des recettes (General.dump().recipes), requis quand auto_on.
-function General.exec_opts(auto_on, recipes)
+function General.exec_opts(auto_on, recipes, petrole_dump)
   local exec = { [T.SMELTER] = true, [T.DRILL] = true }
   if auto_on then Auto.add_executors(exec, recipes) end
+  -- Lot PETROLE (réglage fo-war-petrole allumé) : extracteurs des ressources fluides, machines des recettes que la main ne
+  -- sait pas faire (catégorie, boîtes à fluide lues dans les prototypes), entités de la centrale.
+  if petrole_dump then Pet.add_executors(exec, petrole_dump) end
   return { exec = exec, exec_roles = { main = true, labo = true }, labs_unpowered = true,
     -- Combustible : un objet qu'un avant-poste rapporte (moteur réel, banc g2 : sans cela, le cristal de résonance).
     fuel_ok = function(item) return General.kind_of(item) ~= nil end }
@@ -174,20 +178,24 @@ end
 local cats = {}
 function General.catalogue()
   local on = Auto.on() and true or false
-  if cat and cats[on] == cat then return cat end
+  -- lot PETROLE : un catalogue par état des deux réglages (clé « a » / « - », puis « p » si fo-war-petrole est allumé)
+  local pon = Pet.on()
+  local ck = (on and "a" or "-") .. (pon and "p" or "")
+  if cat and cats[ck] == cat then return cat end
   for k in pairs(memos) do memos[k] = nil end
-  if cats[on] then
-    cat = cats[on]
+  if cats[ck] then
+    cat = cats[ck]
     return cat
   end
   Profiler.start("iag:catalogue")
   local d = General.dump()
-  cat = K.build(d, General.exec_opts(on, d.recipes))
-  cats[on] = cat
+  cat = K.build(d, General.exec_opts(on, d.recipes, pon and d or nil))
+  cats[ck] = cat
   Profiler.stop("iag:catalogue")
-  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s",
+  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s%s",
     #cat.g.recipe_list, #cat.tech_list, #cat.g.machine_list, #cat.pack_list, tostring(cat.fuel),
-    on and " (automatisation allumee : executants de ses gabarits compris)" or ""))
+    on and " (automatisation allumee : executants de ses gabarits compris)" or "",
+    pon and " (petrole allume : extracteurs des fluides et machines des cellules compris)" or ""))
   return cat
 end
 
@@ -229,6 +237,13 @@ function General.state(f, st, view, durable_only)
   local known = {}
   for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then known[k] = true end end
   for _, o in ipairs(view.outposts or {}) do known[T.outposts[o.kind].resource] = true end
+  -- Lot PETROLE (réglage allumé) : ressources fluides dont un gisement est connu, eau d'une rive à portée du QG ; machines
+  -- posées par ses sites (le graphe ne les fait plus « construire » une seconde fois).
+  if Pet.on() then
+    for _, k in ipairs(sorted_keys(Pet.known(f))) do known[k] = true end
+    local pb = Pet.built(f)
+    for _, k in ipairs(sorted_keys(pb)) do built[k] = (built[k] or 0) + pb[k] end
+  end
   return { stock = stock, techs = st.techs or {}, built = built, known = known }, nlabs
 end
 
@@ -265,6 +280,8 @@ function General.key(f)
   local g = f.team and f.team.iag
   return g and g.key or nil
 end
+
+General.EXPLORE_TOP = 2 -- ressources inconnues explorées en même temps (les plus rentables)
 
 --- Ressources à explorer demandées par le cerveau général.
 function General.explore(f)
@@ -361,6 +378,7 @@ function General.summary_items(f, list)
   for _, it in ipairs(list or {}) do goals[#goals + 1] = { item = it[1], n = it[2] } end
   local state = { stock = {}, techs = st.techs or {}, built = {}, known = {} }
   for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then state.known[k] = true end end
+  if Pet.on() then for _, k in ipairs(sorted_keys(Pet.known(f))) do state.known[k] = true end end -- lot PETROLE
   return Gen.summary(General.catalogue(), m.ev, state, goals)
 end
 
@@ -421,7 +439,7 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local Capi = package.loaded["script.ai3.capitalisation"]
   local levers = Capi and Capi.techs_wanted and Capi.techs_wanted(f) or nil
   local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
-    k1 = k1 or nil, levers = levers,
+    k1 = k1 or nil, levers = levers, new_pack = Pet.on() or nil, -- lot PETROLE (réglage fo-war-petrole)
     -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier pour une FACTION (votre équipe cherche à la main) ; la recette
     -- est celle que les planificateurs commandent (T.turret), la règle pure ne la nomme pas.
     defense = (not f.is_player) and T.turret or nil })
@@ -450,8 +468,10 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     Profiler.stop("iag:choose")
     return nil, false, causes, false
   end
-  g.explore = {}
-  if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 40 end
+  -- Les General.EXPLORE_TOP ressources inconnues les plus rentables sont explorées ENSEMBLE (lot PETROLE 2 : seule la
+  -- première l'était ; moteur réel, etape1-guide 123456789 : le tungstène, 250, passait devant le pétrole, 40, qui ne fut
+  -- jamais cherché et le pack chimique restait impayable).
+  g.explore = Gen.explore_set(rv, 40, General.EXPLORE_TOP)
   g.blocked_sig = nil
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
   -- Lot IA3-e (points de jonction « hand », « produce », « extract », INTEGRATION.md §3) : objets que le dépliage fait
