@@ -47,7 +47,7 @@ def mats(S):
                          edge=((0.42, 0.44, 0.47), 0.85, 0.015), cavity=0.5, streak=0.6,
                          stain=((0.10, 0.05, 0.025), 0.5, 7.0))
     # dessus des merlons et du couronnement : acier usé plus clair (L 0,55-0,65 éclairé)
-    M["acier_dessus"] = surface("m2_acier_d", (0.30, 0.31, 0.33), (0.17, 0.175, 0.18), rough=0.55, metal=0.55, var=0.7,
+    M["acier_dessus"] = surface("m2_acier_d", (0.46, 0.47, 0.49), (0.30, 0.31, 0.32), rough=0.55, metal=0.2, var=0.7,
                                 var_scale=8.0, grain=0.25, bump=0.4, bump_scale=110.0,
                                 edge=((0.60, 0.61, 0.62), 0.85, 0.015), cavity=0.5, streak=0.4,
                                 stain=((0.09, 0.06, 0.04), 0.45, 7.0))
