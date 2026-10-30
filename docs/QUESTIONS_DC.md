@@ -37,3 +37,6 @@ Les factions butent sur le « mur du petrole » vers la 289e minute (recherche i
 
 ## Q21 (30/10 3 h 40) : effectif des factions et votre equipe
 Dans vos deux parties du 29/10, les factions etaient plafonnees a 8 ouvriers (reglage de carte « Factions : ouvriers au plus » a 8 ; defaut du mod 30) avec 49 000 fers inemployes, et aucune equipe a vous n'etait posee. Le reglage se change en cours de partie (Echap > Reglages > Carte). Voulez-vous une option « equipe posee au depart » ? **Defaut : non, mais journal [FO-REGLAGES] et [FO-PTEAM] ajoutes cette nuit.**
+
+## Q22 (30/10 4 h 15) : ombres du mur
+Les ombres de nos kits suivent la regle F47 : plein est, environ 1,1 fois la hauteur. Celles du mur de pierre vanilla font 1,12 fois la hauteur mais descendent AUSSI vers le sud-est (jusqu'a +62 px sous le centre). Faut-il imiter le vanilla pour le mur seulement ? **Defaut : garder F47 (coherent avec tous les kits).** Planches : fo-logs/2026-10-29_NUIT/MUR-OPUS/planches/.
