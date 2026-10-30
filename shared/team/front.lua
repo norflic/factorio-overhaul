@@ -258,6 +258,7 @@ function F.accepts(cx, cy, px, py) return d2(cx, cy, px, py) <= F.ACCEPT * F.ACC
 ---   pause   = vrai : rien ;
 ---   hq      = { x, y } : le QG (facultatif ; sert à marquer `near_hq` la cellule choisie, D5) ;
 ---   allow   = function(row) -> vrai si le moteur autorise ce lieu (facultatif ; appelée pour une cellule en manque qui n'est pas au repos).
+---   prevu   = { { key, x, y, have, want } } : tourelles d'avance de la prévision (lot PREVISION), servies d'abord (facultatif).
 --- Rend { rows, pick, left } : rows = { { key, kind = "attaque"|"couverture", x, y, score, have, want, missing, skip } } dans l'ordre de service
 --- (skip : pourquoi la ligne n'est pas servie, pour le journal [FO-DEFENSE] : "servie", "repos", "refus", "doublon", "plafond") ;
 --- pick = { key, kind, x, y, score, have, want, count, sites, near_hq } ou nil ; left = places restantes sous le plafond.
@@ -270,6 +271,15 @@ function F.plan(p)
   -- Lot DEFENSE-FACTIONS D5 : le moteur est consulté AVANT la coupe à F.MAX_CELLS. Avant, les 3 cellules les plus attaquées étaient
   -- gardées puis seulement jugées : si elles étaient rasées (aucun bâtiment à portée) ou sous les nids, rien n'était servi même
   -- quand une 4e cellule l'aurait été. Une cellule refusée ne compte plus dans la coupe.
+  -- Lot PREVISION (C10 de la critique : « personne ne pose avant le coup ») : lignes « tourelles d'avance » d'un site dont la vague
+  -- IMMINENTE dépasse la défense (shared/ai3/prevision_choix.lua, Pc.front_rows) : servies AVANT les cellules attaquées, sous le même
+  -- plafond d'équipe ; `have` et `want` viennent de la prévision (tourelles du site), le moteur autorise comme une cellule attaquée.
+  for _, pr in ipairs(p.prevu or {}) do
+    local row = { key = pr.key, kind = "prevu", x = pr.x, y = pr.y, score = 0, have = pr.have or 0, want = pr.want or 0 }
+    row.missing = math.max(0, row.want - row.have)
+    if row.missing > 0 and not (p.rest and p.rest[pr.key]) and p.allow and not p.allow(row) then row.skip = "refus" end
+    rows[#rows + 1] = row
+  end
   local kept = 0
   for _, c in ipairs(p.cells or {}) do
     if kept >= F.MAX_CELLS then break end
@@ -294,6 +304,9 @@ function F.plan(p)
     for _, r in ipairs(rows) do
       local room = left
       if r.kind == "couverture" then room = left - F.ATTACK_RESERVE end -- la couverture ne prend pas les places des cellules attaquées
+      -- Lot PREVISION (relecture de la revue) : les tourelles d'AVANCE (une prévision) non plus : servies d'abord, elles prenaient sinon
+      -- tout le plafond d'équipe et une cellule RÉELLEMENT attaquée restait « plafond » tant que le cadre « préparer » restait ouvert.
+      if r.kind == "prevu" then room = left - F.ATTACK_RESERVE end
       -- une cellule déjà servie par une cellule attaquée voisine (même clé) n'est pas dupliquée en couverture
       local dup = false
       if r.kind == "couverture" then

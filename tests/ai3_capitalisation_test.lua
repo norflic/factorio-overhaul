@@ -1481,6 +1481,47 @@ local function s14()
 end
 
 ---------------------------------------------------------------------------------------------------
+-- §15 Lot PREVISION (C12, arbitrage du DC « oui, compter la défense ») : la pollution qu'un ordre AJOUTE entraîne les tourelles
+-- qu'elle rendra nécessaires ; leur prix (input.defense.price, MU par pollution/min, shared/ai3/prevision.lua) entre dans le
+-- RETOUR (le choix), jamais dans le budget de la capitalisation.
+---------------------------------------------------------------------------------------------------
+local function s15()
+  local function emits(d)
+    for _, e in ipairs(d.entities) do
+      if e.name == "electric-mining-drill" then e.emit = 10 elseif e.name == "stone-furnace" then e.emit = 2 end
+    end
+  end
+  local D = vdata(emits)
+  local em = Ca.option_emit({ D = D }, { kind = "couvrir", entity = "electric-mining-drill", n = 3, smelt_entity = "stone-furnace", smelt_n = 2 })
+  check(math.abs(em - 34) < 1e-9, "§15 pollution ajoutée par un ordre (3 foreuses à 10/min, 2 fours à 2/min) : 34/min (" .. em .. ")")
+  check(Ca.option_emit({ D = D }, { kind = "energie", kw = 900 }) == 0, "§15 un levier sans machine n'ajoute aucune pollution")
+  local sc = function(over) return iron_scene(D, 1000, over) end
+  local base = Ca.decide(sc({ stock = pieces({ ["electronic-circuit"] = 3000 }) }), {})
+  local priced = Ca.decide(sc({ stock = pieces({ ["electronic-circuit"] = 3000 }), defense = { price = 2 } }), {})
+  local hit, same_budget = nil, true
+  for _, o in ipairs(priced.orders) do
+    if (o.def_mu or 0) > 0 then
+      local b = find(base, o.key)
+      if b and not hit then hit = { o = o, b = b } end
+    end
+  end
+  check(hit ~= nil, "§15 un ordre pollueur porte le prix de sa défense induite")
+  if hit then
+    check(math.abs(hit.o.def_mu - hit.o.emit * 2) < 1e-6 and hit.o.T > hit.b.T and math.abs(hit.o.cost_m - hit.b.cost_m) < 1e-6,
+      string.format("§15 défense comptée dans le RETOUR (T %s -> %s), pas dans le budget (matières %s = %s)", tostring(hit.b.T),
+        tostring(hit.o.T), tostring(hit.b.cost_m), tostring(hit.o.cost_m)))
+  end
+  for _, o in ipairs(base.orders) do if o.def_mu then same_budget = false end end
+  check(same_budget, "§15 sans prix (aucun nid connu, prévision coupée) : aucune défense induite, décisions d'avant")
+  local dear = Ca.decide(sc({ stock = pieces({ ["electronic-circuit"] = 3000 }), defense = { price = 1e6 } }), {})
+  local refused = false
+  for _, r in ipairs(dear.refus) do if r.why and r.why:find("retour", 1, true) then refused = true end end
+  local polluting = 0
+  for _, o in ipairs(dear.orders) do if (o.emit or 0) > 0 then polluting = polluting + 1 end end
+  check(refused and polluting == 0, "§15 défense induite hors de prix (nids voisins en masse) : aucun agrandissement pollueur, refus « retour »")
+end
+
+---------------------------------------------------------------------------------------------------
 -- Exécution
 ---------------------------------------------------------------------------------------------------
 local function run_all()
@@ -1496,6 +1537,7 @@ local function run_all()
   s10()
   s13()
   s14()
+  s15()
 end
 
 local t0 = os.clock()
@@ -1610,6 +1652,8 @@ do
   MRV("réduction sans borne", "SHRINK_MAX", 6)
   MR("repli ignoré", "held", function() return function() return nil end end)
   MR("élagage qui garde tout", "prune", function() return function() return 0 end end)
+  -- Lot PREVISION (C12).
+  MF("défense induite ignorée", "option_emit", function() return function() return 0 end end)
 end
 check(n_caught == n_mut, string.format("mutants : %d refusés sur %d", n_caught, n_mut))
 

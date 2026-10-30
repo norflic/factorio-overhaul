@@ -49,6 +49,7 @@ local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pos
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
 local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consommation, pondération des besoins
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
+local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 
 local Ia3 = {}
 
@@ -764,10 +765,21 @@ function Ia3.plan(f, view, book, surface, tick)
     -- manque pas (shared/ai3/bras.lua, Br.army ; jamais au-delà du plafond de soldats).
     local key_short = ((st.short or {})[floor_item] or 0) > 0
     army_target = Br.army(army_target, view.soldiers_max, (f.traits or {}).agressivite, spare_hands, key_short)
+    -- Lot PREVISION (relecture de la revue) : armée visée à MOYEN terme (vague prévue à 15 min au-dessus des tourelles,
+    -- script/ai3/prevision.lua) : elle relève la cible UNIQUE du cerveau (projet ordinaire de B.goals, pas la priorité de la
+    -- défense), comme Br.army, et jamais quand la matière clé manque (production d'abord). Le planificateur permanent ne la voit
+    -- plus (C.base_view) : un seul chemin de recrutement.
+    local soon = view.army_soon or 0
+    if soon > army_target and not key_short then army_target = math.min(soon, view.soldiers_max or 0) end
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
   local home = Ia3.home_known and Ia3.home_known(f)
+  -- Lot PREVISION : relevé de la menace prévue (au plus une fois par minute et par équipe ; coûts au livre de recettes, réserve de
+  -- production = plancher de la défense ou du prochain avant-poste de la matière clé), AVANT la capitalisation (défense induite)
+  -- et la pile (cadres « preparer »).
+  Prev.think(f, tick, { book = book, key_item = floor_item, iron_floor = iron_floor,
+    production_first = (f.team and f.team.priorite_pf) or false, recruit_ok = not view.recruit_blocked })
   local auto = Auto.think(f, view, book, tick, research) -- lot IA3-e : modules demandés, leur état (nil : éteint)
   -- Lot CAPIB : la capitalisation (une étape par pensée, décision une fois par minute) ; nil réglage éteint.
   Profiler.fstart("ia3:capi")
@@ -789,7 +801,8 @@ function Ia3.plan(f, view, book, surface, tick)
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
-    pile = PileRt.inputs(f, book, tick) } -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
+    pile = PileRt.inputs(f, book, tick), -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
+    prevu = Prev.pile_rows(f) } -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")

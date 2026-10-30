@@ -46,7 +46,7 @@ Pi.SURVIVRE, Pi.ADAPTER, Pi.PRODUIRE, Pi.AMELIORER = 0, 1, 2, 3
 Pi.RANK_NAME = { [0] = "survivre", [1] = "adapter", [2] = "produire", [3] = "ameliorer" }
 -- Rang de chaque famille de travail (les buts de shared/ai3/buts.lua, les exécutants du runtime).
 Pi.FAMILY_RANK = {
-  survivre = 0, reparer = 1, proteger = 1, defense = 1,
+  survivre = 0, reparer = 1, proteger = 1, defense = 1, preparer = 1,
   produire = 2, extraction = 2, armee = 2, invest = 2,
   ameliorer = 3, capital = 3, capi = 3, upgrade = 3, recherche = 3, foreuses = 3, migration = 3,
 }
@@ -98,7 +98,8 @@ end
 ---   sources     = { [matière] = vrai } : matières qui ont une source connue (avant-poste, site, gisement à portée) ;
 ---   inputs      = { [plaque] = minerai } : entrées de la fonderie ;
 ---   production_first = vrai : « production d'abord » (shared/team/priorite.lua) ;
----   penurie     = vrai : mode survie-pénurie (R2 sans parent) }
+---   penurie     = vrai : mode survie-pénurie (R2 sans parent) ;
+---   prep        = { { id, have, want, exec, nohold, why } } : sites à PRÉPARER (lot PREVISION, Pc.pile_rows) }
 --- Rend st (mis à jour) : top, hold, blocked, frames (triés), focus, short, crafts, reserve, changed.
 function Pi.update(st, sig, tick)
   sig = sig or {}
@@ -158,6 +159,17 @@ function Pi.update(st, sig, tick)
       end
       frames[#frames + 1] = { key = "proteger:" .. tostring(p.id), rank = Pi.ADAPTER, kind = "proteger", have = p.have or 0,
         want = p.want or 0, why = p.why, exec = exec, sub = pf and 1 or 0, depth = 0 }
+    end
+  end
+  -- Lot PREVISION : R1 PRÉPARER (une vague IMMINENTE prévue dépasse la défense d'un site ; shared/ai3/prevision_choix.lua). Le cadre
+  -- EXISTE tant que la prévision tient son verrou (hystérésis d'ÉTAT dans la prévision, aucune horloge) ; il ne RETIENT pas quand
+  -- la prévision le dit (`nohold` : au-delà des Pc.PREP_MAX plus grands écarts, insurmontable, « production d'abord », sans
+  -- exécutant) ; son `exec` dit si un exécutant l'a accepté (tourelles d'avance du front, recrues).
+  for _, p in ipairs(sig.prep or {}) do
+    if (p.have or 0) < (p.want or 0) then
+      frames[#frames + 1] = { key = "preparer:" .. tostring(p.id), rank = Pi.ADAPTER, kind = "preparer", have = p.have or 0,
+        want = p.want or 0, why = p.why, exec = p.exec and true or false, nohold = (p.nohold or pf) and true or nil,
+        sub = pf and 1 or 0, depth = 0 }
     end
   end
   -- Places tenues par l'ennemi (sous-but « protéger ou nettoyer la place ») : les plus précieuses d'abord.
@@ -293,7 +305,8 @@ function Pi.signals(view, base, inp, s, ctx)
   return { survive = survive, repair = inp.repair, plan_reopened = inp.plan_reopened, plan_path = inp.plan_path, posts = posts,
     raw_need = base.raw_need, sources = sources, inputs = inputs,
     production_first = (base.priorite and base.priorite.production_first) or false,
-    penurie = view.survie and true or false }
+    penurie = view.survie and true or false,
+    prep = ctx and ctx.prevu or nil } -- lot PREVISION : sites à préparer (script/ai3/prevision.lua, Prev.pile_rows)
 end
 
 --- Ligne du journal [FO-PILE] (lue par script/team/pile.lua ; aucune décision ne la lit).
@@ -301,7 +314,9 @@ function Pi.describe(st)
   local parts = {}
   for _, fr in ipairs(st.frames or {}) do
     local s = Pi.RANK_NAME[fr.rank] .. ">" .. fr.key
-    if fr.kind == "proteger" then s = s .. "(" .. (fr.have or 0) .. "/" .. (fr.want or 0) .. "," .. tostring(fr.why) .. ")"
+    if fr.kind == "proteger" or fr.kind == "preparer" then
+      s = s .. "(" .. (fr.have or 0) .. "/" .. (fr.want or 0) .. "," .. tostring(fr.why) .. ")"
+      if fr.nohold then s = s .. "[sans retenue]" end
     elseif fr.kind == "reparer" and fr.item then s = s .. "(" .. (fr.n or 0) .. ",stock " .. (fr.have or 0) .. ")"
     elseif fr.kind == "produire" and fr.n then s = s .. "=" .. fr.n end
     if not fr.exec then s = s .. "[sans voie]" end

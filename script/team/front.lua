@@ -79,6 +79,9 @@ local function on_died(e)
   Rr.wave_note(st, key, e.tick) -- lot REBUILD-RAPIDE (c) : vagues distinctes par cellule (une mort après 30 s de calme en ouvre une nouvelle)
   -- Lot RECO-DIRECTION : la même attaque donne une DIRECTION (script/ai3/reco.lua : crochet posé au chargement, nil sans ce module).
   if Front.on_hit then Front.on_hit(f, ent, e, Fr.weight(role)) end
+  -- Lot PREVISION : la même perte est un FAIT de calibration (vague reçue mesurée aussi par nos pertes, critique C8) ; crochet posé
+  -- au chargement par script/ai3/prevision.lua (nil sans ce module).
+  if Front.on_loss then Front.on_loss(f, pos, e.tick) end
 end
 Events.on(defines.events.on_entity_died, on_died)
 
@@ -141,7 +144,9 @@ function Front.view(f, fortify_open)
     for _, c in ipairs(st.cover) do cover[#cover + 1] = c end
     for _, c in ipairs(sites) do cover[#cover + 1] = c end
   end
-  if #cells == 0 and #cover == 0 then
+  -- Lot PREVISION : tourelles d'avance des sites dont la vague imminente dépasse la défense (crochet posé par script/ai3/prevision.lua).
+  local prevu = Front.prevu and Front.prevu(f) or nil
+  if #cells == 0 and #cover == 0 and not prevu then
     st.rows = nil
     return { busy = fortify_open and fortify_open["front"] or false }
   end
@@ -166,7 +171,7 @@ function Front.view(f, fortify_open)
   local turrets, placed = turrets_of(f)
   -- Lot REBUILD-RAPIDE (c) : une équipe riche a Rr.RICH_CAP places de plus sous le plafond d'équipe du front (Rr.cap_placed).
   local plan = Fr.plan({ cells = cells, cover = cover, turrets = turrets, placed = Rr.cap_placed(placed, rich), near = range_near(), rest = rest,
-    allow = allow, hq = f.hq_pos })
+    allow = allow, hq = f.hq_pos, prevu = prevu })
   local pick = plan.pick
   if pick and pick.kind == "attaque" and boosted[pick.key] then
     local n = Rr.rich_count(pick.want, pick.have, plan.left)
