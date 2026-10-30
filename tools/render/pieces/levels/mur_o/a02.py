@@ -34,7 +34,7 @@ def hw(z):
 
 def mats(S):
     M = {}
-    M["pierre"] = surface("m2_pierre", (0.20, 0.172, 0.14), (0.105, 0.09, 0.074), rough=0.92, var=0.75, var_scale=4.0,
+    M["pierre"] = surface("m2_pierre", (0.16, 0.137, 0.11), (0.085, 0.072, 0.058), rough=0.92, var=0.75, var_scale=4.0,
                           grain=0.3, bump=0.8, bump_scale=40.0,
                           brick=dict(w=0.25, h=0.115, mortar=0.010, c1=(0.21, 0.18, 0.15), c2=(0.12, 0.10, 0.083),
                                      col_m=(0.012, 0.01, 0.008)),

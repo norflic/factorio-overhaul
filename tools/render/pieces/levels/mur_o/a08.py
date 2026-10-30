@@ -45,11 +45,11 @@ def mats(S):
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
     M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
                            top=((0.06, 0.12, 0.02), 0.7, 0.4))
-    M["cuivre"] = surface("m8_cuivre", (0.16, 0.42, 0.31), (0.08, 0.24, 0.17), rough=0.55, rough2=0.8, metal=0.35,
+    M["cuivre"] = surface("m8_cuivre", (0.30, 0.15, 0.075), (0.16, 0.08, 0.04), rough=0.55, rough2=0.8, metal=0.35,
                           var=0.8, var_scale=8.0, grain=0.2, bump=0.3, bump_scale=90.0,
                           edge=((0.45, 0.22, 0.09), 0.75, 0.02), cavity=0.45, streak=0.35,
-                          stain=((0.18, 0.36, 0.28), 0.45, 6.0))
-    M["cuivre_sombre"] = surface("m8_cuivre2", (0.05, 0.13, 0.10), (0.11, 0.06, 0.03), rough=0.6, metal=0.4, var=0.6,
+                          stain=((0.12, 0.30, 0.22), 0.4, 6.0))
+    M["cuivre_sombre"] = surface("m8_cuivre2", (0.12, 0.06, 0.03), (0.05, 0.11, 0.08), rough=0.6, metal=0.4, var=0.6,
                                  grain=0.2, edge=((0.45, 0.22, 0.09), 0.8, 0.02), cavity=0.4)
     M["chaperon"] = surface("m8_chaperon", (0.34, 0.30, 0.24), (0.20, 0.18, 0.14), rough=0.92, var=0.7,
                             var_scale=7.0, grain=0.28, bump=0.8, bump_scale=40.0, edge=((0.36, 0.38, 0.33), 0.6, 0.02),
@@ -57,7 +57,7 @@ def mats(S):
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
                           grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
-    M["verre"] = surface("m8_verre_v", (0.05, 0.075, 0.04), (0.03, 0.05, 0.025), rough=0.06, rough2=0.12, spec=1.0,
+    M["verre"] = surface("m8_verre_v", (0.09, 0.12, 0.07), (0.06, 0.08, 0.045), rough=0.06, rough2=0.12, spec=1.0,
                          var=0.5, var_scale=6.0, grain=0.05, bump=0.05, cavity=0.2,
                          edge=((0.6, 0.8, 0.35), 0.4, 0.02))
     # liquide vert #8FBF4A ≈ (0.27, 0.52, 0.068) linéaire : couleur éclairée (pas une barre lumineuse)
@@ -321,7 +321,7 @@ def _bulbe(g, M):
 def _bulbe_crete(g, M, niveau):
     """Bulbe de verre épais qui traverse la crête (DA époque 8) : liquide vert #8FBF4A jusqu'au niveau donné (0 à 1),
     verre sombre au-dessus, armature vert-de-gris (collier, anneau du niveau, côtes), ménisque luminescent."""
-    r, z0, z1 = 0.15, Z_W - 0.02, Z_R + 0.12
+    r, z0, z1 = 0.13, Z_R - 0.03, Z_R + 0.17         # posé SUR la crête : le liquide se voit
     zl = z0 + 0.04 + niveau * (z1 - z0 - 0.04)
     g.cyl((0, 0, 0.5 * (z0 + zl)), "z", r, zl - z0, M["liquide_v"], n=28, bev=0)
     g.cyl((0, 0, 0.5 * (zl + z1)), "z", r, z1 - zl, M["verre"], n=28, bev=0)
