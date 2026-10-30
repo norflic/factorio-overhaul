@@ -10,6 +10,8 @@
     5. aucune technologie perdue, global sérialisable par le moteur (la partie continue jusqu'au contrôle).
   Création : PvP Paisible ; guerre de 2 factions (30 soldats, 10 ouvriers dont 8 au départ) ; coffre d'équipe garni.
   Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui PETROLE2-REPRISE -- 4300 petrole-court <source>
+  Sauvegarde 0.6.20 (double source) : même commande avec --creation <source de main 0.6.20, feuilles comprises> : la carte est
+  créée (on_init) par main, rechargée par la branche, le réglage absent de la sauvegarde y prend son défaut (éteint).
   Journal : [FO-PETROLE-COURT].
 ]]
 
@@ -57,6 +59,7 @@ return {
     st.war = remote.call("factorio-overhaul", "war_start", 2, 30, 10)
     st.chest = place_team_chest(ctx)
     local sv = settings.global["fo-war-petrole"]
+    st.create_has = sv ~= nil -- faux : carte créée par une source sans le lot (double source, main 0.6.20)
     st.default = sv and sv.value
     ctx.log("creation : guerre " .. tostring(st.war) .. ", coffre " .. tostring(st.chest) .. ", fo-war-petrole = " ..
       tostring(st.default))
@@ -89,7 +92,9 @@ return {
 
   finish = function(ctx)
     local st = ctx.state()
-    ctx.check(st.default == false, "reglage fo-war-petrole eteint par defaut a la creation", tostring(st.default))
+    ctx.check(st.default == false or (st.default == nil and st.create_has == false),
+      "reglage fo-war-petrole eteint par defaut a la creation (ou absent : sauvegarde d'une source sans le lot)",
+      tostring(st.default) .. (st.create_has == false and " (absent a la creation)" or ""))
     local none, okb = true, true
     for _, b in ipairs(st.before or {}) do
       if not b.ok then okb = false end
