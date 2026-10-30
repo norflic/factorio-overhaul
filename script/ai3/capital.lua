@@ -36,6 +36,7 @@ local Outposts = require("script.faction.outposts")
 local General = require("script.ai3.general")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot IA3-e : Auto.capital_steps (objets du dépliage)
+local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le centre de la faction est lié à son QG
 
 local Capital = {}
 
@@ -541,6 +542,7 @@ function Capital.pay(f, surface, tick, plan, stock)
         if ok then why = nil end
       elseif d.build then
         ok, why = place_center(f, c, d, tick)
+        if ok then CentreQG.relink(f, "pose-capital") end
       else
         -- Le centre n'est pas dans le relevé des bâtiments (familles ordinaires) : il est lu au module des niveaux.
         local e
@@ -553,7 +555,11 @@ function Capital.pay(f, surface, tick, plan, stock)
         if e then
           local owner = State.owner(d.id)
           local res, info, new
+          -- Lot PD-CENTREQG : le centre lié (indestructible, non minable) est libéré le temps du remplacement, puis le
+          -- centre courant (le nouveau, ou l'ancien sur un refus) est relié au QG.
+          if d.center then CentreQG.release(f, e) end
           ok, res, info, new = Levels.start(e, nil, { inventories = Stock.inventories(f) })
+          if d.center then CentreQG.relink(f, ok and "amelioration" or "amelioration-refusee") end
           why = res
           if ok and new and new.valid then
             for _, it in ipairs(d.cost) do f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + it[2] end

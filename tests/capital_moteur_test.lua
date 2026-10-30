@@ -144,7 +144,9 @@ print("[CAPITAL-MOTEUR] " .. line("allume", on))
 print("[CAPITAL-MOTEUR] " .. line("temoin", off))
 check(on.cc >= 1, "allumé : au moins une faction pose son centre au moteur simulé")
 check(on.up >= 2 and on.guns_up >= 1, "allumé : des tourelles améliorées (niveau >= 2 en jeu)")
-check(off.cc == 0 and off.up == 0 and off.decisions == 0, "témoin : aucune amélioration")
+-- Lot PD-CENTREQG (D20) : le centre de niveau 1 naît avec le QG de chaque faction, même au témoin ; aucun ne monte.
+check(off.cc == 2 and off.cc2 == 0 and off.up == 0 and off.decisions == 0,
+  "témoin : aucune amélioration (2 centres de niveau 1, nés avec les QG)")
 check(on.off_after == on.off_before and on.off_stale == 0,
   string.format("éteint en cours de partie : aucune amélioration de plus en 5 min (%d puis %d), aucun objet voulu laissé (%d)",
     on.off_before or -1, on.off_after or -1, on.off_stale or -1))
