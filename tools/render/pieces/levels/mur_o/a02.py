@@ -117,6 +117,11 @@ def bras(g, M, B):
             if sp:
                 xa, xb = B.x(sp[0]), min(B.x(sp[1]), L)
                 mat = M["acier"] if g.rnd() < 0.5 else M["acier2"]
+                # v6 : creux noirs (joint ouvert derrière la tôle, évent au pied) : vrais noirs sans assombrir la face
+                _plaque(g, M["vide"], xa - 0.012, xb + 0.012, 0.34, 0.68, k, 0.004, 0.03)
+                xe = 0.5 * (xa + xb)
+                _plaque(g, M["vide"], xe - 0.05, xe + 0.05, 0.03, 0.07, k, 0.004, 0.05)
+                _plaque(g, M["acier"], xe - 0.065, xe + 0.065, 0.07, 0.09, k, 0.012, 0.02)
                 _plaque(g, mat, xa, xb, 0.36, 0.66, k, 0.012, 0.02)
                 g.rivets([(x, -(hw(z) * k + 0.016), z, "y") for x in (xa + 0.05, xb - 0.05) for z in (0.40, 0.62)],
                          RIV_G, M["laiton"])
@@ -227,7 +232,7 @@ def noeud(g, M, forme, bras):
         _bout(g, M, 0.05)
     elif forme in ("corR", "corL"):
         _bout(g, M, 0.0)
-    elif forme in ("horiz", "horiz2", "horiz3"):
+    elif forme in ("horiz", "horiz2", "horiz3", "horiz4"):
         # C2 : contrefort en saillie au milieu de chaque segment droit (variantes : fente, barbacane)
         _contrefort_x(g, M, 0.0, SQ2, fente=(forme == "horiz2"))
         _merlon(g, M, -0.11, 0.11, SQ2, 0.0, extra=0.02)

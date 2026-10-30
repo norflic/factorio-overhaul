@@ -33,7 +33,7 @@ def hw(z):
 
 def mats(S):
     M = {}
-    M["laque"] = surface("m15_laque", (0.052, 0.038, 0.027), (0.03, 0.022, 0.016), rough=0.22, rough2=0.4, metal=0.0,
+    M["laque"] = surface("m15_laque", (0.066, 0.049, 0.035), (0.038, 0.028, 0.02), rough=0.22, rough2=0.4, metal=0.0,
                          spec=0.8, var=0.6, var_scale=5.0, grain=0.25, bump=0.15, bump_scale=60.0,
                          edge=((0.22, 0.21, 0.24), 0.7, 0.015), cavity=0.5, streak=0.35,
                          stain=((0.006, 0.006, 0.007), 0.5, 6.0), bottom=PIED)
@@ -51,7 +51,7 @@ def mats(S):
                          var=0.6, var_scale=7.0, grain=0.15, bump=0.15, bump_scale=60.0,
                          edge=((0.9, 0.88, 0.84), 0.5, 0.015), cavity=0.45, streak=0.3,
                          stain=((0.32, 0.30, 0.27), 0.4, 6.0))
-    M["obsidienne"] = surface("m15_obs", (0.046, 0.034, 0.025), (0.062, 0.046, 0.033), rough=0.16, rough2=0.3, spec=0.9,
+    M["obsidienne"] = surface("m15_obs", (0.058, 0.043, 0.031), (0.078, 0.058, 0.041), rough=0.16, rough2=0.3, spec=0.9,
                               var=0.7, var_scale=5.0, grain=0.3, bump=0.15, edge=((0.16, 0.15, 0.18), 0.5, 0.02),
                               cavity=0.3)
     M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.80, 0.50), strength=0.35, base=(0.05, 0.04, 0.02))
@@ -189,6 +189,6 @@ def noeud(g, M, forme, bras):
     elif forme == "horiz2":
         _fleche(g, M, h=0.22)
         _sceau(g, M)
-    elif forme == "horiz3":
+    elif forme in ("horiz3", "horiz4"):
         _contrefort(g, M)
         _merlon_flottant(g, M, -0.12, 0.12, SQ2)

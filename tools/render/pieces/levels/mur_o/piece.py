@@ -26,13 +26,13 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 AGES = (2, 8, 15)
-TYPES = {"single": (), "vert": ("S",), "horiz": ("E", "O"), "horiz2": ("E", "O"), "horiz3": ("E", "O"),
+TYPES = {"single": (), "vert": ("S",), "horiz": ("E", "O"), "horiz2": ("E", "O"), "horiz3": ("E", "O"), "horiz4": ("E", "O"),
          "corR": ("E", "S"),
          "corL": ("O", "S"), "tee": ("E", "O", "S"), "endR": ("E",), "endL": ("O",)}
 # horiz2 : deuxième variante du segment droit est-ouest (le vanilla en a 6 ; le moteur tire la variante par case)
-ORDRE = ("single", "vert", "horiz", "horiz2", "horiz3", "corR", "corL", "tee", "endR", "endL")
+ORDRE = ("single", "vert", "horiz", "horiz2", "horiz3", "horiz4", "corR", "corL", "tee", "endR", "endL")
 # v3 : graine des motifs (taches, coulures) par forme : trois segments droits qui ne se répètent pas à l'identique
-GRAINES = {"single": 1.7, "vert": 2.9, "horiz": 0.0, "horiz2": 5.3, "horiz3": 8.1, "corR": 3.7, "corL": 4.4,
+GRAINES = {"single": 1.7, "vert": 2.9, "horiz": 0.0, "horiz2": 5.3, "horiz3": 8.1, "horiz4": 11.3, "corR": 3.7, "corL": 4.4,
            "tee": 6.2, "endR": 7.4, "endL": 9.6}
 K_SUD = 0.88       # v2 : échelle latérale du bras sud ; le mur vanilla nord-sud fait 47-48 px HR de large au pied
                    # (0,75 tuile), le v1 en faisait 62-68 (+35 %)

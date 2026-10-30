@@ -43,13 +43,13 @@ def mats(S):
                            cavity_dist=0.08, streak=0.4, top=((0.09, 0.13, 0.04), 0.35, 0.32),
                            bottom=((0.004, 0.004, 0.003), 0.07, 1.0), seed=9.0,
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
-    M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
+    M["mortier"] = surface("m8_mortier", (0.008, 0.008, 0.007), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
                            top=((0.06, 0.12, 0.02), 0.7, 0.4))
-    M["cuivre"] = surface("m8_cuivre", (0.20, 0.11, 0.05), (0.11, 0.06, 0.03), rough=0.55, rough2=0.8, metal=0.35,
+    M["cuivre"] = surface("m8_cuivre", (0.16, 0.42, 0.31), (0.08, 0.24, 0.17), rough=0.55, rough2=0.8, metal=0.35,
                           var=0.8, var_scale=8.0, grain=0.2, bump=0.3, bump_scale=90.0,
                           edge=((0.45, 0.22, 0.09), 0.75, 0.02), cavity=0.45, streak=0.35,
-                          stain=((0.12, 0.30, 0.22), 0.4, 6.0))
-    M["cuivre_sombre"] = surface("m8_cuivre2", (0.12, 0.06, 0.03), (0.05, 0.11, 0.08), rough=0.6, metal=0.4, var=0.6,
+                          stain=((0.28, 0.14, 0.06), 0.35, 6.0))
+    M["cuivre_sombre"] = surface("m8_cuivre2", (0.05, 0.13, 0.10), (0.11, 0.06, 0.03), rough=0.6, metal=0.4, var=0.6,
                                  grain=0.2, edge=((0.45, 0.22, 0.09), 0.8, 0.02), cavity=0.4)
     M["chaperon"] = surface("m8_chaperon", (0.34, 0.30, 0.24), (0.20, 0.18, 0.14), rough=0.92, var=0.7,
                             var_scale=7.0, grain=0.28, bump=0.8, bump_scale=40.0, edge=((0.36, 0.38, 0.33), 0.6, 0.02),
@@ -57,12 +57,12 @@ def mats(S):
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
                           grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
-    M["verre"] = surface("m8_verre_v", (0.09, 0.12, 0.07), (0.06, 0.08, 0.045), rough=0.06, rough2=0.12, spec=1.0,
+    M["verre"] = surface("m8_verre_v", (0.30, 0.40, 0.30), (0.22, 0.30, 0.22), rough=0.06, rough2=0.12, spec=1.0,
                          var=0.5, var_scale=6.0, grain=0.05, bump=0.05, cavity=0.2,
                          edge=((0.6, 0.8, 0.35), 0.4, 0.02))
     # liquide vert #8FBF4A ≈ (0.27, 0.52, 0.068) linéaire : couleur éclairée (pas une barre lumineuse)
-    M["liquide_v"] = surface("m8_liq_v", (0.30, 0.56, 0.075), (0.20, 0.40, 0.05), rough=0.12, spec=0.9, var=0.5,
-                             var_scale=8.0, grain=0.06, bump=0.0, cavity=0.2)
+    # v6 : liquide vert #8FBF4A LUMINEUX : couleur de base éclairée + lueur fixe (draw_as_glow)
+    M["liquide_v"] = geo.emissive(S, "m8_liq_v", (0.56, 0.85, 0.20), strength=0.55, base=(0.27, 0.52, 0.068))
     M["liquide"] = geo.emissive(S, "m8_liquide", (0.55, 0.75, 0.22), strength=0.35, base=(0.05, 0.09, 0.01))
     M["verre_sombre"] = surface("m8_verre_s", (0.03, 0.06, 0.02), rough=0.08, spec=1.0, var=0.3, grain=0.05,
                                 bump=0.0, cavity=0.0)
@@ -92,7 +92,7 @@ def _maconnerie(g, M, B):
     """Assises réglées (hauteurs fixes : raccords), blocs de longueurs inégales ; joint imposé aux bords de case."""
     k = B.k
     for r in range(len(ASSISES) - 1):
-        z0, z1 = ASSISES[r] + 0.006, ASSISES[r + 1] - 0.006
+        z0, z1 = ASSISES[r] + 0.012, ASSISES[r + 1] - 0.012     # v6 : joints creusés
         # coupes en tuiles : joint obligé à 0,5 (bord de case) ; décalage d'une assise sur l'autre
         t = B.t0 + (0.0 if r % 2 else -0.11)
         cuts = []
@@ -107,8 +107,8 @@ def _maconnerie(g, M, B):
             if not sp:
                 continue
             xa, xb = B.x(sp[0]), min(B.x(sp[1]), B.L)
-            ia = 0.007 if sp[0] > B.t0 + 1e-3 else 0.0
-            ib = 0.007 if sp[1] < B.t1 - 1e-3 else 0.0
+            ia = 0.013 if sp[0] > B.t0 + 1e-3 else 0.0
+            ib = 0.013 if sp[1] < B.t1 - 1e-3 else 0.0
             _bloc(g, M, xa + ia, xb - ib, z0, z1, k, g.rnd(0.0, 0.012))
 
 
@@ -163,6 +163,14 @@ def bras(g, M, B):
         g.push(g.Sc(1, s_, 1))
         geo.eboulis(g, (M["pierre"], M["pierre2"], M["mousse"]), max(x0, 0.0), L - B.eps, -HW0 * k - 0.01, 3, r=0.035)
         g.pop()
+    # v6 : évent noir au pied de chaque demi-case (vrais noirs, comme les évents du vanilla)
+    if not S_:
+        x = B.x(0.25)
+        y0, y1 = hw(0.0) * k, hw(0.10) * k
+        g.loft_z([(x - 0.045, -(y0 + 0.004)), (x + 0.045, -(y0 + 0.004)), (x + 0.045, -(y0 - 0.06)), (x - 0.045, -(y0 - 0.06))],
+                 0.0, 0.10, M["vide"],
+                 poly1=[(x - 0.045, -(y1 + 0.004)), (x + 0.045, -(y1 + 0.004)), (x + 0.045, -(y1 - 0.06)),
+                        (x - 0.045, -(y1 - 0.06))], bev=0)
     # touffes de mousse au pied
     if not S_:
         for t in (0.18, 0.41):
@@ -321,7 +329,7 @@ def _bulbe(g, M):
 def _bulbe_crete(g, M, niveau):
     """Bulbe de verre épais qui traverse la crête (DA époque 8) : liquide vert #8FBF4A jusqu'au niveau donné (0 à 1),
     verre sombre au-dessus, armature vert-de-gris (collier, anneau du niveau, côtes), ménisque luminescent."""
-    r, z0, z1 = 0.13, Z_R - 0.03, Z_R + 0.17         # posé SUR la crête : le liquide se voit
+    r, z0, z1 = 0.175, Z_R - 0.03, Z_R + 0.19  # v6 : plus gros         # posé SUR la crête : le liquide se voit
     zl = z0 + 0.06 + (0.45 + 0.55 * niveau) * (z1 - z0 - 0.06)
     g.cyl((0, 0, 0.5 * (z0 + zl)), "z", r, zl - z0, M["liquide_v"], n=28, bev=0)
     g.cyl((0, 0, 0.5 * (zl + z1)), "z", r, z1 - zl, M["verre"], n=28, bev=0)
@@ -364,13 +372,16 @@ def noeud(g, M, forme, bras):
     elif forme in ("corR", "corL"):
         _pile(g, M)
     elif forme == "horiz":
-        _bulbe_crete(g, M, 0.35)           # v5b (C3) : verre bombé qui dépasse de la crête, niveau variable
+        _bulbe_crete(g, M, 0.45)           # v6 : bulbe sur un segment droit sur deux (horiz, horiz4)
+        _mousse(g, M, 0.22, -(HW0 + 0.0) * SQ2, 0.0, 0.08)
+    elif forme == "horiz4":
+        _bulbe_crete(g, M, 0.75)
+        _mousse(g, M, -0.25, -(HW0 + 0.02) * SQ2, 0.0, 0.1)           # v5b (C3) : verre bombé qui dépasse de la crête, niveau variable
     elif forme == "horiz2":
-        _bulbe_crete(g, M, 0.6)
         _gargouille(g, M)
     elif forme == "horiz3":
-        _bulbe_crete(g, M, 0.8)
         _mousse(g, M, -0.2, -(HW0 + 0.02) * SQ2, 0.0, 0.12)
+        _mousse(g, M, 0.25, -(HW0 + 0.0) * SQ2, 0.0, 0.09)
     elif forme == "tee":
         _bulbe_crete(g, M, 0.5)
         _mousse(g, M, 0.25, -(HW0 + 0.0) * SQ2, 0.0, 0.09)

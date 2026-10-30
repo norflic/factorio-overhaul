@@ -59,9 +59,9 @@ def image(jeu, T, x, y):
         v = (x * 7 + y * 3) % NVAR[f]
         return jeu.f[f if v == 0 else "%s#%d" % (f, v)]
     if f == "horiz":
-        n = 1 + ("horiz2" in jeu.f) + ("horiz3" in jeu.f)
-        v = (x * 7 + y * 3) % n
-        return jeu.f[("horiz", "horiz2", "horiz3")[v]]
+        noms = [h for h in ("horiz", "horiz2", "horiz3", "horiz4") if h in jeu.f]
+        v = (x * 7 + y * 3) % len(noms)
+        return jeu.f[noms[v]]
     return jeu.f[f]
 
 
@@ -99,7 +99,7 @@ class Jeu:
     @staticmethod
     def rendu(d, age):
         j = Jeu("âge %d" % age)
-        for f in list(VANILLA) + ["horiz2", "horiz3"]:
+        for f in list(VANILLA) + ["horiz2", "horiz3", "horiz4"]:
             sd = os.path.join(d, "a%02d-%s" % (age, f))
             if not os.path.exists(sd):
                 continue
