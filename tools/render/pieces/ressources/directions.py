@@ -697,3 +697,33 @@ ICONE["S8"] = dict(ICONE["S6"], tetra_mats=("blende_rubis_r", "blende_brune", "b
 # Icône de S8 (après la production à 128 échantillons, icones.png) : un seul grand tétraèdre au centre se lisait « toit de
 # tente ». Comme les icônes vanilla (3 ou 4 morceaux qui remplissent le cadre) : 5 tétraèdres moyens et un éclat noir.
 ICONE["S8"] = dict(ICONE["S8"], roches=(1, 1), tetras=5, tetra_taille=(0.27, 0.34), tetra_tronc=(0.12, 0.28))
+
+# Critique DA (30/10, 10 h 20, CRITIQUE.md de la page blende) : S8 a la bonne teinte et se distingue des autres minerais,
+# mais (1) ses tétraèdres PARFAITS (faces planes, arêtes droites) se lisent « pyramides en papier / low poly » à côté des
+# morceaux bosselés de la vanilla ; (2) sa matrice noire (aplat 0,85, cassures douces) sort en GOUTTES rondes et plates
+# (« pastilles de chocolat ») ; (3) des points blancs isolés (reflet du soleil sur des matières très lisses) font du
+# bruit. S9 : la forme de S8 (druses de tétraèdres tronqués) avec des sommets BRUITÉS (faces gauchies, cristal naturel),
+# plus enfouis et plus serrés (druse intercroissante, moins de « tentes » isolées), matrice en morceaux anguleux clivés,
+# matières sombres moins lisses (éclat résineux étalé, pas de point blanc). Icône : 2 ou 3 gros morceaux anguleux brun-rouge
+# d'où sortent 3 cristaux, qui remplissent le cadre comme icons/iron-ore.png.
+MAT.update({
+    "blende_brune_s": dict(color=(0.085, 0.026, 0.010), rough=0.17, met=0.05, grain=0.30, gscale=45.0, dirt=0.35),
+    "blende_noire_s": dict(color=(0.040, 0.018, 0.009), rough=0.22, met=0.08, grain=0.30, gscale=45.0, dirt=0.35),
+})
+DIRECTIONS["S9"] = dict(DIRECTIONS["S8"], nom="druses de cristaux de blende résineuse brun-rouge, faces gauchies, sur matrice clivée",
+                        roche_taille=(0.15, 0.22), roche_mats=("blende_noire_s", "blende_brune_s", "blende_noire_s"),
+                        tetra_n=(2, 4), tetra_bruit=0.16, tetra_enfoui=(0.22, 0.45), tetra_ecart=(0.06, 0.11),
+                        tetra_mats=("blende_brune_s", "blende_brune_s", "blende_rubis_r", "blende_noire_s", "blende_rubis_r",
+                                    "blende_brune_s", "blende_ambre_r"),
+                        grain_mats=("blende_rubis_r", "blende_noire_s", "blende_ambre_r", "blende_brune_s"),
+                        fin_mats=("poussiere_miel", "blende_brune_s", "poussiere_miel", "blende_rubis_r", "blende_noire_s"))
+CALIB["S9"] = {"SKY_GLOSSY_FACTOR": 4.0}
+ROCHE_COUPES["S9"], ROCHE_LISSE["S9"] = 7, 18
+ROCHE_APLAT["S9"], ROCHE_CASSURE["S9"] = 0.78, (0.45, 0.75)
+EFFET["S9"] = dict(EFFET["S2"])
+ECHELLE["S9"] = 1.3
+GRAINE["S9"] = 6818
+ICONE["S9"] = dict(lames=(0, 0), roches=(2, 3), roche_taille=(0.24, 0.30), roche_coupes=8, roche_cassure=(0.45, 0.75),
+                   roche_aplat=0.80, roche_mats=("blende_rubis_r", "blende_brune_s", "blende_rubis_r"),
+                   tetras=3, tetra_taille=(0.26, 0.32), tetra_tronc=(0.12, 0.28), tetra_bruit=0.12,
+                   tetra_enfoui=(0.25, 0.40), tetra_mats=("blende_ambre_r", "blende_rubis_r", "blende_brune_s"))

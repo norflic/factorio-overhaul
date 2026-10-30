@@ -130,7 +130,7 @@ def bloc(rng, taille, haut):
     return verts, faces
 
 
-def tetra(rng, taille, tronc=(0.18, 0.30), enfoui=(0.15, 0.40)):
+def tetra(rng, taille, tronc=(0.18, 0.30), enfoui=(0.15, 0.40), bruit=0.0):
     """Tétraèdre TRONQUÉ (lot DESIGN-BLENDE, 30/10) : la forme cristalline de la sphalérite (blende), 4 grandes faces
     triangulaires coupées aux pointes (4 hexagones + 4 petits triangles). Orientation au hasard, enfoui dans le sol
     d'une part `enfoui` de sa hauteur (fond aplati à z = 0) : une pointe ou une arête dressée, jamais un dé posé."""
@@ -142,6 +142,10 @@ def tetra(rng, taille, tronc=(0.18, 0.30), enfoui=(0.15, 0.40)):
             if i != j:
                 idx[(i, j)] = len(verts)
                 verts.append(tuple(T[i][k] + t * (T[j][k] - T[i][k]) for k in range(3)))
+    # bruit (critique DA du 30/10, S9) : sommets déplacés au hasard, faces gauchies, cristal naturel et non solide de
+    # géométrie (« pyramide en papier ») ; bruit = 0 ne tire RIEN (S4 à S8 rendus à l'identique)
+    if bruit > 0.0:
+        verts = [tuple(v[k] + rng.uniform(-bruit, bruit) for k in range(3)) for v in verts]
     faces = []
     for i in range(4):                       # petits triangles des pointes coupées
         autres = [j for j in range(4) if j != i]
@@ -259,9 +263,10 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
             n_t = rng.randint(*d["tetra_n"])
             for j in range(n_t):
                 t = rng.uniform(*d["tetra_taille"]) * (1.0 if j == 0 else rng.uniform(0.55, 0.85))
-                v, f = tetra(rng, t, tronc=d.get("tetra_tronc", (0.18, 0.30)))
+                v, f = tetra(rng, t, tronc=d.get("tetra_tronc", (0.18, 0.30)),
+                             enfoui=d.get("tetra_enfoui", (0.15, 0.40)), bruit=d.get("tetra_bruit", 0.0))
                 a = rng.uniform(0, 2 * math.pi)
-                rr = 0.0 if j == 0 else rng.uniform(0.07, 0.13)
+                rr = 0.0 if j == 0 else rng.uniform(*d.get("tetra_ecart", (0.07, 0.13)))
                 pose(v, f, mats[rng.choice(d["tetra_mats"])], gx + rr * math.cos(a), gy + rr * math.sin(a),
                      "%s_tetra%d_%d" % (tag, i, j), biseau=d.get("tetra_biseau", 0.008))
     # filons de lave (C) : bandes basses émissives au sol, entre les roches
@@ -349,7 +354,8 @@ def cellule_icone(S, C, mats, d, cle, c, rng):
         rr = 0.0 if j == 0 else rng.uniform(0.14, 0.24)
         gx, gy = rr * math.cos(a), 0.8 * rr * math.sin(a)
         t = rng.uniform(*ic["tetra_taille"]) * (1.0 if j == 0 else rng.uniform(0.6, 0.85))
-        v, f = tetra(rng, t, tronc=ic.get("tetra_tronc", (0.18, 0.30)))
+        v, f = tetra(rng, t, tronc=ic.get("tetra_tronc", (0.18, 0.30)), enfoui=ic.get("tetra_enfoui", (0.15, 0.40)),
+                     bruit=ic.get("tetra_bruit", 0.0))
         bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
         vv = _transforme(v, 0.0, rng.uniform(0, 2 * math.pi), bx, by, 0.0)
         o = _objet("%s_tetra%d" % (tag, j), vv, f, mats[rng.choice(ic["tetra_mats"])], S)
