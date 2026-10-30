@@ -23,6 +23,16 @@ local Pl = require("shared.ai3.places")
 local PlacesQG = require("script.ai3.places_qg")
 local Br = require("shared.ai3.bras")
 local Ad = require("shared.team.adopte")
+local FQ = require("shared.ai3.fonderie_qg") -- lot PD-FONDERIEQG (D77) : fonderie du QG bornée par l'automatisation
+
+-- Entrées de la fonderie du QG, triées (données de shared/team/config.lua), pour FQ.automated.
+local SMELT_INPUTS = {}
+do
+  local ps = {}
+  for p in pairs(T.smelter_inputs) do ps[#ps + 1] = p end
+  table.sort(ps)
+  for _, p in ipairs(ps) do SMELT_INPUTS[#SMELT_INPUTS + 1] = { p, T.smelter_inputs[p][1], T.smelter_inputs[p][2] } end
+end
 
 local Stock = {}
 
@@ -222,14 +232,21 @@ function Stock.deploy_idle(f, surface, tick)
   local have = lo
   local registry = Stock.smelters(f)
   local cap = Br.SMELT_HARD
+  -- Lot PD-FONDERIEQG (D77) : dès qu'une ligne à tapis fond une plaque (module fini, débit mesuré : f.team.ia3.covered), les
+  -- fours dormants ne sont plus posés au QG au-delà de FQ.KEEP : ils restent au coffre, où la ligne les prend pour grandir.
+  local covered = f.team and f.team.ia3 and f.team.ia3.covered
+  local n_auto = #FQ.automated(SMELT_INPUTS, covered)
+  local why
+  cap, why = FQ.limit(cap, FQ.KEEP, n_auto, 0, 0)
   local n = Ad.deploy(have, #registry, 0, cap)
   -- Trace de la fenêtre close (au plus une ligne par fenêtre, 60 lignes par équipe) : fours au coffre, libres (minimum de la
   -- fenêtre), registre, posés : de quoi lire pourquoi des fours restent au coffre (réservés par une tâche, ou plafond atteint).
   f.stats = f.stats or {}
   f.stats.idle_logs = (f.stats.idle_logs or 0) + 1
   if f.stats.idle_logs <= 60 then
-    log(string.format("[FO-ADOPTE] player : fenetre %.1f min : %d four(s) au coffre, %d libre(s) et non reclames toute la fenetre (plan : %d), registre %d/%d, a poser %d",
-      (tick - (f.started or 0)) / 3600, Stock.count(f, T.SMELTER), have, claimed, #registry, cap, n))
+    log(string.format("[FO-ADOPTE] player : fenetre %.1f min : %d four(s) au coffre, %d libre(s) et non reclames toute la fenetre (plan : %d), registre %d/%d, a poser %d%s",
+      (tick - (f.started or 0)) / 3600, Stock.count(f, T.SMELTER), have, claimed, #registry, cap, n,
+      why and string.format(" ([FO-FONDERIE-QG] %d plaque(s) fondue(s) par ligne a tapis : plafond %d au lieu de %d)", n_auto, cap, Br.SMELT_HARD) or ""))
   end
   if n <= 0 then return 0 end
   local tmp = game.create_inventory(8)
