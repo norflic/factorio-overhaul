@@ -456,8 +456,10 @@ W.resources = {
     copy_icon = "iron-ore",
     -- Miel de la monazite : teinte de la technologie et des objets dérivés.
     tint = { r = 0.86, g = 0.66, b = 0.36 },
-    -- Feuille PROPRE du kit minerai (lot M1 ; direction Z1, tools/render/pieces/ressources/directions.py) : placer de
-    -- galets et prismes miel et brun-rouge mêlés de magnétite noire. Choix provisoire, sans verdict du DC.
+    -- Feuille PROPRE du kit minerai (tools/render/pieces/ressources/directions.py). Depuis le lot design-minerai-monazite
+    -- (30/10, retour du DC : « je n'aime pas du tout la forme de ces minerais [...] monazite. Il faut les refaire. ») :
+    -- direction M1, rognons anguleux miel et résine en amas (avant : Z3, galets ronds jaune pâle). Même nom de prototype,
+    -- même dossier de feuille. Choix provisoire, sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/monazite",
       name = "monazite",
