@@ -37,6 +37,13 @@ Cl.WIDTH_MAX = 3.5        -- demi-largeur maximale du couloir de recherche (en p
 Cl.EXPLORE_TAG = "@eau"   -- étiquette de la demande d'exploration (pas un nom d'objet du jeu : aucun gisement ne la porte)
 Cl.EXPLORE_WAIT = 20 * 3600 -- au plus 20 min d'attente d'exploration par recherche ; ensuite refus (nouvel essai à la demande suivante)
 Cl.EXPLORE_POLL = 600     -- ticks entre deux relectures de la carte pendant l'exploration
+-- Vérification rapide (30/10) : la rue extérieure du treillis (P.STREET = 4 tuiles autour du carré des lots) n'est pas un lot,
+-- mais le carré d'essai ne doit pas la couvrir (poteaux des carrefours de bord, passage) : marge ajoutée à Cl.outside.
+Cl.STREET = 4
+-- Vérification rapide (30/10) : une rive écartée par la LIGNE ou la POMPE (Far.reject, une passe de plan complète) écarte toute
+-- sa case de REJECT_CELL × REJECT_CELL tuiles ; sinon la rive voisine (1 tuile plus loin, même carré d'essai, même ligne)
+-- revenait à la passe suivante, et chaque tuile de rive de chaque lac était rejouée, une passe complète toutes les 60 ticks.
+Cl.REJECT_CELL = 16
 
 --- Décision quand aucune eau connue ne tient la centrale. source : "carte" (connaissance de l'équipe) ou "sondage" (sans
 --- brouillard : les secteurs générés sont sondés) ; waited : ticks depuis le début de la recherche ; can_explore : la demande
@@ -53,6 +60,9 @@ local floor, ceil, sqrt, max, min, abs = math.floor, math.ceil, math.sqrt, math.
 
 --- Clé d'une rive (tuile entière).
 function Cl.shore_key(x, y) return x .. ":" .. y end
+
+--- Clé de la case d'une rive écartée par Far.reject (REJECT_CELL tuiles de côté) ; préfixe « c » : jamais une clé de rive.
+function Cl.cell_key(x, y) return "c" .. floor(x / Cl.REJECT_CELL) .. ":" .. floor(y / Cl.REJECT_CELL) end
 
 --- Secteurs candidats. list = { { key, x, y } } (x, y : centre du secteur) ; hq = { x, y } ; done = { [key] = true } (épuisés).
 --- Rend la liste triée par distance au QG (puis clé), sans les secteurs épuisés ni ceux au-delà de max_dist (défaut MAX_DIST).
@@ -117,9 +127,9 @@ function Cl.window(x, y)
 end
 
 --- La rive (x, y) est-elle HORS du treillis évalué ? ext = { x0, y0, x1, y1 } (carré des lots, x1, y1 exclus). Le carré d'essai
---- (WINDOW) ne doit pas mordre sur les lots ni sur les rues : la rive est à plus de WINDOW / 2 tuiles du carré.
+--- (WINDOW) ne doit pas mordre sur les lots ni sur la rue extérieure : la rive est à plus de WINDOW / 2 + STREET tuiles du carré.
 function Cl.outside(ext, x, y)
-  local h = Cl.WINDOW / 2
+  local h = Cl.WINDOW / 2 + Cl.STREET
   return x < ext.x0 - h or x >= ext.x1 + h or y < ext.y0 - h or y >= ext.y1 + h
 end
 
@@ -134,9 +144,12 @@ function Cl.avoided(avoid, x, y, margin)
   return false
 end
 
---- Carrefour (i, j) ramené dans le carré [−R, R]² du treillis.
+--- Carrefour (i, j) ramené dans les carrefours du treillis : [−R − 1, R]² (le carrefour i est au coin sud-est du lot i ; la rue
+--- extérieure ouest et nord passe par les carrefours −R − 1, cf. P.node_pos et les tronçons de P, i de −r − 1 à r).
+--- Vérification rapide (30/10) : ramené à [−R, R]², un module ordinaire de la moitié ouest ou nord d'un lot de bord (carrefour
+--- le plus proche −R − 1) passait pour lointain.
 function Cl.clamp_node(R, i, j)
-  local function c(v) if v < -R then return -R elseif v > R then return R end return v end
+  local function c(v) if v < -R - 1 then return -R - 1 elseif v > R then return R end return v end
   return c(i), c(j)
 end
 

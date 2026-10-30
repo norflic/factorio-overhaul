@@ -608,7 +608,9 @@ local function plan_power(f, p, mp, masks)
   local mi, mj = nearest_node(b, mp.x, mp.y)
   -- lot PD-CENTRALE : un module HORS du treillis évalué (la centrale lointaine) s'accroche au carrefour de bord le plus proche ;
   -- une ligne de poteaux tracée au moteur l'y relie (fin de la fonction, Far.line), les rues du treillis font le reste
-  local far = Cl.is_far(b.radius, mi, mj)
+  -- (vérification rapide, 30/10 : seule la centrale lointaine, p.far, prend ce chemin ; un module ordinaire ne passe jamais
+  -- par Far.line, dont l'échec rend « loin » sans fin pour un projet sans rive à écarter)
+  local far = p.far ~= nil and Cl.is_far(b.radius, mi, mj)
   if far then mi, mj = Cl.clamp_node(b.radius, mi, mj) end
   local out = {}
   -- poteau d'un carrefour : celui du réseau s'il existe, sinon un quart LIBRE du carrefour (contrôlé au moteur :

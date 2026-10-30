@@ -149,7 +149,8 @@ function Far.place(f, surface, g, ctx)
     local shores = Cl.shores(function(tx, ty) return water[P.tkey(tx, ty)] == true end, area, hq, {
       -- (b.avoid : sites de centrale jugés dangereux par script/team/reseau_vivant.lua, comme pour les lots, Build.AVOID_MARGIN)
       keep = function(tx, ty)
-        return Cl.outside(ext, tx, ty) and not s.bad[Cl.shore_key(tx, ty)] and not Cl.avoided(b.avoid, tx, ty, ctx.avoid_margin)
+        return Cl.outside(ext, tx, ty) and not s.bad[Cl.shore_key(tx, ty)] and not s.bad[Cl.cell_key(tx, ty)]
+          and not Cl.avoided(b.avoid, tx, ty, ctx.avoid_margin)
       end })
     local all_failed = true
     for _, sh in ipairs(shores) do
@@ -209,6 +210,7 @@ function Far.reject(f, p, why)
   if not (p and p.far) then return false end
   local s = state(f.build)
   s.bad[p.far.key] = true
+  s.bad[Cl.cell_key(p.far.x, p.far.y)] = true -- toute la case : la rive voisine passerait par la même ligne (Cl.REJECT_CELL)
   say(f, string.format("projet %d : rive (%d, %d) ecartee (%s) : rive suivante", p.id, p.far.x, p.far.y, tostring(why)))
   return true
 end

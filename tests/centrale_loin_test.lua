@@ -75,8 +75,10 @@ local function battery_pure(C, quiet)
   chk(#o == 3 and o[1].key == 1 and o[2].key == 2 and o[3].key == 3, "secteurs : par distance puis cle, epuises et lointains ecartes")
   -- 1e. carré d'essai hors du treillis : la rive est à plus de WINDOW / 2 du carré des lots
   local ext = { x0 = -100, y0 = -100, x1 = 100, y1 = 100 }
-  chk(not C.outside(ext, 0, 0) and not C.outside(ext, 100 + C.WINDOW / 2 - 1, 0) and C.outside(ext, 100 + C.WINDOW / 2, 0)
-    and C.outside(ext, -100 - C.WINDOW / 2 - 1, 0), "hors du treillis : marge d'un demi-carre d'essai")
+  local hw = C.WINDOW / 2 + C.STREET
+  chk(not C.outside(ext, 0, 0) and not C.outside(ext, 100 + hw - 1, 0) and C.outside(ext, 100 + hw, 0)
+    and C.outside(ext, -100 - hw - 1, 0) and not C.outside(ext, -100 - hw, 0),
+    "hors du treillis : marge d'un demi-carre d'essai et de la rue exterieure")
   -- 1e bis. site écarté (b.avoid) : rayon + marge
   chk(C.avoided({ { x = 100, y = 0, r = 10 } }, 115, 0, 8) and not C.avoided({ { x = 100, y = 0, r = 10 } }, 120, 0, 8) and not C.avoided(nil, 0, 0),
     "site ecarte : rayon plus marge")
@@ -89,6 +91,10 @@ local function battery_pure(C, quiet)
   -- 1f. carrefour de bord
   local ci, cj = C.clamp_node(3, 9, -1)
   chk(ci == 3 and cj == -1 and C.is_far(3, 9, -1) and not C.is_far(3, 3, -3), "carrefour ramene au bord du treillis")
+  -- carrefours de la rue extérieure ouest et nord (−R − 1) : dans le treillis ; au-delà : lointain, ramené à −R − 1
+  local wi, wj = C.clamp_node(3, -9, -7)
+  chk(not C.is_far(3, -4, -4) and not C.is_far(3, -4, 3) and C.is_far(3, -5, 0) and wi == -4 and wj == -4,
+    "carrefour -R-1 (rue exterieure ouest/nord) dans le treillis")
   -- 1g. point d'appui : le plus proche, déterministe ; nil s'il n'y en a pas
   local ax, ay = C.anchor_spot(function(tx, ty) return tx >= 3 end, 0.5, 0.5, 6)
   chk(ax == 3.5 and ay == 0.5, "point d'appui : tuile libre la plus proche (" .. tostring(ax) .. ", " .. tostring(ay) .. ")")
@@ -230,6 +236,9 @@ if m1 then
   check(Far.reject(f1, p, "pompe refusee") == true, "rive ecartee")
   local m2 = place_once(both, f1, s1)
   check(m2 and m2.far and m2.far.key ~= m1.far.key, "apres l'ecart : une autre rive (" .. tostring(m2 and m2.far and m2.far.key) .. ")")
+  -- toute la case de la rive écartée (Cl.REJECT_CELL) : la rive voisine ne revient pas à la passe suivante
+  check(f1.build.far.bad[Cl.cell_key(m1.far.x, m1.far.y)] and m2 and m2.far
+    and Cl.cell_key(m2.far.x, m2.far.y) ~= Cl.cell_key(m1.far.x, m1.far.y), "apres l'ecart : la case entiere de la rive est ecartee")
 end
 
 -- site écarté (b.avoid) sur le lac de l'est : la centrale va à l'ouest
@@ -388,6 +397,7 @@ local mutants = {
   { "budget par defaut", function(C) C.path_opts = function() return nil end end },
   { "site ecarte ignore", function(C) C.avoided = function() return false end end },
   { "carrefour non ramene", function(C) C.clamp_node = function(R, i, j) return i, j end end },
+  { "carrefour borne a -R", function(C) C.clamp_node = function(R, i, j) local function c(v) return math.max(-R, math.min(R, v)) end return c(i), c(j) end end },
   { "exploration jamais demandee", function(C) C.when_dry = function() return "refuser" end end },
   { "exploration sans fin", function(C) C.when_dry = function(src, w, can) if src == "carte" and can then return "explorer" end return "refuser" end end },
   { "point d'appui le plus lointain", function(C) local o = C.anchor_spot; C.anchor_spot = function(st, x, y, r)
