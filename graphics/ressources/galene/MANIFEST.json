@@ -1,0 +1,71 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.2333,
+  0.2456,
+  0.2503,
+  0.2168,
+  0.1562,
+  0.1427,
+  0.1079,
+  0.0522
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "G1",
+ "echantillons": 128,
+ "effet": "eclats",
+ "effet_reglages": {
+  "seuil": [
+   0.45,
+   0.8
+  ],
+  "teinte": [
+   0.8,
+   0.9,
+   1.0
+  ]
+ },
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "galene",
+ "nom_direction": "cubes de galène argentée dans une gangue de calcite",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.096,
+   0.205,
+   0.375,
+   0.324
+  ],
+  "acier": 0.776,
+  "acier_bleutes": 0.34,
+  "chauds": 0.134,
+  "sombres": 0.09
+ },
+ "secondes_blender": 1831.88,
+ "sha256": {
+  "galene-effet.png": "bbfa8442acf809f5db3f0d170c806e6013c5f4cc4901e46dc42250a456dfe9cf",
+  "galene.png": "bfc566638f62fa9fc0c2780741e8cb2799729b58831d69afbe5609d0eea80b59",
+  "hr-galene-effet.png": "dead47df4b2946e0234f872cdeb15254c6a30f24c7e885567ad40730e2b41d73",
+  "hr-galene.png": "345af4c3b1a90101ada7d0e2246e506ff610f1ebd7da951603cfe4c5e1938acf",
+  "icone-1.png": "f567f4201e9405972e32b58a34c896ee298f272589b63c33924b8ddd7f2f968d",
+  "icone-2.png": "51efade360ba59b1b7b856c52d1996b2610ca2b36bf1f42242f41662fbb5ff8b",
+  "icone-3.png": "4a06beea3866a9e67324b9774c69e664016e28072061e0f4995b33a9087432c6",
+  "icone.png": "5ad0c217b137f53841df26335b1057c2cb57423a8fb5c2c1e01beb0fc05a40e3"
+ }
+}

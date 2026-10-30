@@ -455,6 +455,17 @@ W.resources = {
     copy_icon = "stone",
     tint = { r = 0.70, g = 0.78, b = 1.00 },
     glint = { tint = { r = 0.75, g = 0.85, b = 1.00 }, min = 0.10, max = 0.35, period = 5 },
+    -- Feuille PROPRE du kit minerai (30/10 ; direction G1, tools/render/pieces/ressources/directions.py : cubes de galène
+    -- argentée dans une gangue de calcite, 128 échantillons) : remplace la pierre teintée ci-dessus pour le gisement, son
+    -- icône et l'objet ; `tint` reste la couleur des dérivés. check_gisement : 6 OK, 1 ECHEC (couverture du stade 1 : 0,233
+    -- contre 0,316 en vanilla, écart 0,083 pour 0,08 toléré). Éclats d'argent froid, faibles de jour. Choix provisoire,
+    -- sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/galene",
+      name = "galene",
+      mining_visualisation_tint = { r = 0.62, g = 0.64, b = 0.70, a = 1 },
+      effet = { period = 5, deviation = 1, darkness_multiplier = 60, min = 0.02, max = 0.08 },
+    },
     -- Bleu de cobalt sur la carte : le gris est pris (fer, cratères, ilménite à ΔE76 < 20 d'un gris de plomb) ; ΔE76 ≥ 47
     -- de tous les minerais, fluides et sols du jeu (64,8 au pétrole depuis le cristal bleu ; tests/galena_test.lua).
     map_color = { r = 0.00, g = 0.05, b = 1.00 },
