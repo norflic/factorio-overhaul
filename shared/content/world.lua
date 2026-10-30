@@ -524,10 +524,17 @@ W.resources = {
     item = "fo-bauxite",
     -- Pisolithes mates brique-ocre (X3 : « dans une terre rouille ») : la pierre (beige 0,69 ; 0,61 ; 0,43) × (1,00 ; 0,62 ;
     -- 0,45) donne un brique (0,69 ; 0,38 ; 0,19) (F36, F38 : une teinte ne fait que multiplier). Sans éclat (minerai mat).
-    -- Feuille M1 propre à faire.
     copy_resource = "stone",
     copy_icon = "stone",
     tint = { r = 1.00, g = 0.62, b = 0.45 },
+    -- Feuille PROPRE du kit minerai (30/10 ; direction B1 : pisolithes brique et ocre, mates, nodules pâles de gibbsite,
+    -- 128 échantillons ; check_gisement 6 OK) ; SANS couche d'effet (minerai mat : rien ne luit). Choix provisoire, sans
+    -- verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/bauxite",
+      name = "bauxite",
+      mining_visualisation_tint = { r = 0.70, g = 0.36, b = 0.18, a = 1 },
+    },
     -- Chartreuse sur la carte : rouges et bruns sont pris (ennemis, cuivre, désert rouge, cassitérite) ; ΔE76 ≥ 45 de tous
     -- les minerais, fluides et sols (recherche sur une grille de 21³ couleurs, tests/bauxite_test.lua).
     map_color = { r = 0.80, g = 1.00, b = 0.00 },

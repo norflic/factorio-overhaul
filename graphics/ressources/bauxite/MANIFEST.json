@@ -1,0 +1,59 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.3124,
+  0.285,
+  0.2433,
+  0.2094,
+  0.1878,
+  0.1557,
+  0.1092,
+  0.0656
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "B1",
+ "echantillons": 128,
+ "effet": null,
+ "effet_reglages": {},
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "bauxite",
+ "nom_direction": "pisolithes de bauxite brique et ocre dans une terre rouille",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.101,
+   0.258,
+   0.375,
+   0.265
+  ],
+  "acier": 0.001,
+  "acier_bleutes": 0.0,
+  "chauds": 0.966,
+  "sombres": 0.033
+ },
+ "secondes_blender": 1757.64,
+ "sha256": {
+  "bauxite.png": "9680b122171754dad7bdccf5b7e346acd0c9bed12202c8374d0c09f6486a70e8",
+  "hr-bauxite.png": "03929a15120c29923839bf9964b0d24ff00154d7a0c3fc503b6c45ef02e6dcb5",
+  "icone-1.png": "1209918e6f7ece9746c3ee85959b9dd4b72bc77fac699ce98bb89ef0ff6cf06a",
+  "icone-2.png": "93565ec0f98e7e1b0aa46c4eb97adaaf540f75c4f1a5d16fff4e20b4e93a03a3",
+  "icone-3.png": "af08af66d5cc954d62c1fe18ac37d00142c0ec748c54df7f8cdde857eb00aae2",
+  "icone.png": "8e8132a5ccca0bf8e7c51d399ae7c54a569c417e8e388bfad4d665476505556b"
+ }
+}
