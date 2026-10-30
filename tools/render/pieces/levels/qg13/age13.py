@@ -378,6 +378,11 @@ def socle(lot, M, r):
     lot.put(M["ceram2"], G.prisme([(p[0], p[1]) for p in P], 0.0, Z_SOC - 0.12, top_scale=0.975))
     Pi = [yaw((x * 0.97 - 0.02, y * 0.97, 0)) for x, y in poly]
     lot.put(M["grille"], G.prisme([(p[0], p[1]) for p in Pi], Z_SOC - 0.12, Z_SOC, top_scale=1.0))
+    # dalle de céramique sous la sphère, incrustation de cuivre (le vide se lit sur un sol clair, essai 4)
+    cc = yaw((CX, CY, 0.0))
+    lot.put(M["ceram3"], G.tour([(Z_SOC - 0.02, 3.3), (Z_SOC + 0.04, 3.25), (Z_SOC + 0.06, 0.0)], 48, "z", (cc[0], cc[1], 0.0)))
+    for rr_ in (2.1, 3.05):
+        lot.put(M["cuivre_s"], tore((cc[0], cc[1], Z_SOC + 0.06), rr_, 0.035, 64, 5))
     # rive de cuivre, pilastres et évents sur la face sud
     for i in range(len(P)):
         a, b = P[i], P[(i + 1) % len(P)]
@@ -394,26 +399,34 @@ def socle(lot, M, r):
 
 def cryostat(lot, M, r):
     c = (CX, CY, 0.0)
-    R = 1.55
-    lot.put(M["ceram3"], G.tour([(Z_SOC, R), (2.25, R), (2.35, R - 0.12), (2.4, 0.8)], 40, "z", yaw(c), cap1=True))
-    for z in (Z_SOC + 0.12, 1.55, 2.2):
+    R, ZB, RC_ = 1.55, 1.5, 0.78                       # essai 4 : bas large jusqu'à ZB, puis colonne fine (vide ouvert)
+    lot.put(M["ceram3"], G.tour([(Z_SOC, R), (ZB - 0.1, R), (ZB, R - 0.15), (ZB + 0.05, RC_ + 0.2), (ZB + 0.1, RC_),
+                                 (2.4, RC_), (2.45, 0.7)], 40, "z", yaw(c), cap1=True))
+    for z in (Z_SOC + 0.12, ZB - 0.18):
         lot.put(M["cuivre"], G.tour([(z - 0.05, R + 0.04), (z + 0.05, R + 0.04)], 40, "z", yaw(c)))
+    for z in (1.85, 2.25):
+        lot.put(M["cuivre"], G.tour([(z - 0.05, RC_ + 0.05), (z + 0.05, RC_ + 0.05)], 24, "z", yaw(c)))
     for k in range(10):                                  # nervures verticales
         a = TAU * (k + 0.5) / 10
         p = yaw((CX + (R + 0.04) * math.cos(a), CY + (R + 0.04) * math.sin(a), 0))
-        lot.put(M["cuivre_s"], G.boite((p[0], p[1], (Z_SOC + 2.25) / 2), (0.08, 0.08, 2.25 - Z_SOC), a + YAW))
+        lot.put(M["cuivre_s"], G.boite((p[0], p[1], (Z_SOC + ZB - 0.1) / 2), (0.08, 0.08, ZB - 0.1 - Z_SOC), a + YAW))
+    for k in range(6):                                   # goussets de la colonne
+        a = TAU * k / 6 + 0.25
+        p0 = yaw((CX + (RC_ + 0.02) * math.cos(a), CY + (RC_ + 0.02) * math.sin(a), 2.2))
+        p1 = yaw((CX + (R - 0.25) * math.cos(a), CY + (R - 0.25) * math.sin(a), ZB))
+        lot.put(M["cuivre_s"], boite_ax(p1, p0, 0.07, 0.07))
     # porte au sud-ouest (derrière l'escalier), encadrement de cuivre, voyant
     a = math.radians(235) + YAW
     cc = yaw(c)
     p = (cc[0] + (R + 0.05) * math.cos(a), cc[1] + (R + 0.05) * math.sin(a), 0)
-    lot.put(M["cuivre"], G.boite((p[0], p[1], Z_SOC + 0.6), (0.14, 0.82, 1.2), a))
+    lot.put(M["cuivre"], G.boite((p[0], p[1], Z_SOC + 0.27), (0.14, 0.7, 0.54), a))
     q = (cc[0] + (R + 0.11) * math.cos(a), cc[1] + (R + 0.11) * math.sin(a), 0)
-    lot.put(M["noir"], G.boite((q[0], q[1], Z_SOC + 0.55), (0.06, 0.62, 1.08), a))
+    lot.put(M["noir"], G.boite((q[0], q[1], Z_SOC + 0.25), (0.06, 0.52, 0.44), a))
     q = (cc[0] + (R + 0.15) * math.cos(a), cc[1] + (R + 0.15) * math.sin(a), 0)
-    lot.put(M["hublot"], G.boite((q[0], q[1], Z_SOC + 1.3), (0.06, 0.24, 0.08), a))
+    lot.put(M["hublot"], G.boite((q[0], q[1], Z_SOC + 0.58), (0.06, 0.2, 0.06), a))
     # hublots du cryostat (2, différents)
-    for (aa, z, rr_) in ((-math.pi / 2 - 0.75, 1.6, 0.13), (-math.pi / 2 + 0.8, 1.75, 0.09)):
-        q = (CX + R * math.cos(aa), CY + R * math.sin(aa), z)
+    for (aa, z, rr_, RR) in ((-math.pi / 2 - 0.75, 1.15, 0.12, R), (-math.pi / 2 + 0.5, 2.05, 0.09, RC_)):
+        q = (CX + RR * math.cos(aa), CY + RR * math.sin(aa), z)
         O.hublot(lot, M["cuivre"], M["verre"], yaw(q), yaw((math.cos(aa), math.sin(aa), 0)), rr_)
     # col vers la sphère : brides et soufflet
     lot.put(M["acier"], G.tour([(2.35, 0.72), (3.35, 0.62)], 24, "z", yaw(c)))
@@ -422,7 +435,7 @@ def cryostat(lot, M, r):
     # flexibles cryostat → dessous de la sphère (le vide ombré)
     for k in range(6):
         a = TAU * k / 6 + 0.3
-        p0 = (CX + 1.15 * math.cos(a), CY + 1.15 * math.sin(a), 2.38)
+        p0 = (CX + 0.6 * math.cos(a), CY + 0.6 * math.sin(a), 2.42)
         p2 = (CX + 1.3 * math.cos(a + 0.35), CY + 1.3 * math.sin(a + 0.35), CZ - math.sqrt(CR * CR - 1.69) + 0.05)
         p1 = G.add(G.lerp(p0, p2, 0.5), (0.35 * math.cos(a), 0.35 * math.sin(a), -0.25))
         O.flexible(lot, M["caout"] if k % 2 else M["cuivre_s"], [yaw(p0), yaw(p1), yaw(p2)], 0.065 if k % 3 else 0.09, pas=0.08)
@@ -481,9 +494,10 @@ def sphere(lot, M, r):
 def tore_plasma(lot, M, r):
     c = yaw((CX, CY, TZ))
     # plasma (émissif) vu par la fenêtre du carter
-    lot.put(M["plasma"], tore(c, TR, 0.24, 96, 10))
-    # carter : tout le petit cercle sauf la fenêtre (de 15° à 62° au-dessus de l'horizontale, côté extérieur)
-    b0, b1 = math.radians(62), math.radians(375)
+    lot.put(M["plasma"], tore(c, TR, 0.31, 128, 12))
+    lot.put(M["coeur"], tore((c[0], c[1], c[2] + 0.27), TR, 0.07, 128, 6))      # cœur orange #FF9A3A (filet chaud)
+    # carter : tout le petit cercle sauf la fenêtre du DESSUS (de 18° à 162°) : l'anneau se lit tout autour (essai 4)
+    b0, b1 = math.radians(162), math.radians(378)
     lot.put(M["ceram3"], tore(c, TR, TRC, 96, 24, b0, b1))
     lot.put(M["noire"], tore(c, TR, TRC - 0.02, 96, 10, math.radians(200), math.radians(340)))
     for b in (b0, b1):                                    # lèvres de cuivre de la fenêtre
@@ -535,17 +549,20 @@ def trepied(lot, M, r, zp):
     zc = 4.0
     rc = math.sqrt(CR * CR - (CZ - zc) ** 2)
     lot.put(M["cuivre"], tore(yaw((CX, CY, zc)), rc + 0.06, 0.13, 48, 8))
-    for ang in (45, 135, 270):
+    for ang in (90, 212, 328):
         a = math.radians(ang)
         d = (math.cos(a), math.sin(a))
-        foot = yaw((c[0] + 3.7 * d[0], c[1] + 3.7 * d[1], Z_SOC))
+        foot = yaw((c[0] + 3.55 * d[0], c[1] + 3.55 * d[1], Z_SOC))
         top = yaw((c[0] + (rc + 0.1) * d[0], c[1] + (rc + 0.1) * d[1], zc))
-        knee = yaw((c[0] + 3.4 * d[0], c[1] + 3.4 * d[1], 2.45))
-        lot.put(M["ceram"], boite_ax(foot, knee, 0.42, 0.42))
-        lot.put(M["ceram"], boite_ax(knee, top, 0.36, 0.36))
-        lot.put(M["cuivre"], G.sphere(knee, 0.3, 12, 6))
+        knee = yaw((c[0] + 3.2 * d[0], c[1] + 3.2 * d[1], 2.6))
+        lot.put(M["ceram"], boite_ax(foot, knee, 0.58, 0.5))
+        lot.put(M["ceram"], boite_ax(knee, top, 0.48, 0.42))
+        lot.put(M["noire"], boite_ax(G.lerp(knee, top, 0.12), G.lerp(knee, top, 0.88), 0.5, 0.2))
+        lot.put(M["cuivre"], G.sphere(knee, 0.36, 14, 7))
         for t in (0.25, 0.6):
-            lot.put(M["cuivre_s"], boite_ax(G.lerp(foot, knee, t - 0.04), G.lerp(foot, knee, t + 0.04), 0.48, 0.48))
+            lot.put(M["cuivre_s"], boite_ax(G.lerp(foot, knee, t - 0.04), G.lerp(foot, knee, t + 0.04), 0.64, 0.56))
+        for t in (0.35, 0.7):
+            lot.put(M["cuivre"], boite_ax(G.lerp(knee, top, t - 0.03), G.lerp(knee, top, t + 0.03), 0.54, 0.48))
         # vérin parallèle
         off = yaw((-d[1] * 0.32, d[0] * 0.32, 0.0))
         a0 = G.add(G.lerp(foot, knee, 0.15), off)
@@ -579,9 +596,14 @@ def fleche(lot, M, r, pts):
     z0 = A[2] + 0.2
     lot.put(M["ceram3"], G.tour([(z0 - 0.3, 0.42), (z0 + 0.35, 0.36), (z0 + 0.45, 0.28)], 16, "z", (A[0], A[1], 0.0), cap1=True))
     lot.put(M["cuivre"], G.tour([(z0 + 0.45, 0.32), (z0 + 0.55, 0.32)], 16, "z", (A[0], A[1], 0.0), cap0=True, cap1=True))
-    lot.put(M["ceram"], G.tour([(z0 + 0.55, 0.22), (z0 + 1.6, 0.14)], 12, "z", (A[0], A[1], 0.0), cap1=True))
-    for z in (z0 + 0.85, z0 + 1.25):
-        lot.put(M["cuivre"], G.tour([(z - 0.04, 0.22), (z + 0.04, 0.22)], 12, "z", (A[0], A[1], 0.0)))
+    lot.put(M["ceram"], G.tour([(z0 + 0.55, 0.3), (z0 + 1.0, 0.25), (z0 + 1.05, 0.2), (z0 + 1.6, 0.15)], 12, "z", (A[0], A[1], 0.0), cap1=True))
+    for z in (z0 + 0.75, z0 + 1.02, z0 + 1.3):
+        lot.put(M["cuivre"], G.tour([(z - 0.04, 0.29), (z + 0.04, 0.29)], 12, "z", (A[0], A[1], 0.0)))
+    for k in range(4):                                   # ailettes de la flèche
+        a = TAU * k / 4 + 0.4
+        q = (A[0] + 0.28 * math.cos(a), A[1] + 0.28 * math.sin(a), z0 + 0.6)
+        lot.put(M["cuivre_s"], G.prisme([(q[0] - 0.04, q[1] - 0.04), (q[0] + 0.04, q[1] - 0.04), (q[0] + 0.04, q[1] + 0.04),
+                                        (q[0] - 0.04, q[1] + 0.04)], z0 + 0.3, z0 + 1.15, top_scale=0.4))
     lot.put(M["cuivre"], tore((A[0], A[1], z0 + 1.7), 0.3, 0.05, 24, 6))
     lot.put(M["balise"], G.sphere((A[0], A[1], z0 + 1.75), 0.13, 12, 6))
     lot.put(M["acier"], G.tube([(A[0], A[1], z0 + 1.85), (A[0], A[1], z0 + 3.0)], 0.035, 6))
@@ -603,8 +625,11 @@ def injecteur(lot, M, r, th, L=2.4, appui=Z_SOC):
     for i in range(6):
         t = 0.15 + 0.7 * i / 5
         lot.put(M["cuivre"], G.oriente(G.tour([(t * L - 0.05, 0.43), (t * L + 0.05, 0.43)], 20, "z", cap0=True, cap1=True), p0, er))
-    lot.put(M["acier"], G.oriente(G.boite((0, 0, 0.0), (0.95, 0.95, 0.85)), G.add(p1, G.mul(er, 0.4)), er))
-    lot.put(M["noir"], G.oriente(G.boite((0, 0, 0.0), (0.6, 0.6, 0.12)), G.add(p1, G.mul(er, 0.86)), er))
+    lot.put(M["ceram2"], G.oriente(G.tour([(0.0, 0.5), (0.6, 0.5), (0.75, 0.42), (0.82, 0.0)], 8, "z", cap0=True), p1, er))
+    for t in (0.06, 0.52):
+        lot.put(M["cuivre"], G.oriente(G.tour([(t, 0.53), (t + 0.07, 0.53)], 8, "z", cap0=True, cap1=True), p1, er))
+    lot.put(M["noir"], G.oriente(G.tour([(0.8, 0.26), (0.86, 0.26), (0.87, 0.0)], 12, "z"), p1, er))
+    lot.put(M["plasma"], G.oriente(G.tour([(0.86, 0.12), (0.9, 0.0)], 12, "z"), p1, er))
     O.flexible(lot, M["acier"], [G.add(p0, G.mul(er, 0.02)), G.add(p0, G.mul(er, -0.35)), G.add(p0, G.mul(er, -0.62))], 0.2, pas=0.06, n=6)
     # tréteau
     for t in (0.2, 0.85):
