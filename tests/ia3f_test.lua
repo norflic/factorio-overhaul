@@ -265,5 +265,30 @@ check(on_n >= off_n, string.format("chemins ratés : pétrole allumé trouve le 
   on_n, off_n, #SEEDS))
 check(m_on <= m_off + spread, string.format("chemins ratés : temps médian allumé %.1f min, éteint %.1f min, écart toléré %.1f min", m_on, m_off, spread))
 
+-- 7b. Reprise sur 0.6.20 (30/10), APRÈS la mesure (donc critère ajouté, pas écrit avant ; les C1/C2 ci-dessus restent tels
+-- quels) : sur 0.6.20, C1 échoue (0 graine sur 6 réglage allumé, 2 sur 6 éteint). Relevé de la graine 5 : les deux parties sont
+-- identiques jusqu'au premier chemin raté de l'éclaireur du pétrole ; la cible diffère, puis 3 chemins ratés de suite ferment la
+-- frontière (« region bloquee », 8 régions) et toutes les sorties suivantes finissent « rien après 0.0 min » : MÊME mécanisme que
+-- l'échec de la section 6, réglage éteint, sur main (lot IA3F-PETROLE). Pour séparer l'effet du pétrole de ce défaut, la même
+-- comparaison SANS chemin raté : le pétrole allumé doit trouver le pétrole sur autant de graines, en un temps médian pas plus long.
+local function find_min0(opt)
+  local _, _, t0x, oilx = run_oil(0, opt)
+  return oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil
+end
+local on0_n, off0_n, on0_t, off0_t = 0, 0, {}, {}
+for _, sd in ipairs(SEEDS) do
+  local a = find_min0({ petrole = true, seed = sd })
+  local b = find_min0({ petrole = false, seed = sd })
+  if a then on0_n = on0_n + 1 end
+  if b then off0_n = off0_n + 1 end
+  on0_t[#on0_t + 1] = a or 30
+  off0_t[#off0_t + 1] = b or 30
+  print(string.format("  sans chemin rate, graine %d : petrole trouve a %s min (allume) / %s min (eteint)", sd, tostring(a), tostring(b)))
+end
+check(on0_n >= off0_n, string.format("sans chemin raté : pétrole allumé trouve le pétrole sur au moins autant de graines (%d contre %d sur %d)",
+  on0_n, off0_n, #SEEDS))
+check(median(on0_t) <= median(off0_t), string.format("sans chemin raté : temps médian allumé %.1f min <= éteint %.1f min",
+  median(on0_t), median(off0_t)))
+
 print(string.format("[IA3F] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
