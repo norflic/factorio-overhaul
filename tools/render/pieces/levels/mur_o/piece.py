@@ -36,6 +36,7 @@ GRAINES = {"single": 1.7, "vert": 2.9, "horiz": 0.0, "horiz2": 5.3, "horiz3": 8.
            "tee": 6.2, "endR": 7.4, "endL": 9.6}
 K_SUD = 0.88       # v2 : échelle latérale du bras sud ; le mur vanilla nord-sud fait 47-48 px HR de large au pied
                    # (0,75 tuile), le v1 en faisait 62-68 (+35 %)
+OMBRE_SOLEIL = (342.0, 37.0)   # v5b (C1) : (azimut, élévation) du soleil de la seule passe d'ombre ; None = F47
 EPS = 0.02          # les bras est et ouest dépassent de 0,02 tuile : pas de colonne demi-transparente au raccord
 SQ2 = math.sqrt(2.0)
 

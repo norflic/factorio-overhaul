@@ -88,6 +88,9 @@ def post(name, a):
     sh = npy("shadow")
     if sh is not None:
         hr["shadow"] = P.shadow_layer(sh)
+        # v5b (C1) : l'ombre sous le corps opaque de la case ne se voit pas en jeu (le corps est dessiné par-dessus) ;
+        # on la retire, comme les sprites d'ombre du mur vanilla (centroïde comparable, fichier plus petit)
+        hr["shadow"][..., 3] *= 1.0 - np.clip(main_raw[..., 3], 0, 1)
     gl = npy("glow")
     if gl is not None:
         hr["glow"] = P.additive_layer(gl)

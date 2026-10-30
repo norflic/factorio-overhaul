@@ -18,7 +18,7 @@ EPOQUE = 15
 NOM = "Néant"
 FORME = "horiz"
 Z_PL, Z_W, Z_CAP = 0.12, 0.88, 0.93          # plinthe, haut du talus, dessus du couronnement de nacre
-Z_F0, Z_F1 = 1.02, 1.16                      # créneaux flottants (vide de 0,09 sous eux)
+Z_F0, Z_F1 = 1.10, 1.25        # v5b (C4) : vide de 0,17 sous les créneaux                      # créneaux flottants (vide de 0,09 sous eux)
 HW0, HW1 = 0.49, 0.13       # v4 : talus concave
 SQ2 = math.sqrt(2.0)
 RIV = 0.016
@@ -33,7 +33,7 @@ def hw(z):
 
 def mats(S):
     M = {}
-    M["laque"] = surface("m15_laque", (0.05, 0.045, 0.042), (0.028, 0.025, 0.023), rough=0.22, rough2=0.4, metal=0.0,
+    M["laque"] = surface("m15_laque", (0.052, 0.038, 0.027), (0.03, 0.022, 0.016), rough=0.22, rough2=0.4, metal=0.0,
                          spec=0.8, var=0.6, var_scale=5.0, grain=0.25, bump=0.15, bump_scale=60.0,
                          edge=((0.22, 0.21, 0.24), 0.7, 0.015), cavity=0.5, streak=0.35,
                          stain=((0.006, 0.006, 0.007), 0.5, 6.0), bottom=PIED)
@@ -44,14 +44,14 @@ def mats(S):
     M["or"] = surface("m15_or", (0.80, 0.58, 0.22), (0.60, 0.42, 0.15), rough=0.32, rough2=0.45, metal=0.5, var=0.5,
                       var_scale=10.0, grain=0.12, bump=0.1, edge=((1.0, 0.85, 0.55), 0.4, 0.015), cavity=0.35)
     # or blanc #E8DCB0 ≈ (0.807, 0.716, 0.431) ; nacre #D8D2C8 ≈ (0.686, 0.644, 0.578)
-    M["or_blanc"] = surface("m15_orb", (0.36, 0.38, 0.42), (0.26, 0.28, 0.31), rough=0.3, rough2=0.42, metal=0.4,
+    M["or_blanc"] = surface("m15_orb", (0.62, 0.53, 0.31), (0.44, 0.37, 0.21), rough=0.3, rough2=0.42, metal=0.4,
                             var=0.5, var_scale=9.0, grain=0.12, bump=0.1, edge=((1.0, 0.95, 0.8), 0.5, 0.015),
                             cavity=0.4)
-    M["nacre"] = surface("m15_nacre", (0.30, 0.33, 0.37), (0.21, 0.23, 0.26), rough=0.35, metal=0.1, spec=0.7,
+    M["nacre"] = surface("m15_nacre", (0.52, 0.47, 0.39), (0.36, 0.32, 0.26), rough=0.35, metal=0.1, spec=0.7,
                          var=0.6, var_scale=7.0, grain=0.15, bump=0.15, bump_scale=60.0,
                          edge=((0.9, 0.88, 0.84), 0.5, 0.015), cavity=0.45, streak=0.3,
                          stain=((0.32, 0.30, 0.27), 0.4, 6.0))
-    M["obsidienne"] = surface("m15_obs", (0.042, 0.038, 0.036), (0.06, 0.054, 0.05), rough=0.16, rough2=0.3, spec=0.9,
+    M["obsidienne"] = surface("m15_obs", (0.046, 0.034, 0.025), (0.062, 0.046, 0.033), rough=0.16, rough2=0.3, spec=0.9,
                               var=0.7, var_scale=5.0, grain=0.3, bump=0.15, edge=((0.16, 0.15, 0.18), 0.5, 0.02),
                               cavity=0.3)
     M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.80, 0.50), strength=0.35, base=(0.05, 0.04, 0.02))
@@ -94,6 +94,10 @@ def bras(g, M, B):
         for zb in (0.50,):
             _plaque(g, M["or"], x0, L, zb, zb + 0.03, k, 0.018, 0.02)
         geo.eboulis(g, (M["obsidienne"], M["laque"]), max(x0, 0.0), L - B.eps, -HW0 * k - 0.005, 2, r=0.028)
+        if not S_ and B.t0 < 0.5 < B.t1:
+            # v5b (C2) : lame de relief au joint de case, chapeau d'or blanc (2 par case avec le contrefort du milieu)
+            geo.contrefort_flanc(g, M["laque"], M["or_blanc"], B.x(0.5), lambda z: hw(z) * k, 0.72, w0=0.08, w1=0.035,
+                                 sail=0.09, cap_h=0.025)
         if S_:
             # v5 : ailerons d'obsidienne en saillie sur les flancs nord-sud (modelé, silhouette dentelée)
             hwk = lambda z: hw(z) * k  # noqa: E731

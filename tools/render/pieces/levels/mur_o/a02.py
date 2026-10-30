@@ -16,11 +16,12 @@ EPOQUE = 2
 NOM = "Forge"
 FORME = "horiz"
 Z_W, Z_CAP, Z_M = 0.80, 0.84, 0.97          # haut du talus, dessus du couronnement, merlons
-Z_F, Z_RB0, Z_RB1 = 0.12, 0.17, 0.27        # cassure du pied évasé, bande réfractaire (au-dessus du pied noir)
+Z_F, Z_RB0, Z_RB1 = 0.12, 0.07, 0.25        # cassure du pied évasé, bande réfractaire (au-dessus du pied noir)
 # profil concave : (z, demi-épaisseur en tuiles)
 PROFIL = ((0.0, 0.49), (Z_F, 0.40), (Z_W, 0.13))
 SQ2 = math.sqrt(2.0)
 RIV = 0.016
+RIV_G = 0.026                                # rivets de laiton des tôles : ≥ 2 px au zoom 1
 PIED = ((0.004, 0.003, 0.003), 0.07, 1.0)    # v5 : seul le contact au sol est noir (le corps reste clair)
 
 
@@ -36,8 +37,8 @@ def mats(S):
     M["pierre"] = surface("m2_pierre", (0.20, 0.172, 0.14), (0.105, 0.09, 0.074), rough=0.92, var=0.75, var_scale=4.0,
                           grain=0.3, bump=0.8, bump_scale=40.0,
                           brick=dict(w=0.25, h=0.115, mortar=0.010, c1=(0.21, 0.18, 0.15), c2=(0.12, 0.10, 0.083),
-                                     col_m=(0.05, 0.043, 0.036)),
-                          edge=((0.42, 0.38, 0.32), 0.75, 0.02), cavity=0.65, streak=0.75,
+                                     col_m=(0.012, 0.01, 0.008)),
+                          edge=((0.42, 0.38, 0.32), 0.75, 0.02), cavity=0.9, cavity_dist=0.14, streak=0.75,
                           stain=((0.04, 0.03, 0.022), 0.6, 4.0), bottom=PIED)
     M["refractaire"] = surface("m2_refr", (0.30, 0.08, 0.042), (0.16, 0.042, 0.024), rough=0.9, var=0.6, var_scale=4.0,
                                grain=0.25, bump=0.6, bump_scale=55.0,
@@ -112,13 +113,13 @@ def bras(g, M, B):
         _plaque(g, M["cerclage"], x0, L, Z_RB1, Z_RB1 + 0.04, k, 0.014, 0.02)
         if not S_:
             # une tôle boulonnée par demi-case (2 par case), deux valeurs d'acier, rivets de laiton
-            sp = B.span(0.13, 0.46)
+            sp = B.span(0.12, 0.385)
             if sp:
                 xa, xb = B.x(sp[0]), min(B.x(sp[1]), L)
                 mat = M["acier"] if g.rnd() < 0.5 else M["acier2"]
                 _plaque(g, mat, xa, xb, 0.36, 0.66, k, 0.012, 0.02)
                 g.rivets([(x, -(hw(z) * k + 0.016), z, "y") for x in (xa + 0.05, xb - 0.05) for z in (0.40, 0.62)],
-                         RIV, M["laiton"])
+                         RIV_G, M["laiton"])
                 # coulures de rouille sous les boulons du bas (contrastées, lisibles au zoom 1)
                 for x in (xa + 0.05, xb - 0.05, 0.5 * (xa + xb) + g.rnd(-0.04, 0.04)):
                     zb, zt = g.rnd(0.19, 0.30), 0.385
@@ -135,10 +136,9 @@ def bras(g, M, B):
             for t in (0.25, 0.75):
                 geo.contrefort_flanc(g, M["pierre"], M["acier"], B.x(t) + g.rnd(-0.03, 0.03), hwk, 0.66)
             geo.blocs_debordants(g, (M["pierre"], M["acier2"]), B.x(0.05), B.x(0.95), hwk, (0.32, 0.62), 3)
-        # plat de cerclage riveté au joint de case
-        if B.t0 < 0.5 < B.t1:
-            xj = B.x(0.5)
-            _plaque(g, M["cerclage"], xj - 0.024, xj + 0.024, Z_RB1, Z_W - 0.02, k, 0.014, 0.02)
+        # contrefort de pierre au joint de case (C2 : 2 par case avec celui du milieu), cornière d'acier rivetée
+        if B.t0 < 0.5 < B.t1 and not S_:
+            _contrefort_x(g, M, B.x(0.5), k)
         _jupe(g, M, max(x0, 0.0), L - B.eps, k, -hw(0.0) * k)
         g.pop()
     # couronnement d'acier mince et merlons d'acier (2 par case), la signature d'époque
@@ -162,6 +162,22 @@ def _merlon(g, M, a, b, k, xc, dz=0.0, extra=0.0):
         if hi - lo > 0.01:
             g.prism([(-0.095 * k, zt - 0.035), (0.095 * k, zt - 0.035), (0.085 * k, zt), (-0.085 * k, zt)], lo, hi,
                     M["acier_dessus"], bev=0.005)
+
+
+def _contrefort_x(g, M, xc, k, fente=False):
+    """Contrefort en saillie (0,07 tuile au milieu), pied affleurant, cornière d'acier rivetée sur l'arête avant."""
+    hwk = lambda z: hw(z) * k  # noqa: E731
+    geo.contrefort_flanc(g, M["pierre"], M["acier"], xc, hwk, Z_W - 0.04, w0=0.11, w1=0.055, sail=0.07 * k)
+    z0, z1 = Z_RB1 + 0.02, Z_W - 0.08
+    ya = lambda z: -(hwk(z) + 0.07 * k * (z / (Z_W - 0.04))) - 0.006  # noqa: E731
+    g.loft_z([(xc - 0.03, ya(z0) - 0.012), (xc + 0.03, ya(z0) - 0.012), (xc + 0.03, ya(z0) + 0.02),
+              (xc - 0.03, ya(z0) + 0.02)], z0, z1, M["acier"],
+             poly1=[(xc - 0.025, ya(z1) - 0.012), (xc + 0.025, ya(z1) - 0.012), (xc + 0.025, ya(z1) + 0.02),
+                    (xc - 0.025, ya(z1) + 0.02)], bev=0.003)
+    g.rivets([(xc, ya(z) - 0.014, z, "y") for z in (z0 + 0.06, 0.5 * (z0 + z1), z1 - 0.05)], 0.02, M["laiton"])
+    if fente:
+        z0, z1 = 0.36, 0.56
+        g.box(xc - 0.016, xc + 0.016, ya(0.46) - 0.004, ya(0.46) + 0.05, z0, z1, M["vide"], bev=0)
 
 
 def _contrefort(g, M, fente=False):
@@ -211,13 +227,11 @@ def noeud(g, M, forme, bras):
         _bout(g, M, 0.05)
     elif forme in ("corR", "corL"):
         _bout(g, M, 0.0)
-    elif forme == "horiz":
-        _contrefort(g, M)
-    elif forme == "horiz2":
-        _contrefort(g, M, fente=True)
-    elif forme == "horiz3":
-        _merlon(g, M, -0.11, 0.11, SQ2, 0.0, extra=0.0)
-        k = SQ2
-        _plaque(g, M["vide"], 0.17, 0.27, 0.06, 0.11, k, 0.003, 0.05)     # barbacane
+    elif forme in ("horiz", "horiz2", "horiz3"):
+        # C2 : contrefort en saillie au milieu de chaque segment droit (variantes : fente, barbacane)
+        _contrefort_x(g, M, 0.0, SQ2, fente=(forme == "horiz2"))
+        _merlon(g, M, -0.11, 0.11, SQ2, 0.0, extra=0.02)
+        if forme == "horiz3":
+            _plaque(g, M["vide"], 0.17, 0.27, 0.02, 0.06, SQ2, 0.003, 0.05)     # barbacane
     elif forme == "tee":
         _merlon(g, M, -0.11, 0.11, SQ2, 0.0)

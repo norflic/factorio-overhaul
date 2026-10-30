@@ -33,14 +33,14 @@ RIV = 0.016
 
 def mats(S):
     M = {}
-    M["pierre"] = surface("m8_pierre", (0.095, 0.11, 0.085), (0.05, 0.06, 0.045), rough=0.9, var=0.7, var_scale=7.0,
+    M["pierre"] = surface("m8_pierre", (0.115, 0.098, 0.075), (0.06, 0.051, 0.039), rough=0.9, var=0.7, var_scale=7.0,
                           grain=0.25, bump=0.8, bump_scale=35.0, edge=((0.27, 0.29, 0.24), 0.55, 0.035), cavity=0.75,
-                          cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
+                          cavity_dist=0.08, streak=0.4, top=((0.09, 0.13, 0.04), 0.35, 0.32),
                           bottom=((0.004, 0.004, 0.003), 0.07, 1.0), seed=3.0,
                           stain=((0.03, 0.04, 0.025), 0.5, 5.0))
-    M["pierre2"] = surface("m8_pierre2", (0.12, 0.125, 0.10), (0.065, 0.07, 0.055), rough=0.9, var=0.7, var_scale=6.0,
+    M["pierre2"] = surface("m8_pierre2", (0.135, 0.115, 0.088), (0.07, 0.06, 0.046), rough=0.9, var=0.7, var_scale=6.0,
                            grain=0.25, bump=0.8, bump_scale=30.0, edge=((0.30, 0.31, 0.27), 0.55, 0.035), cavity=0.75,
-                           cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
+                           cavity_dist=0.08, streak=0.4, top=((0.09, 0.13, 0.04), 0.35, 0.32),
                            bottom=((0.004, 0.004, 0.003), 0.07, 1.0), seed=9.0,
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
     M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
@@ -51,15 +51,18 @@ def mats(S):
                           stain=((0.18, 0.36, 0.28), 0.45, 6.0))
     M["cuivre_sombre"] = surface("m8_cuivre2", (0.05, 0.13, 0.10), (0.11, 0.06, 0.03), rough=0.6, metal=0.4, var=0.6,
                                  grain=0.2, edge=((0.45, 0.22, 0.09), 0.8, 0.02), cavity=0.4)
-    M["chaperon"] = surface("m8_chaperon", (0.40, 0.42, 0.34), (0.24, 0.26, 0.20), rough=0.92, var=0.7,
+    M["chaperon"] = surface("m8_chaperon", (0.34, 0.30, 0.24), (0.20, 0.18, 0.14), rough=0.92, var=0.7,
                             var_scale=7.0, grain=0.28, bump=0.8, bump_scale=40.0, edge=((0.36, 0.38, 0.33), 0.6, 0.02),
-                            cavity=0.55, streak=0.4, top=((0.16, 0.30, 0.06), 0.45, 0.35),
+                            cavity=0.55, streak=0.4, top=((0.13, 0.17, 0.06), 0.25, 0.35),
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
                           grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
-    M["verre"] = surface("m8_verre_v", (0.09, 0.19, 0.03), (0.05, 0.11, 0.018), rough=0.06, rough2=0.12, spec=1.0,
+    M["verre"] = surface("m8_verre_v", (0.05, 0.075, 0.04), (0.03, 0.05, 0.025), rough=0.06, rough2=0.12, spec=1.0,
                          var=0.5, var_scale=6.0, grain=0.05, bump=0.05, cavity=0.2,
                          edge=((0.6, 0.8, 0.35), 0.4, 0.02))
+    # liquide vert #8FBF4A ≈ (0.27, 0.52, 0.068) linéaire : couleur éclairée (pas une barre lumineuse)
+    M["liquide_v"] = surface("m8_liq_v", (0.27, 0.52, 0.068), (0.17, 0.36, 0.04), rough=0.12, spec=0.9, var=0.5,
+                             var_scale=8.0, grain=0.06, bump=0.0, cavity=0.2)
     M["liquide"] = geo.emissive(S, "m8_liquide", (0.55, 0.75, 0.22), strength=0.35, base=(0.05, 0.09, 0.01))
     M["verre_sombre"] = surface("m8_verre_s", (0.03, 0.06, 0.02), rough=0.08, spec=1.0, var=0.3, grain=0.05,
                                 bump=0.0, cavity=0.0)
@@ -315,6 +318,24 @@ def _bulbe(g, M):
     geo.eboulis(g, (M["pierre"], M["pierre2"], M["mousse"]), -0.35, 0.35, -0.45, 3, r=0.035)
 
 
+def _bulbe_crete(g, M, niveau):
+    """Bulbe de verre épais qui traverse la crête (DA époque 8) : liquide vert #8FBF4A jusqu'au niveau donné (0 à 1),
+    verre sombre au-dessus, armature vert-de-gris (collier, anneau du niveau, côtes), ménisque luminescent."""
+    r, z0, z1 = 0.15, Z_W - 0.02, Z_R + 0.12
+    zl = z0 + 0.04 + niveau * (z1 - z0 - 0.04)
+    g.cyl((0, 0, 0.5 * (z0 + zl)), "z", r, zl - z0, M["liquide_v"], n=28, bev=0)
+    g.cyl((0, 0, 0.5 * (zl + z1)), "z", r, z1 - zl, M["verre"], n=28, bev=0)
+    g.sphere((0, 0, z1), r, M["verre"], seg=28, rings=14)
+    g.cyl((0, 0, zl + 0.004), "z", r + 0.004, 0.008, M["liquide"], n=28, bev=0)
+    g.S.torus(r + 0.012, 0.016, (0, 0, z0 + 0.02), M["cuivre"], major_seg=32, minor_seg=6)
+    g.S.torus(r + 0.008, 0.01, (0, 0, zl), M["cuivre_sombre"], major_seg=32, minor_seg=6)
+    for j in range(4):
+        a = j * math.pi / 2 + math.pi / 4
+        x, y = (r + 0.008) * math.cos(a), (r + 0.008) * math.sin(a)
+        g.cyl((x, y, 0.5 * (z0 + z1)), "z", 0.012, z1 - z0, M["cuivre_sombre"], n=6, bev=0)
+    g.cyl((0, 0, z1 + r - 0.01), "z", 0.035, 0.04, M["cuivre"], n=12, bev=0.002)
+
+
 def _pile(g, M, bulbe=False):
     """Angle et bout : pyramide tronquée au même talus que le mur (bouts chanfreinés), chapeau de cuivre ; au bout,
     un petit bulbe de verre au liquide sur le chapeau (≤ +15 % de la crête)."""
@@ -343,9 +364,13 @@ def noeud(g, M, forme, bras):
     elif forme in ("corR", "corL"):
         _pile(g, M)
     elif forme == "horiz":
-        _panneau(g, M)                     # v4 : un panneau de verre sur trois segments droits (rythme desserré)
+        _bulbe_crete(g, M, 0.35)           # v5b (C3) : verre bombé qui dépasse de la crête, niveau variable
     elif forme == "horiz2":
+        _bulbe_crete(g, M, 0.6)
         _gargouille(g, M)
     elif forme == "horiz3":
+        _bulbe_crete(g, M, 0.8)
         _mousse(g, M, -0.2, -(HW0 + 0.02) * SQ2, 0.0, 0.12)
+    elif forme == "tee":
+        _bulbe_crete(g, M, 0.5)
         _mousse(g, M, 0.25, -(HW0 + 0.0) * SQ2, 0.0, 0.09)
