@@ -101,15 +101,19 @@ end
 -- 47300, 1250 / 48700 avant. Lot X2 (25/10) : époques 10 à 13 recalibrées avec la bobine supraconductrice (valeur 60,
 -- pile 100 ; avant : moteur électrique, 16, pile 50, dont la place bornait toute la chaîne croissante des passages du
 -- centre depuis l'époque 10) : 370 / 50300, 687 / 51800, 1240 / 53400, 2270 / 80100 avant.
+-- Piste CALCULS (30/10) : recalibré après l'alignement des valeurs du plastique, du tungstène et de la batterie sur la matière
+-- brute réelle (époque 4 : 4,5 / 6000 → 5,1 / 4980, le passage du centre payé en plastique restant sous 2 000 objets ; époque
+-- 6 : 29,2 → 29,5 ; 7 : 57,9 → 57,7). Intégration 0.6.22 : tables recalculées par `levels_test --calibrate` sur les DEUX
+-- changements (bobine de X2 et valeurs de CALCULS).
 ---------------------------------------------------------------------------------------------------
 L.epochs = {
   { key = "pioneer",        color = { r = 1.00, g = 1.00, b = 1.00 }, value_mult = 0, cc_value = 0 },
   { key = "forge",          color = { r = 0.80, g = 0.88, b = 1.00 }, value_mult = 1.43, cc_value = 407 },
   { key = "steam",          color = { r = 1.00, g = 0.66, b = 0.50 }, value_mult = 1.46, cc_value = 1050 },
-  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 4.5, cc_value = 6000 },
+  { key = "oil",            color = { r = 0.95, g = 0.84, b = 0.50 }, value_mult = 5.1, cc_value = 4980 },
   { key = "volcano",        color = { r = 0.62, g = 0.55, b = 0.62 }, value_mult = 15.5, cc_value = 6060 },
-  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 29.2, cc_value = 6160 },
-  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.9, cc_value = 6290 },
+  { key = "electricity",    color = { r = 0.62, g = 0.85, b = 1.00 }, value_mult = 29.5, cc_value = 6160 },
+  { key = "crystal",        color = { r = 0.82, g = 0.62, b = 1.00 }, value_mult = 57.7, cc_value = 6290 },
   { key = "swamp",          color = { r = 0.66, g = 0.92, b = 0.55 }, value_mult = 110, cc_value = 6380 },
   { key = "atom",           color = { r = 0.72, g = 1.00, b = 0.62 }, value_mult = 204, cc_value = 14100 },
   { key = "hightech",       color = { r = 0.88, g = 0.95, b = 1.00 }, value_mult = 365, cc_value = 65000 },
@@ -137,12 +141,17 @@ L.epochs = {
 -- de 100, même porte : l'enrichissement de Kovarex) le remplace. Contrainte pour le lot X0 : un matériau
 -- d'époque s'empile par L.MIN_MATERIAL_STACK (50) au moins.
 ---------------------------------------------------------------------------------------------------
+-- Piste CALCULS (nuit du 29 au 30/10) : valeurs du plastique (3 → 1,5), du tungstène (4 → 2) et de la batterie (9 → 5,5)
+-- ALIGNÉES sur la matière brute réelle des recettes du jeu (tools/calc/equilibre.lua, programme linéaire : 1,53, 2,00 et
+-- 5,48 MU) : la valeur déclarée surestimait ces monnaies de 64 à 100 %, d'où des époques 4 à 6 payées en 67 à 84 % du
+-- calendrier. La valeur d'époque (value_mult) ne change pas : seules les QUANTITÉS demandées suivent. Cristal (3 pour
+-- 1 MU) gardé : rareté voulue par X0.
 L.epoch_materials = {
   [2] = { key = "steel", want = "acier", item = "steel-plate", value = 5 },
   [3] = { key = "engine", want = "moteur (mécanique de l'ère vapeur)", item = "engine-unit", value = 9 },
-  [4] = { key = "plastic", want = "plastique", item = "plastic-bar", value = 3 },
-  [5] = { key = "tungsten", want = "plaque de tungstène", item = "fo-tungsten-plate", value = 4 },
-  [6] = { key = "battery", want = "batterie", item = "battery", value = 9 },
+  [4] = { key = "plastic", want = "plastique", item = "plastic-bar", value = 1.5 },
+  [5] = { key = "tungsten", want = "plaque de tungstène", item = "fo-tungsten-plate", value = 2 },
+  [6] = { key = "battery", want = "batterie", item = "battery", value = 5.5 },
   [7] = { key = "crystal", want = "cristal de résonance", item = "fo-resonance-crystal", value = 3 },
   -- Baril généré par le jeu de base pour chaque fluide (data-updates de base) : un objet réel.
   [8] = { key = "methane", want = "méthane (baril)", item = "fo-methane-barrel", value = 10 },

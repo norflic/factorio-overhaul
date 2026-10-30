@@ -277,9 +277,9 @@ function X.cc_upgrade_mu(k) return X.CODEX_LOT_SHARE * X.budget(k) end
 X.currencies = {
   { epoch = 2, item = "steel-plate", value = 5, stack = 100, v2_item = "steel-plate" },
   { epoch = 3, item = "engine-unit", value = 9, stack = 50, v2_item = "engine-unit" },
-  { epoch = 4, item = "plastic-bar", value = 3, stack = 100, v2_item = "plastic-bar" },
-  { epoch = 5, item = "fo-tungsten-plate", value = 4, stack = 100, v2_item = "fo-tungsten-plate" },
-  { epoch = 6, item = "battery", value = 9, stack = 200, v2_item = "battery" },
+  { epoch = 4, item = "plastic-bar", value = 1.5, stack = 100, v2_item = "plastic-bar" }, -- CALCULS : 3 avant (réel 1,53)
+  { epoch = 5, item = "fo-tungsten-plate", value = 2, stack = 100, v2_item = "fo-tungsten-plate" }, -- CALCULS : 4 avant (réel 2)
+  { epoch = 6, item = "battery", value = 5.5, stack = 200, v2_item = "battery" }, -- CALCULS : 9 avant (réel 5,48)
   { epoch = 7, item = "fo-resonance-crystal", value = 3, stack = 50, v2_item = "fo-resonance-crystal" },
   { epoch = 8, item = "fo-biopolymer", value = 4, stack = 100, v2_item = "fo-methane-barrel",
     why_fr = "le baril de méthane de V2 s'empile par 10 (< 50) ; le biopolymère (PHB) est le produit signature du marais" },

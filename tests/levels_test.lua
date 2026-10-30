@@ -404,8 +404,6 @@ local function print_tables()
   local heavy, walls = {}, {}
   for _, t in ipairs(A.turrets) do heavy[t.copy] = t end
   for _, w in ipairs(A.walls) do walls[w.name] = w end
-  local sp10 = MD.families.speed.effects.speed[MD.TIERS]
-  local sp3 = MD.families.speed.effects.speed[3]
   local refs = {
     { "command", "max_health", "—" },
     { "command", "inventory_size", "coffre en acier : 48 cases" },
@@ -420,10 +418,13 @@ local function print_tables()
     { "laser", "range", "tourelle laser lourde (mod) : " .. num(heavy["laser-turret"].range) },
     { "wall", "max_health", "mur renforcé : " .. thousands(walls["fo-reinforced-wall"].hp) .. " ; mur blindé : " .. thousands(walls["fo-armored-wall"].hp) },
     { "wall", "physical", "mur blindé : 3 + 15 = 18 (et 50 %)" },
-    { "drill", "mining_speed", string.format("vanilla + 3 modules de vitesse 3 : %s minerai/s ; niveau 30 + 3 modules de vitesse palier %d : %s minerai/s (tapis jaune : 15/s)",
-      num(VANILLA.drill.mining_speed * (1 + 3 * sp3)), MD.TIERS, num(stat_at(L.by_key.drill, "mining_speed", 30) * (1 + 3 * sp10))) },
+    -- Piste CALCULS : modules MULTIPLIÉS (D-17) et cases réelles (MOD-1 : 5, puis + 1 par niveau) ; avant, 3 modules ADDITIONNÉS.
+    { "drill", "mining_speed", string.format("niveau 1 (%d cases) plein de modules de vitesse 3 multipliés : %s minerai/s ; niveau 30 (%d cases) plein de modules de vitesse palier %d : %s minerai/s, plafond × 328,67 du moteur (tapis jaune : 15/s ; tools/calc/equilibre.lua)",
+      L.module_slots(L.by_key.drill, 1), num(VANILLA.drill.mining_speed * MD.metrics("speed", 3, L.module_slots(L.by_key.drill, 1)).speed),
+      L.module_slots(L.by_key.drill, 30), MD.TIERS, num(stat_at(L.by_key.drill, "mining_speed", 30) * MD.metrics("speed", MD.TIERS, L.module_slots(L.by_key.drill, 30)).speed)) },
     { "furnace", "crafting_speed", "four électrique vanilla : 2, avec 2 emplacements de module (le four en acier n'en a aucun)" },
-    { "assembler", "crafting_speed", "machine d'assemblage 3 vanilla : 1,25, avec 4 emplacements (la machine 2 en a 2)" },
+    { "assembler", "crafting_speed", string.format("machine d'assemblage 3 vanilla : 1,25, 4 emplacements ; la machine 2 (niveau 1) en a %d depuis MOD-1, %d au niveau 30",
+      L.module_slots(L.by_key.assembler, 1), L.module_slots(L.by_key.assembler, 30)) },
   }
   for _, r in ipairs(refs) do
     local f = L.by_key[r[1]]
