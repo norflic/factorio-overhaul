@@ -34,7 +34,7 @@ ORDRE = ("single", "vert", "horiz", "horiz2", "horiz3", "corR", "corL", "tee", "
 # v3 : graine des motifs (taches, coulures) par forme : trois segments droits qui ne se répètent pas à l'identique
 GRAINES = {"single": 1.7, "vert": 2.9, "horiz": 0.0, "horiz2": 5.3, "horiz3": 8.1, "corR": 3.7, "corL": 4.4,
            "tee": 6.2, "endR": 7.4, "endL": 9.6}
-K_SUD = 0.78       # v2 : échelle latérale du bras sud ; le mur vanilla nord-sud fait 47-48 px HR de large au pied
+K_SUD = 0.88       # v2 : échelle latérale du bras sud ; le mur vanilla nord-sud fait 47-48 px HR de large au pied
                    # (0,75 tuile), le v1 en faisait 62-68 (+35 %)
 EPS = 0.02          # les bras est et ouest dépassent de 0,02 tuile : pas de colonne demi-transparente au raccord
 SQ2 = math.sqrt(2.0)
