@@ -24,7 +24,21 @@ SOURCE = "sand-3"  # sable ridé : le relief en vaguelettes devient une croûte 
 # l'impression que des biomes sont mélangés », « les bleues claires sont jolies ») : GIVRE, gris-bleu froid, de la famille
 # des éclats aqua (fo-crystal-shard, Lab mesuré 35 ; −16 ; 3). Moyenne visée Lab (≈ 50 ; −6 ; −11) : ΔE ≈ 50 de l'herbe
 # (30 ; −2 ; 33), plus clair que les cratères (53 ; 0 ; 0) d'une teinte franche (b ≈ −11 contre 0).
+# Lot BIOMES-SUIVI (30/10) : GIVRE CLAIR. Mesuré en jeu (banc b0-biomes, tools/autotest/biomes_fer.py) : le minerai de fer
+# vanilla (gris neutre, moyenne du fichier 85 ; 92 ; 93, reflets gris-bleu) se lisait mal sur le givre de 0.6.22 (Lab en jeu
+# 54 ; −4 ; −11) : ΔE moyen des colonnes du gisement 13,9 contre 21,6 sur l'herbe et 23,4 sur le désert rouge ; 40 % des
+# pixels se détachent du sol contre 61 et 65 %. Le sol est éclairci (moyenne visée Lab ≈ 68 ; −3 ; −11, celle de sa couleur
+# de carte 152 ; 174 ; 192) : le fer, ses reflets compris, devient plus sombre que le sol ; même teinte bleu clair (que le DC
+# aime), plus loin des cratères gris (53 ; 0 ; 0). Le fer vanilla n'est pas touché.
 RAMPE = [
+    (0.00, (70, 88, 102)),
+    (0.35, (122, 142, 158)),
+    (0.65, (152, 172, 188)),
+    (0.85, (178, 196, 210)),
+    (1.00, (218, 229, 236)),
+]
+# Givre de 0.6.22 (piste AMELIO-BIOMES, mesuré en jeu Lab 54 ; −4 ; −11) : option --givre-0622, pour la planche.
+RAMPE_GIVRE_0622 = [
     (0.00, (34, 46, 56)),
     (0.35, (74, 95, 110)),
     (0.65, (104, 129, 145)),
@@ -76,8 +90,9 @@ def main():
     ap.add_argument("--dest", default=os.path.join(MOD, "graphics", "terrain", "cristal"))
     ap.add_argument("--pale", action="store_true", help="premier essai (rampe pâle), pour comparaison")
     ap.add_argument("--mauve", action="store_true", help="rampe livrée par B0 (mauve bruyère), pour comparaison")
+    ap.add_argument("--givre-0622", dest="givre_0622", action="store_true", help="givre de 0.6.22 (AMELIO-BIOMES), pour comparaison")
     a = ap.parse_args()
-    rampe = RAMPE_PALE if a.pale else (RAMPE_MAUVE if a.mauve else RAMPE)
+    rampe = RAMPE_PALE if a.pale else (RAMPE_MAUVE if a.mauve else (RAMPE_GIVRE_0622 if a.givre_0622 else RAMPE))
     os.makedirs(a.dest, exist_ok=True)
     terr = os.path.join(a.data, "base", "graphics", "terrain")
     for pre in ("", "hr-"):

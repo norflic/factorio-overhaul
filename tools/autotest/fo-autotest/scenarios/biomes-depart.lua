@@ -4,7 +4,7 @@
   pousse plus sur les biomes du mod (W.no_vanilla_entities) ; la plaine de cristal n'a aucun arbre à elle. Le bois est une
   ressource de départ (X0 : « wood », époque 1, placement « start » ; labo à combustible, poteaux, coffres).
 
-  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui <lot> -- 420 biomes-depart <source>
+  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui <lot> -- 760 biomes-depart <source>
 
   Méthode : graines G(k) = 1000 + 7919 k, k = 1..N, sur des surfaces créées avec les réglages de nauvis (une par tick,
   supprimée aussitôt). Pour chaque graine : chunks autour de (0, 0) dans un rayon de 1 chunk ; part du biome dans un
@@ -15,11 +15,11 @@
   Les cratères sont relevés au journal (hors bilan).
 ]]
 
-local N = 300
-local MAX_DEPARTS = 6
+local N = 600
+local MAX_DEPARTS = 12
 local RAYON_BOIS = 150 -- tuiles : « rayon de départ » (une course à pied de 20 s environ)
 local BOIS_MIN = 100 -- bois : labo à combustible (4), une trentaine de poteaux (15), coffres (2 chacun), réserve
-local CHECK = 420
+local CHECK = 700
 
 local BIOMES = { { tile = "fo-crystal-flats", key = "cristal", controle = true }, { tile = "fo-crater-fields", key = "crateres" } }
 

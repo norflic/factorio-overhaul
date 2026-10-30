@@ -52,7 +52,7 @@ end
 -- Grain fin des frontières (lot B0, verdict du DC « B3 B ») : le MÊME bruit que celui que vanilla ajoute à chaque sol
 -- naturel (base/prototypes/tile/tiles.lua, noise_layer_expression : échelle 1/6, influence 2/3, persistance 0,7,
 -- 4 octaves). Seulement dans la probabilité de la TUILE : le masque des régions, qui place les gisements liés au biome
--- (bind_spots_to_region), reste celui d'avant.
+-- (bind_spots_to_region), n'a pas de grain (il reçoit l'exclusion entre biomes, lot BIOMES-SUIVI, biome_resource_mask).
 -- Graine NUMÉRIQUE (W.grain.seed1), PAS de nouveau prototype noise-layer : moteur réel (lot B0, 24/10), trois
 -- noise-layer de plus (« fo-grain-* ») ont changé la forêt vanilla partout (arbres +15 % à 400 tuiles du départ, sur
 -- toutes les tuiles) : les numéros des couches de bruit existantes se décalent (F198 proposé).
@@ -87,7 +87,9 @@ for _, b in ipairs(W.biomes) do
   region_of[b.name] = { mask = mask, force = force }
 end
 
-local function exclusion_penalty(b)
+--- Part PERDUE par le biome b au profit d'un autre biome du mod plus fort au même endroit, dans [0, 1] (0 : b l'emporte ou
+--- personne ne le dispute ; 1 : une autre région est plus forte d'au moins 1 / raideur). nil sans exclusion.
+local function exclusion_loss(b)
   if not W.exclusion then return nil end
   local others = {}
   for _, o in ipairs(W.biomes) do
@@ -96,7 +98,12 @@ local function exclusion_penalty(b)
   if #others == 0 then return nil end
   local strongest = others[1]
   for i = 2, #others do strongest = noise.max(strongest, others[i]) end
-  return noise.clamp((strongest - region_of[b.name].force) * W.exclusion.raideur, 0, 1) * W.exclusion.penalite
+  return noise.clamp((strongest - region_of[b.name].force) * W.exclusion.raideur, 0, 1)
+end
+
+local function exclusion_penalty(b)
+  local loss = exclusion_loss(b)
+  return loss and loss * W.exclusion.penalite
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -352,9 +359,22 @@ local function biome_bound_autoplace(params, region, seed1, mask)
   return bind_spots_to_region(ap, mask or region_mask(region), seed1)
 end
 
---- Région de placement d'une ressource : son biome, ou (sans biome) le masque de distance.
+--- Masque des gisements liés au biome `name` (lot BIOMES-SUIVI, risque relevé par le relecteur de BIOMES) : le masque de
+--- la région, et, avec W.exclusion.gisements, × (1 − part perdue) : la MÊME exclusion que la tuile. Sans elle, 35 % du
+--- tungstène des cendres tombait sur les cratères (régions sèches qui se chevauchent : la tuile des cratères l'emporte, le
+--- gisement restait). Les sites garantis (posés par script, shared/content/guarantee.lua) n'en dépendent pas.
+local function biome_resource_mask(name)
+  local mask = region_of[name].mask
+  if W.exclusion and W.exclusion.gisements then
+    local loss = exclusion_loss(biome_by_name[name])
+    if loss then mask = mask * (1 - loss) end
+  end
+  return mask
+end
+
+--- Région de placement d'une ressource : son biome (masque de biome_resource_mask), ou (sans biome) le masque de distance.
 local function resource_region(spec)
-  if spec.biome then return biome_by_name[spec.biome].region, nil end
+  if spec.biome then return biome_by_name[spec.biome].region, biome_resource_mask(spec.biome) end
   assert(spec.autoplace.distance_min, "factorio-overhaul : ressource sans biome ni distance_min : " .. spec.resource)
   local mask = distance_mask(spec.autoplace.distance_min)
   local rg = spec.autoplace.region
@@ -555,7 +575,7 @@ local function fluid_prototypes(spec, key, letter)
     additional_richness = spec.autoplace.additional_richness,
     has_starting_area_placement = false,
     regular_rq_factor_multiplier = 1,
-  }, biome_by_name[spec.biome].region, spec.autoplace.seed1)
+  }, biome_by_name[spec.biome].region, spec.autoplace.seed1, biome_resource_mask(spec.biome))
   out[#out + 1] = well
   out[#out + 1] = autoplace_control(spec.resource, letter)
 

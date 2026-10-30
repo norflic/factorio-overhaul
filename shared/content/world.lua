@@ -162,9 +162,13 @@ W.no_vanilla_entities = { "simple-entity", "tree" }
 -- PROPRE à chaque biome changeait le gagnant toutes les 2 à 6 tuiles (patchwork cendres / cratères / plaine). Désormais,
 -- dans la seule probabilité de la TUILE, un biome perd `penalite` quand une autre région est plus FORTE que la sienne
 -- (force = masque × (1 + bruit au-dessus du seuil)) ; `raideur` règle la largeur de la bande disputée (le grain y dessine
--- une frontière fine, comme entre deux sols vanilla). Le masque des gisements (bind_spots_to_region) ne change pas.
+-- une frontière fine, comme entre deux sols vanilla).
+-- Lot BIOMES-SUIVI (30/10) : `gisements` = true applique la même exclusion au masque des gisements liés à un biome
+-- (favorabilité et probabilité, prototypes/world.lua, biome_resource_mask) : mesuré au banc b0-biomes sur la graine des
+-- bancs, 39 % du tungstène naturel tombait sur les cratères et TOUTE la monazite naturelle sur le marais. Les gisements des
+-- chunks NEUFS changent de place ; les sites garantis (posés par script) ne bougent pas. false : comme 0.6.22.
 -- nil : pas d'exclusion (avant).
-W.exclusion = { penalite = 4, raideur = 12 }
+W.exclusion = { penalite = 4, raideur = 12, gisements = true }
 
 -- Décor propre à chaque biome (session 4) : ce qui pousse, ce qui affleure, ce qui luit. Copies vanilla
 -- recomposées (teinte + couche lumineuse « draw_as_glow » pour ce qui luit la nuit), placées uniquement
