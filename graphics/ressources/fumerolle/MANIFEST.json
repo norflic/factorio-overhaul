@@ -1,0 +1,44 @@
+{
+ "couleurs": {
+  "anneau_px": 10,
+  "bouche": [
+   34,
+   28,
+   24
+  ],
+  "bouche_claire": [
+   126,
+   92,
+   52
+  ],
+  "cristal": [
+   255,
+   238,
+   96
+  ],
+  "soufre": [
+   226,
+   204,
+   70
+  ],
+  "soufre_ombre": [
+   150,
+   136,
+   74
+  ]
+ },
+ "format": {
+  "frame_count": 4,
+  "height": 60,
+  "hr_height": 120,
+  "hr_width": 148,
+  "variation_count": 1,
+  "width": 74
+ },
+ "outil": "tools/render/pieces/ressources/fumerolle.py",
+ "sha256": {
+  "fumerolle.png": "f655a64ae781ad550729fd9a3b2e2496cd7e28b84aaa7e7e75799da8a9c19c50",
+  "hr-fumerolle.png": "bd5c20a472ad31866c02cacfa9060367fbe00ea0f2f337d8bec5bfbc64945335"
+ },
+ "source": "__base__/graphics/entity/crude-oil/hr-crude-oil.png"
+}

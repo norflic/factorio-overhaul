@@ -51,10 +51,15 @@ local function suite(P, quiet)
   local book = P.book(FIX)
 
   section("Livre réel (vanilla 1.1.91 + mod, 0.4.25)")
-  check(#book.names == 782, "782 recettes au livre (" .. #book.names .. ")")
+  -- Lot X2 (livre régénéré) : + 13 recettes de la chaîne de la bobine (9 de procédé, 4 machines), + 6 recettes de
+  -- barils (oxygène, azote et oxygène liquides), + 24 lots MOD-2 de 10 et 100 (catégories vanilla : lessivage, cryostat,
+  -- 4 machines, 6 barils ; les catégories « fo-* » restent exclues).
+  -- Lot AMELIO-RESSOURCES (livre régénéré) : + 6 recettes (plomb, blindage, grillage, cellule de sel au thorium,
+  -- retraitement, réacteur à sels fondus), + 8 lots MOD-2 (catégories vanilla : four, assembleur, chimie, centrifugeuse).
+  check(#book.names == 839, "839 recettes au livre (" .. #book.names .. ")")
   local n_lots = 0
   for _, rn in ipairs(book.names) do if RL.parse(rn) then n_lots = n_lots + 1 end end
-  check(n_lots == 500, "500 recettes par lots (MOD-2) au livre (" .. n_lots .. ")")
+  check(n_lots == 532, "532 recettes par lots (MOD-2) au livre (" .. n_lots .. ")")
   check(ser(book.lots["iron-gear-wheel"]) == "{1=1,2=10,3=100}", "lots de l'engrenage : 1, 10, 100")
   local lot = book.recipes["fo-lot10-iron-gear-wheel"]
   check(lot and lot.hidden and near(lot.energy, 5) and lot.products[1].amount == 10 and lot.ingredients[1].amount == 20,
@@ -190,6 +195,9 @@ local function suite(P, quiet)
   end
   check(near(v["petroleum-gas"], 0.08) and near(v["plastic-bar"], 1.3), "gaz 0,08 MU (raffinage avancé, le moins cher), plastique 1,3 MU")
   check(v["water"] == 0 and near(v["crude-oil"], 0.1), "eau gratuite, pétrole brut 0,1 MU l'unité")
+  check(v["fo-liquid-nitrogen"] and v["fo-liquid-nitrogen"] > 0.05 and v["fo-oxygen"] > 0.05 and v["empty-barrel"] >= 0.5,
+    "lot X2 : recette sans ingrédient de valeur (distillation de l'air, électrolyse de l'eau) = extraction, baril vide intact ("
+    .. tostring(v["fo-liquid-nitrogen"]) .. ", " .. tostring(v["empty-barrel"]) .. ")")
   check(near(v["assembling-machine-2"], 54) and near(v["fast-inserter"], 12.5) and near(v["transport-belt"], 1.5), "assembleur 2 : 54 MU ; bras rapide 12,5 ; tapis 1,5")
   info(string.format("écart connu : plastique %.2f MU au chemin le moins cher, %s dans L.item_value (valeur de matériau d'époque)", v["plastic-bar"], tostring(L.item_value["plastic-bar"])))
   local fam = L.by_key.assembler

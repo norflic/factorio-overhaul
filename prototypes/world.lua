@@ -299,12 +299,40 @@ end
 
 --- Autoplace d'un gisement lié à un biome, sans toucher au placement des minerais vanilla : le compteur de
 --- jeux de gisements partagé (skip_span des minerais vanilla) est restauré après coup.
-local function biome_bound_autoplace(params, region, seed1)
+--- Masque de DISTANCE (lot AMELIO-RESSOURCES, galène : « à plus de 300 tuiles du départ », sans biome) : 0 avant
+--- distance_min, 1 au-delà de distance_min + 64 tuiles ; jamais sous l'eau (même facteur d'altitude que region_mask).
+local function distance_mask(distance_min)
+  return noise.clamp((noise.var("distance") - distance_min) / 64, 0, 1) * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
+end
+
+local function biome_bound_autoplace(params, region, seed1, mask)
   local counter = data.raw["noise-expression"][PATCH_SET_COUNT]
   local saved = counter and counter.expression
   local ap = resource_autoplace.resource_autoplace_settings(params)
   if counter then counter.expression = saved end
-  return bind_spots_to_region(ap, region_mask(region), seed1)
+  return bind_spots_to_region(ap, mask or region_mask(region), seed1)
+end
+
+--- Région de placement d'une ressource : son biome, ou (sans biome) le masque de distance.
+local function resource_region(spec)
+  if spec.biome then return biome_by_name[spec.biome].region, nil end
+  assert(spec.autoplace.distance_min, "factorio-overhaul : ressource sans biome ni distance_min : " .. spec.resource)
+  local mask = distance_mask(spec.autoplace.distance_min)
+  local rg = spec.autoplace.region
+  if rg then
+    -- Région de bruit PROPRE sans biome (piste ÉTAIN, cassitérite d'X3) : graine numérique (F198), seuil, échelle, et
+    -- basses terres (elevation_max : rampe de 2 au-dessus de la limite).
+    local n = noise.function_application("factorio-multioctave-noise", {
+      x = noise.var("x"), y = noise.var("y"), persistence = 0.6, seed0 = noise.var("map_seed"),
+      seed1 = noise.to_noise_expression(rg.seed1), input_scale = rg.scale, output_scale = 1, octaves = 3,
+    })
+    mask = mask * noise.clamp((n - rg.threshold) * 6, 0, 1)
+    if rg.elevation_max then mask = mask * noise.clamp((rg.elevation_max - noise.var("elevation")) / 2, 0, 1) end
+    -- Piste BAUXITE (X3) : climat du désert rouge vanilla, mêmes rampes que region_mask (humidité, aux).
+    if rg.moisture_max then mask = mask * noise.clamp((rg.moisture_max - noise.var("moisture")) * 8, 0, 1) end
+    if rg.aux_min then mask = mask * noise.clamp((noise.var("aux") - rg.aux_min) * 8, 0, 1) end
+  end
+  return nil, mask
 end
 
 local function solid_resource(spec, order)
@@ -383,6 +411,7 @@ local function solid_resource(spec, order)
     lib.set_icons(res, { { icon = res.icon, icon_size = res.icon_size, icon_mipmaps = res.icon_mipmaps, tint = spec.tint } })
   end
 
+  local region, mask = resource_region(spec)
   res.autoplace = biome_bound_autoplace({
     name = spec.resource,
     order = "d",
@@ -392,7 +421,7 @@ local function solid_resource(spec, order)
     random_spot_size_minimum = spec.autoplace.random_spot_size_minimum,
     random_spot_size_maximum = spec.autoplace.random_spot_size_maximum,
     regular_rq_factor_multiplier = 1,
-  }, biome_by_name[spec.biome].region, spec.autoplace.seed1)
+  }, region, spec.autoplace.seed1, mask)
   return res
 end
 
@@ -439,6 +468,11 @@ local function fluid_prototypes(spec, key, letter)
   fluid.flow_color = { r = math.min(1, spec.tint.r + 0.3), g = math.min(1, spec.tint.g + 0.1), b = math.min(1, spec.tint.b + 0.3) }
   fluid.fuel_value = spec.fuel_value
   fluid.order = "a[fluid]-z[" .. spec.fluid .. "]"
+  if spec.fluid_temperature then
+    -- Piste GÉOTHERMIE : gaz volcanique chaud (X0 : temperature = 300).
+    fluid.default_temperature = spec.fluid_temperature
+    fluid.max_temperature = math.max(fluid.max_temperature or 0, spec.fluid_temperature)
+  end
   lib.set_icons(fluid, { { icon = fluid.icon, icon_size = fluid.icon_size, icon_mipmaps = fluid.icon_mipmaps, tint = spec.tint } })
   out[#out + 1] = fluid
 
@@ -447,8 +481,29 @@ local function fluid_prototypes(spec, key, letter)
   well.localised_name = { "entity-name." .. spec.resource }
   well.order = "a-b-z-" .. letter
   well.map_color = spec.map_color
-  well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = 10, amount_max = 10, probability = 1 } }
-  lib.tint_sprites(well.stages, spec.tint)
+  local yield = spec.yield or 10
+  well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = yield, amount_max = yield, probability = 1 } }
+  if spec.category then
+    -- Catégorie PROPRE (piste GÉOTHERMIE, fumerolle) : seul le capteur géothermique la capte, pas le chevalet.
+    if not data.raw["resource-category"][spec.category] then
+      out[#out + 1] = { type = "resource-category", name = spec.category }
+    end
+    well.category = spec.category
+  end
+  if spec.stages_sheet then
+    -- Feuille propre (lot AMELIO-RESSOURCES, saumure) : découpe EXACTE de la flaque vanilla copiée (4 variantes),
+    -- seuls les fichiers changent ; aucune teinte.
+    local sh = spec.stages_sheet
+    local function swap(t, prefix)
+      t.filename = sh.dir .. "/" .. prefix .. sh.name .. ".png"
+      t.tint = nil
+    end
+    local s = well.stages.sheet
+    swap(s, "")
+    if s.hr_version then swap(s.hr_version, "hr-") end
+  else
+    lib.tint_sprites(well.stages, spec.tint)
+  end
   lib.set_icons(well, { { icon = well.icon, icon_size = well.icon_size, icon_mipmaps = well.icon_mipmaps, tint = spec.tint } })
   well.autoplace = biome_bound_autoplace({
     name = spec.resource,

@@ -1,0 +1,39 @@
+{
+ "couleurs": {
+  "anneau_px": 7,
+  "eau": [
+   26,
+   94,
+   102
+  ],
+  "eau_claire": [
+   120,
+   205,
+   200
+  ],
+  "sel": [
+   232,
+   236,
+   228
+  ],
+  "sel_ombre": [
+   176,
+   186,
+   182
+  ]
+ },
+ "format": {
+  "frame_count": 4,
+  "height": 60,
+  "hr_height": 120,
+  "hr_width": 148,
+  "variation_count": 1,
+  "width": 74
+ },
+ "outil": "tools/render/pieces/ressources/saumure.py",
+ "sha256": {
+  "hr-saumure.png": "a7fdb28e27c13d8a319409859b73b9c47eacd1c6b74234c84ee2867e517e8d38",
+  "saumure.png": "952c0cd76e6138c6f7ffcc01c510e4a179dface258626f2c38d7bb2ff8f9d5b4"
+ },
+ "source": "__base__/graphics/entity/crude-oil/hr-crude-oil.png"
+}

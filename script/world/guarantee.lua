@@ -153,8 +153,12 @@ local function place_site(surface, spec, c, map_seed, units, decor, fill_water)
     local name = surface.get_tile(t.x, t.y).name
     local wet = fill_water and natural_water(name)
     if wet then filled = filled + 1 end
-    if name ~= spec.tile and (natural_land(name) or wet) then
-      tiles[#tiles + 1] = { name = spec.tile, position = { t.x, t.y } }
+    -- Sans biome (spec.tile nil, galène) : le sol naturel reste ; seule l'eau comblée prend spec.fill_tile ; toutes les
+    -- tuiles de terre du disque comptent dans les lignes (décor et arbres retirés sur le gisement).
+    local paint = spec.tile and name ~= spec.tile and (natural_land(name) or wet)
+    local keep = (not spec.tile) and (natural_land(name) or wet)
+    if paint or keep then
+      if paint or wet then tiles[#tiles + 1] = { name = spec.tile or spec.fill_tile, position = { t.x, t.y } } end
       local r = rows[t.y]
       if not r then
         r = { x0 = t.x, x1 = t.x }
@@ -167,7 +171,7 @@ local function place_site(surface, spec, c, map_seed, units, decor, fill_water)
   end
   -- Décor vanilla (herbes, plantes) retiré du disque, ligne par ligne : capture du 23/10, 16:10 : les plantes
   -- vertes restaient posées sur les cendres et sur le minerai. Celui du biome est régénéré plus bas.
-  if decor then
+  if decor and spec.tile then -- sans biome (galène) : le décor naturel reste autour du gisement
     for _, y in ipairs(row_order) do
       local r = rows[y]
       surface.destroy_decoratives({ area = { { r.x0, y }, { r.x1 + 1, y + 1 } } })

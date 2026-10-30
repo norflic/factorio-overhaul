@@ -27,6 +27,7 @@
 
 local W = require("shared.content.world")
 local X = require("shared.content.epochs")
+local X3 = require("shared.content.x3") -- piste ÉTAIN : cassitérite (proposition X3 mise en jeu)
 
 local G = {}
 
@@ -90,6 +91,10 @@ local function base_resource(name)
   for _, r in ipairs(X.resources) do
     if r.name == name then return r end
   end
+  -- Lot AMELIO-RESSOURCES (piste ÉTAIN) : ressources d'X3 mises en jeu (cassitérite), données pures.
+  for _, r in ipairs(X3.resources) do
+    if r.name == name then return r end
+  end
   return nil
 end
 
@@ -117,6 +122,9 @@ function G.specs()
         kind = r.kind,
         epoch = base.epoch,
         tile = r.biome,
+        -- Sans biome (lot AMELIO-RESSOURCES, galène) : aucun disque de sol ; seule une eau comblée (palier 2) prend
+        -- cette tuile naturelle.
+        fill_tile = (not r.biome) and assert(gu.fill_tile, "garantie : " .. key .. " sans biome ni fill_tile") or nil,
         count = g.count,
         dmin = g.distance[1],
         dmax = g.distance[2],

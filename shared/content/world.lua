@@ -108,6 +108,31 @@ W.biomes = {
     region = { seed1 = 7211, threshold = 0.56, scale = 1 / 240, moisture_max = 0.55 },
     hazard = nil,
   },
+  {
+    -- Lot X2 (25/10) : SABLES NOIRS, biome de l'âge 12 (X.tiles : fo-black-sands ; X.resources : monazite, « sables noirs
+    -- (rivages, ou dunes sur carte sèche) »). Le sable fin vanilla (sand-1) RECOLORÉ en noir de magnétite
+    -- (tools/biomes/sol_sables_noirs.py, méthode du lot B0 : couleur moyenne mesurée (51 ; 48 ; 46)), un SOL comme les
+    -- champs de cratères (découpe, variantes et masques de transition de sand-1), au-dessus des sols vanilla, de la plaine
+    -- et des cratères (layer 43) : c'est lui qui dessine sa frange. Ni teinte, ni danger, ni effet de déplacement (X n'en
+    -- donne aucun) ; pas de poussière brune sous les pas. ÉCART : les « rivages » ne sont pas modélisés (bruit de région
+    -- seul, comme les cratères) ; la garantie pose des dunes même loin de l'eau, comme X le prévoit pour une carte sèche.
+    -- Région : graine NUMÉRIQUE (F198).
+    name = "fo-black-sands",
+    copy_from = "sand-1",
+    texture = {
+      ["__base__/graphics/terrain/sand-1.png"] = "__factorio-overhaul__/graphics/terrain/sables-noirs/sol-sables-noirs.png",
+      ["__base__/graphics/terrain/hr-sand-1.png"] = "__factorio-overhaul__/graphics/terrain/sables-noirs/hr-sol-sables-noirs.png",
+    },
+    ground = true,
+    layer = 43,
+    no_splash = true,
+    map_color = { r = 44, g = 42, b = 40 },
+    walking_speed_modifier = 1.0,
+    vehicle_friction_modifier = 1.0,
+    pollution_absorption_per_second = 0.000002,
+    region = { seed1 = 7212, threshold = 0.6, scale = 1 / 220 },
+    hazard = nil,
+  },
 }
 
 -- Grain fin des frontières des biomes (lot B0, verdict du DC du 24/10 : « B3 B ») : bruit ajouté à la probabilité de
@@ -116,11 +141,12 @@ W.biomes = {
 -- seed1 : graines numériques propres (comme les gisements, 7101 à 7103) ; surtout pas de nouveau prototype noise-layer
 -- (il décale les couches de bruit existantes et change la forêt vanilla, F198 proposé).
 W.grain = { period = 6, influence = 2 / 3, persistence = 0.7, octaves = 4,
-  seed1 = { ["fo-volcanic-ash"] = 7201, ["fo-crystal-flats"] = 7202, ["fo-toxic-marsh"] = 7203, ["fo-crater-fields"] = 7204 } }
+  seed1 = { ["fo-volcanic-ash"] = 7201, ["fo-crystal-flats"] = 7202, ["fo-toxic-marsh"] = 7203, ["fo-crater-fields"] = 7204,
+    ["fo-black-sands"] = 7205 } } -- X2 : sables noirs
 
 -- Biomes sans AUCUN décor vanilla à la génération (lot B0, verdict « B4 B » : touffes d'herbe et plaques brunes
 -- retirées de la plaine de cristal) ; leur propre décor (W.decor) reste.
-W.no_vanilla_decor = { "fo-crystal-flats", "fo-crater-fields" } -- X1-TITANE : ni herbe ni plante sur le régolithe
+W.no_vanilla_decor = { "fo-crystal-flats", "fo-crater-fields", "fo-black-sands" } -- X1 : régolithe ; X2 : dunes
 
 -- Décor propre à chaque biome (session 4) : ce qui pousse, ce qui affleure, ce qui luit. Copies vanilla
 -- recomposées (teinte + couche lumineuse « draw_as_glow » pour ce qui luit la nuit), placées uniquement
@@ -187,6 +213,15 @@ W.decor = {
       { name = "fo-crater-glass", copy = "sand-rock-small", density = 0.01, tint = { r = 0.42, g = 0.48, b = 0.45 } },
     },
   },
+  -- X2 : galets de basalte et coquilles blanchies sur les dunes de sable noir (copies vanilla teintées) ; aucune entité.
+  ["fo-black-sands"] = {
+    decoratives = {
+      { name = "fo-black-sand-pebbles", copy = "rock-tiny", density = 0.04, tint = { r = 0.40, g = 0.39, b = 0.38 } },
+      { name = "fo-black-sand-shells", copy = "sand-rock-small", density = 0.006, tint = { r = 0.95, g = 0.92, b = 0.86 } },
+      -- rides de dune assombries (décalque brun teinté : il reste sombre, F38)
+      { name = "fo-black-sand-ripples", copy = "sand-dune-decal", density = 0.01, tint = { r = 0.35, g = 0.34, b = 0.33 } },
+    },
+  },
 }
 
 --[[
@@ -199,11 +234,19 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite", "fumarole", "sphalerite" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
-W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite" }
+-- Lot X2 : la monazite (âge 12), 2 taches de sables noirs (X.resources : placement.guaranteed.count = 2).
+-- Lot AMELIO-RESSOURCES (30/10) : la galène (âge 9), 2 gisements de 200 000 à 300-600 tuiles, SANS biome (X.resources :
+-- « gisements classiques à plus de 300 tuiles du départ ») ; en DERNIER : les sites d'avant gardent leur place.
+-- Piste ÉTAIN : la cassitérite (âge 4, X3), 2 gisements de 150 000 à 120-350 tuiles, sans biome, après la galène.
+-- Piste BAUXITE : la bauxite (âge 6, X3), 3 gisements de 300 000 à 300-600 tuiles, sans biome, après la cassitérite.
+-- Piste GÉOTHERMIE : la fumerolle (âge 5, X0), 2 fumerolles sur un disque de cendres à 250-600 tuiles, après la bauxite.
+-- Piste ZINC : la blende (âge 3, X3), 2 gisements de 200 000 à 150-400 tuiles, sans biome, après la fumerolle.
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite", "bauxite", "fumarole",
+  "sphalerite" }
 
 W.resources = {
   tungsten = {
@@ -254,9 +297,23 @@ W.resources = {
     -- violets pulsés (3 s) qui luisent dans le noir.
     copy_resource = "iron-ore",
     copy_icon = "iron-ore",
-    tint = { r = 0.95, g = 0.55, b = 1.00 },
-    glint = { tint = { r = 0.85, g = 0.35, b = 1.00 }, min = 0.35, max = 0.75, period = 3 },
-    map_color = { r = 0.80, g = 0.25, b = 0.95 },
+    -- Lot AMELIO-RESSOURCES (30/10 ; retour du DC du 29/10, 22 h 50 : « les pierres violettes/rose pas fou par contre les
+    -- bleues claires sont jolies ») : BLEU GLACIER, celui des éclats de la plaine (fo-crystal-shard) qu'il aime. Avant :
+    -- teinte (0,95 ; 0,55 ; 1,00), éclats (0,85 ; 0,35 ; 1,00), carte (0,80 ; 0,25 ; 0,95), rose-violet.
+    tint = { r = 0.62, g = 0.86, b = 1.00 },
+    glint = { tint = { r = 0.40, g = 0.78, b = 1.00 }, min = 0.35, max = 0.75, period = 3 },
+    -- Feuille PROPRE du kit minerai (lot M1 ; direction K1, tools/render/pieces/ressources/directions.py : druses de
+    -- prismes bleu glacier sur roche grise, givre ; check_gisement 7 OK) : remplace le fer teinté pour le gisement, son
+    -- icône et l'objet ; `tint` reste la couleur de la technologie et des dérivés. Lueur bleu clair pulsée (3 s), faible de
+    -- jour, franche de nuit (la couche d'effet couvre 69 % du minerai). Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/cristal",
+      name = "cristal",
+      mining_visualisation_tint = { r = 0.55, g = 0.82, b = 1.00, a = 1 },
+      effet = { period = 3, deviation = 1, darkness_multiplier = 60, min = 0.03, max = 0.10 },
+    },
+    -- Azur sur la carte : ΔE76 ≥ 39 de tous les minerais, fluides et sols (tungstène 39 ; galène, pétrole, eau plus loin).
+    map_color = { r = 0.00, g = 0.70, b = 1.00 },
     mining_time = 1.5,
     category = nil, -- basic-solid
     biome = "fo-crystal-flats",
@@ -304,9 +361,11 @@ W.resources = {
     copy_icon = "iron-ore",
     -- Titane de l'âge 11 (#8E9AA6, docs/DESIGN_EPOQUES.md §1.5) : teinte de la technologie et des objets dérivés.
     tint = { r = 0.56, g = 0.60, b = 0.65 },
-    -- Feuille PROPRE du kit minerai (lot M1 ; direction I3, tools/render/pieces/ressources/directions.py : seule des
-    -- trois rendues à passer les 9 critères de jour et de nuit de tools/autotest/x1_lisibilite.py, captures en moteur
-    -- du 25/10 ; I1 et I2 : fo-logs/2026-10-25_X1/NOTES.md). Choix provisoire, sans verdict du DC.
+    -- Feuille PROPRE du kit minerai (lot M1). Lot AMELIO-RESSOURCES (30/10 ; réponse du DC du 25/10, D-17 : « ilménite en
+    -- I2 sombre ») : direction I2S (nodules d'ilménite bronze sombre, croûte de leucoxène rare ; 128 échantillons,
+    -- check_gisement 7 OK ; luminance médiane 91 contre 140 pour I3). Avant : I3, seule des trois du 25/10 à passer les 9
+    -- critères de tools/autotest/x1_lisibilite.py (I3 gardée dans fo-logs/2026-10-30_AMELIO/RESSOURCES/rendu/I3-avant) ;
+    -- x1_lisibilite N'EST PAS rejoué sur I2S. Choix provisoire, sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/ilmenite",
       name = "ilmenite",
@@ -333,9 +392,226 @@ W.resources = {
     copy_resource = "crude-oil",
     copy_fluid = "water",
     tint = { r = 0.55, g = 0.82, b = 0.80 },
+    -- Lot AMELIO-RESSOURCES (30/10 ; réponse du DC du 25/10, D-17 : « saumure au visuel propre ») : feuille PROPRE, la
+    -- silhouette de la flaque de pétrole vanilla (mêmes variantes et découpe : le chevalet s'y pose de même) recolorée en
+    -- eau turquoise bordée d'une croûte de sel blanche (tools/render/pieces/ressources/saumure.py, sans Blender). Avant :
+    -- la flaque noire du pétrole teintée.
+    stages_sheet = { dir = "__factorio-overhaul__/graphics/ressources/saumure", name = "saumure" },
     map_color = { r = 0.36, g = 0.78, b = 0.70 },
     biome = "fo-crater-fields",
     autoplace = { base_density = 5, base_spots_per_km2 = 1.5, random_probability = 1 / 40, additional_richness = 200000, seed1 = 7105 },
+  },
+  -- Lot X2 (25/10) : MONAZITE, minerai des terres rares (âge 12), dans les sables noirs (X.resources : fo-monazite,
+  -- catégorie basic-solid, produit fo-monazite-ore ; minage 2 s, X : « Minage : monazite »). ÉCART noté : X donne à sa
+  -- pseudo-recette de minage les foreuses ÉLECTRIQUES (HARD_DRILLS) mais à la ressource la catégorie basic-solid (toutes
+  -- les foreuses ; « foreuses communes » dans l'analyse du scénario) ; le prototype suit la RESSOURCE. Chaîne de
+  -- transformation : shared/content/superconductors.lua.
+  monazite = {
+    resource = "fo-monazite",
+    kind = "ore",
+    epoch = 12,
+    -- Sites garantis (X : 2 taches de sables noirs à 400-900 tuiles) : environ 400 000 minerais chacun (8 minerais par
+    -- bobine : 100 000 bobines pour les deux) ; arbres et rochers retirés (dunes).
+    guarantee = { site_radius = 15, ore_radius = 8, amount = 3000, min_total = 200000, clear_trees = true },
+    item = "fo-monazite-ore",
+    copy_resource = "iron-ore",
+    copy_icon = "iron-ore",
+    -- Miel de la monazite : teinte de la technologie et des objets dérivés.
+    tint = { r = 0.86, g = 0.66, b = 0.36 },
+    -- Feuille PROPRE du kit minerai (lot M1 ; direction Z1, tools/render/pieces/ressources/directions.py) : placer de
+    -- galets et prismes miel et brun-rouge mêlés de magnétite noire. Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/monazite",
+      name = "monazite",
+      mining_visualisation_tint = { r = 0.80, g = 0.62, b = 0.35, a = 1 },
+      -- Couche d'effet ambre faible (pas la lueur trop claire de l'ilménite la nuit). Multiplicateur 40 (captures du
+      -- 25/10, 8 h 25) : de nuit ΔE76 au cuivre 7,4 et à la pierre 6,5 (x2_lisibilite.py N1, N2 en échec) ; 80 essayé.
+      effet = { period = 10, deviation = 1, darkness_multiplier = 80, min = 0.008, max = 0.012 },
+    },
+    -- Or franc sur la carte : loin de la pierre (beige), du cuivre (orange) et de l'uranium (vert).
+    map_color = { r = 0.93, g = 0.78, b = 0.18 },
+    mining_time = 2,
+    category = nil, -- basic-solid (X.resources)
+    biome = "fo-black-sands",
+    autoplace = { base_density = 5, base_spots_per_km2 = 1.4, random_spot_size_minimum = 1, random_spot_size_maximum = 3, seed1 = 7106 },
+  },
+  -- Lot AMELIO-RESSOURCES (30/10) : GALÈNE, minerai du plomb (âge 9, Atome ; X.resources : fo-galena, catégorie
+  -- basic-solid, produit fo-galena ; minage 1 s). « Gisements classiques à plus de 300 tuiles du départ » : AUCUN biome ;
+  -- l'autoplace a son jeu de gisements propre (graine numérique, F198 ; jamais le compteur partagé des minerais vanilla :
+  -- X dit « vanilla-like », ce qui déplacerait fer, cuivre, charbon, pierre, uranium et pétrole sur toutes les graines) et
+  -- un masque de DISTANCE au lieu d'une région (autoplace.distance_min). Chaîne : shared/content/galena.lua.
+  galena = {
+    resource = "fo-galena",
+    kind = "ore",
+    epoch = 9,
+    -- Sites garantis (X : « 2 gisements de 200 000 posés par script si l'autoplace n'en a mis aucun à cette distance ») :
+    -- environ 200 000 chacun (rayon 7, 2 000 par tuile au centre) ; un gisement naturel connu de 130 000 en vaut un
+    -- (min_total : le site posé en fait au moins 1,5 fois, règle des autres sites). Pas de biome : aucun disque de sol, arbres et rochers
+    -- retirés sur le gisement (clear_trees) ; une eau comblée (palier 2 de la garantie) prend fill_tile.
+    guarantee = { site_radius = 9, ore_radius = 7, amount = 2000, min_total = 130000, clear_trees = true, fill_tile = "dirt-4" },
+    item = "fo-galena",
+    -- Cubes de la pierre (forme en blocs, comme le tungstène d'avant M1), gris de plomb neutre : la texture de la pierre
+    -- est beige (0,69 ; 0,61 ; 0,43) ; × (0,70 ; 0,78 ; 1,00) donne un gris (0,48 ; 0,48 ; 0,43) (F36, F38 : une teinte
+    -- ne fait que multiplier). Éclats d'argent froid (galène : éclat métallique), discrets de jour.
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 0.70, g = 0.78, b = 1.00 },
+    glint = { tint = { r = 0.75, g = 0.85, b = 1.00 }, min = 0.10, max = 0.35, period = 5 },
+    -- Feuille PROPRE du kit minerai (30/10 ; direction G2, tools/render/pieces/ressources/directions.py : cubes de galène
+    -- plombée dans une gangue de calcite crème, 128 échantillons) : remplace la pierre teintée ci-dessus pour le gisement,
+    -- son icône et l'objet ; `tint` reste la couleur des dérivés. G1 (gangue grise) tombait à ΔE 6 du fer vanilla en
+    -- couleur moyenne (mesure.py) ; G2 : ΔE 11 au fer, 16 à la pierre (la forme en cubes et la calcite crème font le
+    -- reste). check_gisement : couverture du stade 1 à 0,240 (0,316 en vanilla). Éclats d'argent froid, faibles de jour.
+    -- Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/galene",
+      name = "galene",
+      mining_visualisation_tint = { r = 0.62, g = 0.64, b = 0.70, a = 1 },
+      effet = { period = 5, deviation = 1, darkness_multiplier = 60, min = 0.02, max = 0.08 },
+    },
+    -- Bleu de cobalt sur la carte : le gris est pris (fer, cratères, ilménite à ΔE76 < 20 d'un gris de plomb) ; ΔE76 ≥ 47
+    -- de tous les minerais, fluides et sols du jeu (64,8 au pétrole depuis le cristal bleu ; tests/galena_test.lua).
+    map_color = { r = 0.00, g = 0.05, b = 1.00 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X.resources)
+    biome = nil,
+    autoplace = { base_density = 6, base_spots_per_km2 = 1.0, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
+      seed1 = 7107, distance_min = 300 },
+  },
+  -- Lot AMELIO-RESSOURCES, piste ÉTAIN (30/10) : CASSITÉRITE, minerai de l'étain (âge 4, Pétrole ; proposition X3,
+  -- module x3.lua : fo-cassiterite, basic-solid, minage 1 s). « Placers au bord de l'eau » : sans biome, jeu de
+  -- gisements propre (graine X3 7302) sur une région de bruit propre (graine 7312) limitée aux basses terres
+  -- (élévation ≤ 6) et à plus de 120 tuiles du départ. Chaîne : shared/content/tin.lua (carte imprimée).
+  cassiterite = {
+    resource = "fo-cassiterite",
+    kind = "ore",
+    epoch = 4,
+    -- X3 : « 2 gisements de 150 000 posés par script si l'autoplace n'en a mis aucun à cette distance » ; rayon 6, 2 000
+    -- par tuile au centre : environ 150 000 ; un gisement naturel de 100 000 en vaut un.
+    guarantee = { site_radius = 8, ore_radius = 6, amount = 2000, min_total = 100000, clear_trees = true, fill_tile = "sand-1" },
+    item = "fo-cassiterite",
+    -- Galets brun chocolat (X3 : « à éclat adamantin, éclats blancs de quartz ») : la pierre (beige) × (0,62 ; 0,42 ;
+    -- 0,30) ; éclats blancs (quartz) de jour. Feuille M1 propre à faire.
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 0.62, g = 0.42, b = 0.30 },
+    glint = { tint = { r = 1.00, g = 0.96, b = 0.90 }, min = 0.15, max = 0.45, period = 4 },
+    -- Feuille PROPRE du kit minerai (30/10 ; direction C1 : placer de galets brun chocolat à éclat adamantin et de quartz
+    -- blanc, 128 échantillons ; check_gisement 7 OK) : remplace la pierre teintée ci-dessus pour le gisement, son icône et
+    -- l'objet. Éclats blancs du quartz, faibles de jour. Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/cassiterite",
+      name = "cassiterite",
+      mining_visualisation_tint = { r = 0.45, g = 0.28, b = 0.18, a = 1 },
+      effet = { period = 4, deviation = 1, darkness_multiplier = 60, min = 0.02, max = 0.08 },
+    },
+    -- Bordeaux sur la carte : les bruns sont pris (cuivre, pierre, désert) ; ΔE76 ≥ 45 de tous les minerais et sols.
+    map_color = { r = 0.60, g = 0.00, b = 0.30 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X3)
+    biome = nil,
+    autoplace = { base_density = 4, base_spots_per_km2 = 1.4, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
+      seed1 = 7302, distance_min = 120, region = { seed1 = 7312, threshold = 0.45, scale = 1 / 180, elevation_max = 6 } },
+  },
+  -- Lot AMELIO-RESSOURCES, piste BAUXITE (30/10) : BAUXITE, minerai de l'aluminium (âge 6, Électricité ; proposition X3,
+  -- chaîne C, module x3.lua : fo-bauxite, basic-solid, minage 1 s). « Climat du désert rouge vanilla (aux ≥ 0,6, humidité
+  -- ≤ 0,3), à plus de 300 tuiles » : sans biome, jeu de gisements propre (graine X3 7303) sur une région de bruit propre
+  -- (graine 7313) restreinte à ce climat. Chaîne : shared/content/bauxite.lua (alumine, boue rouge, aluminium, pylône).
+  bauxite = {
+    resource = "fo-bauxite",
+    kind = "ore",
+    epoch = 6,
+    -- X3 : « 3 gisements de 300 000 posés par script si l'autoplace n'en a mis aucun à cette distance » ; rayon 8, 2 300
+    -- par tuile au centre : environ 300 000 (tests/bauxite_test.lua) ; un gisement naturel de 190 000 en vaut un.
+    guarantee = { site_radius = 10, ore_radius = 8, amount = 2300, min_total = 190000, clear_trees = true, fill_tile = "red-desert-0" },
+    item = "fo-bauxite",
+    -- Pisolithes mates brique-ocre (X3 : « dans une terre rouille ») : la pierre (beige 0,69 ; 0,61 ; 0,43) × (1,00 ; 0,62 ;
+    -- 0,45) donne un brique (0,69 ; 0,38 ; 0,19) (F36, F38 : une teinte ne fait que multiplier). Sans éclat (minerai mat).
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 1.00, g = 0.62, b = 0.45 },
+    -- Feuille PROPRE du kit minerai (30/10 ; direction B1 : pisolithes brique et ocre, mates, nodules pâles de gibbsite,
+    -- 128 échantillons ; check_gisement 6 OK) ; SANS couche d'effet (minerai mat : rien ne luit). Choix provisoire, sans
+    -- verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/bauxite",
+      name = "bauxite",
+      mining_visualisation_tint = { r = 0.70, g = 0.36, b = 0.18, a = 1 },
+    },
+    -- Chartreuse sur la carte : rouges et bruns sont pris (ennemis, cuivre, désert rouge, cassitérite) ; ΔE76 ≥ 45 de tous
+    -- les minerais, fluides et sols (recherche sur une grille de 21³ couleurs, tests/bauxite_test.lua).
+    map_color = { r = 0.80, g = 1.00, b = 0.00 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X3)
+    biome = nil,
+    autoplace = { base_density = 5, base_spots_per_km2 = 1.2, random_spot_size_minimum = 1, random_spot_size_maximum = 3,
+      seed1 = 7303, distance_min = 300, region = { seed1 = 7313, threshold = 0.4, scale = 1 / 240, moisture_max = 0.3, aux_min = 0.6 } },
+  },
+  -- Lot AMELIO-RESSOURCES, piste GÉOTHERMIE (30/10) : FUMEROLLE (âge 5, Volcan ; X.resources : fo-fumarole, fluide infini,
+  -- part minimale 0,2, catégorie PROPRE fo-fumarole : seul le capteur géothermique la capte ; produit fo-volcanic-gas).
+  -- Dans les cendres volcaniques, comme le tungstène. Captage : 200 gaz par cycle (X0 : « Captage : fumerolle », 200 gaz,
+  -- 1 s) : 200 gaz/s à 100 %, d'où 140 vapeurs/s (4,2 MW) et 2 soufres/s (SCENARIO_EPOQUES). Chaîne :
+  -- shared/content/geothermal.lua.
+  fumarole = {
+    resource = "fo-fumarole",
+    kind = "fluid",
+    epoch = 5,
+    -- X : « 2 fumerolles posées par script dans la première zone de cendres trouvée, ou sur une tache de cendres créée à
+    -- cette distance » : un disque de cendres et 2 puits à 100 % (300 000 = 100 % pour un puits copié du pétrole).
+    guarantee = { site_radius = 7, wells = { amount = 300000, spacing = 6 } },
+    fluid = "fo-volcanic-gas",
+    category = "fo-fumarole",
+    yield = 200,
+    copy_resource = "crude-oil",
+    copy_fluid = "petroleum-gas",
+    -- Gaz jaune-blanc (teinte du fluide et de l'icône).
+    tint = { r = 0.95, g = 0.90, b = 0.55 },
+    -- Feuille PROPRE (comme la saumure) : la flaque du pétrole vanilla recolorée en bouche de cendre brûlée bordée d'une
+    -- croûte de soufre jaune (tools/render/pieces/ressources/fumerolle.py, sans Blender). Choix provisoire, sans verdict.
+    stages_sheet = { dir = "__factorio-overhaul__/graphics/ressources/fumerolle", name = "fumerolle" },
+    fluid_temperature = 300, -- X0 : temperature = 300
+    -- Crème soufrée sur la carte : un puits est un point, pas une tache ; ΔE76 ≥ 35 de tous les minerais, fluides et sols
+    -- (≥ 45 n'est plus possible hors du bleu marine, invisible sur la carte sombre : tests/geothermal_test.lua).
+    map_color = { r = 1.00, g = 1.00, b = 0.75 },
+    biome = "fo-volcanic-ash",
+    autoplace = { base_density = 4, base_spots_per_km2 = 1.2, random_probability = 1 / 50, additional_richness = 300000, seed1 = 7108 },
+  },
+  -- Lot AMELIO-RESSOURCES, piste ZINC (30/10) : BLENDE, minerai du zinc (âge 3, Vapeur ; proposition X3, module x3.lua :
+  -- fo-sphalerite, basic-solid, minage 1 s). « Districts miniers tirés d'un bruit propre, à plus de 150 tuiles » : sans
+  -- biome, jeu de gisements propre (graine X3 7301) sur une région de bruit propre (graine 7311). Chaîne :
+  -- shared/content/zinc.lua (zinc, laiton, manomètre à tube de Bourdon).
+  sphalerite = {
+    resource = "fo-sphalerite",
+    kind = "ore",
+    epoch = 3,
+    -- X3 : « 2 gisements de 200 000 posés par script si l'autoplace n'en a mis aucun à cette distance » ; rayon 7, 2 000
+    -- par tuile au centre : environ 200 000 (comme la galène) ; un gisement naturel de 130 000 en vaut un.
+    guarantee = { site_radius = 9, ore_radius = 7, amount = 2000, min_total = 130000, clear_trees = true, fill_tile = "dirt-4" },
+    item = "fo-sphalerite",
+    -- Tétraèdres résineux miel (X3 : « couleur miel à rouge rubis ») : la pierre (beige) × (1,00 ; 0,72 ; 0,30) donne un
+    -- miel ambré (0,69 ; 0,44 ; 0,13) ; éclats résineux ambre.
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 1.00, g = 0.72, b = 0.30 },
+    glint = { tint = { r = 1.00, g = 0.70, b = 0.30 }, min = 0.15, max = 0.45, period = 4 },
+    -- Feuille PROPRE du kit minerai (30/10 ; direction S2 : cristaux résineux miel et rubis, gros et serrés, 128
+    -- échantillons ; S1, trop clairsemée et à ΔE 8 de la pierre, écartée). check_gisement 6 OK, 1 ECHEC (stades 1 à 4 de
+    -- couverture presque égale, 0,23 ; écart 0,084 à la vanilla). ΔE 13 à la pierre, 24 au cuivre. Choix provisoire, sans
+    -- verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/blende",
+      name = "blende",
+      mining_visualisation_tint = { r = 0.55, g = 0.28, b = 0.08, a = 1 },
+      effet = { period = 4, deviation = 1, darkness_multiplier = 60, min = 0.02, max = 0.08 },
+    },
+    -- Bleu nuit sur la carte : la seule teinte restée à ΔE76 ≥ 45 de tous les minerais, fluides et sols (recherche sur une
+    -- grille de 21³ couleurs, tests/zinc_test.lua) ; foncé : à revoir sur capture de carte.
+    map_color = { r = 0.00, g = 0.00, b = 0.55 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X3)
+    biome = nil,
+    autoplace = { base_density = 4, base_spots_per_km2 = 1.2, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
+      seed1 = 7301, distance_min = 150, region = { seed1 = 7311, threshold = 0.5, scale = 1 / 220 } },
   },
 }
 

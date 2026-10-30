@@ -1,0 +1,82 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.2703,
+  0.2462,
+  0.2512,
+  0.1958,
+  0.1605,
+  0.1332,
+  0.0971,
+  0.0577
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "K1",
+ "echantillons": 128,
+ "effet": "eclats",
+ "effet_reglages": {
+  "lueur": {
+   "froid": [
+    -1.0,
+    -0.95
+   ],
+   "gain": 0.8,
+   "lum": [
+    0.03,
+    0.15
+   ]
+  },
+  "seuil": [
+   0.3,
+   0.6
+  ],
+  "teinte": [
+   0.55,
+   0.85,
+   1.0
+  ]
+ },
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "cristal",
+ "nom_direction": "druses de prismes bleu glacier",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.072,
+   0.132,
+   0.422,
+   0.374
+  ],
+  "acier": 0.928,
+  "acier_bleutes": 0.718,
+  "chauds": 0.0,
+  "sombres": 0.072
+ },
+ "secondes_blender": 1835.81,
+ "sha256": {
+  "cristal-effet.png": "4f804dc01811466e3889424189a608fe935eb7c7cfac90842639b7e1375419c2",
+  "cristal.png": "ab420bfa9e54666820ee86f66d5b1cf632edf52440a50eebbf7d5b8efafee4e4",
+  "hr-cristal-effet.png": "ed2a248b529418d2f1666392e0d2e8c7186e44b40dc6ff6524accc58696d2ea7",
+  "hr-cristal.png": "be4891c4eb9bb6eed22044f56698575dc6b34566a28de879f4d3f1bdf59d15fa",
+  "icone-1.png": "efd379c4ce606530dac41e0b59b01a10fd436b8b0df7f38d88aee515ee22e251",
+  "icone-2.png": "81511d93916e531ec7e6dfab62d416eb0a9247947badec2260feedea3095e315",
+  "icone-3.png": "75df9a6a24f98c52b2c43af85017f48d2b51bd6ae0967715982ae3ee7bbb4f55",
+  "icone.png": "0bad02b5e123ca4e35f4222ce077e09807e87c0caecff7b994192c099c8b6d98"
+ }
+}

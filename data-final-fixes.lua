@@ -13,6 +13,27 @@ do
     if T.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
   end
 end
+-- Lot X2 : celles de la chaîne de la bobine que X0 marque « prod » (ruban, aimant, cryostat, bobine) ; aucune réversible.
+do
+  local S = require("shared.content.superconductors")
+  for _, rr in ipairs(S.RECIPES) do
+    if S.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
+-- Lot AMELIO-RESSOURCES : celles du plomb et du thorium que X0 marque « prod » (plomb, blindage plombé) ; aucune réversible.
+do
+  local P = require("shared.content.galena")
+  for _, rr in ipairs(P.RECIPES) do
+    if P.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
+-- Piste BAUXITE : celles de l'aluminium que X3 marque « prod » (électrolyse ignée) ; aucune réversible.
+do
+  local B = require("shared.content.bauxite")
+  for _, rr in ipairs(B.RECIPES) do
+    if B.recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
 
 local base = data.raw.module["productivity-module-3"]
 local limitation = table.deepcopy(base and base.limitation or {})

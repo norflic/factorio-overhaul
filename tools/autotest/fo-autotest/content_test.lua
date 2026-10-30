@@ -218,7 +218,11 @@ local function verify_recipes(S)
       end
     end
     local progress = m.crafting_progress or 0
-    if produced > 0 then
+    if #r.products == 0 and (m.products_finished or 0) > 0 then
+      -- Lot AMELIO-RESSOURCES : une recette SANS produit (torchère d'AMELIO-CRAFTS et de la géothermie) ne laisse rien en
+      -- sortie ; ses fabrications terminées font la preuve (6 ECHEC de ce banc sinon).
+      ok("recette " .. rec.name, string.format("%d fabrication(s) sans produit en %d s", m.products_finished, CHECK_TICK / 60))
+    elseif produced > 0 then
       ok("recette " .. rec.name, string.format("%g produit(s) en %d s", produced, CHECK_TICK / 60))
     elseif progress > 0 then
       ok("recette " .. rec.name, string.format("en cours (%.0f %% d'une fabrication de %g s)", progress * 100, rec.energy))

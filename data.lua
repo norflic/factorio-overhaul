@@ -3,6 +3,13 @@
 require("prototypes.companion.body")
 require("prototypes.world")
 require("prototypes.titanium")
+require("prototypes.superconductors")
+require("prototypes.galena") -- lot AMELIO-RESSOURCES : plomb (âge 9), thorium (âge 12)
+require("prototypes.tin") -- lot AMELIO-RESSOURCES, piste ÉTAIN : carte imprimée (âge 4, X3) ; après prototypes.crafts
+require("prototypes.spent_fuel") -- lot AMELIO-RESSOURCES : combustible usé de l'âge 9 (piscine, vitrification, dépôt)
+require("prototypes.bauxite") -- lot AMELIO-RESSOURCES, piste BAUXITE : aluminium (âge 6, X3), pylône haute tension (X0) ; après prototypes.crafts
+require("prototypes.geothermal") -- lot AMELIO-RESSOURCES, piste GÉOTHERMIE : fumerolle, capteur, vapeur et soufre (âge 5, X0) ; après prototypes.crafts
+require("prototypes.zinc") -- lot AMELIO-RESSOURCES, piste ZINC : blende, zinc, laiton, manomètre à tube de Bourdon (âge 3, X3) ; après prototypes.crafts
 require("prototypes.modules")
 require("prototypes.enemies")
 require("prototypes.arsenal")

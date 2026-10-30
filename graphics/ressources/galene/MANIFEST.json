@@ -1,0 +1,71 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.2401,
+  0.2478,
+  0.2508,
+  0.2169,
+  0.156,
+  0.1451,
+  0.1065,
+  0.0519
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "G2",
+ "echantillons": 128,
+ "effet": "eclats",
+ "effet_reglages": {
+  "seuil": [
+   0.45,
+   0.8
+  ],
+  "teinte": [
+   0.8,
+   0.9,
+   1.0
+  ]
+ },
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "galene",
+ "nom_direction": "cubes de galène plombée dans une gangue de calcite crème",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.098,
+   0.225,
+   0.31,
+   0.368
+  ],
+  "acier": 0.475,
+  "acier_bleutes": 0.216,
+  "chauds": 0.44,
+  "sombres": 0.086
+ },
+ "secondes_blender": 1614.03,
+ "sha256": {
+  "galene-effet.png": "a30b1dda1bfd138f7d358b015a2053d9c355d3ce60a8aefdc42a7d1ab959c753",
+  "galene.png": "b13c848bdae50211ec47fb37c18bbd552a6b86bbad8d98535c67e5780926ddb1",
+  "hr-galene-effet.png": "4c6ca61efe294117d83c2e4433751c89b729249d20a8f60387c2cbd633672ebb",
+  "hr-galene.png": "9fb77f296839bdbde007b16bc9729a6c2373f79b644dae916517766a1fca7304",
+  "icone-1.png": "bea2b1684dedb39488131407c0b274e5661c64be8dd18394dcf054b60add5223",
+  "icone-2.png": "5b1c4ee7f7ae7acbb148e5719f05c79f72cebdead36fa7122d744491041706d6",
+  "icone-3.png": "b8d8772b9f45f531db091b8e2dc78091f49727fb582190b7713d6943f8aff51d",
+  "icone.png": "74790fb5820aeab1b808145c4cfa1e56ff5f6def37717d55df1665bb12045bae"
+ }
+}

@@ -1,0 +1,71 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.2316,
+  0.2326,
+  0.2204,
+  0.2226,
+  0.1992,
+  0.1738,
+  0.119,
+  0.0456
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "S2",
+ "echantillons": 128,
+ "effet": "eclats",
+ "effet_reglages": {
+  "seuil": [
+   0.45,
+   0.8
+  ],
+  "teinte": [
+   1.0,
+   0.78,
+   0.4
+  ]
+ },
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "blende",
+ "nom_direction": "cristaux résineux de blende miel et rubis, gros et serrés",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.194,
+   0.461,
+   0.143,
+   0.201
+  ],
+  "acier": 0.081,
+  "acier_bleutes": 0.0,
+  "chauds": 0.835,
+  "sombres": 0.084
+ },
+ "secondes_blender": 1233.8,
+ "sha256": {
+  "blende-effet.png": "0a9934686b29d303cfcd6e9a8fd0dff30c618f07cd9e603033d491efac6586c2",
+  "blende.png": "9d35123e16a65e015ce4ab7c7d4a3bdcd38730cffce38f00dce8b3837ae75505",
+  "hr-blende-effet.png": "0726134d5b862f2c62b4ca8870442931501b8abcc8184ddb7101b4ae53d9b5a4",
+  "hr-blende.png": "63fb1e97df0e0e30cf19c51af5315d033c6415e34141ed3156d2c7bfb30c8740",
+  "icone-1.png": "6d058ad32b2154cc5b839dcbb42be94a3cbac7e6fb8f080cbe9dfa4579f4b8b8",
+  "icone-2.png": "64ca9a5e55000f3f332153a4de18534bb425afcc90562012cf475cd0f36c42c8",
+  "icone-3.png": "4a02cbeff6cf16e79d7299a698814d7c67ef96a0d6fb69b56af6afc37e4879dc",
+  "icone.png": "e94d1b477996dc2005f7fe87fadfeb70bdb435f5a391bdba2552338f2079f0e2"
+ }
+}

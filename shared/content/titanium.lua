@@ -127,10 +127,12 @@ end
 --- Règle « déplier » : liste d'ingrédients { {nom, quantité} } -> liste où chaque ingrédient absent du jeu est
 --- remplacé par ceux de sa recette X, à la proportion (récursif, profondeur 6 au plus) ; quantités arrondies au-dessus
 --- À LA FIN, ordre de première apparition. Renvoie la liste et la trace { {absent, recette} } (ordre de dépliage).
-function T.expand(ingredients)
+--- present : règle de présence (défaut T.present ; le lot X2 passe la sienne, qui connaît aussi ses objets).
+function T.expand(ingredients, present)
+  present = present or T.present
   local acc, order, trace = {}, {}, {}
   local function add(name, q, depth)
-    if T.present(name) then
+    if present(name) then
       if not acc[name] then acc[name] = 0; order[#order + 1] = name end
       acc[name] = acc[name] + q
       return
