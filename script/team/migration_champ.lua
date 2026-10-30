@@ -362,7 +362,8 @@ local function begin_part(f, surface, ms, o, st, list, rects, tick)
     return false
   end
   local spec = { gen = m.gen, args = { m.args[1], m.args[2], 1 }, feed = m.feed, rate = band.rate, near = { x = o.pos.x, y = o.pos.y },
-    prio = CFG.prio, domain = "production", fixe = true, paires = band.pairs, degel = { oid = o.id, tiles = band.thaw, zone = band.zone } }
+    prio = CFG.prio, domain = "production", fixe = true, paires = band.pairs, degel = { oid = o.id, tiles = band.thaw, zone = band.zone },
+    pile = "migration" } -- lot FUITES-PILE : famille de la pile (réserve au coffre suspendue pendant une retenue, sauf en chantier)
   local id, rwhy = Build.request(f, spec)
   if not id then
     st.fails = st.fails + 1

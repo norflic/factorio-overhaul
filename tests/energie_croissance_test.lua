@@ -102,7 +102,8 @@ has(build, 'k = k, shared = shared }', "candidates : le candidat porte le propri
 has(build, 'if not (opts and opts.nobad) and not c.shared then c.l.bad', "place_module : un echec sur la rive partagee ne marque pas le lot")
 has(build, 'shared = c.shared }', "place_module : le placement rend le proprietaire de la rive")
 has(build, 'if main.shared then\n    b.lots[main.lot].used = main.shared', "plan_project : le lot reste au nom de la premiere centrale")
-has(build, 'q.reopened or (q.spec and (q.spec.enceinte or q.spec.ilot or q.spec.gen == first.spec.gen))',
+-- (lot FUITES-PILE : « rouvert » = reconstruction ou murs rouverts, pas un pas d'agrandissement d'une ligne)
+has(build, '(q.reopened and (Sweep.rebuilding(q) or not q.ligne)) or (q.spec and (q.spec.enceinte or q.spec.ilot or q.spec.gen == first.spec.gen))',
   "grow_plant : reparer et proteger (projets rouverts, enceinte, ilots) et les centrales restent devant")
 has(build, 'front[#front + 1] = id', "grow_plant : la centrale de plus passe devant la production ordinaire")
 has(pa, 'if C.after_refusal(g, refused, tick) then', "plant_arms : un refus ouvre une pause (C.after_refusal)")
@@ -111,24 +112,13 @@ has(pa, '[FO-ENERGIE] %s : bilan a %.1f min', "plant_arms : bilan [FO-ENERGIE] (
 has(pa, '[FO-ENERGIE] %s : decision : pas de centrale de plus', "plant_arms : decision negative journalisee avec sa raison")
 has(build, '[FO-ENERGIE] %s : decision : centrale de %d chaudiere(s) demandee', "grow_plant : decision positive journalisee")
 
-print("== 3. Etangs de plus (relecture : l'etang garanti ne porte que 2 centrales)")
-check(C.MAX_PONDS * 2 >= C.MAX_PLANTS, "C.MAX_PONDS etangs portent C.MAX_PLANTS centrales (2 par etang)")
-check(C.pond_allowed(1, "rive") == true, "1 etang releve : un etang de plus est permis")
-check(C.pond_allowed(0, nil) == true, "aucun etang garanti (rive naturelle pleine) : un etang est permis")
-local ok1, why1 = C.pond_allowed(1, "inconnu")
-check(ok1 == false and why1 == "dernier etang pas encore releve", "dernier etang pas encore releve : pas d'autre etang (pas de rafale)")
-local ok2, why2 = C.pond_allowed(C.MAX_PONDS, "rive")
-check(ok2 == false and why2 == "plafond d'etangs", "plafond d'etangs : C.MAX_PONDS au plus")
-check(C.pond_allowed(C.MAX_PONDS - 1, "rive") == true, "sous le plafond : permis")
--- mutant : sans garde du releve, deux etangs d'affilee
-do
-  local real = C.pond_allowed
-  local mut = function(ponds) return (ponds or 0) < C.MAX_PONDS end
-  check(mut(1, "inconnu") ~= real(1, "inconnu"), "mutant (garde du releve retiree) refuse par le test")
-end
+print("== 3. Etangs de plus : retires (D-24)")
+-- Lot FUITES-PILE (vague 10) : C.pond_allowed et C.MAX_PONDS, code mort depuis 0.6.21 (aucun lecteur, vérifié par grep), sont retirés ;
+-- leurs 8 contrôles sont remplacés par celui-ci.
+check(C.pond_allowed == nil and C.MAX_PONDS == nil, "code mort retire : C.pond_allowed et C.MAX_PONDS n'existent plus")
 -- Intégration 0.6.21 (PD-CENTRALE, décision du DC D-24 (1) : « si l'eau n'est pas utilisable, il faut aller plus loin ») : plus
 -- d'étang posé par le mod, ni garanti ni « de plus » ; une centrale de plus qui ne tient sur aucune rive du treillis va au loin
--- (Far.place). Les 6 contrôles de branchement de make_pond sont remplacés par ceux-ci ; C.pond_allowed (ci-dessus) n'a plus de lecteur.
+-- (Far.place). Les 6 contrôles de branchement de make_pond sont remplacés par ceux-ci ; C.pond_allowed est retiré (lot FUITES-PILE).
 check(build:find("local function make_pond", 1, true) == nil and build:find("set_tiles(tiles", 1, true) == nil,
   "D-24 : aucun etang pose par le mod (ni garanti, ni de plus)")
 has(build, 'main, lwhy, lwait = Far.place(f, surface, g,', "une centrale (de plus comprise) sans rive dans le treillis va au loin (Far.place)")

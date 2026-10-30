@@ -30,6 +30,8 @@ local Sweep = require("shared.team.rebuild_sweep") -- lot REBUILD-SUIVI : règle
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
+local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (agrandissement des lignes)
+local Pi = require("shared.ai3.pile") -- lot FUITES-PILE : famille d'un module (reconstruction, neuf, agrandissement)
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D10) : module au plafond de son produit, plus nourri
 
 local Auto = {}
@@ -319,10 +321,16 @@ local function refresh(f, st, tick)
       else
         local was = m.state
         local state = s.state
+        -- Lot FUITES-PILE (fuite b) : reconstruction (pièces détruites à refaire) ou pas d'agrandissement d'une ligne ; famille et produit
+        -- portés par le projet (sauvegardes d'avant ce lot : posés ici, une fois)
+        m.rebuild, m.grow_step = s.rebuilding or nil, s.growth or nil
+        Build.tag(f, m.id, m.capi and "capi" or "capital", m.product)
         -- (un module rouvert par le relevé garde son projet : « bloque » sans reprise reste suivi, il n'est pas refusé)
         if state == "bloque" and not s.retry_at and not m.reopened_at then state, s.reason = "refuse", "abandon : " .. tostring(s.reason) end
         m.state, m.reason, m.missing = state, s.reason, s.missing or {}
         m.built, m.total = s.built or 0, s.total or 0
+        -- Lot FUITES-PILE : une réserve suspendue par la pile (raison « pile ») n'est pas une réserve affamée : son horloge est arrêtée
+        if state == "reserve" and s.reason == "pile" then m.reserve_since, m.reserve_left = tick, nil end
         if state == "reserve" then
           reserve_clock(m, "reserve_since", "reserve_left", s, tick)
           if tick - m.reserve_since > Auto.RESERVE_MAX and not m.reopened_at and Build.cancel(f, m.id, "materiaux introuvables (15 min sans progres)") then
@@ -446,6 +454,9 @@ local function submit(f, st, tick, rq, research)
   end
   local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
     pole = rq.pole,
+    -- lot FUITES-PILE (fuite b) : famille de la pile et produit du module NEUF (réserve au coffre suspendue pendant une retenue,
+    -- script/team/build.lua advance) ; un module rouvert pour reconstruction n'est jamais suspendu (Sweep.rebuilding)
+    pile = rq.capi and "capi" or "capital", product = rq.product,
     shrunk = rq.shrunk or nil } -- lot INTEG-ECONOMIE (D2) : la ligne ne grandit pas au-delà de la taille réduite demandée (line_rows)
   -- Lot RANGEES-DEBIT : une ligne DYNAMIQUE (T.ligne.dyn) pose ses rangées par étapes, bornées par le stock (Fonte.initial, Fonte.step) :
   -- la réduction n'a plus lieu d'être et la figeait à sa taille réduite (2 rangées : les « 4 fours » que le DC voit encore en 0.6.18,
@@ -567,7 +578,10 @@ function Auto.think(f, view, book, tick, research)
   if mig_id then
     local ps = Build.brief(f, mig_id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      mods[#mods + 1] = { product = "migration", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0 } -- valeur de base d'un module
+      Build.tag(f, mig_id, "migration", nil) -- lot FUITES-PILE : sauvegardes d'avant ce lot
+      -- lot FUITES-PILE : famille de la pile ; une migration EN CHANTIER (paires déjà retirées) continue pendant la retenue
+      mods[#mods + 1] = { product = "migration", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, -- valeur de base d'un module
+        pile = (not ps.rebuilding and not PileRt.migration_building(f)) and "migration" or nil }
     end
   end
   local feeds = {}
@@ -577,7 +591,9 @@ function Auto.think(f, view, book, tick, research)
     -- Lot INTEG-RECONSTRUCTION (D1) : sauf rouvert par le relevé de reconstruction : l'ordre CAPI est alors fermé depuis longtemps
     -- (Capi.think le ferme quand tous ses modules sont finis), personne d'autre ne ferait de but « auto:<produit> » pour les objets à refaire.
     if Sweep.goal_for_module(m) then
-      mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain }
+      -- lot FUITES-PILE (fuite b) : famille de la pile (reconstruction, agrandissement, module neuf), lue par la pensée (Pi.porte)
+      mods[#mods + 1] = { product = m.product, state = m.state, missing = m.missing, reason = m.reason, gain = m.gain,
+        pile = Pi.module_family(m.rebuild, m.grow_step, m.capi, nil) }
     end
     -- Lot MAIN-ET-INTERMEDIAIRES (D10) : produit au plafond de stock (script/team/intermediaires.lua) : rien n'est fabriqué pour ses quais.
     if m.state == "fini" and f.build and not Inter.over(f, m.product) then
@@ -592,7 +608,10 @@ function Auto.think(f, view, book, tick, research)
       end
       -- lot FONDERIE-DYNAMIQUE : pièces du prochain pas de sa ligne (fours, foreuses, bras) qui manquent au coffre, en quantité exacte
       -- (Build.brief.grow, posé seulement quand le stock de plaques paie le pas) : sans ce but, personne ne les fabriquait
-      for _, g in ipairs(s and s.grow or {}) do
+      -- lot FUITES-PILE : un agrandissement est un investissement de production : pendant une retenue, seulement pour une matière d'un
+      -- cadre ouvert ou qui manque (Build.ligne_step ne l'ouvre pas non plus)
+      local grow_ok = (s and s.grow and #s.grow > 0) and PileRt.porte(f, "invest", m.product) or false
+      for _, g in ipairs(grow_ok and s.grow or {}) do
         local makeable = (book and book.handcraftable and book:handcraftable(g[1])) or T.smelter_inputs[g[1]] ~= nil
         if makeable and (g[2] or 0) > 0 then items[#items + 1] = { g[1], g[2] } end
       end

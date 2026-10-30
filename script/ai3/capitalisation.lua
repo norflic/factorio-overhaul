@@ -70,6 +70,8 @@ local Lv = require("shared.ai3.leviers")
 local MM = require("shared.content.module_mult")
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie (la production passe avant la défense)
 local Sv = require("shared.team.survie")
+local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
+local Pi = require("shared.ai3.pile")
 
 local Capi = {}
 
@@ -992,6 +994,8 @@ local function follow(f, cs, rec, tick)
       else
         if m.state == "reserve" then for _, it in ipairs(m.missing or {}) do missing[#missing + 1] = it end end
         if m.state == "bloque" then blocked = tostring(m.reason) end
+        -- lot FUITES-PILE : réserve suspendue par la pile : ce n'est pas un ordre sans progrès (Capi.ORDER_TTL)
+        if m.reason == "pile" then rec.progress_tick = tick end
       end
       if m then built, total = built + (m.built or 0), total + (m.total or 0) end
     end
@@ -1167,6 +1171,19 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Étape 10 : décision
 ---------------------------------------------------------------------------------------------------
+--- Lot FUITES-PILE (fuite a) : un ordre NEUF de la capitalisation est une amélioration (R3) ; pendant qu'un cadre réparer, protéger ou
+--- survivre retient (shared/ai3/pile.lua), il n'est envoyé à aucun exécutant, sauf s'il produit une matière d'un cadre ouvert ou qui
+--- manque (investissement de production, comme g.invest de la pensée). Objets produits : l'objet de l'ordre, son minerai et les
+--- produits de sa recette de fonte. Rend (permis, raison).
+local function pile_ok(f, o)
+  local items = {}
+  if o.item then items[#items + 1] = o.item end
+  if o.resource and o.resource ~= o.item then items[#items + 1] = o.resource end
+  local r = o.smelt_recipe and Capi.data().recipes[o.smelt_recipe]
+  for _, pr in ipairs(r and r.products or {}) do items[#items + 1] = pr.name end
+  return PileRt.porte_any(f, Pi.order_family(o.kind), items)
+end
+
 local function decide(f, cs, view, book, tick, research, w)
   local D = Capi.data()
   cs.flows = flows_of(f, cs)
@@ -1235,7 +1252,14 @@ local function decide(f, cs, view, book, tick, research, w)
     labs_target = res.labs_target, u_star = res.u_star }
   local sent, refused = {}, {}
   for _, o in ipairs(res.orders) do
-    local rec, why = execute(f, cs, o, view, book, tick, research)
+    local rec, why
+    local allowed, pwhy = pile_ok(f, o)
+    if allowed then rec, why = execute(f, cs, o, view, book, tick, research)
+    else
+      why = "pile : " .. tostring(pwhy)
+      PileRt.refuse(f, "capi:" .. tostring(o.key), "ordre " .. tostring(o.kind) .. " " .. tostring(o.item or o.resource or o.tech)
+        .. " non envoye (" .. tostring(pwhy) .. ")", tick)
+    end
     if rec then
       cs.open[#cs.open + 1] = rec
       cs.orders = cs.orders + 1
@@ -1244,7 +1268,8 @@ local function decide(f, cs, view, book, tick, research, w)
     else
       refused[#refused + 1] = o.key .. " (" .. tostring(why) .. ")"
       cs.refused[o.key] = tick
-      if o.kind == "equiper" or o.kind == "techno" then hold(cs, o.key, why, tick) end -- lot LEVIERS : pas redemandé tout de suite
+      -- lot LEVIERS : pas redemandé tout de suite (lot FUITES-PILE : sauf un refus de la pile, redemandé dès qu'elle se vide)
+      if allowed and (o.kind == "equiper" or o.kind == "techno") then hold(cs, o.key, why, tick) end
       -- l'ordre n'a rien coûté : l'épargne débitée par la règle lui est rendue
       cs.st.bank = (cs.st.bank or 0) + (o.cost_m or 0)
     end
@@ -1396,7 +1421,17 @@ function Capi.think(f, view, book, tick, research, w)
   -- au coffre) ; renouvelées à chaque pensée, comme le plan.
   local tasks = {}
   for _, rec in ipairs(cs.open) do
+    -- Lot FUITES-PILE : poser des modules dans les machines est une amélioration (R3) : suspendu pendant une retenue de la pile (sauf
+    -- pour une machine d'une matière d'un cadre ouvert ou qui manque) ; l'ordre ne vieillit pas pendant la suspension
+    local eq_ok, eq_why = true, nil
     if rec.exec == "equiper" and (rec.n_left or 0) > 0 then
+      eq_ok, eq_why = PileRt.porte_any(f, "capi", { rec.d_item })
+      if not eq_ok then
+        rec.progress_tick = tick
+        PileRt.refuse(f, "equiper:" .. tostring(rec.key), "pose de modules " .. tostring(rec.module) .. " suspendue (" .. tostring(eq_why) .. ")", tick)
+      end
+    end
+    if eq_ok and rec.exec == "equiper" and (rec.n_left or 0) > 0 then
       local done = {}
       for _, u in ipairs(rec.done or {}) do done[u] = true end
       local nb = math.ceil(#rec.targets / Equip.BATCH)

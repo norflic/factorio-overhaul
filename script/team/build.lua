@@ -91,6 +91,7 @@ Build.CUT_WIDTH = 1.5          -- demi-largeur (tuiles) du couloir qu'un défric
 Build.CUT_TRIES = 6            -- marches refaites après une coupe, par tâche
 
 local REACH = P.BUILD_DISTANCE
+local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (réserve des modules neufs, agrandissement, tapis)
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
 local TREE_TYPES = { "tree", "simple-entity" }
 
@@ -517,7 +518,7 @@ end
 --- treillis, reliée par une ligne de poteaux (lot PD-CENTRALE, script/team/centrale_loin.lua). Les étangs déjà posés dans une
 --- sauvegarde restent de l'eau ; le champ b.pond n'est plus lu.
 --- Intégration 0.6.21 (PD-CENTRALE x ENERGIE-CROISSANCE) : les étangs DE PLUS d'ENERGIE-CROISSANCE (l'ancien étang garanti avec
---- `extra`, règle pure Cen.pond_allowed, désormais sans lecteur) partent avec l'étang garanti, comme le demande le rapport de PD-CENTRALE : une centrale de plus va elle aussi
+--- `extra` ; sa règle pure Cen.pond_allowed et C.MAX_PONDS, restées sans lecteur, sont retirées au lot FUITES-PILE) partent avec l'étang garanti, comme le demande le rapport de PD-CENTRALE : une centrale de plus va elle aussi
 --- au loin par Far.place (une autre fenêtre de la même rive, masques b.occ). Le reste d'ENERGIE-CROISSANCE (rive partagée
 --- main.shared, demandes, pause, 5 refus) est gardé.
 
@@ -1543,7 +1544,9 @@ function Build.ligne_step(f, surface, tick)
     local p = b.projects[pid]
     local ln = p and p.ligne
     if ln and p.state == "fini" and not p.abandoned and tick - (p.finished or 0) >= (cfg.settle or 0) then
-      if ligne_one(f, surface, p, ln, cfg, tick) then return end
+      -- Lot FUITES-PILE : un agrandissement est un investissement de production ; pendant une retenue, seulement pour une matière d'un
+      -- cadre ouvert ou qui manque (la ligne déjà bâtie continue de produire) ; ses pièces ne sont plus demandées (ln.missing)
+      if not Build.grow_suspended(f, p, ln, tick) and ligne_one(f, surface, p, ln, cfg, tick) then return end
     end
   end
 end
@@ -2356,7 +2359,8 @@ function Build.grow_plant(f, nb, tick)
   for _, x in ipairs(b.order) do
     local q = b.projects[x]
     if x ~= id then
-      if q and (q.reopened or (q.spec and (q.spec.enceinte or q.spec.ilot or q.spec.gen == first.spec.gen))) then front[#front + 1] = x
+      -- (lot FUITES-PILE : « ce qui répare » = reconstruction ou murs rouverts, pas un pas d'agrandissement d'une ligne)
+      if q and ((q.reopened and (Sweep.rebuilding(q) or not q.ligne)) or (q.spec and (q.spec.enceinte or q.spec.ilot or q.spec.gen == first.spec.gen))) then front[#front + 1] = x
       else rest[#rest + 1] = x end
     end
   end
@@ -2441,6 +2445,18 @@ local function craft_walls(f, p)
   p.crafted = (p.crafted or 0) + put
 end
 
+--- Lot FUITES-PILE (fuite b) : famille de la pile dont dépend la RÉSERVE au coffre du projet `p`, ou nil (jamais suspendue). Seuls les
+--- projets marqués par leur demandeur (p.spec.pile : modules de l'automatisation et de la capitalisation, ligne d'une migration du champ)
+--- passent par la porte ; une reconstruction (Sweep.rebuilding : pièces détruites à refaire) jamais ; un pas d'agrandissement d'une ligne
+--- (ligne_open) non plus ici : il n'est ouvert que matière réunie et la ligne ne sert plus ses quais en « reserve » (la porte est à
+--- Build.ligne_step) ; une migration déjà EN CHANTIER (paires retirées) non plus (PileRt.migration_building, comme script/team/team.lua).
+local function pile_family(f, p)
+  local fam = p.spec and p.spec.pile
+  if not fam or Sweep.rebuilding(p) or (p.reopened and p.reopened ~= 0) then return nil end
+  if fam == "migration" and PileRt.migration_building(f) then return nil end
+  return fam
+end
+
 local function reserve(f, p)
   local need = needs_of(p)
   local missing = {}
@@ -2489,6 +2505,36 @@ local function release(f, p)
       p.stock[it] = n - put
     end
   end
+end
+
+--- Lot FUITES-PILE (fuite b) : la réserve au coffre du projet `p` (état « reserve ») est-elle suspendue par la pile ? Un module NEUF est une
+--- amélioration (R3) : pendant qu'un cadre réparer, protéger ou survivre retient, il ne prend rien au coffre et REND ce qu'il avait pris
+--- (p.stock), ses manques sont effacés (aucun but ne les fabrique), raison « pile », relu dans une seconde ; sauf s'il produit une matière
+--- d'un cadre ouvert ou qui manque (PileRt.porte). Un module rouvert pour reconstruction n'est jamais suspendu (pile_family). Avant, le
+--- module neuf réservait le fer des tourelles exactement comme un module rouvert pour reconstruction. Rend vrai si suspendue.
+function Build.reserve_suspended(f, p, tick)
+  local fam = pile_family(f, p)
+  if not fam then return false end
+  local ok, why = PileRt.porte(f, fam, p.spec.product)
+  if ok then return false end
+  release(f, p)
+  p.missing = {}
+  p.reason, p.reserve_next = "pile", tick + 60
+  PileRt.refuse(f, "projet:" .. p.id, string.format("projet %d (%s, %s) : reserve au coffre suspendue, objets rendus (%s)", p.id, fam,
+    tostring(p.spec.product), tostring(why)), tick)
+  return true
+end
+
+--- Lot FUITES-PILE : l'agrandissement de la ligne finie du projet `p` (Build.ligne_step) est-il suspendu par la pile ? C'est un
+--- investissement de production : pendant une retenue, seulement pour une matière d'un cadre ouvert ou qui manque ; la ligne déjà bâtie
+--- continue de produire, ses pièces du pas suivant ne sont plus demandées (ln.missing effacé). Rend vrai si suspendu.
+function Build.grow_suspended(f, p, ln, tick)
+  local ok, why = PileRt.porte(f, "invest", p.spec and p.spec.product)
+  if ok then return false end
+  ln.missing = nil
+  PileRt.refuse(f, "ligne:" .. p.id, string.format("projet %d, ligne %s : agrandissement suspendu (%s)", p.id, tostring(ln.ore),
+    tostring(why)), tick)
+  return true
 end
 
 --- Lot IA3-e : annule une demande pas encore en chantier (attente, plan, réserve) : objets réservés rendus au coffre,
@@ -3447,6 +3493,10 @@ local function advance(f, surface, p, tick)
     -- lot IA3-e : une réserve incomplète n'est relue qu'une fois par seconde (elle relisait le coffre et le registre
     -- toutes les 5 ticks : chantiers des factions en attente de matériaux pendant des dizaines de minutes, K10)
     if p.reserve_next and tick < p.reserve_next then return end
+    -- Lot FUITES-PILE (fuite b) : un module NEUF est une amélioration (R3) ; pendant qu'un cadre réparer, protéger ou survivre retient,
+    -- il ne prend rien au coffre (et rend ce qu'il avait déjà pris), sauf s'il produit une matière d'un cadre ouvert ou qui manque
+    -- (PileRt.porte). Avant, il réservait le fer des tourelles comme un module rouvert pour reconstruction.
+    if Build.reserve_suspended(f, p, tick) then return end
     if p.spec.enceinte then craft_walls(f, p) end
     -- lot IA3-e : la raison « materiaux » est effacée quand la réserve est complète (elle restait affichée au chantier)
     if reserve(f, p) then
@@ -3672,7 +3722,7 @@ local function charbon_step(f, tick)
         for _, x in ipairs(b.order) do
           local q = b.projects[x]
           if x ~= id then
-            if q and (q.reopened or (q.spec and q.spec.gen == p.spec.gen and q.state ~= "fini")) then front[#front + 1] = x
+            if q and ((q.reopened and (Sweep.rebuilding(q) or not q.ligne)) or (q.spec and q.spec.gen == p.spec.gen and q.state ~= "fini")) then front[#front + 1] = x
             else rest[#rest + 1] = x end
           end
         end
@@ -4039,7 +4089,13 @@ function Build.think(f, surface, tick)
     Board.drop_free(f, function(t) return t.ia1d ~= nil end)
   end
   if #tasks > 0 then Board.add(f, tasks, tick) end
-  Conv.step(f, surface, tick) -- lot CONVOYEURS : amélioration des tapis saturés, tâche de fond bornée
+  -- Lot FUITES-PILE : amélioration des tapis (R3, ses tapis pris au stock) suspendue pendant une retenue de la pile
+  local conv_ok, conv_why = PileRt.porte(f, "upgrade", nil)
+  if conv_ok then
+    Conv.step(f, surface, tick) -- lot CONVOYEURS : amélioration des tapis saturés, tâche de fond bornée
+  else
+    PileRt.refuse(f, "convoyeurs", "amelioration des tapis suspendue (" .. tostring(conv_why) .. ")", tick)
+  end
   Build.ligne_step(f, surface, tick) -- lot FONDERIE-DYNAMIQUE : la ligne de fours suit ses foreuses (relevé borné)
   -- tronçons encombrés : réévalués (défrichés par les PNJ)
   for _, key in ipairs(sorted_keys(b.segs)) do
@@ -4128,8 +4184,21 @@ function Build.brief(f, id)
     grow = {}
     for _, m in ipairs(p.ligne.missing) do grow[#grow + 1] = { m[1], m[2] } end
   end
+  -- lot FUITES-PILE (fuite b) : reconstruction (pièces détruites à refaire) contre pas d'agrandissement d'une ligne (ligne_open)
+  local rebuilding = Sweep.rebuilding(p)
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
-    retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow }
+    retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow,
+    rebuilding = rebuilding, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false }
+end
+
+--- Lot FUITES-PILE : pose la famille de la pile et le produit d'un projet demandé AVANT ce lot (sauvegarde 0.6.21) ; ne change rien à un
+--- projet déjà marqué. Appelé par script/ai3/automatisation.lua à chaque relevé d'un module suivi.
+function Build.tag(f, id, family, product)
+  local p = f and f.build and f.build.projects[id]
+  if not (p and p.spec) or p.spec.pile then return false end
+  p.spec.pile = family
+  if product ~= nil and p.spec.product == nil then p.spec.product = product end
+  return true
 end
 
 Build.BURN_EVERY = 600 -- ticks : le relevé du charbon brûlé par les fours du plan se refait au plus toutes les 10 s
