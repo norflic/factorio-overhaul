@@ -32,7 +32,7 @@ return {
     ctx.check(res and gas and tap and game.item_prototypes["fo-geothermal-tap"], "prototypes de la geothermie presents")
     local prod = res and res.mineable_properties.products[1]
     ctx.check(res and res.resource_category == "fo-fumarole" and res.infinite_resource and prod and prod.name == "fo-volcanic-gas"
-      and prod.amount_max == 200 and game.autoplace_control_prototypes["fo-fumarole"] ~= nil,
+      and (prod.amount or prod.amount_max) == 200 and game.autoplace_control_prototypes["fo-fumarole"] ~= nil,
       "fumerolle : fluide infini, categorie propre, 200 gaz par cycle, reglage de carte")
     ctx.check(tap and tap.resource_categories["fo-fumarole"] and not tap.resource_categories["basic-fluid"]
       and not game.entity_prototypes["pumpjack"].resource_categories["fo-fumarole"]
