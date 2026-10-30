@@ -212,3 +212,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~6 h 25, passage 60
 - 14 archives (INTEG-0623 x4, BIOMES-SUIVI x4, X3-MINERAIS x5 dont quartz-puces 10, migration 7, content 439, monde 378, PREVISION-REVUE content 331), 0 erreur Lua, 0 ECHEC, codes 0. Rien de nouveau.
+
+## 30/10 ~6 h 55, passage 61
+- 4 archives (FUITES-PILE relecture content 331, X3-MINERAIS images x2 (BILAN dans fo-shots, session avec images) + relecture content 439), 0 erreur Lua, codes 0. Rien de nouveau. X3-MINERAIS parque (Q26 : disques de plaine poses au milieu d'autres biomes).
