@@ -169,3 +169,9 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~2 h, passage 51 (reprise apres la limite d'usage)
 - Limite d'usage atteinte vers 0 h 34, levee a 2 h : tous les agents se sont arretes environ 1 h 25. Les workflows (amelio, petites demandes) ont repris seuls ; integ-0619 relance par message. Verrou orphelin de la place 1 (amelio-crafts, processus 36000 mort depuis 0 h 42) : sera retire par banc.py. Aucune archive nouvelle a lire ; aucun factorio.exe.
+
+## 30/10 ~2 h 20, passage 52
+- 15 archives de la nuit (piste amelio / petites demandes) lues. Iterations de developpement, pas de version : biomes 9/2 ECHEC (avant) -> 11 OK 0 ECHEC (apres-3) : l'echec du passage 50 est corrige (mesure).
+- PD-CENTRALE pd-centrale-7300-b : erreur Lua dans le SCENARIO DE BANC (greffon pd-centrale.lua:123, index de 'a' nil), pas dans le mod ; v2 a 10 OK 1 ECHEC, v3 en cours (mesure).
+- CRAFTS banc-content-ab2f2da : content 355 OK, 5 ECHEC : les 5 recettes de torchere (fo-flare-brine, -chlorine, -ethylene, -hydrogen, -titanium-tetrachloride) ne produisent rien (statut 20) ; a corriger avant fusion (verification de la piste ou integrateur) (mesure).
+- PD-REPARATION banc2 17/1 -> banc3 18 OK ; PD-CENTREQG migration 12/2 -> 14 OK et 13 OK. Aucune erreur Lua du mod.
