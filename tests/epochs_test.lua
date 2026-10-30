@@ -780,7 +780,11 @@ fixpoint()
 local vanilla_tech_cost, vanilla_tech_raw, vanilla_techs = {}, {}, nil
 for k = 1, 15 do vanilla_tech_cost[k], vanilla_tech_raw[k] = 0, 0 end
 local function window_mu(packs) local s = 0 for _, p in ipairs(packs) do s = s + (mu_of(p) < INF and mu_of(p) or 0) end return s end
+-- Lot X3-MINERAIS (30/10) : FO_DATA_DIR d'abord (comme levels_test), pour une copie du mod hors de l'arborescence du jeu
+-- (git archive dans un dossier jetable) ; sans lui, une telle copie ne trouvait pas technology.lua et la part de la
+-- recherche tombait à 17 % (x3_test « rouge sur 0.6.21 » à l'intégration de la 0.6.22 : faux rouge).
 local tech_candidates = { "../../data/base/prototypes/technology.lua", "../../../../../data/base/prototypes/technology.lua" }
+if os.getenv("FO_DATA_DIR") then table.insert(tech_candidates, 1, os.getenv("FO_DATA_DIR") .. "/base/prototypes/technology.lua") end
 for _, p in ipairs(tech_candidates) do
   if not vanilla_techs then
     local f = io.open(p, "rb")
@@ -843,6 +847,8 @@ if vanilla_techs then
   for _, sp in ipairs(X.vanilla_tech_splits) do check(vt_names[sp.tech] ~= nil, sp.tech .. " : scission d'une technologie vanilla réelle") end
 else
   info("AVIS : data/base/prototypes/technology.lua introuvable ; scissions et recherche vanilla non relues")
+  -- Un échec NOMMÉ plutôt que des parts de recherche fausses (17 % au lieu de 30 à 40 %) sans cause visible.
+  check(false, "données vanilla introuvables (technology.lua) : lancer depuis <mod> ou un worktree de .claude/worktrees, ou poser FO_DATA_DIR=<racine>/data")
 end
 section("Coût de la recherche par époque (30 à 40 % du budget)")
 local research_share, research_mu = {}, {}
