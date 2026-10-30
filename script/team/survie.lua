@@ -81,6 +81,14 @@ function Survie.note_gate(f, tick, base, base_why, decision, why)
   end
 end
 
+--- Lot FER-MARQUE (shared/team/famine.lua) : un départ de famine accordé par la porte (`cleared` nil), ou `cleared` cases mobiles vides
+--- effacées par un regard. Compteurs du séjour (absents d'une sauvegarde d'avant le lot : 0), lus par le bilan [FO-SURVIE] (totals).
+function Survie.note_famine(f, cleared)
+  local s = Survie.state(f)
+  if not s then return end
+  if cleared then s.famine_clear = (s.famine_clear or 0) + cleared else s.famine_go = (s.famine_go or 0) + 1 end
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Pensée
 ---------------------------------------------------------------------------------------------------
@@ -97,8 +105,8 @@ local function relax_text(s)
 end
 
 local function totals(s)
-  return string.format("portes assouplies %d (%s), minages demandes %d, fours demandes %d, agrandissements demandes %d",
-    s.relaxed, relax_text(s), s.mines, s.smelters, s.extends)
+  return string.format("portes assouplies %d (%s), minages demandes %d, fours demandes %d, agrandissements demandes %d, departs de famine %d, cases mobiles effacees %d",
+    s.relaxed, relax_text(s), s.mines, s.smelters, s.extends, s.famine_go or 0, s.famine_clear or 0)
 end
 
 --- Pensée de l'équipe (après le plan et la synchronisation du tableau). Décide l'entrée / la sortie du mode et, tant qu'il dure,
@@ -117,6 +125,7 @@ function Survie.think(f, view, plan, tick)
   if d.event == "entree" then
     s.said = {}
     s.relaxed, s.relax_why, s.mines, s.smelters, s.extends, s.keys = 0, {}, 0, 0, 0, {}
+    s.famine_go, s.famine_clear = 0, 0 -- lot FER-MARQUE
     log(string.format("[FO-SURVIE] %s : ENTREE en mode survie a %.1f min (entree n %d) : %s", tostring(f.key), tick / 3600, s.entries, d.cause))
   elseif d.event == "sortie" then
     log(string.format("[FO-SURVIE] %s : SORTIE du mode survie a %.1f min : %s ; bilan du sejour : %s", tostring(f.key), tick / 3600, d.cause, totals(s)))
