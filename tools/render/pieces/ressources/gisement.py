@@ -116,6 +116,30 @@ def lame(rng, longueur, largeur, ep):
     return verts, faces
 
 
+def bipyramide(rng, longueur, largeur, ep=None):
+    """Cristal de cassitérite (retour du DC du 30/10 : forme refaite) : prisme court quadratique aux arêtes abattues
+    (section octogonale à côtés alternés, {110} et {100}) terminé par une PYRAMIDE {111} ; base à z = 0, axe +Z.
+    L'habitus réel de la cassitérite : silhouette en pointe trapue, qu'aucun minerai vanilla ni du mod n'a (lames
+    plates du tungstène, cubes de la galène, galets des placers)."""
+    del ep
+    sec = []
+    for i in range(8):
+        a = math.pi / 4 * i + math.pi / 8
+        k = 1.0 if i % 2 == 0 else 0.80
+        sec.append((0.5 * largeur * k * math.cos(a), 0.5 * largeur * k * math.sin(a)))
+    pointe = largeur * rng.uniform(0.65, 0.95)
+    corps = max(0.25 * largeur, longueur - pointe)
+    verts = [(x, y, -0.04) for x, y in sec]
+    verts += [(x, y, corps) for x, y in sec]
+    verts.append((rng.uniform(-0.04, 0.04) * largeur, rng.uniform(-0.04, 0.04) * largeur, corps + pointe))
+    faces = [list(range(7, -1, -1))]
+    for i in range(8):
+        j = (i + 1) % 8
+        faces.append([i, j, 8 + j, 8 + i])
+        faces.append([8 + i, 8 + j, 16])
+    return verts, faces
+
+
 def bloc(rng, taille, haut):
     """Bloc de métal : cuboïde légèrement irrégulier (le biseau est un modificateur)."""
     lx = taille * rng.uniform(0.75, 1.15)
@@ -147,6 +171,38 @@ def _places(rng, n, rayon, ecart, deja):
     return out
 
 
+def _centres_amas(rng, amas, stade, rayon):
+    """Centres des AMAS d'une cellule (clé `amas` d'une direction ; retour du DC du 30/10) : les minerais vanilla ne
+    sont pas un disque régulier de pièces mais 2 ou 3 tas serrés, d'où une silhouette irrégulière."""
+    n = amas["n"][stade]
+    out = []
+    essais = 0
+    while len(out) < n and essais < 200:
+        essais += 1
+        a = rng.uniform(0, 2 * math.pi)
+        r = rayon * amas.get("centre", 0.55) * math.sqrt(rng.random())
+        x, y = r * math.cos(a), r * math.sin(a)
+        if all((x - px) ** 2 + (y - py) ** 2 >= (amas.get("ecart", 0.45) * rayon) ** 2 for px, py in out):
+            out.append((x, y))
+    return out or [(0.0, 0.0)]
+
+
+def _places_amas(rng, n, rayon, ecart, deja, centres, etal):
+    """Comme _places, mais chaque position tombe près d'un centre d'amas (écart gaussien `etal` tuiles), dans le disque
+    de rayon `rayon` × 1,1."""
+    out = []
+    essais = 0
+    while len(out) < n and essais < 600:
+        essais += 1
+        cx, cy = centres[rng.randrange(len(centres))]
+        x, y = cx + rng.gauss(0.0, etal), cy + rng.gauss(0.0, etal)
+        if x * x + y * y > (rayon * 1.1) ** 2:
+            continue
+        if all((x - px) ** 2 + (y - py) ** 2 >= ecart ** 2 for px, py in deja + out):
+            out.append((x, y))
+    return out
+
+
 def _compte(seq, stade, echelle, rng):
     v = seq[stade] * echelle
     n = int(v)
@@ -173,30 +229,43 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
         return o
 
     tag = "%s_%d_%d" % (cle, r, c)
+    # amas (clé facultative `amas`, retour du DC du 30/10) : les pièces se groupent en 1 à 3 tas au lieu d'un disque
+    amas = d.get("amas")
+    if amas and not icone:
+        centres = _centres_amas(rng, amas, stade, rayon)
+
+        def places(n, ray, ecart, deja, k=1.0):
+            return _places_amas(rng, n, ray, ecart, deja, centres, amas["etal"] * k)
+    else:
+        def places(n, ray, ecart, deja, k=1.0):
+            return _places(rng, n, ray, ecart, deja)
     # roches de pied / matrice
     n_roche = _compte(d["roches"], stade, e, rng) + (2 if icone else 0)
-    for i, (gx, gy) in enumerate(_places(rng, n_roche, rayon, 0.22, occupe)):
+    for i, (gx, gy) in enumerate(places(n_roche, rayon, d.get("roche_ecart", 0.22), occupe)):
         occupe.append((gx, gy))
         t = rng.uniform(*d["roche_taille"]) * (1.25 if icone else 1.0)
+        if d.get("roche_gros") and rng.random() < d["roche_gros"][0]:
+            t = rng.uniform(*d["roche_gros"][1]) * (1.25 if icone else 1.0)
         v, f = roche(rng, t, aplat=D.ROCHE_APLAT.get(cle, 0.55), n_coupes=D.ROCHE_COUPES.get(cle, 3),
                      cassure=D.ROCHE_CASSURE.get(cle, (0.55, 0.85)))
         pose(v, f, mats[rng.choice(d["roche_mats"])], gx, gy, "%s_roche%d" % (tag, i), lisse=D.ROCHE_LISSE.get(cle, 38))
     # blocs de métal
     n_bloc = _compte(d["blocs"], stade, e, rng) + (3 if icone and max(d["blocs"]) else 0)
-    for i, (gx, gy) in enumerate(_places(rng, n_bloc, rayon, 0.24, occupe)):
+    for i, (gx, gy) in enumerate(places(n_bloc, rayon, 0.24, occupe)):
         occupe.append((gx, gy))
         t = rng.uniform(*d["bloc_taille"]) * (1.2 if icone else 1.0)
         v, f = bloc(rng, t, rng.uniform(*d["bloc_haut"]))
         pose(v, f, mats[rng.choice(d["bloc_mats"])], gx, gy, "%s_bloc%d" % (tag, i), biseau=0.018)
     # touffes de lames (inclinées en éventail depuis un même pied)
     n_touffe = _compte(d["touffes"], stade, e, rng) + (2 if icone and max(d["touffes"]) else 0)
-    for i, (gx, gy) in enumerate(_places(rng, n_touffe, rayon * 0.9, 0.26, occupe)):
+    forme = bipyramide if d.get("lame_forme") == "bipyramide" else lame
+    for i, (gx, gy) in enumerate(places(n_touffe, rayon * 0.9, d.get("touffe_ecart", 0.26), occupe)):
         occupe.append((gx, gy))
         n_l = rng.randint(*d["lames"])
         az0 = rng.uniform(0, 2 * math.pi)
         for j in range(n_l):
             L = rng.uniform(*d["lame_long"]) * (1.2 if icone else 1.0)
-            v, f = lame(rng, L, rng.uniform(*d["lame_larg"]), rng.uniform(*d["lame_ep"]))
+            v, f = forme(rng, L, rng.uniform(*d["lame_larg"]), rng.uniform(*d["lame_ep"]))
             incl = math.radians(rng.uniform(*d["lame_incl"]))
             az = az0 + 2 * math.pi * j / max(1, n_l) + rng.uniform(-0.5, 0.5)
             bx, by, _ = C.tile_to_blender(cx + gx + rng.uniform(-0.07, 0.07), cy + gy + rng.uniform(-0.07, 0.07))
@@ -225,18 +294,24 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
             V.extend(vv)
             F.extend([[base + k for k in face] for face in f])
         n_g = _compte(d["grains"], stade, e, rng)
-        for gx, gy in _places(rng, n_g, rayon * 1.12, 0.05, []):
+        for gx, gy in places(n_g, rayon * 1.12, 0.05, [], 1.4):
             v, f = grain(rng, rng.uniform(0.022, 0.045))
             ajoute(rng.choice(d["grain_mats"]), v, f, gx, gy)
         fins = d.get("fins", D.FINS)
         if fins:
             d = dict(d, fin_mats=d.get("fin_mats", D.FIN_MATS))
             n_f = _compte(fins, stade, 1.0, rng)
-            for _ in range(n_f):
-                a = rng.uniform(0, 2 * math.pi)
-                r = rayon * 1.15 * math.sqrt(rng.random())
-                v, f = grain(rng, rng.uniform(0.016, 0.026))
-                ajoute(rng.choice(d["fin_mats"]), v, f, r * math.cos(a), r * math.sin(a))
+            if amas:
+                # tapis de grains fins sous les amas (la « poussière » colorée des minerais vanilla)
+                for gx, gy in places(n_f, rayon * 1.15, 0.0, [], 1.9):
+                    v, f = grain(rng, rng.uniform(0.016, 0.026))
+                    ajoute(rng.choice(d["fin_mats"]), v, f, gx, gy)
+            else:
+                for _ in range(n_f):
+                    a = rng.uniform(0, 2 * math.pi)
+                    r = rayon * 1.15 * math.sqrt(rng.random())
+                    v, f = grain(rng, rng.uniform(0.016, 0.026))
+                    ajoute(rng.choice(d["fin_mats"]), v, f, r * math.cos(a), r * math.sin(a))
         for nom_mat in sorted(acc):
             V, F = acc[nom_mat]
             objs.append(_objet("%s_grains_%s" % (tag, nom_mat), V, F, mats[nom_mat], S))
@@ -266,7 +341,8 @@ def cellule_icone(S, C, mats, d, cle, c, rng):
     k = ic.get("echelle", 2.2)
     for j in range(n_l):
         L = rng.uniform(*d["lame_long"]) * k
-        v, f = lame(rng, L, rng.uniform(*d["lame_larg"]) * k * 0.8, rng.uniform(*d["lame_ep"]) * k * 0.8)
+        forme = bipyramide if d.get("lame_forme") == "bipyramide" else lame
+        v, f = forme(rng, L, rng.uniform(*d["lame_larg"]) * k * 0.8, rng.uniform(*d["lame_ep"]) * k * 0.8)
         incl = math.radians(rng.uniform(5, 38))
         az = az0 + 2 * math.pi * j / n_l + rng.uniform(-0.4, 0.4)
         bx, by, _ = C.tile_to_blender(cx + rng.uniform(-0.1, 0.1), cy + rng.uniform(-0.08, 0.08))
