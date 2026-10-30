@@ -46,6 +46,7 @@ local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
 local Effectif = require("shared.ai3.effectif") -- lot IA3-d : une faction grandit quand le travail attend (A7)
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : réserve de fer de votre équipe
+local JournauxDC = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : plafond d'ouvriers et fer inemployé
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
 local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base menacée ou envahie (tourelles du QG avant les soldats)
@@ -858,6 +859,7 @@ function Team.think(f, surface, tick)
   end
   Ia3.measure(f, tick, plan) -- lot IA3-c : paliers de recherche et projets, mesurés avec les deux cerveaux
   Team.effectif_journal(f, view, tick) -- lot IA3-d : ligne minute « [FO-EFFECTIF] »
+  Team.plafond_journal(f, view, stock, tick) -- lot JOURNAUX-DC : plafond d'ouvriers atteint avec du fer inemployé
   -- Lot COFFRE : l'excédent du coffre du QG passe aux annexes, et un coffre se pose quand les cases se remplissent.
   Stock.balance(f)
   Stock.grow(f, surface, tick)
@@ -890,6 +892,37 @@ function Team.effectif_journal(f, view, tick)
     st.minute = m
   end
   Effectif.count(st, d)
+end
+
+--- Lot JOURNAUX-DC : d'où vient le plafond d'ouvriers d'une équipe (même règle que Team.npc_max) : le nom du réglage de carte,
+--- ou nil quand c'est le nombre écrit au lancement de la guerre (commande, interface distante, bancs).
+function Team.plafond_source(f)
+  if f.is_player then return "fo-player-team-npc-max" end
+  local s = State.war().settings or {}
+  if s.npc_from_setting or not s.engineers_max then return "fo-war-workers" end
+  return nil
+end
+
+--- Lot JOURNAUX-DC (point 2 du rapport CINQ-POINTS : Écarlate à 8/8 PNJ, raison « plafond » 301 minutes sur 312, 48 950 fers
+--- libres à la fin) : suivi du plafond d'ouvriers (f.team.plafond, nombres seuls) et ligne [FO-PLAFOND] une fois par épisode,
+--- quand l'équipe est au plafond depuis 30 min avec au moins 10 fois le fer d'une recrue au stock LIBRE. L'onglet « Partie »
+--- (script/gui/partie.lua) lit la même alerte. Aucune décision : le plafond ne change pas.
+function Team.plafond_journal(f, view, stock, tick)
+  local iron = T.outposts.iron.product
+  local st = f.team.plafond
+  if not st then
+    st = {}
+    f.team.plafond = st
+  end
+  local a = JournauxDC.plafond_observe(st, tick, view.workers_wanted or 0, f.engineers_count or 0, (stock and stock[iron]) or 0,
+    FerEquipe.recruit_iron(view.recruit_cost, iron))
+  if a then
+    local war = State.war() or {}
+    log(string.format("[FO-PLAFOND] %s a %.1f min : plafond d'ouvriers atteint (%d PNJ) depuis %d min, %d fers inemployes "
+      .. "(une recrue en coute %d, soit %d recrues) ; plafond donne par %s", f.key or "?",
+      (tick - (f.started or war.started or 0)) / 3600, a.cap, a.minutes, a.fer, a.cout, a.recrues,
+      Team.plafond_source(f) or "le nombre ecrit au lancement de la guerre"))
+  end
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -27,6 +27,7 @@ local R = require("shared.ai3.reglages")
 local K = require("shared.ai3.catalogue")
 local Br = require("shared.ai3.bras") -- lot SCALE : bras libres lissés
 local Gen = require("shared.ai3.general")
+local Jdc = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : règle du journal [FO-MUR]
 local B = require("shared.ai3.buts")
 local Planner = require("shared.team.planner")
 local State = require("script.faction.state")
@@ -371,6 +372,38 @@ local function explorable(c, res)
   return c.g.by_rescat[r.category] ~= nil
 end
 
+--- Lot JOURNAUX-DC (point 3 du rapport CINQ-POINTS : Écarlate bloquée de la minute 289 à 312 sur « impayable:?engine-unit,
+--- ?plastic-bar,?sulfur », sans ligne qui dise que la faction plafonne) : AUCUNE technologie payable, même de valeur nulle
+--- (Gen.fallback) : ligne [FO-MUR] à l'entrée dans le mur, quand les recherches prêtes impayables ou le nombre restant
+--- changent, et à la sortie (g.mur, nombres et chaînes).
+--- Matière qui manque : union des causes du dépliage des technologies prêtes impayables (au plus General.MUR_MAX, les plus
+--- valables d'abord). Lecture seule : rien n'est décidé ici. Annoncé après un blocage CONTINU de Jdc.MUR_DELAI seulement
+--- (shared/team/journaux_dc.lua) : un blocage passager (banc journaux-dc : votre équipe « au mur » à la minute 0 faute de
+--- gisement de fer encore connu) n'est pas un mur.
+General.MUR_MAX = 8
+function General.mur(f, g, c, ev, state, d, disabled, tick)
+  local techs = {}
+  for i = 1, math.min(General.MUR_MAX, #(d.blocked or {})) do techs[#techs + 1] = d.blocked[i].tech end
+  local left = 0
+  for _, t in ipairs(c.tech_list) do
+    if not state.techs[t] and not disabled[t] then left = left + 1 end
+  end
+  -- Signature bon marché (technologies prêtes impayables, nombre restant) : le dépliage ne se refait qu'à une annonce.
+  local action
+  g.mur, action = Jdc.mur_bloque(g.mur, tick, table.concat(techs, " ") .. "|" .. left)
+  if not action then return end
+  local miss = {}
+  for _, t in ipairs(techs) do
+    for _, k in ipairs(Gen.summary(c, ev, state, { { tech = t } }).causes or {}) do miss[k] = true end
+  end
+  local what = left == 0 and "arbre de recherche termine (ou tout desactive)"
+    or "toutes les recherches restantes sont impayables"
+  log(string.format("[FO-MUR] %s : %s a %.1f min : %s (%d restantes, %d pretes de valeur) ; matiere qui manque [%s] ; "
+    .. "pretes de valeur [%s] ; bloquee depuis %.1f min", f.key or "?", action == "annonce" and "mur atteint" or "mur, situation changee",
+    minutes(f, tick), what, left, #(d.blocked or {}), table.concat(sorted_keys(miss), " "), table.concat(techs, " "),
+    (tick - g.mur.since) / 3600))
+end
+
 --- Choix de la technologie (même contrat que choose_tech de script/ai3/cerveau.lua) : tech, payable, causes, palier.
 function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local c = General.catalogue()
@@ -447,9 +480,15 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
         f.key or "?", Gen.why_text(d), table.concat(causes, " "), table.concat(rv_txt, ", "),
         table.concat(sorted_keys(explore), " "), minutes(f, tick)))
     end
+    General.mur(f, g, c, ev, state, d, disabled, tick)
     Profiler.stop("iag:choose")
     return nil, false, causes, false
   end
+  if Jdc.mur_libre(g.mur) then
+    log(string.format("[FO-MUR] %s : fin du mur a %.1f min (bloque depuis %.1f min) : recherche '%s'%s", f.key or "?",
+      minutes(f, tick), (tick - g.mur.since) / 3600, d.tech, d.repli and " (repli : valeur nulle, payable)" or ""))
+  end
+  g.mur = nil
   g.explore = {}
   if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 40 end
   g.blocked_sig = nil

@@ -29,6 +29,8 @@ local Storage = require("script.core.storage")
 local PvP = require("script.faction.pvp")
 local Config = require("script.core.config")
 local Character = require("script.faction.character")
+local JournauxDC = require("script.faction.journaux_dc") -- lot JOURNAUX-DC : [FO-ANEANTI], [FO-REGLAGES]
+local JDCrules = require("shared.team.journaux_dc")
 
 local War = {}
 
@@ -285,6 +287,7 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
   end
   say({ "fo-faction.war-started", n })
   PvP.on_war_started(game.tick)
+  JournauxDC.reglages("guerre lancee") -- lot JOURNAUX-DC : réglages et plafond effectif au lancement de la guerre
   return true
 end
 
@@ -392,7 +395,18 @@ Commander.on_eliminated = function(f, tick)
   Scheduler.remove(Commander.LANE, f.id)
   Sites.untrack(f.id)
   local alive = State.alive()
-  if #alive == 1 then say({ "fo-faction.victory", faction_name(State.faction(alive[1])) }) end
+  -- Lot JOURNAUX-DC (point 1 du rapport CINQ-POINTS) : « remporte la guerre » seulement si la survivante a détruit le QG du
+  -- dernier rival ; sinon (biters, joueur, cause inconnue), un message neutre. Partie du DC du 29/10 : « Écarlate remporte la
+  -- guerre » alors que les trois QG étaient tombés sous les biters. Aucune refondation ici (Q19 en attente du DC).
+  local genre, tueur = JournauxDC.aneanti(f, tick, #alive)
+  local last = #alive == 1 and State.faction(alive[1]) or nil
+  local fin = JDCrules.fin_de_guerre(#alive, genre, tueur, last and last.key)
+  if fin == "victoire" then
+    say({ "fo-faction.victory", faction_name(last) })
+  elseif fin == "seule" then
+    local by = (genre == "rival" and tueur) and { "fo-faction.name-" .. tueur } or { "fo-journaux.cause-" .. genre }
+    say({ "fo-journaux.last-standing", faction_name(last), faction_name(f), by })
+  end
 end
 
 Commander.on_player_hostility = function(f, tick)

@@ -23,10 +23,13 @@ local Stats = require("script.gui.ia1i_stats")
 local S = require("shared.gui.stats")
 local M = require("shared.gui.ia1i")
 local State = require("script.faction.state")
+local Team = require("script.team.team")
+local JDC = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : plafond d'ouvriers atteint avec du fer inemployé
 
 local Partie = {}
 
 local GREY = { r = 0.62, g = 0.62, b = 0.62 }
+local ORANGE = { r = 1, g = 0.66, b = 0.2 }
 local DASH = "—"
 
 --- Nom localisé d'un objet précédé de son icône (texte riche) ; nom brut si le prototype n'existe plus.
@@ -102,6 +105,17 @@ function Partie.tab(H)
       tbl.add({ type = "label", caption = r.attacks_in ~= nil and tostring(r.attacks_in) or DASH })
     end
     H.label(c, { "fo-panel.teams-note" }, { color = GREY })
+    -- Lot JOURNAUX-DC (point 2 du rapport CINQ-POINTS) : une équipe au plafond d'ouvriers depuis 30 min avec bien plus de fer
+    -- libre qu'il n'en faut pour une recrue (le DC jugeait ses factions « surmenées » : elles étaient à 8 PNJ, 49 000 fers au coffre).
+    for _, t in ipairs(Stats.teams()) do
+      local a = t.f and t.f.team and JDC.plafond_alerte(t.f.team.plafond, data.tick)
+      if a then
+        local src = Team.plafond_source(t.f)
+        H.label(c, { "fo-journaux.plafond-line", team_caption(t.key), a.cap, a.minutes, a.fer, a.cout,
+          src and { "fo-journaux.plafond-setting", { "mod-setting-name." .. src } } or { "fo-journaux.plafond-launch" } },
+          { color = ORANGE })
+      end
+    end
 
     H.heading(c, { "fo-panel.research-title" })
     for _, r in ipairs(data.teams) do
