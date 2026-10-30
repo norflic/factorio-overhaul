@@ -60,8 +60,17 @@ def _transforme(verts, rx, rz, tx, ty, tz):
     return out
 
 
-def roche(rng, taille, aplat=0.55, n_coupes=3, cassure=(0.55, 0.85)):
-    """Roche facettée : icosphère (2 subdivisions) bosselée, aplatie, fond à plat. Renvoie (sommets, faces)."""
+def roche(rng, taille, aplat=0.55, n_coupes=3, cassure=(0.55, 0.85), creux=0, creux_prof=(0.22, 0.42)):
+    """Roche facettée : icosphère (2 subdivisions) bosselée, aplatie, fond à plat. Renvoie (sommets, faces).
+
+    creux (lot design-minerai-monazite, 30/10 ; 0 par défaut = roche d'avant, AUCUN tirage de hasard en plus) : nombre
+    d'ENCOCHES (creux concaves) : une roche vanilla (fer, cuivre, pierre) a des rentrants et des arêtes, pas la
+    silhouette convexe d'un galet."""
+    encoches = []
+    for _ in range(creux):
+        ex, ey, ez = rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(-0.1, 0.9)
+        n = math.sqrt(ex * ex + ey * ey + ez * ez) or 1.0
+        encoches.append((ex / n, ey / n, ez / n, math.cos(math.radians(rng.uniform(28, 46))), rng.uniform(*creux_prof)))
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=2, radius=1.0)
     sx = taille * rng.uniform(0.8, 1.2)
@@ -78,6 +87,11 @@ def roche(rng, taille, aplat=0.55, n_coupes=3, cassure=(0.55, 0.85)):
             p = (v.co.x * ax + v.co.y * ay + v.co.z * az) / n
             if p > d:
                 k *= d / p
+        for ex, ey, ez, c0, prof in encoches:
+            t = v.co.x * ex + v.co.y * ey + v.co.z * ez
+            if t > c0:
+                u = (t - c0) / (1.0 - c0)
+                k *= 1.0 - prof * u * u * (3 - 2 * u)
         x, y, z = v.co.x * k * sx, v.co.y * k * sy, v.co.z * k * sz
         z = max(z, -0.15 * sz)
         verts.append((x, y, z + 0.15 * sz))
@@ -130,6 +144,34 @@ def bloc(rng, taille, haut):
     return verts, faces
 
 
+def coin(rng, taille, haut):
+    """Éclat EN COIN (lot design-minerai-monazite, 30/10 : la monazite cristallise en prismes en coin) : base
+    polygonale irrégulière à 5 ou 6 côtés, dessus plus étroit et INCLINÉ (une arête haute, l'autre basse) ; biseau en
+    modificateur. Un éclat facetté, à arêtes franches, ni galet rond ni cube."""
+    nb = rng.randint(5, 6)
+    a0 = rng.uniform(0, 2 * math.pi)
+    base = []
+    for i in range(nb):
+        a = a0 + 2 * math.pi * i / nb + rng.uniform(-0.35, 0.35)
+        r = 0.5 * taille * rng.uniform(0.62, 1.08)
+        base.append((r * math.cos(a), 0.8 * r * math.sin(a)))
+    k = rng.uniform(0.45, 0.72)
+    ox, oy = rng.uniform(-0.12, 0.12) * taille, rng.uniform(-0.12, 0.12) * taille
+    pa = rng.uniform(0, 2 * math.pi)
+    dx, dy = math.cos(pa), math.sin(pa)
+    bas = rng.uniform(0.25, 0.5)
+    verts = [(x, y, 0.0) for x, y in base]
+    for x, y in base:
+        xt, yt = x * k + ox, y * k + oy
+        s_ = (xt * dx + yt * dy) / (0.5 * taille) * 0.5 + 0.5
+        verts.append((xt, yt, haut * (bas + (1 - bas) * max(0.0, min(1.0, s_))) * rng.uniform(0.92, 1.06)))
+    faces = [list(range(nb - 1, -1, -1)), list(range(nb, 2 * nb))]
+    for i in range(nb):
+        j = (i + 1) % nb
+        faces.append([i, j, nb + j, nb + i])
+    return verts, faces
+
+
 # ------------------------------------------------------------------------------------------------
 # Placement
 # ------------------------------------------------------------------------------------------------
@@ -142,6 +184,23 @@ def _places(rng, n, rayon, ecart, deja):
         a = rng.uniform(0, 2 * math.pi)
         r = rayon * math.sqrt(rng.random())
         x, y = r * math.cos(a), r * math.sin(a)
+        if all((x - px) ** 2 + (y - py) ** 2 >= ecart ** 2 for px, py in deja + out):
+            out.append((x, y))
+    return out
+
+
+def _places_amas(rng, n, centres, etendue, ecart, deja):
+    """n positions groupées en AMAS (lot design-minerai-monazite) : chacune près d'un des centres (écart gaussien
+    `etendue`), à `ecart` au moins des autres ; les pièces vanilla se touchent et laissent des trous, au lieu d'un
+    semis régulier dans un disque."""
+    out = []
+    essais = 0
+    while len(out) < n and essais < 600:
+        essais += 1
+        cx, cy = centres[rng.randrange(len(centres))]
+        x, y = cx + rng.gauss(0, etendue), cy + rng.gauss(0, etendue)
+        if x * x + y * y > 0.78 ** 2:
+            continue
         if all((x - px) ** 2 + (y - py) ** 2 >= ecart ** 2 for px, py in deja + out):
             out.append((x, y))
     return out
@@ -173,24 +232,57 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
         return o
 
     tag = "%s_%d_%d" % (cle, r, c)
+    # AMAS (lot design-minerai-monazite ; seulement si la direction a « amas ») : centres tirés une fois par cellule
+    amas = d.get("amas")
+    if amas:
+        n_c = max(1, _compte(amas, stade, 1.0, rng))
+        centres = _places(rng, n_c, rayon * 0.62, 0.30, []) or [(0.0, 0.0)]
+        etendue = d.get("amas_etendue", 0.16)
+        serre = d.get("amas_serre", 0.7)
+
+        def places(n, ray, ecart, deja):
+            return _places_amas(rng, n, centres, etendue, ecart * serre, deja)
+    else:
+        def places(n, ray, ecart, deja):
+            return _places(rng, n, ray, ecart, deja)
+    gros = d.get("gros")          # (comptes par stade, facteur de taille) : les premières pièces posées sont grosses
+    n_gros = _compte(gros[0], stade, 1.0, rng) if gros else 0
     # roches de pied / matrice
     n_roche = _compte(d["roches"], stade, e, rng) + (2 if icone else 0)
-    for i, (gx, gy) in enumerate(_places(rng, n_roche, rayon, 0.22, occupe)):
+    for i, (gx, gy) in enumerate(places(n_roche, rayon, 0.22, occupe)):
         occupe.append((gx, gy))
         t = rng.uniform(*d["roche_taille"]) * (1.25 if icone else 1.0)
+        if gros and i < n_gros:
+            t *= gros[1]
         v, f = roche(rng, t, aplat=D.ROCHE_APLAT.get(cle, 0.55), n_coupes=D.ROCHE_COUPES.get(cle, 3),
-                     cassure=D.ROCHE_CASSURE.get(cle, (0.55, 0.85)))
+                     cassure=D.ROCHE_CASSURE.get(cle, (0.55, 0.85)), creux=D.ROCHE_CREUX.get(cle, 0))
         pose(v, f, mats[rng.choice(d["roche_mats"])], gx, gy, "%s_roche%d" % (tag, i), lisse=D.ROCHE_LISSE.get(cle, 38))
+    # éclats en coin (lot design-minerai-monazite ; seulement si la direction a « coins »)
+    if d.get("coins"):
+        gros_c = d.get("gros_coins")    # comme « gros », pour les éclats en coin
+        n_gros_c = _compte(gros_c[0], stade, 1.0, rng) if gros_c else 0
+        n_coin = _compte(d["coins"], stade, e, rng) + (2 if icone else 0)
+        for i, (gx, gy) in enumerate(places(n_coin, rayon, 0.20, occupe)):
+            occupe.append((gx, gy))
+            t = rng.uniform(*d["coin_taille"]) * (1.2 if icone else 1.0)
+            if gros_c and i < n_gros_c:
+                t *= gros_c[1]
+            v, f = coin(rng, t, rng.uniform(*d["coin_haut"]) * (t / d["coin_taille"][1]) ** 0.5)
+            bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
+            vv = _transforme(v, rng.uniform(0.0, 0.30), rng.uniform(0, 2 * math.pi), bx, by, -0.012)
+            o = _objet("%s_coin%d" % (tag, i), vv, f, mats[rng.choice(d["coin_mats"])], S)
+            S.bevel(o, 0.010, 1)
+            objs.append(o)
     # blocs de métal
     n_bloc = _compte(d["blocs"], stade, e, rng) + (3 if icone and max(d["blocs"]) else 0)
-    for i, (gx, gy) in enumerate(_places(rng, n_bloc, rayon, 0.24, occupe)):
+    for i, (gx, gy) in enumerate(places(n_bloc, rayon, 0.24, occupe)):
         occupe.append((gx, gy))
         t = rng.uniform(*d["bloc_taille"]) * (1.2 if icone else 1.0)
         v, f = bloc(rng, t, rng.uniform(*d["bloc_haut"]))
         pose(v, f, mats[rng.choice(d["bloc_mats"])], gx, gy, "%s_bloc%d" % (tag, i), biseau=0.018)
     # touffes de lames (inclinées en éventail depuis un même pied)
     n_touffe = _compte(d["touffes"], stade, e, rng) + (2 if icone and max(d["touffes"]) else 0)
-    for i, (gx, gy) in enumerate(_places(rng, n_touffe, rayon * 0.9, 0.26, occupe)):
+    for i, (gx, gy) in enumerate(places(n_touffe, rayon * 0.9, 0.26, occupe)):
         occupe.append((gx, gy))
         n_l = rng.randint(*d["lames"])
         az0 = rng.uniform(0, 2 * math.pi)
@@ -225,7 +317,8 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
             V.extend(vv)
             F.extend([[base + k for k in face] for face in f])
         n_g = _compte(d["grains"], stade, e, rng)
-        for gx, gy in _places(rng, n_g, rayon * 1.12, 0.05, []):
+        for gx, gy in (_places_amas(rng, n_g, centres, etendue * 1.6, 0.05, []) if amas
+                       else _places(rng, n_g, rayon * 1.12, 0.05, [])):
             v, f = grain(rng, rng.uniform(0.022, 0.045))
             ajoute(rng.choice(d["grain_mats"]), v, f, gx, gy)
         fins = d.get("fins", D.FINS)
@@ -233,6 +326,15 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
             d = dict(d, fin_mats=d.get("fin_mats", D.FIN_MATS))
             n_f = _compte(fins, stade, 1.0, rng)
             for _ in range(n_f):
+                if amas:
+                    # tapis autour des amas (lot design-minerai-monazite) : une traînée irrégulière, pas un disque
+                    ax, ay = centres[rng.randrange(len(centres))]
+                    fx, fy = ax + rng.gauss(0, etendue * 1.9), ay + rng.gauss(0, etendue * 1.9)
+                    if fx * fx + fy * fy > 0.80 ** 2:
+                        continue
+                    v, f = grain(rng, rng.uniform(0.016, 0.026))
+                    ajoute(rng.choice(d["fin_mats"]), v, f, fx, fy)
+                    continue
                 a = rng.uniform(0, 2 * math.pi)
                 r = rayon * 1.15 * math.sqrt(rng.random())
                 v, f = grain(rng, rng.uniform(0.016, 0.026))
@@ -256,7 +358,8 @@ def cellule_icone(S, C, mats, d, cle, c, rng):
         a = rng.uniform(0, 2 * math.pi)
         gx, gy = 0.28 * math.cos(a), 0.22 * math.sin(a)
         v, f = roche(rng, rng.uniform(*ic.get("roche_taille", (0.24, 0.32))), aplat=ic.get("roche_aplat", 0.75),
-                     n_coupes=ic.get("roche_coupes", 7), cassure=ic.get("roche_cassure", (0.35, 0.7)))
+                     n_coupes=ic.get("roche_coupes", 7), cassure=ic.get("roche_cassure", (0.35, 0.7)),
+                     creux=ic.get("roche_creux", 0))
         bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
         vv = _transforme(v, 0.0, rng.uniform(0, 2 * math.pi), bx, by, 0.0)
         objs.append(_objet("%s_roche%d" % (tag, i), vv, f, mats[rng.choice(ic.get("roche_mats", d["roche_mats"]))],
@@ -283,6 +386,18 @@ def cellule_icone(S, C, mats, d, cle, c, rng):
         vv = _transforme(v, 0.0, rng.uniform(0, 2 * math.pi), bx, by, 0.0)
         o = _objet("%s_bloc%d" % (tag, j), vv, f, mats[rng.choice(ic["bloc_mats"])], S)
         S.bevel(o, 0.02, 1)
+        objs.append(o)
+    # éclats en coin (lot design-minerai-monazite) : seulement si ICONE en demande
+    for j in range(ic.get("coins", 0)):
+        a = rng.uniform(0, 2 * math.pi)
+        rr = 0.0 if j == 0 else 0.24
+        gx, gy = rr * math.cos(a), 0.8 * rr * math.sin(a)
+        t = rng.uniform(*ic["coin_taille"])
+        v, f = coin(rng, t, rng.uniform(*ic["coin_haut"]))
+        bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
+        vv = _transforme(v, rng.uniform(0.0, 0.25), rng.uniform(0, 2 * math.pi), bx, by, -0.015)
+        o = _objet("%s_coin%d" % (tag, j), vv, f, mats[rng.choice(ic["coin_mats"])], S)
+        S.bevel(o, 0.016, 1)
         objs.append(o)
     return objs
 
