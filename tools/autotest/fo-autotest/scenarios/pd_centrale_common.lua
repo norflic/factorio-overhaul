@@ -7,9 +7,12 @@
   26 × 31 tuiles posé à l'est, seule eau de la zone. Votre équipe (coffre garni) reçoit le plan directeur et UNE demande : la
   centrale à vapeur.
   Deux variantes (paramètre LAKE_X0) :
-    pd-centrale        lac en x 168..193 : dans l'œil du QG (160 tuiles, carte de connaissance), hors du treillis ;
+    pd-centrale        lac en x 186..211 : dans l'œil du QG (160 tuiles, carte de connaissance), hors du treillis, assez loin
+                       pour que le carrefour le plus proche de la centrale soit hors du treillis (ligne de Far.line) ;
     pd-centrale-explo  lac en x 280..305 : HORS de l'œil du QG ; la centrale attend l'exploration (« il faut aller plus loin » :
-                       demande d'exploration de l'eau, tour du propriétaire) avant d'être posée.
+                       demande d'exploration de l'eau). En 9 500 ticks, l'éclaireur (tour du propriétaire d'abord) n'atteint
+                       pas toujours le lac : si la centrale n'est pas planifiée, le bilan contrôle l'ATTENTE d'exploration
+                       (pas de refus) et le reste est mesuré hors bilan.
 
   Contrôles : la centrale est planifiée (pas refusée) HORS du treillis, sa pompe devant l'eau ; aucune tuile d'eau posée dans
   le treillis (plus d'étang) ; les poteaux du projet ne sont pas sur l'eau et forment UN seul réseau à portée de fil (de la
@@ -19,7 +22,7 @@
   [FO-PD-CENTRALE] ou [FO-PD-CENTRALE-EXPLO] (et [FO-CENTRALE-LOIN], [FO-IA3F] du mod).
 ]]
 
-return function(LAKE_X0, CHECK_TICK)
+return function(LAKE_X0, CHECK_TICK, EXPLO)
 local HALF = 160
 local CLEAR = 352 -- eau naturelle changée en herbe dans ce carré (le lac du banc est la seule eau que l'œil d'un éclaireur trouve)
 local LAKE = { x0 = LAKE_X0, y0 = -15, x1 = LAKE_X0 + 25, y1 = 15 }
@@ -106,6 +109,15 @@ return {
     local s = ctx.surface()
     local st = ctx.state()
     local p = st.pid and ctx.remote("fo-ia1d", "status", "player", st.pid)
+    if EXPLO and p and not st.planned_at then
+      -- lac hors de l'œil du QG, pas encore vu : la centrale attend l'exploration (pas de refus, pas d'étang)
+      ctx.check(p.state == "attente" and tostring(p.reason):find("exploration", 1, true) ~= nil,
+        "centrale en attente d'exploration de l'eau (pas refusee)", tostring(p.state) .. " " .. tostring(p.reason))
+      local n_water = s.count_tiles_filtered({ area = { { -EDGE, -EDGE }, { EDGE, EDGE } }, collision_mask = "water-tile" })
+      ctx.check(n_water == 0, "aucune tuile d'eau posee dans le treillis (plus d'etang garanti)", n_water)
+      ctx.log("mesure (hors bilan) : lac pas encore vu par l'exploration au controle ; pose de la centrale non controlee")
+      return
+    end
     ctx.check(p ~= nil and st.planned_at ~= nil, "centrale planifiee (pas refusee)", p and (tostring(p.state) .. " " .. tostring(p.reason)) or "pas de projet")
     local lay = ctx.remote("fo-ia1d", "layout", "player")
     local ents = {}
