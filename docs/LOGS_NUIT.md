@@ -239,3 +239,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~9 h 55, passage 68
 - 5 archives CALCUL (branche corr-calcul), 0 erreur Lua, codes 0. content-1 : 3 ECHEC « recette fo-compute-* : rien produit » (le centre de calcul ne produit pas d'objet : le calcul est tenu par script, controle du banc a adapter) puis content-2 453 OK ; calcul-chaines 14/1 puis 15/0. Corrige par l'agent du lot pendant son developpement [mesure]. Rien a ouvrir.
+
+## 30/10 ~10 h 25, passage 69
+- 3 archives (blende r4-visuels 3 OK ; CALCUL relecture calcul-chaines 15 OK, content 453 OK), 0 erreur Lua, codes 0. Rien de nouveau.
