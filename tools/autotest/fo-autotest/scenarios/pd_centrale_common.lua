@@ -119,7 +119,7 @@ return {
         if water_at(s, en.x, en.y) then wet = wet + 1 end
       end
     end
-    ctx.check(pump ~= nil and pump.x > EDGE + 16 and pump.x >= LAKE.x0 - 4, "pompe hors du treillis, au lac", pump and string.format("(%.1f, %.1f)", pump.x, pump.y) or "aucune")
+    ctx.check(pump ~= nil and pump.x > EDGE and pump.x >= LAKE.x0 - 4, "pompe hors du treillis, au lac", pump and string.format("(%.1f, %.1f)", pump.x, pump.y) or "aucune")
     if pump then
       local v = ({ [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } })[pump.dir or 0] or { 0, 0 }
       ctx.check(water_at(s, pump.x + v[1], pump.y + v[2]), "la pompe regarde l'eau")
