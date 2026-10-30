@@ -42,7 +42,10 @@ local function region_mask(region)
   if region.moisture_max then mask = mask * noise.clamp((region.moisture_max - noise.var("moisture")) * 8, 0, 1) end
   if region.moisture_min then mask = mask * noise.clamp((noise.var("moisture") - region.moisture_min) * 8, 0, 1) end
   if region.aux_min then mask = mask * noise.clamp((noise.var("aux") - region.aux_min) * 8, 0, 1) end
-  return mask * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
+  mask = mask * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
+  -- Second résultat (piste AMELIO-BIOMES, exclusion entre biomes) : FORCE de la région, masque × (1 + excès du bruit
+  -- sur le seuil, borné à 1). Vaut le masque au bord, plus au cœur : départage deux régions qui valent 1 toutes les deux.
+  return mask, mask * (1 + noise.clamp(n - region.threshold, 0, 1))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -73,6 +76,30 @@ local biome_by_name = {}
 for _, b in ipairs(W.biomes) do biome_by_name[b.name] = b end
 
 ---------------------------------------------------------------------------------------------------
+-- Masques et forces des régions des biomes, calculés une fois (piste AMELIO-BIOMES). Exclusion (W.exclusion) : un biome
+-- perd W.exclusion.penalite dans la probabilité de sa TUILE quand la région d'un autre biome du mod est plus forte que la
+-- sienne au même endroit (rampe de largeur 1 / raideur). Sans elle, deux régions qui se chevauchent valaient 1 toutes les
+-- deux et le grain propre à chaque biome changeait le gagnant toutes les quelques tuiles (patchwork).
+---------------------------------------------------------------------------------------------------
+local region_of = {}
+for _, b in ipairs(W.biomes) do
+  local mask, force = region_mask(b.region)
+  region_of[b.name] = { mask = mask, force = force }
+end
+
+local function exclusion_penalty(b)
+  if not W.exclusion then return nil end
+  local others = {}
+  for _, o in ipairs(W.biomes) do
+    if o.name ~= b.name then others[#others + 1] = region_of[o.name].force end
+  end
+  if #others == 0 then return nil end
+  local strongest = others[1]
+  for i = 2, #others do strongest = noise.max(strongest, others[i]) end
+  return noise.clamp((strongest - region_of[b.name].force) * W.exclusion.raideur, 0, 1) * W.exclusion.penalite
+end
+
+---------------------------------------------------------------------------------------------------
 -- Tuiles de biome
 ---------------------------------------------------------------------------------------------------
 for _, b in ipairs(W.biomes) do
@@ -86,8 +113,10 @@ for _, b in ipairs(W.biomes) do
   tile.vehicle_friction_modifier = b.vehicle_friction_modifier
   tile.pollution_absorption_per_second = b.pollution_absorption_per_second
   tile.localised_name = { "tile-name." .. b.name }
-  local p = region_mask(b.region) * 4 - 2
+  local p = region_of[b.name].mask * 4 - 2
   if W.grain then p = p + tile_grain(b) end
+  local pen = exclusion_penalty(b)
+  if pen then p = p - pen end
   tile.autoplace = { probability_expression = p }
   if b.texture then
     -- Image recolorée (lot B0) : on ne remplace que les fichiers de la texture ; découpe, variantes, masques et
@@ -141,8 +170,7 @@ if W.no_vanilla_decor and #W.no_vanilla_decor > 0 then
     if d.autoplace and not name:find("^fo%-") then names[#names + 1] = name end
   end
   table.sort(names)
-  for _, name in ipairs(names) do
-    local ap = data.raw["optimized-decorative"][name].autoplace
+  local function restrict(ap)
     if ap.tile_restriction then
       local kept = {}
       for _, t in ipairs(ap.tile_restriction) do
@@ -152,6 +180,17 @@ if W.no_vanilla_decor and #W.no_vanilla_decor > 0 then
     else
       ap.tile_restriction = table.deepcopy(allowed)
     end
+  end
+  for _, name in ipairs(names) do restrict(data.raw["optimized-decorative"][name].autoplace) end
+  -- Piste AMELIO-BIOMES : arbres et grosses roches vanilla (aucune restriction de tuile dans base) ; les entités du mod
+  -- (« fo-* », W.decor : arbres calcinés, roches de magma, arbres des marais, cristaux) restent.
+  for _, ty in ipairs(W.no_vanilla_entities or {}) do
+    local enames = {}
+    for name, e in pairs(data.raw[ty] or {}) do
+      if e.autoplace and not name:find("^fo%-") then enames[#enames + 1] = name end
+    end
+    table.sort(enames)
+    for _, name in ipairs(enames) do restrict(data.raw[ty][name].autoplace) end
   end
 end
 
@@ -299,12 +338,40 @@ end
 
 --- Autoplace d'un gisement lié à un biome, sans toucher au placement des minerais vanilla : le compteur de
 --- jeux de gisements partagé (skip_span des minerais vanilla) est restauré après coup.
-local function biome_bound_autoplace(params, region, seed1)
+--- Masque de DISTANCE (lot AMELIO-RESSOURCES, galène : « à plus de 300 tuiles du départ », sans biome) : 0 avant
+--- distance_min, 1 au-delà de distance_min + 64 tuiles ; jamais sous l'eau (même facteur d'altitude que region_mask).
+local function distance_mask(distance_min)
+  return noise.clamp((noise.var("distance") - distance_min) / 64, 0, 1) * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
+end
+
+local function biome_bound_autoplace(params, region, seed1, mask)
   local counter = data.raw["noise-expression"][PATCH_SET_COUNT]
   local saved = counter and counter.expression
   local ap = resource_autoplace.resource_autoplace_settings(params)
   if counter then counter.expression = saved end
-  return bind_spots_to_region(ap, region_mask(region), seed1)
+  return bind_spots_to_region(ap, mask or region_mask(region), seed1)
+end
+
+--- Région de placement d'une ressource : son biome, ou (sans biome) le masque de distance.
+local function resource_region(spec)
+  if spec.biome then return biome_by_name[spec.biome].region, nil end
+  assert(spec.autoplace.distance_min, "factorio-overhaul : ressource sans biome ni distance_min : " .. spec.resource)
+  local mask = distance_mask(spec.autoplace.distance_min)
+  local rg = spec.autoplace.region
+  if rg then
+    -- Région de bruit PROPRE sans biome (piste ÉTAIN, cassitérite d'X3) : graine numérique (F198), seuil, échelle, et
+    -- basses terres (elevation_max : rampe de 2 au-dessus de la limite).
+    local n = noise.function_application("factorio-multioctave-noise", {
+      x = noise.var("x"), y = noise.var("y"), persistence = 0.6, seed0 = noise.var("map_seed"),
+      seed1 = noise.to_noise_expression(rg.seed1), input_scale = rg.scale, output_scale = 1, octaves = 3,
+    })
+    mask = mask * noise.clamp((n - rg.threshold) * 6, 0, 1)
+    if rg.elevation_max then mask = mask * noise.clamp((rg.elevation_max - noise.var("elevation")) / 2, 0, 1) end
+    -- Piste BAUXITE (X3) : climat du désert rouge vanilla, mêmes rampes que region_mask (humidité, aux).
+    if rg.moisture_max then mask = mask * noise.clamp((rg.moisture_max - noise.var("moisture")) * 8, 0, 1) end
+    if rg.aux_min then mask = mask * noise.clamp((noise.var("aux") - rg.aux_min) * 8, 0, 1) end
+  end
+  return nil, mask
 end
 
 local function solid_resource(spec, order)
@@ -383,6 +450,7 @@ local function solid_resource(spec, order)
     lib.set_icons(res, { { icon = res.icon, icon_size = res.icon_size, icon_mipmaps = res.icon_mipmaps, tint = spec.tint } })
   end
 
+  local region, mask = resource_region(spec)
   res.autoplace = biome_bound_autoplace({
     name = spec.resource,
     order = "d",
@@ -392,7 +460,7 @@ local function solid_resource(spec, order)
     random_spot_size_minimum = spec.autoplace.random_spot_size_minimum,
     random_spot_size_maximum = spec.autoplace.random_spot_size_maximum,
     regular_rq_factor_multiplier = 1,
-  }, biome_by_name[spec.biome].region, spec.autoplace.seed1)
+  }, region, spec.autoplace.seed1, mask)
   return res
 end
 
@@ -439,6 +507,11 @@ local function fluid_prototypes(spec, key, letter)
   fluid.flow_color = { r = math.min(1, spec.tint.r + 0.3), g = math.min(1, spec.tint.g + 0.1), b = math.min(1, spec.tint.b + 0.3) }
   fluid.fuel_value = spec.fuel_value
   fluid.order = "a[fluid]-z[" .. spec.fluid .. "]"
+  if spec.fluid_temperature then
+    -- Piste GÉOTHERMIE : gaz volcanique chaud (X0 : temperature = 300).
+    fluid.default_temperature = spec.fluid_temperature
+    fluid.max_temperature = math.max(fluid.max_temperature or 0, spec.fluid_temperature)
+  end
   lib.set_icons(fluid, { { icon = fluid.icon, icon_size = fluid.icon_size, icon_mipmaps = fluid.icon_mipmaps, tint = spec.tint } })
   out[#out + 1] = fluid
 
@@ -447,8 +520,29 @@ local function fluid_prototypes(spec, key, letter)
   well.localised_name = { "entity-name." .. spec.resource }
   well.order = "a-b-z-" .. letter
   well.map_color = spec.map_color
-  well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = 10, amount_max = 10, probability = 1 } }
-  lib.tint_sprites(well.stages, spec.tint)
+  local yield = spec.yield or 10
+  well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = yield, amount_max = yield, probability = 1 } }
+  if spec.category then
+    -- Catégorie PROPRE (piste GÉOTHERMIE, fumerolle) : seul le capteur géothermique la capte, pas le chevalet.
+    if not data.raw["resource-category"][spec.category] then
+      out[#out + 1] = { type = "resource-category", name = spec.category }
+    end
+    well.category = spec.category
+  end
+  if spec.stages_sheet then
+    -- Feuille propre (lot AMELIO-RESSOURCES, saumure) : découpe EXACTE de la flaque vanilla copiée (4 variantes),
+    -- seuls les fichiers changent ; aucune teinte.
+    local sh = spec.stages_sheet
+    local function swap(t, prefix)
+      t.filename = sh.dir .. "/" .. prefix .. sh.name .. ".png"
+      t.tint = nil
+    end
+    local s = well.stages.sheet
+    swap(s, "")
+    if s.hr_version then swap(s.hr_version, "hr-") end
+  else
+    lib.tint_sprites(well.stages, spec.tint)
+  end
   lib.set_icons(well, { { icon = well.icon, icon_size = well.icon_size, icon_mipmaps = well.icon_mipmaps, tint = spec.tint } })
   well.autoplace = biome_bound_autoplace({
     name = spec.resource,

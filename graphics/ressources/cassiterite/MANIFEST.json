@@ -1,0 +1,71 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.2822,
+  0.2491,
+  0.2179,
+  0.1968,
+  0.1717,
+  0.1464,
+  0.091,
+  0.0548
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "C1",
+ "echantillons": 128,
+ "effet": "eclats",
+ "effet_reglages": {
+  "seuil": [
+   0.45,
+   0.8
+  ],
+  "teinte": [
+   1.0,
+   0.97,
+   0.9
+  ]
+ },
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "cassiterite",
+ "nom_direction": "placer de galets de cassitérite brun chocolat et de quartz blanc",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.109,
+   0.541,
+   0.161,
+   0.188
+  ],
+  "acier": 0.165,
+  "acier_bleutes": 0.0,
+  "chauds": 0.797,
+  "sombres": 0.038
+ },
+ "secondes_blender": 1911.28,
+ "sha256": {
+  "cassiterite-effet.png": "c4f69104e55c4598a49e2ad6f23328d366a4991fbe9b4160afe298fe8819d4e3",
+  "cassiterite.png": "3985253a0709b47ce28036f9963835007352892ec4938a1a3a32beff549ba481",
+  "hr-cassiterite-effet.png": "5fb36feb878f12202dd0c87e6e99444f15058156b823c6a244ad5d6d9a551917",
+  "hr-cassiterite.png": "dcd3f0b9eb44a8e2138ad0db4b7cd44464f3375a2aab64b325560565d6f430cb",
+  "icone-1.png": "841f881713a7fcefabf7cf1c23b5acbf9d7b0646979aa55b1ae73d0e3458b293",
+  "icone-2.png": "b1f820eb768e02d89c7cbb95926be479528fadfdd6aa582cc35f108cc17947a5",
+  "icone-3.png": "920994684d6dce530c33a8c0b544e677b20d8fd9decd7bc0015519ebfae4db1a",
+  "icone.png": "4c541ecafc7f5c700243e05927e0a91a86466cecee1f59dfb9a068a9d2a63ae0"
+ }
+}

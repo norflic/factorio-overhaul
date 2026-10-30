@@ -101,10 +101,14 @@ local function new_force(name)
   -- Lot V3-T3 : index de la force (LuaForce.index ; game.forces[index] la retrouve, voir new_world).
   W.force_index = (W.force_index or 0) + 1
   local f = { _lua_object = true, name = name, index = W.force_index, valid = true, _cease = {}, _ammo_mod = {}, _turret_mod = {} }
+  -- Intégration 0.6.22 (piste SCENARIOS, script/scenario/journal.lua) : joueurs de la force (LuaForce.players et
+  -- connected_players) ; le seul joueur du mock rejoint la force « player » à sa création.
+  f.players, f.connected_players = {}, {}
   f.get_spawn_position = function(surface) return { x = 0, y = 0 } end
   -- Lot V3-T3 : messages à une force (relevés).
   f.print = function(s) W.force_prints = W.force_prints or {}; W.force_prints[#W.force_prints + 1] = M.ls_to_string(s) end
   f.chart = function(surface, area) assert(surface and area, "chart : arguments") end
+  f.is_chunk_charted = function(surface, cpos) assert(surface and cpos, "is_chunk_charted : arguments") return false end -- intégration 0.6.22
   f.set_cease_fire = function(other, v)
     local n = type(other) == "string" and other or other.name
     assert(type(v) == "boolean", "set_cease_fire : booléen attendu")
@@ -963,6 +967,8 @@ function M.new_world(opts)
       fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9 }, "defines.inventory"),
     shooting = strict({ not_shooting = 0, shooting_enemies = 1, shooting_selected = 2 }, "defines.shooting"),
     behavior_result = strict({ in_progress = 0, fail = 1, success = 2, deleted = 3 }, "defines.behavior_result"),
+    -- Intégration 0.6.22 (script/scenario/journal.lua : introduction montrée à un joueur qui a un personnage).
+    controllers = strict({ ghost = 0, character = 1, god = 2, editor = 3, cutscene = 4, spectator = 5 }, "defines.controllers"),
   }
 
   W.forces = { player = new_force("player"), enemy = new_force("enemy"), neutral = new_force("neutral") }
@@ -988,7 +994,13 @@ function M.new_world(opts)
   -- Lot M0 : les trois ressources du mod (sites garantis) suivent le même modèle de gisements ponctuels.
   local RESOURCES = { ["iron-ore"] = true, ["copper-ore"] = true, ["coal"] = true, ["stone"] = true,
     ["fo-tungsten-ore"] = true, ["fo-resonance-crystal"] = true, ["fo-methane"] = true,
-    ["fo-ilmenite"] = true, ["fo-brine"] = true } -- lot X1-TITANE
+    ["fo-ilmenite"] = true, ["fo-brine"] = true, -- lot X1-TITANE
+    ["fo-monazite"] = true, -- lot X2
+    ["fo-galena"] = true, -- lot AMELIO-RESSOURCES
+    ["fo-cassiterite"] = true, -- piste ÉTAIN
+    ["fo-bauxite"] = true, -- piste BAUXITE
+    ["fo-fumarole"] = true, -- piste GÉOTHERMIE
+    ["fo-sphalerite"] = true } -- piste ZINC
   surface.create_entity = function(t)
     if t.position and t.position.x == nil and t.position[1] ~= nil then t.position = { x = t.position[1], y = t.position[2] } end -- lot IA3-e
     if t.position and t.position.x == nil then t.position = { x = t.position[1], y = t.position[2] } end
@@ -1064,6 +1076,9 @@ function M.new_world(opts)
   surface.request_to_generate_chunks = function(pos, r) assert(pos and r, "request_to_generate_chunks : arguments") end
   surface.force_generate_chunk_requests = function() end
   surface.is_chunk_generated = function(cpos) assert(cpos and cpos.x and cpos.y, "is_chunk_generated : ChunkPosition") return true end
+  -- Intégration 0.6.22 (journal d'époque : chunks cartographiés comptés à l'ouverture de sa fenêtre) : le mock n'a pas de
+  -- liste de chunks ; l'itérateur est vide (aucun chunk cartographié).
+  surface.get_chunks = function() return function() return nil end end
   surface.get_tile = function(x, y)
     assert(type(x) == "number" and type(y) == "number", "get_tile(x, y) : entiers attendus")
     local name = tile_name_at(x, y)
@@ -1282,6 +1297,7 @@ function M.new_world(opts)
       local el = gui_container()
       for k, v in pairs(spec) do el[k] = v end
       el.valid = true
+      el.style = {} -- intégration 0.6.22 : style des éléments (fenêtres du journal d'époque, script/scenario/journal.lua)
       el.destroy = function() el.valid = false; if spec.name then c._children[spec.name] = nil end end
       if spec.name then c._children[spec.name] = el end
       return el
@@ -1290,6 +1306,7 @@ function M.new_world(opts)
   end
   W.player = {
     _lua_object = true, index = 1, valid = true, admin = true, connected = true, surface = surface, force = W.forces.player,
+    controller_type = 1, -- intégration 0.6.22 : defines.controllers.character
     character = player_char,
     print = function(s) W.prints[#W.prints + 1] = M.ls_to_string(s) end,
     gui = { top = gui_container(), left = gui_container(), screen = gui_container() },
@@ -1298,6 +1315,8 @@ function M.new_world(opts)
     create_local_flying_text = function(t) W.local_texts = W.local_texts or {}; W.local_texts[#W.local_texts + 1] = M.ls_to_string(t.text) end,
   }
   setmetatable(W.player, { __index = function(_, k) if k == "position" then return player_char.position end end })
+  W.forces.player.players[1] = W.player -- intégration 0.6.22 (LuaForce.players)
+  W.forces.player.connected_players[1] = W.player
 
   _G.global = {}
   _G.settings = { global = setmetatable({}, { __index = function(_, k)
@@ -1386,6 +1405,7 @@ function M.new_world(opts)
     end }),
     forces = W.forces,
     connected_players = { W.player },
+    players = { [1] = W.player }, -- intégration 0.6.22 (LuaGame.players, lu par script/scenario/journal.lua)
     entity_prototypes = W.prototypes,
     recipe_prototypes = W.recipes,
     -- Lot IA-G : objets ITÉRABLES (relevé du cerveau général : type, pouvoir calorifique), tirés des recettes du mock ;

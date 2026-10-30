@@ -1,4 +1,20 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.22
+Date: 2026-10-30
+  Changes:
+    - Piste amelioration de la nuit du 29 au 30/10 (5 pistes) :
+      chaines de fabrication des ages 2 a 11 (CRAFTS) ; torcheres de l'oxygene et de l'oxygene liquide ;
+      nouvelles ressources : galene et plomb, etain et carte imprimee, combustible use, bauxite et aluminium, geothermie (fumerolle), zinc et laiton ; monnaie de l'age 12 = bobine supraconductrice ; garanties posees aussi dans les parties en cours ;
+      biomes : plaine de cristal en givre gris-bleu, amas aqua, buissons et cailloux sans rose ; plus aucun arbre, rocher ni decor vanilla sur les biomes du mod (sables noirs compris) ; frontieres nettes entre biomes ; braises plus rares ; minerai de cristal bleu glacier ;
+      calculs d'equilibre : productivite retiree des piles d'uranium et du retraitement (boucle de matiere) ; couts des niveaux des epoques 4 a 6 payes en plus d'objets ;
+      journal d'epoque (introduction, Codex, objectifs de chaque epoque ; commande /fo-journal).
+    - A SAVOIR pour les sauvegardes existantes :
+      deja a l'age 11 : l'electrolyseur, le reacteur de Kroll et le concentrateur demandent des bobines ; un assembleur deja regle sur l'un d'eux s'arrete jusqu'a ce qu'on lui en donne (il garde ses anciens ingredients) ; le titane deja recherche donne les 5 technologies de la chaine des bobines ;
+      environ 33 % d'arbres en moins a moins de 400 tuiles du depart ; couture entre les chunks deja generes (foret vanilla, sol mauve) et les nouveaux ;
+      les modules de productivite deja poses sur des piles d'uranium ou sur le retraitement sont rendus au sol au chargement [FO-MODMULT].
+    - Connu : calc_test rouge sur la valeur du plastique (1,5 declare, 0,99 reel avec le vapocraquage) : question Q23 au DC, rien change.
+    - Rien n'a ete rejoue en partie : relecture statique de chaque piste, integration verifiee, tests hors jeu verts (pvp 1305), bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.21
 Date: 2026-10-30
   Changes:

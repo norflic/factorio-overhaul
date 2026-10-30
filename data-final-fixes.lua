@@ -13,9 +13,44 @@ do
     if T.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
   end
 end
+-- Lot X2 : celles de la chaîne de la bobine que X0 marque « prod » (ruban, aimant, cryostat, bobine) ; aucune réversible.
+do
+  local S = require("shared.content.superconductors")
+  for _, rr in ipairs(S.RECIPES) do
+    if S.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
+-- Lot AMELIO-RESSOURCES : celles du plomb et du thorium que X0 marque « prod » (plomb, blindage plombé) ; aucune réversible.
+do
+  local P = require("shared.content.galena")
+  for _, rr in ipairs(P.RECIPES) do
+    if P.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
+-- Piste BAUXITE : celles de l'aluminium que X3 marque « prod » (électrolyse ignée) ; aucune réversible.
+do
+  local B = require("shared.content.bauxite")
+  for _, rr in ipairs(B.RECIPES) do
+    if B.recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
+
+-- Piste CALCULS (nuit du 29 au 30/10, tools/calc/equilibre.lua) : avec la productivité MULTIPLIÉE (D-17, jusqu'à
+-- × 328,67), le cycle vanilla « pile d'uranium → pile usée → retraitement → uranium 238 » rend plus d'uranium qu'il n'en
+-- consomme dès les modules de l'époque 6 (10 piles × p_c → 6 × p_c × p_r uranium 238 contre 19 + 1 consommés) :
+-- uranium 238 et 235 sans minerai d'uranium, pour 0,16 et 0,04 MU au lieu de 11,8 et 34,7. Même RÈGLE que ci-dessus
+-- (jamais de productivité sur une boucle) : les deux recettes du cycle sortent de la limitation.
+local FO_PRODUCTIVITY_EXCLUDED = { "uranium-fuel-cell", "nuclear-fuel-reprocessing" }
 
 local base = data.raw.module["productivity-module-3"]
-local limitation = table.deepcopy(base and base.limitation or {})
+local limitation = {}
+do
+  local excluded = {}
+  for _, r in ipairs(FO_PRODUCTIVITY_EXCLUDED) do excluded[r] = true end
+  for _, r in ipairs(base and base.limitation or {}) do
+    if not excluded[r] then limitation[#limitation + 1] = r end
+  end
+end
 local present = {}
 for _, r in ipairs(limitation) do present[r] = true end
 for _, r in ipairs(FO_PRODUCTIVITY_RECIPES) do

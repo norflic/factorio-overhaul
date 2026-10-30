@@ -82,6 +82,11 @@ local ENG = {}
 local function make_protos()
   local protos = {}
   for _, c in ipairs(CAS) do protos[c.name] = { name = c.name, module_effects = M.effect(c.fam, c.k) } end
+  -- Intégration 0.6.22 : limitation des modules de productivité (le moteur la donne par LuaItemPrototype.limitations) ;
+  -- les piles d'uranium n'y sont pas (data-final-fixes.lua, piste CALCULS). Les autres modules : aucune limitation.
+  for _, c in ipairs(CAS) do
+    protos[c.name].limitations = c.fam == "productivity" and { "iron-gear-wheel", "processing-unit" } or {}
+  end
   for _, h in ipairs(MM.all_modules()) do
     protos[h.name] = { name = h.name, module_effects = { [h.effect] = { bonus = h.value } } }
   end
@@ -98,6 +103,14 @@ local function new_inventory(size)
   end
   function mt.__index.get_item_count() return #inv.slots end
   function mt.__index.clear() inv.slots = {} end
+  function mt.__index.remove(stack) -- intégration 0.6.22
+    local got, keep = 0, {}
+    for _, s in ipairs(inv.slots) do
+      if s == stack.name and got < (stack.count or 1) then got = got + 1 else keep[#keep + 1] = s end
+    end
+    inv.slots = keep
+    return got
+  end
   function mt.__index.insert(stack)
     local put = 0
     for _ = 1, stack.count or 1 do
@@ -115,6 +128,7 @@ local function new_entity(surface, name, typ, pos, slots)
   local e = { name = name, type = typ, position = { x = pos.x, y = pos.y }, force = "player", surface = surface,
     unit_number = ENG.next_unit, valid = true, inv = new_inventory(slots) }
   function e.get_module_inventory() return e.inv end
+  function e.get_recipe() return e.recipe and { name = e.recipe } or nil end -- intégration 0.6.22 (e.recipe : nom, ou nil)
   function e.destroy()
     e.valid = false
     for i, x in ipairs(surface.entities) do
@@ -126,7 +140,11 @@ local function new_entity(surface, name, typ, pos, slots)
 end
 
 local function new_surface(index)
-  local s = { index = index, entities = {} }
+  local s = { index = index, entities = {}, spilled = {} }
+  function s.spill_item_stack(pos, stack, looted, force, belts) -- intégration 0.6.22 : relevé des objets rendus
+    s.spilled[#s.spilled + 1] = { x = pos.x, y = pos.y, name = stack.name, count = stack.count, looted = looted, force = force,
+      belts = belts }
+  end
   function s.create_entity(p)
     local typ = p.name == MM.BEACON and "beacon" or "assembling-machine"
     return new_entity(s, p.name, typ, { x = p.position.x or p.position[1], y = p.position.y or p.position[2] },
@@ -204,6 +222,7 @@ local function load_mult(patch)
   end })
   _G.game = {
     surfaces = { ENG.surface },
+    item_prototypes = ENG.protos, -- intégration 0.6.22 : limitations des modules
     connected_players = {},
     get_filtered_item_prototypes = function()
       local out = {}
@@ -424,6 +443,44 @@ end
 do
   local f8 = scenario({ "local rec = Mult%.track%(e%)\n      if rec then", "local rec = nil\n      if rec then" })
   mutant("mult.lua : migration qui ne recense pas", #f8 > 0)
+end
+
+---------------------------------------------------------------------------------------------------
+-- Partie 4 (intégration 0.6.22, piste CALCULS, risque 1 de son relecteur) : une sauvegarde où des modules de productivité
+-- sont dans une machine de piles d'uranium (productivité retirée de ces recettes) : la migration les rend.
+---------------------------------------------------------------------------------------------------
+section("4. modules interdits par la recette rendus à la migration")
+local function scenario_eject(patch)
+  load_mult(patch)
+  local function machine(x, recipe, mod)
+    local m = ENG.surface.create_entity({ name = "assembling-machine-3", position = { x = x, y = 0.5 } })
+    m.recipe = recipe
+    m.inv.insert({ name = mod, count = 4 })
+    return m
+  end
+  local u = machine(200.5, "uranium-fuel-cell", "productivity-module-3")
+  local g = machine(210.5, "iron-gear-wheel", "productivity-module-3")
+  local v = machine(220.5, "uranium-fuel-cell", "speed-module-3")
+  local n = machine(230.5, nil, "productivity-module-2") -- sans recette : rien n'est jugé
+  config_changed()
+  return u, g, v, n
+end
+do
+  local u, g, v, n = scenario_eject(nil)
+  local sp = ENG.surface.spilled
+  check(u.inv.get_item_count() == 0, "piles d'uranium : les 4 modules de productivité sont sortis de la machine")
+  check(#sp == 1 and sp[1].name == "productivity-module-3" and sp[1].count == 4 and sp[1].x == u.position.x
+    and sp[1].looted == true and sp[1].force == u.force, "rendus au sol près de la machine, à ramasser par sa force")
+  local bu = #ENG.surface.find_entities_filtered({ name = MM.BEACON, area = { { u.position.x - 0.25, u.position.y - 0.25 },
+    { u.position.x + 0.25, u.position.y + 0.25 } } })
+  check(bu == 0, "piles d'uranium : aucune balise de complément (plus de boucle de matière)")
+  check(g.inv.get_item_count() == 4 and engine_effects(g).prod > 0, "engrenages : modules de productivité gardés et multipliés")
+  check(v.inv.get_item_count() == 4 and n.inv.get_item_count() == 4, "module de vitesse, machine sans recette : gardés")
+  config_changed()
+  check(#ENG.surface.spilled == 1, "second on_configuration_changed : rien de plus n'est rendu")
+  -- M9 : migration sans le retrait (le risque du relecteur) : les modules restent dans la machine des piles.
+  local u9 = scenario_eject({ "ejected = ejected %+ Mult%.eject_forbidden%(e%)", "ejected = ejected" })
+  mutant("mult.lua : modules interdits laissés dans la machine", u9.inv.get_item_count() == 4)
 end
 
 print(string.format("[MODULES-MIGRATION] BILAN : %d OK, %d ECHEC(S) ; %d mutants", passes, failures, mutants))

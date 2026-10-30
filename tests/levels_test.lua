@@ -404,8 +404,6 @@ local function print_tables()
   local heavy, walls = {}, {}
   for _, t in ipairs(A.turrets) do heavy[t.copy] = t end
   for _, w in ipairs(A.walls) do walls[w.name] = w end
-  local sp10 = MD.families.speed.effects.speed[MD.TIERS]
-  local sp3 = MD.families.speed.effects.speed[3]
   local refs = {
     { "command", "max_health", "—" },
     { "command", "inventory_size", "coffre en acier : 48 cases" },
@@ -420,10 +418,13 @@ local function print_tables()
     { "laser", "range", "tourelle laser lourde (mod) : " .. num(heavy["laser-turret"].range) },
     { "wall", "max_health", "mur renforcé : " .. thousands(walls["fo-reinforced-wall"].hp) .. " ; mur blindé : " .. thousands(walls["fo-armored-wall"].hp) },
     { "wall", "physical", "mur blindé : 3 + 15 = 18 (et 50 %)" },
-    { "drill", "mining_speed", string.format("vanilla + 3 modules de vitesse 3 : %s minerai/s ; niveau 30 + 3 modules de vitesse palier %d : %s minerai/s (tapis jaune : 15/s)",
-      num(VANILLA.drill.mining_speed * (1 + 3 * sp3)), MD.TIERS, num(stat_at(L.by_key.drill, "mining_speed", 30) * (1 + 3 * sp10))) },
+    -- Piste CALCULS : modules MULTIPLIÉS (D-17) et cases réelles (MOD-1 : 5, puis + 1 par niveau) ; avant, 3 modules ADDITIONNÉS.
+    { "drill", "mining_speed", string.format("niveau 1 (%d cases) plein de modules de vitesse 3 multipliés : %s minerai/s ; niveau 30 (%d cases) plein de modules de vitesse palier %d : %s minerai/s, plafond × 328,67 du moteur (tapis jaune : 15/s ; tools/calc/equilibre.lua)",
+      L.module_slots(L.by_key.drill, 1), num(VANILLA.drill.mining_speed * MD.metrics("speed", 3, L.module_slots(L.by_key.drill, 1)).speed),
+      L.module_slots(L.by_key.drill, 30), MD.TIERS, num(stat_at(L.by_key.drill, "mining_speed", 30) * MD.metrics("speed", MD.TIERS, L.module_slots(L.by_key.drill, 30)).speed)) },
     { "furnace", "crafting_speed", "four électrique vanilla : 2, avec 2 emplacements de module (le four en acier n'en a aucun)" },
-    { "assembler", "crafting_speed", "machine d'assemblage 3 vanilla : 1,25, avec 4 emplacements (la machine 2 en a 2)" },
+    { "assembler", "crafting_speed", string.format("machine d'assemblage 3 vanilla : 1,25, 4 emplacements ; la machine 2 (niveau 1) en a %d depuis MOD-1, %d au niveau 30",
+      L.module_slots(L.by_key.assembler, 1), L.module_slots(L.by_key.assembler, 30)) },
   }
   for _, r in ipairs(refs) do
     local f = L.by_key[r[1]]
@@ -727,6 +728,7 @@ local VERIFIED = {
   [W.resources.tungsten.plate.item] = true, [W.resources.crystal.item] = true,
   [W.resources.methane.fluid .. "-barrel"] = true, -- baril généré par le jeu de base pour chaque fluide
   ["fo-titanium-plate"] = true, -- lot X1-TITANE (prototypes/titanium.lua)
+  ["fo-superconducting-coil"] = true, -- lot X2 (prototypes/superconductors.lua)
 }
 for _, item in ipairs(L.cost_items()) do
   check(VERIFIED[item], "objet de coût existant en jeu : " .. item)
@@ -767,10 +769,13 @@ local prov = L.provisional_materials()
 for _, m in ipairs(prov) do
   print(string.format("    époque %2d %-15s %-35s → %s (voulu : %s)", m.epoch, m.key, m.want, m.item, m.want_item))
 end
-check(#prov == 4, "4 remplaçants provisoires (époques 12 à 15 depuis le lot X1-TITANE : " .. #prov .. ")")
-for _, m in ipairs(prov) do check(m.epoch >= 12, "remplaçant provisoire seulement aux époques 12-15 (" .. m.key .. ")") end
+check(#prov == 3, "3 remplaçants provisoires (époques 13 à 15 depuis le lot X2 : " .. #prov .. ")")
+for _, m in ipairs(prov) do check(m.epoch >= 13, "remplaçant provisoire seulement aux époques 13-15 (" .. m.key .. ")") end
 check(L.epoch_materials[11].item == "fo-titanium-plate" and not L.epoch_materials[11].provisional and L.epoch_materials[11].value == 20,
   "époque 11 : la vraie plaque de titane (valeur 20 du scénario X0), plus de remplaçant")
+check(L.epoch_materials[12].item == "fo-superconducting-coil" and not L.epoch_materials[12].provisional
+  and L.epoch_materials[12].value == 60 and L.stack_size["fo-superconducting-coil"] == 100,
+  "époque 12 : la vraie bobine supraconductrice (valeur 60, pile 100 du scénario X0), plus de remplaçant")
 
 ---------------------------------------------------------------------------------------------------
 section("Statistiques sur 30 niveaux")
@@ -2070,7 +2075,7 @@ local function fake_gui()
   return setmetatable(c, { __index = function(t, k) return rawget(t, "_children")[k] end })
 end
 local player = Wd.player
-player.gui = { left = fake_gui(), top = fake_gui() }
+player.gui = { left = fake_gui(), top = fake_gui(), screen = fake_gui() } -- (screen : intégration 0.6.22, fenêtre du journal d'époque au passage du centre)
 local function captions(el, out)
   out = out or {}
   for _, ch in ipairs(rawget(el, "_list")) do
@@ -2134,12 +2139,18 @@ rawset(player, "force", f15)
 okc, txt = hover(Levels.cc(f15))
 check(okc and txt:find("{fo-epochs.cc-line:15,30}", 1, true) ~= nil and txt:find("fo-epochs.cc-rule", 1, true) == nil,
   "panneau du centre 15 : bâtiments jusqu'au niveau 30, plus de condition (niveau maximal)")
--- Panneau d'une foreuse niveau 22 (force au centre 15) : le niveau 23 se paie en monnaie PROVISOIRE de
--- l'époque 12, et le panneau le dit avec le matériau voulu.
-local fp = s.create_entity({ name = L.name(L.by_key.drill, 22), position = { x = 130, y = 10 }, force = "fo-test-15" })
+-- Panneau d'une foreuse niveau 24 (force au centre 15) : le niveau 25 se paie en monnaie PROVISOIRE de
+-- l'époque 13, et le panneau le dit avec le matériau voulu (lot X2 : l'époque 12 a sa vraie monnaie, la bobine).
+local fp = s.create_entity({ name = L.name(L.by_key.drill, 24), position = { x = 130, y = 10 }, force = "fo-test-15" })
 ok_panel, all = hover(fp)
-check(ok_panel and all:find("fo%-epochs%.currency%-provisional") ~= nil and all:find("fo%-epochs%.want%-superconductor") ~= nil,
-  "panneau : monnaie provisoire signalée avec le matériau voulu (époque 12)")
+check(ok_panel and L.pay_epoch(L.by_key.drill, 25) == 13 and all:find("fo%-epochs%.currency%-provisional") ~= nil
+  and all:find("fo%-epochs%.want%-helium3") ~= nil,
+  "panneau : monnaie provisoire signalée avec le matériau voulu (époque 13)")
+local fp12 = s.create_entity({ name = L.name(L.by_key.drill, 22), position = { x = 140, y = 10 }, force = "fo-test-15" })
+local ok12, all12 = hover(fp12)
+check(ok12 and L.pay_epoch(L.by_key.drill, 23) == 12 and all12:find("fo%-epochs%.currency%-provisional") == nil
+  and all12:find("fo-superconducting-coil", 1, true) ~= nil,
+  "panneau : niveau payé en bobines supraconductrices, sans mention provisoire (époque 12, lot X2)")
 rawset(player, "force", home)
 
 -- Autre force : ni panneau, ni amélioration, ni paiement par le centre adverse (survol, touche U, bouton).

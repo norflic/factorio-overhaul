@@ -21,6 +21,7 @@ local MOD_ROOT = (arg[2] and not arg[2]:match("^%-%-")) and arg[2] or "."
 local VERBOSE, SHOW_SUPPRESSED = false, false
 local DUMP_RECIPES = nil
 local DUMP_TECHS = nil -- "--dump-techs <fichier>" : technologies finales (lot IA3-0)
+local DUMP_CALC = nil -- "--dump-calc <fichier>" : données du calculateur d'équilibre (piste CALCULS, tools/calc/)
 local DUMP_PROTO = nil -- "--dump-proto type/name" : affiche un prototype VANILLA (outil de conception)
 local DUMP_FINAL = nil -- "--dump-final type/name" : affiche un prototype tel que le mod le livre
 for i, a in ipairs(arg) do
@@ -28,6 +29,7 @@ for i, a in ipairs(arg) do
   if a == "--show-suppressed" then SHOW_SUPPRESSED = true end
   if a == "--dump-recipes" then DUMP_RECIPES = arg[i + 1] end
   if a == "--dump-techs" then DUMP_TECHS = arg[i + 1] end
+  if a == "--dump-calc" then DUMP_CALC = arg[i + 1] end
   if a == "--dump-proto" then DUMP_PROTO = arg[i + 1] end
   if a == "--dump-final" then DUMP_FINAL = arg[i + 1] end
 end
@@ -242,7 +244,10 @@ if DUMP_RECIPES then
     local out = {}
     for _, x in ipairs(list or {}) do
       if x.name then
-        out[#out + 1] = { type = x.type or "item", name = x.name, amount = x.amount or ((x.amount_min and x.amount_max) and (x.amount_min + x.amount_max) / 2) or 1 }
+        -- Piste CALCULS : probabilité et quantité catalyseur GARDÉES (champs en plus ; `amount` reste la quantité
+        -- nominale, comme avant : la fixture IA1-e1 n'est pas régénérée). Uranium : 0,007 et 0,993, pas 1 et 1.
+        out[#out + 1] = { type = x.type or "item", name = x.name, amount = x.amount or ((x.amount_min and x.amount_max) and (x.amount_min + x.amount_max) / 2) or 1,
+          probability = (x.probability and x.probability ~= 1) and x.probability or nil, catalyst_amount = x.catalyst_amount }
       else
         out[#out + 1] = { type = "item", name = x[1], amount = x[2] or 1 }
       end
@@ -327,6 +332,139 @@ if DUMP_TECHS then
   f:write(table.concat(lines, "\n"), "\n")
   f:close()
   print("Technologies ecrites : " .. n .. " -> " .. DUMP_TECHS)
+end
+-- Option --dump-calc <fichier> (piste CALCULS, nuit du 29 au 30/10) : TOUT ce que le calculateur d'équilibre
+-- (tools/calc/equilibre.lua) lit de l'étape data FINALE (vanilla + mod, difficulté normale), dans un seul fichier Lua :
+-- recettes (probabilité et quantité catalyseur comprises), gisements (temps d'extraction, fluide exigé), machines
+-- (vitesse, catégories, emplacements de modules, emprise), modules (effets, limitation de la productivité), piles des
+-- objets, technologies (coût final). Clés triées : deux passages donnent le même fichier, octet pour octet.
+if DUMP_CALC then
+  local function ser(v, ind)
+    ind = ind or ""
+    if type(v) == "table" then
+      local parts, ks = {}, {}
+      if #v > 0 then
+        for _, x in ipairs(v) do parts[#parts + 1] = ser(x, ind) end
+        return "{ " .. table.concat(parts, ", ") .. " }"
+      end
+      for k in pairs(v) do ks[#ks + 1] = k end
+      table.sort(ks, function(a, b) return tostring(a) < tostring(b) end)
+      for _, k in ipairs(ks) do
+        local key = (type(k) == "string" and k:match("^[%a_][%w_]*$")) and k or ("[" .. string.format("%q", k) .. "]")
+        parts[#parts + 1] = key .. " = " .. ser(v[k], ind)
+      end
+      return "{ " .. table.concat(parts, ", ") .. " }"
+    elseif type(v) == "string" then
+      return string.format("%q", v)
+    elseif type(v) == "number" then
+      if v == math.floor(v) and math.abs(v) < 2 ^ 53 then return string.format("%d", v) end
+      return string.format("%.17g", v)
+    end
+    return tostring(v)
+  end
+  local function sorted_names(t)
+    local out = {}
+    for n in pairs(t or {}) do out[#out + 1] = n end
+    table.sort(out)
+    return out
+  end
+  local function list(l)
+    local out = {}
+    for _, x in ipairs(l or {}) do
+      if x.name then
+        out[#out + 1] = { type = x.type or "item", name = x.name, amount = x.amount, amount_min = x.amount_min,
+          amount_max = x.amount_max, probability = x.probability, catalyst_amount = x.catalyst_amount }
+      else
+        out[#out + 1] = { type = "item", name = x[1], amount = x[2] or 1 }
+      end
+    end
+    return out
+  end
+  local function side(box)
+    if type(box) ~= "table" or not box[1] or not box[2] then return nil end
+    local a, b = box[1], box[2]
+    local w = math.ceil((b[1] or b.x) - (a[1] or a.x) - 1e-6)
+    local h = math.ceil((b[2] or b.y) - (a[2] or a.y) - 1e-6)
+    return math.max(w, h)
+  end
+  local out = { recipes = {}, resources = {}, machines = {}, modules = {}, stacks = {}, techs = {}, items = {} }
+  for _, name in ipairs(sorted_names(modded.recipe)) do
+    local r = modded.recipe[name]
+    local d = r.normal or r
+    local products
+    if d.results then products = list(d.results)
+    elseif d.result then products = { { type = "item", name = d.result, amount = d.result_count or 1 } }
+    else products = {} end
+    out.recipes[name] = { category = r.category or "crafting", energy = d.energy_required or 0.5,
+      ingredients = list(d.ingredients), products = products, hidden = (d.hidden or r.hidden) and true or false,
+      enabled = d.enabled ~= false, main_product = d.main_product or r.main_product }
+  end
+  for _, name in ipairs(sorted_names(modded.resource)) do
+    local r = modded.resource[name]
+    local m = r.minable or {}
+    local results = m.results and list(m.results) or { { type = "item", name = m.result, amount = m.count or 1 } }
+    out.resources[name] = { category = r.category or "basic-solid", mining_time = m.mining_time or 1, results = results,
+      required_fluid = m.required_fluid, fluid_amount = m.fluid_amount, infinite = r.infinite or nil }
+  end
+  for _, ptype in ipairs({ "assembling-machine", "furnace", "rocket-silo", "mining-drill", "lab" }) do
+    for _, name in ipairs(sorted_names(modded[ptype])) do
+      local e = modded[ptype][name]
+      local ms = e.module_specification
+      out.machines[name] = { type = ptype, crafting_speed = e.crafting_speed, mining_speed = e.mining_speed,
+        researching_speed = e.researching_speed, categories = e.crafting_categories or e.resource_categories,
+        module_slots = ms and ms.module_slots or 0, allowed_effects = e.allowed_effects, side = side(e.collision_box),
+        energy_usage = e.energy_usage, energy_type = e.energy_source and e.energy_source.type or nil,
+        rocket_parts_required = e.rocket_parts_required }
+    end
+  end
+  for _, name in ipairs(sorted_names(modded.module)) do
+    local m = modded.module[name]
+    local eff = {}
+    for _, k in ipairs(sorted_names(m.effect)) do eff[k] = m.effect[k].bonus end
+    out.modules[name] = { category = m.category, tier = m.tier, effect = eff, limitation = m.limitation }
+  end
+  for ptype, protos in pairs(modded) do
+    for name, p in pairs(protos) do
+      if type(p) == "table" and type(p.stack_size) == "number" and not out.stacks[name] then
+        out.stacks[name] = p.stack_size
+        -- Sources hors recette : résidu de combustion (pile usée) et produits d'un lancement de fusée.
+        local launch = p.rocket_launch_products and list(p.rocket_launch_products)
+          or (p.rocket_launch_product and list({ p.rocket_launch_product })) or nil
+        if p.burnt_result or launch then out.items[name] = { burnt_result = p.burnt_result, launch = launch } end
+      end
+    end
+  end
+  for _, name in ipairs(sorted_names(modded.technology)) do
+    local t = modded.technology[name]
+    local body = t.normal or t
+    local unit = body.unit or t.unit
+    if unit and unit.count then
+      local ings = {}
+      for _, i in ipairs(unit.ingredients or {}) do ings[#ings + 1] = { i.name or i[1], i.amount or i[2] or 1 } end
+      local unlocks = {}
+      for _, e in ipairs(body.effects or t.effects or {}) do
+        if e.type == "unlock-recipe" then unlocks[#unlocks + 1] = e.recipe end
+      end
+      out.techs[name] = { count = unit.count, time = unit.time, ingredients = ings,
+        prerequisites = body.prerequisites or t.prerequisites or {}, unlocks = unlocks,
+        enabled = (body.enabled ~= false) and true or false }
+    end
+  end
+  local f = assert(io.open(DUMP_CALC, "w"))
+  f:write("-- Généré par tests/datastage/harness.lua --dump-calc (vanilla 1.1.91 + mod, étape data FINALE). Ne pas éditer.\n")
+  f:write("return {\n")
+  for _, section in ipairs({ "items", "machines", "modules", "recipes", "resources", "stacks", "techs" }) do
+    f:write("  ", section, " = {\n")
+    for _, name in ipairs(sorted_names(out[section])) do
+      f:write("    [", string.format("%q", name), "] = ", ser(out[section][name]), ",\n")
+    end
+    f:write("  },\n")
+  end
+  f:write("}\n")
+  f:close()
+  local n = 0
+  for _ in pairs(out.recipes) do n = n + 1 end
+  print("Donnees du calculateur ecrites : " .. n .. " recettes -> " .. DUMP_CALC)
 end
 local changed = Validator.changed(vanilla_fp, modded)
 local report = Validator.validate(schema, modded, changed)

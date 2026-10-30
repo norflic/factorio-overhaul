@@ -111,17 +111,20 @@ end
 section("Règle « déplier » (recettes des bâtiments)")
 ---------------------------------------------------------------------------------------------------
 do
-  local e, tr = T.expand({ { "fo-coil", 1 } })
+  -- La bobine est en jeu depuis le lot AMELIO-CRAFTS (T.FROM_CRAFTS) : elle ne se déplie plus.
+  local ec = T.expand({ { "fo-coil", 3 } })
+  check(#ec == 1 and ec[1][1] == "fo-coil" and ec[1][2] == 3, "bobine en jeu (AMELIO-CRAFTS) : non dépliée")
+  -- Foret au carbure (âge 5, absent) = 1 carbure (= 1 tungstène + 0,5 coke) + 2 aciers
+  local e, tr = T.expand({ { "fo-carbide-bit", 1 } })
   local got = {}
   for _, i in ipairs(e) do got[i[1]] = i[2] end
-  -- 1 bobine = 4 fils émaillés (2 câbles + 1 plastique) + 2 tôles magnétiques (2 aciers + 1 sable = 0,5 pierre)
-  check(got["copper-cable"] == 2 and got["plastic-bar"] == 1 and got["steel-plate"] == 2 and got["stone"] == 1,
-    "1 bobine = 2 câbles + 1 plastique + 2 aciers + 1 pierre (0,5 arrondi au-dessus)")
-  check(#tr == 4 and tr[1][1] == "fo-coil", "trace du dépliage : bobine, fil émaillé, tôle magnétique, sable (" .. #tr .. ")")
-  local e10 = T.expand({ { "fo-coil", 10 } })
+  check(got["fo-tungsten-plate"] == 1 and got["fo-coke"] == 1 and got["steel-plate"] == 2,
+    "1 foret au carbure = 1 tungstène + 1 coke (0,5 arrondi au-dessus) + 2 aciers")
+  check(#tr == 2 and tr[1][1] == "fo-carbide-bit", "trace du dépliage : foret, carbure (" .. #tr .. ")")
+  local e10 = T.expand({ { "fo-carbide-bit", 10 } })
   local g10 = {}
   for _, i in ipairs(e10) do g10[i[1]] = i[2] end
-  check(g10["stone"] == 5 and g10["steel-plate"] == 20, "arrondi À LA FIN : 10 bobines = 5 pierres, 20 aciers")
+  check(g10["fo-coke"] == 5 and g10["steel-plate"] == 20, "arrondi À LA FIN : 10 forets = 5 cokes, 20 aciers")
   check(#T.expand({ { "iron-plate", 3 }, { "fo-tungsten-plate", 2 } }) == 2, "rien à déplier : liste inchangée")
 end
 local all_unlocked = {}
@@ -138,8 +141,8 @@ do
   local r = T.building_recipe("fo-kroll-reactor")
   local g = {}
   for _, i in ipairs(r.ingredients) do g[i[1]] = i[2] end
-  check(g["steel-plate"] == 50 and g["fo-tungsten-plate"] == 20 and g["processing-unit"] == 10 and g["copper-cable"] == 20,
-    "réacteur de Kroll : 30 aciers + 20 tungstènes + 10 bobines (dépliées) + 10 processeurs")
+  check(g["steel-plate"] == 30 and g["fo-tungsten-plate"] == 20 and g["processing-unit"] == 10 and g["fo-coil"] == 10,
+    "réacteur de Kroll : 30 aciers + 20 tungstènes + 10 bobines (en jeu depuis AMELIO-CRAFTS) + 10 processeurs")
 end
 
 ---------------------------------------------------------------------------------------------------
