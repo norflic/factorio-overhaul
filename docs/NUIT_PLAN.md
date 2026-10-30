@@ -145,3 +145,6 @@ Question DC en attente (QUESTIONS_DC.md) : extension des avant-postes au-dela de
 - 30/10 0 h 34 -> 2 h : limite d'usage, 1 h 25 perdues pour tous les agents. A 2 h : workflows repris, integ-0619 relance (0.6.20 : reste CHARBON-CENTRALE, CRAFT-PARALLELE, RECO-DIRECTION + tests).
 
 - 30/10 3 h 50 (integration AMELIO 0.6.22) : ecrire au changelog que dans une sauvegarde anterieure, un assembleur regle sur electrolyseur / reacteur de Kroll / concentrateur s arrete jusqu a ce qu on lui donne des bobines (CRAFTS, migration 307/24 dont 3 recettes).
+
+## Fin de nuit (30/10 8 h 35)
+Versions jouables fusionnees cette nuit : 0.6.19, 0.6.20, 0.6.21, 0.6.22, 0.6.23, 0.6.24, 0.6.25, 0.6.26 (derniere ; branche jouable). Fumee finale verif-guide 216 000 ticks sur 0.6.24, 2 graines : 15 OK, 0 erreur Lua ; elle a mesure 2 defauts corriges en 0.6.26 (prevision surestimee ; famine de fer de votre equipe sur 1618033988). Parque : corr-x3-minerais (Q26). Design : mur v6 (planches/INDEX.html), centre en pause. Rapport du matin : fo-logs/2026-10-30_MATIN/RAPPORT_MATIN.html. Questions Q18 a Q26 dans docs/QUESTIONS_DC.md.
