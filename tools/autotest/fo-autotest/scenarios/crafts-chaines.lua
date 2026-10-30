@@ -7,8 +7,9 @@
 
   1. Prototypes présents : 8 objets, 3 bâtiments, 15 recettes du lot (12 de X0, 3 hors X0), 8 technologies, avec les
      packs vanilla de leur âge et des prérequis qui existent.
-  2. Les 15 technologies, recherchées par script, ouvrent leurs recettes (bâtiments compris ; au moins 45).
+  2. Les 17 technologies, recherchées par script, ouvrent leurs recettes (bâtiments compris ; au moins 45).
      Étape 4 (âges 8, 10 et 11) : reformeur, carbonatation, torchère du CO2, silicium, salle blanche, procédé Siemens.
+     Étape 5 (âge 10) : concentré de fer, billette ρ8, découpe en 8 plaques.
   3. Chaque recette de procédé dans SA machine (haut fourneau, concasseur, four à arc, bobineuse, assembleur 3, usine
      chimique, four à coke), garnie par script (objets, combustible, fluides) : au contrôle (tick 1 200), chaque machine
      a fini au moins une fabrication et son produit principal est dans sa sortie (ou un fluide dans sa boîte de sortie).
@@ -22,9 +23,11 @@ local CHECK = 1200
 
 local TECHS = { "fo-coking", "fo-blast-furnace", "fo-crushing", "fo-cement-concrete", "fo-arc-smelting", "fo-electrical-steel",
                 "fo-titanium-alloys", "fo-brine-byproducts", "fo-glassworks", "fo-flaring", "fo-steam-cracking",
-                "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process" }
+                "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process", "fo-concentration", "fo-billets" }
 local ITEMS = { "fo-slag", "fo-cement", "fo-sand", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite",
-                "fo-glass", "fo-manometer", "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer" }
+                "fo-glass", "fo-manometer", "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer",
+                "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate", "fo-iron-plate-r8", "fo-copper-plate-r8",
+                "fo-tungsten-plate-r8" }
 local BUILDINGS = { "fo-blast-furnace", "fo-crusher", "fo-coil-winder", "fo-flare-stack", "fo-steam-cracker", "fo-reformer", "fo-cleanroom" }
 local PROD = { "fo-glass", "fo-manometer", "fo-polyethylene", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite", "fo-titanium-lds",
                "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer", "fo-cleanroom-processor" }
@@ -76,6 +79,10 @@ local POSTES = {
     items = { { "electronic-circuit", 20 }, { "advanced-circuit", 4 }, { "fo-silicon-wafer", 2 } }, fluids = { { "sulfuric-acid", 50 } } },
   { key = "siemens", m = "chemical-plant", r = "fo-siemens-silicon", p = "fo-pure-silicon", items = { { "fo-metallurgical-silicon", 9 } },
     fluids = { { "fo-chlorine", 100 }, { "fo-hydrogen", 300 } } },
+  -- Étape 5 : concentré, billette, découpe (fer).
+  { key = "concentre", m = "fo-ore-concentrator", r = "fo-iron-concentrate", p = "fo-iron-concentrate", items = { { "iron-ore", 48 } } },
+  { key = "billette", m = "fo-arc-furnace", r = "fo-iron-plate-r8", p = "fo-iron-plate-r8", items = { { "fo-iron-concentrate", 6 } } },
+  { key = "decoupe", m = "assembling-machine-3", r = "fo-iron-plate-r8-unpacking", p = "iron-plate", items = { { "fo-iron-plate-r8", 4 } } },
 }
 
 local function size_of(name)
@@ -132,7 +139,7 @@ return {
         end
       end
     end
-    ctx.check(#closed == 0 and n >= 45, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
+    ctx.check(#closed == 0 and n >= 55, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
     -- 4. Productivité
     local lim = game.item_prototypes["productivity-module-3"] and game.item_prototypes["productivity-module-3"].limitations or {}
     local set = {}
@@ -143,10 +150,11 @@ return {
     ctx.check(#wrong == 0, "productivite : recettes prod de X0 admises, hors X0 refusees", #wrong > 0 and table.concat(wrong, ", ") or nil)
 
     -- 3. Postes
-    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 170, Y0 + 12, "refined-concrete")
+    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 190, Y0 + 12, "refined-concrete")
     for _, e in ipairs(s.find_entities_filtered({ area = { { X0 - 120, Y0 - 120 }, { X0 + 240, Y0 + 120 } }, force = "enemy" })) do e.destroy() end
     ctx.power(X0 + 56, Y0 + 8)
     ctx.power(X0 + 130, Y0 + 8)
+    ctx.power(X0 + 175, Y0 + 8)
     st.postes = {}
     local x = X0
     local placed, fails = 0, {}

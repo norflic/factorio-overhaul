@@ -29,6 +29,12 @@ local ICON = {
   ["fo-metallurgical-silicon"] = { "item", "stone", { r = 0.55, g = 0.58, b = 0.66 } },
   ["fo-pure-silicon"] = { "item", "iron-plate", { r = 0.62, g = 0.66, b = 0.80 } },
   ["fo-silicon-wafer"] = { "item", "copper-plate", { r = 0.55, g = 0.62, b = 0.95 } },
+  ["fo-iron-concentrate"] = { "item", "iron-ore", { r = 0.70, g = 0.78, b = 0.92 } },
+  ["fo-copper-concentrate"] = { "item", "copper-ore", { r = 1.00, g = 0.80, b = 0.62 } },
+  ["fo-tungsten-concentrate"] = { "item", "fo-tungsten-ore", { r = 0.80, g = 0.80, b = 0.86 } },
+  ["fo-iron-plate-r8"] = { "item", "steel-plate", { r = 0.82, g = 0.86, b = 0.96 } },
+  ["fo-copper-plate-r8"] = { "item", "steel-plate", { r = 1.00, g = 0.66, b = 0.46 } },
+  ["fo-tungsten-plate-r8"] = { "item", "steel-plate", { r = 0.60, g = 0.62, b = 0.70 } },
 }
 
 local function icon_of(ptype, name, tint)
@@ -298,6 +304,8 @@ local TECH_ICON = {
   ["fo-carbonation"] = { "concrete", { r = 0.70, g = 0.72, b = 0.74 } },
   ["fo-silicon"] = { "advanced-electronics-2", { r = 0.80, g = 0.86, b = 1.00 } },
   ["fo-siemens-process"] = { "advanced-electronics-2", { r = 0.70, g = 0.95, b = 0.75 } },
+  ["fo-concentration"] = { "advanced-material-processing-2", { r = 0.85, g = 0.80, b = 0.70 } },
+  ["fo-billets"] = { "advanced-material-processing-2", { r = 0.80, g = 0.86, b = 1.00 } },
 }
 for _, t in ipairs(C.TECHS) do
   local effects = {}

@@ -32,6 +32,9 @@ C.ITEMS = {
   "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", -- âge 6 (arc, bobinage)
   "fo-titanium-composite",                                 -- âge 11 (débouché du titane)
   "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer", -- âge 10 (silicium et salle blanche, étape 4)
+  -- âge 10 (étape 5) : concentrés et billettes ρ8 (une billette = 8 plaques : 8 fois moins d'objets sur les tapis)
+  "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate",
+  "fo-iron-plate-r8", "fo-copper-plate-r8", "fo-tungsten-plate-r8",
 }
 -- Fluides de X0 mis en jeu par ce lot.
 C.FLUIDS = { "fo-ethylene", "fo-carbon-dioxide" }
@@ -99,6 +102,19 @@ C.RECIPES = {
   -- la tranche remplace 10 circuits verts sur 20 (calcul : C.bilan, tests/crafts_test.lua §5 bis).
   { name = "fo-cleanroom-processor", results = { { "processing-unit", 1 } },
     ecart = "1 processeur au lieu de 2 (monnaie de l'âge 10)" },
+  -- Étape 5, âge 10 (forme dense ρ8, X0 « fo-concentration » et « fo-billets ») : 8 minerais -> 1 concentré (concentrateur
+  -- du titane) -> 1 billette (four à arc) -> 8 plaques (découpe, à la main ou en assembleur). Même matière que la fonte
+  -- vanilla (8 minerais, 8 plaques) : la voie gagne de la PLACE (un concentrateur et un four à arc font le travail
+  -- d'environ 48 fours en acier) et du transport (8 fois moins d'objets), pas de matière.
+  { name = "fo-iron-concentrate" },
+  { name = "fo-copper-concentrate" },
+  { name = "fo-tungsten-concentrate" },
+  { name = "fo-iron-plate-r8" },
+  { name = "fo-copper-plate-r8" },
+  { name = "fo-tungsten-plate-r8" },
+  { name = "fo-iron-plate-r8-unpacking" },
+  { name = "fo-copper-plate-r8-unpacking" },
+  { name = "fo-tungsten-plate-r8-unpacking" },
 }
 
 -- Recettes HORS X0 (fermeture des boucles en jeu). Même format que les recettes de X0.
@@ -183,6 +199,15 @@ C.TECHS = {
   { name = "fo-siemens-process", epoch = 11, count = 200, time = 30,
     prerequisites = { "fo-silicon", "fo-brine-byproducts" },
     unlocks = { "fo-siemens-silicon" } },
+  -- Étape 5. Le concentrateur (lot X1) n'était ouvert qu'à l'âge 11 par la technologie du titane : il l'est aussi ici
+  -- (âge 10 dans X0). La foreuse de concentré de X0 n'est pas en jeu (famille des foreuses à niveaux).
+  { name = "fo-concentration", x0 = "fo-concentration", epoch = 10, count = 300, time = 30,
+    prerequisites = { "fo-arc-smelting", "fo-electrical-steel", "fo-tungsten-processing", "utility-science-pack" },
+    unlocks = { "fo-ore-concentrator", "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate" } },
+  { name = "fo-billets", x0 = "fo-billets", epoch = 10, count = 300, time = 30,
+    prerequisites = { "fo-concentration" },
+    unlocks = { "fo-iron-plate-r8", "fo-copper-plate-r8", "fo-tungsten-plate-r8", "fo-iron-plate-r8-unpacking",
+                "fo-copper-plate-r8-unpacking", "fo-tungsten-plate-r8-unpacking" } },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -297,6 +322,7 @@ end
 -- Calcul : coût en matières premières des variantes contre la recette vanilla (BALANCE_SHEET, partie AMELIO-CRAFTS)
 ---------------------------------------------------------------------------------------------------
 -- Matières premières comptées (le reste se déplie) ; les sous-produits du mod sont gratuits (on les a de toute façon).
+-- (Les billettes ρ8 ne changent pas la matière : elles se comptent en débit, C.rates, pas ici.)
 C.RAW = { ["iron-plate"] = "fer", ["iron-ore"] = "fer", ["copper-plate"] = "cuivre", ["stone"] = "pierre", ["coal"] = "charbon",
           ["petroleum-gas"] = "gaz", ["heavy-oil"] = "huile lourde", ["water"] = "eau", ["steam"] = "eau",
           ["fo-titanium-plate"] = "titane", ["engine-unit"] = "moteur", ["sulfuric-acid"] = "acide" }
@@ -358,6 +384,40 @@ function C.raw_cost(item, via, depth)
   assert(per and per > 0, "crafts : quantité produite inconnue pour " .. item)
   for _, i in ipairs(ings) do add(C.raw_cost(i[1], nil, depth + 1), i[2] / per) end
   return out
+end
+
+--- Machine de référence d'une catégorie : { nom, vitesse }. Catégories du mod : la première machine en jeu (X1 puis ce
+--- lot) qui la fait, vitesse de X0 ; catégories vanilla : assembleur 3, usine chimique, four en acier.
+C.VANILLA_MACHINES = {
+  crafting = { "assembling-machine-3", 1.25 }, ["crafting-with-fluid"] = { "assembling-machine-3", 1.25 },
+  ["advanced-crafting"] = { "assembling-machine-3", 1.25 }, chemistry = { "chemical-plant", 1 },
+  smelting = { "steel-furnace", 2 }, ["oil-processing"] = { "oil-refinery", 1 },
+}
+function C.machine_of(category)
+  if C.VANILLA_MACHINES[category] then return C.VANILLA_MACHINES[category][1], C.VANILLA_MACHINES[category][2] end
+  local lists = { T.BUILDINGS, C.BUILDINGS }
+  for _, l in ipairs(lists) do
+    for _, b in ipairs(l) do
+      local x = T.x_building(b.name)
+      for _, c in ipairs(x and x.categories or {}) do if c == category then return b.name, x.speed end end
+    end
+  end
+  return nil, nil
+end
+
+--- Débits : pour chaque recette du lot, { recipe, machine, speed, per_min = produit principal par minute et par machine,
+--- main } (sans module ; une torchère : fabrications par minute, main = nil).
+function C.rates()
+  local rows = {}
+  for _, r in ipairs(C.all_recipes()) do
+    local m, sp = C.machine_of(r.category)
+    local main = r.main or (#r.results == 1 and r.results[1][1]) or nil
+    local q = 1
+    for _, p in ipairs(r.results) do if p[1] == main then q = p[2] end end
+    rows[#rows + 1] = { recipe = r.name, machine = m, speed = sp, main = main,
+                        per_min = sp and (60 * sp / r.time * (main and q or 1)) or nil, epoch = r.epoch }
+  end
+  return rows
 end
 
 --- Bilan des variantes (recettes du lot dont le produit principal est vanilla) : liste triée de

@@ -359,6 +359,37 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("5 quater. Billettes ρ8 (étape 5) : même matière que la fonte, débit d'une machine")
+---------------------------------------------------------------------------------------------------
+do
+  local function amount(r, name, list)
+    for _, p in ipairs(r[list]) do if p[1] == name then return p[2] end end
+    return 0
+  end
+  for _, m in ipairs({ { "iron", "iron-ore", "iron-plate" }, { "copper", "copper-ore", "copper-plate" },
+                       { "tungsten", "fo-tungsten-ore", "fo-tungsten-plate" } }) do
+    local conc = C.process_recipe("fo-" .. m[1] .. "-concentrate")
+    local bil = C.process_recipe("fo-" .. m[1] .. "-plate-r8")
+    local cut = C.process_recipe("fo-" .. m[1] .. "-plate-r8-unpacking")
+    local ore = amount(conc, m[2], "ingredients") / amount(conc, "fo-" .. m[1] .. "-concentrate", "results")
+      * amount(bil, "fo-" .. m[1] .. "-concentrate", "ingredients") / amount(bil, "fo-" .. m[1] .. "-plate-r8", "results")
+      * amount(cut, "fo-" .. m[1] .. "-plate-r8", "ingredients")
+    local plates = amount(cut, m[3], "results")
+    check(ore == plates and plates == 8, m[1] .. " : " .. ore .. " minerais -> " .. plates .. " plaques (même matière que la fonte vanilla)")
+  end
+  local by = {}
+  for _, r in ipairs(C.rates()) do by[r.recipe] = r end
+  check(by["fo-iron-plate-r8"] and by["fo-iron-plate-r8"].machine == "fo-arc-furnace", "billette : au four à arc")
+  check(by["fo-iron-concentrate"] and by["fo-iron-concentrate"].machine == "fo-ore-concentrator", "concentré : au concentrateur du titane")
+  -- Un four à arc fait autant de plaques que N fours en acier vanilla (fonte du fer : 3,2 s, vitesse 2 -> 37,5 / min).
+  local arc = by["fo-iron-plate-r8"].per_min * 8
+  check(arc / 37.5 > 20, string.format("un four à arc : %.0f plaques / min, %.0f fours en acier", arc, arc / 37.5))
+  for _, r in ipairs(C.rates()) do
+    check(r.machine ~= nil and r.speed ~= nil, r.recipe .. " : machine de référence (" .. tostring(r.machine) .. ")")
+  end
+end
+
+---------------------------------------------------------------------------------------------------
 section("5 bis. Calcul : chaque variante économise une matière sur la recette vanilla")
 ---------------------------------------------------------------------------------------------------
 do
