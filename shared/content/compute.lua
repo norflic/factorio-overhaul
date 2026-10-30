@@ -145,8 +145,11 @@ Cp.RECIPES = {
     ingredients = { { "fo-qubit-chip", 4 }, { "fo-dilution-stage", 1 }, { "fo-logic-die", 2 }, { "fo-sram-die", 4 },
                     { "fo-motherboard", 1 } },
     results = { { "fo-quantum-processor", 1 } } },
+  -- Hélium-3 : 300 par 600 s (0,5/s, pertes d'un cryostat à dilution en circuit fermé), soit environ 1,3 four de frittage
+  -- sur le dégazage de X0 (0,1 par 0,267 s). Relecture du 30/10 : 3 000 (5/s) demandait environ 13 fours et 100 minerais
+  -- d'ilménite par seconde pour UN centre, sans commune mesure avec le centre classique (eau seule).
   { name = "fo-compute-quantum", src = "plan", epoch = 13, category = "fo-computing", time = 600,
-    ingredients = { { "fo-quantum-processor", 1 }, { "water", 6000 }, { "fo-helium-3", 3000 } }, results = {}, compute = 1200000,
+    ingredients = { { "fo-quantum-processor", 1 }, { "water", 6000 }, { "fo-helium-3", 300 } }, results = {}, compute = 1200000,
     fr = "Calcul quantique", en = "Quantum computing" },
 }
 

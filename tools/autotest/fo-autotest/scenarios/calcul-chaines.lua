@@ -73,7 +73,7 @@ local CENTRES = {
   { key = "dc-classique", r = "fo-compute-classic", part = "fo-server-blade", n = 2, fluids = { { "water", 3000 } }, rate = 100 },
   { key = "dc-accelere", r = "fo-compute-accelerated", part = "fo-gpu-blade", n = 2, fluids = { { "water", 3000 } }, rate = 400 },
   { key = "dc-quantique", r = "fo-compute-quantum", part = "fo-quantum-processor", n = 2,
-    fluids = { { "water", 6000 }, { "fo-helium-3", 3000 } }, rate = 2000 },
+    fluids = { { "water", 6000 }, { "fo-helium-3", 300 } }, rate = 2000 },
 }
 
 local function size_of(name)

@@ -251,6 +251,18 @@ do
   local water = 0
   for _, i in ipairs(cl.ingredients) do if i[1] == "water" then water = i[2] end end
   check(math.abs(water / cl.time - 10) < 1e-9, "refroidissement : 10 eau/s")
+  -- Relecture du 30/10 : l'hélium-3 d'UN centre quantique tient dans quelques fours de frittage (3 000 par 600 s en
+  -- demandait environ 13, soit 100 minerais d'ilménite par seconde).
+  do
+    local q, deg = Cp.recipe("fo-compute-quantum"), Cp.recipe("fo-regolith-degassing")
+    local need, per = 0, 0
+    for _, i in ipairs(q.ingredients) do if i[1] == "fo-helium-3" then need = i[2] / q.time end end
+    for _, p in ipairs(deg.results) do if p[1] == "fo-helium-3" then per = p[2] / deg.time end end
+    local fb = assert(T.x_building("fo-sintering-furnace"), "four de frittage absent de X0")
+    local furnaces = need / (per * fb.speed)
+    check(need > 0 and per > 0 and furnaces <= 3, "centre quantique : hélium-3 de 3 fours de frittage au plus",
+      string.format("%.2f/s, %.2f four(s)", need, furnaces))
+  end
   -- fenêtres
   check(Cp.delta(nil, { recipe = "fo-compute-classic", progress = 3.5 }) == 0, "centre neuf : rien la première fenêtre")
   check(Cp.delta({ recipe = "fo-compute-classic", progress = 1.0 }, { recipe = "fo-compute-accelerated", progress = 1.2 }) == 0,
