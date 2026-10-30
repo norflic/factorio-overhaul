@@ -33,6 +33,7 @@ local Worker = require("script.team.worker")
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné (minerai, arbres)
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (porte assouplie pour les tâches de ressources)
 local Sv = require("shared.team.survie")
+local Fa = require("shared.team.famine") -- lot FER-MARQUE : un gisement marqué seulement par des cases mobiles ne reste pas fermé en famine
 local Dt = require("shared.ai3.detour") -- lot DETOUR-BOUCLE : mémoire des détours et des buts où l'on tourne en rond
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
@@ -726,6 +727,18 @@ function M.gate(f, agent, task, steps, tick)
   -- Lot PORTE-BASE : plus d'exemption quand une mort de la route est HORS de la zone de base (d_out > 0).
   local defense_free = is_def and d_out == 0 and (res.threat_goal or res.exact_goal) < res.B
   local goal_free = res.exact_goal < res.B or defense_free or (calm and ginfo.goal_d < res.B) -- COMPAGNONS-ACTIFS : but jugé sans morts anciennes
+  -- Lot FER-MARQUE (shared/team/famine.lua) : en mode survie, une tâche de ressources dont le but n'est au-dessus du seuil QUE par des cases
+  -- MOBILES (passage de vagues : aucune menace fixe au but, aucune mort au but hors calme) n'est plus refusée indéfiniment : le but compte
+  -- comme libre pour l'escalade (Fa.W refus, escorte si possible). Menace fixe ou mort au but : prudence gardée (journal [FO-FAMINE]).
+  local fam, fam_why, fam_parts = false, nil, nil
+  local fam_only = false -- vrai : seule la règle de famine libère ce but (journal et escorte)
+  if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) and Fa.KINDS[task.kind] and Survie.on(f) then
+    fam_parts = D.exact_parts(t.map, dest.x, dest.y, tick)
+    fam, fam_why = Fa.goal({ on = true, kind = task.kind, parts = fam_parts, calm = calm, B = res.B,
+      deaths_n = D.deaths_near(t.map, { dest }, D.DEATH_R, tick) }) -- (relecture : plafond de morts au but, calme compris)
+    fam_only = fam and not goal_free
+    if fam then goal_free = true end
+  end
   if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) then
     local w = t.waits[dk]
     if not w then
@@ -747,8 +760,10 @@ function M.gate(f, agent, task, steps, tick)
         if d2(q, th) <= (th.r + 16) * (th.r + 16) then th.b = tick break end
       end
     end
-    local W = Sv.escalade_w(math.max(2, math.min(6, math.floor(4 * prud / 1000))), sv_deaths ~= nil) -- lot SURVIE-PENURIE : escalade dès 2 refus
+    local W = Sv.escalade_w(math.max(2, math.min(6, math.floor(4 * prud / 1000))), sv_deaths ~= nil or fam) -- lot SURVIE-PENURIE : escalade dès 2 refus
+    if fam_only then W = Fa.W end -- lot FER-MARQUE : le même nombre de refus (Sv.ESCALADE_W) pour une tâche hors de la porte assouplie (rebuild)
     refused_n = w.n
+    local n_seen = w.n -- (lot FER-MARQUE : refus de suite lus par le journal, avant la remise à zéro)
     -- Jamais d'escalade vers un BUT à portée réelle d'une menace connue (D.danger_exact au but >= seuil) : le PNJ y
     -- mourrait ou ferait demi-tour à portée ; seuls un nettoyage ou un autre site le débloquent (final-3958412
     -- memoire-123456789 : PNJ tué par un ver après une escalade vers un but à 4 150 de danger, seuil 650).
@@ -762,11 +777,29 @@ function M.gate(f, agent, task, steps, tick)
     elseif w.n > W and goal_free then
       if defense_free and (why == "morts" or why == "mort" or res.exact_goal >= res.B) then t.stats.escalade_defense = (t.stats.escalade_defense or 0) + 1 end -- lu par gate_report
       decision, why = "go", "escalade"
+      if fam_only then decision, why = Fa.decide({ n = w.n, free = free }) end -- lot FER-MARQUE : « go » ou « escort » (famine)
       a.risk = true
       w.n = 0
       w.pass = tick + M.PASS_TICKS
       refused_n = nil
       t.stats.escalade = (t.stats.escalade or 0) + 1
+    end
+    if fam_only then
+      -- Lot FER-MARQUE : une ligne par décision de famine (attente, départ, escorte, passe-droit) ; compteurs lus par M.gate_report et le bilan de survie.
+      t.stats.famine = t.stats.famine or {}
+      inc(t.stats.famine, decision)
+      if decision ~= "wait" then Survie.note_famine(f) end
+      log(Fa.line({ key = f.key, tick = tick, kind = task.kind, x = dest.x, y = dest.y, parts = fam_parts, B = res.B,
+        n = n_seen, decision = decision, why = why, free = free }))
+    elseif fam_why == "nid" or fam_why == "mort" or fam_why == "morts" then
+      -- Lot FER-MARQUE : but de famine qui GARDE la prudence (menace fixe ou mort au but hors calme) : compté, une ligne au plus toutes
+      -- les Fa.KEEP_LOG ticks par équipe.
+      t.stats.famine = t.stats.famine or {}
+      inc(t.stats.famine, "prudence:" .. fam_why)
+      if not t.famine_keep_t or tick - t.famine_keep_t >= Fa.KEEP_LOG then
+        t.famine_keep_t = tick
+        log(Fa.keep_line({ key = f.key, tick = tick, kind = task.kind, x = dest.x, y = dest.y, parts = fam_parts, B = res.B, why = fam_why }))
+      end
     end
   elseif decision ~= "wait" then
     -- (le passe-droit survit à un « go » ordinaire tant qu'il dure : une destination qui redevient dangereuse ne repart pas à zéro)
@@ -832,7 +865,7 @@ function M.gate(f, agent, task, steps, tick)
         end
       end
       label(agent, "escorte", tick, t.stats)
-    elseif why ~= "loin" then
+    elseif why ~= "loin" and why ~= "famine" then -- lot FER-MARQUE : en famine, sans escorte accordée, le PNJ part seul (a.risk)
       label(agent, "attente", tick, t.stats)
       return false, "danger"
     end
@@ -866,6 +899,15 @@ function M.gate_report(f, tick)
   log(string.format("[FO-IA3K] %s : bilan de la porte a %.1f min%s : %d decisions (+%d en 5 min) {%s} ; escalades %d (dont defense malgre des morts %d), passe-droits %d, reciblages %d, morts marquees %d",
     tostring(f.key), tick / 3600, first and " (premier)" or "", total, d_total, table.concat(parts, ", "), t.stats.escalade or 0,
     t.stats.escalade_defense or 0, t.stats.passe_droit or 0, t.stats.retarget or 0, t.stats.deaths or 0))
+  -- Lot FER-MARQUE : décisions de famine (cumul ; clés triées) et cases mobiles effacées par les regards, s'il y en a eu.
+  if t.stats.famine or t.stats.famine_clear then
+    local fk, fparts = {}, {}
+    for k in pairs(t.stats.famine or {}) do fk[#fk + 1] = k end
+    table.sort(fk)
+    for _, k in ipairs(fk) do fparts[#fparts + 1] = string.format("%s %d", k, t.stats.famine[k]) end
+    log(string.format("[FO-FAMINE] %s : bilan a %.1f min : decisions de famine {%s} ; cases mobiles vides effacees par les regards %d",
+      tostring(f.key), tick / 3600, table.concat(fparts, ", "), t.stats.famine_clear or 0))
+  end
   -- Lot PORTE-BASE : porte de la défense par zone (cumul) et taille de la zone de base en cache (aucun relevé ici).
   local pz, zparts = t.stats.porte_zone or {}, {}
   local zkeys = {}
@@ -1128,6 +1170,18 @@ function M.sense(agent, tick)
   local enemy = e.surface.find_nearest_enemy({ position = c, max_distance = r, force = e.force })
   local nd = enemy and math.sqrt(d2(c, enemy.position)) or nil
   t.stats.forgot = t.stats.forgot + D.forget_unseen(t.map, c.x, c.y, r, nd)
+  if Fa.clear(Survie.on(f)) then
+    -- Lot FER-MARQUE : en mode survie, un regard qui ne voit personne efface les cases mobiles vides de son disque (le passage d'une
+    -- vague ne ferme plus le gisement jusqu'à l'extinction de la marque, 10 % par minute). Menaces fixes et morts : inchangées.
+    local nm = D.forget_mobile(t.map, c.x, c.y, r, nd)
+    if nm > 0 then
+      t.stats.famine_clear = (t.stats.famine_clear or 0) + nm
+      Survie.note_famine(f, nm)
+      log(string.format("[FO-FAMINE] %s : regard a %.1f min en (%d, %d), rayon %d, %s : %d case(s) mobile(s) vide(s) effacee(s) (cumul %d)",
+        tostring(f.key), tick / 3600, math.floor(c.x), math.floor(c.y), r, nd and string.format("ennemi le plus proche a %d tuiles", math.floor(nd)) or "aucun ennemi",
+        nm, t.stats.famine_clear))
+    end
+  end
   if hurt then D.mark_attack(t.map, p.x, p.y, tick) end
   if not enemy then return false end
   local ep = enemy.position

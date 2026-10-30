@@ -19,12 +19,39 @@ return function(WORKERS)
 local CHECK = 214000
 local RUN_MAX = 5     -- minutes de suite sous l'effectif de départ, fer au coffre : au-delà, l'équipe ne se reconstruit pas
 local IRON_MIN = 100  -- plaques de fer au coffre (une recrue coûte environ 60 plaques équipée au QG)
+-- Lot FER-MARQUE (fo-logs/2026-10-30_MATIN/DIAG-FER-EQUIPE.md) : le contrôle « se reconstruit » ci-dessus passe À VIDE quand le coffre n'a
+-- pas de fer (graine 1618033988 sur 0.6.24 : 0 à 2 plaques pendant 47 min, « livre fer » de 1 576 à 2 290 en 48 min, environ 15 par
+-- minute, contre 21 950 sur 271828182). Contrôle de plus, sans toucher au précédent : par TRANCHE de 10 minutes complète (minutes 1-10,
+-- 11-20, ..., 41-50), votre équipe livre au moins IRON_TRANCHE plaques de fer (compteur « livre fer » : f.team.delivered, interface
+-- fo-ia1), sauf si son stock de fer en fin de tranche est d'au moins IRON_MIN (elle n'en manque pas). Seuil PROVISOIRE, non mesuré sur
+-- plusieurs graines : 200 par tranche = 20 par minute, environ une recrue équipée toutes les 3 minutes ; 271828182 en livre environ 3 700.
+local TRANCHE = 10        -- minutes
+local IRON_TRANCHE = 200  -- plaques livrées par tranche, au moins
+
+--- Bilan d'une minute pour le contrôle « livre fer » (pur : nombres et table d'état). `minute` : relevé (entier) ; `delivered` : cumul
+--- « livre fer » de votre équipe (nil : équipe absente) ; `stock` : fer de son stock. Une tranche se clôt aux minutes multiples de TRANCHE ;
+--- st.iron_tr = { { fin, livre, stock, ok }, ... }. Rend la tranche close (ou nil).
+local function iron_tranche(st, minute, delivered, stock)
+  if delivered == nil then return nil end
+  st.iron_at = st.iron_at or { [0] = 0 }
+  st.iron_at[minute] = delivered
+  if minute % TRANCHE ~= 0 then return nil end
+  local before = st.iron_at[minute - TRANCHE]
+  if before == nil then return nil end -- tranche incomplète (équipe absente à son début)
+  local got = delivered - before
+  local tr = { fin = minute, livre = got, stock = stock or 0, ok = got >= IRON_TRANCHE or (stock or 0) >= IRON_MIN }
+  st.iron_tr = st.iron_tr or {}
+  st.iron_tr[#st.iron_tr + 1] = tr
+  return tr
+end
 
 local function count(s, type_, force)
   return s.count_entities_filtered({ type = type_, force = force })
 end
 
 return {
+  iron_tranche = iron_tranche, -- (lot FER-MARQUE : exposée pour tests/fer_marque_test.lua ; le banc ne lit pas ce champ)
+  IRON_TRANCHE = IRON_TRANCHE,
   description = "VERIF-NUIT : partie du guide (reglages de carte, lancement automatique, Facile, coffre d'equipe)",
   base = nil,
   check_tick = CHECK,
@@ -103,6 +130,14 @@ return {
     st.prev_idle = st.prev_idle or {}
     for _, r in ipairs(ctx.remote("fo-ia1", "teams") or {}) do
       local tag = r.key == "player" and "votre equipe" or r.key
+      if r.key == "player" then
+        -- Lot FER-MARQUE : « livre fer » par tranche de 10 min (contrôle en fin de partie).
+        local tr = iron_tranche(st, math.floor(e.tick / 3600), (r.delivered or {})["iron-plate"], r.iron)
+        if tr then
+          ctx.log(string.format("livre fer tranche minutes %d-%d | votre equipe | livre %d (seuil %d), fer au stock %d (seuil %d) -> %s",
+            tr.fin - TRANCHE + 1, tr.fin, tr.livre, IRON_TRANCHE, tr.stock, IRON_MIN, tr.ok and "OK" or "FAMINE"))
+        end
+      end
       -- Inactifs de la minute (PNJ sans tâche à la pensée, critère C5-2) et raisons d'attente cumulées (IA1-b2).
       local p = st.prev_idle[r.key] or { idle = 0, n = 0 }
       local dn = (r.n_sum or 0) - p.n
@@ -170,6 +205,15 @@ return {
       st.run_max, st.run_end, st.run_low, st.run_iron) or "0 min")
     ctx.check(poi.player ~= nil and #poi.player.outposts >= 2, "avant-postes de l'equipe du joueur",
       poi.player and #poi.player.outposts)
+    -- Lot FER-MARQUE : « livre fer » par tranche de 10 min ; au moins une tranche close (sinon le contrôle ne dirait rien).
+    local trs, bad, parts = st.iron_tr or {}, 0, {}
+    for _, tr in ipairs(trs) do
+      if not tr.ok then bad = bad + 1 end
+      parts[#parts + 1] = string.format("%d:%d/%d%s", tr.fin, tr.livre, tr.stock, tr.ok and "" or "!")
+    end
+    ctx.check(#trs >= 1 and bad == 0, string.format(
+      "votre equipe livre du fer : >= %d plaques par tranche de %d min, sauf stock de fer >= %d", IRON_TRANCHE, TRANCHE, IRON_MIN),
+      string.format("%d tranche(s), %d en famine (fin:livre/stock) %s", #trs, bad, table.concat(parts, " ")))
   end,
 }
 end
