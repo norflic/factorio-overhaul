@@ -236,3 +236,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~9 h 25, passage 67
 - Aucune archive de banc nouvelle (travaux du retour du DC du matin : rendus Blender des minerais et dev du calcul, pas encore de banc). Rien de nouveau.
+
+## 30/10 ~9 h 55, passage 68
+- 5 archives CALCUL (branche corr-calcul), 0 erreur Lua, codes 0. content-1 : 3 ECHEC « recette fo-compute-* : rien produit » (le centre de calcul ne produit pas d'objet : le calcul est tenu par script, controle du banc a adapter) puis content-2 453 OK ; calcul-chaines 14/1 puis 15/0. Corrige par l'agent du lot pendant son developpement [mesure]. Rien a ouvrir.
