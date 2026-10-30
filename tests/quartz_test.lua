@@ -167,6 +167,17 @@ for _, rr in ipairs(Q.all_recipes()) do
 end
 check(Q.recipe("fo-wafer-sawing").variant_of == "fo-silicon-wafer" and Q.recipe("fo-etched-processor").variant_of == "processing-unit",
   "variantes : tranches sciées (tranche de la salle blanche) et processeur gravé (processeur) ; les voies d'avant restent")
+do -- productivité (relecture du 30/10) : les recettes « prod » d'X3, comme leurs voies d'avant en salle blanche
+  local pr = Q.productivity_recipes()
+  check(#pr == 2 and pr[1] == "fo-etched-wafer" and pr[2] == "fo-etched-processor",
+    "productivité : lithographie et processeur gravé (X3 « prod ») (" .. table.concat(pr, ", ") .. ")")
+  local cp = index(C.productivity_recipes())
+  check(cp["fo-cleanroom-processor"] and cp["fo-silicon-wafer"],
+    "les voies d'avant (processeur et tranche de la salle blanche) acceptent aussi la productivité")
+  local revs = {}
+  for _, n in ipairs(pr) do if Q.recipe(n).reversible then revs[#revs + 1] = n end end
+  check(#revs == 0, "aucune recette réversible en productivité (" .. table.concat(revs, ", ") .. ")")
+end
 for _, n in ipairs(Q.LEFT_OUT) do check(not Q.present(n), n .. " : hors jeu (débouché = centre de calcul, D-20 (4))") end
 check(not Q.present("fo-data-center") and not Q.present("fo-servo-motor"), "chaînes B et C d'X3 : hors jeu")
 
@@ -256,6 +267,11 @@ do
   check(pinkish({ 1.00, 0.60, 0.85 }), "M3 : la teinte la plus éloignée de tout (rose 1 ; 0,6 ; 0,85) est refusée")
   local _, _, theirs = color_report({ 0.0, 0.05, 0.6 })
   check(not theirs, "M4 : une couleur à ΔE < 45 de la blende casse son test (détecté)")
+  local ep = Q.recipe("fo-etched-processor")
+  local was = ep.prod
+  ep.prod = nil
+  check(#Q.productivity_recipes() == 1, "M5 : processeur gravé sans productivité : détecté")
+  ep.prod = was
 end
 
 print(string.format("[QUARTZ] BILAN : %d OK, %d ECHEC(S)", passes, failures))

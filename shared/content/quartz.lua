@@ -112,6 +112,19 @@ function Q.all_recipes()
   return out
 end
 
+--- Recettes du lot éligibles aux modules de productivité : celles qu'X3 marque « prod » (lithographie, processeur gravé),
+--- jamais une recette de bâtiment ni une recette réversible ; ordre de Q.RECIPES (déterministe). Relecture du 30/10 : sans
+--- cela, le processeur gravé refusait la productivité alors que le processeur vanilla et celui de la salle blanche
+--- (C.productivity_recipes) l'acceptent : avec la productivité multipliée (D-17), la voie d'X3 était perdante à coup sûr.
+function Q.productivity_recipes()
+  local out = {}
+  for _, rr in ipairs(Q.RECIPES) do
+    local x = Q.recipe(rr.name)
+    if x.prod == true and not x.reversible then out[#out + 1] = rr.name end
+  end
+  return out
+end
+
 --- Unités et packs de la technologie (règles du lot AMELIO-CRAFTS).
 function Q.tech_count(t) return C.tech_count(t) end
 function Q.packs(k) return C.packs(k) end

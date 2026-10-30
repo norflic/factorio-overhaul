@@ -188,3 +188,17 @@ for _, t in ipairs(Q.TECHS) do
 end
 
 data:extend(out)
+
+-- Modules de productivité (relecture du 30/10) : les recettes « prod » d'X3 du lot (lithographie, processeur gravé) sont
+-- ajoutées à la limitation des modules vanilla, que data-final-fixes.lua recopie vers les modules du mod (même règle que
+-- prototypes/crafts.lua ; aucune n'est réversible).
+for _, mname in ipairs({ "productivity-module", "productivity-module-2", "productivity-module-3" }) do
+  local m = data.raw.module[mname]
+  if m and type(m.limitation) == "table" then
+    local present = {}
+    for _, r in ipairs(m.limitation) do present[r] = true end
+    for _, r in ipairs(Q.productivity_recipes()) do
+      if not present[r] then m.limitation[#m.limitation + 1] = r; present[r] = true end
+    end
+  end
+end

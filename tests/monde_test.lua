@@ -576,7 +576,7 @@ do
   local st2 = remote.call("fo-monde", "status")
   check(st2.runs == 1 and #st2.done == 11 and st2.done[1].key == "tungsten" and st2.done[4].key == "ilmenite"
     and st2.done[5].key == "monazite" and st2.done[6].key == "galena" and st2.done[7].key == "cassiterite" and st2.done[8].key == "bauxite" and st2.done[9].key == "fumarole" and st2.done[10].key == "sphalerite" and st2.done[11].key == "quartz" and st2.tags_pending == 0,
-    "status : 6 garanties, ordre des époques (galène en dernier : les sites d'avant gardent leur place)")
+    "status : 11 garanties, ordre des époques (quartz en dernier : les sites d'avant gardent leur place)")
   local c = remote.call("fo-monde", "candidates", "nauvis", "crystal", 3)
   local g = G.candidates(20261020, G.spec("crystal"), 3)
   check(#c == 3 and c[2].x == g[2].x and c[2].y == g[2].y, "candidates : ceux de la règle pure")
