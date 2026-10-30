@@ -16,8 +16,12 @@ local LIGNES = {
   -- pistes ÉTAIN et BAUXITE : cassitérite (C1) près du sable, bauxite (B1) sur le désert rouge, contre cuivre, charbon, pierre
   { nom = "sable", sol = "sand-1", ordre = { "copper-ore", "fo-cassiterite", "coal" } },
   { nom = "desert-rouge", sol = "red-desert-0", ordre = { "copper-ore", "fo-bauxite", "stone" } },
+  -- piste ZINC : blende sur la terre, contre charbon et cuivre
+  { nom = "districts", sol = "dirt-1", ordre = { "coal", "fo-sphalerite", "copper-ore" } },
 }
 local PUITS = { sol = "fo-crater-fields", noms = { "crude-oil", "fo-brine", "fo-brine" } }
+-- piste GÉOTHERMIE : fumerolles sur les cendres volcaniques, à côté d'un puits de pétrole vanilla
+local PUITS2 = { sol = "fo-volcanic-ash", noms = { "crude-oil", "fo-fumarole", "fo-fumarole" } }
 
 local function quantite(d)
   local t = math.min(1, d / (R + 0.5))
@@ -33,13 +37,13 @@ local function sol(s, cx, cy, r, tile)
 end
 
 return {
-  description = "r4-visuels : planches cristal K1, galene G1, ilmenite I2S, cassiterite C1, bauxite B1, saumure propre (jour et nuit)",
+  description = "r4-visuels : planches cristal K1, galene G1, ilmenite I2S, cassiterite C1, bauxite B1, blende, saumure propre, fumerolle (jour et nuit)",
   check_tick = 300,
   shots_delay = 200,
 
   init = function(ctx)
     local s = ctx.surface()
-    ctx.prepare_area(X0 - 30, Y0 - 20, X0 + 30, Y0 + 90, "grass-1")
+    ctx.prepare_area(X0 - 30, Y0 - 20, X0 + 30, Y0 + 150, "grass-1")
     for _, e in ipairs(s.find_entities_filtered({ area = { { X0 - 120, Y0 - 120 }, { X0 + 120, Y0 + 160 } }, force = "enemy" })) do e.destroy() end
     local n_ok = 0
     for l, li in ipairs(LIGNES) do
@@ -64,6 +68,13 @@ return {
       if s.create_entity({ name = nom, position = { X0 + (i - 2) * 8, py }, amount = 300000 }) then w = w + 1 end
     end
     ctx.check(w == 3, "puits poses : petrole vanilla et 2 lacs de saumure, sur le regolithe", w)
+    local py2 = py + 36
+    sol(s, X0, py2, 16, PUITS2.sol)
+    local w2 = 0
+    for i, nom in ipairs(PUITS2.noms) do
+      if s.create_entity({ name = nom, position = { X0 + (i - 2) * 8, py2 }, amount = 300000 }) then w2 = w2 + 1 end
+    end
+    ctx.check(w2 == 3, "puits poses : petrole vanilla et 2 fumerolles, sur les cendres", w2)
   end,
 
   shots = function(ctx, add)
@@ -78,5 +89,8 @@ return {
     add("saumure-z1-jour", X0, py, 1, 0, opt)
     add("saumure-z2-jour", X0 + 4, py, 2, 0, opt)
     add("saumure-z1-nuit", X0, py, 1, 0.5, opt)
+    add("fumerolle-z1-jour", X0, py + 36, 1, 0, opt)
+    add("fumerolle-z2-jour", X0 + 4, py + 36, 2, 0, opt)
+    add("fumerolle-z1-nuit", X0, py + 36, 1, 0.5, opt)
   end,
 }
