@@ -422,6 +422,39 @@ end)
 ---------------------------------------------------------------------------------------------------
 -- Migration : parties existantes (modules déjà posés), effets des modules changés
 ---------------------------------------------------------------------------------------------------
+--- Intégration 0.6.22 (piste CALCULS, risque 1 de son relecteur) : une machine dont la recette n'est plus permise à un de ses
+--- modules (limitation du prototype, LuaItemPrototype.limitations ; cas connu : productivité retirée des piles d'uranium et du
+--- retraitement, data-final-fixes.lua) rend ces modules : ils tombent au sol près d'elle (spill_item_stack, marqués à ramasser par
+--- sa force). Sans cela, ils y restaient et la balise de complément (calculée sur l'inventaire, sans la recette) gardait leur
+--- effet. Noms triés. Rend le nombre de modules rendus.
+function Mult.eject_forbidden(e)
+  local inv = e.get_module_inventory and e.get_module_inventory()
+  if not (inv and inv.get_item_count() > 0 and (e.type == "assembling-machine" or e.type == "furnace")) then return 0 end
+  local r = e.get_recipe()
+  if not r then return 0 end
+  local contents = inv.get_contents()
+  local names = {}
+  for name in pairs(contents) do names[#names + 1] = name end
+  table.sort(names)
+  local n = 0
+  for _, name in ipairs(names) do
+    local p = game.item_prototypes[name]
+    local lim = p and p.limitations
+    if lim and #lim > 0 then
+      local ok = false
+      for _, rn in ipairs(lim) do if rn == r.name then ok = true break end end
+      if not ok then
+        local got = inv.remove({ name = name, count = contents[name] })
+        if got > 0 then
+          e.surface.spill_item_stack(e.position, { name = name, count = got }, true, e.force, false)
+          n = n + got
+        end
+      end
+    end
+  end
+  return n
+end
+
 function Mult.migrate()
   NAMES = nil
   build_cache()
@@ -434,9 +467,10 @@ function Mult.migrate()
     end
   end
   table.sort(surfaces, function(a, b) return a.index < b.index end)
-  local tracked, beacons = 0, 0
+  local tracked, beacons, ejected = 0, 0, 0
   for _, s in ipairs(surfaces) do
     for _, e in ipairs(s.find_entities_filtered({ type = Mult.TYPES })) do
+      ejected = ejected + Mult.eject_forbidden(e) -- intégration 0.6.22 : AVANT le calcul du complément
       local rec = Mult.track(e)
       if rec then
         tracked = tracked + 1
@@ -456,7 +490,8 @@ function Mult.migrate()
   end
   st.stats.migrated = st.stats.migrated + 1
   log("[FO-MODMULT] mise à jour : " .. tracked .. " machine(s) à modules suivie(s), " .. beacons
-    .. " balise(s) de complément, " .. st.stats.orphans .. " orpheline(s) retirée(s) en tout")
+    .. " balise(s) de complément, " .. st.stats.orphans .. " orpheline(s) retirée(s) en tout, " .. ejected
+    .. " module(s) rendu(s) (recette qui ne les permet plus)")
   return tracked, beacons
 end
 
