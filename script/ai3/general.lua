@@ -176,6 +176,7 @@ end
 -- Lot AUTO : un catalogue par état du réglage de l'automatisation (réglage de carte : le même chez tous les pairs) ;
 -- changer de catalogue efface les mémos de points fixes (ils appartiennent au graphe de l'autre catalogue).
 local cats = {}
+local pet_infos = {} -- lot PETROLE (relecture 0.6.20) : relevé des chaînes à fluides de chaque catalogue « p » (Pet.get_info)
 function General.catalogue()
   local on = Auto.on() and true or false
   -- lot PETROLE : un catalogue par état des deux réglages (clé « a » / « - », puis « p » si fo-war-petrole est allumé)
@@ -185,12 +186,14 @@ function General.catalogue()
   for k in pairs(memos) do memos[k] = nil end
   if cats[ck] then
     cat = cats[ck]
+    if pon then Pet.set_info(pet_infos[ck]) end -- le relevé de CE catalogue, pas celui du dernier construit
     return cat
   end
   Profiler.start("iag:catalogue")
   local d = General.dump()
   cat = K.build(d, General.exec_opts(on, d.recipes, pon and d or nil))
   cats[ck] = cat
+  if pon then pet_infos[ck] = Pet.get_info() end
   Profiler.stop("iag:catalogue")
   log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s%s",
     #cat.g.recipe_list, #cat.tech_list, #cat.g.machine_list, #cat.pack_list, tostring(cat.fuel),

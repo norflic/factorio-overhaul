@@ -156,6 +156,29 @@ function Pet.add_executors(exec, d)
   return exec
 end
 
+--- Relecture de la reprise sur 0.6.20 (30/10) : REL et INFO sont des caches LOCAUX (hors de global), remplis par le catalogue.
+--- INFO dépend des exécutants déjà là (Fl.executors : done_by), donc de la variante du catalogue (fo-war-ia3e) : General.catalogue
+--- le rend à chaque changement de variante (Pet.get_info / Pet.set_info). Après un chargement (ou pour un joueur qui rejoint), ils
+--- sont vides jusqu'au premier catalogue : un plan de site GELÉ dans global reprenait alors avec REL nil (rel.entities : erreur
+--- Lua), et l'hôte et le joueur qui rejoint ne voyaient pas le même INFO. Ils sont donc refaits à la demande, pareil partout.
+function Pet.get_info() return INFO end
+function Pet.set_info(i) INFO = i end
+
+local function ensure_rel()
+  if REL then return REL end
+  local G = package.loaded["script.ai3.general"] -- (pas de require : module déjà chargé par cerveau.lua, cycle general -> petrole)
+  if G and G.dump then Pet.releve(G.dump()) end
+  return REL
+end
+
+--- INFO de la variante COURANTE du catalogue ; nil réglage éteint (jamais un INFO resté d'un autre état).
+local function current_info()
+  if not Pet.on() then return nil end
+  local G = package.loaded["script.ai3.general"]
+  if G and G.catalogue then G.catalogue() end
+  return INFO
+end
+
 ---------------------------------------------------------------------------------------------------
 -- État
 ---------------------------------------------------------------------------------------------------
@@ -468,11 +491,14 @@ Pet.danger_tiles = danger_tiles
 local function freeze_site(f, surface, p, h)
   local b = f.build
   local spec = p.spec
-  local rel = REL
-  if not (rel and INFO) then return nil, "releve absent" end
+  -- (relecture 0.6.20) réglage éteint : le site attend, au lieu de se figer sur un INFO resté d'un autre état
+  if not Pet.on() then return nil, "reglage eteint", true end
+  local info = current_info()
+  local rel = ensure_rel()
+  if not (rel and info) then return nil, "releve absent" end
   -- la centrale d'abord (elle amorce le réseau)
   if not b.plant then h.plant() return nil, "centrale demandee", true end
-  local ch, why = Fl.chain(rel, INFO, spec.targets, { [spec.water or "?"] = spec.water and "pompe" or nil }, chooser(f))
+  local ch, why = Fl.chain(rel, info, spec.targets, { [spec.water or "?"] = spec.water and "pompe" or nil }, chooser(f))
   if not ch then return nil, why end
   local origin = { x = spec.x, y = spec.y }
   local wells = {}
@@ -553,7 +579,8 @@ local function step_site(f, surface, p, h, pj)
     local k = Fl.tkey(tx, ty)
     return not masks.water[k] and not masks.blocked[k] and not b.occ[k]
   end
-  local rel = REL
+  local rel = ensure_rel() -- (relecture 0.6.20 : plan gelé repris après un chargement, avant tout catalogue)
+  if not rel then return nil, "releve absent" end
   -- hors du relevé principal (ligne de poteaux jusqu'au réseau, qui peut traverser le QG) : relevés par carrés de 32
   -- tuiles, lus à la demande et gardés le temps du plan (moteur réel, petrole-partie 271828182 : un relais posé sur le
   -- QG de la faction, hors du relevé, chantier bloqué à 274 entités sur 287)
