@@ -581,3 +581,132 @@ GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "
 COLONNES = 8
 STADES = 8
 PAS = 3          # écart entre deux cellules, en tuiles (aucune ombre d'une cellule ne déborde sur sa voisine)
+
+# ------------------------------------------------------------------------------------------------
+# ILMÉNITE, REFONTE DE LA FORME (lot MINERAI-ILMENITE, 30/10). Retour du DC (30/10, 9 h) : « je n'aime pas du tout la
+# forme de ces minerais : Blende, Cassitérite, Minerai d'ilménite, Minerai de monazite. Il faut les refaire. »
+# Pourquoi I2S déplaît (comparée aux hr-*.png vanilla, zoom 2) : (1) des GALETS plats et lisses (aplat 0,6, lissé 28°),
+# sans relief ni ombre, et des plaquettes carrées posées à plat : on lit des dalles ou du gravier, pas un minerai ;
+# (2) un DAMIER de deux couleurs (croûte crème contre noyau brun) qui se lit « pierre + charbon mêlés » ; (3) des pièces
+# semées UNE PAR UNE à écart fixe dans un disque (pois réguliers), quand la vanilla les groupe en TAS qui se touchent ;
+# (4) un tapis de grains épars (points) au lieu du halo de poussière colorée qui tache le sol sous chaque minerai vanilla ;
+# (5) au zoom 1, sur le régolithe gris clair des cratères, la croûte crème disparaît et il reste des taches sombres.
+# Langage vanilla visé : morceaux anguleux à facettes vives et à relief (ombre portée), en tas de 2 à 4, une couleur
+# dominante (ilménite brun-noir à reflets bronze, la teinte « I2 sombre » choisie par le DC le 25/10), halo de poussière
+# brun-rouille. Trois formes (essais à bas échantillonnage) :
+#   J1 : AMAS de blocs anguleux (le langage du fer et du cuivre vanilla, en brun-noir bronze) ;
+#   J2 : ROSES d'ilménite (rosettes de tablettes hexagonales minces en éventail, forme réelle du minéral) ;
+#   J3 : amas de J1 d'où sortent 1 ou 2 TABLETTES (blocs + cristaux tabulaires).
+# ------------------------------------------------------------------------------------------------
+MAT.update({
+    # ilménite de la refonte : brun-noir à éclat submétallique, entre ilmenite_brun et ilmenite_bronze (une seule
+    # couleur dominante, les reflets font le reste)
+    "ilmenite_j": dict(color=(0.13, 0.095, 0.075), rough=0.30, met=0.60, grain=0.22, gscale=45.0, dirt=0.45),
+    # poussière d'altération brun-rouille (le halo coloré sous le gisement, comme la poussière rouge du fer vanilla)
+    "poussiere_ilm": dict(color=(0.22, 0.13, 0.075), rough=0.95, met=0.0, grain=0.3, gscale=30.0, dirt=0.2),
+})
+_J_FINS = (300, 260, 225, 190, 155, 120, 85, 50)
+_J_FIN_MATS = ("poussiere_ilm", "poussiere_ilm", "leucoxene_sombre", "ilmenite_brun", "poussiere_ilm", "regolithe")
+DIRECTIONS["J1"] = dict(
+    nom="amas de blocs anguleux d'ilménite brun-noir à reflets bronze",
+    touffes=(0, 0, 0, 0, 0, 0, 0, 0), lames=(0, 0),
+    lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("ilmenite_j",),
+    roches=(15, 13, 11, 9, 7, 6, 4, 2), roche_taille=(0.13, 0.20),
+    roche_mats=("ilmenite_j", "ilmenite_j", "ilmenite_j", "ilmenite_brun", "ilmenite_bronze", "ilmenite_j"),
+    amas=dict(taille=(2, 4), rayon=0.13, ecart=0.34, incl=(0, 28), tete=1.25),
+    blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("ilmenite_j",),
+    grains=(18, 16, 14, 12, 10, 8, 6, 4), grain_mats=("ilmenite_j", "ilmenite_bronze", "leucoxene_sombre"),
+    fins=_J_FINS, fin_mats=_J_FIN_MATS,
+    rayon=0.60,
+    effet="eclats",
+)
+DIRECTIONS["J2"] = dict(
+    nom="roses d'ilménite : rosettes de tablettes brun-noir à reflets bronze",
+    touffes=(6, 5, 5, 4, 3, 3, 2, 1), lames=(5, 8),
+    lame_long=(0.11, 0.17), lame_larg=(0.17, 0.25), lame_ep=(0.025, 0.040), lame_incl=(30, 65),
+    lame_mats=("ilmenite_j", "ilmenite_j", "ilmenite_bronze", "ilmenite_brun"),
+    roches=(3, 3, 3, 2, 2, 1, 1, 1), roche_taille=(0.10, 0.15), roche_mats=("ilmenite_brun", "ilmenite_j"),
+    blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("ilmenite_j",),
+    grains=(18, 16, 14, 12, 10, 8, 6, 4), grain_mats=("ilmenite_j", "ilmenite_bronze", "leucoxene_sombre"),
+    fins=_J_FINS, fin_mats=_J_FIN_MATS,
+    rayon=0.60,
+    effet="eclats",
+)
+DIRECTIONS["J3"] = dict(DIRECTIONS["J1"], nom="amas de blocs d'ilménite hérissés de tablettes",
+                        roches=(12, 10, 9, 7, 6, 5, 3, 2),
+                        amas=dict(taille=(2, 3), rayon=0.12, ecart=0.36, incl=(0, 25), tete=1.2, lames=(1, 2)),
+                        lame_long=(0.12, 0.18), lame_larg=(0.15, 0.22), lame_ep=(0.028, 0.042), lame_incl=(15, 50),
+                        lame_mats=("ilmenite_j", "ilmenite_bronze", "ilmenite_j"))
+for _k in ("J1", "J2", "J3"):
+    CALIB[_k] = {"SKY_GLOSSY_FACTOR": 3.0}
+    ROCHE_COUPES[_k], ROCHE_LISSE[_k], ROCHE_APLAT[_k], ROCHE_CASSURE[_k] = 8, 20, 0.80, (0.30, 0.62)
+    EFFET[_k] = dict(EFFET["I2S"])
+    ECHELLE[_k] = 1.0
+    GRAINE[_k] = 6818
+GRAINE["J2"] = 6919
+ROCHE_APLAT["J2"] = 0.65
+ICONE["J1"] = dict(lames=(0, 0), roches=(4, 5), roche_taille=(0.20, 0.27), roche_coupes=8, roche_cassure=(0.30, 0.62),
+                   roche_aplat=0.85, roche_mats=("ilmenite_j", "ilmenite_j", "ilmenite_bronze", "ilmenite_brun"), blocs=0)
+ICONE["J2"] = dict(lames=(6, 8), echelle=1.7, roches=(2, 2), roche_taille=(0.14, 0.18), roche_coupes=8,
+                   roche_cassure=(0.30, 0.62), roche_aplat=0.7, roche_mats=("ilmenite_brun",),
+                   lame_mats=("ilmenite_j", "ilmenite_bronze", "ilmenite_j"), blocs=0)
+ICONE["J3"] = dict(lames=(2, 3), echelle=1.5, roches=(3, 4), roche_taille=(0.20, 0.26), roche_coupes=8,
+                   roche_cassure=(0.30, 0.62), roche_aplat=0.85, roche_mats=("ilmenite_j", "ilmenite_j", "ilmenite_bronze"),
+                   lame_mats=("ilmenite_j", "ilmenite_bronze"), blocs=0)
+
+# Ronde 2 (essais à 16 échantillons, planche fo-logs/2026-10-30_RETOUR-MATIN/MINERAIS/ilmenite/essais, zoom 3 contre le fer
+# vanilla) : J1 et J3 sortent en ÉCLATS PLATS (8 coupes profondes), trop petits (couverture 0,16 contre 0,32), et le tapis de
+# fins se lit en couronne de GRAVIER rond (grains de 2 à 3 px ombrés, semés dans tout le disque) au lieu de la poussière
+# de 1 px serrée SOUS les morceaux du fer vanilla ; J2 (rosettes) se lit en papier froissé : écartée. Ronde 2 : morceaux
+# bosselés plus gros (bosses ±12 %, 5 coupes moins profondes), poussière fine concentrée autour des morceaux
+# (gisement.cellule : fins_autour, fin_taille), reflets bronze plus francs.
+MAT["ilmenite_k"] = dict(color=(0.15, 0.11, 0.085), rough=0.26, met=0.62, grain=0.22, gscale=45.0, dirt=0.45)
+ROCHE_BOSSE = {}
+_K_ROCHE_MATS = ("ilmenite_k", "ilmenite_k", "ilmenite_k", "ilmenite_brun", "ilmenite_bronze", "ilmenite_k")
+DIRECTIONS["J4"] = dict(DIRECTIONS["J1"], nom="amas de morceaux bosselés d'ilménite brun-noir à reflets bronze",
+                        roches=(17, 15, 12, 10, 8, 7, 4, 2), roche_taille=(0.17, 0.25), roche_mats=_K_ROCHE_MATS,
+                        amas=dict(taille=(2, 4), rayon=0.16, ecart=0.38, incl=(0, 25), tete=1.2),
+                        grains=(10, 9, 8, 7, 6, 5, 4, 3), grain_mats=("ilmenite_k", "ilmenite_bronze", "leucoxene_sombre"),
+                        fins=(700, 600, 520, 440, 360, 280, 200, 120), fin_taille=(0.007, 0.012), fins_autour=(0.75, 1.3),
+                        fin_mats=("poussiere_ilm", "poussiere_ilm", "leucoxene_sombre", "ilmenite_brun", "poussiere_ilm",
+                                  "regolithe"))
+DIRECTIONS["J5"] = dict(DIRECTIONS["J4"], nom="amas de morceaux d'ilménite hérissés de tablettes",
+                        roches=(15, 13, 11, 9, 7, 6, 4, 2),
+                        amas=dict(taille=(2, 3), rayon=0.16, ecart=0.38, incl=(0, 25), tete=1.2, lames=(1, 2)),
+                        lame_long=(0.13, 0.19), lame_larg=(0.16, 0.22), lame_ep=(0.030, 0.045), lame_incl=(20, 50),
+                        lame_mats=("ilmenite_k", "ilmenite_bronze", "ilmenite_k"))
+DIRECTIONS["J6"] = dict(DIRECTIONS["J5"], nom="tas de tablettes épaisses d'ilménite sur morceaux",
+                        roches=(11, 10, 8, 7, 6, 4, 3, 2),
+                        amas=dict(taille=(1, 2), rayon=0.14, ecart=0.38, incl=(0, 20), tete=1.1, lames=(2, 3)),
+                        lame_long=(0.14, 0.20), lame_larg=(0.17, 0.24), lame_ep=(0.050, 0.070), lame_incl=(35, 70))
+for _k in ("J4", "J5", "J6"):
+    CALIB[_k] = {"SKY_GLOSSY_FACTOR": 5.0}
+    ROCHE_COUPES[_k], ROCHE_LISSE[_k], ROCHE_APLAT[_k], ROCHE_CASSURE[_k] = 5, 34, 0.90, (0.50, 0.82)
+    ROCHE_BOSSE[_k] = (0.86, 1.12)
+    EFFET[_k] = dict(EFFET["I2S"])
+    ECHELLE[_k] = 1.0
+    GRAINE[_k] = 6818
+ICONE["J4"] = dict(ICONE["J1"], roche_coupes=5, roche_cassure=(0.50, 0.82), roche_aplat=0.9,
+                   roche_mats=("ilmenite_k", "ilmenite_k", "ilmenite_bronze", "ilmenite_brun"))
+ICONE["J5"] = dict(ICONE["J3"], roche_coupes=5, roche_cassure=(0.50, 0.82), roche_aplat=0.9,
+                   roche_mats=("ilmenite_k", "ilmenite_k", "ilmenite_bronze"), lame_mats=("ilmenite_k", "ilmenite_bronze"))
+ICONE["J6"] = dict(ICONE["J5"], lames=(3, 4), roches=(2, 3))
+
+# Ronde 3 (J4 à J6 au zoom 3 contre le fer : relief et reflets bronze justes, ni le bleu du fer ni le noir mat du charbon)
+# : morceaux encore trop RONDS (galettes lisses ; les morceaux vanilla ont plusieurs bosses), poussière clairsemée,
+# couverture à 75 % de la vanilla. J7 = J4 à morceaux COMPOSÉS (une tête et 1 ou 2 bosses soudées : amas serré), une
+# tablette d'accent dans un tas sur deux (l'habitus tabulaire de l'ilménite, de J5), poussière plus dense et plus serrée,
+# comptes recalés au rapport vanilla / mesuré de J4.
+DIRECTIONS["J7"] = dict(DIRECTIONS["J4"], nom="morceaux bosselés d'ilménite brun-noir à reflets bronze, tablettes d'accent",
+                        roches=(24, 20, 17, 14, 11, 9, 6, 3),
+                        amas=dict(taille=(2, 3), rayon=0.11, ecart=0.28, incl=(0, 25), tete=1.15, lames=(0, 1)),
+                        lame_long=(0.12, 0.17), lame_larg=(0.14, 0.20), lame_ep=(0.035, 0.050), lame_incl=(25, 55),
+                        lame_mats=("ilmenite_k", "ilmenite_bronze", "ilmenite_k"),
+                        fins=(1000, 860, 740, 620, 500, 400, 280, 170), fin_taille=(0.010, 0.016), fins_autour=(0.85, 1.0),
+                        rayon=0.62)
+CALIB["J7"] = dict(CALIB["J4"])
+ROCHE_COUPES["J7"], ROCHE_LISSE["J7"], ROCHE_APLAT["J7"], ROCHE_CASSURE["J7"] = 6, 30, 0.90, (0.45, 0.80)
+ROCHE_BOSSE["J7"] = (0.84, 1.14)
+EFFET["J7"] = dict(EFFET["I2S"])
+ECHELLE["J7"], GRAINE["J7"] = 1.0, 6818
+ICONE["J7"] = dict(ICONE["J4"], lames=(1, 2), echelle=1.4, lame_mats=("ilmenite_k", "ilmenite_bronze"))

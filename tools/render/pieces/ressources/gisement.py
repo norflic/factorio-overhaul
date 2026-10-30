@@ -60,8 +60,9 @@ def _transforme(verts, rx, rz, tx, ty, tz):
     return out
 
 
-def roche(rng, taille, aplat=0.55, n_coupes=3, cassure=(0.55, 0.85)):
-    """Roche facettée : icosphère (2 subdivisions) bosselée, aplatie, fond à plat. Renvoie (sommets, faces)."""
+def roche(rng, taille, aplat=0.55, n_coupes=3, cassure=(0.55, 0.85), bosse=(0.92, 1.08)):
+    """Roche facettée : icosphère (2 subdivisions) bosselée, aplatie, fond à plat. Renvoie (sommets, faces).
+    bosse : amplitude du bruit par sommet (défaut inchangé ; même nombre de tirages quelle que soit la valeur)."""
     bm = bmesh.new()
     bmesh.ops.create_icosphere(bm, subdivisions=2, radius=1.0)
     sx = taille * rng.uniform(0.8, 1.2)
@@ -72,7 +73,7 @@ def roche(rng, taille, aplat=0.55, n_coupes=3, cassure=(0.55, 0.85)):
     coupes = [(rng.uniform(-1, 1), rng.uniform(-1, 1), rng.uniform(0, 1), rng.uniform(*cassure))
               for _ in range(n_coupes)]
     for v in bm.verts:
-        k = rng.uniform(0.92, 1.08)
+        k = rng.uniform(*bosse)
         for ax, ay, az, d in coupes:
             n = math.sqrt(ax * ax + ay * ay + az * az) or 1.0
             p = (v.co.x * ax + v.co.y * ay + v.co.z * az) / n
@@ -162,10 +163,10 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
     objs = []
     occupe = []
 
-    def pose(verts, faces, mat, gx, gy, nom, lisse=None, biseau=None):
+    def pose(verts, faces, mat, gx, gy, nom, lisse=None, biseau=None, rx=0.0, tz=0.0):
         bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
         rz = rng.uniform(0, 2 * math.pi)
-        vv = _transforme(verts, 0.0, rz, bx, by, 0.0)
+        vv = _transforme(verts, rx, rz, bx, by, tz)
         o = _objet(nom, vv, faces, mat, S, lisse)
         if biseau:
             S.bevel(o, biseau, 1)
@@ -175,6 +176,49 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
     tag = "%s_%d_%d" % (cle, r, c)
     # roches de pied / matrice
     n_roche = _compte(d["roches"], stade, e, rng) + (2 if icone else 0)
+    am = d.get("amas")
+    pieces = []          # (gx, gy, taille) des roches d'amas : la poussière « fins_autour » s'y concentre
+    if am:
+        # AMAS (retour du DC du 30/10 sur l'ilménite : « je n'aime pas du tout la forme ») : les roches vanilla se
+        # TOUCHENT par petits tas (2 à 4 morceaux, un gros et des plus petits, inclinés), au lieu d'être semées une à
+        # une à écart fixe (pois réguliers). Clé facultative : sans elle, rien ne change (aucun tirage en plus).
+        tmin, tmax = am["taille"]
+        bosse = D.ROCHE_BOSSE.get(cle, (0.92, 1.08)) if hasattr(D, "ROCHE_BOSSE") else (0.92, 1.08)
+        k = max(1, int(round(n_roche / (0.5 * (tmin + tmax))))) if n_roche else 0
+        centres = _places(rng, k, rayon, am["ecart"], occupe)
+        i = 0
+        for ci, (ax, ay) in enumerate(centres):
+            occupe.append((ax, ay))
+            m = rng.randint(tmin, tmax)
+            for j in range(m):
+                if i >= n_roche:
+                    break
+                if j == 0:
+                    gx, gy, kt = ax, ay, am.get("tete", 1.2)
+                else:
+                    a = rng.uniform(0, 2 * math.pi)
+                    rr = am["rayon"] * rng.uniform(0.55, 1.0)
+                    gx, gy, kt = ax + rr * math.cos(a), ay + rr * math.sin(a) * 0.85, rng.uniform(0.6, 0.95)
+                t = rng.uniform(*d["roche_taille"]) * kt * (1.25 if icone else 1.0)
+                v, f = roche(rng, t, aplat=D.ROCHE_APLAT.get(cle, 0.55), n_coupes=D.ROCHE_COUPES.get(cle, 3),
+                             cassure=D.ROCHE_CASSURE.get(cle, (0.55, 0.85)), bosse=bosse)
+                pieces.append((gx, gy, t))
+                incl = math.radians(rng.uniform(*am.get("incl", (0.0, 0.0))))
+                pose(v, f, mats[rng.choice(d["roche_mats"])], gx, gy, "%s_roche%d" % (tag, i),
+                     lisse=D.ROCHE_LISSE.get(cle, 38), rx=incl, tz=-0.25 * t * math.sin(incl))
+                i += 1
+            # tablettes plantées dans le tas (cristaux tabulaires d'ilménite qui sortent de la masse)
+            for j in range(rng.randint(*am.get("lames", (0, 0)))):
+                L = rng.uniform(*d["lame_long"]) * (1.2 if icone else 1.0)
+                v, f = lame(rng, L, rng.uniform(*d["lame_larg"]), rng.uniform(*d["lame_ep"]))
+                incl = math.radians(rng.uniform(*d["lame_incl"]))
+                az = rng.uniform(0, 2 * math.pi)
+                bx, by, _ = C.tile_to_blender(cx + ax + rng.uniform(-0.05, 0.05), cy + ay + rng.uniform(-0.05, 0.05))
+                vv = _transforme(v, incl, az, bx, by, -0.02)
+                o = _objet("%s_tab%d_%d" % (tag, ci, j), vv, f, mats[rng.choice(d["lame_mats"])], S)
+                S.bevel(o, 0.006, 1)
+                objs.append(o)
+        n_roche = 0
     for i, (gx, gy) in enumerate(_places(rng, n_roche, rayon, 0.22, occupe)):
         occupe.append((gx, gy))
         t = rng.uniform(*d["roche_taille"]) * (1.25 if icone else 1.0)
@@ -232,6 +276,22 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
         if fins:
             d = dict(d, fin_mats=d.get("fin_mats", D.FIN_MATS))
             n_f = _compte(fins, stade, 1.0, rng)
+            fa = d.get("fins_autour")
+            if fa and pieces:
+                # POUSSIÈRE serrée sous les morceaux (ilménite refaite, 30/10) : une part `fa[0]` des fins tombe autour
+                # d'une roche (écart gaussien fa[1] × sa taille), le reste dans le disque ; grains de fin_taille.
+                ft = d.get("fin_taille", (0.016, 0.026))
+                for _ in range(n_f):
+                    if rng.random() < fa[0]:
+                        px, py, pt = pieces[rng.randrange(len(pieces))]
+                        x, y = px + rng.gauss(0, fa[1] * pt), py + rng.gauss(0, fa[1] * pt * 0.85)
+                    else:
+                        a = rng.uniform(0, 2 * math.pi)
+                        r = rayon * 1.15 * math.sqrt(rng.random())
+                        x, y = r * math.cos(a), r * math.sin(a)
+                    v, f = grain(rng, rng.uniform(*ft))
+                    ajoute(rng.choice(d["fin_mats"]), v, f, x, y)
+                n_f = 0
             for _ in range(n_f):
                 a = rng.uniform(0, 2 * math.pi)
                 r = rayon * 1.15 * math.sqrt(rng.random())

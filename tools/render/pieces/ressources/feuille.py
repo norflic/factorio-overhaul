@@ -161,7 +161,12 @@ def post(cle, travail, sortie, nom, lignes=D.STADES + 1):
             hr[r * FRAME:(r + 1) * FRAME, c * FRAME:(c + 1) * FRAME] = f
             cv.append(float((f[..., 3] > 0.5).mean()))
             if hre is not None:
-                hre[r * FRAME:(r + 1) * FRAME, c * FRAME:(c + 1) * FRAME] = bordure(recadre(effet_src, cx, cy))
+                fe = bordure(recadre(effet_src, cx, cy))
+                # (30/10, ilménite J7) : rien d'effet là où le minerai, après le fondu de bordure, est presque transparent
+                # (alpha < 0,05) : des grains de poussière en lisière de cadre y laissaient 27 pixels d'effet,
+                # refusés par check_gisement (« rien hors du minerai »)
+                fe[..., 3] = fe[..., 3] * (f[..., 3] >= 0.05)
+                hre[r * FRAME:(r + 1) * FRAME, c * FRAME:(c + 1) * FRAME] = fe
         couv.append(round(float(np.mean(cv)), 4))
     os.makedirs(sortie, exist_ok=True)
     sums = {}

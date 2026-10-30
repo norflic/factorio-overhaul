@@ -404,6 +404,10 @@ W.resources = {
     -- check_gisement 7 OK ; luminance médiane 91 contre 140 pour I3). Avant : I3, seule des trois du 25/10 à passer les 9
     -- critères de tools/autotest/x1_lisibilite.py (I3 gardée dans fo-logs/2026-10-30_AMELIO/RESSOURCES/rendu/I3-avant) ;
     -- x1_lisibilite N'EST PAS rejoué sur I2S. Choix provisoire, sans verdict du DC.
+    -- Lot MINERAI-ILMENITE (30/10 ; DC : « je n'aime pas du tout la forme de ces minerais : [...] Minerai d'ilménite [...]
+    -- Il faut les refaire ») : FORME refaite, direction J7 (morceaux bosselés en tas, brun-noir à reflets bronze, tablettes
+    -- d'accent, poussière brun-rouille ; teinte I2 sombre gardée, couche d'effet de I2S inchangée). Même dossier, même nom :
+    -- aucune migration. Planches : fo-logs/2026-10-30_RETOUR-MATIN/MINERAIS/ilmenite/index.html. Sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/ilmenite",
       name = "ilmenite",

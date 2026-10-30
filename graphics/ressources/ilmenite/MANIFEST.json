@@ -1,14 +1,14 @@
 {
  "blender": "5.2.2 LTS",
  "couverture_par_stade": [
-  0.2786,
-  0.2593,
-  0.2238,
-  0.1958,
-  0.1618,
-  0.1428,
-  0.094,
-  0.0693
+  0.3355,
+  0.2854,
+  0.2495,
+  0.2074,
+  0.1596,
+  0.1437,
+  0.0865,
+  0.0465
  ],
  "couverture_vanilla": [
   0.316,
@@ -20,8 +20,8 @@
   0.09,
   0.055
  ],
- "direction": "I2S",
- "echantillons": 128,
+ "direction": "J7",
+ "echantillons": 64,
  "effet": "eclats",
  "effet_reglages": {
   "lueur": {
@@ -53,30 +53,35 @@
   "scale_hr": 0.5,
   "variation_count": 8
  },
+ "icones": {
+  "echantillons": 64,
+  "rendu": "gros plan (gisement.cellule_icone), passe main seule",
+  "secondes_blender": 5.57
+ },
  "nom": "ilmenite",
- "nom_direction": "nodules d'ilménite bronze sombre, croûte de leucoxène rare",
+ "nom_direction": "morceaux bosselés d'ilménite brun-noir à reflets bronze, tablettes d'accent",
  "outil": "tools/render/pieces/ressources/feuille.py",
  "repartition": {
   "L": [
-   0.088,
-   0.351,
-   0.243,
-   0.318
+   0.08,
+   0.608,
+   0.241,
+   0.071
   ],
-  "acier": 0.323,
+  "acier": 0.246,
   "acier_bleutes": 0.0,
-  "chauds": 0.59,
-  "sombres": 0.088
+  "chauds": 0.683,
+  "sombres": 0.072
  },
- "secondes_blender": 1656.68,
+ "secondes_blender": 974.81,
  "sha256": {
-  "hr-ilmenite-effet.png": "16c448e353e5465df48d69e484b2269979cbc2777438f12e559a65274eef4231",
-  "hr-ilmenite.png": "52e382347257d14d81e98869214a5b35db44f5d4a7ca9308c077f5ac17db0bc8",
-  "icone-1.png": "002188800fb077c570508fd7934fc02cc5998a05f28e7899e3e527f2153bd0e7",
-  "icone-2.png": "af7e399140938cdd916427d08cdb1ab2fa8e85535f09c513c3458c41d9240eb9",
-  "icone-3.png": "ad7f465938ef6d6963e325be4e6e159eb0b9b6d5ce03b5330b09442a3e080622",
-  "icone.png": "379ae58eba368da3bf96f04306656c13df79df01fe3eda6eba48c49485dc1147",
-  "ilmenite-effet.png": "9889dea38aaada6baf947c95e11f2ba9c0fcbd066c3205c784cf02174de0eb87",
-  "ilmenite.png": "55e0f3199a8db44952ab6ecc50237e2ce0b5469ae1caafeafe954f1e3451e251"
+  "hr-ilmenite-effet.png": "c901a3970d0f5280780cd68d40260e25cf0f6bcf68b9c3e9adc062c2dd97ce63",
+  "hr-ilmenite.png": "51ffbc96437e06464811b79d05ee789fb5c4f47e068aeafc99b048cf9a887c6d",
+  "icone-1.png": "7140e07423f33ae73fb83abf5e70b87ed667973282231ae10cd869360e046088",
+  "icone-2.png": "e68e6ac3def99e07d58edaaefe71d4b1c251d7c645f2dcaf9465e85613d353fe",
+  "icone-3.png": "9d02959823d0fce2a338c1a86034a7672134798fa5ffcdabe9d2fa121064d251",
+  "icone.png": "b55588f0a73dd79fffe4d1c2d09e82184e4c6b7e36afa391bc5e43969e12fee6",
+  "ilmenite-effet.png": "ab6b03bc39bd417f280c36952a3719df17870a7cae58301847b6d8f20d594dc6",
+  "ilmenite.png": "4449fcfeb3ed8eed557dfcf59cc42d6a49be4e643bc91b11c013f1a24e69f573"
  }
 }
