@@ -53,7 +53,11 @@ W.biomes = {
     -- Pas de poussière de sable brune sous les pas ni les roues (bruit de pas du pavé : on marche sur une croûte dure).
     no_splash = true,
     sound_from = "stone-path",
-    map_color = { r = 150, g = 120, b = 185 },
+    -- Piste AMELIO-BIOMES (30/10, « le fond rose est moche ») : sol GIVRE (tools/biomes/sol_cristal.py), carte assortie
+    -- (150 ; 120 ; 185, lilas, avant). Vérification : (120 ; 145 ; 162), la moyenne du sol, se confondait sur la carte avec
+    -- le MINERAI DE FER vanilla (106 ; 134 ; 148, ΔRGB ≈ 14) qui pousse aussi dans la plaine : givre plus pâle, qui reste
+    -- loin du fer (≈ 45) et des cratères (122 ; 122 ; 128).
+    map_color = { r = 152, g = 174, b = 192 },
     walking_speed_modifier = 1.1,
     vehicle_friction_modifier = 1.0,
     pollution_absorption_per_second = 0.000004,
@@ -146,7 +150,21 @@ W.grain = { period = 6, influence = 2 / 3, persistence = 0.7, octaves = 4,
 
 -- Biomes sans AUCUN décor vanilla à la génération (lot B0, verdict « B4 B » : touffes d'herbe et plaques brunes
 -- retirées de la plaine de cristal) ; leur propre décor (W.decor) reste.
-W.no_vanilla_decor = { "fo-crystal-flats", "fo-crater-fields", "fo-black-sands" } -- X1 : régolithe ; X2 : dunes
+-- Piste AMELIO-BIOMES (30/10, « on a l'impression que des biomes sont mélangés ») : étendu aux QUATRE biomes, et aux
+-- ARBRES et ROCHES vanilla (W.no_vanilla_entities) : une forêt verte vanilla poussait en pleine plaine, des arbres d'automne
+-- roses sur les cendres (fo-logs/2026-10-30_AMELIO/BIOMES/AUDIT.md §1.3).
+W.no_vanilla_decor = { "fo-volcanic-ash", "fo-crystal-flats", "fo-toxic-marsh", "fo-crater-fields", "fo-black-sands" }
+-- (Intégration 0.6.22 : « fo-black-sands », les dunes de X2 (AMELIO-RESSOURCES), gardé de l'autre côté de la fusion.)
+-- Types d'entités vanilla autoplacées retirées des biomes de W.no_vanilla_decor (arbres, grosses roches).
+W.no_vanilla_entities = { "simple-entity", "tree" }
+
+-- Exclusion entre les biomes du mod (piste AMELIO-BIOMES) : là où deux régions se chevauchent, chacune valait 1 et le grain
+-- PROPRE à chaque biome changeait le gagnant toutes les 2 à 6 tuiles (patchwork cendres / cratères / plaine). Désormais,
+-- dans la seule probabilité de la TUILE, un biome perd `penalite` quand une autre région est plus FORTE que la sienne
+-- (force = masque × (1 + bruit au-dessus du seuil)) ; `raideur` règle la largeur de la bande disputée (le grain y dessine
+-- une frontière fine, comme entre deux sols vanilla). Le masque des gisements (bind_spots_to_region) ne change pas.
+-- nil : pas d'exclusion (avant).
+W.exclusion = { penalite = 4, raideur = 12 }
 
 -- Décor propre à chaque biome (session 4) : ce qui pousse, ce qui affleure, ce qui luit. Copies vanilla
 -- recomposées (teinte + couche lumineuse « draw_as_glow » pour ce qui luit la nuit), placées uniquement
@@ -166,14 +184,22 @@ W.decor = {
       { name = "fo-ash-patch", copy = "nuclear-ground-patch", density = 0.03, tint = { r = 0.70, g = 0.62, b = 0.60 } },
       { name = "fo-ash-cinders", copy = "rock-small", density = 0.05, tint = { r = 0.28, g = 0.24, b = 0.24 } },
       -- Croûtes de braise : rougeoient la nuit (moteur réel : à 0,03 et sans lueur, un tapis rouge mat).
-      { name = "fo-ash-embers", copy = "red-desert-decal", density = 0.02, tint = { r = 0.45, g = 0.14, b = 0.06 },
-        glow = { r = 0.40, g = 0.10, b = 0.01, a = 0.5 } },
+      -- Piste AMELIO-BIOMES : de grandes taches rouge sombre « sang » de jour (0,02 ; teinte 0,45 ; 0,14 ; 0,06, lueur
+      -- 0,40 ; 0,10 ; 0,01) : plus rares, brun de croûte de jour, orange braise la nuit. Premier essai en moteur (lueur
+      -- 0,55 ; 0,24 ; 0,02 ; a 0,45) : la couche « draw_as_glow » se voit aussi DE JOUR, bien plus que le modèle
+      -- base × (t + g × a) ne le dit (taches orange vif) : lueur réduite de moitié.
+      { name = "fo-ash-embers", copy = "red-desert-decal", density = 0.010, tint = { r = 0.40, g = 0.26, b = 0.14 },
+        glow = { r = 0.50, g = 0.20, b = 0.02, a = 0.22 } },
     },
   },
   ["fo-crystal-flats"] = {
     entities = {
+      -- Piste AMELIO-BIOMES (30/10, « les pierres violettes/rose pas fou, par contre les bleues claires sont jolies ») :
+      -- teinte (0,62 ; 0,42 ; 1) et lueur (0,60 ; 0,26 ; 1) sur une roche BRUNE (75 ; 53 ; 31 mesuré) sortaient rose-magenta
+      -- en jeu (93 ; 36 ; 64), F36, F38. Même recette que l'éclat aqua ci-dessous (base presque identique, 69 ; 54 ; 33),
+      -- un peu plus bleue : les deux pierres de la plaine sont de la famille que le DC aime ; la forme reste celle de rock-big.
       { name = "fo-crystal-cluster", type = "simple-entity", copy = "rock-big", density = 0.010,
-        tint = { r = 0.62, g = 0.42, b = 1.00 }, glow = { r = 0.60, g = 0.26, b = 1.00, a = 0.8 },
+        tint = { r = 0.50, g = 0.78, b = 1.00 }, glow = { r = 0.10, g = 0.55, b = 1.00, a = 0.8 },
         mined = { { "fo-resonance-crystal", 6 }, { "stone", 6 } } },
       { name = "fo-crystal-shard", type = "simple-entity", copy = "sand-rock-big", density = 0.012,
         tint = { r = 0.55, g = 0.80, b = 1.00 }, glow = { r = 0.14, g = 0.60, b = 1.00, a = 0.7 },
@@ -183,8 +209,12 @@ W.decor = {
       -- Lot B0 : densité 0 (0,04 avant). Le décalque de sable copié est brun (83 ; 58 ; 33 mesuré) et le reste teinté
       -- (F38) : il couvrait la plaine de plaques de boue craquelée. Prototype gardé (sauvegardes, garantie M0).
       { name = "fo-crystal-dust", copy = "sand-decal", density = 0, tint = { r = 0.85, g = 0.80, b = 1.00 } },
-      { name = "fo-crystal-bush", copy = "white-desert-bush", density = 0.02, tint = { r = 0.80, g = 0.65, b = 1.00 } },
-      { name = "fo-crystal-pebbles", copy = "rock-tiny", density = 0.05, tint = { r = 0.70, g = 0.55, b = 1.00 } },
+      -- Piste AMELIO-BIOMES : buisson (96 ; 79 ; 61 mesuré) et cailloux (78 ; 55 ; 32) sortaient rose-brun ; teintes
+      -- neutralisées (gris froid) et un soupçon de lueur bleue (≈ 60 ; 70 ; 72 et 32 ; 39 ; 42 attendus, base × (t + g × a)).
+      { name = "fo-crystal-bush", copy = "white-desert-bush", density = 0.02, tint = { r = 0.60, g = 0.78, b = 1.00 },
+        glow = { r = 0.05, g = 0.20, b = 0.35, a = 0.5 } },
+      { name = "fo-crystal-pebbles", copy = "rock-tiny", density = 0.05, tint = { r = 0.41, g = 0.58, b = 1.00 },
+        glow = { r = 0.00, g = 0.25, b = 0.60, a = 0.5 } },
     },
   },
   ["fo-toxic-marsh"] = {
@@ -314,6 +344,8 @@ W.resources = {
     },
     -- Azur sur la carte : ΔE76 ≥ 39 de tous les minerais, fluides et sols (tungstène 39 ; galène, pétrole, eau plus loin).
     map_color = { r = 0.00, g = 0.70, b = 1.00 },
+    -- (Intégration 0.6.22 : la couleur du minerai de cristal est celle d'AMELIO-RESSOURCES, retour du DC du 29/10 ; AMELIO-BIOMES la
+    -- glissait vers le violet de l'époque 7 : écartée ici, son décor de la plaine (W.decor) est gardé.)
     mining_time = 1.5,
     category = nil, -- basic-solid
     biome = "fo-crystal-flats",

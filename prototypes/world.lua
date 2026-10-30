@@ -42,7 +42,10 @@ local function region_mask(region)
   if region.moisture_max then mask = mask * noise.clamp((region.moisture_max - noise.var("moisture")) * 8, 0, 1) end
   if region.moisture_min then mask = mask * noise.clamp((noise.var("moisture") - region.moisture_min) * 8, 0, 1) end
   if region.aux_min then mask = mask * noise.clamp((noise.var("aux") - region.aux_min) * 8, 0, 1) end
-  return mask * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
+  mask = mask * noise.clamp(noise.var("elevation") * 0.25, 0, 1)
+  -- Second résultat (piste AMELIO-BIOMES, exclusion entre biomes) : FORCE de la région, masque × (1 + excès du bruit
+  -- sur le seuil, borné à 1). Vaut le masque au bord, plus au cœur : départage deux régions qui valent 1 toutes les deux.
+  return mask, mask * (1 + noise.clamp(n - region.threshold, 0, 1))
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -73,6 +76,30 @@ local biome_by_name = {}
 for _, b in ipairs(W.biomes) do biome_by_name[b.name] = b end
 
 ---------------------------------------------------------------------------------------------------
+-- Masques et forces des régions des biomes, calculés une fois (piste AMELIO-BIOMES). Exclusion (W.exclusion) : un biome
+-- perd W.exclusion.penalite dans la probabilité de sa TUILE quand la région d'un autre biome du mod est plus forte que la
+-- sienne au même endroit (rampe de largeur 1 / raideur). Sans elle, deux régions qui se chevauchent valaient 1 toutes les
+-- deux et le grain propre à chaque biome changeait le gagnant toutes les quelques tuiles (patchwork).
+---------------------------------------------------------------------------------------------------
+local region_of = {}
+for _, b in ipairs(W.biomes) do
+  local mask, force = region_mask(b.region)
+  region_of[b.name] = { mask = mask, force = force }
+end
+
+local function exclusion_penalty(b)
+  if not W.exclusion then return nil end
+  local others = {}
+  for _, o in ipairs(W.biomes) do
+    if o.name ~= b.name then others[#others + 1] = region_of[o.name].force end
+  end
+  if #others == 0 then return nil end
+  local strongest = others[1]
+  for i = 2, #others do strongest = noise.max(strongest, others[i]) end
+  return noise.clamp((strongest - region_of[b.name].force) * W.exclusion.raideur, 0, 1) * W.exclusion.penalite
+end
+
+---------------------------------------------------------------------------------------------------
 -- Tuiles de biome
 ---------------------------------------------------------------------------------------------------
 for _, b in ipairs(W.biomes) do
@@ -86,8 +113,10 @@ for _, b in ipairs(W.biomes) do
   tile.vehicle_friction_modifier = b.vehicle_friction_modifier
   tile.pollution_absorption_per_second = b.pollution_absorption_per_second
   tile.localised_name = { "tile-name." .. b.name }
-  local p = region_mask(b.region) * 4 - 2
+  local p = region_of[b.name].mask * 4 - 2
   if W.grain then p = p + tile_grain(b) end
+  local pen = exclusion_penalty(b)
+  if pen then p = p - pen end
   tile.autoplace = { probability_expression = p }
   if b.texture then
     -- Image recolorée (lot B0) : on ne remplace que les fichiers de la texture ; découpe, variantes, masques et
@@ -141,8 +170,7 @@ if W.no_vanilla_decor and #W.no_vanilla_decor > 0 then
     if d.autoplace and not name:find("^fo%-") then names[#names + 1] = name end
   end
   table.sort(names)
-  for _, name in ipairs(names) do
-    local ap = data.raw["optimized-decorative"][name].autoplace
+  local function restrict(ap)
     if ap.tile_restriction then
       local kept = {}
       for _, t in ipairs(ap.tile_restriction) do
@@ -152,6 +180,17 @@ if W.no_vanilla_decor and #W.no_vanilla_decor > 0 then
     else
       ap.tile_restriction = table.deepcopy(allowed)
     end
+  end
+  for _, name in ipairs(names) do restrict(data.raw["optimized-decorative"][name].autoplace) end
+  -- Piste AMELIO-BIOMES : arbres et grosses roches vanilla (aucune restriction de tuile dans base) ; les entités du mod
+  -- (« fo-* », W.decor : arbres calcinés, roches de magma, arbres des marais, cristaux) restent.
+  for _, ty in ipairs(W.no_vanilla_entities or {}) do
+    local enames = {}
+    for name, e in pairs(data.raw[ty] or {}) do
+      if e.autoplace and not name:find("^fo%-") then enames[#enames + 1] = name end
+    end
+    table.sort(enames)
+    for _, name in ipairs(enames) do restrict(data.raw[ty][name].autoplace) end
   end
 end
 

@@ -20,10 +20,20 @@ if not os.path.isdir(DATA_DEFAUT):  # worktree : <racine>/mods/factorio-overhaul
     DATA_DEFAUT = os.path.normpath(os.path.join(MOD, "..", "..", "..", "..", "..", "data"))
 
 SOURCE = "sand-3"  # sable ridé : le relief en vaguelettes devient une croûte vitrifiée
-# Rampe (luminance normalisée -> sRGB) : mauve bruyère désaturé, du creux sombre au reflet pâle. Moyenne visée en jeu
-# (midi) : Lab (43 ; 11 ; −6), ΔE ~ 40 de l'herbe et du désert voisins, l'écart des cendres vanilla au désert (37) ;
-# l'ancienne eau violette était à 61-63.
+# Rampe (luminance normalisée -> sRGB), piste AMELIO-BIOMES (30/10, retour du DC : « le fond rose est moche et on a
+# l'impression que des biomes sont mélangés », « les bleues claires sont jolies ») : GIVRE, gris-bleu froid, de la famille
+# des éclats aqua (fo-crystal-shard, Lab mesuré 35 ; −16 ; 3). Moyenne visée Lab (≈ 50 ; −6 ; −11) : ΔE ≈ 50 de l'herbe
+# (30 ; −2 ; 33), plus clair que les cratères (53 ; 0 ; 0) d'une teinte franche (b ≈ −11 contre 0).
 RAMPE = [
+    (0.00, (34, 46, 56)),
+    (0.35, (74, 95, 110)),
+    (0.65, (104, 129, 145)),
+    (0.85, (136, 159, 174)),
+    (1.00, (186, 202, 213)),
+]
+# Rampe « mauve bruyère » (lot B0, verdict B1 D du 24/10 ; livrée jusqu'à 0.6.18) : Lab mesuré en jeu (43 ; 11 ; −7).
+# Option --mauve, pour la planche avant / après.
+RAMPE_MAUVE = [
     (0.00, (37, 27, 40)),
     (0.35, (81, 63, 82)),
     (0.65, (113, 91, 110)),
@@ -65,8 +75,9 @@ def main():
     ap.add_argument("--data", default=DATA_DEFAUT)
     ap.add_argument("--dest", default=os.path.join(MOD, "graphics", "terrain", "cristal"))
     ap.add_argument("--pale", action="store_true", help="premier essai (rampe pâle), pour comparaison")
+    ap.add_argument("--mauve", action="store_true", help="rampe livrée par B0 (mauve bruyère), pour comparaison")
     a = ap.parse_args()
-    rampe = RAMPE_PALE if a.pale else RAMPE
+    rampe = RAMPE_PALE if a.pale else (RAMPE_MAUVE if a.mauve else RAMPE)
     os.makedirs(a.dest, exist_ok=True)
     terr = os.path.join(a.data, "base", "graphics", "terrain")
     for pre in ("", "hr-"):
