@@ -96,6 +96,21 @@ COMPOS["F"] = dict(COMPOS["E"])
 COMPOS["F"]["icone"] = [(x, y * 1.30, t, m, g) for x, y, t, m, g in COMPOS["E"]["icone"]]
 COMPOS["F"]["p1"] = [(x * 1.12, y * 1.12, t, m, g) for x, y, t, m, g in COMPOS["E"]["p1"]]
 REGLAGES["F"] = REGLAGES["E"]
+# G (critique indépendante de l'icône, 30/10 vers 12 h, fo-logs/.../ICONES-MINERAIS/monazite/CRITIQUE.md) : F porte un
+# rognon « soufre » jaune citron (le plus clair, arrière droit) et aucun rognon miel ou ambre, alors que la critique du
+# gisement M1 (même matin, worktree minerai-monazite, non commitée à 12 h) retire le soufre et le brun-rouge pour UNE
+# famille or-miel-ambre à éclat résineux (rugosité 0,24 à 0,28). Mêmes positions, tailles et graines que F (même
+# géométrie) ; seules les matières changent : or_v / ambre / miel_v, copiées ici (MAT_ICONE) pour ne pas dépendre de
+# l'état non commité de directions.py. Le miel franc reste hors de l'icône (32 px : blende, bauxite) ; l'ambre, entre
+# l'or et le miel, donne la profondeur sans tirer vers le rouille.
+MAT_ICONE = {
+    "monazite_or_v": dict(color=(0.62, 0.40, 0.035), rough=0.24, met=0.0, grain=0.22, gscale=36.0, dirt=0.3),
+    "monazite_miel_v": dict(color=(0.50, 0.25, 0.040), rough=0.26, met=0.0, grain=0.25, gscale=36.0, dirt=0.35),
+    "monazite_ambre": dict(color=(0.58, 0.33, 0.035), rough=0.24, met=0.0, grain=0.22, gscale=36.0, dirt=0.3),
+}
+_VERS_G = {"monazite_or": "monazite_or_v", "monazite_soufre": "monazite_ambre", "monazite_miel": "monazite_miel_v"}
+COMPOS["G"] = {k: [(x, y, t, _VERS_G.get(m, m), g) for x, y, t, m, g in v] for k, v in COMPOS["F"].items()}
+REGLAGES["G"] = REGLAGES["F"]
 ORDRE = ("icone", "p1", "p2", "p3")
 FORME = dict(aplat=0.95, n_coupes=D.ROCHE_COUPES["M1"], cassure=D.ROCHE_CASSURE["M1"], creux=D.ROCHE_CREUX["M1"],
              lisse=D.ROCHE_LISSE["M1"])
@@ -128,8 +143,9 @@ def relief(mat):
 def build(S, C, variant):
     rg = dict(REGLAGES_DEFAUT, **REGLAGES.get(variant, {}))
     mats = {}
-    for nom in sorted(D.MAT):
-        m = D.MAT[nom]
+    toutes = dict(D.MAT, **MAT_ICONE)
+    for nom in sorted(toutes):
+        m = toutes[nom]
         mats[nom] = S.mat_metal("ic_" + nom, tuple(c * rg["sombre"] for c in m["color"]), rough=m["rough"] * LUSTRE, metallic=m["met"], grain=m["grain"] * GRAIN,
                                 grain_scale=m["gscale"] / K, dirt=m["dirt"], dirt_distance=0.08 * K)
         relief(mats[nom])
