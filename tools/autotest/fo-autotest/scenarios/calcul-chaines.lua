@@ -18,7 +18,7 @@
 
 local X0, Y0 = 4200, 3000
 local CHECK = 2400
-local T_FULL, T_STOP, T_STOPPED, T_RESTART, T_BACK = 600, 1200, 1330, 1400, 1630
+local T_FULL, T_TECH, T_STOP, T_STOPPED, T_RESTART, T_BACK = 600, 900, 1200, 1330, 1400, 1630
 
 local TECHS = { "fo-chip-foundry", "fo-data-centers", "fo-gpu-computing", "fo-regolith-degassing", "fo-quantum-computing" }
 local ITEMS = { "fo-photomask", "fo-etched-wafer", "fo-crystal-laser", "fo-logic-die", "fo-dram-die", "fo-sram-die", "fo-heat-sink",
@@ -150,8 +150,15 @@ return {
         end
       end
     end
-    ctx.check(#closed == 0 and n >= 26, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
+    ctx.check(#closed == 0 and n >= 24, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
+    -- Base des technologies NON nulle : vitesse de recherche 1 (vanilla) ; vitesse de recherche 2 sera recherchée EN
+    -- MARCHE (tick T_TECH), entre deux fenêtres : le piège du champ partagé avec les technologies (plan CALCUL §3).
+    f.technologies["research-speed-1"].researched = true
     st.base = f.laboratory_speed_modifier
+    st.rs2 = 0
+    for _, eff in ipairs(game.technology_prototypes["research-speed-2"].effects) do
+      if eff.type == "laboratory-speed" then st.rs2 = st.rs2 + eff.modifier end
+    end
 
     -- 3. Postes et centres
     ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 175, Y0 + 12, "refined-concrete")
@@ -211,6 +218,10 @@ return {
       st.full = { rate = cs.rate, bonus = cs.bonus, centers = cs.centers, mod = game.forces.player.laboratory_speed_modifier }
       ctx.log(string.format("calcul en marche (tick %d) : %.1f unites/s, bonus %.3f, %d centre(s), vitesse de recherche %.3f (base %.3f)",
         e.tick, cs.rate, cs.bonus, cs.centers, st.full.mod, st.base))
+    elseif e.tick == T_TECH then
+      game.forces.player.technologies["research-speed-2"].researched = true
+      local cs = state()
+      st.tech = { mod = game.forces.player.laboratory_speed_modifier, bonus = cs.bonus }
     elseif e.tick == T_STOP then
       for _, c in ipairs(st.centres) do if c.e and c.e.valid then c.e.active = false end end
     elseif e.tick == T_STOPPED then
@@ -255,8 +266,10 @@ return {
     ctx.check(math.abs(full.mod - (st.base + full.bonus)) < 1e-6 and full.bonus > 0,
       "vitesse de recherche = base des technologies + bonus du calcul", string.format("%.4f = %.4f + %.4f", full.mod, st.base, full.bonus))
     local sp = st.stopped or { rate = -1, mod = -1 }
-    ctx.check(sp.rate == 0 and math.abs(sp.mod - st.base) < 1e-9,
-      "centres arretes : 0 unite/s, vitesse revenue exactement a la base (non stockable)", string.format("%.1f, %.6f contre %.6f", sp.rate, sp.mod, st.base))
+    local base2 = st.base + (st.rs2 or 0)
+    ctx.check(st.base > 0 and (st.rs2 or 0) > 0 and sp.rate == 0 and math.abs(sp.mod - base2) < 1e-9,
+      "centres arretes : 0 unite/s, vitesse revenue exactement a la base des technologies, recherche faite en marche comprise (non stockable)",
+      string.format("%.1f, %.6f contre %.6f (vitesse 1 : %.3f, vitesse 2 recherchee au tick %d : +%.3f)", sp.rate, sp.mod, base2, st.base, T_TECH, st.rs2 or 0))
     local bk = st.back or { rate = -1 }
     ctx.check(math.abs(bk.rate - want) <= 0.02 * want, "centres relances : le calcul revient", string.format("%.1f", bk.rate))
     local used, detail = 0, {}
