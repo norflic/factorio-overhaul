@@ -46,12 +46,19 @@ local function icon_of(ptype, name, tint)
   return { { icon = src.icon, icon_size = src.icon_size, icon_mipmaps = src.icon_mipmaps, tint = tint } }
 end
 
+-- Lot CALC-ICONES-B : icônes DESSINÉES des assemblages et des technologies (rendus 3D, tools/render/pieces/calcul/
+-- icones_assemblages.py). Un nom absent de la table générée garde son icône provisoire ci-dessus.
+local ICB = require("__factorio-overhaul__/graphics/calcul/icones-b/icons-b")
+local function drawn(t)
+  return { { icon = t.icon, icon_size = t.icon_size, icon_mipmaps = t.icon_mipmaps } }
+end
+
 for i, it in ipairs(Cp.ITEMS) do
   local ic = ICON[it.name]
   out[#out + 1] = {
     type = "item", name = it.name,
     localised_name = { "item-name." .. it.name }, localised_description = { "item-description." .. it.name },
-    icons = icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
+    icons = ICB.objets[it.name] and drawn(ICB.objets[it.name]) or icon_of(ic[1], ic[2], ic[3]), subgroup = "fo-compute", order = string.format("z[fo]-j[compute]-%02d", i),
     stack_size = it.stack,
   }
 end
@@ -217,6 +224,7 @@ for _, t in ipairs(Cp.TECHS) do
     localised_name = { "technology-name." .. t.name },
     localised_description = { "technology-description." .. t.name },
     icons = (function()
+      if ICB.technos[t.name] then return drawn(ICB.technos[t.name]) end
       if src.icons then
         local l = table.deepcopy(src.icons)
         for _, layer in ipairs(l) do layer.tint = ti[2] end

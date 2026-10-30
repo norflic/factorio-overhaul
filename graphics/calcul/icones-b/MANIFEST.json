@@ -1,0 +1,54 @@
+{
+ "objets": {
+  "fo-gpu-blade": {
+   "age": 11,
+   "fichier": "fo-gpu-blade.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "nom": "Baie d'accélérateurs",
+   "provisoire_avant": "beacon",
+   "sha256": "76c7ec0ee7d72383e1be0170ac0807c6e060dea4541f749aa9208e18ddd4c34b"
+  },
+  "fo-memory-module": {
+   "age": 10,
+   "fichier": "fo-memory-module.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "nom": "Barrette de mémoire vive",
+   "provisoire_avant": "electronic-circuit",
+   "sha256": "61c533e3ec53411611fff9e5ee6c7a9a4d7a979c044013409b18dab4ba96ffb2"
+  },
+  "fo-quantum-processor": {
+   "age": 13,
+   "fichier": "fo-quantum-processor.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "nom": "Processeur quantique",
+   "provisoire_avant": "processing-unit",
+   "sha256": "e43bbffcb2505dd13f87e08efa007d1dd5c1bac3c99c493b21a88030c42950bc"
+  },
+  "fo-server-blade": {
+   "age": 10,
+   "fichier": "fo-server-blade.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "nom": "Baie de serveurs",
+   "provisoire_avant": "beacon",
+   "sha256": "deda15fe48bd2f28b7e46b60f6582fcd8abee3c3cd9a12f657337dcbf0808808"
+  }
+ },
+ "outil": "tools/render/pieces/calcul/icones_assemblages.py",
+ "samples": 48,
+ "technos": {
+  "fo-data-centers": {
+   "age": 10,
+   "fichier": "tech/fo-data-centers.png",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "nom": "Centres de calcul",
+   "provisoire_avant": "research-speed",
+   "sha256": "a72a5e67c29a9375faee294875bddb740b31a13299ae4160f8c282ede6726804"
+  }
+ },
+ "version": 1
+}
