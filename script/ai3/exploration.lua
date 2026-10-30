@@ -429,7 +429,9 @@ local function start_mission(f, k, a, kind, res, tick, veille, reco)
   local g = G()
   g.seq = g.seq + 1
   local surface = a.entity.surface
-  local ex = { tag = g.seq, agent = a.id, kind = kind, res = res, started = tick, state = "out", bad = {}, veille = veille and true or nil }
+  -- Lot IA3F-PETROLE : `reached` = cibles vues ou points de passage atteints par CET éclaireur (mission stérile ou non, end_mission).
+  local ex = { tag = g.seq, agent = a.id, kind = kind, res = res, started = tick, state = "out", bad = {}, veille = veille and true or nil,
+    reached = 0 }
   a.task = { kind = "explore", key = "ai3f:" .. kind .. ":" .. g.seq, ai3f = g.seq, claimed = tick, res = res }
   a.ai3f_eye = K.EYE.explorer
   local steps
@@ -480,7 +482,12 @@ local function end_mission(f, k, ex, tick, why)
   if a then a.ai3f_eye = nil end
   k.next_mission = tick + ((why == "fuite" or why == "perdu") and COOLDOWN_FLEE or COOLDOWN)
   -- Lot IA-V2 : chemins ratés à la suite : attente doublée à chaque fois (10 s, 20 s, … 160 s au plus).
-  if why == "chemin" then
+  -- Lot IA3F-PETROLE : seulement pour une mission STÉRILE (l'éclaireur n'a vu aucune de ses cibles ni atteint aucun point de passage :
+  -- le cas d'IA-V2, 77 missions « chemin » en 0,0 min). Une mission qui a avancé avant ses FAIL_MAX chemins ratés en route n'est pas
+  -- un échec à la suite : avant, l'éclaireur d'une faction attendait jusqu'à 160 s au QG après chaque sortie utile (moteur simulé,
+  -- 30 % de chemins ratés). Une mission d'avant ce lot (ex.reached absent) garde l'ancienne règle.
+  local fertile = (ex.reached or 0) > 0
+  if why == "chemin" and not fertile then
     k.chemin_n = math.min(4, (k.chemin_n or 0) + 1)
     k.next_mission = tick + COOLDOWN * (2 ^ k.chemin_n)
   else
@@ -505,7 +512,9 @@ end
 
 --- Secteurs écartés d'une cible d'exploration (table locale, jamais rangée dans global). `ex` : la mission du PNJ (cibles ratées de
 --- cette mission), ou nil (lot VEILLE : choix du but d'une mission avant son départ).
-local function make_exclude(k, tick, ex)
+--- `no_blocked` (lot IA3F-PETROLE) : les régions bloquées ne sont pas exclues ici (le choix d'une cible d'exploration les passe en
+--- exclusion DOUCE, make_soft) ; la veille (`no_blocked` nil) les garde en exclusion dure.
+local function make_exclude(k, tick, ex, no_blocked)
   -- Lot IA-V2 : plusieurs éclaireurs : chacun évite les secteurs proches de la cible d'un autre (exclusion calculée à la
   -- demande, table locale jamais rangée dans global).
   local others = {}
@@ -521,7 +530,7 @@ local function make_exclude(k, tick, ex)
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
     local bx, by = K.center(K.xy(key))
-    if k.blocked and #k.blocked > 0 and K.blocked_near(k.blocked, bx, by, tick, BLOCK_R, BLOCK_TTL) then return true end
+    if not no_blocked and k.blocked and #k.blocked > 0 and K.blocked_near(k.blocked, bx, by, tick, BLOCK_R, BLOCK_TTL) then return true end
     -- Lot EXPLO (moteur réel, 28/10 : votre équipe, 29 fuites sur 44 départs, 5 fois au même nid) : un secteur à portée de fuite
     -- d'un nid ou d'un ver VU est écarté (l'éclaireur y fuirait de toute façon à FLEE_RADIUS).
     local nests, worms = K.enemies_near(k.m, bx, by, FLEE_RADIUS)
@@ -536,11 +545,21 @@ local function make_exclude(k, tick, ex)
   end })
 end
 
+--- Lot IA3F-PETROLE : exclusion DOUCE d'une cible d'exploration : secteurs dans une région bloquée par un chemin raté (lot EXPLO).
+--- K.best_target ne la viole que si toutes les autres cibles sont exclues (table locale, jamais rangée dans global).
+local function make_soft(k, tick)
+  if not (k.blocked and #k.blocked > 0) then return nil end
+  return setmetatable({}, { __index = function(_, key)
+    local bx, by = K.center(K.xy(key))
+    if K.blocked_near(k.blocked, bx, by, tick, BLOCK_R, BLOCK_TTL) then return true end
+    return nil
+  end })
+end
+
 local function retarget(f, k, a, ex, tick)
   local e = a.entity
   local surface = e.surface
   local me = { x = e.position.x, y = e.position.y }
-  local exclude = make_exclude(k, tick, ex)
   local key
   if ex.veille then
     -- Lot VEILLE : le but est celui de la règle pure (secteur de la bande du rayon, le plus ancien d'abord), gardé jusqu'à ce qu'il soit
@@ -558,8 +577,20 @@ local function retarget(f, k, a, ex, tick)
       end
     end
   else
-    key = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
-      rivals = rivals(f, surface), exclude = exclude })
+    local soft
+    key, _, soft = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
+      rivals = rivals(f, surface), exclude = make_exclude(k, tick, ex, true), soft = make_soft(k, tick) })
+    if key and soft then
+      -- Lot IA3F-PETROLE : toute la frontière non vue est dans des régions bloquées ; avant, la mission finissait « rien » et la
+      -- demande passait pour épuisée (10 min sans éclaireur) alors que rien n'avait été vu. Journal : une ligne par mission.
+      k.stats.soft = (k.stats.soft or 0) + 1
+    end
+    if key and soft and not ex.soft_logged then
+      ex.soft_logged = true
+      local sx, sy = K.center(K.xy(key))
+      log(string.format("[FO-IA3F] %s : eclaireur %d : toute la frontiere est en region bloquee (%d), cible bloquee tentee en (%d, %d) a %.1f min",
+        team_label(f), a.id, #k.blocked, math.floor(sx), math.floor(sy), minutes(tick)))
+    end
   end
   if not key then
     local r = ex.res and k.req[ex.res]
@@ -716,6 +747,7 @@ local function monitor_one(f, k, ex, tick)
         retarget(f, k, a, ex, tick)
       end
     elseif tick >= (ex.next_target or 0) and (not ex.target or K.seen(k.m, ex.target) or arrived) then
+      if ex.target then ex.reached = (ex.reached or 0) + 1 end -- lot IA3F-PETROLE : cible vue ou point atteint
       retarget(f, k, a, ex, tick)
     elseif step and step[1] == "home" and ex.state ~= "home" then
       retarget(f, k, a, ex, tick) -- ne jamais rentrer avant la fin de la mission

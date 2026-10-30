@@ -218,6 +218,14 @@ print(string.format("  chemins rates en route repris : %d ; missions finies sur 
 check(asked6 == "demande" and oil6 ~= nil and oil6 - t6 <= 30 * 3600, "chemins ratés : pétrole trouvé moins de 30 min après (" ..
   tostring(oil6 and (oil6 - t6) / 3600) .. " min)")
 check(rer >= 1, "chemins ratés en route : une autre cible (" .. rer .. " fois)")
+-- Lot IA3F-PETROLE (30/10) : de 0.6.9 (279c043) à 0.6.20, ce cas échouait : les régions bloquées par les chemins ratés (lot EXPLO,
+-- c27646b, disque de 128 tuiles + cône de 37° chacun, 30 min) couvraient tout le tour du QG en 8 min, et chaque mission finissait
+-- « rien » (demande tenue pour épuisée) alors que la frontière n'était pas vue. Balayage des graines 1 à 8 du moteur simulé, pétrole
+-- trouvé en moins de 30 min : avant EXPLO 5/8, après EXPLO 2/8 (6 graines avec des fins « rien »), 0.6.20 2/8, ce lot 7/8 (graine 3 :
+-- non trouvé, aucune fin « rien »). La date du pétrole reste une affaire de chance à 30 % de chemins ratés ; ce contrôle-ci ne l'est
+-- pas : aucune mission ne finit « rien » tant que la frontière a des secteurs non vus hors exclusion dure.
+local rien6 = count_logs("(explore crude-oil) fin : rien")
+check(rien6 == 0, "chemins ratés : aucune mission finie « rien » à cause des régions bloquées (" .. rien6 .. ")")
 check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
 
 print(string.format("[IA3F] BILAN : %d OK, %d ECHEC(S)", pass, fail))
