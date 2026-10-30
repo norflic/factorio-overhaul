@@ -141,9 +141,20 @@ return {
     ctx.check(n_water == 0, "aucune tuile d'eau posee dans le treillis (plus d'etang garanti)", n_water)
     ctx.check(line >= 1, "poteaux de ligne entre le treillis et la centrale", line)
     ctx.check(#poles >= 2 and wet == 0, "aucun poteau du projet sur l'eau", #poles .. " poteaux, " .. wet .. " sur l'eau")
-    -- un seul réseau à portée de fil
-    local seen, stack, comp = { [1] = true }, { 1 }, 1
-    if #poles == 0 then stack, comp = {}, 0 end
+    -- la machine à vapeur rejoint le treillis à portée de fil : réseau du poteau le plus proche d'une machine à vapeur prévue,
+    -- qui doit atteindre un poteau au bord du treillis (le carrefour). Le poteau de quai à côté du bras À COMBUSTIBLE du charbon
+    -- (quai_poles, règle d'avant le lot) n'alimente rien et n'est pas relié : il est journalisé, hors bilan.
+    local start, sd
+    for _, en in ipairs(ents) do
+      if en.name == "steam-engine" then
+        for i, q in ipairs(poles) do
+          local d = (q.x - en.x) ^ 2 + (q.y - en.y) ^ 2
+          if not sd or d < sd then start, sd = i, d end
+        end
+      end
+    end
+    local seen, stack, comp = {}, {}, 0
+    if start then seen[start], stack, comp = true, { start }, 1 end
     while #stack > 0 do
       local i = table.remove(stack)
       local a = poles[i]
@@ -156,10 +167,12 @@ return {
         end
       end
     end
-    ctx.check(#poles > 0 and comp == #poles, "poteaux du projet relies a portee de fil (un seul reseau)", comp .. "/" .. #poles)
+    local edge_hit = false
+    for i, q in ipairs(poles) do if seen[i] and math.max(math.abs(q.x), math.abs(q.y)) <= EDGE + 2 then edge_hit = true end end
+    ctx.check(start ~= nil and edge_hit, "la machine a vapeur rejoint le carrefour du treillis a portee de fil", comp .. "/" .. #poles .. " poteaux dans son reseau")
     local pl = {}
     for i, en in ipairs(poles) do pl[#pl + 1] = string.format("%d:%s(%.1f,%.1f)%s", i, en.name, en.x, en.y, seen[i] and "" or "*") end
-    ctx.log("mesure (hors bilan) : poteaux du projet (* hors du reseau du premier) " .. table.concat(pl, " "))
+    ctx.log("mesure (hors bilan) : poteaux du projet (* hors du reseau de la machine a vapeur) " .. table.concat(pl, " "))
     -- mesuré (hors bilan) : chantier et machine à vapeur au réseau
     local eng = s.find_entities_filtered({ name = "steam-engine", force = "player" })[1]
     ctx.log(string.format("mesure (hors bilan) : %s/%s pieces baties, etat %s, machine a vapeur %s%s", tostring(p and p.built), tostring(p and p.total),
