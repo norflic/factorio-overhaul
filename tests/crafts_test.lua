@@ -28,6 +28,7 @@ local function section(t) print("== " .. t) end
 local X = require("shared.content.epochs")
 local T = require("shared.content.titanium")
 local C = require("shared.content.crafts")
+local SC = require("shared.content.superconductors") -- intégration 0.6.22 : X2 (technologies et fluides de l'âge 12)
 
 ---------------------------------------------------------------------------------------------------
 -- Graphe EN JEU des recettes du mod (X1 + ce lot) : { name, ingredients, results, category, unlocked_by }
@@ -62,6 +63,9 @@ local function build_graph(Cm)
   end
   for _, t in ipairs(T.TECHS) do addt(t, 11) end
   for _, t in ipairs(Cm.TECHS) do addt(t, t.epoch) end
+  -- Intégration 0.6.22 : les technologies de X2 (AMELIO-RESSOURCES, shared/content/superconductors.lua, âge 12) ouvrent les
+  -- torchères de l'oxygène et de l'oxygène liquide de ce lot.
+  for _, t in ipairs(SC.TECHS) do addt(t, 12) end
   return g
 end
 
@@ -88,7 +92,7 @@ local function graph_faults(Cm)
   -- 2. présence et fluides
   for _, r in ipairs(g.recipes) do
     for _, i in ipairs(r.ingredients) do
-      if not Cm.present(i[1]) then fault(r.name .. " : ingrédient absent du jeu " .. i[1]) end
+      if not (Cm.present(i[1]) or SC.present(i[1])) then fault(r.name .. " : ingrédient absent du jeu " .. i[1]) end -- (SC : fluides de X2)
     end
     for _, p in ipairs(r.results or {}) do
       if not Cm.present(p[1]) then fault(r.name .. " : produit absent du jeu " .. p[1]) end

@@ -93,7 +93,9 @@ S.TECHS = {
     prerequisites = { "fo-cryostat", "advanced-oil-processing", "fo-electrical-steel" },
     unlocks = { "fo-monazite-concentrate", "fo-extraction-column", "fo-monazite-leaching", "fo-solvent-extraction",
                 "fo-cryogenic-unit", "fo-air-distillation", "fo-water-electrolysis", "fo-sintering-furnace",
-                "fo-superconducting-tape", "fo-permanent-magnet", "fo-superconducting-coil" } },
+                "fo-superconducting-tape", "fo-permanent-magnet", "fo-superconducting-coil",
+                -- intégration 0.6.22 : torchères de l'oxygène et de l'oxygène liquide (recettes de shared/content/crafts.lua)
+                "fo-flare-oxygen", "fo-flare-liquid-oxygen" } },
 }
 S.PACKS = T.PACKS
 

@@ -118,6 +118,11 @@ C.RECIPES = {
   { name = "fo-methane-reforming", main = "fo-hydrogen" },
   { name = "fo-slag-carbonation" },
   { name = "fo-flare-carbon-dioxide", flare = true },
+  -- Intégration 0.6.22 (AMELIO-RESSOURCES : X2, shared/content/superconductors.lua) : l'oxygène (électrolyse de l'eau) et l'oxygène
+  -- liquide (distillation de l'air, sans consommateur en jeu) ont aussi leur torchère ; ouvertes par la technologie de X2 qui ouvre
+  -- ces fluides (fo-superconductors), comme le veut X0 (une torchère rejoint la technologie de son fluide).
+  { name = "fo-flare-oxygen", flare = true },
+  { name = "fo-flare-liquid-oxygen", flare = true },
   -- Étape 4, âge 10 (Silicium) : sable + graphite -> silicium métallurgique -> silicium pur (mange l'hydrogène) ->
   -- tranches -> processeur en salle blanche (variante du processeur vanilla, monnaie de l'âge 10).
   { name = "fo-metallurgical-silicon" },
