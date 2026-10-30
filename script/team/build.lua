@@ -44,6 +44,7 @@ local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et encei
 local Cen = require("shared.team.centrale") -- lot ENERGIE-CROISSANCE : étangs de plus (règle pure Cen.pond_allowed)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
+local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
@@ -2100,12 +2101,94 @@ local function plan_alim(f, surface, p)
   return false, "foreuses : " .. last
 end
 
+--- Lot PD-ELEC (D05) : plan d'un projet de RACCORDEMENT (spec.raccord, demandé par script/team/raccord.lua) : une chaîne de poteaux
+--- du poteau d'une île (ou d'un poteau neuf contre une machine sous aucun poteau) au poteau alimenté choisi, par P.pole_chain (recherche
+--- de chemin de 0.6.17) sur les masques du couloir (lot POTEAUX-MASQUES, mêmes attentes « masques »). Mêmes champs qu'un projet de
+--- module (entités, points d'appui, obstacles) : la machine d'états d'`advance` ne change pas ; les fils sont tirés au raccordement
+--- (wire_project relie les poteaux du projet à leurs voisins, île et réseau alimenté compris).
+local function plan_raccord(f, surface, p)
+  local b = f.build
+  local rc = p.spec.raccord
+  local function pole_at(x, y)
+    return surface.find_entities_filtered({ position = { x, y }, radius = 0.6, force = f.force, type = "electric-pole", limit = 1 })[1]
+  end
+  local tgt = pole_at(rc.target.x, rc.target.y)
+  if not tgt then return false, "raccord: poteau alimente disparu" end
+  local s0 = rc.start.new and rc.cands[1] or rc.start
+  if not s0 then return false, "raccord: aucun depart" end
+  local masks = read_masks(f, surface, math.floor(s0.x) - 12, math.floor(s0.y) - 12, math.floor(s0.x) + 13, math.floor(s0.y) + 13)
+  local start
+  if rc.start.new then
+    for _, c in ipairs(rc.cands) do
+      local tx, ty = math.floor(c.x), math.floor(c.y)
+      if masks.free(tx, ty) and not masks.clear[P.tkey(tx, ty)] then start = { x = c.x, y = c.y } break end
+    end
+    if not start then return false, "raccord: aucune place libre pour un poteau contre la machine" end
+  else
+    local sp = pole_at(rc.start.x, rc.start.y)
+    if not sp then return false, "raccord: poteau de l'ile disparu" end
+    if sp.electric_network_id == tgt.electric_network_id then return false, "raccord: deja relie" end
+    start = { x = rc.start.x, y = rc.start.y }
+  end
+  local view = masques_view(f, surface, p, masks, { { a = start, b = { x = rc.target.x, y = rc.target.y } } }, rc.reach)
+  if not view then return false, "masques (couloir du raccordement en cours de releve)", "masques" end
+  local taken = {}
+  if rc.start.new then taken[P.tkey(math.floor(start.x), math.floor(start.y))] = true end
+  local function free(x, y)
+    local tx, ty = math.floor(x), math.floor(y)
+    return view.free(tx, ty) and not taken[P.tkey(tx, ty)] and not view.clear(tx, ty)
+  end
+  -- poteaux déjà prévus ou posés (projets en chantier ou finis, comme plan_power) : la chaîne les traverse au lieu d'en doubler un
+  local known = {}
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then
+      for _, e in ipairs(q.ents) do
+        if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= rc.reach - 1e-9 then known[#known + 1] = { x = e.x, y = e.y } end
+      end
+    end
+  end
+  local chain = P.pole_chain(start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known)
+  if not chain then return false, "raccord: aucune chaine de poteaux (relief, eau, place)" end
+  local ents = {}
+  if rc.start.new then ents[1] = { name = rc.pole, x = start.x, y = start.y, dir = 0, part = 1, role = "liaison" } end
+  for _, c in ipairs(chain) do ents[#ents + 1] = { name = rc.pole, x = c.x, y = c.y, dir = 0, part = 1, role = "liaison" } end
+  if #ents == 0 then return false, "raccord: aucun poteau a poser (bouts a portee)" end
+  if not reserve_tiles(b, p, ents) then return false, "poteaux" end
+  local passable = seg_passable(b)
+  local wood = wood_of(surface, p.ents)
+  for _, e in ipairs(p.ents) do
+    local a = P.anchor_for(b.lat, e.x, e.y, passable)
+    local ax, ay
+    if a then ax, ay = a.x, a.y else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+    local fx, fy = free_spot(b, masks, ax, ay, wood)
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+    e.ax, e.ay = fx, fy
+    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    e.item = item_of(e.name)
+  end
+  P.sort_build(p.ents)
+  p.obstacles, p.obst_keys = {}, {}
+  for _, e in ipairs(p.ents) do
+    for _, t in ipairs(P.tiles_of(e)) do
+      local k = P.tkey(t[1], t[2])
+      if masks.clear[k] or wood[k] then add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
+    end
+  end
+  p.parts[1] = { kind = "raccord", key = "raccord", ox = start.x, oy = start.y, w = 1, h = 1, power = false }
+  p.counted = true -- un raccordement n'est pas un module : finish_project ne le compte pas aux modules finis
+  log(string.format("[FO-RACCORD] %s : projet %d planifie (groupe %s) : %d poteau(x) %s de (%.1f, %.1f) a (%.1f, %.1f), portee %g, %d obstacle(s)",
+    f.key or "player", p.id, tostring(rc.key), #p.ents, rc.pole, start.x, start.y, rc.target.x, rc.target.y, rc.reach, #p.obstacles))
+  return true
+end
+
 --- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
+  if spec.raccord then return plan_raccord(f, surface, p) end -- lot PD-ELEC (D05)
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- lot AGENCEMENT : la fonderie à tapis est une LIGNE qui suit le gisement (line_rows) ; ses coffres vont vers le centre (la
   -- source de ressources de la base, défaut) ou vers l'extérieur (les plaques nourrissent un autre module du plan)
@@ -3669,6 +3752,8 @@ local function pulse_team(f, tick)
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
+  -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
+  Raccord.step({ request = Build.request, prio = Build.PRIO + 4 }, f, surface, tick)
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
   local nb, stale = PlantArms.watch(f, surface, tick)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end

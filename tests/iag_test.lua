@@ -509,6 +509,7 @@ do
     ["shared/team/plan.lua"] = { "EXEC", 12, "empreintes des pièces et pièces du plan (tapis, coffre, poteaux)" },
     ["script/team/build.lua"] = { "EXEC", 23, "construction : pièces posées (tapis, coffre, poteaux, bras)" },
     ["script/team/reseau_vivant.lua"] = { "TYPE", 3, "types du moteur lus par la santé de la centrale et du réseau (boiler, generator, offshore-pump, inserter) : le GENRE de la pièce, jamais un niveau" },
+    ["script/team/raccord.lua"] = { "TYPE", 2, "types du moteur lus par le relevé de couverture électrique (lot PD-ELEC : machines électriques, machines génératrices dont solar-panel) : le GENRE, jamais un niveau" },
     ["script/team/plant_arms.lua"] = { "EXEC", 1, "journal de la centrale : le fluide « vapeur » lu dans les chaudières (diagnostic)" },
     ["script/faction/vision.lua"] = { "TYPE", 2, "types du moteur (assembling-machine, furnace...)" },
     ["script/faction/journal.lua"] = { "TYPE", 2, "types du moteur (car, robots)" },
