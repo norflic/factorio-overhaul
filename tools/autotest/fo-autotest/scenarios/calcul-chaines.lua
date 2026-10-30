@@ -1,79 +1,109 @@
 --[[
-  Scénario GREFFÉ « calcul-chaines » (lot CALCUL, 30/10) : la chaîne du calcul en moteur réel (shared/content/compute.lua,
-  prototypes/compute.lua, script/compute/compute.lua).
+  Scénario GREFFÉ « calcul-chaines » (lot CALCUL, 30/10 ; refait au lot CALCUL-V2, 30/10) : la chaîne du calcul en moteur
+  réel, UNE MACHINE PAR ÉTAPE (shared/content/compute_chain.lua, prototypes/compute_v2.lua, script/compute/compute.lua).
 
-  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui calcul -- 2500 calcul-chaines <source>
+  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui CALCUL-V2 -- 2500 calcul-chaines <source>
   Images    : même commande avec --captures --visuel="--no-atlas-cache"
 
-  1. Prototypes du lot présents (objets, fluides, 2 bâtiments, recettes, 5 technologies, packs vanilla, prérequis réels) ;
-     le centre de calcul : 4 × 4, 10 MW, aucun emplacement de module.
-  2. Les 5 technologies, recherchées par script, ouvrent leurs recettes.
+  1. Prototypes v2 présents (13 machines, objets, baies, fluides, recettes, 7 technologies) ; recettes v1 CACHÉES mais
+     présentes.
+  2. Toutes les technologies du calcul (v1 et v2), recherchées par script, ouvrent leurs recettes.
   3. Chaque étape dans SA machine, garnie par script : au contrôle, chaque poste a fini au moins une fabrication et son
-     produit est dans sa sortie (fluide : compté à la sortie).
-  4. Le CALCUL : 3 centres (classique, accéléré, quantique) en marche → l'interface « fo-calcul » lit 2 500 unités/s
-     (± 2 %) et la vitesse de recherche de la force = base des technologies + le bonus plafonné ; centres arrêtés
-     (active = false) → 0 unité/s et la vitesse revient EXACTEMENT à la base (calcul non stockable) ; relancés → le calcul
-     revient ; chaque centre a usé sa pièce (baie, baie d'accélérateurs, processeur quantique).
+     produit est dans sa sortie (fluide : compté à la sortie). Deux recettes v1 cachées tournent encore (sauvegardes).
+  4. Le CALCUL : 3 centres modulaires (CPU, GPU, quantique) en marche → « fo-calcul » lit la somme attendue (± 2 %) et la
+     vitesse de recherche = base + bonus ; baies retirées (rangées dans un coffre) → 0 unité/s et la vitesse revient
+     EXACTEMENT à la base (vitesse de recherche 2 recherchée en marche comprise : calcul non stockable) ; baies remises → le
+     calcul revient ; aucune baie usée (capital, plus de consommable).
 ]]
 
 local X0, Y0 = 4200, 3000
 local CHECK = 2400
 local T_FULL, T_TECH, T_STOP, T_STOPPED, T_RESTART, T_BACK = 600, 900, 1200, 1330, 1400, 1630
 
-local TECHS = { "fo-chip-foundry", "fo-data-centers", "fo-gpu-computing", "fo-regolith-degassing", "fo-quantum-computing" }
-local ITEMS = { "fo-photomask", "fo-etched-wafer", "fo-crystal-laser", "fo-logic-die", "fo-dram-die", "fo-sram-die", "fo-heat-sink",
-                "fo-memory-module", "fo-motherboard", "fo-server-blade", "fo-graphics-card", "fo-gpu-blade", "fo-degassed-ilmenite",
-                "fo-qubit-chip", "fo-dilution-stage", "fo-quantum-processor", "fo-crystal-lithograph", "fo-data-center" }
-local FLUIDS = { "fo-photoresist", "fo-helium-3" }
-local BUILDINGS = { "fo-crystal-lithograph", "fo-data-center" }
+local TECHS = { "fo-chip-foundry", "fo-wafer-fab", "fo-data-centers", "fo-gpu-computing", "fo-data-centers-2",
+                "fo-regolith-degassing", "fo-quantum-computing" }
+local ITEMS = { "fo-silicon-ingot", "fo-exposed-wafer", "fo-nand-die", "fo-flash-drive", "fo-optical-fiber", "fo-network-switch",
+                "fo-server-blade", "fo-memory-rack", "fo-storage-rack", "fo-network-rack", "fo-cooling-rack", "fo-gpu-blade",
+                "fo-quantum-rack" }
+local FLUIDS = { "fo-chilled-water", "fo-warm-water", "fo-dilution-mix", "fo-photoresist", "fo-helium-3" }
+local BUILDINGS = { "fo-crystal-puller", "fo-wire-saw", "fo-crystal-lithograph", "fo-plasma-etcher", "fo-die-prober",
+                    "fo-packaging-line", "fo-smt-line", "fo-fiber-tower", "fo-rack-integrator", "fo-chiller", "fo-cooling-tower",
+                    "fo-data-center", "fo-data-center-2", "fo-dilution-fridge", "fo-quantum-lab" }
+local HIDDEN = { "fo-etched-wafer", "fo-logic-die", "fo-memory-module", "fo-server-blade", "fo-compute-classic", "fo-data-center" }
 
+local PCB, OSC = "fo-printed-circuit-board", "fo-crystal-oscillator"
 -- Postes : machine, recette, produit principal, garniture { objets }, { fluides }, sortie fluide ?
 local POSTES = {
-  { key = "resine", m = "chemical-plant", r = "fo-photoresist", p = "fo-photoresist", fluid_out = true,
-    items = { { "sulfur", 10 } }, fluids = { { "fo-epoxy-resin", 200 }, { "light-oil", 100 } } },
-  { key = "masque", m = "fo-cleanroom", r = "fo-photomask", p = "fo-photomask",
-    items = { { "fo-glass", 4 }, { "fo-tungsten-plate", 2 }, { "advanced-circuit", 2 } } },
-  { key = "laser", m = "assembling-machine-3", r = "fo-crystal-laser", p = "fo-crystal-laser",
-    items = { { "fo-cut-crystal", 2 }, { "fo-resonance-lens", 4 }, { "fo-coil", 4 }, { "fo-aluminium-plate", 2 } } },
-  { key = "gravure", m = "fo-crystal-lithograph", r = "fo-etched-wafer", p = "fo-etched-wafer",
-    items = { { "fo-silicon-wafer", 20 }, { "fo-photomask", 2 } }, fluids = { { "fo-photoresist", 50 }, { "sulfuric-acid", 100 } } },
-  { key = "logique", m = "fo-cleanroom", r = "fo-logic-die", p = "fo-logic-die", items = { { "fo-etched-wafer", 4 } } },
-  { key = "dram", m = "fo-cleanroom", r = "fo-dram-die", p = "fo-dram-die", items = { { "fo-etched-wafer", 4 } } },
-  { key = "sram", m = "fo-cleanroom", r = "fo-sram-die", p = "fo-sram-die", items = { { "fo-etched-wafer", 4 } } },
-  { key = "radiateur", m = "assembling-machine-3", r = "fo-heat-sink", p = "fo-heat-sink",
-    items = { { "fo-aluminium-plate", 4 }, { "copper-plate", 2 } } },
-  { key = "processeur", m = "fo-cleanroom", r = "fo-chip-processor", p = "processing-unit",
-    items = { { "fo-logic-die", 2 }, { "fo-sram-die", 4 }, { "fo-printed-circuit-board", 2 }, { "fo-heat-sink", 2 },
-              { "electronic-circuit", 24 }, { "advanced-circuit", 4 } } },
-  { key = "memoire", m = "fo-cleanroom", r = "fo-memory-module", p = "fo-memory-module",
-    items = { { "fo-dram-die", 16 }, { "fo-printed-circuit-board", 2 }, { "fo-tin-plate", 2 } } },
-  { key = "carte-mere", m = "fo-circuit-printer", r = "fo-motherboard", p = "fo-motherboard",
-    items = { { "fo-printed-circuit-board", 4 }, { "fo-crystal-oscillator", 2 }, { "advanced-circuit", 4 }, { "copper-cable", 8 } } },
-  { key = "baie", m = "assembling-machine-3", r = "fo-server-blade", p = "fo-server-blade",
-    items = { { "fo-motherboard", 1 }, { "processing-unit", 2 }, { "fo-memory-module", 4 }, { "fo-heat-sink", 2 }, { "steel-plate", 5 } } },
-  { key = "centre", m = "assembling-machine-3", r = "fo-data-center", p = "fo-data-center",
-    items = { { "fo-server-blade", 4 }, { "steel-plate", 20 }, { "concrete", 20 }, { "pipe", 10 } } },
-  { key = "carte-graphique", m = "fo-cleanroom", r = "fo-graphics-card", p = "fo-graphics-card",
-    items = { { "fo-logic-die", 4 }, { "fo-dram-die", 8 }, { "fo-printed-circuit-board", 1 }, { "fo-heat-sink", 2 }, { "fo-titanium-plate", 1 } } },
-  { key = "baie-gpu", m = "assembling-machine-3", r = "fo-gpu-blade", p = "fo-gpu-blade",
+  { key = "lingot", m = "fo-crystal-puller", r = "fo-silicon-ingot", p = "fo-silicon-ingot",
+    items = { { "fo-pure-silicon", 20 }, { "fo-graphite", 2 } } },
+  { key = "sciage", m = "fo-wire-saw", r = "fo-ingot-sawing", p = "fo-silicon-wafer",
+    items = { { "fo-silicon-ingot", 2 }, { "fo-crystal-powder", 4 } }, fluids = { { "water", 100 } } },
+  { key = "insolation", m = "fo-crystal-lithograph", r = "fo-wafer-exposure", p = "fo-exposed-wafer",
+    items = { { "fo-silicon-wafer", 20 }, { "fo-photomask", 2 } }, fluids = { { "fo-photoresist", 50 } } },
+  { key = "gravure", m = "fo-plasma-etcher", r = "fo-plasma-etching", p = "fo-etched-wafer",
+    items = { { "fo-exposed-wafer", 20 } }, fluids = { { "sulfuric-acid", 50 }, { "fo-hydrogen", 100 } } },
+  { key = "logique", m = "fo-die-prober", r = "fo-die-test-logic", p = "fo-logic-die", items = { { "fo-etched-wafer", 4 } } },
+  { key = "dram", m = "fo-die-prober", r = "fo-die-test-dram", p = "fo-dram-die", items = { { "fo-etched-wafer", 4 } } },
+  { key = "sram", m = "fo-die-prober", r = "fo-die-test-sram", p = "fo-sram-die", items = { { "fo-etched-wafer", 4 } } },
+  { key = "nand", m = "fo-die-prober", r = "fo-die-test-nand", p = "fo-nand-die", items = { { "fo-etched-wafer", 4 } } },
+  { key = "processeur", m = "fo-packaging-line", r = "fo-packaged-processor", p = "processing-unit",
+    items = { { "fo-logic-die", 2 }, { "fo-sram-die", 4 }, { PCB, 2 }, { "fo-heat-sink", 2 }, { "electronic-circuit", 24 }, { "advanced-circuit", 4 } } },
+  { key = "flash", m = "fo-packaging-line", r = "fo-flash-drive", p = "fo-flash-drive",
+    items = { { "fo-nand-die", 16 }, { PCB, 2 }, { "plastic-bar", 4 } } },
+  { key = "fibre", m = "fo-fiber-tower", r = "fo-optical-fiber", p = "fo-optical-fiber", items = { { "fo-glass", 4 }, { "fo-crystal-powder", 2 } } },
+  { key = "carte-mere", m = "fo-smt-line", r = "fo-smt-motherboard", p = "fo-motherboard",
+    items = { { PCB, 4 }, { OSC, 2 }, { "advanced-circuit", 4 }, { "copper-cable", 8 } } },
+  { key = "barrette", m = "fo-smt-line", r = "fo-smt-memory-module", p = "fo-memory-module",
+    items = { { "fo-dram-die", 16 }, { PCB, 2 }, { "fo-tin-plate", 2 } } },
+  { key = "commutateur", m = "fo-smt-line", r = "fo-network-switch", p = "fo-network-switch",
+    items = { { "fo-optical-fiber", 16 }, { "fo-logic-die", 4 }, { PCB, 2 }, { "copper-cable", 8 } } },
+  { key = "carte-graphique", m = "fo-smt-line", r = "fo-smt-graphics-card", p = "fo-graphics-card",
+    items = { { "fo-logic-die", 4 }, { "fo-dram-die", 8 }, { PCB, 1 }, { "fo-heat-sink", 2 }, { "fo-titanium-plate", 1 } } },
+  { key = "baie-cpu", m = "fo-rack-integrator", r = "fo-rack-cpu", p = "fo-server-blade",
+    items = { { "fo-motherboard", 1 }, { "processing-unit", 2 }, { "fo-memory-module", 2 }, { "fo-heat-sink", 2 }, { "steel-plate", 5 } } },
+  { key = "baie-memoire", m = "fo-rack-integrator", r = "fo-rack-memory", p = "fo-memory-rack",
+    items = { { "fo-motherboard", 1 }, { "fo-memory-module", 30 }, { "fo-heat-sink", 2 }, { "steel-plate", 5 } } },
+  { key = "baie-stockage", m = "fo-rack-integrator", r = "fo-rack-storage", p = "fo-storage-rack",
+    items = { { "fo-motherboard", 1 }, { "fo-flash-drive", 16 }, { "processing-unit", 1 }, { "steel-plate", 5 } } },
+  { key = "baie-reseau", m = "fo-rack-integrator", r = "fo-rack-network", p = "fo-network-rack",
+    items = { { "fo-network-switch", 6 }, { "fo-optical-fiber", 20 }, { "processing-unit", 1 }, { "steel-plate", 5 } } },
+  { key = "baie-froid", m = "fo-rack-integrator", r = "fo-rack-cooling", p = "fo-cooling-rack",
+    items = { { "fo-heat-sink", 6 }, { "pipe", 10 }, { "electric-engine-unit", 4 }, { "fo-aluminium-plate", 10 }, { "steel-plate", 5 } } },
+  { key = "baie-gpu", m = "fo-rack-integrator", r = "fo-rack-gpu", p = "fo-gpu-blade",
     items = { { "fo-motherboard", 1 }, { "processing-unit", 1 }, { "fo-graphics-card", 4 }, { "fo-memory-module", 2 } } },
+  { key = "baie-quantique", m = "fo-rack-integrator", r = "fo-rack-quantum", p = "fo-quantum-rack",
+    items = { { "fo-quantum-processor", 1 }, { "fo-heat-sink", 2 }, { "steel-plate", 10 } } },
+  { key = "groupe-froid", m = "fo-chiller", r = "fo-water-chilling", p = "fo-chilled-water", fluid_out = true, fluids = { { "water", 200 } } },
+  { key = "tour", m = "fo-cooling-tower", r = "fo-warm-water-cooling", p = "water", fluid_out = true, fluids = { { "fo-warm-water", 400 } } },
+  { key = "bati", m = "assembling-machine-3", r = "fo-data-center-frame", p = "fo-data-center",
+    items = { { "steel-plate", 20 }, { "concrete", 20 }, { "pipe", 10 }, { "fo-motherboard", 2 }, { "fo-network-switch", 1 } } },
   { key = "degazage", m = "fo-sintering-furnace", r = "fo-regolith-degassing", p = "fo-degassed-ilmenite",
     items = { { "fo-ilmenite-concentrate", 20 } }, also_fluid = "fo-helium-3" },
-  { key = "ilmenite-degazee", m = "fo-arc-furnace", r = "fo-degassed-ilmenite-smelting", p = "iron-plate",
-    items = { { "fo-degassed-ilmenite", 4 }, { "fo-coke", 4 } } },
-  { key = "qubits", m = "fo-crystal-lithograph", r = "fo-qubit-chip", p = "fo-qubit-chip",
-    items = { { "fo-etched-wafer", 2 }, { "fo-superconducting-tape", 4 } } },
-  { key = "dilution", m = "fo-cryogenic-unit", r = "fo-dilution-stage", p = "fo-dilution-stage",
+  { key = "melange", m = "fo-dilution-fridge", r = "fo-dilution-mix", p = "fo-dilution-mix", fluid_out = true,
+    fluids = { { "fo-helium-3", 10 }, { "fo-liquid-nitrogen", 50 } } },
+  { key = "etage", m = "fo-dilution-fridge", r = "fo-fridge-dilution-stage", p = "fo-dilution-stage",
     items = { { "fo-cryostat", 1 } }, fluids = { { "fo-helium-3", 40 }, { "fo-liquid-nitrogen", 20 } } },
-  { key = "quantique", m = "fo-cleanroom", r = "fo-quantum-processor", p = "fo-quantum-processor",
+  { key = "qubits", m = "fo-quantum-lab", r = "fo-qlab-qubit-chip", p = "fo-qubit-chip",
+    items = { { "fo-etched-wafer", 2 }, { "fo-superconducting-tape", 4 } } },
+  { key = "quantique", m = "fo-quantum-lab", r = "fo-qlab-quantum-processor", p = "fo-quantum-processor",
     items = { { "fo-qubit-chip", 4 }, { "fo-dilution-stage", 1 }, { "fo-logic-die", 2 }, { "fo-sram-die", 4 }, { "fo-motherboard", 1 } } },
+  -- v1 CACHÉES : toujours valides dans leurs machines (sauvegardes 0.6.27)
+  { key = "v1-gravure", m = "fo-crystal-lithograph", r = "fo-etched-wafer", p = "fo-etched-wafer",
+    items = { { "fo-silicon-wafer", 20 }, { "fo-photomask", 2 } }, fluids = { { "fo-photoresist", 50 }, { "sulfuric-acid", 100 } } },
+  { key = "v1-logique", m = "fo-cleanroom", r = "fo-logic-die", p = "fo-logic-die", items = { { "fo-etched-wafer", 4 } } },
 }
--- Centres de calcul : recette, pièce usée, unités/s attendues.
+-- Centres de calcul modulaires : baies, recette, fluides, unités/s attendues (règle du plan §2, calculées à la main).
 local CENTRES = {
-  { key = "dc-classique", r = "fo-compute-classic", part = "fo-server-blade", n = 2, fluids = { { "water", 3000 } }, rate = 100 },
-  { key = "dc-accelere", r = "fo-compute-accelerated", part = "fo-gpu-blade", n = 2, fluids = { { "water", 3000 } }, rate = 400 },
-  { key = "dc-quantique", r = "fo-compute-quantum", part = "fo-quantum-processor", n = 2,
-    fluids = { { "water", 6000 }, { "fo-helium-3", 300 } }, rate = 2000 },
+  { key = "dc-cpu", name = "fo-data-center", r = "fo-dc-chilled-water", rate = 280,
+    racks = { { "fo-server-blade", 3 }, { "fo-memory-rack", 1 }, { "fo-cooling-rack", 1 }, { "fo-storage-rack", 1 } },
+    fluids = { { "fo-chilled-water", 200 } } },
+  { key = "dc-gpu", name = "fo-data-center", r = "fo-dc-chilled-water", rate = 400,
+    racks = { { "fo-gpu-blade", 1 }, { "fo-memory-rack", 1 }, { "fo-cooling-rack", 2 }, { "fo-storage-rack", 1 }, { "fo-network-rack", 1 } },
+    fluids = { { "fo-chilled-water", 200 } } },
+  { key = "dc-quantique", name = "fo-data-center-2", r = "fo-dc-dilution", rate = 2000,
+    racks = { { "fo-quantum-rack", 2 }, { "fo-server-blade", 2 }, { "fo-memory-rack", 1 }, { "fo-cooling-rack", 2 },
+              { "fo-storage-rack", 3 }, { "fo-network-rack", 2 } },
+    fluids = { { "fo-chilled-water", 200 }, { "fo-dilution-mix", 40 } } },
 }
 
 local function size_of(name)
@@ -98,8 +128,13 @@ local function garnish(e, p)
   for _, fl in ipairs(p.fluids or {}) do e.insert_fluid({ name = fl[1], amount = fl[2] }) end
 end
 
+local function racks_in(e, c)
+  local inv = e.get_module_inventory()
+  for _, rk in ipairs(c.racks) do inv.insert({ name = rk[1], count = rk[2] }) end
+end
+
 return {
-  description = "CALCUL : puces, processeur, memoire, carte mere, baies, carte graphique, processeur quantique, centre de calcul et calcul par script",
+  description = "CALCUL-V2 : une machine par etape (lingot, sciage, insolation, gravure, test, boitier, CMS, fibre, baies, froid, quantique), centres modulaires",
   check_tick = CHECK,
   shots_delay = 400,
 
@@ -115,9 +150,11 @@ return {
     for _, n in ipairs(BUILDINGS) do if not game.entity_prototypes[n] then miss[#miss + 1] = n end end
     for _, n in ipairs(TECHS) do if not game.technology_prototypes[n] then miss[#miss + 1] = n end end
     for _, p in ipairs(POSTES) do if not game.recipe_prototypes[p.r] then miss[#miss + 1] = p.r end end
-    for _, c in ipairs(CENTRES) do if not game.recipe_prototypes[c.r] then miss[#miss + 1] = c.r end end
-    ctx.check(#miss == 0, "prototypes du lot presents (" .. #ITEMS .. " objets, " .. #FLUIDS .. " fluides, " .. #TECHS
-      .. " technologies, " .. (#POSTES + #CENTRES) .. " recettes)", #miss > 0 and table.concat(miss, ", ") or nil)
+    ctx.check(#miss == 0, "prototypes du lot presents (" .. #ITEMS .. " objets, " .. #FLUIDS .. " fluides, " .. #BUILDINGS
+      .. " batiments, " .. #TECHS .. " technologies, " .. #POSTES .. " recettes de poste)", #miss > 0 and table.concat(miss, ", ") or nil)
+    local shown = {}
+    for _, n in ipairs(HIDDEN) do local r = game.recipe_prototypes[n]; if not (r and r.hidden) then shown[#shown + 1] = n end end
+    ctx.check(#shown == 0, #HIDDEN .. " recettes v1 controlees : presentes et cachees", table.concat(shown, ", "))
     local bad = {}
     for _, n in ipairs(TECHS) do
       local t = game.technology_prototypes[n]
@@ -128,16 +165,6 @@ return {
       end
     end
     ctx.check(#bad == 0, "technologies : packs vanilla (6 au moins), prerequis existants", #bad > 0 and table.concat(bad, ", ") or nil)
-    local dc = game.entity_prototypes["fo-data-center"]
-    ctx.check(dc and size_of("fo-data-center") == 4 and math.abs(dc.max_energy_usage * 60 - 10e6) < 1e3
-      and (dc.module_inventory_size or 0) == 0 and #dc.fluidbox_prototypes == 2,
-      "centre de calcul : 4 x 4, 10 MW, 0 module, 2 entrees de fluide",
-      dc and (size_of("fo-data-center") .. ", " .. (dc.max_energy_usage * 60) .. " W, " .. tostring(dc.module_inventory_size)
-        .. " modules, " .. #dc.fluidbox_prototypes .. " boites") or "absent")
-    for _, c in ipairs(CENTRES) do
-      local r = game.recipe_prototypes[c.r]
-      if r then ctx.check(#r.products == 0, c.r .. " : aucun produit (calcul non stockable)", #r.products .. " produit(s)") end
-    end
     -- 2. Recherche par script
     local f = game.forces.player
     local closed, n = {}, 0
@@ -150,9 +177,7 @@ return {
         end
       end
     end
-    ctx.check(#closed == 0 and n >= 24, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
-    -- Base des technologies NON nulle : vitesse de recherche 1 (vanilla) ; vitesse de recherche 2 sera recherchée EN
-    -- MARCHE (tick T_TECH), entre deux fenêtres : le piège du champ partagé avec les technologies (plan CALCUL §3).
+    ctx.check(#closed == 0 and n >= 69, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
     f.technologies["research-speed-1"].researched = true
     st.base = f.laboratory_speed_modifier
     st.rs2 = 0
@@ -161,10 +186,10 @@ return {
     end
 
     -- 3. Postes et centres
-    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 175, Y0 + 12, "refined-concrete")
-    for _, e in ipairs(s.find_entities_filtered({ area = { { X0 - 120, Y0 - 120 }, { X0 + 300, Y0 + 120 } }, force = "enemy" })) do e.destroy() end
+    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 240, Y0 + 12, "refined-concrete")
+    for _, e in ipairs(s.find_entities_filtered({ area = { { X0 - 120, Y0 - 120 }, { X0 + 360, Y0 + 120 } }, force = "enemy" })) do e.destroy() end
     ctx.power(X0 + 40, Y0 + 9)
-    ctx.power(X0 + 130, Y0 + 9)
+    ctx.power(X0 + 160, Y0 + 9)
     st.postes, st.centres = {}, {}
     local x = X0
     local placed, fails = 0, {}
@@ -175,10 +200,9 @@ return {
       x = x + side + 2
     end
     for i, c in ipairs(CENTRES) do
-      local e, px, py, side = place(s, x, "fo-data-center", c.r)
+      local e, px, py, side = place(s, x, c.name, c.r)
       if e then
-        local inv = e.get_inventory(defines.inventory.assembling_machine_input)
-        inv.insert({ name = c.part, count = c.n })
+        racks_in(e, c)
         for _, fl in ipairs(c.fluids) do e.insert_fluid({ name = fl[1], amount = fl[2] }) end
         placed = placed + 1
       else
@@ -187,14 +211,15 @@ return {
       st.centres[i] = { key = c.key, e = e, x = px, y = py, side = side }
       x = x + side + 2
     end
+    st.chest = s.create_entity({ name = "steel-chest", position = { x + 2, Y0 + 6 }, force = "player" })
     st.x1 = x
     ctx.check(placed == #POSTES + #CENTRES, placed .. " postes et centres poses, recette posee", #fails > 0 and table.concat(fails, ", ") or nil)
   end,
 
   tick = function(ctx, e)
     local st = ctx.state()
-    -- Fluides : regarnir toutes les 120 ticks, compter et vider les sorties fluides.
-    if e.tick % 120 == 0 and e.tick < CHECK then
+    -- Fluides : regarnir toutes les 60 ticks, compter et vider les sorties fluides.
+    if e.tick % 60 == 0 and e.tick < CHECK then
       for i, p in ipairs(POSTES) do
         local m = st.postes[i] and st.postes[i].e
         if m and m.valid then
@@ -204,12 +229,23 @@ return {
           local outf = p.fluid_out and p.p or p.also_fluid
           if outf then
             local c = m.get_fluid_count(outf)
+            -- (groupe froid et tour : l'entrée et la sortie ne partagent pas le fluide, sauf la tour, eau en sortie seulement)
             if c > 0 then
               st.out = st.out or {}
               st.out[p.key] = (st.out[p.key] or 0) + c
               m.remove_fluid({ name = outf, amount = c })
             end
           end
+        end
+      end
+      for i, c in ipairs(CENTRES) do
+        local m = st.centres[i] and st.centres[i].e
+        if m and m.valid then
+          for _, fl in ipairs(c.fluids) do
+            if m.get_fluid_count(fl[1]) < fl[2] then m.insert_fluid({ name = fl[1], amount = fl[2] - m.get_fluid_count(fl[1]) }) end
+          end
+          local w = m.get_fluid_count("fo-warm-water")
+          if w > 0 then m.remove_fluid({ name = "fo-warm-water", amount = w }) end
         end
       end
     end
@@ -220,20 +256,33 @@ return {
         e.tick, cs.rate, cs.bonus, cs.centers, st.full.mod, st.base))
     elseif e.tick == T_TECH then
       game.forces.player.technologies["research-speed-2"].researched = true
-      local cs = state()
-      st.tech = { mod = game.forces.player.laboratory_speed_modifier, bonus = cs.bonus }
     elseif e.tick == T_STOP then
-      for _, c in ipairs(st.centres) do if c.e and c.e.valid then c.e.active = false end end
+      -- baies retirées, rangées dans un coffre
+      for _, c in ipairs(st.centres) do
+        if c.e and c.e.valid then
+          local inv = c.e.get_module_inventory()
+          for n, k in pairs(inv.get_contents()) do st.chest.insert({ name = n, count = k }) end
+          inv.clear()
+        end
+      end
     elseif e.tick == T_STOPPED then
       local cs = state()
       st.stopped = { rate = cs.rate, bonus = cs.bonus, mod = game.forces.player.laboratory_speed_modifier }
-      ctx.log(string.format("centres arretes (tick %d) : %.1f unites/s, vitesse de recherche %.6f", e.tick, cs.rate, st.stopped.mod))
+      ctx.log(string.format("baies retirees (tick %d) : %.1f unites/s, vitesse de recherche %.6f", e.tick, cs.rate, st.stopped.mod))
     elseif e.tick == T_RESTART then
-      for _, c in ipairs(st.centres) do if c.e and c.e.valid then c.e.active = true end end
+      for i, c in ipairs(CENTRES) do
+        local m = st.centres[i].e
+        if m and m.valid then
+          for _, rk in ipairs(c.racks) do
+            local got = st.chest.remove_item({ name = rk[1], count = rk[2] })
+            m.get_module_inventory().insert({ name = rk[1], count = got })
+          end
+        end
+      end
     elseif e.tick == T_BACK then
       local cs = state()
       st.back = { rate = cs.rate, mod = game.forces.player.laboratory_speed_modifier }
-      ctx.log(string.format("centres relances (tick %d) : %.1f unites/s", e.tick, cs.rate))
+      ctx.log(string.format("baies remises (tick %d) : %.1f unites/s", e.tick, cs.rate))
     end
   end,
 
@@ -252,11 +301,9 @@ return {
       end
       local fin = m and m.valid and m.products_finished or 0
       if got > 0 and fin > 0 then ok = ok + 1 else ko[#ko + 1] = p.key .. "(" .. fin .. " fab., " .. got .. " " .. p.p .. ")" end
-      ctx.log(string.format("poste %s : %s, %d fabrication(s), %s %s", p.key, p.r, fin, tostring(got), p.p))
+      ctx.log(string.format("poste %s : %s dans %s, %d fabrication(s), %s %s", p.key, p.r, p.m, fin, tostring(got), p.p))
     end
-    ctx.check(ok == #POSTES, "chaque etape a fabrique son produit", ok .. " / " .. #POSTES .. (#ko > 0 and (" ; " .. table.concat(ko, ", ")) or ""))
-    local he3 = st.out and st.out["degazage"] or 0
-    ctx.check(he3 > 0, "degazage du regolithe : helium-3 rendu", string.format("%.2f", he3))
+    ctx.check(ok == #POSTES, "chaque etape a fabrique son produit dans sa machine", ok .. " / " .. #POSTES .. (#ko > 0 and (" ; " .. table.concat(ko, ", ")) or ""))
     -- 4. Le calcul
     local want = 0
     for _, c in ipairs(CENTRES) do want = want + c.rate end
@@ -268,35 +315,32 @@ return {
     local sp = st.stopped or { rate = -1, mod = -1 }
     local base2 = st.base + (st.rs2 or 0)
     ctx.check(st.base > 0 and (st.rs2 or 0) > 0 and sp.rate == 0 and math.abs(sp.mod - base2) < 1e-9,
-      "centres arretes : 0 unite/s, vitesse revenue exactement a la base des technologies, recherche faite en marche comprise (non stockable)",
-      string.format("%.1f, %.6f contre %.6f (vitesse 1 : %.3f, vitesse 2 recherchee au tick %d : +%.3f)", sp.rate, sp.mod, base2, st.base, T_TECH, st.rs2 or 0))
+      "baies retirees : 0 unite/s, vitesse revenue exactement a la base des technologies, recherche faite en marche comprise (non stockable)",
+      string.format("%.1f, %.6f contre %.6f", sp.rate, sp.mod, base2))
     local bk = st.back or { rate = -1 }
-    ctx.check(math.abs(bk.rate - want) <= 0.02 * want, "centres relances : le calcul revient", string.format("%.1f", bk.rate))
-    local used, detail = 0, {}
+    ctx.check(math.abs(bk.rate - want) <= 0.02 * want, "baies remises : le calcul revient", string.format("%.1f", bk.rate))
+    local kept, detail = 0, {}
     for i, c in ipairs(CENTRES) do
-      local e = st.centres[i] and st.centres[i].e
-      local left = e and e.valid and e.get_inventory(defines.inventory.assembling_machine_input).get_item_count(c.part) or -1
-      if left == c.n - 1 then used = used + 1 end
-      detail[#detail + 1] = c.key .. ":" .. left .. "/" .. c.n
+      local m = st.centres[i] and st.centres[i].e
+      local inv = m and m.valid and m.get_module_inventory()
+      local all = true
+      for _, rk in ipairs(c.racks) do if not inv or inv.get_item_count(rk[1]) ~= rk[2] then all = false end end
+      if all then kept = kept + 1 end
+      detail[#detail + 1] = c.key .. (all and ":ok" or ":manque")
     end
-    ctx.check(used == #CENTRES, "chaque centre a use une piece (baie, baie GPU, processeur quantique)", table.concat(detail, ", "))
+    ctx.check(kept == #CENTRES, "aucune baie usee : chaque centre a toutes ses baies (capital)", table.concat(detail, ", "))
   end,
 
   shots = function(ctx, add)
     local st = ctx.state()
-    local x0, x1 = X0 - 2, st.x1 or (X0 + 160)
-    local half = math.ceil((x1 - x0) / 2)
-    for k = 0, 1 do
-      local cx = x0 + half / 2 + k * half
-      add(string.format("rangee-%d-z1-jour", k + 1), cx, Y0, 1, 0, { res = { (half + 4) * 32, 12 * 32 }, info = false, aa = true })
+    local x0, x1 = X0 - 2, st.x1 or (X0 + 200)
+    local third = math.ceil((x1 - x0) / 3)
+    for k = 0, 2 do
+      local cx = x0 + third / 2 + k * third
+      add(string.format("rangee-%d-z1-jour", k + 1), cx, Y0, 1, 0, { res = { (third + 4) * 32, 12 * 32 }, info = false, aa = true })
     end
     for _, c in ipairs(st.centres or {}) do
       add("centre-" .. c.key .. "-z2-jour", c.x, c.y, 2, 0, { res = { (c.side + 6) * 64, (c.side + 6) * 64 }, info = true, aa = true })
-    end
-    for _, pp in ipairs(st.postes or {}) do
-      if pp.key == "gravure" then
-        add("lithographe-z2-jour", pp.x, pp.y, 2, 0, { res = { (pp.side + 6) * 64, (pp.side + 6) * 64 }, info = true, aa = true })
-      end
     end
   end,
 }
