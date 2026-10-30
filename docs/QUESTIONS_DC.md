@@ -28,3 +28,12 @@ Une ligne par question : sujet, option par defaut retenue, chiffres, effet. Rien
 
 ## Q18 (29/10 22 h 40) : extension des avant-postes au-dela de la portee des tourelles
 Sans plafond (0.6.19), un avant-poste s'etend jusqu'a 80 % de son gisement ; ses foreuses peripheriques (27-32 tuiles du centre) sortent de la portee de ses tourelles. Options : (a) les tourelles suivent l'extension (ajoutees en bordure selon les ressources) ; (b) borner l'extension a la portee ; (c) etendre sans proteger. **Defaut : (a), non applique sans votre accord** (lot pret a lancer).
+
+## Q19 (30/10 3 h 40) : une faction dont le QG tombe est eliminee pour toujours
+(source : fo-logs/2026-10-30_AMELIO/CINQ-POINTS.md, point 1). Aujourd'hui la chute du QG elimine la faction meme avec des PNJ, des avant-postes et des usines, et tout le stock part avec le QG. Options : (a) refondation : la faction repose un QG au plus sur de ses sites tant qu'elle a des PNJ ou du stock ; (b) garder l'elimination. **Defaut : (a), non applique sans votre accord.** (Le faux message « remporte la guerre » quand les rivaux sont morts sous les biters est corrige cette nuit.)
+
+## Q20 (30/10 3 h 40) : la chaine du petrole (branche petrole2, parquee) 
+Les factions butent sur le « mur du petrole » vers la 289e minute (recherche impayable : moteur, plastique, soufre). La branche petrole2 (56 commits) est reprise cette nuit sur la 0.6.20 et relue. Options : (a) fusionnee avec le reglage fo-war-petrole ALLUME ; (b) fusionnee eteinte par defaut ; (c) ne pas fusionner. **Defaut : (b) si la relecture la valide.**
+
+## Q21 (30/10 3 h 40) : effectif des factions et votre equipe
+Dans vos deux parties du 29/10, les factions etaient plafonnees a 8 ouvriers (reglage de carte « Factions : ouvriers au plus » a 8 ; defaut du mod 30) avec 49 000 fers inemployes, et aucune equipe a vous n'etait posee. Le reglage se change en cours de partie (Echap > Reglages > Carte). Voulez-vous une option « equipe posee au depart » ? **Defaut : non, mais journal [FO-REGLAGES] et [FO-PTEAM] ajoutes cette nuit.**
