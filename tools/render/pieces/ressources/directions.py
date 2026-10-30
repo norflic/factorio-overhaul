@@ -485,14 +485,39 @@ ICONE["C1"] = dict(ICONE["Z1"], roche_mats=("cassiterite_brun", "quartz_blanc", 
                    bloc_mats=("cassiterite_brun", "quartz_blanc"))
 EFFET["C1"] = dict(teinte=(1.0, 0.97, 0.90), seuil=(0.45, 0.80))
 
+# B1 (lot AMELIO-RESSOURCES, piste BAUXITE, 30/10) : BAUXITE, minerai de l'aluminium (âge 6, proposition X3 : « pisolithes
+# mates brique-ocre dans une terre rouille »). Billes rondes (pisolithes : galets très lissés et peu aplatis) brique et
+# ocre, MATES (rugosité haute, aucun métal), quelques nodules pâles de gibbsite ; tapis de terre rouille. Sans couche
+# d'effet (minerai mat : rien ne luit, ni de jour ni de nuit). Choix provisoire, sans verdict du DC.
+MAT.update({
+    "bauxite_brique": dict(color=(0.30, 0.085, 0.035), rough=0.85, met=0.0, grain=0.35, gscale=36.0, dirt=0.4),
+    "bauxite_ocre": dict(color=(0.46, 0.22, 0.06), rough=0.82, met=0.0, grain=0.35, gscale=36.0, dirt=0.4),
+    "gibbsite_pale": dict(color=(0.56, 0.45, 0.33), rough=0.9, met=0.0, grain=0.3, gscale=36.0, dirt=0.3),
+    "terre_rouille": dict(color=(0.19, 0.075, 0.035), rough=0.95, met=0.0, grain=0.4, gscale=30.0, dirt=0.3),
+})
+DIRECTIONS["B1"] = dict(DIRECTIONS["Z1"], nom="pisolithes de bauxite brique et ocre dans une terre rouille",
+                        roches=(13, 10, 8, 7, 6, 5, 3, 2),
+                        roche_mats=("bauxite_brique", "bauxite_ocre", "bauxite_brique", "gibbsite_pale", "bauxite_ocre"),
+                        blocs=(3, 3, 2, 2, 1, 1, 1, 0),
+                        bloc_mats=("bauxite_brique", "bauxite_ocre"),
+                        grains=(40, 32, 25, 20, 16, 12, 8, 5),
+                        grain_mats=("bauxite_ocre", "bauxite_brique", "gibbsite_pale", "bauxite_brique"),
+                        fin_mats=("terre_rouille", "bauxite_brique", "bauxite_ocre", "terre_rouille", "gibbsite_pale"),
+                        effet=None)
+CALIB["B1"] = {"SKY_GLOSSY_FACTOR": 1.0}
+ROCHE_COUPES["B1"], ROCHE_LISSE["B1"] = 3, 48
+ROCHE_APLAT["B1"], ROCHE_CASSURE["B1"] = 0.88, (0.70, 0.95)
+ICONE["B1"] = dict(ICONE["Z1"], roche_mats=("bauxite_brique", "bauxite_ocre", "gibbsite_pale", "bauxite_brique"),
+                   bloc_mats=("bauxite_brique", "bauxite_ocre"), roche_aplat=0.88)
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
