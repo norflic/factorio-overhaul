@@ -297,20 +297,20 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
         for gx, gy in places(n_g, rayon * 1.12, 0.05, [], 1.4):
             v, f = grain(rng, rng.uniform(0.022, 0.045))
             ajoute(rng.choice(d["grain_mats"]), v, f, gx, gy)
-        fins = d.get("fins", D.FINS)
+        fins = d.get("fins", D.FINS)  # clé facultative `fin_taille` (C10) : taille des grains fins
         if fins:
             d = dict(d, fin_mats=d.get("fin_mats", D.FIN_MATS))
             n_f = _compte(fins, stade, 1.0, rng)
             if amas:
                 # tapis de grains fins sous les amas (la « poussière » colorée des minerais vanilla)
                 for gx, gy in places(n_f, rayon * 1.15, 0.0, [], 1.9):
-                    v, f = grain(rng, rng.uniform(0.016, 0.026))
+                    v, f = grain(rng, rng.uniform(*d.get("fin_taille", (0.016, 0.026))))
                     ajoute(rng.choice(d["fin_mats"]), v, f, gx, gy)
             else:
                 for _ in range(n_f):
                     a = rng.uniform(0, 2 * math.pi)
                     r = rayon * 1.15 * math.sqrt(rng.random())
-                    v, f = grain(rng, rng.uniform(0.016, 0.026))
+                    v, f = grain(rng, rng.uniform(*d.get("fin_taille", (0.016, 0.026))))
                     ajoute(rng.choice(d["fin_mats"]), v, f, r * math.cos(a), r * math.sin(a))
         for nom_mat in sorted(acc):
             V, F = acc[nom_mat]

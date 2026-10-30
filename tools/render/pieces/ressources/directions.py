@@ -703,16 +703,80 @@ EFFET["C9"] = dict(EFFET["C1"])
 ICONE["C9"] = dict(ICONE["C8"], roche_mats=("cassiterite_brun", "cassiterite_cuir", "cassiterite_noir", "cassiterite_brun"),
                    lame_mats=("cassiterite_cuir", "cassiterite_ambre", "cassiterite_brun"))
 
+# C10 (critique de directeur artistique, 30/10 vers 10 h 45, CRITIQUE.md de la page) : C9 se lit en jeu comme des
+# « copeaux » et du gravier. Contre le charbon et le cuivre vanilla, trois écarts : (1) morceaux plats (cassures
+# profondes) et trop nombreux, au lieu de quelques gros blocs trapus ; (2) pièces cuir et ambre claires qui se fondent
+# dans le sable (bigarrure) au lieu d'une seule matière éclairée ; (3) grains ronds bien visibles et éclats de quartz
+# blanc (gravier, paillettes) au lieu de la POUSSIÈRE sombre et fine qui ancre les tas vanilla au sol. C10 = C9 avec
+# moins de morceaux plus gros, plus hauts et moins cassés ; brun chocolat et noir dominants (reflets par l'éclat
+# adamantin, pas par la teinte) ; presque plus de grains ; poussière fine et sombre (clé `fin_taille`).
+MAT["poussiere_etain"] = dict(color=(0.075, 0.042, 0.024), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.2)
+DIRECTIONS["C10"] = dict(DIRECTIONS["C9"], nom="gros blocs trapus et pépites bipyramidales de cassitérite brun chocolat sur poussière sombre",
+                         roches=(8, 7, 6, 5, 4, 3, 2, 2), roche_taille=(0.15, 0.21), roche_gros=(0.35, (0.22, 0.28)),
+                         roche_mats=("cassiterite_brun", "cassiterite_brun", "cassiterite_noir", "cassiterite_roux",
+                                     "cassiterite_brun", "cassiterite_noir"),
+                         touffes=(3, 3, 2, 2, 2, 1, 1, 1),
+                         lame_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_noir"),
+                         grains=(3, 3, 2, 2, 2, 1, 1, 1), grain_mats=("cassiterite_brun", "cassiterite_noir"),
+                         fins=(420, 360, 300, 250, 200, 160, 110, 70), fin_taille=(0.007, 0.012),
+                         fin_mats=("poussiere_etain", "poussiere_etain", "poussiere_etain", "sable_etain",
+                                   "cassiterite_noir"))
+CALIB["C10"] = {"SKY_GLOSSY_FACTOR": 5.0}
+ROCHE_COUPES["C10"], ROCHE_LISSE["C10"] = 5, 25
+ROCHE_APLAT["C10"], ROCHE_CASSURE["C10"] = 1.15, (0.62, 0.88)
+EFFET["C10"] = dict(EFFET["C1"])
+ICONE["C10"] = dict(ICONE["C9"], roche_aplat=1.15, roche_cassure=(0.62, 0.88),
+                    roche_mats=("cassiterite_brun", "cassiterite_noir", "cassiterite_roux", "cassiterite_brun"),
+                    lame_mats=("cassiterite_roux", "cassiterite_brun", "cassiterite_noir"))
+# C11 (essai C10 à 16 échantillons, essai5) : blocs trapus et matière unie, mieux ; mais la poussière reste en points
+# discrets (gravier) et les blocs se soudent en une seule motte ; couverture un peu haute aux stades 2 et 3 (0,290 et
+# 0,253 contre 0,270 et 0,231). C11 = C10 avec une poussière 3 fois plus dense et 2 fois plus fine (spray vanilla),
+# des blocs un peu plus écartés et un de moins aux stades 2 et 3.
+DIRECTIONS["C11"] = dict(DIRECTIONS["C10"], roche_ecart=0.23, roches=(8, 6, 5, 5, 4, 3, 2, 2),
+                         fins=(1250, 1050, 880, 730, 590, 460, 320, 190), fin_taille=(0.0035, 0.0065))
+CALIB["C11"] = dict(CALIB["C10"])
+ROCHE_COUPES["C11"], ROCHE_LISSE["C11"] = ROCHE_COUPES["C10"], ROCHE_LISSE["C10"]
+ROCHE_APLAT["C11"], ROCHE_CASSURE["C11"] = ROCHE_APLAT["C10"], ROCHE_CASSURE["C10"]
+EFFET["C11"] = dict(EFFET["C10"])
+ICONE["C11"] = dict(ICONE["C10"])
+# C12 (essai C11, essai6) : la poussière de 0,0035 à 0,0065 tuile passe sous le pixel (64 px par tuile) et disparaît ;
+# blocs inchangés. C12 = C11 avec des grains de poussière d'environ 1 px (0,008 à 0,013 tuile), 900 au stade 1.
+DIRECTIONS["C12"] = dict(DIRECTIONS["C11"], fins=(900, 780, 650, 540, 430, 340, 230, 140), fin_taille=(0.008, 0.013))
+CALIB["C12"] = dict(CALIB["C11"])
+ROCHE_COUPES["C12"], ROCHE_LISSE["C12"] = ROCHE_COUPES["C11"], ROCHE_LISSE["C11"]
+ROCHE_APLAT["C12"], ROCHE_CASSURE["C12"] = ROCHE_APLAT["C11"], ROCHE_CASSURE["C11"]
+EFFET["C12"] = dict(EFFET["C11"])
+ICONE["C12"] = dict(ICONE["C11"])
+# C13 (essai C12, essai7) : poussière fine et sombre enfin lisible, blocs trapus d'une seule matière ; couverture du
+# stade 1 un peu haute (0,342 contre 0,316, dans la tolérance de ± 0,05). C13 = C12 avec un bloc de moins au stade 1.
+# Feuille de production (128 échantillons) proposée au DC à la place de C9.
+DIRECTIONS["C13"] = dict(DIRECTIONS["C12"], roches=(7, 6, 5, 5, 4, 3, 2, 2))
+CALIB["C13"] = dict(CALIB["C12"])
+ROCHE_COUPES["C13"], ROCHE_LISSE["C13"] = ROCHE_COUPES["C12"], ROCHE_LISSE["C12"]
+ROCHE_APLAT["C13"], ROCHE_CASSURE["C13"] = ROCHE_APLAT["C12"], ROCHE_CASSURE["C12"]
+EFFET["C13"] = dict(EFFET["C12"])
+ICONE["C13"] = dict(ICONE["C12"])
+# C14 (production C13, 128 échantillons) : la direction tient (masse sombre, blocs, reflets), mais check_gisement ÉCHOUE :
+# couverture 0,317 / 0,290 / 0,240 / 0,240 / 0,210 / 0,144 / 0,111 / 0,107 (stades 3 et 4 égaux ; stade 8 à + 0,052 de
+# la vanilla). C14 = C13 avec moins de blocs aux stades 4, 5 et 8 et moins de poussière aux stades pauvres.
+DIRECTIONS["C14"] = dict(DIRECTIONS["C13"], roches=(7, 6, 5, 4, 3, 3, 2, 1),
+                         fins=(900, 740, 600, 480, 370, 280, 180, 100))
+CALIB["C14"] = dict(CALIB["C13"])
+ROCHE_COUPES["C14"], ROCHE_LISSE["C14"] = ROCHE_COUPES["C13"], ROCHE_LISSE["C13"]
+ROCHE_APLAT["C14"], ROCHE_CASSURE["C14"] = ROCHE_APLAT["C13"], ROCHE_CASSURE["C13"]
+EFFET["C14"] = dict(EFFET["C13"])
+ICONE["C14"] = dict(ICONE["C13"])
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
            "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45, "S2": 1.45,
-           "C2": 1.3, "C3": 1.3, "C4": 1.3, "C5": 1.3, "C6": 1.3, "C7": 1.3, "C8": 1.5, "C9": 1.5}
+           "C2": 1.3, "C3": 1.3, "C4": 1.3, "C5": 1.3, "C6": 1.3, "C7": 1.3, "C8": 1.5, "C9": 1.5, "C10": 1.5, "C11": 1.5, "C12": 1.5, "C13": 1.5, "C14": 1.5}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
           "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313, "S2": 6717,
-          "C2": 6515, "C3": 6515, "C4": 6515, "C5": 6515, "C6": 6515, "C7": 6515, "C8": 6515, "C9": 6515}
+          "C2": 6515, "C3": 6515, "C4": 6515, "C5": 6515, "C6": 6515, "C7": 6515, "C8": 6515, "C9": 6515, "C10": 6515, "C11": 6515, "C12": 6515, "C13": 6515, "C14": 6515}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
