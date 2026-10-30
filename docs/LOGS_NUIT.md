@@ -224,3 +224,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 - [FO-PLAFOND] vu en moteur reel (scarlet a 30,1 min, 4 PNJ, 714 a 824 fers inemployes) : journal de JOURNAUX-DC prouve ; [FO-REGLAGES] au lancement prouve [mesure].
 - DEFAUT : graine 1618033988, VOTRE equipe a 0 a 2 fer au coffre de la minute 12 a 59, 5 PNJ sur 8, 7 tourelles (l'autre graine : 4 773 fer, 13 PNJ, 25 tourelles). Le controle « se reconstruit » passe car il exige >= 100 fer [mesure]. Cause inconnue : diagnostic en lecture seule lance (agent diag-fer-equipe -> fo-logs/2026-10-30_MATIN/DIAG-FER-EQUIPE.md).
 - Banc PREVISION-CALIB en cours (4 archives de mesure, lues a sa fin).
+
+## 30/10 ~7 h 55, passage 64
+- 11 archives (INTEG-0625 x6, PREVISION-CALIB x4 dont prev-tues 6 OK, FER-MARQUE content 429), 0 erreur Lua, codes 0. Seuls echecs : migration 0.6.18 3 ECHEC connus (titane sans bobines). Rien de nouveau.
