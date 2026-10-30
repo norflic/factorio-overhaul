@@ -27,6 +27,13 @@ do
     if P.process_recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
   end
 end
+-- Piste BAUXITE : celles de l'aluminium que X3 marque « prod » (électrolyse ignée) ; aucune réversible.
+do
+  local B = require("shared.content.bauxite")
+  for _, rr in ipairs(B.RECIPES) do
+    if B.recipe(rr.name).prod then FO_PRODUCTIVITY_RECIPES[#FO_PRODUCTIVITY_RECIPES + 1] = rr.name end
+  end
+end
 
 local base = data.raw.module["productivity-module-3"]
 local limitation = table.deepcopy(base and base.limitation or {})
