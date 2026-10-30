@@ -16,13 +16,16 @@ from geo import surface
 EPOQUE = 8
 NOM = "Marais"
 Z_W, Z_R = 0.90, 1.04          # haut de la maçonnerie, faîtage du chaperon de cuivre (essai e2 : section en coin)
-HW0, HW1 = 0.46, 0.17
+HW0, HW1 = 0.49, 0.13       # v4 : talus concave (pied évasé, crête mince)
 ASSISES = (0.0, 0.17, 0.32, 0.46, 0.59, 0.71, 0.81, Z_W)
 SQ2 = math.sqrt(2.0)
+FORME = "horiz"
 
 
 def hw(z):
-    return HW0 + (HW1 - HW0) * z / Z_W
+    if z <= 0.12:
+        return HW0 + (0.40 - HW0) * z / 0.12
+    return 0.40 + (HW1 - 0.40) * min(1.0, (z - 0.12) / (Z_W - 0.12))
 
 
 RIV = 0.016
@@ -57,7 +60,7 @@ def mats(S):
     M["verre"] = surface("m8_verre_v", (0.09, 0.19, 0.03), (0.05, 0.11, 0.018), rough=0.06, rough2=0.12, spec=1.0,
                          var=0.5, var_scale=6.0, grain=0.05, bump=0.05, cavity=0.2,
                          edge=((0.6, 0.8, 0.35), 0.4, 0.02))
-    M["liquide"] = geo.emissive(S, "m8_liquide", (0.66, 1.0, 0.23), strength=0.5, base=(0.05, 0.09, 0.01))
+    M["liquide"] = geo.emissive(S, "m8_liquide", (0.55, 0.75, 0.22), strength=0.35, base=(0.05, 0.09, 0.01))
     M["verre_sombre"] = surface("m8_verre_s", (0.03, 0.06, 0.02), rough=0.08, spec=1.0, var=0.3, grain=0.05,
                                 bump=0.0, cavity=0.0)
     M["mousse"] = surface("m8_mousse", (0.06, 0.14, 0.02), (0.03, 0.07, 0.012), rough=1.0, var=0.8, var_scale=12.0,
@@ -127,7 +130,8 @@ def bras(g, M, B):
     k, x0, L = B.k, B.x0, B.L
     S_ = B.cote == "S"
     # âme de mortier (continue ; se voit dans les joints)
-    g.prism([(-(HW0 - 0.01) * k, 0.0), ((HW0 - 0.01) * k, 0.0), ((HW1 - 0.01) * k, Z_W), (-(HW1 - 0.01) * k, Z_W)],
+    g.prism([(-(hw(0.0) - 0.01) * k, 0.0), ((hw(0.0) - 0.01) * k, 0.0), ((hw(0.12) - 0.01) * k, 0.12),
+             ((HW1 - 0.01) * k, Z_W), (-(HW1 - 0.01) * k, Z_W), (-(hw(0.12) - 0.01) * k, 0.12)],
             x0, L, M["mortier"], bev=0)
     _maconnerie(g, M, B)
     _toit(g, M, x0, L, k)
@@ -273,7 +277,8 @@ def _panneau(g, M, xc=0.0, w=0.28, z0=0.28, z1=0.62):
     g.hull(coque(contour(0.045, 0.045), 0.012, 0.03), M["cuivre"], bev=0.006, seg=1)
     g.hull(coque(contour(0.0, 0.0), 0.024, 0.0), M["verre"], bev=0.01, seg=2)
     # liquide luminescent : bande basse du verre
-    liq = [(xc - w + 0.04, z0 + 0.03), (xc + w - 0.04, z0 + 0.03), (xc + w - 0.04, z0 + 0.09), (xc - w + 0.04, z0 + 0.09)]
+    nv = z0 + 0.06 + 0.12 * {"horiz": 0.3}.get(FORME, 0.6)          # niveau du liquide variable
+    liq = [(xc - w + 0.04, z0 + 0.03), (xc + w - 0.04, z0 + 0.03), (xc + w - 0.04, nv), (xc - w + 0.04, nv)]
     g.hull(coque(liq, 0.030, 0.0), M["liquide"], bev=0, seg=1)
     # rivets de l'armature
     g.rivets([(xc + sx * (w + 0.022), -(hw(z) * k + 0.016), z, "y") for sx in (-1, 1) for z in (z0 + 0.05, z1 - 0.02)],
@@ -301,29 +306,37 @@ def _bulbe(g, M):
     geo.eboulis(g, (M["pierre"], M["pierre2"], M["mousse"]), -0.35, 0.35, -0.45, 3, r=0.035)
 
 
-def _pile(g, M):
-    """Angle : pile de blocs au même talus que le mur, chapeau pyramidal de cuivre (≤ +15 % de la crête)."""
+def _pile(g, M, bulbe=False):
+    """Angle et bout : pyramide tronquée au même talus que le mur (bouts chanfreinés), chapeau de cuivre ; au bout,
+    un petit bulbe de verre au liquide sur le chapeau (≤ +15 % de la crête)."""
     ky = SQ2
-    a0, a1 = HW0 + 0.01, HW1 + 0.03
+    a1 = HW1 + 0.03
 
     def carre(h):
         return [(-h, -h * ky), (h, -h * ky), (h, h * ky), (-h, h * ky)]
-    g.loft_z(carre(a0), 0.0, Z_W, M["pierre2"], poly1=carre(a1), bev=0.016)
+    g.loft_z(carre(hw(0.0)), 0.0, 0.12, M["pierre"], poly1=carre(hw(0.12)), bev=0.01)
+    g.loft_z(carre(hw(0.12)), 0.118, Z_W, M["pierre2"], poly1=carre(a1), bev=0.016)
+    _mousse(g, M, -0.3, -0.42 * ky, 0.0, 0.1)
+    if bulbe:
+        g.loft_z(carre(a1 + 0.05), Z_W - 0.01, Z_W + 0.03, M["chaperon"], poly1=carre(a1 + 0.04), bev=0.01)
+        g.cyl((0, 0, Z_W + 0.06), "z", 0.13, 0.06, M["cuivre"], n=24, r2=0.10, bev=0.004)
+        g.sphere((0, 0, Z_W + 0.17), 0.12, M["verre"], seg=24, rings=12)
+        g.sphere((0, 0, Z_W + 0.145), 0.124, M["liquide"], seg=24, rings=8, sz=0.35)
+        g.cyl((0, 0, Z_W + 0.30), "z", 0.03, 0.03, M["cuivre"], n=12, bev=0.002)
+        return
     g.loft_z(carre(a1 + 0.05), Z_W - 0.01, Z_W + 0.03, M["chaperon"], poly1=carre(a1 + 0.04), bev=0.01)
     g.loft_z(carre(a1 + 0.03), Z_W + 0.03, Z_R + 0.08, M["cuivre"], poly1=carre(0.02), bev=0.004)
 
 
 def noeud(g, M, forme, bras):
     if forme in ("single", "endR", "endL"):
-        _bulbe(g, M)
+        _pile(g, M, bulbe=True)
     elif forme in ("corR", "corL"):
         _pile(g, M)
     elif forme == "horiz":
-        _panneau(g, M)
+        _panneau(g, M)                     # v4 : un panneau de verre sur trois segments droits (rythme desserré)
     elif forme == "horiz2":
-        _panneau(g, M)
         _gargouille(g, M)
     elif forme == "horiz3":
-        _panneau(g, M, w=0.24, z1=0.58)
         _mousse(g, M, -0.2, -(HW0 + 0.02) * SQ2, 0.0, 0.12)
         _mousse(g, M, 0.25, -(HW0 + 0.0) * SQ2, 0.0, 0.09)

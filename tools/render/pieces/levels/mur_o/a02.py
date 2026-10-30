@@ -51,7 +51,7 @@ def mats(S):
         M[nom] = surface("m2_" + nom, c1, c2, rough=0.55, rough2=0.85, metal=0.3, var=0.7, var_scale=6.0, grain=0.25,
                          bump=0.4, bump_scale=110.0, edge=((0.40, 0.38, 0.35), 0.8, 0.015), cavity=0.55, streak=0.85,
                          stain=((0.21, 0.085, 0.03), 0.6, 5.0), bottom=PIED)
-    M["acier_dessus"] = surface("m2_acier_d", (0.36, 0.34, 0.31), (0.20, 0.18, 0.15), rough=0.6, metal=0.2, var=0.75,
+    M["acier_dessus"] = surface("m2_acier_d", (0.50, 0.47, 0.42), (0.30, 0.28, 0.24), rough=0.6, metal=0.2, var=0.75,
                                 var_scale=8.0, grain=0.28, bump=0.4, bump_scale=110.0,
                                 edge=((0.62, 0.60, 0.56), 0.85, 0.015), cavity=0.55, streak=0.4,
                                 stain=((0.20, 0.09, 0.035), 0.5, 6.0))

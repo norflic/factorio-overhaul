@@ -19,19 +19,21 @@ NOM = "Néant"
 FORME = "horiz"
 Z_PL, Z_W, Z_CAP = 0.12, 0.88, 0.93          # plinthe, haut du talus, dessus du couronnement de nacre
 Z_F0, Z_F1 = 1.02, 1.16                      # créneaux flottants (vide de 0,09 sous eux)
-HW0, HW1 = 0.46, 0.15
+HW0, HW1 = 0.49, 0.13       # v4 : talus concave
 SQ2 = math.sqrt(2.0)
 RIV = 0.016
 PIED = ((0.004, 0.004, 0.005), 0.20, 1.0)
 
 
 def hw(z):
-    return HW0 + (HW1 - HW0) * z / Z_W
+    if z <= Z_PL:
+        return HW0 + (0.40 - HW0) * z / Z_PL
+    return 0.40 + (HW1 - 0.40) * min(1.0, (z - Z_PL) / (Z_W - Z_PL))
 
 
 def mats(S):
     M = {}
-    M["laque"] = surface("m15_laque", (0.030, 0.028, 0.034), (0.012, 0.011, 0.014), rough=0.22, rough2=0.4, metal=0.0,
+    M["laque"] = surface("m15_laque", (0.05, 0.045, 0.042), (0.028, 0.025, 0.023), rough=0.22, rough2=0.4, metal=0.0,
                          spec=0.8, var=0.6, var_scale=5.0, grain=0.25, bump=0.15, bump_scale=60.0,
                          edge=((0.22, 0.21, 0.24), 0.7, 0.015), cavity=0.5, streak=0.35,
                          stain=((0.006, 0.006, 0.007), 0.5, 6.0), bottom=PIED)
@@ -42,17 +44,17 @@ def mats(S):
     M["or"] = surface("m15_or", (0.80, 0.58, 0.22), (0.60, 0.42, 0.15), rough=0.32, rough2=0.45, metal=0.5, var=0.5,
                       var_scale=10.0, grain=0.12, bump=0.1, edge=((1.0, 0.85, 0.55), 0.4, 0.015), cavity=0.35)
     # or blanc #E8DCB0 ≈ (0.807, 0.716, 0.431) ; nacre #D8D2C8 ≈ (0.686, 0.644, 0.578)
-    M["or_blanc"] = surface("m15_orb", (0.807, 0.716, 0.431), (0.62, 0.55, 0.33), rough=0.3, rough2=0.42, metal=0.4,
+    M["or_blanc"] = surface("m15_orb", (0.50, 0.53, 0.58), (0.36, 0.38, 0.42), rough=0.3, rough2=0.42, metal=0.4,
                             var=0.5, var_scale=9.0, grain=0.12, bump=0.1, edge=((1.0, 0.95, 0.8), 0.5, 0.015),
                             cavity=0.4)
-    M["nacre"] = surface("m15_nacre", (0.686, 0.644, 0.578), (0.50, 0.47, 0.43), rough=0.35, metal=0.1, spec=0.7,
+    M["nacre"] = surface("m15_nacre", (0.46, 0.50, 0.56), (0.33, 0.36, 0.41), rough=0.35, metal=0.1, spec=0.7,
                          var=0.6, var_scale=7.0, grain=0.15, bump=0.15, bump_scale=60.0,
                          edge=((0.9, 0.88, 0.84), 0.5, 0.015), cavity=0.45, streak=0.3,
                          stain=((0.32, 0.30, 0.27), 0.4, 6.0))
-    M["obsidienne"] = surface("m15_obs", (0.022, 0.02, 0.026), (0.045, 0.04, 0.05), rough=0.16, rough2=0.3, spec=0.9,
+    M["obsidienne"] = surface("m15_obs", (0.042, 0.038, 0.036), (0.06, 0.054, 0.05), rough=0.16, rough2=0.3, spec=0.9,
                               var=0.7, var_scale=5.0, grain=0.3, bump=0.15, edge=((0.16, 0.15, 0.18), 0.5, 0.02),
                               cavity=0.3)
-    M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.86, 0.58), strength=0.85, base=(0.05, 0.04, 0.02))
+    M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.80, 0.50), strength=0.35, base=(0.05, 0.04, 0.02))
     return M
 
 
@@ -89,7 +91,7 @@ def bras(g, M, B):
             g.rivets([(x, -(hw(z) * k + 0.016), z, "y") for x in (xa + 0.05, xb - 0.05) for z in (Z_PL + 0.06, Z_W - 0.07)
                       if xb - xa > 0.12], RIV, M["or"])
         # deux bandes d'or (2 px) à travers les plaques
-        for zb in (0.38, 0.62):
+        for zb in (0.50,):
             _plaque(g, M["or"], x0, L, zb, zb + 0.03, k, 0.018, 0.02)
         geo.eboulis(g, (M["obsidienne"], M["laque"]), max(x0, 0.0), L - B.eps, -HW0 * k - 0.005, 2, r=0.028)
         g.pop()
@@ -100,9 +102,7 @@ def bras(g, M, B):
     g.prism([(-0.02 * k, Z_CAP - 0.004), (0.02 * k, Z_CAP - 0.004), (0.012 * k, Z_CAP + 0.01),
              (-0.012 * k, Z_CAP + 0.01)], x0, L, M["feu"], bev=0)
     # créneaux flottants : centres 0, 0,5, 1,0 tuile, demi-largeur 0,12
-    for c in (0.0, 0.5, 1.0):
-        if c == 0.0 and not S_:
-            continue
+    for c in (0.5,):                       # v4 : un créneau flottant par case (au joint), moins de « palissade »
         sp = B.span(c - 0.12, c + 0.12)
         if sp:
             _merlon_flottant(g, M, B.x(sp[0]), min(B.x(sp[1]), L), k)
@@ -154,7 +154,7 @@ def _pile(g, M, zt, obelisque=False):
         return [(-h, -h * ky), (h, -h * ky), (h, h * ky), (-h, h * ky)]
     g.loft_z(carre(a0), 0.0, Z_PL, M["or_patine"], poly1=carre(ha(Z_PL)), bev=0.005)
     g.loft_z(carre(ha(Z_PL)), Z_PL - 0.005, zt, M["laque"], poly1=carre(a1), bev=0.006)
-    for zb in (0.38, 0.62):
+    for zb in (0.50,):
         g.loft_z(carre(ha(zb) + 0.016), zb, zb + 0.03, M["or"], poly1=carre(ha(zb + 0.03) + 0.016), bev=0.003)
     g.loft_z(carre(a1 + 0.03), zt - 0.01, zt + 0.05, M["nacre"], poly1=carre(a1 + 0.015), bev=0.008)
     if obelisque:
@@ -181,6 +181,3 @@ def noeud(g, M, forme, bras):
         _sceau(g, M)
     elif forme == "horiz3":
         _contrefort(g, M)
-        _merlon_flottant(g, M, -0.12, 0.12, SQ2)
-    elif forme == "tee":
-        _merlon_flottant(g, M, -0.12, 0.12, SQ2)

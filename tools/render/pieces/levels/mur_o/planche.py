@@ -184,6 +184,7 @@ def police(n):
 
 def grille(rows, titre, fond=(22, 22, 26)):
     """rows : [[(image PIL, légende), …], …] -> planche."""
+    rows = [r for r in rows if r]
     F, Ft = police(15), police(20)
     pad, lab = 12, 22
     widths = [sum(i.width for i, _ in r) + pad * (len(r) + 1) for r in rows]
