@@ -84,6 +84,10 @@ local function fer_sur_fonds(s)
   return carres
 end
 
+-- Déclarée ici, définie plus bas (relecture BIOMES-SUIVI : appelée avant sa définition locale, elle valait nil et
+-- fer_naturel_sur_givre plantait à l'init sur toute graine avec du fer naturel sur le givre).
+local fully_generated
+
 --- Gisement de fer NATUREL sur le givre (le plus entouré de givre), et nombre d'entités de fer sur le givre.
 local function fer_naturel_sur_givre(s)
   local n, best, best_score = 0, nil, nil
@@ -136,7 +140,7 @@ local function nuancier(s)
   return disques
 end
 
-local function fully_generated(s, p)
+fully_generated = function(s, p)
   local cx, cy = math.floor(p.x / 32), math.floor(p.y / 32)
   for dx = -1, 1 do
     for dy = -1, 1 do
