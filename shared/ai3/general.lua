@@ -156,6 +156,15 @@ end
 function Gen.chains(cat, ev, state, ctx)
   local out = {}
   local w = ctx and ctx.weights
+  -- lot PETROLE 2 (ctx.new_pack) : packs déjà consommés par une technologie faite (une chaîne dont chaque technologie ne
+  -- consomme que ceux-là se recherche DÈS MAINTENANT : near_len, sa longueur)
+  local used = nil
+  if ctx and ctx.new_pack then
+    used = {}
+    for _, t in ipairs(cat.tech_list) do
+      if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used[ing[1]] = true end end
+    end
+  end
   for _, u in ipairs(cat.tech_list) do
     if not state.techs[u] and ev.tfeas[u] then
       local v, _, palier = Gen.value(cat, ev, state, u, { weights = w, wanted = ctx and ctx.wanted })
@@ -176,6 +185,12 @@ function Gen.chains(cat, ev, state, ctx)
           list[#list + 1] = n
         end
         walk(u)
+        local doable = used ~= nil
+        if doable then
+          for _, n in ipairs(list) do
+            for _, ing in ipairs(cat.techs[n].ingredients) do if not used[ing[1]] then doable = false end end
+          end
+        end
         if #list > 1 then
           local share = math.floor(Gen.CHAIN * wf(w, "recherche") / #list)
           for _, n in ipairs(list) do
@@ -187,6 +202,7 @@ function Gen.chains(cat, ev, state, ctx)
               if palier and (not fl.pack_len or #list < fl.pack_len) then fl.pack_len = #list end
               if not out[n] or share > out[n].v then out[n] = { v = share, target = u, len = #list } end
               out[n].wanted, out[n].pack_len = fl.wanted, fl.pack_len
+              if doable and palier and (not out[n].near_len or #list < out[n].near_len) then out[n].near_len = #list end
             end
           end
         end
@@ -304,13 +320,39 @@ end
 --- Le choix. ctx = { weights, wanted = { [objet] = vrai }, current = techno en cours, disabled = { [techno] = vrai },
 --- lab_speed, k1 = vrai (lot AUTO : automatisation allumée, règles K1 de Gen.k1) }. Rend une décision { tech, value, cost, score, palier, why, chain, ranked, blocked } ou nil (et la
 --- décision porte alors `blocked` : technologies de valeur impayables et leurs causes).
+Gen.PACK_NEAR = 10     -- lot PETROLE 2 (ctx.new_pack) : chaîne de technologies vers un pack fabricable, enchaînée jusqu'à ce nombre
+Gen.V_NEW_PACK = 100   -- lot PETROLE (ctx.new_pack) : PREMIÈRE technologie à consommer un pack fabricable jamais consommé
 function Gen.choose(cat, ev, state, ctx)
   ctx = ctx or {}
   local chains = Gen.chains(cat, ev, state, ctx)
   local cands, blocked = {}, {}
   local zero = {} -- lot JOURNAUX-DC : prêtes et payables mais sans valeur propre (repli quand rien d'autre n'est payable)
+  -- Lot PETROLE (ctx.new_pack, réglage fo-war-petrole) : un joueur qui vient d'ouvrir un pack lance une recherche qui le
+  -- consomme (le palier se mesure aux packs FABRIQUÉS, IA3_CERVEAU §6.1) : une technologie prête qui consomme un pack
+  -- faisable qu'aucune technologie faite n'a consommé vaut Gen.V_NEW_PACK de plus (pondéré « recherche »).
+  -- Jamais au départ (aucun pack encore consommé : le premier palier garde son ordre ; moteur réel, petrole-partie
+  -- 271828182 : sans cette garde, palier 1 à 6,7 min au lieu de 1,8).
+  local used_pack = nil
+  if ctx.new_pack then
+    used_pack = {}
+    local any = false
+    for _, t in ipairs(cat.tech_list) do
+      if state.techs[t] then for _, ing in ipairs(cat.techs[t].ingredients) do used_pack[ing[1]] = true; any = true end end
+    end
+    if not any then used_pack = nil end
+  end
   for _, t in ipairs(Gen.ready(cat, state, ctx.disabled)) do
     local v, why, palier = Gen.value(cat, ev, state, t, ctx)
+    if used_pack then
+      for _, ing in ipairs(cat.techs[t].ingredients) do
+        if cat.packs[ing[1]] and not used_pack[ing[1]] and ev.feas[ing[1]] then
+          v = v + math.floor(Gen.V_NEW_PACK * wf(ctx.weights, "recherche"))
+          why[#why + 1] = { "pack nouveau", ing[1] }
+          palier = "nouveau"
+          break
+        end
+      end
+    end
     local ch = chains[t]
     if ch then
       v = v + ch.v
@@ -338,6 +380,55 @@ function Gen.choose(cat, ev, state, ctx)
     return a.tech < b.tech
   end)
   if ctx.k1 then Gen.k1(cat, state, cands, chains) end
+  -- Lot PETROLE (ctx.new_pack) : « les paliers ne reculent pas » : la moins chère des technologies qui consomment le pack
+  -- nouveau passe en tête (ses packs se fabriquent pendant que l'usine du pack se bâtit).
+  if ctx.new_pack then
+    local best, bi
+    for i, c in ipairs(cands) do
+      if c.palier == "nouveau" and (not best or c.cost < best.cost or (c.cost == best.cost and c.tech < best.tech)) then best, bi = c, i end
+    end
+    -- … sauf devant une candidate qui ouvre elle-même un palier (« automation » avant « landfill » : moteur réel,
+    -- petrole-partie 1618033988, palier 1 à 6,3 min au lieu de 1,6 quand le pack vert passait devant)
+    local top = cands[1]
+    if best and bi > 1 and not (top and top.palier == true) then
+      table.remove(cands, bi)
+      table.insert(cands, 1, best)
+      best.k1 = "pack nouveau"
+    end
+    -- … et la chaîne qui y MÈNE (lot PETROLE 2) : un joueur qui sait fabriquer le pack d'après ses ressources connues
+    -- (near_len : le pack est fabricable et toute la chaîne se recherche avec les packs déjà consommés, Gen.chains) enchaîne les technologies qui le débloquent au lieu de les mêler à
+    -- des recherches de faible valeur (moteur réel, etape1-guide 20261020 : « logistics », « gate » et 20 min de recherches
+    -- à 40 de valeur avant « engine », puis la chaîne du pétrole seulement à 43 min). La chaîne la plus COURTE (puis sa technologie la moins chère) passe en
+    -- tête, jamais devant un palier, un objet voulu ni un levier de la capitalisation.
+    if used_pack then
+      local top = cands[1]
+      local function urgent(c)
+        if c.palier == true or c.palier == "nouveau" then return true end
+        for _, w in ipairs(c.why or {}) do if w[1] == "wanted" or w[1] == "levier" then return true end end
+        return false
+      end
+      if top and not urgent(top) and top.k1 == nil then
+        local best2, bi2
+        for i, c in ipairs(cands) do
+          local ch = c.chain
+          local nl = ch and ch.near_len
+          if nl and nl <= Gen.PACK_NEAR then
+            local bl = best2 and best2.chain.near_len
+            if not best2 or nl < bl or (nl == bl and (c.cost < best2.cost or (c.cost == best2.cost and c.tech < best2.tech))) then
+              best2, bi2 = c, i
+            end
+          end
+        end
+        if best2 and bi2 > 1 then
+          table.remove(cands, bi2)
+          table.insert(cands, 1, best2)
+          best2.k1 = "chaine du pack nouveau"
+        end
+      end
+    end
+  end
+  -- Lot DEFENSE-FACTIONS D2 APRÈS le pack nouveau (reprise PETROLE2 sur 0.6.20) : la tourelle passe en tête « quelle que soit »
+  -- la règle qui a classé avant elle, pack nouveau compris.
   if ctx.defense then Gen.defense_first(cat, state, cands, ctx.defense) end -- lot DEFENSE-FACTIONS D2
   if #cands == 0 and #zero > 0 then cands[1] = Gen.fallback(cat, ev, state, zero, ctx.lab_speed) end
   local d = cands[1] or { tech = nil }
@@ -499,6 +590,16 @@ function Gen.resource_values(cat, ev, state, ctx)
     if a[2] ~= b[2] then return a[2] > b[2] end
     return a[1] < b[1]
   end)
+  return out
+end
+
+--- Ressources à explorer d'après `Gen.resource_values` (rv trié par valeur décroissante) : les `top` premières dont la valeur
+--- est positive, chacune avec le poids `weight`. Rend { [ressource] = poids }.
+function Gen.explore_set(rv, weight, top)
+  local out = {}
+  for i = 1, math.min(top or 1, #rv) do
+    if rv[i][2] > 0 then out[rv[i][1]] = weight end
+  end
   return out
 end
 
