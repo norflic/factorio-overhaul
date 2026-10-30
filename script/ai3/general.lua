@@ -281,7 +281,7 @@ function General.key(f)
   return g and g.key or nil
 end
 
-General.EXPLORE_TOP = 2 -- ressources inconnues explorées en même temps (les plus rentables)
+General.EXPLORE_TOP = 2 -- ressources inconnues explorées en même temps (les plus rentables ; réglage fo-war-petrole allumé seulement)
 
 --- Ressources à explorer demandées par le cerveau général.
 function General.explore(f)
@@ -471,7 +471,9 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   -- Les General.EXPLORE_TOP ressources inconnues les plus rentables sont explorées ENSEMBLE (lot PETROLE 2 : seule la
   -- première l'était ; moteur réel, etape1-guide 123456789 : le tungstène, 250, passait devant le pétrole, 40, qui ne fut
   -- jamais cherché et le pack chimique restait impayable).
-  g.explore = Gen.explore_set(rv, 40, General.EXPLORE_TOP)
+  -- Relecture de la reprise sur 0.6.20 (30/10) : SEULEMENT réglage fo-war-petrole allumé ; éteint, une seule ressource comme sur
+  -- main (sans cette garde, le lot changeait l'exploration de toutes les parties, réglage éteint compris).
+  g.explore = Gen.explore_set(rv, 40, Pet.on() and General.EXPLORE_TOP or 1)
   g.blocked_sig = nil
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
   -- Lot IA3-e (points de jonction « hand », « produce », « extract », INTEGRATION.md §3) : objets que le dépliage fait
