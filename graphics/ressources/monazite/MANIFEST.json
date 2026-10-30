@@ -7,7 +7,7 @@
   0.2218,
   0.181,
   0.1408,
-  0.1023,
+  0.1022,
   0.0565
  ],
  "couverture_vanilla": [
@@ -47,25 +47,25 @@
  "outil": "tools/render/pieces/ressources/feuille.py",
  "repartition": {
   "L": [
-   0.026,
-   0.123,
-   0.293,
-   0.559
+   0.023,
+   0.086,
+   0.291,
+   0.601
   ],
   "acier": 0.014,
   "acier_bleutes": 0.0,
-  "chauds": 0.973,
-  "sombres": 0.013
+  "chauds": 0.975,
+  "sombres": 0.011
  },
- "secondes_blender": 1303.04,
+ "secondes_blender": 1156.47,
  "sha256": {
-  "hr-monazite-effet.png": "269faea4f40cf6e44985cecfe5f2b4c70b28d6cddcc3d5aa5bf94034da5f5b2e",
-  "hr-monazite.png": "a68c6c0130180392fda051c160f9c129cdc29f6826f5d20dcc79b4895095f9c5",
-  "icone-1.png": "303b47bd0e074a6627ca5123afb6f829db1fdcb8bab7c1ee75d328acd7786576",
-  "icone-2.png": "9918a69c98625dcdfb3ef9b4afbb3449ce8887564df3582bad41cbc0845add82",
-  "icone-3.png": "b0bd3afe5cb43fa95b926b9dddb054f3a1e3d05469450a8ec11731c6f388ced1",
-  "icone.png": "ad8d0f2a17b6b76fdb19b198505fb90d96659ad7fde425ed6b8d6050e03b6d4c",
-  "monazite-effet.png": "7111a08fe47ad9d1d8589f38057ddc5ce9b69f9229a975a51f47cbf6fa039519",
-  "monazite.png": "927b1af08cb988a0c0ed833d8520a65c1b945ff2895158843cce88a1085d1699"
+  "hr-monazite-effet.png": "c7921aafc9b8ab7612a4890ed7c40aaeda46c50534f2721af95eb2cf1302b77f",
+  "hr-monazite.png": "27a1781aebc521470b1a2c5777e3ce794bd8601a26f2cc47815edd1bff23be26",
+  "icone-1.png": "79aad4f1151e0cd83b08747124b958c410c875dc67d58a9df2a6ff38c2791c7e",
+  "icone-2.png": "4c45910e44eb18456fba1c3020f43884f10a9cceb7350c277d7fb5eeedaf3bb3",
+  "icone-3.png": "e1fcd57be4c743c2d15c57008a9239c6d7910dd32b2087416883acaf245f0aaa",
+  "icone.png": "9bcd4c04522deb812ab012c3e9c9b8ac1efaa8b64681ae1e0b7784047573df05",
+  "monazite-effet.png": "2864138d6d0af0a8d458186485f4a5c00d9cacac13ccd97c13bca9c314da8027",
+  "monazite.png": "d1d3773f391a7131269bf63ef006180a77931800f92f80f5b8023e862dcbeb6a"
  }
 }

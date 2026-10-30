@@ -684,6 +684,26 @@ ICONE["M1"] = dict(ICONE["M1"], roches=(4, 4), roche_taille=(0.27, 0.33), roche_
 # nombreux et plus larges, écart minimal plein (0,95), comptes des stades 1 à 3 un peu réduits.
 DIRECTIONS["M1"].update(roches=(18, 15, 12, 11, 9, 7, 4, 3), amas=(4, 4, 3, 3, 3, 2, 2, 1), amas_etendue=0.21,
                         amas_serre=0.95)
+# Critique du directeur artistique (30/10, 11 h, CRITIQUE.md de la page) : forme juste, MATIÈRE pas au niveau vanilla.
+# (1) deux familles de teinte mêlées (jaune citron « soufre » et brun-rouge « brun ») : bruit de pixels au zoom 1,
+# lecture « corn flakes », « feuilles mortes », et le brun-rouge rapproche du cuivre, de la bauxite et de la blende ;
+# (2) faces mates (rugosité 0,36 à 0,40) : aucun reflet franc, alors que le cuivre et le fer vanilla en ont un et que
+# la monazite réelle a un éclat RÉSINEUX ; (3) grains de magnétite tombés sur les rognons : points noirs au zoom 4.
+# Correction de MATIÈRE seule : mêmes longueurs de listes de matières, donc mêmes tirages (rng.choice) et MÊME
+# géométrie, même couverture que M1 production ; une seule famille or-miel-ambre, éclat résineux (rugosité 0,24 à
+# 0,28), une pièce sur sept en résine sombre pour la profondeur, plus de soufre ni de brun-rouge ; grains sans magnétite
+# (la magnétite reste dans le tapis de fins, au sol).
+MAT.update({
+    "monazite_or_v": dict(color=(0.62, 0.40, 0.035), rough=0.24, met=0.0, grain=0.22, gscale=36.0, dirt=0.3),
+    "monazite_miel_v": dict(color=(0.50, 0.25, 0.040), rough=0.26, met=0.0, grain=0.25, gscale=36.0, dirt=0.35),
+    "monazite_ambre": dict(color=(0.58, 0.33, 0.035), rough=0.24, met=0.0, grain=0.22, gscale=36.0, dirt=0.3),
+})
+DIRECTIONS["M1"].update(
+    roche_mats=("monazite_or_v", "monazite_or_v", "monazite_miel_v", "monazite_ambre", "monazite_or_v",
+                "monazite_miel_v", "monazite_resine"),
+    grain_mats=("monazite_miel_v", "monazite_resine", "monazite_resine", "monazite_or_v"))
+ICONE["M1"] = dict(ICONE["M1"], roche_mats=("monazite_or_v", "monazite_miel_v", "monazite_ambre", "monazite_miel_v",
+                                            "monazite_or_v"))
 ICONE["M3"] = dict(lames=(0, 0), roches=(1, 2), roche_taille=(0.14, 0.18), roche_coupes=7, roche_cassure=(0.40, 0.75),
                    roche_aplat=0.7, roche_creux=2, roche_mats=("monazite_resine", "monazite_miel"),
                    coins=4, coin_taille=(0.30, 0.40), coin_haut=(0.14, 0.20),
