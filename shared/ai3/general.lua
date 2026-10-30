@@ -308,6 +308,7 @@ function Gen.choose(cat, ev, state, ctx)
   ctx = ctx or {}
   local chains = Gen.chains(cat, ev, state, ctx)
   local cands, blocked = {}, {}
+  local zero = {} -- lot JOURNAUX-DC : prêtes et payables mais sans valeur propre (repli quand rien d'autre n'est payable)
   for _, t in ipairs(Gen.ready(cat, state, ctx.disabled)) do
     local v, why, palier = Gen.value(cat, ev, state, t, ctx)
     local ch = chains[t]
@@ -321,6 +322,8 @@ function Gen.choose(cat, ev, state, ctx)
         local score = math.floor(v * 1000 / (cost + Gen.COST_FLOOR))
         if t == ctx.current then score = math.floor(score * (100 + Gen.INERTIA_PCT) / 100) end
         cands[#cands + 1] = { tech = t, value = v, cost = cost, score = score, palier = palier, why = why, chain = ch }
+      else
+        zero[#zero + 1] = t
       end
     elseif v > 0 then
       blocked[#blocked + 1] = { tech = t, value = v }
@@ -336,12 +339,38 @@ function Gen.choose(cat, ev, state, ctx)
   end)
   if ctx.k1 then Gen.k1(cat, state, cands, chains) end
   if ctx.defense then Gen.defense_first(cat, state, cands, ctx.defense) end -- lot DEFENSE-FACTIONS D2
+  if #cands == 0 and #zero > 0 then cands[1] = Gen.fallback(cat, ev, state, zero, ctx.lab_speed) end
   local d = cands[1] or { tech = nil }
   d.ranked = {}
   for i = 1, math.min(Gen.TOP, #cands) do d.ranked[i] = { cands[i].tech, cands[i].score } end
   d.n_ready = #cands
   d.blocked = blocked
   return d
+end
+
+--- Lot JOURNAUX-DC (point 3 du rapport CINQ-POINTS, défaut d'inertie à vérifier) : quand AUCUNE technologie de valeur n'est
+--- payable, une technologie prête et payable de valeur nulle était ignorée et l'équipe restait « bloquée » alors qu'elle pouvait
+--- encore chercher. Cas prouvé hors jeu (tests/journaux_dc_test.lua, données réelles) : une technologie qui ne débloque aucune
+--- recette (valeur 0) est le prérequis de toute une branche payable ; sans elle, la recherche s'arrête au premier mur des
+--- technologies de valeur. Repli : la technologie de valeur nulle qui OUVRE le plus de technologies non faites, puis la moins
+--- chère, puis le nom (déterminisme). Jamais quand une technologie de valeur est payable.
+function Gen.fallback(cat, ev, state, zero, lab_speed)
+  local opens = {}
+  for _, u in ipairs(cat.tech_list) do
+    if not state.techs[u] then
+      for _, p in ipairs(cat.techs[u].prerequisites) do opens[p] = (opens[p] or 0) + 1 end
+    end
+  end
+  local best, best_open, best_cost = nil, nil, nil
+  for _, t in ipairs(zero) do
+    local o = opens[t] or 0
+    local cost = Gen.cost(cat, ev, state, t, lab_speed)
+    if not best or o > best_open or (o == best_open and (cost < best_cost or (cost == best_cost and t < best))) then
+      best, best_open, best_cost = t, o, cost
+    end
+  end
+  return { tech = best, value = 0, cost = best_cost, score = 0, palier = false, repli = true, opens = best_open,
+    why = { { "repli", "ouvre " .. best_open } } }
 end
 
 --- Dépliage d'une liste de buts ({ {tech = …} | {item = …, n = …} }) : résumé par sorte d'étape.
@@ -522,6 +551,9 @@ function Gen.why_text(d, sum)
   local parts = {}
   for _, w in ipairs(d.why or {}) do parts[#parts + 1] = w[2] .. " (" .. w[1] .. ")" end
   local txt = "debloque [" .. table.concat(parts, ", ") .. "]"
+  if d.repli then
+    txt = string.format("repli : aucune technologie de valeur payable, celle-ci est payable et ouvre %d technologie(s)", d.opens or 0)
+  end
   if d.chain then txt = txt .. " ; rapproche '" .. d.chain.target .. "' (chaine de " .. d.chain.len .. ", +" .. d.chain.v .. ")" end
   local r = {}
   for i = 2, #(d.ranked or {}) do r[#r + 1] = d.ranked[i][1] .. " " .. d.ranked[i][2] end
