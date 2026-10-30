@@ -40,3 +40,6 @@ Dans vos deux parties du 29/10, les factions etaient plafonnees a 8 ouvriers (re
 
 ## Q22 (30/10 4 h 15) : ombres du mur
 Les ombres de nos kits suivent la regle F47 : plein est, environ 1,1 fois la hauteur. Celles du mur de pierre vanilla font 1,12 fois la hauteur mais descendent AUSSI vers le sud-est (jusqu'a +62 px sous le centre). Faut-il imiter le vanilla pour le mur seulement ? **Defaut : garder F47 (coherent avec tous les kits).** Planches : fo-logs/2026-10-29_NUIT/MUR-OPUS/planches/.
+
+## Q23 (30/10 4 h 30) : valeur du plastique (monnaie de l'age 4)
+Le plastique est declare a 1,5 u. Depuis l'ajout du vapocraquage (CRAFTS : 3 plastiques pour 20 ethylenes + 1 charbon a l'age 4), il ne coute reellement que 0,99 u de matiere brute : le controle de coherence calc_test (x1,5 de tolerance) est rouge (rapport 1,52). Options : (A) passer le plastique a 1 et recalibrer : passages du centre des epoques 4 a 7 : 5,1/4 980 -> 6,25/3 310 ; 15,5/6 060 -> 15,5/5 000 ; 29,5/6 160 -> 29/6 160 ; 57,7/6 290 -> 57,3/6 290 (moins chers en valeur aux ages 4 a 6) ; (B) garder 1,5 (le vapocraquage rend le plastique « rentable »). **Defaut : (B), applique en 0.6.22 ; calc_test reste rouge comme fait connu jusqu'a votre choix.**
