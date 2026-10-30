@@ -85,6 +85,11 @@ local RETARGET = 120
 local GEN_RADIUS = 4           -- chunks générés autour d'un éclaireur (128 tuiles : son œil)
 local FAR_MINE = 256           -- minage d'appoint au plus à 256 tuiles du coffre (constat du DC : fer à environ 140)
 local MINE_REQ_TTL = 10 * 3600 -- une demande « minage » non renouvelée expire après 10 min
+-- Lot PD-CENTRALE (vérification rapide, 30/10) : la demande « centrale » (eau de la centrale lointaine) n'est jamais « trouvée »
+-- par un gisement ; la centrale la ferme (posée, ou refus après 20 min, Cl.EXPLORE_WAIT). Si le projet disparaît avant (centrale
+-- posée dans le treillis, projet abandonné), elle restait ouverte et, la plus ancienne, passait devant toutes les autres
+-- (next_request) : expiration après 25 min.
+local CENTRALE_REQ_TTL = 25 * 3600
 local EXHAUSTED_RETRY = 10 * 3600
 local PROBE_RETRY = 5 * 3600
 local MIN_TEAM = 2             -- jamais d'éclaireur dans une équipe de moins de 2 PNJ
@@ -832,6 +837,8 @@ local function auto_requests(f, k, surface, tick)
       close_request(f, k, res, tick, "satisfait")
     elseif r.why == "minage" and tick - (r.renewed or r.t) >= MINE_REQ_TTL then
       close_request(f, k, res, tick, "expiree")
+    elseif r.why == "centrale" and tick - r.t >= CENTRALE_REQ_TTL then
+      close_request(f, k, res, tick, "expiree")
     end
   end
 end
@@ -1331,5 +1338,11 @@ Reco.bind({
   generated = generated, chunk_ready = chunk_ready, eye_keys = eye_keys, set_steps = set_steps, go_home = go_home, body = Rg.BODY,
   on_fresh = function(f, k, surface, key, names, tick) on_fresh(f, k, surface, key, names, tick) end,
 })
+-- Lot PD-CENTRALE (D-24 : « il faut aller plus loin ») : la centrale lointaine (script/team/centrale_loin.lua) demande ici
+-- l'exploration de l'eau quand aucune eau VUE ne tient la centrale ; crochet posé au chargement (pas de require croisé).
+do
+  local Far = require("script.team.centrale_loin")
+  Far.hooks.request, Far.hooks.cancel = X.request, X.cancel
+end
 
 return X
