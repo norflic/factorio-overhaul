@@ -71,7 +71,7 @@ def plaques(lot, surf, xs, larg, mats, rnd, gap=0.022, g=(0.02, 0.06), saut=None
             gx = gap * (1.0 if x1 > x0 else -1.0)
             ep = rnd.f(*g)
             lot.put(m, plaque(surf, x0 + gx / 2, x1 - gx / 2, a0 + da / 2, a1 - da / 2, 0.0, ep), xf)
-            if rivet is not None and rnd.f() < 0.55:
+            if rivet is not None and rnd.f() < 0.85:
                 arc = (a1 - a0) * _arc(surf, xm, (a0 + a1) / 2)
                 nr = max(2, int(arc / pas_riv))
                 pts = []

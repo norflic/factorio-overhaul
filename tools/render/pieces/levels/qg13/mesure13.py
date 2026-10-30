@@ -51,6 +51,9 @@ def main():
         sz, _ = D.components(e > 0.25, conn8=True)
         ng = sum(1 for v in sz.values() if v >= 4)
         ngf = sum(1 for v in sz.values() if v >= 64)
+        # foyers « vus » : composantes après fermeture de 10 px (un anneau coupé par ses bobines reste UN foyer)
+        szd, _ = D.components(D.dilate(e > 0.25, 10), conn8=True)
+        ngd = sum(1 for v in szd.values() if v >= 400)
         # lueur posée sur la grille du corps (même origine de l'entité) : zone lumineuse de jour
         sm, sg = spec["layers"]["main"], spec["layers"]["glow"]
         ox = int(round((sg["shift"][0] - sm["shift"][0]) * 64 + (W - gl.shape[1]) / 2.0))
@@ -78,7 +81,8 @@ def main():
         ("découpe silhouette", sil, ">= 1,6 (cible 2,2)", sil >= 1.6),
         ("damier (plages/t²)", damier, "<= 0,45", damier <= 0.45),
         ("zone lumineuse jour", r["zone_lumineuse_part"], "<= 0,06", r["zone_lumineuse_part"] <= 0.06),
-        ("sources de lueur (>=64 px)", ngf if ng else 0, "3 à 8 foyers dominants", 3 <= (ngf if ng else 0) <= 8),
+        ("sources de lueur (>=64 px)", ngf if ng else 0, "info : composantes brutes", True),
+        ("foyers vus (fermeture 10 px)", ngd if ng else 0, "3 à 8 foyers dominants", 3 <= (ngd if ng else 0) <= 8),
         ("O dépassement haut", r["O_depassement_haut"], "info (bible 3,14)", True),
     ]
     print("QG %s  emprise %gx%g  masse %.1f t²  pièces %d" % (nom, emp[0], emp[1], m, r["petites_pieces"]))

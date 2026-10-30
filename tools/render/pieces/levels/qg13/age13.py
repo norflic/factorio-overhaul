@@ -47,18 +47,17 @@ def matieres(S):
     M = {}
     sf = MT.surface
     # céramique blanche patinée, en tuiles (bouclier thermique) : la couleur reste chaude, la suie descend
-    M["ceram"] = sf("q13_ceram", (0.40, 0.375, 0.33), rough=0.62, met=0.05, tole=(0.23, 0.19), joint=0.32, joint_l=0.03,
-                    var=0.14, grain=0.09, coulures=0.75, rouille=(0.09, 0.06, 0.04), usure=0.35, nu=(0.55, 0.52, 0.47),
-                    crasse=0.85, crasse_col=(0.025, 0.02, 0.016), pied=(0.0, 1.0, 0.55), relief=0.7, graine=131)
-    M["ceram2"] = sf("q13_ceram2", (0.30, 0.27, 0.225), rough=0.65, met=0.05, tole=(0.27, 0.21), joint=0.3, joint_l=0.03,
-                     var=0.16, grain=0.1, coulures=0.8, rouille=(0.08, 0.05, 0.03), usure=0.35, nu=(0.5, 0.47, 0.42),
-                     crasse=0.85, crasse_col=(0.022, 0.018, 0.014), relief=0.7, graine=132)
-    M["ceram3"] = sf("q13_ceram3", (0.47, 0.43, 0.36), rough=0.6, met=0.05, tole=(0.21, 0.17), joint=0.35, joint_l=0.03,
-                     var=0.1, grain=0.08, coulures=0.6, rouille=(0.1, 0.065, 0.04), usure=0.3, crasse=0.85,
-                     crasse_col=(0.025, 0.02, 0.016), relief=0.7, graine=133)
-    M["noire"] = sf("q13_noire", (0.028, 0.025, 0.023), rough=0.7, met=0.05, tole=(0.23, 0.19), joint=0.25, joint_l=0.03,
+    M["ceram"] = sf("q13_ceram", (0.56, 0.465, 0.33), rough=0.58, met=0.05, tole=(0.25, 0.205), joint=0.8, joint_l=0.012,
+                    var=0.09, grain=0.08, coulures=0.8, rouille=(0.075, 0.05, 0.034), usure=0.3, nu=(0.66, 0.6, 0.5),
+                    crasse=0.95, crasse_col=(0.012, 0.008, 0.006), pied=(0.0, 1.0, 0.6), relief=0.3, graine=131)
+    M["ceram2"] = sf("q13_ceram2", (0.44, 0.335, 0.215), rough=0.62, met=0.05, tole=(0.27, 0.22), joint=0.78, joint_l=0.012,
+                     var=0.08, grain=0.09, coulures=0.85, rouille=(0.06, 0.04, 0.026), usure=0.35, nu=(0.6, 0.54, 0.45),
+                     crasse=0.95, crasse_col=(0.011, 0.008, 0.006), relief=0.3, graine=132)
+    M["ceram3"] = sf("q13_ceram3", (0.6, 0.51, 0.37), rough=0.55, met=0.05, tole=(0.23, 0.19), joint=0.84, joint_l=0.01, var=0.07, grain=0.07, coulures=0.7,
+                     rouille=(0.08, 0.055, 0.035), usure=0.3, crasse=0.95, crasse_col=(0.012, 0.008, 0.006), relief=0.25, graine=133)
+    M["noire"] = sf("q13_noire", (0.02, 0.015, 0.011), rough=0.7, met=0.05, tole=(0.3, 0.25), joint=0.3, joint_l=0.02,
                     var=0.25, grain=0.12, usure=0.4, nu=(0.12, 0.11, 0.1), crasse=0.5, relief=0.7, graine=134)
-    M["cuivre"] = sf("q13_cuivre", (0.42, 0.16, 0.055), rough=0.42, met=0.9, coulures=0.6, rouille=(0.05, 0.13, 0.085),
+    M["cuivre"] = sf("q13_cuivre", (0.55, 0.2, 0.055), rough=0.42, met=0.9, coulures=0.6, rouille=(0.05, 0.13, 0.085),
                      usure=0.65, nu=(0.85, 0.5, 0.28), crasse=0.65, crasse_col=(0.03, 0.02, 0.012), graine=135)
     M["cuivre_s"] = sf("q13_cuivre_s", (0.19, 0.07, 0.03), rough=0.5, met=0.85, coulures=0.5, rouille=(0.04, 0.1, 0.07),
                        usure=0.6, nu=(0.6, 0.33, 0.18), crasse=0.65, graine=136)
@@ -66,15 +65,15 @@ def matieres(S):
                   crasse=0.6, graine=137)
     M["toit"] = sf("q13_toit", (0.3, 0.115, 0.045), rough=0.45, met=0.85, tole=(0.16, 1.4), joint=0.45, coulures=0.7,
                    rouille=(0.05, 0.12, 0.08), usure=0.5, nu=(0.7, 0.4, 0.22), crasse=0.6, relief=0.4, graine=138)
-    M["acier"] = sf("q13_acier", (0.05, 0.047, 0.044), rough=0.5, met=0.75, coulures=0.5, rouille=(0.12, 0.06, 0.03),
+    M["acier"] = sf("q13_acier", (0.06, 0.044, 0.032), rough=0.5, met=0.75, coulures=0.5, rouille=(0.12, 0.06, 0.03),
                     usure=0.7, nu=(0.24, 0.22, 0.2), crasse=0.6, graine=139)
-    M["noir"] = sf("q13_noir", (0.013, 0.012, 0.012), rough=0.6, met=0.4, usure=0.4, nu=(0.1, 0.09, 0.085), crasse=0.4,
+    M["noir"] = sf("q13_noir", (0.011, 0.008, 0.006), rough=0.6, met=0.4, usure=0.4, nu=(0.1, 0.09, 0.085), crasse=0.4,
                    graine=140)
-    M["grille"] = sf("q13_grille", (0.06, 0.056, 0.05), rough=0.55, met=0.6, tole=(0.07, 0.07), joint=0.15, joint_l=0.12,
+    M["grille"] = sf("q13_grille", (0.05, 0.038, 0.027), rough=0.55, met=0.6, tole=(0.07, 0.07), joint=0.15, joint_l=0.12,
                      var=0.05, usure=0.4, crasse=0.6, relief=0.8, graine=141)
     M["caout"] = sf("q13_caout", (0.02, 0.019, 0.018), rough=0.8, met=0.0, usure=0.2, crasse=0.3, graine=142)
     M["cable_r"] = sf("q13_cable_r", (0.32, 0.025, 0.014), rough=0.6, met=0.0, usure=0.2, crasse=0.3, graine=143)
-    M["os"] = sf("q13_os", (0.25, 0.215, 0.165), rough=0.55, met=0.25, tole=(0.5, 0.3), joint=0.55, var=0.08,
+    M["os"] = sf("q13_os", (0.44, 0.34, 0.2), rough=0.55, met=0.25, tole=(0.5, 0.3), joint=0.55, var=0.08,
                  coulures=0.6, rouille=(0.09, 0.055, 0.03), usure=0.6, nu=(0.45, 0.4, 0.33), crasse=0.8, relief=0.4,
                  graine=144)
     M["chevron"] = sf("q13_chevron", (0.52, 0.33, 0.02), rough=0.55, met=0.2, bandes=(0.42, (0.015, 0.013, 0.01), 0.5),
@@ -84,11 +83,22 @@ def matieres(S):
     M["terre"] = sf("q13_terre", (0.13, 0.075, 0.035), rough=0.95, met=0.0, crasse=0.5, graine=147)
     M["brule"] = sf("q13_brule", (0.02, 0.014, 0.016), rough=0.75, met=0.4, usure=0.0, crasse=0.6, graine=148)
     M["verre"] = MT.verre("q13_verre", col=(0.022, 0.012, 0.022), reflet=(0.22, 0.13, 0.2))
-    M["plasma"] = MT.lumiere(S, "q13_plasma", (1.0, 0.31, 0.85), 5.0, main=0.25)
-    M["coeur"] = MT.lumiere(S, "q13_coeur", (1.0, 0.6, 0.23), 6.0, main=0.3)
-    M["hublot"] = MT.lumiere(S, "q13_hublot", (1.0, 0.72, 0.42), 2.6, main=0.35)
-    M["balise"] = MT.lumiere(S, "q13_balise", (1.0, 0.3, 0.82), 7.0, main=0.3)
+    M["plasma"] = _emis(S, "q13_plasma", (1.0, 0.31, 0.85), 2.4, crust=(7.0, 0.7, 13.0))
+    M["coeur"] = _emis(S, "q13_coeur", (1.0, 0.6, 0.23), 3.2, crust=(9.0, 0.4, 14.0))
+    M["hublot"] = _emis(S, "q13_hublot", (1.0, 0.72, 0.42), 1.8)
+    M["balise"] = _emis(S, "q13_balise", (1.0, 0.3, 0.82), 3.5)
     return M
+
+
+def _emis(S, name, col, force, crust=None):
+    """Surface lumineuse ÉTEINTE dans la couche principale (main_scale 0, mate) : la lueur additive seule donne la couleur,
+    comme le feu vanilla (essai 1 : main 0,25 + force 5 brûlait le plasma en BLANC dans la composition)."""
+    m = S.mat_emissive(name, col, strength=force, base=tuple(c * 0.06 for c in col), main_scale=0.0, crust=crust)
+    p = m.node_tree.nodes["Principled BSDF"]
+    p.inputs["Roughness"].default_value = 1.0
+    if "Specular IOR Level" in p.inputs:
+        p.inputs["Specular IOR Level"].default_value = 0.0
+    return m
 
 
 # ------------------------------------------------------------------------------------------------ outils locaux
@@ -284,7 +294,7 @@ def queue(lot, M, r):
         z = zt + 0.35 + 0.35 * i
         for sy in (-1, 1):
             lot.put(M["ceram2"], G.boite((x, sy * (ep + 0.02), z), (0.5, 0.04, 0.32)), xf)
-    O.antenne(lot, M["acier"], M["balise"], xf((-6.3, 0.0, zt + 2.72)), 0.7, 0.025, barres=1, lum=M["balise"])
+    O.antenne(lot, M["acier"], None, xf((-6.3, 0.0, zt + 2.72)), 0.7, 0.025, barres=1)
     # ailes devenues RADIATEURS : cadre de céramique, lames sombres, caloducs de cuivre ; dièdre 0,2
     for s in (-1, 1):
         y_r, y_b = K.NAC_Y + 0.85, 4.75
@@ -324,30 +334,31 @@ def squelette(lot, M, r):
     for i, p in enumerate(P):
         if i:
             acc += G.length(G.sub(p, P[i - 1]))
-        if acc - last > 0.42 and 1 <= i < len(P) - 1:
+        if acc - last > 0.55 and 1 <= i < len(P) - 1:
             last = acc
             t = fr[i][0]
-            lot.put(M["os"], G.oriente(G.tour([(-0.07, 0.34), (-0.05, 0.4), (0.05, 0.4), (0.07, 0.34)], 10, "z", cap0=True, cap1=True), p, t))
+            lot.put(M["os"], G.oriente(G.tour([(-0.06, 0.29), (-0.045, 0.33), (0.045, 0.33), (0.06, 0.29)], 10, "z", cap0=True, cap1=True), p, t))
             up = G.norm(G.sub((0, 0, 1), G.mul(t, t[2])))
-            tip = G.add(p, G.add(G.mul(up, 0.55 + 0.1 * r.f()), G.mul(t, -0.25)))
-            lot.put(M["os"], G.tube([G.add(p, G.mul(up, 0.3)), tip], 0.07, 5))
+            tip = G.add(p, G.add(G.mul(up, 0.42 + 0.1 * r.f()), G.mul(t, -0.22)))
+            if i % 2 == 0:
+                lot.put(M["os"], G.tube([G.add(p, G.mul(up, 0.26)), tip], 0.06, 5))
             if r.f() < 0.35:
                 lot.put(M["cuivre"], G.oriente(G.tour([(-0.04, 0.3), (0.04, 0.3)], 10, "z", cap0=True, cap1=True), p, t))
-    # côtes inclinées vers la queue « (((( » : elles descendent de l'épine en cage au-dessus de la sphère et se
-    # posent sur le carter du tore (elles le portent) ; sabots de cuivre boulonnés
-    for xr in (-2.2, -1.0, 1.2, 2.4):
+    # côtes inclinées vers la queue « (((( » : CÔTÉ NORD seulement (la face sud de la sphère reste dégagée) ; elles
+    # descendent de l'épine derrière la sphère et se posent sur le carter du tore (elles le portent)
+    for xr in (-2.5, -1.4, -0.3, 0.8, 1.9):
         zs = K.z_epine(pts, xr) - 0.12
-        xe = xr - 0.6
+        xe = xr - 1.0
         ye = math.sqrt(max(0.0, TR * TR - (xe - CX) ** 2))
         ze = TZ + TRC + 0.04
-        for s in (-1, 1):
+        for s in (1,):
             cp = []
             for i in range(17):
                 t = i / 16.0
                 ph = t * math.pi / 2
                 y = s * ye * math.sin(ph) ** 0.6
                 z = ze + (zs - ze) * math.cos(ph) ** 0.9
-                cp.append(yaw((xr - 0.6 * t, y, z)))
+                cp.append(yaw((xr - 1.0 * t, y, z)))
             lot.put(M["os"], G.tube(cp, 0.17, 6))
             lot.put(M["os"], G.tube(cp[3:14], 0.2, 4))
             for j in (4, 9, 13):                       # colliers de cuivre
@@ -437,8 +448,8 @@ def sphere(lot, M, r):
 
     def saut(um, am):
         return um < 0.3
-    us = K.stations(0.26, 2.75, 0.24, r, 0.2)
-    K.plaques(lot, surf, us, 0.55, mats, r, gap=0.028, g=(0.025, 0.07), saut=saut, rivet=M["cuivre_s"])
+    us = K.stations(0.26, 2.75, 0.19, r, 0.2)
+    K.plaques(lot, surf, us, 0.42, mats, r, gap=0.028, g=(0.025, 0.07), saut=saut, rivet=M["cuivre_s"])
     # méridiens et parallèles de cuivre (frettes)
     for k in range(8):
         a = TAU * k / 8 + 0.2
@@ -455,7 +466,7 @@ def sphere(lot, M, r):
         lot.put(M["acier"], G.sphere((c[0] + 0.85 * math.cos(a), c[1] + 0.85 * math.sin(a), c[2] + CR * 0.985), 0.05, 6, 3))
     # hublots du cœur (le foyer fort) : 2 hublots ronds de tailles différentes, plus un petit voyant
     for (a, u, rr_, m) in ((-math.pi / 2 - 0.35, 1.25, 0.24, "coeur"), (-math.pi / 2 + 0.45, 1.35, 0.15, "coeur"),
-                           (-math.pi / 2 + 1.25, 1.1, 0.07, "hublot")):
+                           (-math.pi / 2 + 1.25, 1.1, 0.07, "verre")):
         p = surf(u, a + YAW, 0.08)
         n = G.norm(G.sub(p, c))
         O.hublot(lot, M["cuivre"], M[m], p, n, rr_)
@@ -622,13 +633,13 @@ def halles(lot, M, r):
     for (x, w, h, z) in ((-3.4, 0.36, 0.42, 1.65), (-2.85, 0.24, 0.24, 1.9)):   # 2 fenêtres différentes, porte
         p = yaw((x, y0 - 0.02, z))
         lot.put(M["cuivre"], G.boite(p, (w + 0.1, 0.06, h + 0.1), YAW))
-        lot.put(M["hublot"] if w > 0.3 else M["verre"], G.boite(G.add(p, yaw((0, -0.03, 0))), (w, 0.05, h), YAW))
+        lot.put(M["verre"], G.boite(G.add(p, yaw((0, -0.03, 0))), (w, 0.05, h), YAW))
     p = yaw((-2.45, y0 - 0.02, Z_SOC + 0.55))
     lot.put(M["cuivre"], G.boite(p, (0.6, 0.08, 1.12), YAW))
     lot.put(M["noir"], G.boite(G.add(p, yaw((0, -0.03, 0))), (0.46, 0.06, 1.02), YAW))
     c = yaw((-2.95, (y0 + y1) / 2 + 0.3, z1 + 0.5))
     O.grille(lot, M["acier"], M["noir"], (c[0], c[1], z1 + 0.42), 0.45, 0.35, 6, YAW)
-    O.antenne(lot, M["acier"], M["hublot"], yaw((-3.5, -3.1, z1 + 0.5)), 0.8, 0.025, barres=2)
+    O.antenne(lot, M["acier"], None, yaw((-3.5, -3.1, z1 + 0.5)), 0.8, 0.025, barres=2)
     lot.put(M["cuivre"], G.tour([(z1 + 0.3, 0.16), (z1 + 1.1, 0.13), (z1 + 1.15, 0.18), (z1 + 1.22, 0.18)], 12, "z",
                                 yaw((-2.45, -3.2, 0.0)), cap1=True))      # cheminée de ventilation
     # --- halle B
@@ -720,8 +731,6 @@ def tuyauterie(lot, M, r):
 
 def sol(lot, M, r):
     """Butte de terre sous le nez, plaques au sol, caisses, fûts, bouteilles, tourets, pièces de rechange (≥ 24)."""
-    lot.put(M["terre"], G.butte(yaw((6.0, 0.2, 0.0)), 2.0, 2.1, 0.35, r, n=22, bosses=0.35))
-    lot.put(M["terre"], G.butte(yaw((-6.8, -0.5, 0.0)), 1.3, 2.6, 0.18, r, n=16, bosses=0.4))
     pos = [(4.0, -3.1), (4.5, -3.5), (4.6, -2.75), (5.3, -3.3), (-6.5, -4.0), (-6.0, -4.6), (-1.9, -5.2), (2.4, -5.3),
            (5.6, 2.9), (6.1, 3.4), (-6.9, 3.7), (0.9, 5.0)]
     for i, (x, y) in enumerate(pos):
@@ -756,6 +765,79 @@ def sol(lot, M, r):
         O.garde_corps(lot, M["acier"], [yaw((x + s * 0.55, -5.55, 0.2)), yaw((x + s * 0.55, -4.7, Z_SOC + 0.05))], h=0.42, pas=0.4)
 
 
+def echangeur(lot, M, r):
+    """Échangeur de chaleur au nord-est (coin vide de l'emprise) : caisson de céramique, deux rangées d'ailettes,
+    conduites de cuivre sur pilotis vers le cryostat, évents ; il fait monter la masse à droite derrière le crâne."""
+    bx, by = 4.7, 3.7
+    c = yaw((bx, by, 0.0))
+    lot.put(M["ceram2"], G.boite((c[0], c[1], 0.55), (1.6, 1.7, 1.1), YAW))
+    lot.put(M["cuivre_s"], G.boite((c[0], c[1], 1.13), (1.7, 1.8, 0.08), YAW))
+    for row in (-0.45, 0.45):
+        for i in range(9):
+            x = bx - 0.7 + 1.4 * (i + r.f(-0.15, 0.15)) / 8
+            h = 1.5 + 0.25 * math.sin(i * 1.7)
+            q = yaw((x, by + row, 0.0))
+            lot.put(M["ceram3"] if i % 3 else M["cuivre"], G.boite((q[0], q[1], 1.17 + h / 2), (0.06, 0.62, h), YAW))
+    for row in (-0.45, 0.45):
+        q = yaw((bx, by + row, 0.0))
+        lot.put(M["cuivre"], G.boite((q[0], q[1], 1.3), (1.55, 0.08, 0.08), YAW))
+    T = lambda pts: [yaw(p) for p in pts]
+    O.tuyau(lot, M["cuivre"], M["acier"], T([(3.85, 3.3, 0.7), (3.0, 3.3, 0.7), (3.0, 2.2, 1.3), (1.2, 1.2, 1.3)]), 0.16)
+    O.tuyau(lot, M["cuivre_s"], M["acier"], T([(3.85, 4.1, 0.9), (2.4, 4.1, 0.9), (2.4, 4.1, 1.6), (0.6, 4.1, 1.6), (-1.6, 4.1, 1.6)]), 0.1)
+    O.tuyau(lot, M["vdg"], M["acier"], T([(5.5, 3.2, 0.5), (5.9, 3.2, 0.5), (5.9, 2.2, 0.5), (5.2, 1.4, 0.5)]), 0.08)
+    for x in (2.4, 0.9, -0.6):
+        q = yaw((x, 4.1, 0.0))
+        lot.put(M["acier"], G.tube([(q[0], q[1], Z_SOC), (q[0], q[1], 1.5)], 0.05, 6))
+    O.grille_v(lot, M["acier"], M["noir"], yaw((4.4, by - 0.87, 0.6)), 0.5, 0.4, 6, -1)
+    O.grille_v(lot, M["acier"], M["noir"], yaw((5.1, by - 0.87, 0.6)), 0.4, 0.4, 5, -1)
+    O.antenne(lot, M["acier"], M["balise"], yaw((5.35, 4.3, 1.17)), 1.3, 0.03, barres=2, lum=None)
+
+
+def events(lot, M, r):
+    """Évents et grilles supplémentaires (façades des halles, socle, nacelles)."""
+    O.grille_v(lot, M["acier"], M["noir"], yaw((-3.05, -4.48, 1.45)), 0.4, 0.5, 6, -1)
+    O.grille_v(lot, M["acier"], M["noir"], yaw((2.1, -4.53, 1.35)), 0.6, 0.35, 5, -1)
+    O.grille_v(lot, M["acier"], M["noir"], yaw((2.9, -4.53, 1.15)), 0.3, 0.3, 4, -1)
+    O.grille(lot, M["acier"], M["noir"], yaw((-1.4, -3.7, Z_SOC)), 0.6, 0.45, 7, YAW)
+    O.grille(lot, M["acier"], M["noir"], yaw((0.9, -3.75, Z_SOC)), 0.5, 0.4, 6, YAW)
+    O.grille(lot, M["acier"], M["noir"], yaw((-3.0, 1.8, Z_SOC)), 0.55, 0.5, 6, YAW + 0.3)
+    for s in (-1, 1):
+        p = xf_queue((-4.6, s * K.NAC_Y, K.NAC_Z + 1.0))
+        O.grille(lot, M["acier"], M["noir"], (p[0], p[1], p[2] - 0.02), 0.5, 0.3, 6, YAW)
+    p = xf_queue((-4.2, 0.0, K.ZC_Q + 1.0))
+    O.grille(lot, M["acier"], M["noir"], (p[0], p[1], p[2] - 0.03), 0.45, 0.45, 5, YAW)
+
+
+def cables_plus(lot, M, r, pts):
+    """Faisceaux supplémentaires : épine → dérive, flèche → halle A, crâne → échangeur, poteaux du socle."""
+    apex = yaw(max(pts, key=lambda p: p[2]))
+    O.faisceau(lot, M["cable_r"], M["caout"], yaw((-4.4, 0.2, 4.6)), xf_queue((-5.6, 0.1, K.ZC_Q + 1.6)), fl=0.2, n=2)
+    O.faisceau(lot, M["cable_r"], M["caout"], G.add(apex, (-0.25, -0.1, 0.0)), yaw((-3.0, -3.3, 3.2)), fl=0.9, n=2)
+    O.faisceau(lot, M["cable_r"], M["caout"], xf_crane((3.5, 0.9, 3.6)), yaw((4.0, 3.2, 1.2)), fl=0.4, n=3)
+    O.faisceau(lot, M["cable_r"], M["caout"], yaw((2.9, 4.1, 1.6)), yaw((1.3, 3.35, 1.9)), fl=0.15, n=2)
+    O.faisceau(lot, M["cable_r"], M["caout"], yaw((-4.3, 3.6, 1.4)), yaw((-3.0, 2.7, 2.7)), fl=0.3, n=3)
+    O.faisceau(lot, M["cable_r"], M["caout"], yaw((1.8, -4.6, 1.7)), yaw((3.0, -4.6, 1.7)), fl=0.12, n=2)
+    for (x, y) in ((-4.1, 4.2), (3.0, 4.3), (3.1, -1.7)):
+        q = yaw((x, y, 0.0))
+        lot.put(M["acier"], G.tube([(q[0], q[1], Z_SOC), (q[0], q[1], 2.2)], 0.045, 6))
+        lot.put(M["acier"], G.tube([(q[0] - 0.25, q[1], 2.1), (q[0] + 0.25, q[1], 2.1)], 0.025, 5))
+
+
+def tuyaux_plus(lot, M, r):
+    """Tuyaux supplémentaires (trois diamètres) pour la densité de la raffinerie : colonnes montantes le long des
+    halles, nourrices du tore, purges."""
+    T = lambda pts: [yaw(p) for p in pts]
+    O.tuyau(lot, M["cuivre_s"], M["acier"], T([(-2.25, -2.6, 1.0), (-2.25, -2.6, 2.4), (-2.0, -2.3, 2.7)]), 0.06)
+    O.tuyau(lot, M["cuivre"], M["acier"], T([(-3.7, -2.6, 1.0), (-3.7, -2.6, 2.3)]), 0.05)
+    O.tuyau(lot, M["cuivre_s"], M["acier"], T([(1.1, -2.65, 1.0), (1.1, -2.65, 2.2), (0.9, -2.3, 2.4)]), 0.07)
+    O.tuyau(lot, M["cuivre"], M["acier"], T([(3.05, -2.65, 1.0), (3.05, -2.65, 1.8)]), 0.05)
+    O.tuyau(lot, M["cuivre"], M["acier"], T([(-1.0, -1.45, 2.38), (-1.6, -2.3, 2.6), (-1.6, -2.3, 4.0), (-1.4, -2.7, 4.25)]), 0.08)
+    O.tuyau(lot, M["cuivre"], M["acier"], T([(0.3, -1.45, 2.38), (0.8, -2.4, 2.6), (0.8, -2.4, 4.0), (0.7, -2.8, 4.25)]), 0.08)
+    O.tuyau(lot, M["acier"], M["cuivre"], T([(-4.5, 2.6, Z_SOC + 0.15), (-4.5, -2.4, Z_SOC + 0.15)]), 0.09, pas_bride=0.9)
+    O.tuyau(lot, M["cuivre_s"], M["acier"], T([(3.2, 2.6, Z_SOC + 0.12), (3.2, -1.9, Z_SOC + 0.12)]), 0.07, pas_bride=0.8)
+    O.tuyau(lot, M["cuivre"], M["acier"], T([(-0.2, 3.0, Z_SOC + 0.3), (-0.2, 1.5, Z_SOC + 0.3), (-0.3, 1.45, 1.6)]), 0.12)
+
+
 def build(S, lot):
     M = matieres(S)
     r = G.Rnd(1313)
@@ -774,4 +856,8 @@ def build(S, lot):
     reservoirs(lot, M, r)
     tuyauterie(lot, M, r)
     sol(lot, M, r)
+    echangeur(lot, M, r)
+    events(lot, M, r)
+    cables_plus(lot, M, r, pts)
+    tuyaux_plus(lot, M, r)
     return {}

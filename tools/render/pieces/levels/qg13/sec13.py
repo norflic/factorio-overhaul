@@ -24,6 +24,7 @@ MT.lumiere = lambda S, name, *a, **k: _M(name)
 
 import geo as G  # noqa: E402
 import age13  # noqa: E402
+age13._emis = lambda S, name, *a, **k: _M(name)
 
 lot = G.Lot(None, "sec")
 age13.build(None, lot)
