@@ -35,6 +35,8 @@ C.ITEMS = {
   -- âge 10 (étape 5) : concentrés et billettes ρ8 (une billette = 8 plaques : 8 fois moins d'objets sur les tapis)
   "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate",
   "fo-iron-plate-r8", "fo-copper-plate-r8", "fo-tungsten-plate-r8",
+  -- âge 7 (étape 8) : taillerie du cristal de résonance, lentille, oscillateur
+  "fo-cut-crystal", "fo-crystal-powder", "fo-resonance-lens", "fo-crystal-oscillator",
 }
 -- Fluides de X0 mis en jeu par ce lot.
 C.FLUIDS = { "fo-ethylene", "fo-carbon-dioxide" }
@@ -55,6 +57,15 @@ C.BUILDINGS = {
   -- Étape 4 (âges 8 et 10).
   { name = "fo-reformer", copy = { "assembling-machine", "chemical-plant" }, side = 3, tint = { r = 0.62, g = 0.82, b = 0.70 } },
   { name = "fo-cleanroom", copy = { "assembling-machine", "assembling-machine-3" }, side = 3, tint = { r = 0.90, g = 0.96, b = 1.00 } },
+  -- Étape 8 (âge 7). Sa recette X0 demande du carbure de tungstène (four de frittage, absent ici) : déplié en plaques de
+  -- tungstène et coke (T.expand, comme les machines du titane).
+  { name = "fo-lapidary", copy = { "assembling-machine", "assembling-machine-2" }, side = 3, tint = { r = 0.62, g = 0.86, b = 1.00 } },
+}
+
+-- Balises de X0 (étape 8) : copie teintée de la balise vanilla, stats de X0 (emplacements, rendement, portée, énergie).
+-- Une balise du joueur reste ADDITIVE (les modules multipliés ne valent que dans la machine, lot MOD-1).
+C.BEACONS = {
+  { name = "fo-resonance-amplifier", tint = { r = 0.62, g = 0.86, b = 1.00 } },
 }
 
 -- Sols de X0 mis en jeu (étape 6). Visuel PROVISOIRE : copie teintée d'un sol vanilla ; layer libre de vanilla (63).
@@ -125,6 +136,12 @@ C.RECIPES = {
   { name = "fo-tungsten-plate-r8-unpacking" },
   -- Étape 6, âge 4 (Pétrole) : asphalte (sol rapide pour les véhicules), un débouché de l'huile lourde et du sable.
   { name = "fo-asphalt" },
+  -- Étape 8, âge 7 (Cristal) : 2 cristaux -> 1 cristal taillé + 1 poudre ; lentille (cristal taillé + verre) ;
+  -- oscillateur (poudre + circuit + fil émaillé) ; débouché : l'amplificateur de résonance (balise de X0, jalon de
+  -- l'âge 7 : « construire 4 amplificateurs »).
+  { name = "fo-crystal-cutting", main = "fo-cut-crystal" },
+  { name = "fo-resonance-lens" },
+  { name = "fo-crystal-oscillator" },
 }
 
 -- Recettes HORS X0 (fermeture des boucles en jeu). Même format que les recettes de X0.
@@ -214,6 +231,13 @@ C.TECHS = {
   { name = "fo-concentration", x0 = "fo-concentration", epoch = 10, count = 300, time = 30,
     prerequisites = { "fo-arc-smelting", "fo-electrical-steel", "fo-tungsten-processing", "utility-science-pack" },
     unlocks = { "fo-ore-concentrator", "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate" } },
+  -- Étape 8. X0 « fo-resonance-pack » ouvre aussi le pack de résonance (packs du mod absents) : seule la taillerie.
+  { name = "fo-lapidary", x0 = "fo-resonance-pack", epoch = 7, count = 250, time = 30,
+    prerequisites = { "fo-electrical-steel", "fo-glassworks", "fo-tungsten-processing", "fo-coking", "advanced-electronics" },
+    unlocks = { "fo-lapidary", "fo-crystal-cutting", "fo-resonance-lens", "fo-crystal-oscillator" } },
+  { name = "fo-resonance-amplifier", x0 = "fo-resonance-amplifier", epoch = 7, count = 300, time = 30,
+    prerequisites = { "fo-lapidary", "effect-transmission" },
+    unlocks = { "fo-resonance-amplifier" } },
   { name = "fo-asphalt", x0 = "fo-asphalt", epoch = 4, count = 100, time = 30,
     prerequisites = { "fo-crushing", "oil-processing", "concrete", "chemical-science-pack" },
     unlocks = { "fo-asphalt" } },
@@ -234,6 +258,7 @@ for _, n in ipairs(C.ITEMS) do IN_GAME[n] = true end
 for _, n in ipairs(C.FLUIDS) do IN_GAME[n] = true end
 for _, b in ipairs(C.BUILDINGS) do IN_GAME[b.name] = true end
 for _, t in ipairs(C.TILES) do IN_GAME[t.name] = true end
+for _, b in ipairs(C.BEACONS) do IN_GAME[b.name] = true end
 
 --- Spécification de X0 d'un sol (X.tiles) : { name, epoch, walking_speed_modifier, vehicle_friction_modifier, ... }.
 function C.x_tile(name)
@@ -310,10 +335,15 @@ function C.all_recipes()
   return out
 end
 
---- Recette en jeu d'un bâtiment du lot : celle de X0 (aucun dépliage nécessaire : contrôlé par le banc).
+--- Recette en jeu d'un bâtiment du lot : celle de X0, ingrédients absents du jeu dépliés (T.expand ; la taillerie seule
+--- en a besoin : carbure de tungstène) ; trace = { {absent, recette X0} }.
 function C.building_recipe(name)
   local r = assert(T.x_recipe(name), "crafts : recette X0 absente pour " .. name)
-  return { name = r.name, category = r.category, time = r.time, ingredients = r.ingredients }
+  local present = true
+  for _, i in ipairs(r.ingredients) do if not C.present(i[1]) then present = false end end
+  if present then return { name = r.name, category = r.category, time = r.time, ingredients = r.ingredients, trace = {} } end
+  local ings, trace = T.expand(r.ingredients)
+  return { name = r.name, category = r.category, time = r.time, ingredients = ings, trace = trace }
 end
 
 --- Catégories de fabrication NEUVES (celles des bâtiments du lot qui ne sont pas déjà en jeu par X1).

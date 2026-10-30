@@ -23,12 +23,14 @@ local CHECK = 1200
 
 local TECHS = { "fo-coking", "fo-blast-furnace", "fo-crushing", "fo-cement-concrete", "fo-arc-smelting", "fo-electrical-steel",
                 "fo-titanium-alloys", "fo-brine-byproducts", "fo-glassworks", "fo-flaring", "fo-steam-cracking",
-                "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process", "fo-concentration", "fo-billets", "fo-asphalt" }
+                "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process", "fo-concentration", "fo-billets", "fo-asphalt", "fo-lapidary",
+                "fo-resonance-amplifier" }
 local ITEMS = { "fo-slag", "fo-cement", "fo-sand", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite",
                 "fo-glass", "fo-manometer", "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer",
                 "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate", "fo-iron-plate-r8", "fo-copper-plate-r8",
-                "fo-tungsten-plate-r8" }
-local BUILDINGS = { "fo-blast-furnace", "fo-crusher", "fo-coil-winder", "fo-flare-stack", "fo-steam-cracker", "fo-reformer", "fo-cleanroom" }
+                "fo-tungsten-plate-r8", "fo-cut-crystal", "fo-crystal-powder", "fo-resonance-lens", "fo-crystal-oscillator" }
+local BUILDINGS = { "fo-blast-furnace", "fo-crusher", "fo-coil-winder", "fo-flare-stack", "fo-steam-cracker", "fo-reformer", "fo-cleanroom",
+                    "fo-lapidary", "fo-resonance-amplifier" }
 local PROD = { "fo-glass", "fo-manometer", "fo-polyethylene", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite", "fo-titanium-lds",
                "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer", "fo-cleanroom-processor" }
 local NOT_PROD = { "fo-flare-hydrogen", "fo-steam-cracking", "fo-slag-landfill", "fo-sorel-concrete", "fo-hydrocracking", "fo-arc-steel", "fo-blast-furnace-steel",
@@ -85,6 +87,14 @@ local POSTES = {
   { key = "decoupe", m = "assembling-machine-3", r = "fo-iron-plate-r8-unpacking", p = "iron-plate", items = { { "fo-iron-plate-r8", 4 } } },
   -- Étape 6 : asphalte (âge 4).
   { key = "asphalte", m = "chemical-plant", r = "fo-asphalt", p = "fo-asphalt", items = { { "fo-sand", 10 } }, fluids = { { "heavy-oil", 100 } } },
+  -- Étape 8 : âge 7 (taillerie, lentille, oscillateur, amplificateur).
+  { key = "taille", m = "fo-lapidary", r = "fo-crystal-cutting", p = "fo-cut-crystal", items = { { "fo-resonance-crystal", 10 } },
+    fluids = { { "water", 200 } } },
+  { key = "lentille", m = "fo-lapidary", r = "fo-resonance-lens", p = "fo-resonance-lens", items = { { "fo-cut-crystal", 3 }, { "fo-glass", 6 } } },
+  { key = "oscillateur", m = "assembling-machine-3", r = "fo-crystal-oscillator", p = "fo-crystal-oscillator",
+    items = { { "fo-crystal-powder", 3 }, { "electronic-circuit", 3 }, { "fo-enameled-wire", 6 } } },
+  { key = "amplificateur", m = "assembling-machine-3", r = "fo-resonance-amplifier", p = "fo-resonance-amplifier",
+    items = { { "beacon", 1 }, { "fo-resonance-lens", 4 }, { "fo-crystal-oscillator", 10 } } },
 }
 
 local function size_of(name)
@@ -141,7 +151,7 @@ return {
         end
       end
     end
-    ctx.check(#closed == 0 and n >= 55, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
+    ctx.check(#closed == 0 and n >= 60, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
     -- 4. Productivité
     local lim = game.item_prototypes["productivity-module-3"] and game.item_prototypes["productivity-module-3"].limitations or {}
     local set = {}
@@ -152,11 +162,12 @@ return {
     ctx.check(#wrong == 0, "productivite : recettes prod de X0 admises, hors X0 refusees", #wrong > 0 and table.concat(wrong, ", ") or nil)
 
     -- 3. Postes
-    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 190, Y0 + 12, "refined-concrete")
+    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 215, Y0 + 12, "refined-concrete")
     for _, e in ipairs(s.find_entities_filtered({ area = { { X0 - 120, Y0 - 120 }, { X0 + 240, Y0 + 120 } }, force = "enemy" })) do e.destroy() end
     ctx.power(X0 + 56, Y0 + 8)
     ctx.power(X0 + 130, Y0 + 8)
     ctx.power(X0 + 175, Y0 + 8)
+    ctx.power(X0 + 205, Y0 + 8)
     st.postes = {}
     local x = X0
     local placed, fails = 0, {}
@@ -188,6 +199,12 @@ return {
     ctx.check(got == "fo-asphalt" and tp and math.abs(tp.walking_speed_modifier - 1.4) < 1e-6
       and math.abs(tp.vehicle_friction_modifier - 0.6) < 1e-6 and tp.mineable_properties.products[1].name == "fo-asphalt",
       "asphalte pose, marche 1,4, friction 0,6, se ramasse", got)
+    -- Étape 8 : l'amplificateur de résonance a les stats de X0 (3 modules, 75 %, portée 3).
+    local amp = game.entity_prototypes["fo-resonance-amplifier"]
+    ctx.check(amp and amp.type == "beacon" and math.abs(amp.distribution_effectivity - 0.75) < 1e-6
+      and amp.supply_area_distance == 3 and amp.module_inventory_size == 3,
+      "amplificateur : balise, 3 modules, rendement 0,75, portee 3",
+      amp and (amp.module_inventory_size .. " modules, " .. amp.distribution_effectivity .. ", " .. amp.supply_area_distance) or "absent")
   end,
 
   tick = function(ctx, e)

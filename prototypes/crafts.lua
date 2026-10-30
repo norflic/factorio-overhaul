@@ -35,11 +35,27 @@ local ICON = {
   ["fo-iron-plate-r8"] = { "item", "steel-plate", { r = 0.82, g = 0.86, b = 0.96 } },
   ["fo-copper-plate-r8"] = { "item", "steel-plate", { r = 1.00, g = 0.66, b = 0.46 } },
   ["fo-tungsten-plate-r8"] = { "item", "steel-plate", { r = 0.60, g = 0.62, b = 0.70 } },
+  ["fo-cut-crystal"] = { "item", "fo-resonance-crystal", { r = 0.85, g = 0.95, b = 1.00 } },
+  ["fo-crystal-powder"] = { "item", "stone", { r = 0.72, g = 0.86, b = 1.00 } },
+  ["fo-resonance-lens"] = { "item", "fo-resonance-crystal", { r = 0.70, g = 0.95, b = 1.00 } },
+  ["fo-crystal-oscillator"] = { "item", "advanced-circuit", { r = 0.70, g = 0.86, b = 1.00 } },
 }
 
 local function icon_of(ptype, name, tint)
   local src = data.raw[ptype][name]
   assert(src, "crafts : icône de " .. ptype .. "/" .. name)
+  if src.icons then
+    -- objet du mod décrit par couches (cristal de résonance) : chaque couche, teintée
+    local l = {}
+    for _, c in ipairs(src.icons) do
+      local d = table.deepcopy(c)
+      d.icon_size = d.icon_size or src.icon_size
+      d.icon_mipmaps = d.icon_mipmaps or src.icon_mipmaps
+      d.tint = tint
+      l[#l + 1] = d
+    end
+    return l
+  end
   return { { icon = src.icon, icon_size = src.icon_size, icon_mipmaps = src.icon_mipmaps, tint = tint } }
 end
 
@@ -205,6 +221,39 @@ end
 
 for _, spec in ipairs(C.BUILDINGS) do machine(spec) end
 
+-- Balises (étape 8) : copie teintée de la balise vanilla, stats de X0.
+for _, spec in ipairs(C.BEACONS) do
+  local x = T.x_building(spec.name)
+  local b = lib.copy("beacon", "beacon")
+  b.name = spec.name
+  b.localised_name = { "entity-name." .. spec.name }
+  b.localised_description = { "entity-description." .. spec.name }
+  b.minable = { mining_time = 0.2, result = spec.name }
+  b.next_upgrade = nil
+  b.fast_replaceable_group = nil
+  b.energy_usage = x.kw .. "kW"
+  b.distribution_effectivity = x.distribution
+  b.supply_area_distance = x.supply_distance
+  b.module_specification = table.deepcopy(b.module_specification or {})
+  b.module_specification.module_slots = x.slots
+  for _, key in ipairs({ "graphics_set", "animation", "base_picture" }) do
+    if b[key] then lib.tint_sprites(b[key], spec.tint) end
+  end
+  lib.set_icons(b, icon_of("item", "beacon", spec.tint))
+  out[#out + 1] = b
+  out[#out + 1] = {
+    type = "item",
+    name = spec.name,
+    localised_name = { "entity-name." .. spec.name },
+    localised_description = { "entity-description." .. spec.name },
+    icons = icon_of("item", "beacon", spec.tint),
+    subgroup = "fo-crafts-machines",
+    order = "z[fo]-b[beacons]-" .. spec.name,
+    place_result = spec.name,
+    stack_size = 10,
+  }
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Recettes
 ---------------------------------------------------------------------------------------------------
@@ -303,7 +352,10 @@ for i, x in ipairs(C.all_recipes()) do
   out[#out + 1] = r
 end
 
-for _, spec in ipairs(C.BUILDINGS) do
+local building_specs = {}
+for _, spec in ipairs(C.BUILDINGS) do building_specs[#building_specs + 1] = spec end
+for _, spec in ipairs(C.BEACONS) do building_specs[#building_specs + 1] = spec end
+for _, spec in ipairs(building_specs) do
   local b = C.building_recipe(spec.name)
   local ings = {}
   for _, ing in ipairs(b.ingredients) do ings[#ings + 1] = ingredient(ing[1], ing[2]) end
@@ -340,6 +392,8 @@ local TECH_ICON = {
   ["fo-concentration"] = { "advanced-material-processing-2", { r = 0.85, g = 0.80, b = 0.70 } },
   ["fo-billets"] = { "advanced-material-processing-2", { r = 0.80, g = 0.86, b = 1.00 } },
   ["fo-asphalt"] = { "concrete", { r = 0.45, g = 0.45, b = 0.48 } },
+  ["fo-lapidary"] = { "effect-transmission", { r = 0.62, g = 0.86, b = 1.00 } },
+  ["fo-resonance-amplifier"] = { "effect-transmission", { r = 0.85, g = 0.95, b = 1.00 } },
 }
 for _, t in ipairs(C.TECHS) do
   local effects = {}
