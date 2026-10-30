@@ -183,3 +183,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~3 h 15, modules apres migration (suite du passage 53)
 - CAUSE (mesuree, valeurs = produit exact 1,2^4-1 ... 1,6^4-1) : PAS un defaut de jeu. content_test pose ses 30 machines sans raise_built (non suivies par le mod sur une carte neuve : somme du moteur), puis apres une montee de version Mult.migrate (on_configuration_changed) les recense et leur pose la balise de complement : les effets se MULTIPLIENT comme le veulent D-15/D-17. Le controle du banc attendait toujours la somme. En jeu, les machines des PNJ (Mult.refresh) et du joueur (evenements de construction) sont suivies. Correctif du TEST seulement (branche corr-modules-migration : content_test juge chaque machine selon son etat suivi/non suivi, 0 ou 1 balise ; tests/modules_migration_test.lua). Temoin : 21 ECHEC (et non 24). A fusionner avec un content en double source.
+
+## 30/10 ~3 h 25, passage 54
+- 6 archives, 0 erreur Lua. Crafts e5 : content 387 OK (nouvelles recettes) ; chaines e8 : 10 OK. Centrale lointaine v5 : 11 OK, 0 ECHEC (poteaux relies en un seul reseau : corrige) + content 331 OK. Temoins de migration : 310 OK, 21 ECHEC = artefact du banc (modules non suivis), deja explique ; corrige par corr-modules-migration (test seulement). content-0620 en cours.
