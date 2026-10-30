@@ -53,8 +53,10 @@ return {
     local st = ctx.state()
     ctx.check(not st.had_galena and #(st.before or {}) == 4, "creation par la 0.6.18 : pas de galene, 4 garanties", #(st.before or {}))
     local status = remote.call(MONDE, "status")
-    ctx.check(#status.done == 6 and #status.fails == 0, "apres chargement : 6 ressources garanties traitees, aucun echec",
-      #status.done .. " traitees, " .. #status.fails .. " echec(s)")
+    -- Pistes ETAIN et BAUXITE : la cassiterite et la bauxite s'ajoutent (toutes les garanties du lot, pas un compte fige).
+    local nspecs = #remote.call(MONDE, "specs")
+    ctx.check(#status.done == nspecs and nspecs >= 6 and #status.fails == 0, "apres chargement : toutes les ressources garanties traitees, aucun echec",
+      #status.done .. " traitees sur " .. nspecs .. ", " .. #status.fails .. " echec(s)")
     local same = 0
     for _, b in ipairs(st.before or {}) do
       local d = by_key(status.done, b.key)
