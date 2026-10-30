@@ -234,6 +234,8 @@ function Ca.entity_of(p)
   if p.resource_searching_radius then e.mining_area = math.floor(2 * p.resource_searching_radius + 0.5) end
   e.size = p.tile_width
   if p.energy_usage then e.energy_kw = p.energy_usage * 60 / 1000 end
+  -- Lot PREVISION (C12) : pollution/min à pleine marche (emissions_per_second × 60) : la défense induite d'un agrandissement.
+  if p.emissions_per_second then e.emit = p.emissions_per_second * 60 end
   return e
 end
 
@@ -292,7 +294,7 @@ function Ca.data(dump, opts)
     elseif e.item and (role == "fabrique" or role == "foreuse" or role == "labo") then
       D.item_of[e.name] = e.item
       local m = { name = e.name, item = e.item, speed = e.speed or 1, energy = e.energy or "none", kw = e.energy_kw or 0,
-        size = e.size or 1, exec = executable(e, role) }
+        size = e.size or 1, exec = executable(e, role), emit = e.emit or 0 }
       if role == "fabrique" then
         m.cat_list = sorted_copy(e.crafting_categories)
         m.cats = set_of(m.cat_list)
@@ -979,7 +981,10 @@ local function prepare(input, st)
   local ctx = { D = D, st = st, input = input, stock = input.stock or {}, flows = input.flows or {},
     techs = state.techs or {}, known = state.known, obt = {}, best_m = {}, best_d = {}, refus = {}, explore = {},
     dt = input.dt or Ca.CYCLE_MIN, threat = input.threat and true or false, power_block = {}, rec_memo = {}, cc = {},
-    cs = {}, ds = {} }
+    cs = {}, ds = {},
+    -- Lot PREVISION (C12, arbitrage du DC « oui, compter la défense ») : prix de la défense induite, en MU par pollution/min de
+    -- plus (shared/ai3/prevision.lua, Pv.defense_price ; nil : aucun nid connu ne reçoit notre pollution, ou prévision coupée).
+    def_price = input.defense and input.defense.price or nil }
   Lv.prepare(ctx)
   ctx.ch = Ca.character(input.traits, input.weights, ctx.threat, input.production_first)
   local w = input.weights or {}
@@ -1159,6 +1164,29 @@ local function work_of(ctx, items, dist)
   return n_ent * Ca.POSE_S + math.ceil(n_ent / Ca.BATCH) * (2 * (dist or Ca.DIST) / Ca.WALK + Ca.HANDLE_S) + craft
 end
 
+--- Lot PREVISION (C12) : pollution/min qu'un ordre AJOUTE (machines du relevé, à pleine marche), selon son genre (même lecture
+--- que Ca.apply) ; 0 pour un levier sans machine (courant, modules, recherche).
+function Ca.option_emit(ctx, o)
+  local D = ctx.D
+  local k = o.kind
+  local n = o.n_left or o.n or 0
+  local e = 0
+  if k == "couvrir" or k == "ouvrir" then
+    local d = D.drill_by[o.entity]
+    e = e + n * ((d and d.emit) or 0)
+    local sn = o.smelt_left or o.smelt_n or 0
+    local m = o.smelt_entity and D.maker_by[o.smelt_entity]
+    e = e + sn * ((m and m.emit) or 0)
+  elseif k == "fours" or k == "chaine" or k == "packs" then
+    local m = D.maker_by[o.entity]
+    e = e + n * ((m and m.emit) or 0)
+  elseif k == "labos" then
+    local l = D.lab_by[o.entity]
+    e = e + n * ((l and l.emit) or 0)
+  end
+  return e
+end
+
 --- Termine une option : coût, retour, valeur ; rend l'option ou nil (refus écrit). `tmax` : retour accepté (le caractère
 --- par défaut ; lot LEVIERS : plus long quand l'extraction n'a plus aucune option, Lv.REPLI_TMAX).
 local function finish(ctx, o, tmax)
@@ -1168,6 +1196,16 @@ local function finish(ctx, o, tmax)
     return nil
   end
   o.cost = o.cost_m + ctx.lambda * (o.work or 0) / 60
+  -- Lot PREVISION (C12) : la pollution que l'ordre ajoute entraîne les tourelles qu'elle rendra nécessaires ; leur prix entre dans
+  -- le RETOUR (le choix), pas dans le budget de la capitalisation (les tourelles sont payées par la défense, part δ).
+  if ctx.def_price and ctx.def_price > 0 then
+    local em = Ca.option_emit(ctx, o)
+    if em > 0 then
+      o.emit = em
+      o.def_mu = em * ctx.def_price
+      o.cost = o.cost + o.def_mu
+    end
+  end
   if (o.gain or 0) <= Ca.EPS then
     refuse(ctx, o.key, o.kind, o.item, "gain nul")
     return nil
@@ -1861,7 +1899,8 @@ function Ca.text(res)
   local parts = {}
   local rp = res.repli and (" repli=[" .. res.repli.text .. "]") or ""
   for _, o in ipairs(res.orders) do
-    parts[#parts + 1] = string.format("%s %s x%d T=%s v=%d", o.kind, tostring(o.item or o.key), o.n or 1, fmt(o.T), o.value or 0)
+    parts[#parts + 1] = string.format("%s %s x%d T=%s v=%d%s", o.kind, tostring(o.item or o.key), o.n or 1, fmt(o.T), o.value or 0,
+      (o.def_mu or 0) > 0 and (" defense " .. fmt(o.def_mu) .. " MU") or "") -- lot PREVISION : défense induite comptée
   end
   local rf = {}
   for i = 1, math.min(6, #res.refus) do rf[#rf + 1] = res.refus[i].key .. " (" .. res.refus[i].why .. ")" end

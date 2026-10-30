@@ -594,7 +594,10 @@ function Team.view(f, tick)
     threatened = threatened,
     -- Lot ARMEE-ANTICIPATION : vague annoncée (script/ai3/soldats.lua, f.armee) : l'armée visée monte au besoin estimé, avec la
     -- priorité de la défense (shared/team/planner.lua). Factions seulement (votre équipe n'a pas de soldats : soldiers_max = 0).
-    army_alert = (f.armee and tick < (f.armee.alert_until or 0)) or nil, army_need = (f.armee and f.armee.need) or nil,
+    -- Lot PREVISION : alerte d'ÉTAT (cadre « préparer » de la première vague ouvert, script/ai3/prevision.lua ; plus d'horloge) ;
+    -- army_soon : armée visée à moyen terme (vague à 15 min contre les tourelles), servie sans priorité de défense.
+    army_alert = (f.armee and f.armee.alert == true) or nil, army_need = (f.armee and f.armee.alert and f.armee.need) or nil,
+    army_soon = (f.prevision and f.prevision.pc and (f.prevision.pc.army_soon or 0) > 0 and f.prevision.pc.army_soon) or nil,
     survie = Survie.on(f) or nil, -- lot SURVIE-PENURIE : mode survie (décidé à la pensée précédente) : la production passe avant la défense
     open = Board.open(f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)

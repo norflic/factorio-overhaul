@@ -1,9 +1,10 @@
 --[[
   Lot ARMEE-ANTICIPATION : banc HORS JEU du branchement (script/ai3/soldats.lua, pass) sur le moteur simulé, guerre de 4 factions :
     1. sans menace : patrouilles par paires (comportement d'avant) ;
-    2. vague en approche (8 déchiqueteurs à 60 tuiles du QG, hors du rayon de 48 de la menace du QG) : alerte f.armee, besoin
-       estimé, TOUS les soldats libres au même point de regroupement (plus de patrouilles), vue de l'équipe (army_alert,
-       army_need lus par le planificateur) ;
+    2. vague en approche (40 déchiqueteurs à 60 tuiles du QG, VUS par l'œil du QG, hors du rayon de 48 de la menace du QG) :
+       alerte f.armee, besoin estimé par l'estimateur unique (lot PREVISION : 8 déchiqueteurs, que les 13 soldats couvrent,
+       n'alertent plus : l'alerte naît d'un ÉCART vague / défense), TOUS les soldats libres au même point de regroupement (plus
+       de patrouilles), vue de l'équipe (army_alert, army_need lus par le planificateur) ;
     3. ennemi DANS le rayon du QG : TOUS les soldats en défense (régression du lot FUITE b390ad3 : `threat` indéfini, la défense
        du QG ne partait plus) ;
     4. fuite devant un ver ou un nid : aucune alerte de 4 soldats ; devant une unité : alerte ;
@@ -101,12 +102,26 @@ local function run()
   SD.pass(f, game.tick)
   out.calm = roles(f, t.sd.per)
 
-  -- Vague en approche : 8 déchiqueteurs à 60 tuiles au nord du QG (poids 200 / 75 chacun dans le moteur simulé).
-  for i = 1, 8 do s.create_entity({ name = "small-biter", position = { x = f.hq_pos.x + i * 2, y = f.hq_pos.y - 60 }, force = "enemy" }) end
+  -- Lot PREVISION : 8 déchiqueteurs (1 600 PV dans le moteur simulé) contre 13 soldats (13 × 480 PV) : couverts, aucune alerte.
+  local few = {}
+  for i = 1, 8 do few[i] = s.create_entity({ name = "small-biter", position = { x = f.hq_pos.x + i * 2, y = f.hq_pos.y - 60 }, force = "enemy" }) end
   if f.armee then f.armee.t = nil end
+  if f.prevision then f.prevision.t = nil end
   t.escorts = {}
   SD.pass(f, game.tick)
-  out.alert = A.alert_on(f.armee, game.tick)
+  out.few_alert = A.alert_on(f.armee)
+  for _, b in ipairs(few) do b.destroy() end
+  -- Équipements au coffre (payés : hors du budget de fer de la prévision) : de quoi équiper 40 soldats.
+  f.hq.insert({ name = "submachine-gun", count = 40 })
+  f.hq.insert({ name = "firearm-magazine", count = 400 })
+  -- Vague en approche : 40 déchiqueteurs à 60 tuiles au nord du QG (200 PV chacun dans le moteur simulé : 8 000 PV).
+  for i = 1, 40 do s.create_entity({ name = "small-biter", position = { x = f.hq_pos.x + (i % 10) * 2, y = f.hq_pos.y - 60 - math.floor(i / 10) * 2 }, force = "enemy" }) end
+  if f.armee then f.armee.t = nil end
+  if f.prevision then f.prevision.t = nil end
+  t.escorts = {}
+  SD.pass(f, game.tick)
+  out.alert = A.alert_on(f.armee)
+  out.pc_need = f.prevision and f.prevision.pc and f.prevision.pc.army_need
   out.need = f.armee and f.armee.need
   out.threat = f.armee and f.armee.threat
   out.muster = f.armee and f.armee.muster
@@ -150,12 +165,13 @@ local function run()
 
   -- Recrues de l'alerte : la faction joue 5 min avec la vague en approche ; son coffre a de quoi équiper 40 soldats (le moteur
   -- simulé ne fabrique pas assez vite pour ce contrôle : on prouve la DÉCISION, pas l'économie).
-  f.hq.insert({ name = "submachine-gun", count = 40 })
-  f.hq.insert({ name = "firearm-magazine", count = 400 })
   out.s0 = f.soldiers_count
   M.run_ticks(5 * 3600)
   out.s1 = f.soldiers_count
-  out.still = A.alert_on(f.armee, game.tick)
+  out.still = A.alert_on(f.armee)
+  local logs = 0
+  for _, l in ipairs(M.world().logs) do if l:find("[FO-PREVISION]", 1, true) and l:find("PREPARER qg ouvert", 1, true) then logs = logs + 1 end end
+  out.prep_logs = logs
   out.ser = pcall(M.serialize, global)
   return out
 end
@@ -164,10 +180,12 @@ section("Branchement (moteur simulé, guerre de 4 factions)")
 local r = run()
 check(r.made == 13, "13 soldats équipés (" .. tostring(r.made) .. ")")
 check((r.calm.patrol or 0) > 0 and (r.calm.muster or 0) == 0, "sans menace : patrouilles, aucun regroupement")
+check(r.few_alert == false, "8 déchiqueteurs que 13 soldats couvrent : aucune alerte (écart vague / défense, lot PREVISION)")
 check(r.alert, "vague en approche : alerte (f.armee)")
-check(r.threat and math.abs(r.threat - 8 * 200 / 75) < 1e-6, "menace estimée = poids des 8 déchiqueteurs (" .. tostring(r.threat) .. ")")
+check(r.threat and math.abs(r.threat - 40 * 200) < 1e-6, "menace estimée = PV des 40 déchiqueteurs VUS (" .. tostring(r.threat) .. ")")
 local A = require("shared.ai3.armee")
-check(r.need == A.need(8 * 200 / 75, 1), "besoin estimé (" .. tostring(r.need) .. ")")
+check(r.need and r.need == r.pc_need and r.need > 13 and r.need <= 30, "besoin estimé par la prévision, au-delà des 13 soldats, sous le plafond (" .. tostring(r.need) .. ")")
+check(r.prep_logs >= 1, "journal [FO-PREVISION] : cadre PREPARER qg ouvert (" .. tostring(r.prep_logs) .. ")")
 check(r.muster and r.muster.y < r.hq_y and r.hq_y - r.muster.y <= A.MUSTER_R + 1e-6, "regroupement entre le QG et la vague (au nord, à 20 tuiles au plus)")
 check((r.wave.muster or 0) >= 13 and (r.wave.patrol or 0) == 0 and (r.wave.guard or 0) == 0,
   string.format("tous les soldats libres regroupés (regroupement %d, patrouille %d, garde %d)", r.wave.muster or 0, r.wave.patrol or 0, r.wave.guard or 0))
