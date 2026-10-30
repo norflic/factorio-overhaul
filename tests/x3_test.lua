@@ -236,11 +236,14 @@ local function scope_of(F)
 end
 
 --- Graines numériques déjà prises par shared/content/world.lua (gisements, régions de biome, grain fin).
-local WORLD_SEEDS = {}
+local WORLD_SEEDS, WORLD_RES = {}, {}
 do
   for _, key in ipairs(sorted_keys(W.resources)) do
     local ap = W.resources[key].autoplace
-    if ap and ap.seed1 then WORLD_SEEDS[ap.seed1] = "world.lua, gisement " .. key end
+    if ap and ap.seed1 then WORLD_SEEDS[ap.seed1] = "world.lua, gisement " .. key; WORLD_RES[WORLD_SEEDS[ap.seed1]] = W.resources[key].resource end
+    if ap and ap.region and ap.region.seed1 then
+      WORLD_SEEDS[ap.region.seed1] = "world.lua, région du gisement " .. key; WORLD_RES[WORLD_SEEDS[ap.region.seed1]] = W.resources[key].resource
+    end
   end
   for _, b in ipairs(W.biomes) do if b.region and b.region.seed1 then WORLD_SEEDS[b.region.seed1] = "world.lua, région " .. b.name end end
   for _, n in ipairs(sorted_keys(W.grain.seed1)) do WORLD_SEEDS[W.grain.seed1[n]] = "world.lua, grain " .. n end
@@ -262,6 +265,11 @@ do
     local br = T.building_recipe(b.name)
     for _, tr in ipairs(br.trace) do TITANIUM_READS[tr[2]] = true end
   end
+  -- Lot AMELIO-CRAFTS : les recettes de X0 mises en jeu par shared/content/crafts.lua (bobine comprise, que le titane
+  -- ne déplie plus) sont EN JEU au même titre.
+  local C = require("shared.content.crafts")
+  for _, rr in ipairs(C.RECIPES) do TITANIUM_READS[rr.name] = true end
+  for _, b in ipairs(C.BUILDINGS) do TITANIUM_READS[b.name] = true end
 end
 --- Règle T.maker de titanium.lua, rejouée sur une liste de recettes.
 local function maker(recipes, name)
@@ -596,7 +604,9 @@ local function run_checks(F, g, X0)
         c(ps.region and type(ps.region.seed1) == "number", "placement", n .. " : masque de région à graine numérique propre")
         for _, s in ipairs({ ps.seed1, ps.region and ps.region.seed1 }) do
           if type(s) == "number" then
-            c(WORLD_SEEDS[s] == nil, "placement", n .. " : graine " .. s .. " libre dans world.lua (" .. tostring(WORLD_SEEDS[s]) .. ")")
+            -- piste ÉTAIN : la ressource EN JEU porte sa propre graine dans world.lua (même nom de ressource)
+            local own = WORLD_SEEDS[s] and WORLD_RES[WORLD_SEEDS[s]] == n
+            c(WORLD_SEEDS[s] == nil or own, "placement", n .. " : graine " .. s .. " libre dans world.lua, ou celle de la ressource elle-même (" .. tostring(WORLD_SEEDS[s]) .. ")")
             c(used[s] == nil, "placement", n .. " : graine " .. s .. " unique parmi les ressources d'X3 (" .. tostring(used[s]) .. ")")
             used[s] = n
           end
@@ -1006,7 +1016,12 @@ do -- aucun fichier du jeu ne lit x3.lua (fichiers suivis par git).
         end
       end
     end
-    check(#readers == 0, "aucun fichier du jeu (hors tests/ et tools/) ne lit shared/content/x3.lua : " .. table.concat(readers, ", "))
+    -- Piste ÉTAIN (AMELIO-RESSOURCES, 30/10) : la cassitérite et la carte imprimée sont EN JEU ; seuls la garantie (ressource
+    -- de X3) et le module de l'étain lisent x3.lua (comme le jeu lit epochs.lua). Tout autre lecteur reste refusé.
+    local allowed = { ["shared/content/guarantee.lua"] = true, ["shared/content/tin.lua"] = true }
+    local other = {}
+    for _, f in ipairs(readers) do if not allowed[f] then other[#other + 1] = f end end
+    check(#other == 0, "aucun fichier du jeu (hors tests/, tools/, garantie et étain) ne lit shared/content/x3.lua : " .. table.concat(other, ", "))
   end
 end
 

@@ -234,14 +234,15 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
 -- Lot X2 : la monazite (âge 12), 2 taches de sables noirs (X.resources : placement.guaranteed.count = 2).
 -- Lot AMELIO-RESSOURCES (30/10) : la galène (âge 9), 2 gisements de 200 000 à 300-600 tuiles, SANS biome (X.resources :
 -- « gisements classiques à plus de 300 tuiles du départ ») ; en DERNIER : les sites d'avant gardent leur place.
-W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena" }
+-- Piste ÉTAIN : la cassitérite (âge 4, X3), 2 gisements de 150 000 à 120-350 tuiles, sans biome, après la galène.
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite" }
 
 W.resources = {
   tungsten = {
@@ -458,6 +459,32 @@ W.resources = {
     biome = nil,
     autoplace = { base_density = 6, base_spots_per_km2 = 1.0, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
       seed1 = 7107, distance_min = 300 },
+  },
+  -- Lot AMELIO-RESSOURCES, piste ÉTAIN (30/10) : CASSITÉRITE, minerai de l'étain (âge 4, Pétrole ; proposition X3,
+  -- module x3.lua : fo-cassiterite, basic-solid, minage 1 s). « Placers au bord de l'eau » : sans biome, jeu de
+  -- gisements propre (graine X3 7302) sur une région de bruit propre (graine 7312) limitée aux basses terres
+  -- (élévation ≤ 6) et à plus de 120 tuiles du départ. Chaîne : shared/content/tin.lua (carte imprimée).
+  cassiterite = {
+    resource = "fo-cassiterite",
+    kind = "ore",
+    epoch = 4,
+    -- X3 : « 2 gisements de 150 000 posés par script si l'autoplace n'en a mis aucun à cette distance » ; rayon 6, 2 000
+    -- par tuile au centre : environ 150 000 ; un gisement naturel de 100 000 en vaut un.
+    guarantee = { site_radius = 8, ore_radius = 6, amount = 2000, min_total = 100000, clear_trees = true, fill_tile = "sand-1" },
+    item = "fo-cassiterite",
+    -- Galets brun chocolat (X3 : « à éclat adamantin, éclats blancs de quartz ») : la pierre (beige) × (0,62 ; 0,42 ;
+    -- 0,30) ; éclats blancs (quartz) de jour. Feuille M1 propre à faire.
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 0.62, g = 0.42, b = 0.30 },
+    glint = { tint = { r = 1.00, g = 0.96, b = 0.90 }, min = 0.15, max = 0.45, period = 4 },
+    -- Bordeaux sur la carte : les bruns sont pris (cuivre, pierre, désert) ; ΔE76 ≥ 45 de tous les minerais et sols.
+    map_color = { r = 0.60, g = 0.00, b = 0.30 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X3)
+    biome = nil,
+    autoplace = { base_density = 4, base_spots_per_km2 = 1.4, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
+      seed1 = 7302, distance_min = 120, region = { seed1 = 7312, threshold = 0.45, scale = 1 / 180, elevation_max = 6 } },
   },
 }
 

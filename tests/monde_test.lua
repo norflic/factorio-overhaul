@@ -29,11 +29,12 @@ local LV = require("shared.levels.config")
 section("Spécifications tirées des données")
 ---------------------------------------------------------------------------------------------------
 local specs = G.specs()
-check(#specs == 6, "6 ressources garanties (" .. #specs .. ")")
+check(#specs == 7, "7 ressources garanties (" .. #specs .. ")")
 local expect = { { "tungsten", "fo-tungsten-ore", 5, "ore" }, { "crystal", "fo-resonance-crystal", 7, "ore" },
   { "methane", "fo-methane", 8, "fluid" }, { "ilmenite", "fo-ilmenite", 11, "ore" },
   { "monazite", "fo-monazite", 12, "ore" }, -- lot X2
-  { "galena", "fo-galena", 9, "ore" } } -- lot AMELIO-RESSOURCES : sans biome
+  { "galena", "fo-galena", 9, "ore" }, -- lot AMELIO-RESSOURCES : sans biome
+  { "cassiterite", "fo-cassiterite", 4, "ore" } } -- piste ÉTAIN (X3) : sans biome
 for i, e in ipairs(expect) do
   local s = specs[i]
   check(s and s.key == e[1] and s.resource == e[2] and s.epoch == e[3] and s.kind == e[4],
@@ -41,6 +42,7 @@ for i, e in ipairs(expect) do
   local base
   for _, r in ipairs(X.base_resources) do if r.name == e[2] then base = r end end
   for _, r in ipairs(X.resources) do if r.name == e[2] then base = r end end -- X1-TITANE : ressources neuves
+  for _, r in ipairs(require("shared.content.x3").resources) do if r.name == e[2] then base = r end end -- piste ÉTAIN
   local g = base and base.placement.guaranteed
   check(g and s.count == g.count and s.dmin == g.distance[1] and s.dmax == g.distance[2],
     e[1] .. " : nombre et distances = X (" .. tostring(s.count) .. ", " .. tostring(s.dmin) .. "-" .. tostring(s.dmax) .. ")")
@@ -56,8 +58,8 @@ for i, e in ipairs(expect) do
   else
     -- Lot AMELIO-RESSOURCES : sans biome (galène), aucun disque de sol, aucun décor régénéré ; l'eau comblée prend une
     -- tuile naturelle vanilla.
-    check(s.tile == nil and #s.decoratives == 0 and s.fill_tile == "dirt-4",
-      e[1] .. " : sans biome, ni sol posé ni décor, eau comblée en dirt-4")
+    check(s.tile == nil and #s.decoratives == 0 and s.fill_tile ~= nil,
+      e[1] .. " : sans biome, ni sol posé ni décor, eau comblée en " .. tostring(s.fill_tile))
   end
   check(s.dmin + s.core_radius + 1 < s.dmax - s.core_radius - 1, e[1] .. " : anneau non vide")
 end
@@ -568,13 +570,13 @@ section("Interface distante fo-monde")
 do
   ME.new_game({ seed = 20261020 })
   local st2 = remote.call("fo-monde", "status")
-  check(st2.runs == 1 and #st2.done == 6 and st2.done[1].key == "tungsten" and st2.done[4].key == "ilmenite"
-    and st2.done[5].key == "monazite" and st2.done[6].key == "galena" and st2.tags_pending == 0,
+  check(st2.runs == 1 and #st2.done == 7 and st2.done[1].key == "tungsten" and st2.done[4].key == "ilmenite"
+    and st2.done[5].key == "monazite" and st2.done[6].key == "galena" and st2.done[7].key == "cassiterite" and st2.tags_pending == 0,
     "status : 6 garanties, ordre des époques (galène en dernier : les sites d'avant gardent leur place)")
   local c = remote.call("fo-monde", "candidates", "nauvis", "crystal", 3)
   local g = G.candidates(20261020, G.spec("crystal"), 3)
   check(#c == 3 and c[2].x == g[2].x and c[2].y == g[2].y, "candidates : ceux de la règle pure")
-  check(#remote.call("fo-monde", "specs") == 6, "specs")
+  check(#remote.call("fo-monde", "specs") == 7, "specs")
 end
 
 print(string.format("\nRésultat : %d OK, %d ECHEC(S)", passes, failures))

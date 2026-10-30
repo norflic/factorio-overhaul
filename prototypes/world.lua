@@ -317,7 +317,19 @@ end
 local function resource_region(spec)
   if spec.biome then return biome_by_name[spec.biome].region, nil end
   assert(spec.autoplace.distance_min, "factorio-overhaul : ressource sans biome ni distance_min : " .. spec.resource)
-  return nil, distance_mask(spec.autoplace.distance_min)
+  local mask = distance_mask(spec.autoplace.distance_min)
+  local rg = spec.autoplace.region
+  if rg then
+    -- Région de bruit PROPRE sans biome (piste ÉTAIN, cassitérite d'X3) : graine numérique (F198), seuil, échelle, et
+    -- basses terres (elevation_max : rampe de 2 au-dessus de la limite).
+    local n = noise.function_application("factorio-multioctave-noise", {
+      x = noise.var("x"), y = noise.var("y"), persistence = 0.6, seed0 = noise.var("map_seed"),
+      seed1 = noise.to_noise_expression(rg.seed1), input_scale = rg.scale, output_scale = 1, octaves = 3,
+    })
+    mask = mask * noise.clamp((n - rg.threshold) * 6, 0, 1)
+    if rg.elevation_max then mask = mask * noise.clamp((rg.elevation_max - noise.var("elevation")) / 2, 0, 1) end
+  end
+  return nil, mask
 end
 
 local function solid_resource(spec, order)

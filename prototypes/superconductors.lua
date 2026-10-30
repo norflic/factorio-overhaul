@@ -171,7 +171,9 @@ local function machine(spec)
   }
 end
 
-for _, spec in ipairs(S.BUILDINGS) do machine(spec) end
+for _, spec in ipairs(S.BUILDINGS) do
+  if not spec.external then machine(spec) end
+end
 
 ---------------------------------------------------------------------------------------------------
 -- Recettes
@@ -217,6 +219,7 @@ for i, rr in ipairs(S.RECIPES) do
 end
 
 for _, spec in ipairs(S.BUILDINGS) do
+  if spec.external then goto continue end
   local b = S.building_recipe(spec.name)
   local ings = {}
   for _, ing in ipairs(b.ingredients) do ings[#ings + 1] = ingredient(ing[1], ing[2]) end
@@ -229,6 +232,7 @@ for _, spec in ipairs(S.BUILDINGS) do
     ingredients = ings,
     result = spec.name,
   }
+  ::continue::
 end
 
 ---------------------------------------------------------------------------------------------------

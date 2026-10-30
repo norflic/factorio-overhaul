@@ -90,6 +90,7 @@ return {
     game.forces.enemy.set_cease_fire("player", true)
     local f = game.forces.player
     f.technologies["fo-cryostat"].researched = true
+    if f.technologies["fo-electrical-steel"] then f.technologies["fo-electrical-steel"].researched = true end -- bobineuse (AMELIO-CRAFTS)
     f.technologies["fo-superconductors"].researched = true
     ctx.prepare_area(FX - 36, FY - 20, FX + 14, FY + 10, "grass-1")
     for _, e in ipairs(s.find_entities_filtered({ area = { { FX - 120, FY - 120 }, { FX + 120, FY + 120 } }, force = "enemy" })) do e.destroy() end
