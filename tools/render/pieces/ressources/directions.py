@@ -553,14 +553,29 @@ ROCHE_APLAT["G2"], ROCHE_CASSURE["G2"] = ROCHE_APLAT["G1"], ROCHE_CASSURE["G1"]
 ICONE["G2"] = dict(ICONE["G1"], roche_mats=("calcite_creme", "calcite_creme"), bloc_mats=("galene_plomb", "galene", "blende"))
 EFFET["G2"] = dict(EFFET["G1"])
 
+# S2 (30/10, 3 h 10) : S1 mesurée trop clairsemée (couverture 0,216 au stade 1 contre 0,316, écart 0,100) et trop proche de
+# la PIERRE en couleur moyenne (ΔE 8 : la gangue de quartz gris y tire). S2 : cristaux plus gros et ×1,45 au stade 1 (comptes
+# recalés stade par stade au rapport vanilla / mesuré), gangue presque retirée (grains), rubis plus présent.
+DIRECTIONS["S2"] = dict(DIRECTIONS["S1"], nom="cristaux résineux de blende miel et rubis, gros et serrés",
+                        roches=(3, 2, 2, 1, 1, 1, 1, 0), roche_mats=("blende_rubis", "quartz_gris", "blende_rubis"),
+                        blocs=(26, 18, 12, 9, 7, 6, 4, 2), bloc_taille=(0.15, 0.24), bloc_haut=(0.12, 0.21),
+                        bloc_mats=("blende_miel", "blende_rubis", "blende_ambre", "blende_rubis", "blende_miel"),
+                        grain_mats=("blende_miel", "blende_rubis", "blende_ambre", "quartz_gris"),
+                        fin_mats=("blende_rubis", "blende_miel", "quartz_gris", "blende_rubis"))
+CALIB["S2"] = dict(CALIB["S1"])
+ROCHE_COUPES["S2"], ROCHE_LISSE["S2"] = ROCHE_COUPES["S1"], ROCHE_LISSE["S1"]
+ROCHE_APLAT["S2"], ROCHE_CASSURE["S2"] = ROCHE_APLAT["S1"], ROCHE_CASSURE["S1"]
+ICONE["S2"] = dict(ICONE["S1"], roche_mats=("blende_rubis", "quartz_gris"))
+EFFET["S2"] = dict(EFFET["S1"])
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45, "S2": 1.45}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313, "S2": 6717}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
