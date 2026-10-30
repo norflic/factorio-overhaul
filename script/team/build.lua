@@ -2112,14 +2112,18 @@ local function anchors_and_obstacles(f, surface, p, masks)
   local passable = seg_passable(b)
   local wood = wood_of(surface, p.ents)
   for _, e in ipairs(p.ents) do
-    local a = P.anchor_for(b.lat, e.x, e.y, passable)
-    local ax, ay
-    if a then ax, ay = a.x, a.y
-    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
-    local fx, fy = free_spot(b, masks, ax, ay, wood)
-    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
-    e.ax, e.ay = fx, fy
-    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    -- (relecture de la reprise 0.6.20 : garde de main 0.6.21, lot PD-CENTRALE, reprise ici pour que la fusion garde ce côté ;
+    -- sur 0.6.20 aucune entité ne porte `ligne` : sans effet. Un poteau de la ligne lointaine garde son point d'appui, Far.line)
+    if not (e.ligne and e.anchor) then
+      local a = P.anchor_for(b.lat, e.x, e.y, passable)
+      local ax, ay
+      if a then ax, ay = a.x, a.y
+      else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+      local fx, fy = free_spot(b, masks, ax, ay, wood)
+      if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+      e.ax, e.ay = fx, fy
+      e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    end
     e.item = item_of(e.name)
   end
   P.sort_build(p.ents)
