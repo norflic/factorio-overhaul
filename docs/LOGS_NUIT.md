@@ -175,3 +175,8 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 - PD-CENTRALE pd-centrale-7300-b : erreur Lua dans le SCENARIO DE BANC (greffon pd-centrale.lua:123, index de 'a' nil), pas dans le mod ; v2 a 10 OK 1 ECHEC, v3 en cours (mesure).
 - CRAFTS banc-content-ab2f2da : content 355 OK, 5 ECHEC : les 5 recettes de torchere (fo-flare-brine, -chlorine, -ethylene, -hydrogen, -titanium-tetrachloride) ne produisent rien (statut 20) ; a corriger avant fusion (verification de la piste ou integrateur) (mesure).
 - PD-REPARATION banc2 17/1 -> banc3 18 OK ; PD-CENTREQG migration 12/2 -> 14 OK et 13 OK. Aucune erreur Lua du mod.
+
+## 30/10 ~2 h 55, passage 53
+- 11 archives lues, 0 erreur Lua. Biomes : b0-biomes 11 OK + content 331 OK (corrige). Crafts e4 : content 370 OK, 0 ECHEC (torcheres corrigees). Centre-QG : migration 13 OK, content 331 OK.
+- ANOMALIE (mesuree) : CRAFTS banc-e4-migration-content (creation 0.6.18 -> amelio-crafts) : content 307 OK, 24 ECHEC : effets des modules de VITESSE trop forts apres migration (speed-module +1.07 au lieu de +0.80 ... fo-speed-module-5 +5.55 au lieu de +2.40, conso aussi) : suppose : complement de multiplication des modules (balise D-17, MOD-1/MOD-3) applique deux fois a la migration ; a verifier sur main (meme banc en double source) avant d'accuser le lot ; bloquant pour la fusion d'amelio-crafts tant que non tranche.
+- ANOMALIE (mesuree) : PD-CENTRALE v3 et v4 : 10 OK, 1 ECHEC « poteaux du projet relies a portee de fil (un seul reseau) : 1/7 » : la centrale lointaine n'est pas reliee en un seul reseau ; explo-v2 6 OK. Lot encore en iteration.
