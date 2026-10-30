@@ -32,6 +32,20 @@ Cl.RETRY = 60             -- ticks avant la passe suivante d'une recherche en co
 Cl.POLL = 1200            -- ticks avant un nouvel essai quand le terrain de la ligne est en génération
 Cl.LOGS = 40              -- lignes [FO-CENTRALE-LOIN] au plus, par équipe
 Cl.WIDTH_MAX = 3.5        -- demi-largeur maximale du couloir de recherche (en portées de fil, Poteaux.WIDTHS)
+-- « Il faut aller plus loin » : avec une carte de connaissance (brouillard), l'eau qui n'a pas encore été VUE ne se cherche pas
+-- par un regard omniscient ; l'équipe demande une exploration (script/ai3/exploration.lua, X.request) et attend.
+Cl.EXPLORE_TAG = "@eau"   -- étiquette de la demande d'exploration (pas un nom d'objet du jeu : aucun gisement ne la porte)
+Cl.EXPLORE_WAIT = 20 * 3600 -- au plus 20 min d'attente d'exploration par recherche ; ensuite refus (nouvel essai à la demande suivante)
+Cl.EXPLORE_POLL = 600     -- ticks entre deux relectures de la carte pendant l'exploration
+
+--- Décision quand aucune eau connue ne tient la centrale. source : "carte" (connaissance de l'équipe) ou "sondage" (sans
+--- brouillard : les secteurs générés sont sondés) ; waited : ticks depuis le début de la recherche ; can_explore : la demande
+--- d'exploration est possible. Rend "explorer" (demander l'exploration et attendre) ou "refuser".
+function Cl.when_dry(source, waited, can_explore)
+  if source ~= "carte" or not can_explore then return "refuser" end
+  if (waited or 0) >= Cl.EXPLORE_WAIT then return "refuser" end
+  return "explorer"
+end
 
 local DIRS = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } } -- N, E, S, O
 

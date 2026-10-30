@@ -1277,4 +1277,11 @@ Veille.pick_goal = function(f, tick, radius, last_octant)
   return { key = best.key, x = best.x, y = best.y, octant = best.octant, dh = best.dh, n = #cands }
 end
 
+-- Lot PD-CENTRALE (D-24 : « il faut aller plus loin ») : la centrale lointaine (script/team/centrale_loin.lua) demande ici
+-- l'exploration de l'eau quand aucune eau VUE ne tient la centrale ; crochet posé au chargement (pas de require croisé).
+do
+  local Far = require("script.team.centrale_loin")
+  Far.hooks.request, Far.hooks.cancel = X.request, X.cancel
+end
+
 return X

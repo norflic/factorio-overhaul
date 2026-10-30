@@ -17,8 +17,11 @@
   omniscient), sans nid connu au secteur ni sur le chemin ; sans carte (votre équipe, brouillard coupé), les secteurs générés
   autour du QG, sondés au plus Cl.PROBES_PER_PASS par passe (réponse gardée dans b.far.w).
 
+  Sans eau VUE qui tienne la centrale (carte de connaissance), l'équipe demande une exploration de l'eau (Cl.EXPLORE_TAG, par
+  le crochet Far.hooks.request) et relit sa carte toutes les Cl.EXPLORE_POLL ticks, au plus Cl.EXPLORE_WAIT par recherche.
+
   État (dans f.build, donc dans global, créé à la première recherche, en événement) : b.far = { bad = { [rive] = true },
-  done = { [secteur] = true }, w = { [secteur] = bool }, logs, searching }. Une sauvegarde d'avant le lot n'en a pas : il
+  done = { [secteur] = true }, w = { [secteur] = bool }, logs, searching, explore }. Une sauvegarde d'avant le lot n'en a pas : il
   est créé au premier besoin. Le champ b.pond des sauvegardes 0.6.18 n'est plus lu (l'étang déjà posé reste de l'eau).
 ]]
 
@@ -29,6 +32,10 @@ local Cl = require("shared.team.centrale_loin")
 local K = require("shared.ai3.carte")
 
 local Far = {}
+
+-- Crochets posés au chargement par script/ai3/exploration.lua (qui charge déjà ce module par worker → build : un require dans
+-- l'autre sens ferait une boucle) : request(f, tag, tick, why), cancel(f, tag, tick). Absents : pas d'exploration demandée.
+Far.hooks = {}
 
 local floor, sqrt = math.floor, math.sqrt
 
@@ -113,7 +120,7 @@ local function sector_list(f, surface, hq, tick)
 end
 
 --- Placement de la centrale hors du treillis. ctx = { read_masks = fonction de build.lua, tick, why = raison du refus dans le
---- treillis }.
+--- treillis, avoid_margin, p = projet (son délai d'attente far_poll est posé pendant l'exploration) }.
 function Far.place(f, surface, g, ctx)
   local b = f.build
   local s = state(b)
@@ -158,6 +165,7 @@ function Far.place(f, surface, g, ctx)
         say(f, string.format("centrale posee a la rive (%d, %d) du secteur (%d, %d), a %.0f tuiles du QG, gabarit en (%d, %d) rotation %d (%d rive(s) ecartee(s) avant)",
           sh.x, sh.y, sx, sy, d, fit.ox, fit.oy, fit.k, #sorted_keys(s.bad)))
         s.searching = nil
+        Far.stop_explore(f, ctx.tick)
         return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, inst = inst, cover = fit.cover, masks = masks,
           far = { x = sh.x, y = sh.y, key = Cl.shore_key(sh.x, sh.y), sector = c.key, d = d } }
       end
@@ -168,10 +176,32 @@ function Far.place(f, surface, g, ctx)
     if all_failed and #shores >= Cl.SHORES_MAX then pending = true end
   end
   if pending then return nil, "centrale lointaine : recherche de l'eau en cours", "loin" end
-  say(f, string.format("aucune eau atteignable hors du treillis (source %s, %d secteur(s) epuise(s), %d rive(s) ecartee(s), %d sondage(s) dans cette passe) : centrale refusee, nouvel essai a la prochaine demande",
-    source, #sorted_keys(s.done), #sorted_keys(s.bad), probes))
+  -- « il faut aller plus loin » : aucune eau VUE ne tient la centrale ; avec une carte de connaissance, l'équipe demande une
+  -- exploration (crochet posé par script/ai3/exploration.lua) et relit sa carte toutes les Cl.EXPLORE_POLL ticks, au plus
+  -- Cl.EXPLORE_WAIT par recherche
+  local waited = ctx.tick - (s.searching or ctx.tick)
+  if Cl.when_dry(source, waited, Far.hooks.request ~= nil) == "explorer" then
+    local r = Far.hooks.request(f, Cl.EXPLORE_TAG, ctx.tick, "centrale")
+    if not s.explore then
+      s.explore = ctx.tick
+      say(f, string.format("aucune eau vue ne tient la centrale (%d secteur(s) epuise(s), %d rive(s) ecartee(s)) : exploration demandee (%s) a %.1f min, attente au plus %d min",
+        #sorted_keys(s.done), #sorted_keys(s.bad), tostring(r), ctx.tick / 3600, Cl.EXPLORE_WAIT / 3600))
+    end
+    if ctx.p then ctx.p.far_poll = Cl.EXPLORE_POLL end
+    return nil, "centrale lointaine : exploration de l'eau", "loin"
+  end
+  say(f, string.format("aucune eau atteignable hors du treillis (source %s, %d secteur(s) epuise(s), %d rive(s) ecartee(s), %d sondage(s) dans cette passe, %.1f min de recherche) : centrale refusee, nouvel essai a la prochaine demande",
+    source, #sorted_keys(s.done), #sorted_keys(s.bad), probes, waited / 3600))
+  Far.stop_explore(f, ctx.tick)
   s.searching = nil
   return nil, "pas d'eau atteignable"
+end
+
+--- Fin de l'exploration demandée pour l'eau (centrale posée ou refusée).
+function Far.stop_explore(f, tick)
+  local s = state(f.build)
+  if s.explore and Far.hooks.cancel then Far.hooks.cancel(f, Cl.EXPLORE_TAG, tick) end
+  s.explore = nil
 end
 
 --- Rive écartée (la ligne ou la pompe n'y passe pas) : la recherche suivante prend la rive suivante.

@@ -13,7 +13,9 @@
        tuile d'eau, points d'appui à sec ; terrain non généré : génération demandée, attente ; rive écartée ; déterminisme ;
     4. build.lua : make_pond et l'étang posé par set_tiles ont disparu, la recherche lointaine est branchée pour toutes les
        équipes, l'attente « loin » est traitée ;
-    5. mutants : 6 variantes fautives refusées par la même batterie.
+       « il faut aller plus loin » : sans eau VUE, exploration demandée (crochet), attente, eau vue ensuite prise, demande close,
+       refus après Cl.EXPLORE_WAIT ;
+    5. mutants : 9 variantes fautives refusées par la même batterie.
 ]]
 
 package.path = "./?.lua;" .. package.path
@@ -78,6 +80,12 @@ local function battery_pure(C, quiet)
   -- 1e bis. site écarté (b.avoid) : rayon + marge
   chk(C.avoided({ { x = 100, y = 0, r = 10 } }, 115, 0, 8) and not C.avoided({ { x = 100, y = 0, r = 10 } }, 120, 0, 8) and not C.avoided(nil, 0, 0),
     "site ecarte : rayon plus marge")
+  -- 1e ter. « il faut aller plus loin » : sans eau vue, la carte demande une exploration, bornée dans le temps ; sans carte, refus
+  chk(C.when_dry("carte", 0, true) == "explorer" and C.when_dry("carte", C.EXPLORE_WAIT - 1, true) == "explorer",
+    "sans eau vue (carte) : exploration demandee")
+  chk(C.when_dry("carte", C.EXPLORE_WAIT, true) == "refuser", "exploration bornee : refus apres EXPLORE_WAIT")
+  chk(C.when_dry("sondage", 0, true) == "refuser" and C.when_dry("carte", 0, false) == "refuser",
+    "sans carte (sondage) ou sans crochet : refus comme avant")
   -- 1f. carrefour de bord
   local ci, cj = C.clamp_node(3, 9, -1)
   chk(ci == 3 and cj == -1 and C.is_far(3, 9, -1) and not C.is_far(3, 3, -3), "carrefour ramene au bord du treillis")
@@ -256,7 +264,51 @@ check(mk and mk.far and mk.far.x < 0, "carte : le lac de l'est (nids vus) est ec
 local m_none = K.new()
 K.record(m_none, K.key(0, 0), 0, {})
 local mnone, wnone = place_once(both, make_team(2, { m = m_none }), make_surface(both))
-check(mnone == nil and wnone == "pas d'eau atteignable", "carte sans eau vue : refus (aucun regard omniscient)")
+check(mnone == nil and wnone == "pas d'eau atteignable", "carte sans eau vue, sans crochet d'exploration : refus (aucun regard omniscient)")
+-- « il faut aller plus loin » : avec le crochet d'exploration (script/ai3/exploration.lua), la carte sans eau vue demande une
+-- exploration et attend ; l'eau vue ensuite est prise et la demande close ; au-delà d'EXPLORE_WAIT, refus et demande close
+do
+  local calls = {}
+  Far.hooks.request = function(f, tag, tick, why) calls[#calls + 1] = { "request", tag, tick, why } return "demande" end
+  Far.hooks.cancel = function(f, tag, tick) calls[#calls + 1] = { "cancel", tag, tick } end
+  LOGS = {}
+  local mx = K.new()
+  K.record(mx, K.key(0, 0), 0, {})
+  local fx = make_team(2, { m = mx })
+  local px = { id = 9 }
+  local sx = make_surface(both)
+  local ctx = function(t) return { read_masks = masks_reader(both), tick = t, why = "pas de lot", avoid_margin = 8, p = px } end
+  local m_1, w_1, wait_1 = Far.place(fx, sx, G, ctx(100))
+  check(m_1 == nil and wait_1 == "loin" and px.far_poll == Cl.EXPLORE_POLL, "carte sans eau vue : attente « loin » (" .. tostring(w_1) .. ")")
+  check(#calls == 1 and calls[1][1] == "request" and calls[1][2] == Cl.EXPLORE_TAG and calls[1][4] == "centrale",
+    "exploration de l'eau demandee (crochet)")
+  local m_2, _, wait_2 = Far.place(fx, sx, G, ctx(700))
+  check(m_2 == nil and wait_2 == "loin" and #calls == 2, "relecture suivante : toujours en attente, demande renouvelee")
+  local nlog = 0
+  for _, l in ipairs(LOGS) do if l:find("exploration demandee", 1, true) then nlog = nlog + 1 end end
+  check(nlog == 1, "journal [FO-CENTRALE-LOIN] de l'exploration : une ligne (" .. nlog .. ")")
+  -- un éclaireur voit l'eau de l'ouest : elle est prise, la demande est close
+  K.record(mx, K.key(math.floor(-370 / 64), 0), 800, { water = true })
+  local m_3
+  for t = 1300, 1300 + 60 * 60, 60 do
+    local w3
+    m_3, w3 = Far.place(fx, sx, G, ctx(t))
+    if m_3 then break end
+  end
+  check(m_3 ~= nil and m_3.far and m_3.far.x < 0, "eau vue par l'exploration : centrale posee (" .. tostring(m_3 and m_3.far and m_3.far.x) .. ")")
+  check(calls[#calls][1] == "cancel" and calls[#calls][2] == Cl.EXPLORE_TAG and fx.build.far.explore == nil, "demande d'exploration close a la pose")
+  -- délai dépassé : refus, demande close
+  calls = {}
+  local fy = make_team(2, { m = m_none })
+  local _, _, wy = Far.place(fy, make_surface(both), G, ctx(0))
+  local my, why_y, waity = Far.place(fy, make_surface(both), G, ctx(Cl.EXPLORE_WAIT + 10))
+  check(wy == "loin" and my == nil and waity == nil and why_y == "pas d'eau atteignable", "exploration sans resultat apres EXPLORE_WAIT : refus (" .. tostring(why_y) .. ")")
+  check(calls[#calls][1] == "cancel", "refus : demande d'exploration close")
+  -- recherche suivante (nouvelle demande de centrale) : nouvelle attente
+  local _, _, wz = Far.place(fy, make_surface(both), G, ctx(Cl.EXPLORE_WAIT + 100))
+  check(wz == "loin", "demande suivante : nouvelle exploration")
+  Far.hooks.request, Far.hooks.cancel = nil, nil
+end
 
 -- ligne : de la centrale au carrefour de bord, à portée, à sec, points d'appui à sec
 if m1 then
@@ -309,6 +361,11 @@ check(src:find('elseif wait == "loin" then', 1, true) ~= nil, "advance traite l'
 check(src:find("Far.line(f, surface, p,", 1, true) ~= nil and src:find("Cl.is_far(b.radius, mi, mj)", 1, true) ~= nil,
   "plan_power relie la centrale lointaine par Far.line")
 check(src:find("if main.lot then b.lots[main.lot].used = p.id end", 1, true) ~= nil, "placement sans lot garde")
+check(src:find("avoid_margin = Build.AVOID_MARGIN, p = p })", 1, true) ~= nil, "plan_project passe le projet (attente d'exploration)")
+local fx2 = io.open("script/ai3/exploration.lua", "r")
+local xsrc = fx2:read("*a")
+fx2:close()
+check(xsrc:find("Far.hooks.request, Far.hooks.cancel = X.request, X.cancel", 1, true) ~= nil, "exploration.lua pose les crochets de la centrale lointaine")
 local fs = io.open("script/team/centrale_loin.lua", "r")
 local fsrc = fs:read("*a")
 fs:close()
@@ -331,6 +388,8 @@ local mutants = {
   { "budget par defaut", function(C) C.path_opts = function() return nil end end },
   { "site ecarte ignore", function(C) C.avoided = function() return false end end },
   { "carrefour non ramene", function(C) C.clamp_node = function(R, i, j) return i, j end end },
+  { "exploration jamais demandee", function(C) C.when_dry = function() return "refuser" end end },
+  { "exploration sans fin", function(C) C.when_dry = function(src, w, can) if src == "carte" and can then return "explorer" end return "refuser" end end },
   { "point d'appui le plus lointain", function(C) local o = C.anchor_spot; C.anchor_spot = function(st, x, y, r)
     for k = r, 0, -1 do local ax, ay = o(function(tx, ty) return st(tx, ty) and math.max(math.abs(tx - math.floor(x)), math.abs(ty - math.floor(y))) == k end, x, y, r) if ax then return ax, ay end end
     return nil end end },
