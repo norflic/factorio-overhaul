@@ -361,19 +361,29 @@ return {
     local hors = {}
     for _, l in ipairs(lies) do
       if game.entity_prototypes[l[1]] then
-        local n, h, q, qh, autres = 0, 0, 0, 0, {}
+        local n, h, q, qh, autres, voisinage = 0, 0, 0, 0, {}, {}
         for _, e in ipairs(s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, name = l[1] })) do
           if hors_site(e.position.x, e.position.y) then
             n, q = n + 1, q + e.amount
             local t = s.get_tile(math.floor(e.position.x), math.floor(e.position.y)).name
-            if t ~= l[2] then h, qh = h + 1, qh + e.amount; autres[t] = (autres[t] or 0) + 1 end
+            if t ~= l[2] then
+              h, qh = h + 1, qh + e.amount
+              autres[t] = (autres[t] or 0) + 1
+              -- bord de la région (tuiles du biome tout près) ou gisement isolé (aucune) ?
+              voisinage[#voisinage + 1] = s.count_tiles_filtered({ position = e.position, radius = 4, name = l[2] })
+            end
           end
         end
         local noms = {}
         for t in pairs(autres) do noms[#noms + 1] = t end
         table.sort(noms)
         for i, t in ipairs(noms) do noms[i] = t .. "=" .. autres[t] end
-        hors[#hors + 1] = string.format("%s %d/%d tuiles, quantite %d/%d (%s)", l[1], h, n, qh, q, table.concat(noms, ","))
+        table.sort(voisinage)
+        local med = #voisinage > 0 and voisinage[math.floor((#voisinage + 1) / 2)] or -1
+        local nul = 0
+        for _, v in ipairs(voisinage) do if v == 0 then nul = nul + 1 end end
+        hors[#hors + 1] = string.format("%s %d/%d tuiles, quantite %d/%d (%s ; tuiles du biome a 4 t des hors : mediane %d, aucune %d)",
+          l[1], h, n, qh, q, table.concat(noms, ","), med, nul)
       end
     end
     ctx.log("gisements lies HORS de leur biome (hors/total, sites garantis exclus) : " .. table.concat(hors, " ; "))

@@ -363,11 +363,16 @@ end
 --- la région, et, avec W.exclusion.gisements, × (1 − part perdue) : la MÊME exclusion que la tuile. Sans elle, 35 % du
 --- tungstène des cendres tombait sur les cratères (régions sèches qui se chevauchent : la tuile des cratères l'emporte, le
 --- gisement restait). Les sites garantis (posés par script, shared/content/guarantee.lua) n'en dépendent pas.
+--- Avec W.exclusion.coeur = { bas, raideur }, le masque est ensuite resserré au CŒUR de la région : 0 sous `bas`, 1 à
+--- bas + 1 / raideur. Au bord d'une région (masque < 1), la tuile du biome perd souvent contre le sol vanilla (sa probabilité
+--- vaut masque × 4 − 2 + grain) : sans resserrement, un gisement posé près du bord y débordait sur l'herbe ou le désert.
 local function biome_resource_mask(name)
   local mask = region_of[name].mask
-  if W.exclusion and W.exclusion.gisements then
+  local ex = W.exclusion
+  if ex and ex.gisements then
     local loss = exclusion_loss(biome_by_name[name])
     if loss then mask = mask * (1 - loss) end
+    if ex.coeur then mask = noise.clamp((mask - ex.coeur.bas) * ex.coeur.raideur, 0, 1) end
   end
   return mask
 end

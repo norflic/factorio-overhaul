@@ -168,7 +168,9 @@ W.no_vanilla_entities = { "simple-entity", "tree" }
 -- bancs, 39 % du tungstène naturel tombait sur les cratères et TOUTE la monazite naturelle sur le marais. Les gisements des
 -- chunks NEUFS changent de place ; les sites garantis (posés par script) ne bougent pas. false : comme 0.6.22.
 -- nil : pas d'exclusion (avant).
-W.exclusion = { penalite = 4, raideur = 12, gisements = true }
+-- `coeur` : le masque des gisements liés est ensuite resserré au cœur de la région (0 sous `bas`, 1 à bas + 1 / raideur) ;
+-- au bord, la tuile du biome perd contre le sol vanilla (probabilité masque × 4 − 2 + grain) et le gisement débordait.
+W.exclusion = { penalite = 4, raideur = 12, gisements = true, coeur = { bas = 0.6, raideur = 4 } }
 
 -- Décor propre à chaque biome (session 4) : ce qui pousse, ce qui affleure, ce qui luit. Copies vanilla
 -- recomposées (teinte + couche lumineuse « draw_as_glow » pour ce qui luit la nuit), placées uniquement
