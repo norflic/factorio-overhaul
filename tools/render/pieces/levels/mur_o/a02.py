@@ -29,8 +29,8 @@ def mats(S):
                           grain=0.22, bump=0.6, bump_scale=55.0,
                           brick=dict(w=0.125, h=0.055, mortar=0.014, c1=(0.31, 0.083, 0.046), c2=(0.13, 0.035, 0.021),
                                      col_m=(0.17, 0.15, 0.12)),
-                          edge=((0.55, 0.30, 0.18), 0.6, 0.02), cavity=0.5, streak=0.55,
-                          stain=((0.06, 0.03, 0.02), 0.55, 4.0),
+                          edge=((0.55, 0.30, 0.18), 0.6, 0.02), cavity=0.65, streak=0.8,
+                          stain=((0.04, 0.02, 0.012), 0.7, 4.0),
                           bottom=((0.05, 0.04, 0.03), 0.30, 0.6), top=((0.33, 0.27, 0.21), 0.4))
     M["pierre"] = surface("m2_pierre", (0.17, 0.155, 0.13), (0.09, 0.083, 0.072), rough=0.92, var=0.7, var_scale=5.0,
                           grain=0.25, bump=0.7, bump_scale=40.0,
@@ -42,6 +42,9 @@ def mats(S):
                          grain=0.28, bump=0.7, bump_scale=45.0,
                          edge=((0.70, 0.64, 0.54), 0.7, 0.02), cavity=0.55, streak=0.5,
                          stain=((0.12, 0.10, 0.08), 0.5, 6.0))
+    M["dalle_s"] = surface("m2_dalle_s", (0.30, 0.26, 0.21), (0.16, 0.14, 0.11), rough=0.9, var=0.8, var_scale=7.0,
+                           grain=0.3, bump=0.7, bump_scale=45.0, edge=((0.50, 0.46, 0.38), 0.7, 0.02), cavity=0.6,
+                           streak=0.6, stain=((0.06, 0.05, 0.04), 0.6, 6.0))
     M["chaine"] = surface("m2_chaine", (0.44, 0.39, 0.31), (0.27, 0.24, 0.19), rough=0.9, var=0.7, var_scale=6.0,
                           grain=0.28, bump=0.7, bump_scale=40.0, edge=((0.52, 0.48, 0.42), 0.7, 0.02), cavity=0.55,
                           streak=0.5, stain=((0.06, 0.05, 0.04), 0.5, 5.0))
@@ -69,9 +72,14 @@ def bras(g, M, B):
 
     def hwk(z):
         return hw(z) * k
-    # soubassement de pierre (chanfrein en tête)
-    g.prism([(-0.48 * k, 0.0), (0.48 * k, 0.0), (0.48 * k, Z_PL - 0.04), (HW0 * k + 0.02, Z_PL),
-             (-(HW0 * k + 0.02), Z_PL), (-0.48 * k, Z_PL - 0.04)], x0, L, M["pierre"], bev=0.01)
+    # soubassement de pierre en glacis (v2 : plus de dalle à bord net), éboulis au pied
+    g.prism([(-0.47 * k, 0.0), (0.47 * k, 0.0), (HW0 * k + 0.015, Z_PL), (-(HW0 * k + 0.015), Z_PL)], x0, L,
+            M["pierre"], bev=0.008)
+    for s_ in ((-1, 1) if S_ else (-1,)):
+        g.push(g.Sc(1, s_, 1))
+        geo.eboulis(g, (M["pierre"], M["dalle"], M["chaine"]), max(x0, 0.0), L - B.eps, -0.47 * k, 3 if not S_ else 4,
+                    r=0.03)
+        g.pop()
     # talus de brique
     g.prism([(-HW0 * k, Z_PL - 0.01), (HW0 * k, Z_PL - 0.01), (HW1 * k, Z_W), (-HW1 * k, Z_W)], x0, L, M["brique"],
             bev=0.006)
@@ -86,7 +94,7 @@ def bras(g, M, B):
         dz = g.rnd(-0.008, 0.006)
         g.prism([(-(HW1 + 0.05) * k, Z_W - 0.01), ((HW1 + 0.05) * k, Z_W - 0.01), ((HW1 + 0.05) * k, Z_W + 0.03),
                  ((HW1 + 0.03) * k, Z_CAP + dz), (-(HW1 + 0.03) * k, Z_CAP + dz), (-(HW1 + 0.05) * k, Z_W + 0.03)],
-                a + ja, b - jb, M["dalle"], bev=0.01, ends=True)
+                a + ja, b - jb, M["dalle_s"] if S_ else M["dalle"], bev=0.01, ends=True)
     # merlons de brique (centres 0, 0,5, 1,0 tuile), chapeau de pierre
     for c in (0.0, 0.5, 1.0):
         if c == 0.0 and not S_:
@@ -95,10 +103,13 @@ def bras(g, M, B):
         if not sp:
             continue
         a, b = B.x(sp[0]), min(B.x(sp[1]), L)
-        g.prism([(-0.13 * k, Z_CAP - 0.01), (0.13 * k, Z_CAP - 0.01), (0.12 * k, Z_M - 0.03), (-0.12 * k, Z_M - 0.03)],
-                a, b, M["brique"], bev=0.005)
-        g.prism([(-0.145 * k, Z_M - 0.035), (0.145 * k, Z_M - 0.035), (0.145 * k, Z_M - 0.01), (0.12 * k, Z_M),
-                 (-0.12 * k, Z_M), (-0.145 * k, Z_M - 0.01)], a, b, M["dalle"], bev=0.006)
+        dz = -g.rnd(0.0, 0.05) if S_ else -g.rnd(0.0, 0.02)       # merlons ébréchés, inégaux (surtout nord-sud)
+        g.prism([(-0.13 * k, Z_CAP - 0.01), (0.13 * k, Z_CAP - 0.01), (0.12 * k, Z_M - 0.03 + dz),
+                 (-0.12 * k, Z_M - 0.03 + dz)], a, b, M["brique"], bev=0.005)
+        if not (S_ and g.rnd() < 0.35):
+            g.prism([(-0.145 * k, Z_M - 0.035 + dz), (0.145 * k, Z_M - 0.035 + dz), (0.145 * k, Z_M - 0.01 + dz),
+                     (0.12 * k, Z_M + dz), (-0.12 * k, Z_M + dz), (-0.145 * k, Z_M - 0.01 + dz)], a, b,
+                    M["dalle_s"] if S_ else M["dalle"], bev=0.006)
     # bandeau de fer riveté (suit le talus)
     za, zb = 0.40, 0.46
     g.prism([(-(hw(za) * k + 0.02), za), (-(hw(zb) * k + 0.02), zb), ((hw(zb) * k + 0.02), zb),
@@ -119,8 +130,7 @@ def bras(g, M, B):
     if not S_:
         for t in (0.25,):
             x = B.x(t)
-            g.box(x - 0.05, x + 0.05, -(0.48 * k + 0.003), -(0.48 * k - 0.05), 0.015, 0.065, M["vide"], bev=0)
-            g.box(x - 0.07, x + 0.07, -(0.48 * k + 0.012), -(0.48 * k - 0.03), 0.065, 0.085, M["fer"], bev=0.004)
+            g.box(x - 0.05, x + 0.05, -(0.46 * k + 0.003), -(0.46 * k - 0.05), 0.015, 0.065, M["vide"], bev=0)
 
 
 def _tour(g, M):
@@ -134,8 +144,8 @@ def _tour(g, M):
 
     def carre(h, kx=1.0):
         return [(-h, -h * ky), (h, -h * ky), (h, h * ky), (-h, h * ky)]
-    g.loft_z(carre(0.49), 0.0, 0.10, M["pierre"], poly1=carre(0.49), bev=0.01)
-    g.loft_z(carre(0.49), 0.10, 0.14, M["pierre"], poly1=carre(0.46), bev=0.008)
+    g.loft_z(carre(0.485), 0.0, 0.14, M["pierre"], poly1=carre(0.455), bev=0.008)
+    geo.eboulis(g, (M["pierre"], M["dalle"], M["chaine"]), -0.42, 0.42, -0.485 * ky, 4, r=0.035)
     g.loft_z(carre(a0), 0.13, zc - 0.07, M["brique"], poly1=carre(a1), bev=0.006)
     # corbeaux sous le couronnement (face avant et côtés)
     for i in range(5):
@@ -185,7 +195,7 @@ def _tour(g, M):
     g.box(-0.026, 0.026, y - 0.02, y + 0.06, z0, z1, M["vide"], bev=0)
     g.box(-0.018, 0.018, y - 0.008, y + 0.04, z0, z0 + 0.09, M["braise"], bev=0)
     # barbacane
-    g.box(-0.06, 0.06, -0.49 * ky - 0.003, -0.49 * ky + 0.05, 0.015, 0.07, M["vide"], bev=0)
+    g.box(-0.06, 0.06, -0.475 * ky - 0.003, -0.475 * ky + 0.05, 0.015, 0.07, M["vide"], bev=0)
 
 
 def _contrefort(g, M):

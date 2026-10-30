@@ -191,7 +191,7 @@ def _nn(N, kind, **kw):
 
 def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0, grain=0.12, grain_scale=90.0,
             bump=0.25, bump_scale=70.0, edge=None, cavity=0.45, cavity_dist=0.10, streak=0.0, top=None,
-            bottom=None, brick=None, rough2=None, spec=0.5, seed=0.0, stain=None, veins=None):
+            bottom=None, brick=None, rough2=None, spec=0.5, seed=0.0, stain=None, veins=None, cracks=None):
     """Surface « usée » :
     col, col2  : couleurs (linéaires) mêlées par un bruit lent (var : part de col2 au plus) ;
     grain      : ± grain fin ; bump : relief fin ;
@@ -378,6 +378,24 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
         vm = rng(vo.outputs["Distance"], 0.0, vw, 1.0, 0.0)
         color = mix(vm, color, tuple(vcol))
         metal_out = vm
+    if cracks:
+        # fissures : isolignes d'un bruit lent déformé (1 à 3 lignes sinueuses par case), mêlées d'or métallique
+        ccol, cw, cscale, cseed = cracks
+        vs = N.new("ShaderNodeVectorMath")
+        vs.operation = "ADD"
+        vs.inputs[1].default_value = (cseed * 5.3, cseed * 2.9, cseed * 1.7)
+        L.new(pos, vs.inputs[0])
+        nc = N.new("ShaderNodeTexNoise")
+        nc.inputs["Scale"].default_value = cscale
+        nc.inputs["Detail"].default_value = 2.0
+        nc.inputs["Roughness"].default_value = 0.5
+        if "Distortion" in nc.inputs:
+            nc.inputs["Distortion"].default_value = 0.8
+        L.new(vs.outputs["Vector"], nc.inputs["Vector"])
+        d = math_("ABSOLUTE", math_("SUBTRACT", nc.outputs["Fac"], 0.5), 0.0)
+        cm = rng(d, 0.0, cw, 1.0, 0.0)
+        color = mix(cm, color, tuple(ccol))
+        metal_out = cm if metal_out is None else math_("MAXIMUM", metal_out, cm)
     if cavity > 0:
         ao2 = N.new("ShaderNodeAmbientOcclusion")
         ao2.samples = 6
@@ -403,6 +421,18 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
         L.new(bn.outputs["Normal"], p.inputs["Normal"])
     m["fo_kind"] = "surface"
     return m
+
+
+def eboulis(g, mats, x0, x1, y, n, r=0.035, z=0.0):
+    """Éboulis au pied d'un mur (face avant en y < 0) : n petits blocs irréguliers semés entre x0 et x1, qui cassent
+    l'arête nette du pied contre le sol."""
+    for i in range(n):
+        x = x0 + (i + g.rnd(0.15, 0.85)) * (x1 - x0) / n
+        rr = r * g.rnd(0.6, 1.3)
+        yy = y - g.rnd(0.0, 0.05)
+        pts = [(x + rr * g.rnd(-1, 1), yy + rr * g.rnd(-1, 1), z + rr * g.rnd(0.0, 0.9)) for _ in range(9)]
+        pts.append((x, yy, z))
+        g.hull(pts, mats[i % len(mats)], bev=0.006, seg=1)
 
 
 def emissive(S, name, color, strength=1.0, base=(0.04, 0.03, 0.02), crust=None):

@@ -21,12 +21,17 @@ SQ2 = math.sqrt(2.0)
 P_BAS, P_K, P_A = 0.44, 0.29, 0.06
 
 
+FORME = "horiz"     # posé par piece.build : graine des fissures d'or (horiz et horiz2 différentes)
+SEMIS = {"single": 1.0, "vert": 2.0, "horiz": 3.0, "horiz2": 7.0, "corR": 4.0, "corL": 5.0, "tee": 6.0, "endR": 8.0,
+         "endL": 9.0}
+
+
 def mats(S):
     M = {}
     M["obsidienne"] = surface("m15_obs", (0.022, 0.02, 0.026), (0.045, 0.04, 0.05), rough=0.16, rough2=0.3,
                               metal=0.0, spec=0.9, var=0.7, var_scale=5.0, grain=0.3, bump=0.15, bump_scale=30.0,
                               edge=((0.16, 0.15, 0.18), 0.5, 0.02), cavity=0.3,
-                              veins=((0.85, 0.58, 0.22), 0.06, 1.9))
+                              cracks=((0.9, 0.62, 0.24), 0.012, 1.3, SEMIS.get(FORME, 0.0)))
     M["obs_mat"] = surface("m15_obsm", (0.03, 0.028, 0.034), (0.012, 0.011, 0.014), rough=0.45, metal=0.0, spec=0.6,
                            var=0.6, var_scale=9.0, grain=0.3, bump=0.3, bump_scale=60.0,
                            edge=((0.18, 0.17, 0.2), 0.6, 0.02), cavity=0.4)
@@ -47,11 +52,17 @@ def _profil(k, inset=0.0):
 def bras(g, M, B):
     k, x0, L = B.k, B.x0, B.L
     S_ = B.cote == "S"
-    # socle noir mat et bandeau d'or
-    g.prism([(-0.47 * k, 0.0), (0.47 * k, 0.0), (0.47 * k, Z_B - 0.025), (-0.47 * k, Z_B - 0.025)], x0, L,
-            M["obs_mat"], bev=0.008)
-    g.prism([(-0.475 * k, Z_B - 0.025), (0.475 * k, Z_B - 0.025), (0.46 * k, Z_B + 0.005), (-0.46 * k, Z_B + 0.005)],
-            x0, L, M["or"], bev=0.004)
+    # pied noir mat en glacis (v2 : plus de dalle à bord net), filet d'or mince (lignes est-ouest seulement),
+    # éclats d'obsidienne tombés au pied
+    g.prism([(-0.47 * k, 0.0), (0.47 * k, 0.0), (P_BAS * k + 0.004, Z_B), (-(P_BAS * k + 0.004), Z_B)], x0, L,
+            M["obs_mat"], bev=0.006)
+    if not S_:
+        g.prism([(-(P_BAS * k + 0.012), Z_B - 0.012), ((P_BAS * k + 0.012), Z_B - 0.012), ((P_BAS * k + 0.008), Z_B + 0.01),
+                 (-(P_BAS * k + 0.008), Z_B + 0.01)], x0, L, M["or"], bev=0.003)
+    for s_ in ((-1, 1) if S_ else (-1,)):
+        g.push(g.Sc(1, s_, 1))
+        geo.eboulis(g, (M["obsidienne"], M["obs_mat"]), max(x0, 0.0), L - B.eps, -0.47 * k, 2, r=0.03)
+        g.pop()
     # âme d'or (se voit dans les filets entre panneaux)
     g.prism(_profil(k, inset=0.012), x0, L, M["or_sombre"], bev=0)
     # panneaux d'obsidienne : un par quart de case ; filet de 0,012 ; panneau du joint de case plus étroit
@@ -67,7 +78,7 @@ def bras(g, M, B):
         g.prism(_profil(k), xa + ia, xb - ib, M["obsidienne"], bev=0.006, ends=bool(ia or ib))
     # nervure d'or au joint de case (t = 0,5) : suit le profil, légèrement en saillie
     xj = B.x(0.5)
-    if B.t0 < 0.5 < B.t1:
+    if B.t0 < 0.5 < B.t1 and not S_:          # v2 : pas de nervure sur les lignes nord-sud (« rails »)
         prof = [(y * 1.0, z) for (y, z) in _profil(k, inset=-0.015)]
         g.prism(prof, xj - 0.026, xj + 0.026, M["or"], bev=0.006, ends=True)
     # crête flottante : éclats d'obsidienne en losange (un par demi-case), arête d'or, au-dessus d'un vide
@@ -158,15 +169,12 @@ def _sceau(g, M):
 def _obelisque(g, M):
     """Obélisque facetté (8 faces), coiffe d'or, orbe noir laqué en lévitation dans un anneau d'or."""
     ky = SQ2
-    # socle carré à bandeau d'or
-    g.loft_z([(-0.49, -0.49 * ky), (0.49, -0.49 * ky), (0.49, 0.49 * ky), (-0.49, 0.49 * ky)], 0.0, Z_B - 0.025,
-             M["obs_mat"], bev=0.01)
-    g.loft_z([(-0.495, -0.495 * ky), (0.495, -0.495 * ky), (0.495, 0.495 * ky), (-0.495, 0.495 * ky)], Z_B - 0.025,
-             Z_B + 0.01, M["or"], poly1=[(-0.48, -0.48 * ky), (0.48, -0.48 * ky), (0.48, 0.48 * ky),
-                                         (-0.48, 0.48 * ky)], bev=0.004)
-
     def octo(r, ry):
         return [(r * math.cos(a), ry * math.sin(a)) for a in [math.pi / 8 + i * math.pi / 4 for i in range(8)]]
+    # pied octogonal en glacis (v2 : plus de dalle carrée), anneau d'or mince, éclats tombés
+    g.loft_z(octo(0.52, 0.52 * ky), 0.0, Z_B + 0.01, M["obs_mat"], poly1=octo(0.475, 0.475 * ky), bev=0.006)
+    g.loft_z(octo(0.482, 0.482 * ky), Z_B - 0.004, Z_B + 0.016, M["or"], bev=0.003)
+    geo.eboulis(g, (M["obsidienne"], M["obs_mat"]), -0.4, 0.4, -0.5 * ky, 3, r=0.035)
     # fût facetté en deux tronçons (cassure dorée)
     g.loft_z(octo(0.47, 0.47 * ky), Z_B + 0.01, 0.95, M["obsidienne"], poly1=octo(0.36, 0.36 * ky), bev=0.008)
     g.loft_z(octo(0.375, 0.375 * ky), 0.95, 1.0, M["or"], bev=0.004)

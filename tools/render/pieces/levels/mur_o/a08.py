@@ -31,12 +31,12 @@ RIV = 0.016
 def mats(S):
     M = {}
     M["pierre"] = surface("m8_pierre", (0.095, 0.11, 0.085), (0.05, 0.06, 0.045), rough=0.9, var=0.7, var_scale=7.0,
-                          grain=0.25, bump=0.8, bump_scale=35.0, edge=((0.27, 0.29, 0.24), 0.55, 0.035), cavity=0.6,
+                          grain=0.25, bump=0.8, bump_scale=35.0, edge=((0.27, 0.29, 0.24), 0.55, 0.035), cavity=0.75,
                           cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
                           bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=3.0,
                           stain=((0.03, 0.04, 0.025), 0.5, 5.0))
     M["pierre2"] = surface("m8_pierre2", (0.12, 0.125, 0.10), (0.065, 0.07, 0.055), rough=0.9, var=0.7, var_scale=6.0,
-                           grain=0.25, bump=0.8, bump_scale=30.0, edge=((0.30, 0.31, 0.27), 0.55, 0.035), cavity=0.6,
+                           grain=0.25, bump=0.8, bump_scale=30.0, edge=((0.30, 0.31, 0.27), 0.55, 0.035), cavity=0.75,
                            cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
                            bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=9.0,
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
@@ -54,6 +54,8 @@ def mats(S):
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
                           grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
+    M["verre_sombre"] = surface("m8_verre_s", (0.03, 0.06, 0.02), rough=0.08, spec=1.0, var=0.3, grain=0.05,
+                                bump=0.0, cavity=0.0)
     M["mousse"] = surface("m8_mousse", (0.06, 0.14, 0.02), (0.03, 0.07, 0.012), rough=1.0, var=0.8, var_scale=12.0,
                           grain=0.35, bump=1.0, bump_scale=120.0, cavity=0.5, spec=0.2)
     M["vide"] = surface("m8_vide", (0.006, 0.008, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0, spec=0.0)
@@ -134,6 +136,10 @@ def bras(g, M, B):
         y = -(HW1 + 0.06) * k
         g.cyl((xj, y - 0.06, Z_W - 0.09), "y", 0.028, 0.16, M["cuivre"], n=10, r2=0.022, bev=0)
         g.box(xj - 0.03, xj + 0.03, y - 0.004, y + 0.03, Z_W - 0.14, Z_W - 0.04, M["cuivre_sombre"], bev=0.004)
+        g.pop()
+    for s_ in ((-1, 1) if S_ else (-1,)):
+        g.push(g.Sc(1, s_, 1))
+        geo.eboulis(g, (M["pierre"], M["pierre2"], M["mousse"]), max(x0, 0.0), L - B.eps, -HW0 * k - 0.01, 3, r=0.035)
         g.pop()
     # touffes de mousse au pied
     if not S_:
@@ -230,7 +236,7 @@ def _tour(g, M):
     zh = 0.70
     rh = R0 + (R1 - R0) * (zh / zt)
     g.cyl((0, -rh - 0.005, zh), "y", 0.075, 0.04, M["cuivre"], n=20, bev=0.004)
-    g.cyl((0, -rh - 0.025, zh), "y", 0.052, 0.012, M["verre"], n=20, bev=0)
+    g.cyl((0, -rh - 0.025, zh), "y", 0.052, 0.012, M["verre_sombre"], n=20, bev=0)
     for a in range(8):
         ang = a * math.pi / 4
         g.rivets([(0.075 * math.cos(ang), -rh - 0.028, zh + 0.075 * math.sin(ang), "y")], 0.013, M["cuivre_sombre"])

@@ -30,6 +30,8 @@ TYPES = {"single": (), "vert": ("S",), "horiz": ("E", "O"), "horiz2": ("E", "O")
          "corL": ("O", "S"), "tee": ("E", "O", "S"), "endR": ("E",), "endL": ("O",)}
 # horiz2 : deuxième variante du segment droit est-ouest (le vanilla en a 6 ; le moteur tire la variante par case)
 ORDRE = ("single", "vert", "horiz", "horiz2", "corR", "corL", "tee", "endR", "endL")
+K_SUD = 0.78       # v2 : échelle latérale du bras sud ; le mur vanilla nord-sud fait 47-48 px HR de large au pied
+                   # (0,75 tuile), le v1 en faisait 62-68 (+35 %)
 EPS = 0.02          # les bras est et ouest dépassent de 0,02 tuile : pas de colonne demi-transparente au raccord
 SQ2 = math.sqrt(2.0)
 
@@ -85,6 +87,7 @@ def build(S, C, variant):
     import geo
     v = PIECE["variants"][variant]
     ep = module(v["epoch"])
+    ep.FORME = v["forme"]       # v2 : certaines matières tirent leur motif d'après la forme (horiz / horiz2)
     M = ep.mats(S)
     g = geo.G(S, C, seed=100 + v["epoch"])
     for b in v["bras"]:
@@ -97,7 +100,7 @@ def build(S, C, variant):
             ep.bras(g, M, Bras(0.5, 1.0, SQ2, EPS, b))
         else:
             g.push(g.Rz(-math.pi / 2))
-            ep.bras(g, M, Bras(1.0, SQ2, 1.0, 0.0, b, t0=-0.03))
+            ep.bras(g, M, Bras(1.0, SQ2, K_SUD, 0.0, b, t0=-0.03))
         g.pop()
     ep.noeud(g, M, v["forme"], v["bras"])
     return {"count": g.n}
