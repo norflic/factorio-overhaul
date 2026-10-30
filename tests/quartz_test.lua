@@ -60,8 +60,8 @@ local gs = G.spec("quartz")
 local gx = qx.placement.guaranteed
 check(gs and gs.count == gx.count and gs.dmin == gx.distance[1] and gs.dmax == gx.distance[2] and gs.count == 2,
   "2 veines à 400-800 tuiles (X3)")
-check(gs and gs.tile == "fo-crystal-flats" and gs.kind == "ore" and gs.icon == "fo-vein-quartz",
-  "site : disque de plaine de cristal (repli d'X3), étiquette : l'objet")
+check(gs and gs.tile == "fo-crystal-flats" and gs.kind == "ore" and gs.icon == "fo-vein-quartz" and gs.clear_trees,
+  "site : disque de plaine de cristal (repli d'X3), sans arbre vanilla, étiquette : l'objet")
 do
   local lo, hi = 1e18, 0
   for seed = 1, 200 do

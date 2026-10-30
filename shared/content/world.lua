@@ -660,7 +660,9 @@ W.resources = {
     epoch = 10,
     -- X3 : « 2 veines de 200 000 posées par script » ; rayon 7, 2 000 par tuile au centre : environ 200 000 (comme la blende) ;
     -- un gisement déjà posé de 130 000 en vaut un (sauvegarde existante : seuls les sites garantis en posent).
-    guarantee = { site_radius = 12, ore_radius = 7, amount = 2000, min_total = 130000 },
+    -- clear_trees : arbres et rochers vanilla retirés du disque (capture du 30/10 : sur une forêt, la plaine posée gardait ses
+    -- arbres ; depuis BIOMES, aucun arbre vanilla sur les biomes du mod).
+    guarantee = { site_radius = 12, ore_radius = 7, amount = 2000, min_total = 130000, clear_trees = true },
     item = "fo-vein-quartz",
     -- Prismes blanc laiteux (X3 : « sans lueur, pour ne pas le confondre avec le cristal de résonance ») ; la teinte ne sert
     -- qu'aux dérivés (technologie) ; le gisement, son icône et l'objet viennent de la feuille Q1 (pierre en repli de copie).

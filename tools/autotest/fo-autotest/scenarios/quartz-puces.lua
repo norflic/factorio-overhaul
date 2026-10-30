@@ -188,5 +188,13 @@ return {
 
   shots = function(ctx, add)
     add("fonderie-puces-z1-jour", CX - 5, CY + 4, 1, 0, { aa = false })
+    -- Veines garanties sur la graine des bancs (20261020) : (714, 343) et (-574, 241) ; cristal de résonance garanti en
+    -- (33, 273), pour comparer les deux minerais de la plaine (jour et nuit).
+    add("quartz-veine-z1-jour", 714.5, 343.5, 1, 0, { aa = false })
+    add("quartz-veine-z2-jour", 714.5, 343.5, 2, 0, { aa = false })
+    add("quartz-veine-z1-nuit", 714.5, 343.5, 1, 0.5, { aa = false })
+    add("quartz-veine2-z1-jour", -573.5, 241.5, 1, 0, { aa = false })
+    add("cristal-site-z1-jour", 33.5, 273.5, 1, 0, { aa = false })
+    add("cristal-site-z1-nuit", 33.5, 273.5, 1, 0.5, { aa = false })
   end,
 }

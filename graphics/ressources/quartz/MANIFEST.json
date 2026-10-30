@@ -1,14 +1,14 @@
 {
  "blender": "5.2.2 LTS",
  "couverture_par_stade": [
-  0.2368,
-  0.2345,
+  0.2394,
+  0.2423,
   0.23,
-  0.1648,
+  0.1907,
   0.1686,
-  0.1269,
+  0.1271,
   0.0974,
-  0.0461
+  0.047
  ],
  "couverture_vanilla": [
   0.316,
@@ -37,23 +37,23 @@
  "outil": "tools/render/pieces/ressources/feuille.py",
  "repartition": {
   "L": [
-   0.086,
-   0.084,
-   0.213,
-   0.617
+   0.088,
+   0.085,
+   0.214,
+   0.613
   ],
-  "acier": 0.914,
+  "acier": 0.912,
   "acier_bleutes": 0.002,
   "chauds": 0.0,
-  "sombres": 0.086
+  "sombres": 0.088
  },
- "secondes_blender": 1567.04,
+ "secondes_blender": 903.29,
  "sha256": {
-  "hr-quartz.png": "62fc845fbff8292a8b2fa7493b8f8e78e1423887c14008413d6a4db814fb3cf5",
-  "icone-1.png": "4f711ab3d4142b21a7c85755ae2f4676fc55a2415a4cb643441eec399dde113f",
-  "icone-2.png": "6140cd000ff18bf4cd061a008c3bfeb8b54c500c9f9e6db5742e29c03183aeb8",
-  "icone-3.png": "a5a473575a6ddec25e769893e41ed07d8b1a7d53ca559b0766e842b4c47fe46f",
-  "icone.png": "0862461693c146427249bcf23f0d013267acac630ea3fb908d49820ac7023d22",
-  "quartz.png": "f3ee09fd170ec9759a766761d27999721ca59bafe611229fdecec125ac53a7d2"
+  "hr-quartz.png": "66a3cec1511a129a64c74a8d83b3823a59265625292bad4a50766b96deadf1c7",
+  "icone-1.png": "387b120b4cd2f726aa959b7493c762711fe4169830f56600ef5345263bfbebfd",
+  "icone-2.png": "1b05d376f7e528403571e2070e616e5858742d0a0877eadc779aa5f0707d9bf7",
+  "icone-3.png": "19da4da4deb16126983f15a77916b444263e94871a05a3576d704bab32b6df87",
+  "icone.png": "94120c611b29f7fe80558869bb3bd7e474ec280f23cebf65dedaeeabec2906cd",
+  "quartz.png": "5da28ebfe0cb7cdf7750878f39af02215a086831c11e731c747e5da98a9b12b5"
  }
 }
