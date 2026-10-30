@@ -83,7 +83,7 @@ def _tole(g, M, xa, xb, za, zb, k):
 def bras(g, M, B):
     k, x0, L = B.k, B.x0, B.L
     S_ = B.cote == "S"
-    faces = (-1, 1) if S_ else (-1,)
+    faces = (1, -1) if S_ else (1,)
     # pied en glacis (pierre), bande réfractaire, talus de pierre sombre
     g.prism([(-HW0 * k - 0.012, 0.0), (HW0 * k + 0.012, 0.0), (hw(Z_RB) * k, Z_RB), (-hw(Z_RB) * k, Z_RB)], x0, L,
             M["refractaire"], bev=0.006)

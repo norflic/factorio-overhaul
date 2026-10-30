@@ -134,7 +134,7 @@ def bras(g, M, B):
     # contrefort de pierre au joint de case (v3 : DANS le pied, aucune saillie au sud du pied ; moitié par case)
     if B.t0 < 0.5 < B.t1:
         xj = B.x(0.5)
-        for s in ((-1, 1) if S_ else (-1,)):
+        for s in ((1, -1) if S_ else (1,)):
             g.push(g.Sc(1, s, 1))
             zt = 0.74
             pa = [(xj - 0.11, -HW0 * k), (xj + 0.11, -HW0 * k), (xj + 0.11, -0.1 * k), (xj - 0.11, -0.1 * k)]
@@ -143,7 +143,7 @@ def bras(g, M, B):
             g.loft_z(pa, 0.0, zt, M["pierre2"], poly1=pb, bev=0.012)
             g.box(xj - 0.075, xj + 0.075, -(hw(zt) + 0.09) * k, -0.1 * k, zt, zt + 0.035, M["chaperon"], bev=0.008)
             g.pop()
-    for s_ in ((-1, 1) if S_ else (-1,)):
+    for s_ in ((1, -1) if S_ else (1,)):
         g.push(g.Sc(1, s_, 1))
         geo.eboulis(g, (M["pierre"], M["pierre2"], M["mousse"]), max(x0, 0.0), L - B.eps, -HW0 * k - 0.01, 3, r=0.035)
         g.pop()

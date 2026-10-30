@@ -76,7 +76,7 @@ def bras(g, M, B):
              (-(hw(Z_PL) * k + 0.006), Z_PL)], x0, L, M["or_patine"], bev=0.005)
     g.prism([(-hw(Z_PL) * k, Z_PL - 0.005), (hw(Z_PL) * k, Z_PL - 0.005), (HW1 * k, Z_W), (-HW1 * k, Z_W)], x0, L,
             M["obsidienne"], bev=0.004)
-    for s in ((-1, 1) if S_ else (-1,)):
+    for s in ((1, -1) if S_ else (1,)):
         g.push(g.Sc(1, s, 1))
         # deux plaques laquées par case (joints de 1 px : 0,016), rivets d'or aux coins
         bornes = (0.0, 0.5, 1.0) if S_ else (0.0, 0.5)
