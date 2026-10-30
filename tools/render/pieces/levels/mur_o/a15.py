@@ -31,7 +31,7 @@ def mats(S):
     M["obsidienne"] = surface("m15_obs", (0.022, 0.02, 0.026), (0.045, 0.04, 0.05), rough=0.16, rough2=0.3,
                               metal=0.0, spec=0.9, var=0.7, var_scale=5.0, grain=0.3, bump=0.15, bump_scale=30.0,
                               edge=((0.16, 0.15, 0.18), 0.5, 0.02), cavity=0.3,
-                              cracks=((0.9, 0.62, 0.24), 0.012, 1.3, SEMIS.get(FORME, 0.0)))
+                              cracks=((0.95, 0.68, 0.28), 0.022, 1.3, SEMIS.get(FORME, 0.0)))
     M["obs_mat"] = surface("m15_obsm", (0.03, 0.028, 0.034), (0.012, 0.011, 0.014), rough=0.45, metal=0.0, spec=0.6,
                            var=0.6, var_scale=9.0, grain=0.3, bump=0.3, bump_scale=60.0,
                            edge=((0.18, 0.17, 0.2), 0.6, 0.02), cavity=0.4)
@@ -141,10 +141,6 @@ def _aileron(g, M):
     pa = [(-0.035, yb), (0.035, yb), (0.06, -0.2 * k), (-0.06, -0.2 * k)]
     g.loft_z(pa, 0.0, 1.05, M["obsidienne"], poly1=[(-0.02, -(P_K * 0.9) * k), (0.02, -(P_K * 0.9) * k),
                                                      (0.04, -0.1 * k), (-0.04, -0.1 * k)], bev=0.006)
-    # tranche d'or (arête avant)
-    g.loft_z([(-0.012, yb - 0.012), (0.012, yb - 0.012), (0.012, yb + 0.02), (-0.012, yb + 0.02)], Z_B, 1.05,
-             M["or"], poly1=[(-0.01, -(P_K * 0.9) * k - 0.012), (0.01, -(P_K * 0.9) * k - 0.012),
-                             (0.01, -(P_K * 0.9) * k + 0.02), (-0.01, -(P_K * 0.9) * k + 0.02)], bev=0)
     # éclat flottant central (le bras n'en porte pas en t = 0)
     _eclat(g, M, 0.0, 0.13, k, -1.0, 1.0)
 

@@ -207,6 +207,8 @@ def main():
     ap.add_argument("--out", required=True)
     ap.add_argument("--ages", default="2,8,15")
     ap.add_argument("--titre", default="")
+    ap.add_argument("--avant", default="", help="sprites d'une version précédente (colonne de comparaison)")
+    ap.add_argument("--nom-avant", default="v1")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     ages = [int(x) for x in a.ages.split(",") if x]
@@ -214,13 +216,24 @@ def main():
     jeux = [van] + [Jeu.rendu(a.sprites, e) for e in ages]
     noms = ["vanilla (mur de pierre)"] + ["âge %d" % e for e in ages]
     z2 = [compose(j, TRACE) for j in jeux]
-    # 1. zoom 2 : vanilla et chaque âge
-    rows = [[(im(z2[0]), noms[0] + " · zoom 2"), (im(z2[i]), noms[i] + " · zoom 2")] for i in range(1, len(jeux))]
+    avant = [compose(Jeu.rendu(a.avant, e), TRACE) for e in ages] if a.avant else None
+    # 1. zoom 2 : vanilla, version précédente éventuelle, chaque âge
+    rows = []
+    for i in range(1, len(jeux)):
+        r = [(im(z2[0]), noms[0] + " · zoom 2")]
+        if avant:
+            r.append((im(avant[i - 1]), "%s · %s · zoom 2" % (noms[i], a.nom_avant)))
+        r.append((im(z2[i]), noms[i] + " · zoom 2"))
+        rows.append(r)
     grille(rows, "Mur %s · zoom 2 (64 px/tuile) · jour · même tracé que le vanilla" % a.titre).save(
         os.path.join(a.out, "planche-zoom2.png"))
     # 2. zoom 1 : tous côte à côte, et agrandi ×2 au plus proche (lecture)
     z1s = [im(z1(x)) for x in z2]
-    rows = [[(z1s[i], noms[i] + " · zoom 1") for i in range(len(jeux))],
+    rows = [[(z1s[i], noms[i] + " · zoom 1") for i in range(len(jeux))]]
+    if avant:
+        rows.append([(z1s[0], noms[0] + " · zoom 1")] + [(im(z1(x)), "%s · %s · zoom 1" % (noms[i + 1], a.nom_avant))
+                                                          for i, x in enumerate(avant)])
+    rows += [
             [(z.resize((z.width * 2, z.height * 2), Image.NEAREST), noms[i] + " · zoom 1, ×2 au plus proche")
              for i, z in enumerate(z1s[:2])],
             [(z.resize((z.width * 2, z.height * 2), Image.NEAREST), noms[i + 2] + " · zoom 1, ×2 au plus proche")
