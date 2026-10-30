@@ -156,6 +156,35 @@ function Pv.absorbed(c, nb, diff, need, sat)
   return cap
 end
 
+--- Clé de la case de pollution (32 × 32 tuiles, comme le moteur) d'une position.
+function Pv.chunk_key(x, y)
+  return floor(x / 32) .. "," .. floor(y / 32)
+end
+
+--- Unités ennemies TUÉES par l'équipe, rattachées aux sites : kills = { { x, y, hp } } (ordre des événements), sites = { { key,
+--- x, y } } (triés), nests = { { x, y } } (nids connus, ce relevé et le précédent), loss_r et garrison_r (tuiles). Une unité tuée
+--- à moins de garrison_r d'un nid connu est sa GARNISON (raid, nettoyage d'un champ) : elle n'est pas une vague reçue (même
+--- règle que les unités VUES). Les autres comptent au site le plus proche à moins de loss_r. Rend { [clé] = PV }.
+function Pv.kills_by_site(kills, sites, nests, loss_r, garrison_r)
+  local out = {}
+  local l2, g2 = loss_r * loss_r, garrison_r * garrison_r
+  for _, h in ipairs(kills or {}) do
+    local gar = false
+    for _, n in ipairs(nests or {}) do
+      if d2(h.x, h.y, n.x, n.y) <= g2 then gar = true break end
+    end
+    if not gar then
+      local best, bd = nil, nil
+      for _, s in ipairs(sites or {}) do
+        local dd = d2(h.x, h.y, s.x, s.y)
+        if dd <= l2 and (not bd or dd < bd) then best, bd = s, dd end
+      end
+      if best then out[best.key] = (out[best.key] or 0) + (h.hp or 0) end
+    end
+  end
+  return out
+end
+
 --- Temps de rassemblement moyen (min) : le moteur tire un temps entre le minimum et le maximum (doc 1.1.91 ; loi uniforme
 --- SUPPOSÉE).
 function Pv.gather_mean(gather)
@@ -233,6 +262,14 @@ function Pv.estimate(inp)
   for _, s in ipairs(sites) do if (s.emit or 0) > ref then ref = s.emit end end
   local r2max = Pv.R_ATTR * Pv.R_ATTR
   local used = 0
+  -- C5 (relecture PREVISION-CALIB) : la diffusion arrive à la CASE de 32 × 32 (le moteur tient la pollution par case), pas à
+  -- chaque nid ; les nids connus d'une même case se partagent ce flux (même demande : parts égales). Sans ce partage, une case
+  -- de 5 nids sous le seuil comptait 5 fois le flux de ses voisines.
+  local per_chunk = {}
+  for _, n in ipairs(inp.nests or {}) do
+    local ck = Pv.chunk_key(n.x, n.y)
+    per_chunk[ck] = (per_chunk[ck] or 0) + 1
+  end
   for ni, n in ipairs(inp.nests or {}) do
     if used >= Pv.NESTS_MAX then break end
     local best, ba, bd = nil, 0, nil
@@ -251,7 +288,7 @@ function Pv.estimate(inp)
         if a > ar then ar = a end
       end
       local share = Pv.share(ba, ar)
-      local abs = Pv.absorbed(n.c, n.nb, inp.diff, mix0 and mix0.cap * mix0.pbar, inp.sat)
+      local abs = Pv.absorbed(n.c, (n.nb or 0) / (per_chunk[Pv.chunk_key(n.x, n.y)] or 1), inp.diff, mix0 and mix0.cap * mix0.pbar, inp.sat)
       out.absorbed = out.absorbed + abs * share / 1000
       if mix0 and share > 0 and abs > 0 then
         local u = abs / mix0.pbar
@@ -327,8 +364,9 @@ end
 --- tuées près du site depuis le relevé précédent), losses (pièces perdues depuis le relevé précédent), hbar, window (min :
 --- rassemblement maximal + marche + marge), source (vrai : un nid nous vise encore) } }. keys = clés de sites triées.
 --- Vague reçue d'une attaque = max(pic vu au contact, PV tués pendant l'attaque) + pertes × Pv.LOSS_UNITS × hbar.
---- k de l'équipe : vague → moyenne géométrique de k et du rapport reçu ÷ prévu (racine carrée : déterministe) ; fausse alerte →
---- × 7/8 ; raté → plancher du site seulement. Rend la liste des événements { key, kind = "vague"|"fausse"|"rate", pred, recv,
+--- k de l'équipe : vague → moyenne géométrique de k et du rapport reçu ÷ prévu (racine carrée : déterministe), SAUF une reçue
+--- censurée (ni vue ni tuée : pertes seules, borne basse) qui ne peut que relever k ; fausse alerte → × 7/8 ; raté → plancher du
+--- site seulement. Rend la liste des événements { key, kind = "vague"|"fausse"|"rate", pred, recv,
 --- seen, killed, lost, k0, k1 } (journal).
 function Pv.calibrate(cal, keys, facts, tick)
   local evs = {}
@@ -361,9 +399,15 @@ function Pv.calibrate(cal, keys, facts, tick)
       local k0 = team.k
       if pred > 0 then
         local r = math.max(1, floor(1000 * recv / pred))
-        team.k = bound_k(floor(math.sqrt(team.k * r)))
+        -- Reçue CENSURÉE (relecture PREVISION-CALIB) : rien de vu, rien de tué, seulement nos pertes. La vague a survécu à nos
+        -- défenses (ou un tiers l'a tuée) : ses pertes ne bornent sa taille que PAR EN DESSOUS. Elle peut relever k, jamais le
+        -- baisser (rejeu 0.6.24 : une « reçue » d'une seule perte, 41 PV, divisait k par 8 et la vague suivante était
+        -- sous-estimée 8 fois).
+        local censored = seen <= 0 and killed <= 0
+        if not (censored and r <= team.k) then team.k = bound_k(floor(math.sqrt(team.k * r))) end
         team.hit = (team.hit or 0) + 1
-        evs[#evs + 1] = { key = key, kind = "vague", pred = pred, recv = recv, seen = seen, killed = killed, lost = lost, k0 = k0, k1 = team.k }
+        evs[#evs + 1] = { key = key, kind = "vague", pred = pred, recv = recv, seen = seen, killed = killed, lost = lost, k0 = k0, k1 = team.k,
+          censored = censored }
         c.floor = nil
       else
         c.miss = (c.miss or 0) + 1

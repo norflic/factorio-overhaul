@@ -11,8 +11,9 @@
       aux prototypes de la tourelle et de sa munition) par site : QG, avant-postes, champs ouverts de la capitalisation ;
     * nos pertes au contact (crochet Front.on_loss, posé ici, appelé par script/team/front.lua à la mort d'une pièce).
   Il écrit l'état f.prevision (créé ici, en événement ; nombres, chaînes et tables : global par l'état de guerre) :
-    { t, cal (calibration par site), pc (décisions Pc), est (résumé), hits, logs, kit_iron, turret_iron, key_item, reserve,
-      hp_per_emit, turret_value, log_t }.
+    { t, cal (calibration : k d'équipe sous Pv.TEAM, épisodes par site), pc (décisions Pc), est (résumé), hits, kills (unités
+      tuées depuis le relevé), nests_prev (nids connus au relevé précédent : garnison), logs, kit_iron, turret_iron, key_item,
+      reserve, hp_per_emit, turret_value, log_t }.
   Lecteurs : script/ai3/soldats.lua (armée : Prev.army), script/team/front.lua (tourelles d'avance : Front.prevu, posé ici),
   script/ai3/cerveau.lua (pile : Prev.pile_rows ; capitalisation : Prev.capi_defense), script/team/team.lua (armée visée à moyen
   terme : f.prevision.pc.army_soon).
@@ -525,17 +526,18 @@ function Prev.think(f, tick, opts)
     if best then losses[best.key] = (losses[best.key] or 0) + 1 end
   end
   st.hits = {}
-  local killed = {}
-  for _, h in ipairs(st.kills) do
-    local best, bd = nil, nil
-    for _, s in ipairs(sites) do
-      local dd = d2(h.x, h.y, s.x, s.y)
-      if dd <= Prev.LOSS_R * Prev.LOSS_R and (not bd or dd < bd) then best, bd = s, dd end
-    end
-    if best then killed[best.key] = (killed[best.key] or 0) + h.hp end
-  end
+  -- Unités tuées : la garnison d'un nid connu (de ce relevé ou du précédent : un nid détruit pendant la minute en fait partie)
+  -- n'est pas une vague reçue (relecture PREVISION-CALIB : un raid ou le nettoyage d'un champ près d'un site faisait un RATÉ,
+  -- donc un plancher et un cadre « préparer », pour des unités qui défendaient leur nid).
+  local guard = {}
+  for _, n in ipairs(known) do guard[#guard + 1] = { x = n.x, y = n.y } end
+  for _, n in ipairs(st.nests_prev or {}) do guard[#guard + 1] = n end
+  local killed = Pv.kills_by_site(st.kills, sites, guard, Prev.LOSS_R, Prev.GARRISON_R)
   if (st.kills_over or 0) > 0 then killed.qg = (killed.qg or 0) + st.kills_over end
   st.kills, st.kills_over = {}, nil
+  local nprev = {}
+  for _, n in ipairs(known) do nprev[#nprev + 1] = { x = n.x, y = n.y } end
+  st.nests_prev = nprev -- nombres seulement (état d'une sauvegarde 0.6.24 : absent, créé ici)
   local facts, keys = {}, {}
   local hbar = est.mix and est.mix.hbar or 0
   for _, o in ipairs(est.sites) do
@@ -551,7 +553,7 @@ function Prev.think(f, tick, opts)
     st.cal_last = {}
     for _, e in ipairs(cal_evs) do
       st.cal_last[#st.cal_last + 1] = { key = e.key, kind = e.kind, pred = e.pred, recv = e.recv, seen = e.seen, killed = e.killed,
-        lost = e.lost, k0 = e.k0, k1 = e.k1, tick = tick }
+        lost = e.lost, k0 = e.k0, k1 = e.k1, censored = e.censored, tick = tick }
     end
   end
   -- 7. Décisions.
@@ -663,8 +665,9 @@ function Prev.journal(f, st, est, cal_evs, tick)
   -- Faits de calibration (un par cause).
   for _, e in ipairs(cal_evs) do
     if e.kind == "vague" then
-      line(string.format("BILAN vague %s : prevue %d PV, recue %d PV (vue %d, tuee %d, pertes %d) (k equipe %.2f -> %.2f)", e.key,
-        n0(e.pred), n0(e.recv), n0(e.seen), n0(e.killed), n0(e.lost), e.k0 / 1000, e.k1 / 1000))
+      line(string.format("BILAN vague %s : prevue %d PV, recue %d PV (vue %d, tuee %d, pertes %d%s) (k equipe %.2f -> %.2f)", e.key,
+        n0(e.pred), n0(e.recv), n0(e.seen), n0(e.killed), n0(e.lost), e.censored and " ; borne basse, k ne peut que monter" or "",
+        e.k0 / 1000, e.k1 / 1000))
     elseif e.kind == "rate" then
       line(string.format("RATE %s : attaque de %d PV sans vague prevue (vue %d, tuee %d, pertes %d) (k equipe %.2f inchange, plancher de menace %d PV)",
         e.key, n0(e.recv), n0(e.seen), n0(e.killed), n0(e.lost), e.k0 / 1000, n0(e.recv)))
