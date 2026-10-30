@@ -16,7 +16,8 @@
     1. Un module qui ATTEND SES MATÉRIAUX (Em.MATERIAL_STATES : la matière lui est réservée au fil de l'eau) ou qui n'est pas
        encore planifié tient TOUJOURS son emplacement : en ouvrir un autre viderait le coffre (raison de A.MAX_OPEN, banc p4).
     2. Un module FIGÉ (aucune entité bâtie de plus depuis Em.STALL, dans un état de chantier : défrichage, fantômes, chantier,
-       raccordement, bloqué) ne tient plus d'emplacement : il reste ouvert et suivi (Capi.ORDER_TTL l'annule à 30 min), mais
+       raccordement, bloqué ; compté depuis l'ENTRÉE en chantier au plus tôt, Em.work_tick : le temps de réserve n'y entre pas)
+       ne tient plus d'emplacement : il reste ouvert et suivi (Capi.ORDER_TTL l'annule à 30 min), mais
        un autre module peut partir. Au plus Em.STALLED_FREE modules figés hors du compte (au-delà, ils comptent : une équipe
        n'accumule pas les chantiers morts).
     3. STOCK RICHE : Em.PER_SLOT plaques libres de CHAQUE produit des fonderies (le plus faible des produits) donnent un
@@ -39,18 +40,35 @@ Em.MATERIAL_STATES = { attente = true, plan = true, reserve = true }
 -- États de chantier : la matière est prise, le travail est aux PNJ ; seul cet état peut être « figé ».
 Em.WORK_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, bloque = true }
 
---- Classe un ordre « module » ouvert. m = { states = { état de chaque module suivi }, progress_tick, opened } ; tick.
---- Rend "matiere" (attend ses matériaux ou son plan), "fige" (chantier sans progrès depuis Em.STALL) ou "actif".
-function Em.class(m, tick)
-  local states = (m and m.states) or {}
+local function phase(states)
   local any_work, any_mat = false, false
-  for _, s in ipairs(states) do
+  for _, s in ipairs(states or {}) do
     if Em.MATERIAL_STATES[s] then any_mat = true
     elseif Em.WORK_STATES[s] then any_work = true end
   end
   if any_mat then return "matiere" end
-  if not any_work then return "actif" end -- fini ou refusé au relevé suivant : le suivi le fermera
+  if any_work then return "chantier" end
+  return "autre"
+end
+
+--- Relecture CAPI-DEBIT (30/10) : tick d'ENTRÉE en chantier d'un ordre (tous ses modules sortis de la matière). Le dernier progrès
+--- (progress_tick, entités bâties) ne bouge pas pendant la réserve : sans cette horloge, un module resté 10 min en réserve était
+--- « figé » dès son premier tick de défrichage, alors que son chantier commençait. prev = valeur gardée (nil au départ) ; rend
+--- la nouvelle valeur : nil tant que la matière est attendue (ou hors chantier), le tick de la première pensée en chantier sinon.
+function Em.work_tick(prev, states, tick)
+  if phase(states) ~= "chantier" then return nil end
+  return prev or tick
+end
+
+--- Classe un ordre « module » ouvert. m = { states = { état de chaque module suivi }, progress_tick, opened, work_tick } ; tick.
+--- Rend "matiere" (attend ses matériaux ou son plan), "fige" (chantier sans progrès depuis Em.STALL, compté depuis le plus tard du
+--- dernier progrès et de l'entrée en chantier) ou "actif".
+function Em.class(m, tick)
+  local ph = phase(m and m.states)
+  if ph == "matiere" then return "matiere" end
+  if ph ~= "chantier" then return "actif" end -- fini ou refusé au relevé suivant : le suivi le fermera
   local since = (m.progress_tick or m.opened or tick or 0)
+  if type(m.work_tick) == "number" and m.work_tick > since then since = m.work_tick end
   if type(tick) == "number" and tick - since >= Em.STALL then return "fige" end
   return "actif"
 end
@@ -67,7 +85,7 @@ function Em.extra(plates)
 end
 
 --- s = { base (A.MAX_OPEN), plates (liste des stocks libres des produits des fonderies), mods (liste de { states, progress_tick,
---- opened, key }), tick }. Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why }.
+--- opened, work_tick, key }), tick }. Rend { cap, counted, stalled, free_stalled, materials, open, room, busy, keys_stalled, why }.
 function Em.slots(s)
   local base = math.max(0, math.floor((s and s.base) or 0))
   local extra = Em.extra(s and s.plates)

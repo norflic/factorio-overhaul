@@ -39,6 +39,18 @@ local function suite()
   check(Em.class(mod("a", { "fini" }, T - 30 * MIN), T) == "actif", "§1 fini (fermé au suivi suivant) : compté, jamais libéré")
   check(Em.class(mod("a", {}, T - 30 * MIN), T) == "actif", "§1 sans module connu : compté (prudent)")
   check(Em.class({ key = "a", states = { "chantier" }, opened = T - 12 * MIN }, T) == "fige", "§1 sans progrès noté : l'ouverture fait foi")
+  -- relecture : entrée en chantier (le temps de réserve ne compte pas dans le « figé »)
+  check(Em.work_tick(nil, { "reserve" }, T) == nil, "§1 horloge de chantier : rien tant que la matière est attendue")
+  check(Em.work_tick(T - 5 * MIN, { "reserve", "chantier" }, T) == nil, "§1 horloge remise à nil si un module retourne en réserve")
+  check(Em.work_tick(nil, { "defrichage" }, T) == T, "§1 horloge posée à la première pensée en chantier")
+  check(Em.work_tick(T - 5 * MIN, { "chantier" }, T) == T - 5 * MIN, "§1 horloge gardée pendant le chantier")
+  check(Em.work_tick(T - 5 * MIN, { "fini" }, T) == nil, "§1 horloge sans objet hors chantier")
+  check(Em.class({ key = "a", states = { "defrichage" }, progress_tick = T - 14 * MIN, work_tick = T - MIN }, T) == "actif",
+    "§1 sorti de réserve il y a 1 min après 14 min de réserve : actif (pas figé dès le premier tick)")
+  check(Em.class({ key = "a", states = { "defrichage" }, progress_tick = T - 30 * MIN, work_tick = T - 10 * MIN }, T) == "fige",
+    "§1 10 min de chantier sans entité bâtie après la réserve : figé")
+  check(Em.class({ key = "a", states = { "chantier" }, progress_tick = T - 3 * MIN, work_tick = T - 20 * MIN }, T) == "actif",
+    "§1 entité bâtie après l'entrée en chantier : le dernier progrès fait foi")
   -- §2 stock
   check(Em.extra({}) == 0, "§2 aucun produit : aucun emplacement de plus")
   check(Em.extra(nil) == 0, "§2 stock absent : 0")
@@ -109,6 +121,9 @@ mutant("stock sans plafond", function() Em.EXTRA_MAX = 99 end, function() Em.EXT
 mutant("emplacement par le stock trop bon marché", function() Em.PER_SLOT = 100 end, function() Em.PER_SLOT = P0 end)
 mutant("la réserve peut être figée", function() Em.MATERIAL_STATES.reserve = nil Em.WORK_STATES.reserve = true end,
   function() Em.MATERIAL_STATES.reserve = true Em.WORK_STATES.reserve = nil end)
+local wt0 = Em.work_tick
+mutant("horloge de chantier ignorée (réserve comptée dans le figé)", function() Em.work_tick = function() return nil end end,
+  function() Em.work_tick = wt0 end)
 local extra0 = Em.extra
 mutant("le produit le plus riche décide", function()
   Em.extra = function(pl)
@@ -155,14 +170,20 @@ if first[1] then say("   " .. first[1]:sub(1, 400)) end
 if cs then
   local st = f.team.ia3e
   local tick = game.tick
-  local function inject(id, key, state, progress)
+  local function inject(id, key, state, progress, work)
     st.mods[#st.mods + 1] = { id = id, product = "produit-test", state = state, missing = {}, built = 0, total = 4, capi = key }
     cs.open[#cs.open + 1] = { key = key, kind = "couvrir", exec = "module", mod_ids = { id }, product = "produit-test", n = 4,
-      opened = progress, progress_tick = progress, missing = {} }
+      opened = progress, progress_tick = progress, missing = {}, work_tick = work }
+    return cs.open[#cs.open]
   end
   local open0, mods0 = #cs.open, #st.mods
-  inject(9101, "couvrir:fige", "defrichage", tick - 20 * MIN)
-  inject(9102, "couvrir:reserve", "reserve", tick - 20 * MIN)
+  -- relecture : un ordre d'une sauvegarde 0.6.21 (sans horloge de chantier) n'est pas libéré au chargement ; l'horloge est posée
+  local old = inject(9100, "couvrir:ancien", "defrichage", tick - 20 * MIN, nil)
+  local sl0 = Capi.slots(f, cs, {}, tick)
+  check(old.work_tick == tick and sl0.free_stalled == 0, "§6 ordre sans horloge (sauvegarde 0.6.21) : horloge posée, pas libéré tout de suite")
+  table.remove(cs.open) table.remove(st.mods)
+  inject(9101, "couvrir:fige", "defrichage", tick - 20 * MIN, tick - 20 * MIN)
+  inject(9102, "couvrir:reserve", "reserve", tick - 20 * MIN, nil)
   local n0 = #lines_of("[FO-CAPI-EMPLACEMENTS]")
   local sl = Capi.slots(f, cs, {}, tick)
   check(sl.open == open0 + 2 and sl.free_stalled >= 1, "§6 Capi.slots lit les ordres injectés (" .. sl.why .. ")")

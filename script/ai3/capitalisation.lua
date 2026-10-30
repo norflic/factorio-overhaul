@@ -697,7 +697,9 @@ function Capi.slots(f, cs, stock, tick)
         local m = Auto.module(f, id)
         states[#states + 1] = m and tostring(m.state) or "perdu"
       end
-      mods[#mods + 1] = { key = o.key, states = states, progress_tick = o.progress_tick, opened = o.opened }
+      -- relecture : entrée en chantier (aussi tenue par follow à chaque pensée) ; sauvegarde 0.6.21 : nil -> posée ici, prudente
+      o.work_tick = Em.work_tick(o.work_tick, states, tick)
+      mods[#mods + 1] = { key = o.key, states = states, progress_tick = o.progress_tick, opened = o.opened, work_tick = o.work_tick }
     end
   end
   local plates = {}
@@ -1030,8 +1032,10 @@ local function follow(f, cs, rec, tick)
     local missing, n_fini, n_ref, built, total, why = {}, 0, 0, 0, 0, nil
     local blocked = nil
     local lost = {} -- lot CAPI-REPLI : objets qui manquaient au module refusé (derniers manques connus de l'exécutant)
+    local states = {} -- lot CAPI-DEBIT (relecture) : entrée en chantier (Em.work_tick), lue par Capi.slots
     for _, id in ipairs(rec.mod_ids or { rec.module }) do
       local m = Auto.module(f, id)
+      states[#states + 1] = m and tostring(m.state) or "perdu"
       if not m or m.state == "refuse" then
         n_ref = n_ref + 1
         why = m and tostring(m.reason) or "module perdu"
@@ -1045,6 +1049,7 @@ local function follow(f, cs, rec, tick)
     end
     local n_mod = #(rec.mod_ids or { rec.module })
     rec.missing, rec.blocked = missing, blocked
+    rec.work_tick = Em.work_tick(rec.work_tick, states, tick)
     if n_fini + n_ref >= n_mod then
       if n_fini > 0 then return "fini" end
       rec.lost = lost
