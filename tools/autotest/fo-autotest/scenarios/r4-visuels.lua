@@ -13,6 +13,9 @@ local LIGNES = {
   { nom = "herbe", sol = "grass-1", ordre = { "iron-ore", "fo-galena", "stone" } },
   { nom = "terre", sol = "dirt-4", ordre = { "fo-tungsten-ore", "fo-galena", "coal" } },
   { nom = "crateres", sol = "fo-crater-fields", ordre = { "iron-ore", "fo-ilmenite", "stone" } },
+  -- pistes ÉTAIN et BAUXITE : cassitérite (C1) près du sable, bauxite (B1) sur le désert rouge, contre cuivre, charbon, pierre
+  { nom = "sable", sol = "sand-1", ordre = { "copper-ore", "fo-cassiterite", "coal" } },
+  { nom = "desert-rouge", sol = "red-desert-0", ordre = { "copper-ore", "fo-bauxite", "stone" } },
 }
 local PUITS = { sol = "fo-crater-fields", noms = { "crude-oil", "fo-brine", "fo-brine" } }
 
@@ -30,13 +33,13 @@ local function sol(s, cx, cy, r, tile)
 end
 
 return {
-  description = "r4-visuels : planches cristal K1, galene G1, ilmenite I2S, saumure propre (jour et nuit)",
+  description = "r4-visuels : planches cristal K1, galene G1, ilmenite I2S, cassiterite C1, bauxite B1, saumure propre (jour et nuit)",
   check_tick = 300,
   shots_delay = 200,
 
   init = function(ctx)
     local s = ctx.surface()
-    ctx.prepare_area(X0 - 30, Y0 - 20, X0 + 30, Y0 + 60, "grass-1")
+    ctx.prepare_area(X0 - 30, Y0 - 20, X0 + 30, Y0 + 90, "grass-1")
     for _, e in ipairs(s.find_entities_filtered({ area = { { X0 - 120, Y0 - 120 }, { X0 + 120, Y0 + 160 } }, force = "enemy" })) do e.destroy() end
     local n_ok = 0
     for l, li in ipairs(LIGNES) do
@@ -53,8 +56,8 @@ return {
         if n >= 60 then n_ok = n_ok + 1 end
       end
     end
-    ctx.check(n_ok == 12, "12 gisements de planche poses (9 x 9, 8 stades)", n_ok)
-    local py = Y0 + 4 * PAS + 6
+    ctx.check(n_ok == 3 * #LIGNES, (3 * #LIGNES) .. " gisements de planche poses (9 x 9, 8 stades)", n_ok)
+    local py = Y0 + #LIGNES * PAS + 6
     sol(s, X0, py, 16, PUITS.sol)
     local w = 0
     for i, nom in ipairs(PUITS.noms) do
@@ -71,7 +74,7 @@ return {
       add("ligne-" .. li.nom .. "-z1-nuit", cx + 0.5, cy + 0.5, 1, 0.5, opt)
       add("ligne-" .. li.nom .. "-z2-jour", cx + 0.5, cy + 0.5, 2, 0, opt)
     end
-    local py = Y0 + 4 * PAS + 6
+    local py = Y0 + #LIGNES * PAS + 6
     add("saumure-z1-jour", X0, py, 1, 0, opt)
     add("saumure-z2-jour", X0 + 4, py, 2, 0, opt)
     add("saumure-z1-nuit", X0, py, 1, 0.5, opt)
