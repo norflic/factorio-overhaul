@@ -24,6 +24,8 @@
     1. la PORTE, pour les tâches qui produisent des ressources (Sv.GATE_KINDS) : une route qui croise un champ de danger moyen part
        (sans exiger l'escorte), moins de Sv.DEATHS_WAIT morts de l'heure sur la route ne bloquent plus, l'escalade vient dès
        Sv.ESCALADE_W refus. INCHANGÉ : un BUT à portée d'une menace, un chemin sans issue, Sv.DEATHS_WAIT morts ou plus -> attente ;
+       SAUF (lot FER-MARQUE, shared/team/famine.lua) un but au-dessus du seuil par des cases MOBILES seules (passage de vagues, aucune
+       menace fixe ni mort hors calme au but) : il part après Sv.ESCALADE_W refus, et un regard vide efface ces cases ;
     2. la PRIORITÉ : la production passe avant la défense et l'armée (shared/team/priorite.lua, `survie`) ; la capitalisation ne prend
        aucune part pour la défense ni l'armée et la menace ne ferme plus ses leviers hors du QG (gisements dangereux toujours exclus) ;
     3. des TÂCHES propres : minage à la main de la matière qui manque par tous les PNJ sans tâche, fours de réserve posés au QG,
