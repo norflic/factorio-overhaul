@@ -215,12 +215,19 @@ if #busy >= 3 then
   check(not (far.task and far.task.fail == "danger"), "PNJ à plus de 64 tuiles : continue")
   check((g3.stats.danger_recalls or 0) - recalls0 >= 1, "rappel compté (" .. tostring(g3.stats.danger_recalls) .. ")")
   -- Perte près du QG (moins de 24 tuiles) : personne n'est rappelé.
-  local b2 = {}
+  -- Lot CRAFT-PARALLELE : seul le témoin (b2[2]) doit avoir une tâche (le rappel ne touche que les PNJ au travail) ; la victime
+  -- (b2[1]) peut être un PNJ sans tâche (un PNJ qui fabrique en arrière-plan n'a plus de tâche « craft » : avec deux PNJ au
+  -- travail exigés, le contrôle était sauté en silence).
+  local witness, victim2
   for _, id in ipairs(ids3) do
     local a = Registry.get(id)
-    if a and a.entity and a.entity.valid and a.task and not a.task.fail and a ~= far then b2[#b2 + 1] = a end
+    if a and a.entity and a.entity.valid and a ~= far then
+      if not witness and a.task and not a.task.fail then witness = a elseif not victim2 then victim2 = a end
+    end
   end
-  if #b2 >= 2 then
+  local b2 = { victim2, witness }
+  check(witness ~= nil and victim2 ~= nil, "un témoin au travail et une victime près du QG")
+  if witness and victim2 then
     b2[1].entity.teleport({ x = 10, y = 10 })
     b2[2].entity.teleport({ x = 12, y = 10 })
     local r1 = g3.stats.danger_recalls or 0

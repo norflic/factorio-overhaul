@@ -405,7 +405,8 @@ local function pick_idle(f)
   if (f.engineers_count or 0) < MIN_TEAM then return nil end
   for _, id in ipairs(sorted_keys(f.engineers or {})) do
     local a = Registry.get(id)
-    if a and a.entity and a.entity.valid and a.task == nil and a.state == "idle" and not a.nav and a.machine then
+    -- Lot CRAFT-PARALLELE : jamais un PNJ qui fabrique en arrière-plan (ses produits partiraient en mission, sa file avec lui).
+    if a and a.entity and a.entity.valid and a.task == nil and a.state == "idle" and not a.nav and a.machine and not Worker.crafting(a) then
       return a
     end
   end
@@ -889,7 +890,7 @@ local function idle_count(f)
   local n = 0
   for _, id in ipairs(sorted_keys(f.engineers or {})) do
     local a = Registry.get(id)
-    if a and a.entity and a.entity.valid and a.task == nil and a.state == "idle" and not a.nav then n = n + 1 end
+    if a and a.entity and a.entity.valid and a.task == nil and a.state == "idle" and not a.nav and not Worker.crafting(a) then n = n + 1 end
   end
   return n
 end

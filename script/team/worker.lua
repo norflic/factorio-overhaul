@@ -37,9 +37,14 @@ local Charge = require("shared.team.charge_four") -- lot FOURS : quantité empor
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : tourelles posées là où les pièces tombent
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées dans l'emprise d'un îlot isolé
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
+local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 
 local Worker = {}
 Worker.BUILD_LOGS = 30 -- lot SCALE-COMPLET : lignes [FO-AVANT-POSTE] au plus par équipe (f.stats.build_logs)
+
+-- Lot CRAFT-PARALLELE (retour du DC du 29/10) : la file de fabrication du personnage avance pendant que le PNJ fait autre chose.
+-- Faux : l'ancien comportement (le PNJ attend au QG, état « craft », que sa file soit vide ; tests : mutant « bloquant »).
+Worker.CRAFT_BG = true
 
 Worker.DANGER_RADIUS = 40 -- lot IA1-b : rayon « nid ou ver » qui écarte un minage ou une garde de fond
 Worker.SAFE_HOME = 24     -- lot IA-V2 : une perte à moins de 24 tuiles du QG ne rappelle personne (le QG est défendu)
@@ -224,6 +229,23 @@ end
 --- milliers de plaques de fer par partie, armée et défense bloquées).
 local KEEP_GUN = { [T.worker_gun] = 1 }
 local KEEP_AMMO = { [T.worker_ammo] = T.worker_ammo_keep }
+
+-- Lot CRAFT-PARALLELE : ingrédients d'UNE fabrication de chaque recette ({ {objet, n}, ... }, fluides exclus), relus des
+-- prototypes (contenu fixe pendant une partie ; cache du module, jamais dans `global`).
+local INGREDIENTS = {}
+local function ingredients_of(name)
+  local v = INGREDIENTS[name]
+  if v == nil then
+    v = {}
+    local rp = game.recipe_prototypes[name]
+    for _, ing in ipairs(rp and rp.ingredients or {}) do
+      if ing.type ~= "fluid" then v[#v + 1] = { ing.name, ing.amount } end
+    end
+    INGREDIENTS[name] = v
+  end
+  return v
+end
+
 local function deposit_all(agent, f)
   if not (f.hq and f.hq.valid) then return end
   local e = agent.entity
@@ -695,6 +717,236 @@ local function abort(agent, f, tick, reason)
 end
 Worker.abort = abort -- lot IA3-k : demi-tour et fuite
 
+---------------------------------------------------------------------------------------------------
+-- Lot CRAFT-PARALLELE : fabrication en arrière-plan
+---------------------------------------------------------------------------------------------------
+-- Chaîne : run_steps, étape « craft » -> to_background (un TRAVAIL de agent.bg.jobs ; la tâche « craft » reste PRISE au tableau à
+-- son nom) -> le PNJ est rendu à « idle » et prend une autre tâche (Board.claim ; la place de marché, board.lua, crochet
+-- Board.bg_view, lui refuse CB.EXCLUDED, une fabrication de plus au-delà de CB.MAX_JOBS, et toute tâche non urgente plus longue que
+-- sa file + CB.SLACK_S) -> à chaque pensée, quel que soit l'état (defend), bg_tick lance l'étape suivante quand la file du
+-- personnage est vide (travaux dans l'ordre) -> travail entièrement fabriqué : job.ready -> dépôt au coffre au prochain passage au
+-- QG (étape « home », ou sur place s'il est au QG sans tâche) -> bg_close_job (Board.finish, Poles.task_done : la tâche se termine
+-- comme avant, à la livraison). Les ingrédients des étapes pas encore lancées sont gardés HORS de la poche (bg.hold) : ni le dépôt
+-- au QG ni une tâche qui vide la poche (Outposts.service_smelters charge TOUT le combustible porté) ne les prennent ; ils reviennent
+-- dans l'inventaire principal juste avant begin_crafting (F29 : un intermédiaire arme ou munitions fabriqué va dans son
+-- emplacement, begin_crafting ne l'y trouve pas : il est repris au-delà de la dotation KEEP_GUN / KEEP_AMMO). Un seul lecteur de
+-- agent.bg : ce bloc (Board.bg_view et Worker.crafting en sont des vues). Écrit seulement par to_background, bg_tick et
+-- bg_close_job.
+
+local SLOT_KEEP -- { {inventaire, dotation gardée}, ... } : construit à la première utilisation (defines lu en événement)
+
+--- Met en réserve (bg.hold) les ingrédients des étapes pas encore lancées qui sont en poche (inventaire principal, puis armes et
+--- munitions au-delà de la dotation du PNJ).
+local function bg_absorb(agent, bg)
+  SLOT_KEEP = SLOT_KEEP or { { defines.inventory.character_guns, KEEP_GUN }, { defines.inventory.character_ammo, KEEP_AMMO } }
+  local e = agent.entity
+  local need = CB.keep_jobs(bg.jobs, ingredients_of)
+  local hold = bg.hold
+  local main = e.get_main_inventory()
+  for _, item in ipairs(State.sorted_keys(need)) do
+    local want = need[item] - (hold[item] or 0)
+    if want > 0 then
+      local got = main.get_item_count(item) > 0 and main.remove({ name = item, count = want }) or 0
+      for _, s in ipairs(SLOT_KEEP) do
+        if got >= want then break end
+        local inv = e.get_inventory(s[1])
+        local spare = inv and (inv.get_item_count(item) - (s[2][item] or 0)) or 0
+        if spare > 0 then got = got + inv.remove({ name = item, count = math.min(spare, want - got) }) end
+      end
+      if got > 0 then hold[item] = (hold[item] or 0) + got end
+    end
+  end
+end
+
+--- Rend la réserve à l'inventaire principal (avant begin_crafting, ou à la fin). `spill` : ce qui n'entre pas tombe au sol.
+local function bg_release(agent, bg, spill)
+  local e = agent.entity
+  local main = e.get_main_inventory()
+  for _, item in ipairs(State.sorted_keys(bg.hold)) do
+    local n = bg.hold[item]
+    local put = n > 0 and main.insert({ name = item, count = n }) or 0
+    if put < n and spill then
+      e.surface.spill_item_stack(e.position, { name = item, count = n - put }, true, e.force, false)
+      put = n
+    end
+    bg.hold[item] = put < n and (n - put) or nil
+  end
+end
+
+--- Bilan [FO-CRAFT] de l'équipe si la fenêtre est échue (PNJ qui fabriquent en arrière-plan ET travaillent).
+local function bg_report(f, tick)
+  local w = CB.window(f.team)
+  if not CB.due(w, tick) then return end
+  local live, live_work = 0, 0
+  for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+    local a = Registry.get(id)
+    if a and a.bg then
+      live = live + 1
+      if a.task then live_work = live_work + 1 end
+    end
+  end
+  log(CB.report_line(f.key or (f.is_player and "player") or f.id, tick, w, live, live_work))
+  CB.reset(w, tick)
+end
+
+--- Fin d'un travail en arrière-plan : livré (ok) ou perdu (cause : « delai », « ingredients », « mort »). Dernier travail fini :
+--- la réserve revient en poche (déposée au prochain passage au QG ; PNJ mort : perdue avec ce qu'il portait, F253).
+local function bg_close_job(agent, f, job, ok, tick, cause)
+  local bg = agent.bg
+  if not bg then return end
+  for k, j in ipairs(bg.jobs) do
+    if j == job then
+      table.remove(bg.jobs, k)
+      break
+    end
+  end
+  local alive = cause ~= "mort" and agent.entity and agent.entity.valid
+  if #bg.jobs == 0 then
+    agent.bg = nil
+    if alive then bg_release(agent, bg, true) end
+  elseif not ok and alive then
+    bg_release(agent, bg, false) -- la part du travail perdu ressort de la réserve ; celle des autres y retourne
+    bg_absorb(agent, bg)
+  end
+  if not (f and f.team) then return end
+  local task = job.task
+  local w = CB.window(f.team)
+  w.bg_ticks = w.bg_ticks + (tick - job.at)
+  w.work_ticks = w.work_ticks + (job.work or 0)
+  if ok then
+    w.done = w.done + 1
+    w.delay_ticks = w.delay_ticks + (tick - (job.ready_tick or tick))
+    f.stats.crafted = (f.stats.crafted or 0) + 1
+  else
+    w.failed = w.failed + 1
+    w.causes[cause] = (w.causes[cause] or 0) + 1
+    task.fail = task.fail or "fabrication"
+    log(string.format("[FO-CRAFT] %s : fabrication en arriere-plan de %s x%d (PNJ %d, etape %d/%d) perdue : %s, a %.1f min",
+      f.key or (f.is_player and "player") or tostring(f.id), tostring(task.item), task.count or 0, agent.id, job.i, #job.list,
+      cause, tick / 3600))
+  end
+  Board.finish(f, task, ok, tick)
+  -- Relecture : durée mesurée de la prise à la FIN DE LA FABRICATION (comme avant ce lot, où le PNJ rentrait aussitôt) ; l'attente
+  -- de la livraison (le PNJ fait autre chose) gonflerait org.dur.craft, donc la demande du pôle (O.demand_from_tasks).
+  Poles.task_done(f, task, ok, ok and job.ready_tick or tick)
+  bg_report(f, tick)
+end
+
+--- Travaux livrés au dépôt (étape « home » ou dépôt sur place) : tous les travaux entièrement fabriqués.
+local function bg_deliver(agent, f, tick)
+  local bg = agent.bg
+  if not bg then return end
+  local done = {}
+  for _, j in ipairs(bg.jobs) do if j.ready then done[#done + 1] = j end end
+  for _, j in ipairs(done) do bg_close_job(agent, f, j, true, tick) end
+end
+
+--- Avance la fabrication en arrière-plan (appelé à chaque pensée du PNJ, par defend) : étape suivante lancée quand la file est
+--- vide (les intermédiaires de l'étape précédente sont alors en poche), délai, fin d'un travail, dépôt au QG sans tâche.
+local function bg_tick(agent, tick)
+  local bg = agent.bg
+  local e = agent.entity
+  if not (e and e.valid) then return end
+  local f = faction_of(agent)
+  if not (f and f.team) then return end
+  local dt = tick - (bg.last or tick)
+  bg.last = tick
+  if agent.task and dt > 0 then
+    for _, j in ipairs(bg.jobs) do j.work = (j.work or 0) + dt end
+  end
+  local cur -- travail en cours de fabrication (lancé, pas fini) ; nxt : premier travail qui a encore une étape à lancer
+  local nxt
+  for _, j in ipairs(bg.jobs) do
+    if not j.ready and not cur and j.t0 then cur = j end
+    if not nxt and j.i <= #j.list then nxt = j end
+  end
+  if e.crafting_queue_size > 0 then
+    -- Relecture : file occupée SANS travail lancé (restes d'un travail clos au délai) : le premier travail qui attend a son délai
+    -- compté de là (bg.wait0) ; sans quoi une file bloquée le garderait pris au tableau pour toujours (Board.incoming le compte :
+    -- le cerveau ne le redemanderait plus) et le PNJ exclu des gardes, avant-postes et explorations.
+    local late, since = cur, cur and cur.t0
+    if not cur then
+      bg.wait0 = bg.wait0 or tick
+      late, since = nxt, bg.wait0
+    end
+    if late and tick - since > CRAFT_TIMEOUT then
+      bg.wait0 = nil
+      bg_close_job(agent, f, late, false, tick, "delai")
+      return
+    end
+    bg_absorb(agent, bg) -- intermédiaires sortis de la file depuis la pensée précédente
+    return
+  end
+  bg.wait0 = nil
+  -- File vide : tout travail entièrement lancé est fabriqué.
+  for _, j in ipairs(bg.jobs) do
+    if not j.ready and j.i > #j.list then j.ready, j.ready_tick = true, tick end
+  end
+  if nxt then
+    local c = nxt.list[nxt.i]
+    bg_release(agent, bg, false)
+    nxt.t0 = nxt.t0 or tick
+    local n = e.begin_crafting({ count = c.runs, recipe = c.recipe, silent = true })
+    if n < c.runs then
+      f.stats.craft_fail = (f.stats.craft_fail or 0) + 1
+      if n == 0 then
+        bg_close_job(agent, f, nxt, false, tick, "ingredients")
+        return
+      end
+    end
+    nxt.i = nxt.i + 1
+    bg_absorb(agent, bg)
+  end
+  -- Au QG et sans tâche : dépôt sur place (avec une tâche, son étape « home » déposera : ses objets ne partent pas au coffre).
+  if agent.bg and not agent.task and f.hq and f.hq.valid and dist2(e.position, home_slot(agent, f)) <= HOME_RADIUS * HOME_RADIUS then
+    local any = false
+    for _, j in ipairs(agent.bg.jobs) do if j.ready then any = true break end end
+    if any then
+      deposit_all(agent, f)
+      bg_deliver(agent, f, tick)
+    end
+  end
+end
+
+--- Vue de la fabrication en arrière-plan pour la porte de la place de marché (script/team/board.lua) : nil sans fabrication ;
+--- sinon { left = secondes de file restantes (estimées, CB.left_jobs), full = plus de place pour une fabrication (CB.MAX_JOBS) }.
+Board.bg_view = function(agent)
+  local bg = agent.bg
+  if not bg then return nil end
+  return { left = CB.left_jobs(bg.jobs), full = #bg.jobs >= CB.MAX_JOBS }
+end
+
+--- Le PNJ peut-il passer sa tâche « craft » en arrière-plan (réglage, place de marché, place parmi ses travaux) ?
+--- Relecture : place de marché ÉTEINTE (réglage fo-war-ia3-marche) : ancien chemin, car la porte Board.bg_view (gardes,
+--- avant-postes, durée bornée par la file, MAX_JOBS) n'existe que dans claim_market ; la prise classique (O.pick_task) donnerait
+--- à un PNJ qui fabrique une garde de 5 min ou un avant-poste lointain, produits en poche.
+local function bg_room(agent, f)
+  return Worker.CRAFT_BG and agent.task ~= nil and f ~= nil and Board.market(f)
+    and not (agent.bg and #agent.bg.jobs >= CB.MAX_JOBS)
+end
+
+--- Étape « craft » : la fabrication passe en arrière-plan, le PNJ est rendu au tableau (sa tâche « craft » reste prise à son nom).
+--- `list` = étapes de la tâche, `i` = première étape pas encore lancée, `t0` = début de la fabrication (délai CRAFT_TIMEOUT ; nil :
+--- au lancement de sa première étape, derrière les travaux déjà là).
+local function to_background(agent, f, list, i, t0, tick)
+  local task = agent.task
+  local job = { task = task, list = list, i = i, t0 = t0, at = tick }
+  if agent.bg then
+    agent.bg.jobs[#agent.bg.jobs + 1] = job
+  else
+    agent.bg = { jobs = { job }, hold = {}, last = tick }
+  end
+  agent.task, agent.steps, agent.pc, agent.failed = nil, nil, nil, nil
+  agent.craft_i, agent.craft_started = nil, nil
+  agent.last_project = task.project
+  Board.release(f, agent) -- réservation non prise rendue au libre (comme finish)
+  local w = CB.window(f.team)
+  w.started = w.started + 1
+  Poles.settle(f, agent, tick)
+  set(agent, "idle", tick)
+  bg_tick(agent, tick) -- première étape lancée tout de suite si la file est libre (le PNJ est au QG, matières en poche)
+end
+
 --- Lot FUITE : les PNJ au travail à moins de `radius` tuiles de `p` (défaut Poles.LOSS_RADIUS) rentrent au QG (tâche
 -- abandonnée, « danger »), sauf `except` et les tâches de défense (Re.recall_exempt) ; rend leur nombre. Appelé à la mort
 -- d'un PNJ (lieu de la perte) et à la FUITE d'un autre (lieu de la menace) : on n'attend plus la première perte.
@@ -792,6 +1044,7 @@ local function run_steps(agent, tick)
     if kind == "home" then
       if not goto_step(agent, home_slot(agent, f), 1, tick) then return end
       deposit_all(agent, f)
+      bg_deliver(agent, f, tick) -- lot CRAFT-PARALLELE : produits des travaux finis livrés (déposés juste au-dessus)
       agent.pc = agent.pc + 1
     elseif kind == "take" then
       -- Lot IA3-b : une tâche avec réservation (registre) prend exactement sa réservation, rien de plus.
@@ -847,6 +1100,12 @@ local function run_steps(agent, tick)
       end
       agent.pc = agent.pc + 1
     elseif kind == "craft" then
+      -- Lot CRAFT-PARALLELE : en arrière-plan, derrière ses autres travaux s'il en a ; au-delà de CB.MAX_JOBS (hors place de
+      -- marché seulement, qui ne lui en donne pas plus), ancien chemin : le PNJ attend que sa file se vide.
+      if bg_room(agent, f) then
+        to_background(agent, f, step[2], 1, nil, tick)
+        return
+      end
       agent.craft_i = 1
       agent.craft_started = tick
       set(agent, "craft", tick)
@@ -865,6 +1124,7 @@ end
 --- Autodéfense : un ouvrier armé tire sur l'ennemi le plus proche (déchiqueteurs, autres factions).
 --- Lot IA3-k : rend true quand le crochet « sense » a pris la main (la pensée de l'état s'arrête là).
 local function defend(agent, tick)
+  if agent.bg then bg_tick(agent, tick) end -- lot CRAFT-PARALLELE : la file avance quel que soit l'état (marche, minage, pose)
   local H = Worker.hook
   Profiler.fstart("ia3k:sense")
   local took = H and H.sense(agent, tick) or false
@@ -1060,6 +1320,13 @@ FSM.define(MACHINE, {
     think = function(agent, tick)
       if defend(agent, tick) then return end
       local e = agent.entity
+      -- Lot CRAFT-PARALLELE : PNJ d'une sauvegarde 0.6.18 arrêté en pleine fabrication : il passe en arrière-plan à sa pensée
+      -- (étape en cours, file déjà lancée gardée ; bg_tick attend qu'elle se vide).
+      local fb = faction_of(agent)
+      if fb and fb.team and bg_room(agent, fb) and agent.steps and agent.steps[agent.pc] then
+        to_background(agent, fb, agent.steps[agent.pc][2], agent.craft_i or 1, agent.craft_started or tick, tick)
+        return
+      end
       if e.crafting_queue_size > 0 then
         if tick - agent.craft_started > CRAFT_TIMEOUT then
           abort(agent, faction_of(agent), tick, "fabrication")
@@ -1149,11 +1416,16 @@ function Worker.recruit(f, surface, tick, unarmed, free)
   return agent
 end
 
+--- Lot CRAFT-PARALLELE : le PNJ a-t-il une fabrication en arrière-plan (file en cours ou produits pas encore déposés) ?
+function Worker.crafting(agent) return agent.bg ~= nil end
+
 function Worker.idle_count(f)
   local n = 0
   for _, id in ipairs(State.sorted_keys(f.engineers)) do
     local a = Registry.get(id)
-    if a and not a.task then n = n + 1 end
+    -- Lot CRAFT-PARALLELE : un PNJ sans tâche qui fabrique en arrière-plan n'est pas inactif pour le frein des recrues (avant ce lot,
+    -- il était dans sa tâche « craft » : même compte). Cohérence : effet propre non séparé du bruit des graines au moteur simulé.
+    if a and not a.task and not a.bg then n = n + 1 end
   end
   return n
 end
@@ -1238,6 +1510,12 @@ Registry.on_removed(function(agent)
       Sites.mark_unreachable(agent.task.site, game.tick)
     end
     Board.finish(f, agent.task, false, game.tick)
+  end
+  -- Lot CRAFT-PARALLELE : PNJ disparu (tué, renvoyé) avec une fabrication en arrière-plan : la tâche « craft » est rendue (échec).
+  if agent.bg then
+    local jobs = {}
+    for k, j in ipairs(agent.bg.jobs) do jobs[k] = j end
+    for _, j in ipairs(jobs) do bg_close_job(agent, f, j, false, game.tick, "mort") end
   end
 end)
 
