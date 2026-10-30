@@ -81,6 +81,9 @@ return {
         local inv = in_inv(e)
         for _, it in ipairs(ch.items or {}) do inv.insert({ name = it[1], count = it[2] }) end
         for _, fl in ipairs(ch.fluids or {}) do e.insert_fluid({ name = fl[1], amount = fl[2] }) end
+        -- le concasseur d'X0 brûle du combustible (BURN) : charbon dans son foyer
+        local fuel = e.get_fuel_inventory()
+        if fuel then fuel.insert({ name = "coal", count = 20 }) end
         st.m[ch.k] = e
         if e.get_recipe() and e.get_recipe().name == ch.recipe then placed = placed + 1 else bad[#bad + 1] = ch.k end
       else
