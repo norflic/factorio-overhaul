@@ -49,7 +49,8 @@ end
 -- Données synthétiques : un type de nid, deux unités (petite dès 0, grosse à partir de 300 ‰).
 local SMALL = { hp = 15, cost = 4, speed = 0.2, pts = { { 0, 300 }, { 600, 0 } } }
 local BIG = { hp = 375, cost = 80, speed = 0.15, pts = { { 300, 0 }, { 900, 400 } } }
-local KINDS = { { units = { SMALL, BIG }, rate_max = 60 } }
+-- Cadence vanilla (spawn_cooldown {360, 150}) : 10 unités/min à l'évolution 0, 24 à l'évolution 1 (mesuré : banc prev-mesure).
+local KINDS = { { units = { SMALL, BIG }, rate_max = 10, rate_max1 = 24 } }
 local GATHER = { min = 1, max = 10, size = 200 }
 
 local function site(key, x, y, over)
@@ -76,20 +77,28 @@ local function battery(Pv, Pc)
   check(m0 and m0.hbar == 15 and m0.pbar == 4, "évolution 0 : seulement la petite unité (15 PV, 4 de pollution)")
   check(m6 and m6.hbar == 375 and m6.pbar == 80, "évolution 600 : seulement la grosse")
   local m3 = Pv.mix(KINDS, 450)
-  check(m3 and m3.hbar > 15 and m3.hbar < 375 and m3.cap == 60, "entre les deux : moyenne pondérée, plafond de cadence du prototype")
+  check(m3 and m3.hbar > 15 and m3.hbar < 375, "entre les deux : moyenne pondérée")
+  check(m0.cap == 10 and math.abs(Pv.mix(KINDS, 1000).cap - 24) < 1e-9 and m3.cap > 10 and m3.cap < 24
+    and math.abs(Pv.rate_at(10, 24, 500) - 3600 / ((360 + 150) / 2)) < 1e-9,
+    "cadence d'un nid : délai de ponte interpolé selon l'évolution (360 ticks à 0, 150 à 1)")
   check(Pv.mix({}, 0) == nil and Pv.mix({ { units = { { hp = 1, cost = 0, pts = { { 0, 1 } } } } } }, 0) == nil,
     "aucun nid lisible (ou coût nul) : aucune composition, aucune vague modélisée")
   check(Pv.evo_at(0, 0.01, 5) > 0 and Pv.evo_at(0, 0.01, 15) > Pv.evo_at(0, 0.01, 5) and Pv.evo_at(1000, 0.5, 15) == 1000,
     "évolution projetée : croissante avec l'horizon, jamais au-delà de 1000")
 
-  section("2. Pollution qui ARRIVE au nid (C5)")
-  check(Pv.absorbed(100, 0, 20) == Pv.ABS + Pv.PROP * 100 / 1000, "case polluée : le nid absorbe à son plafond (il en reste)")
-  check(Pv.absorbed(200, 0, 20) > Pv.absorbed(100, 0, 20), "plus de pollution à la case : plus d'absorption")
-  check(Pv.absorbed(0, 0, 20) == 0, "case propre, voisines propres : rien n'arrive, le nid ne nous vise pas")
-  local edge = Pv.absorbed(0, 4, 20)
-  check(edge > 0 and edge <= Pv.ABS, "nid en BORD de nuage (case propre, voisine polluée) : il absorbe ce qui arrive (" .. edge .. ")")
-  check(Pv.absorbed(0, 1000, 20) == Pv.ABS, "flux entrant au-delà du plafond : le plafond")
-  check(Pv.absorbed(0, 4, 40) >= Pv.absorbed(0, 4, 20), "plus de diffusion : au moins autant d'absorption")
+  section("2. Pollution qui ARRIVE au nid (C5, corrigé au lot PREVISION-CALIB sur mesure)")
+  local NEED = 40 -- 10 unités/min × 4 de pollution : la demande d'un nid à l'évolution 0
+  check(Pv.absorbed(100, 0, 20, NEED, 15) == NEED and Pv.absorbed(400, 0, 20, NEED, 15) == NEED,
+    "case au-dessus du seuil de diffusion : le nid prend sa DEMANDE, pas plus (mesuré : 40 à 45/min, case à 5 ou à 40)")
+  check(Pv.absorbed(10, 0, 20, NEED, 15) == 0,
+    "case SOUS le seuil, voisines sous le seuil : le reste lu ne dit pas qu'il en arrive (ancienne règle : 20/min crédités)")
+  check(Pv.absorbed(0, 0, 20, NEED, 15) == 0, "case propre, voisines propres : rien n'arrive, le nid ne nous vise pas")
+  local edge = Pv.absorbed(0, 16, 20, NEED, 15)
+  check(edge > 0 and edge < NEED, "nid en BORD de nuage (voisine au-dessus du seuil) : il absorbe ce qui arrive (" .. edge .. ")")
+  check(Pv.absorbed(0, 1000, 20, NEED, 15) == NEED, "flux entrant au-delà de la demande : la demande")
+  check(Pv.absorbed(0, 16, 40, NEED, 15) >= Pv.absorbed(0, 16, 20, NEED, 15), "plus de diffusion : au moins autant d'absorption")
+  check(Pv.absorbed(5, 0, 20) == 0 and Pv.absorbed(15, 0, 20) == (Pv.ABS + Pv.PROP * 15 / 1000) * 60,
+    "sans demande ni seuil donnés : seuil du moteur (15) et plafond du prototype pris par seconde")
   -- Constantes contre les données vanilla et le mod (le moteur ne les donne pas en runtime).
   local data = (os.getenv("FO_DATA_DIR") or "../../data") .. "/base/prototypes/entity/enemies.lua"
   local fh = io.open(data, "rb")
@@ -128,7 +137,12 @@ local function battery(Pv, Pc)
   check(o1.rate > 0 and o1.w5 > 0 and o1.wmod5 == o1.w5, "nid pollué à 100 tuiles : vague prévue")
   check(math.abs(o1.eta - (GATHER.min + 100 / (0.2 * 3600))) < 1e-6, "échéance PESSIMISTE : rassemblement minimal + marche la plus courte")
   check(est({ nests = { nest(100, 0, 50), nest(100, 10, 50) } }).by.qg.w5 > o1.w5, "plus de nids : vague plus grosse")
-  check(est({ nests = { nest(100, 0, 500) } }).by.qg.w5 > o1.w5, "plus de pollution : vague plus grosse")
+  check(est({ nests = { nest(100, 0, 500) } }).by.qg.w5 == o1.w5,
+    "case saturée : plus de pollution ne grossit pas la vague (le nid tourne à sa cadence, mesuré)")
+  check(est({ nests = { nest(100, 0, 5, 16) } }).by.qg.w5 < o1.w5 and est({ nests = { nest(100, 0, 5, 16) } }).by.qg.w5 > 0,
+    "nid en bord de nuage : vague plus petite qu'un nid saturé")
+  check(math.abs(o1.u5 - 10 * Pv.gather_mean(GATHER)) < 1e-9 and Pv.gather_mean(GATHER) == 5.5,
+    "taille : cadence × rassemblement MOYEN (doc : temps tiré entre le minimum et le maximum)")
   check(est({ evo = 400 }).by.qg.w5 > o1.w5, "plus d'évolution : vague plus grosse (unités plus fortes)")
   check(est({ evo = 250, g = 0.05 }).by.qg.w15 > est({ evo = 250, g = 0.05 }).by.qg.w5,
     "horizons distincts : à 15 min l'évolution projetée grossit la vague")
@@ -155,26 +169,42 @@ local function battery(Pv, Pc)
   local ed = est({ sites = { site("qg", 0, 0, { dps = 100, dpsr = 1800, turrets = 2 }) } }).by.qg
   check(ed.d > 0 and ed.turrets == 2, "défense du site lue de ses tourelles")
 
-  section("6. Calibration symétrique (C8)")
+  section("6. Calibration symétrique (C8), k de l'équipe")
   local cal = {}
   local keys = { "qg" }
   Pv.calibrate(cal, keys, { qg = { pred_raw = 1000, window = 20, source = true } }, 0)
-  check(cal.qg.k == Pv.K0 and cal.qg.ep and cal.qg.ep.pred == 1000, "vague prévue : épisode ouvert, k inchangé")
+  check(Pv.k_of(cal) == Pv.K0 and cal.qg.ep and cal.qg.ep.pred == 1000, "vague prévue : épisode ouvert, k inchangé")
   for t = 1, 5 do Pv.calibrate(cal, keys, { qg = { pred_raw = 1000, window = 20, source = true } }, t * 3600) end
-  check(cal.qg.k == Pv.K0, "aucun fait (ni contact, ni perte, fenêtre pas passée) : k ne bouge pas")
+  check(Pv.k_of(cal) == Pv.K0, "aucun fait (ni contact, ni tuée, ni perte, fenêtre pas passée) : k ne bouge pas")
   Pv.calibrate(cal, keys, { qg = { pred_raw = 1000, contact = 2000, window = 20, source = true } }, 6 * 3600)
   local ev = Pv.calibrate(cal, keys, { qg = { pred_raw = 1000, window = 20, source = true } }, 7 * 3600)
-  check(#ev == 1 and ev[1].kind == "vague" and ev[1].recv == 2000 and cal.qg.k > Pv.K0, "vague reçue deux fois plus grosse : k monte")
+  check(#ev == 1 and ev[1].kind == "vague" and ev[1].recv == 2000 and Pv.k_of(cal) > Pv.K0, "vague reçue deux fois plus grosse : k monte")
+  local calq = {}
+  Pv.calibrate(calq, keys, { qg = { pred_raw = 1000, contact = 250 } }, 0)
+  Pv.calibrate(calq, keys, { qg = { pred_raw = 1000 } }, 60)
+  check(Pv.k_of(calq) == 500, "k appris en moyenne GÉOMÉTRIQUE : reçu 1/4 du prévu depuis 1 -> 1/2 (" .. Pv.k_of(calq) .. ")")
+  local calk = {}
+  Pv.calibrate(calk, { "qg", "ap1" }, { qg = { pred_raw = 1000, killed = 800 }, ap1 = {} }, 0)
+  local evk = Pv.calibrate(calk, { "qg", "ap1" }, { qg = { pred_raw = 1000 }, ap1 = {} }, 60)
+  check(#evk == 1 and evk[1].recv == 800 and evk[1].killed == 800 and evk[1].seen == 0,
+    "vague tuée par nos défenses sans être VUE au relevé : comptée par les unités tuées")
+  local calm = {}
+  Pv.calibrate(calm, keys, { qg = { pred_raw = 1000, contact = 300, killed = 500, losses = 1, hbar = 10 } }, 0)
+  Pv.calibrate(calm, keys, { qg = { pred_raw = 1000, killed = 400 } }, 60)
+  local evm = Pv.calibrate(calm, keys, { qg = { pred_raw = 1000 } }, 120)
+  check(#evm == 1 and evm[1].recv == 900 + Pv.LOSS_UNITS * 10,
+    "vague reçue = max(pic vu, tuées sur toute l'attaque) + pertes (sans compter deux fois une unité vue puis tuée)")
+  check(Pv.k_of(calk) < Pv.K0 and calk.ap1.ep == nil, "un seul k pour l'équipe (l'écart du modèle est le même à tous ses sites)")
   local cal2 = {}
   Pv.calibrate(cal2, keys, { qg = { pred_raw = 1000, window = 20, source = true } }, 0)
   local ev2 = Pv.calibrate(cal2, keys, { qg = { pred_raw = 1000, window = 20, source = true } }, 21 * 3600)
-  check(#ev2 == 1 and ev2[1].kind == "fausse" and cal2.qg.k < Pv.K0 and cal2.qg.fa == 1,
+  check(#ev2 == 1 and ev2[1].kind == "fausse" and Pv.k_of(cal2) < Pv.K0 and cal2[Pv.TEAM].fa == 1,
     "fausse alerte (la vague prévue n'est pas venue dans la fenêtre du moteur) : k BAISSE (symétrie)")
   local cal3 = {}
   Pv.calibrate(cal3, keys, { qg = { pred_raw = 0, losses = 2, hbar = 100, source = true } }, 0)
   local ev3 = Pv.calibrate(cal3, keys, { qg = { pred_raw = 0, source = true } }, 3600)
-  check(#ev3 == 1 and ev3[1].kind == "rate" and cal3.qg.k > Pv.K0 and cal3.qg.floor == 2 * Pv.LOSS_UNITS * 100,
-    "raté (attaque sans vague prévue, mesurée par nos PERTES) : k monte, plancher de menace")
+  check(#ev3 == 1 and ev3[1].kind == "rate" and Pv.k_of(cal3) == Pv.K0 and cal3.qg.floor == 2 * Pv.LOSS_UNITS * 100,
+    "raté (attaque sans vague prévue, mesurée par nos PERTES) : plancher de menace du site ; k de l'équipe inchangé (la vague est allée ailleurs)")
   Pv.calibrate(cal3, keys, { qg = { pred_raw = 0, source = false } }, 7200)
   check(cal3.qg.floor == nil, "plancher retiré quand plus rien ne nous vise (fait, pas horloge)")
   local cal3b = {}
@@ -182,13 +212,16 @@ local function battery(Pv, Pc)
   local ev3b = Pv.calibrate(cal3b, keys, { qg = { pred_raw = 500, source = true } }, 3600)
   check(#ev3b == 1 and ev3b[1].kind == "vague" and ev3b[1].pred == 500,
     "attaque dans le relevé même où la vague est prévue : comparée à la prévision (pas un raté)")
-  local cal4 = { qg = { k = Pv.K_MAX, hit = 0, fa = 0, miss = 0 } }
-  Pv.calibrate(cal4, keys, { qg = { pred_raw = 0, contact = 1e9 } }, 0)
+  local cal4 = { [Pv.TEAM] = { k = Pv.K_MAX, hit = 0, fa = 0 } }
+  Pv.calibrate(cal4, keys, { qg = { pred_raw = 1, contact = 1e9 } }, 0)
   Pv.calibrate(cal4, keys, { qg = {} }, 60)
-  local cal5 = { qg = { k = Pv.K_MIN, hit = 0, fa = 0, miss = 0 } }
+  local cal5 = { [Pv.TEAM] = { k = Pv.K_MIN, hit = 0, fa = 0 } }
   Pv.calibrate(cal5, keys, { qg = { pred_raw = 1e9, window = 1 } }, 0)
   Pv.calibrate(cal5, keys, { qg = {} }, 2 * 3600)
-  check(cal4.qg.k == Pv.K_MAX and cal5.qg.k == Pv.K_MIN, "k borné à [K_MIN, K_MAX]")
+  check(Pv.k_of(cal4) == Pv.K_MAX and Pv.k_of(cal5) == Pv.K_MIN and cal5[Pv.TEAM].fa == 1, "k borné à [K_MIN, K_MAX]")
+  local old = { qg = { k = 650, hit = 3, fa = 0, miss = 1 } } -- calibration d'une sauvegarde 0.6.24 (un k par site)
+  Pv.calibrate(old, keys, { qg = {} }, 0)
+  check(Pv.k_of(old) == Pv.K0 and old.qg.k == 650, "sauvegarde 0.6.24 : l'équipe repart de K0, l'ancien k du site est ignoré (rien d'effacé)")
   local w_hi = est({ k = { qg = 2000 } }).by.qg.w5
   check(math.abs(w_hi - 2 * o1.w5) < 1e-6, "k appliqué à la vague modélisée")
 
@@ -364,7 +397,8 @@ local function battery(Pv, Pc)
   check(Pv.hp_per_emit({ mix = { pbar = 4, hbar = 15 }, nests_used = 0, reach = 0 }, GATHER) == 0,
     "aucun nid connu ne nous vise : aucune défense induite (comme le joueur)")
   local hpe = Pv.hp_per_emit(e1, GATHER)
-  check(hpe > 0 and math.abs(hpe - e1.reach / 1000 / 4 * GATHER.max * 15) < 1e-9, "PV de vague en plus par pollution/min émise en plus")
+  check(hpe > 0 and math.abs(hpe - e1.reach / 1000 / 4 * Pv.gather_mean(GATHER) * 15) < 1e-9,
+    "PV de vague en plus par pollution/min émise en plus (rassemblement moyen)")
   check(Pv.hp_per_emit({ mix = { pbar = 4, hbar = 15 }, nests_used = 2, reach = 0 }, GATHER) > 0,
     "nids connus qui n'absorbent rien encore : part par défaut (l'agrandissement les atteindra)")
   local p1 = Pv.defense_price(hpe, 600, 50, 1100)
@@ -403,6 +437,118 @@ local function fresh(mut)
 end
 
 battery(fresh(nil))
+
+---------------------------------------------------------------------------------------------------
+-- 12. Rejeu des vagues MESURÉES en moteur réel (lot PREVISION-CALIB)
+---------------------------------------------------------------------------------------------------
+-- Partie réelle verif-guide, 216 000 ticks, version 0.6.24, graines 271828182 (1) et 1618033988 (2) ; archives
+-- fo-logs/2026-10-30_MATIN/verif-guide-0624/<graine>/benchmark.log.gz, lignes [FO-PREVISION] dans l'ordre du journal.
+-- { graine, équipe, minute, genre (v : BILAN vague, r : RATE, f : FAUSSE ALERTE), site, prévue (PV, avant k), reçue (PV) }.
+-- La prévue 0.6.24 est la vague au rassemblement MAXIMAL (10 min) : u = prévue ÷ PV moyens (2708 ÷ 200 = 13,54 PV à
+-- l'évolution 0) ; u = 200 = plafond du groupe. Ces vagues plafonnées (azure, graine 1, QG) ont un débit lu à l'ÉTAT du
+-- journal : 157 pollution/min reçue par 8 nids, tous rattachés au QG, ÷ 4 de pollution par unité = 39,25 unités/min.
+section("12. Rejeu des vagues mesurées (verif-guide 0.6.24, 2 graines)")
+do
+  local Pv = require("shared.ai3.prevision")
+  local H = 2708 / 200
+  local RATE_AZURE1 = 157 / 4
+  local G = { min = 1, max = 10, size = 200 } -- réglages de carte par défaut du moteur
+  local E = {
+    { 1, "azure", 24, "v", "qg", 2708, 255 }, { 1, "azure", 32, "r", "ap1", 0, 406 }, { 1, "azure", 32, "r", "ap2", 0, 550 },
+    { 1, "azure", 32, "v", "qg", 2708, 605 }, { 1, "azure", 39, "v", "qg", 2708, 1046 }, { 1, "azure", 42, "r", "ap3", 0, 41 },
+    { 1, "azure", 48, "r", "ap3", 0, 45 }, { 1, "azure", 49, "v", "qg", 2708, 41 }, { 1, "azure", 54, "v", "qg", 2708, 1545 },
+    { 1, "azure", 55, "r", "ap1", 0, 41 }, { 1, "azure", 55, "r", "ap2", 0, 41 },
+    { 1, "player", 47, "r", "ap2", 0, 41 }, { 1, "player", 47, "r", "ap3", 0, 284 }, { 1, "player", 51, "r", "ap2", 0, 81 },
+    { 1, "player", 52, "r", "qg", 0, 81 }, { 1, "player", 53, "r", "ap2", 0, 163 }, { 1, "player", 53, "r", "ap3", 0, 81 },
+    { 1, "player", 55, "v", "ap4", 1194, 156 },
+    { 1, "scarlet", 49, "f", "qg", 2081, 0 },
+    { 2, "player", 13, "r", "ap1", 0, 81 }, { 2, "player", 13, "v", "ap2", 605, 163 }, { 2, "player", 24, "v", "ap2", 614, 1909 },
+    { 2, "player", 25, "v", "qg", 1569, 894 }, { 2, "player", 45, "r", "ap8", 0, 203 }, { 2, "player", 46, "f", "qg", 1562, 0 },
+    { 2, "player", 52, "f", "ap7", 2170, 0 }, { 2, "player", 53, "r", "ap10", 0, 75 }, { 2, "player", 53, "v", "ap5", 519, 187 },
+    { 2, "player", 56, "r", "ap10", 0, 60 },
+    { 2, "azure", 19, "v", "ap1", 2350, 150 }, { 2, "azure", 27, "v", "qg", 2287, 41 }, { 2, "azure", 36, "v", "ap1", 2385, 203 },
+    { 2, "azure", 36, "r", "ap2", 0, 15 }, { 2, "azure", 44, "r", "ap2", 0, 813 }, { 2, "azure", 44, "v", "qg", 1263, 41 },
+    { 2, "azure", 50, "r", "ap2", 0, 802 }, { 2, "azure", 50, "v", "qg", 2428, 180 }, { 2, "azure", 57, "f", "ap1", 1157, 0 },
+    { 2, "scarlet", 33, "r", "ap5", 0, 163 }, { 2, "scarlet", 38, "v", "ap2", 906, 122 }, { 2, "scarlet", 39, "r", "ap1", 0, 41 },
+    { 2, "scarlet", 39, "r", "chiron", 0, 1097 }, { 2, "scarlet", 39, "r", "qg", 0, 122 }, { 2, "scarlet", 41, "r", "chiron", 0, 140 },
+    { 2, "scarlet", 47, "v", "ap2", 906, 81 }, { 2, "scarlet", 56, "v", "ap2", 906, 41 },
+  }
+  --- Prévision corrigée d'une vague 0.6.24 : même débit, rassemblement moyen (seule part du modèle corrigé qui se recalcule
+  --- avec le journal 0.6.24 ; la règle d'apport C5 demande la pollution de chaque case de nid, que ce journal n'écrit pas).
+  local function corrected(seed, team, site, pred)
+    local u = pred / H
+    local rate
+    if u >= 199.5 then
+      assert(seed == 1 and team == "azure" and site == "qg", "vague plafonnée sans débit au journal")
+      rate = RATE_AZURE1
+    else
+      rate = u / 10
+    end
+    return Pv.wave_units(rate, G) * H
+  end
+  --- Reçue faite de pertes seulement (aucune unité vue au contact) : n × 3 × PV moyens (déduit du journal : la règle 0.6.24).
+  local function losses_only(r)
+    local n = r / (Pv.LOSS_UNITS * H)
+    return n >= 0.97 and math.abs(n - math.floor(n + 0.5)) < 0.03
+  end
+  local function replay(law)
+    local cals, out, tick = {}, {}, 0
+    for i, ev in ipairs(E) do
+      local seed, team, minute, kind, site, pred, recv = ev[1], ev[2], ev[3], ev[4], ev[5], ev[6], ev[7]
+      local id = seed .. ":" .. team
+      cals[id] = cals[id] or {}
+      local cal = cals[id]
+      tick = minute * 3600 + i * 10
+      local keys = { site }
+      if kind == "v" then
+        local p = law == "ancien" and pred or corrected(seed, team, site, pred)
+        local k = law == "ancien" and 1000 or Pv.k_of(cal)
+        out[#out + 1] = { ratio = k / 1000 * p / recv, raw = p / recv, seen = not losses_only(recv), id = id }
+        Pv.calibrate(cal, keys, { [site] = { pred_raw = p, contact = recv, source = true } }, tick)
+        Pv.calibrate(cal, keys, { [site] = { pred_raw = p, source = true } }, tick + 1)
+      elseif kind == "r" then
+        Pv.calibrate(cal, keys, { [site] = { pred_raw = 0, contact = recv, source = true } }, tick)
+        Pv.calibrate(cal, keys, { [site] = { pred_raw = 0, source = true } }, tick + 1)
+      else
+        Pv.calibrate(cal, keys, { [site] = { pred_raw = pred, window = 0.001, source = true } }, tick)
+        Pv.calibrate(cal, keys, { [site] = { source = true } }, tick + 5)
+      end
+    end
+    return out
+  end
+  local function median(list)
+    local t = {}
+    for _, v in ipairs(list) do t[#t + 1] = v end
+    table.sort(t)
+    local n = #t
+    if n == 0 then return 0 end
+    if n % 2 == 1 then return t[(n + 1) / 2] end
+    return (t[n / 2] + t[n / 2 + 1]) / 2
+  end
+  local before, after = replay("ancien"), replay("nouveau")
+  local rb, ra, ras, rfirst, rcal = {}, {}, {}, {}, {}
+  local seen_ids = {}
+  for i, w in ipairs(after) do
+    rb[#rb + 1] = before[i].raw
+    ra[#ra + 1] = w.ratio
+    if w.seen then ras[#ras + 1] = w.ratio end
+    if not seen_ids[w.id] then seen_ids[w.id] = true; rfirst[#rfirst + 1] = w.ratio else rcal[#rcal + 1] = w.ratio end
+  end
+  local mb, ma, mas, mf, mc = median(rb), median(ra), median(ras), median(rfirst), median(rcal)
+  local parts = {}
+  for _, v in ipairs(ra) do parts[#parts + 1] = string.format("%.2f", v) end
+  print(string.format("  rejeu : %d vagues ; ratio prévue/reçue médian 0.6.24 %.2f -> corrigé %.2f ; vagues VUES au contact (%d) %.2f ; "
+    .. "premières vagues de chaque équipe (k = 1, modèle seul) %.2f, suivantes (k appris) %.2f", #ra, mb, ma, #ras, mas, mf, mc))
+  print("  ratios corrigés dans l'ordre du journal : " .. table.concat(parts, " "))
+  check(#ra == 18 and #rb == 18, "18 BILAN vague rejoués (6 sur la graine 1, 12 sur la graine 2)")
+  check(mb > 8 and mb < 10, string.format("rejeu de la 0.6.24 fidèle au journal : ratio médian %.2f (journal : prévue 3 à 60 fois la reçue)", mb))
+  check(ma < mb / 3, string.format("modèle et calibration corrigés : ratio médian divisé par plus de 3 (%.2f -> %.2f)", mb, ma))
+  check(mas >= 0.5 and mas <= 2, string.format("vagues VUES au contact : ratio médian entre 0,5 et 2 (%.2f)", mas))
+  check(mc >= 0.5 and mc <= 2, string.format("vagues après la première de l'équipe (k appris) : ratio médian entre 0,5 et 2 (%.2f)", mc))
+  -- Écart écrit, PAS caché : sur les 18 vagues, le ratio médian reste au-dessus de 2 (premières vagues : modèle seul, et vagues
+  -- « reçues » faites d'une seule perte, sans aucune unité vue : bornes basses). Contrôle informatif, hors bilan.
+  print(string.format("  (hors bilan) les 18 vagues : ratio médian %.2f %s 2", ma, ma <= 2 and "<=" or ">"))
+end
 
 section("Anti-échelle : aucun nom d'objet du jeu dans les règles")
 do
@@ -464,23 +610,35 @@ local MUTANTS = {
   { name = "site non pollueur qui attire (C6)", file = PV, mod = "shared.ai3.prevision",
     from = "if not emit or emit <= 0 then return 0 end\n  return emit / math.max(1, dd)", to = "return 1 / math.max(1, dd)" },
   { name = "plafond de groupe retiré", file = PV, mod = "shared.ai3.prevision",
-    from = "if units > gsize then units = gsize end", to = "" },
+    from = "if units > size then units = size end", to = "" },
   { name = "échéance optimiste (rassemblement maximal)", file = PV, mod = "shared.ai3.prevision",
-    from = "o.eta = gmin + travel", to = "o.eta = gmax + travel" },
+    from = "o.eta = gmin + travel", to = "o.eta = (ga.max or 10) + travel" },
   { name = "évolution non projetée", file = PV, mod = "shared.ai3.prevision",
     from = "for _ = 1, H or 0 do x = x + (1000 - x) * (g or 0) end", to = "" },
   { name = "vu ignoré", file = PV, mod = "shared.ai3.prevision",
     from = "o.w5 = math.max(o.wmod5, wvu, fl)", to = "o.w5 = math.max(o.wmod5, fl)" },
   { name = "calibration asymétrique (fausse alerte sans effet)", file = PV, mod = "shared.ai3.prevision",
-    from = "c.k = floor(7 * c.k / 8)", to = "c.k = c.k" },
-  { name = "raté sans effet", file = PV, mod = "shared.ai3.prevision",
-    from = "c.k = c.k + Pv.K_MISS", to = "c.k = c.k" },
+    from = "team.k = bound_k(floor(7 * team.k / 8))", to = "team.k = team.k" },
+  { name = "raté sans plancher", file = PV, mod = "shared.ai3.prevision",
+    from = "c.floor = recv", to = "c.floor = nil" },
+  { name = "ancienne règle C5 (case touchée : plafond)", file = PV, mod = "shared.ai3.prevision",
+    from = "if c >= (sat or Pv.SAT0) then return cap end", to = "if c > 0 then return cap end" },
+  { name = "rassemblement maximal (au lieu du moyen)", file = PV, mod = "shared.ai3.prevision",
+    from = "return ((g.min or 1) + (g.max or 10)) / 2", to = "return g.max or 10" },
+  { name = "unités tuées ignorées", file = PV, mod = "shared.ai3.prevision",
+    from = "c.kill = (c.kill or 0) + (f.killed or 0)", to = "c.kill = c.kill or 0" },
+  { name = "moyenne linéaire de k (au lieu de géométrique)", file = PV, mod = "shared.ai3.prevision",
+    from = "team.k = bound_k(floor(math.sqrt(team.k * r)))", to = "team.k = bound_k(floor((7 * team.k + r) / 8))" },
+  { name = "cadence non interpolée selon l'évolution", file = PV, mod = "shared.ai3.prevision",
+    from = "return 3600 / (cd0 + (cd1 - cd0) * x)", to = "return r0" },
+  { name = "demande du nid ignorée (plafond du prototype seul)", file = PV, mod = "shared.ai3.prevision",
+    from = "if need and need < cap then cap = need end", to = "" },
   { name = "attaque sans épisode comptée comme raté", file = PV, mod = "shared.ai3.prevision",
     from = "if not c.ep then c.ep = { pred = f.pred_raw or 0, t = tick } end", to = "if not c.ep then c.ep = { pred = 0, t = tick } end" },
   { name = "k non borné", file = PV, mod = "shared.ai3.prevision",
-    from = "if c.k < Pv.K_MIN then c.k = Pv.K_MIN elseif c.k > Pv.K_MAX then c.k = Pv.K_MAX end", to = "" },
+    from = "if k < Pv.K_MIN then return Pv.K_MIN end\n  if k > Pv.K_MAX then return Pv.K_MAX end", to = "" },
   { name = "pertes ignorées dans la vague reçue", file = PV, mod = "shared.ai3.prevision",
-    from = "local hit_now = (f.contact or 0) > 0 or (f.losses or 0) > 0", to = "local hit_now = (f.contact or 0) > 0" },
+    from = "local hit_now = (f.contact or 0) > 0 or (f.losses or 0) > 0 or (f.killed or 0) > 0", to = "local hit_now = (f.contact or 0) > 0 or (f.killed or 0) > 0" },
   { name = "défense induite sans nid connu (triche)", file = PV, mod = "shared.ai3.prevision",
     from = "if not est or not est.mix or (est.nests_used or 0) == 0 then return 0 end", to = "if not est or not est.mix then return 0 end" },
   { name = "interpolation du moteur fausse (poids du premier point partout)", file = PV, mod = "shared.ai3.prevision",

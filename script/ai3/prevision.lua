@@ -34,6 +34,7 @@ local Pc = require("shared.ai3.prevision_choix")
 local Stock = require("script.team.stock")
 local Planner = require("shared.team.planner") -- soldat que l'équipe FABRIQUE (P.best_unit : échelle des équipements)
 local Front = require("script.team.front")
+local Events = require("script.core.events")
 local C = require("script.ai3.comportement")
 local D = require("shared.ai3.danger")
 
@@ -48,6 +49,7 @@ Prev.OUTPOSTS_MAX = 8   -- avant-postes examinés au plus
 Prev.FIELDS_MAX = 6     -- champs ouverts de la capitalisation examinés au plus (hors QG et avant-postes)
 Prev.FIELD_SEP = 40     -- tuiles : un champ plus près que cela d'un site déjà compté n'est pas un site de plus
 Prev.HITS_MAX = 64      -- pertes gardées entre deux relevés
+Prev.KILLS_MAX = 400    -- unités ennemies tuées gardées entre deux relevés (au-delà : comptées sans position, au QG)
 Prev.LOG_EVERY = 5 * 3600
 Prev.LOGS_MAX = 400     -- lignes de journal par équipe au plus (hors état périodique)
 
@@ -115,9 +117,12 @@ local function kinds()
             speed = get(up, "speed") or Pv.SPEED0, pts = pts }
         end
       end
+      -- spawn_cooldown { min, max } : `min` est le délai à l'évolution 0 (360), `max` celui à l'évolution 1 (150) (moteur réel,
+      -- banc prev-mesure du 30/10 : « min 360 max 150 » pour {360, 150} des données vanilla).
       local cd = get(p, "spawn_cooldown")
-      local cmin = cd and cd.min or nil
-      out[#out + 1] = { units = units, rate_max = (cmin and cmin > 0) and (3600 / cmin) or nil }
+      local c0, c1 = cd and cd.min or nil, cd and cd.max or nil
+      out[#out + 1] = { units = units, rate_max = (c0 and c0 > 0) and (3600 / c0) or nil,
+        rate_max1 = (c1 and c1 > 0) and (3600 / c1) or nil }
     end
   end
   kinds_cache = out
@@ -226,9 +231,10 @@ end
 local function state(f)
   local st = f.prevision
   if not st then
-    st = { cal = {}, pc = Pc.new(), hits = {}, logs = 0 }
+    st = { cal = {}, pc = Pc.new(), hits = {}, kills = {}, logs = 0 }
     f.prevision = st
   end
+  if not st.kills then st.kills = {} end -- état d'une sauvegarde 0.6.24 (créé en événement, au premier usage)
   return st
 end
 
@@ -246,6 +252,32 @@ Front.prevu = function(f)
   local rows = Pc.front_rows(st.pc, sorted_keys(st.pc.sites))
   return #rows > 0 and rows or nil
 end
+
+--- Unités ennemies TUÉES par une équipe (lot PREVISION-CALIB : la vague reçue se mesure aussi à ce que nos défenses tuent ; un
+--- relevé par minute ne voit presque jamais une vague que les tourelles tuent en quelques secondes). Comme le joueur : une
+--- équipe sait ce que ses tourelles et ses soldats ont tué. Rattachées au site le plus proche au relevé suivant.
+local function team_of(force_name)
+  if force_name == "player" then return State.faction("player") end
+  return State.by_force(force_name)
+end
+
+Events.on(defines.events.on_entity_died, function(e)
+  local ent = e.entity
+  if not (ent and ent.valid and ent.type == "unit") then return end
+  local killer = e.force
+  if not (killer and killer.name ~= ent.force.name and ent.force.name == "enemy") then return end
+  if not Prev.enabled() then return end
+  local f = team_of(killer.name)
+  if not (f and not f.eliminated and f.prevision) then return end
+  local st = state(f)
+  local hp = get(ent.prototype, "max_health") or 0
+  if #st.kills < Prev.KILLS_MAX then
+    local p = ent.position
+    st.kills[#st.kills + 1] = { x = p.x, y = p.y, hp = hp }
+  else
+    st.kills_over = (st.kills_over or 0) + hp
+  end
+end)
 
 ---------------------------------------------------------------------------------------------------
 -- Relevé
@@ -343,7 +375,8 @@ local function map_settings()
   local pf = evo_on and ((ee and ee.pollution_factor) or 0) or 0
   local poll_on = not (po and po.enabled == false)
   local diff = math.floor(((po and po.diffusion_ratio) or (Pv.DIFF0 / 1000)) * 1000 + 0.5)
-  return gather, tf, pf, poll_on, diff
+  local sat = (po and po.min_to_diffuse) or Pv.SAT0
+  return gather, tf, pf, poll_on, diff, sat
 end
 
 --- Coûts au livre de recettes (de la pensée du cerveau, quand elle le donne) : fer d'une recrue et d'une tourelle garnie.
@@ -377,7 +410,7 @@ function Prev.think(f, tick, opts)
   local surface = f.hq.surface
   local force = game.forces[f.force]
   local enemy = game.forces["enemy"]
-  local gather, tf, pf, poll_on, diff = map_settings()
+  local gather, tf, pf, poll_on, diff, sat = map_settings()
   local team_map = C.team(f).map
   -- 1. Sites : bâtiments (émission, tourelles).
   local sites = sites_of(f)
@@ -450,9 +483,11 @@ function Prev.think(f, tick, opts)
     for _, n in ipairs(known) do
       local c = math.floor(surface.get_pollution({ x = n.x, y = n.y }) or 0)
       local nb = 0
-      if c <= 0 then
+      if c < sat then
+        -- Seules les voisines au-dessus du seuil de diffusion envoient de la pollution (doc 1.1.91, min_to_diffuse).
         for _, dxy in ipairs({ { 32, 0 }, { -32, 0 }, { 0, 32 }, { 0, -32 } }) do
-          nb = nb + math.floor(surface.get_pollution({ x = n.x + dxy[1], y = n.y + dxy[2] }) or 0)
+          local v = math.floor(surface.get_pollution({ x = n.x + dxy[1], y = n.y + dxy[2] }) or 0)
+          if v >= sat then nb = nb + v end
         end
       end
       nests[#nests + 1] = { x = n.x, y = n.y, c = c, nb = nb }
@@ -471,12 +506,13 @@ function Prev.think(f, tick, opts)
   local emit = 0
   for _, s in ipairs(sites) do emit = emit + s.emit end
   local kfac, floors = {}, {}
-  for _, k in ipairs(sorted_keys(st.cal)) do
-    kfac[k] = st.cal[k].k
-    floors[k] = st.cal[k].floor
+  local kteam = Pv.k_of(st.cal)
+  for _, s in ipairs(sites) do
+    kfac[s.key] = kteam
+    floors[s.key] = st.cal[s.key] and st.cal[s.key].floor or nil
   end
   local evo = enemy and math.floor((get(enemy, "evolution_factor") or 0) * 1000 + 0.5) or 0
-  local est = Pv.estimate({ evo = evo, g = tf * 60 + pf * emit, kinds = kinds(), gather = gather, diff = diff, sites = sites,
+  local est = Pv.estimate({ evo = evo, g = tf * 60 + pf * emit, kinds = kinds(), gather = gather, diff = diff, sat = sat, sites = sites,
     nests = nests, rivals = rivals, k = kfac, floor = floors })
   -- 6. Calibration (faits : contact, pertes, fenêtre du moteur).
   local losses = {}
@@ -489,16 +525,35 @@ function Prev.think(f, tick, opts)
     if best then losses[best.key] = (losses[best.key] or 0) + 1 end
   end
   st.hits = {}
+  local killed = {}
+  for _, h in ipairs(st.kills) do
+    local best, bd = nil, nil
+    for _, s in ipairs(sites) do
+      local dd = d2(h.x, h.y, s.x, s.y)
+      if dd <= Prev.LOSS_R * Prev.LOSS_R and (not bd or dd < bd) then best, bd = s, dd end
+    end
+    if best then killed[best.key] = (killed[best.key] or 0) + h.hp end
+  end
+  if (st.kills_over or 0) > 0 then killed.qg = (killed.qg or 0) + st.kills_over end
+  st.kills, st.kills_over = {}, nil
   local facts, keys = {}, {}
   local hbar = est.mix and est.mix.hbar or 0
   for _, o in ipairs(est.sites) do
     keys[#keys + 1] = o.key
     local travel = (o.eta and o.eta - gather.min) or 0
-    facts[o.key] = { pred_raw = o.wraw5 or 0, contact = o.contact, losses = losses[o.key] or 0, hbar = hbar,
+    facts[o.key] = { pred_raw = o.wraw5 or 0, contact = o.contact, killed = killed[o.key] or 0, losses = losses[o.key] or 0, hbar = hbar,
       window = gather.max * 2 + travel, source = o.rate > 0 or o.wvu > 0 }
   end
   table.sort(keys)
   local cal_evs = Pv.calibrate(st.cal, keys, facts, tick)
+  if #cal_evs > 0 then
+    -- Derniers faits de calibration (lus par les bancs : status) ; copie de nombres et de chaînes.
+    st.cal_last = {}
+    for _, e in ipairs(cal_evs) do
+      st.cal_last[#st.cal_last + 1] = { key = e.key, kind = e.kind, pred = e.pred, recv = e.recv, seen = e.seen, killed = e.killed,
+        lost = e.lost, k0 = e.k0, k1 = e.k1, tick = tick }
+    end
+  end
   -- 7. Décisions.
   local soldiers = f.soldiers_count or 0
   local smax = (not f.is_player) and ((war and war.settings and war.settings.soldiers_max) or 0) or 0
@@ -534,7 +589,12 @@ function Prev.think(f, tick, opts)
   st.hp_per_emit = Pv.hp_per_emit(est, gather)
   st.est = { evo = evo, evo15 = est.evo15, emit = emit, absorbed = est.absorbed, reach = est.reach, nests = est.nests_used,
     known = #known, hbar = hbar, poll_c = 0, poll_nb = 0, pbar = est.mix and est.mix.pbar or 0, rate = est.rate, units = #units, gather = gather }
-  for _, n in ipairs(nests) do st.est.poll_c, st.est.poll_nb = st.est.poll_c + n.c, st.est.poll_nb + n.nb end
+  st.est.sat, st.est.nsat = sat, 0
+  for _, n in ipairs(nests) do
+    st.est.poll_c, st.est.poll_nb = st.est.poll_c + n.c, st.est.poll_nb + n.nb
+    if n.c >= sat then st.est.nsat = st.est.nsat + 1 end
+  end
+  st.est.k = Pv.k_of(st.cal)
   st.view = Prev.slim(est) -- estimation du relevé (lue par l'armée : porte du raid, champs chauds) ; copie sans références partagées
   Prev.journal(f, st, est, cal_evs, tick)
   return st
@@ -603,12 +663,13 @@ function Prev.journal(f, st, est, cal_evs, tick)
   -- Faits de calibration (un par cause).
   for _, e in ipairs(cal_evs) do
     if e.kind == "vague" then
-      line(string.format("BILAN vague %s : prevue %d PV, recue %d PV (k %.2f -> %.2f)", e.key, n0(e.pred), n0(e.recv), e.k0 / 1000, e.k1 / 1000))
+      line(string.format("BILAN vague %s : prevue %d PV, recue %d PV (vue %d, tuee %d, pertes %d) (k equipe %.2f -> %.2f)", e.key,
+        n0(e.pred), n0(e.recv), n0(e.seen), n0(e.killed), n0(e.lost), e.k0 / 1000, e.k1 / 1000))
     elseif e.kind == "rate" then
-      line(string.format("RATE %s : attaque de %d PV sans vague prevue (k %.2f -> %.2f, plancher de menace %d PV)", e.key, n0(e.recv),
-        e.k0 / 1000, e.k1 / 1000, n0(e.recv)))
+      line(string.format("RATE %s : attaque de %d PV sans vague prevue (vue %d, tuee %d, pertes %d) (k equipe %.2f inchange, plancher de menace %d PV)",
+        e.key, n0(e.recv), n0(e.seen), n0(e.killed), n0(e.lost), e.k0 / 1000, n0(e.recv)))
     else
-      line(string.format("FAUSSE ALERTE %s : vague prevue de %d PV non venue dans la fenetre du moteur (k %.2f -> %.2f)", e.key,
+      line(string.format("FAUSSE ALERTE %s : vague prevue de %d PV non venue dans la fenetre du moteur (k equipe %.2f -> %.2f)", e.key,
         n0(e.pred), e.k0 / 1000, e.k1 / 1000))
     end
   end
@@ -642,8 +703,9 @@ function Prev.journal(f, st, est, cal_evs, tick)
       if o.w15 > 0 or o.turrets > 0 or o.key == "qg" then parts[#parts + 1] = site_text(pc.sites[o.key], o) end
     end
     local e = st.est
-    log(string.format("[FO-PREVISION] %s %.1f min ETAT evo %.3f (%.3f a 15 min) | %d nid(s) connu(s), %d nous visent (pollution recue %d/min sur %d/min emise, part %d pour mille) | unite moyenne %d PV, %d de pollution | %d unite(s) vue(s) | %s | armee : alerte %s, besoin %d, a 15 min %d | defense induite %.2f PV par pollution/min",
-      who, minutes(tick), e.evo / 1000, e.evo15 / 1000, e.known, e.nests, n0(e.absorbed), n0(e.emit), e.reach, n0(e.hbar), n0(e.pbar),
+    log(string.format("[FO-PREVISION] %s %.1f min ETAT evo %.3f (%.3f a 15 min) | %d nid(s) connu(s), %d nous visent (pollution recue %d/min sur %d/min emise, part %d pour mille ; cases des nids %d, %d au-dessus du seuil %d, voisines au-dessus %d ; k equipe %.2f) | unite moyenne %d PV, %d de pollution | %d unite(s) vue(s) | %s | armee : alerte %s, besoin %d, a 15 min %d | defense induite %.2f PV par pollution/min",
+      who, minutes(tick), e.evo / 1000, e.evo15 / 1000, e.known, e.nests, n0(e.absorbed), n0(e.emit), e.reach, n0(e.poll_c), e.nsat or 0,
+      n0(e.sat), n0(e.poll_nb), (e.k or Pv.K0) / 1000, n0(e.hbar), n0(e.pbar),
       e.units, #parts > 0 and table.concat(parts, " ; ") or "aucun site", tostring(pc.alert), pc.army_need or 0, pc.army_soon or 0,
       st.hp_per_emit or 0))
   end
@@ -672,7 +734,10 @@ local function status(f)
     out.sites[k] = { prep = s.prep, insurm = s.insurm, w5 = s.w5, w15 = s.w15, d = s.d, dtot = s.dtot, rho = s.rho, eta = s.eta,
       have = s.have, want = s.want, exec = s.exec, nohold = s.nohold, why = s.why }
   end
-  for _, k in ipairs(sorted_keys(st.cal)) do out.k[k] = st.cal[k].k end
+  local kteam = Pv.k_of(st.cal)
+  for _, k in ipairs(sorted_keys(st.pc.sites)) do out.k[k] = kteam end
+  out.kteam = kteam
+  out.cal_last = st.cal_last
   local rows = Prev.pile_rows(f)
   out.pile_rows = rows and #rows or 0
   local fr = Front.prevu(f)

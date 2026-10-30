@@ -48,11 +48,12 @@ end
 
 -- Lot PREVISION : situation estimée par l'estimateur unique. QG pollueur (100/min), tourelles (dps), `soldiers` soldats de 480 PV
 -- chacun ; champ de `nests` nids autour de (fx, fy) dont la case porte la pollution `c` (0 : le nid ne reçoit rien) ; unités VUES
--- (PV) à portée d'œil du QG. Unité moyenne : 75 PV, 4 de pollution, 0,2 tuile/tick. Rend l'estimation et les décisions.
+-- (PV) à portée d'œil du QG. Unité moyenne : 75 PV, 4 de pollution, 0,2 tuile/tick ; cadence vanilla d'un nid (10 unités/min à
+-- l'évolution 0, 24 à 1 : lot PREVISION-CALIB, le nid d'une case saturée tourne à sa cadence). Rend l'estimation et les décisions.
 local function situation(o)
   local nests = {}
   for i = 1, o.nests or 2 do nests[#nests + 1] = { x = o.fx + i, y = o.fy, c = o.c or 0, nb = 0 } end
-  local est = Pv.estimate({ evo = 0, kinds = { { units = { { hp = 75, cost = 4, speed = 0.2, pts = { { 0, 1 } } } } } },
+  local est = Pv.estimate({ evo = 0, kinds = { { units = { { hp = 75, cost = 4, speed = 0.2, pts = { { 0, 1 } } } }, rate_max = 10, rate_max1 = 24 } },
     gather = { min = 1, max = 10, size = 200 }, sites = { { key = "qg", x = 0, y = 0, emit = 100, dps = o.dps or 0,
       dpsr = (o.dps or 0) * 18, turrets = o.turrets or 0, seen = o.seen or 0, contact = 0 } }, nests = nests, rivals = {} })
   local n = o.soldiers or 10
