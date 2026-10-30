@@ -510,14 +510,36 @@ ROCHE_APLAT["B1"], ROCHE_CASSURE["B1"] = 0.88, (0.70, 0.95)
 ICONE["B1"] = dict(ICONE["Z1"], roche_mats=("bauxite_brique", "bauxite_ocre", "gibbsite_pale", "bauxite_brique"),
                    bloc_mats=("bauxite_brique", "bauxite_ocre"), roche_aplat=0.88)
 
+# S1 (lot AMELIO-RESSOURCES, piste ZINC, 30/10) : BLENDE, minerai du zinc (âge 3, proposition X3 : « tétraèdres résineux
+# couleur miel à rouge rubis »). La forme de la galène G1 (cristaux à arêtes vives, ici plus petits et plus serrés) dans
+# une gangue de QUARTZ gris ; matières résineuses (brillantes, sans métal) miel, ambre et rubis sombre. Éclats ambrés
+# discrets (éclat résineux). Choix provisoire, sans verdict du DC.
+MAT.update({
+    "blende_miel": dict(color=(0.42, 0.22, 0.04), rough=0.18, met=0.05, grain=0.15, gscale=45.0, dirt=0.3),
+    "blende_rubis": dict(color=(0.26, 0.05, 0.02), rough=0.18, met=0.05, grain=0.15, gscale=45.0, dirt=0.3),
+    "blende_ambre": dict(color=(0.58, 0.36, 0.08), rough=0.20, met=0.05, grain=0.15, gscale=45.0, dirt=0.3),
+    "quartz_gris": dict(color=(0.46, 0.45, 0.42), rough=0.55, met=0.0, grain=0.30, gscale=30.0, dirt=0.4),
+})
+DIRECTIONS["S1"] = dict(DIRECTIONS["G1"], nom="cristaux résineux de blende miel et rubis dans une gangue de quartz",
+                        roche_mats=("quartz_gris", "blende_rubis", "quartz_gris"),
+                        blocs=(18, 13, 10, 8, 6, 5, 3, 1), bloc_taille=(0.12, 0.20), bloc_haut=(0.10, 0.18),
+                        bloc_mats=("blende_miel", "blende_ambre", "blende_rubis", "blende_miel"),
+                        grain_mats=("blende_miel", "blende_rubis", "quartz_gris"),
+                        fin_mats=("quartz_gris", "blende_rubis", "quartz_gris", "blende_miel"))
+CALIB["S1"] = {"SKY_GLOSSY_FACTOR": 2.0}
+ROCHE_COUPES["S1"], ROCHE_LISSE["S1"] = ROCHE_COUPES["G1"], ROCHE_LISSE["G1"]
+ROCHE_APLAT["S1"], ROCHE_CASSURE["S1"] = ROCHE_APLAT["G1"], ROCHE_CASSURE["G1"]
+ICONE["S1"] = dict(ICONE["G1"], roche_mats=("quartz_gris", "quartz_gris"), bloc_mats=("blende_miel", "blende_ambre", "blende_rubis"))
+EFFET["S1"] = dict(teinte=(1.0, 0.78, 0.40), seuil=(0.45, 0.80))
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
