@@ -194,3 +194,8 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
   rien produit, statut 21 » = vrai arret visible apres migration d'une sauvegarde 0.6.18 (les machines du titane demandent des
   bobines ; assembleur arrete jusqu'a ce qu'on lui en donne) [mesure, RAPPORT CRAFTS §2]. A ECRIRE au changelog de la 0.6.22.
 - Processus : 41 bash (shells d'agents et workflows), aucun factorio.exe orphelin ; mur-opus : verrou de rendu orphelin retire.
+
+## 30/10 ~4 h 25, passage 56
+- 18 archives (RESSOURCES content 401 OK, PETROLE2 content 331 + petrole-court 8 OK x3 dont migration 0.6.20, PREVISION, INTEG-0621 x4, JOURNAUX-DC content 331 + journaux-dc 8 OK), 0 erreur Lua, 0 ECHEC.txt, codes 0.
+- A SURVEILLER : PREVISION prev-vague passe de 6/5 a 8/3, 10/1 puis 11/0 ECHEC en 4 bancs. Verifier a la relecture que le
+  code a ete corrige et non le scenario ou ses seuils (test assoupli = faute, skill §2) [supposé, a verifier dans le diff].
