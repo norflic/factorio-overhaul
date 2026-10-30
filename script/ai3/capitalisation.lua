@@ -43,7 +43,10 @@
   quand la couverture est sous 50 % et le besoin non servi ; un échec « materiaux introuvables » ne ferme pas le gisement
   (module suivant réduit, objets manquants gardés en but de fabrication Rp.PREP_TTL). Lot CAPI-MESURE : journaux
   [FO-CAPI-COUV] (par gisement toutes les 5 min : couverture, places libres, raison de drill_for = "", repli, refus de la
-  règle, ordres) et [FO-CAPI-ALERTE] (capacité posée qui produit 0/min mesurés). Aucun nom du jeu ici (anti-échelle, tests/iag_test.lua §8) : objets,
+  règle, ordres) et [FO-CAPI-ALERTE] (capacité posée qui produit 0/min mesurés). Lot CAPI-DEBIT (30/10) : EMPLACEMENTS du
+  plan directeur (shared/ai3/emplacements.lua) : un module figé en chantier depuis 10 min ne tient plus d'emplacement, un
+  stock libre riche des produits des fonderies en ouvre jusqu'à 2 de plus, le plafond vaut pour la décision entière ; journal
+  [FO-CAPI-EMPLACEMENTS] (à chaque changement). Aucun nom du jeu ici (anti-échelle, tests/iag_test.lua §8) : objets,
   recettes, machines viennent des prototypes, des données de l'exécutant (shared/team/config.lua,
   shared/team/automatisation_donnees.lua par A.METHODS) et de la règle.
   Déterminisme : listes triées, aucun hasard, aucun temps mesuré ; état dans f.team.capi (global : nombres, chaînes,
@@ -53,6 +56,7 @@
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
+local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements du plan directeur (figés, stock riche, décision)
 local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
 local Pl = require("shared.team.plan")
@@ -96,6 +100,9 @@ Capi.MODULES_PER_ORDER = 1   -- modules du plan directeur au plus par ordre (cha
                              -- 3 avant le banc p4 : le plan directeur RÉSERVE au coffre toute la matière d'un module dès sa
                              -- demande (Build.reserve) ; plusieurs modules à la fois vidaient le fer du QG (« stock iron=5 »)
                              -- et l'économie s'arrêtait (3 factions sur 4 à plus de 60 % de PNJ sans tâche après 40 min).
+
+-- Lot CAPI-DEBIT : sortes d'ordres que l'exécutant pose en MODULE du plan directeur (fonderies à foreuses, rangées).
+Capi.MODULE_KINDS = { couvrir = true, ouvrir = true, chaine = true, packs = true }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -233,6 +240,15 @@ local METHOD_OF_ORE = {}
 for _, m in ipairs(A.METHODS) do if m.ore and not METHOD_OF_ORE[m.ore] then METHOD_OF_ORE[m.ore] = m end end
 local KIND_OF_RES = {}
 for _, kind in ipairs(T.OUTPOST_ORDER) do KIND_OF_RES[T.outposts[kind].resource] = kind end
+-- Lot CAPI-DEBIT : produits des fonderies à foreuses (données de l'exécutant, dans leur ordre) : leur stock libre ouvre des
+-- emplacements de plus (Em.extra).
+local PLATE_PRODUCTS = {}
+do
+  local seen = {}
+  for _, m in ipairs(A.METHODS) do
+    if m.ore and m.product and not seen[m.product] then seen[m.product] = true PLATE_PRODUCTS[#PLATE_PRODUCTS + 1] = m.product end
+  end
+end
 
 --- Une fonderie à foreuses de ce minerai peut-elle se poser MAINTENANT (tous ses objets fabricables ou au coffre) ?
 --- Rend vrai, ou faux et les objets manquants (la recherche qui les débloque prend de la valeur : Auto.wanted).
@@ -669,6 +685,35 @@ local function successors_for(cs)
   return out
 end
 
+--- Lot CAPI-DEBIT : emplacements du plan directeur (règle pure shared/ai3/emplacements.lua). Les ordres « module » ouverts, avec
+--- l'état de chacun de leurs modules (Auto.module), leur dernier progrès (follow : entités bâties) ; le stock libre des produits des
+--- fonderies. Journal [FO-CAPI-EMPLACEMENTS] quand le plafond, le compte ou les modules figés changent (jamais à l'horloge).
+function Capi.slots(f, cs, stock, tick)
+  local mods = {}
+  for _, o in ipairs(cs.open or {}) do
+    if o.exec == "module" then
+      local states = {}
+      for _, id in ipairs(o.mod_ids or { o.module }) do
+        local m = Auto.module(f, id)
+        states[#states + 1] = m and tostring(m.state) or "perdu"
+      end
+      mods[#mods + 1] = { key = o.key, states = states, progress_tick = o.progress_tick, opened = o.opened }
+    end
+  end
+  local plates = {}
+  for _, p in ipairs(PLATE_PRODUCTS) do plates[#plates + 1] = (stock or {})[p] or 0 end
+  local sl = Em.slots({ base = A.MAX_OPEN, plates = plates, mods = mods, tick = tick })
+  local sig = string.format("%d|%d|%d|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","))
+  if cs.slots_sig ~= sig then
+    cs.slots_sig = sig
+    local pl = {}
+    for i, p in ipairs(PLATE_PRODUCTS) do pl[#pl + 1] = p .. "=" .. math.floor(plates[i]) end
+    log(string.format("[FO-CAPI-EMPLACEMENTS] %s : %s ; libres %d ; stock {%s} ; figes [%s] a %.1f min", f.key or "?", sl.why, sl.room,
+      table.concat(pl, " "), table.concat(sl.keys_stalled, ", "), minutes(f, tick)))
+  end
+  return sl
+end
+
 local function build_input(f, cs, view, book, tick, D, w)
   local st = f.team.ia3
   local force = game.forces[f.force]
@@ -685,12 +730,15 @@ local function build_input(f, cs, view, book, tick, D, w)
   local plant_state, plant_why = Auto.plant_state(f)
   -- Centrale demandée mais pas finie : un seul module électrique ouvert à la fois (celui qui l'a fait demander) ; les
   -- suivants attendent le réseau (banc p3 du lot : « pas de rue vers le reseau », « pas de centrale » à la chaîne).
-  local elec_open = 0
-  for _, o in ipairs(cs.open) do if o.exec == "module" then elec_open = elec_open + 1 end end
+  -- Lot CAPI-DEBIT : emplacements (A.MAX_OPEN de base) : un module figé en chantier depuis Em.STALL n'en tient plus, un stock
+  -- riche en ouvre de plus ; un module qui attend sa matière tient toujours le sien (la matière réservée par le plan directeur
+  -- ne doit pas vider le coffre, banc p4). cs.slots sert aussi au décompte des ordres d'une même décision (decide).
+  local slots = Capi.slots(f, cs, stock, tick)
+  cs.slots = slots
+  local elec_open = slots.open
   local wait_plant = plant_state ~= nil and plant_state ~= "fini" and elec_open > 0
-  -- Au plus A.MAX_OPEN modules ouverts à la fois (la limite de l'exécutant, celle d'AUTO) : la matière réservée par le plan
-  -- directeur ne doit pas vider le coffre (banc p4).
-  local busy = elec_open >= A.MAX_OPEN
+  local busy = slots.busy
+  local busy_text = Em.busy_text(slots)
   local wanted = {}
   -- Lot CAPI-MESURE : la RAISON de chaque `drill_for = ""` (audit 29/10 : jamais journalisée), relue par [FO-CAPI-COUV].
   -- Lot CAPI-REPLI : le repli ne ferme plus la ressource (il était porté par le produit : tous les gisements à la fois) ; il
@@ -704,7 +752,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif not elec_drill then why = "aucune foreuse electrique de l'executant"
     elseif plant_state == "refuse" then why = "centrale refusee (" .. tostring(plant_why) .. ")"
     elseif wait_plant then why = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
-    elseif busy then why = "plan directeur occupe (" .. elec_open .. " module(s) ouvert(s), au plus " .. A.MAX_OPEN .. ")"
+    elseif busy then why = busy_text
     else
       ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f))
       if not ok then why = "objets impossibles : " .. table.concat(miss, ",") end
@@ -792,7 +840,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     local hw = Rp.held(repli, Rp.key(item, nil), tick, nil) -- lot CAPI-REPLI : chaînes et packs, clé = l'objet seul
     if not meth then res = tostring(why)
     elseif hw then res = hw
-    elseif busy then res = "plan directeur occupe (" .. elec_open .. " module(s) ouvert(s), au plus " .. A.MAX_OPEN .. ")"
+    elseif busy then res = busy_text
     elseif wait_plant and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
       res = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
     elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
@@ -1234,8 +1282,17 @@ local function decide(f, cs, view, book, tick, research, w)
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
     labs_target = res.labs_target, u_star = res.u_star }
   local sent, refused = {}, {}
+  -- Lot CAPI-DEBIT : le plafond des emplacements vaut pour la décision entière (avant : de 0 module ouvert, jusqu'à
+  -- Capi.MAX_ORDERS modules partaient d'un coup) ; un ordre qui ouvrirait un module de trop est refusé, son épargne rendue.
+  local room = cs.slots and cs.slots.room
   for _, o in ipairs(res.orders) do
-    local rec, why = execute(f, cs, o, view, book, tick, research)
+    local rec, why
+    if room ~= nil and room <= 0 and Capi.MODULE_KINDS[o.kind] then
+      rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
+    else
+      rec, why = execute(f, cs, o, view, book, tick, research)
+    end
+    if rec and rec.exec == "module" and room ~= nil then room = room - #(rec.mod_ids or { rec.module }) end
     if rec then
       cs.open[#cs.open + 1] = rec
       cs.orders = cs.orders + 1
