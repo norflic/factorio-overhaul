@@ -47,8 +47,8 @@ def mats(S):
                                edge=((0.50, 0.27, 0.15), 0.6, 0.02), cavity=0.6, streak=0.5,
                                stain=((0.04, 0.02, 0.012), 0.5, 4.0), bottom=PIED)
     # acier chaud et rouillé (#5C6168 réchauffé par la rouille et la crasse, comme les aciers vanilla)
-    for nom, c1, c2 in (("acier", (0.17, 0.165, 0.16), (0.09, 0.08, 0.07)),
-                        ("acier2", (0.13, 0.12, 0.112), (0.07, 0.06, 0.05))):
+    for nom, c1, c2 in (("acier", (0.125, 0.118, 0.11), (0.065, 0.058, 0.05)),
+                        ("acier2", (0.095, 0.088, 0.082), (0.05, 0.045, 0.04))):
         M[nom] = surface("m2_" + nom, c1, c2, rough=0.55, rough2=0.85, metal=0.3, var=0.7, var_scale=6.0, grain=0.25,
                          bump=0.4, bump_scale=110.0, edge=((0.40, 0.38, 0.35), 0.8, 0.015), cavity=0.55, streak=0.85,
                          stain=((0.21, 0.085, 0.03), 0.6, 5.0), bottom=PIED)

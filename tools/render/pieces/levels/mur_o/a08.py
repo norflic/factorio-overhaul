@@ -45,7 +45,7 @@ def mats(S):
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
     M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
                            top=((0.06, 0.12, 0.02), 0.7, 0.4))
-    M["cuivre"] = surface("m8_cuivre", (0.30, 0.15, 0.075), (0.16, 0.08, 0.04), rough=0.55, rough2=0.8, metal=0.35,
+    M["cuivre"] = surface("m8_cuivre", (0.20, 0.11, 0.05), (0.11, 0.06, 0.03), rough=0.55, rough2=0.8, metal=0.35,
                           var=0.8, var_scale=8.0, grain=0.2, bump=0.3, bump_scale=90.0,
                           edge=((0.45, 0.22, 0.09), 0.75, 0.02), cavity=0.45, streak=0.35,
                           stain=((0.12, 0.30, 0.22), 0.4, 6.0))
@@ -61,7 +61,7 @@ def mats(S):
                          var=0.5, var_scale=6.0, grain=0.05, bump=0.05, cavity=0.2,
                          edge=((0.6, 0.8, 0.35), 0.4, 0.02))
     # liquide vert #8FBF4A ≈ (0.27, 0.52, 0.068) linéaire : couleur éclairée (pas une barre lumineuse)
-    M["liquide_v"] = surface("m8_liq_v", (0.27, 0.52, 0.068), (0.17, 0.36, 0.04), rough=0.12, spec=0.9, var=0.5,
+    M["liquide_v"] = surface("m8_liq_v", (0.30, 0.56, 0.075), (0.20, 0.40, 0.05), rough=0.12, spec=0.9, var=0.5,
                              var_scale=8.0, grain=0.06, bump=0.0, cavity=0.2)
     M["liquide"] = geo.emissive(S, "m8_liquide", (0.55, 0.75, 0.22), strength=0.35, base=(0.05, 0.09, 0.01))
     M["verre_sombre"] = surface("m8_verre_s", (0.03, 0.06, 0.02), rough=0.08, spec=1.0, var=0.3, grain=0.05,
@@ -322,7 +322,7 @@ def _bulbe_crete(g, M, niveau):
     """Bulbe de verre épais qui traverse la crête (DA époque 8) : liquide vert #8FBF4A jusqu'au niveau donné (0 à 1),
     verre sombre au-dessus, armature vert-de-gris (collier, anneau du niveau, côtes), ménisque luminescent."""
     r, z0, z1 = 0.13, Z_R - 0.03, Z_R + 0.17         # posé SUR la crête : le liquide se voit
-    zl = z0 + 0.04 + niveau * (z1 - z0 - 0.04)
+    zl = z0 + 0.06 + (0.45 + 0.55 * niveau) * (z1 - z0 - 0.06)
     g.cyl((0, 0, 0.5 * (z0 + zl)), "z", r, zl - z0, M["liquide_v"], n=28, bev=0)
     g.cyl((0, 0, 0.5 * (zl + z1)), "z", r, z1 - zl, M["verre"], n=28, bev=0)
     g.sphere((0, 0, z1), r, M["verre"], seg=28, rings=14)
