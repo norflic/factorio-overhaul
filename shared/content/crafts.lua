@@ -1,5 +1,5 @@
 --[[
-  Lot AMELIO-CRAFTS (nuit du 29 au 30/10) : chaînes de fabrication des âges 2, 3, 6 et 11 EN JEU, tirées du scénario X0
+  Lot AMELIO-CRAFTS (nuit du 29 au 30/10) : chaînes de fabrication des âges 2, 3, 4, 6, 8, 10 et 11 EN JEU, tirées du scénario X0
   (shared/content/epochs.lua, docs/SCENARIO_EPOQUES.md), et débouchés des sous-produits de la chaîne du titane (lot X1,
   shared/content/titanium.lua). Lua PUR : données et règles, testables hors jeu (tests/crafts_test.lua) ; génération des
   prototypes : prototypes/crafts.lua.
@@ -31,9 +31,10 @@ C.ITEMS = {
   "fo-glass", "fo-manometer",                              -- âge 3 (verrerie)
   "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", -- âge 6 (arc, bobinage)
   "fo-titanium-composite",                                 -- âge 11 (débouché du titane)
+  "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer", -- âge 10 (silicium et salle blanche, étape 4)
 }
 -- Fluides de X0 mis en jeu par ce lot.
-C.FLUIDS = { "fo-ethylene" }
+C.FLUIDS = { "fo-ethylene", "fo-carbon-dioxide" }
 
 -- Bâtiments de X0 mis en jeu par ce lot. Visuel PROVISOIRE : copie teintée d'une machine vanilla (palette de
 -- docs/DESIGN_EPOQUES.md §1.5 ; F36, F38 : une teinte multiplie).
@@ -48,6 +49,9 @@ C.BUILDINGS = {
   { name = "fo-flare-stack", copy = { "assembling-machine", "assembling-machine-1" }, side = 3, tint = { r = 1.00, g = 0.55, b = 0.40 },
     as_assembler = true },
   { name = "fo-steam-cracker", copy = { "assembling-machine", "chemical-plant" }, side = 3, tint = { r = 0.92, g = 0.86, b = 0.62 } },
+  -- Étape 4 (âges 8 et 10).
+  { name = "fo-reformer", copy = { "assembling-machine", "chemical-plant" }, side = 3, tint = { r = 0.62, g = 0.82, b = 0.70 } },
+  { name = "fo-cleanroom", copy = { "assembling-machine", "assembling-machine-3" }, side = 3, tint = { r = 0.90, g = 0.96, b = 1.00 } },
 }
 
 -- Recettes de procédé de X0 mises en jeu (ordre d'affichage) ; main = produit principal d'une recette à plusieurs
@@ -79,6 +83,22 @@ C.RECIPES = {
   { name = "fo-flare-chlorine", flare = true },
   { name = "fo-flare-brine", flare = true },
   { name = "fo-flare-titanium-tetrachloride", flare = true },
+  -- Étape 4, âge 8 (Méthane) : le reformage fait de l'hydrogène dès l'âge 8 (hydrocraquage) ; son dioxyde de carbone
+  -- carbonate le laitier en ciment, ou part à la torchère.
+  { name = "fo-methane-reforming", main = "fo-hydrogen" },
+  { name = "fo-slag-carbonation" },
+  { name = "fo-flare-carbon-dioxide", flare = true },
+  -- Étape 4, âge 10 (Silicium) : sable + graphite -> silicium métallurgique -> silicium pur (mange l'hydrogène) ->
+  -- tranches -> processeur en salle blanche (variante du processeur vanilla, monnaie de l'âge 10).
+  { name = "fo-metallurgical-silicon" },
+  { name = "fo-pure-silicon" },
+  { name = "fo-silicon-wafer" },
+  -- ÉCART de rendement : X0 donne 2 processeurs pour 10 circuits verts, 2 rouges, 1 tranche et 5 acides, soit 4 fois
+  -- moins de circuits verts que la recette vanilla. Le processeur est la MONNAIE de l'âge 10 (shared/levels/config.lua,
+  -- valeur 75) : la variante de X0 diviserait par 2,5 environ le coût réel des niveaux de l'âge 10. Ici 1 processeur :
+  -- la tranche remplace 10 circuits verts sur 20 (calcul : C.bilan, tests/crafts_test.lua §5 bis).
+  { name = "fo-cleanroom-processor", results = { { "processing-unit", 1 } },
+    ecart = "1 processeur au lieu de 2 (monnaie de l'âge 10)" },
 }
 
 -- Recettes HORS X0 (fermeture des boucles en jeu). Même format que les recettes de X0.
@@ -96,9 +116,17 @@ C.EXTRA_RECIPES = {
     fr = "Béton de Sorel", en = "Sorel concrete" },
   -- Hydrocraquage : l'hydrogène de la saumure (30 par plaque de titane) remplace l'eau du craquage de l'huile lourde,
   -- avec un rendement meilleur (vanilla : 40 lourde + 30 eau -> 30 légère).
-  { name = "fo-hydrocracking", epoch = 11, category = "chemistry", time = 2,
+  -- Âge 8 depuis l'étape 4 : le reformage du méthane fait de l'hydrogène dès l'âge 8 (11 avant : seule la saumure).
+  { name = "fo-hydrocracking", epoch = 8, category = "chemistry", time = 2,
     ingredients = { { "heavy-oil", 40 }, { "fo-hydrogen", 30 } }, results = { { "light-oil", 40 } },
     fr = "Hydrocraquage", en = "Hydrocracking" },
+  -- Procédé Siemens : recette du scénario X3 (« chaîne B », variante du silicium pur), reprise
+  -- TELLE QUELLE (x3 = true, contrôlé par tests/crafts_test.lua). Le chlore tourne en boucle (catalyseur), 2 sont
+  -- perdus par fabrication : un débouché du chlore et de l'hydrogène de la saumure à l'âge 11.
+  { name = "fo-siemens-silicon", epoch = 11, category = "chemistry", time = 8, x3 = true,
+    ingredients = { { "fo-metallurgical-silicon", 3 }, { "fo-chlorine", 12, catalyst = 10 }, { "fo-hydrogen", 75 } },
+    results = { { "fo-pure-silicon", 2 }, { "fo-chlorine", 10, catalyst = 10 } }, main = "fo-pure-silicon",
+    fr = "Silicium pur (procédé Siemens)", en = "Pure silicon (Siemens process)" },
 }
 
 -- Technologies. x0 = technologie de X0 reprise (déblocages EN JEU seulement) ; epoch = âge (fenêtre de packs) ;
@@ -139,6 +167,22 @@ C.TECHS = {
     prerequisites = { "fo-titanium-processing", "advanced-oil-processing", "concrete", "fo-flaring" },
     unlocks = { "fo-hydrocracking", "fo-sorel-concrete", "fo-flare-hydrogen", "fo-flare-chlorine", "fo-flare-brine",
                 "fo-flare-titanium-tetrachloride" } },
+  -- Étape 4.
+  { name = "fo-methane-reforming", x0 = "fo-methane-reforming", epoch = 8, count = 200, time = 30,
+    prerequisites = { "fo-flaring", "fo-methane-processing", "fo-tungsten-processing", "advanced-oil-processing",
+                      "advanced-electronics", "production-science-pack" },
+    unlocks = { "fo-reformer", "fo-methane-reforming", "fo-hydrocracking", "fo-flare-hydrogen", "fo-flare-carbon-dioxide" } },
+  -- X0 « fo-digester » : le digesteur (tissu de déchiqueteur, absent du jeu) n'est pas repris ; seule la carbonatation.
+  { name = "fo-carbonation", x0 = "fo-digester", epoch = 8, count = 150, time = 30,
+    prerequisites = { "fo-methane-reforming", "fo-crushing" },
+    unlocks = { "fo-slag-carbonation" } },
+  { name = "fo-silicon", x0 = "fo-silicon", epoch = 10, count = 400, time = 30,
+    prerequisites = { "fo-methane-reforming", "fo-electrical-steel", "fo-glassworks", "sulfur-processing",
+                      "utility-science-pack", "concrete" },
+    unlocks = { "fo-metallurgical-silicon", "fo-pure-silicon", "fo-cleanroom", "fo-silicon-wafer", "fo-cleanroom-processor" } },
+  { name = "fo-siemens-process", epoch = 11, count = 200, time = 30,
+    prerequisites = { "fo-silicon", "fo-brine-byproducts" },
+    unlocks = { "fo-siemens-silicon" } },
 }
 
 ---------------------------------------------------------------------------------------------------
@@ -190,7 +234,7 @@ function C.process_recipe(name)
   if not spec then
     local e = assert(extra_by[name], "crafts : recette inconnue " .. name)
     return { name = e.name, category = e.category, time = e.time, ingredients = e.ingredients, results = e.results,
-             fr = e.fr, en = e.en, epoch = e.epoch, x0 = false, subst = {}, prod = false }
+             fr = e.fr, en = e.en, epoch = e.epoch, x0 = false, x3 = e.x3 == true, subst = {}, prod = false, main = e.main }
   end
   local x = assert(T.x_recipe(name), "crafts : recette X0 absente " .. name)
   local ings, subst, dropped = {}, {}, {}
@@ -207,7 +251,8 @@ function C.process_recipe(name)
       ings[#ings + 1] = { i[1], i[2] }
     end
   end
-  return { name = x.name, category = spec.category or x.category, time = x.time, ingredients = ings, results = x.results,
+  return { name = x.name, category = spec.category or x.category, time = x.time, ingredients = ings,
+           results = spec.results or x.results, ecart = spec.ecart,
            fr = x.fr, en = x.en, epoch = x.epoch, x0 = true, subst = subst, dropped = dropped, prod = x.prod == true,
            main = spec.main, flare = spec.flare == true }
 end
@@ -254,9 +299,9 @@ end
 -- Matières premières comptées (le reste se déplie) ; les sous-produits du mod sont gratuits (on les a de toute façon).
 C.RAW = { ["iron-plate"] = "fer", ["iron-ore"] = "fer", ["copper-plate"] = "cuivre", ["stone"] = "pierre", ["coal"] = "charbon",
           ["petroleum-gas"] = "gaz", ["heavy-oil"] = "huile lourde", ["water"] = "eau", ["steam"] = "eau",
-          ["fo-titanium-plate"] = "titane", ["engine-unit"] = "moteur" }
+          ["fo-titanium-plate"] = "titane", ["engine-unit"] = "moteur", ["sulfuric-acid"] = "acide" }
 C.FREE = { ["fo-slag"] = true, ["fo-magnesium-chloride"] = true, ["fo-caustic-soda"] = true, ["fo-hydrogen"] = true }
-C.RAW_ORDER = { "fer", "cuivre", "pierre", "charbon", "gaz", "huile lourde", "eau", "titane", "moteur" }
+C.RAW_ORDER = { "fer", "cuivre", "pierre", "charbon", "gaz", "huile lourde", "eau", "acide", "titane", "moteur" }
 -- Recettes vanilla 1.1.91 de référence (data/base/prototypes/recipe.lua, mode normal) : { ingrédients }, quantité produite.
 C.VANILLA_REF = {
   ["steel-plate"] = { { { "iron-plate", 5 } }, 1 },
@@ -274,6 +319,8 @@ C.VANILLA_REF = {
   ["lubricant"] = { { { "heavy-oil", 10 } }, 10 },
   ["landfill"] = { { { "stone", 20 } }, 1 },
   ["light-oil"] = { { { "heavy-oil", 40 }, { "water", 30 } }, 30 },
+  ["advanced-circuit"] = { { { "plastic-bar", 2 }, { "copper-cable", 4 }, { "electronic-circuit", 2 } }, 1 },
+  ["processing-unit"] = { { { "electronic-circuit", 20 }, { "advanced-circuit", 2 }, { "sulfuric-acid", 5 } }, 1 },
 }
 
 --- Coût en matières premières d'UNE unité de `item` : table { [matière] = quantité }. `via` : nom de la recette du lot

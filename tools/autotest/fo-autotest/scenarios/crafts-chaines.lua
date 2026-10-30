@@ -7,7 +7,8 @@
 
   1. Prototypes présents : 8 objets, 3 bâtiments, 15 recettes du lot (12 de X0, 3 hors X0), 8 technologies, avec les
      packs vanilla de leur âge et des prérequis qui existent.
-  2. Les 8 technologies, recherchées par script, ouvrent leurs 25 recettes (bâtiments compris).
+  2. Les 15 technologies, recherchées par script, ouvrent leurs recettes (bâtiments compris ; au moins 45).
+     Étape 4 (âges 8, 10 et 11) : reformeur, carbonatation, torchère du CO2, silicium, salle blanche, procédé Siemens.
   3. Chaque recette de procédé dans SA machine (haut fourneau, concasseur, four à arc, bobineuse, assembleur 3, usine
      chimique, four à coke), garnie par script (objets, combustible, fluides) : au contrôle (tick 1 200), chaque machine
      a fini au moins une fabrication et son produit principal est dans sa sortie (ou un fluide dans sa boîte de sortie).
@@ -20,12 +21,15 @@ local X0, Y0 = 3800, 3000
 local CHECK = 1200
 
 local TECHS = { "fo-coking", "fo-blast-furnace", "fo-crushing", "fo-cement-concrete", "fo-arc-smelting", "fo-electrical-steel",
-                "fo-titanium-alloys", "fo-brine-byproducts", "fo-glassworks", "fo-flaring", "fo-steam-cracking" }
+                "fo-titanium-alloys", "fo-brine-byproducts", "fo-glassworks", "fo-flaring", "fo-steam-cracking",
+                "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process" }
 local ITEMS = { "fo-slag", "fo-cement", "fo-sand", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite",
-                "fo-glass", "fo-manometer" }
-local BUILDINGS = { "fo-blast-furnace", "fo-crusher", "fo-coil-winder", "fo-flare-stack", "fo-steam-cracker" }
-local PROD = { "fo-glass", "fo-manometer", "fo-polyethylene", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite", "fo-titanium-lds" }
-local NOT_PROD = { "fo-flare-hydrogen", "fo-steam-cracking", "fo-slag-landfill", "fo-sorel-concrete", "fo-hydrocracking", "fo-arc-steel", "fo-blast-furnace-steel" }
+                "fo-glass", "fo-manometer", "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer" }
+local BUILDINGS = { "fo-blast-furnace", "fo-crusher", "fo-coil-winder", "fo-flare-stack", "fo-steam-cracker", "fo-reformer", "fo-cleanroom" }
+local PROD = { "fo-glass", "fo-manometer", "fo-polyethylene", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite", "fo-titanium-lds",
+               "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer", "fo-cleanroom-processor" }
+local NOT_PROD = { "fo-flare-hydrogen", "fo-steam-cracking", "fo-slag-landfill", "fo-sorel-concrete", "fo-hydrocracking", "fo-arc-steel", "fo-blast-furnace-steel",
+                   "fo-methane-reforming", "fo-slag-carbonation", "fo-siemens-silicon" }
 
 -- Postes : machine, recette, produit principal (type), garniture { objets }, { fluides }, combustible ?
 local POSTES = {
@@ -57,6 +61,21 @@ local POSTES = {
     items = { { "fo-magnesium-chloride", 4 }, { "fo-caustic-soda", 4 }, { "concrete", 20 } }, fluids = { { "water", 200 } } },
   { key = "hydro", m = "chemical-plant", r = "fo-hydrocracking", p = "light-oil", fluid_out = true,
     fluids = { { "heavy-oil", 200 }, { "fo-hydrogen", 200 } } },
+  -- Étape 4 : âges 8, 10 et 11.
+  { key = "reformage", m = "fo-reformer", r = "fo-methane-reforming", p = "fo-hydrogen", fluid_out = true,
+    fluids = { { "fo-methane", 200 }, { "steam", 200 } } },
+  { key = "carbonatation", m = "chemical-plant", r = "fo-slag-carbonation", p = "fo-cement", items = { { "fo-slag", 10 } },
+    fluids = { { "fo-carbon-dioxide", 200 } } },
+  { key = "torchere-co2", m = "fo-flare-stack", r = "fo-flare-carbon-dioxide", p = nil, fluids = { { "fo-carbon-dioxide", 300 } } },
+  { key = "silicium-met", m = "fo-arc-furnace", r = "fo-metallurgical-silicon", p = "fo-metallurgical-silicon",
+    items = { { "fo-sand", 16 }, { "fo-graphite", 4 } } },
+  { key = "silicium-pur", m = "chemical-plant", r = "fo-pure-silicon", p = "fo-pure-silicon", items = { { "fo-metallurgical-silicon", 8 } },
+    fluids = { { "fo-hydrogen", 200 } } },
+  { key = "tranches", m = "fo-cleanroom", r = "fo-silicon-wafer", p = "fo-silicon-wafer", items = { { "fo-pure-silicon", 4 } } },
+  { key = "processeur", m = "fo-cleanroom", r = "fo-cleanroom-processor", p = "processing-unit",
+    items = { { "electronic-circuit", 20 }, { "advanced-circuit", 4 }, { "fo-silicon-wafer", 2 } }, fluids = { { "sulfuric-acid", 50 } } },
+  { key = "siemens", m = "chemical-plant", r = "fo-siemens-silicon", p = "fo-pure-silicon", items = { { "fo-metallurgical-silicon", 9 } },
+    fluids = { { "fo-chlorine", 100 }, { "fo-hydrogen", 300 } } },
 }
 
 local function size_of(name)
@@ -66,7 +85,7 @@ local function size_of(name)
 end
 
 return {
-  description = "AMELIO-CRAFTS : chaines des ages 2, 3, 6 et 11 (haut fourneau, concassage, arc, bobinage, composite, debouches)",
+  description = "AMELIO-CRAFTS : chaines des ages 2, 3, 4, 6, 8, 10 et 11 (haut fourneau, concassage, arc, bobinage, composite, debouches)",
   check_tick = CHECK,
   shots_delay = 400,
 
@@ -81,7 +100,8 @@ return {
     for _, n in ipairs(BUILDINGS) do if not game.entity_prototypes[n] then miss[#miss + 1] = n end end
     for _, n in ipairs(TECHS) do if not game.technology_prototypes[n] then miss[#miss + 1] = n end end
     for _, p in ipairs(POSTES) do if not game.recipe_prototypes[p.r] then miss[#miss + 1] = p.r end end
-    ctx.check(#miss == 0, "prototypes du lot presents (10 objets, 5 batiments, 11 technologies, 21 recettes de poste)",
+    ctx.check(#miss == 0, "prototypes du lot presents (" .. #ITEMS .. " objets, " .. #BUILDINGS .. " batiments, " .. #TECHS
+      .. " technologies, " .. #POSTES .. " recettes de poste)",
       #miss > 0 and table.concat(miss, ", ") or nil)
     -- Packs et prérequis
     local bad = {}
@@ -112,7 +132,7 @@ return {
         end
       end
     end
-    ctx.check(#closed == 0 and n >= 32, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
+    ctx.check(#closed == 0 and n >= 45, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
     -- 4. Productivité
     local lim = game.item_prototypes["productivity-module-3"] and game.item_prototypes["productivity-module-3"].limitations or {}
     local set = {}
@@ -123,9 +143,10 @@ return {
     ctx.check(#wrong == 0, "productivite : recettes prod de X0 admises, hors X0 refusees", #wrong > 0 and table.concat(wrong, ", ") or nil)
 
     -- 3. Postes
-    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 120, Y0 + 12, "refined-concrete")
+    ctx.prepare_area(X0 - 6, Y0 - 10, X0 + 170, Y0 + 12, "refined-concrete")
     for _, e in ipairs(s.find_entities_filtered({ area = { { X0 - 120, Y0 - 120 }, { X0 + 240, Y0 + 120 } }, force = "enemy" })) do e.destroy() end
     ctx.power(X0 + 56, Y0 + 8)
+    ctx.power(X0 + 130, Y0 + 8)
     st.postes = {}
     local x = X0
     local placed, fails = 0, {}
@@ -215,7 +236,7 @@ return {
           { res = { (half + 4) * 32, 12 * 32 }, info = false, aa = true })
       end
     end
-    for _, key in ipairs({ "acier", "sable", "fil" }) do
+    for _, key in ipairs({ "acier", "sable", "fil", "reformage", "tranches" }) do
       for _, pp in ipairs(st.postes) do
         if pp.key == key then
           add("batiment-" .. key .. "-z2-jour", pp.x, pp.y, 2, 0, { res = { (pp.side + 4) * 64, (pp.side + 4) * 64 }, info = true, aa = true })

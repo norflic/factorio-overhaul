@@ -1,4 +1,4 @@
--- Lot AMELIO-CRAFTS (nuit du 29 au 30/10) : chaînes des âges 2, 3, 6 et 11 en jeu (objets, catégories, machines au
+-- Lot AMELIO-CRAFTS (nuit du 29 au 30/10) : chaînes des âges 2, 3, 4, 6, 8, 10 et 11 en jeu (objets, catégories, machines au
 -- visuel PROVISOIRE, recettes, technologies) et débouchés des sous-produits du titane. Données et règles :
 -- shared/content/crafts.lua (lit le scénario X0, shared/content/epochs.lua). Chargé à la fin de prototypes/titanium.lua
 -- (il réutilise le coke, le four à coke, le four à arc et les fluides de la saumure).
@@ -26,6 +26,9 @@ local ICON = {
   ["fo-enameled-wire"] = { "item", "copper-cable", { r = 0.85, g = 0.38, b = 0.26 } },
   ["fo-coil"] = { "item", "iron-gear-wheel", { r = 1.00, g = 0.66, b = 0.36 } },
   ["fo-titanium-composite"] = { "item", "plastic-bar", { r = 0.78, g = 0.80, b = 0.88 } },
+  ["fo-metallurgical-silicon"] = { "item", "stone", { r = 0.55, g = 0.58, b = 0.66 } },
+  ["fo-pure-silicon"] = { "item", "iron-plate", { r = 0.62, g = 0.66, b = 0.80 } },
+  ["fo-silicon-wafer"] = { "item", "copper-plate", { r = 0.55, g = 0.62, b = 0.95 } },
 }
 
 local function icon_of(ptype, name, tint)
@@ -56,7 +59,7 @@ for i, name in ipairs(C.ITEMS) do
 end
 
 -- Fluides (copie de l'eau, icône de la vapeur teintée, comme X1).
-local FLUID_TINT = { ["fo-ethylene"] = { r = 0.80, g = 0.95, b = 0.70 } }
+local FLUID_TINT = { ["fo-ethylene"] = { r = 0.80, g = 0.95, b = 0.70 }, ["fo-carbon-dioxide"] = { r = 0.62, g = 0.64, b = 0.66 } }
 for i, name in ipairs(C.FLUIDS) do
   local f = lib.copy("fluid", "water")
   local tint = assert(FLUID_TINT[name], "crafts : teinte absente pour " .. name)
@@ -172,14 +175,17 @@ local function is_fluid(name)
   return data.raw.fluid[name] ~= nil and data.raw.item[name] == nil
 end
 
-local function ingredient(n, a)
-  if is_fluid(n) then return { type = "fluid", name = n, amount = a } end
-  return { type = "item", name = n, amount = a }
+local function ingredient(n, a, catalyst)
+  local o
+  if is_fluid(n) then o = { type = "fluid", name = n, amount = a } else o = { type = "item", name = n, amount = a } end
+  if catalyst then o.catalyst_amount = catalyst end
+  return o
 end
 
 local function result(r)
   local p = { type = is_fluid(r[1]) and "fluid" or "item", name = r[1], amount = r[2] }
   if r.p then p.probability = r.p end
+  if r.catalyst then p.catalyst_amount = r.catalyst end
   return p
 end
 
@@ -205,7 +211,7 @@ end
 
 for i, x in ipairs(C.all_recipes()) do
   local ings, res = {}, {}
-  for _, ing in ipairs(x.ingredients) do ings[#ings + 1] = ingredient(ing[1], ing[2]) end
+  for _, ing in ipairs(x.ingredients) do ings[#ings + 1] = ingredient(ing[1], ing[2], ing.catalyst) end
   for _, r in ipairs(x.results) do res[#res + 1] = result(r) end
   local main = x.main or (#res == 1 and res[1].name) or nil
   local r = {
@@ -288,6 +294,10 @@ local TECH_ICON = {
   ["fo-electrical-steel"] = { "electric-engine", { r = 0.98, g = 0.80, b = 0.55 } },
   ["fo-titanium-alloys"] = { "low-density-structure", { r = 0.85, g = 0.88, b = 0.96 } },
   ["fo-brine-byproducts"] = { "advanced-oil-processing", { r = 0.86, g = 0.90, b = 1.00 } },
+  ["fo-methane-reforming"] = { "advanced-oil-processing", { r = 0.62, g = 0.82, b = 0.70 } },
+  ["fo-carbonation"] = { "concrete", { r = 0.70, g = 0.72, b = 0.74 } },
+  ["fo-silicon"] = { "advanced-electronics-2", { r = 0.80, g = 0.86, b = 1.00 } },
+  ["fo-siemens-process"] = { "advanced-electronics-2", { r = 0.70, g = 0.95, b = 0.75 } },
 }
 for _, t in ipairs(C.TECHS) do
   local effects = {}

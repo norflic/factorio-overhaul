@@ -192,7 +192,14 @@ for _, rr in ipairs(C.RECIPES) do
   local drop = {}
   for _, d in ipairs(rr.drop or {}) do drop[d] = true end
   check(x and r.time == x.time and r.category == (rr.category or x.category) and #r.ingredients + #(rr.drop or {}) == #x.ingredients
-    and r.results == x.results, rr.name .. " : durée, catégorie, produits de X0 (écarts marqués seulement)")
+    and (r.results == x.results or (rr.results ~= nil and type(rr.ecart) == "string")),
+    rr.name .. " : durée, catégorie, produits de X0 (écarts marqués seulement)")
+  if rr.results then
+    -- écart de rendement : mêmes produits que X0, quantités changées seulement
+    local same_names = #rr.results == #x.results
+    for i, p in ipairs(rr.results) do if not x.results[i] or x.results[i][1] ~= p[1] then same_names = false end end
+    check(same_names, rr.name .. " : écart de rendement seulement (mêmes produits que X0)")
+  end
   local same, k = true, 0
   for _, ing in ipairs(x.ingredients) do
     if not drop[ing[1]] then
@@ -214,7 +221,26 @@ end
 for _, e in ipairs(C.EXTRA_RECIPES) do
   check(T.x_recipe(e.name) == nil, e.name .. " : hors X0 (aucun nom de X0 repris)")
   check(e.time > X.LIMITS.energy_required_min, e.name .. " : durée > 0,001")
-  for _, p in ipairs(e.results) do check(not p[1]:find("^fo%-"), e.name .. " : produit vanilla (" .. p[1] .. ")") end
+  if e.x3 then
+    -- recette du scénario X3 reprise telle quelle
+    local X3 = require("shared.content.x3")
+    local x3r
+    for _, r in ipairs(X3.recipes) do if r.name == e.name then x3r = r end end
+    local same = x3r ~= nil and x3r.time == e.time and x3r.category == e.category and #x3r.ingredients == #e.ingredients
+      and #x3r.results == #e.results
+    for i, ing in ipairs(x3r and x3r.ingredients or {}) do
+      local m = e.ingredients[i]
+      if not m or m[1] ~= ing[1] or m[2] ~= ing[2] or m.catalyst ~= ing.catalyst then same = false end
+    end
+    for i, p in ipairs(x3r and x3r.results or {}) do
+      local m = e.results[i]
+      if not m or m[1] ~= p[1] or m[2] ~= p[2] or m.catalyst ~= p.catalyst then same = false end
+    end
+    check(same, e.name .. " : recette de X3 reprise telle quelle")
+    check(x3r and x3r.variant_of == e.main, e.name .. " : variante de X3 d'un objet du lot (" .. tostring(e.main) .. ")")
+  else
+    for _, p in ipairs(e.results) do check(not p[1]:find("^fo%-"), e.name .. " : produit vanilla (" .. p[1] .. ")") end
+  end
 end
 for _, t in ipairs(C.TECHS) do
   if t.x0 then
@@ -242,7 +268,7 @@ for _, t in ipairs(C.TECHS) do
   for _, p in ipairs(packs) do check(not p:find("^fo%-"), t.name .. " : aucun pack du mod (" .. p .. ")") end
   check(C.tech_count(t) >= 10, t.name .. " : au moins 10 unités")
 end
-check(#C.new_categories() == 5, "5 catégories neuves (" .. table.concat(C.new_categories(), ", ") .. ")")
+check(#C.new_categories() == 7, "7 catégories neuves (" .. table.concat(C.new_categories(), ", ") .. ")")
 
 ---------------------------------------------------------------------------------------------------
 section("2 à 4. Graphe en jeu : présence, impasses, ordre de recherche")
@@ -289,6 +315,50 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("5 ter. Âges 8 et 10 (étape 4) : hydrogène, dioxyde de carbone, silicium")
+---------------------------------------------------------------------------------------------------
+do
+  local function amount(r, name, list)
+    for _, p in ipairs(r[list]) do if p[1] == name then return p[2] end end
+    return 0
+  end
+  local tech_epoch, tech_of = {}, {}
+  for _, t in ipairs(C.TECHS) do
+    tech_epoch[t.name] = t.epoch
+    for _, u in ipairs(t.unlocks) do tech_of[u] = tech_of[u] or {}; table.insert(tech_of[u], t.name) end
+  end
+  local function first_epoch(recipe)
+    local e = 99
+    for _, tn in ipairs(tech_of[recipe] or {}) do e = math.min(e, tech_epoch[tn]) end
+    return e
+  end
+  -- Le reformage fait l'hydrogène à l'âge 8 : un consommateur au même âge (hydrocraquage), et la torchère.
+  check(first_epoch("fo-methane-reforming") == 8, "reformage : âge 8")
+  check(first_epoch("fo-hydrocracking") <= 8, "hydrocraquage : ouvert dès l'âge 8 (" .. first_epoch("fo-hydrocracking") .. ")")
+  check(first_epoch("fo-flare-hydrogen") <= 8, "torchère d'hydrogène : ouverte dès l'âge 8")
+  local ref = C.process_recipe("fo-methane-reforming")
+  local co2 = amount(ref, "fo-carbon-dioxide", "results")
+  local carb = C.process_recipe("fo-slag-carbonation")
+  check(co2 > 0 and amount(carb, "fo-carbon-dioxide", "ingredients") > 0, "dioxyde de carbone : consommé par la carbonatation")
+  check(first_epoch("fo-flare-carbon-dioxide") == first_epoch("fo-methane-reforming"),
+    "dioxyde de carbone : torchère ouverte avec le reformage (aucune usine bloquée)")
+  -- Silicium : le silicium pur mange l'hydrogène ; le procédé Siemens mange en plus le chlore (catalyseur, perte nette).
+  local ps = C.process_recipe("fo-pure-silicon")
+  check(amount(ps, "fo-hydrogen", "ingredients") > 0, "silicium pur : consomme l'hydrogène")
+  local sm = C.process_recipe("fo-siemens-silicon")
+  local cl_in, cl_out = amount(sm, "fo-chlorine", "ingredients"), amount(sm, "fo-chlorine", "results")
+  check(cl_in > cl_out and cl_out > 0, "procédé Siemens : perte nette de chlore (" .. cl_in .. " -> " .. cl_out .. ")")
+  for _, i in ipairs(sm.ingredients) do if i[1] == "fo-chlorine" then check(i.catalyst == cl_out, "Siemens : catalyseur déclaré = chlore rendu") end end
+  check(amount(sm, "fo-metallurgical-silicon", "ingredients") / amount(sm, "fo-pure-silicon", "results")
+    < amount(ps, "fo-metallurgical-silicon", "ingredients") / amount(ps, "fo-pure-silicon", "results"),
+    "Siemens : moins de silicium métallurgique par silicium pur que la voie de X0")
+  -- Écart de rendement du processeur : 1 au lieu de 2 (monnaie de l'âge 10).
+  local cp = C.process_recipe("fo-cleanroom-processor")
+  check(amount(cp, "processing-unit", "results") == 1, "processeur en salle blanche : 1 processeur (écart à X0, monnaie)")
+  check(amount(T.x_recipe("fo-cleanroom-processor"), "processing-unit", "results") == 2, "X0 en donnait 2")
+end
+
+---------------------------------------------------------------------------------------------------
 section("5 bis. Calcul : chaque variante économise une matière sur la recette vanilla")
 ---------------------------------------------------------------------------------------------------
 do
@@ -316,6 +386,11 @@ do
   check(by["fo-arc-steel"] and math.abs(by["fo-arc-steel"].variant["fer"] - 3) < 1e-9
     and math.abs(by["fo-arc-steel"].variant["charbon"] - 2) < 1e-9, "acier électrique : 3 fers + 2 charbons")
   check(by["fo-polyethylene"] and math.abs(by["fo-polyethylene"].variant["gaz"] - 20 / 3) < 1e-9, "polyéthylène : 6,67 gaz par plastique")
+  -- Processeur en salle blanche : 10 circuits verts au lieu de 20 ; le reste (2 rouges, 5 acides) inchangé.
+  local cp = by["fo-cleanroom-processor"]
+  check(cp and cp.variant["acide"] == 5 and cp.vanilla["acide"] == 5, "processeur : 5 acides, comme vanilla")
+  check(cp and cp.vanilla["fer"] - cp.variant["fer"] > 9.99 and cp.vanilla["fer"] - cp.variant["fer"] < 10.01,
+    "processeur en salle blanche : 10 fers de moins (10 circuits verts)")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -410,6 +485,20 @@ do
     for _, t in ipairs(Cm.TECHS) do
       if t.name == "fo-electrical-steel" then t.prerequisites = { "fo-arc-smelting", "electric-engine", "plastics" } end
     end
+  end)
+  mutant("silicium sans le reformage (hydrogène d'aucun prérequis)", function(Cm)
+    for _, t in ipairs(Cm.TECHS) do
+      if t.name == "fo-silicon" then t.prerequisites = { "fo-electrical-steel", "fo-glassworks", "sulfur-processing" } end
+    end
+  end)
+  mutant("sans carbonatation ni torchère : le dioxyde de carbone devient une impasse", function(Cm)
+    Cm.all_recipes = (function(prev)
+      return function()
+        local out = {}
+        for _, r in ipairs(prev()) do if r.name ~= "fo-slag-carbonation" and r.name ~= "fo-flare-carbon-dioxide" then out[#out + 1] = r end end
+        return out
+      end
+    end)(Cm.all_recipes)
   end)
   mutant("prérequis d'un âge plus tardif", function(Cm)
     for _, t in ipairs(Cm.TECHS) do

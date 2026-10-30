@@ -220,6 +220,10 @@ local function verify_recipes(S)
       ok("recette " .. rec.name, string.format("%g produit(s) en %d s", produced, CHECK_TICK / 60))
     elseif progress > 0 then
       ok("recette " .. rec.name, string.format("en cours (%.0f %% d'une fabrication de %g s)", progress * 100, rec.energy))
+    elseif #r.products == 0 and (m.products_finished or 0) > 0 then
+      -- Lot AMELIO-CRAFTS : une torchère ne produit rien ; elle a brûlé tout son fluide avant le contrôle. On compte
+      -- ses fabrications terminées (banc crafts-chaines : 19 fabrications de fo-flare-hydrogen).
+      ok("recette " .. rec.name, string.format("%d fabrication(s) sans produit (torchere)", m.products_finished))
     else
       fail("recette " .. rec.name, "rien produit, statut " .. tostring(m.status))
     end
