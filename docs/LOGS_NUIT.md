@@ -205,3 +205,7 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~5 h 25, passage 58
 - 14 archives (INTEG-0622 x13, JOURNAUX relecture content 331), 0 erreur Lua, codes 0. Echecs tous expliques : migration-content 3 ECHEC (machines du titane sans bobines, connu, au changelog 0.6.22) ; sc-journal 1 ECHEC = controle du scenario perime (fumerolle desormais en jeu) corrige par l'orchestrateur, sc-journal-2 18 OK [mesure].
+
+## 30/10 ~5 h 55, passage 59
+- 10 archives (JOURNAUX relecture 8 OK, CAPI-DEBIT et FUITES-PILE content 331, BIOMES-SUIVI x7 : b0 11, monde 336, content 429, depart 3), 0 erreur Lua, codes 0.
+- BIOMES-SUIVI avant-depart (420 ticks) sans BILAN : releve hors bilan seul (mesure 'avant' sur main, scenario arrete avant le controle ; rejoue a 760 ticks = 3 OK) [deduit, banc.txt + journal]. Rien a ouvrir.
