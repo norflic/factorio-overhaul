@@ -166,3 +166,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 - 14 archives de la piste amelio/petites demandes lues : 0 erreur Lua partout ; content 331 OK sur pd-elec, pd-espacement, pd-fonderieqg, pd-intermediaires, calculs ; centre-qg 12 OK ; crafts-chaines 7 OK ; sc-journal 18 OK ; monde 116 OK.
 - ANOMALIE (mesuree) : BIOMES/apres-1-captures : [FO-B0-BIOMES] 10 OK, 1 ECHEC apres le changement de couleurs des biomes (ligne ci-dessus) ; la verification de la piste doit le traiter, sinon a corriger avant fusion d'amelio-biomes (pas de message : agent de workflow).
 - Snapshots src-0.6.18 des pistes : sources de migration (src-0.*), gardes.
+
+## 30/10 ~2 h, passage 51 (reprise apres la limite d'usage)
+- Limite d'usage atteinte vers 0 h 34, levee a 2 h : tous les agents se sont arretes environ 1 h 25. Les workflows (amelio, petites demandes) ont repris seuls ; integ-0619 relance par message. Verrou orphelin de la place 1 (amelio-crafts, processus 36000 mort depuis 0 h 42) : sera retire par banc.py. Aucune archive nouvelle a lire ; aucun factorio.exe.
