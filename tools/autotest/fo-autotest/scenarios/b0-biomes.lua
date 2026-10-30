@@ -48,6 +48,63 @@ local NUANCIER = {
   { fond = "red-desert-0", disques = { "fo-crystal-flats", "fo-toxic-marsh", "fo-volcanic-ash", "grass-2", "sand-1" } },
 }
 
+-- Lot BIOMES-SUIVI (30/10) : MINERAI DE FER vanilla sur le sol givre (risque du relecteur de BIOMES : fer gris-bleu sur
+-- givre gris-bleu). Trois carrés de FC tuiles (givre, herbe, désert rouge), chacun avec un gisement de fer de FG × FG
+-- tuiles dont la quantité croît d'ouest en est (tous les stades de l'image, du plus maigre au plus riche). Zone à part du
+-- nuancier (b0_bords.py ne lit que le nuancier).
+local FX, FY, FC, FG = 2400, 2480, 22, 12
+local FONDS_FER = { "fo-crystal-flats", "grass-2", "red-desert-0" }
+local QUANTITES_FER = { 60, 120, 250, 500, 1000, 2000, 3500, 6000, 9000, 13000, 18000, 30000 }
+
+local function fer_sur_fonds(s)
+  local x0, y0 = FX - FC / 2, FY - FC / 2
+  local x1, y1 = x0 + #FONDS_FER * (FC + 2), y0 + FC
+  for _, e in ipairs(s.find_entities_filtered({ area = { { x0 - 2, y0 - 2 }, { x1 + 2, y1 + 2 } } })) do
+    if e.valid and e.type ~= "character" then e.destroy() end
+  end
+  local carres = {}
+  for i, fond in ipairs(FONDS_FER) do
+    local cx = x0 + (i - 1) * (FC + 2)
+    local t = {}
+    for x = cx, cx + FC - 1 do
+      for y = y0, y1 - 1 do t[#t + 1] = { name = fond, position = { x, y } } end
+    end
+    s.set_tiles(t) -- les tuiles AVANT les entités (F135)
+    local gx, gy = cx + (FC - FG) / 2, y0 + (FC - FG) / 2
+    local poses = 0
+    for dx = 0, FG - 1 do
+      for dy = 0, FG - 1 do
+        local e = s.create_entity({ name = "iron-ore", position = { gx + dx + 0.5, gy + dy + 0.5 }, amount = QUANTITES_FER[dx + 1] })
+        if e then poses = poses + 1 end
+      end
+    end
+    carres[#carres + 1] = { fond = fond, x = cx + FC / 2, y = y0 + FC / 2, poses = poses }
+  end
+  s.destroy_decoratives({ area = { { x0 - 2, y0 - 2 }, { x1 + 2, y1 + 2 } } })
+  return carres
+end
+
+--- Gisement de fer NATUREL sur le givre (le plus entouré de givre), et nombre d'entités de fer sur le givre.
+local function fer_naturel_sur_givre(s)
+  local n, best, best_score = 0, nil, nil
+  local fer = s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, name = "iron-ore" })
+  local total = #fer
+  local step = 1
+  for i = 1, #fer, step do
+    local p = fer[i].position
+    if s.get_tile(math.floor(p.x), math.floor(p.y)).name == "fo-crystal-flats" then
+      n = n + 1
+      if n % 7 == 1 and fully_generated(s, p) then
+        local g = s.count_tiles_filtered({ position = p, radius = 8, name = "fo-crystal-flats" })
+        local f = s.count_entities_filtered({ position = p, radius = 8, name = "iron-ore" })
+        local score = math.min(g, f * 2)
+        if not best_score or score > best_score then best, best_score = { x = p.x, y = p.y, givre = g, fer = f }, score end
+      end
+    end
+  end
+  return best, n, total
+end
+
 local function nuancier(s)
   local rangs = #NUANCIER
   local n = #NUANCIER[1].disques
@@ -180,6 +237,21 @@ return {
       -- Mise en page pour la mesure des couleurs (b0_bords.py) : centres des disques en coordonnées du monde.
       game.write_file("fo-shots/b0-nuancier.json", game.table_to_json({ rayon = RN, pas = NPAS, disques = st.disques }), false)
     end
+    -- Lot BIOMES-SUIVI : le fer vanilla sur le givre (carrés préparés, et un gisement naturel s'il y en a un).
+    for _, c in ipairs(st.fer_carres or {}) do
+      local k = c.fond == "fo-crystal-flats" and "givre" or c.fond
+      add("fer-" .. k .. "-z1", c.x, c.y, 1, 0, sans)
+      add("fer-" .. k .. "-z2", c.x, c.y, 2, 0, sans)
+    end
+    if st.fer_carres then
+      add("fer-fonds-z05", FX + FC + 1, FY, 0.5, 0, sans)
+      add("fer-fonds-nuit-z05", FX + FC + 1, FY, 0.5, 0.5, sans)
+    end
+    if st.fer_naturel then
+      add("fer-naturel-givre-z05", st.fer_naturel.x, st.fer_naturel.y, 0.5, 0, sans)
+      add("fer-naturel-givre-z1", st.fer_naturel.x, st.fer_naturel.y, 1, 0, sans)
+      add("fer-naturel-givre-z2", st.fer_naturel.x, st.fer_naturel.y, 2, 0, sans)
+    end
   end,
 
   init = function(ctx)
@@ -242,11 +314,23 @@ return {
       if s.get_tile(math.floor(d.x), math.floor(d.y)).name == d.tuile then poses = poses + 1 end
     end
     st.disques_poses = poses
+    -- Lot BIOMES-SUIVI : fer vanilla sur le givre (hors bilan : captures, et comptes au journal).
+    ctx.prepare_area(FX - FC / 2 - 2, FY - FC / 2 - 2, FX - FC / 2 + #FONDS_FER * (FC + 2) + 2, FY + FC / 2 + 2, "grass-2")
+    st.fer_carres = fer_sur_fonds(s)
+    local fc = {}
+    for _, c in ipairs(st.fer_carres) do fc[#fc + 1] = string.format("%s (%.1f, %.1f) %d", c.fond, c.x, c.y, c.poses) end
+    ctx.log("fer sur fonds prepares (fond (x, y) entites) : " .. table.concat(fc, " ; "))
+    local fn, n_fg, n_fer = fer_naturel_sur_givre(s)
+    st.fer_naturel = fn
+    ctx.log(string.format("fer vanilla SUR le givre a moins de %d tuiles : %d entite(s) sur %d ; gisement capture : %s", CHERCHE,
+      n_fg, n_fer, fn and string.format("(%.1f, %.1f), givre %d, fer %d (rayon 8)", fn.x, fn.y, fn.givre, fn.fer) or "aucun"))
     -- Empreinte des gisements (le lot ne doit PAS changer les ressources) : nombre, quantité totale et somme des
     -- positions de chaque ressource à moins de CHERCHE tuiles du départ, avant la pose du nuancier.
     local emp = {}
     for _, r in ipairs({ "iron-ore", "copper-ore", "coal", "stone", "uranium-ore", "crude-oil",
-      "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane" }) do
+      "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane",
+      -- Lot BIOMES-SUIVI : tous les gisements liés à un biome (W.resources avec biome) ; absents : ligne « 0/0/0,0 ».
+      "fo-ilmenite", "fo-brine", "fo-monazite", "fo-fumarole" }) do
       local n, q, sx, sy = 0, 0, 0, 0
       for _, e in ipairs(s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, name = r })) do
         n, q = n + 1, q + e.amount
@@ -261,27 +345,46 @@ return {
     end
     table.sort(puits)
     ctx.log("puits de methane : " .. table.concat(puits, " "))
-    -- Vérification AMELIO-BIOMES : l'exclusion ne touche que la TUILE, pas le masque des gisements liés à un biome.
-    -- Part des entités de chaque gisement lié qui tombent sur une AUTRE tuile que leur biome (hors bilan).
+    -- Vérification AMELIO-BIOMES : part des entités de chaque gisement lié qui tombent sur une AUTRE tuile que leur biome
+    -- (hors bilan). Lot BIOMES-SUIVI : l'exclusion entre biomes s'applique désormais aussi au masque de ces gisements
+    -- (W.exclusion.gisements) ; la ligne compte aussi la QUANTITÉ hors du biome, et les ressources liées d'après.
+    -- Les sites garantis (disques posés par script) sont EXCLUS du compte : leur tuile est celle du biome par construction.
     local lies = { { "fo-tungsten-ore", "fo-volcanic-ash" }, { "fo-resonance-crystal", "fo-crystal-flats" },
-      { "fo-methane", "fo-toxic-marsh" }, { "fo-ilmenite", "fo-crater-fields" }, { "fo-brine", "fo-crater-fields" } }
+      { "fo-methane", "fo-toxic-marsh" }, { "fo-ilmenite", "fo-crater-fields" }, { "fo-brine", "fo-crater-fields" },
+      { "fo-monazite", "fo-black-sands" }, { "fo-fumarole", "fo-volcanic-ash" } }
+    local function hors_site(x, y)
+      for _, e in ipairs(exclus) do
+        if (x - e.x) ^ 2 + (y - e.y) ^ 2 < e.r * e.r then return false end
+      end
+      return true
+    end
     local hors = {}
     for _, l in ipairs(lies) do
       if game.entity_prototypes[l[1]] then
-        local n, h, autres = 0, 0, {}
+        local n, h, q, qh, autres = 0, 0, 0, 0, {}
         for _, e in ipairs(s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, name = l[1] })) do
-          n = n + 1
-          local t = s.get_tile(math.floor(e.position.x), math.floor(e.position.y)).name
-          if t ~= l[2] then h = h + 1; autres[t] = (autres[t] or 0) + 1 end
+          if hors_site(e.position.x, e.position.y) then
+            n, q = n + 1, q + e.amount
+            local t = s.get_tile(math.floor(e.position.x), math.floor(e.position.y)).name
+            if t ~= l[2] then h, qh = h + 1, qh + e.amount; autres[t] = (autres[t] or 0) + 1 end
+          end
         end
         local noms = {}
         for t in pairs(autres) do noms[#noms + 1] = t end
         table.sort(noms)
         for i, t in ipairs(noms) do noms[i] = t .. "=" .. autres[t] end
-        hors[#hors + 1] = string.format("%s %d/%d (%s)", l[1], h, n, table.concat(noms, ","))
+        hors[#hors + 1] = string.format("%s %d/%d tuiles, quantite %d/%d (%s)", l[1], h, n, qh, q, table.concat(noms, ","))
       end
     end
-    ctx.log("gisements lies HORS de leur biome (hors/total) : " .. table.concat(hors, " ; "))
+    ctx.log("gisements lies HORS de leur biome (hors/total, sites garantis exclus) : " .. table.concat(hors, " ; "))
+    -- Sites garantis (positions) : ils ne doivent pas bouger (journal ; comparés avant / après hors bilan).
+    local sites = {}
+    if remote.interfaces["fo-monde"] then
+      for _, d in ipairs(remote.call("fo-monde", "status").done or {}) do
+        for _, site in ipairs(d.sites or {}) do sites[#sites + 1] = string.format("%s(%d,%d)", d.key, math.floor(site.x), math.floor(site.y)) end
+      end
+    end
+    ctx.log("sites garantis : " .. table.concat(sites, " "))
     -- Empreinte du décor généré (arbres, roches) : sert à voir si un changement de tuile déplace les entités du décor.
     local dec = {}
     for _, f in ipairs({ { type = "tree" }, { type = "simple-entity" } }) do
