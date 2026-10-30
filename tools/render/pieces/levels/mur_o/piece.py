@@ -26,9 +26,10 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 AGES = (2, 8, 15)
-TYPES = {"single": (), "vert": ("S",), "horiz": ("E", "O"), "corR": ("E", "S"), "corL": ("O", "S"),
-         "tee": ("E", "O", "S"), "endR": ("E",), "endL": ("O",)}
-ORDRE = ("single", "vert", "horiz", "corR", "corL", "tee", "endR", "endL")
+TYPES = {"single": (), "vert": ("S",), "horiz": ("E", "O"), "horiz2": ("E", "O"), "corR": ("E", "S"),
+         "corL": ("O", "S"), "tee": ("E", "O", "S"), "endR": ("E",), "endL": ("O",)}
+# horiz2 : deuxième variante du segment droit est-ouest (le vanilla en a 6 ; le moteur tire la variante par case)
+ORDRE = ("single", "vert", "horiz", "horiz2", "corR", "corL", "tee", "endR", "endL")
 EPS = 0.02          # les bras est et ouest dépassent de 0,02 tuile : pas de colonne demi-transparente au raccord
 SQ2 = math.sqrt(2.0)
 

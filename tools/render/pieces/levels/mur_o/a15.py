@@ -15,7 +15,7 @@ from geo import surface
 EPOQUE = 15
 NOM = "Néant"
 Z_B, Z_K, Z_A = 0.13, 0.70, 1.36       # socle, cassure des facettes, arête (e2 : plus raide)
-Z_C0, Z_C1 = 1.46, 1.66                # crête flottante
+Z_C0, Z_C1 = 1.46, 1.80                # crête flottante
 SQ2 = math.sqrt(2.0)
 # profil (demi-épaisseur en tuiles, z) : socle droit, corps en deux facettes
 P_BAS, P_K, P_A = 0.44, 0.29, 0.06
@@ -26,7 +26,7 @@ def mats(S):
     M["obsidienne"] = surface("m15_obs", (0.022, 0.02, 0.026), (0.045, 0.04, 0.05), rough=0.16, rough2=0.3,
                               metal=0.0, spec=0.9, var=0.7, var_scale=5.0, grain=0.3, bump=0.15, bump_scale=30.0,
                               edge=((0.16, 0.15, 0.18), 0.5, 0.02), cavity=0.3,
-                              veins=((0.85, 0.58, 0.22), 0.05, 3.2))
+                              veins=((0.85, 0.58, 0.22), 0.06, 1.9))
     M["obs_mat"] = surface("m15_obsm", (0.03, 0.028, 0.034), (0.012, 0.011, 0.014), rough=0.45, metal=0.0, spec=0.6,
                            var=0.6, var_scale=9.0, grain=0.3, bump=0.3, bump_scale=60.0,
                            edge=((0.18, 0.17, 0.2), 0.6, 0.02), cavity=0.4)
@@ -35,7 +35,7 @@ def mats(S):
     M["or_sombre"] = surface("m15_ors", (0.45, 0.30, 0.10), rough=0.35, metal=1.0, var=0.3, grain=0.1, cavity=0.3)
     M["vide"] = surface("m15_vide", (0.004, 0.003, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0,
                         spec=0.0)
-    M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.78, 0.45), strength=1.0, base=(0.05, 0.04, 0.02))
+    M["feu"] = geo.emissive(S, "m15_feu", (1.0, 0.78, 0.45), strength=0.85, base=(0.05, 0.04, 0.02))
     return M
 
 
@@ -74,7 +74,7 @@ def bras(g, M, B):
     for c in (0.0, 0.5, 1.0):
         if c == 0.0 and not S_:
             continue
-        _eclat(g, M, B.x(c), 0.19 * B.ka, k, B.x(B.t0), L)
+        _eclat(g, M, B.x(c), 0.13 * B.ka, k, B.x(B.t0), L)
     # fissure d'incandescence sur l'arête (continue)
     g.prism([(-0.018 * k, Z_A - 0.004), (0.018 * k, Z_A - 0.004), (0.01 * k, Z_A + 0.012), (-0.01 * k, Z_A + 0.012)],
             x0, L, M["feu"], bev=0)
@@ -90,7 +90,7 @@ def bras(g, M, B):
 def _eclat(g, M, xc, h, k, xa, xb):
     """Éclat flottant en losange centré en xc (demi-longueur h), borné à [xa, xb] (coupe nette au bord de case)."""
     zm = 0.5 * (Z_C0 + Z_C1)
-    w = 0.055 * k
+    w = 0.05 * k
 
     def sec(x, f):
         return [(x, -w * f, zm), (x, w * f, zm), (x, 0.0, zm - (zm - Z_C0) * f), (x, 0.0, zm + (Z_C1 - zm) * f)]
@@ -135,7 +135,24 @@ def _aileron(g, M):
              M["or"], poly1=[(-0.01, -(P_K * 0.9) * k - 0.012), (0.01, -(P_K * 0.9) * k - 0.012),
                              (0.01, -(P_K * 0.9) * k + 0.02), (-0.01, -(P_K * 0.9) * k + 0.02)], bev=0)
     # éclat flottant central (le bras n'en porte pas en t = 0)
-    _eclat(g, M, 0.0, 0.19, k, -1.0, 1.0)
+    _eclat(g, M, 0.0, 0.13, k, -1.0, 1.0)
+
+
+def _sceau(g, M):
+    """Variante du segment droit : sceau d'or en losange sur la facette basse, cœur incandescent, éclat central."""
+    k = SQ2
+    zc = 0.42
+    yf = -(P_BAS - (P_BAS - P_K) * (zc - Z_B) / (Z_K - Z_B)) * k
+    r = 0.11
+    g.hull([(0, yf - 0.02, zc + r), (r, yf - 0.02, zc), (0, yf - 0.02, zc - r), (-r, yf - 0.02, zc),
+            (0, yf + 0.03, zc + r), (r, yf + 0.03, zc), (0, yf + 0.03, zc - r), (-r, yf + 0.03, zc)], M["or"],
+           bev=0.006, seg=1)
+    r2 = 0.06
+    g.hull([(0, yf - 0.03, zc + r2), (r2, yf - 0.03, zc), (0, yf - 0.03, zc - r2), (-r2, yf - 0.03, zc),
+            (0, yf - 0.015, zc + r2), (r2, yf - 0.015, zc), (0, yf - 0.015, zc - r2), (-r2, yf - 0.015, zc)],
+           M["obs_mat"], bev=0.003, seg=1)
+    g.box(-0.016, 0.016, yf - 0.036, yf - 0.02, zc - 0.035, zc + 0.035, M["feu"], bev=0)
+    _eclat(g, M, 0.0, 0.13, k, -1.0, 1.0)
 
 
 def _obelisque(g, M):
@@ -180,5 +197,7 @@ def noeud(g, M, forme, bras):
         _obelisque(g, M)
     elif forme == "horiz":
         _aileron(g, M)
+    elif forme == "horiz2":
+        _sceau(g, M)
     elif forme == "tee":
-        _eclat(g, M, 0.0, 0.19, SQ2, -1.0, 1.0)
+        _eclat(g, M, 0.0, 0.13, SQ2, -1.0, 1.0)

@@ -18,7 +18,7 @@ RACINE = r"F:\Factorio.v1.1.91 Modding\Factorio.v1.1.91"
 VAN = os.path.join(RACINE, "data", "base", "graphics", "entity", "wall")
 SOL = os.path.join(RACINE, "data", "base", "graphics", "terrain", "hr-dirt-4.png")
 
-# (fichier, w, h, shift HR px) principal, puis ombre — prototypes/entity/entities.lua (stone-wall), variation 0
+# (fichier, w, h, shift HR px) principal, puis ombre — prototypes/entity/entities.lua (stone-wall) ; NVAR : variations
 VANILLA = {
     "single": (("hr-wall-single.png", 64, 86, (0, -10)), ("hr-wall-single-shadow.png", 98, 60, (20, 34))),
     "vert": (("hr-wall-vertical.png", 64, 134, (0, 16)), ("hr-wall-vertical-shadow.png", 98, 110, (20, 58))),
@@ -29,6 +29,8 @@ VANILLA = {
     "endR": (("hr-wall-ending-right.png", 64, 92, (0, -6)), ("hr-wall-ending-right-shadow.png", 124, 68, (34, 30))),
     "endL": (("hr-wall-ending-left.png", 64, 92, (0, -6)), ("hr-wall-ending-left-shadow.png", 102, 68, (18, 30))),
 }
+
+NVAR = {"single": 2, "vert": 5, "horiz": 6, "corR": 2, "corL": 2, "tee": 4, "endR": 2, "endL": 2}
 
 TRACE = [
     "............",
@@ -48,6 +50,17 @@ def forme(T, x, y):
     e, o, s = at(x + 1, y), at(x - 1, y), at(x, y + 1)
     return {(0, 0, 0): "single", (0, 0, 1): "vert", (1, 1, 0): "horiz", (1, 0, 1): "corR", (0, 1, 1): "corL",
             (1, 1, 1): "tee", (1, 0, 0): "endR", (0, 1, 0): "endL"}[(int(e), int(o), int(s))]
+
+
+def image(jeu, T, x, y):
+    """Forme de la case puis variante (le moteur la tire au hasard par case ; ici, d'après la position)."""
+    f = forme(T, x, y)
+    if jeu.nom == "vanilla":
+        v = (x * 7 + y * 3) % NVAR[f]
+        return jeu.f[f if v == 0 else "%s#%d" % (f, v)]
+    if f == "horiz" and "horiz2" in jeu.f and (x + y) % 2 == 1:
+        return jeu.f["horiz2"]
+    return jeu.f[f]
 
 
 def lin(c):
@@ -73,16 +86,21 @@ class Jeu:
     def vanilla():
         j = Jeu("vanilla")
         for f, ((fm, w, h, sh), (fs, ws, hs, shs)) in VANILLA.items():
-            m = load(os.path.join(VAN, fm))[:h, :w]
+            full = load(os.path.join(VAN, fm))
             s = load(os.path.join(VAN, fs))[:hs, :ws]
-            j.f[f] = {"main": (m, sh[0] - w // 2, sh[1] - h // 2), "shadow": (s, shs[0] - ws // 2, shs[1] - hs // 2)}
+            for v in range(NVAR[f]):
+                m = full[:h, v * w:(v + 1) * w]
+                j.f[f if v == 0 else "%s#%d" % (f, v)] = {"main": (m, sh[0] - w // 2, sh[1] - h // 2),
+                                                          "shadow": (s, shs[0] - ws // 2, shs[1] - hs // 2)}
         return j
 
     @staticmethod
     def rendu(d, age):
         j = Jeu("âge %d" % age)
-        for f in VANILLA:
+        for f in list(VANILLA) + ["horiz2"]:
             sd = os.path.join(d, "a%02d-%s" % (age, f))
+            if not os.path.exists(sd):
+                continue
             spec = json.load(open(os.path.join(sd, "spec.json"), encoding="utf-8"))
             j.f[f] = {}
             for layer, L in spec["layers"].items():
@@ -106,7 +124,7 @@ def compose(jeu, T, marge=(1.0, 1.6), gris=False):
     centre = {c: (int(c[0] * 64 + 32), int(oy + c[1] * 64 + 32)) for c in cases}
     sha = np.zeros((H, W))
     for c in cases:
-        L = jeu.f[forme(T, *c)]
+        L = image(jeu, T, *c)
         if "shadow" in L:
             a, x0, y0 = L["shadow"]
             cx, cy = centre[c]
@@ -119,7 +137,7 @@ def compose(jeu, T, marge=(1.0, 1.6), gris=False):
     img = srgb(img)
     glow = np.zeros((H, W, 3))
     for c in sorted(cases, key=lambda c: (c[1], c[0])):
-        L = jeu.f[forme(T, *c)]
+        L = image(jeu, T, *c)
         cx, cy = centre[c]
         for layer in ("main", "glow"):
             if layer not in L:

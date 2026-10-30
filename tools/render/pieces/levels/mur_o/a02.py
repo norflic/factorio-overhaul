@@ -151,12 +151,11 @@ def _tour(g, M):
             g.box(cx - hx, cx + hx, cy - hy, cy + hy, zc - 0.01, zm - 0.035, M["brique"], bev=0.005)
             g.box(cx - hx - 0.012, cx + hx + 0.012, cy - hy - 0.012, cy + hy + 0.012, zm - 0.035, zm, M["dalle"],
                   bev=0.006)
-    # foyer : cuve de fer, braises en creux
-    g.cyl((0, 0, zc + 0.05), "z", 0.13, 0.10, M["fer"], n=24, r2=0.15, bev=0.004)
-    g.cyl((0, 0, zc + 0.095), "z", 0.125, 0.02, M["braise"], n=24, bev=0)
-    g.S.torus(0.14, 0.016, (0, 0, zc + 0.10), M["fer"], major_seg=32, minor_seg=8)
-    g.rivets([(0.14 * math.cos(a * math.pi / 4), 0.14 * math.sin(a * math.pi / 4), zc + 0.115, "z") for a in range(8)],
-             0.014, M["fer"])
+    # plate-forme : trappe de fer rivetée et tuyau de forge à chapeau (la braise ne se voit que par la meurtrière)
+    g.box(-0.11, 0.11, -0.11 * ky, 0.11 * ky, zc - 0.005, zc + 0.012, M["fer"], bev=0.004)
+    g.rivets([(x, y * ky, zc + 0.014, "z") for x in (-0.085, 0.085) for y in (-0.085, 0.085)], RIV, M["fer"])
+    g.cyl((0.06, 0.12 * ky, zc + 0.12), "z", 0.045, 0.24, M["fer"], n=16, bev=0.003)
+    g.cyl((0.06, 0.12 * ky, zc + 0.255), "z", 0.075, 0.03, M["fer"], n=16, r2=0.02, bev=0.003)
     # bandeau de fer de la tour et rivets
     za, zb = 0.40, 0.46
     g.loft_z(carre(ha(za) + 0.018), za, zb, M["fer"], poly1=carre(ha(zb) + 0.018), bev=0.005)
@@ -209,11 +208,37 @@ def _contrefort(g, M):
              (-0.12 * k, Z_M), (-0.145 * k, Z_M - 0.01)], -0.125, 0.125, M["dalle"], bev=0.006)
 
 
+def _merlon_central(g, M):
+    k = SQ2
+    g.prism([(-0.13 * k, Z_CAP - 0.01), (0.13 * k, Z_CAP - 0.01), (0.12 * k, Z_M - 0.03), (-0.12 * k, Z_M - 0.03)],
+            -0.125, 0.125, M["brique"], bev=0.005)
+    g.prism([(-0.145 * k, Z_M - 0.035), (0.145 * k, Z_M - 0.035), (0.145 * k, Z_M - 0.01), (0.12 * k, Z_M),
+             (-0.12 * k, Z_M), (-0.145 * k, Z_M - 0.01)], -0.125, 0.125, M["dalle"], bev=0.006)
+
+
+def _archere(g, M):
+    """Variante du segment droit : archère cruciforme dans le talus, encadrement de pierre, suie au-dessus."""
+    k = SQ2
+
+    def hwk(z):
+        return hw(z) * k
+    z0, z1 = 0.24, 0.66
+    _talus_box(g, M, M["chaine"], -0.075, 0.075, z0 - 0.05, z0, 0.012, 0.03, hwk)
+    _talus_box(g, M, M["chaine"], -0.075, 0.075, z1, z1 + 0.05, 0.012, 0.03, hwk)
+    _talus_box(g, M, M["chaine"], -0.07, -0.035, z0, z1, 0.008, 0.03, hwk)
+    _talus_box(g, M, M["chaine"], 0.035, 0.07, z0, z1, 0.008, 0.03, hwk)
+    _talus_box(g, M, M["vide"], -0.022, 0.022, z0, z1, 0.002, 0.04, hwk)
+    _talus_box(g, M, M["vide"], -0.06, 0.06, 0.43, 0.47, 0.002, 0.04, hwk)
+    _merlon_central(g, M)
+
+
 def noeud(g, M, forme, bras):
     if forme in ("single", "corR", "corL", "endR", "endL"):
         _tour(g, M)
     elif forme == "horiz":
         _contrefort(g, M)
+    elif forme == "horiz2":
+        _archere(g, M)
     elif forme == "tee":
         k = SQ2
         g.prism([(-0.13 * k, Z_CAP - 0.01), (0.13 * k, Z_CAP - 0.01), (0.12 * k, Z_M - 0.03),

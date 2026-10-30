@@ -52,6 +52,8 @@ def mats(S):
                             var_scale=7.0, grain=0.28, bump=0.8, bump_scale=40.0, edge=((0.36, 0.38, 0.33), 0.6, 0.02),
                             cavity=0.55, streak=0.4, top=((0.12, 0.22, 0.04), 0.7, 0.35),
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
+    M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
+                          grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
     M["mousse"] = surface("m8_mousse", (0.06, 0.14, 0.02), (0.03, 0.07, 0.012), rough=1.0, var=0.8, var_scale=12.0,
                           grain=0.35, bump=1.0, bump_scale=120.0, cavity=0.5, spec=0.2)
     M["vide"] = surface("m8_vide", (0.006, 0.008, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0, spec=0.0)
@@ -165,6 +167,25 @@ def _contrefort(g, M):
     _mousse(g, M, 0.04, -(HW0 + 0.09) * k, 0.0, 0.1)
 
 
+def _gargouille(g, M):
+    """Variante du segment droit : gargouille de cuivre au milieu, coulée verte de vert-de-gris, mousse épaisse."""
+    k = SQ2
+    y = -(HW1 + 0.05) * k
+    g.cyl((0, y - 0.09, Z_W - 0.07), "y", 0.04, 0.22, M["cuivre"], n=12, r2=0.03, bev=0)
+    g.box(-0.05, 0.05, y - 0.004, y + 0.04, Z_W - 0.15, Z_W - 0.01, M["cuivre_sombre"], bev=0.004)
+    g.rivets([(x, y - 0.006, z, "y") for x in (-0.03, 0.03) for z in (Z_W - 0.12, Z_W - 0.04)], RIV,
+             M["cuivre_sombre"])
+    # coulée de vert-de-gris le long du talus (plaque mince qui suit la pente)
+    for (z0, z1, w) in ((0.30, Z_W - 0.16, 0.035), (0.10, 0.30, 0.05)):
+        pa = [(-w, -(hw(z0) * k + 0.004)), (w, -(hw(z0) * k + 0.004)), (w, -(hw(z0) * k - 0.02)),
+              (-w, -(hw(z0) * k - 0.02))]
+        pb = [(-w * 0.7, -(hw(z1) * k + 0.004)), (w * 0.7, -(hw(z1) * k + 0.004)), (w * 0.7, -(hw(z1) * k - 0.02)),
+              (-w * 0.7, -(hw(z1) * k - 0.02))]
+        g.loft_z(pa, z0, z1, M["coulee"], poly1=pb, bev=0)
+    _mousse(g, M, -0.05, -(HW0 + 0.02) * k, 0.0, 0.13)
+    _mousse(g, M, 0.12, -(HW0 + 0.0) * k, 0.0, 0.08)
+
+
 def _tour(g, M):
     """Tour ronde de pierre en talus, toit conique de cuivre à nervures, hublot et épi à lumière acide."""
     R0, R1, zt, HT = 0.47, 0.37, 1.04, 0.42
@@ -222,3 +243,5 @@ def noeud(g, M, forme, bras):
         _tour(g, M)
     elif forme == "horiz":
         _contrefort(g, M)
+    elif forme == "horiz2":
+        _gargouille(g, M)
