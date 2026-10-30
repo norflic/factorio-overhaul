@@ -227,3 +227,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~7 h 55, passage 64
 - 11 archives (INTEG-0625 x6, PREVISION-CALIB x4 dont prev-tues 6 OK, FER-MARQUE content 429), 0 erreur Lua, codes 0. Seuls echecs : migration 0.6.18 3 ECHEC connus (titane sans bobines). Rien de nouveau.
+
+## 30/10 ~8 h 30, passage 65
+- 7 archives (INTEG-0626 x4, PREVISION-CALIB relecture x3), 0 erreur Lua, codes 0 ; seuls echecs : migration 0.6.18 3 ECHEC connus (titane sans bobines). Rien de nouveau. main = 0.6.26.
