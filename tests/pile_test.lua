@@ -156,6 +156,30 @@ local function battery(Pi, C, B)
   st = Pi.update(Pi.new(), sig({ penurie = true }), 0)
   check(st.top == Pi.PRODUIRE and st.hold and Pi.allows(st, "extraction") and not Pi.allows(st, "capital"),
     "mode pénurie : sommet produire, extraction permise, capital suspendu")
+  -- h bis. Lot PREVISION : cadre « preparer » (vague IMMINENTE prévue au-dessus de la défense d'un site).
+  local prep = { id = "qg", have = 2, want = 4, exec = true, why = "imminent" }
+  st = Pi.update(Pi.new(), sig({ prep = { prep } }), 0)
+  check(st.hold and st.top == Pi.ADAPTER and has_frame(st, "preparer:qg") ~= nil and not Pi.allows(st, "capital"),
+    "preparer : vague imminente au-dessus de la défense, le cadre retient l'amélioration")
+  check(Pi.allows(st, "preparer") and Pi.allows(st, "armee") == false, "preparer est de rang R1 (l'armée ordinaire, R2, attend)")
+  st = Pi.update(Pi.new(), sig({ prep = { { id = "qg", have = 2, want = 4, exec = true, nohold = true, why = "insurmontable" } } }), 0)
+  check(has_frame(st, "preparer:qg") ~= nil and not st.hold, "preparer sans retenue (insurmontable, au-delà de PREP_MAX) : rien n'est gelé")
+  st = Pi.update(Pi.new(), sig({ prep = { { id = "qg", have = 2, want = 4, exec = false, why = "sans executant" } } }), 0)
+  check(st.blocked and not st.hold, "preparer sans exécutant (front refusé, aucune recrue) : bloqué, rien n'est gelé (trou d'exécutant, C10)")
+  st = Pi.update(Pi.new(), sig({ prep = { prep }, production_first = true }), 0)
+  check(has_frame(st, "preparer:qg") ~= nil and not st.hold, "preparer sous « production d'abord » : les ressources d'abord, rien n'est gelé")
+  st = Pi.update(Pi.new(), sig({ prep = { { id = "qg", have = 4, want = 4, exec = true } } }), 0)
+  check(has_frame(st, "preparer:qg") == nil and not st.hold, "défense visée atteinte : aucun cadre")
+  local pst2 = Pi.new()
+  Pi.update(pst2, sig({ prep = { prep } }), 0)
+  Pi.update(pst2, sig({ prep = { prep } }), 10 * 60 * 3600)
+  check(pst2.hold, "preparer : AUCUNE horloge (10 h plus tard, tant que la prévision le tient, il retient)")
+  Pi.update(pst2, sig(), 10 * 60 * 3600 + 60)
+  check(not pst2.hold and (pst2.closed_n or 0) >= 1, "la prévision retire le site : le cadre est dépilé")
+  local sgp = Pi.signals({ workers = 8 }, {}, nil, { cap = {} }, { prevu = { prep } })
+  check(sgp.prep and sgp.prep[1].id == "qg", "signaux : les sites à préparer viennent de ctx.prevu (script/ai3/cerveau.lua)")
+  check(Pi.describe(Pi.update(Pi.new(), sig({ prep = { prep } }), 0)):find("preparer:qg(2/4,imminent)", 1, true) ~= nil,
+    "journal [FO-PILE] : tourelles en pièces (2/4) et raison")
   -- i. Ordre interne de R1 (Pr.decide) : production d'abord -> pièces et matières devant la protection.
   local both = sig({ posts = { hq_fer }, repair = { lost }, raw_need = { [IRON] = { n = 40, prio = 90 } } })
   st = Pi.update(Pi.new(), both, 0)
@@ -326,6 +350,12 @@ local MUTANTS = {
     from = "(view.workers or 0) < floor and not view.recruit_blocked then", to = "(view.workers or 0) < floor then" },
   { name = "projet rouvert sans voie qui gèle", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
     from = "exec = sig.plan_path ~= false,", to = "exec = true," },
+  { name = "preparer qui retient malgré la prévision (nohold ignoré)", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "nohold = (p.nohold or pf) and true or nil,", to = "nohold = nil," },
+  { name = "preparer sans exécutant qui gèle", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "exec = p.exec and true or false,", to = "exec = true," },
+  { name = "preparer jamais ouvert", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "for _, p in ipairs(sig.prep or {}) do", to = "for _, p in ipairs({}) do" },
   { name = "croissance sans le seuil de la pile", mod = "shared.ai3.buts", file = "shared/ai3/buts.lua",
     from = "local grow_short = (s.focus and s.focus[product]) and 1 or B.GROW_SHORT", to = "local grow_short = B.GROW_SHORT" },
   { name = "capital non suspendu au cerveau", mod = "shared.ai3.cerveau", file = "shared/ai3/cerveau.lua",

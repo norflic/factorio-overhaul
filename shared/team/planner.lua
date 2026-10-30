@@ -1079,10 +1079,14 @@ function P.plan(view, book)
   -- (Intégration 0.6.20, résolution proposée par DEFENSE-CHOIX : `surge` remplace `view.threatened` ; la levée anticipée reste entière.)
   local alert_need = (view.army_alert and view.army_need) or 0
   local urgent = surge or view.soldiers < alert_need
-  if surge or alert_need > 0 or army_goal_passed then
+  -- Lot PREVISION : armée visée à MOYEN terme (vague prévue à 15 min qui dépasse les tourelles, script/ai3/prevision.lua) : relève la
+  -- cible ordinaire, à la priorité ordinaire (45 : produire d'abord) ; seule l'alerte (vague imminente) a la priorité de la défense.
+  local soon = view.army_soon or 0
+  if surge or alert_need > 0 or soon > 0 or army_goal_passed then
     local target = surge and math.max(P.army_target(view), view.soldiers + T.kit_batch)
       or (army_goal_passed and P.army_target(view) or 0)
     if alert_need > target then target = alert_need end
+    if soon > target then target = soon end
     if army_now and goal and goal.need.soldiers then target = math.max(target, goal.need.soldiers) end
     target = math.min(target, view.soldiers_max)
     if view.soldiers < target and not out.train then -- lot IA2-a2 : garde déjà équipée au QG à cette pensée

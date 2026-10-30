@@ -70,6 +70,8 @@ local Lv = require("shared.ai3.leviers")
 local MM = require("shared.content.module_mult")
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie (la production passe avant la défense)
 local Sv = require("shared.team.survie")
+local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
+local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 
 local Capi = {}
 
@@ -175,11 +177,13 @@ local function dump_full()
     if p then
       local conv = Ca.entity_of({ crafting_speed = get(p, "crafting_speed"), mining_speed = get(p, "mining_speed"),
         researching_speed = get(p, "researching_speed"), resource_searching_radius = get(p, "mining_drill_radius"),
-        tile_width = get(p, "tile_width"), energy_usage = get(p, "energy_usage") or get(p, "max_energy_usage") })
+        tile_width = get(p, "tile_width"), energy_usage = get(p, "energy_usage") or get(p, "max_energy_usage"),
+        emissions_per_second = Prev.emit_per_min(p, e.name) / 60 }) -- lot PREVISION (C12) : avec le repli sur la source d'énergie
       e.speed = e.speed or conv.speed
       e.mining_area = conv.mining_area
       e.size = conv.size
       e.energy_kw = conv.energy_kw
+      e.emit = conv.emit
     end
   end
   for _, r in ipairs(d.resources) do
@@ -669,6 +673,28 @@ local function successors_for(cs)
   return out
 end
 
+--- Lot PREVISION (C12) : prix de la défense induite (MU par pollution/min de plus) : PV de vague en plus par pollution/min (relevé
+--- de la prévision) × marge ÷ valeur d'une tourelle × MU d'une tourelle garnie (valeurs de la règle) ; nil sans relevé ni nid.
+local function defense_input(f, D)
+  local dv = Prev.capi_defense(f)
+  local tmu = D.mu and D.mu[T.turret]
+  if not (dv and tmu) then return nil end
+  local mu = tmu + ((D.mu[T.turret_ammo] or 0) * T.defend_ammo)
+  local price = Pv.defense_price(dv.hp_per_emit, dv.turret_value, mu, dv.marge)
+  if price <= 0 then return nil end
+  -- Journal [FO-PREVISION] (une ligne par cause : le prix de la défense induite change de plus de 20 %).
+  local pst = f.prevision
+  -- (relecture de la revue : sous le même plafond de lignes que le reste du journal de la prévision, Prev.LOGS_MAX par équipe)
+  if pst and (pst.logs or 0) < Prev.LOGS_MAX
+    and (not pst.price_logged or math.abs(price - pst.price_logged) > 0.2 * pst.price_logged) then
+    pst.price_logged = price
+    pst.logs = (pst.logs or 0) + 1
+    log(string.format("[FO-PREVISION] %s DEFENSE INDUITE comptee par la capitalisation : %.2f MU par pollution/min (%.1f PV de vague par pollution/min, tourelle %d PV pour %d MU)",
+      tostring(f.key or "player"), price, dv.hp_per_emit, math.floor(dv.turret_value), math.floor(mu)))
+  end
+  return { price = price, hp_per_emit = dv.hp_per_emit, turret_mu = mu }
+end
+
 local function build_input(f, cs, view, book, tick, D, w)
   local st = f.team.ia3
   local force = game.forces[f.force]
@@ -828,6 +854,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
     production_first = production_first,
+    defense = defense_input(f, D), -- lot PREVISION (C12) : « oui, compter la défense » dans le coût de chaque investissement
   }
 end
 

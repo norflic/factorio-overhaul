@@ -123,6 +123,20 @@ do
   local k2 = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, exclude = ex })
   check(k2 ~= nil and k2 ~= k1, "secteur exclu (chemin raté) : autre cible")
   check(K.best_target(m, { hq = hq, me = hq, tick = 0, max_dist = 100 }) == nil, "rien au-delà de la distance maximale")
+  -- Lot IA3F-PETROLE : exclusion DOUCE (régions bloquées) : évitée tant qu'il reste une autre cible, jamais « rien » à cause d'elle.
+  local _, _, s0 = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 } })
+  check(s0 == false, "sans exclusion douce : cible ordinaire (" .. tostring(s0) .. ")")
+  local ks, _, s1 = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, soft = { [k1] = true } })
+  check(ks ~= nil and ks ~= k1 and s1 == false, "cible en exclusion douce : une autre cible hors d'elle")
+  local all_soft = setmetatable({}, { __index = function() return true end })
+  local kall, sall, s2 = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, soft = all_soft })
+  check(kall == k1 and sall ~= nil and s2 == true,
+    "toute la frontière en exclusion douce : la meilleure cible quand même, signalée (" .. tostring(kall) .. ", " .. tostring(s2) .. ")")
+  local kh = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, soft = all_soft,
+    exclude = setmetatable({}, { __index = function() return true end }) })
+  check(kh == nil, "exclusion dure de toute la frontière : rien (la douce ne la lève pas)")
+  local kn = K.best_target(m, { hq = hq, me = hq, tick = 0, spawn = { x = 0, y = 0 }, soft = all_soft, exclude = ex })
+  check(kn ~= nil and kn ~= k1, "exclusion dure d'une cible, douce partout : jamais la cible exclue en dur (" .. tostring(kn) .. ")")
   -- A priori : une ressource jamais vue se cherche plutôt loin du départ de la carte.
   local mm = K.new()
   for sy = -1, 1 do for sx = -1, 1 do K.record(mm, key(sx + 8, sy), 0, {}) end end

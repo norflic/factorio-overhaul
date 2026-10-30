@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.24
+Date: 2026-10-30
+  Changes:
+    - Prevision de la menace (vos arbitrages : « comme le joueur », « compter la defense ») : un seul estimateur, a partir de ce que l'equipe voit (nids connus, pollution recue, unites vues, tourelles), estime la prochaine vague ; il ouvre un cadre « preparer » dans la pile (tourelles d'avance avant la vague, sous le plafond), regle le recrutement et le regroupement de l'armee, autorise un raid preventif quand les soldats libres suffisent, et compte la defense induite dans le cout d'un agrandissement. Calibre par les pertes reelles. [FO-PREVISION]
+    - Exploration : les eclaireurs ne finissent plus sur « rien » quand toute la frontiere est en region bloquee ; le petrole est trouve bien plus souvent dans la premiere demi-heure. [FO-IA3F]
+    - Non mesure : la precision de la prevision (vague prevue contre vague recue) demande une partie longue.
+    - Rien n'a ete rejoue en partie longue : relecture statique, integration verifiee, tests hors jeu verts (pvp 1305, ia3f 61), bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.23
 Date: 2026-10-30
   Changes:

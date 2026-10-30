@@ -433,5 +433,33 @@ do
   check(front_post(mm) and front_post(mm).floor_i == 10 and front_post(stepc).floor_i > 10, "mutant « plancher réduit sans le pas de production » refusé")
 end
 
+section("12. Lot PREVISION : tourelles d'AVANCE (C10 de la critique : un exécutant pose avant le coup)")
+do
+  local pre = { { key = "prev:qg", x = 100, y = 0, have = 2, want = 5 } }
+  local hot = { { key = "9,9", x = 150, y = 150, score = 900 } }
+  local pp = F.plan({ prevu = pre, cells = hot, turrets = {} })
+  check(pp.pick and pp.pick.key == "prev:qg" and pp.pick.kind == "prevu" and pp.pick.count == F.BATCH,
+    "vague imminente prévue : ses tourelles d'avance passent AVANT une cellule déjà attaquée, par lots (" .. tostring(pp.pick and pp.pick.key) .. ")")
+  check(pp.pick and pp.pick.have == 2 and pp.pick.want == 5, "have et want viennent de la prévision (tourelles du site, en pièces)")
+  local pd = F.plan({ prevu = { { key = "prev:qg", x = 100, y = 0, have = 5, want = 5 } }, cells = hot, turrets = {} })
+  check(pd.pick and pd.pick.key == "9,9", "défense d'avance déjà posée : la cellule attaquée est servie")
+  local pr = F.plan({ prevu = pre, cells = hot, turrets = {}, allow = function(r) return r.kind ~= "prevu" end })
+  check(pr.pick and pr.pick.key == "9,9" and pr.rows[1].skip == "refus", "ennemi déjà sur place (le moteur refuse) : ligne prévue refusée, rien de bloqué")
+  local pc = F.plan({ prevu = pre, turrets = {}, placed = F.TEAM_CAP })
+  check(pc.pick == nil and pc.rows[1].skip == "plafond", "plafond d'équipe : même la défense d'avance l'attend (raison lue par la prévision)")
+  -- Relecture de la revue : la défense d'avance laisse aux cellules attaquées les F.ATTACK_RESERVE dernières places du plafond.
+  local pres = F.plan({ prevu = pre, cells = hot, turrets = {}, placed = F.TEAM_CAP - F.ATTACK_RESERVE })
+  check(pres.pick and pres.pick.key == "9,9" and pres.rows[1].skip == "plafond",
+    "plafond presque atteint : les dernières places vont à la cellule RÉELLEMENT attaquée, pas à la prévision (" .. tostring(pres.pick and pres.pick.key) .. ")")
+  local pres2 = F.plan({ prevu = pre, cells = hot, turrets = {}, placed = F.TEAM_CAP - F.ATTACK_RESERVE - 1 })
+  check(pres2.pick and pres2.pick.key == "prev:qg" and pres2.pick.count == 1, "au-dessus de la réserve : la défense d'avance est servie, bornée à la place qui reste")
+  local prest = F.plan({ prevu = pre, turrets = {}, rest = { ["prev:qg"] = true } })
+  check(prest.pick == nil and prest.rows[1].skip == "repos", "pose précédente sans résultat : ligne au repos")
+  -- mutant : lignes prévues ignorées par le plan -> rien n'est posé avant le coup
+  local real = F.plan
+  local mut = function(p) local q = {}; for k, v in pairs(p) do q[k] = v end; q.prevu = nil; return real(q) end
+  check(mut({ prevu = pre, turrets = {} }).pick == nil and real({ prevu = pre, turrets = {} }).pick ~= nil, "mutant « tourelles d'avance ignorées » refusé")
+end
+
 print(string.format("[FRONT] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

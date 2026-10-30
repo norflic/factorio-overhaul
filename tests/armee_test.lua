@@ -1,12 +1,15 @@
 --[[
-  Lot ARMEE-ANTICIPATION (retour du DC du 29/10, point 2) : banc HORS JEU de la règle pure shared/ai3/armee.lua (menace estimée,
-  besoin, regroupement, raid, mémoire des raids repoussés) et de son branchement dans Sd.assign (shared/ai3/soldats.lua :
+  Lot ARMEE-ANTICIPATION (retour du DC du 29/10, point 2) : banc HORS JEU de la règle pure shared/ai3/armee.lua (besoin,
+  regroupement, raid, mémoire des raids repoussés ; l'ESTIMATION vient depuis le lot PREVISION de l'estimateur unique,
+  shared/ai3/prevision.lua et prevision_choix.lua, testés par tests/prevision_test.lua) et de son branchement dans Sd.assign (shared/ai3/soldats.lua :
   regroupement au lieu des patrouilles, raid seulement avec l'effectif, aucune autre expédition pendant l'alerte, besoin du
   nettoyage compté sur le champ entier). Mutants qui doivent échouer.
   Lancement : lua5.2 tests/armee_test.lua (depuis la racine du mod).
 ]]
 package.path = "./?.lua;" .. package.path
 local A = require("shared.ai3.armee")
+local Pv = require("shared.ai3.prevision")
+local Pc = require("shared.ai3.prevision_choix")
 local Sd = require("shared.ai3.soldats")
 local Bu = require("shared.ai3.buts")
 
@@ -43,20 +46,32 @@ local function field(x, y, nests, worms, units, polluted)
   return c
 end
 
+-- Lot PREVISION : situation estimée par l'estimateur unique. QG pollueur (100/min), tourelles (dps), `soldiers` soldats de 480 PV
+-- chacun ; champ de `nests` nids autour de (fx, fy) dont la case porte la pollution `c` (0 : le nid ne reçoit rien) ; unités VUES
+-- (PV) à portée d'œil du QG. Unité moyenne : 75 PV, 4 de pollution, 0,2 tuile/tick. Rend l'estimation et les décisions.
+local function situation(o)
+  local nests = {}
+  for i = 1, o.nests or 2 do nests[#nests + 1] = { x = o.fx + i, y = o.fy, c = o.c or 0, nb = 0 } end
+  local est = Pv.estimate({ evo = 0, kinds = { { units = { { hp = 75, cost = 4, speed = 0.2, pts = { { 0, 1 } } } } } },
+    gather = { min = 1, max = 10, size = 200 }, sites = { { key = "qg", x = 0, y = 0, emit = 100, dps = o.dps or 0,
+      dpsr = (o.dps or 0) * 18, turrets = o.turrets or 0, seen = o.seen or 0, contact = 0 } }, nests = nests, rivals = {} })
+  local n = o.soldiers or 10
+  local pc = Pc.update(Pc.new(), est, { soldiers = n, soldiers_max = 30, soldier_value = 480, mobile = n * 480,
+    turret_value = 600, iron = o.iron or 2000, reserve = 150, kit_iron = 20, turret_iron = 60 }, 0)
+  return est, pc
+end
+local function decide(fields, o)
+  local est, pc = situation(o)
+  return A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = fields, prev = pc, est = est,
+    free = o.free or 13, soldier_value = 480, fails = o.fails }), est, pc
+end
+
 local function body()
   section("Besoin : monotone, force d'un soldat, zéro sans menace")
   check(A.need(0, 1) == 0 and A.need(nil, 1) == 0, "aucune menace : aucun soldat")
   check(A.need(2, 1) == 3, "poids 2, fusilier : 3 soldats (marge 1,5) : " .. A.need(2, 1))
   check(A.need(10, 1) > A.need(4, 1), "plus de menace, plus de soldats")
   check(A.need(10, 2) < A.need(10, 1), "soldats plus forts : moins de soldats")
-
-  section("Unités en approche : sans double compte avec les champs")
-  local f1 = { x = 60, y = 0 }
-  local w, c = A.incoming({ { x = 61, y = 2, w = 1 }, { x = 0, y = 40, w = 2 }, { x = 0, y = 42, w = 2 } }, { f1 })
-  check(w == 4, "l'unité du champ n'est pas recomptée (poids " .. w .. ")")
-  check(c and c.x == 0 and c.y == 41, "barycentre des unités en approche")
-  local w0, c0 = A.incoming({}, { f1 })
-  check(w0 == 0 and c0 == nil, "aucune unité : poids 0")
 
   section("Champs : nids seulement, triés par distance, bornés")
   local cl = {}
@@ -74,35 +89,40 @@ local function body()
   local m3 = A.muster(HQ, nil, HOME)
   check(m3.x == HOME.x and m3.y == HOME.y, "direction inconnue : rassemblement du QG")
 
-  section("Estimation : un champ NON pollué ne prépare pas de vague")
+  section("Estimation (prévision) : un champ que la pollution n'atteint pas ne prépare pas de vague")
   local cold = field(90, 0, 2, 4, 6, false)
-  local e0 = A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = { cold }, approach = {} })
+  local e0 = decide({ cold }, { fx = 90, fy = 0, c = 0 })
   check(not e0.alert and e0.threat == 0 and #e0.hot == 0, "champ froid : aucune alerte (menace " .. e0.threat .. ")")
 
-  section("Estimation : champ pollué (vague qui se prépare) -> alerte, besoin, regroupement, raid")
+  section("Estimation (prévision) : champ pollué -> alerte d'état, besoin borné, regroupement, raid préventif")
   local hot = field(90, 0, 2, 4, 6, true)
-  local e1 = A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = { hot }, approach = {} })
+  local e1, est1, pc1 = decide({ hot }, { fx = 90, fy = 0, c = 50 })
   check(e1.alert, "alerte")
-  check(e1.threat == 6 + 2 * A.NEST_W, "menace = unités + poids des nids (" .. e1.threat .. ")")
-  check(e1.need == A.need(e1.threat, 1), "besoin estimé")
+  check(math.abs(e1.threat - est1.by.qg.w5) < 1e-6 and e1.threat > 0, "menace = vague de la prévision (" .. e1.threat .. " PV)")
+  check(e1.need == pc1.army_need and e1.need > 0 and e1.need <= 30, "besoin = celui de la prévision, sous le plafond (" .. e1.need .. ")")
   check(e1.nests == 2 and e1.worms == 4, "2 nids et 4 vers comptés (" .. e1.nests .. ", " .. e1.worms .. ")")
-  check(e1.muster and e1.muster.x > 0 and e1.muster.x <= A.MUSTER_R, "regroupement entre le QG et le champ")
-  check(e1.raid and e1.raid.need == Sd.clear_need(6) + A.need(6, 1), "raid : champ entier + défenseurs (" .. tostring(e1.raid and e1.raid.need) .. ")")
-  -- Relecture : l'effectif recruté couvre le raid visé (+ réserve), sinon le raid reste différé pour toujours.
-  check(e1.raid and e1.recruit == e1.raid.need + A.RAID_RESERVE and e1.recruit > e1.need,
-    "recrutement : besoin du raid + réserve (" .. tostring(e1.recruit) .. ", menace seule " .. tostring(e1.need) .. ")")
+  check(e1.muster and e1.muster.x > 0 and e1.muster.x <= A.MUSTER_R + 1e-9, "regroupement entre le QG et le champ")
+  check(e1.raid and e1.raid.need == Sd.clear_need(6) + A.need(6, 1), "raid : champ entier + défenseurs VUS (" .. tostring(e1.raid and e1.raid.need) .. ")")
+  -- Relecture : l'effectif recruté couvre le raid visé (+ réserve), sous le même budget que la prévision.
+  check(e1.raid and e1.recruit == math.min(e1.raid.need + A.RAID_RESERVE, pc1.army_cap) and e1.recruit >= e1.need,
+    "recrutement : besoin du raid + réserve, sous le budget (" .. tostring(e1.recruit) .. ", vague seule " .. tostring(e1.need) .. ")")
   check(A.raid_alive(e1.raid, { { x = e1.raid.x + 10, y = e1.raid.y } }), "raid visé : groupe encore connu")
   check(not A.raid_alive(e1.raid, { { x = e1.raid.x + 60, y = e1.raid.y } }) and not A.raid_alive(e1.raid, {}) and not A.raid_alive(nil, {}),
     "raid visé : champ nettoyé depuis l'estimation : plus de raid")
   local far = field(150, 0, 2, 0, 0, true)
-  local e2 = A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = { far }, approach = {} })
+  local e2 = decide({ far }, { fx = 150, fy = 0, c = 50 })
   check(e2.alert and e2.raid == nil, "champ menaçant hors de portée d'expédition : alerte sans raid")
-  check(e2.recruit == e2.need, "sans raid : recrutement au besoin de la menace")
-  local e3 = A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = {},
-    approach = { { x = 0, y = 60, w = 1 }, { x = 2, y = 60, w = 1.5 } } })
-  check(e3.alert and e3.incoming == 2.5 and e3.muster.y > 0, "vague déjà en approche : alerte, regroupement de son côté")
-  local e4 = A.estimate({ tick = 0, hq = HQ, home = HOME, strength = 1, fields = {}, approach = { { x = 0, y = 60, w = 1 } } })
-  check(not e4.alert, "une unité isolée (poids 1 < ALERT_W) : pas d'alerte")
+  check(e2.recruit == e2.need, "sans raid : recrutement au besoin de la vague")
+  local one = field(90, 0, 1, 0, 30, true) -- un nid défendu par 30 de poids VUS
+  local e2b = decide({ one }, { fx = 90, fy = 0, c = 50, nests = 1 })
+  check(e2b.raid == nil and e2b.raid_why and e2b.raid_why:find("engage"), "un nid bien défendu : le raid vaut moins qu'il n'engage, refusé (" .. tostring(e2b.raid_why) .. ")")
+  local e3 = decide({}, { fx = 300, fy = 0, nests = 0, seen = 3000, soldiers = 2 })
+  check(e3.alert and e3.threat == 3000, "vague VUE à portée d'œil, peu de soldats : alerte (" .. e3.threat .. ")")
+  local e4 = decide({}, { fx = 300, fy = 0, nests = 0, seen = 3000, soldiers = 10 })
+  check(not e4.alert, "la même vague couverte par 10 soldats : pas d'alerte (écart, pas niveau)")
+  local e5 = decide({ hot }, { fx = 90, fy = 0, c = 50, nests = 20, iron = 150 })
+  check(e5.alert and e5.raid == nil and e5.muster.x == HOME.x and e5.muster.y == HOME.y,
+    "vague insurmontable (aucun fer libre) : repli au QG, aucun raid")
 
   section("Raid repoussé : la fois suivante, au moins FAIL_MULT × la force envoyée")
   local fails = A.record_fail({}, hot.x, hot.y, 15, 100)
@@ -112,7 +132,8 @@ local function body()
   check(A.raid_need(hot, 1, fails, 100 + A.FAIL_TICKS) == Sd.clear_need(6) + A.need(6, 1), "mémoire échue : besoin ordinaire")
   local fails2 = A.record_fail(fails, hot.x + 2, hot.y, 4, 300)
   check(#fails2 == 1 and fails2[1].n == 4, "même champ : l'entrée est remplacée")
-  check(A.alert_on({ alert_until = 50 }, 49) and not A.alert_on({ alert_until = 50 }, 50) and not A.alert_on(nil, 0), "alerte en cours")
+  check(A.alert_on({ alert = true }) and not A.alert_on({ alert = false }) and not A.alert_on(nil)
+    and not A.alert_on({ alert_until = 1e9 }), "alerte d'état (l'ancienne alerte à l'horloge d'une sauvegarde ne compte plus)")
 
   section("Sd.assign : regroupement au lieu des patrouilles (13 soldats, DC)")
   local base = { tick = 10, hq = HQ, agr = 1000, soldiers = soldiers(13), threats = {} }
@@ -218,13 +239,12 @@ do
   run("marge nulle", function() A.MARGIN = 0 end, function() A.MARGIN = orig end)
 end
 do
-  local orig = A.estimate
-  run("pollution ignorée", function()
-    A.estimate = function(input)
-      for _, c in ipairs(input.fields or {}) do c.polluted = true end
-      return orig(input)
-    end
-  end, function() A.estimate = orig end)
+  local orig = A.hot
+  run("champ que la pollution n'atteint pas compté chaud", function() A.hot = function() return true end end, function() A.hot = orig end)
+end
+do
+  local orig = Pc.raid_gate
+  run("porte du raid ouverte à tout", function() Pc.raid_gate = function() return true, "ouvert" end end, function() Pc.raid_gate = orig end)
 end
 do
   local orig = Sd.assign

@@ -124,7 +124,9 @@ function C.base_view(view, st)
   for _, kind in ipairs(T.OUTPOST_ORDER) do if st.ever[kind] then done[kind] = true end end
   local em = view.emergency
   if st.army_done and (view.threatened or (em and em.rebuild)) then done.army = true end
-  local vb = setmetatable({ ladder = {}, no_research = true, done = done, deferred = {} }, { __index = view })
+  -- Lot PREVISION (relecture de la revue) : l'armée visée à MOYEN terme (view.army_soon) est un PROJET du cerveau (cible unique
+  -- army_target, script/ai3/cerveau.lua, servie par B.goals) ; le planificateur permanent ne la recrute pas une seconde fois.
+  local vb = setmetatable({ ladder = {}, no_research = true, done = done, deferred = {}, army_soon = false }, { __index = view })
   return vb
 end
 
