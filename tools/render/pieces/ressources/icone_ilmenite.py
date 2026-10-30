@@ -45,13 +45,16 @@ PIECE = {"name": "icone-ilmenite", "variants": {"J7": {}}, "margin_px": 32}
 PAS_IC = 6.0          # écart entre deux cellules, en tuiles
 PX = 256.0            # pixels par tuile du rendu des icônes
 GRAINE = 7307
-GROS = 1.10       # morceaux grossis (ronde 6 : à 32 px, le jour entre les morceaux mangeait le cadre)
+GROS = 1.15       # (1,10 avant la ronde 7) morceaux grossis (ronde 6 : à 32 px, le jour entre les morceaux mangeait le cadre)
 RUGOSITE = 0.22   # reflets plus nets que J7 (0,26) : arêtes claires des icônes vanilla
 FICHIERS = ("icone.png", "icone-1.png", "icone-2.png", "icone-3.png")
 
 # Matières : couleurs J7 (directions.MAT["ilmenite_k"], ["ilmenite_bronze"], valeurs linéaires)
-BRUN = (0.11, 0.078, 0.058)
+BRUN = (0.15, 0.11, 0.085)    # brun J7 exact (ronde 7, critique : le brun plus sombre noyait l'icône à 32 px)
 BRONZE = (0.33, 0.22, 0.14)
+BRONZE_MAX = 0.30   # part de bronze au plus dans une plage (ronde 7 : à 1,0, les plages beiges en aplat se lisaient
+                    # « granit » ou « biscuit », absentes de J7 ; le bronze de J7 est dans les REFLETS, pas en taches)
+RELIEF = 0.15       # force du bosselage (ronde 7 : 0,35 émiettait les grands reflets bronze de J7 en grain)
 # Compositions (tuiles de jeu, y vers le sud, relatives au centre de la cellule) : (x, y, taille, bosse, part de bronze)
 #   bosse : None ou (angle en degrés, taille relative) d'une bosse soudée (amas J7 : tête et 1 bosse) ;
 #   tablettes : (x, y, longueur, largeur, inclinaison en degrés, azimut en degrés).
@@ -98,6 +101,7 @@ def _matiere(S, nom, part_bronze):
     mb = N.new("ShaderNodeMapRange")
     mb.inputs["From Min"].default_value = 0.64 - 0.22 * part_bronze
     mb.inputs["From Max"].default_value = 0.72 - 0.22 * part_bronze
+    mb.inputs["To Max"].default_value = BRONZE_MAX
     L.new(nb.outputs["Fac"], mb.inputs["Value"])
     # grain fin de la couleur (comme mat_metal : ±22 %)
     ng = N.new("ShaderNodeTexNoise")
@@ -136,7 +140,7 @@ def _matiere(S, nom, part_bronze):
     # rugosité et métal : J7 (0,26 ; 0,62) sur le brun, bronze (0,32 ; 0,65)
     rr = N.new("ShaderNodeMapRange")
     rr.inputs["To Min"].default_value = RUGOSITE
-    rr.inputs["To Max"].default_value = RUGOSITE + 0.06
+    rr.inputs["To Max"].default_value = RUGOSITE + 0.06 * BRONZE_MAX
     L.new(mb.outputs["Result"], rr.inputs["Value"])
     L.new(rr.outputs["Result"], p.inputs["Roughness"])
     p.inputs["Metallic"].default_value = 0.72
@@ -160,7 +164,7 @@ def _matiere(S, nom, part_bronze):
     ad.inputs[1].default_value = 0.5
     L.new(nr.outputs["Fac"], ad.inputs[2])
     bu = N.new("ShaderNodeBump")
-    bu.inputs["Strength"].default_value = 0.35
+    bu.inputs["Strength"].default_value = RELIEF
     bu.inputs["Distance"].default_value = 0.012
     L.new(ad.outputs["Value"], bu.inputs["Height"])
     L.new(bu.outputs["Normal"], p.inputs["Normal"])

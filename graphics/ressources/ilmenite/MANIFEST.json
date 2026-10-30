@@ -57,7 +57,7 @@
   "echantillons": 128,
   "px_par_tuile": 256.0,
   "rendu": "tools/render/pieces/ressources/icone_ilmenite.py (forme J7, morceaux posés, relief)",
-  "secondes_blender": 153.1
+  "secondes_blender": 257.6
  },
  "nom": "ilmenite",
  "nom_direction": "morceaux bosselés d'ilménite brun-noir à reflets bronze, tablettes d'accent",
@@ -78,10 +78,10 @@
  "sha256": {
   "hr-ilmenite-effet.png": "838bb0a2232ebf7ee52ad8f0fe69fc9d13ed92a839b9d7dd4bab5f69bedead09",
   "hr-ilmenite.png": "51ffbc96437e06464811b79d05ee789fb5c4f47e068aeafc99b048cf9a887c6d",
-  "icone-1.png": "ba4d2bd0bc6fec91fdad17badc1b26081564782e3cca0c61975d56589a5a7e4a",
-  "icone-2.png": "83f719aebe9b7b8ab1abb3a16110a28f9377991d5fd97c83dbf29561d604667d",
-  "icone-3.png": "07bde58044aba64a0ec4d0f89277587ec207b5e42ba3b42f090c24fd732040d9",
-  "icone.png": "1c0799140eae7f2e75368833587c01e70cefd92dde3f57032fb551f0664929cd",
+  "icone-1.png": "32376306fd6a9c2ea14c1bf16b750c9593fe7cc195c63c31e48f165f86f0c47f",
+  "icone-2.png": "28c3421beca48c7274cf29b29f9d955ae4759ce4d08d1e510d3e963dff9989fa",
+  "icone-3.png": "cdffc05eaee482920ab2425229a0b2b685d84f0ae3230bee91f4fce8aa4ebffe",
+  "icone.png": "b576e23703dea7f2ff242d097aba802f3f7692d6099152a11a1477763895e1d4",
   "ilmenite-effet.png": "de729554fa16adf2958a161215696718121d67be46c802496f6b5edea4239097",
   "ilmenite.png": "4449fcfeb3ed8eed557dfcf59cc42d6a49be4e643bc91b11c013f1a24e69f573"
  }
