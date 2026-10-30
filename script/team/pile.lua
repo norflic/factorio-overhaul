@@ -100,12 +100,14 @@ local function pile_of(f)
 end
 
 --- Un travail de la famille `family` (shared/ai3/pile.lua Pi.FAMILY_RANK) produisant `item` (facultatif) peut-il avancer ? Rend
---- (permis, raison). Lit l'état écrit par la dernière pensée (f.team.ia3.pile) et ses manques (f.team.ia3.short : la matière manque,
---- investissement de production permis). Sans cerveau par besoins ni pile : permis.
+--- (permis, raison). Lit l'état écrit par la dernière pensée (f.team.ia3.pile) et ses manques PROPRES (f.team.ia3.short_core,
+--- shared/ai3/pile.lua Pi.short_core : la matière manque hors des besoins des améliorations elles-mêmes, investissement de production
+--- permis ; relecture : f.team.ia3.short comptait les manques du module lui-même, qui passait alors tout seul). Sans cerveau par
+--- besoins ni pile : permis.
 function PileRt.porte(f, family, item)
   local st = pile_of(f)
   if not (st and st.hold) then return true, nil end
-  local short = f.team.ia3.short or {}
+  local short = f.team.ia3.short_core or {}
   return Pi.porte(st, family, item, item ~= nil and (short[item] or 0) > 0)
 end
 

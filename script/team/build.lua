@@ -2529,7 +2529,13 @@ end
 --- investissement de production : pendant une retenue, seulement pour une matière d'un cadre ouvert ou qui manque ; la ligne déjà bâtie
 --- continue de produire, ses pièces du pas suivant ne sont plus demandées (ln.missing effacé). Rend vrai si suspendu.
 function Build.grow_suspended(f, p, ln, tick)
-  local ok, why = PileRt.porte(f, "invest", p.spec and p.spec.product)
+  -- (relecture : le produit, et le minerai de la ligne, au cadre ouvert ; une ligne FINIE d'une sauvegarde 0.6.21 n'a pas de
+  -- spec.product, Build.tag ne marquant que les modules encore ouverts : sans le minerai, la ligne du fer des tourelles restait
+  -- suspendue pendant tout un siège ; le minerai d'une plaque d'un cadre est dans focus, Pi.update produce)
+  local items = {}
+  if p.spec and p.spec.product ~= nil then items[#items + 1] = p.spec.product end
+  if ln.ore ~= nil then items[#items + 1] = ln.ore end
+  local ok, why = PileRt.porte_any(f, "invest", items)
   if ok then return false end
   ln.missing = nil
   PileRt.refuse(f, "ligne:" .. p.id, string.format("projet %d, ligne %s : agrandissement suspendu (%s)", p.id, tostring(ln.ore),

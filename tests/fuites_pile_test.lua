@@ -8,12 +8,14 @@
     1. porte pure (Pi.porte) : pile vide ; R1 suspend capital, capi, recherche, migration, amélioration des tapis ; exceptions :
        objet d'un cadre ouvert (focus), investissement de production d'une matière qui manque ; réparer jamais suspendu (même sous
        R0) ; familles d'un module (reconstruction, agrandissement, neuf, capitalisation, migration) et d'un ordre de la
-       capitalisation ; refus notés une fois par épisode, bornés, oubliés quand la pile se vide ;
+       capitalisation ; refus notés une fois par épisode, bornés, oubliés quand la pile se vide ; relecture : manques PROPRES
+       (Pi.improving, Pi.short_core : les manques d'une amélioration hors des cadres ne la justifient pas elle-même) ;
     2. reconstruction contre agrandissement (Sw.rebuilding, fuite b) : rouvert après sa dernière fin, jamais fini, pas d'agrandissement
        d'une ligne déjà réparée, murs rouverts sans date ; Sw.project_needs et Rr.partial_go suivent ;
     3. buts des modules (A.goals) : famille portée, module en reconstruction avant le neuf du même produit ;
     4. pensée pure (C.think) sous une retenue : module NEUF suspendu (refus noté), module EN RECONSTRUCTION gardé, module neuf d'une
-       matière d'un cadre ouvert gardé ; pile vidée : le module neuf revient ;
+       matière d'un cadre ouvert gardé ; pile vidée : le module neuf revient ; relecture : module neuf de cuivre dont les propres
+       foreuses font manquer le cuivre : suspendu quand même ;
     5. exécutant au moteur simulé réduit (script/team/build.lua) : réserve d'un module neuf suspendue (objets rendus, manques effacés,
        raison « pile », journal [FO-PILE] une fois), module rouvert pour reconstruction et pas d'agrandissement jamais suspendus,
        agrandissement de ligne suspendu (pièces plus demandées), pile vide : rien de suspendu ; famille posée sur un projet d'avant le
@@ -97,6 +99,24 @@ local function battery(Pi, C, B, A, Sw, Rr)
   check(rs.refus and rs.refus.k1, "pile toujours retenue : les refus déjà écrits ne se répètent pas")
   Pi.update(rs, sig(), 600)
   check(rs.refus == nil and Pi.suspend(rs, "k1", "a") == true, "pile vidée : épisode fini, un refus futur est de nouveau écrit")
+
+  -- Relecture : manques PROPRES (Pi.short_core) : ceux d'une amélioration hors des cadres ne la justifient pas elle-même
+  check(Pi.improving({ kind = "module", pile = "capital", product = NEW_PRODUCT }, {}) == true
+    and Pi.improving({ kind = "module", pile = "capital", product = IRON }, { [IRON] = true }) == false
+    and Pi.improving({ kind = "module", pile = "reparer", product = NEW_PRODUCT }, {}) == false
+    and Pi.improving({ kind = "module", product = NEW_PRODUCT }, {}) == false
+    and Pi.improving({ kind = "module", grow = true, product = NEW_PRODUCT }, {}) == true
+    and Pi.improving({ kind = "capi", order = { item = NEW_PRODUCT } }, {}) == true
+    and Pi.improving({ kind = "army" }, {}) == false,
+    "Pi.improving : module neuf, agrandissement et capitalisation hors des cadres ; ni reconstruction, ni alimentation, ni cadre ouvert")
+  local core = Pi.short_core({ [IRON] = { n = 30 }, [ORE] = { n = 4.5 } },
+    { { goal = { kind = "module", pile = "capital", product = IRON }, missing = { [IRON] = 30 } },
+      { goal = { kind = "army" }, missing = { [ORE] = 1.5 } },
+      { goal = { kind = "module", pile = "capi", product = ORE }, missing = { [ORE] = 3 } } }, {})
+  check(core[IRON] == nil and core[ORE] == 2, "Pi.short_core : manques propres = manques moins ceux des améliorations (arrondi au-dessus)")
+  local core2 = Pi.short_core({ [IRON] = { n = 30 } }, { { goal = { kind = "module", pile = "capital", product = IRON },
+    missing = { [IRON] = 30 } } }, { [IRON] = true })
+  check(core2[IRON] == 30, "Pi.short_core : les manques d'une amélioration qui sert un cadre ouvert restent comptés")
 
   section("2. Reconstruction contre agrandissement (Sw.rebuilding)")
   check(Sw.rebuilding({ reopened = 1, reopened_tick = 500, finished = 400 }) == true, "rouvert APRÈS sa fin : reconstruction")
@@ -182,6 +202,22 @@ local function battery(Pi, C, B, A, Sw, Rr)
   rich[IRON] = 900
   C.think(view({ outposts = outs, stock = rich, hq_turrets = T.defend_hq }), book, sst, ctx(3000, { new_mod }))
   check(not sst.pile.hold and has_project(sst, "auto:" .. NEW_PRODUCT), "QG pourvu : la pile se vide, le module neuf reprend")
+  -- Relecture : un module NEUF dont les propres foreuses (circuits) font manquer SA matière ne passe pas la retenue tout seul
+  local CU = T.outposts.copper.product
+  local cu_mod = { product = CU, state = "reserve", missing = { { "electric-mining-drill", 20 } }, pile = "capital" }
+  local cst = C.new_state(0)
+  cst.targets = { iron = 1, coal = 1, copper = 1, stone = 0 }
+  cst.iron2_set = true
+  local cu_rich = { [CU] = 60, [IRON] = 900, [T.turret_ammo] = 100, [T.fuel] = 400, stone = 300 }
+  C.think(view({ outposts = outs, stock = cu_rich, hq_turrets = T.defend_hq }), book, cst, ctx(0, { cu_mod }))
+  check(not cst.pile.hold and (cst.short[CU] or 0) > 0 and (cst.short_core[CU] or 0) == 0,
+    "sans retenue : le cuivre manque au seul module neuf (manque propre nul)")
+  local cu_poor = { [CU] = 60, [IRON] = 60, [T.turret_ammo] = 100, [T.fuel] = 400, stone = 300 }
+  C.think(view({ outposts = outs, stock = cu_poor }), book, cst, ctx(300, { cu_mod }))
+  check(cst.pile.hold and not cst.pile.focus[CU] and not has_project(cst, "auto:" .. CU),
+    "retenue : le module neuf de cuivre ne se justifie pas par son propre manque (suspendu)")
+  C.think(view({ outposts = outs, stock = cu_poor }), book, cst, ctx(600, { cu_mod }))
+  check(not has_project(cst, "auto:" .. CU), "et le reste à la pensée suivante")
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -226,7 +262,7 @@ end
 local function team(hold, focus, short)
   local st = Pi5.new()
   st.hold, st.top, st.focus = hold, hold and Pi5.ADAPTER or Pi5.AMELIORER, focus or {}
-  return { key = "fx", force = "fx", started = 0, hq = { valid = true }, team = { ia3 = { pile = st, short = short or {} } },
+  return { key = "fx", force = "fx", started = 0, hq = { valid = true }, team = { ia3 = { pile = st, short_core = short or {} } },
     build = { order = {}, projects = {} } }
 end
 do
@@ -262,6 +298,10 @@ do
   check(n_logs("[FO-PILE] fx : refus : ligne:9") == 1, "journal [FO-PILE] du refus de l'agrandissement")
   check(Build.grow_suspended(team(true, { [NEW_PRODUCT] = true }), lp, { ore = ORE }, 1000) == false, "agrandissement d'une matière d'un cadre : passe")
   check(Build.grow_suspended(team(false), lp, { ore = ORE }, 1000) == false, "pile vide : l'agrandissement passe")
+  check(Build.grow_suspended(team(true, { [ORE] = true, [IRON] = true }), { id = 10, state = "fini", spec = {} }, { ore = ORE }, 1000) == false,
+    "ligne finie d'une sauvegarde 0.6.21 (sans produit) : son minerai au cadre ouvert suffit")
+  check(Build.grow_suspended(team(true, {}, { [IRON] = 5 }), { id = 12, state = "fini", spec = {} }, { ore = ORE }, 1000) == true,
+    "un manque d'une autre matière n'ouvre pas l'agrandissement d'une ligne sans produit")
   -- projet d'avant le lot (sauvegarde 0.6.21) : famille posée une fois
   local tf = team(false)
   tf.build.projects[11] = { id = 11, spec = { gen = "smelter" } }
@@ -291,8 +331,12 @@ has(capi, "eq_ok, eq_why = PileRt.porte_any(f, \"capi\", { rec.d_item })", "capi
 has(capi, "if m.reason == \"pile\" then rec.progress_tick = tick end", "capitalisation : un module suspendu ne fait pas échouer son ordre")
 has(auto, "pile = Pi.module_family(m.rebuild, m.grow_step, m.capi, nil) }", "automatisation : famille de chaque module (fuite b)")
 has(auto, "m.rebuild, m.grow_step = s.rebuilding or nil, s.growth or nil", "automatisation : reconstruction et agrandissement relus au plan")
-has(auto, "if state == \"reserve\" and s.reason == \"pile\" then m.reserve_since, m.reserve_left = tick, nil end",
-  "automatisation : une réserve suspendue n'est pas annulée « materiaux introuvables »")
+has(auto, "if state == \"reserve\" and s.reason == \"pile\" then\n          m.reserve_since, m.reserve_left = tick, nil\n        elseif state == \"reserve\" then",
+  "automatisation : une réserve suspendue n'est pas annulée « materiaux introuvables » (horloge hors reserve_clock)")
+has(auto, "items = items, gain = m.gain, grow = grew }", "automatisation : le but d'alimentation dit qu'il porte un agrandissement")
+has(cerv, "st.short_core = Pi.short_core(E.raw, order, pile.focus)", "pensée : manques propres écrits pour la porte")
+has(cerv, "local short_prev = st.short_core or {}", "pensée : la porte des modules lit les manques propres")
+has(prt, "local short = f.team.ia3.short_core or {}", "runtime : la porte lit les manques propres")
 has(auto, "pile = rq.capi and \"capi\" or \"capital\", product = rq.product,", "automatisation : famille et produit portés par la demande")
 has(auto, "local grow_ok = (s and s.grow and #s.grow > 0) and PileRt.porte(f, \"invest\", m.product) or false",
   "automatisation : pièces d'agrandissement plus fabriquées pendant une retenue")
@@ -338,6 +382,12 @@ local MUTANTS = {
     from = "reason = m.reason, pile = m.pile,", to = "reason = m.reason," },
   { name = "pensée sans porte des modules", mod = "shared.ai3.cerveau", file = "shared/ai3/cerveau.lua",
     from = "elseif g.kind == \"module\" and g.pile then", to = "elseif false then" },
+  { name = "manques propres = tous les manques", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "if p.missing and Pi.improving(p.goal, focus) then", to = "if false then" },
+  { name = "pensée lit tous les manques", mod = "shared.ai3.cerveau", file = "shared/ai3/cerveau.lua",
+    from = "local short_prev = st.short_core or {}", to = "local short_prev = st.short or {}" },
+  { name = "cadre ouvert ignoré par Pi.improving", mod = "shared.ai3.pile", file = "shared/ai3/pile.lua",
+    from = "return not (item ~= nil and focus ~= nil and focus[item] == true)", to = "return true" },
 }
 local killed = 0
 quiet = true

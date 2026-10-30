@@ -305,6 +305,46 @@ function Pi.order_family(kind)
   return Pi.ORDER_RESEARCH[kind] and "recherche" or "capi"
 end
 
+--- Relecture FUITES-PILE : un but d'AMÉLIORATION dont le produit ne sert aucun cadre ouvert (`focus`) : module neuf, de migration ou
+--- pas d'agrandissement (g.pile de rang > s'adapter), alimentation qui porte les pièces d'un agrandissement (g.grow), but de la
+--- capitalisation (g.kind « capi », objet de son ordre). Ses PROPRES manques ne justifient pas l'exception « matière qui manque » de
+--- Pi.porte (Pi.short_core) : sans cela, un module neuf de cuivre dont les foreuses demandent des circuits rendait le cuivre
+--- « manquant » et passait la retenue tout seul, pensée après pensée (relecture, moteur simulé : projet gardé sous la retenue).
+function Pi.improving(g, focus)
+  if type(g) ~= "table" then return false end
+  local item
+  if g.kind == "module" and (g.pile or g.grow) then
+    if g.pile and (Pi.FAMILY_RANK[g.pile] or Pi.AMELIORER) <= Pi.ADAPTER then return false end
+    item = g.product
+  elseif g.kind == "capi" then
+    item = g.order and g.order.item
+  else
+    return false
+  end
+  return not (item ~= nil and focus ~= nil and focus[item] == true)
+end
+
+Pi.SHORT_EPS = 1e-6 -- manques fractionnaires (recettes) : en deçà, plus rien ne manque
+
+--- Relecture FUITES-PILE : manques « propres » de l'équipe, lus par l'exception « matière qui manque » de la porte (shared/ai3/cerveau.lua,
+--- script/team/pile.lua PileRt.porte) : les manques de la pensée (`raw` = E.raw, { [matière] = { n } }) MOINS ceux des projets
+--- d'amélioration hors des cadres ouverts (`projects` : projets émis par la pensée, p.goal et p.missing de shared/ai3/projets.lua).
+--- Rend { [matière] = n > 0 } (entiers). Pur, clés triées.
+function Pi.short_core(raw, projects, focus)
+  local own = {}
+  for _, p in ipairs(projects or {}) do
+    if p.missing and Pi.improving(p.goal, focus) then
+      for _, k in ipairs(sorted_keys(p.missing)) do own[k] = (own[k] or 0) + (p.missing[k] or 0) end
+    end
+  end
+  local out = {}
+  for _, k in ipairs(sorted_keys(raw)) do
+    local v = ((raw[k] and raw[k].n) or 0) - (own[k] or 0)
+    if v > Pi.SHORT_EPS then out[k] = math.ceil(v - Pi.SHORT_EPS) end
+  end
+  return out
+end
+
 Pi.REFUS_OUT_MAX = 40 -- refus en attente d'écriture au journal ; au-delà, comptés seulement (st.refus_lost)
 
 --- Note un REFUS de la pile (clé stable : ordre, projet, but) ; une seule fois par clé et par épisode de retenue (st.refus est vidé

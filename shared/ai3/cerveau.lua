@@ -203,7 +203,9 @@ function C.think(view, book, st, ctx)
   -- pendant que le QG manquait de tourelles.
   if pile.hold then
     local kept = {}
-    local short_prev = st.short or {}
+    -- (relecture : manques PROPRES de la pensée précédente, sans ceux des améliorations elles-mêmes, Pi.short_core ; une sauvegarde
+    -- d'avant la relecture n'en a pas encore : aucune exception pendant une pensée)
+    local short_prev = st.short_core or {}
     for _, g in ipairs(goals) do
       local keep = true
       if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
@@ -263,6 +265,8 @@ function C.think(view, book, st, ctx)
     if (short[k] or 0) > 0 then st.short_n[k] = (st.short_n[k] or 0) + 1 else st.short_n[k] = nil end
   end
   st.short = short
+  -- Relecture FUITES-PILE : manques propres (sans ceux des améliorations hors des cadres ouverts), lus par la porte de la pile
+  st.short_core = Pi.short_core(E.raw, order, pile.focus)
   st.need = st.need or {}
   for _, k in ipairs(sorted_keys(raw)) do
     local use = math.max(0, (avail0[k] or 0) - (E.avail[k] or 0))

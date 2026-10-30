@@ -816,8 +816,9 @@ function A.goals(goals, auto, weights, research)
     if not fed[fd.product] and fd.items and #fd.items > 0 then
       fed[fd.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, fd.gain or 0)))
+      -- (relecture FUITES-PILE : g.grow, pièces d'un agrandissement, lu par Pi.improving ; jamais suspendu ici, g.pile reste nil)
       goals[#goals + 1] = { key = "alim:" .. fd.product, family = "capital", kind = "module", product = fd.product,
-        status = "reserve", missing = fd.items, value = capped(clamp(math.floor(base * w / 1000), 1, 100), fd.product) }
+        status = "reserve", missing = fd.items, grow = fd.grow, value = capped(clamp(math.floor(base * w / 1000), 1, 100), fd.product) }
     end
   end
   table.sort(goals, function(a, b)

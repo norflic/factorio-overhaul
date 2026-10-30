@@ -330,8 +330,11 @@ local function refresh(f, st, tick)
         m.state, m.reason, m.missing = state, s.reason, s.missing or {}
         m.built, m.total = s.built or 0, s.total or 0
         -- Lot FUITES-PILE : une réserve suspendue par la pile (raison « pile ») n'est pas une réserve affamée : son horloge est arrêtée
-        if state == "reserve" and s.reason == "pile" then m.reserve_since, m.reserve_left = tick, nil end
-        if state == "reserve" then
+        -- (relecture : sans passer par reserve_clock, qui notait 0 manque restant : après la retenue, aucun progrès ne remettait plus
+        -- l'horloge à zéro et le module était annulé 15 min plus tard même en avançant ; elle repart à la première relecture hors pile)
+        if state == "reserve" and s.reason == "pile" then
+          m.reserve_since, m.reserve_left = tick, nil
+        elseif state == "reserve" then
           reserve_clock(m, "reserve_since", "reserve_left", s, tick)
           if tick - m.reserve_since > Auto.RESERVE_MAX and not m.reopened_at and Build.cancel(f, m.id, "materiaux introuvables (15 min sans progres)") then
             state, m.state, m.reason = "refuse", "refuse", "materiaux introuvables (15 min sans progres)"
@@ -611,11 +614,12 @@ function Auto.think(f, view, book, tick, research)
       -- lot FUITES-PILE : un agrandissement est un investissement de production : pendant une retenue, seulement pour une matière d'un
       -- cadre ouvert ou qui manque (Build.ligne_step ne l'ouvre pas non plus)
       local grow_ok = (s and s.grow and #s.grow > 0) and PileRt.porte(f, "invest", m.product) or false
+      local grew = nil -- relecture FUITES-PILE : le but porte les pièces d'un agrandissement (Pi.improving : ses manques ne le justifient pas)
       for _, g in ipairs(grow_ok and s.grow or {}) do
         local makeable = (book and book.handcraftable and book:handcraftable(g[1])) or T.smelter_inputs[g[1]] ~= nil
-        if makeable and (g[2] or 0) > 0 then items[#items + 1] = { g[1], g[2] } end
+        if makeable and (g[2] or 0) > 0 then items[#items + 1] = { g[1], g[2] } grew = true end
       end
-      if #items > 0 then feeds[#feeds + 1] = { product = m.product, id = m.id, items = items, gain = m.gain } end
+      if #items > 0 then feeds[#feeds + 1] = { product = m.product, id = m.id, items = items, gain = m.gain, grow = grew } end
     end
     if m.state == "fini" then
       -- débit MESURÉ (la minute écoulée), pas le nominal : un module sans courant ne couvre rien
