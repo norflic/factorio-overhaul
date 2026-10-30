@@ -49,6 +49,7 @@ require("script.td.director")
 -- Niveaux de bâtiments façon Clash of Clans : centre de commandement, chantiers, panneau « Évolution »
 require("script.levels.levels")
 require("script.levels.panel")
+require("script.scenario.journal") -- piste SCENARIOS : journal d'époque (intro, Codex, objectifs, /fo-journal)
 
 -- Modules multiplicatifs (lot MOD-1, D-15) : balise cachée de complément par machine, balayage tournant
 require("script.modules.mult")

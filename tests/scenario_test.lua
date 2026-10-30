@@ -484,7 +484,9 @@ do -- Partie neuve
   check(ob[1].kind == "centre" and ob[1].target == 6, "interface : objectifs de l'époque 5")
   local res = {}
   for _, o in ipairs(ob) do if o.kind == "resource" then res[#res + 1] = o.name end end
-  check(table.concat(res, ",") == "fo-tungsten-ore", "interface : la fumerolle (absente du jeu) n'est pas proposée")
+  -- (Intégration 0.6.22 : la piste RESSOURCES met la fumerolle en jeu, W.resources ; elle est donc proposée, avant le tungstène.
+  -- Le filtre d'un prototype absent reste contrôlé plus haut, « prototype absent (fumerolle) filtré ».)
+  check(table.concat(res, ",") == "fo-fumarole,fo-tungsten-ore", "interface : la fumerolle (en jeu depuis RESSOURCES) puis le tungstène")
   check(env.remotes["fo-journal"].open(1, 0) == true and flat(env.frame().caption):find("intro%-title"), "interface : open 0 = intro")
   check(env.remotes["fo-journal"].open(1, 2) == true and flat(env.frame().caption):find("title|2|"), "interface : open 2")
   check(env.remotes["fo-journal"].open(1, 9) == false, "interface : open d'une époque non atteinte refusé")
