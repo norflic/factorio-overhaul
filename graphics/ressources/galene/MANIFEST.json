@@ -1,14 +1,14 @@
 {
  "blender": "5.2.2 LTS",
  "couverture_par_stade": [
-  0.2333,
-  0.2456,
-  0.2503,
-  0.2168,
-  0.1562,
-  0.1427,
-  0.1079,
-  0.0522
+  0.2401,
+  0.2478,
+  0.2508,
+  0.2169,
+  0.156,
+  0.1451,
+  0.1065,
+  0.0519
  ],
  "couverture_vanilla": [
   0.316,
@@ -20,7 +20,7 @@
   0.09,
   0.055
  ],
- "direction": "G1",
+ "direction": "G2",
  "echantillons": 128,
  "effet": "eclats",
  "effet_reglages": {
@@ -43,29 +43,29 @@
   "variation_count": 8
  },
  "nom": "galene",
- "nom_direction": "cubes de galène argentée dans une gangue de calcite",
+ "nom_direction": "cubes de galène plombée dans une gangue de calcite crème",
  "outil": "tools/render/pieces/ressources/feuille.py",
  "repartition": {
   "L": [
-   0.096,
-   0.205,
-   0.375,
-   0.324
+   0.098,
+   0.225,
+   0.31,
+   0.368
   ],
-  "acier": 0.776,
-  "acier_bleutes": 0.34,
-  "chauds": 0.134,
-  "sombres": 0.09
+  "acier": 0.475,
+  "acier_bleutes": 0.216,
+  "chauds": 0.44,
+  "sombres": 0.086
  },
- "secondes_blender": 1831.88,
+ "secondes_blender": 1614.03,
  "sha256": {
-  "galene-effet.png": "bbfa8442acf809f5db3f0d170c806e6013c5f4cc4901e46dc42250a456dfe9cf",
-  "galene.png": "bfc566638f62fa9fc0c2780741e8cb2799729b58831d69afbe5609d0eea80b59",
-  "hr-galene-effet.png": "dead47df4b2946e0234f872cdeb15254c6a30f24c7e885567ad40730e2b41d73",
-  "hr-galene.png": "345af4c3b1a90101ada7d0e2246e506ff610f1ebd7da951603cfe4c5e1938acf",
-  "icone-1.png": "f567f4201e9405972e32b58a34c896ee298f272589b63c33924b8ddd7f2f968d",
-  "icone-2.png": "51efade360ba59b1b7b856c52d1996b2610ca2b36bf1f42242f41662fbb5ff8b",
-  "icone-3.png": "4a06beea3866a9e67324b9774c69e664016e28072061e0f4995b33a9087432c6",
-  "icone.png": "5ad0c217b137f53841df26335b1057c2cb57423a8fb5c2c1e01beb0fc05a40e3"
+  "galene-effet.png": "a30b1dda1bfd138f7d358b015a2053d9c355d3ce60a8aefdc42a7d1ab959c753",
+  "galene.png": "b13c848bdae50211ec47fb37c18bbd552a6b86bbad8d98535c67e5780926ddb1",
+  "hr-galene-effet.png": "4c6ca61efe294117d83c2e4433751c89b729249d20a8f60387c2cbd633672ebb",
+  "hr-galene.png": "9fb77f296839bdbde007b16bc9729a6c2373f79b644dae916517766a1fca7304",
+  "icone-1.png": "bea2b1684dedb39488131407c0b274e5661c64be8dd18394dcf054b60add5223",
+  "icone-2.png": "5b1c4ee7f7ae7acbb148e5719f05c79f72cebdead36fa7122d744491041706d6",
+  "icone-3.png": "b8d8772b9f45f531db091b8e2dc78091f49727fb582190b7713d6943f8aff51d",
+  "icone.png": "74790fb5820aeab1b808145c4cfa1e56ff5f6def37717d55df1665bb12045bae"
  }
 }

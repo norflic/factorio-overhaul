@@ -455,11 +455,12 @@ W.resources = {
     copy_icon = "stone",
     tint = { r = 0.70, g = 0.78, b = 1.00 },
     glint = { tint = { r = 0.75, g = 0.85, b = 1.00 }, min = 0.10, max = 0.35, period = 5 },
-    -- Feuille PROPRE du kit minerai (30/10 ; direction G1, tools/render/pieces/ressources/directions.py : cubes de galène
-    -- argentée dans une gangue de calcite, 128 échantillons) : remplace la pierre teintée ci-dessus pour le gisement, son
-    -- icône et l'objet ; `tint` reste la couleur des dérivés. check_gisement : 6 OK, 1 ECHEC (couverture du stade 1 : 0,233
-    -- contre 0,316 en vanilla, écart 0,083 pour 0,08 toléré). Éclats d'argent froid, faibles de jour. Choix provisoire,
-    -- sans verdict du DC.
+    -- Feuille PROPRE du kit minerai (30/10 ; direction G2, tools/render/pieces/ressources/directions.py : cubes de galène
+    -- plombée dans une gangue de calcite crème, 128 échantillons) : remplace la pierre teintée ci-dessus pour le gisement,
+    -- son icône et l'objet ; `tint` reste la couleur des dérivés. G1 (gangue grise) tombait à ΔE 6 du fer vanilla en
+    -- couleur moyenne (mesure.py) ; G2 : ΔE 11 au fer, 16 à la pierre (la forme en cubes et la calcite crème font le
+    -- reste). check_gisement : couverture du stade 1 à 0,240 (0,316 en vanilla). Éclats d'argent froid, faibles de jour.
+    -- Choix provisoire, sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/galene",
       name = "galene",
