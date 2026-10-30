@@ -30,7 +30,7 @@ def mats(S):
     M["obs_mat"] = surface("m15_obsm", (0.03, 0.028, 0.034), (0.012, 0.011, 0.014), rough=0.45, metal=0.0, spec=0.6,
                            var=0.6, var_scale=9.0, grain=0.3, bump=0.3, bump_scale=60.0,
                            edge=((0.18, 0.17, 0.2), 0.6, 0.02), cavity=0.4)
-    M["or"] = surface("m15_or", (0.80, 0.55, 0.20), (0.55, 0.36, 0.12), rough=0.38, rough2=0.5, metal=1.0, var=0.5,
+    M["or"] = surface("m15_or", (0.95, 0.70, 0.30), (0.70, 0.48, 0.18), rough=0.32, rough2=0.5, metal=1.0, var=0.5,
                       var_scale=10.0, grain=0.12, bump=0.1, edge=((1.0, 0.85, 0.55), 0.4, 0.015), cavity=0.35)
     M["or_sombre"] = surface("m15_ors", (0.45, 0.30, 0.10), rough=0.35, metal=1.0, var=0.3, grain=0.1, cavity=0.3)
     M["vide"] = surface("m15_vide", (0.004, 0.003, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0,

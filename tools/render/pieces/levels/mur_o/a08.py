@@ -30,27 +30,27 @@ RIV = 0.016
 
 def mats(S):
     M = {}
-    M["pierre"] = surface("m8_pierre", (0.13, 0.15, 0.12), (0.075, 0.085, 0.07), rough=0.9, var=0.7, var_scale=7.0,
+    M["pierre"] = surface("m8_pierre", (0.095, 0.11, 0.085), (0.05, 0.06, 0.045), rough=0.9, var=0.7, var_scale=7.0,
                           grain=0.25, bump=0.8, bump_scale=35.0, edge=((0.27, 0.29, 0.24), 0.55, 0.035), cavity=0.6,
                           cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
                           bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=3.0,
                           stain=((0.03, 0.04, 0.025), 0.5, 5.0))
-    M["pierre2"] = surface("m8_pierre2", (0.16, 0.165, 0.14), (0.09, 0.095, 0.08), rough=0.9, var=0.7, var_scale=6.0,
+    M["pierre2"] = surface("m8_pierre2", (0.12, 0.125, 0.10), (0.065, 0.07, 0.055), rough=0.9, var=0.7, var_scale=6.0,
                            grain=0.25, bump=0.8, bump_scale=30.0, edge=((0.30, 0.31, 0.27), 0.55, 0.035), cavity=0.6,
                            cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
                            bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=9.0,
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
     M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
                            top=((0.06, 0.12, 0.02), 0.7, 0.4))
-    M["cuivre"] = surface("m8_cuivre", (0.10, 0.27, 0.20), (0.055, 0.16, 0.12), rough=0.55, rough2=0.8, metal=0.35,
+    M["cuivre"] = surface("m8_cuivre", (0.16, 0.42, 0.31), (0.08, 0.24, 0.17), rough=0.55, rough2=0.8, metal=0.35,
                           var=0.8, var_scale=8.0, grain=0.2, bump=0.3, bump_scale=90.0,
                           edge=((0.45, 0.22, 0.09), 0.75, 0.02), cavity=0.45, streak=0.35,
                           stain=((0.18, 0.36, 0.28), 0.45, 6.0))
     M["cuivre_sombre"] = surface("m8_cuivre2", (0.05, 0.13, 0.10), (0.11, 0.06, 0.03), rough=0.6, metal=0.4, var=0.6,
                                  grain=0.2, edge=((0.45, 0.22, 0.09), 0.8, 0.02), cavity=0.4)
-    M["chaperon"] = surface("m8_chaperon", (0.20, 0.215, 0.18), (0.11, 0.12, 0.10), rough=0.92, var=0.7,
+    M["chaperon"] = surface("m8_chaperon", (0.40, 0.42, 0.34), (0.24, 0.26, 0.20), rough=0.92, var=0.7,
                             var_scale=7.0, grain=0.28, bump=0.8, bump_scale=40.0, edge=((0.36, 0.38, 0.33), 0.6, 0.02),
-                            cavity=0.55, streak=0.4, top=((0.12, 0.22, 0.04), 0.7, 0.35),
+                            cavity=0.55, streak=0.4, top=((0.16, 0.30, 0.06), 0.45, 0.35),
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
                           grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
