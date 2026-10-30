@@ -233,3 +233,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~8 h 55, passage 66
 - Aucune archive nouvelle depuis le passage 65. Rien de nouveau.
+
+## 30/10 ~9 h 25, passage 67
+- Aucune archive de banc nouvelle (travaux du retour du DC du matin : rendus Blender des minerais et dev du calcul, pas encore de banc). Rien de nouveau.
