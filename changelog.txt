@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.25
+Date: 2026-10-30
+  Changes:
+    - Biomes : les gisements lies a un biome restent dans leur biome (plus de tungstene sur les crateres, monazite dans les sables noirs) ; sol givre eclairci pour que le minerai de fer s'y lise. Effet : moins de minerai naturel pres du depart (tungstene -39 % sur la graine des bancs) ; sites garantis inchanges (question Q25).
+    - Pile de priorite : une seule porte decide si une amelioration (capitalisation, agrandissement, module neuf) peut passer pendant une reparation ou une protection ; reparer n'est jamais suspendu ; un investissement de production d'une matiere qui manque passe toujours. Chaque refus est journalise [FO-PILE].
+    - Capitalisation : les emplacements figes ne comptent plus dans la limite, et le stock ouvre des emplacements en plus [FO-CAPI-EMPLACEMENTS].
+    - Code mort des etangs retire.
+    - Rien n'a ete rejoue en partie longue : relecture statique, integration verifiee, tests hors jeu verts (pvp 1305), bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.24
 Date: 2026-10-30
   Changes:

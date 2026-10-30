@@ -26,6 +26,7 @@
 
 local Ru = require("shared.team.ruines")
 local S = require("shared.team.foreuse_swap") -- rotation des vecteurs de dépôt (même règle que Ru)
+local Sw = require("shared.team.rebuild_sweep") -- lot FUITES-PILE : Sw.rebuilding (reconstruction contre agrandissement)
 local Rc = require("shared.team.reconstruction") -- valeur d'une pièce d'infrastructure (poteau ou production d'énergie)
 
 local Rr = {}
@@ -88,7 +89,7 @@ end
 --- au lieu d'attendre TOUTE la matière (« reserve[materiaux] » de 40 min pour 2 bras sans cuivre, alors que 27 tapis étaient à refaire).
 --- Les murs d'enceinte rouverts (sans date) gardent la règle du tout-ou-rien.
 function Rr.partial_go(p)
-  return (p and (p.reopened or 0) > 0 and p.reopened_tick ~= nil) or false
+  return Sw.rebuilding(p) -- lot FUITES-PILE : rouvert APRÈS sa dernière fin (un agrandissement d'une ligne déjà réparée n'en est pas)
 end
 
 ---------------------------------------------------------------------------------------------------

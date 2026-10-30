@@ -259,6 +259,7 @@ function Pi.update(st, sig, tick)
   end
   st.changed = (top ~= st.top) or (hold ~= st.hold) or (blocked ~= st.blocked) -- lu par le journal (script/team/pile.lua)
   st.top, st.hold, st.blocked = top, hold, blocked
+  if not hold then st.refus = nil end -- lot FUITES-PILE : fin de l'épisode de retenue, un refus futur sera de nouveau écrit
   st.frames, st.opened, st.focus, st.short = frames, opened, focus, short
   st.crafts, st.reserve = crafts, reserve
   st.tick = tick
@@ -273,6 +274,105 @@ function Pi.allows(st, family, item)
   if rank <= (st.top or Pi.AMELIORER) then return true end
   if item and st.focus and st.focus[item] then return true end
   return false
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot FUITES-PILE (vague 10) : les chemins qui contournaient la pile passent par une PORTE unique.
+---------------------------------------------------------------------------------------------------
+-- Familles d'investissement de PRODUCTION : pile retenue, elles passent encore quand la matière qu'elles produisent MANQUE (« si
+-- on peut pas se l'acheter, on investit les ressources dans la production de plus de ressources », DC 29/10 ; même règle que
+-- g.invest des buts de la capitalisation, shared/ai3/cerveau.lua). Le capital pur (niveau d'un bâtiment), la recherche, le
+-- changement de foreuses, la migration et l'amélioration des tapis n'en sont pas.
+Pi.INVEST_FAMILIES = { capital = true, capi = true, invest = true, produire = true, extraction = true }
+
+--- Un travail de la famille `family` (objet produit `item`, facultatif ; `short` : cette matière manque) peut-il AVANCER (ouvrir
+--- un ordre, réserver au coffre, faire fabriquer ses objets) ? Rend (permis, raison du refus).
+--- Permis : pile non retenue ; famille de rang ≤ sommet ; objet d'un cadre ouvert (focus) ; investissement de production d'une
+--- matière qui manque. RÉPARER (rang R1 et moins) n'est JAMAIS suspendu par cette porte : la pile ne suspend que ce qui améliore
+--- (R0 passe devant la réparation par les priorités des tâches, pas par une suspension).
+function Pi.porte(st, family, item, short)
+  if not st or not st.hold then return true, nil end
+  local rank = Pi.FAMILY_RANK[family] or Pi.AMELIORER
+  if rank <= Pi.ADAPTER then return true, nil end
+  if Pi.allows(st, family, item) then return true, nil end
+  if short and Pi.INVEST_FAMILIES[family] then return true, nil end
+  return false, string.format("pile au sommet %s : %s (rang %s) suspendu%s", Pi.RANK_NAME[st.top or Pi.AMELIORER] or "?",
+    tostring(family), Pi.RANK_NAME[rank] or "?", item and (", " .. tostring(item) .. " hors des cadres ouverts et sans manque") or "")
+end
+
+--- Fuite (b) : famille d'un MODULE du plan directeur. `rebuilding` : pièces DÉTRUITES à refaire (reconstruction, rang s'adapter,
+--- shared/team/rebuild_sweep.lua Sw.rebuilding) ; `growth` : pas d'agrandissement d'une ligne finie (investissement de production) ;
+--- `kind` : "migration" (migration du champ) ; sinon un module NEUF, « capi » s'il vient de la capitalisation, « capital » sinon.
+function Pi.module_family(rebuilding, growth, capi, kind)
+  if rebuilding then return "reparer" end
+  if kind == "migration" then return "migration" end
+  if growth then return "invest" end
+  return capi and "capi" or "capital"
+end
+
+--- Fuite (a) : famille d'un ORDRE de la capitalisation (shared/ai3/capitalisation.lua) : laboratoires, packs et recherches à effet
+--- sont de la recherche ; le reste (couvrir, ouvrir, chaîne, équiper) de la capitalisation.
+Pi.ORDER_RESEARCH = { labos = true, packs = true, techno = true }
+function Pi.order_family(kind)
+  return Pi.ORDER_RESEARCH[kind] and "recherche" or "capi"
+end
+
+--- Relecture FUITES-PILE : un but d'AMÉLIORATION dont le produit ne sert aucun cadre ouvert (`focus`) : module neuf, de migration ou
+--- pas d'agrandissement (g.pile de rang > s'adapter), alimentation qui porte les pièces d'un agrandissement (g.grow), but de la
+--- capitalisation (g.kind « capi », objet de son ordre). Ses PROPRES manques ne justifient pas l'exception « matière qui manque » de
+--- Pi.porte (Pi.short_core) : sans cela, un module neuf de cuivre dont les foreuses demandent des circuits rendait le cuivre
+--- « manquant » et passait la retenue tout seul, pensée après pensée (relecture, moteur simulé : projet gardé sous la retenue).
+function Pi.improving(g, focus)
+  if type(g) ~= "table" then return false end
+  local item
+  if g.kind == "module" and (g.pile or g.grow) then
+    if g.pile and (Pi.FAMILY_RANK[g.pile] or Pi.AMELIORER) <= Pi.ADAPTER then return false end
+    item = g.product
+  elseif g.kind == "capi" then
+    item = g.order and g.order.item
+  else
+    return false
+  end
+  return not (item ~= nil and focus ~= nil and focus[item] == true)
+end
+
+Pi.SHORT_EPS = 1e-6 -- manques fractionnaires (recettes) : en deçà, plus rien ne manque
+
+--- Relecture FUITES-PILE : manques « propres » de l'équipe, lus par l'exception « matière qui manque » de la porte (shared/ai3/cerveau.lua,
+--- script/team/pile.lua PileRt.porte) : les manques de la pensée (`raw` = E.raw, { [matière] = { n } }) MOINS ceux des projets
+--- d'amélioration hors des cadres ouverts (`projects` : projets émis par la pensée, p.goal et p.missing de shared/ai3/projets.lua).
+--- Rend { [matière] = n > 0 } (entiers). Pur, clés triées.
+function Pi.short_core(raw, projects, focus)
+  local own = {}
+  for _, p in ipairs(projects or {}) do
+    if p.missing and Pi.improving(p.goal, focus) then
+      for _, k in ipairs(sorted_keys(p.missing)) do own[k] = (own[k] or 0) + (p.missing[k] or 0) end
+    end
+  end
+  local out = {}
+  for _, k in ipairs(sorted_keys(raw)) do
+    local v = ((raw[k] and raw[k].n) or 0) - (own[k] or 0)
+    if v > Pi.SHORT_EPS then out[k] = math.ceil(v - Pi.SHORT_EPS) end
+  end
+  return out
+end
+
+Pi.REFUS_OUT_MAX = 40 -- refus en attente d'écriture au journal ; au-delà, comptés seulement (st.refus_lost)
+
+--- Note un REFUS de la pile (clé stable : ordre, projet, but) ; une seule fois par clé et par épisode de retenue (st.refus est vidé
+--- quand la pile ne retient plus, Pi.update). Rend vrai si le refus est nouveau. Le runtime l'écrit au journal [FO-PILE]
+--- (script/team/pile.lua, PileRt.flush) ; aucune décision ne le lit.
+function Pi.suspend(st, key, text)
+  if not st then return false end
+  st.refus = st.refus or {}
+  key = tostring(key)
+  if st.refus[key] then return false end
+  st.refus[key] = true
+  st.refus_n = (st.refus_n or 0) + 1
+  st.refus_out = st.refus_out or {}
+  if #st.refus_out < Pi.REFUS_OUT_MAX then st.refus_out[#st.refus_out + 1] = key .. " : " .. tostring(text)
+  else st.refus_lost = (st.refus_lost or 0) + 1 end
+  return true
 end
 
 --- Signaux d'une pensée du cerveau par besoins (shared/ai3/cerveau.lua) : vue de l'équipe, plan du planificateur permanent,

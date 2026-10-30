@@ -164,11 +164,23 @@ end
 --- date n'en sont pas), encore à refaire (réserve, défrichage, fantômes, chantier), pièces à refaire (Sw.todo : ni abandonnées ni retirées).
 Sw.HOLD_STATES = { reserve = true, defrichage = true, fantomes = true, chantier = true }
 
+--- Lot FUITES-PILE (fuite b) : le projet `q` est-il EN RECONSTRUCTION (pièces DÉTRUITES à refaire, rang « s'adapter » de la pile) ? Rouvert
+--- par le relevé ou le réseau vivant (q.reopened_tick) APRÈS sa dernière fin (q.finished, script/team/build.lua finish_project) ; un projet
+--- jamais fini rouvert pendant sa construction : vrai. q.reopened_tick n'est jamais effacé : sans la comparaison, un pas d'AGRANDISSEMENT
+--- d'une ligne déjà réparée une fois (FONDERIE-DYNAMIQUE, ligne_open : q.reopened sans date) passait pour une reconstruction (cadre
+--- « réparer » qui retient l'amélioration, priorité de reconstruction, chantier lancé sans toute sa matière, stock retenu aux améliorations).
+--- Lecteurs : Sw.project_needs, shared/team/rebuild_rapide.lua (Rr.partial_go), script/team/pile.lua, script/team/build.lua (Build.brief).
+function Sw.rebuilding(q)
+  -- (q.reopened : compteur ; un vrai booléen est accepté aussi, comme les autres lecteurs qui ne testent que sa présence)
+  return (q ~= nil and q.reopened ~= nil and q.reopened ~= false and q.reopened ~= 0 and q.reopened_tick ~= nil
+    and (q.finished == nil or q.reopened_tick >= q.finished)) or false
+end
+
 --- Objets qu'un projet rouvert doit encore prendre au coffre : ses pièces à refaire (Sw.todo) moins ce que sa réserve tient déjà (q.stock,
 --- retiré du coffre). Liste { {objet, n} } (ordre de Sw.todo), vide si le projet n'est pas concerné. Lecteur : Sw.rebuild_needs.
 function Sw.project_needs(q)
   local out = {}
-  if not (q and q.reopened and q.reopened_tick and Sw.HOLD_STATES[q.state]) then return out end
+  if not (Sw.rebuilding(q) and Sw.HOLD_STATES[q.state]) then return out end -- lot FUITES-PILE : un agrandissement n'en est pas
   local held = q.stock or {}
   for _, it in ipairs((Sw.todo(q))) do
     local n = it[2] - (held[it[1]] or 0)

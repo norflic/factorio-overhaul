@@ -54,6 +54,8 @@ local function suite(Rr)
   Rr.hot_set_list(st, { st.hot[2] })
   c(#st.hot == 1 and st.hot_set["3:8"] and not st.hot_set["3:7"], "liste chaude remplacée, clés refaites")
   c(Rr.partial_go({ reopened = 1, reopened_tick = 5 }) == true, "projet rouvert daté : chantier sans toute la matière")
+  c(Rr.partial_go({ reopened = 2, reopened_tick = 5, finished = 9 }) == false,
+    "lot FUITES-PILE : pas d'agrandissement d'une ligne réparée une fois : pas de chantier sans toute la matière")
   c(Rr.partial_go({ reopened = 1 }) == false and Rr.partial_go({}) == false and Rr.partial_go(nil) == false,
     "mur d'enceinte rouvert sans date, projet neuf : tout-ou-rien comme avant")
   -- relecture : budget de la liste chaude (rotation) et lot de chantier sans aucun objet au coffre
@@ -145,8 +147,10 @@ local MUTANTS = {
   { "pièces non relues en queue", "  for _, h in ipairs(later or {}) do out[#out + 1] = h end\n  for _, h in ipairs(kept or {}) do out[#out + 1] = h end",
     "  for _, h in ipairs(kept or {}) do out[#out + 1] = h end\n  for _, h in ipairs(later or {}) do out[#out + 1] = h end" },
   { "voyage même sans rien au coffre", "if (have(it) or 0) >= 1 then return true end\n  end\n  return false", "if (have(it) or 0) >= 1 then return true end\n  end\n  return true" },
-  { "mur rouvert sans date en partiel", "return (p and (p.reopened or 0) > 0 and p.reopened_tick ~= nil) or false", "return (p and (p.reopened or 0) > 0) or false" },
-  { "réserve partielle jamais", "return (p and (p.reopened or 0) > 0 and p.reopened_tick ~= nil) or false", "return false" },
+  -- (lot FUITES-PILE : Rr.partial_go = Sw.rebuilding ; la règle de la date vit dans shared/team/rebuild_sweep.lua, mutée par rebuild_sweep_test)
+  { "mur rouvert sans date en partiel", "return Sw.rebuilding(p)", "return (p and (p.reopened or 0) > 0) or false" },
+  { "agrandissement en partiel (ancienne règle)", "return Sw.rebuilding(p)", "return (p and (p.reopened or 0) > 0 and p.reopened_tick ~= nil) or false" },
+  { "réserve partielle jamais", "return Sw.rebuilding(p)", "return false" },
   { "centrale non prioritaire", "if g and Rr.POWER_GENS[g] then return 1 end", "" },
   { "fonderie non prioritaire", "if rank == 2 then return math.max(base, Rr.PRIO_MAIN) end", "" },
   { "projet neuf relevé", "if not Rr.partial_go(p) then return base end", "" },

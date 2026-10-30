@@ -233,6 +233,8 @@ local function suite(Sw)
     c(#need == 1 and n_of(need, "a") == 1, "SANS-GEL : pièces abandonnées ou retirées : rien de retenu pour elles")
     c(#Sw.project_needs({ state = "chantier", ents = { { item = "a", built = false } } }) == 0, "SANS-GEL : projet jamais rouvert : rien")
     c(#Sw.project_needs({ reopened = 1, state = "chantier", ents = { { item = "a", built = false } } }) == 0, "SANS-GEL : sans date de réouverture (murs d'enceinte) : rien")
+    c(#Sw.project_needs({ reopened = 2, reopened_tick = 10, finished = 50, state = "reserve", ents = { { item = "a", built = false } } }) == 0,
+      "FUITES-PILE : pas d'agrandissement d'une ligne déjà réparée (réouverture datée d'avant sa dernière fin) : rien")
     c(#Sw.project_needs(nil) == 0, "SANS-GEL : projet absent")
     -- somme sur l'équipe, ordre déterministe
     local projects = {
@@ -317,7 +319,9 @@ local MUTANTS = {
   { "SANS-GEL : rien retenu", "if n > 0 then out[#out + 1] = { it[1], n } end", "" },
   { "SANS-GEL : réserve du projet ignorée", "local n = it[2] - (held[it[1]] or 0)", "local n = it[2]" },
   { "SANS-GEL : retenu une fois fini", "and Sw.HOLD_STATES[q.state]) then return out end", ") then return out end" },
-  { "SANS-GEL : murs sans date retenus", "if not (q and q.reopened and q.reopened_tick and", "if not (q and q.reopened and" },
+  -- (lot FUITES-PILE : la règle « rouvert, daté » est Sw.rebuilding, lue par Sw.project_needs)
+  { "SANS-GEL : murs sans date retenus", "q.reopened ~= 0 and q.reopened_tick ~= nil", "q.reopened ~= 0" },
+  { "FUITES-PILE : agrandissement retenu comme une reconstruction", "(q.finished == nil or q.reopened_tick >= q.finished)", "true" },
   { "SANS-GEL : somme perdue", "count[it[1]] = count[it[1]] + it[2]", "count[it[1]] = it[2]" },
   { "SANS-GEL : besoins non triés", "  table.sort(names)\n  local out = {}\n  for i, n in ipairs(names) do out[i] = { n, count[n] } end\n  return out, ids",
     "  local out = {}\n  for i, n in ipairs(names) do out[i] = { n, count[n] } end\n  return out, ids" },

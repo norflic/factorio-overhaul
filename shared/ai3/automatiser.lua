@@ -790,12 +790,19 @@ function A.goals(goals, auto, weights, research)
   -- recherche, l'armée et les munitions, réserve « materiaux » de 26 à 90 min).
   local w = math.max(1000, (weights or {}).capital or 1000)
   local seen = {}
-  for _, m in ipairs(auto.mods or {}) do
+  -- Lot FUITES-PILE (fuite b) : un module EN RECONSTRUCTION (m.pile == "reparer", posé par script/ai3/automatisation.lua) passe avant un
+  -- module neuf du même produit (un seul but par produit : ses manques sont ceux des pièces à refaire) ; g.pile porte la famille de la
+  -- pile (reparer, capital, capi, invest, migration ; nil : centrale et autres projets d'infrastructure, jamais suspendus) que la
+  -- pensée lit pour suspendre les modules NEUFS pendant une retenue (shared/ai3/cerveau.lua).
+  local ordered = {}
+  for _, m in ipairs(auto.mods or {}) do if m.pile == "reparer" then ordered[#ordered + 1] = m end end
+  for _, m in ipairs(auto.mods or {}) do if m.pile ~= "reparer" then ordered[#ordered + 1] = m end end
+  for _, m in ipairs(ordered) do
     if OPEN[m.state] and not seen[m.product] then
       seen[m.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, m.gain or 0)))
       goals[#goals + 1] = { key = "auto:" .. m.product, family = "capital", kind = "module", product = m.product,
-        status = m.state, missing = m.missing, reason = m.reason,
+        status = m.state, missing = m.missing, reason = m.reason, pile = m.pile,
         value = capped(clamp(math.floor(base * w / 1000), 1, 100), m.product) }
     end
   end
@@ -809,8 +816,9 @@ function A.goals(goals, auto, weights, research)
     if not fed[fd.product] and fd.items and #fd.items > 0 then
       fed[fd.product] = true
       local base = math.min(A.VALUE_MAX, A.VALUE + math.floor(A.VALUE_PER_PNJ * math.max(0, fd.gain or 0)))
+      -- (relecture FUITES-PILE : g.grow, pièces d'un agrandissement, lu par Pi.improving ; jamais suspendu ici, g.pile reste nil)
       goals[#goals + 1] = { key = "alim:" .. fd.product, family = "capital", kind = "module", product = fd.product,
-        status = "reserve", missing = fd.items, value = capped(clamp(math.floor(base * w / 1000), 1, 100), fd.product) }
+        status = "reserve", missing = fd.items, grow = fd.grow, value = capped(clamp(math.floor(base * w / 1000), 1, 100), fd.product) }
     end
   end
   table.sort(goals, function(a, b)

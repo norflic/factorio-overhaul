@@ -178,7 +178,8 @@ function C.think(view, book, st, ctx)
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
   -- Lot PILE-PRIORITE : suspendu tant qu'un cadre de rang inférieur retient (il ne réserve plus sa matière, audit A3).
-  if ctx.capital and Pi.allows(pile, "capital") then goals[#goals + 1] = ctx.capital end
+  if ctx.capital and Pi.allows(pile, "capital") then goals[#goals + 1] = ctx.capital
+  elseif ctx.capital then Pi.suspend(pile, ctx.capital.key or "capital", "amelioration (capital) suspendue") end -- journal [FO-PILE]
   -- Lot CAPIB : un but de FOND par ordre ouvert de la capitalisation (ses exécutants ont reçu l'ordre au runtime ; le but
   -- fait ce qui leur manque, sur la part capi du stock virtuel).
   -- Lot PILE-PRIORITE : pile retenue, seuls ses INVESTISSEMENTS de production (g.invest : capacité d'une matière en manque)
@@ -188,18 +189,37 @@ function C.think(view, book, st, ctx)
     else
       local held = {}
       Ca.goals(held, nil, ctx.capi.open)
-      for _, g in ipairs(held) do if g.invest then goals[#goals + 1] = g end end
+      for _, g in ipairs(held) do
+        if g.invest then goals[#goals + 1] = g
+        else Pi.suspend(pile, g.key, "but de la capitalisation suspendu (pas un investissement de production)") end -- journal [FO-PILE]
+      end
     end
   end
   -- Intégration 0.6.20 (SCALE-COMPLET x PILE-PRIORITE, rapport de SCALE-COMPLET §7) : la COUVERTURE (but de fond au-delà du
   -- besoin, « couverture:<type> », B.generate) passe elle aussi par la pile : réparer, protéger et survivre d'abord ; une
   -- matière d'un cadre ouvert (pile.focus) garde la sienne.
+  -- Lot FUITES-PILE (fuite b) : un MODULE NEUF du plan directeur (but « auto:<produit> », famille g.pile capital, capi, invest ou
+  -- migration, shared/ai3/automatiser.lua) est une amélioration : suspendu pendant la retenue, sauf s'il produit une matière d'un
+  -- cadre ouvert ou une matière qui manque (Pi.porte) ; un module EN RECONSTRUCTION (g.pile = "reparer") passe toujours. Avant, les
+  -- deux étaient des buts « capital » que la pile ne lisait pas : le cerveau fabriquait les fours d'une fonderie de cuivre neuve
+  -- pendant que le QG manquait de tourelles.
   if pile.hold then
     local kept = {}
+    -- (relecture : manques PROPRES de la pensée précédente, sans ceux des améliorations elles-mêmes, Pi.short_core ; une sauvegarde
+    -- d'avant la relecture n'en a pas encore : aucune exception pendant une pensée)
+    local short_prev = st.short_core or {}
     for _, g in ipairs(goals) do
-      if not (type(g.key) == "string" and g.key:sub(1, 11) == "couverture:") or Pi.allows(pile, "extraction", g.why) then
-        kept[#kept + 1] = g
+      local keep = true
+      if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
+        keep = Pi.allows(pile, "extraction", g.why)
+      elseif g.kind == "module" and g.pile then
+        local ok, why = Pi.porte(pile, g.pile, g.product, ((short_prev[g.product] or 0) > 0))
+        if not ok then
+          keep = false
+          Pi.suspend(pile, g.key, "module neuf du plan directeur (" .. tostring(g.pile) .. ") : " .. tostring(why))
+        end
       end
+      if keep then kept[#kept + 1] = g end
     end
     goals = kept
   end
@@ -247,6 +267,8 @@ function C.think(view, book, st, ctx)
     if (short[k] or 0) > 0 then st.short_n[k] = (st.short_n[k] or 0) + 1 else st.short_n[k] = nil end
   end
   st.short = short
+  -- Relecture FUITES-PILE : manques propres (sans ceux des améliorations hors des cadres ouverts), lus par la porte de la pile
+  st.short_core = Pi.short_core(E.raw, order, pile.focus)
   st.need = st.need or {}
   for _, k in ipairs(sorted_keys(raw)) do
     local use = math.max(0, (avail0[k] or 0) - (E.avail[k] or 0))
