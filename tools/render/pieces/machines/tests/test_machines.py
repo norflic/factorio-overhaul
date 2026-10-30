@@ -20,6 +20,8 @@ SQ2 = organes.SQ2
 MACHINES = {
     "cryogenique": ("cryogenique", "cryo_", 5, [(-1, 3), (1, 3), (-2, -3), (0, -3), (2, -3)], "abc"),
     "imprimante": ("imprimante", "impr_", 3, [(0, -2)], "abc"),
+    "frittage": ("frittage", "fritt_", 3, [(0, -2), (0, 2)], "abc"),
+    "four_arc": ("four_arc", "arc_", 4, [(-0.5, -2.5)], "abc"),
 }
 OK, KO = [0], [0]
 

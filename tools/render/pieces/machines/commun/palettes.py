@@ -59,6 +59,85 @@ def age04(S):
     return M
 
 
+def age05(S):
+    """Volcan (four de frittage) : basalte rugueux (dominante de la lignée, levels/commun/ages.py PALETTE[5] et _m05),
+    rouille brûlée de la fonte des plaques (secondaire), fonte noire (structure), brique réfractaire et braise vive
+    (accent, foyer FF4A10). Crasse et coulures chaudes comme l'âge 12 (saturation du corps dans la bande vanilla)."""
+    su = MT.surface
+    M = {}
+    brun = (0.06, 0.03, 0.012)
+    rouille = (0.22, 0.07, 0.03)
+    _commun(S, M, acier=(0.05, 0.045, 0.04), trim=(0.24, 0.22, 0.2), feu=(1.0, 0.3, 0.02))
+    M["capot"] = su("m5_basalte", (0.12, 0.108, 0.098), rough=0.8, met=0.05, tole=(0.55, 0.4), joint=0.45, usure=0.7,
+                    coulures=0.5, rouille=rouille, crasse=0.75, crasse_col=brun, var=0.1)
+    M["capot2"] = su("m5_fonte_v", (0.27, 0.11, 0.05), rough=0.6, met=0.3, tole=(0.45, 0.32), joint=0.5, usure=1.0,
+                     nu=(0.3, 0.22, 0.16), coulures=0.6, rouille=rouille, crasse=0.7, crasse_col=brun)
+    M["structure"] = su("m5_fonte_noire", (0.05, 0.047, 0.045), rough=0.55, met=0.45, tole=(0.5, 0.4), joint=0.45,
+                        usure=1.0, nu=(0.24, 0.2, 0.16), coulures=0.5, rouille=rouille, crasse=0.6, crasse_col=brun)
+    M["socle"] = su("m5_dalle", (0.075, 0.065, 0.058), rough=0.85, met=0.0, tole=(0.6, 0.6), joint=0.45, usure=0.5,
+                    crasse=0.8, crasse_col=brun, coulures=0.4, rouille=rouille)
+    M["brique"] = su("m5_brique", (0.3, 0.14, 0.065), rough=0.9, met=0.0, tole=(0.16, 0.07), joint=0.35, joint_l=0.01,
+                     usure=0.3, crasse=0.8, crasse_col=brun, coulures=0.3, rouille=(0.12, 0.05, 0.02), var=0.15)
+    M["chrome"] = su("m5_acier_nu", (0.22, 0.2, 0.18), rough=0.4, met=0.75, usure=0.5, coulures=0.4, rouille=rouille,
+                     crasse=0.6, crasse_col=brun)
+    M["galva"] = M["chrome"]
+    M["armoire"] = M["structure"]
+    M["moteur"] = su("m5_moteur", (0.06, 0.05, 0.045), rough=0.45, met=0.55, usure=1.0, nu=(0.26, 0.22, 0.18),
+                     crasse=0.6, crasse_col=brun)
+    M["ailette"] = M["chrome"]
+    M["tuyau"] = su("m5_tuyau", (0.09, 0.05, 0.03), rough=0.45, met=0.4, usure=1.1, nu=(0.3, 0.22, 0.16),
+                    coulures=0.7, rouille=rouille, crasse=0.7, crasse_col=brun)
+    M["cuivre"] = su("m5_cuivre", (0.42, 0.15, 0.05), rough=0.38, met=0.8, usure=0.6, crasse=0.5, crasse_col=brun)
+    M["verre"] = MT.verre("m5_verre", (0.04, 0.012, 0.004), (0.2, 0.12, 0.08))
+    M["braise"] = su("m5_braise", (0.22, 0.03, 0.008), rough=0.7, met=0.0, usure=0.0, crasse=0.3, crasse_col=brun)
+    M["feu2"] = MT.lumiere(S, "m5_feu2", (1.0, 0.55, 0.12), 5.0, 0.3)
+    return M
+
+
+def age06(S):
+    """Électricité (four à arc) : porcelaine blanche (grands capots et accent des isolateurs, _m06), bleu électrique
+    en secondaire (cuve, flasques, carters), fonte bleu nuit (structure), cuivre des barres et des câbles, graphite des
+    électrodes ; arc bleu électrique (foyer 60D0FF). Écart dit franchement : la porcelaine des CAPOTS est assombrie
+    (0,74 -> 0,46 linéaire) et crassée, sinon la médiane du corps sort de la bande vanilla (leçon des rondes 1 à 3 de
+    l'unité cryogénique) ; la porcelaine des isolateurs garde une valeur claire (accent)."""
+    su = MT.surface
+    M = {}
+    brun = (0.05, 0.035, 0.022)
+    rouille = (0.2, 0.09, 0.04)
+    _commun(S, M, acier=(0.04, 0.045, 0.06), trim=(0.26, 0.27, 0.29), feu=(0.25, 0.55, 1.0))
+    M["capot"] = su("m6_porcelaine_capot", (0.46, 0.45, 0.42), rough=0.35, met=0.0, tole=(0.6, 0.42), joint=0.5,
+                    usure=0.5, coulures=0.6, rouille=rouille, crasse=0.75, crasse_col=brun, var=0.08)
+    M["capot2"] = su("m6_bleu_machine", (0.06, 0.16, 0.44), rough=0.38, met=0.15, tole=(0.45, 0.32), joint=0.5,
+                     usure=0.9, nu=(0.3, 0.3, 0.3), coulures=0.5, rouille=rouille, crasse=0.65, crasse_col=brun)
+    M["structure"] = su("m6_fonte_bleue", (0.03, 0.055, 0.14), rough=0.42, met=0.3, tole=(0.5, 0.4), joint=0.45,
+                        usure=1.0, nu=(0.24, 0.24, 0.26), coulures=0.5, rouille=rouille, crasse=0.6, crasse_col=brun)
+    M["socle"] = su("m6_socle", (0.07, 0.068, 0.066), rough=0.85, met=0.05, tole=(0.6, 0.6), joint=0.45, usure=0.5,
+                    crasse=0.8, crasse_col=brun, coulures=0.4, rouille=rouille)
+    M["transfo"] = su("m6_transfo", (0.3, 0.29, 0.27), rough=0.42, met=0.3, tole=(0.5, 0.35), joint=0.5, usure=0.9,
+                      coulures=0.55, rouille=rouille, crasse=0.7, crasse_col=brun)
+    M["porcelaine"] = su("m6_porcelaine", (0.68, 0.665, 0.62), rough=0.25, met=0.0, usure=0.2, crasse=0.55,
+                         crasse_col=brun)
+    M["bakelite"] = su("m6_bakelite", (0.035, 0.024, 0.018), rough=0.32, met=0.0, usure=0.6, crasse=0.4)
+    M["graphite"] = su("m6_graphite", (0.045, 0.045, 0.048), rough=0.6, met=0.25, usure=0.8, nu=(0.16, 0.16, 0.17),
+                       crasse=0.4)
+    M["brique"] = su("m6_refractaire", (0.3, 0.27, 0.23), rough=0.9, met=0.0, tole=(0.16, 0.08), joint=0.5,
+                     joint_l=0.01, usure=0.2, crasse=0.85, crasse_col=brun, var=0.15)
+    M["chrome"] = su("m6_acier_nu", (0.24, 0.24, 0.25), rough=0.36, met=0.75, usure=0.5, coulures=0.4, rouille=rouille,
+                     crasse=0.6, crasse_col=brun)
+    M["galva"] = M["chrome"]
+    M["armoire"] = M["transfo"]
+    M["moteur"] = su("m6_moteur", (0.04, 0.09, 0.22), rough=0.4, met=0.4, usure=1.0, nu=(0.26, 0.26, 0.28),
+                     crasse=0.6, crasse_col=brun)
+    M["ailette"] = M["transfo"]
+    M["tuyau"] = su("m6_tuyau", (0.05, 0.07, 0.12), rough=0.42, met=0.4, usure=1.1, nu=(0.28, 0.26, 0.24),
+                    coulures=0.6, rouille=rouille, crasse=0.7, crasse_col=brun)
+    M["cuivre"] = su("m6_cuivre", (0.5, 0.19, 0.065), rough=0.35, met=0.85, usure=0.5, crasse=0.45, crasse_col=brun)
+    M["verre"] = MT.verre("m6_verre", (0.01, 0.025, 0.05), (0.12, 0.2, 0.3))
+    M["braise"] = su("m6_laitier", (0.2, 0.05, 0.015), rough=0.7, met=0.0, usure=0.0, crasse=0.3, crasse_col=brun)
+    M["feu2"] = MT.lumiere(S, "m6_bain", (1.0, 0.5, 0.12), 5.0, 0.3)
+    return M
+
+
 def age12(S):
     """Supraconducteurs : noir et chrome (structure), givre (lignes froides et panneaux de la boîte froide, en
     ACCENT), cuivre et or des étages et des barres ; anneaux cyan lumineux. Ronde r2 (mesure de r1 : médiane du
@@ -96,7 +175,7 @@ def age12(S):
     return M
 
 
-AGES = {4: age04, 12: age12}
+AGES = {4: age04, 5: age05, 6: age06, 12: age12}
 
 
 def matieres(age, S):
