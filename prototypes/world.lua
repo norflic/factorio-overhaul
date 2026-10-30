@@ -468,6 +468,11 @@ local function fluid_prototypes(spec, key, letter)
   fluid.flow_color = { r = math.min(1, spec.tint.r + 0.3), g = math.min(1, spec.tint.g + 0.1), b = math.min(1, spec.tint.b + 0.3) }
   fluid.fuel_value = spec.fuel_value
   fluid.order = "a[fluid]-z[" .. spec.fluid .. "]"
+  if spec.fluid_temperature then
+    -- Piste GÉOTHERMIE : gaz volcanique chaud (X0 : temperature = 300).
+    fluid.default_temperature = spec.fluid_temperature
+    fluid.max_temperature = math.max(fluid.max_temperature or 0, spec.fluid_temperature)
+  end
   lib.set_icons(fluid, { { icon = fluid.icon, icon_size = fluid.icon_size, icon_mipmaps = fluid.icon_mipmaps, tint = spec.tint } })
   out[#out + 1] = fluid
 
@@ -476,7 +481,15 @@ local function fluid_prototypes(spec, key, letter)
   well.localised_name = { "entity-name." .. spec.resource }
   well.order = "a-b-z-" .. letter
   well.map_color = spec.map_color
-  well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = 10, amount_max = 10, probability = 1 } }
+  local yield = spec.yield or 10
+  well.minable.results = { { type = "fluid", name = spec.fluid, amount_min = yield, amount_max = yield, probability = 1 } }
+  if spec.category then
+    -- Catégorie PROPRE (piste GÉOTHERMIE, fumerolle) : seul le capteur géothermique la capte, pas le chevalet.
+    if not data.raw["resource-category"][spec.category] then
+      out[#out + 1] = { type = "resource-category", name = spec.category }
+    end
+    well.category = spec.category
+  end
   if spec.stages_sheet then
     -- Feuille propre (lot AMELIO-RESSOURCES, saumure) : découpe EXACTE de la flaque vanilla copiée (4 variantes),
     -- seuls les fichiers changent ; aucune teinte.

@@ -234,7 +234,7 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite", "fumarole" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
@@ -243,7 +243,8 @@ W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "mon
 -- « gisements classiques à plus de 300 tuiles du départ ») ; en DERNIER : les sites d'avant gardent leur place.
 -- Piste ÉTAIN : la cassitérite (âge 4, X3), 2 gisements de 150 000 à 120-350 tuiles, sans biome, après la galène.
 -- Piste BAUXITE : la bauxite (âge 6, X3), 3 gisements de 300 000 à 300-600 tuiles, sans biome, après la cassitérite.
-W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite", "bauxite" }
+-- Piste GÉOTHERMIE : la fumerolle (âge 5, X0), 2 fumerolles sur un disque de cendres à 250-600 tuiles, après la bauxite.
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite", "bauxite", "fumarole" }
 
 W.resources = {
   tungsten = {
@@ -513,6 +514,33 @@ W.resources = {
     biome = nil,
     autoplace = { base_density = 5, base_spots_per_km2 = 1.2, random_spot_size_minimum = 1, random_spot_size_maximum = 3,
       seed1 = 7303, distance_min = 300, region = { seed1 = 7313, threshold = 0.4, scale = 1 / 240, moisture_max = 0.3, aux_min = 0.6 } },
+  },
+  -- Lot AMELIO-RESSOURCES, piste GÉOTHERMIE (30/10) : FUMEROLLE (âge 5, Volcan ; X.resources : fo-fumarole, fluide infini,
+  -- part minimale 0,2, catégorie PROPRE fo-fumarole : seul le capteur géothermique la capte ; produit fo-volcanic-gas).
+  -- Dans les cendres volcaniques, comme le tungstène. Captage : 200 gaz par cycle (X0 : « Captage : fumerolle », 200 gaz,
+  -- 1 s) : 200 gaz/s à 100 %, d'où 140 vapeurs/s (4,2 MW) et 2 soufres/s (SCENARIO_EPOQUES). Chaîne :
+  -- shared/content/geothermal.lua.
+  fumarole = {
+    resource = "fo-fumarole",
+    kind = "fluid",
+    epoch = 5,
+    -- X : « 2 fumerolles posées par script dans la première zone de cendres trouvée, ou sur une tache de cendres créée à
+    -- cette distance » : un disque de cendres et 2 puits à 100 % (300 000 = 100 % pour un puits copié du pétrole).
+    guarantee = { site_radius = 7, wells = { amount = 300000, spacing = 6 } },
+    fluid = "fo-volcanic-gas",
+    category = "fo-fumarole",
+    yield = 200,
+    copy_resource = "crude-oil",
+    copy_fluid = "petroleum-gas",
+    -- Croûte de soufre jaune pâle sur la flaque (teinte provisoire du pétrole ; une feuille propre comme la saumure est à
+    -- faire) ; gaz jaune-blanc.
+    tint = { r = 0.95, g = 0.90, b = 0.55 },
+    fluid_temperature = 300, -- X0 : temperature = 300
+    -- Crème soufrée sur la carte : un puits est un point, pas une tache ; ΔE76 ≥ 35 de tous les minerais, fluides et sols
+    -- (≥ 45 n'est plus possible hors du bleu marine, invisible sur la carte sombre : tests/geothermal_test.lua).
+    map_color = { r = 1.00, g = 1.00, b = 0.75 },
+    biome = "fo-volcanic-ash",
+    autoplace = { base_density = 4, base_spots_per_km2 = 1.2, random_probability = 1 / 50, additional_richness = 300000, seed1 = 7108 },
   },
 }
 

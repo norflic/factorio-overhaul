@@ -108,7 +108,7 @@ do
   local ig, ir = 0, 0
   for i, k in ipairs(W.guarantee_order) do if k == "bauxite" then ig = i end end
   for i, k in ipairs(W.resource_order) do if k == "bauxite" then ir = i end end
-  check(ig == #W.guarantee_order and ir == #W.resource_order, "bauxite en dernier (sites et lettres d'avant inchangés)")
+  check(ig == 8 and ir == 9, "bauxite après la cassitérite (sites et lettres d'avant inchangés ; la piste GÉOTHERMIE en ajoute après)")
 end
 
 ---------------------------------------------------------------------------------------------------

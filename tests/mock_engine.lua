@@ -985,7 +985,8 @@ function M.new_world(opts)
     ["fo-monazite"] = true, -- lot X2
     ["fo-galena"] = true, -- lot AMELIO-RESSOURCES
     ["fo-cassiterite"] = true, -- piste ÉTAIN
-    ["fo-bauxite"] = true } -- piste BAUXITE
+    ["fo-bauxite"] = true, -- piste BAUXITE
+    ["fo-fumarole"] = true } -- piste GÉOTHERMIE
   surface.create_entity = function(t)
     if t.position and t.position.x == nil and t.position[1] ~= nil then t.position = { x = t.position[1], y = t.position[2] } end -- lot IA3-e
     if t.position and t.position.x == nil then t.position = { x = t.position[1], y = t.position[2] } end
