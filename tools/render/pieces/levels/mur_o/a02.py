@@ -64,7 +64,7 @@ def mats(S):
     # terre du pied : brun du sol vanilla (hr-dirt), qui fond le mur dans le terrain
     M["terre"] = surface("m2_terre", (0.26, 0.13, 0.055), (0.12, 0.06, 0.025), rough=1.0, var=0.8, var_scale=9.0,
                          grain=0.35, bump=1.0, bump_scale=60.0, cavity=0.5, spec=0.1)
-    M["rouille"] = surface("m2_rouille", (0.40, 0.13, 0.03), (0.20, 0.065, 0.016), rough=0.9, var=0.8,
+    M["rouille"] = surface("m2_rouille", (0.30, 0.10, 0.03), (0.13, 0.05, 0.02), rough=0.9, var=0.8,
                            var_scale=20.0, grain=0.3, bump=0.3, cavity=0.2)
     M["vide"] = surface("m2_vide", (0.008, 0.006, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0, spec=0.0)
     return M
@@ -121,8 +121,14 @@ def bras(g, M, B):
                          RIV, M["laiton"])
                 # coulures de rouille sous les boulons du bas (contrastées, lisibles au zoom 1)
                 for x in (xa + 0.05, xb - 0.05, 0.5 * (xa + xb) + g.rnd(-0.04, 0.04)):
-                    zb = g.rnd(0.20, 0.27)
-                    _plaque(g, M["rouille"], x - 0.017, x + 0.017, zb, 0.37, k, 0.0145, 0.004)
+                    zb, zt = g.rnd(0.19, 0.30), 0.385
+                    wt, wb = g.rnd(0.014, 0.02), 0.004          # coulure effilée vers le bas
+                    xo = g.rnd(-0.01, 0.01)
+                    g.loft_z([(x + xo - wb, -(hw(zb) * k + 0.0145)), (x + xo + wb, -(hw(zb) * k + 0.0145)),
+                              (x + xo + wb, -(hw(zb) * k - 0.004)), (x + xo - wb, -(hw(zb) * k - 0.004))], zb, zt,
+                             M["rouille"], poly1=[(x - wt, -(hw(zt) * k + 0.0145)), (x + wt, -(hw(zt) * k + 0.0145)),
+                                                  (x + wt, -(hw(zt) * k - 0.004)), (x - wt, -(hw(zt) * k - 0.004))],
+                             bev=0)
         else:
             # flancs nord-sud (v5) : contreforts en saillie et blocs débordants (flanc modelé, silhouette dentelée)
             hwk = lambda z: hw(z) * k  # noqa: E731
