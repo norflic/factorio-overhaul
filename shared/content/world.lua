@@ -493,6 +493,15 @@ W.resources = {
     copy_icon = "stone",
     tint = { r = 0.62, g = 0.42, b = 0.30 },
     glint = { tint = { r = 1.00, g = 0.96, b = 0.90 }, min = 0.15, max = 0.45, period = 4 },
+    -- Feuille PROPRE du kit minerai (30/10 ; direction C1 : placer de galets brun chocolat à éclat adamantin et de quartz
+    -- blanc, 128 échantillons ; check_gisement 7 OK) : remplace la pierre teintée ci-dessus pour le gisement, son icône et
+    -- l'objet. Éclats blancs du quartz, faibles de jour. Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/cassiterite",
+      name = "cassiterite",
+      mining_visualisation_tint = { r = 0.45, g = 0.28, b = 0.18, a = 1 },
+      effet = { period = 4, deviation = 1, darkness_multiplier = 60, min = 0.02, max = 0.08 },
+    },
     -- Bordeaux sur la carte : les bruns sont pris (cuivre, pierre, désert) ; ΔE76 ≥ 45 de tous les minerais et sols.
     map_color = { r = 0.60, g = 0.00, b = 0.30 },
     mining_time = 1,
