@@ -225,9 +225,11 @@ do
   table.sort(ps)
   for _, p in ipairs(ps) do SMELT_INPUTS[#SMELT_INPUTS + 1] = { p, T.smelter_inputs[p][1], T.smelter_inputs[p][2] } end
 end
-function B.smelt_situation(s)
+--- `st` (facultatif) : état du cerveau ; st.covered (plaques fondues par un module fini, posé par C.think à la pensée
+--- précédente, lot IA3-e) borne la fonderie du QG (lot PD-FONDERIEQG, shared/ai3/fonderie_qg.lua).
+function B.smelt_situation(s, st)
   return { workers = s.workers, stock = s.stock or {}, smelters = s.smelters, smelters_pending = s.smelters_pending,
-    tick = s.tick, smelter_inputs = SMELT_INPUTS }
+    tick = s.tick, smelter_inputs = SMELT_INPUTS, covered = st and st.covered or nil }
 end
 
 --- Buts de la pensée. s = situation (shared/ai3/cerveau.lua, B.situation) ; rend une liste triée (valeur
@@ -293,7 +295,7 @@ function B.generate(s, st)
   local smelters_want = s.is_player and 2 or B.SMELTERS_WANT
   -- Lot SCALE (capacité de FONTE) : une faction dont une plaque manque alors que son minerai attend au coffre agrandit sa
   -- fonderie, par vagues, jusqu'à la moitié de son effectif (shared/ai3/bras.lua, Br.smelters).
-  if not s.is_player then smelters_want = Br.smelters(B.smelt_situation(s), st, B.SMELTERS_WANT, B.GROW_THINKS) end
+  if not s.is_player then smelters_want = Br.smelters(B.smelt_situation(s, st), st, B.SMELTERS_WANT, B.GROW_THINKS) end
   if (s.smelters or 0) + (s.smelters_pending or 0) < smelters_want and (s.cap[key.top] or 0) >= 0.75 then
     goals[#goals + 1] = { key = "capital:fonderie", family = "capital", kind = "smelters",
       n = smelters_want - (s.smelters or 0) - (s.smelters_pending or 0), value = val(B.SMELTERS, w.capital) }

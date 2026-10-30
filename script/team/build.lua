@@ -38,16 +38,19 @@ local Cv = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) :
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
+local Or = require("shared.team.orient")      -- lot PD-FONDERIEQG (D82) : sens du gisement (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
 local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
-local Cen = require("shared.team.centrale") -- lot ENERGIE-CROISSANCE : étangs de plus (règle pure Cen.pond_allowed)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
+local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
 local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-CENTRALE : coffre de la centrale en urgence, foreuses de la centrale (règles pures)
+local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pures de la centrale lointaine (D-24)
+local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors du treillis, ligne de poteaux
 
 local Build = {}
 
@@ -492,118 +495,31 @@ local function candidates(b, states, toward, res)
   return out
 end
 
---- Tuiles de minerai `res` d'un lot (un appel).
+--- Tuiles de minerai `res` d'un lot (un appel). Lot PD-FONDERIEQG (D82) : `set.axis` = sens du gisement dans le lot ("x", "y"
+--- ou nil : rond ou trop petit ; shared/team/orient.lua), lu par place_module pour orienter une ligne de foreuses.
 local function ore_set(surface, rect, res)
   local set, n = {}, 0
+  local m = Or.moments()
   for _, e in ipairs(surface.find_entities_filtered({ area = { { rect.x0 + 0.01, rect.y0 + 0.01 }, { rect.x1 - 0.01, rect.y1 - 0.01 } }, name = res })) do
-    set[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true
+    local tx, ty = math.floor(e.position.x), math.floor(e.position.y)
+    set[P.tkey(tx, ty)] = true
+    Or.add(m, tx - rect.x0, ty - rect.y0)
     n = n + 1
   end
+  set.axis = Or.axis(m)
   return set, n
 end
 
 --- Étape 1 / robustesse (28/10, graine 123456789 : Écarlate, QG à (339, −340), AUCUNE eau dans les 121 lots du treillis ni à
---- moins de 256 tuiles : « centrale REFUSEE : pas de lot » à chaque demande, 0 poteau, 0 centrale, 0 foreuse électrique à
---- 60 min ; graine 271828182, Azure : de l'eau, mais aucune rive où le gabarit de la pompe tient, « refuse (place) » à chaque
---- demande, 0 poteau) : sans rive utilisable dans le treillis, la centrale à vapeur n'a nulle part où pomper et
---- l'électrification d'une faction ne démarre JAMAIS. Comme les gisements garantis (lot M0), l'eau de la
---- centrale est GARANTIE : un petit étang (Build.POND × Build.POND tuiles) au centre du lot libre le plus proche du QG
---- (hors lot du QG, hors gisement, hors lot pris), une fois par équipe. Le lot est réévalué (rive) et la centrale replanifiée.
-Build.POND = 6
---- Lot ENERGIE-CROISSANCE (relecture) : `extra` = étang pour une centrale DE PLUS (la première centrale, b.plant, garde la règle
---- d'origine, une fois). L'étang garanti ne porte que 2 centrales d'une chaudière (tests/energie_croissance_test.lua) : la 3e était
---- refusée « pas de lot » à chaque essai (« ils auraient dû aller vraiment beaucoup plus loin », retour du DC du 29/10). Un étang de
---- plus est posé, au plus Cen.MAX_PONDS en tout (règle pure Cen.pond_allowed), dans un lot LIBRE (sans arbre) dans le contour, le plus
---- proche de la première centrale (l'énergie reste groupée), sans tuile réservée (b.occ) ; set_tiles « abort_on_collision » : rien
---- n'est retiré (PNJ, objets au sol) ; une pose refusée par le moteur marque le lot (l.pond_fail) et la centrale réessaie plus tard.
-local function make_pond(f, surface, extra)  -- factions seulement (le joueur trouve son eau)
-  local b = f.build
-  if b.pond and not extra then return false end
-  local ref = { i = 0, j = 0 }
-  if extra then
-    local n = b.ponds or (b.pond and 1 or 0)
-    local last = b.lots[b.pond_last or b.pond or ""]
-    local ok, why = Cen.pond_allowed(n, last and last.state)
-    if not ok then
-      if why ~= b.pond_why then
-        b.pond_why = why
-        log(string.format("[FO-ENERGIE] %s : pas d'etang de plus : %s (%d etang(s))", f.key or "player", why, n))
-      end
-      return false
-    end
-    local pp = b.plant and b.projects[b.plant]
-    local pl = pp and pp.parts and pp.parts[1] and b.lots[pp.parts[1].lot]
-    if pl then ref = { i = pl.i, j = pl.j } end
-  end
-  local best, x0, y0
-  for _, k in ipairs(sorted_keys(b.lots)) do
-    local l = b.lots[k]
-    -- (étang de plus : lot libre seulement, aucun arbre à retirer, ni lot dont la pose a échoué ou écarté)
-    local fits = not extra or (l.state == "libre" and not l.pond_fail and not (l.bad and l.bad >= 2))
-    if fits and not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then
-      local d = math.abs(l.i - ref.i) + math.abs(l.j - ref.j)
-      if not best or d < best.d then
-        local c = lot_center(b, l)
-        local px, py = math.floor(c.x - Build.POND / 2), math.floor(c.y - Build.POND / 2)
-        local clear = true
-        if extra then -- aucune tuile de l'étang n'est réservée par un autre projet (tapis, poteaux planifiés)
-          for dx = 0, Build.POND - 1 do
-            for dy = 0, Build.POND - 1 do if b.occ[P.tkey(px + dx, py + dy)] then clear = false end end
-          end
-        end
-        if clear then best, x0, y0 = { d = d, k = k, l = l }, px, py end
-      end
-    end
-  end
-  if not best then
-    if extra and b.pond_why ~= "aucun lot libre" then
-      b.pond_why = "aucun lot libre"
-      log(string.format("[FO-ENERGIE] %s : pas d'etang de plus : aucun lot libre dans le contour", f.key or "player"))
-    end
-    return false
-  end
-  local tiles = {}
-  for dx = 0, Build.POND - 1 do
-    for dy = 0, Build.POND - 1 do tiles[#tiles + 1] = { name = "water", position = { x0 + dx, y0 + dy } } end
-  end
-  if extra then
-    surface.set_tiles(tiles, true, "abort_on_collision")
-    local wet = 0
-    for _, t in ipairs(tiles) do
-      local tl = surface.get_tile(t.position[1], t.position[2])
-      if tl and tl.valid and tl.collides_with("water-tile") then wet = wet + 1 end
-    end
-    if wet < #tiles then
-      best.l.pond_fail = true
-      if wet > 0 then best.l.state = "inconnu"; b.queue[#b.queue + 1] = { "lot", best.k } end -- (pose partielle : le lot est relevé)
-      log(string.format("[FO-ENERGIE] %s : etang de plus refuse par le moteur au lot %s (%d tuile(s) d'eau sur %d : entite sur la place)",
-        f.key or "player", best.k, wet, #tiles))
-      return false
-    end
-    b.ponds = (b.ponds or (b.pond and 1 or 0)) + 1
-    b.pond_last, b.pond_why = best.k, nil
-    best.l.state, best.l.reason, best.l.bad = "inconnu", nil, nil
-    -- relevé du lot en TÊTE de file : la centrale qui attend le replanifie à la passe suivante
-    if b.qhead <= #b.queue + 1 then table.insert(b.queue, b.qhead, { "lot", best.k }) else b.queue[#b.queue + 1] = { "lot", best.k } end
-    log(string.format("[FO-ENERGIE] %s : etang de plus (%d en tout) pose au lot %s (%d, %d) pour une centrale de plus",
-      f.key or "player", b.ponds, best.k, x0, y0))
-    return true
-  end
-  surface.set_tiles(tiles, true, true)
-  b.pond = best.k
-  -- Les rives naturelles déjà essayées sans succès (la pompe de rive demande 2 tuiles d'eau devant elle et 60 % du gabarit
-  -- mouillé : graine 271828182, Azure, « centrale refusee : place » à chaque demande malgré l'eau) ne sont plus candidates :
-  -- l'étang, au bord rectiligne, l'est seul.
-  for _, k in ipairs(sorted_keys(b.lots)) do
-    local l = b.lots[k]
-    if k ~= best.k and (l.water or 0) > 0 then l.bad = math.max(l.bad or 0, 2) end
-  end
-  best.l.state, best.l.reason, best.l.bad = "inconnu", nil, nil
-  b.queue[#b.queue + 1] = { "lot", best.k }
-  log(string.format("[FO-IA1D] %s : aucune rive ne tient la centrale : etang de %d x %d tuiles pose au lot %s (%d, %d) pour la centrale",
-    f.key or "player", Build.POND, Build.POND, best.k, x0, y0))
-  return true
-end
+--- moins de 256 tuiles ; graine 271828182, Azure : de l'eau, mais aucune rive où le gabarit de la pompe tient) : sans rive
+--- utilisable dans le treillis, l'électrification d'une faction ne démarrait JAMAIS. L'étang garanti (make_pond, posé dans le
+--- lot libre le plus proche du QG) est SUPPRIMÉ par la décision du DC D-24 (1) : la centrale va à l'eau la plus proche hors du
+--- treillis, reliée par une ligne de poteaux (lot PD-CENTRALE, script/team/centrale_loin.lua). Les étangs déjà posés dans une
+--- sauvegarde restent de l'eau ; le champ b.pond n'est plus lu.
+--- Intégration 0.6.21 (PD-CENTRALE x ENERGIE-CROISSANCE) : les étangs DE PLUS d'ENERGIE-CROISSANCE (l'ancien étang garanti avec
+--- `extra`, règle pure Cen.pond_allowed, désormais sans lecteur) partent avec l'étang garanti, comme le demande le rapport de PD-CENTRALE : une centrale de plus va elle aussi
+--- au loin par Far.place (une autre fenêtre de la même rive, masques b.occ). Le reste d'ENERGIE-CROISSANCE (rive partagée
+--- main.shared, demandes, pause, 5 refus) est gardé.
 
 --- Lot AGENCEMENT : relevés d'un lot (masques de place, tuiles de minerai `res`) gardés pour la passe de plan en cours. Mémoire
 --- LOCALE (jamais dans global), valable pour un tick et une équipe : plan_project lit les lots pour dimensionner la ligne
@@ -653,13 +569,15 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
     if res then fopts.ore = ores end
+    -- lot PD-FONDERIEQG (D82) : ligne de foreuses (gabarit « drills ») dans le sens du gisement, sortie du collecteur vers l'arrivée
+    if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
     local fit, why = P.fit(g, rect, fopts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
       local inst = M.instantiate(r, 0, fit.ox, fit.oy)
       return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan,
-        shared = c.shared }
+        axis = fopts.axis, pen = fit.pen, d = fit.d, shared = c.shared }
     end
     last = why or last
     bump(b.stats.plan_refused, last)
@@ -723,6 +641,12 @@ local function plan_power(f, p, mp, masks)
   local pole, reach = pole_kind(f, mp.name)
   local big = pole == "big-electric-pole"
   local mi, mj = nearest_node(b, mp.x, mp.y)
+  -- lot PD-CENTRALE : un module HORS du treillis évalué (la centrale lointaine) s'accroche au carrefour de bord le plus proche ;
+  -- une ligne de poteaux tracée au moteur l'y relie (fin de la fonction, Far.line), les rues du treillis font le reste
+  -- (vérification rapide, 30/10 : seule la centrale lointaine, p.far, prend ce chemin ; un module ordinaire ne passe jamais
+  -- par Far.line, dont l'échec rend « loin » sans fin pour un projet sans rive à écarter)
+  local far = p.far ~= nil and Cl.is_far(b.radius, mi, mj)
+  if far then mi, mj = Cl.clamp_node(b.radius, mi, mj) end
   local out = {}
   -- poteau d'un carrefour : celui du réseau s'il existe, sinon un quart LIBRE du carrefour (contrôlé au moteur :
   -- falaise, eau, bâti ; arbres et rochers seront défrichés). Correction du 27/10 : le poteau tombait sur le bout d'une
@@ -887,7 +811,8 @@ local function plan_power(f, p, mp, masks)
   if surface then
     local legs = {}
     local npos0 = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
-    legs[1] = { a = { x = mp.x, y = mp.y }, b = npos0 }
+    -- (lot PD-CENTRALE : la ligne lointaine lit son propre couloir, chunk par chunk, dans Far.line)
+    if not far then legs[1] = { a = { x = mp.x, y = mp.y }, b = npos0 } end
     local pv
     for _, n in ipairs(nodes) do
       local pos = spot_of(n.i, n.j)
@@ -940,10 +865,19 @@ local function plan_power(f, p, mp, masks)
   -- liaison du module au carrefour le plus proche (poteaux du gabarit : moyens)
   local npos = spot_of(mi, mj) or P.node_pole(b.lat, mi, mj, big)
   local link_reach = math.min(reach, P.wire(mp.name) or 9)
-  local chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
+  local chain
+  if far and surface then
+    local w4, wait4
+    chain, w4, wait4 = Far.line(f, surface, p, { x = mp.x, y = mp.y }, npos, link_reach, taken, known, read_masks)
+    if not chain then return nil, w4, wait4 end
+  else
+    chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
+  end
   if not chain then return nil, "liaison electrique" end
   for _, c in ipairs(chain) do
-    local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
+    -- (lot PD-CENTRALE : un poteau de la ligne lointaine arrive avec son point d'appui, lu sur le terrain de la ligne)
+    local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison", ligne = far or nil,
+      ax = c.ax, ay = c.ay, anchor = c.anchor }
     out[#out + 1] = e
     take(e)
   end
@@ -1658,6 +1592,18 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
       f.key or "player", p.id, item, (place.g.params or {}).n or 0, 2 * ((place.g.params or {}).n or 0), n,
       math.floor((place.cover or 0) * 100 + 0.5), picked and picked.cover and math.floor(picked.cover * 100 + 0.5) or math.floor(P.DRILL_COVER * 100 + 0.5), flow))
   end
+  -- lot PD-FONDERIEQG (D82) : sens du gisement dans le lot, sens du collecteur choisi, distance de sa sortie à l'arrivée
+  do
+    local la
+    for _, port in ipairs(P.belt_ports(place.inst)) do if port.io == "out" then la = Or.line_axis(port.dir) end end
+    b.stats.orient = (b.stats.orient or 0) + 1
+    if b.stats.orient <= Build.LINE_LOGS then
+      log(string.format("[FO-ORIENT] %s : projet %d, foreuses %s : gisement %s dans le lot %s, collecteur %s%s, sortie a %d tuile(s) de l'arrivee",
+        f.key or "player", p.id, item, place.axis == "y" and "vertical" or (place.axis == "x" and "horizontal" or "sans sens (rond ou petit)"),
+        place.lot, la == "y" and "vertical" or "horizontal", (place.pen or 0) > 0 and " (en travers : meilleure couverture ou place)" or "",
+        math.floor((place.d or 0) + 0.5)))
+    end
+  end
   local ents = inst_entities(place.inst, part, belt)
   Build.tag_rows(ents, pg, 1, "drill", "pair") -- lot FONDERIE-DYNAMIQUE : paire de chaque foreuse (pose par étapes, ligne_split)
   -- tapis : queue des foreuses → arrivée
@@ -1911,7 +1857,7 @@ local function enc_tight_bounds(f)
 end
 
 --- Lot ENCEINTE3 : les lots libres que le mur coupe ou laisse dehors ne reçoivent plus de module (drapeau `out`, lu par
---- `candidates`, `make_pond` et Enc.free_count) ; un lot de GISEMENT reste utilisable dehors (les mines d'avant-poste).
+--- `candidates` et Enc.free_count) ; un lot de GISEMENT reste utilisable dehors (les mines d'avant-poste).
 local function enc_mark_out(b, bounds)
   local n = 0
   for _, k in ipairs(sorted_keys(b.lots)) do
@@ -2100,12 +2046,94 @@ local function plan_alim(f, surface, p)
   return false, "foreuses : " .. last
 end
 
+--- Lot PD-ELEC (D05) : plan d'un projet de RACCORDEMENT (spec.raccord, demandé par script/team/raccord.lua) : une chaîne de poteaux
+--- du poteau d'une île (ou d'un poteau neuf contre une machine sous aucun poteau) au poteau alimenté choisi, par P.pole_chain (recherche
+--- de chemin de 0.6.17) sur les masques du couloir (lot POTEAUX-MASQUES, mêmes attentes « masques »). Mêmes champs qu'un projet de
+--- module (entités, points d'appui, obstacles) : la machine d'états d'`advance` ne change pas ; les fils sont tirés au raccordement
+--- (wire_project relie les poteaux du projet à leurs voisins, île et réseau alimenté compris).
+local function plan_raccord(f, surface, p)
+  local b = f.build
+  local rc = p.spec.raccord
+  local function pole_at(x, y)
+    return surface.find_entities_filtered({ position = { x, y }, radius = 0.6, force = f.force, type = "electric-pole", limit = 1 })[1]
+  end
+  local tgt = pole_at(rc.target.x, rc.target.y)
+  if not tgt then return false, "raccord: poteau alimente disparu" end
+  local s0 = rc.start.new and rc.cands[1] or rc.start
+  if not s0 then return false, "raccord: aucun depart" end
+  local masks = read_masks(f, surface, math.floor(s0.x) - 12, math.floor(s0.y) - 12, math.floor(s0.x) + 13, math.floor(s0.y) + 13)
+  local start
+  if rc.start.new then
+    for _, c in ipairs(rc.cands) do
+      local tx, ty = math.floor(c.x), math.floor(c.y)
+      if masks.free(tx, ty) and not masks.clear[P.tkey(tx, ty)] then start = { x = c.x, y = c.y } break end
+    end
+    if not start then return false, "raccord: aucune place libre pour un poteau contre la machine" end
+  else
+    local sp = pole_at(rc.start.x, rc.start.y)
+    if not sp then return false, "raccord: poteau de l'ile disparu" end
+    if sp.electric_network_id == tgt.electric_network_id then return false, "raccord: deja relie" end
+    start = { x = rc.start.x, y = rc.start.y }
+  end
+  local view = masques_view(f, surface, p, masks, { { a = start, b = { x = rc.target.x, y = rc.target.y } } }, rc.reach)
+  if not view then return false, "masques (couloir du raccordement en cours de releve)", "masques" end
+  local taken = {}
+  if rc.start.new then taken[P.tkey(math.floor(start.x), math.floor(start.y))] = true end
+  local function free(x, y)
+    local tx, ty = math.floor(x), math.floor(y)
+    return view.free(tx, ty) and not taken[P.tkey(tx, ty)] and not view.clear(tx, ty)
+  end
+  -- poteaux déjà prévus ou posés (projets en chantier ou finis, comme plan_power) : la chaîne les traverse au lieu d'en doubler un
+  local known = {}
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then
+      for _, e in ipairs(q.ents) do
+        if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= rc.reach - 1e-9 then known[#known + 1] = { x = e.x, y = e.y } end
+      end
+    end
+  end
+  local chain = P.pole_chain(start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known)
+  if not chain then return false, "raccord: aucune chaine de poteaux (relief, eau, place)" end
+  local ents = {}
+  if rc.start.new then ents[1] = { name = rc.pole, x = start.x, y = start.y, dir = 0, part = 1, role = "liaison" } end
+  for _, c in ipairs(chain) do ents[#ents + 1] = { name = rc.pole, x = c.x, y = c.y, dir = 0, part = 1, role = "liaison" } end
+  if #ents == 0 then return false, "raccord: aucun poteau a poser (bouts a portee)" end
+  if not reserve_tiles(b, p, ents) then return false, "poteaux" end
+  local passable = seg_passable(b)
+  local wood = wood_of(surface, p.ents)
+  for _, e in ipairs(p.ents) do
+    local a = P.anchor_for(b.lat, e.x, e.y, passable)
+    local ax, ay
+    if a then ax, ay = a.x, a.y else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+    local fx, fy = free_spot(b, masks, ax, ay, wood)
+    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+    e.ax, e.ay = fx, fy
+    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    e.item = item_of(e.name)
+  end
+  P.sort_build(p.ents)
+  p.obstacles, p.obst_keys = {}, {}
+  for _, e in ipairs(p.ents) do
+    for _, t in ipairs(P.tiles_of(e)) do
+      local k = P.tkey(t[1], t[2])
+      if masks.clear[k] or wood[k] then add_obstacle(p, { x = t[1] + 0.5, y = t[2] + 0.5, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
+    end
+  end
+  p.parts[1] = { kind = "raccord", key = "raccord", ox = start.x, oy = start.y, w = 1, h = 1, power = false }
+  p.counted = true -- un raccordement n'est pas un module : finish_project ne le compte pas aux modules finis
+  log(string.format("[FO-RACCORD] %s : projet %d planifie (groupe %s) : %d poteau(x) %s de (%.1f, %.1f) a (%.1f, %.1f), portee %g, %d obstacle(s)",
+    f.key or "player", p.id, tostring(rc.key), #p.ents, rc.pole, start.x, start.y, rc.target.x, rc.target.y, rc.reach, #p.obstacles))
+  return true
+end
+
 --- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
+  if spec.raccord then return plan_raccord(f, surface, p) end -- lot PD-ELEC (D05)
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- lot AGENCEMENT : la fonderie à tapis est une LIGNE qui suit le gisement (line_rows) ; ses coffres vont vers le centre (la
   -- source de ressources de la base, défaut) ou vers l'extérieur (les plaques nourrissent un autre module du plan)
@@ -2181,18 +2209,26 @@ local function plan_project(f, surface, p)
       Build.grow(f, b.radius + 1)
       return false, why, true
     end
-    -- (lot ENERGIE-CROISSANCE, relecture : une centrale de plus, rive partagée pleine, reçoit un étang de plus, make_pond)
-    if is_plant and not f.is_player and make_pond(f, surface, b.plant ~= p.id) then return false, why, true end
-    return false, why
+    -- lot PD-CENTRALE (décision du DC D-24 (1) : « si l'eau n'est pas utilisable, il faut aller plus loin […] centrale plus
+    -- loin ») : plus d'étang garanti ; la centrale va à l'eau la plus proche HORS du treillis, reliée par une ligne de poteaux
+    -- (plan_power, Far.line). Toutes les équipes (votre équipe était refusée sans recours).
+    if not is_plant then return false, why end
+    Profiler.start("build:plan:loin")
+    local lwhy, lwait
+    main, lwhy, lwait = Far.place(f, surface, g, { read_masks = read_masks, tick = game.tick, why = why, avoid_margin = Build.AVOID_MARGIN, p = p })
+    Profiler.stop("build:plan:loin")
+    if not main then return false, lwhy, lwait end
   end
-  p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot, ox = main.ox, oy = main.oy,
+  p.far = main.far -- lot PD-CENTRALE : rive de la centrale lointaine (nil dans le treillis)
+  p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot or "lointain", ox = main.ox, oy = main.oy,
     k = main.k, w = main.g.w, h = main.g.h, power = needs_power(main.g) }
   local ents = inst_entities(main.inst, 1)
   if topts then Build.tag_rows(ents, g, 0, "four", "row") end -- lot FONDERIE-DYNAMIQUE : rangée de chaque four et de ses bras (ligne_split)
   if not reserve_tiles(b, p, ents) then return false, "place" end
-  b.lots[main.lot].used = p.id
+  if main.lot then b.lots[main.lot].used = p.id end
   -- lot ENERGIE-CROISSANCE : la rive partagée reste au nom de sa première centrale (un refus ou un abandon de la centrale de plus
-  -- libère les lots à son nom : il ne doit pas libérer celui d'une centrale bâtie, que l'enceinte et l'évaluation lisent pris)
+  -- libère les lots à son nom : il ne doit pas libérer celui d'une centrale bâtie, que l'enceinte et l'évaluation lisent pris).
+  -- (Une centrale lointaine de PD-CENTRALE n'a ni lot ni main.shared.)
   if main.shared then
     b.lots[main.lot].used = main.shared
     log(string.format("[FO-ENERGIE] %s : projet %d, centrale posee sur la rive de la centrale %d (lot %s, autre bord de la meme eau)",
@@ -2237,7 +2273,12 @@ plan_finish = function(f, surface, p, masks, is_plant)
           -- relevé autour de CE module (eau, bâtiments, arbres) jusqu'aux carrefours voisins
           local pm = idx == 1 and masks or read_masks(f, surface, pt.ox - 32, pt.oy - 32, pt.ox + pt.w + 32, pt.oy + pt.h + 32)
           local extra, w3, nodes = plan_power(f, p, mp, pm)
-          if not extra then return false, w3, (nodes == "net" or nodes == "masques") and nodes or nil end
+          if not extra then
+            -- lot PD-CENTRALE : la centrale lointaine que le réseau ne peut pas rejoindre (pas de rue depuis son carrefour de bord,
+            -- liaison) écarte sa rive au lieu d'être refusée (sinon la même rive revenait à chaque demande)
+            if p.far and nodes ~= "net" and nodes ~= "masques" and nodes ~= "loin" and Far.reject(f, p, w3) then return false, w3, "loin" end
+            return false, w3, (nodes == "net" or nodes == "masques" or nodes == "loin") and nodes or nil
+          end
           if not reserve_tiles(b, p, extra) then return false, "poteaux" end
           for _, n in ipairs(nodes or {}) do
             local k = P.lot_key(n.i, n.j)
@@ -2256,14 +2297,17 @@ plan_finish = function(f, surface, p, masks, is_plant)
   local passable = seg_passable(b)
   local wood = wood_of(surface, p.ents)
   for _, e in ipairs(p.ents) do
-    local a = P.anchor_for(b.lat, e.x, e.y, passable)
-    local ax, ay
-    if a then ax, ay = a.x, a.y
-    else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
-    local fx, fy = free_spot(b, masks, ax, ay, wood)
-    if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
-    e.ax, e.ay = fx, fy
-    e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    -- (lot PD-CENTRALE : un poteau de la ligne lointaine garde le point d'appui lu sur le terrain de la ligne, Far.line)
+    if not (e.ligne and e.anchor) then
+      local a = P.anchor_for(b.lat, e.x, e.y, passable)
+      local ax, ay
+      if a then ax, ay = a.x, a.y
+      else ax, ay = math.floor(e.x / 8) * 8 + 4, math.floor(e.y / 8) * 8 + 4 end
+      local fx, fy = free_spot(b, masks, ax, ay, wood)
+      if (fx - e.x) * (fx - e.x) + (fy - e.y) * (fy - e.y) > REACH * REACH then fx, fy = free_spot(b, masks, e.x, e.y, wood) end
+      e.ax, e.ay = fx, fy
+      e.anchor = string.format("%s%g:%g", a and "" or "c", fx, fy)
+    end
     e.item = item_of(e.name)
   end
   P.sort_build(p.ents)
@@ -3372,6 +3416,17 @@ local function advance(f, surface, p, tick)
       p.masq_n = nil
       p.plan_after = tick + Build.NET_WAIT_TICKS
       p.state, p.reason = "attente", why
+    elseif wait == "loin" then
+      -- lot PD-CENTRALE : centrale lointaine, recherche de l'eau en cours (budget de la passe épuisé), rive écartée (ligne
+      -- impossible) ou terrain de la ligne en génération : tout ce qui a été réservé est rendu, nouvel essai plus tard
+      for k, v in pairs(b.occ) do if v == p.id then b.occ[k] = nil end end
+      for _, l in pairs(b.lots) do if l.used == p.id then l.used = nil end end
+      for _, n in ipairs(sorted_keys(b.net)) do if b.net[n].pid == p.id then b.net[n] = nil end end
+      p.ents, p.parts, p.far = {}, {}, nil
+      p.masq_n = nil
+      p.plan_after = tick + (p.far_poll or Cl.RETRY)
+      p.far_poll = nil
+      p.state, p.reason = "attente", why
     elseif wait == true then
       p.state = "attente"
       p.reason = why
@@ -3473,6 +3528,12 @@ local function advance(f, surface, p, tick)
           b.stats.projects_blocked = b.stats.projects_blocked + 1
           p.retries = (p.retries or 0) + 1
           p.retry_at = p.retries <= Build.RETRIES and (tick + Build.RETRY_TICKS) or nil
+          -- lot PD-CENTRALE : la pompe d'une centrale lointaine refusée au moteur ne passera pas à la reprise : rive écartée, abandon
+          -- tout de suite, et la place de LA centrale est rendue (le prochain module électrique en redemande une, à une autre rive)
+          if p.far and (M.BASE[e.name] or {}).kind == "offshore" and Far.reject(f, p, "pompe refusee") then
+            p.retry_at = nil
+            if b.plant == p.id then b.plant = nil end
+          end
           log(string.format("[FO-IA1D] %s : projet %d bloque : %s%s", f.key or "player", p.id, p.reason,
             p.retry_at and string.format(" ; reprise %d/%d a %.1f min", p.retries, Build.RETRIES, p.retry_at / 3600) or " ; abandon"))
           return
@@ -3669,6 +3730,8 @@ local function pulse_team(f, tick)
   if pp and pp.state == "fini" then PlantArms.step(f, surface, pp, tick) end
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
+  -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
+  Raccord.step({ request = Build.request, prio = Build.PRIO + 4 }, f, surface, tick)
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
   local nb, stale = PlantArms.watch(f, surface, tick)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end

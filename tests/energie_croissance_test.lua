@@ -91,7 +91,8 @@ end
 local build = read("script/team/build.lua")
 local pa = read("script/team/plant_arms.lua")
 local function has(src, pat, msg) check(src:find(pat, 1, true) ~= nil, msg) end
-check(build:find("Build.POND = " .. POND, 1, true) ~= nil, "etang de " .. POND .. " x " .. POND .. " (Build.POND) : la geometrie testee est la vraie")
+-- (Intégration 0.6.21 : l'étang garanti, Build.POND, est retiré par PD-CENTRALE, décision du DC D-24 (1) ; la géométrie de la section 1
+-- reste celle d'une rive de 6 x 6 tuiles, une eau naturelle comme une autre.)
 has(build, 'if p and p.state == "fini" and not p.abandoned and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then return pid end',
   "plant_owner : seule une centrale FINIE et non abandonnee (site dangereux) partage sa rive")
 has(build, 'local shared = l.used and l.state ~= "gisement" and states.rive and plant_owner(b, l.used) or nil',
@@ -125,12 +126,12 @@ do
   local mut = function(ponds) return (ponds or 0) < C.MAX_PONDS end
   check(mut(1, "inconnu") ~= real(1, "inconnu"), "mutant (garde du releve retiree) refuse par le test")
 end
-has(build, 'make_pond(f, surface, b.plant ~= p.id)', "plan_project : une centrale DE PLUS (pas b.plant) peut recevoir un etang de plus")
-has(build, 'if b.pond and not extra then return false end', "make_pond : la premiere centrale garde la regle d'origine (un etang)")
-has(build, 'surface.set_tiles(tiles, true, "abort_on_collision")', "make_pond : l'etang de plus ne retire aucune entite (abort_on_collision)")
-has(build, 'best.l.pond_fail = true', "make_pond : un lot dont la pose echoue n'est plus essaye")
-has(build, 'if b.occ[P.tkey(px + dx, py + dy)] then clear = false end', "make_pond : aucune tuile reservee sous l'etang de plus")
-has(build, 'Cen.pond_allowed(n, last and last.state)', "make_pond : regle pure Cen.pond_allowed branchee")
+-- Intégration 0.6.21 (PD-CENTRALE, décision du DC D-24 (1) : « si l'eau n'est pas utilisable, il faut aller plus loin ») : plus
+-- d'étang posé par le mod, ni garanti ni « de plus » ; une centrale de plus qui ne tient sur aucune rive du treillis va au loin
+-- (Far.place). Les 6 contrôles de branchement de make_pond sont remplacés par ceux-ci ; C.pond_allowed (ci-dessus) n'a plus de lecteur.
+check(build:find("local function make_pond", 1, true) == nil and build:find("set_tiles(tiles", 1, true) == nil,
+  "D-24 : aucun etang pose par le mod (ni garanti, ni de plus)")
+has(build, 'main, lwhy, lwait = Far.place(f, surface, g,', "une centrale (de plus comprise) sans rive dans le treillis va au loin (Far.place)")
 
 -- aucun nom d'objet ecrit dans le code ajoute (iag_test section 8 : les noms viennent des donnees)
 local added = build:match("local function plant_owner.-\nend") or ""

@@ -1,4 +1,18 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.21
+Date: 2026-10-30
+  Changes:
+    - Petites demandes du DC (inventaire du 29/10), 7 lots :
+      centrale au loin : plus d'etang pose par le mod ; une centrale qui ne tient sur aucune rive se batit au bord de l'eau la plus proche atteignable, reliee par une ligne de poteaux [FO-CENTRALE-LOIN] ;
+      couverture electrique : une machine de l'equipe sans courant (module jamais relie, ilot) est raccordee [FO-RACCORD] ;
+      tourelles espacees : ecart minimal entre tourelles, placement qui couvre le plus de perimetre utile ;
+      plus de minage a la main de ce que l'automatisation fournit ; les intermediaires (engrenages...) ne prennent plus tout le fer ;
+      le QG d'une faction est son centre de commandement (meme batiment logique, ameliorable) ;
+      fonderie du QG alimentee automatiquement (minerai et charbon), rangees de foreuses dans le sens du gisement ;
+      reparation de tous les batiments endommages (labos, fours, assembleurs), pour toutes les equipes, gratuite (option par defaut de la question Q12) [FO-REPARE].
+    - Modules : le controle du banc content suit l'effet multiplie apres le chargement d'une sauvegarde d'une autre version (defaut du test, pas du jeu).
+    - Rien n'a ete rejoue en partie : relecture statique de chaque lot, integration verifiee, tests hors jeu verts (pvp 1305), content.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.20
 Date: 2026-10-30
   Changes:

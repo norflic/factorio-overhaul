@@ -223,7 +223,10 @@ local function fortify_cases(O, label)
   logs = {}
   s, placed = world()
   n = O.fortify_at(f, s, 7, { { x = -9, y = 0 } }, 1, carrier(3))
-  c(n == 1 and placed[1].position.x == -9 and placed[1].position.y == 0 and #logs == 0, "pose hors couloir : inchangée, sans journal")
+  -- (intégration 0.6.21 avec PD-ESPACEMENT : la pose écrit désormais son bilan [FO-TOUR-ECART] ; « sans journal » = aucune ligne [FO-AXE])
+  local axe_lines = 0
+  for _, l in ipairs(logs) do if l:find("[FO-AXE]", 1, true) then axe_lines = axe_lines + 1 end end
+  c(n == 1 and placed[1].position.x == -9 and placed[1].position.y == 0 and axe_lines == 0, "pose hors couloir : inchangée, sans journal [FO-AXE]")
   -- côté ouest réservé (b.occ) : l'autre côté
   O.reserved = function(_, _, q) return q.x < -4 end
   s, placed = world()

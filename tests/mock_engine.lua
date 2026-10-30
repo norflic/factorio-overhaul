@@ -195,7 +195,8 @@ local function destroy_entity(e)
   end
 end
 
-local WRITABLE = { active = "_active", operable = "_operable", health = "_health", minable = "_minable" } -- minable : lot CENTRE-JEU
+local WRITABLE = { active = "_active", operable = "_operable", health = "_health", minable = "_minable", -- minable : lot CENTRE-JEU
+  destructible = "_destructible" } -- lot PD-CENTREQG : centre lié au QG d'une faction
 
 ---------------------------------------------------------------------------------------------------
 -- Inventaires (capacité illimitée : le mock valide la logique, pas la place disponible)
@@ -371,6 +372,9 @@ local new_entity -- déclarée plus bas (revive, lot V3-T3, en a besoin dans Ent
 local EntityMT = {
   __index = function(t, k)
     if k == "position" then return { x = t._x, y = t._y } end
+    -- Lot PD-CENTREQG : drapeaux du moteur (vrais par défaut, comme en jeu).
+    if k == "destructible" then return rawget(t, "_destructible") ~= false end
+    if k == "minable" then return rawget(t, "_minable") ~= false end
     if k == "unit_group" then return (t._group and t._group.valid) and t._group or nil end
     if k == "bounding_box" then
       -- Lot V3-T3 : un fantôme a la boîte de l'entité qu'il porte.
@@ -942,6 +946,9 @@ function M.new_world(opts)
     on_script_trigger_effect = 31,
     -- lot CENTRE-JEU : épave du centre posée au premier joueur (script/levels/centre.lua) ; levé à la main par tests/centre_test.lua
     on_player_created = 32,
+    -- lot PD-REPARATION : relevé des bâtiments endommagés (script/team/reparation.lua) ; le mock ne blesse rien : jamais levé ici,
+    -- testé à la main par tests/reparation_test.lua
+    on_entity_damaged = 33,
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
@@ -1304,6 +1311,7 @@ function M.new_world(opts)
     on_configuration_changed = function(f) W.on_config = f end,
     on_event = function(id, f) W.events[id] = f end,
     on_nth_tick = function(n, f) W.nth[n] = f end,
+    set_event_filter = function(id, filters) W.filters = W.filters or {}; W.filters[id] = filters end, -- lot PD-REPARATION
     register_on_entity_destroyed = function(e) W.reg = W.reg + 1; e._registered = W.reg; return W.reg end,
   }
   _G.commands = { add_command = function(name, help, fn) W.commands[name] = fn end }

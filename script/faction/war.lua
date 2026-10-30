@@ -29,6 +29,7 @@ local Storage = require("script.core.storage")
 local PvP = require("script.faction.pvp")
 local Config = require("script.core.config")
 local Character = require("script.faction.character")
+local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le QG d'une faction est son centre de commandement
 
 local War = {}
 
@@ -74,9 +75,11 @@ end
 
 local function update_label(f)
   if not (f.label and rendering.is_valid(f.label)) then return end
-  rendering.set_text(f.label, {
-    "fo-faction.label", faction_name(f), f.tech, f.soldiers_count, f.outposts_count,
-  })
+  local label = { "fo-faction.label", faction_name(f), f.tech, f.soldiers_count, f.outposts_count }
+  -- Lot PD-CENTREQG : le QG porte le niveau d'époque de son centre de commandement lié.
+  local age = CentreQG.level(f)
+  if age > 0 then label = { "", label, " · ", { "fo-centreqg.label-age", age } } end
+  rendering.set_text(f.label, label)
 end
 
 local function clear_area(surface, pos)
@@ -148,10 +151,14 @@ local function found_hq(f, surface, pos)
     text = Team.goal_text(f), surface = surface, target = hq, target_offset = { 0, -5.2 },
     color = { r = 1, g = 1, b = 1 }, scale = 1.4, alignment = "center",
   })
+  -- Lot PD-CENTREQG (D20) : le centre de commandement de niveau 1 naît avec le QG (après le kit, les fours et les annexes).
+  CentreQG.ensure(f, "fondation")
+  update_label(f)
 end
 
 --- Défait un QG fraîchement fondé (déménagement) : rien de tout cela ne compte comme une perte.
 local function unfound_hq(f)
+  CentreQG.drop(f, "demenagement") -- lot PD-CENTREQG : le centre lié part avec le QG
   if f.hq and f.hq.valid then
     State.disown(f.hq.unit_number)
     f.hq.destroy()
@@ -388,6 +395,7 @@ end
 
 Commander.on_eliminated = function(f, tick)
   say({ "fo-faction.eliminated", faction_name(f) })
+  CentreQG.drop(f, "elimination") -- lot PD-CENTREQG : le centre lié ne survit pas au QG
   if f.label and rendering.is_valid(f.label) then rendering.destroy(f.label) end
   Scheduler.remove(Commander.LANE, f.id)
   Sites.untrack(f.id)
@@ -425,6 +433,7 @@ Events.on_nth_tick(600, function()
   end
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
+    CentreQG.ensure(f, "veille") -- lot PD-CENTREQG : filet si le lien du centre s'est perdu (rien à faire s'il tient)
     update_label(f)
     if f.goal_label and rendering.is_valid(f.goal_label) then rendering.set_text(f.goal_label, Team.goal_text(f)) end
   end

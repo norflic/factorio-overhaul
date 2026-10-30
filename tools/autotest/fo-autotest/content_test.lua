@@ -14,6 +14,8 @@ local E = require("__factorio-overhaul__/shared/content/enemies")
 local W = require("__factorio-overhaul__/shared/content/world")
 local LV = require("__factorio-overhaul__/shared/levels/config")
 local Greffons = require("greffons")
+-- Lot MODULES-MIGRATION : effets attendus selon l'état de la machine (somme du moteur, ou produit de la balise).
+local Attendu = require("module_attendu")
 
 -- Lot MOD-2 : les recettes par lots (« fo-lot10-… », « fo-lot100-… », 470 copies cachées, générées) ne sont pas des
 -- recettes du mod au sens de ce banc : aucune recherche ne les débloque (le script les active avec leur recette de
@@ -229,8 +231,6 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Modules : effets lus sur une machine équipée de 4 modules identiques
 ---------------------------------------------------------------------------------------------------
-local function floor80(v) return math.max(v, -0.8) end
-
 local function setup_modules(s, S)
   S.modules = {}
   local i = 0
@@ -250,24 +250,32 @@ local function setup_modules(s, S)
 end
 
 local function verify_modules(S)
+  -- Lot MODULES-MIGRATION (30/10) : une machine posée par ce banc (create_entity sans raise_built, modules versés par
+  -- script) n'est PAS suivie par le mod sur une carte neuve : le moteur additionne. Après une migration (banc en
+  -- double source : carte créée par la version précédente), Mult.migrate recense toutes les machines et leur pose la
+  -- balise de complément : les effets se multiplient (D-15, D-17). Chaque machine est jugée selon son état, et la
+  -- migration doit les avoir toutes recensées, chacune avec une seule balise si elle en a besoin.
+  local MM = M.mult
+  local iface = remote.interfaces["fo-modules"]
+  local migre = false
+  if iface and iface.stats then migre = (remote.call("fo-modules", "stats").migrated or 0) > 0 end
+  local beacon = MM and game.entity_prototypes[MM.BEACON] and MM.BEACON or nil
   for _, md in ipairs(S.modules) do
-    local e = M.families[md.fam].effects
-    local function sum(key) return (e[key] and e[key][md.k] or 0) * 4 end
     local m = md.machine
-    local want = {
-      speed = floor80(sum("speed")),
-      prod = math.max(0, sum("productivity")),
-      cons = floor80(sum("consumption")),
-      poll = floor80(sum("pollution")),
-    }
-    local got = { speed = m.speed_bonus, prod = m.productivity_bonus, cons = m.consumption_bonus, poll = m.pollution_bonus }
-    local good = md.inserted == 4
-    for key, v in pairs(want) do
-      if math.abs(got[key] - v) > 0.011 then good = false end
+    local st = iface and iface.state and remote.call("fo-modules", "state", m) or nil
+    local balises = nil
+    if beacon then
+      local p = m.position
+      balises = m.surface.count_entities_filtered({ name = beacon,
+        area = { { p.x - 0.25, p.y - 0.25 }, { p.x + 0.25, p.y + 0.25 } } })
     end
+    local got = { speed = m.speed_bonus, prod = m.productivity_bonus, cons = m.consumption_bonus, poll = m.pollution_bonus }
+    local good, want, mode = Attendu.juger(MM, Attendu.cents(M, md.fam, md.k), 4,
+      { migre = migre, suivie = (st and st.tracked) and true or false, balises = balises }, got)
+    good = good and md.inserted == 4
     check(good, "module " .. md.name, string.format(
-      "%d inseres | vitesse %+.2f (att. %+.2f) | productivite %+.2f (att. %+.2f) | conso %+.2f (att. %+.2f) | pollution %+.2f (att. %+.2f)",
-      md.inserted, got.speed, want.speed, got.prod, want.prod, got.cons, want.cons, got.poll, want.poll))
+      "%d inseres | %s | vitesse %+.2f (att. %+.2f) | productivite %+.2f (att. %+.2f) | conso %+.2f (att. %+.2f) | pollution %+.2f (att. %+.2f)",
+      md.inserted, mode, got.speed, want.speed, got.prod, want.prod, got.cons, want.cons, got.poll, want.poll))
   end
   local lim = game.item_prototypes[M.name("productivity", M.TIERS)].limitations
   local set = {}
