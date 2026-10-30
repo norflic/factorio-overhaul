@@ -43,3 +43,6 @@ Les ombres de nos kits suivent la regle F47 : plein est, environ 1,1 fois la hau
 
 ## Q23 (30/10 4 h 30) : valeur du plastique (monnaie de l'age 4)
 Le plastique est declare a 1,5 u. Depuis l'ajout du vapocraquage (CRAFTS : 3 plastiques pour 20 ethylenes + 1 charbon a l'age 4), il ne coute reellement que 0,99 u de matiere brute : le controle de coherence calc_test (x1,5 de tolerance) est rouge (rapport 1,52). Options : (A) passer le plastique a 1 et recalibrer : passages du centre des epoques 4 a 7 : 5,1/4 980 -> 6,25/3 310 ; 15,5/6 060 -> 15,5/5 000 ; 29,5/6 160 -> 29/6 160 ; 57,7/6 290 -> 57,3/6 290 (moins chers en valeur aux ages 4 a 6) ; (B) garder 1,5 (le vapocraquage rend le plastique « rentable »). **Defaut : (B), applique en 0.6.22 ; calc_test reste rouge comme fait connu jusqu'a votre choix.**
+
+## Q24 (30/10 6 h) : mur, verdict de design (planche v6, ages 2, 8, 15)
+Page : fo-logs/2026-10-29_NUIT/MUR-OPUS/planches/INDEX.html (v1 a v6, une ligne de « pourquoi » par version, 4 critiques independantes). (a) Le design tient-il (D1 a D3) pour etre decline aux 15 ages ? (b) Age 8 : la faitiere vert-de-gris (identite du Marais) met l'age sous la regle DA_FACTORIO §5 C3 (corps chaud >= 70 % : 0,38) ; identite de l'age OU palette commune ? **Defaut : garder le vert-de-gris (identite).** Rien n'est en jeu.
