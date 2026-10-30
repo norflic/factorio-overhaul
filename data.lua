@@ -14,6 +14,7 @@ require("prototypes.spent_fuel") -- lot AMELIO-RESSOURCES : combustible usé de 
 require("prototypes.bauxite") -- lot AMELIO-RESSOURCES, piste BAUXITE : aluminium (âge 6, X3), pylône haute tension (X0) ; après prototypes.crafts
 require("prototypes.geothermal") -- lot AMELIO-RESSOURCES, piste GÉOTHERMIE : fumerolle, capteur, vapeur et soufre (âge 5, X0) ; après prototypes.crafts
 require("prototypes.zinc") -- lot AMELIO-RESSOURCES, piste ZINC : blende, zinc, laiton, manomètre à tube de Bourdon (âge 3, X3) ; après prototypes.crafts
+require("prototypes.compute") -- lot CALCUL (30/10) : puces, processeur, mémoire, carte mère, baies, carte graphique, processeur quantique, centre de calcul ; après étain, bauxite, X2 et CRAFTS
 require("prototypes.modules")
 require("prototypes.enemies")
 require("prototypes.arsenal")
