@@ -1,4 +1,21 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.20
+Date: 2026-10-30
+  Changes:
+    - Retours du DC en jouant la 0.6.18 (29/10 soir), 13 lots :
+      fabrication des PNJ en arriere-plan : un PNJ qui fabrique prend d'autres taches (il restait immobile jusqu'a 5 min, ~25 % du temps) [FO-CRAFT] ;
+      compagnons actifs : la peur ne compte que pendant l'attaque reelle, tache refusee reprise en 10 s, tourelles de toutes les equipes reparees [FO-ACTIF] ;
+      electricite qui suit la demande : nouvelle centrale sur la rive libre, pause et nouvel essai apres un refus, centrale avant la production ordinaire [FO-ENERGIE] ;
+      charbon de la centrale automatise par foreuses et tapis, remplissage du coffre urgent en attendant [FO-CHARBON-CENTRALE] ;
+      reconstruction rapide et ordonnee (poteaux et production principale d'abord, foreuse thermique si pas de cuivre, tourelles quand riche et reattaque) [FO-REBUILD-RAPIDE] ;
+      couverture complete des gisements (cuivre, charbon) et pas d'avant-poste lointain tant qu'un proche a des places [FO-AVANT-POSTE] ;
+      rangees de foreuses dimensionnees par le debit du tapis [FO-DEBIT] ; migration thermique -> electrique declenchee [FO-MIGRATION] ;
+      defense : tourelles avant soldats quand la base est attaquee, pas de guerre contre une faction tant que la base est menacee [FO-DEFCHOIX] ;
+      armee : estimation des vagues, recrutement, regroupement, raids groupes [FO-ARMEE] ; reperage par la direction des attaques, eclaireur dont l'information ne compte qu'a son retour [FO-RECO] ;
+      tourelles hors de l'axe d'extension des lignes [FO-AXE] ; boucle de detours cassee [FO-DETOUR].
+    - Tests : pvp_test, scenario de siege a 14 tourelles (la fabrication en arriere-plan arme les factions plus vite).
+    - Rien n'a ete rejoue en partie : relecture statique de chaque lot, integration verifiee, tests hors jeu verts, un content.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.19
 Date: 2026-10-29
   Changes:

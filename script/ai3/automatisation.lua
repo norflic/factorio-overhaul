@@ -29,6 +29,7 @@ local Build = require("script.team.build")
 local Sweep = require("shared.team.rebuild_sweep") -- lot REBUILD-SUIVI : règles pures du suivi d'un projet rouvert
 local Harvest = require("script.team.harvest") -- lot KIT : matières naturelles récoltables à portée
 local Profiler = require("script.core.profiler")
+local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
 
 local Auto = {}
 
@@ -445,6 +446,14 @@ local function submit(f, st, tick, rq, research)
   local spec = { gen = rq.gen, args = rq.args, feed = rq.feed, prio = prio, domain = "production", near = rq.near,
     pole = rq.pole,
     shrunk = rq.shrunk or nil } -- lot INTEG-ECONOMIE (D2) : la ligne ne grandit pas au-delà de la taille réduite demandée (line_rows)
+  -- Lot RANGEES-DEBIT : une ligne DYNAMIQUE (T.ligne.dyn) pose ses rangées par étapes, bornées par le stock (Fonte.initial, Fonte.step) :
+  -- la réduction n'a plus lieu d'être et la figeait à sa taille réduite (2 rangées : les « 4 fours » que le DC voit encore en 0.6.18,
+  -- « ne devraient pas exister [...] faut que ce soit scalable ») ; elle réserve la ligne entière comme les autres (line_rows).
+  if spec.shrunk and T.debit and T.debit.shrunk_grows and T.ligne and T.ligne.dyn then
+    spec.shrunk = nil
+    log(string.format("[FO-DEBIT] %s : %s reduit apres un echec de materiaux : ligne dynamique entiere reservee, posee par etapes (plus de module fige)",
+      f.key or "player", tostring(rq.product)))
+  end
   if not spec.near and rq.electric and st.near_plant and st.near_plant[rq.product] and st.plant_id then
     local ps = Build.brief(f, st.plant_id)
     local pt = ps and ps.parts and ps.parts[1]
@@ -547,6 +556,17 @@ function Auto.think(f, view, book, tick, research)
     local ps = Build.brief(f, id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
+    end
+  end
+  -- Lot MIGRATION-DECLENCHE (retour du DC du 29/10, 0.6.18 : « ils doivent automatiser, ils peuvent plus laisser des foreuses
+  -- thermiques comme ça posées ») : la ligne électrique demandée par la migration du champ (script/team/migration_champ.lua) est un
+  -- projet du cerveau comme la centrale : ses matériaux manquants (foreuses électriques, bras, tapis, poteaux) deviennent des buts
+  -- « auto:migration » (fabriquer, fondre). Avant, personne ne les fabriquait : réserve « materiaux » 30 min, demande annulée, 0 partie migrée.
+  local mig_id = MigChamp.project(f)
+  if mig_id then
+    local ps = Build.brief(f, mig_id)
+    if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
+      mods[#mods + 1] = { product = "migration", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0 } -- valeur de base d'un module
     end
   end
   local feeds = {}

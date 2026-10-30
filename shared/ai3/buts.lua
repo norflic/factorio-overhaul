@@ -56,6 +56,16 @@ B.BOOT_RANK = { 92, 82, 70 }
 B.BOOT_FUEL = 90
 B.IRON2 = 66        -- « fer II » (2 capacités de fer et 2 de charbon) : l'économie avant la recherche (revue B3)
 B.GROW = 55         -- croissance d'une ressource qui manque durablement (goulot)
+-- Lot SCALE-COMPLET (retour du DC du 29/10, 21 h 40, en jouant la 0.6.18 : « Le cuivre, ils l'ont pas ils ont pas pris tout le
+-- gisement alors qu'ils auraient pu. Le fer pareil ») : COUVERTURE d'un gisement déjà ouvert, au-delà du besoin. But de FOND
+-- (aucune des K places, servi après tous les autres projets, comme la capitalisation : Ca.V_MIN 35 à Ca.V_MAX 50), au-dessus
+-- du seuil du travail qui fait recruter (35, IA3-d).
+B.COVER = 40
+-- Relecture SCALE-COMPLET : la couverture est un but AU-DELÀ du besoin ; le poids du chef (500 à 2 000 pour mille) la portait
+-- jusqu'à 80 (priorité de tâche 40 + 0,45 × (80 + 20 % d'inertie) + 3 = 86), au-dessus des tournées des avant-postes (70) et
+-- des tourelles d'avant-poste (75) : un chef « expansion » aurait agrandi pendant que ses brûleurs s'éteignaient. Bornée à
+-- B.COVER_MAX (tâche à 68 au plus, hors vieillissement), dans la bande de la capitalisation (Ca.V_MIN 35 à Ca.V_MAX 50).
+B.COVER_MAX = 48
 B.GROW_SHORT = 100  -- manque (objets) qui compte comme « durable » …
 B.GROW_THINKS = 6   -- … pendant au moins 6 pensées de suite (30 s)
 B.GROW_MAX = 5      -- capacités visées au plus, par ressource
@@ -72,6 +82,10 @@ B.RESEARCH_CHEAP = 60  -- … sauf une recherche PEU CHÈRE : fer encore à dép
 B.ARMY_FIRST = 58      -- les 10 premiers soldats (ancienne marche « army »)
 B.ARMY_FIRST_N = 10
 B.ARMY_MORE = 46       -- l'armée qui grandit (l'ancien cerveau : 45, sous l'objectif courant à 50)
+-- Lot ARMEE-ANTICIPATION (« recruter un maximum de soldats », DC 29/10) : vague annoncée (shared/ai3/armee.lua) : l'armée monte
+-- jusqu'au besoin estimé avec la valeur de la PROTECTION (au-dessus de la croissance, de « fer II » et de la recherche, sous les
+-- premiers avant-postes), jamais retenue par « production d'abord » (minimal).
+B.ARMY_ALERT = 86
 B.ARMY_WAR_PCT = 150   -- en guerre : × 1,5 (pvp_test allumé, essai 2 : sans cette règle, Difficile et Impitoyable
                        -- n'attaquaient pas plus que Normal, ordre strict perdu : 2 < 3 = 3 attaques)
 -- Besoin prévu d'une matière brute (horizon) : au-delà de SAT_FACTOR fois ce besoin, plus aucune extraction n'est
@@ -237,6 +251,44 @@ function B.generate(s, st)
         value = val(base, w.extraction), want = want, why = spec.product }
     end
   end
+  -- Lot SCALE-COMPLET : couverture des gisements OUVERTS (factions). Partie du DC (Écarlate, 0.6.18, 46 min) : cuivre et
+  -- charbon « saturés » (stock ≥ B.SAT_FACTOR × besoin) dès 19 et 26 min, donc plus aucun but d'extraction (ci-dessus) :
+  -- cuivre resté à 6 foreuses sur 197 tuiles (121 pour mille), charbon à 12 sur 197 (243 pour mille) ; la couverture
+  -- d'avance de la capitalisation ne pose que des foreuses ÉLECTRIQUES par le plan directeur (Ca.AHEAD_BURNER faux) : refusée
+  -- pour le charbon et la pierre (« aucune fonderie a foreuses pour ce minerai ») et pour le cuivre (« plan directeur occupe »
+  -- par les ordres du fer). Ici : tout type dont un avant-poste a encore des places (s.room, ni plein ni au plafond) et qui
+  -- n'a pas de but d'extraction à cette pensée reçoit un but « couverture:<type> » qui n'AGRANDIT que l'existant (le plus
+  -- proche : EMIT.outpost, extendable ; jamais de build). Garde-fous :
+  --   * type optionnel (sans besoin au dépliage, s.key.optional) : rien ;
+  --   * combustible : un type dont l'agrandissement brûle du combustible (tous sauf le combustible lui-même) attend tant
+  --     que le combustible MANQUE (st.short) : les brûleurs ajoutés vivraient du charbon porté (banc p2 du lot CAPIB : 75 à
+  --     102 foreuses sans charbon) ; le combustible, lui, se ravitaille sur sa propre production ;
+  --   * produit saturé PENDANT qu'une autre matière manque (st.other_short, critère A5) : le but ne prend que le reste du
+  --     stock virtuel, sans rien faire fabriquer (g.take_only) : la matière va d'abord à ce qui manque.
+  -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : sans plafond de foreuses, la couverture restait ouverte tant qu'un
+  -- gisement n'était pas couvert à KAPPA et mangeait le fer qu'une recrue accumule (la recrue n'est réservée que quand elle se paie) :
+  -- au moteur simulé (ia1_scale_test), Écarlate et Ambre finissaient à 22 et 24 PNJ en 12 min au lieu de 30 et 29. La couverture,
+  -- « au-delà du besoin », attend que l'effectif voulu soit atteint (ou la recrue retenue ou bloquée).
+  if not s.is_player and not s.recruiting then
+    local emitted = {}
+    for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
+    local fuel_kind = key.fuel
+    local fuel_product = fuel_kind and T.outposts[fuel_kind] and T.outposts[fuel_kind].product
+    local fuel_short = fuel_product ~= nil and ((st.short or {})[fuel_product] or 0) > 0
+    -- Relecture : un produit COUVERT par un module fini (st.covered, lot IA3-e, posé par C.think à la pensée précédente) perd
+    -- ses tournées ordinaires (C.think les retire) : des brûleurs ajoutés là ne seraient jamais ravitaillés ni vidés.
+    local covered = st.covered or {}
+    for _, kind in ipairs(T.OUTPOST_ORDER) do
+      local spec = T.outposts[kind]
+      if (s.room or {})[kind] and not emitted[kind] and not (key.optional or {})[kind]
+        and not (kind ~= fuel_kind and fuel_short) and not covered[spec.product] then
+        local take_only = st.other_short == true and B.saturated(s, spec.product) or nil
+        goals[#goals + 1] = { key = "couverture:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
+          extend_only = true, take_only = take_only, fond = true,
+          value = math.min(B.COVER_MAX, val(B.COVER, w.extraction)), why = spec.product }
+      end
+    end
+  end
   -- Capital : fonderie du QG.
   local smelters_want = s.is_player and 2 or B.SMELTERS_WANT
   -- Lot SCALE (capacité de FONTE) : une faction dont une plaque manque alors que son minerai attend au coffre agrandit sa
@@ -286,7 +338,11 @@ function B.generate(s, st)
   if boot and not s.is_player and (s.soldiers_max or 0) > 0 then
     local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
     local war = s.at_war and B.ARMY_WAR_PCT or 100
-    if (s.soldiers or 0) < first then
+    local alert_need = s.army_alert and math.min(s.army_need or 0, s.soldiers_max) or 0
+    if (s.soldiers or 0) < alert_need then
+      goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = alert_need,
+        value = val(B.ARMY_ALERT, w.armee), permanent = true, minimal = true, alert = true }
+    elseif (s.soldiers or 0) < first then
       -- lot INTEG-ECONOMIE (D1) : les premiers soldats sont la défense MINIMALE, jamais retenue par « production d'abord »
       goals[#goals + 1] = { key = "armee", family = "armee", kind = "army", target = first,
         value = val(math.floor(B.ARMY_FIRST * war / 100), w.armee), permanent = true, minimal = true }

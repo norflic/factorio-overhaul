@@ -1290,6 +1290,10 @@ section("Runtime : base défendue (lot IA0b, 4 factions)")
 -- 3 tourelles n'y lient donc plus la règle de force, même avant IA0b. Il faut 12 tourelles (défense 96) pour
 -- retrouver le défaut : ANCIEN CODE, Normal, 60 min : 2 attaques (Azur seulement, 1re à 46,5 min), Écarlate
 -- déclarée à 20 min et 0 attaque.
+-- 0.6.20 (lot CRAFT-PARALLELE, décision de l'orchestrateur à l'intégration) : la fabrication des PNJ en arrière-plan arme les
+-- factions plus vite ; à 12 tourelles, Écarlate attaquait directement avec 25 soldats (besoin 20) et le scénario ne déclenchait
+-- plus aucun siège (12 tourelles -> 0 siège, 14 -> 3). 14 tourelles (défense 112) : la défense dépasse de nouveau la force de
+-- l'attaquant, le siège est déclenché et journalisé ; le but du contrôle est inchangé.
 local function pvp_lines(pattern)
   local out = {}
   for _, line in ipairs(W().logs) do
@@ -1299,7 +1303,7 @@ local function pvp_lines(pattern)
   return out
 end
 do
-  new_world("normal", { turrets = 12 })
+  new_world("normal", { turrets = 14 })
   war("start 4 60 6 320")
   M.run_ticks(60 * MIN)
   local attackers, total = 0, 0
@@ -1309,11 +1313,11 @@ do
   end
   local att = pvp_lines("^%[FO%-PVP%] attaque tick (%d+)")
   local first_def = att[1] and tonumber(att[1].line:match("defense estimee (%d+)")) or 0
-  print(string.format("  Normal, 12 tourelles, 60 min : %d attaques de %d factions (Écarlate %d), 1re au tick %s (défense estimée %d), %d sièges, %d dissuasions",
+  print(string.format("  Normal, 14 tourelles, 60 min : %d attaques de %d factions (Écarlate %d), 1re au tick %s (défense estimée %d), %d sièges, %d dissuasions",
     total, attackers, fac(1).pvp.attacks, att[1] and att[1].tick or "-", first_def, #pvp_lines("^%[FO%-PVP%] siege tick (%d+)"),
     #pvp_lines("^%[FO%-PVP%] dissuasion tick (%d+)")))
-  check(fac(1).pvp.attacks >= 1, "Normal, 12 tourelles : Écarlate (conquérant) attaque la base défendue (ancien code : 0 en 60 min)")
-  check(attackers >= 3 and total >= 6, string.format("Normal, 12 tourelles : %d factions sur 4 attaquent, %d attaques (ancien code : 1 faction, 2 attaques)", attackers, total))
+  check(fac(1).pvp.attacks >= 1, "Normal, 14 tourelles : Écarlate (conquérant) attaque la base défendue (ancien code : 0 en 60 min)")
+  check(attackers >= 3 and total >= 6, string.format("Normal, 14 tourelles : %d factions sur 4 attaquent, %d attaques (ancien code : 1 faction, 2 attaques)", attackers, total))
   check(first_def >= 96, "la 1re attaque vise la base défendue en connaissant sa défense (" .. first_def .. " ≥ 96)")
   check(#pvp_lines("^%[FO%-PVP%] siege tick (%d+)") >= 1, "sièges journalisés (« [FO-PVP] siege »)")
   check(pvp().losses >= 1, "pertes du joueur (" .. pvp().losses .. ")")

@@ -14,7 +14,9 @@
     teams[clé] = { map, epoch, stream, char = { prudence, agressivite } | nil (forcé par un banc), hold, stats,
                    escorts = { [id d'agent] = { units, n, since } } }
     agents[id] = { final, pts, i, epoch, refuge, hold, hold_stop, hp, armed, armed_t, label, label_key, label_t, escort, tour,
-                   backs, back_t, ret_t, flee_t, flee_ep, look_t, shelter_t }
+                   backs, back_t, ret_t, flee_t, flee_ep, look_t, shelter_t, dmem, dloop }
+  Lot DETOUR-BOUCLE : agents[id].dmem (série de détours, shared/ai3/detour.lua), dloop (boucle cassée vers ce but : plus de
+  détour devant une menace fixe) ; teams[clé].dfail (buts où un PNJ a tourné en rond : refusés par la porte), dloop_log_t.
   Flux : Tr.new_stream(graine, 470 + numéro de l'équipe) (sels 470 à 479 : IA3-k ; 479 = votre équipe).
 ]]
 
@@ -31,12 +33,15 @@ local Worker = require("script.team.worker")
 local Harvest = require("script.team.harvest") -- lot KIT : entités qui donnent un objet miné (minerai, arbres)
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (porte assouplie pour les tâches de ressources)
 local Sv = require("shared.team.survie")
+local Dt = require("shared.ai3.detour") -- lot DETOUR-BOUCLE : mémoire des détours et des buts où l'on tourne en rond
 local D = require("shared.ai3.danger")
 local R = require("shared.ai3.route")
 local Re = require("shared.ai3.reaction")
 local Tr = require("shared.faction.traits")
 local Base = require("shared.ai3.base") -- lot PORTE-BASE : zone de base par densité de bâtiments
 local Rg = require("shared.ai3.reglages") -- lot PORTE-BASE : rôles des types du moteur (bâtiments qui font une base)
+local Board = require("script.team.board") -- lot COMPAGNONS-ACTIFS : crochet du bilan [FO-ACTIF]
+local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : la peur sert à fuir une attaque en cours, puis on revient agir
 
 local M = {}
 
@@ -439,6 +444,30 @@ function M.plan(f, agent, p, goal, tick, opts)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot COMPAGNONS-ACTIFS : danger des seules MENACES (morts de PNJ exclues) le plus fort le long d'un itinéraire, 6 premières tuiles
+-- exclues (même échantillonnage que M.plan pour exact_max). Lu par M.gate (tâche proche aux morts toutes anciennes) et par M.leg
+-- (itinéraire de secours d'une tâche partie ainsi : a.calm), défini avant eux. Lot PORTE-BASE : la même fonction juge la porte
+-- d'une défense dont les morts sont toutes dans la base (intégration 0.6.20 : une seule copie, les deux lots avaient la même).
+---------------------------------------------------------------------------------------------------
+local function threat_max(map, p, pts, goal, tick)
+  local qs = R.samples(p, pts, goal, R.SAMPLE)
+  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
+  for _, q in ipairs(qs) do
+    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
+    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
+  end
+  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
+  local mx = 0
+  for _, q in ipairs(qs) do
+    if d2(q, p) > 36 then
+      local v = D.exact_at(prep, q.x, q.y, true)
+      if v > mx then mx = v end
+    end
+  end
+  return mx
+end
+
+---------------------------------------------------------------------------------------------------
 -- Crochet : prochain point de passage d'une étape « aller »
 ---------------------------------------------------------------------------------------------------
 function M.leg(agent, pos, radius, tick, depth)
@@ -458,6 +487,7 @@ function M.leg(agent, pos, radius, tick, depth)
     a.final = { x = pos.x, y = pos.y }
     a.pts = nil
     a.urep = nil -- arrêts et détours devant des unités : comptés par destination
+    a.dmem, a.dloop = nil, nil -- lot DETOUR-BOUCLE : série de détours et boucle cassée, par destination
   end
   -- Sortie d'une zone marquée faite : l'itinéraire est recalculé depuis la case sûre.
   if a.pts and a.partial and not a.pts[a.i] then a.pts, a.partial = nil, nil end
@@ -473,7 +503,11 @@ function M.leg(agent, pos, radius, tick, depth)
       -- Le chemin qui minimise le danger : pris s'il reste hors de PORTÉE réelle des menaces (profil géométrique sous le
       -- seuil), ou faute de mieux pour rentrer au QG, passer escorté ou avec le risque accepté.
       local res2 = M.plan(f, agent, p, pos, tick, { B = 1e9, same = res })
-      if home or a.escort or a.risk or res2.exact_max < res.B then
+      -- Lot COMPAGNONS-ACTIFS (relecture) : une tâche partie « au calme » (a.calm, écrit par M.gate) est jugée ici comme à la porte, sur
+      -- les menaces seules ; sinon le champ, qui compte les morts anciennes, la renvoyait au QG (« sans-issue ») et elle repartait 10 s
+      -- plus tard, en boucle.
+      if home or a.escort or a.risk or res2.exact_max < res.B
+        or (a.calm and threat_max(t.map, p, res2.pts, pos, tick) < res.B) then
         res = res2
       else
         -- Aller sans issue sûre : on ne traverse pas ; demi-tour à la pensée suivante (sense).
@@ -547,7 +581,8 @@ function M.retarget_mine(f, t, task, surface, tick, B)
   local stride = math.max(1, math.floor(#res / 40))
   for i = 1, #res, stride do
     local p = res[i].position
-    if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0 then
+    if (field[D.key(D.cell(p.x), D.cell(p.y))] or 0) * 4 < B and D.deaths_near(t.map, { p }, D.HOUR_R, tick) == 0
+      and not Dt.failed(t.dfail, p.x, p.y, tick) then -- lot DETOUR-BOUCLE : pas la case où l'on a tourné en rond
       local busy = surface.count_entities_filtered({ area = { { p.x - 0.5, p.y - 0.5 }, { p.x + 0.5, p.y + 0.5 } },
         type = Harvest.free_types(task.resource, f, task.trees), invert = true, limit = 1 })
       if busy == 0 and Harvest.foreign_resource(surface, p, task.resource, f) then busy = 1 end -- lot KIT : ressource étrangère sur la tuile
@@ -588,26 +623,6 @@ function M.base_zone(f, t, surface, tick)
   return zone
 end
 
---- Danger des seules MENACES (morts de PNJ exclues) le plus fort le long d'un itinéraire, 6 premières tuiles exclues (même
---- échantillonnage que M.plan pour exact_max). Lot PORTE-BASE : porte d'une défense dont les morts sont toutes dans la base.
-local function threat_max(map, p, pts, goal, tick)
-  local qs = R.samples(p, pts, goal, R.SAMPLE)
-  local x0, y0, x1, y1 = goal.x, goal.y, goal.x, goal.y
-  for _, q in ipairs(qs) do
-    if q.x < x0 then x0 = q.x elseif q.x > x1 then x1 = q.x end
-    if q.y < y0 then y0 = q.y elseif q.y > y1 then y1 = q.y end
-  end
-  local prep = D.exact_prep(map, tick, x0, y0, x1, y1)
-  local mx = 0
-  for _, q in ipairs(qs) do
-    if d2(q, p) > 36 then
-      local v = D.exact_at(prep, q.x, q.y, true)
-      if v > mx then mx = v end
-    end
-  end
-  return mx
-end
-
 ---------------------------------------------------------------------------------------------------
 -- Crochet : porte d'une tâche (C5, C6)
 ---------------------------------------------------------------------------------------------------
@@ -625,9 +640,10 @@ function M.gate(f, agent, task, steps, tick)
   local p = e.position
   local res = M.plan(f, agent, p, dest, tick)
   -- Bloqué au sens des cases : le chemin qui minimise le danger est-il hors de portée réelle des menaces ?
+  local alt = nil -- lot COMPAGNONS-ACTIFS (relecture) : ce chemin de secours, celui que M.leg prendra, jugé « au calme » ci-dessous
   if res.blocked then
     local res2 = M.plan(f, agent, p, dest, tick, { B = 1e9, same = res })
-    if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 end
+    if res2.exact_max < res.B then res2.B, res2.blocked = res.B, false res = res2 else alt = res2 end
   end
   Profiler.fstart("gate:post")
   local pts = R.samples(p, res.pts, dest, 8)
@@ -649,6 +665,16 @@ function M.gate(f, agent, task, steps, tick)
       ginfo = { blocked = res.blocked and tm >= res.B, max_d = tm, goal_d = res.threat_goal or res.exact_goal, deaths = 0, far = far }
     end
   end
+  -- Lot COMPAGNONS-ACTIFS (DC 29/10 : « la peur c'est bien, mais pour fuir si jamais ils se font attaquer. Mais sinon il faut revenir,
+  -- il faut agir ») : une tâche PROCHE (but à moins de M.SAFE_RADIUS du QG) dont les morts de la route sont TOUTES plus anciennes que
+  -- Ac.FEAR_TICKS (attaque finie) est jugée sans elles : seules les menaces connues (fixes, mobiles) de la route et du but comptent.
+  -- Une mort récente (attaque en cours) ou une tâche LOINTAINE garde la règle d'IA3-k. État écrit : t.actif (compteurs, journal),
+  -- lu par M.gate (ici, journal [FO-ACTIF]) et par Board.actif_report (bilan).
+  -- (Intégration 0.6.20 : jugée APRÈS la règle de PORTE-BASE ; les deux exemptions s'ajoutent, chacune dans ses conditions.)
+  local calm = deaths > 0 and Ac.calm(far, deaths, Ac.recent_deaths(t.map.deaths, pts, D.HOUR_R, tick))
+  if calm then
+    ginfo = Ac.calm_info(ginfo, threat_max(t.map, p, (alt or res).pts, dest, tick), res.threat_goal or res.exact_goal, res.B)
+  end
   local sv_deaths = Survie.gate_deaths(f, task.kind) -- lot SURVIE-PENURIE : mode survie ET tâche de ressources (nil sinon)
   local decision, why = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2, survie_deaths = sv_deaths })
   if sv_deaths then
@@ -657,8 +683,15 @@ function M.gate(f, agent, task, steps, tick)
     Survie.note_gate(f, tick, d0, w0, decision, why)
   end
   Profiler.fstop("gate:post")
+  -- Lot DETOUR-BOUCLE : un but où un PNJ de l'équipe a tourné en rond (boucle de détours cassée, M.detour_guard) est refusé
+  -- Dt.FAIL_TICKS : un minage cherche un autre site (ci-dessous), les autres tâches passent leur tour ; l'escalade reste
+  -- possible (départ « risque accepté » : plus de détour devant une menace fixe, donc plus de boucle).
+  if decision ~= "wait" and Dt.failed(t.dfail, dest.x, dest.y, tick) then
+    decision, why = "wait", "boucle"
+    t.stats.dloop_refus = (t.stats.dloop_refus or 0) + 1
+  end
   local a = astate(agent)
-  a.escort, a.risk = nil, nil
+  a.escort, a.risk, a.calm = nil, nil, nil
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
   -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
   -- Lot IA3-k sur 0.5.0 : réessayé au plus toutes les RETARGET_PERIOD ticks pour la même tâche (le tableau garde ses
@@ -692,7 +725,7 @@ function M.gate(f, agent, task, steps, tick)
   -- d'IA3-k (la mort reste un refus sans issue) ; un but à portée d'une menace connue reste refusé pour tous.
   -- Lot PORTE-BASE : plus d'exemption quand une mort de la route est HORS de la zone de base (d_out > 0).
   local defense_free = is_def and d_out == 0 and (res.threat_goal or res.exact_goal) < res.B
-  local goal_free = res.exact_goal < res.B or defense_free
+  local goal_free = res.exact_goal < res.B or defense_free or (calm and ginfo.goal_d < res.B) -- COMPAGNONS-ACTIFS : but jugé sans morts anciennes
   if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) then
     local w = t.waits[dk]
     if not w then
@@ -754,6 +787,19 @@ function M.gate(f, agent, task, steps, tick)
       log(string.format("[FO-BASE] %s : defense (%s) vers (%d, %d) : %d mort(s) de la route dans la base, %d hors de la base -> %s (%s)%s",
         tostring(f.key), tostring(task.kind), math.floor(dest.x), math.floor(dest.y), d_in, d_out, decision, why,
         zk == "base" and " : la base se defend, morts ignorees" or " : route meurtriere hors de la base, prudence gardee"))
+    end
+  end
+  if calm then
+    -- Lot COMPAGNONS-ACTIFS (relecture) : la tâche part « au calme » : M.leg et le recontrôle d'époque (M.sense) la jugent pareil.
+    if decision ~= "wait" then a.calm = true end
+    t.actif = t.actif or { calm = 0, calm_go = 0 }
+    t.actif.calm = t.actif.calm + 1
+    if decision ~= "wait" then t.actif.calm_go = t.actif.calm_go + 1 end
+    if not t.actif.log_t or tick - t.actif.log_t >= Ac.LOG_GAP then
+      t.actif.log_t = tick
+      log(string.format("[FO-ACTIF] %s : porte : tache %s vers (%d, %d) proche du QG, %d mort(s) de l'heure toutes anciennes (> %d s) : jugee sur les menaces seules (danger %d, but %d, seuil %d) -> %s (%s)",
+        tostring(f.key), tostring(task.kind), math.floor(dest.x), math.floor(dest.y), deaths, Ac.FEAR_TICKS / 60, ginfo.max_d or 0,
+        ginfo.goal_d or 0, res.B, decision, why))
     end
   end
   if decision == "wait" then Survie.note_wait(f, tick) end -- lot SURVIE-PENURIE : un refus de plus (paralysie, shared/team/survie.lua)
@@ -885,6 +931,7 @@ local function act(agent, f, t, a, action, why, ep, kind, tick, range, refuge_to
   elseif action == "back" or action == "flee" then
     if agent.nav then Nav.stop(agent, tick) end
     a.pts, a.final, a.hold, a.hold_stop = nil, nil, nil, nil
+    a.calm = nil -- lot COMPAGNONS-ACTIFS (relecture) : la tâche est abandonnée, la porte rejugera la suivante
     a.ret_t = tick
     if action == "back" and (kind == "unit" or kind == "character") then
       -- Mémoire des demi-tours devant des unités : le suivant, dans Re.BACK_MEMORY ticks, devient une fuite.
@@ -930,6 +977,38 @@ function M.hold_breached(f, e)
   if not enemy then return false end
   local kind, range = M.classify(enemy)
   return Re.breach(kind, math.sqrt(d2(p, enemy.position)), range)
+end
+
+--- Lot DETOUR-BOUCLE : un DÉTOUR est demandé (réaction ou menace d'un camarade). Rend "detour" (le faire), "back" (boucle
+--- cassée sur l'aller d'une tâche : demi-tour, tâche rendue, but refusé par la porte Dt.FAIL_TICKS) ou "none" (boucle
+--- cassée sur un retour ou sans tâche : le PNJ suit son itinéraire, sans plus de détour vers ce but : a.dloop).
+--- État écrit : a.dmem, a.dloop (lus ici et par M.sense, remis à zéro par M.leg quand le but change), t.dfail (lu par
+--- M.gate), t.stats.dloops, t.dloop_log_t (journal).
+function M.detour_guard(agent, f, t, a, why, ep, kind, tick)
+  local p = agent.entity.position
+  a.dmem = Dt.note(a.dmem, p, a.final, tick)
+  if not Dt.loop(a.dmem) then return "detour" end
+  local m = a.dmem
+  a.dmem, a.dloop = nil, true
+  t.stats.dloops = (t.stats.dloops or 0) + 1
+  local step = agent.steps and agent.pc and agent.steps[agent.pc]
+  local out = Dt.outcome(agent.task ~= nil, step and step[1])
+  -- But refusé : celui de l'étape « goto » en cours (la clé que M.gate relit : dest = s[2]) ; a.final peut dater d'un autre
+  -- trajet quand l'étape marche sans M.leg (rues du plan directeur, worker.lua).
+  local fg = (out == "abandon" and type(step[2]) == "table" and step[2].x and step[2].y) and step[2] or a.final
+  if out == "abandon" and fg then
+    t.dfail = t.dfail or {}
+    Dt.fail(t.dfail, fg.x, fg.y, tick)
+  end
+  if not t.dloop_log_t or tick - t.dloop_log_t >= 600 then
+    t.dloop_log_t = tick
+    log(string.format("[FO-DETOUR] %s : PNJ %d tourne en rond : %d detours en %d ticks a moins de %d tuiles de (%d, %d) (dernier : %s, %s en (%d, %d)), but %s, tache %s -> %s ; cumul %d boucle(s) cassee(s), %d refus de la porte",
+      tostring(f.key), agent.id, m.n, m.t - m.t0, Dt.NEAR, math.floor(m.x), math.floor(m.y), tostring(why), tostring(kind),
+      math.floor(ep.x), math.floor(ep.y), a.final and string.format("(%d, %d)", math.floor(a.final.x), math.floor(a.final.y)) or "aucun",
+      agent.task and tostring(agent.task.kind) or "aucune", out == "abandon" and "demi-tour, but refuse 5 min" or "suit son itineraire sans detour",
+      t.stats.dloops, t.stats.dloop_refus or 0))
+  end
+  return out == "abandon" and "back" or "none"
 end
 
 function M.sense(agent, tick)
@@ -997,7 +1076,7 @@ function M.sense(agent, tick)
     end
   end
   -- Une menace fixe NOUVELLE vue par un camarade touche le reste de notre trajet : nouvel itinéraire (détour).
-  if walking and a.pts and not a.risk and (a.mver or 0) < (t.mver or 0) then
+  if walking and a.pts and not a.risk and not a.dloop and (a.mver or 0) < (t.mver or 0) then
     local hit = nil
     for _, nt in ipairs(t.new_threats or {}) do
       if nt.v > (a.mver or 0) and d_route(p, a, nt) <= nt.r + Re.MARGIN then hit = nt end
@@ -1005,7 +1084,8 @@ function M.sense(agent, tick)
     a.mver = t.mver
     if hit then
       t.stats.shared = (t.stats.shared or 0) + 1
-      return act(agent, f, t, a, "detour", "camarade", hit, hit.k, tick)
+      local ac = M.detour_guard(agent, f, t, a, "camarade", hit, hit.k, tick) -- lot DETOUR-BOUCLE
+      if ac ~= "none" then return act(agent, f, t, a, ac, ac == "back" and "boucle" or "camarade", hit, hit.k, tick) end
     end
   end
   -- Une mort de l'équipe depuis le calcul de l'itinéraire : le reste du trajet est rejugé (C5).
@@ -1013,8 +1093,12 @@ function M.sense(agent, tick)
     a.epoch = t.epoch
     t.stats.epoch_checks = t.stats.epoch_checks + 1
     local res = M.plan(f, agent, p, a.final, tick)
-    local deaths = D.deaths_near(t.map, R.samples(p, res.pts, a.final, 8), D.HOUR_R, tick)
-    if deaths >= 2 and not a.escort and agent.task then
+    local spts = R.samples(p, res.pts, a.final, 8)
+    local deaths = D.deaths_near(t.map, spts, D.HOUR_R, tick)
+    -- Lot COMPAGNONS-ACTIFS (relecture) : une tâche partie « au calme » ne rentre que si une de ces morts est RÉCENTE (attaque en cours) ;
+    -- une mort lointaine de l'équipe (nouvelle époque) ne la renvoie plus au QG pour des morts anciennes.
+    if deaths >= 2 and not a.escort and agent.task
+      and not (a.calm and Ac.recent_deaths(t.map.deaths, spts, D.HOUR_R, tick) == 0) then
       return act(agent, f, t, a, "back", "morts", a.final, "mort", tick)
     end
     a.pts = nil
@@ -1093,7 +1177,8 @@ function M.sense(agent, tick)
   end
   -- Tournée escaladée (risque accepté par la porte) : pas de nouveau détour pour une menace fixe déjà connue (le chemin
   -- qui minimise le danger la contourne déjà au mieux) ; le demi-tour à portée reste.
-  if a.risk and K.fixed and action == "detour" then action = "none" end
+  -- Lot DETOUR-BOUCLE : de même après une boucle de détours cassée vers ce but (a.dloop).
+  if (a.risk or a.dloop) and K.fixed and action == "detour" then action = "none" end
   -- Près du QG, face à des UNITÉS : sans tourelle où se réfugier, fuir seul est pire que rester groupés (un déchiqueteur
   -- court plus vite qu'un personnage) : on se bat sur place. Même banc : 4 ouvriers sans tâche rattrapés à 11 tuiles du QG.
   local to = nil
@@ -1143,6 +1228,12 @@ function M.sense(agent, tick)
     end
   end
   if not K.fixed and (action == "stop" or action == "detour") then a.urep = (a.urep or 0) + 1 end
+  if action == "detour" then
+    -- Lot DETOUR-BOUCLE : au-delà de Dt.MAX détours au même endroit vers le même but, la boucle est cassée (M.detour_guard).
+    local ac = M.detour_guard(agent, f, t, a, why, ep, kind, tick)
+    if ac == "none" then return false end
+    if ac == "back" then action, why = "back", "boucle" end
+  end
   -- Pas de demi-tour ni de fuite pour un PNJ déjà en route vers le QG sans tâche : il rentre déjà (refuge seulement).
   return act(agent, f, t, a, action, why, ep, kind, tick, range, to)
 end
@@ -1162,7 +1253,11 @@ Registry.on_removed(function(agent)
   if not f then return end
   local t = M.team(f)
   -- Morts tuées par un ennemi seulement (« cause/force:dégâts »).
-  if agent.death_cause and agent.death_cause:find("/", 1, true) then
+  -- Lot RECO-DIRECTION (relecture) : un éclaireur de reconnaissance (agent.reco_tag) mort en route ne laisse aucune marque : l'équipe ne
+  -- sait pas où il est tombé (demande du DC : ce qu'il a vu n'est transmis que s'il revient). Compté à part.
+  if agent.reco_tag and agent.death_cause and agent.death_cause:find("/", 1, true) then
+    t.stats.deaths_reco = (t.stats.deaths_reco or 0) + 1
+  elseif agent.death_cause and agent.death_cause:find("/", 1, true) then
     local at_home = f.hq_pos and d2(agent.death_pos, f.hq_pos) <= M.HOME_DEATH_R * M.HOME_DEATH_R
     D.mark_death(t.map, agent.death_pos.x, agent.death_pos.y, game.tick, at_home)
     if at_home then t.stats.deaths_home = (t.stats.deaths_home or 0) + 1 end
@@ -1354,6 +1449,13 @@ remote.add_interface("fo-ia3k", {
     return { threats = copy(t.map.threats), deaths = copy(t.map.deaths), summary = D.summary(t.map, game.tick) }
   end,
 })
+
+-- Lot COMPAGNONS-ACTIFS : compteurs de la porte (t.actif, écrits par M.gate) lus par le bilan [FO-ACTIF] (Board.actif_report) ; lecture seule.
+Board.gate_actif = function(f)
+  local st = S()
+  local t = st and st.teams and st.teams[M.team_key(f)]
+  return t and t.actif or nil
+end
 
 Worker.hook = M
 return M

@@ -1260,6 +1260,11 @@ function M.new_world(opts)
     assert(pos and radius, "find_enemy_units : position et rayon attendus")
     return {}
   end
+  -- Lot ARMEE-ANTICIPATION : pollution d'une case (script/ai3/soldats.lua, champs de nids menaçants) ; aucune par défaut.
+  surface.get_pollution = function(pos)
+    assert(pos and pos.x and pos.y, "get_pollution : position attendue")
+    return W.pollution or 0
+  end
   W.surface = surface
 
   local player_char = new_entity("character", 0, 0, surface, "player")

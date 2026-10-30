@@ -77,8 +77,12 @@ end
 --- 1. Situation.
 function C.situation(view, st, ctx)
   local cap = {}
+  -- Lot SCALE-COMPLET : types dont un avant-poste a encore des places (ni plein, sous le plafond de foreuses ; lecteur :
+  -- B.generate, buts de couverture).
+  local room = {}
   for _, o in ipairs(view.outposts or {}) do
     cap[o.kind] = (cap[o.kind] or 0) + (o.drills or 0) / T.outposts[o.kind].drills
+    if not o.full and (o.drills or 0) < T.max_drills(o.kind) then room[o.kind] = true end
   end
   for _, kind in ipairs(T.OUTPOST_ORDER) do if (cap[kind] or 0) > 0 then st.ever[kind] = true end end
   -- Lot IA3-e : un module FINI (fonderie électrique et ses foreuses) compte comme capacité d'extraction de son produit
@@ -92,8 +96,13 @@ function C.situation(view, st, ctx)
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
-    sites = view.sites or {}, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
+    sites = view.sites or {}, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
+    -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : l'équipe recrute encore vers son effectif voulu (lecteur : B.generate,
+    -- buts de couverture).
+    recruiting = (view.workers or 0) < (view.workers_wanted or 0) and not view.recruit_blocked and not view.recruit_held
+      and not view.hold_recruits,
     weights = ctx.weights or {}, research = ctx.research, army_target = ctx.army_target or 0, need = st.need,
+    army_alert = view.army_alert or false, army_need = view.army_need or 0, -- lot ARMEE-ANTICIPATION : vague annoncée (B.goals)
     at_war = ctx.at_war or view.threatened or false,
     -- Lot IA-V2 : l'économie est « faite » au fer II de l'ancienne échelle OU quand un avant-poste de fer tourne et que
     -- le fer est SATURÉ (st.economy_ok, collant) : le cerveau par besoins ne bâtit pas un 2e avant-poste de fer qui ne
@@ -179,6 +188,18 @@ function C.think(view, book, st, ctx)
       Ca.goals(held, nil, ctx.capi.open)
       for _, g in ipairs(held) do if g.invest then goals[#goals + 1] = g end end
     end
+  end
+  -- Intégration 0.6.20 (SCALE-COMPLET x PILE-PRIORITE, rapport de SCALE-COMPLET §7) : la COUVERTURE (but de fond au-delà du
+  -- besoin, « couverture:<type> », B.generate) passe elle aussi par la pile : réparer, protéger et survivre d'abord ; une
+  -- matière d'un cadre ouvert (pile.focus) garde la sienne.
+  if pile.hold then
+    local kept = {}
+    for _, g in ipairs(goals) do
+      if not (type(g.key) == "string" and g.key:sub(1, 11) == "couverture:") or Pi.allows(pile, "extraction", g.why) then
+        kept[#kept + 1] = g
+      end
+    end
+    goals = kept
   end
   -- Lot PILE-PRIORITE (le cerveau principal aussi) : pile retenue, une recherche CHÈRE ne dépasse pas B.RESEARCH_PRE (sous
   -- l'extraction et l'armée de départ) ; une recherche peu chère (g.short) ou attendue par l'automatisation garde sa valeur.
@@ -341,6 +362,7 @@ function C.think(view, book, st, ctx)
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
     grow_short = base.grow_short, -- lot FER-EQUIPE : la réserve de fer a retenu une recrue (journal [FO-FER])
     coal_rate = base.coal_rate, burn_rate = base.burn_rate, defend = base.defend, priorite = base.priorite,
+    defchoix = base.defchoix, -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats (journal [FO-DEFCHOIX], script/team/team.lua)
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,
       pile = { top = pile.top, hold = pile.hold, blocked = pile.blocked }, -- lot PILE-PRIORITE (l'état complet : st.pile)

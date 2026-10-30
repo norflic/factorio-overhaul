@@ -33,16 +33,21 @@ local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
+local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
+local Cv = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
+local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
+local Cen = require("shared.team.centrale") -- lot ENERGIE-CROISSANCE : étangs de plus (règle pure Cen.pond_allowed)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
+local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-CENTRALE : coffre de la centrale en urgence, foreuses de la centrale (règles pures)
 
 local Build = {}
 
@@ -83,6 +88,7 @@ Build.CUT_WIDTH = 1.5          -- demi-largeur (tuiles) du couloir qu'un défric
 Build.CUT_TRIES = 6            -- marches refaites après une coupe, par tâche
 
 local REACH = P.BUILD_DISTANCE
+local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : projet rouvert sans attendre toute sa matière, ordre, foreuse de secours
 local TREE_TYPES = { "tree", "simple-entity" }
 
 ---------------------------------------------------------------------------------------------------
@@ -445,6 +451,15 @@ end
 Build.AVOID_MARGIN = 8 -- tuiles ajoutées au rayon d'un site écarté (le lot fait 32 tuiles de côté)
 local REUSE_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, fini = true } -- projets dont les poteaux existent ou vont exister
 
+--- Lot ENERGIE-CROISSANCE : numéro du projet `pid` si c'est une centrale à vapeur FINIE (sa rive peut en recevoir une autre), sinon nil.
+--- (relecture : une centrale ABANDONNÉE par la santé du réseau, site jugé dangereux, ne prête pas sa rive : b.avoid ne garde que
+--- 6 sites, le sien peut en être sorti)
+local function plant_owner(b, pid)
+  local p = b.projects[pid]
+  if p and p.state == "fini" and not p.abandoned and p.parts and p.parts[1] and p.parts[1].kind == "centrale" then return pid end
+  return nil
+end
+
 local function candidates(b, states, toward, res)
   local out = {}
   for _, k in ipairs(sorted_keys(b.lots)) do
@@ -454,7 +469,11 @@ local function candidates(b, states, toward, res)
     -- souvent la seule ; le gabarit ne pose rien sur l'eau (P.fit)
     local ok_state = states[l.state] or (states.eau and l.state == "refuse" and l.reason == "eau")
     if l.out and (l.state == "libre" or l.state == "defricher") then ok_state = false end -- lot ENCEINTE3 : dehors du contour
-    if (not l.used or l.state == "gisement") and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
+    -- lot ENERGIE-CROISSANCE : une rive déjà prise par une centrale FINIE reçoit une centrale de plus sur un autre bord de la même
+    -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
+    -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
+    local shared = l.used and l.state ~= "gisement" and states.rive and plant_owner(b, l.used) or nil
+    if (not l.used or l.state == "gisement" or shared) and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
       local avoided = false
@@ -465,7 +484,7 @@ local function candidates(b, states, toward, res)
         end
       end
       if not avoided then
-        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k }
+        out[#out + 1] = { l = l, d = math.abs(c.x - toward.x) + math.abs(c.y - toward.y), k = k, shared = shared }
       end
     end
   end
@@ -491,23 +510,84 @@ end
 --- centrale est GARANTIE : un petit étang (Build.POND × Build.POND tuiles) au centre du lot libre le plus proche du QG
 --- (hors lot du QG, hors gisement, hors lot pris), une fois par équipe. Le lot est réévalué (rive) et la centrale replanifiée.
 Build.POND = 6
-local function make_pond(f, surface)  -- factions seulement (le joueur trouve son eau)
+--- Lot ENERGIE-CROISSANCE (relecture) : `extra` = étang pour une centrale DE PLUS (la première centrale, b.plant, garde la règle
+--- d'origine, une fois). L'étang garanti ne porte que 2 centrales d'une chaudière (tests/energie_croissance_test.lua) : la 3e était
+--- refusée « pas de lot » à chaque essai (« ils auraient dû aller vraiment beaucoup plus loin », retour du DC du 29/10). Un étang de
+--- plus est posé, au plus Cen.MAX_PONDS en tout (règle pure Cen.pond_allowed), dans un lot LIBRE (sans arbre) dans le contour, le plus
+--- proche de la première centrale (l'énergie reste groupée), sans tuile réservée (b.occ) ; set_tiles « abort_on_collision » : rien
+--- n'est retiré (PNJ, objets au sol) ; une pose refusée par le moteur marque le lot (l.pond_fail) et la centrale réessaie plus tard.
+local function make_pond(f, surface, extra)  -- factions seulement (le joueur trouve son eau)
   local b = f.build
-  if b.pond then return false end
-  local best
+  if b.pond and not extra then return false end
+  local ref = { i = 0, j = 0 }
+  if extra then
+    local n = b.ponds or (b.pond and 1 or 0)
+    local last = b.lots[b.pond_last or b.pond or ""]
+    local ok, why = Cen.pond_allowed(n, last and last.state)
+    if not ok then
+      if why ~= b.pond_why then
+        b.pond_why = why
+        log(string.format("[FO-ENERGIE] %s : pas d'etang de plus : %s (%d etang(s))", f.key or "player", why, n))
+      end
+      return false
+    end
+    local pp = b.plant and b.projects[b.plant]
+    local pl = pp and pp.parts and pp.parts[1] and b.lots[pp.parts[1].lot]
+    if pl then ref = { i = pl.i, j = pl.j } end
+  end
+  local best, x0, y0
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
-    if not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then
-      local d = math.abs(l.i) + math.abs(l.j)
-      if not best or d < best.d then best = { d = d, k = k, l = l } end
+    -- (étang de plus : lot libre seulement, aucun arbre à retirer, ni lot dont la pose a échoué ou écarté)
+    local fits = not extra or (l.state == "libre" and not l.pond_fail and not (l.bad and l.bad >= 2))
+    if fits and not (l.i == 0 and l.j == 0) and not l.used and (l.state == "libre" or l.state == "defricher") and not l.out then
+      local d = math.abs(l.i - ref.i) + math.abs(l.j - ref.j)
+      if not best or d < best.d then
+        local c = lot_center(b, l)
+        local px, py = math.floor(c.x - Build.POND / 2), math.floor(c.y - Build.POND / 2)
+        local clear = true
+        if extra then -- aucune tuile de l'étang n'est réservée par un autre projet (tapis, poteaux planifiés)
+          for dx = 0, Build.POND - 1 do
+            for dy = 0, Build.POND - 1 do if b.occ[P.tkey(px + dx, py + dy)] then clear = false end end
+          end
+        end
+        if clear then best, x0, y0 = { d = d, k = k, l = l }, px, py end
+      end
     end
   end
-  if not best then return false end
-  local c = lot_center(b, best.l)
-  local x0, y0 = math.floor(c.x - Build.POND / 2), math.floor(c.y - Build.POND / 2)
+  if not best then
+    if extra and b.pond_why ~= "aucun lot libre" then
+      b.pond_why = "aucun lot libre"
+      log(string.format("[FO-ENERGIE] %s : pas d'etang de plus : aucun lot libre dans le contour", f.key or "player"))
+    end
+    return false
+  end
   local tiles = {}
   for dx = 0, Build.POND - 1 do
     for dy = 0, Build.POND - 1 do tiles[#tiles + 1] = { name = "water", position = { x0 + dx, y0 + dy } } end
+  end
+  if extra then
+    surface.set_tiles(tiles, true, "abort_on_collision")
+    local wet = 0
+    for _, t in ipairs(tiles) do
+      local tl = surface.get_tile(t.position[1], t.position[2])
+      if tl and tl.valid and tl.collides_with("water-tile") then wet = wet + 1 end
+    end
+    if wet < #tiles then
+      best.l.pond_fail = true
+      if wet > 0 then best.l.state = "inconnu"; b.queue[#b.queue + 1] = { "lot", best.k } end -- (pose partielle : le lot est relevé)
+      log(string.format("[FO-ENERGIE] %s : etang de plus refuse par le moteur au lot %s (%d tuile(s) d'eau sur %d : entite sur la place)",
+        f.key or "player", best.k, wet, #tiles))
+      return false
+    end
+    b.ponds = (b.ponds or (b.pond and 1 or 0)) + 1
+    b.pond_last, b.pond_why = best.k, nil
+    best.l.state, best.l.reason, best.l.bad = "inconnu", nil, nil
+    -- relevé du lot en TÊTE de file : la centrale qui attend le replanifie à la passe suivante
+    if b.qhead <= #b.queue + 1 then table.insert(b.queue, b.qhead, { "lot", best.k }) else b.queue[#b.queue + 1] = { "lot", best.k } end
+    log(string.format("[FO-ENERGIE] %s : etang de plus (%d en tout) pose au lot %s (%d, %d) pour une centrale de plus",
+      f.key or "player", b.ponds, best.k, x0, y0))
+    return true
   end
   surface.set_tiles(tiles, true, true)
   b.pond = best.k
@@ -578,7 +658,8 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if fit then
       local r = fit.k == 0 and g or M.rotate(g, fit.k)
       local inst = M.instantiate(r, 0, fit.ox, fit.oy)
-      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan }
+      return { g = r, k = fit.k, ox = fit.ox, oy = fit.oy, lot = c.k, inst = inst, cover = fit.cover, masks = masks, fan = fopts.fan,
+        shared = c.shared }
     end
     last = why or last
     bump(b.stats.plan_refused, last)
@@ -586,7 +667,9 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     -- n, n-1, … 1 foreuses dans les MÊMES lots : chaque taille refusée y comptait un échec, et le lot était exclu après la
     -- deuxième (« tapis des foreuses (pas de lot) » alors qu'une ligne plus courte y tenait).
     if opts and opts.diag then opts.diag[#opts.diag + 1] = c.k .. ":" .. tostring(why) end
-    if not (opts and opts.nobad) then c.l.bad = (c.l.bad or 0) + 1 end
+    -- (lot ENERGIE-CROISSANCE : la rive d'une centrale qui n'a plus de bord libre n'est pas un mauvais lot : sa centrale y reste et
+    -- la remplacer doit pouvoir y revenir)
+    if not (opts and opts.nobad) and not c.shared then c.l.bad = (c.l.bad or 0) + 1 end
   end
   return nil, last
 end
@@ -950,6 +1033,40 @@ local function plate_used_elsewhere(b, p, plate)
 end
 
 Build.LINE_LOGS = 24 -- lignes [FO-LIGNE] au plus, par équipe
+Build.DEBIT_LOGS = 24 -- lignes [FO-DEBIT] au plus, par équipe
+
+--- Lot RANGEES-DEBIT (retour du DC du 29/10 en jouant la 0.6.18 : « il faut faire des packs de N [...] en fonction du débit », « huit
+--- d'un côté, huit de l'autre au lieu d'en avoir six ») : paires de foreuses qu'UN collecteur porte, lues sur le tapis que la ligne
+--- entière demanderait (Conv.choose : vitesse lue dans les prototypes, technologie de l'équipe ; débit d'une foreuse : M.spec), bornées
+--- par l'emprise du gabarit `emprise` (M.GEN.drills, longueur d'un lot). Règle pure : shared/team/debit.lua. Lecteur : line_rows, qui
+--- borne ensuite par le gisement (80 % de couverture) puis donne aux fours les rangées que ces foreuses nourrissent ; la ligne de
+--- foreuses posée suit ces fours (plan_drills, demande). Journal [FO-DEBIT] : une ligne par minerai et par borne retenue.
+--- Relecture : le tapis est lu par la règle pure (Cv.pick, même choix que Conv.choose) et NON par Conv.choose, qui écrit une fois par
+--- équipe la ligne [FO-CONVOYEURS] « premier choix de tapis » : appelée ici, au plan, avec un débit HYPOTHÉTIQUE, elle prenait la place
+--- de celle du premier vrai tracé (plan_feed). Avec les données de base, la borne retenue est l'emprise (7 paires, M.MAX_SIDE), jamais le
+--- tapis (15 foreuses par côté sur une voie jaune) : le gabarit (M.GEN.drills) bornait déjà par M.LANE_RATE, le plus lent des tapis.
+function Build.debit_pairs(f, ore, emprise, drill_rate)
+  local dc = T.debit or {}
+  if not dc.belt or type(drill_rate) ~= "number" or drill_rate <= 0 then return emprise end
+  -- une voie = un côté de la ligne entière
+  local belt, speed = Cv.pick(Conv.belts(), Conv.usable(f), (emprise or 0) * drill_rate, { need_only = Conv.MODE == "besoin" })
+  local lane = Db.lane_capacity(speed)
+  local by_belt = Db.belt_pairs(lane, drill_rate, nil)
+  if by_belt <= 0 then return emprise end -- aucun tapis lisible : la borne du gabarit (comportement d'avant)
+  local np, why = math.min(by_belt, emprise or by_belt), (by_belt < (emprise or by_belt)) and "tapis" or "emprise"
+  local b = f.build
+  b.debit_seen = b.debit_seen or {}
+  local key = tostring(ore) .. ":" .. tostring(belt) .. ":" .. np
+  if not b.debit_seen[key] then
+    b.debit_seen[key] = true
+    b.debit_logs = (b.debit_logs or 0) + 1
+    if b.debit_logs <= Build.DEBIT_LOGS then
+      log(string.format("[FO-DEBIT] %s : foreuses %s : tapis %s, %.2f/s par voie / %.2f/s par foreuse = %d foreuse(s) par cote ; emprise d'un lot %d paire(s) -> ligne de %d paire(s) au plus (%d foreuses, borne %s), puis le gisement et les fours",
+        f.key or "player", tostring(ore), tostring(belt), lane, drill_rate, by_belt, emprise or 0, np, 2 * np, why))
+    end
+  end
+  return np
+end
 
 --- Lot AGENCEMENT (retour du DC du 29/10 : « ils peuvent pas vraiment étendre plus loin », « 4 foreuses ») : taille de la fonderie
 --- à tapis, décidée APRÈS celle de la demande. La ligne suit les foreuses que le gisement le plus proche porte à 80 % de
@@ -968,6 +1085,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
   local cap = main / (2 * prm.n) -- plaques/s d'UN four
   local gd = M.GEN.drills(prm.ore, 1)
   local pairs_line = gd and gd.extensions and gd.extensions[1] and gd.extensions[1].max or 0
+  pairs_line = Build.debit_pairs(f, prm.ore, pairs_line, dsp.speed) -- lot RANGEES-DEBIT : le collecteur réel borne la ligne
   local reach = Rg.reach(dsp.radius, dsp.w)
   -- ce que les lots de gisement les plus proches portent : le comptage des tuiles du relevé de lot donne une BORNE HAUTE
   -- (Rg.pairs_for_tiles), puis P.fit lui-même (pur) dit quelle ligne de foreuses y TIENT à la couverture visée
@@ -1140,6 +1258,74 @@ end
 Outposts.reserved = function(f, name, pos, dir) return Build.reserved_entity(f, name, pos, dir) end
 -- Lot STOCKAGE : les annexes du QG (script/team/stock.lua) sautent une place réservée par le plan directeur.
 Stock.reserved = function(f, name, pos) return Build.reserved_entity(f, name, pos) end
+
+--- Lot TOURELLES-HORS-AXE (retour du DC du 29/10 sur 0.6.18, défaut 4 : « le canon est en plein milieu [...] si on voulait étendre
+--- sur la gauche [...] on pourrait pas »). Couloirs d'extension des lignes extensibles de l'équipe : la ligne de fours à tapis
+--- (partie 1 d'un projet smelter à feed « tapis ») et chaque rangée de foreuses (partie « foreuses »). Couloir = toute la longueur
+--- du lot le long de l'axe de la ligne (sa longueur maximale prévue, Li.rows_fit et P.fit : le lot), bout du tapis et quai compris,
+--- sur la largeur du module plus Axe.SIDE tuile(s) de chaque côté (shared/team/axe.lua). Calculé à la demande depuis p.parts et
+--- p.ents, sans état écrit : les projets des sauvegardes 0.6.18 ont leurs couloirs comme les nouveaux. Ligne fixe (MIGRATION-CHAMP,
+--- spec.fixe), projet abandonné ou refusé : aucun couloir. Lecteurs : Outposts.fortify_at (crochet Outposts.corridors) et
+--- move_turrets_off (une tourelle déplacée ne retombe pas dans un couloir). Liste dans l'ordre b.order, puis des parties.
+function Build.corridors(f)
+  local b = f and f.build
+  if not (b and b.order and b.projects and b.lat) then return {} end
+  local out = {}
+  -- relecture : un tapis se reconnaît aussi par la liste des tapis des données (Conv.belts), pas au seul gabarit (M.spec ne connaît
+  -- que le tapis de base) ; le tapis d'une rangée de foreuses est choisi au débit et amélioré en place (script/team/convoyeurs.lua
+  -- réécrit e.name) : sans cela le couloir d'une rangée à tapis rapide disparaissait sans un mot. Aucun nom en dur.
+  local belt_of = {}
+  for _, bt in ipairs(Conv.belts()) do belt_of[bt.name] = true end
+  local function is_belt(name) return belt_of[name] or (M.spec(name) or {}).kind == "belt" end
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    local spec = p and p.spec or {}
+    if p and p.parts and not p.abandoned and p.state ~= "refuse" and not spec.fixe then
+      for i = 1, #p.parts do
+        local pt = p.parts[i]
+        local ext = pt and ((i == 1 and spec.gen == "smelter" and spec.feed == "tapis") or pt.kind == "foreuses")
+        if ext and pt.ox and pt.w then
+          local dirs = {}
+          for _, e in ipairs(p.ents) do
+            if e.part == i and e.x > pt.ox and e.x < pt.ox + pt.w and e.y > pt.oy and e.y < pt.oy + pt.h
+                and is_belt(e.name) then dirs[#dirs + 1] = e.dir or 0 end
+          end
+          local li, lj = P.lot_of(b.lat, pt.ox + pt.w / 2, pt.oy + pt.h / 2)
+          if li then
+            local x0, y0, x1, y1 = P.lot_rect(b.lat, li, lj)
+            local c = Axe.corridor({ x0 = pt.ox, y0 = pt.oy, x1 = pt.ox + pt.w, y1 = pt.oy + pt.h },
+              { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }, Axe.axis_of(dirs))
+            if c then c.pid, c.part = pid, i; out[#out + 1] = c end
+          end
+        end
+      end
+    end
+  end
+  return out
+end
+
+--- Lot TOURELLES-HORS-AXE : couloir que recouvre l'emprise d'une entité `name` en `pos` (ou nil). `cors` : Build.corridors(f).
+function Build.axis_entity(cors, name, pos)
+  if not (cors and #cors > 0 and pos) then return nil end
+  local pr = game.entity_prototypes[name]
+  if not pr then return nil end
+  return (Axe.hit(cors, Axe.tile_rect(pos.x, pos.y, pr.tile_width or 1, pr.tile_height or 1)))
+end
+
+--- Lot TOURELLES-HORS-AXE : une ligne [FO-AXE] (au plus Build.AXE_LOGS par équipe, compteur b.stats.axe_logs).
+Build.AXE_LOGS = 40
+function Build.axe_log(f, text)
+  local st = f and f.build and f.build.stats
+  if st then
+    st.axe_logs = (st.axe_logs or 0) + 1
+    if st.axe_logs > Build.AXE_LOGS then return end
+  end
+  log("[FO-AXE] " .. tostring(f and f.key or "player") .. " : " .. text)
+end
+
+-- Crochets des poseurs de tourelles (script/faction/outposts.lua, Outposts.fortify_at)
+Outposts.corridors = function(f) return Build.corridors(f) end
+Outposts.axe_log = function(f, text) return Build.axe_log(f, text) end
 
 Build.ROUTE_WEIGHT = 2        -- lot AUTO : poids de l'heuristique du second tracé du tapis des foreuses (A* pondéré)
 Build.DRILL_DIAG_LOGS = 24    -- lot AUTO : lignes de diagnostic des foreuses refusées, au plus, par équipe
@@ -1844,11 +2030,82 @@ local function plan_enceinte(f, surface, p)
   return true
 end
 
+local plan_finish -- lot CHARBON-CENTRALE : fin commune des plans (définie après plan_project)
+
+--- Lot CHARBON-CENTRALE : boilers (nombre) et puissance de combustion (kW, données) des chaudières planifiées d'une centrale `p`
+--- (chaudière : une entité des données qui boit de l'eau et brûle du combustible ; aucun nom écrit ici).
+local function plant_burn_kw(p)
+  local n, kw = 0, 0
+  for _, e in ipairs(p.ents or {}) do
+    local sp = M.spec(e.name)
+    if sp and sp.water and sp.burner_kw then n, kw = n + 1, kw + sp.burner_kw end
+  end
+  return n, kw
+end
+
+--- Lot CHARBON-CENTRALE : le projet `p` est-il une centrale planifiée (sa première partie, posée par plan_project) ?
+local function is_plant_project(p)
+  return p ~= nil and p.parts ~= nil and p.parts[1] ~= nil and p.parts[1].kind == "centrale"
+end
+
+--- Lot CHARBON-CENTRALE : la centrale `p` est-elle nourrie par des foreuses (règle pure Cc.automated) ? Rend aussi son projet
+--- d'alimentation (ou nil).
+local function plant_automated(b, p)
+  local kinds = {}
+  for _, pt in ipairs(p.parts or {}) do kinds[#kinds + 1] = pt and pt.kind or "?" end
+  local st = b.charbon and b.charbon[p.id]
+  local alim = st and st.alim and b.projects[st.alim] or nil
+  return Cc.automated(kinds, alim and alim.state or nil), alim
+end
+
+--- Lot CHARBON-CENTRALE : plan du projet « alimentation de la centrale » (spec.alim = numéro du projet de centrale) : foreuses sur le
+--- gisement du combustible de son coffre le plus proche de sa tête d'alimentation, et leur tapis jusqu'à cette tête (Build.plan_drills,
+--- le plan des foreuses d'une fonderie), puis poteaux, points d'appui et obstacles (plan_finish). Le coffre de la centrale reste en
+--- secours. Rend true, ou (false, raison[, attendre]).
+local function plan_alim(f, surface, p)
+  local b = f.build
+  local plant = b.projects[p.spec.alim]
+  if not (plant and plant.state == "fini") then return false, "centrale absente ou en chantier" end
+  local fuel = plant.quais and plant.quais[1] and plant.quais[1].item
+  if not fuel then return false, "centrale sans coffre de combustible" end
+  local head
+  for _, e in ipairs(plant.ents) do if e.role == "tete" then head = e end end -- la dernière tuile de la tête (la plus loin du module)
+  if not head then return false, "centrale sans tete d'alimentation" end
+  local _, kw = plant_burn_kw(plant)
+  local rate = Cc.rate(kw, M.COAL_J)
+  local d = head.dir or 0
+  local lx, ly = P.left_of(d)
+  local last = "arrivee prise"
+  for _, a in ipairs(Cc.arrivals(math.floor(head.x), math.floor(head.y), P.DV[d], { lx, ly }, d, P.dir_of)) do
+    if a.dir and not b.occ[P.tkey(a.x, a.y)] then
+      p.parts, p.ents = {}, {}
+      local ok, why = Build.plan_drills(f, surface, p, fuel, rate, a, nil)
+      if ok then
+        p.parts[1].alim = plant.id
+        local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+        for _, e in ipairs(p.ents) do
+          x0, y0, x1, y1 = math.min(x0, e.x), math.min(y0, e.y), math.max(x1, e.x), math.max(y1, e.y)
+        end
+        local masks = read_masks(f, surface, math.floor(x0) - 32, math.floor(y0) - 32, math.ceil(x1) + 32, math.ceil(y1) + 32)
+        local route = 0
+        for _, e in ipairs(p.ents) do if e.role == "liaison-tapis" then route = route + 1 end end
+        log(string.format("[FO-CHARBON-CENTRALE] %s : projet %d (alimentation de la centrale %d) plan : %d foreuse(s) de %s pour %.2f/s, tapis de %d tuile(s) jusqu'a la tete (%d, %d)",
+          f.key or "player", p.id, plant.id, p.parts[1].drills or 0, tostring(fuel), rate, route, a.x, a.y))
+        return plan_finish(f, surface, p, masks, false)
+      end
+      last = tostring(why) -- (plan_drills ne réserve rien quand il échoue : reserve_tiles est tout ou rien)
+    end
+  end
+  p.parts, p.ents = {}, {}
+  return false, "foreuses : " .. last
+end
+
 --- Plan d'un projet : (true) ou (false, raison, attendre). Une seule pensée de plan par passe.
 local function plan_project(f, surface, p)
   local b = f.build
   local spec = p.spec
   if spec.enceinte then return plan_enceinte(f, surface, p) end
+  if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- lot AGENCEMENT : la fonderie à tapis est une LIGNE qui suit le gisement (line_rows) ; ses coffres vont vers le centre (la
   -- source de ressources de la base, défaut) ou vers l'extérieur (les plaques nourrissent un autre module du plan)
@@ -1924,7 +2181,8 @@ local function plan_project(f, surface, p)
       Build.grow(f, b.radius + 1)
       return false, why, true
     end
-    if is_plant and not f.is_player and make_pond(f, surface) then return false, why, true end
+    -- (lot ENERGIE-CROISSANCE, relecture : une centrale de plus, rive partagée pleine, reçoit un étang de plus, make_pond)
+    if is_plant and not f.is_player and make_pond(f, surface, b.plant ~= p.id) then return false, why, true end
     return false, why
   end
   p.parts[1] = { kind = is_plant and "centrale" or "module", key = main.g.key, lot = main.lot, ox = main.ox, oy = main.oy,
@@ -1933,6 +2191,13 @@ local function plan_project(f, surface, p)
   if topts then Build.tag_rows(ents, g, 0, "four", "row") end -- lot FONDERIE-DYNAMIQUE : rangée de chaque four et de ses bras (ligne_split)
   if not reserve_tiles(b, p, ents) then return false, "place" end
   b.lots[main.lot].used = p.id
+  -- lot ENERGIE-CROISSANCE : la rive partagée reste au nom de sa première centrale (un refus ou un abandon de la centrale de plus
+  -- libère les lots à son nom : il ne doit pas libérer celui d'une centrale bâtie, que l'enceinte et l'évaluation lisent pris)
+  if main.shared then
+    b.lots[main.lot].used = main.shared
+    log(string.format("[FO-ENERGIE] %s : projet %d, centrale posee sur la rive de la centrale %d (lot %s, autre bord de la meme eau)",
+      f.key or "player", p.id, main.shared, main.lot))
+  end
   if spec.feed or is_plant then
     Profiler.start("build:plan:feed")
     local ok, w2 = plan_feed(f, surface, p, main, 1)
@@ -1947,9 +2212,15 @@ local function plan_project(f, surface, p)
         f.key or "player", p.id, #ov, e1.name, tostring(e1.role), e2.name, tostring(e2.role), e2.x, e2.y))
     end
   end
+  return plan_finish(f, surface, p, main.masks, is_plant)
+end
+
+--- Fin commune d'un plan (lot CHARBON-CENTRALE : partagée avec le projet d'alimentation de la centrale, plan_alim) : poteaux du
+--- réseau, points d'appui, obstacles. `masks` : relevé de la zone de la première partie. Rend true, ou (false, raison, attendre).
+plan_finish = function(f, surface, p, masks, is_plant)
+  local b = f.build
   Profiler.start("build:plan:power")
   -- électricité : le réseau de l'équipe ; la centrale l'amorce
-  local masks = main.masks
   local need = false
   for _, pt in ipairs(p.parts) do if pt.power or pt.kind == "centrale" then need = true end end
   if need then
@@ -2034,9 +2305,23 @@ function Build.grow_plant(f, nb, tick)
   if not id then return nil end
   b.extra_plants = b.extra_plants or {}
   b.extra_plants[#b.extra_plants + 1] = id
+  -- lot ENERGIE-CROISSANCE : le courant qui manque arrête la production principale : la centrale de plus est un besoin de PRODUCTION
+  -- servi en premier (réserve au coffre, plan), APRÈS ce qui répare et protège (projets rouverts, enceinte, îlots) et les autres
+  -- centrales ; Build.request la mettait en queue, derrière tous les projets ouverts.
+  local front, rest = {}, {}
+  for _, x in ipairs(b.order) do
+    local q = b.projects[x]
+    if x ~= id then
+      if q and (q.reopened or (q.spec and (q.spec.enceinte or q.spec.ilot or q.spec.gen == first.spec.gen))) then front[#front + 1] = x
+      else rest[#rest + 1] = x end
+    end
+  end
+  front[#front + 1] = id
+  for _, x in ipairs(rest) do front[#front + 1] = x end
+  b.order = front
   local g = b.grow or {}
-  log(string.format("[FO-ENERGIE] %s : centrale de %d chaudiere(s) demandee a %.1f min (projet %d ; %.0f J/tick sur %.0f, %d centrale(s) finie(s))",
-    f.key or "player", nb, tick / 3600, id, g.power or 0, g.capacity or 0, g.done or 0))
+  log(string.format("[FO-ENERGIE] %s : decision : centrale de %d chaudiere(s) demandee a %.1f min (projet %d, rang %d sur %d ; production %.0f kW sur %.0f kW de capacite, %d centrale(s) finie(s))",
+    f.key or "player", nb, tick / 3600, id, #front - #rest, #front, (g.power or 0) * 60 / 1000, (g.capacity or 0) * 60 / 1000, g.done or 0))
   return id
 end
 
@@ -2049,6 +2334,7 @@ local function needs_of(p)
     if not e.built and e.item then
       bump(need, e.item)
       if e.name == "burner-inserter" then bump(need, "coal", 2) end
+      if e.subst then bump(need, T.fuel, Rr.SUBST_FUEL) end -- lot REBUILD-RAPIDE (d) : combustible de la foreuse à combustion de secours
     end
   end
   return need
@@ -2291,6 +2577,44 @@ local function place_ghost(surface, f, e)
   return "ok"
 end
 
+--- Lot TOURELLES-HORS-AXE : une tourelle ENREGISTRÉE de l'équipe (f.turrets, posée par les avant-postes ; jamais celle d'un joueur) qui
+--- occupe seule l'emprise d'une pièce à poser du projet n'est plus enlevée : elle est DÉPLACÉE à côté (teleport : munitions, santé et
+--- registre gardés), d'abord sur le côté de la ligne dont elle bloque le couloir (Axe.side_spots), sinon sur l'anneau voisin
+--- (Blocage.spots), jamais sur une tuile réservée (Build.reserved_entity : b.occ) ni dans un couloir (Build.axis_entity). Appelé au
+--- refus « occupe » d'un fantôme (revive_one, phase « fantomes ») : la ligne qui s'étend la pousse tout de suite, sans attendre le
+--- blocage du projet. Rend vrai si TOUTES les tourelles de l'emprise ont été déplacées. Journal [FO-AXE], une ligne par tourelle.
+local function move_turrets_off(f, surface, p, e)
+  if not (f.turrets and f.build) then return false end
+  local found = surface.find_entities_filtered({ area = footprint(e) })
+  local list = {}
+  for _, x in ipairs(found) do
+    local mine = x.unit_number ~= nil and f.turrets[x.unit_number] ~= nil
+    list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree" }
+  end
+  if not Blocage.own_blockers(list, f.force, T.turret) then return false end
+  local cors = Build.corridors(f)
+  for _, x in ipairs(found) do
+    if x.valid then
+      local from = x.position
+      local pr = game.entity_prototypes[x.name] or {}
+      local spots = Axe.side_spots(from.x, from.y, cors, pr.tile_width or 1, pr.tile_height or 1)
+      for _, s in ipairs(Blocage.spots(from.x, from.y)) do spots[#spots + 1] = s end
+      local pos = Blocage.first_free(spots,
+        function(c) return surface.find_non_colliding_position(x.name, { x = c.x, y = c.y }, 4, 1) end,
+        function(q) return Build.reserved_entity(f, x.name, q) or Build.axis_entity(cors, x.name, q) ~= nil end)
+      if not (pos and x.teleport(pos)) then
+        Build.axe_log(f, string.format("projet %d : tourelle en (%g, %g) sur l'emprise de %s en (%g, %g), aucune place libre hors des couloirs : non deplacee",
+          p.id, from.x, from.y, tostring(e.name), e.x, e.y))
+        return false
+      end
+      f.build.stats.turrets_moved = (f.build.stats.turrets_moved or 0) + 1
+      Build.axe_log(f, string.format("projet %d : tourelle deplacee de (%g, %g) a (%g, %g) : elle occupait l'emprise de %s en (%g, %g) ; %d couloir(s) d'extension",
+        p.id, from.x, from.y, x.position.x, x.position.y, tostring(e.name), e.x, e.y, #cors))
+    end
+  end
+  return true
+end
+
 --- Refus passager (un personnage sur l'emprise) : compté à part ; Build.NPC_BLOCKS_PER_FAIL refus valent un échec.
 local function npc_block(f, p, e, surface)
   local st = f.build.stats
@@ -2444,6 +2768,8 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     local r = place_ghost(surface, f, e)
     if r == "deja" then e.built = true return true end
     if r == "pnj" then npc_block(f, p, e, surface) return false end
+    if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
+    if r == "deja" then e.built = true return true end
     if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
     if r ~= "ok" then
       e.fails = (e.fails or 0) + 1
@@ -2476,6 +2802,10 @@ local function revive_one(surface, f, p, e, inv, tick, self)
   if e.name == "burner-inserter" and inv.get_item_count("coal") >= 2 then
     local fuel = ent.get_fuel_inventory()
     if fuel then fuel.insert({ name = "coal", count = inv.remove({ name = "coal", count = 2 }) }) end
+  end
+  if e.subst and inv.get_item_count(T.fuel) >= 1 then -- lot REBUILD-RAPIDE (d) : la foreuse de secours démarre avec son combustible
+    local fuel = ent.get_fuel_inventory()
+    if fuel then fuel.insert({ name = T.fuel, count = inv.remove({ name = T.fuel, count = math.min(Rr.SUBST_FUEL, inv.get_item_count(T.fuel)) }) }) end
   end
   e.built = true
   st.revived = st.revived + 1
@@ -2707,29 +3037,40 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Tâches au tableau
 ---------------------------------------------------------------------------------------------------
-local function batch_tasks(f, p, out)
+local function batch_tasks(f, p, out, free_of)
   local b = f.build
   local by = {}
   local order = {}
   for _, e in ipairs(p.ents) do
     if not e.built and e.item and (e.fails or 0) < Build.FAIL_LIMIT * 2 then
       local k = e.anchor
-      if not by[k] then by[k] = { items = {}, ax = e.ax, ay = e.ay, n = 0, poles = 0 }; order[#order + 1] = k end
+      if not by[k] then by[k] = { items = {}, ax = e.ax, ay = e.ay, n = 0, poles = 0, main = {} }; order[#order + 1] = k end
       local bt = by[k]
       bump(bt.items, e.item)
+      bt.main[#bt.main + 1] = e.item -- relecture REBUILD-RAPIDE : objets qui posent les pièces du lot (Rr.batch_ready)
       if e.name == "burner-inserter" then bump(bt.items, "coal", 2) end
+      if e.subst then bump(bt.items, T.fuel, Rr.SUBST_FUEL) end -- lot REBUILD-RAPIDE (d) : combustible porté avec la foreuse de secours
       bt.n = bt.n + 1
     end
   end
   table.sort(order)
+  -- Relecture REBUILD-RAPIDE : un projet ROUVERT entre en chantier sans toute sa matière (Rr.partial_go) ; un lot dont AUCUN objet n'est au
+  -- coffre (réserve du projet + stock libre, comme Build.take_reserved) n'est pas mis au tableau : le PNJ irait au coffre pour rien, à la
+  -- priorité de la reconstruction. Il y revient dès que la matière arrive (pensée suivante) ; le manque reste dit par p.missing.
+  local free = Rr.partial_go(p) and free_of and free_of() or nil
+  local function have(it) return (p.stock[it] or 0) + (free[it] or 0) end
   for _, k in ipairs(order) do
     local bt = by[k]
     local items = {}
     for _, it in ipairs(sorted_keys(bt.items)) do items[#items + 1] = { it, bt.items[it] } end
-    out[#out + 1] = {
-      key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = finish_prio(p.prio), domain = p.domain, work = 15 + 2 * bt.n,
-      items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay },
-    }
+    -- rien au coffre pour ce lot : pas de voyage (le manque est au journal [FO-REBUILD-ETAT] et dans p.missing)
+    if not free or Rr.batch_ready(bt.main, have) then
+      out[#out + 1] = {
+        -- lot REBUILD-RAPIDE (b) : un projet ROUVERT passe à son rang (alimentation 88, production principale 87 ; le reste inchangé)
+        key = "ia1d:" .. p.id .. ":b:" .. k, kind = "ghost", prio = Rr.project_prio(p, finish_prio(p.prio)), domain = p.domain, work = 15 + 2 * bt.n,
+        items = items, ia1d = { pid = p.id, mode = "build", anchor = k, ax = bt.ax, ay = bt.ay },
+      }
+    end
   end
 end
 
@@ -2796,13 +3137,56 @@ local function street_clear_tasks(f, out)
   end
 end
 
+--- Lot CHARBON-CENTRALE : journal du coffre de la centrale, une ligne par épisode (passage sous le seuil, coffre du QG vide), au plus
+--- Cc.LOGS par équipe. Mémoire : b.charbon[pid].said (chaîne), effacée quand le coffre repasse au-dessus du seuil.
+local function cc_say(f, p, i, n, have, rate, r)
+  local b = f.build
+  b.charbon = b.charbon or {}
+  local st = b.charbon[p.id] or {}
+  b.charbon[p.id] = st
+  local cause = r.due and "urgence" or (r.short and "sans charbon" or nil)
+  if not cause then st.said = nil return end
+  if st.said == cause then return end
+  st.said = cause
+  b.charbon_logs = (b.charbon_logs or 0) + 1
+  if b.charbon_logs > Cc.LOGS then return end
+  if r.due then
+    log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d (%.2f/s x %d s) a %.1f min : tache URGENTE (prio %d), %d a porter (cible %d), coffre du QG %d",
+      f.key or "player", p.id, i, n, r.low, rate, Cc.LEAD_S, game.tick / 3600, r.prio, r.count, r.target, have))
+  else
+    log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, coffre %d a %d charbon(s), sous le seuil %d a %.1f min : coffre du QG SANS charbon, aucune tache possible (le bilan du charbon compte les chaudieres nourries a la main)",
+      f.key or "player", p.id, i, n, r.low, game.tick / 3600))
+  end
+end
+
 local function quai_tasks(f, p, surface, out)
+  -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
+  -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
+  -- de scarlet à sec 8 fois dans la partie du DC en 0.6.18)
+  local rate
+  if is_plant_project(p) then
+    local _, kw = plant_burn_kw(p)
+    rate = Cc.rate(kw, M.COAL_J)
+  end
   for i, q in ipairs(p.quais) do
     local chest = surface.find_entity("iron-chest", { q.x, q.y })
     if chest and chest.force.name == f.force then
       local n = chest.get_item_count(q.item)
       local have = Stock.count(f, q.item)
-      if n < Build.QUAI_LOW and have > 0 then
+      if rate then
+        local inv = chest.get_inventory(defines.inventory.chest)
+        local r = Cc.refill(n, rate, have, inv and (n + inv.get_insertable_count(q.item)) or nil)
+        cc_say(f, p, i, n, have, rate, r)
+        if r.due then
+          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          out[#out + 1] = {
+            key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = r.prio, no_rush = true, domain = "logistique", work = 40,
+            items = { { q.item, r.count } },
+            ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
+          }
+        end
+      elseif n < Build.QUAI_LOW and have > 0 then
         local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
         if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
         out[#out + 1] = {
@@ -3018,6 +3402,11 @@ local function advance(f, surface, p, tick)
         return
       end
       p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
+    elseif Rr.partial_go(p) and not (p.spec.degel and not p.degele) then
+      -- lot REBUILD-RAPIDE (a) : un projet ROUVERT reprend son chantier avec ce qui est au coffre (réservé par `reserve` ci-dessus) au lieu
+      -- d'attendre toute sa matière (Scarlet, partie du DC du 29/10 : fonderie 7 en « reserve[materiaux] » 40 min pour 2 bras sans cuivre,
+      -- 27 tapis à refaire) ; le reste est pris au coffre par le PNJ à sa prise (Build.take_reserved) et suivi par refresh_missing.
+      p.state, p.reason, p.reserve_next = #p.obstacles > 0 and "defrichage" or "fantomes", nil, nil
     else
       p.reason, p.reserve_next = "materiaux", tick + 60
     end
@@ -3040,6 +3429,7 @@ local function advance(f, surface, p, tick)
         if placed >= Build.GHOSTS_PER_PULSE then pending = pending + 1 break end
         if not Tokens.take(f, tick, Build.COST_GHOST) then return end
         local r = place_ghost(surface, f, e)
+        if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
         if r == "ok" then e.ghosted = true; placed = placed + 1; b.stats.ghosts = b.stats.ghosts + 1
         elseif r == "deja" then e.built = true
         elseif r == "obstacle" then
@@ -3101,7 +3491,7 @@ end
 --- entités sur 113 de 36 min à la fin ; la pose des tourelles évite désormais les tuiles réservées, ceci reprend les chantiers
 --- déjà pris). Rend le nombre d'entités enlevées. Une autre entité sur l'emprise (arbre, falaise, bâtiment) : rien n'est touché.
 local function free_own_turrets(f, surface, p)
-  local n, n_back = 0, 0
+  local n, n_back, n_moved = 0, 0, 0
   for _, e in ipairs(p.ents) do
     if not e.built then
       local found, list = surface.find_entities_filtered({ area = footprint(e) }), {}
@@ -3110,7 +3500,11 @@ local function free_own_turrets(f, surface, p)
         local mine = x.unit_number ~= nil and f.turrets ~= nil and f.turrets[x.unit_number] ~= nil
         list[#list + 1] = { name = x.name, force = mine and x.force.name or "non-enregistree" }
       end
-      if Blocage.own_blockers(list, f.force, T.turret) then
+      -- lot TOURELLES-HORS-AXE : d'abord déplacée à côté (move_turrets_off) ; récupérée au coffre seulement si aucune place
+      if Blocage.own_blockers(list, f.force, T.turret) and move_turrets_off(f, surface, p, e) then
+        n, n_moved = n + #list, n_moved + #list
+      elseif Blocage.own_blockers(list, f.force, T.turret) then
+        found = surface.find_entities_filtered({ area = footprint(e) }) -- relu : une tourelle déjà déplacée n'est plus sur l'emprise
         for _, x in ipairs(found) do
           if x.valid then
             -- Lot INTEG-DEFENSE 4.1 : la tourelle (et ses chargeurs) RETOURNE au coffre de l'équipe (la détruire perdait ~40 de fer, 10 de
@@ -3129,7 +3523,7 @@ local function free_own_turrets(f, surface, p)
       end
     end
   end
-  return n, n_back
+  return n, n_back, n_moved
 end
 
 --- Lot FACTIONS-BLOQUEES : un projet qui n'avance plus depuis 10 min (aucune entité bâtie de plus) est écrit UNE fois par équipe et
@@ -3163,6 +3557,77 @@ local function watch_stall(f, tick)
   end
 end
 
+--- Lot CHARBON-CENTRALE : relevé des centrales finies (toutes les Cc.EVERY ticks). Une centrale encore nourrie par son coffre demande
+--- le projet « alimentation de la centrale » (règle pure Cc.want_alim : un seul ouvert par équipe, pause et plafond après des refus) ;
+--- il passe devant les projets en attente, après ce qui répare et les centrales. Journal [FO-CHARBON-CENTRALE] : demande, refus, fin.
+--- Mémoire : b.charbon[pid de la centrale] = { alim, tries, retry_at, said, done_said } (nombres et chaînes), créée ici (événement).
+local function charbon_step(f, tick)
+  local b = f.build
+  if tick < (b.cc_next or 0) then return end
+  b.cc_next = tick + Cc.EVERY
+  b.charbon = b.charbon or {}
+  local plants, other_open = {}, false
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.state == "fini" and is_plant_project(p) then plants[#plants + 1] = p end
+    if p and p.spec and p.spec.alim and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
+      other_open = true
+    end
+  end
+  for _, p in ipairs(plants) do
+    local st = b.charbon[p.id] or {}
+    b.charbon[p.id] = st
+    local auto, alim = plant_automated(b, p)
+    if alim and (alim.state == "refuse" or (alim.state == "bloque" and not alim.retry_at)) then
+      -- refus du plan (pas de gisement à portée, pas de tracé) ou chantier abandonné : pause, puis nouvel essai
+      local why = tostring(alim.reason)
+      Cc.refused(st, tick)
+      b.charbon_logs = (b.charbon_logs or 0) + 1
+      if b.charbon_logs <= Cc.LOGS then
+        log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, projet d'alimentation %d %s (%s) a %.1f min : refus %d (pause %s apres %d), nouvel essai a %.1f min ; le coffre reste rempli en urgence",
+          f.key or "player", p.id, alim.id, alim.state, why, tick / 3600, st.tries, st.tries < Cc.MAX_TRIES and "courte" or "longue",
+          Cc.MAX_TRIES, st.retry_at / 3600))
+      end
+      alim = nil
+    end
+    if auto and not st.done_said then
+      st.done_said = true
+      log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d nourrie par des foreuses a %.1f min (projet %s) ; son coffre reste en secours",
+        f.key or "player", p.id, tick / 3600, tostring(alim and alim.id or "de la centrale")))
+    elseif not auto then
+      st.done_said = nil
+    end
+    local open = alim ~= nil and not auto
+    local ok = Cc.want_alim(st, { automated = auto, quai = #(p.quais or {}) > 0, alim_open = open, other_open = other_open and not open,
+      tick = tick, off = b.opts and b.opts.no_alim == true })
+    if ok then
+      local n, kw = plant_burn_kw(p)
+      local id = Build.request(f, { alim = p.id, prio = Cc.PROJECT_PRIO, domain = "infrastructures" })
+      if id then
+        st.alim = id
+        other_open = true
+        -- prioritaire : devant les projets en attente, après ce qui répare (rouvert) et les centrales pas encore finies
+        local front, rest = {}, {}
+        for _, x in ipairs(b.order) do
+          local q = b.projects[x]
+          if x ~= id then
+            if q and (q.reopened or (q.spec and q.spec.gen == p.spec.gen and q.state ~= "fini")) then front[#front + 1] = x
+            else rest[#rest + 1] = x end
+          end
+        end
+        front[#front + 1] = id
+        for _, x in ipairs(rest) do front[#front + 1] = x end
+        b.order = front
+        b.charbon_logs = (b.charbon_logs or 0) + 1
+        if b.charbon_logs <= Cc.LOGS then
+          log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d nourrie a la main (%d chaudiere(s), %.2f charbon/s a pleine charge) : projet d'alimentation %d demande a %.1f min (essai %d, rang %d sur %d)",
+            f.key or "player", p.id, n, Cc.rate(kw, M.COAL_J), id, tick / 3600, (st.tries or 0) + 1, #front - #rest, #front))
+        end
+      end
+    end
+  end
+end
+
 local function pulse_team(f, tick)
   local b = f.build
   local surface = surface_of(f)
@@ -3183,10 +3648,10 @@ local function pulse_team(f, tick)
     -- projet bloqué : il a rendu ses PNJ ; il reprend son chantier à l'heure dite (échecs remis à zéro)
     if p and p.state == "bloque" and p.retry_at and tick >= p.retry_at then
       p.retry_at = nil
-      local freed, back = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES
+      local freed, back, moved = free_own_turrets(f, surface, p) -- lot FACTIONS-BLOQUEES (TOURELLES-HORS-AXE : déplacées d'abord)
       if freed > 0 then
         b.stats.turrets_freed = (b.stats.turrets_freed or 0) + freed
-        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier (%d rendue(s) au coffre avec leurs chargeurs)", f.key or "player", p.id, freed, back or 0))
+        log(string.format("[FO-IA1D] %s : projet %d, %d tourelle(s) de l'equipe enlevee(s) de l'emprise du chantier (%d deplacee(s) a cote, %d rendue(s) au coffre avec leurs chargeurs)", f.key or "player", p.id, freed, moved or 0, back or 0))
       end
       for _, e in ipairs(p.ents) do if not e.built then e.fails, e.npc_blocks = 0, 0 end end
       p.state, p.reason = "chantier", nil
@@ -3208,6 +3673,8 @@ local function pulse_team(f, tick)
   local nb, stale = PlantArms.watch(f, surface, tick)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
   if nb then Build.grow_plant(f, nb, tick) end
+  -- 6. lot CHARBON-CENTRALE : une centrale nourrie à la main demande ses foreuses (horloge propre)
+  charbon_step(f, tick)
 end
 
 local function teams()
@@ -3479,6 +3946,11 @@ function Build.think(f, surface, tick)
   local b = f.build
   if not b then return end
   local tasks = {}
+  local free_cache -- relecture REBUILD-RAPIDE : stock libre lu une fois par pensée, au premier projet rouvert (batch_tasks)
+  local function free_of()
+    if not free_cache then free_cache = free_stock(f) end
+    return free_cache
+  end
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     if p then
@@ -3489,9 +3961,14 @@ function Build.think(f, surface, tick)
           for _, o in ipairs(p.obstacles) do if not o.done then open = true break end end
           if open then clear_tasks(f, p, tasks) end
         end
-        batch_tasks(f, p, tasks)
+        batch_tasks(f, p, tasks, free_of)
       end
-      if p.state == "fini" or p.state == "chantier" then quai_tasks(f, p, surface, tasks) end
+      -- lot CHARBON-CENTRALE (relecture) : une centrale ROUVERTE (pièce détruite : reserve, defrichage, fantomes, raccordement, bloque)
+      -- garde ses chaudières debout qui brûlent : son coffre se remplit aussi (avant : seulement fini ou chantier, coffre oublié pendant
+      -- toute la reconstruction) ; quai_tasks ne fait rien sans le coffre réel de l'équipe
+      if p.state == "fini" or p.state == "chantier" or (p.reopened and p.state ~= "refuse" and is_plant_project(p)) then
+        quai_tasks(f, p, surface, tasks)
+      end
     end
   end
   street_clear_tasks(f, tasks)
@@ -3608,10 +4085,14 @@ function Build.burn_rate(f, tick)
   for _, id in ipairs(b.order) do
     local p = b.projects[id]
     if p and p.state ~= "bloque" then
+      -- lot CHARBON-CENTRALE : les chaudières d'une centrale nourrie à la main (par le coffre du QG) brûlent ce charbon-là aussi, à
+      -- pleine charge (0,45/s chacune) ; nourrie par ses foreuses (Cc.automated), elle n'en prend plus au QG
+      local hand = is_plant_project(p) and not plant_automated(b, p)
       for _, e in ipairs(p.ents) do
         if e.built and not e.dropped then
           local sp = M.spec(e.name)
           if sp and sp.kind == "furnace" and sp.burner_kw then kw = kw + sp.burner_kw end
+          if hand and sp and sp.water and sp.burner_kw then kw = kw + sp.burner_kw end
         end
       end
     end
@@ -3691,7 +4172,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow")) then return nil end -- no_grow : coupe la croissance de la centrale (bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim")) then return nil end -- no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

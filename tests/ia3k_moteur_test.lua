@@ -243,6 +243,28 @@ remote.call("fo-ia3k", "death", "player", 0, 135)
 check(C.gate(f, ag, task, steps, game.tick) == false, "2 morts dans l'heure : attente")
 M.run_ticks(61 * 3600)
 check(C.gate(f, ag, task, steps, game.tick) == true, "une heure plus tard : la tâche repart")
+-- Lot COMPAGNONS-ACTIFS (DC 29/10 : « la peur c'est bien, mais pour fuir si jamais ils se font attaquer. Mais sinon il faut revenir ») :
+-- une tâche PROCHE du QG (but à 140 tuiles, moins de C.SAFE_RADIUS) aux morts toutes plus anciennes que Ac.FEAR_TICKS repart sans attendre
+-- l'heure ; l'attaque en cours (morts récentes) la retient toujours. Le cas LOINTAIN (morts anciennes, but à 283 tuiles) est D-B plus bas.
+do
+  local Ac = require("shared.team.actif")
+  remote.call("fo-ia3k", "forget", "player")
+  remote.call("fo-ia3k", "death", "player", -5, 130)
+  remote.call("fo-ia3k", "death", "player", 0, 135)
+  local ta = game.tick
+  check(C.gate(f, ag, { key = "test:actif", kind = "service" }, steps, ta + 60) == false,
+    "COMPAGNONS-ACTIFS : 2 morts il y a 1 s près du but proche (attaque en cours) : attente")
+  local ca0 = (global.fo.ia3k.teams["player"].actif or { calm = 0 }).calm
+  check(C.gate(f, ag, { key = "test:actif", kind = "service" }, steps, ta + Ac.FEAR_TICKS + 60) == true,
+    "COMPAGNONS-ACTIFS : 2 morts de plus de 1 min, aucune menace connue, but proche : la tâche repart (avant : 1 h d'attente)")
+  check(global.fo.ia3k.teams["player"].actif.calm == ca0 + 1, "COMPAGNONS-ACTIFS : porte comptée (bilan [FO-ACTIF])")
+  check(C.astate(ag).calm == true, "COMPAGNONS-ACTIFS (relecture) : départ « au calme » noté sur le PNJ (lu par M.leg et le recontrôle d'époque)")
+  remote.call("fo-ia3k", "mark", "player", -5, 142, "worm", 25)
+  check(C.gate(f, ag, { key = "test:actif2", kind = "service" }, steps, ta + Ac.FEAR_TICKS + 120) == false,
+    "COMPAGNONS-ACTIFS : morts anciennes mais but à portée d'un ver connu : attente (la menace reste jugée)")
+  check(C.astate(ag).calm == nil, "COMPAGNONS-ACTIFS (relecture) : refus : plus de départ « au calme » sur le PNJ")
+  remote.call("fo-ia3k", "forget", "player")
+end
 -- Pas d'escalade vers un but À PORTÉE d'un ver connu (11 tuiles d'un ver de portée 25) : refusé à chaque fois.
 remote.call("fo-ia3k", "mark", "player", 160, -140, "worm", 25)
 local steps_in = { { "home" }, { "goto", { x = 165, y = -150 }, 3 }, { "act", "service" }, { "home" } }

@@ -43,6 +43,7 @@ Poles.CHIEFS = 5              -- généralistes au plus (docs §4.4 ; réglage f
 Poles.CRISIS_PRIO = 50
 Poles.ROOM_WINDOW = 60        -- capacité de fond lissée sur 60 pensées (5 min)
 Poles.DANGER_RADIUS = 40      -- nid ou ver à moins de 40 tuiles : avant-poste écarté du fond (garde, agrandissement)
+Poles.FAR_LOGS = 20           -- lot SCALE-COMPLET : lignes [FO-LOIN] du fond au plus par équipe (f.stats.far_logs)
 local POLE_KEYS = { "extraction", "base", "territoire" }
 
 local function new_stats()
@@ -351,7 +352,7 @@ function Poles.think(f, view, book, tick, plan)
   local prod_first = plan ~= nil and plan.priorite ~= nil and plan.priorite.production_first == true
   local block_turrets = turrets_ok and not prod_first
   if fond_on then
-    cands = Fond.candidates(view, free, { book = book, keys = keys, mine_skip = skip, danger = danger,
+    local fctx = { book = book, keys = keys, mine_skip = skip, danger = danger,
       prudent = prudent, brain_short = Poles.brain_short(plan, book), mine_left = math.max(0, mine_cap - mine_fond_busy),
       defend_first = block_turrets, undefended = Planner.no_go(view, block_turrets), no_outpost_guard = player,
       no_hq_guard = player, turrets_ok = turrets_ok, no_reserve_floor = df, safe_only = safe or nil,
@@ -359,7 +360,27 @@ function Poles.think(f, view, book, tick, plan)
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
       mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra,
-      saturated = f.team.ia3 and f.team.ia3.saturated or nil }) -- lot SITE-PROCHE (R4)
+      saturated = f.team.ia3 and f.team.ia3.saturated or nil } -- lot SITE-PROCHE (R4)
+    cands = Fond.candidates(view, free, fctx)
+    -- Lot SCALE-COMPLET : builds LOINTAINS refusés par le fond (shared/team/fond.lua, F.far_build ; écrits dans fctx.far_builds) :
+    -- un avant-poste proche du même type a encore des places. Journal [FO-LOIN], Poles.FAR_LOGS lignes au plus par équipe.
+    -- Relecture : une ligne quand un type ENTRE dans le refus (f.stats.far_on[type]), et non à chaque pensée : sinon les
+    -- Poles.FAR_LOGS lignes partaient en 20 pensées (100 s) et le journal se taisait pour le reste de la partie.
+    local far_now = {}
+    for _, fb in ipairs(fctx.far_builds or {}) do far_now[fb.kind] = true end
+    f.stats.far_on = f.stats.far_on or {}
+    for _, kind in ipairs(T.OUTPOST_ORDER) do
+      if not far_now[kind] then f.stats.far_on[kind] = nil end
+    end
+    for _, fb in ipairs(fctx.far_builds or {}) do
+      local first = not f.stats.far_on[fb.kind]
+      f.stats.far_on[fb.kind] = true
+      if first and (f.stats.far_logs or 0) < Poles.FAR_LOGS then
+        f.stats.far_logs = (f.stats.far_logs or 0) + 1
+        log(string.format("[FO-LOIN] %s : fond, nouvel avant-poste %s refuse a %.1f min : site admissible le plus proche a %d tuiles du QG, avant-poste %s avec des places a %d tuiles (on agrandit le proche)",
+          f.key or "?", fb.kind, tick / 3600, math.floor(fb.d_site), fb.kind, math.floor(fb.d_room)))
+      end
+    end
   else
     cands = { extraction = {}, base = {}, territoire = {} }
     -- Lot FER-EQUIPE : fond coupé pour votre équipe SOUS son effectif de départ (hors QG menacé) : seul le renfort de fer reste.

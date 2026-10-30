@@ -315,6 +315,19 @@ V.NEAR_GAP = 60         -- … ET au moins 60 tuiles plus près : on n'agrandit 
 V.BLOCK_RATIO = 1500    -- R2 b : un site proche bloqué suspend tout site plus lointain que 1,5 × sa distance…
 V.BLOCK_GAP = 60        -- … ou que sa distance + 60 tuiles (le plus grand des deux)
 
+--- Lot SCALE-COMPLET : distance au QG (tuiles, nil si aucun) du plus proche avant-poste de type `kind` qui a encore des places
+--- (ni `full`, moins de `max_drills` foreuses), QUEL QUE SOIT son état (dangereux, non défendu, lointain) : `outposts` = liste
+--- de la vue (`kind`, `drills`, `full`, `d2` au carré ; sans `d2`, l'avant-poste ne compte pas). Lu par V.build_refused.
+function V.room_distance(outposts, kind, max_drills)
+  local best = nil
+  for _, o in ipairs(outposts or {}) do
+    if o.kind == kind and not o.full and (o.drills or 0) < max_drills and o.d2 ~= nil then
+      if best == nil or o.d2 < best then best = o.d2 end
+    end
+  end
+  return best and math.sqrt(best) or nil
+end
+
 --- Distance au QG (tuiles) au-delà de laquelle un site est suspendu tant qu'un site de la même ressource, à `d_blocked`
 --- tuiles, est bloqué : max(1,5 × d_blocked, d_blocked + 60).
 function V.suspend_limit(d_blocked)
@@ -337,6 +350,18 @@ end
 function V.extension_refused(d_outpost, d_site)
   if d_site == nil then return false end
   return d_site * 1000 <= d_outpost * V.NEAR_RATIO and d_site + V.NEAR_GAP <= d_outpost
+end
+
+--- Lot SCALE-COMPLET (retour du DC du 29/10, 21 h 40, en jouant la 0.6.18 : « Ils ont fait un avant-poste alors qu'il y en a
+--- pas besoin en vérité puisque bah c'est il y en a à côté ») : la règle R1 retournée. Faut-il renoncer à BÂTIR un nouvel
+--- avant-poste parce qu'un avant-poste de la même ressource, à `d_room` tuiles du QG, a encore des places (ni plein, ni au
+--- plafond ; nil : aucun) alors que le site admissible le plus proche est à `d_site` tuiles (nil : aucun) ? Oui si l'avant-
+--- poste est à moins de 0,6 × d_site ET 60 tuiles plus près : on agrandit le proche (ou on attend qu'il redevienne sûr), on ne
+--- part pas au loin. Mêmes seuils que R1 (V.NEAR_RATIO, V.NEAR_GAP) : les deux règles ne se contredisent jamais (l'une refuse
+--- l'agrandissement lointain quand le site est proche, l'autre le build lointain quand l'avant-poste est proche).
+function V.build_refused(d_room, d_site)
+  if d_room == nil or d_site == nil then return false end
+  return V.extension_refused(d_site, d_room)
 end
 
 return V

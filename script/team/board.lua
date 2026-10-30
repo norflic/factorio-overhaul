@@ -35,6 +35,7 @@ local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG 
 local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en attente des avant-postes en échec)
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
+local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : retour rapide après un danger, délai d'affectation mesuré
 
 local Board = {}
 
@@ -413,6 +414,9 @@ for _, k in ipairs(sorted_keys(O.DESIGN_KINDS)) do
   CANNOT_EXEC_UNARMED[k] = true
 end
 local CANNOT_UNARMED = { garrison = true }
+local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : genres refusés pendant une fabrication en arrière-plan
+-- Lot CRAFT-PARALLELE : crochet posé par script/team/worker.lua (seul lecteur de agent.bg) : nil ou { left = s de file restante }.
+Board.bg_view = nil
 
 --- PNJ vu par la place de marché : rôle (sans organisation : neutre, comme NEUTRAL), pôle EFFECTIF, position, projet
 --- précédent (ou celui qu'il mène), ce qu'il ne sait pas faire (conception : exécutant ; garde : sans munitions).
@@ -424,9 +428,13 @@ local function market_npc(agent)
   local cannot
   if role ~= "generalist" then cannot = armed and CANNOT_EXEC or CANNOT_EXEC_UNARMED
   elseif not armed then cannot = CANNOT_UNARMED end
+  -- Lot CRAFT-PARALLELE : un PNJ dont la file fabrique en arrière-plan (vue Board.bg_view, posée par script/team/worker.lua) ne
+  -- prend ni une garde, ni un nouvel avant-poste lointain (CB.EXCLUDED), ni une fabrication de plus au-delà de CB.MAX_JOBS.
+  local bv = Board.bg_view and Board.bg_view(agent)
+  if bv then cannot = CB.cannot_with(cannot, bv.full) end
   local p = e.position
   return { id = agent.id, role = role, pole = org and O.effective_pole(org) or nil, pos = { x = p.x, y = p.y },
-    last_project = (org and org.project) or agent.last_project, cannot = cannot }
+    last_project = (org and org.project) or agent.last_project, cannot = cannot, bg_left = bv and bv.left or nil }
 end
 
 --- Point de départ d'une tâche (trajet de la note) : la case du QG pour toute tâche qui commence au coffre ; le poste
@@ -482,6 +490,8 @@ local function claim_market(f, agent, tick, b)
   ctx.rush = rush_of(list)
   local fresh = b.hint_tick ~= nil and tick - b.hint_tick <= Board.HINT_TICKS
   ctx.skip = function(t)
+    -- Lot CRAFT-PARALLELE : PNJ qui fabrique : seulement une tâche qui finit avec sa file (+ CB.SLACK_S), ou une urgence.
+    if npc.bg_left and not CB.fits(t.kind, t.work or O.TASK_WORK[t.kind] or O.DEFAULT_WORK, t.prio, M.URGENT, npc.bg_left) then return true end
     local h = hinted[t.key]
     if h == nil or h == agent.id or not fresh then return false end
     local ha = Registry.get(h)
@@ -530,8 +540,45 @@ end
 --- (M.assign, glouton paresseux ; cerveau d'abord, puis fond pour les PNJ restants). Seulement si au moins 2 PNJ sont
 --- inactifs ; au-delà de Board.ASSIGN_MAX couples, chaque PNJ prend seulement sa meilleure note à sa prise.
 Board.ASSIGN_MAX = 1200
+--- Lot COMPAGNONS-ACTIFS : crochet facultatif (posé par script/ai3/comportement.lua) : compteurs de la porte (tâches proches jugées sans
+--- morts anciennes), lus par Board.actif_report.
+Board.gate_actif = nil
+
+--- Lot COMPAGNONS-ACTIFS : état du journal [FO-ACTIF] de l'équipe (f.team.actif : fenêtre des prises `win`, date du dernier bilan
+--- `t`), créé en événement. Écrit par Board.claim (délais), lu et remis à zéro par Board.actif_report.
+function Board.actif(f)
+  local a = f.team.actif
+  if not a then
+    a = { win = {} }
+    f.team.actif = a
+  end
+  return a
+end
+
+--- Lot COMPAGNONS-ACTIFS : bilan [FO-ACTIF] toutes les Ac.REPORT_EVERY ticks par équipe (PNJ libres, tâches libres, délai d'affectation
+--- des tâches prises dans la fenêtre, tâches proches jugées sans morts anciennes par la porte). Lecture seule hors f.team.actif.
+function Board.actif_report(f, tick)
+  local a = Board.actif(f)
+  if a.t and tick - a.t < Ac.REPORT_EVERY then return end
+  local first = a.t == nil
+  a.t = tick
+  if first then return end
+  local b = Board.get(f)
+  local idle, free = 0, 0
+  for _, id in ipairs(sorted_keys(f.engineers or {})) do
+    local ag = Registry.get(id)
+    if ag and not ag.task then idle = idle + 1 end
+  end
+  for _, t in ipairs(b.list or {}) do if not t.worker then free = free + 1 end end
+  local key = f.key or (f.is_player and "player") or f.id
+  local gate = (Board.gate_actif and Board.gate_actif(f)) or {}
+  log(Ac.report_line(key, tick, a.win, idle, free, gate))
+  a.win = {}
+end
+
 function Board.assign(f, tick)
   local b = Board.get(f)
+  Board.actif_report(f, tick) -- lot COMPAGNONS-ACTIFS : bilan [FO-ACTIF] (au plus toutes les 5 min)
   b.hint, b.hinted = nil, nil
   if not Board.market(f) then return 0 end
   local npcs = {}
@@ -608,6 +655,7 @@ function Board.claim(f, agent, tick)
     if best then
       best.worker = agent.id
       best.claimed = tick
+      if best.created then Ac.note_claim(Board.actif(f).win, tick - best.created) end -- lot COMPAGNONS-ACTIFS : délai d'affectation
       best.away = nil
       Fantomes.show(f, best, tick) -- lot FANTOMES : où le PNJ va poser (aperçu en fantômes)
       -- Son indice (pris ou non) et celui de la tâche prise sont rendus : la tâche indiquée redevient libre pour tous.
@@ -676,6 +724,7 @@ function Board.claim(f, agent, tick)
   if best then
     best.worker = agent.id
     best.claimed = tick
+    if best.created then Ac.note_claim(Board.actif(f).win, tick - best.created) end -- lot COMPAGNONS-ACTIFS : délai d'affectation
     best.away = (away and (best.prio or 0) >= O.URGENT_PRIO) or nil
     Fantomes.show(f, best, tick) -- lot FANTOMES
   end
@@ -745,7 +794,9 @@ function Board.finish(f, task, ok, tick)
     -- Lot IA3-b : une tâche PRÉEMPTÉE (sa matière est partie à une urgence, règle du registre) n'est pas en faute : elle
     -- peut être replanifiée dès la pensée suivante.
     if task.fail ~= "preempte" then
-      b.cooldown[task.key] = tick + (task.fond and RETRY_TICKS * 2 or RETRY_TICKS)
+      -- Lot COMPAGNONS-ACTIFS : une tâche refusée ou abandonnée pour danger revient après Ac.RETRY_DANGER (10 s ; 30 s avant) : le PNJ
+      -- revient agir dès que la menace est passée, la porte rejuge à la prise.
+      b.cooldown[task.key] = tick + Ac.retry(task.fail, task.fond, RETRY_TICKS)
     end
     if task.fail then
       f.team.fail_reasons[task.fail] = (f.team.fail_reasons[task.fail] or 0) + 1

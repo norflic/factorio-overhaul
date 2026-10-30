@@ -55,12 +55,18 @@ local function battery(C)
   n = free(); n.done = 0
   check(C.growth(s, n) == nil, "aucune centrale finie : rien a faire grandir")
   n = free(); n.refused = C.MAX_REFUSED
-  check(C.growth(s, n) == nil, "plan refuse deux fois : on cesse d'insister")
+  check(C.growth(s, n) == nil, "plan refuse C.MAX_REFUSED fois : on cesse d'insister")
+  n = free(); n.refused = 2
+  check(C.growth(s, n) == 1, "ENERGIE-CROISSANCE : deux refus (la partie du DC) ne sont plus definitifs")
   n = free(); n.refused = C.MAX_REFUSED - 1
   check(C.growth(s, n) == 1, "un seul refus : on reessaie")
   n = free(); n.hold = true
   local nb, why = C.growth(s, n)
   check(nb == nil and why ~= nil, "repli de l'equipe (manque de matiere) : rien, avec une raison")
+  n = free(); n.hold = true
+  check(C.growth({ saturated = true, sat = C.HOLD_PASS - 1 }, n) == nil, "repli, saturee depuis moins de 5 min : on attend")
+  check(C.growth({ saturated = true, sat = C.HOLD_PASS }, n) == 1, "repli, saturee depuis 5 min : le courant est un besoin de production")
+  check(C.HOLD_PASS * 5 == 300, "5 min de saturation (releves de 5 s)")
   n = free(); n.off = true
   check(C.growth(s, n) == nil, "regle coupee par le reglage de banc : rien")
   check(C.growth({ saturated = false }, free()) == nil, "non saturee : rien")
@@ -86,18 +92,51 @@ local function battery(C)
   check(C.stale("chantier", "materiaux", C.STALE * 3) == false, "en chantier : jamais abandonnee")
   check(C.stale("attente", "materiaux", C.STALE * 3) == false, "en attente de plan : jamais abandonnee")
 
+  section("2 ter. Refus du plan : pause puis nouvel essai (ENERGIE-CROISSANCE)")
+  local r = {}
+  check(C.after_refusal(r, 0, 1000) == false and r.cool_until == nil, "aucun refus : aucune pause")
+  check(C.after_refusal(r, 1, 2000) == true and r.cool_until == 2000 + C.COOL, "un refus nouveau : pause de C.COOL")
+  check(C.after_refusal(r, 1, 3000) == false and r.cool_until == 2000 + C.COOL, "le meme refus relu : la pause ne s'allonge pas")
+  check(C.after_refusal(r, 2, 5000) == true and r.cool_until == 5000 + C.COOL, "un deuxieme refus : nouvelle pause")
+  local old = { cool_until = 0 }
+  check(C.after_refusal(old, 2, 9000) == true and old.cool_until == 9000 + C.COOL, "sauvegarde 0.6.18 a deux refus : pause, puis nouvel essai")
+  local rr = { cool_until = 99999 }
+  C.after_refusal(rr, 1, 10)
+  check(rr.cool_until == 99999, "une pause plus longue (abandon) n'est pas raccourcie")
+  check(C.load(15000, 30000) == 0.5 and C.load(40000, 30000) == 1 and C.load(1, 0) == nil, "charge : production / capacite, bornee a 1")
+  -- boucle complete : refus, pause, nouvel essai
+  local loop, tick, asks, refusals = {}, 0, 0, 0
+  for _ = 1, 2000 do
+    tick = tick + 300
+    C.observe(loop, CAP, CAP)
+    C.after_refusal(loop, refusals, tick)
+    local nb2 = C.growth(loop, { done = 1, pending = 0, refused = refusals, cool = tick < (loop.cool_until or 0) })
+    if nb2 then asks = asks + 1; C.requested(loop); refusals = refusals + 1 end -- chaque demande est refusee aussitot
+  end
+  check(asks == C.MAX_REFUSED, "refusee a chaque essai : " .. C.MAX_REFUSED .. " essais, pas un de plus (" .. asks .. ")")
+
   section("3. Plafond jamais depasse en simulation")
   local sim, done, pending, asked = { }, 1, 0, 0
   for step = 1, 400 do
-    -- charge constante de 6 MW : toujours saturee tant que la capacite ne la couvre pas
+    -- charge constante de 20 MW : toujours saturee tant que la capacite ne la couvre pas
     local cap = CAP * done
-    C.observe(sim, math.min(cap, 6000 * 1000 / 60), cap)
+    C.observe(sim, math.min(cap, 20000 * 1000 / 60), cap)
     local g = C.growth(sim, { done = done, pending = pending, refused = 0, hold = false, off = false })
     if g then asked = asked + 1; pending = pending + 1; C.requested(sim) end
     if pending > 0 and step % 20 == 0 then pending = pending - 1; done = done + 1 end
   end
-  check(done == C.MAX_PLANTS, "6 MW : s'arrete a " .. C.MAX_PLANTS .. " centrales (" .. done .. ")")
+  check(done == C.MAX_PLANTS, "20 MW : s'arrete a " .. C.MAX_PLANTS .. " centrales (" .. done .. ")")
   check(asked == C.MAX_PLANTS - 1, "autant de demandes que de centrales de plus (" .. asked .. ")")
+  check(C.MAX_PLANTS == 6, "plafond : 6 centrales d'une chaudiere (10,8 MW) par equipe")
+  -- ENERGIE-CROISSANCE : la production suit la demande AVEC une marge : 6 MW servis par 5 centrales (9 MW, charge 67 %)
+  local sim2, done2, pend2 = {}, 1, 0
+  for step = 1, 600 do
+    local cap = CAP * done2
+    C.observe(sim2, math.min(cap, 6000 * 1000 / 60), cap)
+    if C.growth(sim2, { done = done2, pending = pend2, refused = 0 }) then pend2 = pend2 + 1; C.requested(sim2) end
+    if pend2 > 0 and step % 20 == 0 then pend2 = pend2 - 1; done2 = done2 + 1 end
+  end
+  check(done2 == 5, "6 MW : 5 centrales (9 MW, marge de 33 %), pas 4 (7,2 MW, charge 83 %) ni 6 (" .. done2 .. ")")
 end
 
 section("Regle reelle")
@@ -124,11 +163,20 @@ local mutants = {
   { "duree 6 -> 1 releve", "C.SAT_CHECKS = 6", "C.SAT_CHECKS = 1" },
   { "duree 6 -> 12 releves", "C.SAT_CHECKS = 6", "C.SAT_CHECKS = 12" },
   { "capacite nulle comptee", "capacity > 0 and power", "power" },
-  { "plafond 3 -> 9", "C.MAX_PLANTS = 3", "C.MAX_PLANTS = 9" },
+  { "plafond 6 -> 9", "C.MAX_PLANTS = 6", "C.MAX_PLANTS = 9" },
+  { "plafond 6 -> 3 (avant le lot)", "C.MAX_PLANTS = 6", "C.MAX_PLANTS = 3" },
+  { "refus definitifs a 2 (avant le lot)", "C.MAX_REFUSED = 5", "C.MAX_REFUSED = 2" },
+  { "repli retient toujours (avant le lot)", "n.hold and (st.sat or 0) < C.HOLD_PASS", "n.hold" },
+  { "repli jamais", "n.hold and (st.sat or 0) < C.HOLD_PASS", "false" },
+  { "aucune pause apres un refus", "if new then st.cool_until", "if false then st.cool_until" },
+  { "pause a chaque releve", "local new = refused > (st.refused_n or 0)", "local new = refused > 0" },
+  { "refus non memorise", "st.refused_n = refused", "st.refused_n = st.refused_n" },
+  { "pause raccourcie", "math.max(st.cool_until or 0, tick + C.COOL)", "tick + C.COOL" },
+  { "charge non bornee", "math.min(1, (power or 0) / capacity)", "(power or 0) / capacity" },
   { "plafond atteint permis (>= -> >)", "n.done >= C.MAX_PLANTS", "n.done > C.MAX_PLANTS" },
   { "chantier ouvert ignore", "if n.pending > 0 then", "if false then" },
   { "refus ignores", "(n.refused or 0) >= C.MAX_REFUSED", "false" },
-  { "repli ignore", "if n.hold then", "if false then" },
+  { "repli ignore", "if n.hold and", "if false and" },
   { "reglage de banc ignore", "if n.off then", "if false then" },
   { "sans centrale finie", "if n.done < 1 then", "if false then" },
   { "demande sans remise a zero", "st.sat, st.saturated = 0, false", "st.sat = st.sat" },

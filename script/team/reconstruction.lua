@@ -32,6 +32,7 @@ local Events = require("script.core.events")
 local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock")
+local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : réparation des tourelles (toutes les équipes)
 local R = require("shared.ai3.reglages")
 local Rc = require("shared.team.reconstruction")
 local Protos = require("script.team.protos")
@@ -40,13 +41,17 @@ local Sweep = require("script.team.rebuild_sweep") -- lot REBUILD-TOUT : relevé
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan, recréé à la première foreuse
 local Ru = require("shared.team.ruines")
 local T = require("shared.team.config")
+local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE : ordre de la reconstruction (alimentation, production principale, le reste)
+local RrRt = require("script.team.rebuild_rapide") -- lot REBUILD-RAPIDE : foreuse thermique de secours dans un projet rouvert
 
 local Recon = {}
 
-Recon.MAX_OPEN = 3          -- tâches « rebuild » au tableau en même temps
+-- Lot REBUILD-RAPIDE (retour du DC du 29/10 : « on reconstruit directement, on perd pas de temps ») : 6 lots en même temps (3 avant),
+-- donc jusqu'à 6 PNJ en parallèle sur le registre, et 6 places essayées par pensée de 5 s (3 avant).
+Recon.MAX_OPEN = 6          -- tâches « rebuild » au tableau en même temps
 Recon.SAFE_RADIUS = 28      -- tuiles : pas de pose si des unités ennemies sont plus près de la place
 Recon.RETRY = 600           -- 10 s : report quand des ennemis sont près de la place
-Recon.SEEDS_PER_THINK = 3   -- places essayées (épreuve « ennemis près ») par pensée
+Recon.SEEDS_PER_THINK = 6   -- places essayées (épreuve « ennemis près ») par pensée
 Recon.MATCH = 0.3           -- tolérance de position (tuiles) pour reconnaître une pièce d'un projet
 Recon.LOGS = 60
 Recon.DIAG_LOGS = 20        -- lignes « pose impossible » (diagnostic) par force
@@ -143,7 +148,10 @@ local function on_died(e)
   elseif not in_project(f, pos) then
     return
   elseif R.REBUILD_SWEEP then
-    return -- lot REBUILD-TOUT : une pièce d'un projet du plan est refaite par le relevé (script/team/rebuild_sweep.lua), pas par le registre
+    -- lot REBUILD-TOUT : une pièce d'un projet du plan est refaite par le relevé (script/team/rebuild_sweep.lua), pas par le registre ;
+    -- lot REBUILD-RAPIDE : elle y entre tout de suite (liste chaude), sans attendre le curseur du relevé
+    Sweep.note_died(f, pos, e.tick)
+    return
   end
   local recipe
   if ent.type == "assembling-machine" then
@@ -414,7 +422,8 @@ function Recon.think(f, surface, tick)
       if #batch > 0 then
         local keys = {}
         for _, r in ipairs(batch) do keys[#keys + 1] = r.key taken[r.key] = true end
-        added[#added + 1] = { key = "rebuild:" .. batch[1].key, kind = "rebuild", prio = Rc.task_prio(batch[1].value),
+        -- lot REBUILD-RAPIDE (b) : l'infrastructure électrique d'abord, puis les champs de minerai, puis le reste (Rr.registry_prio)
+        added[#added + 1] = { key = "rebuild:" .. batch[1].key, kind = "rebuild", prio = Rr.registry_prio(batch[1], Rc.task_prio(batch[1].value)),
           -- lot REBUILD-AVANT-POSTE : refaire un champ de foreuses est du travail d'EXTRACTION (pôle des gisements), pas de défense
           domain = batch[1].kind and "gisements" or "defense", work = 20 + 3 * #batch, items = Rc.items(batch), recs = keys,
           pos = { x = batch[1].x, y = batch[1].y } }
@@ -536,6 +545,7 @@ local function substitute_poles(f, s, book, free, tick)
 end
 
 function Recon.craft_spares(f, book, free, tick)
+  RrRt.drill_swap(f, book, free, tick) -- lot REBUILD-RAPIDE (d) : foreuse thermique de secours (avant la sortie anticipée : registre vide compris)
   local s = f.recon
   if not (s and s.lost and next(s.lost) and book and free) then return 0 end
   substitute_poles(f, s, book, free, tick)
@@ -599,44 +609,69 @@ end
 --- place (LuaEntity.health est en écriture, bornée à la santé max). Un balayage par Recon.REPAIR_SCAN ticks et par équipe ; une tâche « repair » à la fois.
 Recon.REPAIR_SCAN = 1800 -- 30 s (revue statique 29/10 : le balayage lit TOUS les poteaux de la surface ; 10 s coûtait un pic régulier sur une grosse usine)
 function Recon.repair_think(f, surface, tick)
-  if not f.is_player or (f.repair_at or 0) > tick then return 0 end
-  f.repair_at = tick + Recon.REPAIR_SCAN
+  -- Lot COMPAGNONS-ACTIFS (DC 29/10 : « il y a une tourelle qui est endommagée, ils l'ont même pas réparée ») : les TOURELLES endommagées
+  -- de TOUTES les équipes (factions comprises) sont réparées, relevé toutes les Ac.TURRET_SCAN ticks (10 s), seuil Ac.TURRET_REPAIR_BELOW %.
+  -- L'infrastructure électrique (votre équipe, 30 s, 60 %) garde sa règle et passe d'abord. État écrit : f.repair_at, f.repair_turret_at
+  -- (dates du prochain relevé), lus ici seulement.
+  local infra_due = f.is_player and (f.repair_at or 0) <= tick
+  local turret_due = (f.repair_turret_at or 0) <= tick
+  if not infra_due and not turret_due then return 0 end
+  if infra_due then f.repair_at = tick + Recon.REPAIR_SCAN end
+  if turret_due then f.repair_turret_at = tick + Ac.TURRET_SCAN end
   local b = Board.get(f)
   for _, k in ipairs(State.sorted_keys(b.tasks)) do
     if b.tasks[k].kind == "repair" then return 0 end
   end
-  local types = {}
-  for _, k in ipairs(State.sorted_keys(R.INFRA_TYPES)) do types[#types + 1] = k end
-  local cands = {}
-  for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = types })) do
-    -- get_health_ratio : un seul appel par entité (revue statique 29/10 : e.health + e.prototype.max_health créaient un objet prototype pour
-    -- CHAQUE poteau de la surface à chaque balayage) ; nil sans santé.
-    local ratio = e.valid and e.get_health_ratio() or nil
-    if ratio and ratio < 1 then
-      cands[#cands + 1] = { key = e.name .. "@" .. string.format("%.1f,%.1f", e.position.x, e.position.y), name = e.name,
-        x = e.position.x, y = e.position.y, ratio = ratio }
+  local function scan(types, below)
+    local cands = {}
+    for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = types })) do
+      -- get_health_ratio : un seul appel par entité (revue statique 29/10 : e.health + e.prototype.max_health créaient un objet prototype pour
+      -- CHAQUE poteau de la surface à chaque balayage) ; nil sans santé.
+      local ratio = e.valid and e.get_health_ratio() or nil
+      if ratio and ratio < 1 then
+        cands[#cands + 1] = { key = e.name .. "@" .. string.format("%.1f,%.1f", e.position.x, e.position.y), name = e.name,
+          x = e.position.x, y = e.position.y, ratio = ratio }
+      end
     end
+    return Rc.repair_batch(cands, below)
   end
-  local batch = Rc.repair_batch(cands)
+  local batch = {}
+  if infra_due then
+    local types = {}
+    for _, k in ipairs(State.sorted_keys(R.INFRA_TYPES)) do types[#types + 1] = k end
+    batch = scan(types)
+  end
+  local turrets = false
+  if #batch == 0 and turret_due then
+    batch = scan(Ac.REPAIR_TYPES, Ac.TURRET_REPAIR_BELOW)
+    turrets = #batch > 0
+  end
   if #batch == 0 then return 0 end
   if #surface.find_enemy_units({ x = batch[1].x, y = batch[1].y }, Recon.SAFE_RADIUS, f.force) > 0 then
-    stat(f.recon or Recon.state(f), "repair_deferred")
+    if f.is_player then stat(f.recon or Recon.state(f), "repair_deferred") end
     return 0
   end
   local targets = {}
   for _, c in ipairs(batch) do targets[#targets + 1] = { name = c.name, x = c.x, y = c.y } end
-  return Board.add(f, { { key = "repair:" .. batch[1].key, kind = "repair", prio = Rc.REPAIR_PRIO, domain = "defense", work = 10 + 2 * #batch,
+  local n = Board.add(f, { { key = "repair:" .. batch[1].key, kind = "repair", prio = Rc.REPAIR_PRIO, domain = "defense", work = 10 + 2 * #batch,
     targets = targets, pos = { x = batch[1].x, y = batch[1].y } } }, tick)
+  if turrets and n > 0 then
+    log(string.format("[FO-ACTIF] %s : reparation de %d tourelle(s) endommagee(s) ouverte autour de (%.1f, %.1f) (la plus abimee a %d %%)",
+      tostring(f.key or "player"), #batch, batch[1].x, batch[1].y, math.floor(batch[1].ratio * 100)))
+  end
+  return n
 end
 
 function Recon.repair_program(f, task)
   if not (task.pos and task.targets) then return nil end
-  return { { "home" }, { "goto", task.pos, 4 }, { "act", "repair" }, { "home" } }
+  -- Lot COMPAGNONS-ACTIFS : droit vers la pièce (rien à prendre au coffre : la réparation ne consomme rien), puis retour au QG.
+  return { { "goto", task.pos, 4 }, { "act", "repair" }, { "home" } }
 end
 
 --- Remet à neuf les pièces du lot (ACTS.repair). Vrai si au moins une pièce a été réparée.
 function Recon.repair_act(agent, f, task, surface)
-  local s = Recon.state(f)
+  -- Lot COMPAGNONS-ACTIFS : les factions réparent aussi (tourelles) ; leur état de reconstruction n'est pas créé pour autant.
+  local s = f.is_player and Recon.state(f) or { stats = {} }
   local n = 0
   for _, t in ipairs(task.targets or {}) do
     local e = surface.find_entity(t.name, { t.x, t.y })
@@ -726,6 +761,7 @@ function Recon.act(agent, f, task, surface)
   end
   for _, k in ipairs(late) do order[#order + 1] = k end
   local revived = {}
+  local lag, head -- lot REBUILD-RAPIDE : plus long délai entre la destruction et la pose, et la pièce concernée
   for _, k in ipairs(order) do
     local r = s.lost[k]
     if r and not r.abandoned then
@@ -766,6 +802,7 @@ function Recon.act(agent, f, task, surface)
               end
             end
             delay_note(s, r, "own", game.tick)
+            if not lag or game.tick - r.tick > lag then lag, head = game.tick - r.tick, r end
             Rc.done(s, k)
             placed = placed + 1
             stat(s, "rebuilt")
@@ -798,6 +835,12 @@ function Recon.act(agent, f, task, surface)
   -- Lot REBUILD-AVANT-POSTE : un avant-poste recréé dont aucune foreuse n'a finalement été posée (pose refusée après coup) est retiré
   for _, oid in ipairs(revived) do Ruines.undo(f, oid) end
   Rc.release(s, task.key)
+  if lag and (s.stats.rr_logs or 0) < Recon.LOGS then
+    s.stats.rr_logs = (s.stats.rr_logs or 0) + 1
+    log(string.format("[FO-REBUILD-RAPIDE] %s : %d piece(s) du registre reposee(s) en (%.1f, %.1f), la plus ancienne %.0f s apres sa destruction (%s%s), " ..
+      "priorite %d a %.1f min", f.key or "player", placed, task.pos.x, task.pos.y, lag / 60, head.name, head.place and (" remplace par " .. head.place) or "",
+      task.prio or 0, (game.tick - (f.started or 0)) / 3600))
+  end
   if placed > 0 and s.stats.logs < Recon.LOGS then
     s.stats.logs = s.stats.logs + 1
     log(string.format("[FO-RECON] %s : %d piece(s) refaite(s) en (%.1f, %.1f) a %.1f min, %d en attente", f.key or "player", placed,

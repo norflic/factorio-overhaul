@@ -19,6 +19,8 @@ local Fr = require("shared.team.front")
 local Pose = require("shared.team.pose_tourelles")
 local Outposts = require("script.faction.outposts")
 local Sec = require("shared.team.site_securise") -- lot INTEG-ECONOMIE (D5) : sites proches bloqués à couvrir
+local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE (c) : cellule réattaquée chez une équipe riche
+local Stock = require("script.team.stock")
 
 local Front = {}
 
@@ -73,7 +75,10 @@ local function on_died(e)
   local st = state(f, e.tick)
   Fr.decay(st.mem, e.tick) -- la mémoire est à jour avant d'y ajouter : l'ancien poids décroît, le nouveau non
   local pos = ent.position
-  Fr.record(st.mem, pos.x, pos.y, Fr.weight(role))
+  local key = Fr.record(st.mem, pos.x, pos.y, Fr.weight(role))
+  Rr.wave_note(st, key, e.tick) -- lot REBUILD-RAPIDE (c) : vagues distinctes par cellule (une mort après 30 s de calme en ouvre une nouvelle)
+  -- Lot RECO-DIRECTION : la même attaque donne une DIRECTION (script/ai3/reco.lua : crochet posé au chargement, nil sans ce module).
+  if Front.on_hit then Front.on_hit(f, ent, e, Fr.weight(role)) end
 end
 Events.on(defines.events.on_entity_died, on_died)
 
@@ -120,6 +125,13 @@ function Front.view(f, fortify_open)
   refresh_cover(f, st, surface, tick)
   -- Lot DEFENSE-FACTIONS D5 : Fr.SCAN cellules examinées ; la coupe à Fr.MAX_CELLS se fait dans Fr.plan, APRÈS le contrôle du moteur.
   local cells = Fr.top(st.mem, Fr.SCAN)
+  -- Lot REBUILD-RAPIDE (c) (retour du DC du 29/10 : « ils se font réattaquer au même endroit […] pas de nouvelles tourelles […] ils ont 8000 de
+  -- fer ») : chez une équipe riche (fer >= Rr.RICH_IRON × le plancher de la défense, cuivre au plancher), une cellule attaquée par au moins
+  -- Rr.WAVES vagues veut Rr.RICH_EXTRA tourelle(s) de plus et reçoit tout son manque d'un coup (plus bas, après Fr.plan).
+  Rr.wave_prune(st, tick)
+  local rich = Rr.rich(Stock.count(f, T.outposts.iron.product), Stock.count(f, T.outposts.copper.product), T.defend_iron_floor, T.defend_copper_floor)
+  local boosted
+  cells, boosted = Rr.boost(cells, st.waves, rich, tick, Fr.want, Fr.BASE, Fr.PER_TURRET)
   -- Lot INTEG-ECONOMIE (D5) : le site proche BLOQUÉ (signal f.site_blocked de script/faction/sites.lua) est un lieu à couvrir, comme un
   -- groupe de laboratoires (règle pure : shared/team/site_securise.lua) ; vide pour votre équipe (le signal est propre aux factions).
   local cover = st.cover
@@ -152,9 +164,25 @@ function Front.view(f, fortify_open)
     return ok
   end
   local turrets, placed = turrets_of(f)
-  local plan = Fr.plan({ cells = cells, cover = cover, turrets = turrets, placed = placed, near = range_near(), rest = rest, allow = allow,
-    hq = f.hq_pos })
+  -- Lot REBUILD-RAPIDE (c) : une équipe riche a Rr.RICH_CAP places de plus sous le plafond d'équipe du front (Rr.cap_placed).
+  local plan = Fr.plan({ cells = cells, cover = cover, turrets = turrets, placed = Rr.cap_placed(placed, rich), near = range_near(), rest = rest,
+    allow = allow, hq = f.hq_pos })
   local pick = plan.pick
+  if pick and pick.kind == "attaque" and boosted[pick.key] then
+    local n = Rr.rich_count(pick.want, pick.have, plan.left)
+    if n > pick.count then
+      pick.count = n
+      local w = st.waves and st.waves[pick.key]
+      local sig = pick.key .. ":" .. (w and w.n or 0) .. ":" .. pick.have
+      if st.rr_sig ~= sig and (st.rr_logs or 0) < Front.LOGS then
+        st.rr_sig, st.rr_logs = sig, (st.rr_logs or 0) + 1
+        log(string.format("[FO-REBUILD-RAPIDE] %s : cellule %s reattaquee (%d vagues) chez une equipe riche (fer %d) : %d tourelle(s) posee(s) d'un coup " ..
+          "(%d a portee, %d voulues, regle du front +%d ; front de l'equipe %d sur %d au plus) a %.1f min", f.key or "player", pick.key,
+          w and w.n or 0, Stock.count(f, T.outposts.iron.product), n, pick.have, pick.want, Rr.RICH_EXTRA, placed, Fr.TEAM_CAP + Rr.RICH_CAP,
+          tick / 3600))
+      end
+    end
+  end
   -- Lot DEFENSE-FACTIONS D1 : les lignes du plan (cause de chaque cellule non servie), lues par script/team/defense_log.lua ; nombres et chaînes.
   st.rows, st.rows_tick, st.placed = plan.rows, tick, placed
   if pick and st.logs < Front.LOGS and st.last_pick ~= pick.key .. ":" .. pick.have then
