@@ -209,3 +209,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 ## 30/10 ~5 h 55, passage 59
 - 10 archives (JOURNAUX relecture 8 OK, CAPI-DEBIT et FUITES-PILE content 331, BIOMES-SUIVI x7 : b0 11, monde 336, content 429, depart 3), 0 erreur Lua, codes 0.
 - BIOMES-SUIVI avant-depart (420 ticks) sans BILAN : releve hors bilan seul (mesure 'avant' sur main, scenario arrete avant le controle ; rejoue a 760 ticks = 3 OK) [deduit, banc.txt + journal]. Rien a ouvrir.
+
+## 30/10 ~6 h 25, passage 60
+- 14 archives (INTEG-0623 x4, BIOMES-SUIVI x4, X3-MINERAIS x5 dont quartz-puces 10, migration 7, content 439, monde 378, PREVISION-REVUE content 331), 0 erreur Lua, 0 ECHEC, codes 0. Rien de nouveau.
