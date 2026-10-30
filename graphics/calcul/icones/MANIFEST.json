@@ -7,7 +7,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "largeur": 120,
-   "sha256": "d4cc0925b9cf84711883058b2733b87f9982ea794561e6548cab304cf6786417",
+   "sha256": "2bc6b60606cceb06d523a87ad3af2c56a525d41d75cb927de7670153bbee34d2",
    "type": "item"
   },
   "fo-degassed-ilmenite": {
@@ -37,7 +37,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "largeur": 120,
-   "sha256": "a563b13a526a0bd7fd3809da2731b9d092f49b53b0692896d6ff1af2cb6e6347",
+   "sha256": "fb7bf5d53fb0faa6272d65bf2dea4585d4123d92a6b766b648998cf238afd5d2",
    "type": "item"
   },
   "fo-heat-sink": {
@@ -47,7 +47,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "largeur": 120,
-   "sha256": "28a2b5d7488f4748871ba885d8219e2e5c07c0cf6f9bd46238dd2ad4807d3579",
+   "sha256": "e252629323f6f10b8147f3b375a27a958eb815c085d5024f53a06b863933d20e",
    "type": "item"
   },
   "fo-helium-3": {
@@ -57,7 +57,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "largeur": 120,
-   "sha256": "1b08ae15822c3c61060bbcb56b7e7bc289dbb26a155cd8bf175e1bf23105cebc",
+   "sha256": "6e945165a686031cb6ac885459f05c62c5fe0dc5debfae068b6069a4715eb0f1",
    "type": "fluid"
   },
   "fo-logic-die": {
@@ -87,7 +87,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "largeur": 120,
-   "sha256": "9c809f5778ef89d5d97b1910ab38b450bc0626bce3ae19d086d32b2d1f3220e6",
+   "sha256": "24568d53cc90d0edc5857d99d1b397e25eee4ceb05d5c1906c526d868cc4f637",
    "type": "fluid"
   },
   "fo-sram-die": {
@@ -97,7 +97,7 @@
    "icon_mipmaps": 4,
    "icon_size": 64,
    "largeur": 120,
-   "sha256": "6bf94d27647d3d3e3894bd5ef9e10859d496548ca0e7c2e52c1edddf0015b659",
+   "sha256": "dfa8e5a2d7e67c200be61dd563ccbe6be03749cf2bd2ea6fe4da1f93917c2790",
    "type": "item"
   }
  },
