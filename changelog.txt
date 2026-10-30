@@ -4,6 +4,7 @@ Date: 2026-10-30
   Changes:
     - Famine (votre principe : « si on manque cruellement de ressources, l'objectif est justement ces ressources ») : en mode survie, un gisement ferme seulement par le passage des vagues (marques mobiles) n'est plus refuse sans fin : l'equipe y part au 3e refus, avec escorte si des soldats sont libres ; les nids fixes et un but ou 3 PNJ sont morts dans l'heure gardent la prudence ; un regard qui ne voit aucun ennemi efface les marques mobiles vides. Toutes les equipes. [FO-FAMINE]
       (Mesure a l'origine : dans la partie du guide, graine 1618033988, votre equipe restait sans fer 47 min, son seul gisement ferme a chaque vague.)
+    - Prevision des vagues recalibree (mesure : elle surestimait de 3 a 60 fois dans la partie du guide) : absorption de pollution a la demande par case, cadence des nids selon l'evolution, rassemblement moyen, vague recue = unites vues ou tuees + pertes, calibrage par equipe ; ecart median prevue/recue 9,1 -> 2,1 sur les 18 vagues mesurees (1,65 sur les vagues vues). [FO-PREVISION]
     - Banc verif-guide : nouveau controle « livre fer » par tranche de 10 min.
     - Rien n'a ete rejoue en partie longue : relecture statique, integration verifiee, tests hors jeu verts (pvp 1305), bancs courts.
 ---------------------------------------------------------------------------------------------------
