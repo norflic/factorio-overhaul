@@ -621,7 +621,10 @@ ICONE["M1"] = dict(lames=(0, 0), roches=(4, 5), roche_taille=(0.19, 0.26), roche
                    roche_mats=("monazite_or", "monazite_miel", "monazite_resine", "monazite_or", "monazite_soufre"))
 # Production (128 éch.) : check_gisement refusait UN pixel d'effet hors du minerai (bord d'un rognon) avec le seuil de Z3
 # (0,45 à 0,80) : seuil 0,48 à 0,82 (part du minerai allumée 56 %, Z3 : 62 %).
-EFFET["M1"] = dict(teinte=(1.0, 0.78, 0.25), seuil=(0.48, 0.82))
+# Captures en moteur x2-supra (30/10, x2_lisibilite.py) au seuil 0,48 à 0,82 : 10 OK, 2 ECHEC (N1 : nuit, ΔE76 au cuivre
+# 9,8 / 9,3 ; Z3 donnait 14,0 / 13,7 ; N6 en échec pour moitié comme Z3) : M1, plus sombre que Z3, allume moins de faces
+# de nuit. Seuil abaissé à 0,40 à 0,75 (le pixel hors minerai est désormais éteint par feuille.post).
+EFFET["M1"] = dict(teinte=(1.0, 0.78, 0.25), seuil=(0.40, 0.75))
 
 DIRECTIONS["M2"] = dict(DIRECTIONS["M1"], nom="rognons de monazite hérissés de prismes en coin",
                         roches=(9, 8, 7, 6, 5, 4, 2, 2),

@@ -25,8 +25,8 @@
  "effet": "eclats",
  "effet_reglages": {
   "seuil": [
-   0.48,
-   0.82
+   0.4,
+   0.75
   ],
   "teinte": [
    1.0,
@@ -59,13 +59,13 @@
  },
  "secondes_blender": 1303.04,
  "sha256": {
-  "hr-monazite-effet.png": "264af5fcc1650ec90d578a9576c35b83a641c5fc449cba84544ef2015e1b82d3",
+  "hr-monazite-effet.png": "269faea4f40cf6e44985cecfe5f2b4c70b28d6cddcc3d5aa5bf94034da5f5b2e",
   "hr-monazite.png": "a68c6c0130180392fda051c160f9c129cdc29f6826f5d20dcc79b4895095f9c5",
   "icone-1.png": "303b47bd0e074a6627ca5123afb6f829db1fdcb8bab7c1ee75d328acd7786576",
   "icone-2.png": "9918a69c98625dcdfb3ef9b4afbb3449ce8887564df3582bad41cbc0845add82",
   "icone-3.png": "b0bd3afe5cb43fa95b926b9dddb054f3a1e3d05469450a8ec11731c6f388ced1",
   "icone.png": "ad8d0f2a17b6b76fdb19b198505fb90d96659ad7fde425ed6b8d6050e03b6d4c",
-  "monazite-effet.png": "9b59c707a290d40092dfa454f855f5c49c308c8387cd7ac2b0810f24f958e6f4",
+  "monazite-effet.png": "7111a08fe47ad9d1d8589f38057ddc5ce9b69f9229a975a51f47cbf6fa039519",
   "monazite.png": "927b1af08cb988a0c0ed833d8520a65c1b945ff2895158843cce88a1085d1699"
  }
 }
