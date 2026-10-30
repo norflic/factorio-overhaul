@@ -66,7 +66,11 @@ return {
   tick = function(ctx, e)
     local st = ctx.state()
     local s = ctx.surface()
-    if e.tick == 100 then
+    if e.tick == 1 then
+      -- Corps et coffres après le chargement (migration par on_configuration_changed OU par la veille du tick 0).
+      st.hqs_load = hqs(s)
+      st.version_load = script.active_mods["factorio-overhaul"]
+    elseif e.tick == 100 then
       st.s100 = status()
       st.dmg = {}
       for _, r in ipairs(st.s100) do
@@ -113,17 +117,24 @@ return {
     ctx.check(st.started == true, "guerre lancee a la creation (" .. tostring(st.version_create) .. ")", tostring(st.started))
     if st.migration then
       local cfg = global.cqg_config
-      -- Version inchangée possible (branche du lot encore en 0.6.18) : le moteur appelle quand même on_configuration_changed
-      -- quand le contenu du mod change (F130).
-      ctx.check(cfg ~= nil, "MIGRATION : on_configuration_changed vu au chargement",
-        cfg and (tostring(cfg.old) .. " -> " .. tostring(cfg.new) .. " au tick " .. cfg.tick) or "aucun")
-      local same = cfg ~= nil and #cfg.hqs == #st.hqs_create and #cfg.hqs == 2
+      -- Version montée (0.6.18 -> 0.6.19, comme à l'intégration) : on_configuration_changed est exigé. Version inchangée :
+      -- le moteur ne l'appelle PAS toujours (observé ici le 30/10, contre F130) ; la veille du tick 0 relie alors le centre.
+      if st.version_load ~= st.version_create then
+        ctx.check(cfg ~= nil, "MIGRATION " .. tostring(st.version_create) .. " -> " .. tostring(st.version_load)
+          .. " : on_configuration_changed vu au chargement",
+          cfg and (tostring(cfg.old) .. " -> " .. tostring(cfg.new) .. " au tick " .. cfg.tick) or "aucun")
+      else
+        ctx.log("MIGRATION a version egale (" .. tostring(st.version_load) .. ") : on_configuration_changed "
+          .. (cfg and "vu" or "NON appele (filet : veille du tick 0)") .. " (hors bilan)")
+      end
+      local load = st.hqs_load or {}
+      local same = #load == #(st.hqs_create or {}) and #load == 2
       for i, h in ipairs(st.hqs_create or {}) do
-        local g = cfg and cfg.hqs[i]
+        local g = load[i]
         if not (g and g.unit == h.unit and g.chest == h.chest) then same = false end
       end
-      ctx.check(same, "MIGRATION : memes corps de QG (numero d'unite) et memes coffres qu'a la creation",
-        serpent.line({ avant = st.hqs_create, apres = cfg and cfg.hqs }))
+      ctx.check(same, "MIGRATION : memes corps de QG (numero d'unite) et memes coffres qu'a la creation (tick 1)",
+        serpent.line({ avant = st.hqs_create, apres = load }))
     end
     local s100 = st.s100 or {}
     ctx.check(#s100 == 2, "2 factions vivantes au tick 100", #s100)
