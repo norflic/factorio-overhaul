@@ -117,8 +117,10 @@ return {
     ctx.check(fs.reached == 0, "force de faction sans joueur : jamais suivie", fs.reached)
     local o5 = remote.call("fo-journal", "objectives", 5)
     local k5 = kinds(o5)
-    ctx.check(k5:find("resource:fo-tungsten-ore", 1, true) and not k5:find("fo-fumarole", 1, true),
-      "epoque 5 : tungstene propose, fumerolle (absente du jeu) non", k5)
+    -- La fumerolle est en jeu depuis RESSOURCES (geothermie, 0.6.22) : elle n'est proposee que si son prototype existe.
+    local fum = game.entity_prototypes["fo-fumarole"] ~= nil
+    ctx.check(k5:find("resource:fo-tungsten-ore", 1, true) and ((k5:find("fo-fumarole", 1, true) ~= nil) == fum),
+      "epoque 5 : tungstene propose, fumerolle proposee si et seulement si elle est en jeu (" .. tostring(fum) .. ")", k5)
     ctx.check(o5[1] and o5[1].kind == "centre" and o5[1].target == 6, "epoque 5 : passage du centre vers 6", k5)
     local k4 = kinds(remote.call("fo-journal", "objectives", 4))
     ctx.check(k4:find("resource:crude-oil", 1, true), "epoque 4 : petrole brut", k4)
