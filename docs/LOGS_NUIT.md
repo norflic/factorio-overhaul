@@ -215,3 +215,7 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~6 h 55, passage 61
 - 4 archives (FUITES-PILE relecture content 331, X3-MINERAIS images x2 (BILAN dans fo-shots, session avec images) + relecture content 439), 0 erreur Lua, codes 0. Rien de nouveau. X3-MINERAIS parque (Q26 : disques de plaine poses au milieu d'autres biomes).
+
+## 30/10 ~7 h 05, passage 62 (fumee finale verif-guide sur 0.6.24)
+- verif-guide 216 000 ticks, graines 271828182 et 1618033988 : 15 OK, 0 ECHEC chacune, 0 erreur Lua (fo-logs/2026-10-30_MATIN/verif-guide-0624).
+- DEFAUT MESURE : la PREVISION surestime les vagues de 3 a 60 fois (17 BILAN vague : prevue 2708 PV / recue 41 a 1545 ; prevue 2350 / recue 150 ; une seule sous-estimation 614 / 1909) ; k descend vers son plancher 0,5 sans rattraper. Cause : modele des biters non calibre (risque annonce, constantes supposees) [mesure : ecart ; cause supposee]. Lot PREVISION-CALIB lance (workflow wf_f71617fb-f94).
