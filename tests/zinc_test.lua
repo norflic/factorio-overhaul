@@ -101,7 +101,8 @@ do
   local ig, ir = 0, 0
   for i, k in ipairs(W.guarantee_order) do if k == "sphalerite" then ig = i end end
   for i, k in ipairs(W.resource_order) do if k == "sphalerite" then ir = i end end
-  check(ig == #W.guarantee_order and ir == #W.resource_order, "blende en dernier (sites et lettres d'avant inchangés)")
+  -- Lot X3-MINERAIS : le quartz filonien (âge 10) vient après la blende ; tout ce qui précède la blende est inchangé.
+  check(ig == 10 and ir == 11, "blende après la fumerolle (sites et lettres d'avant inchangés ; le quartz d'X3-MINERAIS vient après)")
 end
 
 ---------------------------------------------------------------------------------------------------

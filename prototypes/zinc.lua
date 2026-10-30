@@ -75,3 +75,8 @@ data:extend(out)
 local tech = assert(data.raw.technology[Z.EXTEND.tech], "zinc : technologie absente " .. Z.EXTEND.tech)
 tech.effects = tech.effects or {}
 for _, u in ipairs(Z.EXTEND.unlocks) do tech.effects[#tech.effects + 1] = lib.unlock(u) end
+
+-- Lot X3-MINERAIS (30/10), PROVISOIRE : la fonderie de puces (quartz filonien, âge 10) est chargée ici, après la dernière
+-- piste de RESSOURCES dont elle dépend (étain, bauxite), parce que le lot ne touche pas data.lua (fichier de l'intégrateur).
+-- À l'intégration : `require("prototypes.quartz")` dans data.lua juste après `require("prototypes.zinc")`, et retirer ces lignes.
+require("prototypes.quartz")

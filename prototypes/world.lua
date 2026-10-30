@@ -450,6 +450,12 @@ local function solid_resource(spec, order)
     lib.set_icons(res, { { icon = res.icon, icon_size = res.icon_size, icon_mipmaps = res.icon_mipmaps, tint = spec.tint } })
   end
 
+  if spec.autoplace.none then
+    -- Lot X3-MINERAIS (quartz filonien) : ressource posée par la SEULE garantie, aucun autoplace (aucun jeu de gisements,
+    -- aucun contrôle de carte) : la génération des autres ressources ne change sur aucune graine.
+    res.autoplace = nil
+    return res
+  end
   local region, mask = resource_region(spec)
   res.autoplace = biome_bound_autoplace({
     name = spec.resource,
@@ -467,7 +473,7 @@ end
 --- Minerai (kind = "ore") : contrôle d'autoplacement, gisement, objet du minerai (combustible si spec.fuel),
 --- plaque et sa recette au four (si spec.plate).
 local function ore_prototypes(spec, letter)
-  out[#out + 1] = autoplace_control(spec.resource, letter)
+  if not spec.autoplace.none then out[#out + 1] = autoplace_control(spec.resource, letter) end
   out[#out + 1] = solid_resource(spec, letter)
   local item = tinted_item(spec.item, spec.copy_icon, spec.tint)
   if spec.sheet then

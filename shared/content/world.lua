@@ -264,7 +264,8 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite", "fumarole", "sphalerite" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite", "fumarole", "sphalerite",
+  "quartz" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
@@ -275,8 +276,10 @@ W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "mon
 -- Piste BAUXITE : la bauxite (âge 6, X3), 3 gisements de 300 000 à 300-600 tuiles, sans biome, après la cassitérite.
 -- Piste GÉOTHERMIE : la fumerolle (âge 5, X0), 2 fumerolles sur un disque de cendres à 250-600 tuiles, après la bauxite.
 -- Piste ZINC : la blende (âge 3, X3), 2 gisements de 200 000 à 150-400 tuiles, sans biome, après la fumerolle.
+-- Lot X3-MINERAIS : le quartz filonien (âge 10, X3), 2 veines de 200 000 à 400-800 tuiles sur un disque de plaine de cristal,
+-- posées par la SEULE garantie (aucune autoplace), après la blende.
 W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite", "bauxite", "fumarole",
-  "sphalerite" }
+  "sphalerite", "quartz" }
 
 W.resources = {
   tungsten = {
@@ -644,6 +647,41 @@ W.resources = {
     biome = nil,
     autoplace = { base_density = 4, base_spots_per_km2 = 1.2, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
       seed1 = 7301, distance_min = 150, region = { seed1 = 7311, threshold = 0.5, scale = 1 / 220 } },
+  },
+  -- Lot X3-MINERAIS (30/10) : QUARTZ FILONIEN, minerai de la fonderie de puces (âge 10, Haute technologie ; proposition X3,
+  -- module x3.lua : fo-vein-quartz, basic-solid, minage 3 s). X3 : « veines blanches de la plaine de cristal, posées par la
+  -- SEULE garantie (aucune autoplace) » : deux jeux de gisements sur le masque de la plaine se disputeraient les tuiles et le
+  -- cristal de résonance (monnaie de l'âge 7) baisserait sur toutes les graines. Ici : AUCUN autoplace ni contrôle de carte
+  -- (`autoplace.none`) ; la graine sert seulement aux candidats de la garantie. Le site garanti est un disque de plaine de
+  -- cristal (le repli d'X3 : « sur un disque de plaine de cristal créé à cette distance »). Chaîne : shared/content/quartz.lua.
+  quartz = {
+    resource = "fo-vein-quartz",
+    kind = "ore",
+    epoch = 10,
+    -- X3 : « 2 veines de 200 000 posées par script » ; rayon 7, 2 000 par tuile au centre : environ 200 000 (comme la blende) ;
+    -- un gisement déjà posé de 130 000 en vaut un (sauvegarde existante : seuls les sites garantis en posent).
+    guarantee = { site_radius = 12, ore_radius = 7, amount = 2000, min_total = 130000 },
+    item = "fo-vein-quartz",
+    -- Prismes blanc laiteux (X3 : « sans lueur, pour ne pas le confondre avec le cristal de résonance ») ; la teinte ne sert
+    -- qu'aux dérivés (technologie) ; le gisement, son icône et l'objet viennent de la feuille Q1 (pierre en repli de copie).
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 0.92, g = 0.92, b = 0.90 },
+    -- Feuille PROPRE du kit minerai (lot X3-MINERAIS, direction Q1 : gerbes de prismes de quartz blanc laiteux sur gangue
+    -- claire, SANS couche d'effet). Choix provisoire, sans verdict du DC.
+    sheet = {
+      dir = "__factorio-overhaul__/graphics/ressources/quartz",
+      name = "quartz",
+      mining_visualisation_tint = { r = 0.90, g = 0.90, b = 0.88, a = 1 },
+    },
+    -- Vert d'eau sur la carte : le blanc (sens du quartz) tombe à ΔE76 13 de l'ilménite (0,84 ; 0,88 ; 0,96) ; la meilleure
+    -- teinte hors du rose et du violet (que le DC n'aime pas), claire (L ≥ 55), à ΔE76 41,5 de tous les minerais, fluides et
+    -- sols (saumure au plus près) ; ≥ 45 de la blende, de la bauxite, de la galène et ≥ 35 de la fumerolle (leurs tests).
+    map_color = { r = 0.00, g = 1.00, b = 0.70 },
+    mining_time = 3,
+    category = nil, -- basic-solid (X3)
+    biome = "fo-crystal-flats",
+    autoplace = { none = true, seed1 = 7304 },
   },
 }
 

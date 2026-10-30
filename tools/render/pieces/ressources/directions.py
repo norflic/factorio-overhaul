@@ -568,14 +568,42 @@ ROCHE_APLAT["S2"], ROCHE_CASSURE["S2"] = ROCHE_APLAT["S1"], ROCHE_CASSURE["S1"]
 ICONE["S2"] = dict(ICONE["S1"], roche_mats=("blende_rubis", "quartz_gris"))
 EFFET["S2"] = dict(EFFET["S1"])
 
+# Q1 (lot X3-MINERAIS, 30/10) : QUARTZ FILONIEN (âge 10, X3 : « prismes hexagonaux blanc laiteux en gerbes, sans lueur (pour
+# ne pas le confondre avec le cristal de résonance) »). Posé par la seule garantie, sur un disque de plaine de cristal : à côté
+# du cristal K1 (druses bleu glacier qui luisent la nuit), il faut un BLANC laiteux mat, en gerbes plus serrées et plus
+# inclinées, sur une roche plus claire, et AUCUNE couche d'effet. Choix provisoire, sans verdict du DC.
+MAT.update({
+    "quartz_laiteux": dict(color=(0.80, 0.80, 0.78), rough=0.45, met=0.0, grain=0.12, gscale=44.0, dirt=0.15),
+    "quartz_gras": dict(color=(0.62, 0.63, 0.62), rough=0.30, met=0.0, grain=0.10, gscale=44.0, dirt=0.2),
+    "quartz_fume": dict(color=(0.42, 0.42, 0.42), rough=0.35, met=0.0, grain=0.12, gscale=40.0, dirt=0.3),
+    "gangue_claire": dict(color=(0.30, 0.29, 0.28), rough=0.85, met=0.0, grain=0.40, gscale=26.0, dirt=0.5),
+})
+DIRECTIONS["Q1"] = dict(
+    nom="gerbes de prismes de quartz blanc laiteux, sans lueur",
+    # essai 1 (32 éch.) : couverture 0,241 au stade 1 (vanilla 0,316), roches grises en galets trop présents : gerbes
+    # recalées stade par stade au rapport vanilla / mesuré, roches plus petites et plus rares.
+    # essai 2 (128 éch.) : 0,237 ; 0,235 ; 0,230 ; 0,165 ; 0,169 ; 0,127 ; 0,097 ; 0,046 (stade 4 sous le 5) : recalés encore.
+    touffes=(13, 9, 7, 6, 5, 4, 3, 1), lames=(4, 7),
+    lame_long=(0.14, 0.26), lame_larg=(0.07, 0.11), lame_ep=(0.06, 0.09), lame_incl=(15, 50),
+    lame_mats=("quartz_laiteux", "quartz_laiteux", "quartz_gras", "quartz_fume"),
+    roches=(2, 2, 2, 1, 1, 1, 1, 1), roche_taille=(0.11, 0.17), roche_mats=("gangue_claire",),
+    blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("quartz_laiteux",),
+    grains=(31, 20, 15, 13, 8, 9, 5, 4), grain_mats=("quartz_laiteux", "quartz_gras", "gangue_claire"),
+    fin_mats=("quartz_laiteux", "gangue_claire", "quartz_gras", "quartz_laiteux"),
+    rayon=0.60,
+    effet=None,
+)
+CALIB["Q1"] = {"SKY_GLOSSY_FACTOR": 1.5}
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45, "S2": 1.45}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45, "S2": 1.45,
+           "Q1": 1.3}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313, "S2": 6717}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313, "S2": 6717, "Q1": 6818}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8

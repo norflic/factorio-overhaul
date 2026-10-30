@@ -1,0 +1,59 @@
+{
+ "blender": "5.2.2 LTS",
+ "couverture_par_stade": [
+  0.2368,
+  0.2345,
+  0.23,
+  0.1648,
+  0.1686,
+  0.1269,
+  0.0974,
+  0.0461
+ ],
+ "couverture_vanilla": [
+  0.316,
+  0.27,
+  0.231,
+  0.202,
+  0.165,
+  0.138,
+  0.09,
+  0.055
+ ],
+ "direction": "Q1",
+ "echantillons": 128,
+ "effet": null,
+ "effet_reglages": {},
+ "format": {
+  "frame": 128,
+  "frame_count": 8,
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "scale_hr": 0.5,
+  "variation_count": 8
+ },
+ "nom": "quartz",
+ "nom_direction": "gerbes de prismes de quartz blanc laiteux, sans lueur",
+ "outil": "tools/render/pieces/ressources/feuille.py",
+ "repartition": {
+  "L": [
+   0.086,
+   0.084,
+   0.213,
+   0.617
+  ],
+  "acier": 0.914,
+  "acier_bleutes": 0.002,
+  "chauds": 0.0,
+  "sombres": 0.086
+ },
+ "secondes_blender": 1567.04,
+ "sha256": {
+  "hr-quartz.png": "62fc845fbff8292a8b2fa7493b8f8e78e1423887c14008413d6a4db814fb3cf5",
+  "icone-1.png": "4f711ab3d4142b21a7c85755ae2f4676fc55a2415a4cb643441eec399dde113f",
+  "icone-2.png": "6140cd000ff18bf4cd061a008c3bfeb8b54c500c9f9e6db5742e29c03183aeb8",
+  "icone-3.png": "a5a473575a6ddec25e769893e41ed07d8b1a7d53ca559b0766e842b4c47fe46f",
+  "icone.png": "0862461693c146427249bcf23f0d013267acac630ea3fb908d49820ac7023d22",
+  "quartz.png": "f3ee09fd170ec9759a766761d27999721ca59bafe611229fdecec125ac53a7d2"
+ }
+}
