@@ -242,3 +242,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~10 h 25, passage 69
 - 3 archives (blende r4-visuels 3 OK ; CALCUL relecture calcul-chaines 15 OK, content 453 OK), 0 erreur Lua, codes 0. Rien de nouveau.
+
+## 30/10 ~12 h, passage 70
+- Limite d'usage atteinte vers 11 h 55 -> levee 12 h : 39 transcriptions d'agents arretees (workflows minerais, QG x2, icones, design calcul, calcul v2). A 12 h 01 : design calcul (5 agents) et calcul v2 reprennent seuls ; les autres a surveiller au prochain pilotage, relance si inertes. Agent CALC-MACHINES-AMONT relance par message.
