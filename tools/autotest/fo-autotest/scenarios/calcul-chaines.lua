@@ -297,6 +297,14 @@ return {
       if pp.key == "gravure" then
         add("lithographe-z2-jour", pp.x, pp.y, 2, 0, { res = { (pp.side + 6) * 64, (pp.side + 6) * 64 }, info = true, aa = true })
       end
+      -- lot CALC-SALLE-BLANCHE (30/10) : la salle blanche (poste du photomasque) au zoom 2, de jour et de nuit, sans mode Alt
+      if pp.key == "masque" then
+        for _, nuit in ipairs({ false, true }) do
+          add("salle-blanche-z2-" .. (nuit and "nuit" or "jour"), pp.x, pp.y, 2, nuit and 0.5 or 0,
+            { res = { (pp.side + 7) * 64, (pp.side + 6) * 64 }, info = false, aa = true })
+        end
+        add("salle-blanche-z1-jour", pp.x, pp.y, 1, 0, { res = { (pp.side + 9) * 32, (pp.side + 7) * 32 }, info = false, aa = true })
+      end
     end
   end,
 }

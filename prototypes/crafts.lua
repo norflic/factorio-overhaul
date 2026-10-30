@@ -6,6 +6,8 @@
 local lib = require("prototypes.lib")
 local C = require("shared.content.crafts")
 local T = require("shared.content.titanium")
+-- Lot CALC-SALLE-BLANCHE (30/10) : vrais modèles qui remplacent le visuel provisoire d'une machine (dress, icons).
+local VISUELS = { ["fo-cleanroom"] = require("prototypes.machines.salle_blanche") }
 
 local out = {}
 
@@ -204,6 +206,11 @@ local function machine(spec)
     e.fluid_boxes = nil
   end
   local icons = icon_of("item", spec.copy[2], spec.tint)
+  local vis = VISUELS[spec.name]
+  if vis then
+    vis.dress(e)
+    icons = vis.icons()
+  end
   lib.set_icons(e, icons)
   out[#out + 1] = e
   out[#out + 1] = {
@@ -211,7 +218,7 @@ local function machine(spec)
     name = spec.name,
     localised_name = { "entity-name." .. spec.name },
     localised_description = { "entity-description." .. spec.name },
-    icons = icon_of("item", spec.copy[2], spec.tint),
+    icons = vis and vis.icons() or icon_of("item", spec.copy[2], spec.tint),
     subgroup = "fo-crafts-machines",
     order = "z[fo]-a[crafts]-" .. spec.name,
     place_result = spec.name,

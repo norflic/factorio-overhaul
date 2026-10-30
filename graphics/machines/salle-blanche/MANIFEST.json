@@ -1,0 +1,62 @@
+{
+ "commande": "py -3.9 tools/render/pieces/machines/salle_blanche/feuilles.py --src <rendus> --nom r2b",
+ "echantillons": 12,
+ "fichiers": {
+  "hr-sb-fenetres.png": {
+   "hauteur": 372,
+   "largeur": 306,
+   "sha256": "d0d690e6509e32cbd9ca4658ac0f284bf2e52220a7008f837197d4c21f182524",
+   "taille": 63956
+  },
+  "hr-sb-main.png": {
+   "hauteur": 464,
+   "largeur": 340,
+   "sha256": "d4c0abd51f1902b24a73a36a8c626b43a4523afbc12fd4f29cd2ae373b17c74b",
+   "taille": 212626
+  },
+  "hr-sb-shadow.png": {
+   "hauteur": 316,
+   "largeur": 482,
+   "sha256": "9e2d63ca99424e4c027cf0320caec730fceeba587de67e3d27ad7fdf7ed74276",
+   "taille": 18930
+  },
+  "hr-sb-voyants.png": {
+   "hauteur": 196,
+   "largeur": 2400,
+   "sha256": "cf42691ba5b39cfab93121a7982e09dd2e2eeb8dca5e2d60f9067b25f068fdb5",
+   "taille": 6721
+  },
+  "sb-fenetres.png": {
+   "hauteur": 186,
+   "largeur": 153,
+   "sha256": "ffb78d841d05c9bab89e1f145fee5fed8ba498a258f5254b01d9c5219b79282e",
+   "taille": 22802
+  },
+  "sb-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "c9397a92f37cf276be2c30f337772c5b64939ef33c73d853adcd8e55e5fceb2a",
+   "taille": 9821
+  },
+  "sb-main.png": {
+   "hauteur": 232,
+   "largeur": 170,
+   "sha256": "0be6a84f693e87f8e578dfaa2b9209e2389f897136933aa72432024f9d1b962a",
+   "taille": 53793
+  },
+  "sb-shadow.png": {
+   "hauteur": 158,
+   "largeur": 241,
+   "sha256": "d11906e3c9b854c24fb50b8a8b65959a1ebd7a296928323d3802d625cc1fb02f",
+   "taille": 8160
+  },
+  "sb-voyants.png": {
+   "hauteur": 98,
+   "largeur": 1200,
+   "sha256": "a02ac6360a39803de275e71a37f137893d9232470ea594916005527aa131e0d7",
+   "taille": 2726
+  }
+ },
+ "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-10-30_DESIGN-CALCUL\\CALC-SALLE-BLANCHE\\final",
+ "variante": "r2b"
+}
