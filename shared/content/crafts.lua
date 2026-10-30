@@ -60,6 +60,13 @@ C.BUILDINGS = {
   -- Étape 8 (âge 7). Sa recette X0 demande du carbure de tungstène (four de frittage, absent ici) : déplié en plaques de
   -- tungstène et coke (T.expand, comme les machines du titane).
   { name = "fo-lapidary", copy = { "assembling-machine", "assembling-machine-2" }, side = 3, tint = { r = 0.62, g = 0.86, b = 1.00 } },
+  -- Étape 9 (âge 6) : broyeur à mâchoires, concasseur électrique 2 fois plus rapide (X0 : vitesse 2, 500 kW).
+  { name = "fo-jaw-crusher", copy = { "assembling-machine", "assembling-machine-2" }, side = 3, tint = { r = 0.70, g = 0.72, b = 0.80 } },
+}
+
+-- Poteaux de X0 (étape 9) : copie teintée du grand poteau vanilla, portée des fils et zone d'alimentation de X0.
+C.POLES = {
+  { name = "fo-ht-pylon", copy = "big-electric-pole", tint = { r = 0.80, g = 0.86, b = 1.00 } },
 }
 
 -- Balises de X0 (étape 8) : copie teintée de la balise vanilla, stats de X0 (emplacements, rendement, portée, énergie).
@@ -238,6 +245,13 @@ C.TECHS = {
   { name = "fo-resonance-amplifier", x0 = "fo-resonance-amplifier", epoch = 7, count = 300, time = 30,
     prerequisites = { "fo-lapidary", "effect-transmission" },
     unlocks = { "fo-resonance-amplifier" } },
+  -- Étape 9 (âge 6).
+  { name = "fo-high-voltage", x0 = "fo-high-voltage", epoch = 6, count = 200, time = 30,
+    prerequisites = { "fo-electrical-steel", "electric-energy-distribution-2" },
+    unlocks = { "fo-ht-pylon" } },
+  { name = "fo-jaw-crusher", x0 = "fo-jaw-crusher", epoch = 6, count = 200, time = 30,
+    prerequisites = { "fo-electrical-steel", "fo-crushing" },
+    unlocks = { "fo-jaw-crusher" } },
   { name = "fo-asphalt", x0 = "fo-asphalt", epoch = 4, count = 100, time = 30,
     prerequisites = { "fo-crushing", "oil-processing", "concrete", "chemical-science-pack" },
     unlocks = { "fo-asphalt" } },
@@ -259,6 +273,7 @@ for _, n in ipairs(C.FLUIDS) do IN_GAME[n] = true end
 for _, b in ipairs(C.BUILDINGS) do IN_GAME[b.name] = true end
 for _, t in ipairs(C.TILES) do IN_GAME[t.name] = true end
 for _, b in ipairs(C.BEACONS) do IN_GAME[b.name] = true end
+for _, p in ipairs(C.POLES) do IN_GAME[p.name] = true end
 
 --- Spécification de X0 d'un sol (X.tiles) : { name, epoch, walking_speed_modifier, vehicle_friction_modifier, ... }.
 function C.x_tile(name)

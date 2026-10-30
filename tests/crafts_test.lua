@@ -45,6 +45,10 @@ local function build_graph(Cm)
     local r = Cm.building_recipe(b.name)
     add({ name = b.name, ingredients = r.ingredients, results = { { b.name, 1 } }, category = r.category })
   end
+  for _, b in ipairs(Cm.POLES or {}) do
+    local r = Cm.building_recipe(b.name)
+    add({ name = b.name, ingredients = r.ingredients, results = { { b.name, 1 } }, category = r.category })
+  end
   for _, b in ipairs(Cm.BEACONS or {}) do
     local r = Cm.building_recipe(b.name)
     add({ name = b.name, ingredients = r.ingredients, results = { { b.name, 1 } }, category = r.category })
@@ -105,6 +109,7 @@ local function graph_faults(Cm)
   for _, bb in ipairs(Cm.BUILDINGS) do building[bb.name] = true end
   for _, tt in ipairs(Cm.TILES or {}) do building[tt.name] = true end -- un sol posé : usage final
   for _, bb in ipairs(Cm.BEACONS or {}) do building[bb.name] = true end
+  for _, pp in ipairs(Cm.POLES or {}) do building[pp.name] = true end
   local function leads_to_vanilla(name, seen)
     if not name:find("^fo%-") or outside[name] or building[name] then return true end
     seen = seen or {}
@@ -129,6 +134,7 @@ local function graph_faults(Cm)
       for _, b in ipairs(Cm.BUILDINGS) do if b.name == p[1] then is_building = true end end
       for _, tt in ipairs(Cm.TILES or {}) do if tt.name == p[1] then is_building = true end end
       for _, bb in ipairs(Cm.BEACONS or {}) do if bb.name == p[1] then is_building = true end end
+      for _, pp in ipairs(Cm.POLES or {}) do if pp.name == p[1] then is_building = true end end
       if p[1]:find("^fo%-") and not is_building and not products[p[1]] then products[p[1]] = true end
     end
   end
@@ -170,6 +176,9 @@ local function graph_faults(Cm)
   end
   for _, b in ipairs(Cm.BEACONS or {}) do
     if not g.tech_of[b.name] then fault(b.name .. " : balise ouverte par aucune technologie") end
+  end
+  for _, b in ipairs(Cm.POLES or {}) do
+    if not g.tech_of[b.name] then fault(b.name .. " : poteau ouvert par aucune technologie") end
   end
   -- chaque catégorie d'une recette du lot est faite par une machine en jeu (ou vanilla)
   local cats = { crafting = true, ["crafting-with-fluid"] = true, chemistry = true, ["advanced-crafting"] = true, smelting = true }
@@ -297,6 +306,11 @@ do
     if i[1] == "fo-tungsten-plate" then w = i[2] elseif i[1] == "fo-coke" then coke = i[2] elseif i[1] == "fo-tungsten-carbide" then carb = true end
   end
   check(not carb and w == 15 and coke == 3, "taillerie : carbure déplié en 15 tungstènes et 3 cokes (" .. w .. ", " .. coke .. ")")
+end
+for _, p in ipairs(C.POLES) do
+  local x = T.x_building(p.name)
+  check(x and x.proto == "electric-pole" and x.wire_distance and x.wire_distance <= 64 and x.supply_distance,
+    p.name .. " : poteau de X0, portée des fils au plus 64 (plafond du moteur)")
 end
 check(#C.new_categories() == 8, "8 catégories neuves (" .. table.concat(C.new_categories(), ", ") .. ")")
 

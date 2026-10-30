@@ -352,9 +352,38 @@ for i, x in ipairs(C.all_recipes()) do
   out[#out + 1] = r
 end
 
+-- Poteaux (étape 9) : copie teintée du grand poteau vanilla, portée de X0.
+for _, spec in ipairs(C.POLES) do
+  local x = T.x_building(spec.name)
+  local p = lib.copy("electric-pole", spec.copy)
+  p.name = spec.name
+  p.localised_name = { "entity-name." .. spec.name }
+  p.localised_description = { "entity-description." .. spec.name }
+  p.minable = { mining_time = 0.1, result = spec.name }
+  p.next_upgrade = nil
+  p.fast_replaceable_group = nil
+  p.maximum_wire_distance = x.wire_distance
+  p.supply_area_distance = x.supply_distance
+  if p.pictures then lib.tint_sprites(p.pictures, spec.tint) end
+  lib.set_icons(p, icon_of("item", spec.copy, spec.tint))
+  out[#out + 1] = p
+  out[#out + 1] = {
+    type = "item",
+    name = spec.name,
+    localised_name = { "entity-name." .. spec.name },
+    localised_description = { "entity-description." .. spec.name },
+    icons = icon_of("item", spec.copy, spec.tint),
+    subgroup = "fo-crafts-machines",
+    order = "z[fo]-c[poles]-" .. spec.name,
+    place_result = spec.name,
+    stack_size = 50,
+  }
+end
+
 local building_specs = {}
 for _, spec in ipairs(C.BUILDINGS) do building_specs[#building_specs + 1] = spec end
 for _, spec in ipairs(C.BEACONS) do building_specs[#building_specs + 1] = spec end
+for _, spec in ipairs(C.POLES) do building_specs[#building_specs + 1] = spec end
 for _, spec in ipairs(building_specs) do
   local b = C.building_recipe(spec.name)
   local ings = {}
@@ -393,6 +422,8 @@ local TECH_ICON = {
   ["fo-billets"] = { "advanced-material-processing-2", { r = 0.80, g = 0.86, b = 1.00 } },
   ["fo-asphalt"] = { "concrete", { r = 0.45, g = 0.45, b = 0.48 } },
   ["fo-lapidary"] = { "effect-transmission", { r = 0.62, g = 0.86, b = 1.00 } },
+  ["fo-high-voltage"] = { "electric-energy-distribution-2", { r = 0.80, g = 0.86, b = 1.00 } },
+  ["fo-jaw-crusher"] = { "concrete", { r = 0.70, g = 0.72, b = 0.80 } },
   ["fo-resonance-amplifier"] = { "effect-transmission", { r = 0.85, g = 0.95, b = 1.00 } },
 }
 for _, t in ipairs(C.TECHS) do
