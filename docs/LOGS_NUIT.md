@@ -199,3 +199,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 - 18 archives (RESSOURCES content 401 OK, PETROLE2 content 331 + petrole-court 8 OK x3 dont migration 0.6.20, PREVISION, INTEG-0621 x4, JOURNAUX-DC content 331 + journaux-dc 8 OK), 0 erreur Lua, 0 ECHEC.txt, codes 0.
 - A SURVEILLER : PREVISION prev-vague passe de 6/5 a 8/3, 10/1 puis 11/0 ECHEC en 4 bancs. Verifier a la relecture que le
   code a ete corrige et non le scenario ou ses seuils (test assoupli = faute, skill §2) [supposé, a verifier dans le diff].
+
+## 30/10 ~4 h 55, passage 57
+- 4 archives (PREVISION prev-vague-final 11 OK, JOURNAUX-DC victoire 8 OK, CAPI-DEBIT content 331 + pnj-auto 7 OK), 0 erreur Lua, 0 ECHEC, codes 0. Rien de nouveau ; le point PREVISION (seuils du scenario) reste a verifier dans le diff a la fin du workflow.
