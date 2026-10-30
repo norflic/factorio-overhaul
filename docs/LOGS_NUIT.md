@@ -230,3 +230,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~8 h 30, passage 65
 - 7 archives (INTEG-0626 x4, PREVISION-CALIB relecture x3), 0 erreur Lua, codes 0 ; seuls echecs : migration 0.6.18 3 ECHEC connus (titane sans bobines). Rien de nouveau. main = 0.6.26.
+
+## 30/10 ~8 h 55, passage 66
+- Aucune archive nouvelle depuis le passage 65. Rien de nouveau.
