@@ -422,7 +422,6 @@ local TECH_ICON = {
   ["fo-billets"] = { "advanced-material-processing-2", { r = 0.80, g = 0.86, b = 1.00 } },
   ["fo-asphalt"] = { "concrete", { r = 0.45, g = 0.45, b = 0.48 } },
   ["fo-lapidary"] = { "effect-transmission", { r = 0.62, g = 0.86, b = 1.00 } },
-  ["fo-high-voltage"] = { "electric-energy-distribution-2", { r = 0.80, g = 0.86, b = 1.00 } },
   ["fo-jaw-crusher"] = { "concrete", { r = 0.70, g = 0.72, b = 0.80 } },
   ["fo-resonance-amplifier"] = { "effect-transmission", { r = 0.85, g = 0.95, b = 1.00 } },
 }

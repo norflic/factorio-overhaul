@@ -64,10 +64,11 @@ C.BUILDINGS = {
   { name = "fo-jaw-crusher", copy = { "assembling-machine", "assembling-machine-2" }, side = 3, tint = { r = 0.70, g = 0.72, b = 0.80 } },
 }
 
--- Poteaux de X0 (étape 9) : copie teintée du grand poteau vanilla, portée des fils et zone d'alimentation de X0.
-C.POLES = {
-  { name = "fo-ht-pylon", copy = "big-electric-pole", tint = { r = 0.80, g = 0.86, b = 1.00 } },
-}
+-- Poteaux de X0 : AUCUN ici. Le pylône haute tension (fo-ht-pylon) et sa technologie fo-high-voltage appartiennent au lot
+-- BAUXITE de la piste RESSOURCES (shared/content/bauxite.lua, défini le premier, avec sa variante aluminium-acier) ; les
+-- définir ici aussi les écraserait en silence à la fusion (vérification de la piste, 30/10). Liste gardée vide : le code
+-- des poteaux (prototypes/crafts.lua, tests/crafts_test.lua) sert à un poteau futur.
+C.POLES = {}
 
 -- Balises de X0 (étape 8) : copie teintée de la balise vanilla, stats de X0 (emplacements, rendement, portée, énergie).
 -- Une balise du joueur reste ADDITIVE (les modules multipliés ne valent que dans la machine, lot MOD-1).
@@ -245,10 +246,7 @@ C.TECHS = {
   { name = "fo-resonance-amplifier", x0 = "fo-resonance-amplifier", epoch = 7, count = 300, time = 30,
     prerequisites = { "fo-lapidary", "effect-transmission" },
     unlocks = { "fo-resonance-amplifier" } },
-  -- Étape 9 (âge 6).
-  { name = "fo-high-voltage", x0 = "fo-high-voltage", epoch = 6, count = 200, time = 30,
-    prerequisites = { "fo-electrical-steel", "electric-energy-distribution-2" },
-    unlocks = { "fo-ht-pylon" } },
+  -- Étape 9 (âge 6). fo-high-voltage (pylône) : lot BAUXITE, voir C.POLES.
   { name = "fo-jaw-crusher", x0 = "fo-jaw-crusher", epoch = 6, count = 200, time = 30,
     prerequisites = { "fo-electrical-steel", "fo-crushing" },
     unlocks = { "fo-jaw-crusher" } },

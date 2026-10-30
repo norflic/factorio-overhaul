@@ -24,13 +24,13 @@ local CHECK = 1200
 local TECHS = { "fo-coking", "fo-blast-furnace", "fo-crushing", "fo-cement-concrete", "fo-arc-smelting", "fo-electrical-steel",
                 "fo-titanium-alloys", "fo-brine-byproducts", "fo-glassworks", "fo-flaring", "fo-steam-cracking",
                 "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process", "fo-concentration", "fo-billets", "fo-asphalt", "fo-lapidary",
-                "fo-resonance-amplifier", "fo-high-voltage", "fo-jaw-crusher" }
+                "fo-resonance-amplifier", "fo-jaw-crusher" }
 local ITEMS = { "fo-slag", "fo-cement", "fo-sand", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite",
                 "fo-glass", "fo-manometer", "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer",
                 "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate", "fo-iron-plate-r8", "fo-copper-plate-r8",
                 "fo-tungsten-plate-r8", "fo-cut-crystal", "fo-crystal-powder", "fo-resonance-lens", "fo-crystal-oscillator" }
 local BUILDINGS = { "fo-blast-furnace", "fo-crusher", "fo-coil-winder", "fo-flare-stack", "fo-steam-cracker", "fo-reformer", "fo-cleanroom",
-                    "fo-lapidary", "fo-resonance-amplifier", "fo-jaw-crusher", "fo-ht-pylon" }
+                    "fo-lapidary", "fo-resonance-amplifier", "fo-jaw-crusher" }
 local PROD = { "fo-glass", "fo-manometer", "fo-polyethylene", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite", "fo-titanium-lds",
                "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer", "fo-cleanroom-processor" }
 local NOT_PROD = { "fo-flare-hydrogen", "fo-steam-cracking", "fo-slag-landfill", "fo-sorel-concrete", "fo-hydrocracking", "fo-arc-steel", "fo-blast-furnace-steel",
@@ -153,7 +153,7 @@ return {
         end
       end
     end
-    ctx.check(#closed == 0 and n >= 62, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
+    ctx.check(#closed == 0 and n >= 61, #TECHS .. " technologies : " .. n .. " recettes ouvertes", #closed > 0 and table.concat(closed, ", ") or nil)
     -- 4. Productivité
     local lim = game.item_prototypes["productivity-module-3"] and game.item_prototypes["productivity-module-3"].limitations or {}
     local set = {}
@@ -207,13 +207,11 @@ return {
       and amp.supply_area_distance == 3 and amp.module_inventory_size == 3,
       "amplificateur : balise, 3 modules, rendement 0,75, portee 3",
       amp and (amp.module_inventory_size .. " modules, " .. amp.distribution_effectivity .. ", " .. amp.supply_area_distance) or "absent")
-    -- Étape 9 : pylône haute tension (fils à 64 tuiles), broyeur 2 fois plus rapide que le concasseur.
-    local py = game.entity_prototypes["fo-ht-pylon"]
+    -- Étape 9 : broyeur 2 fois plus rapide que le concasseur (le pylône haute tension est au lot BAUXITE).
     local jc, cr = game.entity_prototypes["fo-jaw-crusher"], game.entity_prototypes["fo-crusher"]
-    ctx.check(py and py.type == "electric-pole" and math.abs(py.max_wire_distance - 64) < 1e-6 and jc and cr
-      and math.abs(jc.crafting_speed - 2 * cr.crafting_speed) < 1e-6,
-      "pylone : fils a 64 tuiles ; broyeur : vitesse double du concasseur",
-      py and (py.max_wire_distance .. " ; " .. tostring(jc and jc.crafting_speed)) or "absent")
+    ctx.check(jc and cr and math.abs(jc.crafting_speed - 2 * cr.crafting_speed) < 1e-6,
+      "broyeur : vitesse double du concasseur",
+      jc and tostring(jc.crafting_speed) or "absent")
   end,
 
   tick = function(ctx, e)
