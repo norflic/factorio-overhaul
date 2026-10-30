@@ -143,6 +143,7 @@ Build.request = function(f, spec)
 end
 local env = {
   Cc = Cc0, M = M, P = P, Build = Build,
+  Sweep = require("shared.team.rebuild_sweep"), -- lot FUITES-PILE : « rouvert » = reconstruction (Sweep.rebuilding) ou murs, pas un agrandissement
   Stock = { count = function() return W.stock end },
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,

@@ -32,7 +32,7 @@ local function plan_reopened(f, book, have, craft)
   local open, path = false, true
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
-    if q and q.reopened and q.reopened_tick and Rule.HOLD_STATES[q.state] then
+    if Rule.rebuilding(q) and Rule.HOLD_STATES[q.state] then -- lot FUITES-PILE : reconstruction seulement (pas un agrandissement)
       local held = q.stock or {}
       for _, it in ipairs((Rule.todo(q))) do
         local item = it[1]
@@ -91,9 +91,69 @@ function PileRt.migration_building(f)
   return (st and st.stage == "chantier") or false
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot FUITES-PILE : la porte des chemins du runtime qui contournaient la pile (capitalisation, réserve des modules neufs au plan
+-- directeur, agrandissement des lignes, amélioration des tapis, équipement en modules) et le journal de ses refus.
+---------------------------------------------------------------------------------------------------
+local function pile_of(f)
+  return f and f.team and f.team.ia3 and f.team.ia3.pile
+end
+
+--- Un travail de la famille `family` (shared/ai3/pile.lua Pi.FAMILY_RANK) produisant `item` (facultatif) peut-il avancer ? Rend
+--- (permis, raison). Lit l'état écrit par la dernière pensée (f.team.ia3.pile) et ses manques PROPRES (f.team.ia3.short_core,
+--- shared/ai3/pile.lua Pi.short_core : la matière manque hors des besoins des améliorations elles-mêmes, investissement de production
+--- permis ; relecture : f.team.ia3.short comptait les manques du module lui-même, qui passait alors tout seul). Sans cerveau par
+--- besoins ni pile : permis.
+function PileRt.porte(f, family, item)
+  local st = pile_of(f)
+  if not (st and st.hold) then return true, nil end
+  local short = f.team.ia3.short_core or {}
+  return Pi.porte(st, family, item, item ~= nil and (short[item] or 0) > 0)
+end
+
+--- Comme PileRt.porte pour plusieurs objets (un ordre qui produit un minerai et sa plaque) : permis si l'un d'eux l'est.
+function PileRt.porte_any(f, family, items)
+  local why = nil
+  local any = false
+  for _, it in ipairs(items or {}) do
+    any = true
+    local ok, w = PileRt.porte(f, family, it)
+    if ok then return true, nil end
+    why = why or w
+  end
+  if not any then return PileRt.porte(f, family, nil) end
+  return false, why
+end
+
+--- Écrit au journal les refus en attente (Pi.suspend) : une ligne « [FO-PILE] <équipe> : refus : <clé> : <raison> » chacun.
+function PileRt.flush(f, tick)
+  local st = pile_of(f)
+  if not (st and st.refus_out and #st.refus_out > 0) then return 0 end
+  local n = #st.refus_out
+  for _, line in ipairs(st.refus_out) do
+    log(string.format("[FO-PILE] %s : refus : %s a %.1f min", f.key or "player", line, (tick - (f.started or 0)) / 3600))
+  end
+  if (st.refus_lost or 0) > 0 then
+    log(string.format("[FO-PILE] %s : refus : %d autre(s) non ecrit(s) (au plus %d par pensee) a %.1f min", f.key or "player",
+      st.refus_lost, Pi.REFUS_OUT_MAX, (tick - (f.started or 0)) / 3600))
+  end
+  st.refus_out, st.refus_lost = nil, nil
+  return n
+end
+
+--- Note un refus de la pile (une fois par clé et par épisode de retenue) et l'écrit tout de suite au journal.
+function PileRt.refuse(f, key, text, tick)
+  local st = pile_of(f)
+  if not st then return false end
+  local new = Pi.suspend(st, key, text)
+  if new then PileRt.flush(f, tick) end
+  return new
+end
+
 --- Journal [FO-PILE] : à chaque changement de sommet ou de retenue, et toutes les Pi.LOG_EVERY ticks.
 function PileRt.journal(f, tick)
   local st = f.team and f.team.ia3 and f.team.ia3.pile
+  PileRt.flush(f, tick) -- lot FUITES-PILE : refus notés par la pensée pure (buts suspendus)
   if not st or st.tick ~= tick then return false end
   if not st.changed and tick < (st.log_at or 0) then return false end
   st.log_at = tick + Pi.LOG_EVERY

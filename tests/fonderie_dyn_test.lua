@@ -571,7 +571,7 @@ do
   check(src:find("Build.ligne_step(f, surface, tick) -- lot FONDERIE-DYNAMIQUE", 1, true) ~= nil, "Build.think relève les lignes")
   check(src:find("cfg.rows_floor", 1, true) == nil, "plus de plancher de rangées dans build.lua")
   local auto_src = read("script/ai3/automatisation.lua")
-  check(auto_src:find("for _, g in ipairs(s and s.grow or {}) do", 1, true) ~= nil, "automatisation : les pièces du pas suivant (Build.brief.grow) deviennent un but « alim »")
+  check(auto_src:find("for _, g in ipairs(grow_ok and s.grow or {}) do", 1, true) ~= nil, "automatisation : les pièces du pas suivant (Build.brief.grow) deviennent un but « alim »")
   check(src:find("if ligne_takes(ln, e, nr, np) and e.item then piece_needs(need, e) end", 1, true) ~= nil
     and src:find("if M.BURNER_ARM and e.name == M.BURNER_ARM then bump(need, T.outposts.coal.product, 2) end", 1, true) ~= nil,
     "ligne_missing compte comme needs_of (charbon d'amorce des bras à combustible)")
