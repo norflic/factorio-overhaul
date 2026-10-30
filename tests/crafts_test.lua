@@ -434,6 +434,24 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("5 quinquies. Biais : effet des variantes sur les monnaies des niveaux (MU des matières premières)")
+---------------------------------------------------------------------------------------------------
+do
+  local L = require("shared.levels.config")
+  local rows = C.currency_impact(L.epoch_materials)
+  check(#rows >= 4, #rows .. " variante(s) d'une monnaie")
+  local worst = 0
+  for _, r in ipairs(rows) do
+    print(string.format("    âge %2d %-22s %-26s vanilla %6.2f MU, variante %6.2f MU (%+.0f %%)", r.epoch, r.item, r.recipe,
+      r.vanilla_mu, r.variant_mu, 100 * r.delta))
+    worst = math.min(worst, r.delta)
+  end
+  -- Garde-fou : aucune variante ne fait baisser le coût en matière d'une monnaie de plus de 40 % (le processeur de X0 à
+  -- 2 par fabrication : environ -65 %, refusé ; à 1 : -33 %, gardé et signalé au DC ; le polyéthylène, -33 % sur le plastique).
+  check(worst > -0.40, string.format("aucune monnaie moins chère de plus de 40 %% (pire : %+.0f %%)", 100 * worst))
+end
+
+---------------------------------------------------------------------------------------------------
 section("6. Productivité")
 ---------------------------------------------------------------------------------------------------
 do

@@ -459,4 +459,35 @@ function C.bilan()
   return rows
 end
 
+--- MU d'une matière première (BALANCE_SHEET §3 : 1 MU = 1 plaque de fer ; fluides X.FLUID_MU, eau gratuite ; titane et
+--- moteur à leur valeur de monnaie).
+C.MU = { ["fer"] = 1, ["cuivre"] = 1, ["pierre"] = 1, ["charbon"] = 1, ["gaz"] = X.FLUID_MU, ["huile lourde"] = X.FLUID_MU,
+         ["eau"] = 0, ["acide"] = X.FLUID_MU, ["titane"] = 20, ["moteur"] = 9 }
+function C.mu(cost)
+  local s = 0
+  for _, m in ipairs(C.RAW_ORDER) do s = s + (cost[m] or 0) * (C.MU[m] or 0) end
+  return s
+end
+
+--- Effet du lot sur les MONNAIES des niveaux (shared/levels/config.lua, L.epoch_materials) : pour chaque monnaie qu'une
+--- variante du lot fabrique, MU des matières premières par la recette vanilla et par la variante. Un niveau se paie en
+--- objets : une variante moins chère en matière rend les niveaux de l'âge moins chers à qui la construit.
+function C.currency_impact(epoch_materials)
+  local rows = {}
+  local ks = {}
+  for k in pairs(epoch_materials) do ks[#ks + 1] = k end
+  table.sort(ks)
+  for _, k in ipairs(ks) do
+    local item = epoch_materials[k].item
+    for _, r in ipairs(C.all_recipes()) do
+      local main = r.main or (#r.results == 1 and r.results[1][1]) or nil
+      if main == item and C.VANILLA_REF[item] then
+        local v, w = C.mu(C.raw_cost(item)), C.mu(C.raw_cost(item, r.name))
+        rows[#rows + 1] = { epoch = k, item = item, recipe = r.name, vanilla_mu = v, variant_mu = w, delta = (w - v) / v }
+      end
+    end
+  end
+  return rows
+end
+
 return C

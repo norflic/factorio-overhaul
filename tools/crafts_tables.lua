@@ -38,6 +38,13 @@ for _, t in ipairs(C.TECHS) do
     table.concat(t.prerequisites, ", "), table.concat(t.unlocks, ", ")))
 end
 
+print("\n## Effet sur les monnaies des niveaux (MU des matières premières, 1 MU = 1 plaque de fer, fluides 0,1)\n")
+print("| Âge | Monnaie | Variante | MU vanilla | MU variante | Écart |")
+print("|---|---|---|---|---|---|")
+for _, r in ipairs(C.currency_impact(require("shared.levels.config").epoch_materials)) do
+  print(string.format("| %d | %s | %s | %.2f | %.2f | %+.0f %% |", r.epoch, r.item, r.recipe, r.vanilla_mu, r.variant_mu, 100 * r.delta))
+end
+
 print("\n## Bilan matière des variantes (par unité du produit, sous-produits du mod gratuits)\n")
 print("| Variante | Produit | Variante : matières | Vanilla : matières | Économise | Coûte en plus |")
 print("|---|---|---|---|---|---|")
