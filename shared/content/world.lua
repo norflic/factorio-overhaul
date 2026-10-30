@@ -54,8 +54,10 @@ W.biomes = {
     no_splash = true,
     sound_from = "stone-path",
     -- Piste AMELIO-BIOMES (30/10, « le fond rose est moche ») : sol GIVRE (tools/biomes/sol_cristal.py), carte assortie
-    -- (150 ; 120 ; 185, lilas, avant).
-    map_color = { r = 120, g = 145, b = 162 },
+    -- (150 ; 120 ; 185, lilas, avant). Vérification : (120 ; 145 ; 162), la moyenne du sol, se confondait sur la carte avec
+    -- le MINERAI DE FER vanilla (106 ; 134 ; 148, ΔRGB ≈ 14) qui pousse aussi dans la plaine : givre plus pâle, qui reste
+    -- loin du fer (≈ 45) et des cratères (122 ; 122 ; 128).
+    map_color = { r = 152, g = 174, b = 192 },
     walking_speed_modifier = 1.1,
     vehicle_friction_modifier = 1.0,
     pollution_absorption_per_second = 0.000004,

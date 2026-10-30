@@ -261,6 +261,27 @@ return {
     end
     table.sort(puits)
     ctx.log("puits de methane : " .. table.concat(puits, " "))
+    -- Vérification AMELIO-BIOMES : l'exclusion ne touche que la TUILE, pas le masque des gisements liés à un biome.
+    -- Part des entités de chaque gisement lié qui tombent sur une AUTRE tuile que leur biome (hors bilan).
+    local lies = { { "fo-tungsten-ore", "fo-volcanic-ash" }, { "fo-resonance-crystal", "fo-crystal-flats" },
+      { "fo-methane", "fo-toxic-marsh" }, { "fo-ilmenite", "fo-crater-fields" }, { "fo-brine", "fo-crater-fields" } }
+    local hors = {}
+    for _, l in ipairs(lies) do
+      if game.entity_prototypes[l[1]] then
+        local n, h, autres = 0, 0, {}
+        for _, e in ipairs(s.find_entities_filtered({ area = { { -CHERCHE, -CHERCHE }, { CHERCHE, CHERCHE } }, name = l[1] })) do
+          n = n + 1
+          local t = s.get_tile(math.floor(e.position.x), math.floor(e.position.y)).name
+          if t ~= l[2] then h = h + 1; autres[t] = (autres[t] or 0) + 1 end
+        end
+        local noms = {}
+        for t in pairs(autres) do noms[#noms + 1] = t end
+        table.sort(noms)
+        for i, t in ipairs(noms) do noms[i] = t .. "=" .. autres[t] end
+        hors[#hors + 1] = string.format("%s %d/%d (%s)", l[1], h, n, table.concat(noms, ","))
+      end
+    end
+    ctx.log("gisements lies HORS de leur biome (hors/total) : " .. table.concat(hors, " ; "))
     -- Empreinte du décor généré (arbres, roches) : sert à voir si un changement de tuile déplace les entités du décor.
     local dec = {}
     for _, f in ipairs({ { type = "tree" }, { type = "simple-entity" } }) do
