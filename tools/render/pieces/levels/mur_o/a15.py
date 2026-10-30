@@ -22,7 +22,7 @@ Z_F0, Z_F1 = 1.02, 1.16                      # créneaux flottants (vide de 0,09
 HW0, HW1 = 0.46, 0.15
 SQ2 = math.sqrt(2.0)
 RIV = 0.016
-PIED = ((0.012, 0.011, 0.012), 0.12, 0.9)
+PIED = ((0.004, 0.004, 0.005), 0.20, 1.0)
 
 
 def hw(z):

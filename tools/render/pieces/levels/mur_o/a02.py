@@ -20,7 +20,7 @@ Z_RB, Z_W, Z_CAP, Z_M = 0.20, 0.80, 0.85, 1.00        # haut de la bande réfrac
 HW0, HW1 = 0.46, 0.15
 SQ2 = math.sqrt(2.0)
 RIV = 0.016
-PIED = ((0.02, 0.017, 0.014), 0.13, 0.92)            # pied sale : jusqu'à L ≈ 0,07 sur ~8 px HR
+PIED = ((0.006, 0.005, 0.004), 0.20, 1.0)       # v3b : vrais noirs au pied (p05 visé ≈ 0,08)            # pied sale : jusqu'à L ≈ 0,07 sur ~8 px HR
 
 
 def hw(z):
@@ -203,7 +203,7 @@ def _pile(g, M, zt, zm_extra, bastion=False):
 
 def noeud(g, M, forme, bras):
     if forme in ("single", "endR", "endL"):
-        _pile(g, M, 0.92, 0.12, bastion=True)          # sommet ≈ +20 % de la crête des courtines
+        _pile(g, M, 0.88, 0.10, bastion=True)          # v3b : sommet ≤ +15 % de la crête des courtines
     elif forme in ("corR", "corL"):
         _pile(g, M, Z_W, 0.0)
     elif forme == "horiz":
