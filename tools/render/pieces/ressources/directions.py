@@ -532,14 +532,35 @@ ROCHE_APLAT["S1"], ROCHE_CASSURE["S1"] = ROCHE_APLAT["G1"], ROCHE_CASSURE["G1"]
 ICONE["S1"] = dict(ICONE["G1"], roche_mats=("quartz_gris", "quartz_gris"), bloc_mats=("blende_miel", "blende_ambre", "blende_rubis"))
 EFFET["S1"] = dict(teinte=(1.0, 0.78, 0.40), seuil=(0.45, 0.80))
 
+# G2 (lot AMELIO-RESSOURCES, 30/10, 3 h) : G1 mesurée en production (mesure.py) à ΔE 6 du FER vanilla en couleur moyenne
+# (reflets 14) : la gangue grise et les cubes argent font une moyenne bleu-gris, celle du fer. G2 la tire hors du fer :
+# gangue de calcite CRÈME chaude (plus de grains et de fins), accents de blende résine plus nombreux, cubes un peu plus
+# sombres (plomb) ; couverture du stade 1 relevée (0,233 contre 0,316 en vanilla : blocs × 1,3 au stade 1).
+MAT.update({
+    "calcite_creme": dict(color=(0.74, 0.66, 0.50), rough=0.60, met=0.0, grain=0.30, gscale=30.0, dirt=0.45),
+    "galene_plomb": dict(color=(0.48, 0.49, 0.52), rough=0.24, met=0.70, grain=0.12, gscale=55.0, dirt=0.35),
+})
+DIRECTIONS["G2"] = dict(DIRECTIONS["G1"], nom="cubes de galène plombée dans une gangue de calcite crème",
+                        roches=(5, 3, 3, 2, 1, 1, 1, 1),
+                        roche_mats=("calcite_creme", "galene_sombre", "calcite_creme"),
+                        blocs=(21, 11, 8, 7, 5, 4, 3, 1),
+                        bloc_mats=("galene_plomb", "galene", "galene_plomb", "galene_sombre", "blende", "blende"),
+                        grains=(30, 20, 15, 11, 8, 6, 4, 2), grain_mats=("calcite_creme", "galene_plomb", "blende", "calcite_creme"),
+                        fin_mats=("calcite_creme", "calcite_creme", "galene_sombre", "blende"))
+CALIB["G2"] = dict(CALIB["G1"])
+ROCHE_COUPES["G2"], ROCHE_LISSE["G2"] = ROCHE_COUPES["G1"], ROCHE_LISSE["G1"]
+ROCHE_APLAT["G2"], ROCHE_CASSURE["G2"] = ROCHE_APLAT["G1"], ROCHE_CASSURE["G1"]
+ICONE["G2"] = dict(ICONE["G1"], roche_mats=("calcite_creme", "calcite_creme"), bloc_mats=("galene_plomb", "galene", "blende"))
+EFFET["G2"] = dict(EFFET["G1"])
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
