@@ -39,10 +39,10 @@ def mats(S):
     M["or_patine"] = surface("m15_orp", (0.20, 0.13, 0.045), (0.08, 0.055, 0.02), rough=0.55, metal=0.9, var=0.7,
                              var_scale=8.0, grain=0.25, bump=0.3, bump_scale=80.0, edge=((0.45, 0.32, 0.12), 0.6, 0.015),
                              cavity=0.5, stain=((0.02, 0.018, 0.015), 0.6, 6.0), bottom=PIED)
-    M["or"] = surface("m15_or", (0.95, 0.70, 0.30), (0.70, 0.48, 0.18), rough=0.32, rough2=0.45, metal=1.0, var=0.5,
+    M["or"] = surface("m15_or", (0.80, 0.58, 0.22), (0.60, 0.42, 0.15), rough=0.32, rough2=0.45, metal=0.5, var=0.5,
                       var_scale=10.0, grain=0.12, bump=0.1, edge=((1.0, 0.85, 0.55), 0.4, 0.015), cavity=0.35)
     # or blanc #E8DCB0 ≈ (0.807, 0.716, 0.431) ; nacre #D8D2C8 ≈ (0.686, 0.644, 0.578)
-    M["or_blanc"] = surface("m15_orb", (0.807, 0.716, 0.431), (0.62, 0.55, 0.33), rough=0.3, rough2=0.42, metal=0.85,
+    M["or_blanc"] = surface("m15_orb", (0.807, 0.716, 0.431), (0.62, 0.55, 0.33), rough=0.3, rough2=0.42, metal=0.4,
                             var=0.5, var_scale=9.0, grain=0.12, bump=0.1, edge=((1.0, 0.95, 0.8), 0.5, 0.015),
                             cavity=0.4)
     M["nacre"] = surface("m15_nacre", (0.686, 0.644, 0.578), (0.50, 0.47, 0.43), rough=0.35, metal=0.1, spec=0.7,

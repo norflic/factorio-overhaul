@@ -42,7 +42,7 @@ def mats(S):
                                edge=((0.45, 0.24, 0.14), 0.6, 0.02), cavity=0.6, streak=0.5,
                                stain=((0.03, 0.015, 0.01), 0.6, 4.0), bottom=PIED)
     # acier #5C6168 (sRGB) ≈ (0.107, 0.120, 0.141) linéaire
-    M["acier"] = surface("m2_acier", (0.107, 0.120, 0.141), (0.06, 0.062, 0.066), rough=0.48, rough2=0.75, metal=0.7,
+    M["acier"] = surface("m2_acier", (0.20, 0.22, 0.25), (0.11, 0.115, 0.125), rough=0.5, rough2=0.75, metal=0.3,
                          var=0.6, var_scale=6.0, grain=0.22, bump=0.35, bump_scale=110.0,
                          edge=((0.42, 0.44, 0.47), 0.85, 0.015), cavity=0.5, streak=0.6,
                          stain=((0.10, 0.05, 0.025), 0.5, 7.0))
@@ -55,7 +55,7 @@ def mats(S):
     M["cerclage"] = surface("m2_cerclage", (0.027, 0.025, 0.023), (0.06, 0.035, 0.02), rough=0.5, metal=0.8, var=0.5,
                             grain=0.3, bump=0.4, bump_scale=120.0, edge=((0.25, 0.24, 0.22), 0.8, 0.015), cavity=0.3)
     # laiton #8C7440 ≈ (0.262, 0.178, 0.051)
-    M["laiton"] = surface("m2_laiton", (0.262, 0.178, 0.051), (0.15, 0.10, 0.03), rough=0.42, metal=1.0, var=0.4,
+    M["laiton"] = surface("m2_laiton", (0.48, 0.34, 0.11), (0.30, 0.21, 0.07), rough=0.4, metal=0.45, var=0.4,
                           grain=0.15, bump=0.0, edge=((0.5, 0.38, 0.15), 0.5, 0.01), cavity=0.3)
     M["vide"] = surface("m2_vide", (0.008, 0.006, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0, spec=0.0)
     return M

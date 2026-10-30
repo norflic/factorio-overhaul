@@ -54,10 +54,10 @@ def mats(S):
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
                           grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
-    M["verre"] = surface("m8_verre_v", (0.27, 0.52, 0.065), (0.17, 0.36, 0.04), rough=0.08, rough2=0.15, spec=1.0,
+    M["verre"] = surface("m8_verre_v", (0.09, 0.19, 0.03), (0.05, 0.11, 0.018), rough=0.06, rough2=0.12, spec=1.0,
                          var=0.5, var_scale=6.0, grain=0.05, bump=0.05, cavity=0.2,
                          edge=((0.6, 0.8, 0.35), 0.4, 0.02))
-    M["liquide"] = geo.emissive(S, "m8_liquide", (0.66, 1.0, 0.23), strength=0.75, base=(0.05, 0.09, 0.01))
+    M["liquide"] = geo.emissive(S, "m8_liquide", (0.66, 1.0, 0.23), strength=0.5, base=(0.05, 0.09, 0.01))
     M["verre_sombre"] = surface("m8_verre_s", (0.03, 0.06, 0.02), rough=0.08, spec=1.0, var=0.3, grain=0.05,
                                 bump=0.0, cavity=0.0)
     M["mousse"] = surface("m8_mousse", (0.06, 0.14, 0.02), (0.03, 0.07, 0.012), rough=1.0, var=0.8, var_scale=12.0,
@@ -273,7 +273,7 @@ def _panneau(g, M, xc=0.0, w=0.28, z0=0.28, z1=0.62):
     g.hull(coque(contour(0.045, 0.045), 0.012, 0.03), M["cuivre"], bev=0.006, seg=1)
     g.hull(coque(contour(0.0, 0.0), 0.024, 0.0), M["verre"], bev=0.01, seg=2)
     # liquide luminescent : bande basse du verre
-    liq = [(xc - w + 0.03, z0 + 0.02), (xc + w - 0.03, z0 + 0.02), (xc + w - 0.03, z0 + 0.12), (xc - w + 0.03, z0 + 0.12)]
+    liq = [(xc - w + 0.04, z0 + 0.03), (xc + w - 0.04, z0 + 0.03), (xc + w - 0.04, z0 + 0.09), (xc - w + 0.04, z0 + 0.09)]
     g.hull(coque(liq, 0.030, 0.0), M["liquide"], bev=0, seg=1)
     # rivets de l'armature
     g.rivets([(xc + sx * (w + 0.022), -(hw(z) * k + 0.016), z, "y") for sx in (-1, 1) for z in (z0 + 0.05, z1 - 0.02)],
