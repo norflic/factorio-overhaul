@@ -447,6 +447,12 @@ do
   check(pr.pick and pr.pick.key == "9,9" and pr.rows[1].skip == "refus", "ennemi déjà sur place (le moteur refuse) : ligne prévue refusée, rien de bloqué")
   local pc = F.plan({ prevu = pre, turrets = {}, placed = F.TEAM_CAP })
   check(pc.pick == nil and pc.rows[1].skip == "plafond", "plafond d'équipe : même la défense d'avance l'attend (raison lue par la prévision)")
+  -- Relecture de la revue : la défense d'avance laisse aux cellules attaquées les F.ATTACK_RESERVE dernières places du plafond.
+  local pres = F.plan({ prevu = pre, cells = hot, turrets = {}, placed = F.TEAM_CAP - F.ATTACK_RESERVE })
+  check(pres.pick and pres.pick.key == "9,9" and pres.rows[1].skip == "plafond",
+    "plafond presque atteint : les dernières places vont à la cellule RÉELLEMENT attaquée, pas à la prévision (" .. tostring(pres.pick and pres.pick.key) .. ")")
+  local pres2 = F.plan({ prevu = pre, cells = hot, turrets = {}, placed = F.TEAM_CAP - F.ATTACK_RESERVE - 1 })
+  check(pres2.pick and pres2.pick.key == "prev:qg" and pres2.pick.count == 1, "au-dessus de la réserve : la défense d'avance est servie, bornée à la place qui reste")
   local prest = F.plan({ prevu = pre, turrets = {}, rest = { ["prev:qg"] = true } })
   check(prest.pick == nil and prest.rows[1].skip == "repos", "pose précédente sans résultat : ligne au repos")
   -- mutant : lignes prévues ignorées par le plan -> rien n'est posé avant le coup

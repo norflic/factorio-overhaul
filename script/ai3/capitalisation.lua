@@ -684,8 +684,11 @@ local function defense_input(f, D)
   if price <= 0 then return nil end
   -- Journal [FO-PREVISION] (une ligne par cause : le prix de la défense induite change de plus de 20 %).
   local pst = f.prevision
-  if pst and (not pst.price_logged or math.abs(price - pst.price_logged) > 0.2 * pst.price_logged) then
+  -- (relecture de la revue : sous le même plafond de lignes que le reste du journal de la prévision, Prev.LOGS_MAX par équipe)
+  if pst and (pst.logs or 0) < Prev.LOGS_MAX
+    and (not pst.price_logged or math.abs(price - pst.price_logged) > 0.2 * pst.price_logged) then
     pst.price_logged = price
+    pst.logs = (pst.logs or 0) + 1
     log(string.format("[FO-PREVISION] %s DEFENSE INDUITE comptee par la capitalisation : %.2f MU par pollution/min (%.1f PV de vague par pollution/min, tourelle %d PV pour %d MU)",
       tostring(f.key or "player"), price, dv.hp_per_emit, math.floor(dv.turret_value), math.floor(mu)))
   end

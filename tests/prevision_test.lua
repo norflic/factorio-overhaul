@@ -313,6 +313,26 @@ local function battery(Pv, Pc)
   local n0 = s9.army_need
   Pc.update(s9, e_w(100 * d1, 10), ctx({ iron = 160 }), 3600)
   check(s9.alert and s9.army_need == n0, "pendant l'alerte, le besoin ne descend pas (on ne licencie pas)")
+  -- Relecture de la revue : des soldats MORTS (10 -> 4) ne sont pas remplacés hors budget (fer à la réserve : aucune recrue de plus).
+  local s9b = Pc.new()
+  Pc.update(s9b, e_w(100 * d1, 10), ctx({ iron = 2000 }), 0)
+  local nb0 = s9b.army_need
+  Pc.update(s9b, e_w(100 * d1, 10), ctx({ iron = 150, soldiers = 4 }), 3600)
+  check(s9b.alert and s9b.army_need == nb0 - 6, "pendant l'alerte, 6 morts et fer à la réserve : le besoin perd les morts (" .. nb0 .. " -> " .. s9b.army_need .. ")")
+  Pc.update(s9b, e_w(100 * d1, 10), ctx({ iron = 2000, soldiers = 4 }), 7200)
+  check(s9b.alert and s9b.army_need > nb0 - 6, "fer revenu : le remplacement repasse par le budget du moment (" .. s9b.army_need .. ")")
+  -- Insurmontable : le même fer libre paie des tourelles OU des recrues, pas les deux.
+  local s9c = Pc.new()
+  local cx9 = ctx({ iron = 1150, soldiers = 0, kit_iron = 50, turret_iron = 50 })
+  Pc.update(s9c, e_w(1, 10), cx9, 0)
+  local tv9, sv9 = cx9.turret_value, cx9.soldier_value
+  local pay = math.floor((1150 - (cx9.reserve or 0)) / 50)
+  local buy = math.min(cx9.soldiers_max, Pc.affordable(1150, cx9.reserve, 50, s9c.sites.qg.eta))
+  local dsum = s9c.sites.qg.d + pay * tv9 + buy * sv9
+  local dmx = s9c.sites.qg.d + math.max(pay * tv9, buy * sv9)
+  local s9d = Pc.new()
+  Pc.update(s9d, e_w((dmx + dsum) / 2 / 1.1 * 1.2, 10), cx9, 0)
+  check(dsum > dmx and s9d.sites.qg.insurm, "vague entre la défense « fer compté deux fois » et la vraie : insurmontable")
   Pc.update(s9, e_w(0, 10), ctx({ iron = 160 }), 7200)
   check(not s9.alert and s9.army_need == 0, "vague retombée : alerte close (état, pas horloge)")
   local s11 = Pc.new()
@@ -422,7 +442,11 @@ local MUTANTS = {
   { name = "plafond de soldats retiré", file = PC, mod = "shared.ai3.prevision_choix",
     from = "if need > cap then need = cap end", to = "" },
   { name = "besoin réduit pendant l'alerte (licenciement)", file = PC, mod = "shared.ai3.prevision_choix",
-    from = "if alert and st.alert and (st.army_need or 0) > need then need = st.army_need end", to = "" },
+    from = "if keep > need then need = keep end", to = "" },
+  { name = "morts remplacés hors budget (besoin gardé malgré les pertes)", file = PC, mod = "shared.ai3.prevision_choix",
+    from = "local keep = st.army_need - lost", to = "local keep = st.army_need" },
+  { name = "fer libre compté deux fois (tourelles ET recrues)", file = PC, mod = "shared.ai3.prevision_choix",
+    from = "math.max(turrets_pay * tv, buy_n * sv)", to = "turrets_pay * tv + buy_n * sv" },
   { name = "première vague sans mémoire (ping-pong au moindre bruit)", file = PC, mod = "shared.ai3.prevision_choix",
     from = "if prev and prev.w5 > 0 and prev.w5 * 1000 > Pc.MARGE * prev.d then first = prev end", to = "" },
   { name = "trou d'exécutant (exec toujours vrai)", file = PC, mod = "shared.ai3.prevision_choix",

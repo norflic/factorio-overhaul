@@ -104,10 +104,15 @@ function Pc.update(st, est, ctx, tick)
   if (ctx.turret_iron or 0) > 0 then
     turrets_pay = math.max(0, math.floor(((ctx.iron or 0) - (ctx.reserve or 0)) / ctx.turret_iron))
   end
-  local recruits_pay = 0
+  -- Recrues payables : équipements au coffre (payés), puis achats sur le fer libre. Le MÊME fer libre paie des tourelles OU des
+  -- recrues (relecture de la revue : la meilleure défense réunissable les additionnait, ce qui doublait le fer et rendait
+  -- « tenable » une vague qui ne l'est pas).
+  local recruits_pay, kits_n, buy_n = 0, 0, 0
   if (ctx.soldiers_max or 0) > 0 then
-    recruits_pay = math.min(math.max(0, ctx.soldiers_max - (ctx.soldiers or 0)),
-      (ctx.kits_stock or 0) + Pc.affordable(ctx.iron, ctx.reserve, ctx.kit_iron, first and first.eta))
+    local room = math.max(0, ctx.soldiers_max - (ctx.soldiers or 0))
+    kits_n = math.min(room, ctx.kits_stock or 0)
+    buy_n = math.min(room - kits_n, Pc.affordable(ctx.iron, ctx.reserve, ctx.kit_iron, first and first.eta))
+    recruits_pay = kits_n + buy_n
   end
   -- 2. Sites : hystérésis « préparer », insurmontable, tourelles voulues.
   local open = {}
@@ -129,7 +134,7 @@ function Pc.update(st, est, ctx, tick)
     end
     -- Insurmontable : meilleure défense réunissable avant l'échéance (réserve mobile entière, tourelles au coffre et payables,
     -- recrues payables).
-    local dmax = o.d + mobile + ((ctx.turret_stock or 0) + turrets_pay) * tv + recruits_pay * sv
+    local dmax = o.d + mobile + (ctx.turret_stock or 0) * tv + kits_n * sv + math.max(turrets_pay * tv, buy_n * sv)
     local wi = s.insurm
     if not wi and o.w5 > 0 and o.w5 * 1000 >= Pc.INSURM_IN * dmax then s.insurm = true
     elseif wi and o.w5 <= dmax then s.insurm = false end
@@ -184,7 +189,16 @@ function Pc.update(st, est, ctx, tick)
   else
     st.army_cap = 0
   end
-  if alert and st.alert and (st.army_need or 0) > need then need = st.army_need end
+  -- Le besoin ne descend pas pendant l'alerte (fer déjà engagé dans des équipements en route : on ne licencie pas), SAUF des
+  -- soldats MORTS depuis le relevé précédent (relecture de la revue indépendante : sans cela, un besoin gardé après les pertes
+  -- d'une vague faisait remplacer les morts à la priorité de la défense HORS budget, jusqu'à prendre la réserve de production,
+  -- C1 ; le remplacement repasse par le budget du moment, `cap`).
+  if alert and st.alert and (st.army_need or 0) > need then
+    local lost = math.max(0, (st.soldiers_last or 0) - (ctx.soldiers or 0))
+    local keep = st.army_need - lost
+    if keep > need then need = keep end
+  end
+  st.soldiers_last = ctx.soldiers or 0
   if alert ~= (st.alert or false) or need ~= (st.army_need or 0) then
     evs[#evs + 1] = { kind = "armee", alert = alert, need = need, was = st.army_need or 0, key = first and first.key }
   end

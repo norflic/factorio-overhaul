@@ -304,6 +304,9 @@ function F.plan(p)
     for _, r in ipairs(rows) do
       local room = left
       if r.kind == "couverture" then room = left - F.ATTACK_RESERVE end -- la couverture ne prend pas les places des cellules attaquées
+      -- Lot PREVISION (relecture de la revue) : les tourelles d'AVANCE (une prévision) non plus : servies d'abord, elles prenaient sinon
+      -- tout le plafond d'équipe et une cellule RÉELLEMENT attaquée restait « plafond » tant que le cadre « préparer » restait ouvert.
+      if r.kind == "prevu" then room = left - F.ATTACK_RESERVE end
       -- une cellule déjà servie par une cellule attaquée voisine (même clé) n'est pas dupliquée en couverture
       local dup = false
       if r.kind == "couverture" then

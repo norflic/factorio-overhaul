@@ -756,6 +756,12 @@ function Ia3.plan(f, view, book, surface, tick)
     -- manque pas (shared/ai3/bras.lua, Br.army ; jamais au-delà du plafond de soldats).
     local key_short = ((st.short or {})[floor_item] or 0) > 0
     army_target = Br.army(army_target, view.soldiers_max, (f.traits or {}).agressivite, spare_hands, key_short)
+    -- Lot PREVISION (relecture de la revue) : armée visée à MOYEN terme (vague prévue à 15 min au-dessus des tourelles,
+    -- script/ai3/prevision.lua) : elle relève la cible UNIQUE du cerveau (projet ordinaire de B.goals, pas la priorité de la
+    -- défense), comme Br.army, et jamais quand la matière clé manque (production d'abord). Le planificateur permanent ne la voit
+    -- plus (C.base_view) : un seul chemin de recrutement.
+    local soon = view.army_soon or 0
+    if soon > army_target and not key_short then army_target = math.min(soon, view.soldiers_max or 0) end
   end
   -- En guerre : déclarée au joueur (PvP) ; la posture guerrière du chef passe déjà par les poids (B.weights).
   local at_war = (f.pvp and f.pvp.declared) or false
