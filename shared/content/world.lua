@@ -463,6 +463,10 @@ W.resources = {
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/monazite",
       name = "monazite",
+      -- Icônes À PART de la feuille (lot design-icone-monazite, 30/10 ; DC : « changez les icones mais si non c est pas
+      -- mal ») : tas de 4 ou 5 rognons M1 composés comme les icônes vanilla (tools/render/pieces/ressources/
+      -- icones_monazite.py). L'objet, ses images au sol et le gisement les prennent (prototypes/world.lua).
+      icones = "__factorio-overhaul__/graphics/ressources/monazite/icones",
       mining_visualisation_tint = { r = 0.80, g = 0.62, b = 0.35, a = 1 },
       -- Couche d'effet ambre faible (pas la lueur trop claire de l'ilménite la nuit). Multiplicateur 40 (captures du
       -- 25/10, 8 h 25) : de nuit ΔE76 au cuivre 7,4 et à la pierre 6,5 (x2_lisibilite.py N1, N2 en échec) ; 80 essayé.

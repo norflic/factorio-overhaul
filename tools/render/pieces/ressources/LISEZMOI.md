@@ -16,6 +16,7 @@ champ `sheet`, et `prototypes/world.lua`). Le kit ne touche à AUCUN fichier du 
 | `feuille.py` | rendu (par le verrou) et post-traitement : cadres, ombre et liseré intégrés, fondu de bordure, réduction 2×, effet, icônes, `MANIFEST.json` | non (appelle Blender) |
 | `mesure.py` | mesures contre la vanilla (couverture, luminance, reflets, ΔE CIE76) et planche hors moteur jour / nuit, zooms 1 et 2 | non |
 | `check_gisement.py` | contrôle de la feuille livrée (manifeste, format, stades, bordure, normale en alpha et en couleur, couche d'effet dans le minerai, répartition des couleurs annoncée = mesurée) ; `--mutants` | non |
+| `icone_monazite.py`, `icones_monazite.py` | icônes de la monazite faites À PART de la feuille (lot design-icone-monazite, 30/10) : tas de 4 ou 5 rognons du MÊME modèle que le gisement M1 (`gisement.roche`), composés à la main comme les icônes vanilla (morceaux distincts séparés par des jours), lumière d'icône, liseré de contact ; sortie `graphics/ressources/monazite/icones/` (champ `sheet.icones` de `shared/content/world.lua`, lu par `prototypes/world.lua`) | oui |
 | `lisibilite_moteur.py` | critère de lisibilité JOUR et NUIT mesuré sur les CAPTURES EN MOTEUR du scénario `m1-minerai` (ΔE76, contraste au sol, pixels clairs, contre le fer, le charbon et la pierre sur le même sol) ; la nuit hors moteur de `mesure.py` n'en décide pas (elle s'est trompée de signe) | non |
 
 **Nuit en moteur (correction M1, 24/10, mesuré).** La couche d'effet (`stages_effect`, additive, `flags = {"light"}`) se
