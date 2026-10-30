@@ -79,6 +79,39 @@ for i, name in ipairs(C.FLUIDS) do
   out[#out + 1] = f
 end
 
+-- Sols (étape 6) : copie teintée d'un sol vanilla, modificateurs de X0 ; objet qui le pose.
+for i, spec in ipairs(C.TILES) do
+  local x = assert(C.x_tile(spec.name), "crafts : sol X0 absent " .. spec.name)
+  local t = lib.copy("tile", spec.copy)
+  t.name = spec.name
+  t.localised_name = { "item-name." .. spec.name }
+  t.minable = { mining_time = 0.1, result = spec.name }
+  t.layer = spec.layer
+  t.tint = spec.tint
+  t.map_color = spec.map_color
+  t.walking_speed_modifier = x.walking_speed_modifier
+  t.vehicle_friction_modifier = x.vehicle_friction_modifier
+  t.next_direction = nil
+  t.placeable_by = nil
+  t.transition_merges_with_tile = nil
+  out[#out + 1] = t
+  local src = data.raw.item[spec.copy]
+  local xi = assert(T.x_item(spec.name), "crafts : objet X0 absent " .. spec.name)
+  local pat = table.deepcopy(src.place_as_tile)
+  pat.result = spec.name
+  out[#out + 1] = {
+    type = "item",
+    name = spec.name,
+    localised_name = { "item-name." .. spec.name },
+    localised_description = { "item-description." .. spec.name },
+    icons = icon_of("item", spec.copy, spec.tint),
+    subgroup = "fo-crafts",
+    order = string.format("z[fo]-b[tiles]-%02d", i),
+    stack_size = xi.stack,
+    place_as_tile = pat,
+  }
+end
+
 for _, c in ipairs(C.new_categories()) do
   out[#out + 1] = { type = "recipe-category", name = c }
 end
@@ -306,6 +339,7 @@ local TECH_ICON = {
   ["fo-siemens-process"] = { "advanced-electronics-2", { r = 0.70, g = 0.95, b = 0.75 } },
   ["fo-concentration"] = { "advanced-material-processing-2", { r = 0.85, g = 0.80, b = 0.70 } },
   ["fo-billets"] = { "advanced-material-processing-2", { r = 0.80, g = 0.86, b = 1.00 } },
+  ["fo-asphalt"] = { "concrete", { r = 0.45, g = 0.45, b = 0.48 } },
 }
 for _, t in ipairs(C.TECHS) do
   local effects = {}

@@ -57,6 +57,13 @@ C.BUILDINGS = {
   { name = "fo-cleanroom", copy = { "assembling-machine", "assembling-machine-3" }, side = 3, tint = { r = 0.90, g = 0.96, b = 1.00 } },
 }
 
+-- Sols de X0 mis en jeu (étape 6). Visuel PROVISOIRE : copie teintée d'un sol vanilla ; layer libre de vanilla (63).
+-- Un sol posé est un usage final (comme un bâtiment) : tests/crafts_test.lua le compte ainsi.
+C.TILES = {
+  { name = "fo-asphalt", copy = "concrete", layer = 63, tint = { r = 0.40, g = 0.40, b = 0.43 },
+    map_color = { r = 0.20, g = 0.20, b = 0.22 } },
+}
+
 -- Recettes de procédé de X0 mises en jeu (ordre d'affichage) ; main = produit principal d'une recette à plusieurs
 -- produits ; subst = ingrédient X0 absent remplacé (provisoire, dit dans la description de la recette).
 C.RECIPES = {
@@ -115,6 +122,8 @@ C.RECIPES = {
   { name = "fo-iron-plate-r8-unpacking" },
   { name = "fo-copper-plate-r8-unpacking" },
   { name = "fo-tungsten-plate-r8-unpacking" },
+  -- Étape 6, âge 4 (Pétrole) : asphalte (sol rapide pour les véhicules), un débouché de l'huile lourde et du sable.
+  { name = "fo-asphalt" },
 }
 
 -- Recettes HORS X0 (fermeture des boucles en jeu). Même format que les recettes de X0.
@@ -204,6 +213,9 @@ C.TECHS = {
   { name = "fo-concentration", x0 = "fo-concentration", epoch = 10, count = 300, time = 30,
     prerequisites = { "fo-arc-smelting", "fo-electrical-steel", "fo-tungsten-processing", "utility-science-pack" },
     unlocks = { "fo-ore-concentrator", "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate" } },
+  { name = "fo-asphalt", x0 = "fo-asphalt", epoch = 4, count = 100, time = 30,
+    prerequisites = { "fo-crushing", "oil-processing", "concrete", "chemical-science-pack" },
+    unlocks = { "fo-asphalt" } },
   { name = "fo-billets", x0 = "fo-billets", epoch = 10, count = 300, time = 30,
     prerequisites = { "fo-concentration" },
     unlocks = { "fo-iron-plate-r8", "fo-copper-plate-r8", "fo-tungsten-plate-r8", "fo-iron-plate-r8-unpacking",
@@ -220,6 +232,13 @@ local IN_GAME = {}
 for _, n in ipairs(C.ITEMS) do IN_GAME[n] = true end
 for _, n in ipairs(C.FLUIDS) do IN_GAME[n] = true end
 for _, b in ipairs(C.BUILDINGS) do IN_GAME[b.name] = true end
+for _, t in ipairs(C.TILES) do IN_GAME[t.name] = true end
+
+--- Spécification de X0 d'un sol (X.tiles) : { name, epoch, walking_speed_modifier, vehicle_friction_modifier, ... }.
+function C.x_tile(name)
+  for _, t in ipairs(X.tiles) do if t.name == name then return t end end
+  return nil
+end
 
 --- L'objet existe-t-il en jeu avec ce lot et X1 ? (nom vanilla, objet du mod en jeu)
 function C.present(name)

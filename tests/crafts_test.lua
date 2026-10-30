@@ -99,6 +99,7 @@ local function graph_faults(Cm)
   for _, n in ipairs(T.ALREADY) do outside[n] = true end
   for _, bb in ipairs(T.BUILDINGS) do building[bb.name] = true end
   for _, bb in ipairs(Cm.BUILDINGS) do building[bb.name] = true end
+  for _, tt in ipairs(Cm.TILES or {}) do building[tt.name] = true end -- un sol posé : usage final
   local function leads_to_vanilla(name, seen)
     if not name:find("^fo%-") or outside[name] or building[name] then return true end
     seen = seen or {}
@@ -121,6 +122,7 @@ local function graph_faults(Cm)
       local is_building = false
       for _, b in ipairs(T.BUILDINGS) do if b.name == p[1] then is_building = true end end
       for _, b in ipairs(Cm.BUILDINGS) do if b.name == p[1] then is_building = true end end
+      for _, tt in ipairs(Cm.TILES or {}) do if tt.name == p[1] then is_building = true end end
       if p[1]:find("^fo%-") and not is_building and not products[p[1]] then products[p[1]] = true end
     end
   end
@@ -267,6 +269,13 @@ for _, t in ipairs(C.TECHS) do
   check(#packs >= 2 and packs[1] == "automation-science-pack", t.name .. " : packs vanilla de l'âge " .. t.epoch)
   for _, p in ipairs(packs) do check(not p:find("^fo%-"), t.name .. " : aucun pack du mod (" .. p .. ")") end
   check(C.tech_count(t) >= 10, t.name .. " : au moins 10 unités")
+end
+for _, t in ipairs(C.TILES) do
+  local x = C.x_tile(t.name)
+  check(x ~= nil and T.x_item(t.name) and T.x_item(t.name).use == "tile", t.name .. " : sol et objet de X0")
+  check(x and x.walking_speed_modifier and x.vehicle_friction_modifier, t.name .. " : modificateurs de X0")
+  check(t.layer and t.layer > 0 and t.layer ~= 61 and t.layer ~= 62 and t.layer ~= 64 and t.layer ~= 65,
+    t.name .. " : couche libre parmi les sols vanilla posables")
 end
 check(#C.new_categories() == 7, "7 catégories neuves (" .. table.concat(C.new_categories(), ", ") .. ")")
 

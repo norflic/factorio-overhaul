@@ -23,7 +23,7 @@ local CHECK = 1200
 
 local TECHS = { "fo-coking", "fo-blast-furnace", "fo-crushing", "fo-cement-concrete", "fo-arc-smelting", "fo-electrical-steel",
                 "fo-titanium-alloys", "fo-brine-byproducts", "fo-glassworks", "fo-flaring", "fo-steam-cracking",
-                "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process", "fo-concentration", "fo-billets" }
+                "fo-methane-reforming", "fo-carbonation", "fo-silicon", "fo-siemens-process", "fo-concentration", "fo-billets", "fo-asphalt" }
 local ITEMS = { "fo-slag", "fo-cement", "fo-sand", "fo-graphite", "fo-magnetic-steel", "fo-enameled-wire", "fo-coil", "fo-titanium-composite",
                 "fo-glass", "fo-manometer", "fo-metallurgical-silicon", "fo-pure-silicon", "fo-silicon-wafer",
                 "fo-iron-concentrate", "fo-copper-concentrate", "fo-tungsten-concentrate", "fo-iron-plate-r8", "fo-copper-plate-r8",
@@ -83,6 +83,8 @@ local POSTES = {
   { key = "concentre", m = "fo-ore-concentrator", r = "fo-iron-concentrate", p = "fo-iron-concentrate", items = { { "iron-ore", 48 } } },
   { key = "billette", m = "fo-arc-furnace", r = "fo-iron-plate-r8", p = "fo-iron-plate-r8", items = { { "fo-iron-concentrate", 6 } } },
   { key = "decoupe", m = "assembling-machine-3", r = "fo-iron-plate-r8-unpacking", p = "iron-plate", items = { { "fo-iron-plate-r8", 4 } } },
+  -- Étape 6 : asphalte (âge 4).
+  { key = "asphalte", m = "chemical-plant", r = "fo-asphalt", p = "fo-asphalt", items = { { "fo-sand", 10 } }, fluids = { { "heavy-oil", 100 } } },
 }
 
 local function size_of(name)
@@ -177,6 +179,15 @@ return {
     end
     st.x1 = x
     ctx.check(placed == #POSTES, placed .. " postes poses, recette posee", #fails > 0 and table.concat(fails, ", ") or nil)
+    -- Étape 6 : l'asphalte se pose (bande de 6 x 3 sous la rangée) avec les modificateurs de X0.
+    local tiles = {}
+    for dx = 0, 5 do for dy = 0, 2 do tiles[#tiles + 1] = { name = "fo-asphalt", position = { X0 + dx, Y0 + 6 + dy } } end end
+    s.set_tiles(tiles)
+    local tp = game.tile_prototypes["fo-asphalt"]
+    local got = s.get_tile(X0 + 2, Y0 + 7).name
+    ctx.check(got == "fo-asphalt" and tp and math.abs(tp.walking_speed_modifier - 1.4) < 1e-6
+      and math.abs(tp.vehicle_friction_modifier - 0.6) < 1e-6 and tp.mineable_properties.products[1].name == "fo-asphalt",
+      "asphalte pose, marche 1,4, friction 0,6, se ramasse", got)
   end,
 
   tick = function(ctx, e)
