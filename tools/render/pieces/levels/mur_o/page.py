@@ -9,7 +9,8 @@ import os
 IMAGES = (("planche-zoom2.png", "Zoom 2 (64 px/tuile) : chaque âge à côté du mur vanilla (et de la version précédente)"),
           ("planche-zoom1.png", "Zoom 1 (32 px/tuile) : vanilla, âges 2, 8 et 15, même tracé"),
           ("planche-gros-plan.png", "Gros plan : bout, courtine, bout (zoom 2 agrandi ×2)"),
-          ("planche-gris.png", "Test du gris (D1-1), zoom 1"))
+          ("planche-gris.png", "Test du gris (D1-1), zoom 1"),
+          ("planche-ombre-Q22.png", "Question Q22 : ombre posée comme le vanilla contre l'ancienne ombre F47"))
 
 
 def main():

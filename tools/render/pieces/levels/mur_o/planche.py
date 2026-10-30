@@ -212,6 +212,7 @@ def main():
     ap.add_argument("--titre", default="")
     ap.add_argument("--avant", default="", help="sprites d'une version précédente (colonne de comparaison)")
     ap.add_argument("--nom-avant", default="v1")
+    ap.add_argument("--ombre-f47", default="", help="sprites de l'âge 2 rendus avec l'ombre F47 (question Q22)")
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     ages = [int(x) for x in a.ages.split(",") if x]
@@ -255,6 +256,14 @@ def main():
     gz = [im(z1(compose(j, TRACE, gris=True))) for j in jeux]
     grille([[(g, noms[i] + " · gris") for i, g in enumerate(gz)]], "Mur %s · gris, zoom 1" % a.titre).save(
         os.path.join(a.out, "planche-gris.png"))
+    if a.ombre_f47 and 2 in ages:
+        # Q22 : même âge 2, ombre posée comme le vanilla (sud-est) contre l'ancienne ombre F47 (plein est)
+        j_new = jeux[1 + ages.index(2)]
+        j_old = Jeu.rendu(a.ombre_f47, 2)
+        T = ["........", ".#####..", ".#......", ".#......", "........"]
+        rows = [[(im(compose(van, T)), "vanilla"), (im(compose(j_new, T)), "âge 2 · ombre comme le vanilla (v5b)"),
+                 (im(compose(j_old, T)), "âge 2 · ancienne ombre F47 (plein est)")]]
+        grille(rows, "Question Q22 · ombre du mur, zoom 2").save(os.path.join(a.out, "planche-ombre-Q22.png"))
     for i, x in enumerate(z2):
         im(x).save(os.path.join(a.out, "z2-%s.png" % ("vanilla" if i == 0 else "a%02d" % ages[i - 1])))
     print("[FO-PLANCHE] %s" % a.out)
