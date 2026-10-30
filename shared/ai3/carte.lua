@@ -22,7 +22,7 @@
                                note = a priori × sécurité ÷ (distance au QG + distance à l'éclaireur + 100)
                                (§4.1 : a priori × sécurité ÷ (distance au QG + 100) ; la distance à l'éclaireur est
                                AJOUTÉE pour qu'il balaie de proche en proche au lieu de traverser la base à chaque
-                               cible : écart déclaré) ;
+                               cible : écart déclaré) ; ctx.soft : exclusion douce (régions bloquées), lot IA3F-PETROLE ;
     K.ring(x, y, r)            8 points d'un anneau (tour du propriétaire), vecteurs constants : aucune trigonométrie.
 
   Déterminisme : clés triées partout (aucune décision sur l'ordre de `pairs`), entiers ou opérations IEEE identiques
@@ -409,9 +409,15 @@ function K.path_clear(m, a, b)
 end
 
 --- Meilleure cible d'exploration. ctx = { hq = {x, y}, me = {x, y}, tick, res (ou nil), spawn = {x, y},
---- rivals = { {x, y} }, exclude = { [clé] = true }, max_dist }. Renvoie clé, note (nil si aucune).
+--- rivals = { {x, y} }, exclude = { [clé] = true }, soft = { [clé] = true }, max_dist }. Renvoie clé, note (nil si aucune),
+--- et `true` quand la cible vient de l'exclusion douce.
+--- Lot IA3F-PETROLE : `soft` est une exclusion DOUCE (régions bloquées par un chemin raté, lot EXPLO) : une cible hors de
+--- `soft` passe toujours avant ; si TOUTES les cibles restantes sont dans `soft`, la meilleure d'entre elles est rendue au
+--- lieu de rien. Avant ce lot, les régions bloquées étaient une exclusion dure : quelques chemins ratés (disque de 128 tuiles
+--- + cône de 37° chacun, 30 min) couvraient tout le tour du QG, et l'exploration concluait « rien » (ressource épuisée)
+--- alors que la frontière n'était pas vue (moteur simulé, 30 % de chemins ratés : 6 graines sur 8 sans pétrole en 30 min).
 function K.best_target(m, ctx)
-  local best, bs
+  local best, bs, sbest, sbs
   local maxd = ctx.max_dist or K.MAX_DIST
   local spawn = ctx.spawn or { x = 0, y = 0 }
   for _, k in ipairs(K.frontier(m)) do
@@ -424,12 +430,18 @@ function K.best_target(m, ctx)
           local me = ctx.me or ctx.hq
           local dm = math.sqrt((cx - me.x) ^ 2 + (cy - me.y) ^ 2)
           local score = K.prior(m, ctx.res, k, spawn, ctx.hq) * (1000 - risk) / (dh + dm + 100)
-          if not bs or score > bs then best, bs = k, score end
+          if ctx.soft and ctx.soft[k] then
+            if not sbs or score > sbs then sbest, sbs = k, score end
+          elseif not bs or score > bs then
+            best, bs = k, score
+          end
         end
       end
     end
   end
-  return best, bs
+  if best then return best, bs, false end
+  if sbest then return sbest, sbs, true end
+  return nil, nil, false
 end
 
 --- Point de passage vers une cible, à au plus `step` tuiles de l'éclaireur (reste dans la zone générée autour de
