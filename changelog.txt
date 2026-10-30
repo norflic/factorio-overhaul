@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.27
+Date: 2026-10-30
+  Changes:
+    - Chaine du calcul (votre demande du 30/10 au matin) : a l'age 10, tranche gravee -> puces logiques, puces de memoire (DRAM) et de cache (SRAM) -> processeur (avec cache et radiateur en aluminium), barrette de memoire vive, carte mere (horloge a cristal) -> baie de serveurs -> centre de calcul (courant + eau de refroidissement) qui produit du calcul, ressource de reseau non stockable tenue par script (bonus de recherche) ;
+      a l'age 11 : carte graphique et baie d'accelerateurs (4 fois plus de calcul) ; a l'age 13 : puce a qubits, etage a dilution (helium-3), processeur quantique et calcul quantique.
+    - Visuels des nouvelles machines et icones PROVISOIRES (copies teintees du jeu de base), a dessiner.
+    - Rien n'a ete rejoue en partie longue : relecture statique, tests hors jeu verts, bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.26
 Date: 2026-10-30
   Changes:
