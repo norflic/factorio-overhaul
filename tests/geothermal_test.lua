@@ -95,7 +95,7 @@ do
   local ig, ir = 0, 0
   for i, k in ipairs(W.guarantee_order) do if k == "fumarole" then ig = i end end
   for i, k in ipairs(W.resource_order) do if k == "fumarole" then ir = i end end
-  check(ig == #W.guarantee_order and ir == #W.resource_order, "fumerolle en dernier (sites et lettres d'avant inchangés)")
+  check(ig == 9 and ir == 10, "fumerolle après la bauxite (sites et lettres d'avant inchangés ; la piste ZINC en ajoute après)")
 end
 
 ---------------------------------------------------------------------------------------------------

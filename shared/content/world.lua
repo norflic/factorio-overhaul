@@ -234,7 +234,7 @@ W.decor = {
     min_total   : quantité d'un gisement naturel déjà connu qui vaut « un site » (sauvegarde existante) ;
     wells       : puits (fluide) : quantité par puits, écart entre puits.
 ]]
-W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite", "fumarole" }
+W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "monazite", "galena", "cassiterite", "bauxite", "fumarole", "sphalerite" }
 -- Ressources GARANTIES (lot M0), dans l'ordre des époques. Lot X1-TITANE : l'ilménite (âge 11) est garantie avec son
 -- CHAMP DE CRATÈRES complet (X.base_resources, placement.guaranteed.field = "crater") : gisement d'ilménite ET puits de
 -- saumure sur le même disque de régolithe (champ `field_wells` de sa garantie) ; la saumure n'a donc pas de site à part.
@@ -244,7 +244,9 @@ W.resource_order = { "tungsten", "crystal", "methane", "ilmenite", "brine", "mon
 -- Piste ÉTAIN : la cassitérite (âge 4, X3), 2 gisements de 150 000 à 120-350 tuiles, sans biome, après la galène.
 -- Piste BAUXITE : la bauxite (âge 6, X3), 3 gisements de 300 000 à 300-600 tuiles, sans biome, après la cassitérite.
 -- Piste GÉOTHERMIE : la fumerolle (âge 5, X0), 2 fumerolles sur un disque de cendres à 250-600 tuiles, après la bauxite.
-W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite", "bauxite", "fumarole" }
+-- Piste ZINC : la blende (âge 3, X3), 2 gisements de 200 000 à 150-400 tuiles, sans biome, après la fumerolle.
+W.guarantee_order = { "tungsten", "crystal", "methane", "ilmenite", "monazite", "galena", "cassiterite", "bauxite", "fumarole",
+  "sphalerite" }
 
 W.resources = {
   tungsten = {
@@ -541,6 +543,33 @@ W.resources = {
     map_color = { r = 1.00, g = 1.00, b = 0.75 },
     biome = "fo-volcanic-ash",
     autoplace = { base_density = 4, base_spots_per_km2 = 1.2, random_probability = 1 / 50, additional_richness = 300000, seed1 = 7108 },
+  },
+  -- Lot AMELIO-RESSOURCES, piste ZINC (30/10) : BLENDE, minerai du zinc (âge 3, Vapeur ; proposition X3, module x3.lua :
+  -- fo-sphalerite, basic-solid, minage 1 s). « Districts miniers tirés d'un bruit propre, à plus de 150 tuiles » : sans
+  -- biome, jeu de gisements propre (graine X3 7301) sur une région de bruit propre (graine 7311). Chaîne :
+  -- shared/content/zinc.lua (zinc, laiton, manomètre à tube de Bourdon).
+  sphalerite = {
+    resource = "fo-sphalerite",
+    kind = "ore",
+    epoch = 3,
+    -- X3 : « 2 gisements de 200 000 posés par script si l'autoplace n'en a mis aucun à cette distance » ; rayon 7, 2 000
+    -- par tuile au centre : environ 200 000 (comme la galène) ; un gisement naturel de 130 000 en vaut un.
+    guarantee = { site_radius = 9, ore_radius = 7, amount = 2000, min_total = 130000, clear_trees = true, fill_tile = "dirt-4" },
+    item = "fo-sphalerite",
+    -- Tétraèdres résineux miel (X3 : « couleur miel à rouge rubis ») : la pierre (beige) × (1,00 ; 0,72 ; 0,30) donne un
+    -- miel ambré (0,69 ; 0,44 ; 0,13) ; éclats résineux ambre. Feuille M1 propre à faire.
+    copy_resource = "stone",
+    copy_icon = "stone",
+    tint = { r = 1.00, g = 0.72, b = 0.30 },
+    glint = { tint = { r = 1.00, g = 0.70, b = 0.30 }, min = 0.15, max = 0.45, period = 4 },
+    -- Bleu nuit sur la carte : la seule teinte restée à ΔE76 ≥ 45 de tous les minerais, fluides et sols (recherche sur une
+    -- grille de 21³ couleurs, tests/zinc_test.lua) ; foncé : à revoir sur capture de carte.
+    map_color = { r = 0.00, g = 0.00, b = 0.55 },
+    mining_time = 1,
+    category = nil, -- basic-solid (X3)
+    biome = nil,
+    autoplace = { base_density = 4, base_spots_per_km2 = 1.2, random_spot_size_minimum = 1, random_spot_size_maximum = 2,
+      seed1 = 7301, distance_min = 150, region = { seed1 = 7311, threshold = 0.5, scale = 1 / 220 } },
   },
 }
 
