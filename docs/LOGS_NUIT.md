@@ -219,3 +219,8 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 ## 30/10 ~7 h 05, passage 62 (fumee finale verif-guide sur 0.6.24)
 - verif-guide 216 000 ticks, graines 271828182 et 1618033988 : 15 OK, 0 ECHEC chacune, 0 erreur Lua (fo-logs/2026-10-30_MATIN/verif-guide-0624).
 - DEFAUT MESURE : la PREVISION surestime les vagues de 3 a 60 fois (17 BILAN vague : prevue 2708 PV / recue 41 a 1545 ; prevue 2350 / recue 150 ; une seule sous-estimation 614 / 1909) ; k descend vers son plancher 0,5 sans rattraper. Cause : modele des biters non calibre (risque annonce, constantes supposees) [mesure : ecart ; cause supposee]. Lot PREVISION-CALIB lance (workflow wf_f71617fb-f94).
+
+## 30/10 ~7 h 25, passage 63 (lecture approfondie de verif-guide 0.6.24)
+- [FO-PLAFOND] vu en moteur reel (scarlet a 30,1 min, 4 PNJ, 714 a 824 fers inemployes) : journal de JOURNAUX-DC prouve ; [FO-REGLAGES] au lancement prouve [mesure].
+- DEFAUT : graine 1618033988, VOTRE equipe a 0 a 2 fer au coffre de la minute 12 a 59, 5 PNJ sur 8, 7 tourelles (l'autre graine : 4 773 fer, 13 PNJ, 25 tourelles). Le controle « se reconstruit » passe car il exige >= 100 fer [mesure]. Cause inconnue : diagnostic en lecture seule lance (agent diag-fer-equipe -> fo-logs/2026-10-30_MATIN/DIAG-FER-EQUIPE.md).
+- Banc PREVISION-CALIB en cours (4 archives de mesure, lues a sa fin).
