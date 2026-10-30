@@ -560,7 +560,8 @@ local function pose_order(f, surface, outpost, count)
   end
   table.sort(existing, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
   local assets = assets_around(f, surface, center, radius)
-  local pick = Pose.choose({ candidates = cands, assets = assets, range = range, existing = existing, count = count })
+  -- lot PD-ESPACEMENT : écart minimal entre tourelles (un emplacement serré contre une tourelle déjà là passe après les autres)
+  local pick = Pose.choose({ candidates = cands, assets = assets, range = range, existing = existing, count = count, gap = Pose.gap(range) })
   local out = {}
   for _, i in ipairs(pick.order) do out[#out + 1] = cands[i] end
   f.stats = f.stats or {}
@@ -601,46 +602,117 @@ function Outposts.fortify_at(f, surface, oid, sites, count, carrier, accept, amm
   local tp = game.entity_prototypes[T.turret]
   local tw, th = tp and tp.tile_width or 2, tp and tp.tile_height or 2
   local function in_axe(q) return Axe.hit(cors, Axe.tile_rect(q.x, q.y, tw, th)) end
-  for _, s in ipairs(sites) do
-    if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
-    -- lot FACTIONS-BLOQUEES : jamais sur une tuile réservée par un projet du plan directeur (moteur réel, 20261020 et 1618033988 :
-    -- fantôme du tapis d'une fonderie refusé « occupe » par une tourelle de l'équipe, projet bloqué de 36 min à la fin de la partie) ;
-    -- aucune place libre alentour : l'ancienne position (le projet se débloque alors par la reprise de build.lua)
-    -- lot TOURELLES-HORS-AXE : ni dans le couloir d'extension d'une ligne (retour du DC sur 0.6.18 : « le canon est en plein milieu
-    -- [...] si on voulait étendre sur la gauche [...] on pourrait pas ») ; un emplacement qui tombe dans un couloir essaie d'abord les
-    -- places sur le CÔTÉ de la ligne (Axe.side_spots), puis les anneaux voisins ; le repli sans contrôle ne tombe jamais dans un couloir
-    local spots = Axe.side_spots(s.x, s.y, cors, tw, th)
-    local hit = #spots > 0 and in_axe(s) or nil
-    for _, q in ipairs(Blocage.spots(s.x, s.y)) do spots[#spots + 1] = q end
-    local pos = Blocage.first_free(spots,
-      function(c) return surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1) end,
-      function(q) -- réservée, dans un couloir d'extension, ou hors de la zone voulue (accept) : on passe à la position suivante
-        return (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or in_axe(q) ~= nil or (accept ~= nil and not accept(q))
-      end)
-    if not pos then
-      local q = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
-      if q and not in_axe(q) then pos = q end
-    end
-    if hit and Outposts.axe_log then
-      Outposts.axe_log(f, pos and string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s) -> tourelle en (%g, %g), hors du couloir",
-          tostring(oid), s.x, s.y, hit.pid or 0, hit.part or 0, hit.axis, pos.x, pos.y)
-        or string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s), aucune place hors des couloirs : emplacement saute",
-          tostring(oid), s.x, s.y, hit.pid or 0, hit.part or 0, hit.axis))
-    end
-    if pos and (accept == nil or accept(pos)) then
-      local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
-      if t then
-        carrier.remove({ name = T.turret, count = 1 })
-        for _, ammo in ipairs(ammos) do
-          local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
-          if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
-        end
-        Outposts.add_turret(f, t, oid, 0)
-        placed = placed + 1
+  -- lot PD-ESPACEMENT (D07) : tourelles de l'équipe autour des emplacements (lues une fois, puis complétées à chaque pose) ; une
+  -- position plus proche que l'écart voulu d'une autre tourelle est refusée comme une tuile réservée. Passe 1 : Pose.gap ;
+  -- passe 2 (seulement s'il en manque) : Pose.GAP_MIN. Bilan au journal [FO-TOUR-ECART].
+  -- (Intégration 0.6.21 : résolution proposée par PD-ESPACEMENT, fo-logs/2026-10-30_AMELIO/PD-ESPACEMENT/RESOLUTION_HORS_AXE.lua, plus
+  -- la relecture du lot (`mine`, passe 2) : les deux refus (couloir d'extension ET écart) dans le même prédicat ; repli sans contrôle de
+  -- HORS-AXE ; écart contrôlé sur la position finale ; journal du couloir à la passe 1 seulement.)
+  local near = Outposts.turrets_near(f, surface, sites)
+  local gaps = { Pose.gap(Outposts.turret_range()), Pose.GAP_MIN }
+  local ec = { refused = 0, by_pass = { 0, 0 }, near0 = #near, min = nil }
+  -- relecture : la passe 2 saute un emplacement déjà TENU par une tourelle de cette pose (à moins de Pose.GAP_MIN de son point) ; sinon,
+  -- au plancher, l'anneau de cet emplacement donnait une 2e tourelle à 3 tuiles de la 1re avant de servir les emplacements restés
+  -- vides (l'amas que le DC reproche ; moteur factice : (0,0) entre (3,0) et (-3,0) au lieu de (0,3))
+  local mine = {}
+  for pass = 1, 2 do
+    local gap = gaps[pass]
+    for _, s in ipairs(sites) do
+      if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
+      if pass == 2 and not Pose.spaced(s.x, s.y, mine, gaps[2]) then goto suivant end
+      -- lot FACTIONS-BLOQUEES : jamais sur une tuile réservée par un projet du plan directeur ; lot TOURELLES-HORS-AXE : ni dans le
+      -- couloir d'extension d'une ligne (places sur le CÔTÉ de la ligne d'abord, Axe.side_spots, puis les anneaux voisins ; le repli
+      -- sans contrôle ne tombe jamais dans un couloir)
+      local spots = Axe.side_spots(s.x, s.y, cors, tw, th)
+      local hit = #spots > 0 and in_axe(s) or nil
+      for _, q in ipairs(Blocage.spots(s.x, s.y)) do spots[#spots + 1] = q end
+      local pos = Blocage.first_free(spots,
+        function(c) return surface.find_non_colliding_position(T.turret, { x = c.x, y = c.y }, 4, 1) end,
+        function(q) -- réservée, dans un couloir d'extension, hors de la zone voulue (accept), ou trop près d'une autre tourelle
+          if (Outposts.reserved ~= nil and Outposts.reserved(f, T.turret, q)) or in_axe(q) ~= nil or (accept ~= nil and not accept(q)) then
+            return true
+          end
+          if not Pose.spaced(q.x, q.y, near, gap) then ec.refused = ec.refused + 1 return true end
+          return false
+        end)
+      if not pos then
+        local q = surface.find_non_colliding_position(T.turret, { x = s.x, y = s.y }, 4, 1)
+        if q and not in_axe(q) then pos = q end
       end
+      if hit and Outposts.axe_log and pass == 1 then
+        Outposts.axe_log(f, pos and string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s) -> tourelle en (%g, %g), hors du couloir",
+            tostring(oid), s.x, s.y, hit.pid or 0, hit.part or 0, hit.axis, pos.x, pos.y)
+          or string.format("pose (%s) : emplacement (%g, %g) dans le couloir d'extension du projet %d (partie %d, axe %s), aucune place hors des couloirs : emplacement saute",
+            tostring(oid), s.x, s.y, hit.pid or 0, hit.part or 0, hit.axis))
+      end
+      if pos and (accept == nil or accept(pos)) and Pose.spaced(pos.x, pos.y, near, gap) then
+        local t = surface.create_entity({ name = T.turret, position = pos, force = f.force, raise_built = true })
+        if t then
+          carrier.remove({ name = T.turret, count = 1 })
+          for _, ammo in ipairs(ammos) do
+            local n = math.min(T.turret_ammo_target - t.get_item_count(), carrier.get_item_count(ammo))
+            if n > 0 then t.insert({ name = ammo, count = carrier.remove({ name = ammo, count = n }) }) end
+          end
+          Outposts.add_turret(f, t, oid, 0)
+          placed = placed + 1
+          local d = Pose.nearest(t.position.x, t.position.y, near)
+          if d and (ec.min == nil or d < ec.min) then ec.min = d end
+          near[#near + 1] = { x = t.position.x, y = t.position.y }
+          ec.by_pass[pass] = ec.by_pass[pass] + 1
+          mine[#mine + 1] = { x = t.position.x, y = t.position.y }
+        end
+      end
+      ::suivant::
     end
+    if placed >= count or carrier.get_item_count(T.turret) < 1 then break end
   end
+  Outposts.ecart_log(f, oid, count, placed, gaps, ec)
   return placed
+end
+
+--- Lot PD-ESPACEMENT : portée de la tourelle posée (prototype), 0 si inconnue.
+function Outposts.turret_range()
+  local proto = game.entity_prototypes[T.turret]
+  return proto and proto.turret_range or 0
+end
+
+--- Lot PD-ESPACEMENT : tourelles de l'équipe (tous types de tourelle du moteur, R.TURRET_TYPES) autour des emplacements `sites`, à la
+--- portée de recherche de la pose (anneaux de Blocage, rayon du moteur) plus l'écart ; { {x, y} } triées (déterminisme).
+Outposts.ECART_LOGS = 40 -- lignes [FO-TOUR-ECART] au plus par équipe
+function Outposts.turrets_near(f, surface, sites)
+  local out = {}
+  if #sites == 0 then return out end
+  local x0, y0, x1, y1 = sites[1].x, sites[1].y, sites[1].x, sites[1].y
+  for _, s in ipairs(sites) do
+    if s.x < x0 then x0 = s.x end
+    if s.x > x1 then x1 = s.x end
+    if s.y < y0 then y0 = s.y end
+    if s.y > y1 then y1 = s.y end
+  end
+  local m = Blocage.RING * Blocage.RINGS + 4 + Pose.GAP + 2
+  local isturret = {}
+  for _, ty in ipairs(R.TURRET_TYPES) do isturret[ty] = true end
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { x0 - m, y0 - m }, { x1 + m, y1 + m } }, force = f.force, type = R.TURRET_TYPES })) do
+    if e.valid ~= false and isturret[e.type] then out[#out + 1] = { x = e.position.x, y = e.position.y } end
+  end
+  table.sort(out, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
+  return out
+end
+
+--- Lot PD-ESPACEMENT : une ligne par pose (au plus Outposts.ECART_LOGS par équipe), avec la cause : « ecart » (toutes à l'écart voulu),
+--- « plancher » (place serrée : passe 2), « manque-ecart » (moins posées que voulu, des places refusées pour l'écart), « manque-place »
+--- (moins posées que voulu sans que l'écart y soit pour rien : zone, réserves, tourelles portées).
+function Outposts.ecart_log(f, oid, count, placed, gaps, ec)
+  if count <= 0 then return end
+  local cause = "ecart"
+  if placed < count then cause = ec.refused > 0 and "manque-ecart" or "manque-place"
+  elseif ec.by_pass[2] > 0 then cause = "plancher" end
+  f.stats = f.stats or {}
+  f.stats.ecart_logs = (f.stats.ecart_logs or 0) + 1
+  if f.stats.ecart_logs > Outposts.ECART_LOGS then return end
+  log(string.format("[FO-TOUR-ECART] %s poste %s : %s ; %d posee(s) sur %d voulue(s), %d a l'ecart >= %g, %d au plancher >= %g ; plus proche voisine %s ; %d place(s) refusee(s) pour l'ecart ; %d tourelle(s) deja autour",
+    f.key or "player", tostring(oid or "hq"), cause, placed, count, ec.by_pass[1], gaps[1], ec.by_pass[2], gaps[2],
+    ec.min and string.format("%.1f tuiles", ec.min) or "aucune", ec.refused, ec.near0))
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -23,6 +23,15 @@
 
   Aucun nom d'objet du jeu : les rôles sont ceux de shared/ai3/reglages.lua (R.ENTITY_ROLE). Aucun `pairs`, aucune
   trigonométrie, aucun hasard.
+
+  Lot PD-ESPACEMENT (D07, DC 28/10 14 h 45 : « les tourelles couvrent pas assez d'espace […] une tourelle à deux cases d'une
+  autre » ; 28/10 soir : « couvrir un max de périmètre utile ») : ESPACEMENT MINIMAL entre deux tourelles de l'équipe.
+  - `gap(range)` : écart voulu entre centres (Pose.GAP tuiles, réduit pour une portée courte, jamais sous Pose.GAP_MIN) ;
+  - `spaced(x, y, list, gap)` / `nearest(x, y, list)` : contrôle d'une position contre les tourelles déjà là ;
+  - `choose` avec `spec.gap` : un ensemble qui serre deux tourelles (ou une tourelle contre une existante) passe APRÈS un
+    ensemble espacé, quel que soit son score (la pose le pousserait de toute façon ailleurs) ; sans `spec.gap` : règle d'avant.
+  La pose (Outposts.fortify_at, commune au QG, aux avant-postes, au front, aux îlots et à la garde de centrale) fait deux passes :
+  écart Pose.gap d'abord, puis Pose.GAP_MIN (place trop serrée : le nombre voulu reste posé, jamais deux tourelles collées).
 ]]
 
 local Pose = {}
@@ -33,6 +42,11 @@ Pose.MAX_CELLS = 400      -- cases gardées au plus (les plus lourdes) : borne l
 Pose.MAX_COMBOS = 2000    -- au-delà, le glouton
 Pose.HQ_WEIGHT = 40       -- poids du coffre d'équipe (tout le stock y dort)
 Pose.DEDUP = 2            -- tuiles : deux candidats plus proches que cela sont le même emplacement
+-- Lot PD-ESPACEMENT : écarts entre CENTRES de tourelles (une tourelle de 2 x 2 : 6 = quatre tuiles libres entre elles). 6 garde
+-- utilisables les 8 emplacements d'avant (Outposts : diagonales à 7, axes à 9 ; leur plus petit écart est 7,3).
+Pose.GAP = 6              -- tuiles : écart voulu (première passe)
+Pose.GAP_MIN = 3          -- tuiles : plancher (seconde passe, place trop serrée) : au moins une tuile libre entre deux tourelles
+Pose.GAP_RANGE_DIV = 3    -- une portée courte réduit l'écart voulu à portée / 3 (jamais sous GAP_MIN)
 
 -- Poids par RÔLE du moteur (shared/ai3/reglages.lua : R.ENTITY_ROLE). Un rôle absent pèse 0 : les tourelles et murs
 -- ("militaire") et le personnage ne sont pas des bâtiments à protéger.
@@ -40,6 +54,51 @@ Pose.ROLE_FACTOR = { labo = 3, generateur = 3, chauffe = 3, fabrique = 3, pompe 
 function Pose.role_factor(role) return Pose.ROLE_FACTOR[role] or 0 end
 
 local function d2(ax, ay, bx, by) local dx, dy = ax - bx, ay - by; return dx * dx + dy * dy end
+
+--- Lot PD-ESPACEMENT : écart voulu entre centres de tourelles pour cette portée (tuiles). Portée inconnue : Pose.GAP.
+function Pose.gap(range)
+  local g = Pose.GAP
+  if range and range > 0 then
+    local r = range / Pose.GAP_RANGE_DIV
+    if r < g then g = r end
+  end
+  if g < Pose.GAP_MIN then g = Pose.GAP_MIN end
+  return g
+end
+
+--- Lot PD-ESPACEMENT : (x, y) est-il à au moins `gap` tuiles (centre à centre) de toutes les tourelles de `list` ({ {x, y} }) ?
+--- Tolérance de 1/256 de tuile sur la distance (positions du moteur en virgule fixe, F92).
+function Pose.spaced(x, y, list, gap)
+  if not gap or gap <= 0 then return true end
+  local g = gap - 1 / 256
+  local lim = g * g
+  for _, t in ipairs(list or {}) do
+    if d2(x, y, t.x, t.y) < lim then return false end
+  end
+  return true
+end
+
+--- Lot PD-ESPACEMENT : distance à la tourelle la plus proche de `list` (nil si la liste est vide). Mesure de journal et de test.
+function Pose.nearest(x, y, list)
+  local m
+  for _, t in ipairs(list or {}) do
+    local q = d2(x, y, t.x, t.y)
+    if m == nil or q < m then m = q end
+  end
+  return m and math.sqrt(m) or nil
+end
+
+--- Lot PD-ESPACEMENT : plus petite distance (centre à centre) entre deux tourelles d'une liste (nil sous deux tourelles).
+function Pose.min_gap(list)
+  local m
+  for a = 1, #(list or {}) do
+    for b = a + 1, #list do
+      local q = d2(list[a].x, list[a].y, list[b].x, list[b].y)
+      if m == nil or q < m then m = q end
+    end
+  end
+  return m and math.sqrt(m) or nil
+end
 
 --- Bâtiments { {x, y, w} } (w entier > 0) -> cases { {x, y, w} } triées par clé de case, au plus MAX_CELLS (les plus lourdes).
 function Pose.cells(assets)
@@ -108,18 +167,33 @@ end
 ---   range      = portée de la tourelle (tuiles, lue au prototype),
 ---   existing   = { {x, y} }   tourelles déjà posées (couvrent déjà, comptent dans l'écartement),
 ---   count      = nombre de tourelles à poser,
+---   gap        = (lot PD-ESPACEMENT, facultatif) écart minimal entre centres de tourelles ; nil : règle d'avant,
 --- }
 --- Rend { order = {indices dans spec.candidates, dans l'ordre de pose}, chosen = n (les n premiers sont l'ensemble choisi),
----        score = aire couverte par l'ensemble choisi (en plus de l'existante), base = aire déjà couverte, total = aire totale }.
+---        score = aire couverte par l'ensemble choisi (en plus de l'existante), base = aire déjà couverte, total = aire totale,
+---        viol = paires trop serrées dans l'ensemble choisi (existantes comprises ; 0 sans `gap`) }.
 function Pose.choose(spec)
   local cands = spec.candidates or {}
   local n = #cands
+  local existing = spec.existing or {}
+  -- Lot PD-ESPACEMENT : un candidat à moins de `gap` d'une tourelle existante est « serré » (la pose le pousserait ailleurs).
+  local g2 = (spec.gap and spec.gap > 0) and ((spec.gap - 1 / 256) * (spec.gap - 1 / 256)) or nil
+  local tight = {}
+  if g2 then
+    for i, p in ipairs(cands) do
+      for _, t in ipairs(existing) do
+        if d2(p.x, p.y, t.x, t.y) < g2 then tight[i] = true break end
+      end
+    end
+  end
+  -- Ordre de repli (sans bâtiment) : l'ordre d'origine, les candidats serrés à la fin (ordre stable).
   local order = {}
-  for i = 1, n do order[i] = i end
+  for i = 1, n do if not tight[i] then order[#order + 1] = i end end
+  for i = 1, n do if tight[i] then order[#order + 1] = i end end
   local k = math.min(spec.count or 0, n)
   local range = spec.range or 0
   local cells = Pose.cells(spec.assets)
-  local out = { order = order, chosen = 0, score = 0, base = 0, total = 0 }
+  local out = { order = order, chosen = 0, score = 0, base = 0, total = 0, viol = 0 }
   for _, c in ipairs(cells) do out.total = out.total + c.w end
   if k <= 0 or range <= 0 or #cells == 0 then return out end
 
@@ -173,13 +247,34 @@ function Pose.choose(spec)
     end
     return m
   end
+  -- Lot PD-ESPACEMENT : paires trop serrées d'un ensemble (entre elles, et contre les tourelles existantes) ; 0 sans `gap`.
+  local function viol_of(set)
+    if not g2 then return 0 end
+    local v = 0
+    for a = 1, #set do
+      local pa = cands[set[a]]
+      for b = a + 1, #set do
+        local pb = cands[set[b]]
+        if d2(pa.x, pa.y, pb.x, pb.y) < g2 then v = v + 1 end
+      end
+      if tight[set[a]] then v = v + 1 end
+    end
+    return v
+  end
+  -- Meilleur : moins de paires serrées, puis plus d'aire couverte, puis plus écarté (puis le premier rencontré).
+  local function better(v, s, sp, bv, bs, bsp)
+    if v ~= bv then return v < bv end
+    if s ~= bs then return s > bs end
+    return sp > bsp
+  end
 
-  local best, best_s, best_sp
+  local best, best_s, best_sp, best_v
   local function consider(set)
     local s = score_of(set)
     local sp = spread_of(set)
-    if best == nil or s > best_s or (s == best_s and sp > best_sp) then
-      best, best_s, best_sp = { table.unpack(set) }, s, sp
+    local v = viol_of(set)
+    if best == nil or better(v, s, sp, best_v, best_s, best_sp) then
+      best, best_s, best_sp, best_v = { table.unpack(set) }, s, sp, v
     end
   end
 
@@ -196,16 +291,16 @@ function Pose.choose(spec)
     end
     rec(1, 1)
   else
-    -- Glouton : gain marginal le plus grand, départage par l'écartement puis l'ordre.
+    -- Glouton : gain marginal le plus grand, départage par l'écartement puis l'ordre (PD-ESPACEMENT : moins serré d'abord).
     local set, taken = {}, {}
     for _ = 1, k do
-      local pick, ps, psp
+      local pick, ps, psp, pv
       for i = 1, n do
         if not taken[i] then
           set[#set + 1] = i
-          local s, sp = score_of(set), spread_of(set)
+          local s, sp, v = score_of(set), spread_of(set), viol_of(set)
           set[#set] = nil
-          if pick == nil or s > ps or (s == ps and sp > psp) then pick, ps, psp = i, s, sp end
+          if pick == nil or better(v, s, sp, pv, ps, psp) then pick, ps, psp, pv = i, s, sp, v end
         end
       end
       set[#set + 1] = pick
@@ -213,6 +308,7 @@ function Pose.choose(spec)
     end
     best = set
     best_s = score_of(set)
+    best_v = viol_of(set)
   end
 
   -- Ordre de pose : à l'intérieur de l'ensemble, gain marginal décroissant (ordre d'origine à égalité), puis les autres.
@@ -234,8 +330,9 @@ function Pose.choose(spec)
     ordered[#ordered + 1] = i
     used[i] = true
   end
-  for i = 1, n do if not used[i] then ordered[#ordered + 1] = i end end
-  out.order, out.chosen, out.score = ordered, #best, best_s
+  -- les autres : dans l'ordre de repli (PD-ESPACEMENT : les serrés à la fin ; sans `gap`, l'ordre d'origine)
+  for _, i in ipairs(order) do if not used[i] then ordered[#ordered + 1] = i end end
+  out.order, out.chosen, out.score, out.viol = ordered, #best, best_s, best_v or 0
   return out
 end
 
