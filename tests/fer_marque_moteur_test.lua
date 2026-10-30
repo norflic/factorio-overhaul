@@ -6,6 +6,7 @@
     2. mode survie ALLUMÉ, tâche de ressources (service, rebuild) : 2 refus, puis départ (famine), passe-droit ensuite ; journal
        [FO-FAMINE] ; compteur du séjour ; tâche de DÉFENSE (fortify) : refusée comme avant ;
     3. menace FIXE (ver) au but, même avec les cases mobiles : 8 refus sur 8, ligne « prudence gardee » ;
+       3 bis (relecture) : une mort ancienne au but (calme) ne bloque pas ; Fa.DEATHS_MAX morts de l'heure au but : 8 refus sur 8 ;
     4. regard d'un PNJ sur place, sans ennemi : les cases mobiles vides sont effacées en survie, pas hors survie ;
     5. global sérialisable ; déterminisme (deux passages identiques).
   Lancement : lua5.2 tests/fer_marque_moteur_test.lua (racine du mod).
@@ -140,6 +141,34 @@ local function run_all()
   check(r4 == 8, "ver connu au but + cases mobiles : " .. r4 .. " refus sur 8")
   local kl = logs_with("prudence gardee")
   check(#kl >= 1 and kl[1]:find("menace fixe au but", 1, true) ~= nil, "journal : « prudence gardee » (" .. tostring(kl[1]) .. ")")
+
+  ---------------------------------------------------------------------------------------------------
+  section("3 bis. Morts au but (calme) : une ou deux ne bloquent pas, Fa.DEATHS_MAX gardent la prudence (relecture)")
+  ---------------------------------------------------------------------------------------------------
+  -- Morts « anciennes » (plus d'une minute : calme d'ACTIF, tâche proche du QG) posées au but E, puis vieillies à la main.
+  local function deaths_at(x, y, n)
+    for _ = 1, n do remote.call("fo-ia3k", "death", "player", x + 1, y + 1) end
+    for _, d in ipairs(C.team(f).map.deaths) do d.t = game.tick - 2 * 3600 end
+  end
+  remote.call("fo-ia3k", "forget", "player")
+  local ex, ey = -70, -20
+  wave(ex, ey)
+  deaths_at(ex, ey, 1)
+  local r5, first5 = tries("service", "fm:service-mort1", 8, ex, ey)
+  check(first5 == Fa.W + 1, "1 mort ancienne au but (calme) + cases mobiles : départ au " .. tostring(first5) .. "e essai (" .. r5 .. " refus)")
+  remote.call("fo-ia3k", "forget", "player")
+  local hx, hy = 60, 60
+  wave(hx, hy)
+  deaths_at(hx, hy, Fa.DEATHS_MAX)
+  local r6 = tries("service", "fm:service-morts", 8, hx, hy)
+  check(r6 == 8, Fa.DEATHS_MAX .. " morts anciennes au but (calme) + cases mobiles : " .. r6 .. " refus sur 8 (pas de marche suicide)")
+  local fs = C.team(f).stats.famine or {}
+  check((fs["prudence:morts"] or 0) == 8, "compteur : " .. tostring(fs["prudence:morts"]) .. " refus « prudence:morts » (8 attendus : la règle de famine les a jugés)")
+  -- (la ligne « prudence gardee » est limitée à une toutes les Fa.KEEP_LOG ticks par équipe : celle du ver, section 3, est au même tick)
+  C.team(f).famine_keep_t = nil
+  tries("service", "fm:service-morts", 1, hx, hy)
+  local ml = logs_with("morts de l'heure au but ou plus")
+  check(#ml >= 1, "journal : « prudence gardee » pour les morts au but (" .. tostring(ml[1]) .. ")")
 
   ---------------------------------------------------------------------------------------------------
   section("4. Regard sur place : marque vide effacée")

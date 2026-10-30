@@ -734,7 +734,8 @@ function M.gate(f, agent, task, steps, tick)
   local fam_only = false -- vrai : seule la règle de famine libère ce but (journal et escorte)
   if decision == "wait" and ((why ~= "morts" and why ~= "mort") or defense_free) and Fa.KINDS[task.kind] and Survie.on(f) then
     fam_parts = D.exact_parts(t.map, dest.x, dest.y, tick)
-    fam, fam_why = Fa.goal({ on = true, kind = task.kind, parts = fam_parts, calm = calm, B = res.B })
+    fam, fam_why = Fa.goal({ on = true, kind = task.kind, parts = fam_parts, calm = calm, B = res.B,
+      deaths_n = D.deaths_near(t.map, { dest }, D.DEATH_R, tick) }) -- (relecture : plafond de morts au but, calme compris)
     fam_only = fam and not goal_free
     if fam then goal_free = true end
   end
@@ -790,7 +791,7 @@ function M.gate(f, agent, task, steps, tick)
       if decision ~= "wait" then Survie.note_famine(f) end
       log(Fa.line({ key = f.key, tick = tick, kind = task.kind, x = dest.x, y = dest.y, parts = fam_parts, B = res.B,
         n = n_seen, decision = decision, why = why, free = free }))
-    elseif fam_why == "nid" or fam_why == "mort" then
+    elseif fam_why == "nid" or fam_why == "mort" or fam_why == "morts" then
       -- Lot FER-MARQUE : but de famine qui GARDE la prudence (menace fixe ou mort au but hors calme) : compté, une ligne au plus toutes
       -- les Fa.KEEP_LOG ticks par équipe.
       t.stats.famine = t.stats.famine or {}

@@ -22,6 +22,9 @@
                 de 5 min suit (comportement.lua, M.PASS_TICKS). Avant Fa.W refus : attente.
     INCHANGÉ    menace fixe au but -> prudence (attente) ; mort au but hors calme -> prudence ; Sv.DEATHS_WAIT morts sur la route ->
                 « morts » (aucune escalade) ; équipe hors survie ou tâche hors Fa.KINDS -> règle d'avant.
+    GARDE-FOU   (relecture FER-MARQUE) Fa.DEATHS_MAX morts de l'heure à moins de D.DEATH_R du but -> prudence « morts », MÊME au calme :
+                le calme d'ACTIF ignore les morts de plus d'une minute, et sans ce plafond la famine renverrait un PNJ par minute vers
+                un gisement où l'on meurt (marche suicide). Une ou deux morts près d'une base proche ne bloquent pas (principe du DC).
   Regard (Fa.clear) : un PNJ d'une équipe en mode survie qui regarde autour de lui sans voir d'ennemi efface les cases mobiles vides de
   son disque de vue (D.forget_mobile) ; les menaces fixes s'oublient comme avant (D.forget_unseen), les morts restent.
   Aucun `pairs`, aucun hasard, aucun temps mesuré.
@@ -36,6 +39,7 @@ local Fa = {}
 Fa.KINDS = { mine = true, extend = true, build = true, service = true, rebuild = true }
 Fa.W = Sv.ESCALADE_W      -- refus de suite avant de partir (2 : le 3e refus part)
 Fa.ESCORT_MIN = 2         -- soldats libres pour demander une escorte (comme la porte ordinaire : escort_ok = libres >= 2)
+Fa.DEATHS_MAX = Sv.DEATHS_WAIT -- morts de l'heure AU BUT (D.DEATH_R) à partir desquelles la famine garde la prudence, calme compris (3)
 Fa.KEEP_LOG = 600         -- ticks : une ligne « prudence gardée » au plus toutes les 10 s par équipe (les décisions de famine : toutes)
 
 local function num(x)
@@ -44,9 +48,10 @@ local function num(x)
 end
 
 --- Le but de cette tâche relève-t-il de la famine ? a = { on (mode survie), kind (tâche), parts = D.exact_parts au but, calm (la porte
---- juge déjà sans les morts : tâche proche, morts anciennes), B (seuil) }. Rend vrai et "mobile", ou faux et la raison :
---- "hors-survie", "tache", "libre" (but sous le seuil : rien à faire ici), "nid" (menace fixe au but), "mort" (mort au but hors calme),
---- "vide" (aucune case mobile : le seuil vient d'ailleurs).
+--- juge déjà sans les morts : tâche proche, morts anciennes), B (seuil), deaths_n (morts de l'heure au but, D.deaths_near rayon
+--- D.DEATH_R ; nil : 0) }. Rend vrai et "mobile", ou faux et la raison : "hors-survie", "tache", "libre" (but sous le seuil : rien à
+--- faire ici), "nid" (menace fixe au but), "mort" (mort au but hors calme), "morts" (Fa.DEATHS_MAX morts de l'heure au but, calme
+--- compris), "vide" (aucune case mobile : le seuil vient d'ailleurs).
 function Fa.goal(a)
   if not a.on then return false, "hors-survie" end
   if not Fa.KINDS[a.kind] then return false, "tache" end
@@ -57,6 +62,7 @@ function Fa.goal(a)
   if goal < B then return false, "libre" end
   if fixed > 0 then return false, "nid" end
   if deaths > 0 and not a.calm then return false, "mort" end
+  if num(a.deaths_n) >= Fa.DEATHS_MAX then return false, "morts" end
   if mobile <= 0 then return false, "vide" end
   return true, "mobile"
 end
@@ -87,7 +93,8 @@ function Fa.keep_line(d)
   local p = d.parts or {}
   return string.format("[FO-FAMINE] %s : porte a %.1f min : tache %s vers (%d, %d) en survie, but au-dessus du seuil (mobile %d, fixe %d, morts %d, seuil %d) -> wait (%s : prudence gardee)",
     tostring(d.key), num(d.tick) / 3600, tostring(d.kind), math.floor(num(d.x)), math.floor(num(d.y)), num(p.mobile), num(p.fixed), num(p.deaths),
-    num(d.B), d.why == "nid" and "menace fixe au but" or "mort au but hors de la base")
+    num(d.B), d.why == "nid" and "menace fixe au but" or (d.why == "morts" and string.format("%d morts de l'heure au but ou plus", Fa.DEATHS_MAX)
+      or "mort au but hors de la base"))
 end
 
 return Fa

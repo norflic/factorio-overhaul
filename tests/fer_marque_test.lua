@@ -90,8 +90,8 @@ local function facts(Wx)
   f.sum_ok = sum_ok
   f.parts_seen = n_mob > 20 and n_fix > 20 and n_dea > 5
   -- 2. Fa.goal
-  local function g(on, kind, fixed, deaths, mobile, calm)
-    local ok, why = Fx.goal({ on = on, kind = kind, parts = { fixed = fixed, deaths = deaths, mobile = mobile }, calm = calm, B = B })
+  local function g(on, kind, fixed, deaths, mobile, calm, deaths_n)
+    local ok, why = Fx.goal({ on = on, kind = kind, parts = { fixed = fixed, deaths = deaths, mobile = mobile }, calm = calm, B = B, deaths_n = deaths_n })
     return tostring(ok) .. ":" .. tostring(why)
   end
   f.g_diag = g(true, "service", 0, 0, 900)          -- le cas mesuré : danger 900 = D.MOBILE_CAP, seuil 600
@@ -102,6 +102,8 @@ local function facts(Wx)
   f.g_nid_faible = g(true, "mine", 15, 0, 900)       -- une menace fixe, même très décrue, garde la prudence
   f.g_mort = g(true, "service", 0, 600, 900, false)  -- mort au but, route non « au calme » (loin ou récente)
   f.g_mort_calme = g(true, "service", 0, 600, 900, true) -- le cas du diagnostic : 1 mort ancienne, tâche proche du QG
+  f.g_mort_calme2 = g(true, "service", 0, 1200, 900, true, 2) -- deux morts anciennes au but : ne bloquent pas encore
+  f.g_morts_calme = g(true, "service", 0, 1800, 900, true, 3) -- relecture : Fa.DEATHS_MAX morts de l'heure au but, même au calme : prudence
   f.g_off = g(false, "service", 0, 0, 900)
   f.g_def = g(true, "fortify", 0, 0, 900)
   f.g_craft = g(true, "craft", 0, 0, 900)
@@ -200,6 +202,9 @@ check(F0.g_nid == "false:nid", "nid fixe au but : prudence gardée " .. F0.g_nid
 check(F0.g_nid_faible == "false:nid", "menace fixe décrue au but : prudence gardée " .. F0.g_nid_faible)
 check(F0.g_mort == "false:mort", "mort au but hors calme (trajet lointain ou récente) : prudence gardée " .. F0.g_mort)
 check(F0.g_mort_calme == "true:mobile", "mort ancienne d'une tâche proche (calme) : ne bloque plus " .. F0.g_mort_calme)
+check(F0.g_mort_calme2 == "true:mobile", "deux morts anciennes au but (calme) : ne bloquent pas encore " .. F0.g_mort_calme2)
+check(F0.g_morts_calme == "false:morts", "Fa.DEATHS_MAX morts de l'heure au but, même au calme : prudence (pas de marche suicide) " .. F0.g_morts_calme)
+check(Fa.DEATHS_MAX == Sv.DEATHS_WAIT, "Fa.DEATHS_MAX = Sv.DEATHS_WAIT")
 check(F0.g_off == "false:hors-survie", "équipe hors survie : règle d'avant " .. F0.g_off)
 check(F0.g_def == "false:tache" and F0.g_craft == "false:tache", "tâches hors ressources : règle d'avant")
 check(F0.g_libre == "false:libre", "but sous le seuil : rien à faire ici " .. F0.g_libre)
@@ -242,7 +247,8 @@ local CO = read_src("script/ai3/comportement.lua")
 local SS = read_src("script/team/survie.lua")
 check(CO:find('local Fa = require("shared.team.famine")', 1, true) ~= nil, "porte : module famine chargé au chargement (pas en événement)")
 check(CO:find("D.exact_parts(t.map, dest.x, dest.y, tick)", 1, true) ~= nil, "porte : parts du but lues")
-check(CO:find("Fa.goal({ on = true, kind = task.kind, parts = fam_parts, calm = calm, B = res.B })", 1, true) ~= nil, "porte : Fa.goal appelée avec le calme d'ACTIF")
+check(CO:find("Fa.goal({ on = true, kind = task.kind, parts = fam_parts, calm = calm, B = res.B,", 1, true) ~= nil, "porte : Fa.goal appelée avec le calme d'ACTIF")
+check(CO:find("deaths_n = D.deaths_near(t.map, { dest }, D.DEATH_R, tick) })", 1, true) ~= nil, "porte : morts de l'heure au but passées à Fa.goal (plafond)")
 check(CO:find("if fam then goal_free = true end", 1, true) ~= nil, "porte : le but de famine compte comme libre pour l'escalade")
 check(CO:find("if fam_only then decision, why = Fa.decide({ n = w.n, free = free }) end", 1, true) ~= nil, "porte : Fa.decide (départ ou escorte)")
 check(CO:find('elseif why ~= "loin" and why ~= "famine" then', 1, true) ~= nil, "escorte refusée en famine : le PNJ part quand même")
@@ -262,6 +268,7 @@ local MUTANTS = {
   { "nid ignoré", "Fa", "if fixed > 0 then return false, \"nid\" end", "" },
   { "mort hors calme ignorée", "Fa", "if deaths > 0 and not a.calm then return false, \"mort\" end", "" },
   { "calme ignoré", "Fa", "(a.calm and 0 or deaths)", "deaths" },
+  { "plafond de morts retiré", "Fa", "if num(a.deaths_n) >= Fa.DEATHS_MAX then return false, \"morts\" end", "" },
   { "mode survie ignoré", "Fa", "if not a.on then return false, \"hors-survie\" end", "" },
   { "toutes les tâches", "Fa", "if not Fa.KINDS[a.kind] then return false, \"tache\" end", "" },
   { "reconstruction retirée", "Fa", "service = true, rebuild = true }", "service = true }" },
