@@ -577,8 +577,8 @@ local function retarget(f, k, a, ex, tick)
       end
     end
   else
-    local soft
-    key, _, soft = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
+    local _note, soft -- `_note` local : jamais `_` (variable globale du mod écrite en événement)
+    key, _note, soft = K.best_target(k.m, { hq = f.hq_pos, me = me, tick = tick, res = ex.res, spawn = spawn_of(surface),
       rivals = rivals(f, surface), exclude = make_exclude(k, tick, ex, true), soft = make_soft(k, tick) })
     if key and soft then
       -- Lot IA3F-PETROLE : toute la frontière non vue est dans des régions bloquées ; avant, la mission finissait « rien » et la
