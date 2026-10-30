@@ -38,7 +38,14 @@ local function new_surface(name, seed, no_resources)
   local mgs = game.surfaces[1].map_gen_settings
   mgs.seed = seed
   if no_resources then
-    for _, r in ipairs({ "fo-tungsten-ore", "fo-resonance-crystal", "fo-methane", "fo-ilmenite", "fo-brine", "fo-monazite", "fo-galena" }) do
+    -- Lot AMELIO-RESSOURCES : TOUTES les ressources du mod (contrôles de carte « fo-* », liste triée), pas une liste figée
+    -- (la cassitérite, la bauxite, la fumerolle et la blende s'y ajoutent).
+    local names = {}
+    for n, p in pairs(game.autoplace_control_prototypes) do
+      if n:find("^fo%-") and p.category == "resource" then names[#names + 1] = n end
+    end
+    table.sort(names)
+    for _, r in ipairs(names) do
       local c = mgs.autoplace_controls[r] or {}
       mgs.autoplace_controls[r] = { frequency = c.frequency or 1, size = 0, richness = c.richness or 1 }
     end
