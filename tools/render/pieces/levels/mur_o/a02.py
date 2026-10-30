@@ -21,7 +21,7 @@ Z_F, Z_RB0, Z_RB1 = 0.12, 0.17, 0.27        # cassure du pied évasé, bande ré
 PROFIL = ((0.0, 0.49), (Z_F, 0.40), (Z_W, 0.13))
 SQ2 = math.sqrt(2.0)
 RIV = 0.016
-PIED = ((0.006, 0.005, 0.004), 0.26, 0.95)  # crasse du tiers bas, noire au pied
+PIED = ((0.004, 0.003, 0.003), 0.07, 1.0)    # v5 : seul le contact au sol est noir (le corps reste clair)
 
 
 def hw(z):
@@ -64,6 +64,8 @@ def mats(S):
     # terre du pied : brun du sol vanilla (hr-dirt), qui fond le mur dans le terrain
     M["terre"] = surface("m2_terre", (0.26, 0.13, 0.055), (0.12, 0.06, 0.025), rough=1.0, var=0.8, var_scale=9.0,
                          grain=0.35, bump=1.0, bump_scale=60.0, cavity=0.5, spec=0.1)
+    M["rouille"] = surface("m2_rouille", (0.26, 0.085, 0.022), (0.12, 0.04, 0.012), rough=0.9, var=0.8,
+                           var_scale=20.0, grain=0.3, bump=0.3, cavity=0.2)
     M["vide"] = surface("m2_vide", (0.008, 0.006, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0, spec=0.0)
     return M
 
@@ -117,10 +119,16 @@ def bras(g, M, B):
                 _plaque(g, mat, xa, xb, 0.36, 0.66, k, 0.012, 0.02)
                 g.rivets([(x, -(hw(z) * k + 0.016), z, "y") for x in (xa + 0.05, xb - 0.05) for z in (0.40, 0.62)],
                          RIV, M["laiton"])
+                # coulures de rouille sous les boulons du bas (contrastées, lisibles au zoom 1)
+                for x in (xa + 0.05, xb - 0.05, 0.5 * (xa + xb) + g.rnd(-0.04, 0.04)):
+                    zb = g.rnd(0.20, 0.27)
+                    _plaque(g, M["rouille"], x - 0.011, x + 0.011, zb, 0.37, k, 0.0145, 0.004)
         else:
-            # flancs nord-sud : pierre nue en pente (le talus doit se lire), une rangée de rivets sur le cerclage
-            g.rivets([(B.x(t), -(hw(Z_RB1 + 0.02) * k + 0.016), Z_RB1 + 0.02, "y") for t in (0.25, 0.75)], RIV,
-                     M["laiton"])
+            # flancs nord-sud (v5) : contreforts en saillie et blocs débordants (flanc modelé, silhouette dentelée)
+            hwk = lambda z: hw(z) * k  # noqa: E731
+            for t in (0.25, 0.75):
+                geo.contrefort_flanc(g, M["pierre"], M["acier"], B.x(t) + g.rnd(-0.03, 0.03), hwk, 0.66)
+            geo.blocs_debordants(g, (M["pierre"], M["acier2"]), B.x(0.05), B.x(0.95), hwk, (0.32, 0.62), 3)
         # plat de cerclage riveté au joint de case
         if B.t0 < 0.5 < B.t1:
             xj = B.x(0.5)
@@ -129,7 +137,7 @@ def bras(g, M, B):
         g.pop()
     # couronnement d'acier mince et merlons d'acier (2 par case), la signature d'époque
     g.prism([(-(0.13 + 0.025) * k, Z_W - 0.01), ((0.13 + 0.025) * k, Z_W - 0.01), ((0.13 + 0.02) * k, Z_CAP),
-             (-(0.13 + 0.02) * k, Z_CAP)], x0, L, M["acier_dessus"], bev=0.008)
+             (-(0.13 + 0.02) * k, Z_CAP)], x0, L, M["acier"] if S_ else M["acier_dessus"], bev=0.008)
     for c in (0.0, 0.5, 1.0):
         if c == 0.0 and not S_:
             continue

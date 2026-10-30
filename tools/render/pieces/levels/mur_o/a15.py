@@ -22,7 +22,7 @@ Z_F0, Z_F1 = 1.02, 1.16                      # créneaux flottants (vide de 0,09
 HW0, HW1 = 0.49, 0.13       # v4 : talus concave
 SQ2 = math.sqrt(2.0)
 RIV = 0.016
-PIED = ((0.004, 0.004, 0.005), 0.20, 1.0)
+PIED = ((0.003, 0.003, 0.004), 0.07, 1.0)
 
 
 def hw(z):
@@ -44,10 +44,10 @@ def mats(S):
     M["or"] = surface("m15_or", (0.80, 0.58, 0.22), (0.60, 0.42, 0.15), rough=0.32, rough2=0.45, metal=0.5, var=0.5,
                       var_scale=10.0, grain=0.12, bump=0.1, edge=((1.0, 0.85, 0.55), 0.4, 0.015), cavity=0.35)
     # or blanc #E8DCB0 ≈ (0.807, 0.716, 0.431) ; nacre #D8D2C8 ≈ (0.686, 0.644, 0.578)
-    M["or_blanc"] = surface("m15_orb", (0.50, 0.53, 0.58), (0.36, 0.38, 0.42), rough=0.3, rough2=0.42, metal=0.4,
+    M["or_blanc"] = surface("m15_orb", (0.36, 0.38, 0.42), (0.26, 0.28, 0.31), rough=0.3, rough2=0.42, metal=0.4,
                             var=0.5, var_scale=9.0, grain=0.12, bump=0.1, edge=((1.0, 0.95, 0.8), 0.5, 0.015),
                             cavity=0.4)
-    M["nacre"] = surface("m15_nacre", (0.46, 0.50, 0.56), (0.33, 0.36, 0.41), rough=0.35, metal=0.1, spec=0.7,
+    M["nacre"] = surface("m15_nacre", (0.30, 0.33, 0.37), (0.21, 0.23, 0.26), rough=0.35, metal=0.1, spec=0.7,
                          var=0.6, var_scale=7.0, grain=0.15, bump=0.15, bump_scale=60.0,
                          edge=((0.9, 0.88, 0.84), 0.5, 0.015), cavity=0.45, streak=0.3,
                          stain=((0.32, 0.30, 0.27), 0.4, 6.0))
@@ -94,6 +94,12 @@ def bras(g, M, B):
         for zb in (0.50,):
             _plaque(g, M["or"], x0, L, zb, zb + 0.03, k, 0.018, 0.02)
         geo.eboulis(g, (M["obsidienne"], M["laque"]), max(x0, 0.0), L - B.eps, -HW0 * k - 0.005, 2, r=0.028)
+        if S_:
+            # v5 : ailerons d'obsidienne en saillie sur les flancs nord-sud (modelé, silhouette dentelée)
+            hwk = lambda z: hw(z) * k  # noqa: E731
+            for t in (0.25, 0.75):
+                geo.contrefort_flanc(g, M["laque"], M["or"], B.x(t), hwk, 0.70, w0=0.07, w1=0.03, sail=0.08,
+                                     cap_h=0.02)
         g.pop()
     # couronnement de nacre (dessus clair, ~10-12 px HR) et fissure de feu sur son dessus (dans le vide)
     g.prism([(-(HW1 + 0.03) * k, Z_W - 0.01), ((HW1 + 0.03) * k, Z_W - 0.01), ((HW1 + 0.03) * k, Z_W + 0.02),
@@ -102,7 +108,7 @@ def bras(g, M, B):
     g.prism([(-0.02 * k, Z_CAP - 0.004), (0.02 * k, Z_CAP - 0.004), (0.012 * k, Z_CAP + 0.01),
              (-0.012 * k, Z_CAP + 0.01)], x0, L, M["feu"], bev=0)
     # créneaux flottants : centres 0, 0,5, 1,0 tuile, demi-largeur 0,12
-    for c in (0.5,):                       # v4 : un créneau flottant par case (au joint), moins de « palissade »
+    for c in ((0.5,) if S_ else ()):       # v5 : est-ouest, créneaux seulement aux nœuds (1 segment sur 3)
         sp = B.span(c - 0.12, c + 0.12)
         if sp:
             _merlon_flottant(g, M, B.x(sp[0]), min(B.x(sp[1]), L), k)
@@ -181,3 +187,4 @@ def noeud(g, M, forme, bras):
         _sceau(g, M)
     elif forme == "horiz3":
         _contrefort(g, M)
+        _merlon_flottant(g, M, -0.12, 0.12, SQ2)

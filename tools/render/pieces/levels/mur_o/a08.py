@@ -36,12 +36,12 @@ def mats(S):
     M["pierre"] = surface("m8_pierre", (0.095, 0.11, 0.085), (0.05, 0.06, 0.045), rough=0.9, var=0.7, var_scale=7.0,
                           grain=0.25, bump=0.8, bump_scale=35.0, edge=((0.27, 0.29, 0.24), 0.55, 0.035), cavity=0.75,
                           cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
-                          bottom=((0.005, 0.006, 0.004), 0.20, 1.0), seed=3.0,
+                          bottom=((0.004, 0.004, 0.003), 0.07, 1.0), seed=3.0,
                           stain=((0.03, 0.04, 0.025), 0.5, 5.0))
     M["pierre2"] = surface("m8_pierre2", (0.12, 0.125, 0.10), (0.065, 0.07, 0.055), rough=0.9, var=0.7, var_scale=6.0,
                            grain=0.25, bump=0.8, bump_scale=30.0, edge=((0.30, 0.31, 0.27), 0.55, 0.035), cavity=0.75,
                            cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
-                           bottom=((0.005, 0.006, 0.004), 0.20, 1.0), seed=9.0,
+                           bottom=((0.004, 0.004, 0.003), 0.07, 1.0), seed=9.0,
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
     M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
                            top=((0.06, 0.12, 0.02), 0.7, 0.4))
@@ -146,6 +146,15 @@ def bras(g, M, B):
                   (xj - 0.06, -0.1 * k)]
             g.loft_z(pa, 0.0, zt, M["pierre2"], poly1=pb, bev=0.012)
             g.box(xj - 0.075, xj + 0.075, -(hw(zt) + 0.09) * k, -0.1 * k, zt, zt + 0.035, M["chaperon"], bev=0.008)
+            g.pop()
+    if S_:
+        # v5 : flancs nord-sud modelés : contreforts supplémentaires et blocs débordants
+        for s in (1, -1):
+            g.push(g.Sc(1, s, 1))
+            hwk = lambda z: hw(z) * k  # noqa: E731
+            for t in (0.05, 0.95):
+                geo.contrefort_flanc(g, M["pierre2"], M["chaperon"], B.x(t), hwk, 0.62, w0=0.09, w1=0.05)
+            geo.blocs_debordants(g, (M["pierre"], M["pierre2"], M["mousse"]), B.x(0.15), B.x(0.85), hwk, (0.25, 0.70), 3)
             g.pop()
     for s_ in ((1, -1) if S_ else (1,)):
         g.push(g.Sc(1, s_, 1))

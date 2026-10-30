@@ -437,6 +437,29 @@ def eboulis(g, mats, x0, x1, y, n, r=0.035, z=0.0):
         g.hull(pts, mats[i % len(mats)], bev=0.006, seg=1)
 
 
+def contrefort_flanc(g, mat, cap, xc, hwk, z1, w0=0.10, w1=0.05, sail=0.07, cap_h=0.03):
+    """Contrefort en saillie sur une face (normale -Y du repère courant) : pied affleurant au pied du talus (hwk(0)),
+    saillie croissante jusqu'à z1, chapeau. hwk(z) : demi-épaisseur du talus en UNITÉS."""
+    y0, y1 = -hwk(0.0) - 0.004, -(hwk(z1) + sail)
+    pa = [(xc - w0, y0), (xc + w0, y0), (xc + w0, y0 + 0.12), (xc - w0, y0 + 0.12)]
+    pb = [(xc - w1, y1), (xc + w1, y1), (xc + w1, -hwk(z1) + 0.08), (xc - w1, -hwk(z1) + 0.08)]
+    g.loft_z(pa, 0.0, z1, mat, poly1=pb, bev=0.01)
+    if cap is not None:
+        g.box(xc - w1 - 0.012, xc + w1 + 0.012, y1 - 0.015, -hwk(z1) + 0.06, z1, z1 + cap_h, cap, bev=0.008)
+
+
+def blocs_debordants(g, mats, x0, x1, hwk, zs, n, taille=0.07):
+    """Blocs irréguliers qui débordent du talus (face -Y) : modelé et silhouette dentelée des flancs."""
+    for i in range(n):
+        x = x0 + (i + g.rnd(0.2, 0.8)) * (x1 - x0) / n
+        z = g.rnd(zs[0], zs[1])
+        t = taille * g.rnd(0.7, 1.2)
+        y = -hwk(z)
+        pts = [(x + t * g.rnd(-1, 1), y - t * g.rnd(0.1, 0.6), z + t * g.rnd(-0.7, 0.7)) for _ in range(8)]
+        pts += [(x - t, y + 0.03, z - t * 0.6), (x + t, y + 0.03, z + t * 0.6)]
+        g.hull(pts, mats[i % len(mats)], bev=0.008, seg=1)
+
+
 def emissive(S, name, color, strength=1.0, base=(0.04, 0.03, 0.02), crust=None):
     """Lueur : la passe glow est écrêtée à 1 (PNG) : couleur × force ≤ 1 sinon la teinte part au jaune ou au blanc."""
     m = S.mat_emissive(name, color, strength=strength, base=base, main_scale=0.0, crust=crust)
