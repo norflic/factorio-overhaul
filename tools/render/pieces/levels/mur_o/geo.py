@@ -14,6 +14,7 @@ import bpy
 from mathutils import Matrix, Vector
 
 SQ2 = math.sqrt(2.0)
+GRAINE = 0.0      # v3 : décalage des motifs des matières, posé par piece.build selon la forme (variantes ≠)
 
 
 class G:
@@ -270,7 +271,8 @@ def surface(name, col, col2=None, rough=0.75, metal=0.0, var=0.5, var_scale=6.0,
                 L.new(v, x.inputs[i])
         return x.outputs[0]
 
-    # décalage de graine : on translate les coordonnées
+    # décalage de graine : on translate les coordonnées (v3 : + GRAINE de la forme)
+    seed = seed + GRAINE
     if seed:
         vm = N.new("ShaderNodeVectorMath")
         vm.operation = "ADD"

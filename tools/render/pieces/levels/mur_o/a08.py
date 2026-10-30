@@ -33,12 +33,12 @@ def mats(S):
     M["pierre"] = surface("m8_pierre", (0.095, 0.11, 0.085), (0.05, 0.06, 0.045), rough=0.9, var=0.7, var_scale=7.0,
                           grain=0.25, bump=0.8, bump_scale=35.0, edge=((0.27, 0.29, 0.24), 0.55, 0.035), cavity=0.75,
                           cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
-                          bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=3.0,
+                          bottom=((0.018, 0.02, 0.015), 0.14, 0.92), seed=3.0,
                           stain=((0.03, 0.04, 0.025), 0.5, 5.0))
     M["pierre2"] = surface("m8_pierre2", (0.12, 0.125, 0.10), (0.065, 0.07, 0.055), rough=0.9, var=0.7, var_scale=6.0,
                            grain=0.25, bump=0.8, bump_scale=30.0, edge=((0.30, 0.31, 0.27), 0.55, 0.035), cavity=0.75,
                            cavity_dist=0.08, streak=0.4, top=((0.10, 0.20, 0.035), 0.75, 0.32),
-                           bottom=((0.025, 0.03, 0.022), 0.40, 0.75), seed=9.0,
+                           bottom=((0.018, 0.02, 0.015), 0.14, 0.92), seed=9.0,
                            stain=((0.035, 0.03, 0.02), 0.5, 4.0))
     M["mortier"] = surface("m8_mortier", (0.035, 0.04, 0.032), rough=0.95, var=0.3, grain=0.2, bump=0.4, cavity=0.3,
                            top=((0.06, 0.12, 0.02), 0.7, 0.4))
@@ -54,12 +54,15 @@ def mats(S):
                             stain=((0.04, 0.05, 0.03), 0.5, 5.0))
     M["coulee"] = surface("m8_coulee", (0.10, 0.30, 0.22), (0.05, 0.16, 0.12), rough=0.5, var=0.8, var_scale=12.0,
                           grain=0.3, bump=0.3, cavity=0.2, spec=0.6)
+    M["verre"] = surface("m8_verre_v", (0.27, 0.52, 0.065), (0.17, 0.36, 0.04), rough=0.08, rough2=0.15, spec=1.0,
+                         var=0.5, var_scale=6.0, grain=0.05, bump=0.05, cavity=0.2,
+                         edge=((0.6, 0.8, 0.35), 0.4, 0.02))
+    M["liquide"] = geo.emissive(S, "m8_liquide", (0.66, 1.0, 0.23), strength=0.75, base=(0.05, 0.09, 0.01))
     M["verre_sombre"] = surface("m8_verre_s", (0.03, 0.06, 0.02), rough=0.08, spec=1.0, var=0.3, grain=0.05,
                                 bump=0.0, cavity=0.0)
     M["mousse"] = surface("m8_mousse", (0.06, 0.14, 0.02), (0.03, 0.07, 0.012), rough=1.0, var=0.8, var_scale=12.0,
                           grain=0.35, bump=1.0, bump_scale=120.0, cavity=0.5, spec=0.2)
     M["vide"] = surface("m8_vide", (0.006, 0.008, 0.005), rough=1.0, var=0.0, grain=0.0, bump=0.0, cavity=0.0, spec=0.0)
-    M["verre"] = geo.emissive(S, "m8_verre", (0.6, 1.0, 0.04), strength=0.9, base=(0.04, 0.06, 0.01))
     return M
 
 
@@ -128,15 +131,18 @@ def bras(g, M, B):
             x0, L, M["mortier"], bev=0)
     _maconnerie(g, M, B)
     _toit(g, M, x0, L, k)
-    # gargouille de cuivre au joint de case et coulure verte (face avant ; les deux flancs du bras sud)
-    tj = 0.5
-    xj = B.x(tj)
-    for s in ((-1, 1) if S_ else (-1,)):
-        g.push(g.Sc(1, s, 1))
-        y = -(HW1 + 0.06) * k
-        g.cyl((xj, y - 0.06, Z_W - 0.09), "y", 0.028, 0.16, M["cuivre"], n=10, r2=0.022, bev=0)
-        g.box(xj - 0.03, xj + 0.03, y - 0.004, y + 0.03, Z_W - 0.14, Z_W - 0.04, M["cuivre_sombre"], bev=0.004)
-        g.pop()
+    # contrefort de pierre au joint de case (v3 : DANS le pied, aucune saillie au sud du pied ; moitié par case)
+    if B.t0 < 0.5 < B.t1:
+        xj = B.x(0.5)
+        for s in ((-1, 1) if S_ else (-1,)):
+            g.push(g.Sc(1, s, 1))
+            zt = 0.74
+            pa = [(xj - 0.11, -HW0 * k), (xj + 0.11, -HW0 * k), (xj + 0.11, -0.1 * k), (xj - 0.11, -0.1 * k)]
+            pb = [(xj - 0.06, -(hw(zt) + 0.07) * k), (xj + 0.06, -(hw(zt) + 0.07) * k), (xj + 0.06, -0.1 * k),
+                  (xj - 0.06, -0.1 * k)]
+            g.loft_z(pa, 0.0, zt, M["pierre2"], poly1=pb, bev=0.012)
+            g.box(xj - 0.075, xj + 0.075, -(hw(zt) + 0.09) * k, -0.1 * k, zt, zt + 0.035, M["chaperon"], bev=0.008)
+            g.pop()
     for s_ in ((-1, 1) if S_ else (-1,)):
         g.push(g.Sc(1, s_, 1))
         geo.eboulis(g, (M["pierre"], M["pierre2"], M["mousse"]), max(x0, 0.0), L - B.eps, -HW0 * k - 0.01, 3, r=0.035)
@@ -164,7 +170,7 @@ def _contrefort(g, M):
         pa = [(-w, -(hw(z0) + d0) * k), (w, -(hw(z0) + d0) * k), (w, -0.1 * k), (-w, -0.1 * k)]
         pb = [(-w + 0.01, -(hw(z1) + d1) * k), (w - 0.01, -(hw(z1) + d1) * k), (w - 0.01, -0.1 * k),
               (-w + 0.01, -0.1 * k)]
-        g.loft_z(pa, z0, z1, M["pierre2"], poly1=pb, bev=0.015)
+        g.loft_z(pa, z0, z1, M["pierre2"], poly1=pb, bev=0.015)  # (v2, non utilisé en v3)
         g.box(-w - 0.012, w + 0.012, -(hw(z1) + d1 + 0.025) * k, -0.1 * k, z1, z1 + 0.035, M["pierre"], bev=0.01)
     # tirant de cuivre (plaque rivetée) sur le ressaut haut
     y = -(hw(0.58) + 0.055) * k
@@ -244,10 +250,80 @@ def _tour(g, M):
     _mousse(g, M, 0.33, -0.25, 0.0, 0.09)
 
 
+def _panneau(g, M, xc=0.0, w=0.28, z0=0.28, z1=0.62):
+    """Panneau de verre épais à sommet bombé dans le talus (DA époque 8) : armature vert-de-gris de 3 px, verre vert
+    (#8FBF4A), liquide luminescent dans le bas du verre (lueur fixe, ≤ 10 % de la surface)."""
+    k = SQ2
+
+    def contour(dw, dz, n=9):
+        pts = [(xc - w - dw, z0 - dz), (xc + w + dw, z0 - dz)]
+        r = w + dw
+        for i in range(n + 1):
+            a = i * math.pi / n
+            pts.append((xc + r * math.cos(a), z1 + 0.45 * r * math.sin(a) + dz))
+        return pts
+
+    def coque(pts, d0, d1):
+        out = []
+        for (x, z) in pts:
+            y = hw(z) * k
+            out.append((x, -(y + d0), z))
+            out.append((x, -(y - d1), z))
+        return out
+    g.hull(coque(contour(0.045, 0.045), 0.012, 0.03), M["cuivre"], bev=0.006, seg=1)
+    g.hull(coque(contour(0.0, 0.0), 0.024, 0.0), M["verre"], bev=0.01, seg=2)
+    # liquide luminescent : bande basse du verre
+    liq = [(xc - w + 0.03, z0 + 0.02), (xc + w - 0.03, z0 + 0.02), (xc + w - 0.03, z0 + 0.12), (xc - w + 0.03, z0 + 0.12)]
+    g.hull(coque(liq, 0.030, 0.0), M["liquide"], bev=0, seg=1)
+    # rivets de l'armature
+    g.rivets([(xc + sx * (w + 0.022), -(hw(z) * k + 0.016), z, "y") for sx in (-1, 1) for z in (z0 + 0.05, z1 - 0.02)],
+             0.016, M["cuivre_sombre"])
+
+
+def _bulbe(g, M):
+    """Extrémité : fût bas de pierre cerclé de vert-de-gris et BULBE de verre (Ø ≈ 30 px) au liquide luminescent."""
+    ky = SQ2
+    g.cyl((0, 0, 0.36), "z", 0.44, 0.72, M["pierre"], n=32, r2=0.36, bev=0.01)
+    for z in (0.24, 0.66):
+        r = 0.44 + (0.36 - 0.44) * (z / 0.72)
+        g.cyl((0, 0, z), "z", r + 0.02, 0.05, M["cuivre"], n=32, bev=0.004)
+    g.cyl((0, 0, 0.75), "z", 0.30, 0.06, M["cuivre"], n=32, r2=0.26, bev=0.004)
+    g.sphere((0, 0, 0.98), 0.235, M["verre"], seg=32, rings=16)
+    g.sphere((0, 0, 0.90), 0.242, M["liquide"], seg=32, rings=12, sz=0.42)   # ceinture de liquide qui affleure
+    # armature : 4 côtes de vert-de-gris sur le bulbe et chapeau
+    import mathutils
+    for j in range(4):
+        a = j * math.pi / 2 + math.pi / 4
+        o = g.S.torus(0.24, 0.014, (0, 0, 0.98), M["cuivre_sombre"], rot=(math.pi / 2, 0, a), major_seg=40, minor_seg=6)
+    g.cyl((0, 0, 1.22), "z", 0.05, 0.04, M["cuivre"], n=16, bev=0.003)
+    _mousse(g, M, -0.3, -0.3, 0.0, 0.11)
+    _mousse(g, M, 0.32, -0.22, 0.0, 0.08)
+    geo.eboulis(g, (M["pierre"], M["pierre2"], M["mousse"]), -0.35, 0.35, -0.45, 3, r=0.035)
+
+
+def _pile(g, M):
+    """Angle : pile de blocs au même talus que le mur, chapeau pyramidal de cuivre (≤ +15 % de la crête)."""
+    ky = SQ2
+    a0, a1 = HW0 + 0.01, HW1 + 0.03
+
+    def carre(h):
+        return [(-h, -h * ky), (h, -h * ky), (h, h * ky), (-h, h * ky)]
+    g.loft_z(carre(a0), 0.0, Z_W, M["pierre2"], poly1=carre(a1), bev=0.016)
+    g.loft_z(carre(a1 + 0.05), Z_W - 0.01, Z_W + 0.03, M["chaperon"], poly1=carre(a1 + 0.04), bev=0.01)
+    g.loft_z(carre(a1 + 0.03), Z_W + 0.03, Z_R + 0.08, M["cuivre"], poly1=carre(0.02), bev=0.004)
+
+
 def noeud(g, M, forme, bras):
-    if forme in ("single", "corR", "corL", "endR", "endL"):
-        _tour(g, M)
+    if forme in ("single", "endR", "endL"):
+        _bulbe(g, M)
+    elif forme in ("corR", "corL"):
+        _pile(g, M)
     elif forme == "horiz":
-        _contrefort(g, M)
+        _panneau(g, M)
     elif forme == "horiz2":
+        _panneau(g, M)
         _gargouille(g, M)
+    elif forme == "horiz3":
+        _panneau(g, M, w=0.24, z1=0.58)
+        _mousse(g, M, -0.2, -(HW0 + 0.02) * SQ2, 0.0, 0.12)
+        _mousse(g, M, 0.25, -(HW0 + 0.0) * SQ2, 0.0, 0.09)
