@@ -89,7 +89,8 @@ check(bio_ok, "X n'est pas modifié : son cryostat demande toujours 2 biopolymè
 local vb, vp = X.currency_of(8).value, X.currency_of(4).value
 local v_x = X.currency_of(11).value + 2 * vb + X.currency_of(10).value
 local v_g = X.currency_of(11).value + 2 * vp + X.currency_of(10).value
-check(v_x == 103 and v_g == 101, string.format("cryostat : valeur %d MU au lieu de %d (écart de %.0f %%)", v_g, v_x, 100 * (v_x - v_g) / v_x))
+-- (Intégration 0.6.22 : la piste CALCULS ramène le plastique de 3 à 1,5 MU (matière brute réelle) : 98 au lieu de 101.)
+check(v_x == 103 and v_g == 98, string.format("cryostat : valeur %d MU au lieu de %d (écart de %.0f %%)", v_g, v_x, 100 * (v_x - v_g) / v_x))
 check(S.machine_for("fo-superconducting-coil") == "fo-coil-winder" and S.machine_for("fo-air-distillation") == "fo-cryogenic-unit"
   and S.machine_for("fo-water-electrolysis") == "fo-electrolyzer" and S.machine_for("fo-monazite-concentrate") == "fo-ore-concentrator"
   and S.machine_for("fo-monazite-leaching") == "chemistry" and S.machine_for("fo-superconducting-tape") == "fo-sintering-furnace",

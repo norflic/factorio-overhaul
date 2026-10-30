@@ -62,11 +62,11 @@ S.RECIPES = {
 -- ÉCART au scénario (le seul) : le biopolymère (PHB, monnaie de l'âge 8, fait de cultures méthanotrophes nées d'un
 -- échantillon de vase ramassé à la main dans le marais) n'est pas en jeu, et la règle « déplier » ne s'applique pas (la
 -- culture vient d'une cueillette, sans recette). Le plastique (monnaie de l'âge 4, le polymère vanilla) prend sa place,
--- au même nombre : valeur du cryostat 101 MU au lieu de 103 (X.currencies : biopolymère 4, plastique 3, plaque de
--- titane 20, processeur 75), soit 2 % de moins. À rétablir quand l'âge 8 sera en jeu.
+-- au même nombre : valeur du cryostat 98 MU au lieu de 103 (X.currencies : biopolymère 4, plastique 1,5 depuis la piste
+-- CALCULS (3 avant : 101 MU, 2 %), plaque de titane 20, processeur 75), soit 5 % de moins. À rétablir quand l'âge 8 sera en jeu.
 S.DEVIATIONS = {
   ["fo-cryostat"] = { replace = { ["fo-biopolymer"] = "plastic-bar" },
-    why_fr = "biopolymère (âge 8) absent du jeu : plastique (polymère vanilla) au même nombre, valeur -2 %" },
+    why_fr = "biopolymère (âge 8) absent du jeu : plastique (polymère vanilla) au même nombre, valeur -5 %" }, -- (-2 % avant la piste CALCULS : plastique 3 -> 1,5 MU)
 }
 
 -- Machines : nom X, et visuel PROVISOIRE (copie d'une machine vanilla, teinte de l'époque d'origine ; F36, F38 : une

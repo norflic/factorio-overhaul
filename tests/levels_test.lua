@@ -2075,7 +2075,7 @@ local function fake_gui()
   return setmetatable(c, { __index = function(t, k) return rawget(t, "_children")[k] end })
 end
 local player = Wd.player
-player.gui = { left = fake_gui(), top = fake_gui() }
+player.gui = { left = fake_gui(), top = fake_gui(), screen = fake_gui() } -- (screen : intégration 0.6.22, fenêtre du journal d'époque au passage du centre)
 local function captions(el, out)
   out = out or {}
   for _, ch in ipairs(rawget(el, "_list")) do

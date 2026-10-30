@@ -108,6 +108,7 @@ local function new_force(name)
   -- Lot V3-T3 : messages à une force (relevés).
   f.print = function(s) W.force_prints = W.force_prints or {}; W.force_prints[#W.force_prints + 1] = M.ls_to_string(s) end
   f.chart = function(surface, area) assert(surface and area, "chart : arguments") end
+  f.is_chunk_charted = function(surface, cpos) assert(surface and cpos, "is_chunk_charted : arguments") return false end -- intégration 0.6.22
   f.set_cease_fire = function(other, v)
     local n = type(other) == "string" and other or other.name
     assert(type(v) == "boolean", "set_cease_fire : booléen attendu")
@@ -1075,6 +1076,9 @@ function M.new_world(opts)
   surface.request_to_generate_chunks = function(pos, r) assert(pos and r, "request_to_generate_chunks : arguments") end
   surface.force_generate_chunk_requests = function() end
   surface.is_chunk_generated = function(cpos) assert(cpos and cpos.x and cpos.y, "is_chunk_generated : ChunkPosition") return true end
+  -- Intégration 0.6.22 (journal d'époque : chunks cartographiés comptés à l'ouverture de sa fenêtre) : le mock n'a pas de
+  -- liste de chunks ; l'itérateur est vide (aucun chunk cartographié).
+  surface.get_chunks = function() return function() return nil end end
   surface.get_tile = function(x, y)
     assert(type(x) == "number" and type(y) == "number", "get_tile(x, y) : entiers attendus")
     local name = tile_name_at(x, y)
