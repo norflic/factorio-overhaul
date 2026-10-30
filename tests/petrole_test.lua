@@ -1,0 +1,704 @@
+--[[
+  Lot PETROLE : test hors jeu de l'exécutant générique des chaînes à fluides (shared/ai3/fluides.lua) et de son
+  branchement au cerveau général (shared/ai3/catalogue.lua, shared/ai3/general.lua).
+    §1 exécutants déduits des données (extracteur du pétrole par la catégorie de ressource, machines par la catégorie de
+       recette et les boîtes à fluide) ;
+    §2 H8 : le pack chimique est IMPAYABLE sans l'exécutant, PAYABLE avec lui une fois le pétrole connu, et l'inconnu
+       « pétrole » rapporte (il est à explorer) ;
+    §3 chaîne de cellules des objets du pack (plastique, soufre : raffinerie, usines chimiques, pompe d'eau) ;
+    §4 implantation sur un terrain simulé : extracteurs centrés sur les puits, tuyaux sans mélange, quais, poteaux ;
+    §5 généralisation : mêmes résultats sur des données RENOMMÉES (aucun nom dans le code) ;
+    §6 déterminisme : deux implantations identiques.
+  Lancement : lua5.2 tests/petrole_test.lua   (depuis la racine du mod)
+]]
+package.path = "./?.lua;" .. package.path
+local F = require("tests.iag_fixture")
+local K = require("shared.ai3.catalogue")
+local Gen = require("shared.ai3.general")
+local Fl = require("shared.ai3.fluides")
+local R = require("shared.ai3.reglages")
+
+local pass, fail = 0, 0
+local function check(c, msg)
+  if c then pass = pass + 1 else fail = fail + 1; print("[PETROLE] ECHEC : " .. msg) end
+end
+local function say(s) print("[PETROLE] " .. s) end
+local function sorted_keys(t) local k = {} for x in pairs(t or {}) do k[#k + 1] = x end table.sort(k) return k end
+
+-- Raccords vanilla 1.1.91 (data/base/prototypes/entity), direction nord ; les autres directions par rotation (sauf
+-- l'extracteur, explicite par direction comme son prototype).
+local function rot(p, d)
+  local x, y = p[1], p[2]
+  for _ = 1, d / 2 do x, y = -y, x end
+  return { x, y }
+end
+local function boxes_of(spec)
+  local out = {}
+  for _, b in ipairs(spec) do
+    local conns = {}
+    for _, d in ipairs({ 0, 2, 4, 6 }) do
+      conns[d] = {}
+      for _, p in ipairs(b.pts) do conns[d][#conns[d] + 1] = b.explicit and b.explicit[d] or rot(p, d) end
+    end
+    out[#out + 1] = { type = b.type, conns = conns }
+  end
+  return out
+end
+local VANILLA_BOXES = {
+  ["oil-refinery"] = { w = 5, h = 5, boxes = { { type = "input", pts = { { -1, 3 } } }, { type = "input", pts = { { 1, 3 } } },
+    { type = "output", pts = { { -2, -3 } } }, { type = "output", pts = { { 0, -3 } } }, { type = "output", pts = { { 2, -3 } } } } },
+  ["chemical-plant"] = { w = 3, h = 3, boxes = { { type = "input", pts = { { -1, -2 } } }, { type = "input", pts = { { 1, -2 } } },
+    { type = "output", pts = { { -1, 2 } } }, { type = "output", pts = { { 1, 2 } } } } },
+  ["assembling-machine-2"] = { w = 3, h = 3, boxes = { { type = "input", pts = { { 0, -2 } } }, { type = "output", pts = { { 0, 2 } } } } },
+  ["assembling-machine-3"] = { w = 3, h = 3, boxes = { { type = "input", pts = { { 0, -2 } } }, { type = "output", pts = { { 0, 2 } } } } },
+  ["pumpjack"] = { w = 3, h = 3, boxes = { { type = "output", pts = { { 1, -2 } },
+    explicit = { [0] = { 1, -2 }, [2] = { 2, -1 }, [4] = { -1, 2 }, [6] = { -2, 1 } } } } },
+  ["offshore-pump"] = { w = 1, h = 1, boxes = { { type = "output", pts = { { 0, 1 } } } } },
+}
+local ELECTRIC = { ["oil-refinery"] = true, ["chemical-plant"] = true, ["assembling-machine-1"] = true,
+  ["assembling-machine-2"] = true, ["assembling-machine-3"] = true, ["pumpjack"] = true, ["inserter"] = true,
+  ["centrifuge"] = true, ["electric-mining-drill"] = true, ["electric-furnace"] = true }
+
+--- Relevé de l'exécutant depuis le relevé du catalogue (comme script/ai3/petrole.lua le lit dans les prototypes).
+local function rel_of(d)
+  local rel = { entities = {}, recipes = d.recipes, resources = d.resources, hand = {} }
+  for _, e in ipairs(d.entities) do
+    local role = R.ENTITY_ROLE[e.type or ""]
+    if role == "main" then for _, c in ipairs(e.crafting_categories or {}) do rel.hand[c] = true end end
+    local vb = VANILLA_BOXES[e.name]
+    rel.entities[e.name] = { role = role, item = e.item, w = vb and vb.w or 1, h = vb and vb.h or 1,
+      categories = e.crafting_categories, rescats = e.resource_categories, fluid = e.fluid,
+      boxes = vb and boxes_of(vb.boxes) or nil, electric = ELECTRIC[e.name] or e.energy == "electric" }
+    if role == "fabrique" and not vb then rel.entities[e.name].w, rel.entities[e.name].h = 3, 3 end
+  end
+  return rel
+end
+
+local function exec_with(d, rel, names)
+  local opts = F.opts()
+  local add, info = Fl.executors(rel, opts.exec)
+  for _, k in ipairs(sorted_keys(add)) do
+    local v = add[k]
+    if opts.exec[k] ~= true then
+      if v == true then opts.exec[k] = true
+      else
+        opts.exec[k] = type(opts.exec[k]) == "table" and opts.exec[k] or {}
+        for _, r in ipairs(sorted_keys(v)) do opts.exec[k][r] = true end
+      end
+    end
+  end
+  -- centrale de l'équipe (exécutant du plan directeur) : pompe de rive, chaudière, machine à vapeur
+  for _, n in ipairs({ names.offshore, names.boiler, names.steam }) do opts.exec[n] = true end
+  return opts, info, add
+end
+
+local function all_techs_before(cat, target)
+  local done = {}
+  local function walk(t)
+    if done[t] then return end
+    done[t] = true
+    for _, p in ipairs(cat.techs[t].prerequisites) do walk(p) end
+  end
+  walk(target)
+  done[target] = nil
+  return done
+end
+
+local function run(d, label, names)
+  local rel = rel_of(d)
+  -- §1
+  local opts, info, add = exec_with(d, rel, names)
+  local ex = info.extract[names.crude] or {}
+  check(#ex == 1 and ex[1] == names.pumpjack, label .. " §1 extracteur du pétrole déduit : " .. table.concat(ex, " "))
+  local ms = info.recipes[names.basic] or {}
+  check(ms[1] == names.refinery, label .. " §1 raffinerie déduite de la catégorie : " .. table.concat(ms, " "))
+  check((info.recipes[names.plastic] or {})[1] == names.chem, label .. " §1 usine chimique du plastique")
+  check((info.recipes[names.sulfur] or {})[1] == names.chem, label .. " §1 usine chimique du soufre")
+  local eng = info.recipes[names.engine] or {}
+  check(#eng >= 1, label .. " §1 le moteur (catégorie hors de la main) a une machine : " .. table.concat(eng, " "))
+  check(info.recipes[names.gear] == nil, label .. " §1 l'engrenage (fait à la main) n'est pas une cellule")
+  -- §2 H8
+  local base = K.build(d, F.opts())
+  local cat = K.build(d, opts)
+  local techs = all_techs_before(cat, names.chem_tech)
+  techs[names.chem_tech] = true
+  local st_known = { stock = {}, techs = techs, built = {}, known = { [names.iron] = true, [names.copper] = true,
+    [names.coal] = true, [names.stone] = true, [names.crude] = true, [names.water] = true } }
+  local ev0 = Gen.prepare(base, st_known)
+  check(not ev0.feas[names.chem_pack], label .. " §2 sans l'exécutant : pack chimique impayable (H8)")
+  local ev1 = Gen.prepare(cat, st_known)
+  check(ev1.feas[names.chem_pack] == true, label .. " §2 avec l'exécutant et le pétrole connu : pack chimique payable")
+  local st_unk = { stock = {}, techs = techs, built = {}, known = { [names.iron] = true, [names.copper] = true,
+    [names.coal] = true, [names.stone] = true, [names.water] = true } }
+  local ev2 = Gen.prepare(cat, st_unk)
+  check(not ev2.feas[names.chem_pack], label .. " §2 pétrole inconnu : impayable")
+  local rv = Gen.resource_values(cat, ev2, st_unk, {})
+  local crude_v = 0
+  for _, r in ipairs(rv) do if r[1] == names.crude then crude_v = r[2] end end
+  check(crude_v > 0, label .. " §2 le pétrole inconnu rapporte (" .. crude_v .. ") : il sera explore")
+  local sum = Gen.summary(cat, ev1, st_known, { { item = names.chem_pack, n = 10 } })
+  check(sum.payable and (sum.build[names.pumpjack] or 0) > 0 and (sum.build[names.refinery] or 0) > 0
+    and (sum.build[names.chem] or 0) > 0, label .. " §2 dépliage du pack : chevalet, raffinerie, usine chimique construits")
+  -- §2b « pack nouveau » (ctx.new_pack) : la recherche choisie consomme le pack chimique dès qu'il est payable
+  local function consumes(t)
+    for _, ing in ipairs((cat.techs[t] or {}).ingredients or {}) do if ing[1] == names.chem_pack then return true end end
+    return false
+  end
+  -- (le palier militaire ouvert d'abord : la règle ne passe jamais devant une candidate qui ouvre elle-même un palier)
+  local st2 = { stock = {}, techs = {}, built = {}, known = st_known.known }
+  for k in pairs(techs) do st2.techs[k] = true end
+  for k in pairs(all_techs_before(cat, names.mil_tech)) do st2.techs[k] = true end
+  st2.techs[names.mil_tech] = true
+  local ev3 = Gen.prepare(cat, st2)
+  local d_on = Gen.choose(cat, ev3, st2, { new_pack = true })
+  local used = {}
+  for t in pairs(st2.techs) do for _, ing in ipairs((cat.techs[t] or {}).ingredients or {}) do used[ing[1]] = true end end
+  local newp = false
+  for _, ing in ipairs((cat.techs[d_on.tech or ""] or {}).ingredients or {}) do if not used[ing[1]] then newp = true end end
+  check(d_on.tech ~= nil and newp, label .. " §2b pack nouveau : la recherche choisie consomme un pack jamais consommé (" .. tostring(d_on.tech) .. ")")
+  local d_off = Gen.choose(cat, ev3, st2, {})
+  say(label .. " §2b sans la règle : " .. tostring(d_off.tech) .. (consumes(d_off.tech or "") and " (consomme)" or " (ne consomme pas)"))
+  -- §2c la CHAÎNE qui mène au pack nouveau (Gen.PACK_NEAR) : packs rouge, vert et militaire acquis, pétrole connu, la
+  -- technologie choisie est la moins chère de la chaîne vers le pack chimique (moteur réel, etape1-guide 20261020 : la
+  -- chaîne du pétrole commençait à 43 min, après vingt minutes de recherches de faible valeur)
+  do
+    local st3 = { stock = {}, techs = {}, built = {}, known = st_known.known }
+    for _, t in ipairs({ names.auto2, names.mil_tech, names.defender }) do
+      for k in pairs(all_techs_before(cat, t)) do st3.techs[k] = true end
+      st3.techs[t] = true
+    end
+    local inchain = all_techs_before(cat, names.chem_tech)
+    inchain[names.chem_tech] = true
+    for k in pairs(st3.techs) do inchain[k] = nil end
+    local n_chain = 0
+    for _ in pairs(inchain) do n_chain = n_chain + 1 end
+    check(n_chain >= 4 and n_chain <= Gen.PACK_NEAR, label .. " §2c la chaîne restante tient dans Gen.PACK_NEAR (" .. n_chain .. ")")
+    local ev5 = Gen.prepare(cat, st3)
+    local on = Gen.choose(cat, ev5, st3, { new_pack = true })
+    check(inchain[on.tech or ""] == true, label .. " §2c la recherche choisie est sur la chaîne du pack chimique (" .. tostring(on.tech) .. ")")
+    -- tant que la chaîne dure, chaque pas reste sur elle (la moins chère d'abord)
+    local steps, cur = {}, on
+    local st4 = { stock = {}, techs = {}, built = {}, known = st3.known }
+    for k in pairs(st3.techs) do st4.techs[k] = true end
+    local ok_chain = true
+    for _ = 1, n_chain do
+      if not (cur.tech and inchain[cur.tech]) then ok_chain = false break end
+      steps[#steps + 1] = cur.tech
+      st4.techs[cur.tech] = true
+      cur = Gen.choose(cat, Gen.prepare(cat, st4), st4, { new_pack = true })
+    end
+    check(ok_chain, label .. " §2c chaque pas reste sur la chaîne : " .. table.concat(steps, " > "))
+    -- sans la règle (réglage éteint) : la chaîne n'est pas privilégiée
+    local off = Gen.choose(cat, ev5, st3, {})
+    say(label .. " §2c sans la règle : " .. tostring(off.tech))
+    -- mutant : la règle coupée (Gen.PACK_NEAR = 0) ne doit plus produire ce choix, ou le test est trop faible
+    local keep = Gen.PACK_NEAR
+    Gen.PACK_NEAR = 0
+    local mut = Gen.choose(cat, ev5, st3, { new_pack = true })
+    Gen.PACK_NEAR = keep
+    check(not inchain[mut.tech or ""] or mut.tech ~= on.tech or off.tech ~= on.tech,
+      label .. " §2c mutant : règle coupée, choix " .. tostring(mut.tech))
+    check(mut.tech ~= on.tech, label .. " §2c mutant refusé : sans la règle, la recherche choisie n'est plus celle de la chaîne (" .. tostring(mut.tech) .. ")")
+    -- un objet VOULU (tourelle) débloqué par une technologie prête ne recule pas derrière la chaîne
+    local w1 = Gen.choose(cat, ev5, st3, { new_pack = true, wanted = { [names.turret] = true } })
+    check(w1.tech == names.turret or inchain[w1.tech or ""] ~= true,
+      label .. " §2c un objet voulu ne recule pas derrière la chaîne (" .. tostring(w1.tech) .. ")")
+  end
+  -- §3 chaîne
+  local ch, why = Fl.chain(rel, info, { names.plastic_bar, names.sulfur_item }, { [names.water] = "pompe" })
+  check(ch ~= nil, label .. " §3 chaîne plastique + soufre : " .. tostring(why))
+  if ch then
+    local rs = {}
+    for _, c in ipairs(ch.cells) do rs[#rs + 1] = c.recipe .. "@" .. c.machine end
+    say(label .. " chaîne : " .. table.concat(rs, " ; "))
+    check(#ch.cells == 3 and ch.cells[1].recipe == names.basic, label .. " §3 trois cellules, raffinerie d'abord")
+    check(ch.sources[names.crude] == "extract" and ch.sources[names.water] == "pompe", label .. " §3 sources : puits et pompe")
+  end
+  -- §4 implantation sur un terrain simulé : eau à l'ouest (x < -30), une falaise de -5 à 5 en y = 20, 5 puits
+  local function blocked(tx, ty)
+    if tx < -30 then return true end
+    if ty == 20 and tx >= -5 and tx <= 5 then return true end
+    return false
+  end
+  local pumps = {}
+  for y = -10, 10 do pumps[#pumps + 1] = { name = names.offshore, x = -30 + 0.5, y = y + 0.5, dir = 2, fluid = names.water } end
+  -- pompe de rive : raccord à l'est quand elle regarde l'ouest (rotation de (0, 1)) : direction 2 = (-1, 0) ; on prend 6
+  for _, p in ipairs(pumps) do p.dir = 6 end
+  local req = { origin = { x = 0, y = 0 }, blocked = blocked, ents = rel.entities, chain = ch,
+    wells = { { x = 10.5, y = 3.5 }, { x = 16.5, y = -4.5 }, { x = 22.5, y = 9.5 }, { x = 4.5, y = -12.5 }, { x = 30.5, y = 0.5 } },
+    pumps = pumps, extractor = names.pumpjack, conduit = names.pipe, chest = names.chest, arm = names.arm,
+    poles = { name = names.pole, supply = 3.5, wire = 9 }, network = { x = -20.5, y = -40.5 }, n_extract = 2 }
+  local lay, why2 = Fl.layout(req)
+  check(lay ~= nil, label .. " §4 implantation : " .. tostring(why2))
+  -- §4d portée du fil vers le réseau : le dernier poteau de la ligne est à la portée du POTEAU DU RÉSEAU quand elle est plus
+  -- courte (petit poteau 5 ici, au lieu du poteau moyen 9) ; sans cela la ligne s'arrête hors de portée (« no_power »)
+  if lay then
+    local function mind(l)
+      local best = math.huge
+      for _, e in ipairs(l.ents) do
+        if e.name == names.pole then
+          local d = math.sqrt((e.x - req.network.x) ^ 2 + (e.y - req.network.y) ^ 2)
+          if d < best then best = d end
+        end
+      end
+      return best
+    end
+    local req2 = {}
+    for k, v in pairs(req) do req2[k] = v end
+    req2.network = { x = req.network.x, y = req.network.y, wire = 5 }
+    local lay2, why7 = Fl.layout(req2)
+    check(lay2 ~= nil, label .. " §4d implantation avec un poteau de réseau à portée 5 : " .. tostring(why7))
+    if lay2 then
+      check(mind(lay2) <= 5 + 1e-6, label .. string.format(" §4d le dernier poteau est à %.2f tuiles du poteau du réseau (portée 5)", mind(lay2)))
+      check(lay2.line >= lay.line, label .. " §4d la ligne ne raccourcit pas avec une portée plus courte (" .. lay2.line .. " contre " .. lay.line .. ")")
+    end
+    -- mutant : la portée du poteau moyen (9) laisse la ligne à plus de 5 tuiles du réseau, le contrôle ci-dessus la refuse
+    check(mind(lay) > 5, label .. string.format(" §4d mutant refusé : sans la portée du poteau du réseau, la ligne s'arrête à %.2f tuiles (> 5)", mind(lay)))
+    say(label .. string.format(" §4d portée 9 : poteau le plus proche du réseau à %.2f ; portée 5 : %.2f", mind(lay), lay2 and mind(lay2) or -1))
+  end
+  if lay then
+    local count = {}
+    for _, e in ipairs(lay.ents) do count[e.name] = (count[e.name] or 0) + 1 end
+    local parts = {}
+    for _, k in ipairs(sorted_keys(count)) do parts[#parts + 1] = k .. "=" .. count[k] end
+    say(label .. " implantation : " .. table.concat(parts, " ") .. string.format(" ; tuyaux %d, poteaux %d (liaison %d)", lay.pipes, lay.poles, lay.line))
+    check(count[names.pumpjack] == 2, label .. " §4 deux chevalets")
+    local on_well = 0
+    for _, e in ipairs(lay.ents) do
+      if e.name == names.pumpjack then
+        for _, w in ipairs(req.wells) do if e.x == w.x and e.y == w.y then on_well = on_well + 1 end end
+      end
+    end
+    check(on_well == 2, label .. " §4 chevalets centrés sur les puits (" .. on_well .. ")")
+    check(count[names.refinery] == 1 and count[names.chem] == 2 and count[names.offshore] == 1, label .. " §4 raffinerie, 2 usines, 1 pompe")
+    local ok, w3 = Fl.check(lay, rel.entities)
+    check(ok, label .. " §4 réseaux de tuyaux d'un seul fluide, chaque machine raccordée : " .. tostring(w3))
+    check(#lay.quais == 1 and lay.quais[1].item == names.coal and #lay.outs == 2, label .. " §4 quai du charbon, 2 sorties (plastique, soufre)")
+    -- aucune entité sur une tuile bloquée, aucun chevauchement
+    local occ, bad = {}, 0
+    for _, e in ipairs(lay.ents) do
+      local p = rel.entities[e.name] or { w = 1, h = 1 }
+      local x0, y0, x1, y1 = Fl.rect_of(p, e.x, e.y, e.dir)
+      for ty = y0, y1 do for tx = x0, x1 do
+        local k = tx .. ":" .. ty
+        if occ[k] or blocked(tx, ty) then bad = bad + 1 end
+        occ[k] = true
+      end end
+    end
+    check(bad == 0, label .. " §4 aucun chevauchement ni tuile bloquée (" .. bad .. ")")
+    check(lay.line > 0, label .. " §4 ligne de poteaux jusqu'au réseau (" .. lay.line .. " relais)")
+    -- §6 déterminisme
+    local lay2 = Fl.layout(req)
+    local same = lay2 and #lay2.ents == #lay.ents
+    if same then for i, e in ipairs(lay.ents) do
+      local o = lay2.ents[i]
+      if o.name ~= e.name or o.x ~= e.x or o.y ~= e.y or o.dir ~= e.dir then same = false end
+    end end
+    check(same, label .. " §6 deux implantations identiques")
+  end
+  -- §4b rive LOIN du gisement (eau à x < -90) : machines près de la rive (req.block), le brut y vient par un long tuyau
+  local function blocked2(tx, ty) return tx < -90 end
+  local pumps2 = {}
+  for y = -6, 6 do pumps2[#pumps2 + 1] = { name = names.offshore, x = -89.5, y = y + 0.5, dir = 6, fluid = names.water } end
+  local req2 = {}
+  for k, v in pairs(req) do req2[k] = v end
+  req2.blocked, req2.pumps, req2.block = blocked2, pumps2, { x = -79.5, y = 0.5 }
+  local lay2, why4 = Fl.layout(req2)
+  check(lay2 ~= nil, label .. " §4b rive lointaine : " .. tostring(why4))
+  if lay2 then
+    local ok2, w5 = Fl.check(lay2, rel.entities)
+    check(ok2, label .. " §4b réseaux sans mélange, chevalets raccordés : " .. tostring(w5))
+    local ref
+    for _, e in ipairs(lay2.ents) do if e.name == names.refinery then ref = e end end
+    check(ref ~= nil and ref.x < -60, label .. " §4b raffinerie près de la rive (x " .. tostring(ref and ref.x) .. ")")
+    say(string.format("%s §4b : %d tuyaux, %d poteaux, %d relais", label, lay2.pipes, lay2.poles, lay2.line))
+  end
+  -- §4c ligne de poteaux qui CONTOURNE un obstacle (lot PETROLE 2) : un mur épais de 15 tuiles (y de -37 à -22, x de -30 à 60)
+  -- entre le site et le réseau, une brèche à l'est (x de 61 à 64) ; la ligne droite buterait sur le mur
+  local function blocked3(tx, ty)
+    return blocked(tx, ty) or (ty >= -37 and ty <= -22 and tx >= -30 and tx <= 60)
+  end
+  local req3 = {}
+  for k, v in pairs(req) do req3[k] = v end
+  req3.blocked = blocked3
+  local lay3, why5 = Fl.layout(req3)
+  check(lay3 ~= nil, label .. " §4c mur entre le site et le réseau : " .. tostring(why5))
+  if lay3 then
+    local bad3 = 0
+    for _, e in ipairs(lay3.ents) do
+      local p = rel.entities[e.name] or { w = 1, h = 1 }
+      local x0, y0, x1, y1 = Fl.rect_of(p, e.x, e.y, e.dir)
+      for ty = y0, y1 do for tx = x0, x1 do if blocked3(tx, ty) then bad3 = bad3 + 1 end end end
+    end
+    check(bad3 == 0, label .. " §4c aucune entité sur le mur (" .. bad3 .. ")")
+    -- continuité : de proche en proche, tous les poteaux jusqu'au réseau (sauts de fil)
+    local poles = { { x = req3.network.x, y = req3.network.y } }
+    for _, e in ipairs(lay3.ents) do if e.name == names.pole then poles[#poles + 1] = { x = e.x, y = e.y } end end
+    local seen, queue, qi = { [1] = true }, { 1 }, 1
+    while qi <= #queue do
+      local i = queue[qi]; qi = qi + 1
+      for j = 1, #poles do
+        if not seen[j] and (poles[i].x - poles[j].x) ^ 2 + (poles[i].y - poles[j].y) ^ 2 <= req3.poles.wire ^ 2 then
+          seen[j] = true; queue[#queue + 1] = j
+        end
+      end
+    end
+    local linked = true
+    for j = 1, #poles do if not seen[j] then linked = false end end
+    check(linked, label .. " §4c tous les poteaux du site sont reliés au réseau")
+    check(lay3.line > (lay and lay.line or 0), label .. " §4c la ligne contournée compte plus de relais (" .. lay3.line .. ")")
+    say(string.format("%s §4c : contournement du mur : %d relais (ligne droite : %d)", label, lay3.line, lay and lay.line or -1))
+  end
+  -- mutant : un mur sans brèche sur toute la largeur utile (x de -30 à 400) : aucun chemin dans le budget, site refusé
+  local function blocked4(tx, ty) return blocked(tx, ty) or (ty >= -37 and ty <= -22 and tx >= -30 and tx <= 400) end
+  local req4 = {}
+  for k, v in pairs(req) do req4[k] = v end
+  req4.blocked = blocked4
+  local lay4, why6 = Fl.layout(req4)
+  check(lay4 == nil and tostring(why6):find("reseau", 1, true) ~= nil, label .. " §4c mutant : mur sans brèche : site refusé (" .. tostring(why6) .. ")")
+  return lay, rel, ch
+end
+
+local V = { crude = "crude-oil", pumpjack = "pumpjack", basic = "basic-oil-processing", refinery = "oil-refinery",
+  plastic = "plastic-bar", sulfur = "sulfur", chem = "chemical-plant", engine = "engine-unit", gear = "iron-gear-wheel",
+  chem_tech = "chemical-science-pack", mil_tech = "military-science-pack", chem_pack = "chemical-science-pack", iron = "iron-ore", copper = "copper-ore",
+  coal = "coal", stone = "stone", plastic_bar = "plastic-bar", sulfur_item = "sulfur", water = "water",
+  offshore = "offshore-pump", boiler = "boiler", steam = "steam-engine", pipe = "pipe", chest = "iron-chest", arm = "inserter", pole = "medium-electric-pole",
+  auto2 = "automation-2", defender = "defender", turret = "gun-turret" }
+local _, rel0, ch0 = run(F.dump(), "vanilla", V)
+
+-- §7 exploration : les deux ressources inconnues les plus rentables sont explorées ensemble (la première ne cache plus la suivante)
+do
+  local rv = { { "alpha", 250 }, { "beta", 40 }, { "gamma", 0 } }
+  local e2 = Gen.explore_set(rv, 40, 2)
+  check(e2.alpha == 40 and e2.beta == 40 and e2.gamma == nil, "§7 exploration : les 2 premières de valeur positive")
+  local e1 = Gen.explore_set(rv, 40, 1)
+  check(e1.alpha == 40 and e1.beta == nil, "§7 exploration : une seule ressource quand top = 1 (comportement d'avant)")
+  local e3 = Gen.explore_set(rv, 40, 3)
+  check(e3.gamma == nil, "§7 exploration : jamais une ressource de valeur nulle")
+  check(next(Gen.explore_set({}, 40, 2)) == nil, "§7 exploration : rien à explorer, rien demandé")
+  -- mutant : la règle d'avant (une seule) ne passerait pas le contrôle de la deuxième
+  check(not (e1.beta == 40), "§7 mutant : top = 1 ne demande pas la deuxième")
+end
+
+-- §7b étang au gisement (Fl.pond_spot) : carré libre sur un anneau, jamais sur un obstacle ni près d'une ressource
+do
+  local O = { x = 100, y = 100 }
+  local free_all = function() return true end
+  local none_res = function() return true end
+  local sx, sy = Fl.pond_spot(O, 6, free_all, none_res)
+  check(sx == 100 + 12 - 3 and sy == 100 - 3, "§7b terrain libre : premier anneau, vers l'est (" .. tostring(sx) .. "," .. tostring(sy) .. ")")
+  local blocked_east = function(tx, ty) return not (tx > 105 and tx < 125 and ty > 90 and ty < 110) end
+  local sx2, sy2 = Fl.pond_spot(O, 6, blocked_east, none_res)
+  check(sx2 ~= nil and not (sx2 == sx and sy2 == sy), "§7b l'est occupé : une autre direction (" .. tostring(sx2) .. "," .. tostring(sy2) .. ")")
+  local ok2 = true
+  for ty = sy2 - 1, sy2 + 6 do for tx = sx2 - 1, sx2 + 6 do if not blocked_east(tx, ty) then ok2 = false end end end
+  check(ok2, "§7b le carré choisi et sa couronne sont libres")
+  check(Fl.pond_spot(O, 6, function() return false end, none_res) == nil, "§7b rien de libre : pas d'étang")
+  local res_east = function(x0, y0, x1, y1) return not (x1 >= 105 and x0 <= 125 and y1 >= 90 and y0 <= 110) end
+  local sx3, sy3 = Fl.pond_spot(O, 6, free_all, res_east)
+  check(sx3 ~= nil and not (sx3 == sx and sy3 == sy), "§7b une ressource à l'est : le carré va ailleurs (" .. tostring(sx3) .. "," .. tostring(sy3) .. ")")
+  -- mutant : un contrôle de ressource toujours vrai replace l'étang sur la ressource (détecté : même place que terrain libre)
+  local sx4, sy4 = Fl.pond_spot(O, 6, free_all, none_res)
+  check(sx4 == sx and sy4 == sy, "§7b mutant : sans contrôle de ressource, l'étang reprend la place de l'est (le contrôle sert)")
+  local a1, b1 = Fl.pond_spot(O, 6, free_all, none_res)
+  local a2, b2 = Fl.pond_spot(O, 6, free_all, none_res)
+  check(a1 == a2 and b1 == b2, "§7b déterministe")
+end
+
+-- §8 cartes RÉELLES de sites refusés en moteur réel (tests/fixtures/petrole_cartes.lua) : l'implantation doit réussir
+local function carte_case(c)
+  local blocked, wells, pumps, origin = {}, {}, {}, nil
+  local rowsn = #c.rows
+  for r, line in ipairs(c.rows) do
+    for col = 1, #line do
+      local chr = line:sub(col, col)
+      local tx, ty = c.x0 + col - 1, c.y0 + r - 1
+      if chr == "#" or chr == "~" then blocked[Fl.tkey(tx, ty)] = chr end
+      if chr == "W" then wells[#wells + 1] = { x = tx + 0.5, y = ty + 0.5 } end
+      if chr == "O" then origin = { x = tx, y = ty } end
+      if chr == "P" then pumps[#pumps + 1] = { tx = tx, ty = ty } end
+    end
+  end
+  local function wet(tx, ty) return blocked[Fl.tkey(tx, ty)] == "~" end
+  local list = {}
+  for _, q in ipairs(pumps) do
+    for _, d in ipairs({ 0, 2, 4, 6 }) do
+      local pos = rel0.entities[V.offshore].boxes[1].conns[d][1]
+      local rx, ry = math.floor(q.tx + 0.5 + pos[1] + 0.01), math.floor(q.ty + 0.5 + pos[2] + 0.01)
+      local ox, oy = math.floor(q.tx + 0.5 - pos[1] + 0.01), math.floor(q.ty + 0.5 - pos[2] + 0.01)
+      if not wet(rx, ry) and wet(ox, oy) then list[#list + 1] = { name = V.offshore, x = q.tx + 0.5, y = q.ty + 0.5, dir = d, fluid = V.water } end
+    end
+  end
+  local req = { origin = origin, blocked = function(tx, ty) return blocked[Fl.tkey(tx, ty)] ~= nil end, ents = rel0.entities, chain = ch0,
+    wells = wells, pumps = list, extractor = V.pumpjack, conduit = V.pipe, chest = V.chest, arm = V.arm,
+    poles = { name = V.pole, supply = 3.5, wire = 9 }, network = { x = origin.x - 60.5, y = origin.y - 60.5 }, n_extract = 2 }
+  return req, #list
+end
+local cartes = dofile("tests/fixtures/petrole_cartes.lua")
+for _, c in ipairs(cartes) do
+  local req, np = carte_case(c)
+  -- toutes les rives candidates d'un coup : l'implantation choisit la plus proche du consommateur et essaie les autres si le tuyau ne se trace pas
+  local t0 = os.clock()
+  local lay, why = Fl.layout(req)
+  say(string.format("§8 %s : implantation en %.3f s (%d noeuds d'A*)", c.name, os.clock() - t0, req.spent or -1))
+  if not lay and os.getenv("DBG") and Fl.last_site then
+    local st = Fl.last_site
+    local x0, y0 = c.x0, c.y0
+    for r = 1, #c.rows do
+      local line = {}
+      for col = 1, #c.rows[1] do
+        local tx, ty = x0 + col - 1, y0 + r - 1
+        local k = Fl.tkey(tx, ty)
+        local ch = c.rows[r]:sub(col, col)
+        if st.tube[k] then ch = "=" elseif st.occ[k] then
+          local e = st.ents[st.occ[k]]
+          ch = e and (e.role == "machine" and "M" or e.role == "pompe" and "p" or e.role == "extracteur" and "X" or e.role == "bras-entree" and "i" or e.role == "bras-sortie" and "o" or e.role == "quai" and "c" or e.role == "sortie" and "c" or "?") or "?"
+        elseif st.rsv[k] then ch = tostring(st.rsv[k]):sub(1, 1):upper() end
+        line[#line + 1] = ch
+      end
+      print(table.concat(line))
+    end
+  end
+  if not lay and os.getenv("DBG") and Fl.last_site then
+    local st = Fl.last_site
+    for _, e in ipairs(st.ents) do
+      if e.role == "machine" or e.role == "pompe" then
+        local parts = {}
+        for _, cn in ipairs(st:conns(e)) do parts[#parts + 1] = string.format("(%d,%d %s %s ok=%s)", cn.tx, cn.ty, tostring(cn.type), tostring(cn.fluid), tostring(st:pipe_ok(cn.tx, cn.ty, cn.fluid or "?"))) end
+        print(string.format("DBG %s@%.1f,%.1f recette %s : %s", e.name, e.x, e.y, tostring(e.recipe), table.concat(parts, " ")))
+      end
+    end
+  end
+  if not lay and os.getenv("DBG") and Fl.last_site then
+    local st = Fl.last_site
+    local X0, Y0, X1, Y1 = tonumber(os.getenv("DX0")), tonumber(os.getenv("DY0")), tonumber(os.getenv("DX1")), tonumber(os.getenv("DY1"))
+    if c.name:find(os.getenv("DNAME") or "scarlet", 1, true) and X0 then
+      for ty = Y0, Y1 do
+        local line = {}
+        for tx = X0, X1 do
+          local k = Fl.tkey(tx, ty)
+          local ch = blocked_char and "" or "."
+          if st.req.blocked(tx, ty) then ch = "#" end
+          if st.tube[k] then ch = (st.tube[k]:sub(1, 1)):lower() == "w" and "w" or (st.tube[k]:sub(1, 1)):lower() == "p" and "g" or "c"
+          elseif st.occ[k] then ch = "M"
+          elseif st.rsv[k] then ch = (tostring(st.rsv[k]):sub(1, 1)):upper() end
+          line[#line + 1] = ch
+        end
+        print(string.format("%5d %s", ty, table.concat(line)))
+      end
+    end
+  end
+  check(lay ~= nil, "§8 carte réelle " .. c.name .. " (" .. np .. " places de pompe, " .. #req.wells .. " puits) : " .. tostring(why))
+  if lay then
+    local ok, w = Fl.check(lay, rel0.entities)
+    check(ok, "§8 carte " .. c.name .. " : réseaux sans mélange : " .. tostring(w))
+    say(string.format("§8 %s : implantation (%d rives candidates) : %d tuyaux, %d poteaux", c.name, np, lay.pipes, lay.poles))
+  end
+end
+
+-- §8b IMPLANTATION PAR TRANCHES (Fl.layout_step) : le résultat ne dépend pas de la tranche de nœuds d'A* par tick, et l'état du
+-- travail est fait de DONNÉES SEULES (recopié, sans fonction, entre deux tranches comme le ferait global après un chargement)
+do
+  local function copy_data(v, seen)
+    local t = type(v)
+    assert(t ~= "function" and t ~= "thread" and t ~= "userdata", "l'etat du travail contient un(e) " .. t)
+    if t ~= "table" then return v end
+    seen = seen or {}
+    assert(not seen[v], "cycle dans l'etat du travail")
+    seen[v] = true
+    local o = {}
+    for k, x in pairs(v) do o[copy_data(k, seen)] = copy_data(x, seen) end
+    seen[v] = nil
+    return o
+  end
+  local function signature(lay)
+    if not lay then return "aucune" end
+    local out = {}
+    for _, e in ipairs(lay.ents) do
+      out[#out + 1] = string.format("%s@%.2f,%.2f/%d/%s/%s/%s", e.name, e.x, e.y, e.dir or 0, tostring(e.role), tostring(e.fluid), tostring(e.recipe))
+    end
+    for _, q in ipairs(lay.quais) do out[#out + 1] = string.format("q%.1f,%.1f,%s", q.x, q.y, q.item) end
+    for _, o in ipairs(lay.outs) do out[#out + 1] = string.format("o%.1f,%.1f,%s", o.x, o.y, o.item) end
+    out[#out + 1] = table.concat(lay.box, ",") .. "/" .. lay.pipes .. "/" .. lay.poles .. "/" .. lay.line
+    return table.concat(out, "|")
+  end
+  -- tranches successives ; `mutant` : fonction (job) -> job appliquée entre deux tranches
+  local function run_sliced(c, budget, roundtrip, mutant)
+    local job = Fl.layout_new()
+    local steps = 0
+    while true do
+      local req = carte_case(c)
+      local st, a = Fl.layout_step(req, job, budget)
+      steps = steps + 1
+      if st == "done" then return a, steps, job end
+      if st == "fail" then return nil, steps, job, a end
+      if steps > 4000 then return nil, steps, job, "pas fini" end
+      if roundtrip then job = copy_data(job) end
+      if mutant then job = mutant(job) end
+    end
+  end
+  for _, c in ipairs(cartes) do
+    local req0 = carte_case(c)
+    local ref, why0 = Fl.layout(req0)
+    local ref_sig = signature(ref)
+    local nodes = req0.spent
+    local ok_all, detail = true, ""
+    -- peu de nœuds par tranche seulement pour les petites implantations (chaque reprise rejoue la tentative : 4 à 9 ms)
+    local budgets = { 500, 50000 }
+    if nodes <= 100 then budgets = { 1, 7, 500, 50000 }
+    elseif nodes <= 2500 then budgets = { 7, 500, 50000 }
+    elseif nodes > 20000 then budgets = { 8000 } end
+    for _, b in ipairs(budgets) do
+      local lay, steps, job, w = run_sliced(c, b, true)
+      if signature(lay) ~= ref_sig or tostring(w) ~= tostring(ref and nil or why0) then
+        ok_all, detail = false, string.format("tranche %d : %s", b, tostring(w))
+      end
+      if b <= 500 and nodes > 3 * b then
+        check(steps > 1, "§8b " .. c.name .. " : tranche " .. b .. " : l'implantation prend plusieurs tranches (" .. steps .. ")")
+      end
+      check(job.spent == nodes, "§8b " .. c.name .. " : tranche " .. b .. " : mêmes nœuds développés (" .. job.spent .. " contre " .. nodes .. ")")
+    end
+    check(ok_all, "§8b " .. c.name .. " : même implantation quelle que soit la tranche " .. detail)
+    -- sans recopie, même résultat (les tables sont les mêmes d'une tranche à l'autre)
+    local lay_nc = run_sliced(c, budgets[1], false)
+    check(signature(lay_nc) == ref_sig, "§8b " .. c.name .. " : même implantation sans recopie de l'etat")
+    say(string.format("§8b %s : %d noeuds, tranches %s : identique", c.name, nodes, table.concat(budgets, "/")))
+  end
+  -- Fl.is_plain : ce qui va dans global
+  check(Fl.is_plain({ a = 1, b = { "x", true, { 2.5 } } }), "§8b is_plain : nombres, chaînes, booléens, tables")
+  check(not Fl.is_plain({ a = function() end }), "§8b is_plain : une fonction est refusée")
+  local cyc = {}; cyc.me = cyc
+  check(not Fl.is_plain(cyc), "§8b is_plain : un cycle est refusé")
+  check(not Fl.is_plain({ [print] = 1 }), "§8b is_plain : une clé fonction est refusée")
+  do
+    local c = cartes[#cartes]
+    local job = Fl.layout_new()
+    local st = Fl.layout_step(carte_case(c), job, 200)
+    check(st == "more" and Fl.is_plain(job) and job.cur ~= nil, "§8b l'état du travail interrompu est fait de données seules")
+  end
+  -- mutants : un état perdu entre deux tranches doit se voir (résultat différent, ou travail jamais fini)
+  local big
+  for _, c in ipairs(cartes) do
+    local req0 = carte_case(c)
+
+    local okb = Fl.layout(req0)
+    if okb and req0.spent > 3000 and req0.spent < 20000 and not big then big = c end
+  end
+  big = big or cartes[1]
+  local reqb = carte_case(big)
+  local refb = signature((Fl.layout(reqb)))
+  local function differs(mutant, label)
+    local lay, steps, job, w = run_sliced(big, 300, true, mutant)
+    check(signature(lay) ~= refb, "§8b mutant refusé : " .. label .. " (" .. tostring(w) .. ")")
+  end
+  differs(function(job) job.cur = nil return job end, "A* repris de zéro à chaque tranche")
+  differs(function(job) job.calls = {} return job end, "journal des tracés perdu")
+  differs(function(job) if job.cur then job.cur.open = {} end return job end, "tas de l'A* perdu")
+  differs(function(job) if job.cur then job.cur.came = {} end return job end, "parents de l'A* perdus")
+end
+
+-- §5 Généralisation : tout renommé (préfixe « zz- »), boîtes et catégories comprises.
+local function rename(s) return "zz-" .. s end
+local d = F.dump()
+local function ren_list(l) for i, v in ipairs(l or {}) do l[i] = rename(v) end end
+local nr = {}
+for name, r in pairs(d.recipes) do
+  r.category = rename(r.category)
+  for _, i in ipairs(r.ingredients) do i.name = rename(i.name) end
+  for _, p in ipairs(r.products) do p.name = rename(p.name) end
+  nr[rename(name)] = r
+end
+d.recipes = nr
+local nt = {}
+for name, t in pairs(d.techs) do
+  for _, i in ipairs(t.ingredients) do i[1] = rename(i[1]) end
+  ren_list(t.prerequisites); ren_list(t.unlocks)
+  nt[rename(name)] = t
+end
+d.techs = nt
+for _, e in ipairs(d.entities) do
+  e.name = rename(e.name)
+  if e.item then e.item = rename(e.item) end
+  ren_list(e.crafting_categories); ren_list(e.resource_categories); ren_list(e.lab_inputs)
+  if e.fluid then e.fluid = rename(e.fluid) end
+  if e.fluid_in then e.fluid_in = rename(e.fluid_in) end
+  if e.fluid_out then e.fluid_out = rename(e.fluid_out) end
+end
+for _, r in ipairs(d.resources) do
+  r.entity = rename(r.entity); r.category = rename(r.category)
+  for _, p in ipairs(r.products) do p.name = rename(p.name) end
+end
+local ni = {}
+for name, it in pairs(d.items) do ni[rename(name)] = it end
+d.items = ni
+local nb = {}
+for k, v in pairs(VANILLA_BOXES) do nb[rename(k)] = v end
+VANILLA_BOXES = nb
+local ne = {}
+for k, v in pairs(ELECTRIC) do ne[rename(k)] = v end
+ELECTRIC = ne
+local fo = F.opts
+F.opts = function()
+  local o = fo()
+  local ex = {}
+  for k, v in pairs(o.exec) do ex[rename(k)] = v end
+  o.exec = ex
+  return o
+end
+local VR = {}
+for k, v in pairs(V) do VR[k] = rename(v) end
+local ok_r = pcall(run, d, "renomme", VR)
+check(ok_r, "§5 données renommées : le même code tourne")
+
+-- §9 packs complets (Fl.complete_packs) : aucun site pour un pack dont un objet n'a pas encore de chaîne (pétrole inconnu)
+do
+  local rows = { { item = "engine", pack = "chem", ok = true }, { item = "plastic", pack = "chem", ok = false },
+    { item = "sulfur", pack = "chem", ok = false }, { item = "gear2", pack = "mil", ok = true }, { item = "x", ok = false } }
+  local c = Fl.complete_packs(rows)
+  check(c.chem == nil, "§9 le pack dont le plastique n'a pas de chaîne n'est pas complet (le moteur n'est pas bâti seul)")
+  check(c.mil == true, "§9 un pack dont tous les objets ont une chaîne est complet")
+  check(next(c, next(c)) == nil, "§9 un objet sans pack ne crée aucun pack")
+  rows[2].ok, rows[3].ok = true, true
+  check(Fl.complete_packs(rows).chem == true, "§9 le pétrole connu : le pack devient complet et le site du moteur est demandé")
+  check(next(Fl.complete_packs({})) == nil and next(Fl.complete_packs(nil)) == nil, "§9 rien à fabriquer, aucun pack")
+  -- mutant : un seul objet sans chaîne suffit à retenir le pack, quel que soit son rang dans la liste
+  for i = 1, 3 do
+    local r2 = { { item = "a", pack = "p", ok = true }, { item = "b", pack = "p", ok = true }, { item = "c", pack = "p", ok = true } }
+    r2[i].ok = false
+    check(Fl.complete_packs(r2).p == nil, "§9 mutant refusé : l'objet " .. i .. " sans chaîne retient le pack")
+  end
+end
+
+-- §10 gisement pris (Fl.pick_unclaimed) : le site d'une autre équipe n'est pas recopié
+do
+  local list = { { x = 80, y = -112, id = "a" }, { x = 300, y = 10, id = "b" }, { x = 500, y = 0, id = "c" } }
+  local function pris(set) return function(d) return set[d.id] == true end end
+  check(Fl.pick_unclaimed(list, pris({})).id == "a", "§10 aucun gisement pris : le plus proche")
+  check(Fl.pick_unclaimed(list, pris({ a = true })).id == "b", "§10 le plus proche est pris : le suivant")
+  check(Fl.pick_unclaimed(list, pris({ a = true, b = true })).id == "c", "§10 deux pris : le troisième")
+  check(Fl.pick_unclaimed(list, pris({ a = true, b = true, c = true })) == nil, "§10 tous pris : aucun site (rien n'est posé sur celui d'un autre)")
+  check(Fl.pick_unclaimed({}, pris({})) == nil and Fl.pick_unclaimed(nil, nil) == nil, "§10 aucun gisement connu : aucun choix")
+  check(Fl.pick_unclaimed(list, nil).id == "a", "§10 sans règle de prise : le plus proche")
+  -- mutant : un choix qui ignore la prise rendrait « a » à tous les cas ci-dessus
+  local function ignore(l) return l and l[1] or nil end
+  check(ignore(list).id == "a" and Fl.pick_unclaimed(list, pris({ a = true })).id ~= ignore(list).id, "§10 mutant refusé : ignorer la prise recopie le site voisin")
+end
+
+-- §11 gisements refusés (Fl.near_any) : le site refusé n'est pas redemandé au même gisement tant qu'un autre est connu
+do
+  local bad = { { x = 176, y = 336 } }
+  check(Fl.near_any(bad, { x = 176, y = 336 }, 24), "§11 le gisement refusé est reconnu")
+  check(Fl.near_any(bad, { x = 190, y = 350 }, 24), "§11 un puits du même gisement (à 20 tuiles) aussi")
+  check(not Fl.near_any(bad, { x = 400, y = 556 }, 24), "§11 un autre gisement n'est pas évité")
+  check(not Fl.near_any(nil, { x = 0, y = 0 }, 24) and not Fl.near_any({}, { x = 0, y = 0 }, 24), "§11 rien d'essayé : rien d'évité")
+  check(not Fl.near_any(bad, { x = 176, y = 361 }, 24), "§11 à 25 tuiles : hors du rayon (borne incluse à 24)")
+  local list = { { x = 176, y = 336, id = "a" }, { x = 400, y = 556, id = "b" } }
+  local pick = Fl.pick_unclaimed(list, function(d) return Fl.near_any(bad, d, 24) end)
+  check(pick and pick.id == "b", "§11 le gisement refusé cède la place au suivant")
+  -- mutant : sans mémoire des refus, le même gisement serait redemandé indéfiniment
+  check(Fl.pick_unclaimed(list, function(d) return Fl.near_any(nil, d, 24) end).id == "a", "§11 mutant refusé : sans mémoire, retour au premier gisement")
+end
+
+print(string.format("[PETROLE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
+os.exit(fail == 0 and 0 or 1)

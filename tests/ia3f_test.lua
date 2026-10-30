@@ -140,7 +140,8 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 4. Factions : étape « explore » du cerveau pour une ressource jamais vue
 ---------------------------------------------------------------------------------------------------
-local function faction_world(p_nopath)
+local function faction_world(p_nopath, opt)
+  opt = opt or {}
   local out = {}
   local d = 0.7071
   local names = { "coal", "iron-ore", "copper-ore", "stone" }
@@ -154,13 +155,15 @@ local function faction_world(p_nopath)
   out[#out + 1] = { x = 820, y = -400, name = "crude-oil", amount = 300000 }
   -- Lot KIT : la variante à 30 % de chemins ratés dépend de la graine du moteur simulé : sur main 0.6.5 elle échoue aux graines
   -- 2 et 3 et passe aux graines 1 et 42 (mesuré le 28/10) ; tout changement de trajectoire déplace cette chance. Graine 1 fixée.
-  M.new_game({ seed = 1, patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0,
-    shared_tile_mining = true }) -- exploration seule : ancien modèle du minage simulé
+  -- Lot PETROLE (reprise sur 0.6.20) : opt.petrole allume fo-war-petrole (ÉTEINT par défaut, comme le jeu) ; opt.seed change la graine.
+  M.new_game({ seed = opt.seed or 1, patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0,
+    shared_tile_mining = true, -- exploration seule : ancien modèle du minage simulé
+    petrole = opt.petrole == true })
   check(remote.call("factorio-overhaul", "war_start", 4, 20, 4, 320) == true, "guerre lancée (4 factions, 4 PNJ)")
 end
 
-local function run_oil(p_nopath)
-  faction_world(p_nopath)
+local function run_oil(p_nopath, opt)
+  faction_world(p_nopath, opt)
   M.run_ticks(3 * 3600)
   local war = global.fo.war
   local f1 = war.factions[1]
@@ -210,6 +213,8 @@ check(oilb == snap1.oil and f1b.ai3f.m.n == snap1.n and st5.stats.looks == snap1
 -- 6. Lot IA-V2 (moteur réel, ia3c-reduit graine 20261020 : Écarlate, 32 missions sur 33 finies sur « chemin » EN ROUTE,
 -- puis retour à pied au QG) : chemins introuvables au hasard (30 % des demandes) : la mission prend une autre cible
 -- depuis là où est l'éclaireur, et le pétrole est trouvé quand même.
+-- (Reprise PETROLE2 sur 0.6.20 : section gardée TELLE QUE SUR MAIN, réglage du pétrole éteint ; elle est rouge sur main
+-- depuis 0.6.19, « pétrole non trouvé en 30 min », défaut préexistant traité par le lot IA3F-PETROLE, pas masqué ici.)
 local f6, asked6, t6, oil6 = run_oil(0.3)
 local rer = count_logs("chemin rate en route, autre cible")
 local ends = count_logs("fin : chemin")
@@ -219,6 +224,71 @@ check(asked6 == "demande" and oil6 ~= nil and oil6 - t6 <= 30 * 3600, "chemins r
   tostring(oil6 and (oil6 - t6) / 3600) .. " min)")
 check(rer >= 1, "chemins ratés en route : une autre cible (" .. rer .. " fois)")
 check(pcall(M.serialize, global), "global sérialisable (chemins ratés)")
+
+-- 7. Lot PETROLE (branche petrole2, 28/10 ; repris sur 0.6.20) : allumer fo-war-petrole ne dégrade pas l'exploration lointaine.
+-- CRITÈRES ÉCRITS AVANT LA MESURE (28/10) :
+--   C1. sur SEEDS graines (1 à 6), chemins ratés à 30 %, le nombre de graines où le pétrole est trouvé en moins de 30 min
+--       avec fo-war-petrole ALLUMÉ est AU MOINS ÉGAL à celui du réglage éteint ;
+--   C2. le temps médian de découverte (30 min si non trouvé) avec le réglage allumé ne dépasse pas celui du réglage éteint
+--       de plus de la moitié de l'étendue des temps du réglage éteint entre graines (max - min) / 2.
+-- Ce que cela prouve : qu'allumer le pétrole ne dégrade pas l'exploration lointaine plus que le hasard entre graines, sur
+-- 6 graines du moteur simulé. Ce que cela ne prouve PAS : la découverte du pétrole en jeu réel, ni que l'exploration est bonne
+-- (balayage de la frontière sans direction : section 6).
+local SEEDS = { 1, 2, 3, 4, 5, 6 }
+local function find_min(opt)
+  local _, _, t0x, oilx = run_oil(0.3, opt)
+  return oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil
+end
+local on_n, off_n, on_t, off_t = 0, 0, {}, {}
+for _, sd in ipairs(SEEDS) do
+  local a = find_min({ petrole = true, seed = sd })
+  local b = find_min({ petrole = false, seed = sd })
+  if a then on_n = on_n + 1 end
+  if b then off_n = off_n + 1 end
+  on_t[#on_t + 1] = a or 30
+  off_t[#off_t + 1] = b or 30
+  print(string.format("  graine %d : petrole trouve a %s min (allume) / %s min (eteint)", sd, tostring(a), tostring(b)))
+end
+local function median(t)
+  local c = {}
+  for i, v in ipairs(t) do c[i] = v end
+  table.sort(c)
+  local n = #c
+  return n % 2 == 1 and c[(n + 1) / 2] or (c[n / 2] + c[n / 2 + 1]) / 2
+end
+local off_lo, off_hi = math.huge, -math.huge
+for _, v in ipairs(off_t) do off_lo, off_hi = math.min(off_lo, v), math.max(off_hi, v) end
+local m_on, m_off, spread = median(on_t), median(off_t), (off_hi - off_lo) / 2
+print(string.format("  graines ou le petrole est trouve : %d (allume) / %d (eteint) ; temps median %.1f / %.1f min ; ecart tolere %.1f min",
+  on_n, off_n, m_on, m_off, spread))
+check(on_n >= off_n, string.format("chemins ratés : pétrole allumé trouve le pétrole sur au moins autant de graines que éteint (%d contre %d sur %d)",
+  on_n, off_n, #SEEDS))
+check(m_on <= m_off + spread, string.format("chemins ratés : temps médian allumé %.1f min, éteint %.1f min, écart toléré %.1f min", m_on, m_off, spread))
+
+-- 7b. Reprise sur 0.6.20 (30/10), APRÈS la mesure (donc critère ajouté, pas écrit avant ; les C1/C2 ci-dessus restent tels
+-- quels) : sur 0.6.20, C1 échoue (0 graine sur 6 réglage allumé, 2 sur 6 éteint). Relevé de la graine 5 : les deux parties sont
+-- identiques jusqu'au premier chemin raté de l'éclaireur du pétrole ; la cible diffère, puis 3 chemins ratés de suite ferment la
+-- frontière (« region bloquee », 8 régions) et toutes les sorties suivantes finissent « rien après 0.0 min » : MÊME mécanisme que
+-- l'échec de la section 6, réglage éteint, sur main (lot IA3F-PETROLE). Pour séparer l'effet du pétrole de ce défaut, la même
+-- comparaison SANS chemin raté : le pétrole allumé doit trouver le pétrole sur autant de graines, en un temps médian pas plus long.
+local function find_min0(opt)
+  local _, _, t0x, oilx = run_oil(0, opt)
+  return oilx and oilx - t0x <= 30 * 3600 and (oilx - t0x) / 3600 or nil
+end
+local on0_n, off0_n, on0_t, off0_t = 0, 0, {}, {}
+for _, sd in ipairs(SEEDS) do
+  local a = find_min0({ petrole = true, seed = sd })
+  local b = find_min0({ petrole = false, seed = sd })
+  if a then on0_n = on0_n + 1 end
+  if b then off0_n = off0_n + 1 end
+  on0_t[#on0_t + 1] = a or 30
+  off0_t[#off0_t + 1] = b or 30
+  print(string.format("  sans chemin rate, graine %d : petrole trouve a %s min (allume) / %s min (eteint)", sd, tostring(a), tostring(b)))
+end
+check(on0_n >= off0_n, string.format("sans chemin raté : pétrole allumé trouve le pétrole sur au moins autant de graines (%d contre %d sur %d)",
+  on0_n, off0_n, #SEEDS))
+check(median(on0_t) <= median(off0_t), string.format("sans chemin raté : temps médian allumé %.1f min <= éteint %.1f min",
+  median(on0_t), median(off0_t)))
 
 print(string.format("[IA3F] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)

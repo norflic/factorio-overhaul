@@ -38,6 +38,10 @@ local PROSPECT_LANE = "fo-pteam-prospect"
 
 local function get() return Storage.ns("pteam").team end
 
+-- Lot JOURNAUX-DC (point 5 du rapport CINQ-POINTS : aucune ligne de votre équipe dans les deux parties du DC du 29/10, l'absence
+-- d'équipe se DÉDUISAIT) : [FO-PTEAM] cree / renvoye / perdu, pour que la présence de votre équipe se lise au journal.
+local function minutes_since(f, tick) return (tick - (f.started or tick)) / 3600 end
+
 function PlayerTeam.get() return get() end
 
 local function create(chest)
@@ -60,10 +64,17 @@ local function create(chest)
   Scheduler.add(THINK_LANE, 1)
   Scheduler.add(PROSPECT_LANE, 1)
   game.print({ "fo-team.created" })
+  log(string.format("[FO-PTEAM] cree tick %d : coffre d'equipe pose en (%d, %d), force %s, %d PNJ offerts, plafond %d",
+    game.tick, math.floor(chest.position.x), math.floor(chest.position.y), f.force, f.engineers_count or 0, Team.npc_max(f)))
   return f
 end
 
 local function dismiss(f, refund)
+  -- refund = vrai : renvoi demandé (commande ou bouton de la fenêtre) ; faux : coffre perdu (journal « perdu » plus bas).
+  if refund then
+    log(string.format("[FO-PTEAM] renvoye tick %d : %d PNJ renvoyes a %.1f min (le coffre reste, l'equipe peut recruter de nouveau)",
+      game.tick, f.engineers_count or 0, minutes_since(f, game.tick)))
+  end
   for _, id in ipairs(State.sorted_keys(f.engineers)) do
     local a = Registry.get(id)
     -- Lot IA1-a : un kit OFFERT (PNJ de départ, embauche de secours sans arme) n'est jamais rendu.
@@ -92,9 +103,21 @@ Events.on(defines.events.on_built_entity, on_built)
 Events.on(defines.events.on_robot_built_entity, on_built)
 Events.on(defines.events.script_raised_built, on_built)
 
+-- Lot JOURNAUX-DC : qui détruit le coffre d'équipe (l'entité est encore valide ici ; la perte vient par on_entity_destroyed).
+Events.on(defines.events.on_entity_died, function(e)
+  local ent = e.entity
+  if not (ent and ent.valid and ent.name == CHEST) then return end
+  local f = get()
+  if not (f and f.hq and f.hq.valid and f.hq.unit_number == ent.unit_number) then return end
+  f.lost_by = (e.force and e.force.name or "?") .. "/" .. (e.cause and e.cause.valid and e.cause.name or "?")
+end)
+
 Events.on(defines.events.on_entity_destroyed, function(e)
   local f = get()
   if not f or e.registration_number ~= f.chest_reg then return end
+  log(string.format("[FO-PTEAM] perdu tick %d : coffre d'equipe %s, %d PNJ partis, %d soldats, equipe fondee il y a %.1f min",
+    e.tick, f.lost_by and ("detruit par " .. f.lost_by) or "retire (mine, deconstruit ou script)", f.engineers_count or 0,
+    f.soldiers_count or 0, minutes_since(f, e.tick)))
   dismiss(f, false)
   if f.goal_label and rendering.is_valid(f.goal_label) then rendering.destroy(f.goal_label) end
   Storage.ns("pteam").team = nil

@@ -27,11 +27,13 @@ local R = require("shared.ai3.reglages")
 local K = require("shared.ai3.catalogue")
 local Br = require("shared.ai3.bras") -- lot SCALE : bras libres lissés
 local Gen = require("shared.ai3.general")
+local Jdc = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : règle du journal [FO-MUR]
 local B = require("shared.ai3.buts")
 local Planner = require("shared.team.planner")
 local State = require("script.faction.state")
 local Profiler = require("script.core.profiler")
 local Auto = require("script.ai3.automatisation") -- lot AUTO : exécutants de l'automatisation (Auto.on, Auto.exec_entities)
+local Pet = require("script.ai3.petrole") -- lot PETROLE : exécutants des chaînes à fluides (Pet.on, réglage ÉTEINT par défaut)
 
 local General = {}
 
@@ -161,9 +163,12 @@ end
 --- ne fait que les recettes que son exécutant sait LANCER (Auto.add_executors : gabarits écrits et rangées générées,
 --- ni fluide ni plus de 2 ingrédients hors d'un gabarit écrit), pas toutes celles de ses catégories. `recipes` : le
 --- relevé des recettes (General.dump().recipes), requis quand auto_on.
-function General.exec_opts(auto_on, recipes)
+function General.exec_opts(auto_on, recipes, petrole_dump)
   local exec = { [T.SMELTER] = true, [T.DRILL] = true }
   if auto_on then Auto.add_executors(exec, recipes) end
+  -- Lot PETROLE (réglage fo-war-petrole allumé) : extracteurs des ressources fluides, machines des recettes que la main ne
+  -- sait pas faire (catégorie, boîtes à fluide lues dans les prototypes), entités de la centrale.
+  if petrole_dump then Pet.add_executors(exec, petrole_dump) end
   return { exec = exec, exec_roles = { main = true, labo = true }, labs_unpowered = true,
     -- Combustible : un objet qu'un avant-poste rapporte (moteur réel, banc g2 : sans cela, le cristal de résonance).
     fuel_ok = function(item) return General.kind_of(item) ~= nil end }
@@ -172,22 +177,29 @@ end
 -- Lot AUTO : un catalogue par état du réglage de l'automatisation (réglage de carte : le même chez tous les pairs) ;
 -- changer de catalogue efface les mémos de points fixes (ils appartiennent au graphe de l'autre catalogue).
 local cats = {}
+local pet_infos = {} -- lot PETROLE (relecture 0.6.20) : relevé des chaînes à fluides de chaque catalogue « p » (Pet.get_info)
 function General.catalogue()
   local on = Auto.on() and true or false
-  if cat and cats[on] == cat then return cat end
+  -- lot PETROLE : un catalogue par état des deux réglages (clé « a » / « - », puis « p » si fo-war-petrole est allumé)
+  local pon = Pet.on()
+  local ck = (on and "a" or "-") .. (pon and "p" or "")
+  if cat and cats[ck] == cat then return cat end
   for k in pairs(memos) do memos[k] = nil end
-  if cats[on] then
-    cat = cats[on]
+  if cats[ck] then
+    cat = cats[ck]
+    if pon then Pet.set_info(pet_infos[ck]) end -- le relevé de CE catalogue, pas celui du dernier construit
     return cat
   end
   Profiler.start("iag:catalogue")
   local d = General.dump()
-  cat = K.build(d, General.exec_opts(on, d.recipes))
-  cats[on] = cat
+  cat = K.build(d, General.exec_opts(on, d.recipes, pon and d or nil))
+  cats[ck] = cat
+  if pon then pet_infos[ck] = Pet.get_info() end
   Profiler.stop("iag:catalogue")
-  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s",
+  log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s%s",
     #cat.g.recipe_list, #cat.tech_list, #cat.g.machine_list, #cat.pack_list, tostring(cat.fuel),
-    on and " (automatisation allumee : executants de ses gabarits compris)" or ""))
+    on and " (automatisation allumee : executants de ses gabarits compris)" or "",
+    pon and " (petrole allume : extracteurs des fluides et machines des cellules compris)" or ""))
   return cat
 end
 
@@ -229,6 +241,13 @@ function General.state(f, st, view, durable_only)
   local known = {}
   for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then known[k] = true end end
   for _, o in ipairs(view.outposts or {}) do known[T.outposts[o.kind].resource] = true end
+  -- Lot PETROLE (réglage allumé) : ressources fluides dont un gisement est connu, eau d'une rive à portée du QG ; machines
+  -- posées par ses sites (le graphe ne les fait plus « construire » une seconde fois).
+  if Pet.on() then
+    for _, k in ipairs(sorted_keys(Pet.known(f))) do known[k] = true end
+    local pb = Pet.built(f)
+    for _, k in ipairs(sorted_keys(pb)) do built[k] = (built[k] or 0) + pb[k] end
+  end
   return { stock = stock, techs = st.techs or {}, built = built, known = known }, nlabs
 end
 
@@ -265,6 +284,8 @@ function General.key(f)
   local g = f.team and f.team.iag
   return g and g.key or nil
 end
+
+General.EXPLORE_TOP = 2 -- ressources inconnues explorées en même temps (les plus rentables ; réglage fo-war-petrole allumé seulement)
 
 --- Ressources à explorer demandées par le cerveau général.
 function General.explore(f)
@@ -361,6 +382,7 @@ function General.summary_items(f, list)
   for _, it in ipairs(list or {}) do goals[#goals + 1] = { item = it[1], n = it[2] } end
   local state = { stock = {}, techs = st.techs or {}, built = {}, known = {} }
   for _, k in ipairs(sorted_keys(st.known)) do if st.known[k] then state.known[k] = true end end
+  if Pet.on() then for _, k in ipairs(sorted_keys(Pet.known(f))) do state.known[k] = true end end -- lot PETROLE
   return Gen.summary(General.catalogue(), m.ev, state, goals)
 end
 
@@ -369,6 +391,38 @@ local function explorable(c, res)
   local r = c.resources[res]
   if not r then return false end
   return c.g.by_rescat[r.category] ~= nil
+end
+
+--- Lot JOURNAUX-DC (point 3 du rapport CINQ-POINTS : Écarlate bloquée de la minute 289 à 312 sur « impayable:?engine-unit,
+--- ?plastic-bar,?sulfur », sans ligne qui dise que la faction plafonne) : AUCUNE technologie payable, même de valeur nulle
+--- (Gen.fallback) : ligne [FO-MUR] à l'entrée dans le mur, quand les recherches prêtes impayables ou le nombre restant
+--- changent, et à la sortie (g.mur, nombres et chaînes).
+--- Matière qui manque : union des causes du dépliage des technologies prêtes impayables (au plus General.MUR_MAX, les plus
+--- valables d'abord). Lecture seule : rien n'est décidé ici. Annoncé après un blocage CONTINU de Jdc.MUR_DELAI seulement
+--- (shared/team/journaux_dc.lua) : un blocage passager (banc journaux-dc : votre équipe « au mur » à la minute 0 faute de
+--- gisement de fer encore connu) n'est pas un mur.
+General.MUR_MAX = 8
+function General.mur(f, g, c, ev, state, d, disabled, tick)
+  local techs = {}
+  for i = 1, math.min(General.MUR_MAX, #(d.blocked or {})) do techs[#techs + 1] = d.blocked[i].tech end
+  local left = 0
+  for _, t in ipairs(c.tech_list) do
+    if not state.techs[t] and not disabled[t] then left = left + 1 end
+  end
+  -- Signature bon marché (technologies prêtes impayables, nombre restant) : le dépliage ne se refait qu'à une annonce.
+  local action
+  g.mur, action = Jdc.mur_bloque(g.mur, tick, table.concat(techs, " ") .. "|" .. left)
+  if not action then return end
+  local miss = {}
+  for _, t in ipairs(techs) do
+    for _, k in ipairs(Gen.summary(c, ev, state, { { tech = t } }).causes or {}) do miss[k] = true end
+  end
+  local what = left == 0 and "arbre de recherche termine (ou tout desactive)"
+    or "toutes les recherches restantes sont impayables"
+  log(string.format("[FO-MUR] %s : %s a %.1f min : %s (%d restantes, %d pretes de valeur) ; matiere qui manque [%s] ; "
+    .. "pretes de valeur [%s] ; bloquee depuis %.1f min", f.key or "?", action == "annonce" and "mur atteint" or "mur, situation changee",
+    minutes(f, tick), what, left, #(d.blocked or {}), table.concat(sorted_keys(miss), " "), table.concat(techs, " "),
+    (tick - g.mur.since) / 3600))
 end
 
 --- Choix de la technologie (même contrat que choose_tech de script/ai3/cerveau.lua) : tech, payable, causes, palier.
@@ -421,7 +475,7 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local Capi = package.loaded["script.ai3.capitalisation"]
   local levers = Capi and Capi.techs_wanted and Capi.techs_wanted(f) or nil
   local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
-    k1 = k1 or nil, levers = levers,
+    k1 = k1 or nil, levers = levers, new_pack = Pet.on() or nil, -- lot PETROLE (réglage fo-war-petrole)
     -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier pour une FACTION (votre équipe cherche à la main) ; la recette
     -- est celle que les planificateurs commandent (T.turret), la règle pure ne la nomme pas.
     defense = (not f.is_player) and T.turret or nil })
@@ -447,11 +501,33 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
         f.key or "?", Gen.why_text(d), table.concat(causes, " "), table.concat(rv_txt, ", "),
         table.concat(sorted_keys(explore), " "), minutes(f, tick)))
     end
+    General.mur(f, g, c, ev, state, d, disabled, tick)
     Profiler.stop("iag:choose")
     return nil, false, causes, false
   end
-  g.explore = {}
-  if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 40 end
+  if Jdc.mur_libre(g.mur) then
+    log(string.format("[FO-MUR] %s : fin du mur a %.1f min (bloque depuis %.1f min) : recherche '%s'%s", f.key or "?",
+      minutes(f, tick), (tick - g.mur.since) / 3600, d.tech, d.repli and " (repli : valeur nulle, payable)" or ""))
+  end
+  g.mur = nil
+  -- Les General.EXPLORE_TOP ressources inconnues les plus rentables sont explorées ENSEMBLE (lot PETROLE 2 : seule la
+  -- première l'était ; moteur réel, etape1-guide 123456789 : le tungstène, 250, passait devant le pétrole, 40, qui ne fut
+  -- jamais cherché et le pack chimique restait impayable).
+  -- Relecture de la reprise sur 0.6.20 (30/10) : SEULEMENT réglage fo-war-petrole allumé ; éteint, une seule ressource comme sur
+  -- main (sans cette garde, le lot changeait l'exploration de toutes les parties, réglage éteint compris).
+  g.explore = Gen.explore_set(rv, 40, Pet.on() and General.EXPLORE_TOP or 1)
+  -- (Intégration 0.6.23 : ensemble d'exploration de PETROLE 2 ci-dessus, puis les priorités du repli de JOURNAUX-DC.)
+  -- Relecture JOURNAUX-DC : le repli (technologie de valeur nulle, Gen.fallback) ne vaut que faute de candidate de valeur
+  -- payable ; l'exploration des ressources inconnues qui bloquent la meilleure technologie de valeur reste donc celle de la
+  -- branche « rien de payable » ci-dessus (priorité 60), sinon le repli ferait chercher moins ce qui débloquerait l'équipe.
+  if d.repli then
+    if rv[1] and rv[1][2] > 0 then g.explore[rv[1][1]] = 60 end
+    if d.blocked and d.blocked[1] then
+      for _, res in ipairs(Gen.summary(c, ev, state, { { tech = d.blocked[1].tech } }).explore) do
+        if explorable(c, res) then g.explore[res] = 60 end
+      end
+    end
+  end
   g.blocked_sig = nil
   local sum = Gen.summary(c, ev, state, { { tech = d.tech } })
   -- Lot IA3-e (points de jonction « hand », « produce », « extract », INTEGRATION.md §3) : objets que le dépliage fait
