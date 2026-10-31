@@ -333,6 +333,13 @@ do
     "… ses circuits sont fabriqués pour lui")
 end
 do
+  -- Lot GISEMENTS (relecture : les clés de T.outposts sont des types, le cerveau ne nommait jamais le cuivre) : 9 300 de fer, 45 de cuivre.
+  local st = C.new_state(0)
+  C.think(view({ stock = { ["iron-plate"] = 9300, ["copper-plate"] = 45, coal = 300, stone = 200, ["firearm-magazine"] = 80 }, outposts = outs }),
+    book, st, ctx_of({ mods = {}, cap = {}, covered = {} }))
+  check(st.starved["copper-plate"] and st.starved["copper-ore"] and not st.starved["iron-plate"], "la pensée nomme le cuivre en manque (minerai et plaque), pas le fer")
+end
+do
   -- (a) module en réserve, il manque des foreuses électriques et des bras : projet actif, sous-buts fabriqués.
   local st = C.new_state(0)
   local auto = { mods = { { product = "iron-plate", state = "reserve", missing = { { "electric-mining-drill", 4 }, { "inserter", 6 } } } },

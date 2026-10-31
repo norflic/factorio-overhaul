@@ -32,6 +32,7 @@ local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
+local Gisements = require("shared.team.gisement") -- lot GISEMENTS : un lot qui porte un minerai sert de gisement
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
 local Cv = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
@@ -478,7 +479,11 @@ local function candidates(b, states, toward, res)
     -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
     -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
     local shared = l.used and l.state ~= "gisement" and states.rive and plant_owner(b, l.used) or nil
-    if (not l.used or l.state == "gisement" or shared) and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
+    -- lot GISEMENTS : gisement voisin du QG refusé sans fin « hors du treillis » (journal du DC, cuivre d'ambre à 33 tuiles) : l'état d'un lot
+    -- ne retient qu'UNE ressource et son premier relevé ; le lot qui porte ce minerai sert (P.fit raisonne à la tuile)
+    local ore_lot = states.gisement and res and Gisements.lot_for_ore(l, res, P.MIN_RES_TILES)
+    if ore_lot then ok_state = true end
+    if (not l.used or l.state == "gisement" or shared) and ok_state and (not res or l.res == res or ore_lot) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
       local avoided = false
@@ -898,6 +903,27 @@ end
 
 local function needs_power(g) return (g.power_kw or 0) > 0 end
 
+--- Lot GISEMENTS : aucun lot ne porte ce minerai au dernier relevé : recompte le minerai des lots libres (toutes les G.ORE_SCAN ticks par
+--- minerai), l.ores[minerai] lu par Gisements.lot_for_ore. Un lot ne garde sinon que sa ressource principale, relevée une fois.
+local function scan_ore_lots(f, surface, res)
+  local b = f.build
+  b.ore_scan = b.ore_scan or {}
+  local tick = game.tick
+  if b.ore_scan[res] and tick < b.ore_scan[res] then return end
+  b.ore_scan[res] = tick + Gisements.ORE_SCAN
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    if not l.used and l.state ~= "inconnu" and not (l.i == 0 and l.j == 0) then
+      local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+      local n = surface.count_entities_filtered({ area = { { x0 + 0.01, y0 + 0.01 }, { x1 - 0.01, y1 - 0.01 } }, type = "resource", name = res })
+      if n > 0 or l.ores then
+        l.ores = l.ores or {}
+        l.ores[res] = n
+      end
+    end
+  end
+end
+
 local function deposit_toward(b, res)
   local c = candidates(b, { gisement = true }, { x = b.lat.ox, y = b.lat.oy }, res)[1]
   return c and lot_center(b, c.l) or nil
@@ -1090,6 +1116,10 @@ local function plan_feed(f, surface, p, place, part)
           local need_belt = p.spec.feed == "tapis" and M.ORES[item] and item ~= "coal"
           if M.ORES[item] and flow >= P.AUTO_FLOW and p.spec.feed ~= "quai" then
             local dt = deposit_toward(b, item)
+            if not dt and need_belt then -- lot GISEMENTS
+              scan_ore_lots(f, surface, item)
+              dt = deposit_toward(b, item)
+            end
             local reach = (p.spec.feed == "tapis") and 5 or 3
             local d = dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) or nil
             if d and d <= reach * P.PITCH then
@@ -1098,6 +1128,8 @@ local function plan_feed(f, surface, p, place, part)
             elseif need_belt then
               -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change)
               if not dt and b.radius < Build.RADIUS_MAX then Build.grow(f, b.radius + 1) end
+              -- lot GISEMENTS : quels lots portent ce minerai, dans quel état (journal [FO-AUTO], borné par DRILL_DIAG_LOGS)
+              if not dt then Build.drill_diag(f, item, 0, { x = place.ox, y = place.oy }, "hors du treillis", nil) end
               return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
             end
           elseif need_belt then
@@ -1276,10 +1308,11 @@ function Build.drill_diag(f, item, n, a, why, diag, s)
   local lots = {}
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
-    if l.ore == item or l.res == item then
+    if l.ore == item or l.res == item or (l.ores and (l.ores[item] or 0) > 0) then
       local c = lot_center(b, l)
-      lots[#lots + 1] = string.format("%s(%s%s%s,bad%d,%d tuiles,%d)", k, l.state, l.shared and ",partage" or "",
-        l.used and (",pris" .. tostring(l.used)) or "", l.bad or 0, l.ore_n or 0, math.floor(math.abs(c.x - a.x) + math.abs(c.y - a.y)))
+      lots[#lots + 1] = string.format("%s(%s%s%s,bad%d,%d tuiles,%d)", k, l.state .. (l.state == "refuse" and (":" .. tostring(l.reason)) or ""),
+        l.shared and ",partage" or "", l.used and (",pris" .. tostring(l.used)) or "", l.bad or 0,
+        (l.ores and l.ores[item]) or l.ore_n or 0, math.floor(math.abs(c.x - a.x) + math.abs(c.y - a.y)))
     end
   end
   log(string.format("[FO-AUTO] %s : foreuses %s refusees (%s) : %d foreuse(s) visees, arrivee (%d, %d)%s ; lots de %s : %s ; essais (1 foreuse) : %s",
@@ -1578,6 +1611,17 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
         { nobad = true, diag = (nn == 1 and not at.cover) and diag or nil, cover_min = at.cover, cache = cache,
           within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
       if place then picked, pg = at, g break end
+    end
+  end
+  if not place then
+    -- Lot GISEMENTS (« tapis des foreuses (minerai) », 1 144 refus au journal du DC) : dernier essai, une paire en bord de gisement ; le
+    -- débit d'une foreuse ne dépend pas du nombre de tuiles minées, seule sa durée de vie en dépend. « Exploitent toujours à 100 % ».
+    local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, 1)
+    if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, 1) end
+    if g then
+      place = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
+        { nobad = true, cover_min = Gisements.COVER_LOW, cache = cache, within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
+      if place then picked, pg = { n = 1, cover = Gisements.COVER_LOW }, g end
     end
   end
   if not place then

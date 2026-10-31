@@ -5,8 +5,9 @@
   Tâche de FOND bornée (au plus Gis.PER_PASS actions toutes les Gis.EVERY ticks par équipe) sur les foreuses à combustion des
   avant-postes (f.outposts[*].drill_list) :
     - une foreuse À L'ARRÊT depuis G.IDLE (statut autre que « travaille ») est jugée : « rebrancher » (son four a disparu : un
-      réceptacle du stock est reposé à son dépôt), « remplacer » (Swap.think s'en charge, remplacement électrique prêt : on attend
-      G.HARD), « retirer » (arrêt de G.RETIRE sans remplacement, ou minerai épuisé sous elle) ;
+      réceptacle du stock est reposé à son dépôt), « ravitailler » (sans combustible, matière en manque ou électrique impossible),
+      « remplacer » (Swap.think s'en charge, remplacement électrique prêt : on attend G.HARD), « retirer » (arrêt de G.RETIRE quand
+      l'électrique peut prendre la place, matière non en manque ; ou minerai épuisé sous elle) ;
     - retirer = objets REPRIS au stock (foreuse, combustible, four et son contenu), jamais détruits ; l'avant-poste n'est plus plein
       (la place libérée sert aux foreuses électriques de la capitalisation) et plus aucune paire à four n'est reposée sur le minerai
       (G.forbid_pairs, lu par Outposts.extend, script/faction/outposts.lua).
@@ -65,20 +66,61 @@ local function take_back(f, e, item)
   if item then Stock.insert(f, item, 1) end
 end
 
---- Une passe : rend le nombre d'actions faites.
-function Gis.think(f, surface, tick)
+--- L'électrique peut-il prendre la place ? Objet obtenable (book : livre de l'équipe) et centrale en bonne santé.
+local function electric_possible(f, book)
+  if not (f.build and f.build.sante and f.build.sante.healthy == true) then return false end
+  if Stock.count(f, T.DRILL_ELECTRIC) > 0 then return true end
+  return book ~= nil and book:handcraftable(T.DRILL_ELECTRIC)
+end
+
+--- Sa matière manque-t-elle par rapport au besoin (écrit par la pensée, shared/ai3/cerveau.lua) ?
+local function starved_of(f, spec)
+  local sv = spec and f.team and f.team.ia3 and f.team.ia3.starved
+  return sv and (sv[spec.product] == true or sv[spec.resource] == true) or false
+end
+
+--- Lot GISEMENTS : plus de paire foreuse + four sur CE champ ? (lu par Outposts.extend ; règle pure : G.forbid_pairs)
+function Gis.pairs_forbidden(f, o, spec)
+  local sp = spec and game.entity_prototypes[spec.sink]
+  local here = 0
+  for _, d in ipairs(o.drill_list or {}) do
+    if d.valid and d.name == T.DRILL_ELECTRIC then here = here + 1 end
+  end
+  return G.forbid_pairs({ sink_furnace = sp ~= nil and sp.type == "furnace", swap_done = here, swap_ready = f.swap and f.swap.ready,
+    retired = o.retired, starved = starved_of(f, spec) })
+end
+
+--- Combustible du stock dans une machine, jusqu'à T.fuel_refill_to. Rend le nombre posé.
+local function refuel(f, e)
+  local inv = e and e.valid and e.get_fuel_inventory and e.get_fuel_inventory()
+  if not inv then return 0 end
+  local want = T.fuel_refill_to - inv.get_item_count(T.fuel)
+  if want <= 0 then return 0 end
+  local took = math.min(want, Stock.count(f, T.fuel))
+  if took <= 0 or Stock.remove(f, T.fuel, took) < 1 then return 0 end
+  return inv.insert({ name = T.fuel, count = took })
+end
+
+--- Une passe : rend le nombre d'actions faites. book : livre de l'équipe (l'électrique est-il obtenable ?).
+function Gis.think(f, surface, tick, book)
   if not (f and f.outposts and next(f.outposts)) then return 0 end
   local st = state_of(f)
   if tick < st.next then return 0 end
   st.next = tick + Gis.EVERY
   local seen, actions = {}, 0
   local ready = (f.swap and f.swap.ready or 0) > 0
+  local elec = electric_possible(f, book)
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
     local spec = T.outposts[o.kind]
     -- un champ en migration est géré par la migration ; sans réceptacle de four, l'arrêt d'une foreuse (coffre plein) n'est pas jugé ici
     local sink_proto = spec and game.entity_prototypes[spec.sink]
     local on_furnace = sink_proto and sink_proto.type == "furnace"
+    local starved = starved_of(f, spec)
+    -- matière redevenue en manque (ou électriques partis) : le champ se rouvre aux paires (DC : « au minimum les foreuses thermiques »)
+    if o.full and o.full_why == "electrique" and not Gis.pairs_forbidden(f, o, spec) then
+      o.full, o.full_by, o.full_why = false, nil, nil
+    end
     if o.migr ~= "en cours" and o.drill_list then
       local keep, removed = {}, 0
       for index, d in ipairs(o.drill_list) do
@@ -97,8 +139,10 @@ function Gis.think(f, surface, tick)
             for _, sk in ipairs(o.sinks or {}) do
               if sk.valid and S.inside(box_of(sk), pos.x + rx, pos.y + ry) then sink = sk break end
             end
+            local no_fuel = (s == defines.entity_status.no_fuel) or (sink ~= nil and sink.status == defines.entity_status.no_fuel)
             local verdict, why = G.verdict({ idle = idle, dead = (s == defines.entity_status.no_minable_resources),
-              sink = sink and "ok" or "manque", can_sink = spec ~= nil and Stock.count(f, spec.sink) > 0, ready = ready })
+              sink = sink and "ok" or "manque", can_sink = spec ~= nil and Stock.count(f, spec.sink) > 0, ready = ready,
+              elec = elec, starved = starved, no_fuel = no_fuel, can_fuel = Stock.count(f, T.fuel) > 0 })
             if verdict == "rebrancher" then
               local fits = function(name, p) return surface.can_place_entity({ name = name, position = p, force = f.force }) end
               local c = { x = pos.x + rx, y = pos.y + ry }
@@ -119,10 +163,20 @@ function Gis.think(f, surface, tick)
                   Stock.insert(f, spec.sink, 1)
                 end
               end
+            elseif verdict == "ravitailler" then
+              local put = refuel(f, d) + refuel(f, sink)
+              if put > 0 then
+                st.refueled = (st.refueled or 0) + 1
+                st.idle[u] = nil
+                seen[u] = nil
+                actions = actions + 1
+                say(f, st, string.format("foreuse a combustion en (%.1f, %.1f) remise en marche, %d combustible(s) (%s)", pos.x, pos.y, put, why), tick)
+              end
             elseif verdict == "retirer" then
               take_back(f, d, T.DRILL)
               if sink and sink.valid then take_back(f, sink, spec.sink) end
               st.retired = st.retired + 1
+              o.retired = (o.retired or 0) + 1
               actions = actions + 1
               removed = removed + 1
               kept = false

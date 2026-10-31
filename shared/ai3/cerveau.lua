@@ -191,7 +191,10 @@ function C.think(view, book, st, ctx)
       local held = {}
       Ca.goals(held, nil, ctx.capi.open)
       for _, g in ipairs(held) do
-        if g.invest then goals[#goals + 1] = g
+        -- Lot GISEMENTS : un ordre qui étend une matière en manque par rapport au besoin est un investissement de production, même sans
+        -- manque brut (journal du DC : « capi:couvrir:copper-ore : suspendu » à 45 plaques de cuivre).
+        local sv, ord = st.starved or {}, g.order or {}
+        if g.invest or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g
         else Pi.suspend(pile, g.key, "but de la capitalisation suspendu (pas un investissement de production)") end -- journal [FO-PILE]
       end
     end
@@ -215,7 +218,8 @@ function C.think(view, book, st, ctx)
     for _, g in ipairs(goals) do
       local keep = true
       if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
-        keep = Pi.allows(pile, "extraction", g.why)
+        local sp = T.outposts[g.outpost]
+        keep = Pi.allows(pile, "extraction", g.why) or (sp ~= nil and starved_prev[sp.product] == true) -- lot GISEMENTS : une matière en manque
       elseif g.kind == "module" and g.pile then
         local ok, why = Pi.porte(pile, g.pile, g.product, ((short_prev[g.product] or 0) > 0) or starved_prev[g.product] == true)
         if not ok then
@@ -283,18 +287,8 @@ function C.think(view, book, st, ctx)
   end
   -- Lot GISEMENTS : matières en manque PAR RAPPORT AU BESOIN, toutes (fondues ou non) : stock du minerai et de sa plaque contre le besoin
   -- de la matière (plancher : la moitié du plus grand besoin, une matière oubliée manque quand même). Lu par la porte de la pile.
-  local rows = {}
-  for _, k in ipairs(sorted_keys(raw)) do
-    local sp = T.outposts[k]
-    local items = { k }
-    local have = view.stock[k] or 0
-    if sp and sp.product then
-      items[#items + 1] = sp.product
-      have = have + (view.stock[sp.product] or 0)
-    end
-    if sp then rows[#rows + 1] = { item = k, items = items, have = have, need = st.need[k] or 0 } end
-  end
-  local pen = Gi.penurie(rows)
+  -- (par TYPE d'avant-poste : les clés de T.outposts ne sont pas des objets, relecture : seuls « coal » et « stone » y tombaient par homonymie)
+  local pen = Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need))
   st.starved = pen.starved
   st.starved_rank = pen.ranking
   local saturated = {}

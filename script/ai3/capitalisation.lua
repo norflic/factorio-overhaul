@@ -798,7 +798,9 @@ local function build_input(f, cs, view, book, tick, D, w)
   cs.wanted_set = wanted
   local repli = repli_book(cs)
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
-  local reach = (Build.RADIUS_MAX + 0.5) * Pl.PITCH
+  -- (lot GISEMENTS : une enceinte fige le treillis sous RADIUS_MAX, journal du DC « rayon 4 » : au-delà, ordres refusés sans fin)
+  local enc = f.build and f.build.enc
+  local reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH
   local open_dep = {}
   for _, dr in ipairs(cs.scan and cs.scan.drills or {}) do if dr.deposit ~= "?" then open_dep[dr.deposit] = true end end
   local deposits = {}
