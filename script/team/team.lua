@@ -49,6 +49,7 @@ local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
 local Effectif = require("shared.ai3.effectif") -- lot IA3-d : une faction grandit quand le travail attend (A7)
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : réserve de fer de votre équipe
+local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : besoin évalué et couvert = plus de réserve de croissance
 local JournauxDC = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : plafond d'ouvriers et fer inemployé
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
@@ -524,9 +525,13 @@ function Team.view(f, tick)
   -- avant-poste sont défendus, que le coffre garde T.grow_iron_reserve fer et qu'un travail attend (D-16 : pas de
   -- recrue sans travail).
   local grow_due = false
+  -- Lot INDUSTRIE I1 (réglage fo-war-industrie) : le besoin de l'équipe est ÉVALUÉ (défense, reconstruction, recrues ; shared/ai3/reserve.lua)
+  -- et couvert par le coffre : la réserve de fer de croissance n'a plus de raison (le DC : « pour aucune raison »).
+  local evaluated = f.is_player and Rsv.covered(f, tick) or false
+  local grow_iron = evaluated and 0 or T.grow_iron_reserve
   if grow and (f.engineers_count or 0) >= floor and backlog > 0
     and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
-    and iron0 >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
+    and iron0 >= grow_iron + 10 + (f.engineers_count or 0) then
     grow_due = true
     for _, o in ipairs(outposts) do
       if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
@@ -540,7 +545,7 @@ function Team.view(f, tick)
     local needs = {}
     for _, o in ipairs(outposts) do needs[#needs + 1] = { turrets = o.turrets, need = T.defend_turrets(o.drills) } end
     local defended = FerEquipe.defended({ turret_ok = grow, hq_turrets = hq_turrets, defend_hq = T.defend_hq, outposts = needs })
-    iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended)
+    iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended, evaluated)
   end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
@@ -570,6 +575,7 @@ function Team.view(f, tick)
     effectif = Effectif.decide(s, st, tick)
     effectif.floor = floor
     effectif.cost_iron = (s.cost[s.margin_item] or 0) + effectif.margin
+    effectif.margin_item = s.margin_item -- lot INDUSTRIE I1 : la marge de la recrue entre au besoin évalué (shared/ai3/reserve.lua)
     effectif.left_iron = s.left[s.margin_item] or 0
     effectif.free_kinds = s.free_kinds
     recruit_held = not effectif.recruit
@@ -627,7 +633,7 @@ function Team.view(f, tick)
     -- Lot INTEG-DEFENSE D-D : dernier choix « production d'abord » retenu et nombre de pensées de suite qui ont demandé le contraire (hystérésis
     -- de Pr.decide ; écrits plus bas par Team.think, f.team.priorite_pf et f.team.priorite_streak)
     priorite_pf = (f.team.priorite_pf or false), priorite_streak = f.team.priorite_streak or 0,
-    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
+    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = (grow and not evaluated) and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }

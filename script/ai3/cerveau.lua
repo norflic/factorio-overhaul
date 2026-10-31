@@ -49,6 +49,7 @@ local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pos
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
 local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consommation, pondération des besoins
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
+local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 
 local Ia3 = {}
@@ -801,6 +802,7 @@ function Ia3.plan(f, view, book, surface, tick)
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
+    industrie = Rsv.on(), -- lot INDUSTRIE I1 : le besoin est évalué à chaque pensée (f.team.ia3.noyau)
     pile = PileRt.inputs(f, book, tick), -- lot PILE-PRIORITE : pièces à refaire (avec ou sans objet), projet rouvert
     prevu = Prev.pile_rows(f) } -- lot PREVISION : sites à PRÉPARER (vague imminente au-dessus de la défense ; cadres R1 de la pile)
   Profiler.start("ia3:think")
