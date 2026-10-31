@@ -168,6 +168,10 @@ return function(variant)
           ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = true, radius = 3 })
           id = ctx.remote("fo-ia1d", "request", "player", spec)
         end
+        if id and variant == "gen" and st.tries == 0 then
+          -- une centrale demandée garde le plan directeur allumé (sans projet à servir, le cerveau l'éteint et sa mémoire part avec lui)
+          ctx.remote("fo-ia1d", "request", "player", { gen = "steam", args = { 1 }, feed = true })
+        end
         if id then -- (nil : l'equipe n'a pas encore son plan directeur ; rien n'est compte)
           st.tries = st.tries + 1
           st.last_t = t
