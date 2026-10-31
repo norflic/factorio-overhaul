@@ -38,11 +38,11 @@ end
 -- une base de 12 mitrailleuses sans recherche tombait à la vague 5 (~10 min) ; les paliers montent
 -- désormais toutes les 4 vagues et le boss suit 2 + vague / 5 (gros à 5, énorme à 10, colossal à 15...).
 function TD.max_tier(wave)
-  return math.min(E.TIERS, 1 + math.floor(wave / 4))
+  return math.min(E.TD_TIERS, 1 + math.floor(wave / 4))
 end
 
 function TD.boss_tier(wave)
-  return math.min(E.TIERS, 2 + math.floor(wave / TD.boss_every))
+  return math.min(E.TD_TIERS, 2 + math.floor(wave / TD.boss_every))
 end
 
 function TD.spawn_points(wave)

@@ -1,5 +1,5 @@
 --[[
-  Déchiqueteurs : 8 paliers (1-4 vanilla, 5-8 mod) × 4 familles à mécaniques. Pur Lua.
+  Déchiqueteurs : 12 paliers (1-4 vanilla, 5-12 mod) × 6 familles à mécaniques. Pur Lua.
 
   Contrainte moteur : l'évolution est plafonnée à 1.0. On REDISTRIBUE donc les 8 paliers sur [0, 1]
   (vanilla en concentre 4) : le palier 8 n'apparaît qu'en fin d'évolution.
@@ -14,10 +14,12 @@
 
 local E = {}
 
-E.TIERS = 8
+E.TIERS = 12          -- lot EQUILIBRE (31/10) : 12 paliers (8 avant) ; le mode défense de tours reste à 8 (E.TD_TIERS)
+E.TD_TIERS = 8
 E.VANILLA_TIERS = 4
 
-E.tier_names = { "small", "medium", "big", "behemoth", "colossal", "titan", "apex", "primordial" }
+E.tier_names = { "small", "medium", "big", "behemoth", "colossal", "titan", "apex", "primordial",
+  "ancestral", "abyssal", "cataclysmic", "eternal" }
 
 -- Paliers 5-8 : multiplicateurs relatifs au palier 4 (behemoth) vanilla.
 E.new_tiers = {
@@ -29,12 +31,23 @@ E.new_tiers = {
           tint1 = { r = 0.25, g = 0.08, b = 0.35 }, tint2 = { r = 0.95, g = 0.30, b = 1.00 } },
   [8] = { scale = 2.20, hp = 50, damage = 12, speed = 0.87, resist = 32, poll = 40,
           tint1 = { r = 0.05, g = 0.05, b = 0.05 }, tint2 = { r = 1.00, g = 0.85, b = 0.20 } },
+  -- Paliers 9-12 (lot EQUILIBRE) : suite de la courbe (PV ×2,2 environ par palier, dégâts × 1,65, 2,35 de plus en
+  -- résistance par palier ; échelle 0,25 de plus). Teintes : os, abysses, braise blanche, vide.
+  [9]  = { scale = 2.45, hp = 110, damage = 20, speed = 0.85, resist = 40, poll = 90,
+           tint1 = { r = 0.35, g = 0.30, b = 0.22 }, tint2 = { r = 0.95, g = 0.92, b = 0.78 } },
+  [10] = { scale = 2.70, hp = 240, damage = 34, speed = 0.83, resist = 48, poll = 200,
+           tint1 = { r = 0.02, g = 0.12, b = 0.20 }, tint2 = { r = 0.10, g = 0.95, b = 0.80 } },
+  [11] = { scale = 2.95, hp = 520, damage = 56, speed = 0.81, resist = 56, poll = 450,
+           tint1 = { r = 0.45, g = 0.10, b = 0.02 }, tint2 = { r = 1.00, g = 0.97, b = 0.85 } },
+  [12] = { scale = 3.20, hp = 1100, damage = 90, speed = 0.79, resist = 64, poll = 1000,
+           tint1 = { r = 0.02, g = 0.00, b = 0.06 }, tint2 = { r = 0.80, g = 0.55, b = 1.00 } },
 }
 
 -- Part des nids de famille face aux nids vanilla, loin du départ. Moteur réel (session 3) : sans facteur,
 -- les nids de famille remplaçaient 100 % des nids à 1 800 tuiles (338 sur 338). Facteur appliqué à leur
 -- probabilité d'apparition.
-E.family_nest_share = 0.4
+-- Lot EQUILIBRE : 6 familles au lieu de 4 ; 0,27 × 6 = 1,62 (0,4 × 4 = 1,6) garde la même part totale de nids de famille.
+E.family_nest_share = 0.27
 
 --- Résistance de famille à un palier : la part FIXE croît avec le palier (nulle aux paliers 1-2, pleine
 --- au palier 8), la part en pourcentage atteint sa valeur au palier 4. Moteur réel (session 4, défense de
@@ -43,7 +56,7 @@ E.family_nest_share = 0.4
 function E.family_resist(family, tier)
   local out = {}
   for dtype, v in pairs(family.resist) do
-    out[dtype] = { v[1] * math.max(0, tier - 2) / 6, v[2] * math.min(1, tier / 4) }
+    out[dtype] = { v[1] * math.min(1, math.max(0, tier - 2) / 6), v[2] * math.min(1, tier / 4) }  -- plafonnée au palier 8 (lot EQUILIBRE : 12 paliers)
   end
   return out
 end
@@ -83,27 +96,53 @@ E.families = {
     glow = { r = 0.25, g = 0.85, b = 1.00 }, -- arcs électriques
     nest_distance = 8,
   },
+  -- Lot EQUILIBRE : deux styles de plus. Toxique : immunisée à l'acide et au poison, mord à l'acide, lente et épaisse
+  -- (contre : balles, laser). Essaim : fragile, très rapide, faible à l'explosion (contre : zone, tourelles à portée).
+  toxic = {
+    hp = 1.3, speed = 0.9, damage = 1.0,
+    resist = { acid = { 0, 100 }, poison = { 0, 100 } },
+    damage_type = "acid",
+    tint1 = { r = 0.18, g = 0.40, b = 0.05 }, tint2 = { r = 0.60, g = 1.00, b = 0.15 },
+    glow = { r = 0.55, g = 1.00, b = 0.10 }, -- bile
+    nest_distance = 7,
+  },
+  swarm = {
+    hp = 0.55, speed = 1.35, damage = 0.85,
+    resist = { explosion = { 0, -30 } },
+    tint1 = { r = 0.40, g = 0.32, b = 0.05 }, tint2 = { r = 1.00, g = 0.88, b = 0.25 },
+    glow = { r = 1.00, g = 0.80, b = 0.15 }, -- nuées
+    nest_distance = 10,
+  },
 }
-E.FAMILY_ORDER = { "armored", "pyro", "brood", "storm" }
+E.FAMILY_ORDER = { "armored", "pyro", "brood", "storm", "toxic", "swarm" }
 
--- Nouvelles courbes d'apparition (évolution -> poids), 8 paliers répartis sur [0, 1].
+-- Nouvelles courbes d'apparition (évolution -> poids), 12 paliers répartis sur [0, 1] (lot EQUILIBRE : paliers 1 à 4
+-- inchangés, 5 à 8 un peu plus tôt (5 : 0,75 -> 0,70 ; 6 : 0,85 -> 0,78 ; 7 : 0,95 -> 0,84 ; 8 : 1,00 -> 0,89), 9 à 12 neufs).
 E.spawn_curves = {
   { { 0.00, 0.30 }, { 0.35, 0.00 } },
   { { 0.10, 0.00 }, { 0.35, 0.30 }, { 0.50, 0.05 }, { 0.60, 0.00 } },
   { { 0.30, 0.00 }, { 0.50, 0.30 }, { 0.65, 0.05 }, { 0.75, 0.00 } },
   { { 0.45, 0.00 }, { 0.62, 0.30 }, { 0.78, 0.05 }, { 0.88, 0.00 } },
-  { { 0.58, 0.00 }, { 0.75, 0.30 }, { 0.90, 0.05 }, { 1.00, 0.02 } },
-  { { 0.70, 0.00 }, { 0.85, 0.30 }, { 1.00, 0.10 } },
-  { { 0.80, 0.00 }, { 0.95, 0.25 }, { 1.00, 0.25 } },
-  { { 0.90, 0.00 }, { 1.00, 0.20 } },
+  { { 0.55, 0.00 }, { 0.70, 0.30 }, { 0.82, 0.05 }, { 0.92, 0.00 } },
+  { { 0.62, 0.00 }, { 0.78, 0.30 }, { 0.88, 0.05 }, { 0.96, 0.00 } },
+  { { 0.72, 0.00 }, { 0.84, 0.30 }, { 0.94, 0.10 }, { 1.00, 0.03 } },
+  { { 0.78, 0.00 }, { 0.89, 0.28 }, { 1.00, 0.06 } },
+  { { 0.82, 0.00 }, { 0.92, 0.26 }, { 1.00, 0.10 } },
+  { { 0.86, 0.00 }, { 0.95, 0.25 }, { 1.00, 0.14 } },
+  { { 0.90, 0.00 }, { 0.975, 0.25 }, { 1.00, 0.18 } },
+  { { 0.93, 0.00 }, { 1.00, 0.25 } },
 }
 
--- Vers : paliers 5-8 (multiplicateurs relatifs au ver géant vanilla), exigence d'évolution pour l'expansion.
+-- Vers : paliers 5-12 (multiplicateurs relatifs au ver géant vanilla), exigence d'évolution pour l'expansion.
 E.worm_tiers = {
   [5] = { scale = 1.15, hp = 4, damage = 2, range = 4, evo = 0.93, autoplace_distance = 10 },
   [6] = { scale = 1.30, hp = 10, damage = 4, range = 8, evo = 0.96, autoplace_distance = 12 },
   [7] = { scale = 1.45, hp = 25, damage = 7, range = 12, evo = 0.98, autoplace_distance = 14 },
   [8] = { scale = 1.60, hp = 60, damage = 12, range = 16, evo = 0.995, autoplace_distance = 16 },
+  [9] = { scale = 1.75, hp = 150, damage = 20, range = 19, evo = 0.997, autoplace_distance = 18 },
+  [10] = { scale = 1.90, hp = 350, damage = 34, range = 22, evo = 0.998, autoplace_distance = 20 },
+  [11] = { scale = 2.05, hp = 800, damage = 56, range = 25, evo = 0.999, autoplace_distance = 22 },
+  [12] = { scale = 2.20, hp = 1800, damage = 90, range = 28, evo = 0.9995, autoplace_distance = 24 },
 }
 
 function E.unit_name(kind, tier, family)

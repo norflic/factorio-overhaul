@@ -955,6 +955,7 @@ function M.new_world(opts)
     -- lot PD-REPARATION : relevé des bâtiments endommagés (script/team/reparation.lua) ; le mock ne blesse rien : jamais levé ici,
     -- testé à la main par tests/reparation_test.lua
     on_entity_damaged = 33,
+    on_chunk_generated = 34, -- lot EQUILIBRE : zone sûre des QG (script/faction/war.lua) ; levé à la main par tests/zone_sure_test.lua
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).

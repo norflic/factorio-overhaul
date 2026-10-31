@@ -38,7 +38,8 @@ local War = {}
 local DIAG = 0.7071
 local CORNERS = { { DIAG, -DIAG }, { DIAG, DIAG }, { -DIAG, DIAG }, { -DIAG, -DIAG } }
 local CLEAR_RADIUS = 14
-local ENEMY_CLEAR_RADIUS = 80
+local Zone = require("shared.faction.zone_sure") -- lot EQUILIBRE : zone sûre du départ (rayon 256 au lieu de 80)
+local ENEMY_CLEAR_RADIUS = Zone.RADIUS
 
 local function say(msg)
   game.print(msg)
@@ -89,11 +90,27 @@ local function clear_area(surface, pos)
   for _, e in ipairs(surface.find_entities_filtered({ area = area, type = { "tree", "simple-entity", "cliff" } })) do
     e.destroy()
   end
-  local earea = { { pos.x - ENEMY_CLEAR_RADIUS, pos.y - ENEMY_CLEAR_RADIUS }, { pos.x + ENEMY_CLEAR_RADIUS, pos.y + ENEMY_CLEAR_RADIUS } }
+  local earea = Zone.area(pos, ENEMY_CLEAR_RADIUS)
   for _, e in ipairs(surface.find_entities_filtered({ area = earea, force = "enemy" })) do
-    e.destroy()
+    if Zone.inside(pos, e.position.x, e.position.y, ENEMY_CLEAR_RADIUS) then e.destroy() end
   end
 end
+
+-- Lot EQUILIBRE : un chunk généré APRÈS la fondation des QG ne rapporte aucun nid dans leur zone sûre.
+Events.on(defines.events.on_chunk_generated, function(ev)
+  local war = State.war()
+  if not war.active or not ev.surface or not ev.surface.valid then return end
+  local cx, cy = ev.position.x, ev.position.y
+  for _, id in ipairs(State.alive()) do
+    local f = war.factions[id]
+    local hq = f and f.hq_pos
+    if hq and Zone.chunk_touches(hq, cx, cy) then
+      for _, e in ipairs(ev.surface.find_entities_filtered({ area = ev.area, force = "enemy" })) do
+        if e.valid and Zone.inside(hq, e.position.x, e.position.y) then e.destroy() end
+      end
+    end
+  end
+end)
 
 local function set_player_relations(f, ceasefire)
   local force, player = game.forces[f.force], game.forces.player

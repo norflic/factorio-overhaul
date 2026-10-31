@@ -100,7 +100,7 @@ local function run_all()
   local cf = Cap.center_family(L)
   check(cf == CC, "§1 famille centre déduite des règles (celle qui n'exige aucun centre) : " .. tostring(cf and cf.key))
   local g, kind = Cap.gain(L, proto, GUN, 1)
-  local expect = (1 + 0.08) * (1 + 0.15) - 1
+  local expect = (1 + 0.15) * (1 + 0.15) - 1 -- lot EQUILIBRE : dégâts et vie x 1,15 par niveau (avant : 1,08 x 1,15)
   check(kind == "combat" and math.abs(g - expect) < 1e-9, string.format("§1 gain de la tourelle 1 -> 2 lu dans les prototypes : %.4f (attendu %.4f)", g, expect))
   local ga, ka = Cap.gain(L, proto, L.by_key.assembler, 4)
   check(ka == "debit" and math.abs(ga - (0.08 / (1 + 0.08 * 3))) < 1e-9, "§1 gain de l'assembleur 4 -> 5 = vitesse(5)/vitesse(4) - 1")
