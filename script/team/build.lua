@@ -33,6 +33,7 @@ local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Gisements = require("shared.team.gisement") -- lot GISEMENTS : un lot qui porte un minerai sert de gisement
+local Tr = require("shared.team.treillis") -- lot INDUSTRIE I3 : jusqu'où le treillis grandit vers un gisement, cause du refus (règles pures)
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
 local CvRegle = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
@@ -59,6 +60,8 @@ local Build = {}
 
 Build.RADIUS = 3              -- carré de lots évalué au départ (7 × 7)
 Build.RADIUS_MAX = 5
+Build.RADIUS_ORE = Tr.CAP    -- lot INDUSTRIE I3 : rayon au plus de la croissance VERS UN GISEMENT (12 : 25 × 25 lots) ; la croissance ordinaire reste à RADIUS_MAX
+Build.TREILLIS_LOGS = 40     -- lot INDUSTRIE I3 : lignes [FO-TREILLIS] au plus, par équipe
 P.declare_size(T.wall, 1, 1)  -- lot ESPACE : emprise du mur, connue dès le chargement (les PNJ la lisent avant tout plan)
 Build.PULSE = 5               -- ticks entre deux passes de travail
 Build.NET_WAIT_TICKS = 1800   -- lot PLANDIR : attente (30 s) entre deux essais d'un projet dont le réseau passe par un projet pas bâti
@@ -178,10 +181,11 @@ function Build.enable(f, opts)
   return b
 end
 
---- Élargit le carré évalué au rayon r (nouveaux lots et tronçons mis en file, du centre vers l'extérieur).
-function Build.grow(f, r)
+--- Élargit le carré évalué au rayon r (nouveaux lots et tronçons mis en file, du centre vers l'extérieur). `cap` : plafond du rayon
+--- (Build.RADIUS_MAX par défaut, la croissance ordinaire ; Build.RADIUS_ORE pour une croissance vers un gisement, lot INDUSTRIE I3).
+function Build.grow(f, r, cap)
   local b = f.build
-  r = math.min(r, Build.RADIUS_MAX)
+  r = math.min(r, cap or Build.RADIUS_MAX) -- lot INDUSTRIE I3 : `cap` = Build.RADIUS_ORE pour une croissance vers un gisement connu
   -- lot ESPACE : le rayon est figé par l'enceinte (un lot posé après l'anneau serait dehors, ou l'anneau couperait un lot)
   if b.enc then r = math.min(r, b.enc.r) end
   if r <= b.radius then return end
@@ -247,9 +251,71 @@ local function survey(surface, force, x0, y0, x1, y1, seg)
   return s
 end
 
+--- Rectangle (x0, y0, x1, y1) d'une entrée de la file d'évaluation : lot ou tronçon.
+local function item_rect(b, item)
+  if item[1] == "lot" then
+    local l = b.lots[item[2]]
+    if not l then return nil end
+    return P.lot_rect(b.lat, l.i, l.j)
+  end
+  return P.seg_rect(b.lat, item[2])
+end
+
+--- Lot INDUSTRIE I3 : un lot ou un tronçon AU-DELÀ du rayon ordinaire (RADIUS_MAX) n'est relevé que si tous ses chunks sont
+--- générés : sur un chunk vide le relevé ne voit ni eau ni falaise et rend « libre » (un plan y poserait ses fantômes). Il est
+--- remis à plus tard (b.ungen, repris par ungen_retry) ; en deçà du rayon ordinaire, rien ne change.
+local function ungenerated(b, surface, item, x0, y0, x1, y1)
+  if Tr.ring_of_point(b.lat.ox, b.lat.oy, (x0 + x1) / 2, (y0 + y1) / 2, P.PITCH) <= Build.RADIUS_MAX then return false end
+  for _, c in ipairs(Tr.chunks(x0, y0, x1, y1)) do
+    if not surface.is_chunk_generated(c) then
+      b.ungen = b.ungen or {}
+      b.ungen[#b.ungen + 1] = item
+      b.stats.ungen_deferred = (b.stats.ungen_deferred or 0) + 1
+      return true
+    end
+  end
+  return false
+end
+
+--- Rend à la file les entrées dont tous les chunks sont maintenant générés (sans jetons : un appel par chunk).
+local function ungen_retry(f, surface, tick)
+  local b = f.build
+  if not (b.ungen and #b.ungen > 0) or tick < (b.ungen_next or 0) then return end
+  b.ungen_next = tick + Tr.RETRY_UNGEN
+  local keep, back = {}, 0
+  for _, item in ipairs(b.ungen) do
+    local x0, y0, x1, y1 = item_rect(b, item)
+    local ready = x0 ~= nil
+    if ready then
+      for _, c in ipairs(Tr.chunks(x0, y0, x1, y1)) do
+        if not surface.is_chunk_generated(c) then ready = false break end
+      end
+    end
+    if ready then
+      b.queue[#b.queue + 1] = item
+      back = back + 1
+    elseif x0 ~= nil then
+      keep[#keep + 1] = item
+    end
+  end
+  b.ungen = keep
+  if back > 0 then
+    b.stats.ungen_back = (b.stats.ungen_back or 0) + back
+    b.ungen_logs = (b.ungen_logs or 0) + 1
+    if b.ungen_logs <= Build.TREILLIS_LOGS then
+      log(string.format("[FO-TREILLIS] %s : %d lot(s)/troncon(s) lointain(s) dont les chunks sont generes rendus a l'evaluation, %d attendent encore (%.1f min)",
+        f.key or "player", back, #keep, tick / 3600))
+    end
+  end
+end
+
 local function eval_one(f, surface, item, tick)
   local b = f.build
   local st = b.stats
+  do
+    local x0, y0, x1, y1 = item_rect(b, item)
+    if x0 and ungenerated(b, surface, item, x0, y0, x1, y1) then return end
+  end
   st.evals = st.evals + 1
   if item[1] == "lot" then
     local l = b.lots[item[2]]
@@ -1018,6 +1084,64 @@ local function deposit_toward(b, res)
   return c and lot_center(b, c.l) or nil
 end
 
+--- Lot INDUSTRIE I3 : aucun lot du treillis ne porte ce minerai. Y en a-t-il un au-delà ? Compte le minerai des anneaux de lots
+--- radius + 1 … RADIUS_ORE, du plus proche au plus loin (4 bandes par anneau, `limit` = la tuile minimale d'un lot de gisement) et
+--- rend le premier anneau qui en porte assez, ou false. Mémorisé PROBE_EVERY ticks par minerai (b.probe, des nombres seulement).
+local function probe_ore(f, surface, res)
+  local b = f.build
+  b.probe = b.probe or {}
+  local tick = game.tick
+  local pr = b.probe[res]
+  if pr and tick < pr.next then return pr.hit end
+  local hit = false
+  for _, k in ipairs(Tr.rings_to_probe(b.radius, Build.RADIUS_ORE)) do
+    for _, band in ipairs(Tr.ring_bands(k)) do
+      local ax, ay = P.lot_rect(b.lat, band.i0, band.j0)
+      local _, _, bx, by = P.lot_rect(b.lat, band.i1, band.j1)
+      local n = surface.count_entities_filtered({ area = { { ax + 0.01, ay + 0.01 }, { bx - 0.01, by - 0.01 } }, type = "resource", name = res,
+        limit = P.MIN_RES_TILES })
+      if n >= P.MIN_RES_TILES then hit = k break end
+    end
+    if hit then break end
+  end
+  b.probe[res] = { next = tick + Tr.PROBE_EVERY, hit = hit }
+  return hit
+end
+
+--- Lot INDUSTRIE I3 : la chaîne déclencheur -> décision -> action -> effet d'un gisement que le plan d'une fonderie n'atteint pas.
+--- Déclencheur : plan_feed (la voie d'un minerai sans lot à portée du tapis). Décision : Tr.decide (règle pure) sur ce que le treillis
+--- porte (`dt`, centre du lot de minerai, ou rien) et ce que la sonde voit au-delà. Action : Build.grow jusqu'au gisement, d'un coup,
+--- au plus RADIUS_ORE. Effet : le prochain plan trouve les lots (ou la raison du refus est écrite). Compte par cause (b.stats.treillis),
+--- une ligne [FO-TREILLIS] à chaque changement de cause d'un minerai. Rend la décision.
+local function treillis_step(f, surface, res, dt, dist, reach_tiles)
+  local b = f.build
+  local s = { radius = b.radius, cap = Build.RADIUS_ORE, enc_r = b.enc and b.enc.r or nil,
+    pending = math.max(0, #b.queue - b.qhead + 1), reach = reach_tiles }
+  if dt then
+    s.found, s.dist = true, dist
+    s.deposit_ring = Tr.ring_of_point(b.lat.ox, b.lat.oy, dt.x, dt.y, P.PITCH)
+  end
+  local dec = Tr.decide(s)
+  if dec.action == "sonder" then
+    s.probe = probe_ore(f, surface, res)
+    dec = Tr.decide(s)
+  end
+  local from = b.radius
+  if dec.action == "grandir" then Build.grow(f, dec.radius, Build.RADIUS_ORE) end
+  b.stats.treillis = b.stats.treillis or {}
+  bump(b.stats.treillis, dec.cause .. ":" .. dec.action)
+  b.tr_last = b.tr_last or {}
+  if b.tr_last[res] ~= dec.cause then
+    b.tr_last[res] = dec.cause
+    b.tr_logs = (b.tr_logs or 0) + 1
+    if b.tr_logs <= Build.TREILLIS_LOGS then
+      log(Tr.line({ team = f.key or "player", tick = game.tick, res = res, cause = dec.cause, action = dec.action, from = from, to = dec.radius,
+        probe = s.probe, cap = s.cap, dist = s.found and dist or nil, reach = reach_tiles }))
+    end
+  end
+  return dec
+end
+
 --- Lot IA3-e : un bras ÉLECTRIQUE de quai (tête d'alimentation, quai de sortie) hors de l'aire des poteaux du module ne
 --- reçoit pas de courant (moteur réel, e5-usine, diagnostic : « inserter:no_power » aux quais, fours « no_fuel » faute du
 --- bras du charbon) : un poteau moyen est ajouté sur une tuile libre voisine (le moteur le relie seul aux poteaux à portée).
@@ -1215,8 +1339,10 @@ local function plan_feed(f, surface, p, place, part)
               sources[lane] = "tapis"
               drills[lane] = { item = item, flow = flow }
             elseif need_belt then
-              -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change)
-              if not dt and b.radius < Build.RADIUS_MAX then Build.grow(f, b.radius + 1) end
+              -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change). Lot INDUSTRIE I3 : d'un coup
+              -- jusqu'au gisement que la sonde a vu, au plus RADIUS_ORE, et jamais pour rien (l'ancien +1 par refus, borné à RADIUS_MAX,
+              -- grandissait sans savoir s'il y avait quelque chose à atteindre, et ne grandissait pas du tout pour un lot trop loin du module)
+              treillis_step(f, surface, item, dt, d, reach * P.PITCH)
               -- lot GISEMENTS : quels lots portent ce minerai, dans quel état (journal [FO-AUTO], borné par DRILL_DIAG_LOGS)
               if not dt then Build.drill_diag(f, item, 0, { x = place.ox, y = place.oy }, "hors du treillis", nil) end
               return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
@@ -3989,6 +4115,7 @@ local function pulse_team(f, tick)
   local surface = surface_of(f)
   if not (b and surface) then return end
   -- 1. évaluations
+  ungen_retry(f, surface, tick) -- lot INDUSTRIE I3 : lots lointains dont les chunks viennent d'être générés
   local n = 0
   while b.qhead <= #b.queue and n < Build.EVAL_PER_PULSE do
     if not Tokens.take(f, tick, Build.COST_EVAL) then break end
@@ -4512,6 +4639,7 @@ function Build.report(f)
     net = #sorted_keys(b.net), opts = { seul = b.opts.seul, ghosts_ahead = b.opts.ghosts_ahead },
     enceinte = b.enc and Build.enclosure_report(b) or nil,
     ilots = Ilots.report(b), -- lot ILOTS-MURS
+    treillis = st.treillis, ungen = b.ungen and #b.ungen or 0, ungen_deferred = st.ungen_deferred or 0, -- lot INDUSTRIE I3 : causes de la croissance vers un gisement
   }
   return out
 end
