@@ -11,9 +11,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-COTE = {"epave": 4, "age01": 4, "age08": 6, "age15": 8, "qg08": 6}
-AGE = {"epave": 0, "age01": 1, "age08": 8, "age15": 15, "qg08": 8}
-MODULE = {"epave": "epave", "age01": "age01", "age08": "age08", "age15": "age15", "qg08": "qg08"}
+COTE = {"epave": 4, "age01": 4, "age08": 6, "age15": 8, "qg08": 6, "qg00": 4, "qg01": 4, "qg02": 4, "qg03": 4}
+AGE = {"epave": 0, "age01": 1, "age08": 8, "age15": 15, "qg08": 8, "qg00": 0, "qg01": 1, "qg02": 2, "qg03": 3}
+MODULE = {"epave": "epave", "age01": "age01", "age08": "age08", "age15": "age15", "qg08": "qg08", "qg00": "qg00", "qg01": "qg01", "qg02": "qg02", "qg03": "qg03"}
 
 PIECE = {"name": "vo", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {n: {"epoch": AGE[n], "side": COTE[n], "dest": "levels/vaisseau_o/" + n, "anchor_tiles": (0.0, 0.0)}
