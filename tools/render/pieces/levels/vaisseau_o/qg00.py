@@ -16,7 +16,7 @@ import forme as F
 import geo as G
 import mat as MT
 
-ESSAI = {"roul_ar": -0.42, "roul_av": 0.4, "lacet_ar": 0.33, "tang_ar": 0.14, "k": 1.25}
+ESSAI = {"roul_ar": -0.42, "roul_av": 0.4, "lacet_ar": 0.33, "tang_ar": 0.14, "k": 1.36, "n": 3}
 
 
 def _st(lst):
@@ -25,16 +25,17 @@ def _st(lst):
 
 
 # ------------------------------------------------------------------------------------------------ matières
-JAUNES = ((0.58, 0.4, 0.03), (0.48, 0.32, 0.022), (0.66, 0.47, 0.04), (0.4, 0.27, 0.03))
+JAUNES = ((0.66, 0.44, 0.022), (0.54, 0.35, 0.018), (0.76, 0.53, 0.03), (0.4, 0.25, 0.02))
 TOLES = (None, (0.29, 0.21), None, (0.42, 0.15))
 
 
 def matieres(S):
     M = {}
+    MT.PATINE.update(ta=0.12, ra=0.2, ec=0.45, nu_k=1.5, ec_col=(0.05, 0.028, 0.01))    # m1 (ec 0,9) virait à l'olive sale
     for i, c in enumerate(JAUNES):
-        M["j%d" % i] = MT.surface("q0_j%d" % i, c, rough=0.55, met=0.1, grain=0.16, coulures=0.8, usure=0.7,
-                                  nu=(0.45, 0.43, 0.4), crasse=0.9, crasse_col=(0.012, 0.009, 0.005),
-                                  pied=(0.0, 0.55, 0.7), rouille=(0.15, 0.06, 0.02), tole=TOLES[i], joint=0.55,
+        M["j%d" % i] = MT.surface("q0_j%d" % i, c, rough=0.55, met=0.1, grain=0.3, coulures=0.9, usure=0.8,
+                                  nu=(0.62, 0.6, 0.55), crasse=1.0, crasse_col=(0.012, 0.009, 0.005),
+                                  pied=(0.0, 0.7, 0.85), rouille=(0.15, 0.06, 0.02), tole=TOLES[i], joint=0.55,
                                   joint_l=0.012, var=0.06, relief=0.4, graine=1 + i)
     M["chevron"] = MT.surface("q0_chevron", JAUNES[2], rough=0.55, met=0.1, grain=0.14,
                               bandes=(0.16, (0.014, 0.013, 0.012), 0.5), usure=0.75, nu=(0.33, 0.31, 0.28),
@@ -62,9 +63,9 @@ def matieres(S):
     M["noir"] = MT.surface("q0_noir", (0.016, 0.016, 0.016), rough=0.6, met=0.0, usure=0.3, crasse=0.3, graine=18)
     M["cuivre"] = MT.surface("q0_cuivre", (0.36, 0.15, 0.065), rough=0.45, met=0.9, usure=0.4, crasse=0.7,
                              coulures=0.5, rouille=(0.06, 0.13, 0.09), graine=19)
-    M["terre"] = MT.surface("q0_terre", (0.24, 0.105, 0.04), rough=1.0, met=0.0, grain=0.28, usure=0.0, crasse=0.7,
+    M["terre"] = MT.surface("q0_terre", (0.12, 0.052, 0.02), rough=1.0, met=0.0, grain=0.45, usure=0.0, crasse=0.7,
                             crasse_col=(0.025, 0.016, 0.01), graine=20)
-    M["terre2"] = MT.surface("q0_terre2", (0.16, 0.07, 0.028), rough=1.0, met=0.0, grain=0.3, usure=0.0, crasse=0.7,
+    M["terre2"] = MT.surface("q0_terre2", (0.07, 0.032, 0.014), rough=1.0, met=0.0, grain=0.45, usure=0.0, crasse=0.7,
                              crasse_col=(0.02, 0.013, 0.008), graine=21)
     M["roc"] = MT.surface("q0_roc", (0.075, 0.066, 0.056), rough=0.9, met=0.0, grain=0.2, usure=0.6,
                           nu=(0.16, 0.14, 0.12), crasse=0.6, graine=22)
@@ -74,24 +75,24 @@ def matieres(S):
     except Exception:
         pass
     try:    # cœur : braise en croûte (essai 1 : brûlé en blanc)
-        M["coeur"] = S.mat_emissive("q0_coeur", (1.0, 0.3, 0.045), strength=6.0, base=(0.08, 0.02, 0.005),
+        M["coeur"] = S.mat_emissive("q0_coeur", (1.0, 0.13, 0.01), strength=1.5, base=(0.05, 0.012, 0.003),
                                     main_scale=0.15, crust=(7.0, 0.65, 3.0))
     except Exception:
-        M["coeur"] = MT.lumiere(S, "q0_coeur", (1.0, 0.3, 0.045), 6.0, main=0.15)
+        M["coeur"] = MT.lumiere(S, "q0_coeur", (1.0, 0.2, 0.02), 2.6, main=0.15)
     M["voyant"] = MT.lumiere(S, "q0_voyant", (1.0, 0.07, 0.03), 8.0, main=0.4)
-    M["hublot_a"] = MT.lumiere(S, "q0_hublot_a", (1.0, 0.55, 0.2), 3.5, main=0.4)
-    M["hublot_r"] = MT.lumiere(S, "q0_hublot_r", (1.0, 0.16, 0.07), 3.0, main=0.4)
+    M["hublot_a"] = MT.lumiere(S, "q0_hublot_a", (1.0, 0.42, 0.1), 3.0, main=0.12)
+    M["hublot_r"] = MT.lumiere(S, "q0_hublot_r", (1.0, 0.16, 0.07), 1.6, main=0.3)
     return M
 
 
-def lumiere_coeur(p, energie=38.0):
+def lumiere_coeur(p, energie=22.0):
     """Lueur orange du cœur : lumière ponctuelle de la seule passe principale (fo_scene.EXTRA_LIGHTS)."""
     try:
         import bpy
         import fo_scene as S
         d = bpy.data.lights.new("q0_coeur_l", "POINT")
         d.energy = energie
-        d.color = (1.0, 0.42, 0.12)
+        d.color = (1.0, 0.32, 0.06)
         d.shadow_soft_size = 0.12
         o = bpy.data.objects.new("q0_coeur_l", d)
         bpy.context.scene.collection.objects.link(o)
@@ -124,7 +125,7 @@ def toles(lot, M, C, xs, rnd, ouvert, choix, trou=lambda x, t: False):
         t = rnd.f(-0.8, 0.0)
         t_fin = t + 12.0
         while t < t_fin - 0.3:
-            w = min(rnd.f(0.7, 1.7), t_fin - t)
+            w = min(rnd.f(2.2, 4.2), t_fin - t)
             ta, tb = t, t + w
             t = tb
             tm = (ta + tb) / 2
@@ -133,12 +134,12 @@ def toles(lot, M, C, xs, rnd, ouvert, choix, trou=lambda x, t: False):
             g = rnd.f(0.018, 0.048)
             u = rnd.f()
             g1 = (g, g + rnd.f(0.01, 0.035)) if u < 0.3 else ((g, g + rnd.f(0.07, 0.14)) if u > 0.93 else g)
-            sk = (rnd.f(-0.09, 0.09), rnd.f(-0.09, 0.09))
-            mesh, P = F.plaque(C, x0 + 0.017, x1 - 0.017, ta + 0.045, tb - 0.045, 0.0, g1, sk)
+            sk = (rnd.f(-0.2, 0.2), rnd.f(-0.2, 0.2))
+            mesh, P = F.plaque(C, x0 - rnd.f(-0.02, 0.1), x1 + rnd.f(-0.02, 0.1), ta + 0.045, tb - 0.045, 0.0, g1, sk)
             lot.put(choix(rnd, xm, tm % 12), mesh)
-            n_r = max(2, int(G.length(G.sub(C(x0, tb), C(x0, ta))) / 0.1))
-            lot.put(M["riv"], F.rivets_bord(P, g if not isinstance(g1, tuple) else g1[0], n_r, 0.027, 0.0))
-            lot.put(M["riv"], F.rivets_bord(P, g1 if not isinstance(g1, tuple) else g1[1], n_r, 0.027, 1.0))
+            if rnd.f() < 0.45:
+                n_r = max(2, int(G.length(G.sub(C(x0, tb), C(x0, ta))) / 0.17))
+                lot.put(M["riv"], F.rivets_bord(P, g if not isinstance(g1, tuple) else g1[0], n_r, 0.02, 0.0))
             if rnd.f() < 0.3:   # petite pièce : trappe, boulons, renfort
                 fx, ft = rnd.f(0.25, 0.75), rnd.f(0.25, 0.75)
                 o = P(fx, ft, g + 0.002 if not isinstance(g1, tuple) else g1[0] + 0.002)
@@ -175,10 +176,11 @@ def bords_dechires(lot, M, C, xs, rnd, ouvert, sens_x):
             o = ouvert(xm, t)
             if o != prev:
                 d = 1.0 if o else -1.0          # vers l'ouverture
-                for s in (-0.12, 0.1):
-                    a = C(xm + s - 0.09, t - 0.1 * d, 0.03)
-                    b = C(xm + s + 0.09, t - 0.1 * d, 0.03)
-                    c = C(xm + s + rnd.f(-0.06, 0.06), t + d * rnd.f(0.3, 0.6), rnd.f(0.04, 0.2))
+                if rnd.f() < 0.55:
+                    s, ha = rnd.f(-0.14, 0.14), rnd.f(0.1, 0.26)
+                    a = C(xm + s - ha, t - 0.12 * d, 0.03)
+                    b = C(xm + s + ha, t - 0.12 * d, 0.03)
+                    c = C(xm + s + rnd.f(-0.15, 0.15), t + d * rnd.f(0.1, 0.34), rnd.f(0.02, 0.1))
                     lot.put(jaunes[int(rnd.f(0, 5.99))], F.eclat(a, b, c, 0.018))
             prev = o
     for k in range(40):
@@ -187,10 +189,11 @@ def bords_dechires(lot, M, C, xs, rnd, ouvert, sens_x):
         for x0, x1 in zip(xs_s[:-1], xs_s[1:]):
             if ouvert(x0, t) != ouvert(x1, t):
                 xb = (x0 + x1) / 2
-                a = C(xb - sens_x * 0.05, t - 0.09, 0.03)
-                b = C(xb - sens_x * 0.05, t + 0.09, 0.03)
-                c = C(xb + sens_x * rnd.f(0.12, 0.3), t + rnd.f(-0.12, 0.12), rnd.f(0.03, 0.18))
-                lot.put(jaunes[int(rnd.f(0, 5.99))], F.eclat(a, b, c, 0.018))
+                if k % 3 == 0:
+                    a = C(xb - sens_x * 0.05, t - rnd.f(0.1, 0.3), 0.03)
+                    b = C(xb - sens_x * 0.05, t + rnd.f(0.1, 0.3), 0.03)
+                    c = C(xb + sens_x * rnd.f(0.08, 0.22), t + rnd.f(-0.2, 0.2), rnd.f(0.02, 0.08))
+                    lot.put(jaunes[int(rnd.f(0, 5.99))], F.eclat(a, b, c, 0.018))
                 break
 
 
@@ -216,6 +219,46 @@ def epine(lot, M, C, x0, x1, rnd, saut=lambda x: False):
             lot.put(M["acier"] if rnd.f() < 0.6 else M["primaire"],
                     F.local(G.boite((0.0, 0.0, 0.04), (L, rnd.f(0.1, 0.16), rnd.f(0.06, 0.11)), ry=-0.25), o, ex, ey, ez))
         x += rnd.f(0.26, 0.34)
+
+
+def surcouche(lot, M, C, x0, x1, rnd, jaunes):
+    """Ce qui passe PAR-DESSUS les tôles et casse leur trame : blindages épais en biais, sangles tordues qui font le
+    tour du flanc (bouts pendants), flexibles et conduits couchés sur le flanc côté caméra, boîtiers et bouches."""
+    for k in range(6):   # blindages : grandes pièces en relief, à cheval sur plusieurs bandes
+        xa = rnd.f(x0, x1 - 0.7)
+        L, ta = rnd.f(0.55, 1.05), rnd.f(4.6, 8.4)
+        tb = ta + rnd.f(0.8, 1.7)
+        g = rnd.f(0.07, 0.12)
+        mesh, P = F.plaque(C, xa, xa + L, ta, tb, 0.0, (g, g + rnd.f(-0.02, 0.05)), (rnd.f(-0.25, 0.25), rnd.f(-0.25, 0.25)))
+        lot.put(jaunes[int(rnd.f(0, 3.99))] if k % 3 else M["primaire"], mesh)
+    for k in range(5):   # sangles
+        x = rnd.f(x0, x1)
+        ta, tb = rnd.f(4.2, 5.6), rnd.f(7.6, 9.2)
+        dx = rnd.f(-0.5, 0.5)
+        ctrl = [C(x + dx * q / 5.0 + rnd.f(-0.03, 0.03), ta + (tb - ta) * q / 5.0, 0.085 + 0.03 * (q % 2)) for q in range(6)]
+        if k % 2:     # bout arraché qui pend
+            ctrl.append(G.add(ctrl[-1], (rnd.f(-0.2, 0.2), -0.22, rnd.f(-0.35, -0.1))))
+        F.membrure(lot, M["nu"] if k % 3 == 0 else M["acier"], ctrl, 0.014, rnd.f(0.04, 0.065))
+    for k in range(3):   # flexibles et conduit couchés sur le flanc
+        t0 = rnd.f(5.8, 7.8)
+        xa, xb = rnd.f(x0, x0 + 0.4), rnd.f(x1 - 0.5, x1)
+        ctrl = [C(xa + (xb - xa) * q / 4.0, t0 + rnd.f(-0.45, 0.45), 0.09 + 0.02 * (q % 2)) for q in range(5)]
+        if k == 2:
+            F.tuyau(lot, M["cuivre"], M["bague"], ctrl[:4], 0.04)
+        else:
+            F.flexible(lot, M["gaine"], ctrl, rnd.f(0.035, 0.055))
+    for k in range(24):  # menus : équerres, boulons, regards (3 à 10 px), clairs et sombres
+        o, ex, ey, ez = C.repere(rnd.f(x0, x1), rnd.f(3.0, 9.2), 0.05)
+        sx, sy = rnd.f(0.05, 0.13), rnd.f(0.04, 0.1)
+        lot.put([M["acier"], M["noyau"], M["nu"], M["bague"]][k % 4], F.local(G.boite((0, 0, 0.02), (sx, sy, 0.05), rz=rnd.f(-0.8, 0.8)), o, ex, ey, ez))
+    for k in range(4):   # boîtiers et bouches sombres
+        o, ex, ey, ez = C.repere(rnd.f(x0, x1), rnd.f(5.0, 8.6), 0.09)
+        Lx, Ly = rnd.f(0.14, 0.34), rnd.f(0.12, 0.26)
+        if k % 2:
+            F.grille(lot, M["acier"], M["noir"], o, ex, ey, ez, Lx * 1.3, Ly * 1.3, 4, 0.04)
+        else:
+            lot.put(M["acier"], F.local(G.boite((0, 0, 0.05), (Lx, Ly, 0.1), rz=rnd.f(-0.4, 0.4)), o, ex, ey, ez))
+            lot.put(M["bague"], F.local(G.boite((0, 0, 0.105), (Lx * 0.5, Ly * 0.4, 0.016), rz=rnd.f(-0.4, 0.4)), o, ex, ey, ez))
 
 
 # ------------------------------------------------------------------------------------------------ pièces
@@ -250,14 +293,18 @@ def nacelle(lot, M, rnd, cy, cz, r=0.5, x_av=-1.25, x_ar=-3.75, chev=False):
         lot.put(M["bague"], G.tour([(x + 0.05, rr - 0.03), (x + 0.04, rr), (x - 0.04, rr), (x - 0.05, rr - 0.03)], 28,
                                    "x", (0.0, cy, cz)))
     # cloche : lèvre et intérieur brûlé
-    lot.put(M["bague"], G.tour([(x_ar + 0.02, r * 1.1), (x_ar - 0.03, r * 1.12), (x_ar - 0.03, r * 0.98)], 28, "x",
-                               (0.0, cy, cz)))
+    lot.put(M["nu"], G.tour([(x_ar + 0.1, r * 1.11), (x_ar + 0.02, r * 1.13), (x_ar - 0.04, r * 1.14), (x_ar - 0.04, r * 0.96)], 28, "x",
+                            (0.0, cy, cz)))
     lot.put(M["brule"], G.tour([(x_ar - 0.03, r * 0.98), (x_ar + 0.2, r * 0.85), (x_ar + 0.45, r * 0.55),
                                 (x_ar + 0.55, 0.0)], 28, "x", (0.0, cy, cz)))
     for k in range(3):   # anneaux de la tuyère (relief sombre)
         xx = x_ar + 0.08 + 0.12 * k
         rr = r * (0.94 - 0.13 * k)
-        lot.put(M["acier"], G.tour([(xx, rr), (xx + 0.02, rr - 0.03)], 24, "x", (0.0, cy, cz)))
+        lot.put(M["nu"], G.tour([(xx - 0.02, rr), (xx + 0.03, rr - 0.045)], 24, "x", (0.0, cy, cz)))
+    for k in range(12):     # aubes dans la gorge
+        a = G.TAU * k / 12.0
+        for (rr0, rr1, xa, xb) in ((r * 0.34, r * 0.62, x_ar + 0.42, x_ar + 0.24),):
+            lot.put(M["acier"], G.tube([(xa, cy + rr0 * math.cos(a), cz + rr0 * math.sin(a)), (xb, cy + rr1 * math.cos(a + 0.2), cz + rr1 * math.sin(a + 0.2))], 0.016, 4))
     # entrée d'air : grille radiale
     lot.put(M["brule"], G.tour([(x_av + 0.01, r * 0.5), (x_av + 0.01, 0.0)], 20, "x", (0.0, cy, cz)))
     for k in range(9):
@@ -343,6 +390,27 @@ def caisson(lot, M, p, s, rz, rnd, voyant=False):
         lot.put(M["voyant"], G.sphere(G.add(p, (s[0] * 0.3, -s[1] / 2 - 0.005, s[2] * 0.25)), 0.022, 6, 3))
 
 
+def machinerie(lot, M, rnd, xr, yr, zr, n):
+    """Machinerie sombre vue par la brèche : blocs, réservoirs, conduits verticaux, boîtes à voyant (profondeur)."""
+    for k in range(n):
+        x, y, z = rnd.f(*xr), rnd.f(*yr), rnd.f(*zr)
+        u = rnd.f()
+        if u < 0.45:
+            s = (rnd.f(0.12, 0.3), rnd.f(0.1, 0.26), rnd.f(0.1, 0.3))
+            lot.put(M["acier"] if k % 3 else M["noyau"], G.boite((x, y, z), s, rnd.f(-0.5, 0.5)))
+            lot.put(M["bague"], G.boite((x, y, z + s[2] / 2 + 0.008), (s[0] * 0.5, s[1] * 0.35, 0.016), rnd.f(-0.5, 0.5)))
+        elif u < 0.7:
+            r = rnd.f(0.05, 0.1)
+            lot.put([M["primaire"], M["cuivre"], M["acier"]][k % 3],
+                    G.tour([(0.0, r), (rnd.f(0.2, 0.4), r), (rnd.f(0.42, 0.46), r * 0.5)], 12, "z", (x, y, z - 0.1),
+                           cap0=True, cap1=True))
+        elif u < 0.88:
+            lot.put(M["acier"], G.tube([(x, y, z - 0.25), (x, y, z + 0.3), (x + rnd.f(-0.2, 0.2), y + 0.15, z + 0.38)],
+                                       rnd.f(0.018, 0.035), 6))
+        else:
+            caisson(lot, M, (x, y, z), (0.16, 0.14, 0.18), rnd.f(0, 1), rnd, voyant=(k % 2 == 0))
+
+
 # ------------------------------------------------------------------------------------------------ état
 def build(S, lot):
     M = matieres(S)
@@ -358,11 +426,13 @@ def build(S, lot):
             return M["roussi"]
         if patch:
             return [M["primaire"], M["rouille"], M["nu"], M["j3"]][int(rr.f(0, 3.99))]
-        if u < 0.06:
+        if u < 0.04:
             return M["primaire"]
-        if u < 0.1:
+        if u < 0.07:
             return M["rouille"]
-        return jaunes[int(rr.f(0, 3.99))]
+        if u < 0.16:
+            return M["j3"]
+        return M["j0"] if u < 0.62 else (M["j2"] if u < 0.86 else M["j1"])
 
     # ================================================================ TRONÇON ARRIÈRE (propulsion)
     AR = F.Coque(_st([(-3.3, 0.8, 0.7, 0.58, 0.0, 0.0), (-2.9, 0.88, 0.8, 0.64, 0.0, 0.04), (-2.45, 0.95, 0.88, 0.7, 0.0, 0.06),
@@ -381,7 +451,7 @@ def build(S, lot):
 
     pose_ar = F.pose(roulis=ESSAI["roul_ar"], tangage=ESSAI["tang_ar"], lacet=ESSAI["lacet_ar"], t=(-0.58, 0.36, 0.8))
     lot.xf = pose_ar
-    xs_ar = [-3.3, -2.92, -2.5, -2.12, -1.68, -1.3, -0.95, -0.6, -0.3, 0.0]
+    xs_ar = [-3.3, -2.5, -1.72, -1.08, -0.5, 0.0]
     noyau(lot, M["noyau"], AR, -3.3, 0.0, ouvert_ar)
     lot.put(M["noyau"], G.loft([[AR(-3.3, k * 0.5, -0.012) for k in range(24)]], cap0=True))  # culot
     toles(lot, M, AR, xs_ar, r, ouvert_ar, lambda rr, x, t, patch=False: choix(
@@ -415,11 +485,11 @@ def build(S, lot):
     F.tuyau(lot, M["acier"], M["bague"], [(-1.75, -1.32, -0.28), (-1.3, -1.25, -0.42), (-0.9, -0.95, -0.45),
                                           (-0.55, -0.55, -0.38)], 0.085)
     # bosse dorsale (caisson d'équipement) et caisson latéral : des masses qui dépassent du fuseau
-    for (x, t, L, W, Hh, m) in ((-1.05, 4.25, 0.85, 0.5, 0.3, "j2"), (-2.45, 8.5, 0.8, 0.38, 0.24, "j0")):
+    for (x, t, L, W, Hh, m) in ((-1.25, 4.1, 1.55, 0.95, 0.42, "j2"), (-2.45, 8.5, 0.8, 0.38, 0.24, "j0")):
         o, ex, ey, ez = AR.repere(x, t, 0.03)
         poly = [(-L / 2, -W / 2), (L / 2, -W / 2), (L / 2, W / 2), (-L / 2, W / 2)]
-        lot.put(M["noyau"], F.local(G.prisme(poly, 0.0, Hh * 0.6), o, ex, ey, ez))
-        lot.put(M[m], F.local(G.prisme([(p[0] * 0.97, p[1] * 0.97) for p in poly], Hh * 0.55, Hh, top_scale=0.8), o, ex, ey, ez))
+        lot.put(M["primaire"], F.local(G.prisme(poly, 0.0, Hh * 0.45, top_scale=0.95), o, ex, ey, ez))
+        lot.put(M[m], F.local(G.prisme([(p[0] * 0.95, p[1] * 0.95) for p in poly], Hh * 0.42, Hh, top_scale=0.62), o, ex, ey, ez))
         oo = G.add(o, G.mul(ez, Hh + 0.005))
         F.grille(lot, M["acier"], M["noir"], oo, ex, ey, ez, L * 0.45, W * 0.5, 4, 0.04)
         lot.put(M["riv"], G.rivets_le_long([(G.add(oo, G.add(G.mul(ex, L * (0.25 + 0.06 * q)), G.mul(ey, -W * 0.3))), ez)
@@ -429,38 +499,38 @@ def build(S, lot):
         o, ex, ey, ez = AR.repere(x, t, 0.05)
         F.grille(lot, M["acier"], M["noir"], o, ex, ey, ez, L, H, n)
     hublot(lot, M, AR, -2.0, 6.7, "fente", M["hublot_r"])
-    # dérive dressée (balayée vers la queue), chevrons au bord d'attaque, feu rouge en tête
+    # dérive dressée, grande (silhouette : elle MONTE au-dessus de l'emprise), peau jaune côté caméra, bout déchiré,
+    # brûlure rouge à l'emplanture (foyer, comme l'épave vanilla)
     z0 = AR(-2.4, 3.5)[2] - 0.02
-    poly = [(-2.95, 0.0), (-1.8, 0.0), (-2.55, 1.0), (-3.08, 1.08)]
-    lot.put(M["noyau"], G.prisme([(p[0], p[1]) for p in poly], -0.04, 0.04),
-            lambda p, z0=z0: pose_ar((p[0], p[2], z0 + p[1])))
-    for (sgn, mm) in ((-1, "j2"), (1, "j0")):
-        sub = [(-2.88, 0.08), (-2.0, 0.08), (-2.42, 0.62), (-2.98, 0.66)]
-        lot.put(M[mm], G.prisme(sub, 0.04, 0.062), lambda p, z0=z0, s=sgn: pose_ar((p[0], s * p[2], z0 + p[1])))
-        sub2 = [(-2.95, 0.72), (-2.38, 0.72), (-2.55, 0.98), (-3.05, 1.04)]
-        lot.put(M["primaire"] if sgn < 0 else M["j1"], G.prisme(sub2, 0.04, 0.058),
-                lambda p, z0=z0, s=sgn: pose_ar((p[0], s * p[2], z0 + p[1])))
-    lot.put(M["chevron"], G.tube([(-1.8, 0.0, z0), (-2.55, 0.0, z0 + 1.0)], 0.045, 6))
-    lot.put(M["voyant"], G.sphere((-2.7, 0.0, z0 + 1.08), 0.035, 8, 4))
+    Ad, Bd, B1d, A1d = (-3.2, -0.04, z0), (-1.4, -0.04, z0), (-2.85, -0.04, z0 + 2.45), (-3.75, -0.04, z0 + 2.3)
+    aile_panneau(lot, M, r, Ad, Bd, B1d, A1d, ep=0.07, casse=True)
+    lot.put(M["chevron"], G.tube([G.add(Bd, (0, -0.05, 0)), G.add(B1d, (0, -0.05, 0))], 0.06, 6))
+    F.membrure(lot, M["nu"], [(-2.9, -0.12, z0 + 0.5), (-2.6, -0.2, z0 + 1.0), (-2.75, -0.3, z0 + 1.5)], 0.016, 0.05)
+    lot.put(M["voyant"], G.sphere((-3.1, -0.05, z0 + 2.32), 0.04, 8, 4))
+    lot.put(M["coeur"], G.boite((-2.25, -0.13, z0 + 0.22), (0.5, 0.02, 0.2), 0.0))
+    for k in range(4):
+        lot.put(M["acier"], G.boite((-2.45 + k * 0.13, -0.16, z0 + 0.22), (0.035, 0.03, 0.26)))
+    machinerie(lot, M, G.Rnd(2041), (-1.0, -0.05), (-0.85, 0.55), (-0.62, 0.3), 14)
     # aile nord repliée vers le haut, bout cassé
-    A, B = AR(-2.45, 0.7, 0.0), AR(-1.2, 0.7, 0.0)
-    d1 = (0.0, math.cos(0.25), math.sin(0.25))
-    A1 = G.add(A, G.add((-0.35, 0, 0), G.mul(d1, 0.8)))
-    B1 = G.add(B, G.add((-0.55, 0, 0), G.mul(d1, 0.8)))
+    A, B = AR(-2.75, 0.7, 0.0), AR(-0.75, 0.7, 0.0)
+    d1 = (0.0, math.cos(0.45), math.sin(0.45))
+    A1 = G.add(A, G.add((-0.45, 0, 0), G.mul(d1, 1.15)))
+    B1 = G.add(B, G.add((-0.95, 0, 0), G.mul(d1, 1.15)))
     aile_panneau(lot, M, r, A, B, B1, A1)
-    d2 = (0.0, math.cos(1.25), math.sin(1.25))
-    A2 = G.add(A1, G.add((-0.2, 0, 0), G.mul(d2, 0.62)))
-    B2 = G.add(B1, G.add((-0.42, 0, 0), G.mul(d2, 0.62)))
+    d2 = (0.0, math.cos(1.2), math.sin(1.2))
+    A2 = G.add(A1, G.add((-0.3, 0, 0), G.mul(d2, 1.1)))
+    B2 = G.add(B1, G.add((-0.7, 0, 0), G.mul(d2, 1.1)))
     aile_panneau(lot, M, r, A1, B1, B2, A2, casse=True)
     lot.put(M["bague"], G.tube([G.lerp(A1, B1, 0.1), G.lerp(A1, B1, 0.9)], 0.05, 8))    # charnière du pli
     # moignon de l'aile sud : bord arraché, longeron qui dépasse, câbles pendants
     A, B = AR(-2.25, 6.55, 0.0), AR(-1.35, 6.55, 0.0)
     d = (0.0, -math.cos(0.3), math.sin(0.3))
-    A1, B1 = G.add(A, G.mul(d, 0.32)), G.add(B, G.add((-0.1, 0, 0), G.mul(d, 0.38)))
+    A1, B1 = G.add(A, G.mul(d, 0.62)), G.add(B, G.add((-0.25, 0, 0), G.mul(d, 0.78)))
     aile_panneau(lot, M, r, A, B, B1, A1, chev=False, casse=True)
     lot.put(M["acier"], G.tube([G.lerp(A, B, 0.5), G.add(G.lerp(A1, B1, 0.5), G.mul(d, 0.32))], 0.035, 6))
     F.faisceau(lot, [M["rouge"], M["noir"], M["noir"]], G.lerp(A1, B1, 0.3), G.add(G.lerp(A1, B1, 0.3), (0.2, -0.35, -0.7)),
                0.15, 0.014, 3, 0.03, r)
+    surcouche(lot, M, AR, -3.0, -1.15, r, jaunes)
     # mât et capteur sur le dos (antenne 1), flexible tuyère nord -> coque
     antenne(lot, M, AR, -0.85, 2.5, 0.62, 0.18, r, plat=True)
     F.flexible(lot, M["gaine"], [(-1.6, 1.3, 0.1), (-1.35, 1.2, 0.45), (-1.05, 0.95, 0.72)], 0.04)
@@ -483,7 +553,7 @@ def build(S, lot):
 
     pose_av = F.pose(roulis=ESSAI["roul_av"], tangage=0.12, lacet=-0.11, t=(0.52, 0.12, 0.92))
     lot.xf = pose_av
-    xs_av = [0.0, 0.32, 0.66, 1.0, 1.36, 1.72, 2.1, 2.5, 2.9, 3.25, 3.5, 3.68]
+    xs_av = [0.0, 0.62, 1.32, 2.1, 2.72, 3.24, 3.68]
     noyau(lot, M["noyau"], AV, 0.0, 3.68, ouvert_av)
     toles(lot, M, AV, xs_av, r, ouvert_av, lambda rr, x, t, patch=False: choix(
         rr, x, t, patch, roussi_x=lambda x, t: x < 1.1 and 4.0 < t < 10.5, chev_x=2.88), verriere)
@@ -493,6 +563,7 @@ def build(S, lot):
     for x, tb in ((0.3, 9.8), (0.62, 8.9)):
         lot.put(M["acier"], F.cote(AV, x, 4.4, tb, 0.3, r=0.042))
     lot.put(M["bague"], F.cote(AV, 0.03, -2.0, 4.6, 0.12, r=0.05, n=30))
+    surcouche(lot, M, AV, 0.9, 3.1, G.Rnd(2052), jaunes)
     # verrière : vitres inégales (aucune rangée régulière), cadres lourds, une vitre cassée
     rangs = (((2.0, 3.0), (1.12, 1.6, 2.2)), ((3.0, 4.0), (1.05, 1.42, 1.86, 2.3)), ((4.0, 5.0), (1.15, 1.72, 2.22)))
     for (ta, tb), cuts in rangs:
@@ -507,12 +578,16 @@ def build(S, lot):
     for k in range(5):
         lot.put(M["riv"], G.sphere(AV(1.2 + 0.22 * k, 1.95, 0.07), 0.02, 6, 3))
     # hublots tous différents (2 éclairés faiblement, 1 mort), canards, antenne 2, évent, voyants
-    hublot(lot, M, AV, 1.32, 6.2, "rond", M["hublot_a"])
+    hublot(lot, M, AV, 1.32, 6.2, "carre", M["hublot_a"])
+    o, ex, ey, ez = AV.repere(0.95, 6.55, 0.06)     # sas ouvert, éclairé de l'intérieur : foyer lisible au zoom 1
+    lot.put(M["bague"], F.local(G.boite((0, 0, 0.02), (0.52, 0.36, 0.04)), o, ex, ey, ez))
+    lot.put(M["hublot_a"], F.local(G.boite((0, 0, 0.043), (0.44, 0.28, 0.006)), o, ex, ey, ez))
+    lot.put(M["acier"], F.local(G.boite((0.04, 0, 0.05), (0.03, 0.24, 0.01)), o, ex, ey, ez))
     hublot(lot, M, AV, 1.85, 6.35, "carre", M["hublot_r"])
     hublot(lot, M, AV, 2.45, 6.1, "rond", M["noir"])
     o, ex, ey, ez = AV.repere(2.05, 7.35, 0.05)
     F.grille(lot, M["acier"], M["noir"], o, ex, ey, ez, 0.36, 0.2, 5)
-    for tt, L, cas in ((0.35, 0.8, False), (6.7, 0.3, True)):
+    for tt, L, cas in ((0.35, 1.35, False), (6.7, 0.75, True)):
         A, B = AV(2.3, tt, 0.0), AV(2.85, tt, 0.0)
         nn = AV.n(2.55, tt)
         dd = G.norm(G.add(nn, (0, 0, -0.3)))
@@ -522,6 +597,7 @@ def build(S, lot):
     lot.put(M["voyant"], G.sphere(AV(2.95, 5.6, 0.06), 0.03, 8, 4))
     # intérieur avant : console aux voyants, pont
     lot.put(M["acier"], G.boite((0.4, 0.0, -0.38), (0.8, 1.3, 0.04)))
+    machinerie(lot, M, G.Rnd(2042), (0.08, 0.75), (-0.85, 0.5), (-0.62, 0.25), 10)
     caisson(lot, M, (0.42, -0.3, -0.22), (0.34, 0.24, 0.26), 0.15, r, voyant=True)
     F.tuyau(lot, M["acier"], M["bague"], [(0.05, 0.5, 0.4), (0.6, 0.55, 0.45), (0.95, 0.4, 0.2)], 0.034)
 

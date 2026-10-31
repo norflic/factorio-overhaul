@@ -49,13 +49,23 @@ class Coque:
                 a, b = self.secs[i], self.secs[i + 1]
                 return [(a[j][0] + (b[j][0] - a[j][0]) * f, a[j][1] + (b[j][1] - a[j][1]) * f) for j in range(NF)]
 
+    LISSE = 0.6   # 0 : facettes plates ; 1 : Catmull-Rom (coque bombée, dégradés au lieu de bandes : essai 4)
+
     def p0(self, x, t):
         s = self.sec(x)
         t = t % NF
         j = min(NF - 1, int(math.floor(t)))
         f = t - j
         a, b = s[j], s[(j + 1) % NF]
-        return (x, a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
+        ly, lz = a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f
+        if self.LISSE <= 0.0:
+            return (x, ly, lz)
+        p, q = s[(j - 1) % NF], s[(j + 2) % NF]
+        f2, f3 = f * f, f * f * f
+        cy = 0.5 * (2 * a[0] + (-p[0] + b[0]) * f + (2 * p[0] - 5 * a[0] + 4 * b[0] - q[0]) * f2 + (-p[0] + 3 * a[0] - 3 * b[0] + q[0]) * f3)
+        cz = 0.5 * (2 * a[1] + (-p[1] + b[1]) * f + (2 * p[1] - 5 * a[1] + 4 * b[1] - q[1]) * f2 + (-p[1] + 3 * a[1] - 3 * b[1] + q[1]) * f3)
+        k = self.LISSE
+        return (x, ly + (cy - ly) * k, lz + (cz - lz) * k)
 
     def _n1(self, x, t):
         p, q, r = self.p0(x, t), self.p0(x, t + 0.004), self.p0(x + 0.004, t)

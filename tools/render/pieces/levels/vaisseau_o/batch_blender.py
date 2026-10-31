@@ -123,6 +123,9 @@ def main():
         H += H % 2
         ox, oy = -left, -top
         S.setup_render(scene, W, H, samples=a.samples)
+        if os.environ.get("FO_DENOISE"):     # refonte QG : rendus débruités (OIDN), mesures du brief non flattées
+            scene.cycles.use_denoising = True
+            scene.cycles.denoiser = "OPENIMAGEDENOISE"
         S.setup_camera(scene, W, H, center_px=(ox, oy))
         S.setup_world(scene)
         sun = S.add_sun(scene)
