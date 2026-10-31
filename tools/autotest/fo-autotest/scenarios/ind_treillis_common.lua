@@ -142,7 +142,13 @@ return function(variant)
         end
       end
       if need and not st.accepted then
-        local id = ctx.remote("fo-ia1d", "request", "player", { gen = "smelter", args = { "stone-furnace", "copper-ore", 2 }, feed = "tapis" })
+        local spec = { gen = "smelter", args = { "stone-furnace", "copper-ore", 2 }, feed = "tapis" }
+        local id = ctx.remote("fo-ia1d", "request", "player", spec)
+        if not id then
+          -- le cerveau de l'equipe eteint le plan directeur quand il n'a rien a batir (sans cuivre sur la carte : « rien a batir ni a servir »)
+          ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = true, radius = 3 })
+          id = ctx.remote("fo-ia1d", "request", "player", spec)
+        end
         if id then -- (nil : l'equipe n'a pas encore son plan directeur ; rien n'est compte)
           st.tries = st.tries + 1
           st.last_t = t
