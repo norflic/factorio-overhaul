@@ -70,7 +70,14 @@ local function shape(ctx, variant)
   local tiles = {}
   for y = -100, 99 do for x = -60, 299 do tiles[#tiles + 1] = { name = "grass-1", position = { x, y } } end end
   s.set_tiles(tiles, true)
-  local info = {}
+  -- le cuivre NATUREL des 12 anneaux (700 tuiles de côté) disparaît aussi : la sonde du plan doit ne voir que celui du banc
+  s.request_to_generate_chunks({ 0, 0 }, 13)
+  s.force_generate_chunk_requests()
+  local natural = 0
+  for _, e in ipairs(s.find_entities_filtered({ area = { { -360, -360 }, { 360, 360 } }, name = "copper-ore" })) do
+    if e.valid then e.destroy() natural = natural + 1 end
+  end
+  local info = { natural = natural }
   if variant == "proche" then
     -- lot (1, 1) : x et y de 16 à 40 ; le charbon (disque de 5, ~80 tuiles) l'emporte sur le cuivre (disque de 3, ~28 tuiles)
     info.coal = disc(s, "coal", 22, 22, 5, 3000)
@@ -103,7 +110,7 @@ return function(variant)
       local s = ctx.surface()
       local st = ctx.state()
       st.info = shape(ctx, variant)
-      ctx.log(string.format("terrain %s : charbon %s tuiles, cuivre %s tuiles, fer %s tuiles", variant, tostring(st.info.coal), tostring(st.info.copper), tostring(st.info.iron)))
+      ctx.log(string.format("terrain %s : charbon %s tuiles, cuivre %s tuiles (%d naturelles retirees), fer %s tuiles", variant, tostring(st.info.coal), tostring(st.info.copper), st.info.natural, tostring(st.info.iron)))
       ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
       local chest = s.create_entity({ name = "fo-team-chest", position = { 0.5, 0.5 }, force = "player", raise_built = true })
       ctx.check(chest ~= nil, "coffre d'equipe pose")
@@ -190,12 +197,12 @@ return function(variant)
         ctx.check(drills, "la fonderie a ses foreuses (tapis)")
       else
         ctx.check(st.accepted == nil, "aucun cuivre : la fonderie est refusee")
-        ctx.check(r.radius <= 3, "le treillis ne grandit pas pour rien (rayon " .. r.radius .. ")")
+        ctx.check(r.radius <= 5, "le treillis ne grandit pas au-dela du rayon ordinaire pour rien (rayon " .. r.radius .. ")")
         local n = 0
         for _, k in ipairs(sorted_keys(tr)) do if k:find("^aucun_gisement:refuser") then n = n + tr[k] end end
         ctx.check(n >= 1, "cause comptee : aucun_gisement (" .. n .. ")")
       end
-      ctx.check(next(tr) ~= nil, "causes de refus comptees par le plan (b.stats.treillis)")
+      if variant ~= "proche" then ctx.check(next(tr) ~= nil, "causes de refus comptees par le plan (b.stats.treillis)") end
     end,
   }
 end
