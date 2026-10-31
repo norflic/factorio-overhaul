@@ -58,13 +58,13 @@ def froisse(name, col, **kw):
     v2.inputs["Scale"].default_value = 29.0
     L.new(tc.outputs["Object"], v1.inputs["Vector"])
     L.new(tc.outputs["Object"], v2.inputs["Vector"])
-    # valeur par facette (la grande échelle domine) : ± 35 %
+    # valeur par facette (la grande échelle domine) : ± 28 %
     sep = N_.new("ShaderNodeSeparateColor")
     L.new(v1.outputs["Color"], sep.inputs["Color"])
     sep2 = N_.new("ShaderNodeSeparateColor")
     L.new(v2.outputs["Color"], sep2.inputs["Color"])
     k = MT._range(N_, L, MT._math(N_, L, "ADD", MT._math(N_, L, "MULTIPLY", sep.outputs[0], 0.7), MT._math(N_, L, "MULTIPLY", sep2.outputs[0], 0.3)),
-                  0.15, 0.85, 0.62, 1.38)
+                  0.15, 0.85, 0.72, 1.28)
     base_l = p.inputs["Base Color"].links
     if base_l:
         s = base_l[0].from_socket
@@ -72,7 +72,7 @@ def froisse(name, col, **kw):
     # relief : plis
     h = MT._math(N_, L, "ADD", v1.outputs["Distance"], MT._math(N_, L, "MULTIPLY", v2.outputs["Distance"], 0.45))
     bp = N_.new("ShaderNodeBump")
-    bp.inputs["Strength"].default_value = 0.9
+    bp.inputs["Strength"].default_value = 0.7
     bp.inputs["Distance"].default_value = 0.06
     L.new(h, bp.inputs["Height"])
     nl = p.inputs["Normal"].links
