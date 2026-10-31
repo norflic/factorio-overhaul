@@ -81,6 +81,7 @@ local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la d
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
+local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 
@@ -919,7 +920,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
     deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
-    limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
+    limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
     reserve = (not threat) and Rsv.input(f, tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé)
@@ -1392,6 +1393,7 @@ local function decide(f, cs, view, book, tick, research, w)
     end
   end
   couv_report(f, cs, res, input, D, tick) -- lot CAPI-MESURE
+  Ind.think(f, cs, res, view, book, tick) -- lot INDUSTRIE I6 : demande non servie -> patron (rangée ou bloc de mall) -> module
   -- couverture relue et dépôts suivis (journal : critères (1) et (3))
   local deps = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do

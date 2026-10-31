@@ -49,6 +49,9 @@ local M = require("shared.team.modules")
 local T = require("shared.team.config")
 local D = require("shared.team.automatisation_donnees") -- lot IA3-e : ce que l'exécutant sait poser (données nommées)
 local Book = require("shared.team.book") -- lot AUTO : livre de la main, pour A.exec_recipes (même règle que A.method_for)
+local Pt = require("shared.team.patrons") -- lot INDUSTRIE I6 : patrons (cellule, bloc) des recettes que la rangée simple refuse
+local L = require("shared.ai3.lecture") -- lot INDUSTRIE I6 : recettes et machines lues (cat.fab), lot I4
+local Pl = require("shared.team.plan") -- lot INDUSTRIE I6 : le coffre de sortie que le plan directeur pose (P.out_quai)
 
 local A = {}
 
@@ -100,13 +103,29 @@ end
 -- Gabarits (cache LOCAL : fonction pure des paramètres)
 ---------------------------------------------------------------------------------------------------
 local cache = {}
+local kit_cache = {} -- lot INDUSTRIE I6 : mémo LOCAL (fonction pure de la lecture) : signature des pièces -> kit
+local pm_cache = {}  -- lot INDUSTRIE I6 : mémo LOCAL des méthodes « patron » : objet|kit|machines utilisables -> méthode
 
 local function args_key(gen, args)
   local parts = { gen }
   for i = 1, #args do
     local a = args[i]
     -- recette tirée des données (G.simple) : son NOM (une adresse de table changerait d'une pensée à l'autre)
-    parts[#parts + 1] = type(a) == "table" and ("{" .. tostring(a.name) .. "}") or tostring(a)
+    if type(a) ~= "table" then
+      parts[#parts + 1] = tostring(a)
+    elseif a.name ~= nil then
+      parts[#parts + 1] = "{" .. tostring(a.name) .. "}"
+    elseif a.bras ~= nil then
+      -- lot INDUSTRIE I6 : kit d'un patron = les noms de ses pièces, triés (jamais sa déclaration `decl`)
+      local ks = {}
+      for _, k in ipairs(sorted_keys(a)) do if type(a[k]) == "string" then ks[#ks + 1] = k .. "=" .. a[k] end end
+      parts[#parts + 1] = "kit{" .. table.concat(ks, ",") .. "}"
+    else
+      -- lot INDUSTRIE I6 : liste de recettes d'un bloc = leurs noms
+      local ns = {}
+      for _, r in ipairs(a) do ns[#ns + 1] = tostring(type(r) == "table" and r.name or r) end
+      parts[#parts + 1] = "[" .. table.concat(ns, ",") .. "]"
+    end
   end
   return table.concat(parts, "|")
 end
@@ -187,7 +206,7 @@ function A.natural_needs(book)
 end
 
 --- Vide le cache (tests).
-function A.reset_cache() cache = {} end
+function A.reset_cache() cache, kit_cache, pm_cache = {}, {}, {} end
 
 --- Lot AUTO : entités que l'EXÉCUTANT de l'automatisation sait poser et faire tourner, DÉDUITES de ses gabarits (aucun
 --- nom écrit ici) : celles des méthodes écrites (A.METHODS), des foreuses qui servent leur minerai, de la centrale
@@ -206,6 +225,21 @@ function A.exec_entities()
   end
   add(A.PLANT.gen, A.PLANT.args)
   for _, name in ipairs(A.MACHINES) do set[name] = true end
+  -- lot INDUSTRIE I6 : les machines des patrons (lues dans les prototypes) et les pièces du kit sont posées par l'exécutant
+  local lec = A.lecture()
+  if lec then
+    for _, rn in ipairs(sorted_keys(lec.fab)) do
+      local e = lec.fab[rn]
+      if e.patronnable and #e.fluides_in == 0 then
+        -- les machines d'assemblage seulement : les fours restent au décideur des fours (SCALE), un patron n'en pose pas
+        for _, m in ipairs(e.machines) do if m.type == "assembling-machine" then set[m.entity] = true end end
+      end
+    end
+    local kit = lec.kit(nil)
+    for _, k in ipairs({ "bras", "bras_long", "tapis", "coffre", "poteau" }) do
+      if kit[k] then set[kit[k].entity] = true end
+    end
+  end
   return sorted_keys(set)
 end
 
@@ -239,7 +273,9 @@ function A.exec_recipes(recipes)
   local book = Book.new(recipes or {})
   for _, item in ipairs(sorted_keys(book.by_product)) do
     local m = A.method_for(item, book)
-    if m and m.generic then add(m.args[3], m.args[1].name) end
+    if m and m.generic then
+      if m.patron then add(m.args[1], m.args[2].name) else add(m.args[3], m.args[1].name) end
+    end
   end
   return out
 end
@@ -434,10 +470,171 @@ end
 local MACHINE_SET = {}
 for _, name in ipairs(A.MACHINES) do MACHINE_SET[name] = true end
 
+---------------------------------------------------------------------------------------------------
+-- Lot INDUSTRIE I6 : les patrons (shared/team/patrons.lua) pour ce que la rangée simple refuse
+---------------------------------------------------------------------------------------------------
+--- Fournisseur de la lecture (cat.fab, cat.kit) posé par le runtime (script/ai3/industrie.lua) : fonction -> { fab, kit = function(usable) }
+--- ou nil (réglage maître éteint, ou rien de lu). Local au module, jamais dans global, reconstruit à la demande.
+local lecture_provider = nil
+function A.set_lecture_provider(fn) lecture_provider = fn end
+function A.lecture()
+  if not lecture_provider then return nil end
+  local lec = lecture_provider()
+  if type(lec) == "table" and type(lec.fab) == "table" and type(lec.kit) == "function" then return lec end
+  return nil
+end
+
+-- Le coffre que le plan directeur pose lui-même à la sortie d'un module (P.out_quai) : c'est celui que les PNJ savent vider
+-- (script/team/build.lua, mode collect), donc celui des sorties en coffre d'un patron. Lu au plan, jamais écrit ici.
+local exec_chest_name
+local function exec_chest()
+  if exec_chest_name == nil then
+    exec_chest_name = false
+    for _, e in ipairs(Pl.out_quai({ x = 0, y = 0, dir = 0 }, nil, 1)) do
+      if e.role == "sortie" then exec_chest_name = e.name end
+    end
+  end
+  return exec_chest_name or nil
+end
+A.exec_chest = exec_chest
+
+--- Déclaration à M (modules.lua) des machines et des pièces du kit qu'il ne connaît pas : `decl` = { kit = pièces lues, machines =
+--- { { machine = machine lue, categories } } }. Idempotente. Les arguments d'un patron la portent (sauvegarde, reconstruction : M.BASE
+--- est reconstruit à chaque chargement, la déclaration ne peut pas venir d'un état en mémoire).
+local function declare(decl)
+  if type(decl) ~= "table" then return end
+  if decl.kit then Pt.declare_kit(M, decl.kit) end
+  for _, d in ipairs(decl.machines or {}) do
+    Pt.declare(M, d.machine.entity, Pt.def_machine(d.machine, d.categories))
+  end
+end
+A.declare = declare
+
+-- Les générateurs « patron » et « bloc » de M.GEN sont REMPLACÉS ici : ils redéclarent d'abord les machines et les pièces du kit de leurs
+-- arguments, puis appellent les patrons CHARGÉS à l'analyse du contrôle (le `need` de G.patron et G.bloc, shared/team/modules.lua, fait un
+-- `require` à l'appel : « Require can't be used outside of control.lua parsing » en cours d'événement, mesuré au banc ind-mall). Même filet
+-- que les autres générateurs (pcall : une erreur devient (nil, raison)). Les générateurs d'origine sont gardés dans M.GEN (patron_orig) :
+-- recharger ce module (bancs hors jeu) remplace le précédent remplacement.
+local function wrap_generators()
+  local g = M.GEN
+  if not g then return end
+  local orig = rawget(g, "patron_orig")
+  if not orig then
+    orig = { patron = g.patron, bloc = g.bloc }
+    rawset(g, "patron_orig", orig)
+  end
+  local function safe(name, fn)
+    return function(...)
+      local ok, tpl, why = pcall(fn, ...)
+      if not ok then return nil, "erreur interne du générateur " .. name .. " : " .. tostring(tpl) end
+      if tpl == nil then return nil, why or ("générateur " .. name .. " : refus sans raison") end
+      return tpl
+    end
+  end
+  if orig.patron then
+    g.patron = safe("patron", function(machine, recette, sortie, n, kit, barre)
+      if type(kit) == "table" then declare(kit.decl) end
+      return Pt.cellule(M, machine, recette, sortie, n, kit, barre)
+    end)
+  end
+  if orig.bloc then
+    g.bloc = safe("bloc", function(machine, recettes, kit, barre)
+      if type(kit) == "table" then declare(kit.decl) end
+      return Pt.bloc(M, machine, recettes, kit, barre)
+    end)
+  end
+end
+wrap_generators()
+
+--- Kit de logistique d'un patron : noms des pièces (dont le coffre du plan directeur), plus `decl` pour les redéclarer. Rend (kit, lu)
+--- ou (nil, raison). Les pièces non débloquées (usable) sont tout de même prises (le moins cher par type, parmi toutes) : la
+--- recherche qui les débloque est demandée par module_ok, comme pour toute pièce d'un gabarit.
+function A.patron_kit(lec, usable)
+  local lu = lec.kit(usable)
+  if #(lu.manque or {}) > 0 then lu = lec.kit(nil) end
+  if #(lu.manque or {}) > 0 then return nil, "limite : kit de logistique incomplet (" .. table.concat(lu.manque, ",") .. ")" end
+  local sig = {}
+  for _, k in ipairs({ "bras", "bras_long", "tapis", "coffre", "poteau" }) do sig[#sig + 1] = lu[k].entity end
+  local sg = table.concat(sig, "|")
+  if kit_cache[sg] then return kit_cache[sg] end
+  local pieces = {}
+  for _, k in ipairs({ "bras", "bras_long", "tapis", "coffre", "poteau" }) do pieces[k] = lu[k] end
+  local names, why = Pt.declare_kit(M, pieces)
+  if not names then return nil, why end
+  local chest = exec_chest()
+  if chest and M.BASE[chest] and M.BASE[chest].kind == "chest" then names.coffre = chest end
+  names.decl = { kit = pieces, machines = {} }
+  kit_cache[sg] = names
+  return names, pieces
+end
+
+
+--- Méthode « patron » d'un objet (recette `r` du livre, entrée lue `e`) ou (nil, raison). Machine : la plus rapide utilisable que
+--- le gabarit accepte ; sortie : tapis quand le plan directeur sait le servir (4 entrées au plus, un produit solide), sinon
+--- coffre. n = 1 : A.sized dimensionne ensuite sur le débit.
+local function patron_method(item, rname, r, usable, why_simple)
+  local lec = A.lecture()
+  if not lec then return nil, why_simple end
+  local e = lec.fab[rname]
+  if not e then return nil, why_simple end
+  if not e.patronnable then return nil, (e.refus and e.refus.texte) or why_simple end
+  if #(e.fluides_in or {}) > 0 then return nil, why_simple end
+  local kit, why_kit = A.patron_kit(lec, usable)
+  if not kit then return nil, why_kit end
+  local ms = L.machines_for(e, usable)
+  if #ms == 0 then ms = e.machines end
+  local mk = {}
+  for _, m in ipairs(ms) do mk[#mk + 1] = m.entity end
+  local ck = item .. "#" .. rname .. "#" .. tostring(kit.bras) .. "#" .. table.concat(mk, ",")
+  if pm_cache[ck] ~= nil then
+    if pm_cache[ck] == false then return nil, "limite : aucun patron ne tient " .. rname end
+    for _, d in ipairs(pm_cache[ck].args[5].decl.machines) do declare({ machines = { d } }) end
+    return pm_cache[ck]
+  end
+  local def = { name = rname, category = r.category, energy = r.energy, ingredients = r.ingredients, products = r.products }
+  local last_why = "limite : aucune machine ne tient le patron"
+  for i = #ms, 1, -1 do
+    local m = ms[i]
+    local k2 = {}
+    for kk, v in pairs(kit) do k2[kk] = v end
+    k2.decl = { kit = kit.decl.kit, machines = { { machine = m, categories = { e.category } } } }
+    declare(k2.decl)
+    local sortie = (e.s <= 4 and e.sorties_solides == 1) and "tapis" or "coffre"
+    for _, so in ipairs({ sortie, "coffre" }) do
+      local meth = { product = item, gen = "patron", args = { m.entity, def, so, 1, k2, 0 }, feed = true, generic = true, patron = true }
+      local g, why = A.template(meth.gen, meth.args)
+      if g then
+        pm_cache[ck] = meth
+        return meth
+      end
+      last_why = tostring(why)
+      if sortie == "coffre" then break end
+    end
+  end
+  pm_cache[ck] = false
+  return nil, last_why
+end
+
 --- Méthode « machine » d'un objet : celle de A.METHODS s'il en a une, sinon un module GÉNÉRÉ depuis la recette de la main
---- (rangée G.simple). Rend la méthode, ou nil et la raison de la limite. `usable` (facultatif, lot PLANDIR T1) : les
+--- (rangée G.simple), sinon (lot INDUSTRIE I6) un PATRON depuis la lecture des prototypes (3 à 8 entrées, plusieurs produits,
+--- catégorie hors de A.MACHINES). Rend la méthode, ou nil et la raison de la limite. `usable` (facultatif, lot PLANDIR T1) : les
 --- machines du module sont les meilleures utilisables (A.pick_machine), jamais plus lentes que celles écrites.
 function A.method_for(item, book, usable)
+  local meth, why = A.simple_method(item, book, usable)
+  -- une rangée générée dont le gabarit est refusé (bras trop lents pour 8 plaques par fabrication : le coffre de fer, 16 plaques/s)
+  -- cède au patron, qui baisse la cadence à ce que les bras du kit tiennent ; sans patron, la rangée refusée reste (comme avant)
+  if meth and not (meth.generic and not A.template(meth.gen, meth.args)) then return meth end
+  local rname = type(book) == "table" and book.recipe_for and book:recipe_for(item) or nil
+  rname = rname or recipe_index(book)[item]
+  local r = rname and book.recipes[rname]
+  if not r then return meth, why end
+  local pm, pwhy = patron_method(item, rname, r, usable, why)
+  if pm then return pm end
+  if meth then return meth end
+  return nil, pwhy or why
+end
+
+function A.simple_method(item, book, usable)
   for _, m in ipairs(A.METHODS) do
     if m.product == item then
       if not usable then return m end
