@@ -199,6 +199,26 @@ remote.add_interface("fo-ia1", {
     if not (f and f.team) or type(n) ~= "number" or type(ticks) ~= "number" then return false end
     return Poles.inject_crisis(f, math.max(1, math.min(40, math.floor(n))), math.max(60, math.floor(ticks)), resource)
   end,
+  -- Lot INDUSTRIE I2 (bancs seulement) : file sûre des PNJ sans tâche allumée (vrai) ou éteinte (faux, témoin de 0.6.28) ;
+  -- clé « * » : toutes les équipes vivantes. Rend le nombre d'équipes touchées (ou l'état lu pour une clé).
+  set_sur = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    if key == "*" then
+      local n = 0
+      local list = { State.faction("player") }
+      for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+      for _, f in ipairs(list) do
+        if f and f.team then
+          Poles.set_sur(f, on)
+          n = n + 1
+        end
+      end
+      return n
+    end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    return Poles.set_sur(f, on)
+  end,
   kill_npc = function(key, id)
     local f = team_of(key)
     if not (f and f.engineers and f.engineers[id]) then return false end
