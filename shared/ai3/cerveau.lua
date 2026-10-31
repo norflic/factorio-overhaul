@@ -186,6 +186,8 @@ function C.think(view, book, st, ctx)
   local pile = Pi.update(st.pile, Pi.signals(view, base, ctx.pile, s, ctx,
     R.PILE_BUDGET and { book = book, avail = avail0, upgrades = ups } or nil), tick)
   s.focus = pile.hold and pile.focus or nil -- lu par B.targets : une matière d'un cadre ouvert fait grandir son extraction
+  -- Intégration 0.6.28 : matières en manque que la porte de la pile laisse passer, au stock de CETTE pensée (G.passent : un cadre ouvert plus en manque passe d'abord)
+  local starved_pass = Gi.passent(Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need)), pile.focus)
   -- 3. Buts ; 4. projets.
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
@@ -204,7 +206,7 @@ function C.think(view, book, st, ctx)
       for _, g in ipairs(held) do
         -- Lot GISEMENTS : un ordre qui étend une matière en manque par rapport au besoin est un investissement de production, même sans
         -- manque brut (journal du DC : « capi:couvrir:copper-ore : suspendu » à 45 plaques de cuivre).
-        local sv, ord = st.starved or {}, g.order or {}
+        local sv, ord = starved_pass, g.order or {}
         if g.invest or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g
         else Pi.suspend(pile, g.key, "but de la capitalisation suspendu (pas un investissement de production)") end -- journal [FO-PILE]
       end
@@ -225,7 +227,7 @@ function C.think(view, book, st, ctx)
     local short_prev = st.short_core or {}
     -- Lot GISEMENTS : une matière qui manque PAR RAPPORT AU BESOIN (stock de la matière et de sa plaque, st.starved) compte aussi, même
     -- quand aucun manque brut ne la nomme (cuivre à 45 plaques, fer à 9 300 : short_core ne portait que le brut des projets)
-    local starved_prev = st.starved or {}
+    local starved_prev = starved_pass
     for _, g in ipairs(goals) do
       local keep = true
       if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
@@ -317,6 +319,7 @@ function C.think(view, book, st, ctx)
   local pen = Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need))
   st.starved = pen.starved
   st.starved_rank = pen.ranking
+  st.starved_open = Gi.passent(pen, pile.focus) -- lu par la porte du runtime (script/team/pile.lua) et la menace (script/ai3/capitalisation.lua)
   local saturated = {}
   for _, k in ipairs(sorted_keys(raw)) do
     if (view.stock[k] or 0) > 0 and B.saturated(s, k) then saturated[k] = true end

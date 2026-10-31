@@ -26,6 +26,13 @@ do
   local r2 = G.penurie({ { item = "zz", have = 45, need = 0 }, { item = "yy", have = 9300, need = 3000 } })
   check(r2.starved.zz and not r2.starved.yy, "noms sans importance")
   check(next(G.penurie({}).starved) == nil and next(G.penurie(nil).starved) == nil, "rien à classer : rien en manque")
+  do -- intégration 0.6.28 : la porte de la pile
+    local dc = G.penurie({ { item = "fer", items = { "fer", "ferp" }, have = 9300, need = 300 }, { item = "cu", items = { "cu", "cup" }, have = 45, need = 0 } })
+    check(G.passent(dc, { ferp = true }).cup and G.passent(dc, nil).cu, "cuivre à 45, fer à 9 300 : le cuivre passe, cadre du fer ouvert ou non")
+    local pauvre = G.penurie({ { item = "fer", items = { "fer", "ferp" }, have = 60, need = 300 }, { item = "cu", items = { "cu", "cup" }, have = 60, need = 90 } })
+    check(pauvre.starved.cup and not G.passent(pauvre, { ferp = true }).cup, "fer à 60 pour les tourelles (cadre ouvert), cuivre à 60 : le fer d'abord")
+    check(G.passent(pauvre, { ferp = true }).ferp and G.passent(pauvre, nil).cup, "le fer passe ; aucun cadre ouvert : le cuivre passe")
+  end
   check(next(G.penurie({ { item = "a", have = 0, need = 0 } }).starved) == nil, "aucun besoin nulle part : rien ne manque")
   -- égalité départagée par le nom
   local r3 = G.penurie({ { item = "m", have = 1, need = 10 }, { item = "k", have = 1, need = 10 } })

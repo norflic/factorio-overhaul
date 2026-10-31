@@ -111,7 +111,7 @@ function PileRt.porte(f, family, item)
   local st = pile_of(f)
   if not (st and st.hold) then return true, nil end
   local short = f.team.ia3.short_core or {}
-  local starved = f.team.ia3.starved or {} -- lot GISEMENTS : manque par rapport au besoin (shared/team/gisement.lua)
+  local starved = f.team.ia3.starved_open or {} -- lot GISEMENTS : manque par rapport au besoin, G.passent (shared/team/gisement.lua)
   return Pi.porte(st, family, item, item ~= nil and ((short[item] or 0) > 0 or starved[item] == true))
 end
 

@@ -972,8 +972,19 @@ function M.new_world(opts)
     compound_command = strict({ logical_and = 0, logical_or = 1, return_last = 2 }, "defines.compound_command"),
     inventory = strict({ turret_ammo = 1, chest = 2, character_main = 3, character_guns = 4, character_ammo = 5,
       fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9, furnace_modules = 10 }, "defines.inventory"),
-    -- Lot GISEMENTS (script/team/gisement.lua) : statut d'une machine ; le mock ne connait que « travaille » (aucune panne simulee).
-    entity_status = strict({ working = 1, normal = 2, no_minable_resources = 3, no_fuel = 4, waiting_for_space_in_destination = 5 }, "defines.entity_status"),
+    -- Lot GISEMENTS (script/team/gisement.lua) : statut d'une machine ; le mock ne rend que « travaille » (aucune panne simulee), mais connait
+    -- tous les noms de l'API 1.1.91 (doc-html/runtime-api.json) : build.lua lit low_power, reconstruction.lua no_power...
+    entity_status = strict((function()
+      local out = {}
+      for i, k in ipairs({ "cant_divide_segments", "charging", "closed_by_circuit_network", "disabled", "disabled_by_control_behavior", "disabled_by_script",
+        "discharging", "fluid_ingredient_shortage", "full_output", "fully_charged", "item_ingredient_shortage", "launching_rocket", "low_input_fluid",
+        "low_power", "low_temperature", "marked_for_deconstruction", "missing_required_fluid", "missing_science_packs", "networks_connected",
+        "networks_disconnected", "no_ammo", "no_fuel", "no_ingredients", "no_input_fluid", "no_minable_resources", "no_modules_to_transmit", "no_power",
+        "no_recipe", "no_research_in_progress", "normal", "not_connected_to_rail", "not_plugged_in_electric_network", "opened_by_circuit_network",
+        "out_of_logistic_network", "preparing_rocket_for_launch", "recharging_after_power_outage", "turned_off_during_daytime", "waiting_for_source_items",
+        "waiting_for_space_in_destination", "waiting_for_target_to_be_built", "waiting_for_train", "waiting_to_launch_rocket", "working" }) do out[k] = i end
+      return out
+    end)(), "defines.entity_status"),
     shooting = strict({ not_shooting = 0, shooting_enemies = 1, shooting_selected = 2 }, "defines.shooting"),
     behavior_result = strict({ in_progress = 0, fail = 1, success = 2, deleted = 3 }, "defines.behavior_result"),
     -- Intégration 0.6.22 (script/scenario/journal.lua : introduction montrée à un joueur qui a un personnage).

@@ -5,6 +5,7 @@
 
   G.rows(order, outposts, smelters, stock, need) -> lignes de G.penurie : minerai ET plaque d'un même type d'avant-poste ensemble.
   G.penurie(rows)                 -> matières les plus en manque PAR RAPPORT AU BESOIN (toutes les matières, fondues ou non).
+  G.passent(pen, focus)              -> matières en manque que la retenue de la pile laisse passer.
   G.band(theta)                   -> bande de couverture d'un objet (0 = rien, G.BAND_MAX = couvert).
   G.reorder(list, band_of)        -> les options de matière passent par bande de pénurie, les autres gardent leur place.
   G.site_redundant(site, opened)  -> un gisement voisin du même minerai a encore des places : pas d'avant-poste de plus.
@@ -76,6 +77,7 @@ function G.penurie(rows)
         starved[r.item] = true
         for _, it in ipairs(r.items or {}) do starved[it] = true end
       end
+      for _, it in ipairs(r.items or {}) do theta[it] = th end -- (lu par G.passent : la plaque a le rapport de sa matière)
     end
   end
   table.sort(list, function(a, b)
@@ -85,6 +87,22 @@ function G.penurie(rows)
   local ranking = {}
   for _, e in ipairs(list) do ranking[#ranking + 1] = e.item end
   return { theta = theta, starved = starved, ranking = ranking }
+end
+
+--- Pile retenue : les matières en manque qui passent sa porte. Pas celle qu'une matière d'un cadre ouvert (`focus`) devance, plus en manque
+--- qu'elle : ses foreuses se paient sur ce que la défense attend (fer à 60, tourelles à faire, cuivre à 60 : le fer d'abord). Le cuivre à 45
+--- devant un fer à 9 300 passe. pen : résultat de G.penurie. Rend { [objet] = true } ; minimum d'un ensemble, aucun ordre lu.
+function G.passent(pen, focus)
+  local worst
+  for k, on in next, focus or {} do
+    local th = on and pen.theta[k]
+    if th and (worst == nil or th < worst) then worst = th end
+  end
+  local out = {}
+  for k in next, pen.starved do
+    if worst == nil or (pen.theta[k] or 0) <= worst then out[k] = true end
+  end
+  return out
 end
 
 --- Bande d'un rapport de couverture : 0 (rien) à G.BAND_MAX (couvert). nil : G.BAND_MAX (objet sans besoin).
