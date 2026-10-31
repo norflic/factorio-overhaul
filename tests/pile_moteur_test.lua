@@ -41,6 +41,7 @@ local function run_all()
   -- juste mais cache le cas étudié : une perte SEULE).
   M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
   require("shared.team.config").defend_hq = 0 -- après new_game (les modules du mod y sont rechargés)
+  require("shared.ai3.reglages").PILE_BUDGET = false -- ce banc étudie la retenue seule (lot PILE-BUDGET : le budget a son banc, pile_budget_test)
   if W().remote["fo-ia3f"] then remote.call("fo-ia3f", "set_fog", false) end
   local s = game.surfaces[1]
   local chest = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })

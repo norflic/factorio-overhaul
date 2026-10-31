@@ -76,6 +76,7 @@ local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie
 local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
+local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 
@@ -751,6 +752,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
   local threat, production_first = Sv.capi(Survie.on(f), view.threatened or false, (f.team and f.team.priorite_pf) or false)
+  if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
   -- d'avant (croissance des buts et vagues de SCALE) : leur combustible est porté par les PNJ, un travail récurrent que
@@ -900,7 +902,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     can_exec = can_exec, skip = skip, successors = successors_for(cs),
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
-    deposits = deposits, open = open, sinks = cs.bench_sinks or {}, need = need, research = research, drill_for = drill_for,
+    deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
     limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag,
@@ -1269,6 +1271,7 @@ end
 local function decide(f, cs, view, book, tick, research, w)
   local D = Capi.data()
   cs.flows = flows_of(f, cs)
+  if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
   local input = build_input(f, cs, view, book, tick, D, w)
   Profiler.fstart("capi:decide")
   local res = Ca.decide(input, cs.st)
