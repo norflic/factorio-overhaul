@@ -2093,6 +2093,7 @@ local function plan_alim(f, surface, p)
   -- essai (pause du lot CHARBON-CENTRALE) trouve le gisement ; avant, rien ne le faisait grandir pour l'alimentation
   if Cv.after_refusal(last, Build.can_grow(b)) == "grandir" then
     Build.grow(f, b.radius + 1)
+    p.cv_grew = true -- (relecture : ce refus-là ne compte pas vers la pause longue, Cc.refused)
     b.stats.cv_grow = (b.stats.cv_grow or 0) + 1
     if b.stats.cv_grow <= Build.LINE_LOGS then
       log(Cv.line({ kind = "grandir", team = f.key or "player", tick = game.tick, project = p.id, why = last, radius = b.radius }))
@@ -3801,7 +3802,7 @@ local function charbon_step(f, tick)
     if alim and (alim.state == "refuse" or (alim.state == "bloque" and not alim.retry_at)) then
       -- refus du plan (pas de gisement à portée, pas de tracé) ou chantier abandonné : pause, puis nouvel essai
       local why = tostring(alim.reason)
-      Cc.refused(st, tick)
+      Cc.refused(st, tick, alim.cv_grew)
       b.charbon_logs = (b.charbon_logs or 0) + 1
       if b.charbon_logs <= Cc.LOGS then
         log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, projet d'alimentation %d %s (%s) a %.1f min : refus %d (pause %s apres %d), nouvel essai a %.1f min ; le coffre reste rempli en urgence",
@@ -4298,6 +4299,18 @@ function Build.brief(f, id)
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
     retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow,
     rebuilding = rebuilding, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false }
+end
+
+--- Lot ENERGIE (relecture) : projet d'alimentation de centrale ouvert de l'équipe (un seul à la fois, Cc.want_alim), ou nil. Lecteur :
+--- script/ai3/automatisation.lua, qui en fait un but « fabriquer ses manques ». Lecture seule.
+function Build.alim_project(f)
+  local b = f and f.build
+  if not b then return nil end
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.alim and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then return pid end
+  end
+  return nil
 end
 
 --- Lot FUITES-PILE : pose la famille de la pile et le produit d'un projet demandé AVANT ce lot (sauvegarde 0.6.21) ; ne change rien à un

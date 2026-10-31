@@ -63,6 +63,15 @@ local function battery(Cv, C)
   check(C.growth({ saturated = false }, with({ built = 0, lost = true })) == Cv.MIN_FIELD, "centrale perdue : champ de remplacement meme non saturee")
   nb, why = C.growth({ saturated = false }, with({ lost = true, pending = 1 }))
   check(nb == nil and why == "un chantier de centrale est ouvert", "perdue mais un chantier est ouvert : on attend")
+  check(C.growth({ saturated = false }, with({ built = 0, lost = true, pending = 1, rebuilding = 1, done = 0 })) == Cv.MIN_FIELD,
+    "relecture : seule centrale rouverte depuis 10 min, remplacement demande quand meme")
+  nb, why = C.growth({ saturated = false }, with({ built = 0, lost = true, pending = 2, rebuilding = 1 }))
+  check(nb == nil and why == "un chantier de centrale est ouvert", "relecture : un champ de remplacement est deja en chantier : pas un second")
+  nb, why = C.growth({ saturated = true }, with({ built = 1, pending = 1, rebuilding = 1 }))
+  check(nb == nil and why == "un chantier de centrale est ouvert", "relecture : centrale rouverte, pas encore perdue : on attend la reconstruction")
+  nb, why = C.growth({ saturated = true }, with({ built = 1, done = 0 }))
+  check(nb == nil and why == "aucune centrale finie", "relecture : rien de fini, rien de perdu : rien")
+  check(C.growth({ saturated = false }, with({ built = 0, lost = true, hold = true })) == Cv.MIN_FIELD, "relecture : le repli ne retient pas le remplacement")
   nb = C.growth({ saturated = false }, with({ lost = true, off = true }))
   check(nb == nil, "reglage de banc no_grow : rien, meme perdue")
   nb = C.growth({ saturated = false }, with({ lost = true, cool = true }))
@@ -166,7 +175,7 @@ local arms = read_file("script/team/plant_arms.lua")
 local central = read_file("shared/team/centrale.lua")
 check(central:find("require(\"shared.team.champ_vapeur\")", 1, true) ~= nil, "centrale.lua lit la regle du champ")
 check(central:find("Cv.boilers_for(n.built, n.refused, n.lane_cap)", 1, true) ~= nil, "C.growth dimensionne le champ")
-check(arms:find("local lost = Cv.lost(g, planned, capacity)", 1, true) ~= nil, "plant_arms : releve de la perte")
+check(arms:find("local lost = Cv.lost(g, planned, capacity + reopened_alive)", 1, true) ~= nil, "plant_arms : releve de la perte")
 check(arms:find("built = boilers_alive", 1, true) ~= nil and arms:find("lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J)", 1, true) ~= nil,
   "plant_arms : chaudieres vivantes et voie de tapis a la decision")
 check(arms:find("Cv.line({ kind = \"champ\"", 1, true) ~= nil and arms:find("kind = \"perte\"", 1, true) ~= nil, "plant_arms : journal du champ et de la perte")
@@ -227,6 +236,71 @@ mutant("candidats dans le desordre", function(Cm)
   local old = Cm.waypoint_candidates
   Cm.waypoint_candidates = function(x, y) local l = old(x, y); local r = {}; for i = #l, 1, -1 do r[#r + 1] = l[i] end; return r end
 end)
+
+---------------------------------------------------------------------------------------------------
+-- Relecture : les maillons qui manquaient (PA.watch reel, moteur simule ; but du cerveau ; refus qui fait grandir)
+---------------------------------------------------------------------------------------------------
+section("10. Perte d'une centrale ROUVERTE (PA.watch reel)")
+do
+  log = log or function() end
+  package.preload["script.team.stock"] = package.preload["script.team.stock"] or function() return {} end
+  package.preload["script.team.centrale_mort"] = package.preload["script.team.centrale_mort"] or function() return {} end
+  local PA = require("script.team.plant_arms")
+  local Cvr = require("shared.team.champ_vapeur")
+  local alive = {} -- nom .. position -> vivant
+  local surface = { find_entity = function(name, pos)
+    if alive[name .. ":" .. pos[1]] then return { valid = true, force = { name = "f" }, energy_generated_last_tick = 0 } end
+    return nil
+  end }
+  local plant = { id = 1, state = "fini", finished = 10, spec = { gen = "steam" },
+    ents = { { name = "boiler", x = 1, y = 0 }, { name = "steam-engine", x = 2, y = 0 }, { name = "steam-engine", x = 3, y = 0 } } }
+  local f = { key = "t", force = "f", build = { plant = 1, projects = { [1] = plant }, order = { 1 }, opts = {} } }
+  local tick, asked = 0, nil
+  local function run(n) for _ = 1, n do tick = tick + PA.WATCH_EVERY; asked = PA.watch(f, surface, tick); if asked then return true end end return false end
+  for _, e in ipairs(plant.ents) do alive[e.name .. ":" .. e.x] = true end
+  check(run(Cvr.LOSS_CHECKS + 5) == false, "centrale vivante, non saturee : rien")
+  -- destruction ; la reconstruction rouvre le projet (Sweep.reopen_pieces) et n'aboutit pas
+  alive = {}
+  plant.state, plant.reopened, plant.reopened_tick = "reserve", 1, tick
+  check(run(Cvr.LOSS_CHECKS - 1) == false, "avant 10 min : on laisse la reconstruction faire")
+  check(run(1) == true and asked == Cvr.MIN_FIELD, "10 min sans retour, projet rouvert : champ de remplacement (" .. tostring(asked) .. ")")
+  -- le remplacement est en chantier : pas un second
+  f.build.extra_plants = { 2 }
+  f.build.projects[2] = { id = 2, state = "chantier", spec = {}, ents = {} }
+  check(run(2 * Cvr.LOSS_CHECKS) == false, "remplacement en chantier : pas de second champ")
+  -- les machines revenues : plus perdue
+  f.build.extra_plants, f.build.projects[2] = nil, nil
+  for _, e in ipairs(plant.ents) do alive[e.name .. ":" .. e.x] = true end
+  check(run(2 * Cvr.LOSS_CHECKS) == false, "machines revenues (projet encore rouvert) : rien")
+end
+
+section("11. Le cerveau fabrique les manques du projet d'alimentation")
+do
+  local A = require("shared.ai3.automatiser")
+  local g = A.goals({}, { mods = {
+    { product = "centrale", state = "reserve", missing = { { "x", 1 } }, gain = 0 },
+    { product = "centrale-alim", state = "reserve", missing = { { "tapis", 142 } }, gain = 0 } } }, {})
+  local keys = {}
+  for _, x in ipairs(g) do keys[x.key] = x end
+  check(keys["auto:centrale"] ~= nil and keys["auto:centrale-alim"] ~= nil, "centrale et alimentation ouvertes : deux buts, A.goals ne les fond pas")
+  check(keys["auto:centrale-alim"] and keys["auto:centrale-alim"].missing[1][2] == 142 and keys["auto:centrale-alim"].pile == nil,
+    "le but porte les manques et n'est jamais suspendu par la pile")
+  local autos = read_file("script/ai3/automatisation.lua")
+  check(autos:find("local alim_id = Build.alim_project(f)", 1, true) ~= nil and autos:find("product = \"centrale-alim\"", 1, true) ~= nil,
+    "automatisation.lua : le projet d'alimentation entre au contexte du cerveau")
+  check(build:find("function Build.alim_project(f)", 1, true) ~= nil, "build.lua : Build.alim_project")
+end
+
+section("12. Un refus qui fait grandir le treillis ne mene pas a la pause longue")
+do
+  local Ch = require("shared.team.charbon_centrale")
+  local st = {}
+  for _ = 1, 10 do Ch.refused(st, 100, true) end
+  check(st.tries == 0 and st.retry_at == 100 + Ch.RETRY_TICKS, "10 refus avec croissance : pause courte, 0 essai compte")
+  Ch.refused(st, 100)
+  check(st.tries == 1, "refus ordinaire : compte")
+  check(build:find("Cc.refused(st, tick, alim.cv_grew)", 1, true) ~= nil and build:find("p.cv_grew = true", 1, true) ~= nil, "build.lua : le refus dit qu'il a fait grandir")
+end
 
 print(string.format("[CHAMP-VAPEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
