@@ -88,12 +88,13 @@ end
 --- d'entrée (p.quais) ni déjà une sortie (p.outs : le plan directeur inscrit lui-même celles de ses quais de sortie).
 local function patron_chests(p)
   local chest = A.exec_chest()
+  -- clés par TUILE : les quais notent le coin de la tuile, les entités du plan son centre
   local known = {}
-  for _, q in ipairs(p.quais or {}) do known[math.floor(q.x * 2) .. "," .. math.floor(q.y * 2)] = true end
-  for _, o in ipairs(p.outs or {}) do known[math.floor(o.x * 2) .. "," .. math.floor(o.y * 2)] = true end
+  for _, q in ipairs(p.quais or {}) do known[math.floor(q.x) .. "," .. math.floor(q.y)] = true end
+  for _, o in ipairs(p.outs or {}) do known[math.floor(o.x) .. "," .. math.floor(o.y)] = true end
   local out = {}
   for _, e in ipairs(p.ents or {}) do
-    if e.name == chest and not known[math.floor(e.x * 2) .. "," .. math.floor(e.y * 2)] then out[#out + 1] = e end
+    if e.name == chest and not known[math.floor(e.x) .. "," .. math.floor(e.y)] then out[#out + 1] = e end
   end
   return out
 end

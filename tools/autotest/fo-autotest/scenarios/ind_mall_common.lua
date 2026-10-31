@@ -32,8 +32,8 @@ local function set_setting(ctx, name, value)
 end
 
 local PARTS = {
-  { "assembling-machine-1", 12 }, { "assembling-machine-2", 12 }, { "inserter", 80 }, { "long-handed-inserter", 40 },
-  { "fast-inserter", 10 }, { "transport-belt", 300 }, { "iron-chest", 30 }, { "wooden-chest", 10 }, { "small-electric-pole", 60 },
+  { "assembling-machine-1", 12 }, { "assembling-machine-2", 24 }, { "inserter", 80 }, { "long-handed-inserter", 40 },
+  { "fast-inserter", 30 }, { "wood", 200 }, { "transport-belt", 300 }, { "iron-chest", 30 }, { "wooden-chest", 10 }, { "small-electric-pole", 60 },
   { "medium-electric-pole", 40 }, { "copper-plate", 3000 }, { "stone-brick", 600 }, { "coal", 1500 },
 }
 
@@ -112,7 +112,8 @@ return function(name)
         ctx.check(ctx.remote("fo-ind", "lecture") ~= nil, "la lecture des prototypes repond (fo-ind, lecture)")
       end
       -- 2. la décision de la capitalisation est hâtée (elle tombe sinon vers le tick 3 300)
-      if st.key and not st.hastened and e.tick >= 420 and e.tick % 60 == 0 then
+      -- (après 1 000 ticks : le besoin évalué du cerveau, qui borne le stock libre, a relu les pièces posées à 400)
+      if st.key and not st.hastened and e.tick >= 1000 and e.tick % 60 == 0 then
         if ctx.remote("fo-ind", "hasten", st.key) == true then
           st.hastened = e.tick
           ctx.log("decision hatee au tick " .. e.tick)
