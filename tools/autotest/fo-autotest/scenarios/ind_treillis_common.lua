@@ -17,7 +17,7 @@
 ]]
 
 local MIN = 3600
-local T_ENABLE_WAIT = 60
+local T_ENABLE_WAIT = 120
 local RETRY = 1800
 local TRIES = 8
 local CHECK = 20000
@@ -128,17 +128,20 @@ return function(variant)
       else
         local pr = ctx.remote("fo-ia1d", "status", "player", last)
         if pr and pr.state == "refuse" and t - (st.last_t or 0) >= RETRY and st.tries < TRIES then need = true end
-        if pr and pr.state ~= "refuse" and not st.accepted then
+        -- « acceptée » : le plan est fait (la demande neuve est « attente », puis « plan » tant que le plan n'a pas rendu sa réponse)
+        if pr and pr.state ~= "refuse" and pr.state ~= "attente" and pr.state ~= "plan" and not st.accepted then
           st.accepted = { t = t, tick = e.tick, state = pr.state, parts = pr.parts }
           ctx.log(string.format("[%s] demande %d acceptee au tick %d (+%d s) : etat %s, %d partie(s)", TAG, last, e.tick, math.floor(t / 60), pr.state, #(pr.parts or {})))
         end
       end
       if need and not st.accepted then
-        st.tries = st.tries + 1
-        st.last_t = t
         local id = ctx.remote("fo-ia1d", "request", "player", { gen = "smelter", args = { "stone-furnace", "copper-ore", 2 }, feed = "tapis" })
-        st.ids[#st.ids + 1] = id
-        ctx.log(string.format("[%s] demande %d (essai %d) au tick %d", TAG, id or -1, st.tries, e.tick))
+        if id then -- (nil : l'equipe n'a pas encore son plan directeur ; rien n'est compte)
+          st.tries = st.tries + 1
+          st.last_t = t
+          st.ids[#st.ids + 1] = id
+          ctx.log(string.format("[%s] demande %d (essai %d) au tick %d", TAG, id, st.tries, e.tick))
+        end
       end
       if t > 0 and t % MIN == 0 then
         local r = ctx.remote("fo-ia1d", "report", "player")
