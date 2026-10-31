@@ -1315,9 +1315,15 @@ function G.oil_plastic()
   return b:finish()
 end
 
+-- Lot INDUSTRIE I5 : la famille de patrons (shared/team/patrons.lua, règle pure) ; le constructeur lui est prêté.
+M.new_builder = new_builder
+function G.patron(...) return need("shared.team.patrons", "shared/team/patrons").cellule(M, ...) end
+function G.bloc(...) return need("shared.team.patrons", "shared/team/patrons").bloc(M, ...) end
+
 -- Fonctions publiques : enveloppées par pcall (filet). G.row reste brut (pièce interne, rend déjà (nil, raison)).
 M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "simple", "circuits", "engines", "labs",
-  "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic" }
+  "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic",
+  "patron", "bloc" }
 local GEN = { row = G.row }
 for _, k in ipairs(M.GENERATORS) do
   local raw = G[k]
