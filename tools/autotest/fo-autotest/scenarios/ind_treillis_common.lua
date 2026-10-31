@@ -156,6 +156,10 @@ return function(variant)
           ctx.log(string.format("[%s] demande %d (essai %d) au tick %d", TAG, id, st.tries, e.tick))
         end
       end
+      if t % 30 == 0 and st.tries > 0 then
+        local rr = ctx.remote("fo-ia1d", "report", "player")
+        if rr then st.rep = rr end
+      end
       if t > 0 and t % MIN == 0 then
         local r = ctx.remote("fo-ia1d", "report", "player")
         if r then
