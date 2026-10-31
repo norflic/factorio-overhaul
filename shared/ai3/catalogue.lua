@@ -8,7 +8,11 @@
     techs = { [nom] = { count, time, ingredients = {{pack, n}}, prerequisites, unlocks, bonus = { [rôle] = n } } },
     tech_list (triée), packs = { [objet] = vrai } (entrées des laboratoires), pack_list, labs = { {entity, item, speed,
     inputs} }, role = { [objet] = "pack" | "machine" | "militaire" | "logistique" }, fuel, products = { [recette] =
-    {objets} } (TOUTES les recettes, cachées comprises), item_of = { [entité] = objet qui la pose } }.
+    {objets} } (TOUTES les recettes, cachées comprises), item_of = { [entité] = objet qui la pose },
+    fab, fab_machines, lecture, kit } : lot INDUSTRIE I4, voir shared/ai3/lecture.lua. fab[recette] = ce que les machines
+    du jeu (TOUTES, exécutées ou non, lues par catégorie) permettent d'en faire : entrées solides et fluides, produits,
+    machines qui la prennent, raison du refus ; lecture = L.summary(fab) ; kit(usable) = la pièce la moins chère par type
+    (bras, bras long, tapis, coffre, poteau). Une recette d'un mod y entre sans code.
 
   Relevé (dump) :
     recipes   = { [nom] = { category, energy, hidden, enabled, ingredients = {{type,name,amount}}, products = {...} } }
@@ -41,6 +45,7 @@
 
 local G = require("shared.ai3.graphe")
 local R = require("shared.ai3.reglages")
+local L = require("shared.ai3.lecture") -- lot INDUSTRIE I4 : recettes et machines lues telles quelles, kit de logistique
 
 local K = {}
 
@@ -219,6 +224,11 @@ function K.build(dump, opts)
     pack_list = sorted_keys(packs), labs = labs, role = role, fuel = fuel, fuels = fuel_list, products = products,
     item_of = item_of,
     resources = resources, resource_list = sorted_keys(resources) }
+  -- Lot INDUSTRIE I4 : lecture générique des machines de fabrication et du kit (indépendante des exécutants).
+  cat.fab, cat.fab_machines = L.read(dump, { known = recipes, hand = hand })
+  cat.lecture = L.summary(cat.fab)
+  local kit_data = L.kit_data(dump)
+  cat.kit = function(usable) return L.kit(kit_data, usable) end
   return cat
 end
 
