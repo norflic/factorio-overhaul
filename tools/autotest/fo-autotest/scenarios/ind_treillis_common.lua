@@ -159,6 +159,7 @@ return function(variant)
       if t > 0 and t % MIN == 0 then
         local r = ctx.remote("fo-ia1d", "report", "player")
         if r then
+          st.rep = r -- (le cerveau éteint le plan directeur quand tout est refusé : le dernier rapport vu sert au bilan)
           local last_p = copper_part(r, st.ids[#st.ids] or -1)
           ctx.log(string.format("[%s] minute %d | rayon %d | file %d | lots %s | treillis {%s} | differes %s | dernier projet %s", TAG, math.floor(t / MIN), r.radius, r.queue,
             kv(r.lots), kv(r.treillis), tostring(r.ungen_deferred), last_p and (last_p.state .. (last_p.reason and (" " .. last_p.reason) or "")) or "-"))
@@ -168,11 +169,14 @@ return function(variant)
 
     finish = function(ctx)
       local st = ctx.state()
-      local r = ctx.remote("fo-ia1d", "report", "player")
+      local r = ctx.remote("fo-ia1d", "report", "player") or st.rep
       ctx.check(r ~= nil, "rapport du plan directeur")
       if not r then return end
       local last = st.ids[#st.ids]
       local pr = last and ctx.remote("fo-ia1d", "status", "player", last)
+      if not pr and last then
+        for _, p in ipairs(r.projects or {}) do if p.id == last then pr = p end end
+      end
       ctx.log(string.format("[%s] BILAN DU PLAN : rayon %d, %d demande(s), accepte=%s, treillis {%s}, differes %d (retablis %s), dernier projet %s %s", TAG, r.radius, st.tries,
         st.accepted and ("tick " .. st.accepted.tick .. " etat " .. st.accepted.state) or "non", kv(r.treillis), r.ungen_deferred or 0, "-",
         pr and pr.state or "?", pr and pr.reason or ""))
