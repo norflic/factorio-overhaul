@@ -5,4 +5,5 @@ return {
   "levels_taille", -- lot V3-T : emprise croissante (agrandissement sur place, refus et contour)
   "levels_machines", -- lot V3-T2 : emprise croissante de toutes les familles (machines, laser, centre)
   "levels_points", -- lot V3-T2 (corrections) : points de jeu servis, fabrication à travers le remplacement rapide
+  "equilibre", -- lot EQUILIBRE : 12 paliers, 6 familles, × 1,15 par niveau, laser 30 au-delà de 24 tuiles
 }

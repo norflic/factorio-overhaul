@@ -28,12 +28,12 @@
 | BIAIS | Époque 15 : `space-science-pack` déclarée 250 u, matière brute réelle 133,41 (rapport 1,87, hors de 0,67 à 1,5) ; monnaie provisoire. |
 | NOTE | Détour : dès l'époque 10, la chaîne la moins chère de `plastic-bar` sous H2 abandonne `crude-oil` (brut principal de H0) : coal-liquefaction, fo-polyethylene, fo-steam-cracking, gisement:coal, heavy-oil-cracking, light-oil-cracking. |
 | NOTE | Détour : dès l'époque 10, la chaîne la moins chère de `battery` sous H2 abandonne `crude-oil` (brut principal de H0) : battery, coal-liquefaction, copper-plate, fo-iron-concentrate, fo-iron-plate-r8, fo-iron-plate-r8-unpacking, gisement:coal, gisement:copper-ore, gisement:iron-ore, heavy-oil-cracking, light-oil-cracking, sulfur, sulfuric-acid. |
-| NOTE | Détour : dès l'époque 14, la chaîne la moins chère de `processing-unit` sous H2 abandonne `copper-ore` (brut principal de H0) : advanced-circuit, coal-liquefaction, electronic-circuit, fo-iron-concentrate, fo-iron-plate-r8, fo-iron-plate-r8-unpacking, fo-polyethylene, fo-steam-cracking, gisement:coal, gisement:iron-ore, heavy-oil-cracking, light-oil-cracking, processing-unit, sulfur, sulfuric-acid. |
+| NOTE | Détour : dès l'époque 10, la chaîne la moins chère de `processing-unit` sous H2 abandonne `copper-ore` (brut principal de H0) : advanced-circuit, coal-liquefaction, electronic-circuit, fo-iron-concentrate, fo-iron-plate-r8, fo-iron-plate-r8-unpacking, fo-polyethylene, fo-sand, fo-steam-cracking, fo-water-electrolysis, gisement:coal, gisement:iron-ore, heavy-oil-cracking, light-oil-cracking, processing-unit, sulfur, sulfuric-acid. |
 | BIAIS | command : le niveau 5 coûte × 2,76 du niveau 4 (2 285 → 6 318 u). |
 | BIAIS | command : le niveau 11 coûte × 4,19 du niveau 10 (16 055 → 67 260 u). |
 | NOTE | assembler niveau 20 (époque 10) : 24 modules de productivité palier 5 dépassent le plafond × 328,67 du moteur (cases perdues). |
 | NOTE | drill niveau 20 (époque 10) : 24 modules de productivité palier 5 dépassent le plafond × 328,67 du moteur (cases perdues). |
-| NOTE | Recettes d'assembleur qui dépasseraient 60 fabrications/s (le moteur bride) avec la machine de l'époque pleine de modules de vitesse : époque 6 : 21 ; époque 7 : 78 ; époque 8 : 90 ; époque 9 : 91 ; époque 10 : 211 ; époque 11 : 211 ; époque 12 : 211 ; époque 13 : 214 ; époque 14 : 214 ; époque 15 : 214. |
+| NOTE | Recettes d'assembleur qui dépasseraient 60 fabrications/s (le moteur bride) avec la machine de l'époque pleine de modules de vitesse : époque 6 : 90 ; époque 7 : 109 ; époque 8 : 123 ; époque 9 : 151 ; époque 10 : 257 ; époque 11 : 264 ; époque 12 : 267 ; époque 13 : 270 ; époque 14 : 270 ; époque 15 : 273. |
 | NOTE | Bruts sans gisement ni recette (comptés 1 MU) : wood. |
 
 ## 2. Monnaies d'époque : valeur déclarée contre matière brute réelle
@@ -72,124 +72,124 @@ Paniers de base (L.item_value) :
 | Niveau | Époque | Vitesse | Côté | Vitesse / tuile | Cases | Palier dispo. | × vitesse (H1) | Vitesse / tuile H1 | × productivité (H2) | × sortie (H2) |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 1 | 0,75 | 3 | 0,083 | 5 | — | 1 | 0,083 | 1 | 1 |
-| 2 | 1 | 0,81 | 3 | 0,09 | 6 | — | 1 | 0,09 | 1 | 1 |
-| 3 | 2 | 0,87 | 3 | 0,097 | 7 | — | 1 | 0,097 | 1 | 1 |
-| 4 | 2 | 0,93 | 3 | 0,103 | 8 | — | 1 | 0,103 | 1 | 1 |
-| 5 | 3 | 0,99 | 3 | 0,11 | 9 | — | 1 | 0,11 | 1 | 1 |
-| 6 | 3 | 1,05 | 3 | 0,117 | 10 | — | 1 | 0,117 | 1 | 1 |
-| 7 | 4 | 1,11 | 4 | 0,069 | 11 | — | 1 | 0,069 | 1 | 1 |
-| 8 | 4 | 1,17 | 4 | 0,073 | 12 | — | 1 | 0,073 | 1 | 1 |
-| 9 | 5 | 1,23 | 4 | 0,077 | 13 | — | 1 | 0,077 | 1 | 1 |
-| 10 | 5 | 1,29 | 4 | 0,081 | 14 | — | 1 | 0,081 | 1 | 1 |
-| 11 | 6 | 1,35 | 4 | 0,084 | 15 | 1 / 1 | 15,41 | 1,3 | 4,18 | 3,09 |
-| 12 | 6 | 1,41 | 4 | 0,088 | 16 | 1 / 1 | 18,49 | 1,629 | 4,59 | 3,3 |
-| 13 | 7 | 1,47 | 5 | 0,059 | 17 | 1 / 1 | 22,19 | 1,305 | 5,05 | 3,59 |
-| 14 | 7 | 1,53 | 5 | 0,061 | 18 | 1 / 1 | 26,62 | 1,629 | 5,56 | 3,89 |
-| 15 | 8 | 1,59 | 5 | 0,064 | 19 | 1 / 1 | 31,95 | 2,032 | 6,12 | 4,16 |
-| 16 | 8 | 1,65 | 5 | 0,066 | 20 | 1 / 1 | 38,34 | 2,53 | 6,73 | 4,51 |
-| 17 | 9 | 1,71 | 5 | 0,068 | 21 | 1 / 1 | 46,01 | 3,147 | 7,4 | 4,81 |
-| 18 | 9 | 1,77 | 5 | 0,071 | 22 | 1 / 1 | 55,21 | 3,909 | 8,14 | 5,21 |
-| 19 | 10 | 1,83 | 6 | 0,051 | 23 | 5 / 5 | 328,67 | 16,707 | 328,67 | 65,73 |
-| 20 | 10 | 1,89 | 6 | 0,053 | 24 | 5 / 5 | 328,67 | 17,255 | 328,67 | 65,73 |
-| 21 | 11 | 1,95 | 6 | 0,054 | 25 | 5 / 5 | 328,67 | 17,803 | 328,67 | 65,73 |
-| 22 | 11 | 2,01 | 6 | 0,056 | 26 | 5 / 5 | 328,67 | 18,351 | 328,67 | 65,73 |
-| 23 | 12 | 2,07 | 6 | 0,057 | 27 | 5 / 5 | 328,67 | 18,899 | 328,67 | 65,73 |
-| 24 | 12 | 2,13 | 6 | 0,059 | 28 | 5 / 5 | 328,67 | 19,446 | 328,67 | 65,73 |
-| 25 | 13 | 2,19 | 6 | 0,061 | 29 | 5 / 5 | 328,67 | 19,994 | 328,67 | 65,73 |
-| 26 | 13 | 2,25 | 6 | 0,062 | 30 | 5 / 5 | 328,67 | 20,542 | 328,67 | 65,73 |
-| 27 | 14 | 2,31 | 6 | 0,064 | 31 | 10 / 10 | 328,67 | 21,09 | 328,67 | 65,73 |
-| 28 | 14 | 2,37 | 6 | 0,066 | 32 | 10 / 10 | 328,67 | 21,637 | 328,67 | 65,73 |
-| 29 | 15 | 2,43 | 6 | 0,068 | 33 | 10 / 10 | 328,67 | 22,185 | 328,67 | 65,73 |
-| 30 | 15 | 2,49 | 6 | 0,069 | 34 | 10 / 10 | 328,67 | 22,733 | 328,67 | 65,73 |
+| 2 | 1 | 0,862 | 3 | 0,096 | 6 | — | 1 | 0,096 | 1 | 1 |
+| 3 | 2 | 0,992 | 3 | 0,11 | 7 | — | 1 | 0,11 | 1 | 1 |
+| 4 | 2 | 1,141 | 3 | 0,127 | 8 | — | 1 | 0,127 | 1 | 1 |
+| 5 | 3 | 1,312 | 3 | 0,146 | 9 | — | 1 | 0,146 | 1 | 1 |
+| 6 | 3 | 1,509 | 3 | 0,168 | 10 | — | 1 | 0,168 | 1 | 1 |
+| 7 | 4 | 1,735 | 4 | 0,108 | 11 | — | 1 | 0,108 | 1 | 1 |
+| 8 | 4 | 1,995 | 4 | 0,125 | 12 | — | 1 | 0,125 | 1 | 1 |
+| 9 | 5 | 2,294 | 4 | 0,143 | 13 | — | 1 | 0,143 | 1 | 1 |
+| 10 | 5 | 2,638 | 4 | 0,165 | 14 | — | 1 | 0,165 | 1 | 1 |
+| 11 | 6 | 3,034 | 4 | 0,19 | 15 | 1 / 1 | 15,41 | 2,922 | 4,18 | 3,09 |
+| 12 | 6 | 3,489 | 4 | 0,218 | 16 | 1 / 1 | 18,49 | 4,032 | 4,59 | 3,3 |
+| 13 | 7 | 4,013 | 5 | 0,161 | 17 | 1 / 1 | 22,19 | 3,562 | 5,05 | 3,59 |
+| 14 | 7 | 4,615 | 5 | 0,185 | 18 | 1 / 1 | 26,62 | 4,914 | 5,56 | 3,89 |
+| 15 | 8 | 5,307 | 5 | 0,212 | 19 | 1 / 1 | 31,95 | 6,782 | 6,12 | 4,16 |
+| 16 | 8 | 6,103 | 5 | 0,244 | 20 | 1 / 1 | 38,34 | 9,359 | 6,73 | 4,51 |
+| 17 | 9 | 7,018 | 5 | 0,281 | 21 | 1 / 1 | 46,01 | 12,916 | 7,4 | 4,81 |
+| 18 | 9 | 8,071 | 5 | 0,323 | 22 | 1 / 1 | 55,21 | 17,824 | 8,14 | 5,21 |
+| 19 | 10 | 9,282 | 6 | 0,258 | 23 | 5 / 5 | 328,67 | 84,738 | 328,67 | 65,73 |
+| 20 | 10 | 10,674 | 6 | 0,296 | 24 | 5 / 5 | 328,67 | 97,449 | 328,67 | 65,73 |
+| 21 | 11 | 12,275 | 6 | 0,341 | 25 | 5 / 5 | 328,67 | 112,066 | 328,67 | 65,73 |
+| 22 | 11 | 14,116 | 6 | 0,392 | 26 | 5 / 5 | 328,67 | 128,876 | 328,67 | 65,73 |
+| 23 | 12 | 16,234 | 6 | 0,451 | 27 | 5 / 5 | 328,67 | 148,208 | 328,67 | 65,73 |
+| 24 | 12 | 18,669 | 6 | 0,519 | 28 | 5 / 5 | 328,67 | 170,439 | 328,67 | 65,73 |
+| 25 | 13 | 21,469 | 6 | 0,596 | 29 | 5 / 5 | 328,67 | 196,005 | 328,67 | 65,73 |
+| 26 | 13 | 24,689 | 6 | 0,686 | 30 | 5 / 5 | 328,67 | 225,406 | 328,67 | 65,73 |
+| 27 | 14 | 28,393 | 6 | 0,789 | 31 | 10 / 10 | 328,67 | 259,217 | 328,67 | 65,73 |
+| 28 | 14 | 32,651 | 6 | 0,907 | 32 | 10 / 10 | 328,67 | 298,099 | 328,67 | 65,73 |
+| 29 | 15 | 37,549 | 6 | 1,043 | 33 | 10 / 10 | 328,67 | 342,814 | 328,67 | 65,73 |
+| 30 | 15 | 43,182 | 6 | 1,199 | 34 | 10 / 10 | 328,67 | 394,236 | 328,67 | 65,73 |
 
 ### Four
 
 | Niveau | Époque | Vitesse | Côté | Vitesse / tuile | Cases | Palier dispo. | × vitesse (H1) | Vitesse / tuile H1 | × productivité (H2) | × sortie (H2) |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 1 | 2 | 2 | 0,5 | 0 | — | 1 | 0,5 | 1 | 1 |
-| 2 | 1 | 2,16 | 2 | 0,54 | 0 | — | 1 | 0,54 | 1 | 1 |
-| 3 | 2 | 2,32 | 2 | 0,58 | 0 | — | 1 | 0,58 | 1 | 1 |
-| 4 | 2 | 2,48 | 2 | 0,62 | 0 | — | 1 | 0,62 | 1 | 1 |
-| 5 | 3 | 2,64 | 2 | 0,66 | 0 | — | 1 | 0,66 | 1 | 1 |
-| 6 | 3 | 2,8 | 2 | 0,7 | 0 | — | 1 | 0,7 | 1 | 1 |
-| 7 | 4 | 2,96 | 3 | 0,329 | 0 | — | 1 | 0,329 | 1 | 1 |
-| 8 | 4 | 3,12 | 3 | 0,347 | 0 | — | 1 | 0,347 | 1 | 1 |
-| 9 | 5 | 3,28 | 3 | 0,364 | 0 | — | 1 | 0,364 | 1 | 1 |
-| 10 | 5 | 3,44 | 3 | 0,382 | 0 | — | 1 | 0,382 | 1 | 1 |
-| 11 | 6 | 3,6 | 3 | 0,4 | 0 | 1 / 1 | 1 | 0,4 | 1 | 1 |
-| 12 | 6 | 3,76 | 3 | 0,418 | 0 | 1 / 1 | 1 | 0,418 | 1 | 1 |
-| 13 | 7 | 3,92 | 4 | 0,245 | 0 | 1 / 1 | 1 | 0,245 | 1 | 1 |
-| 14 | 7 | 4,08 | 4 | 0,255 | 0 | 1 / 1 | 1 | 0,255 | 1 | 1 |
-| 15 | 8 | 4,24 | 4 | 0,265 | 0 | 1 / 1 | 1 | 0,265 | 1 | 1 |
-| 16 | 8 | 4,4 | 4 | 0,275 | 0 | 1 / 1 | 1 | 0,275 | 1 | 1 |
-| 17 | 9 | 4,56 | 4 | 0,285 | 0 | 1 / 1 | 1 | 0,285 | 1 | 1 |
-| 18 | 9 | 4,72 | 4 | 0,295 | 0 | 1 / 1 | 1 | 0,295 | 1 | 1 |
-| 19 | 10 | 4,88 | 5 | 0,195 | 0 | 5 / 5 | 1 | 0,195 | 1 | 1 |
-| 20 | 10 | 5,04 | 5 | 0,202 | 0 | 5 / 5 | 1 | 0,202 | 1 | 1 |
-| 21 | 11 | 5,2 | 5 | 0,208 | 0 | 5 / 5 | 1 | 0,208 | 1 | 1 |
-| 22 | 11 | 5,36 | 5 | 0,214 | 0 | 5 / 5 | 1 | 0,214 | 1 | 1 |
-| 23 | 12 | 5,52 | 5 | 0,221 | 0 | 5 / 5 | 1 | 0,221 | 1 | 1 |
-| 24 | 12 | 5,68 | 5 | 0,227 | 0 | 5 / 5 | 1 | 0,227 | 1 | 1 |
-| 25 | 13 | 5,84 | 6 | 0,162 | 0 | 5 / 5 | 1 | 0,162 | 1 | 1 |
-| 26 | 13 | 6 | 6 | 0,167 | 0 | 5 / 5 | 1 | 0,167 | 1 | 1 |
-| 27 | 14 | 6,16 | 6 | 0,171 | 0 | 10 / 10 | 1 | 0,171 | 1 | 1 |
-| 28 | 14 | 6,32 | 6 | 0,176 | 0 | 10 / 10 | 1 | 0,176 | 1 | 1 |
-| 29 | 15 | 6,48 | 6 | 0,18 | 0 | 10 / 10 | 1 | 0,18 | 1 | 1 |
-| 30 | 15 | 6,64 | 6 | 0,184 | 0 | 10 / 10 | 1 | 0,184 | 1 | 1 |
+| 2 | 1 | 2,3 | 2 | 0,575 | 0 | — | 1 | 0,575 | 1 | 1 |
+| 3 | 2 | 2,645 | 2 | 0,661 | 0 | — | 1 | 0,661 | 1 | 1 |
+| 4 | 2 | 3,042 | 2 | 0,76 | 0 | — | 1 | 0,76 | 1 | 1 |
+| 5 | 3 | 3,498 | 2 | 0,875 | 0 | — | 1 | 0,875 | 1 | 1 |
+| 6 | 3 | 4,023 | 2 | 1,006 | 0 | — | 1 | 1,006 | 1 | 1 |
+| 7 | 4 | 4,626 | 3 | 0,514 | 0 | — | 1 | 0,514 | 1 | 1 |
+| 8 | 4 | 5,32 | 3 | 0,591 | 0 | — | 1 | 0,591 | 1 | 1 |
+| 9 | 5 | 6,118 | 3 | 0,68 | 0 | — | 1 | 0,68 | 1 | 1 |
+| 10 | 5 | 7,036 | 3 | 0,782 | 0 | — | 1 | 0,782 | 1 | 1 |
+| 11 | 6 | 8,091 | 3 | 0,899 | 0 | 1 / 1 | 1 | 0,899 | 1 | 1 |
+| 12 | 6 | 9,305 | 3 | 1,034 | 0 | 1 / 1 | 1 | 1,034 | 1 | 1 |
+| 13 | 7 | 10,701 | 4 | 0,669 | 0 | 1 / 1 | 1 | 0,669 | 1 | 1 |
+| 14 | 7 | 12,306 | 4 | 0,769 | 0 | 1 / 1 | 1 | 0,769 | 1 | 1 |
+| 15 | 8 | 14,151 | 4 | 0,884 | 0 | 1 / 1 | 1 | 0,884 | 1 | 1 |
+| 16 | 8 | 16,274 | 4 | 1,017 | 0 | 1 / 1 | 1 | 1,017 | 1 | 1 |
+| 17 | 9 | 18,715 | 4 | 1,17 | 0 | 1 / 1 | 1 | 1,17 | 1 | 1 |
+| 18 | 9 | 21,523 | 4 | 1,345 | 0 | 1 / 1 | 1 | 1,345 | 1 | 1 |
+| 19 | 10 | 24,751 | 5 | 0,99 | 0 | 5 / 5 | 1 | 0,99 | 1 | 1 |
+| 20 | 10 | 28,464 | 5 | 1,139 | 0 | 5 / 5 | 1 | 1,139 | 1 | 1 |
+| 21 | 11 | 32,733 | 5 | 1,309 | 0 | 5 / 5 | 1 | 1,309 | 1 | 1 |
+| 22 | 11 | 37,643 | 5 | 1,506 | 0 | 5 / 5 | 1 | 1,506 | 1 | 1 |
+| 23 | 12 | 43,289 | 5 | 1,732 | 0 | 5 / 5 | 1 | 1,732 | 1 | 1 |
+| 24 | 12 | 49,783 | 5 | 1,991 | 0 | 5 / 5 | 1 | 1,991 | 1 | 1 |
+| 25 | 13 | 57,25 | 6 | 1,59 | 0 | 5 / 5 | 1 | 1,59 | 1 | 1 |
+| 26 | 13 | 65,838 | 6 | 1,829 | 0 | 5 / 5 | 1 | 1,829 | 1 | 1 |
+| 27 | 14 | 75,714 | 6 | 2,103 | 0 | 10 / 10 | 1 | 2,103 | 1 | 1 |
+| 28 | 14 | 87,071 | 6 | 2,419 | 0 | 10 / 10 | 1 | 2,419 | 1 | 1 |
+| 29 | 15 | 100,131 | 6 | 2,781 | 0 | 10 / 10 | 1 | 2,781 | 1 | 1 |
+| 30 | 15 | 115,151 | 6 | 3,199 | 0 | 10 / 10 | 1 | 3,199 | 1 | 1 |
 
 ### Foreuse
 
 | Niveau | Époque | Vitesse | Côté | Vitesse / tuile | Cases | Palier dispo. | × vitesse (H1) | Vitesse / tuile H1 | × productivité (H2) | × sortie (H2) |
 |---|---|---|---|---|---|---|---|---|---|---|
 | 1 | 1 | 0,5 | 3 | 0,056 | 5 | — | 1 | 0,056 | 1 | 1 |
-| 2 | 1 | 0,55 | 3 | 0,061 | 6 | — | 1 | 0,061 | 1 | 1 |
-| 3 | 2 | 0,6 | 3 | 0,067 | 7 | — | 1 | 0,067 | 1 | 1 |
-| 4 | 2 | 0,65 | 3 | 0,072 | 8 | — | 1 | 0,072 | 1 | 1 |
-| 5 | 3 | 0,7 | 3 | 0,078 | 9 | — | 1 | 0,078 | 1 | 1 |
-| 6 | 3 | 0,75 | 3 | 0,083 | 10 | — | 1 | 0,083 | 1 | 1 |
-| 7 | 4 | 0,8 | 4 | 0,05 | 11 | — | 1 | 0,05 | 1 | 1 |
-| 8 | 4 | 0,85 | 4 | 0,053 | 12 | — | 1 | 0,053 | 1 | 1 |
-| 9 | 5 | 0,9 | 4 | 0,056 | 13 | — | 1 | 0,056 | 1 | 1 |
-| 10 | 5 | 0,95 | 4 | 0,059 | 14 | — | 1 | 0,059 | 1 | 1 |
-| 11 | 6 | 1 | 4 | 0,062 | 15 | 1 / 1 | 15,41 | 0,963 | 4,18 | 3,09 |
-| 12 | 6 | 1,05 | 4 | 0,066 | 16 | 1 / 1 | 18,49 | 1,213 | 4,59 | 3,3 |
-| 13 | 7 | 1,1 | 5 | 0,044 | 17 | 1 / 1 | 22,19 | 0,976 | 5,05 | 3,59 |
-| 14 | 7 | 1,15 | 5 | 0,046 | 18 | 1 / 1 | 26,62 | 1,225 | 5,56 | 3,89 |
-| 15 | 8 | 1,2 | 5 | 0,048 | 19 | 1 / 1 | 31,95 | 1,534 | 6,12 | 4,16 |
-| 16 | 8 | 1,25 | 5 | 0,05 | 20 | 1 / 1 | 38,34 | 1,917 | 6,73 | 4,51 |
-| 17 | 9 | 1,3 | 5 | 0,052 | 21 | 1 / 1 | 46,01 | 2,393 | 7,4 | 4,81 |
-| 18 | 9 | 1,35 | 5 | 0,054 | 22 | 1 / 1 | 55,21 | 2,981 | 8,14 | 5,21 |
-| 19 | 10 | 1,4 | 6 | 0,039 | 23 | 5 / 5 | 328,67 | 12,782 | 328,67 | 65,73 |
-| 20 | 10 | 1,45 | 6 | 0,04 | 24 | 5 / 5 | 328,67 | 13,238 | 328,67 | 65,73 |
-| 21 | 11 | 1,5 | 6 | 0,042 | 25 | 5 / 5 | 328,67 | 13,695 | 328,67 | 65,73 |
-| 22 | 11 | 1,55 | 6 | 0,043 | 26 | 5 / 5 | 328,67 | 14,151 | 328,67 | 65,73 |
-| 23 | 12 | 1,6 | 6 | 0,044 | 27 | 5 / 5 | 328,67 | 14,608 | 328,67 | 65,73 |
-| 24 | 12 | 1,65 | 6 | 0,046 | 28 | 5 / 5 | 328,67 | 15,064 | 328,67 | 65,73 |
-| 25 | 13 | 1,7 | 6 | 0,047 | 29 | 5 / 5 | 328,67 | 15,521 | 328,67 | 65,73 |
-| 26 | 13 | 1,75 | 6 | 0,049 | 30 | 5 / 5 | 328,67 | 15,977 | 328,67 | 65,73 |
-| 27 | 14 | 1,8 | 6 | 0,05 | 31 | 10 / 10 | 328,67 | 16,433 | 328,67 | 65,73 |
-| 28 | 14 | 1,85 | 6 | 0,051 | 32 | 10 / 10 | 328,67 | 16,89 | 328,67 | 65,73 |
-| 29 | 15 | 1,9 | 6 | 0,053 | 33 | 10 / 10 | 328,67 | 17,346 | 328,67 | 65,73 |
-| 30 | 15 | 1,95 | 6 | 0,054 | 34 | 10 / 10 | 328,67 | 17,803 | 328,67 | 65,73 |
+| 2 | 1 | 0,575 | 3 | 0,064 | 6 | — | 1 | 0,064 | 1 | 1 |
+| 3 | 2 | 0,661 | 3 | 0,073 | 7 | — | 1 | 0,073 | 1 | 1 |
+| 4 | 2 | 0,76 | 3 | 0,084 | 8 | — | 1 | 0,084 | 1 | 1 |
+| 5 | 3 | 0,875 | 3 | 0,097 | 9 | — | 1 | 0,097 | 1 | 1 |
+| 6 | 3 | 1,006 | 3 | 0,112 | 10 | — | 1 | 0,112 | 1 | 1 |
+| 7 | 4 | 1,157 | 4 | 0,072 | 11 | — | 1 | 0,072 | 1 | 1 |
+| 8 | 4 | 1,33 | 4 | 0,083 | 12 | — | 1 | 0,083 | 1 | 1 |
+| 9 | 5 | 1,53 | 4 | 0,096 | 13 | — | 1 | 0,096 | 1 | 1 |
+| 10 | 5 | 1,759 | 4 | 0,11 | 14 | — | 1 | 0,11 | 1 | 1 |
+| 11 | 6 | 2,023 | 4 | 0,126 | 15 | 1 / 1 | 15,41 | 1,948 | 4,18 | 3,09 |
+| 12 | 6 | 2,326 | 4 | 0,145 | 16 | 1 / 1 | 18,49 | 2,688 | 4,59 | 3,3 |
+| 13 | 7 | 2,675 | 5 | 0,107 | 17 | 1 / 1 | 22,19 | 2,374 | 5,05 | 3,59 |
+| 14 | 7 | 3,076 | 5 | 0,123 | 18 | 1 / 1 | 26,62 | 3,276 | 5,56 | 3,89 |
+| 15 | 8 | 3,538 | 5 | 0,142 | 19 | 1 / 1 | 31,95 | 4,521 | 6,12 | 4,16 |
+| 16 | 8 | 4,069 | 5 | 0,163 | 20 | 1 / 1 | 38,34 | 6,239 | 6,73 | 4,51 |
+| 17 | 9 | 4,679 | 5 | 0,187 | 21 | 1 / 1 | 46,01 | 8,611 | 7,4 | 4,81 |
+| 18 | 9 | 5,381 | 5 | 0,215 | 22 | 1 / 1 | 55,21 | 11,883 | 8,14 | 5,21 |
+| 19 | 10 | 6,188 | 6 | 0,172 | 23 | 5 / 5 | 328,67 | 56,492 | 328,67 | 65,73 |
+| 20 | 10 | 7,116 | 6 | 0,198 | 24 | 5 / 5 | 328,67 | 64,966 | 328,67 | 65,73 |
+| 21 | 11 | 8,183 | 6 | 0,227 | 25 | 5 / 5 | 328,67 | 74,711 | 328,67 | 65,73 |
+| 22 | 11 | 9,411 | 6 | 0,261 | 26 | 5 / 5 | 328,67 | 85,918 | 328,67 | 65,73 |
+| 23 | 12 | 10,822 | 6 | 0,301 | 27 | 5 / 5 | 328,67 | 98,805 | 328,67 | 65,73 |
+| 24 | 12 | 12,446 | 6 | 0,346 | 28 | 5 / 5 | 328,67 | 113,626 | 328,67 | 65,73 |
+| 25 | 13 | 14,313 | 6 | 0,398 | 29 | 5 / 5 | 328,67 | 130,67 | 328,67 | 65,73 |
+| 26 | 13 | 16,459 | 6 | 0,457 | 30 | 5 / 5 | 328,67 | 150,27 | 328,67 | 65,73 |
+| 27 | 14 | 18,928 | 6 | 0,526 | 31 | 10 / 10 | 328,67 | 172,811 | 328,67 | 65,73 |
+| 28 | 14 | 21,768 | 6 | 0,605 | 32 | 10 / 10 | 328,67 | 198,733 | 328,67 | 65,73 |
+| 29 | 15 | 25,033 | 6 | 0,695 | 33 | 10 / 10 | 328,67 | 228,543 | 328,67 | 65,73 |
+| 30 | 15 | 28,788 | 6 | 0,8 | 34 | 10 / 10 | 328,67 | 262,824 | 328,67 | 65,73 |
 
 ## 4. Chaînes : machines pour 1 monnaie par seconde, machines de l'époque
 
 | Époque | Monnaie | Machines H0 | Tuiles H0 | Machines H1 (vitesse) | Tuiles H1 | Machines H2 | Tuiles H2 | Fluides de gisement H0 (u/s) | Machines H0 (détail) |
 |---|---|---|---|---|---|---|---|---|---|
-| 2 | `steel-plate` | 13,5 | 139 | 13,5 | 139 | 13,5 | 139 | — | 2,6 fo-arc-furnace, 2,67 fo-coke-oven, 0,4 fo-lvl-assembler-4, 7,69 fo-lvl-drill-4, 0,1 fo-ore-concentrator |
-| 3 | `engine-unit` | 29,4 | 283 | 29,4 | 283 | 29,4 | 283 | — | 2,73 fo-arc-furnace, 2,67 fo-coke-oven, 11,79 fo-lvl-assembler-6, 12 fo-lvl-drill-6, 0,23 fo-ore-concentrator |
-| 4 | `plastic-bar` | 1,9 | 25 | 1,9 | 25 | 1,9 | 25 | crude-oil 6,6 | 0,72 chemical-plant, 0,02 fo-electrolyzer, 0,39 fo-lvl-drill-8, 0,44 fo-steam-cracker, 0,33 oil-refinery |
-| 5 | `fo-tungsten-plate` | 2,3 | 36 | 2,3 | 36 | 2,3 | 36 | — | 0,07 fo-arc-furnace, 0,1 fo-lvl-assembler-10, 2,11 fo-lvl-drill-10, 0,03 fo-ore-concentrator |
-| 6 | `battery` | 12,1 | 149 | 6,1 | 70 | 6,3 | 68 | crude-oil 29,5 | 7,15 chemical-plant, 0,05 fo-arc-furnace, 0,11 fo-electrolyzer, 0,12 fo-lvl-assembler-12, 2,29 fo-lvl-drill-12, 0,85 fo-lvl-furnace-12, 0,05 fo-ore-concentrator, 1,48 oil-refinery |
-| 7 | `fo-resonance-crystal` | 1,3 | 33 | 0 | 1 | 0,3 | 8 | — | 1,3 fo-lvl-drill-14 |
-| 8 | `fo-methane-barrel` | 10,3 | 190 | 4,7 | 57 | 1,1 | 19 | fo-methane 50 | 2,6 fo-arc-furnace, 2,67 fo-coke-oven, 0,95 fo-lvl-assembler-16, 4 fo-lvl-drill-16, 0,1 fo-ore-concentrator |
-| 9 | `uranium-238` | 29,6 | 519 | 10,1 | 102 | 12,9 | 154 | crude-oil 14,9 | 12,08 centrifuge, 1,58 chemical-plant, 0,01 fo-arc-furnace, 0,06 fo-electrolyzer, 0,01 fo-lvl-assembler-18, 15,07 fo-lvl-drill-18, 0,01 fo-ore-concentrator, 0,74 oil-refinery |
-| 10 | `processing-unit` | 92,2 | 2658 | 23,1 | 518 | 0,1 | 3 | crude-oil 33,6, fo-brine 0,5 | 4,67 chemical-plant, 1,97 fo-arc-furnace, 17,5 fo-cleanroom, 1 fo-coke-oven, 0,34 fo-electrolyzer, 0,38 fo-jaw-crusher, 17,6 fo-lvl-assembler-20, 28,92 fo-lvl-drill-20, 15,87 fo-lvl-furnace-20, 0,47 fo-ore-concentrator, 1,78 fo-steam-cracker, 1,68 oil-refinery |
-| 11 | `fo-titanium-plate` | 45,6 | 1053 | 10,6 | 98 | 13,3 | 129 | fo-brine 54,5 | 5 chemical-plant, 0,77 fo-arc-furnace, 6 fo-coke-oven, 9,27 fo-electrolyzer, 0,5 fo-kroll-reactor, 23,55 fo-lvl-drill-22, 0,53 fo-ore-concentrator |
-| 12 | `fo-superconducting-coil` | 182,5 | 4273 | 44,1 | 701 | 12,9 | 98 | crude-oil 82,8, fo-brine 55 | 21,98 chemical-plant, 2,55 fo-arc-furnace, 17,5 fo-cleanroom, 10 fo-coil-winder, 7 fo-coke-oven, 0,8 fo-cryogenic-unit, 10,1 fo-electrolyzer, 6 fo-extraction-column, 0,38 fo-jaw-crusher, 0,5 fo-kroll-reactor, 19,98 fo-lvl-assembler-24, 56,06 fo-lvl-drill-24, 15,77 fo-lvl-furnace-24, 1,08 fo-ore-concentrator, 6 fo-sintering-furnace, 2,67 fo-steam-cracker, 4,14 oil-refinery |
-| 13 | `uranium-235` | 135,5 | 2177 | 38,7 | 359 | 2,8 | 26 | crude-oil 43,7 | 94,26 centrifuge, 4,65 chemical-plant, 0,02 fo-arc-furnace, 0,16 fo-electrolyzer, 0,03 fo-lvl-assembler-26, 34,15 fo-lvl-drill-26, 0,02 fo-ore-concentrator, 2,18 oil-refinery |
-| 14 | `rocket-control-unit` | 181,7 | 5672 | 35,5 | 1136 | 0,2 | 8 | crude-oil 99,2, fo-brine 0,5 | 11,88 chemical-plant, 2,47 fo-arc-furnace, 17,5 fo-cleanroom, 1 fo-coke-oven, 0,58 fo-electrolyzer, 0,37 fo-jaw-crusher, 56,49 fo-lvl-assembler-28, 50,14 fo-lvl-drill-28, 29,11 fo-lvl-furnace-28, 0,97 fo-ore-concentrator, 6,22 fo-steam-cracker, 4,96 oil-refinery |
-| 15 | `space-science-pack` | 251,8 | 7255 | 46,2 | 1314 | 3,8 | 82 | crude-oil 196,6, fo-brine 15,5 | 35,48 chemical-plant, 4,48 fo-arc-furnace, 19,25 fo-cleanroom, 4,82 fo-coke-oven, 3,4 fo-electrolyzer, 0,41 fo-jaw-crusher, 0,14 fo-kroll-reactor, 74,42 fo-lvl-assembler-30, 59,79 fo-lvl-drill-30, 31,56 fo-lvl-furnace-30, 1,24 fo-ore-concentrator, 6,64 fo-steam-cracker, 9,83 oil-refinery, 0,3 rocket-silo |
+| 2 | `steel-plate` | 12,3 | 128 | 12,3 | 128 | 12,3 | 128 | — | 2,6 fo-arc-furnace, 2,67 fo-coke-oven, 0,33 fo-lvl-assembler-4, 6,58 fo-lvl-drill-4, 0,1 fo-ore-concentrator |
+| 3 | `engine-unit` | 22,8 | 223 | 22,8 | 223 | 22,8 | 223 | — | 2,73 fo-arc-furnace, 2,67 fo-coke-oven, 8,2 fo-lvl-assembler-6, 8,95 fo-lvl-drill-6, 0,23 fo-ore-concentrator |
+| 4 | `plastic-bar` | 1,8 | 23 | 1,8 | 23 | 1,8 | 23 | crude-oil 6,6 | 0,72 chemical-plant, 0,02 fo-electrolyzer, 0,25 fo-lvl-drill-8, 0,44 fo-steam-cracker, 0,33 oil-refinery |
+| 5 | `fo-tungsten-plate` | 1,3 | 20 | 1,3 | 20 | 1,3 | 20 | — | 0,07 fo-arc-furnace, 0,05 fo-lvl-assembler-10, 1,14 fo-lvl-drill-10, 0,03 fo-ore-concentrator |
+| 6 | `battery` | 10,3 | 124 | 5,5 | 64 | 5,6 | 60 | crude-oil 29,5 | 7,15 chemical-plant, 0,05 fo-arc-furnace, 0,11 fo-electrolyzer, 0,05 fo-lvl-assembler-12, 1,03 fo-lvl-drill-12, 0,34 fo-lvl-furnace-12, 0,05 fo-ore-concentrator, 1,48 oil-refinery |
+| 7 | `fo-resonance-crystal` | 0,5 | 12 | 0 | 0 | 0,1 | 3 | — | 0,49 fo-lvl-drill-14 |
+| 8 | `fo-methane-barrel` | 6,9 | 103 | 4,6 | 54 | 0,8 | 12 | fo-methane 50 | 2,6 fo-arc-furnace, 2,67 fo-coke-oven, 0,26 fo-lvl-assembler-16, 1,23 fo-lvl-drill-16, 0,1 fo-ore-concentrator |
+| 9 | `uranium-238` | 18,3 | 237 | 9,8 | 97 | 11,1 | 110 | crude-oil 14,9 | 12,08 centrifuge, 1,58 chemical-plant, 0,01 fo-arc-furnace, 0,06 fo-electrolyzer, 0 fo-lvl-assembler-18, 3,78 fo-lvl-drill-18, 0,01 fo-ore-concentrator, 0,74 oil-refinery |
+| 10 | `processing-unit` | 41,6 | 981 | 10 | 188 | 0 | 1 | crude-oil 33,6, fo-brine 0,5 | 4,67 chemical-plant, 1,97 fo-arc-furnace, 17,5 fo-cleanroom, 1 fo-coke-oven, 0,34 fo-electrolyzer, 0,37 fo-jaw-crusher, 3,12 fo-lvl-assembler-20, 5,89 fo-lvl-drill-20, 2,81 fo-lvl-furnace-20, 0,47 fo-ore-concentrator, 1,78 fo-steam-cracker, 1,68 oil-refinery |
+| 11 | `fo-titanium-plate` | 26 | 344 | 10,5 | 96 | 13,1 | 123 | fo-brine 54,5 | 5 chemical-plant, 0,77 fo-arc-furnace, 6 fo-coke-oven, 9,27 fo-electrolyzer, 0,5 fo-kroll-reactor, 3,88 fo-lvl-drill-22, 0,53 fo-ore-concentrator |
+| 12 | `fo-superconducting-coil` | 102,2 | 1536 | 29,9 | 344 | 12,5 | 87 | crude-oil 82,8, fo-brine 55 | 21,98 chemical-plant, 2,55 fo-arc-furnace, 17,5 fo-cleanroom, 10 fo-coil-winder, 7 fo-coke-oven, 0,8 fo-cryogenic-unit, 10,1 fo-electrolyzer, 6 fo-extraction-column, 0,37 fo-jaw-crusher, 0,5 fo-kroll-reactor, 2,28 fo-lvl-assembler-24, 7,43 fo-lvl-drill-24, 1,8 fo-lvl-furnace-24, 1,08 fo-ore-concentrator, 6 fo-sintering-furnace, 2,67 fo-steam-cracker, 4,14 oil-refinery |
+| 13 | `uranium-235` | 104,9 | 1077 | 38,6 | 356 | 2,8 | 26 | crude-oil 43,7 | 94,26 centrifuge, 4,65 chemical-plant, 0,02 fo-arc-furnace, 0,16 fo-electrolyzer, 0 fo-lvl-assembler-26, 3,63 fo-lvl-drill-26, 0,02 fo-ore-concentrator, 2,18 oil-refinery |
+| 14 | `rocket-control-unit` | 56,4 | 1163 | 8,2 | 154 | 0 | 1 | crude-oil 99,2, fo-brine 0,5 | 11,88 chemical-plant, 2,47 fo-arc-furnace, 17,5 fo-cleanroom, 1 fo-coke-oven, 0,58 fo-electrolyzer, 0,38 fo-jaw-crusher, 4,1 fo-lvl-assembler-28, 4,26 fo-lvl-drill-28, 2,11 fo-lvl-furnace-28, 0,97 fo-ore-concentrator, 6,22 fo-steam-cracker, 4,96 oil-refinery |
+| 15 | `space-science-pack` | 96,2 | 1653 | 16 | 229 | 2,5 | 37 | crude-oil 196,6, fo-brine 15,5 | 35,48 chemical-plant, 4,48 fo-arc-furnace, 19,25 fo-cleanroom, 4,82 fo-coke-oven, 3,4 fo-electrolyzer, 0,41 fo-jaw-crusher, 0,14 fo-kroll-reactor, 4,29 fo-lvl-assembler-30, 4,05 fo-lvl-drill-30, 1,82 fo-lvl-furnace-30, 1,24 fo-ore-concentrator, 6,64 fo-steam-cracker, 9,83 oil-refinery, 0,3 rocket-silo |
 
 ## 5. Coût de chaque niveau : valeur déclarée, matière brute réelle H0 et H2
 
@@ -457,7 +457,7 @@ coûts change : déclarée, puis matière brute réelle sous H0, H2r, H2.
 | 7 | 2 | 800 | 9,6 | 53 542 | 1 060 369 | 5 % | **écart** |
 | 8 | 7 | 533 | 4,5 | 55 813 | 2 215 750 | 2,5 % | **écart** |
 | 9 | 5 | 1 300 | 10,8 | 59 300 | 4 557 694 | 1,3 % | **écart** |
-| 10 | 81 | 19 316 | 254,5 | 3 002 261 | 9 259 223 | 32,4 % | dans la fourchette |
+| 10 | 86 | 22 016 | 277 | 3 538 400 | 9 259 223 | 38,2 % | dans la fourchette |
 | 11 | 0 | 0 | 0 | 0 | 18 622 549 | 0 % | **écart** |
 | 12 | 1 | 1 500 | 25 | 297 855 | 37 144 935 | 0,8 % | **écart** |
 | 13 | 2 | 2 700 | 22,5 | 518 153 | 73 575 568 | 0,7 % | **écart** |

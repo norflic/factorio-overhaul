@@ -128,7 +128,7 @@ local function make_unit(kind, tier, family)
     add_biter_die_animation(scale, t1, t2, corpse)
   else
     local base_tn = E.tier_names[src_tier]
-    local range = _G["range_spitter_" .. base_tn] + (nt and 2 * (tier - E.VANILLA_TIERS) or 0)
+    local range = _G["range_spitter_" .. base_tn] + (nt and (2 * (math.min(tier, 8) - E.VANILLA_TIERS) + math.max(0, tier - 8)) or 0) -- lot EQUILIBRE : + 1 par palier au-delà du 8
     u.attack_parameters = SPITTER_ATTACK[base_tn]({
       acid_stream_name = "acid-stream-spitter-" .. base_tn,
       range = range,
