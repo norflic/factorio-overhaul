@@ -4,7 +4,7 @@
 -- Toutes les 15 min, pour votre equipe et chaque faction : vue large de la base, gros plan du QG, ligne [FO-EVOL].
 -- Les controles du guide (2 factions, 4 ouvriers) ne valent pas ici : le bilan dit seulement si la partie est allee au bout.
 local base = require("scenarios/verif_guide_common")(30)
-local CHECK, EVERY = 428000, 54000
+local CHECK, EVERY, SPEED = 428000, 54000, 8
 local TYPES = { "assembling-machine", "furnace", "mining-drill", "lab", "boiler", "generator", "ammo-turret",
   "electric-turret", "container", "transport-belt", "inserter", "electric-pole", "wall" }
 local PLATES = { "iron-plate", "copper-plate", "steel-plate", "electronic-circuit", "stone-brick" }
@@ -75,7 +75,20 @@ base.init = function(ctx)
   init0(ctx)
   ctx.check(ctx.remote("factorio-overhaul", "war_setting", "fo-war-factions", 3) == 3, "3 factions")
 end
+-- Le joueur de la session : sans personnage, comme les bancs sans images. Avec lui, la 1re partie s'est figee a la minute 13,9
+-- (biters a 28 tuiles de lui, plus aucune ligne de journal, processus au repos ; mort du personnage : cause supposee, non prouvee).
+local function ghost_player()
+  local p = game.connected_players[1]
+  if p and p.character then
+    p.character.destroy()
+    p.set_controller({ type = defines.controllers.spectator })
+  end
+end
 base.tick = function(ctx, e)
+  if e.tick % 600 == 0 then
+    ghost_player()
+    game.speed = e.tick < CHECK and SPEED or 1 -- 2 h de jeu a x1 = 2 h de PC
+  end
   tick0(ctx, e)
   if e.tick > 0 and e.tick % EVERY == 0 and e.tick <= CHECK then checkpoint(ctx, e.tick) end
 end
