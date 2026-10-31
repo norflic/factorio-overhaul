@@ -53,6 +53,14 @@ local function suite(Mi)
   c("plancher STOCK_MIN : 50 couvre 5", ok == false)
   ok = Mi.hand_verdict({})
   c("entree vide : on mine", ok == true)
+  ok, why = Mi.hand_verdict({ stock = 150, count = 50, short = 350 })
+  c("vrai manque : 150 en coffre pour 500, on mine", ok == true and why == "manque")
+  ok = Mi.hand_verdict({ stock = 150, count = 10, fuel = true, short = 40 })
+  c("vrai manque de combustible : on mine", ok == true)
+  ok = Mi.hand_verdict({ stock = 150, count = 50, short = 0 })
+  c("manque nul : le stock decide", ok == false)
+  ok, why = Mi.hand_verdict({ stock = 9000, count = 50, crisis = true })
+  c("crise injectee par un banc : exemptee", ok == true and why == "crise")
   -- §2
   c("continuer : place large", Mi.inventory_action({ room = 500, got = 10, count = 50, trips = 0 }) == "continue")
   c("deposer : plein", Mi.inventory_action({ room = 0, got = 10, count = 50, trips = 0 }) == "deposit")
@@ -97,6 +105,14 @@ check("worker : verdict avant le minage", W:find("Mi.hand_verdict", 1, true) ~= 
 check("worker : inventaire plein", W:find("Mi.inventory_action", 1, true) ~= nil)
 check("worker : ramassage au sol", W:find("pick_ground(agent, item)", 1, true) ~= nil and W:find('"item-on-ground"', 1, true) ~= nil)
 check("worker : service des fours garde au rappel", W:find("Mi.keep_working", 1, true) ~= nil)
+check("worker : manque et crise transmis au verdict", W:find("crisis = task.crisis, short = task.short", 1, true) ~= nil)
+check("worker : minerai au sol ramasse en arrivant", W:find("pick_ground(agent, step[2])", 1, true) ~= nil)
+local function source_of(path) return read(path) end
+check("planner : le manque suit la tache", select(2, source_of("shared/team/planner.lua"):gsub("short = n }", "")) == 2)
+check("manque : le manque suit la tache", source_of("shared/ai3/manque.lua"):find("short = short", 1, true) ~= nil)
+check("projets : le manque suit la tache", source_of("shared/ai3/projets.lua"):find("short = r.n", 1, true) ~= nil)
+check("reconstruction : le manque suit la tache", source_of("script/team/reconstruction.lua"):find("short = u[2]", 1, true) ~= nil)
+check("poles : le fond ne propose pas ce que les coffres couvrent", source_of("script/team/poles.lua"):find("Mi.hand_verdict", 1, true) ~= nil)
 check("worker : journal [FO-MAIN]", select(2, W:gsub("%[FO%-MAIN%]", "")) >= 4)
 
 -- §6 mutants
@@ -104,6 +120,8 @@ local MUTANTS = {
   { "stock non regarde", "if num(a.stock) >= need then return false, \"stock\" end", "if false then return false, \"stock\" end" },
   { "combustible comme un minerai", "need = Mi.FUEL_MIN", "need = math.max(Mi.STOCK_MIN, Mi.COVER * num(a.count))" },
   { "survie plus exemptee", "if a.survie then return true, \"survie\" end", "" },
+  { "vrai manque ignore", "if num(a.short) > 0 then return true, \"manque\" end", "" },
+  { "crise plus exemptee", "if a.crisis then return true, \"crise\" end", "" },
   { "couverture a 1 fois", "Mi.COVER = 2", "Mi.COVER = 1" },
   { "jamais de depot", "if num(a.room) >= math.min(Mi.ROOM_MIN, remaining) then return \"continue\" end", "if true then return \"continue\" end" },
   { "voyages sans borne", "if num(a.trips) >= Mi.TRIPS_MAX then return \"finish\" end", "" },

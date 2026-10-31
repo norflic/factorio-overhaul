@@ -491,7 +491,7 @@ function Worker.program(f, task, surface, tick)
     -- à la main quand un coffre en a (retour du DC du 31/10 : minage de charbon seul de la 3e à la 7e heure, coffres garnis).
     do
       local ok, why = Mi.hand_verdict({ stock = Stock.count(f, task.resource), count = task.count, fuel = task.resource == T.fuel,
-        survie = task.survie })
+        survie = task.survie, crisis = task.crisis, short = task.short })
       if not ok then
         f.stats.main_refus = f.stats.main_refus or {}
         local last = f.stats.main_refus[task.resource]
@@ -1175,6 +1175,15 @@ local function run_steps(agent, tick)
     elseif kind == "mine" then
       agent.mine_started = tick
       agent.mine_base = agent.entity.get_item_count(step[2])
+      -- Lot MAIN-INVENTAIRE : le minerai déjà au sol près de la tuile passe avant le minage (la base est prise AVANT : il compte dans got).
+      do
+        local sol = pick_ground(agent, step[2])
+        local f = faction_of(agent)
+        if f and sol > 0 and (f.stats.main_logs or 0) < 40 then
+          f.stats.main_logs = (f.stats.main_logs or 0) + 1
+          log(string.format("[FO-MAIN] %s : %d %s ramasse(s) au sol en arrivant a %.1f min", f.key or "?", sol, tostring(step[2]), tick / 3600))
+        end
+      end
       set(agent, "mine", tick)
       return
     else
@@ -1460,8 +1469,9 @@ FSM.define(MACHINE, {
         end
         -- Lot KIT (mesure, journal seul) : rendement de chaque minage à la main, pour la part des minages à 0 sur N.
         if f then
-          log(string.format("[FO-MINAGE] %s min=%.2f %s got=%d/%d dt=%.1f %s sol=%d", f.key or "?", tick / 3600, tostring(item), got, count,
-            (tick - (agent.mine_started or tick)) / 60, got >= count and "complet" or (res and "delai" or "sans-entite"), picked))
+          log(string.format("[FO-MINAGE] %s min=%.2f %s got=%d/%d dt=%.1f %s sol=%d cle=%s coffre=%d", f.key or "?", tick / 3600, tostring(item), got, count,
+            (tick - (agent.mine_started or tick)) / 60, got >= count and "complet" or (res and "delai" or "sans-entite"), picked,
+            tostring(agent.task and agent.task.key), Stock.count(f, item)))
         end
         if f and agent.task then release_tile(f, agent.task.target) end -- lot KIT : la tuile est rendue
         if f then f.stats.mined = (f.stats.mined or 0) + got end

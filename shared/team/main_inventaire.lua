@@ -2,7 +2,9 @@
   Lot MAIN-INVENTAIRE (retour du DC du 31/10, points 4 et 5) : règles PURES du minage à la main.
     1. Mine-t-on à la main ? (Mi.hand_verdict) : jamais quand le stock (coffre du QG + annexes) couvre déjà la tâche ;
        jamais de combustible à la main quand un coffre en a (constat : 3e à 7e heure, minage de charbon seul, coffres garnis).
-       Le mode survie reste exempté (il minait déjà faute de tout).
+       Le mode survie reste exempté (il minait déjà faute de tout), comme les crises injectées par les bancs. Une tâche qui porte
+       un VRAI manque (a.short : le demandeur l'a mesuré contre le stock libre) passe aussi : count n'est qu'une fournée, un projet
+       de 500 pierres ne doit pas rester bloqué à 100 en coffre.
     2. Inventaire plein (Mi.inventory_action) : on dépose l'utile au coffre puis on revient finir, au lieu de laisser le
        moteur lâcher le minerai au sol ; au plus Mi.TRIPS_MAX voyages par tâche.
     3. Service des fours au QG (Mi.keep_working) : après une perte ou une fuite, le rappel des PNJ ne retire pas ceux qui
@@ -27,10 +29,12 @@ Mi.SERVICE_KINDS = { smelt = true, smelters = true } -- tâches de fonte au QG (
 
 local function num(v) return type(v) == "number" and v or 0 end
 
---- a = { stock = objets en coffre, count = objets demandés par la tâche, fuel = bool, survie = bool }.
---- Rend ok (miner à la main), raison ("survie" | "manque" | "stock").
+--- a = { stock = objets en coffre, count = fournée de la tâche, fuel = bool, survie = bool, crisis = bool, short = manque mesuré par le demandeur }.
+--- Rend ok (miner à la main), raison ("survie" | "crise" | "manque" | "stock").
 function Mi.hand_verdict(a)
   if a.survie then return true, "survie" end
+  if a.crisis then return true, "crise" end
+  if num(a.short) > 0 then return true, "manque" end
   local need
   if a.fuel then
     need = Mi.FUEL_MIN
