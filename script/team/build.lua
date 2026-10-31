@@ -2562,7 +2562,8 @@ function Build.grow_plant(f, nb, tick)
   local b = f.build
   local first = b.plant and b.projects[b.plant]
   if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
-  local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures" })
+  local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
+    pole = first.spec.pole }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
   if not id then return nil end
   b.extra_plants = b.extra_plants or {}
   b.extra_plants[#b.extra_plants + 1] = id
@@ -3955,7 +3956,9 @@ local function charbon_step(f, tick)
       tick = tick, off = b.opts and b.opts.no_alim == true })
     if ok then
       local n, kw = plant_burn_kw(p)
-      local id = Build.request(f, { alim = p.id, prio = Cc.PROJECT_PRIO, domain = "infrastructures" })
+      -- Intégration 0.6.28 (ENERGIE × poteaux) : même poteau que la centrale ; sans `pole`, le gabarit prenait M.DEFAULT_POLE (poteau moyen, recette
+      -- pas encore ouverte : journal du DC, ambre, projet 4 « reserve:materiaux » à 28 min, electric-energy-distribution-1 non recherchée à 38 min)
+      local id = Build.request(f, { alim = p.id, prio = Cc.PROJECT_PRIO, domain = "infrastructures", pole = p.spec and p.spec.pole })
       if id then
         st.alim = id
         other_open = true

@@ -55,6 +55,7 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
 local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements du plan directeur (figés, stock riche, décision)
 local A = require("shared.ai3.automatiser")
@@ -190,6 +191,12 @@ local function dump_full()
         tile_width = get(p, "tile_width"), energy_usage = get(p, "energy_usage") or get(p, "max_energy_usage"),
         emissions_per_second = Prev.emit_per_min(p, e.name) / 60 }) -- lot PREVISION (C12) : avec le repli sur la source d'énergie
       e.speed = e.speed or conv.speed
+      -- Intégration 0.6.28 (EQUILIBRE × capitalisation) : bras et tapis ne suivent pas × 1,15 par niveau (L.plan_stat). Une machine améliorée
+      -- ne livre que ce que son gabarit transporte : compter la vitesse du prototype gonflait plan.N (× 1,85 au niveau 10 pour une foreuse,
+      -- × 4,9 au niveau 20) et plus aucun ordre n'était passé, et l'exécutant (A.sized) dimensionne déjà sur la vitesse de plan.
+      local fam = L.parse(e.name)
+      local p1 = fam and game.entity_prototypes[fam.base]
+      if p1 then e.speed = L.plan_speed(e.name, get(p1, "crafting_speed") or get(p1, "mining_speed")) or e.speed end
       e.mining_area = conv.mining_area
       e.size = conv.size
       e.energy_kw = conv.energy_kw
@@ -905,7 +912,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
     limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
-    weights = w or {}, threat = threat, dt = 1, lag = cs.lag,
+    weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved), -- (intégration 0.6.28)
     -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
     -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).

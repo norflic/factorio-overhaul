@@ -1192,10 +1192,18 @@ function Ca.option_emit(ctx, o)
   return e
 end
 
+--- Intégration 0.6.28 (GISEMENTS × PILE-BUDGET) : input.starved = matières en manque par rapport au besoin ou d'un cadre ouvert de la
+--- pile. La pile les laisse passer (Pi.porte) : la menace ne les ferme pas non plus (le `danger` de chaque gisement reste exclu).
+local function starved_in(ctx, item)
+  local sv = ctx.input and ctx.input.starved
+  return sv ~= nil and item ~= nil and sv[item] == true
+end
+
 --- Termine une option : coût, retour, valeur ; rend l'option ou nil (refus écrit). `tmax` : retour accepté (le caractère
 --- par défaut ; lot LEVIERS : plus long quand l'extraction n'a plus aucune option, Lv.REPLI_TMAX).
 local function finish(ctx, o, tmax)
   tmax = tmax or ctx.ch.tmax
+  if ctx.threat and starved_in(ctx, o.item) then tmax = tmax * Ca.THREAT_DIV end -- (sans cela, ouverte mais refusée « retour > Tmax ÷ 4 »)
   if o.cost_m == nil then
     refuse(ctx, o.key, o.kind, o.item, "impayable : " .. tostring(o.unpaid))
     return nil
@@ -1245,7 +1253,7 @@ Ca.deposit_state = deposit_state
 
 --- Raison qui interdit de poser sur un gisement CE cycle (nil : permis) : menace (hors QG), danger.
 function Ca.usable(ctx, f, kind)
-  if ctx.threat and not Ca.HQ_LEVERS[kind] then return "menace : leviers du QG seulement" end
+  if ctx.threat and not Ca.HQ_LEVERS[kind] and not starved_in(ctx, f.resource) then return "menace : leviers du QG seulement" end
   if f.danger then return "danger" end
   if f.blocked then return tostring(f.blocked) end -- lot CAPIB : interdit par l'exécutant (hors de portée, refus)
   return nil

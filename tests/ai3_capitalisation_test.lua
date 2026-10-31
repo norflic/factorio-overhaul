@@ -354,6 +354,15 @@ local function s2()
   local rf5 = refus_of(r5, "couvrir:d1")
   check(find(r5, "couvrir:d1") == nil and rf5 and rf5.why:find("menace", 1, true), "§2e menace : couvrir refusé (" .. tostring(rf5 and rf5.why) .. ")")
   check(math.abs(r5.tmax * 4 - r1.tmax) < 1e-9, string.format("§2e menace : retour accepté %.1f -> %.1f min (÷ 4)", r1.tmax, r5.tmax))
+  -- Intégration 0.6.28 : une matière en manque passe la menace (la pile la laisse déjà passer), le danger du gisement reste exclu.
+  local inp_es = iron_scene(D, 150)
+  inp_es.threat, inp_es.starved = true, { ["iron-ore"] = true }
+  local r5s = Ca.decide(inp_es, {})
+  check(find(r5s, "couvrir:d1") ~= nil, "intégration : matière en manque sous la menace, couvrir ordonné")
+  local inp_ed = iron_scene(D, 150)
+  inp_ed.threat, inp_ed.starved = true, { ["iron-ore"] = true }
+  inp_ed.deposits[1].danger = true
+  check(find(Ca.decide(inp_ed, {}), "couvrir:d1") == nil, "intégration : gisement dangereux exclu, matière en manque ou non")
   -- f. Un site un peu moins cher (plus proche, bras payés) ne passe pas devant un gisement qui a des places ; 20 % moins
   --    cher par débit, il s'ouvre (le travail d'un chantier lointain coûte cher quand aucun bras n'est libre).
   local function near_site(workers)

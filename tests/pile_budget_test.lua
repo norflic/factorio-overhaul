@@ -132,6 +132,13 @@ check(sg.survive == "effectif" and sg.recruit_claim[1][2] == 90, "signaux : 3 re
 -- relecture : la menace ne ferme la capitalisation que si la pile retient encore
 check(Pi.threat_open({ parallel = true, top = Pi.ADAPTER }) and Pi.threat_open({ top = Pi.AMELIORER }), "menace : parallèle ou sommet améliorer, l'évolution reste ouverte")
 check(not Pi.threat_open({ parallel = false, top = Pi.ADAPTER }) and not Pi.threat_open(nil), "menace : pile retenue ou absente, la menace ferme comme avant")
+check(Pi.threat_open({ top = Pi.ADAPTER, blocked = true }), "intégration : pile bloquée (amélioration permise), la menace ne ferme plus")
+do
+  local ex = Pi.threat_exempt({ top = Pi.PRODUIRE, hold = true, focus = { ["fer"] = true } }, { ["cuivre"] = true })
+  check(ex["cuivre"] and ex["fer"] and not ex["pierre"], "intégration : matière en manque et cadre ouvert exemptés de la menace")
+  check(Pi.threat_exempt({ top = Pi.SURVIVRE, hold = true }, { ["cuivre"] = true }) == nil, "intégration : sous « survivre », aucune exemption")
+  check(Pi.threat_exempt(nil, { ["cuivre"] = true }) == nil, "intégration : sauvegarde sans pile, aucune exemption, aucune exception")
+end
 -- reconstruction comptée
 st = Pi.new()
 Pi.update(st, sig({ posts = {}, repair = { { key = "k1", item = TURRET, value = 5, prio = 75, have = 0, craftable = true },
@@ -255,7 +262,7 @@ mut(P, "if budget.covered then hold, parallel = false, true end", "", "la retenu
 mut(P, 'if hold and sig.book and sig.survive ~= "qg" then', "if hold and false then", "budget jamais évalué", pi_runner)
 mut(P, ' and sig.survive ~= "qg" then', " then", "QG menacé levé par le budget", pi_runner)
 mut(P, "for _, it in ipairs(sig.recruit_claim or {}) do claims.defense[#claims.defense + 1] = it end", "", "recrues ignorées du noyau", pi_runner)
-mut(P, "return st ~= nil and (st.parallel == true or st.top == Pi.AMELIORER)", "return false", "menace jamais ouverte (parallèle sans effet)", function(PiM)
+mut(P, "return st ~= nil and (st.parallel == true or st.top == Pi.AMELIORER or st.blocked == true)", "return false", "menace jamais ouverte (parallèle sans effet)", function(PiM)
   return PiM.threat_open({ parallel = true, top = PiM.ADAPTER }) and 0 or 1
 end)
 mut(P, "for _, it in ipairs(p.claim or {}) do claims.defense[#claims.defense + 1] = it end", "", "défense ignorée du noyau", pi_runner)

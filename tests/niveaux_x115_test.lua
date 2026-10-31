@@ -84,5 +84,16 @@ local anciens = {
 for _, m in ipairs(anciens) do
   check(not est_x115(m[2], L.apply_stat), "mutant refuse : " .. m[1])
 end
+-- Intégration 0.6.28 : la capitalisation compte la vitesse de PLAN (celle des gabarits, bras et tapis), jamais plus que la machine réelle.
+do
+  local drill = stat("drill", "mining_speed")
+  local name = L.name(L.by_key.drill, 10)
+  check(math.abs(L.plan_speed(name, 0.5) - L.plan_stat(drill, 0.5, 10)) < 1e-9, "vitesse de plan : foreuse niveau 10 = courbe des gabarits")
+  check(L.plan_speed(name, 0.5) < L.apply_stat(drill, 0.5, 10), "vitesse de plan sous la vitesse réelle au niveau 10")
+  check(L.plan_speed(L.name(L.by_key.drill, 1), 0.5) == nil, "niveau 1 : la vitesse du prototype reste")
+  check(L.plan_speed("gun-turret", 1) == nil and L.plan_speed("objet-inconnu", 1) == nil, "sans courbe de plan : nil")
+  local asm = L.name(L.by_key.assembler, 5)
+  check(math.abs(L.plan_speed(asm, 0.5) - L.plan_stat(stat("assembler", "crafting_speed"), 0.5, 5)) < 1e-9, "assembleur niveau 5 : courbe des gabarits")
+end
 print(string.format("[X115] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

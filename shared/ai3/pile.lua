@@ -308,7 +308,17 @@ end
 --- la retenue tombée, l'évolution restait coupée. Vrai : la pile ne retient pas parce que la défense est payée (parallèle) ou complète
 --- (sommet « améliorer ») : la menace ne coupe plus l'évolution. Le `danger` de chaque gisement continue d'exclure les lieux dangereux.
 function Pi.threat_open(st)
-  return st ~= nil and (st.parallel == true or st.top == Pi.AMELIORER)
+  return st ~= nil and (st.parallel == true or st.top == Pi.AMELIORER or st.blocked == true) -- (intégration 0.6.28 : pile bloquée = amélioration permise)
+end
+
+--- Intégration 0.6.28 : objets que la menace ne ferme pas à la capitalisation (Ca.usable) : matières en manque par rapport au besoin et
+--- objets des cadres ouverts, ceux que Pi.porte laisse déjà passer. Rien sous un cadre « survivre » (QG menacé, effectif sous le plancher).
+function Pi.threat_exempt(st, starved)
+  if not st or st.top == Pi.SURVIVRE then return nil end
+  local out = {}
+  for k, v in next, starved or {} do if v then out[k] = true end end
+  if st.hold then for k, v in next, st.focus or {} do if v then out[k] = true end end end
+  return out
 end
 
 -- Lot FUITES-PILE (vague 10) : les chemins qui contournaient la pile passent par une PORTE unique.

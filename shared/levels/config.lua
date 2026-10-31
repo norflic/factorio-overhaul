@@ -529,6 +529,18 @@ function L.plan_stat(stat, v1, n)
   return L.apply_stat(stat.plan or stat, v1, n)
 end
 
+--- Vitesse de PLAN d'un bâtiment à niveaux de niveau > 1, depuis la vitesse v1 de son niveau 1 ; nil s'il n'a pas de courbe de plan
+--- (intégration 0.6.28 : capacité comptée par la capitalisation, mêmes bras et tapis que les gabarits).
+function L.plan_speed(name, v1)
+  local fam, n = L.parse(name)
+  if not (fam and n > 1 and v1) then return nil end
+  for _, st in ipairs(fam.stats) do
+    local key = st.path[#st.path]
+    if st.plan and (key == "crafting_speed" or key == "mining_speed") then return L.plan_stat(st, v1, n) end
+  end
+  return nil
+end
+
 --- Longueur du faisceau d'un laser à la portée `range` (lot EQUILIBRE, relecture) : la portée monte par niveau, le
 --- `max_length` de la copie vanilla (24) n'était jamais relu ; même marge que prototypes/arsenal.lua (portée + 2).
 --- Niveau dont la portée tient dans le faisceau : inchangé. Entier (uint32 du prototype).
