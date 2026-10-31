@@ -267,4 +267,34 @@ function Q.path(a, b, reach, big, free, known, opts)
   return nil, reason
 end
 
+--[[
+  LOT POTEAUX-COURT (retour du DC 31/10 : « chemins 4 à 5 fois plus longs que nécessaire »). La chaîne ci-dessus est optimale
+  par tronçon, mais la route d'ensemble passait par TOUS les carrefours du treillis (escalier de rues, un poteau à chacun).
+  Règle pure du choix entre cet escalier (via) et la chaîne DIRECTE du module au poteau du réseau (dir) : { n = poteaux
+  neufs, len = longueur de fil }. Le direct gagne s'il pose strictement moins de poteaux, ou autant et un fil
+  strictement plus court (au centième de tuile) ; jamais si absent.
+]]
+
+--- Longueur de fil de a à b par la chaîne `chain` (liste de { x, y }, a et b exclus).
+function Q.length(a, chain, b)
+  local l, p = 0, a
+  for _, c in ipairs(chain or {}) do l = l + dist(p, c); p = c end
+  return l + dist(p, b)
+end
+
+--- Longueur de fil / distance à vol d'oiseau (1 quand a et b sont confondus).
+function Q.ratio(a, chain, b)
+  local d = dist(a, b)
+  if d < EPS then return 1 end
+  return Q.length(a, chain, b) / d
+end
+
+--- Vrai quand la chaîne directe doit remplacer l'escalier de carrefours.
+function Q.prefer_direct(dir, via)
+  if not dir then return false end
+  if not via then return true end
+  if dir.n ~= via.n then return dir.n < via.n end
+  return dir.len < via.len - 0.01
+end
+
 return Q

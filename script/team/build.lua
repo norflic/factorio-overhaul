@@ -37,6 +37,7 @@ local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de fo
 local Cv = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
+local Pt = require("shared.team.poteaux")   -- lot POTEAUX-COURT : longueur de fil, choix direct ou escalier (règles pures)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Or = require("shared.team.orient")      -- lot PD-FONDERIEQG (D82) : sens du gisement (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
@@ -816,6 +817,11 @@ local function plan_power(f, p, mp, masks)
     -- (lot PD-CENTRALE : la ligne lointaine lit son propre couloir, chunk par chunk, dans Far.line)
     if not far then legs[1] = { a = { x = mp.x, y = mp.y }, b = npos0 } end
     local pv
+    -- lot POTEAUX-COURT : couloir de la chaîne directe du module au poteau du réseau (relevé avec les autres)
+    if not far and not big and #nodes >= 3 then
+      local tp = spot_of(target.i, target.j)
+      if tp then legs[#legs + 1] = { a = { x = mp.x, y = mp.y }, b = tp } end
+    end
     for _, n in ipairs(nodes) do
       local pos = spot_of(n.i, n.j)
       if pv and (not big or (pv.x - pos.x) ^ 2 + (pv.y - pos.y) ^ 2 > reach * reach - 1e-6) then legs[#legs + 1] = { a = pv, b = pos } end
@@ -841,6 +847,16 @@ local function plan_power(f, p, mp, masks)
     -- centrale abandonnée exclue : reseau_vivant ne rouvre plus ses poteaux, on ne s'appuie pas sur eux
     if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then for _, e in ipairs(q.ents) do add_known(e) end end
   end
+  -- lot POTEAUX-COURT : chaîne DIRECTE du module au poteau du réseau (A* du module au but, sans passer par les carrefours),
+  -- calculée avant l'escalier (les tuiles prises par l'escalier ne la gênent pas) et comparée à lui plus bas
+  local n0 = #out
+  local direct, dpos, dlink
+  if not far and surface and not big and #nodes >= 3 then
+    dpos = spot_of(target.i, target.j)
+    dlink = math.min(reach, P.wire(mp.name) or 9)
+    if dpos then direct = P.pole_chain({ x = mp.x, y = mp.y }, dpos, dlink, false, free, known) end
+  end
+  local via_len = 0
   local prev
   for _, n in ipairs(nodes) do
     local k = P.lot_key(n.i, n.j)
@@ -856,6 +872,7 @@ local function plan_power(f, p, mp, masks)
     if prev and (not big or d2 > reach * reach - 1e-6) then
       local chain = P.pole_chain(prev, pos, reach, big, free, known)
       if not chain then return nil, "poteaux de rue" end
+      via_len = via_len + Pt.length(prev, chain, pos)
       for _, c in ipairs(chain) do
         local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
         out[#out + 1] = e
@@ -876,12 +893,35 @@ local function plan_power(f, p, mp, masks)
     chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
   end
   if not chain then return nil, "liaison electrique" end
+  via_len = via_len + Pt.length({ x = mp.x, y = mp.y }, chain, npos)
   for _, c in ipairs(chain) do
     -- (lot PD-CENTRALE : un poteau de la ligne lointaine arrive avec son point d'appui, lu sur le terrain de la ligne)
     local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison", ligne = far or nil,
       ax = c.ax, ay = c.ay, anchor = c.anchor }
     out[#out + 1] = e
     take(e)
+  end
+  -- lot POTEAUX-COURT : l'escalier de carrefours contre la chaîne directe (règle : Pt.prefer_direct) ; journal [FO-POTEAUX]
+  if dpos then
+    local via = { n = #out - n0, len = via_len }
+    local dir = direct and { n = #direct, len = Pt.length({ x = mp.x, y = mp.y }, direct, dpos) } or nil
+    local d0 = math.sqrt((mp.x - dpos.x) ^ 2 + (mp.y - dpos.y) ^ 2)
+    local use = Pt.prefer_direct(dir, via)
+    p.pot_logged = (p.pot_logged or 0) + 1
+    if p.pot_logged <= 3 then
+      log(string.format("[FO-POTEAUX] %s : projet %d, module vers le reseau a %.0f tuiles : escalier %d poteau(x) %.0f tuiles (ratio %.2f), direct %s : %s",
+        f.key or "player", p.id, d0, via.n, via.len, d0 > 0 and via.len / d0 or 1,
+        dir and string.format("%d poteau(x) %.0f tuiles (ratio %.2f)", dir.n, dir.len, d0 > 0 and dir.len / d0 or 1) or "introuvable",
+        use and "DIRECT retenu" or "escalier garde"))
+    end
+    if use then
+      for i = #out, n0 + 1, -1 do out[i] = nil end
+      for _, c in ipairs(direct) do
+        local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
+        out[#out + 1] = e
+      end
+      nodes = {}
+    end
   end
   if view.stats and (p.masq_logged or 0) < 6 then
     p.masq_logged = (p.masq_logged or 0) + 1
