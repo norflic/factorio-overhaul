@@ -14,8 +14,8 @@
     3. noyau couvert -> on essaie les améliorations connues dans l'ordre donné ; chacune qui se paie sur ce qui reste est ADMISE
        (le stock est entamé : la suivante doit se payer sur le reste, d'où le parallèle sans double dépense) ; une amélioration
        trop chère est sautée, la suivante peut passer (un PNJ libre prend la prochaine qui se paie) ;
-    4. aucune amélioration au coût connu : le noyau doit être couvert Bg.NEUTRAL_PCT % de plus (cas des modules du plan directeur
-       et des foreuses dont le coût n'est pas une liste d'objets) ;
+    4. aucune amélioration payée (aucune au coût connu, ou toutes trop chères) : le noyau doit être couvert Bg.NEUTRAL_PCT % de plus
+       (cas des modules du plan directeur et des ordres dont le coût n'est pas une liste d'objets) ;
     5. hystérésis d'ÉTAT : si la pile était déjà en parallèle et que le noyau reste couvert, elle le reste (les améliorations en
        cours ne sont pas coupées en deux par un stock qui descend). Aucune horloge.
   Déterminisme : listes dans l'ordre donné (le cerveau les trie), entiers, aucun hasard, aucun temps mesuré.
@@ -89,16 +89,17 @@ function Bg.assess(book, stock, claims, prev)
     out.covered, out.why = true, string.format("%d amelioration(s) payee(s) sur le stock apres defense et reconstruction", #out.admitted)
   elseif prev then
     out.covered, out.why = true, "maintenu (noyau toujours couvert)"
-  elseif #out.skipped == 0 then
-    -- aucune amélioration au coût connu : le noyau doit être couvert plus largement
+  else
+    -- Aucune amélioration payée (aucune au coût connu, ou toutes trop chères) : le noyau doit être couvert plus largement. Relecture :
+    -- un ordre ouvert trop cher ne retient plus rien (sinon il interdisait d'ouvrir un ordre moins cher, à stock plein).
     local wide = book:plan(Bg.scaled(concat(claims.defense, claims.rebuild), Bg.MARGIN_PCT + Bg.NEUTRAL_PCT), stock or {})
     if next(wide.raw) == nil then
-      out.covered, out.why = true, "noyau couvert 2 fois (aucune amelioration au cout connu)"
+      out.covered, out.why = true, #out.skipped > 0
+        and string.format("noyau couvert 2 fois (%d amelioration(s) trop chere(s) sautee(s))", #out.skipped)
+        or "noyau couvert 2 fois (aucune amelioration au cout connu)"
     else
       out.missing, out.why = wide.raw, "noyau couvert une fois seulement (manque " .. missing_text(wide.raw) .. " pour la marge)"
     end
-  else
-    out.why = string.format("aucune des %d amelioration(s) ne se paie apres defense et reconstruction", #out.skipped)
   end
   return out
 end

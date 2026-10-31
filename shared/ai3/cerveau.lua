@@ -289,6 +289,9 @@ function C.think(view, book, st, ctx)
     end
     Ml.note(st.mall, tick, now)
     Ml.decide(st.mall, book, { have = view.stock })
+    -- Relecture : la main ne refait plus ce que le mall produit (après Ml.note : la demande reste comptée ; défense et réparations gardent la main).
+    base.tasks = Ml.filter_crafts(st.mall, base.tasks, view.stock, Pi.INJECT_PRIO)
+    E.tasks = Ml.filter_crafts(st.mall, E.tasks, view.stock, Pi.INJECT_PRIO)
   end
   -- Relecture FUITES-PILE : manques propres (sans ceux des améliorations hors des cadres ouverts), lus par la porte de la pile
   st.short_core = Pi.short_core(E.raw, order, pile.focus)

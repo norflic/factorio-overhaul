@@ -15,7 +15,9 @@
   de 1 à Ml.MACHINES_MAX (« plusieurs usines par objet selon la demande », au lieu d'une seule x1).
   Combien d'avance ? Ml.target : Ml.HORIZON_MIN minutes de demande au coffre de sortie ; Ml.refill : l'assembleur travaille tant que le
   coffre est sous Ml.LOW_PCT % de la cible et s'arrête à Ml.HIGH_PCT % (hystérésis d'ÉTAT, aucune horloge).
-  La main : Ml.hand_allowed refuse la fabrication à la main d'un objet dont le mall TOURNE (st.running), sauf au stock nul.
+  La main : Ml.hand_allowed refuse la fabrication à la main d'un objet dont le mall TOURNE (st.running, Ml.set_running), sauf au stock nul.
+  Chaîne complète : Ml.note (cerveau) -> Ml.decide -> Ml.sinks (puits de la capitalisation, script/ai3/capitalisation.lua) -> ordre « chaîne »
+  -> plan directeur -> machines -> Ml.set_running -> Ml.filter_crafts (cerveau). Ml.layout reste un gabarit de réserve, sans lecteur en jeu.
   Déterminisme : listes triées par (volume décroissant, clé), entiers, aucun pairs décisionnel.
 ]]
 
@@ -133,6 +135,39 @@ end
 function Ml.hand_allowed(st, item, have)
   if not (st and st.running and st.running[item]) then return true end
   return (have or 0) <= 0
+end
+
+--- Le maillon vers les usines (relecture) : la demande du mall devient un PUITS de la capitalisation (Ca.decide, input.sinks) ; ses ordres
+--- « chaîne » (plusieurs machines selon le débit, Ca.CHAIN_LEAD) sont posés par l'exécutant existant (plan directeur). Liste triée par
+--- Ml.decide : déterministe.
+function Ml.sinks(st)
+  local out = {}
+  for _, it in ipairs((st and st.items) or {}) do
+    if it.rate > 0 then out[#out + 1] = { item = it.item, rate = it.rate, want = it.rate } end
+  end
+  return out
+end
+
+--- « Le mall tourne » se lit sur la production des MACHINES de la dernière minute (flows[objet] = { made, hand } : tout ce qui est
+--- produit, dont la main). Une machine arrêtée rend la main (aucun blocage) : c'est un état mesuré, pas une horloge.
+function Ml.set_running(st, flows)
+  local run = {}
+  for _, it in ipairs(st.items or {}) do
+    local fl = (flows or {})[it.item]
+    if fl and (fl.made or 0) - (fl.hand or 0) > 0 then run[it.item] = true end
+  end
+  st.running = run
+  return run
+end
+
+--- Retire de `tasks` les fabrications à la main que le mall assure (Ml.hand_allowed), sous la priorité `urgent` (défense et réparations
+--- gardent la main). Rend une liste neuve, dans le même ordre.
+function Ml.filter_crafts(st, tasks, stock, urgent)
+  local out = {}
+  for _, t in ipairs(tasks or {}) do
+    if t.kind ~= "craft" or (t.prio or 0) >= urgent or Ml.hand_allowed(st, t.item, (stock or {})[t.item]) then out[#out + 1] = t end
+  end
+  return out
 end
 
 --- Gabarit du mall : une RANGÉE par objet, une colonne par assembleur. Tous les rôles sont des mots ; le runtime les résout en entités.

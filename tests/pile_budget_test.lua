@@ -59,10 +59,12 @@ local function battery(Bg, verbose)
   ck(not r.covered, "g. défense (2) + reconstruction (2) = 4 tourelles : 150 fer ne suffisent pas")
   -- h. Hystérésis : aucune amélioration payable, mais déjà en parallèle et noyau couvert : maintenu.
   local ups_big = { { key = "gros", cost = { { IRON, 10000 } } } }
-  r = Bg.assess(book, { [IRON] = 300, [COPPER] = 100 }, { defense = def, upgrades = ups_big }, true)
-  ck(r.covered, "h. déjà en parallèle, noyau couvert : maintenu")
+  r = Bg.assess(book, { [IRON] = 120, [COPPER] = 30 }, { defense = def, upgrades = ups_big }, true)
+  ck(r.covered, "h. déjà en parallèle, noyau couvert une fois : maintenu")
   r = Bg.assess(book, { [IRON] = 300, [COPPER] = 100 }, { defense = def, upgrades = ups_big }, false)
-  ck(not r.covered, "h2. pas encore en parallèle et aucune amélioration ne se paie : la retenue demeure")
+  ck(r.covered, "h2. relecture : noyau couvert 2 fois, l'amélioration trop chère ne retient plus les autres")
+  r = Bg.assess(book, { [IRON] = 120, [COPPER] = 30 }, { defense = def, upgrades = ups_big }, false)
+  ck(r.core_ok and not r.covered, "h2b. noyau couvert une fois seulement et amélioration trop chère : la retenue demeure")
   r = Bg.assess(book, { [IRON] = 50, [COPPER] = 100 }, { defense = def, upgrades = ups_big }, true)
   ck(not r.covered, "h3. en parallèle mais noyau non couvert : la retenue revient")
   -- i. Sans coût connu : le noyau doit être couvert deux fois.
@@ -115,6 +117,21 @@ st = Pi.new()
 Pi.update(st, sig({ posts = { { id = "hq", have = 1, want = 2, why = "tache_creee", raw = {} } }, avail = { [IRON] = 150, [COPPER] = 0 },
   upgrades = { { key = "capital:x", cost = { { IRON, 100 } } } } }), 100)
 check(not st.hold and st.parallel, "poste dont les objets sont déjà pris (aucune demande) : l'amélioration payée passe")
+-- relecture : QG menacé, la retenue reste ; sous l'effectif, les recrues manquantes entrent au noyau
+st = Pi.new()
+Pi.update(st, sig({ survive = "qg" }), 100)
+check(st.hold and not st.parallel and st.budget == nil, "QG menacé : la retenue reste, quel que soit le stock")
+st = Pi.new()
+Pi.update(st, sig({ survive = "effectif", avail = { [IRON] = 500, [COPPER] = 100 } }), 100)
+check(not st.hold and st.parallel, "sous l'effectif, stock qui couvre aussi les recrues absentes : parallèle")
+st = Pi.new()
+Pi.update(st, sig({ survive = "effectif", recruit_claim = { { IRON, 2000 } }, avail = { [IRON] = 500, [COPPER] = 100 } }), 100)
+check(st.hold and not st.parallel, "sous l'effectif, recrues trop chères pour le stock : la retenue demeure")
+local sg = Pi.signals({ workers = 2, recover_floor = 5, recruit_cost = { { IRON, 30 } } }, {}, {}, {}, nil, nil)
+check(sg.survive == "effectif" and sg.recruit_claim[1][2] == 90, "signaux : 3 recrues manquantes à 30 fer = 90 fer au noyau")
+-- relecture : la menace ne ferme la capitalisation que si la pile retient encore
+check(Pi.threat_open({ parallel = true, top = Pi.ADAPTER }) and Pi.threat_open({ top = Pi.AMELIORER }), "menace : parallèle ou sommet améliorer, l'évolution reste ouverte")
+check(not Pi.threat_open({ parallel = false, top = Pi.ADAPTER }) and not Pi.threat_open(nil), "menace : pile retenue ou absente, la menace ferme comme avant")
 -- reconstruction comptée
 st = Pi.new()
 Pi.update(st, sig({ posts = {}, repair = { { key = "k1", item = TURRET, value = 5, prio = 75, have = 0, craftable = true },
@@ -224,11 +241,23 @@ local function pi_runner(PiM)
   local s6 = PiM.new()
   PiM.update(s6, sig({ avail = { [IRON] = 130, [COPPER] = 100 } }), 100) -- défense (3 tourelles avec la marge : 120 fer) + 100 fer d'amélioration > 130
   ck(s6.hold and not s6.parallel)
+  local s7 = PiM.new()
+  PiM.update(s7, sig({ survive = "qg" }), 100)
+  ck(s7.hold)
+  local s8 = PiM.new()
+  PiM.update(s8, sig({ survive = "effectif", recruit_claim = { { IRON, 2000 } }, avail = { [IRON] = 500, [COPPER] = 100 } }), 100)
+  ck(s8.hold)
+  ck(not PiM.threat_open({ parallel = false, top = PiM.ADAPTER }))
   return fails
 end
 local P = "shared/ai3/pile.lua"
 mut(P, "if budget.covered then hold, parallel = false, true end", "", "la retenue ne tombe jamais", pi_runner)
-mut(P, "if hold and sig.book then", "if hold and false then", "budget jamais évalué", pi_runner)
+mut(P, 'if hold and sig.book and sig.survive ~= "qg" then', "if hold and false then", "budget jamais évalué", pi_runner)
+mut(P, ' and sig.survive ~= "qg" then', " then", "QG menacé levé par le budget", pi_runner)
+mut(P, "for _, it in ipairs(sig.recruit_claim or {}) do claims.defense[#claims.defense + 1] = it end", "", "recrues ignorées du noyau", pi_runner)
+mut(P, "return st ~= nil and (st.parallel == true or st.top == Pi.AMELIORER)", "return false", "menace jamais ouverte (parallèle sans effet)", function(PiM)
+  return PiM.threat_open({ parallel = true, top = PiM.ADAPTER }) and 0 or 1
+end)
 mut(P, "for _, it in ipairs(p.claim or {}) do claims.defense[#claims.defense + 1] = it end", "", "défense ignorée du noyau", pi_runner)
 mut(P, "for _, it in ipairs(sig.plan_wants or {}) do claims.rebuild[#claims.rebuild + 1] = it end", "", "projet rouvert ignoré du noyau", pi_runner)
 mut(P, "if a.n - a.claimed > 0 then claims.rebuild", "if false then claims.rebuild", "pièces à refaire ignorées du noyau", pi_runner)

@@ -248,8 +248,11 @@ function Pi.update(st, sig, tick)
   -- Lot PILE-BUDGET : la retenue ne vaut QUE si le budget manque. Défense (postes sous leur minimum, objets non encore pris par une
   -- tâche) + reconstruction (pièces sans tâche, projet rouvert) + une amélioration payées sur le stock : tout passe en parallèle.
   local budget, parallel = nil, false
-  if hold and sig.book then
+  -- Relecture : QG menacé (tout le monde garde le coffre, team.lua) : le stock n'y change rien, la retenue reste. Sous l'effectif de
+  -- départ : les recrues manquantes entrent au noyau (une amélioration ne les paie jamais à leur place, F241).
+  if hold and sig.book and sig.survive ~= "qg" then
     local claims = { defense = {}, rebuild = {}, upgrades = sig.upgrades or {} }
+    for _, it in ipairs(sig.recruit_claim or {}) do claims.defense[#claims.defense + 1] = it end
     for _, p in ipairs(sig.posts or {}) do
       if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id] then
         for _, it in ipairs(p.claim or {}) do claims.defense[#claims.defense + 1] = it end
@@ -300,6 +303,14 @@ function Pi.allows(st, family, item)
 end
 
 ---------------------------------------------------------------------------------------------------
+--- Lot PILE-BUDGET (relecture, le maillon des attaques) : une équipe « menacée » (attaque récente, f.threatened_until) ferme les
+--- gisements à la capitalisation (Ca.usable : « menace : leviers du QG seulement ») et divise son retour accepté, QUEL QUE SOIT le stock :
+--- la retenue tombée, l'évolution restait coupée. Vrai : la pile ne retient pas parce que la défense est payée (parallèle) ou complète
+--- (sommet « améliorer ») : la menace ne coupe plus l'évolution. Le `danger` de chaque gisement continue d'exclure les lieux dangereux.
+function Pi.threat_open(st)
+  return st ~= nil and (st.parallel == true or st.top == Pi.AMELIORER)
+end
+
 -- Lot FUITES-PILE (vague 10) : les chemins qui contournaient la pile passent par une PORTE unique.
 ---------------------------------------------------------------------------------------------------
 -- Familles d'investissement de PRODUCTION : pile retenue, elles passent encore quand la matière qu'elles produisent MANQUE (« si
@@ -410,6 +421,13 @@ function Pi.signals(view, base, inp, s, ctx, bud)
   -- cette voie, et R0 (jamais « bloqué ») aurait gelé l'amélioration pour toute la partie.
   if floor and (view.workers or 0) < floor and not view.recruit_blocked then survive = "effectif"
   elseif view.hq_threat then survive = "qg" end
+  local recruit_claim = nil -- lot PILE-BUDGET (relecture) : le prix des recrues manquantes, au noyau du budget
+  if survive == "effectif" then
+    recruit_claim = {}
+    for _, it in ipairs(view.recruit_cost or {}) do
+      recruit_claim[#recruit_claim + 1] = { it[1], it[2] * (floor - (view.workers or 0)) }
+    end
+  end
   local inputs, sources = {}, {}
   for _, p in ipairs(sorted_keys(T.smelter_inputs)) do inputs[p] = T.smelter_inputs[p][1] end
   for _, kind in ipairs(T.OUTPOST_ORDER) do
@@ -431,7 +449,7 @@ function Pi.signals(view, base, inp, s, ctx, bud)
     penurie = view.survie and true or false,
     prep = ctx and ctx.prevu or nil, -- lot PREVISION
     book = bud and bud.book or nil, avail = bud and bud.avail or nil, upgrades = bud and bud.upgrades or nil, -- lot PILE-BUDGET
-    plan_wants = inp.plan_wants }
+    plan_wants = inp.plan_wants, recruit_claim = recruit_claim }
 end
 
 --- Ligne du journal [FO-PILE] (lue par script/team/pile.lua ; aucune décision ne la lit).

@@ -70,6 +70,21 @@ local function battery(Ml, verbose)
   local s5 = { running = { [TURRET] = true } }
   ck(Ml.hand_allowed(s5, TURRET, 10) == false and Ml.hand_allowed(s5, TURRET, 0) == true and Ml.hand_allowed(s5, MAG, 10) == true
     and Ml.hand_allowed(nil, TURRET, 10) == true, "3. la main : refusée si le mall tourne et que le stock existe ; permise à l'amorçage ou à sec")
+  -- 3b. Relecture : le maillon vers les usines (puits de la capitalisation), « le mall tourne » mesuré, frein de la main
+  local s6 = { items = { { item = TURRET, rate = 2.5 }, { item = MAG, rate = 0 } } }
+  local sk = Ml.sinks(s6)
+  ck(#sk == 1 and sk[1].item == TURRET and sk[1].rate == 2.5 and sk[1].want == 2.5, "3b. la demande du mall devient un puits, au débit mesuré")
+  ck(#Ml.sinks(nil) == 0, "3c. sans mall : aucun puits")
+  Ml.set_running(s6, { [TURRET] = { made = 10, hand = 10 } })
+  ck(not s6.running[TURRET], "3d. seule la main a produit : le mall ne tourne pas")
+  Ml.set_running(s6, { [TURRET] = { made = 12, hand = 10 } })
+  ck(s6.running[TURRET] == true, "3e. une machine a produit : le mall tourne")
+  local tk = Ml.filter_crafts(s6, { { kind = "craft", item = TURRET, prio = 30 }, { kind = "craft", item = TURRET, prio = 75 },
+    { kind = "craft", item = MAG, prio = 30 }, { kind = "mine", prio = 30 } }, { [TURRET] = 5 }, 60)
+  ck(#tk == 3 and tk[1].prio == 75 and tk[2].item == MAG and tk[3].kind == "mine", "3f. fabrication retirée sauf urgente, autre objet ou autre sorte")
+  ck(#Ml.filter_crafts(s6, { { kind = "craft", item = TURRET, prio = 30 } }, { [TURRET] = 0 }, 60) == 1, "3g. à sec : la main reprend")
+  Ml.set_running(s6, {})
+  ck(#Ml.filter_crafts(s6, { { kind = "craft", item = TURRET, prio = 30 } }, { [TURRET] = 5 }, 60) == 1, "3h. machine arrêtée : la main reprend (aucun blocage)")
   -- 4. gabarit
   local items = { { item = TURRET, machines = 3 }, { item = MAG, machines = 2 } }
   local cells = Ml.layout(items)
@@ -186,6 +201,9 @@ mut("math.min(#cands, Ml.MAX_ITEMS)", "#cands", "plafond d'objets retiré")
 mut("if a.n ~= b.n then return a.n > b.n end", "if a.n ~= b.n then return a.n < b.n end", "ordre inversé")
 mut("local y = (r - 1) * Ml.PITCH_Y + 2", "local y = 2", "toutes les rangées au même endroit (superposition)")
 mut("u.n, u.episodes = math.floor(u.n / 2), math.floor(u.episodes / 2)", "", "fenêtre sans moitié")
+mut("if it.rate > 0 then out[#out + 1] = { item = it.item, rate = it.rate, want = it.rate } end", "", "le mall sans puits : aucune usine")
+mut("(fl.made or 0) - (fl.hand or 0) > 0", "(fl.made or 0) > 0", "la main comptée comme le mall")
+mut("(t.prio or 0) >= urgent or ", "", "la défense perd la main")
 print(string.format("   mutants refusés : %d / %d", killed, total))
 check(killed == total, "tous les mutants refusés")
 print(string.format("[PILE-MALL] BILAN : %d OK, %d ECHEC(S) ; mutants %d/%d refusés", passes, failures, killed, total))

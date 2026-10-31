@@ -1548,10 +1548,12 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
   -- Lot PILE-MALL (retour du DC du 31/10, point 8 : « une seule usine par objet ») : une CHAÎNE se dimensionne aussi sur la demande
   -- (au plus Ca.CHAIN_LEAD fois le débit voulu, comme la fonte d'avance), pas seulement sur le manque présent ; la demande déjà
   -- couverte par les machines, la main et le stock n'ouvre rien de plus. Les ingrédients (nfree) et la capacité (ncap) bornent.
+  local n_short = nil -- relecture : le nombre pour le seul manque présent (repli si l'ordre agrandi dépasse le retour accepté)
   if is_chain and Ca.CHAIN_LEAD and Ri > 0 then
     local n_lead = math.max(0, math.floor((Ca.CHAIN_LEAD * Ri - (plan.N[item] or 0) - (plan.hand[item] or 0) - stock_i) / p + Ca.FRAC_UP))
     local na = math.min(ncap, nfree, n_lead, Ca.CHAIN_MAX)
-    if na > nwant then nwant = na end
+    n_short = nwant
+    if na > nwant then nwant = na end -- sans crédit d'avance : §9, un crédit fait passer les chaînes devant l'extraction (K et foreuses s'effondrent)
   end
   if nwant <= 0 then
     if def > Ca.EPS then refuse(ctx, key, kind, item, "manque sous une demi-machine (" .. fmt(def) .. "/min)") end
@@ -1597,7 +1599,9 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
       limit and (", nourrie par " .. limit .. " (" .. ncap .. " au plus)") or "")
     return finish(ctx, o)
   end
-  cand(out, mk(n), mk)
+  local first = mk(n)
+  if not first and n_short and n_short > 0 and n_short < n then first = mk(n_short) end
+  cand(out, first, mk)
 end
 
 --- Recherche que les packs nourrissent AU-DELÀ des laboratoires planifiés (secondes de laboratoire par minute) : pour
