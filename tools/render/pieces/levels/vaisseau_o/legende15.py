@@ -50,32 +50,33 @@ def matieres(S):
             return MT.surface("l15g_" + name, (0.13, 0.13, 0.13), rough=0.6, met=0.2, usure=0.3, crasse=0.6, graine=kw.get("graine", 0))
         return MT.surface("l15_" + name, col, **kw)
     M = {}
-    M["bronze"] = surf("bronze", (0.05, 0.031, 0.015), rough=0.5, met=0.75, coulures=0.55, rouille=(0.07, 0.028, 0.01), usure=0.65,
+    MT.PATINE.update(ta=0.15, ra=0.25, ec=0.6, nu_k=1.45, ec_col=(0.03, 0.017, 0.007), sans=("_or", "nacre"))
+    M["bronze"] = surf("bronze", (0.1, 0.058, 0.024), rough=0.5, met=0.5, coulures=0.55, rouille=(0.07, 0.028, 0.01), usure=0.65,
                        nu=(0.22, 0.15, 0.08), crasse=0.75, crasse_col=(0.008, 0.006, 0.004), graine=1)
-    M["bronze2"] = surf("bronze2", (0.085, 0.05, 0.022), rough=0.48, met=0.75, coulures=0.45, rouille=(0.08, 0.03, 0.01), usure=0.6,
+    M["bronze2"] = surf("bronze2", (0.16, 0.09, 0.034), rough=0.48, met=0.5, coulures=0.45, rouille=(0.08, 0.03, 0.01), usure=0.6,
                         nu=(0.25, 0.17, 0.09), crasse=0.7, crasse_col=(0.008, 0.006, 0.004), graine=2)
-    M["acier"] = surf("acier", (0.032, 0.027, 0.022), rough=0.5, met=0.7, coulures=0.4, rouille=(0.06, 0.025, 0.01), usure=0.6,
+    M["acier"] = surf("acier", (0.07, 0.052, 0.036), rough=0.5, met=0.6, coulures=0.4, rouille=(0.06, 0.025, 0.01), usure=0.6,
                       nu=(0.16, 0.14, 0.12), crasse=0.7, crasse_col=(0.006, 0.005, 0.004), graine=3)
     M["noyau"] = surf("noyau", (0.011, 0.009, 0.007), rough=0.55, met=0.6, usure=0.3, crasse=0.8, crasse_col=(0.002, 0.002, 0.002), graine=4)
     M["brule"] = surf("brule", (0.009, 0.006, 0.004), rough=0.7, met=0.4, usure=0.0, crasse=0.9, crasse_col=(0.001, 0.001, 0.001), graine=5)
-    M["pierre"] = surf("pierre", (0.055, 0.04, 0.028), rough=0.85, met=0.0, tole=(1.55, 1.05), joint=0.55, joint_l=0.01, var=0.14,
+    M["pierre"] = surf("pierre", (0.13, 0.095, 0.058), rough=0.85, met=0.0, tole=(1.55, 1.05), joint=0.55, joint_l=0.01, var=0.14,
                        coulures=0.5, rouille=(0.025, 0.016, 0.01), usure=0.7, nu=(0.13, 0.1, 0.075), crasse=0.85,
                        crasse_col=(0.006, 0.005, 0.004), relief=0.4, graine=6)
-    M["pierre2"] = surf("pierre2", (0.034, 0.025, 0.018), rough=0.85, met=0.0, coulures=0.6, rouille=(0.02, 0.012, 0.008), usure=0.7,
+    M["pierre2"] = surf("pierre2", (0.075, 0.052, 0.032), rough=0.85, met=0.0, coulures=0.6, rouille=(0.02, 0.012, 0.008), usure=0.7,
                         nu=(0.1, 0.08, 0.06), crasse=0.85, crasse_col=(0.004, 0.003, 0.002), graine=7)
-    M["or"] = surf("or", (0.66, 0.54, 0.27), rough=0.36, met=0.9, coulures=0.35, rouille=(0.12, 0.07, 0.025), usure=0.5,
-                   nu=(0.86, 0.76, 0.5), crasse=0.8, crasse_col=(0.03, 0.02, 0.008), graine=8)
-    M["or_sombre"] = surf("or_sombre", (0.26, 0.16, 0.055), rough=0.42, met=0.9, coulures=0.3, usure=0.6, nu=(0.7, 0.55, 0.28),
+    M["or"] = surf("or", (0.86, 0.73, 0.42), rough=0.4, met=0.25, coulures=0.2, rouille=(0.3, 0.2, 0.08), usure=0.5,
+                   nu=(0.95, 0.88, 0.66), crasse=0.45, crasse_col=(0.03, 0.02, 0.008), graine=8)
+    M["or_sombre"] = surf("or_sombre", (0.46, 0.31, 0.11), rough=0.45, met=0.4, coulures=0.3, usure=0.6, nu=(0.7, 0.55, 0.28),
                           crasse=0.8, crasse_col=(0.02, 0.012, 0.005), graine=9)
-    M["nacre"] = surf("nacre", (0.6, 0.54, 0.45), rough=0.3, met=0.1, coulures=0.45, rouille=(0.1, 0.07, 0.04), usure=0.4,
+    M["nacre"] = surf("nacre", (0.74, 0.67, 0.54), rough=0.34, met=0.0, coulures=0.45, rouille=(0.1, 0.07, 0.04), usure=0.4,
                       nu=(0.62, 0.58, 0.52), crasse=0.8, crasse_col=(0.03, 0.022, 0.014), graine=10)
-    M["jaune"] = surf("jaune", (0.4, 0.23, 0.02), rough=0.55, met=0.35, coulures=0.7, rouille=(0.09, 0.035, 0.01), usure=0.7,
+    M["jaune"] = surf("jaune", (0.5, 0.29, 0.015), rough=0.55, met=0.35, coulures=0.7, rouille=(0.09, 0.035, 0.01), usure=0.7,
                       nu=(0.42, 0.38, 0.3), crasse=0.8, crasse_col=(0.012, 0.008, 0.004), graine=11)
     M["jaune2"] = surf("jaune2", (0.3, 0.16, 0.014), rough=0.6, met=0.35, coulures=0.75, rouille=(0.08, 0.03, 0.01), usure=0.7,
                        nu=(0.38, 0.33, 0.26), crasse=0.8, crasse_col=(0.012, 0.008, 0.004), graine=12)
     M["chevron"] = surf("chevron", (0.42, 0.25, 0.02), rough=0.55, met=0.35, bandes=(0.32, (0.012, 0.01, 0.008), 0.5), coulures=0.6,
                         rouille=(0.09, 0.035, 0.01), usure=0.7, nu=(0.4, 0.36, 0.3), crasse=0.8, crasse_col=(0.01, 0.007, 0.004), graine=13)
-    M["ardoise"] = surf("ardoise", (0.028, 0.024, 0.022), rough=0.6, met=0.25, tole=(0.22, 0.11), joint=0.35, joint_l=0.02, var=0.25,
+    M["ardoise"] = surf("ardoise", (0.06, 0.045, 0.032), rough=0.6, met=0.25, tole=(0.22, 0.11), joint=0.35, joint_l=0.02, var=0.25,
                         usure=0.6, nu=(0.1, 0.085, 0.07), crasse=0.7, crasse_col=(0.004, 0.003, 0.002), relief=0.6, graine=14)
     M["cuivre"] = surf("cuivre", (0.3, 0.1, 0.035), rough=0.4, met=0.9, coulures=0.4, rouille=(0.05, 0.035, 0.02), usure=0.55,
                        nu=(0.6, 0.32, 0.18), crasse=0.75, crasse_col=(0.01, 0.006, 0.003), graine=15)
@@ -84,17 +85,17 @@ def matieres(S):
     M["cable_n"] = surf("cable_n", (0.012, 0.011, 0.01), rough=0.55, met=0.0, usure=0.2, crasse=0.4, graine=18)
     M["riv"] = surf("riv", (0.04, 0.03, 0.02), rough=0.5, met=0.6, usure=0.4, crasse=0.4, graine=19)
     M["terre"] = surf("terre", (0.11, 0.065, 0.035), rough=0.95, met=0.0, usure=0.0, crasse=0.7, crasse_col=(0.03, 0.018, 0.01), graine=21)
-    M["nacre2"] = surf("nacre2", (0.42, 0.36, 0.28), rough=0.35, met=0.15, coulures=0.55, rouille=(0.09, 0.06, 0.035), usure=0.45,
+    M["nacre2"] = surf("nacre2", (0.44, 0.33, 0.19), rough=0.35, met=0.15, coulures=0.55, rouille=(0.09, 0.06, 0.035), usure=0.45,
                        nu=(0.62, 0.57, 0.5), crasse=0.85, crasse_col=(0.02, 0.014, 0.008), graine=22)
-    M["toit"] = surf("toit", (0.5, 0.41, 0.22), rough=0.38, met=0.8, tole=(0.16, 0.1), joint=0.3, joint_l=0.025, var=0.3, coulures=0.4,
+    M["toit"] = surf("toit", (0.62, 0.46, 0.16), rough=0.42, met=0.35, tole=(0.16, 0.1), joint=0.3, joint_l=0.025, var=0.3, coulures=0.4,
                      rouille=(0.1, 0.06, 0.02), usure=0.55, nu=(0.85, 0.76, 0.5), crasse=0.85, crasse_col=(0.015, 0.01, 0.005), relief=0.7, graine=23)
-    M["pont"] = surf("pont", (0.03, 0.024, 0.018), rough=0.7, met=0.3, tole=(0.46, 0.46), joint=0.35, joint_l=0.02, var=0.35, coulures=0.0,
+    M["pont"] = surf("pont", (0.085, 0.06, 0.036), rough=0.7, met=0.3, tole=(0.46, 0.46), joint=0.35, joint_l=0.02, var=0.35, coulures=0.0,
                      usure=0.5, nu=(0.12, 0.1, 0.07), crasse=0.8, crasse_col=(0.004, 0.003, 0.002), relief=0.5, graine=24)
     M["bois"] = surf("bois", (0.07, 0.04, 0.02), rough=0.8, met=0.0, tole=(0.6, 0.09), joint=0.5, var=0.2, usure=0.5, crasse=0.7, graine=20)
     M["verre"] = MT.verre("l15_verre", col=(0.012, 0.01, 0.007), reflet=(0.2, 0.16, 0.09))
     M["cristal_m"] = MT.verre("l15_cristal", col=(0.05, 0.045, 0.03), reflet=(0.5, 0.45, 0.3))
     # lumières : peu de foyers forts (cœur, 3 cristaux, halo, porte), hublots petits et tous différents
-    M["lum"] = MT.lumiere(S, "l15_lum", (1.0, 0.86, 0.52), 2.6, main=0.25)
+    M["lum"] = MT.lumiere(S, "l15_lum", (1.0, 0.86, 0.52), 1.5, main=0.25)
     M["coeur"] = MT.lumiere(S, "l15_coeur", (1.0, 0.48, 0.1), 9.0, main=0.4)
     M["cristal"] = MT.lumiere(S, "l15_cristal_l", (1.0, 0.9, 0.62), 5.0, main=0.35)
     M["halo"] = MT.lumiere(S, "l15_halo", (1.0, 0.93, 0.72), 3.0, main=0.3)
@@ -132,14 +133,15 @@ PUITS = [(-7.0, -2.95), (-4.0, -3.3), (3.6, -3.45), (6.9, -2.4), (7.3, -0.4), (6
 
 def socle(lot, M, r):
     xf = F_sol
-    lot.put(M["brule"], G.prisme(PUITS, 0.0, 0.025), xf)                       # fond du puits, noirci
+    # essai 4 : plus de fond de puits (le sol et l'ombre se voient sous la base : elle flotte)
     for k in range(9):                                                      # fissures rayonnantes, à peine dorées
         a = G.TAU * (k + r.f(-0.2, 0.2)) / 9
         L = r.f(1.4, 2.6)
         p0 = (0.3 + 0.6 * math.cos(a), -0.2 + 0.4 * math.sin(a), 0.03)
         p1 = (0.3 + L * 2.2 * math.cos(a), -0.2 + L * 1.05 * math.sin(a), 0.03)
-        lot.put(M["or_sombre"], G.boite(G.lerp(p0, p1, 0.5), (G.length(G.sub(p1, p0)), 0.035, 0.012), rz=math.atan2(p1[1] - p0[1], p1[0] - p0[0])), xf)
-    for poly, h in TERRASSES:
+        lot.put(M["brule"], G.boite(G.lerp(p0, p1, 0.5), (G.length(G.sub(p1, p0)), 0.06, 0.012), rz=math.atan2(p1[1] - p0[1], p1[0] - p0[0])), xf)
+    for poly0, h in TERRASSES:
+        poly = sc(poly0, 0.95)
         lot.put(M["pierre2"], G.prisme(poly, 0.0, h - 0.07, top_scale=0.985), xf)
         lot.put(M["pierre"], G.prisme(sc(poly, 0.965), h - 0.07, h, top_scale=0.985), xf)
         # bord d'or sombre incrusté sur le côté du puits (le plus long côté intérieur)
@@ -149,8 +151,8 @@ def socle(lot, M, r):
         lot.put(M["or_sombre"], G.boite(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, h - 0.035), (math.hypot(b[0] - a[0], b[1] - a[1]) * 0.9, 0.05, 0.035),
                                         rz=math.atan2(b[1] - a[1], b[0] - a[0])), xf)
     # butte de terre poussée devant le nez (vers l'est), sillon sombre derrière
-    lot.put(M["terre"], G.butte((7.35, -0.7, 0.0), 0.75, 1.55, 0.55, r, 16, 0.35), xf)
-    lot.put(M["terre"], G.butte((6.9, 1.2, 0.0), 0.6, 0.8, 0.3, r, 12, 0.4), xf)
+    lot.put(M["terre"], R.tertre((7.35, -0.7, 0.0), 0.75, 1.55, 0.55, r, na=44, nr=9), xf)     # polaire : geo.butte montrait un escalier
+    lot.put(M["terre"], R.tertre((6.9, 1.2, 0.0), 0.6, 0.8, 0.3, r, na=30, nr=8), xf)
     # déflecteur de souffle derrière les tuyères (noirci), nervures
     for k in range(7):
         y = -2.1 + 0.62 * k + r.f(-0.06, 0.06)
@@ -308,8 +310,8 @@ def base(lot, M, r):
     for li, (P, dz) in enumerate(LOBES):
         zt = ZP + dz
         lot.put(M["bronze"], G.prisme(P, zt - 0.24, zt - 0.04), xf)
-        lot.put(M["or"], G.prisme(sc(P, 1.006), zt - 0.07, zt + 0.015, top_scale=0.997), xf)
-        lot.put(M["pont"], G.prisme(sc(P, 0.985), zt - 0.04, zt, top_scale=0.997), xf)
+        lot.put(M["or"], G.prisme(sc(P, 1.006), zt - 0.08, zt - 0.015, top_scale=0.997), xf)
+        lot.put(M["pont"], G.prisme(sc(P, 0.99), zt - 0.04, zt + 0.02, top_scale=0.996), xf)
         lot.put(M["bronze2"], G.prisme(sc(P, 0.84), zt - 0.5, zt - 0.24, top_scale=1.19), xf)
         lot.put(M["or_sombre"], G.prisme(sc(P, 0.85), zt - 0.53, zt - 0.48, top_scale=1.0), xf)
         lot.put(M["pierre2"], G.prisme(sc(P, 0.52), zt - 0.95 - 0.1 * li, zt - 0.5, top_scale=1.62), xf)
@@ -329,7 +331,7 @@ def base(lot, M, r):
             if len(pts) > 2:
                 q0, q1 = pts[0], pts[-1]
                 L = math.hypot(q1[0] - q0[0], q1[1] - q0[1])
-                lot.put(M["or_sombre"], G.boite(((q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2, zt + 0.004), (L, 0.03, 0.01), rz=a), xf)
+                lot.put(M["or_sombre"], G.boite(((q0[0] + q1[0]) / 2, (q0[1] + q1[1]) / 2, zt + 0.024), (L, 0.03, 0.01), rz=a), xf)
         # consoles sous le bord (pas irrégulier)
         n = len(P)
         for i in range(n):
@@ -408,7 +410,7 @@ def palais(lot, M, r):
         x0, x1 = bords[i], bords[i + 1]
         lot.put(M["nacre"], G.boite(((x0 + x1) / 2, -2.0, (ZP + Z1) / 2), (x1 - x0, 0.3, Z1 - ZP)), xf)
         if x1 - x0 > 0.2:
-            R.plaques(lot, [M["nacre2"], M["or_sombre"], M["nacre"]], r, x0 + 0.03, x1 - 0.03, ZP + 0.15, Z1 - 0.35, -2.15, -1, n=2, xf=xf,
+            R.plaques(lot, [M["nacre2"], M["or_sombre"], M["nacre"]], r, x0 + 0.03, x1 - 0.03, ZP + 0.15, Z1 - 0.35, -2.15, -1, n=3, xf=xf,
                       Mjoint=M["riv"])
     for x, w in arches:
         lot.put(M["noyau"], G.boite((x, -1.86, (ZP + Z1) / 2 - 0.1), (w, 0.05, Z1 - ZP - 0.2)), xf)
@@ -427,7 +429,7 @@ def palais(lot, M, r):
     # terrasse et étage en retrait
     R.garde_corps(lot, M["or_sombre"], [(HX0 + 0.35, -2.1, Z1), (HX1 - 0.4, -2.1, Z1)], h=0.26, pas=0.24, xf=xf)
     lot.put(M["nacre"], G.boite(((HX0 + HX1) / 2 + 0.05, 0.1, (Z1 + Z2) / 2), (HX1 - HX0 - 0.55, 3.2, Z2 - Z1)), xf)
-    R.plaques(lot, [M["nacre2"], M["or_sombre"], M["bronze2"]], r, HX0 + 0.35, HX1 - 0.4, Z1 + 0.05, Z2 - 0.05, -1.5, -1, n=9, xf=xf, Mjoint=M["riv"])
+    R.plaques(lot, [M["nacre2"], M["or_sombre"], M["bronze2"]], r, HX0 + 0.35, HX1 - 0.4, Z1 + 0.05, Z2 - 0.05, -1.5, -1, n=20, xf=xf, Mjoint=M["riv"])
     for x in (-1.85, -0.95, 0.35, 0.95, 2.05):                   # pilastres à pas irrégulier
         lot.put(M["or_sombre"], G.boite((x, -1.55, (Z1 + Z2) / 2), (0.08, 0.06, Z2 - Z1)), xf)
     fen = [(-1.5, "ogive", 0.13, True), (-1.2, "rond", 0.08, False), (-0.55, "double", 0.1, True), (0.0, "fente", 0.07, False),
@@ -644,6 +646,52 @@ def pont(lot, M, r):
     R.tuyau(lot, M["cuivre"], M["or_sombre"], [(-4.6, -2.3, ZP + 0.5), (-3.9, -2.3, ZP + 0.5), (-3.9, -2.4, ZP + 0.32)], 0.04, xf=xf)
 
 
+def menus(lot, M, r):
+    """Menus détails (3 à 10 px), clairs et sombres : ponts, terrasses, tranche de la base, dos du crâne."""
+    mats = [M["acier"], M["noyau"], M["or_sombre"], M["cuivre"], M["nacre2"]]
+    for (xf, z, xr, yr, n) in ((F_pal, ZP, (2.95, 6.9), (-2.7, -0.95), 130), (F_pal, ZP, (-6.4, -2.4), (-2.75, -1.75), 70),
+                               (F_pal, ZP, (3.2, 6.3), (0.9, 2.2), 40), (F_sol, 0.32, (-7.5, -4.9), (-3.75, -3.1), 26),
+                               (F_sol, 0.12, (-4.3, -1.3), (-3.8, -3.4), 24), (F_sol, 0.22, (-0.4, 3.3), (-3.8, -3.5), 24),
+                               (F_sol, 0.4, (4.2, 7.2), (-3.7, -3.1), 26)):
+        for k in range(n):
+            lot.put(mats[k % 5], G.boite((r.f(*xr), r.f(*yr), z + 0.015), (r.f(0.05, 0.15), r.f(0.04, 0.11), 0.05), r.f(-0.5, 0.5)), xf)
+    for k in range(120):        # tranche de la base, côté caméra
+        x = r.f(-6.0, 5.6)
+        y = -2.72 if x < -3.0 else -2.9
+        p = (x, y, r.f(ZP - 0.45, ZP - 0.04))
+        lot.put(mats[k % 5], G.boite(p, (r.f(0.05, 0.13), 0.04, r.f(0.04, 0.1))), F_pal)
+    surf = N.crane_pt(ZS)
+    for k in range(80):         # dos du crâne
+        x, a = r.f(2.6, 6.6), r.f(0.5, 2.6)
+        p = surf(x, a, 0.04)
+        lot.put(mats[k % 5], G.boite(p, (r.f(0.05, 0.12), r.f(0.04, 0.09), 0.05), r.f(-0.5, 0.5)), F_nav)
+
+
+def chargement(lot, M, r):
+    """Ce qui vit sur les ponts et les terrasses : caisses, fûts, bollards, trappes, écoutilles, rampes de lumière
+    éteintes. Remplit les pans nus vus à m1 (mesures « pièces » et « damier ») sans les quadriller."""
+    zones = [(F_pal, ZP, (2.95, 6.9), (-2.7, -0.95), 34), (F_pal, ZP, (-6.4, -2.4), (-2.75, -1.75), 22), (F_pal, ZP, (3.2, 6.3), (0.9, 2.2), 14)]
+    for (x0, x1, y0, y1, h) in ((-7.5, -4.9, -3.75, -3.1, 0.32), (-4.3, -1.3, -3.8, -3.4, 0.12), (-0.4, 3.3, -3.8, -3.5, 0.22),
+                                (4.2, 7.2, -3.7, -3.1, 0.4), (-7.9, -7.2, -2.5, 2.1, 0.25)):
+        zones.append((F_sol, h, (x0, x1), (y0, y1), 9))
+    for (xf, z, xr, yr, n) in zones:
+        for k in range(n):
+            x, y = r.f(*xr), r.f(*yr)
+            u = r.f()
+            rz = r.f(-0.5, 0.5)
+            if u < 0.28:
+                R.caisse(lot, M["bois"] if k % 3 else M["acier"], M["acier"], (x, y, z + 0.13), (r.f(0.18, 0.34), r.f(0.16, 0.3), 0.26), rz, xf=xf)
+            elif u < 0.48:
+                R.fut(lot, M["cuivre"] if k % 2 else M["bronze"], M["or_sombre"], (x, y, z), r.f(0.07, 0.1), r.f(0.2, 0.3), couche=(k % 5 == 0), rz=rz, xf=xf)
+            elif u < 0.68:      # bollard à collier
+                lot.put(M["acier"], G.tour([(z, 0.06), (z + 0.14, 0.05), (z + 0.17, 0.075), (z + 0.2, 0.0)], 8, "z", (x, y, 0.0), cap0=True), xf)
+            elif u < 0.86:      # trappe : cadre et volet
+                lot.put(M["or_sombre"], G.boite((x, y, z + 0.015), (0.36, 0.26, 0.03), rz), xf)
+                lot.put(M["noyau"], G.boite((x, y, z + 0.032), (0.28, 0.18, 0.006), rz), xf)
+            else:               # tronçon de conduit au ras du pont, à brides
+                R.tuyau(lot, M["cuivre"] if k % 2 else M["acier"], M["or_sombre"], [(x, y, z + 0.09), (x + r.f(0.3, 0.7), y + r.f(-0.1, 0.1), z + 0.09)], 0.04, xf=xf)
+
+
 def complements(lot, M, r):
     """Essai 3 : minimums du brief × 4 (emprise 128 t² / 32) : échafaudages (4), flexibles (≥ 16), faisceaux (≥ 16),
     évents (≥ 16). Chantiers jamais finis : couronne, tour ouest, dérive."""
@@ -689,6 +737,8 @@ def build(S, lot):
     squelette(lot, M, r)
     pont(lot, M, r)
     complements(lot, M, r)
+    chargement(lot, M, G.Rnd(1516))
+    menus(lot, M, G.Rnd(1517))
     # le vaisseau (roulis + lacet) : crâne, nacelles, ailes, dérive, cœur-réacteur
     N.crane(lot, M, ZS, r, F_nav)
     N.nacelles(lot, M, ZS, r, F_nav)

@@ -30,6 +30,24 @@ LOCK = os.path.join(RENDER, "with_render_lock.py")
 BATCH = os.path.join(HERE, "batch_blender.py")
 
 
+def etalonne(img, grade):
+    """Étalonnage de la couche principale (refonte QG, 31/10), hors Blender, rejouable par --post-only. Il n'agit que sur
+    les EXTRÉMITÉS de la courbe : pied (sous tp, puissance tk : noirs plus noirs), épaule (au-dessus de sp, pente g :
+    clairs plus clairs), puis gamma ga des tons moyens et saturation s. Une courbe en S sur les tons moyens ferme des
+    cellules (mesure « damier » : de 0,45 à 0,62). FO_GRADE="tp,tk,sp,g,ga,s"."""
+    tp, tk, sp, g, ga, sat = grade
+    out = img.copy()
+    rgb = np.clip(out[..., :3], 0.0, 1.0)
+    lu = np.maximum((0.299 * rgb[..., 0] + 0.587 * rgb[..., 1] + 0.114 * rgb[..., 2])[..., None], 1e-5)
+    l2 = lu ** ga
+    l2 = np.where(l2 < tp, tp * (l2 / tp) ** tk, l2)
+    l2 = np.where(l2 > sp, sp + (l2 - sp) * g, l2)
+    rgb = rgb * l2 / lu
+    rgb = l2 + (rgb - l2) * sat
+    out[..., :3] = np.clip(rgb, 0.0, 1.0)
+    return out
+
+
 def post(name, cache, out_root):
     d = os.path.join(cache, name)
     info = json.load(open(os.path.join(d, "render.json"), encoding="utf-8"))
@@ -40,6 +58,8 @@ def post(name, cache, out_root):
         return np.load(p).astype(np.float64) if layer in info["layers"] and os.path.exists(p) else None
 
     hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
+    if os.environ.get("FO_GRADE"):
+        hr["main"] = etalonne(hr["main"], [float(x) for x in os.environ["FO_GRADE"].split(",")])
     sh = npy("shadow")
     if sh is not None:
         hr["shadow"] = P.shadow_layer(sh)

@@ -366,3 +366,26 @@ def plaques(lot, mats, rnd, x0, x1, z0, z1, y, cote, prof=0.02, n=10, xf=None, M
                    ((x + w / 2 - 0.03, y + cote * (prof + 0.003), z - h / 2 + 0.03), (0, cote, 0))]
             lot.put(Mjoint, G.rivets_le_long(pts, 0.018, 0.012), xf)
     compte("toles", n)
+
+
+def tertre(c, rx, ry, h, rnd, na=40, nr=10, bord=0.18, bosses=0.25, pente=1.3):
+    """Tertre de terre en grille POLAIRE (contour lisse et bosselé, pas d'escalier comme geo.butte) ; c = pied."""
+    ph = [rnd.f(0, G.TAU) for _ in range(8)]
+    verts, faces, uvs = [(c[0], c[1], c[2] + h)], [], [(c[0], c[1])]
+    for i in range(1, nr + 1):
+        f = i / float(nr)
+        for j in range(na):
+            a = G.TAU * j / na
+            k = 1.0 + bord * (0.6 * math.sin(3 * a + ph[0]) + 0.4 * math.sin(7 * a + ph[1]))
+            x, y = c[0] + rx * k * f * math.cos(a), c[1] + ry * k * f * math.sin(a)
+            b = 1.0 + bosses * math.sin(5.1 * f * math.cos(a) + ph[2]) * math.sin(4.3 * f * math.sin(a) + ph[3])
+            z = c[2] + max(0.0, h * (1.0 - f * f) ** pente * b) - (0.01 if i == nr else 0.0)
+            verts.append((x, y, z))
+            uvs.append((x, y))
+    for j in range(na):
+        faces.append((0, 1 + j, 1 + (j + 1) % na))
+    for i in range(nr - 1):
+        b0, b1 = 1 + i * na, 1 + (i + 1) * na
+        for j in range(na):
+            faces.append((b0 + j, b1 + j, b1 + (j + 1) % na, b0 + (j + 1) % na))
+    return verts, faces, uvs

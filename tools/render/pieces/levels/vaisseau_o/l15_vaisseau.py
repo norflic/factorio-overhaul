@@ -152,7 +152,8 @@ def crane(lot, M, zs, rnd, xf):
 
     bandes = [(-0.35, 0.3), (0.3, 0.85), (0.85, 1.32), (1.32, 1.84), (1.84, 2.32), (2.32, 2.8), (2.8, 3.25), (3.25, 3.75),
               (3.75, 4.2)]
-    xb = [CX0, 3.45, 3.9, 4.3, 4.68, 5.05, 5.4, 5.75, 6.05, 6.35, 6.62, 6.88, 7.1, CX1 - 0.06]
+    xb0 = [CX0, 3.45, 3.9, 4.3, 4.68, 5.05, 5.4, 5.75, 6.05, 6.35, 6.62, 6.88, 7.1, CX1 - 0.06]
+    xb = sorted(set(xb0 + [(xb0[i] + xb0[i + 1]) / 2 for i in range(len(xb0) - 1) if xb0[i + 1] - xb0[i] > 0.3]))
     blinde(lot, surf, xb, bandes, mats, rnd, xf, saut=saut, Mriv=M["riv"])
     # verrière : courte, raked, 2 × 2 vitres à cadre lourd d'or patiné (pas une grille de fenêtres)
     lot.put(M["verre"], patch(surf, 3.95, 5.25, math.pi / 2 - 0.5, math.pi / 2 + 0.5, 0.035, 6, 6), xf)
@@ -224,8 +225,8 @@ def nacelles(lot, M, zs, rnd, xf):
                 return M["bronze2"]
             return M["jaune"] if x < 0.68 else M["jaune2"]
 
-        bandes = [(a, a + 0.62) for a in (-0.4, 0.22, 0.84, 1.46, 2.08, 2.7, 3.32, 3.94)]
-        blinde(lot, surf, [-3.5, -3.95, -4.4, -4.85, -5.3, -5.62, -5.88], bandes, mats, rnd, xf, saut=saut, Mriv=M["riv"])
+        bandes = [(-0.4 + 0.415 * k, -0.4 + 0.415 * (k + 1)) for k in range(12)]
+        blinde(lot, surf, [-3.5, -3.78, -4.05, -4.33, -4.6, -4.88, -5.15, -5.42, -5.65, -5.88], bandes, mats, rnd, xf, saut=saut, Mriv=M["riv"])
         blinde(lot, surf, [-6.1, -6.52, -6.92], bandes, lambda rr, bi, i: M["bronze"] if rr.f() < 0.7 else M["or_sombre"], rnd, xf)
         for x in (-3.95, -4.9, -5.88):                                  # cerclages d'or patiné
             r = nac_r(x) + 0.075

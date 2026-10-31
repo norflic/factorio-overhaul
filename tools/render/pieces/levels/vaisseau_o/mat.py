@@ -9,6 +9,12 @@ d'un bruit 3D est inerte).
 """
 import bpy
 
+# PATINE (refonte QG, 31/10) : couche commune à toutes les surfaces d'un état, réglée par l'état avant matieres() ;
+# ec : part d'écailles de peinture (bords francs, couleur ec_col) ; ta : marbrure en taches de 3 à 6 px (± ta) ;
+# ra : rayures fines ; nu_k : éclaircit le métal nu des arêtes. Casse les aplats (mesures « damier », D3, D5) sans
+# ajouter de géométrie ; sans : matières (morceaux de nom) qui n'écaillent pas. Vide : recette d'avant, inchangée.
+PATINE = {}
+
 
 def _n(N, kind, **inputs):
     node = N.new(kind)
@@ -143,6 +149,20 @@ def surface(name, col, rough=0.55, met=0.5, tole=None, joint=0.5, joint_l=0.014,
     base = _scale(N, L, base, g)
     g2 = _range(N, L, _bruit(N, L, obj, 4.0, 3.0, 0.5, add3(d, 5.0)), 0.35, 0.65, 1 - grain, 1 + grain)
     base = _scale(N, L, base, g2)
+    if PATINE:
+        ta = PATINE.get("ta", 0.0)
+        if ta > 0:
+            t1 = _range(N, L, _bruit(N, L, obj, 11.0, 4.0, 0.6, add3(d, 31.0)), 0.36, 0.64, 1 - ta, 1 + ta)
+            base = _scale(N, L, base, t1)
+        ra = PATINE.get("ra", 0.0)
+        if ra > 0:
+            r1 = _range(N, L, _bruit(N, L, obj, 7.0, 3.0, 0.5, add3(d, 37.0), (1.0, 14.0, 5.0)), 0.6, 0.66, 1.0, 1.0 - ra)
+            base = _scale(N, L, base, r1)
+        ec = PATINE.get("ec", 0.0)
+        if ec > 0 and not any(x in name for x in PATINE.get("sans", ())):
+            zone = _range(N, L, _bruit(N, L, obj, 2.6, 3.0, 0.5, add3(d, 41.0)), 0.38, 0.6)
+            chip = _range(N, L, _bruit(N, L, obj, 15.0, 5.0, 0.68, add3(d, 43.0)), 0.63 - 0.13 * ec, 0.65 - 0.13 * ec)
+            base = _mix(N, L, _math(N, L, "MULTIPLY", zone, chip), base, PATINE.get("ec_col", (0.03, 0.017, 0.008)))
     if bandes:
         per, col2, part = bandes
         sep = N.new("ShaderNodeSeparateXYZ")
@@ -177,6 +197,8 @@ def surface(name, col, rough=0.55, met=0.5, tole=None, joint=0.5, joint_l=0.014,
         nz = _bruit(N, L, obj, 22.0, 4.0, 0.7, add3(d, 3.0))
         e = _math(N, L, "MULTIPLY", e, _range(N, L, nz, 0.62 - 0.3 * usure, 0.7 - 0.3 * usure))
         nuc = nu or tuple(min(1.0, c * 1.6 + 0.12) for c in col)
+        if PATINE.get("nu_k"):
+            nuc = tuple(min(1.0, c * PATINE["nu_k"]) for c in nuc)
         base = _mix(N, L, e, base, nuc)
         rough_s = _mixf(N, L, e, rough, max(0.25, rough - 0.2))
         L.new(rough_s, p.inputs["Roughness"])
