@@ -281,6 +281,13 @@ local function battery(m, verbose)
     "3j. entrée de la capitalisation : libre, ou nil si absent ou périmé")
   ck(Rs.describe(st):find("COUVERT", 1, true) and Rs.describe(nil):find("non evalue", 1, true), "3k. ligne de journal")
 
+  -- Le recrutement n'est pas affamé : une recrue voulue (le coût n'est pas payé, « cout ») garde sa matière hors du stock libre.
+  local n_r, rec_list = Rs.recruits({ workers = 10, wanted = 30, floor = 8, reason = "cout", cost = { { IRON, 150 } }, margin = { IRON, 30 } })
+  local ev_r = Rs.state(book, { [IRON] = 200 }, { recruit = rec_list }, 0)
+  ck(n_r == 1 and ev_r.covered and (ev_r.free[IRON] or 0) <= 2, "3l. 200 fer, recrue à 150 + marge 30 : la capitalisation ne voit que " .. tostring(ev_r.free[IRON] or 0) .. " fer libre")
+  local ev_r2 = Rs.state(book, { [IRON] = 200 }, {}, 0)
+  ck(ev_r2.free[IRON] == 200, "3m. sans recrue voulue : les 200 fer sont libres")
+
   -- 4. Le budget ---------------------------------------------------------------------------------------------------------------
   local lo = Ca.character({ ambition = 600, agressivite = 1400 }, nil, false)
   local hi = Ca.character({ ambition = 1600, agressivite = 400 }, nil, false)
