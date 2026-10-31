@@ -85,15 +85,19 @@ local function update_label(f)
   rendering.set_text(f.label, label)
 end
 
+--- Lot EQUILIBRE : retire tout ce qui appartient à « enemy » dans la zone sûre du point hq (recherche limitée à `area`).
+local function clear_enemies(surface, hq, area)
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, force = "enemy" })) do
+    if e.valid and Zone.inside(hq, e.position.x, e.position.y, ENEMY_CLEAR_RADIUS) then e.destroy() end
+  end
+end
+
 local function clear_area(surface, pos)
   local area = { { pos.x - CLEAR_RADIUS, pos.y - CLEAR_RADIUS }, { pos.x + CLEAR_RADIUS, pos.y + CLEAR_RADIUS } }
   for _, e in ipairs(surface.find_entities_filtered({ area = area, type = { "tree", "simple-entity", "cliff" } })) do
     e.destroy()
   end
-  local earea = Zone.area(pos, ENEMY_CLEAR_RADIUS)
-  for _, e in ipairs(surface.find_entities_filtered({ area = earea, force = "enemy" })) do
-    if Zone.inside(pos, e.position.x, e.position.y, ENEMY_CLEAR_RADIUS) then e.destroy() end
-  end
+  clear_enemies(surface, pos, Zone.area(pos, ENEMY_CLEAR_RADIUS))
 end
 
 -- Lot EQUILIBRE : un chunk généré APRÈS la fondation des QG ne rapporte aucun nid dans leur zone sûre.
@@ -104,11 +108,32 @@ Events.on(defines.events.on_chunk_generated, function(ev)
   for _, id in ipairs(State.alive()) do
     local f = war.factions[id]
     local hq = f and f.hq_pos
-    if hq and Zone.chunk_touches(hq, cx, cy) then
-      for _, e in ipairs(ev.surface.find_entities_filtered({ area = ev.area, force = "enemy" })) do
-        if e.valid and Zone.inside(hq, e.position.x, e.position.y) then e.destroy() end
-      end
+    if hq and Zone.chunk_touches(hq, cx, cy) then clear_enemies(ev.surface, hq, ev.area) end
+  end
+end)
+
+-- Correction de relecture : sans cela, l'expansion des biters rebâtit dans la zone et la zone sûre ne tient pas la partie.
+Events.on(defines.events.on_biter_base_built, function(ev)
+  local war, e = State.war(), ev.entity
+  if not war.active or not e or not e.valid then return end
+  local x, y = e.position.x, e.position.y
+  for _, id in ipairs(State.alive()) do
+    local hq = war.factions[id] and war.factions[id].hq_pos
+    if hq and Zone.inside(hq, x, y) then
+      e.destroy()
+      return
     end
+  end
+end)
+
+-- Correction de relecture : une sauvegarde d'avant 0.6.28 a ses nids entre 80 et 256 tuiles déjà générés (une seule fois).
+Events.on_configuration_changed(function()
+  local war = State.war()
+  if not war.active or war.zone_sure_appliquee then return end
+  war.zone_sure_appliquee = true
+  for _, id in ipairs(State.alive()) do
+    local f = war.factions[id]
+    if f and f.hq_pos and f.hq and f.hq.valid then clear_enemies(f.hq.surface, f.hq_pos, Zone.area(f.hq_pos)) end
   end
 end)
 

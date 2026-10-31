@@ -871,8 +871,8 @@ check(laser30 <= 20 * heavy["laser-turret"].hp, "tourelle laser 30 : PV ≤ 20 �
 local wall30 = stat_at(L.by_key.wall, "max_health", 30)
 check(armored and wall30 >= armored.hp and wall30 <= 6 * armored.hp,
   "mur 30 : " .. wall30 .. " PV, entre 1 et 6 × le mur blindé (" .. (armored and armored.hp or "?") .. " ; lot EQUILIBRE : × 1,15 par niveau)")
-check(stat_at(L.by_key.assembler, "crafting_speed", 30) <= 2 * 1.25,
-  "machine d'assemblage 2 niveau 30 : vitesse ≤ 2 × la machine 3 vanilla (1,25)")
+check(stat_at(L.by_key.assembler, "crafting_speed", 30) <= 60 * 0.75,
+  "machine d'assemblage 2 niveau 30 : vitesse ≤ 60 × le niveau 1 (lot EQUILIBRE : × 1,15 par niveau)")
 
 ---------------------------------------------------------------------------------------------------
 section("Durée de jeu : calendrier du scénario X0, durée impliquée par les coûts (lot V2c)")

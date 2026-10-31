@@ -144,10 +144,10 @@ function M.spec(name)
   o.w, o.h = side, side
   for _, st in ipairs(fam.stats) do
     local key = st.path[#st.path]
-    if (key == "crafting_speed" or key == "mining_speed") and o.speed then o.speed = L.apply_stat(st, b.speed, n) end
+    if (key == "crafting_speed" or key == "mining_speed") and o.speed then o.speed = L.plan_stat(st, b.speed, n) end
     if key == "energy_usage" then
-      if o.usage_kw then o.usage_kw = L.apply_stat(st, b.usage_kw, n) end
-      if o.burner_kw then o.burner_kw = L.apply_stat(st, b.burner_kw, n) end
+      if o.usage_kw then o.usage_kw = L.plan_stat(st, b.usage_kw, n) end
+      if o.burner_kw then o.burner_kw = L.plan_stat(st, b.burner_kw, n) end
     end
   end
   if b.drop then

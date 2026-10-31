@@ -27,6 +27,38 @@ local n, d = Z.nearest(hq, { { x = 100 + 300, y = -200 }, { x = 100, y = -200 + 
 check(n and n.y == -80 and math.abs(d - 120) < 1e-9, "nearest")
 check(Z.nearest(hq, {}) == nil, "nearest vide")
 
+-- Branchement dans script/faction/war.lua, sur le moteur simulé : chunk neuf, expansion, vieille sauvegarde.
+local M = require("tests.mock_engine")
+M.new_game({ patches = {}, p_busy = 0, p_nopath = 0, p_lost = 0 })
+M.command("fo-war", "start 2 100 10 320")
+local W = M.world()
+local h = global.fo.war.factions[1].hq_pos
+local ev = defines.events
+local surf = game.surfaces[1]
+local function enemy(px, py)
+  return surf.create_entity({ name = "biter-spawner", position = { x = px, y = py }, force = "enemy" })
+end
+local function chunk(px, py)
+  M.dispatch(W.events[ev.on_chunk_generated], { surface = surf, position = { x = math.floor(px / 32), y = math.floor(py / 32) },
+    area = { { px - 20, py - 20 }, { px + 20, py + 20 } }, tick = 0 })
+end
+local dedans, dehors = enemy(h.x + 200, h.y), enemy(h.x + 200, h.y + 200)
+chunk(h.x + 200, h.y)
+check(not dedans.valid, "chunk neuf : nid a 200 tuiles retire")
+chunk(h.x + 200, h.y + 200)
+check(dehors.valid, "chunk hors disque (283 tuiles) : nid garde")
+local bati, loin = enemy(h.x + 100, h.y), enemy(h.x + 400, h.y)
+M.dispatch(W.events[ev.on_biter_base_built], { entity = bati, tick = 0 })
+M.dispatch(W.events[ev.on_biter_base_built], { entity = loin, tick = 0 })
+check(not bati.valid and loin.valid, "expansion : retire dans la zone, garde dehors")
+local vieux = enemy(h.x, h.y + 150)
+M.dispatch(W.on_config, { mod_changes = {} })
+check(not vieux.valid and global.fo.war.zone_sure_appliquee == true, "sauvegarde d'avant : nid deja genere retire au chargement")
+local neuf = enemy(h.x, h.y + 150)
+M.dispatch(W.on_config, { mod_changes = {} })
+check(neuf.valid, "une seule fois : le changement de configuration suivant ne repasse pas")
+check(dehors.valid and loin.valid, "rien hors zone")
+
 -- Mutants de la règle : chacun doit être vu par au moins un contrôle ci-dessus (copie locale réécrite)
 local function mutant(name, patch)
   local M = {}

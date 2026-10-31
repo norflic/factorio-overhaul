@@ -26,7 +26,7 @@ end
 
 local regle = {
   { "gun", "max_health" }, { "laser", "max_health" }, { "wall", "max_health" }, { "drill", "max_health" },
-  { "furnace", "max_health" }, { "assembler", "max_health" }, { "drill", "mining_speed" }, { "furnace", "crafting_speed" },
+  { "furnace", "max_health" }, { "assembler", "max_health" }, { "drill", "mining_speed" }, { "furnace", "crafting_speed" }, { "assembler", "crafting_speed" },
 }
 for _, r in ipairs(regle) do
   local ok, why = est_x115(stat(r[1], r[2]), L.apply_stat)
@@ -59,6 +59,20 @@ for _, k in ipairs({ "drill", "furnace" }) do
 end
 -- déterminisme : mêmes résultats d'un appel à l'autre, sans appel de puissance
 check(L.apply_stat(stat("gun", "max_health"), 400, 30) == L.apply_stat(stat("gun", "max_health"), 400, 30), "déterminisme")
+
+-- Cadence de plan des gabarits : la courbe d'avant, toujours au plus la cadence réelle
+for _, c in ipairs({ { "drill", "mining_speed", 0.10 }, { "furnace", "crafting_speed", 0.08 }, { "assembler", "crafting_speed", 0.08 } }) do
+  local st = stat(c[1], c[2])
+  check(math.abs(L.plan_stat(st, 1, 7) - (1 + c[3] * 6)) < 1e-9, c[1] .. " : plan du niveau 7 = courbe d'avant")
+  for n = 1, 30 do if L.plan_stat(st, 1, n) > L.apply_stat(st, 1, n) + 1e-9 then check(false, c[1] .. " : plan au-dessus du reel au niveau " .. n) end end
+end
+check(L.plan_stat(stat("gun", "max_health"), 400, 2) == L.apply_stat(stat("gun", "max_health"), 400, 2), "sans plan : la statistique")
+
+-- Faisceau du laser (max_length vanilla 24) : portée incluse, niveau 1 inchangé, entier
+check(L.beam_length(24, 24) == 24, "faisceau : portee 24 dans 24, inchange")
+check(L.beam_length(20, 24) == 24, "faisceau : portee plus courte, inchange")
+check(L.beam_length(35.6, 24) == 38, "faisceau : portee 35,6 -> 38")
+check(L.beam_length(40, 24) >= 40 and L.beam_length(40, 24) % 1 == 0, "faisceau : atteint la portee, entier")
 
 -- Mutants : l'ancien comportement doit être refusé
 local anciens = {
