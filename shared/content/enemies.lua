@@ -71,6 +71,7 @@ E.families = {
     tint1 = { r = 0.42, g = 0.45, b = 0.50 }, tint2 = { r = 0.80, g = 0.83, b = 0.88 },
     glow = { r = 0.70, g = 0.82, b = 1.00 }, -- reflets d'acier froid
     nest_distance = 4,
+    size = 1.15,                                  -- cuirassé : bas et large
   },
   pyro = {
     hp = 1.0, speed = 1.0, damage = 1.1,
@@ -79,6 +80,7 @@ E.families = {
     tint1 = { r = 0.55, g = 0.15, b = 0.05 }, tint2 = { r = 1.00, g = 0.60, b = 0.10 },
     glow = { r = 1.00, g = 0.42, b = 0.05 }, -- braises
     nest_distance = 5,
+    size = 1.0,                                   -- tison : la taille de référence
   },
   brood = {
     hp = 0.8, speed = 1.05, damage = 0.9,
@@ -87,6 +89,7 @@ E.families = {
     tint1 = { r = 0.30, g = 0.10, b = 0.35 }, tint2 = { r = 0.75, g = 0.45, b = 0.90 },
     glow = { r = 0.80, g = 0.25, b = 1.00 }, -- poches d'œufs
     nest_distance = 6,
+    size = 1.1,                                   -- nourrice : abdomen gonflé
   },
   storm = {
     hp = 1.0, speed = 1.2, damage = 1.0,
@@ -95,6 +98,7 @@ E.families = {
     tint1 = { r = 0.05, g = 0.30, b = 0.40 }, tint2 = { r = 0.40, g = 0.95, b = 1.00 },
     glow = { r = 0.25, g = 0.85, b = 1.00 }, -- arcs électriques
     nest_distance = 8,
+    size = 0.9,                                   -- cornu : élancé
   },
   -- Lot EQUILIBRE : deux styles de plus. Toxique : immunisée à l'acide et au poison, mord à l'acide, lente et épaisse
   -- (contre : balles, laser). Essaim : fragile, très rapide, faible à l'explosion (contre : zone, tourelles à portée).
@@ -105,6 +109,7 @@ E.families = {
     tint1 = { r = 0.18, g = 0.40, b = 0.05 }, tint2 = { r = 0.60, g = 1.00, b = 0.15 },
     glow = { r = 0.55, g = 1.00, b = 0.10 }, -- bile
     nest_distance = 7,
+    size = 1.25,                                  -- bilieux : tête large, le plus gros
   },
   swarm = {
     hp = 0.55, speed = 1.35, damage = 0.85,
@@ -112,6 +117,9 @@ E.families = {
     tint1 = { r = 0.40, g = 0.32, b = 0.05 }, tint2 = { r = 1.00, g = 0.88, b = 0.25 },
     glow = { r = 1.00, g = 0.80, b = 0.15 }, -- nuées
     nest_distance = 10,
+    size = 0.6,                                   -- moucheron : nain
+    biter_body = "spitter",                       -- son corps de déchiqueteur est celui du petit cracheur, nain (4 pattes)
+    nest = { units = 2, cooldown_div = 2 },       -- nid d'essaim : deux fois plus d'unités, naissances deux fois plus rapprochées
   },
 }
 E.FAMILY_ORDER = { "armored", "pyro", "brood", "storm", "toxic", "swarm" }
@@ -145,6 +153,48 @@ E.worm_tiers = {
   [12] = { scale = 2.20, hp = 1800, damage = 90, range = 28, evo = 0.9995, autoplace_distance = 24 },
 }
 
+-- Lot BI-0 (31/10) : TAILLES. Une famille a une échelle `size` (k) qui multiplie l'image ET la boîte de ses unités à
+-- tous les paliers (k = 1 pour un déchiqueteur sans famille). La boîte de collision ne dépasse jamais BOX_HALF_MAX
+-- de demi-côté (le palier 12 d'un bilieux, k = 1,25, serait à ±0,95 : plafonné à ±0,9).
+E.BOX_HALF_MAX = 0.9
+
+--- Échelle de taille k d'une famille (1 sans famille).
+function E.size(family)
+  local f = family and E.families[family]
+  return f and f.size or 1
+end
+
+--- Le corps d'un déchiqueteur de cette famille est-il celui du petit cracheur (moucheron) ? Seuls les biters en changent.
+function E.spitter_body(kind, family)
+  local f = family and E.families[family]
+  return kind == "biter" and f ~= nil and f.biter_body == "spitter"
+end
+
+--- Facteur à appliquer aux boîtes d'une unité. `scale` : échelle d'image au palier AVANT k ; `base_half` : demi-côté de la
+--- boîte de collision du modèle vanilla. Paliers 1 à 4 : la boîte vanilla ; paliers 5 et plus : suit l'image, plafonnée
+--- à 1,9 ; puis k de la famille ; enfin plafond absolu de BOX_HALF_MAX sur la collision.
+function E.box_factor(scale, tier, family, base_half)
+  local f = (tier > E.VANILLA_TIERS) and math.min(scale / 1.2, 1.9) or 1
+  f = f * E.size(family)
+  if base_half and base_half > 0 then f = math.min(f, E.BOX_HALF_MAX / base_half) end
+  return f
+end
+
+--- Réglages d'un nid de famille à partir de ceux du nid vanilla : { max_count_of_owned_units, max_friends_around_to_spawn,
+--- spawning_cooldown = { lent, rapide } }. Une famille sans `nest` rend les mêmes valeurs. La limite d'amis alentour
+--- suit le plafond d'unités, sinon le nid d'essaim s'arrêterait de pondre à 5 voisins et le doublement ne servirait à rien.
+function E.nest_stats(family, base)
+  local f = family and E.families[family]
+  local n = f and f.nest
+  local cd = {}
+  for i, v in ipairs(base.spawning_cooldown) do cd[i] = n and v / n.cooldown_div or v end
+  return {
+    max_count_of_owned_units = n and base.max_count_of_owned_units * n.units or base.max_count_of_owned_units,
+    max_friends_around_to_spawn = n and base.max_friends_around_to_spawn * n.units or base.max_friends_around_to_spawn,
+    spawning_cooldown = cd,
+  }
+end
+
 function E.unit_name(kind, tier, family)
   local tn = E.tier_names[tier]
   if family then return "fo-" .. family .. "-" .. tn .. "-" .. kind end
@@ -177,6 +227,7 @@ function E.stats(base, tier, family)
   local f = family and E.families[family]
   if f then
     s.hp, s.damage, s.speed = s.hp * f.hp, s.damage * f.damage, s.speed * f.speed
+    s.scale = s.scale * E.size(family)
   end
   return s
 end
