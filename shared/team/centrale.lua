@@ -18,6 +18,7 @@
   ne retient plus la centrale quand la saturation dure C.HOLD_PASS relevés (le courant qui manque arrête la production : c'est
   un besoin de production, pas une amélioration) ; (4) plafonds relevés (C.MAX_PLANTS, C.MAX_REQUESTS).
 ]]
+local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : taille du champ de machines à vapeur
 local C = {}
 
 C.SAT = 0.8          -- part de la capacité au-delà de laquelle la centrale est saturée (la demande atteint la production)
@@ -43,14 +44,23 @@ end
 --- projet (ni finies ni refusées), refused = demandes de croissance refusées, hold = repli de l'équipe, cool = pause après un abandon, off = règle coupée }.
 function C.growth(st, n)
   if n.off then return nil, "regle coupee" end
-  if not st.saturated then return nil, "pas saturee" end
-  if n.pending > 0 then return nil, "un chantier de centrale est ouvert" end
-  if n.done < 1 then return nil, "aucune centrale finie" end
+  if not st.saturated and not n.lost then return nil, "pas saturee" end
+  -- lot ENERGIE (relecture) : la reconstruction qui n'aboutit pas ne retient pas le champ de remplacement (« si on y arrive vraiment pas, on
+  -- le fait ailleurs ») ; n.rebuilding : ceux de n.pending qui sont des centrales rouvertes
+  if n.lost then
+    if n.pending - (n.rebuilding or 0) > 0 then return nil, "un chantier de centrale est ouvert" end
+  else
+    if n.pending > 0 then return nil, "un chantier de centrale est ouvert" end
+    if n.done < 1 then return nil, "aucune centrale finie" end
+  end
   if n.done >= C.MAX_PLANTS then return nil, "plafond de centrales" end
   if (n.refused or 0) >= C.MAX_REFUSED then return nil, "plan refuse " .. C.MAX_REFUSED .. " fois" end
-  if n.hold and (st.sat or 0) < C.HOLD_PASS then return nil, "repli de l'equipe (manque de matiere)" end
+  if n.hold and (st.sat or 0) < C.HOLD_PASS and not n.lost then return nil, "repli de l'equipe (manque de matiere)" end
   if n.cool then return nil, "pause apres une centrale refusee ou abandonnee" end
   if (st.requests or 0) >= C.MAX_REQUESTS then return nil, "trop de demandes" end
+  -- lot ENERGIE : un CHAMP (une rangée de chaudières, un seul tapis) dimensionné sur les chaudières vivantes, au lieu d'une chaudière
+  -- isolée ; sans la mesure (n.built absent : anciens appels, bancs), C.BOILERS comme avant
+  if n.built ~= nil then return Cv.boilers_for(n.built, n.refused, n.lane_cap) end
   return C.BOILERS
 end
 
