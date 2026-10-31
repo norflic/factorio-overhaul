@@ -108,7 +108,8 @@ function PileRt.porte(f, family, item)
   local st = pile_of(f)
   if not (st and st.hold) then return true, nil end
   local short = f.team.ia3.short_core or {}
-  return Pi.porte(st, family, item, item ~= nil and (short[item] or 0) > 0)
+  local starved = f.team.ia3.starved or {} -- lot GISEMENTS : manque par rapport au besoin (shared/team/gisement.lua)
+  return Pi.porte(st, family, item, item ~= nil and ((short[item] or 0) > 0 or starved[item] == true))
 end
 
 --- Comme PileRt.porte pour plusieurs objets (un ordre qui produit un minerai et sa plaque) : permis si l'un d'eux l'est.
@@ -153,6 +154,19 @@ end
 --- Journal [FO-PILE] : à chaque changement de sommet ou de retenue, et toutes les Pi.LOG_EVERY ticks.
 function PileRt.journal(f, tick)
   local st = f.team and f.team.ia3 and f.team.ia3.pile
+  -- Lot GISEMENTS : journal [FO-GISEMENT] quand l'ensemble des matières en manque (par rapport au besoin) change.
+  local sv = f.team and f.team.ia3 and f.team.ia3.starved
+  if sv then
+    local names = {}
+    for k in pairs(sv) do names[#names + 1] = k end
+    table.sort(names)
+    local line = table.concat(names, ",")
+    if line ~= (f.team.ia3.starved_logged or "") then
+      f.team.ia3.starved_logged = line
+      log(string.format("[FO-GISEMENT] %s : matieres en manque par rapport au besoin : %s (classement : %s) a %.1f min", f.key or "player",
+        line == "" and "aucune" or line, table.concat(f.team.ia3.starved_rank or {}, " < "), (tick - (f.started or 0)) / 3600))
+    end
+  end
   PileRt.flush(f, tick) -- lot FUITES-PILE : refus notés par la pensée pure (buts suspendus)
   if not st or st.tick ~= tick then return false end
   if not st.changed and tick < (st.log_at or 0) then return false end

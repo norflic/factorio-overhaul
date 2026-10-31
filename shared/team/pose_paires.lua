@@ -42,7 +42,7 @@ P.SEED_MAX = 18         -- le gisement du centre commence à moins de 18 tuiles 
 P.LOGS = 60             -- lignes [FO-EXTEND] au plus par équipe
 -- Lot PLAFOND-FOREUSES : couverture (‰ des tuiles du gisement minées par une foreuse de l'avant-poste) qui rend le gisement plein ;
 -- la même que la capitalisation (Ca.KAPPA, shared/ai3/capitalisation.lua ; égalité vérifiée par tests/pose_paires_test.lua).
-P.KAPPA = 800
+P.KAPPA = 1000 -- gisement couvert en entier (DC 31/10, lot GISEMENTS ; 800 avant)
 local EPS = 0.01
 
 function P.key(x, y) return x * 65536 + y end
