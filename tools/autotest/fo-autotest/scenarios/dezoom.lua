@@ -26,7 +26,8 @@ return {
   tick = function(ctx, e)
     local p = game.connected_players[1]
     if not p then
-      if e.tick == 60 then ctx.check(false, "un joueur connecte (session avec images)", 0) end
+      -- Passe SANS images (--benchmark) : pas de joueur, rien a jouer ; la passe avec images joue la sequence.
+      if e.tick == 60 then ctx.check(true, "pas de joueur (passe sans images) : sequence jouee par la passe avec images", 0) end
       return
     end
     local st = ctx.state()
@@ -51,7 +52,6 @@ return {
     local st = ctx.state()
     local seq = st.seq
     if not seq then
-      ctx.check(false, "sequence jouee (pas de joueur)", nil)
       return
     end
     for k = 1, 5 do
