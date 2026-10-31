@@ -63,3 +63,4 @@ require("settings.capital") -- lot CAPITAL : améliorer et monter les époques (
 require("settings.capi") -- lot CAPIB : capitaliser (fo-war-capi, allumé par défaut ; agit avec fo-war-ia3e)
 require("settings.adopte") -- lot ADOPTE : adopter les machines posées à la main (fo-war-adopte)
 require("settings.petrole") -- lot PETROLE : aller au pétrole (fo-war-petrole, éteint par défaut)
+require("settings.industrie") -- lot INDUSTRIE : réglage maître (fo-war-industrie ; I1 : le besoin est évalué, le reste du stock s'investit)

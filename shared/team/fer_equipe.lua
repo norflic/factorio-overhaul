@@ -33,7 +33,10 @@ end
 
 --- Fer à garder au coffre avant une recrue de croissance. base = réserve de croissance habituelle (nombre, ou nil/0 si elle ne
 --- s'applique pas). Rend un nombre ou nil (aucune réserve). `defended` est ignoré : plus de plancher de défense (décision du DC).
-function FE.reserve(base, _defended)
+--- Lot INDUSTRIE I1 : `evaluated` (vrai quand le besoin de l'équipe est ÉVALUÉ et couvert par le stock, shared/ai3/reserve.lua) :
+--- défense, reconstruction et recrues sont déjà payées, le fer gardé « au cas où » n'a plus de raison (« pour aucune raison »).
+function FE.reserve(base, _defended, evaluated)
+  if evaluated then return nil end
   return (base and base > 0) and base or nil
 end
 
