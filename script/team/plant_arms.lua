@@ -13,6 +13,7 @@ local T = require("shared.team.config")
 local Stock = require("script.team.stock")
 local Bras = require("shared.team.bras_retour")
 local C = require("shared.team.centrale") -- lot CORR-ENERGIE : croissance de la centrale
+local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (taille, perte)
 
 local PA = {}
 
@@ -161,6 +162,7 @@ function PA.watch(f, surface, tick)
   if tick < (g.next or 0) then return nil end
   g.next = tick + PA.WATCH_EVERY
   local power, capacity, done, pending = 0, 0, 0, 0
+  local planned, boilers_alive, boiler_kw = 0, 0, nil -- lot ENERGIE : capacité prévue (vivante ou non), chaudières vivantes
   -- les projets de centrale : la première (b.plant) et celles demandées par la croissance (b.extra_plants)
   -- (revue globale 1 : un projet de croissance devenu LA centrale quand la première a été refusée ou annulée ne se compte qu'une fois)
   local ids, seen = {}, {}
@@ -174,13 +176,18 @@ function PA.watch(f, surface, tick)
       if p.state == "fini" then
         done = done + 1
         for _, e in ipairs(p.ents) do
-          if (M.spec(e.name) or {}).power_out then
+          local sp = M.spec(e.name) or {}
+          if sp.power_out then
+            planned = planned + sp.power_out * 1000 / 60
             -- la capacité ne compte que les machines VIVES : une centrale détruite ne cache pas la saturation des autres
             local r = real_of(surface, e, f.force)
             if r then
               capacity = capacity + M.spec(e.name).power_out * 1000 / 60
               power = power + (r.energy_generated_last_tick or 0)
             end
+          elseif sp.water and sp.burner_kw then -- chaudière (lot ENERGIE : taille du champ de plus)
+            boiler_kw = boiler_kw or sp.burner_kw
+            if real_of(surface, e, f.force) then boilers_alive = boilers_alive + 1 end
           end
         end
       elseif p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
@@ -209,8 +216,16 @@ function PA.watch(f, surface, tick)
       f.key or "player", refused, C.MAX_REFUSED, (g.cool_until or tick) / 3600))
   end
   local hold = tick < (b.grow_hold_until or 0)
+  -- lot ENERGIE : perte (machines détruites non revenues depuis 10 min) et taille du champ (chaudières vivantes, voie de tapis)
+  local lost = Cv.lost(g, planned, capacity)
   local nb, why = C.growth(g, { done = done, pending = pending, refused = refused, hold = hold, cool = tick < (g.cool_until or 0),
-    off = b.opts and b.opts.no_grow == true })
+    off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
+    lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
+  if nb and lost then
+    log(Cv.line({ kind = "perte", team = f.key or "player", tick = tick, alive = capacity, planned = planned, nb = nb }))
+  elseif nb then
+    log(Cv.line({ kind = "champ", team = f.key or "player", tick = tick, nb = nb, built = boilers_alive, refused = refused }))
+  end
   local load = C.load(power, capacity)
   if not nb and g.saturated and why ~= g.why then
     g.why = why

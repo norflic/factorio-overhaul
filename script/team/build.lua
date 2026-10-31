@@ -48,6 +48,7 @@ local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines s
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
+local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (tapis par relais, refus de l'alimentation)
 local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-CENTRALE : coffre de la centrale en urgence, foreuses de la centrale (règles pures)
 local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pures de la centrale lointaine (D-24)
 local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors du treillis, ligne de poteaux
@@ -1619,8 +1620,18 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local by0 = math.min(s.y, a.y) - 12
   local bx1 = math.max(s.x, a.x) + 12
   local by1 = math.max(s.y, a.y) + 12
-  if bx1 - bx0 > 120 or by1 - by0 > 120 then return false, "trop loin" end
-  local masks = read_masks(f, surface, bx0, by0, bx1 + 1, by1 + 1)
+  -- lot ENERGIE : le tapis d'alimentation d'une centrale (spec.alim) dépasse la boîte de 120 tuiles par TRONÇONS (Cv.reach) ; mesuré
+  -- au 31/10 : 17 refus « trop loin » sur 31 demandes, aucune centrale nourrie par des foreuses
+  local relay_legs
+  if bx1 - bx0 > 120 or by1 - by0 > 120 then
+    local mode, legs = nil, nil
+    if p.spec and p.spec.alim then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end
+    if mode ~= "relais" then return false, "trop loin" end
+    relay_legs = legs
+  end
+  local masks
+  if relay_legs then masks = { water = {}, blocked = {}, clear = {} } -- remplis tronçon par tronçon (relevé de chaque boîte)
+  else masks = read_masks(f, surface, bx0, by0, bx1 + 1, by1 + 1) end
   -- anneau d'une tuile autour des modules (aucun tapis ne longe un module : bras, têtes, queues)
   local ring = {}
   local function ring_of(ox, oy, w, h)
@@ -1640,8 +1651,39 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if masks.clear[k] then c = c + 1 end
     return c
   end
-  local tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost)
-  if not tiles then
+  local tiles, n2
+  if relay_legs then
+    -- lot ENERGIE : tapis par relais. Chaque tronçon va d'un départ à un point de passage libre (sens de l'axe dominant), dans sa propre
+    -- boîte lue au moteur ; le tronçon suivant part de la tuile qui suit le point de passage. Tout ou rien : un tronçon sans chemin
+    -- refuse le plan (journal [FO-CHAMP-VAPEUR]).
+    b.stats.relais = (b.stats.relais or 0) + 1
+    local say = b.stats.relais <= Build.LINE_LOGS -- (journal borné par équipe)
+    if say then
+      log(Cv.line({ kind = "relais", team = f.key or "player", tick = game.tick, project = p.id, legs = relay_legs,
+        sx = s.x, sy = s.y, ax = a.x, ay = a.y }))
+    end
+    local function merge(m2) for _, kind in ipairs({ "water", "blocked", "clear" }) do for k in pairs(m2[kind]) do masks[kind][k] = true end end end
+    local why_leg, leg_no
+    tiles, why_leg, leg_no = Cv.route(s, a, relay_legs, {
+      dir_of = P.dir_of, DV = P.DV, cost = cost,
+      read = function(x0, y0, x1, y1) merge(read_masks(f, surface, x0, y0, x1, y1)) end,
+      route = function(from, to, dir, bd)
+        local leg, why2 = P.belt_route(from, to, dir, bd, cost)
+        if not leg and why2 == "trop long" then
+          leg, why2 = P.belt_route(from, to, dir, bd, cost, { weight = Build.ROUTE_WEIGHT, max = (bd.x1 - bd.x0 + 1) * (bd.y1 - bd.y0 + 1) })
+        end
+        return leg, why2
+      end,
+      mark = function(t) planned[P.tkey(t.x, t.y)] = true end,
+    })
+    if not tiles then
+      if say then log(Cv.line({ kind = "relais-refus", team = f.key or "player", tick = game.tick, project = p.id, leg = leg_no, legs = relay_legs, why = why_leg })) end
+      n2 = "relais : " .. tostring(why_leg)
+    end
+  else
+    tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost)
+  end
+  if not tiles and not relay_legs then
     -- second essai, marge d'un pas de treillis (contourner une falaise par la brèche voisine ; correction du 27/10)
     local cx0, cy0 = math.min(s.x, a.x) - P.PITCH, math.min(s.y, a.y) - P.PITCH
     local cx1, cy1 = math.max(s.x, a.x) + P.PITCH, math.max(s.y, a.y) + P.PITCH
@@ -2047,6 +2089,15 @@ local function plan_alim(f, surface, p)
     end
   end
   p.parts, p.ents = {}, {}
+  -- lot ENERGIE : gisement de charbon hors du treillis (12 refus « minerai » sur 31 demandes au 31/10) : le treillis GRANDIT, le prochain
+  -- essai (pause du lot CHARBON-CENTRALE) trouve le gisement ; avant, rien ne le faisait grandir pour l'alimentation
+  if Cv.after_refusal(last, Build.can_grow(b)) == "grandir" then
+    Build.grow(f, b.radius + 1)
+    b.stats.cv_grow = (b.stats.cv_grow or 0) + 1
+    if b.stats.cv_grow <= Build.LINE_LOGS then
+      log(Cv.line({ kind = "grandir", team = f.key or "player", tick = game.tick, project = p.id, why = last, radius = b.radius }))
+    end
+  end
   return false, "foreuses : " .. last
 end
 
