@@ -79,6 +79,15 @@ function P.lot_rect(lat, i, j)
   return x0, y0, x0 + P.LOT, y0 + P.LOT
 end
 
+--- Lot (i, j) dont le rectangle contient la tuile (tx, ty) ; nil sur une rue (lot POTEAUX-COURT).
+function P.lot_at(lat, tx, ty)
+  local i = math.floor((tx + 0.5 - lat.ox + P.HALF) / P.PITCH)
+  local j = math.floor((ty + 0.5 - lat.oy + P.HALF) / P.PITCH)
+  local x0, y0 = P.lot_rect(lat, i, j)
+  if tx < x0 + P.LOT and ty < y0 + P.LOT then return i, j end
+  return nil
+end
+
 function P.lot_key(i, j) return i .. ":" .. j end
 
 --- Centre du carrefour (i, j).
