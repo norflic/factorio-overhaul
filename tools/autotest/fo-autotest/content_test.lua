@@ -13,6 +13,7 @@ local M = require("__factorio-overhaul__/shared/content/modules")
 local E = require("__factorio-overhaul__/shared/content/enemies")
 local W = require("__factorio-overhaul__/shared/content/world")
 local LV = require("__factorio-overhaul__/shared/levels/config")
+local RL = require("__factorio-overhaul__/shared/content/recipe_lots") -- lot EQUILIBRE : assembleur 28 au lot × 10 (même recette)
 local Greffons = require("greffons")
 -- Lot MODULES-MIGRATION : effets attendus selon l'état de la machine (somme du moteur, ou produit de la balise).
 local Attendu = require("module_attendu")
@@ -933,7 +934,7 @@ local function setup_high_epoch(s, L)
     g28 and string.format("%.0f / %.0f PV", g28.health, g28.prototype.max_health) or "tourelle introuvable")
   local am28 = at(s, LV.name(LV.by_key.assembler, 28), H.am.x, H.am.y)
   local rec = am28 and am28.get_recipe()
-  check(rec and rec.name == "iron-gear-wheel", "niveaux (epoque 14) : recette conservee au niveau 28", rec and rec.name or "aucune")
+  check(rec and (RL.parse(rec.name) or rec.name) == "iron-gear-wheel", "niveaux (epoque 14) : recette conservee au niveau 28", rec and rec.name or "aucune")
   -- Q16 : le four (niveau 27) bloque le centre 14 → 15 (niveau visé 28).
   local all_cc = inv and stock(inv, C, 15, 1) or false
   check(all_cc, "niveaux (epoque 14) : cout du centre 15 range dans le coffre du centre 14",

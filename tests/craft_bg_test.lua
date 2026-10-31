@@ -260,14 +260,16 @@ for _ = 1, 1200 do
 end
 check(stuckq ~= nil, "un PNJ dont la file fabrique en arrière-plan")
 if stuckq then
-  local keys0 = {}
-  for _, j in ipairs(stuckq.bg.jobs) do keys0[#keys0 + 1] = j.task.key end
+  -- (intégration 0.6.28 : la TÂCHE elle-même, pas sa clé : le planificateur rouvre la même clé, moteur simulé : « craft:gun-turret:defense:1 »
+  -- reprise 54 s plus tôt ; une tâche neuve n'est pas un travail d'avant le blocage)
+  local keys0, tasks0 = {}, {}
+  for _, j in ipairs(stuckq.bg.jobs) do keys0[#keys0 + 1] = j.task.key tasks0[j.task.key] = j.task end
   -- Une entrée qui ne finit jamais, en tête de file (le moteur simulé sort la file dans l'ordre) : la file reste occupée.
   table.insert(stuckq.entity._craft, 1, { recipe = "iron-gear-wheel", due = math.huge })
   M.run_ticks(16 * 3600)
   f = global.fo.pteam.team
   local still = false
-  for _, k in ipairs(keys0) do if Board.get(f).tasks[k] then still = true end end
+  for _, k in ipairs(keys0) do if Board.get(f).tasks[k] == tasks0[k] then still = true end end
   check(not still, "travaux d'avant le blocage clos (délai) et rendus au tableau")
   local oldest = 0
   for _, j in ipairs((stuckq.bg and stuckq.bg.jobs) or {}) do oldest = math.max(oldest, game.tick - j.at) end

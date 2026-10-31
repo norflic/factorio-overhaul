@@ -65,8 +65,8 @@ local function put(s, f, family, n, x, y, dir)
   return s.create_entity({ name = LV.name(family, n), position = { x = x, y = y }, direction = dir, force = f, raise_built = true })
 end
 
-local function ins(s, f, x, y, dir)
-  return s.create_entity({ name = "inserter", position = { x = x, y = y }, direction = dir, force = f, raise_built = true })
+local function ins(s, f, x, y, dir, name)
+  return s.create_entity({ name = name or "inserter", position = { x = x, y = y }, direction = dir, force = f, raise_built = true })
 end
 
 local function chest(s, f, x, y)
@@ -169,13 +169,14 @@ function M.setup(ctx)
   local xf = x0 + 10.5
   local f7 = put(s, f, FU, 7, xf, yc + 0.5)
   if f7 then f7.get_inventory(defines.inventory.fuel).insert({ name = "coal", count = 20 }) end
-  st.f7, st.f7_ins, st.f7_chest = f7, ins(s, f, xf, yc - 1.5, defines.direction.north), chest(s, f, xf, yc - 2.5)
+  -- Bras rapide (lot EQUILIBRE) : un four 7 fond en 0,69 s, un bras ordinaire (1,2 s) le laisse à l'arrêt au tick ACT.
+  st.f7, st.f7_ins, st.f7_chest = f7, ins(s, f, xf, yc - 1.5, defines.direction.north, "fast-inserter"), chest(s, f, xf, yc - 2.5)
   st.f7_chest.insert({ name = "iron-ore", count = 200 })
   -- Four 6 (2×2) : 6 → 7 par script au tick ACT, puis 7 → 8 par le moteur au tick ACT + 1.
   local xg = x0 + 24
   local f6 = put(s, f, FU, 6, xg, yc)
   if f6 then f6.get_inventory(defines.inventory.fuel).insert({ name = "coal", count = 20 }) end
-  st.f6, st.f6_ins, st.f6_chest = f6, ins(s, f, xg - 0.5, yc - 1.5, defines.direction.north), chest(s, f, xg - 0.5, yc - 2.5)
+  st.f6, st.f6_ins, st.f6_chest = f6, ins(s, f, xg - 0.5, yc - 1.5, defines.direction.north, "fast-inserter"), chest(s, f, xg - 0.5, yc - 2.5)
   st.f6_chest.insert({ name = "iron-ore", count = 200 })
   -- Assembleur 7 (4×4, coordonnées entières) à moteurs : bras d'entrée à l'ouest, de sortie au nord.
   local xm = x0 + 40

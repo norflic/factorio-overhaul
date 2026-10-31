@@ -306,6 +306,7 @@ local function s2()
   -- c. Épuisement proche : ouvrir d'avance, sans manque.
   local inp_c = iron_scene(D, 60)
   inp_c.deposits[1].amount = 1500
+  inp_c.deposits[1].covered = 270 -- (lot GISEMENTS : couvert en entier ; sinon la couverture d'avance, jusqu'à 1000 ‰, prend le budget d'abord)
   local r3 = Ca.decide(inp_c, {})
   local o3 = find(r3, "ouvrir:s2")
   check(o3 and o3.n == Ca.OPEN_MIN and (o3.why or ""):find("epuisement", 1, true),
@@ -353,6 +354,15 @@ local function s2()
   local rf5 = refus_of(r5, "couvrir:d1")
   check(find(r5, "couvrir:d1") == nil and rf5 and rf5.why:find("menace", 1, true), "§2e menace : couvrir refusé (" .. tostring(rf5 and rf5.why) .. ")")
   check(math.abs(r5.tmax * 4 - r1.tmax) < 1e-9, string.format("§2e menace : retour accepté %.1f -> %.1f min (÷ 4)", r1.tmax, r5.tmax))
+  -- Intégration 0.6.28 : une matière en manque passe la menace (la pile la laisse déjà passer), le danger du gisement reste exclu.
+  local inp_es = iron_scene(D, 150)
+  inp_es.threat, inp_es.starved = true, { ["iron-ore"] = true }
+  local r5s = Ca.decide(inp_es, {})
+  check(find(r5s, "couvrir:d1") ~= nil, "intégration : matière en manque sous la menace, couvrir ordonné")
+  local inp_ed = iron_scene(D, 150)
+  inp_ed.threat, inp_ed.starved = true, { ["iron-ore"] = true }
+  inp_ed.deposits[1].danger = true
+  check(find(Ca.decide(inp_ed, {}), "couvrir:d1") == nil, "intégration : gisement dangereux exclu, matière en manque ou non")
   -- f. Un site un peu moins cher (plus proche, bras payés) ne passe pas devant un gisement qui a des places ; 20 % moins
   --    cher par débit, il s'ouvre (le travail d'un chantier lointain coûte cher quand aucun bras n'est libre).
   local function near_site(workers)
@@ -392,16 +402,42 @@ local function s2()
   local oh = find(rh, "ouvrir:s2")
   check(oh and (oh.why or ""):find("reserve", 1, true) and oh.n == Ca.OPEN_MIN,
     "§2h réserve de places basse : s2 ouvert d'avance (" .. tostring(oh and oh.why) .. ")")
+  -- j. Lot GISEMENTS (DC 31/10) : le gisement ouvert d1 a des places et s2 est à 60 tuiles : pas d'avant-poste de trop ; épuisement ou
+  --    site lointain : ouvert comme avant. Mutant : voisinage nul = ouvert.
+  local function scene_j(sx, amount)
+    local inp = iron_scene(D, 700, { flows = { ["iron-ore"] = { made = 700 }, ["iron-plate"] = { made = 700 } } })
+    inp.deposits[1].covered, inp.drills[1].n = 200, 24
+    inp.deposits[1].x, inp.deposits[1].y, inp.deposits[2].x, inp.deposits[2].y = 0, 0, sx, 0
+    inp.deposits[1].amount = amount or 1e6
+    return inp
+  end
+  local cl_saved = Ca.AHEAD_PCT
+  Ca.AHEAD_PCT = 0 -- (pas de couverture d'avance : d1 garde ses places, sinon il est plein avant l'ouverture et s2 n'est plus de trop)
+  local rj = Ca.decide(scene_j(60), {})
+  local rfj = refus_of(rj, "ouvrir:s2")
+  check(find(rj, "ouvrir:s2") == nil and rfj and rfj.why:find("voisin", 1, true), "§2j site à 60 tuiles d'un gisement à places : pas d'ouverture (" .. tostring(rfj and rfj.why) .. ")")
+  local function voisin(sx, amount)
+    local rf = refus_of(Ca.decide(scene_j(sx, amount), {}), "ouvrir:s2")
+    return rf ~= nil and rf.why:find("voisin", 1, true) ~= nil
+  end
+  check(not voisin(300), "§2j site à 300 tuiles : jamais refusé pour voisinage")
+  check(not voisin(60, 1500), "§2j gisement voisin qui s'épuise : jamais refusé pour voisinage")
+  local near_saved0 = Ca.NEAR_SITE
+  Ca.NEAR_SITE = 0
+  check(not voisin(60), "§2j mutant : voisinage nul = jamais refusé (le test sait voir la règle)")
+  Ca.NEAR_SITE = near_saved0
+  Ca.NEAR_SITE = near_saved
+  Ca.AHEAD_PCT = cl_saved
   -- i. Couverture d'AVANCE : aucun manque (6 foreuses pour 150/min), du budget : d1 couvert d'avance jusqu'à Ca.KAPPA
-  --    (800 ‰ des 270 tuiles : 216 tuiles, 81 couvertes, 13,5 par foreuse : 10 foreuses de plus), gain à 25 %.
+  --    (1000 ‰ des 270 tuiles depuis le lot GISEMENTS, 800 avant : 270 tuiles, 81 couvertes, 13,5 par foreuse : 14 foreuses de plus, 10 à 800 ‰), gain à 25 %.
   --    Lot CAPIB : décision de l'intégrateur sur Q-CAPI-1 (OBJECTIFS §4, 27/10) : SANS le plafond « 2 × le besoin »
   --    (Ca.COVER_LEAD = nil) ; avec l'ancien plafond (Ca.COVER_LEAD = 2) : 4 foreuses, comme avant.
   local inp_i = iron_scene(D, 150, { flows = { ["iron-ore"] = { made = 180 }, ["iron-plate"] = { made = 75 } } })
   inp_i.drills[1].n = 6
   local ri = Ca.decide(inp_i, {})
   local oi = find(ri, "couvrir:d1")
-  check(oi and oi.why == "couverture d'avance" and oi.n == 10 and oi.useful == 0,
-    "§2i couverture d'avance jusqu'à 800 pour mille (Q-CAPI-1) : " .. tostring(oi and oi.n) .. " foreuses (" .. tostring(oi and oi.why) .. ")")
+  check(oi and oi.why == "couverture d'avance" and oi.n == 14 and oi.useful == 0,
+    "§2i couverture d'avance jusqu'à 1000 pour mille (Q-CAPI-1) : " .. tostring(oi and oi.n) .. " foreuses (" .. tostring(oi and oi.why) .. ")")
   local saved_cl = Ca.COVER_LEAD
   Ca.COVER_LEAD = 2
   local oi2 = find(Ca.decide(inp_i, {}), "couvrir:d1")
@@ -581,6 +617,20 @@ local function s4()
   check(og and op and ig < ip, string.format("§4c engrenages (%s) avant packs (%s)", tostring(ig), tostring(ip)))
   check(op and op.n == 5 and op.entity == "assembling-machine-1", "§4c packs : 30/min, 5 assembleurs (" .. tostring(op and op.n) .. ")")
   check(op and op.value >= Ca.V_MIN and og and og.value >= Ca.V_MIN, "§4c valeur des ordres ≥ 35 (travail qui fait recruter)")
+  -- c1. Lot PILE-MALL : une chaîne se dimensionne aussi sur la demande (Ca.CHAIN_LEAD), pas seulement sur le manque présent
+  --     (40 laboratoires : 150 packs/min, donc 150 engrenages/min ; l'assembleur 1 en fait 60).
+  local big = { machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 40, where = "d-fe" },
+      { entity = "stone-furnace", recipe = "copper-plate", n = 20, where = "d-cu" } },
+    flows = { ["iron-plate"] = { made = 750 }, ["copper-plate"] = { made = 375 } }, labs = { { entity = "lab", n = 40 } },
+    research = { queue = { { tech = "electronics", left = 5000, time = 15, packs = { { "automation-science-pack", 1 } } } }, rate = 2250 } }
+  local lead_saved = Ca.CHAIN_LEAD
+  Ca.CHAIN_LEAD = nil
+  local og0 = find(Ca.decide(pack_scene(D, big), {}), "chaine:iron-gear-wheel")
+  Ca.CHAIN_LEAD = lead_saved
+  local og1 = find(Ca.decide(pack_scene(D, big), {}), "chaine:iron-gear-wheel")
+  say(string.format("§4c1 engrenages (150/min voulus) : %s machine(s) sans avance, %s avec (CHAIN_LEAD %s)", tostring(og0 and og0.n),
+    tostring(og1 and og1.n), tostring(Ca.CHAIN_LEAD)))
+  check(og0 and og1 and og1.n > og0.n and og1.n <= og0.n + Ca.CHAIN_MAX, "§4c1 avance de chaîne : plusieurs usines par objet selon la demande (" .. tostring(og0 and og0.n) .. " -> " .. tostring(og1 and og1.n) .. ")")
   -- c2. Retour de CHAÎNE : T = (taille ÷ part utile) × capital de la chaîne (assembleur + 2 × (four + foreuse)) ÷ valeur,
   --     recalculé par le test ; la valeur au puits n'est pas comptée à chaque étage.
   local exp_g = og and (og.rate / og.useful) * cc_test(D, "iron-gear-wheel") / D.mu["iron-gear-wheel"]

@@ -502,7 +502,7 @@ function Recon.gather(f, s, book, free, r, tick)
   if not c then return 0 end
   local tasks = {}
   for _, u in ipairs(list) do
-    tasks[#tasks + 1] = { key = "recon:gather:" .. u[1], kind = "mine", prio = Rc.task_prio(Rc.INFRA_VALUE), resource = u[1], count = u[2],
+    tasks[#tasks + 1] = { key = "recon:gather:" .. u[1], kind = "mine", prio = Rc.task_prio(Rc.INFRA_VALUE), resource = u[1], count = u[2], short = u[2],
       trees = true, prudent = true, domain = "defense", tag = "reconstruction" }
   end
   -- Le tableau est resynchronisé à chaque pensée (les tâches libres non replanifiées disparaissent) : la tâche est rouverte tant que

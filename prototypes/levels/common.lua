@@ -269,6 +269,16 @@ local function move_fluid_boxes(p, a, b)
   end
 end
 
+--- Lot EQUILIBRE (relecture) : le faisceau d'un laser doit atteindre sa portée finale (statistique + bonus d'emprise).
+local function sync_beam_length(p)
+  local ap = p.attack_parameters
+  local a = type(ap) == "table" and ap.ammo_type and ap.ammo_type.action
+  local d = type(a) == "table" and a.action_delivery
+  if type(d) == "table" and d.type == "beam" and type(d.max_length) == "number" and type(ap.range) == "number" then
+    d.max_length = L.beam_length(ap.range, d.max_length)
+  end
+end
+
 local function apply_footprint(p, family, n)
   local side = L.footprint(family, n)
   if side == family.size then return end
@@ -1251,6 +1261,7 @@ function Common.generate()
         p.fast_replaceable_group = BASE_GROUP[family.key] or p.fast_replaceable_group
         apply_stats(p, family, n)
         apply_footprint(p, family, n)
+        sync_beam_length(p)
         apply_module_slots(p, family, n)
       end
       -- Correction V3-T (défaut 9) : points de jeu d'un niveau agrandi hors de sa boîte de collision.

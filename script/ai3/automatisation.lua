@@ -573,6 +573,14 @@ function Auto.think(f, view, book, tick, research)
       mods[#mods + 1] = { product = "centrale", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain }
     end
   end
+  -- Lot ENERGIE (relecture) : le projet d'alimentation de la centrale (foreuses, tapis, poteaux ; demandé par le plan directeur, charbon_step)
+  -- est un projet du cerveau comme la centrale. Journaux du DC, 31/10 : les 2 plans acceptés (azure 148 entités, ambre 205) restés en
+  -- « reserve:materiaux », 0 entité bâtie : personne ne fabriquait ses tapis. Produit à part : A.goals ne garde qu'un but par produit.
+  local alim_id = Build.alim_project(f)
+  if alim_id then
+    local ps = Build.brief(f, alim_id)
+    if ps then mods[#mods + 1] = { product = "centrale-alim", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = st.plant_gain } end
+  end
   -- Lot MIGRATION-DECLENCHE (retour du DC du 29/10, 0.6.18 : « ils doivent automatiser, ils peuvent plus laisser des foreuses
   -- thermiques comme ça posées ») : la ligne électrique demandée par la migration du champ (script/team/migration_champ.lua) est un
   -- projet du cerveau comme la centrale : ses matériaux manquants (foreuses électriques, bras, tapis, poteaux) deviennent des buts

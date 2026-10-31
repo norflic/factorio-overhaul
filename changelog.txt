@@ -1,4 +1,14 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.28
+Date: 2026-10-31
+  Changes:
+    - Votre retour du 31/10. Zone sure elargie (nids de 80 a 256 tuiles retires une fois des sauvegardes) ; niveaux : x1,15 par niveau sur defenses, fours, foreuses et vie, portee des tourelles, plus de niveaux et de styles de biters.
+    - Gisements : foreuses retirees ou rebranchees quand elles meurent, cuivre et charbon compris dans le manque, pose a 30 % de couverture, fours hors des gisements, arret a 80 % supprime.
+    - Fin du minage a la main et du minerai au sol, inventaire mieux gere ; mall : chaine xN plutot qu'un assembleur seul.
+    - Energie : charbon automatique vers la vapeur, champ de machines a vapeur, secours ailleurs. Poteaux : chemins raccourcis.
+    - Pile : les attaques ne coupent plus l'evolution si le budget est la ; une matiere en manque passe seulement si rien de plus urgent ne la demande.
+    - Rien n'a ete rejoue en partie longue au moment de la fusion : relecture statique, tests hors jeu, bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.27
 Date: 2026-10-30
   Changes:

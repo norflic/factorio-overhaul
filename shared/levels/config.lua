@@ -216,6 +216,8 @@ L.MIN_MATERIAL_STACK = 50
 --   max         : niveau maximal (15 pour le centre, 30 pour les autres) ;
 --   stats       : { chemin, op, k } appliqué au prototype du niveau 1 :
 --                 "mul" : v × (1 + k·(n-1))     "add" : v + k·(n-1)
+--                 "pow" : v × (1 + k)^(n-1) (lot EQUILIBRE : × 1,15 PAR NIVEAU)
+--                 plan  : { op, k } cadence de PLAN des gabarits (L.plan_stat), plus basse que la machine réelle : voir L.plan_stat
 --                 "table" : v × t[n] (t : 30 nombres écrits ; lot TIRS, D-21 : dégâts des tourelles par âge)
 --                 knee, k2 : au-delà du niveau `knee`, la pente devient k2 (dégressif) ;
 --                 hidden : statistique absente du panneau ; label : clé de locale du panneau
@@ -229,7 +231,7 @@ L.families = {
   {
     key = "command", type = "container", base = "fo-command-center", size = 4, max = 15,
     stats = {
-      { path = { "max_health" }, op = "mul", k = 0.20 },
+      { path = { "max_health" }, op = "pow", k = 0.15 },
       { path = { "inventory_size" }, op = "add", k = 16 },
     },
     -- Panier calibré (V2c, `--calibrate` depuis le panier V2 260/130/130/50 : 775 u) : le passage 1 → 2 comble
@@ -241,12 +243,12 @@ L.families = {
   {
     -- Dégâts (lot TIRS, D-21 révisée le 28/10 : × 1,15 par âge) : niveaux 1 à 6 comme avant (+ 8 % par niveau), puis × 1,15 par ÂGE
     -- (shared/tirs/degats.lua, nombres écrits) : × 7,49 au niveau 30 (× 1,15 par âge ; 0.6.5 : × 2,12, + 2 % par âge de 6 à 15).
-    -- La tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS) vaut le niveau 12-13 : testé.
+    -- La tourelle lourde du mod (dégâts 1,5 × cadence 1,5 = × 2,25 en DPS) vaut le niveau 6-7 : testé (lot EQUILIBRE).
     key = "gun", type = "ammo-turret", base = "gun-turret", size = 2, max = 30,
     stats = {
-      { path = { "max_health" }, op = "mul", k = 0.15 },
+      { path = { "max_health" }, op = "pow", k = 0.15 },
       { path = { "attack_parameters", "damage_modifier" }, op = "table", t = DEGATS.par_niveau, default = 1 },
-      { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
+      { path = { "attack_parameters", "range" }, op = "add", k = 0.40 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "copper-plate", 3 } },
@@ -259,9 +261,9 @@ L.families = {
     -- CROISSENT avec l'âge (les balles aussi : une balle de plus haut niveau fait plus de dégâts pour la même munition).
     key = "laser", type = "electric-turret", base = "laser-turret", size = 2, max = 30,
     stats = {
-      { path = { "max_health" }, op = "mul", k = 0.15 },
+      { path = { "max_health" }, op = "pow", k = 0.15 },
       { path = { "attack_parameters", "damage_modifier" }, op = "table", t = DEGATS.par_niveau, default = 1 },
-      { path = { "attack_parameters", "range" }, op = "add", k = 0.25 },
+      { path = { "attack_parameters", "range" }, op = "add", k = 0.40 },
       { path = { "rotation_speed" }, op = "mul", k = 0.05 },
       { path = { "attack_parameters", "ammo_type", "energy_consumption" }, op = "mul", k = 0.04,
         label = "fo-epochs.stat-energy_consumption" },
@@ -273,8 +275,8 @@ L.families = {
   {
     key = "wall", type = "wall", base = "stone-wall", size = 1, max = 30, row = true,
     stats = {
-      -- 0.3.0 : × 1,30^(n-1) (× 2 000 au niveau 30 : explosion). Désormais linéaire : 350 → 5 425 PV.
-      { path = { "max_health" }, op = "mul", k = 0.50 },
+      -- 0.3.0 : × 1,30^(n-1) (× 2 000 au niveau 30 : explosion). Lot EQUILIBRE : × 1,15 par niveau, 350 → 20 151 PV.
+      { path = { "max_health" }, op = "pow", k = 0.15 },
     },
     -- Résistances : réduction fixe physique et explosion + 0,5 par niveau (en plus de la vanilla).
     resist_step = { explosion = 0.5, physical = 0.5 },
@@ -284,9 +286,9 @@ L.families = {
   {
     key = "drill", type = "mining-drill", base = "electric-mining-drill", size = 3, max = 30, modules = true,
     stats = {
-      { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "mining_speed" }, op = "mul", k = 0.10 },
-      { path = { "energy_usage" }, op = "mul", k = 0.07 },
+      { path = { "max_health" }, op = "pow", k = 0.15 },
+      { path = { "mining_speed" }, op = "pow", k = 0.15, plan = { op = "mul", k = 0.10 } },
+      { path = { "energy_usage" }, op = "pow", k = 0.12, plan = { op = "mul", k = 0.07 } },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 2 } },
     base_growth = 0.15, epoch_value = 7,
@@ -294,9 +296,9 @@ L.families = {
   {
     key = "furnace", type = "furnace", base = "steel-furnace", size = 2, max = 30,
     stats = {
-      { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "crafting_speed" }, op = "mul", k = 0.08 },
-      { path = { "energy_usage" }, op = "mul", k = 0.06 },
+      { path = { "max_health" }, op = "pow", k = 0.15 },
+      { path = { "crafting_speed" }, op = "pow", k = 0.15, plan = { op = "mul", k = 0.08 } },
+      { path = { "energy_usage" }, op = "pow", k = 0.12, plan = { op = "mul", k = 0.06 } },
     },
     base_cost = { { "steel-plate", 2 }, { "stone-brick", 3 } },
     base_growth = 0.15, epoch_value = 6,
@@ -304,9 +306,9 @@ L.families = {
   {
     key = "assembler", type = "assembling-machine", base = "assembling-machine-2", size = 3, max = 30, modules = true,
     stats = {
-      { path = { "max_health" }, op = "mul", k = 0.15 },
-      { path = { "crafting_speed" }, op = "mul", k = 0.08 },
-      { path = { "energy_usage" }, op = "mul", k = 0.06 },
+      { path = { "max_health" }, op = "pow", k = 0.15 },
+      { path = { "crafting_speed" }, op = "pow", k = 0.15, plan = { op = "mul", k = 0.08 } },
+      { path = { "energy_usage" }, op = "pow", k = 0.12, plan = { op = "mul", k = 0.06 } },
     },
     base_cost = { { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "electronic-circuit", 3 } },
     base_growth = 0.15, epoch_value = 7,
@@ -519,9 +521,44 @@ end
 ---------------------------------------------------------------------------------------------------
 -- Règles
 ---------------------------------------------------------------------------------------------------
+--- Valeur d'une statistique pour le PLAN des gabarits de shared/team/modules.lua (lot EQUILIBRE, relecture). Bras et
+--- tapis ne suivent pas × 1,15 par niveau : à la cadence réelle, une seule machine demanderait plus qu'un bras ne porte
+--- et le générateur refuserait les gabarits dès le niveau 7 (catalogue invalide, plus d'amélioration des factions). Le
+--- plan garde donc la courbe d'avant : la machine réelle est plus rapide que son plan, jamais moins (marge, pas manque).
+function L.plan_stat(stat, v1, n)
+  return L.apply_stat(stat.plan or stat, v1, n)
+end
+
+--- Vitesse de PLAN d'un bâtiment à niveaux de niveau > 1, depuis la vitesse v1 de son niveau 1 ; nil s'il n'a pas de courbe de plan
+--- (intégration 0.6.28 : capacité comptée par la capitalisation, mêmes bras et tapis que les gabarits).
+function L.plan_speed(name, v1)
+  local fam, n = L.parse(name)
+  if not (fam and n > 1 and v1) then return nil end
+  for _, st in ipairs(fam.stats) do
+    local key = st.path[#st.path]
+    if st.plan and (key == "crafting_speed" or key == "mining_speed") then return L.plan_stat(st, v1, n) end
+  end
+  return nil
+end
+
+--- Longueur du faisceau d'un laser à la portée `range` (lot EQUILIBRE, relecture) : la portée monte par niveau, le
+--- `max_length` de la copie vanilla (24) n'était jamais relu ; même marge que prototypes/arsenal.lua (portée + 2).
+--- Niveau dont la portée tient dans le faisceau : inchangé. Entier (uint32 du prototype).
+function L.beam_length(range, current)
+  if range <= current then return current end
+  return math.ceil(range) + 2
+end
+
 --- Valeur d'une statistique au niveau n à partir de la valeur du niveau 1.
 function L.apply_stat(stat, v1, n)
   if stat.op == "table" then return v1 * stat.t[n] end
+  -- Lot EQUILIBRE (retour du DC du 31/10 : « x1.15 de stats par niveau ») : v1 × (1 + k)^(n-1), calculé par
+  -- multiplications répétées (IEEE, même résultat partout : aucun appel de puissance au chargement).
+  if stat.op == "pow" then
+    local x = 1
+    for _ = 2, n do x = x * (1 + stat.k) end
+    return v1 * x
+  end
   local x = stat.k * (n - 1)
   if stat.knee and n > stat.knee then x = stat.k * (stat.knee - 1) + stat.k2 * (n - stat.knee) end
   if stat.op == "mul" then return v1 * (1 + x) end

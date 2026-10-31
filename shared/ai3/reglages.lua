@@ -138,6 +138,12 @@ R.RECON_ALL_PIECES = true
 -- posee (e.built) dont l'entite n'existe plus est remise « a batir » (fantome, PNJ du plan, cout sur le stock). Eteint : le registre de
 -- reconstruction refait les pieces des projets comme avant (si R.RECON_ALL_PIECES), le releve ne tourne pas.
 R.REBUILD_SWEEP = true
+-- Lot PILE-BUDGET (retour du DC du 31/10, points 8 et 9) : la retenue de la pile (poste incomplet, piece a refaire) ne vaut QUE si le
+-- stock ne couvre pas defense + reconstruction + une amelioration (shared/ai3/budget.lua). Faux : la retenue d'avant (temoin, tests).
+R.PILE_BUDGET = true
+-- Lot PILE-MALL : la pensee releve ce que la main fabrique souvent et decide les objets d'un mall (shared/ai3/mall.lua, journal [FO-MALL]).
+-- Decision et journal seulement : aucun batiment n'est pose par cette regle.
+R.PILE_MALL = true
 -- Lot REBUILD-TOUT : types du moteur des ENTREES DE PRODUCTION, refaites d'abord par le releve (foreuse, tapis, tapis souterrain, repartiteur,
 -- bras, four). Meme justification que R.ENTITY_ROLE : le moteur classe ses batiments par TYPE, aucun nom de batiment ici.
 R.REBUILD_FIRST = { ["mining-drill"] = true, ["transport-belt"] = true, ["underground-belt"] = true, ["splitter"] = true, ["inserter"] = true,
