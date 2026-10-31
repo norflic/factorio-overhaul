@@ -30,6 +30,11 @@
      règle pure shared/team/adopte.lua) : type de prototype -> registre de l'équipe qui le fait servir, et types du moteur
      (bras, tapis, foreuses…) dont le voisinage prouve qu'une machine appartient à une ligne du joueur. Même justification
      que R.ENTITY_ROLE : le moteur classe ses bâtiments par TYPE ; aucun nom de bâtiment ici ni dans le cerveau.
+  9. R.SOURCE_CAP et R.KIT_TYPE (lot INDUSTRIE I4, lecture générique des machines et du kit) : types du moteur seulement.
+     SOURCE_CAP : nombre d'ingrédients SOLIDES qu'une machine d'un type accepte quand le moteur ne le dit pas par
+     `ingredient_count` (le four : une case de source, `source_inventory_size` plafonné à 1 par la doc des prototypes).
+     KIT_TYPE : type d'entité -> pièce du kit de logistique d'un patron (bras, tapis, coffre, poteau), choisie par TYPE et
+     par ses nombres (portée, vitesse, cases, fil), jamais par son nom.
   Ce fichier ne contient aucune fonction.
 ]]
 
@@ -62,6 +67,9 @@ R.ENTITY_ROLE = {
   ["roboport"] = "logistique",
   ["radar"] = "logistique",
 }
+-- Lot INDUSTRIE I4 : voir le point 9 de l'en-tête.
+R.SOURCE_CAP = { ["furnace"] = 1 }
+R.KIT_TYPE = { ["inserter"] = "bras", ["transport-belt"] = "tapis", ["container"] = "coffre", ["electric-pole"] = "poteau" }
 -- Ordre de lecture des types (le moteur rend les prototypes dans une table : l'ordre de lecture est fixé ici).
 R.ENTITY_TYPES = {}
 for k in pairs(R.ENTITY_ROLE) do R.ENTITY_TYPES[#R.ENTITY_TYPES + 1] = k end

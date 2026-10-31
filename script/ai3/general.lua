@@ -27,6 +27,7 @@ local R = require("shared.ai3.reglages")
 local K = require("shared.ai3.catalogue")
 local Br = require("shared.ai3.bras") -- lot SCALE : bras libres lissés
 local Gen = require("shared.ai3.general")
+local L = require("shared.ai3.lecture") -- lot INDUSTRIE I4 : bilan de la lecture des recettes et machines
 local Jdc = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : règle du journal [FO-MUR]
 local B = require("shared.ai3.buts")
 local Planner = require("shared.team.planner")
@@ -75,6 +76,64 @@ end
 ---------------------------------------------------------------------------------------------------
 local cat = nil
 local memos = {}
+
+-- Lot INDUSTRIE I4 : emprise (tuiles) et boîtes à fluide d'un prototype, lues telles quelles (même lecture que
+-- script/ai3/petrole.lua, qui garde la sienne pour ses cellules).
+local function size_of(p)
+  local w, h = get(p, "tile_width"), get(p, "tile_height")
+  if w and h and w > 0 and h > 0 then return w, h end
+  local cb = get(p, "collision_box")
+  if not cb then return 1, 1 end
+  return math.max(1, math.ceil(cb.right_bottom.x - cb.left_top.x - 0.02)), math.max(1, math.ceil(cb.right_bottom.y - cb.left_top.y - 0.02))
+end
+
+local function boxes_of(p)
+  local out = {}
+  for _, fb in ipairs(get(p, "fluidbox_prototypes") or {}) do
+    local conns = { [0] = {}, [2] = {}, [4] = {}, [6] = {} }
+    for _, pc in ipairs(get(fb, "pipe_connections") or {}) do
+      if not pc.max_underground_distance or pc.max_underground_distance == 0 then
+        for i, d in ipairs({ 0, 2, 4, 6 }) do
+          local v = pc.positions and pc.positions[i]
+          if v then conns[d][#conns[d] + 1] = { v.x or v[1], v.y or v[2] } end
+        end
+      end
+    end
+    local filt = get(fb, "filter")
+    out[#out + 1] = { type = get(fb, "production_type") or "none", filter = filt and filt.name or nil, conns = conns }
+  end
+  return out
+end
+
+local function vec_of(v)
+  if not v then return nil end
+  return { x = v.x or v[1] or 0, y = v.y or v[2] or 0 }
+end
+
+--- Lot INDUSTRIE I4 : champs ajoutés au relevé d'une entité de fabrication (emprise, ingrédients solides au plus, recette
+--- imposée, boîtes à fluide) ou d'une pièce du kit de logistique (R.KIT_TYPE : portée et cadence des bras, vitesse des
+--- tapis, cases des coffres, fil et couverture des poteaux).
+local function lecture_fields(en, e, ty, role)
+  if role == "fabrique" then
+    en.w, en.h = size_of(e)
+    if not R.SOURCE_CAP[ty] then en.ingredient_count = get(e, "ingredient_count") end
+    en.fixed_recipe = get(e, "fixed_recipe")
+    en.boxes = boxes_of(e)
+  end
+  local kind = R.KIT_TYPE[ty]
+  if kind == "bras" then
+    en.pickup, en.drop = vec_of(get(e, "inserter_pickup_position")), vec_of(get(e, "inserter_drop_position"))
+    en.rot, en.ext = get(e, "inserter_rotation_speed"), get(e, "inserter_extension_speed")
+    en.filters, en.stack = get(e, "filter_count") or 0, get(e, "inserter_stack_size_bonus") or 0
+  elseif kind == "tapis" then
+    en.belt_speed = get(e, "belt_speed")
+  elseif kind == "coffre" then
+    local ok, n = pcall(function() return e.get_inventory_size(defines.inventory.chest) end)
+    en.slots = ok and n or nil
+  elseif kind == "poteau" then
+    en.supply, en.wire = get(e, "supply_area_distance"), get(e, "max_wire_distance")
+  end
+end
 
 local function amount_of(p)
   if p.amount then return p.amount end
@@ -137,6 +196,7 @@ function General.dump()
           if filt and pt == "output" then en.fluid_out = en.fluid_out or filt.name end
         end
       end
+      lecture_fields(en, e, ty, role)
       d.entities[#d.entities + 1] = en
     end
   end
@@ -196,11 +256,23 @@ function General.catalogue()
   cats[ck] = cat
   if pon then pet_infos[ck] = Pet.get_info() end
   Profiler.stop("iag:catalogue")
+  -- Lot INDUSTRIE I4 : ce que les machines du jeu permettent de fabriquer, et le kit de logistique (une ligne par lecture).
+  log("[FO-IND-LECTURE] " .. L.line(cat.lecture, #cat.fab_machines) .. " | " .. General.kit_text(cat.kit()))
   log(string.format("[FO-CERVEAU] catalogue lu dans les prototypes : %d recettes faisables, %d technologies, %d machines exécutables, %d packs, combustible %s%s%s",
     #cat.g.recipe_list, #cat.tech_list, #cat.g.machine_list, #cat.pack_list, tostring(cat.fuel),
     on and " (automatisation allumee : executants de ses gabarits compris)" or "",
     pon and " (petrole allume : extracteurs des fluides et machines des cellules compris)" or ""))
   return cat
+end
+
+--- Kit de logistique en une ligne de journal (les objets viennent du relevé).
+function General.kit_text(kit)
+  local out = {}
+  for _, k in ipairs({ "bras", "bras_long", "tapis", "coffre", "poteau" }) do
+    local c = kit[k]
+    out[#out + 1] = k .. " " .. (c and c.item or "AUCUN")
+  end
+  return "kit " .. table.concat(out, ", ")
 end
 
 function General.on() return General.ENABLED == true end
@@ -583,6 +655,28 @@ remote.add_interface("fo-iag", {
     local g = f.team.iag or {}
     local out = { decisions = g.decisions or 0, history = {}, key = g.key, explore = sorted_keys(g.explore) }
     for i, h in ipairs(g.history or {}) do out.history[i] = { tech = h.tech, tick = h.tick, value = h.value, cost = h.cost } end
+    return out
+  end,
+  -- Lot INDUSTRIE I4 : la lecture générique (cat.fab) en chaînes et nombres, pour le banc `ind-lecture` et la copie jetable.
+  -- `recette` (facultatif) : l'entrée de cette recette seulement (machines, refus).
+  lecture = function(recette)
+    local c = General.catalogue()
+    local kit = c.kit()
+    local out = { summary = c.lecture, line = L.line(c.lecture, #c.fab_machines), kit = General.kit_text(kit),
+      kit_items = {}, machines = {}, fab = {} }
+    for _, k in ipairs({ "bras", "bras_long", "tapis", "coffre", "poteau" }) do out.kit_items[k] = kit[k] and kit[k].item or nil end
+    for _, m in ipairs(c.fab_machines) do out.machines[#out.machines + 1] = m.entity end
+    local names = recette and { recette } or sorted_keys(c.fab)
+    for _, n in ipairs(names) do
+      local e = c.fab[n]
+      if e then
+        local ms = {}
+        for _, m in ipairs(e.machines) do ms[#ms + 1] = m.entity end
+        out.fab[n] = { category = e.category, s = e.s, fluides_in = #e.fluides_in, fluides_out = #e.fluides_out,
+          produits = #e.produits, main = e.main, patronnable = e.patronnable, machines = ms,
+          refus = e.refus and e.refus.code or nil, texte = e.refus and e.refus.texte or nil }
+      end
+    end
     return out
   end,
   catalogue = function()
