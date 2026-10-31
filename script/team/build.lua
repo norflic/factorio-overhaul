@@ -715,6 +715,7 @@ local function plan_power(f, p, mp, masks)
   -- route de carrefours jusqu'au réseau (tronçons non fermés)
   local target
   local keys = sorted_keys(b.net)
+  local gen_net = nil -- réseau des machines à vapeur (lu aussi par la chaîne directe, lot POTEAUX-COURT)
   if #keys == 0 then
     target = { i = mi, j = mj }
   else
@@ -725,7 +726,6 @@ local function plan_power(f, p, mp, masks)
     -- graine 20261020, scarlet : la rangée de pierre reliée à la route d'un module annulé, puis la fonderie et les
     -- chargeurs reliés à elle : trois modules sur une île, centrale à 0 kW). À défaut, les carrefours de la centrale, puis
     -- n'importe lequel.
-    local gen_net = nil
     if surface then
       local g = surface.find_entities_filtered({ force = f.force, type = "generator", limit = 1 })[1]
       gen_net = g and g.electric_network_id or nil
@@ -767,6 +767,7 @@ local function plan_power(f, p, mp, masks)
   local nodes
   -- lot PLANDIR : cause exacte d'un refus « pas de rue vers le reseau » (journal [FO-PLANDIR], 3 lignes au plus par projet)
   local cause, blocked_at
+  local no_route -- lot POTEAUX-COURT : aucune route de carrefours ({ wait = attente du refus }) : la chaîne directe ou le refus
   for attempt = 1, 4 do
     nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_passable(b)), b.radius)
     if not nodes then nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_wire(b)), b.radius) end
@@ -803,7 +804,31 @@ local function plan_power(f, p, mp, masks)
       local ok_w = P.route_nodes({ i = mi, j = mj }, target, seg_wire(b), b.radius) ~= nil
       if ok_s or ok_w then wait = "net" end
     end
-    return nil, "pas de rue vers le reseau", wait
+    -- lot POTEAUX-COURT (relecture) : b.net ne grandit plus quand le direct gagne, le carrefour cible s'éloigne : sans route, la
+    -- chaîne directe au poteau vivant le plus proche relie encore le module (plus bas) ; le refus ne tombe que si elle échoue
+    if far or big or not surface or #keys == 0 then return nil, "pas de rue vers le reseau", wait end
+    no_route = { wait = wait }
+    nodes = {}
+  end
+  -- lot POTEAUX-COURT (relecture, maillon manquant) : le but de la chaîne directe est le poteau VIVANT le plus proche du module (tout
+  -- poteau sur le réseau des machines à vapeur, celui d'un module voisin ou d'une chaîne directe d'avant compris), pas le carrefour
+  -- cible : sinon chaque module tirait sa ligne parallèle jusqu'au même carrefour lointain. Seuls des poteaux qui existent sont
+  -- traversés gratuitement (un poteau prévu par un projet annulé laisserait un trou, moteur réel e8-usine). Sans centrale qui
+  -- tourne : le carrefour cible.
+  local dgoal, dlive
+  local dlink = math.min(reach, P.wire(mp.name) or 9)
+  if not far and not big and surface and (no_route or #nodes >= 2) then
+    dgoal = spot_of(target.i, target.j)
+    if dgoal and gen_net then
+      local d = math.sqrt((mp.x - dgoal.x) ^ 2 + (mp.y - dgoal.y) ^ 2) + 1
+      local live = {}
+      for _, e in ipairs(surface.find_entities_filtered({ area = { { mp.x - d, mp.y - d }, { mp.x + d, mp.y + d } }, force = f.force, type = "electric-pole" })) do
+        if e.electric_network_id == gen_net and (P.wire(e.name) or 0) >= dlink - 1e-9 then live[#live + 1] = { x = e.position.x, y = e.position.y } end
+      end
+      table.sort(live, function(u, v) if u.y ~= v.y then return u.y < v.y end return u.x < v.x end)
+      local near = Pt.nearest(mp, live)
+      if near then dgoal, dlive = near, live end
+    end
   end
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
@@ -817,10 +842,12 @@ local function plan_power(f, p, mp, masks)
     -- (lot PD-CENTRALE : la ligne lointaine lit son propre couloir, chunk par chunk, dans Far.line)
     if not far then legs[1] = { a = { x = mp.x, y = mp.y }, b = npos0 } end
     local pv
-    -- lot POTEAUX-COURT : couloir de la chaîne directe du module au poteau du réseau (relevé avec les autres)
-    if not far and not big and #nodes >= 3 then
-      local tp = spot_of(target.i, target.j)
-      if tp then legs[#legs + 1] = { a = { x = mp.x, y = mp.y }, b = tp } end
+    -- lot POTEAUX-COURT : couloir de la chaîne directe (relevé avant ceux de l'escalier, qu'un long détour peut faire plafonner) ;
+    -- au-delà du plafond de chunks, ses tuiles seraient « inconnues » (libres) : pas de direct
+    if dgoal then
+      local leg = { a = { x = mp.x, y = mp.y }, b = dgoal }
+      local _, total = Mq.corridor({ leg }, Mq.margin(reach))
+      if total <= Mq.MAX_CHUNKS then legs[#legs + 1] = leg else dgoal = nil end
     end
     for _, n in ipairs(nodes) do
       local pos = spot_of(n.i, n.j)
@@ -842,19 +869,41 @@ local function plan_power(f, p, mp, masks)
     if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= reach - 1e-9 then known[#known + 1] = { x = e.x, y = e.y } end
   end
   for _, e in ipairs(p.ents) do add_known(e) end
+  if dlive then for _, k in ipairs(known) do dlive[#dlive + 1] = k end end -- (les poteaux de ce projet sont posés avec lui)
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
     -- centrale abandonnée exclue : reseau_vivant ne rouvre plus ses poteaux, on ne s'appuie pas sur eux
     if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then for _, e in ipairs(q.ents) do add_known(e) end end
   end
-  -- lot POTEAUX-COURT : chaîne DIRECTE du module au poteau du réseau (A* du module au but, sans passer par les carrefours),
-  -- calculée avant l'escalier (les tuiles prises par l'escalier ne la gênent pas) et comparée à lui plus bas
+  -- lot POTEAUX-COURT : chaîne DIRECTE du module à dgoal (A* sans passer par les carrefours), calculée avant l'escalier et comparée à
+  -- lui plus bas. Relecture : elle suit d'abord les rues et les lots déjà pris, un poteau au milieu d'un lot libre y refuserait
+  -- les modules (P.fit dans 24 x 24, l.bad à 2 : lot exclu) ; elle ne coupe un lot libre que si les rues font un vrai détour.
   local n0 = #out
-  local direct, dpos, dlink
-  if not far and surface and not big and #nodes >= 3 then
-    dpos = spot_of(target.i, target.j)
-    dlink = math.min(reach, P.wire(mp.name) or 9)
-    if dpos then direct = P.pole_chain({ x = mp.x, y = mp.y }, dpos, dlink, false, free, known) end
+  local direct
+  if dgoal then
+    local a = { x = mp.x, y = mp.y }
+    local k = dlive or known
+    local opts = Cl.path_opts(math.sqrt((a.x - dgoal.x) ^ 2 + (a.y - dgoal.y) ^ 2), dlink)
+    local oi, oj = P.lot_at(b.lat, math.floor(mp.x), math.floor(mp.y))
+    local function free_street(x, y)
+      if not free(x, y) then return false end
+      local i, j = P.lot_at(b.lat, math.floor(x), math.floor(y))
+      return not i or (i == oi and j == oj) or not Pt.lot_protected(b.lots[P.lot_key(i, j)])
+    end
+    direct = P.pole_chain(a, dgoal, dlink, false, free_street, k, opts)
+    if not Pt.keep_street(a, direct, dgoal) then
+      local c2 = P.pole_chain(a, dgoal, dlink, false, free, k, opts)
+      if c2 and (not direct or Pt.length(a, c2, dgoal) < Pt.length(a, direct, dgoal) - 0.01) then direct = c2 end
+    end
+  end
+  local function direct_out()
+    local r = {}
+    for _, c in ipairs(direct) do r[#r + 1] = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" } end
+    return r, nil, {} -- (aucun carrefour : pas de poteau dessus, b.net n'est pas touché)
+  end
+  if no_route then
+    if not direct then return nil, "pas de rue vers le reseau", no_route.wait end
+    return direct_out()
   end
   local via_len = 0
   local prev
@@ -871,7 +920,10 @@ local function plan_power(f, p, mp, masks)
     local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
     if prev and (not big or d2 > reach * reach - 1e-6) then
       local chain = P.pole_chain(prev, pos, reach, big, free, known)
-      if not chain then return nil, "poteaux de rue" end
+      if not chain then
+        if direct then return direct_out() end -- (l'escalier échoue, le direct passe)
+        return nil, "poteaux de rue"
+      end
       via_len = via_len + Pt.length(prev, chain, pos)
       for _, c in ipairs(chain) do
         local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
@@ -892,7 +944,10 @@ local function plan_power(f, p, mp, masks)
   else
     chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
   end
-  if not chain then return nil, "liaison electrique" end
+  if not chain then
+    if direct then return direct_out() end
+    return nil, "liaison electrique"
+  end
   via_len = via_len + Pt.length({ x = mp.x, y = mp.y }, chain, npos)
   for _, c in ipairs(chain) do
     -- (lot PD-CENTRALE : un poteau de la ligne lointaine arrive avec son point d'appui, lu sur le terrain de la ligne)
@@ -902,26 +957,19 @@ local function plan_power(f, p, mp, masks)
     take(e)
   end
   -- lot POTEAUX-COURT : l'escalier de carrefours contre la chaîne directe (règle : Pt.prefer_direct) ; journal [FO-POTEAUX]
-  if dpos then
+  if dgoal then
     local via = { n = #out - n0, len = via_len }
-    local dir = direct and { n = #direct, len = Pt.length({ x = mp.x, y = mp.y }, direct, dpos) } or nil
-    local d0 = math.sqrt((mp.x - dpos.x) ^ 2 + (mp.y - dpos.y) ^ 2)
+    local dir = direct and { n = #direct, len = Pt.length({ x = mp.x, y = mp.y }, direct, dgoal) } or nil
+    local d0 = math.sqrt((mp.x - dgoal.x) ^ 2 + (mp.y - dgoal.y) ^ 2)
     local use = Pt.prefer_direct(dir, via)
     p.pot_logged = (p.pot_logged or 0) + 1
     if p.pot_logged <= 3 then
-      log(string.format("[FO-POTEAUX] %s : projet %d, module vers le reseau a %.0f tuiles : escalier %d poteau(x) %.0f tuiles (ratio %.2f), direct %s : %s",
-        f.key or "player", p.id, d0, via.n, via.len, d0 > 0 and via.len / d0 or 1,
+      log(string.format("[FO-POTEAUX] %s : projet %d, module vers le poteau %s a %.0f tuiles : escalier %d poteau(x) %.0f tuiles (ratio %.2f), direct %s : %s",
+        f.key or "player", p.id, dlive and "vivant" or "du carrefour", d0, via.n, via.len, d0 > 0 and via.len / d0 or 1,
         dir and string.format("%d poteau(x) %.0f tuiles (ratio %.2f)", dir.n, dir.len, d0 > 0 and dir.len / d0 or 1) or "introuvable",
         use and "DIRECT retenu" or "escalier garde"))
     end
-    if use then
-      for i = #out, n0 + 1, -1 do out[i] = nil end
-      for _, c in ipairs(direct) do
-        local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" }
-        out[#out + 1] = e
-      end
-      nodes = {}
-    end
+    if use then return direct_out() end
   end
   if view.stats and (p.masq_logged or 0) < 6 then
     p.masq_logged = (p.masq_logged or 0) + 1

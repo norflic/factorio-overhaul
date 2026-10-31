@@ -297,4 +297,33 @@ function Q.prefer_direct(dir, via)
   return dir.len < via.len - 0.01
 end
 
+--[[
+  Relecture du lot : le but de la chaîne directe est le poteau vivant le plus proche (Q.nearest) ; elle reste d'abord hors des
+  lots encore à prendre (Q.lot_protected) tant que ce détour reste raisonnable (Q.keep_street : au pire la diagonale d'une
+  grille, racine de 2, plus la marge du départ et de l'arrivée).
+]]
+Q.STREET_RATIO = 1.6
+
+--- Vrai pour un lot qui doit rester entier : à prendre (ni pris, ni refusé) ou gisement (plusieurs lignes de foreuses s'y posent).
+function Q.lot_protected(l)
+  if not l then return false end
+  if l.state == "gisement" then return true end
+  return not l.used and l.state ~= "refuse"
+end
+
+--- Le point de `list` le plus proche de a (égalité : y, puis x) ; nil si la liste est vide.
+function Q.nearest(a, list)
+  local best, bd
+  for _, c in ipairs(list or {}) do
+    local d = dist(a, c)
+    if not best or d < bd - EPS or (math.abs(d - bd) <= EPS and (c.y < best.y or (c.y == best.y and c.x < best.x))) then best, bd = c, d end
+  end
+  return best
+end
+
+--- Vrai quand la chaîne qui suit les rues est gardée (faux si absente ou si le détour dépasse STREET_RATIO).
+function Q.keep_street(a, chain, b)
+  return chain ~= nil and Q.ratio(a, chain, b) <= Q.STREET_RATIO + EPS
+end
+
 return Q
