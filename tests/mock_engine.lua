@@ -455,6 +455,7 @@ local EntityMT = {
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
     if k == "burner" then return W.prototype(t.name).burner_prototype and {} or nil end -- LuaEntity.burner : seulement une machine a combustion (pvp_test, lot FOREUSES)
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
+    if k == "status" then return defines.entity_status.working end -- lot GISEMENTS : toute machine du mock travaille
     if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
     -- Étape 1 : service_smelters lit is_crafting ; un four du mock fond d'un coup (pas de fabrication en cours entre deux ticks)
     if k == "is_crafting" then return function() return false end end
@@ -966,7 +967,9 @@ function M.new_world(opts)
     group_state = strict({ gathering = 0, moving = 1, attacking_distraction = 2, attacking_target = 3, finished = 4, pathfinding = 5, wander_in_group = 6 }, "defines.group_state"),
     compound_command = strict({ logical_and = 0, logical_or = 1, return_last = 2 }, "defines.compound_command"),
     inventory = strict({ turret_ammo = 1, chest = 2, character_main = 3, character_guns = 4, character_ammo = 5,
-      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9 }, "defines.inventory"),
+      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9, furnace_modules = 10 }, "defines.inventory"),
+    -- Lot GISEMENTS (script/team/gisement.lua) : statut d'une machine ; le mock ne connait que « travaille » (aucune panne simulee).
+    entity_status = strict({ working = 1, normal = 2, no_minable_resources = 3, no_fuel = 4, waiting_for_space_in_destination = 5 }, "defines.entity_status"),
     shooting = strict({ not_shooting = 0, shooting_enemies = 1, shooting_selected = 2 }, "defines.shooting"),
     behavior_result = strict({ in_progress = 0, fail = 1, success = 2, deleted = 3 }, "defines.behavior_result"),
     -- Intégration 0.6.22 (script/scenario/journal.lua : introduction montrée à un joueur qui a un personnage).

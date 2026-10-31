@@ -38,6 +38,7 @@ local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense su
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
+local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à combustion à l'arrêt rebranchées ou retirées
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
@@ -847,6 +848,7 @@ function Team.think(f, surface, tick)
   -- protéger ou survivre retient (shared/ai3/pile.lua, f.team.ia3.pile, écrit par la pensée juste avant), ni changement de
   -- foreuses, ni migration du champ, ni amélioration payée. Garde AJOUTÉE à côté de celle de la reconstruction (lot SANS-GEL).
   local pile_hold = ia3 and PileRt.hold(f)
+  Gisement.think(f, surface, tick) -- lot GISEMENTS (retour du DC du 31/10) : foreuses à combustion à l'arrêt rebranchées ou retirées du gisement (rend tout au stock)
   if not pile_hold then
     FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
   end

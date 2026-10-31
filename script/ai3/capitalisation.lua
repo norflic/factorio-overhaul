@@ -823,7 +823,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     end
     deposits[#deposits + 1] = { id = id, resource = d.resource, tiles = d.tiles, amount = d.amount, covered = d.covered,
       dist = math.floor(dist({ x = d.cx, y = d.cy }, f.hq_pos)), open = open_dep[id] or false, smelt = smelt,
-      smelter = smelter, danger = d.danger, blocked = blocked }
+      smelter = smelter, danger = d.danger, blocked = blocked, x = d.cx, y = d.cy } -- (x, y : lot GISEMENTS, site voisin)
   end
   -- ordres ouverts : reste à poser
   local open = {}
