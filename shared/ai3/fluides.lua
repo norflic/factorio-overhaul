@@ -23,7 +23,9 @@
          Fl.MAX_FLUID_IN fluides, un seul produit solide (rapporté par un porteur) OU un seul produit fluide (il passe
          au tuyau à la machine suivante) : un sous-produit fluide sans débouché remplirait la machine et l'arrêterait.
      Rend (ajouts { [entité] = vrai | { [recette] = vrai } }, info { recipes = { [recette] = {machines} }, extract =
-     { [fluide] = {entités} } }).
+     { [fluide] = {entités} }, other = { [objet] = vrai } }). `other` : les objets qu'une AUTRE recette (visible) fait déjà,
+     à la main ou par un exécutant de `exec` : ils n'ont pas besoin d'une cellule du lot, quelle que soit la recette
+     supplémentaire qui les produit aussi (lot DIAG-PETROLE : un acier de four à arc, verrouillé, retenait tout le pack).
   2. Fl.chain(rel, info, targets, sources) : les CELLULES qui fabriquent les objets `targets` : la recette de chaque
      objet, puis, pour chaque fluide qu'elle mange, sa source : une ressource fluide (extracteur), la pompe d'un fluide
      (sources[fluide] = "pompe"), ou une autre cellule qui le produit (récursif). Les ingrédients solides viennent d'un
@@ -107,7 +109,7 @@ end
 function Fl.executors(rel, exec)
   exec = exec or {}
   local add = {}
-  local info = { recipes = {}, extract = {} }
+  local info = { recipes = {}, extract = {}, other = {} }
   local names = sorted_keys(rel.entities)
   -- Extracteurs des ressources fluides.
   for _, r in ipairs(rel.resources or {}) do
@@ -131,6 +133,10 @@ function Fl.executors(rel, exec)
     local fi, si, fo, so = Fl.split(r)
     local needs = (#fi + #fo > 0) or not (rel.hand or {})[r.category]
     local fits = #si <= Fl.MAX_SOLID_IN and #fi <= Fl.MAX_FLUID_IN and #so + #fo == 1 and (#si + #fi) >= 1
+    local done = not needs or done_by(rel, exec, rname, r.category)
+    if done and not r.hidden then
+      for _, o in ipairs(so) do info.other[o] = true end
+    end
     if needs and fits and not r.hidden and not done_by(rel, exec, rname, r.category) then
       for _, en in ipairs(names) do
         local e = rel.entities[en]
@@ -154,34 +160,49 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 2. Chaîne de cellules
 ---------------------------------------------------------------------------------------------------
---- Recette qui produit `item` parmi celles de l'exécutant (la plus courte : moins de fluides, puis le nom).
-local function recipe_for(rel, info, item)
-  local best, bk
+--- Recettes de l'exécutant qui produisent `item`, de la plus courte (moins de fluides, puis moins d'ingrédients) à la plus
+--- longue, à égalité par le nom. Le premier est le choix ordinaire ; les suivants servent quand sa chaîne n'aboutit pas.
+local function recipes_for(rel, info, item)
+  local out = {}
   for _, rname in ipairs(sorted_keys(info.recipes)) do
     local r = rel.recipes[rname]
     for _, p in ipairs(r.products or {}) do
       if p.name == item then
         local fi = Fl.split(r)
-        local k = #fi * 1000 + #(r.ingredients or {})
-        if not bk or k < bk then best, bk = rname, k end
+        out[#out + 1] = { name = rname, k = #fi * 1000 + #(r.ingredients or {}) }
+        break
       end
     end
   end
-  return best
+  table.sort(out, function(a, b)
+    if a.k ~= b.k then return a.k < b.k end
+    return a.name < b.name
+  end)
+  for i, c in ipairs(out) do out[i] = c.name end
+  return out
+end
+Fl.recipes_for = recipes_for
+
+--- Recette qui produit `item` parmi celles de l'exécutant (la plus courte : moins de fluides, puis le nom).
+local function recipe_for(rel, info, item)
+  return recipes_for(rel, info, item)[1]
 end
 Fl.recipe_for = recipe_for
 
 --- Machine d'une recette : la première de `choose(liste)` (le runtime choisit celle que l'équipe peut poser), sinon la
 --- première de la liste.
+--- Un objet qui a plusieurs recettes essaie la plus courte, puis la suivante quand sa chaîne n'aboutit pas (un fluide sans
+--- source, aucune machine posable) : les cellules posées par la tentative manquée sont retirées (lot DIAG-PETROLE : le
+--- plastique avait deux recettes à égalité, la première par ordre de nom mangeait un fluide sans recette ; la chaîne rendue
+--- gardait la raffinerie mais pas l'usine du plastique, et le pack se croyait complet).
+--- Rend nil quand AUCUN objet demandé n'a de chaîne, sinon la chaîne des objets qui en ont une (`made`) ; le second
+--- résultat dit pourquoi un objet demandé n'en a pas (nil quand tous en ont une).
 function Fl.chain(rel, info, targets, sources, choose)
   sources = sources or {}
   local cells, by_recipe, why = {}, {}, nil
   local need_src = {}
-  local function visit(item, depth)
-    if depth > Fl.MAX_DEPTH then why = "chaine trop longue (" .. item .. ")" return nil end
-    local rname = recipe_for(rel, info, item)
-    if not rname then why = "aucune recette de l'executant pour " .. item return nil end
-    if by_recipe[rname] then return by_recipe[rname] end
+  local visit
+  local function attempt(rname, depth)
     local r = rel.recipes[rname]
     local fi, si, fo, so = Fl.split(r)
     local cell = { recipe = rname, fin = {}, sin = si, fout = fo[1], sout = so[1] }
@@ -195,23 +216,41 @@ function Fl.chain(rel, info, targets, sources, choose)
         need_src[fl] = "pompe"
       else
         local up = visit(fl, depth + 1)
-        if not up then by_recipe[rname] = nil return nil end
+        if not up then return nil end
         cell.fin[#cell.fin + 1] = { fluid = fl, src = "cell", cell = up.recipe }
       end
     end
     local ms = info.recipes[rname]
     cell.machine = (choose and choose(ms, rname)) or ms[1]
-    if not cell.machine then why = "aucune machine posable pour " .. rname by_recipe[rname] = nil return nil end
+    if not cell.machine then why = "aucune machine posable pour " .. rname return nil end
     cells[#cells + 1] = cell
     return cell
   end
-  local made = {}
+  visit = function(item, depth)
+    if depth > Fl.MAX_DEPTH then why = "chaine trop longue (" .. item .. ")" return nil end
+    local names = recipes_for(rel, info, item)
+    if #names == 0 then why = "aucune recette de l'executant pour " .. item return nil end
+    for _, rname in ipairs(names) do
+      if by_recipe[rname] then return by_recipe[rname] end
+      -- état avant la tentative : une tentative manquée rend les cellules, les recettes et les sources qu'elle a posées
+      local n0, src0, rec0 = #cells, {}, {}
+      for k, v in pairs(need_src) do src0[k] = v end
+      for k in pairs(by_recipe) do rec0[k] = true end
+      local cell = attempt(rname, depth)
+      if cell then return cell end
+      while #cells > n0 do cells[#cells] = nil end
+      for k in pairs(by_recipe) do if not rec0[k] then by_recipe[k] = nil end end
+      need_src = src0
+    end
+    return nil
+  end
+  local made, missed = {}, {}
   for _, t in ipairs(targets) do
-    if visit(t, 1) then made[#made + 1] = t end
+    if visit(t, 1) then made[#made + 1] = t else missed[#missed + 1] = t end
   end
   if #cells == 0 then return nil, why or "rien a faire" end
   -- ordre de pose : les producteurs de fluide d'abord (ils sont visités avant leurs consommateurs)
-  return { cells = cells, sources = need_src, made = made }, why
+  return { cells = cells, sources = need_src, made = made }, (#missed > 0) and why or nil
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -1367,6 +1406,25 @@ function Fl.complete_packs(rows)
   local out = {}
   for pack in pairs(seen) do if not bad[pack] then out[pack] = true end end
   return out
+end
+
+--- Causes d'attente d'une faction (lot DIAG-PETROLE : la partie de 2 h n'a rien dit pendant 80 minutes). `why` : mémoire
+--- { [clé] = { text, tick } } (nombres et chaînes : elle vit dans global) ; `now` : { [clé] = texte } des causes de
+--- l'instant. Rend (à dire, levées), deux listes de clés triées : à dire = cause nouvelle, texte changé, ou déjà dite
+--- il y a `every` ticks ou plus (rappel) ; levées = causes dites qui ont disparu. `why` est mis à jour.
+function Fl.news(why, now, tick, every)
+  local say, gone = {}, {}
+  for _, k in ipairs(sorted_keys(now)) do
+    local w = why[k]
+    if (not w) or w.text ~= now[k] or tick - w.tick >= every then
+      say[#say + 1] = k
+      why[k] = { text = now[k], tick = tick }
+    end
+  end
+  for _, k in ipairs(sorted_keys(why)) do
+    if now[k] == nil then gone[#gone + 1] = k; why[k] = nil end
+  end
+  return say, gone
 end
 
 --- Premier gisement de la liste (déjà triée, du plus proche au plus lointain) que `taken(d)` ne dit pas pris (lot PETROLE 2).
