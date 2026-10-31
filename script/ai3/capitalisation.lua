@@ -62,6 +62,7 @@ local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements d
 local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
 local Pl = require("shared.team.plan")
+local Tr = require("shared.team.treillis") -- lot INDUSTRIE I3 : portée du plan directeur vers un gisement (règles pures)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Sites = require("script.faction.sites")
@@ -811,7 +812,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
   -- (lot GISEMENTS : une enceinte fige le treillis sous RADIUS_MAX, journal du DC « rayon 4 » : au-delà, ordres refusés sans fin)
   local enc = f.build and f.build.enc
-  local reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH
+  local reach = (Tr.reach_radius(enc and enc.r, Build.RADIUS_ORE) + 0.5) * Pl.PITCH -- lot INDUSTRIE I3 : jusqu'à RADIUS_ORE (12), plus RADIUS_MAX (5)
   local open_dep = {}
   for _, dr in ipairs(cs.scan and cs.scan.drills or {}) do if dr.deposit ~= "?" then open_dep[dr.deposit] = true end end
   local deposits = {}
@@ -987,10 +988,10 @@ local function execute(f, cs, o, view, book, tick, research)
           break
         end
         ids[#ids + 1] = id
-        -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_MAX)
+        -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_ORE, lot INDUSTRIE I3)
         if f.build and dep then
           local far = math.max(math.abs(dep.cx - f.hq_pos.x), math.abs(dep.cy - f.hq_pos.y))
-          Build.grow(f, math.min(Build.RADIUS_MAX, math.ceil(far / Pl.PITCH)))
+          Build.grow(f, Tr.grow_target(far, Pl.PITCH, Build.RADIUS_ORE), Build.RADIUS_ORE)
         end
       end
       if #ids == 0 then return nil, why end
