@@ -3,6 +3,8 @@
     §1 classe d'un ordre « module » ouvert (matière, figé, actif) ;
     §2 emplacements de plus par le stock libre des produits des fonderies ;
     §3 compte des emplacements (figés hors du compte, matière toujours comptée, plafond des figés), le cas mesuré d'Azur ;
+    §3b suspendus par la pile (lot DIAG-USINE : Scarlet, 2 modules de câble et de pignons en réserve « pile » de la minute 30 à la
+       minute 90 tenaient les 2 emplacements, la fonderie de fer n'a jamais été agrandie) ;
     §4 texte du refus (préfixe de main), déterminisme, état sans fonction ;
     §5 mutants (chaque règle a un contrôle qui la tient) ;
     §6 branchement au moteur simulé (tests/mock_engine.lua) : Capi.slots lit les ordres ouverts et l'état des modules de
@@ -24,7 +26,7 @@ end
 local function say(s) print("[CAPI-DEBIT] " .. s) end
 local MIN = 3600
 
-local function mod(key, states, progress, opened) return { key = key, states = states, progress_tick = progress, opened = opened or 0 } end
+local function mod(key, states, progress, opened, pile) return { key = key, states = states, progress_tick = progress, opened = opened or 0, pile_tick = pile } end
 
 local function suite()
   local T = 100 * MIN
@@ -82,6 +84,24 @@ local function suite()
   -- même partie sans stock : le figé seul libère
   s = Em.slots({ base = 2, plates = { 0, 0 }, mods = { mod("couvrir:fer", { "defrichage" }, T - 74 * MIN), mod("chaine:x", { "reserve" }, T - 5 * MIN) }, tick = T })
   check(s.room == 1, "§3 cas d'Azur sans stock : 1 emplacement libre (le figé)")
+  -- §3b suspendus par la pile
+  check(Em.pile_tick(nil, true, T) == T and Em.pile_tick(T - 9, true, T) == T - 9 and Em.pile_tick(T - 9, false, T) == nil,
+    "§3b horloge de suspension : posée à la première pensée, gardée, remise à nil hors suspension")
+  check(not Em.piled(T - Em.PILE_HOLD + 1, T) and Em.piled(T - Em.PILE_HOLD, T) and not Em.piled(nil, T), "§3b suspendu depuis PILE_HOLD exactement : libéré")
+  check(Em.class(mod("a", { "reserve" }, 0, 0, T - 30 * MIN), T) == "pile", "§3b réserve suspendue depuis 30 min : classe pile")
+  check(Em.class(mod("a", { "reserve" }, 0, 0, T - MIN), T) == "matiere", "§3b suspendue depuis 1 min seulement : elle tient encore son emplacement")
+  check(Em.class(mod("a", { "reserve" }, 0, 0, nil), T) == "matiere", "§3b réserve sans suspension : matière (coffre protégé)")
+  -- le cas mesuré de Scarlet : câble et pignons suspendus depuis 30 min, plafond 2
+  s = Em.slots({ base = 2, plates = { 0, 0 }, mods = { mod("chaine:copper-cable", { "reserve" }, 0, 0, T - 30 * MIN), mod("chaine:iron-gear-wheel", { "reserve" }, 0, 0, T - 30 * MIN) }, tick = T })
+  check(not s.busy and s.room == 2 and s.free_piled == 2 and s.piled == 2 and s.counted == 0 and #s.keys_piled == 2,
+    "§3b Scarlet : deux modules suspendus par la pile, les deux emplacements sont libres (" .. s.why .. ")")
+  check(s.why:find("suspendu(s) par la pile", 1, true) ~= nil, "§3b le compte rendu dit les suspendus")
+  s = Em.slots({ base = 2, plates = { 0, 0 }, mods = { mod("a", { "reserve" }, 0, 0, T - 30 * MIN), mod("b", { "reserve" }, 0, 0, T - 30 * MIN), mod("c", { "reserve" }, 0, 0, T - 30 * MIN) }, tick = T })
+  check(s.free_piled == Em.PILED_FREE and s.counted == 3 - Em.PILED_FREE and s.room == 2 - (3 - Em.PILED_FREE), "§3b au plus PILED_FREE suspendus hors du compte (" .. s.why .. ")")
+  s = Em.slots({ base = 2, plates = { 0, 0 }, mods = { mod("a", { "reserve" }, 0, 0, T - 30 * MIN), mod("b", { "reserve" }, 0, 0, T - MIN) }, tick = T })
+  check(s.room == 1 and s.materials == 1, "§3b un suspendu depuis 30 min, une réserve ordinaire : un seul emplacement libre")
+  s = Em.slots({ base = 2, plates = { 0, 0 }, mods = { mod("a", { "chantier" }, T), mod("b", { "reserve" }, 0, 0, T - 30 * MIN) }, tick = T })
+  check(s.counted == 1 and s.room == 1, "§3b un chantier actif et un suspendu : un emplacement libre")
   -- §4 texte, déterminisme
   check(Em.busy_text(s):sub(1, #"plan directeur occupe (") == "plan directeur occupe (", "§4 préfixe du refus de main gardé")
   local in1 = { base = 2, plates = { 1200, 1500 }, mods = { mod("a", { "chantier" }, 0), mod("b", { "reserve" }, T) }, tick = T }
@@ -124,6 +144,12 @@ mutant("la réserve peut être figée", function() Em.MATERIAL_STATES.reserve = 
 local wt0 = Em.work_tick
 mutant("horloge de chantier ignorée (réserve comptée dans le figé)", function() Em.work_tick = function() return nil end end,
   function() Em.work_tick = wt0 end)
+local PH0, PF0, pt0 = Em.PILE_HOLD, Em.PILED_FREE, Em.pile_tick
+mutant("suspendu par la pile : jamais libéré", function() Em.PILE_HOLD = math.huge end, function() Em.PILE_HOLD = PH0 end)
+mutant("suspendu par la pile : libéré dès la première pensée", function() Em.PILE_HOLD = 0 end, function() Em.PILE_HOLD = PH0 end)
+mutant("suspendus par la pile sans plafond", function() Em.PILED_FREE = 99 end, function() Em.PILED_FREE = PF0 end)
+mutant("suspendus par la pile : aucun hors du compte", function() Em.PILED_FREE = 0 end, function() Em.PILED_FREE = PF0 end)
+mutant("horloge de suspension ignorée", function() Em.pile_tick = function() return nil end end, function() Em.pile_tick = pt0 end)
 local extra0 = Em.extra
 mutant("le produit le plus riche décide", function()
   Em.extra = function(pl)
@@ -197,6 +223,22 @@ if cs then
   Capi.slots(f, cs, stock, tick)
   local n1 = #lines_of("[FO-CAPI-EMPLACEMENTS]")
   check(n1 == n0 + 2, "§6 une ligne par changement, aucune à situation égale (" .. (n1 - n0) .. " ligne(s) pour 3 appels)")
+  -- lot DIAG-USINE : deux ordres en réserve « pile » (objets rendus au coffre) ; l'horloge de suspension est posée à la première
+  -- pensée, puis (30 min plus tard) ils ne tiennent plus d'emplacement
+  local pa = inject(9103, "chaine:pile-a", "reserve", tick - 20 * MIN, nil)
+  local pb = inject(9104, "chaine:pile-b", "reserve", tick - 20 * MIN, nil)
+  for _, m in ipairs(st.mods) do if m.id == 9103 or m.id == 9104 then m.reason = "pile" end end
+  local sp = Capi.slots(f, cs, {}, tick)
+  check(pa.pile_tick == tick and pb.pile_tick == tick and sp.free_piled == 0, "§6 réserve « pile » : horloge posée à la première pensée, emplacement encore tenu")
+  local sp2 = Capi.slots(f, cs, {}, tick + 30 * MIN)
+  check(sp2.free_piled == Em.PILED_FREE and sp2.counted == sl.counted and sp2.why:find("suspendu(s) par la pile", 1, true) ~= nil,
+    "§6 suspendus depuis 30 min : emplacements libérés (" .. sp2.why .. ")")
+  pa.pile_tick = tick - 40 * MIN
+  for _, m in ipairs(st.mods) do if m.id == 9103 then m.reason = "materiaux" end end
+  Capi.slots(f, cs, {}, tick + 30 * MIN)
+  check(pa.pile_tick == nil, "§6 la raison change (matière réservée de nouveau) : l'horloge repart de zéro")
+  table.remove(cs.open) table.remove(st.mods)
+  table.remove(cs.open) table.remove(st.mods)
   -- retire l'injection (l'état reste celui de la partie)
   while #cs.open > open0 do table.remove(cs.open) end
   while #st.mods > mods0 do table.remove(st.mods) end
