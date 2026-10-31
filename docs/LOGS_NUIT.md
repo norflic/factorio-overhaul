@@ -245,3 +245,6 @@ Une section par passage (cron 17 et 47 de chaque heure). Script : scratchpad/sca
 
 ## 30/10 ~12 h, passage 70
 - Limite d'usage atteinte vers 11 h 55 -> levee 12 h : 39 transcriptions d'agents arretees (workflows minerais, QG x2, icones, design calcul, calcul v2). A 12 h 01 : design calcul (5 agents) et calcul v2 reprennent seuls ; les autres a surveiller au prochain pilotage, relance si inertes. Agent CALC-MACHINES-AMONT relance par message.
+
+## 30/10 ~12 h 25, passage 71
+- 1 archive (DESIGN-CALCUL salle blanche, session avec images, BILAN dans fo-shots), 0 erreur Lua, code 0. Rien de nouveau ; workflows de design repris apres la limite d'usage.
