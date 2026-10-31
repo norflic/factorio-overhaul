@@ -359,8 +359,12 @@ function Ind.status(f)
   local blocs = {}
   for _, b in ipairs(st.blocs) do
     local m = Auto.module(f, b.id)
+    local p = f.build and f.build.projects[b.id]
+    local outs, quais = {}, {}
+    for _, o in ipairs(p and p.outs or {}) do outs[#outs + 1] = { x = o.x, y = o.y, at = o.at } end
+    for _, q in ipairs(p and p.quais or {}) do quais[#quais + 1] = { x = q.x, y = q.y, item = q.item } end
     blocs[#blocs + 1] = { id = b.id, items = b.items, kind = b.kind, state = m and m.state or b.state, built = m and m.built or 0,
-      total = m and m.total or 0 }
+      total = m and m.total or 0, outs = outs, quais = quais, barre = b.barre }
   end
   return { n = st.n, blocs = blocs, sig = st.sig }
 end

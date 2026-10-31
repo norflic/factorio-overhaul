@@ -72,7 +72,7 @@ return function(name)
   local cfg = MALL[name]
   return {
     description = "INDUSTRIE I6 (" .. name .. ") : demande -> bloc de mall -> plan directeur -> machines -> coffres a la barre",
-    check_tick = 9000,
+    check_tick = 9500,
     init = function(ctx)
       local st = ctx.state()
       st.t = {}
@@ -119,6 +119,51 @@ return function(name)
           ctx.log("decision hatee au tick " .. e.tick)
         end
       end
+      -- 2 bis. BANC SEULEMENT : le temps. Les PNJ d'une faction à 1 minute de jeu mettent plus de 9 000 ticks à bâtir 55 entités (mesuré :
+      -- 54 sur 55 à 9 000 ticks, 29 sur 55 à 9 000 ticks sur une autre passe) ; dès que le plan a posé les fantômes du bloc, le banc les
+      -- RAVIVE lui-même, alimente le module (source d'arène à côté d'un poteau bâti) et garnit ses quais d'entrée (le coffre du QG fait la
+      -- même chose par les PNJ). Le reste de la chaîne (états du plan directeur, recettes, inscription des sorties, barre) est celui du mod.
+      if st.key and e.tick >= 3000 and e.tick % 120 == 0 and not st.done_fini then
+        local s0 = ctx.remote("fo-ind", "status", st.key)
+        local b0 = s0 and s0.blocs and s0.blocs[1]
+        if b0 and (b0.state == "fantomes" or b0.state == "chantier" or b0.state == "raccordement" or b0.state == "fini") then
+          local s1 = ctx.surface()
+          local ents = module_ents(ctx, st.key, b0.id)
+          local revived = 0
+          for _, en in ipairs(ents) do
+            if not en.built then
+              for _, gh in ipairs(s1.find_entities_filtered({ ghost_name = en.name, position = { en.x, en.y }, radius = 0.6 })) do
+                if gh.valid and gh.revive({ raise_revive = true }) then revived = revived + 1 end
+              end
+            end
+          end
+          st.revived = (st.revived or 0) + revived
+          if not st.powered then
+            for _, en in ipairs(ents) do
+              if not st.powered and en.name:find("electric%-pole") then
+                local real = s1.find_entity(en.name, { en.x, en.y })
+                if real and real.valid then
+                  for _, d in ipairs({ { 2, 2 }, { -2, 2 }, { 2, -2 }, { -2, -2 }, { 3, 0 }, { 0, 3 }, { -3, 0 }, { 0, -3 } }) do
+                    if not st.powered and ctx.power(real.position.x + d[1], real.position.y + d[2], real.force.name) then
+                      st.powered = true
+                      ctx.log(string.format("source d'arene posee a cote du poteau (%.1f, %.1f)", real.position.x, real.position.y))
+                    end
+                  end
+                end
+              end
+            end
+          end
+          if b0.state == "fini" then
+            st.done_fini = e.tick
+            local s1b = ctx.surface()
+            for _, q in ipairs(b0.quais or {}) do
+              local ch = s1b.find_entity("iron-chest", { q.x, q.y })
+              if ch and ch.valid then ch.insert({ name = q.item, count = 600 }) end
+            end
+            ctx.log(string.format("bloc %d FINI au tick %d (%d fantome(s) ravives par le banc, %d quai(s) garni(s))", b0.id, e.tick, st.revived or 0, #(b0.quais or {})))
+          end
+        end
+      end
       -- 3. relevé
       if st.key and e.tick % 600 == 0 and e.tick >= 600 then
         local s = ctx.remote("fo-ind", "status", st.key)
@@ -139,6 +184,13 @@ return function(name)
         return
       end
       ctx.check(st.hastened ~= nil, "la decision de la capitalisation a ete hatee")
+      -- les chaines que le journal du DC montrait refusees (« a 3 ingredients », « recherche : » vide) ont une methode, lue dans les prototypes
+      if not cfg.machine_proto then
+        for _, it in ipairs({ "gun-turret", "piercing-rounds-magazine", "iron-chest", "grenade", "advanced-circuit", "engine-unit" }) do
+          local m, why = ctx.remote("fo-ind", "methode", it)
+          ctx.check(m ~= nil and (m.gen == "patron" or m.gen == "simple"), "methode de " .. it .. " : " .. tostring(m and (m.gen .. " " .. tostring(m.machine) .. " " .. tostring(m.n_ent) .. " entites") or why))
+        end
+      end
       local s = ctx.remote("fo-ind", "status", st.key)
       ctx.check(s ~= nil and #s.blocs >= 1, st.key .. " : au moins un bloc demande (" .. tostring(s and #s.blocs or 0) .. ")")
       local c = ctx.remote("fo-ind", "status", st.control)
@@ -172,23 +224,28 @@ return function(name)
       if b.state == "fini" then
         ctx.check(running == #cfg.items, "bloc fini : chaque machine a la recette de son objet (" .. running .. ")")
         -- sorties : les coffres inscrits à la collecte portent la barre
-        local bars, filled, total_items = 0, 0, 0
-        for _, e2 in ipairs(ents) do
-          if e2.name == "iron-chest" or e2.name == "wooden-chest" then
-            local ch = s1.find_entity(e2.name, { e2.x, e2.y })
-            if ch and ch.valid then
-              local inv = ch.get_inventory(defines.inventory.chest)
-              if inv.supports_bar() and inv.get_bar() <= #inv then bars = bars + 1 end
-              local n = 0
-              for _, k in ipairs(sorted_keys(inv.get_contents())) do n = n + inv.get_contents()[k] end
-              if n > 0 then filled = filled + 1 end
-              total_items = total_items + n
+        local bars, filled, total_items, kinds = 0, 0, 0, {}
+        local made = {}
+        for _, o in ipairs(b.outs or {}) do
+          local ch = s1.find_entity("iron-chest", { o.x, o.y })
+          if ch and ch.valid then
+            local inv = ch.get_inventory(defines.inventory.chest)
+            if inv.supports_bar() and inv.get_bar() <= #inv then bars = bars + 1 end
+            local c = inv.get_contents()
+            local n = 0
+            for _, k in ipairs(sorted_keys(c)) do
+              if items[k] then n = n + c[k] made[k] = (made[k] or 0) + c[k] end
             end
+            if n > 0 then filled = filled + 1 end
+            total_items = total_items + n
           end
         end
-        ctx.log(string.format("coffres : %d a barre, %d garni(s), %d objet(s) en tout", bars, filled, total_items))
+        for k in pairs(made) do kinds[#kinds + 1] = k end
+        ctx.log(string.format("coffres de sortie inscrits : %d ; %d a barre (barre %s), %d garni(s), %d objet(s) du bloc en tout, %d sorte(s) : %s", #(b.outs or {}),
+          bars, tostring(b.barre), filled, total_items, #kinds, table.concat(kinds, ",")))
+        ctx.check(#(b.outs or {}) >= #cfg.items, "les coffres de sortie du bloc sont inscrits a la collecte (" .. #(b.outs or {}) .. ")")
         ctx.check(bars >= #cfg.items, "les coffres de sortie portent la barre (" .. bars .. ")")
-        ctx.check(filled >= 1, "au moins un objet au coffre de sortie (" .. total_items .. ")")
+        ctx.check(filled >= 1 and #kinds >= 2, "des objets du bloc sont fabriques et au coffre de sortie (" .. total_items .. " objet(s), " .. #kinds .. " sorte(s))")
       else
         ctx.log("bloc pas fini a la fin du banc (" .. b.state .. ") : machines en marche et coffres non controles")
       end
