@@ -4639,7 +4639,7 @@ function Build.report(f)
     net = #sorted_keys(b.net), opts = { seul = b.opts.seul, ghosts_ahead = b.opts.ghosts_ahead },
     enceinte = b.enc and Build.enclosure_report(b) or nil,
     ilots = Ilots.report(b), -- lot ILOTS-MURS
-    treillis = st.treillis, ungen = b.ungen and #b.ungen or 0, ungen_deferred = st.ungen_deferred or 0, -- lot INDUSTRIE I3 : causes de la croissance vers un gisement
+    treillis = st.treillis, ungen = b.ungen and #b.ungen or 0, ungen_deferred = st.ungen_deferred or 0, ungen_back = st.ungen_back or 0, -- lot INDUSTRIE I3 : causes de la croissance vers un gisement
   }
   return out
 end

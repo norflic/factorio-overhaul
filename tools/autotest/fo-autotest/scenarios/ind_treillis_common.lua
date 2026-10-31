@@ -8,7 +8,9 @@
     proche : cuivre à 35 tuiles du QG, dans un lot où le charbon est plus abondant (l'état du lot ne retient que le charbon :
              le cas d'Ambre, 3 198 refus « hors du treillis » du journal du DC en 0.6.27) ;
     loin   : cuivre à 200 tuiles (anneau 7, le plafond ordinaire est 5) ;
-    vide   : aucun cuivre dans les 12 anneaux (le treillis ne doit PAS grandir pour rien).
+    vide   : aucun cuivre dans les 12 anneaux (le treillis ne doit PAS grandir pour rien) ;
+    gen    : comme « loin », mais les chunks du couloir ne sont PAS générés d'avance (seuls ceux du gisement) : les lots lointains
+             sont différés (b.ungen), puis la génération est forcée à 9 000 ticks et ils sont rendus à l'évaluation.
   Demande : une fonderie de cuivre à tapis (feed = « tapis », comme l'automatisation) toutes les 1 800 ticks tant qu'elle est refusée
   (le repli du cerveau), au plus 8 fois. Le coffre porte de quoi poser foreuses, tapis, fours (rien n'est bâti avant la fin du plan
   qui compte ici : état du projet, rayon, causes comptées).
@@ -61,7 +63,11 @@ end
 --- Le couloir : x de −60 à 300, y de −100 à 100, vidé puis refait en herbe ; chunks générés avant.
 local function shape(ctx, variant)
   local s = ctx.surface()
-  s.request_to_generate_chunks({ 120, 0 }, 11)
+  if variant == "gen" then
+    s.request_to_generate_chunks({ 200, 0 }, 4) -- le gisement et ses voisins seulement ; le reste du couloir attend
+  else
+    s.request_to_generate_chunks({ 120, 0 }, 11)
+  end
   s.force_generate_chunk_requests()
   local area = { { -60, -100 }, { 300, 100 } }
   for _, e in ipairs(s.find_entities_filtered({ area = area, type = { "tree", "simple-entity", "cliff", "resource", "unit-spawner", "turret", "unit", "fish" } })) do
@@ -71,8 +77,10 @@ local function shape(ctx, variant)
   for y = -100, 99 do for x = -60, 299 do tiles[#tiles + 1] = { name = "grass-1", position = { x, y } } end end
   s.set_tiles(tiles, true)
   -- le cuivre NATUREL des 12 anneaux (700 tuiles de côté) disparaît aussi : la sonde du plan doit ne voir que celui du banc
-  s.request_to_generate_chunks({ 0, 0 }, 13)
-  s.force_generate_chunk_requests()
+  if variant ~= "gen" then
+    s.request_to_generate_chunks({ 0, 0 }, 13)
+    s.force_generate_chunk_requests()
+  end
   local natural = 0
   for _, e in ipairs(s.find_entities_filtered({ area = { { -360, -360 }, { 360, 360 } }, name = "copper-ore" })) do
     if e.valid then e.destroy() natural = natural + 1 end
@@ -83,7 +91,7 @@ local function shape(ctx, variant)
     info.coal = disc(s, "coal", 22, 22, 6, 3000)
     info.copper = disc(s, "copper-ore", 34, 34, 5, 4000)
     info.target = { x = 35, y = 35 }
-  elseif variant == "loin" then
+  elseif variant == "loin" or variant == "gen" then
     info.copper = disc(s, "copper-ore", 200, 0, 9, 4000)
     info.target = { x = 200, y = 0 }
   end
@@ -119,7 +127,7 @@ return function(variant)
       local ok = ctx.remote("fo-ia1d", "enable", "player", { seul = true, ghosts_ahead = true, radius = 3 })
       ctx.check(ok == true, "plan directeur active")
       st.t0 = game.tick
-      st.tries, st.ids = 0, {}
+      st.tries, st.ids, st.resets, st.acc = 0, {}, 0, { deferred = 0, back = 0 }
     end,
 
     tick = function(ctx, e)
@@ -130,8 +138,19 @@ return function(variant)
       -- la demande, puis le repli du cerveau : une nouvelle demande 1 800 ticks après un refus
       local last = st.ids[#st.ids]
       local need = false
+      if last then
+        -- plan éteint par le cerveau (rien à bâtir) : sa mémoire part avec lui ; les numéros de projet repartent de 1
+        if not ctx.remote("fo-ia1d", "status", "player", last) then
+          local rp = st.rep or {}
+          st.acc.deferred = st.acc.deferred + (rp.ungen_deferred or 0)
+          st.acc.back = st.acc.back + (rp.ungen_back or 0)
+          st.resets = st.resets + 1
+          ctx.log(string.format("[%s] plan directeur eteint par le cerveau au tick %d (differes %s, revenus %s) : il sera rallume", TAG, e.tick, tostring(rp.ungen_deferred), tostring(rp.ungen_back)))
+          st.ids, st.rep, last = {}, nil, nil
+        end
+      end
       if not last then
-        need = true
+        need = (st.tries == 0) or (t - (st.last_t or 0) >= RETRY and st.tries < TRIES)
       else
         local pr = ctx.remote("fo-ia1d", "status", "player", last)
         if pr and pr.state == "refuse" and t - (st.last_t or 0) >= RETRY and st.tries < TRIES then need = true end
@@ -159,6 +178,14 @@ return function(variant)
       if t % 30 == 0 and st.tries > 0 then
         local rr = ctx.remote("fo-ia1d", "report", "player")
         if rr then st.rep = rr end
+      end
+      if variant == "gen" and t == 9000 then
+        -- la génération est forcée : les lots différés doivent revenir à l'évaluation (ungen_retry)
+        local s = ctx.surface()
+        s.request_to_generate_chunks({ 0, 0 }, 13)
+        s.force_generate_chunk_requests()
+        local r0 = ctx.remote("fo-ia1d", "report", "player") or st.rep
+        ctx.log(string.format("[%s] generation forcee au tick %d : differes avant %s (en attente %s)", TAG, e.tick, tostring(r0 and r0.ungen_deferred), tostring(r0 and r0.ungen)))
       end
       if t > 0 and t % MIN == 0 then
         local r = ctx.remote("fo-ia1d", "report", "player")
@@ -195,7 +222,7 @@ return function(variant)
         for _, pt in ipairs(st.accepted and st.accepted.parts or {}) do if pt.kind == "foreuses" then drills = true end end
         ctx.check(drills, "la fonderie a ses foreuses (tapis) : partie 'foreuses' au plan")
         ctx.check(st.tries <= 3, "au plus 3 demandes (" .. st.tries .. ")")
-      elseif variant == "loin" then
+      elseif variant == "loin" or variant == "gen" then
         ctx.check(st.accepted ~= nil, "cuivre a 200 tuiles (anneau 7) : la fonderie est planifiee apres croissance du treillis")
         ctx.check(r.radius >= 7 and r.radius <= 12, "le treillis a grandi jusqu'au gisement, pas au-dela du plafond (rayon " .. r.radius .. ")")
         local grew = 0
@@ -209,6 +236,11 @@ return function(variant)
           end
         end
         ctx.check(drills, "la fonderie a ses foreuses (tapis)")
+        if variant == "gen" then
+          local def, back = st.acc.deferred + (r.ungen_deferred or 0), st.acc.back + (r.ungen_back or 0)
+          ctx.check(def >= 1, "des lots lointains ont ete differes faute de chunk genere (" .. def .. ")")
+          ctx.check(back >= 1, "apres la generation forcee, des lots differes sont revenus a l'evaluation (" .. back .. ", encore en attente " .. tostring(r.ungen) .. ")")
+        end
       else
         ctx.check(st.accepted == nil, "aucun cuivre : la fonderie est refusee")
         ctx.check(r.radius <= 5, "le treillis ne grandit pas au-dela du rayon ordinaire pour rien (rayon " .. r.radius .. ")")
