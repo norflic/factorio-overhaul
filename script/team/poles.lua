@@ -28,6 +28,7 @@ local Events = require("script.core.events")
 local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
+local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : le fond ne propose pas ce que les coffres couvrent
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : minage de fer de renfort pour les inactifs
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09) : ressources que les machines sortent en quantité
 local Planner = require("shared.team.planner") -- lot IA1-b2 : avant-postes non défendus (P.undefended)
@@ -278,6 +279,11 @@ function Poles.think(f, view, book, tick, plan)
   -- Lot MAIN-ET-INTERMEDIAIRES (D09) : ni fond ni renfort de fer sur une ressource que les machines de l'équipe sortent en quantité
   -- (décision de la pensée précédente, script/team/intermediaires.lua ; mode survie : rien de coupé).
   for _, res in ipairs(State.sorted_keys(Inter.mine_skip(f))) do skip[res] = true end
+  -- Lot MAIN-INVENTAIRE (relecture) : F.MINE_TARGETS (charbon 400 d'abord) est la vraie source du charbon à la main : une ressource que
+  -- les coffres couvrent n'occupe plus les places du fond (sinon Worker.program la refuse et le cuivre attend son tour).
+  for _, m in ipairs(Fond.MINE_TARGETS) do
+    if not Mi.hand_verdict({ stock = view.stock[m[1]] or 0, count = Fond.MINE_BATCH, fuel = m[1] == T.fuel }) then skip[m[1]] = true end
+  end
   local free = Fond.free_stock(view.stock, list)
   local epoch = (f.tech or 0) + 1
   local mine_cap = O.manual_cap(n_exec, epoch)

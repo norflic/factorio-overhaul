@@ -21,6 +21,7 @@ local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels empl
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : une tourelle ne se pose pas sur une tuile réservée (règle pure)
 local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règle pure)
 local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
+local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
 
@@ -422,6 +423,16 @@ end
 function Outposts.extend(f, surface, o, carrier)
   if o.migr then return 0 end -- lot MIGRATION-CHAMP : le champ est migré vers des foreuses électriques en rangées, pas de paire thermique de plus
   local spec = T.outposts[o.kind]
+  -- Lot GISEMENTS (DC 31/10 : « il y a des fours sur le gisement, ça prend de l'espace ») : champ passé à l'électrique (foreuses remplacées
+  -- ici ou prêtes à l'être, paires déjà retirées d'ici) : le minerai se couvre en électrique, pas en paires à four ; jamais pour une matière
+  -- en manque (DC : « au minimum les foreuses thermiques »).
+  if Gisement.pairs_forbidden(f, o, spec) then
+    if not o.full then
+      o.full, o.full_by, o.full_why, o.hold_until = true, "pose_paires", "electrique", nil
+      log(string.format("[FO-GISEMENT] %s : avant-poste %d (%s) : plus de paire foreuse + four sur le minerai, l'electrique prend la suite", tostring(f.key), o.id, o.kind))
+    end
+    return 0
+  end
   if Outposts.on_arrive then Outposts.on_arrive(f, nil, o.id) end
   local room = T.max_drills(o.kind) - o.drills
   local want = math.min(spec.drills, room)

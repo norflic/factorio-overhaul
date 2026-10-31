@@ -55,6 +55,7 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
 local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements du plan directeur (figés, stock riche, décision)
 local A = require("shared.ai3.automatiser")
@@ -76,6 +77,7 @@ local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie
 local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
+local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 
@@ -189,6 +191,12 @@ local function dump_full()
         tile_width = get(p, "tile_width"), energy_usage = get(p, "energy_usage") or get(p, "max_energy_usage"),
         emissions_per_second = Prev.emit_per_min(p, e.name) / 60 }) -- lot PREVISION (C12) : avec le repli sur la source d'énergie
       e.speed = e.speed or conv.speed
+      -- Intégration 0.6.28 (EQUILIBRE × capitalisation) : bras et tapis ne suivent pas × 1,15 par niveau (L.plan_stat). Une machine améliorée
+      -- ne livre que ce que son gabarit transporte : compter la vitesse du prototype gonflait plan.N (× 1,85 au niveau 10 pour une foreuse,
+      -- × 4,9 au niveau 20) et plus aucun ordre n'était passé, et l'exécutant (A.sized) dimensionne déjà sur la vitesse de plan.
+      local fam = L.parse(e.name)
+      local p1 = fam and game.entity_prototypes[fam.base]
+      if p1 then e.speed = L.plan_speed(e.name, get(p1, "crafting_speed") or get(p1, "mining_speed")) or e.speed end
       e.mining_area = conv.mining_area
       e.size = conv.size
       e.energy_kw = conv.energy_kw
@@ -751,6 +759,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
   local threat, production_first = Sv.capi(Survie.on(f), view.threatened or false, (f.team and f.team.priorite_pf) or false)
+  if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
   -- d'avant (croissance des buts et vagues de SCALE) : leur combustible est porté par les PNJ, un travail récurrent que
@@ -798,7 +807,9 @@ local function build_input(f, cs, view, book, tick, D, w)
   cs.wanted_set = wanted
   local repli = repli_book(cs)
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
-  local reach = (Build.RADIUS_MAX + 0.5) * Pl.PITCH
+  -- (lot GISEMENTS : une enceinte fige le treillis sous RADIUS_MAX, journal du DC « rayon 4 » : au-delà, ordres refusés sans fin)
+  local enc = f.build and f.build.enc
+  local reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH
   local open_dep = {}
   for _, dr in ipairs(cs.scan and cs.scan.drills or {}) do if dr.deposit ~= "?" then open_dep[dr.deposit] = true end end
   local deposits = {}
@@ -823,7 +834,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     end
     deposits[#deposits + 1] = { id = id, resource = d.resource, tiles = d.tiles, amount = d.amount, covered = d.covered,
       dist = math.floor(dist({ x = d.cx, y = d.cy }, f.hq_pos)), open = open_dep[id] or false, smelt = smelt,
-      smelter = smelter, danger = d.danger, blocked = blocked }
+      smelter = smelter, danger = d.danger, blocked = blocked, x = d.cx, y = d.cy } -- (x, y : lot GISEMENTS, site voisin)
   end
   -- ordres ouverts : reste à poser
   local open = {}
@@ -898,10 +909,10 @@ local function build_input(f, cs, view, book, tick, D, w)
     can_exec = can_exec, skip = skip, successors = successors_for(cs),
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
-    deposits = deposits, open = open, sinks = cs.bench_sinks or {}, need = need, research = research, drill_for = drill_for,
+    deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
     limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
-    weights = w or {}, threat = threat, dt = 1, lag = cs.lag,
+    weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
     -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
     -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
@@ -1267,6 +1278,7 @@ end
 local function decide(f, cs, view, book, tick, research, w)
   local D = Capi.data()
   cs.flows = flows_of(f, cs)
+  if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
   local input = build_input(f, cs, view, book, tick, D, w)
   Profiler.fstart("capi:decide")
   local res = Ca.decide(input, cs.st)

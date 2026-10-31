@@ -207,7 +207,7 @@ function Swap.think(f, surface, book, free, tick)
     return 0 -- objet pas encore debloque : pas de releve (le cas de presque toute la partie au debut)
   end
   local entries, refs, poles = survey(f, surface)
-  if #entries == 0 or #poles == 0 then return 0 end
+  if #entries == 0 or #poles == 0 then st.ready = 0 return 0 end -- (lot GISEMENTS : st.ready relu par script/team/gisement.lua)
   local out, n_ready = S.plan(entries, { poles = poles, electric = T.drill_electric, have = have, obtainable = obtainable,
     limit = T.swap.per_pass })
   local made = 0

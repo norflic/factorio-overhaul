@@ -31,14 +31,14 @@ for wave = 1, 30 do
   for _, it in ipairs(list) do
     local tier
     for t, tn in ipairs(E.tier_names) do if it[1]:find(tn, 1, true) then tier = t end end
-    check(tier ~= nil and tier <= math.max(TD.max_tier(wave), TD.is_boss(wave) and E.TIERS or 0), "palier autorisé : " .. it[1] .. " (vague " .. wave .. ")")
+    check(tier ~= nil and tier <= math.max(TD.max_tier(wave), TD.is_boss(wave) and E.TD_TIERS or 0), "palier autorisé : " .. it[1] .. " (vague " .. wave .. ")")
     if wave < TD.family_from.armored then check(not it[1]:find("armored"), "pas de blindés avant la vague " .. TD.family_from.armored) end
   end
 end
 local a, b = TD.compose(12, lcg(3)), TD.compose(12, lcg(3))
 check(#a == #b and a[1][1] == b[1][1] and a[1][2] == b[1][2], "composition déterministe")
 check(TD.is_boss(5) and TD.is_boss(10) and not TD.is_boss(6), "vagues de boss toutes les 5")
-check(TD.max_tier(1) == 1 and TD.max_tier(30) == E.TIERS, "paliers : 1 à la vague 1, 8 en fin")
+check(TD.max_tier(1) == 1 and TD.max_tier(30) == E.TD_TIERS, "paliers : 1 à la vague 1, 8 en fin")
 
 ---------------------------------------------------------------------------------------------------
 section("Activation, vague, victoire, récompense")

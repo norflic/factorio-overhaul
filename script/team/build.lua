@@ -32,11 +32,13 @@ local P = require("shared.team.plan")
 local M = require("shared.team.modules")
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
+local Gisements = require("shared.team.gisement") -- lot GISEMENTS : un lot qui porte un minerai sert de gisement
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
-local Cv = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
+local CvRegle = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
+local Pt = require("shared.team.poteaux")   -- lot POTEAUX-COURT : longueur de fil, choix direct ou escalier (règles pures)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Or = require("shared.team.orient")      -- lot PD-FONDERIEQG (D82) : sens du gisement (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourelle sur un chantier, projet sans progrès (règles pures)
@@ -48,6 +50,7 @@ local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines s
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
+local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (tapis par relais, refus de l'alimentation)
 local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-CENTRALE : coffre de la centrale en urgence, foreuses de la centrale (règles pures)
 local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pures de la centrale lointaine (D-24)
 local Far = require("script.team.centrale_loin") -- lot PD-CENTRALE : eau hors du treillis, ligne de poteaux
@@ -478,7 +481,11 @@ local function candidates(b, states, toward, res)
     -- eau (P.fit ne pose rien sur ses tuiles, b.occ) ; sans cela, l'étang garanti étant la seule eau, toute centrale de plus était
     -- refusée « pas de lot » (retour du DC du 29/10 sur la 0.6.18 : « ils ont un déficit en électricité »)
     local shared = l.used and l.state ~= "gisement" and states.rive and plant_owner(b, l.used) or nil
-    if (not l.used or l.state == "gisement" or shared) and ok_state and (not res or l.res == res) and not (l.bad and l.bad >= 2) then
+    -- lot GISEMENTS : gisement voisin du QG refusé sans fin « hors du treillis » (journal du DC, cuivre d'ambre à 33 tuiles) : l'état d'un lot
+    -- ne retient qu'UNE ressource et son premier relevé ; le lot qui porte ce minerai sert (P.fit raisonne à la tuile)
+    local ore_lot = states.gisement and res and Gisements.lot_for_ore(l, res, P.MIN_RES_TILES)
+    if ore_lot then ok_state = true end
+    if (not l.used or l.state == "gisement" or shared) and ok_state and (not res or l.res == res or ore_lot) and not (l.bad and l.bad >= 2) then
       local c = lot_center(b, l)
       -- lot CORR-RESEAU : la centrale ne retourne pas sur un site jugé dangereux (b.avoid, posé par script/team/reseau_vivant.lua)
       local avoided = false
@@ -714,6 +721,7 @@ local function plan_power(f, p, mp, masks)
   -- route de carrefours jusqu'au réseau (tronçons non fermés)
   local target
   local keys = sorted_keys(b.net)
+  local gen_net = nil -- réseau des machines à vapeur (lu aussi par la chaîne directe, lot POTEAUX-COURT)
   if #keys == 0 then
     target = { i = mi, j = mj }
   else
@@ -724,7 +732,6 @@ local function plan_power(f, p, mp, masks)
     -- graine 20261020, scarlet : la rangée de pierre reliée à la route d'un module annulé, puis la fonderie et les
     -- chargeurs reliés à elle : trois modules sur une île, centrale à 0 kW). À défaut, les carrefours de la centrale, puis
     -- n'importe lequel.
-    local gen_net = nil
     if surface then
       local g = surface.find_entities_filtered({ force = f.force, type = "generator", limit = 1 })[1]
       gen_net = g and g.electric_network_id or nil
@@ -766,6 +773,7 @@ local function plan_power(f, p, mp, masks)
   local nodes
   -- lot PLANDIR : cause exacte d'un refus « pas de rue vers le reseau » (journal [FO-PLANDIR], 3 lignes au plus par projet)
   local cause, blocked_at
+  local no_route -- lot POTEAUX-COURT : aucune route de carrefours ({ wait = attente du refus }) : la chaîne directe ou le refus
   for attempt = 1, 4 do
     nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_passable(b)), b.radius)
     if not nodes then nodes = P.route_nodes({ i = mi, j = mj }, target, avoid(seg_wire(b)), b.radius) end
@@ -802,7 +810,31 @@ local function plan_power(f, p, mp, masks)
       local ok_w = P.route_nodes({ i = mi, j = mj }, target, seg_wire(b), b.radius) ~= nil
       if ok_s or ok_w then wait = "net" end
     end
-    return nil, "pas de rue vers le reseau", wait
+    -- lot POTEAUX-COURT (relecture) : b.net ne grandit plus quand le direct gagne, le carrefour cible s'éloigne : sans route, la
+    -- chaîne directe au poteau vivant le plus proche relie encore le module (plus bas) ; le refus ne tombe que si elle échoue
+    if far or big or not surface or #keys == 0 then return nil, "pas de rue vers le reseau", wait end
+    no_route = { wait = wait }
+    nodes = {}
+  end
+  -- lot POTEAUX-COURT (relecture, maillon manquant) : le but de la chaîne directe est le poteau VIVANT le plus proche du module (tout
+  -- poteau sur le réseau des machines à vapeur, celui d'un module voisin ou d'une chaîne directe d'avant compris), pas le carrefour
+  -- cible : sinon chaque module tirait sa ligne parallèle jusqu'au même carrefour lointain. Seuls des poteaux qui existent sont
+  -- traversés gratuitement (un poteau prévu par un projet annulé laisserait un trou, moteur réel e8-usine). Sans centrale qui
+  -- tourne : le carrefour cible.
+  local dgoal, dlive
+  local dlink = math.min(reach, P.wire(mp.name) or 9)
+  if not far and not big and surface and (no_route or #nodes >= 2) then
+    dgoal = spot_of(target.i, target.j)
+    if dgoal and gen_net then
+      local d = math.sqrt((mp.x - dgoal.x) ^ 2 + (mp.y - dgoal.y) ^ 2) + 1
+      local live = {}
+      for _, e in ipairs(surface.find_entities_filtered({ area = { { mp.x - d, mp.y - d }, { mp.x + d, mp.y + d } }, force = f.force, type = "electric-pole" })) do
+        if e.electric_network_id == gen_net and (P.wire(e.name) or 0) >= dlink - 1e-9 then live[#live + 1] = { x = e.position.x, y = e.position.y } end
+      end
+      table.sort(live, function(u, v) if u.y ~= v.y then return u.y < v.y end return u.x < v.x end)
+      local near = Pt.nearest(mp, live)
+      if near then dgoal, dlive = near, live end
+    end
   end
   -- tuiles des poteaux déjà prévus ici (un poteau de liaison ne se pose pas sur un poteau de carrefour)
   local taken = {}
@@ -816,6 +848,13 @@ local function plan_power(f, p, mp, masks)
     -- (lot PD-CENTRALE : la ligne lointaine lit son propre couloir, chunk par chunk, dans Far.line)
     if not far then legs[1] = { a = { x = mp.x, y = mp.y }, b = npos0 } end
     local pv
+    -- lot POTEAUX-COURT : couloir de la chaîne directe (relevé avant ceux de l'escalier, qu'un long détour peut faire plafonner) ;
+    -- au-delà du plafond de chunks, ses tuiles seraient « inconnues » (libres) : pas de direct
+    if dgoal then
+      local leg = { a = { x = mp.x, y = mp.y }, b = dgoal }
+      local _, total = Mq.corridor({ leg }, Mq.margin(reach))
+      if total <= Mq.MAX_CHUNKS then legs[#legs + 1] = leg else dgoal = nil end
+    end
     for _, n in ipairs(nodes) do
       local pos = spot_of(n.i, n.j)
       if pv and (not big or (pv.x - pos.x) ^ 2 + (pv.y - pos.y) ^ 2 > reach * reach - 1e-6) then legs[#legs + 1] = { a = pv, b = pos } end
@@ -836,11 +875,43 @@ local function plan_power(f, p, mp, masks)
     if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= reach - 1e-9 then known[#known + 1] = { x = e.x, y = e.y } end
   end
   for _, e in ipairs(p.ents) do add_known(e) end
+  if dlive then for _, k in ipairs(known) do dlive[#dlive + 1] = k end end -- (les poteaux de ce projet sont posés avec lui)
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
     -- centrale abandonnée exclue : reseau_vivant ne rouvre plus ses poteaux, on ne s'appuie pas sur eux
     if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then for _, e in ipairs(q.ents) do add_known(e) end end
   end
+  -- lot POTEAUX-COURT : chaîne DIRECTE du module à dgoal (A* sans passer par les carrefours), calculée avant l'escalier et comparée à
+  -- lui plus bas. Relecture : elle suit d'abord les rues et les lots déjà pris, un poteau au milieu d'un lot libre y refuserait
+  -- les modules (P.fit dans 24 x 24, l.bad à 2 : lot exclu) ; elle ne coupe un lot libre que si les rues font un vrai détour.
+  local n0 = #out
+  local direct
+  if dgoal then
+    local a = { x = mp.x, y = mp.y }
+    local k = dlive or known
+    local opts = Cl.path_opts(math.sqrt((a.x - dgoal.x) ^ 2 + (a.y - dgoal.y) ^ 2), dlink)
+    local oi, oj = P.lot_at(b.lat, math.floor(mp.x), math.floor(mp.y))
+    local function free_street(x, y)
+      if not free(x, y) then return false end
+      local i, j = P.lot_at(b.lat, math.floor(x), math.floor(y))
+      return not i or (i == oi and j == oj) or not Pt.lot_protected(b.lots[P.lot_key(i, j)])
+    end
+    direct = P.pole_chain(a, dgoal, dlink, false, free_street, k, opts)
+    if not Pt.keep_street(a, direct, dgoal) then
+      local c2 = P.pole_chain(a, dgoal, dlink, false, free, k, opts)
+      if c2 and (not direct or Pt.length(a, c2, dgoal) < Pt.length(a, direct, dgoal) - 0.01) then direct = c2 end
+    end
+  end
+  local function direct_out()
+    local r = {}
+    for _, c in ipairs(direct) do r[#r + 1] = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison" } end
+    return r, nil, {} -- (aucun carrefour : pas de poteau dessus, b.net n'est pas touché)
+  end
+  if no_route then
+    if not direct then return nil, "pas de rue vers le reseau", no_route.wait end
+    return direct_out()
+  end
+  local via_len = 0
   local prev
   for _, n in ipairs(nodes) do
     local k = P.lot_key(n.i, n.j)
@@ -855,7 +926,11 @@ local function plan_power(f, p, mp, masks)
     local d2 = prev and ((prev.x - pos.x) ^ 2 + (prev.y - pos.y) ^ 2) or 0
     if prev and (not big or d2 > reach * reach - 1e-6) then
       local chain = P.pole_chain(prev, pos, reach, big, free, known)
-      if not chain then return nil, "poteaux de rue" end
+      if not chain then
+        if direct then return direct_out() end -- (l'escalier échoue, le direct passe)
+        return nil, "poteaux de rue"
+      end
+      via_len = via_len + Pt.length(prev, chain, pos)
       for _, c in ipairs(chain) do
         local e = { name = pole, x = c.x, y = c.y, dir = 0, role = "rue" }
         out[#out + 1] = e
@@ -875,13 +950,32 @@ local function plan_power(f, p, mp, masks)
   else
     chain = P.pole_chain({ x = mp.x, y = mp.y }, npos, link_reach, false, free, known)
   end
-  if not chain then return nil, "liaison electrique" end
+  if not chain then
+    if direct then return direct_out() end
+    return nil, "liaison electrique"
+  end
+  via_len = via_len + Pt.length({ x = mp.x, y = mp.y }, chain, npos)
   for _, c in ipairs(chain) do
     -- (lot PD-CENTRALE : un poteau de la ligne lointaine arrive avec son point d'appui, lu sur le terrain de la ligne)
     local e = { name = mp.name, x = c.x, y = c.y, dir = 0, role = "liaison", ligne = far or nil,
       ax = c.ax, ay = c.ay, anchor = c.anchor }
     out[#out + 1] = e
     take(e)
+  end
+  -- lot POTEAUX-COURT : l'escalier de carrefours contre la chaîne directe (règle : Pt.prefer_direct) ; journal [FO-POTEAUX]
+  if dgoal then
+    local via = { n = #out - n0, len = via_len }
+    local dir = direct and { n = #direct, len = Pt.length({ x = mp.x, y = mp.y }, direct, dgoal) } or nil
+    local d0 = math.sqrt((mp.x - dgoal.x) ^ 2 + (mp.y - dgoal.y) ^ 2)
+    local use = Pt.prefer_direct(dir, via)
+    p.pot_logged = (p.pot_logged or 0) + 1
+    if p.pot_logged <= 3 then
+      log(string.format("[FO-POTEAUX] %s : projet %d, module vers le poteau %s a %.0f tuiles : escalier %d poteau(x) %.0f tuiles (ratio %.2f), direct %s : %s",
+        f.key or "player", p.id, dlive and "vivant" or "du carrefour", d0, via.n, via.len, d0 > 0 and via.len / d0 or 1,
+        dir and string.format("%d poteau(x) %.0f tuiles (ratio %.2f)", dir.n, dir.len, d0 > 0 and dir.len / d0 or 1) or "introuvable",
+        use and "DIRECT retenu" or "escalier garde"))
+    end
+    if use then return direct_out() end
   end
   if view.stats and (p.masq_logged or 0) < 6 then
     p.masq_logged = (p.masq_logged or 0) + 1
@@ -897,6 +991,27 @@ local function first_pole(ents)
 end
 
 local function needs_power(g) return (g.power_kw or 0) > 0 end
+
+--- Lot GISEMENTS : aucun lot ne porte ce minerai au dernier relevé : recompte le minerai des lots libres (toutes les G.ORE_SCAN ticks par
+--- minerai), l.ores[minerai] lu par Gisements.lot_for_ore. Un lot ne garde sinon que sa ressource principale, relevée une fois.
+local function scan_ore_lots(f, surface, res)
+  local b = f.build
+  b.ore_scan = b.ore_scan or {}
+  local tick = game.tick
+  if b.ore_scan[res] and tick < b.ore_scan[res] then return end
+  b.ore_scan[res] = tick + Gisements.ORE_SCAN
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    if not l.used and l.state ~= "inconnu" and not (l.i == 0 and l.j == 0) then
+      local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+      local n = surface.count_entities_filtered({ area = { { x0 + 0.01, y0 + 0.01 }, { x1 - 0.01, y1 - 0.01 } }, type = "resource", name = res })
+      if n > 0 or l.ores then
+        l.ores = l.ores or {}
+        l.ores[res] = n
+      end
+    end
+  end
+end
 
 local function deposit_toward(b, res)
   local c = candidates(b, { gisement = true }, { x = b.lat.ox, y = b.lat.oy }, res)[1]
@@ -977,7 +1092,7 @@ Build.DEBIT_LOGS = 24 -- lignes [FO-DEBIT] au plus, par équipe
 --- par l'emprise du gabarit `emprise` (M.GEN.drills, longueur d'un lot). Règle pure : shared/team/debit.lua. Lecteur : line_rows, qui
 --- borne ensuite par le gisement (80 % de couverture) puis donne aux fours les rangées que ces foreuses nourrissent ; la ligne de
 --- foreuses posée suit ces fours (plan_drills, demande). Journal [FO-DEBIT] : une ligne par minerai et par borne retenue.
---- Relecture : le tapis est lu par la règle pure (Cv.pick, même choix que Conv.choose) et NON par Conv.choose, qui écrit une fois par
+--- Relecture : le tapis est lu par la règle pure (CvRegle.pick, même choix que Conv.choose) et NON par Conv.choose, qui écrit une fois par
 --- équipe la ligne [FO-CONVOYEURS] « premier choix de tapis » : appelée ici, au plan, avec un débit HYPOTHÉTIQUE, elle prenait la place
 --- de celle du premier vrai tracé (plan_feed). Avec les données de base, la borne retenue est l'emprise (7 paires, M.MAX_SIDE), jamais le
 --- tapis (15 foreuses par côté sur une voie jaune) : le gabarit (M.GEN.drills) bornait déjà par M.LANE_RATE, le plus lent des tapis.
@@ -985,7 +1100,7 @@ function Build.debit_pairs(f, ore, emprise, drill_rate)
   local dc = T.debit or {}
   if not dc.belt or type(drill_rate) ~= "number" or drill_rate <= 0 then return emprise end
   -- une voie = un côté de la ligne entière
-  local belt, speed = Cv.pick(Conv.belts(), Conv.usable(f), (emprise or 0) * drill_rate, { need_only = Conv.MODE == "besoin" })
+  local belt, speed = CvRegle.pick(Conv.belts(), Conv.usable(f), (emprise or 0) * drill_rate, { need_only = Conv.MODE == "besoin" })
   local lane = Db.lane_capacity(speed)
   local by_belt = Db.belt_pairs(lane, drill_rate, nil)
   if by_belt <= 0 then return emprise end -- aucun tapis lisible : la borne du gabarit (comportement d'avant)
@@ -1090,6 +1205,10 @@ local function plan_feed(f, surface, p, place, part)
           local need_belt = p.spec.feed == "tapis" and M.ORES[item] and item ~= "coal"
           if M.ORES[item] and flow >= P.AUTO_FLOW and p.spec.feed ~= "quai" then
             local dt = deposit_toward(b, item)
+            if not dt and need_belt then -- lot GISEMENTS
+              scan_ore_lots(f, surface, item)
+              dt = deposit_toward(b, item)
+            end
             local reach = (p.spec.feed == "tapis") and 5 or 3
             local d = dt and (math.abs(dt.x - place.ox) + math.abs(dt.y - place.oy)) or nil
             if d and d <= reach * P.PITCH then
@@ -1098,6 +1217,8 @@ local function plan_feed(f, surface, p, place, part)
             elseif need_belt then
               -- gisement hors du treillis : le treillis grandit (nouvel essai quand le rayon change)
               if not dt and b.radius < Build.RADIUS_MAX then Build.grow(f, b.radius + 1) end
+              -- lot GISEMENTS : quels lots portent ce minerai, dans quel état (journal [FO-AUTO], borné par DRILL_DIAG_LOGS)
+              if not dt then Build.drill_diag(f, item, 0, { x = place.ox, y = place.oy }, "hors du treillis", nil) end
               return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
             end
           elseif need_belt then
@@ -1276,10 +1397,11 @@ function Build.drill_diag(f, item, n, a, why, diag, s)
   local lots = {}
   for _, k in ipairs(sorted_keys(b.lots)) do
     local l = b.lots[k]
-    if l.ore == item or l.res == item then
+    if l.ore == item or l.res == item or (l.ores and (l.ores[item] or 0) > 0) then
       local c = lot_center(b, l)
-      lots[#lots + 1] = string.format("%s(%s%s%s,bad%d,%d tuiles,%d)", k, l.state, l.shared and ",partage" or "",
-        l.used and (",pris" .. tostring(l.used)) or "", l.bad or 0, l.ore_n or 0, math.floor(math.abs(c.x - a.x) + math.abs(c.y - a.y)))
+      lots[#lots + 1] = string.format("%s(%s%s%s,bad%d,%d tuiles,%d)", k, l.state .. (l.state == "refuse" and (":" .. tostring(l.reason)) or ""),
+        l.shared and ",partage" or "", l.used and (",pris" .. tostring(l.used)) or "", l.bad or 0,
+        (l.ores and l.ores[item]) or l.ore_n or 0, math.floor(math.abs(c.x - a.x) + math.abs(c.y - a.y)))
     end
   end
   log(string.format("[FO-AUTO] %s : foreuses %s refusees (%s) : %d foreuse(s) visees, arrivee (%d, %d)%s ; lots de %s : %s ; essais (1 foreuse) : %s",
@@ -1581,6 +1703,17 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     end
   end
   if not place then
+    -- Lot GISEMENTS (« tapis des foreuses (minerai) », 1 144 refus au journal du DC) : dernier essai, une paire en bord de gisement ; le
+    -- débit d'une foreuse ne dépend pas du nombre de tuiles minées, seule sa durée de vie en dépend. « Exploitent toujours à 100 % ».
+    local g = M.with_pole(p.spec and p.spec.pole, M.GEN.drills, item, 1)
+    if not g and p.spec and p.spec.pole then g = M.GEN.drills(item, 1) end
+    if g then
+      place = place_module(f, surface, g, { gisement = true }, { x = a.x, y = a.y }, item,
+        { nobad = true, cover_min = Gisements.COVER_LOW, cache = cache, within = p.spec and p.spec.degel and p.spec.degel.zone or nil })
+      if place then picked, pg = { n = 1, cover = Gisements.COVER_LOW }, g end
+    end
+  end
+  if not place then
     Build.drill_diag(f, item, n, a, why, diag)
     return false, why
   end
@@ -1619,8 +1752,18 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
   local by0 = math.min(s.y, a.y) - 12
   local bx1 = math.max(s.x, a.x) + 12
   local by1 = math.max(s.y, a.y) + 12
-  if bx1 - bx0 > 120 or by1 - by0 > 120 then return false, "trop loin" end
-  local masks = read_masks(f, surface, bx0, by0, bx1 + 1, by1 + 1)
+  -- lot ENERGIE : le tapis d'alimentation d'une centrale (spec.alim) dépasse la boîte de 120 tuiles par TRONÇONS (Cv.reach) ; mesuré
+  -- au 31/10 : 17 refus « trop loin » sur 31 demandes, aucune centrale nourrie par des foreuses
+  local relay_legs
+  if bx1 - bx0 > 120 or by1 - by0 > 120 then
+    local mode, legs = nil, nil
+    if p.spec and p.spec.alim then mode, legs = Cv.reach(s.x, s.y, a.x, a.y) end
+    if mode ~= "relais" then return false, "trop loin" end
+    relay_legs = legs
+  end
+  local masks
+  if relay_legs then masks = { water = {}, blocked = {}, clear = {} } -- remplis tronçon par tronçon (relevé de chaque boîte)
+  else masks = read_masks(f, surface, bx0, by0, bx1 + 1, by1 + 1) end
   -- anneau d'une tuile autour des modules (aucun tapis ne longe un module : bras, têtes, queues)
   local ring = {}
   local function ring_of(ox, oy, w, h)
@@ -1640,8 +1783,39 @@ function Build.plan_drills(f, surface, p, item, flow, a, belt)
     if masks.clear[k] then c = c + 1 end
     return c
   end
-  local tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost)
-  if not tiles then
+  local tiles, n2
+  if relay_legs then
+    -- lot ENERGIE : tapis par relais. Chaque tronçon va d'un départ à un point de passage libre (sens de l'axe dominant), dans sa propre
+    -- boîte lue au moteur ; le tronçon suivant part de la tuile qui suit le point de passage. Tout ou rien : un tronçon sans chemin
+    -- refuse le plan (journal [FO-CHAMP-VAPEUR]).
+    b.stats.relais = (b.stats.relais or 0) + 1
+    local say = b.stats.relais <= Build.LINE_LOGS -- (journal borné par équipe)
+    if say then
+      log(Cv.line({ kind = "relais", team = f.key or "player", tick = game.tick, project = p.id, legs = relay_legs,
+        sx = s.x, sy = s.y, ax = a.x, ay = a.y }))
+    end
+    local function merge(m2) for _, kind in ipairs({ "water", "blocked", "clear" }) do for k in pairs(m2[kind]) do masks[kind][k] = true end end end
+    local why_leg, leg_no
+    tiles, why_leg, leg_no = Cv.route(s, a, relay_legs, {
+      dir_of = P.dir_of, DV = P.DV, cost = cost,
+      read = function(x0, y0, x1, y1) merge(read_masks(f, surface, x0, y0, x1, y1)) end,
+      route = function(from, to, dir, bd)
+        local leg, why2 = P.belt_route(from, to, dir, bd, cost)
+        if not leg and why2 == "trop long" then
+          leg, why2 = P.belt_route(from, to, dir, bd, cost, { weight = Build.ROUTE_WEIGHT, max = (bd.x1 - bd.x0 + 1) * (bd.y1 - bd.y0 + 1) })
+        end
+        return leg, why2
+      end,
+      mark = function(t) planned[P.tkey(t.x, t.y)] = true end,
+    })
+    if not tiles then
+      if say then log(Cv.line({ kind = "relais-refus", team = f.key or "player", tick = game.tick, project = p.id, leg = leg_no, legs = relay_legs, why = why_leg })) end
+      n2 = "relais : " .. tostring(why_leg)
+    end
+  else
+    tiles, n2 = P.belt_route(s, { x = a.x, y = a.y }, a.dir, { x0 = bx0, y0 = by0, x1 = bx1, y1 = by1 }, cost)
+  end
+  if not tiles and not relay_legs then
     -- second essai, marge d'un pas de treillis (contourner une falaise par la brèche voisine ; correction du 27/10)
     local cx0, cy0 = math.min(s.x, a.x) - P.PITCH, math.min(s.y, a.y) - P.PITCH
     local cx1, cy1 = math.max(s.x, a.x) + P.PITCH, math.max(s.y, a.y) + P.PITCH
@@ -2047,6 +2221,16 @@ local function plan_alim(f, surface, p)
     end
   end
   p.parts, p.ents = {}, {}
+  -- lot ENERGIE : gisement de charbon hors du treillis (12 refus « minerai » sur 31 demandes au 31/10) : le treillis GRANDIT, le prochain
+  -- essai (pause du lot CHARBON-CENTRALE) trouve le gisement ; avant, rien ne le faisait grandir pour l'alimentation
+  if Cv.after_refusal(last, Build.can_grow(b)) == "grandir" then
+    Build.grow(f, b.radius + 1)
+    p.cv_grew = true -- (relecture : ce refus-là ne compte pas vers la pause longue, Cc.refused)
+    b.stats.cv_grow = (b.stats.cv_grow or 0) + 1
+    if b.stats.cv_grow <= Build.LINE_LOGS then
+      log(Cv.line({ kind = "grandir", team = f.key or "player", tick = game.tick, project = p.id, why = last, radius = b.radius }))
+    end
+  end
   return false, "foreuses : " .. last
 end
 
@@ -2378,7 +2562,8 @@ function Build.grow_plant(f, nb, tick)
   local b = f.build
   local first = b.plant and b.projects[b.plant]
   if not (first and first.spec and first.spec.gen) then return nil end -- (la centrale de plus est du même type que la première)
-  local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures" })
+  local id = Build.request(f, { gen = first.spec.gen, args = { nb }, feed = true, prio = Build.PRIO + 5, domain = "infrastructures",
+    pole = first.spec.pole }) -- (intégration 0.6.28 : même poteau que la première, voir l'alimentation)
   if not id then return nil end
   b.extra_plants = b.extra_plants or {}
   b.extra_plants[#b.extra_plants + 1] = id
@@ -3750,7 +3935,7 @@ local function charbon_step(f, tick)
     if alim and (alim.state == "refuse" or (alim.state == "bloque" and not alim.retry_at)) then
       -- refus du plan (pas de gisement à portée, pas de tracé) ou chantier abandonné : pause, puis nouvel essai
       local why = tostring(alim.reason)
-      Cc.refused(st, tick)
+      Cc.refused(st, tick, alim.cv_grew)
       b.charbon_logs = (b.charbon_logs or 0) + 1
       if b.charbon_logs <= Cc.LOGS then
         log(string.format("[FO-CHARBON-CENTRALE] %s : centrale %d, projet d'alimentation %d %s (%s) a %.1f min : refus %d (pause %s apres %d), nouvel essai a %.1f min ; le coffre reste rempli en urgence",
@@ -3771,7 +3956,9 @@ local function charbon_step(f, tick)
       tick = tick, off = b.opts and b.opts.no_alim == true })
     if ok then
       local n, kw = plant_burn_kw(p)
-      local id = Build.request(f, { alim = p.id, prio = Cc.PROJECT_PRIO, domain = "infrastructures" })
+      -- Intégration 0.6.28 (ENERGIE × poteaux) : même poteau que la centrale ; sans `pole`, le gabarit prenait M.DEFAULT_POLE (poteau moyen, recette
+      -- pas encore ouverte : journal du DC, ambre, projet 4 « reserve:materiaux » à 28 min, electric-energy-distribution-1 non recherchée à 38 min)
+      local id = Build.request(f, { alim = p.id, prio = Cc.PROJECT_PRIO, domain = "infrastructures", pole = p.spec and p.spec.pole })
       if id then
         st.alim = id
         other_open = true
@@ -4247,6 +4434,18 @@ function Build.brief(f, id)
   return { state = p.state, reason = p.reason, missing = missing, built = count_built(p), total = #p.ents,
     retry_at = p.retry_at, retries = p.retries, parts = parts, quais = quais, grow = grow,
     rebuilding = rebuilding, growth = (p.ligne ~= nil and p.reopened ~= nil and p.reopened ~= 0 and not rebuilding and p.state ~= "fini") or false }
+end
+
+--- Lot ENERGIE (relecture) : projet d'alimentation de centrale ouvert de l'équipe (un seul à la fois, Cc.want_alim), ou nil. Lecteur :
+--- script/ai3/automatisation.lua, qui en fait un but « fabriquer ses manques ». Lecture seule.
+function Build.alim_project(f)
+  local b = f and f.build
+  if not b then return nil end
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.alim and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then return pid end
+  end
+  return nil
 end
 
 --- Lot FUITES-PILE : pose la famille de la pile et le produit d'un projet demandé AVANT ce lot (sauvegarde 0.6.21) ; ne change rien à un

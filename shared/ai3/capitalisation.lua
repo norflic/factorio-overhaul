@@ -74,6 +74,7 @@
 
 local R = require("shared.ai3.reglages") -- types du moteur -> rôle (seules données nommées admises)
 local Lv = require("shared.ai3.leviers") -- lot LEVIERS : modules dans les machines posées, recherches à effet
+local Gi = require("shared.team.gisement") -- lot GISEMENTS : matière la plus en manque d'abord, pas d'avant-poste de trop
 
 local Ca = {}
 
@@ -89,7 +90,8 @@ Ca.H_R = 20             -- file de recherche visée en 20 min au plus
 Ca.H_FUEL = 30          -- combustible compté sur 30 min dans le choix d'une machine
 Ca.H_LIFE = 60          -- gisements ouverts épuisés en moins de 60 min : ouvrir le suivant d'avance
 -- Gisements.
-Ca.KAPPA = 800          -- ‰ des tuiles sous une foreuse : gisement couvert (critère (1) du DC, 27/10, 12 h 30)
+Ca.SCARCE_FIRST = true  -- lot GISEMENTS : ordre des options de matière par bande de pénurie (mutant : false)
+Ca.KAPPA = 1000         -- ‰ des tuiles sous une foreuse : gisement couvert EN ENTIER (DC 31/10 : « il ne faut pas s'arrêter à 80 % » ; 800 avant le lot GISEMENTS)
 Ca.RESERVE_PCT = 25     -- places libres de débit inférieur à 25 % de la demande : ouvrir le suivant d'avance
 Ca.OPEN_RATIO = 120     -- % : un site neuf 20 % moins cher par débit que couvrir l'ancien : l'ouvrir
 Ca.OPEN_MIN = 2         -- foreuses au moins sur un gisement ouvert d'avance
@@ -116,6 +118,8 @@ Ca.G_MAX = 150          -- ‰ de croissance de la demande élastique par cycle,
 Ca.T_GROWTH0 = 5        -- min : retour supposé avant le premier ordre
 Ca.T_LAG = 5            -- min : délai de pose supposé (décision -> bâtiment qui tourne) quand le runtime ne le mesure pas
 Ca.T_HIST = 3           -- cycles gardés pour le retour moyen T̄ (médiane)
+Ca.CHAIN_MAX = 4        -- … et au plus 4 machines d'avance par ordre
+Ca.CHAIN_LEAD = 2       -- lot PILE-MALL : une chaîne se dimensionne sur 2 fois le débit voulu au plus (nil : le manque présent seulement)
 Ca.LEAD = 2             -- la demande élastique, et la capacité d'avance, ne dépassent jamais 2 fois le débit voulu
 -- Couverture d'avance d'un gisement OUVERT : plafond en multiple du besoin. nil = aucun plafond (décision de l'intégrateur
 -- sur Q-CAPI-1, OBJECTIFS §4, 27/10 vers 14 h 20, tirée de la phrase du DC de 12 h 30 « il aurait mis des foreuses partout,
@@ -133,6 +137,7 @@ Ca.SPARE = 2            -- PNJ : travail qui attend au-delà des bras libres (fa
 Ca.HANDS_MIN = 1        -- PNJ : un bras au moins peut toujours passer au capital
 -- Travail (mêmes ordres de grandeur qu'IA3-e, shared/ai3/automatiser.lua).
 Ca.POSE_S, Ca.BATCH, Ca.WALK, Ca.HANDLE_S, Ca.DIST = 1.5, 12, 8, 10, 56
+Ca.NEAR_SITE = Gi.NEAR -- tuiles : un gisement ouvert plus près que cela d'un site, avec des places, rend l'ouverture du site inutile (lot GISEMENTS)
 -- Valeur d'un but au cerveau (échelle des projets) : 35 (seuil du travail qui fait recruter, IA3-d) à 50, sous la
 -- recherche (B.RESEARCH 62) et l'extraction ; but de FOND (lot CAPITAL : bancs c1 et c1-témoin, un but de capital servi
 -- comme un projet ordinaire retardait la recherche).
@@ -1187,10 +1192,18 @@ function Ca.option_emit(ctx, o)
   return e
 end
 
+--- Intégration 0.6.28 (GISEMENTS × PILE-BUDGET) : input.starved = matières en manque par rapport au besoin ou d'un cadre ouvert de la
+--- pile. La pile les laisse passer (Pi.porte) : la menace ne les ferme pas non plus (le `danger` de chaque gisement reste exclu).
+local function starved_in(ctx, item)
+  local sv = ctx.input and ctx.input.starved
+  return sv ~= nil and item ~= nil and sv[item] == true
+end
+
 --- Termine une option : coût, retour, valeur ; rend l'option ou nil (refus écrit). `tmax` : retour accepté (le caractère
 --- par défaut ; lot LEVIERS : plus long quand l'extraction n'a plus aucune option, Lv.REPLI_TMAX).
 local function finish(ctx, o, tmax)
   tmax = tmax or ctx.ch.tmax
+  if ctx.threat and starved_in(ctx, o.item) then tmax = tmax * Ca.THREAT_DIV end -- (sans cela, ouverte mais refusée « retour > Tmax ÷ 4 »)
   if o.cost_m == nil then
     refuse(ctx, o.key, o.kind, o.item, "impayable : " .. tostring(o.unpaid))
     return nil
@@ -1240,7 +1253,7 @@ Ca.deposit_state = deposit_state
 
 --- Raison qui interdit de poser sur un gisement CE cycle (nil : permis) : menace (hors QG), danger.
 function Ca.usable(ctx, f, kind)
-  if ctx.threat and not Ca.HQ_LEVERS[kind] then return "menace : leviers du QG seulement" end
+  if ctx.threat and not Ca.HQ_LEVERS[kind] and not starved_in(ctx, f.resource) then return "menace : leviers du QG seulement" end
   if f.danger then return "danger" end
   if f.blocked then return tostring(f.blocked) end -- lot CAPIB : interdit par l'exécutant (hors de portée, refus)
   return nil
@@ -1352,6 +1365,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
   -- Couvrir les gisements ouverts. Un gisement où l'on ne peut pas poser ce cycle (danger, courant sans centrale)
   -- compte comme couvert : il ne bloque ni l'ouverture d'un autre, ni la réserve de places.
   local all_covered, free_total, ext_unit, n_usable, kmin = true, 0, nil, 0, 1000
+  local near_free = {} -- lot GISEMENTS : gisements ouverts de CE minerai qui ont encore des places (pas d'avant-poste de trop)
   for _, f in ipairs(opened) do
     local key = "couvrir:" .. tostring(f.id)
     local covered, free, kappa = deposit_state(ctx, plan, f, d)
@@ -1359,6 +1373,7 @@ local function extraction_options(ctx, plan, req, item, def, out)
     if not blocked then
       n_usable = n_usable + 1
       free_total = free_total + free
+      if free > 0 then near_free[#near_free + 1] = { x = f.x, y = f.y, free = free, blocked = f.blocked, danger = f.danger, id = f.id } end
       if free > 0 and kappa < Ca.KAPPA then all_covered = false end
       if kappa < kmin then kmin = kappa end
     end
@@ -1421,7 +1436,17 @@ local function extraction_options(ctx, plan, req, item, def, out)
   local evaluated, cheap_done = 0, false
   for _, f in ipairs(sites) do
     local key = "ouvrir:" .. tostring(f.id)
+    local redundant, near_dep = false, nil
     if not Ca.taken(plan, key) and not f.danger and not f.blocked then
+      -- Lot GISEMENTS (DC 31/10 : « ils voulaient même faire un avant-poste de cuivre alors que le gisement est à côté ») : un
+      -- gisement ouvert voisin du même minerai a des places : pas de site de plus, sauf s'il s'épuise (epuisement en N min).
+      redundant, near_dep = Gi.site_redundant(f, near_free, Ca.NEAR_SITE)
+    end
+    if redundant and not (why_open and why_open:sub(1, 10) == "epuisement") then
+      refuse(ctx, key, "ouvrir", item, "gisement voisin a des places (" .. tostring(near_dep and near_dep.id) .. ")")
+      evaluated = evaluated + 1
+      if evaluated >= Ca.SITES_EVAL then break end
+    elseif not Ca.taken(plan, key) and not f.danger and not f.blocked then
       local why = why_open
       local _, slots = deposit_state(ctx, plan, f, d)
       local n = math.min(slots, math.max(Ca.OPEN_MIN, Ca.count_for(math.max(0, def), rho, theta)))
@@ -1543,6 +1568,16 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
     local na = math.min(ncap, nfree, n_lead)
     if na > nwant then nwant, ahead = na, true end
   end
+  -- Lot PILE-MALL (retour du DC du 31/10, point 8 : « une seule usine par objet ») : une CHAÎNE se dimensionne aussi sur la demande
+  -- (au plus Ca.CHAIN_LEAD fois le débit voulu, comme la fonte d'avance), pas seulement sur le manque présent ; la demande déjà
+  -- couverte par les machines, la main et le stock n'ouvre rien de plus. Les ingrédients (nfree) et la capacité (ncap) bornent.
+  local n_short = nil -- relecture : le nombre pour le seul manque présent (repli si l'ordre agrandi dépasse le retour accepté)
+  if is_chain and Ca.CHAIN_LEAD and Ri > 0 then
+    local n_lead = math.max(0, math.floor((Ca.CHAIN_LEAD * Ri - (plan.N[item] or 0) - (plan.hand[item] or 0) - stock_i) / p + Ca.FRAC_UP))
+    local na = math.min(ncap, nfree, n_lead, Ca.CHAIN_MAX)
+    n_short = nwant
+    if na > nwant then nwant = na end -- sans crédit d'avance : §9, un crédit fait passer les chaînes devant l'extraction (K et foreuses s'effondrent)
+  end
   if nwant <= 0 then
     if def > Ca.EPS then refuse(ctx, key, kind, item, "manque sous une demi-machine (" .. fmt(def) .. "/min)") end
     return
@@ -1587,7 +1622,9 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
       limit and (", nourrie par " .. limit .. " (" .. ncap .. " au plus)") or "")
     return finish(ctx, o)
   end
-  cand(out, mk(n), mk)
+  local first = mk(n)
+  if not first and n_short and n_short > 0 and n_short < n then first = mk(n_short) end
+  cand(out, first, mk)
 end
 
 --- Recherche que les packs nourrissent AU-DELÀ des laboratoires planifiés (secondes de laboratoire par minute) : pour
@@ -1698,6 +1735,20 @@ function Ca.options(ctx, plan, req)
   power_options(ctx, plan, out)
   Lv.options(Ca, ctx, plan, req, out) -- lot LEVIERS : modules dans les machines posées, recherches à effet
   table.sort(out, function(a, b) return Ca.before(a.o, b.o) end)
+  -- Lot GISEMENTS (DC 31/10 : « la gestion des ressources […] on doit l'appliquer à toutes les ressources ») : la matière la plus en manque
+  -- par rapport au besoin passe devant (cuivre, pierre, charbon comme le fer) ; laboratoires, courant et leviers gardent leur place.
+  if Ca.SCARCE_FIRST then
+    local theta = {}
+    for _, i in ipairs(req.list) do
+      local Ri = req.R[i] or 0
+      if Ri > 0 then theta[i] = ((plan.N[i] or 0) + (plan.hand[i] or 0) + (ctx.stock[i] or 0) / Ca.H_STOCK) / Ri end
+    end
+    out = Gi.reorder(out, function(c)
+      local it = c.o.item
+      if it == nil or theta[it] == nil or not (c.o.kind == "couvrir" or c.o.kind == "ouvrir" or c.o.kind == "chaine" or c.o.kind == "fours") then return nil end
+      return Gi.band(theta[it])
+    end)
+  end
   return out
 end
 

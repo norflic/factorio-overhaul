@@ -41,6 +41,7 @@ local function run_all()
   -- juste mais cache le cas étudié : une perte SEULE).
   M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
   require("shared.team.config").defend_hq = 0 -- après new_game (les modules du mod y sont rechargés)
+  require("shared.ai3.reglages").PILE_BUDGET = false -- ce banc étudie la retenue seule (lot PILE-BUDGET : le budget a son banc, pile_budget_test)
   if W().remote["fo-ia3f"] then remote.call("fo-ia3f", "set_fog", false) end
   local s = game.surfaces[1]
   local chest = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
@@ -96,12 +97,16 @@ local function run_all()
   f.migration = { next = 1e12, logs = 0, logs_f = 0, cur = 1, o = { [1] = { stage = "projet" } } }
   check(not PileRt.migration_building(f), "migration à l'étape projet (rien retiré) : elle attend la fin de la retenue")
   calls.mig = 0
+  -- (intégration 0.6.28 : depuis le lot MAIN-INVENTAIRE, un PNJ qui ne mine plus le charbon d'un coffre garni refait la pièce avant ces
+  -- deux contrôles, tick 2 400 au lieu de plus tard : la retenue est tenue ici, seul l'aiguillage de script/team/team.lua est observé)
+  local o_hold = PileRt.hold
+  PileRt.hold = function() return true end
   M.run_ticks(300)
-  check(f.team.ia3.pile.hold and calls.mig == 0, "retenue : la migration qui n'a rien retiré n'est pas appelée (" .. calls.mig .. ")")
+  check(calls.mig == 0, "retenue : la migration qui n'a rien retiré n'est pas appelée (" .. calls.mig .. ")")
   f.migration.o[1].stage = "chantier"
   M.run_ticks(300)
-  check(f.team.ia3.pile.hold and calls.mig >= 1,
-    "retenue : la migration EN CHANTIER continue (ligne comptée, registre purgé) (" .. calls.mig .. ")")
+  check(calls.mig >= 1, "retenue : la migration EN CHANTIER continue (ligne comptée, registre purgé) (" .. calls.mig .. ")")
+  PileRt.hold = o_hold
   f.migration = saved_ms
   calls.mig = 0
   local susp = logs_with("SUSPENDU")

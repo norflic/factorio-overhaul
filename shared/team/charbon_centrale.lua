@@ -91,9 +91,11 @@ function Cc.pause(tries)
   return ((tries or 0) < Cc.MAX_TRIES) and Cc.RETRY_TICKS or Cc.LONG_RETRY_TICKS
 end
 
---- Le projet d'alimentation a été refusé (plan impossible : pas de gisement à portée, pas de tracé) ou abandonné.
-function Cc.refused(st, tick)
-  st.tries = (st.tries or 0) + 1
+--- Le projet d'alimentation a été refusé (plan impossible : pas de gisement à portée, pas de tracé) ou abandonné. grew (lot ENERGIE,
+--- relecture) : le refus a fait grandir le treillis ; il ne compte pas vers la pause longue, le prochain essai voit de nouveaux lots
+--- (le nombre de ces refus est borné par le rayon maximal du treillis).
+function Cc.refused(st, tick, grew)
+  st.tries = (st.tries or 0) + (grew and 0 or 1)
   st.retry_at = tick + Cc.pause(st.tries)
   st.alim = nil
 end
