@@ -32,10 +32,10 @@ VANILLA = {
                     "assembling-machine-3/hr-assembling-machine-3-shadow.png", (0, 0, 260, 162), (28, 4), (3, 3),
                     "Vanilla : assembleur 3 (3×3)"),
 }
-EMPRISE = {"epave": (8, 4), "age01": (8, 4), "age08": (12, 6), "age15": (16, 8), "qg08": (12, 6)}
+EMPRISE = {"epave": (8, 4), "age01": (8, 4), "age08": (12, 6), "age15": (16, 8), "qg08": (12, 6), "qg13": (16, 8), "qg14": (16, 8)}
 TITRES = {"epave": "Épave (âge 0)", "age01": "Âge 1 : réparé, encore un vaisseau",
           "age08": "Âge 8 : moitié vaisseau, moitié bâtiment", "age15": "Âge 15 : citadelle sur la carcasse",
-          "qg08": "QG âge 8 : Marais (refonte 30/10)"}
+          "qg08": "QG âge 8 : Marais (refonte 30/10)", "qg13": "Âge 13 · Fusion", "qg14": "Âge 14 · Orbite"}
 
 
 def _png(rel, rect):
