@@ -79,9 +79,9 @@ local function shape(ctx, variant)
   end
   local info = { natural = natural }
   if variant == "proche" then
-    -- lot (1, 1) : x et y de 16 à 40 ; le charbon (disque de 5, ~80 tuiles) l'emporte sur le cuivre (disque de 3, ~28 tuiles)
-    info.coal = disc(s, "coal", 22, 22, 5, 3000)
-    info.copper = disc(s, "copper-ore", 35, 35, 3, 4000)
+    -- lot (1, 1) : x et y de 16 à 40 ; le charbon (disque de 6, 113 tuiles) l'emporte sur le cuivre (disque de 5, 81 tuiles)
+    info.coal = disc(s, "coal", 22, 22, 6, 3000)
+    info.copper = disc(s, "copper-ore", 34, 34, 5, 4000)
     info.target = { x = 35, y = 35 }
   elseif variant == "loin" then
     info.copper = disc(s, "copper-ore", 200, 0, 9, 4000)
