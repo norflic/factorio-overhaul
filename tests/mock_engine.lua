@@ -235,6 +235,8 @@ local function new_inventory()
     return c
   end
   inv.is_empty = function() return next(inv._items) == nil end
+  -- Lot MAIN-INVENTAIRE : capacité illimitée, donc une place énorme (le mineur ne dépose jamais en route dans le mock).
+  inv.get_insertable_count = function() return 1000000 end
   -- Lot COFFRE : le mock n'a pas de nombre de cases (#inv = 0, capacité illimitée) ; script/team/stock.lua traite un coffre
   -- de 0 case comme « capacité inconnue » : ni annexe ni rangement.
   inv.count_empty_stacks = function() return 0 end

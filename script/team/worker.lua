@@ -37,6 +37,7 @@ local Charge = require("shared.team.charge_four") -- lot FOURS : quantité empor
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : tourelles posées là où les pièces tombent
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées dans l'emprise d'un îlot isolé
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
+local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 
 local Worker = {}
@@ -486,6 +487,23 @@ function Worker.program(f, task, surface, tick)
   elseif k == "equiper" then
     return Equip.program(f, task) -- lot LEVIERS
   elseif k == "mine" then
+    -- Lot MAIN-INVENTAIRE : pas de minage à la main quand les coffres (QG + annexes) couvrent déjà la tâche, jamais de combustible
+    -- à la main quand un coffre en a (retour du DC du 31/10 : minage de charbon seul de la 3e à la 7e heure, coffres garnis).
+    do
+      local ok, why = Mi.hand_verdict({ stock = Stock.count(f, task.resource), count = task.count, fuel = task.resource == T.fuel,
+        survie = task.survie })
+      if not ok then
+        f.stats.main_refus = f.stats.main_refus or {}
+        local last = f.stats.main_refus[task.resource]
+        if not last or tick - last >= 3600 then
+          f.stats.main_refus[task.resource] = tick
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d en coffre pour %d demande(s), tache %s, a %.1f min",
+            f.key or "?", tostring(task.resource), why, Stock.count(f, task.resource), task.count or 0, tostring(task.key), tick / 3600))
+        end
+        task.fail = task.fail or "main:stock"
+        return nil
+      end
+    end
     -- Lot IA1-b : 256 tuiles au lieu de 64 (essai 2 du banc ia1-poles : les 64 tuiles les plus proches d'un gisement
     -- exploité sont toutes sous des foreuses ; le minage échouait sans raison écrite). Au plus 40 tuiles contrôlées.
     -- Lot IA1-b2 (R-QCM-25c (c)) : task.radius (minage de fond de votre équipe : près du coffre, T.near_mine).
@@ -568,6 +586,38 @@ end
 -- Actions sur place
 ---------------------------------------------------------------------------------------------------
 local ACTS = {}
+
+--- Lot MAIN-INVENTAIRE : ramasse les piles de `item` tombées au sol autour du mineur (le moteur lâche le minerai quand
+--- l'inventaire est plein, ou quand le mineur s'éloigne). Rend le nombre ramassé.
+local function pick_ground(agent, item)
+  local e = agent.entity
+  local inv = main_inv(agent)
+  local ents = e.surface.find_entities_filtered({ name = "item-on-ground", position = e.position, radius = Mi.PICK_RADIUS,
+    limit = Mi.PICK_LIMIT })
+  local stacks = {}
+  for i, ent in ipairs(ents) do
+    local st = ent.valid and ent.stack or nil
+    if st and st.valid_for_read and st.name == item then
+      stacks[#stacks + 1] = { i = i, n = st.count, d2 = dist2(ent.position, e.position), x = ent.position.x, y = ent.position.y }
+    end
+  end
+  if #stacks == 0 then return 0 end
+  local picked = 0
+  for _, i in ipairs((Mi.pick_plan(stacks, inv.get_insertable_count(item)))) do
+    local ent = ents[i]
+    if ent.valid then
+      local n = ent.stack.count
+      local put = inv.insert({ name = item, count = n })
+      if put == n then
+        ent.destroy()
+        picked = picked + n
+      elseif put > 0 then
+        inv.remove({ name = item, count = put })
+      end
+    end
+  end
+  return picked
+end
 
 ACTS.build = function(agent, f, task, surface, tick)
   local o = Outposts.build(f, surface, task.outpost_kind, task.site, main_inv(agent))
@@ -963,8 +1013,17 @@ function Worker.recall_near(f, p, radius, tick, except)
     local e = a and a.entity
     if a ~= except and at and e and e.valid and not Re.recall_exempt(at.kind, at.defend)
       and not at.fail and dist2(e.position, p) <= r2 then
-      abort(a, f, tick, "danger")
-      n = n + 1
+      -- Lot MAIN-INVENTAIRE : le service des fours du QG (charbon, sortie, relance) reste prioritaire après une attaque.
+      if Mi.keep_working(at.kind, dist2(e.position, f.hq_pos)) then
+        f.stats.main_gardes = (f.stats.main_gardes or 0) + 1
+        if f.stats.main_gardes <= 5 then
+          log(string.format("[FO-MAIN] %s : service des fours (%s) GARDE malgre le rappel, PNJ a %.0f tuiles du QG, a %.1f min",
+            f.key or "?", tostring(at.kind), math.sqrt(dist2(e.position, f.hq_pos)), tick / 3600))
+        end
+      else
+        abort(a, f, tick, "danger")
+        n = n + 1
+      end
     end
   end
   f.stats.danger_recalls = (f.stats.danger_recalls or 0) + n
@@ -1205,6 +1264,7 @@ FSM.define(MACHINE, {
       Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       Profiler.fstop("board:reserve")
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
+      agent.mine_trips = nil -- lot MAIN-INVENTAIRE : voyages de dépôt comptés par tâche
       set(agent, "step", tick)
       Profiler.fcredit("idle", "idle:depart")
     end,
@@ -1368,12 +1428,40 @@ FSM.define(MACHINE, {
       local target = agent.task and agent.task.target
       local f = faction_of(agent)
       local res = target and mining_entity(e.surface, target, Harvest.names_for(f, item, agent.task and agent.task.trees), f)
-      if got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT then
+      -- Lot MAIN-INVENTAIRE : inventaire plein -> on dépose l'utile au coffre puis on revient finir (au lieu de laisser le moteur
+      -- lâcher le minerai au sol) ; en fin de minage, le minerai tombé au sol autour du mineur est ramassé.
+      local over = got >= count or not res or tick - agent.mine_started > MINE_TIMEOUT
+      local act = over and "finish" or Mi.inventory_action({ room = main_inv(agent).get_insertable_count(item), got = got,
+        count = count, trips = agent.mine_trips or 0 })
+      if act ~= "continue" then
         e.mining_state = { mining = false }
+        local picked = pick_ground(agent, item)
+        got = got + picked
+        if act == "deposit" and got >= count then act = "finish" end
+        if f and picked > 0 and (f.stats.main_logs or 0) < 40 then
+          f.stats.main_logs = (f.stats.main_logs or 0) + 1
+          log(string.format("[FO-MAIN] %s : %d %s ramasse(s) au sol autour du mineur a %.1f min", f.key or "?", picked, tostring(item), tick / 3600))
+        end
+        if act == "deposit" then
+          agent.mine_trips = (agent.mine_trips or 0) + 1
+          if f then
+            f.stats.mined = (f.stats.mined or 0) + got
+            if (f.stats.main_logs or 0) < 40 then
+              f.stats.main_logs = (f.stats.main_logs or 0) + 1
+              log(string.format("[FO-MAIN] %s : inventaire plein (%d/%d %s), depot au coffre puis retour (voyage %d) a %.1f min",
+                f.key or "?", got, count, tostring(item), agent.mine_trips, tick / 3600))
+            end
+          end
+          agent.steps[agent.pc] = { "home" }
+          table.insert(agent.steps, agent.pc + 1, { "goto", target, 1.5 })
+          table.insert(agent.steps, agent.pc + 2, { "mine", item, count - got })
+          set(agent, "step", tick)
+          return
+        end
         -- Lot KIT (mesure, journal seul) : rendement de chaque minage à la main, pour la part des minages à 0 sur N.
         if f then
-          log(string.format("[FO-MINAGE] %s min=%.2f %s got=%d/%d dt=%.1f %s", f.key or "?", tick / 3600, tostring(item), got, count,
-            (tick - (agent.mine_started or tick)) / 60, got >= count and "complet" or (res and "delai" or "sans-entite")))
+          log(string.format("[FO-MINAGE] %s min=%.2f %s got=%d/%d dt=%.1f %s sol=%d", f.key or "?", tick / 3600, tostring(item), got, count,
+            (tick - (agent.mine_started or tick)) / 60, got >= count and "complet" or (res and "delai" or "sans-entite"), picked))
         end
         if f and agent.task then release_tile(f, agent.task.target) end -- lot KIT : la tuile est rendue
         if f then f.stats.mined = (f.stats.mined or 0) + got end
