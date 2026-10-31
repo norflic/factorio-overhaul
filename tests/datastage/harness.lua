@@ -502,7 +502,7 @@ table.sort(disabled_rules)
 local selftest_fail, selftest_total = {}, 0
 do
   local RULES = { "pipe-inside", "pipe-off-center", "drop-inside", "drop-on-footprint", "ammo-list-source-type",
-    "sound-ignored-key" }
+    "sound-ignored-key", "module-baie" }
   local function drill(side, drop, pipes)
     local c = side / 2 - 0.3
     local pcs = {}
@@ -542,6 +542,14 @@ do
     { "son en couches, vitesse posée sur la couche (ronde 3 du lot TIRS)", { type = "ammo-turret", attack_parameters = {
       sound = { layers = { { variations = { { filename = "__base__/a.ogg" } }, min_speed = 0.5, max_speed = 0.6 } } } } },
       { ["sound-ignored-key"] = 2 } },
+    -- lot CALCUL-V2 : exclusivité des baies (le centre n'admet que « pollution »)
+    { "baie : pollution seule", { type = "module", category = "fo-baie", effect = { pollution = { bonus = 0.05 } } }, {} },
+    { "baie portant aussi un effet de vitesse", { type = "module", category = "fo-baie",
+      effect = { pollution = { bonus = 0.05 }, speed = { bonus = 0.1 } } }, { ["module-baie"] = 1 } },
+    { "module de vitesse (effet hors pollution)", { type = "module", category = "speed",
+      effect = { speed = { bonus = 0.2 }, consumption = { bonus = 0.5 } } }, {} },
+    { "module à pollution seule hors catégorie des baies (le centre l'accepterait)", { type = "module", category = "speed",
+      effect = { pollution = { bonus = 0.1 } } }, { ["module-baie"] = 1 } },
   }
   for i, c in ipairs(cases) do
     local raw = { [c[2].type] = { ["cas-" .. i] = c[2] } }

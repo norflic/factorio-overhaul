@@ -308,6 +308,18 @@ function R.check(raw, only, stats)
               add(key, "module-effect", "effet '" .. ek .. "' sans bonus numérique")
             end
           end
+          -- Lot CALCUL-V2 : le centre de calcul n'admet que « pollution » (allowed_effects) ; l'exclusivité des baies tient à
+          -- cette seule règle. Une baie (catégorie fo-baie) ne porte donc QUE de la pollution, et tout autre module (vanilla
+          -- ou du mod) porte un effet hors pollution, sinon le centre l'accepterait (relecture CALCUL-V2).
+          local other = false
+          for ek, ev in pairs(p.effect or {}) do
+            if ek ~= "pollution" and type(ev) == "table" and type(ev.bonus) == "number" and ev.bonus ~= 0 then other = true end
+          end
+          if p.category == "fo-baie" and other then
+            add(key, "module-baie", "une baie ne porte que de la pollution (le centre de calcul refuse les autres effets)")
+          elseif p.category ~= "fo-baie" and not other then
+            add(key, "module-baie", "module sans effet hors pollution : le centre de calcul l'accepterait")
+          end
           for _, rname in ipairs(p.limitation or {}) do
             if not (raw.recipe and raw.recipe[rname]) then
               add(key, "module-limitation", "recette de limitation inconnue '" .. rname .. "'")

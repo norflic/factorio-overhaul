@@ -2,7 +2,7 @@
   Scénario GREFFÉ « calcul-chaines » (lot CALCUL, 30/10 ; refait au lot CALCUL-V2, 30/10) : la chaîne du calcul en moteur
   réel, UNE MACHINE PAR ÉTAPE (shared/content/compute_chain.lua, prototypes/compute_v2.lua, script/compute/compute.lua).
 
-  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui CALCUL-V2 -- 2500 calcul-chaines <source>
+  Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui CALCUL-V2 -- 2800 calcul-chaines <source>   (2 800 ticks : la tireuse met 40 s par lingot, 2 400 ticks)
   Images    : même commande avec --captures --visuel="--no-atlas-cache"
 
   1. Prototypes v2 présents (13 machines, objets, baies, fluides, recettes, 7 technologies) ; recettes v1 CACHÉES mais
@@ -17,7 +17,7 @@
 ]]
 
 local X0, Y0 = 4200, 3000
-local CHECK = 2400
+local CHECK = 2700 -- la recette du lingot dure 40 s (2 400 ticks) : le contrôle vient après sa première fabrication
 local T_FULL, T_TECH, T_STOP, T_STOPPED, T_RESTART, T_BACK = 600, 900, 1200, 1330, 1400, 1630
 
 local TECHS = { "fo-chip-foundry", "fo-wafer-fab", "fo-data-centers", "fo-gpu-computing", "fo-data-centers-2",

@@ -100,6 +100,8 @@ Cv.DATA_CENTER = { name = "fo-data-center", kw = 300, slots = 6, categories = { 
 --- Visuels provisoires (à dessiner) : toutes les machines neuves, plus le centre et le lithographe de la v1.
 Cv.PROVISIONAL = {}
 for _, m in ipairs(Cv.MACHINES) do Cv.PROVISIONAL[#Cv.PROVISIONAL + 1] = m.name end
+Cv.PROVISIONAL[#Cv.PROVISIONAL + 1] = Cv.DATA_CENTER.name -- le centre v1 (copie teintée, devenu modulaire)
+Cv.PROVISIONAL[#Cv.PROVISIONAL + 1] = "fo-crystal-lithograph" -- le lithographe v1 (copie teintée, inchangé)
 
 ---------------------------------------------------------------------------------------------------
 -- Objets, fluides, baies
