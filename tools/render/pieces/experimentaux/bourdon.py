@@ -1,0 +1,471 @@
+"""BOURDON, expérimental de l'âge 15 (Légende) : une CLOCHE-CATHÉDRALE en lévitation, 50 tuiles de haut à l'écran. Lot RB-V0, 31/10.
+
+Le bourdon est la plus grosse cloche d'une cathédrale. Bible de l'âge 15 (DESIGN_EPOQUES, époque 15) : couronne de flèches,
+base flottante (vide maximal), halo, or blanc et nacre ; le corps en bronze patiné, comme le QG validé le 31/10.
+- Pas de marche : elle flotte, retenue au sol par 6 chaînes tendues, dont les ancres se déplacent (en jeu : 6 pattes de
+  `spider-vehicle` dont la seule image est une chaîne).
+- La cloche : profil de vraie cloche (pince, faussure, cerveau), côtes de nacre, cordons d'or blanc, frises, lancettes,
+  3 rosaces éclairées, rampe en hélice à garde-corps (l'échelle), terrasse à pinacles, couronne de flèches, anses.
+- Sous la lèvre : cristaux de lévitation, grand anneau-halo flottant, rochers arrachés au sol qui flottent.
+- Le battant (variante « battant ») est rendu à part : il bat à l'écran sans refaire la cloche.
+
+Une cloche ne tourne jamais : UNE image pour toutes les directions. FO_GRIS=1 : masses grises.
+"""
+import math
+import os
+
+import geo as G
+import greb as R
+import mat as MT
+
+GRIS = os.environ.get("FO_GRIS", "") == "1"
+Z_LEVRE = 33.0
+# profil extérieur (z, rayon) : de la lèvre au cerveau
+_PROF = [(Z_LEVRE, 14.2), (Z_LEVRE + 0.7, 14.9), (Z_LEVRE + 1.7, 14.0), (Z_LEVRE + 3.6, 12.0), (Z_LEVRE + 6.5, 10.0), (Z_LEVRE + 10.0, 8.6),
+         (Z_LEVRE + 14.0, 7.8), (Z_LEVRE + 18.0, 7.4), (Z_LEVRE + 21.0, 7.3), (Z_LEVRE + 23.0, 6.9), (Z_LEVRE + 24.6, 5.8),
+         (Z_LEVRE + 25.8, 4.1), (Z_LEVRE + 26.6, 2.1), (Z_LEVRE + 26.95, 0.0)]
+_FIN = []
+
+
+def _lisse():
+    if _FIN:
+        return _FIN
+    pts = G.catmull([(p[0], p[1], 0.0) for p in _PROF], 10)
+    _FIN.extend((p[0], max(0.0, p[1])) for p in pts)
+    return _FIN
+
+
+def rz(z):
+    """Rayon de la cloche à la hauteur z (interpolation du profil lissé)."""
+    prof = _lisse()
+    if z <= prof[0][0]:
+        return prof[0][1]
+    for i in range(1, len(prof)):
+        if z <= prof[i][0]:
+            a, b = prof[i - 1], prof[i]
+            return a[1] + (b[1] - a[1]) * (z - a[0]) / max(1e-6, b[0] - a[0])
+    return 0.0
+
+
+def normale(az, z):
+    dr = (rz(z + 0.2) - rz(z - 0.2)) / 0.4
+    return G.norm((math.cos(az), math.sin(az), -dr))
+
+
+def S_pt(az, z, d=0.0):
+    r = rz(z) + d
+    return (r * math.cos(az), r * math.sin(az), z)
+
+
+def vu(az, m=0.35):
+    """Seul l'hémisphère vu de la caméra (sud) reçoit le détail fin : une image, jamais tournée."""
+    return math.sin(az) < m
+
+
+def matieres(S):
+    def surf(name, col, **kw):
+        if GRIS:
+            return MT.surface("bo_g_" + name, (0.2, 0.2, 0.2), rough=0.6, met=0.1, usure=0.3, crasse=0.6, graine=kw.get("graine", 0))
+        return MT.surface("bo_" + name, col, **kw)
+    MT.ECH[0] = 3.0
+    MT.PATINE.clear()
+    MT.PATINE.update(ta=0.17, ra=0.2, ec=0.5, nu_k=1.4, ec_col=(0.02, 0.05, 0.04), sans=("_or", "nacre"))
+    M = {}
+    M["bronze"] = surf("bronze", (0.17, 0.095, 0.036), rough=0.42, met=0.6, tole=(3.1, 2.1), joint=0.5, joint_l=0.012, var=0.12, coulures=0.85,
+                       rouille=(0.05, 0.16, 0.115), usure=0.6, nu=(0.46, 0.3, 0.15), crasse=0.85, crasse_col=(0.008, 0.006, 0.004), relief=0.5, graine=1)
+    M["bronze2"] = surf("bronze2", (0.1, 0.056, 0.024), rough=0.46, met=0.55, coulures=0.7, rouille=(0.04, 0.12, 0.09), usure=0.6, nu=(0.34, 0.22, 0.11),
+                        crasse=0.85, crasse_col=(0.006, 0.005, 0.003), graine=2)
+    M["noyau"] = surf("noyau", (0.012, 0.01, 0.008), rough=0.55, met=0.6, usure=0.3, crasse=0.8, crasse_col=(0.002, 0.002, 0.002), graine=3)
+    M["or"] = surf("or", (0.86, 0.73, 0.42), rough=0.34, met=0.4, coulures=0.25, rouille=(0.3, 0.2, 0.08), usure=0.5, nu=(0.98, 0.92, 0.72),
+                   crasse=0.55, crasse_col=(0.03, 0.02, 0.008), graine=4)
+    M["or_sombre"] = surf("or_sombre", (0.46, 0.31, 0.11), rough=0.42, met=0.5, coulures=0.35, usure=0.6, nu=(0.75, 0.6, 0.32), crasse=0.8,
+                          crasse_col=(0.02, 0.012, 0.005), graine=5)
+    M["nacre"] = surf("nacre", (0.74, 0.68, 0.56), rough=0.3, met=0.0, coulures=0.5, rouille=(0.1, 0.07, 0.04), usure=0.4, nu=(0.86, 0.82, 0.74), crasse=0.85,
+                      crasse_col=(0.03, 0.022, 0.014), graine=6)
+    M["nacre2"] = surf("nacre2", (0.44, 0.34, 0.2), rough=0.34, met=0.15, coulures=0.6, rouille=(0.09, 0.06, 0.035), usure=0.45, nu=(0.66, 0.6, 0.52), crasse=0.85,
+                       crasse_col=(0.02, 0.014, 0.008), graine=7)
+    M["ardoise"] = surf("ardoise", (0.06, 0.05, 0.04), rough=0.55, met=0.3, tole=(0.6, 0.32), joint=0.35, joint_l=0.03, var=0.25, usure=0.6, nu=(0.16, 0.14, 0.11),
+                        crasse=0.7, crasse_col=(0.004, 0.003, 0.002), relief=0.6, graine=8)
+    M["chaine"] = surf("chaine", (0.12, 0.085, 0.05), rough=0.42, met=0.7, coulures=0.3, rouille=(0.05, 0.1, 0.08), usure=0.8, nu=(0.55, 0.47, 0.34), crasse=0.5,
+                       crasse_col=(0.006, 0.005, 0.004), graine=9)
+    M["pierre"] = surf("pierre", (0.13, 0.095, 0.058), rough=0.85, met=0.0, tole=(1.55, 1.05), joint=0.55, joint_l=0.012, var=0.14, coulures=0.5, rouille=(0.025, 0.016, 0.01),
+                       usure=0.7, nu=(0.2, 0.16, 0.12), crasse=0.85, crasse_col=(0.006, 0.005, 0.004), relief=0.4, graine=10)
+    M["terre"] = surf("terre", (0.14, 0.085, 0.045), rough=0.95, met=0.0, usure=0.2, nu=(0.2, 0.13, 0.08), crasse=0.8, crasse_col=(0.03, 0.018, 0.01), graine=11)
+    M["verre"] = MT.verre("bo_verre", col=(0.012, 0.01, 0.007), reflet=(0.2, 0.16, 0.09))
+    M["vitrail"] = S.mat_emissive("bo_vitrail", (1.0, 0.62, 0.2), strength=1.05, base=(0.08, 0.05, 0.015), main_scale=0.3, crust=(3.0, 0.45, 2))
+    M["hublot"] = MT.lumiere(S, "bo_vitrail_h", (1.0, 0.76, 0.4), 1.05, main=0.25)
+    M["cristal"] = MT.lumiere(S, "bo_cristal", (1.0, 0.86, 0.52), 1.5, main=0.35)
+    M["halo"] = MT.lumiere(S, "bo_halo", (1.0, 0.82, 0.48), 1.15, main=0.3)
+    M["coeur"] = MT.lumiere(S, "bo_battant_c", (1.0, 0.8, 0.42), 1.6, main=0.4)
+    return M
+
+
+def anneau_s(lot, m, z, ep, h, n=256):
+    """Cordon en relief posé sur la cloche à la hauteur z (épaisseur ep, hauteur h)."""
+    r0, r1 = rz(z - h / 2), rz(z + h / 2)
+    prof = [(z - h / 2, r0 - 0.2), (z - h / 2, r0 + ep * 0.8), (z - h * 0.3, r0 + ep), (z + h * 0.3, r1 + ep), (z + h / 2, r1 + ep * 0.8), (z + h / 2, r1 - 0.2)]
+    lot.put(m, G.tour(prof, n, "z"))
+
+
+def cloche(lot, M):
+    """Le fût de bronze et sa bouche sombre."""
+    lot.put(M["bronze"], G.tour(_lisse(), 300, "z"))
+    # bouche : intérieur sombre, lèvre épaisse
+    prof = [(Z_LEVRE, 14.2), (Z_LEVRE - 0.2, 14.0), (Z_LEVRE - 0.1, 13.3), (Z_LEVRE + 1.2, 11.8), (Z_LEVRE + 5.0, 8.6), (Z_LEVRE + 12.0, 6.2), (Z_LEVRE + 20.0, 0.0)]
+    lot.put(M["noyau"], G.tour(prof, 240, "z"))
+    for (z, ep, h, m) in ((Z_LEVRE + 0.72, 0.55, 0.7, "or"), (Z_LEVRE + 2.2, 0.26, 0.26, "or_sombre"), (Z_LEVRE + 3.9, 0.3, 0.28, "or"), (Z_LEVRE + 5.8, 0.2, 0.2, "or_sombre"),
+                          (Z_LEVRE + 13.0, 0.34, 0.34, "or"), (Z_LEVRE + 13.6, 0.18, 0.14, "or_sombre"), (Z_LEVRE + 20.0, 0.36, 0.4, "or"), (Z_LEVRE + 22.4, 0.3, 0.3, "or_sombre")):
+        anneau_s(lot, M[m], z, ep, h)
+
+
+def cotes(lot, M, r):
+    """Côtes de nacre le long du profil (vues seulement) : 12 maîtresses, sculptées de pinacles, 24 secondaires."""
+    for k in range(36):
+        az = G.TAU * k / 36.0
+        if not vu(az, 0.6):
+            continue
+        maitre = k % 3 == 0
+        w = 0.5 if maitre else 0.16
+        e = 0.42 if maitre else 0.16
+        z0 = Z_LEVRE + 1.1 if maitre else Z_LEVRE + 2.3
+        z1 = Z_LEVRE + 22.6 if maitre else Z_LEVRE + 19.8
+        nz = 30
+        rings = []
+        for i in range(nz + 1):
+            z = z0 + (z1 - z0) * i / float(nz)
+            n_h = (math.cos(az), math.sin(az), 0.0)
+            t = (-math.sin(az), math.cos(az), 0.0)
+            ww = w * (1.25 - 0.45 * i / nz) * (1.25 if maitre and i < 3 else 1.0)
+            p = S_pt(az, z, -0.1)
+            ee = e * (1.25 - 0.4 * i / nz)
+            rings.append([G.sub(p, G.mul(t, ww)), G.add(G.add(p, G.mul(n_h, ee)), G.mul(t, -ww * 0.55)), G.add(G.add(p, G.mul(n_h, ee)), G.mul(t, ww * 0.55)),
+                          G.add(p, G.mul(t, ww))])
+        lot.put(M["nacre"] if maitre else M["nacre2"], G.loft(rings, True, True))
+        if maitre:
+            # bagues d'or sur la côte, pinacle en tête, gargouille au pied
+            for z in (Z_LEVRE + 6.2, Z_LEVRE + 10.4, Z_LEVRE + 16.4):
+                p = S_pt(az, z, 0.1)
+                lot.put(M["or"], G.oriente(G.boite((0, 0, 0.14), (1.2, 0.36, 0.42)), p, normale(az, z)))
+            p = S_pt(az, Z_LEVRE + 1.2, 0.2)
+            lot.put(M["or_sombre"], G.oriente(G.prisme(R.octo((0, 0), 0.5, 6), 0.0, 1.4, top_scale=0.28), p, G.norm((math.cos(az), math.sin(az), -0.35))))
+
+
+def _lancette(lot, Mcad, Mv, az, z, w, h, Mfil):
+    """Lancette gothique : ébrasement, arc brisé, vitrail, meneau."""
+    n = normale(az, z + h / 2)
+    p = S_pt(az, z + h / 2, 0.04)
+    up = (0.0, 0.0, 1.0)
+    # ébrasement sombre et cadre
+    cad = G.merge(G.boite((0, -h * 0.13, 0.05), (w * 1.28, h * 0.72, 0.14)),
+                  G.prisme([(-w * 0.64, h * 0.23), (w * 0.64, h * 0.23), (w * 0.3, h * 0.43), (-w * 0.3, h * 0.43)], 0.0, 0.14))
+    v, f, u = cad
+    # (prisme modélisé dans le plan XY, z sortant : pose() l'oriente)
+    lot.put(Mcad, R.pose((v, f, u), p, n, up))
+    vit = G.merge(G.boite((0, -h * 0.13, 0.15), (w, h * 0.68, 0.02)), G.prisme([(-w * 0.5, h * 0.21), (w * 0.5, h * 0.21), (w * 0.18, h * 0.4), (-w * 0.18, h * 0.4)], 0.14, 0.16))
+    lot.put(Mv, R.pose(vit, p, n, up))
+    mene = G.merge(G.boite((0, 0, 0.18), (w * 0.07, h * 0.82, 0.05)), G.boite((0, -h * 0.05, 0.18), (w * 1.0, h * 0.04, 0.05)), G.boite((0, -h * 0.28, 0.18), (w * 1.0, h * 0.04, 0.05)))
+    lot.put(Mfil, R.pose(mene, p, n, up))
+
+
+def fenetres(lot, M, r):
+    """Registres de lancettes entre les côtes, rangée de petites baies (l'échelle), frises."""
+    for k in range(24):
+        az = G.TAU * (k + 0.5) / 12.0 / 2.0
+        if not vu(az, 0.55):
+            continue
+        if k % 2 == 0:
+            for dz in (-0.42, 0.0, 0.42):
+                _lancette(lot, M["bronze2"], M["vitrail"], az + dz / 10.0 * 1.2, Z_LEVRE + 6.5, 0.64, 3.6, M["or_sombre"])
+        # registre haut : hautes lancettes sous le cordon
+        for dz in (-0.5, 0.5):
+            _lancette(lot, M["bronze2"], M["vitrail"], az + dz / 9.2 * 1.4, Z_LEVRE + 14.4, 0.82, 4.9, M["or_sombre"])
+    # petites baies du registre bas (une centaine, éteintes pour certaines)
+    formes = ["ogive", "carre", "fente", "double", "rond", "octo"]
+    n = 170
+    for i in range(n):
+        az = G.TAU * i / n
+        if not vu(az, 0.5):
+            continue
+        for z, ouv in ((Z_LEVRE + 4.8, 0.74), (Z_LEVRE + 11.4, 0.66)):
+            if r.f() > ouv:
+                continue
+            R.hublot(lot, M["or_sombre"], M["hublot"] if r.f() < 0.72 else M["verre"], S_pt(az, z, 0.02), normale(az, z), formes[r.i(0, 5)], t=r.f(0.14, 0.2))
+    # frise de la pince : une « inscription », losanges et croix d'or
+    n = 150
+    for i in range(n):
+        az = G.TAU * i / n
+        if not vu(az, 0.55):
+            continue
+        z = Z_LEVRE + 2.92
+        x = i % 5
+        m = G.boite((0, 0, 0.1), (0.3, 0.48, 0.16), rz=math.pi / 4) if x in (0, 2) else G.boite((0, 0, 0.08), (0.14, 0.62, 0.12)) if x == 1 else G.prisme([(-0.2, -0.28), (0.2, -0.28), (0.1, 0.3), (-0.1, 0.3)], 0.0, 0.14)
+        lot.put(M["or"] if x != 3 else M["or_sombre"], R.pose(m, S_pt(az, z), normale(az, z)))
+    # arcature sous la terrasse
+    n = 96
+    for i in range(n):
+        az = G.TAU * i / n
+        if not vu(az, 0.55):
+            continue
+        z = Z_LEVRE + 21.0
+        lot.put(M["or_sombre"], R.pose(G.merge(G.boite((0, 0, 0.08), (0.12, 0.8, 0.14)), G.boite((0, 0.44, 0.08), (0.42, 0.1, 0.14))), S_pt(az, z), normale(az, z)))
+
+
+def rosace(lot, M, az, z, ray):
+    """Rosace : disque de vitrail, 2 couronnes de pierre, 12 meneaux, 12 médaillons."""
+    n = normale(az, z)
+    p = S_pt(az, z, 0.05)
+    lot.put(M["or"], R.pose(G.tour([(0.0, ray + 0.42), (0.42, ray + 0.34), (0.5, ray + 0.12), (0.26, ray), (0.26, ray - 0.2)], 72, "z"), p, n))
+    lot.put(M["noyau"], R.pose(G.tour([(0.1, ray + 0.02), (0.1, 0.0)], 72, "z"), p, n))
+    lot.put(M["vitrail"], R.pose(G.tour([(0.2, ray - 0.02), (0.2, 0.0)], 72, "z"), p, n))
+    for i in range(12):
+        a = G.TAU * i / 12.0
+        ca, sa = math.cos(a), math.sin(a)
+        lot.put(M["nacre"], R.pose(G.tube([(ca * 0.55, sa * 0.55, 0.3), (ca * ray, sa * ray, 0.3)], 0.075, 6), p, n))
+        q = (ca * ray * 0.68, sa * ray * 0.68, 0.32)
+        lot.put(M["or_sombre"], R.pose(G.tour([(-0.08, 0.34), (0.08, 0.34), (0.08, 0.26), (-0.08, 0.26), (-0.08, 0.34)], 16, "z", q), p, n))
+    lot.put(M["or"], R.pose(G.tour([(0.25, 0.62), (0.45, 0.45), (0.5, 0.0)], 24, "z", cap0=True), p, n))
+    lot.put(M["nacre"], R.pose(G.tour([(0.26, ray * 0.48), (0.36, ray * 0.48), (0.36, ray * 0.42), (0.26, ray * 0.42), (0.26, ray * 0.48)], 48, "z"), p, n))
+
+
+def rampe(lot, M, r):
+    """Rampe hélicoïdale autour de la faussure : une marche à l'échelle d'un personnage, garde-corps, arcs-boutants."""
+    z0, z1 = Z_LEVRE + 4.3, Z_LEVRE + 20.2
+    tours = 2.1
+    az0 = -0.3
+    n = 200
+    rings, pts = [], []
+    for i in range(n + 1):
+        t = i / float(n)
+        az = az0 + G.TAU * tours * t
+        z = z0 + (z1 - z0) * t
+        rr = rz(z)
+        ca, sa = math.cos(az), math.sin(az)
+        rings.append([((rr - 0.1) * ca, (rr - 0.1) * sa, z), ((rr + 1.0) * ca, (rr + 1.0) * sa, z), ((rr + 1.0) * ca, (rr + 1.0) * sa, z - 0.18), ((rr - 0.1) * ca, (rr - 0.1) * sa, z - 0.18)])
+        pts.append(((rr + 0.96) * ca, (rr + 0.96) * sa, z))
+    lot.put(M["ardoise"], G.loft(rings, True, True))
+    for i in range(0, n, 8):
+        a0, a1 = pts[i], pts[min(n, i + 8)]
+        if vu(math.atan2(a0[1], a0[0]), 0.65):
+            R.garde_corps(lot, M["or_sombre"], [a0, a1], h=0.42, pas=0.42, r=0.03)
+    for i in range(0, n, 5):
+        az = az0 + G.TAU * tours * i / float(n)
+        if not vu(az, 0.6):
+            continue
+        z = z0 + (z1 - z0) * i / float(n)
+        rr = rz(z)
+        ca, sa = math.cos(az), math.sin(az)
+        lot.put(M["bronze2"], G.tube([((rr + 0.85) * ca, (rr + 0.85) * sa, z - 0.18), (rz(z - 1.5) * ca, rz(z - 1.5) * sa, z - 1.5)], 0.08, 6))
+
+
+def terrasse_couronne(lot, M, r):
+    """Terrasse à pinacles, dôme d'ardoise, anses, couronne de flèches, anneau-halo."""
+    zt = Z_LEVRE + 21.8
+    RT = rz(zt)
+    lot.put(M["bronze2"], G.tour([(zt - 0.9, RT + 0.1), (zt - 0.1, RT + 1.1), (zt, RT + 1.7), (zt + 0.22, RT + 1.7), (zt + 0.22, RT - 0.7)], 160, "z"))
+    lot.put(M["pierre"], G.tour([(zt + 0.22, RT + 1.5), (zt + 0.3, RT + 1.5), (zt + 0.3, RT - 0.7)], 120, "z"))
+    n = 32
+    pts = [((RT + 1.45) * math.cos(G.TAU * i / n), (RT + 1.45) * math.sin(G.TAU * i / n), zt + 0.3) for i in range(n + 1)]
+    R.garde_corps(lot, M["or_sombre"], pts, h=0.46, pas=0.55, r=0.035)
+    for i in range(12):
+        az = G.TAU * i / 12.0
+        c = ((RT + 1.3) * math.cos(az), (RT + 1.3) * math.sin(az))
+        R.fleche(lot, M["bronze2"], M["or"], M["nacre"], M["verre"], M["cristal"], c, zt - 0.2, 4.4 if i % 2 else 5.8, 0.5 if i % 2 else 0.62, r, etages=3, Mlum=M["hublot"])
+    # dôme : côtes d'ardoise entre nervures d'or, lucarnes
+    zd = Z_LEVRE + 23.0
+    for i in range(24):
+        az = G.TAU * i / 24.0
+        pp = [S_pt(az, zd + (Z_LEVRE + 26.7 - zd) * t / 10.0, 0.04) for t in range(11)]
+        lot.put(M["or"] if i % 3 == 0 else M["or_sombre"], G.tube(pp, 0.13 if i % 3 == 0 else 0.07, 6))
+    lot.put(M["ardoise"], G.tour([(z, rz(z) + 0.03) for z in [zd + (Z_LEVRE + 26.9 - zd) * t / 20.0 for t in range(21)]], 200, "z"))
+    for i in range(8):
+        az = G.TAU * (i + 0.5) / 8.0
+        if not vu(az, 0.7):
+            continue
+        z = Z_LEVRE + 24.1
+        n_h = normale(az, z)
+        p = S_pt(az, z, 0.1)
+        lot.put(M["bronze2"], R.pose(G.boite((0, 0, 0.45), (1.25, 1.1, 0.95)), p, n_h))
+        lot.put(M["vitrail"], R.pose(G.boite((0, -0.08, 0.95), (0.76, 0.74, 0.02)), p, n_h))
+        lot.put(M["or"], R.pose(G.prisme([(-0.75, 0.52), (0.75, 0.52), (0.0, 1.05)], 0.05, 0.98), p, n_h))
+    # couronne : flèche maîtresse et 5 flèches, anses de bronze qui les relient (les « canons » d'une cloche)
+    zc = Z_LEVRE + 25.6
+    R.fleche(lot, M["bronze2"], M["or"], M["nacre"], M["verre"], M["cristal"], (0.0, 0.0), Z_LEVRE + 26.1, 11.3, 1.5, r, etages=3, Mlum=M["hublot"])
+    for i in range(5):
+        az = G.TAU * i / 5.0 + math.pi / 2 + math.pi
+        c = (3.7 * math.cos(az), 3.7 * math.sin(az))
+        tip = R.fleche(lot, M["bronze2"], M["or"], M["nacre"], M["verre"], M["cristal"], c, zc - 0.7, 7.4 if i % 2 == 0 else 5.8, 0.8, r, etages=3, Mlum=M["hublot"])
+        arc = []
+        for t in range(13):
+            u = t / 12.0
+            d = 0.8 + 2.6 * u
+            arc.append((d * math.cos(az), d * math.sin(az), Z_LEVRE + 29.2 + 1.9 * math.sin(math.pi * u) - 2.0 * u))
+        lot.put(M["or"], G.tube(arc, 0.34, 10))
+        lot.put(M["bronze2"], G.tube([G.add(p, (0, 0, -0.26)) for p in arc], 0.2, 8))
+    # anneau-halo de couronne, en 18 arcs flottants avec perles
+    zh = Z_LEVRE + 31.6
+    for i in range(18):
+        a0 = G.TAU * i / 18.0 + 0.02
+        a1 = a0 + G.TAU / 18.0 - 0.05
+        prof = [(zh - 0.11, 5.2), (zh - 0.11, 5.52), (zh + 0.11, 5.52), (zh + 0.11, 5.2), (zh - 0.11, 5.2)]
+        lot.put(M["or"], G.tour(prof, 8, "z", a0=a0, a1=a1))
+        p = (5.36 * math.cos(a1 + 0.018), 5.36 * math.sin(a1 + 0.018), zh)
+        lot.put(M["halo"], G.sphere(p, 0.21, 10, 5))
+
+
+def arcs_boutants(lot, M, r):
+    """Arcs-boutants de la faussure vers des pinacles plantés sur la pince : ils cassent la silhouette de soucoupe et font la cathédrale."""
+    for k in range(12):
+        az = G.TAU * k / 12.0
+        if not vu(az, 0.72):
+            continue
+        ca, sa = math.cos(az), math.sin(az)
+        zh, zb = Z_LEVRE + 14.6, Z_LEVRE + 2.4
+        ctrl = [(rz(zh) * ca, rz(zh) * sa, zh), ((rz(zh) + 2.6) * ca, (rz(zh) + 2.6) * sa, zh - 1.4), ((rz(zh) + 5.2) * ca, (rz(zh) + 5.2) * sa, zh - 5.6), (14.5 * ca, 14.5 * sa, zb + 2.4)]
+        pts = G.catmull(ctrl, 7)
+        lot.put(M["nacre"], G.tube(pts, 0.32, 8, rfun=lambda s_, i: 0.36 - 0.012 * s_))
+        lot.put(M["or_sombre"], G.tube([G.add(p, (0, 0, -0.34)) for p in pts], 0.14, 6))
+        # pinacle sur la pince
+        R.fleche(lot, M["bronze2"], M["or"], M["nacre"], M["verre"], M["cristal"], (14.5 * ca, 14.5 * sa), zb - 1.0, 6.6, 0.72, r, etages=3, Mlum=M["hublot"])
+
+
+def levre(lot, M, r):
+    """Sous la lèvre : créneaux, consoles, pointes inversées, cristaux de lévitation, grand anneau-halo flottant."""
+    zl = Z_LEVRE + 0.6
+    for i in range(72):
+        az = G.TAU * i / 72.0
+        if i % 2 == 0:
+            c = (15.25 * math.cos(az), 15.25 * math.sin(az))
+            lot.put(M["or_sombre"], G.oriente(G.boite((0, 0, 0.0), (0.76, 0.46, 0.9)), (c[0], c[1], zl + 0.2), (math.cos(az), math.sin(az), 0.0)))
+    # consoles et cristaux
+    for i in range(16):
+        az = G.TAU * i / 16.0 + 0.1
+        ca, sa = math.cos(az), math.sin(az)
+        rc = 13.9
+        L = 2.6 + 1.6 * ((i * 7) % 3)
+        lot.put(M["bronze2"], G.tour([(Z_LEVRE + 0.2, 0.8), (Z_LEVRE - 1.0, 0.65), (Z_LEVRE - 1.6, 0.26)], 10, "z", (rc * ca, rc * sa, 0.0), cap0=True, cap1=True))
+        lot.put(M["or"], G.tour([(Z_LEVRE - 0.95, 0.72), (Z_LEVRE - 1.2, 0.72)], 10, "z", (rc * ca, rc * sa, 0.0), cap0=True, cap1=True))
+        v, f, u = G.prisme(R.octo((0.0, 0.0), 0.34, 6), Z_LEVRE - 1.6 - L, Z_LEVRE - 1.7, top_scale=2.0 / 3.0)
+        lot.put(M["cristal"], ([(q[0] * (1.0 if q[2] > Z_LEVRE - 1.8 else 0.1) + rc * ca, q[1] * (1.0 if q[2] > Z_LEVRE - 1.8 else 0.1) + rc * sa, q[2]) for q in v], f, u))
+    # grand anneau-halo, légèrement basculé, en 24 arcs flottants
+    tilt = 0.06
+    for i in range(24):
+        a0 = G.TAU * i / 24.0 + 0.012
+        a1 = a0 + G.TAU / 24.0 - 0.03
+        prof = [(-0.2, 18.0), (-0.2, 18.9), (0.2, 18.9), (0.2, 18.0), (-0.2, 18.0)]
+        v, f, u = G.tour(prof, 14, "z", a0=a0, a1=a1)
+        v = [G.add(G.rot_x(q, tilt), (0.0, 0.0, 25.2)) for q in v]
+        lot.put(M["or"] if i % 2 else M["nacre"], (v, f, u))
+        v, f, u = G.tour([(0.21, 18.25), (0.21, 18.62)], 14, "z", a0=a0 + 0.02, a1=a1 - 0.02)
+        v = [G.add(G.rot_x(q, tilt), (0.0, 0.0, 25.2)) for q in v]
+        lot.put(M["halo"], (v, f, u))
+        p = G.add(G.rot_x((18.45 * math.cos(a1), 18.45 * math.sin(a1), 0.0), tilt), (0.0, 0.0, 25.2))
+        lot.put(M["bronze2"], G.sphere(p, 0.42, 10, 5))
+
+
+def chaines(lot, M, r):
+    """6 chaînes tendues vers 6 ancres de pierre et d'or (en jeu : 6 pattes dont l'image est la chaîne)."""
+    ancres = [(-math.pi * 0.86, 34.0), (-math.pi * 0.5, 31.0), (-math.pi * 0.14, 34.0), (math.pi * 0.2, 32.0), (math.pi * 0.5, 30.0), (math.pi * 0.8, 32.0)]
+    for (az, ra) in ancres:
+        ca, sa = math.cos(az), math.sin(az)
+        a = (14.7 * ca, 14.7 * sa, Z_LEVRE + 0.0)
+        b = (ra * ca, ra * sa, 3.0)
+        # manille et pont sur la lèvre
+        lot.put(M["or"], G.oriente(G.boite((0, 0, 0), (1.8, 1.1, 0.9)), G.add(a, (0, 0, 0.1)), (ca, sa, 0.0)))
+        d = G.sub(b, a)
+        L = G.length(d)
+        u = G.norm(d)
+        pas = 1.5
+        n = int(L / pas)
+        fl = 1.6
+        pts = []
+        for i in range(n + 1):
+            t = i / float(n)
+            pts.append(G.add(G.lerp(a, b, t), (0.0, 0.0, -fl * 4 * t * (1 - t))))
+        for i in range(n):
+            p, q = pts[i], pts[i + 1]
+            c = G.lerp(p, q, 0.5)
+            ax = G.norm(G.sub(q, p))
+            e1 = G.norm(G.cross(ax, (0.0, 0.0, 1.0)))
+            e2 = G.cross(ax, e1)
+            ee = e1 if i % 2 == 0 else e2
+            lb, ha = pas * 0.72, 0.42
+            boucle = []
+            for j in range(14):
+                th = G.TAU * j / 14.0
+                ct, st = math.cos(th), math.sin(th)
+                xx = ct * (lb - ha + ha * 1.0) if abs(ct) > 0.5 else ct * lb
+                boucle.append(G.add(c, G.add(G.mul(ax, xx), G.mul(ee, st * ha))))
+            boucle.append(boucle[0])
+            lot.put(M["chaine"], G.tube(boucle, 0.13, 6, cap0=False, cap1=False))
+        # ancre : socle à pans, griffes de pierre levées, soc d'or, éclats de terre
+        c = (ra * ca, ra * sa)
+        lot.put(M["pierre"], G.prisme(R.octo(c, 2.8, 8), 0.0, 1.7, top_scale=0.72))
+        lot.put(M["bronze2"], G.prisme(R.octo(c, 2.0, 8), 1.7, 2.6, top_scale=0.72))
+        lot.put(M["or"], G.prisme(R.octo(c, 2.15, 8), 1.65, 1.86))
+        lot.put(M["or"], G.tour([(2.6, 1.3), (3.1, 0.95), (3.5, 0.35), (3.5, 0.0)], 16, "z", (c[0], c[1], 0.0), cap0=True))
+        lot.put(M["halo"], G.sphere((c[0], c[1], 3.45), 0.24, 10, 5))
+        rr = G.Rnd(int(ra * 11 + (az + 4) * 31))
+        for i in range(11):
+            th = G.TAU * i / 11.0 + rr.f(0, 0.4)
+            q = (c[0] + (3.2 + rr.f(0.2, 2.2)) * math.cos(th), c[1] + (3.2 + rr.f(0.2, 2.2)) * math.sin(th), 0.0)
+            R.eclat(lot, M["terre"] if i % 3 else M["pierre"], q, rr.f(0.7, 2.0), rr.f(0.35, 0.8), rr, inc=0.5)
+
+
+def rochers(lot, M, r):
+    """Rochers arrachés au sol, en lévitation sous la cloche (ils s'élèvent en spirale, en jeu : compagnons animés)."""
+    for i in range(16):
+        th = G.TAU * i * 0.382 + 0.5
+        rad = r.f(4.5, 16.0)
+        z = r.f(6.0, 22.0) + 0.5
+        s = r.f(0.6, 1.9)
+        c = (rad * math.cos(th), rad * math.sin(th), z)
+        verts = []
+        rr = G.Rnd(70 + i)
+        v, f, u = G.sphere((0.0, 0.0, 0.0), s, 8, 5)
+        ph = (rr.f(0, 6), rr.f(0, 6), rr.f(0, 6))
+        for q in v:
+            k = 1.0 + 0.32 * math.sin(q[0] * 2.3 / s + ph[0]) * math.sin(q[1] * 3.1 / s + ph[1]) + 0.2 * math.sin(q[2] * 3.7 / s + ph[2])
+            verts.append(G.add(c, (q[0] * k, q[1] * k * 0.9, q[2] * k * 0.7)))
+        lot.put(M["terre"] if i % 3 else M["pierre"], (verts, f, u))
+        # racines de terre qui pendent
+        for j in range(3):
+            d = (rr.f(-0.5, 0.5) * s, rr.f(-0.5, 0.5) * s)
+            lot.put(M["terre"], G.tour([(z - 0.3 * s, 0.26 * s), (z - s * rr.f(0.9, 1.5), 0.0)], 5, "z", (c[0] + d[0], c[1] + d[1], 0.0), cap0=True))
+
+
+def battant(lot, M):
+    """Le battant : tige à colliers, poire de nacre et d'or à cœur lumineux (rendu à part, il oscille à l'écran)."""
+    zp = Z_LEVRE + 7.0
+    lot.put(M["bronze2"], G.tour([(9.0, 0.8), (zp, 0.8)], 24, "z", cap0=True, cap1=True))
+    for z in (12.0, 16.0, 20.0, 24.0, 28.0, 32.0):
+        lot.put(M["or"], G.tour([(z - 0.3, 0.9), (z - 0.18, 1.2), (z + 0.18, 1.2), (z + 0.3, 0.9)], 24, "z", cap0=True, cap1=True))
+    prof = [(1.8, 0.0), (2.2, 1.0), (3.4, 2.6), (5.0, 3.5), (7.0, 3.7), (9.0, 3.2), (10.4, 2.1), (11.4, 1.1)]
+    lot.put(M["nacre2"], G.tour(prof, 64, "z"))
+    for (z, ep, m) in ((4.2, 3.28, "or"), (8.8, 3.34, "or"), (6.4, 3.84, "or_sombre")):
+        lot.put(M[m], G.tour([(z - 0.3, ep - 0.1), (z - 0.2, ep + 0.14), (z + 0.2, ep + 0.14), (z + 0.3, ep - 0.1)], 64, "z"))
+    for i in range(12):
+        a = G.TAU * i / 12.0
+        p = (3.76 * math.cos(a), 3.76 * math.sin(a), 6.4)
+        lot.put(M["coeur"], G.oriente(G.tour([(0.0, 0.36), (0.3, 0.26), (0.36, 0.0)], 10, "z", cap0=True), p, (math.cos(a), math.sin(a), 0.0)))
+    lot.put(M["or"], G.tour([(0.8, 0.0), (1.3, 0.3), (2.1, 1.0)], 20, "z"))
+
+
+def build(S, lot, variante="bourdon"):
+    M = matieres(S)
+    r = G.Rnd(1515)
+    R.raz()
+    if variante == "battant":
+        battant(lot, M)
+        return {}
+    cloche(lot, M)
+    cotes(lot, M, r)
+    fenetres(lot, M, r)
+    for (az, z, ray) in ((-math.pi / 2, Z_LEVRE + 8.4, 2.7), (-math.pi / 2 - 0.88, Z_LEVRE + 8.5, 2.15), (-math.pi / 2 + 0.88, Z_LEVRE + 8.5, 2.15), (-math.pi / 2, Z_LEVRE + 17.3, 1.85)):
+        rosace(lot, M, az, z, ray)
+    rampe(lot, M, r)
+    terrasse_couronne(lot, M, r)
+    arcs_boutants(lot, M, r)
+    levre(lot, M, r)
+    chaines(lot, M, r)
+    rochers(lot, M, r)
+    return dict(R.COMPTE)
