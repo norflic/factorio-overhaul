@@ -16,6 +16,7 @@ local Rule = require("shared.team.rebuild_sweep")
 local R = require("shared.ai3.reglages")
 local Rc = require("shared.team.reconstruction")
 local Pi = require("shared.ai3.pile")
+local Ml = require("shared.ai3.mall")
 
 local PileRt = {}
 
@@ -28,8 +29,9 @@ local PileRt = {}
 --- présents des deux côtés.
 local function plan_reopened(f, book, have, craft)
   local b = f.build
-  if not (R.REBUILD_SWEEP and b and b.projects and b.order and Rule.todo and Rule.HOLD_STATES) then return false, true end
+  if not (R.REBUILD_SWEEP and b and b.projects and b.order and Rule.todo and Rule.HOLD_STATES) then return false, true, {} end
   local open, path = false, true
+  local wants = {} -- lot PILE-BUDGET : objets que ces projets doivent encore prendre au coffre
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
     if Rule.rebuilding(q) and Rule.HOLD_STATES[q.state] then -- lot FUITES-PILE : reconstruction seulement (pas un agrandissement)
@@ -38,6 +40,7 @@ local function plan_reopened(f, book, have, craft)
         local item = it[1]
         if it[2] - (held[item] or 0) > 0 then
           open = true
+          wants[#wants + 1] = { item, it[2] - (held[item] or 0) }
           if have[item] == nil then
             have[item] = Stock.count(f, item)
             craft[item] = (book and book:handcraftable(item)) or false
@@ -47,7 +50,7 @@ local function plan_reopened(f, book, have, craft)
       end
     end
   end
-  return open, path
+  return open, path, wants
 end
 
 --- Entrées de la pile pour la pensée de l'équipe `f`.
@@ -70,8 +73,8 @@ function PileRt.inputs(f, book, tick)
       end
     end
   end
-  local reopened, path = plan_reopened(f, book, have, craft)
-  return { repair = repair, plan_reopened = reopened, plan_path = path }
+  local reopened, path, wants = plan_reopened(f, book, have, craft)
+  return { repair = repair, plan_reopened = reopened, plan_path = path, plan_wants = wants }
 end
 
 --- La pile retient-elle l'amélioration de l'équipe ? (faux sans cerveau par besoins ni pile)
@@ -150,10 +153,24 @@ function PileRt.refuse(f, key, text, tick)
   return new
 end
 
+--- Journal [FO-MALL] (lot PILE-MALL) : la liste des objets du mall quand elle change (aucune décision ne la lit).
+local function mall_journal(f, tick)
+  local ml = f.team and f.team.ia3 and f.team.ia3.mall
+  if not ml then return false end
+  local sig = {}
+  for _, it in ipairs(ml.items or {}) do sig[#sig + 1] = it.item .. ":" .. it.machines end
+  local text = table.concat(sig, ",")
+  if text == (ml.logged or "") then return false end
+  ml.logged = text
+  log(string.format("[FO-MALL] %s : %s a %.1f min", f.key or "player", Ml.describe(ml), (tick - (f.started or 0)) / 3600))
+  return true
+end
+
 --- Journal [FO-PILE] : à chaque changement de sommet ou de retenue, et toutes les Pi.LOG_EVERY ticks.
 function PileRt.journal(f, tick)
   local st = f.team and f.team.ia3 and f.team.ia3.pile
   PileRt.flush(f, tick) -- lot FUITES-PILE : refus notés par la pensée pure (buts suspendus)
+  mall_journal(f, tick)
   if not st or st.tick ~= tick then return false end
   if not st.changed and tick < (st.log_at or 0) then return false end
   st.log_at = tick + Pi.LOG_EVERY

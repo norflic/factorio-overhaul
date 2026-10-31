@@ -116,6 +116,8 @@ Ca.G_MAX = 150          -- ‰ de croissance de la demande élastique par cycle,
 Ca.T_GROWTH0 = 5        -- min : retour supposé avant le premier ordre
 Ca.T_LAG = 5            -- min : délai de pose supposé (décision -> bâtiment qui tourne) quand le runtime ne le mesure pas
 Ca.T_HIST = 3           -- cycles gardés pour le retour moyen T̄ (médiane)
+Ca.CHAIN_MAX = 4        -- … et au plus 4 machines d'avance par ordre
+Ca.CHAIN_LEAD = 2       -- lot PILE-MALL : une chaîne se dimensionne sur 2 fois le débit voulu au plus (nil : le manque présent seulement)
 Ca.LEAD = 2             -- la demande élastique, et la capacité d'avance, ne dépassent jamais 2 fois le débit voulu
 -- Couverture d'avance d'un gisement OUVERT : plafond en multiple du besoin. nil = aucun plafond (décision de l'intégrateur
 -- sur Q-CAPI-1, OBJECTIFS §4, 27/10 vers 14 h 20, tirée de la phrase du DC de 12 h 30 « il aurait mis des foreuses partout,
@@ -1542,6 +1544,14 @@ local function fabric_options(ctx, plan, req, item, r, def, out)
     local n_lead = math.max(0, math.floor((Ca.LEAD * Ri - (plan.N[item] or 0) - stock_i) / p + Ca.FRAC_UP))
     local na = math.min(ncap, nfree, n_lead)
     if na > nwant then nwant, ahead = na, true end
+  end
+  -- Lot PILE-MALL (retour du DC du 31/10, point 8 : « une seule usine par objet ») : une CHAÎNE se dimensionne aussi sur la demande
+  -- (au plus Ca.CHAIN_LEAD fois le débit voulu, comme la fonte d'avance), pas seulement sur le manque présent ; la demande déjà
+  -- couverte par les machines, la main et le stock n'ouvre rien de plus. Les ingrédients (nfree) et la capacité (ncap) bornent.
+  if is_chain and Ca.CHAIN_LEAD and Ri > 0 then
+    local n_lead = math.max(0, math.floor((Ca.CHAIN_LEAD * Ri - (plan.N[item] or 0) - (plan.hand[item] or 0) - stock_i) / p + Ca.FRAC_UP))
+    local na = math.min(ncap, nfree, n_lead, Ca.CHAIN_MAX)
+    if na > nwant then nwant = na end
   end
   if nwant <= 0 then
     if def > Ca.EPS then refuse(ctx, key, kind, item, "manque sous une demi-machine (" .. fmt(def) .. "/min)") end

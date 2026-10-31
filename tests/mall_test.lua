@@ -1,0 +1,192 @@
+--[[
+  Lot PILE-MALL : banc HORS JEU de la règle du mall (shared/ai3/mall.lua) et de son branchement au cerveau par besoins (st.mall,
+  journal [FO-MALL]). Lancement, depuis la racine du mod : lua5.2 tests/mall_test.lua
+    1. relevé de la demande à la main (épisodes, volume, fenêtre par moitié, demande ré-émise à l'identique = un seul épisode) ;
+    2. choix des objets (minimum d'épisodes, recette connue, plafond, ordre), usines par objet, cible, hystérésis du coffre ;
+    3. la main n'est permise que pour l'amorçage (Ml.hand_allowed) ;
+    4. gabarit : rôles seulement, aucune superposition, emprise, déterminisme ;
+    5. cerveau par besoins : la pensée tient st.mall à jour, état sérialisable, sans effet quand le réglage est éteint ;
+    6. mutants.
+]]
+package.path = "./?.lua;" .. package.path
+local Book = require("shared.team.book")
+local book = Book.new(dofile("tests/fixtures/recipes.lua"))
+local passes, failures = 0, 0
+local function check(cond, msg)
+  if cond then passes = passes + 1 else failures = failures + 1 print("  ECHEC : " .. msg) end
+  return cond
+end
+local TURRET, MAG, GEAR = "gun-turret", "firearm-magazine", "iron-gear-wheel" -- données du banc
+
+local function battery(Ml, verbose)
+  local fails = 0
+  local function ck(c, msg)
+    if not c then fails = fails + 1 if verbose then print("  ECHEC : " .. msg) end end
+    if verbose then check(c, msg) end
+  end
+  -- 1. relevé
+  local st = Ml.new()
+  Ml.note(st, 0, { [TURRET] = 4 })
+  Ml.note(st, 10, { [TURRET] = 4 })           -- ré-émise à l'identique : rien de plus
+  ck(st.use[TURRET].n == 4 and st.use[TURRET].episodes == 1, "1a. demande ré-émise à l'identique : un épisode, volume 4")
+  Ml.note(st, 20, { [TURRET] = 7 })           -- augmente : le volume reçoit l'augmentation, pas un nouvel épisode
+  ck(st.use[TURRET].n == 7 and st.use[TURRET].episodes == 1, "1b. la demande monte de 4 à 7 : volume 7, toujours un épisode")
+  Ml.note(st, 25, { [TURRET] = 5 })           -- la demande baisse (les tourelles se fabriquent) : le volume ne baisse pas
+  ck(st.use[TURRET].n == 7, "1b2. demande qui baisse : volume inchangé")
+  Ml.note(st, 30, {})                          -- servie : tombe à zéro
+  Ml.note(st, 40, { [TURRET] = 2 })
+  ck(st.use[TURRET].n == 9 and st.use[TURRET].episodes == 2, "1c. retombée à 0 puis nouvelle demande : deuxième épisode (volume 9)")
+  Ml.note(st, Ml.WINDOW_TICKS + 100, {})
+  ck(st.use[TURRET].n == 4 and st.use[TURRET].episodes == 1, "1d. fenêtre : volume et épisodes divisés par deux (" .. st.use[TURRET].n .. ", " .. st.use[TURRET].episodes .. ")")
+  Ml.note(st, 3 * Ml.WINDOW_TICKS, {})
+  ck(st.use[TURRET] == nil, "1e. la mémoire s'éteint d'elle-même sans nouvelle demande")
+  -- 2. choix
+  local s2 = Ml.new()
+  for i = 1, 3 do
+    Ml.note(s2, i * 100, { [TURRET] = 5, [MAG] = 40, [GEAR] = 3 })
+    Ml.note(s2, i * 100 + 50, {})
+  end
+  Ml.note(s2, 400, { ["objet-sans-recette"] = 9 }); Ml.note(s2, 410, {}); Ml.note(s2, 420, { ["objet-sans-recette"] = 9 }); Ml.note(s2, 430, {})
+  Ml.note(s2, 440, { ["objet-sans-recette"] = 9 }); Ml.note(s2, 450, {})
+  local out = Ml.decide(s2, book, { have = { [MAG] = 0 } })
+  ck(#out == 3 and out[1].item == MAG and out[2].item == TURRET and out[3].item == GEAR, "2a. trois objets, du plus demandé au moins demandé, l'objet sans recette écarté")
+  ck(out[1].machines >= 1 and out[1].machines <= Ml.MACHINES_MAX and out[1].machines >= out[3].machines, "2b. plusieurs usines selon la demande, de 1 à " .. Ml.MACHINES_MAX)
+  local s3 = Ml.new()
+  Ml.note(s3, 0, { [TURRET] = 5 }); Ml.note(s3, 1, {}); Ml.note(s3, 2, { [TURRET] = 5 })
+  ck(#Ml.decide(s3, book, {}) == 0, "2c. moins de " .. Ml.MIN_EPISODES .. " épisodes : pas de mall pour cet objet")
+  ck(Ml.machines(0, nil) == 1 and Ml.machines(1000, 6) == Ml.MACHINES_MAX and Ml.machines(6, 6) == Ml.LEAD, "2d. usines : au moins 1, au plus le plafond, 2 fois le débit voulu")
+  ck(Ml.target(3) == 3 * Ml.HORIZON_MIN and Ml.target(0) == 1, "2e. cible = demande de " .. Ml.HORIZON_MIN .. " minutes")
+  local h = { on = {} }
+  ck(Ml.refill(h, "x", 0, 100) == true and Ml.refill(h, "x", 60, 100) == true and Ml.refill(h, "x", 100, 100) == false
+    and Ml.refill(h, "x", 60, 100) == false and Ml.refill(h, "x", 49, 100) == true, "2f. hystérésis du coffre : s'allume sous " .. Ml.LOW_PCT .. " %, s'éteint à " .. Ml.HIGH_PCT .. " %")
+  local s4 = Ml.new()
+  for i = 1, Ml.MAX_ITEMS + 3 do
+    local item = ({ TURRET, MAG, GEAR, "iron-plate", "pipe", "inserter", "transport-belt", "small-electric-pole", "stone-furnace", "boiler", "offshore-pump" })[i]
+    for j = 1, 3 do Ml.note(s4, j * 10, { [item] = i + 1 }); Ml.note(s4, j * 10 + 5, {}) end
+  end
+  local out4 = Ml.decide(s4, book, {})
+  ck(#out4 <= Ml.MAX_ITEMS, "2g. au plus " .. Ml.MAX_ITEMS .. " objets (" .. #out4 .. ")")
+  -- 3. la main
+  local s5 = { running = { [TURRET] = true } }
+  ck(Ml.hand_allowed(s5, TURRET, 10) == false and Ml.hand_allowed(s5, TURRET, 0) == true and Ml.hand_allowed(s5, MAG, 10) == true
+    and Ml.hand_allowed(nil, TURRET, 10) == true, "3. la main : refusée si le mall tourne et que le stock existe ; permise à l'amorçage ou à sec")
+  -- 4. gabarit
+  local items = { { item = TURRET, machines = 3 }, { item = MAG, machines = 2 } }
+  local cells = Ml.layout(items)
+  local roles, n_asm = {}, 0
+  for _, c in ipairs(cells) do roles[c.role] = true if c.role == "assembleur" then n_asm = n_asm + 1 end end
+  ck(n_asm == 5 and roles.coffre_entree and roles.coffre_sortie and roles.inserteur_entree and roles.inserteur_sortie and roles.poteau,
+    "4a. 5 assembleurs, chacun avec coffre d'entrée, coffre de sortie, deux inserteurs et un poteau")
+  local grid, overlap = {}, 0
+  for _, c in ipairs(cells) do
+    for dx = 0, c.w - 1 do for dy = 0, c.h - 1 do
+      local k = (c.x + dx) .. "," .. (c.y + dy)
+      if grid[k] then overlap = overlap + 1 end
+      grid[k] = true
+    end end
+  end
+  ck(overlap == 0, "4b. aucune superposition de tuiles (" .. overlap .. ")")
+  local ext = Ml.extent(cells)
+  ck(ext.w == (3 - 1) * Ml.PITCH_X + 4 and ext.h == Ml.PITCH_Y + 7, "4c. emprise " .. ext.w .. " x " .. ext.h)
+  local c2 = Ml.layout(items)
+  local same = #c2 == #cells
+  for i = 1, #cells do if cells[i].x ~= c2[i].x or cells[i].y ~= c2[i].y or cells[i].role ~= c2[i].role then same = false end end
+  ck(same and Ml.extent({}).w == 0 and #Ml.layout({}) == 0, "4d. déterministe, vide sans objet")
+  ck(Ml.describe(s2):find("amorcage a la main", 1, true) ~= nil, "4e. journal [FO-MALL] : amorçage à la main tant que le mall ne tourne pas")
+  return fails
+end
+
+print("== 1 à 4. Règle pure")
+battery(require("shared.ai3.mall"), true)
+
+print("== 5. Cerveau par besoins")
+local C = require("shared.ai3.cerveau")
+local R = require("shared.ai3.reglages")
+do
+  local T = require("shared.team.config")
+  local S = require("shared.team.scale")
+  local B = require("shared.ai3.buts")
+  local function view(over)
+    local v = {
+      tech = 0, personality = "balanced", done = {}, deferred = {}, stock = {}, incoming = {}, outposts = {},
+      pending = {}, sites = {}, smelters = 2, smelters_pending = 0, smelter_task = false, smelter_output = 0,
+      smelter_fuel_low = false, smelter_coal = 0, turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 10,
+      workers_max = 30, workers_idle = 2, threatened = false, open = {}, workers_wanted = 10, no_research = true,
+      ladder = T.player_ladder, hq_turrets = 0, defend_first = true, is_player = true,
+    }
+    for k, x in pairs(over or {}) do v[k] = x end
+    if v.recruit_cost == nil then v.recruit_cost = S.recruit_cost(v.workers) end
+    return v
+  end
+  local function op(id, kind) return { id = id, kind = kind, drills = T.outposts[kind].drills, full = false, turrets = 8, coal_needed = 0,
+    fuel_low = false, output = 0, idle_ticks = 0, has_task = false, has_fortify = false } end
+  local outs = { op(1, "iron"), op(2, "coal"), op(3, "copper") }
+  local stock = { [T.outposts.iron.product] = 900, [T.outposts.copper.product] = 300, [T.turret_ammo] = 100, [T.fuel] = 400, stone = 300 }
+  local function ctx(tick) return { tick = tick, is_player = true, weights = B.weights({}, nil),
+    reach = { [T.outposts.iron.resource] = 60, [T.fuel] = 60 } } end
+  local st = C.new_state(0)
+  st.targets = { iron = 1, coal = 1, copper = 1, stone = 0 }
+  st.iron2_set = true
+  local ok, err = true, nil
+  for i = 1, 4 do
+    local ok2, e = pcall(C.think, view({ outposts = outs, stock = stock }), book, st, ctx(i * 600))
+    if not ok2 then ok, err = false, e end
+  end
+  check(ok, "5a0. la pensée ne plante pas (" .. tostring(err) .. ")")
+  check(ok and type(st.mall) == "table" and st.mall.items ~= nil, "5a. la pensée tient st.mall à jour (réglage allumé)")
+  local function no_fn(t, seen)
+    seen = seen or {}
+    if seen[t] then return true end
+    seen[t] = true
+    for _, v in pairs(t) do
+      if type(v) == "function" then return false end
+      if type(v) == "table" and not no_fn(v, seen) then return false end
+    end
+    return true
+  end
+  check(ok and st.mall and no_fn(st.mall), "5b. état du mall sans fonction (sauvegarde)")
+  -- la demande de fabrication à la main alimente le relevé : les tourelles du QG (fabriquées par la main) y entrent
+  local any = false
+  for _ in pairs((st.mall and st.mall.use) or {}) do any = true end
+  check(any, "5b2. au moins un objet fabriqué à la main est relevé")
+  local saved = R.PILE_MALL
+  R.PILE_MALL = false
+  local st2 = C.new_state(0)
+  st2.targets = { iron = 1, coal = 1, copper = 1, stone = 0 }
+  pcall(C.think, view({ outposts = outs, stock = stock }), book, st2, ctx(600))
+  R.PILE_MALL = saved
+  check(st2.mall == nil, "5c. réglage éteint : aucun état de mall")
+end
+
+print("== 6. Mutants")
+local function slurp(p) local f = assert(io.open(p, "rb")) local s = f:read("*a") f:close() return s end
+local killed, total = 0, 0
+local M = "shared/ai3/mall.lua"
+local function mut(from, to, name)
+  total = total + 1
+  local src = slurp(M)
+  local i, j = src:find(from, 1, true)
+  if not i then check(false, "mutant '" .. name .. "' : texte introuvable") return end
+  local tmp = os.tmpname()
+  local f = assert(io.open(tmp, "wb")) f:write(src:sub(1, i - 1) .. to .. src:sub(j + 1)) f:close()
+  local ok, mod = pcall(dofile, tmp)
+  os.remove(tmp)
+  local n = ok and select(2, pcall(battery, mod, false)) or 1
+  if type(n) ~= "number" or n > 0 then killed = killed + 1 else check(false, "mutant survivant : " .. name) end
+end
+mut("if prev == 0 then u.episodes = u.episodes + 1 end", "u.episodes = u.episodes + 1", "tout passage compte un épisode")
+mut("if n > prev then", "if n > 0 then", "le volume reçoit toute la demande à chaque pensée")
+mut("u.episodes >= Ml.MIN_EPISODES", "true", "minimum d'épisodes retiré")
+mut("and book:recipe_for(k) ~= nil", "", "recette inconnue acceptée")
+mut("if n > Ml.MACHINES_MAX then n = Ml.MACHINES_MAX end", "", "plafond d'usines retiré")
+mut("if n < 1 then n = 1 end", "", "au moins une usine retiré")
+mut("if have * 100 < target * Ml.LOW_PCT then on = true", "if have * 100 < target * Ml.HIGH_PCT then on = true", "hystérésis du coffre retirée")
+mut("return (have or 0) <= 0", "return true", "la main toujours permise")
+mut("math.min(#cands, Ml.MAX_ITEMS)", "#cands", "plafond d'objets retiré")
+mut("if a.n ~= b.n then return a.n > b.n end", "if a.n ~= b.n then return a.n < b.n end", "ordre inversé")
+mut("local y = (r - 1) * Ml.PITCH_Y + 2", "local y = 2", "toutes les rangées au même endroit (superposition)")
+mut("u.n, u.episodes = math.floor(u.n / 2), math.floor(u.episodes / 2)", "", "fenêtre sans moitié")
+print(string.format("   mutants refusés : %d / %d", killed, total))
+check(killed == total, "tous les mutants refusés")
+print(string.format("[PILE-MALL] BILAN : %d OK, %d ECHEC(S) ; mutants %d/%d refusés", passes, failures, killed, total))
+os.exit(failures == 0 and 0 or 1)

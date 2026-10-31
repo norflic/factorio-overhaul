@@ -39,6 +39,7 @@
 ]]
 
 local T = require("shared.team.config")
+local Bg = require("shared.ai3.budget") -- lot PILE-BUDGET : la retenue ne vaut que si le budget manque
 
 local Pi = {}
 
@@ -99,7 +100,10 @@ end
 ---   inputs      = { [plaque] = minerai } : entrées de la fonderie ;
 ---   production_first = vrai : « production d'abord » (shared/team/priorite.lua) ;
 ---   penurie     = vrai : mode survie-pénurie (R2 sans parent) ;
----   prep        = { { id, have, want, exec, nohold, why } } : sites à PRÉPARER (lot PREVISION, Pc.pile_rows) }
+---   prep        = { { id, have, want, exec, nohold, why } } : sites à PRÉPARER (lot PREVISION, Pc.pile_rows) ;
+---   (lot PILE-BUDGET, facultatifs ; sans `book` la retenue est celle d'avant) book = livre de recettes, avail = stock libre,
+---   upgrades = { { key, cost = { {objet, n} } } } améliorations connues (dans l'ordre), plan_wants = { {objet, n} } objets du
+---   projet rouvert }
 --- Rend st (mis à jour) : top, hold, blocked, frames (triés), focus, short, crafts, reserve, changed.
 function Pi.update(st, sig, tick)
   sig = sig or {}
@@ -241,6 +245,24 @@ function Pi.update(st, sig, tick)
     end
   end
   local hold = top < Pi.AMELIORER and not blocked
+  -- Lot PILE-BUDGET : la retenue ne vaut QUE si le budget manque. Défense (postes sous leur minimum, objets non encore pris par une
+  -- tâche) + reconstruction (pièces sans tâche, projet rouvert) + une amélioration payées sur le stock : tout passe en parallèle.
+  local budget, parallel = nil, false
+  if hold and sig.book then
+    local claims = { defense = {}, rebuild = {}, upgrades = sig.upgrades or {} }
+    for _, p in ipairs(sig.posts or {}) do
+      if (p.have or 0) < (p.want or 0) and not Pi.GROWTH_POSTS[p.id] and not Pi.OPTIONAL_POSTS[p.id] then
+        for _, it in ipairs(p.claim or {}) do claims.defense[#claims.defense + 1] = it end
+      end
+    end
+    for _, item in ipairs(sorted_keys(by_item)) do
+      local a = by_item[item]
+      if a.n - a.claimed > 0 then claims.rebuild[#claims.rebuild + 1] = { item, a.n - a.claimed } end
+    end
+    for _, it in ipairs(sig.plan_wants or {}) do claims.rebuild[#claims.rebuild + 1] = it end
+    budget = Bg.assess(sig.book, sig.avail or {}, claims, st.parallel)
+    if budget.covered then hold, parallel = false, true end
+  end
   -- Ouvertures et fermetures (par l'état, jamais par l'horloge).
   local now = {}
   for _, fr in ipairs(frames) do
@@ -257,8 +279,9 @@ function Pi.update(st, sig, tick)
       while #st.closed > Pi.CLOSED_KEEP do table.remove(st.closed) end
     end
   end
-  st.changed = (top ~= st.top) or (hold ~= st.hold) or (blocked ~= st.blocked) -- lu par le journal (script/team/pile.lua)
+  st.changed = (top ~= st.top) or (hold ~= st.hold) or (blocked ~= st.blocked)
   st.top, st.hold, st.blocked = top, hold, blocked
+  st.parallel, st.budget = parallel, budget -- lot PILE-BUDGET : lus par le journal seulement ; la retenue (hold) en tient compte
   if not hold then st.refus = nil end -- lot FUITES-PILE : fin de l'épisode de retenue, un refus futur sera de nouveau écrit
   st.frames, st.opened, st.focus, st.short = frames, opened, focus, short
   st.crafts, st.reserve = crafts, reserve
@@ -377,7 +400,7 @@ end
 
 --- Signaux d'une pensée du cerveau par besoins (shared/ai3/cerveau.lua) : vue de l'équipe, plan du planificateur permanent,
 --- entrées du runtime (inp : repair, plan_reopened ; script/team/pile.lua), situation (s.cap) et contexte (gisements).
-function Pi.signals(view, base, inp, s, ctx)
+function Pi.signals(view, base, inp, s, ctx, bud)
   inp = inp or {}
   local survive = nil
   local em = view.emergency
@@ -400,13 +423,15 @@ function Pi.signals(view, base, inp, s, ctx)
   for _, k in ipairs(sorted_keys(ctx and ctx.known)) do sources[k] = true end
   local posts = {}
   for _, d in ipairs((base.defend and base.defend.posts) or {}) do
-    posts[#posts + 1] = { id = d.id, have = d.have, want = d.want, why = d.why, raw = d.raw }
+    posts[#posts + 1] = { id = d.id, have = d.have, want = d.want, why = d.why, raw = d.raw, claim = d.claim }
   end
   return { survive = survive, repair = inp.repair, plan_reopened = inp.plan_reopened, plan_path = inp.plan_path, posts = posts,
     raw_need = base.raw_need, sources = sources, inputs = inputs,
     production_first = (base.priorite and base.priorite.production_first) or false,
     penurie = view.survie and true or false,
-    prep = ctx and ctx.prevu or nil } -- lot PREVISION : sites à préparer (script/ai3/prevision.lua, Prev.pile_rows)
+    prep = ctx and ctx.prevu or nil, -- lot PREVISION
+    book = bud and bud.book or nil, avail = bud and bud.avail or nil, upgrades = bud and bud.upgrades or nil, -- lot PILE-BUDGET
+    plan_wants = inp.plan_wants }
 end
 
 --- Ligne du journal [FO-PILE] (lue par script/team/pile.lua ; aucune décision ne la lit).
@@ -423,9 +448,10 @@ function Pi.describe(st)
     parts[#parts + 1] = s
   end
   return string.format("sommet %s, ameliorer %s, %d cadre(s) : %s ; depiles %d%s",
-    Pi.RANK_NAME[st.top or 3], st.blocked and "PERMIS (bloque)" or (st.hold and "SUSPENDU" or "permis"), #(st.frames or {}),
+    Pi.RANK_NAME[st.top or 3], st.blocked and "PERMIS (bloque)" or (st.hold and "SUSPENDU" or (st.parallel and "PERMIS (budget couvert, en parallele)" or "permis")), #(st.frames or {}),
     #parts > 0 and table.concat(parts, " ; ") or "pile vide", st.closed_n or 0,
     (st.closed and #st.closed > 0) and (" (" .. table.concat(st.closed, ", ") .. ")") or "")
+    .. (st.budget and (" ; " .. Bg.describe(st.budget)) or "")
 end
 
 return Pi

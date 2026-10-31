@@ -29,6 +29,7 @@ local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
+local Ml = require("shared.ai3.mall") -- lot PILE-MALL
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
 local Bi = require("shared.ai3.bilan") -- lot BILAN : fabrications pondérées par production moins consommation
@@ -172,7 +173,17 @@ function C.think(view, book, st, ctx)
   -- planificateur permanent (postes sous leur minimum, manques bruts et leur priorité) et le runtime (ctx.pile : pièces
   -- détruites du registre, projet du plan directeur rouvert ; script/team/pile.lua). État dans st.pile (global).
   st.pile = st.pile or Pi.new()
-  local pile = Pi.update(st.pile, Pi.signals(view, base, ctx.pile, s, ctx), tick)
+  -- Lot PILE-BUDGET : améliorations au coût CONNU (liste d'objets), dans un ordre stable ; le budget se lit sur le stock libre.
+  local ups = {}
+  if ctx.capital and ctx.capital.cost then ups[#ups + 1] = { key = ctx.capital.key or "capital", cost = ctx.capital.cost } end
+  local capi_open = {}
+  for _, o in ipairs((ctx.capi and ctx.capi.open) or {}) do
+    if o.key and o.kind ~= "techno" and o.missing and #o.missing > 0 then capi_open[#capi_open + 1] = o end
+  end
+  table.sort(capi_open, function(x, y) return tostring(x.key) < tostring(y.key) end)
+  for _, o in ipairs(capi_open) do ups[#ups + 1] = { key = "capi:" .. tostring(o.key), cost = o.missing } end
+  local pile = Pi.update(st.pile, Pi.signals(view, base, ctx.pile, s, ctx,
+    R.PILE_BUDGET and { book = book, avail = avail0, upgrades = ups } or nil), tick)
   s.focus = pile.hold and pile.focus or nil -- lu par B.targets : une matière d'un cadre ouvert fait grandir son extraction
   -- 3. Buts ; 4. projets.
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
@@ -267,6 +278,18 @@ function C.think(view, book, st, ctx)
     if (short[k] or 0) > 0 then st.short_n[k] = (st.short_n[k] or 0) + 1 else st.short_n[k] = nil end
   end
   st.short = short
+  -- Lot PILE-MALL : ce que la main fabrique souvent (planificateur permanent et projets) devient la liste du mall (shared/ai3/mall.lua).
+  if R.PILE_MALL then
+    st.mall = st.mall or Ml.new()
+    local now = {}
+    for _, list in ipairs({ base.tasks or {}, E.tasks or {} }) do
+      for _, t in ipairs(list) do
+        if t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
+      end
+    end
+    Ml.note(st.mall, tick, now)
+    Ml.decide(st.mall, book, { have = view.stock })
+  end
   -- Relecture FUITES-PILE : manques propres (sans ceux des améliorations hors des cadres ouverts), lus par la porte de la pile
   st.short_core = Pi.short_core(E.raw, order, pile.focus)
   st.need = st.need or {}

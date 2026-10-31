@@ -581,6 +581,20 @@ local function s4()
   check(og and op and ig < ip, string.format("§4c engrenages (%s) avant packs (%s)", tostring(ig), tostring(ip)))
   check(op and op.n == 5 and op.entity == "assembling-machine-1", "§4c packs : 30/min, 5 assembleurs (" .. tostring(op and op.n) .. ")")
   check(op and op.value >= Ca.V_MIN and og and og.value >= Ca.V_MIN, "§4c valeur des ordres ≥ 35 (travail qui fait recruter)")
+  -- c1. Lot PILE-MALL : une chaîne se dimensionne aussi sur la demande (Ca.CHAIN_LEAD), pas seulement sur le manque présent
+  --     (40 laboratoires : 150 packs/min, donc 150 engrenages/min ; l'assembleur 1 en fait 60).
+  local big = { machines = { { entity = "stone-furnace", recipe = "iron-plate", n = 40, where = "d-fe" },
+      { entity = "stone-furnace", recipe = "copper-plate", n = 20, where = "d-cu" } },
+    flows = { ["iron-plate"] = { made = 750 }, ["copper-plate"] = { made = 375 } }, labs = { { entity = "lab", n = 40 } },
+    research = { queue = { { tech = "electronics", left = 5000, time = 15, packs = { { "automation-science-pack", 1 } } } }, rate = 2250 } }
+  local lead_saved = Ca.CHAIN_LEAD
+  Ca.CHAIN_LEAD = nil
+  local og0 = find(Ca.decide(pack_scene(D, big), {}), "chaine:iron-gear-wheel")
+  Ca.CHAIN_LEAD = lead_saved
+  local og1 = find(Ca.decide(pack_scene(D, big), {}), "chaine:iron-gear-wheel")
+  say(string.format("§4c1 engrenages (150/min voulus) : %s machine(s) sans avance, %s avec (CHAIN_LEAD %s)", tostring(og0 and og0.n),
+    tostring(og1 and og1.n), tostring(Ca.CHAIN_LEAD)))
+  check(og0 and og1 and og1.n > og0.n and og1.n <= og0.n + Ca.CHAIN_MAX, "§4c1 avance de chaîne : plusieurs usines par objet selon la demande (" .. tostring(og0 and og0.n) .. " -> " .. tostring(og1 and og1.n) .. ")")
   -- c2. Retour de CHAÎNE : T = (taille ÷ part utile) × capital de la chaîne (assembleur + 2 × (four + foreuse)) ÷ valeur,
   --     recalculé par le test ; la valeur au puits n'est pas comptée à chaque étage.
   local exp_g = og and (og.rate / og.useful) * cc_test(D, "iron-gear-wheel") / D.mu["iron-gear-wheel"]

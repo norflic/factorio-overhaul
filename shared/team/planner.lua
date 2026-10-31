@@ -660,6 +660,7 @@ function P.plan(view, book)
             d.why = "recette"
           else
             local items = turret_items(n)
+            d.claim = items -- lot PILE-BUDGET : objets à payer pour ce poste (shared/ai3/budget.lua), annulé si la tâche les a déjà pris
             local function task_of(list)
               add({ key = key, kind = "fortify", prio = T.defend_prio, outpost = p.id, items = list, defend = true,
                 sites = p.sites, pos = p.pos, range = p.range, pieces = p.pieces, plant_id = p.plant_id, cell_key = p.cell_key,
@@ -683,6 +684,7 @@ function P.plan(view, book)
               end
             elseif take(items) then
               task_of(items)
+              d.claim = nil
               d.why = "tache_creee"
             elseif PARTIAL_POSTS[p.id] then
               -- Lot DEFENSE-FACTIONS D4 : plancher réduit si la cellule est très attaquée et que le fer est encore produit (Fr.floors), puis,
@@ -700,8 +702,10 @@ function P.plan(view, book)
                 if d.why == "manque" then d.raw = last_raw end
               else
                 local part = turret_items(math.min(n, math.max(1, Fr.PARTIAL_COUNT)), math.max(1, Fr.PARTIAL_AMMO))
+                d.claim = part
                 if take(part) then
                   task_of(part)
+                  d.claim = nil -- déjà pris au stock par la tâche
                   d.why, d.partial = "tache_creee", true
                 elseif affordable(part, fi, fc) then
                   d.why, d.partial = want_defense(part, fi, fc) and "fabrication" or "manque", true
