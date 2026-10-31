@@ -25,3 +25,4 @@ require("prototypes.levels")
 require("prototypes.tirs") -- lot TIRS : effets de tir par âge (explosions, traçantes) et effet script des chargeurs
 require("prototypes.vitrine")
 require("prototypes.gui") -- lot IA1-i : raccourci et touche de l'interface « Équipe et factions »
+require("prototypes.dezoom") -- dézoom étendu : Ctrl + molette, deux touches

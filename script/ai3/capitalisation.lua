@@ -729,25 +729,31 @@ function Capi.slots(f, cs, stock, tick)
   for _, o in ipairs(cs.open or {}) do
     if o.exec == "module" then
       local states = {}
+      -- lot DIAG-USINE : suspendu par la pile = chaque module non fini est en réserve « pile » (objets rendus au coffre)
+      local suspended = false
       for _, id in ipairs(o.mod_ids or { o.module }) do
         local m = Auto.module(f, id)
         states[#states + 1] = m and tostring(m.state) or "perdu"
+        if m and m.state == "reserve" and m.reason == "pile" then suspended = true
+        elseif not (m and m.state == "fini") then suspended = false break end
       end
       -- relecture : entrée en chantier (aussi tenue par follow à chaque pensée) ; sauvegarde 0.6.21 : nil -> posée ici, prudente
       o.work_tick = Em.work_tick(o.work_tick, states, tick)
-      mods[#mods + 1] = { key = o.key, states = states, progress_tick = o.progress_tick, opened = o.opened, work_tick = o.work_tick }
+      o.pile_tick = Em.pile_tick(o.pile_tick, suspended, tick)
+      mods[#mods + 1] = { key = o.key, states = states, progress_tick = o.progress_tick, opened = o.opened, work_tick = o.work_tick,
+        pile_tick = o.pile_tick }
     end
   end
   local plates = {}
   for _, p in ipairs(PLATE_PRODUCTS) do plates[#plates + 1] = (stock or {})[p] or 0 end
   local sl = Em.slots({ base = A.MAX_OPEN, plates = plates, mods = mods, tick = tick })
-  local sig = string.format("%d|%d|%d|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","))
+  local sig = string.format("%d|%d|%d|%s|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","))
   if cs.slots_sig ~= sig then
     cs.slots_sig = sig
     local pl = {}
     for i, p in ipairs(PLATE_PRODUCTS) do pl[#pl + 1] = p .. "=" .. math.floor(plates[i]) end
-    log(string.format("[FO-CAPI-EMPLACEMENTS] %s : %s ; libres %d ; stock {%s} ; figes [%s] a %.1f min", f.key or "?", sl.why, sl.room,
-      table.concat(pl, " "), table.concat(sl.keys_stalled, ", "), minutes(f, tick)))
+    log(string.format("[FO-CAPI-EMPLACEMENTS] %s : %s ; libres %d ; stock {%s} ; figes [%s] ; pile [%s] a %.1f min", f.key or "?", sl.why, sl.room,
+      table.concat(pl, " "), table.concat(sl.keys_stalled, ", "), table.concat(sl.keys_piled, ", "), minutes(f, tick)))
   end
   return sl
 end
