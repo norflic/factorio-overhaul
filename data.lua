@@ -21,6 +21,7 @@ require("prototypes.enemies")
 require("prototypes.arsenal")
 require("prototypes.arsenal_special")
 require("prototypes.faction")
+require("prototypes.robots") -- lot RB-1 (31/10) : robots, atelier d'automates, kit, unités par propriétaire ; après prototypes.enemies
 require("prototypes.levels")
 require("prototypes.tirs") -- lot TIRS : effets de tir par âge (explosions, traçantes) et effet script des chargeurs
 require("prototypes.vitrine")
