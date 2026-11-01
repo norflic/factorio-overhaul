@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.30
+Date: 2026-10-31
+  Changes:
+    - Petrole des factions allume par defaut (votre decision), sauvegardes comprises, une fois ; vous pouvez l'eteindre ensuite.
+    - Dezoom etendu : Ctrl + molette, 4 crans sous la limite de la molette ; la limite exacte du jeu n'est pas prouvee, a juger en jeu.
+    - Biters : taille propre a chaque famille, moucheron nain, nids d'essaim. Aucune image neuve.
+    - Factions : un module suspendu par la pile ne bloque plus l'emplacement (Scarlet restait avec une seule fonderie pendant plus d'une heure).
+    - Rien n'a ete rejoue en partie longue au moment de la fusion : tests hors jeu et bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.29
 Date: 2026-10-31
   Changes:

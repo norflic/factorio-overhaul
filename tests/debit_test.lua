@@ -84,7 +84,7 @@ do -- relecture : Build.debit_pairs ne passe pas par Conv.choose (journal [FO-CO
   local s = build:find("function Build.debit_pairs", 1, true)
   local e = s and build:find("\nend", s, true)
   local body = s and e and build:sub(s, e) or ""
-  check(body ~= "" and not body:find("Conv.choose", 1, true) and body:find("Cv.pick", 1, true) ~= nil,
+  check(body ~= "" and not body:find("Conv.choose", 1, true) and body:find("CvRegle.pick", 1, true) ~= nil,
     "Build.debit_pairs lit le tapis par la regle pure, sans ecrire le journal du premier trace")
 end
 local auto = read("script/ai3/automatisation.lua")

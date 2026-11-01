@@ -34,10 +34,24 @@ local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Board = require("script.team.board") -- (reprise 0.6.20 : chargé ici, plus par un require pendant un appel distant, F24)
 local Profiler = require("script.core.profiler")
+local Storage = require("script.core.storage")
+local Events = require("script.core.events")
 
 local Pet = {}
 
 Pet.SETTING = "fo-war-petrole"
+-- Décision Q20 du DC (31/10) : une sauvegarde garde l'ancienne valeur du réglage, on l'allume donc une fois, à la mise à jour
+-- seulement (une partie neuve a déjà le défaut allumé) ; le joueur qui l'éteint ensuite reste maître.
+local migrer_reglage = false
+Storage.declare("petrole_allume", function()
+  migrer_reglage = true
+  return {}
+end)
+Events.on_init(function() migrer_reglage = false end)
+Events.on_configuration_changed(function()
+  if migrer_reglage then pcall(function() settings.global[Pet.SETTING] = { value = true } end) end
+  migrer_reglage = false
+end)
 Pet.EVERY = 3600            -- ticks entre deux décisions
 Pet.WATER_R = 160           -- une rive à moins de 160 tuiles du QG : l'eau est connue (la centrale s'y pose)
 Pet.PACK_N = 10             -- packs dépliés pour trouver ce qu'il faut
