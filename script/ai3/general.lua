@@ -141,8 +141,36 @@ local function amount_of(p)
   return a * (p.probability or 1)
 end
 
+--- Lot RB-3 : ce que le relevé sait de l'attaque d'une unité (AttackParameters) : portée, portée minimale, cadence, zone (une action
+--- de type « area » ou « cluster ») et les dégâts DIRECTS lisibles ; le DPS reste nil quand les dégâts ne sont pas dans le relevé
+--- (projectile, flux : leurs dégâts sont dans un autre prototype). Chaque lecture est protégée : un champ absent donne nil.
+local function read_attack(ap)
+  local out = {}
+  if not ap then return out end
+  out.range, out.min_range, out.cooldown = get(ap, "range"), get(ap, "min_range"), get(ap, "cooldown")
+  local at = get(ap, "ammo_type")
+  local total
+  for _, act in ipairs(get(at, "action") or {}) do
+    local t = get(act, "type")
+    if t == "area" or t == "cluster" then out.zone = true end
+    for _, del in ipairs(get(act, "action_delivery") or {}) do
+      for _, te in ipairs(get(del, "target_effects") or {}) do
+        if get(te, "type") == "damage" then
+          local dm = get(te, "damage")
+          local amount = dm and get(dm, "amount")
+          if type(amount) == "number" then total = (total or 0) + amount * (get(te, "repeat_count") or 1) end
+        end
+      end
+    end
+  end
+  if total and type(out.cooldown) == "number" and out.cooldown > 0 then
+    out.dps = total * 60 / out.cooldown * (get(ap, "damage_modifier") or 1)
+  end
+  return out
+end
+
 function General.dump()
-  local d = { recipes = {}, techs = {}, entities = {}, resources = {}, items = {} }
+  local d = { recipes = {}, techs = {}, entities = {}, resources = {}, items = {}, units = {} }
   for _, name in ipairs(keys_list(game.recipe_prototypes)) do
     local r = game.recipe_prototypes[name]
     local ing, prod = {}, {}
@@ -198,6 +226,33 @@ function General.dump()
       end
       lecture_fields(en, e, ty, role)
       d.entities[#d.entities + 1] = en
+    end
+  end
+  -- Lot RB-3 : les unités qu'un objet pose (le kit d'un robot) : caractéristiques lues aux prototypes, sans un nom.
+  for _, ty in ipairs(R.UNIT_TYPE_LIST) do
+    local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = ty } })
+    for _, name in ipairs(keys_list(protos)) do
+      local e = protos[name]
+      local items = get(e, "items_to_place_this")
+      if items and items[1] then
+        local u = { name = name, type = ty, item = items[1].name, hp = get(e, "max_health"), speed = get(e, "speed") }
+        local cb = get(e, "collision_box")
+        u.half = cb and math.max(math.abs(cb.left_top.x), math.abs(cb.right_bottom.x)) or 0.4
+        local ap = get(e, "attack_parameters")
+        if not ap then
+          -- une araignée tire par ses armes : la plus longue portée des armes, les dégâts ne sont pas lus
+          for _, gname in ipairs(keys_list(get(e, "guns"))) do
+            local gap = get(get(e, "guns")[gname], "attack_parameters")
+            local a = read_attack(gap)
+            if a.range and (u.range or 0) < a.range then u.range, u.min_range, u.cooldown = a.range, a.min_range, a.cooldown end
+            if a.zone then u.zone = true end
+          end
+        else
+          local a = read_attack(ap)
+          u.range, u.min_range, u.cooldown, u.zone, u.dps = a.range, a.min_range, a.cooldown, a.zone, a.dps
+        end
+        d.units[#d.units + 1] = u
+      end
     end
   end
   local rprotos = game.get_filtered_entity_prototypes({ { filter = "type", type = "resource" } })

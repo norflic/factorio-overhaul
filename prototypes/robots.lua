@@ -122,6 +122,9 @@ for i, r in ipairs(Ro.ROBOTS) do
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
     icons = icons_of("item", "engine-unit", KIT_TINT), subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i),
     stack_size = 1,
+    -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit`) : le cerveau lit ce lien dans les prototypes (items_to_place_this),
+    -- sans nom ; un kit posé à la main est inscrit au registre par script/robots/usine.lua.
+    place_result = Ro.unit_name(Ro.PLAYER_OWNER, r.id),
   }
   out[#out + 1] = {
     type = "recipe", name = r.recipe, category = Ro.WORKSHOPS[1].category, enabled = false, energy_required = r.time,

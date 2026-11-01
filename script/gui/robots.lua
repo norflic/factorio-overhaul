@@ -89,7 +89,7 @@ local function build_panel(player)
   rally.style.maximal_width = 300
   local btns = f.add({ type = "flow", name = P .. "rally_btns", direction = "vertical" })
   btns.add({ type = "button", name = P .. "rally_pick", caption = { "fo-robots-ui.rally-pick" }, tooltip = { "fo-robots-ui.rally-pick-tip" } })
-  local two = btns.add({ type = "flow", direction = "horizontal" })
+  local two = btns.add({ type = "flow", name = P .. "rally_two", direction = "horizontal" })
   two.add({ type = "button", name = P .. "rally_here", caption = { "fo-robots-ui.rally-here" }, tooltip = { "fo-robots-ui.rally-here-tip" } })
   two.add({ type = "button", name = P .. "rally_reset", caption = { "fo-robots-ui.rally-reset" }, tooltip = { "fo-robots-ui.rally-reset-tip" } })
   local note = f.add({ type = "label", name = P .. "note", caption = { "fo-robots-ui.panel-note" } })
@@ -135,7 +135,7 @@ local function fill_panel(player, ent)
   end
   local p = Usine.rally_of(rec)
   f[P .. "rally"].caption = rec.rally and { "fo-robots-ui.rally-set", fmt(p.x), fmt(p.y) } or { "fo-robots-ui.rally-default", fmt(p.x), fmt(p.y) }
-  f[P .. "rally_btns"][P .. "rally_reset"].enabled = rec.rally ~= nil
+  f[P .. "rally_btns"][P .. "rally_two"][P .. "rally_reset"].enabled = rec.rally ~= nil
 end
 
 local function on_workshop_gui(e)

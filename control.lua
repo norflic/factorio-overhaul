@@ -68,6 +68,7 @@ require("script.gui.dezoom")
 
 -- Robots (lot RB-1, 31/10) : ateliers, kits en unités, plafond en points, ordres du joueur
 require("script.robots.usine")
+require("script.robots.faction") -- lot RB-3 : la demande de robots des factions (au mall d'INDUSTRIE)
 require("script.robots.outils") -- lot RB-2 : outils de sélection, ralliement, alerte de pertes (l'interface : script/gui/robots.lua, via la fenêtre)
 
 -- Pilotage sans joueur (tests automatisés, scénarios)

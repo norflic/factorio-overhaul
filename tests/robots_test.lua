@@ -177,7 +177,7 @@ local pass, fail, msgs = suite(Ro0, Mo0)
 -- §6 Forme des fichiers.
 local FILES = { "shared/content/robots.lua", "shared/robots/modele.lua", "script/robots/armee.lua", "script/robots/usine.lua",
   "script/robots/ordres.lua", "prototypes/robots.lua", "settings/robots.lua",
-  "shared/robots/commande.lua", "script/robots/outils.lua", "script/gui/robots.lua" }
+  "shared/robots/commande.lua", "script/robots/outils.lua", "script/gui/robots.lua", "script/robots/faction.lua" }
 local function check6(c, m)
   if c then pass = pass + 1 else fail = fail + 1 msgs[#msgs + 1] = m end
 end

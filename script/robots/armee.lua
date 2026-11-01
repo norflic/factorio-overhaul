@@ -196,6 +196,42 @@ function Armee.prune()
   return #gone
 end
 
+--- Lot RB-3 : un kit posé À LA MAIN (son prototype pose l'unité du joueur) : l'unité est inscrite au registre si le plafond le permet,
+--- sinon elle est retirée et le kit rendu. Rend vrai si l'unité est gardée.
+function Armee.register_placed(u, player)
+  local s = Armee.S()
+  local owner, id = Ro.parse_unit(u.name)
+  local r = id and Ro.robot(id)
+  if not (s and r and u.unit_number) or Armee.registered(u.unit_number) then return false end
+  local force = u.force
+  if owner ~= Ro.PLAYER_OWNER or State.by_force(force.name) or not Armee.enabled() or not Mo.can_release({
+      used = Armee.used(force.name), cap = Armee.cap(force), points = r.points, have = Armee.have(force.name, id) }) then
+    u.destroy()
+    if player and player.valid then
+      player.insert({ name = r.kit, count = 1 })
+      player.print({ "fo-robots.placed-refused", { "fo-robots.name-" .. id } })
+    end
+    log(string.format("[FO-ROBOTS] kit pose a la main refuse (plafond ou reglage) : %s force=%s", id, force.name))
+    return false
+  end
+  Mo.add(s.ledger, force.name, u.unit_number, id, r.points)
+  s.ents[u.unit_number] = u
+  script.register_on_entity_destroyed(u)
+  s.stats.created = s.stats.created + 1
+  s.stats.placed = (s.stats.placed or 0) + 1
+  log(string.format("[FO-ROBOTS] unite %d %s force=%s points=%d/%d (kit pose a la main)", u.unit_number, id, force.name,
+    Mo.used(s.ledger, force.name), Armee.cap(force)))
+  return true
+end
+
+local function on_placed(e)
+  local u = e.created_entity or e.entity
+  if not (u and u.valid and u.type == "unit" and Ro.parse_unit(u.name)) then return end
+  Armee.register_placed(u, e.player_index and game.get_player(e.player_index))
+end
+Events.on(defines.events.on_built_entity, on_placed)
+Events.on(defines.events.on_robot_built_entity, on_placed)
+
 Events.on(defines.events.on_entity_died, function(e)
   local u = e.entity
   if u and u.valid and u.type == "unit" and Ro.parse_unit(u.name) then Armee.release(u.unit_number, "mort") end
