@@ -31,6 +31,7 @@ local T = require("shared.team.config")
 local FC = require("shared.faction.config")
 local FS = require("shared.faction.strategy")
 local Pv = require("shared.ai3.prevision")
+local Sq = require("shared.team.survie_qg") -- lot S1 : poids d'une tourelle selon ses munitions, menace mémorisée du QG
 local Pc = require("shared.ai3.prevision_choix")
 local Stock = require("script.team.stock")
 local Planner = require("shared.team.planner") -- soldat que l'équipe FABRIQUE (P.best_unit : échelle des équipements)
@@ -418,6 +419,7 @@ function Prev.think(f, tick, opts)
   local best_turret = nil
   for _, s in ipairs(sites) do
     s.emit, s.dps, s.dpsr, s.turrets, s.seen, s.contact, s.vx, s.vy = 0, 0, 0, 0, 0, 0, 0, 0
+    s.armed, s.ammo = 0, 0 -- lot S1 : tourelles armées (au seuil bas de chargeurs), chargeurs en tout
     local r = Prev.SITE_R[s.kind]
     for _, e in ipairs(surface.find_entities_filtered({ position = { x = s.x, y = s.y }, radius = r, force = f.force, type = SITE_TYPES })) do
       if e.valid then
@@ -426,8 +428,15 @@ function Prev.think(f, tick, opts)
         elseif TURRET_TYPES[e.type] then
           s.turrets = s.turrets + 1
           local tp = turret_of(e.name)
+          -- Lot S1 : une tourelle VIDE ne défend rien (0.6.32 : 7 tourelles comptées 4 018 PV, tombées devant 2 055 PV, fer 0 depuis 40 min). Son poids
+          -- suit ses chargeurs ; une tourelle sans stock de chargeurs (électrique, à fluide) compte pour entière.
+          local inv = e.get_inventory(defines.inventory.turret_ammo)
+          local have = inv and inv.get_item_count() or nil
+          local share = have and Sq.armed_share(have, T.turret_ammo_low) or 1000
+          if share >= 1000 then s.armed = s.armed + 1 end
+          s.ammo = s.ammo + (have or 0)
           if tp then
-            local dps = tp.dps * force_mult(force, e.name, tp.cat)
+            local dps = tp.dps * force_mult(force, e.name, tp.cat) * share / 1000
             s.dps, s.dpsr = s.dps + dps, s.dpsr + dps * tp.range
           end
         end
@@ -511,6 +520,10 @@ function Prev.think(f, tick, opts)
   for _, s in ipairs(sites) do
     kfac[s.key] = kteam
     floors[s.key] = st.cal[s.key] and st.cal[s.key].floor or nil
+    if s.key == "qg" then -- lot S1 : plancher durable du QG (la plus grosse vague reçue en 30 min), pas seulement tant qu'un nid nous vise
+      local m = Pv.mem_floor(st.cal, "qg", tick)
+      if m > (floors.qg or 0) then floors.qg = m end
+    end
   end
   local evo = enemy and math.floor((get(enemy, "evolution_factor") or 0) * 1000 + 0.5) or 0
   local est = Pv.estimate({ evo = evo, g = tf * 60 + pf * emit, kinds = kinds(), gather = gather, diff = diff, sat = sat, sites = sites,
@@ -588,6 +601,14 @@ function Prev.think(f, tick, opts)
     kit_iron = st.kit_iron, kits_stock = kits_stock, turret_iron = st.turret_iron, production_first = st.production_first, recruit_ok = st.recruit_ok,
     front = front }, tick)
   st.turret_value, st.soldier_value = tv, sv
+  -- Lot S1 : recensement du QG (tourelles, armées, chargeurs, valeur de la défense ARMÉE) et valeur d'une tourelle de plus, lus par
+  -- script/team/survie_qg.lua. Nombres seulement (sauvegarde).
+  st.qg = nil
+  for i, s_ in ipairs(sites) do
+    if s_.key == "qg" and est.sites[i] then
+      st.qg = { turrets = s_.turrets or 0, armed = s_.armed or 0, ammo = s_.ammo or 0, value = est.sites[i].d or 0, turret_value = tv, tick = tick }
+    end
+  end
   st.hp_per_emit = Pv.hp_per_emit(est, gather)
   st.est = { evo = evo, evo15 = est.evo15, emit = emit, absorbed = est.absorbed, reach = est.reach, nests = est.nests_used,
     known = #known, hbar = hbar, poll_c = 0, poll_nb = 0, pbar = est.mix and est.mix.pbar or 0, rate = est.rate, units = #units, gather = gather }
@@ -623,6 +644,14 @@ function Prev.pile_rows(f)
   if not (st and st.pc and Prev.enabled()) then return nil end
   local rows = Pc.pile_rows(st.pc, sorted_keys(st.pc.sites))
   return #rows > 0 and rows or nil
+end
+
+--- Lot S1 : ce que lit le péril du QG : { waves (vagues reçues, Pv.threat_waves), qg = recensement, tick } ou nil (prévision éteinte ou aucun
+--- relevé du QG).
+function Prev.qg_view(f)
+  local st = f.prevision
+  if not (st and st.qg and Prev.enabled()) then return nil end
+  return { waves = Pv.threat_waves(st.cal, "qg"), qg = st.qg }
 end
 
 --- Défense induite pour la capitalisation : { hp_per_emit, turret_value } ou nil.
@@ -741,6 +770,10 @@ local function status(f)
   for _, k in ipairs(sorted_keys(st.pc.sites)) do out.k[k] = kteam end
   out.kteam = kteam
   out.cal_last = st.cal_last
+  -- Lot S1 : recensement du QG, vagues reçues gardées, état du péril (bancs s1-assaut) ; copies de nombres et de chaînes.
+  out.qg = st.qg
+  out.waves = st.cal and st.cal[Pv.TEAM] and st.cal[Pv.TEAM].waves or {}
+  out.s1 = f.team and f.team.s1
   local rows = Prev.pile_rows(f)
   out.pile_rows = rows and #rows or 0
   local fr = Front.prevu(f)

@@ -41,6 +41,7 @@ local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) 
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à combustion à l'arrêt rebranchées ou retirées
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
+local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : pas de minage à la main de ce que les machines sortent, plafond des intermédiaires
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
@@ -615,6 +616,7 @@ function Team.view(f, tick)
     -- army_soon : armée visée à moyen terme (vague à 15 min contre les tourelles), servie sans priorité de défense.
     army_alert = (f.armee and f.armee.alert == true) or nil, army_need = (f.armee and f.armee.alert and f.armee.need) or nil,
     army_soon = (f.prevision and f.prevision.pc and (f.prevision.pc.army_soon or 0) > 0 and f.prevision.pc.army_soon) or nil,
+    qg_peril = SurvieQg.update(f, tick), -- lot S1 : péril du QG (shared/team/survie_qg.lua) ; lu par le planificateur (priorité, planchers, tourelles du QG)
     survie = Survie.on(f) or nil, -- lot SURVIE-PENURIE : mode survie (décidé à la pensée précédente) : la production passe avant la défense
     open = Board.open(f),
     effectif = effectif, -- lot IA3-d : décision et raison de la règle d'effectif (factions seulement)

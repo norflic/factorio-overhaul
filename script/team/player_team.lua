@@ -28,6 +28,7 @@ local Sites = require("script.faction.sites")
 local Registry = require("script.companion.registry")
 local Team = require("script.team.team")
 local Poles = require("script.team.poles")
+local Sq = require("shared.team.survie_qg") -- lot S1 : sort du coffre détruit (reposé si des PNJ vivent)
 require("script.team.adopte") -- lot ADOPTE : machines posées à la main par le joueur, inscrites au registre de l'équipe
 
 local PlayerTeam = {}
@@ -112,9 +113,45 @@ Events.on(defines.events.on_entity_died, function(e)
   f.lost_by = (e.force and e.force.name or "?") .. "/" .. (e.cause and e.cause.valid and e.cause.name or "?")
 end)
 
+--- Lot S1 : coffre détruit par l'ennemi alors que des PNJ vivent : un coffre neuf à la même place (ou à côté), l'équipe continue. Le contenu du
+--- coffre est perdu (les coffres annexes restent). Rend vrai si l'équipe continue.
+local function repose(f, tick)
+  local surface = game.surfaces[f.surface]
+  if not (surface and surface.valid) then return false end
+  local pos = surface.find_non_colliding_position(CHEST, f.hq_pos, 6, 1) or f.hq_pos
+  local chest = surface.create_entity({ name = CHEST, position = pos, force = f.force, raise_built = false })
+  if not (chest and chest.valid) then return false end
+  f.hq, f.hq_pos = chest, { x = chest.position.x, y = chest.position.y }
+  f.chest_reg = script.register_on_entity_destroyed(chest)
+  f.lost_by = nil
+  if f.goal_label and rendering.is_valid(f.goal_label) then rendering.destroy(f.goal_label) end
+  f.goal_label = rendering.draw_text({
+    text = Team.goal_text(f), surface = surface, target = chest, target_offset = { 0, -1.6 },
+    color = { r = 1, g = 1, b = 1 }, scale = 1.1, alignment = "center",
+  })
+  return true
+end
+
 Events.on(defines.events.on_entity_destroyed, function(e)
   local f = get()
   if not f or e.registration_number ~= f.chest_reg then return end
+  -- Lot S1 (« la perte d'un coffre ne met plus fin à votre équipe ») : détruit par l'ennemi avec des PNJ vivants, il est reposé.
+  local lost = f.chest_lost or {}
+  f.chest_lost = lost
+  while #lost > 0 and e.tick - lost[1] > Sq.CHEST_WINDOW do table.remove(lost, 1) end
+  local fate, why = Sq.chest_fate({ killed = f.lost_by ~= nil, workers = f.engineers_count or 0, soldiers = f.soldiers_count or 0, recent = #lost })
+  if fate == "poser" then
+    local by = f.lost_by
+    lost[#lost + 1] = e.tick
+    if repose(f, e.tick) then
+      log(string.format("[FO-SURVIE] player : coffre d'equipe detruit par %s a %.1f min, REPOSE en (%d, %d) (%s : %d PNJ, %d soldats ; repose n %d en 30 min) ; contenu perdu, coffres annexes gardes",
+        tostring(by), e.tick / 3600, math.floor(f.hq_pos.x), math.floor(f.hq_pos.y), why, f.engineers_count or 0, f.soldiers_count or 0, #lost))
+      game.print({ "fo-team.chest-replaced" })
+      return
+    end
+    why = "aucune place pour le coffre neuf"
+  end
+  log(string.format("[FO-SURVIE] player : coffre d'equipe perdu a %.1f min, l'equipe prend fin (%s)", e.tick / 3600, why))
   log(string.format("[FO-PTEAM] perdu tick %d : coffre d'equipe %s, %d PNJ partis, %d soldats, equipe fondee il y a %.1f min",
     e.tick, f.lost_by and ("detruit par " .. f.lost_by) or "retire (mine, deconstruit ou script)", f.engineers_count or 0,
     f.soldiers_count or 0, minutes_since(f, e.tick)))
