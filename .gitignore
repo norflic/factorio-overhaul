@@ -23,3 +23,5 @@ graphics/levels/four/*.png
 graphics/levels/assembleur/*.png
 # Feuilles de jeu de la foreuse (lot F4-B, même règle) : tools/render/pieces/levels/foreuse_e/feuilles.py
 graphics/levels/foreuse/*.png
+# Feuilles de jeu du Bourdon (lot BOURDON, même règle) : tools/render/pieces/experimentaux/feuilles.py
+graphics/robots/bourdon/*.png

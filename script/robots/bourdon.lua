@@ -1,0 +1,911 @@
+--[[
+  LE BOURDON en jeu (lot BOURDON, 1er/11) : cloche-cathédrale en lévitation, âge 15. Règles pures : shared/robots/bourdon.lua.
+
+  L'entité est un `spider-vehicle` sans image ; tout ce qu'on voit passe par `rendering`, attaché à l'entité : cloche, lueurs, battant, ombre, 6 chaînes, 6 ancres.
+  DÉCISION chaînes et ancres : posées à l'arrêt (6 ancres plantées au sol, griffes de terre, chaînes tendues, comme la planche), REMONTÉES au treuil pour le vol (la chaîne
+  glisse dans la cloche, dessinée derrière elle ; l'ancre reste pendue sous la lèvre et se balance), retombent à l'arrivée, l'une après l'autre. Une ancre ne glisse donc jamais sur le sol.
+
+  LE GLAS : le battant recule, les vitraux montent (70 ticks) ; il frappe : éclair à la lèvre, son ; une onde de choc court au sol, dégâts réels par tranches à mesure qu'elle
+  avance, jamais sur la force de la cloche ni ses alliés, ni en cessez-le-feu ; fissures qui s'ouvrent à son passage, or qui refroidit puis cicatrice noire qui se referme par morceaux ;
+  sol balayé ; poussière (`trivial-smoke`), éclats, lumière. Tous les objets de `rendering` du Glas ont un `time_to_live` : rien à nettoyer après.
+
+  Tant que le Portique (lot RB-5) n'existe pas, deux commandes de DÉMONSTRATION : /fo-bourdon, /fo-glas ; touche Ctrl + Maj + G (Glas vers le curseur) ; interface distante « fo-bourdon ».
+  Déterminisme : aucun `pairs`, RNG maison, table des directions (shared), forces triées par nom. `require` en tête de fichier (F24).
+]]
+
+local Events = require("script.core.events")
+local Storage = require("script.core.storage")
+local B = require("shared.robots.bourdon")
+local SPR = require("graphics.robots.bourdon.sprites")
+
+local M = {}
+
+Storage.declare("bourdon", function() return { liste = {}, prochain = 1, balayes = {} } end)
+
+local function st() return Storage.ns("bourdon") end
+
+local OR = { r = 1.0, g = 0.82, b = 0.46 }
+local COUCHE_AIR = "air-object"
+local COUCHE_DERRIERE = "smoke"   -- chaînes, battant, ancres pendues : derrière la cloche
+local COUCHE_OMBRE = "lower-object"
+local COUCHE_ANCRE = "object"
+
+local function nom(k) return "fo-bourdon-" .. k end
+
+--- Couleur d'un dessin additif d'intensité v, bornée de 0 à 1 (une valeur hors bornes lève une erreur du moteur).
+local function blanc(v)
+  v = v < 0 and 0 or (v > 1 and 1 or v)
+  return { r = v, g = v, b = v, a = v }
+end
+
+local function dessine(surface, cle, cible, decal, couche, opts)
+  local t = opts or {}
+  return rendering.draw_sprite({ sprite = nom(cle), surface = surface, target = cible, target_offset = decal, render_layer = couche,
+    orientation = t.orientation, x_scale = t.x_scale, y_scale = t.y_scale, tint = t.tint, visible = t.visible, time_to_live = t.time_to_live })
+end
+
+-- ---------------------------------------------------------------------------------------- construction
+local ORDRE_CHUTE = { 2, 1, 3, 6, 4, 5 } -- les ancres de devant d'abord
+
+local function couleurs_intensite(id, teinte, v)
+  v = v < 0 and 0 or (v > 1 and 1 or v)
+  rendering.set_color(id, { r = teinte.r * v, g = teinte.g * v, b = teinte.b * v, a = v })
+end
+
+local function creer_corps(b)
+  local s, e = b.e.surface, b.e
+  b.ids = {}
+  local function retient(id) b.ids[#b.ids + 1] = id; return id end
+  b.o_ombre = retient(dessine(s, "corps-ombre", e, { SPR["corps-ombre"].shift[1], SPR["corps-ombre"].shift[2] }, COUCHE_OMBRE))
+  b.ancres = {}
+  for i = 1, #B.ANCRES do
+    local bx, by = B.bas_chaine(i, 0)
+    local cx, cy = B.centre_chaine(i, bx, by)
+    local ax, ay = B.ancre_depuis_bas(bx, by)
+    local a = B.ANCRES[i]
+    local sc = SPR["ancre"].shift
+    local sl = SPR["ancre-lueur"].shift
+    local so = SPR["ancre-ombre"].shift
+    b.ancres[i] = {
+      e = 0.0, pose = false,
+      chaine = retient(dessine(s, "chaine", e, { cx, cy }, COUCHE_DERRIERE, { orientation = a.o })),
+      corps = retient(dessine(s, "ancre", e, { ax + sc[1], ay + sc[2] }, COUCHE_DERRIERE)),
+      lueur = retient(dessine(s, "ancre-lueur", e, { ax + sl[1], ay + sl[2] }, COUCHE_DERRIERE)),
+      ombre = retient(dessine(s, "ancre-ombre", e, { a.sol[1] + so[1], a.sol[2] + so[2] }, COUCHE_OMBRE, { visible = false })),
+      o_chaine = retient(dessine(s, "chaine-ombre", e, { a.sol[1] + a.ombre_u[1] * a.ombre_long / 2, a.sol[2] + a.ombre_u[2] * a.ombre_long / 2 }, COUCHE_OMBRE,
+        { orientation = a.ombre_o, y_scale = a.ombre_long / B.CHAINE_OMBRE_LONG, visible = false })),
+    }
+  end
+  b.o_lueur_sol = retient(dessine(s, "lueur-sol", e, { 0, 0 }, "ground-patch-higher2", { tint = { r = 0, g = 0, b = 0, a = 0 } }))
+  local sb, sbl = SPR["battant"].shift, SPR["battant-lueur"].shift
+  b.o_battant = retient(dessine(s, "battant", e, { sb[1], sb[2] }, COUCHE_DERRIERE))
+  b.o_battant_l = retient(dessine(s, "battant-lueur", e, { sbl[1], sbl[2] }, COUCHE_DERRIERE))
+  local sc, sv, sr = SPR["corps"].shift, SPR["vitrail"].shift, SPR["cristal"].shift
+  b.o_corps = retient(dessine(s, "corps", e, { sc[1], sc[2] }, COUCHE_AIR))
+  b.o_vit, b.o_cri = {}, {}
+  for k = 1, 3 do
+    b.o_vit[k] = retient(dessine(s, "vitrail", e, { sv[1], sv[2] }, COUCHE_AIR, { tint = k == 1 and { r = 1, g = 1, b = 1, a = 1 } or { r = 0, g = 0, b = 0, a = 0 } }))
+  end
+  for k = 1, 3 do
+    local c = k == 1 and b.teinte or { r = 0, g = 0, b = 0, a = 0 }
+    b.o_cri[k] = retient(dessine(s, "cristal", e, { sr[1], sr[2] }, COUCHE_AIR, { tint = c }))
+  end
+  -- lumière de nuit : la cloche éclaire le sol sous elle
+  b.o_lum = retient(rendering.draw_light({ sprite = "utility/light_medium", surface = s, target = e, target_offset = { 0, -12 }, scale = 28, intensity = 0.7, color = OR, minimum_darkness = 0.2 }))
+end
+
+--- Place tout ce qui suit le corps, d à l'écran au-dessus de la pose (flottement + descente) ; bat_o : angle du battant.
+local function place_corps(b, d, om)
+  local e = b.e
+  local function p(id, cle)
+    local sh = SPR[cle].shift
+    rendering.set_target(id, e, { sh[1], sh[2] - d })
+  end
+  p(b.o_corps, "corps")
+  for k = 1, 3 do
+    p(b.o_vit[k], "vitrail")
+    p(b.o_cri[k], "cristal")
+  end
+  if om then
+    local sh = SPR["corps-ombre"].shift
+    rendering.set_target(b.o_ombre, e, { sh[1] + d * B.OMBRE_PAR_Z / B.COS45, sh[2] })
+  end
+  local o = b.bat_o or 0
+  local sb, sl = SPR["battant"].shift, SPR["battant-lueur"].shift
+  local x1, y1 = B.centre_battant(sb[1], sb[2], o)
+  local x2, y2 = B.centre_battant(sl[1], sl[2], o)
+  rendering.set_target(b.o_battant, e, { x1, y1 - d })
+  rendering.set_target(b.o_battant_l, e, { x2, y2 - d })
+  rendering.set_orientation(b.o_battant, o)
+  rendering.set_orientation(b.o_battant_l, o)
+end
+
+--- Une ancre : extension ex (0 repliée, 1 posée), décalage (ox, oy) (balancement et flottement quand elle est pendue).
+local function place_ancre(b, i, ex, ox, oy)
+  local a = b.ancres[i]
+  local e = b.e
+  local bx, by = B.bas_chaine(i, ex)
+  bx, by = bx + ox, by + oy
+  local cx, cy = B.centre_chaine(i, bx, by)
+  rendering.set_target(a.chaine, e, { cx, cy })
+  local ax, ay = B.ancre_depuis_bas(bx, by)
+  local sc, sl = SPR["ancre"].shift, SPR["ancre-lueur"].shift
+  rendering.set_target(a.corps, e, { ax + sc[1], ay + sc[2] })
+  rendering.set_target(a.lueur, e, { ax + sl[1], ay + sl[2] })
+  a.e = ex
+end
+
+local function mets_couche_ancre(a, couche)
+  rendering.set_render_layer(a.corps, couche)
+  rendering.set_render_layer(a.lueur, couche)
+end
+
+-- ---------------------------------------------------------------------------------------- ancres
+local function impact(b, i)
+  local a = b.ancres[i]
+  local e = b.e
+  local x, y = e.position.x + B.ANCRES[i].sol[1], e.position.y + B.ANCRES[i].sol[2]
+  local s = e.surface
+  mets_couche_ancre(a, COUCHE_ANCRE)
+  rendering.set_visible(a.ombre, true)
+  rendering.set_visible(a.o_chaine, true)
+  if a.griffes then
+    if rendering.is_valid(a.griffes) then rendering.destroy(a.griffes) end
+    if rendering.is_valid(a.griffes_o) then rendering.destroy(a.griffes_o) end
+  end
+  local sg, so = SPR["griffes"].shift, SPR["griffes-ombre"].shift
+  a.griffes_o = dessine(s, "griffes-ombre", { x + so[1], y + so[2] }, nil, COUCHE_OMBRE)
+  a.griffes = dessine(s, "griffes", { x + sg[1], y + sg[2] }, nil, "lower-object-above-shadow")
+  s.create_entity({ name = "big-explosion", position = { x, y } })
+  s.play_sound({ path = "fo-bourdon-ancre", position = { x, y } })
+  for k = 0, 11 do
+    local c, sn = B.dir(k / 12 + i * 0.03)
+    s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { x + c * 3.2, y + sn * 2.4 } })
+  end
+end
+
+local function peut_poser(b, i)
+  local e = b.e
+  local x, y = e.position.x + B.ANCRES[i].sol[1], e.position.y + B.ANCRES[i].sol[2]
+  local t = e.surface.get_tile(x, y)
+  return t and t.valid and not t.collides_with("water-tile")
+end
+
+local function lancer_chute(b, tick)
+  b.phase, b.t0 = "chute", tick
+  for i = 1, #B.ANCRES do
+    b.ancres[i].pose = peut_poser(b, i)
+    b.ancres[i].impact = false
+  end
+end
+
+local function lancer_leve(b, tick)
+  b.phase, b.t0 = "leve", tick
+  for i = 1, #B.ANCRES do
+    local a = b.ancres[i]
+    a.e0 = a.e
+    rendering.set_visible(a.ombre, false)
+    rendering.set_visible(a.o_chaine, false)
+    mets_couche_ancre(a, COUCHE_DERRIERE)
+    -- griffes : restent au sol un moment
+    if a.griffes and rendering.is_valid(a.griffes) then
+      rendering.set_time_to_live(a.griffes, 1800)
+      rendering.set_time_to_live(a.griffes_o, 1800)
+    end
+    a.griffes, a.griffes_o = nil, nil
+  end
+end
+
+-- ---------------------------------------------------------------------------------------- le Glas
+local function ennemis(force)
+  local noms = {}
+  local tous = {}
+  for _, f in pairs(game.forces) do tous[#tous + 1] = f.name end
+  B.trie(tous)
+  for _, n in ipairs(tous) do
+    local f = game.forces[n]
+    if f ~= force and force.is_enemy(f) then noms[#noms + 1] = n end
+  end
+  return noms
+end
+
+--- La liste des cibles au moment du coup, rangée par tranche de distance : l'onde les touche en passant. Ce qui bouge (unités, joueurs) est relu en route.
+local function relever_cibles(b, g)
+  local s, cx, cy = b.e.surface, g.cx, g.cy
+  g.tranches = {}
+  g.forces = ennemis(b.e.force)
+  if #g.forces == 0 then return end
+  local liste = s.find_entities_filtered({ position = { cx, cy }, radius = B.PORTEE, force = g.forces })
+  for _, ent in ipairs(liste) do
+    if ent.is_entity_with_health and ent.destructible and ent.type ~= "unit" and ent.type ~= "character" then
+      local dx, dy = ent.position.x - cx, ent.position.y - cy
+      local tr = B.tranche(math.sqrt(dx * dx + dy * dy))
+      local l = g.tranches[tr]
+      if not l then l = {}; g.tranches[tr] = l end
+      l[#l + 1] = ent
+    end
+  end
+  -- les arbres tombent près du centre : une part seulement, le coût d'un Glas reste borné
+  g.arbres = s.find_entities_filtered({ position = { cx, cy }, radius = 42, type = "tree", limit = 260 })
+  g.a_i = 1
+end
+
+local function toucher(b, g, ent, r)
+  if not ent.valid then return end
+  local d = B.degats(r)
+  if d <= 0 then return end
+  local x, y = ent.position.x, ent.position.y
+  ent.damage(d, b.e.force, "explosion", b.e)
+  g.touches = g.touches + 1
+  if not ent.valid then
+    g.tues = g.tues + 1
+    local u = B.alea(g.rng)
+    local s = b.e.surface
+    if u < 0.12 then
+      s.create_entity({ name = "fo-bourdon-flamme", position = { x, y } })
+      s.create_trivial_smoke({ name = "fo-bourdon-fumee", position = { x, y - 1 } })
+    elseif u < 0.26 then
+      s.create_entity({ name = "fo-bourdon-flamme2", position = { x, y } })
+    elseif u < 0.36 then
+      s.create_trivial_smoke({ name = "fo-bourdon-fumee", position = { x, y - 1 } })
+    elseif u < 0.48 then
+      s.create_entity({ name = "big-explosion", position = { x, y } })
+    end
+  end
+end
+
+--- Dégâts de l'avancée : tranches passées par le rayon, et unités, tous les 4 ticks.
+local function degats_avance(b, g, t, r)
+  local maxtr = B.tranche(math.min(r, B.PORTEE))
+  while g.tr <= maxtr do
+    local l = g.tranches[g.tr]
+    if l then
+      for k = 1, #l do
+        local ent = l[k]
+        if ent.valid then
+          local dx, dy = ent.position.x - g.cx, ent.position.y - g.cy
+          toucher(b, g, ent, math.sqrt(dx * dx + dy * dy))
+        end
+      end
+    end
+    g.tranches[g.tr] = nil
+    g.tr = g.tr + 1
+  end
+  if t % 4 == 0 and r <= B.PORTEE and #g.forces > 0 then
+    local mob = b.e.surface.find_entities_filtered({ position = { g.cx, g.cy }, radius = r + 1, type = { "unit", "character" }, force = g.forces })
+    local rin = r - 8
+    for _, ent in ipairs(mob) do
+      if ent.valid and ent.unit_number and not g.vus[ent.unit_number] then
+        local dx, dy = ent.position.x - g.cx, ent.position.y - g.cy
+        local d2 = dx * dx + dy * dy
+        if d2 >= rin * rin or rin < 0 then
+          g.vus[ent.unit_number] = true
+          toucher(b, g, ent, math.sqrt(d2))
+        end
+      end
+    end
+  end
+  -- arbres
+  if g.arbres and g.a_i <= #g.arbres then
+    local n = 0
+    while g.a_i <= #g.arbres and n < 6 do
+      local a = g.arbres[g.a_i]
+      if a.valid then
+        local dx, dy = a.position.x - g.cx, a.position.y - g.cy
+        if dx * dx + dy * dy > r * r then break end
+        a.die()
+        n = n + 1
+      end
+      g.a_i = g.a_i + 1
+    end
+    if g.a_i > #g.arbres then g.arbres = nil end
+  end
+end
+
+local function creer_onde(b, g)
+  local s = b.e.surface
+  local fin = B.fin_onde() + 2
+  g.cretes, g.poussieres, g.poussieres2 = {}, {}, {}
+  for k = 1, B.CRETES do
+    local v = 1 + math.floor(B.alea(g.rng) * 4) % 4
+    local o = (k - 1) / B.CRETES
+    g.cretes[k] = rendering.draw_sprite({ sprite = nom("crete-" .. v), surface = s, target = { g.cx, g.cy }, orientation = o + 0.25, render_layer = "projectile", time_to_live = fin, x_scale = 0.18 })
+  end
+  for k = 1, B.POUSSIERES do
+    local v = 1 + math.floor(B.alea(g.rng) * 3) % 3
+    local o = (k - 1) / B.POUSSIERES
+    g.poussieres2[k] = rendering.draw_sprite({ sprite = nom("poussiere-" .. (v % 3 + 1)), surface = s, target = { g.cx, g.cy }, orientation = o + 0.25, render_layer = "explosion", time_to_live = fin, x_scale = 0.18, y_scale = 0.3 })
+    g.poussieres[k] = rendering.draw_sprite({ sprite = nom("poussiere-" .. v), surface = s, target = { g.cx, g.cy }, orientation = o + 0.25, render_layer = "explosion", time_to_live = fin, x_scale = 0.18, y_scale = 0.3 })
+  end
+  g.lumieres = {}
+  for k = 1, 12 do
+    g.lumieres[k] = rendering.draw_light({ sprite = "utility/light_medium", surface = s, target = { g.cx, g.cy }, scale = 7, intensity = 0.9, color = OR, minimum_darkness = 0.1, time_to_live = fin })
+  end
+end
+
+local function creer_onde2(b, g)
+  local s = b.e.surface
+  g.cretes2 = {}
+  local fin = B.fin_onde2() - B.DEBUT_ONDE2 + 2
+  for k = 1, B.CRETES2 do
+    local v = 1 + math.floor(B.alea(g.rng) * 2) % 2
+    g.cretes2[k] = rendering.draw_sprite({ sprite = nom("crete2-" .. v), surface = s, target = { g.cx, g.cy }, orientation = (k - 1) / B.CRETES2 + 0.25, render_layer = "projectile", time_to_live = fin, x_scale = 0.18 })
+  end
+end
+
+--- Le coup : position fixée, éclair à la lèvre, son, sol balayé, anneaux dans l'air, relevé des cibles.
+local function frapper(b, g, tick)
+  local e, s = b.e, b.e.surface
+  g.cx, g.cy = e.position.x, e.position.y
+  g.touches, g.tues, g.tr, g.vus = 0, 0, 1, {}
+  g.rng = { v = (tick * 7919 + b.id * 104729) % 2147483647 + 1 }
+  relever_cibles(b, g)
+  g.segs = B.plan_fissures(tick + b.id * 31, g.cible_o)
+  g.p = 1
+  s.play_sound({ path = "fo-bourdon-glas", position = { g.cx, g.cy } })
+  creer_onde(b, g)
+  -- éclair : côté de la frappe, sur la lèvre
+  local zy = -B.Z_LEVRE * B.COS45
+  g.fx, g.fy = g.cx + g.sens * 11.5, g.cy + zy - 1
+  g.o_flash = dessine(s, "flash", { g.fx, g.fy }, nil, "air-entity-info-icon", { time_to_live = 28 })
+  g.o_flash2 = dessine(s, "flash", { g.cx, g.cy + zy + 2 }, nil, "air-object", { time_to_live = 42, x_scale = 1.8, y_scale = 1.2 })
+  g.o_lum = rendering.draw_light({ sprite = "utility/light_medium", surface = s, target = { g.cx, g.cy }, scale = 50, intensity = 1.0, color = OR, minimum_darkness = 0.0, time_to_live = 92 })
+  g.o_anneaux = {
+    dessine(s, "anneau-air", { g.cx, g.cy + zy }, nil, "smoke", { time_to_live = 58 }),
+    dessine(s, "anneau-air", { g.cx, g.cy + zy }, nil, "smoke", { time_to_live = 58 }),
+  }
+  g.balaye = dessine(s, "balaye", { g.cx, g.cy }, nil, "ground-patch", { time_to_live = 4200, x_scale = 0.01, y_scale = 0.01 })
+  local L = st().balayes
+  L[#L + 1] = { id = g.balaye, t = tick }
+  -- le souffle sous la cloche
+  for k = 0, 31 do
+    local c, sn = B.dir(k / 32)
+    s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { g.cx + c * 7, g.cy + sn * 5 } })
+  end
+  s.create_entity({ name = "massive-explosion", position = { g.cx, g.cy } })
+end
+
+local function ouvre_fissures(b, g, r)
+  local s = b.e.surface
+  local segs = g.segs
+  while g.p <= #segs and segs[g.p].r <= r do
+    local sg = segs[g.p]
+    local xs = B.FISSURE_PAS / B.FISSURE_LONG * 1.25
+    local ye = sg.e * (sg.n == 0 and 1.15 or 0.85)
+    local cible = { g.cx + sg.x, g.cy + sg.y }
+    rendering.draw_sprite({ sprite = nom("fissure-" .. sg.v), surface = s, target = cible, orientation = sg.o, x_scale = xs, y_scale = ye,
+      render_layer = "ground-patch-higher", time_to_live = 2800 + math.floor(1200 * sg.vc) })
+    rendering.draw_sprite({ sprite = nom("fissure-chaude-" .. sg.v), surface = s, target = cible, orientation = sg.o, x_scale = xs, y_scale = ye,
+      render_layer = "ground-patch-higher2", time_to_live = 70 + math.floor(90 * sg.vh) })
+    rendering.draw_sprite({ sprite = nom("fissure-chaude-" .. sg.v), surface = s, target = cible, orientation = sg.o, x_scale = xs, y_scale = ye,
+      render_layer = "ground-patch-higher2", time_to_live = 200 + math.floor(280 * sg.vh), tint = { r = 0.5, g = 0.4, b = 0.3, a = 0.5 } })
+    g.p = g.p + 1
+  end
+end
+
+local function onde(b, g, t, r)
+  local s = b.e.surface
+  local f = B.force_onde(r)
+  local maj = t % 3 == 0
+  if maj then
+    local xs = B.echelle_arc(r, B.CRETES, B.CRETE_LONG)
+    local a = f
+    local col = blanc(a)
+    local yc = 0.95 + math.min(1.0, r / 60) * 0.85
+    for k = 1, B.CRETES do
+      local id = g.cretes[k]
+      rendering.set_x_scale(id, xs)
+      rendering.set_y_scale(id, yc)
+      if f < 1 then rendering.set_color(id, col) end
+    end
+  end
+  for k = 1, B.CRETES do
+    local c, sn = B.dir((k - 1) / B.CRETES)
+    rendering.set_target(g.cretes[k], { g.cx + c * r, g.cy + sn * r })
+  end
+  local hp = B.hauteur_poussiere(r)
+  if maj then
+    local xs = B.echelle_arc(r, B.POUSSIERES, B.POUSSIERE_LONG)
+    local ys = 0.35 + math.min(1.0, r / 60) * 1.05
+    local a = f * 0.95
+    local col = blanc(a)
+    local col2 = blanc(a * 0.6)
+    for k = 1, B.POUSSIERES do
+      local id = g.poussieres[k]
+      rendering.set_x_scale(id, xs)
+      rendering.set_y_scale(id, ys)
+      rendering.set_color(id, col)
+      local id2 = g.poussieres2[k]
+      rendering.set_x_scale(id2, xs * 1.1)
+      rendering.set_y_scale(id2, ys * 1.25)
+      rendering.set_color(id2, col2)
+    end
+  end
+  for k = 1, B.POUSSIERES do
+    local c, sn = B.dir((k - 1) / B.POUSSIERES)
+    rendering.set_target(g.poussieres[k], { g.cx + c * r, g.cy + sn * r - hp })
+    rendering.set_target(g.poussieres2[k], { g.cx + c * (r - 1), g.cy + sn * (r - 1) - hp * 2.1 })
+  end
+  for k = 1, 12 do
+    local c, sn = B.dir((k - 1) / 12)
+    rendering.set_target(g.lumieres[k], { g.cx + c * r, g.cy + sn * r })
+  end
+  -- poussière au front, éclats projetés
+  for _ = 1, 22 do
+    local c, sn = B.dir(B.alea(g.rng))
+    local rr = r + 1.5 * (B.alea(g.rng) - 0.5)
+    s.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { g.cx + c * rr, g.cy + sn * rr } })
+  end
+  if t % 2 == 0 and r <= B.PORTEE then
+    for _ = 1, 8 do
+      local c, sn = B.dir(B.alea(g.rng))
+      s.create_particle({ name = "stone-particle", position = { g.cx + c * r, g.cy + sn * r }, movement = { c * 0.18, sn * 0.18 },
+        height = 0.4, vertical_speed = 0.08 + 0.12 * B.alea(g.rng), frame_speed = 1 })
+    end
+  end
+end
+
+local function onde2(g, t)
+  local r = B.rayon2(t)
+  local maj = t % 3 == 0
+  if maj then
+    local xs = B.echelle_arc(r, B.CRETES2, B.CRETE_LONG)
+    local a = (1 - r / B.R_FIN2) * 0.7
+    local col = blanc(a)
+    for k = 1, B.CRETES2 do
+      rendering.set_x_scale(g.cretes2[k], xs)
+      rendering.set_color(g.cretes2[k], col)
+    end
+  end
+  for k = 1, B.CRETES2 do
+    local c, sn = B.dir((k - 1) / B.CRETES2)
+    rendering.set_target(g.cretes2[k], { g.cx + c * r, g.cy + sn * r })
+  end
+end
+
+local function eclairs(b, g, t)
+  if t <= 26 then
+    local v = 1 - t / 26
+    rendering.set_color(g.o_flash, blanc(v))
+    local e = 0.9 + t * 0.03
+    rendering.set_x_scale(g.o_flash, e)
+    rendering.set_y_scale(g.o_flash, e)
+  end
+  if t <= 40 then
+    local v = (1 - t / 40) * 0.8
+    rendering.set_color(g.o_flash2, blanc(v))
+  end
+  if t <= 90 then
+    rendering.set_intensity(g.o_lum, (1 - t / 90) * 1.0)
+    rendering.set_scale(g.o_lum, 50 + t * 0.7)
+  end
+  if t <= 56 then
+    for j = 1, 2 do
+      local r = 7 + (t + (j - 1) * 13) * 0.62 + (j == 1 and 9 or 0)
+      local v = (1 - t / 56) * (1 - 0.3 * (j - 1)) * 0.95
+      rendering.set_x_scale(g.o_anneaux[j], r / 15)
+      rendering.set_y_scale(g.o_anneaux[j], r / 15 * B.COS45)
+      rendering.set_color(g.o_anneaux[j], blanc(v))
+    end
+  end
+  -- la chute de l'éclat sous la cloche
+  if t <= 70 then
+    local v = t <= 8 and (0.2 + t * 0.09) or (0.92 * (1 - (t - 8) / 62))
+    v = v * v
+    rendering.set_color(b.o_lueur_sol, blanc(v))
+    rendering.set_x_scale(b.o_lueur_sol, 1.1)
+    rendering.set_y_scale(b.o_lueur_sol, 0.8)
+  end
+  local bal = g.balaye
+  if rendering.is_valid(bal) and t % 2 == 0 and t <= B.fin_onde() then
+    local e = math.max(0.02, B.rayon(t) / 50)
+    rendering.set_x_scale(bal, e)
+    rendering.set_y_scale(bal, e)
+  end
+end
+
+local function pas_glas(b, g, tick)
+  local t = tick - g.frappe
+  if t == 0 then frapper(b, g, tick) end
+  -- charge et oscillation : battant et vitraux
+  if t <= B.FIN_BALANCE then
+    b.bat_o = B.balance(t, g.sens)
+    local a1, a2, a3 = B.copies(B.vitraux(t))
+    couleurs_intensite(b.o_vit[1], { r = 1, g = 1, b = 1 }, a1)
+    couleurs_intensite(b.o_vit[2], { r = 1, g = 1, b = 1 }, a2)
+    couleurs_intensite(b.o_vit[3], { r = 1, g = 1, b = 1 }, a3)
+    local c1, c2, c3 = B.copies(B.cristal(t))
+    couleurs_intensite(b.o_cri[1], b.teinte, c1)
+    couleurs_intensite(b.o_cri[2], b.teinte, c2)
+    couleurs_intensite(b.o_cri[3], b.teinte, c3)
+  else
+    b.bat_o = nil
+  end
+  if t < 0 then return end
+  eclairs(b, g, t)
+  local fin = B.fin_onde()
+  if t <= fin then
+    local r = B.rayon(t)
+    onde(b, g, t, r)
+    degats_avance(b, g, t, r)
+    ouvre_fissures(b, g, r)
+  end
+  if t == B.DEBUT_ONDE2 then creer_onde2(b, g) end
+  if t > B.DEBUT_ONDE2 and t <= B.fin_onde2() then onde2(g, t) end
+  if t > math.max(fin, B.fin_onde2(), B.FIN_BALANCE) then
+    b.dernier = { touches = g.touches, tues = g.tues, x = g.cx, y = g.cy, tick = g.frappe }
+    b.glas = nil
+  end
+end
+
+--- Lance un Glas. ordre : par le joueur (recharge courte). (tx, ty) : cible, ou nil. Rend vrai si le coup part.
+local function sonner(b, tick, ordre, tx, ty)
+  if b.glas or b.phase == "descente" or b.phase == "retire" then return false end
+  if tick < b.recharge then return false end
+  local sens, cible_o = 1, nil
+  if tx then
+    local p = b.e.position
+    local dx, dy = tx - p.x, ty - p.y
+    sens = dx < 0 and -1 or 1
+    -- orientation vers la cible, par le table des directions : recherche directe, pas de trigonométrie
+    local mieux, mo = -2, 0
+    local d = math.sqrt(dx * dx + dy * dy)
+    if d > 0.5 then
+      for k = 0, 63 do
+        local c, s = B.dir(k / 64)
+        local pr = (c * dx + s * dy) / d
+        if pr > mieux then mieux, mo = pr, k / 64 end
+      end
+      cible_o = mo
+    end
+  end
+  b.glas = { frappe = tick + B.CHARGE, sens = sens, cible_o = cible_o, ordre = ordre }
+  b.recharge = tick + (ordre and B.RECHARGE_ORDRE or B.RECHARGE_AUTO)
+  b.compte = (b.compte or 0) + 1
+  return true
+end
+
+-- ---------------------------------------------------------------------------------------- vie
+local function pas_phase(b, tick)
+  local e = b.e
+  local t = tick - b.t0
+  local bob = B.flottement(tick, b.id)
+  if b.phase == "descente" then
+    local h = B.hauteur_descente(t)
+    place_corps(b, h + bob, true)
+    for i = 1, #B.ANCRES do place_ancre(b, i, 0, 0, -(h + bob)) end
+    if t >= B.DESCENTE then
+      e.surface.play_sound({ path = "fo-bourdon-ancre", position = e.position })
+      lancer_chute(b, tick)
+    end
+    return
+  end
+  if b.phase == "retire" then
+    local h = (t / 240) ^ 2 * B.DESCENTE_H
+    place_corps(b, h + bob, true)
+    for i = 1, #B.ANCRES do place_ancre(b, i, 0, 0, -(h + bob)) end
+    if t >= 240 then e.destroy() end
+    return
+  end
+  -- ordre reçu (télécommande de vanilla, commande, interface distante) : on lève avant de partir
+  if (b.phase == "pose" or b.phase == "chute") and e.autopilot_destination then
+    b.route = {}
+    for _, p in ipairs(e.autopilot_destinations) do b.route[#b.route + 1] = { x = p.x, y = p.y } end
+    e.autopilot_destination = nil
+    lancer_leve(b, tick)
+    t = 0
+  elseif b.phase == "leve" and e.autopilot_destination then
+    b.route = {}
+    for _, p in ipairs(e.autopilot_destinations) do b.route[#b.route + 1] = { x = p.x, y = p.y } end
+    e.autopilot_destination = nil
+  end
+  if b.phase == "chute" then
+    local fini = true
+    for rang, i in ipairs(ORDRE_CHUTE) do
+      local a = b.ancres[i]
+      if a.pose then
+        local u = (t - (rang - 1) * B.CHUTE_PAS) / B.CHUTE
+        if u >= 1 then
+          if not a.impact then
+            place_ancre(b, i, 1, 0, 0)
+            a.impact = true
+            impact(b, i)
+          end
+        elseif u > 0 then
+          place_ancre(b, i, B.ext_chute(u), B.oscille(tick, i) * (1 - u), bob * (1 - u))
+          fini = false
+        else
+          place_ancre(b, i, 0, B.oscille(tick, i), bob)
+          fini = false
+        end
+      else
+        place_ancre(b, i, 0, B.oscille(tick, i), bob)
+      end
+    end
+    if fini then b.phase, b.t0 = "pose", tick end
+  elseif b.phase == "leve" then
+    local fini = true
+    for rang, i in ipairs(ORDRE_CHUTE) do
+      local a = b.ancres[i]
+      local u = (t - (rang - 1) * B.LEVE_PAS) / B.LEVE
+      if u < 1 then fini = false end
+      if a.e0 > 0 then
+        place_ancre(b, i, a.e0 * B.ext_leve(u), 0, 0)
+      end
+    end
+    if fini then
+      if b.route and #b.route > 0 then
+        for _, p in ipairs(b.route) do e.add_autopilot_destination(p) end
+        b.route = nil
+        b.phase, b.t0 = "vol", tick
+      else
+        lancer_chute(b, tick)
+      end
+    end
+  elseif b.phase == "vol" then
+    if tick % 3 == 0 then
+      for i = 1, #B.ANCRES do place_ancre(b, i, 0, B.oscille(tick, i), bob) end
+    end
+    if tick % 7 == 0 then
+      local p = e.position
+      local c, sn = B.dir(B.alea(b.rng))
+      e.surface.create_trivial_smoke({ name = "fo-bourdon-poussiere", position = { p.x + c * 9, p.y + sn * 7 } })
+    end
+    if not e.autopilot_destination then
+      b.route = nil
+      lancer_chute(b, tick)
+    end
+  end
+  if tick % 3 == 0 or b.glas then
+    place_corps(b, bob, false)
+  end
+end
+
+local function fin_bourdon(b)
+  for _, id in ipairs(b.ids) do
+    if rendering.is_valid(id) then rendering.destroy(id) end
+  end
+  for i = 1, #b.ancres do
+    local a = b.ancres[i]
+    if a.griffes and rendering.is_valid(a.griffes) then
+      rendering.set_time_to_live(a.griffes, 1800)
+      rendering.set_time_to_live(a.griffes_o, 1800)
+    end
+  end
+end
+
+local function sur_tick(ev)
+  local etat = st()
+  if not etat then return end
+  local L = etat.liste
+  if #L == 0 and #etat.balayes == 0 then return end
+  local tick = ev.tick
+  local i = 1
+  while i <= #L do
+    local b = L[i]
+    if not (b.e and b.e.valid) then
+      fin_bourdon(b)
+      table.remove(L, i)
+    else
+      if b.glas then pas_glas(b, b.glas, tick) end
+      pas_phase(b, tick)
+      if b.e.valid then
+        -- attente : la cloche est allée sonner plus loin
+        if b.phase == "pose" and b.attente and not b.glas then
+          local a = b.attente
+          b.attente = nil
+          sonner(b, tick, true, a.x, a.y)
+        elseif tick % 60 == b.id % 60 and b.phase == "pose" and not b.glas and tick >= b.recharge and not b.muet then
+          local cible = b.e.surface.find_nearest_enemy({ position = b.e.position, max_distance = B.PORTEE_AUTO, force = b.e.force })
+          if cible then sonner(b, tick, false, cible.position.x, cible.position.y) end
+        end
+      end
+      i = i + 1
+    end
+  end
+  -- le sol balayé s'efface sur 10 s, à la fin de sa vie
+  if tick % 30 == 0 then
+    local bal = etat.balayes
+    local j = 1
+    while j <= #bal do
+      local x = bal[j]
+      if not rendering.is_valid(x.id) then
+        table.remove(bal, j)
+      else
+        local age = tick - x.t
+        if age > 3600 then
+          local v = math.max(0, 1 - (age - 3600) / 600)
+          rendering.set_color(x.id, blanc(v))
+        end
+        j = j + 1
+      end
+    end
+  end
+end
+
+Events.on(defines.events.on_tick, sur_tick)
+
+-- ---------------------------------------------------------------------------------------- actions
+--- Fait descendre un Bourdon. Rend le numéro, ou nil.
+function M.descendre(surface, force, x, y)
+  local e = surface.create_entity({ name = B.NOM, position = { x, y }, force = force, create_build_effect_smoke = false })
+  if not e then return nil end
+  local etat = st()
+  e.color = force.color
+  e.vehicle_automatic_targeting_parameters = { auto_target_with_gunner = false, auto_target_without_gunner = false }
+  local id = etat.prochain
+  etat.prochain = id + 1
+  local c = force.color
+  local b = { id = id, e = e, phase = "descente", t0 = game.tick, recharge = 0,
+    teinte = { r = 0.5 * OR.r + 0.5 * c.r, g = 0.5 * OR.g + 0.5 * c.g, b = 0.5 * OR.b + 0.5 * c.b, a = 1 },
+    rng = { v = (id * 48271 + game.tick) % 2147483647 + 1 } }
+  creer_corps(b)
+  local L = etat.liste
+  L[#L + 1] = b
+  place_corps(b, B.DESCENTE_H, true)
+  for i = 1, #B.ANCRES do place_ancre(b, i, 0, 0, -B.DESCENTE_H) end
+  return id
+end
+
+local function trouve(id)
+  local etat = st()
+  for _, b in ipairs(etat.liste) do
+    if b.id == id and b.e.valid then return b end
+  end
+  return nil
+end
+
+local function de_la_force(force)
+  local etat = st()
+  for _, b in ipairs(etat.liste) do
+    if b.e.valid and b.e.force == force then return b end
+  end
+  return nil
+end
+
+--- Donne un ordre d'aller : le script de phase lève les ancres puis part (les ordres de la télécommande de vanilla passent par la même voie).
+function M.aller(b, x, y)
+  b.e.autopilot_destination = { x, y }
+end
+
+local function donner_telecommande(player, b)
+  if not game.item_prototypes["spidertron-remote"] then return end
+  local stack = player.cursor_stack
+  if stack and player.clear_cursor() and stack.valid and stack.set_stack({ name = "spidertron-remote", count = 1 }) then
+    stack.connected_entity = b.e
+  end
+end
+
+--- Glas vers (x, y) : à portée, il part ; plus loin, la cloche y va d'abord, puis sonne.
+local function glas_vers(b, tick, x, y)
+  if not x then return sonner(b, tick, true, nil, nil) end
+  local p = b.e.position
+  local dx, dy = x - p.x, y - p.y
+  local d = math.sqrt(dx * dx + dy * dy)
+  if d <= B.PORTEE_AUTO then return sonner(b, tick, true, x, y) end
+  -- s'arrête à 35 tuiles de la cible, sur la droite qui l'y mène
+  local k = (d - 35) / d
+  b.attente = { x = x, y = y }
+  M.aller(b, p.x + dx * k, p.y + dy * k)
+  return "route"
+end
+
+local function dire(player, cle, ...)
+  if player then player.print({ cle, ... }) end
+end
+
+local function cmd_bourdon(cmd)
+  local player = cmd.player_index and game.get_player(cmd.player_index)
+  if not player then return end
+  local arg = cmd.parameter
+  local b = de_la_force(player.force)
+  if arg == "retirer" then
+    if b then
+      b.phase, b.t0 = "retire", game.tick
+      for i = 1, #b.ancres do
+        place_ancre(b, i, 0, 0, 0)
+        rendering.set_visible(b.ancres[i].ombre, false)
+        rendering.set_visible(b.ancres[i].o_chaine, false)
+        mets_couche_ancre(b.ancres[i], COUCHE_DERRIERE)
+      end
+      dire(player, "fo-bourdon.retire")
+    end
+    return
+  end
+  local p = player.position
+  if b then
+    -- déjà là : il vient
+    M.aller(b, p.x, p.y + 14)
+    dire(player, "fo-bourdon.vient")
+  else
+    local id = M.descendre(player.surface, player.force, p.x, p.y + 14)
+    if not id then dire(player, "fo-bourdon.impossible"); return end
+    b = trouve(id)
+    dire(player, "fo-bourdon.demo")
+  end
+  donner_telecommande(player, b)
+end
+
+local function glas_du_joueur(player, cx, cy)
+  local b = de_la_force(player.force)
+  if not b then dire(player, "fo-bourdon.absent"); return end
+  local tick = game.tick
+  local x, y = cx, cy
+  if not x then
+    local sel = player.selected
+    if sel and sel.valid and sel.force ~= player.force then
+      x, y = sel.position.x, sel.position.y
+    else
+      local ennemi = b.e.surface.find_nearest_enemy({ position = b.e.position, max_distance = 400, force = b.e.force })
+      if ennemi then x, y = ennemi.position.x, ennemi.position.y end
+    end
+  end
+  local r = glas_vers(b, tick, x, y)
+  if r == "route" then
+    dire(player, "fo-bourdon.route")
+  elseif r then
+    dire(player, x and "fo-bourdon.sonne" or "fo-bourdon.sonne-seul")
+  else
+    dire(player, "fo-bourdon.recharge", math.ceil(math.max(1, b.recharge - tick) / 60))
+  end
+end
+
+commands.add_command("fo-bourdon", { "fo-bourdon.aide" }, cmd_bourdon)
+commands.add_command("fo-glas", { "fo-bourdon.aide-glas" }, function(cmd)
+  local player = cmd.player_index and game.get_player(cmd.player_index)
+  if player then glas_du_joueur(player) end
+end)
+
+Events.on("fo-bourdon-glas", function(ev)
+  local player = game.get_player(ev.player_index)
+  if player and ev.cursor_position and de_la_force(player.force) then
+    glas_du_joueur(player, ev.cursor_position.x, ev.cursor_position.y)
+  end
+end)
+
+-- Pilotage des bancs : mêmes fonctions que les commandes.
+remote.add_interface("fo-bourdon", {
+  descendre = function(force_nom, x, y, surface_index)
+    return M.descendre(game.surfaces[surface_index or 1], game.forces[force_nom], x, y)
+  end,
+  glas = function(id, x, y)
+    local b = trouve(id)
+    if not b then return false end
+    return glas_vers(b, game.tick, x, y)
+  end,
+  aller = function(id, x, y)
+    local b = trouve(id)
+    if not b then return false end
+    M.aller(b, x, y)
+    return true
+  end,
+  retirer = function(id)
+    local b = trouve(id)
+    if not b then return false end
+    b.phase, b.t0 = "retire", game.tick
+    return true
+  end,
+  -- bancs d'images : sans Glas automatique, pour photographier au tick voulu
+  muet = function(id, v)
+    local b = trouve(id)
+    if b then b.muet = v and true or nil end
+  end,
+  etat = function(id)
+    local b = trouve(id)
+    if not b then return nil end
+    local tir = b.dernier or {}
+    return { phase = b.phase, x = b.e.position.x, y = b.e.position.y, glas = b.glas and true or false, compte = b.compte or 0,
+      touches = tir.touches or 0, tues = tir.tues or 0, recharge = b.recharge, sante = b.e.health, ancres = (function()
+        local n = 0
+        for i = 1, #b.ancres do if b.ancres[i].e >= 1 then n = n + 1 end end
+        return n
+      end)() }
+  end,
+  -- bancs : recharge remise à zéro, pour photographier
+  recharge_zero = function(id)
+    local b = trouve(id)
+    if b then b.recharge = 0 end
+  end,
+})
+
+return M

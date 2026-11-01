@@ -66,6 +66,9 @@ require("script.gui.team_window")
 -- Dézoom étendu : Ctrl + molette écrit player.zoom sous la limite de la molette (shared/gui/dezoom.lua)
 require("script.gui.dezoom")
 
+-- Le Bourdon, expérimental de l'âge 15 (lot BOURDON) : démonstration, /fo-bourdon, /fo-glas
+require("script.robots.bourdon")
+
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
 

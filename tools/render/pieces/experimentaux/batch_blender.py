@@ -27,7 +27,9 @@ import geo as G  # noqa: E402
 
 GROUPES = {"ixion": {"plasma": ("ix_plasma",), "soleil": ("ix_soleil",), "hublots": ("ix_hublot",)},
            "bourdon": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},
-           "battant": {"battant": ("bo_",)}}
+           "battant": {"battant": ("bo_",)},
+           "corps": {"vitrail": ("bo_vitrail",), "cristal": ("bo_cristal", "bo_halo")},
+           "ancre": {"ancre": ("bo_halo",)}, "griffes": {}, "chaine": {}}
 
 
 def projected_bounds(objs):

@@ -362,10 +362,12 @@ def levre(lot, M, r):
         lot.put(M["bronze2"], G.sphere(p, 0.42, 10, 5))
 
 
+ANCRES = [(-math.pi * 0.86, 34.0), (-math.pi * 0.5, 31.0), (-math.pi * 0.14, 34.0), (math.pi * 0.2, 32.0), (math.pi * 0.5, 30.0), (math.pi * 0.8, 32.0)]
+
+
 def chaines(lot, M, r):
-    """6 chaînes tendues vers 6 ancres de pierre et d'or (en jeu : 6 pattes dont l'image est la chaîne)."""
-    ancres = [(-math.pi * 0.86, 34.0), (-math.pi * 0.5, 31.0), (-math.pi * 0.14, 34.0), (math.pi * 0.2, 32.0), (math.pi * 0.5, 30.0), (math.pi * 0.8, 32.0)]
-    for (az, ra) in ancres:
+    """6 chaînes tendues vers 6 ancres de pierre et d'or (planches du lot RB-V0 ; en jeu : variantes corps, chaine, ancre, griffes)."""
+    for (az, ra) in ANCRES:
         ca, sa = math.cos(az), math.sin(az)
         a = (14.7 * ca, 14.7 * sa, Z_LEVRE + 0.0)
         b = (ra * ca, ra * sa, 3.0)
@@ -433,6 +435,56 @@ def rochers(lot, M, r):
             lot.put(M["terre"], G.tour([(z - 0.3 * s, 0.26 * s), (z - s * rr.f(0.9, 1.5), 0.0)], 5, "z", (c[0] + d[0], c[1] + d[1], 0.0), cap0=True))
 
 
+def manilles(lot, M):
+    """Les 6 ponts d'or sur la lèvre (lot BOURDON, 1er/11) : la chaîne en jeu en sort, elle est dessinée à part."""
+    for (az, _) in ANCRES:
+        ca, sa = math.cos(az), math.sin(az)
+        a = (14.7 * ca, 14.7 * sa, Z_LEVRE + 0.0)
+        lot.put(M["or"], G.oriente(G.boite((0, 0, 0), (1.8, 1.1, 0.9)), G.add(a, (0, 0, 0.1)), (ca, sa, 0.0)))
+
+
+def chaine_seule(lot, M, longueur=36.0):
+    """Une chaîne droite dans le plan de l'écran (axe (0, -√½, -√½) : vue sans raccourci), `longueur` tuiles à l'écran. En jeu : 1 image tournée
+    vers chaque ancre, glissée dans la cloche quand elle se replie."""
+    u = (0.0, -math.sqrt(0.5), -math.sqrt(0.5))
+    pas = 1.5
+    n = int(longueur / pas)
+    haut = (0.0, 0.0, longueur * math.sqrt(0.5) + 4.0)
+    for i in range(n):
+        c = G.add(haut, G.mul(u, (i + 0.5) * pas))
+        e1 = (1.0, 0.0, 0.0)
+        e2 = G.cross(u, e1)
+        ee = e1 if i % 2 == 0 else e2
+        lb, ha = pas * 0.72, 0.42
+        boucle = []
+        for j in range(14):
+            th = G.TAU * j / 14.0
+            ct, st = math.cos(th), math.sin(th)
+            xx = ct * (lb - ha + ha * 1.0) if abs(ct) > 0.5 else ct * lb
+            boucle.append(G.add(c, G.add(G.mul(u, xx), G.mul(ee, st * ha))))
+        boucle.append(boucle[0])
+        lot.put(M["chaine"], G.tube(boucle, 0.13, 6, cap0=False, cap1=False))
+
+
+def ancre_seule(lot, M):
+    """L'ancre en jeu : socle à pans, soc d'or, tête lumineuse, sans les griffes de terre (elles restent au sol quand elle remonte)."""
+    c = (0.0, 0.0)
+    lot.put(M["pierre"], G.prisme(R.octo(c, 2.8, 8), 0.0, 1.7, top_scale=0.72))
+    lot.put(M["bronze2"], G.prisme(R.octo(c, 2.0, 8), 1.7, 2.6, top_scale=0.72))
+    lot.put(M["or"], G.prisme(R.octo(c, 2.15, 8), 1.65, 1.86))
+    lot.put(M["or"], G.tour([(2.6, 1.3), (3.1, 0.95), (3.5, 0.35), (3.5, 0.0)], 16, "z", (c[0], c[1], 0.0), cap0=True))
+    lot.put(M["halo"], G.sphere((c[0], c[1], 3.45), 0.24, 10, 5))
+
+
+def griffes_seules(lot, M):
+    """Les griffes de terre et de pierre levées par l'ancre à l'impact : posées au sol, elles restent un moment."""
+    rr = G.Rnd(341)
+    for i in range(11):
+        th = G.TAU * i / 11.0 + rr.f(0, 0.4)
+        q = ((3.2 + rr.f(0.2, 2.2)) * math.cos(th), (3.2 + rr.f(0.2, 2.2)) * math.sin(th), 0.0)
+        R.eclat(lot, M["terre"] if i % 3 else M["pierre"], q, rr.f(0.7, 2.0), rr.f(0.35, 0.8), rr, inc=0.5)
+
+
 def battant(lot, M):
     """Le battant : tige à colliers, poire de nacre et d'or à cœur lumineux (rendu à part, il oscille à l'écran)."""
     zp = Z_LEVRE + 7.0
@@ -457,6 +509,15 @@ def build(S, lot, variante="bourdon"):
     if variante == "battant":
         battant(lot, M)
         return {}
+    if variante == "chaine":
+        chaine_seule(lot, M)
+        return {}
+    if variante == "ancre":
+        ancre_seule(lot, M)
+        return {}
+    if variante == "griffes":
+        griffes_seules(lot, M)
+        return {}
     cloche(lot, M)
     cotes(lot, M, r)
     fenetres(lot, M, r)
@@ -466,6 +527,9 @@ def build(S, lot, variante="bourdon"):
     terrasse_couronne(lot, M, r)
     arcs_boutants(lot, M, r)
     levre(lot, M, r)
-    chaines(lot, M, r)
+    if variante == "corps":
+        manilles(lot, M)
+    else:
+        chaines(lot, M, r)
     rochers(lot, M, r)
     return dict(R.COMPTE)

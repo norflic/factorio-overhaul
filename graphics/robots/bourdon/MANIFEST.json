@@ -1,0 +1,462 @@
+{
+ "arguments": [],
+ "commande": "py -3.9 tools/render/pieces/experimentaux/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-10-31_ROBOTS/BOURDON/rendu/sprites, à GARDER)",
+ "fichiers": {
+  "ancre-lueur.png": {
+   "hauteur": 7,
+   "largeur": 10,
+   "sha256": "a000064a4f3aa06b94a636dc4597e5d04e0ccb853479772ae7a4ae71f340bf28",
+   "taille": 285
+  },
+  "ancre-ombre.png": {
+   "hauteur": 62,
+   "largeur": 78,
+   "sha256": "4d56685dcf1c5f3ff2b4c553a9e936398a02b6e474f7b75feb50fb4a38d25e39",
+   "taille": 1096
+  },
+  "ancre.png": {
+   "hauteur": 76,
+   "largeur": 84,
+   "sha256": "7c532ea447b0fbf2bfff04f21c1b58fbc0cee70897a578232623e9afcfaf8adb",
+   "taille": 13440
+  },
+  "anneau-air.png": {
+   "hauteur": 256,
+   "largeur": 256,
+   "sha256": "35a61c17214f293cef428f734272409908d91ddec85ed5773e8bb6f0cc809d64",
+   "taille": 18102
+  },
+  "balaye.png": {
+   "hauteur": 512,
+   "largeur": 512,
+   "sha256": "7a204ae3f3f2c83ce5300b1390dd8849da3808c41995e354d2d9a13c06707402",
+   "taille": 232993
+  },
+  "battant-lueur.png": {
+   "hauteur": 87,
+   "largeur": 133,
+   "sha256": "d0c7fd79e2cecae09e9c64a693a619925001d148e1b77e81bffa2c69b71b78f4",
+   "taille": 17438
+  },
+  "battant.png": {
+   "hauteur": 456,
+   "largeur": 133,
+   "sha256": "bac1f3447f6280470a1f27ba32819ff8aa3eb736eede9c24061634f540ee8c00",
+   "taille": 60961
+  },
+  "chaine-ombre.png": {
+   "hauteur": 288,
+   "largeur": 8,
+   "sha256": "610aafca47f78cd7eedd358caf3d5994fa0e1e437a077b3609125295ba952b43",
+   "taille": 217
+  },
+  "chaine.png": {
+   "hauteur": 591,
+   "largeur": 18,
+   "sha256": "0f0637993e928c581eb4ed85d6b0575bb2b5185abed84c60e0e6b113218bde2d",
+   "taille": 26333
+  },
+  "corps-ombre.png": {
+   "hauteur": 628,
+   "largeur": 826,
+   "sha256": "d9e3b12f7fb9c67df306619f24e42e90ec2e2662366461779aa4f65e8bb27d91",
+   "taille": 31228
+  },
+  "corps.png": {
+   "hauteur": 851,
+   "largeur": 606,
+   "sha256": "13c7feeae10259afa643dcf5d2da3b0e95136ff378ffcc0be6a5e70930d0f807",
+   "taille": 643815
+  },
+  "crete-1.png": {
+   "hauteur": 64,
+   "largeur": 192,
+   "sha256": "ee5ac77217b307a58caeaec12e7a3f0c62f7ef43f88fe0980d760968e5d2c219",
+   "taille": 10280
+  },
+  "crete-2.png": {
+   "hauteur": 64,
+   "largeur": 192,
+   "sha256": "a6201dbaac8a958a05b25d1e902107aced8a2678ca55abcbfb2fd9c12a798851",
+   "taille": 10192
+  },
+  "crete-3.png": {
+   "hauteur": 64,
+   "largeur": 192,
+   "sha256": "9acdf6da152a514a4b43ddf30deb690d0734bf7e1bd9f29f4ca235beb63ccd6a",
+   "taille": 10289
+  },
+  "crete-4.png": {
+   "hauteur": 64,
+   "largeur": 192,
+   "sha256": "3a96e2f641820961b0fd41b48e5f40134ff1742e56aba9a60017013a8426a930",
+   "taille": 10299
+  },
+  "crete2-1.png": {
+   "hauteur": 64,
+   "largeur": 192,
+   "sha256": "b3d6cbb292864e72b26a98381c202c9d2b0ff14c29d55c1cc1d2178c547a9fb7",
+   "taille": 9061
+  },
+  "crete2-2.png": {
+   "hauteur": 64,
+   "largeur": 192,
+   "sha256": "9cc11bb834bd3856c48649e6f34e145faa84355cc5c90d7aa34226d6d2463bad",
+   "taille": 9171
+  },
+  "cristal.png": {
+   "hauteur": 736,
+   "largeur": 602,
+   "sha256": "ca97543a12ff8e4f68d6e8064c8306d902e7cc3a6c3e5b19b48a6129cce11fff",
+   "taille": 132557
+  },
+  "fissure-1.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "93a6e3b188d63fcf3c0a68388ddd4f60cb5a1f4fdcdfcb78145acfe33358c659",
+   "taille": 1992
+  },
+  "fissure-2.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "5d421631094f7fc06c756375577c8c93d7d833e727e309f3ed16d844ed5ce3d4",
+   "taille": 2137
+  },
+  "fissure-3.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "a051526a5b96389e8f3522838f1cbddf3259e5b964bad315fb72ca907442dcc1",
+   "taille": 2048
+  },
+  "fissure-4.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "f6ccf854aeb492509d9bdf321b5c681b1c7fdc4cc627bc5fd6d7dedc72dda260",
+   "taille": 2428
+  },
+  "fissure-5.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "076db64b9cc32428442b43ce5fc4cbd7c2496db88ec3247c55b7f7781a9c3ff3",
+   "taille": 2054
+  },
+  "fissure-6.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "a6ee2f2801eb520375386990fb0b9e8562a765f40fc3536afa206009ac4cf3e2",
+   "taille": 1939
+  },
+  "fissure-chaude-1.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "ab1ce0b8dd5decd821cbd44c2be6c5713f434da9a093fc5677fafa1a38d0a686",
+   "taille": 4174
+  },
+  "fissure-chaude-2.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "28ef21df80c46a602e9cf73c7fa5733f937d4d8a14989f1b8484d5c9ab657363",
+   "taille": 4637
+  },
+  "fissure-chaude-3.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "12e777ce0564dc90f162a70390e5cdc856e01c95aadf9422e930c057ea000d05",
+   "taille": 4433
+  },
+  "fissure-chaude-4.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "f57fa30c54996ce7b29e42ef87901418fbe9a2dbc8a7940fc5a3532936736b6f",
+   "taille": 5272
+  },
+  "fissure-chaude-5.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "4453d051b6c679cdc0a9a670bcedb88699830aa14ad6559f4b40d73528a336d2",
+   "taille": 4564
+  },
+  "fissure-chaude-6.png": {
+   "hauteur": 40,
+   "largeur": 128,
+   "sha256": "51b7aa3857f7d0dc9ed59d17cc7716d70ad519c99b1efc595a5a103f7a7160ae",
+   "taille": 4167
+  },
+  "flash.png": {
+   "hauteur": 128,
+   "largeur": 128,
+   "sha256": "e1346e1116b02ab7703376320c180eb56b07e98d86ba06c2df9428596f31c87b",
+   "taille": 8448
+  },
+  "griffes-ombre.png": {
+   "hauteur": 89,
+   "largeur": 102,
+   "sha256": "8c5e88162f683bdbc5b6c28e79a32267cbd4f81cfd965ccbecc98a619f77a782",
+   "taille": 2442
+  },
+  "griffes.png": {
+   "hauteur": 146,
+   "largeur": 147,
+   "sha256": "4d5ec1812e6c2f319085d291596a4d6cdb64b08f3b8a89c657db8384da984f43",
+   "taille": 16175
+  },
+  "hr-ancre-lueur.png": {
+   "hauteur": 18,
+   "largeur": 26,
+   "sha256": "de014162b88ff2a5b770130a1d6e38ea9f158c10f8d6071737c8c1c9104e19a6",
+   "taille": 1167
+  },
+  "hr-ancre-ombre.png": {
+   "hauteur": 124,
+   "largeur": 156,
+   "sha256": "eb6045583d49ee8f781d5b5d17d88ce84f44364ef7e609cb2a914db9f5fcb9a1",
+   "taille": 2490
+  },
+  "hr-ancre.png": {
+   "hauteur": 191,
+   "largeur": 210,
+   "sha256": "929fccf0f12993569cd48b11fb9efe46f5cf985c3dc469fd2fbd1df3bac36297",
+   "taille": 54462
+  },
+  "hr-anneau-air.png": {
+   "hauteur": 512,
+   "largeur": 512,
+   "sha256": "f5e11504a21018c31db674f5dd96c460a4b8db392a8789b0e2303171caf3f9a0",
+   "taille": 49263
+  },
+  "hr-balaye.png": {
+   "hauteur": 1024,
+   "largeur": 1024,
+   "sha256": "e85d48da60ff9e9b1efcd6d50e95282d728a02e0124b9453e857a7077717d5cb",
+   "taille": 673977
+  },
+  "hr-battant-lueur.png": {
+   "hauteur": 217,
+   "largeur": 332,
+   "sha256": "32cc275b1058c189851dd600a53a30ef9d16ad7a426323d8aff6c61b06f5ee25",
+   "taille": 71003
+  },
+  "hr-battant.png": {
+   "hauteur": 1140,
+   "largeur": 332,
+   "sha256": "fae359cf1b766ca7ab224b8c7a5a29c40a9c8cae14274db7bd84ef64f21ea606",
+   "taille": 244100
+  },
+  "hr-chaine-ombre.png": {
+   "hauteur": 576,
+   "largeur": 16,
+   "sha256": "d84c0946413ac260bdd382dd3c6bbad5924072a0e9e6f2a2c44cf3b50ef8fdb7",
+   "taille": 539
+  },
+  "hr-chaine.png": {
+   "hauteur": 1477,
+   "largeur": 46,
+   "sha256": "2bce548ec1fcb3f22247272c6dfcb5245b07a630c2160c06fcf784b43df82602",
+   "taille": 93088
+  },
+  "hr-corps-ombre.png": {
+   "hauteur": 1256,
+   "largeur": 1651,
+   "sha256": "f7c4ab32d5c608ee391724c5dadafa459354fc3b0dae3c61b335ce0e3c3fdc7e",
+   "taille": 91716
+  },
+  "hr-corps.png": {
+   "hauteur": 2128,
+   "largeur": 1514,
+   "sha256": "1c6be7d90ec3c5b22e9bec96b6d26c5551db66044d31c0e885b1fd02d84e62fb",
+   "taille": 2732401
+  },
+  "hr-crete-1.png": {
+   "hauteur": 128,
+   "largeur": 384,
+   "sha256": "d3a86707dacc6a13e7e91ba29111f24a64fa79dadfcb49d07737472c14cc259a",
+   "taille": 27719
+  },
+  "hr-crete-2.png": {
+   "hauteur": 128,
+   "largeur": 384,
+   "sha256": "3a30c4599e0cd4ce5ce2e9253771704954ef95e713eb1671fc0d2925640778ff",
+   "taille": 27668
+  },
+  "hr-crete-3.png": {
+   "hauteur": 128,
+   "largeur": 384,
+   "sha256": "29f77827b468f49f1189c9107b7092fb540a7f3bae342f7e59c1e9bba6baf184",
+   "taille": 27878
+  },
+  "hr-crete-4.png": {
+   "hauteur": 128,
+   "largeur": 384,
+   "sha256": "46622aafb5773e309006c01418ba8c9e68ba4f6a18a6044cb28ed47a7bbe036e",
+   "taille": 27927
+  },
+  "hr-crete2-1.png": {
+   "hauteur": 128,
+   "largeur": 384,
+   "sha256": "57071d16ed8e32238abd51f198af36befbeccd3446707b3a30c362398c8cbe1f",
+   "taille": 24230
+  },
+  "hr-crete2-2.png": {
+   "hauteur": 128,
+   "largeur": 384,
+   "sha256": "f57830614b80705cc0247bdc5a8938b7d5c57c88c0f0b3c83beaf7bada2419e0",
+   "taille": 24686
+  },
+  "hr-cristal.png": {
+   "hauteur": 1841,
+   "largeur": 1506,
+   "sha256": "725313e18f1c371a32bf08741c07c9c48ed53784d80af7c7da3fddf04a1bba64",
+   "taille": 1305824
+  },
+  "hr-fissure-1.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "8ea0f238d86f80b14f97b4e079663117ab5d5954ab1713a814419b0f29736ffb",
+   "taille": 4919
+  },
+  "hr-fissure-2.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "f3714e62b6a97ffb9688b67c7fcfc4216dd6566d396ec096e0ee909e0f6c2273",
+   "taille": 5459
+  },
+  "hr-fissure-3.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "c0bc492b0616f09fa0f84108c6cf1afe14fea07ccfb23c2060f1f87988007b7f",
+   "taille": 5221
+  },
+  "hr-fissure-4.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "2222ff0e8ea7fb47e75d735cb517bd6a7f63ff5dce1afd3156474447e520c6c7",
+   "taille": 5979
+  },
+  "hr-fissure-5.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "5566c69025d80597e81acc7f3f566199c88902db0a6c97c11c721af12bd6b252",
+   "taille": 5108
+  },
+  "hr-fissure-6.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "704e1783f601ead47a44a50e67a69fbd187a8d343bb11469023aeb51a7cacfa9",
+   "taille": 5008
+  },
+  "hr-fissure-chaude-1.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "d38d77396b912e66381d4c1fb00a58b9d1011620213f4474765d7504218594df",
+   "taille": 11365
+  },
+  "hr-fissure-chaude-2.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "7505baebe05538de6d3dd65298b91c96ddb43ef9d0835ac8c6573d6d52c83a4f",
+   "taille": 12319
+  },
+  "hr-fissure-chaude-3.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "437fe2568086644503e60e10f6e750ec1b3e9de79caf780c67a6e867d4a6d0d6",
+   "taille": 11969
+  },
+  "hr-fissure-chaude-4.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "b9e545b6ef8bad37ce94f58b77c5e9c91ff99f3c7e8e6224dce74bcc3bd08698",
+   "taille": 14055
+  },
+  "hr-fissure-chaude-5.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "f594557c2769c4806e9410250b97cb707fd91562661dd4d2d6af6c3069eaf693",
+   "taille": 12124
+  },
+  "hr-fissure-chaude-6.png": {
+   "hauteur": 80,
+   "largeur": 256,
+   "sha256": "625f5e3d86f8f660ce0009e3ec8cd7436309477d398e03e3fe181d50d47a3d54",
+   "taille": 11662
+  },
+  "hr-flash.png": {
+   "hauteur": 256,
+   "largeur": 256,
+   "sha256": "9dd05c9dccae887e01853c4a71d30708252b6efb428a2bf71c93be1e887d3420",
+   "taille": 22261
+  },
+  "hr-griffes-ombre.png": {
+   "hauteur": 178,
+   "largeur": 204,
+   "sha256": "5fdcaefade2bcf12d9ea28c364d73815d33870a60041a5f477514b4db72ca29c",
+   "taille": 5978
+  },
+  "hr-griffes.png": {
+   "hauteur": 364,
+   "largeur": 367,
+   "sha256": "bff590e7bff7a24d5e30175f9f8fbc8451432f314c8c65bc699209f0e91d6777",
+   "taille": 38885
+  },
+  "hr-lueur-sol.png": {
+   "hauteur": 256,
+   "largeur": 256,
+   "sha256": "07c9ef6fce7a77edaeb192fde4076360c10603eebe628ce7d2bfcfbc87bd7d1a",
+   "taille": 11991
+  },
+  "hr-poussiere-1.png": {
+   "hauteur": 192,
+   "largeur": 512,
+   "sha256": "cbfa952e3c5c8b8120022c673570538b2297af3434455b8ebbace54bcdcb7841",
+   "taille": 125427
+  },
+  "hr-poussiere-2.png": {
+   "hauteur": 192,
+   "largeur": 512,
+   "sha256": "bfc4b1350fcb3ff8109dc84b047ecf409e2ea3ca1504a99ff55e039cea861bf4",
+   "taille": 125632
+  },
+  "hr-poussiere-3.png": {
+   "hauteur": 192,
+   "largeur": 512,
+   "sha256": "c8d8b426495de502bfbf4da378aaeff7d32790a0682733e0f7634633457ae325",
+   "taille": 121491
+  },
+  "hr-vitrail.png": {
+   "hauteur": 1231,
+   "largeur": 1206,
+   "sha256": "7e5371092ea902a58c245645e7194604a2d9ea4ae50e480ee277e6984dbfd9a3",
+   "taille": 1551672
+  },
+  "lueur-sol.png": {
+   "hauteur": 128,
+   "largeur": 128,
+   "sha256": "f9799449311bb40fe4942b381d7baa77fa2b5b458757ed358cb490d48fe25893",
+   "taille": 4472
+  },
+  "poussiere-1.png": {
+   "hauteur": 96,
+   "largeur": 256,
+   "sha256": "748ea759435e656b77617f291349103f40a8eb377f20ef7d9d7a184bfc908257",
+   "taille": 41833
+  },
+  "poussiere-2.png": {
+   "hauteur": 96,
+   "largeur": 256,
+   "sha256": "9da37ec001e7142fbf61d17fcdddefae53de367e541b266423c06fcfafdb432c",
+   "taille": 41773
+  },
+  "poussiere-3.png": {
+   "hauteur": 96,
+   "largeur": 256,
+   "sha256": "d373ffca6e550da38c3e5dd85319f397caa8c2195f9ef60a09ce8aafc7546117",
+   "taille": 40416
+  },
+  "vitrail.png": {
+   "hauteur": 492,
+   "largeur": 482,
+   "sha256": "7b3a04a4b4126df1abaa6b2e14bd0d86b1e2a42e759f67d0d5bcb3675296fd27",
+   "taille": 226529
+  }
+ }
+}

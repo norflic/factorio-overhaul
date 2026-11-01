@@ -26,3 +26,4 @@ require("prototypes.tirs") -- lot TIRS : effets de tir par âge (explosions, tra
 require("prototypes.vitrine")
 require("prototypes.gui") -- lot IA1-i : raccourci et touche de l'interface « Équipe et factions »
 require("prototypes.dezoom") -- dézoom étendu : Ctrl + molette, deux touches
+require("prototypes.bourdon") -- lot BOURDON : l'expérimental de l'âge 15, sprites, effets, son, touche
