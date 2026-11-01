@@ -98,7 +98,7 @@ def _cuisse(L1_):
     return F.poutre([(-0.09, 0.075, 0.13), (0.0, 0.085, 0.17), (0.2, 0.075, 0.115), (L1_ - 0.05, 0.065, 0.08), (L1_ + 0.05, 0.065, 0.095)])
 
 
-def modele(lots, M, r):
+def modele(lots, M, r, torse=False):
     c = lots("corps")
     # ---------------------------------------------------------------------------- chaudière et ses deux fonds
     c.put(M["cuivre"], G.tour([(-0.40, 0.335), (0.30, 0.325)], 36, "x"))

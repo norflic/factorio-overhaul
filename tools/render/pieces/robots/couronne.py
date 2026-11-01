@@ -23,6 +23,18 @@ Z_PAL = 7.35              # dessous du palais : 1,4 tuile de vide au-dessus de l
 Z_HALO1, Z_HALO2 = 13.15, 14.45
 PAS, BETA, LEVE = 2.5, 0.6, 1.25
 IMAGES = 4
+HAUTEUR_JEU = round(Z_H * Mr.PROJ, 3)      # `height` du spider-vehicle : hauteur à l'écran du centre des hanches
+PART_JEU = (L1 + L2) / 2.0                  # le moteur fait 2 segments égaux : `part_length`
+
+
+def jambes_jeu():
+    """Positions du moteur, dans l'ordre des pattes de create_spidertron (droite du nord au sud, puis gauche), orientation nord : hanche et pied en tuiles,
+    avec la compression à l'écran de la scène (y × PROJ)."""
+    out = []
+    for phi in (22.5, 67.5, 112.5, 157.5, -22.5, -67.5, -112.5, -157.5):
+        a = math.radians(phi)
+        out.append({"mx": round(R_H * math.sin(a), 3), "my": round(-R_H * math.cos(a) * Mr.PROJ, 3), "gx": round(R_P * math.sin(a), 3), "gy": round(-R_P * math.cos(a) * Mr.PROJ, 3)})
+    return out
 
 
 def angle_patte(k):
@@ -39,6 +51,8 @@ def matieres(S):
                      crasse=0.6, crasse_col=cr, graine=151)
     M["orb"] = F.surf("rb15_or_blanc", (0.88, 0.8, 0.58), rough=0.26, met=0.4, coulures=0.2, rouille=(0.34, 0.25, 0.12), usure=0.4, nu=(1.0, 0.96, 0.82),
                       crasse=0.7, crasse_col=cr, graine=158)
+    M["peint"] = F.surf("rb15_peint", (0.8, 0.72, 0.5), rough=0.3, met=0.3, usure=0.4, nu=(0.98, 0.92, 0.72), crasse=0.5, crasse_col=cr, graine=159)
+    M["peint"]["fo_teinte"] = 1
     M["or_s"] = F.surf("rb15_or_s", (0.5, 0.34, 0.13), rough=0.38, met=0.6, coulures=0.3, usure=0.55, nu=(0.82, 0.68, 0.36), crasse=0.8, crasse_col=cr, graine=152)
     M["nacre"] = F.surf("rb15_nacre", (0.76, 0.71, 0.62), rough=0.3, met=0.0, tole=(0.9, 0.46), joint=0.62, joint_l=0.007, var=0.05, coulures=0.3,
                         rouille=(0.28, 0.22, 0.14), usure=0.35, nu=(0.9, 0.87, 0.8), crasse=0.8, crasse_col=cr, relief=0.45, graine=153)
@@ -56,6 +70,22 @@ def matieres(S):
     M["halo"] = MT.lumiere(S, "rb15_halo", (1.0, 0.93, 0.7), 1.5, main=0.55)
     M["part"] = MT.lumiere(S, "rb15_part", (1.0, 0.86, 0.5), 1.0, main=0.55)
     return M
+
+
+def squelette_torse(cap):
+    """Torse seul, pour les 64 directions du jeu : hanches, palais, halos, particules, à l'arrêt."""
+    sq = Mr.Squelette()
+    sq.os("racine", None, Mr.rz(cap))
+    sq.os("hanches", "racine")
+    sq.os("palais", "racine")
+    sq.os("halo1", "palais", Mr.autour((0.0, 0.0, Z_HALO1), Mr.rx(0.12)))
+    sq.os("halo2", "palais", Mr.autour((0.0, 0.0, Z_HALO2), Mr.ry(0.24)))
+    sq.os("part", "palais")
+    return sq
+
+
+def modele_piece(lot, M, partie):
+    {"haut": _cuisse, "bas": _tibia, "genou": _genou}[partie](lot, M)
 
 
 def squelette(phase):
@@ -148,7 +178,7 @@ def _face_octo(ang, r0):
     return (r0 * math.cos(ang), r0 * math.sin(ang)), (math.cos(ang), math.sin(ang), 0.0)
 
 
-def modele(lots, M, r):
+def modele(lots, M, r, torse=False):
     h = lots("hanches")
     a8 = math.pi / 8.0
     # ---------------------------------------------------------------------------- anneau des hanches : vide au centre
@@ -205,7 +235,7 @@ def modele(lots, M, r):
             dt = i * 0.42
             cx, cy = 3.02 * math.cos(am) - math.sin(am) * dt, 3.02 * math.sin(am) + math.cos(am) * dt
             hh = 0.34 if i % 2 == 0 else 0.22
-            b.put(M["or"], G.boite((cx, cy, z0 + 0.82 + hh / 2), (0.1, 0.24, hh), am))
+            b.put(M["peint"], G.boite((cx, cy, z0 + 0.82 + hh / 2), (0.1, 0.24, hh), am))
             b.put(M["nacre"], G.boite((cx, cy, z0 + 0.84 + hh + 0.04), (0.13, 0.27, 0.04), am))
     # ---------------------------------------------------------------------------- tambour : octogone de nacre, baies toutes différentes
     z1, z2 = z0 + 0.72, z0 + 2.95
@@ -323,7 +353,7 @@ def modele(lots, M, r):
         z = r.f(9.2, 15.0)
         p.put(M["part"], F.cristal((rr_ * math.cos(a), rr_ * math.sin(a), z), r.f(0.04, 0.075), r.f(0.07, 0.13)))
     # ---------------------------------------------------------------------------- pattes
-    for k in range(8):
+    for k in range(0 if torse else 8):
         nom = str(k)
         _cuisse(lots("cuisse" + nom), M)
         _tibia(lots("tibia" + nom), M)

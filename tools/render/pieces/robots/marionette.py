@@ -141,6 +141,16 @@ def direction_jeu(k, n, d_tuiles):
     return math.pi / 2.0 - th, d_tuiles / math.sqrt(math.sin(th) ** 2 + (PROJ * math.cos(th)) ** 2)
 
 
+Z_PIECE = 40.0     # hauteur de rendu des pièces de pattes : loin du sol, ni ombre portée, ni occlusion
+
+
+def repere_ecran(z):
+    """Repère d'une pièce de patte de géant : +X vers le BAS de l'écran, +Y vers la gauche de l'écran, origine en hauteur z. Le moteur fait tourner la pièce dans
+    le plan de l'écran : rendue à plat face à la caméra, sa longueur en unités est sa longueur en tuiles à l'écran."""
+    bas = (0.0, -PROJ, -PROJ)
+    return repere((0.0, 0.0, z), bas, (0.0, -PROJ, PROJ))
+
+
 # ------------------------------------------------------------------------------------------------ squelette
 class Squelette:
     """Hiérarchie d'os (équivalent pur des empties) : chaque os a un parent et une matrice locale."""

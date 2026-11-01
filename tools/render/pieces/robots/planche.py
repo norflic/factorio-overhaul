@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 # avant compo : compo met d'autres dossiers en tête du chemin, dont un autre piece.py et un autre formes.py
 import piece  # noqa: E402
-import couronne, levite, trotte  # noqa: E401, E402, F401
+import aiguille, aileron, bobineur, chanfrein, cloche, couronne, ecaille, heliaste, levite, torique, trotte, truelle  # noqa: E401, E402, F401
 
 sys.path.insert(0, os.path.join(os.path.dirname(HERE), "levels", "commun"))
 import compo as K  # noqa: E402
@@ -33,7 +33,12 @@ ENT = os.path.join(K.DATA, "base", "graphics", "entity")
 ORANGE = np.array((0.869, 0.5, 0.13))
 NOMS = {"trotte": ("trotte", "Trotte-Vapeur, âge 3 (boîte ±0,4, image 2 tuiles)", 2.6, 2.4, 1.7),
         "levite": ("levite", "Lévite, âge 12 (boîte ±0,9, image 5 tuiles)", 6.0, 6.2, 4.6),
-        "couronne": ("couronne", "Couronné, âge 15 (géant, image 16 tuiles)", 16.0, 18.0, 12.0)}
+        "couronne": ("couronne", "Couronné, âge 15 (géant, image 16 tuiles)", 16.0, 18.0, 12.0),
+        "ecaille": ("ecaille", "Écaille, âge 5", 3.5, 5.0, 4.0), "bobineur": ("bobineur", "Bobineur, âge 6", 3.0, 4.0, 3.5),
+        "aiguille": ("aiguille", "Aiguille, âge 7", 4.5, 5.0, 4.0), "cloche": ("cloche", "Cloche, âge 8", 3.5, 5.0, 4.0),
+        "chanfrein": ("chanfrein", "Chanfrein, âge 9", 5.0, 5.5, 4.5), "truelle": ("truelle", "Truelle, âge 10", 3.5, 5.0, 4.0),
+        "aileron": ("aileron", "Aileron, âge 11", 4.0, 5.5, 4.0), "torique": ("torique", "Torique, âge 13 (géant)", 12.0, 14.0, 10.0),
+        "heliaste": ("heliaste", "Héliaste, âge 14 (géant)", 14.0, 17.0, 10.0)}
 
 
 def _png(rel):

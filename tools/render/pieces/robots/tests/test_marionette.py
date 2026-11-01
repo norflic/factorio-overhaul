@@ -162,10 +162,14 @@ def controle_mutants():
 def main():
     controle_ik()
     controle_mutants()
-    for nom in ("trotte", "levite", "couronne"):
+    import piece as P_
+    for nom in sorted(P_.ROBOTS):
         g, s, n = controle_robot(nom)
         print("[RB-V0] %s : glissement max %.4f px HR, %d pièces, %d sommets" % (nom, g, n, s))
-    print("[RB-V0] série trotte : glissement max %.4f px HR" % controle_directions("trotte", 16, 8, 1.0))
+    import piece
+    for nom, d in sorted(piece.ROBOTS.items()):
+        if d.get("serie"):
+            print("[RB-V1] série %s : glissement max %.4f px HR" % (nom, controle_directions(nom, *d["serie"])))
     _ = F
     print("[RB-V0] BILAN : %d OK, %d ECHEC(S)" % tuple(OK))
     return 1 if OK[1] else 0

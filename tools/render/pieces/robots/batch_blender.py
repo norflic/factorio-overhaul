@@ -23,7 +23,7 @@ import fo_calib as C  # noqa: E402
 import fo_scene as S  # noqa: E402
 
 
-def projected_bounds(objs):
+def projected_bounds(objs, ombre=True):
     sv = C.sun_vector()
     us, vs = [], []
     for o in objs:
@@ -34,7 +34,7 @@ def projected_bounds(objs):
             u, v = C.blender_to_screen_px(w.x, w.y, w.z)
             us.append(u)
             vs.append(v)
-            if w.z > 0 and sv[2] > 1e-6:
+            if ombre and w.z > 0 and sv[2] > 1e-6:
                 k = w.z / sv[2]
                 u, v = C.blender_to_screen_px(w.x - sv[0] * k, w.y - sv[1] * k, 0.0)
                 us.append(u)
@@ -126,6 +126,8 @@ def main():
             layers = ["main", "shadow", "glow"] if head else ["main", "ao", "shadow", "glow"]
         else:
             layers = ["main", "shadow", "glow"] if head else ["main", "ao", "shadow", "glow", "light"]
+        if "piece" in meta:
+            layers = ["main", "glow"]
         S.reset()
         S.HALO_LIGHTS.clear()
         S.EXTRA_LIGHTS.clear()
@@ -137,7 +139,7 @@ def main():
         bpy.context.view_layer.update()
         objs = S.piece_objects()
         nverts = sum(len(o.data.vertices) for o in objs if o.type == "MESH")
-        l, t, r, b = projected_bounds(objs)
+        l, t, r, b = projected_bounds(objs, "piece" not in meta)
         m = piece.margin_px(name)
         left, top = int(math.floor(l)) - m, int(math.floor(t)) - m
         right, bottom = int(math.ceil(r)) + m, int(math.ceil(b)) + m

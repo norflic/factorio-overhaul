@@ -64,7 +64,8 @@ def post(name, cache, out_root):
         return np.load(p).astype(np.float64) if layer in info["layers"] and os.path.exists(p) else None
 
     meta = piece.PIECE["variants"][name]
-    hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
+    ao = npy("ao")
+    hr = {"main": P.compose_main(npy("main"), ao, C) if ao is not None else npy("main")}     # pièce de patte : sans occlusion
     if not os.environ.get("FO_GRIS"):
         hr["main"] = etalonne(hr["main"], meta["grade"])
     sh = npy("shadow")
@@ -111,8 +112,9 @@ def post(name, cache, out_root):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--names", required=True)
-    ap.add_argument("--out", required=True)
+    ap.add_argument("--names", default="")
+    ap.add_argument("--serie", default="", help="un robot : toutes ses variantes de série, sorties par défaut dans fo-logs/2026-11-01_RBV1/<robot>/")
+    ap.add_argument("--out", default="")
     ap.add_argument("--cache", default="")
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--post-only", action="store_true")
@@ -120,6 +122,12 @@ def main():
     ap.add_argument("--passes", default="", help="échantillons par passe, ex. shadow=16,ao=16 (D-7, F140) ; les autres passes gardent --samples")
     ap.add_argument("--quick", action="store_true", help="passes main, glow, shadow seulement (essais)")
     a = ap.parse_args()
+    if a.serie and not a.out:
+        base = os.path.join("F:" + os.sep, "Factorio.v1.1.91 Modding", "Factorio.v1.1.91", "fo-logs", "2026-11-01_RBV1", a.serie)
+        a.out = os.path.join(base, "sprites")
+        a.cache = a.cache or os.path.join(base, "cache")
+    if a.serie:
+        a.names = ",".join(piece.noms_serie(a.serie))
     a.cache = a.cache or os.path.join(os.path.dirname(os.path.abspath(a.out)), "cache_" + os.path.basename(a.out))
     names = [n for n in a.names.split(",") if n]
     bad = [n for n in names if n not in piece.PIECE["variants"]]

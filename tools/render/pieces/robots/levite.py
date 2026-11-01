@@ -36,6 +36,8 @@ def matieres(S):
     M["chrome"] = F.surf("rb12_chrome", (0.66, 0.7, 0.76), rough=0.2, met=0.5, usure=0.25, nu=(0.86, 0.88, 0.92), crasse=0.5, crasse_col=cr, grain=0.04, graine=123)
     M["chrome2"] = F.surf("rb12_chrome2", (0.4, 0.43, 0.48), rough=0.26, met=0.5, usure=0.35, nu=(0.7, 0.72, 0.76), crasse=0.55, crasse_col=cr, grain=0.05, graine=124)
     M["givre"] = F.surf("rb12_givre", (0.74, 0.85, 0.96), rough=0.5, met=0.0, usure=0.2, nu=(0.95, 0.98, 1.0), crasse=0.3, crasse_col=(0.2, 0.28, 0.36), grain=0.2, graine=125)
+    M["peint"] = F.surf("rb12_peint", (0.55, 0.57, 0.6), rough=0.3, met=0.3, usure=0.4, nu=(0.85, 0.87, 0.9), crasse=0.5, crasse_col=cr, graine=127)
+    M["peint"]["fo_teinte"] = 1
     M["riv"] = F.surf("rb12_riv", (0.2, 0.22, 0.25), rough=0.3, met=0.9, usure=0.2, crasse=0.3, graine=126)
     M["verre"] = MT.verre("rb12_verre", col=(0.008, 0.02, 0.026), reflet=(0.25, 0.42, 0.5))
     M["cyan"] = MT.lumiere(S, "rb12_cyan", (0.07, 0.87, 1.0), 2.0, main=0.5)
@@ -43,12 +45,12 @@ def matieres(S):
     return M
 
 
-def squelette(phase):
+def squelette(phase, cap=CAP, pas=PAS):
     sq = Mr.Squelette()
     bat = 0.0 if phase is None else 1.0
     ph = 0.0 if phase is None else phase
     a = G.TAU * ph
-    sq.os("racine", None, Mr.rz(CAP))
+    sq.os("racine", None, Mr.rz(cap))
     # le corps se porte au-dessus de l'anneau d'appui, plonge en avant au milieu du pas (décalage au-dessus de l'anneau, roulis, lacet)
     dy = bat * 0.17 * math.cos(a)
     m_corps = Mr.chaine(Mr.tr(0.0, dy, Z0 + bat * 0.07 * math.cos(2.0 * a + 0.5)), Mr.rz(bat * 0.07 * math.sin(a)), Mr.ry(bat * 0.035 * math.cos(2.0 * a)),
@@ -63,7 +65,7 @@ def squelette(phase):
     sq.os("satellites", "corps", Mr.rz(-a))
     sq.os("dos", "corps", Mr.tr(bat * -0.04 * math.cos(2.0 * a), 0.0, bat * 0.03 * math.sin(2.0 * a)))
     for nom, s, dec in PIEDS:
-        dx, dz, appui, u = Mr.pied(phase, dec, PAS, BETA, LEVE)
+        dx, dz, appui, u = Mr.pied(phase, dec, pas, BETA, LEVE)
         p = (0.05 + dx, s * Y_AN, Z_AN + dz)
         tang = 0.0 if appui else -0.4 * math.sin(math.pi * u)           # l'anneau en vol pique vers l'avant
         rou = s * (0.2 + (0.0 if appui else 0.16 * math.sin(math.pi * u)))      # le bord extérieur relevé, comme une aile
@@ -93,7 +95,7 @@ def _anneau(lots, nom, M, r):
         ang = G.TAU * (i + 0.5) / 8
         c, s = math.cos(ang), math.sin(ang)
         a.put(M["chrome2"], G.boite(((R_AN + 0.12) * c, (R_AN + 0.12) * s, 0.0), (0.25, 0.1, 0.27), ang))
-        a.put(M["noir2"], G.boite(((R_AN + 0.2) * c, (R_AN + 0.2) * s, 0.0), (0.12, 0.17, 0.19), ang))
+        a.put(M["peint"], G.boite(((R_AN + 0.2) * c, (R_AN + 0.2) * s, 0.0), (0.12, 0.17, 0.19), ang))
         a.put(M["cyan"], G.boite(((R_AN + 0.265) * c, (R_AN + 0.265) * s, 0.0), (0.012, 0.09, 0.05), ang))
     for i in range(14):    # givre sur le dessus du rebord (quelques plaques)
         ang = r.f(0.0, G.TAU)
@@ -113,7 +115,7 @@ def _anneau(lots, nom, M, r):
         t.put(M["cyan2"], G.boite(((R_AN - 0.42) * math.cos(ang), (R_AN - 0.42) * math.sin(ang), 0.0), (0.05, 0.05, 0.05), ang))
 
 
-def modele(lots, M, r):
+def modele(lots, M, r, torse=False):
     # ---------------------------------------------------------------------------- anneaux et bras
     for nom, s, dec in PIEDS:
         _anneau(lots, nom, M, r)
@@ -172,7 +174,7 @@ def modele(lots, M, r):
     zt = 1.22
     t.put(M["noir"], G.prisme(hexa, zt, zt + 0.36, 0.74))
     t.put(M["chrome2"], G.prisme(hexa, zt - 0.05, zt + 0.01, 0.98))
-    t.put(M["chrome"], G.prisme(((0.36, 0.0), (0.18, 0.18), (-0.2, 0.2), (-0.3, 0.0), (-0.2, -0.2), (0.18, -0.18)), zt + 0.36, zt + 0.4, 0.8))
+    t.put(M["peint"], G.prisme(((0.36, 0.0), (0.18, 0.18), (-0.2, 0.2), (-0.3, 0.0), (-0.2, -0.2), (0.18, -0.18)), zt + 0.36, zt + 0.4, 0.8))
     t.put(M["cyan"], G.boite((0.46, 0.0, zt + 0.17), (0.02, 0.44, 0.05)))
     t.put(M["cyan"], G.boite((0.39, 0.2, zt + 0.17), (0.2, 0.02, 0.05), -0.9))
     t.put(M["cyan"], G.boite((0.39, -0.2, zt + 0.17), (0.2, 0.02, 0.05), 0.9))

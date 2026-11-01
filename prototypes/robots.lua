@@ -174,6 +174,71 @@ local function sheet_animation(sheet, anim_name, owner)
   return { layers = layers }
 end
 
+--- Une pièce fixe d'une patte de géant (bout haut, milieu, bout bas, articulation).
+local function piece_sprite(c, ombre)
+  local l = {
+    filename = ombre and c.lro or c.lr, width = c.lw, height = c.lh, shift = c.shift, scale = 2,
+    hr_version = { filename = ombre and c.hro or c.hr, width = c.w, height = c.h, shift = c.shift, scale = 0.5 },
+  }
+  if ombre then both(l, "draw_as_shadow", true) end
+  return l
+end
+
+--- Partie d'une patte : les bouts gardent leur taille, le milieu s'étire entre eux (SpiderLegPart).
+local function leg_part(pt, ombre)
+  return {
+    top_end = piece_sprite(pt.parts.top, ombre), middle = piece_sprite(pt.parts.mid, ombre), bottom_end = piece_sprite(pt.parts.bot, ombre),
+    top_end_length = pt.bout, bottom_end_length = pt.bout, middle_offset_from_top = pt.bout, middle_offset_from_bottom = pt.bout,
+  }
+end
+
+--- Géant à feuille : torse à 64 directions remonté de `hauteur` (le rendu est en place au sol), peinture teinte à l'exécution (LuaEntity.color),
+--- ombre au sol, positions de hanches et de pieds de la forme, une seule pièce de patte par partie.
+local function giant_graphics(s, sheet, nm)
+  local t = sheet.torse
+  local function raised(c)
+    local l = sheet_layer(c, t, sheet.directions)
+    local sh = { c.shift[1], c.shift[2] + sheet.hauteur }
+    both(l, "shift", sh)
+    return l
+  end
+  local layers = { raised(t.couches.main) }
+  local m = raised(t.couches.mask)
+  both(m, "apply_runtime_tint", true)
+  layers[#layers + 1] = m
+  if t.couches.glow then
+    local g = raised(t.couches.glow)
+    both(g, "draw_as_glow", true)
+    both(g, "blend_mode", "additive")
+    layers[#layers + 1] = g
+  end
+  local shadow = sheet_layer(t.couches.shadow, t, sheet.directions)
+  both(shadow, "draw_as_shadow", true)
+  local g_set = s.graphics_set
+  g_set.animation = { layers = layers }
+  g_set.shadow_animation = shadow
+  g_set.base_animation, g_set.shadow_base_animation, g_set.light_positions, g_set.eye_light, g_set.light = nil, nil, nil, nil, nil
+  s.height = sheet.hauteur
+  -- Moins de pattes que create_spidertron (Torique, 6) : les autres sont retirées, chacune bloque ses 2 voisines de cercle.
+  local n = #sheet.jambes
+  while #s.spider_engine.legs > n do table.remove(s.spider_engine.legs) end
+  for k, leg in ipairs(s.spider_engine.legs) do
+    if n < 8 then
+      leg.blocking_legs = { (k % n) + 1, ((k + n - 2) % n) + 1 }
+    end
+    local j = sheet.jambes[k]
+    leg.mount_position = { j.mx, j.my }
+    leg.ground_position = { j.gx, j.gy }
+    local proto = data.raw["spider-leg"][nm .. "-leg-" .. k]
+    proto.part_length = sheet.part_length
+    proto.graphics_set = {
+      upper_part = leg_part(sheet.pattes.haut, false), lower_part = leg_part(sheet.pattes.bas, false),
+      upper_part_shadow = leg_part(sheet.pattes.haut, true), lower_part_shadow = leg_part(sheet.pattes.bas, true),
+      joint = piece_sprite(sheet.pattes.genou, false), joint_turn_offset = 0,
+    }
+  end
+end
+
 --- Une machine, pas un insecte : ni cadavre ni cri de cracheur (le copié en vient).
 local function as_machine(u, sheet, class)
   local turret = assert(data.raw["ammo-turret"]["gun-turret"], "robots : gun-turret absente")
@@ -427,8 +492,9 @@ for _, g in ipairs(STUB) do
   s.trash_inventory_size = 0
   s.guns = { Ro.gun_name(r.id) }
   s.chain_shooting_cooldown_modifier = 1 -- l'araignée du jeu de base tire 2 fois plus vite en rafale (0,5) : RB-5 a mesuré des duels deux fois trop courts
-  s.icons = icons_of("item", "spidertron", ROBOT_TINT[r.id])
+  s.icons = SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } } or icons_of("item", "spidertron", ROBOT_TINT[r.id])
   s.icon, s.icon_size, s.icon_mipmaps = nil, nil, nil
+  if SPR[r.id] then giant_graphics(s, SPR[r.id], nm) end
   for k = 1, 8 do
     local leg = data.raw["spider-leg"][nm .. "-leg-" .. k]
     if leg then leg.localised_name = { "fo-robots.unit-name", { "fo-robots.name-" .. r.id } } end
