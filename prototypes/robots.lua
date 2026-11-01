@@ -14,6 +14,8 @@
   - Géant (âges 13 à 15) : `spider-vehicle` fabriqué par `create_spidertron` (fonction du jeu de base), un canon de portée 100 (RB0 :
     zones mortes au-delà de l'échelle 3 avec un canon de 60), munition posée par script (script/robots/geant.lua) ; 10 segments (dock)
     puis un assemblage final (portique).
+  - Lot RB-V1 (1/11) : un robot qui a une feuille (SPR[r.id]) a ses vraies images : marche, tir, ombre, lueur et une couche de PEINTURE teinte
+    par propriétaire (unité) ou à l'exécution (géant : torse à 64 directions, pièces de pattes communes). Sans feuille : visuel provisoire.
   - Technologies : une par palier, plus celles des pièces (prototypes/robot_parts.lua).
   À charger APRÈS prototypes/enemies.lua (les globales des animations des cracheurs) et prototypes/robot_parts.lua : voir data.lua.
 ]]
@@ -22,6 +24,7 @@ local lib = require("prototypes.lib")
 local Ro = require("shared.content.robots")
 local F = require("shared.faction.config")
 local C = require("shared.content.crafts")
+local SPR = require("__factorio-overhaul__/graphics/robots/sprites") -- lot RB-V1 : feuilles par identifiant de robot (tools/render/pieces/robots/feuilles.py)
 
 local out = {}
 
@@ -123,6 +126,66 @@ local CLASS_BASE = { P = "medium-spitter", M = "big-spitter", G = "behemoth-spit
 
 local smg = data.raw.gun["submachine-gun"]
 
+-- Couleur de la peinture d'un propriétaire (couche « mask » des feuilles) : du laiton pour le joueur, sa couleur pour une faction.
+local BRASS = { r = 0.86, g = 0.66, b = 0.27 }
+local function paint(owner)
+  if owner == Ro.PLAYER_OWNER then return BRASS end
+  for _, f in ipairs(F.factions) do
+    if f.key == owner then return { r = f.color.r, g = f.color.g, b = f.color.b } end
+  end
+  error("robots : propriétaire inconnu " .. tostring(owner))
+end
+
+--- Une couche d'une feuille : basse définition (16 px par tuile, scale 2), hr (64 px par tuile, scale 0,5). Mêmes cases, même origine.
+local function sheet_layer(c, anim, directions)
+  return {
+    filename = c.lr, width = c.lw, height = c.lh, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
+    shift = c.shift, scale = 2,
+    hr_version = {
+      filename = c.hr, width = c.w, height = c.h, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
+      shift = c.shift, scale = 0.5,
+    },
+  }
+end
+
+local function both(l, key, v)
+  l[key] = v
+  l.hr_version[key] = v
+end
+
+--- Animation complète : ombre, corps, peinture du propriétaire, lueur.
+local function sheet_animation(sheet, anim_name, owner)
+  local anim = sheet.anims[anim_name]
+  local layers = {}
+  local k = anim.couches
+  local sh = sheet_layer(k.shadow, anim, sheet.directions)
+  both(sh, "draw_as_shadow", true)
+  layers[#layers + 1] = sh
+  layers[#layers + 1] = sheet_layer(k.main, anim, sheet.directions)
+  local m = sheet_layer(k.mask, anim, sheet.directions)
+  both(m, "tint", rgba(paint(owner)))
+  layers[#layers + 1] = m
+  if k.glow then
+    local g = sheet_layer(k.glow, anim, sheet.directions)
+    both(g, "draw_as_glow", true)
+    both(g, "blend_mode", "additive")
+    layers[#layers + 1] = g
+  end
+  return { layers = layers }
+end
+
+--- Une machine, pas un insecte : ni cadavre ni cri de cracheur (le copié en vient).
+local function as_machine(u, sheet, class)
+  local turret = assert(data.raw["ammo-turret"]["gun-turret"], "robots : gun-turret absente")
+  u.corpse = class == "P" and "small-remnants" or "medium-remnants"
+  u.dying_explosion = class == "G" and "big-explosion" or "explosion"
+  u.damaged_trigger_effect = turret.damaged_trigger_effect
+  u.dying_sound, u.working_sound, u.walking_sound, u.running_sound_animation_positions, u.water_reflection = nil, nil, nil, nil, nil
+  u.alternative_attacking_frame_sequence = nil -- celle du cracheur vise ses 16 images (« Frame index 3 is out of range », 1/11)
+  u.distance_per_frame = sheet.distance_per_frame
+  lib.set_icons(u, { { icon = sheet.icone, icon_size = 64, icon_mipmaps = 4 } })
+end
+
 --- Effet d'un tir : dégâts du robot (par type), en zone si `area`. Un robot sans dégâts (soutien) n'a que l'effet visuel.
 local function robot_ammo(r)
   local damage = { type = "damage", damage = { amount = r.shot.damage, type = r.dtype } }
@@ -191,12 +254,16 @@ local function make_unit(r, owner, i)
     projectile_creation_distance = 0.6,
     range_mode = "bounding-box-to-bounding-box",
     ammo_type = robot_ammo(r),
-    animation = spitterattackanimation(scale, t1, t2),
+    animation = SPR[r.id] and sheet_animation(SPR[r.id], "tir", owner) or spitterattackanimation(scale, t1, t2),
     sound = smg.attack_parameters.sound,
   }
-  u.run_animation = spitterrunanimation(scale, t1, t2)
+  u.run_animation = SPR[r.id] and sheet_animation(SPR[r.id], "run", owner) or spitterrunanimation(scale, t1, t2)
   u.ai_settings = { destroy_when_commands_fail = false, allow_try_return_to_spawner = false, do_separation = true }
-  lib.set_icons(u, icons_of("unit", CLASS_BASE[r.class], tint))
+  if SPR[r.id] then
+    as_machine(u, SPR[r.id], r.class)
+  else
+    lib.set_icons(u, icons_of("unit", CLASS_BASE[r.class], tint))
+  end
   return u
 end
 
@@ -239,8 +306,9 @@ for i, r in ipairs(Ro.ROBOTS) do
   out[#out + 1] = {
     type = "item", name = r.kit,
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
-    icons = icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]), subgroup = Ro.SUBGROUP,
-    order = string.format("b[kit]-%02d", i), stack_size = 1,
+    icons = SPR[r.id] and { { icon = SPR[r.id].icone, icon_size = 64, icon_mipmaps = 4 } }
+      or icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]),
+    subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i), stack_size = 1,
     -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit` ou `spider-vehicle`) : le cerveau lit ce lien dans les
     -- prototypes (items_to_place_this), sans nom ; un kit posé à la main est inscrit au registre par script/robots/usine.lua.
     place_result = place,

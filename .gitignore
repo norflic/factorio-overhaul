@@ -25,3 +25,5 @@ graphics/levels/assembleur/*.png
 graphics/levels/foreuse/*.png
 # Feuilles de jeu des QG (lot QG-JEU, même règle) : tools/render/pieces/levels/qg_e/feuilles.py
 graphics/levels/centre/*.png
+# Feuilles de jeu des robots (lot RB-V1, même règle) : tools/render/pieces/robots/feuilles.py
+graphics/robots/*.png
