@@ -37,6 +37,7 @@
 
 local LV = require("__factorio-overhaul__/shared/levels/config")
 local Foot = require("__factorio-overhaul__/shared/levels/footprint")
+local RL = require("__factorio-overhaul__/shared/content/recipe_lots") -- lot EQUILIBRE : au niveau 30, l'assembleur passe au lot × 10 (même recette)
 
 local M = {}
 
@@ -655,7 +656,7 @@ function M.act(ctx)
   end
   local fa, ff = st.chain[4].final, st.chain[3].final
   local recipe = fa.valid and fa.get_recipe()
-  ctx.check(recipe and recipe.name == "iron-gear-wheel" and fa.get_item_count("iron-plate") + 2 * fa.get_item_count("iron-gear-wheel") == plates0
+  ctx.check(recipe and (RL.parse(recipe.name) or recipe.name) == "iron-gear-wheel" and fa.get_item_count("iron-plate") + 2 * fa.get_item_count("iron-gear-wheel") == plates0
     and ff.valid and ff.get_item_count("coal") == fuel0,
     "chaines : recette et contenu de l'assembleur, charbon du four conserves jusqu'au niveau 30",
     string.format("plaques + 2 x engrenages %d/%d, charbon %d/%d", fa.get_item_count("iron-plate") + 2 * fa.get_item_count("iron-gear-wheel"), plates0,

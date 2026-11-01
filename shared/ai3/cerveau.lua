@@ -29,6 +29,7 @@ local T = require("shared.team.config")
 local Planner = require("shared.team.planner")
 local B = require("shared.ai3.buts")
 local P = require("shared.ai3.projets")
+local Ml = require("shared.ai3.mall") -- lot PILE-MALL
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli
 local A = require("shared.ai3.automatiser") -- lot IA3-e : modules demandés au plan directeur (projets « module »)
 local Bi = require("shared.ai3.bilan") -- lot BILAN : fabrications pondérées par production moins consommation
@@ -38,7 +39,9 @@ local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration
 P.EMIT.upgrade = Cap.emit(P)
 local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de la capitalisation (réglage fo-war-capi)
 P.EMIT.capi = Ca.emit(P)
+local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manque par rapport au besoin
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
+local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le reste du stock s'investit
 
 local C = {}
 
@@ -172,8 +175,34 @@ function C.think(view, book, st, ctx)
   -- planificateur permanent (postes sous leur minimum, manques bruts et leur priorité) et le runtime (ctx.pile : pièces
   -- détruites du registre, projet du plan directeur rouvert ; script/team/pile.lua). État dans st.pile (global).
   st.pile = st.pile or Pi.new()
-  local pile = Pi.update(st.pile, Pi.signals(view, base, ctx.pile, s, ctx), tick)
+  -- Lot PILE-BUDGET : améliorations au coût CONNU (liste d'objets), dans un ordre stable ; le budget se lit sur le stock libre.
+  local ups = {}
+  if ctx.capital and ctx.capital.cost then ups[#ups + 1] = { key = ctx.capital.key or "capital", cost = ctx.capital.cost } end
+  local capi_open = {}
+  for _, o in ipairs((ctx.capi and ctx.capi.open) or {}) do
+    if o.key and o.kind ~= "techno" and o.missing and #o.missing > 0 then capi_open[#capi_open + 1] = o end
+  end
+  table.sort(capi_open, function(x, y) return tostring(x.key) < tostring(y.key) end)
+  for _, o in ipairs(capi_open) do ups[#ups + 1] = { key = "capi:" .. tostring(o.key), cost = o.missing } end
+  local sig = Pi.signals(view, base, ctx.pile, s, ctx, R.PILE_BUDGET and { book = book, avail = avail0, upgrades = ups } or nil)
+  local pile = Pi.update(st.pile, sig, tick)
+  -- Lot INDUSTRIE I1 (réglage fo-war-industrie, ctx.industrie) : le BESOIN de cette pensée est évalué sur le stock que voit la
+  -- capitalisation (view.stock) ; elle investit le reste (shared/ai3/reserve.lua). Lu à la pensée suivante (Capi.think précède C.think).
+  if ctx.industrie then
+    local floor = (view.emergency and view.emergency.floor) or view.recover_floor
+    local eff = view.effectif
+    local n_rec, rec = Rs.recruits({ workers = view.workers, wanted = view.workers_wanted, floor = floor, blocked = view.recruit_blocked,
+      held = view.recruit_held, reason = eff and eff.reason or nil, cost = view.recruit_cost,
+      margin = eff and eff.margin_item and { eff.margin_item, eff.margin } or nil })
+    st.noyau = Rs.state(book, view.stock, { posts = sig.posts, repair = sig.repair, plan_wants = sig.plan_wants,
+      planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need }, tick)
+    st.noyau.recruits = n_rec
+  else
+    st.noyau = nil
+  end
   s.focus = pile.hold and pile.focus or nil -- lu par B.targets : une matière d'un cadre ouvert fait grandir son extraction
+  -- Intégration 0.6.28 : matières en manque que la porte de la pile laisse passer, au stock de CETTE pensée (G.passent : un cadre ouvert plus en manque passe d'abord)
+  local starved_pass = Gi.passent(Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need)), pile.focus)
   -- 3. Buts ; 4. projets.
   local goals = A.goals(B.generate(s, st), ctx.auto, s.weights, s.research) -- lot IA3-e : modules demandés = projets
   -- Lot CAPITAL : le but « amélioration » choisi par le runtime (valeur ÷ coût, shared/ai3/capital.lua), factions seulement.
@@ -190,7 +219,10 @@ function C.think(view, book, st, ctx)
       local held = {}
       Ca.goals(held, nil, ctx.capi.open)
       for _, g in ipairs(held) do
-        if g.invest then goals[#goals + 1] = g
+        -- Lot GISEMENTS : un ordre qui étend une matière en manque par rapport au besoin est un investissement de production, même sans
+        -- manque brut (journal du DC : « capi:couvrir:copper-ore : suspendu » à 45 plaques de cuivre).
+        local sv, ord = starved_pass, g.order or {}
+        if g.invest or sv[ord.item] or sv[ord.resource] then goals[#goals + 1] = g
         else Pi.suspend(pile, g.key, "but de la capitalisation suspendu (pas un investissement de production)") end -- journal [FO-PILE]
       end
     end
@@ -208,12 +240,16 @@ function C.think(view, book, st, ctx)
     -- (relecture : manques PROPRES de la pensée précédente, sans ceux des améliorations elles-mêmes, Pi.short_core ; une sauvegarde
     -- d'avant la relecture n'en a pas encore : aucune exception pendant une pensée)
     local short_prev = st.short_core or {}
+    -- Lot GISEMENTS : une matière qui manque PAR RAPPORT AU BESOIN (stock de la matière et de sa plaque, st.starved) compte aussi, même
+    -- quand aucun manque brut ne la nomme (cuivre à 45 plaques, fer à 9 300 : short_core ne portait que le brut des projets)
+    local starved_prev = starved_pass
     for _, g in ipairs(goals) do
       local keep = true
       if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
-        keep = Pi.allows(pile, "extraction", g.why)
+        local sp = T.outposts[g.outpost]
+        keep = Pi.allows(pile, "extraction", g.why) or (sp ~= nil and starved_prev[sp.product] == true) -- lot GISEMENTS : une matière en manque
       elseif g.kind == "module" and g.pile then
-        local ok, why = Pi.porte(pile, g.pile, g.product, ((short_prev[g.product] or 0) > 0))
+        local ok, why = Pi.porte(pile, g.pile, g.product, ((short_prev[g.product] or 0) > 0) or starved_prev[g.product] == true)
         if not ok then
           keep = false
           Pi.suspend(pile, g.key, "module neuf du plan directeur (" .. tostring(g.pile) .. ") : " .. tostring(why))
@@ -267,6 +303,21 @@ function C.think(view, book, st, ctx)
     if (short[k] or 0) > 0 then st.short_n[k] = (st.short_n[k] or 0) + 1 else st.short_n[k] = nil end
   end
   st.short = short
+  -- Lot PILE-MALL : ce que la main fabrique souvent (planificateur permanent et projets) devient la liste du mall (shared/ai3/mall.lua).
+  if R.PILE_MALL then
+    st.mall = st.mall or Ml.new()
+    local now = {}
+    for _, list in ipairs({ base.tasks or {}, E.tasks or {} }) do
+      for _, t in ipairs(list) do
+        if t.kind == "craft" and t.item and (t.count or 0) > 0 then now[t.item] = (now[t.item] or 0) + t.count end
+      end
+    end
+    Ml.note(st.mall, tick, now)
+    Ml.decide(st.mall, book, { have = view.stock })
+    -- Relecture : la main ne refait plus ce que le mall produit (après Ml.note : la demande reste comptée ; défense et réparations gardent la main).
+    base.tasks = Ml.filter_crafts(st.mall, base.tasks, view.stock, Pi.INJECT_PRIO)
+    E.tasks = Ml.filter_crafts(st.mall, E.tasks, view.stock, Pi.INJECT_PRIO)
+  end
   -- Relecture FUITES-PILE : manques propres (sans ceux des améliorations hors des cadres ouverts), lus par la porte de la pile
   st.short_core = Pi.short_core(E.raw, order, pile.focus)
   st.need = st.need or {}
@@ -277,6 +328,13 @@ function C.think(view, book, st, ctx)
     local v = now > kept and now or kept
     st.need[k] = v > 0 and v or nil
   end
+  -- Lot GISEMENTS : matières en manque PAR RAPPORT AU BESOIN, toutes (fondues ou non) : stock du minerai et de sa plaque contre le besoin
+  -- de la matière (plancher : la moitié du plus grand besoin, une matière oubliée manque quand même). Lu par la porte de la pile.
+  -- (par TYPE d'avant-poste : les clés de T.outposts ne sont pas des objets, relecture : seuls « coal » et « stone » y tombaient par homonymie)
+  local pen = Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need))
+  st.starved = pen.starved
+  st.starved_rank = pen.ranking
+  st.starved_open = Gi.passent(pen, pile.focus) -- lu par la porte du runtime (script/team/pile.lua) et la menace (script/ai3/capitalisation.lua)
   local saturated = {}
   for _, k in ipairs(sorted_keys(raw)) do
     if (view.stock[k] or 0) > 0 and B.saturated(s, k) then saturated[k] = true end

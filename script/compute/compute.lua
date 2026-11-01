@@ -1,33 +1,46 @@
 --[[
-  Lot CALCUL (30/10) : le CALCUL tenu par script (D-19, D-20 (4)). Règles pures : shared/content/compute.lua.
+  Lot CALCUL (30/10), refait au lot CALCUL-V2 (30/10) : le CALCUL tenu par script (D-19, D-20 (4)), produit par des
+  centres MODULAIRES. Règle pure : shared/content/compute_rack.lua ; données : shared/content/compute_chain.lua.
 
-  - Le centre de calcul est une machine à recettes SANS produit (comme la torchère d'AMELIO-CRAFTS, dont le banc
-    crafts-chaines a prouvé que products_finished compte ces fabrications). Toutes les 60 ticks, ce module lit pour chaque
-    centre l'avancement products_finished + crafting_progress et en déduit le calcul de la fenêtre : (écart d'avancement) ×
-    unités par fabrication de la recette en cours. Un centre sans courant, sans eau ou sans baie n'avance pas : il ne calcule
-    pas. Rien ne se garde d'une fenêtre à l'autre (calcul NON stockable).
-  - Réseau v1 = la FORCE (question Q-CALC-1 au DC : relier par câble comme l'électricité ?).
-  - Consommateur v1 : la vitesse de recherche (LuaForce.laboratory_speed_modifier), bonus plafonné (Q-CALC-2). Les
-    technologies vanilla écrivent le même champ : on retire la part posée à la fenêtre précédente avant de poser la
-    nouvelle (Cp.lab_modifier), et on oublie notre part quand le moteur recalcule les effets des technologies.
-  - Déterminisme : centres en LISTE triée par numéro d'unité, forces par nom trié ; aucun pairs ; aucune décision sur un
-    temps mesuré.
+  - Un centre (fo-data-center 4 × 4, fo-data-center-2 6 × 6) porte des BAIES dans ses emplacements de modules (objets de
+    type « module », catégorie fo-baie). Toutes les 60 ticks, ce module lit pour chaque centre : l'inventaire de modules
+    (les robots posent des modules sans événement, F199 : on lit, on ne s'abonne pas), la recette de refroidissement et la
+    part du temps où elle a tourné (r, par products_finished + crafting_progress, comme la v1), la satisfaction électrique
+    (e, sur le compagnon). Cr.evaluate en tire le calcul, la puissance et la chaleur. Rien ne se garde d'une fenêtre à
+    l'autre (calcul NON stockable).
+  - Compagnon d'énergie : une interface électrique cachée sous chaque centre ; sa puissance (power_usage, J/tick) est écrite
+    = somme des kW des baies, son tampon = une fenêtre d'un tick (H-CV2-4 : satisfaction = énergie / tampon).
+  - Réseau = la FORCE (Q-CALC-1 ouverte). Consommateur : la vitesse de recherche (laboratory_speed_modifier), bonus
+    plafonné (Cr.lab_bonus) ; la part posée à la fenêtre précédente est retirée avant de poser la nouvelle (Cp.lab_modifier,
+    règle v1 inchangée), la part des technologies est gardée.
+  - Migration des sauvegardes 0.6.27 (on_configuration_changed) : un centre sur une recette v1 (baie usée) passe au
+    refroidissement à l'eau glacée ; les baies rendues vont DANS ses emplacements, le surplus tombe au sol près de lui
+    (marqué à ramasser par sa force) ; l'eau de la v1 est perdue (≤ 3 000 par centre, déclarée) ; compagnon créé.
+  - Déterminisme : centres en LISTE triée par numéro d'unité, forces par nom trié, joueurs dans l'ordre du moteur ; aucun
+    pairs dans une décision ; aucune décision sur un temps mesuré.
 ]]
 
 local Events = require("script.core.events")
 local Storage = require("script.core.storage")
 local Cp = require("shared.content.compute")
+local Cr = require("shared.content.compute_rack")
+local Gui = require("script.compute.gui")
 
 local Compute = {}
 
-local NAME = "fo-data-center"
+Compute.NAMES = { "fo-data-center", "fo-data-center-2" }
+local IS_CENTER = {}
+for _, n in ipairs(Compute.NAMES) do IS_CENTER[n] = true end
+local V1_RECIPES = { ["fo-compute-classic"] = true, ["fo-compute-accelerated"] = true, ["fo-compute-quantum"] = true }
+Compute.MIGRATION_RECIPE = "fo-dc-chilled-water"
 
 Storage.declare("compute", function()
   return {
     units = {},   -- numéros d'unité des centres, triés
-    by = {},      -- [unité] = { e = entité, prev = { recipe, progress } }
+    by = {},      -- [unité] = { e = centre, p = compagnon, prev = { recipe, progress }, last = évaluation }
     forces = {},  -- [nom de force] = { rate = unités/s, bonus = part posée sur laboratory_speed_modifier, centers = n }
     last_tick = nil,
+    migrated = { centers = 0, racks_in = 0, spilled = 0, water_lost = 0 },
   }
 end)
 
@@ -41,33 +54,112 @@ local function insert_sorted(list, u)
   return true
 end
 
-local function track(e)
-  if not (e and e.valid and e.name == NAME and e.unit_number) then return end
-  local s = S()
-  if not s then return end
-  if insert_sorted(s.units, e.unit_number) then s.by[e.unit_number] = { e = e } end
+local function remove_sorted(list, u)
+  for i = 1, #list do if list[i] == u then table.remove(list, i) return end end
 end
 
---- Relit tous les centres de toutes les surfaces (surfaces par indice, centres par numéro d'unité).
-local function rescan()
+--- Compagnon d'énergie du centre (créé s'il manque).
+local function companion(e, rec)
+  if rec.p and rec.p.valid then return rec.p end
+  local name = e.name .. "-power"
+  local p = e.surface.find_entities_filtered({ name = name, position = e.position, limit = 1 })[1]
+  if not p then
+    p = e.surface.create_entity({ name = name, position = e.position, force = e.force, create_build_effect_smoke = false })
+  end
+  if p then
+    p.destructible = false
+    p.power_usage = 0
+    p.electric_buffer_size = 1
+  end
+  rec.p = p
+  return p
+end
+
+local function track(e)
+  if not (e and e.valid and IS_CENTER[e.name] and e.unit_number) then return end
   local s = S()
   if not s then return end
+  local u = e.unit_number
+  if insert_sorted(s.units, u) or not s.by[u] then s.by[u] = s.by[u] or { e = e } end
+  s.by[u].e = e
+  companion(e, s.by[u])
+end
+
+local function untrack(e)
+  if not (e and e.valid and IS_CENTER[e.name] and e.unit_number) then return end
+  local s = S()
+  if not s then return end
+  local rec = s.by[e.unit_number]
+  if rec and rec.p and rec.p.valid then rec.p.destroy() end
+  s.by[e.unit_number] = nil
+  remove_sorted(s.units, e.unit_number)
+end
+
+---------------------------------------------------------------------------------------------------
+-- Migration d'un centre v1 (recette à baie usée) : passe au refroidissement à l'eau glacée, baies dans ses emplacements.
+---------------------------------------------------------------------------------------------------
+local function migrate_center(e)
+  local r = e.get_recipe()
+  if not (r and V1_RECIPES[r.name]) then return end
+  local s = S()
+  local m = s.migrated
+  local water = e.get_fluid_count("water")
+  local back = e.set_recipe(Compute.MIGRATION_RECIPE) or {}
+  -- Objets rendus (entrée et fabrication en cours), noms triés.
+  local names = {}
+  for n in pairs(back) do names[#names + 1] = n end
+  table.sort(names)
+  local inv = e.get_module_inventory()
+  for _, n in ipairs(names) do
+    local count = back[n]
+    if count > 0 and inv and Cr.BY_NAME[n] then
+      local put = inv.insert({ name = n, count = count })
+      m.racks_in = m.racks_in + put
+      count = count - put
+    end
+    if count > 0 then
+      e.surface.spill_item_stack(e.position, { name = n, count = count }, true, e.force, false)
+      m.spilled = m.spilled + count
+    end
+  end
+  m.water_lost = m.water_lost + water
+  m.centers = m.centers + 1
+  log(string.format("[FO-CALCUL-V2-MIGRATION] centre %d : %s -> %s, %d objet(s) rendu(s), eau perdue %.0f",
+    e.unit_number, r.name, Compute.MIGRATION_RECIPE, #names, water))
+end
+
+--- Relit tous les centres de toutes les surfaces (surfaces par indice, centres par numéro d'unité) ; compagnons créés ou
+--- retirés (orphelins) ; centres v1 migrés.
+local function rescan(migrate)
+  local s = S()
+  if not s then return end
+  s.migrated = s.migrated or { centers = 0, racks_in = 0, spilled = 0, water_lost = 0 }
   local surfaces = {}
   for _, surf in pairs(game.surfaces) do surfaces[#surfaces + 1] = surf end -- trié juste après
   table.sort(surfaces, function(a, b) return a.index < b.index end)
-  local found = {}
+  local found, companions = {}, {}
   for _, surf in ipairs(surfaces) do
-    for _, e in ipairs(surf.find_entities_filtered({ name = NAME })) do
+    for _, e in ipairs(surf.find_entities_filtered({ name = Compute.NAMES })) do
       if e.unit_number then found[#found + 1] = e end
+    end
+    for _, p in ipairs(surf.find_entities_filtered({ name = { "fo-data-center-power", "fo-data-center-2-power" } })) do
+      companions[#companions + 1] = p
     end
   end
   table.sort(found, function(a, b) return a.unit_number < b.unit_number end)
-  local units, by = {}, {}
+  local units, by, kept = {}, {}, {}
   for _, e in ipairs(found) do
+    if migrate then migrate_center(e) end
     units[#units + 1] = e.unit_number
     local old = s.by[e.unit_number]
-    by[e.unit_number] = { e = e, prev = old and old.prev or nil }
+    local rec = { e = e, p = old and old.p or nil, prev = old and old.prev or nil, last = old and old.last or nil }
+    if migrate then rec.prev = nil end
+    by[e.unit_number] = rec
+    local p = companion(e, rec)
+    if p and p.unit_number then kept[p.unit_number] = true end
   end
+  -- Compagnons sans centre (sauvegarde éditée, centre retiré sans événement) : retirés.
+  for _, p in ipairs(companions) do if p.valid and p.unit_number and not kept[p.unit_number] then p.destroy() end end
   s.units, s.by = units, by
 end
 
@@ -81,7 +173,35 @@ local function sorted_force_names(s, extra)
   return names
 end
 
---- Une fenêtre de mesure : calcul de chaque force, puis bonus de recherche.
+--- Évalue un centre sur la fenêtre écoulée (ticks) ; écrit la puissance de son compagnon pour la fenêtre suivante.
+local function evaluate_center(rec, ticks)
+  local e = rec.e
+  local r = e.get_recipe()
+  local now = { recipe = r and r.name or nil, progress = Cp.progress(e.products_finished, e.crafting_progress) }
+  local d = 0
+  if rec.prev and rec.prev.recipe == now.recipe and now.recipe then d = now.progress - rec.prev.progress end
+  rec.prev = now
+  local share = Cr.share(d, r and r.energy or 0, e.crafting_speed, ticks)
+  local inv = e.get_module_inventory()
+  local counts = Cr.counts(inv and inv.get_contents() or {})
+  local p = companion(e, rec)
+  local sat = 1
+  if p then sat = Cr.satisfaction(p.energy, p.electric_buffer_size, p.power_usage) end
+  local ev = Cr.evaluate(counts, now.recipe, share, sat, e.name)
+  ev.r, ev.e, ev.counts = share, sat, counts
+  rec.last = ev
+  if p then
+    local base = Cr.CENTERS[e.name].base_kw
+    local usage = (ev.kw - base) * 1000 / 60 -- J par tick
+    if usage < 0 then usage = 0 end
+    if p.power_usage ~= usage then p.power_usage = usage end
+    local buf = usage > 0 and usage or 1
+    if p.electric_buffer_size ~= buf then p.electric_buffer_size = buf end
+  end
+  return ev
+end
+
+--- Une fenêtre de mesure : calcul de chaque centre, de chaque force, puis bonus de recherche.
 function Compute.window(tick)
   local s = S()
   if not s then return end
@@ -95,14 +215,13 @@ function Compute.window(tick)
     if e and e.valid then
       keep[#keep + 1] = u
       local fname = e.force.name
-      local r = e.get_recipe()
-      local now = { recipe = r and r.name or nil, progress = Cp.progress(e.products_finished, e.crafting_progress) }
-      local d = Cp.delta(rec.prev, now)
-      rec.prev = now
+      local ev = evaluate_center(rec, ticks)
       if sum[fname] == nil then sum[fname], count[fname] = 0, 0; active[#active + 1] = fname end
-      sum[fname] = sum[fname] + d
+      -- Première fenêtre (durée inconnue) : rien n'est compté (on ne fabrique jamais de calcul d'un état inconnu).
+      if ticks > 0 then sum[fname] = sum[fname] + ev.compute end
       count[fname] = count[fname] + 1
     else
+      if rec and rec.p and rec.p.valid then rec.p.destroy() end
       s.by[u] = nil
     end
   end
@@ -111,8 +230,8 @@ function Compute.window(tick)
     local force = game.forces[fname]
     local st = s.forces[fname] or { rate = 0, bonus = 0, centers = 0 }
     if force and force.valid then
-      local rate = Cp.rate(sum[fname] or 0, ticks)
-      local bonus = Cp.lab_bonus(rate)
+      local rate = sum[fname] or 0
+      local bonus = Cr.lab_bonus(rate)
       local new_mod = Cp.lab_modifier(force.laboratory_speed_modifier, st.bonus, bonus)
       if new_mod ~= force.laboratory_speed_modifier then force.laboratory_speed_modifier = new_mod end
       st.rate, st.bonus, st.centers = rate, bonus, count[fname] or 0
@@ -121,6 +240,7 @@ function Compute.window(tick)
       s.forces[fname] = nil
     end
   end
+  Gui.refresh_all(Compute)
 end
 
 --- Le moteur a recalculé les effets des technologies d'une force : notre part n'y est plus.
@@ -130,16 +250,34 @@ local function forget(force_name)
 end
 
 local function on_built(e) track(e.created_entity or e.entity) end
+local function on_removed(e) untrack(e.entity) end
 Events.on(defines.events.on_built_entity, on_built)
 Events.on(defines.events.on_robot_built_entity, on_built)
 Events.on(defines.events.script_raised_built, on_built)
 Events.on(defines.events.script_raised_revive, on_built)
+Events.on(defines.events.on_player_mined_entity, on_removed)
+Events.on(defines.events.on_robot_mined_entity, on_removed)
+Events.on(defines.events.on_entity_died, on_removed)
+Events.on(defines.events.script_raised_destroy, on_removed)
 Events.on(defines.events.on_technology_effects_reset, function(e) forget(e.force.name) end)
 Events.on(defines.events.on_force_reset, function(e) forget(e.force.name) end)
 -- Forces fusionnées : la force source disparaît, Compute.window oublie son état (game.forces[nom] = nil).
 Events.on_nth_tick(Cp.WINDOW_TICKS, function(e) Compute.window(e.tick) end)
-Events.on_init(rescan)
-Events.on_configuration_changed(rescan)
+--- Relecture de tous les centres (bancs hors jeu : tests/compute_v2_script_test.lua) ; migrate = migration des centres v1.
+Compute.rescan = rescan
+Events.on_init(function() rescan(false) end)
+Events.on_configuration_changed(function() rescan(true) end)
+Events.on(defines.events.on_gui_opened, function(e)
+  local ent = e.entity
+  if ent and ent.valid and IS_CENTER[ent.name] then Gui.show(game.get_player(e.player_index), Compute, ent) end
+end)
+
+--- Lecture : dernière évaluation d'un centre (ou nil).
+function Compute.center(e)
+  local s = S()
+  local rec = s and e and e.valid and e.unit_number and s.by[e.unit_number]
+  return rec and rec.last or nil
+end
 
 --- Lecture (bancs, interface) : état d'une force.
 function Compute.state(force_name)
@@ -152,6 +290,16 @@ end
 remote.add_interface("fo-calcul", {
   -- Lecture seule : { rate = unités/s de la dernière fenêtre, bonus = part de recherche posée, centers, tracked }.
   state = function(force_name) return Compute.state(force_name or "player") end,
+  -- Lecture seule : dernière évaluation d'un centre { compute, kw, heat, cooling, f_mem, f_heat, cap, export, limit, r, e,
+  -- counts } (bancs).
+  center = function(e) return Compute.center(e) end,
+  -- Lecture seule : compagnon d'énergie d'un centre (bancs).
+  companion = function(e)
+    local s = S()
+    local rec = s and e and e.valid and e.unit_number and s.by[e.unit_number]
+    return rec and rec.p or nil
+  end,
+  migrated = function() local s = S() return s and s.migrated or nil end,
 })
 
 return Compute

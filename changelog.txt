@@ -1,4 +1,37 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.31
+Date: 2026-11-01
+  Changes:
+    - INDUSTRIE, allume par defaut : la reserve est evaluee, le reste est investi ; les PNJ sans tache ont une file de travail sur ; le treillis grandit vers un gisement lointain ; recettes et machines de tout mod lues sans nom ecrit ; patrons de 1 a 8 entrees, rangees dimensionnees au besoin ou blocs de mall partages ; liaisons de quai par tapis, un PNJ reprend si le tapis est coupe.
+    - Les factions montent leurs batiments et leur centre (fo-war-capital allume) : elles restaient a l'age 1 dans toutes les parties.
+    - Petrole des factions : une recette verrouillee retenait toute la chaine du pack chimique, corrige ; une ligne de journal par cause d'attente. Le palier 4 reste a prouver en partie longue.
+    - Rien n'a ete rejoue en partie longue au moment de la fusion.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.30
+Date: 2026-10-31
+  Changes:
+    - Petrole des factions allume par defaut (votre decision), sauvegardes comprises, une fois ; vous pouvez l'eteindre ensuite.
+    - Dezoom etendu : Ctrl + molette, 4 crans sous la limite de la molette ; la limite exacte du jeu n'est pas prouvee, a juger en jeu.
+    - Biters : taille propre a chaque famille, moucheron nain, nids d'essaim. Aucune image neuve.
+    - Factions : un module suspendu par la pile ne bloque plus l'emplacement (Scarlet restait avec une seule fonderie pendant plus d'une heure).
+    - Rien n'a ete rejoue en partie longue au moment de la fusion : tests hors jeu et bancs courts.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.29
+Date: 2026-10-31
+  Changes:
+    - Calcul, 2e version (votre QCU) : une machine par etape ; les baies de serveurs sont des modules du centre de calcul.
+    - Visuels des nouvelles machines toujours PROVISOIRES. Non teste : robots qui livrent les baies, boucle de tuyaux reelle.
+---------------------------------------------------------------------------------------------------
+Version: 0.6.28
+Date: 2026-10-31
+  Changes:
+    - Votre retour du 31/10. Zone sure elargie (nids de 80 a 256 tuiles retires une fois des sauvegardes) ; niveaux : x1,15 par niveau sur defenses, fours, foreuses et vie, portee des tourelles, plus de niveaux et de styles de biters.
+    - Gisements : foreuses retirees ou rebranchees quand elles meurent, cuivre et charbon compris dans le manque, pose a 30 % de couverture, fours hors des gisements, arret a 80 % supprime.
+    - Fin du minage a la main et du minerai au sol, inventaire mieux gere ; mall : chaine xN plutot qu'un assembleur seul.
+    - Energie : charbon automatique vers la vapeur, champ de machines a vapeur, secours ailleurs. Poteaux : chemins raccourcis.
+    - Pile : les attaques ne coupent plus l'evolution si le budget est la ; une matiere en manque passe seulement si rien de plus urgent ne la demande.
+    - Rien n'a ete rejoue en partie longue au moment de la fusion : relecture statique, tests hors jeu, bancs courts.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.27
 Date: 2026-10-30
   Changes:

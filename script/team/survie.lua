@@ -141,7 +141,7 @@ function Survie.think(f, view, plan, tick)
   -- 1. Minage à la main de la matière qui manque, par les PNJ sans tâche.
   local have = {}
   for _, t in ipairs(b.list or {}) do
-    if t.kind == "mine" and t.resource then have[t.resource] = (have[t.resource] or 0) + 1 end
+    if t.kind == "mine" and t.resource and not t.safe then have[t.resource] = (have[t.resource] or 0) + 1 end -- (la file sûre ne remplace pas ce minage, intégration 0.6.30)
   end
   local mines = Sv.mines({ short = short, ore_of = ORE_OF, stock = stock, idle = view.workers_idle or 0, workers = view.workers or 0, have = have })
   for _, m in ipairs(mines) do

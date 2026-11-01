@@ -158,7 +158,10 @@ local function faction_world(p_nopath, opt)
   -- Lot PETROLE (reprise sur 0.6.20) : opt.petrole allume fo-war-petrole (ÉTEINT par défaut, comme le jeu) ; opt.seed change la graine.
   M.new_game({ seed = opt.seed or 1, patches = out, p_busy = 0, p_nopath = p_nopath or 0, p_lost = 0,
     shared_tile_mining = true, -- exploration seule : ancien modèle du minage simulé
-    petrole = opt.petrole == true })
+    petrole = opt.petrole == true,
+    -- Lot C1 : fo-war-capital est allumé par défaut ; il change la trajectoire des factions (décisions, stock) et donc la
+    -- chance de cette mesure d'exploration (comparaison de médianes sur 6 graines). L'exploration ne dépend pas de lui : éteint ici.
+    capital = false })
   check(remote.call("factorio-overhaul", "war_start", 4, 20, 4, 320) == true, "guerre lancée (4 factions, 4 PNJ)")
 end
 

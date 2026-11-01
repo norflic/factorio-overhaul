@@ -157,7 +157,7 @@ do
   check(#o.drill_list == o.drills and #o.sinks == o.drills, "listes de l'avant-poste tenues à jour")
   check(overlaps(s) == 0, "aucun recouvrement entre les " .. (2 * o.drills) .. " objets posés")
   check(f.stats.extend_full == 1 and #logs >= 3, "compteurs et journal [FO-EXTEND]")
-  check(logs[#logs]:find("%[FO%-EXTEND%]") and logs[#logs]:find("plein=oui") and logs[#logs]:find("couverture %d+/800 pour mille"),
+  check(logs[#logs]:find("%[FO%-EXTEND%]") and logs[#logs]:find("plein=oui") and logs[#logs]:find("couverture %d+/1000 pour mille"),
     "dernière ligne du journal : plein=oui, couverture en pour mille")
   local cov = logs[#logs]:match("couverture (%d+)/")
   check(cov and tonumber(cov) < P.KAPPA, "foreuses à combustible en paires : couverture " .. tostring(cov) .. " pour mille, sous P.KAPPA (le balayage arrête)")
@@ -304,7 +304,7 @@ do
   local n = Outposts.extend(f, s, o, carrier(40))
   check(n == 0 and s.creates == before, "rien posé (" .. n .. ")")
   check(o.full and o.full_why == "couverture", "plein par la couverture (" .. tostring(o.full_why) .. ")")
-  check(logs[#logs]:find("couverture 1000/800"), "journal : couverture 1000 pour mille")
+  check(logs[#logs]:find("couverture 1000/1000"), "journal : couverture 1000 pour mille")
   -- moitié couverte : l'agrandissement pose
   local s2 = world(10)
   local o2 = new_outpost({ id = 12, drills = 2, drill_list = { electric(-2.5, -2.5), electric(2.5, -2.5) } })

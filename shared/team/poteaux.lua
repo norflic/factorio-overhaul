@@ -267,4 +267,63 @@ function Q.path(a, b, reach, big, free, known, opts)
   return nil, reason
 end
 
+--[[
+  LOT POTEAUX-COURT (retour du DC 31/10 : « chemins 4 à 5 fois plus longs que nécessaire »). La chaîne ci-dessus est optimale
+  par tronçon, mais la route d'ensemble passait par TOUS les carrefours du treillis (escalier de rues, un poteau à chacun).
+  Règle pure du choix entre cet escalier (via) et la chaîne DIRECTE du module au poteau du réseau (dir) : { n = poteaux
+  neufs, len = longueur de fil }. Le direct gagne s'il pose strictement moins de poteaux, ou autant et un fil
+  strictement plus court (au centième de tuile) ; jamais si absent.
+]]
+
+--- Longueur de fil de a à b par la chaîne `chain` (liste de { x, y }, a et b exclus).
+function Q.length(a, chain, b)
+  local l, p = 0, a
+  for _, c in ipairs(chain or {}) do l = l + dist(p, c); p = c end
+  return l + dist(p, b)
+end
+
+--- Longueur de fil / distance à vol d'oiseau (1 quand a et b sont confondus).
+function Q.ratio(a, chain, b)
+  local d = dist(a, b)
+  if d < EPS then return 1 end
+  return Q.length(a, chain, b) / d
+end
+
+--- Vrai quand la chaîne directe doit remplacer l'escalier de carrefours.
+function Q.prefer_direct(dir, via)
+  if not dir then return false end
+  if not via then return true end
+  if dir.n ~= via.n then return dir.n < via.n end
+  return dir.len < via.len - 0.01
+end
+
+--[[
+  Relecture du lot : le but de la chaîne directe est le poteau vivant le plus proche (Q.nearest) ; elle reste d'abord hors des
+  lots encore à prendre (Q.lot_protected) tant que ce détour reste raisonnable (Q.keep_street : au pire la diagonale d'une
+  grille, racine de 2, plus la marge du départ et de l'arrivée).
+]]
+Q.STREET_RATIO = 1.6
+
+--- Vrai pour un lot qui doit rester entier : à prendre (ni pris, ni refusé) ou gisement (plusieurs lignes de foreuses s'y posent).
+function Q.lot_protected(l)
+  if not l then return false end
+  if l.state == "gisement" then return true end
+  return not l.used and l.state ~= "refuse"
+end
+
+--- Le point de `list` le plus proche de a (égalité : y, puis x) ; nil si la liste est vide.
+function Q.nearest(a, list)
+  local best, bd
+  for _, c in ipairs(list or {}) do
+    local d = dist(a, c)
+    if not best or d < bd - EPS or (math.abs(d - bd) <= EPS and (c.y < best.y or (c.y == best.y and c.x < best.x))) then best, bd = c, d end
+  end
+  return best
+end
+
+--- Vrai quand la chaîne qui suit les rues est gardée (faux si absente ou si le détour dépasse STREET_RATIO).
+function Q.keep_street(a, chain, b)
+  return chain ~= nil and Q.ratio(a, chain, b) <= Q.STREET_RATIO + EPS
+end
+
 return Q

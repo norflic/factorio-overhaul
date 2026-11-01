@@ -52,3 +52,12 @@ L'exclusion entre biomes s'applique maintenant aux gisements : plus de tungstene
 
 ## Q26 (30/10 7 h) : quartz filonien et fonderie de puces (lot X3-MINERAIS, valide mais PARQUE)
 Branche corr-x3-minerais : quartz garanti (2 veines) + chaine de puces en voies (creuset, tireuse, lingot, tranches...). Parque par l'orchestrateur : chaque veine est posee sur un DISQUE ROND de plaine de cristal au milieu d'une foret ou d'un marais (meme mecanisme que les garanties M0 a biome), soit l'effet « biomes melanges » que vous rejetez ; quartz presque invisible de nuit ; visuels provisoires. Questions : (a) le quartz doit-il etre obligatoire (D-20 (1)) ? (b) preferer un site deja sur la plaine plutot qu'un disque pose ? **Defaut : parque jusqu'a votre verdict.** (Le correctif de test epochs_test/FO_DATA_DIR de ce lot, sans effet en jeu, est repris.)
+
+## Q27 (31/10) : lot INDUSTRIE, 6 defauts appliques sans reponse (fo-logs/2026-10-31_INDUSTRIE/PLAN.md)
+D1 les PNJ vont au coffre du mall a pied. D2 petrole eteint, patron fluide livre. D3 tourelle electrique pour les nouvelles cellules, pas de tapis a munitions. D4 le treillis grandit au-dela du mur en ilots. D5 partie de 4 h lancee une fois I1 a I8 verts (mesure finale unique). D6 votre equipe recoit INDUSTRIE.
+
+## Q28 (31/10) : robots, usines, biters, 5 defauts (fo-logs/2026-10-31_ROBOTS/PLAN.md §8)
+A lire dans le plan ; defauts appliques tant que le DC ne tranche pas. Aucune serie de visuels avant son verdict sur les etats cles.
+
+## Q29 (31/10) : ravitaillement et equilibre du lot 0.6.28
+Ravitaillement des foreuses par script (teleportation) : garde. Tache de nettoyage du minerai au sol : a faire. Assembleur aligne a x1,15 (energie x1,12) ; x57 au niveau 30 : garde. Baie de calcul acceptee par balise vanilla, +5 % de pollution sans effet : a decider a la fusion du calcul v2 ; repli : retirer `pollution` des balises.

@@ -42,6 +42,7 @@ end
 local L = need("shared.levels.config", "shared/levels/config")
 local Points = need("shared.levels.points", "shared/levels/points")
 local X = need("shared.content.epochs", "shared/content/epochs")
+local Pt = need("shared.team.patrons", "shared/team/patrons") -- lot INDUSTRIE I5 : chargé ici, jamais à l'appel (F24 : un générateur tourne en événement)
 
 local M = {}
 
@@ -144,10 +145,10 @@ function M.spec(name)
   o.w, o.h = side, side
   for _, st in ipairs(fam.stats) do
     local key = st.path[#st.path]
-    if (key == "crafting_speed" or key == "mining_speed") and o.speed then o.speed = L.apply_stat(st, b.speed, n) end
+    if (key == "crafting_speed" or key == "mining_speed") and o.speed then o.speed = L.plan_stat(st, b.speed, n) end
     if key == "energy_usage" then
-      if o.usage_kw then o.usage_kw = L.apply_stat(st, b.usage_kw, n) end
-      if o.burner_kw then o.burner_kw = L.apply_stat(st, b.burner_kw, n) end
+      if o.usage_kw then o.usage_kw = L.plan_stat(st, b.usage_kw, n) end
+      if o.burner_kw then o.burner_kw = L.plan_stat(st, b.burner_kw, n) end
     end
   end
   if b.drop then
@@ -1315,9 +1316,22 @@ function G.oil_plastic()
   return b:finish()
 end
 
+-- Lot INDUSTRIE I5 : la famille de patrons (shared/team/patrons.lua, règle pure) ; le constructeur lui est prêté.
+M.new_builder = new_builder
+-- Les arguments portent la déclaration des machines et des pièces d'un mod (kit.decl) : M.BASE repart de ses données à chaque chargement.
+function G.patron(machine, recette, sortie, n, kit, barre)
+  Pt.redeclare(M, kit and kit.decl)
+  return Pt.cellule(M, machine, recette, sortie, n, kit, barre)
+end
+function G.bloc(machine, recettes, kit, barre)
+  Pt.redeclare(M, kit and kit.decl)
+  return Pt.bloc(M, machine, recettes, kit, barre)
+end
+
 -- Fonctions publiques : enveloppées par pcall (filet). G.row reste brut (pièce interne, rend déjà (nil, raison)).
 M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "simple", "circuits", "engines", "labs",
-  "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic" }
+  "advanced_circuits", "red_packs", "green_packs", "pumpjacks", "refinery", "plastic", "sulfur", "oil_plastic",
+  "patron", "bloc" }
 local GEN = { row = G.row }
 for _, k in ipairs(M.GENERATORS) do
   local raw = G[k]

@@ -15,12 +15,15 @@ require("prototypes.bauxite") -- lot AMELIO-RESSOURCES, piste BAUXITE : aluminiu
 require("prototypes.geothermal") -- lot AMELIO-RESSOURCES, piste GÉOTHERMIE : fumerolle, capteur, vapeur et soufre (âge 5, X0) ; après prototypes.crafts
 require("prototypes.zinc") -- lot AMELIO-RESSOURCES, piste ZINC : blende, zinc, laiton, manomètre à tube de Bourdon (âge 3, X3) ; après prototypes.crafts
 require("prototypes.compute") -- lot CALCUL (30/10) : puces, processeur, mémoire, carte mère, baies, carte graphique, processeur quantique, centre de calcul ; après étain, bauxite, X2 et CRAFTS
+require("prototypes.compute_v2") -- lot CALCUL-V2 (30/10) : une machine par étape, centre de calcul modulaire (baies) ; juste après prototypes.compute
 require("prototypes.modules")
 require("prototypes.enemies")
 require("prototypes.arsenal")
 require("prototypes.arsenal_special")
 require("prototypes.faction")
+require("prototypes.robots") -- lot RB-1 (31/10) : robots, atelier d'automates, kit, unités par propriétaire ; après prototypes.enemies
 require("prototypes.levels")
 require("prototypes.tirs") -- lot TIRS : effets de tir par âge (explosions, traçantes) et effet script des chargeurs
 require("prototypes.vitrine")
 require("prototypes.gui") -- lot IA1-i : raccourci et touche de l'interface « Équipe et factions »
+require("prototypes.dezoom") -- dézoom étendu : Ctrl + molette, deux touches

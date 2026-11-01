@@ -132,6 +132,7 @@ end
 function Reco.no_idle(f, c, tick)
   local s = f.reco
   if not s then return end
+  Rc.wait_free(s, c.d, tick)
   if tick - (s.idle_log or -IDLE_LOG) >= IDLE_LOG then
     s.idle_log = tick
     say(f, s, "direction %s a reconnaitre (score %d) mais aucun PNJ libre a %.1f min", Rc.name(c.d), c.w, minutes(tick))

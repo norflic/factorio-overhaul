@@ -66,6 +66,16 @@ local function suite(Rc, quiet)
   do
     local s = Rc.new(0)
     Rc.record(s, HQ, 0, -200, 1000, 0)
+    do
+      local sw = Rc.new(0)
+      Rc.record(sw, HQ, 100, 0, 1000, 0)
+      local w0 = sw.sec[1] and sw.sec[1].w
+      Rc.wait_free(sw, 0, 0)
+      Rc.decay(sw, Rc.STEP)
+      check(w0 ~= nil and sw.sec[1].w == w0, "direction qui attend un PNJ libre : pas de décroissance")
+      Rc.decay(sw, 3 * Rc.STEP)
+      check(sw.sec[1].w < w0, "l'attente finie, la décroissance reprend")
+    end
     Rc.decay(s, 15 * Rc.STEP)
     local w = s.sec[7].w
     check(w >= 480 and w <= 520, "demi-vie d'environ 15 min (" .. w .. ")")

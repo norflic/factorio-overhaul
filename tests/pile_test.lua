@@ -257,8 +257,9 @@ local function battery(Pi, C, B)
   for _, t in ipairs(plan.tasks) do
     if (t.kind == "fortify" and t.outpost == "hq") or (t.kind == "craft" and t.item == "gun-turret" and t.tag == "defense") then fort = true end
   end
-  check(fort and sst.pile.hold and not has_project(sst, "upgrade:essai"),
-    "le fer suit : les tourelles du QG d'abord (fabriquées ou posées), amélioration encore retenue")
+  -- Lot PILE-BUDGET : 900 fer couvrent les tourelles du QG ET la marge : la retenue tombe, tout passe en parallèle (avant : retenue).
+  check(fort and not sst.pile.hold and sst.pile.parallel,
+    "le fer suit : les tourelles du QG d'abord (fabriquées ou posées), la retenue tombe car le stock couvre aussi l'amélioration (PILE-BUDGET)")
   plan = C.think(view({ outposts = outs, stock = rich, hq_turrets = T.defend_hq }), book, sst, ctx(3300))
   check(not sst.pile.hold and has_project(sst, "upgrade:essai"), "QG pourvu : la pile se vide, l'amélioration passe")
   -- Réparer : une pièce perdue SANS objet au stock est fabriquée avant les projets.
@@ -270,7 +271,7 @@ local function battery(Pi, C, B)
   local craft = nil
   for _, t in ipairs(plan.tasks) do if t.kind == "craft" and t.item == REPAIR_ITEM then craft = t end end
   check(craft ~= nil and craft.prio == 75, "perte sans objet : fabriquée par le cerveau à la priorité de la pièce")
-  check(rst.pile.hold and not has_project(rst, "upgrade:essai"), "perte sans objet : l'amélioration attend (audit A5)")
+  check(not rst.pile.hold and rst.pile.parallel, "perte sans objet, stock qui couvre la pièce et l'amélioration : parallèle (PILE-BUDGET, avant : audit A5)")
 end
 
 ---------------------------------------------------------------------------------------------------

@@ -3,7 +3,8 @@
   et redistribution des courbes d'apparition des nids vanilla. Données : shared/content/enemies.lua.
 
   Aucune nouvelle image : les animations vanilla sont régénérées par les fonctions globales du jeu
-  (biterrunanimation, spitterrunanimation, worm_*, spawner_*) avec d'autres tailles et teintes.
+  (biterrunanimation, spitterrunanimation, worm_*, spawner_*) avec d'autres tailles et teintes. Lot BI-0 : chaque famille a
+  sa taille (E.families[f].size) et les moucherons (essaim) prennent le corps du petit cracheur.
 ]]
 
 local lib = require("prototypes.lib")
@@ -94,11 +95,16 @@ local function make_unit(kind, tier, family)
     speed = speed * nt.speed
     u.resistances = scaled_resistances(u.resistances, nt.resist, nt.resist)
     u.pollution_to_join_attack = u.pollution_to_join_attack * nt.poll
-    local box_factor = math.min(scale / 1.2, 1.9)
+  end
+  -- Lot BI-0 : boîtes (palier, puis k de la famille, plafonnées ; règle pure E.box_factor) et image à la taille de la famille.
+  local half = math.max(math.abs(u.collision_box[1][1]), u.collision_box[2][1])
+  local box_factor = E.box_factor(scale, tier, family, half)
+  if box_factor ~= 1 then
     u.collision_box = lib.scale_box(u.collision_box, box_factor)
     u.selection_box = lib.scale_box(u.selection_box, box_factor)
     if u.sticker_box then u.sticker_box = lib.scale_box(u.sticker_box, box_factor) end
   end
+  scale = scale * E.size(family)
   if family or nt then t1, t2 = tint_for(tier, family, kind) end
   t1, t2 = rgba(t1), rgba(t2)
 
@@ -119,7 +125,15 @@ local function make_unit(kind, tier, family)
   -- Animations régénérées par les fonctions vanilla.
   local corpse = lib.copy("corpse", E.tier_names[src_tier] .. "-" .. kind .. "-corpse")
   corpse.name = name .. "-corpse"
-  if kind == "biter" then
+  if E.spitter_body(kind, family) then
+    -- Moucheron (essaim) : le corps du petit cracheur, nain ; il mord (l'attaque reste celle du déchiqueteur).
+    u.run_animation = spitterrunanimation(scale, t1, t2)
+    u.attack_parameters.animation = spitterattackanimation(scale, t1, t2)
+    u.water_reflection = spitter_water_reflection(scale)
+    u.attack_parameters.damage_modifier = dmg
+    if f and f.damage_type then lib.retype_damage(u.attack_parameters.ammo_type, f.damage_type) end
+    add_spitter_die_animation(scale, t1, t2, corpse)
+  elseif kind == "biter" then
     u.run_animation = biterrunanimation(scale, t1, t2)
     u.attack_parameters.animation = biterattackanimation(scale, t1, t2)
     u.water_reflection = biter_water_reflection(scale)
@@ -128,7 +142,7 @@ local function make_unit(kind, tier, family)
     add_biter_die_animation(scale, t1, t2, corpse)
   else
     local base_tn = E.tier_names[src_tier]
-    local range = _G["range_spitter_" .. base_tn] + (nt and 2 * (tier - E.VANILLA_TIERS) or 0)
+    local range = _G["range_spitter_" .. base_tn] + (nt and (2 * (math.min(tier, 8) - E.VANILLA_TIERS) + math.max(0, tier - 8)) or 0) -- lot EQUILIBRE : + 1 par palier au-delà du 8
     u.attack_parameters = SPITTER_ATTACK[base_tn]({
       acid_stream_name = "acid-stream-spitter-" .. base_tn,
       range = range,
@@ -239,6 +253,10 @@ for _, family in ipairs(E.FAMILY_ORDER) do
   }
   if f.glow then Evo.glow_masks(nest.animations, f.glow, 0.7) end
   nest.max_health = nest.max_health * 2
+  local ns = E.nest_stats(family, nest)
+  nest.max_count_of_owned_units = ns.max_count_of_owned_units
+  nest.max_friends_around_to_spawn = ns.max_friends_around_to_spawn
+  nest.spawning_cooldown = ns.spawning_cooldown
   nest.result_units = result_units(family_units[family], { "biter", "spitter" })
   nest.autoplace = enemy_autoplace.enemy_spawner_autoplace(f.nest_distance)
   nest.autoplace.probability_expression = nest.autoplace.probability_expression * E.family_nest_share

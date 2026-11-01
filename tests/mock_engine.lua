@@ -235,6 +235,8 @@ local function new_inventory()
     return c
   end
   inv.is_empty = function() return next(inv._items) == nil end
+  -- Lot MAIN-INVENTAIRE : capacité illimitée, donc une place énorme (le mineur ne dépose jamais en route dans le mock).
+  inv.get_insertable_count = function() return 1000000 end
   -- Lot COFFRE : le mock n'a pas de nombre de cases (#inv = 0, capacité illimitée) ; script/team/stock.lua traite un coffre
   -- de 0 case comme « capacité inconnue » : ni annexe ni rangement.
   inv.count_empty_stacks = function() return 0 end
@@ -455,6 +457,7 @@ local EntityMT = {
     if k == "get_main_inventory" then return function() return inv_of(t, defines.inventory.character_main) end end
     if k == "burner" then return W.prototype(t.name).burner_prototype and {} or nil end -- LuaEntity.burner : seulement une machine a combustion (pvp_test, lot FOREUSES)
     if k == "get_fuel_inventory" then return function() return inv_of(t, defines.inventory.fuel) end end
+    if k == "status" then return defines.entity_status.working end -- lot GISEMENTS : toute machine du mock travaille
     if k == "get_module_inventory" then return function() return nil end end -- lot MOD-1 : pas de modules au mock
     -- Étape 1 : service_smelters lit is_crafting ; un four du mock fond d'un coup (pas de fabrication en cours entre deux ticks)
     if k == "is_crafting" then return function() return false end end
@@ -801,17 +804,23 @@ function M.new_world(opts)
       ["fo-war-ia3-cerveau"] = (opts.ia3_cerveau ~= false) and (os.getenv("FO_IA3_CERVEAU") ~= "0"),
       -- Lot IA3-e : ÉTEINT par défaut comme le jeu (settings/ia3e.lua) ; allumé par l'option (ia3e = true) ou FO_IA3E=1
       ["fo-war-ia3e"] = (opts.ia3e == true) or (os.getenv("FO_IA3E") == "1"),
-      -- Lot CAPITAL : ÉTEINT par défaut comme le jeu (settings/capital.lua) ; allumé par l'option (capital = true) ou FO_CAPITAL=1
-      ["fo-war-capital"] = (opts.capital == true) or (os.getenv("FO_CAPITAL") == "1"),
+      -- Lot CAPITAL : ALLUMÉ par défaut comme le jeu depuis le lot C1 (settings/capital.lua) ; éteint par l'option
+      -- (capital = false) ou par FO_CAPITAL=0 (le témoin « tout éteint »)
+      ["fo-war-capital"] = (opts.capital ~= false) and (os.getenv("FO_CAPITAL") ~= "0"),
       -- Lot AMELIORER : remplacement des machines hors famille, ALLUMÉ par défaut comme le jeu (settings/capital.lua)
       ["fo-war-remplacer"] = opts.remplacer ~= false,
       -- Lot CAPIB : ÉTEINT par défaut comme le jeu (settings/capi.lua) ; allumé par l'option (capi = true) ou FO_CAPI=1
       -- (n'agit qu'avec fo-war-ia3e : FO_IA3E=1)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
-      -- Lot PETROLE : ÉTEINT par défaut comme le jeu (settings/petrole.lua) ; allumé par l'option (petrole = true) ou FO_PETROLE=1
-      ["fo-war-petrole"] = (opts.petrole == true) or (os.getenv("FO_PETROLE") == "1"),
+      -- Lot PETROLE : ALLUMÉ par défaut comme le jeu (settings/petrole.lua, Q20) ; éteint par petrole = false ou FO_PETROLE=0.
+      ["fo-war-petrole"] = (opts.petrole ~= false) and (os.getenv("FO_PETROLE") ~= "0"),
+      -- Lot INDUSTRIE : ALLUMÉ par défaut comme le jeu (settings/industrie.lua) ; éteint par l'option (industrie = false) ou FO_INDUSTRIE=0
+      ["fo-war-industrie"] = (opts.industrie ~= false) and (os.getenv("FO_INDUSTRIE") ~= "0"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
+      -- Lot RB-1 : robots, ALLUMÉ par défaut comme le jeu (settings/robots.lua) ; éteint par l'option (robots = false) ;
+      -- plafond automatique (0) sauf option (robots_cap)
+      ["fo-war-robots"] = opts.robots ~= false, ["fo-war-robots-cap"] = opts.robots_cap or 0,
       -- Lot KIT : kit de départ des factions. Défaut du JEU = égal à votre équipe (faux) ; les tests hors jeu et les bancs gardent
       -- le kit généreux d'avant (leurs attendus datent de ce kit, comme control.lua des bancs en moteur réel) ; l'option
       -- (kit_egal = true) ou FO_KIT_EGAL=1 joue le kit égal du jeu.
@@ -919,6 +928,10 @@ function M.new_world(opts)
         type = "unit", max_health = 200,
         collision_box = box(-0.2, -0.2, 0.2, 0.2),
         collision_mask = MASK_UNIT,
+        -- Lot C1 : les bâtiments à niveaux (fo-lvl-<famille>-N, centre compris) sont montés par Levels.start, qui lit la
+        -- boîte de sélection de la nouvelle entité (script/levels/levels.lua, celebrate -> box_size) : sans elle le moteur
+        -- simulé plantait dès que fo-war-capital était allumé par défaut.
+        selection_box = (name:match("^fo%-lvl%-") or name:match("^fo%-command%-center")) and box(-1, -1, 1, 1) or nil,
       }
     end
   end })
@@ -955,6 +968,8 @@ function M.new_world(opts)
     -- lot PD-REPARATION : relevé des bâtiments endommagés (script/team/reparation.lua) ; le mock ne blesse rien : jamais levé ici,
     -- testé à la main par tests/reparation_test.lua
     on_entity_damaged = 33,
+    on_chunk_generated = 34, -- lot EQUILIBRE : zone sûre des QG (script/faction/war.lua) ; levé à la main par tests/zone_sure_test.lua
+    on_biter_base_built = 35, -- idem
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
@@ -966,7 +981,20 @@ function M.new_world(opts)
     group_state = strict({ gathering = 0, moving = 1, attacking_distraction = 2, attacking_target = 3, finished = 4, pathfinding = 5, wander_in_group = 6 }, "defines.group_state"),
     compound_command = strict({ logical_and = 0, logical_or = 1, return_last = 2 }, "defines.compound_command"),
     inventory = strict({ turret_ammo = 1, chest = 2, character_main = 3, character_guns = 4, character_ammo = 5,
-      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9 }, "defines.inventory"),
+      fuel = 6, furnace_source = 7, furnace_result = 8, character_armor = 9, furnace_modules = 10 }, "defines.inventory"),
+    -- Lot GISEMENTS (script/team/gisement.lua) : statut d'une machine ; le mock ne rend que « travaille » (aucune panne simulee), mais connait
+    -- tous les noms de l'API 1.1.91 (doc-html/runtime-api.json) : build.lua lit low_power, reconstruction.lua no_power...
+    entity_status = strict((function()
+      local out = {}
+      for i, k in ipairs({ "cant_divide_segments", "charging", "closed_by_circuit_network", "disabled", "disabled_by_control_behavior", "disabled_by_script",
+        "discharging", "fluid_ingredient_shortage", "full_output", "fully_charged", "item_ingredient_shortage", "launching_rocket", "low_input_fluid",
+        "low_power", "low_temperature", "marked_for_deconstruction", "missing_required_fluid", "missing_science_packs", "networks_connected",
+        "networks_disconnected", "no_ammo", "no_fuel", "no_ingredients", "no_input_fluid", "no_minable_resources", "no_modules_to_transmit", "no_power",
+        "no_recipe", "no_research_in_progress", "normal", "not_connected_to_rail", "not_plugged_in_electric_network", "opened_by_circuit_network",
+        "out_of_logistic_network", "preparing_rocket_for_launch", "recharging_after_power_outage", "turned_off_during_daytime", "waiting_for_source_items",
+        "waiting_for_space_in_destination", "waiting_for_target_to_be_built", "waiting_for_train", "waiting_to_launch_rocket", "working" }) do out[k] = i end
+      return out
+    end)(), "defines.entity_status"),
     shooting = strict({ not_shooting = 0, shooting_enemies = 1, shooting_selected = 2 }, "defines.shooting"),
     behavior_result = strict({ in_progress = 0, fail = 1, success = 2, deleted = 3 }, "defines.behavior_result"),
     -- Intégration 0.6.22 (script/scenario/journal.lua : introduction montrée à un joueur qui a un personnage).

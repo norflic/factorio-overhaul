@@ -38,6 +38,7 @@ local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense su
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
+local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à combustion à l'arrêt rebranchées ou retirées
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
@@ -48,6 +49,7 @@ local Trace = require("script.core.trace")
 local Ia3 = require("script.ai3.cerveau") -- lot IA3-c : cerveau par besoins (réglage fo-war-ia3-cerveau)
 local Effectif = require("shared.ai3.effectif") -- lot IA3-d : une faction grandit quand le travail attend (A7)
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : réserve de fer de votre équipe
+local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : besoin évalué et couvert = plus de réserve de croissance
 local JournauxDC = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : plafond d'ouvriers et fer inemployé
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
@@ -445,16 +447,23 @@ function Team.view(f, tick)
   local iron0 = stock0["iron-plate"] or 0 -- fer au coffre (hausse de croissance et journal [FO-CENTRALE-GARDE])
   local grow = f.is_player and ((stock0["gun-turret"] or 0) > 0 or book_for(f):handcraftable("gun-turret")) or false
   local on_fond, backlog = 0, 0
+  -- Intégration 0.6.30 : un PNJ de la file sûre (lot INDUSTRIE I2, priorité sous tout le fond, rappelé pour le travail du cerveau) reste un BRAS LIBRE pour le
+  -- cerveau : sans cela, workers_idle tombait à 0 et avec lui les bras de la capitalisation (Ca.prepare, hands : le stock libéré par I1 restait
+  -- refusé faute de bras ; lambda), le travail d'avance (g.spare), le minage d'appoint du planificateur et la paralysie du mode survie.
+  local on_safe = 0
   for _, t in ipairs(Board.get(f).list or {}) do
     local soft = t.fond and (not grow or t.kind == "mine" or t.kind == "garrison")
     -- Lot CRAFT-PARALLELE : la tâche de fond qu'un PNJ mène PENDANT sa fabrication en arrière-plan ne le rend pas disponible (avant
     -- ce lot, il était dans sa tâche « craft » et ne l'aurait pas prise) : frein des recrues inchangé à charge de fabrication égale.
     -- Cohérence seulement : aucun effet mesuré au moteur simulé (scénario de pteam_test, 6 graines, chiffres identiques).
     local ag = soft and t.worker and Registry.get(t.worker)
-    if t.worker and soft and not (ag and ag.task == t and Worker.crafting(ag)) then on_fond = on_fond + 1 end
-    -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue.
-    if not t.worker and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
+    if t.worker and t.safe then on_safe = on_safe + 1
+    elseif t.worker and soft and not (ag and ag.task == t and Worker.crafting(ag)) then on_fond = on_fond + 1 end
+    -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue (la file sûre ne la justifie pas).
+    if not t.worker and not t.safe and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
   end
+  local workers_waiting = workers_idle -- PNJ vraiment sans tâche (mesures, fenêtre « Équipe et factions »)
+  workers_idle = workers_idle + on_safe
   -- Lot IA1-b2 : retenue des recrues après une perte (T.recruit_calm ; COUPÉE, 0 : voir shared/team/config.lua).
   local losses = f.team.org and f.team.org.losses
   local last_loss = losses and losses[#losses]
@@ -523,9 +532,13 @@ function Team.view(f, tick)
   -- avant-poste sont défendus, que le coffre garde T.grow_iron_reserve fer et qu'un travail attend (D-16 : pas de
   -- recrue sans travail).
   local grow_due = false
+  -- Lot INDUSTRIE I1 (réglage fo-war-industrie) : le besoin de l'équipe est ÉVALUÉ (défense, reconstruction, recrues ; shared/ai3/reserve.lua)
+  -- et couvert par le coffre : la réserve de fer de croissance n'a plus de raison (le DC : « pour aucune raison »).
+  local evaluated = f.is_player and Rsv.covered(f, tick) or false
+  local grow_iron = evaluated and 0 or T.grow_iron_reserve
   if grow and (f.engineers_count or 0) >= floor and backlog > 0
     and tick - (f.team.last_grow or -T.grow_period) >= T.grow_period and hq_turrets >= T.defend_hq
-    and iron0 >= T.grow_iron_reserve + 10 + (f.engineers_count or 0) then
+    and iron0 >= grow_iron + 10 + (f.engineers_count or 0) then
     grow_due = true
     for _, o in ipairs(outposts) do
       if (o.turrets or 0) < T.defend_turrets(o.drills) then grow_due = false break end
@@ -539,7 +552,7 @@ function Team.view(f, tick)
     local needs = {}
     for _, o in ipairs(outposts) do needs[#needs + 1] = { turrets = o.turrets, need = T.defend_turrets(o.drills) } end
     local defended = FerEquipe.defended({ turret_ok = grow, hq_turrets = hq_turrets, defend_hq = T.defend_hq, outposts = needs })
-    iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended)
+    iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended, evaluated)
   end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
@@ -569,6 +582,7 @@ function Team.view(f, tick)
     effectif = Effectif.decide(s, st, tick)
     effectif.floor = floor
     effectif.cost_iron = (s.cost[s.margin_item] or 0) + effectif.margin
+    effectif.margin_item = s.margin_item -- lot INDUSTRIE I1 : la marge de la recrue entre au besoin évalué (shared/ai3/reserve.lua)
     effectif.left_iron = s.left[s.margin_item] or 0
     effectif.free_kinds = s.free_kinds
     recruit_held = not effectif.recruit
@@ -588,7 +602,7 @@ function Team.view(f, tick)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
-    workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
+    workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle, workers_waiting = workers_waiting,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     recruit_held = recruit_held, recruit_prio = recruit_prio, -- lot IA3-d : priorité de l'équipement d'une recrue décidée
     -- Lot IA2-a : une faction suit l'ordre des objectifs de son chef (T.ladder réordonné selon ses postures,
@@ -626,7 +640,7 @@ function Team.view(f, tick)
     -- Lot INTEG-DEFENSE D-D : dernier choix « production d'abord » retenu et nombre de pensées de suite qui ont demandé le contraire (hystérésis
     -- de Pr.decide ; écrits plus bas par Team.think, f.team.priorite_pf et f.team.priorite_streak)
     priorite_pf = (f.team.priorite_pf or false), priorite_streak = f.team.priorite_streak or 0,
-    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = grow and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
+    hq_guards = hq_guards, hq_threat = hq_threat or nil, grow_reserve = (grow and not evaluated) and T.grow_iron_reserve or nil, iron_reserve = iron_reserve, grow_due = grow_due or nil,
     -- Lot IA2-b (F209) : orphelins à démonter (factions seulement).
     orphans = (not f.is_player) and Outposts.orphan_groups(f, tick) or nil,
   }
@@ -640,7 +654,7 @@ end
 function Team.measure(f, view, tick)
   local b = Board.get(f)
   local orientation = Poles.orientation(f) -- lot IA1-b : l'orientation choisie, sinon la personnalité
-  local m = Scale.metrics(b.list, f.engineers_count, view.workers_idle or 0, orientation, view.threatened, tick)
+  local m = Scale.metrics(b.list, f.engineers_count, view.workers_waiting or view.workers_idle or 0, orientation, view.threatened, tick)
   local acc = f.team.scale or { thinks = 0, n_sum = 0, idle_sum = 0, surplus_sum = 0, backlog_sum = 0 }
   f.team.scale = acc
   acc.thinks = acc.thinks + 1
@@ -741,6 +755,7 @@ function Team.think(f, surface, tick)
   Profiler.start("team:poles")
   Poles.think(f, view, book_for(f), tick, plan)
   if ia3 then Ia3.after_poles(f, tick) end -- lot IA3-c : pas de fond sur une matière saturée
+  for _, a in ipairs(Poles.sur_stops(f)) do Worker.abort(a, f, tick, "preempte") end -- intégration 0.6.30 : la file sûre cède au travail du cerveau
   Profiler.stop("team:poles")
   -- Lot IA1-d : tâches du plan directeur (chantiers, défrichage, quais) ; rien pour une équipe sans plan.
   if f.build then
@@ -764,7 +779,7 @@ function Team.think(f, surface, tick)
   -- Lot IA1-b2 (complément du DC, 25/10 vers 11 h 25) : raisons d'attente des PNJ sans tâche à la pensée : « rien »
   -- (aucune tâche libre au tableau), « bloque » (des tâches libres, mais d'un autre pôle ou en pause), « manque » (le
   -- cerveau attend des objets au coffre : affiché au-dessus du coffre, f.team.missing).
-  local idle_n = view.workers_idle or 0
+  local idle_n = view.workers_waiting or view.workers_idle or 0
   if idle_n > 0 then
     local free_n = 0
     for _, t in ipairs(Board.get(f).list or {}) do if not t.worker then free_n = free_n + 1 end end
@@ -847,6 +862,7 @@ function Team.think(f, surface, tick)
   -- protéger ou survivre retient (shared/ai3/pile.lua, f.team.ia3.pile, écrit par la pensée juste avant), ni changement de
   -- foreuses, ni migration du champ, ni amélioration payée. Garde AJOUTÉE à côté de celle de la reconstruction (lot SANS-GEL).
   local pile_hold = ia3 and PileRt.hold(f)
+  Gisement.think(f, surface, tick, book_for(f)) -- lot GISEMENTS (retour du DC du 31/10) : foreuses à combustion à l'arrêt rebranchées ou retirées du gisement (rend tout au stock)
   if not pile_hold then
     FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
   end
@@ -856,7 +872,11 @@ function Team.think(f, surface, tick)
   end
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
   -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
-  if ia3 and not pile_hold and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan)) end
+  if ia3 and not pile_hold and not Recon.hold_upgrades(f) then
+    Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))
+  elseif ia3 then
+    Ia3.capital_attente(f, pile_hold and "pile" or "reconstruction", tick) -- lot C1 : la cause d'une amélioration retenue est dite
+  end
   if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])

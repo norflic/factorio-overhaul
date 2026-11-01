@@ -512,10 +512,12 @@ do
   -- verdict sans plafond : 500 foreuses, pas plein ; drills_max absent accepté
   local v = P.verdict({ placed = 8, drills_after = 500, drills_max = T.max_drills("iron"), covered = 100, tiles = 1000 })
   check(not v.full and v.why == "pose", "500 foreuses, 10 % couvert : pas plein (" .. v.why .. ")")
-  v = P.verdict({ placed = 8, drills_after = 500, covered = 799, tiles = 1000 })
-  check(not v.full, "79,9 % : pas plein (drills_max absent)")
   v = P.verdict({ placed = 8, drills_after = 500, covered = 800, tiles = 1000 })
-  check(v.full and v.why == "couverture", "80 % : plein, motif « couverture »")
+  check(not v.full, "80 % : PAS plein (lot GISEMENTS : le gisement se couvre en entier)")
+  v = P.verdict({ placed = 8, drills_after = 500, covered = 999, tiles = 1000 })
+  check(not v.full, "99,9 % : pas plein (drills_max absent)")
+  v = P.verdict({ placed = 8, drills_after = 500, covered = 1000, tiles = 1000 })
+  check(v.full and v.why == "couverture", "100 % : plein, motif « couverture »")
   v = P.verdict({ placed = 0, drills_after = 0, covered = 0, tiles = 0, capped = true })
   check(not v.full and v.why == "essais", "aucune tuile lue : jamais plein par la couverture")
   check(P.permille(1, 3) == 333 and P.permille(5, 0) == 0 and P.permille(nil, 10) == 0, "permille entier, sans division par zéro")
@@ -529,8 +531,8 @@ do
   -- mutants de la couverture
   local verdict, permille = P.verdict, P.permille
   local function ref()
-    return P.verdict({ placed = 8, drills_after = 500, covered = 800, tiles = 1000 }).full
-      and not P.verdict({ placed = 8, drills_after = 500, covered = 799, tiles = 1000 }).full
+    return P.verdict({ placed = 8, drills_after = 500, covered = 1000, tiles = 1000 }).full
+      and not P.verdict({ placed = 8, drills_after = 500, covered = 800, tiles = 1000 }).full
       and not P.verdict({ placed = 8, drills_after = 500, drills_max = math.huge, covered = 10, tiles = 1000 }).full
   end
   check(ref(), "référence de la couverture")
@@ -544,7 +546,7 @@ do
   kill2("couverture ignorée", function() P.permille = function() return 0 end end)
   kill2("seuil à 0 (plein dès la première foreuse)", function() P.KAPPA = 0 end)
   kill2("plafond de 20 rétabli", function() P.verdict = function(x) x.drills_max = 20 return verdict(x) end end)
-  kill2("seuil à 100 %", function() P.KAPPA = 1000 end)
+  kill2("seuil à 80 % rétabli", function() P.KAPPA = 800 end)
   check(P.permille == permille, "règle restaurée")
 end
 

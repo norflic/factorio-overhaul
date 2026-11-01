@@ -242,6 +242,11 @@ return function(variant)
       st.c = c
       st.obstacles = shape(ctx, variant, c)
       ctx.log("terrain " .. variant .. " : " .. st.obstacles .. " obstacle(s) poses")
+      -- le banc tient le rôle du cerveau : fo-war-ia3e est ALLUMÉ par défaut depuis le 27/10 au soir et l'automatisation
+      -- éteint un plan directeur vide (Auto.IDLE_OFF) dès le tick 0, puis bâtit SES modules : les demandes du banc (tick 120)
+      -- rendraient nil (fo-logs/2026-10-31_DIAG-USINE/RAPPORT.md)
+      local a = ctx.call("war_setting", "fo-war-ia3e", false)
+      ctx.check(a == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)", tostring(a))
       ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
       local chest = s.create_entity({ name = "fo-team-chest", position = { c.x + 0.5, c.y + 0.5 }, force = "player", raise_built = true })
       ctx.check(chest ~= nil, "coffre d'equipe pose")

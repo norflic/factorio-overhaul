@@ -34,11 +34,26 @@ local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Board = require("script.team.board") -- (reprise 0.6.20 : chargé ici, plus par un require pendant un appel distant, F24)
 local Profiler = require("script.core.profiler")
+local Storage = require("script.core.storage")
+local Events = require("script.core.events")
 
 local Pet = {}
 
 Pet.SETTING = "fo-war-petrole"
+-- Décision Q20 du DC (31/10) : une sauvegarde garde l'ancienne valeur du réglage, on l'allume donc une fois, à la mise à jour
+-- seulement (une partie neuve a déjà le défaut allumé) ; le joueur qui l'éteint ensuite reste maître.
+local migrer_reglage = false
+Storage.declare("petrole_allume", function()
+  migrer_reglage = true
+  return {}
+end)
+Events.on_init(function() migrer_reglage = false end)
+Events.on_configuration_changed(function()
+  if migrer_reglage then pcall(function() settings.global[Pet.SETTING] = { value = true } end) end
+  migrer_reglage = false
+end)
 Pet.EVERY = 3600            -- ticks entre deux décisions
+Pet.WHY_EVERY = 15 * 3600   -- une cause d'attente toujours vraie est redite toutes les 15 min (Fl.news)
 Pet.WATER_R = 160           -- une rive à moins de 160 tuiles du QG : l'eau est connue (la centrale s'y pose)
 Pet.PACK_N = 10             -- packs dépliés pour trouver ce qu'il faut
 Pet.FEED_STOCK = 20         -- objets gardés au coffre pour les quais d'un site fini
@@ -251,10 +266,12 @@ end
 local function wanted_items(f, General, c)
   local out, seen = {}, {}
   if not INFO then return out end
+  -- … et seulement ceux qu'AUCUNE autre recette ne fait à la main ou par un exécutant (INFO.other) : l'acier du four, que le four
+  -- à arc fait aussi, n'attend pas la cellule du four à arc (moteur réel, petrole-refus : sa recette verrouillée retenait le pack)
   local made = {}
   for _, rn in ipairs(sorted_keys(INFO.recipes)) do
     for _, p in ipairs((c.g.recipes[rn] and c.g.recipes[rn].products) or {}) do
-      if p.type ~= "fluid" then made[p.name] = true end
+      if p.type ~= "fluid" and not (INFO.other and INFO.other[p.name]) then made[p.name] = true end
     end
   end
   -- packs OUVERTS seulement (une recette qui les produit est débloquée pour la force) : un joueur ne bâtit pas sa
@@ -289,15 +306,24 @@ local function wanted_items(f, General, c)
       end
     end
   end
+  -- diag : packs ouverts, ouverts mais impayables, payables sans objet de cellule (pour dire POURQUOI rien n'est demandé)
+  local diag = { open = {}, unpayable = {}, bare = {} }
   for _, pack in ipairs(c.pack_list) do
-    if (open[pack] or heading[pack]) and General.feasible(f, pack) then
-      local sum = General.summary_items(f, { { pack, Pet.PACK_N } })
-      for _, it in ipairs(sorted_keys(sum and sum.produce)) do
-        if made[it] and not seen[it] then seen[it] = pack; out[#out + 1] = it end
+    if open[pack] or heading[pack] then
+      diag.open[#diag.open + 1] = pack
+      if General.feasible(f, pack) then
+        local sum = General.summary_items(f, { { pack, Pet.PACK_N } })
+        local n0 = #out
+        for _, it in ipairs(sorted_keys(sum and sum.produce)) do
+          if made[it] and not seen[it] then seen[it] = pack; out[#out + 1] = it end
+        end
+        if #out == n0 then diag.bare[#diag.bare + 1] = pack end
+      else
+        diag.unpayable[#diag.unpayable + 1] = pack
       end
     end
   end
-  return out, seen
+  return out, seen, diag
 end
 
 --- Objets produits par la force depuis le début (statistiques de production ; 0 si le moteur simulé n'en a pas).
@@ -721,42 +747,84 @@ local function claimed(f, res, d, extractors)
   return false
 end
 
+--- Une cause d'attente de plus (clé stable → texte) : dite au journal à son apparition, à son changement et toutes les
+--- Pet.WHY_EVERY ticks tant qu'elle dure, puis une fois levée (Fl.news). Lot DIAG-PETROLE : la partie de 2 h n'avait rien dit
+--- pendant 80 minutes d'un pack chimique ouvert sans site.
+local function why_line(f, st, tick, now)
+  st.why = st.why or {}
+  local say, gone = Fl.news(st.why, now, tick, Pet.WHY_EVERY)
+  for _, k in ipairs(say) do
+    log(string.format("[FO-PETROLE] %s : %s a %.1f min", f.key or "?", now[k], minutes(f, tick)))
+  end
+  for _, k in ipairs(gone) do
+    log(string.format("[FO-PETROLE] %s : cause levee (%s) a %.1f min", f.key or "?", k, minutes(f, tick)))
+  end
+end
+
 local function decide(f, st, General, deposits, tick)
   local c = General.catalogue()
   refresh_known(f, st, c, deposits, tick)
-  local items, pack_of = wanted_items(f, General, c)
-  if #items == 0 then return end
+  local items, pack_of, diag = wanted_items(f, General, c)
+  local why = {} -- causes d'attente de cet instant (clé → texte), dites par why_line
+  if #items == 0 then
+    if #diag.unpayable > 0 then
+      why["packs"] = string.format("pack(s) [%s] ouvert(s) mais impayable(s) au graphe : aucun site demande", table.concat(diag.unpayable, " "))
+    elseif #diag.bare > 0 then
+      why["packs"] = string.format("pack(s) [%s] ouvert(s) et payable(s) : aucun objet ne demande une cellule du lot", table.concat(diag.bare, " "))
+    else
+      why["packs"] = "aucun pack ouvert (recette debloquee, ou recherche qui y mene)"
+    end
+    why_line(f, st, tick, why)
+    return
+  end
   -- regroupement : par fluide EXTRAIT de la chaîne (un site au gisement), sinon un site près du QG
   local groups, order = {}, {}
   local water = nil
   for _, res in ipairs(pump_resources(c)) do if st.known[res] then water = res end end
   local force = game.forces[f.force]
   local locked, locked_pack = {}, {}
+  local locked_recipes = {} -- groupe → recettes verrouillées de sa chaîne
   -- chaîne de chaque objet, puis packs COMPLETS : un pack dont un objet n'a pas de chaîne (pétrole pas encore connu) ne fait
   -- demander aucun site, pas même la cellule sans fluide (Fl.complete_packs)
-  local chains, rows = {}, {}
+  local chains, rows, reasons = {}, {}, {}
   for _, it in ipairs(items) do
-    chains[it] = Fl.chain(REL, INFO, { it }, water and { [water] = "pompe" } or {}, chooser(f))
-    rows[#rows + 1] = { item = it, pack = pack_of[it], ok = chains[it] ~= nil }
+    local ch, cwhy = Fl.chain(REL, INFO, { it }, water and { [water] = "pompe" } or {}, chooser(f))
+    chains[it], reasons[it] = ch, cwhy
+    rows[#rows + 1] = { item = it, pack = pack_of[it], ok = ch ~= nil }
+    if ch == nil then
+      why["chaine:" .. it] = string.format("objet '%s' (pack %s) sans chaine : %s", it, tostring(pack_of[it]), tostring(cwhy))
+    end
   end
   local complete = Fl.complete_packs(rows)
+  local incomplete = {}
+  for _, r in ipairs(rows) do
+    if r.pack ~= nil and not complete[r.pack] then incomplete[r.pack] = true end
+  end
+  for _, pk in ipairs(sorted_keys(incomplete)) do
+    why["pack:" .. pk] = string.format("pack %s incomplet : aucun site tant qu'un de ses objets n'a pas de chaine", pk)
+  end
   for _, it in ipairs(items) do
     local ch = chains[it]
     if pack_of[it] ~= nil and not complete[pack_of[it]] then ch = nil end
     -- une recette de la chaîne encore verrouillée : le GROUPE attend (la machine posée ne pourrait pas la lancer, et un
     -- site bâti pour une partie des objets ne serait pas refait pour les autres)
-    local lock = false
+    local lrec = {}
     if ch then
       for _, cell in ipairs(ch.cells) do
         local fr = force and force.recipes[cell.recipe]
-        if not (fr and fr.enabled) then lock = true end
+        if not (fr and fr.enabled) then lrec[#lrec + 1] = cell.recipe end
       end
     end
     if ch then
       local res = nil
       for _, fl in ipairs(sorted_keys(ch.sources)) do if ch.sources[fl] == "extract" then res = fl end end
       local g = res or "qg"
-      if lock then locked[g] = true; if pack_of[it] then locked_pack[pack_of[it]] = true end end
+      if #lrec > 0 then
+        locked[g] = true
+        if pack_of[it] then locked_pack[pack_of[it]] = true end
+        locked_recipes[g] = locked_recipes[g] or {}
+        for _, r in ipairs(lrec) do locked_recipes[g][#locked_recipes[g] + 1] = r end
+      end
       if not groups[g] then groups[g] = { res = res, items = {}, water = nil, pack = pack_of[it] }; order[#order + 1] = g end
       groups[g].items[#groups[g].items + 1] = it
       if ch.sources[water or "?"] == "pompe" then groups[g].water = water end
@@ -767,21 +835,39 @@ local function decide(f, st, General, deposits, tick)
     local grp = groups[g]
     local s = site_for(st, g)
     local again = s and s.state == "refuse" and tick >= (s.retry or 0)
+    local waits = (not s) or again
     -- … ni tant qu'une recette d'une autre cellule du MÊME pack est verrouillée (le moteur ne se bâtit pas des dizaines de
     -- minutes avant la raffinerie : moteur réel, etape1-guide 123456789, cellule du moteur à 14 min pour un pack impayable)
-    if ((not s) or again) and not locked[g] and not (grp.pack and locked_pack[grp.pack]) then
+    if waits and locked[g] then
+      why["groupe:" .. g] = string.format("groupe '%s' [%s] attend : recette(s) verrouillee(s) [%s]", g, table.concat(grp.items, " "),
+        table.concat(locked_recipes[g], " "))
+    elseif waits and grp.pack and locked_pack[grp.pack] then
+      local others = {}
+      for _, g2 in ipairs(order) do
+        if locked[g2] then others[#others + 1] = g2 .. ":" .. table.concat(locked_recipes[g2], ",") end
+      end
+      why["groupe:" .. g] = string.format("groupe '%s' [%s] attend le pack %s : recette(s) verrouillee(s) d'une autre cellule [%s]", g,
+        table.concat(grp.items, " "), grp.pack, table.concat(others, " "))
+    elseif waits then
       local x, y, ok = f.hq_pos.x, f.hq_pos.y, true
       local extractor
       if grp.res then
         local d = deposits and deposits(f, grp.res, tick)
         extractor = INFO.extract[grp.res] and INFO.extract[grp.res][1]
         local bad = st.bad and st.bad[grp.res]
+        local n_bad, n_claimed = 0, 0
         local pick = Fl.pick_unclaimed(d, function(dd)
-          return Fl.near_any(bad, dd, Pet.BAD_R) or claimed(f, grp.res, dd, INFO.extract[grp.res])
+          if Fl.near_any(bad, dd, Pet.BAD_R) then n_bad = n_bad + 1 return true end
+          if claimed(f, grp.res, dd, INFO.extract[grp.res]) then n_claimed = n_claimed + 1 return true end
+          return false
         end)
         -- tous essayés (ou pris) : on recommence par le plus proche à la prochaine revue
         if not pick and bad then st.bad[grp.res] = nil end
-        if pick then x, y = pick.x, pick.y else ok = false end
+        if pick then x, y = pick.x, pick.y else
+          ok = false
+          why["gisement:" .. g] = string.format("groupe '%s' : aucun gisement de %s libre (%d connu(s), %d deja refuse(s), %d pris par une autre equipe)",
+            g, grp.res, #(d or {}), n_bad, n_claimed)
+        end
       end
       if ok then
         if not f.build then Build.enable(f, { radius = 3 }) end
@@ -796,10 +882,13 @@ local function decide(f, st, General, deposits, tick)
           note(f, st, tick, string.format("site '%s' demande (projet %d) en (%d, %d) pour [%s]%s%s", g, id, x, y,
             table.concat(grp.items, " "), grp.res and (", gisement de " .. grp.res) or ", pres du QG",
             grp.water and (", eau de " .. grp.water) or ""))
+        else
+          why["projet:" .. g] = string.format("groupe '%s' [%s] : le plan directeur n'a pas pris la demande de site", g, table.concat(grp.items, " "))
         end
       end
     end
   end
+  why_line(f, st, tick, why)
 end
 
 --- Pensée d'une faction (script/ai3/cerveau.lua, après Auto.think) : décisions, état des sites, et leurs projets rendus
@@ -979,7 +1068,9 @@ remote.add_interface("fo-petrole", {
       return { state = br.state, missing = miss, built = br.built, total = br.total }
     end
     for i, s in ipairs(st.sites) do local b = brief_of(s.id); sites[i].missing = b and b.missing or nil end
-    return { decisions = st.decisions, known = sorted_keys(st.known), sites = sites, logs = st.logs,
+    local why = {}
+    for _, k in ipairs(sorted_keys(st.why)) do why[#why + 1] = st.why[k].text end
+    return { decisions = st.decisions, known = sorted_keys(st.known), sites = sites, logs = st.logs, why = why,
       plant = f.build and brief_of(f.build.plant) or nil }
   end,
   on = function() return Pet.on() end,
