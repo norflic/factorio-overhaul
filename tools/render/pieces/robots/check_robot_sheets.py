@@ -47,7 +47,7 @@ def controle(dest):
     for t in tab:
         imh = Image.open(os.path.join(dest, t["hr"]))
         col, lig = imh.size[0] // t["w"], imh.size[1] // t["h"]
-        attendu = (16, ) if "-run-" in t["hr"] else (4, 8)      # lignes : 16 directions ; tir : 2 images par direction sur 8 colonnes ; torse : 8 × 8
+        attendu = (8, 16) if "-run-" in t["hr"] else (2, 4, 8)      # lignes : une par direction ; tir : 2 images par direction sur 8 colonnes ; torse : 8 colonnes
         if lig not in attendu:
             err.append("%s : %d lignes" % (t["hr"], lig))
         for f, w, h in ((t["hr"], t["w"], t["h"]), (t["lr"], t["lw"], t["lh"])):

@@ -257,7 +257,7 @@ def main():
     table, manifeste = {}, {"commande": COMMANDE, "fichiers": {}}
     total = 0.0
     for robot in [x for x in a.robots.split(",") if x]:
-        src = a.src or os.path.join(LOGS, "2026-11-01_RBV1", robot, "sprites")
+        src = os.environ.get("FO_SRC_" + robot) or a.src or os.path.join(LOGS, "2026-11-01_RBV1", robot, "sprites")
         if piece.ROBOTS[robot].get("torse"):
             t, mpx = geant(robot, src, a.dest, manifeste)
             table[piece.ROBOTS[robot]["ro"]] = t

@@ -86,6 +86,9 @@ def squelette_torse(cap):
 
 def modele_piece(lot, M, partie):
     {"haut": _cuisse, "bas": _tibia, "genou": _genou}[partie](lot, M)
+    if partie == "bas":      # le moteur n'a pas de pied : sabot au bout de la lance
+        lot.put(M["or"], G.tour([(L2 - 0.5, 0.1), (L2 - 0.2, 0.2), (L2 - 0.06, 0.42), (L2 + 0.02, 0.5), (L2 + 0.1, 0.36), (L2 + 0.14, 0.0)], 8, "x"))
+        lot.put(M["sombre"], F.bague((L2 - 0.1, 0.0, 0.0), 0.2, 0.42, 0.04, "x", 8, 0.008))
 
 
 def squelette(phase):

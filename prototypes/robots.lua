@@ -15,7 +15,7 @@
     zones mortes au-delà de l'échelle 3 avec un canon de 60), munition posée par script (script/robots/geant.lua) ; 10 segments (dock)
     puis un assemblage final (portique).
   - Lot RB-V1 (1/11) : un robot qui a une feuille (SPR[r.id]) a ses vraies images : marche, tir, ombre, lueur et une couche de PEINTURE teinte
-    par propriétaire (unité) ou à l'exécution (géant : torse à 32 directions, pièces de pattes communes). Sans feuille : visuel provisoire.
+    par propriétaire (unité) ou à l'exécution (géant : torse à plusieurs directions, pièces de pattes communes). Sans feuille : visuel provisoire.
   - Technologies : une par palier, plus celles des pièces (prototypes/robot_parts.lua).
   À charger APRÈS prototypes/enemies.lua (les globales des animations des cracheurs) et prototypes/robot_parts.lua : voir data.lua.
 ]]
@@ -192,7 +192,7 @@ local function leg_part(pt, ombre)
   }
 end
 
---- Géant à feuille : torse à 32 directions remonté de `hauteur` (le rendu est en place au sol), peinture teinte à l'exécution (LuaEntity.color),
+--- Géant à feuille : torse à plusieurs directions remonté de `hauteur` (le rendu est en place au sol), peinture teinte à l'exécution (LuaEntity.color),
 --- ombre au sol, positions de hanches et de pieds de la forme, une seule pièce de patte par partie.
 local function giant_graphics(s, sheet, nm)
   local t = sheet.torse
