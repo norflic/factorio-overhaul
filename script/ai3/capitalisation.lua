@@ -813,6 +813,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- (lot GISEMENTS : une enceinte fige le treillis sous RADIUS_MAX, journal du DC « rayon 4 » : au-delà, ordres refusés sans fin)
   local enc = f.build and f.build.enc
   local reach = (Tr.reach_radius(enc and enc.r, Build.RADIUS_ORE) + 0.5) * Pl.PITCH -- lot INDUSTRIE I3 : jusqu'à RADIUS_ORE (12), plus RADIUS_MAX (5)
+  if not Rsv.on() then reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH end -- réglage maître éteint
   local open_dep = {}
   for _, dr in ipairs(cs.scan and cs.scan.drills or {}) do if dr.deposit ~= "?" then open_dep[dr.deposit] = true end end
   local deposits = {}
@@ -1345,7 +1346,8 @@ local function decide(f, cs, view, book, tick, research, w)
   Auto.want(f, cs.wanted)
   cs.decisions = cs.decisions + 1
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
-    labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil }
+    labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil,
+    zero = input.reserve and input.reserve.zero or nil }
   if input.reserve then
     -- Lot INDUSTRIE I1 : journal du besoin évalué et de ce qui s'investit (une ligne par décision, au plus une par minute et par équipe).
     local stk = 0

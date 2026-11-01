@@ -423,6 +423,8 @@ local function pick_idle(f)
       return a
     end
   end
+  -- Intégration 0.6.30 : aucun PNJ libre : la file sûre (lot INDUSTRIE I2) en rend un, sinon une équipe qu'elle occupe n'envoie plus jamais d'éclaireur.
+  Poles.sur_hold(f, game.tick)
   return nil
 end
 
@@ -945,7 +947,8 @@ local function idle_count(f)
   local n = 0
   for _, id in ipairs(sorted_keys(f.engineers or {})) do
     local a = Registry.get(id)
-    if a and a.entity and a.entity.valid and a.task == nil and a.state == "idle" and not a.nav and not Worker.crafting(a) then n = n + 1 end
+    if a and a.entity and a.entity.valid and a.task == nil and a.state == "idle" and not a.nav and not Worker.crafting(a) then n = n + 1
+    elseif a and a.entity and a.entity.valid and a.task and a.task.safe then n = n + 1 end -- (file sûre : un bras libre, intégration 0.6.30)
   end
   return n
 end

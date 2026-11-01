@@ -161,7 +161,17 @@ local function suite(S)
   S.fail(bad, "r-b", 0, "danger")
   S.fail(bad, "r-b", 0, "abri")
   S.fail(bad, "r-b", 0, "fuite")
-  check(not S.blocked(bad, "r-b", 1) and bad["r-b"] == nil, "§3 bis un refus passager (danger, abri, fuite) n'écarte rien")
+  S.fail(bad, "r-b", 0, "preempte")
+  check(not S.blocked(bad, "r-b", 1) and bad["r-b"] == nil, "§3 bis un refus passager (danger, abri, fuite, rappel pour une urgence) n'écarte rien")
+
+  -- §3 ter Intégration 0.6.30 : rappel pour une urgence, matière retirée du fond par le cerveau.
+  check(S.recall_n(2, 2, 0, 0) == 2 and S.recall_n(2, 2, 1, 0) == 1 and S.recall_n(2, 2, 5, 9999) == 0 and S.recall_n(0, 0, 0, 9999) == 0, "§3 ter urgences sans PNJ libre : rappel aussitôt")
+  check(S.recall_n(0, 3, 0, S.RECALL_EVERY - 1) == 0 and S.recall_n(0, 3, 0, S.RECALL_EVERY) == 1 and S.recall_n(0, 3, 3, S.RECALL_EVERY) == 0, "§3 ter travail ordinaire : un seul rappel à la fois, espacé")
+  check(not S.withdrawn(nil, "a") and not S.withdrawn({}, nil) and not S.withdrawn({}, "a", "b"), "§3 ter rien de retiré sans état")
+  check(S.withdrawn({ saturated = { a = true } }, "a") and not S.withdrawn({ saturated = { a = true } }, "b"), "§3 ter matière saturée")
+  check(not S.withdrawn({ saturated = { a = true }, other_short = false }, "a"), "§3 ter saturée sans autre manque : le cerveau ne retire rien (comme Ia3.after_poles)")
+  check(S.withdrawn({ covered = { a = true }, other_short = false }, "a"), "§3 ter couverte par un module : retirée même sans autre manque")
+  check(S.withdrawn({ covered = { p = true } }, "ore", "p") and not S.withdrawn({ covered = { p = true } }, "ore"), "§3 ter minerai d'une plaque couverte")
 
   -- §4 Journal.
   local acc = {}
@@ -206,10 +216,27 @@ do
   for _, need in ipairs({
     'require("shared.team.travail_sur")', "Sur.blocked(", "Sur.fail(", "Sur.success(", "Sur.track(", "Sur.plan(", "Sur.cause(", "Sur.note(", "Sur.report_line(", "Sur.done(",
     "not view.hq_threat", "floor_ok = n >= floor0", "if #r.tasks > 0 then Board.add(f, r.tasks, tick) end", "function Poles.set_sur(",
-    "org.sur_off",
+    "org.sur_off", "not org.sur_off and Rsv.on()", "function Poles.sur_hold(f, tick)", "not (org.sur_hold and tick < org.sur_hold)", "function Poles.sur_stops(f)", "Sur.recall_n(", "Sur.withdrawn(ia3, m[1], PLATE_OF_RES[m[1]])", "Sur.withdrawn(ia3, spec and spec.product)",
   }) do
     if not P:find(need, 1, true) then bad[#bad + 1] = need end
   end
+  -- Intégration 0.6.30 : un PNJ de la file reste un bras libre pour le cerveau ; les mesures gardent les PNJ vraiment sans tâche.
+  local Tm = read("script/team/team.lua"):gsub("%-%-[^\n]*", "")
+  for _, need in ipairs({ "if t.worker and t.safe then on_safe = on_safe + 1", "workers_idle = workers_idle + on_safe", "workers_waiting = workers_waiting",
+    "not t.worker and not t.safe and", "view.workers_waiting or view.workers_idle or 0, orientation", 'Worker.abort(a, f, tick, "preempte")' }) do
+    if not Tm:find(need, 1, true) then bad[#bad + 1] = need end
+  end
+  -- … et les autres lecteurs des PNJ libres et des minages ouverts aussi.
+  for _, p in ipairs({ { "script/team/survie.lua", 'if t.kind == "mine" and t.resource and not t.safe then' },
+    { "script/team/board.lua", 'if t.kind == "mine" and t.resource and not t.safe then' },
+    { "script/team/board.lua", "if not t.worker and not t.safe and Board.prenable(f, t) then n = n + 1 end" },
+    { "script/ai3/exploration.lua", "Poles.sur_hold(f, game.tick)" }, { "script/ai3/exploration.lua", "a.task and a.task.safe then n = n + 1 end" } }) do
+    if not read(p[1]):find(p[2], 1, true) then bad[#bad + 1] = p[2] end
+  end
+  local Sp = read("settings/industrie.lua"):gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")
+  if not Sp:find("default_value = true", 1, true) then bad[#bad + 1] = "fo-war-industrie allume par defaut" end
+  local Mk = read("tests/mock_engine.lua")
+  if not Mk:find('["fo-war-industrie"] = (opts.industrie ~= false)', 1, true) then bad[#bad + 1] = "moteur simule : reglage maitre comme le jeu" end
   local a_add = P:find("Board.add(f, add, tick)", 1, true)
   local a_sur = P:find("Sur.plan(", 1, true)
   if not (a_add and a_sur and a_add < a_sur) then bad[#bad + 1] = "la file passe APRES l'ouverture du fond" end
@@ -260,6 +287,12 @@ local MUTANTS = {
   { "rayon de minage perdu", "radius = ctx.radius,", "" },
   { "genres comptés sans attente", "if (a.idle or 0) > 0 and a.kinds then", "if a.kinds then" },
   { "genres non triés", "  table.sort(out)", "" },
+  { "rappel compté comme échec", "fuite = true, preempte = true }", "fuite = true }" },
+  { "rappel sans déduire les PNJ libres", "local n = math.max(0, (urgent or 0) - (free or 0))", "local n = math.max(0, (urgent or 0))" },
+  { "aller-retour à chaque pensée", "(since or 0) >= S.RECALL_EVERY and", "" },
+  { "travail ordinaire jamais rappelé", "if n == 0 and (since or 0) >= S.RECALL_EVERY and (wanted or 0) > (free or 0) then n = 1 end", "" },
+  { "saturée retirée sans autre manque", "if st.other_short ~= false and st.saturated", "if st.saturated" },
+  { "plaque couverte ignorée", "or (fondu ~= nil and cov[fondu] == true))", ")" },
   { "échec sans doublement", "b.k = math.min(S.BACKOFF_MAX, b.k + 1)", "b.k = 1" },
   { "doublements sans borne", "b.k = math.min(S.BACKOFF_MAX, b.k + 1)", "b.k = b.k + 1" },
   { "refus passager écarté", "if S.TRANSIENT[why or \"\"] then return end", "" },

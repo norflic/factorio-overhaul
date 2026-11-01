@@ -22,6 +22,7 @@ Tr.CAP = 12               -- rayon (en lots) au plus de la croissance vers un gi
 Tr.MARGIN_PROBE = 1       -- anneaux gardés au-delà du premier anneau où la sonde trouve du minerai (son cœur est plus loin)
 Tr.PROBE_EVERY = 3600     -- ticks entre deux sondes du même minerai (les chunks se génèrent : « rien » peut changer)
 Tr.RETRY_UNGEN = 1800     -- ticks entre deux nouveaux essais d'un lot dont un chunk n'est pas généré
+Tr.GEN_PER_RETRY = 16     -- chunks demandés au moteur au plus, par essai (comme script/team/centrale_loin.lua)
 Tr.CHUNK = 32
 
 local floor, ceil, max, min, abs = math.floor, math.ceil, math.max, math.min, math.abs

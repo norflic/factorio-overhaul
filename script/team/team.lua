@@ -447,16 +447,23 @@ function Team.view(f, tick)
   local iron0 = stock0["iron-plate"] or 0 -- fer au coffre (hausse de croissance et journal [FO-CENTRALE-GARDE])
   local grow = f.is_player and ((stock0["gun-turret"] or 0) > 0 or book_for(f):handcraftable("gun-turret")) or false
   local on_fond, backlog = 0, 0
+  -- Intégration 0.6.30 : un PNJ de la file sûre (lot INDUSTRIE I2, priorité sous tout le fond, rappelé pour le travail du cerveau) reste un BRAS LIBRE pour le
+  -- cerveau : sans cela, workers_idle tombait à 0 et avec lui les bras de la capitalisation (Ca.prepare, hands : le stock libéré par I1 restait
+  -- refusé faute de bras ; lambda), le travail d'avance (g.spare), le minage d'appoint du planificateur et la paralysie du mode survie.
+  local on_safe = 0
   for _, t in ipairs(Board.get(f).list or {}) do
     local soft = t.fond and (not grow or t.kind == "mine" or t.kind == "garrison")
     -- Lot CRAFT-PARALLELE : la tâche de fond qu'un PNJ mène PENDANT sa fabrication en arrière-plan ne le rend pas disponible (avant
     -- ce lot, il était dans sa tâche « craft » et ne l'aurait pas prise) : frein des recrues inchangé à charge de fabrication égale.
     -- Cohérence seulement : aucun effet mesuré au moteur simulé (scénario de pteam_test, 6 graines, chiffres identiques).
     local ag = soft and t.worker and Registry.get(t.worker)
-    if t.worker and soft and not (ag and ag.task == t and Worker.crafting(ag)) then on_fond = on_fond + 1 end
-    -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue.
-    if not t.worker and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
+    if t.worker and t.safe then on_safe = on_safe + 1
+    elseif t.worker and soft and not (ag and ag.task == t and Worker.crafting(ag)) then on_fond = on_fond + 1 end
+    -- Travail qui ATTEND (libre) et qui produit ou construit : celui qui justifie une recrue (la file sûre ne la justifie pas).
+    if not t.worker and not t.safe and not (t.fond and (t.kind == "mine" or t.kind == "garrison")) then backlog = backlog + 1 end
   end
+  local workers_waiting = workers_idle -- PNJ vraiment sans tâche (mesures, fenêtre « Équipe et factions »)
+  workers_idle = workers_idle + on_safe
   -- Lot IA1-b2 : retenue des recrues après une perte (T.recruit_calm ; COUPÉE, 0 : voir shared/team/config.lua).
   local losses = f.team.org and f.team.org.losses
   local last_loss = losses and losses[#losses]
@@ -595,7 +602,7 @@ function Team.view(f, tick)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
-    workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle,
+    workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle, workers_waiting = workers_waiting,
     workers_wanted = workers_wanted, recruit_cost = recruit_cost, recruit_blocked = recruit_blocked,
     recruit_held = recruit_held, recruit_prio = recruit_prio, -- lot IA3-d : priorité de l'équipement d'une recrue décidée
     -- Lot IA2-a : une faction suit l'ordre des objectifs de son chef (T.ladder réordonné selon ses postures,
@@ -647,7 +654,7 @@ end
 function Team.measure(f, view, tick)
   local b = Board.get(f)
   local orientation = Poles.orientation(f) -- lot IA1-b : l'orientation choisie, sinon la personnalité
-  local m = Scale.metrics(b.list, f.engineers_count, view.workers_idle or 0, orientation, view.threatened, tick)
+  local m = Scale.metrics(b.list, f.engineers_count, view.workers_waiting or view.workers_idle or 0, orientation, view.threatened, tick)
   local acc = f.team.scale or { thinks = 0, n_sum = 0, idle_sum = 0, surplus_sum = 0, backlog_sum = 0 }
   f.team.scale = acc
   acc.thinks = acc.thinks + 1
@@ -748,6 +755,7 @@ function Team.think(f, surface, tick)
   Profiler.start("team:poles")
   Poles.think(f, view, book_for(f), tick, plan)
   if ia3 then Ia3.after_poles(f, tick) end -- lot IA3-c : pas de fond sur une matière saturée
+  for _, a in ipairs(Poles.sur_stops(f)) do Worker.abort(a, f, tick, "preempte") end -- intégration 0.6.30 : la file sûre cède au travail du cerveau
   Profiler.stop("team:poles")
   -- Lot IA1-d : tâches du plan directeur (chantiers, défrichage, quais) ; rien pour une équipe sans plan.
   if f.build then
@@ -771,7 +779,7 @@ function Team.think(f, surface, tick)
   -- Lot IA1-b2 (complément du DC, 25/10 vers 11 h 25) : raisons d'attente des PNJ sans tâche à la pensée : « rien »
   -- (aucune tâche libre au tableau), « bloque » (des tâches libres, mais d'un autre pôle ou en pause), « manque » (le
   -- cerveau attend des objets au coffre : affiché au-dessus du coffre, f.team.missing).
-  local idle_n = view.workers_idle or 0
+  local idle_n = view.workers_waiting or view.workers_idle or 0
   if idle_n > 0 then
     local free_n = 0
     for _, t in ipairs(Board.get(f).list or {}) do if not t.worker then free_n = free_n + 1 end end

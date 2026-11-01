@@ -813,6 +813,8 @@ function M.new_world(opts)
       ["fo-war-capi"] = (opts.capi == true) or (os.getenv("FO_CAPI") == "1"),
       -- Lot PETROLE : ÉTEINT par défaut comme le jeu (settings/petrole.lua) ; allumé par l'option (petrole = true) ou FO_PETROLE=1
       ["fo-war-petrole"] = (opts.petrole == true) or (os.getenv("FO_PETROLE") == "1"),
+      -- Lot INDUSTRIE : ALLUMÉ par défaut comme le jeu (settings/industrie.lua) ; éteint par l'option (industrie = false) ou FO_INDUSTRIE=0
+      ["fo-war-industrie"] = (opts.industrie ~= false) and (os.getenv("FO_INDUSTRIE") ~= "0"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
       -- Lot KIT : kit de départ des factions. Défaut du JEU = égal à votre équipe (faux) ; les tests hors jeu et les bancs gardent

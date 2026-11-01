@@ -34,6 +34,7 @@ local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Gisements = require("shared.team.gisement") -- lot GISEMENTS : un lot qui porte un minerai sert de gisement
 local Tr = require("shared.team.treillis") -- lot INDUSTRIE I3 : jusqu'où le treillis grandit vers un gisement, cause du refus (règles pures)
+local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE : le réglage maître (fo-war-industrie)
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
 local CvRegle = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
@@ -185,6 +186,7 @@ end
 --- (Build.RADIUS_MAX par défaut, la croissance ordinaire ; Build.RADIUS_ORE pour une croissance vers un gisement, lot INDUSTRIE I3).
 function Build.grow(f, r, cap)
   local b = f.build
+  if not Rsv.on() then cap = nil end -- réglage maître éteint : la croissance ordinaire seulement
   r = math.min(r, cap or Build.RADIUS_MAX) -- lot INDUSTRIE I3 : `cap` = Build.RADIUS_ORE pour une croissance vers un gisement connu
   -- lot ESPACE : le rayon est figé par l'enceinte (un lot posé après l'anneau serait dehors, ou l'anneau couperait un lot)
   if b.enc then r = math.min(r, b.enc.r) end
@@ -277,18 +279,29 @@ local function ungenerated(b, surface, item, x0, y0, x1, y1)
   return false
 end
 
---- Rend à la file les entrées dont tous les chunks sont maintenant générés (sans jetons : un appel par chunk).
+--- Rend à la file les entrées dont tous les chunks sont maintenant générés (sans jetons : un appel par chunk). Intégration 0.6.30 : le premier
+--- chunk manquant de chaque entrée est DEMANDÉ au moteur, Tr.GEN_PER_RETRY au plus par essai : sinon rien ne garantit que le couloir d'un
+--- gisement lointain se génère un jour (le banc ind-treillis-gen le forçait), et ses rues restent inconnues, donc fermées au plan.
 local function ungen_retry(f, surface, tick)
   local b = f.build
   if not (b.ungen and #b.ungen > 0) or tick < (b.ungen_next or 0) then return end
   b.ungen_next = tick + Tr.RETRY_UNGEN
   local keep, back = {}, 0
+  local asked, asked_n = {}, 0
   for _, item in ipairs(b.ungen) do
     local x0, y0, x1, y1 = item_rect(b, item)
     local ready = x0 ~= nil
     if ready then
       for _, c in ipairs(Tr.chunks(x0, y0, x1, y1)) do
-        if not surface.is_chunk_generated(c) then ready = false break end
+        if not surface.is_chunk_generated(c) then
+          ready = false
+          local ck = c.x .. ":" .. c.y
+          if not asked[ck] and asked_n < Tr.GEN_PER_RETRY then
+            asked[ck], asked_n = true, asked_n + 1
+            surface.request_to_generate_chunks({ c.x * Tr.CHUNK + 16, c.y * Tr.CHUNK + 16 }, 0)
+          end
+          break
+        end
       end
     end
     if ready then
@@ -1115,6 +1128,10 @@ end
 --- une ligne [FO-TREILLIS] à chaque changement de cause d'un minerai. Rend la décision.
 local function treillis_step(f, surface, res, dt, dist, reach_tiles)
   local b = f.build
+  if not Rsv.on() then -- réglage maître éteint : la règle d'avant, un anneau par refus sans gisement connu
+    if not dt and Build.can_grow(b) then Build.grow(f, b.radius + 1) end
+    return nil
+  end
   local s = { radius = b.radius, cap = Build.RADIUS_ORE, enc_r = b.enc and b.enc.r or nil,
     pending = math.max(0, #b.queue - b.qhead + 1), reach = reach_tiles }
   if dt then

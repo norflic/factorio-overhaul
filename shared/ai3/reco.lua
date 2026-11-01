@@ -209,6 +209,13 @@ function Rc.waypoint(hq, d, leg, reach)
   return { x = floor(hq.x + v[1] * r - v[2] * o) + 0.5, y = floor(hq.y + v[2] * r + v[1] * o) + 0.5 }, r
 end
 
+--- Intégration 0.6.30 : la direction `d` attend un PNJ libre : elle ne décroît pas pendant l'attente (renouvelé à chaque essai). Une équipe que le travail
+--- ou la file sûre occupent ne laisse aucun PNJ sans tâche au passage de la décision : à 2 pièces perdues, la direction retombait sous Rc.SEND_MIN en 1 min.
+function Rc.wait_free(s, d, tick)
+  s.hold = s.hold or {}
+  s.hold[d + 1] = math.max(s.hold[d + 1] or 0, tick + Rc.STEP)
+end
+
 --- Délais après la fin d'une reconnaissance.
 function Rc.on_send(s, d)
   s.sent = s.sent + 1

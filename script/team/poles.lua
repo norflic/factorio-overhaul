@@ -29,6 +29,7 @@ local O = require("shared.team.org")
 local T = require("shared.team.config")
 local Fond = require("shared.team.fond")
 local Sur = require("shared.team.travail_sur") -- lot INDUSTRIE I2 : file sûre des PNJ sans tâche
+local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE : le réglage maître (fo-war-industrie)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : le fond ne propose pas ce que les coffres couvrent
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : minage de fer de renfort pour les inactifs
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09) : ressources que les machines sortent en quantité
@@ -80,6 +81,50 @@ function Poles.set_orientation(f, o)
   org.orientation = o
   org.orientation_tick = game.tick
   return O.normalize(o, false)
+end
+
+-- Minerai -> plaque fondue (même table que script/ai3/cerveau.lua, Ia3.after_poles : minage d'une plaque couverte par un module).
+local PLATE_OF_RES = {}
+for _, kind in ipairs(T.OUTPOST_ORDER) do
+  local spec = T.outposts[kind]
+  if T.smelter_inputs[spec.product] then PLATE_OF_RES[spec.resource] = spec.product end
+end
+
+--- Intégration 0.6.30 (PLAN §5, ③ « toujours préemptée ») : PNJ de la file sûre à rappeler pour une tâche du CERVEAU libre qu'aucun PNJ sans tâche ne
+--- peut prendre : avant la file, ces PNJ attendaient au QG et la prenaient aussitôt ; un minage de la file dure près de 2 min. Rend la liste
+--- (id croissants) ; script/team/team.lua les rappelle (Worker.abort, raison « preempte » ; cadence : Sur.recall_n).
+function Poles.sur_stops(f)
+  local urgent, wanted = 0, 0
+  for _, t in ipairs(Board.get(f).list) do
+    -- (prenable seulement : rappeler un mineur pour une tâche sans matière le priverait de produire cette matière)
+    if not t.worker and not t.fond and not O.DESIGN_KINDS[t.kind] and Board.prenable(f, t) then
+      wanted = wanted + 1
+      if (t.prio or 0) >= O.URGENT_PRIO then urgent = urgent + 1 end
+    end
+  end
+  local org = Poles.state(f)
+  local tick = game.tick
+  if org.sur_hold and tick < org.sur_hold then urgent = urgent + 1 end -- une mission d'éclaireur attend un PNJ libre
+  if wanted + urgent == 0 then return {} end
+  local free, safe = 0, {}
+  for _, id in ipairs(State.sorted_keys(f.engineers)) do
+    local a = Registry.get(id)
+    if a and a.entity and a.entity.valid then
+      if not a.task then free = free + 1
+      elseif a.task.safe then
+        if a.failed then free = free + 1 else safe[#safe + 1] = a end -- déjà rappelé : il rentre, il compte comme libre
+      end
+    end
+  end
+  local out = {}
+  for i = 1, math.min(#safe, Sur.recall_n(urgent, wanted, free, tick - (org.sur_recall or -Sur.RECALL_EVERY))) do out[i] = safe[i] end
+  if #out > 0 then org.sur_recall = tick end
+  return out
+end
+
+--- Intégration 0.6.30 : script/ai3/exploration.lua (éclaireurs) n'a trouvé aucun PNJ libre : la file sûre s'efface un moment.
+function Poles.sur_hold(f, tick)
+  if f.team then Poles.state(f).sur_hold = tick + Sur.HOLD_TICKS end
 end
 
 --- Lot INDUSTRIE I2 (bancs seulement, interface « fo-ia1 ») : éteint (faux) ou rallume la file sûre de l'équipe ; le témoin
@@ -250,7 +295,7 @@ function Poles.think(f, view, book, tick, plan)
     t.project = part_of_task(t)
     if t.worker and t.claimed then t.work_left = math.max(1, w - math.floor((tick - t.claimed) / 60)) end
     if t.fond then
-      if t.worker then
+      if t.worker and not t.safe then -- (intégration 0.6.30 : la file sûre n'est ni une capacité de fond ni du plafond de minage du fond)
         local p = O.POLE_INDEX[t.pole or O.task_pole(t)] or 2
         fond_busy[p] = fond_busy[p] + 1
         if t.kind == "mine" and not t.key:find(":fer:", 1, true) then mine_fond_busy = mine_fond_busy + 1 end -- lot FER-EQUIPE : le renfort de fer a son propre plafond
@@ -573,20 +618,27 @@ function Poles.think(f, view, book, tick, plan)
     end
     local starved, fresh
     sur.streaks, starved, fresh = Sur.track(sur.streaks, idle_ids)
-    local on = not org.sur_off
+    local on = not org.sur_off and Rsv.on()
     local r = { tasks = {}, want = 0, service = 0, mine = 0, left = 0 }
-    if on and starved + fresh > 0 and not view.hq_threat then
+    if on and starved + fresh > 0 and not view.hq_threat and not (org.sur_hold and tick < org.sur_hold) then
       local undef = Planner.no_go(view, block_turrets)
+      -- Intégration 0.6.30 : Ia3.after_poles retire à cette même pensée le fond d'une matière saturée ou couverte par un module : une
+      -- tâche de la file sur cette matière ne serait jamais prise, et le PNJ attendrait devant les autres ressources (Sur.withdrawn).
+      local ia3 = f.team.ia3
       local outs = {}
       for _, o in ipairs(view.outposts or {}) do
-        outs[#outs + 1] = { id = o.id, output = o.output, d2 = o.d2, danger = danger[o.id], undefended = undef[o.id], has_task = o.has_task }
+        local spec = T.outposts[o.kind]
+        if not Sur.withdrawn(ia3, spec and spec.product) then
+          outs[#outs + 1] = { id = o.id, output = o.output, d2 = o.d2, danger = danger[o.id], undefended = undef[o.id], has_task = o.has_task }
+        end
       end
       local resources = {}
       for _, m in ipairs(Fond.MINE_TARGETS) do
         local have = math.max(0, free[m[1]] or 0)
         local gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2])
         resources[#resources + 1] = { res = m[1], gap = gap,
-          ok = gap > 0 and not skip[m[1]] and (not m[3] or (view.smelters or 0) > 0) and not Sur.blocked(sur.bad, m[1], tick) }
+          ok = gap > 0 and not skip[m[1]] and (not m[3] or (view.smelters or 0) > 0) and not Sur.blocked(sur.bad, m[1], tick)
+            and not Sur.withdrawn(ia3, m[1], PLATE_OF_RES[m[1]]) }
       end
       r = Sur.plan({ starved = starved, fresh = fresh, open = open_safe, threat = view.hq_threat, prudent = prudent, floor_ok = n >= floor0,
         keys = keys, also = add, batch = Fond.MINE_BATCH, radius = T.near_mine, outposts = outs, near_d2 = T.transport_near * T.transport_near,

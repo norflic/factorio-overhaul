@@ -280,6 +280,9 @@ local function battery(m, verbose)
   ck(Rs.input(st, 900) and Rs.input(st, 900).free[IRON] == 380 and Rs.input(st, 700 + Rs.FRESH_TICKS + 1) == nil and Rs.input(nil, 0) == nil,
     "3j. entrée de la capitalisation : libre, ou nil si absent ou périmé")
   ck(Rs.describe(st):find("COUVERT", 1, true) and Rs.describe(nil):find("non evalue", 1, true), "3k. ligne de journal")
+  local st_raw = Rs.state(book, stock, { raw_need = { [IRON] = { n = 25, prio = 40 } } }, 700)
+  ck(not st_raw.covered and st_raw.missing[IRON] == 25 and st_raw.free[IRON] == 500 and not Rs.covered(st_raw, 700),
+    "3k bis. le planificateur manque de fer : besoin NON couvert (la réserve de croissance reste), le stock libre ne change pas")
 
   -- Le recrutement n'est pas affamé : une recrue voulue (le coût n'est pas payé, « cout ») garde sa matière hors du stock libre.
   local n_r, rec_list = Rs.recruits({ workers = 10, wanted = 30, floor = 8, reason = "cout", cost = { { IRON, 150 } }, margin = { IRON, 30 } })
@@ -332,6 +335,13 @@ local function battery(m, verbose)
     "4i. projets de la capitalisation : stock hors besoin (jamais plus que le stock), sinon la part d'avant")
   local v2 = Ca.capi_view({ [IRON] = 1000 }, { delta = 100, alpha = 150, free = { [IRON] = 990 } })
   ck(v2[IRON] == 990, "4j. … même au-delà de la part (1000 - δ - α) d'avant")
+  local v3 = Ca.capi_view(avail, { delta = 100, alpha = 150, free = { [COPPER] = 9000 }, zero = { [IRON] = true } })
+  ck(v3[IRON] == 0 and v3[COPPER] == 400 and v3.coal == 37, "4k. matière que le besoin prend en entier : plus rien pour les projets (" .. tostring(v3[IRON]) .. ")")
+  local ev_z = Rs.evaluate(book, { [IRON] = 30, [COPPER] = 49000 }, { { TURRET, 2 } })
+  ck(ev_z.zero[IRON] == true and not ev_z.zero[COPPER] and Rs.input({ tick = 0, zero = ev_z.zero }, 0).zero[IRON] == true,
+    "4l. le besoin non couvert marque le fer, pas le cuivre, et la capitalisation le lit")
+  local ev_z2 = Rs.evaluate(book, { [IRON] = 120, [COPPER] = 100 }, { { TURRET, 2 } })
+  ck(ev_z2.covered and ev_z2.zero[IRON] == true and ev_z2.free[IRON] == nil and not ev_z2.zero[COPPER], "4m. besoin couvert au plus juste : le fer est pris en entier, marqué aussi")
 
   -- 5. Le cerveau --------------------------------------------------------------------------------------------------------------
   local dc_stock = { stone = 600, coal = 800, ["firearm-magazine"] = 60, [IRON] = 1000, [COPPER] = 300 }
@@ -370,6 +380,10 @@ local function battery(m, verbose)
   C.think(dc_view({ hq_turrets = 0, survie = true }), book, sP1, ctx_of({ industrie = true }))
   ck(sP0.noyau.parts.defense > 0 and sP1.noyau.parts.defense == 0,
     "5i. poste du QG sans tourelle : sa défense entre au besoin, sauf en production d'abord (mode survie)")
+  local sR = C.new_state(0)
+  C.think(dc_view({ hq_turrets = 0, survie = true, stock = { stone = 600, coal = 800, ["firearm-magazine"] = 60 } }), book, sR, ctx_of({ industrie = true }))
+  ck(sR.noyau.parts.defense == 0 and (sR.noyau.missing[IRON] or 0) > 0 and not sR.noyau.covered,
+    "5i bis. production d'abord sans fer : la défense sort du besoin, mais le manque brut du planificateur le laisse NON couvert")
   ck(sC.noyau.parts.planned > 0, "5j. ce que le planificateur consomme déjà (tâches, recrue décidée) entre au besoin")
   local function sigs(nn)
     local out = {}
@@ -445,9 +459,13 @@ mut("Ca", "if free and free[k] ~= nil then out[k] = math.min(math.floor(avail[k]
   "projets : part d'avant")
 mut("Ca", "math.min(math.floor(avail[k] or 0), math.floor(free[k]))", "math.floor(free[k])", "projets : libre sans borne")
 mut("Ca", "if res.reserve then rp = rp", "if false then rp = rp", "journal muet")
+mut("Ca", "if res and res.zero and res.zero[k] then out[k] = 0 end", "", "projets : part d'avant sur la matière que le besoin prend")
+mut("Rs", "if (pl.avail[k] or 0) <= 0 then out.zero[k] = true end", "", "matière prise en entier non marquée")
+mut("Rs", "      ev.covered = false\n", "", "manque brut du planificateur ignoré")
+mut("C", "production_first = sig.production_first, raw_need = sig.raw_need }, tick)", "production_first = sig.production_first }, tick)", "manque brut non transmis")
 mut("C", "if ctx.industrie then", "if false then", "besoin jamais évalué")
 mut("C", "planned = used, recruit = rec,", "planned = {}, recruit = rec,", "consommation prévue non transmise")
-mut("C", "production_first = sig.production_first }, tick)", "production_first = false }, tick)", "production d'abord non transmise")
+mut("C", "production_first = sig.production_first, raw_need", "production_first = false, raw_need", "production d'abord non transmise")
 mut("C", "st.noyau = nil\n  end", "end", "ancien besoin gardé réglage éteint")
 mut("FE", "if evaluated then return nil end", "", "réserve de croissance gardée malgré le besoin couvert")
 print(string.format("   mutants refusés : %d / %d", killed, total))

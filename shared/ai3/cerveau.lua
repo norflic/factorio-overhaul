@@ -195,7 +195,7 @@ function C.think(view, book, st, ctx)
       held = view.recruit_held, reason = eff and eff.reason or nil, cost = view.recruit_cost,
       margin = eff and eff.margin_item and { eff.margin_item, eff.margin } or nil })
     st.noyau = Rs.state(book, view.stock, { posts = sig.posts, repair = sig.repair, plan_wants = sig.plan_wants,
-      planned = used, recruit = rec, production_first = sig.production_first }, tick)
+      planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need }, tick)
     st.noyau.recruits = n_rec
   else
     st.noyau = nil

@@ -152,6 +152,10 @@ do
   check(has(capi, "Tr.reach_radius(enc and enc.r, Build.RADIUS_ORE)") and has(capi, "Build.grow(f, Tr.grow_target(far, Pl.PITCH, Build.RADIUS_ORE), Build.RADIUS_ORE)"),
     "le cerveau lit la même portée et demande la même croissance")
   check(not has(capi, "math.min(Build.RADIUS_MAX, math.ceil(far / Pl.PITCH))"), "l'ancien plafond du cerveau a disparu")
+  check(has(build, "surface.request_to_generate_chunks({ c.x * Tr.CHUNK + 16, c.y * Tr.CHUNK + 16 }, 0)") and has(build, "asked_n < Tr.GEN_PER_RETRY"),
+    "chunks du couloir d'un gisement lointain : demandés au moteur, en nombre borné")
+  check(has(build, "if not Rsv.on() then cap = nil end") and has(build, "if not dt and Build.can_grow(b) then Build.grow(f, b.radius + 1) end")
+    and has(capi, "if not Rsv.on() then reach ="), "réglage maître éteint : la croissance et la portée d'avant")
   -- la règle ne nomme aucun objet du jeu
   local src = read("shared/team/treillis.lua")
   local code = src:gsub("%-%-%[%[.-%]%]", ""):gsub("%-%-[^\n]*", "")

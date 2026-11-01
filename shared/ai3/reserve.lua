@@ -114,7 +114,7 @@ end
 --- Évaluation. book : livre de recettes (Book:plan) ; stock : { [objet] = n } (non modifié) ; core : liste de Rs.core.
 --- Rend { covered, free = { [objet] = n } (le stock une fois le noyau payé), missing = { [matière] = n }, core = liste majorée }.
 function Rs.evaluate(book, stock, core)
-  local out = { covered = true, free = {}, missing = {}, core = {} }
+  local out = { covered = true, free = {}, missing = {}, core = {}, zero = {} }
   if not (book and book.plan) then
     out.covered = false
     return out
@@ -125,14 +125,29 @@ function Rs.evaluate(book, stock, core)
   out.covered = next(pl.raw) == nil
   for _, k in ipairs(sorted_keys(pl.avail)) do
     if (pl.avail[k] or 0) > 0 then out.free[k] = pl.avail[k] end
+    if (pl.avail[k] or 0) <= 0 then out.zero[k] = true end
   end
+  -- Intégration 0.6.30 : `zero` = matières que le besoin prend en entier (absentes de `free`) : Ca.capi_view ne les confond pas avec un objet que
+  -- l'évaluation n'a pas vu (en route, pas au coffre), sinon les projets gardaient 75 % de la matière même qui manque à la défense.
+  for _, k in ipairs(sorted_keys(pl.raw)) do out.zero[k] = true end
   return out
 end
 
 --- L'état gardé par l'équipe (nombres, listes et tables : peut aller dans `global`), recalculé à chaque pensée du cerveau.
+--- inp.raw_need = { [matière] = { n, prio } } (manques bruts du planificateur) : intégration 0.6.30, moteur simulé (survie_moteur_test) : 30 fer au
+--- coffre, le planificateur en manque, rien à payer sur l'instant : besoin « couvert », réserve de croissance levée, 2 recrues de votre équipe de
+--- plus et le fer à 6 (le risque d'IA1-b2, essai 6 : 8 -> 14 PNJ, fer à 56, QG perdu). Le manque déclaré n'est jamais couvert.
 function Rs.state(book, stock, inp, tick)
   local core, parts = Rs.core(inp)
   local ev = Rs.evaluate(book, stock, core)
+  local raw = (inp or {}).raw_need
+  for _, k in ipairs(sorted_keys(raw)) do
+    local n = raw[k].n or 0
+    if n > 0 then
+      ev.covered = false
+      ev.missing[k] = math.max(ev.missing[k] or 0, n)
+    end
+  end
   ev.tick, ev.parts = tick, parts
   return ev
 end
@@ -145,7 +160,7 @@ end
 --- Entrée de la capitalisation : { free, covered, parts, missing } ou nil (état absent ou périmé : la règle d'avant).
 function Rs.input(st, tick)
   if st == nil or st.tick == nil or tick - st.tick > Rs.FRESH_TICKS then return nil end
-  return { free = st.free or {}, covered = st.covered == true, parts = st.parts, missing = st.missing or {} }
+  return { free = st.free or {}, zero = st.zero or {}, covered = st.covered == true, parts = st.parts, missing = st.missing or {} }
 end
 
 --- Une ligne lisible du besoin (journal [FO-RESERVE] ; aucune décision ne la lit).

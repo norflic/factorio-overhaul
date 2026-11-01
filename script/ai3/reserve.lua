@@ -1,6 +1,6 @@
 --[[
   Lot INDUSTRIE I1 (RESERVE) : accès runtime au besoin évalué (règle pure : shared/ai3/reserve.lua). Le réglage de carte
-  fo-war-industrie (settings/industrie.lua, runtime-global) est le réglage MAÎTRE du lot INDUSTRIE : éteint, le mod joue comme avant.
+  fo-war-industrie (settings/industrie.lua, runtime-global) est le réglage MAÎTRE du lot INDUSTRIE (allumé par défaut depuis 0.6.30) : éteint, le mod joue comme avant (I1 ici, I2 dans script/team/poles.lua, I3 dans script/team/build.lua et script/ai3/capitalisation.lua).
   Le cerveau (shared/ai3/cerveau.lua, C.think) écrit `f.team.ia3.noyau` à chaque pensée ; la capitalisation (script/ai3/capitalisation.lua)
   et la réserve de croissance de votre équipe (script/team/team.lua) le lisent à la pensée suivante.
 ]]

@@ -1931,6 +1931,7 @@ function Ca.capi_view(avail, res)
     -- Lot INDUSTRIE I1 : le besoin est évalué (shared/ai3/reserve.lua) : les projets de la capitalisation voient le stock HORS BESOIN
     -- en entier, plus la part (1000 - δ - α) ‰ qui dormait. Un objet absent de l'évaluation garde la part d'avant.
     if free and free[k] ~= nil then out[k] = math.min(math.floor(avail[k] or 0), math.floor(free[k])) end
+    if res and res.zero and res.zero[k] then out[k] = 0 end -- intégration 0.6.30 : le besoin la prend en entier
   end
   return out
 end

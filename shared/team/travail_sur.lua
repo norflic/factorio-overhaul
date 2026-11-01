@@ -32,6 +32,8 @@ S.SERVICE_MIN = 1           -- objets à rapporter qui justifient une tournée d
 S.REPORT_EVERY = 18000      -- journal [FO-INACTIF] : un bilan par équipe toutes les 5 min
 S.MINE_TRIES = 64           -- indices de clé essayés au plus pour une ressource (clés déjà au tableau sautées)
 S.KEY_PREFIX = "sur:"       -- clés des tâches de la file ("service:<id>" est la clé commune de la tournée du fond)
+S.RECALL_EVERY = 1800       -- un PNJ de la file rappelé pour le travail ordinaire du cerveau, au plus toutes les 30 s (une urgence : aussitôt)
+S.HOLD_TICKS = 600          -- une mission d'éclaireur attend un PNJ libre : la file n'ouvre rien et en rappelle un pendant 10 s (renouvelé tant qu'elle attend)
 
 --- Suites d'attente : `prev` = { [id] = pensées de suite sans tâche } de la pensée précédente, `idle_ids` = PNJ sans tâche à
 --- celle-ci. Rend la nouvelle table (un PNJ occupé ou disparu est oublié), le nombre de PNJ affamés (S.STARVE_THINKS pensées de
@@ -59,7 +61,7 @@ end
 --- danger, abri ou fuite est passager (la porte rejuge dans 10 s) : il ne compte pas.
 S.BACKOFF_BASE = 7200   -- 2 min au premier échec
 S.BACKOFF_MAX = 4       -- 2, 4, 8, 16 min
-S.TRANSIENT = { abri = true, danger = true, fuite = true }
+S.TRANSIENT = { abri = true, danger = true, fuite = true, preempte = true }
 
 function S.blocked(bad, res, tick)
   local b = bad and bad[res]
@@ -76,6 +78,24 @@ end
 
 function S.success(bad, res)
   bad[res] = nil
+end
+
+--- PNJ de la file à rappeler (PLAN §5, ③ : la file passe après tout) : toutes les urgences que les PNJ sans tâche (`free`) ne couvrent pas ; pour le reste du
+--- travail du cerveau (`wanted`), un seul toutes les S.RECALL_EVERY ticks (`since` : ticks depuis le dernier rappel) : des tâches libres qu'aucun PNJ ne peut
+--- prendre, porte de danger comprise, dominent certaines parties (ia1-poles) : sans cette borne, les PNJ feraient l'aller-retour à chaque pensée.
+function S.recall_n(urgent, wanted, free, since)
+  local n = math.max(0, (urgent or 0) - (free or 0))
+  if n == 0 and (since or 0) >= S.RECALL_EVERY and (wanted or 0) > (free or 0) then n = 1 end
+  return n
+end
+
+--- La matière `item` (et sa plaque fondue `fondu`, pour un minerai) est-elle retirée du fond par le cerveau ? `st` = f.team.ia3 : même règle
+--- que Ia3.after_poles (saturée seulement si une autre matière manque, couverte par un module toujours), qui lit `fond` sur toute tâche.
+function S.withdrawn(st, item, fondu)
+  if not (st and item) then return false end
+  if st.other_short ~= false and st.saturated and st.saturated[item] then return true end
+  local cov = st.covered
+  return cov ~= nil and (cov[item] == true or (fondu ~= nil and cov[fondu] == true))
 end
 
 --- Tâches de la file à ouvrir.
