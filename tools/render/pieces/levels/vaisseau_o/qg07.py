@@ -22,7 +22,16 @@ Z_PONT = 0.45
 GRAND = (-0.5, -0.02)                              # grand cristal dans la cage (repère de la halle)
 RELIQUES = ((2.72, -2.38, 0.86), (-3.42, -2.5, 0.62))   # reliquaires sud-est et sud-ouest (monde : x, y, rayon)
 CHAP = dict(x0=-2.4, x1=1.55, y0=-2.85, y1=-1.5, z0=0.3)
-LUIT = (0.434, 0.162, 1.0)                         # #B070FF
+SAT = 0.75                                         # critique du 1/11 : cristaux moins saturés de 20 %, mesuré sur l'image
+
+
+def sat(c, k=SAT):
+    l_ = 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    return tuple(l_ + (x - l_) * k for x in c)
+
+
+LUIT = sat((0.434, 0.162, 1.0))                    # #B070FF
+POINTE = sat((0.56, 0.38, 0.92))
 
 
 def lin(h):
@@ -40,9 +49,15 @@ def _cristal_surface(m, deep, pale, graine):
     tc = N.new("ShaderNodeTexCoord")
     lw = N.new("ShaderNodeLayerWeight")
     lw.inputs["Blend"].default_value = 0.3
-    c = MT._mix(N, L, lw.outputs["Facing"], deep, pale)
+    c = MT._mix(N, L, lw.outputs["Facing"], sat(deep), sat(pale))
     nz = MT._range(N, L, MT._bruit(N, L, tc.outputs["Object"], 2.4, 3.0, 0.5, (graine, 2.0, 1.0), (1.6, 1.6, 0.35)), 0.35, 0.65, 0.82, 1.1)
-    L.new(MT._scale(N, L, c, nz), p.inputs["Base Color"])
+    c = MT._scale(N, L, c, nz)
+    sep = N.new("ShaderNodeSeparateXYZ")                             # v = hauteur relative dans l'éclat (0 au pied, 1 à la pointe)
+    L.new(tc.outputs["UV"], sep.inputs["Vector"])
+    v = sep.outputs["Y"]
+    c = MT._scale(N, L, c, MT._range(N, L, v, 0.0, 0.6, 0.03, 1.0, True))
+    c = MT._mix(N, L, MT._range(N, L, v, 0.58, 1.0, 0.0, 0.72, True), c, POINTE)
+    L.new(c, p.inputs["Base Color"])
     p.inputs["Roughness"].default_value = 0.26
     p.inputs["Metallic"].default_value = 0.0
     if "Specular IOR Level" in p.inputs:
@@ -50,16 +65,17 @@ def _cristal_surface(m, deep, pale, graine):
     bev = N.new("ShaderNodeBevel")
     bev.inputs["Radius"].default_value = 0.012
     L.new(bev.outputs["Normal"], p.inputs["Normal"])
-    return tc
+    return tc, v
 
 
 def cristal(S, name, deep, pale, force, main=0.5, graine=0.0):
     """Facette de cristal OPAQUE qui luit (matière « emissive » du pipeline) ; l'émission varie peu : ce sont les écarts
     d'une facette à l'autre qui font le cristal, pas un nuage."""
     m = S.mat_emissive(name, LUIT, strength=force, base=deep, main_scale=main, crust=(1.0, 0.0, graine))
-    tc = _cristal_surface(m, deep, pale, graine)
+    tc, v = _cristal_surface(m, deep, pale, graine)
     N, L = m.node_tree.nodes, m.node_tree.links
-    L.new(MT._range(N, L, MT._bruit(N, L, tc.outputs["Object"], 1.8, 2.0, 0.5, (graine + 5.0, 1.0, 3.0), (1.5, 1.5, 0.3)), 0.35, 0.65, 0.72, 1.0), N["fo_emit_strength"].inputs[0])
+    veine = MT._range(N, L, MT._bruit(N, L, tc.outputs["Object"], 1.8, 2.0, 0.5, (graine + 5.0, 1.0, 3.0), (1.5, 1.5, 0.3)), 0.35, 0.65, 0.72, 1.0)
+    L.new(MT._math(N, L, "MULTIPLY", veine, MT._range(N, L, v, 0.12, 0.85, 0.0, 1.0, True)), N["fo_emit_strength"].inputs[0])
     return m
 
 
@@ -105,11 +121,13 @@ def matieres(S):
                     crasse_col=cr, grain=0.34, graine=109)
     M["dalle2"] = sf("q7_dalle2", (pr[0] * 1.35, pr[1] * 1.3, pr[2] * 1.3), rough=0.9, met=0.0, usure=0.6, nu=(0.26, 0.23, 0.2), crasse=0.85,
                      crasse_col=cr, grain=0.34, graine=110)
+    M["roche"] = sf("q7_roche", (pr[0] * 2.7, pr[1] * 2.6, pr[2] * 2.6), rough=0.92, met=0.0, usure=0.85, nu=(0.42, 0.38, 0.34), crasse=0.9, crasse_col=cr, grain=0.3, graine=111)
+    M["roche2"] = sf("q7_roche2", (pr[0] * 1.5, pr[1] * 1.42, pr[2] * 1.45), rough=0.92, met=0.0, usure=0.75, nu=(0.32, 0.29, 0.26), crasse=0.9, crasse_col=cr, grain=0.3, graine=112)
     M["bois"] = sf("q7_bois", (0.2, 0.16, 0.11), rough=0.85, met=0.0, tole=(0.9, 0.115), joint=0.18, var=0.28, coulures=0.4,
                    rouille=(0.03, 0.045, 0.02), usure=0.5, nu=(0.22, 0.15, 0.08), crasse=0.75, crasse_col=cr, relief=0.5, grain=0.14, graine=97)
-    M["cristal0"] = cristal(S, "q7_cristal0", (0.1, 0.028, 0.36), (0.28, 0.1, 0.8), 0.18, graine=11.0)
-    M["cristal1"] = cristal(S, "q7_cristal1", (0.17, 0.055, 0.66), (0.36, 0.14, 0.95), 0.4, graine=23.0)
-    M["cristal2"] = cristal_mat("q7_cristal2", (0.035, 0.009, 0.13), (0.24, 0.1, 0.55), graine=37.0)
+    M["cristal0"] = cristal(S, "q7_cristal0", (0.1, 0.028, 0.36), (0.28, 0.1, 0.8), 0.22, graine=11.0)
+    M["cristal1"] = cristal(S, "q7_cristal1", (0.17, 0.055, 0.66), (0.36, 0.14, 0.95), 0.46, graine=23.0)
+    M["cristal2"] = cristal_mat("q7_cristal2", (0.06, 0.018, 0.2), (0.24, 0.1, 0.55), graine=37.0)
     M["eteint0"] = cristal_mat("q7_eteint0", (0.09, 0.028, 0.3), (0.34, 0.15, 0.72), graine=41.0)
     M["eteint1"] = cristal_mat("q7_eteint1", (0.17, 0.055, 0.6), (0.36, 0.14, 0.9), graine=43.0)
     M["eteint2"] = M["cristal2"]
@@ -146,7 +164,7 @@ def eclat(c, h, r, rnd, n=6, pen=(0.0, 0.0), tete=0.3):
         for i, p in enumerate(pts):
             if i:
                 acc += G.length(G.sub(p, pts[i - 1]))
-            u.append((acc, p[2]))
+            u.append((acc, (p[2] - z0) / h))
     for k in range(n):
         k2 = (k + 1) % n
         ton = rnd.i(0, 2)
@@ -182,6 +200,37 @@ def grappe(lot, M, cx, cy, z, h, r, rnd, liste, n=6):
     for (dx, dy, kh, kr, ouv) in liste:
         d = math.hypot(dx, dy) or 1.0
         pose(lot, M, (cx + dx, cy + dy, z), h * kh, r * kr, rnd, 5 + (rnd.i(0, 1)), (ouv * dx / d, ouv * dy / d))
+
+
+def roche(lot, M, cx, cy, z, r0, R, rnd, n, nd):
+    """Roche fendue au pied d'une grappe : blocs soulevés par le cristal, plus hauts contre lui et basculés vers l'extérieur,
+    fissures noires entre eux ; autour, éclats brisés et couchés, éteints, et menus éclats à plat (ancrage, critique du 1/11)."""
+    lot.put(M["noir"], G.tour([(z + 0.004, R + 0.03), (z + 0.008, 0.0)], 24, "z", (cx, cy, 0.0)))
+    for k in range(n):
+        a = G.TAU * (k + rnd.f(-0.28, 0.28)) / n
+        anneau = k % 2
+        d = r0 + (R - r0) * (0.22 if anneau == 0 else 0.76) + rnd.f(-0.05, 0.05)
+        t = (R - r0) * rnd.f(0.42, 0.62) + 0.05
+        px, py = cx + d * math.cos(a), cy + d * math.sin(a)
+        nb = rnd.i(5, 6)
+        poly = [(px + t * rnd.f(0.72, 1.12) * math.cos(G.TAU * j / nb + a), py + t * rnd.f(0.72, 1.12) * math.sin(G.TAU * j / nb + a)) for j in range(nb)]
+        h = rnd.f(0.12, 0.3) * (1.25 if anneau == 0 else 0.62)
+        v, f, u = G.prisme(poly, z - 0.02, z + h, rnd.f(0.62, 0.82), (0.03 * math.cos(a), 0.03 * math.sin(a)))
+        pente = rnd.f(0.16, 0.42)
+        v2 = []
+        for q in v:
+            dq = math.hypot(q[0] - cx, q[1] - cy)
+            v2.append((q[0], q[1], q[2] - pente * (dq - d) if q[2] > z else q[2]))
+        lot.put(M["roche"] if rnd.f() < 0.62 else M["roche2"], (v2, f, u))
+    for k in range(nd):
+        a = rnd.f(0.0, G.TAU)
+        d = rnd.f(R * 0.8, R * 1.28)
+        x, y = cx + d * math.cos(a), cy + d * math.sin(a)
+        if k % 3 == 2:                                               # éclat à plat
+            lot.put(M["eteint%d" % rnd.i(0, 1)], G.boite((x, y, z + 0.018), (rnd.f(0.05, 0.13), rnd.f(0.03, 0.07), 0.025), rnd.f(0.0, 3.0), rnd.f(-0.25, 0.25)))
+        else:                                                        # éclat cassé, couché vers l'extérieur
+            k_ = rnd.f(0.3, 0.9)
+            pose(lot, M, (x, y, z - 0.01), rnd.f(0.1, 0.36), rnd.f(0.025, 0.065), rnd, 5, (k_ * math.cos(a), k_ * math.sin(a)))
 
 
 def griffes(lot, M, cx, cy, z, R, h, n, rnd, r=0.035):
@@ -412,11 +461,13 @@ def build(S, lot):
     zs = socle_rond(lot, M, gc[0], gc[1], Z_PONT, 1.25, 2, 0.16, rc)
     lot.put(M["bronze"], E.cerceau(gc[0], gc[1], zs + 0.03, 1.22, 0.05, 40))
     griffes(lot, M, gc[0], gc[1], zs, 1.2, 1.7, 7, rc, 0.042)
-    grappe(lot, M, gc[0], gc[1], zs - 0.05, 4.95, 0.62, rc,
+    grappe(lot, M, gc[0], gc[1], zs - 0.05, 3.47, 0.54, rc,
            [(-0.62, 0.22, 0.68, 0.72, 0.13), (0.66, -0.16, 0.56, 0.62, 0.16), (0.12, -0.66, 0.42, 0.56, 0.2), (-0.5, -0.5, 0.36, 0.46, 0.22),
             (0.78, 0.4, 0.34, 0.42, 0.24), (-0.05, 0.7, 0.45, 0.5, 0.12), (-0.9, -0.08, 0.26, 0.36, 0.3), (0.42, -0.72, 0.22, 0.3, 0.32)])
+    rr7 = G.Rnd(7707)
+    roche(lot, M, gc[0], gc[1], zs, 0.42, 1.08, rr7, 16, 16)
     # deux cerceaux de résonance tenus par des lyres de bronze qui montent de la coque
-    zr = (3.15, 3.95)
+    zr = (2.72, 3.3)
     Rr = (1.02, 0.62)
     lot.put(M["bronze"], E.cerceau(gc[0] + 0.1, gc[1], zr[0], Rr[0], 0.04, 36, (0.08, -0.12)))
     lot.put(M["bronze"], E.cerceau(gc[0] + 0.16, gc[1], zr[1], Rr[1], 0.03, 28, (-0.1, 0.1)))
@@ -437,55 +488,56 @@ def build(S, lot):
         lot.put(M["bronze_s"], E.cerceau(q[0], q[1], q[2] + 0.1, rr_ * 1.25, 0.018, 12))
 
     # ======================================================================================== 3. tour au prisme et obélisque
-    tw = (1.72, 3.05, 0.0)                                           # entre le grand cristal et la grappe, au-dessus du dos
+    tw = (1.72, 2.8, 0.0)                                            # entre le grand cristal et la grappe, au-dessus du dos
     hexa = [(tw[0] + 0.62 * math.cos(0.3 + TAU * k / 6), tw[1] + 0.54 * math.sin(0.3 + TAU * k / 6)) for k in range(6)]
     hexb = [(tw[0] + 0.44 * math.cos(0.3 + TAU * k / 6), tw[1] + 0.4 * math.sin(0.3 + TAU * k / 6)) for k in range(6)]
-    lot.put(M["pierre"], E.tronc(hexa, hexb, 0.0, 2.45))
-    for z in (0.75, 1.5, 2.28):
-        k = 1.0 - (z / 2.45) * 0.28
+    lot.put(M["pierre"], E.tronc(hexa, hexb, 0.0, 1.7))
+    for z in (0.6, 1.15, 1.54):
+        k = 1.0 - (z / 1.7) * 0.28
         pts = [(tw[0] + 0.64 * k * math.cos(0.3 + TAU * j / 6), tw[1] + 0.56 * k * math.sin(0.3 + TAU * j / 6), z) for j in range(7)]
         lot.put(M["bronze"], G.tube(pts, 0.028, 5))
-    lot.put(M["bronze"], G.tour([(2.45, 0.52), (2.54, 0.56), (2.6, 0.32), (2.64, 0.06)], 6, "z", (tw[0], tw[1], 0.0), a0=0.3, a1=0.3 + TAU))
+    lot.put(M["bronze"], G.tour([(1.7, 0.52), (1.79, 0.56), (1.85, 0.32), (1.89, 0.06)], 6, "z", (tw[0], tw[1], 0.0), a0=0.3, a1=0.3 + TAU))
     for s in (-1, 1):                                                # fourche du prisme
-        pts = [(tw[0], tw[1], 2.62), (tw[0] + s * 0.34, tw[1] + 0.02, 2.95), (tw[0] + s * 0.3, tw[1] + 0.02, 3.5)]
+        pts = [(tw[0], tw[1], 1.87), (tw[0] + s * 0.34, tw[1] + 0.02, 2.2), (tw[0] + s * 0.3, tw[1] + 0.02, 2.75)]
         lot.put(M["bronze"], G.tube(G.catmull(pts, 6), 0.03, 6))
-    pose(lot, M, (tw[0] + 0.02, tw[1] + 0.02, 2.82), 0.95, 0.2, rc, 4, (0.0, 0.0), 0.45)
-    lot.put(M["bronze"], E.cerceau(tw[0], tw[1], 3.2, 0.32, 0.018, 20, (0.1, 0.05)))
+    pose(lot, M, (tw[0] + 0.02, tw[1] + 0.02, 2.07), 0.95, 0.2, rc, 4, (0.0, 0.0), 0.45)
+    lot.put(M["bronze"], E.cerceau(tw[0], tw[1], 2.45, 0.32, 0.018, 20, (0.1, 0.05)))
     for (dx, z) in ((-0.2, 0.25), (0.25, 1.05)):                     # archères
         lot.put(M["noir"], G.boite((tw[0] + dx, tw[1] - 0.54 + z * 0.06, z + 0.3), (0.07, 0.03, 0.3)))
-    tq = (-1.85, 3.42)                                               # obélisque, nord, à droite de la dérive
-    lot.put(M["taille"], E.tronc(E.chanfrein(tq[0] - 0.3, tq[0] + 0.3, tq[1] - 0.3, tq[1] + 0.3, 0.1), E.chanfrein(tq[0] - 0.14, tq[0] + 0.14, tq[1] - 0.14, tq[1] + 0.14, 0.05), 0.0, 2.2))
-    lot.put(M["bronze"], G.tour([(2.2, 0.15), (2.26, 0.17), (2.32, 0.09)], 8, "z", (tq[0], tq[1], 0.0), cap1=True))
-    pose(lot, M, (tq[0], tq[1], 2.28), 1.3, 0.16, rc, 5, (0.03, -0.02), seuil=1.2)
-    griffes(lot, M, tq[0], tq[1], 2.26, 0.2, 0.34, 3, rc, 0.016)
+    tq = (-1.85, 3.15)                                               # obélisque, nord, à droite de la dérive
+    lot.put(M["taille"], E.tronc(E.chanfrein(tq[0] - 0.3, tq[0] + 0.3, tq[1] - 0.3, tq[1] + 0.3, 0.1), E.chanfrein(tq[0] - 0.14, tq[0] + 0.14, tq[1] - 0.14, tq[1] + 0.14, 0.05), 0.0, 1.5))
+    lot.put(M["bronze"], G.tour([(1.5, 0.15), (1.56, 0.17), (1.62, 0.09)], 8, "z", (tq[0], tq[1], 0.0), cap1=True))
+    pose(lot, M, (tq[0], tq[1], 1.58), 1.3, 0.16, rc, 5, (0.03, -0.02), seuil=1.2)
+    griffes(lot, M, tq[0], tq[1], 1.56, 0.2, 0.34, 3, rc, 0.016)
     lot.put(M["pierre"], G.prisme(E.chanfrein(tq[0] - 0.46, tq[0] + 0.46, tq[1] - 0.46, tq[1] + 0.46, 0.14), 0.0, 0.24, 0.9))
     for k in range(3):
         a = TAU * k / 3 + 0.5
-        lot.put(M["bronze_s"], G.tube([(tq[0], tq[1], 2.0), (tq[0] + 0.95 * math.cos(a), tq[1] + 0.75 * math.sin(a), 0.03)], 0.008, 3))
+        lot.put(M["bronze_s"], G.tube([(tq[0], tq[1], 1.35), (tq[0] + 0.95 * math.cos(a), tq[1] + 0.75 * math.sin(a), 0.03)], 0.008, 3))
 
     # ======================================================================================== 4. grappe nord-est dans sa charpente
     gx, gy, gr = 4.15, 2.92, 0.95
     zg = socle_rond(lot, M, gx, gy, 0.0, gr + 0.2, 2, 0.2, rc)
-    grappe(lot, M, gx, gy, zg - 0.06, 2.35, 0.46, rc,
+    grappe(lot, M, gx, gy, zg - 0.06, 1.9, 0.44, rc,
            [(-0.42, 0.14, 0.76, 0.66, 0.1), (0.42, -0.2, 0.6, 0.6, 0.16), (0.08, -0.48, 0.42, 0.52, 0.22), (-0.4, -0.36, 0.34, 0.42, 0.24),
             (0.52, 0.28, 0.48, 0.42, 0.18)])
+    roche(lot, M, gx, gy, zg, 0.36, 0.95, rr7, 14, 12)
     cols = [(gx + (gr + 0.12) * math.cos(TAU * k / 8 + 0.2), gy + (gr + 0.12) * math.sin(TAU * k / 8 + 0.2)) for k in range(8)]
     for (x, y) in cols:
-        lot.put(M["bronze"], G.boite((x, y, 0.95), (0.08, 0.08, 1.9)))
+        lot.put(M["bronze"], G.boite((x, y, 0.78), (0.08, 0.08, 1.56)))
         lot.put(M["taille"], G.boite((x, y, 0.42), (0.16, 0.16, 0.12)))
-    for (z, rt) in ((1.9, 0.04), (1.1, 0.028)):
+    for (z, rt) in ((1.55, 0.04), (0.98, 0.028)):
         lot.put(M["bronze"], G.tube([(x, y, z) for (x, y) in cols] + [(cols[0][0], cols[0][1], z)], rt, 4))
     for k in range(8):
         a, b = cols[k], cols[(k + 1) % 8]
-        for (za, zb_) in ((0.45, 1.1), (1.1, 1.9)):
+        for (za, zb_) in ((0.45, 0.98), (0.98, 1.55)):
             if k in (5, 6) and za < 1.0:                             # côté caméra : ouvert en bas
                 continue
             lot.put(M["bronze_s"], G.tube([(a[0], a[1], za), (b[0], b[1], zb_)], 0.013, 4))
             lot.put(M["bronze_s"], G.tube([(b[0], b[1], za), (a[0], a[1], zb_)], 0.013, 4))
     for k in range(3):                                               # griffes de tête
         a = TAU * k / 3 + 0.8
-        q = (gx + (gr + 0.12) * math.cos(a), gy + (gr + 0.12) * math.sin(a), 1.9)
-        lot.put(M["bronze"], G.tube(G.catmull([q, (gx + 0.8 * math.cos(a), gy + 0.8 * math.sin(a), 2.2), (gx + 0.45 * math.cos(a), gy + 0.45 * math.sin(a), 2.35)], 5), 0.022, 5))
+        q = (gx + (gr + 0.12) * math.cos(a), gy + (gr + 0.12) * math.sin(a), 1.55)
+        lot.put(M["bronze"], G.tube(G.catmull([q, (gx + 0.8 * math.cos(a), gy + 0.8 * math.sin(a), 1.85), (gx + 0.45 * math.cos(a), gy + 0.45 * math.sin(a), 2.0)], 5), 0.022, 5))
 
     # ======================================================================================== 5. chapelle et reliquaires
     K = CHAP
@@ -520,6 +572,7 @@ def build(S, lot):
             grappe(lot, M, dx, dy, zb - 0.04, 2.5, 0.34, rc, [(-0.3, 0.14, 0.62, 0.68, 0.16), (0.32, -0.08, 0.5, 0.6, 0.2), (0.02, -0.34, 0.36, 0.5, 0.26), (-0.28, -0.26, 0.26, 0.42, 0.3)])
         else:
             grappe(lot, M, dx, dy, zb - 0.04, 1.75, 0.26, rc, [(0.22, 0.1, 0.62, 0.68, 0.18), (-0.24, 0.02, 0.5, 0.6, 0.22), (0.02, -0.24, 0.32, 0.5, 0.3)])
+        roche(lot, M, dx, dy, zb, 0.28 if i == 0 else 0.22, R * 0.92, rr7, 12 if i == 0 else 10, 10 if i == 0 else 8)
         zl[i] = zb
         q = (dx + R * 0.35, dy - R - 0.2, 0.3)                       # vanne et cadran au pied
         lot.put(M["bronze_s"], G.tube([q, G.add(q, (0, 0, 0.26)), G.add(q, (0.0, 0.12, 0.26))], 0.026, 6))
@@ -583,7 +636,7 @@ def build(S, lot):
     ra = G.Rnd(7505)
     E.cablage(lot, M, P, pieds, ra)
     C.faisceau(lot, M["rouge"], M["noir"], P.xf((-1.4, 0.0, C.z_dessus(-1.4) + 0.3)), (tq[0] + 0.1, tq[1] - 0.1, 1.5), 0.25, 3, 0.011, 0.028, ra)
-    C.faisceau(lot, M["rouge"], M["noir"], (gx - 1.0, gy - 0.55, 1.9), P.xf((2.9, 0.4, C.z_dessus(2.9) + 0.6)), 0.35, 3, 0.011, 0.028, ra)
+    C.faisceau(lot, M["rouge"], M["noir"], (gx - 1.0, gy - 0.55, 1.55), P.xf((2.9, 0.4, C.z_dessus(2.9) + 0.6)), 0.35, 3, 0.011, 0.028, ra)
     C.faisceau(lot, M["rouge"], M["noir"], (x1 - 0.1, y0 + 0.4, 1.0), (Rx[0][0] - 0.2, Rx[0][1] + 0.3, zl[0] + 0.9), 0.2, 3, 0.011, 0.028, ra)
     C.faisceau(lot, M["rouge"], M["noir"], (x0 + 0.1, y0 + 0.4, 1.0), (Rx[1][0] + 0.15, Rx[1][1] + 0.2, zl[1] + 0.6), 0.2, 3, 0.011, 0.028, ra)
 
