@@ -129,14 +129,7 @@ return function(name)
         if b0 and (b0.state == "fantomes" or b0.state == "chantier" or b0.state == "raccordement" or b0.state == "fini") then
           local s1 = ctx.surface()
           local ents = module_ents(ctx, st.key, b0.id)
-          local revived = 0
-          for _, en in ipairs(ents) do
-            if not en.built then
-              for _, gh in ipairs(s1.find_entities_filtered({ ghost_name = en.name, position = { en.x, en.y }, radius = 0.6 })) do
-                if gh.valid and gh.revive({ raise_revive = true }) then revived = revived + 1 end
-              end
-            end
-          end
+          local revived = ctx.remote("fo-ind", "revive", st.key, b0.id) or 0
           st.revived = (st.revived or 0) + revived
           if not st.powered then
             for _, en in ipairs(ents) do
@@ -171,7 +164,12 @@ return function(name)
         local rec = { tick = e.tick, blocs = s and s.blocs or {}, control = c and #c.blocs or 0 }
         st.t[#st.t + 1] = rec
         local parts = {}
-        for _, b in ipairs(rec.blocs) do parts[#parts + 1] = string.format("%d:%s:%s:%d/%d", b.id, b.kind, b.state, b.built, b.total) end
+        for _, b in ipairs(rec.blocs) do
+          local miss = {}
+          for _, mm in ipairs(b.missing or {}) do miss[#miss + 1] = tostring(mm[1]) .. " " .. tostring(mm[2]) end
+          parts[#parts + 1] = string.format("%d:%s:%s:%d/%d%s", b.id, b.kind, b.state, b.built, b.total,
+            (#miss > 0 or b.reason) and (" (" .. tostring(b.reason) .. " ; manque " .. table.concat(miss, ", ") .. ")") or "")
+        end
         ctx.log(string.format("tick %d : blocs [%s] ; temoin %d bloc(s) ; sig %s", e.tick, table.concat(parts, " "), rec.control,
           tostring(s and s.sig or "?")))
       end

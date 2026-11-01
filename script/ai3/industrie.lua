@@ -364,7 +364,7 @@ function Ind.status(f)
     for _, o in ipairs(p and p.outs or {}) do outs[#outs + 1] = { x = o.x, y = o.y, at = o.at } end
     for _, q in ipairs(p and p.quais or {}) do quais[#quais + 1] = { x = q.x, y = q.y, item = q.item } end
     blocs[#blocs + 1] = { id = b.id, items = b.items, kind = b.kind, state = m and m.state or b.state, built = m and m.built or 0,
-      total = m and m.total or 0, outs = outs, quais = quais, barre = b.barre }
+      total = m and m.total or 0, outs = outs, quais = quais, barre = b.barre, reason = m and m.reason or nil, missing = m and m.missing or nil }
   end
   return { n = st.n, blocs = blocs, sig = st.sig }
 end
@@ -395,6 +395,29 @@ remote.add_interface("fo-ind", {
     local out = {}
     for _, it in ipairs(list or {}) do out[it[1]] = chest.insert({ name = it[1], count = it[2] }) end
     return out
+  end,
+  --- BANC SEULEMENT (le temps : des PNJ à 1 minute de jeu mettent plus de 9 000 ticks à bâtir 55 entités) : ravive les fantômes du projet `id`
+  --- comme le ferait un PNJ (même geste que script/team/build.lua : ravivage, puis recette de la machine). Le reste (états, fils, fin) est celui du plan directeur.
+  revive = function(key, id)
+    local f = team_of(key)
+    local p = f and f.build and f.build.projects[id]
+    local surface = f and f.hq and f.hq.surface
+    if not (p and surface) then return nil end
+    local n = 0
+    for _, e in ipairs(p.ents or {}) do
+      if not e.built then
+        for _, gh in ipairs(surface.find_entities_filtered({ ghost_name = e.name, position = { e.x, e.y }, radius = 0.3, force = f.force })) do
+          if gh.valid then
+            local _, ent = gh.revive({ raise_revive = true })
+            if ent and ent.valid then
+              n = n + 1
+              if e.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, e.recipe) end
+            end
+          end
+        end
+      end
+    end
+    return n
   end,
   status = function(key)
     local f = team_of(key)
