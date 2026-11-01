@@ -52,6 +52,26 @@ def to_npy(png_path, npy_path):
     bpy.data.images.remove(img)
 
 
+def passe_masque(scene, d, name, sun, ground):
+    """Série (RB-V1) : pièces peintes (matière marquée fo_teinte) en blanc, tout le reste en noir et opaque (il cache la peinture
+    derrière lui), sans aucune lumière. La proportion de blanc d'un pixel devient l'alpha de la couche de teinte du propriétaire."""
+    objs = S.piece_objects()
+    blanc = S.mat_emissive("fo_masque", (1.0, 1.0, 1.0), strength=1.0, base=(1.0, 1.0, 1.0))
+    world = scene.world
+    bg = world.node_tree.nodes["Background"]
+    bg.inputs["Strength"].default_value = 0.0
+    S._sync_sky(world)
+    sun.hide_render = True
+    for x in S.EXTRA_LIGHTS:
+        x.hide_render = True
+    ground.is_shadow_catcher = False
+    ground.visible_camera = False
+    S._swap_materials(objs, lambda m: blanc if (m is not None and m.get("fo_teinte")) else S._black_mat())
+    p = os.path.join(d, "%s-mask.png" % name)
+    S.render_to(scene, p)
+    return p
+
+
 def main():
     argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
     ap = argparse.ArgumentParser()
@@ -60,6 +80,7 @@ def main():
     ap.add_argument("--samples", type=int, default=128)
     ap.add_argument("--quick", action="store_true")
     ap.add_argument("--apercu", action="store_true")
+    ap.add_argument("--reprise", action="store_true", help="saute les variantes déjà rendues")
     ap.add_argument("--samples-passes", default="",
                     help="décision D-7 (lot A3) : échantillons PAR PASSE, ex. « shadow=32 » ; les autres passes gardent "
                          "--samples. Vide (défaut) : comportement d'avant, inchangé")
@@ -93,6 +114,8 @@ def main():
     for k, v in piece.PIECE.get("calib", {}).items():
         setattr(C, k, v)
     for name in [n for n in a.names.split(",") if n]:
+        if a.reprise and os.path.isfile(os.path.join(a.out, name, "render.json")):     # série : un lancement interrompu reprend ici
+            continue
         t0 = time.time()
         meta = piece.PIECE["variants"][name]
         C.PX_PER_UNIT_HR = float(meta.get("ppu", 64.0))
@@ -135,6 +158,8 @@ def main():
         os.makedirs(d, exist_ok=True)
         t1 = time.time()
         res = S.render_passes(scene, d, name, layers, sun, ground)
+        if meta.get("serie"):
+            res["mask"] = passe_masque(scene, d, name, sun, ground)
         t_render = time.time() - t1
         for k, path in res.items():
             to_npy(path, path[:-4] + ".npy")

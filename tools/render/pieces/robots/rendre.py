@@ -47,6 +47,13 @@ def etalonne(img, grade):
     return out
 
 
+def pres_du_corps(alpha, rayon=9):
+    """Masque du liseré de contact : 1 à moins de `rayon` px du corps opaque, 0 ailleurs (le bruit du liseré coûterait toute la toile dans l'atlas)."""
+    from PIL import Image, ImageFilter
+    im = Image.fromarray((alpha > 0.5).astype(np.uint8) * 255, "L").filter(ImageFilter.MaxFilter(2 * rayon + 1))
+    return np.asarray(im).astype(np.float64) / 255.0
+
+
 def post(name, cache, out_root):
     d = os.path.join(cache, name)
     info = json.load(open(os.path.join(d, "render.json"), encoding="utf-8"))
@@ -66,12 +73,25 @@ def post(name, cache, out_root):
     gl = npy("glow")
     if gl is not None:
         hr["glow"] = P.additive_layer(gl)
+    ms = npy("mask")
+    if ms is not None:
+        # teinte du propriétaire : gris de la couche principale (normalisé), alpha = part de peinture visible
+        lum = (0.299 * hr["main"][..., 0] + 0.587 * hr["main"][..., 1] + 0.114 * hr["main"][..., 2]) * 1.7
+        a_m = np.clip(ms[..., 0], 0.0, 1.0) * ms[..., 3] * np.clip(hr["main"][..., 3], 0.0, 1.0)
+        hr["mask"] = np.dstack([np.clip(lum, 0.0, 1.0)] * 3 + [a_m])
+    if meta.get("serie"):
+        # le liseré de contact très faible couvre toute la toile : coupé, sinon la case de la feuille vaut la toile entière
+        hr["main"] = hr["main"].copy()
+        hr["main"][..., 3] = hr["main"][..., 3] * pres_du_corps(hr["main"][..., 3])
+        if "shadow" in hr:
+            hr["shadow"] = hr["shadow"].copy()
+            hr["shadow"][..., 3] = np.where(hr["shadow"][..., 3] < 10.0 / 255.0, 0.0, hr["shadow"][..., 3])
     out = os.path.join(out_root, name)
     os.makedirs(out, exist_ok=True)
     spec = {"variant": name, "epoch": piece.PIECE["variants"][name]["epoch"], "samples": info["samples"],
             "seconds": info["seconds"], "seconds_render": info.get("seconds_render"), "verts": info.get("verts"),
             "canvas": info["canvas"], "kit": "robots", "layers": {}, "ppu": info.get("ppu", 64.0), "tris": info.get("tris")}
-    for layer in ("main", "shadow", "glow"):
+    for layer in ("main", "shadow", "glow", "mask"):
         if layer not in hr:
             continue
         box = P.trim_box(hr[layer], origin)
@@ -96,6 +116,7 @@ def main():
     ap.add_argument("--cache", default="")
     ap.add_argument("--samples", type=int, default=32)
     ap.add_argument("--post-only", action="store_true")
+    ap.add_argument("--reprise", action="store_true", help="saute les variantes déjà rendues")
     ap.add_argument("--passes", default="", help="échantillons par passe, ex. shadow=16,ao=16 (D-7, F140) ; les autres passes gardent --samples")
     ap.add_argument("--quick", action="store_true", help="passes main, glow, shadow seulement (essais)")
     a = ap.parse_args()
@@ -109,14 +130,14 @@ def main():
     if not a.post_only:
         cmd = [sys.executable, LOCK, "--disque", a.cache, "--disque", a.out, "--", BLENDER, "-b", "--factory-startup",
                "-noaudio", "--python-exit-code", "1", "-P", BATCH, "--", "--names", ",".join(names), "--out", a.cache,
-               "--samples", str(a.samples), "--samples-passes", a.passes] + (["--quick"] if a.quick else ["--apercu"])
+               "--samples", str(a.samples), "--samples-passes", a.passes] + (["--quick"] if a.quick else ["--apercu"]) + (["--reprise"] if a.reprise else [])
         env = dict(os.environ, PYTHONIOENCODING="utf-8")
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, env=env)
         log = []
         for raw in p.stdout:
             line = raw.decode("utf-8", "replace").rstrip()
             log.append(line)
-            if line.startswith("[FO-RENDER]") or "Error" in line or "Traceback" in line or "line " in line:
+            if line.startswith("[FO-RENDER]") and not os.environ.get("FO_SERIE_SILENCE") or "Error" in line or "Traceback" in line or "line " in line:
                 print(line, flush=True)
         rc = p.wait()
         open(os.path.join(a.cache, "rendre.log"), "a", encoding="utf-8").write("\n".join(log[-300:]) + "\n")
@@ -125,6 +146,8 @@ def main():
             print("\n".join(log[-40:]))
             sys.exit(rc)
     for n in names:
+        if a.reprise and os.path.isfile(os.path.join(a.out, n, "spec.json")):
+            continue
         s = post(n, a.cache, a.out)
         print("[FO-POST] %s %s %.0f s de rendu Blender" % (n, sorted(s["layers"]), s["seconds"]), flush=True)
     print("[FO-RENDRE] %.0f s en tout" % (time.time() - t0), flush=True)

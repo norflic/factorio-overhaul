@@ -39,6 +39,9 @@ def matieres(S):
                           nu=(0.72, 0.45, 0.26), crasse=0.7, crasse_col=cr, graine=302)
     M["laiton"] = F.surf("rb3_laiton", (0.72, 0.5, 0.15), rough=0.3, met=0.5, usure=0.5, nu=(0.8, 0.65, 0.34), crasse=0.65, crasse_col=cr,
                          coulures=0.2, graine=303)
+    # peinture du propriétaire (couche « masque » des feuilles, teinte par prototype) : le gris clair prend la couleur en jeu
+    M["peint"] = F.surf("rb3_peint", (0.62, 0.45, 0.16), rough=0.42, met=0.2, usure=0.55, nu=(0.75, 0.62, 0.34), crasse=0.5, crasse_col=cr, graine=310)
+    M["peint"]["fo_teinte"] = 1
     M["fonte"] = F.surf("rb3_fonte", (0.075, 0.066, 0.06), rough=0.62, met=0.5, usure=0.75, nu=(0.25, 0.235, 0.22), crasse=0.8, crasse_col=cr,
                         coulures=0.45, rouille=(0.11, 0.05, 0.022), graine=304)
     M["fonte2"] = F.surf("rb3_fonte2", (0.13, 0.112, 0.1), rough=0.55, met=0.55, usure=0.8, nu=(0.32, 0.3, 0.27), crasse=0.8, crasse_col=cr,
@@ -53,7 +56,8 @@ def matieres(S):
     return M
 
 
-def squelette(phase):
+def squelette(phase, cap=CAP, pas=PAS):
+    """pas : longueur d'un cycle dans le repère du robot (feuilles de jeu : selon la direction, Mr.direction_jeu)."""
     sq = Mr.Squelette()
     ph = 0.0 if phase is None else phase
     bat = 0.0 if phase is None else 1.0
@@ -61,7 +65,7 @@ def squelette(phase):
     bob = bat * 0.024 * math.cos(2.0 * a)
     tangage = bat * 0.035 * math.sin(a)
     roulis = bat * 0.03 * math.sin(a + 0.6)
-    sq.os("racine", None, Mr.chaine(Mr.rz(CAP), Mr.ech(ECH)))
+    sq.os("racine", None, Mr.chaine(Mr.rz(cap), Mr.ech(ECH)))
     m_corps = Mr.chaine(Mr.tr(0.0, 0.0, Z0 + bob), Mr.ry(tangage), Mr.rx(roulis))
     sq.os("corps", "racine", m_corps)
     sq.os("regul", "corps", Mr.autour((-0.3, 0.0, 0.0), Mr.rz(a * 3.0 + 0.5)))
@@ -72,7 +76,7 @@ def squelette(phase):
             sq.os("roue_%s%s" % (n2, nom), "corps", Mr.chaine(Mr.tr(av * HX, cote * ROUE_Y, HZ), Mr.ry(tour_)))
         sq.os("bielle_" + nom, "corps", Mr.tr(MANETON * math.cos(tour_), 0.0, -MANETON * math.sin(tour_)))
     for nom, av, cote, dec in PATTES:
-        dx, dz, appui, u = Mr.pied(phase, dec, PAS, BETA, LEVE)
+        dx, dz, appui, u = Mr.pied(phase, dec, pas, BETA, LEVE)
         h = Mr.app(m_corps, (av * HX, cote * HY, HZ))
         p = (av * HX + 0.03 * av + dx, cote * (HY + 0.02), PIED_Z + dz)
         g, tendu = Mr.ik2(h, p, L1, L2, (av, 0.0, 0.12))
@@ -100,8 +104,8 @@ def modele(lots, M, r):
     c.put(M["cuivre"], G.tour([(-0.40, 0.335), (0.30, 0.325)], 36, "x"))
     c.put(M["fonte"], G.tour([(0.30, 0.0), (0.30, 0.335), (0.32, 0.365), (0.56, 0.365), (0.60, 0.345), (0.625, 0.30), (0.635, 0.0)], 36, "x"))
     c.put(M["fonte2"], G.tour([(-0.40, 0.0), (-0.40, 0.355), (-0.42, 0.38), (-0.60, 0.38), (-0.645, 0.33), (-0.665, 0.22), (-0.67, 0.0)], 36, "x"))
-    for x, re_, w in ((-0.385, 0.358, 0.05), (-0.17, 0.35, 0.036), (0.05, 0.347, 0.036), (0.27, 0.349, 0.05)):
-        c.put(M["laiton"], F.bague((x, 0.0, 0.0), 0.3, re_, w, "x", 36, 0.006))
+    for x, re_, w, m_ in ((-0.385, 0.358, 0.05, "laiton"), (-0.17, 0.352, 0.05, "peint"), (0.05, 0.349, 0.05, "peint"), (0.27, 0.349, 0.05, "laiton")):
+        c.put(M[m_], F.bague((x, 0.0, 0.0), 0.3, re_, w, "x", 36, 0.006))
     for x, rr_, n in ((-0.385, 0.358, 22), (-0.17, 0.35, 20), (0.05, 0.347, 20), (0.27, 0.349, 22), (0.335, 0.365, 22), (0.54, 0.365, 22), (-0.44, 0.38, 22),
                       (-0.58, 0.38, 22)):
         c.put(M["riv"], F.rivets_anneau(x, rr_, n, 0.5))
@@ -130,7 +134,7 @@ def modele(lots, M, r):
     prof = [(0.0, 0.135), (0.035, 0.15), (0.055, 0.105), (0.15, 0.09), (0.38, 0.082), (0.46, 0.1), (0.56, 0.17), (0.61, 0.215), (0.655, 0.225),
             (0.67, 0.205), (0.66, 0.175), (0.5, 0.075), (0.42, 0.06)]
     c.put(M["fonte"], G.tour(prof, 28, "z", (xc, 0.0, 0.335), cap1=True))
-    c.put(M["laiton"], F.bague((xc, 0.0, 0.335 + 0.25), 0.082, 0.103, 0.03, "z", 28, 0.006))
+    c.put(M["peint"], F.bague((xc, 0.0, 0.335 + 0.25), 0.082, 0.106, 0.05, "z", 28, 0.006))
     c.put(M["laiton"], F.bague((xc, 0.0, 0.335 + 0.655), 0.198, 0.235, 0.022, "z", 28, 0.005))
     c.put(M["suie"], F.disque((xc, 0.0, 0.335 + 0.56), 0.13, 0.02, "z", 20))
     # ---------------------------------------------------------------------------- dôme de vapeur, soupape, sifflet
@@ -227,6 +231,7 @@ def modele(lots, M, r):
         cu.put(M["fonte2"], F.disque((0.0, 0.0, 0.0), 0.075, 0.11, "y", 14))
         cu.put(M["fonte2"], F.disque((L1, 0.0, 0.0), 0.058, 0.1, "y", 12))
         cu.put(M["laiton"], F.disque((L1, 0.0, 0.0), 0.028, 0.116, "y", 10))
+        cu.put(M["laiton"], F.bague((L1, 0.0, 0.0), 0.052, 0.072, 0.112, "y", 14, 0.005))    # liseré : le genou reste lisible à zoom 1
         cu.put(M["riv"], F.rivets_ligne((0.07, 0.04, 0.0), (L1 - 0.09, 0.034, 0.0), 4, (0, 1, 0), 0.012))
         cu.put(M["riv"], F.rivets_ligne((0.07, -0.04, 0.0), (L1 - 0.09, -0.034, 0.0), 4, (0, -1, 0), 0.012))
         ti = lots("tibia_" + nom)

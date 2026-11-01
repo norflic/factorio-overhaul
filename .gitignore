@@ -23,3 +23,5 @@ graphics/levels/four/*.png
 graphics/levels/assembleur/*.png
 # Feuilles de jeu de la foreuse (lot F4-B, même règle) : tools/render/pieces/levels/foreuse_e/feuilles.py
 graphics/levels/foreuse/*.png
+# Feuilles de jeu des robots (lot RB-V1, même règle) : tools/render/pieces/robots/feuilles.py
+graphics/robots/*.png

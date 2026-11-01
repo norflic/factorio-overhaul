@@ -8,13 +8,14 @@
   - UN prototype d'unité par propriétaire (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (§3) ;
   - premier robot à l'âge 3 : le Trotte-Vapeur (§0.4, Q1), fabriqué à l'Atelier d'automates (T1, 3 × 3, §5 bis) ;
   - points : P 1, M 2, G 4, géant 12 ; plafond = 12 + 6 × âge (§3) ; réglage `fo-war-robots-cap` (0 = automatique).
-  Visuel PROVISOIRE (Ro.PROVISIONAL) : petit cracheur vanilla teinté gris acier, 0 image neuve (RB-1 ; vrai visuel : lot RB-V0).
+  Visuel : `sheet` = nom de la feuille dans graphics/robots/sprites.lua (lot RB-V1) ; un robot sans feuille garde le cracheur vanilla en gris
+  acier (Ro.PROVISIONAL dit s'il en reste). L'atelier reste provisoire (assembleur teinté, lot US-V1).
   Aucun nom d'objet ici n'est lu par shared/ai3 ni script/ai3 (tests/iag_test.lua §8) : le cerveau lira les prototypes (RB-3).
 ]]
 
 local Ro = {}
 
-Ro.PROVISIONAL = true -- visuel provisoire (voir l'en-tête) ; marqué dans les noms et descriptions
+Ro.PROVISIONAL = false -- plus aucun robot sans feuille (lot RB-V1) ; à remettre à vrai si un robot arrive avant ses images
 
 Ro.SETTING = "fo-war-robots"         -- réglage maître (runtime-global) : éteint = ni balayage, ni unité, ni ordre
 Ro.SETTING_CAP = "fo-war-robots-cap" -- plafond en points (0 = automatique : 12 + 6 × âge)
@@ -53,7 +54,7 @@ Ro.CATEGORIES = { "fo-robots-1" }
 --- ingrédient, RB0-1) ; `mu` : valeur visée (but du plan : secondes du débit de fin d'âge, §2) ; coût réel = tests/robots_test.lua.
 Ro.ROBOTS = {
   {
-    id = "steam-trotter", age = 3, class = "P", role = "assault-light", factory = "fo-robot-workshop",
+    id = "steam-trotter", age = 3, class = "P", role = "assault-light", factory = "fo-robot-workshop", sheet = "trotte",
     hp = 900, shot = { damage = 50, cooldown = 30 }, range = 18, speed = 0.14, half = 0.4, tons = 2,
     ingredients = { { "engine-unit", 10 }, { "steel-plate", 22 } }, time = 8, mu = 200,
   },

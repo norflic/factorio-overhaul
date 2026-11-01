@@ -101,6 +101,39 @@ def controle_robot(nom):
     return g, sommets, lots.n
 
 
+def controle_directions(nom, n, images, d_tuiles):
+    """Série : à chaque direction, pas de glissement à l'écran pour UNE distance_per_frame, aucun pied hors de portée, images bouclées."""
+    mod = importlib.import_module(nom)
+    ech_ = getattr(mod, "ECH", 1.0)
+    pire = 0.0
+    for k in range(n):
+        cap, pas = Mr.direction_jeu(k, n, d_tuiles)
+        th = 2.0 * math.pi * k / n
+        # déplacement dans la scène pour 1 cycle, le même à l'écran que d_tuiles en jeu (x inchangé, y × PROJ)
+        ecran = math.hypot(pas * math.sin(th), pas * math.cos(th) * Mr.PROJ)
+        ctl(abs(ecran - d_tuiles) < 1e-9, "%s direction %d : %.4f tuiles à l'écran au lieu de %.4f" % (nom, k, ecran, d_tuiles))
+        pas_r = pas / ech_
+        for f in range(images):
+            q = mod.squelette(f / float(images), cap, pas_r)
+            ctl(not any(m["tendu"] for m in q.marques.values()), "%s direction %d image %d : pied hors de portée" % (nom, k, f))
+        ref = {}
+        for i in range(240):
+            ph = i / 240.0
+            for pied_, m in mod.squelette(ph, cap, pas_r).marques.items():
+                if m["appui"]:
+                    x = (m["pied"][0] + ph * pas_r) * ech_
+                    ref.setdefault(pied_, x)
+                    pire = max(pire, abs(x - ref[pied_]) * PX)
+                else:
+                    ref.pop(pied_, None)
+    ctl(pire <= 1.0, "%s : glissement %.3f px HR dans la série" % (nom, pire))
+    # orientation 0 : nord, vers +Y ; 4 sur 16 : est, vers +X
+    ctl(abs(math.cos(Mr.direction_jeu(0, 16, 1.0)[0])) < 1e-9 and math.sin(Mr.direction_jeu(0, 16, 1.0)[0]) > 0.0, "direction 0 : pas vers le nord")
+    ctl(abs(Mr.direction_jeu(4, 16, 1.0)[0]) < 1e-9, "direction 4 : pas vers l'est")
+    ctl(abs(Mr.direction_jeu(0, 16, 1.0)[1] - 1.0 / Mr.PROJ) < 1e-9, "direction 0 : pas de scène faux")
+    return pire
+
+
 def controle_mutants():
     """Le contrôle du glissement doit refuser un cycle faussé."""
     class Mutant:
@@ -132,6 +165,7 @@ def main():
     for nom in ("trotte", "levite", "couronne"):
         g, s, n = controle_robot(nom)
         print("[RB-V0] %s : glissement max %.4f px HR, %d pièces, %d sommets" % (nom, g, n, s))
+    print("[RB-V0] série trotte : glissement max %.4f px HR" % controle_directions("trotte", 16, 8, 1.0))
     _ = F
     print("[RB-V0] BILAN : %d OK, %d ECHEC(S)" % tuple(OK))
     return 1 if OK[1] else 0

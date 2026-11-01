@@ -128,6 +128,19 @@ def pied_monde(phase, decalage, pas, beta, x0=0.0):
     return x0 + phase * pas + pied(phase, decalage, pas, beta, 0.0)[0]
 
 
+# ------------------------------------------------------------------------------------------------ directions du jeu
+PROJ = math.sqrt(0.5)      # apply_projection (F121, E70) : compression verticale de la vue
+
+
+def direction_jeu(k, n, d_tuiles):
+    """Image k d'une feuille à n directions : le moteur attend une rotation UNIFORME θ = 2π·k/n depuis le nord, sens horaire
+    (tools/render/pieces/levels/gun_e/feuilles.py, orientation_image). Rend (cap Blender, pas Blender) : pour que le pied d'appui ne
+    glisse pas à l'écran quand l'unité avance de d_tuiles par cycle, la longueur parcourue dans la scène dépend de la direction
+    (une tuile vers le nord vaut 1 / PROJ unité de scène). Une seule distance_per_frame par prototype : d_tuiles / images."""
+    th = 2.0 * math.pi * k / n
+    return math.pi / 2.0 - th, d_tuiles / math.sqrt(math.sin(th) ** 2 + (PROJ * math.cos(th)) ** 2)
+
+
 # ------------------------------------------------------------------------------------------------ squelette
 class Squelette:
     """Hiérarchie d'os (équivalent pur des empties) : chaque os a un parent et une matrice locale."""

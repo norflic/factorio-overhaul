@@ -5,9 +5,10 @@
     « fo-robots-1 » ; ni fluide, ni productivité (le kit pèse 1 case, RB0-3).
   - Kit : objet de pile 1, produit de la recette du robot (ingrédients d'au plus 100 chacun : RB0-1). Pas de `place_result` :
     poser un kit à la main viendra avec l'outil du joueur (RB-2).
-  - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Visuel PROVISOIRE
-    (Ro.PROVISIONAL) : animations du petit cracheur vanilla régénérées en gris acier (une teinte ne fait que multiplier, F36 : on
-    repasse par les fonctions globales du jeu avec d'autres teintes, comme prototypes/enemies.lua), mêlées d'un peu de la couleur de la faction.
+  - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Lot RB-V1 (1/11) : un robot
+    qui a une feuille (champ `sheet`, graphics/robots/sprites.lua, généré par tools/render/pieces/robots/feuilles.py, PNG hors de git, D-6) a
+    ses vraies images : marche 16 directions, tir, ombre, lueur et une couche de PEINTURE teinte par propriétaire. Sans feuille : visuel
+    PROVISOIRE, le cracheur vanilla en gris acier (une teinte ne fait que multiplier, F36).
   - Arme : tir à portée (balles physiques) de catégorie « fo-robot » ; PV et DPS du plan, à recaler (RB-4).
   - Technologie « Automates à vapeur » : débloque l'atelier et le Trotte-Vapeur (âge 3).
   À charger APRÈS prototypes/enemies.lua (les globales des animations du petit cracheur) : voir data.lua.
@@ -17,6 +18,7 @@ local lib = require("prototypes.lib")
 local Ro = require("shared.content.robots")
 local F = require("shared.faction.config")
 local C = require("shared.content.crafts")
+local SPR = require("__factorio-overhaul__/graphics/robots/sprites")
 
 local out = {}
 
@@ -95,6 +97,66 @@ end
 
 local function rgba(c) return { r = c.r, g = c.g, b = c.b, a = 1 } end
 
+-- Couleur de la peinture d'un propriétaire (couche « mask » des feuilles) : le laiton de la bible pour le joueur, sa couleur pour une faction.
+local BRASS = { r = 0.86, g = 0.66, b = 0.27 }
+local function paint(owner)
+  if owner == Ro.PLAYER_OWNER then return BRASS end
+  for _, f in ipairs(F.factions) do
+    if f.key == owner then return { r = f.color.r, g = f.color.g, b = f.color.b } end
+  end
+  error("robots : propriétaire inconnu " .. tostring(owner))
+end
+
+--- Une couche d'une feuille : basse définition (16 px par tuile, scale 2), hr (64 px par tuile, scale 0,5). Mêmes cases, même origine.
+local function sheet_layer(c, anim, directions)
+  return {
+    filename = c.lr, width = c.lw, height = c.lh, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
+    shift = c.shift, scale = 2,
+    hr_version = {
+      filename = c.hr, width = c.w, height = c.h, line_length = anim.line_length, frame_count = anim.frame_count, direction_count = directions,
+      shift = c.shift, scale = 0.5,
+    },
+  }
+end
+
+local function both(l, key, v)
+  l[key] = v
+  l.hr_version[key] = v
+end
+
+--- Animation complète : ombre, corps, peinture du propriétaire, lueur.
+local function sheet_animation(sheet, anim_name, owner)
+  local anim = sheet.anims[anim_name]
+  local layers = {}
+  local k = anim.couches
+  local sh = sheet_layer(k.shadow, anim, sheet.directions)
+  both(sh, "draw_as_shadow", true)
+  layers[#layers + 1] = sh
+  layers[#layers + 1] = sheet_layer(k.main, anim, sheet.directions)
+  local m = sheet_layer(k.mask, anim, sheet.directions)
+  both(m, "tint", rgba(paint(owner)))
+  layers[#layers + 1] = m
+  if k.glow then
+    local g = sheet_layer(k.glow, anim, sheet.directions)
+    both(g, "draw_as_glow", true)
+    both(g, "blend_mode", "additive")
+    layers[#layers + 1] = g
+  end
+  return { layers = layers }
+end
+
+--- Une machine, pas un insecte : ni cadavre ni cri de cracheur (le copié en vient).
+local function as_machine(u, sheet)
+  local turret = assert(data.raw["ammo-turret"]["gun-turret"], "robots : gun-turret absente")
+  u.corpse = "small-remnants"
+  u.dying_explosion = "explosion"
+  u.damaged_trigger_effect = turret.damaged_trigger_effect
+  u.dying_sound, u.working_sound, u.walking_sound, u.running_sound_animation_positions, u.water_reflection = nil, nil, nil, nil, nil
+  u.alternative_attacking_frame_sequence = nil -- celle du cracheur vise ses 16 images (« Frame index 3 is out of range », 1/11)
+  u.distance_per_frame = sheet.distance_per_frame
+  lib.set_icons(u, { { icon = sheet.icone, icon_size = 64, icon_mipmaps = 4 } })
+end
+
 -- Tir : balles physiques, comme les soldats (prototypes/faction.lua), de catégorie « fo-robot ».
 local function robot_ammo(damage)
   return {
@@ -120,7 +182,8 @@ for i, r in ipairs(Ro.ROBOTS) do
   out[#out + 1] = {
     type = "item", name = r.kit,
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
-    icons = icons_of("item", "engine-unit", KIT_TINT), subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i),
+    icons = r.sheet and { { icon = SPR[r.sheet].icone, icon_size = 64, icon_mipmaps = 4 } } or icons_of("item", "engine-unit", KIT_TINT),
+    subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i),
     stack_size = 1,
   }
   out[#out + 1] = {
@@ -161,12 +224,16 @@ for i, r in ipairs(Ro.ROBOTS) do
       projectile_creation_distance = 0.6,
       range_mode = "bounding-box-to-bounding-box",
       ammo_type = robot_ammo(r.shot.damage),
-      animation = spitterattackanimation(scale, t1, t2),
+      animation = r.sheet and sheet_animation(SPR[r.sheet], "tir", owner) or spitterattackanimation(scale, t1, t2),
       sound = smg.attack_parameters.sound,
     }
-    u.run_animation = spitterrunanimation(scale, t1, t2)
+    u.run_animation = r.sheet and sheet_animation(SPR[r.sheet], "run", owner) or spitterrunanimation(scale, t1, t2)
     u.ai_settings = { destroy_when_commands_fail = false, allow_try_return_to_spawner = false, do_separation = true }
-    lib.set_icons(u, icons_of("unit", "medium-spitter", tint))
+    if r.sheet then
+      as_machine(u, SPR[r.sheet])
+    else
+      lib.set_icons(u, icons_of("unit", "medium-spitter", tint))
+    end
     out[#out + 1] = u
   end
 end

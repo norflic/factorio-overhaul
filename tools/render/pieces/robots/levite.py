@@ -1,9 +1,9 @@
 """LÉVITE (robot 9, âge 12 Supraconducteurs, assaut lourd ; PLAN §2 : corps sur 2 anneaux flottants ; image 5 tuiles, boîte ±0,9).
 
-Idée : un marcheur SANS JAMBES. Ses deux pieds sont deux grands anneaux chromés horizontaux qui flottent au-dessus du sol ;
-un anneau reste immobile (appui, sans glissement) pendant que l'autre vole vers l'avant, et le corps, retenu par rien, passe
-de l'un à l'autre. Rien ne touche rien : quille, coque, tête, épaulières, rails et anneaux sont séparés par des VIDES
-visibles (signature de l'âge 12). Corps asymétrique : côté caméra une épaulière qui porte 2 longs rails et leurs anneaux
+Idée : un marcheur SANS JAMBES, qui rame dans le champ magnétique. Deux grands anneaux chromés horizontaux flottent à gauche et
+à droite du corps, à 1 tuile du sol, tenus chacun par un bras à coude ; un anneau reste immobile (appui, sans glissement)
+pendant que l'autre vole vers l'avant. Corrigé après critique (1/11) : les anneaux posés à plat se lisaient « lunettes par
+terre ». Quille, coque, tête et épaulières restent séparées par des VIDES visibles (signature de l'âge 12). Corps asymétrique : côté caméra une épaulière qui porte 2 longs rails et leurs anneaux
 d'accélération ; dans le dos, un réservoir cryogénique debout, givré, et 2 aubes noires.
 Bible (DESIGN_EPOQUES, époque 12) : noir #26282E, chrome #9AA3AD, givre #DDEEFF, cyan #4AF0FF.
 """
@@ -13,10 +13,12 @@ import formes as F
 import geo as G
 import marionette as Mr
 
-CAP = math.radians(-163.0)     # presque de profil, un peu vers la caméra : rails, vide et anneaux se lisent
-Z0 = 3.0                # centre de la coque, à l'arrêt
-Y_AN, Z_AN = 0.95, 0.27
-R_AN = 0.86
+CAP = math.radians(-115.0)     # vers la caméra : un anneau à gauche, un à droite, et les rails en diagonale
+Z0 = 2.75                # centre de la coque, à l'arrêt
+Y_AN, Z_AN = 1.72, 1.05
+R_AN = 0.68
+EPAULE = (0.0, 1.5, 0.5)    # attache du bras, repère du corps (côté +Y ; -Y en miroir)
+L1, L2 = 1.05, 1.75
 PAS, BETA, LEVE = 2.1, 0.62, 0.6
 PIEDS = (("g", 1.0, 0.0), ("d", -1.0, 0.5))
 IMAGES = 6
@@ -64,10 +66,18 @@ def squelette(phase):
         dx, dz, appui, u = Mr.pied(phase, dec, PAS, BETA, LEVE)
         p = (0.05 + dx, s * Y_AN, Z_AN + dz)
         tang = 0.0 if appui else -0.4 * math.sin(math.pi * u)           # l'anneau en vol pique vers l'avant
-        rou = 0.0 if appui else s * 0.16 * math.sin(math.pi * u)
-        sq.os("an_" + nom, "racine", Mr.chaine(Mr.tr(p[0], p[1], p[2]), Mr.ry(tang), Mr.rx(rou)))
+        rou = s * (0.2 + (0.0 if appui else 0.16 * math.sin(math.pi * u)))      # le bord extérieur relevé, comme une aile
+        m_an = Mr.chaine(Mr.tr(p[0], p[1], p[2]), Mr.ry(tang), Mr.rx(rou))
+        sq.os("an_" + nom, "racine", m_an)
         sq.os("tourne_" + nom, "an_" + nom, Mr.rz(s * 2.0 * a))
-        sq.marques[nom] = {"pied": p, "appui": appui, "tendu": False}
+        # bras : de l'épaulière au moyeu de l'anneau, coude vers l'extérieur
+        m_ep = Mr.mm(m_corps, sq.local["ep_" + nom])
+        ep = Mr.app(m_ep, (EPAULE[0], s * EPAULE[1], EPAULE[2]))
+        moyeu = Mr.app(m_an, (0.0, 0.0, 0.14))
+        g, tendu = Mr.ik2(ep, moyeu, L1, L2, (0.0, s, 0.4))
+        sq.os("bras1_" + nom, "racine", Mr.repere(ep, G.sub(g, ep), (0.0, 0.0, 1.0)))
+        sq.os("bras2_" + nom, "racine", Mr.repere(g, G.sub(moyeu, g), (0.0, 0.0, 1.0)))
+        sq.marques[nom] = {"pied": p, "appui": appui, "tendu": tendu}
     return sq
 
 
@@ -89,6 +99,10 @@ def _anneau(lots, nom, M, r):
         ang = r.f(0.0, G.TAU)
         c, s = math.cos(ang), math.sin(ang)
         a.put(M["givre"], G.boite(((R_AN + r.f(0.03, 0.09)) * c, (R_AN + r.f(0.03, 0.09)) * s, 0.13), (r.f(0.03, 0.08), r.f(0.08, 0.2), 0.012), ang))
+    # traverse et moyeu : le bras tient l'anneau par son centre
+    a.put(M["chrome2"], F.bielle((0.0, -R_AN + 0.02, 0.09), (0.0, R_AN - 0.02, 0.09), 0.07, 0.05))
+    a.put(M["noir"], F.disque((0.0, 0.0, 0.1), 0.15, 0.1, "z", 16))
+    a.put(M["cyan2"], F.bague((0.0, 0.0, 0.1), 0.15, 0.17, 0.05, "z", 16))
     t = lots("tourne_" + nom)
     t.put(M["chrome2"], F.bague((0.0, 0.0, 0.0), R_AN - 0.34, R_AN - 0.23, 0.07, "z", 48, 0.012))
     for i in range(6):     # couronne : blocs séparés par des vides, qui tournent dans l'anneau
@@ -100,9 +114,20 @@ def _anneau(lots, nom, M, r):
 
 
 def modele(lots, M, r):
-    # ---------------------------------------------------------------------------- pieds
+    # ---------------------------------------------------------------------------- anneaux et bras
     for nom, s, dec in PIEDS:
         _anneau(lots, nom, M, r)
+        b1 = lots("bras1_" + nom)
+        b1.put(M["noir2"], F.poutre([(-0.12, 0.26, 0.24), (0.45, 0.2, 0.17), (L1 - 0.05, 0.15, 0.13), (L1 + 0.07, 0.15, 0.15)]))
+        b1.put(M["chrome"], F.disque((0.0, 0.0, 0.0), 0.15, 0.28, "y", 16))
+        b1.put(M["chrome2"], F.poutre([(0.12, 0.05, 0.03, 0.095), (L1 - 0.14, 0.04, 0.03, 0.075)]))
+        b1.put(M["cyan2"], G.boite((L1 * 0.45, 0.0, -0.09), (0.3, 0.05, 0.012)))
+        b2 = lots("bras2_" + nom)
+        b2.put(M["chrome"], F.disque((0.0, 0.0, 0.0), 0.12, 0.2, "y", 16))
+        b2.put(M["chrome2"], F.poutre([(0.0, 0.12, 0.12), (0.5, 0.1, 0.1), (L2 - 0.06, 0.065, 0.065)], 0.3))
+        for x, k_ in ((0.42, 0.075), (0.92, 0.065), (1.38, 0.055)):
+            b2.put(M["noir"], F.bague((x, 0.0, 0.0), k_ - 0.03, k_ + 0.03, 0.09, "x", 12, 0.01))
+            b2.put(M["cyan"], F.bague((x, 0.0, 0.0), k_ + 0.015, k_ + 0.032, 0.04, "x", 12))
     # ---------------------------------------------------------------------------- coque en ogive (10 pans), origine au centre
     c = lots("corps")
     a0 = math.pi / 10.0
@@ -180,10 +205,10 @@ def modele(lots, M, r):
     cz = zg + 0.33
     for dy in (-0.15, 0.15):
         y = yg + dy
-        g.put(M["chrome"], F.poutre([(-0.8, 0.08, 0.14), (2.75, 0.06, 0.1)], 0.2), (lambda v, y=y, z=cz: (v[0], v[1] + y, v[2] + z)))
-        g.put(M["noir2"], F.poutre([(-0.77, 0.03, 0.18), (2.65, 0.022, 0.13)], 0.2), (lambda v, y=y, z=cz: (v[0], v[1] + y, v[2] + z)))
-        g.put(M["chrome2"], F.disque((2.77, y, cz), 0.06, 0.08, "x", 10))
-    for x, ep, k in ((-0.05, 0.11, 1.0), (0.72, 0.08, 1.0), (1.36, 0.08, 0.95), (1.98, 0.08, 0.9), (2.54, 0.08, 0.85)):     # anneaux d'accélération, vides autour des rails
+        g.put(M["chrome"], F.poutre([(-0.8, 0.08, 0.14), (1.68, 0.06, 0.1)], 0.2), (lambda v, y=y, z=cz: (v[0], v[1] + y, v[2] + z)))
+        g.put(M["noir2"], F.poutre([(-0.77, 0.03, 0.18), (1.6, 0.022, 0.13)], 0.2), (lambda v, y=y, z=cz: (v[0], v[1] + y, v[2] + z)))
+        g.put(M["chrome2"], F.disque((1.7, y, cz), 0.06, 0.08, "x", 10))
+    for x, ep, k in ((-0.05, 0.11, 1.0), (0.6, 0.08, 1.0), (1.08, 0.08, 0.93), (1.52, 0.08, 0.86)):     # anneaux d'accélération, vides autour des rails
         g.put(M["chrome"], F.bague((x, yg, cz), 0.27 * k, 0.34 * k, ep, "x", 28, 0.012))
         g.put(M["cyan"], F.bague((x, yg, cz), 0.255 * k, 0.27 * k, ep * 0.6, "x", 28))
         g.put(M["noir"], F.bielle((x, yg - 0.33 * k, cz), (x, yg - 0.15, cz), 0.04, 0.07))
@@ -193,7 +218,7 @@ def modele(lots, M, r):
         g.put(M["cyan2"], G.boite((x, yg + 0.235, zg + 0.22), (0.07, 0.008, 0.04)))
     # ---------------------------------------------------------------------------- épaulière droite (-Y) : bloc nu et évents, contrepoids des rails
     d = lots("ep_d")
-    yd, zd = -1.2, -0.12
+    yd, zd = -1.28, 0.62
     bloc_d = [(x, yd + y) for x, y in bloc]
     d.put(M["noir"], G.prisme(bloc_d, zd - 0.22, zd + 0.18, 0.86))
     d.put(M["chrome"], G.prisme(bloc_d, zd - 0.27, zd - 0.21, 0.98))

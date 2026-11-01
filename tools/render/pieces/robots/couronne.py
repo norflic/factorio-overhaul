@@ -317,7 +317,7 @@ def modele(lots, M, r):
     h2.put(M["halo"], F.tore((0.0, 0.0, Z_HALO2), 1.06, 0.012, "z", 60, 5))
     # ---------------------------------------------------------------------------- halo de particules (fixe dans l'image, tourne lentement)
     p = lots("part")
-    for i in range(44):
+    for i in range(22):
         a = r.f(0.0, G.TAU)
         rr_ = r.f(2.7, 4.1)
         z = r.f(9.2, 15.0)
