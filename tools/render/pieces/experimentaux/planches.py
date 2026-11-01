@@ -12,9 +12,10 @@ from PIL import Image, ImageDraw
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import scene as SC  # noqa: E402
+import effets as EF  # noqa: E402
 
 TITRES = {"ixion": "IXION, expérimental d'âge 13 : roue de feu", "bourdon": "BOURDON, expérimental d'âge 15 : cloche-cathédrale en lévitation"}
-ORDRE = {"ixion": ("main", "glow_plasma", "glow_soleil", "glow_hublots"), "bourdon": ("battant_main", "battant_glow", "main", "glow_vitrail", "glow_cristal")}
+ORDRE = {"ixion": ("main", "glow_plasma", "glow_soleil", "glow_hublots", "glow_feu"), "bourdon": ("battant_main", "battant_glow", "main", "glow_vitrail", "glow_cristal")}
 
 
 def couches(src, nom, ppt):
@@ -35,7 +36,8 @@ def z1(src, nom, dest):
     sc = SC.Scene(W_t, H_t, ppt, seed=11)
     sol_y = gy
     ents = [{"pos": (9, sol_y), "layers": SC.vanilla("silo", ppt)}, {"pos": (23, sol_y + 1), "layers": SC.behemoth(ppt)}, {"pos": (37, sol_y), "layers": SC.qg(ppt)}]
-    img = sc.rendu(ents, [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom], "mult": {"glow_soleil": 0.7}}])
+    img = sc.rendu(ents, [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom]}],
+                   air_fn=(lambda i: EF.flammes_tuyeres(i, gx, gy, 0.35, 0, ppt)) if nom == "ixion" else None)
     im = SC.to_im(img)
     d = ImageDraw.Draw(im)
     f = SC.police(22)
@@ -56,7 +58,8 @@ def gros(src, nom, dest):
     else:
         W_t, H_t, gx, gy = 50, 62, 25, 53
     sc = SC.Scene(W_t, H_t, ppt, seed=12)
-    img = sc.rendu([], [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom], "mult": {"glow_soleil": 0.7}}])
+    img = sc.rendu([], [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom]}],
+                   air_fn=(lambda i: EF.flammes_tuyeres(i, gx, gy, 0.35, 0, ppt)) if nom == "ixion" else None)
     im = SC.to_im(img)
     ImageDraw.Draw(im).text((14, 10), TITRES[nom] + " · gros plan, 40 px/tuile (rendu du corps)", fill=(255, 225, 150), font=SC.police(30))
     im.save(os.path.join(dest, "%s-gros.png" % nom), optimize=True)
