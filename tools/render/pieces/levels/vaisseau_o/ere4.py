@@ -556,3 +556,119 @@ def touret(lot, Mj, Mc, x, y, R=0.2, w=0.18):
     lot.put(Mj, G.tour([(y - w, R), (y - w + 0.025, R)], 16, "y", (x, 0.0, R), cap0=True, cap1=True))
     lot.put(Mj, G.tour([(y + w - 0.025, R), (y + w, R)], 16, "y", (x, 0.0, R), cap0=True, cap1=True))
     lot.put(Mc, G.tour([(y - w, R * 0.72), (y + w, R * 0.72)], 16, "y", (x, 0.0, R)))
+
+
+# ================================================================================================ reprise du 1/11 : continuité
+# Critique du 1/11 : la chaîne du vaisseau cassait aux âges 10 à 12. Même fuselage posé bas sur ses berceaux, nacelles et
+# crâne qui gardent le jaune d'origine, et la même dalle à gradins que les âges 13 à 15 (stellaire.terrasses, 16×8 ramené à 14×7).
+POSE_BASSE = dict(T=(0.0, 0.85, 1.62), lacet=-0.105, tangage=0.04, roulis=0.17)
+TERRASSES14 = [
+    ([(-6.9, -3.1), (-6.5, -4.1), (-4.0, -4.15), (-3.7, -3.2), (-6.6, -2.75)], 0.3),
+    ([(-3.5, -4.45), (2.9, -4.45), (3.05, -3.3), (2.1, -2.95), (-2.4, -2.95), (-3.4, -3.2)], 0.14),
+    ([(3.3, -4.2), (6.4, -3.9), (6.9, -2.7), (3.4, -3.25)], 0.36),
+    ([(-6.95, -2.6), (-6.3, -2.5), (-6.2, 2.2), (-6.95, 2.25)], 0.22),
+    ([(-6.9, 2.35), (-5.8, 2.55), (-3.2, 2.95), (-3.3, 4.0), (-6.6, 4.0)], 0.42),
+    ([(-2.9, 3.0), (1.8, 3.0), (1.95, 4.1), (-2.8, 4.1)], 0.28),
+    ([(2.2, 2.1), (6.1, 1.7), (6.9, 2.6), (6.2, 4.1), (2.3, 4.1)], 0.34),
+    ([(-6.1, -2.5), (-3.4, -2.85), (3.3, -2.85), (6.3, -2.5), (6.3, 1.6), (2.0, 2.85), (-3.1, 2.85), (-6.1, 2.2)], 0.1),
+]
+
+
+def _sc(poly, k):
+    cx, cy = sum(p[0] for p in poly) / len(poly), sum(p[1] for p in poly) / len(poly)
+    return [(cx + (p[0] - cx) * k, cy + (p[1] - cy) * k) for p in poly]
+
+
+def terrasses(lot, M, r, liste=TERRASSES14, fentes=24):
+    """Dalle à gradins, même recette que les âges 13 à 15 : pied sombre, dessus de pierre à joints, liseré au bord sud,
+    plus des trappes et des goulottes (un sol vide se lit « bande de terre »)."""
+    lot.xf = None
+    for (poly0, h) in liste:
+        poly = _sc(poly0, 0.97)
+        lot.put(M["pierre2"], G.prisme(poly, 0.0, h - 0.06, top_scale=0.985))
+        lot.put(M["pierre"], G.prisme(_sc(poly, 0.97), h - 0.06, h, top_scale=0.985))
+        n = len(poly)
+        best = min(range(n), key=lambda i: poly[i][1] + poly[(i + 1) % n][1])
+        a, b = poly[best], poly[(best + 1) % n]
+        lot.put(M["bande"], G.boite(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2, h - 0.03), (math.hypot(b[0] - a[0], b[1] - a[1]) * 0.9, 0.06, 0.04),
+                                    rz=math.atan2(b[1] - a[1], b[0] - a[0])))
+    for k in range(fentes):
+        x, y = r.f(-6.0, 6.0), r.f(-2.7, 2.6)
+        w, l, rz = r.f(0.2, 0.5), r.f(0.14, 0.34), r.f(-0.1, 0.1)
+        lot.put(M["acier"], G.boite((x, y, 0.115), (w, l, 0.03), rz))
+        lot.put(M["noyau"], G.boite((x, y, 0.132), (w * 0.8, l * 0.7, 0.006), rz))
+
+
+def butte_nez(lot, M, P, r):
+    """Le nez reste planté dans sa butte, comme de l'âge 0 à l'âge 15."""
+    lot.xf = None
+    nez = P.xf((5.0, 0.0, -0.3))
+    lot.put(M["terre"], G.butte_polaire((nez[0] + 0.2, nez[1] - 0.05, 0.0), 0.95, 1.3, 0.42, r, 12, 48, 0.3, 0.14))
+
+
+def ventre(lot, M, P, mc, r):
+    """Le ventre du vaisseau, le même aux 3 âges : la coque continue sous la cage ; rend la surface."""
+    lot.xf = None
+    fv = surf_fuseau(P.niv((0.25, -0.08, 0.0)), 5.8, 3.1, 0.98, 1.46, P.lacet)
+    C.noyau(lot, M["noyau"], fv, -2.88, 2.88, 0.0, TAU)
+    C.blindage(lot, fv, -2.86, 2.86, -0.5, math.pi + 0.5, mc, r, Mriv=M["riv"], **LISSE)
+    C.blindage(lot, fv, -2.86, 2.86, math.pi + 0.5, TAU - 0.5, lambda rr, xm, am: M["noyau"], r, Mriv=None, **LISSE2)
+    return fv
+
+
+def derive_ailes(lot, M, P, t):
+    """Dérive et ailes D'ORIGINE, gainées (critique : la dérive ne se refait pas). t : clés (base, sombre, jaune, second, voyant)."""
+    lot.xf = P.xf
+    z0, z1 = C.z_dessus(-2.4), C.z_dessus(-3.45)
+    lot.put(M[t[0]], C.prisme_plan([(-2.3, z0 - 0.05), (-3.25, z0 + 1.8), (-3.95, z0 + 1.86), (-3.5, z1 - 0.05)], 0.09))
+    for (poly, m, y) in (([(-2.55, z0 + 0.35), (-3.1, z0 + 1.2), (-3.55, z0 + 1.2), (-3.4, z0 + 0.35)], t[1], 0.05),
+                         ([(-3.13, z0 + 1.25), (-3.28, z0 + 1.5), (-3.75, z0 + 1.5), (-3.62, z0 + 1.25)], t[2], 0.05),
+                         ([(-2.6, z0 + 0.35), (-3.0, z0 + 0.95), (-3.3, z0 + 0.95), (-3.2, z0 + 0.35)], t[3], -0.05)):
+        lot.put(M[m], C.prisme_plan(poly, 0.025, y0=y))
+    lot.put(M["chevron"], C.prisme_plan([(-3.27, z0 + 1.55), (-3.33, z0 + 1.72), (-3.93, z0 + 1.76), (-3.86, z0 + 1.55)], 0.11))
+    lot.put(M["acier"], G.tube([(-2.3, 0.0, z0 - 0.05), (-3.25, 0.0, z0 + 1.8)], 0.05, 8))
+    lot.put(M[t[4]], G.sphere((-3.6, 0.0, z0 + 1.92), 0.04, 8, 4))
+    lot.put(M["acier"], G.tube([(-3.5, 0.0, z0 + 1.86), (-3.6, 0.0, z0 + 2.45)], 0.014, 5))
+
+    def aile(s, pts, zr, di, m):
+        poly = pts if s > 0 else list(reversed(pts))
+        v, f, u = G.prisme(poly, -0.05, 0.05)
+        yr_ = pts[0][1]
+        sh_ = lambda q: (q[0], q[1], q[2] + zr + abs(q[1] - yr_) * di)
+        lot.put(M[m], ([sh_(q) for q in v], f, u))
+        return sh_
+    yr = 1.88
+    sh = aile(1, [(-2.65, yr), (-4.55, yr), (-5.3, 3.55), (-4.5, 3.6)], -0.42, 0.24, t[3])
+    BA = lambda u: (-2.65 + (-4.5 + 2.65) * u - 0.07, yr + (3.6 - yr) * u)
+    BF = lambda u: (-4.55 + (-5.3 + 4.55) * u + 0.1, yr + (3.55 - yr) * u)
+    for (a0, a1, m, f0, f1) in ((0.04, 0.4, t[0], 0.0, 0.55), (0.04, 0.33, t[1], 0.6, 1.0), (0.42, 0.66, t[2], 0.0, 1.0), (0.68, 0.96, t[0], 0.0, 0.7)):
+        def pt(u, f):
+            a, b = BA(u), BF(u)
+            return (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
+        v, f_, u_ = G.prisme([pt(a0, f0), pt(a1, f0), pt(a1, f1), pt(a0, f1)], 0.05, 0.075)
+        lot.put(M[m], ([sh(q) for q in v], f_, u_))
+    lot.put(M["chevron"], G.tube([sh((-4.52, 3.55, 0.06)), sh((-5.28, 3.5, 0.06))], 0.05, 6))
+    lot.put(M["acier"], G.tube([sh((-2.65, yr, 0.06)), sh((-4.5, 3.6, 0.06))], 0.04, 6))
+    lot.put(M[t[4]], G.sphere(sh((-4.9, 3.58, 0.1)), 0.035, 6, 3))
+    aile(-1, [(-2.7, -yr), (-4.0, -yr), (-4.25, -2.55), (-3.15, -2.62)], -0.42, 0.24, t[3])
+
+
+def grilles_coque(lot, M, P):
+    lot.xf = P.xf
+    sc = C.surf_coque
+    for (x, a, w, l) in ((3.0, TOP - 0.7, 0.32, 0.4), (3.9, TOP + 0.95, 0.26, 0.36), (-2.9, TOP + 0.2, 0.3, 0.5), (-2.6, TOP + 1.0, 0.24, 0.42)):
+        p, n = C.point(x, a, 0.07), C.normale_s(sc, x, a)
+        lot.put(M["acier"], C.pose_plane(G.boite((0, 0, 0.0), (l + 0.06, w + 0.06, 0.04)), p, n))
+        lot.put(M["noir"], C.pose_plane(G.boite((0, 0, 0.015), (l, w, 0.03)), p, n))
+        for k in range(6):
+            lot.put(M["acier"], C.pose_plane(G.boite((-l / 2 + l * (k + 0.5) / 6, 0, 0.035), (l / 6 * 0.45, w, 0.025)), p, n))
+
+
+def passerelle(lot, Mp, Mg, a, b, w):
+    """Passerelle étroite à garde-corps, de a à b (le pont entre un bâtiment et le fuselage)."""
+    lot.put(Mp, plan3([(a[0] - w, a[1], a[2]), (a[0] + w, a[1], a[2]), (b[0] + w, b[1], b[2]), (b[0] - w, b[1], b[2])], 0.04))
+    for sg in (-1, 1):
+        lot.put(Mg, G.tube([(a[0] + sg * w, a[1], a[2] + 0.3), (b[0] + sg * w, b[1], b[2] + 0.3)], 0.012, 4))
+        for t in (0.0, 0.33, 0.66, 1.0):
+            q = G.lerp((a[0] + sg * w, a[1], a[2]), (b[0] + sg * w, b[1], b[2]), t)
+            lot.put(Mg, G.tube([q, G.add(q, (0, 0, 0.3))], 0.009, 4))

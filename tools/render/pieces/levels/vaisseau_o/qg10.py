@@ -20,7 +20,7 @@ import ere4 as E
 import geo as G
 import mat as MT
 
-POSE = dict(T=(0.0, 0.95, 1.95), lacet=-0.105, tangage=0.03, roulis=0.17)
+POSE = E.POSE_BASSE
 TAU = G.TAU
 TOP = math.pi / 2
 
@@ -33,9 +33,9 @@ def matieres(S):
     cr = (0.012, 0.011, 0.009)
     rou = (0.12, 0.07, 0.035)
     iv = dict(rough=0.46, met=0.08, coulures=0.85, rouille=rou, usure=0.6, nu=(0.66, 0.58, 0.44), crasse=0.95, crasse_col=cr, pied=(0.2, 1.0, 0.45), grain=0.13)
-    M["capot"] = sf("q10_capot", (0.55, 0.43, 0.215), graine=201, **iv)
-    M["capot2"] = sf("q10_capot2", (0.36, 0.275, 0.125), graine=202, **iv)
-    M["capot3"] = sf("q10_capot3", (0.68, 0.56, 0.32), graine=203, **iv)
+    M["capot"] = sf("q10_capot", (0.46, 0.35, 0.16), graine=201, **iv)
+    M["capot2"] = sf("q10_capot2", (0.29, 0.215, 0.09), graine=202, **iv)
+    M["capot3"] = sf("q10_capot3", (0.58, 0.46, 0.25), graine=203, **iv)
     an = dict(rough=0.45, met=0.45, coulures=0.45, rouille=(0.07, 0.05, 0.035), usure=0.8, nu=(0.34, 0.33, 0.31), crasse=0.7, crasse_col=(0.006, 0.006, 0.006), grain=0.12)
     M["anthra"] = sf("q10_anthra", (0.032, 0.034, 0.038), graine=204, **an)
     M["gris"] = sf("q10_gris", (0.09, 0.094, 0.1), graine=205, **an)
@@ -48,13 +48,16 @@ def matieres(S):
     M["noyau"] = sf("q10_noyau", (0.007, 0.0075, 0.008), rough=0.6, met=0.6, usure=0.2, crasse=0.8, crasse_col=(0.003, 0.003, 0.003), graine=212)
     M["brule"] = sf("q10_brule", (0.01, 0.0095, 0.009), rough=0.75, met=0.4, usure=0.0, crasse=0.8, crasse_col=(0.003, 0.003, 0.003), graine=213)
     ja = dict(rough=0.48, met=0.2, coulures=0.9, rouille=(0.16, 0.06, 0.02), usure=0.85, nu=(0.62, 0.6, 0.56), crasse=0.95, crasse_col=cr, pied=(0.3, 1.1, 0.5), grain=0.11)
-    M["jaune"] = sf("q10_jaune", (0.36, 0.205, 0.013), graine=214, **ja)
+    M["jaune"] = sf("q10_jaune", (0.42, 0.24, 0.014), graine=214, **ja)
     M["jaune2"] = sf("q10_jaune2", (0.24, 0.135, 0.009), graine=215, **ja)
     M["chevron"] = sf("q10_chevron", (0.36, 0.205, 0.013), rough=0.5, met=0.2, bandes=(0.19, (0.012, 0.011, 0.01), 0.5), usure=0.8, nu=(0.4, 0.38, 0.35), crasse=0.7, crasse_col=cr, coulures=0.6, graine=216)
     M["bleu"] = sf("q10_bleu", (0.012, 0.075, 0.38), rough=0.42, met=0.1, usure=0.5, nu=(0.3, 0.35, 0.45), crasse=0.5, crasse_col=cr, graine=217)
     M["rouge"] = sf("q10_rouge", (0.42, 0.02, 0.012), rough=0.5, met=0.0, usure=0.3, nu=(0.4, 0.2, 0.15), crasse=0.4, graine=218)
     M["noir"] = sf("q10_noir", (0.012, 0.012, 0.013), rough=0.7, met=0.0, usure=0.2, crasse=0.3, graine=219)
     M["caoutchouc"] = sf("q10_caoutchouc", (0.023, 0.023, 0.024), rough=0.72, met=0.0, usure=0.3, nu=(0.07, 0.07, 0.07), crasse=0.5, crasse_col=cr, graine=220)
+    M["pierre"] = sf("q10_pierre", (0.17, 0.15, 0.115), rough=0.85, met=0.0, tole=(1.1, 0.8), joint=0.5, joint_l=0.012, var=0.16, coulures=0.5, rouille=(0.05, 0.03, 0.02), usure=0.7, nu=(0.28, 0.25, 0.2), crasse=0.85, crasse_col=cr, relief=0.4, graine=223)
+    M["pierre2"] = sf("q10_pierre2", (0.075, 0.062, 0.045), rough=0.85, met=0.0, coulures=0.6, rouille=(0.03, 0.02, 0.012), usure=0.7, nu=(0.16, 0.14, 0.11), crasse=0.85, crasse_col=(0.005, 0.004, 0.003), graine=224)
+    M["terre"] = sf("q10_terre", (0.11, 0.065, 0.035), rough=0.95, met=0.0, usure=0.0, crasse=0.7, crasse_col=(0.03, 0.018, 0.01), graine=225)
     M["dalle"] = sf("q10_dalle", (0.3, 0.25, 0.16), rough=0.7, met=0.05, tole=(0.5, 0.5), joint=0.25, joint_l=0.02, var=0.14, coulures=0.0, usure=0.5, nu=(0.5, 0.45, 0.38), crasse=0.85, crasse_col=cr, relief=0.6, grain=0.14, graine=221)
     M["bande"] = sf("q10_bande", (0.36, 0.205, 0.013), rough=0.5, met=0.2, bandes=(0.12, (0.012, 0.011, 0.01), 0.5), usure=0.5, crasse=0.6, crasse_col=cr, graine=222)
     M["verre_sombre"] = MT.verre("q10_verre_sombre", col=(0.008, 0.016, 0.028), reflet=(0.12, 0.18, 0.26))
@@ -73,7 +76,8 @@ def build(S, lot):
     r = G.Rnd(1010)
     ra = G.Rnd(1011)
     niv = P.niv
-    mc = E.tirage(M, [(0.36, "capot"), (0.16, "capot2"), (0.08, "capot3"), (0.14, "anthra"), (0.12, "jaune"), (0.06, "jaune2"), (0.08, "gris")])
+    mc = E.tirage(M, [(0.42, "jaune"), (0.14, "jaune2"), (0.2, "capot"), (0.08, "capot2"), (0.1, "anthra"), (0.06, "gris")])
+    mn = E.tirage(M, [(0.42, "jaune"), (0.18, "jaune2"), (0.2, "capot"), (0.1, "anthra"), (0.1, "gris")], None)
     sc = C.surf_coque
 
     # ======================================================================================== 1. carcasse
@@ -87,7 +91,7 @@ def build(S, lot):
 
     def plus_nac(s, sn, R, xar):
         E.bazar(lot, M, sn, -0.35, -2.3, 0.9, 2.9, rb, 14, ("capot2", "gris", "acier", "capot3"))
-    E.tuyeres(lot, M, P, r, mc, apres=plus_nac)
+    E.tuyeres(lot, M, P, r, mn, apres=plus_nac)
     E.menus(lot, M, P, G.Rnd(1012), n=240, cles=("acier", "gris", "acier_clair", "riv"))
     lot.xf = P.xf
     E.bazar(lot, M, sc, -3.35, -2.3, TOP - 1.1, TOP + 1.2, rb, 16, ("capot2", "gris", "acier", "capot3"))
@@ -113,49 +117,14 @@ def build(S, lot):
         p, n = C.point(x, a, 0.05), C.normale_s(sc, x, a)
         lot.put(M[m], C.pose_plane(G.boite((0, 0, 0.0), (l, w, 0.022)), p, n))
 
-    # -- dérive --
-    z0, z1 = C.z_dessus(-2.4), C.z_dessus(-3.45)
-    lot.put(M["capot"], C.prisme_plan([(-2.3, z0 - 0.05), (-3.25, z0 + 1.8), (-3.95, z0 + 1.86), (-3.5, z1 - 0.05)], 0.09))
-    for (poly, m, y) in (([(-2.55, z0 + 0.35), (-3.1, z0 + 1.2), (-3.55, z0 + 1.2), (-3.4, z0 + 0.35)], "anthra", 0.05),
-                         ([(-3.13, z0 + 1.25), (-3.28, z0 + 1.5), (-3.75, z0 + 1.5), (-3.62, z0 + 1.25)], "jaune", 0.05),
-                         ([(-2.6, z0 + 0.35), (-3.0, z0 + 0.95), (-3.3, z0 + 0.95), (-3.2, z0 + 0.35)], "capot2", -0.05)):
-        lot.put(M[m], C.prisme_plan(poly, 0.025, y0=y))
-    lot.put(M["chevron"], C.prisme_plan([(-3.27, z0 + 1.55), (-3.33, z0 + 1.72), (-3.93, z0 + 1.76), (-3.86, z0 + 1.55)], 0.11))
-    lot.put(M["acier"], G.tube([(-2.3, 0.0, z0 - 0.05), (-3.25, 0.0, z0 + 1.8)], 0.05, 8))
-    lot.put(M["voyant"], G.sphere((-3.6, 0.0, z0 + 1.92), 0.04, 8, 4))
-    lot.put(M["acier"], G.tube([(-3.5, 0.0, z0 + 1.86), (-3.6, 0.0, z0 + 2.45)], 0.014, 5))
-
-    # -- ailes : nord entière, carénée ; sud coupée, moignon lisse --
-    def aile(s, pts, zr, di, m):
-        poly = pts if s > 0 else list(reversed(pts))
-        v, f, u = G.prisme(poly, -0.05, 0.05)
-        yr = pts[0][1]
-        sh = lambda q: (q[0], q[1], q[2] + zr + abs(q[1] - yr) * di)
-        lot.put(m, ([sh(q) for q in v], f, u))
-        return sh
-    yr = 1.88
-    sh = aile(1, [(-2.65, yr), (-4.55, yr), (-5.3, 3.55), (-4.5, 3.6)], -0.42, 0.24, M["capot2"])
-    BA = lambda t: (-2.65 + (-4.5 + 2.65) * t - 0.07, yr + (3.6 - yr) * t)
-    BF = lambda t: (-4.55 + (-5.3 + 4.55) * t + 0.1, yr + (3.55 - yr) * t)
-    for (a0, a1, m, f0, f1) in ((0.04, 0.4, "capot", 0.0, 0.55), (0.04, 0.33, "anthra", 0.6, 1.0), (0.42, 0.66, "capot3", 0.0, 1.0), (0.68, 0.96, "jaune", 0.0, 0.7)):
-        def pt(t, f):
-            a, b = BA(t), BF(t)
-            return (a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f)
-        v, f, u = G.prisme([pt(a0, f0), pt(a1, f0), pt(a1, f1), pt(a0, f1)], 0.05, 0.075)
-        lot.put(M[m], ([sh(q) for q in v], f, u))
-    lot.put(M["chevron"], G.tube([sh((-4.52, 3.55, 0.06)), sh((-5.28, 3.5, 0.06))], 0.05, 6))
-    lot.put(M["acier"], G.tube([sh((-2.65, yr, 0.06)), sh((-4.5, 3.6, 0.06))], 0.04, 6))
-    lot.put(M["voyant_b"], G.sphere(sh((-4.9, 3.58, 0.1)), 0.035, 6, 3))
-    aile(-1, [(-2.7, -yr), (-4.0, -yr), (-4.25, -2.55), (-3.15, -2.62)], -0.42, 0.24, M["capot2"])
+    E.derive_ailes(lot, M, P, ("capot", "anthra", "jaune", "jaune2", "voyant"))
+    E.terrasses(lot, M, G.Rnd(1019))
+    E.butte_nez(lot, M, P, G.Rnd(1020))
 
     # ======================================================================================== 2. ventre : corps couché à la peau du vaisseau, radôme
     lot.xf = None
     mc2 = E.tirage(M, [(0.5, "capot"), (0.18, "capot2"), (0.14, "capot3"), (0.12, "anthra"), (0.06, "gris")], None)
-    ce = niv((0.25, -0.08, 0.0))
-    fv = E.surf_fuseau(ce, 5.7, 3.05, 1.06, 1.76, POSE["lacet"])
-    C.noyau(lot, M["noyau"], fv, -2.84, 2.84, 0.0, TAU)
-    C.blindage(lot, fv, -2.82, 2.82, -0.55, math.pi + 0.55, mc2, r, Mriv=M["riv"], **E.LISSE2)
-    C.blindage(lot, fv, -2.82, 2.82, math.pi + 0.55, TAU - 0.55, lambda rr, xm, am: M["anthra"], r, Mriv=None, **E.LISSE)
+    fv = E.ventre(lot, M, P, mc2, r)
     CL0 = ("anthra", "verre_sombre", "ecran", "acier", "noir", "gris", "voyant_b")
     E.rangee(lot, M, fv, -2.3, 2.3, math.pi - 0.25, ra, ["verre", "grille", "ecran", "boite", "verre", "porte", "grille"], CL0, sauts=((1.25, 2.15),))
     E.rangee(lot, M, fv, -2.2, 2.2, math.pi + 0.28, ra, ["grille", "boite", "boite", "grille"], CL0)
@@ -177,18 +146,16 @@ def build(S, lot):
     for (pn, ps) in pieds:
         for q in (pn, ps):
             E.pied_tele(lot, M["anthra"], M["acier_clair"], M["bande"], M["gris"], (q[0], q[1], q[2]), 0.14)
-    for (u, v, zt) in ((-3.6, 1.3, 1.5), (-3.9, -1.25, 1.35), (3.0, 1.05, 1.5), (3.05, -1.15, 1.25), (-5.1, 2.0, 1.55), (-5.25, -2.05, 1.5)):
+    for (u, v, zt) in ((-3.6, 1.3, 0.75), (-3.9, -1.25, 0.6), (3.0, 1.05, 0.8), (3.05, -1.15, 0.55), (-5.1, 2.0, 0.75), (-5.25, -2.05, 0.65)):
         q = niv((u, v, zt))
         E.pied_tele(lot, M["anthra"], M["acier_clair"], M["bande"], M["gris"], q, 0.16)
-    # chapelle de vérins : flexibles sous la coque
-    for (a, b, c) in ((niv((-1.6, -1.2, 1.0)), niv((-1.9, -1.55, 0.25)), niv((-1.0, -1.7, 0.08))),
-                      (niv((1.3, -1.2, 1.0)), niv((1.55, -1.6, 0.3)), niv((0.8, -1.8, 0.08))),
-                      (niv((-2.9, -0.9, 1.25)), niv((-3.3, -1.5, 0.4)), niv((-3.0, -2.0, 0.08))),
-                      (niv((2.75, -1.0, 1.2)), niv((3.2, -1.5, 0.4)), niv((2.75, -2.0, 0.08)))):
+    # flexibles sous la coque
+    for (a, b, c) in ((niv((-1.6, -1.2, 0.8)), niv((-1.9, -1.45, 0.3)), niv((-1.0, -1.6, 0.12))), (niv((1.3, -1.2, 0.8)), niv((1.55, -1.45, 0.3)), niv((0.8, -1.6, 0.12))),
+                      (niv((-2.9, -0.9, 0.8)), niv((-3.3, -1.4, 0.3)), niv((-3.0, -1.7, 0.12))), (niv((2.75, -1.0, 0.8)), niv((3.2, -1.4, 0.3)), niv((2.75, -1.7, 0.12)))):
         C.flexible(lot, M["caoutchouc"], [a, b, c], 0.05)
 
     # ======================================================================================== 4. poste de commandement au sud
-    cx, cy = -1.35, -3.42
+    cx, cy = -1.35, -2.72
     A = E.Stade((cx, cy), 5.5, 2.0)
     fa = E.surf_fuseau((cx, cy), 5.5, 2.0, 0.62, 1.04)
     C.noyau(lot, M["noyau"], fa, -2.74, 2.74, 0.0, TAU)
@@ -206,7 +173,7 @@ def build(S, lot):
     C.tuyau(lot, M["acier"], M["anthra"], [fa(1.55, math.pi - 0.62, 0.05), fa(2.3, math.pi - 0.62, 0.05)], 0.034, rb=0.05, pas_bride=0.3)
     C.faisceau(lot, M["rouge"], M["noir"], fa(-2.3, math.pi - 0.05, 0.03), fa(-0.1, math.pi - 0.05, 0.03), 0.04, 3, 0.01, 0.022, ra)
     # annexe basse, plus sombre, décalée : le poste n'est pas un seul boudin
-    bx, by = 2.75, -3.05
+    bx, by = 2.75, -2.42
     Bx = E.Stade((bx, by), 3.2, 1.55)
     fb = E.surf_fuseau((bx, by), 3.2, 1.55, 0.46, 0.84)
     C.noyau(lot, M["noyau"], fb, -1.59, 1.59, 0.0, TAU)
@@ -216,7 +183,7 @@ def build(S, lot):
     for x in (-1.0, 0.1, 1.15):
         for yy in (-0.5, 0.5):
             E.pied_tele(lot, M["anthra"], M["acier_clair"], M["bande"], M["gris"], Bx.loc(x, yy, 0.42), 0.085)
-    lot.put(M["anthra"], G.tour([(1.05, 0.34), (1.12, 0.38), (1.5, 0.38), (1.57, 0.34)], 16, "x", (0.0, -3.2, 0.98)))         # sas entre les deux corps
+    lot.put(M["anthra"], G.tour([(1.05, 0.34), (1.12, 0.38), (1.5, 0.38), (1.57, 0.34)], 16, "x", (0.0, -2.55, 0.98)))         # sas entre les deux corps
     # bandeau de voyants (inégaux, deux couleurs), sur le mur sud
     for k in range(24):
         if k % 7 == 3:
@@ -259,15 +226,17 @@ def build(S, lot):
     for x in [-2.35, -1.85, -1.35, -0.85, -0.5]:
         lot.put(M["gris"], G.boite((x, cy + 0.22, zt), (0.03, 0.16, 0.1)))
     C.faisceau(lot, M["rouge"], M["bleu"], (-2.4, cy + 0.22, zt + 0.08), (-0.45, cy + 0.22, zt + 0.08), 0.02, 3, 0.011, 0.026, ra)
-    # -- pont de tuyaux du poste vers le ventre (pas de passerelle large : vide franc sous la coque) --
-    ya = cy + 0.85
-    C.tuyau(lot, M["capot2"], M["acier"], [(-0.55, ya, 1.3), (-0.55, -1.72, 1.3), niv((-0.55, -1.48, 1.3)), niv((-0.55, -1.3, 1.45))], 0.09, rb=0.14, pas_bride=0.45)
-    C.tuyau(lot, M["anthra"], M["acier"], [(0.25, ya, 0.95), (0.25, -2.0, 0.95), niv((0.25, -1.45, 1.1)), niv((0.25, -1.3, 1.2))], 0.055, rb=0.1, pas_bride=0.4)
-    C.tuyau(lot, M["acier"], M["anthra"], [(2.05, -2.42, 0.82), (2.05, -2.05, 0.82), niv((2.2, -1.25, 1.05))], 0.035, rb=0.08, pas_bride=0.35)
-    C.tuyau(lot, M["bleu"], M["acier"], [(-2.65, ya, 0.9), (-2.65, -2.05, 0.9), niv((-2.4, -1.28, 1.15))], 0.035, rb=0.08, pas_bride=0.35)
-    C.tuyau(lot, M["capot"], M["acier"], [(-1.6, ya, 1.15), (-1.6, -1.95, 1.15), niv((-1.6, -1.3, 1.4))], 0.065, rb=0.12, pas_bride=0.4)
-    for (x, z) in ((-0.55, 1.22), (0.25, 0.87), (-2.65, 0.82), (-1.6, 1.07)):
-        E.pied_tele(lot, M["anthra"], M["acier_clair"], M["bande"], M["gris"], (x, -2.2, z), 0.05)
+    # -- le pont : plancher, passerelles et conduites du poste vers le fuselage (le poste et le vaisseau font un seul corps) --
+    yb, yv = cy + 0.92, -0.62
+    lot.put(M["gris"], G.boite((-0.55, (yb + yv) / 2, 0.42), (6.6, yv - yb + 0.3, 0.05)))
+    for x in [-3.7, -2.7, -1.6, -0.5, 0.6, 1.7, 2.6]:
+        lot.put(M["acier"], G.boite((x, (yb + yv) / 2, 0.47), (0.05, yv - yb + 0.3, 0.05)))
+        lot.put(M["anthra"], G.tour([(0.1, 0.05), (0.4, 0.05)], 8, "z", (x, (yb + yv) / 2, 0.0)))
+    for (x, w) in ((-2.55, 0.2), (0.55, 0.17), (2.15, 0.15)):
+        E.passerelle(lot, M["gris"], M["acier"], (x, yb, 1.18), (x, yv, 1.32), w)
+    for (x, z, r_, mt, mb, pb) in ((-0.95, 1.35, 0.09, "capot2", "acier", 0.4), (-0.25, 0.98, 0.055, "anthra", "acier", 0.34), (-1.6, 1.12, 0.065, "capot", "acier", 0.36),
+                                   (-3.2, 0.9, 0.04, "bleu", "acier", 0.3), (1.25, 0.86, 0.05, "acier", "anthra", 0.32), (2.95, 0.8, 0.07, "capot2", "acier", 0.36)):
+        C.tuyau(lot, M[mt], M[mb], [(x, yb, z), (x, yb + 0.5, z), (x, yv + 0.1, z + 0.28), (x, yv + 0.5, z + 0.3)], r_, rb=0.1, pas_bride=pb)
 
     # ======================================================================================== 5. fond : tour à dôme, parabole
     # grande parabole au nord-est
@@ -305,7 +274,7 @@ def build(S, lot):
     # le fouet très haut, signature de l'âge
     lot.xf = None
     m0 = P.xf((2.72, 0.0, C.z_dessus(2.72) + 0.1))
-    fo = E.fouet(lot, M["acier_clair"], M["voyant"], m0, 5.0, 0.055, 0.018, ((0.2, 0.24), (0.36, 0.17), (0.52, 0.11), (0.7, 0.06)), M["anthra"])
+    fo = E.fouet(lot, M["acier_clair"], M["voyant"], m0, 4.6, 0.055, 0.018, ((0.2, 0.24), (0.36, 0.17), (0.52, 0.11), (0.7, 0.06)), M["anthra"])
     for k in range(3):
         a = TAU * k / 3 + 0.5
         lot.put(M["acier"], G.tube([G.add(m0, (0.0, 0.0, 2.1)), G.add(m0, (0.95 * math.cos(a), 0.8 * math.sin(a), -0.15))], 0.006, 3))
