@@ -818,6 +818,9 @@ function M.new_world(opts)
       ["fo-war-industrie"] = (opts.industrie ~= false) and (os.getenv("FO_INDUSTRIE") ~= "0"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
+      -- Lot RB-1 : robots, ALLUMÉ par défaut comme le jeu (settings/robots.lua) ; éteint par l'option (robots = false) ;
+      -- plafond automatique (0) sauf option (robots_cap)
+      ["fo-war-robots"] = opts.robots ~= false, ["fo-war-robots-cap"] = opts.robots_cap or 0,
       -- Lot KIT : kit de départ des factions. Défaut du JEU = égal à votre équipe (faux) ; les tests hors jeu et les bancs gardent
       -- le kit généreux d'avant (leurs attendus datent de ce kit, comme control.lua des bancs en moteur réel) ; l'option
       -- (kit_egal = true) ou FO_KIT_EGAL=1 joue le kit égal du jeu.

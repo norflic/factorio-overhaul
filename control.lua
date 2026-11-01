@@ -66,6 +66,9 @@ require("script.gui.team_window")
 -- Dézoom étendu : Ctrl + molette écrit player.zoom sous la limite de la molette (shared/gui/dezoom.lua)
 require("script.gui.dezoom")
 
+-- Robots (lot RB-1, 31/10) : ateliers, kits en unités, plafond en points, ordres du joueur
+require("script.robots.usine")
+
 -- Pilotage sans joueur (tests automatisés, scénarios)
 require("script.remote")
 
