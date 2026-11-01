@@ -2,8 +2,10 @@
   Lots RB-1 CHAÎNE (31/10), RB-4 GAMME et RB-5 GÉANTS (1/11) : prototypes des robots. Données : shared/content/robots.lua ;
   exécution : script/robots/*.
 
-  - 4 usines (Atelier, Hall, Dock, Portique) : `assembling-machine` (copie teintée et agrandie d'un assembleur vanilla, 0 image
-    neuve), une catégorie de fabrication chacune « fo-robots-1 » à « -4 » ; ni fluide, ni productivité (le kit pèse 1 case, RB0-3).
+  - 4 usines (Atelier, Hall, Dock, Portique) : `assembling-machine` (comportement d'un assembleur vanilla, images de
+    graphics/robots/usines, lot US-V1 ; PNG hors de git, D-6 : sprites.lua, généré par tools/render/pieces/usines_robots/feuilles.py),
+    une catégorie de fabrication chacune « fo-robots-1 » à « -4 » ; ni fluide, ni productivité (le kit pèse 1 case, RB0-3). Image fixe,
+    ombre séparée ; au travail, la lueur s'allume, avec une lumière, et l'atelier fume (fumée vanilla : 0 image neuve).
   - Kit : objet de pile 1, produit de la recette du robot (ingrédients d'au plus 100 chacun : RB0-1). Son `place_result` est
     l'unité du joueur (le cerveau lit ce lien ; un kit posé à la main est inscrit au registre par script/robots/usine.lua).
   - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Visuel PROVISOIRE
@@ -22,6 +24,7 @@ local lib = require("prototypes.lib")
 local Ro = require("shared.content.robots")
 local F = require("shared.faction.config")
 local C = require("shared.content.crafts")
+local SPR = require("__factorio-overhaul__/graphics/robots/usines/sprites")
 
 local out = {}
 
@@ -50,6 +53,64 @@ end
 ---------------------------------------------------------------------------------------------------
 local VISUAL_KEYS = { "animation", "idle_animation", "working_visualisations", "integration_patch", "shadow" }
 
+--- Couche d'une feuille : normale 32 px/tuile + hr_version 64 px/tuile (scale 0,5). Ombre et lueur : sur le modèle de levels/command.lua.
+local function usine_couche(def, kind)
+  local function une(r, hr)
+    local t = { filename = r.filename, width = r.width, height = r.height, shift = { r.shift[1], r.shift[2] }, priority = "high", frame_count = 1 }
+    if kind == "shadow" then
+      t.draw_as_shadow = true
+    elseif kind == "glow" then
+      t.draw_as_glow = true
+      t.blend_mode = "additive"
+      t.flags = { "linear-minification" }
+    else
+      t.flags = { "linear-minification" }
+    end
+    if hr then t.scale = 0.5 end
+    return t
+  end
+  local s = une(def.lr, false)
+  s.hr_version = une(def.hr, true)
+  return s
+end
+
+-- Lumière au travail (F37) : couleur de l'âge, rayon à la taille de l'usine. Hall : les cristaux respirent (effet du moteur).
+local USINE_LUMIERE = {
+  atelier = { color = { r = 1.0, g = 0.75, b = 0.38 }, size = 8, intensity = 0.5 },
+  hall = { color = { r = 0.69, g = 0.44, b = 1.0 }, size = 14, intensity = 0.6, effect = "uranium-glow" },
+  dock = { color = { r = 0.23, g = 0.66, b = 1.0 }, size = 16, intensity = 0.55 },
+  portique = { color = { r = 1.0, g = 0.31, b = 0.85 }, size = 24, intensity = 0.7 },
+}
+
+--- Images d'une usine : image fixe (principale et ombre) ; lueur et lumière au travail seulement, en fondu ; fumée à la cheminée de l'atelier.
+local function habiller_usine(e, w)
+  local u = SPR.usines[w.sheet]
+  assert(u, "robots : usine sans feuille " .. tostring(w.sheet))
+  e.animation = { layers = { usine_couche(u.main, "main"), usine_couche(u.shadow, "shadow") } }
+  local lum = USINE_LUMIERE[w.sheet]
+  local vis = { { fadeout = true, effect = lum.effect, animation = usine_couche(u.glow, "glow"),
+    light = { intensity = lum.intensity, size = lum.size, color = lum.color, shift = { 0, -w.size * 0.2 } } } }
+  if w.sheet == "atelier" then
+    -- Haut de la cheminée : x = -0,96, y = 1,42, z = 3,88 en unités du rendu (atelier.py), soit 3,75 tuiles au-dessus de l'origine à l'écran.
+    vis[#vis + 1] = { fadeout = true, animation = {
+      filename = "__base__/graphics/entity/smoke/smoke.png", width = 152, height = 120, line_length = 5, frame_count = 60,
+      animation_speed = 0.25, scale = 0.55, shift = { -0.96 - 0.3, -3.75 - 0.45 }, priority = "high", flags = { "smoke" },
+      tint = { r = 0.85, g = 0.85, b = 0.85, a = 0.55 },
+    } }
+  end
+  e.working_visualisations = vis
+  e.drawing_box = { { u.boite[1][1], u.boite[1][2] }, { u.boite[2][1], u.boite[2][2] } }
+  e.map_color = { r = u.map_color[1], g = u.map_color[2], b = u.map_color[3] }
+  e.friendly_map_color = e.map_color
+  e.scale_entity_info_icon = true
+  return u
+end
+
+local function usine_icones(w)
+  local i = SPR.usines[w.sheet].icone
+  return { { icon = i.filename, icon_size = i.icon_size, icon_mipmaps = i.icon_mipmaps } }
+end
+
 for i, w in ipairs(Ro.FACTORIES) do
   local e = lib.copy("assembling-machine", w.copy)
   local h = w.size / 2
@@ -66,23 +127,17 @@ for i, w in ipairs(Ro.FACTORIES) do
   e.energy_source = { type = "electric", usage_priority = "secondary-input", emissions_per_minute = 4 }
   e.collision_box = { { -h + 0.3, -h + 0.3 }, { h - 0.3, h - 0.3 } }
   e.selection_box = { { -h, -h }, { h, h } }
-  e.drawing_box = nil
   e.module_specification = { module_slots = w.module_slots }
   e.allowed_effects = { "consumption", "speed", "pollution" } -- jamais de productivité : le kit n'a qu'une case (RB0-3)
   e.fluid_boxes = nil
-  local k = w.size / 3
-  for _, key in ipairs(VISUAL_KEYS) do
-    if e[key] then
-      if k ~= 1 then lib.scale_sprites(e[key], k) end
-      lib.tint_sprites(e[key], w.tint)
-    end
-  end
-  lib.set_icons(e, icons_of("item", w.copy, w.tint))
+  for _, key in ipairs(VISUAL_KEYS) do e[key] = nil end
+  habiller_usine(e, w)
+  lib.set_icons(e, usine_icones(w))
   out[#out + 1] = e
   out[#out + 1] = {
     type = "item", name = w.name,
     localised_name = { "entity-name." .. w.name }, localised_description = { "entity-description." .. w.name },
-    icons = icons_of("item", w.copy, w.tint), subgroup = Ro.SUBGROUP, order = string.format("a[factory]-%02d", i),
+    icons = usine_icones(w), subgroup = Ro.SUBGROUP, order = string.format("a[factory]-%02d", i),
     place_result = w.name, stack_size = 10,
   }
   out[#out + 1] = {

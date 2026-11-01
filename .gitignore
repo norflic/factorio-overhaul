@@ -25,3 +25,7 @@ graphics/levels/assembleur/*.png
 graphics/levels/foreuse/*.png
 # Feuilles de jeu des QG (lot QG-JEU, même règle) : tools/render/pieces/levels/qg_e/feuilles.py
 graphics/levels/centre/*.png
+# Feuilles de jeu du Bourdon (lot BOURDON, même règle) : tools/render/pieces/experimentaux/feuilles.py
+graphics/robots/bourdon/*.png
+# Feuilles de jeu des usines de robots (lot US-V1, même règle) : tools/render/pieces/usines_robots/feuilles.py
+graphics/robots/usines/*.png

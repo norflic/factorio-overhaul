@@ -1,0 +1,332 @@
+{
+ "usines": {
+  "atelier": {
+   "boite": [
+    [
+     -2.3438,
+     -4.8438
+    ],
+    [
+     5.625,
+     2.2188
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-atelier-glow.png",
+     "height": 136,
+     "shift": [
+      -0.046875,
+      -0.3125
+     ],
+     "width": 134
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/atelier-glow.png",
+     "height": 68,
+     "shift": [
+      -0.046875,
+      -0.3125
+     ],
+     "width": 67
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/robots/usines/atelier-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-atelier-main.png",
+     "height": 452,
+     "shift": [
+      -0.296875,
+      -1.3125
+     ],
+     "width": 262
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/atelier-main.png",
+     "height": 226,
+     "shift": [
+      -0.296875,
+      -1.3125
+     ],
+     "width": 131
+    }
+   },
+   "map_color": [
+    0.358,
+    0.292,
+    0.225
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-atelier-shadow.png",
+     "height": 452,
+     "shift": [
+      1.640625,
+      -1.3125
+     ],
+     "width": 510
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/atelier-shadow.png",
+     "height": 226,
+     "shift": [
+      1.640625,
+      -1.3125
+     ],
+     "width": 255
+    }
+   }
+  },
+  "dock": {
+   "boite": [
+    [
+     -4.3438,
+     -6.875
+    ],
+    [
+     8.0938,
+     4.3438
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-dock-glow.png",
+     "height": 452,
+     "shift": [
+      0.09375,
+      -0.8125
+     ],
+     "width": 440
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/dock-glow.png",
+     "height": 226,
+     "shift": [
+      0.09375,
+      -0.8125
+     ],
+     "width": 220
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/robots/usines/dock-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-dock-main.png",
+     "height": 718,
+     "shift": [
+      -0.296875,
+      -1.265625
+     ],
+     "width": 518
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/dock-main.png",
+     "height": 359,
+     "shift": [
+      -0.296875,
+      -1.265625
+     ],
+     "width": 259
+    }
+   },
+   "map_color": [
+    0.352,
+    0.325,
+    0.27
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-dock-shadow.png",
+     "height": 718,
+     "shift": [
+      1.875,
+      -1.265625
+     ],
+     "width": 796
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/dock-shadow.png",
+     "height": 359,
+     "shift": [
+      1.875,
+      -1.265625
+     ],
+     "width": 398
+    }
+   }
+  },
+  "hall": {
+   "boite": [
+    [
+     -3.0938,
+     -6.8125
+    ],
+    [
+     8.2188,
+     3.125
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-hall-glow.png",
+     "height": 474,
+     "shift": [
+      0.0,
+      -1.796875
+     ],
+     "width": 300
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hall-glow.png",
+     "height": 237,
+     "shift": [
+      0.0,
+      -1.796875
+     ],
+     "width": 150
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/robots/usines/hall-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-hall-main.png",
+     "height": 636,
+     "shift": [
+      2.5625,
+      -1.84375
+     ],
+     "width": 724
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hall-main.png",
+     "height": 318,
+     "shift": [
+      2.5625,
+      -1.84375
+     ],
+     "width": 362
+    }
+   },
+   "map_color": [
+    0.307,
+    0.254,
+    0.258
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-hall-shadow.png",
+     "height": 636,
+     "shift": [
+      2.5625,
+      -1.84375
+     ],
+     "width": 724
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hall-shadow.png",
+     "height": 318,
+     "shift": [
+      2.5625,
+      -1.84375
+     ],
+     "width": 362
+    }
+   }
+  },
+  "portique": {
+   "boite": [
+    [
+     -6.6875,
+     -12.3125
+    ],
+    [
+     14.0312,
+     6.125
+    ]
+   ],
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-portique-glow.png",
+     "height": 796,
+     "shift": [
+      0.125,
+      -1.3125
+     ],
+     "width": 648
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/portique-glow.png",
+     "height": 398,
+     "shift": [
+      0.125,
+      -1.3125
+     ],
+     "width": 324
+    }
+   },
+   "icone": {
+    "filename": "__factorio-overhaul__/graphics/robots/usines/portique-icone.png",
+    "icon_mipmaps": 4,
+    "icon_size": 64
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-portique-main.png",
+     "height": 1180,
+     "shift": [
+      -0.46875,
+      -3.09375
+     ],
+     "width": 796
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/portique-main.png",
+     "height": 590,
+     "shift": [
+      -0.46875,
+      -3.09375
+     ],
+     "width": 398
+    }
+   },
+   "map_color": [
+    0.32,
+    0.268,
+    0.232
+   ],
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/hr-portique-shadow.png",
+     "height": 1180,
+     "shift": [
+      3.671875,
+      -3.09375
+     ],
+     "width": 1326
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/robots/usines/portique-shadow.png",
+     "height": 590,
+     "shift": [
+      3.671875,
+      -3.09375
+     ],
+     "width": 663
+    }
+   }
+  }
+ }
+}

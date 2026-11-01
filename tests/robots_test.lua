@@ -164,6 +164,15 @@ local function suite(Ro, Mo)
   local w = Ro.workshop("fo-robot-workshop")
   check(w and w.size == 3 and w.age == 3 and w.category == "fo-robots-1" and Ro.is_workshop("fo-robot-workshop")
     and not Ro.is_workshop("assembling-machine-2"), "§1 atelier : 3 × 3, âge 3, catégorie fo-robots-1")
+  -- lot US-V1 : feuilles des 4 usines (D-6), chacune nommée par sa `sheet`
+  local UsinesSheets = dofile("tests/datastage/usines_sheets.lua")
+  local ru = UsinesSheets.check(".")
+  if not UsinesSheets.ok(ru) then for _, l in ipairs(UsinesSheets.lines(ru)) do print(l) end end
+  local sheets_ok = UsinesSheets.ok(ru) and ru.n > 0
+  for i, nom in ipairs(UsinesSheets.USINES) do
+    if Ro.FACTORIES[i].sheet ~= nom then sheets_ok = false end
+  end
+  check(sheets_ok, string.format("§1 usines : feuilles de graphics/robots/usines (%d PNG au manifeste, %d images de sprites.lua relues)", ru.n, ru.refs or 0))
   local fcount, factory_ok = 0, true
   for _, r in ipairs(Ro.ROBOTS) do
     local f = Ro.factory(r.factory)
