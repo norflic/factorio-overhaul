@@ -17,8 +17,8 @@
   "ancre.png": {
    "hauteur": 76,
    "largeur": 84,
-   "sha256": "7c532ea447b0fbf2bfff04f21c1b58fbc0cee70897a578232623e9afcfaf8adb",
-   "taille": 13440
+   "sha256": "6ca52912ca8f520778172d118b98307eb7644ec67d9eb5f5df28ff3247799fb4",
+   "taille": 13563
   },
   "anneau-air.png": {
    "hauteur": 512,
@@ -53,8 +53,8 @@
   "chaine.png": {
    "hauteur": 591,
    "largeur": 18,
-   "sha256": "0f0637993e928c581eb4ed85d6b0575bb2b5185abed84c60e0e6b113218bde2d",
-   "taille": 26333
+   "sha256": "cec83fc5999babf4ba4efdde215b014b3227992243ba832e782249f684e5c61b",
+   "taille": 26568
   },
   "corps-ombre.png": {
    "hauteur": 628,
@@ -65,8 +65,8 @@
   "corps.png": {
    "hauteur": 851,
    "largeur": 606,
-   "sha256": "13c7feeae10259afa643dcf5d2da3b0e95136ff378ffcc0be6a5e70930d0f807",
-   "taille": 643815
+   "sha256": "736003e218c60e6e71fcdfeed1fb81c16038a6c058267cffc17b96b953aa51f4",
+   "taille": 650162
   },
   "crete-1.png": {
    "hauteur": 64,
@@ -197,8 +197,8 @@
   "griffes.png": {
    "hauteur": 146,
    "largeur": 147,
-   "sha256": "4d5ec1812e6c2f319085d291596a4d6cdb64b08f3b8a89c657db8384da984f43",
-   "taille": 16175
+   "sha256": "680bbc0a492daeda9886188d402555f32a2795b0e09c4f012acae7f7d658227a",
+   "taille": 16228
   },
   "hr-ancre-lueur.png": {
    "hauteur": 18,
@@ -215,8 +215,8 @@
   "hr-ancre.png": {
    "hauteur": 191,
    "largeur": 210,
-   "sha256": "929fccf0f12993569cd48b11fb9efe46f5cf985c3dc469fd2fbd1df3bac36297",
-   "taille": 54462
+   "sha256": "44f40146601648000d0fc591ea8f511648d1e64751aea2efa76baedf00b3041e",
+   "taille": 56487
   },
   "hr-anneau-air.png": {
    "hauteur": 512,
@@ -251,8 +251,8 @@
   "hr-chaine.png": {
    "hauteur": 1477,
    "largeur": 46,
-   "sha256": "2bce548ec1fcb3f22247272c6dfcb5245b07a630c2160c06fcf784b43df82602",
-   "taille": 93088
+   "sha256": "effae4132602fb6d9da0f414991d644a9dd16c85b932426a8986d03003b87d40",
+   "taille": 94529
   },
   "hr-corps-ombre.png": {
    "hauteur": 1256,
@@ -263,8 +263,8 @@
   "hr-corps.png": {
    "hauteur": 2128,
    "largeur": 1514,
-   "sha256": "1c6be7d90ec3c5b22e9bec96b6d26c5551db66044d31c0e885b1fd02d84e62fb",
-   "taille": 2732401
+   "sha256": "fd6317b9affae102e284e1d5442b6086acb5bb7d9760d54f1ba6754aeac0edb0",
+   "taille": 2804113
   },
   "hr-crete-1.png": {
    "hauteur": 128,
@@ -395,8 +395,8 @@
   "hr-griffes.png": {
    "hauteur": 364,
    "largeur": 367,
-   "sha256": "bff590e7bff7a24d5e30175f9f8fbc8451432f314c8c65bc699209f0e91d6777",
-   "taille": 38885
+   "sha256": "d249261ef980aa6dee8fc7fa5d544e622ef2ed23fd6d852e9efe4338950ea570",
+   "taille": 39800
   },
   "hr-lueur-sol.png": {
    "hauteur": 256,
