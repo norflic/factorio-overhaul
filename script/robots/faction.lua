@@ -22,7 +22,9 @@ local State = require("script.faction.state")
 local General = require("script.ai3.general")
 local Armee = require("script.robots.armee")
 local Ml = require("shared.ai3.mall")
+local Id = require("shared.ai3.industrie")
 local Ro = require("shared.content.robots")
+local Mo = require("shared.robots.modele")
 local Rb = require("shared.ai3.robots")
 
 local Fa = {}
@@ -48,15 +50,26 @@ local function recipe_of(cat, item)
   return found or nil
 end
 
---- Candidats du choix pour une force : une fiche par unité du catalogue, `usable` quand la recette du kit est ouverte.
-function Fa.candidates(cat, force)
+--- Le kit `kit` peut-il encore devenir une unité ? Intégration 0.6.33 (12 robots, 4 usines) : une unité que le balayage des ateliers ne poserait pas (plafond,
+--- géants admis à cet âge) ou que le mall a refusée (Chanfrein, Aileron, Lévite : plus de 8 entrées, P.MAX_SOLIDES ; usine inutilisable ; segments du
+--- Couronné) est écartée : Rb.choose, qui les préférait au score, gardait sinon pour toujours un choix que personne ne fabrique.
+local function kit_ok(force, ml, tick, kit)
+  if Ml.refused(ml, tick, kit) then return false end
+  local r = Ro.robot_of_kit(kit)
+  if not r then return true end -- une unité d'un autre mod n'est pas au registre
+  if r.segment_item and Ml.refused(ml, tick, r.segment_item) then return false end
+  return Mo.can_release(Armee.release_params(force, r))
+end
+
+--- Candidats du choix pour une force : une fiche par unité du catalogue, `usable` quand la recette du kit est ouverte et que le kit peut devenir une unité.
+function Fa.candidates(cat, force, ml, tick)
   local out = {}
   for _, kit in ipairs(cat.unite_list or {}) do
     local u = cat.unites[kit]
     local rn = recipe_of(cat, kit)
     local r = rn and force.recipes[rn]
     out[#out + 1] = { item = kit, hp = u.hp, dps = u.dps, range = u.range, min_range = u.min_range, zone = u.zone, points = u.points,
-      cost = u.cost, usable = r ~= nil and r.enabled == true }
+      cost = u.cost, usable = r ~= nil and r.enabled == true and kit_ok(force, ml, tick, kit) }
   end
   return out
 end
@@ -89,7 +102,7 @@ function Fa.think(f, tick)
     st = {}
     states[f.id] = st
   end
-  local cands = Fa.candidates(cat, force)
+  local cands = Fa.candidates(cat, force, ml, tick)
   local have, robots = have_points(force, cands)
   local choice, why = Rb.choose(cands, { have = have, prev = st.prev })
   if not choice then
@@ -107,7 +120,13 @@ function Fa.think(f, tick)
       tostring(f.key), choice.item, choice.score, choice.points, math.floor(cap * Rb.SHARE), cap, robots, want,
       demand and string.format("%d kit(s), %.2f/min", demand.units, demand.rate) or "rien a demander"))
   end
-  if demand then Ml.want(ml, tick, demand.item, demand.rate, "unite") end
+  if demand then
+    Ml.want(ml, tick, demand.item, demand.rate, "unite")
+    -- Intégration 0.6.33 : les segments d'un géant : aucune main ne les fabrique et personne d'autre ne les demande. Source « refus » : une cellule, jamais une
+    -- rangée, que la règle du choix laisserait à la capitalisation (qui ne les connaît pas).
+    local rb = Ro.robot_of_kit(demand.item)
+    if rb and rb.segment_item then Ml.want(ml, tick, rb.segment_item, demand.rate * Ro.SEGMENTS, Id.SRC_REFUS) end
+  end
   return choice, want, demand
 end
 

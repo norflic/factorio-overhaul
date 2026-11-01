@@ -445,7 +445,9 @@ local function solid_resource(spec, order)
     else
       res.stages_effect = nil
     end
-    res.icon, res.icon_size, res.icon_mipmaps, res.icons = sh.dir .. "/icone.png", 64, 4, nil
+    -- sh.icones (lot design-icone-monazite, 30/10) : dossier d'icônes faites À PART de la feuille (icone.png,
+    -- icone-1.png à icone-3.png) ; sans lui, les icônes de la feuille.
+    res.icon, res.icon_size, res.icon_mipmaps, res.icons = (sh.icones or sh.dir) .. "/icone.png", 64, 4, nil
   else
     -- Visuel d'avant M1 (teinte d'une copie vanilla) : cristal (M3 le remplacera par une feuille propre).
     lib.tint_sprites(res.stages, spec.tint)
@@ -497,7 +499,7 @@ local function ore_prototypes(spec, letter)
   local item = tinted_item(spec.item, spec.copy_icon, spec.tint)
   if spec.sheet then
     -- Icône et images au sol de la feuille M1 (format des minerais vanilla : 64 px + 3 mipmaps, 4 images).
-    local dir = spec.sheet.dir
+    local dir = spec.sheet.icones or spec.sheet.dir
     item.icons = nil
     item.icon, item.icon_size, item.icon_mipmaps = dir .. "/icone.png", 64, 4
     item.pictures = {

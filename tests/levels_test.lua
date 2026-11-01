@@ -2482,6 +2482,14 @@ if not okd then for _, l in ipairs(DrillSheets.lines(rd)) do print(l) end end
 check(okd and rd.n > 0, string.format("graphics/levels/foreuse : %d PNG du manifeste présents, à la taille et aux "
   .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", rd.n, rd.refs or 0,
   #rd.manquants, #rd.ecarts, rd.erreur and (", " .. rd.erreur) or ""))
+-- lot QG-JEU : feuilles des QG (centre et QG de faction ; même règle D-6)
+local CentreSheets = dofile("tests/datastage/centre_sheets.lua")
+local rc = CentreSheets.check(".")
+local okc = CentreSheets.ok(rc)
+if not okc then for _, l in ipairs(CentreSheets.lines(rc)) do print(l) end end
+check(okc and rc.n > 0, string.format("graphics/levels/centre : %d PNG du manifeste présents, à la taille et aux "
+  .. "dimensions du manifeste, %d image(s) de sprites.lua relue(s) (%d manquant(s), %d écart(s)%s)", rc.n, rc.refs or 0,
+  #rc.manquants, #rc.ecarts, rc.erreur and (", " .. rc.erreur) or ""))
 end)()
 
 ---------------------------------------------------------------------------------------------------
@@ -2550,7 +2558,8 @@ do
   local d42 = Foot0.diff(snap42, L.footprint_snapshot(), ks, function(k) return L.by_key[k].size end)
   local per = {}
   for _, c in ipairs(d42) do per[c.key] = (per[c.key] or 0) + 1 end
-  check(#d42 == 108 and per.command == 12 and per.laser == 24 and per.drill == 24 and per.furnace == 24 and per.assembler == 24 and per.gun == nil,
+  -- Lot QG-JEU : le centre passe de carré à rectangle 2 : 1 (8×4 dès le niveau 1) : ses 15 niveaux changent (12 avant).
+  check(#d42 == 111 and per.command == 15 and per.laser == 24 and per.drill == 24 and per.furnace == 24 and per.assembler == 24 and per.gun == nil,
     "migration 0.4.2 → 0.4.3 : " .. #d42 .. " niveaux changent (centre " .. tostring(per.command) .. ", laser " .. tostring(per.laser) .. ", foreuse "
     .. tostring(per.drill) .. ", four " .. tostring(per.furnace) .. ", assembleur " .. tostring(per.assembler) .. ", mitrailleuse 0)")
 end
@@ -2605,11 +2614,11 @@ local snap_ok, want_ch = true, {}
 for _, f in ipairs(L.families) do
   if #current[f.key] ~= f.max or #legacy[f.key] ~= f.max then snap_ok = false end
   for n = 1, f.max do
-    if legacy[f.key][n] ~= f.size or current[f.key][n] ~= L.footprint(f, n) then snap_ok = false end
-    if L.footprint(f, n) ~= f.size then want_ch[#want_ch + 1] = { key = f.key, level = n, from = f.size, to = L.footprint(f, n) } end
+    if legacy[f.key][n] ~= f.size or current[f.key][n] ~= L.footprint_code(f, n) then snap_ok = false end
+    if L.footprint_code(f, n) ~= f.size then want_ch[#want_ch + 1] = { key = f.key, level = n, from = f.size, to = L.footprint_code(f, n) } end
   end
 end
-check(snap_ok and legacy.gun[30] == 2 and current.gun[30] == L.footprint(GUN, 30) and #current.gun == 30 and #current.command == 15,
+check(snap_ok and legacy.gun[30] == 2 and current.gun[30] == L.footprint_code(GUN, 30) and #current.gun == 30 and #current.command == 15,
   "relevé des emprises : actuel (mitrailleuse 30 : " .. current.gun[30] .. ", centre 15 : " .. current.command[15]
   .. ", tous les niveaux = L.footprint) et d'avant V3-T (toutes au côté de base)")
 local keys = {}
@@ -2628,6 +2637,38 @@ check(ch_ok and first_gun and first_gun.level == 7 and first_gun.from == 2 and f
   "migration : " .. #ch .. " niveaux changent depuis une sauvegarde d'avant V3-T (familles " .. table.concat(fams_ch, ", ")
   .. " ; dans l'ordre des familles puis des niveaux ; mitrailleuse d'abord au niveau 7 : 2 → 3)")
 check(#Foot.diff(current, current, keys, function() return 0 end) == 0, "migration : rien à faire quand le relevé est à jour")
+-- Lot QG-JEU (1/11) : le centre est un RECTANGLE 2 : 1 (family.aspect = 2) : 8×4, 10×5, 12×6, 14×7, 16×8.
+do
+  local CMD = L.by_key.command
+  local want = { { 8, 4 }, { 8, 4 }, { 8, 4 }, { 10, 5 }, { 10, 5 }, { 10, 5 }, { 12, 6 }, { 12, 6 }, { 12, 6 }, { 14, 7 }, { 14, 7 },
+    { 14, 7 }, { 16, 8 }, { 16, 8 }, { 16, 8 } }
+  local dims_ok, code_ok = true, true
+  for n = 1, 15 do
+    local d = L.dims(CMD, n)
+    if not (type(d) == "table" and d.w == want[n][1] and d.h == want[n][2] and L.footprint(CMD, n) == want[n][2]) then dims_ok = false end
+    local c = L.footprint_code(CMD, n)
+    local dd = L.code_dims(c)
+    if not (c == want[n][1] * 100 + want[n][2] and dd.w == d.w and dd.h == d.h) then code_ok = false end
+  end
+  check(dims_ok and code_ok and L.dims(GUN, 7) == 3 and L.footprint_code(GUN, 7) == 3 and L.code_dims(3) == 3 and L.dims_text(CMD, 13) == "16×8",
+    "centre : emprises 8×4 (niveaux 1-3), 10×5, 12×6, 14×7, 16×8 (13-15) ; code du relevé largeur × 100 + hauteur ; les carrés inchangés")
+  local cb, sb = Foot.proto_boxes({ w = 8, h = 4 })
+  check(math.abs(cb[2][1] - 3.7) < 1e-9 and math.abs(cb[2][2] - 1.7) < 1e-9 and sb[2][1] == 4 and sb[2][2] == 2,
+    "boîtes d'un 8×4 : sélection ± 4 × ± 2, collision ± 3,7 × ± 1,7")
+  local old = Foot.tile_box({ x = 100, y = 100 }, 4)
+  local cands = Foot.candidates(old, { w = 8, h = 4 })
+  local ok_c = #cands == 5 and cands[1].x == 100 and cands[1].y == 100
+  for _, c in ipairs(cands) do if not Foot.contains(c.box, old) or c.box.x1 - c.box.x0 ~= 8 or c.box.y1 - c.box.y0 ~= 4 then ok_c = false end end
+  local sbx = Foot.search_box(old, { w = 10, h = 5 })
+  check(ok_c and sbx.x0 == 92 and sbx.x1 == 108 and sbx.y0 == 97 and sbx.y1 == 103 and Foot.eq({ w = 8, h = 4 }, { w = 8, h = 4 })
+    and not Foot.eq({ w = 8, h = 4 }, 8) and Foot.max({ w = 10, h = 5 }) == 10 and Foot.grow({ w = 8, h = 4 }, 1).h == 5,
+    "rectangle : un 4×4 → 8×4 a 5 positions candidates, la plus centrée d'abord ; zone de recherche d'un 10×5 ; égalité et agrandissement")
+  -- Relevé d'avant le lot : les côtés 4 à 8 du centre se lisent carrés ; le relevé actuel (804…) en diffère à tous les niveaux.
+  local old_snap = {}
+  for n = 1, 15 do old_snap[n] = CMD.size end
+  local dc = Foot.diff({ command = old_snap }, { command = L.footprint_snapshot().command }, { "command" }, function() return 4 end)
+  check(#dc == 15 and dc[1].from == 4 and dc[1].to == 804 and dc[15].to == 1608, "migration du centre : 15 niveaux changent (carré 4 → 804, … → 1608)")
+end
 -- Portée : la moitié de la croissance (portée au-delà du bord inchangée).
 check(L.range_bonus(GUN, 6) == 0 and L.range_bonus(GUN, 7) == 0.5 and L.range_bonus(GUN, 30) == 2
   and L.range_bonus(L.by_key.wall, 30) == 0

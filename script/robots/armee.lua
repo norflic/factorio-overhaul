@@ -26,6 +26,10 @@ local Mo = require("shared.robots.modele")
 
 local Armee = {}
 
+--- Crochets posés par script/robots/geant.lua (lot RB-5) : l'ordre d'un géant (araignée) passe par un chemin demandé au moteur ;
+--- armee.lua ne le requiert pas (geant.lua requiert armee.lua).
+Armee.hooks = {}
+
 Storage.declare("robots", function()
   return {
     ledger = Mo.new_ledger(),
@@ -57,12 +61,30 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Âge d'une force : (tech + 1) d'une faction, sinon le niveau de son centre de commandement (au moins 1).
 function Armee.age(force)
+  local s = Armee.S()
+  local forced = s and s.age_override and s.age_override[force.name]
+  if forced then return forced end -- aide des bancs seulement (interface distante set_age) : jamais écrite par le mod
   local f = State.by_force(force.name)
   if f then return (f.tech or 0) + 1 end
   return math.max(1, Levels.cc_level(force))
 end
 
 function Armee.cap(force) return Mo.cap(Armee.age(force), cap_setting()) end
+
+--- Géants vivants d'une force (lot RB-5).
+function Armee.giants(force_name)
+  local s = Armee.S()
+  return s and Mo.giants_of(s.ledger, force_name) or 0
+end
+
+--- Paramètres de Mo.can_release pour le robot `r` de `force` : `used` (points déjà pris, y compris les kits retirés pendant ce
+--- balayage) et `giants_extra` (géants créés pendant ce balayage) sont facultatifs.
+function Armee.release_params(force, r, keep, used, giants_extra)
+  return {
+    used = used or Armee.used(force.name), cap = Armee.cap(force), points = r.points, have = Armee.have(force.name, r.id), keep = keep,
+    giant = r.is_giant, giants_have = Armee.giants(force.name) + (giants_extra or 0), giants_allowed = Mo.giants_allowed(Armee.age(force)),
+  }
+end
 
 function Armee.used(force_name)
   local s = Armee.S()
@@ -104,6 +126,9 @@ end
 --- Distraction par l'ennemi : l'unité riposte en route, la commande reprend ensuite (F171). Rend vrai si l'ordre est donné.
 function Armee.send(u, kind, pos, radius)
   if not (u and u.valid) then return false end
+  if u.type == "spider-vehicle" then
+    return Armee.hooks.giant_go ~= nil and Armee.hooks.giant_go(u, kind, pos, radius) or false
+  end
   local stay = { type = defines.command.stop, distraction = defines.distraction.by_enemy }
   local first
   if kind == "move" then
@@ -136,8 +161,8 @@ function Armee.create(surface, force, id, near, rally, home)
   local r = Ro.robot(id)
   if not (s and r) then return nil, "robot inconnu ou état absent" end
   local owner, f = owner_key(force)
-  local name = Ro.unit_name(owner, id)
-  local pos = surface.find_non_colliding_position(name, near, 8, 0.5)
+  local name = Ro.proto_name(owner, r)
+  local pos = surface.find_non_colliding_position(name, near, r.is_giant and 24 or 8, r.is_giant and 1 or 0.5)
   if not pos then return nil, "pas de place" end
   local u = surface.create_entity({ name = name, position = pos, force = force })
   if not (u and u.valid and u.unit_number) then return nil, "création refusée" end
@@ -145,7 +170,11 @@ function Armee.create(surface, force, id, near, rally, home)
   s.ents[u.unit_number] = u
   script.register_on_entity_destroyed(u)
   s.stats.created = s.stats.created + 1
-  if f then
+  if r.is_giant then
+    -- un géant (araignée) : couleur de la faction, munition, puis ralliement ; une faction ne l'adopte pas comme soldat (groupes d'unités)
+    if Armee.hooks.giant_setup then Armee.hooks.giant_setup(u, f) end
+    if rally and not f then Armee.send(u, "move", rally, 2) end
+  elseif f then
     Military.adopt(f, u)
   elseif rally then
     Armee.send(u, "move", rally, 2)
@@ -159,10 +188,7 @@ end
 function Armee.spawn(surface, force, id, near, rally)
   local r = Ro.robot(id)
   if not r then return nil, "robot inconnu" end
-  local used = Armee.used(force.name)
-  if not Mo.can_release({ used = used, cap = Armee.cap(force), points = r.points, have = Armee.have(force.name, id) }) then
-    return nil, "plafond"
-  end
+  if not Mo.can_release(Armee.release_params(force, r)) then return nil, "plafond" end
   return Armee.create(surface, force, id, near, rally)
 end
 
@@ -204,8 +230,7 @@ function Armee.register_placed(u, player)
   local r = id and Ro.robot(id)
   if not (s and r and u.unit_number) or Armee.registered(u.unit_number) then return false end
   local force = u.force
-  if owner ~= Ro.PLAYER_OWNER or State.by_force(force.name) or not Armee.enabled() or not Mo.can_release({
-      used = Armee.used(force.name), cap = Armee.cap(force), points = r.points, have = Armee.have(force.name, id) }) then
+  if owner ~= Ro.PLAYER_OWNER or State.by_force(force.name) or not Armee.enabled() or not Mo.can_release(Armee.release_params(force, r)) then
     u.destroy()
     if player and player.valid then
       player.insert({ name = r.kit, count = 1 })
@@ -219,6 +244,7 @@ function Armee.register_placed(u, player)
   script.register_on_entity_destroyed(u)
   s.stats.created = s.stats.created + 1
   s.stats.placed = (s.stats.placed or 0) + 1
+  if r.is_giant and Armee.hooks.giant_setup then Armee.hooks.giant_setup(u, nil) end
   log(string.format("[FO-ROBOTS] unite %d %s force=%s points=%d/%d (kit pose a la main)", u.unit_number, id, force.name,
     Mo.used(s.ledger, force.name), Armee.cap(force)))
   return true
@@ -226,7 +252,7 @@ end
 
 local function on_placed(e)
   local u = e.created_entity or e.entity
-  if not (u and u.valid and u.type == "unit" and Ro.parse_unit(u.name)) then return end
+  if not (u and u.valid and (u.type == "unit" or u.type == "spider-vehicle") and Ro.parse_unit(u.name)) then return end
   Armee.register_placed(u, e.player_index and game.get_player(e.player_index))
 end
 Events.on(defines.events.on_built_entity, on_placed)
@@ -234,7 +260,7 @@ Events.on(defines.events.on_robot_built_entity, on_placed)
 
 Events.on(defines.events.on_entity_died, function(e)
   local u = e.entity
-  if u and u.valid and u.type == "unit" and Ro.parse_unit(u.name) then Armee.release(u.unit_number, "mort") end
+  if u and u.valid and (u.type == "unit" or u.type == "spider-vehicle") and Ro.parse_unit(u.name) then Armee.release(u.unit_number, "mort") end
 end)
 
 Events.on(defines.events.on_entity_destroyed, function(e)

@@ -12,7 +12,9 @@ local F = require("shared.faction.config")
 local out = {}
 
 ---------------------------------------------------------------------------------------------------
--- QG : l'épave du vaisseau du début de partie, renforcée.
+-- QG : l'épave du vaisseau du début de partie, renforcée. Lot QG-JEU (1/11) : l'image est l'ÉPAVE de l'âge 0 du kit des
+-- QG (prototypes/levels/command.lua), dans une emprise 8×4 comme celle du centre de l'âge 1 ; l'épave vanilla (15,6 × 7,8,
+-- et sa plaque de sol) n'est plus dessinée. Le centre LIÉ de la faction (script/faction/centre_qg.lua) porte les âges.
 ---------------------------------------------------------------------------------------------------
 local hq = lib.copy("container", "crash-site-spaceship")
 hq.name = "fo-faction-hq"
@@ -20,6 +22,14 @@ hq.localised_name = { "entity-name.fo-faction-hq" }
 hq.localised_description = { "entity-description.fo-faction-hq" }
 hq.max_health = 25000
 hq.minable = nil
+do
+  local Command = require("prototypes.levels.command")
+  local Foot = require("shared.levels.footprint")
+  hq.picture = Command.picture(0)
+  hq.drawing_box = Command.drawing_box(0)
+  hq.integration_patch, hq.integration_patch_render_layer = nil, nil
+  hq.collision_box, hq.selection_box = Foot.proto_boxes({ w = 8, h = 4 })
+end
 -- Session 4 : le QG est le STOCK de l'équipe (économie réelle) ; l'épave vanilla n'a que 5 cases.
 hq.inventory_size = require("shared.team.config").hq_inventory
 hq.resistances = {

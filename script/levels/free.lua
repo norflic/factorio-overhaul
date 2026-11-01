@@ -583,8 +583,7 @@ function Free.free_room(entity, opts)
   stat("ghosts", #req.ghosts)
   draw_plan(entity, B, plan, recs, player, Levels.CONTOUR_TTL, nil)
   -- Messages : ce qui est marqué, posé ; objets en plus à fournir ; liaisons de mur ; fils de circuit.
-  local side = L.footprint(family, level + 1)
-  tell(req, { "fo-levels-taille.free-started", "[entity=" .. entity.name .. "]", side .. "×" .. side, #req.marks, #req.ghosts })
+  tell(req, { "fo-levels-taille.free-started", "[entity=" .. entity.name .. "]", L.dims_text(family, level + 1), #req.marks, #req.ghosts })
   local extra, have = {}, {}
   for _, m in ipairs(out.marks) do have[m.name] = (have[m.name] or 0) + 1 end
   for _, g in ipairs(out.ghosts) do

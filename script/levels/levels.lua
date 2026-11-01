@@ -388,13 +388,13 @@ end
 function Levels.current_box(entity, side)
   local pos = entity.position
   if not Levels.off_grid(entity, side) then return Foot.tile_box(pos, side) end
-  return Foot.tile_box(pos, side + 1)
+  return Foot.tile_box(pos, Foot.grow(side, 1))
 end
 
 --- Le bâtiment est-il hors de la grille de son côté (laissé en place par une migration) ? Un bâtiment 1×1 ne l'est
 --- jamais : le moteur le pose toujours au centre d'une tuile (F41), et aucune famille 1×1 ne change de taille (mur).
 function Levels.off_grid(entity, side)
-  if side < 2 then return false end
+  if Foot.max(side) < 2 then return false end
   return not Foot.aligned(entity.position, side)
 end
 
@@ -991,7 +991,7 @@ function Levels.resize_replace(entity, name, old_side, new_side, opts)
   local rect = Foot.collision_rect(b)
   local gone = remove_ghosts(surface, rect, mask_layers(new.prototype.collision_mask))
   if gone > 0 then st.stats.ghosts_removed = (st.stats.ghosts_removed or 0) + gone end
-  local gm, gl = move_ground_items(surface, rect, new_side + 2)
+  local gm, gl = move_ground_items(surface, rect, Foot.max(new_side) + 2)
   if gm > 0 then st.stats.ground_moved = (st.stats.ground_moved or 0) + gm end
   if gl > 0 then
     st.stats.ground_left = (st.stats.ground_left or 0) + gl
@@ -1065,8 +1065,8 @@ local function replace(entity, family, n, opts)
   -- Lot V3-T2 (moteur réel, F86) : un bâtiment HORS grille ne passe jamais par le remplacement rapide moteur, même à
   -- côté égal : create_entity{fast_replace = true} recale la position sur la grille, ne trouve donc pas l'ancien à
   -- remplacer, et pose quand même le nouveau (sans vérifier la place) : deux bâtiments superposés, l'ancien gardé.
-  if cur and (L.footprint(family, cur) ~= L.footprint(family, n) or Levels.off_grid(entity, L.footprint(family, cur))) then
-    new = Levels.resize_replace(entity, name, L.footprint(family, cur), L.footprint(family, n), opts)
+  if cur and (L.footprint(family, cur) ~= L.footprint(family, n) or Levels.off_grid(entity, L.dims(family, cur))) then
+    new = Levels.resize_replace(entity, name, L.dims(family, cur), L.dims(family, n), opts)
     if not new then return nil end
   else
     st.replacing = true
@@ -1092,6 +1092,30 @@ local function replace(entity, family, n, opts)
     st.pending[new.unit_number] = waiting
   end
   celebrate(new, family, n)
+  for _, f in ipairs(Levels.on_replaced) do f(old_unit, new) end
+  return new
+end
+
+--- Remplace `entity` par l'entité `name` à la MÊME place et à la même emprise (lot QG-JEU : épave <-> centre de niveau 1,
+--- même boîte, même groupe de remplacement rapide). Remplacement rapide moteur, puis repli sans contenu (le coffre de
+--- l'épave est vide) ; le centre de la force suit. Renvoie la nouvelle entité ou nil (l'ancienne est alors intacte).
+function Levels.swap(entity, name)
+  if not (entity and entity.valid) then return nil end
+  local st = S()
+  local was_cc = Levels.cc(entity.force) == entity
+  local surface, pos, dir, force, old_unit = entity.surface, entity.position, entity.direction, entity.force, entity.unit_number
+  st.replacing = true
+  local new = surface.create_entity({ name = name, position = pos, direction = dir, force = force, fast_replace = true,
+    spill = false, raise_built = true, create_build_effect_smoke = false })
+  if not (new and new.valid and new.name == name) and entity.valid then
+    entity.destroy({ raise_destroy = false })
+    new = surface.create_entity({ name = name, position = pos, direction = dir, force = force, raise_built = true,
+      create_build_effect_smoke = false })
+    st.stats.fallback = (st.stats.fallback or 0) + 1
+  end
+  st.replacing = false
+  if not (new and new.valid) then return nil end
+  if was_cc then st.cc[force.name] = new end
   for _, f in ipairs(Levels.on_replaced) do f(old_unit, new) end
   return new
 end
@@ -1151,11 +1175,14 @@ function Levels.preview(entity, player, fresh, opts)
   if info.ok and #info.missing > 0 then info.ok, info.reason = false, "no-resources" end
   local from, to = L.footprint(family, n), L.footprint(family, n + 1)
   -- Lot V3-T2 : bâtiment hors grille (laissé par une migration) : même à côté égal, il est reposé sur la grille par
-  -- script, après vérification de la place (regrid = true).
-  local off = Levels.off_grid(entity, from)
+  -- script, après vérification de la place (regrid = true). Lot QG-JEU : resize.from et to restent les côtés (la
+  -- hauteur d'un rectangle) ; from_text et to_text disent « L×H » ; la place se lit sur les dimensions complètes.
+  local from_dims, to_dims = L.dims(family, n), L.dims(family, n + 1)
+  local off = Levels.off_grid(entity, from_dims)
   if from ~= to or off then
-    info.resize = { from = from, to = to, regrid = off or nil }
-    info.room = Levels.room(entity, from, L.name(family, n + 1), to, opts and opts.box)
+    info.resize = { from = from, to = to, regrid = off or nil, from_text = L.dims_text(family, n),
+      to_text = L.dims_text(family, n + 1) }
+    info.room = Levels.room(entity, from_dims, L.name(family, n + 1), to_dims, opts and opts.box)
     if info.ok and not info.room.chosen then info.ok, info.reason = false, "no-room" end
   end
   return info
@@ -1302,7 +1329,8 @@ function Levels.migrate_footprints()
     for _, surface in ipairs(sorted_surfaces()) do
       for _, e in ipairs(surface.find_entities_filtered({ name = name })) do
         if e.valid then
-          local room = Levels.room(e, ch.from, name, ch.to)
+          local from_d, to_d = L.code_dims(ch.from), L.code_dims(ch.to)
+          local room = Levels.room(e, from_d, name, to_d)
           local cand = room.chosen
           local pos = e.position
           if cand and math.abs(cand.x - pos.x) < Foot.EPS and math.abs(cand.y - pos.y) < Foot.EPS then
@@ -1311,8 +1339,12 @@ function Levels.migrate_footprints()
             local new
             if cand then
               local old_unit, ratio = e.unit_number, e.get_health_ratio() or 1
-              local was_cc, force = Levels.cc(e.force) == e, e.force
-              new = Levels.resize_replace(e, name, ch.from, ch.to, { room = room })
+              local cc0, force = Levels.cc(e.force), e.force
+              local was_cc = cc0 == e -- (lu avant : `e` n'est plus valide après le remplacement)
+              new = Levels.resize_replace(e, name, from_d, to_d, { room = room })
+              -- Intégration 0.6.33 : on_built (raise_built) inscrit tout centre reposé comme LE centre de sa force : un centre qui ne l'était pas
+              -- (galerie du banc content, posée sans raise_built) le lui volait (niveau faux, paiement sur le mauvais coffre). Seul le vrai centre passe la main.
+              if cc0 and not was_cc then st.cc[force.name] = cc0 end
               if new then
                 new.health = new.prototype.max_health * ratio
                 if was_cc then st.cc[force.name] = new end
@@ -1330,7 +1362,7 @@ function Levels.migrate_footprints()
               kept = kept + 1
               kept_list[#kept_list + 1] = { force = e.force.name, name = name, x = pos.x, y = pos.y }
               log("[FO-LEVELS] emprise : " .. name .. " en " .. pos.x .. ", " .. pos.y .. " laissé en place ("
-                .. ch.from .. "×" .. ch.from .. " → " .. ch.to .. "×" .. ch.to .. ", aucune place libre ; gêne : "
+                .. L.code_text(ch.from) .. " → " .. L.code_text(ch.to) .. ", aucune place libre ; gêne : "
                 .. Levels.blockers_text(room.target) .. ")")
             end
           end
@@ -1499,7 +1531,7 @@ function Levels.footprints_stale()
     local row = saved[f.key]
     if not row then return true end
     for n = 1, f.max do
-      if row[n] ~= L.footprint(f, n) then return true end
+      if row[n] ~= L.footprint_code(f, n) then return true end
     end
   end
   return false
@@ -1553,6 +1585,11 @@ local function on_built(e)
   end
   local st = S()
   local cur = Levels.cc(ent.force)
+  if cur and cur ~= ent and not st.replacing and ent.name == L.WRECK then
+    -- Lot QG-JEU : l'épave n'a pas d'objet à rendre ; une seconde est retirée sans bruit.
+    ent.destroy()
+    return
+  end
   if cur and cur ~= ent and not st.replacing then
     -- Un seul centre par force : le second est rendu au joueur.
     local player = e.player_index and game.get_player(e.player_index)

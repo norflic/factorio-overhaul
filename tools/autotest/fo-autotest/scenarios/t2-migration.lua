@@ -337,7 +337,7 @@ return {
     for _, f in ipairs(LV.families) do
       local row = s1.footprints and s1.footprints[f.key]
       for n = 1, f.max do
-        if not (row and row[n] == LV.footprint(f, n)) then bad[#bad + 1] = f.key .. n end
+        if not (row and row[n] == LV.footprint_code(f, n)) then bad[#bad + 1] = f.key .. n end
       end
     end
     ctx.check(s1.footprints_stale == false and #bad == 0, "releve des emprises ecrit et egal a la table (7 familles, tous les niveaux)",
@@ -349,7 +349,8 @@ return {
     st.final = {}
     for _, r in ipairs(st.rec) do
       local family, n = LV.parse(r.name)
-      local side = LV.footprint(family, n)
+      local side = LV.dims(family, n)  -- lot QG-JEU : nombre (carre) ou { w, h } (le centre, 2 : 1)
+      local sw, sh = Foot.wh(side)
       local old = Foot.tile_box({ x = r.x, y = r.y }, r.side0)
       local fin
       if r.entity.valid then
@@ -365,19 +366,34 @@ return {
       else
         local over = overlapping(fin)
         local aligned = Foot.aligned(fin.position, side)
-        if side == r.side0 then kind = "same"
+        if Foot.eq(side, r.side0) then kind = "same"
         elseif fin.unit_number ~= r.unit then kind = "moved"
         elseif aligned and #over == 0 then kind = "inplace"
         else kind = "kept" end
         local cnow = content(fin)
-        detail = string.format("%s -> %s %dx%d en %s ; contenu %s ; chevauche : %s", fmt(r), kind, side, side, fmt(fin.position),
+        detail = string.format("%s -> %s %dx%d en %s ; contenu %s ; chevauche : %s", fmt(r), kind, sw, sh, fmt(fin.position),
           cnow == r.content and "IDENTIQUE" or ("DIFFERENT (" .. r.content .. " / " .. cnow .. ")"), #over > 0 and table.concat(over, ", ") or "rien")
         st.final[r.key] = { entity = fin, unit = fin.unit_number, x = fin.position.x, y = fin.position.y, kind = kind }
         local okc = true
         if r.group ~= "dense" then okc = (cnow == r.content) end -- usine dense : elle tourne, contenu non figé
+        if r.key == "centre6" then
+          -- Lot QG-JEU : le centre 10x5 recouvre ses bras (laisse en place, chevauchement toleré) : les bras tournent et vident
+          -- quelques plaques dans les coffres voisins. Conservation : centre + coffres de la force dans 8 tuiles = 33 plaques.
+          local total = fin.get_item_count("copper-plate")
+          for _, ch in ipairs(s.find_entities_filtered({ name = "iron-chest", force = r.force,
+              area = { { r.x - 8, r.y - 8 }, { r.x + 8, r.y + 8 } } })) do total = total + ch.get_item_count("copper-plate") end
+          -- plaques tenues par les bras (une par main)
+          for _, bras in ipairs(s.find_entities_filtered({ name = "inserter", force = r.force,
+              area = { { r.x - 8, r.y - 8 }, { r.x + 8, r.y + 8 } } })) do
+            local h = bras.held_stack
+            if h and h.valid_for_read and h.name == "copper-plate" then total = total + h.count end
+          end
+          okc = total == 33 and fin.get_health_ratio() == 1
+          detail = detail .. " ; conservation centre + coffres + mains des bras : " .. total .. " / 33"
+        end
         local ok_kind = (kind == "moved" and aligned and #over == 0 and Foot.contains(Foot.tile_box(fin.position, side), old))
           or kind == "inplace" or kind == "kept" or (kind == "same" and fin.unit_number == r.unit and fin.position.x == r.x)
-        ctx.check(ok_kind and okc and fin.valid, r.key .. " (" .. r.name .. ", " .. r.side0 .. "x" .. r.side0 .. " -> " .. side .. "x" .. side .. ") : " .. kind
+        ctx.check(ok_kind and okc and fin.valid, r.key .. " (" .. r.name .. ", " .. r.side0 .. "x" .. r.side0 .. " -> " .. sw .. "x" .. sh .. ") : " .. kind
           .. (r.group ~= "dense" and ", contenu et PV conserves" or "") .. (kind == "moved" and ", sur la grille, sans chevauchement" or ""), detail)
       end
       if kind ~= "same" then count[kind] = (count[kind] or 0) + 1 end

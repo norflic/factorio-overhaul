@@ -32,11 +32,16 @@ end
 --- Points libres.
 function M.room(used, cap) return max(0, cap - used) end
 
---- Le kit peut-il devenir une unité ? p = { used, cap, points, have, keep } : `have` = effectif vivant de CE robot pour la
---- force, `keep` = « maintenir N » de l'usine (nil : pas de limite).
+--- Géants admis pour une force à l'âge `age` (lot RB-5) : 0 avant l'âge 13, puis 1, 2, 3.
+function M.giants_allowed(age) return Ro.giant_allowed(age) end
+
+--- Le kit peut-il devenir une unité ? p = { used, cap, points, have, keep, giant, giants_have, giants_allowed } : `have` = effectif
+--- vivant de CE robot pour la force, `keep` = « maintenir N » de l'usine (nil : pas de limite) ; pour un géant (`giant` vrai) :
+--- `giants_have` géants vivants de la force, `giants_allowed` admis à son âge (lot RB-5).
 function M.can_release(p)
   if p.used + p.points > p.cap then return false end
   if p.keep ~= nil and p.have >= p.keep then return false end
+  if p.giant and (p.giants_have or 0) >= (p.giants_allowed or 0) then return false end
   return true
 end
 
@@ -89,6 +94,24 @@ function M.remove(l, unit_number)
 end
 
 function M.used(l, force) return l.used[force] or 0 end
+
+--- Géants vivants d'une force (lot RB-5) : somme des effectifs des robots à chaîne de segments.
+function M.giants_of(l, force)
+  local n = 0
+  for _, r in ipairs(Ro.ROBOTS) do
+    if r.is_giant then n = n + M.have(l, force, r.id) end
+  end
+  return n
+end
+
+--- Numéros d'unité inscrits d'un robot (toutes forces), triés (lot RB-4 : soutien, géants).
+function M.units_with(l, id)
+  local out = {}
+  for _, un in ipairs(l.order) do
+    if l.units[un].id == id then out[#out + 1] = un end
+  end
+  return out
+end
 function M.have(l, force, id) return (l.by_id[force] and l.by_id[force][id]) or 0 end
 function M.count(l) return #l.order end
 

@@ -308,6 +308,7 @@ function Ind.think(f, cs, res, view, book, tick)
   local out = Id.decide(st.id, { tick = tick, sources = { keep }, fab = lec.fab, served = served, unites = General.catalogue().unites,
     usable = function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end,
     bloc_max = function(ent) return Pt.colonnes(width[ent] or 3) * 2 end })
+  for _, r in ipairs(out.refus) do Ml.refuse(ml, tick, r.item) end -- intégration 0.6.33 : lu par la demande de robots (script/robots/faction.lua)
   local sig = Id.describe(out)
   if sig ~= st.sig then
     st.sig = sig
@@ -343,7 +344,10 @@ function Ind.think(f, cs, res, view, book, tick)
         PileRt.refuse(f, "mall:" .. label, kind .. " " .. label .. " non demande (" .. tostring(pwhy) .. ")", tick)
       elseif not mod then
         say(f, tick, string.format("%s %s refuse : %s", kind, label, tostring(why)))
-        for _, it in ipairs(c.items) do st.hold[it] = tick + Ind.RETRY_TICKS end
+        for _, it in ipairs(c.items) do
+          st.hold[it] = tick + Ind.RETRY_TICKS
+          Ml.refuse(ml, tick, it)
+        end
       elseif (mod.g.power_kw or 0) > 0 and Auto.plant_state(f) == "refuse" then
         wait(label, kind, "centrale refusee")
       else

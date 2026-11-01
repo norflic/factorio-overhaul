@@ -65,6 +65,39 @@
 
 local F = {}
 
+--- RECTANGLES (lot QG-JEU, 1/11 : le centre de commandement passe à 2 : 1, 8×4 à 16×8). Un « côté » reçu par les
+--- fonctions ci-dessous est un NOMBRE (carré, comportement d'avant, octet pour octet) ou une table { w = largeur,
+--- h = hauteur } (tuiles). Un carré est un cas particulier : tout ce qui suit se lit par axe.
+function F.wh(s)
+  if type(s) == "table" then return s.w, s.h end
+  return s, s
+end
+
+--- Mêmes dimensions (nombre ou table des deux côtés) ?
+function F.eq(a, b)
+  local aw, ah = F.wh(a)
+  local bw, bh = F.wh(b)
+  return aw == bw and ah == bh
+end
+
+--- La plus grande dimension (nombre).
+function F.max(s)
+  local w, h = F.wh(s)
+  return math.max(w, h)
+end
+
+--- La plus petite dimension (nombre).
+function F.min(s)
+  local w, h = F.wh(s)
+  return math.min(w, h)
+end
+
+--- Dimensions agrandies de `k` tuiles sur chaque axe (même forme que l'entrée).
+function F.grow(s, k)
+  if type(s) == "table" then return { w = s.w + k, h = s.h + k } end
+  return s + k
+end
+
 --- Marge de collision (tuile) : boîte de collision = carré exact réduit de MARGIN de chaque côté.
 F.MARGIN = 0.3
 --- Tolérance des comparaisons de boîtes (contact bord à bord = pas de collision).
@@ -72,15 +105,19 @@ F.EPS = 1e-6
 
 local function round(v) return math.floor(v + 0.5) end
 
---- Côté d'un carré de tuiles.
+--- Côté d'un carré de tuiles (largeur d'un rectangle).
 function F.side(box) return box.x1 - box.x0 end
+
+--- Hauteur d'un rectangle de tuiles.
+function F.height(box) return box.y1 - box.y0 end
 
 --- Carré de tuiles d'un bâtiment de côté `side` centré en `pos` ({x, y}) : aligné sur la grille (arrondi au
 --- plus proche si la position ne l'est pas, cas d'une sauvegarde dont le prototype a changé de taille).
 function F.tile_box(pos, side)
-  local x0 = round(pos.x - side / 2)
-  local y0 = round(pos.y - side / 2)
-  return { x0 = x0, y0 = y0, x1 = x0 + side, y1 = y0 + side }
+  local w, h = F.wh(side)
+  local x0 = round(pos.x - w / 2)
+  local y0 = round(pos.y - h / 2)
+  return { x0 = x0, y0 = y0, x1 = x0 + w, y1 = y0 + h }
 end
 
 --- Centre d'un carré : { x, y }.
@@ -97,9 +134,11 @@ end
 --- Boîtes de prototype (format de l'étape data, { {x, y}, {x, y} }) d'un bâtiment de côté `side` : collision,
 --- sélection.
 function F.proto_boxes(side, margin)
-  local h = side / 2
-  local c = h - (margin or F.MARGIN)
-  return { { -c, -c }, { c, c } }, { { -h, -h }, { h, h } }
+  local w, ht = F.wh(side)
+  local hx, hy = w / 2, ht / 2
+  local m = margin or F.MARGIN
+  local cx, cy = hx - m, hy - m
+  return { { -cx, -cy }, { cx, cy } }, { { -hx, -hy }, { hx, hy } }
 end
 
 --- Boîte de collision (coordonnées de carte) d'un bâtiment qui occupe le carré `box`.
@@ -121,33 +160,32 @@ end
 --- Positions candidates pour passer du carré `old` au côté `side`, dans l'ORDRE DE PRÉFÉRENCE (règle en
 --- tête du fichier). Chaque candidate : { box, x, y (centre), dx, dy (écart au centre de l'ancien), d2 }.
 function F.candidates(old, side)
-  local a = F.side(old)
+  local w, h = F.wh(side)
+  local aw, ah = old.x1 - old.x0, old.y1 - old.y0
   local oc = F.center(old)
   local list = {}
   local lo_x, hi_x, lo_y, hi_y
-  if side >= a then
-    lo_x, hi_x, lo_y, hi_y = old.x1 - side, old.x0, old.y1 - side, old.y0
-  else
-    lo_x, hi_x, lo_y, hi_y = old.x0, old.x1 - side, old.y0, old.y1 - side
-  end
+  if w >= aw then lo_x, hi_x = old.x1 - w, old.x0 else lo_x, hi_x = old.x0, old.x1 - w end
+  if h >= ah then lo_y, hi_y = old.y1 - h, old.y0 else lo_y, hi_y = old.y0, old.y1 - h end
   for y0 = lo_y, hi_y do
     for x0 = lo_x, hi_x do
-      local box = { x0 = x0, y0 = y0, x1 = x0 + side, y1 = y0 + side }
+      local box = { x0 = x0, y0 = y0, x1 = x0 + w, y1 = y0 + h }
       local c = F.center(box)
       local dx, dy = c.x - oc.x, c.y - oc.y
       list[#list + 1] = { box = box, x = c.x, y = c.y, dx = dx, dy = dy, d2 = dx * dx + dy * dy }
     end
   end
   -- dx et dy sont des multiples de 0,5 : d2 est exact (multiples de 0,25), les égalités sont franches. Les
-  -- candidates ont des (dx, dy) tous différents : l'ordre est total.
-  local odd = side % 2 == 1
+  -- candidates ont des (dx, dy) tous différents : l'ordre est total. Rectangle : la parité de chaque axe fixe
+  -- son sens (hauteur impaire : nord d'abord ; largeur impaire : ouest d'abord), comme pour un carré.
+  local odd_x, odd_y = w % 2 == 1, h % 2 == 1
   table.sort(list, function(p, q)
     if p.d2 ~= q.d2 then return p.d2 < q.d2 end
-    if odd then
-      if p.dy ~= q.dy then return p.dy < q.dy end
-      return p.dx < q.dx
+    if p.dy ~= q.dy then
+      if odd_y then return p.dy < q.dy end
+      return p.dy > q.dy
     end
-    if p.dy ~= q.dy then return p.dy > q.dy end
+    if odd_x then return p.dx < q.dx end
     return p.dx > q.dx
   end)
   return list
@@ -155,11 +193,12 @@ end
 
 --- Rectangle de recherche : réunion de toutes les candidates (une seule requête au moteur pour toutes).
 function F.search_box(old, side)
-  local a = F.side(old)
-  if side >= a then
-    return { x0 = old.x1 - side, y0 = old.y1 - side, x1 = old.x0 + side, y1 = old.y0 + side }
-  end
-  return { x0 = old.x0, y0 = old.y0, x1 = old.x1, y1 = old.y1 }
+  local w, h = F.wh(side)
+  local aw, ah = old.x1 - old.x0, old.y1 - old.y0
+  local x0, x1, y0, y1 = old.x0, old.x1, old.y0, old.y1
+  if w >= aw then x0, x1 = old.x1 - w, old.x0 + w end
+  if h >= ah then y0, y1 = old.y1 - h, old.y0 + h end
+  return { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
 end
 
 --- La candidate `p` est-elle plus facile à libérer que `q` (refus « no-room », règle en tête du fichier) ?

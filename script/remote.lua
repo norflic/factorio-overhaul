@@ -183,6 +183,11 @@ remote.add_interface("factorio-overhaul", {
   levels_row = function(entity)
     return Levels.start_row(entity, nil)
   end,
+  -- Lot QG-JEU (banc) : remplacement sur place d'une épave de centre par le centre de niveau 1 (ou l'inverse), sans paiement.
+  levels_swap = function(entity, name)
+    local new = Levels.swap(entity, name)
+    return new and new.valid and new or nil
+  end,
   levels_status = function(force_name)
     local force = game.forces[force_name or "player"]
     local st = Storage.ns("levels")

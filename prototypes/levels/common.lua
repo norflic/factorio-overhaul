@@ -281,9 +281,11 @@ end
 
 local function apply_footprint(p, family, n)
   local side = L.footprint(family, n)
-  if side == family.size then return end
+  -- Lot QG-JEU : le centre est un rectangle 2 : 1 (family.aspect) dès le niveau 1, dont la boîte du squelette est celle
+  -- d'un roboport 4×4 : ses boîtes sont toujours posées (L.dims).
+  if side == family.size and L.aspect(family) == 1 then return end
   local a = family.size
-  p.collision_box, p.selection_box = Foot.proto_boxes(side)
+  p.collision_box, p.selection_box = Foot.proto_boxes(L.dims(family, n))
   if p.drawing_box then p.drawing_box = lib.scale_box(p.drawing_box, side / a) end
   local bonus = L.range_bonus(family, n)
   local ap = p.attack_parameters
@@ -1107,7 +1109,7 @@ local function context(family, n, g)
   local ep = L.epochs[e]
   local inner = {
     family = table.deepcopy(family), level = n, epoch = e, step = L.step_of(family, n), epoch_key = ep.key,
-    color = table.deepcopy(ep.color), L = L, kit = kit, footprint = L.footprint(family, n),
+    color = table.deepcopy(ep.color), L = L, kit = kit, footprint = L.footprint(family, n), dims = L.dims(family, n),
   }
   if g then
     inner.declare = function(ptype, source, suffix, edit) return declare(g, family, n, ptype, source, suffix, edit) end
@@ -1268,7 +1270,7 @@ function Common.generate()
       if p and L.footprint(family, n) ~= family.size then
         local probs = footprint_problems(p, L.footprint(family, n))
         if #probs > 0 then
-          error("[FO-LEVELS] " .. name .. " (emprise " .. L.footprint(family, n) .. "×" .. L.footprint(family, n)
+          error("[FO-LEVELS] " .. name .. " (emprise " .. L.dims_text(family, n)
             .. ") : " .. table.concat(probs, " ; "))
         end
       end
@@ -1298,6 +1300,8 @@ function Common.generate()
         local dctx = guarded_dress(visual, p, family, n, guard)
         lib.set_icons(p, family_icons(visual, p, dctx))
         out[#out + 1] = p
+        -- Lot QG-JEU : l'épave du centre (âge 0) est un prototype à part, copie du niveau 1 habillé.
+        if family.key == "command" and n == 1 and visual.wreck then out[#out + 1] = visual.wreck(p, L.WRECK) end
 
         local item
         local base_item_name = family.base

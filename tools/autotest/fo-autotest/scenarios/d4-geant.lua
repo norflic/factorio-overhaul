@@ -287,14 +287,16 @@ end
 --- et le plus grand côté de la famille (hauteur de ses rangées). Depuis 0.4.3 (lot V3-T2), les niveaux d'une même
 --- famille n'ont plus la même emprise (mitrailleuse 2×2 à 6×6, centre 4×4 à 8×8 : shared/levels/config.lua).
 local function family_sides(f)
-  local sides, max = {}, 0
+  -- Lot QG-JEU : le centre est un rectangle 2 : 1 ; sides = HAUTEUR (rangées), widths = LARGEUR (suite de machines).
+  local sides, max, widths = {}, 0, {}
   for n = 1, f.max do
     local p = game.entity_prototypes[LV.name(f, n)]
-    local side = p and math.max(p.tile_width, p.tile_height) or LV.footprint(f, n)
+    local side = p and (LV.aspect(f) > 1 and p.tile_height or math.max(p.tile_width, p.tile_height)) or LV.footprint(f, n)
     sides[n] = side
+    widths[n] = side * LV.aspect(f)
     max = math.max(max, side)
   end
-  return sides, max
+  return sides, max, widths
 end
 
 --- Hauteur d'un bloc : 2 rangées de machines de la hauteur du plus grand niveau, 2 tapis jointifs (boucle),
@@ -332,7 +334,7 @@ local function block(s, acc, f, rep, y)
     end
     return y + block_height(pol, 1)
   end
-  local sides, size = acc.sides[f.key], acc.sizes[f.key]
+  local sides, size, widths = acc.sides[f.key], acc.sizes[f.key], acc.widths[f.key]
   local i = (pol.io or pol.feed) and 1 or 0
   local yR1 = y + size + i
   local yR2 = yR1 + 1
@@ -350,17 +352,17 @@ local function block(s, acc, f, rep, y)
     local k, left = 0, xa + 1
     while true do
       local n = (k + ((rep * 2) + r - 1) * SHIFT) % f.max + 1
-      local side = sides[n]
-      if left + side - 1 > xb - 1 then break end -- la colonne xb porte le retour de la boucle de tapis
+      local side, wide = sides[n], widths[n]
+      if left + wide - 1 > xb - 1 then break end -- la colonne xb porte le retour de la boucle de tapis
       local top = row.above and (row.edge - side) or (row.edge + 1)
       if pol.drill then
-        for dx = 0, side - 1 do
+        for dx = 0, wide - 1 do
           for dy = 0, side - 1 do
             put(s, acc, "iron-ore", left + dx + 0.5, top + dy + 0.5, nil, 100000)
           end
         end
       end
-      local e = building(n, left + side / 2, top + side / 2, pol.drill and (row.above and S or N) or nil)
+      local e = building(n, left + wide / 2, top + side / 2, pol.drill and (row.above and S or N) or nil)
       if e then
         if pol.assembler then
           e.set_recipe("automation-science-pack")
@@ -375,12 +377,12 @@ local function block(s, acc, f, rep, y)
         end
       end
       if i == 1 then
-        for dx = 0, side - 1 do
+        for dx = 0, wide - 1 do
           local dir = (pol.io and dx % 2 == 1) and dir_out or dir_in
           if put(s, acc, inserter, left + dx + 0.5, row.edge + 0.5, dir) then acc.inserters = acc.inserters + 1 end
         end
       end
-      left = left + side
+      left = left + wide
       k = k + 1
     end
   end
@@ -630,13 +632,13 @@ return {
     local steel = game.forces.player.recipes["steel-plate"]
     if steel then steel.enabled = true end
 
-    local acc = { protos = {}, refused = {}, levels = {}, sides = {}, sizes = {}, blocks = {}, turrets = {}, buildings = 0,
+    local acc = { protos = {}, refused = {}, levels = {}, sides = {}, sizes = {}, widths = {}, blocks = {}, turrets = {}, buildings = 0,
       belts = 0, inserters = 0, items = 0 }
     -- Prototypes de tous les niveaux de toutes les familles (noms : config).
     local missing, expected = {}, 0
     for _, f in ipairs(LV.families) do
       acc.levels[f.key] = {}
-      acc.sides[f.key], acc.sizes[f.key] = family_sides(f)
+      acc.sides[f.key], acc.sizes[f.key], acc.widths[f.key] = family_sides(f)
       for n = 1, f.max do
         expected = expected + 1
         if not game.entity_prototypes[LV.name(f, n)] then missing[#missing + 1] = LV.name(f, n) end

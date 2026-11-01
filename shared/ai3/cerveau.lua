@@ -118,6 +118,7 @@ function C.situation(view, st, ctx)
     weights = ctx.weights or {}, research = ctx.research, army_target = ctx.army_target or 0, need = st.need,
     army_alert = view.army_alert or false, army_need = view.army_need or 0, -- lot ARMEE-ANTICIPATION : vague annoncée (B.goals)
     at_war = ctx.at_war or view.threatened or false,
+    ammo_reserve = ctx.ammo_reserve or 0, -- lot S1 : réserve de chargeurs voulue d'après la menace reçue (B.generate)
     -- Lot IA-V2 : l'économie est « faite » au fer II de l'ancienne échelle OU quand un avant-poste de fer tourne et que
     -- le fer est SATURÉ (st.economy_ok, collant) : le cerveau par besoins ne bâtit pas un 2e avant-poste de fer qui ne
     -- sert à rien, et la recherche restait plafonnée pour toujours (moteur réel, ia3c-reduit et ia3c-default graine
@@ -209,7 +210,11 @@ function C.think(view, book, st, ctx)
       held = view.recruit_held, reason = eff and eff.reason or nil, cost = view.recruit_cost,
       margin = eff and eff.margin_item and { eff.margin_item, eff.margin } or nil })
     st.noyau = Rs.state(book, view.stock, { posts = sig.posts, repair = sig.repair, plan_wants = sig.plan_wants,
-      planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need }, tick)
+      planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need,
+      -- Intégration 0.6.33 : la réserve de chargeurs sur la menace (lot S1) est du besoin : ni les blocs d'I1 ni le puits de C2 n'en prennent le fer
+      ammo = (ctx.ammo_reserve or 0) > 0 and { { T.turret_ammo, ctx.ammo_reserve } } or nil,
+      -- Lot S1 : les packs de la recherche de la tourelle sont du besoin (les blocs de l'industrie n'en prennent pas le fer)
+      research = (ctx.research and ctx.research.for_defense) and ctx.research.packs or nil }, tick)
     st.noyau.recruits = n_rec
   else
     st.noyau = nil
@@ -467,6 +472,9 @@ function C.think(view, book, st, ctx)
     recruit_blocked = base.recruit_blocked, recruit_held = base.recruit_held, unreachable = E.unreachable,
     grow_short = base.grow_short, -- lot FER-EQUIPE : la réserve de fer a retenu une recrue (journal [FO-FER])
     coal_rate = base.coal_rate, burn_rate = base.burn_rate, defend = base.defend, priorite = base.priorite,
+    -- Intégration 0.6.33 : lus par SurvieQg.note_plan (Team.think) ; absents du plan du cerveau, allumé par défaut, les attentes de protection du
+    -- lot S1 (reconstruction, agrandissement de survie) ne s'allumaient jamais.
+    turret_ok = base.turret_ok, turret_payable = base.turret_payable,
     defchoix = base.defchoix, -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats (journal [FO-DEFCHOIX], script/team/team.lua)
     ia3 = { K = K, active = n_active, productive = n_productive, dropped = dropped,
       explore = E.explore, saturated = saturated, dominant = dom and dom.key or nil,

@@ -260,6 +260,9 @@ function Rc.defer(st, key, until_tick, tick, max)
   local r = st.lost[key]
   if not r then return end
   r.retry = until_tick
+  -- Intégration 0.6.33 : max = math.huge (lot S1, la pièce attend ses tourelles) : une attente sans report compté. Comptée, 30 min d'attente
+  -- (180 reports de 10 s) dépassaient Ru.MAX_DEFERS (150) : la pièce était abandonnée au premier ennemi venu une fois les tourelles posées.
+  if max == math.huge then return end
   r.defers = (r.defers or 0) + 1
   if r.defers > (max or Rc.MAX_DEFERS) then r.abandoned = true end
 end

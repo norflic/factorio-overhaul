@@ -404,6 +404,10 @@ W.resources = {
     -- check_gisement 7 OK ; luminance médiane 91 contre 140 pour I3). Avant : I3, seule des trois du 25/10 à passer les 9
     -- critères de tools/autotest/x1_lisibilite.py (I3 gardée dans fo-logs/2026-10-30_AMELIO/RESSOURCES/rendu/I3-avant) ;
     -- x1_lisibilite N'EST PAS rejoué sur I2S. Choix provisoire, sans verdict du DC.
+    -- Lot MINERAI-ILMENITE (30/10 ; DC : « je n'aime pas du tout la forme de ces minerais : [...] Minerai d'ilménite [...]
+    -- Il faut les refaire ») : FORME refaite, direction J7 (morceaux bosselés en tas, brun-noir à reflets bronze, tablettes
+    -- d'accent, poussière brun-rouille ; teinte I2 sombre gardée, couche d'effet de I2S inchangée). Même dossier, même nom :
+    -- aucune migration. Planches : fo-logs/2026-10-30_RETOUR-MATIN/MINERAIS/ilmenite/index.html. Sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/ilmenite",
       name = "ilmenite",
@@ -456,11 +460,17 @@ W.resources = {
     copy_icon = "iron-ore",
     -- Miel de la monazite : teinte de la technologie et des objets dérivés.
     tint = { r = 0.86, g = 0.66, b = 0.36 },
-    -- Feuille PROPRE du kit minerai (lot M1 ; direction Z1, tools/render/pieces/ressources/directions.py) : placer de
-    -- galets et prismes miel et brun-rouge mêlés de magnétite noire. Choix provisoire, sans verdict du DC.
+    -- Feuille PROPRE du kit minerai (tools/render/pieces/ressources/directions.py). Depuis le lot design-minerai-monazite
+    -- (30/10, retour du DC : « je n'aime pas du tout la forme de ces minerais [...] monazite. Il faut les refaire. ») :
+    -- direction M1, rognons anguleux miel et résine en amas (avant : Z3, galets ronds jaune pâle). Même nom de prototype,
+    -- même dossier de feuille. Choix provisoire, sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/monazite",
       name = "monazite",
+      -- Icônes À PART de la feuille (lot design-icone-monazite, 30/10 ; DC : « changez les icones mais si non c est pas
+      -- mal ») : tas de 4 ou 5 rognons M1 composés comme les icônes vanilla (tools/render/pieces/ressources/
+      -- icones_monazite.py). L'objet, ses images au sol et le gisement les prennent (prototypes/world.lua).
+      icones = "__factorio-overhaul__/graphics/ressources/monazite/icones",
       mining_visualisation_tint = { r = 0.80, g = 0.62, b = 0.35, a = 1 },
       -- Couche d'effet ambre faible (pas la lueur trop claire de l'ilménite la nuit). Multiplicateur 40 (captures du
       -- 25/10, 8 h 25) : de nuit ΔE76 au cuivre 7,4 et à la pierre 6,5 (x2_lisibilite.py N1, N2 en échec) ; 80 essayé.
@@ -632,14 +642,16 @@ W.resources = {
     copy_icon = "stone",
     tint = { r = 1.00, g = 0.72, b = 0.30 },
     glint = { tint = { r = 1.00, g = 0.70, b = 0.30 }, min = 0.15, max = 0.45, period = 4 },
-    -- Feuille PROPRE du kit minerai (30/10 ; direction S2 : cristaux résineux miel et rubis, gros et serrés, 128
-    -- échantillons ; S1, trop clairsemée et à ΔE 8 de la pierre, écartée). check_gisement 6 OK, 1 ECHEC (stades 1 à 4 de
-    -- couverture presque égale, 0,23 ; écart 0,084 à la vanilla). ΔE 13 à la pierre, 24 au cuivre. Choix provisoire, sans
-    -- verdict du DC.
+    -- Feuille PROPRE du kit minerai, REFAITE au lot DESIGN-BLENDE (30/10, retour du DC : « je n'aime pas du tout la forme
+    -- de ces minerais : Blende, ... Il faut les refaire ») : direction S8, druses de TÉTRAÈDRES tronqués (la forme
+    -- cristalline de la sphalérite) brun-rouge résineux, rubis et ambre, 128 échantillons. Avant : S2 (petits cubes et
+    -- galets lisses : « dés et bonbons », doublon de forme de la galène). Mesures et planches :
+    -- fo-logs/2026-10-30_RETOUR-MATIN/MINERAIS/blende. Choix provisoire, sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/blende",
       name = "blende",
-      mining_visualisation_tint = { r = 0.55, g = 0.28, b = 0.08, a = 1 },
+      -- brun-rouge de S8 (miel de S2 avant)
+      mining_visualisation_tint = { r = 0.48, g = 0.16, b = 0.06, a = 1 },
       effet = { period = 4, deviation = 1, darkness_multiplier = 60, min = 0.02, max = 0.08 },
     },
     -- Bleu nuit sur la carte : la seule teinte restée à ΔE76 ≥ 45 de tous les minerais, fluides et sols (recherche sur une

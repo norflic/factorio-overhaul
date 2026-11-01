@@ -37,7 +37,8 @@
 
 local LV = require("__factorio-overhaul__/shared/levels/config")
 local Foot = require("__factorio-overhaul__/shared/levels/footprint")
-local RL = require("__factorio-overhaul__/shared/content/recipe_lots") -- lot EQUILIBRE : au niveau 30, l'assembleur passe au lot × 10 (même recette)
+local ok_rl, RL = pcall(require, "__factorio-overhaul__/shared/content/recipe_lots") -- lot EQUILIBRE : au niveau 30, l'assembleur passe au lot × 10 (même recette)
+if not ok_rl then RL = { parse = function() return nil end } end -- lot QG-JEU : sources de CRÉATION anciennes (avant MOD-2, bancs de migration double source)
 
 local M = {}
 
@@ -103,7 +104,9 @@ end
 local function at_candidate(e, c, side)
   if not (e and e.valid and c) then return false end
   local sel = e.prototype.selection_box
-  return near(e.position.x, c.x) and near(e.position.y, c.y) and close(sel.right_bottom.x - sel.left_top.x, side)
+  local w, h = Foot.wh(side)  -- lot QG-JEU : un rectangle (le centre) ou un carré
+  return near(e.position.x, c.x) and near(e.position.y, c.y) and close(sel.right_bottom.x - sel.left_top.x, w)
+    and close(sel.right_bottom.y - sel.left_top.y, h)
 end
 
 --- Rectangles de rendu du mod dont le coin nord-ouest est dans la zone.
@@ -186,7 +189,7 @@ function M.setup(ctx)
   for _, r in ipairs({ RECIPE, SLOW, "iron-gear-wheel" }) do if f.recipes[r] then f.recipes[r].enabled = true end end
   local N, E, S, W = defines.direction.north, defines.direction.east, defines.direction.south, defines.direction.west
   local x0, y0 = z.x0, z.y0
-  st.cc = s.create_entity({ name = LV.name(CC, 15), position = { x0 + 6, y0 + 6 }, force = f, raise_built = true })
+  st.cc = s.create_entity({ name = LV.name(CC, 15), position = { x0 + 9, y0 + 6 }, force = f, raise_built = true })
   ctx.power(x0 + 64, y0 + 48, f)
   local made = {}
   local function keep(key, e) st[key] = e; if e then made[#made + 1] = key end; return e end
@@ -324,7 +327,7 @@ function M.setup(ctx)
     if i == 1 then st.dense.lz = m end
   end
   for x = xl - 3.5, xl + 5.5 do s.create_entity({ name = "stone-wall", position = { x, yb - 3 }, force = f, raise_built = true }) end
-  -- B5 : centre 3 (4×4) d'une force à part, un bras sur chaque côté (comme une usine qui le remplit), coffres derrière.
+  -- B5 : centre 3 (8×4 depuis le lot QG-JEU) d'une force à part, un bras sur chaque côté (comme une usine qui le remplit), coffres derrière.
   local f2 = make_force(FORCE_CC2)
   local xcc = x0 + 100
   local c2 = s.create_entity({ name = LV.name(CC, 3), position = { xcc, yb + 0.5 }, force = f2, raise_built = true })
@@ -334,10 +337,10 @@ function M.setup(ctx)
   s.create_entity({ name = "iron-chest", position = { xcc - 0.5, yb - 3 }, force = f2 })
   ins(s, f2, xcc + 0.5, yb + 3, S)
   s.create_entity({ name = "iron-chest", position = { xcc + 0.5, yb + 4 }, force = f2 })
-  ins(s, f2, xcc - 2.5, yb, W)
-  s.create_entity({ name = "iron-chest", position = { xcc - 3.5, yb }, force = f2 })
-  ins(s, f2, xcc + 2.5, yb + 1, E)
-  s.create_entity({ name = "iron-chest", position = { xcc + 3.5, yb + 1 }, force = f2 })
+  ins(s, f2, xcc - 4.5, yb, W)
+  s.create_entity({ name = "iron-chest", position = { xcc - 5.5, yb }, force = f2 })
+  ins(s, f2, xcc + 4.5, yb + 1, E)
+  s.create_entity({ name = "iron-chest", position = { xcc + 5.5, yb + 1 }, force = f2 })
   ctx.check(st.dense.as and st.dense.fu and st.dense.dr and st.dense.lz and st.dense.cc,
     "B : usine dense posee (assembleurs, fours, foreuses, lasers colles, bras et convoyeurs ; centre 3 entoure de bras)")
 
@@ -576,7 +579,7 @@ end
 local function dense_case(ctx, label, e, pay_inv)
   local s = ctx.surface()
   local family, n = LV.parse(e.name)
-  local a, b = LV.footprint(family, n), LV.footprint(family, n + 1)
+  local a, b = LV.dims(family, n), LV.dims(family, n + 1)
   stock(pay_inv, family, n + 1)
   local c0 = counts(pay_inv, family, n + 1)
   local r = ctx.call("levels_upgrade", e)
@@ -585,7 +588,7 @@ local function dense_case(ctx, label, e, pay_inv)
   local drawn = r.contour and has_rect(rects, r.contour)
   local bl = table.concat(r.blockers or {}, ",")
   ctx.check(not r.ok and r.reason == "no-room" and e.valid and unpaid and drawn,
-    label .. " cerne(e) : refus « no-room », cout NON paye, contour " .. b .. "x" .. b .. " dessine",
+    label .. " cerne(e) : refus « no-room », cout NON paye, contour " .. (LV.dims_text(family, n + 1):gsub("×", "x")) .. " dessine",
     tostring(r.reason) .. " ; contour rang " .. tostring(r.contour_candidate) .. " ; gene : " .. bl)
   if not (r.contour and e.valid) then return end
   local gone = free_contour(s, e, r.contour, LV.name(family, n + 1))
@@ -610,12 +613,12 @@ local function chain(ctx, label, e, inv_of, top)
     local r = ctx.call("levels_upgrade", cur)
     if not (r.ok and r.entity and r.entity.valid) then why = n .. " : " .. tostring(r.reason) break end
     cur = r.entity
-    if LV.footprint(family, n) ~= LV.footprint(family, n - 1) then trail[#trail + 1] = LV.footprint(family, n) .. "@" .. fmt(cur.position) end
+    if LV.footprint(family, n) ~= LV.footprint(family, n - 1) then trail[#trail + 1] = (LV.dims_text(family, n):gsub("×", "x")) .. "@" .. fmt(cur.position) end
   end
   local s1 = status(ctx)
   local sel = cur.valid and cur.prototype.selection_box
   ctx.check(not why and cur.name == LV.name(family, top) and s1.resized - s0.resized == resizes and s1.fallback == s0.fallback
-    and close(sel.right_bottom.x - sel.left_top.x, LV.footprint(family, top)),
+    and close(sel.right_bottom.x - sel.left_top.x, LV.footprint(family, top) * LV.aspect(family)),
     label .. " : chaine " .. n0 .. " -> " .. top .. ", " .. resizes .. " agrandissements par script, le reste en remplacement rapide moteur (F39), 0 secours",
     why or (table.concat(trail, " ") .. string.format(" ; resized +%d, fallback +%d", s1.resized - s0.resized, s1.fallback - s0.fallback)))
   return cur, not why
@@ -643,7 +646,7 @@ function M.act(ctx)
   }
   local c2 = st.dense_after.cc
   ctx.check(c2 and c2.valid and c2.name == LV.name(CC, 4) and ctx.call("levels_status", FORCE_CC2).cc_level == 4,
-    "centre 3 -> 4 (4x4 -> 5x5) : centre toujours suivi par sa force", c2 and c2.valid and fmt(c2.position) or "introuvable")
+    "centre 3 -> 4 (8x4 -> 10x5) : centre toujours suivi par sa force", c2 and c2.valid and fmt(c2.position) or "introuvable")
 
   -- C. Chaînes.
   local ca = st.chain[4].e
@@ -670,8 +673,8 @@ function M.act(ctx)
   local fin = final.valid and final.get_inventory(defines.inventory.chest)
   local sel = final.valid and final.prototype.selection_box
   ctx.check(fin and fin.get_item_count("wooden-chest") == wood0 and fin.get_item_count("coal") == coal0
-    and ctx.call("levels_status", FORCE_CC1).cc_level == 15 and close(sel.right_bottom.x - sel.left_top.x, 8),
-    "centre 15 en 8x8 : contenu du coffre conserve a chaque pas, centre toujours suivi par sa force",
+    and ctx.call("levels_status", FORCE_CC1).cc_level == 15 and close(sel.right_bottom.x - sel.left_top.x, 16) and close(sel.right_bottom.y - sel.left_top.y, 8),
+    "centre 15 en 16x8 : contenu du coffre conserve a chaque pas, centre toujours suivi par sa force",
     string.format("coffres %d/%d, charbon %d/%d, cc_level %d", fin and fin.get_item_count("wooden-chest") or -1, wood0,
       fin and fin.get_item_count("coal") or -1, coal0, ctx.call("levels_status", FORCE_CC1).cc_level))
 end
@@ -718,13 +721,15 @@ local function check_protos(ctx, family)
     local side = LV.footprint(family, n)
     local sel, col = p.selection_box, p.collision_box
     local ok
-    if side == family.size then
+    local wide = side * LV.aspect(family)  -- lot QG-JEU : le centre est un rectangle 2 : 1 dès le niveau 1
+    if side == family.size and LV.aspect(family) == 1 then
       -- Boîtes du niveau 1 telles quelles (le four en acier vanilla a une sélection de 1,6 × 2).
       local s1 = p1.selection_box
       ok = close(sel.left_top.x, s1.left_top.x) and close(sel.right_bottom.y, s1.right_bottom.y) and close(col.right_bottom.x - col.left_top.x, col1)
     else
-      ok = close(sel.right_bottom.x - sel.left_top.x, side) and close(sel.right_bottom.y - sel.left_top.y, side)
-        and close(col.right_bottom.x - col.left_top.x, side - 2 * Foot.MARGIN)
+      ok = close(sel.right_bottom.x - sel.left_top.x, wide) and close(sel.right_bottom.y - sel.left_top.y, side)
+        and close(col.right_bottom.x - col.left_top.x, wide - 2 * Foot.MARGIN)
+        and close(col.right_bottom.y - col.left_top.y, side - 2 * Foot.MARGIN)
     end
     ok = ok and p.fast_replaceable_group == g1
     if radius1 and math.abs(p.mining_drill_radius - (radius1 + (side - family.size) / 2)) > 1e-4 then ok = false end
@@ -745,7 +750,7 @@ local function check_protos(ctx, family)
     if not seen[side] then seen[side] = n end
   end
   local sides = {}
-  for sd = 1, 8 do if seen[sd] then sides[#sides + 1] = sd .. "x" .. sd .. " des " .. seen[sd] end end
+  for sd = 1, 8 do if seen[sd] then sides[#sides + 1] = (sd * LV.aspect(family)) .. "x" .. sd .. " des " .. seen[sd] end end
   ctx.check(#bad == 0, "prototypes " .. family.key .. " (" .. family.max .. " niveaux) : emprise de la table, collision au style vanilla, meme groupe"
     .. (radius1 and ", rayon d'extraction r + (cote - 3) / 2" or "") .. (range1 and ", portee + (cote - 2) / 2" or "") .. ", raccords hors de la boite",
     #bad > 0 and ("niveaux en defaut : " .. table.concat(bad, " ")) or table.concat(sides, ", "))

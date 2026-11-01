@@ -42,6 +42,8 @@ Sq.ELSEWHERE_PCT = 50       -- % : une vague reçue ailleurs qu'au QG compte à 
 Sq.FLOOR_IRON = 60          -- plaques de fer gardées pour les recrues en péril (T.defend_iron_floor = 150 sinon ; comme F.FLOOR_IRON)
 Sq.FLOOR_COPPER = 10        -- plaques de cuivre gardées en péril (T.defend_copper_floor = 30 sinon ; comme F.FLOOR_COPPER)
 Sq.REFILL_MIN = 5           -- chargeurs par tourelle vide en dessous desquels un remplissage partiel ne part pas
+Sq.SITE_HIT = 150           -- PV reçus en 30 min à un avant-poste à partir desquels on le protège avant de l'agrandir ou de le refaire. SUPPOSÉ (une dizaine d'unités)
+Sq.PV_PER_MAG = 40          -- PV d'unités tuées par un chargeur de base (10 balles de 5 : 50 de dégâts, moins le surplus). SUPPOSÉ
 Sq.CHEST_MAX = 3            -- reposes du coffre en Sq.CHEST_WINDOW au plus
 Sq.CHEST_WINDOW = 30 * 3600
 
@@ -77,6 +79,33 @@ function Sq.threat(waves, tick)
   end
   local other = math.floor(elsewhere * Sq.ELSEWHERE_PCT / 100)
   return at_hq > other and at_hq or other
+end
+
+--- La plus grosse vague reçue n'importe où dans la fenêtre (même format que Sq.threat).
+function Sq.threat_any(waves, tick)
+  local best = 0
+  for _, w in ipairs(waves or {}) do
+    if w.t and tick >= w.t and tick - w.t <= Sq.WINDOW and num(w.pv) > best then best = num(w.pv) end
+  end
+  return best
+end
+
+--- Un avant-poste de ressource doit-il être PROTÉGÉ avant d'être agrandi ou refait ? a = { hit (PV reçus à ce site dans la fenêtre),
+--- turrets (tourelles du site), wanted (tourelles voulues) }. Vrai tant que des vagues le touchent et qu'il lui manque des tourelles.
+function Sq.protect_first(a)
+  a = a or {}
+  return num(a.hit) >= Sq.SITE_HIT and num(a.turrets) < num(a.wanted)
+end
+
+--- Réserve de chargeurs au coffre calculée sur la menace (dès les premières vagues) : ceil(menace / Sq.PV_PER_MAG), au plus `per_turret`
+--- chargeurs par tourelle de l'équipe. 0 sous Sq.SITE_HIT ou sans tourelle. a = { threat, turrets, per_turret }.
+function Sq.ammo_reserve(a)
+  a = a or {}
+  local threat, turrets, per = num(a.threat), num(a.turrets), num(a.per_turret)
+  if threat < Sq.SITE_HIT or turrets <= 0 or per <= 0 then return 0 end
+  local n = ceil(threat / Sq.PV_PER_MAG)
+  local cap = turrets * per
+  return n < cap and n or cap
 end
 
 --- Le péril. a = { threat (PV), armed_value (PV des tourelles armées du QG), turret_value (PV d'une tourelle de plus, armée),

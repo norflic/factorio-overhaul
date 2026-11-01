@@ -383,10 +383,10 @@ check(has(src.prev, "Sq.armed_share(have, T.turret_ammo_low)") and has(src.prev,
   "maillon 3 (prévision, script) : le dps d'une tourelle est pesé par ses chargeurs")
 check(has(src.prev, "Pv.mem_floor(st.cal, \"qg\", tick)") and has(src.prev, "function Prev.qg_view(f)") and has(src.prev, "Pv.threat_waves(st.cal, \"qg\")"),
   "maillon 4 (prévision, script) : plancher durable du QG, vue de la mémoire des vagues")
-check(has(src.planner, "local in_peril = peril_seen and turret_ok") and has(src.planner, "peril = in_peril,") and has(src.planner, "Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)"),
+check(has(src.planner, "local qg_peril = peril_seen and turret_ok") and has(src.planner, "peril = in_peril,") and has(src.planner, "Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)"),
   "maillon 5 (planificateur) : le péril passe à Pr.decide et réduit les planchers")
 check(has(src.planner, "if g.key == \"hq\" then groups[#groups + 1] = g end"), "maillon 5 ter (planificateur) : le groupe du QG est servi d'abord en péril")
-check(has(src.planner, "in_peril and math.max(dc.want, qp.want or 0) or dc.want") and has(src.planner, "Sq.refill_take(g.low, T.turret_ammo_target"),
+check(has(src.planner, "qg_peril and math.max(dc.want, qp.want or 0) or dc.want") and has(src.planner, "Sq.refill_take(g.low, T.turret_ammo_target"),
   "maillon 5 bis (planificateur) : tourelles voulues au QG et remplissage partiel")
 check(has(src.prio, "if a.peril and not a.survival then"), "maillon 6 (priorité) : Pr.decide force la défense d'abord")
 check(has(src.capi, "Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril)"), "maillon 7 (capitalisation) : le péril lève le mode survie de la capitalisation")
@@ -440,11 +440,11 @@ local mutants = {
   { "le péril garde production_first", "Pr", "    out.mode = Pr.MODE_QG_PERIL\n    out.production_first = false", "    out.mode = Pr.MODE_QG_PERIL\n    out.production_first = out.production_first" },
   -- planificateur
   { "le péril ne passe plus à la priorité", "Pl", "      peril = in_peril, -- lot S1", "      -- lot S1" },
-  { "péril sans recette de tourelle", "Pl", "local in_peril = peril_seen and turret_ok", "local in_peril = peril_seen" },
+  { "péril sans recette de tourelle", "Pl", "local qg_peril = peril_seen and turret_ok", "local qg_peril = peril_seen" },
   { "remplissage conditionné à la recette", "Pl", "  if peril_seen then" .. string.char(10) .. "    groups = {}", "  if in_peril then" .. string.char(10) .. "    groups = {}" },
-  { "plancher du QG non réduit", "Pl", "if p.id == \"hq\" and in_peril then fi, fc, reduced = fl_i, fl_c, true end", "" },
+  { "plancher du QG non réduit", "Pl", "if p.id == \"hq\" and (qg_peril or protect_any) then fi, fc, reduced = fl_i, fl_c, true end", "" },
   { "planchers ordinaires partout", "Pl", "local fl_i, fl_c = Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)", "local fl_i, fl_c = T.defend_iron_floor, T.defend_copper_floor" },
-  { "tourelles voulues du péril ignorées", "Pl", "want = in_peril and math.max(dc.want, qp.want or 0) or dc.want", "want = dc.want" },
+  { "tourelles voulues du péril ignorées", "Pl", "want = qg_peril and math.max(dc.want, qp.want or 0) or dc.want", "want = dc.want" },
   { "remplissage partiel retiré", "Pl", "local part = (g.key == \"hq\" and peril_seen) and Sq.refill_take", "local part = 0 and Sq.refill_take" },
   { "le QG en péril n'est pas servi d'abord", "Pl", "    for _, g in ipairs(view.turret_groups) do if g.key == \"hq\" then groups[#groups + 1] = g end end", "" },
   { "remplissage partiel pour tout groupe", "Pl", "local part = (g.key == \"hq\" and peril_seen) and Sq.refill_take", "local part = (peril_seen) and Sq.refill_take" },
