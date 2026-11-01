@@ -42,6 +42,12 @@
   "scale_hr": 0.5,
   "variation_count": 8
  },
+ "icones": {
+  "echantillons": 128,
+  "px_par_tuile": 256.0,
+  "rendu": "tools/render/pieces/ressources/icone_cassiterite.py (forme C14, pièces posées, relief)",
+  "secondes_blender": 63.59
+ },
  "nom": "cassiterite",
  "nom_direction": "gros blocs trapus et pépites bipyramidales de cassitérite brun chocolat sur poussière sombre",
  "outil": "tools/render/pieces/ressources/feuille.py",
@@ -63,9 +69,9 @@
   "cassiterite.png": "0481edfac801eeb0fe66a59fd342d59fe61b7e9feaaab3d04b5a0829ca4f5836",
   "hr-cassiterite-effet.png": "817c3f987a9cb2751069f7f155588e75e5c54192f5d5c544e8a2e44c93fe2815",
   "hr-cassiterite.png": "4149a83c3bd73899233f780fa4b7587568d0ddc8a26d7c86231b28a4ee99908a",
-  "icone-1.png": "9de9cb70dab79c115028cbb48c82bb5d3fcc51981b7db064757434557e981cef",
-  "icone-2.png": "57104292f0e9889683434eed5dd2414df204887d3f0ac826c1eb3ebeeebb6ab3",
-  "icone-3.png": "0d73c68e4e376f7c32e13f69879f81754c15da312dbb6e60cb2e69cc8ab9dd1b",
-  "icone.png": "4ef35eddf20506a08156a63c5d8dadb9d81b7af3fbe8059ba982da7a662f9444"
+  "icone-1.png": "8740cf09a294aa55bde848acd70b4e9e576e4fe36d193d7ba511a3570769b948",
+  "icone-2.png": "99eb226f3ce7cb9a89053eab45e1e7fc21b1a7eef0fd39d793fb3e21470122a4",
+  "icone-3.png": "a014ba2fb07879dfa70d3079f5e764d65a25dbfdb9fe305162fd20ca27a8973d",
+  "icone.png": "04e2e6e5cf0fdd2f78eaa72507a41696755f8ee30b6445284f9a6daaeb3820d1"
  }
 }
