@@ -23,6 +23,7 @@ local Character = require("script.faction.character")
 local V = require("shared.faction.valeur")
 local Tr = require("shared.faction.traits")
 local T = require("shared.team.config")
+local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : sites gardés et portée selon l'étendue et la défense de la base
 
 local Sites = {}
 
@@ -309,16 +310,24 @@ end
 --- Lot IA2-c : la réserve peut-elle encore recevoir un site de cette ressource (bornes : 3 par ressource et 12 en
 --- tout pour une faction, 2 et 8 pour l'équipe du joueur) ? Un avant-poste perdu y rendait son site SANS les
 --- respecter (moteur simulé, tests/valeur_test.lua, trajectoire du lot IA2-c : Écarlate, 4 sites de charbon, 13 en tout).
+--- Lot C3 EXTENSION (audit n°15) : sites gardés par ressource et en tout, selon la capacité à les défendre (Ex.site_limits ; les valeurs
+--- d'avant tant que la pensée de l'équipe n'a rien rangé ou que le réglage maître est éteint).
+local function faction_limits(f)
+  local es = Ext.info(f)
+  if es and es.per and es.total then return es.per, es.total end
+  return FACTION_MAX_PER_KIND, FACTION_MAX_PROSPECTS
+end
+
 function Sites.room_for(f, resource)
   local per, total = MAX_PER_KIND, MAX_PROSPECTS
-  if not f.is_player then per, total = FACTION_MAX_PER_KIND, FACTION_MAX_PROSPECTS end
+  if not f.is_player then per, total = faction_limits(f) end
   return prospects_of(f, resource) < per and #(f.prospects or {}) < total
 end
 
 local function want_of(f, res)
   local need = (f.site_needs or {})[res] or 0
   local want = math.min(MAX_PER_KIND, need)
-  if not f.is_player and need > 0 then want = math.min(FACTION_MAX_PER_KIND, need + FACTION_EXTRA) end
+  if not f.is_player and need > 0 then want = math.min((faction_limits(f)), need + FACTION_EXTRA) end
   return want
 end
 
@@ -333,7 +342,9 @@ local function wanted_resources(f)
 end
 
 local function max_prospects(f)
-  return f.is_player and MAX_PROSPECTS or FACTION_MAX_PROSPECTS
+  if f.is_player then return MAX_PROSPECTS end
+  local _per, total = faction_limits(f) -- (local : jamais `_`, variable globale du mod)
+  return total
 end
 
 --- Flux d'expansion de la faction (lot IA2-b) : Tr.new_stream(graine, 100 + id), créé à la première lecture (partie
@@ -813,6 +824,8 @@ function Sites.value_ctx(f, tick)
   end
   if f.traits then ctx.ambition, ctx.prudence = f.traits.ambition or 1000, f.traits.prudence or 1000 end
   if f.chef then ctx.appetite = V.appetite(f.chef.mix, f.chef.survival) end
+  local es = Ext.info(f)
+  if es and es.reach then ctx.reach_bonus = es.reach end -- lot C3 EXTENSION : la portée suit l'étendue de la base
   if not f.is_player then
     local my = eyes(f)
     for _, rid in ipairs(State.alive()) do
@@ -1000,7 +1013,7 @@ function Sites.unblock(f, surface, site, resource, tick)
       end
       if drop then dropped[#dropped + 1] = { drop, table.remove(f.prospects, drop) } end
     end
-    if prospects_of(f, resource) >= (f.is_player and MAX_PER_KIND or FACTION_MAX_PER_KIND) then drop_farthest(resource) end
+    if prospects_of(f, resource) >= (f.is_player and MAX_PER_KIND or (faction_limits(f))) then drop_farthest(resource) end
     if #f.prospects >= max_prospects(f) then drop_farthest(nil) end
     added = probe(f, surface, math.floor(site.x / 32), math.floor(site.y / 32), tick, { resource }, nil, other_hqs_of(f),
       game.forces.player.get_spawn_position(surface), war)

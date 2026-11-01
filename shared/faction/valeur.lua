@@ -73,10 +73,18 @@ function V.appetite(mix, survival)
 end
 
 --- Portée (tuiles) d'une faction : REACH × ambition × appétit, bornée à [80 ; 600].
-function V.reach(ambition, appetite)
+--- Lot C3 EXTENSION (audit n°15 et 28) : `bonus` (pour mille, shared/ai3/extension.lua, Ex.reach_bonus) suit l'ÉTENDUE de la base : la
+--- portée et son plafond sont multipliés, V.REACH_MAX_BONUS au plus (sans bonus, ou 1 000 : la règle d'avant).
+V.REACH_MAX = 1200
+function V.reach(ambition, appetite, bonus)
   local r = math.floor(V.REACH * (ambition or 1000) / 1000 * (appetite or 1000) / 1000)
   if r < 80 then r = 80 end
-  if r > 600 then r = 600 end
+  local top = 600
+  if bonus and bonus > 1000 then
+    r = math.floor(r * bonus / 1000)
+    top = math.min(V.REACH_MAX, math.floor(600 * bonus / 1000))
+  end
+  if r > top then r = top end
   return r
 end
 
@@ -103,7 +111,7 @@ function V.components(site, ctx)
     if d < d_terr then d_terr = d end
   end
   c.d_hq, c.d_terr = math.floor(d_hq), math.floor(d_terr)
-  local reach = V.reach(ctx.ambition, ctx.appetite)
+  local reach = V.reach(ctx.ambition, ctx.appetite, ctx.reach_bonus)
   c.reach = reach
   c.access = math.floor(1000 * (d_terr + d_hq / V.HQ_SHARE) / reach)
   -- Danger et contestation (vus), × prudence.
@@ -202,7 +210,7 @@ function V.pick_front(fronts, ctx, dry, turn, draw)
   end
   if #cands == 0 then return nil end
   local scored = {}
-  local reach = V.reach(ctx.ambition, ctx.appetite)
+  local reach = V.reach(ctx.ambition, ctx.appetite, ctx.reach_bonus)
   for i, p in ipairs(cands) do
     local comp = V.components({ x = p.x, y = p.y, rich = V.RICH_HALF }, { hq = ctx.hq, anchors = nil, rivals = ctx.rivals,
       lost = ctx.lost, tick = ctx.tick, ambition = ctx.ambition, prudence = ctx.prudence, appetite = ctx.appetite })

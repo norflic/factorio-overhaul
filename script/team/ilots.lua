@@ -31,6 +31,7 @@ local T = require("shared.team.config")
 local D = require("shared.team.automatisation_donnees")
 local Enc = require("shared.team.enceinte")
 local I = require("shared.team.ilots")
+local Ic = require("shared.team.ilots_croissance") -- lot C3 EXTENSION : nombre d'îlots et plafond de tourelles selon l'effectif
 local Fr = require("shared.team.front")
 local P = require("shared.team.plan")
 local State = require("script.faction.state")
@@ -117,7 +118,8 @@ end
 --- (I.clusters) ; le plus prioritaire des importants est retenu (I.pick_new). Un îlot par relevé.
 local function discover(f, h, tick)
   local b = f.build
-  if #h.list >= I.MAX or tick < (h.scan_next or 0) then return end
+  local max = Ic.max_islands(f.engineers_count or 0) -- lot C3 EXTENSION : I.MAX à 8 PNJ, un de plus par 10 PNJ (7 à 30)
+  if #h.list >= max or tick < (h.scan_next or 0) then return end
   h.scan_next = tick + Il.SCAN_TICKS
   local bounds = b.enc and b.enc.bounds
   if not bounds then
@@ -150,7 +152,7 @@ local function discover(f, h, tick)
     end
   end
   local clusters = I.clusters(cands)
-  local pick, why, rows = I.pick_new(clusters, h.list, front_cells(f), hq_of(b), I.MAX, bounds) -- (relecture : emprise entièrement dehors)
+  local pick, why, rows = I.pick_new(clusters, h.list, front_cells(f), hq_of(b), max, bounds) -- (relecture : emprise entièrement dehors)
   if not pick then
     if why ~= h.why then
       h.why = why
@@ -166,7 +168,7 @@ local function discover(f, h, tick)
   ilog(h, string.format("[FO-ILOT] %s : ilot %s retenu (%d lot(s), emprise %d,%d a %d,%d, a %.0f tuiles du QG ; valeur %d%s ; attaque %d) a %.1f min ; %d admissible(s), %d ilot(s) retenu(s) sur %d",
     f.key or "player", pick.key, #(pick.lots or {}), pick.box.x0, pick.box.y0, pick.box.x1, pick.box.y1,
     math.max(math.abs(cx - b.lat.ox), math.abs(cy - b.lat.oy)), pick.value or 0, pick.plant and " (centrale)" or "",
-    pick.attack or 0, tick / 3600, #rows, #h.list, I.MAX))
+    pick.attack or 0, tick / 3600, #rows, #h.list, max))
 end
 
 --- Segment suivant : l'îlot à murer le plus prioritaire (attaqué d'abord, I.sort), son tronçon tourné vers l'attaque ou vers l'extérieur.
@@ -278,6 +280,24 @@ local function turrets_of(f)
   return list, placed
 end
 
+--- Lot C3 EXTENSION : état des îlots pour la porte d'ouverture (Build.space_step) : { n retenus, unwalled (mur non complet), unguarded (sous
+--- leur cible de tourelles) }. Sans îlot : zéros.
+function Il.state(f)
+  local b = f.build
+  local h = b and b.ilots
+  local out = { n = 0, unwalled = 0, unguarded = 0 }
+  if not (h and #h.list > 0) then return out end
+  local turrets = turrets_of(f)
+  local cells = front_cells(f)
+  out.n = #h.list
+  for _, il in ipairs(h.list) do
+    if not il.complete then out.unwalled = out.unwalled + 1 end
+    local a = I.attack(il.box, cells)
+    if I.guards(il.box, turrets) < I.want(a) then out.unguarded = out.unguarded + 1 end
+  end
+  return out
+end
+
 function Il.view(f, fortify_open, iron)
   local b = f.build
   local h = b and b.ilots
@@ -290,7 +310,7 @@ function Il.view(f, fortify_open, iron)
     local a, at = I.attack(il.box, cells)
     list[#list + 1] = { key = il.key, box = il.box, value = il.value, attack = a, at = at, rest = ((h.rest or {})[il.key] or 0) > tick }
   end
-  local plan = I.plan_turrets(list, turrets, placed, hq_of(b))
+  local plan = I.plan_turrets(list, turrets, placed, hq_of(b), Ic.team_turrets(#list))
   local fi, fc = I.floors(T.defend_iron_floor, T.defend_copper_floor)
   local pause = (h.pause_until or 0) > tick
   if tick - (h.status or -Il.STATUS_EVERY) >= Il.STATUS_EVERY then
@@ -298,7 +318,7 @@ function Il.view(f, fortify_open, iron)
     local parts = {}
     for _, r in ipairs(plan.rows) do parts[#parts + 1] = string.format("%s %d/%d%s (%s)", r.key, r.have, r.want, r.attack >= I.ATTACK_MIN and " attaque" or "", r.skip or "?") end
     log(string.format("[FO-ILOT] %s : tourelles des ilots a %.1f min : %s ; posees %d sur %d au plus, tache ouverte %s, pause %s, fer au stock %s (plancher %d)",
-      f.key or "player", tick / 3600, table.concat(parts, " ; "), placed, I.TEAM_MAX, tostring(fortify_open and fortify_open["ilot"] or false),
+      f.key or "player", tick / 3600, table.concat(parts, " ; "), placed, Ic.team_turrets(#list), tostring(fortify_open and fortify_open["ilot"] or false),
       tostring(pause), tostring(iron or "?"), fi))
   end
   return { pick = (not pause) and plan.pick or nil, busy = fortify_open and fortify_open["ilot"] or false, floor_i = fi, floor_cu = fc }

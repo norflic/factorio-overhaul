@@ -81,6 +81,14 @@ end
 --- 1. Situation.
 function C.situation(view, st, ctx)
   local cap = {}
+  -- Lot C3 EXTENSION : avant-postes par type, avant-postes sous leur cible de tourelles et où un PNJ est mort récemment (shared/ai3/extension.lua).
+  local nout, lethal_n = {}, 0
+  for _, o in ipairs(view.outposts or {}) do
+    nout[o.kind] = (nout[o.kind] or 0) + 1
+    if o.lethal then lethal_n = lethal_n + 1 end
+  end
+  local undef, undef_n = Planner.undefended(view), 0
+  for _, o in ipairs(view.outposts or {}) do if undef[o.id] then undef_n = undef_n + 1 end end
   -- Lot SCALE-COMPLET : types dont un avant-poste a encore des places (ni plein, sous le plafond de foreuses ; lecteur :
   -- B.generate, buts de couverture).
   local room = {}
@@ -100,7 +108,9 @@ function C.situation(view, st, ctx)
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
-    sites = view.sites or {}, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
+    sites = view.sites or {}, sites_near = view.sites_near or {}, nout = nout, undef_n = undef_n, lethal_n = lethal_n,
+    threatened = view.threatened or false, expansion = ctx.expansion or 0, dominant = ctx.dominant or false,
+    desired = ctx.desired, extension = ctx.industrie or false, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : l'équipe recrute encore vers son effectif voulu (lecteur : B.generate,
     -- buts de couverture).
     recruiting = (view.workers or 0) < (view.workers_wanted or 0) and not view.recruit_blocked and not view.recruit_held
