@@ -59,9 +59,9 @@ return {
     },
     lr = {
       filename = "__factorio-overhaul__/graphics/robots/bourdon/anneau-air.png",
-      height = 256,
-      scale = 4.0,
-      width = 256,
+      height = 512,
+      scale = 2.0,
+      width = 512,
     },
     lueur = true,
     shift = { 0.0, 0.0 },

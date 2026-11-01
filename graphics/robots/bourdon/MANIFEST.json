@@ -21,10 +21,10 @@
    "taille": 13440
   },
   "anneau-air.png": {
-   "hauteur": 256,
-   "largeur": 256,
-   "sha256": "35a61c17214f293cef428f734272409908d91ddec85ed5773e8bb6f0cc809d64",
-   "taille": 18102
+   "hauteur": 512,
+   "largeur": 512,
+   "sha256": "f5e11504a21018c31db674f5dd96c460a4b8db392a8789b0e2303171caf3f9a0",
+   "taille": 49263
   },
   "balaye.png": {
    "hauteur": 512,

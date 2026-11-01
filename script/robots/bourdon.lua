@@ -755,12 +755,23 @@ local function trouve(id)
   return nil
 end
 
-local function de_la_force(force)
+--- Le Bourdon d'une force sur une surface : le premier de la liste (une par surface, en démonstration).
+local function de_la_force(force, surface)
   local etat = st()
   for _, b in ipairs(etat.liste) do
-    if b.e.valid and b.e.force == force then return b end
+    if b.e.valid and b.e.force == force and b.e.surface == surface then return b end
   end
   return nil
+end
+
+local function lancer_retrait(b)
+  b.phase, b.t0 = "retire", game.tick
+  for i = 1, #b.ancres do
+    place_ancre(b, i, 0, 0, 0)
+    rendering.set_visible(b.ancres[i].ombre, false)
+    rendering.set_visible(b.ancres[i].o_chaine, false)
+    mets_couche_ancre(b.ancres[i], COUCHE_DERRIERE)
+  end
 end
 
 --- Donne un ordre d'aller : le script de phase lève les ancres puis part (les ordres de la télécommande de vanilla passent par la même voie).
@@ -798,16 +809,10 @@ local function cmd_bourdon(cmd)
   local player = cmd.player_index and game.get_player(cmd.player_index)
   if not player then return end
   local arg = cmd.parameter
-  local b = de_la_force(player.force)
+  local b = de_la_force(player.force, player.surface)
   if arg == "retirer" then
     if b then
-      b.phase, b.t0 = "retire", game.tick
-      for i = 1, #b.ancres do
-        place_ancre(b, i, 0, 0, 0)
-        rendering.set_visible(b.ancres[i].ombre, false)
-        rendering.set_visible(b.ancres[i].o_chaine, false)
-        mets_couche_ancre(b.ancres[i], COUCHE_DERRIERE)
-      end
+      lancer_retrait(b)
       dire(player, "fo-bourdon.retire")
     end
     return
@@ -827,7 +832,7 @@ local function cmd_bourdon(cmd)
 end
 
 local function glas_du_joueur(player, cx, cy)
-  local b = de_la_force(player.force)
+  local b = de_la_force(player.force, player.surface)
   if not b then dire(player, "fo-bourdon.absent"); return end
   local tick = game.tick
   local x, y = cx, cy
@@ -858,7 +863,7 @@ end)
 
 Events.on("fo-bourdon-glas", function(ev)
   local player = game.get_player(ev.player_index)
-  if player and ev.cursor_position and de_la_force(player.force) then
+  if player and ev.cursor_position and de_la_force(player.force, player.surface) then
     glas_du_joueur(player, ev.cursor_position.x, ev.cursor_position.y)
   end
 end)
@@ -882,7 +887,7 @@ remote.add_interface("fo-bourdon", {
   retirer = function(id)
     local b = trouve(id)
     if not b then return false end
-    b.phase, b.t0 = "retire", game.tick
+    lancer_retrait(b)
     return true
   end,
   -- bancs d'images : sans Glas automatique, pour photographier au tick voulu
@@ -901,6 +906,14 @@ remote.add_interface("fo-bourdon", {
         return n
       end)() }
   end,
+  -- bancs : un script ne tape pas une commande, mêmes fonctions que /fo-bourdon et /fo-glas ; rend le numéro du Bourdon de la force
+  commande_bourdon = function(player_index, parametre)
+    cmd_bourdon({ player_index = player_index, parameter = parametre })
+    local p = game.get_player(player_index)
+    local b = de_la_force(p.force, p.surface)
+    return b and b.id or nil
+  end,
+  commande_glas = function(player_index) glas_du_joueur(game.get_player(player_index)) end,
   -- bancs : recharge remise à zéro, pour photographier
   recharge_zero = function(id)
     local b = trouve(id)

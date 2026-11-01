@@ -369,7 +369,7 @@ def main():
         S.pose("fissure-chaude-%d" % i, ch, 32.0, cl, 16.0, blend="additive", lueur=True)
     S.pose("balaye", balaye(1024), 1024 / 100.0, balaye(512), 512 / 100.0)
     S.pose("flash", flash(256), 8.0, flash(128), 4.0, blend="additive", lueur=True)
-    S.pose("anneau-air", anneau_air(512), 512 / 32.0, anneau_air(256), 256 / 32.0, blend="additive", lueur=True)
+    S.pose("anneau-air", anneau_air(512), 512 / 32.0, anneau_air(512), 512 / 32.0, blend="additive", lueur=True)
     S.pose("lueur-sol", lueur_sol(256), 8.0, lueur_sol(128), 4.0, blend="additive", lueur=True)
     # sprites.lua, MANIFEST.json
     p = os.path.join(a.dest, "sprites.lua")
