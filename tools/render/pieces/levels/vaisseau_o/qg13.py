@@ -2,8 +2,8 @@
 
 Lecture de gauche à droite : tuyères (le passé) devenues tuyères magnétiques, cœur à nu dans la cage des côtes, sphère
 de confinement à cheval sur le squelette, crâne à chevrons et verrière qui regarde l'est.
-- Signature : SPHÈRE de céramique sur TRÉPIED (grand vide dessous : la cage thoracique du vaisseau s'y voit), TORE DE
-  PLASMA horizontal autour (« planète à anneau »), FLÈCHE de commandement au sommet (une seule : la couronne de 5 de
+- Signature (critique du 1/11) : SPHÈRE de céramique plus petite, sur TRÉPIED, TORE segmenté de BOBINES à fenêtres de plasma
+  (cœur clair, bord sombre, comme le Portique) autour d'elle, FUSELAGE à nouveau continu dessous, FLÈCHE de commandement au sommet (une seule : la couronne de 5 de
   l'âge 15 en sort).
 - Dépassements : flèche, tore, dérive, radiateurs derrière le crâne, boîte d'injection, grue de chantier.
 - Au sol : terrasses brisées (cousines de l'âge 15), halle en ARC concentrique à la sphère, porte au sud, réservoirs
@@ -22,9 +22,11 @@ import stellaire as E
 ZS = 1.62                       # axe du vaisseau : à terre, sur ses berceaux
 F_pal, F_sol = E.F_pal, E.F_sol
 F_nav = E.fait_F_nav(ZS)
-CX, CY = -0.85, 0.55            # axe de la sphère (repère palais)
-RS, ZC = 1.95, 5.2              # sphère
-RT, ZT = 2.92, 5.08             # tore
+CX, CY = -0.85, 1.1             # axe de la sphère (repère palais), reculé : le fuselage se voit devant
+HX, HY = -0.85, 0.55            # centre de la halle en arc
+RS, ZC = 1.56, 5.25             # sphère (−20 %)
+RT, ZT = 2.7, 5.2               # tore
+RB, RP = 0.6, 0.34              # section : bobine (+50 %), plasma en retrait
 Z_FL = ZC + RS
 
 
@@ -38,6 +40,9 @@ def matieres(S):
                       crasse=0.85, crasse_col=cr, graine=1)
     M["ceram2"] = surf("q13_ceram2", (0.46, 0.43, 0.37), rough=0.45, met=0.0, coulures=0.6, rouille=(0.14, 0.09, 0.05), usure=0.55, nu=(0.7, 0.67, 0.6),
                        crasse=0.85, crasse_col=cr, graine=2)
+    M["ceram_b"] = surf("q13_ceram_b", (0.56, 0.54, 0.48), rough=0.45, met=0.0, coulures=0.5, rouille=(0.2, 0.14, 0.09), usure=0.5, nu=(0.8, 0.78, 0.72),
+                        crasse=0.8, crasse_col=(0.05, 0.04, 0.03), graine=31)
+    M["ceram_j"] = surf("q13_ceram_j", (0.2, 0.19, 0.165), rough=0.6, met=0.0, usure=0.2, crasse=0.4, crasse_col=(0.05, 0.04, 0.03), graine=32)
     M["ceram3"] = surf("q13_ceram3", (0.075, 0.062, 0.052), rough=0.55, met=0.1, coulures=0.4, rouille=(0.05, 0.03, 0.02), usure=0.6, nu=(0.32, 0.28, 0.22),
                        crasse=0.7, crasse_col=cr, graine=3)
     M["cuivre"] = surf("q13_cuivre", (0.4, 0.15, 0.045), rough=0.4, met=0.55, coulures=0.45, rouille=(0.05, 0.1, 0.07), usure=0.6, nu=(0.75, 0.42, 0.22),
@@ -68,10 +73,9 @@ def matieres(S):
     M["terre"] = surf("q13_terre", (0.11, 0.065, 0.035), rough=0.95, met=0.0, usure=0.0, crasse=0.7, crasse_col=(0.03, 0.018, 0.01), graine=20)
     M["verre"] = MT.verre("q13_verre", col=(0.012, 0.012, 0.016), reflet=(0.16, 0.14, 0.18))
     M["lum"] = MT.lumiere(S, "q13_lum", (1.0, 0.72, 0.4), 0.8, main=0.2)
-    M["hublot"] = MT.lumiere(S, "q13_hublot", (1.0, 0.17, 0.025), 1.3, main=0.15)
-    M["coeur"] = MT.lumiere(S, "q13_coeur", (1.0, 0.17, 0.025), 1.4, main=0.2)
-    M["plasma"] = MT.lumiere(S, "q13_plasma", (1.0, 0.078, 0.69), 1.0, main=0.12)
-    M["plasma_c"] = MT.lumiere(S, "q13_plasma_c", (1.0, 0.32, 0.05), 1.0, main=0.3)
+    M["hublot"] = E.lumiere_degrade(S, "q13_hublot", (1.0, 0.55, 0.2), (1.0, 0.2, 0.03), (0.2, 0.02, 0.004), 1.0, main=0.25)
+    M["coeur"] = E.lumiere_degrade(S, "q13_coeur", (1.0, 0.62, 0.22), (1.0, 0.2, 0.03), (0.16, 0.015, 0.003), 1.1, main=0.3)
+    M["plasma"] = E.lumiere_degrade(S, "q13_plasma", (1.0, 0.5, 0.62), (1.0, 0.078, 0.69), (0.16, 0.006, 0.11), 0.85, main=0.2)
     M["balise"] = MT.lumiere(S, "q13_balise", (1.0, 0.12, 0.04), 6.0, main=0.4)
     # alias : ere5_vaisseau, greb et stellaire nomment les matières de l'âge 15
     M["or"], M["or_sombre"], M["bronze"], M["bronze2"], M["nacre"] = M["cuivre"], M["cuivre2"], M["acier"], M["ceram2"], M["ceram"]
@@ -196,7 +200,7 @@ def halle(lot, M, r):
     """Halle en ARC concentrique à la sphère : jamais une façade plane ; toit conique de cuivre, comble en retrait, piles et
     évents à pas inégal, la PORTE au milieu (invariant du centre) dans un avant-corps en proue."""
     xf = F_pal
-    c = (CX, CY, 0.0)
+    c = (HX, HY, 0.0)
     a0, a1 = math.radians(232), math.radians(308)
     R0, R1 = 3.05, 3.72
     z0, ze, zf = 0.12, 1.02, 1.52
@@ -205,34 +209,34 @@ def halle(lot, M, r):
     lot.put(M["toit"], G.tour([(ze + 0.03, R1 + 0.04), (zf, R0 + 0.06), (zf, R0)], 40, "z", c, a0=a0, a1=a1), xf)
     for s, a in ((-1, a0), (1, a1)):                                        # pignons des bouts
         ca, sa = math.cos(a), math.sin(a)
-        p = [(CX + R0 * ca, CY + R0 * sa), (CX + R1 * ca, CY + R1 * sa)]
+        p = [(HX + R0 * ca, HY + R0 * sa), (HX + R1 * ca, HY + R1 * sa)]
         v = [(p[0][0], p[0][1], z0), (p[1][0], p[1][1], z0), (p[1][0], p[1][1], ze + 0.03), (p[0][0], p[0][1], zf)]
         lot.put(M["ceram"], ([G.add(q, (0, 0, 0)) for q in v], [(0, 1, 2, 3)], [(q[0], q[2]) for q in v]), xf)
     # piles et creux à pas inégal le long de l'arc
     deg = [234, 241, 247, 256, 263, 277, 283, 291, 297, 306]
     for i, d in enumerate(deg):
         a = math.radians(d)
-        p = (CX + (R1 + 0.04) * math.cos(a), CY + (R1 + 0.04) * math.sin(a))
+        p = (HX + (R1 + 0.04) * math.cos(a), HY + (R1 + 0.04) * math.sin(a))
         w = 0.12 + 0.05 * (i % 3)
         lot.put(M["ceram"], G.boite((p[0], p[1], (z0 + ze) / 2), (0.08, w, ze - z0 + 0.04), rz=a), xf)
     formes = [(238, "octo", 0.1, True), (244, "fente", 0.07, False), (251.5, "ogive", 0.11, True), (287, "rond", 0.09, False), (294, "losange", 0.09, True), (301, "double", 0.09, False)]
     for d, f, t, lit in formes:
         a = math.radians(d)
         n = (math.cos(a), math.sin(a), 0.0)
-        p = (CX + (R1 - 0.02) * n[0], CY + (R1 - 0.02) * n[1], z0 + 0.5 + 0.08 * math.sin(d))
+        p = (HX + (R1 - 0.02) * n[0], HY + (R1 - 0.02) * n[1], z0 + 0.5 + 0.08 * math.sin(d))
         R.hublot(lot, M["cuivre2"], M["lum"] if lit else M["verre"], p, n, f, t, xf=xf)
     for d in (249, 299):
         a = math.radians(d)
         n = (math.cos(a), math.sin(a), 0.0)
-        R.grille(lot, M["cuivre2"], M["noyau"], (CX + R1 * n[0], CY + R1 * n[1], z0 + 0.22), n, 0.42, 0.14, 4, xf=xf)
+        R.grille(lot, M["cuivre2"], M["noyau"], (HX + R1 * n[0], HY + R1 * n[1], z0 + 0.22), n, 0.42, 0.14, 4, xf=xf)
     for d, z1, h in ((240, 1.28, 0.3), (258, 1.42, 0.26), (292, 1.36, 0.42)):                # lucarnes, évents de toit, cheminée
         a = math.radians(d)
-        q = (CX + (R0 + 0.3) * math.cos(a), CY + (R0 + 0.3) * math.sin(a))
+        q = (HX + (R0 + 0.3) * math.cos(a), HY + (R0 + 0.3) * math.sin(a))
         lot.put(M["ceram2"], G.boite((q[0], q[1], z1 + h / 2), (0.22, 0.2, h), rz=a))
         lot.put(M["cuivre2"], G.prisme(E.rect(q[0], q[1], 0.15, 0.14), z1 + h, z1 + h + 0.1, top_scale=0.3), xf)
     # avant-corps de la porte (proue, plan en pointe)
     a = math.radians(270)
-    gx, gy = CX, CY + R1 * math.sin(a)
+    gx, gy = HX, HY + R1 * math.sin(a)
     poly = [(gx - 0.85, gy + 0.1), (gx + 0.85, gy + 0.1), (gx + 0.62, gy - 0.48), (gx, gy - 0.7), (gx - 0.62, gy - 0.48)]
     lot.put(M["ceram"], G.prisme(poly, z0, 1.42, top_scale=0.97), xf)
     lot.put(M["cuivre"], G.prisme(E.sc(poly, 1.06), 1.42, 1.5, top_scale=1.0), xf)
@@ -251,9 +255,9 @@ def halle(lot, M, r):
         lot.put(M["pierre"], G.boite((bx, by - 0.2 - 0.14 * k, 0.1 - 0.03 * k), (1.15 + 0.2 * k, 0.16, 0.08)), xf)
     R.hublot(lot, M["cuivre2"], M["hublot"], (gx - 0.5, gy - 0.55, 1.1), (-0.5, -0.86, 0.0), "rond", 0.07, xf=xf)
     # échafaudage et tuyaux du flanc
-    R.echafaudage(lot, M["acier"], M["bois"], CX + 1.5, CX + 2.15, -3.72, -3.5, 0.14, 1.6, 3, xf=xf)
-    R.tuyau(lot, M["cuivre"], M["cuivre2"], [(CX - 2.5, -2.3, 1.15), (CX - 3.0, -2.3, 1.15), (CX - 3.0, -2.0, 1.5)], 0.05, xf=xf)
-    R.faisceau(lot, M["cable_r"], M["cable_n"], (CX - 0.8, -3.1, 1.25), (CX + 0.8, -3.1, 1.2), 0.2, r, n=3, rouges=1, xf=xf)
+    R.echafaudage(lot, M["acier"], M["bois"], HX + 1.5, HX + 2.15, -3.72, -3.5, 0.14, 1.6, 3, xf=xf)
+    R.tuyau(lot, M["cuivre"], M["cuivre2"], [(HX - 2.5, -2.3, 1.15), (HX - 3.0, -2.3, 1.15), (HX - 3.0, -2.0, 1.5)], 0.05, xf=xf)
+    R.faisceau(lot, M["cable_r"], M["cable_n"], (HX - 0.8, -3.1, 1.25), (HX + 0.8, -3.1, 1.2), 0.2, r, n=3, rouges=1, xf=xf)
 
 
 # ------------------------------------------------------------------------------------------------ cage et cœur
@@ -283,12 +287,38 @@ def squelette(lot, M, r):
             lot.put(M["acier"], G.boite(p, (0.14, 0.27, 0.23)), xf)
             lot.put(M["cuivre2"], G.prisme([(p[0] - 0.12, p[1] - 0.03), (p[0] + 0.1, p[1] - 0.03), (p[0] + 0.02, p[1] + 0.03), (p[0] - 0.08, p[1] + 0.03)],
                                            p[2] + 0.1, p[2] + 0.3 + r.f(0, 0.12), top_scale=0.2, top_shift=(-0.1, 0.0)), xf)
-    # reste de peau : quelques plaques sur le flanc nord et le bas du flanc sud (la peau est partie, on la voit encore)
-    for (x0, x1, a0, a1) in ((-2.9, -1.6, 0.25, 1.0), (-0.8, 0.5, 0.2, 0.75), (1.2, 2.7, 0.3, 1.1), (-2.4, -1.2, 3.75, 4.05), (0.6, 2.0, 3.7, 4.1)):
-        for k in range(3):
-            d = (x1 - x0) / 3
-            s = (lambda x, a, g=0.0: (x, (1.55 + g) * math.cos(a), ZS + (1.3 + g) * math.sin(a)))
-            lot.put(M["jaune"] if (k + int(x0)) % 2 else M["jaune2"], N.patch(s, x0 + k * d + 0.02, x0 + (k + 1) * d - 0.02, a0 + r.f(-0.03, 0.03), a1 + r.f(-0.05, 0.05), r.f(0.0, 0.03), 3, 4), xf)
+    # le FUSELAGE, continu entre le cœur et le crâne (critique du 1/11) : voûte de tôles jaunes et de céramique sous les côtes,
+    # une brèche au sud sur les machines
+    def sf(x, a, g=0.0):
+        k = 1.0 - 0.1 * ((x - 0.3) / 3.0) ** 2
+        return (x, (1.44 * k + g) * math.cos(a), ZS - 0.12 + (1.3 * k + g) * math.sin(a))
+
+    def x_(x0, x1, n):
+        return [x0 + (x1 - x0) * i / float(n) for i in range(n + 1)]
+    lot.put(M["noyau"], N.coque(sf, x_(-2.62, 0.2, 12), 28, a0=0.0, a1=math.pi), xf)
+    lot.put(M["noyau"], N.coque(sf, x_(0.2, 1.65, 7), 20, a0=0.0, a1=2.3), xf)
+    lot.put(M["noyau"], N.coque(sf, x_(1.65, 3.3, 8), 28, a0=0.0, a1=math.pi), xf)
+
+    def saut_v(xm, am):
+        return 0.2 < xm < 1.65 and am > 2.3
+
+    def mats_v(rr, bi, i):
+        x = rr.f()
+        if x < 0.5:
+            return M["jaune"]
+        if x < 0.72:
+            return M["jaune2"]
+        return M["ceram_b"] if x < 0.9 else M["ceram2"]
+    N.blinde(lot, sf, [-2.62, -2.05, -1.42, -0.95, -0.3, 0.2, 0.92, 1.65, 2.25, 2.75, 3.3], [(0.0, 0.34), (0.34, 0.72), (0.72, 1.06), (1.06, 1.44), (1.44, 1.8), (1.8, 2.18), (2.18, 2.58), (2.58, 2.88), (2.88, 3.14)],
+             mats_v, r, xf, saut=saut_v, Mriv=M["riv"])
+    for (x, a, f, t, lit) in ((-1.95, 2.25, "ogive", 0.1, True), (-0.65, 2.45, "rond", 0.08, False), (2.3, 2.3, "octo", 0.09, True), (2.95, 2.05, "fente", 0.07, False)):
+        p = sf(x, a, 0.06)
+        R.hublot(lot, M["cuivre2"], M["lum"] if lit else M["verre"], p, G.norm(G.sub(sf(x, a, 0.5), p)), f, t, xf=xf)
+    for (x, a, w) in ((-1.25, 1.75, 0.46), (2.55, 1.6, 0.46), (-0.2, 2.55, 0.38)):
+        p = sf(x, a, 0.07)
+        R.grille(lot, M["cuivre2"], M["noyau"], p, G.norm(G.sub(sf(x, a, 0.5), p)), w, w * 0.45, 5, xf=xf)
+    R.tuyau(lot, M["cuivre"], M["cuivre2"], [sf(-2.3, 2.1, 0.1), sf(-0.9, 2.1, 0.1), sf(-0.45, 1.8, 0.1)], 0.045, xf=xf)
+    R.tuyau(lot, M["acier"], M["cuivre2"], [sf(1.8, 1.8, 0.1), sf(3.0, 1.9, 0.1)], 0.03, xf=xf)
     # plancher et machines dans la cage : cuves, pompes, tuyaux
     lot.put(M["noyau"], G.prisme([(-3.1, -1.1), (-2.4, -1.3), (1.7, -1.25), (3.0, -0.8), (3.0, 1.0), (-3.1, 1.2)], 0.06, 0.28), xf)
     for k in range(9):                                              # caillebotis du plancher, irréguliers
@@ -316,7 +346,7 @@ def squelette(lot, M, r):
 def cryostat(lot, M, r):
     """Colonne sous la sphère, de la cage à son pôle sud : étages cerclés, flexibles qui pendent dans le vide."""
     xf = F_pal
-    z0, z1 = ZS + 1.1, ZC - RS + 0.1
+    z0, z1 = ZS + 0.75, ZC - RS + 0.1
     lot.put(M["ceram2"], G.tour([(z0, 0.46), (z0 + 0.2, 0.42), (z0 + 0.25, 0.3), (z1 - 0.15, 0.3), (z1, 0.62)], 18, "z", (CX, CY, 0.0), cap0=True, cap1=True), xf)
     for t in (0.2, 0.4, 0.62, 0.8):
         z = z0 + (z1 - z0) * t
@@ -338,7 +368,7 @@ def sphere(lot, M, r):
     xf = F_pal
     c = (CX, CY, ZC)
     surf = E.sph_pt(c, RS)
-    lot.put(M["noyau"], G.sphere(c, RS - 0.012, 40, 20), xf)
+    lot.put(M["ceram_j"], G.sphere(c, RS - 0.012, 40, 20), xf)
     d = math.radians
 
     def saut(la, lo):
@@ -349,48 +379,44 @@ def sphere(lot, M, r):
             return False
         return la > d(72)
 
-    def mats(rr, la, lo):
+    def mats(rr, la, lo):                                          # contraste réduit de moitié : aucune tuile noire
         x = rr.f()
-        if abs(la - 0.08) < 0.36 and x < 0.22:                    # noirci près du plasma
-            return M["ceram3"]
-        if x < 0.04:
-            return M["cuivre2"]
-        if x < 0.1:
-            return M["ceram3"]
-        return M["ceram"] if x < 0.7 else M["ceram2"]
-    lats = [d(x) for x in (-76, -64, -53, -43, -33, -24, -14, -2, 12, 20, 29, 38, 47, 56, 65, 74)]
-    E.tuiles_sphere(lot, surf, lats, 0.3, mats, r, xf, gap=0.026, saut=saut, Mriv=M["riv"])
+        if x < 0.03:
+            return M["cuivre"]
+        return M["ceram"] if x < 0.62 else (M["ceram_b"] if x < 0.9 else M["ceram2"])
+    lats = [d(x) for x in (-76, -62, -49, -36, -23, -10, -2, 12, 24, 36, 48, 60, 74)]
+    E.tuiles_sphere(lot, surf, lats, 0.38, mats, r, xf, gap=0.014, g=(0.006, 0.02), saut=saut)
     # ceinture de cuivre, calotte, méridiens à pas inégal, colliers
     z = ZC + RS * math.sin(0.08)
     rb = RS * math.cos(0.08)
     lot.put(M["cuivre"], G.tour([(z - 0.15, rb + 0.0), (z - 0.1, rb + 0.06), (z + 0.1, rb + 0.06), (z + 0.15, rb + 0.0)], 56, "z", (CX, CY, 0.0)), xf)
     lot.put(M["cuivre2"], G.tour([(z - 0.03, rb + 0.08), (z + 0.03, rb + 0.08)], 56, "z", (CX, CY, 0.0)), xf)
-    for lo in (195, 228, 247, 281, 318, 342, 12):
+    for lo in (205, 252, 296, 340):
         a = d(lo)
         pts = [surf(d(-70 + 6.0 * k), a, 0.05) for k in range(25)]
         lot.put(M["cuivre"] if lo % 2 else M["cuivre2"], G.tube(pts, 0.04 + 0.012 * (lo % 3), 6), xf)
         for la in (-44, -18, 30, 56):
             q = surf(d(la + (lo % 7)), a, 0.08)
             lot.put(M["acier"], G.boite(q, (0.13, 0.13, 0.13)), xf)
-    for k in range(90):                                            # petites pièces sur les tuiles (3 à 8 px)
+    for k in range(34):                                            # petites pièces sur les tuiles (3 à 8 px)
         la, lo = d(r.f(-60, 62)), d(r.f(195, 345))
         q = surf(la, lo, 0.05)
-        lot.put([M["acier"], M["noyau"], M["cuivre2"]][k % 3], G.oriente(G.boite((0, 0, 0), (r.f(0.05, 0.13), r.f(0.04, 0.1), 0.04)), q, G.norm(G.sub(q, c))), xf)
+        lot.put([M["ceram2"], M["cuivre2"], M["ceram_b"]][k % 3], G.oriente(G.boite((0, 0, 0), (r.f(0.05, 0.13), r.f(0.04, 0.1), 0.04)), q, G.norm(G.sub(q, c))), xf)
     # calotte du sommet, étagée
     zp = ZC + RS * math.sin(d(72))
     rp = RS * math.cos(d(72))
     lot.put(M["cuivre"], G.tour([(zp - 0.05, rp + 0.08), (zp + 0.1, rp + 0.08), (zp + 0.24, rp * 0.78), (zp + 0.32, rp * 0.72), (zp + 0.46, rp * 0.45)], 28, "z", (CX, CY, 0.0), cap1=True), xf)
     # hublots de contrôle orange (le cœur se voit par 2 hublots), trappes, grilles, échelle
-    for (la, lo, t) in ((28, 238, 0.2), (36, 292, 0.14)):
+    for (la, lo, t) in ((26, 238, 0.17), (34, 292, 0.12)):
         p = surf(d(la), d(lo), 0.03)
         n = G.norm(G.sub(p, c))
         lot.put(M["cuivre2"], G.oriente(G.tour([(0.0, t * 1.6), (0.05, t * 1.5), (0.09, t * 1.2), (0.05, t * 1.05), (0.03, t)], 18, "z"), p, n), xf)
-        lot.put(M["hublot"], G.oriente(G.tour([(0.03, t), (0.04, 0.0)], 18, "z"), p, n), xf)
+        lot.put(M["hublot"], G.oriente(G.tour([(0.03, t), (0.06 + t * 0.3, t * 0.72), (0.05 + t * 0.55, 0.0)], 18, "z"), p, n), xf)
     for (la, lo, f, t, lit) in ((-24, 262, "fente", 0.08, True), (46, 215, "octo", 0.09, False), (-38, 300, "carre", 0.07, False), (20, 330, "double", 0.08, True),
                                 (57, 262, "losange", 0.08, False), (-14, 212, "demi", 0.1, True)):
         p = surf(d(la), d(lo), 0.05)
         R.hublot(lot, M["cuivre2"], M["lum"] if lit else M["verre"], p, G.norm(G.sub(p, c)), f, t, xf=xf)
-    for (la, lo, w) in ((-52, 250, 0.6), (40, 262, 0.5), (-30, 225, 0.4), (-42, 320, 0.5), (50, 305, 0.4)):
+    for (la, lo, w) in ((-52, 250, 0.44), (42, 262, 0.38), (-30, 225, 0.3), (-42, 320, 0.36), (52, 305, 0.3)):
         p = surf(d(la), d(lo), 0.06)
         R.grille(lot, M["cuivre2"], M["noyau"], p, G.norm(G.sub(p, c)), w, w * 0.5, 5, xf=xf)
     pts = [surf(d(-10 + 6.0 * k), d(272), 0.11) for k in range(13)]
@@ -405,7 +431,7 @@ def sphere(lot, M, r):
     R.tuyau(lot, M["cuivre"], M["cuivre2"], [surf(d(-36), d(205), 0.12), surf(d(-28), d(244), 0.12), surf(d(-40), d(264), 0.12)], 0.045, xf=xf)
     R.tuyau(lot, M["acier"], M["cuivre2"], [surf(d(48), d(235), 0.1), surf(d(58), d(285), 0.1)], 0.03, xf=xf)
     # échafaudage et grue de chantier sur le dos de la sphère (dépassement, jamais fini)
-    R.echafaudage(lot, M["acier"], M["bois"], CX - 1.25, CX - 0.55, CY - 1.1, CY - 0.9, ZC + 0.55, ZC + 1.5, 3, xf=xf)
+    R.echafaudage(lot, M["acier"], M["bois"], CX - 1.02, CX - 0.48, CY - 0.92, CY - 0.72, ZC + 0.38, ZC + 1.2, 3, xf=xf)
 
 
 def _arc(R0, z, a0, a1, n=8):
@@ -413,88 +439,66 @@ def _arc(R0, z, a0, a1, n=8):
 
 
 def tore(lot, M, r):
+    """TORE SEGMENTÉ (critique du 1/11, sur le modèle du Portique) : tube de plasma en retrait, à cœur clair et bord sombre, vu par
+    10 fenêtres ; entre elles, de grosses bobines de céramique à brides de cuivre, pions sur une sur deux, couronne de maintien."""
     xf = F_pal
-    c = (CX, CY, 0.0)
-    prof = [(ZT - 0.34, RT - 0.06), (ZT - 0.26, RT + 0.34), (ZT + 0.1, RT + 0.42), (ZT + 0.2, RT + 0.28), (ZT + 0.03, RT + 0.2), (ZT + 0.03, RT - 0.2),
-            (ZT + 0.2, RT - 0.28), (ZT + 0.1, RT - 0.42), (ZT - 0.26, RT - 0.34), (ZT - 0.34, RT - 0.06)]
-    lot.put(M["ceram2"], G.tour(prof, 96, "z", c), xf)
-    lot.put(M["noyau"], G.tour([(ZT + 0.035, RT + 0.2), (ZT + 0.035, RT - 0.2)], 96, "z", c), xf)
-    # plasma : gaine qui respire, filaments de cœur orange tressés autour
-    rings = []
-    na = 120
-    for i in range(na + 1):
-        t = G.TAU * i / na
-        m = 0.1 + 0.024 * math.sin(5 * t) + 0.014 * math.sin(13 * t + 1.1)
-        u = (math.cos(t), math.sin(t), 0.0)
-        rg = []
-        for j in range(8):
-            b = G.TAU * j / 8
-            rg.append((CX + (RT + m * math.cos(b)) * u[0], CY + (RT + m * math.cos(b)) * u[1], ZT + 0.16 + m * math.sin(b)))
-        rings.append(rg)
-    lot.put(M["plasma"], G.loft(rings), xf)
-    for k in range(3):
-        pts = []
-        for i in range(181):
-            t = G.TAU * i / 180
-            ph = 7 * t + k * G.TAU / 3
-            rr = RT + 0.06 * math.cos(ph)
-            pts.append((CX + rr * math.cos(t), CY + rr * math.sin(t), ZT + 0.16 + 0.1 * math.sin(ph) + 0.03))
-        lot.put(M["plasma_c"], G.tube(pts, 0.02, 5), xf)
-    # bobines en D, ouvertes par-dessus : joue extérieure et joue intérieure, jamais sur le plasma ; pas inégal
-    angs = [8, 37, 61, 93, 122, 146, 179, 204, 231, 258, 287, 311, 339]
-    for i, ad in enumerate(angs):
-        a = math.radians(ad)
-        u = (math.cos(a), math.sin(a))
-        ep = 0.15 + 0.05 * (i % 3)
-        hh = 0.86 + 0.14 * (i % 2)
-        pe = (CX + (RT + 0.5) * u[0], CY + (RT + 0.5) * u[1], ZT - 0.05)
-        pi_ = (CX + (RT - 0.46) * u[0], CY + (RT - 0.46) * u[1], ZT - 0.05)
-        lot.put(M["cuivre"], G.boite(pe, (0.26, ep, hh), rz=a), xf)
-        lot.put(M["cuivre2"], G.boite(pi_, (0.16, ep * 0.9, hh * 0.72), rz=a), xf)
-        lot.put(M["cuivre2"], G.boite((pe[0], pe[1], pe[2] + hh / 2 + 0.03), (0.2, ep + 0.05, 0.05), rz=a), xf)
-        lot.put(M["acier"], G.boite((CX + (RT + 0.1) * u[0], CY + (RT + 0.1) * u[1], ZT - 0.36), (0.78, ep * 0.8, 0.1), rz=a), xf)
-    R.compte("bobines_d", len(angs))
-    for k in range(90):                                             # flanc du carter vers la caméra : plaques rapportées, boîtes, bornes
-        a = math.radians(r.f(190, 350))
-        z = ZT + r.f(-0.24, 0.06)
-        rr = RT + 0.42 + 0.02
-        lot.put([M["acier"], M["ceram3"], M["cuivre2"], M["ceram"], M["noyau"]][k % 5], G.boite((CX + rr * math.cos(a), CY + rr * math.sin(a), z), (0.05, r.f(0.07, 0.3), r.f(0.04, 0.12)), rz=a), xf)
-    for k in range(110):                                            # lèvres du carter : plaques rapportées, boîtes, bornes
-        a = r.f(0.0, G.TAU)
-        ext = k % 3 != 0
-        rr = RT + (0.34 if ext else -0.34) + r.f(-0.05, 0.05)
-        p = (CX + rr * math.cos(a), CY + rr * math.sin(a), ZT + 0.14 if ext else ZT + 0.14)
-        lot.put([M["acier"], M["cuivre2"], M["ceram3"], M["ceram"], M["noyau"]][k % 5], G.boite(p, (r.f(0.06, 0.2), r.f(0.05, 0.1), 0.05), rz=a + math.pi / 2), xf)
-    # bandeaux, évents et ports de diagnostic entre les bobines (façade extérieure du carter)
-    for (ad, m, f) in ((22, "grille", 0), (50, "port", 0), (108, "grille", 0), (195, "port", 1), (218, "grille", 1), (244, "port", 2), (272, "grille", 2), (299, "port", 0), (325, "grille", 0), (350, "port", 1)):
-        a = math.radians(ad)
-        n = (math.cos(a), math.sin(a), 0.0)
-        p = (CX + (RT + 0.42) * n[0], CY + (RT + 0.42) * n[1], ZT - 0.08)
-        if m == "grille":
-            R.grille(lot, M["cuivre2"], M["noyau"], p, n, 0.38, 0.16, 4, xf=xf)
-        else:
-            lot.put(M["acier"], G.oriente(G.tour([(0.0, 0.1), (0.1, 0.09), (0.13, 0.13), (0.17, 0.13), (0.19, 0.05)], 12, "z", cap1=True), p, n), xf)
-    # rayons de la sphère au tore (6, inégaux), sous le plasma
-    for ad in (28, 95, 158, 214, 268, 330):
-        a = math.radians(ad)
-        u = (math.cos(a), math.sin(a), 0.0)
-        p0 = (CX + (RS - 0.04) * u[0], CY + (RS - 0.04) * u[1], ZT - 0.05)
-        p1 = (CX + (RT - 0.3) * u[0], CY + (RT - 0.3) * u[1], ZT - 0.1)
-        lot.put(M["ceram2"], G.boite(G.lerp(p0, p1, 0.5), (G.length(G.sub(p1, p0)), 0.17, 0.2), rz=a), xf)
-        lot.put(M["acier"], G.tube([G.add(p0, (0, 0, 0.14)), G.add(p1, (0, 0, 0.14))], 0.03, 6), xf)
-    # tuyau de refroidissement sur la lèvre extérieure, faisceau en festons sous le tore
-    for (a0, a1, rr) in ((math.radians(195), math.radians(262), 0.045), (math.radians(280), math.radians(345), 0.03)):
-        R.tuyau(lot, M["cuivre"], M["cuivre2"], _arc(RT + 0.47, ZT + 0.14, a0, a1), rr, xf=xf)
+    c = (CX, CY, ZT)
+    nb = 10
+    da = 0.066                                                      # demi-fenêtre : 0,36 tuile de plasma visible
+    decal = [0.0, 0.03, -0.02, 0.02, 0.0, -0.03, 0.02, 0.0, -0.02, 0.03]
+    fen = [G.TAU * (k + 0.5) / nb + decal[k] for k in range(nb)]
+    lot.put(M["plasma"], E.anneau(c, RT, RP, 0.0, G.TAU, 140, 14), xf)
+    for k in range(nb):
+        a0, a1 = fen[k] + da, fen[(k + 1) % nb] - da + (G.TAU if k == nb - 1 else 0.0)
+        am = (a0 + a1) / 2
+        # bobine : manchon, deux tons selon le rang, sangle, bride de cuivre à chaque bout
+        lot.put(M["ceram_b"] if k % 3 else M["ceram2"], E.anneau(c, RT, RB, a0 + 0.02, a1 - 0.02, 16, 18), xf)
+        for s_ in (a0 + 0.015, a1 - 0.015):
+            lot.put(M["cuivre"], E.anneau(c, RT, RB + 0.045, s_ - 0.012, s_ + 0.012, 2, 18), xf)
+        for t in (0.3, 0.62) if k % 2 else (0.5,):
+            b = a0 + (a1 - a0) * t
+            lot.put(M["cuivre2"], E.anneau(c, RT, RB + 0.02, b - 0.016, b + 0.016, 2, 18), xf)
+        # boîte extérieure, plaques rapportées et conduit le long de la bobine
+        u = (math.cos(am), math.sin(am))
+        lot.put(M["ceram3"], G.boite((CX + (RT + RB + 0.02) * u[0], CY + (RT + RB + 0.02) * u[1], ZT), (0.12, 0.42, 0.3), rz=am), xf)
+        for j in range(9):
+            b = r.f(a0 + 0.04, a1 - 0.04)
+            ang = r.f(-0.6, 1.5)
+            rr = RT + (RB + 0.012) * math.cos(ang)
+            q = (CX + rr * math.cos(b), CY + rr * math.sin(b), ZT + (RB + 0.012) * math.sin(ang))
+            nn = G.norm((math.cos(ang) * math.cos(b), math.cos(ang) * math.sin(b), math.sin(ang)))
+            lot.put([M["acier"], M["cuivre2"], M["ceram2"], M["ceram_b"]][j % 4], G.oriente(G.boite((0, 0, 0), (r.f(0.08, 0.26), r.f(0.06, 0.16), 0.025)), q, nn), xf)
+        if k % 2 == 0:
+            q = (CX + RT * u[0], CY + RT * u[1], ZT + RB - 0.03)
+            lot.put(M["cuivre"], G.tour([(q[2], 0.17), (q[2] + 0.06, 0.15), (q[2] + 0.34, 0.09), (q[2] + 0.42, 0.13), (q[2] + 0.48, 0.0)], 12, "z", (q[0], q[1], 0.0), cap0=True), xf)
+        p0 = (CX + (RT + RB + 0.06) * math.cos(a0 + 0.08), CY + (RT + RB + 0.06) * math.sin(a0 + 0.08), ZT + 0.2)
+        p1 = (CX + (RT + RB + 0.06) * math.cos(a1 - 0.08), CY + (RT + RB + 0.06) * math.sin(a1 - 0.08), ZT + 0.2)
+        pm = (CX + (RT + RB + 0.1) * math.cos(am), CY + (RT + RB + 0.1) * math.sin(am), ZT + 0.2)
+        if k % 2:
+            R.tuyau(lot, M["acier"] if k % 4 == 1 else M["cuivre"], M["cuivre2"], [p0, pm, p1], 0.03, xf=xf)
+        # bras de la sphère à la bobine, sous le plasma
+        q0 = (CX + (RS * 0.98) * u[0], CY + (RS * 0.98) * u[1], ZT - 0.05)
+        q1 = (CX + (RT - RB + 0.05) * u[0], CY + (RT - RB + 0.05) * u[1], ZT - 0.05)
+        if k % 2 == 0:
+            lot.put(M["ceram2"], G.boite(G.lerp(q0, q1, 0.5), (G.length(G.sub(q1, q0)), 0.14, 0.16), rz=am), xf)
+            lot.put(M["acier"], G.tube([G.add(q0, (0, 0, 0.12)), G.add(q1, (0, 0, 0.12))], 0.025, 6), xf)
+    R.compte("bobines_d", nb)
+    # couronne de maintien, attaches, faisceaux en festons, passerelle sous le tore
+    Rc = RT + RB + 0.22
+    lot.put(M["acier"], E.anneau(c, Rc, 0.032, 0.0, G.TAU, 120, 6), xf)
+    for k in range(nb):
+        a = fen[k] + 0.3
+        lot.put(M["acier"], G.tube([(CX + (RT + RB) * math.cos(a), CY + (RT + RB) * math.sin(a), ZT), (CX + Rc * math.cos(a), CY + Rc * math.sin(a), ZT)], 0.018, 5), xf)
     for (a0, a1) in ((math.radians(208), math.radians(245)), (math.radians(258), math.radians(292)), (math.radians(302), math.radians(335))):
-        p = (CX + (RT + 0.3) * math.cos(a0), CY + (RT + 0.3) * math.sin(a0), ZT - 0.32)
-        q = (CX + (RT + 0.3) * math.cos(a1), CY + (RT + 0.3) * math.sin(a1), ZT - 0.32)
-        R.faisceau(lot, M["cable_r"], M["cable_n"], p, q, 0.4, r, n=3, rouges=1, xf=xf)
-    # passerelle à garde-corps sous le tore, entre deux jambes
-    R.garde_corps(lot, M["cuivre2"], _arc(RT + 0.6, ZT - 0.42, math.radians(248), math.radians(290), 5), h=0.26, xf=xf)
-    lot.put(M["acier"], G.tour([(ZT - 0.46, RT + 0.72), (ZT - 0.42, RT + 0.72), (ZT - 0.42, RT + 0.3), (ZT - 0.46, RT + 0.3)], 12, "z", c, a0=math.radians(248), a1=math.radians(290)), xf)
+        p = (CX + (RT + 0.3) * math.cos(a0), CY + (RT + 0.3) * math.sin(a0), ZT - RB + 0.05)
+        q = (CX + (RT + 0.3) * math.cos(a1), CY + (RT + 0.3) * math.sin(a1), ZT - RB + 0.05)
+        R.faisceau(lot, M["cable_r"], M["cable_n"], p, q, 0.34, r, n=3, rouges=1, xf=xf)
+    zp = ZT - RB - 0.1
+    R.garde_corps(lot, M["cuivre2"], _arc(RT + 0.2, zp, math.radians(248), math.radians(290), 5), h=0.22, xf=xf)
+    lot.put(M["acier"], G.tour([(zp - 0.04, RT + 0.32), (zp, RT + 0.32), (zp, RT - 0.1), (zp - 0.04, RT - 0.1)], 12, "z", (CX, CY, 0.0), a0=math.radians(248), a1=math.radians(290)), xf)
 
 
-JAMBES = [(math.radians(208), (-4.45, -2.95)), (math.radians(332), (2.95, -2.85)), (math.radians(92), (-0.95, 2.95))]
+JAMBES = [(math.radians(208), (-4.45, -2.95)), (math.radians(332), (2.95, -2.85)), (math.radians(92), (-0.95, 3.5))]
 
 
 def trepied(lot, M, r):
@@ -504,7 +508,7 @@ def trepied(lot, M, r):
     old = lot.xf
     lot.xf = xf
     for (a, pied) in JAMBES:
-        hd = (CX + (RT - 0.15) * math.cos(a), CY + (RT - 0.15) * math.sin(a), ZT - 0.34)
+        hd = (CX + (RT - 0.1) * math.cos(a), CY + (RT - 0.1) * math.sin(a), ZT - RB + 0.06)
         p = (pied[0], pied[1], 0.32)
         E.jambe(lot, M["ceram2"], M["acier"], M["cuivre"], M["cuivre2"], p, hd, 0.27, 0.15)
         lot.put(M["pierre2"], G.prisme(E.rect(pied[0], pied[1], 0.66, 0.55), 0.0, 0.14, top_scale=0.9), xf)
@@ -541,10 +545,10 @@ def fleche(lot, M, r):
     """La flèche de commandement (une seule) : le point le plus haut, cousine de la flèche maîtresse de l'âge 15."""
     xf = F_pal
     z0 = ZC + RS * math.sin(math.radians(72)) + 0.42
-    pt = R.fleche(lot, M["ceram2"], M["cuivre"], M["ceram"], M["verre"], M["cuivre2"], (CX, CY), z0, 2.5, 0.26, r, 3, xf=xf, Mlum=M["lum"])
+    pt = R.fleche(lot, M["ceram2"], M["cuivre"], M["ceram"], M["verre"], M["cuivre2"], (CX, CY), z0, 1.85, 0.24, r, 3, xf=xf, Mlum=M["lum"])
     R.mat_antenne(lot, M["cuivre2"], M["acier"], M["balise"], pt, 0.5, r, xf=xf)
-    R.mat_antenne(lot, M["cuivre2"], M["acier"], M["balise"], (CX + 0.75, CY + 0.25, ZC + RS * 0.82), 0.85, r, xf=xf, lum=False)
-    R.mat_antenne(lot, M["cuivre2"], M["acier"], None, (CX - 0.8, CY + 0.3, ZC + RS * 0.82), 0.55, r, xf=xf, lum=False)
+    R.mat_antenne(lot, M["cuivre2"], M["acier"], M["balise"], (CX + 0.6, CY + 0.2, ZC + RS * 0.82), 0.7, r, xf=xf, lum=False)
+    R.mat_antenne(lot, M["cuivre2"], M["acier"], None, (CX - 0.62, CY + 0.25, ZC + RS * 0.82), 0.45, r, xf=xf, lum=False)
 
 
 def injecteurs(lot, M, r):
@@ -553,7 +557,7 @@ def injecteurs(lot, M, r):
     # boîte d'injection ouest, à l'arrière du vaisseau : tambour couché à bobines, sur tréteau, ligne de faisceau vers le tore
     bx, by, bz = -5.45, 2.65, 3.45
     a = math.radians(160)
-    hd = (CX + (RT + 0.42) * math.cos(a), CY + (RT + 0.42) * math.sin(a), ZT - 0.05)
+    hd = (CX + (RT + RB) * math.cos(a), CY + (RT + RB) * math.sin(a), ZT - 0.05)
     dd = (math.cos(0.3), math.sin(0.3), 0.0)
     p_ = G.add((bx, by, bz), G.mul(dd, -0.85))
     lot.put(M["ceram2"], G.oriente(G.tour([(0.0, 0.2), (0.06, 0.42), (0.16, 0.46), (0.5, 0.46), (0.55, 0.52), (0.72, 0.52), (0.78, 0.46), (1.25, 0.46), (1.3, 0.52), (1.42, 0.52), (1.5, 0.4),
@@ -621,7 +625,7 @@ def vaisseau(lot, M, r):
     M2["chevron"] = M["ceram"]                                      # nacelles : céramique et jaune, sans chevrons
     N.crane(lot, M, ZS, r, F_nav)
     N.nacelles(lot, M2, ZS, r, F_nav)
-    N.derive(lot, M, ZS, r, F_nav)
+    N.derive(lot, M, ZS, r, F_nav, corde=0.55)
     for s in (-1, 1):
         N.aile(lot, M, s, ZS, F_nav)
     c = (-3.0, 0.0, ZS - 0.15)

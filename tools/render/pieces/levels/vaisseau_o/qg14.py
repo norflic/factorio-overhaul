@@ -41,9 +41,9 @@ def matieres(S):
                       crasse=0.85, crasse_col=cr, graine=1)
     M["blanc2"] = surf("q14_blanc2", (0.44, 0.42, 0.36), rough=0.45, met=0.05, coulures=0.55, rouille=(0.12, 0.08, 0.05), usure=0.55, nu=(0.7, 0.68, 0.6),
                        crasse=0.85, crasse_col=cr, graine=2)
-    M["or"] = E.froisse("q14_or", (0.62, 0.39, 0.05), rough=0.32, met=0.42, coulures=0.25, rouille=(0.2, 0.1, 0.03), usure=0.4, nu=(0.95, 0.75, 0.3),
+    M["or"] = E.froisse("q14_or", (0.62, 0.39, 0.05), rough=0.46, met=0.3, coulures=0.25, rouille=(0.2, 0.1, 0.03), usure=0.15, nu=(0.72, 0.5, 0.12),
                         crasse=0.6, crasse_col=(0.03, 0.018, 0.005), grain=0.12, graine=3)
-    M["or2"] = E.froisse("q14_or2", (0.36, 0.205, 0.028), rough=0.36, met=0.45, coulures=0.3, rouille=(0.14, 0.07, 0.02), usure=0.45, nu=(0.8, 0.6, 0.22),
+    M["or2"] = E.froisse("q14_or2", (0.42, 0.25, 0.032), rough=0.48, met=0.32, coulures=0.3, rouille=(0.14, 0.07, 0.02), usure=0.15, nu=(0.6, 0.42, 0.1),
                          crasse=0.7, crasse_col=(0.02, 0.012, 0.004), grain=0.12, graine=4)
     M["or_sombre"] = surf("q14_orsombre", (0.17, 0.105, 0.03), rough=0.45, met=0.5, coulures=0.3, usure=0.6, nu=(0.55, 0.42, 0.18), crasse=0.8, crasse_col=cr, graine=5)
     M["acier"] = surf("q14_acier", (0.075, 0.072, 0.07), rough=0.5, met=0.55, coulures=0.4, rouille=(0.07, 0.03, 0.012), usure=0.6, nu=(0.24, 0.23, 0.22),
@@ -66,7 +66,7 @@ def matieres(S):
     M["caoutchouc"] = surf("q14_caoutchouc", (0.02, 0.018, 0.016), rough=0.75, met=0.0, usure=0.2, crasse=0.5, graine=16)
     M["cable_r"] = surf("q14_cable_r", (0.28, 0.018, 0.01), rough=0.5, met=0.0, usure=0.2, crasse=0.4, graine=17)
     M["cable_n"] = surf("q14_cable_n", (0.012, 0.011, 0.01), rough=0.55, met=0.0, usure=0.2, crasse=0.4, graine=18)
-    M["riv"] = surf("q14_riv", (0.05, 0.04, 0.03), rough=0.5, met=0.6, usure=0.4, crasse=0.4, graine=19)
+    M["riv"] = surf("q14_riv", (0.22, 0.15, 0.06), rough=0.5, met=0.6, usure=0.4, crasse=0.4, graine=19)
     M["bois"] = surf("q14_bois", (0.1, 0.09, 0.07), rough=0.7, met=0.1, tole=(0.5, 0.12), joint=0.5, var=0.2, usure=0.5, crasse=0.7, graine=20)
     M["terre"] = surf("q14_terre", (0.11, 0.065, 0.035), rough=0.95, met=0.0, usure=0.0, crasse=0.7, crasse_col=(0.03, 0.018, 0.01), graine=21)
     M["cell"] = surf("q14_cell", (0.013, 0.021, 0.08), rough=0.22, met=0.25, usure=0.0, crasse=0.2, crasse_col=(0.004, 0.005, 0.012), grain=0.08, graine=22)
@@ -74,8 +74,8 @@ def matieres(S):
     M["cell3"] = surf("q14_cell3", (0.05, 0.14, 0.62), rough=0.2, met=0.15, usure=0.0, crasse=0.2, crasse_col=(0.004, 0.005, 0.012), grain=0.08, graine=24)
     M["verre"] = MT.verre("q14_verre", col=(0.01, 0.014, 0.03), reflet=(0.1, 0.16, 0.3))
     M["lum"] = MT.lumiere(S, "q14_lum", (1.0, 0.68, 0.32), 0.75, main=0.15)
-    M["coeur"] = MT.lumiere(S, "q14_coeur", (1.0, 0.17, 0.025), 1.4, main=0.2)
-    M["balise"] = MT.lumiere(S, "q14_balise", (1.0, 0.024, 0.024), 1.6, main=0.3)
+    M["coeur"] = E.lumiere_degrade(S, "q14_coeur", (1.0, 0.62, 0.22), (1.0, 0.2, 0.03), (0.16, 0.015, 0.003), 1.1, main=0.3)
+    M["balise"] = E.lumiere_degrade(S, "q14_balise", (1.0, 0.3, 0.2), (1.0, 0.024, 0.024), (0.25, 0.004, 0.004), 1.3, main=0.3)
     # alias : ere5_vaisseau, greb et stellaire nomment les matières de l'âge 15
     M["bronze"], M["bronze2"], M["nacre"] = M["acier"], M["blanc2"], M["blanc"]
     return M
@@ -140,7 +140,7 @@ def sol(lot, M, r):
         lot.put(M["acier"], G.boite((-7.42, y + 0.29, h / 2), (0.1, 0.06, h + 0.05)), xf)
     for (x, y, z) in ((-6.0, -3.5, 0.3), (5.6, -3.45, 0.38), (-6.2, 3.3, 0.44), (4.6, 3.45, 0.36), (-1.6, 3.65, 0.3)):
         R.grille(lot, M["acier"], M["noyau"], (x, y, z + 0.005), (0, 0, 1), 0.55, 0.34, 7, up=(0, 1, 0), xf=xf)
-    for (x, y, z0, h) in ((-7.3, -3.42, 0.3, 2.05), (7.3, -3.15, 0.38, 2.3), (-7.3, 3.3, 0.44, 2.85), (7.05, 3.0, 0.36, 2.65)):
+    for (x, y, z0, h) in ((-7.3, -3.42, 0.3, 2.05), (7.3, -3.15, 0.38, 2.3), (7.05, 3.0, 0.36, 2.65)):
         E.pylone(lot, M, x, y, z0, h, r, lum=True)
     for (x, y, z, s) in ((-2.4, -3.78, 0.12, (0.3, 0.26, 0.2)), (7.7, -1.95, 0.0, (0.4, 0.36, 0.26)), (-7.7, -2.45, 0.24, (0.3, 0.3, 0.2)),
                          (2.55, -3.8, 0.12, (0.28, 0.24, 0.2)), (-2.8, 3.7, 0.3, (0.36, 0.3, 0.22)), (7.6, 1.85, 0.0, (0.3, 0.26, 0.2)),
@@ -430,12 +430,12 @@ def parabole(lot, M, r, c, axe, Rd, f, sup=False, xf=None):
     lot.put(M["blanc2"], G.loft(rings), xf)
     ns = 6
     for bi in range(len(rhos) - 1):
-        ns = max(ns, int(G.TAU * rhos[bi + 1] / (0.42 if Rd > 1 else 0.2)))
+        ns = max(ns, int(G.TAU * rhos[bi + 1] / (0.85 if Rd > 1 else 0.3)))
         d0 = r.f(0, 1.0)
         for k in range(ns):
             a0 = d0 + G.TAU * k / ns + 0.012
             a1 = d0 + G.TAU * (k + 1) / ns - 0.012
-            m = M["or"] if (k + bi) % 5 else (M["blanc"] if (k * 3 + bi) % 7 else M["or2"])
+            m = M["or"] if (k + bi) % 4 else (M["or2"] if (k * 3 + bi) % 5 else M["blanc2"])
             lot.put(m, froisser(N.patch(surf, rhos[bi] + 0.006, rhos[bi + 1] - 0.006, a0, a1, r.f(0.002, 0.012), 3, 3), r, 0.012 if Rd > 1 else 0.004), xf)
     lot.put(M["blanc"], N.tore(surf(Rd, 0.0, 0.0)[0:0] or G.add(c, G.mul(ez, Rd * Rd / (4.0 * f))), Rd, 0.05 if Rd > 1 else 0.018, ez, 64 if Rd > 1 else 28, 6), xf)
     for k in range(8 if Rd > 1 else 4):
@@ -488,27 +488,28 @@ def _panneau(lot, M, r, xf, p0, ex, ey, w, h, kind):
     """Un panneau d'aile : dos blanc, cadre de feuille d'or, puis cellules (type « c ») ou feuille d'or plissée (type « o »)."""
     ez = G.norm(G.cross(ex, ey))
     lot.put(M["blanc2"], plaque(p0, ex, ey, w, h, 0.05), xf)
-    b = 0.11
+    b = 0.05
     if kind == "o":
         for (a0, b0, ww, hh, m) in ((0.0, 0.0, w, h, M["or"]),):
             p = G.add(lerp_p(p0, ex, ey, a0 + 0.02, b0 + 0.02), G.mul(ez, 0.01))
-            lot.put(m, E.feuille(p, ex, ey, ww - 0.04, hh - 0.04, r, 0.035, 0.12), xf)
+            lot.put(m, E.feuille(p, ex, ey, ww - 0.04, hh - 0.04, r, 0.05, 0.34), xf)
+        for (a0, b0, ww, hh) in ((0.0, 0.0, w, b), (0.0, h - b, w, b), (0.0, 0.0, b, h), (w - b, 0.0, b, h)):
+            lot.put(M["acier"], plaque(G.add(lerp_p(p0, ex, ey, a0, b0), G.mul(ez, 0.03)), ex, ey, ww, hh, 0.02), xf)
         # sangles et rapiéçages
         for t in (0.33, 0.68):
             q = G.add(lerp_p(p0, ex, ey, 0.0, h * t), G.mul(ez, 0.03))
             lot.put(M["blanc2"], plaque(q, ex, ey, w, 0.03, 0.01), xf)
         q = G.add(lerp_p(p0, ex, ey, w * 0.5 + r.f(-0.2, 0.1), h * 0.1), G.mul(ez, 0.035))
-        lot.put(M["or2"], E.feuille(q, ex, ey, w * 0.34, h * 0.4, r, 0.03, 0.1), xf)
+        lot.put(M["or2"], E.feuille(q, ex, ey, w * 0.34, h * 0.4, r, 0.04, 0.3), xf)
     else:
         # cadre d'or, épine d'or au milieu, cellules à reflet en diagonale
-        for (a0, b0, ww, hh) in ((0.0, 0.0, w, b), (0.0, h - b, w, b), (0.0, 0.0, b, h), (w - b, 0.0, b, h), (w * 0.5 - 0.05, 0.0, 0.1, h)):
-            q = G.add(lerp_p(p0, ex, ey, a0, b0), G.mul(ez, 0.012))
-            lot.put(M["or"], E.feuille(q, ex, ey, ww, hh, r, 0.012, 0.09), xf)
+        for (a0, b0, ww, hh) in ((0.0, 0.0, w, b), (0.0, h - b, w, b), (0.0, 0.0, b, h), (w - b, 0.0, b, h), (w * 0.5 - 0.03, 0.0, 0.06, h)):
+            lot.put(M["acier"], plaque(G.add(lerp_p(p0, ex, ey, a0, b0), G.mul(ez, 0.018)), ex, ey, ww, hh, 0.02), xf)
         pas = 0.2
         ph = r.f(0, 3)
         for side in (0, 1):
-            ax0 = b + 0.015 if side == 0 else w * 0.5 + 0.065
-            ax1 = w * 0.5 - 0.065 if side == 0 else w - b - 0.015
+            ax0 = b + 0.015 if side == 0 else w * 0.5 + 0.045
+            ax1 = w * 0.5 - 0.045 if side == 0 else w - b - 0.015
             nx = max(1, int((ax1 - ax0) / pas))
             ny = max(1, int((h - 2 * b - 0.03) / pas))
             dx = (ax1 - ax0) / nx
@@ -716,7 +717,7 @@ def hangar(lot, M, r):
         return M["jaune"]
     bandes = [(0.0, 0.3), (0.3, 0.68), (0.68, 1.02), (1.02, 1.38), (1.38, 1.76), (1.76, 2.14), (2.14, 2.54), (2.54, 2.86), (2.86, 3.14)]
     xb = [-2.5, -1.95, -1.3, -0.82, -0.2, 0.25, 0.92, 1.4, 1.95, 2.35, 3.3]
-    N.blinde(lot, surf, xb, bandes, mats, r, xf, saut=saut, Mriv=M["riv"])
+    N.blinde(lot, surf, xb, bandes, mats, r, xf, saut=saut)
     # membrures, sangles et machines de la brèche
     for x in (-1.3, 0.25, 1.95):
         lot.put(M["blanc2"], G.tube([surf(x, 0.04 + j * 0.3, 0.05) for j in range(11)], 0.035, 6), xf)
@@ -743,9 +744,10 @@ def vaisseau(lot, M, r):
     M2 = dict(M)
     M2["chevron"] = M["or"]                                         # nacelles : feuille d'or, blanc et jaune, sans chevrons
     M2["jaune2"] = M["blanc2"]
+    M2["bronze"], M2["or_sombre"] = M["blanc2"], M["cuivre"]        # cloches claires : la nacelle haute se lit (critique du 1/11)
     N.crane(lot, M, ZS, r, F_nav)
     N.nacelles(lot, M2, ZS, r, F_nav)
-    N.derive(lot, M, ZS, r, F_nav)
+    N.derive(lot, M, ZS, r, F_nav, corde=0.55)
     for s in (-1, 1):
         N.aile(lot, M, s, ZS, F_nav)
     c = (-3.05, 0.0, ZS - 0.4)

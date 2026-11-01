@@ -267,13 +267,15 @@ def aile(lot, M, s, zs, xf):
     lot.put(M["balise"], G.sphere((-6.27, y0 + s * 1.5, cz + 0.36), 0.04, 8, 4), xf)
 
 
-def derive(lot, M, zs, rnd, xf):
-    poly = [(-3.6, zs + 0.7), (-5.5, zs + 0.7), (-6.35, zs + 3.05), (-5.75, zs + 3.12)]
+def derive(lot, M, zs, rnd, xf, corde=1.0):
+    """corde < 1 : pied moins long (critique du 1/11 : la dérive pleine cache la nacelle haute)."""
+    xa = -5.5 + 1.9 * corde
+    poly = [(xa, zs + 0.7), (-5.5, zs + 0.7), (-6.35, zs + 3.05), (-5.75, zs + 3.12)]
     lot.put(M["jaune"], plaque_xz(poly, -0.07, 0.07), xf)
-    lot.put(M["or"], G.tube([(-3.62, 0.0, zs + 0.72), (-5.72, 0.0, zs + 3.1)], 0.06, 8), xf)
+    lot.put(M["or"], G.tube([(xa - 0.02, 0.0, zs + 0.72), (-5.72, 0.0, zs + 3.1)], 0.06, 8), xf)
     # bandes de chevrons et pièces rapportées, décalées (pas de grille)
-    for (x, z, w, h, m) in ((-4.75, zs + 1.25, 0.9, 0.38, "chevron"), (-5.25, zs + 1.95, 0.6, 0.45, "bronze2"),
-                            (-5.6, zs + 2.55, 0.42, 0.3, "jaune2")):
+    for (x, z, w, h, m) in ((-5.5 + 0.75 * corde, zs + 1.25, 0.9 * corde, 0.38, "chevron"), (-5.25 - 0.1 * (1 - corde), zs + 1.95, 0.6 * (0.4 + 0.6 * corde), 0.45, "bronze2"),
+                            (-5.6 - 0.05 * (1 - corde), zs + 2.55, 0.42 * (0.5 + 0.5 * corde), 0.3, "jaune2")):
         for s in (-1, 1):
             lot.put(M[m], G.boite((x, s * 0.085, z), (w, 0.02, h), ry=0.35), xf)
     tip = (-5.95, 0.0, zs + 3.15)

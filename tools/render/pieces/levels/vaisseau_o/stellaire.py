@@ -43,9 +43,41 @@ def rect(x, y, w, h=None):
     return [(x - w, y - h), (x + w, y - h), (x + w, y + h), (x - w, y + h)]
 
 
+def lumiere_degrade(S, name, coeur, mi, bord, force=0.8, main=0.35):
+    """Surface lumineuse À DÉGRADÉ (critique du 1/11 : « aucune surface émissive sans dégradé ») : cœur clair face à la caméra,
+    bord sombre en incidence rasante ; veut une surface bombée (tube, sphère, lentille). Aperçu hors Blender : couleur mi."""
+    m = MT.lumiere(S, name, mi, force, main=main)
+    if not hasattr(m, "node_tree"):
+        return m
+    N_, L = m.node_tree.nodes, m.node_tree.links
+    lw = N_.new("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.5
+    ra = N_.new("ShaderNodeValToRGB")
+    els = ra.color_ramp.elements
+    els[0].position, els[1].position = 0.0, 0.88
+    els[0].color, els[1].color = (coeur[0], coeur[1], coeur[2], 1.0), (bord[0], bord[1], bord[2], 1.0)
+    e = els.new(0.34)
+    e.color = (mi[0], mi[1], mi[2], 1.0)
+    L.new(lw.outputs["Facing"], ra.inputs["Fac"])
+    L.new(ra.outputs["Color"], N_["Principled BSDF"].inputs["Emission Color"])
+    return m
+
+
+def anneau(c, Rr, m, a0=0.0, a1=G.TAU, na=12, nm=14):
+    """Secteur de tore d'axe z, de rayon Rr, de section m."""
+    rings = []
+    for i in range(na + 1):
+        t = a0 + (a1 - a0) * i / na
+        u = (math.cos(t), math.sin(t))
+        rings.append([(c[0] + (Rr + m * math.cos(G.TAU * j / nm)) * u[0], c[1] + (Rr + m * math.cos(G.TAU * j / nm)) * u[1], c[2] + m * math.sin(G.TAU * j / nm))
+                      for j in range(nm)])
+    return G.loft(rings, cap0=True, cap1=True)
+
+
 def froisse(name, col, **kw):
-    """Surface à FEUILLE FROISSÉE (bible §5, époque 14 : « jamais lisse ») : facettes de Voronoï dans le relief et dans la
-    valeur, à deux échelles (reflets hachés visibles au zoom 1). Dans l'aperçu hors Blender : surface simple."""
+    """Surface à FEUILLE FROISSÉE (bible §5, époque 14 : « jamais lisse ») : grandes facettes de Voronoï dans le relief et
+    dans la valeur (critique du 1/11 : facettes 3 fois plus grandes, le scintillement fin faisait du bruit au zoom 1).
+    Dans l'aperçu hors Blender : surface simple."""
     m = MT.surface(name, col, **kw)
     if not hasattr(m, "node_tree"):
         return m
@@ -53,18 +85,18 @@ def froisse(name, col, **kw):
     p = N_["Principled BSDF"]
     tc = N_.new("ShaderNodeTexCoord")
     v1 = N_.new("ShaderNodeTexVoronoi")
-    v1.inputs["Scale"].default_value = 11.0
+    v1.inputs["Scale"].default_value = 3.7
     v2 = N_.new("ShaderNodeTexVoronoi")
-    v2.inputs["Scale"].default_value = 29.0
+    v2.inputs["Scale"].default_value = 10.0
     L.new(tc.outputs["Object"], v1.inputs["Vector"])
     L.new(tc.outputs["Object"], v2.inputs["Vector"])
-    # valeur par facette (la grande échelle domine) : ± 28 %
+    # valeur par facette (la grande échelle domine) : ± 18 %
     sep = N_.new("ShaderNodeSeparateColor")
     L.new(v1.outputs["Color"], sep.inputs["Color"])
     sep2 = N_.new("ShaderNodeSeparateColor")
     L.new(v2.outputs["Color"], sep2.inputs["Color"])
     k = MT._range(N_, L, MT._math(N_, L, "ADD", MT._math(N_, L, "MULTIPLY", sep.outputs[0], 0.7), MT._math(N_, L, "MULTIPLY", sep2.outputs[0], 0.3)),
-                  0.15, 0.85, 0.72, 1.28)
+                  0.15, 0.85, 0.82, 1.18)
     base_l = p.inputs["Base Color"].links
     if base_l:
         s = base_l[0].from_socket
@@ -72,8 +104,8 @@ def froisse(name, col, **kw):
     # relief : plis
     h = MT._math(N_, L, "ADD", v1.outputs["Distance"], MT._math(N_, L, "MULTIPLY", v2.outputs["Distance"], 0.45))
     bp = N_.new("ShaderNodeBump")
-    bp.inputs["Strength"].default_value = 0.7
-    bp.inputs["Distance"].default_value = 0.06
+    bp.inputs["Strength"].default_value = 0.45
+    bp.inputs["Distance"].default_value = 0.14
     L.new(h, bp.inputs["Height"])
     nl = p.inputs["Normal"].links
     if nl:
