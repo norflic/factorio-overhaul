@@ -249,7 +249,7 @@ Events.on_nth_tick(DRAW_PERIOD, draw_all)
 ---------------------------------------------------------------------------------------------------
 Events.on(defines.events.on_entity_died, function(e)
   local u = e.entity
-  if not (u and u.valid and u.type == "unit") then return end
+  if not (u and u.valid and (u.type == "unit" or u.type == "spider-vehicle")) then return end
   local owner, id = Ro.parse_unit(u.name)
   if owner ~= Ro.PLAYER_OWNER then return end -- les pertes d'une faction ne sont pas votre affaire
   local alerts = Armee.table_of("alerts")

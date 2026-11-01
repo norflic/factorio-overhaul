@@ -305,7 +305,7 @@ local list = {}
 for k in pairs(needed) do list[#list + 1] = k end -- trié juste après
 table.sort(list)
 for _, k in ipairs(list) do
-  if not k:find("%.%.") and not k:find("%.$") and not k:find("name%-$") then
+  if not k:find("%.%.") and not k:find("%.$") and not k:find("name%-$") and not k:find("desc%-$") then
     check10(FR[k] ~= nil, "§10 traduction FR absente : " .. k)
     check10(EN[k] ~= nil, "§10 traduction EN absente : " .. k)
   end

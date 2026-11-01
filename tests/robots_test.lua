@@ -44,6 +44,9 @@ end
 
 local X = require("shared.content.epochs")
 local F = require("shared.faction.config")
+local Lv = require("shared.levels.config")
+local Cp = require("shared.content.compute")
+local Pt = require("shared.content.robot_parts")
 
 local function strip(src) return (src:gsub("%-%-%[(=*)%[.-%]%1%]", ""):gsub("%-%-[^\n]*", "")) end
 
@@ -53,50 +56,167 @@ local function suite(Ro, Mo)
     if c then pass = pass + 1 else fail = fail + 1 msgs[#msgs + 1] = m end
   end
 
-  -- §1 Données.
-  check(#Ro.ROBOTS == 1 and Ro.ROBOTS[1].id == "steam-trotter", "§1 un seul robot en RB-1 : le Trotte-Vapeur")
+  -- §1 Données : 12 robots, 4 usines.
+  check(#Ro.ROBOTS == 12, "§1 douze robots", tostring(#Ro.ROBOTS))
+  local want_ids = { "steam-trotter", "scalehide", "coiler", "needle", "bellwether", "chamfer", "trowel", "finback", "levite", "toroid", "heliast", "crowned" }
+  local want_ages = { 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 }
+  local ids_ok, ages_ok = true, true
+  for i, r in ipairs(Ro.ROBOTS) do
+    if r.id ~= want_ids[i] then ids_ok = false end
+    if r.age ~= want_ages[i] then ages_ok = false end
+  end
+  check(ids_ok and ages_ok, "§1 les 12 robots du plan, dans l'ordre des âges 3, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15")
   local tr = Ro.robot("steam-trotter")
   check(tr and tr.age == 3 and tr.class == "P" and tr.points == 1, "§1 Trotte-Vapeur : âge 3, petit, 1 point")
-  check(tr and tr.hp == 900 and tr.dps == 100 and tr.range == 18 and tr.speed == 0.14, "§1 Trotte-Vapeur : 900 PV, 100 DPS, portée 18, vitesse 0,14")
+  check(tr and tr.range == 18 and tr.speed == 0.14 and tr.hp0 == 900 and tr.dmg0 == 50 and tr.shot.cooldown == 30, "§1 Trotte-Vapeur : forme du plan (900 PV, 50 par tir), portée 18, vitesse 0,14")
   check(tr and tr.dps == tr.shot.damage * 60 / tr.shot.cooldown, "§1 DPS = dégâts × 60 / cadence")
-  check(tr and tr.half <= 0.9 and tr.range <= 45, "§1 boîte ±0,9 au plus, portée ≤ 45 (PLAN §3)")
-  local mu = 0
   local value = {}
   for _, c in ipairs(X.currencies) do value[c.item] = c.value end
-  for _, g in ipairs(tr.ingredients) do mu = mu + (value[g[1]] or 0) * g[2] end
-  check(mu == tr.mu and mu == 200, "§1 coût en MU = 200 (10 moteurs × 9 + 22 aciers × 5)", tostring(mu))
+  for e = 2, 12 do local m = Lv.epoch_materials[e]; if m then value[m.item] = m.value end end
+  local memo = {}
+  local function mu_of(item)
+    if memo[item] then return memo[item] end
+    local v
+    if Pt.present(item) then
+      local rr = Pt.recipe(item)
+      local s = 0
+      for _, g in ipairs(rr.ingredients) do s = s + mu_of(g[1]) * g[2] end
+      v = s / rr.results[1][2]
+    elseif value[item] then v = value[item]
+    elseif Ro.MU_ASSUMED[item] then v = Ro.MU_ASSUMED[item]
+    else v = Cp.mu(item) end
+    memo[item] = v
+    return v
+  end
+  local function cost(list) local s = 0 for _, g in ipairs(list) do s = s + mu_of(g[1]) * g[2] end return s end
+  check(cost(tr.ingredients) == tr.mu and tr.mu == 200, "§1 coût du Trotte-Vapeur en MU = 200 (10 moteurs × 9 + 22 aciers × 5)")
   local worst = 0
-  for _, g in ipairs(tr.ingredients) do worst = math.max(worst, g[2]) end
-  for _, w in ipairs(Ro.WORKSHOPS) do for _, g in ipairs(w.ingredients) do worst = math.max(worst, g[2]) end end
+  for _, r in ipairs(Ro.ROBOTS) do
+    local c = r.segment and (cost(r.segment.ingredients) * Ro.SEGMENTS + cost(r.final or {})) or cost(r.ingredients)
+    local ratio = c / r.mu
+    check(ratio >= 0.8 and ratio <= 1.2, "§1 coût de " .. r.id .. " à ±20 % du but : " .. string.format("%.0f contre %d MU", c, r.mu))
+    local lists = { r.ingredients }
+    if r.segment then lists[#lists + 1] = r.segment.ingredients end
+    for _, l in ipairs(lists) do
+      for _, g in ipairs(l) do worst = math.max(worst, g[2]) end
+    end
+    -- un ingrédient n'est cité qu'une fois par recette (le moteur refuse un doublon)
+    for _, l in ipairs(lists) do
+      local seen, dup = {}, false
+      for _, g in ipairs(l) do if seen[g[1]] then dup = true end seen[g[1]] = true end
+      check(not dup, "§1 " .. r.id .. " : aucun ingrédient en double dans une recette")
+    end
+  end
+  for _, w in ipairs(Ro.FACTORIES) do for _, g in ipairs(w.ingredients) do worst = math.max(worst, g[2]) end end
   check(worst <= 100, "§1 aucun ingrédient au-delà de 100 (un bras ne livre pas plus, RB0-1)", tostring(worst))
-  check(#tr.ingredients == 2, "§1 deux solides : un coffre et un bras par ingrédient (RB0-2)")
+  check(#tr.ingredients == 2, "§1 Trotte-Vapeur : deux solides, un coffre et un bras par ingrédient (RB0-2)")
+  -- classes, boîtes, portées
+  local class_half = { P = 0.4, M = 0.6, G = 0.9 }
+  local boxes_ok, range_ok, units_ok, dps_ok = true, true, true, true
+  for _, r in ipairs(Ro.ROBOTS) do
+    if r.is_giant then
+      if not (r.range == 100 and r.class == "giant" and r.points == 12 and r.giant and r.giant.scale >= 1.5) then range_ok = false end
+    else
+      if r.half ~= class_half[r.class] then boxes_ok = false end
+      if r.range > 45 then range_ok = false end
+      if r.half > 0.9 then units_ok = false end
+    end
+    if r.dps ~= r.shot.damage * 60 / r.shot.cooldown then dps_ok = false end
+  end
+  check(boxes_ok and units_ok, "§1 boîtes : petit ±0,4, moyen ±0,6, grand ±0,9 au plus (RB0 E2)")
+  check(range_ok, "§1 portée d'une unité ≤ 45 (vision ≤ 45, PLAN §3) ; géant : portée 100 (RB0 : zones mortes à 60), 12 points")
+  check(dps_ok, "§1 DPS = dégâts × 60 / cadence pour tous")
+  local pts_ok = true
+  for _, r in ipairs(Ro.ROBOTS) do
+    if r.points ~= Ro.POINTS[r.class] then pts_ok = false end
+  end
+  check(pts_ok, "§1 points par classe")
   check(Ro.kit_name("steam-trotter") == "fo-robot-kit-steam-trotter" and tr.kit == Ro.kit_name("steam-trotter"), "§1 nom du kit")
   check(Ro.recipe_name("steam-trotter") == tr.recipe and Ro.robot_of_kit(tr.kit) == tr, "§1 recette et relecture du kit")
   check(Ro.unit_name("azure", "steam-trotter") == "fo-robot-azure-steam-trotter", "§1 nom d'unité par propriétaire")
-  -- relecture des noms d'unité, pour tous les propriétaires
+  check(Ro.proto_name("azure", tr) == "fo-robot-azure-steam-trotter" and Ro.proto_name("azure", Ro.robot("toroid")) == "fo-robot-player-toroid",
+    "§1 un géant n'a que le prototype du joueur")
+  -- relecture des noms d'unité, pour tous les propriétaires et tous les robots
   local roundtrip = true
   for _, owner in ipairs(Ro.OWNERS) do
-    local o, id = Ro.parse_unit(Ro.unit_name(owner, "steam-trotter"))
-    if o ~= owner or id ~= "steam-trotter" then roundtrip = false end
+    for _, r in ipairs(Ro.ROBOTS) do
+      local o, id = Ro.parse_unit(Ro.unit_name(owner, r.id))
+      if o ~= owner or id ~= r.id then roundtrip = false end
+    end
   end
   check(roundtrip, "§1 relecture du nom d'unité : propriétaire et robot")
   check(Ro.parse_unit("fo-robot-azure-inconnu") == nil and Ro.parse_unit("fo-azure-rifleman") == nil
     and Ro.parse_unit("fo-robot-workshop") == nil and Ro.parse_unit(nil) == nil, "§1 un autre nom n'est pas une unité de robot")
-  check(#Ro.unit_names() == #Ro.OWNERS * #Ro.ROBOTS, "§1 un prototype par propriétaire et par robot")
+  check(#Ro.unit_names() == #Ro.OWNERS * 9 + 3, "§1 un prototype par propriétaire pour les 9 unités, un seul pour chacun des 3 géants", tostring(#Ro.unit_names()))
   check(Ro.OWNERS[1] == Ro.PLAYER_OWNER and #Ro.OWNERS == 1 + #F.factions, "§1 propriétaires : le joueur puis les factions")
   local same = true
   for i, f in ipairs(F.factions) do if Ro.OWNERS[i + 1] ~= f.key then same = false end end
   check(same, "§1 les propriétaires suivent F.factions (clés et ordre)")
   check(Ro.owner_of("scarlet", { scarlet = "scarlet" }) == "scarlet" and Ro.owner_of("player", { scarlet = "scarlet" }) == "player"
     and Ro.owner_of("x") == "player", "§1 propriétaire d'une force : la faction, sinon le joueur")
+  -- usines
+  local sizes, cats, ages = { 3, 5, 7, 11 }, { "fo-robots-1", "fo-robots-2", "fo-robots-3", "fo-robots-4" }, { 3, 7, 10, 13 }
+  local fact_ok = #Ro.FACTORIES == 4
+  for i, w in ipairs(Ro.FACTORIES) do
+    if w.size ~= sizes[i] or w.category ~= cats[i] or w.age ~= ages[i] or w.tier ~= i or not Ro.is_factory(w.name) then fact_ok = false end
+  end
+  check(fact_ok, "§1 quatre usines : 3 × 3, 5 × 5, 7 × 7, 11 × 11, catégories fo-robots-1 à -4, âges 3, 7, 10, 13")
   local w = Ro.workshop("fo-robot-workshop")
   check(w and w.size == 3 and w.age == 3 and w.category == "fo-robots-1" and Ro.is_workshop("fo-robot-workshop")
     and not Ro.is_workshop("assembling-machine-2"), "§1 atelier : 3 × 3, âge 3, catégorie fo-robots-1")
-  check(#Ro.robots_of("fo-robot-workshop") == 1 and #Ro.robots_of("nom-inconnu") == 0, "§1 robots d'un bâtiment")
+  local fcount, factory_ok = 0, true
+  for _, r in ipairs(Ro.ROBOTS) do
+    local f = Ro.factory(r.factory)
+    if not f or f.age > r.age then factory_ok = false end
+    fcount = fcount + 1
+  end
+  check(factory_ok and fcount == 12, "§1 chaque robot a une usine, arrivée au plus tard à son âge")
+  check(#Ro.robots_of("fo-robot-workshop") == 3 and #Ro.robots_of("fo-robotics-bay") == 3 and #Ro.robots_of("fo-robot-dock") == 3
+    and #Ro.robots_of("fo-robot-gantry") == 3 and #Ro.robots_of("nom-inconnu") == 0, "§1 robots d'un bâtiment : 3, 3, 3, 3")
   check(Ro.POINTS.P == 1 and Ro.POINTS.M == 2 and Ro.POINTS.G == 4 and Ro.POINTS.giant == 12, "§1 points : P 1, M 2, G 4, géant 12")
+  -- technologies : chaque robot et chaque usine ouverts une fois, prérequis en jeu ou dans le lot
+  local opened_r, opened_f, tech_ok = {}, {}, true
+  local names = {}
+  for _, t in ipairs(Ro.TECHS) do names[t.name] = t end
+  for _, t in ipairs(Pt.TECHS) do names[t.name] = t end
+  for _, t in ipairs(Ro.TECHS) do
+    for _, id in ipairs(t.robots or {}) do opened_r[id] = (opened_r[id] or 0) + 1 end
+    for _, fn in ipairs(t.factories or {}) do opened_f[fn] = (opened_f[fn] or 0) + 1 end
+    for _, pre in ipairs(t.prerequisites) do
+      -- un prérequis du lot doit précéder (âge ≤) ; les autres sont des technologies du jeu de base ou d'un autre lot
+      local lot = names[pre]
+      if lot and lot.epoch > t.epoch then tech_ok = false end
+    end
+  end
+  local every = true
+  for _, r in ipairs(Ro.ROBOTS) do if opened_r[r.id] ~= 1 then every = false end end
+  for _, f in ipairs(Ro.FACTORIES) do if opened_f[f.name] ~= 1 then every = false end end
+  check(every, "§1 chaque robot et chaque usine est ouvert par une technologie, une seule")
+  check(tech_ok, "§1 aucun prérequis du lot n'est d'un âge postérieur")
+  local fac_tech = true
+  for _, f in ipairs(Ro.FACTORIES) do if not Ro.tech(f.tech) then fac_tech = false end end
+  check(fac_tech, "§1 la technologie de chaque usine existe")
   local unlocks = Ro.tech_unlocks()
-  check(#unlocks == 2 and unlocks[1] == "fo-robot-workshop" and unlocks[2] == tr.recipe, "§1 la technologie débloque l'atelier et le kit")
+  check(#unlocks == 2 and unlocks[1] == "fo-robot-workshop" and unlocks[2] == tr.recipe, "§1 la première technologie débloque l'atelier et le kit")
   check(Ro.TECH.epoch == 3 and Ro.TECH.prerequisites[1] == "engine", "§1 technologie de l'âge 3, après le moteur")
+  -- géants : segments, assemblage final, plafond
+  local gi_ok = #Ro.giants() == 3 and Ro.SEGMENTS == 10
+  for _, r in ipairs(Ro.giants()) do
+    local has10 = false
+    for _, g in ipairs(r.ingredients) do if g[1] == r.segment_item and g[2] == 10 then has10 = true end end
+    if not (has10 and r.segment_recipe == "fo-robot-make-segment-" .. r.id and r.factory == "fo-robot-gantry" and r.time == 120) then gi_ok = false end
+  end
+  check(gi_ok, "§1 géants : 10 segments, assemblage final de 120 s au portique")
+  check(Ro.giant_allowed(12) == 0 and Ro.giant_allowed(13) == 1 and Ro.giant_allowed(14) == 2 and Ro.giant_allowed(15) == 3 and Ro.giant_allowed(99) == 3
+    and Ro.giant_allowed(nil) == 0, "§1 géants admis : 0, puis 1, 2, 3 aux âges 13, 14, 15")
+  local only_roles = true
+  for _, r in ipairs(Ro.ROBOTS) do
+    if r.id == "bellwether" and not (r.heal and r.heal.amount > 0 and r.heal.radius == 12 and r.heal.max == 30 and r.dps == 0) then only_roles = false end
+    if r.id == "chamfer" and not (r.min_range == 12 and r.area and r.range == 45) then only_roles = false end
+    if r.id == "trowel" and not (r.engineer and r.engineer.radius == 20) then only_roles = false end
+    if r.id == "coiler" and not r.area then only_roles = false end
+  end
+  check(only_roles, "§1 rôles : soin (rayon 12, 30 au plus, 0 dégât), artillerie (portée minimale 12, zone), ingénieur (rayon 20), zone")
 
   -- §2 Plafond.
   check(Mo.cap(3) == 30 and Mo.cap(1) == 18 and Mo.cap(15) == 102, "§2 plafond 12 + 6 × âge : 30 à l'âge 3, 102 à l'âge 15",
@@ -111,6 +231,21 @@ local function suite(Ro, Mo)
   check(rel(0, 30, 1, 3, nil) and rel(0, 30, 1, 3, 4) and not rel(0, 30, 1, 4, 4) and not rel(0, 30, 1, 9, 4) and rel(0, 30, 1, 0, 1),
     "§2 maintenir N : le kit reste quand l'effectif a atteint N")
   check(not rel(0, 30, 1, 0, 0), "§2 maintenir 0 : aucun robot")
+  local function relg(used, cap, have_g, allowed)
+    return Mo.can_release({ used = used, cap = cap, points = 12, have = 0, giant = true, giants_have = have_g, giants_allowed = allowed })
+  end
+  check(not relg(0, 102, 0, 0) and relg(0, 102, 0, 1) and not relg(0, 102, 1, 1) and relg(0, 102, 2, 3) and not relg(0, 102, 3, 3),
+    "§2 géants : le kit reste quand les géants admis à l'âge sont là (1, 2, 3 aux âges 13, 14, 15)")
+  check(not relg(95, 102, 0, 3) and relg(90, 102, 0, 3), "§2 géants : 12 points libres exigés")
+  check(Mo.giants_allowed(12) == 0 and Mo.giants_allowed(13) == 1 and Mo.giants_allowed(15) == 3, "§2 géants admis par âge")
+  local lg = Mo.new_ledger()
+  Mo.add(lg, "player", 1, "toroid", 12)
+  Mo.add(lg, "player", 2, "crowned", 12)
+  Mo.add(lg, "player", 3, "steam-trotter", 1)
+  Mo.add(lg, "azure", 4, "toroid", 12)
+  check(Mo.giants_of(lg, "player") == 2 and Mo.giants_of(lg, "azure") == 1 and Mo.giants_of(lg, "amber") == 0, "§2 géants vivants par force")
+  check(table.concat(Mo.units_with(lg, "toroid"), ",") == "1,4" and #Mo.units_with(lg, "heliast") == 0, "§2 unités d'un robot, triées")
+  check(Mo.check(lg), "§2 registre avec géants cohérent")
 
   -- §3 Registre.
   local l = Mo.new_ledger()
@@ -177,7 +312,8 @@ local pass, fail, msgs = suite(Ro0, Mo0)
 -- §6 Forme des fichiers.
 local FILES = { "shared/content/robots.lua", "shared/robots/modele.lua", "script/robots/armee.lua", "script/robots/usine.lua",
   "script/robots/ordres.lua", "prototypes/robots.lua", "settings/robots.lua",
-  "shared/robots/commande.lua", "script/robots/outils.lua", "script/gui/robots.lua", "script/robots/faction.lua" }
+  "shared/robots/commande.lua", "script/robots/outils.lua", "script/gui/robots.lua", "script/robots/faction.lua",
+  "script/robots/soutien.lua", "script/robots/geant.lua", "shared/robots/duel.lua", "shared/content/robot_parts.lua", "prototypes/robot_parts.lua" }
 local function check6(c, m)
   if c then pass = pass + 1 else fail = fail + 1 msgs[#msgs + 1] = m end
 end
@@ -204,7 +340,8 @@ for _, path in ipairs(FILES) do
   check6(not indented, "§6 " .. path .. " : require dans une fonction (F24)")
 end
 -- les fichiers de shared/ ne touchent pas à l'API du jeu
-for _, path in ipairs({ "shared/content/robots.lua", "shared/robots/modele.lua", "shared/robots/commande.lua" }) do
+for _, path in ipairs({ "shared/content/robots.lua", "shared/robots/modele.lua", "shared/robots/commande.lua", "shared/robots/duel.lua",
+    "shared/content/robot_parts.lua" }) do
   local code = strip(read(path))
   check6(not code:find("%f[%w_]game%.") and not code:find("%f[%w_]defines%.") and not code:find("%f[%w_]script%.") and not code:find("%f[%w_]settings%.")
     and not code:find("%f[%w_]data:extend") and not code:find("%f[%w_]log%s*%("), "§6 " .. path .. " : Lua pur (aucune API du jeu)")
@@ -235,12 +372,40 @@ local function cfg_keys(path)
   return keys
 end
 local FR, EN = cfg_keys("locale/fr/robots.cfg"), cfg_keys("locale/en/robots.cfg")
-local needed = { "fo-robots.name-steam-trotter", "fo-robots.unit-name", "fo-robots.unit-desc", "item-subgroup-name.fo-robots",
-  "ammo-category-name.fo-robot", "entity-name.fo-robot-workshop", "entity-description.fo-robot-workshop",
-  "item-name.fo-robot-workshop", "item-name.fo-robot-kit-steam-trotter", "item-description.fo-robot-kit-steam-trotter",
-  "technology-name." .. Ro0.TECH.name, "technology-description." .. Ro0.TECH.name,
+local needed = { "fo-robots.unit-name", "item-subgroup-name.fo-robots", "item-subgroup-name.fo-robot-parts",
+  "ammo-category-name.fo-robot", "ammo-category-name.fo-robot-shell",
   "mod-setting-name." .. Ro0.SETTING, "mod-setting-description." .. Ro0.SETTING,
   "mod-setting-name." .. Ro0.SETTING_CAP, "mod-setting-description." .. Ro0.SETTING_CAP }
+for _, w in ipairs(Ro0.FACTORIES) do
+  needed[#needed + 1] = "entity-name." .. w.name
+  needed[#needed + 1] = "entity-description." .. w.name
+  needed[#needed + 1] = "item-name." .. w.name
+end
+for _, r in ipairs(Ro0.ROBOTS) do
+  needed[#needed + 1] = "fo-robots.name-" .. r.id
+  needed[#needed + 1] = "fo-robots.desc-" .. r.id
+  needed[#needed + 1] = "item-name." .. r.kit
+  needed[#needed + 1] = "item-description." .. r.kit
+  if r.is_giant then
+    needed[#needed + 1] = "item-name." .. r.segment_item
+    needed[#needed + 1] = "item-description." .. r.segment_item
+    needed[#needed + 1] = "item-name." .. Ro0.shell_name(r.id)
+    needed[#needed + 1] = "item-description." .. Ro0.shell_name(r.id)
+    needed[#needed + 1] = "item-name." .. Ro0.gun_name(r.id)
+  end
+end
+for _, t in ipairs(Ro0.TECHS) do
+  needed[#needed + 1] = "technology-name." .. t.name
+  needed[#needed + 1] = "technology-description." .. t.name
+end
+for _, t in ipairs(Pt.TECHS) do
+  needed[#needed + 1] = "technology-name." .. t.name
+  needed[#needed + 1] = "technology-description." .. t.name
+end
+for _, n in ipairs(Pt.ITEMS) do
+  needed[#needed + 1] = "item-name." .. n
+  needed[#needed + 1] = "item-description." .. n
+end
 for _, k in ipairs(needed) do
   check6(FR[k] ~= nil, "§7 traduction FR absente : " .. k)
   check6(EN[k] ~= nil, "§7 traduction EN absente : " .. k)
@@ -251,7 +416,7 @@ for key in proto:gmatch('{%s*"([%w%-_]+%.[%w%-_]+)"') do
   local base = key
   local found = FR[base] ~= nil or key:match("^entity%-name%.fo%-robot%-workshop$") ~= nil
   -- les noms par robot sont composés (name-<id>) : lus dans la boucle des robots
-  if not found and (key == "fo-robots.name-" or key:find("^fo%-robots%.name%-")) then found = true end
+  if not found and (key == "fo-robots.name-" or key:find("^fo%-robots%.name%-") or key:find("^fo%-robots%.desc%-")) then found = true end
   check6(found, "§7 clé du prototype absente du locale FR : " .. key)
 end
 for _, r in ipairs(Ro0.ROBOTS) do
@@ -274,6 +439,9 @@ local MUTANTS = {
   { "plafond dépassable d'un point", "if p.used + p.points > p.cap then return false end", "if p.used + p.points > p.cap + 1 then return false end" },
   { "plafond sans les points du robot", "if p.used + p.points > p.cap then return false end", "if p.used > p.cap then return false end" },
   { "maintenir N ignoré", "if p.keep ~= nil and p.have >= p.keep then return false end", "" },
+  { "géants sans plafond d'âge", "if p.giant and (p.giants_have or 0) >= (p.giants_allowed or 0) then return false end", "" },
+  { "géants admis d'un de trop", "if p.giant and (p.giants_have or 0) >= (p.giants_allowed or 0) then return false end", "if p.giant and (p.giants_have or 0) > (p.giants_allowed or 0) then return false end" },
+  { "géants non comptés", "if r.is_giant then n = n + M.have(l, force, r.id) end", "" },
   { "maintenir N d'une unité de trop", "if p.keep ~= nil and p.have >= p.keep then return false end", "if p.keep ~= nil and p.have > p.keep then return false end" },
   { "points non ajoutés", "l.used[force] = l.used[force] + points", "l.used[force] = l.used[force] + 0" },
   { "points non rendus", "l.used[u.force] = l.used[u.force] - u.points", "l.used[u.force] = l.used[u.force] - 0" },
@@ -295,8 +463,20 @@ local RO_MUTANTS = {
   { "petit robot à 2 points", "P = 1, M = 2", "P = 2, M = 2" },
   { "base du plafond à 13", "Ro.CAP_BASE = 12", "Ro.CAP_BASE = 13" },
   { "pas du plafond à 5", "Ro.CAP_PER_AGE = 6", "Ro.CAP_PER_AGE = 5" },
-  { "PV changés", "hp = 900,", "hp = 800," },
-  { "cadence changée", "shot = { damage = 50, cooldown = 30 }", "shot = { damage = 50, cooldown = 20 }" },
+  { "forme du Trotte-Vapeur changée", "hp0 = 900,", "hp0 = 800," },
+  { "cadence changée", "shot = { damage = 23.1, cooldown = 30 }", "shot = { damage = 23.1, cooldown = 20 }" },
+  { "géants admis dès l'âge 12", "Ro.GIANT_FIRST_AGE = 13", "Ro.GIANT_FIRST_AGE = 12" },
+  { "quatre géants admis", "Ro.GIANT_MAX = 3", "Ro.GIANT_MAX = 4" },
+  { "neuf segments", "Ro.SEGMENTS = 10", "Ro.SEGMENTS = 9" },
+  { "portée d'un géant à 60", "hp0 = 600000, dmg0 = 10000, hp = 834000, shot = { damage = 13900, cooldown = 30 }, range = 100", "hp0 = 600000, dmg0 = 10000, hp = 834000, shot = { damage = 13900, cooldown = 30 }, range = 60" },
+  { "Hall en 4 × 4", 'name = "fo-robotics-bay", tier = 2, age = 7, size = 5', 'name = "fo-robotics-bay", tier = 2, age = 7, size = 4' },
+  { "portique à l'âge 12", 'name = "fo-robot-gantry", tier = 4, age = 13', 'name = "fo-robot-gantry", tier = 4, age = 12' },
+  { "Cloche qui tire", 'heal = { amount = 172, radius = 12, max = 30, period = 60 }', 'heal = { amount = 172, radius = 12, max = 31, period = 60 }' },
+  { "artillerie sans portée minimale", "dtype = \"explosion\", area = 3, area_share = 0.75, min_range = 12", "dtype = \"explosion\", area = 3, area_share = 0.75" },
+  { "segment retiré d'un géant", "ingredients = {}, time = 120, mu = 459000", "ingredients = {}, time = 100, mu = 459000" },
+  { "ingrédient du Lévite en double", '{ "fo-superconducting-coil", 100 }, { "fo-titanium-plate", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },\n      { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 100 },',
+    '{ "fo-superconducting-coil", 100 }, { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },\n      { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 100 },' },
+  { "coût du Lévite divisé par deux", '{ "fo-motherboard", 100 }, { "fo-controller", 100 } }, time = 90', '{ "fo-motherboard", 10 }, { "fo-controller", 10 } }, time = 90' },
   { "coût en acier changé", '{ "steel-plate", 22 }', '{ "steel-plate", 30 }' },
   { "ingrédient au-delà de 100", '{ "engine-unit", 10 }, { "steel-plate", 22 }', '{ "engine-unit", 10 }, { "steel-plate", 220 }' },
   { "premier robot à l'âge 7", "id = \"steam-trotter\", age = 3", "id = \"steam-trotter\", age = 7" },
