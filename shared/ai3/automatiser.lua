@@ -271,10 +271,25 @@ function A.exec_recipes(recipes)
     end
   end
   local book = Book.new(recipes or {})
+  -- Lot INDUSTRIE I6 (relecture 0.6.31) : une machine lue n'a que ses recettes de patron, ou un ensemble VIDE : à « vrai » (A.add_executors), elle
+  -- faisait TOUTE sa catégorie pour le graphe et pour Fl.executors (done_by) : recettes à fluide « payables » et jamais de cellule de pétrole.
+  local lec = A.lecture()
+  local fab = lec and lec.fab or {}
+  for _, rn in ipairs(sorted_keys(fab)) do
+    for _, m in ipairs(fab[rn].machines or {}) do if m.type == "assembling-machine" then add(m.entity) end end
+  end
   for _, item in ipairs(sorted_keys(book.by_product)) do
     local m = A.method_for(item, book)
     if m and m.generic then
-      if m.patron then add(m.args[1], m.args[2].name) else add(m.args[3], m.args[1].name) end
+      if m.patron then
+        -- toutes les machines de la recette : A.method_for prend la plus rapide UTILISABLE, le graphe ne doit pas exiger la plus rapide du jeu
+        add(m.args[1], m.args[2].name)
+        for _, em in ipairs((fab[m.args[2].name] or {}).machines or {}) do
+          if em.type == "assembling-machine" then add(em.entity, m.args[2].name) end
+        end
+      else
+        add(m.args[3], m.args[1].name)
+      end
     end
   end
   return out
@@ -498,53 +513,10 @@ local function exec_chest()
 end
 A.exec_chest = exec_chest
 
---- Déclaration à M (modules.lua) des machines et des pièces du kit qu'il ne connaît pas : `decl` = { kit = pièces lues, machines =
---- { { machine = machine lue, categories } } }. Idempotente. Les arguments d'un patron la portent (sauvegarde, reconstruction : M.BASE
---- est reconstruit à chaque chargement, la déclaration ne peut pas venir d'un état en mémoire).
-local function declare(decl)
-  if type(decl) ~= "table" then return end
-  if decl.kit then Pt.declare_kit(M, decl.kit) end
-  for _, d in ipairs(decl.machines or {}) do
-    Pt.declare(M, d.machine.entity, Pt.def_machine(d.machine, d.categories))
-  end
-end
+--- Déclaration à M (modules.lua) des machines et des pièces du kit qu'il ne connaît pas (P.redeclare) : aussi faite par les générateurs
+--- « patron » et « bloc » de M.GEN à partir de leurs arguments.
+local function declare(decl) Pt.redeclare(M, decl) end
 A.declare = declare
-
--- Les générateurs « patron » et « bloc » de M.GEN sont REMPLACÉS ici : ils redéclarent d'abord les machines et les pièces du kit de leurs
--- arguments, puis appellent les patrons CHARGÉS à l'analyse du contrôle (le `need` de G.patron et G.bloc, shared/team/modules.lua, fait un
--- `require` à l'appel : « Require can't be used outside of control.lua parsing » en cours d'événement, mesuré au banc ind-mall). Même filet
--- que les autres générateurs (pcall : une erreur devient (nil, raison)). Les générateurs d'origine sont gardés dans M.GEN (patron_orig) :
--- recharger ce module (bancs hors jeu) remplace le précédent remplacement.
-local function wrap_generators()
-  local g = M.GEN
-  if not g then return end
-  local orig = rawget(g, "patron_orig")
-  if not orig then
-    orig = { patron = g.patron, bloc = g.bloc }
-    rawset(g, "patron_orig", orig)
-  end
-  local function safe(name, fn)
-    return function(...)
-      local ok, tpl, why = pcall(fn, ...)
-      if not ok then return nil, "erreur interne du générateur " .. name .. " : " .. tostring(tpl) end
-      if tpl == nil then return nil, why or ("générateur " .. name .. " : refus sans raison") end
-      return tpl
-    end
-  end
-  if orig.patron then
-    g.patron = safe("patron", function(machine, recette, sortie, n, kit, barre)
-      if type(kit) == "table" then declare(kit.decl) end
-      return Pt.cellule(M, machine, recette, sortie, n, kit, barre)
-    end)
-  end
-  if orig.bloc then
-    g.bloc = safe("bloc", function(machine, recettes, kit, barre)
-      if type(kit) == "table" then declare(kit.decl) end
-      return Pt.bloc(M, machine, recettes, kit, barre)
-    end)
-  end
-end
-wrap_generators()
 
 --- Kit de logistique d'un patron : noms des pièces (dont le coffre du plan directeur), plus `decl` pour les redéclarer. Rend (kit, lu)
 --- ou (nil, raison). Les pièces non débloquées (usable) sont tout de même prises (le moins cher par type, parmi toutes) : la

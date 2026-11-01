@@ -271,7 +271,11 @@ check(Li.decide(dinp({ tries = Li.MAX_TRIES })) == "laisser", "7.6 essais epuise
 check(Li.decide(dinp({ tries = Li.MAX_TRIES, since_try = Li.RETRY_AFTER - 1 })) == "laisser", "7.7 dernier essai recent : laisser")
 check(Li.decide(dinp({ tries = Li.MAX_TRIES, since_try = Li.RETRY_AFTER })) == "relier", "7.8 essais epuises depuis Li.RETRY_AFTER : un de plus")
 check(Li.decide(dinp({ enemies = 1 })) == "attendre", "7.9 ennemi : attendre")
-check(Li.decide(dinp({ open_total = Li.MAX_OPEN })) == "attendre", "7.10 plafond des liaisons ouvertes : attendre")
+check(Li.decide(dinp({ open_total = 1, free = 0 })) == "attendre", "7.10 une liaison ouverte, aucun PNJ libre : attendre")
+check(Li.decide(dinp({ open_total = 0, free = 0 })) == "relier", "7.10b aucun PNJ libre mais rien d'ouvert : une liaison reste permise")
+check(Li.decide(dinp({ open_total = 3, free = 5 })) == "relier", "7.10c 5 PNJ libres : une 4e liaison, pas de borne écrite (AUDIT_PLAFONDS n° 22)")
+check(Li.decide(dinp({ open_total = 5, free = 5 })) == "attendre", "7.10d autant de liaisons ouvertes que de PNJ libres : attendre")
+check(Li.max_open(0) == 1 and Li.max_open(nil) == 1 and Li.max_open(1) == 1 and Li.max_open(12) == 12, "7.10e Li.max_open : au moins 1, sinon les PNJ libres")
 check(Li.decide(dinp({ threat = true })) == "attendre", "7.11 QG menace : attendre")
 check(Li.decide(dinp({ worth = false, open = true })) == "attendre", "7.12 en cours avant le prix")
 
@@ -391,7 +395,7 @@ mutant_ok("fin de tapis non tournee", "return opposite%(site%.dir%)", "return si
   function(Lm) return Lm.end_dir(sites[1]) == 4 end)
 mutant_ok("meme projet admis", "and s%.pid ~= d%.pid then", "then",
   function(Lm) return #Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 1, 5, 0, "X") }) == 0 end)
-mutant_ok("objet non compare", "if not used%[s%.key%] and s%.item == d%.item and", "if not used[s.key] and",
+mutant_ok("objet non compare", "for _, s in ipairs%(by_item%[d%.item%] or {}%) do", "for _, s in ipairs(ss) do",
   function(Lm) return #Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 2, 5, 0, "Z") }) == 0 end)
 mutant_ok("portee d'appariement oubliee", "if span <= Li%.MAX_SPAN and", "if",
   function(Lm) return #Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 2, 500, 0, "X") }) == 0 end)
@@ -411,7 +415,7 @@ mutant("ennemi ignore", "if %(inp%.enemies or 0%) > 0", "if false",
   function(Lm) return Lm.decide(dinp({ enemies = 1 })) == "relier" end)
 mutant("menace du QG ignoree", "if inp%.threat then return", "if false then return",
   function(Lm) return Lm.decide(dinp({ threat = true })) == "relier" end)
-mutant("plafond de liaisons ouvertes", "if %(inp%.open_total or 0%) >= Li%.MAX_OPEN", "if false",
+mutant("plafond de liaisons ouvertes", "if %(inp%.open_total or 0%) >= Li%.max_open%(inp%.free%)", "if false",
   function(Lm) return Lm.decide(dinp({ open_total = 9 })) == "relier" end)
 mutant("prix ignore", "if not inp%.worth then", "if false then",
   function(Lm) return Lm.decide(dinp({ worth = false })) == "relier" end)

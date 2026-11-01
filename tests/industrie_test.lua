@@ -135,8 +135,13 @@ local function battery_id(Id, verbose)
     "1i. un débit qui veut 2 machines : une RANGÉE de 2 copies (" .. #out.rows .. ")")
   local out2 = decide({ { item = gt, rate = par * 0.2, src = "refus" } }, 200)
   ck(#out2.rows == 0 and #out2.wait == 1 and #out2.blocs == 0, "1j. 0,4 machine voulue : ni rangée ni bloc encore (un seul objet), il attend")
-  local out2b = decide({ { item = gt, rate = par * 0.3, src = "refus" } }, 250)
+  local out2b = decide({ { item = gt, rate = par * 0.3, src = "main" } }, 250)
   ck(#out2b.rows == 1 and out2b.rows[1].n == 1 and #out2b.wait == 0, "1j2. 0,3 machine de demande, 0,6 avec l'avance : une rangée d'une copie (le seuil se lit sur la capacité visée)")
+  -- relecture 0.6.31 : la capitalisation vient de refuser cet objet (manque sous une demi-machine) : une rangée, qu'elle seule pose, ne le servirait jamais
+  local out2c = Id.decide({ first = {} }, { tick = 260, sources = { { { item = gt, rate = par * 0.3, src = Id.SRC_REFUS } } }, fab = fab, bloc_max = 8 })
+  ck(#out2c.rows == 0 and #out2c.wait == 1, "1j2b. refus de la capitalisation à 0,3 machine : jamais une rangée, l'objet attend un bloc de mall")
+  local out2d = Id.decide({ first = {} }, { tick = 260, sources = { { { item = gt, rate = par * 3, src = "main" }, { item = gt, rate = par * 0.3, src = Id.SRC_REFUS } } }, fab = fab, bloc_max = 8 })
+  ck(#out2d.rows == 0 and #out2d.wait == 1, "1j2c. une autre source ne rend pas au refus sa rangée")
   local stw = { first = {} }
   local lw = Id.profile(fab, "iron-chest", nil)
   local srcw = { { item = "iron-chest", rate = lw.par_min * 0.05, src = "refus" } }
@@ -318,6 +323,40 @@ local function battery_auto(A, verbose)
   A.reset_cache()
   local gb, whyb = A.template("bloc", { "zz-mod-assembler", recs, kb, 4 })
   ck(gb and gb.n_ent > 0, "2u. un BLOC avec la machine d'un mod se construit après un chargement (" .. tostring(whyb) .. ")")
+  -- F24 : un générateur tourne en événement ; aucun require à l'appel (avant : « Require can't be used outside of control.lua parsing »)
+  do
+    local req = _G.require
+    _G.require = function() error("require pendant un evenement (F24)") end
+    M.BASE["zz-mod-assembler"] = nil
+    local okp, gp, whyp = pcall(M.GEN.patron, mmod.args[1], mmod.args[2], mmod.args[3], mmod.args[4], mmod.args[5], mmod.args[6])
+    local okb, gbl, whybl = pcall(M.GEN.bloc, "zz-mod-assembler", recs, kb, 4)
+    _G.require = req
+    ck(okp and gp ~= nil, "2v. générateur « patron » sans require, machine du mod redéclarée (" .. tostring(whyp) .. ")")
+    ck(okb and gbl ~= nil, "2v2. générateur « bloc » sans require, machine du mod redéclarée (" .. tostring(whybl) .. ")")
+  end
+  -- relecture 0.6.31 : une machine lue n'a que ses recettes, jamais toute sa catégorie : sinon le graphe paie les recettes à fluide et Fl.executors n'en fait plus de cellule
+  do
+    local ex = A.add_executors({}, dump.recipes)
+    local whole = {}
+    for _, rn in ipairs(sorted_keys(fabm)) do
+      for _, mx in ipairs(fabm[rn].machines) do
+        if mx.type == "assembling-machine" and ex[mx.entity] == true then whole[#whole + 1] = mx.entity end
+      end
+    end
+    ck(#whole == 0, "2w. aucune machine lue ne fait toute sa catégorie (" .. table.concat(whole, ",") .. ")")
+    local run_lo = ex["assembling-machine-2"] and ex["assembling-machine-2"]["gun-turret"]
+    ck(run_lo and ex["zz-mod-assembler"] and ex["zz-mod-assembler"]["gun-turret"], "2w2. une recette de patron tourne sur TOUTES ses machines, pas seulement la plus rapide du jeu")
+    local Fl = require("shared.ai3.fluides")
+    local rel = { entities = {}, hand = {}, resources = {}, recipes = { ["zz-fluide"] = { category = "zz-fluid-cat", energy = 1,
+      ingredients = { { type = "fluid", name = "zz-eau", amount = 1 }, { type = "item", name = "iron-plate", amount = 1 } },
+      products = { { type = "item", name = "zz-objet", amount = 1 } } } } }
+    for _, en in ipairs(sorted_keys(ex)) do
+      -- machines lues : leur catégorie fait la recette ; les pièces du kit (bras, tapis...) n'en ont pas
+      if type(ex[en]) == "table" then rel.entities[en] = { categories = { "zz-fluid-cat" }, boxes = {}, w = 3, h = 3 } end
+    end
+    local _, info = Fl.executors(rel, ex)
+    ck(not info.other["zz-objet"], "2w3. une recette à fluide n'est pas tenue pour faite par les machines des patrons (Fl.executors : cellule du pétrole)")
+  end
   local mu = A.method_for("gun-turret", book, { ["assembling-machine-2"] = true })
   ck(mu and mu.args[1] == "assembling-machine-2", "2p. machine utilisable : la plus rapide débloquée, pas la plus rapide du jeu (" .. tostring(mu and mu.args[1]) .. ")")
   ck(mu ~= mmod, "2q. clés de cache distinctes selon la machine")
@@ -389,9 +428,6 @@ end
 local function run_id(tmp) return battery_id(dofile(tmp), false) end
 local function run_em(tmp) return battery_em(dofile(tmp), false) end
 local function run_auto(tmp)
-  -- les générateurs d'origine (le chargement du module les enveloppe : un mutant qui ne les enveloppe pas doit être vu)
-  local o = rawget(M.GEN, "patron_orig")
-  M.GEN.patron, M.GEN.bloc = o.patron, o.bloc
   local Am = dofile(tmp)
   return battery_auto(Am, false)
 end
@@ -403,8 +439,9 @@ mutate(ID, "if type(slots) == \"number\" and slots >= 1 and n > slots then n = s
 mutate(ID, "for _, m in ipairs(entry and entry.machines or {}) do", "for _, m in ipairs({}) do", "machine : aucune choisie", run_id)
 mutate(ID, "if ok then best = m end", "best = best or m", "machine : la plus lente", run_id)
 mutate(ID, "if #(e.fluides_in or {}) > 0 then", "if false then", "fluide accepté", run_id)
-mutate(ID, "if need >= Id.ROW_MIN - Id.EPS then", "if need >= 0 then", "tout en rangée", run_id)
-mutate(ID, "if need >= Id.ROW_MIN - Id.EPS then", "if need >= 100 then", "tout en bloc", run_id)
+mutate(ID, "if need >= Id.ROW_MIN - Id.EPS and not refused then", "if need >= 0 then", "tout en rangée", run_id)
+mutate(ID, "if need >= Id.ROW_MIN - Id.EPS and not refused then", "if need >= 100 then", "tout en bloc", run_id)
+mutate(ID, "if need >= Id.ROW_MIN - Id.EPS and not refused then", "if need >= Id.ROW_MIN - Id.EPS then", "refus de la capitalisation pris pour une rangée", run_id)
 mutate(ID, "local need = c.rate * Id.LEAD / pr.par_min", "local need = c.rate / pr.par_min", "besoin sans avance (LEAD)", run_id)
 mutate(ID, "if #bl.objets >= Id.GROUP_MIN or #bl.objets >= cap or waited >= Id.GROUP_WAIT then", "if true then", "bloc ouvert tout de suite", run_id)
 mutate(ID, "if #bl.objets >= Id.GROUP_MIN or #bl.objets >= cap or waited >= Id.GROUP_WAIT then", "if #bl.objets >= Id.GROUP_MIN or #bl.objets >= cap then", "attente sans fin", run_id)
@@ -421,10 +458,48 @@ local AU = "shared/ai3/automatiser.lua"
 mutate(AU, 'if meth and not (meth.generic and not A.template(meth.gen, meth.args)) then return meth end', "if meth then return meth end", "rangée refusée gardée", run_auto)
 mutate(AU, "for i = #ms, 1, -1 do", "for i = 1, #ms do", "patron : la machine la plus lente", run_auto)
 mutate(AU, "if #ms == 0 then ms = e.machines end", "", "patron : aucune machine à défaut d'utilisable", run_auto)
-mutate(AU, 'if m.patron then add(m.args[1], m.args[2].name) else add(m.args[3], m.args[1].name) end', "add(m.args[3], m.args[1].name)", "exec_recipes : patron oublié", run_auto)
-mutate(AU, "if type(kit) == \"table\" then declare(kit.decl) end\n      return Pt.cellule", "return Pt.cellule", "patron : déclaration au chargement oubliée", run_auto)
-mutate(AU, "if type(kit) == \"table\" then declare(kit.decl) end\n      return Pt.bloc", "return Pt.bloc", "bloc : déclaration au chargement oubliée", run_auto)
-mutate(AU, "local ok, tpl, why = pcall(fn, ...)", "local ok, tpl, why = true, fn(...)", "générateur sans filet (une erreur interne arrête le jeu)", run_auto)
+mutate(AU, "if m.patron then\n        -- toutes les machines", "if false then\n        -- toutes les machines", "exec_recipes : patron oublié", run_auto)
+mutate(AU, 'if m.type == "assembling-machine" then add(m.entity) end', "", "machine lue sans ensemble : toute sa catégorie", run_auto)
+mutate(AU, 'if em.type == "assembling-machine" then add(em.entity, m.args[2].name) end', "", "recette de patron sur la seule machine la plus rapide", run_auto)
+local function run_pt(tmp)
+  local Pm = dofile(tmp)
+  local Pt = require("shared.team.patrons")
+  local saved = Pt.redeclare
+  Pt.redeclare = Pm.redeclare
+  local okr, n = pcall(battery_auto, A, false)
+  Pt.redeclare = saved
+  A.set_lecture_provider(nil)
+  A.reset_cache()
+  if not okr then error(n) end
+  return n
+end
+mutate("shared/team/patrons.lua", 'if type(decl) ~= "table" then return end', "do return end", "déclaration au chargement oubliée", run_pt)
+mutate("shared/team/patrons.lua", "P.declare(M, d.machine.entity, P.def_machine(d.machine, d.categories))", "", "machine du mod non redéclarée", run_pt)
+-- modules.lua : chaque générateur redéclare (machine d'un mod absente de M.BASE d'un module rechargé)
+local function run_mod(gen)
+  return function(tmp)
+    local Mm = dofile(tmp)
+    local dm = vanilla(true)
+    local fabm = L.read(dm, {})
+    local mach
+    for _, mm in ipairs(fabm["iron-chest"].machines) do if mm.entity == "zz-mod-assembler" then mach = mm end end
+    local lecm = lecture_of(fabm, select(2, L.read(dm, {})), L.kit_data(dm))
+    A.reset_cache()
+    local kitm = A.patron_kit(lecm, nil)
+    local kb = {}
+    for kk, v in pairs(kitm) do kb[kk] = v end
+    kb.decl = { kit = kitm.decl.kit, machines = { { machine = mach, categories = { "crafting" } } } }
+    local r = dump.recipes["iron-chest"]
+    local rec = { name = "iron-chest", category = r.category, energy = r.energy, ingredients = r.ingredients, products = r.products }
+    A.reset_cache()
+    local g
+    if gen == "patron" then g = Mm.GEN.patron("zz-mod-assembler", rec, "coffre", 1, kb, 0)
+    else g = Mm.GEN.bloc("zz-mod-assembler", { rec }, kb, 1) end
+    return g and 0 or 1
+  end
+end
+mutate("shared/team/modules.lua", "Pt.redeclare(M, kit and kit.decl)\n  return Pt.cellule", "return Pt.cellule", "patron : déclaration au chargement oubliée", run_mod("patron"))
+mutate("shared/team/modules.lua", "Pt.redeclare(M, kit and kit.decl)\n  return Pt.bloc", "return Pt.bloc", "bloc : déclaration au chargement oubliée", run_mod("bloc"))
 mutate(AU, 'parts[#parts + 1] = "kit{" .. table.concat(ks, ",") .. "}"', 'parts[#parts + 1] = "kit"', "clé de cache : le kit oublié", run_auto)
 mutate(AU, 'if chest and M.BASE[chest] and M.BASE[chest].kind == "chest" then names.coffre = chest end', "", "coffre du plan directeur oublié", run_auto)
 print(string.format("   mutants refusés : %d / %d", killed, total))

@@ -42,6 +42,7 @@ end
 local L = need("shared.levels.config", "shared/levels/config")
 local Points = need("shared.levels.points", "shared/levels/points")
 local X = need("shared.content.epochs", "shared/content/epochs")
+local Pt = need("shared.team.patrons", "shared/team/patrons") -- lot INDUSTRIE I5 : chargé ici, jamais à l'appel (F24 : un générateur tourne en événement)
 
 local M = {}
 
@@ -1317,8 +1318,15 @@ end
 
 -- Lot INDUSTRIE I5 : la famille de patrons (shared/team/patrons.lua, règle pure) ; le constructeur lui est prêté.
 M.new_builder = new_builder
-function G.patron(...) return need("shared.team.patrons", "shared/team/patrons").cellule(M, ...) end
-function G.bloc(...) return need("shared.team.patrons", "shared/team/patrons").bloc(M, ...) end
+-- Les arguments portent la déclaration des machines et des pièces d'un mod (kit.decl) : M.BASE repart de ses données à chaque chargement.
+function G.patron(machine, recette, sortie, n, kit, barre)
+  Pt.redeclare(M, kit and kit.decl)
+  return Pt.cellule(M, machine, recette, sortie, n, kit, barre)
+end
+function G.bloc(machine, recettes, kit, barre)
+  Pt.redeclare(M, kit and kit.decl)
+  return Pt.bloc(M, machine, recettes, kit, barre)
+end
 
 -- Fonctions publiques : enveloppées par pcall (filet). G.row reste brut (pièce interne, rend déjà (nil, raison)).
 M.GENERATORS = { "outpost_burner", "smelter", "drills", "steam", "gears", "simple", "circuits", "engines", "labs",

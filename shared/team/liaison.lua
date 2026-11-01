@@ -32,10 +32,10 @@ local Li = {}
 Li.PERIOD = 1800            -- ticks entre deux débuts de relevé (30 s)
 Li.UNITS_PER_PULSE = 2      -- projets relevés par passe de Build (Build.PULSE = 5 ticks)
 Li.CONFIRM = 2              -- relevés de suite où la paire est vue avant d'agir
-Li.MAX_OPEN = 1             -- liaisons ouvertes (en construction) au plus par équipe
+Li.MIN_OPEN = 1             -- liaison en construction toujours permise (les PNJ occupés finissent par se libérer) ; au-delà : Li.max_open
 Li.MAX_TRIES = 2            -- liaisons tentées au plus pour un même quai
 Li.RETRY_AFTER = 20 * 3600  -- ticks : essais épuisés, un essai de plus après 20 min
-Li.DECIDE_MAX = 4           -- paires examinées au plus par relevé
+Li.DECIDE_MAX = 4           -- paires décidées au plus par relevé qui lisent le moteur (ennemis) ; les autres décisions sont pures
 Li.ENEMY_R = 28             -- tuiles : jamais de pose avec un ennemi à cette portée de l'un des deux coffres
 Li.LOG_EVERY = 5 * 3600     -- une synthèse au plus par équipe et par 5 min (hors changement)
 
@@ -253,6 +253,7 @@ end
 --- linked } } (x, y : tuile du coffre). Un quai déjà relié ou un coffre déjà pris ne sert plus ; le coffre est d'un AUTRE projet que le
 --- quai et porte le même objet, à Li.MAX_SPAN tuiles au plus (Manhattan) ; le plus proche (puis la clé la plus petite) l'emporte, les
 --- quais de plus grand débit choisissent d'abord. Rend { { dock, src, span } } dans l'ordre de choix.
+--- Coût : chaque quai ne parcourt que les coffres de SON objet (à 200 modules, un produit quais × coffres en un tick toutes les 30 s).
 function Li.pairs(docks, srcs)
   local ds, ss = {}, {}
   for _, d in ipairs(docks) do if not d.linked and d.item and (d.flow or 0) >= Li.MIN_FLOW then ds[#ds + 1] = d end end
@@ -262,11 +263,16 @@ function Li.pairs(docks, srcs)
     return a.key < b.key
   end)
   table.sort(ss, function(a, b) return a.key < b.key end)
+  local by_item = {}
+  for _, s in ipairs(ss) do
+    by_item[s.item] = by_item[s.item] or {}
+    table.insert(by_item[s.item], s)
+  end
   local used, out = {}, {}
   for _, d in ipairs(ds) do
     local best, bspan
-    for _, s in ipairs(ss) do
-      if not used[s.key] and s.item == d.item and s.pid ~= d.pid then
+    for _, s in ipairs(by_item[d.item] or {}) do
+      if not used[s.key] and s.pid ~= d.pid then
         local span = manhattan(s.x, s.y, d.x, d.y)
         if span <= Li.MAX_SPAN and (not bspan or span < bspan) then best, bspan = s, span end
       end
@@ -282,8 +288,14 @@ end
 ---------------------------------------------------------------------------------------------------
 -- 5. Décision d'une paire
 ---------------------------------------------------------------------------------------------------
---- inp = { worth (bool : Li.worth), worth_why, open (la liaison de CE quai est en cours), open_total, seen (relevés de suite), tries,
----   since_try (ticks depuis le dernier essai ; nil : essais épuisés laissés), enemies (nombre), threat (QG menacé) }.
+--- Liaisons en construction permises à la fois : autant que de PNJ libres (`free` : sans tâche, ou sur la file sûre que tout préempte), au moins Li.MIN_OPEN.
+--- Une borne écrite (1 à la fois) faisait passer 100 quais en série (AUDIT_PLAFONDS n° 22), quels que soient les bras disponibles.
+function Li.max_open(free)
+  return math.max(Li.MIN_OPEN, math.floor(free or 0))
+end
+
+--- inp = { worth (bool : Li.worth), worth_why, open (la liaison de CE quai est en cours), open_total, free (PNJ libres, Li.max_open), seen (relevés de suite),
+---   tries, since_try (ticks depuis le dernier essai ; nil : essais épuisés laissés), enemies (nombre), threat (QG menacé) }.
 --- Rend action ("relier" | "attendre" | "laisser"), raison.
 function Li.decide(inp)
   if inp.open then return "attendre", "liaison deja en cours" end
@@ -294,7 +306,9 @@ function Li.decide(inp)
   end
   if inp.threat then return "attendre", "QG menace : le PNJ reste au QG, la liaison attend" end
   if (inp.enemies or 0) > 0 then return "attendre", string.format("ennemi a moins de %d tuiles", Li.ENEMY_R) end
-  if (inp.open_total or 0) >= Li.MAX_OPEN then return "attendre", string.format("%d liaison(s) deja ouverte(s)", inp.open_total) end
+  if (inp.open_total or 0) >= Li.max_open(inp.free) then
+    return "attendre", string.format("%d liaison(s) deja ouverte(s), %d PNJ libre(s)", inp.open_total, inp.free or 0)
+  end
   return "relier", "quai servi a la main, liaison rentable"
 end
 

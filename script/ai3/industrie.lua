@@ -14,6 +14,9 @@
     4. EFFET        : les coffres de sortie du bloc sont inscrits à la collecte des PNJ (p.outs) et leur BARRE est posée à la cible
                       (Id.barre, F95) : la machine s'arrête seule quand l'avance est faite ; Ml.set_running (capitalisation) passe
                       la main aux machines. Journal [FO-MALL].
+  Portes (relecture 0.6.31) : un bloc NEUF est une amélioration : ni sous menace du QG, ni pendant qu'un cadre de la pile retient (famille « capital »,
+  sauf s'il produit la matière qui manque), ni sans centrale possible ; il se paie sur le stock hors besoin MOINS ce que la décision vient d'engager. Son coffre
+  ne se vide vers le QG que sous la cible (p.keep_stock, Ml.target) : c'est ce qui laisse la barre arrêter la machine.
   Ce fichier fournit aussi à A.method_for (shared/ai3/automatiser.lua) la lecture des prototypes (cat.fab, cat.kit) : c'est ce qui
   lève le refus « a 3 ingredients » des chaînes (patrons du lot I5).
   Déterminisme : listes triées, aucune horloge mesurée (ticks de jeu), état en nombres et chaînes.
@@ -33,6 +36,8 @@ local Auto = require("script.ai3.automatisation")
 local Rsv = require("script.ai3.reserve")
 local Harvest = require("script.team.harvest")
 local Profiler = require("script.core.profiler")
+local PileRt = require("script.team.pile")
+local Events = require("script.core.events")
 
 local Ind = {}
 
@@ -69,6 +74,7 @@ Ind.lecture = lecture
 local function state_of(f)
   local ia3 = f.team.ia3
   ia3.industrie = ia3.industrie or { v = 1, id = {}, blocs = {}, hold = {}, refus = {}, n = 0, sig = "" }
+  ia3.industrie.said = ia3.industrie.said or {}
   return ia3.industrie
 end
 
@@ -100,7 +106,8 @@ local function patron_chests(p)
 end
 
 --- Inscrit les coffres de sortie de tout projet « patron » ou « bloc » à la collecte (p.outs, seuil Ind.COLLECT_AT) et pose leur barre
---- quand le projet est fini. Rend le nombre de coffres inscrits et le nombre de barres posées. Idempotent (p.ind_outs, p.ind_bar).
+--- quand le projet est fini. Rend le nombre de coffres inscrits et le nombre de barres posées. Idempotent : par tuile (patron_chests, un projet replanifié a
+--- d'autres coffres), et la barre à chaque FIN du projet (p.ind_bar = p.finished) : un coffre refait par une reconstruction l'a perdue, la machine le remplirait.
 function Ind.sweep(f, tick)
   local b = f.build
   if not b or not Rsv.on() then return 0, 0 end
@@ -110,16 +117,16 @@ function Ind.sweep(f, tick)
     local p = b.projects[pid]
     local gen = p and p.spec and p.spec.gen
     if gen == "patron" or gen == "bloc" then
-      if not p.ind_outs and p.state ~= "attente" and p.state ~= "plan" and p.state ~= "reserve" and #(p.ents or {}) > 0 then
+      local again = p.ind_bar ~= (p.finished or 0)
+      if again and p.state ~= "attente" and p.state ~= "plan" and p.state ~= "reserve" and #(p.ents or {}) > 0 then
         for _, e in ipairs(patron_chests(p)) do
           p.outs[#p.outs + 1] = { x = e.x, y = e.y, at = Ind.COLLECT_AT }
           reg = reg + 1
         end
-        p.ind_outs = true
       end
-      if not p.ind_bar and p.state == "fini" and surface then
+      if again and p.state == "fini" and surface then
         local barre = (gen == "patron") and (p.spec.args or {})[6] or (p.spec.args or {})[4]
-        p.ind_bar = true
+        p.ind_bar = p.finished or 0
         if type(barre) == "number" and barre > 0 then
           for _, o in ipairs(p.outs or {}) do
             local c = surface.find_entity(A.exec_chest(), { o.x, o.y })
@@ -208,8 +215,8 @@ local function prepare(f, lec, book, view, dec, kind)
 end
 
 --- Le stock HORS besoin paie-t-il le module ? Rend vrai, ou faux et la raison. Les objets du gabarit qu'on ne sait pas fabriquer
---- ni n'a au coffre sont refusés (« recherche : … »).
-local function affordable(f, book, view, mod, tick)
+--- ni n'a au coffre sont refusés (« recherche : … »). `orders` : les ordres de la décision de cette minute, que le même stock paie déjà.
+local function affordable(f, book, view, mod, tick, orders)
   local stock = view.stock or {}
   local meth = { gen = mod.gen, product = mod.product }
   local _, items = A.cost(meth, mod.g, { book = book, stock = stock, has_plant = Auto.plant_state(f) ~= nil })
@@ -221,7 +228,14 @@ local function affordable(f, book, view, mod, tick)
   if #miss > 0 then return false, "recherche : " .. table.concat(miss, ",") end
   local rv = Rsv.input(f, tick)
   if not rv then return false, "besoin non evalue (stock hors besoin inconnu)" end
-  local plan = book:plan(list, rv.free or {})
+  local free = {}
+  for _, k in ipairs(sorted_keys(rv.free)) do free[k] = rv.free[k] end
+  for _, o in ipairs(orders or {}) do
+    for _, it in ipairs(o.items or {}) do
+      if free[it[1]] then free[it[1]] = math.max(0, free[it[1]] - (it[2] or 0)) end
+    end
+  end
+  local plan = book:plan(list, free)
   local short = {}
   for _, k in ipairs(sorted_keys(plan.raw)) do
     if (plan.raw[k] or 0) > 0 then short[#short + 1] = k .. " " .. math.ceil(plan.raw[k]) end
@@ -272,8 +286,10 @@ function Ind.think(f, cs, res, view, book, tick)
       -- horloges d'ÉTAT (ticks de jeu) : dernier progrès des entités bâties, entrée en chantier (Em.work_tick)
       if m and (m.built or 0) ~= (b.built or -1) then b.built, b.progress_tick = m.built or 0, tick end
       b.work_tick = Em.work_tick(b.work_tick, { b.state }, tick)
+      -- Em.mall : un bloc suspendu par la pile (il a rendu ses objets) depuis Em.PILE_HOLD ne tient plus l'emplacement
+      b.pile_tick = Em.pile_tick(b.pile_tick, m ~= nil and m.state == "reserve" and m.reason == "pile", tick)
       if b.state ~= "fini" then
-        mods[#mods + 1] = { key = b.id, states = { b.state }, progress_tick = b.progress_tick, opened = b.tick, work_tick = b.work_tick, pile_tick = nil }
+        mods[#mods + 1] = { key = b.id, states = { b.state }, progress_tick = b.progress_tick, opened = b.tick, work_tick = b.work_tick, pile_tick = b.pile_tick }
       end
     end
     if m and m.state == "fini" and not b.said_fini then
@@ -302,21 +318,37 @@ function Ind.think(f, cs, res, view, book, tick)
       end
     end
   end
-  -- 4. l'action : un bloc (ou une cellule seule) au plus par décision, dans l'emplacement du mall
+  -- 4. l'action : un bloc (ou une cellule seule) au plus par décision, dans l'emplacement du mall ; un candidat qui attend (recherche, stock, pile) ne bloque
+  -- pas les suivants. Aucun bloc neuf sous menace du QG (comme les leviers de la capitalisation).
   local sl = Em.mall({ mods = mods, tick = tick })
-  if sl.room > 0 then
-    local dec, kind = out.blocs[1], "bloc"
-    if not dec and out.seuls[1] then dec, kind = out.seuls[1], "seul" end
-    if dec then
-      local mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule")
+  if sl.room > 0 and not view.threatened then
+    local function wait(label, kind, text)
+      local line = string.format("%s %s attend : %s", kind, label, tostring(text))
+      if st.said[label] ~= line then
+        st.said[label] = line
+        say(f, tick, line)
+      end
+    end
+    local cands = {}
+    for _, d in ipairs(out.blocs) do cands[#cands + 1] = { dec = d, kind = "bloc", items = d.items } end
+    for _, d in ipairs(out.seuls) do cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end
+    for _, c in ipairs(cands) do
+      local dec, kind = c.dec, c.kind
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item
-      if not mod then
+      local allowed, pwhy = PileRt.porte_any(f, "capital", c.items)
+      local mod, why
+      if allowed then mod, why = prepare(f, lec, book, view, dec, kind == "bloc" and "bloc" or "cellule") end
+      if not allowed then
+        PileRt.refuse(f, "mall:" .. label, kind .. " " .. label .. " non demande (" .. tostring(pwhy) .. ")", tick)
+      elseif not mod then
         say(f, tick, string.format("%s %s refuse : %s", kind, label, tostring(why)))
-        for _, it in ipairs(kind == "bloc" and dec.items or { dec.item }) do st.hold[it] = tick + Ind.RETRY_TICKS end
+        for _, it in ipairs(c.items) do st.hold[it] = tick + Ind.RETRY_TICKS end
+      elseif (mod.g.power_kw or 0) > 0 and Auto.plant_state(f) == "refuse" then
+        wait(label, kind, "centrale refusee")
       else
-        local ok, why2 = affordable(f, book, view, mod, tick)
+        local ok, why2 = affordable(f, book, view, mod, tick, res and res.orders)
         if not ok then
-          say(f, tick, string.format("%s %s attend : %s", kind, label, tostring(why2)))
+          wait(label, kind, why2)
         else
           local rate = 0
           for _, it in ipairs(mod.items) do rate = rate + ((kind == "bloc") and dec.rates[it] or dec.rate) end
@@ -329,12 +361,21 @@ function Ind.think(f, cs, res, view, book, tick)
             st.blocs[#st.blocs + 1] = { id = id, items = mod.items, kind = kind, tick = tick, state = "attente", gen = mod.gen,
               barre = mod.barre }
             st.n = st.n + 1
+            st.said[label] = nil
+            -- la réserve du mall : le coffre de sortie se vide vers le QG sous cette cible seulement (script/team/build.lua, out_wanted)
+            local p = f.build and f.build.projects[id]
+            if p then
+              p.keep_stock = {}
+              for _, it in ipairs(mod.items) do
+                p.keep_stock[it] = math.max(Ind.COLLECT_AT, Ml.target((kind == "bloc") and dec.rates[it] or dec.rate))
+              end
+            end
             say(f, tick, string.format("%s %s DEMANDE : module %d (%s, %d entite(s), %.1f objets/min voulus, nominal %.1f, barre %d case(s)) -> %s",
               kind, label, id, mod.gen, mod.g.n_ent, rate, nominal_sum(mod.g), mod.barre, "plan directeur"))
-          else
-            say(f, tick, string.format("%s %s : demande impossible (%s)", kind, label, tostring(why3)))
-            for _, it in ipairs(mod.items) do st.hold[it] = tick + Ind.RETRY_TICKS end
+            break
           end
+          say(f, tick, string.format("%s %s : demande impossible (%s)", kind, label, tostring(why3)))
+          for _, it in ipairs(mod.items) do st.hold[it] = tick + Ind.RETRY_TICKS end
         end
       end
     end
@@ -344,6 +385,26 @@ function Ind.think(f, cs, res, view, book, tick)
   Profiler.stop("ind:think")
   return out
 end
+
+--- Au chargement, M.BASE (shared/team/modules.lua) repart de ses données : les machines et les pièces d'un mod posées par un patron sont redéclarées d'après
+--- les arguments sauvés, sinon P.size lèverait dès le premier relevé d'un projet (reconstruction, relevé des tuiles). Rien n'est écrit dans global.
+Events.on_load(function()
+  pcall(function()
+    local list = { State.faction("player") }
+    for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+    for _, f in ipairs(list) do
+      local b = f.build
+      for _, pid in ipairs(b and b.order or {}) do
+        local spec = b.projects[pid] and b.projects[pid].spec
+        local gen = spec and spec.gen
+        if gen == "patron" or gen == "bloc" then
+          local kit = (spec.args or {})[gen == "patron" and 5 or 3]
+          if type(kit) == "table" then A.declare(kit.decl) end
+        end
+      end
+    end
+  end)
+end)
 
 local function team_of(key)
   if key == "player" then return State.faction("player") end
@@ -366,7 +427,8 @@ function Ind.status(f)
     for _, o in ipairs(p and p.outs or {}) do outs[#outs + 1] = { x = o.x, y = o.y, at = o.at } end
     for _, q in ipairs(p and p.quais or {}) do quais[#quais + 1] = { x = q.x, y = q.y, item = q.item } end
     blocs[#blocs + 1] = { id = b.id, items = b.items, kind = b.kind, state = m and m.state or b.state, built = m and m.built or 0,
-      total = m and m.total or 0, outs = outs, quais = quais, barre = b.barre, reason = m and m.reason or nil, missing = m and m.missing or nil }
+      total = m and m.total or 0, outs = outs, quais = quais, barre = b.barre, reason = m and m.reason or nil, missing = m and m.missing or nil,
+      keep = p and p.keep_stock or nil }
   end
   return { n = st.n, blocs = blocs, sig = st.sig }
 end

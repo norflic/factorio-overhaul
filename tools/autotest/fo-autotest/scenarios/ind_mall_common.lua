@@ -246,6 +246,12 @@ return function(name)
       ctx.check(b.kind == "bloc", "le choix est un BLOC partage (" .. tostring(b.kind) .. ")")
       ctx.check(#b.items == #cfg.items, "tous les objets demandes sont dans le bloc (" .. #b.items .. " sur " .. #cfg.items .. ")")
       ctx.check(b.total > 0, "le plan directeur a place le bloc (" .. tostring(b.total) .. " entite(s))")
+      do
+        -- la sortie ne se vide vers le QG que sous la cible : sinon la barre n'arrête jamais la machine (script/team/build.lua, out_wanted)
+        local nk = 0
+        for _, it in ipairs(b.items) do if b.keep and (b.keep[it] or 0) >= 1 then nk = nk + 1 end end
+        ctx.check(nk == #b.items, "chaque objet du bloc a sa cible au QG (" .. nk .. " sur " .. #b.items .. ")")
+      end
       ctx.log(string.format("etat final du bloc %d : %s, %d / %d entite(s) bâties", b.id, b.state, b.built, b.total))
       do
         local qs, os_ = {}, {}

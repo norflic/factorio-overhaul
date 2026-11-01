@@ -3631,6 +3631,30 @@ local function cc_say(f, p, i, n, have, rate, r)
   end
 end
 
+--- Lot INDUSTRIE I6 (relecture 0.6.31) : la sortie d'un bloc de mall se vide-t-elle vers le QG ? p.keep_stock = { [objet] = stock du QG visé } : au-delà,
+--- le PNJ la laisse, le coffre monte à sa barre et la machine s'arrête seule. Sans cette borne, la collecte (seuil 5) vidait le coffre à chaque
+--- voyage : la barre n'était jamais atteinte et le mall changeait tout le stock en pièces, en occupant les PNJ. Un objet hors de la table : collecté.
+local function out_wanted(f, p, chest)
+  local keep = p.keep_stock
+  if not keep then return true end
+  for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
+    if keep[it] == nil or Stock.count(f, it) < keep[it] then return true end
+  end
+  return false
+end
+
+--- Lot INDUSTRIE I6 (relecture 0.6.31) : la sortie d'un bloc de mall se vide-t-elle vers le QG ? p.keep_stock = { [objet] = stock du QG visé } : au-delà,
+--- le PNJ la laisse, le coffre monte à sa barre et la machine s'arrête seule. Sans cette borne, la collecte (seuil 5) vidait le coffre à chaque
+--- voyage : la barre n'était jamais atteinte et le mall changeait tout le stock en pièces, en occupant les PNJ. Un objet hors de la table : collecté.
+local function out_wanted(f, p, chest)
+  local keep = p.keep_stock
+  if not keep then return true end
+  for _, it in ipairs(sorted_keys(chest.get_inventory(defines.inventory.chest).get_contents())) do
+    if keep[it] == nil or Stock.count(f, it) < keep[it] then return true end
+  end
+  return false
+end
+
 local function quai_tasks(f, p, surface, out)
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
@@ -3673,7 +3697,7 @@ local function quai_tasks(f, p, surface, out)
     local chest = surface.find_entity("iron-chest", { o.x, o.y })
     if chest and chest.force.name == f.force then
       local n = chest.get_inventory(defines.inventory.chest).get_item_count()
-      if n >= (o.at or Build.COLLECT_AT) then -- lot PETROLE : seuil propre d'une sortie de site
+      if n >= (o.at or Build.COLLECT_AT) and out_wanted(f, p, chest) then -- lot PETROLE : seuil propre d'une sortie de site
         local a = P.anchor_for(f.build.lat, o.x, o.y, seg_passable(f.build))
         if not a then local fx, fy = free_spot(f.build, nil, o.x, o.y); a = { x = fx, y = fy } end
         out[#out + 1] = {

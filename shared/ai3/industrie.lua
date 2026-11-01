@@ -13,9 +13,9 @@
        par minute (lecture : par_min) ;
     2. besoin en machines : N = Di × Id.LEAD ÷ par_min (la capacité vise le double de la demande, comme Ca.LEAD) ;
     3. choix du patron :
-         N ≥ Id.ROW_MIN (une demi-machine : le seuil où la capitalisation ouvre une chaîne, Ca.count)
+         N ≥ Id.ROW_MIN (une demi-machine : le seuil où la capitalisation ouvre une chaîne, Ca.count) et la capitalisation n'a pas refusé
               → RANGÉE : ⌈N⌉ copies de la cellule, une recette (la capitalisation la pose, l'exécutant `patron`) ;
-         N < Id.ROW_MIN
+         N < Id.ROW_MIN, ou objet que la capitalisation vient de refuser (source Id.SRC_REFUS : personne d'autre ne le poserait)
               → BLOC DE MALL partagé : une machine par objet, 4 voies d'entrée communes (P.groups) ;
          plus de 4 entrées solides et N < Id.ROW_MIN → une cellule seule, une machine ;
        un objet à fluide en entrée ou sans recette lue est refusé, raison écrite (jamais silencieux).
@@ -38,6 +38,8 @@ Id.GROUP_MIN = 3         -- objets qui ouvrent un bloc de mall
 Id.GROUP_WAIT = 3 * 3600 -- ticks de jeu qu'un objet attend un bloc avant qu'un bloc plus petit s'ouvre pour lui
 Id.HORIZON_MIN = 10      -- minutes de demande gardées au coffre de sortie (la VRAIE réserve : Ml.HORIZON_MIN)
 Id.EPS = 1e-9
+Id.SRC_REFUS = "refus"   -- source de demande : la capitalisation a refusé l'objet (« manque sous une demi-machine »)
+Id.SRC_REFUS = "refus"   -- source de demande : la capitalisation a refusé l'objet (« manque sous une demi-machine »)
 
 local function sorted_keys(t)
   local ks = {}
@@ -185,7 +187,11 @@ function Id.decide(st, inp)
         out.refus[#out.refus + 1] = { item = c.item, why = "limite : " .. pr.recipe .. " sans debit" }
       else
         local need = c.rate * Id.LEAD / pr.par_min
-        if need >= Id.ROW_MIN - Id.EPS then
+        -- Relecture 0.6.31 : le refus de la capitalisation porte le MANQUE (demande moins stock et main) sous une demi-machine : avec LEAD, de 0,25 à
+        -- 0,5 machine de manque tombait en « rangée », que la capitalisation venait justement de refuser : aucune des deux règles ne le servait.
+        local refused = false
+        for _, src in ipairs(c.srcs) do if src == Id.SRC_REFUS then refused = true end end
+        if need >= Id.ROW_MIN - Id.EPS and not refused then
           out.rows[#out.rows + 1] = { item = c.item, recipe = pr.recipe, machine = pr.machine.entity, n = P.copies(c.rate * Id.LEAD, pr.par_min),
             need = need, par_min = pr.par_min, rate = c.rate }
           st.first[c.item] = nil

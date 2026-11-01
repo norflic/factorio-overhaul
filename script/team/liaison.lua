@@ -9,13 +9,16 @@
      liaison), Ln.UNITS_PER_PULSE projets par passe : quais d'entrée (coffre, objet, débit nominal p.inflow) et coffres de sortie
      (objet lu au contenu, gardé en mémoire quand le coffre est vide).
   2. DÉCISION (Ln.pairs, Ln.worth, Ln.decide) : un quai, le coffre de sortie le plus proche du même objet ; le prix du travail économisé
-     contre le coût ; confirmé sur Ln.CONFIRM relevés ; ni ennemi à portée, ni QG menacé ; une seule liaison en construction à la fois.
+     contre le coût ; confirmé sur Ln.CONFIRM relevés ; ni ennemi à portée, ni QG menacé ; une liaison demandée par relevé, autant en
+     construction que de PNJ libres (Ln.max_open).
   3. PROJET : Build.request({ liaison = ... }) ; le plan (Liaison.plan, appelé par plan_project) trace le tapis (P.belt_route sur les
      masques du moteur, évite les tuiles réservées par les projets de l'équipe et la tuile devant un tapis existant), pose un bras contre
      chaque coffre et un poteau contre chaque bras ; la machinerie ordinaire (réserve, défrichage, fantômes, PNJ, fils) fait le reste.
   4. FIN : la barre du coffre d'entrée est posée (Ln.bar : la charge d'un aller-retour), sinon le bras le remplirait en entier.
   5. SUIVI : un projet de liaison qui quitte « fini » (tapis détruit, reconstruction) est écrit « coupée » ; le PNJ a déjà repris.
 
+  Réglage maître : fo-war-industrie (Rsv.on) ; éteint, aucun relevé ni aucune demande. Un projet de liaison est un investissement (famille « capital » de
+  la pile) : sa réserve se suspend pendant qu'un cadre réparer, protéger ou survivre retient, comme un module neuf (Build.reserve_suspended).
   Journal [FO-LIAISON]. État : b.liaison (nombres, chaînes, tables ; jamais de fonction, jamais d'entité), créé à la première passe :
   les sauvegardes d'avant le lot le créent d'elles-mêmes. Rien n'est gardé hors de b.liaison.
   Interface de BANC (remote fo-liaison, jamais appelée par le mod) : inject (modules finis fictifs), set_param, report.
@@ -27,6 +30,8 @@ local P = require("shared.team.plan")
 local T = require("shared.team.config")
 local State = require("script.faction.state")
 local Conv = require("script.team.convoyeurs")
+local Rsv = require("script.ai3.reserve") -- le réglage maître (fo-war-industrie)
+local Registry = require("script.companion.registry")
 
 local Liaison = {}
 
@@ -106,9 +111,12 @@ local function scan_unit(f, surface, b, st, c, pid)
   local p = b.projects[pid]
   if not eligible(p) then return end
   local flows = inflow_of(st, p)
+  local seen = {} -- p.quais garde les quais des plans précédents d'un projet replanifié : un coffre ne compte qu'une fois (sinon, deux liaisons vers lui)
   for idx, q in ipairs(p.quais or {}) do
     local ch = q.item and chest_at(f, surface, q.x, q.y)
-    if ch then
+    local tk = math.floor(q.x) .. ":" .. math.floor(q.y) .. ":" .. tostring(q.item)
+    if ch and not seen[tk] then
+      seen[tk] = true
       c.docks[#c.docks + 1] = { key = pid .. ":q" .. idx, pid = pid, idx = idx, x = math.floor(q.x), y = math.floor(q.y), item = q.item,
         flow = flows and flows[q.item] or 0, n = ch.get_item_count(q.item) }
     end
@@ -174,6 +182,16 @@ end
 local function hq_threat(f, surface)
   if not (f.hq and f.hq.valid and f.hq_pos) then return false end
   return surface.count_entities_filtered({ position = f.hq_pos, radius = T.hq_threat_radius, force = "enemy", type = "unit", limit = 1 }) > 0
+end
+
+--- PNJ libres de l'équipe : sans tâche, ou sur la file sûre (rappelés dès qu'un travail les attend, script/team/poles.lua).
+local function free_workers(f)
+  local n = 0
+  for _, id in ipairs(State.sorted_keys(f.engineers or {})) do
+    local a = Registry.get(id)
+    if a and a.entity and a.entity.valid and (not a.task or a.task.safe) then n = n + 1 end
+  end
+  return n
 end
 
 --- Barre du coffre d'entrée d'une liaison finie (idempotente : relue à chaque relevé, le coffre refait par une reconstruction la perd).
@@ -246,19 +264,28 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   if #pairs_ == 0 then return end
   -- décisions (au plus une liaison demandée par relevé)
   local threat = hq_threat(f, surface)
+  local free = free_workers(f)
   local asked = false
-  for idx, pr in ipairs(pairs_) do
-    if idx > Ln.DECIDE_MAX then break end
+  local reads = 0 -- paires qui lisent le moteur : bornées ; les paires laissées (ne se paie pas, essais épuisés) ne cachent plus celles qui suivent
+  for _, pr in ipairs(pairs_) do
+    if asked and reads >= Ln.DECIDE_MAX then break end
     local d, s = pr.dock, pr.src
     local pk = d.key .. ">" .. s.key
     local ok, why, det = Ln.worth({ flow = d.flow, dist = dist_hq(f, d.x, d.y), span = pr.span, fill = api.fill, low = api.low, threat = threat })
     local last = st.last_try[d.key]
     local seen = st.seen[pk] or 0
     if st.confirm then seen = seen >= st.confirm and Ln.CONFIRM or 0 end -- (réglage de banc)
-    local inp = { worth = ok, worth_why = why, open = false, open_total = open, seen = seen, tries = st.tries[d.key] or 0,
+    local inp = { worth = ok, worth_why = why, open = false, open_total = open, free = free, seen = seen, tries = st.tries[d.key] or 0,
       since_try = last and (tick - last) or Ln.RETRY_AFTER, threat = threat }
+    local deferred = false -- plus de lecture du moteur à ce relevé : la paire attend le suivant, sans raison au journal
     if ok and seen >= Ln.CONFIRM and not threat then
-      inp.enemies = (enemy_near(f, surface, d.x, d.y) or enemy_near(f, surface, s.x, s.y)) and 1 or 0
+      if reads < Ln.DECIDE_MAX then
+        reads = reads + 1
+        inp.enemies = (enemy_near(f, surface, d.x, d.y) or enemy_near(f, surface, s.x, s.y)) and 1 or 0
+      else
+        deferred = true
+        inp.enemies = 1
+      end
     end
     local action, reason = Ln.decide(inp)
     if action == "relier" and asked then action, reason = "attendre", "une liaison par releve" end
@@ -275,18 +302,19 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         st.last_try[d.key] = tick
         local spec = { liaison = { key = d.key, item = d.item, flow = d.flow, arm = arm, pole = pole, belt = belt,
           dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y }, src = { pid = s.pid, idx = s.idx, x = s.x, y = s.y, key = s.key } },
-          prio = api.prio, domain = "infrastructures" }
+          prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
         local id = api.request(f, spec)
         if id then
           st.links[d.key] = { pid = id, src = s.key, item = d.item, dock_pid = d.pid, dock_idx = d.idx, done = false, since = tick }
           st.n.demandes = st.n.demandes + 1
           open = open + 1
+          free = math.max(0, free - 1)
           st.said[d.key] = nil
           say(f, tick, string.format("quai %s (%s, %.2f/s, a %.0f tuiles du QG) : liaison demandee (projet %d) depuis la sortie %s a %d tuiles : %s (essai %d/%d)",
             d.key, d.item, d.flow, dist_hq(f, d.x, d.y), id, s.key, pr.span, why, st.tries[d.key], Ln.MAX_TRIES))
         end
       end
-    else
+    elseif not deferred then
       note(st, f, tick, d.key, string.format("quai %s (%s, %.2f/s) <- sortie %s a %d tuiles : %s : %s", d.key, tostring(d.item), d.flow or 0, s.key, pr.span,
         action, reason))
     end
@@ -298,12 +326,17 @@ function Liaison.step(api, f, surface, tick)
   local b = f.build
   if not b then return end
   local st = b.liaison
-  if not st then st = new_state(tick); b.liaison = st end
+  if not st then
+    if not Rsv.on() then return end -- réglage maître éteint : aucun état (sauvegarde inchangée)
+    st = new_state(tick)
+    b.liaison = st
+  end
   if st.off then return end -- interrupteur D'ESSAI (remote fo-liaison set_param off) : témoin des bancs
   local c = st.cyc
   if not c then
     if tick < st.next then return end
     st.next = tick + (st.period or Ln.PERIOD)
+    if not Rsv.on() then return end
     -- un tapis sans courant ne sert à rien : la centrale d'abord (réglage de banc : st.sans_centrale)
     local pp = b.plant and b.projects[b.plant]
     if not (st.sans_centrale or (pp and pp.state == "fini")) then return end

@@ -207,6 +207,16 @@ function P.declare_kit(M, kit)
   return out
 end
 
+--- Déclaration portée par les arguments d'un patron : `decl` = { kit = pièces lues, machines = { { machine = machine lue, categories } } }.
+--- Idempotente ; `decl` absent : rien. M.BASE est reconstruit à chaque chargement : elle ne peut pas venir d'un état en mémoire.
+function P.redeclare(M, decl)
+  if type(decl) ~= "table" then return end
+  if decl.kit then P.declare_kit(M, decl.kit) end
+  for _, d in ipairs(decl.machines or {}) do
+    P.declare(M, d.machine.entity, P.def_machine(d.machine, d.categories))
+  end
+end
+
 ---------------------------------------------------------------------------------------------------
 -- 3. Recette : modèle de calcul et enregistrement dans M.RECIPES
 ---------------------------------------------------------------------------------------------------
