@@ -27,3 +27,5 @@ graphics/levels/foreuse/*.png
 graphics/levels/centre/*.png
 # Feuilles de jeu du Bourdon (lot BOURDON, même règle) : tools/render/pieces/experimentaux/feuilles.py
 graphics/robots/bourdon/*.png
+# Feuilles de jeu des usines de robots (lot US-V1, même règle) : tools/render/pieces/usines_robots/feuilles.py
+graphics/robots/usines/*.png
