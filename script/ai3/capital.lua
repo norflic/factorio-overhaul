@@ -277,6 +277,17 @@ local function scan(f, c)
   return { list = list, center = center }
 end
 
+--- Niveau réel du centre de la force (0 : aucun), lu au module des niveaux. Lot C1 : lu aussi quand les améliorations sont
+--- éteintes ou pour votre équipe, pour que le journal ne dise plus « centre niveau 0 » d'un centre de niveau 1 ou plus.
+local function cc_level_of(f)
+  local cc = Levels and game.forces[f.force] and Levels.cc(game.forces[f.force])
+  if cc and cc.valid then
+    local _, n = L.parse(cc.name)
+    return n or 0
+  end
+  return 0
+end
+
 --- Relevé complet : bâtiments à niveaux et centre (factions seulement), machines hors famille (toutes les équipes).
 local function census_of(f, c)
   local census
@@ -284,7 +295,7 @@ local function census_of(f, c)
     -- Votre équipe : ni centre à poser ni bâtiments à niveaux du joueur (même force) ; seulement ses propres machines. De
     -- même quand fo-war-capital est éteint : seul le remplacement des machines (fo-war-remplacer) décide.
     census = { list = {}, center = nil, no_center = true }
-    c.ents, c.by_family, c.cc_level = {}, {}, 0
+    c.ents, c.by_family, c.cc_level = {}, {}, cc_level_of(f)
   else
     census = scan(f, c)
   end
@@ -330,6 +341,29 @@ function Capital.describe(d)
   return string.format("%s %d -> %d", d.family, d.from, d.to)
 end
 
+--- Lot C1 : cause de l'état du centre, une ligne [FO-CAPITAL-CENTRE] à chaque CHANGEMENT (jamais un silence sur un centre
+--- qui ne monte pas). Causes : reglage-eteint (fo-war-capital), equipe-joueur (le centre est celui du joueur : il le répare et
+--- le monte lui-même), famille-absente, objet-absent, niveau-max, sans-valeur, pose, monte (avec les causes qui le bloquent :
+--- condition:<famille> = Q16, ou l'objet manquant du coût, ou « refus » récent de l'exécutant).
+function Capital.centre_cause(f, d)
+  if not Capital.on() then return "reglage-eteint" end
+  if f.is_player then return "equipe-joueur" end
+  local ce = d and d.centre
+  return ce and ce.state or "inconnu"
+end
+
+function Capital.log_centre(f, c, d, tick)
+  local cause = Capital.centre_cause(f, d)
+  local causes = (d and d.centre and d.centre.causes) or {}
+  local sig = cause .. "|" .. table.concat(causes, ",") .. "|" .. tostring(c.cc_level or 0)
+  if c.centre_sig == sig then return end
+  c.centre_sig = sig
+  local why = #causes > 0 and (" bloque par [" .. table.concat(causes, " ") .. "]") or ""
+  local key = d and d.centre and d.centre.key
+  log(string.format("[FO-CAPITAL-CENTRE] %s : %s%s ; centre niveau %d%s a %.1f min", f.key or "?", cause, why, c.cc_level or 0,
+    key and (", cible '" .. key .. "'") or "", minutes(f, tick)))
+end
+
 --- But « amélioration » de la pensée (nil : aucun, ou éteint). w = poids des familles (B.weights).
 function Capital.goal(f, view, book, tick, w)
   if not Capital.any_on() then
@@ -359,6 +393,7 @@ function Capital.goal(f, view, book, tick, w)
   local d = Cap.choose(L, census, ctx)
   c.wanted = {}
   for _, k in ipairs(sorted_keys(d.wanted)) do c.wanted[k] = true end
+  Capital.log_centre(f, c, d, tick)
   local goal = Cap.goal(d, w)
   local prev = c.current and c.current.key or nil
   if d.none then
@@ -522,13 +557,46 @@ local function pay_replace(f, c, d, tick)
   return n, why
 end
 
+--- Lot C1 : pourquoi la décision en cours n'est PAS payée à cette pensée, une ligne [FO-CAPITAL-ATTENTE] à chaque CHANGEMENT de
+--- cause (jamais un silence sur une amélioration décidée qui n'arrive pas). Causes : pile (un cadre réparer / protéger /
+--- survivre retient, script/team/team.lua), reconstruction (SANS-GEL), non-reserve (le cerveau n'a pas réservé le coût au stock
+--- virtuel : un projet plus prioritaire le prend), stock-libre (le stock libre ne couvre pas le coût : objets manquants).
+function Capital.attente(f, cause, tick, detail)
+  if not Capital.any_on() then return end
+  local c = f.team and f.team.capital
+  local d = c and c.current
+  if not d then return end
+  local sig = d.key .. "|" .. cause .. "|" .. (detail or "")
+  if c.attente_sig == sig then return end
+  c.attente_sig = sig
+  log(string.format("[FO-CAPITAL-ATTENTE] %s : '%s' decide mais non paye, cause %s%s a %.1f min", f.key or "?", d.key, cause,
+    detail and (" (" .. detail .. ")") or "", minutes(f, tick)))
+end
+
 --- Paie l'amélioration prête (plan.ia3.pay : coût réservé au stock virtuel par la pensée pure) si le stock LIBRE la
 --- couvre. Rend le nombre d'améliorations faites.
 function Capital.pay(f, surface, tick, plan, stock)
   local list = plan and plan.ia3 and plan.ia3.pay
-  if not list or #list == 0 or not Capital.any_on() then return 0 end
+  if not Capital.any_on() then return 0 end
   local c = state_of(f)
   local d = c.current
+  if not list or #list == 0 then
+    if d then Capital.attente(f, "non-reserve", tick, "aucun paiement prevu par le cerveau") end
+    return 0
+  end
+  if d then
+    local reserved = false
+    for _, p in ipairs(list) do if p.target == d.key then reserved = true end end
+    local have = {}
+    for _, it in ipairs(d.cost) do have[#have + 1] = it[1] .. " " .. (stock[it[1]] or 0) .. "/" .. it[2] end
+    if not reserved then
+      -- stock libre listé : couvert -> un projet plus prioritaire a pris le coût au stock virtuel ; sinon la matière manque.
+      Capital.attente(f, "non-reserve", tick, (has_list(stock, d.cost) and "stock libre couvre : " or "stock libre : ")
+        .. table.concat(have, ", "))
+    elseif not has_list(stock, d.cost) then
+      Capital.attente(f, "stock-libre", tick, table.concat(have, ", "))
+    end
+  end
   local done = 0
   for _, p in ipairs(list) do
     -- Un but dont le mécanisme a été éteint depuis sa décision n'est pas payé.
