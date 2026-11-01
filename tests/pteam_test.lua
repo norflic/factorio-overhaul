@@ -35,6 +35,10 @@ W().events[defines.events.on_built_entity]({ created_entity = chest, player_inde
 local f = global.fo.pteam.team
 check(f ~= nil and f.is_player, "équipe du joueur créée")
 check(game.forces.player.technologies["military"].researched == false, "aucune technologie offerte au joueur")
+-- Lot EQUIPE : la technologie de la tourelle est un palier pour votre équipe (script/ai3/general.lua, defense = T.turret) : elle passerait en
+-- tête de la recherche et déplacerait les tâches que ce banc observe. Faite d'avance ici, comme par un joueur ; tests/equipe_moteur_test.lua
+-- prouve la recherche elle-même.
+game.forces.player.technologies["gun-turret"].researched = true
 local other = s.create_entity({ name = "fo-team-chest", position = { x = 15, y = 5 }, force = "player" })
 W().events[defines.events.on_built_entity]({ created_entity = other, player_index = 1, tick = game.tick })
 check(global.fo.pteam.team.hq == chest, "un seul coffre d'équipe")
@@ -186,6 +190,7 @@ check((g.stats.emergency_recruits or 0) - r0 >= 7 and g.engineers_count >= 8, "�
 section("Lot IA-V2 : PNJ tué loin du QG : les PNJ au travail à moins de 64 tuiles rentrent (moteur réel, ia1b2-guide 1618033988)")
 M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
 local s3 = game.surfaces[1]
+game.forces.player.technologies["gun-turret"].researched = true -- lot EQUIPE : voir plus haut (recherche de la tourelle en tête)
 local chest3 = s3.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
 for _, it in ipairs({ { "iron-plate", 2000 }, { "copper-plate", 500 }, { "coal", 400 }, { "stone", 200 } }) do
   chest3.insert({ name = it[1], count = it[2] })

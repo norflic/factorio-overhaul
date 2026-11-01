@@ -85,7 +85,7 @@ function D.think(f, view, plan, tick)
   for _, p in ipairs(posts) do
     local s = string.format("%s %d/%d %s", p.id, p.have, p.want, p.why)
     if p.floor_i then
-      s = s .. string.format(" (plancher fer %d cuivre %d%s%s)", p.floor_i, p.floor_cu or 0, p.reduced and ", reduit" or "", p.partial and ", partielle" or "")
+      s = s .. string.format(" (plancher fer %d cuivre %d%s%s)", p.floor_i, p.floor_cu or 0, (p.first and ", premiere tourelle" or (p.reduced and ", reduit" or "")), p.partial and ", partielle" or "")
     end
     if p.raw and next(p.raw) ~= nil then s = s .. " [manque " .. fmt_raw(p.raw) .. "]" end
     ptxt[#ptxt + 1] = s

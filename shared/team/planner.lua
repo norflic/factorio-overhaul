@@ -34,6 +34,7 @@ local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du f
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
+local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 
 local P = {}
 
@@ -728,6 +729,10 @@ function P.plan(view, book)
               -- D3 : le plancher réduit du front garde au moins le fer du prochain pas de production, pri.production_cost)
               local fi, fc, reduced = T.defend_iron_floor, T.defend_copper_floor, false
               if p.id == "hq" and (qg_peril or protect_any) then fi, fc, reduced = fl_i, fl_c, true end -- lot S1 : le QG en péril
+              -- Lot EQUIPE : le QG sous son premier palier de tourelles (shared/team/premiere_tourelle.lua) se paie au plancher réduit, péril ou non
+              local first_tier
+              fi, fc, first_tier = Pt.floors(p.id, p.have, fi, fc, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)
+              if first_tier then reduced, d.first = true, true end
               if p.id == "front" then
                 fi, fc, reduced = Fr.floors(p.score, iron_producing, T.defend_iron_floor, T.defend_copper_floor, pri.production_cost)
               end
