@@ -426,6 +426,32 @@ remote.add_interface("fo-ind", {
     local f = team_of(key)
     return f and Ind.status(f) or nil
   end,
+  --- BANC SEULEMENT : demande à l'exécutant UNE RANGÉE de `item` au débit `rate` (objets/min), par le chemin des ordres « chaîne » de la
+  --- capitalisation (A.method_for, A.sized, Auto.submit : script/ai3/capitalisation.lua, execute) sans passer par sa décision. Rend l'id du module.
+  row = function(key, item, rate)
+    local f = team_of(key)
+    local ia3 = f and f.team and f.team.ia3
+    if not (ia3 and f.hq and f.hq.valid) then return nil, "equipe" end
+    local force = game.forces[f.force]
+    local book = Book.from_game(game.recipe_prototypes, { allowed = function(name)
+      local r = force.recipes[name]
+      return r ~= nil and r.enabled
+    end })
+    local inv = f.hq.get_inventory(defines.inventory.chest)
+    local contents = inv and inv.get_contents() or {}
+    local usable = function(n) return book:handcraftable(n) or (contents[n] or 0) > 0 end
+    local meth, why = A.method_for(item, book, usable)
+    if not meth then return nil, why end
+    local g, args = A.sized(meth, rate, A.choose_pole(book, contents, Harvest.reachable(f)))
+    if not g then return nil, args end
+    local id, why2 = Auto.submit(f, { product = item, gen = meth.gen, args = args, feed = meth.feed, rate = rate,
+      rate_nom = (g.nominal[item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, pole = g.pole, why = "banc : rangee" }, game.tick, nil)
+    if not id then return nil, why2 end
+    local st = state_of(f)
+    st.blocs[#st.blocs + 1] = { id = id, items = { item }, kind = "rangee", tick = game.tick, state = "attente", gen = meth.gen, barre = 0 }
+    return id, string.format("%s %s %d machine(s) demandee(s), %d entites", meth.gen, tostring(meth.patron and meth.args[1] or meth.args[3]),
+      meth.patron and args[4] or 1, g.n_ent)
+  end,
   --- Le fournisseur de lecture répond-il ? (nombre de recettes lues, ou nil)
   lecture = function()
     local lec = lecture()

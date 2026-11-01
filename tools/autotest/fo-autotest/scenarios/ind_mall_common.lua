@@ -42,6 +42,8 @@ local MALL = {
     items = { { "iron-stick", 1.0 }, { "pipe", 1.0 }, { "iron-chest", 1.0 }, { "copper-cable", 1.0 }, { "firearm-magazine", 1.0 } },
     machine_proto = nil,
   },
+  -- une RANGÉE (patron, 3 entrées) demandée par le chemin des ordres « chaîne » de la capitalisation : ce que le journal du DC refusait
+  ["ind-chaine"] = { items = {}, row = { item = "piercing-rounds-magazine", rate = 6 } },
   ["ind-jetable"] = {
     items = { { "fo-i6-vis", 1.0 }, { "fo-i6-aile", 1.0 }, { "fo-i6-piece", 1.0 } },
     machine_proto = "fo-i6-machine",
@@ -71,7 +73,8 @@ end
 return function(name)
   local cfg = MALL[name]
   return {
-    description = "INDUSTRIE I6 (" .. name .. ") : demande -> bloc de mall -> plan directeur -> machines -> coffres a la barre",
+    description = "INDUSTRIE I6 (" .. name .. ") : " .. (cfg.row and "chaine a 3 entrees (patron) -> plan directeur -> machine -> coffre de sortie"
+      or "demande -> bloc de mall -> plan directeur -> machines -> coffres a la barre"),
     check_tick = 9500,
     init = function(ctx)
       local st = ctx.state()
@@ -114,9 +117,16 @@ return function(name)
         end
         ctx.check(ctx.remote("fo-ind", "lecture") ~= nil, "la lecture des prototypes repond (fo-ind, lecture)")
       end
+      -- 1 bis. une rangée, demandée comme le fait l'ordre « chaîne » de la capitalisation
+      if cfg.row and st.key and e.tick == 1000 then
+        local id, info = ctx.remote("fo-ind", "row", st.key, cfg.row.item, cfg.row.rate)
+        ctx.check(id ~= nil, st.key .. " : rangee de " .. cfg.row.item .. " demandee (" .. tostring(info) .. ")")
+        st.hastened = e.tick
+        ctx.log("rangee demandee : " .. tostring(info))
+      end
       -- 2. la décision de la capitalisation est hâtée (elle tombe sinon vers le tick 3 300)
       -- (après 1 000 ticks : le besoin évalué du cerveau, qui borne le stock libre, a relu les pièces posées à 400)
-      if st.key and not st.hastened and e.tick >= 1000 and e.tick % 60 == 0 then
+      if st.key and not cfg.row and not st.hastened and e.tick >= 1000 and e.tick % 60 == 0 then
         if ctx.remote("fo-ind", "hasten", st.key) == true then
           st.hastened = e.tick
           ctx.log("decision hatee au tick " .. e.tick)
@@ -185,6 +195,38 @@ return function(name)
         return
       end
       ctx.check(st.hastened ~= nil, "la decision de la capitalisation a ete hatee")
+      if cfg.row then
+        local s2 = ctx.remote("fo-ind", "status", st.key)
+        local b2 = s2 and s2.blocs[1]
+        ctx.check(b2 ~= nil and b2.kind == "rangee" and b2.total > 0, "la rangee est au plan directeur (" .. tostring(b2 and b2.total) .. " entites)")
+        if not b2 then return end
+        ctx.log(string.format("etat final de la rangee %d : %s, %d / %d entite(s) baties", b2.id, b2.state, b2.built, b2.total))
+        local s1c = ctx.surface()
+        local ents2 = module_ents(ctx, st.key, b2.id)
+        local nm, running2 = 0, 0
+        for _, e2 in ipairs(ents2) do
+          local proto = game.entity_prototypes[e2.name]
+          if proto and proto.type == "assembling-machine" then
+            nm = nm + 1
+            local real = s1c.find_entity(e2.name, { e2.x, e2.y })
+            if real and real.valid and real.get_recipe() and real.get_recipe().name == cfg.row.item then running2 = running2 + 1 end
+          end
+        end
+        ctx.check(nm >= 1, "la rangee a au moins une machine au plan (" .. nm .. ")")
+        if b2.state == "fini" then
+          ctx.check(running2 == nm, "rangee finie : chaque machine a la recette de l'objet (" .. running2 .. " sur " .. nm .. ")")
+          local made2, nout = 0, 0
+          for _, o in ipairs(b2.outs or {}) do
+            local ch = s1c.find_entity("iron-chest", { o.x, o.y })
+            if ch and ch.valid then made2 = made2 + ch.get_item_count(cfg.row.item) nout = nout + 1 end
+          end
+          ctx.log(string.format("sortie : %d coffre(s) de sortie du plan directeur, %d %s fabrique(s)", nout, made2, cfg.row.item))
+          ctx.check(nout >= 1 and made2 >= 1, "des " .. cfg.row.item .. " sont fabriques et au coffre de sortie (" .. made2 .. ")")
+        else
+          ctx.log("rangee pas finie a la fin du banc (" .. b2.state .. ")")
+        end
+        return
+      end
       -- les chaines que le journal du DC montrait refusees (« a 3 ingredients », « recherche : » vide) ont une methode, lue dans les prototypes
       if not cfg.machine_proto then
         for _, it in ipairs({ "gun-turret", "piercing-rounds-magazine", "iron-chest", "grenade", "advanced-circuit", "engine-unit" }) do
