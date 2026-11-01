@@ -401,8 +401,8 @@ do
 end
 
 -- §12 Réglage de carte (correction après revue, 27/10) : fo-war-capital existe, est relu en cours de partie
--- (runtime-global), porte le préfixe des réglages des bancs (« fo-war- », interface war_setting) et est ÉTEINT par défaut
--- (D1 ouvert : la recherche des factions est retardée quand il est allumé) ; ses deux traductions existent.
+-- (runtime-global), porte le préfixe des réglages des bancs (« fo-war- », interface war_setting) et est ALLUMÉ par défaut depuis le lot C1
+-- (D1 : la recherche des factions est retardée quand il est allumé, à mesurer) ; ses deux traductions existent.
 do
   local got = {}
   local saved = _G.data
@@ -413,7 +413,7 @@ do
   local s = got[1]
   check(#got == 2 and s and s.name == "fo-war-capital" and s.type == "bool-setting", "§12 un réglage bool fo-war-capital")
   check(s and s.setting_type == "runtime-global", "§12 réglage de carte relu en cours de partie (runtime-global)")
-  check(s and s.default_value == false, "§12 ÉTEINT par défaut (D1 ouvert)")
+  check(s and s.default_value == true, "§12 ALLUMÉ par défaut (lot C1 : éteint, aucune faction ne montait son centre)")
   -- Lot AMELIORER : le remplacement des machines a son propre réglage, ALLUMÉ par défaut, découplé de fo-war-capital.
   local r = got[2]
   check(r and r.name == "fo-war-remplacer" and r.type == "bool-setting" and r.setting_type == "runtime-global",
@@ -666,6 +666,92 @@ do
   M("impayable compté payable (remplacer)", function() Cap.work_cost = function(l, c) local x, _, a = wc(l, c) return x, {}, a end end,
     function() Cap.work_cost = wc end)
   check(n_caught == n_mut, string.format("§13 mutants du lot : %d refusés sur %d", n_caught, n_mut))
+end
+
+-- §14 Lot C1 : l'état du centre est TOUJOURS dit (une cause par refus), et le centre monte quand il est payable.
+local function run_centre()
+  local center1 = { id = 1, name = L.name(CC, 1) }
+  -- Votre équipe : ni pose ni montée du centre (le centre est celui du joueur), et la cause est dite.
+  local dj = Cap.choose(L, { list = guns({ 1, 1 }), center = nil, no_center = true }, ctx())
+  check(dj.centre and dj.centre.state == "equipe-joueur", "§14 votre équipe : cause « equipe-joueur » (" .. tostring(dj.centre and dj.centre.state) .. ")")
+  local any_cc = false
+  for _, c in ipairs(dj.blocked) do if c.center then any_cc = true end end
+  check(not any_cc and not dj.center, "§14 votre équipe : aucun candidat « centre », bloqué ou non")
+  -- Pas d'objet qui pose le centre : cause dite au lieu d'un silence.
+  local no_item = function(name)
+    local p = proto(name)
+    if p and name == L.name(CC, 1) then return { type = p.type, role = p.role, health = p.health } end
+    return p
+  end
+  local dn = Cap.choose(L, census(guns({ 1 })), ctx({ proto = no_item }))
+  check(dn.centre and dn.centre.state == "objet-absent", "§14 centre sans objet qui le pose : cause « objet-absent » (" .. tostring(dn.centre and dn.centre.state) .. ")")
+  -- Niveau maximal.
+  local dm = Cap.choose(L, census(guns({ 30 }), { id = 1, name = L.name(CC, CC.max) }), ctx())
+  check(dm.centre and dm.centre.state == "niveau-max", "§14 centre au niveau maximal : cause « niveau-max »")
+  -- Pose : sans centre.
+  local dp = Cap.choose(L, census(guns({ 1, 1 })), ctx())
+  check(dp.centre and dp.centre.state == "pose" and dp.centre.key == "command:1:pose", "§14 sans centre : état « pose »")
+  -- Montée bloquée par Q16 : la cause nomme la famille.
+  local db = Cap.choose(L, census(guns({ 1, 1 }), center1), ctx())
+  local cb = db.centre or {}
+  check(cb.state == "monte" and cb.causes and cb.causes[1] == "condition:gun", "§14 centre bloqué par Q16 : « monte » avec la cause condition:gun")
+  -- Montée impayable (un objet du coût sans prix) : la cause nomme l'objet.
+  local cost2 = L.cost(CC, 2)
+  local victim = cost2[1][1]
+  local unpriced = function(item) if item == victim then return nil end return UNIT[item] end
+  local du = Cap.candidates(L, census(guns({ 2, 2 }), center1), ctx({ unit_cost = unpriced }))
+  local has = false
+  for _, c in ipairs((du.centre or {}).causes or {}) do if c == victim then has = true end end
+  check(du.centre and du.centre.state == "monte" and has, "§14 centre impayable : la cause nomme l'objet manquant (" .. victim .. ")")
+  -- Montée payable : candidat, sans cause, au coût des données.
+  local dg = Cap.candidates(L, census(guns({ 2, 2 }), center1), ctx())
+  check(dg.centre and dg.centre.state == "monte" and dg.centre.causes == nil and dg.centre.key:sub(1, 10) == "command:2:",
+    "§14 centre payable : « monte » sans cause (" .. tostring(dg.centre and dg.centre.key) .. ")")
+  -- Refus récent de l'exécutant : la cause est « refus ».
+  local dr = Cap.candidates(L, census(guns({ 2, 2 }), center1), ctx({ exclude = { ["command:2:1"] = true } }))
+  check(dr.centre and dr.centre.causes and dr.centre.causes[1] == "refus", "§14 centre refusé par l'exécutant : cause « refus »")
+  -- Les tourelles qui bloquent ne sont pas écartées : la chaîne Q16 les pousse (la montée du centre arrive par elles).
+  check(db.chain ~= nil and db.chain.v > 0 and db.family == "gun", "§14 chaîne Q16 : la tourelle qui bloque est choisie (" .. tostring(db.key) .. ")")
+end
+run_centre()
+
+-- Mutants du lot C1.
+do
+  local n_mut, n_caught = 0, 0
+  local function M(name, apply, undo)
+    n_mut = n_mut + 1
+    local p0, f0 = pass, fail
+    quiet = true
+    apply()
+    local ok = pcall(run_centre)
+    undo()
+    quiet = false
+    local caught = (not ok) or fail > f0
+    pass, fail = p0, f0
+    if caught then n_caught = n_caught + 1 else print("[CAPITAL] mutant survivant (centre) : " .. name) end
+  end
+  local cd = Cap.candidates
+  local function strip(edit)
+    return function(Ld, cen, cx)
+      local r = cd(Ld, cen, cx)
+      r.centre = edit(r.centre, r)
+      return r
+    end
+  end
+  M("état du centre perdu (silence)", function() Cap.candidates = strip(function() return nil end) end, function() Cap.candidates = cd end)
+  M("causes du centre perdues", function() Cap.candidates = strip(function(c) c.causes = nil return c end) end, function() Cap.candidates = cd end)
+  M("votre équipe prise pour une faction", function() Cap.candidates = strip(function(c) if c.state == "equipe-joueur" then c.state = "pose" end return c end) end,
+    function() Cap.candidates = cd end)
+  M("niveau maximal non dit", function() Cap.candidates = strip(function(c) if c.state == "niveau-max" then c.state = "monte" end return c end) end,
+    function() Cap.candidates = cd end)
+  M("objet absent non dit", function() Cap.candidates = strip(function(c) if c.state == "objet-absent" then c.state = "pose" end return c end) end,
+    function() Cap.candidates = cd end)
+  local ch = Cap.CHAIN_PCT
+  M("chaîne Q16 coupée (centre)", function() Cap.CHAIN_PCT = 0 end, function() Cap.CHAIN_PCT = ch end)
+  local wc = Cap.work_cost
+  M("impayable compté payable (centre)", function() Cap.work_cost = function(l, c) local x, _, a = wc(l, c) return x, {}, a end end,
+    function() Cap.work_cost = wc end)
+  check(n_caught == n_mut, string.format("§14 mutants du lot C1 : %d refusés sur %d", n_caught, n_mut))
 end
 
 print(string.format("[CAPITAL] BILAN : %d OK, %d ECHEC(S)", pass, fail))

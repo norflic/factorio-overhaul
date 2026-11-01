@@ -804,8 +804,9 @@ function M.new_world(opts)
       ["fo-war-ia3-cerveau"] = (opts.ia3_cerveau ~= false) and (os.getenv("FO_IA3_CERVEAU") ~= "0"),
       -- Lot IA3-e : ÉTEINT par défaut comme le jeu (settings/ia3e.lua) ; allumé par l'option (ia3e = true) ou FO_IA3E=1
       ["fo-war-ia3e"] = (opts.ia3e == true) or (os.getenv("FO_IA3E") == "1"),
-      -- Lot CAPITAL : ÉTEINT par défaut comme le jeu (settings/capital.lua) ; allumé par l'option (capital = true) ou FO_CAPITAL=1
-      ["fo-war-capital"] = (opts.capital == true) or (os.getenv("FO_CAPITAL") == "1"),
+      -- Lot CAPITAL : ALLUMÉ par défaut comme le jeu depuis le lot C1 (settings/capital.lua) ; éteint par l'option
+      -- (capital = false) ou par FO_CAPITAL=0 (le témoin « tout éteint »)
+      ["fo-war-capital"] = (opts.capital ~= false) and (os.getenv("FO_CAPITAL") ~= "0"),
       -- Lot AMELIORER : remplacement des machines hors famille, ALLUMÉ par défaut comme le jeu (settings/capital.lua)
       ["fo-war-remplacer"] = opts.remplacer ~= false,
       -- Lot CAPIB : ÉTEINT par défaut comme le jeu (settings/capi.lua) ; allumé par l'option (capi = true) ou FO_CAPI=1
@@ -924,6 +925,10 @@ function M.new_world(opts)
         type = "unit", max_health = 200,
         collision_box = box(-0.2, -0.2, 0.2, 0.2),
         collision_mask = MASK_UNIT,
+        -- Lot C1 : les bâtiments à niveaux (fo-lvl-<famille>-N, centre compris) sont montés par Levels.start, qui lit la
+        -- boîte de sélection de la nouvelle entité (script/levels/levels.lua, celebrate -> box_size) : sans elle le moteur
+        -- simulé plantait dès que fo-war-capital était allumé par défaut.
+        selection_box = (name:match("^fo%-lvl%-") or name:match("^fo%-command%-center")) and box(-1, -1, 1, 1) or nil,
       }
     end
   end })

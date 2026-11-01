@@ -872,7 +872,11 @@ function Team.think(f, surface, tick)
   end
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
   -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
-  if ia3 and not pile_hold and not Recon.hold_upgrades(f) then Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan)) end
+  if ia3 and not pile_hold and not Recon.hold_upgrades(f) then
+    Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))
+  elseif ia3 then
+    Ia3.capital_attente(f, pile_hold and "pile" or "reconstruction", tick) -- lot C1 : la cause d'une amélioration retenue est dite
+  end
   if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
   if plan.research and has_list(stock, T.research[plan.research]) then
     remove_list(f, T.research[plan.research])

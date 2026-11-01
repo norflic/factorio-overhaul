@@ -933,6 +933,11 @@ function Ia3.capital_pay(f, surface, tick, plan, stock)
   return Capital.pay(f, surface, tick, plan, stock)
 end
 
+--- Lot C1 : la cause d'une amélioration décidée mais retenue hors de la pensée (pile, reconstruction), dite au journal.
+function Ia3.capital_attente(f, cause, tick)
+  return Capital.attente(f, cause, tick)
+end
+
 --- Demandes d'exploration (ressource -> priorité) : pour le lot IA3-f (carte de connaissance, éclaireurs).
 function Ia3.explore_requests(f)
   local st = f.team and f.team.ia3

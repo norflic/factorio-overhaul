@@ -324,6 +324,9 @@ function Cap.candidates(Ld, census, ctx)
   end
   -- Centre : le poser (aucun) ou le monter. Valeur = l'époque + ce que son plafond débloque (÷ LOOK_DIV).
   local blockers = {}
+  -- Lot C1 : l'état du centre à CETTE décision, pour le journal (une cause par refus, jamais un silence) :
+  -- { state, key, causes }. state : equipe-joueur | famille-absente | objet-absent | niveau-max | pose | monte | sans-valeur.
+  local centre = { state = (cfam and census.no_center) and "equipe-joueur" or (not cfam) and "famille-absente" or nil }
   if cfam and not census.no_center then -- no_center : votre équipe (lot AMELIORER), ni centre ni bâtiments du joueur
     local cap_now = cc_level > 0 and Ld.building_cap(cc_level) or Ld.building_cap(0)
     local unlocked = 0
@@ -336,17 +339,21 @@ function Cap.candidates(Ld, census, ctx)
     if cc_level == 0 then
       local p = proto(Ld.name(cfam, 1))
       local item = p and p.item
+      if not item then centre.state = "objet-absent" end
       if item then
         cc = { key = cfam.key .. ":1:pose", family = cfam.key, from = 0, to = 1, build = true, cost = { { item, 1 } },
           value = cv, why = { { "epoque", 1 }, { "debloque", unlocked } }, center = true }
       end
-    elseif cc_level < cfam.max then
+    elseif cc_level >= cfam.max then
+      centre.state = "niveau-max"
+    else
       cc = { key = cfam.key .. ":" .. (cc_level + 1) .. ":" .. center.id, id = center.id, family = cfam.key,
         from = cc_level, to = cc_level + 1, cost = Ld.cost(cfam, cc_level + 1), value = cv,
         why = { { "epoque", cc_level + 1 }, { "debloque", unlocked } }, center = true }
       blockers = Ld.cc_blockers(q16)
     end
     if cc then
+      centre.state, centre.key = cc_level == 0 and "pose" or "monte", cc.key
       if #blockers > 0 then
         cc.causes = {}
         for _, k in ipairs(blockers) do cc.causes[#cc.causes + 1] = "condition:" .. k end
@@ -363,6 +370,8 @@ function Cap.candidates(Ld, census, ctx)
       else
         add(cc)
       end
+      centre.causes = cc.causes
+      if not cc.causes and not cc.score then centre.state = "sans-valeur" end
     end
   end
   for _, r in ipairs(rows) do if r.cand then add(r.cand) end end
@@ -378,7 +387,7 @@ function Cap.candidates(Ld, census, ctx)
     if a.value ~= b.value then return a.value > b.value end
     return a.key < b.key
   end)
-  return { cands = cands, blocked = blocked, center_fam = cfam, cc_level = cc_level, blockers = blockers }
+  return { cands = cands, blocked = blocked, center_fam = cfam, cc_level = cc_level, blockers = blockers, centre = centre }
 end
 
 --- Le choix : le meilleur candidat (nil s'il n'y en a pas) ; d.ranked = les Cap.TOP premiers { clé, score } ;
@@ -392,6 +401,7 @@ function Cap.choose(Ld, census, ctx)
   d.n_cands = #res.cands
   d.blocked = res.blocked
   d.cc_level = res.cc_level
+  d.centre = res.centre
   local wanted = {}
   for _, b in ipairs(res.blocked) do
     for _, c in ipairs(b.causes or {}) do
