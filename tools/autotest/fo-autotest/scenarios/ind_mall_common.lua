@@ -34,7 +34,7 @@ end
 local PARTS = {
   { "assembling-machine-1", 12 }, { "assembling-machine-2", 24 }, { "inserter", 80 }, { "long-handed-inserter", 40 },
   { "fast-inserter", 30 }, { "wood", 200 }, { "transport-belt", 300 }, { "iron-chest", 30 }, { "wooden-chest", 10 }, { "small-electric-pole", 60 },
-  { "medium-electric-pole", 40 }, { "copper-plate", 3000 }, { "stone-brick", 600 }, { "coal", 1500 },
+  { "medium-electric-pole", 40 }, { "copper-plate", 800 }, { "stone-brick", 300 }, { "coal", 400 },
 }
 
 local MALL = {
@@ -102,8 +102,8 @@ return function(name)
         ctx.check(st.key ~= nil and st.control ~= nil, "deux factions relevees")
         if not st.key then return end
         local list = {}
-        for _, p in ipairs(PARTS) do list[#list + 1] = p end
         for _, p in ipairs(cfg.extra or {}) do list[#list + 1] = p end
+        for _, p in ipairs(PARTS) do list[#list + 1] = p end
         local put = ctx.remote("fo-ind", "stock", st.key, list)
         ctx.check(put ~= nil, st.key .. " : pieces posees au coffre d'equipe")
         for _, p in ipairs(list) do
