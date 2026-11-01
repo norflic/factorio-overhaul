@@ -35,6 +35,10 @@
      `ingredient_count` (le four : une case de source, `source_inventory_size` plafonné à 1 par la doc des prototypes).
      KIT_TYPE : type d'entité -> pièce du kit de logistique d'un patron (bras, tapis, coffre, poteau), choisie par TYPE et
      par ses nombres (portée, vitesse, cases, fil), jamais par son nom.
+  10. R.UNIT_TYPES (lot RB-3, unités qu'un objet pose) : types du moteur seulement. Une UNITÉ (type `unit`) ou une araignée
+     (`spider-vehicle`) qu'un objet pose (`items_to_place_this`) est lue au relevé (`dump.units`) et entre au catalogue
+     (`cat.unites`). Table SÉPARÉE de R.ENTITY_ROLE : ce dernier est balayé en jeu (relevé des bâtiments d'une base) et ne doit
+     jamais compter les créatures.
   Ce fichier ne contient aucune fonction.
 ]]
 
@@ -67,6 +71,9 @@ R.ENTITY_ROLE = {
   ["roboport"] = "logistique",
   ["radar"] = "logistique",
 }
+-- Lot RB-3 : voir le point 10 de l'en-tête. Liste dans un ordre fixe (le moteur rend ses prototypes dans une table).
+R.UNIT_TYPES = { ["unit"] = "unite", ["spider-vehicle"] = "unite" }
+R.UNIT_TYPE_LIST = { "spider-vehicle", "unit" }
 -- Lot INDUSTRIE I4 : voir le point 9 de l'en-tête.
 R.SOURCE_CAP = { ["furnace"] = 1 }
 R.KIT_TYPE = { ["inserter"] = "bras", ["transport-belt"] = "tapis", ["container"] = "coffre", ["electric-pole"] = "poteau" }

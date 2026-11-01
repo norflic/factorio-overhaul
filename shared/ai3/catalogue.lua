@@ -9,7 +9,7 @@
     tech_list (triée), packs = { [objet] = vrai } (entrées des laboratoires), pack_list, labs = { {entity, item, speed,
     inputs} }, role = { [objet] = "pack" | "machine" | "militaire" | "logistique" }, fuel, products = { [recette] =
     {objets} } (TOUTES les recettes, cachées comprises), item_of = { [entité] = objet qui la pose },
-    fab, fab_machines, lecture, kit } : lot INDUSTRIE I4, voir shared/ai3/lecture.lua. fab[recette] = ce que les machines
+    fab, fab_machines, lecture, kit, unites, unite_list } : lot INDUSTRIE I4, voir shared/ai3/lecture.lua. fab[recette] = ce que les machines
     du jeu (TOUTES, exécutées ou non, lues par catégorie) permettent d'en faire : entrées solides et fluides, produits,
     machines qui la prennent, raison du refus ; lecture = L.summary(fab) ; kit(usable) = la pièce la moins chère par type
     (bras, bras long, tapis, coffre, poteau). Une recette d'un mod y entre sans code.
@@ -31,6 +31,10 @@
     exec_roles = { [rôle] = vrai } : rôles toujours exécutables (la main, le laboratoire du QG) ;
     labs_unpowered = vrai : le laboratoire du QG avance sans courant (script/ai3/cerveau.lua, revue B2) ;
   }
+  Lot RB-3 : `dump.units` = { { name, type, item (le kit qui la pose), hp, speed, range, min_range, cooldown, dps (nil : non lisible),
+  zone, half (demi-côté de la boîte) } } : seules les unités qu'un objet pose y sont. cat.unites[kit] = { entity, type, hp, speed, range,
+  min_range, dps, zone, points, cost } (classe de points lue à la boîte, coût = matières premières de la recette du kit) ;
+  cat.unite_list = les kits, triés. Un mod qui ajoute une unité y entre sans une ligne.
   Rôles des types du moteur : shared/ai3/reglages.lua (R.ENTITY_ROLE, R.ITEM_ROLE, R.MODIFIER_ROLE), seul fichier nommé.
 
   Ce que le catalogue DÉDUIT (aucune table écrite à la main) :
@@ -71,6 +75,59 @@ end
 
 --- Rôle d'une entité du relevé (type du moteur -> rôle).
 function K.entity_role(e) return R.ENTITY_ROLE[e.type or ""] end
+
+--- Points d'une unité d'après sa boîte : demi-côté ≤ 0,5 → 1 ; ≤ 0,75 → 2 ; ≤ 1,2 → 4 ; au-delà, ou une araignée → 12.
+function K.unit_points(half, giant)
+  if giant then return 12 end
+  half = half or 0
+  if half <= 0.5 then return 1 end
+  if half <= 0.75 then return 2 end
+  if half <= 1.2 then return 4 end
+  return 12
+end
+
+--- Matières premières d'un objet : le nombre d'unités de ressources brutes qu'il faut pour en faire un (recette du plus petit nom qui
+--- le produit, récursif, profondeur bornée ; un objet sans recette vaut 1).
+local function raw_weight(dump, item, depth, memo)
+  if memo[item] then return memo[item] end
+  if depth > 8 then return 1 end
+  local best
+  for _, name in ipairs(sorted_keys(dump.recipes)) do
+    local r = dump.recipes[name]
+    for _, p in ipairs(r.products or {}) do
+      if p.name == item and (p.amount or 0) > 0 then best = best or { r = r, amount = p.amount } end
+    end
+    if best then break end
+  end
+  local w = 1
+  if best then
+    w = 0
+    memo[item] = 1 -- coupe les cycles
+    for _, i in ipairs(best.r.ingredients or {}) do w = w + (i.amount or 0) * raw_weight(dump, i.name, depth + 1, memo) end
+    w = w / best.amount
+    if w <= 0 then w = 1 end
+  end
+  memo[item] = w
+  return w
+end
+
+--- Les unités du relevé (voir l'en-tête) : { [kit] = fiche }, liste triée des kits.
+function K.units(dump)
+  local out, list, memo = {}, {}, {}
+  local units = {}
+  for _, u in ipairs(dump.units or {}) do units[#units + 1] = u end
+  table.sort(units, function(a, b) return a.name < b.name end)
+  for _, u in ipairs(units) do
+    if u.item and not out[u.item] then
+      out[u.item] = { entity = u.name, type = u.type, hp = u.hp or 0, speed = u.speed or 0, range = u.range or 0,
+        min_range = u.min_range or 0, dps = u.dps, zone = u.zone and true or false,
+        points = K.unit_points(u.half, u.type == "spider-vehicle"), cost = raw_weight(dump, u.item, 0, memo) }
+      list[#list + 1] = u.item
+    end
+  end
+  table.sort(list)
+  return out, list
+end
 
 function K.build(dump, opts)
   opts = opts or {}
@@ -224,6 +281,8 @@ function K.build(dump, opts)
     pack_list = sorted_keys(packs), labs = labs, role = role, fuel = fuel, fuels = fuel_list, products = products,
     item_of = item_of,
     resources = resources, resource_list = sorted_keys(resources) }
+  -- Lot RB-3 : les unités qu'un objet pose, avec leur classe de points et leur coût en matières premières.
+  cat.unites, cat.unite_list = K.units(dump)
   -- Lot INDUSTRIE I4 : lecture générique des machines de fabrication et du kit (indépendante des exécutants).
   cat.fab, cat.fab_machines = L.read(dump, { known = recipes, hand = hand })
   cat.lecture = L.summary(cat.fab)

@@ -62,8 +62,25 @@ Ro.ROBOTS = {
 --- Technologie qui débloque l'atelier et le kit du Trotte-Vapeur (âge 3 : packs et unités par les règles des lots CRAFTS).
 Ro.TECH = { name = "fo-robot-automata", epoch = 3, count = 100, time = 30, prerequisites = { "engine" } }
 
---- Ordres du joueur (RB-1 : appel direct ; l'outil de sélection vient en RB-2).
+--- Ordres du joueur (RB-1 : appel direct ; RB-2 : l'outil de sélection `Ro.TOOL_ORDER`, mêmes fonctions).
 Ro.ORDERS = { "move", "attack" }
+
+--- Lot RB-2 JOUEUR : outils et interface. Outil d'ordre (raccourci « Armée » en fin de barre) : glisser = choisir ses robots,
+--- Maj + glisser = marche-attaque vers la zone, bouton droit = attaquer ce qui est encadré, Maj + bouton droit = aller (touches
+--- de la doc SelectionToolPrototype, jamais jouées par un script : RB0 E6). Outil de ralliement : un clic ou un glisser fixe le
+--- point de ralliement d'un atelier.
+Ro.TOOL_ORDER = "fo-robot-order"
+Ro.TOOL_RALLY = "fo-robot-rally"
+Ro.SHORTCUT = "fo-robot-order" -- raccourci (action « spawn-item ») et touche (custom-input) du même nom
+Ro.INPUT_KEY = "ALT + R"
+--- Événement de l'outil -> action : choisir ses robots, marche-attaque, attaquer ce qui est encadré, aller.
+Ro.TOOL_ACTIONS = { selected = "choose", alt = "attack", reverse = "strike", alt_reverse = "move" }
+Ro.MIN_ZONE = 6        -- rayon minimal d'une zone d'ordre (tuiles) : un clic sans glisser donne ce rayon
+Ro.SELECTION_MAX = 200 -- robots choisis au plus (un joueur ne commande pas plus que le plafond)
+Ro.QUEUE_MAX = 12      -- entrées d'une file d'atelier
+Ro.KEEP_MAX = 99       -- « maintenir N » : N au plus
+Ro.ALERT_COOLDOWN = 300 -- ticks entre deux alertes de pertes (par force)
+Ro.LOSS_FLUSH = 120    -- ticks sans perte avant le message de bilan des pertes
 Ro.ATTACK_RADIUS = 24 -- rayon de la zone d'une marche-attaque (tuiles)
 Ro.RALLY_DEPTH = 9    -- ralliement par défaut : tuiles au sud du point de sortie
 Ro.SELECT_RADIUS = 1  -- clic sans glisser : rayon de sélection (tuiles ; défaut du plan, E6 non tranché)
@@ -89,6 +106,7 @@ for _, w in ipairs(Ro.WORKSHOPS) do workshop_by_name[w.name] = w end
 
 function Ro.robot(id) return by_id[id] end
 function Ro.robot_of_kit(name) return by_kit[name] end
+function Ro.robot_of_recipe(name) return by_recipe[name] end
 function Ro.workshop(name) return workshop_by_name[name] end
 function Ro.is_workshop(name) return workshop_by_name[name] ~= nil end
 --- Robots fabriqués par un bâtiment (liste dans l'ordre des données).

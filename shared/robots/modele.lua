@@ -62,10 +62,11 @@ local function remove_value(list, v)
   return false
 end
 
---- Ajoute une unité (idempotent : faux si elle est déjà inscrite). Les points entrent dans la force.
-function M.add(l, force, unit_number, id, points)
+--- Ajoute une unité (idempotent : faux si elle est déjà inscrite). Les points entrent dans la force. `home` (lot RB-2) : numéro
+--- d'unité de l'atelier d'origine (nil : inconnu ; inscription d'avant le lot) ; il donne le ralliement de l'unité.
+function M.add(l, force, unit_number, id, points, home)
   if l.units[unit_number] then return false end
-  l.units[unit_number] = { force = force, id = id, points = points }
+  l.units[unit_number] = { force = force, id = id, points = points, home = home }
   insert_sorted(l.order, unit_number)
   if l.used[force] == nil then
     l.used[force], l.by_id[force] = 0, {}
@@ -96,6 +97,15 @@ function M.units_of(l, force)
   local out = {}
   for _, un in ipairs(l.order) do
     if l.units[un].force == force then out[#out + 1] = un end
+  end
+  return out
+end
+
+--- Numéros d'unité inscrits dont l'atelier d'origine est `home`, triés.
+function M.units_at(l, home)
+  local out = {}
+  for _, un in ipairs(l.order) do
+    if l.units[un].home == home then out[#out + 1] = un end
   end
   return out
 end
@@ -154,6 +164,85 @@ function M.queue_valid(queue, known)
     if type(q.n) ~= "number" or q.n < 0 or q.n ~= floor(q.n) then return false end
   end
   return true
+end
+
+--- Lot RB-2 : édition de la file par le joueur. « Maintenir N » d'un robot EST une entrée de la file ; l'ordre des entrées est
+--- l'ordre de préférence. Toutes ces fonctions rendent une file NEUVE (la file reçue n'est jamais modifiée).
+local function copy_queue(queue)
+  local out = {}
+  for i, q in ipairs(queue or {}) do out[i] = { id = q.id, n = q.n } end
+  return out
+end
+
+--- Cible (« maintenir N ») d'un robot dans la file, ou nil (pas de limite).
+function M.queue_target(queue, id)
+  for _, q in ipairs(queue or {}) do
+    if q.id == id then return q.n end
+  end
+  return nil
+end
+
+--- Fixe la cible d'un robot : n entier ramené dans 0 à KEEP_MAX ; une entrée présente garde sa place, une entrée neuve passe en
+--- queue de file (refusée au-delà de QUEUE_MAX ou pour un robot inconnu de `known`) ; n nil retire l'entrée.
+--- Rend (file neuve, vrai si la file a changé).
+function M.queue_set(queue, id, n, known)
+  local out = copy_queue(queue)
+  if n == nil then
+    for i, q in ipairs(out) do
+      if q.id == id then table.remove(out, i) return out, true end
+    end
+    return out, false
+  end
+  if known and not known[id] then return out, false end
+  if type(n) ~= "number" or n ~= n then return out, false end
+  n = max(0, min(Ro.KEEP_MAX, floor(n)))
+  for _, q in ipairs(out) do
+    if q.id == id then
+      local changed = q.n ~= n
+      q.n = n
+      return out, changed
+    end
+  end
+  if #out >= Ro.QUEUE_MAX then return out, false end
+  out[#out + 1] = { id = id, n = n }
+  return out, true
+end
+
+--- Monte (delta < 0) ou descend (delta > 0) une entrée d'un cran ; sans effet aux extrémités. Rend (file neuve, changée).
+function M.queue_move(queue, id, delta)
+  local out = copy_queue(queue)
+  for i, q in ipairs(out) do
+    if q.id == id then
+      local j = i + (delta < 0 and -1 or 1)
+      if j < 1 or j > #out then return out, false end
+      out[i], out[j] = out[j], out[i]
+      return out, true
+    end
+  end
+  return out, false
+end
+
+--- Le robot que l'atelier doit fabriquer : la file n'impose une recette qu'à partir de DEUX entrées (une seule entrée est un simple
+--- « maintenir N » : la recette reste celle du joueur), ou à un atelier SANS recette (`current_id` nil) dont la file est non vide.
+--- `have[id]` = effectif vivant + kits en attente ; rend l'id voulu, ou nil (rien à changer : cibles atteintes, ou recette libre).
+function M.recipe_wanted(queue, have, current_id)
+  local n = #(queue or {})
+  if n == 0 then return nil end
+  if n < 2 and current_id ~= nil then return nil end
+  local want = M.queue_next(queue, have)
+  if want == nil or want == current_id then return nil end
+  return want
+end
+
+--- Peut-on changer la recette maintenant ? p = { current (id ou nil), progress (0 à 1), output_blocked (kits d'une cible atteinte
+--- seulement), output_empty, since (ticks depuis le dernier changement), min_gap (durée d'une fabrication, en ticks) }.
+--- Pas de changement en cours de fabrication, ni avant qu'une fabrication entière ait pu s'achever (RB0 E7 : un changement plus
+--- rapide n'en achève aucune) ; une sortie qui ne contient que des kits bloqués ne retient pas le changement.
+function M.recipe_switch_ok(p)
+  if p.current == nil then return true end
+  if (p.progress or 0) > 0 then return false end
+  if not (p.output_empty or p.output_blocked) then return false end
+  return (p.since or 0) >= (p.min_gap or 0)
 end
 
 ---------------------------------------------------------------------------------------------------

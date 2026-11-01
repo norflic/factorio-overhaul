@@ -24,6 +24,9 @@ local Mo = require("shared.robots.modele")
 
 local Usine = {}
 
+local KNOWN = {}
+for _, r in ipairs(Ro.ROBOTS) do KNOWN[r.id] = true end
+
 local PERIOD = 60       -- ticks entre deux lectures des ateliers
 local PRUNE_PERIOD = 300 -- balayage de sécurité du registre : tous les 300 ticks (sur le numéro de tick : rien hors de global)
 
@@ -81,12 +84,82 @@ local function forget_gone(s)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- La file (lot RB-2) : « maintenir N » dans l'ordre, et la recette qui la suit
+---------------------------------------------------------------------------------------------------
+--- Lot RB-2 : l'ancien « maintenir N » (rec.keep, RB-1) devient une entrée de la file (rec.queue), dans l'ordre des données.
+local function migrate(rec)
+  if not rec.keep then return end
+  local queue = rec.queue or {}
+  for _, r in ipairs(Ro.ROBOTS) do
+    local n = rec.keep[r.id]
+    if n ~= nil then queue = Mo.queue_set(queue, r.id, n, KNOWN) end
+  end
+  rec.queue, rec.keep = queue, nil
+end
+
+--- Rend au monde ce que `set_recipe` a rendu (RB0 E7 : tout, ingrédients et kits compris) : dans un coffre voisin (à 4 tuiles) s'il
+--- y a de la place, sinon au sol près de la machine. Noms triés (déterminisme). Rien n'est jamais détruit.
+local function give_back(e, back)
+  local names = {}
+  for name in pairs(back) do names[#names + 1] = name end -- trié juste après
+  table.sort(names)
+  if #names == 0 then return end
+  local p = e.position
+  local boxes = e.surface.find_entities_filtered({ area = { { p.x - 4, p.y - 4 }, { p.x + 4, p.y + 4 } },
+    type = { "container", "logistic-container" }, force = e.force })
+  table.sort(boxes, function(a, b) return a.unit_number < b.unit_number end)
+  for _, name in ipairs(names) do
+    local left = back[name]
+    for _, box in ipairs(boxes) do
+      if left <= 0 then break end
+      if box.valid then left = left - box.insert({ name = name, count = left }) end
+    end
+    if left > 0 then e.surface.spill_item_stack(p, { name = name, count = left }, true) end
+  end
+end
+
+--- La file impose-t-elle une autre recette (Mo.recipe_wanted) ? Si oui et si le moment est sûr (Mo.recipe_switch_ok), change la
+--- recette et rend le contenu. Rend vrai si la recette a changé.
+local function drive_recipe(e, rec, inv, tick)
+  if not (rec.queue and #rec.queue > 0) then return false end
+  local cur = e.get_recipe()
+  local cur_r = cur and Ro.robot_of_recipe(cur.name)
+  local cur_id = cur_r and cur_r.id
+  local force = e.force
+  local have, blocked = {}, true
+  for _, r in ipairs(Ro.ROBOTS) do
+    local kits = inv.get_item_count(r.kit)
+    have[r.id] = Armee.have(force.name, r.id) + kits
+    local target = Mo.queue_target(rec.queue, r.id)
+    -- un kit dont la cible est atteinte reste bloqué en sortie : il ne retient pas le changement de recette
+    if kits > 0 and not (target ~= nil and Armee.have(force.name, r.id) >= target) then blocked = false end
+  end
+  local want = Mo.recipe_wanted(rec.queue, have, cur_id)
+  if not want then return false end
+  local ok = Mo.recipe_switch_ok({
+    current = cur_id, progress = e.crafting_progress, output_blocked = blocked and not inv.is_empty(), output_empty = inv.is_empty(),
+    since = (tick and rec.switched) and (tick - rec.switched) or 1000000,
+    min_gap = cur_r and math.ceil(cur_r.time * 60 / math.max(e.crafting_speed, 0.01)) or 0,
+  })
+  if not ok then return false end
+  local back = e.set_recipe(Ro.robot(want).recipe)
+  rec.switched = tick
+  give_back(e, back or {})
+  log(string.format("[FO-ROBOTS] recette %d %s -> %s (file de %d)", e.unit_number, tostring(cur_id), want, #rec.queue))
+  return true
+end
+
+---------------------------------------------------------------------------------------------------
 -- Le balayage : kit -> unité
 ---------------------------------------------------------------------------------------------------
---- Un atelier : retire au plus un kit par robot s'il y a de la place, pose l'unité. Rend le nombre d'unités posées.
-local function process(e, rec)
+--- Un atelier : suit la file, puis retire au plus un kit par robot s'il y a de la place et pose l'unité. Rend le nombre d'unités
+--- posées.
+local function process(e, rec, tick)
   local inv = e.get_output_inventory()
-  if not inv or inv.is_empty() then return 0 end
+  if not inv then return 0 end
+  migrate(rec)
+  drive_recipe(e, rec, inv, tick)
+  if inv.is_empty() then return 0 end
   local s = Armee.S()
   local w = Ro.workshop(e.name)
   local force = e.force
@@ -96,11 +169,11 @@ local function process(e, rec)
   for _, r in ipairs(Ro.robots_of(e.name)) do
     if inv.get_item_count(r.kit) > 0 then
       local ok = Mo.can_release({
-        used = used, cap = cap, points = r.points, have = Armee.have(force.name, r.id), keep = rec.keep and rec.keep[r.id],
+        used = used, cap = cap, points = r.points, have = Armee.have(force.name, r.id), keep = Mo.queue_target(rec.queue, r.id),
       })
       if ok and inv.remove({ name = r.kit, count = 1 }) == 1 then
         local rally = rec.rally or Mo.default_rally(e.position, w.size)
-        local u = Armee.create(e.surface, force, r.id, Mo.out_point(e.position, w.size), rally)
+        local u = Armee.create(e.surface, force, r.id, Mo.out_point(e.position, w.size), rally, e.unit_number)
         if u then
           s.stats.kits_removed = s.stats.kits_removed + 1
           used = used + r.points
@@ -124,10 +197,77 @@ function Usine.sweep(tick)
   local made = 0
   for _, un in ipairs(s.list) do
     local rec = s.factories[un]
-    made = made + process(rec.e, rec)
+    made = made + process(rec.e, rec, tick)
   end
   if tick and tick % PRUNE_PERIOD == 0 then Armee.prune() end
   return made
+end
+
+---------------------------------------------------------------------------------------------------
+-- Réglages d'un atelier (lot RB-2 : panneau de la machine, outil de ralliement, interface distante)
+---------------------------------------------------------------------------------------------------
+--- L'enregistrement d'un atelier (nil s'il est inconnu ou retiré).
+function Usine.record(workshop)
+  local s = Armee.S()
+  local rec = s and s.factories[workshop]
+  if rec and rec.e and rec.e.valid then return rec end
+  return nil
+end
+
+--- Ralliement d'un atelier : le sien, sinon le point par défaut au sud de sa sortie. Rend { x, y }.
+function Usine.rally_of(rec)
+  if rec.rally then return rec.rally end
+  return Mo.default_rally(rec.e.position, Ro.workshop(rec.e.name).size)
+end
+
+--- « Maintenir N » d'un robot (n nil : pas de limite). Rend vrai si le réglage a changé. Écrit dans la file (migrée au passage).
+function Usine.set_target(workshop, id, n)
+  local rec = Usine.record(workshop)
+  if not (rec and Ro.robot(id)) then return false end
+  migrate(rec)
+  local queue, changed = Mo.queue_set(rec.queue, id, n, KNOWN)
+  rec.queue = queue
+  return changed
+end
+
+--- Monte (-1) ou descend (+1) un robot dans la file.
+function Usine.move_target(workshop, id, delta)
+  local rec = Usine.record(workshop)
+  if not rec then return false end
+  migrate(rec)
+  local queue, changed = Mo.queue_move(rec.queue, id, delta)
+  rec.queue = queue
+  return changed
+end
+
+--- Fixe (x, y) ou, sans coordonnées, efface le ralliement d'un atelier.
+function Usine.set_rally(workshop, x, y)
+  local rec = Usine.record(workshop)
+  if not rec then return false end
+  if x == nil then
+    rec.rally = nil
+  elseif Mo.valid_point({ x = x, y = y }) then
+    rec.rally = { x = x, y = y }
+  else
+    return false
+  end
+  return true
+end
+
+--- Ralliements des ateliers d'une force : { [atelier] = { x, y } } et le premier (ordre des numéros) comme repli, ou nil.
+function Usine.rallies(force_name)
+  local s = Armee.S()
+  local out, first = {}, nil
+  if not s then return out, nil end
+  for _, un in ipairs(s.list) do
+    local rec = s.factories[un]
+    if rec and rec.e and rec.e.valid and rec.e.force.name == force_name then
+      local p = Usine.rally_of(rec)
+      out[un] = p
+      first = first or p
+    end
+  end
+  return out, first
 end
 
 Events.on_nth_tick(PERIOD, function(e) Usine.sweep(e.tick) end)
@@ -166,22 +306,11 @@ remote.add_interface("fo-robots", {
     return { selected = sel, ordered = n }
   end,
   --- Point de ralliement d'un atelier (numéro d'unité de l'atelier).
-  set_rally = function(workshop, x, y)
-    local s = Armee.S()
-    local rec = s and s.factories[workshop]
-    if not rec then return false end
-    rec.rally = { x = x, y = y }
-    return true
-  end,
-  --- « Maintenir N » d'un atelier pour un robot (nil : pas de limite).
-  set_keep = function(workshop, id, n)
-    local s = Armee.S()
-    local rec = s and s.factories[workshop]
-    if not (rec and Ro.robot(id)) then return false end
-    rec.keep = rec.keep or {}
-    rec.keep[id] = n
-    return true
-  end,
+  set_rally = function(workshop, x, y) return Usine.set_rally(workshop, x, y) end,
+  --- « Maintenir N » d'un atelier pour un robot (nil : pas de limite) : une entrée de la file (lot RB-2).
+  set_keep = function(workshop, id, n) return Usine.set_target(workshop, id, n) end,
+  --- Monte (-1) ou descend (+1) un robot dans la file d'un atelier.
+  move_keep = function(workshop, id, delta) return Usine.move_target(workshop, id, delta) end,
   --- Lecture : { enabled, used, cap, age, units, by_id, workshops, stats } pour une force.
   state = function(force_name)
     local s = Armee.S()
@@ -196,14 +325,17 @@ remote.add_interface("fo-robots", {
       units = Mo.units_of(s.ledger, force_name), by_id = by_id_table(force_name), workshops = #s.list, stats = stats,
     }
   end,
-  --- Rally et « keep » d'un atelier.
+  --- Rally, « keep » et file d'un atelier.
   workshop = function(workshop)
     local s = Armee.S()
     local rec = s and s.factories[workshop]
     if not rec then return nil end
-    local keep = {}
-    for _, r in ipairs(Ro.ROBOTS) do keep[r.id] = rec.keep and rec.keep[r.id] or nil end
-    return { rally = rec.rally and { x = rec.rally.x, y = rec.rally.y } or nil, keep = keep, valid = rec.e.valid }
+    migrate(rec)
+    local keep, queue = {}, {}
+    for _, r in ipairs(Ro.ROBOTS) do keep[r.id] = Mo.queue_target(rec.queue, r.id) end
+    for i, q in ipairs(rec.queue or {}) do queue[i] = { id = q.id, n = q.n } end
+    return { rally = rec.rally and { x = rec.rally.x, y = rec.rally.y } or nil, keep = keep, queue = queue, valid = rec.e.valid,
+      home_units = #Mo.units_at(s.ledger, workshop) }
   end,
   --- Un robot inscrit (bancs) : { name, x, y, valid } ; nil s'il est inconnu.
   unit_info = function(unit_number)

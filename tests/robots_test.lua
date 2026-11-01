@@ -176,7 +176,8 @@ local pass, fail, msgs = suite(Ro0, Mo0)
 
 -- §6 Forme des fichiers.
 local FILES = { "shared/content/robots.lua", "shared/robots/modele.lua", "script/robots/armee.lua", "script/robots/usine.lua",
-  "script/robots/ordres.lua", "prototypes/robots.lua", "settings/robots.lua" }
+  "script/robots/ordres.lua", "prototypes/robots.lua", "settings/robots.lua",
+  "shared/robots/commande.lua", "script/robots/outils.lua", "script/gui/robots.lua", "script/robots/faction.lua" }
 local function check6(c, m)
   if c then pass = pass + 1 else fail = fail + 1 msgs[#msgs + 1] = m end
 end
@@ -185,7 +186,10 @@ for _, path in ipairs(FILES) do
   -- pairs() n'est toléré que sur les collections du moteur triées juste après (game.surfaces)
   local bare = false
   for line in code:gmatch("[^\n]+") do
-    if line:find("[^i_%w]pairs%s*%(") and not line:find("game%.surfaces") then bare = true end
+    -- tolérés : les collections du moteur (surfaces, forces, dictionnaire rendu par set_recipe) et l'état des pertes, collectés dans une
+    -- liste triée juste après
+    if line:find("[^i_%w]pairs%s*%(") and not line:find("game%.surfaces") and not line:find("game%.forces")
+        and not line:find("pairs%(back%)") and not line:find("pairs%(alerts%)") then bare = true end
   end
   check6(not bare, "§6 " .. path .. " : pairs() dans une décision")
   check6(not code:find("math%.random") and not code:find("os%.time") and not code:find("os%.clock") and not code:find("game%.tick"),
@@ -200,7 +204,7 @@ for _, path in ipairs(FILES) do
   check6(not indented, "§6 " .. path .. " : require dans une fonction (F24)")
 end
 -- les fichiers de shared/ ne touchent pas à l'API du jeu
-for _, path in ipairs({ "shared/content/robots.lua", "shared/robots/modele.lua" }) do
+for _, path in ipairs({ "shared/content/robots.lua", "shared/robots/modele.lua", "shared/robots/commande.lua" }) do
   local code = strip(read(path))
   check6(not code:find("%f[%w_]game%.") and not code:find("%f[%w_]defines%.") and not code:find("%f[%w_]script%.") and not code:find("%f[%w_]settings%.")
     and not code:find("%f[%w_]data:extend") and not code:find("%f[%w_]log%s*%("), "§6 " .. path .. " : Lua pur (aucune API du jeu)")
