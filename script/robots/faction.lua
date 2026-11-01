@@ -26,9 +26,12 @@ local Id = require("shared.ai3.industrie")
 local Ro = require("shared.content.robots")
 local Mo = require("shared.robots.modele")
 local Rb = require("shared.ai3.robots")
+local Auto = require("script.ai3.automatisation")
+local Ca = require("shared.ai3.capitalisation") -- bancs : regle d obtention sur les vraies donnees (fo-robots-faction.obtenable)
 
 local Fa = {}
 
+Fa.CAUSE_EVERY = 3600 -- au plus une écriture des causes d'attente par minute et par faction
 Fa.PERIOD = 1200 -- 20 secondes : une demande vit 10 minutes (Ml.WANT_TTL), elle est renouvelée tant que le besoin dure
 
 --- Recette (nom) qui produit `item`, d'après le catalogue (liste triée : la première) ; nil si aucune.
@@ -74,6 +77,110 @@ function Fa.candidates(cat, force, ml, tick)
   return out
 end
 
+--- Lot RB-FLUIDE : POURQUOI une faction n'a pas (encore) de robot, un maillon par ligne, de la recherche à l'usine. Aucune décision n'en
+--- dépend : le journal [FO-ROBOTS] « attente » le dit, une fois par changement. Chaque kit non fabriqué, du moins cher au plus cher, au plus
+--- 3 kits ; les maillons (dans l'ordre de la chaîne demande -> capitalisation -> recherche -> usine -> kit -> unité) :
+---   recette   la recette du kit est fermée : la technologie qui l'ouvre, ses prérequis manquants, ses packs non fabricables, sa valeur,
+---             son rang, la recherche qui tient le laboratoire ;
+---   kit       le kit est refusé (mall) ou n'a plus de place sous le plafond ;
+---   module    la demande est notée mais le module n'est pas fini (état, raison, objets manquants) ;
+---   atelier   le module est fini mais aucune unité n'est née.
+--- Rend une liste de textes.
+local function explain(f, force, cat, ml, tick)
+  local out = {}
+  local kits = {}
+  for _, kit in ipairs(cat.unite_list or {}) do kits[#kits + 1] = kit end
+  table.sort(kits, function(a, b)
+    local ca, cb = cat.unites[a].cost, cat.unites[b].cost
+    if ca ~= cb then return ca < cb end
+    return a < b
+  end)
+  local shown = 0
+  for _, kit in ipairs(kits) do
+    if shown >= 3 then break end
+    local rn = recipe_of(cat, kit)
+    local r = rn and force.recipes[rn]
+    local line
+    if not (r and r.enabled) then
+      local t = rn and cat.g.unlocked_by[rn]
+      local info = t and General.tech_info(f, t)
+      if not t then
+        line = string.format("%s : recette %s fermee, aucune technologie ne l'ouvre", kit, tostring(rn))
+      elseif info and info.done then
+        line = string.format("%s : technologie %s faite mais recette %s fermee pour la force", kit, t, tostring(rn))
+      elseif info then
+        local parts = {}
+        if #info.missing > 0 then parts[#parts + 1] = "prerequis manquants " .. table.concat(info.missing, ",") end
+        local np = {}
+        for _, p in ipairs(info.packs) do if not p[2] then np[#np + 1] = p[1] end end
+        if #np > 0 then parts[#parts + 1] = "packs non fabricables " .. table.concat(np, ",") end
+        if info.tfeas == false then parts[#parts + 1] = "non payable (graphe)" end
+        if #parts == 0 then
+          parts[#parts + 1] = string.format("prete et payable, valeur %s, %s", tostring(info.value),
+            info.rank == nil and "hors du classement des recherches" or (info.rank == 0 and "en cours" or ("rang " .. info.rank)))
+        end
+        if info.current and info.current ~= t then parts[#parts + 1] = "laboratoire sur " .. info.current end
+        line = string.format("%s : recette fermee, technologie %s pas faite (%s)", kit, t, table.concat(parts, " ; "))
+      else
+        line = string.format("%s : recette fermee, technologie %s pas faite (etat inconnu)", kit, t)
+      end
+    elseif not kit_ok(force, ml, tick, kit) then
+      local why = f.team and f.team.ia3 and f.team.ia3.industrie and f.team.ia3.industrie.refus and f.team.ia3.industrie.refus[kit]
+      line = string.format("%s : kit ecarte (%s)", kit, Ml.refused(ml, tick, kit) and ("refuse par le mall : " .. tostring(why)) or "plafond d'armee")
+    else
+      local st = f.team and f.team.ia3 and f.team.ia3.industrie
+      local blocs = {}
+      for _, b in ipairs(st and st.blocs or {}) do
+        for _, it in ipairs(b.items or {}) do
+          if it == kit then
+            local m = Auto.module(f, b.id)
+            local miss = {}
+            for _, mm in ipairs(m and m.missing or {}) do miss[#miss + 1] = tostring(mm[1]) .. " " .. tostring(mm[2]) end
+            blocs[#blocs + 1] = string.format("module %d %s%s%s", b.id, tostring(m and m.state or b.state),
+              (m and m.reason) and (" (" .. tostring(m.reason) .. ")") or "", #miss > 0 and (", manque " .. table.concat(miss, ", ")) or "")
+          end
+        end
+      end
+      if #blocs > 0 then
+        line = string.format("%s : demande notee, %s", kit, table.concat(blocs, " ; "))
+      elseif ml.want and ml.want[kit] then
+        line = string.format("%s : demande notee, aucun module encore (le mall n'a pas decide)", kit)
+      end
+    end
+    if line then
+      out[#out + 1] = line
+      shown = shown + 1
+    end
+  end
+  return out
+end
+
+--- Lot RB-FLUIDE : la recherche du PREMIER robot. Avant le lot, aucune règle ne voulait la technologie d'un robot (valeur propre 35 : l'atelier et le kit,
+--- loin derrière les recherches voulues, 100 à 300) : partie de 4 h, 29 recherches, aucune des robots. Une faction qui n'a AUCUN robot veut le kit le moins
+--- cher dont la recette est fermée et dont la technologie est prête (prérequis faits) : un objet voulu (Gen.V_WANTED), comme la tourelle ou ce qu'attend un site de
+--- pétrole. Une seule technologie à la fois, jamais une chaîne ; dès qu'un robot existe, le classement ordinaire reprend. Rend { [kit] = vrai } ou nil.
+function Fa.wanted(f)
+  if f.is_player or not Armee.enabled() then return nil end
+  local force = f.force and game.forces[f.force]
+  local cat = General.catalogue()
+  if not (force and force.valid and cat and cat.unite_list and #cat.unite_list > 0) then return nil end
+  if Armee.used(force.name) > 0 then return nil end
+  local best
+  for _, kit in ipairs(cat.unite_list) do
+    local rn = recipe_of(cat, kit)
+    local r = rn and force.recipes[rn]
+    local t = rn and cat.g.unlocked_by[rn]
+    if r and not r.enabled and t then
+      local info = General.tech_info(f, t)
+      if info and not info.done and info.ready then
+        local c = cat.unites[kit].cost
+        if best == nil or c < best.cost or (c == best.cost and kit < best.kit) then best = { kit = kit, cost = c } end
+      end
+    end
+  end
+  return best and { [best.kit] = true } or nil
+end
+
 --- Points de robots vivants de la force, par kit (les robots du mod sont lus au registre ; une unité d'un autre mod n'y est pas).
 local function have_points(force, cands)
   local have, total = {}, 0
@@ -103,6 +210,13 @@ function Fa.think(f, tick)
     states[f.id] = st
   end
   local cands = Fa.candidates(cat, force, ml, tick)
+  -- Lot RB-FLUIDE : une ligne par maillon qui arrête la chaîne, écrite quand l'ensemble change
+  local causes = explain(f, force, cat, ml, tick)
+  local csig = table.concat(causes, "|")
+  if csig ~= st.csig and tick - (st.clog or -Fa.CAUSE_EVERY) >= Fa.CAUSE_EVERY then
+    st.csig, st.clog = csig, tick
+    for _, c in ipairs(causes) do log(string.format("[FO-ROBOTS] faction %s : attente : %s", tostring(f.key), c)) end
+  end
   local have, robots = have_points(force, cands)
   local choice, why = Rb.choose(cands, { have = have, prev = st.prev })
   if not choice then
@@ -141,6 +255,25 @@ Events.on_nth_tick(Fa.PERIOD, sweep)
 
 -- Interface distante « fo-robots-faction » (bancs) : lecture de ce que la faction a décidé.
 remote.add_interface("fo-robots-faction", {
+  --- BANC SEULEMENT (lot RB-FLUIDE) : la règle d'obtention de la capitalisation sur les VRAIES données du jeu (relevé des prototypes), toutes
+  --- les machines exécutantes, toutes les catégories présentes, seules les ressources de `known` (liste de noms) connues, rien au stock.
+  --- Rend { [objet] = vrai | faux } pour chaque objet de `items`.
+  obtenable = function(items, known, closed_techs)
+    local dump = General.dump()
+    local D = Ca.data(dump, { exec_roles = { main = true } })
+    local present, kn = {}, {}
+    for _, m in ipairs(D.makers) do for _, c in ipairs(m.cat_list) do present[c] = true end end
+    for c in next, D.hand do present[c] = true end
+    for _, k in ipairs(known or {}) do kn[k] = true end
+    local techs = {}
+    if not closed_techs then
+      for t in next, dump.techs do techs[t] = true end -- toutes les technologies faites
+    end
+    local ctx = { D = D, input = {}, obt = {}, stock = {}, techs = techs, known = kn, cats_present = present }
+    local out = {}
+    for _, it in ipairs(items or {}) do out[it] = Ca.obtainable(ctx, it) end
+    return out
+  end,
   --- Une pensée tout de suite pour la faction `key` au tick `tick` : { item, want, units, rate } ou nil.
   think = function(key, tick)
     for _, id in ipairs(State.alive()) do

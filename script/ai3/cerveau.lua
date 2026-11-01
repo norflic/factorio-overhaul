@@ -501,6 +501,15 @@ local function research_step(f, st, book, w, tick, view)
       for _, k in ipairs(sorted_keys(pw)) do m[k] = true end
       wanted = m
     end
+    -- Lot RB-FLUIDE : le kit du premier robot d'une faction qui n'en a aucun (script/robots/faction.lua ; non chargé hors jeu : nil)
+    local Fa = package.loaded["script.robots.faction"]
+    local rw = Fa and Fa.wanted and Fa.wanted(f) or nil
+    if rw then
+      local m = {}
+      for _, k in ipairs(sorted_keys(wanted or {})) do m[k] = wanted[k] end
+      for _, k in ipairs(sorted_keys(rw)) do m[k] = true end
+      wanted = m
+    end
     tech, payable, causes, palier, for_auto = General.choose_tech(f, force, st, book, w, tick, view, wanted)
   else
     tech, payable, causes, palier, for_auto = choose_tech(f, force, st, c, book, w, tick)

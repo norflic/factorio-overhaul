@@ -483,6 +483,32 @@ function General.spare_hands(f, view, tick)
   return (g and g.spare_hands) or 0
 end
 
+--- Lot RB-FLUIDE : où en est une technologie pour une faction, à la dernière évaluation de la force (journal [FO-ROBOTS], aucune décision n'en dépend) :
+--- { done, ready (prérequis faits), missing (prérequis manquants), tfeas (payable d'après le graphe), packs = { { pack, fabricable } },
+--- value (valeur propre, sans chaîne), rank (0 : recherche en cours ; n : n-ième des suivantes ; nil : hors classement), current (technologie en cours) }.
+function General.tech_info(f, t)
+  local st = f.team and f.team.ia3
+  local c = General.catalogue()
+  local spec = c and c.techs[t]
+  if not (st and spec) then return nil end
+  local techs = st.techs or {}
+  local info = { done = techs[t] == true, missing = {}, packs = {} }
+  for _, p in ipairs(spec.prerequisites) do if not techs[p] then info.missing[#info.missing + 1] = p end end
+  info.ready = #info.missing == 0
+  local m = memos[f.force]
+  if m and m.ev then
+    info.tfeas = m.ev.tfeas[t] == true
+    for _, ing in ipairs(spec.ingredients) do info.packs[#info.packs + 1] = { ing[1], m.ev.feas[ing[1]] == true } end
+    info.value = Gen.value(c, m.ev, { stock = {}, techs = techs, built = {}, known = {} }, t, {})
+  end
+  info.current = st.lab and st.lab.tech or nil
+  if info.current == t then info.rank = 0 end
+  for i, n in ipairs((f.team.iag and f.team.iag.next) or {}) do
+    if n == t then info.rank = i end
+  end
+  return info
+end
+
 --- Faisabilité d'un objet à la dernière évaluation de la force (nil : inconnue).
 function General.feasible(f, item)
   local m = memos[f.force]
