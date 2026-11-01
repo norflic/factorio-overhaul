@@ -1417,6 +1417,7 @@ function Capi.think(f, view, book, tick, research, w)
   if not Capi.on(f) then return nil end
   local cs = state_of(f)
   Profiler.start("capi:think")
+  Ind.sweep(f, tick) -- lot INDUSTRIE I6 : sorties des patrons à la collecte, barre posée (à chaque pensée, pas seulement à la décision)
   local phase = cs.n % Capi.CYCLE
   cs.n = cs.n + 1
   if phase == 0 then

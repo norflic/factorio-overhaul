@@ -103,7 +103,7 @@ end
 --- quand le projet est fini. Rend le nombre de coffres inscrits et le nombre de barres posées. Idempotent (p.ind_outs, p.ind_bar).
 function Ind.sweep(f, tick)
   local b = f.build
-  if not b then return 0, 0 end
+  if not b or not Rsv.on() then return 0, 0 end
   local surface = f.hq and f.hq.surface
   local reg, bars = 0, 0
   for _, pid in ipairs(b.order or {}) do
@@ -134,6 +134,9 @@ function Ind.sweep(f, tick)
         end
       end
     end
+  end
+  if reg > 0 or bars > 0 then
+    say(f, tick, string.format("sorties des patrons : %d coffre(s) inscrit(s) a la collecte, %d barre(s) posee(s)", reg, bars))
   end
   return reg, bars
 end
@@ -317,7 +320,9 @@ function Ind.think(f, cs, res, view, book, tick)
         else
           local rate = 0
           for _, it in ipairs(mod.items) do rate = rate + ((kind == "bloc") and dec.rates[it] or dec.rate) end
-          local id, why3 = Auto.submit(f, { product = mod.product, gen = mod.gen, args = mod.args, feed = true, rate = rate,
+          -- feed = "quai" : toute entrée d'un bloc se sert au coffre du QG par un quai, JAMAIS par des foreuses (script/team/build.lua, plan_feed :
+          -- une voie de matière brute à plus de P.AUTO_FLOW envoyait le bloc chercher un gisement ; mesuré au banc ind-jetable : 4 foreuses, 154 entités)
+          local id, why3 = Auto.submit(f, { product = mod.product, gen = mod.gen, args = mod.args, feed = "quai", rate = rate,
             rate_nom = nominal_sum(mod.g), electric = (mod.g.power_kw or 0) > 0, gain = 1, pole = mod.pole,
             why = "MALL " .. kind .. " " .. label }, tick, nil)
           if id then
@@ -334,10 +339,7 @@ function Ind.think(f, cs, res, view, book, tick)
       end
     end
   end
-  local reg, bars = Ind.sweep(f, tick)
-  if reg > 0 or bars > 0 then
-    say(f, tick, string.format("sorties des patrons : %d coffre(s) inscrit(s) a la collecte, %d barre(s) posee(s)", reg, bars))
-  end
+  Ind.sweep(f, tick)
   for _, k in ipairs(sorted_keys(st.hold)) do if st.hold[k] <= tick then st.hold[k] = nil end end
   Profiler.stop("ind:think")
   return out
@@ -411,6 +413,7 @@ remote.add_interface("fo-ind", {
             local _, ent = gh.revive({ raise_revive = true })
             if ent and ent.valid then
               n = n + 1
+              e.built, e.ghosted = true, nil
               if e.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, e.recipe) end
             end
           end

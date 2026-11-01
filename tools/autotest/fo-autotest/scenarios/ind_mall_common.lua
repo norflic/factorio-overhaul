@@ -106,6 +106,9 @@ return function(name)
         for _, p in ipairs(cfg.extra or {}) do list[#list + 1] = p end
         local put = ctx.remote("fo-ind", "stock", st.key, list)
         ctx.check(put ~= nil, st.key .. " : pieces posees au coffre d'equipe")
+        for _, p in ipairs(list) do
+          if put and (put[p[1]] or 0) < p[2] then ctx.log(string.format("ATTENTION : %s inseree a %d sur %d", p[1], put[p[1]] or 0, p[2])) end
+        end
         for _, w in ipairs(cfg.items) do
           ctx.check(ctx.remote("fo-ind", "want", st.key, w[1], w[2]) == true, st.key .. " : demande de " .. w[1] .. " (" .. w[2] .. "/min)")
         end
@@ -200,6 +203,12 @@ return function(name)
       ctx.check(#b.items == #cfg.items, "tous les objets demandes sont dans le bloc (" .. #b.items .. " sur " .. #cfg.items .. ")")
       ctx.check(b.total > 0, "le plan directeur a place le bloc (" .. tostring(b.total) .. " entite(s))")
       ctx.log(string.format("etat final du bloc %d : %s, %d / %d entite(s) bâties", b.id, b.state, b.built, b.total))
+      do
+        local qs, os_ = {}, {}
+        for _, q in ipairs(b.quais or {}) do qs[#qs + 1] = string.format("%s(%.1f,%.1f)", q.item, q.x, q.y) end
+        for _, o in ipairs(b.outs or {}) do os_[#os_ + 1] = string.format("(%.1f,%.1f)", o.x, o.y) end
+        ctx.log("quais d'entree du plan : " .. table.concat(qs, " ") .. " | sorties inscrites : " .. table.concat(os_, " "))
+      end
       local ents = module_ents(ctx, st.key, b.id)
       local machines, built_machines, running = 0, 0, 0
       local s1 = ctx.surface()
