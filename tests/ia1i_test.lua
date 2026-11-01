@@ -34,8 +34,9 @@ do
   check(G.clock(3600 * 60 + 61 * 60) == "1:01:01", "horloge 1:01:01 (" .. G.clock(3600 * 60 + 61 * 60) .. ")")
   check(G.minutes(0) == 0 and G.minutes(-5) == 0, "minutes : 0 et négatif")
   check(G.minutes(1) == 1 and G.minutes(3600) == 1 and G.minutes(3601) == 2, "minutes arrondies au-dessus")
-  check(#G.TABS == 7 and G.TAB_INDEX.factions == 3 and G.TABS[G.TAB_INDEX.pnj] == "pnj" and G.TAB_INDEX.partie == 5
-    and G.TAB_INDEX.territoire == 6, "onglets et index (Partie ajouté en 5e position par le lot PANEL-STATS)")
+  check(#G.TABS == 8 and G.TAB_INDEX.factions == 3 and G.TABS[G.TAB_INDEX.pnj] == "pnj" and G.TAB_INDEX.partie == 5
+    and G.TAB_INDEX.armee == 6 and G.TAB_INDEX.territoire == 7,
+    "onglets et index (Partie en 5e position par le lot PANEL-STATS, Armée en 6e par le lot RB-2)")
   check(G.REFRESH <= 60, "rafraîchissement : au plus une fois par seconde (" .. G.REFRESH .. " ticks)")
 end
 
@@ -223,7 +224,7 @@ do
   check(toggled["fo-team-gui"] == true, "raccourci allumé")
   check(W.player.opened == frame(), "fenêtre ouverte comme `opened` (Échap la ferme)")
   local tp = find(frame(), "fo_ia1i_tabs")
-  check(tp and #tp.tabs == 7, "7 onglets")
+  check(tp and #tp.tabs == 8, "8 onglets (Armée, lot RB-2)")
   local k = keys_of(pane("equipe"))
   check(k["fo-ia1i.none-title"] == 1 and k["fo-ia1i.none-how"] == 1, "sans équipe : comment poser un coffre")
   M.dispatch(W.events[defines.events.on_lua_shortcut], { prototype_name = "autre", player_index = 1 })

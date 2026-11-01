@@ -33,6 +33,9 @@ Storage.declare("robots", function()
     factories = {}, -- [numéro d'unité de l'atelier] = { e = atelier, rally = { x, y } ou nil, keep = { [robot] = n } ou nil }
     list = {},      -- numéros d'unité des ateliers, triés
     stats = { created = 0, lost = 0, kits_removed = 0, create_failed = 0, pruned = 0, orders = 0, ordered = 0 },
+    sel = {},    -- lot RB-2 : [indice de joueur] = numéros d'unité choisis (triés)
+    rally_for = {}, -- lot RB-2 : [indice de joueur] = numéro de l'atelier dont l'outil de ralliement attend un clic
+    alerts = {}, -- lot RB-2 : [nom de force] = état des pertes (Cm.new_loss)
   }
 end)
 
@@ -79,6 +82,15 @@ function Armee.entity(unit_number)
   return nil
 end
 
+--- Parties de l'état ajoutées par le lot RB-2, créées à la demande (une sauvegarde d'avant le lot n'a pas ces tables ; jamais
+--- créées pendant on_load : seuls les gestionnaires d'événements et le balayage les appellent).
+function Armee.table_of(name)
+  local s = Armee.S()
+  if not s then return nil end
+  if s[name] == nil then s[name] = {} end
+  return s[name]
+end
+
 --- Le numéro d'unité est-il un robot inscrit ?
 function Armee.registered(unit_number)
   local s = Armee.S()
@@ -118,8 +130,8 @@ end
 
 --- Pose l'unité du robot `id` pour `force`, près de `near`. Aucun contrôle de plafond ici (c'est le travail de l'appelant :
 --- usine.lua, ou Armee.spawn). `rally` = point de ralliement du joueur (ignoré pour une faction : sa garnison est son QG).
---- Rend l'unité, ou (nil, raison).
-function Armee.create(surface, force, id, near, rally)
+--- `home` (lot RB-2) : numéro d'unité de l'atelier d'origine, gardé au registre (ralliement de l'unité). Rend l'unité, ou (nil, raison).
+function Armee.create(surface, force, id, near, rally, home)
   local s = Armee.S()
   local r = Ro.robot(id)
   if not (s and r) then return nil, "robot inconnu ou état absent" end
@@ -129,7 +141,7 @@ function Armee.create(surface, force, id, near, rally)
   if not pos then return nil, "pas de place" end
   local u = surface.create_entity({ name = name, position = pos, force = force })
   if not (u and u.valid and u.unit_number) then return nil, "création refusée" end
-  Mo.add(s.ledger, force.name, u.unit_number, id, r.points)
+  Mo.add(s.ledger, force.name, u.unit_number, id, r.points, home)
   s.ents[u.unit_number] = u
   script.register_on_entity_destroyed(u)
   s.stats.created = s.stats.created + 1

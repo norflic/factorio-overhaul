@@ -12,6 +12,7 @@
     Factions     une carte par faction (caractère, relation avec vous, posture du chef, cible, forces, ce qu'elle sait
                  de vous) ; lancer ou arrêter la guerre (arrêt confirmé dans la fenêtre) ;
     PNJ          un PNJ par ligne (rôle, pôle, tâche, pôle de destination) ;
+    Armée        vos robots (lot RB-2, script/gui/robots.lua) : points et plafond, effectifs, ateliers, outil d'ordre ;
     Partie       statistiques de la partie (lot PANEL-STATS) : avancée et forces de chaque équipe, production des machines
                  et des mains des PNJ (séparées), tâches des PNJ ; lecture seule (script/gui/partie.lua) ;
     Territoire, Chantiers : « à venir » (lots IA1-g, IA1-d, IA1-f), sans faux chiffres.
@@ -62,6 +63,7 @@ local Journal = require("script.gui.ia1i_journal")
 local Stats = require("script.gui.ia1i_stats") -- lot PANEL-STATS
 local SM = require("shared.gui.stats")
 local Partie = require("script.gui.partie")
+local RobotsGui = require("script.gui.robots") -- lot RB-2 : onglet « Armée » et panneau des ateliers de robots
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : libellé d'un projet d'avant-poste (agrandir, nouvel avant-poste, reconstruire)
 local TCfg = require("shared.team.config")
 
@@ -635,6 +637,9 @@ end
 tabs.partie = Partie.tab({ label = label, heading = heading, task_text = task_text })
 tabs.partie.every = 3 -- secondes entre deux rafraîchissements de l'onglet (les débits couvrent 3 min)
 
+-- Armée (lot RB-2) : vos robots (script/gui/robots.lua) ; ses boutons ont leur propre gestionnaire (préfixe « fo_rb_ »).
+tabs.armee = RobotsGui.tab({ label = label, heading = heading })
+
 tabs.territoire = { fixed = function(c) coming(c, "coming-territoire") end }
 tabs.chantiers = { fixed = function(c) coming(c, "coming-chantiers") end }
 
@@ -820,6 +825,7 @@ local function on_click(e)
 end
 
 Events.on(defines.events.on_gui_click, on_click)
+RobotsGui.set_refresh(function(player) if frame_of(player) then build(player, true) end end)
 
 Events.on(defines.events.on_gui_selected_tab_changed, function(e)
   local el = e.element

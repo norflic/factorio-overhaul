@@ -188,4 +188,53 @@ do
   })
 end
 
+---------------------------------------------------------------------------------------------------
+-- Outils du joueur (lot RB-2) : outil d'ordre, outil de ralliement, raccourci « Armée » et touche
+---------------------------------------------------------------------------------------------------
+do
+  local function colour(r, g, b) return { r = r, g = g, b = b, a = 0.5 } end
+  local function tool(name, tint, order, modes, filters, reverse_filters)
+    local t = {
+      type = "selection-tool", name = name,
+      localised_name = { "item-name." .. name }, localised_description = { "item-description." .. name },
+      icons = icons_of("deconstruction-item", "deconstruction-planner", tint),
+      flags = { "hidden", "only-in-cursor", "spawnable" }, subgroup = "tool", order = order, stack_size = 1,
+      selection_color = colour(0.2, 0.9, 0.2), alt_selection_color = colour(0.9, 0.8, 0.2),
+      reverse_selection_color = colour(0.9, 0.2, 0.2), alt_reverse_selection_color = colour(0.2, 0.4, 0.9),
+      chart_selection_color = colour(0.2, 0.9, 0.2), chart_alt_selection_color = colour(0.9, 0.8, 0.2),
+      chart_reverse_selection_color = colour(0.9, 0.2, 0.2), chart_alt_reverse_selection_color = colour(0.2, 0.4, 0.9),
+      selection_count_button_color = colour(0.2, 0.9, 0.2), alt_selection_count_button_color = colour(0.9, 0.8, 0.2),
+      reverse_selection_count_button_color = colour(0.9, 0.2, 0.2), alt_reverse_selection_count_button_color = colour(0.2, 0.4, 0.9),
+      selection_cursor_box_type = "entity", alt_selection_cursor_box_type = "entity",
+      reverse_selection_cursor_box_type = "not-allowed", alt_reverse_selection_cursor_box_type = "not-allowed",
+      selection_mode = modes[1], alt_selection_mode = modes[2], reverse_selection_mode = modes[3], alt_reverse_selection_mode = modes[4],
+      entity_type_filters = filters, reverse_entity_type_filters = reverse_filters,
+    }
+    return t
+  end
+  -- Ordre : glisser = mes robots ; Maj + glisser = une zone (marche-attaque) ; bouton droit = ce qui est ennemi ; Maj + droit = une zone.
+  out[#out + 1] = tool(Ro.TOOL_ORDER, { r = 1, g = 0.78, b = 0.45 }, "z[fo-robot-order]",
+    { { "same-force" }, { "nothing" }, { "enemy" }, { "nothing" } },
+    { "unit", "spider-vehicle" }, { "unit", "unit-spawner", "turret", "spider-vehicle" })
+  -- Ralliement : une zone, sans entité.
+  out[#out + 1] = tool(Ro.TOOL_RALLY, { r = 0.55, g = 1, b = 0.6 }, "z[fo-robot-rally]",
+    { { "nothing" }, { "nothing" }, { "nothing" }, { "nothing" } })
+
+  local function sprite(file, size)
+    return { filename = "__factorio-overhaul__/graphics/gui/" .. file, priority = "extra-high-no-scale", size = size, scale = 0.5,
+      mipmap_count = 2, flags = { "gui-icon" } }
+  end
+  out[#out + 1] = {
+    type = "custom-input", name = Ro.SHORTCUT, key_sequence = Ro.INPUT_KEY, consuming = "none", action = "spawn-item",
+    item_to_spawn = Ro.TOOL_ORDER, order = "b[fo-robot-order]",
+  }
+  out[#out + 1] = {
+    type = "shortcut", name = Ro.SHORTCUT, order = "a[fo-team]-b[robots]", action = "spawn-item", item_to_spawn = Ro.TOOL_ORDER,
+    associated_control_input = Ro.SHORTCUT, technology_to_unlock = Ro.TECH.name,
+    localised_name = { "shortcut-name." .. Ro.SHORTCUT },
+    icon = sprite("robot-x32.png", 32), small_icon = sprite("robot-x24.png", 24),
+    disabled_icon = sprite("robot-x32-white.png", 32), disabled_small_icon = sprite("robot-x24-white.png", 24),
+  }
+end
+
 data:extend(out)

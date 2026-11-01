@@ -970,6 +970,10 @@ function M.new_world(opts)
     on_entity_damaged = 33,
     on_chunk_generated = 34, -- lot EQUILIBRE : zone sûre des QG (script/faction/war.lua) ; levé à la main par tests/zone_sure_test.lua
     on_biter_base_built = 35, -- idem
+    -- lot RB-2 : outils de sélection des robots (script/robots/outils.lua) ; le mock n'en lève aucun, tests/robots_ui_test.lua rejoue
+    -- les gestionnaires à la main
+    on_player_selected_area = 36, on_player_alt_selected_area = 37, on_player_reverse_selected_area = 38,
+    on_player_alt_reverse_selected_area = 39,
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).

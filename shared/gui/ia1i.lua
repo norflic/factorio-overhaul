@@ -17,9 +17,9 @@ local O = require("shared.team.org")
 
 local M = {}
 
--- Onglets, dans l'ordre de la fenêtre. « Partie » : statistiques (lot PANEL-STATS). Territoire et Chantiers : « à venir »
--- (lots IA1-g et IA1-d).
-M.TABS = { "equipe", "orientation", "factions", "pnj", "partie", "territoire", "chantiers" }
+-- Onglets, dans l'ordre de la fenêtre. « Partie » : statistiques (lot PANEL-STATS). « Armée » : vos robots (lot RB-2).
+-- Territoire et Chantiers : « à venir » (lots IA1-g et IA1-d).
+M.TABS = { "equipe", "orientation", "factions", "pnj", "partie", "armee", "territoire", "chantiers" }
 M.TAB_INDEX = {}
 for i, k in ipairs(M.TABS) do M.TAB_INDEX[k] = i end
 
