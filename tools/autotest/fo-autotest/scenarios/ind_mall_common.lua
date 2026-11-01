@@ -41,6 +41,7 @@ local MALL = {
   ["ind-mall"] = {
     items = { { "iron-stick", 1.0 }, { "pipe", 1.0 }, { "iron-chest", 1.0 }, { "copper-cable", 1.0 }, { "firearm-magazine", 1.0 } },
     machine_proto = nil,
+    min_kinds = 2,
   },
   -- une RANGÉE (patron, 3 entrées) demandée par le chemin des ordres « chaîne » de la capitalisation : ce que le journal du DC refusait
   ["ind-chaine"] = { items = {}, row = { item = "piercing-rounds-magazine", rate = 6 } },
@@ -48,6 +49,7 @@ local MALL = {
     items = { { "fo-i6-vis", 1.0 }, { "fo-i6-aile", 1.0 }, { "fo-i6-piece", 1.0 } },
     machine_proto = "fo-i6-machine",
     extra = { { "fo-i6-machine", 12 } },
+    min_kinds = 1, -- la fenêtre de 5 800 ticks après la fin du bloc ne laisse qu'une voie de fer à tous les consommateurs
   },
 }
 
@@ -270,6 +272,23 @@ return function(name)
       end
       ctx.check(machines == #cfg.items, "une machine par objet dans le plan (" .. machines .. ")")
       ctx.log(string.format("machines : %d au plan, %d batie(s), %d avec la recette d'un objet du bloc", machines, built_machines, running))
+      do
+        local names = {}
+        for k2, v2 in pairs(defines.entity_status) do names[v2] = k2 end
+        local sts = {}
+        for _, e2 in ipairs(ents) do
+          local proto = game.entity_prototypes[e2.name]
+          if proto and proto.type == "assembling-machine" then
+            local real = s1.find_entity(e2.name, { e2.x, e2.y })
+            if real and real.valid then
+              local r = real.get_recipe()
+              sts[#sts + 1] = string.format("%s:%s:%d fabrique(s)", r and r.name or "-", names[real.status] or tostring(real.status), real.products_finished)
+            end
+          end
+        end
+        table.sort(sts)
+        ctx.log("etat des machines : " .. table.concat(sts, " | "))
+      end
       if b.state == "fini" then
         ctx.check(running == #cfg.items, "bloc fini : chaque machine a la recette de son objet (" .. running .. ")")
         -- sorties : les coffres inscrits à la collecte portent la barre
@@ -294,7 +313,7 @@ return function(name)
           bars, tostring(b.barre), filled, total_items, #kinds, table.concat(kinds, ",")))
         ctx.check(#(b.outs or {}) >= #cfg.items, "les coffres de sortie du bloc sont inscrits a la collecte (" .. #(b.outs or {}) .. ")")
         ctx.check(bars >= #cfg.items, "les coffres de sortie portent la barre (" .. bars .. ")")
-        ctx.check(filled >= 1 and #kinds >= 2, "des objets du bloc sont fabriques et au coffre de sortie (" .. total_items .. " objet(s), " .. #kinds .. " sorte(s))")
+        ctx.check(filled >= 1 and #kinds >= (cfg.min_kinds or 1), "des objets du bloc sont fabriques et au coffre de sortie (" .. total_items .. " objet(s), " .. #kinds .. " sorte(s))")
       else
         ctx.log("bloc pas fini a la fin du banc (" .. b.state .. ") : machines en marche et coffres non controles")
       end
