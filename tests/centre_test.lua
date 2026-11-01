@@ -75,6 +75,9 @@ local function world()
   rawset(w.prototypes, CCN, { type = "container", max_health = 3000, collision_box = box(-1.7, -1.7, 1.7, 1.7),
     selection_box = box(-2, -2, 2, 2), collision_mask = w.prototypes["gun-turret"].collision_mask,
     items_to_place_this = { { name = CCN, count = 1 } } })
+  -- Lot QG-JEU : l'épave est une entité à part (fo-command-wreck), sans objet, de même boîte.
+  rawset(w.prototypes, L.WRECK, { type = "container", max_health = 3000, collision_box = box(-1.7, -1.7, 1.7, 1.7),
+    selection_box = box(-2, -2, 2, 2), collision_mask = w.prototypes["gun-turret"].collision_mask })
   _G.game.item_prototypes = setmetatable({}, { __index = function() return {} end })
   M.load_mod()
   M.dispatch(w.on_init)
@@ -89,11 +92,11 @@ local function stock(w, items)
 end
 local function status(force) return remote.call("fo-centre", "status", force or "player") end
 local function find_cc(w)
-  for _, e in ipairs(w.entities) do if e.valid and e.name == CCN then return e end end
+  for _, e in ipairs(w.entities) do if e.valid and (e.name == CCN or e.name == L.WRECK) then return e end end
 end
 local function count_cc(w)
   local n = 0
-  for _, e in ipairs(w.entities) do if e.valid and e.name == CCN then n = n + 1 end end
+  for _, e in ipairs(w.entities) do if e.valid and (e.name == CCN or e.name == L.WRECK) then n = n + 1 end end
   return n
 end
 
@@ -104,6 +107,7 @@ player_created(w)
 local wreck = find_cc(w)
 check(wreck ~= nil and status().wreck == true and status().started == true, "épave posée au premier joueur")
 check(wreck.force.name == "player", "épave de l'équipe du joueur")
+check(wreck.name == L.WRECK, "l'épave est l'entité fo-command-wreck (lot QG-JEU)")
 check(wreck.position.x == 8 and wreck.position.y == 0, "posée à C.START_OFFSET du joueur")
 check(wreck.health == 3000 * C.WRECK_HEALTH, "épave à " .. C.WRECK_HEALTH * 100 .. " % de vie")
 check(rawget(wreck, "_minable") == false and rawget(wreck, "_operable") == false, "épave non minable, non ouvrable")
@@ -140,11 +144,15 @@ check(ok3 and r3 == "done", "réparation payée : " .. tostring(r3))
 check(inv.get_item_count(pay[2][1]) == 7, "exactement le coût prélevé (reste 7)")
 check(inv.get_item_count(pay[1][1]) == 0, "paquets prélevés")
 check(status().wreck == false and status().repaired == 1, "plus d'épave, un compte de réparation")
-check(wreck.health == 3000 and rawget(wreck, "_minable") == true and rawget(wreck, "_operable") == true,
+local repaired = Levels.cc(force)
+check(not wreck.valid and repaired and repaired.valid and repaired.name == CCN and repaired.position.x == 8 and repaired.position.y == 0,
+  "la réparation remplace l'épave par le centre de niveau 1, à la même place (lot QG-JEU)")
+check(repaired.health == 3000 and rawget(repaired, "_minable") == true and rawget(repaired, "_operable") == true,
   "centre réparé : vie pleine, minable, ouvrable")
+check(count_cc(w) == 1, "un seul bâtiment après la réparation")
 check(Levels.cc_level(force) == 1, "niveau effectif 1 après réparation")
 check(L.building_cap(Levels.cc_level(force)) == 2, "plafond 2 après réparation")
-local info2 = Levels.preview(wreck, nil, true)
+local info2 = Levels.preview(repaired, nil, true)
 check(info2 and info2.reason ~= "wreck", "plus de refus « wreck » (reste le coût du niveau 2 : " .. tostring(info2 and info2.reason) .. ")")
 local ok4, r4 = remote.call("fo-centre", "repair", "player", 1)
 check(not ok4 and r4 == "not-wreck", "réparer deux fois : refus")
@@ -195,6 +203,26 @@ Levels = require("script.levels.levels")
 local fac = w.surface.create_entity({ name = CCN, position = { x = 200, y = 200 }, force = "enemy", raise_built = true })
 check(fac and Levels.cc_level(fac.force) == 1 and status(fac.force.name).wreck == false,
   "centre d'une autre force : niveau normal, jamais une épave")
+
+-- 2f. Migration d'une épave d'avant le lot QG-JEU : un centre de niveau 1 marqué épave devient l'entité épave, à la même
+-- place, avec la même vie ; l'état la suit ; la réparation marche ensuite.
+w = world()
+local old = w.surface.create_entity({ name = CCN, position = { x = 40, y = 40 }, force = "player", raise_built = true })
+old.health = 3000 * C.WRECK_HEALTH
+rawset(old, "_minable", false)
+rawset(old, "_operable", false)
+global.fo.centre.wreck.player = old.unit_number
+global.fo.centre.started.player = true
+M.dispatch(w.on_config, { mod_changes = {} })
+local conv = Levels.cc(w.forces.player)
+check(not old.valid and conv and conv.valid and conv.name == L.WRECK and conv.position.x == 40 and conv.position.y == 40
+  and global.fo.centre.wreck.player == conv.unit_number and status().wreck == true and Levels.cc_level(w.forces.player) == 0,
+  "migration : l'ancienne épave (niveau 1 marqué) devient fo-command-wreck, état suivi, niveau effectif 0")
+check(conv.health == 3000 * C.WRECK_HEALTH and rawget(conv, "_minable") == false and rawget(conv, "_operable") == false,
+  "migration : même vie, toujours inerte")
+stock(w, C.repair_cost(L))
+local okm, rm = remote.call("fo-centre", "repair", "player", 1)
+check(okm and rm == "done" and Levels.cc(w.forces.player).name == CCN and status().wreck == false, "migration : l'épave convertie se répare")
 
 print(string.format("[CENTRE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

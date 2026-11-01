@@ -479,8 +479,9 @@ return {
       local ccs = s.find_entities_filtered({ name = LV.name(LV.by_key.command, 15), force = FORCE })
       local cc = ccs[1]
       local same = cc and cc.unit_number == st.cc_unit and #ccs == 1
-      ctx.check(same and proto_side(cc.name) == cside and Foot.aligned(cc.position, cside),
-        "centre 15 (4x4 -> " .. cside .. "x" .. cside .. ") : meme entite, sur place (deja sur la grille), suivi",
+      local cdims = LV.dims(LV.by_key.command, 15)  -- lot QG-JEU : 16 x 8
+      ctx.check(same and proto_side(cc.name) == Foot.wh(cdims) and Foot.aligned(cc.position, cdims),
+        "centre 15 (4x4 -> " .. LV.dims_text(LV.by_key.command, 15):gsub("×", "x") .. ") : meme entite, sur place (deja sur la grille), suivi",
         cc and string.format("n° %d (creation n° %s) en %s", cc.unit_number, tostring(st.cc_unit), fmt_pos(cc.position)) or "introuvable")
       if same then inplace = inplace + 1 end
     end

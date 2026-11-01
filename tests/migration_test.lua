@@ -83,7 +83,7 @@ force_prints()
 -- Prototypes des niveaux (le moteur simulé ne lit pas l'étape data).
 for _, f in ipairs(L.families) do
   for n = 1, f.max do
-    local cb = Foot.proto_boxes(L.footprint(f, n))
+    local cb = Foot.proto_boxes(L.dims(f, n))
     rawset(W().prototypes, L.name(f, n), {
       type = f.type, max_health = 1000,
       selection_box = { left_top = { x = -f.size / 2, y = -f.size / 2 }, right_bottom = { x = f.size / 2, y = f.size / 2 } },
@@ -177,13 +177,13 @@ check(L.max_level(L.by_key.gun, Levels.cc_level(force)) == 18, "plafond porté �
 -- Lot V3-T2 : l'emprise actuelle d'un bâtiment HORS grille est le carré de côté + 1 qui le contient exactement
 -- (Levels.current_box) ; ce banc pose la foreuse 9 en (30 ; 30), position entière qu'un 3×3 n'a jamais en moteur réel.
 local function current_box(at, side)
-  if side >= 2 and not Foot.aligned(at, side) then return Foot.tile_box(at, side + 1) end
+  if Foot.max(side) >= 2 and not Foot.aligned(at, side) then return Foot.tile_box(at, Foot.grow(side, 1)) end
   return Foot.tile_box(at, side)
 end
 local function expected_at(pos, sides)
   local at = { x = pos.x, y = pos.y }
   for i = 2, #sides do
-    if sides[i] ~= sides[i - 1] then
+    if not Foot.eq(sides[i], sides[i - 1]) then
       local c = Foot.candidates(current_box(at, sides[i - 1]), sides[i])[1]
       at = { x = c.x, y = c.y }
     end
@@ -191,7 +191,7 @@ local function expected_at(pos, sides)
   return at
 end
 local function moved_by_table(pos, f, n)
-  local at = expected_at(pos, { f.size, L.footprint(f, n) })
+  local at = expected_at(pos, { f.size, L.dims(f, n) })
   return at.x ~= pos.x or at.y ~= pos.y
 end
 -- Décision V2c : un chantier en cours (déjà payé) est ACHEVÉ au chargement (pas annulé ni remboursé).
@@ -258,7 +258,7 @@ cc = cc_now
 local relev_ok = lv.footprints ~= nil
 for _, f in ipairs(L.families) do
   for n = 1, f.max do
-    if not (relev_ok and lv.footprints[f.key] and lv.footprints[f.key][n] == L.footprint(f, n)) then relev_ok = false end
+    if not (relev_ok and lv.footprints[f.key] and lv.footprints[f.key][n] == L.footprint_code(f, n)) then relev_ok = false end
   end
 end
 check(relev_ok and lv.footprints.gun[6] == 2 and lv.footprints.gun[7] == 3 and lv.footprints.gun[30] == 6,
@@ -332,7 +332,7 @@ local MASK3 = { ["object-layer"] = true, ["player-layer"] = true, ["water-tile"]
 local function set_protos()
   for _, f in ipairs(L3.families) do
     for n = 1, f.max do
-      local cb = Foot3.proto_boxes(L3.footprint(f, n))
+      local cb = Foot3.proto_boxes(L3.dims(f, n))
       rawset(W().prototypes, L3.name(f, n), {
         type = f.type, max_health = 1000, collision_mask = MASK3,
         selection_box = { left_top = { x = -f.size / 2, y = -f.size / 2 }, right_bottom = { x = f.size / 2, y = f.size / 2 } },
@@ -426,7 +426,7 @@ ok, err = pcall(M.run_ticks, 90)
 check(ok and lv3.stats.migrated == m3 and (lv3.stats.overlap_kept or 0) == k3 and not find_log("[FO-LEVELS] emprise", l3),
   "filet : 3 passages de plus, rien à refaire, rien de journalisé (" .. tostring(err) .. ")")
 -- Défaut 12 : CENTRE suivi pendant la migration. Ligne « command » temporaire (activation par la table) : le
--- centre 9 passe de 4×4 à 6×6 ; un mur bloque les positions centrée, sud et est : il est reposé à l'ouest.
+-- centre 9 passe de 4×4 à 12×6 (lot QG-JEU : rectangle 2 : 1) ; un mur bloque les positions proches de l'est : il est reposé 4 tuiles à l'ouest.
 local before_cmd = L3.footprints.command  -- remise ensuite telle quelle (suite d'intégration de V3-T)
 -- Sauvegarde écrite AVANT l'activation de la ligne : relevé du centre au côté de base (sans effet avec la table
 -- livrée ; nécessaire quand la ligne « command » y est déjà, sinon rien ne change entre relevé et table).
@@ -441,9 +441,9 @@ local cc_unit = cc3.unit_number
 ok, err = pcall(M.run_ticks, 30)
 local cc_new
 for _, h in ipairs(hooked) do if h[1] == cc_unit then cc_new = h[2] end end
-check(ok and cc_new and not cc3.valid and cc_new.position.x == 99 and cc_new.position.y == 100 and lv3.cc.player == cc_new
+check(ok and cc_new and not cc3.valid and cc_new.position.x == 96 and cc_new.position.y == 100 and lv3.cc.player == cc_new
   and Levels3.cc(game.forces.player) == cc_new and cc_new.get_item_count("iron-plate") == 77,
-  "migration du centre (ligne « command » activée) : reposé à l'ouest (99 ; 100), SUIVI comme centre de la force, coffre transféré ("
+  "migration du centre (ligne « command » activée) : reposé à l'ouest (96 ; 100, centre 4×4 → 12×6), SUIVI comme centre de la force, coffre transféré ("
   .. tostring(err) .. ")")
 ok, err = pcall(M.dispatch, W().on_config, { mod_changes = { ["factorio-overhaul"] = { old_version = "0.4.1", new_version = "0.4.2" } } })
 check(ok and lv3.cc.player == cc_new and Levels3.cc_level(game.forces.player) == 9,

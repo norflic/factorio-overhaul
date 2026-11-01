@@ -1,0 +1,679 @@
+{
+ "arguments": [],
+ "commande": "py -3.9 tools/render/pieces/levels/qg_e/feuilles.py   (depuis la racine du mod ; sources : fo-logs/2026-11-01_QG-JEU/production/sprites, à GARDER)",
+ "fichiers": {
+  "hr-qg00-glow.png": {
+   "hauteur": 306,
+   "largeur": 436,
+   "sha256": "cf7f7af62143c97c44363656291377286ab3c67aac6ddf394227b57be7bf1df3",
+   "taille": 32812
+  },
+  "hr-qg00-main.png": {
+   "hauteur": 598,
+   "largeur": 924,
+   "sha256": "d29f4b414402436c18b0d2ce36039e22f83a6a9f31240e485c90624bee9e5b0b",
+   "taille": 315266
+  },
+  "hr-qg00-shadow.png": {
+   "hauteur": 598,
+   "largeur": 924,
+   "sha256": "a39908e05ac822259f11a0a37b5fcf14f3750a492eaf2785f4158a830dccf279",
+   "taille": 36945
+  },
+  "hr-qg01-glow.png": {
+   "hauteur": 318,
+   "largeur": 354,
+   "sha256": "aaf2f1350aa4934bcbcd0f0f7975c4dd4e61ae067e99d90acc025a87a0136bcb",
+   "taille": 21515
+  },
+  "hr-qg01-main.png": {
+   "hauteur": 576,
+   "largeur": 676,
+   "sha256": "2b799cc96b68817217b48efa9f3eeef52d74f3a7a67856942dadd53921fa013b",
+   "taille": 345530
+  },
+  "hr-qg01-shadow.png": {
+   "hauteur": 576,
+   "largeur": 964,
+   "sha256": "1c493f64fe79e2507c55c131de25741faf8e6397b33d83f6869f3c58ede13222",
+   "taille": 37526
+  },
+  "hr-qg02-glow.png": {
+   "hauteur": 356,
+   "largeur": 384,
+   "sha256": "bd229befe89cf12c9693db4d91a44383e17b15ee6980683e26199ebac37a6c42",
+   "taille": 16123
+  },
+  "hr-qg02-main.png": {
+   "hauteur": 588,
+   "largeur": 926,
+   "sha256": "67571dcf0a858306a3286253568dfb654c8f50f956f34a88c6096f41e0a29e2c",
+   "taille": 339990
+  },
+  "hr-qg02-shadow.png": {
+   "hauteur": 588,
+   "largeur": 926,
+   "sha256": "9004700d944b7fde1b43d69ce353da68ebb8287ddd934f938f9f81286735342c",
+   "taille": 35263
+  },
+  "hr-qg03-glow.png": {
+   "hauteur": 336,
+   "largeur": 408,
+   "sha256": "ff29d37b531b4124d3de92ceeb14c61912faca55d543bd564b57c46a0198e2bc",
+   "taille": 25576
+  },
+  "hr-qg03-main.png": {
+   "hauteur": 590,
+   "largeur": 940,
+   "sha256": "2b0a96378c46fe0fc6e3c48b6e239ccf1b176ee40db92f2d79aeb60a85f7dc7f",
+   "taille": 369829
+  },
+  "hr-qg03-shadow.png": {
+   "hauteur": 590,
+   "largeur": 940,
+   "sha256": "74317a5d58056e2b3a61f0072a3c1d438e9397507b63081e927279e43b8d5965",
+   "taille": 36312
+  },
+  "hr-qg04-glow.png": {
+   "hauteur": 404,
+   "largeur": 576,
+   "sha256": "1d065730df68b72261469e1faa22f8d83f741f359ac20318db767c6ef5d851df",
+   "taille": 10310
+  },
+  "hr-qg04-main.png": {
+   "hauteur": 606,
+   "largeur": 710,
+   "sha256": "2be6eb737e98cb153a11741d34f2a1fde33f352bb78259dfc0d91915128f0087",
+   "taille": 476967
+  },
+  "hr-qg04-shadow.png": {
+   "hauteur": 606,
+   "largeur": 982,
+   "sha256": "889b7cdd10d2ce190ab165a2b4502d365c81bec9ae40a452f7be32a9b4ace15f",
+   "taille": 45846
+  },
+  "hr-qg05-glow.png": {
+   "hauteur": 428,
+   "largeur": 550,
+   "sha256": "b4c0831894f15709f4e0036e040c66bf717c51ca7ccf5a1d3e3a90c0f34b18a7",
+   "taille": 38755
+  },
+  "hr-qg05-main.png": {
+   "hauteur": 620,
+   "largeur": 956,
+   "sha256": "1c1e08bb8d8d4147217702661304d5819f6c57fc0860bddd9784130f4bd536a1",
+   "taille": 429007
+  },
+  "hr-qg05-shadow.png": {
+   "hauteur": 620,
+   "largeur": 956,
+   "sha256": "b22dfe1a19eb35a6f5240b85900eff5801c47ce267b993ce3cb42a3ffb127e1f",
+   "taille": 43124
+  },
+  "hr-qg06-glow.png": {
+   "hauteur": 428,
+   "largeur": 554,
+   "sha256": "ec6de71dda48e8570fb75188ed67535db94211336536ba54d3b2407eb3e688ff",
+   "taille": 103929
+  },
+  "hr-qg06-main.png": {
+   "hauteur": 634,
+   "largeur": 702,
+   "sha256": "a3e2fe85ff51fc460afe1867d91dbf40e63ff21995ac7d8c09048146facf1116",
+   "taille": 473712
+  },
+  "hr-qg06-shadow.png": {
+   "hauteur": 634,
+   "largeur": 970,
+   "sha256": "278c8b722a5cc694f9f0fa7f3b1a2aee468198b0e4007ed8092efb70dfd2522d",
+   "taille": 61292
+  },
+  "hr-qg07-glow.png": {
+   "hauteur": 420,
+   "largeur": 662,
+   "sha256": "0f0e25094714e819484d5560514c8248451481d0730a5cc38425e3419efd662b",
+   "taille": 52587
+  },
+  "hr-qg07-main.png": {
+   "hauteur": 722,
+   "largeur": 840,
+   "sha256": "948368d0efe98e80e65793e6f78a09912fbf812917041af3f5a527d33e604a17",
+   "taille": 629813
+  },
+  "hr-qg07-shadow.png": {
+   "hauteur": 722,
+   "largeur": 1132,
+   "sha256": "5a3625e3902a9251abeb8c8a432fd076f34449fe556cbbc4972f69745c2873b0",
+   "taille": 59000
+  },
+  "hr-qg08-glow.png": {
+   "hauteur": 496,
+   "largeur": 720,
+   "sha256": "d5aae0ac6d4f4c43da6164c5e0246d304432918cc641cd8a64b912bc3e33dc36",
+   "taille": 80654
+  },
+  "hr-qg08-main.png": {
+   "hauteur": 722,
+   "largeur": 848,
+   "sha256": "7516619be3a9d5406ab2ae6d0ceac04582a264f35f3db6193a016c051ea61174",
+   "taille": 638721
+  },
+  "hr-qg08-shadow.png": {
+   "hauteur": 722,
+   "largeur": 1142,
+   "sha256": "6e42ffc13cfa7bd38190adda8064d85df5ccb28a01fd4ceeeb3d5d71fbb72be7",
+   "taille": 70720
+  },
+  "hr-qg09-glow.png": {
+   "hauteur": 480,
+   "largeur": 660,
+   "sha256": "aac7d4116d9807cce7e241331d1e135cffcc10487a8957a4aed3cd819bb097fe",
+   "taille": 26959
+  },
+  "hr-qg09-main.png": {
+   "hauteur": 712,
+   "largeur": 856,
+   "sha256": "0279c86c2f1b7dee6e76707a09c979d4dcfded6871834af866428a972b1ccd42",
+   "taille": 671026
+  },
+  "hr-qg09-shadow.png": {
+   "hauteur": 712,
+   "largeur": 1150,
+   "sha256": "1369bd2e868390015476faf95af183639a9a896bb8c89c01b122082ec8348195",
+   "taille": 56053
+  },
+  "hr-qg10-glow.png": {
+   "hauteur": 590,
+   "largeur": 834,
+   "sha256": "29f13ea0433761b5128345d9426961fa906cd23c25adb172d5a77b368755dc84",
+   "taille": 57796
+  },
+  "hr-qg10-main.png": {
+   "hauteur": 906,
+   "largeur": 938,
+   "sha256": "8260ce2598346f07a9835579b2bfeaa8a67b8dfadc61efed278046e6c7bfbba5",
+   "taille": 850429
+  },
+  "hr-qg10-shadow.png": {
+   "hauteur": 906,
+   "largeur": 1372,
+   "sha256": "f41bc15f6ccb237b2280eeeb5f773fdd4e212a6b04bc842bb95f7429c4c9c94b",
+   "taille": 57817
+  },
+  "hr-qg11-glow.png": {
+   "hauteur": 616,
+   "largeur": 774,
+   "sha256": "da6eaa9da2232ee8c294f4511e8950a651cee702552d129f55092aa78e7afc6d",
+   "taille": 51707
+  },
+  "hr-qg11-main.png": {
+   "hauteur": 966,
+   "largeur": 1458,
+   "sha256": "8edebd8239226fbb7177f41c7ad18c602a8cf6abf5e2cba5cb2abe4bcdf178a4",
+   "taille": 781552
+  },
+  "hr-qg11-shadow.png": {
+   "hauteur": 966,
+   "largeur": 1458,
+   "sha256": "627109b59757fbdfe467e1e70344693ba46303debcdfe0d6e5881023ee17e925",
+   "taille": 54295
+  },
+  "hr-qg12-glow.png": {
+   "hauteur": 530,
+   "largeur": 838,
+   "sha256": "61e4e44b2df87c0de51c27c17f89f484052a4342359df5768d801b3d8fed5600",
+   "taille": 107925
+  },
+  "hr-qg12-main.png": {
+   "hauteur": 854,
+   "largeur": 1374,
+   "sha256": "c1861b9431323a16e7b80ea20317c3aadeb3e0c5a840dd54b73c175ee17461b8",
+   "taille": 837941
+  },
+  "hr-qg12-shadow.png": {
+   "hauteur": 854,
+   "largeur": 1374,
+   "sha256": "57c44ac6368c87156f5b2bb0e2252f90af3377937ca6b6b5a2c482e02a3272d3",
+   "taille": 58330
+  },
+  "hr-qg13-glow.png": {
+   "hauteur": 636,
+   "largeur": 938,
+   "sha256": "a77557113672626392c2669a2c2dde752242b013a4b8e8196c536f4a2918ceb3",
+   "taille": 139655
+  },
+  "hr-qg13-main.png": {
+   "hauteur": 922,
+   "largeur": 1626,
+   "sha256": "0f0c33d19be81f62942f495beabf741db71e0e862ffa9989ed1a306251b7ffbd",
+   "taille": 928260
+  },
+  "hr-qg13-shadow.png": {
+   "hauteur": 922,
+   "largeur": 1626,
+   "sha256": "25e6dba8d889d98d7106753c63bc34e0b3e0995deeecb02efa3204628fbae51f",
+   "taille": 89916
+  },
+  "hr-qg14-glow.png": {
+   "hauteur": 530,
+   "largeur": 960,
+   "sha256": "1d81216ee0c9bedf4b4e174372d6037ca6276aeadf73a7579151997b65b31171",
+   "taille": 40362
+  },
+  "hr-qg14-main.png": {
+   "hauteur": 802,
+   "largeur": 1082,
+   "sha256": "4a387ca1ad50ef4bf2396dc1b2fe0d0d6cbd958fe19d352fe4a42c09d6dd51d8",
+   "taille": 955860
+  },
+  "hr-qg14-shadow.png": {
+   "hauteur": 802,
+   "largeur": 1520,
+   "sha256": "216ffbcab2b39288e5d9107bc95f712d3a8136ef6e00b7e6c9825699ed49ddf5",
+   "taille": 56930
+  },
+  "hr-qg15-glow.png": {
+   "hauteur": 644,
+   "largeur": 948,
+   "sha256": "498a8acc470d5d15d910074b8a8714973e9e6264d0a18cc8b2918c69167116c6",
+   "taille": 117910
+  },
+  "hr-qg15-main.png": {
+   "hauteur": 916,
+   "largeur": 1084,
+   "sha256": "66f03dc34984bf4a80a657ce9402d70a5b6e2fd1031a6fa017633e32255cd6ea",
+   "taille": 857883
+  },
+  "hr-qg15-shadow.png": {
+   "hauteur": 916,
+   "largeur": 1660,
+   "sha256": "91b958509157500566b85c7865d673f60bb26d03c5f18192e17715c6f11dc9ec",
+   "taille": 109801
+  },
+  "qg00-glow.png": {
+   "hauteur": 153,
+   "largeur": 218,
+   "sha256": "f64114b4b2e383a92fc358740174fcc3d18eafe1eec6c3be4e6259c1aac911b1",
+   "taille": 5649
+  },
+  "qg00-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "5605920582f9fc4d12a7eb52cdcd97eecab32185413fc53a69480875aa5c56a4",
+   "taille": 5054
+  },
+  "qg00-main.png": {
+   "hauteur": 299,
+   "largeur": 462,
+   "sha256": "30f90cc7170501c50ef4c01a6c05952b081e6da1866c16e3c487d62f5ff4dcd1",
+   "taille": 99388
+  },
+  "qg00-shadow.png": {
+   "hauteur": 299,
+   "largeur": 462,
+   "sha256": "ee6d8078337643222f559a8ecd25efc4d4ab7af87cdcc56d2c7f414b79f46f85",
+   "taille": 15460
+  },
+  "qg01-glow.png": {
+   "hauteur": 159,
+   "largeur": 177,
+   "sha256": "edf3c316956e8dbddf92bd759cb3bceb91f95e4db7012372979f2ffaf313eac4",
+   "taille": 4073
+  },
+  "qg01-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "48da1427ed3d08a4a577d1b8f128b18cff0260f9402d0673492d9a1622e7a36a",
+   "taille": 9570
+  },
+  "qg01-main.png": {
+   "hauteur": 288,
+   "largeur": 338,
+   "sha256": "b51c9908bc9c40eca9df20ed20c57dca2d1ca2a583b0f8c14d1f41415dde7d93",
+   "taille": 108512
+  },
+  "qg01-shadow.png": {
+   "hauteur": 288,
+   "largeur": 482,
+   "sha256": "3df2ee7fe6f43a36c0578ef89970a72b65b9fd925a2f7dd949a591daa224ff55",
+   "taille": 15168
+  },
+  "qg02-glow.png": {
+   "hauteur": 178,
+   "largeur": 192,
+   "sha256": "3d94f5e8e279d79e27d4a1ee58737c4e2b73935b9815ac123a134c4f255d0a89",
+   "taille": 3482
+  },
+  "qg02-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "f1aa1f3f4d3dfa4ce7ed25e994a5e53af11a12a7939eb049d94e077539a61663",
+   "taille": 10130
+  },
+  "qg02-main.png": {
+   "hauteur": 294,
+   "largeur": 463,
+   "sha256": "a82796868d2d53e4c1521aa719c8f91d412bd60f15caafc24de0f52c3a8588fb",
+   "taille": 105058
+  },
+  "qg02-shadow.png": {
+   "hauteur": 294,
+   "largeur": 463,
+   "sha256": "1d12a27b95a34fd0e766c0931b06cc8635976a796f81c11bd9cc2570a03dbd4e",
+   "taille": 14226
+  },
+  "qg03-glow.png": {
+   "hauteur": 168,
+   "largeur": 204,
+   "sha256": "b24406dde691eb48d8167c566f984c239920bea31df2e744a1d571757bfab95a",
+   "taille": 4925
+  },
+  "qg03-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "48b377f766dd998c732eb67d3a5853a13a7ec558874693ddcc07612e009b3203",
+   "taille": 10937
+  },
+  "qg03-main.png": {
+   "hauteur": 295,
+   "largeur": 470,
+   "sha256": "bfaf8d85be0fe854070fd68094e48dc55ddfa78b8ce34b3ab51b8c26f8638b80",
+   "taille": 115111
+  },
+  "qg03-shadow.png": {
+   "hauteur": 295,
+   "largeur": 470,
+   "sha256": "b0bb8990c41aed8da53eb2ed01f339eeb50e28eb848730488b4e5ab65e386129",
+   "taille": 14440
+  },
+  "qg04-glow.png": {
+   "hauteur": 202,
+   "largeur": 288,
+   "sha256": "fab4daffcabc84f248704ead2d45267c1745c5e2ec8b91c9694500c94640f2a6",
+   "taille": 3006
+  },
+  "qg04-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "925b992c9c38d2f45698267b11c7324294ba1488ee4a8a29201aa89b6123f366",
+   "taille": 10818
+  },
+  "qg04-main.png": {
+   "hauteur": 303,
+   "largeur": 355,
+   "sha256": "dd71644cd59969389250df5ae130bea3e0cb375e08ee86e1aab9634a241d157e",
+   "taille": 146955
+  },
+  "qg04-shadow.png": {
+   "hauteur": 303,
+   "largeur": 491,
+   "sha256": "fc75485f644206b689edf5e980a6dc4c0a9f3d5efb594bb334bc80075491085c",
+   "taille": 19363
+  },
+  "qg05-glow.png": {
+   "hauteur": 214,
+   "largeur": 275,
+   "sha256": "ea8adbea4828fef18baebdb36a1976b8fecf002c18d6ac5699b402a1c03cfd8e",
+   "taille": 10212
+  },
+  "qg05-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "b66ecd81d1b50b4d1c7704406fa5b8c79ca103dc8780a431921f9e783fe88df7",
+   "taille": 9356
+  },
+  "qg05-main.png": {
+   "hauteur": 310,
+   "largeur": 478,
+   "sha256": "1a05598a5bdf5c41eeba88ce91ba9572cb1ce990bde57653d291e6fb29a5e683",
+   "taille": 131677
+  },
+  "qg05-shadow.png": {
+   "hauteur": 310,
+   "largeur": 478,
+   "sha256": "6f7e2ab229c162a5405cae9fd992f831266f06e1a5c25032c85079bed725bcc0",
+   "taille": 17872
+  },
+  "qg06-glow.png": {
+   "hauteur": 214,
+   "largeur": 277,
+   "sha256": "cd7a0e2d90a74093575645e7593dafa811d2923cde2fa9d364c441155d0d060e",
+   "taille": 14206
+  },
+  "qg06-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "bf428c446b7bb4759d6211a3e71a21c821d2798a6ddc7edf82de8783f98281ff",
+   "taille": 10382
+  },
+  "qg06-main.png": {
+   "hauteur": 317,
+   "largeur": 351,
+   "sha256": "9412ddbb5f40ba07148f0cd8db66e1db0eb22c35f59b19ee7b0d6607f4a1140c",
+   "taille": 147201
+  },
+  "qg06-shadow.png": {
+   "hauteur": 317,
+   "largeur": 485,
+   "sha256": "063799fb271fdc5306cdb850568b97d0a3056e0356972ef23d946b6eb0a94680",
+   "taille": 24586
+  },
+  "qg07-glow.png": {
+   "hauteur": 210,
+   "largeur": 331,
+   "sha256": "2935b2e495610376f7307ca3eb3e243546e1b131641480bc58af110bcb658ca8",
+   "taille": 14455
+  },
+  "qg07-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "0fb3d6fa64eec3f606b82022a56147ff8abcc00e88e83a59aafd90882da5d6c0",
+   "taille": 10439
+  },
+  "qg07-main.png": {
+   "hauteur": 361,
+   "largeur": 420,
+   "sha256": "34c1fbdb24dcac3f622a10cb39f06532adac63f02b45d665231b811c0fb94f00",
+   "taille": 196299
+  },
+  "qg07-shadow.png": {
+   "hauteur": 361,
+   "largeur": 566,
+   "sha256": "0fb9078e1591723c85128def57819142a4959e4c8eb6f36535457b2f0437015e",
+   "taille": 24088
+  },
+  "qg08-glow.png": {
+   "hauteur": 248,
+   "largeur": 360,
+   "sha256": "a6611bdbe696d26802f14d7a13935b327dbea76d2524e6e7ee5410f702c3bb5a",
+   "taille": 13702
+  },
+  "qg08-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "b098c51af7bab44aab69a3a74ff4911a97732cc4dbad59eb7e2a53a9e5ff9399",
+   "taille": 9991
+  },
+  "qg08-main.png": {
+   "hauteur": 361,
+   "largeur": 424,
+   "sha256": "34e7de740e6b0285625d2c12c1d77d3c742b8109e306920b67b66a0ad2bffe5f",
+   "taille": 198661
+  },
+  "qg08-shadow.png": {
+   "hauteur": 361,
+   "largeur": 571,
+   "sha256": "0281225408dd04647c965c926636875bb2a9296b761a93c0bb09d769293ce172",
+   "taille": 28127
+  },
+  "qg09-glow.png": {
+   "hauteur": 240,
+   "largeur": 330,
+   "sha256": "e0f382f41a7fee701bf51eeb3c2acd8f181557dd5fba4bf2270b1cf4be757c40",
+   "taille": 7834
+  },
+  "qg09-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "c623c5addadf971dc854be48bf080da19a8ef276788a93958dedaccf5b409c1c",
+   "taille": 10078
+  },
+  "qg09-main.png": {
+   "hauteur": 356,
+   "largeur": 428,
+   "sha256": "dc5000524a9ddeac85e854b1ddd14bd5ef19f151837db1f78203e492fec84bf3",
+   "taille": 205670
+  },
+  "qg09-shadow.png": {
+   "hauteur": 356,
+   "largeur": 575,
+   "sha256": "60d16bd14be9ce32781a5c1d93817dd77786f9c1db5fc2d134e2c81b4b06c428",
+   "taille": 23200
+  },
+  "qg10-glow.png": {
+   "hauteur": 295,
+   "largeur": 417,
+   "sha256": "90283a675ba4b73fc895b33e695009bba7b4ab74256aef1d35936ede1de9e060",
+   "taille": 8912
+  },
+  "qg10-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "4090d3ee547a8619404cca9ebb375978dd72402e3fba1f73ad642045a7314ba2",
+   "taille": 11124
+  },
+  "qg10-main.png": {
+   "hauteur": 453,
+   "largeur": 469,
+   "sha256": "24576f25ce0662fe55fd9460689952878eac7c2253680f63efc56dfb5549372f",
+   "taille": 256633
+  },
+  "qg10-shadow.png": {
+   "hauteur": 453,
+   "largeur": 686,
+   "sha256": "1b9117d4e4896fc0e2486567edb2dfa4d3bedbbc77f76d021cec1ddba32f4cdb",
+   "taille": 22892
+  },
+  "qg11-glow.png": {
+   "hauteur": 308,
+   "largeur": 387,
+   "sha256": "99b2ffa7139c0ea9471506ae65cf27af857a8e477da29efc25fd575c36fc3481",
+   "taille": 8751
+  },
+  "qg11-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "a9d6c4ba1a5841892f9e699b7adc0ef8a1ade8850cab4fd8f33f9672a23a31c5",
+   "taille": 10415
+  },
+  "qg11-main.png": {
+   "hauteur": 483,
+   "largeur": 729,
+   "sha256": "64e78f846fd17eeb1ff88ec034bbfefa2d9f499b594a03bc0e07e298d95b6325",
+   "taille": 237647
+  },
+  "qg11-shadow.png": {
+   "hauteur": 483,
+   "largeur": 729,
+   "sha256": "4c91427c25f17114fadcf1fcb02b3244cc9376f3c718cd7223e67ad34be2f7a0",
+   "taille": 21542
+  },
+  "qg12-glow.png": {
+   "hauteur": 265,
+   "largeur": 419,
+   "sha256": "7a3ae2631b30203c3d436982ca4eb76dc9b84de5a84c57431d80efbf148ab2cb",
+   "taille": 10210
+  },
+  "qg12-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "a8284d775fa410005da3495ed0c4bfd0a090ab104266a170940c6d7c2fabc80d",
+   "taille": 10879
+  },
+  "qg12-main.png": {
+   "hauteur": 427,
+   "largeur": 687,
+   "sha256": "c91debe7196005acf3ac00bcabd31782cfca5c258285c262dadd9c32eb99441f",
+   "taille": 253910
+  },
+  "qg12-shadow.png": {
+   "hauteur": 427,
+   "largeur": 687,
+   "sha256": "0ee585ba96493ed3254d226277db71d382df2adc34c1e63538d600f0fd59f3ec",
+   "taille": 22467
+  },
+  "qg13-glow.png": {
+   "hauteur": 318,
+   "largeur": 469,
+   "sha256": "cc3bc9a05e5a2ebdd5bbe965f0617625c7eaf8faf74ccd67a72ccc8616254908",
+   "taille": 22596
+  },
+  "qg13-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "4ee8d5f7be66a1576a2d927a1bda696aee7221764e2f218e7f4e7796d47093ad",
+   "taille": 10312
+  },
+  "qg13-main.png": {
+   "hauteur": 461,
+   "largeur": 813,
+   "sha256": "cf6e857196677fab5480badf2282315314ee407763821db51041f6fc8ec8c4b0",
+   "taille": 293121
+  },
+  "qg13-shadow.png": {
+   "hauteur": 461,
+   "largeur": 813,
+   "sha256": "a70b4da32224af74a34c10f7b2d5fd8cf3a55ac9d48921cdb7fcc5aac9bdd887",
+   "taille": 35877
+  },
+  "qg14-glow.png": {
+   "hauteur": 265,
+   "largeur": 480,
+   "sha256": "3c80ee8d942b081468f840328922a4cca3aabfb91654004f10e2b8fa553af48d",
+   "taille": 7565
+  },
+  "qg14-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "861581c3a24707065af1f346821faf5386e8fa529be08a596b924666b57ba679",
+   "taille": 10208
+  },
+  "qg14-main.png": {
+   "hauteur": 401,
+   "largeur": 541,
+   "sha256": "cb80ce0a6b81793b14e3f370cb1a235e4ae94799250497f602a6481aad09ea17",
+   "taille": 300453
+  },
+  "qg14-shadow.png": {
+   "hauteur": 401,
+   "largeur": 760,
+   "sha256": "bd71a790ff0c069c4ac1636e4a3aa5105c83b3e6fc8eb29d2a3e8f643e9c84cd",
+   "taille": 23551
+  },
+  "qg15-glow.png": {
+   "hauteur": 322,
+   "largeur": 474,
+   "sha256": "6c6ab0b9bd97e643e44a44919e76f3d99ac896541aef8e2d6393efa8bf4ea238",
+   "taille": 15463
+  },
+  "qg15-icone.png": {
+   "hauteur": 64,
+   "largeur": 120,
+   "sha256": "31f0ed7b666f14c29d474a5943a14bfde426f0dd95ef4c32624a31c0e405b704",
+   "taille": 9466
+  },
+  "qg15-main.png": {
+   "hauteur": 458,
+   "largeur": 542,
+   "sha256": "98feb25208f28a4c954e489d0bd9e3a3bb543b005be3f37d8e62eb22f5a52303",
+   "taille": 272895
+  },
+  "qg15-shadow.png": {
+   "hauteur": 458,
+   "largeur": 830,
+   "sha256": "3a65b9b819c57427beff523ad6e556dc2faa81790373eb26239213a92147164e",
+   "taille": 41822
+  }
+ },
+ "sources": "F:\\Factorio.v1.1.91 Modding\\Factorio.v1.1.91\\fo-logs\\2026-11-01_QG-JEU\\production\\sprites"
+}

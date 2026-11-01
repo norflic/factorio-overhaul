@@ -229,7 +229,9 @@ L.MIN_MATERIAL_STACK = 50
 ---------------------------------------------------------------------------------------------------
 L.families = {
   {
-    key = "command", type = "container", base = "fo-command-center", size = 4, max = 15,
+    -- aspect 2 (lot QG-JEU, 1/11) : l'emprise du centre est un RECTANGLE 2 : 1 (largeur = 2 × hauteur) ; `size` et
+    -- L.footprint sont la HAUTEUR (4 à 8, comme avant), L.dims donne { w, h }.
+    key = "command", type = "container", base = "fo-command-center", size = 4, max = 15, aspect = 2,
     stats = {
       { path = { "max_health" }, op = "pow", k = 0.15 },
       { path = { "inventory_size" }, op = "add", k = 16 },
@@ -352,7 +354,8 @@ end
 --   gun, laser, furnace : 2×2 aux niveaux 1-6, 3×3 aux 7-12, 4×4 aux 13-18, 5×5 aux 19-24, 6×6 aux 25-30 ;
 --   drill, assembler    : 3×3 aux niveaux 1-6, 4×4 aux 7-12, 5×5 aux 13-18, 6×6 aux 19-30 (plafond atteint à
 --                         l'ère IV : « machines 3×3 → 6×6 ») ;
---   command             : 4×4 aux niveaux 1-3, 5×5 aux 4-6, 6×6 aux 7-9, 7×7 aux 10-12, 8×8 aux 13-15 ;
+--   command             : 8×4 aux niveaux 1-3, 10×5 aux 4-6, 12×6 aux 7-9, 14×7 aux 10-12, 16×8 aux 13-15 (lot QG-JEU,
+--                         1/11 : le vaisseau devenu bâtiment, 2 : 1, family.aspect = 2 ; avant : 4×4 à 8×8) ;
 --   wall                : 1×1 inchangé (pas de ligne).
 -- Le four en acier vanilla est un 2×2 (family.size = 2) : « 3 → 6 » exigerait un niveau 1 non vanilla ; la
 -- ligne { 2, 3, 4, 5, 6 } est retenue (même échelle que les tourelles). Boîtes, portée, raccords de tuyaux,
@@ -423,12 +426,51 @@ function L.era_of(family, n)
   return math.floor((L.epoch_of(family, n) - 1) / L.ERA_EPOCHS) + 1
 end
 
---- Côté de l'emprise (tuiles) du niveau n de la famille (table L.footprints ; sinon family.size).
+--- Côté de l'emprise (tuiles) du niveau n de la famille (table L.footprints ; sinon family.size). Famille à
+--- rectangle (family.aspect, le centre) : la HAUTEUR, le petit côté ; la largeur est aspect × hauteur (L.dims).
 function L.footprint(family, n)
   local row = L.footprints[family.key]
   if not row then return family.size end
   if row.level then return row.level[n] end
   return row.era[L.era_of(family, n)]
+end
+
+--- Rapport largeur / hauteur de l'emprise d'une famille (1 : carré).
+function L.aspect(family) return family.aspect or 1 end
+
+--- Dimensions de l'emprise du niveau n pour shared/levels/footprint.lua : un NOMBRE (carré) ou { w, h } (rectangle).
+function L.dims(family, n)
+  local h = L.footprint(family, n)
+  local a = L.aspect(family)
+  if a == 1 then return h end
+  return { w = h * a, h = h }
+end
+
+--- Texte « L×H » de l'emprise du niveau n.
+function L.dims_text(family, n)
+  local h = L.footprint(family, n)
+  return (h * L.aspect(family)) .. "×" .. h
+end
+
+--- Code d'une emprise pour le relevé gardé dans la sauvegarde : le côté pour un carré (comme avant), largeur × 100 +
+--- hauteur pour un rectangle (804 pour 8×4). Un relevé d'avant le lot QG-JEU (centre : 4 à 8) se lit donc carré.
+function L.footprint_code(family, n)
+  local h = L.footprint(family, n)
+  local a = L.aspect(family)
+  if a == 1 then return h end
+  return h * a * 100 + h
+end
+
+--- Dimensions (nombre ou { w, h }) d'un code de relevé.
+function L.code_dims(code)
+  if code < 100 then return code end
+  return { w = math.floor(code / 100), h = code % 100 }
+end
+
+--- Texte « L×H » d'un code de relevé.
+function L.code_text(code)
+  if code < 100 then return code .. "×" .. code end
+  return math.floor(code / 100) .. "×" .. (code % 100)
 end
 
 --- Plus grand côté d'une famille (tous niveaux).
@@ -438,14 +480,14 @@ function L.footprint_max(family)
   return m
 end
 
---- Relevé des côtés de toutes les familles : { [clé] = { côté du niveau 1, … } } (nombres seulement :
+--- Relevé des emprises de toutes les familles : { [clé] = { code du niveau 1, … } } (L.footprint_code ; nombres seulement :
 --- gardé dans la sauvegarde pour la migration, script/levels/levels.lua). legacy = true : le relevé d'une
 --- sauvegarde d'avant le lot V3-T (toutes les emprises au côté de base).
 function L.footprint_snapshot(legacy)
   local out = {}
   for _, f in ipairs(L.families) do
     local t = {}
-    for n = 1, f.max do t[n] = legacy and f.size or L.footprint(f, n) end
+    for n = 1, f.max do t[n] = legacy and f.size or L.footprint_code(f, n) end
     out[f.key] = t
   end
   return out
@@ -510,6 +552,11 @@ local lookup = {}
 for _, f in ipairs(L.families) do
   for n = 1, f.max do lookup[L.name(f, n)] = { family = f, level = n } end
 end
+
+-- Lot QG-JEU : l'ÉPAVE du centre (âge 0) est une entité à part (fo-command-wreck, sans objet) qui tient la place du
+-- niveau 1 tant qu'elle n'est pas réparée : le module des niveaux la reconnaît comme le centre de niveau 1.
+L.WRECK = "fo-command-wreck"
+lookup[L.WRECK] = { family = L.by_key.command, level = 1 }
 
 --- Famille et niveau d'un nom d'entité ou d'objet, ou nil.
 function L.parse(name)

@@ -52,7 +52,7 @@ factorio-overhaul/
 │   ├── team/org.lua                # modèle pur des rôles (C5, lot IA1) : pôles, affectation différée, jetons de travail, résurrection, rangs
 │   ├── td/waves.lua                                     # composition des vagues (défense de tours)
 │   ├── levels/config.lua                                # NIVEAUX : familles, stats, coûts, plafond, design ; emprises (L.footprints, lot V3-T)
-│   ├── levels/footprint.lua        # emprise croissante (lot V3-T) : géométrie des carrés, RÈGLE DE POSITION, place, contour, migration (pur)
+│   ├── levels/footprint.lua        # emprise croissante (lot V3-T) : géométrie des carrés (et, lot QG-JEU, des rectangles { w, h } : centre 2 : 1), RÈGLE DE POSITION, place, contour, migration (pur)
 │   ├── levels/points.lua           # points de jeu (lot V3-T2) : déplacement des points d'un prototype (move_point), inverse, rotation, RÈGLE DES POINTS SERVIS (pur)
 │   └── levels/clear.lua            # « libérer la place » (lot V3-T3) : RÈGLE DE DÉCALAGE (texte de référence en tête), C.plan (quoi marquer, où reposer chaque gêneur, quoi signaler), C.choose (candidate au plan complet), C.supply_kept (pur)
 ├── prototypes/                     # générateurs de prototypes (lisent shared/)
