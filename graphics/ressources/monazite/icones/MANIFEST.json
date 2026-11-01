@@ -1,0 +1,28 @@
+{
+ "blender": "5.2.2 LTS",
+ "bord_force": 0.55,
+ "bord_px_hr": 5,
+ "composition": "G",
+ "echantillons": 128,
+ "format": {
+  "icon_mipmaps": 4,
+  "icon_size": 64,
+  "largeur": 120
+ },
+ "liseré_px_hr": 3,
+ "modele": "rognon du gisement M1 (gisement.roche, directions M1)",
+ "niveaux_p5_p95": [
+  0.09,
+  0.82
+ ],
+ "outil": "tools/render/pieces/ressources/icones_monazite.py",
+ "piece": "tools/render/pieces/ressources/icone_monazite.py",
+ "remplissage": 0.96,
+ "secondes_blender": 86.89,
+ "sha256": {
+  "icone-1.png": "00572a5117b9bea0dd16ae7a7364363654962dfe2445dc0a420190eec43f4e4e",
+  "icone-2.png": "48fac0df3b8fdedb2a757219da988bc0bcabc5517209df99f0e0ec83a0d78277",
+  "icone-3.png": "30f2fe1e895931cef5c2f056ed7ff729f46e06139adb8169f944cbdbda0d63a7",
+  "icone.png": "85bb101757599ddbf8dc4e35557f5532a0bea0b1b49492bf2ea8090d9f50380b"
+ }
+}
