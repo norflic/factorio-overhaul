@@ -1141,7 +1141,8 @@ local function treillis_step(f, surface, res, dt, dist, reach_tiles)
     if not dt and Build.can_grow(b) then Build.grow(f, b.radius + 1) end
     return nil
   end
-  local s = { radius = b.radius, cap = Build.RADIUS_ORE, enc_r = b.enc and b.enc.r or nil,
+  -- (intégration 0.6.32 : enceinte complète, Build.beyond_wall : le rayon n'est plus figé ; Tr.decide refusait « enceinte » ce que Build.grow permet)
+  local s = { radius = b.radius, cap = Build.RADIUS_ORE, enc_r = b.enc and not Build.beyond_wall(b) and b.enc.r or nil,
     pending = math.max(0, #b.queue - b.qhead + 1), reach = reach_tiles }
   if dt then
     s.found, s.dist = true, dist

@@ -321,6 +321,30 @@ local function scene_pile()
   return st6.pile and st6.pile.hold == true
 end
 check(scene_pile(), "6.6 pile retenue par une pièce à refaire : aucun projet de couverture (réparer d'abord)")
+-- 6.6 bis Intégration 0.6.32 (C3 x PILE-PRIORITE) : la relève d'un type plein attend la pile comme la couverture, sauf un manque durable.
+local function think_releve(pile_in, st)
+  st = st or C.new_state(0)
+  C.think(fview({ stock = { ["iron-plate"] = 60, ["copper-plate"] = 2000, coal = 1500, stone = 1500, ["firearm-magazine"] = 80 } }), book, st,
+    { tick = 46 * 3600, weights = B.weights({}, nil), reach = {}, iron_floor = 0, pile = pile_in, industrie = true })
+  local any = false
+  for _, p in ipairs(st.projects or {}) do if p.key == "releve:" .. IRON then any = true end end
+  return any, st
+end
+local REPAIR = { repair = { { key = "r1", item = "stone-wall", value = 50, prio = 60, have = 0, craftable = true, claimed = false,
+  enemy = false, infra = false } }, plan_reopened = false, plan_path = true }
+check((think_releve(nil)), "6.6 bis sans retenue : le fer plein et non saturé reçoit sa relève")
+local function scene_pile_releve()
+  local any, st = think_releve(REPAIR)
+  return not any and st.pile and st.pile.hold == true
+end
+check(scene_pile_releve(), "6.6 bis pile retenue : aucune relève du fer (réparer d'abord)")
+local function scene_pile_manque()
+  local st = C.new_state(0)
+  st.short, st.short_n = { ["iron-plate"] = 500 }, { ["iron-plate"] = 9 }
+  st.targets = { [IRON] = 99 } -- (au-delà du plafond : ni croissance ni but « extraction: », le manque passe par la relève)
+  return (think_releve(REPAIR, st))
+end
+check(scene_pile_manque(), "6.6 bis pile retenue et manque durable : la relève reste (la production de ce qui manque)")
 -- 6.7 Intégration 0.6.20 (avec PLAFOND-FOREUSES) : aucune couverture tant que l'équipe recrute vers son effectif voulu.
 local function scene_recruit()
   local _, st7 = think(fview({ workers = 8, workers_wanted = 20 }))
@@ -390,6 +414,8 @@ do
   local Pi = require("shared.ai3.pile")
   local saved_allows = Pi.allows
   mutant("couverture hors de la pile (intégration 0.6.20)", scene_pile, function() Pi.allows = function() return true end end,
+    function() Pi.allows = saved_allows end)
+  mutant("relève hors de la pile (intégration 0.6.32)", scene_pile_releve, function() Pi.allows = function() return true end end,
     function() Pi.allows = saved_allows end)
   mutant("couverture pendant le recrutement (intégration 0.6.20)", scene_recruit, function()
     C.situation = function(...) local s = saved_sit(...) s.recruiting = nil return s end end, function() C.situation = saved_sit end)

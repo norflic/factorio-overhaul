@@ -104,6 +104,21 @@ local function run_all(M)
     for i = 2, #c.equipement do
       check(c.equipement[i - 1].mu >= c.equipement[i].mu, "équipement trié par valeur décroissante")
     end
+    -- intégration 0.6.32 : un bien qu'aucun exécutant ne pose n'est pas candidat, même le plus cher
+    do
+      local top = c.equipement[1]
+      local machine
+      for _, list in ipairs({ D.makers, D.drills, D.labs }) do
+        for _, m in ipairs(list) do if m.item == top.item and not machine then machine = m end end
+      end
+      local saved = machine.exec
+      machine.exec = false
+      local c3 = Dm.candidates(D, ok_all)
+      machine.exec = saved
+      local still = false
+      for _, e in ipairs(c3.equipement) do if e.item == top.item then still = true end end
+      check(not still, "un bien qu'aucun exécutant ne pose n'est pas candidat (" .. top.item .. ")")
+    end
     local c2 = Dm.candidates(D, function(i) return i ~= c.equipement[1].item end)
     local found = false
     for _, e in ipairs(c2.equipement) do if e.item == c.equipement[1].item then found = true end end
@@ -362,6 +377,11 @@ local function run_all(M)
   section("8. Emplacements et capacités")
   -------------------------------------------------------------------------------------------------
   do
+    -- intégration 0.6.32 : les ordres retenus sont lus comme Ca.options les écrit, avec son préfixe (le texte vient de la vraie règle)
+    local busy = require("shared.ai3.emplacements").busy_text({ why = "2 module(s) ouvert(s)" })
+    check(Dm.count_blocked({ { why = "executant : " .. busy }, { why = busy }, { why = "retour 9 min > 3" }, {} }) == 2, "ordres retenus : préfixe de l'exécutant compris")
+    check(Dm.blocked_next(nil, 3) == 3 and Dm.blocked_next(3, 0) == 2 and Dm.blocked_next(1, 0) == 0 and Dm.blocked_next(0, 0) == 0, "un emplacement gagné se perd d'un cran par décision")
+    check(Dm.blocked_next(2, 5) == 5, "de nouveaux ordres retenus l'emportent")
     check(Dm.slots(2, false, 12, 5) == 2, "puits fermé : la base")
     check(Dm.slots(2, true, 12, 0) == 2, "aucun ordre retenu : la base")
     check(Dm.slots(2, true, 12, 1) == 3, "un ordre retenu, 12 bras libres : un emplacement de plus")
@@ -417,6 +437,9 @@ suite(base, "base")
 section("10. Mutants")
 ---------------------------------------------------------------------------------------------------
 local MUTANTS = {
+  { "Dm", "un bien sans exécutant redevient candidat", { "if i and m.exec ~= false and not seen[i]", "if i and not seen[i]" } },
+  { "Dm", "les ordres retenus ne sont lus qu'au début du texte", { "if tostring(r.why):find(Dm.BUSY_TEXT, 1, true) then", "if tostring(r.why):sub(1, #Dm.BUSY_TEXT) == Dm.BUSY_TEXT then" } },
+  { "Dm", "un emplacement gagné se perd d'un coup", { "return math.max(blocked or 0, (prev or 0) - 1)", "return blocked or 0" } },
   { "Dm", "stock > 2 fois le besoin devient 1 fois", { "Dm.DORM_FACTOR = 2 ", "Dm.DORM_FACTOR = 0 " } },
   { "Dm", "le puits ne croît plus", { "Dm.GROW = 100 ", "Dm.GROW = 0 " } },
   { "Dm", "le plafond de la production disparaît", { "if by_prod < cap then cap, cap_why = by_prod, Dm.Y_MULT .. \" x production\" end", "" } },

@@ -262,6 +262,11 @@ function C.think(view, book, st, ctx)
       if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
         local sp = T.outposts[g.outpost]
         keep = Pi.allows(pile, "extraction", g.why) or (sp ~= nil and starved_prev[sp.product] == true) -- lot GISEMENTS : une matière en manque
+      elseif g.releve and g.releve ~= "manque" then
+        -- Intégration 0.6.32 (C3 x PILE-PRIORITE) : un nouveau site sans manque durable (« plein », « posture », « extension ») attend comme la
+        -- couverture : réparer, protéger et survivre d'abord. Sans cela, « plein » (valeur jusqu'à 100) passait AVANT l'armée et les munitions.
+        keep = Pi.allows(pile, "extraction", g.why) or starved_prev[g.why] == true
+        if not keep then Pi.suspend(pile, g.key, "releve (" .. tostring(g.releve) .. ") : la pile d'abord") end
       elseif g.kind == "module" and g.pile then
         local ok, why = Pi.porte(pile, g.pile, g.product, ((short_prev[g.product] or 0) > 0) or starved_prev[g.product] == true)
         if not ok then

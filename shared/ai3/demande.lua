@@ -83,7 +83,9 @@ function Dm.candidates(D, ok)
   for _, list in ipairs({ D.makers or {}, D.drills or {}, D.labs or {} }) do
     for _, m in ipairs(list) do
       local i = m.item
-      if i and not seen[i] and not (D.packs or {})[i] and (mu[i] or 0) > 0 and ok(i) then
+      -- (intégration 0.6.32 : m.exec faux = aucun exécutant ne le pose, donc personne ne le consomme : un atelier de robots, le plus cher de tous,
+      -- aurait pris une des Dm.EQUIP_MAX places pour rien ; or le puits ne consomme durablement que par les chantiers)
+      if i and m.exec ~= false and not seen[i] and not (D.packs or {})[i] and (mu[i] or 0) > 0 and ok(i) then
         seen[i] = true
         out.equipement[#out.equipement + 1] = { item = i, mu = mu[i], class = "equipement" }
       end
@@ -214,6 +216,24 @@ function Dm.slots(base, open, hands, blocked)
   if not open then return base end
   local extra = math.min(math.max(0, math.floor(blocked or 0)), math.floor(math.max(0, hands or 0) / Dm.HANDS_PER_SITE + 1e-9))
   return math.max(base, math.min(Dm.SLOTS_HARD, base + extra))
+end
+
+--- Ordres retenus faute de place, lus dans les refus de la décision. Intégration 0.6.32 : la raison se trouve PARTOUT dans le texte, car
+--- Ca.options la préfixe (« executant : plan directeur occupe (…) ») ; un test sur le début du texte ne comptait aucun ordre, et les
+--- emplacements ne suivaient jamais les bras.
+Dm.BUSY_TEXT = "plan directeur occupe"
+function Dm.count_blocked(refus)
+  local n = 0
+  for _, r in ipairs(refus or {}) do
+    if tostring(r.why):find(Dm.BUSY_TEXT, 1, true) then n = n + 1 end
+  end
+  return n
+end
+
+--- Ordres retenus gardés pour la décision suivante. Intégration 0.6.32 : un emplacement gagné se perd d'un cran par décision : sinon, une
+--- décision sans refus ramènerait à la base, la suivante serait occupée, et le plan directeur ne s'ouvrirait qu'une minute sur deux.
+function Dm.blocked_next(prev, blocked)
+  return math.max(blocked or 0, (prev or 0) - 1)
 end
 
 --- Capacités de plus (laboratoires, fours, extraction) : les bras libres ÷ Dm.HANDS_PER_CAP, au plus Dm.CAP_EXTRA_MAX ; 0 puits fermé.

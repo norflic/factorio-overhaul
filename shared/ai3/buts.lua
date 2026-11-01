@@ -264,12 +264,16 @@ function B.generate(s, st)
   local goals = {}
   local tg = B.targets(s, st)
   local key = B.key(s)
+  -- Intégration 0.6.32 (C2 x C3) : la capacité visée AU-DELÀ du plafond d'avant vient du puits ouvert (Dm.extra_cap). Sans place, elle veut un
+  -- nouveau site : elle passe par la relève (B.releve) et sa garde (tourelles d'abord, pertes, menace, escorte), jamais par ce but sans garde.
+  local base_max = Br.cap_max(s.workers, B.GROW_MAX)
   -- Extraction.
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local spec = T.outposts[kind]
     local want = tg[kind] or 0
     local have = (s.cap[kind] or 0) + (s.pending[kind] or 0)
-    if want > 0 and have < want * 0.75 and not ((s.cap[kind] or 0) > 0 and B.saturated(s, spec.product)) then
+    local via_releve = s.extension and not s.is_player and want > base_max and not (s.room or {})[kind]
+    if not via_releve and want > 0 and have < want * 0.75 and not ((s.cap[kind] or 0) > 0 and B.saturated(s, spec.product)) then
       local base
       if (s.cap[kind] or 0) < 0.75 then base = B.boot_value(s, kind)
       elseif want <= 2 and (kind == key.top or kind == key.fuel) then base = B.IRON2

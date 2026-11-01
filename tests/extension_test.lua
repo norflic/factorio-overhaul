@@ -265,6 +265,22 @@ do
   check(find(goals, "releve:" .. K1) == nil, "§6 un avant-poste a encore de la place : on l'agrandit, pas de relève")
   goals = B.generate(situation({ undef_n = 1 }), { short = {}, short_n = {}, targets = {}, ever = {} })
   check(find(goals, "releve:" .. K1) == nil, "§6 un avant-poste sous sa cible de tourelles : aucune relève")
+  -- intégration 0.6.32 (C2 x C3) : capacité visée au-delà du plafond d'avant, sans place : la relève et sa garde, jamais « extraction: » sans garde
+  do
+    local Br = require("shared.ai3.bras")
+    local want = Br.cap_max(12, B.GROW_MAX) + 4
+    local function st_over() return { short = {}, short_n = {}, targets = { [K1] = want }, ever = {} } end
+    local over = { extra_cap = 6, cap = { [K1] = 2 } }
+    local g0 = B.generate(situation(over), st_over())
+    check(find(g0, "extraction:" .. K1) == nil and find(g0, "releve:" .. K1) ~= nil, "§6 capacité due au puits, sans place : relève, pas de but sans garde")
+    over.undef_n = 1
+    local g1 = B.generate(situation(over), st_over())
+    check(find(g1, "extraction:" .. K1) == nil and find(g1, "releve:" .. K1) == nil, "§6 … et sa garde la retient (tourelles d'abord)")
+    local g2 = B.generate(situation({ extra_cap = 6, cap = { [K1] = 2 }, room = { [K1] = true } }), st_over())
+    check(find(g2, "extraction:" .. K1) ~= nil, "§6 avec une place : agrandir reste un but ordinaire")
+    local g3 = B.generate(situation({ extra_cap = 6, cap = { [K1] = 2 }, extension = false }), st_over())
+    check(find(g3, "extraction:" .. K1) ~= nil, "§6 réglage maître éteint : la règle d'avant")
+  end
   local st2 = { short = {}, short_n = {}, targets = {}, ever = {} }
   B.generate(situation({ sites = { [K1] = 0 } }), st2)
   check(st2.ext and st2.ext.push == true, "§6 la relève sans site pousse la veille (st.ext.push)")
@@ -323,6 +339,9 @@ do
     { "script/faction/sites.lua", "faction_limits(f)), need + FACTION_EXTRA", "Sites : sites voulus par ressource selon la défense" },
     { "script/faction/sites.lua", "ctx.reach_bonus = es.reach", "la portée de valeur suit l'étendue" },
     { "script/ai3/capitalisation.lua", "local scan_r = scan_radius(f)", "la capitalisation recense le rayon de la base" },
+    { "script/ai3/capitalisation.lua", "if enc and Build.beyond_wall(f.build) then enc = nil end", "enceinte complète : un gisement au-delà n'est plus « hors du plan directeur »" },
+    { "script/team/build.lua", "enc_r = b.enc and not Build.beyond_wall(b) and b.enc.r or nil", "enceinte complète : la croissance vers un gisement n'est plus refusée" },
+    { "script/ai3/capitalisation.lua", "Dm.blocked_next(cs.blocked_slots, Dm.count_blocked(res.refus))", "les emplacements lisent les ordres retenus" },
     { "script/ai3/exploration.lua", "K.blocked_near(k.blocked, bx, by, tick, block_params(k))", "régions bloquées : rayon et durée variables" },
     { "script/ai3/exploration.lua", "push = push,", "la veille reçoit la poussée de l'extension" },
     { "script/ai3/exploration.lua", "Poles.sur_hold(f, tick)", "veille poussée : un PNJ est libéré" },

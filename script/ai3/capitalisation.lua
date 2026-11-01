@@ -838,6 +838,9 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
   -- (lot GISEMENTS : une enceinte fige le treillis sous RADIUS_MAX, journal du DC « rayon 4 » : au-delà, ordres refusés sans fin)
   local enc = f.build and f.build.enc
+  -- Intégration 0.6.32 (C3) : une enceinte complète ne fige plus le treillis (Build.beyond_wall) : sans cela, un gisement au-delà de son rayon
+  -- restait « hors du plan directeur » alors que le treillis y va.
+  if enc and Build.beyond_wall(f.build) then enc = nil end
   local reach = (Tr.reach_radius(enc and enc.r, Build.RADIUS_ORE) + 0.5) * Pl.PITCH -- lot INDUSTRIE I3 : jusqu'à RADIUS_ORE (12), plus RADIUS_MAX (5)
   if not Rsv.on() then reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH end -- réglage maître éteint
   local open_dep = {}
@@ -1319,11 +1322,7 @@ local function decide(f, cs, view, book, tick, research, w)
   -- l'automatisation et les capacités ; cs.blocked_slots (ordres retenus faute de place) règle les emplacements de chantier.
   do
     local dm = res.demande
-    local blocked = 0
-    for _, r in ipairs(res.refus or {}) do
-      if tostring(r.why):sub(1, 21) == "plan directeur occupe" then blocked = blocked + 1 end
-    end
-    cs.blocked_slots = blocked
+    cs.blocked_slots = Dm.blocked_next(cs.blocked_slots, Dm.count_blocked(res.refus))
     if dm and dm.p > 0 then
       local flow = {}
       for _, k in ipairs(sorted_keys(res.R or {})) do
@@ -1421,6 +1420,7 @@ local function decide(f, cs, view, book, tick, research, w)
     local allowed, pwhy = pile_ok(f, o)
     if allowed and room ~= nil and room <= 0 and Capi.MODULE_KINDS[o.kind] then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
+      cs.blocked_slots = (cs.blocked_slots or 0) + 1 -- (intégration 0.6.32 : retenu faute de place lui aussi)
     elseif allowed then rec, why = execute(f, cs, o, view, book, tick, research)
     else
       why = "pile : " .. tostring(pwhy)
