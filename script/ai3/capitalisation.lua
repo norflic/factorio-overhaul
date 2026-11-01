@@ -948,6 +948,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
     reserve = (not threat) and Rsv.input(f, tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé)
     demande = (not threat) and Rsv.on() and not cs.demande_off or false, -- (cs.demande_off : BANC SEULEMENT, témoin) lot C2 : puits ouvert (le stock hors besoin qui dort devient une demande)
+    demande_sleep = Dm.SLEEP_CYCLES, -- intégration 0.6.32 : un stock ne dort qu'après 3 décisions de suite au-dessus du seuil
     -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
     -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).

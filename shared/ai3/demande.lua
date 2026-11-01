@@ -43,6 +43,9 @@ local Dm = {}
 
 Dm.DORM_FACTOR = 2     -- critère 3 : le stock dort au-delà de 2 fois le besoin évalué
 Dm.NEED_MIN_MU = 1     -- MU : plancher du besoin évalué (un besoin nul ne rend pas tout stock « dormant » à l'infini)
+-- Intégration 0.6.32 (banc ind-mall : « stock 23 867 MU > 2 x besoin 0 » à 0,3 min, 4 chaînes à T = 0 dès la 1re décision, dont un objet que le mall
+-- allait prendre) : au-dessus du seuil ne suffit pas, un stock DORT quand il y reste : 3 décisions de suite (environ 3 min). Passé par l'appelant (inp.sleep).
+Dm.SLEEP_CYCLES = 3
 Dm.GROW = 100          -- ‰ par cycle (1 min) : croissance du débit visé tant que le stock dort
 Dm.DECAY = 50          -- ‰ par cycle : décroissance quand le stock ne dort plus
 Dm.SEED_PCT = 5        -- % du plafond : première valeur du débit visé
@@ -108,7 +111,8 @@ function Dm.dormant(stock_mu, need_mu)
 end
 
 --- Un cycle. st = état (nombres : p, dormant_cycles) ; inp = { stock_mu (stock convertible, besoin compris), free_mu (stock hors besoin),
---- Y (MU/min produits), cands = Dm.candidates(...), research = vrai s'il reste des technologies à la file }.
+--- Y (MU/min produits), cands = Dm.candidates(...), research = vrai s'il reste des technologies à la file, sleep = décisions de suite au-dessus
+--- du seuil avant que le stock compte comme dormant (nil : tout de suite) }.
 --- Rend { dormant, p, cap, cap_why, sinks = { { item, rate, want, elastic, class } }, classes = { noms }, tmax_sleep, left (MU du stock qui
 --- dort : leur coût d'opportunité est nul, la capitalisation les retire du coût du retour et les entame ordre après ordre), cause, need_mu }.
 function Dm.new() return { p = 0, dormant_cycles = 0 } end
@@ -123,12 +127,13 @@ function Dm.step(st, inp)
   local cap, cap_why = by_stock, "stock libre / " .. Dm.DRAIN_H .. " min"
   if by_prod < cap then cap, cap_why = by_prod, Dm.Y_MULT .. " x production" end
   local dormant = Dm.dormant(stock_mu, need_mu) and free_mu > 0
+  st.dormant_cycles = dormant and st.dormant_cycles + 1 or 0
+  local waiting = dormant and st.dormant_cycles < (inp.sleep or 0)
+  if waiting then dormant = false end
   local p = st.p
   if dormant then
-    st.dormant_cycles = st.dormant_cycles + 1
     p = (p > Dm.EPS) and p * (1000 + Dm.GROW) / 1000 or cap * Dm.SEED_PCT / 100
   else
-    st.dormant_cycles = 0
     p = p * (1000 - Dm.DECAY) / 1000
   end
   if p > cap then p = cap end
@@ -139,7 +144,9 @@ function Dm.step(st, inp)
     left = dormant and math.max(0, stock_mu - Dm.DORM_FACTOR * math.max(need_mu, Dm.NEED_MIN_MU)) or 0 }
   out.left0 = out.left -- (le stock qui dort au départ du cycle ; `left` s'use ordre après ordre)
   if p <= 0 then
-    out.cause = dormant and "puits : stock dormant mais rien a ouvrir (plafond nul)" or "puits ferme : le stock ne dort pas"
+    out.cause = dormant and "puits : stock dormant mais rien a ouvrir (plafond nul)"
+      or (waiting and string.format("puits ferme : stock au-dessus du seuil depuis %d decision(s) sur %d", st.dormant_cycles, inp.sleep))
+      or "puits ferme : le stock ne dort pas"
     return out
   end
   local cands = inp.cands or {}

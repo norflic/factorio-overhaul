@@ -1062,7 +1062,7 @@ local function prepare(input, st)
     local research = false
     for _, q in ipairs(rs.queue or {}) do if (q.left or 0) > 0 then research = true break end end
     st.dm = st.dm or Dm.new()
-    ctx.dm = Dm.step(st.dm, { stock_mu = stock_mu, free_mu = free_mu, Y = Y,
+    ctx.dm = Dm.step(st.dm, { stock_mu = stock_mu, free_mu = free_mu, Y = Y, sleep = input.demande_sleep,
       cands = Dm.candidates(D, function(i) return Ca.obtainable(ctx, i) end), research = research })
     if #ctx.dm.sinks > 0 then
       local merged = {}

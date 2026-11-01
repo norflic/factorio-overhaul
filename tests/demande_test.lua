@@ -253,6 +253,28 @@ local function run_all(M)
     check(Dm.tmax(20, 80) == 80, "stock qui dormirait 80 min : Tmax 80")
     check(Dm.tmax(20, 5) == 20, "jamais sous le Tmax du caractère")
     check(Dm.tmax(20, 9999) == Dm.TMAX_CAP, "jamais au-delà de " .. Dm.TMAX_CAP .. " min")
+    -- intégration 0.6.32 : au-dessus du seuil ne suffit pas, le stock dort après Dm.SLEEP_CYCLES décisions de suite
+    do
+      local N = Dm.SLEEP_CYCLES
+      check(N >= 2, "un stock ne dort jamais à la 1re décision (" .. N .. ")")
+      local st_s = {}
+      local function dec(over)
+        local o = { demande_sleep = N }
+        for k, v in pairs(over or {}) do o[k] = v end
+        return Ca.decide(scene(D, o), st_s)
+      end
+      for i = 1, N - 1 do
+        local r = dec()
+        check(r.demande.p == 0 and not r.demande.dormant and (r.demande.left or 0) == 0, "décision " .. i .. " : le puits reste fermé, aucune remise")
+        for _, o in ipairs(r.orders) do check(not o.dormant_mu or o.dormant_mu == 0, "décision " .. i .. " : ordre sans remise") end
+      end
+      local r3 = dec()
+      check(r3.demande.dormant and r3.demande.p > 0, "décision " .. N .. " : le stock dort, le puits s'ouvre")
+      local st_b = {}
+      Ca.decide(scene(D, { demande_sleep = N }), st_b)
+      Ca.decide(scene(D, { demande_sleep = N, reserve = { free = {}, zero = { ["iron-plate"] = true } } }), st_b)
+      check(st_b.dm.dormant_cycles == 0, "le stock repasse sous le seuil : le compte repart de zéro")
+    end
     local res = Ca.decide(scene(D), {})
     local n_orders = #res.orders
     -- sans la remise du coût d'opportunité : des options sont refusées pour leur retour
@@ -437,6 +459,9 @@ suite(base, "base")
 section("10. Mutants")
 ---------------------------------------------------------------------------------------------------
 local MUTANTS = {
+  { "Dm", "un stock dort dès la 1re décision", { "local waiting = dormant and st.dormant_cycles < (inp.sleep or 0)", "local waiting = false" } },
+  { "Dm", "le compte du sommeil ne repart pas de zéro", { "st.dormant_cycles = dormant and st.dormant_cycles + 1 or 0", "st.dormant_cycles = st.dormant_cycles + (dormant and 1 or 0)" } },
+  { "Ca", "la capitalisation ne transmet pas le sommeil", { "Y = Y, sleep = input.demande_sleep,", "Y = Y," } },
   { "Dm", "un bien sans exécutant redevient candidat", { "if i and m.exec ~= false and not seen[i]", "if i and not seen[i]" } },
   { "Dm", "les ordres retenus ne sont lus qu'au début du texte", { "if tostring(r.why):find(Dm.BUSY_TEXT, 1, true) then", "if tostring(r.why):sub(1, #Dm.BUSY_TEXT) == Dm.BUSY_TEXT then" } },
   { "Dm", "un emplacement gagné se perd d'un coup", { "return math.max(blocked or 0, (prev or 0) - 1)", "return blocked or 0" } },
