@@ -1060,6 +1060,16 @@ function Ia3.measure(f, tick, plan)
       f.key or "player", math.floor(minutes(f, tick) + 0.5), lp.active or 0, lp.productive or 0, n_taken, n_block, lp.K or 0,
       (t.scale and t.scale.last and t.scale.last.idle) or 0, f.engineers_count or 0, dg.n, dg.idle, dg.free, dg.blocked,
       table.concat(sat, " "), table.concat(exp, " "), st.fond_dropped or 0, table.concat(parts, " ")))
+    -- Lot C4 PLATEAU 2 (diagnostic) : capacités visées par type d'avant-poste, manque durable des produits, vagues de bras libres
+    do
+      local tg, sh, shn = {}, {}, {}
+      for _, k in ipairs(sorted_keys(st.targets)) do tg[#tg + 1] = k .. "=" .. tostring(st.targets[k]) end
+      for _, k in ipairs(sorted_keys(st.short)) do sh[#sh + 1] = k .. "=" .. tostring(st.short[k]) end
+      for _, k in ipairs(sorted_keys(st.short_n)) do shn[#shn + 1] = k .. "=" .. tostring(st.short_n[k]) end
+      log(string.format("[FO-CIBLES] %s minute %d | cibles {%s} | manque {%s} | manque_n {%s} | vagues %d | puits %s",
+        f.key or "player", math.floor(minutes(f, tick) + 0.5), table.concat(tg, " "), table.concat(sh, " "), table.concat(shn, " "),
+        st.idle_grown or 0, st.puits and "ouvert" or "ferme"))
+    end
     -- Lot C2 : matières que le plancher aurait déclarées saturées et que le puits ouvert tient ouvertes (écrit quand l'ensemble change).
     local held = sorted_keys(st.sat_held or {})
     local hsig = table.concat(held, " ")

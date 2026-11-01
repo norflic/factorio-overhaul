@@ -190,7 +190,7 @@ function B.targets(s, st)
     -- pièce à refaire ; s.focus, shared/ai3/pile.lua) grandit dès qu'il manque durablement, quelle que soit la quantité (la
     -- commande partielle d'une tourelle coûte moins que B.GROW_SHORT : audit C1).
     local grow_short = (s.focus and s.focus[product]) and 1 or B.GROW_SHORT
-    if n >= B.GROW_THINKS and short >= grow_short and not B.saturated(s, product) and tg[kind] < grow_max
+    if n >= B.GROW_THINKS and short >= grow_short and not B.saturated(s, product) and (tg[kind] < grow_max or Br.beyond(n))
       and (s.cap[kind] or 0) >= tg[kind] * 0.75 then
       tg[kind] = tg[kind] + 1
       st.short_n[product] = 0

@@ -40,6 +40,52 @@ local function hq_position(s, row)
   return game.forces.player.get_spawn_position(s)
 end
 
+-- Lot C4 PLATEAU 2 : etat de TOUS les fours et de TOUTES les foreuses d'une force (pas un echantillon), par groupe
+-- prototype|produit|status, avec la capacite theorique des groupes (plaques/min des fours, minerai/min des foreuses).
+local STATUS_NAME = {}
+for k, v in pairs(defines.entity_status) do STATUS_NAME[v] = k end
+local last_iron = {}
+
+local function sorted_pairs_text(t)
+  local ks = {}
+  for k in pairs(t) do ks[#ks + 1] = k end
+  table.sort(ks)
+  local out = {}
+  for _, k in ipairs(ks) do out[#out + 1] = k .. "=" .. t[k] end
+  return table.concat(out, " ")
+end
+
+local function states_line(ctx, s, row, minute, force)
+  local fours, fcap, drills, dcap = {}, {}, {}, {}
+  for _, e in ipairs(s.find_entities_filtered({ force = row.force, type = "furnace" })) do
+    local r = e.get_recipe() or e.previous_recipe
+    local prod = r and r.products[1] and r.products[1].name or "?"
+    local st = STATUS_NAME[e.status] or "?"
+    fours[e.name .. "|" .. prod .. "|" .. st] = (fours[e.name .. "|" .. prod .. "|" .. st] or 0) + 1
+    if r and r.energy > 0 then
+      local k = e.name .. "|" .. prod
+      fcap[k] = (fcap[k] or 0) + e.prototype.crafting_speed * 60 / r.energy * (r.products[1] and r.products[1].amount or 1)
+    end
+  end
+  for _, e in ipairs(s.find_entities_filtered({ force = row.force, type = "mining-drill" })) do
+    local t = e.mining_target
+    local res = t and t.valid and t.name or "-"
+    local st = STATUS_NAME[e.status] or "?"
+    drills[e.name .. "|" .. res .. "|" .. st] = (drills[e.name .. "|" .. res .. "|" .. st] or 0) + 1
+    if t and t.valid then
+      local mt = t.prototype.mineable_properties.mining_time or 1
+      local k = e.name .. "|" .. res
+      dcap[k] = (dcap[k] or 0) + e.prototype.mining_speed * 60 / mt
+    end
+  end
+  local iron = force and force.item_production_statistics.get_input_count("iron-plate") or 0
+  local rate = (iron - (last_iron[row.key] or 0)) / 15
+  last_iron[row.key] = iron
+  local function round(t) for k, v in pairs(t) do t[k] = math.floor(v + 0.5) end return t end
+  ctx.log(string.format("[FO-ETATS] minute %d | %s | debit reel iron-plate %.0f/min | FOURS %s | capacite fours (plaques/min, tous etats) %s | FOREUSES %s | capacite foreuses (minerai/min, tous etats) %s",
+    minute, row.key, rate, sorted_pairs_text(fours), sorted_pairs_text(round(fcap)), sorted_pairs_text(drills), sorted_pairs_text(round(dcap))))
+end
+
 local function checkpoint(ctx, tick)
   local s, p = ctx.surface(), game.connected_players[1]
   local minute = math.floor(tick / 3600)
@@ -55,6 +101,7 @@ local function checkpoint(ctx, tick)
         made[#made + 1] = it .. "=" .. force.item_production_statistics.get_input_count(it)
       end
     end
+    states_line(ctx, s, row, minute, force)
     local center, zoom, w, h = wide_view(s, row.force, hq_position(s, row))
     ctx.log(string.format("[FO-EVOL] minute %d | %s | n=%d emprise=%dx%d | %s | produit %s", minute, row.key, row.n or -1, w, h,
       table.concat(parts, " "), table.concat(made, " ")))

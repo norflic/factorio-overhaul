@@ -36,6 +36,12 @@ Br.EMA_THINKS = 12
 Br.HANDS_PER_CAP = 3      -- une capacité de plus par 3 bras libres (pose, agrandissements, tournées de ses foreuses)
 Br.WAVE_MAX = 3           -- au plus 3 capacités de plus par vague (toutes ressources)
 Br.CAP_PCT = 20           -- capacités visées au plus par ressource : 20 % de l'effectif, au moins le plafond d'avant (5)
+-- Lot C4 PLATEAU 2 (1/11, partie de 2 h, Emerald, mesure [FO-CIBLES] et [FO-ETATS]) : la cible du fer restait à 5 capacités de 41 min a 121 min
+-- (28 foreuses a combustion, 501 minerai/min, 494 plaques/min) pendant que le manque de fer durait (jusqu'a 207 pensees de suite, 5 519 minerai
+-- manquants) : 14 PNJ = 20 % -> 3, donc le plancher de 5. Un manque qui dure Br.LONG_SHORT pensees de suite (5 min) lève la borne d'UNE capacité
+-- a la fois (le reste des garde-fous de B.targets tient : capacité déjà bâtie a 75 %, produit non saturé, relève gardée au-delà du plafond).
+Br.LONG_SHORT = 60
+function Br.beyond(short_n) return (short_n or 0) >= Br.LONG_SHORT end
 -- 1. Fonte.
 Br.SMELT_PCT = 50         -- fours du QG au plus : la moitié de l'effectif (8 PNJ : 4 ; 30 PNJ : 15), au moins le défaut
 Br.SMELT_STEP = 2         -- fours de plus par vague
