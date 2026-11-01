@@ -75,6 +75,19 @@ local function wander(unit, radius)
   unit.set_command({ type = defines.command.wander, radius = radius or GARRISON_RADIUS, distraction = defines.distraction.by_enemy })
 end
 
+--- Lot RB-1 : ADOPTE une unité de la force de la faction comme soldat (garnison, groupes, raids, retour, pertes de ce fichier
+--- servent sans copie) : inscription dans f.soldiers, comptes, propriété (la perte arrive par on_entity_destroyed, script/faction/
+--- commander.lua) et errance de garnison. Rend vrai si l'unité est nouvelle. Extrait de Military.train, comportement inchangé.
+function Military.adopt(f, u)
+  if not (u and u.valid and u.unit_number) or f.soldiers[u.unit_number] then return false end
+  f.soldiers[u.unit_number] = { entity = u, group = nil }
+  f.soldiers_count = f.soldiers_count + 1
+  f.garrison_count = f.garrison_count + 1
+  State.own(u, f.id, "soldier")
+  wander(u)
+  return true
+end
+
 function Military.train(f, surface, key, count)
   Profiler.start("military:train")
   local name = F.unit_name(f.key, key)
@@ -84,14 +97,7 @@ function Military.train(f, surface, key, count)
     local pos = surface.find_non_colliding_position(name, probe, 30, 0.5)
     if pos then
       local u = surface.create_entity({ name = name, position = pos, force = f.force })
-      if u then
-        f.soldiers[u.unit_number] = { entity = u, group = nil }
-        f.soldiers_count = f.soldiers_count + 1
-        f.garrison_count = f.garrison_count + 1
-        State.own(u, f.id, "soldier")
-        wander(u)
-        made = made + 1
-      end
+      if u and Military.adopt(f, u) then made = made + 1 end
     end
   end
   Profiler.stop("military:train")
