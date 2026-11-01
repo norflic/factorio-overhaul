@@ -44,31 +44,31 @@ Ro.AGES = 15
 Ro.GIANT_FIRST_AGE = 13
 Ro.GIANT_MAX = 3
 
---- Les 4 USINES (PLAN §5 bis) : un bâtiment par palier, à l'âge où il arrive, sans niveaux. Provisoire : copie teintée et agrandie d'un
---- assembleur vanilla, 0 image neuve ; sortie côté sud. Ni fluide ni productivité (le kit pèse 1 case : RB0-3). `tech` : la
+--- Les 4 USINES (PLAN §5 bis) : un bâtiment par palier, à l'âge où il arrive, sans niveaux. `copy` : l'assembleur vanilla qui donne le
+--- comportement ; `sheet` : ses images (graphics/robots/usines, lot US-V1) ; sortie côté sud. Ni fluide ni productivité (le kit pèse 1 case : RB0-3). `tech` : la
 --- technologie qui la débloque. `ingredients` : au plus 100 de chaque (RB0-1).
 Ro.FACTORIES = {
   {
     name = "fo-robot-workshop", tier = 1, age = 3, size = 3, kw = 300, module_slots = 2, speed = 1,
-    category = "fo-robots-1", copy = "assembling-machine-2", tint = { r = 0.66, g = 0.62, b = 0.55 }, tech = "fo-robot-automata",
+    category = "fo-robots-1", copy = "assembling-machine-2", sheet = "atelier", tech = "fo-robot-automata",
     ingredients = { { "engine-unit", 10 }, { "steel-plate", 20 }, { "iron-gear-wheel", 40 }, { "electronic-circuit", 10 } },
     time = 5,
   },
   {
     name = "fo-robotics-bay", tier = 2, age = 7, size = 5, kw = 2500, module_slots = 4, speed = 1,
-    category = "fo-robots-2", copy = "assembling-machine-3", tint = { r = 0.78, g = 0.62, b = 0.42 }, tech = "fo-robot-bay",
+    category = "fo-robots-2", copy = "assembling-machine-3", sheet = "hall", tech = "fo-robot-bay",
     ingredients = { { "fo-servo-motor", 10 }, { "fo-controller", 6 }, { "fo-optical-sensor", 10 }, { "steel-plate", 40 }, { "concrete", 40 } },
     time = 20,
   },
   {
     name = "fo-robot-dock", tier = 3, age = 10, size = 7, kw = 8000, module_slots = 4, speed = 1,
-    category = "fo-robots-3", copy = "assembling-machine-3", tint = { r = 0.80, g = 0.86, b = 0.95 }, tech = "fo-robot-dock",
+    category = "fo-robots-3", copy = "assembling-machine-3", sheet = "dock", tech = "fo-robot-dock",
     ingredients = { { "processing-unit", 20 }, { "fo-guidance-core", 10 }, { "fo-servo-motor", 20 }, { "steel-plate", 100 }, { "concrete", 100 } },
     time = 30,
   },
   {
     name = "fo-robot-gantry", tier = 4, age = 13, size = 11, kw = 30000, module_slots = 6, speed = 1,
-    category = "fo-robots-4", copy = "assembling-machine-3", tint = { r = 0.95, g = 0.82, b = 0.95 }, tech = "fo-robot-gantry",
+    category = "fo-robots-4", copy = "assembling-machine-3", sheet = "portique", tech = "fo-robot-gantry",
     ingredients = { { "fo-titanium-plate", 100 }, { "fo-superconducting-coil", 50 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 20 },
       { "fo-laser-module", 20 }, { "steel-plate", 100 }, { "concrete", 100 } },
     time = 60,
