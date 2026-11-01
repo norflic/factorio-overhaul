@@ -56,13 +56,19 @@ local function small_button(parent, name, caption, tooltip)
   return b
 end
 
-local function build_panel(player)
-  local root = player.gui.relative
-  local f = root[PANEL]
+--- `preview` (bancs et captures) : le MÊME panneau, rangé dans l'écran du joueur au lieu d'être ancré à la machine (une capture d'écran du
+--- moteur ne montre pas la fenêtre d'une machine ouverte, donc pas son panneau relatif).
+local function build_panel(player, preview)
+  local root = preview and player.gui.screen or player.gui.relative
+  local name = preview and PANEL .. "_apercu" or PANEL
+  local f = root[name]
   if f and f.valid then return f end
-  f = root.add({ type = "frame", name = PANEL, direction = "vertical", caption = { "fo-robots-ui.panel-title" },
-    anchor = { gui = defines.relative_gui_type.assembling_machine_gui, position = defines.relative_gui_position.right,
-      names = workshop_names() } })
+  local spec = { type = "frame", name = name, direction = "vertical", caption = { "fo-robots-ui.panel-title" } }
+  if not preview then
+    spec.anchor = { gui = defines.relative_gui_type.assembling_machine_gui, position = defines.relative_gui_position.right,
+      names = workshop_names() }
+  end
+  f = root.add(spec)
   local army = f.add({ type = "label", name = P .. "army" })
   army.style.single_line = false
   army.style.maximal_width = 300
@@ -110,8 +116,8 @@ local function opened_workshop(player)
 end
 
 --- Remplit le panneau depuis l'état (captions et visibilités seulement : aucun élément refait, donc aucun clic perdu).
-local function fill_panel(player, ent)
-  local f = build_panel(player)
+local function fill_panel(player, ent, preview)
+  local f = build_panel(player, preview)
   local rec = Usine.record(ent.unit_number)
   local force = ent.force
   f.visible = rec ~= nil
@@ -354,6 +360,18 @@ remote.add_interface("fo-robots-gui", {
       out.ups[r.id] = f[P .. "row_" .. r.id][P .. "keep_" .. r.id][P .. "up_" .. r.id].visible
     end
     return out
+  end,
+  --- Aperçu du panneau d'un atelier dans l'écran du joueur (captures) ; rend vrai s'il est posé.
+  preview = function(player_index, workshop)
+    local player = game.get_player(player_index)
+    local rec = Usine.record(workshop)
+    if not (player and rec) then return false end
+    local old = player.gui.screen[PANEL .. "_apercu"]
+    if old and old.valid then old.destroy() end
+    fill_panel(player, rec.e, true)
+    local f = player.gui.screen[PANEL .. "_apercu"]
+    f.location = { 40, 120 }
+    return true
   end,
   --- Montre un élément nommé de l'interface (existence), partout sous l'écran et le relatif du joueur.
   has = function(player_index, name)

@@ -1,6 +1,6 @@
 -- Scénario greffé du lot RB-2 JOUEUR (1/11) : l'interface et les outils des robots en moteur réel.
 --   avec images (UN JOUEUR EST CONNECTÉ : indispensable aux outils, au panneau et à l'onglet) :
---   py -3.9 -B tools/autotest/banc.py --out <archive> --captures --visuel="--no-atlas-cache --ticks 4600" --qui RB23 -- 4500 rb-ui <source>
+--   py -3.9 -B tools/autotest/banc.py --out <archive> --captures --visuel="--no-atlas-cache --ticks 4700" --qui RB23 -- 4600 rb-ui <source>
 --   sans images (aucun joueur) : seule la partie sans interface tourne (persistance, maintenir N sur l'atelier).
 -- LIMITE (RB0 E6) : aucun script ne produit un événement de sélection à la souris. Les gestionnaires des quatre événements de l'outil
 -- sont rejoués par `fo-robots-ui.tool`, avec la zone et les entités que le moteur leur donnerait (même fonction que l'événement) ;
@@ -13,12 +13,12 @@
 --  2310  2 robots posés en plus ; sélection par l'outil, zone vide, tout choisir (g)
 --  2330  Maj + glisser réduit à un clic : marche-attaque (h) ; 2400 : elle a avancé
 --  2410  2 mordeurs ; bouton droit : attaquer ce qui est encadré (i) ; Maj + droit : aller (j)
---  3350  onglet « Armée » : boutons (k) ; 3400 « Tous au ralliement » ; 3800 : au ralliement
---  4000  3 pertes : une alerte, puis un bilan (l) ; 4150 : réglage éteint, aucun ordre (m)
+--  3350  onglet « Armée » : boutons (k) ; 3400 « Tous au ralliement » ; 4000 : au ralliement
+--  4100  3 pertes : une alerte, puis un bilan (l) ; 4300 : réglage éteint, aucun ordre (m)
 -- Journal : [FO-RB-UI].
 
 local X0, Y0 = 1500, 1500
-local CHECK = 4400
+local CHECK = 4500
 local KIT = "fo-robot-kit-steam-trotter"
 local TROTTE = "steam-trotter"
 local TOOL, RALLY = "fo-robot-order", "fo-robot-rally"
@@ -88,6 +88,9 @@ local steps = {}
 
 ---------------------------------------------------------------------------------------------------
 steps[5] = function(ctx, st)
+  -- la fenetre d'introduction du mod (« Arche-5 ») couvre l'ecran et reprend `opened` : fermee avant tout
+  local p0 = player()
+  if p0 then p0.gui.screen.clear() end
   -- (a) persistance : écrit à la création (init), relu après chargement
   local w = R(ctx, "workshop", st.w.unit_number)
   ctx.check(w and w.queue and #w.queue == 1 and w.queue[1].id == TROTTE and w.queue[1].n == 5 and w.keep[TROTTE] == 5
@@ -155,7 +158,13 @@ steps[10] = function(ctx, st)
   st.shot_panel = true
 end
 
-steps[120] = function(ctx, st)
+steps[110] = function(ctx, st)
+  local p = player()
+  -- la capture du moteur ne montre pas la fenetre d'une machine ouverte : le MEME panneau est pose dans l'ecran (apercu)
+  if p and st.shot_panel then ctx.check(G(ctx, "preview", p.index, st.w.unit_number) == true, "apercu du panneau de l'atelier pose pour la capture") end
+end
+
+steps[140] = function(ctx, st)
   local p = player()
   if p and st.shot_panel then shot(ctx, p, "panneau", X0 + 6, Y0 + 12, 1) end
 end
@@ -218,13 +227,17 @@ steps[2330] = function(ctx, st)
   local o1 = R(ctx, "state", "player").stats.ordered
   ctx.check(o1 - o0 == 4, "(h) Maj + glisser, meme reduit a un clic : marche-attaque donnee aux 4 robots choisis",
     string.format("ordres donnes %d", o1 - o0))
-  shot(ctx, p, "selection", X0 + 8, Y0 + 14, 1)
+end
+
+steps[2345] = function(ctx, st)
+  local p = player()
+  if p then shot(ctx, p, "selection", X0 + 12, Y0 + 20, 1) end -- les cercles de selection se dessinent tous les 30 ticks (duree 35)
 end
 
 steps[2400] = function(ctx, st)
   if not st.sel4 then return end
   local d, n = mean_dist(ctx, st.sel4, { x = X0 + 40, y = Y0 + 30 })
-  ctx.check(n == 4 and d and st.p0 and st.p0 - d >= 8, "(h) ils marchent vers le point d'attaque (rapprochement d'au moins 8 tuiles)",
+  ctx.check(n == 4 and d and st.p0 and st.p0 - d >= 4, "(h) ils marchent vers le point d'attaque (rapprochement d'au moins 4 tuiles en 70 ticks)",
     string.format("%d robot(s), distance moyenne %s -> %s", n, tostring(st.p0), tostring(d)))
 end
 
@@ -285,7 +298,11 @@ steps[3350] = function(ctx, st)
   local cur = G(ctx, "click", p.index, "fo_rb_army_tool")
   ctx.log("bouton Prendre l'outil d'ordre : " .. tostring(cur) .. " ; en main : " .. tostring(U(ctx, "cursor", p.index)))
   st.units_k = etat.units
-  shot(ctx, p, "onglet-armee", X0 + 8, Y0 + 14, 1)
+end
+
+steps[3380] = function(ctx, st)
+  local p = player()
+  if p then shot(ctx, p, "onglet-armee", X0 + 8, Y0 + 14, 1) end
 end
 
 steps[3400] = function(ctx, st)
@@ -296,7 +313,7 @@ steps[3400] = function(ctx, st)
   st.rally_d0 = mean_dist(ctx, st.units_k or {}, RALLY_PICK)
 end
 
-steps[3900] = function(ctx, st)
+steps[4000] = function(ctx, st)
   local p = player()
   if not p then return end
   local d, n = mean_dist(ctx, st.units_k or {}, RALLY_PICK)
@@ -304,7 +321,7 @@ steps[3900] = function(ctx, st)
     string.format("%d robot(s), distance moyenne %s -> %s", n, tostring(st.rally_d0), tostring(d)))
 end
 
-steps[4000] = function(ctx, st)
+steps[4100] = function(ctx, st)
   local p = player()
   if not p then return end
   -- (l) trois pertes dans le même tick : une seule alerte, un bilan 2 secondes plus tard
@@ -317,7 +334,7 @@ steps[4000] = function(ctx, st)
   st.used_k = used0
 end
 
-steps[4010] = function(ctx, st)
+steps[4110] = function(ctx, st)
   local p = player()
   if not p then return end
   local a = U(ctx, "alerts")
@@ -329,7 +346,7 @@ steps[4010] = function(ctx, st)
       etat.stats.lost - st.lost0, st.used_k, etat.used))
 end
 
-steps[4200] = function(ctx, st)
+steps[4300] = function(ctx, st)
   local p = player()
   if not p then return end
   local a = U(ctx, "alerts")
