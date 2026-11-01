@@ -69,7 +69,7 @@ def matiere_peinte(echelle):
     l.new(mat.outputs[1], sep.inputs[0])
     l.new(sep.outputs[0], p.inputs["Roughness"])
     l.new(sep.outputs[1], p.inputs["Coat Weight"])
-    p.inputs["Coat Roughness"].default_value = 0.28
+    p.inputs["Coat Roughness"].default_value = 0.24
     p.inputs["Specular IOR Level"].default_value = 0.5
     bruit = n.new("ShaderNodeTexNoise")
     bruit.inputs["Scale"].default_value = 22.0 / echelle
@@ -82,6 +82,23 @@ def matiere_peinte(echelle):
     l.new(sep.outputs[2], bump.inputs["Strength"])
     l.new(bump.outputs[0], p.inputs["Normal"])
     return m
+
+
+def boite_reflet(scene, puissance):
+    """Grande source vue par les seuls rayons spéculaires : le large reflet vif des coques vanilla, sans changer la lumière diffuse.
+    Éteinte avec l'appoint dans les passes au sol (S.EXTRA_LIGHTS)."""
+    d = bpy.data.lights.new("fo_reflet", "AREA")
+    d.size = 14.0
+    d.energy = puissance
+    ob = bpy.data.objects.new("fo_reflet", d)
+    scene.collection.objects.link(ob)
+    ob.location = (-6.0, -2.0, 25.0)
+    ob.rotation_euler = Vector((6.0, 2.0, -25.0)).to_track_quat("-Z", "Y").to_euler()
+    ob.visible_diffuse = False
+    ob.visible_camera = False
+    ob.visible_transmission = False
+    ob.visible_volume_scatter = False
+    S.EXTRA_LIGHTS.append(ob)
 
 
 def bornes(objs):
@@ -189,6 +206,8 @@ def main():
         sun = S.add_sun(scene)
         S.add_fill(scene)
         ground = S.add_ground(scene)
+        if getattr(mod, "REFLET", 0.0):
+            boite_reflet(scene, mod.REFLET)
         nom = "%s-%03d-%03d" % (a.souche, round(ph * 1000) % 1000, round(cap))
         d = os.path.join(a.out, nom)
         os.makedirs(d, exist_ok=True)

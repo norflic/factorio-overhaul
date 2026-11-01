@@ -243,7 +243,7 @@ def main():
         return
     s = a.souche
     if s == "cuirasse":
-        z1(s, a.src, os.path.join(a.dest, "cuirasse-z1.png"), "Cuirassé (de face, de profil)", 19.0, 5.0, 2.7, "cuirasse-000-225", "cuirasse-000-090")
+        z1(s, a.src, os.path.join(a.dest, "cuirasse-z1.png"), "Cuirassé (de face, de profil)", 22.0, 6.0, 3.2, "cuirasse-000-225", "cuirasse-000-090")
         gros(os.path.join(a.src, "cuirasse-000-225"), os.path.join(a.dest, "cuirasse-gros.png"), "Cuirassé")
         course([d for d in dossiers(a.src, s) if d.endswith("-225")], os.path.join(a.dest, "cuirasse-course.png"), "Cuirassé")
     elif s == "moucheron":
@@ -251,9 +251,9 @@ def main():
         gros(os.path.join(a.src, "moucheron-000-225"), os.path.join(a.dest, "moucheron-gros.png"), "Moucheron")
         course([d for d in dossiers(a.src, s) if d.endswith("-225")], os.path.join(a.dest, "moucheron-course.png"), "Moucheron", echelle=2.0)
     elif s == "ecraseur":
-        z1(s, a.src, os.path.join(a.dest, "ecraseur-z1.png"), "Écraseur (de face, de profil)", 24.0, 8.5, 5.4, "ecraseur-000-205", "ecraseur-000-090")
-        gros(os.path.join(a.src, "ecraseur-000-205"), os.path.join(a.dest, "ecraseur-gros.png"), "Écraseur")
-        course([d for d in dossiers(a.src, s) if d.endswith("-205")], os.path.join(a.dest, "ecraseur-course.png"), "Écraseur", cols=3)
+        z1(s, a.src, os.path.join(a.dest, "ecraseur-z1.png"), "Écraseur (de face, de profil)", 31.0, 10.0, 6.2, "ecraseur-000-225", "ecraseur-000-090")
+        gros(os.path.join(a.src, "ecraseur-000-225"), os.path.join(a.dest, "ecraseur-gros.png"), "Écraseur")
+        course([d for d in dossiers(a.src, s) if d.endswith("-225")], os.path.join(a.dest, "ecraseur-course.png"), "Écraseur", cols=3)
 
 
 if __name__ == "__main__":

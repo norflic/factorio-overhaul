@@ -1,4 +1,5 @@
-"""ÉCRASEUR (classe neuve, PLAN §5 ter) : massif, 2 pattes-piliers, mâchoire en marteau. La masse est en avant, tout le poids sur deux colonnes."""
+"""ÉCRASEUR (classe neuve, PLAN §5 ter) : un biter colossal. Coque de grandes plaques dures, tête de la famille vanilla (grand œil noir, mandibules
+rouges), deux pattes-piliers et, verdict de la critique du 1er novembre, deux avant-bras massifs à massue au lieu de la mâchoire en marteau."""
 import numpy as np
 
 import anatomie as A
@@ -6,21 +7,28 @@ import sdf
 from sdf import BRUIT, Ell, Fn, Os, Repere, rot_x, rot_y, smax, smin
 
 NOM = "ecraseur"
-DENSITE = 90.0
-CREUX = 0.10
+DENSITE = 80.0
+CREUX = 0.055
 AO = 0.38
+REFLET = 1300.0
 ETIQUETTE = "Écraseur"
 
 PALETTES = {
-    "carapace": dict(sombre=(0.040, 0.026, 0.026), clair=(0.125, 0.070, 0.060), f=1.7, taches=(0.016, 0.012, 0.014), force_taches=0.55,
-                     usure=(0.36, 0.25, 0.18), force_usure=0.50, bord=(0.40, 0.29, 0.21), gain_bord=2.0, rude=0.50, verni=0.42, relief=0.5, creux=0.14),
-    "chair": dict(sombre=(0.075, 0.022, 0.020), clair=(0.24, 0.085, 0.060), f=2.7, taches=(0.05, 0.012, 0.014), force_taches=0.6,
-                  veines=(0.085, 0.012, 0.016), bord=(0.40, 0.20, 0.13), gain_bord=2.2, rude=0.48, verni=0.08, relief=1.0, creux=0.2),
-    "os": dict(sombre=(0.050, 0.032, 0.028), clair=(0.15, 0.095, 0.072), f=2.6, taches=(0.024, 0.016, 0.016), force_taches=0.5,
-               usure=(0.58, 0.50, 0.36), force_usure=0.92, bord=(0.66, 0.58, 0.44), gain_bord=1.6, rude=0.52, verni=0.25, relief=0.9, creux=0.14),
-    "griffe": dict(sombre=(0.055, 0.042, 0.034), clair=(0.20, 0.16, 0.115), f=4.0, bout=(0.62, 0.55, 0.40), bout_de=0.5, rude=0.38, verni=0.35, relief=0.5, creux=0.3),
-    "oeil": dict(sombre=(0.55, 0.30, 0.012), clair=(1.00, 0.72, 0.06), f=30.0, rude=0.10, verni=1.0, relief=0.0, creux=0.5),
+    "coque": dict(sombre=(0.085, 0.009, 0.009), clair=(0.33, 0.036, 0.024), f=1.1, trainees=(0.46, 0.085, 0.040), force_trainees=0.6, fin_force=0.24,
+                  usure=(0.022, 0.006, 0.006), force_usure=0.82, bord=(0.56, 0.24, 0.13), gain_bord=0.9, rude=0.36, verni=0.55, relief=0.28, creux=0.02),
+    "armure": dict(sombre=(0.045, 0.020, 0.014), clair=(0.20, 0.090, 0.045), f=1.6, trainees=(0.33, 0.070, 0.030), force_trainees=0.6, fin_force=0.24,
+                   usure=(0.62, 0.46, 0.28), force_usure=0.6, bord=(0.60, 0.40, 0.24), gain_bord=1.4, rude=0.42, verni=0.32, relief=0.34, creux=0.03),
+    "face": dict(sombre=(0.17, 0.050, 0.040), clair=(0.52, 0.24, 0.155), f=1.6, trainees=(0.38, 0.085, 0.045), force_trainees=0.8, fin_force=0.2, bord=(0.72, 0.50, 0.34), gain_bord=1.4,
+                 rude=0.30, verni=0.55, relief=0.12, creux=0.10),
+    "chair": dict(sombre=(0.17, 0.018, 0.016), clair=(0.44, 0.066, 0.042), f=2.6, trainees=(0.10, 0.008, 0.010), force_trainees=0.5, fin_force=0.2, rude=0.36, verni=0.3, relief=0.3, creux=0.10),
+    "patte": dict(sombre=(0.34, 0.17, 0.09), clair=(0.70, 0.46, 0.28), f=5.0, trainees=(0.36, 0.05, 0.03), force_trainees=0.85, fin_force=0.22, bout=(0.40, 0.055, 0.03), bout_de=0.55,
+                  bord=(0.88, 0.70, 0.48), gain_bord=2.0, rude=0.34, verni=0.45, relief=0.15, creux=0.2),
+    "griffe": dict(sombre=(0.30, 0.040, 0.024), clair=(0.62, 0.13, 0.060), f=3.0, fin_force=0.12, bout=(0.13, 0.012, 0.010), bout_de=0.65, rude=0.28, verni=0.7, relief=0.05, creux=0.25),
+    "oeil": dict(sombre=(0.003, 0.003, 0.004), clair=(0.010, 0.010, 0.012), f=12.0, fin_force=0.0, rude=0.34, verni=0.12, relief=0.0, creux=0.7),
 }
+
+BORNES = (-2.40, -1.96, -1.54, -1.10, -0.54, 0.66, 1.90)
+LEVRES = (0.055, 0.065, 0.080, 0.10, 0.13, 0.12)
 
 
 def _lisse(e0, e1, x):
@@ -28,148 +36,93 @@ def _lisse(e0, e1, x):
     return t * t * (3.0 - 2.0 * t)
 
 
-def _ell(q, c, r):
-    p = (q - np.asarray(c, np.float32)) / np.asarray(r, np.float32)
-    k0 = np.linalg.norm(p, axis=1)
-    k1 = np.linalg.norm(p / np.asarray(r, np.float32), axis=1)
-    return k0 * (k0 - 1.0) / np.maximum(k1, 1e-6)
-
-
 def construire(phase=0.0):
-    f = sdf.Forme(NOM, ((-2.95, -2.75, -0.03), (3.85, 2.75, 4.85)), 0.018)
-    f.marge = 0.12
+    f = sdf.Forme(NOM, ((-4.2, -3.9, -0.03), (5.4, 3.9, 5.2)), 0.021)
+    f.marge = 0.10
     t = 2.0 * np.pi * phase
-    # Démarche de colosse : tout le corps bascule sur la jambe d'appui, retombe à chaque pas.
     bascule = np.sin(t)
     rebond = np.cos(2.0 * t)
-    corps = Repere((0.03 * rebond, -0.13 * bascule, 2.35 + 0.09 * rebond), rot_x(-0.075 * bascule) @ rot_y(0.05 + 0.035 * rebond))
+    corps = Repere((0.13 * rebond, -0.17 * bascule, 2.80 + 0.15 * rebond), rot_x(-0.09 * bascule) @ rot_y(0.16 + 0.05 * rebond))
 
-    carapace = f.groupe("carapace", k=0.05)
-    chair = f.groupe("chair", k=0.08)
-    os_ = f.groupe("os", k=0.05)
-    griffes = f.groupe("griffe", k=0.03)
-    yeux = f.groupe("oeil", k=0.01)
+    def base_coque(q):
+        x = q[:, 0]
+        fuseau = 1.0 + 0.30 * np.clip(x + 0.4, -2.0, 0.0) / 2.0
+        qq = np.stack([x, q[:, 1] / fuseau, q[:, 2]], axis=1) + 0.030 * np.stack([BRUIT(q * 0.8 + 1), BRUIT(q * 0.8 + 5), BRUIT(q * 0.8 + 9)], axis=1)
+        d = A.ell(qq, (0, 0, 0), (2.40, 1.46, 1.16))
+        return smin(d, A.ell(qq, (0.62, 0.0, 0.26), (1.30, 1.44, 1.02)), 0.30)
 
-    # Masse du dos : tas de bosses fondues, irrégulier ; énormes plaques qui se recouvrent, jupe déchiquetée.
-    def base_dos(q):
-        qq = q + 0.11 * np.stack([BRUIT(q * 0.75 + 1), BRUIT(q * 0.75 + 5), BRUIT(q * 0.75 + 9)], axis=1)
-        d = _ell(qq, (0.0, 0.0, 0.42), (1.30, 1.22, 1.00))
-        d = smin(d, _ell(qq, (0.55, 0.08, 0.82), (0.72, 0.98, 0.66)), 0.35)     # garrot, décalé : colosse de travers
-        d = smin(d, _ell(qq, (-1.05, -0.06, 0.05), (0.95, 0.95, 0.88)), 0.40)   # croupe basse
-        return d
+    def fn_coque(q):
+        d, _b = A.anneaux(q, base_coque(q), BORNES, LEVRES, largeur=0.07, courbe=0.11, graine=2.0)
+        d = d - 0.022 * np.exp(-(q[:, 1] / 0.13) ** 2) - 0.011 * BRUIT.fbm(q * 4.0 + 5.0, octaves=3)   # quille, chitine cabossée : le reflet se casse
+        d = smax(d, q[:, 0] - 1.80 - 0.12 * np.cos(q[:, 1] * 1.5), 0.04)                               # la coque s'arrête : la tête sort devant
+        jupe = -0.60 + 0.05 * np.sin(q[:, 0] * 3.1) + 0.03 * BRUIT(q * 2.0 + 3.0)
+        return smax(d, jupe - q[:, 2], 0.03)
 
-    def fn_dos(q):
-        d, _u = A.plaques(q, base_dos(q), 2.1, 7.0, 6.0, 0.13, 0.040, centre_z=0.1, gouttiere=0.030, deforme=(0.25, 0.28), graine=5.7, alea=0.035, stries=0.003)
-        d = d - 0.012 * BRUIT.fbm(q * 6.0 + 2.0, octaves=3)
-        jupe = -0.06 + 0.085 * np.sin(q[:, 0] * 4.2 + 1.1 * np.sign(q[:, 1])) + 0.05 * BRUIT(q * 2.6 + 3.0) + 0.30 * np.clip(q[:, 0] - 0.5, 0.0, 1.0)
-        return smax(d, jupe - q[:, 2], 0.05)
+    def g_coque(q):
+        return A.anneaux(q, base_coque(q), BORNES, LEVRES, largeur=0.07, courbe=0.11, graine=2.0)[1]
 
-    def g_dos(q):
-        return A.plaques(q, base_dos(q), 2.1, 7.0, 6.0, 0.13, 0.040, centre_z=0.1, gouttiere=0.030, deforme=(0.25, 0.28), graine=5.7, alea=0.035, stries=0.003)[1]
+    f.groupe("coque", k=0.012).append(Fn(fn_coque, corps, k=0.012, fn_g=g_coque))
+    armure = f.groupe("armure", k=0.012)
+    face = f.groupe("face", k=0.02)
+    chair = f.groupe("chair", k=0.03)
+    pattes = f.groupe("patte", k=0.012)
+    griffes = f.groupe("griffe", k=0.015)
+    yeux = f.groupe("oeil", k=0.004)
 
-    carapace.append(Fn(fn_dos, corps, k=0.05, fn_g=g_dos))
+    # Dessous, cou, tête de la famille, baissée.
+    chair.append(Ell((0.0, 0, -0.45), (2.05, 1.15, 0.64), corps, k=0.10, peau=(0.018, 2.8, 6.0)))
+    chair.append(Ell((1.86, 0, -0.30), (0.92, 0.92, 0.66), corps, k=0.14, peau=(0.014, 3.0, 7.0)))
+    tete = corps.compose((2.62, 0.0, -0.24), rot_y(0.30 + 0.05 * rebond))
+    A.tete_biter(tete, 1.55, face, griffes, yeux, ouvre=0.5 + 0.5 * rebond, graine=9.0)
 
-    # Ventre, cou : chair ridée, plis profonds.
-    def plis_cou(t_, a):
-        return 0.014 * np.abs(np.sin(t_ * 7.0 + 1.4 * np.sin(a * 2.0) + 0.9 * np.sin(a * 5.0 + 1.0)))
+    # DEUX AVANT-BRAS À MASSUE : épaule de chair, bras de chitine, avant-bras qui s'évase, massue de chitine usée aux jointures.
+    # Ils balancent à grande amplitude, à contretemps des jambes.
+    def levres_bras(t_, a):
+        return 0.035 * np.clip((t_ * 3.0) % 1.0, 0.0, 1.0) ** 2.0
 
-    chair.append(Ell((0.15, 0, -0.04), (1.12, 0.96, 0.62), corps, k=0.14, peau=(0.040, 2.5, 6.0)))
-    chair.append(Os(corps.monde((0.92, 0.0, 0.28)), corps.monde((1.86, 0.0, -0.24)), 0.84, 0.64, k=0.16, peau=(0.030, 2.6, 8.0), plis=plis_cou))
+    for s, a_ in ((1.0, t), (-1.0, t + np.pi)):
+        balance = np.sin(a_)
+        leve = max(0.0, np.cos(a_))
+        epaule = corps.monde((1.22, s * 1.20, -0.44))
+        poing = np.array([2.72 + 1.15 * balance, s * 2.50, 0.74 + 0.86 * leve])
+        coude = A.ik2(epaule, poing, 1.62, 1.55, (-0.25, s * 0.85, 0.75))
+        chair.append(Ell(epaule, (0.52, 0.48, 0.48), k=0.10, peau=(0.014, 3.5, s)))
+        armure.append(Os(epaule, coude, 0.44, 0.33, k=0.04, ventre=0.04, g0=0.0, g1=0.0, graine=s, plis=levres_bras, peau=(0.012, 4.0, 5.0 * s)))
+        chair.append(Ell(coude, (0.36, 0.36, 0.36), k=0.05, peau=(0.012, 3.5, 2.0 * s)))
+        armure.append(Os(coude, poing, 0.34, 0.52, k=0.04, g0=0.0, g1=0.12, graine=2.0 * s, plis=levres_bras, peau=(0.008, 5.0, 4.0 * s)))
+        axe = (poing - coude) / np.linalg.norm(poing - coude)
+        armure.append(sdf.ell_sur(poing - axe * 0.40, poing + axe * 0.92, 0.66, 0.46, (0.0, 0.0, 1.0), k=0.05, peau=(0.012, 5.0, 3.0 * s), g=0.12))
+        lat = np.cross(axe, np.array([0.0, 0.0, 1.0]))
+        lat = lat / max(np.linalg.norm(lat), 1e-6)
+        for j, dec in enumerate((-0.42, 0.0, 0.42)):
+            armure.append(Os(poing + axe * 0.26 + lat * dec + np.array([0, 0, 0.30]), poing + axe * 0.84 + lat * dec * 1.05 + np.array([0, 0, 0.10]), 0.20, 0.16, k=0.05, g0=0.55, g1=0.85, graine=j + s))
+            griffes.append(Os(poing + axe * 0.78 + lat * dec * 1.05, poing + axe * 1.24 + lat * dec * 1.1 + np.array([0, 0, -0.14]), 0.17, 0.030, k=0.04, g0=0.1, g1=1.0, graine=j + 3 * s))
 
-    # Scutes du cou, irrégulières, jamais un anneau complet.
-    for a_, b_, rl, rm, y_ in (((0.98, 0.0, 0.92), (1.42, 0.0, 0.70), 0.62, 0.15, 0.04), ((1.38, 0.0, 0.72), (1.80, 0.0, 0.46), 0.56, 0.14, -0.07),
-                               ((1.20, 0.0, 0.42), (1.60, 0.0, 0.20), 0.26, 0.10, 0.74), ((1.28, 0.0, 0.34), (1.62, 0.0, 0.12), 0.24, 0.10, -0.76)):
-        aa = corps.monde((a_[0], y_, a_[2]))
-        bb = corps.monde((b_[0], y_, b_[2]))
-        carapace.append(sdf.ell_sur(aa, bb, rl, rm, corps.R @ np.array([0.35, y_ * 0.9, 1.0], np.float32), k=0.05, peau=(0.012, 5.0, y_ * 5.0)))
-
-    # Crâne bas, enfoncé dans les épaules, front de chitine, 3 petits yeux de travers.
-    crane = corps.compose((2.04, 0.0, -0.20), rot_y(0.18 + 0.05 * rebond))
-
-    def fn_crane(q):
-        d = _ell(q + 0.03 * BRUIT(q * 3.0)[:, None], (0, 0, 0), (0.68, 0.84, 0.48))
-        d = smin(d, _ell(q, (-0.06, 0.0, 0.28), (0.50, 0.50, 0.28)), 0.14)
-        d = smin(d, _ell(q, (0.26, 0.40, 0.22), (0.36, 0.34, 0.15)), 0.08)       # arcades lourdes, inégales
-        d = smin(d, _ell(q, (0.22, -0.44, 0.19), (0.40, 0.36, 0.18)), 0.08)
-        return d - 0.011 * BRUIT.fbm(q * 7.0 + 1.0, octaves=3)
-
-    carapace.append(Fn(fn_crane, crane, k=0.09, fn_g=lambda q: np.zeros(len(q), np.float32)))
-    for pos, r in (((0.57, 0.30, 0.06), 0.072), ((0.50, -0.44, 0.03), 0.090), ((0.64, -0.08, 0.10), 0.050)):
-        yeux.append(Ell(crane.monde(pos), (r, r, r), k=0.012))
-
-    # MÂCHOIRE EN MARTEAU : une seule masse d'os, racine épaisse sous le crâne, barre transversale, deux têtes de masse évasées
-    # à face plate, inégales, cloutées. Ce n'est ni un bras ni deux boules : la barre se lit d'un bloc.
-    m_rep = corps.compose((2.66, 0.0, -1.32), rot_y(0.20 + 0.14 * rebond) @ rot_x(0.05 * bascule))
-
-    def fn_marteau(q):
-        y = q[:, 1] + 0.05
-        ay = np.abs(y)
-        rayon = np.hypot(q[:, 0], q[:, 2] / 0.92)
-        R = 0.33 + 0.30 * _lisse(0.46, 1.00, ay)
-        dr = rayon - R
-        dy = ay - 1.32 - 0.06 * (y < 0)
-        d = np.minimum(np.maximum(dr, dy), 0.0) + np.hypot(np.maximum(dr, 0.0), np.maximum(dy, 0.0)) - 0.075
-        racine = _ell(q, (-0.52, 0.0, 0.18), (0.86, 0.72, 0.50))
-        d = smin(d, racine, 0.24)
-        clous = 0.040 * np.clip(BRUIT(q * 4.2 + 11.0) * 3.0 - 0.9, 0.0, 1.0)
-        return d - clous - 0.014 * BRUIT.fbm(q * 5.5 + 3.0, octaves=3)
-
-    def usure_marteau(q):
-        # les deux têtes sont polies par les coups ; le milieu reste de la chitine sombre, qui prolonge le crâne
-        return (_lisse(0.72, 1.22, np.abs(q[:, 1] + 0.05)) * (0.72 + 0.28 * BRUIT(q * 3.0 + 7.0))).astype(np.float32)
-
-    os_.append(Fn(fn_marteau, m_rep, k=0.05, fn_g=usure_marteau))
-    f.creuse(Os(m_rep.monde((0.48, 0.42, 0.26)), m_rep.monde((0.40, 0.02, -0.26)), 0.034, 0.016), k=0.022)      # fente du coup
-    f.creuse(Os(m_rep.monde((0.40, -0.96, 0.44)), m_rep.monde((0.52, -1.20, -0.14)), 0.030, 0.014), k=0.020)
-    for s in (1.0, -1.0):
-        a = crane.monde((-0.10, s * 0.58, -0.08))
-        b = m_rep.monde((-0.52, s * 0.52, 0.22))
-        chair.append(Os(a, b, 0.30, 0.30, k=0.14, peau=(0.020, 4.0, 3.0 * s), ventre=0.02, plis=lambda t_, a_: 0.014 * np.abs(np.sin(t_ * 12.0 + a_))))
-    chair.append(Ell(m_rep.monde((-0.34, 0, 0.56)), (0.36, 0.52, 0.16), k=0.06, peau=(0.02, 4.0, 2.0)))    # gueule, fond sombre
-    # Défenses plantées dans la barre, inégales : cassées d'un côté.
-    for y, h, r, inc in ((0.74, 0.60, 0.12, 0.08), (0.28, 0.40, 0.09, -0.04), (-0.26, 0.50, 0.10, 0.05), (-0.80, 0.24, 0.13, -0.08)):
-        griffes.append(Os(m_rep.monde((0.12, y, 0.28)), m_rep.monde((0.22 + inc, y + inc, 0.82 + h)), r * 1.15, r * 0.22, k=0.04, g0=0.3, g1=1.0, graine=y * 9))
-
-    # Deux moignons de bras repliés sous le cou : vestige vivant, jamais une pièce.
-    for s, le in ((1.0, 1.0), (-1.0, 0.86)):
-        e = corps.monde((1.08, s * 1.02, -0.30))
-        c = corps.monde((1.22, s * 1.34, -0.82 * le))
-        m = corps.monde((1.66, s * 1.26, -0.84 * le))
-        chair.append(Os(e, c, 0.25, 0.17, k=0.12, peau=(0.018, 5.0, 5.0 * s), ventre=0.02, g0=0.0, g1=0.4, graine=2 * s))
-        chair.append(Os(c, m, 0.17, 0.12, k=0.08, peau=(0.014, 5.0, 8.0 * s), g0=0.4, g1=0.7, graine=4 * s))
-        griffes.append(Os(m, m + np.array([0.30, s * 0.05, -0.08]), 0.10, 0.018, k=0.03, g0=0.4, g1=1.0, graine=5 * s))
-        griffes.append(Os(m, m + np.array([0.22, s * -0.16, -0.14]), 0.08, 0.016, k=0.03, g0=0.4, g1=1.0, graine=6 * s))
-
-    # Crête dorsale : éperons d'os irréguliers, plantés de travers.
-    for x, y, z, h, r, inc in ((0.98, 0.08, 1.14, 0.44, 0.18, -0.10), (0.42, -0.10, 1.38, 0.62, 0.22, -0.18), (-0.22, 0.13, 1.34, 0.50, 0.20, -0.20),
-                               (-0.84, -0.05, 0.90, 0.38, 0.18, -0.22), (-1.44, 0.08, 0.66, 0.26, 0.14, -0.20)):
-        griffes.append(Os(corps.monde((x, y, z)), corps.monde((x + inc, y + inc * 0.5, z + h)), r, r * 0.20, k=0.06, g0=0.20, g1=1.0, graine=x * 3))
-
-    # Pattes-piliers : colonnes d'éléphant, genoux ridés, cnémides de chitine, pied large à ongles épais.
-    def plis_genou(t_, a):
-        return 0.012 * _lisse(0.15, 0.0, np.abs(t_ - 0.5) - 0.28) * np.abs(np.sin(t_ * 21.0 + 1.6 * np.sin(a * 3.0))) + 0.006 * np.abs(np.sin(t_ * 9.0 + a))
+    # DEUX PATTES-PILIERS : cuisse de chitine, genou de chair rouge, tibia annelé, pied large à ongles. Grande foulée.
+    def lips_jambe(t_, a):
+        return 0.028 * np.clip((t_ * 3.0) % 1.0, 0.0, 1.0) ** 2.0
 
     for s in (-1.0, 1.0):
         u = phase + (0.5 if s > 0 else 0.0)
-        dx, dz = A.pas(u, 0.62, 0.46, appui=0.60)
-        hanche = corps.monde((-0.05, s * 1.04, -0.30))
-        cheville = np.array([-0.02 + dx, s * 1.26, 0.30 + dz])
-        genou = A.ik2(hanche, cheville, 1.02, 1.00, (1.0, s * 0.12, 0.0))
-        chair.append(Os(hanche, genou, 0.62, 0.45, k=0.16, ventre=0.06, peau=(0.030, 2.8, 4.0 * s), plis=plis_genou, g0=0.0, g1=0.2, graine=s * 2.0))
-        chair.append(Os(genou, cheville, 0.45, 0.36, k=0.10, ventre=0.03, peau=(0.030, 2.8, 7.0 * s), plis=plis_genou, g0=0.2, g1=0.3, graine=s * 3.3))
-        chair.append(Ell(genou, (0.48, 0.48, 0.48), k=0.10, peau=(0.03, 3.5, 9.0 * s), plis=None, g=0.2))
-        # cnémide : grande plaque courbe sur le devant du tibia
-        axe = (cheville - genou) / np.linalg.norm(cheville - genou)
-        centre = genou + axe * 0.46 + np.array([0.27, s * 0.08, 0.0])
-        ang = np.arctan2(axe[0], -axe[2])
-        carapace.append(Ell(centre, (0.15, 0.34, 0.58), R=rot_y(ang), k=0.06, peau=(0.014, 6.0, 3.0 * s)))
-        # pied large, ongles
+        dx, dz = A.pas(u, 0.92, 0.66, appui=0.58)
+        hanche = corps.monde((-0.82, s * 1.14, -0.66))
+        cheville = np.array([-0.82 + dx, s * 1.50, 0.34 + dz])
+        genou = A.ik2(hanche, cheville, 1.16, 1.10, (1.0, s * 0.20, 0.05))
+        armure.append(Os(hanche, genou, 0.68, 0.46, k=0.05, ventre=0.05, g0=0.0, g1=0.0, graine=s * 3.0, peau=(0.010, 4.0, 6.0 * s)))
+        chair.append(Ell(genou, (0.45, 0.43, 0.43), k=0.06, peau=(0.012, 3.5, 4.0 * s)))
+        armure.append(Os(genou, cheville, 0.44, 0.36, k=0.05, ventre=0.02, g0=0.0, g1=0.0, graine=s * 5.0, plis=lips_jambe, peau=(0.010, 4.0, 8.0 * s)))
         pied_c = cheville + np.array([0.08, 0.0, -0.17])
-        chair.append(Ell(pied_c, (0.60, 0.50, 0.19), k=0.09, peau=(0.018, 5.0, 2.0 * s), plis=None, g=0.3))
-        for j, (ax, ay) in enumerate(((0.48, 0.30), (0.58, 0.0), (0.46, -0.30), (-0.36, s * 0.08))):
-            griffes.append(Os(pied_c + np.array([ax * 0.62, ay, 0.05]), pied_c + np.array([ax * 1.28, ay * 1.16, -0.085]), 0.19, 0.045, k=0.05, g0=0.15, g1=0.95, graine=j + s))
+        armure.append(Ell(pied_c, (0.66, 0.54, 0.19), k=0.07, peau=(0.006, 5.0, 2.0 * s), g=0.25))
+        for j, (ax, ay) in enumerate(((0.52, 0.32), (0.64, 0.0), (0.50, -0.32), (-0.40, s * 0.08))):
+            griffes.append(Os(pied_c + np.array([ax * 0.62, ay, 0.05]), pied_c + np.array([ax * 1.30, ay * 1.16, -0.085]), 0.17, 0.035, k=0.04, g0=0.0, g1=0.8, graine=j + s))
+
+    # Deux pattes grêles repliées sous le flanc : le rappel direct du biter vanilla, qui trottent dans le vide.
+    for s, a_ in ((1.0, t + 1.3), (-1.0, t + 1.3 + np.pi)):
+        hanche = corps.monde((0.25, s * 1.22, -0.70))
+        pied = np.array([0.55 + 0.42 * np.sin(a_), s * 2.42, 0.95 + 0.26 * max(0.0, np.cos(a_))])
+        ch, gr, genou, cheville = A.patte(hanche, pied, 0.92, 0.82, (0.0, s * 0.8, 0.9), 0.20, 0.11, 0.060, griffe=0.42, rep_graine=s + 40.0, ventre=0.02, peau=(0.008, 10.0, 11.0),
+                                          griffe_r=0.018, griffe_dir=(0.0, -s * 0.4, 1.0), k=0.03)
+        pattes.extend(ch)
+        griffes.extend(gr)
+        pattes.append(sdf.ell_sur(genou - (genou - hanche) * 0.24, genou + (genou - hanche) * 0.05, 0.135, 0.12, (0.0, s * 0.5, 1.0), k=0.05, g=0.4))
     return f
-
-
-def sdf_bosses(q):
-    return np.clip(BRUIT(q * 4.2 + 11.0) * 2.2, -0.4, 1.0)
