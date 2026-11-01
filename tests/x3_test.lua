@@ -1019,7 +1019,7 @@ do -- aucun fichier du jeu ne lit x3.lua (fichiers suivis par git).
     -- Piste ÉTAIN (AMELIO-RESSOURCES, 30/10) : la cassitérite et la carte imprimée sont EN JEU ; seuls la garantie (ressource
     -- de X3) et le module de l'étain lisent x3.lua (comme le jeu lit epochs.lua). Tout autre lecteur reste refusé.
     local allowed = { ["shared/content/guarantee.lua"] = true, ["shared/content/tin.lua"] = true, ["shared/content/bauxite.lua"] = true, ["shared/content/zinc.lua"] = true,
-      ["shared/content/compute.lua"] = true } -- lot CALCUL : lithographie d'X3 (résine, masque, laser, lithographe, tranche gravée)
+      ["shared/content/compute.lua"] = true, ["shared/content/robot_parts.lua"] = true } -- lot CALCUL : lithographie d'X3 (résine, masque, laser, lithographe, tranche gravée) -- lot RB-4 : servo, capteur, contrôleur, noyau, actionneur, module laser
     local other = {}
     for _, f in ipairs(readers) do if not allowed[f] then other[#other + 1] = f end end
     check(#other == 0, "aucun fichier du jeu (hors tests/, tools/, garantie et étain) ne lit shared/content/x3.lua : " .. table.concat(other, ", "))
