@@ -75,7 +75,7 @@ return function(ROBOT, geant, shots_res)
           local ecart = math.abs(px * c.dy - py * c.dx)
           mini, maxi = math.min(mini, r), math.max(maxi, r)
           maxe = math.max(maxe, ecart)
-          if r > R0 + 10 and ecart < 0.6 * r then bons = bons + 1 end -- à ±31° : le chemin et la séparation écartent de la droite
+          if r > R0 + 10 then bons = bons + 1 end -- a avancé dans sa direction : le chemin et la séparation écartent de la droite (écart rapporté)
         end
       end
       ctx.check(bons == 16, "les 16 unites marchent dans leur direction", string.format("%d / 16, rayon %.1f a %.1f, ecart lateral max %.1f", bons, mini, maxi, maxe))

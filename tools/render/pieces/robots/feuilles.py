@@ -158,17 +158,19 @@ def sortie(pl, robot, anim, couche, dest, couches, manifeste):
     """Écrit la feuille HR et sa réduction ; rend les Mpx de la HR."""
     img, w, h, shift = pl
     hr_n, lr_n = "hr-%s-%s-%s.png" % (robot, anim, couche), "%s-%s-%s.png" % (robot, anim, couche)
-    ecrit(img, os.path.join(dest, hr_n))
+    # ombre : 32 px par tuile en haute qualité (scale 1) : douce à cette finesse, et une feuille d'ombres de 16 lignes dépasserait 8 192 px (F144)
+    k_hr = 2 if couche == "shadow" else 1
+    ecrit(reduit(img, k_hr, couche) if k_hr > 1 else img, os.path.join(dest, hr_n))
     ecrit(reduit(img, K_NORMALE, couche), os.path.join(dest, lr_n))
-    couches[couche] = {"hr": PREFIXE_JEU + hr_n, "lr": PREFIXE_JEU + lr_n, "w": w, "h": h, "lw": w // K_NORMALE, "lh": h // K_NORMALE,
-                       "shift": [round(shift[0], 5), round(shift[1], 5)]}
+    couches[couche] = {"hr": PREFIXE_JEU + hr_n, "lr": PREFIXE_JEU + lr_n, "w": w // k_hr, "h": h // k_hr, "lw": w // K_NORMALE, "lh": h // K_NORMALE,
+                       "hs": 0.5 * k_hr, "shift": [round(shift[0], 5), round(shift[1], 5)]}
     for n_ in (hr_n, lr_n):
         manifeste["fichiers"][n_] = sha(os.path.join(dest, n_))
     return img.shape[0] * img.shape[1] / 1e6
 
 
 def geant(robot, src, dest, manifeste):
-    """Géant : torse à 64 directions (8 × 8 ; le rendu est à sa place au sol, le jeu le remonte de `hauteur` : prototypes/robots.lua), ombre au sol, pièces de pattes."""
+    """Géant : torse à 32 directions (8 × 4 ; le rendu est à sa place au sol, le jeu le remonte de `hauteur` : prototypes/robots.lua), ombre au sol, pièces de pattes."""
     mod = __import__(robot)
     nd = piece.ROBOTS[robot]["torse"]
     noms = ["%s-t%02d" % (robot, k) for k in range(nd)]
@@ -227,7 +229,7 @@ def geant(robot, src, dest, manifeste):
                             "shift": [round((w_ / 2.0 - ox) / 64.0, 5), round((h_ / 2.0 - oy) / 64.0, 5)]}
     mpx += w_ * h_ / 1e6
     ic = "%s-icone.png" % robot
-    icone(src, "%s-t40" % robot, os.path.join(dest, ic))
+    icone(src, "%s-t%02d" % (robot, nd * 5 // 8), os.path.join(dest, ic))
     manifeste["fichiers"][ic] = sha(os.path.join(dest, ic))
     t["icone"] = PREFIXE_JEU + ic
     return t, mpx
@@ -236,11 +238,18 @@ def geant(robot, src, dest, manifeste):
 Y_PIECE_PX = int(round(40.0 * 0.7071067811865476 * 64.0))    # origine des pièces de pattes (marionette.Z_PIECE) : si haut à l'écran, en px HR
 
 
+def complet(robot):
+    """Série entièrement rendue ?"""
+    src = os.path.join(LOGS, "2026-11-01_RBV1", robot, "sprites")
+    if not (piece.ROBOTS[robot].get("serie") or piece.ROBOTS[robot].get("torse")):
+        return False
+    return all(os.path.isfile(os.path.join(src, n, "spec.json")) for n in piece.noms_serie(robot))
+
+
 def main():
     ap = argparse.ArgumentParser()
     # tous les robots dont les sources existent : sprites.lua les contient tous, à chaque fois
-    ap.add_argument("--robots", default=",".join(n for n, d in piece.ROBOTS.items()
-                                                 if os.path.isdir(os.path.join(LOGS, "2026-11-01_RBV1", n, "sprites"))))
+    ap.add_argument("--robots", default=",".join(n for n in piece.ROBOTS if complet(n)))
     ap.add_argument("--src", default="", help="dossier des sprites (défaut : fo-logs/2026-11-01_RBV1/<robot>/sprites)")
     ap.add_argument("--dest", default=DEST_DEFAUT)
     a = ap.parse_args()

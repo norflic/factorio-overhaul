@@ -24,7 +24,7 @@ def lire_table(dest):
     """Lit sprites.lua par motif (le format est celui de feuilles.py) : anim, couche, w, h, fichier hr, lr."""
     txt = open(os.path.join(dest, "sprites.lua"), encoding="utf-8").read()
     out = []
-    for m in re.finditer(r'(glow|main|mask|shadow) = \{\s*h = (\d+),\s*hr = "[^"]*/([^"/]+)",\s*lh = (\d+),\s*lr = "[^"]*/([^"/]+)",\s*lw = (\d+),\s*shift = \{ ([-\d.]+), ([-\d.]+) \},\s*w = (\d+),', txt):
+    for m in re.finditer(r'(glow|main|mask|shadow) = \{\s*h = (\d+),\s*hr = "[^"]*/([^"/]+)",\s*hs = [\d.]+,\s*lh = (\d+),\s*lr = "[^"]*/([^"/]+)",\s*lw = (\d+),\s*shift = \{ ([-\d.]+), ([-\d.]+) \},\s*w = (\d+),', txt):
         out.append({"couche": m.group(1), "h": int(m.group(2)), "hr": m.group(3), "lh": int(m.group(4)), "lr": m.group(5), "lw": int(m.group(6)),
                     "sx": float(m.group(7)), "sy": float(m.group(8)), "w": int(m.group(9))})
     return out
@@ -45,8 +45,11 @@ def controle(dest):
     if not tab:
         err.append("sprites.lua : aucune couche lue")
     for t in tab:
-        run = "-run-" in t["hr"]
-        col, lig = (8, 16) if run else (8, 4)
+        imh = Image.open(os.path.join(dest, t["hr"]))
+        col, lig = imh.size[0] // t["w"], imh.size[1] // t["h"]
+        attendu = (16, ) if "-run-" in t["hr"] else (4, 8)      # lignes : 16 directions ; tir : 2 images par direction sur 8 colonnes ; torse : 8 × 8
+        if lig not in attendu:
+            err.append("%s : %d lignes" % (t["hr"], lig))
         for f, w, h in ((t["hr"], t["w"], t["h"]), (t["lr"], t["lw"], t["lh"])):
             im = Image.open(os.path.join(dest, f))
             if im.size != (col * w, lig * h):

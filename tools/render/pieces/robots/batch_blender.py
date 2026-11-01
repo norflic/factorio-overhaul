@@ -128,6 +128,8 @@ def main():
             layers = ["main", "shadow", "glow"] if head else ["main", "ao", "shadow", "glow", "light"]
         if "piece" in meta:
             layers = ["main", "glow"]
+        elif "torse" in meta:      # le torse flotte, loin du sol : pas de liseré de contact
+            layers = ["main", "shadow", "glow"]
         S.reset()
         S.HALO_LIGHTS.clear()
         S.EXTRA_LIGHTS.clear()
