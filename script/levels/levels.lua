@@ -1339,8 +1339,12 @@ function Levels.migrate_footprints()
             local new
             if cand then
               local old_unit, ratio = e.unit_number, e.get_health_ratio() or 1
-              local was_cc, force = Levels.cc(e.force) == e, e.force
+              local cc0, force = Levels.cc(e.force), e.force
+              local was_cc = cc0 == e -- (lu avant : `e` n'est plus valide après le remplacement)
               new = Levels.resize_replace(e, name, from_d, to_d, { room = room })
+              -- Intégration 0.6.33 : on_built (raise_built) inscrit tout centre reposé comme LE centre de sa force : un centre qui ne l'était pas
+              -- (galerie du banc content, posée sans raise_built) le lui volait (niveau faux, paiement sur le mauvais coffre). Seul le vrai centre passe la main.
+              if cc0 and not was_cc then st.cc[force.name] = cc0 end
               if new then
                 new.health = new.prototype.max_health * ratio
                 if was_cc then st.cc[force.name] = new end

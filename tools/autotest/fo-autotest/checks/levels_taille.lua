@@ -144,6 +144,10 @@ return {
     if e.tick ~= ACT or st.done then return end
     st.done = true
     local z, s = ctx.zone, ctx.surface()
+    -- Lot QG-JEU : une migration d'emprise (double source) remplace le centre : l'entité notée au setup n'est plus valide ; le centre de la force est relu.
+    if not (st.cc and st.cc.valid) then
+      st.cc = s.find_entities_filtered({ name = LV.name(LV.by_key.command, 15), force = FORCE })[1]
+    end
     local inv = st.cc and st.cc.valid and st.cc.get_inventory(defines.inventory.chest)
     if not inv then
       ctx.fail("centre de la force de test introuvable au tick " .. ACT)
