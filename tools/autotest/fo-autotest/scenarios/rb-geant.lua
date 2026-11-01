@@ -30,6 +30,7 @@ local MODELE = {
 }
 --MODELE-FIN
 local DUEL = { "toroid", "heliast", "crowned" }
+local Ro_VITESSE = { toroid = 0.12, heliast = 0.09, crowned = 0.10 } -- shared/content/robots.lua (speed) ; contrôlé hors jeu
 
 local function R(ctx, fn, ...) return ctx.remote("fo-robots", fn, ...) end
 local function G(ctx, fn, ...) return ctx.remote("fo-robots-geant", fn, ...) end
@@ -60,6 +61,7 @@ return {
     ctx.call("war_setting", "fo-war-robots-cap", 400)
     -- surfaces : une grande bande pour l'ordre, des sites de duel, la chaîne
     ctx.prepare_area(X0 - 70, Y0 - 40, X0 + 180, Y0 + 40, "grass-1")
+    ctx.prepare_area(X0 - 70, Y0 + 100, X0 + 180, Y0 + 260, "grass-1")
     -- sites de duel : 300 tuiles l'un de l'autre et à 400 de la bande des ordres (un canon de portée 100 ne doit jamais atteindre le voisin)
     for k = 1, 3 do ctx.prepare_area(X0 - 70, Y0 + 400 + 300 * (k - 1) - 40, X0 + 40, Y0 + 400 + 300 * (k - 1) + 40, "grass-1") end
     ctx.prepare_area(X0 + 680, Y0 + 280, X0 + 780, Y0 + 420, "grass-1")
@@ -99,6 +101,16 @@ return {
     st.nid_pv = st.nid and st.nid.health
     st.depart = st.ordre and R(ctx, "unit_info", st.ordre)
 
+    -- VITESSE : chacun des trois géants, dans sa force d'âge 15, marche 150 tuiles vers l'est (sans ennemi)
+    st.vit = {}
+    for k, id in ipairs(DUEL) do
+      local f = "rb-v" .. k
+      C.force(f)
+      R(ctx, "set_age", f, 15)
+      local y = Y0 + 100 + 60 * (k - 1)
+      local un = R(ctx, "spawn", f, id, X0 - 50, y)
+      st.vit[#st.vit + 1] = { id = id, f = f, un = un, y = y }
+    end
     -- CHAÎNE : dock et portique alimentés par script (l'insertion est bornée par la limite de la machine : on relève ce qui entre)
     local cx, cy = X0, Y0 - 90
     st.dock = s.create_entity({ name = "fo-robot-dock", position = { cx - 12.5, cy }, force = "rb-chain", raise_built = true })
@@ -169,6 +181,9 @@ return {
           end
         end
       end
+      for _, v in ipairs(st.vit) do
+        if v.un then R(ctx, "order", v.f, "move", X0 + 100, v.y, { x = X0 - 50, y = v.y, radius = 15 }, 4) end
+      end
       -- ORDRE
       st.t_ordre = t
       if st.ordre then
@@ -184,6 +199,16 @@ return {
           local info = site.un and R(ctx, "unit_info", site.un)
           if vivants == 0 and info then site.t_end, site.win, site.pv = t - T0, true, info.health
           elseif not info then site.t_end, site.win, site.pv = t - T0, false, 0 end
+        end
+      end
+    end
+    -- VITESSE : relevés
+    if t > T0 and t % 20 == 0 then
+      for _, v in ipairs(st.vit) do
+        local g = v.un and G(ctx, "info", v.un)
+        if g then
+          if g.autopilot > 0 and not v.depart then v.depart = { t = t, x = g.x } end
+          if v.depart and t - v.depart.t <= 600 then v.fin = { t = t, x = g.x } end
         end
       end
     end
@@ -248,6 +273,12 @@ return {
     ctx.check(g ~= nil and g.shells >= 1, "(ORDRE) la munition du geant est tenue", string.format("obus %s", tostring(g and g.shells)))
     ctx.log(string.format("[FO-RB-GEANT] ordre : depart x=%s, marche %s, vitesse mesuree %s tuile/tick (cible 0,12)",
       tostring(st.depart and st.depart.x), tostring(st.marche and st.marche.t), tostring(vitesse)))
+    for _, v in ipairs(st.vit) do
+      local vit = (v.depart and v.fin and v.fin.t > v.depart.t) and (v.fin.x - v.depart.x) / (v.fin.t - v.depart.t) or nil
+      local cible = Ro_VITESSE[v.id]
+      ctx.check(vit ~= nil and math.abs(vit - cible) <= 0.2 * cible, "(VITESSE " .. v.id .. ") marche a la vitesse du plan a 20 % pres",
+        string.format("mesuree %s tuile/tick, plan %s", tostring(vit), tostring(cible)))
+    end
     ctx.check(R(ctx, "check") == true, "registre des robots coherent")
   end,
 }

@@ -216,6 +216,13 @@ do
   local sg = read("tools/autotest/fo-autotest/scenarios/rb-geant.lua")
   local gblock = sg:match("%-%-MODELE%-DEBUT\n(.-)%-%-MODELE%-FIN")
   check6(gblock ~= nil and gblock:gsub("%s+$", "") == giant_block(D0), "§6 bis le bloc MODELE de rb-geant est celui du modèle (relancer --scenario)")
+  local speeds = sg:match("local Ro_VITESSE = { (.-) }")
+  local okv = speeds ~= nil
+  for _, id in ipairs({ "toroid", "heliast", "crowned" }) do
+    local v = speeds and tonumber(speeds:match(id .. " = ([%d%.]+)"))
+    if v ~= Ro.robot(id).speed then okv = false end
+  end
+  check6(okv, "§6 bis les vitesses de rb-geant sont celles des données")
   local ss = read("tools/autotest/fo-autotest/scenarios/rb-soutien.lua")
   local dm = tonumber(ss:match("local DEGATS_CHANFREIN = ([%d%.]+)"))
   check6(dm == Ro.robot("chamfer").shot.damage, "§6 bis les dégâts du Chanfrein de rb-soutien sont ceux des données")

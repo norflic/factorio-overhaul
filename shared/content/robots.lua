@@ -143,7 +143,7 @@ Ro.ROBOTS = {
   {
     id = "toroid", age = 13, class = "giant", role = "experimental-assault", factory = "fo-robot-gantry", dtype = "electric",
     hp0 = 600000, dmg0 = 10000, hp = 834000, shot = { damage = 13900, cooldown = 30 }, range = 100, speed = 0.12, half = 1.5, tons = 12,
-    giant = { scale = 1.5, leg_scale = 1, leg_speed = 0.32 },
+    giant = { scale = 1.5, leg_scale = 1, leg_speed = 0.2 },
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
       { "fo-laser-module", 60 }, { "fo-titanium-plate", 100 } }, time = 30 },
     ingredients = {}, time = 120, mu = 251000,
@@ -151,7 +151,7 @@ Ro.ROBOTS = {
   {
     id = "heliast", age = 14, class = "giant", role = "experimental-artillery", factory = "fo-robot-gantry", dtype = "fire", area = 4, area_share = 1,
     hp0 = 1000000, dmg0 = 40000, hp = 1870000, shot = { damage = 74600, cooldown = 60 }, range = 100, speed = 0.09, half = 2, tons = 14,
-    giant = { scale = 2, leg_scale = 1, leg_speed = 0.24 },
+    giant = { scale = 2, leg_scale = 1, leg_speed = 0.085 },
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
       { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 50 } }, time = 30 },
     ingredients = {}, time = 120, mu = 459000,
@@ -159,7 +159,7 @@ Ro.ROBOTS = {
   {
     id = "crowned", age = 15, class = "giant", role = "experimental-final", factory = "fo-robot-gantry", dtype = "laser",
     hp0 = 2500000, dmg0 = 50000, hp = 2660000, shot = { damage = 53300, cooldown = 30 }, range = 100, speed = 0.10, half = 2, tons = 16,
-    giant = { scale = 2.2, leg_scale = 1, leg_speed = 0.27 },
+    giant = { scale = 2.2, leg_scale = 1, leg_speed = 0.092 },
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
       { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 100 },
       { "fo-servo-motor", 100 }, { "fo-motherboard", 100 }, { "fo-titanium-plate", 100 }, { "fo-titanium-composite", 100 } }, time = 30 },
