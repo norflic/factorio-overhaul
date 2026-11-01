@@ -69,6 +69,9 @@ def release(d):
         time.sleep(0.25)
 
 
+SANS_PROPRIETAIRE = {}  # dossier de verrou vu sans owner.txt -> première fois
+
+
 def try_slot(d):
     """Prend la place d (True), ou la laisse si elle est tenue par un processus vivant (False)."""
     for _ in range(2):
@@ -77,11 +80,13 @@ def try_slot(d):
         except FileExistsError:
             pid = owner_pid(d)
             if pid is None:
-                try:  # dossier tout juste créé : son propriétaire écrit owner.txt
-                    if time.time() - os.path.getmtime(d) < 30:
-                        return False
-                except OSError:
-                    continue  # supprimé entre-temps : réessayer
+                # Dossier tout juste créé : son propriétaire écrit owner.txt. Compté à NOTRE horloge : sur exFAT (F:), la date
+                # du dossier n'est pas fiable, et un verrou vivant était pris pour un orphelin (6 rendus à la fois, 1/11).
+                vu = SANS_PROPRIETAIRE.setdefault(d, time.time())
+                if time.time() - vu < 30:
+                    return False
+                SANS_PROPRIETAIRE.pop(d, None)
+            SANS_PROPRIETAIRE.pop(d, None)
             if alive(pid or -1):
                 return False
             print("[fo-render] verrou orphelin repris : %s (PID %s)" % (d, pid), flush=True)
