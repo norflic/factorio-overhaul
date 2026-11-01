@@ -427,10 +427,8 @@ def dents(lot, M, C, x0, x1, r, saut=lambda x: False):
         x += L + r.f(0.09, 0.16)
 
 
-def portique(lot, M, r):
+def portique(lot, M, r, a=(1.2, 1.28), b=(3.2, 1.16), za=3.25, zb=2.72):
     """Portique d'acier au nord du crâne (il casse la ligne du dos) : deux chevalets, poutre en treillis, palan, tôle levée."""
-    a, b = (1.2, 1.28), (3.2, 1.16)
-    za, zb = 3.25, 2.72
     for (c, z) in ((a, za), (b, zb)):
         for (dx, dy) in ((-0.3, 0.2), (0.3, 0.2), (0.0, -0.35)):
             lot.put(M["pl1"], G.tube([(c[0] + dx, c[1] + dy, 0.0), (c[0], c[1], z)], 0.03, 5))

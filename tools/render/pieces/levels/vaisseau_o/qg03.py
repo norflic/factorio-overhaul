@@ -24,14 +24,14 @@ HX, HY = 1.24, 0.95
 UX, UY = 1.12, 0.84
 Z0, Z1, Z2, Z3 = 0.2, 1.14, 1.92, 2.48
 E = dict(roul_ar=-0.07, tang_ar=0.05, lacet_ar=0.09, t_ar=(-0.42, 0.34, 1.04), roul_av=0.21, tang_av=0.075, lacet_av=-0.085, t_av=(0.4, 0.15, 1.06),
-         aile_pli=0.85, cant=0.25, trou_dos=False, aile_casse=False, derive_casse=False, tuyau_ar="cu0", hublot_av="ambre", hublot_ar="ambre", bosse="cu1", vitre_cassee=False)
+         aile_pli=0.85, cant=0.25, trou_dos=False, aile_casse=True, derive_casse=False, tuyau_ar="cu0", hublot_av="ambre", hublot_ar="ambre", bosse="cu1", vitre_cassee=False)
 
 
 def matieres(S):
     M = Q.matieres(S)
     cr = (0.011, 0.008, 0.005)
     sf = MT.surface
-    for i, c in enumerate(((0.3, 0.125, 0.052), (0.2, 0.082, 0.036), (0.42, 0.19, 0.075), (0.15, 0.075, 0.04))):
+    for i, c in enumerate(((0.38, 0.16, 0.066), (0.26, 0.105, 0.046), (0.52, 0.24, 0.095), (0.2, 0.098, 0.052))):
         M["cu%d" % i] = sf("q3_cu%d" % i, c, rough=0.45, met=0.55, grain=0.18, coulures=0.85, rouille=(0.05, 0.14, 0.095), usure=0.7, nu=(0.8, 0.5, 0.28), crasse=0.75,
                            crasse_col=cr, pied=(0.0, 0.5, 0.6), graine=121 + i)
     for i, c in enumerate(((0.12, 0.11, 0.104), (0.08, 0.074, 0.068), (0.18, 0.175, 0.168), (0.095, 0.082, 0.072))):
@@ -39,11 +39,11 @@ def matieres(S):
                            crasse_col=cr, pied=(0.0, 0.5, 0.6), graine=125 + i)
     M["cercle"] = sf("q3_cercle", (0.03, 0.027, 0.024), rough=0.5, met=0.75, grain=0.12, usure=0.85, nu=(0.34, 0.32, 0.29), crasse=0.5, crasse_col=cr, coulures=0.4, graine=129)
     M["laiton"] = sf("q3_laiton", (0.42, 0.27, 0.075), rough=0.36, met=0.88, usure=0.3, nu=(0.75, 0.6, 0.3), crasse=0.4, crasse_col=cr, graine=130)
-    M["brique"] = sf("q3_brique", (0.2, 0.07, 0.038), rough=0.88, met=0.0, tole=(0.21, 0.075), joint=0.32, joint_l=0.011, var=0.24, grain=0.18, coulures=0.5, rouille=(0.02, 0.018, 0.016),
+    M["brique"] = sf("q3_brique", (0.27, 0.095, 0.05), rough=0.88, met=0.0, tole=(0.21, 0.075), joint=0.32, joint_l=0.011, var=0.24, grain=0.18, coulures=0.5, rouille=(0.02, 0.018, 0.016),
                      usure=0.45, nu=(0.34, 0.2, 0.14), crasse=0.9, crasse_col=cr, relief=0.6, graine=131)
     M["pave"] = sf("q3_pave", (0.095, 0.08, 0.066), rough=0.85, met=0.0, tole=(0.2, 0.13), joint=0.32, joint_l=0.012, var=0.28, grain=0.2, usure=0.4, nu=(0.2, 0.17, 0.14), crasse=0.8, crasse_col=cr, relief=0.8, graine=132)
     M["pierre"] = sf("q3_pierre", (0.17, 0.15, 0.125), rough=0.88, met=0.0, grain=0.2, usure=0.5, nu=(0.3, 0.27, 0.23), crasse=0.85, crasse_col=cr, coulures=0.5, rouille=(0.03, 0.03, 0.025), graine=133)
-    M["ardoise"] = sf("q3_ardoise", (0.05, 0.045, 0.048), rough=0.6, met=0.2, tole=(0.13, 0.085), joint=0.5, joint_l=0.009, var=0.32, grain=0.2, usure=0.5, nu=(0.16, 0.15, 0.15), crasse=0.8, crasse_col=cr, relief=0.6, graine=134)
+    M["ardoise"] = sf("q3_ardoise", (0.085, 0.078, 0.082), rough=0.6, met=0.2, tole=(0.13, 0.085), joint=0.5, joint_l=0.009, var=0.32, grain=0.2, usure=0.5, nu=(0.16, 0.15, 0.15), crasse=0.8, crasse_col=cr, relief=0.6, graine=134)
     M["bois"] = sf("q3_bois", (0.14, 0.085, 0.045), rough=0.82, met=0.0, tole=(0.8, 0.12), joint=0.3, var=0.2, grain=0.3, usure=0.6, nu=(0.34, 0.26, 0.17), crasse=0.8, crasse_col=cr, graine=135)
     M["cuir"] = sf("q3_cuir", (0.08, 0.04, 0.018), rough=0.6, met=0.0, grain=0.25, usure=0.5, nu=(0.22, 0.13, 0.07), crasse=0.85, crasse_col=cr, graine=136)
     M["charbon"] = sf("q3_charbon", (0.012, 0.012, 0.013), rough=0.5, met=0.2, grain=0.5, usure=0.5, nu=(0.09, 0.09, 0.095), crasse=0.4, crasse_col=cr, graine=137)
@@ -417,7 +417,7 @@ def reservoir(lot, M, r, c):
         lot.put(M["pl3"], G.rivets_le_long([((x + (R0 + 0.006) * math.cos(TAU * k / n), y + (R0 + 0.006) * math.sin(TAU * k / n), z + 0.05), (math.cos(TAU * k / n), math.sin(TAU * k / n), 0.0)) for k in range(n)], 0.012, 0.008))
         z += r.f(0.25, 0.38)
         i += 1
-    lot.put(M["cu2"], G.tour([(z1, R0 + 0.01), (z1 + 0.1, R0 - 0.04), (z1 + 0.3, 0.14), (z1 + 0.36, 0.0)], 32, "z", (x, y, 0.0)))
+    lot.put(M["cu3"], G.tour([(z1, R0 + 0.01), (z1 + 0.1, R0 - 0.04), (z1 + 0.3, 0.14), (z1 + 0.36, 0.0)], 32, "z", (x, y, 0.0)))
     lot.put(M["laiton"], G.tour([(z1 + 0.34, 0.03), (z1 + 0.5, 0.012)], 8, "z", (x, y, 0.0)))
     F.tuyau(lot, M["cu0"], M["laiton"], [(x - 0.35, y - 0.42, z0 - 0.01), (x - 0.35, y - 0.42, 0.4), (x - 0.9, y - 0.5, 0.35)], 0.04, rb=0.08)
     R.echelle(lot, M["pl1"], (x + 0.3, y - R0 - 0.16, 0.0), (x + 0.3, y - R0 - 0.02, z1 + 0.05), 0.15, 0.14, 0.009, 0.006)
@@ -433,12 +433,21 @@ def coque(lot, M, r, pose_ar, pose_av, AR, AV):
     Q2.bouclier(lot, M, AR, -2.1, -1.6, 2.1, 3.3, r, "cu3")
     F.tuyau(lot, M["cu0"], M["laiton"], [AR(-3.0, 4.4, 0.13), AR(-2.1, 4.5, 0.17), AR(-1.2, 4.6, 0.15), AR(-0.75, 4.3, 0.12)], 0.05)
     Q.hublot(lot, M, AR, -1.85, 7.65, "rond", M["ambre"])
+    Q2.dents(lot, M, AR, -3.0, -0.3, r, saut=lambda x: -1.75 < x < -0.75)
+    # soupapes et évents de cuivre dressés sur le dos (ils cassent la ligne du dos), hauteurs inégales
+    for (x, t, h, rt) in ((-2.85, 2.3, 0.62, 0.034), (-2.42, 2.05, 0.9, 0.042), (-1.98, 2.5, 0.55, 0.03), (-1.55, 1.9, 1.02, 0.046), (-0.95, 2.35, 0.7, 0.036)):
+        o, ex, ey, ez = AR.repere(x, t, 0.02)
+        q1 = G.add(o, (0.0, 0.0, h))
+        q2 = G.add(q1, (0.14, 0.0, 0.12))
+        F.tuyau(lot, M["cu2"], M["laiton"], [o, q1, q2, G.add(q2, (0.12, 0.0, -0.1))], rt, rb=0.07)
+        lot.put(M["laiton"], G.sphere(G.add(o, (0.0, 0.0, h * 0.55)), rt * 1.7, 8, 4))
     R.coque_menus(lot, M, AR, -3.0, -1.2, 3.5, 8.8, r, 26)
     lot.xf = pose_av
     for x in (0.92, 2.42):
         Q2.cerclage(lot, M, AV, x, 1.6 if x < 2 else 1.2, 8.7, 0.1, r)
     Q2.bouclier(lot, M, AV, 1.08, 1.75, 5.6, 7.1, r, "cu0")
     Q2.bouclier(lot, M, AV, 0.42, 0.88, 1.6, 2.9, r, "pl2")
+    Q2.dents(lot, M, AV, 0.42, 3.05, r, saut=lambda x: 1.0 < x < 2.35)
     F.tuyau(lot, M["cu2"], M["laiton"], [AV(0.55, 4.7, 0.12), AV(1.15, 5.15, 0.14), AV(2.4, 5.2, 0.1), AV(2.72, 5.35, 0.04)], 0.035)
     o, ex, ey, ez = AV.repere(1.5, 7.75, 0.05)
     manometre(lot, M, M["creme"], o, ez, 0.08, 6)
@@ -485,10 +494,12 @@ def build(S, lot):
     lot.xf = b
     cheminee(lot, M, (-0.62, 0.55), Z2, 4.72, 0.2, G.Rnd(2334))
     cheminee(lot, M, (0.42, 0.64), Z2, 4.2, 0.165, G.Rnd(2335))
-    for (cx, zh) in ((-0.62, 4.0), (0.42, 3.6)):
-        pass
+    for (cx, cy, zh, ks) in ((-0.62, 0.55, 3.9, ((-0.8, 0.5), (0.1, 0.72), (-0.45, -0.2))), (0.42, 0.64, 3.55, ((0.85, 0.42), (0.25, -0.15), (0.9, 0.75)))):
+        for (kx, ky) in ks:
+            lot.put(M["pl1"], G.tube([(cx, cy, zh), (kx, ky, Z3 + 0.02)], 0.006, 3))
     lot.xf = None
     Q2.treillis_mat(lot, M, pose_av((1.75, 0.2, 0.0))[:2], 1.72, 1.65, 0.2)
+    Q2.portique(lot, M, G.Rnd(2343), (0.95, 1.32), (2.25, 1.3), 3.35, 2.95)
     cour(lot, M, G.Rnd(2336), b)
     chaudiere(lot, M, G.Rnd(2337), b)
     machine(lot, M, G.Rnd(2338))
