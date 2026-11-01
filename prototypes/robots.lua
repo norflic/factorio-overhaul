@@ -358,6 +358,7 @@ for _, g in ipairs(STUB) do
   s.inventory_size = 4
   s.trash_inventory_size = 0
   s.guns = { Ro.gun_name(r.id) }
+  s.chain_shooting_cooldown_modifier = 1 -- l'araignée du jeu de base tire 2 fois plus vite en rafale (0,5) : RB-5 a mesuré des duels deux fois trop courts
   s.icons = icons_of("item", "spidertron", ROBOT_TINT[r.id])
   s.icon, s.icon_size, s.icon_mipmaps = nil, nil, nil
   for k = 1, 8 do

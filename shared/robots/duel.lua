@@ -32,6 +32,7 @@ Duel.BITERS = 3          -- « gagner à 1 contre 3 » du palier de l'âge
 Duel.SEPARATION = 40     -- distance de départ entre les déchiqueteurs et la ligne de front (tuiles)
 Duel.AIM_DELAY = 20      -- ticks entre l'entrée d'une cible en portée et le premier tir
 Duel.CONTACT_DELAY = 18  -- ticks entre le contact et la première morsure
+Duel.AREA_SHARE = 0.5    -- part des dégâts d'une zone reçue par les déchiqueteurs voisins de la cible (rb-duel, Bobineur : voir RAPPORT RB-4)
 Duel.MAX_TICKS = 36000   -- au-delà : impasse, le duel est perdu
 Duel.TARGET = 0.35       -- marge visée : part des PV de l'équipe qui reste après le duel
 Duel.WEIGHT_MIN = 0.10   -- poids d'apparition minimal pour qu'un palier compte comme « présent » à l'âge
@@ -174,7 +175,13 @@ function Duel.fight(team, biter, count, opts)
           if t >= m.ready then
             local dmg = Duel.after_resist(s.damage, s.dtype, biter.res)
             if (s.area or 0) >= 2 then
-              for _, b in ipairs(bs) do if b.hp > 0 then b.hp = b.hp - dmg end end
+              local first = true
+              for _, b in ipairs(bs) do
+                if b.hp > 0 then
+                  b.hp = b.hp - (first and dmg or dmg * Duel.AREA_SHARE)
+                  first = false
+                end
+              end
             else
               for _, b in ipairs(bs) do
                 if b.hp > 0 then b.hp = b.hp - dmg break end

@@ -94,7 +94,7 @@ local function suite(D)
   local zone = { { hp = 1000, back = 0, shot = { damage = 100, cooldown = 30, dtype = "laser", range = 20, area = 4 } } }
   check(D.fight(zone, thick, 3).left[1] > D.fight(line, thick, 3).left[1], "§4 un tir de zone vaut mieux contre trois déchiqueteurs")
   -- portée minimale : l'artillerie se tait quand les déchiqueteurs arrivent
-  local hard = { hp = 12000, dmg = 40, cd = 35, speed = 0.2, res = {} }
+  local hard = { hp = 7000, dmg = 40, cd = 35, speed = 0.2, res = {} }
   local with_min = { { hp = 500, back = 0, shot = { damage = 5000, cooldown = 120, dtype = "explosion", range = 45, min_range = 12, area = 3 } } }
   local no_min = { { hp = 500, back = 0, shot = { damage = 5000, cooldown = 120, dtype = "explosion", range = 45, area = 3 } } }
   check(not D.fight(with_min, hard, 3).win and D.fight(no_min, hard, 3).win,
@@ -160,8 +160,21 @@ local function modele_block(D)
   return table.concat(out, "\n")
 end
 
+local function giant_block(D)
+  local out = { "local MODELE = {" }
+  for _, id in ipairs({ "toroid", "heliast", "crowned" }) do
+    local r = Ro.robot(id)
+    local tier = D.tier_of_age(r.age)
+    local run = D.run(r, r.hp, r.shot.damage, tier)
+    out[#out + 1] = string.format('  ["%s"] = { age = %d, tier = %d, frac = %.2f, ticks = %d },', id, r.age, tier, run.fraction_subject, run.ticks)
+  end
+  out[#out + 1] = "}"
+  return table.concat(out, "\n")
+end
+
 if arg and arg[1] == "--scenario" then
   print(modele_block(assert(load_duel(DU_SRC))))
+  print(giant_block(assert(load_duel(DU_SRC))))
   os.exit(0)
 end
 
@@ -200,6 +213,12 @@ do
   local fresh = modele_block(D0)
   local function check6(c, m) if c then pass = pass + 1 else fail = fail + 1 msgs[#msgs + 1] = m end end
   check6(block ~= nil and block:gsub("%s+$", "") == fresh, "§6 bis le bloc MODELE de rb-duel est celui du modèle (relancer --scenario)")
+  local sg = read("tools/autotest/fo-autotest/scenarios/rb-geant.lua")
+  local gblock = sg:match("%-%-MODELE%-DEBUT\n(.-)%-%-MODELE%-FIN")
+  check6(gblock ~= nil and gblock:gsub("%s+$", "") == giant_block(D0), "§6 bis le bloc MODELE de rb-geant est celui du modèle (relancer --scenario)")
+  local ss = read("tools/autotest/fo-autotest/scenarios/rb-soutien.lua")
+  local dm = tonumber(ss:match("local DEGATS_CHANFREIN = ([%d%.]+)"))
+  check6(dm == Ro.robot("chamfer").shot.damage, "§6 bis les dégâts du Chanfrein de rb-soutien sont ceux des données")
   local tbl = sc:match("local TIER_OF_AGE = { ([%d, ]+) }")
   local want = {}
   for a = 1, 15 do want[a] = D0.tier_of_age(a) end

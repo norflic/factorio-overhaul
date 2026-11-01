@@ -61,6 +61,9 @@ end
 ---------------------------------------------------------------------------------------------------
 --- Âge d'une force : (tech + 1) d'une faction, sinon le niveau de son centre de commandement (au moins 1).
 function Armee.age(force)
+  local s = Armee.S()
+  local forced = s and s.age_override and s.age_override[force.name]
+  if forced then return forced end -- aide des bancs seulement (interface distante set_age) : jamais écrite par le mod
   local f = State.by_force(force.name)
   if f then return (f.tech or 0) + 1 end
   return math.max(1, Levels.cc_level(force))

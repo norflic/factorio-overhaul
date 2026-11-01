@@ -4,7 +4,7 @@
 
   - Cloche (heal) : une unité n'a pas de grille d'équipement (equipment_grid est sur VehiclePrototype) : le bouclier est SIMULÉ par un
     soin en impulsion toutes les `Ro.SUPPORT_PERIOD` ticks. Elle rend `amount` PV à chaque robot ou araignée ALLIÉ blessé dans `radius`
-    tuiles, 30 au plus (les plus petits numéros d'unité d'abord : déterminisme), plus un cercle `rendering` d'une demi-seconde.
+    tuiles, 30 au plus (les plus blessés d'abord, puis le plus petit numéro d'unité : déterminisme), plus un cercle `rendering` d'une demi-seconde.
   - Truelle (engineer) : ravive au plus `ghosts` fantômes de construction de sa force dans `radius` tuiles (LuaEntity.revive, 33 à 83 µs,
     F295) ET répare au plus `repair_max` murs, portes et tourelles blessés de `repair` PV. Les matériaux du fantôme sont PRIS, jamais
     inventés : dans un coffre de sa force à `radius` tuiles (le plus petit numéro d'unité qui les a), sinon dans l'inventaire d'un joueur
@@ -37,19 +37,25 @@ local function by_unit_number(a, b) return a.unit_number < b.unit_number end
 --- Une impulsion de soin autour de `e` (la Cloche). Rend (nombre de soignés, PV rendus au total).
 function Soutien.heal(e, h)
   local list = e.surface.find_entities_filtered({ position = e.position, radius = h.radius, force = e.force, type = TARGET_TYPES })
-  table.sort(list, by_unit_number)
-  local n, total = 0, 0
+  -- les plus blessés d'abord (part de PV restante croissante), puis le plus petit numéro d'unité : personne n'est affamé
+  local hurt = {}
   for _, t in ipairs(list) do
-    if n >= h.max then break end
     if t.valid and t.unit_number then
       local hp, mx = t.health, t.prototype.max_health
-      if hp and mx and hp < mx then
-        local add = math.min(h.amount, mx - hp)
-        t.health = hp + add
-        n = n + 1
-        total = total + add
-      end
+      if hp and mx and hp < mx then hurt[#hurt + 1] = { e = t, share = hp / mx, hp = hp, mx = mx } end
     end
+  end
+  table.sort(hurt, function(a, b)
+    if a.share ~= b.share then return a.share < b.share end
+    return a.e.unit_number < b.e.unit_number
+  end)
+  local n, total = 0, 0
+  for _, c in ipairs(hurt) do
+    if n >= h.max then break end
+    local add = math.min(h.amount, c.mx - c.hp)
+    c.e.health = c.hp + add
+    n = n + 1
+    total = total + add
   end
   if n > 0 then
     rendering.draw_circle({ color = { r = 0.25, g = 0.8, b = 0.6, a = 0.25 }, radius = h.radius, width = 2, filled = false,

@@ -27,7 +27,7 @@ end
 local MODELE = {
   ["steam-trotter"] = { age = 3, frac = 0.35, ticks = 531 },
   ["scalehide"] = { age = 5, frac = 0.39, ticks = 1173 },
-  ["coiler"] = { age = 6, frac = 0.35, ticks = 358 },
+  ["coiler"] = { age = 6, frac = 0.38, ticks = 448 },
   ["needle"] = { age = 7, frac = 0.35, ticks = 693 },
   ["trowel"] = { age = 10, frac = 0.35, ticks = 2130 },
   ["finback"] = { age = 11, frac = 0.35, ticks = 1799 },

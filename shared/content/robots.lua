@@ -97,7 +97,7 @@ Ro.ROBOTS = {
   },
   {
     id = "coiler", age = 6, class = "P", role = "anti-swarm", factory = "fo-robot-workshop", dtype = "electric", area = 4,
-    hp0 = 2500, dmg0 = 225, hp = 694, shot = { damage = 62.5, cooldown = 45 }, range = 14, speed = 0.13, half = 0.4, tons = 2,
+    hp0 = 2500, dmg0 = 225, hp = 926, shot = { damage = 83.4, cooldown = 45 }, range = 14, speed = 0.13, half = 0.4, tons = 2,
     ingredients = { { "battery", 60 }, { "steel-plate", 30 }, { "engine-unit", 15 } }, time = 12, mu = 610,
   },
   {
@@ -114,7 +114,7 @@ Ro.ROBOTS = {
   },
   {
     id = "chamfer", age = 9, class = "G", role = "artillery", factory = "fo-robotics-bay", dtype = "explosion", area = 3, min_range = 12,
-    hp0 = 15000, dmg0 = 2000, hp = 48900, shot = { damage = 6520, cooldown = 120 }, range = 45, speed = 0.07, half = 0.9, tons = 5,
+    hp0 = 15000, dmg0 = 2000, hp = 81400, shot = { damage = 10900, cooldown = 120 }, range = 45, speed = 0.07, half = 0.9, tons = 5,
     ingredients = { { "uranium-238", 100 }, { "fo-lead-plate", 100 }, { "steel-plate", 100 }, { "fo-servo-motor", 40 }, { "fo-controller", 40 },
       { "fo-optical-sensor", 100 }, { "battery", 100 }, { "processing-unit", 60 }, { "plastic-bar", 100 } }, time = 40, mu = 11250,
   },
@@ -149,7 +149,7 @@ Ro.ROBOTS = {
   },
   {
     id = "heliast", age = 14, class = "giant", role = "experimental-artillery", factory = "fo-robot-gantry", dtype = "fire", area = 4,
-    hp0 = 1000000, dmg0 = 40000, hp = 1870000, shot = { damage = 74600, cooldown = 60 }, range = 100, speed = 0.09, half = 2, tons = 14,
+    hp0 = 1000000, dmg0 = 40000, hp = 2230000, shot = { damage = 89200, cooldown = 60 }, range = 100, speed = 0.09, half = 2, tons = 14,
     giant = { scale = 2, leg_scale = 1, leg_speed = 0.5 },
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
       { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 50 } }, time = 30 },
@@ -196,8 +196,8 @@ Ro.TECHS = {
   { name = "fo-robot-levite", epoch = 12, count = 250, time = 30, prerequisites = { "fo-robot-finback", "fo-magnetic-drive" }, robots = { "levite" } },
   { name = "fo-robot-gantry", epoch = 13, count = 300, time = 30, prerequisites = { "fo-robot-levite" },
     factories = { "fo-robot-gantry" }, robots = { "toroid" } },
-  { name = "fo-robot-gantry-14", epoch = 14, count = 300, time = 30, prerequisites = { "fo-robot-gantry" }, robots = { "heliast" } },
-  { name = "fo-robot-gantry-15", epoch = 15, count = 300, time = 30, prerequisites = { "fo-robot-gantry-14" }, robots = { "crowned" } },
+  { name = "fo-robot-gantry-heliast", epoch = 14, count = 300, time = 30, prerequisites = { "fo-robot-gantry" }, robots = { "heliast" } },
+  { name = "fo-robot-gantry-crowned", epoch = 15, count = 300, time = 30, prerequisites = { "fo-robot-gantry-heliast" }, robots = { "crowned" } },
 }
 Ro.TECH = Ro.TECHS[1] -- RB-1 : technologie du premier robot (raccourci « Armée »)
 

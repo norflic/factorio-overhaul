@@ -343,6 +343,21 @@ remote.add_interface("fo-robots", {
     if not e then return nil end
     return { name = e.name, x = e.position.x, y = e.position.y, force = e.force.name, health = e.health, max = e.prototype.max_health }
   end,
+  --- Fixe l'âge d'une force pour le plafond et les géants (bancs seulement) ; `age` nil l'efface.
+  set_age = function(force_name, age)
+    local s = Armee.S()
+    if not s then return false end
+    s.age_override = s.age_override or {}
+    s.age_override[force_name] = age
+    return true
+  end,
+  --- Blesse un robot inscrit (bancs) : sa santé devient `frac` de son maximum ; vrai s'il existait.
+  hurt = function(unit_number, frac)
+    local e = Armee.entity(unit_number)
+    if not e then return false end
+    e.health = e.prototype.max_health * frac
+    return true
+  end,
   --- Tue un robot inscrit (bancs : mort réelle, événement compris) ; vrai s'il existait.
   kill = function(unit_number)
     local e = Armee.entity(unit_number)
