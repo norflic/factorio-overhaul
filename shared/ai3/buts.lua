@@ -25,6 +25,7 @@
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli (équipe du joueur, avant la 1re décision)
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bornes qui suivent l'effectif)
+local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : relève d'un avant-poste quand tout gisement pris est plein
 
 local B = {}
 
@@ -217,6 +218,27 @@ function B.targets(s, st)
   return tg
 end
 
+--- Lot C3 EXTENSION : relèves de la pensée (shared/ai3/extension.lua, Ex.releve). Un type d'avant-poste exploité qui n'a plus de place
+--- reçoit un but de NOUVEAU site pour une cause écrite (manque, plein, posture, extension) ; refusé, la raison est gardée (st.ext.why).
+--- Rend { goals, blocked, due, interval, push, n_out }.
+function B.releve(s, st)
+  st.ext = st.ext or Ex.new()
+  local key = B.key(s)
+  local kinds = {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local product = T.outposts[kind].product
+    kinds[#kinds + 1] = { kind = kind, n = (s.nout or {})[kind] or 0, cap = (s.cap or {})[kind] or 0, room = (s.room or {})[kind] == true,
+      sites = (s.sites or {})[kind] or 0, near = (s.sites_near or {})[kind], pending = (s.pending or {})[kind] or 0,
+      saturated = B.saturated(s, product), short = (st.short or {})[product] or 0, short_n = (st.short_n or {})[product] or 0,
+      optional = (key.optional or {})[kind] == true }
+  end
+  local out = Ex.releve({ tick = s.tick or 0, kinds = kinds, w_ext = (s.weights or {}).extraction, expansion = s.expansion,
+    dominant = s.dominant, desired = s.desired, spare = s.spare, soldiers = s.soldiers, undefended = s.undef_n, lethal = s.lethal_n,
+    threatened = s.threatened, hold = s.recruiting }, st.ext)
+  st.ext.push = out.push
+  return out
+end
+
 --- Situation de la fonderie pour Br.smelters : entrées de la fonderie (données de shared/team/config.lua), triées.
 local SMELT_INPUTS = {}
 do
@@ -288,6 +310,25 @@ function B.generate(s, st)
         goals[#goals + 1] = { key = "couverture:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
           extend_only = true, take_only = take_only, fond = true,
           value = math.min(B.COVER_MAX, val(B.COVER, w.extraction)), why = spec.product }
+      end
+    end
+  end
+  -- Lot C3 EXTENSION (audit n°24, 25) : la RELÈVE. Un avant-poste n'était demandé que sous une cible fixe de capacités (ci-dessus) : un
+  -- gisement entièrement pris (44 foreuses = 5,5 capacités) la remplissait, le 2e site du minerai n'était JAMAIS demandé, même avec
+  -- un site en réserve. Ici : tout type exploité sans place reçoit un but de nouveau site (build, hors couverture). Les causes
+  -- d'allure (« posture », « extension ») sont des buts de FOND (aucune place parmi les K projets, servis avec le reste du stock),
+  -- bornés comme la couverture ; « manque » et « plein » sont des projets ordinaires. Réglage maître éteint (s.extension faux) : rien.
+  if s.extension and not s.is_player then
+    local rel = B.releve(s, st)
+    local emitted = {}
+    for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
+    for _, g in ipairs(rel.goals) do
+      if not emitted[g.kind] then
+        local fond = g.why == "extension" or g.why == "posture"
+        local v = val(Ex.VALUE[g.why], w.extraction)
+        if fond then v = math.min(B.COVER_MAX, v) end
+        goals[#goals + 1] = { key = "releve:" .. g.kind, family = "extraction", kind = "outpost", outpost = g.kind, releve = g.why,
+          fond = fond or nil, value = v, why = T.outposts[g.kind].product }
       end
     end
   end

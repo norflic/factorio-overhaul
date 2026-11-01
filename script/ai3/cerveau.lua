@@ -47,6 +47,8 @@ local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
+local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : posture et avant-postes visés (règles pures)
+local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : mesures de l'étendue et journal [FO-EXTENSION]
 local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consommation, pondération des besoins
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
@@ -789,7 +791,11 @@ function Ia3.plan(f, view, book, surface, tick)
   local bilan = Bilan.think(f, view, tick) -- lot BILAN : pondération des récoltes et fabrications (nil : éteint)
   -- lot PETROLE (réglage fo-war-petrole, ÉTEINT par défaut ; éteint, rend `auto` tel quel) : sites des chaînes à fluides
   auto = Pet.think(f, view, book, tick, auto, General, Ia3.known_deposits)
+  -- Lot C3 EXTENSION (audit n°25) : la posture « expansion » du chef n'était qu'un poids ; elle fixe aussi l'allure d'extension et le
+  -- nombre d'avant-postes visés (strategy.desired_outposts, qui n'était qu'un affichage).
+  local expansion, dominant = Ex.posture(f.chef and f.chef.mix, "expansion")
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
+    expansion = expansion, dominant = dominant, desired = Ex.desired(f.tech, f.traits and f.traits.ambition or 1000),
     reach = reach, known = known, harvest = harvest, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false,
@@ -808,6 +814,7 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  Ext.after(f, view, st, tick) -- lot C3 EXTENSION : mesures (étendue, rayon de base, sites gardés) et journal [FO-EXTENSION]
   -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
   if capi and capi.tasks then
     for _, t in ipairs(capi.tasks) do plan.tasks[#plan.tasks + 1] = t end

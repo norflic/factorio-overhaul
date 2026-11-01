@@ -84,6 +84,7 @@ local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalu
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
+local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
 
 local Capi = {}
 
@@ -340,11 +341,19 @@ local function modules_of(e)
   return mods, Lv.sig(mods)
 end
 
+--- Lot C3 EXTENSION (audit n°13) : UN rayon de base. Capi.SCAN_R (160) est le plancher ; la base qui s'étend (étendue des avant-postes + marge,
+--- shared/ai3/extension.lua, Ex.base_radius) est recensée en entier, 400 tuiles au plus.
+local function scan_radius(f)
+  local es = Ext.info(f)
+  return es and es.radius and es.radius > Capi.SCAN_R and es.radius or Capi.SCAN_R
+end
+
 local function scan(f, cs, tick)
   local surface = f.hq.surface
   local hq = f.hq_pos
-  local found = surface.find_entities_filtered({ area = { { hq.x - Capi.SCAN_R, hq.y - Capi.SCAN_R },
-    { hq.x + Capi.SCAN_R, hq.y + Capi.SCAN_R } }, force = f.force, type = SCAN_TYPES })
+  local scan_r = scan_radius(f)
+  local found = surface.find_entities_filtered({ area = { { hq.x - scan_r, hq.y - scan_r },
+    { hq.x + scan_r, hq.y + scan_r } }, force = f.force, type = SCAN_TYPES })
   local seen = {}
   local list = {}
   for _, e in ipairs(found) do
@@ -415,7 +424,7 @@ local function scan(f, cs, tick)
   local seeds = {}
   local function seed(res, x, y)
     if not (res and x and y) then return end
-    if dist({ x = x, y = y }, hq) > Capi.SCAN_R + 64 then return end
+    if dist({ x = x, y = y }, hq) > scan_r + 64 then return end
     seeds[#seeds + 1] = { res = res, x = math.floor(x), y = math.floor(y) }
   end
   for _, oid in ipairs(sorted_keys(f.outposts)) do
@@ -429,7 +438,7 @@ local function scan(f, cs, tick)
     local kd = Ia3 and Ia3.known_deposits and Ia3.known_deposits(f, res, tick) or nil
     for i, d in ipairs(kd or {}) do
       if i > 4 then break end
-      if (d.distance or 0) <= Capi.SCAN_R then seed(res, d.x, d.y) end
+      if (d.distance or 0) <= scan_r then seed(res, d.x, d.y) end
     end
   end
   for _, s in ipairs(f.prospects or {}) do seed(s.resource, s.x, s.y) end

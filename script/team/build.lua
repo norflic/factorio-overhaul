@@ -53,6 +53,7 @@ local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
+local Ic = require("shared.team.ilots_croissance") -- lot C3 EXTENSION : le treillis grandit au-delà du mur, en îlots défendus (règles pures)
 local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (tapis par relais, refus de l'alimentation)
 local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-CENTRALE : coffre de la centrale en urgence, foreuses de la centrale (règles pures)
 local Cl = require("shared.team.centrale_loin") -- lot PD-CENTRALE : règles pures de la centrale lointaine (D-24)
@@ -190,7 +191,8 @@ function Build.grow(f, r, cap)
   if not Rsv.on() then cap = nil end -- réglage maître éteint : la croissance ordinaire seulement
   r = math.min(r, cap or Build.RADIUS_MAX) -- lot INDUSTRIE I3 : `cap` = Build.RADIUS_ORE pour une croissance vers un gisement connu
   -- lot ESPACE : le rayon est figé par l'enceinte (un lot posé après l'anneau serait dehors, ou l'anneau couperait un lot)
-  if b.enc then r = math.min(r, b.enc.r) end
+  -- Lot C3 EXTENSION : sauf enceinte COMPLÈTE à contour serré (Build.beyond_wall) : les lots au-delà sont des îlots
+  if b.enc and not Build.beyond_wall(b) then r = math.min(r, b.enc.r) end
   if r <= b.radius then return end
   for _, l in ipairs(P.lots_within(r)) do
     local k = P.lot_key(l.i, l.j)
@@ -209,9 +211,15 @@ function Build.grow(f, r, cap)
   b.radius = r
 end
 
+--- Lot C3 EXTENSION (audit n°11, PLAN I8/D4) : le treillis peut-il grandir au-delà du mur ? Oui quand l'enceinte est COMPLÈTE et a son
+--- contour serré (shared/team/ilots_croissance.lua, Ic.open) et que le réglage maître est allumé ; éteint, le rayon reste figé comme avant.
+function Build.beyond_wall(b)
+  return b.enc ~= nil and Ic.open(b.enc) and Rsv.on()
+end
+
 --- Lot ESPACE : le treillis peut-il encore grandir ? (rayon maximal ou enceinte : non). Les replans qui attendent une
 --- croissance s'y réfèrent, sinon ils attendraient pour toujours un rayon figé.
-function Build.can_grow(b) return b.radius < Build.RADIUS_MAX and not b.enc end
+function Build.can_grow(b) return b.radius < Build.RADIUS_MAX and (not b.enc or Build.beyond_wall(b)) end
 
 local function seg_ok(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state == "ouvert" end end
 local function seg_passable(b) return function(key) local s = b.segs[key]; return s ~= nil and s.state ~= "ferme" and s.state ~= "inconnu" end end
@@ -4225,6 +4233,71 @@ local function space_log(b, text)
   if b.space_logs <= 40 then log(text) end
 end
 
+--- Lot C3 EXTENSION, BANCS SEULEMENT (interface « fo-ext », script/ai3/extension.lua) : pose une enceinte COMPLÈTE à contour serré sans en
+--- construire les murs (les murs et leur fabrication ne sont pas l'objet du banc d'îlots) ; rend { bounds, out } ou nil (déjà une enceinte,
+--- ouvertures hors bornes). Les lots hors du contour sont écartés (`out`) comme à la première demande de segment (space_step).
+function Build.stage_enclosure(f, tick)
+  local b = f.build
+  if not b or b.enc then return nil end
+  local tight = enc_tight_bounds(f)
+  if not tight then return nil end
+  b.enc = { r = b.radius, claimed = {}, segs = {}, tick = tick, gates = Enc.gate_count(), bounds = tight, complete = true }
+  -- (une enceinte n'est demandée qu'après Enc.MIN_PROJECTS projets finis : la base du banc est réputée les avoir finis)
+  b.stats.projects_done = math.max(b.stats.projects_done or 0, Enc.MIN_PROJECTS)
+  return { bounds = tight, out = enc_mark_out(b, tight) }
+end
+
+--- Lot C3 EXTENSION (audit n°11 et 12, PLAN D4) : au-delà du mur, en îlots défendus (règles pures : shared/team/ilots_croissance.lua).
+--- Enceinte COMPLÈTE : la porte des îlots (murs et tourelles des îlots déjà retenus, aucun chantier du mur) rend ou reprend les lots
+--- dehors du contour (drapeau `out`), puis le treillis grandit d'un anneau quand il manque de lots libres. Journal [FO-EXTENSION].
+local function ext_log(b, text)
+  b.ext_logs = (b.ext_logs or 0) + 1
+  if b.ext_logs <= 40 then log(text) end
+end
+
+function Build.beyond_step(f, b, enc, tick, main_busy)
+  if not Build.beyond_wall(b) then return end
+  local il = Ilots.state(f)
+  local bounds = enc.bounds
+  local rows = {}
+  for _, k in ipairs(sorted_keys(b.lots)) do
+    local l = b.lots[k]
+    local x0, y0, x1, y1 = P.lot_rect(b.lat, l.i, l.j)
+    local p = l.used and b.projects[l.used]
+    rows[#rows + 1] = { k = k, out = l.out == true, used = l.used ~= nil, x0 = x0, y0 = y0, x1 = x1, y1 = y1,
+      free = (l.state == "libre" or l.state == "defricher") and not (l.i == 0 and l.j == 0) and not (l.bad and l.bad >= 2),
+      busy = p ~= nil and ACTIVE[p.state] == true and not (p.spec and p.spec.enceinte) }
+  end
+  local info = { islands = il.n, max = Ic.max_islands(f.engineers_count or 0), unwalled = il.unwalled, unguarded = il.unguarded,
+    threatened = tick < (f.threatened_until or 0), main_busy = main_busy == true, outside_busy = Ic.count_busy(rows, bounds) }
+  local ok, why = Ic.gate(info)
+  local freed, parked = Ic.release(rows, bounds, ok)
+  for _, k in ipairs(freed) do b.lots[k].out = nil end
+  for _, k in ipairs(parked) do b.lots[k].out = true end
+  local state = ok and "ouverte" or ("fermee : " .. tostring(why))
+  if state ~= b.ext_gate then
+    b.ext_gate = state
+    ext_log(b, string.format("[FO-EXTENSION] %s : porte des ilots %s a %.1f min (ilots %d/%d, sans mur %d, sans tourelles %d, chantiers dehors %d ; %d lot(s) rendu(s), %d reprise(s))",
+      f.key or "player", state, tick / 3600, info.islands, info.max, info.unwalled, info.unguarded, info.outside_busy, #freed, #parked))
+  end
+  local sinfo = space_info(b)
+  sinfo.rmax = Build.RADIUS_ORE -- au-delà du mur le rayon va jusqu'au plafond des gisements (12), non plus à Build.RADIUS_MAX (5)
+  sinfo.islands, sinfo.max, sinfo.unwalled, sinfo.unguarded = info.islands, info.max, info.unwalled, info.unguarded
+  sinfo.threatened, sinfo.main_busy, sinfo.outside_busy = info.threatened, info.main_busy, info.outside_busy
+  local due, dwhy = Ic.grow_due(sinfo)
+  if due then
+    b.ext_wait = nil
+    ext_log(b, string.format("[FO-EXTENSION] %s : le treillis grandit au rayon %d AU-DELA du mur (rayon de l'enceinte %d ; lots libres %d < %d, ilots %d/%d) a %.1f min",
+      f.key or "player", b.radius + 1, enc.r, sinfo.free, Ic.GROW_FREE_MIN, info.islands, info.max, tick / 3600))
+    Build.grow(f, b.radius + 1, Build.RADIUS_ORE)
+  elseif sinfo.free < Ic.GROW_FREE_MIN and dwhy ~= b.ext_wait then
+    -- croissance voulue (manque de lots libres) mais refusée : la cause est écrite une fois par changement
+    b.ext_wait = dwhy
+    ext_log(b, string.format("[FO-EXTENSION] %s : croissance au-dela du mur voulue (lots libres %d < %d) mais attendue : %s, a %.1f min",
+      f.key or "player", sinfo.free, Ic.GROW_FREE_MIN, tostring(dwhy), tick / 3600))
+  end
+end
+
 --- Segment d'enceinte en cours (demandé, pas fini ni refusé) : numéro dans enc.segs, ou nil.
 local function active_segment(b, enc)
   for i, sg in ipairs(enc.segs) do
@@ -4398,6 +4471,7 @@ function Build.space_step(f, surface, tick)
       equiv = function() local wr = wall_recipe(f) return wr and (Stock.count(f, wr.item) + craftable_walls(f, wr)) or 0 end,
       request = function(spec) return Build.request(f, spec) end, cancel = function(pid, why) return Build.cancel(f, pid, why) end,
       repair = function(hold) repair_enclosure(f, surface, tick, hold, "[FO-ILOT]") end })
+    if Build.beyond_step then Build.beyond_step(f, b, enc, tick, active_segment(b, enc) ~= nil) end -- lot C3 EXTENSION
     if enc.complete or active_segment(b, enc) or tick < (enc.retry or 0) then return end
     local ok, why, equiv = request_segment(f, enc, tick)
     if ok then
