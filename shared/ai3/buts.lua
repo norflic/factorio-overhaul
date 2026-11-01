@@ -25,6 +25,7 @@
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages") -- lot IA-G : ressources clés de repli (équipe du joueur, avant la 1re décision)
 local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bornes qui suivent l'effectif)
+local Dm = require("shared.ai3.demande") -- lot C2 : saturation relative au puits ouvert
 
 local B = {}
 
@@ -147,9 +148,11 @@ end
 
 --- Besoin prévu d'une matière (horizon) : manque des projets + le plancher. `s.need` = { [objet] = n } (dernière
 --- pensée). Une matière SATURÉE (stock ≥ B.SAT_FACTOR × besoin) ne génère plus de travail d'extraction.
-function B.saturated(s, item)
+function B.saturated(s, item, floor_only)
   -- Lot SCALE : plancher qui suit l'effectif (Br.need_floor : 100 à 8 PNJ, 375 à 30).
-  local need = math.max(Br.need_floor(s.workers, B.NEED_FLOOR), (s.need and s.need[item]) or 0)
+  -- Lot C2 : le plancher ne vaut que sans puits ouvert ; avec lui, la matière n'est saturée qu'au-delà de ce que le puits en demande
+  -- (s.puits_flow : le débit que la capitalisation a calculé pour elle, Dm.sat_need).
+  local need = Dm.sat_need(Br.need_floor(s.workers, B.NEED_FLOOR), s.need and s.need[item], (not floor_only) and s.puits_flow and s.puits_flow[item] or nil)
   return (s.stock[item] or 0) >= B.SAT_FACTOR * need
 end
 
@@ -177,7 +180,7 @@ function B.targets(s, st)
     tg[key.fuel] = math.max(tg[key.fuel] or 0, 2)
   end
   -- Lot SCALE : capacités visées au plus par ressource, selon l'effectif (Br.cap_max : 5 jusqu'à 25 PNJ, 6 à 30).
-  local grow_max = Br.cap_max(s.workers, B.GROW_MAX)
+  local grow_max = Br.cap_max(s.workers, B.GROW_MAX, s.extra_cap)
   for _, kind in ipairs(T.OUTPOST_ORDER) do
     local product = T.outposts[kind].product
     local n = (st.short_n or {})[product] or 0
@@ -229,7 +232,7 @@ end
 --- précédente, lot IA3-e) borne la fonderie du QG (lot PD-FONDERIEQG, shared/ai3/fonderie_qg.lua).
 function B.smelt_situation(s, st)
   return { workers = s.workers, stock = s.stock or {}, smelters = s.smelters, smelters_pending = s.smelters_pending,
-    tick = s.tick, smelter_inputs = SMELT_INPUTS, covered = st and st.covered or nil }
+    tick = s.tick, smelter_inputs = SMELT_INPUTS, covered = st and st.covered or nil, extra_cap = s.extra_cap }
 end
 
 --- Buts de la pensée. s = situation (shared/ai3/cerveau.lua, B.situation) ; rend une liste triée (valeur

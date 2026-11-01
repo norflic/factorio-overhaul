@@ -38,6 +38,7 @@ P.EMIT.module = A.emit(P)
 local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration » (niveaux, centre), payés par le runtime
 P.EMIT.upgrade = Cap.emit(P)
 local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de la capitalisation (réglage fo-war-capi)
+local Dm = require("shared.ai3.demande") -- lot C2 : capacités de plus selon les bras libres (puits ouvert)
 P.EMIT.capi = Ca.emit(P)
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manque par rapport au besoin
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
@@ -116,6 +117,9 @@ function C.situation(view, st, ctx)
     key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
     idle_grow = ctx.idle_grow or false, tick = ctx.tick or 0, -- lot IA-G : bras libres
     spare = ctx.spare, -- lot SCALE : nombre de bras libres durables (vague d'extraction d'avance, shared/ai3/bras.lua)
+    -- Lot C2 : puits ouvert (écrit par la capitalisation, f.team.ia3.puits) : débit de chaque matière (saturation relative) et capacités de
+    -- plus selon les bras libres.
+    puits_flow = st.puits and st.puits.flow or nil, extra_cap = Dm.extra_cap(st.puits ~= nil, ctx.spare),
   }
 end
 
@@ -335,11 +339,15 @@ function C.think(view, book, st, ctx)
   st.starved = pen.starved
   st.starved_rank = pen.ranking
   st.starved_open = Gi.passent(pen, pile.focus) -- lu par la porte du runtime (script/team/pile.lua) et la menace (script/ai3/capitalisation.lua)
-  local saturated = {}
+  local saturated, held = {}, {}
   for _, k in ipairs(sorted_keys(raw)) do
-    if (view.stock[k] or 0) > 0 and B.saturated(s, k) then saturated[k] = true end
+    if (view.stock[k] or 0) > 0 then
+      if B.saturated(s, k) then saturated[k] = true
+      elseif s.puits_flow and B.saturated(s, k, true) then held[k] = true end -- lot C2 : saturée contre le plancher seul, tenue ouverte par le puits
+    end
   end
   st.saturated = saturated
+  st.sat_held = held
   -- … et seulement quand l'équipe a son effectif visé (ses recrues se paient en fer : moteur simulé, ia1_scale_test, une
   -- faction à 26 PNJ sur 30 en 12 min quand la recherche déplafonnée prenait le fer des recrues).
   local top = s.key.top -- lot IA-G : la ressource la plus demandée (le fer sur les données vanilla)

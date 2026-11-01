@@ -50,6 +50,7 @@ local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisati
 local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consommation, pondération des besoins
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
+local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 
 local Ia3 = {}
@@ -528,7 +529,7 @@ local function research_step(f, st, book, w, tick, view)
   -- Lot SCALE : bornes et fenêtre selon l'effectif et les bras libres (Br.labs_max, Br.lab_window).
   local spare_hands = General.spare_hands(f, view, tick)
   local window = Br.lab_window(Ia3.LAB_WINDOW_S, spare_hands)
-  local want = math.min(Br.labs_max(view.workers, Ia3.LABS_MAX), math.max(1, math.ceil(secs / window)))
+  local want = math.min(Br.labs_max(view.workers, Ia3.LABS_MAX, Dm.extra_cap(st.puits ~= nil, spare_hands)), math.max(1, math.ceil(secs / window)))
   -- Lot CAPIB : sous la capitalisation, ses ordres « labos » fixent le nombre visé (plus de plafond Ia3.LABS_MAX ni
   -- Br.labs_max) ; le petit nombre d'avant (au plus Ia3.LABS_MAX, fenêtre de recherche) reste un plancher.
   local capi_labs = Capi.labs_want(f)
@@ -1038,6 +1039,14 @@ function Ia3.measure(f, tick, plan)
       f.key or "player", math.floor(minutes(f, tick) + 0.5), lp.active or 0, lp.productive or 0, n_taken, n_block, lp.K or 0,
       (t.scale and t.scale.last and t.scale.last.idle) or 0, f.engineers_count or 0, dg.n, dg.idle, dg.free, dg.blocked,
       table.concat(sat, " "), table.concat(exp, " "), st.fond_dropped or 0, table.concat(parts, " ")))
+    -- Lot C2 : matières que le plancher aurait déclarées saturées et que le puits ouvert tient ouvertes (écrit quand l'ensemble change).
+    local held = sorted_keys(st.sat_held or {})
+    local hsig = table.concat(held, " ")
+    if hsig ~= (st.sat_held_sig or "") then
+      st.sat_held_sig = hsig
+      log(string.format("[FO-DEMANDE] %s : SATURATION relative au puits ouvert (besoin = plancher, buts ou debit du puits x %d min, jamais le plancher seul) : [%s] ne sont plus saturees ; saturees [%s] a %.1f min",
+        f.key or "player", Dm.SAT_H, hsig, table.concat(sat, " "), minutes(f, tick)))
+    end
   end
 end
 

@@ -189,10 +189,10 @@ end
 
 -- §6 Mutants.
 local MUTANTS = {
-  { "borne des capacités fixe", "function Br.cap_max(workers, floor) return math.max(floor or 0, pct(workers, Br.CAP_PCT)) end",
-    "function Br.cap_max(workers, floor) return floor or 0 end" },
-  { "borne des fours fixe", "function Br.smelt_max(workers, floor) return math.max(floor or 0, pct(workers, Br.SMELT_PCT)) end",
-    "function Br.smelt_max(workers, floor) return floor or 0 end" },
+  { "borne des capacités fixe", "function Br.cap_max(workers, floor, extra) return math.max(floor or 0, pct(workers, Br.CAP_PCT)) + (extra or 0) end",
+    "function Br.cap_max(workers, floor, extra) return (floor or 0) + (extra or 0) end" }, -- (extra : lot C2)
+  { "borne des fours fixe", "function Br.smelt_max(workers, floor, extra) return math.max(floor or 0, pct(workers, Br.SMELT_PCT)) + (extra or 0) end",
+    "function Br.smelt_max(workers, floor, extra) return (floor or 0) + (extra or 0) end" },
   { "vague d'une capacité", "return clamp(math.floor((spare + Br.HANDS_PER_CAP - 1) / Br.HANDS_PER_CAP), 1, Br.WAVE_MAX)",
     "return 1" },
   { "fours sans minerai au coffre", "(s.stock[ore] or 0) >= Br.ORE_WAIT * short * per", "true" },

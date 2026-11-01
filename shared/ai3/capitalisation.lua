@@ -75,6 +75,7 @@
 local R = require("shared.ai3.reglages") -- types du moteur -> rôle (seules données nommées admises)
 local Lv = require("shared.ai3.leviers") -- lot LEVIERS : modules dans les machines posées, recherches à effet
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matière la plus en manque d'abord, pas d'avant-poste de trop
+local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (le stock qui dort devient une demande)
 
 local Ca = {}
 
@@ -1043,10 +1044,37 @@ local function prepare(input, st)
   Y = Y + (rs.rate or 0) * Ca.TIME_MU
   ctx.Y = Y
   ctx.lambda = Ca.labor_price(Y, input.workers, input.idle)
+  -- Lot C2 : le PUITS OUVERT (shared/ai3/demande.lua). Le stock hors besoin d'I1 qui dort (au-delà de 2 fois le besoin évalué) devient une
+  -- demande : un débit visé en plus de la consommation, qui croît tant que le stock dort. Allumé par input.demande (jamais sous menace ni
+  -- sans le besoin évalué : sinon la règle d'avant, ligne pour ligne).
+  local sinks_in = input.sinks or {}
+  ctx.dm = nil
+  if input.demande and ctx.reserve then
+    local stock_mu, free_mu = 0, 0
+    for _, k in ipairs(sorted_keys(ctx.stock)) do
+      local m = D.mu[k]
+      if m and (D.convertible[k] or ctx.conv_extra[k]) and not D.mil[k] then
+        local have = ctx.stock[k] or 0
+        stock_mu = stock_mu + have * m
+        free_mu = free_mu + math.min(have, (ctx.reserve.free or {})[k] or 0) * m
+      end
+    end
+    local research = false
+    for _, q in ipairs(rs.queue or {}) do if (q.left or 0) > 0 then research = true break end end
+    st.dm = st.dm or Dm.new()
+    ctx.dm = Dm.step(st.dm, { stock_mu = stock_mu, free_mu = free_mu, Y = Y,
+      cands = Dm.candidates(D, function(i) return Ca.obtainable(ctx, i) end), research = research })
+    if #ctx.dm.sinks > 0 then
+      local merged = {}
+      for _, s in ipairs(sinks_in) do merged[#merged + 1] = s end
+      for _, s in ipairs(ctx.dm.sinks) do merged[#merged + 1] = s end
+      sinks_in = merged
+    end
+  end
   -- Puits AGRÉGÉS par objet (débits sommés dans un ordre fixe, élastique si l'un l'est) : deux puits du même objet ne
   -- dépendent plus de l'ordre d'entrée.
   local agg = {}
-  for _, s in ipairs(input.sinks or {}) do
+  for _, s in ipairs(sinks_in) do
     if s.item ~= nil then
       local a = agg[s.item] or { rates = {}, elastic = false }
       a.rates[#a.rates + 1] = math.max(s.rate or 0, s.want or 0)
@@ -1210,12 +1238,21 @@ end
 --- par défaut ; lot LEVIERS : plus long quand l'extraction n'a plus aucune option, Lv.REPLI_TMAX).
 local function finish(ctx, o, tmax)
   tmax = tmax or ctx.ch.tmax
+  -- Lot C2 : un stock qui dort n'a aucun coût d'opportunité : le retour accepté couvre la durée de son sommeil (shared/ai3/demande.lua).
+  if ctx.dm then tmax = Dm.tmax(tmax, ctx.dm.tmax_sleep) end
   if ctx.threat and starved_in(ctx, o.item) then tmax = tmax * Ca.THREAT_DIV end -- (sans cela, ouverte mais refusée « retour > Tmax ÷ 4 »)
   if o.cost_m == nil then
     refuse(ctx, o.key, o.kind, o.item, "impayable : " .. tostring(o.unpaid))
     return nil
   end
   o.cost = o.cost_m + ctx.lambda * (o.work or 0) / 60
+  -- Lot C2 : la part des matières payée par le stock qui DORT (au-delà de 2 fois le besoin évalué) n'a aucun coût d'opportunité : personne
+  -- d'autre ne la veut. Elle sort du coût du retour (pas du budget) ; chaque ordre retenu entame ce stock (ctx.dm.left).
+  if ctx.dm and (ctx.dm.left or 0) > 0 then
+    local disc = math.min(o.cost_m, ctx.dm.left)
+    o.cost = o.cost - disc
+    o.dormant_mu = disc
+  end
   -- Lot PREVISION (C12) : la pollution que l'ordre ajoute entraîne les tourelles qu'elle rendra nécessaires ; leur prix entre dans
   -- le RETOUR (le choix), pas dans le budget de la capitalisation (les tourelles sont payées par la défense, part δ).
   if ctx.def_price and ctx.def_price > 0 then
@@ -1835,6 +1872,7 @@ function Ca.decide(input, st)
     l_left = l_left - (pick.work or 0)
     work_used = work_used + (pick.work or 0)
     orders[#orders + 1] = pick
+    if ctx.dm and pick.dormant_mu then ctx.dm.left = math.max(0, (ctx.dm.left or 0) - pick.dormant_mu) end
     req = Ca.requirements(ctx, plan) -- le combustible des machines décidées entre dans la demande
   end
   -- Épargne : le stock libre paie d'abord (il est là), le reste vient de l'épargne du flux.
@@ -1876,7 +1914,7 @@ function Ca.decide(input, st)
   return { repli = repli, want = Lv.wanted(ctx), unlocks = ctx.lv_unlock or {}, orders = orders, refus = refus, explore = explore, s = ctx.ch.s, delta = ctx.ch.delta, alpha = ctx.ch.alpha,
     tmax = ctx.ch.tmax, g = ctx.g, lambda = ctx.lambda, Y = ctx.Y, K = plan.K, budget = budget, bank = st.bank,
     flow_part = bank, stock_part = stock_part, spent = spent, labor = ctx.labor, labor_used = work_used,
-    reserve = ctx.reserve and true or nil, free_mu = free_mu,
+    reserve = ctx.reserve and true or nil, free_mu = free_mu, demande = ctx.dm,
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open }
