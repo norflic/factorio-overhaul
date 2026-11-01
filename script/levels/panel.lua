@@ -98,7 +98,7 @@ local function reason_message(info, reason)
   if reason == "unknown-item" and info then return { "fo-epochs.reason-unknown-item", table.concat(info.unknown or {}, ", ") } end
   if reason == "no-room" and info and info.resize then
     local side = info.resize.to
-    return { "fo-levels-taille.reason-no-room", side .. "×" .. side,
+    return { "fo-levels-taille.reason-no-room", info.resize.to_text or (side .. "×" .. side),
       Levels.blockers_text(info.room and info.room.target) }
   end
   return { "fo-levels.reason-" .. tostring(reason) }
@@ -202,10 +202,12 @@ local function refresh(player)
       -- Correction V3-T2 (défaut 11) : la ligne de taille dès que la taille change, ET la ligne « hors grille » pour un
       -- bâtiment laissé hors grille par une mise à jour du mod (l'amélioration le remet sur la grille).
       if a ~= b then
-        frame.add({ type = "label", caption = { "fo-levels-taille.resize-line", a .. "×" .. a, b .. "×" .. b } })
+        frame.add({ type = "label", caption = { "fo-levels-taille.resize-line", info.resize.from_text or (a .. "×" .. a),
+          info.resize.to_text or (b .. "×" .. b) } })
       end
       if info.resize.regrid then
-        frame.add({ type = "label", caption = { "fo-levels-taille.regrid-line", a .. "×" .. a, b .. "×" .. b } })
+        frame.add({ type = "label", caption = { "fo-levels-taille.regrid-line", info.resize.from_text or (a .. "×" .. a),
+          info.resize.to_text or (b .. "×" .. b) } })
       end
       local room = info.room
       local lbl

@@ -1,8 +1,9 @@
 --[[
   Centre de commandement : épave de départ et réparation (lot CENTRE-JEU, 29/10). Règles pures :
   shared/levels/centre.lua. Rien ne change d'emprise ni de sprite : l'épave est, pour l'instant, le centre de
-  niveau 1 (entité fo-command-center) rendu INERTE (non minable, non ouvrable, 40 % de vie) ; l'art de l'épave
-  (vaisseau couché, emprise 2 : 1) viendra avec les sprites validés par le DC (voir le rapport du lot).
+  niveau 1 rendu INERTE (non minable, non ouvrable, 40 % de vie). Lot QG-JEU (1/11) : l'épave est l'entité fo-command-wreck
+  (vaisseau couché de l'âge 0, emprise 8×4 comme le niveau 1 ; shared/levels/config.lua, L.WRECK, reconnue comme le
+  niveau 1 du centre) ; la RÉPARER la remplace par fo-command-center sur place (Levels.swap).
 
   - Au PREMIER joueur d'une partie neuve (on_player_created), une épave est posée près de lui si son équipe n'a
     aucun centre. Une sauvegarde existante n'a pas d'état : son centre est « réparé » (migration sans code).
@@ -79,7 +80,7 @@ end
 function Centre.place_wreck(force, surface, near)
   local st = S()
   if not st then return nil end
-  local name = L.name(CC, 1)
+  local name = L.WRECK
   local want = { x = near.x + C.START_OFFSET.x, y = near.y + C.START_OFFSET.y }
   local pos = surface.find_non_colliding_position(name, want, C.START_RADIUS, 1)
   if not pos then return nil end
@@ -113,11 +114,15 @@ function Centre.repair(entity, player)
     cost, have, Levels.item_exists, inv ~= nil)
   local info = { cost = cost, missing = C.missing(cost, have) }
   if not ok then return false, reason, info end
+  -- Lot QG-JEU : l'épave est remplacée par le centre de niveau 1 AVANT de payer (un échec ne coûte rien).
+  local force_name = entity.force.name
+  local new = Levels.swap(entity, L.name(CC, 1))
+  if not (new and new.valid) then return false, "replace-failed", info end
   Levels.pay({ inv }, cost)
-  clear(entity.force.name)
-  entity.minable = true
-  entity.operable = true
-  entity.health = entity.prototype.max_health
+  clear(force_name)
+  new.minable = true
+  new.operable = true
+  new.health = new.prototype.max_health
   local st = S()
   st.stats.repaired = st.stats.repaired + 1
   return true, "done", info
@@ -187,11 +192,38 @@ Events.on(defines.events.on_player_mined_entity, on_gone)
 Events.on(defines.events.on_robot_mined_entity, on_gone)
 Events.on(defines.events.script_raised_destroy, on_gone)
 
--- Mise à jour du mod : un état sans épave valide derrière est effacé (équipes triées).
+-- Un remplacement (migration des emprises, réparation) : l'état de l'épave suit son entité.
+Levels.on_replaced[#Levels.on_replaced + 1] = function(old_unit, new)
+  local st = S()
+  if not (st and old_unit and new and new.valid) then return end
+  local name = new.force.name
+  if st.wreck[name] == old_unit then st.wreck[name] = new.unit_number end
+end
+
+-- Mise à jour du mod : une épave d'avant le lot QG-JEU (centre de niveau 1 marqué épave) devient l'entité épave (même
+-- place, même vie) ; puis un état sans épave valide derrière est effacé (équipes triées).
 Events.on_configuration_changed(function()
   local st = S()
   if not st then return end
   local names = {}
+  for name in pairs(st.wreck) do names[#names + 1] = name end
+  table.sort(names)
+  for _, name in ipairs(names) do
+    local force = game.forces[name]
+    local cc = force and Levels.cc(force)
+    if cc and cc.unit_number == st.wreck[name] and cc.name ~= L.WRECK then
+      local old_unit, ratio = cc.unit_number, cc.get_health_ratio() or 1
+      local new = Levels.swap(cc, L.WRECK)
+      if new and new.valid then
+        st.wreck[name] = new.unit_number
+        new.minable = false
+        new.operable = false
+        new.health = new.prototype.max_health * ratio
+        log("[FO-CENTRE] épave de " .. name .. " : entité remplacée par fo-command-wreck (ancien numéro " .. old_unit .. ")")
+      end
+    end
+  end
+  names = {}
   for name in pairs(st.wreck) do names[#names + 1] = name end
   table.sort(names)
   for _, name in ipairs(names) do
