@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.31
+Date: 2026-11-01
+  Changes:
+    - INDUSTRIE, allume par defaut : la reserve est evaluee, le reste est investi ; les PNJ sans tache ont une file de travail sur ; le treillis grandit vers un gisement lointain ; recettes et machines de tout mod lues sans nom ecrit ; patrons de 1 a 8 entrees, rangees dimensionnees au besoin ou blocs de mall partages ; liaisons de quai par tapis, un PNJ reprend si le tapis est coupe.
+    - Les factions montent leurs batiments et leur centre (fo-war-capital allume) : elles restaient a l'age 1 dans toutes les parties.
+    - Petrole des factions : une recette verrouillee retenait toute la chaine du pack chimique, corrige ; une ligne de journal par cause d'attente. Le palier 4 reste a prouver en partie longue.
+    - Rien n'a ete rejoue en partie longue au moment de la fusion.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.30
 Date: 2026-10-31
   Changes:
