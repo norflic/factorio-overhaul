@@ -81,9 +81,11 @@ local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la d
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
+local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert, emplacements selon les bras libres
 local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
+local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
 
 local Capi = {}
 
@@ -274,13 +276,13 @@ end
 --- fabriquer tous ses objets (comme A.decide : un module plus grand demande des bras rapides ou d'autres objets pas encore
 --- recherchés ; banc p4 du lot : modules à 150/min en réserve 15 min sur « fast-inserter », jamais recherché). Rend
 --- (gabarit, args) ou (nil, objets manquants de la plus petite taille).
-local function fit_module(meth, rate, book, stock, has_plant, harvest)
+local function fit_module(meth, rate, book, stock, has_plant, harvest, belt_flow)
   -- lot PLANDIR : poteau du gabarit = le moins cher dont la recette est débloquée (A.choose_pole)
   local pole = A.choose_pole(book, stock, harvest) -- lot KIT : le bois à portée compte (les factions n'en ont plus au départ)
   local g, args = A.sized(meth, rate, pole)
   if not g then return nil, {} end
   local function missing_of(gg)
-    local _, items = A.cost(meth, gg, { has_plant = has_plant })
+    local _, items = A.cost(meth, gg, { has_plant = has_plant, belt_flow = belt_flow })
     local miss = {}
     for _, name in ipairs(sorted_keys(items)) do
       if not (book:handcraftable(name) or (stock[name] or 0) > 0) then miss[#miss + 1] = name end
@@ -301,8 +303,8 @@ local function fit_module(meth, rate, book, stock, has_plant, harvest)
   return g, args
 end
 
-local function module_ok(meth, book, stock, has_plant, rate, harvest)
-  local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest)
+local function module_ok(meth, book, stock, has_plant, rate, harvest, belt_flow)
+  local g, miss = fit_module(meth, math.min(rate or A.FIRST_RATE_MAX, A.FIRST_RATE_MAX), book, stock, has_plant, harvest, belt_flow)
   if not g then return false, miss end
   return true, {}
 end
@@ -340,11 +342,19 @@ local function modules_of(e)
   return mods, Lv.sig(mods)
 end
 
+--- Lot C3 EXTENSION (audit n°13) : UN rayon de base. Capi.SCAN_R (160) est le plancher ; la base qui s'étend (étendue des avant-postes + marge,
+--- shared/ai3/extension.lua, Ex.base_radius) est recensée en entier, 400 tuiles au plus.
+local function scan_radius(f)
+  local es = Ext.info(f)
+  return es and es.radius and es.radius > Capi.SCAN_R and es.radius or Capi.SCAN_R
+end
+
 local function scan(f, cs, tick)
   local surface = f.hq.surface
   local hq = f.hq_pos
-  local found = surface.find_entities_filtered({ area = { { hq.x - Capi.SCAN_R, hq.y - Capi.SCAN_R },
-    { hq.x + Capi.SCAN_R, hq.y + Capi.SCAN_R } }, force = f.force, type = SCAN_TYPES })
+  local scan_r = scan_radius(f)
+  local found = surface.find_entities_filtered({ area = { { hq.x - scan_r, hq.y - scan_r },
+    { hq.x + scan_r, hq.y + scan_r } }, force = f.force, type = SCAN_TYPES })
   local seen = {}
   local list = {}
   for _, e in ipairs(found) do
@@ -415,7 +425,7 @@ local function scan(f, cs, tick)
   local seeds = {}
   local function seed(res, x, y)
     if not (res and x and y) then return end
-    if dist({ x = x, y = y }, hq) > Capi.SCAN_R + 64 then return end
+    if dist({ x = x, y = y }, hq) > scan_r + 64 then return end
     seeds[#seeds + 1] = { res = res, x = math.floor(x), y = math.floor(y) }
   end
   for _, oid in ipairs(sorted_keys(f.outposts)) do
@@ -429,7 +439,7 @@ local function scan(f, cs, tick)
     local kd = Ia3 and Ia3.known_deposits and Ia3.known_deposits(f, res, tick) or nil
     for i, d in ipairs(kd or {}) do
       if i > 4 then break end
-      if (d.distance or 0) <= Capi.SCAN_R then seed(res, d.x, d.y) end
+      if (d.distance or 0) <= scan_r then seed(res, d.x, d.y) end
     end
   end
   for _, s in ipairs(f.prospects or {}) do seed(s.resource, s.x, s.y) end
@@ -750,7 +760,16 @@ function Capi.slots(f, cs, stock, tick)
   end
   local plates = {}
   for _, p in ipairs(PLATE_PRODUCTS) do plates[#plates + 1] = (stock or {})[p] or 0 end
-  local sl = Em.slots({ base = A.MAX_OPEN, plates = plates, mods = mods, tick = tick })
+  -- Lot C2 : emplacements de chantier selon les bras libres et les ordres retenus faute de place (puits ouvert seulement ; jamais sous A.MAX_OPEN).
+  local g_iag = f.team.iag
+  local hands = Ca.idle_of(g_iag and g_iag.idle_ema or 0)
+  local base = Dm.slots(A.MAX_OPEN, f.team.ia3 and f.team.ia3.puits ~= nil, hands, cs.blocked_slots)
+  local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick })
+  if (cs.dm_base or A.MAX_OPEN) ~= base then
+    log(string.format("[FO-DEMANDE] %s : EMPLACEMENTS de chantier %s -> %d (base %d + %d : %d bras libres, %d ordre(s) retenu(s) faute de place ; plafond de surete %d) a %.1f min",
+      f.key or "?", cs.dm_base and tostring(cs.dm_base) or "-", base, A.MAX_OPEN, base - A.MAX_OPEN, math.floor(hands), cs.blocked_slots or 0, Dm.SLOTS_HARD, minutes(f, tick)))
+    cs.dm_base = base
+  end
   local sig = string.format("%d|%d|%d|%s|%s", sl.cap, sl.counted, sl.open, table.concat(sl.keys_stalled, ","), table.concat(sl.keys_piled, ","))
   if cs.slots_sig ~= sig then
     cs.slots_sig = sig
@@ -768,7 +787,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.mining = (force and force.mining_drill_productivity_bonus) or 0
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
-  local threat, production_first = Sv.capi(Survie.on(f), view.threatened or false, (f.team and f.team.priorite_pf) or false)
+  local threat, production_first = Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), view.threatened or false, (f.team and f.team.priorite_pf) or false)
   if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur
@@ -803,7 +822,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif wait_plant then why = "centrale demandee, pas finie (" .. tostring(plant_state) .. ")"
     elseif busy then why = busy_text
     else
-      ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f))
+      ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not ok then why = "objets impossibles : " .. table.concat(miss, ",") end
     end
     if ok then drill_for[res], elec[res] = elec_drill, true
@@ -819,6 +838,9 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
   -- (lot GISEMENTS : une enceinte fige le treillis sous RADIUS_MAX, journal du DC « rayon 4 » : au-delà, ordres refusés sans fin)
   local enc = f.build and f.build.enc
+  -- Intégration 0.6.32 (C3) : une enceinte complète ne fige plus le treillis (Build.beyond_wall) : sans cela, un gisement au-delà de son rayon
+  -- restait « hors du plan directeur » alors que le treillis y va.
+  if enc and Build.beyond_wall(f.build) then enc = nil end
   local reach = (Tr.reach_radius(enc and enc.r, Build.RADIUS_ORE) + 0.5) * Pl.PITCH -- lot INDUSTRIE I3 : jusqu'à RADIUS_ORE (12), plus RADIUS_MAX (5)
   if not Rsv.on() then reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH end -- réglage maître éteint
   local open_dep = {}
@@ -898,7 +920,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     elseif plant_state == "refuse" and ((A.template(meth.gen, meth.args) or {}).power_kw or 0) > 0 then
       res = "centrale refusee (" .. tostring(plant_why) .. ")"
     else
-      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f))
+      local ok, miss = module_ok(meth, book, stock, plant_state ~= nil, nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not ok then
         res = "recherche : " .. table.concat(miss, ",")
         for _, x in ipairs(miss) do wanted[x] = true end
@@ -925,6 +947,8 @@ local function build_input(f, cs, view, book, tick, D, w)
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
     reserve = (not threat) and Rsv.input(f, tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé)
+    demande = (not threat) and Rsv.on() and not cs.demande_off or false, -- (cs.demande_off : BANC SEULEMENT, témoin) lot C2 : puits ouvert (le stock hors besoin qui dort devient une demande)
+    demande_sleep = Dm.SLEEP_CYCLES, -- intégration 0.6.32 : un stock ne dort qu'après 3 décisions de suite au-dessus du seuil
     -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
     -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
@@ -983,7 +1007,7 @@ local function execute(f, cs, o, view, book, tick, research)
       local repli = repli_book(cs)
       local shrunk = Rp.factor(repli, rkey, tick) < 1 -- lot INTEG-ECONOMIE (D2) : module réduit après un échec de matériaux
       for _, part in ipairs(Capi.split(rate, Rp.factor(repli, rkey, tick))) do
-        local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
+        local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
         if not g then why = "objets impossibles : " .. table.concat(args or {}, ",") break end
         local id, w2 = Auto.submit(f, { product = meth.product, gen = meth.gen, args = args, feed = meth.feed, rate = part,
           shrunk = shrunk or nil,
@@ -1058,7 +1082,7 @@ local function execute(f, cs, o, view, book, tick, research)
     local rkey = Rp.key(o.item, nil)
     local repli = repli_book(cs)
     for _, part in ipairs(Capi.split(o.rate or 0, Rp.factor(repli, rkey, tick))) do
-      local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f))
+      local g, args = fit_module(meth, part, book, view.stock or {}, Auto.plant_state(f) ~= nil, Harvest.reachable(f), Auto.belt_flow(f))
       if not g then why2 = "objets impossibles : " .. table.concat(args or {}, ",") break end
       local id, w2 = Auto.submit(f, { product = o.item, gen = meth.gen, args = args, feed = meth.feed, rate = part,
         rate_nom = (g.nominal[o.item] or 0) * 60, electric = (g.power_kw or 0) > 0, gain = 1, capi = o.key, pole = g.pole,
@@ -1295,6 +1319,29 @@ local function decide(f, cs, view, book, tick, research, w)
   Profiler.fstart("capi:decide")
   local res = Ca.decide(input, cs.st)
   Profiler.fstop("capi:decide")
+  -- Lot C2 : le PUITS OUVERT. f.team.ia3.puits (débit de chaque matière, puits compris) est lu par la saturation du cerveau, la décision de
+  -- l'automatisation et les capacités ; cs.blocked_slots (ordres retenus faute de place) règle les emplacements de chantier.
+  do
+    local dm = res.demande
+    cs.blocked_slots = Dm.blocked_next(cs.blocked_slots, Dm.count_blocked(res.refus))
+    if dm and dm.p > 0 then
+      local flow = {}
+      for _, k in ipairs(sorted_keys(res.R or {})) do
+        if (res.R[k] or 0) > 0 then flow[k] = res.R[k] end
+      end
+      f.team.ia3.puits = { flow = flow, p = dm.p }
+    else
+      f.team.ia3.puits = nil
+    end
+    local last = cs.dm_last or { dormant = false, p = 0 }
+    local p = dm and dm.p or 0
+    if (dm and dm.dormant or false) ~= last.dormant or math.abs(p - last.p) > 0.25 * math.max(last.p, 1) then
+      cs.dm_last = { dormant = dm and dm.dormant or false, p = p }
+      log(string.format("[FO-DEMANDE] %s : %s ; retour accepte au moins %.0f min (le stock dormirait autant, cout d'opportunite nul ; plafond %d) ; %d ordre(s) a %.1f min",
+        f.key or "?", dm and dm.cause or "puits ferme (reglage maitre eteint, QG menace ou besoin non evalue)",
+        math.min(dm and dm.tmax_sleep or 0, Dm.TMAX_CAP), Dm.TMAX_CAP, #res.orders, minutes(f, tick)))
+    end
+  end
   -- Lot LEVIERS : les modules rentables mais pas encore fabricables sont DEMANDÉS à la recherche (comme une chaîne refusée).
   cs.wanted_set = cs.wanted_set or {}
   for _, nm in ipairs(res.want or {}) do cs.wanted_set[nm] = true end
@@ -1354,7 +1401,8 @@ local function decide(f, cs, view, book, tick, research, w)
   cs.decisions = cs.decisions + 1
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
     labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil,
-    zero = input.reserve and input.reserve.zero or nil }
+    zero = input.reserve and input.reserve.zero or nil,
+    puits = res.demande and { p = res.demande.p, dormant = res.demande.dormant, left0 = res.demande.left0, cap = res.demande.cap } or nil }
   if input.reserve then
     -- Lot INDUSTRIE I1 : journal du besoin évalué et de ce qui s'investit (une ligne par décision, au plus une par minute et par équipe).
     local stk = 0
@@ -1373,6 +1421,7 @@ local function decide(f, cs, view, book, tick, research, w)
     local allowed, pwhy = pile_ok(f, o)
     if allowed and room ~= nil and room <= 0 and Capi.MODULE_KINDS[o.kind] then
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
+      cs.blocked_slots = (cs.blocked_slots or 0) + 1 -- (intégration 0.6.32 : retenu faute de place lui aussi)
     elseif allowed then rec, why = execute(f, cs, o, view, book, tick, research)
     else
       why = "pile : " .. tostring(pwhy)
@@ -1624,6 +1673,13 @@ remote.add_interface("fo-capi", {
     if not (f and f.team) then return false end
     local cs = state_of(f)
     cs.bench_sinks = (rate and rate > 0) and { { item = item, rate = rate, want = rate } } or nil
+    return true
+  end,
+  --- Lot C2 (BANC SEULEMENT, témoin) : éteint le puits ouvert, la décision sur le débit voulu et le seuil du tapis de cette faction.
+  demande_off = function(key, off)
+    local f = team_of(key)
+    if not (f and f.team) then return false end
+    state_of(f).demande_off = off and true or nil
     return true
   end,
   block_sites = function(key, on)

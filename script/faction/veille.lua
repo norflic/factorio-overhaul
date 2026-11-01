@@ -56,7 +56,9 @@ function Veille.on_start(f, tick)
   local vs = Veille.state(f)
   local ch = Character.of(f)
   vs.sent = vs.sent + 1
-  vs.next_at = tick + V.interval(ch.traits and ch.traits.curiosite, (f.chef and f.chef.last_threat) or 0)
+  vs.gap = V.interval(ch.traits and ch.traits.curiosite, (f.chef and f.chef.last_threat) or 0)
+  vs.next_at = tick + vs.gap
+  vs.last_start = tick -- lot C3 EXTENSION : veille poussée (départ au plus vs.gap ÷ V.PUSH_DIV après le précédent)
   f.stats.veille_scouts = (f.stats.veille_scouts or 0) + 1
   log(string.format("[FO-VEILLE] depart tick %d %s : ouvrier libre, mission %d, rayon %d, prochain depart dans %d min", tick, f.key, vs.sent,
     V.radius(vs.trips), math.floor((vs.next_at - tick) / 3600)))

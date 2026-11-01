@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.32
+Date: 2026-11-01
+  Changes:
+    - Demande ouverte : une base dont le stock dort se fixe un debit vise plus haut, en science et en equipement ; la saturation suit ce debit ; les emplacements suivent les bras libres ; le stock de defense reste intouche.
+    - Extension : releve des avant-postes selon la couverture et la demande (2e site d'un minerai), posture d'expansion qui cree de vrais buts, exploration continue, treillis qui depasse l'enceinte en ilots, tourelles avant tout chantier lointain.
+    - Robots : premiere usine et premier robot, Trotte-Vapeur (age 3), panneau, ralliement, ordres ; les factions savent le produire. Visuel provisoire.
+    - Rien n'a ete rejoue au-dela de 2 h au moment de la fusion.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.31
 Date: 2026-11-01
   Changes:

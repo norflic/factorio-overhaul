@@ -206,7 +206,8 @@ local function prepare(f, lec, book, view, dec, kind)
   if kind == "bloc" then
     gen, args = "bloc", { dec.machine, recs, k2, barre }
   else
-    gen, args = "patron", { dec.machine, recs[1], "coffre", 1, k2, barre }
+    -- lot RB-3 : le kit d'une unité reste dans la machine (sortie « unite » : ni bras ni coffre de sortie)
+    gen, args = "patron", { dec.machine, recs[1], dec.unite and "unite" or "coffre", 1, k2, barre }
   end
   local pole = A.choose_pole(book, stock, Harvest.reachable(f))
   local g, why2 = A.template(gen, args, pole)
@@ -304,7 +305,7 @@ function Ind.think(f, cs, res, view, book, tick)
   for _, c in ipairs(sources) do if not (st.hold[c.item] and st.hold[c.item] > tick) then keep[#keep + 1] = c end end
   local width = {}
   for _, m in ipairs(lec.machines or {}) do width[m.entity] = m.w end
-  local out = Id.decide(st.id, { tick = tick, sources = { keep }, fab = lec.fab, served = served,
+  local out = Id.decide(st.id, { tick = tick, sources = { keep }, fab = lec.fab, served = served, unites = General.catalogue().unites,
     usable = function(n) return book:handcraftable(n) or (stock[n] or 0) > 0 end,
     bloc_max = function(ent) return Pt.colonnes(width[ent] or 3) * 2 end })
   local sig = Id.describe(out)

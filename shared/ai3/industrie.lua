@@ -159,7 +159,7 @@ end
 -- Décision
 ---------------------------------------------------------------------------------------------------
 --- inp = {
----   tick,
+---   tick, unites = { [objet] = vrai } (lot RB-3 : les objets qui posent une unité ; nil : aucun),
 ---   sources = { liste de { item, rate (objets/min), src } },
 ---   fab   = cat.fab (shared/ai3/lecture.lua), usable = objet -> bool (ou ensemble, ou nil),
 ---   served = { [objet] = vrai } : objets déjà servis (machine posée ou module ouvert),
@@ -191,7 +191,12 @@ function Id.decide(st, inp)
         -- 0,5 machine de manque tombait en « rangée », que la capitalisation venait justement de refuser : aucune des deux règles ne le servait.
         local refused = false
         for _, src in ipairs(c.srcs) do if src == Id.SRC_REFUS then refused = true end end
-        if need >= Id.ROW_MIN - Id.EPS and not refused then
+        if inp.unites and inp.unites[c.item] then
+          -- Lot RB-3 : l'objet est le KIT d'une unité (cat.unites) : une cellule seule dont la sortie reste dans la machine (le kit y est
+          -- lu par le balayage des ateliers, qui pose l'unité), jamais une rangée ni un bloc de mall (leurs bras sortiraient le kit).
+          st.first[c.item] = nil
+          out.seuls[#out.seuls + 1] = { item = c.item, recipe = pr.recipe, machine = pr.machine.entity, rate = c.rate, need = need, unite = true }
+        elseif need >= Id.ROW_MIN - Id.EPS and not refused then
           out.rows[#out.rows + 1] = { item = c.item, recipe = pr.recipe, machine = pr.machine.entity, n = P.copies(c.rate * Id.LEAD, pr.par_min),
             need = need, par_min = pr.par_min, rate = c.rate }
           st.first[c.item] = nil

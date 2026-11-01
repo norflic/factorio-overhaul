@@ -54,6 +54,8 @@ local Board = require("script.team.board") -- lot IA-V2 : crochet Board.on_fail 
 -- Lot IA-V2 : le cerveau par besoins (IA3-c) lit les gisements CONNUS par un crochet (module déjà chargé par
 -- script/team/team.lua : l'ordre de chargement, donc des abonnements, ne change pas).
 local Ia3 = require("script.ai3.cerveau")
+local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : veille poussée par une relève qui attend un site
+local Ex = require("shared.ai3.extension")
 local Veille = require("script.faction.veille") -- lot VEILLE : reconnaissance régulière par ouvrier libre (état, compteurs, bilans)
 local V = require("shared.faction.veille")
 -- Lot RECO-DIRECTION : reconnaissance par la direction des attaques (mission « reco », carnet transmis au retour).
@@ -112,6 +114,12 @@ local FAIL_MAX = 3             -- chemins ratés EN ROUTE repris par une autre c
 -- ni les tours ni les cibles ne la visent, et un tour saute le point raté au lieu de rejouer le même échec.
 local BLOCK_R = 128
 local BLOCK_TTL = 30 * 3600
+-- Lot C3 EXTENSION (audit n°26 : « toute la frontière est en région bloquée », 81 et 104 fois) : rayon et durée rétrécissent quand les régions bloquées
+-- se multiplient (shared/ai3/extension.lua, Ex.block_params) ; réglage maître éteint : BLOCK_R et BLOCK_TTL d'avant.
+local function block_params(k)
+  if not Ext.on() then return BLOCK_R, BLOCK_TTL end
+  return Ex.block_params(#(k.blocked or {}))
+end
 local BLOCK_CAP = 16
 local SHORT_MISSION = 600      -- mission « finie » en moins de 10 s à l'aller : demi-tour de danger, pas une fin
 
@@ -451,7 +459,7 @@ local function start_mission(f, k, a, kind, res, tick, veille, reco)
     for i = k.tour.next, #ring do
       local p = ring[i]
       if K.sector_risk(k.m, K.key_of(p.x, p.y), tick, rivals(f, surface)) < K.DANGER.skip
-        and not K.blocked_near(k.blocked, p.x, p.y, tick, BLOCK_R, BLOCK_TTL) then
+        and not K.blocked_near(k.blocked, p.x, p.y, tick, block_params(k)) then
         if not chunk_ready(surface, p) then
           surface.request_to_generate_chunks(p, 1)
           wait = true
@@ -537,7 +545,7 @@ local function make_exclude(k, tick, ex, no_blocked)
     local t0 = badt[key]
     if t0 and tick - t0 < BAD_TTL then return true end
     local bx, by = K.center(K.xy(key))
-    if not no_blocked and k.blocked and #k.blocked > 0 and K.blocked_near(k.blocked, bx, by, tick, BLOCK_R, BLOCK_TTL) then return true end
+    if not no_blocked and k.blocked and #k.blocked > 0 and K.blocked_near(k.blocked, bx, by, tick, block_params(k)) then return true end
     -- Lot EXPLO (moteur réel, 28/10 : votre équipe, 29 fuites sur 44 départs, 5 fois au même nid) : un secteur à portée de fuite
     -- d'un nid ou d'un ver VU est écarté (l'éclaireur y fuirait de toute façon à FLEE_RADIUS).
     local nests, worms = K.enemies_near(k.m, bx, by, FLEE_RADIUS)
@@ -558,7 +566,7 @@ local function make_soft(k, tick)
   if not (k.blocked and #k.blocked > 0) then return nil end
   return setmetatable({}, { __index = function(_, key)
     local bx, by = K.center(K.xy(key))
-    if K.blocked_near(k.blocked, bx, by, tick, BLOCK_R, BLOCK_TTL) then return true end
+    if K.blocked_near(k.blocked, bx, by, tick, block_params(k)) then return true end
     return nil
   end })
 end
@@ -1002,14 +1010,26 @@ local function team_pass(f, tick)
     local open = Board.takeable(f) -- tâches libres PRENABLES : un PNJ libre devant elles serait utile ; devant des tâches bloquées, non
     local idle = idle_count(f)
     local next_at = vs.next_at
+    -- Lot C3 EXTENSION (audit n°26 à 28) : une relève attend un site (aucun site admissible pour un type sans place) : la veille est POUSSÉE,
+    -- elle part au plus (intervalle ÷ V.PUSH_DIV) après la précédente, avec un PNJ libre de moins exigé.
+    local push = Ext.push(f)
+    if push then next_at = math.min(next_at, (vs.last_start or 0) + math.floor((vs.gap or V.INTERVAL) / V.PUSH_DIV)) end
     -- Bancs de mesure seulement (lot CORR-RECON) : comptes imposés, premier départ avancé, ancienne règle.
     if Veille.force then idle, open = Veille.force.idle or idle, Veille.force.open or open end
     if Veille.start and vs.sent == 0 then next_at = math.min(next_at, Veille.start) end
     if not Veille.surplus and open > 0 then open = math.max(open, idle) end -- ancienne règle : une tâche prenable bloque
     local ok, why = V.want({ tick = tick, next_at = next_at, threat = st and st.last_threat or 0, survive = st and st.survival or false,
       alert = tick < (f.threatened_until or 0), tour_done = k.tour.state ~= "todo", request = false, open_tasks = open,
-      idle = idle, missing = f.team ~= nil and f.team.missing ~= nil and #f.team.missing > 0 })
-    if ok then kind, veille = "explore", true else Veille.refuse(f, why) end
+      idle = idle, push = push, missing = f.team ~= nil and f.team.missing ~= nil and #f.team.missing > 0 })
+    if ok then kind, veille = "explore", true else
+      Veille.refuse(f, why)
+      -- Lot C3 EXTENSION (3 746 refus « pas de PNJ libre » chez Azure) : le départ est échu et personne n'est libre : la file sûre s'efface un
+      -- moment (Poles.sur_hold) pour qu'un PNJ finisse sa tâche et soit libre, au lieu de compter un refus de plus à chaque pensée.
+      if push and tick >= next_at and (why == "pas de PNJ libre" or why == "ouvriers pris" or why == "tache libre") then
+        Poles.sur_hold(f, tick)
+        f.stats.veille_push = (f.stats.veille_push or 0) + 1
+      end
+    end
   end
   if not kind then return end
   if n > 0 then

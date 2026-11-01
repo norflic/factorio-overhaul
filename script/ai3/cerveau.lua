@@ -47,9 +47,12 @@ local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres
 local Pl = require("shared.ai3.places") -- lot SCALE (correction) : places du QG depuis l'emprise du prototype
 local PlacesQG = require("script.ai3.places_qg") -- lot SCALE (correction) : pose sur la grille, place vérifiée
 local Capi = require("script.ai3.capitalisation") -- lot CAPIB : la capitalisation (réglage fo-war-capi, éteint par défaut)
+local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : posture et avant-postes visés (règles pures)
+local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : mesures de l'étendue et journal [FO-EXTENSION]
 local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consommation, pondération des besoins
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
+local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 
 local Ia3 = {}
@@ -528,7 +531,7 @@ local function research_step(f, st, book, w, tick, view)
   -- Lot SCALE : bornes et fenêtre selon l'effectif et les bras libres (Br.labs_max, Br.lab_window).
   local spare_hands = General.spare_hands(f, view, tick)
   local window = Br.lab_window(Ia3.LAB_WINDOW_S, spare_hands)
-  local want = math.min(Br.labs_max(view.workers, Ia3.LABS_MAX), math.max(1, math.ceil(secs / window)))
+  local want = math.min(Br.labs_max(view.workers, Ia3.LABS_MAX, Dm.extra_cap(st.puits ~= nil, spare_hands)), math.max(1, math.ceil(secs / window)))
   -- Lot CAPIB : sous la capitalisation, ses ordres « labos » fixent le nombre visé (plus de plafond Ia3.LABS_MAX ni
   -- Br.labs_max) ; le petit nombre d'avant (au plus Ia3.LABS_MAX, fenêtre de recherche) reste un plancher.
   local capi_labs = Capi.labs_want(f)
@@ -789,7 +792,11 @@ function Ia3.plan(f, view, book, surface, tick)
   local bilan = Bilan.think(f, view, tick) -- lot BILAN : pondération des récoltes et fabrications (nil : éteint)
   -- lot PETROLE (réglage fo-war-petrole, ÉTEINT par défaut ; éteint, rend `auto` tel quel) : sites des chaînes à fluides
   auto = Pet.think(f, view, book, tick, auto, General, Ia3.known_deposits)
+  -- Lot C3 EXTENSION (audit n°25) : la posture « expansion » du chef n'était qu'un poids ; elle fixe aussi l'allure d'extension et le
+  -- nombre d'avant-postes visés (strategy.desired_outposts, qui n'était qu'un affichage).
+  local expansion, dominant = Ex.posture(f.chef and f.chef.mix, "expansion")
   local ctx = { tick = tick, is_player = f.is_player or false, weights = w, research = research,
+    expansion = expansion, dominant = dominant, desired = Ex.desired(f.tech, f.traits and f.traits.ambition or 1000),
     reach = reach, known = known, harvest = harvest, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
     at_war = at_war and true or false, home_known = home ~= false,
@@ -808,6 +815,7 @@ function Ia3.plan(f, view, book, surface, tick)
   Profiler.start("ia3:think")
   local plan = C.think(view, book, st, ctx)
   Profiler.stop("ia3:think")
+  Ext.after(f, view, st, tick) -- lot C3 EXTENSION : mesures (étendue, rayon de base, sites gardés) et journal [FO-EXTENSION]
   -- Lot LEVIERS : tâches « equiper » (modules dans les machines posées), renouvelées à chaque pensée comme le plan.
   if capi and capi.tasks then
     for _, t in ipairs(capi.tasks) do plan.tasks[#plan.tasks + 1] = t end
@@ -1038,6 +1046,14 @@ function Ia3.measure(f, tick, plan)
       f.key or "player", math.floor(minutes(f, tick) + 0.5), lp.active or 0, lp.productive or 0, n_taken, n_block, lp.K or 0,
       (t.scale and t.scale.last and t.scale.last.idle) or 0, f.engineers_count or 0, dg.n, dg.idle, dg.free, dg.blocked,
       table.concat(sat, " "), table.concat(exp, " "), st.fond_dropped or 0, table.concat(parts, " ")))
+    -- Lot C2 : matières que le plancher aurait déclarées saturées et que le puits ouvert tient ouvertes (écrit quand l'ensemble change).
+    local held = sorted_keys(st.sat_held or {})
+    local hsig = table.concat(held, " ")
+    if hsig ~= (st.sat_held_sig or "") then
+      st.sat_held_sig = hsig
+      log(string.format("[FO-DEMANDE] %s : SATURATION relative au puits ouvert (besoin = plancher, buts ou debit du puits x %d min, jamais le plancher seul) : [%s] ne sont plus saturees ; saturees [%s] a %.1f min",
+        f.key or "player", Dm.SAT_H, hsig, table.concat(sat, " "), minutes(f, tick)))
+    end
   end
 end
 

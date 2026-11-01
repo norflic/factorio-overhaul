@@ -27,6 +27,8 @@ V.THREAT_MAX = 100         -- au-delà (pour mille), les ouvriers restent au tra
 V.IDLE_MIN = 2             -- PNJ libres exigés pour qu'un parte (un reste au QG)
 V.IDLE_MIN_CRISIS = 3      -- quand une matière manque (crise), deux restent
 
+V.PUSH_DIV = 3             -- lot C3 EXTENSION : veille POUSSÉE (une relève attend un site) : intervalle ÷ 3, un PNJ libre de moins exigé
+
 V.REASONS = { "survie", "alerte", "menace", "delai", "tache libre", "ouvriers pris", "tour non fini", "demande de ressource",
   "aucun secteur", "pas de PNJ libre" }
 
@@ -98,6 +100,7 @@ function V.want(c)
   if c.tour_done == false then return false, "tour non fini" end
   if (c.idle or 0) < 1 then return false, "pas de PNJ libre" end
   local need = c.missing and V.IDLE_MIN_CRISIS or V.IDLE_MIN
+  if c.push and need > 1 then need = need - 1 end -- lot C3 EXTENSION : un PNJ de moins exigé (un reste quand même au QG)
   if (c.idle or 0) < need then return false, "ouvriers pris" end
   -- Lot CORR-RECON : un ouvrier part s'il y a des PNJ libres EN SURPLUS (libres moins tâches prenables, au moins `need`), et non plus
   -- seulement quand aucune tâche n'est prenable (10 433 refus « tache libre » alors que des PNJ libres attendaient, RAPPORT RECON 29/10).

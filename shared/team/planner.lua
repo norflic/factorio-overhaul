@@ -33,6 +33,7 @@ local Pr = require("shared.team.priorite") -- lot PRIORITE-RESSOURCES : producti
 local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du front, commande partielle (constantes de ce module)
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
+local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
 
 local P = {}
 
@@ -351,17 +352,25 @@ function P.plan(view, book)
   -- d'urgence plus bas (shared/team/defchoix.lua). Lecteurs de out.defchoix : la levée d'urgence ci-dessous, le journal [FO-DEFCHOIX]
   -- (script/team/team.lua).
   local dc = { want = view.hq_defend or T.defend_hq, first = false, hold_soldiers = false }
+  -- Lot S1 : QG EN PÉRIL (shared/team/survie_qg.lua, view.qg_peril = résultat de Sq.peril) : planchers de fer et de cuivre de la défense
+  -- réduits, tourelles voulues au QG = celles qui couvrent la menace mémorisée.
+  local qp = view.qg_peril
+  local peril_seen = (qp and qp.peril) and true or false
+  -- La défense d'abord n'a de sens que si une tourelle peut être posée (au stock ou fabricable) : sans recette (0.6.32, votre équipe : 34 min de péril
+  -- sans « gun-turret » recherchée), le péril ne prend pas le pas sur la production. Le remplissage des tourelles posées n'a pas besoin de recette.
+  local in_peril = peril_seen and turret_ok
+  local fl_i, fl_c = Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)
   if df and view.base_alert then
     local cu_key = T.outposts.copper.product
     local rc = book:raw_cost(turret_items(1))
     dc = Dc.turrets({ alert = true, want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, ok = turret_ok,
       busy = (view.hq_fortify or open["fortify:hq"]) and true or false,
-      funds_iron = (avail[iron_key] or 0) - T.defend_iron_floor, cost_iron = rc[iron_key] or 0,
-      funds_copper = (avail[cu_key] or 0) - T.defend_copper_floor, cost_copper = rc[cu_key] or 0, stock = avail[T.turret] or 0 })
+      funds_iron = (avail[iron_key] or 0) - fl_i, cost_iron = rc[iron_key] or 0,
+      funds_copper = (avail[cu_key] or 0) - fl_c, cost_copper = rc[cu_key] or 0, stock = avail[T.turret] or 0 })
   end
   out.defchoix = dc
   if df then
-    posts[1] = { id = "hq", want = dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
+    posts[1] = { id = "hq", want = in_peril and math.max(dc.want, qp.want or 0) or dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         local ospec = T.outposts[o.kind]
@@ -488,7 +497,8 @@ function P.plan(view, book)
     end
     -- Fer que la défense peut dépenser : au-dessus de T.defend_iron_floor (la fabrication des tourelles ne descend pas dessous,
     -- want_defense) ; sans cela le mode « défense payée » restait vrai à 140 de fer alors que rien ne pouvait s'acheter.
-    pri = Pr.decide({ funds = (avail[iron_key] or 0) - T.defend_iron_floor, defense_cost = cd, production_cost = Pr.cheapest(steps),
+    pri = Pr.decide({ funds = (avail[iron_key] or 0) - fl_i, defense_cost = cd, production_cost = Pr.cheapest(steps),
+      peril = in_peril, -- lot S1 : le QG ne tient pas la menace reçue : la défense d'abord, même en mode survie
       survie = view.survie, -- lot SURVIE-PENURIE : mode survie de l'équipe (script/team/survie.lua) -> la production d'abord
       survival = decimated,
       prev_pf = view.priorite_pf, streak = view.priorite_streak or 0 }) -- lot INTEG-DEFENSE D-D : bascule confirmée sur 2 pensées
@@ -506,8 +516,8 @@ function P.plan(view, book)
   local function want_defense(list, floor_i, floor_cu)
     -- Fer ET cuivre (essai 6, ia1b2-guide graine 314159265 : 8 tourelles mangent les 100 cuivres du coffre, aucun
     -- gisement de cuivre trouvé, plus un seul pistolet pour les recrues pendant 20 min).
-    local keep = math.min(avail["iron-plate"] or 0, floor_i or T.defend_iron_floor)
-    local keep_cu = math.min(avail["copper-plate"] or 0, floor_cu or T.defend_copper_floor)
+    local keep = math.min(avail["iron-plate"] or 0, floor_i or fl_i)
+    local keep_cu = math.min(avail["copper-plate"] or 0, floor_cu or fl_c)
     avail["iron-plate"] = (avail["iron-plate"] or 0) - keep
     avail["copper-plate"] = (avail["copper-plate"] or 0) - keep_cu
     local ok = want(list, T.defend_prio, "defense")
@@ -614,13 +624,23 @@ function P.plan(view, book)
   avail[T.fuel] = math.max(0, (avail[T.fuel] or 0) - math.min(fuel_reserve, avail[T.fuel] or 0))
 
   local ammo = T.turret_ammo
-  for _, g in ipairs(view.turret_groups) do
+  -- Lot S1 : en péril, le groupe du QG est servi AVANT les autres (la commande de chargeurs d'un avant-poste réservait le stock, le QG n'en avait plus).
+  local groups = view.turret_groups
+  if peril_seen then
+    groups = {}
+    for _, g in ipairs(view.turret_groups) do if g.key == "hq" then groups[#groups + 1] = g end end
+    for _, g in ipairs(view.turret_groups) do if g.key ~= "hq" then groups[#groups + 1] = g end end
+  end
+  for _, g in ipairs(groups) do
     if g.low > 0 and not g.has_task then
       local n = g.low * T.turret_ammo_target
-      if (avail[ammo] or 0) >= n or (avail["firearm-magazine"] or 0) >= n then
+      -- Lot S1 : au QG en péril, un stock de chargeurs incomplet remplit quand même les tourelles vides (tout ou rien avant : 160 chargeurs
+      -- pour 8 tourelles, jamais atteints avec 0 fer, et les tourelles restaient vides).
+      local part = (g.key == "hq" and peril_seen) and Sq.refill_take(g.low, T.turret_ammo_target, avail[ammo] or 0, true) or 0
+      if (avail[ammo] or 0) >= n or (avail["firearm-magazine"] or 0) >= n or part > 0 then
         add({ key = "refill:" .. g.key, kind = "refill", prio = 90, group = g.key })
         local use = (avail[ammo] or 0) >= n and ammo or "firearm-magazine"
-        avail[use] = avail[use] - n
+        avail[use] = math.max(0, (avail[use] or 0) - ((part > 0 and part < n) and part or n))
       else
         want({ { ammo, n } }, 90, "munitions")
       end
@@ -693,6 +713,7 @@ function P.plan(view, book)
               -- (lot INTEG-DEFENSE 3.4 : le QG et la centrale ont la même commande partielle, aux planchers ordinaires ;
               -- D3 : le plancher réduit du front garde au moins le fer du prochain pas de production, pri.production_cost)
               local fi, fc, reduced = T.defend_iron_floor, T.defend_copper_floor, false
+              if p.id == "hq" and in_peril then fi, fc, reduced = fl_i, fl_c, true end -- lot S1 : le QG en péril
               if p.id == "front" then
                 fi, fc, reduced = Fr.floors(p.score, iron_producing, T.defend_iron_floor, T.defend_copper_floor, pri.production_cost)
               end

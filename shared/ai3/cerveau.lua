@@ -38,6 +38,7 @@ P.EMIT.module = A.emit(P)
 local Cap = require("shared.ai3.capital") -- lot CAPITAL : buts « amélioration » (niveaux, centre), payés par le runtime
 P.EMIT.upgrade = Cap.emit(P)
 local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de la capitalisation (réglage fo-war-capi)
+local Dm = require("shared.ai3.demande") -- lot C2 : capacités de plus selon les bras libres (puits ouvert)
 P.EMIT.capi = Ca.emit(P)
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manque par rapport au besoin
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
@@ -80,6 +81,14 @@ end
 --- 1. Situation.
 function C.situation(view, st, ctx)
   local cap = {}
+  -- Lot C3 EXTENSION : avant-postes par type, avant-postes sous leur cible de tourelles et où un PNJ est mort récemment (shared/ai3/extension.lua).
+  local nout, lethal_n = {}, 0
+  for _, o in ipairs(view.outposts or {}) do
+    nout[o.kind] = (nout[o.kind] or 0) + 1
+    if o.lethal then lethal_n = lethal_n + 1 end
+  end
+  local undef, undef_n = Planner.undefended(view), 0
+  for _, o in ipairs(view.outposts or {}) do if undef[o.id] then undef_n = undef_n + 1 end end
   -- Lot SCALE-COMPLET : types dont un avant-poste a encore des places (ni plein, sous le plafond de foreuses ; lecteur :
   -- B.generate, buts de couverture).
   local room = {}
@@ -99,7 +108,9 @@ function C.situation(view, st, ctx)
   return {
     is_player = ctx.is_player or false, workers = view.workers or 0, soldiers = view.soldiers or 0,
     soldiers_max = view.soldiers_max or 0, stock = view.stock or {}, cap = cap, pending = view.pending or {},
-    sites = view.sites or {}, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
+    sites = view.sites or {}, sites_near = view.sites_near or {}, nout = nout, undef_n = undef_n, lethal_n = lethal_n,
+    threatened = view.threatened or false, expansion = ctx.expansion or 0, dominant = ctx.dominant or false,
+    desired = ctx.desired, extension = ctx.industrie or false, room = room, smelters = view.smelters or 0, smelters_pending = view.smelters_pending or 0,
     -- Intégration 0.6.20 (SCALE-COMPLET x PLAFOND-FOREUSES) : l'équipe recrute encore vers son effectif voulu (lecteur : B.generate,
     -- buts de couverture).
     recruiting = (view.workers or 0) < (view.workers_wanted or 0) and not view.recruit_blocked and not view.recruit_held
@@ -116,6 +127,9 @@ function C.situation(view, st, ctx)
     key = (ctx.key and ctx.key.top and ctx.key.fuel) and ctx.key or R.FALLBACK_KEY,
     idle_grow = ctx.idle_grow or false, tick = ctx.tick or 0, -- lot IA-G : bras libres
     spare = ctx.spare, -- lot SCALE : nombre de bras libres durables (vague d'extraction d'avance, shared/ai3/bras.lua)
+    -- Lot C2 : puits ouvert (écrit par la capitalisation, f.team.ia3.puits) : débit de chaque matière (saturation relative) et capacités de
+    -- plus selon les bras libres.
+    puits_flow = st.puits and st.puits.flow or nil, extra_cap = Dm.extra_cap(st.puits ~= nil, ctx.spare),
   }
 end
 
@@ -248,6 +262,11 @@ function C.think(view, book, st, ctx)
       if type(g.key) == "string" and g.key:sub(1, 11) == "couverture:" then
         local sp = T.outposts[g.outpost]
         keep = Pi.allows(pile, "extraction", g.why) or (sp ~= nil and starved_prev[sp.product] == true) -- lot GISEMENTS : une matière en manque
+      elseif g.releve and g.releve ~= "manque" then
+        -- Intégration 0.6.32 (C3 x PILE-PRIORITE) : un nouveau site sans manque durable (« plein », « posture », « extension ») attend comme la
+        -- couverture : réparer, protéger et survivre d'abord. Sans cela, « plein » (valeur jusqu'à 100) passait AVANT l'armée et les munitions.
+        keep = Pi.allows(pile, "extraction", g.why) or starved_prev[g.why] == true
+        if not keep then Pi.suspend(pile, g.key, "releve (" .. tostring(g.releve) .. ") : la pile d'abord") end
       elseif g.kind == "module" and g.pile then
         local ok, why = Pi.porte(pile, g.pile, g.product, ((short_prev[g.product] or 0) > 0) or starved_prev[g.product] == true)
         if not ok then
@@ -335,11 +354,15 @@ function C.think(view, book, st, ctx)
   st.starved = pen.starved
   st.starved_rank = pen.ranking
   st.starved_open = Gi.passent(pen, pile.focus) -- lu par la porte du runtime (script/team/pile.lua) et la menace (script/ai3/capitalisation.lua)
-  local saturated = {}
+  local saturated, held = {}, {}
   for _, k in ipairs(sorted_keys(raw)) do
-    if (view.stock[k] or 0) > 0 and B.saturated(s, k) then saturated[k] = true end
+    if (view.stock[k] or 0) > 0 then
+      if B.saturated(s, k) then saturated[k] = true
+      elseif s.puits_flow and B.saturated(s, k, true) then held[k] = true end -- lot C2 : saturée contre le plancher seul, tenue ouverte par le puits
+    end
   end
   st.saturated = saturated
+  st.sat_held = held
   -- … et seulement quand l'équipe a son effectif visé (ses recrues se paient en fer : moteur simulé, ia1_scale_test, une
   -- faction à 26 PNJ sur 30 en 12 min quand la recherche déplafonnée prenait le fer des recrues).
   local top = s.key.top -- lot IA-G : la ressource la plus demandée (le fer sur les données vanilla)

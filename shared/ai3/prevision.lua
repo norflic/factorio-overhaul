@@ -65,7 +65,12 @@ Pv.T_SOLDIER = 20                -- s : un soldat se bat avant de tomber (HYPOTH
 Pv.ARENA = 1000                  -- ‰ : efficacité réelle ÷ calculée (1000 tant qu'elle n'est pas mesurée en arène)
 Pv.SPEED0 = 0.2                  -- tuiles/tick : vitesse ennemie quand aucune n'est connue
 -- Calibration (C8) : k de l'équipe, rangé dans la calibration sous la clé réservée Pv.TEAM (jamais une clé de site).
-Pv.K0, Pv.K_MIN, Pv.K_MAX = 1000, 50, 4000
+-- Lot S1 : K_MAX passe de 4000 à 12000. Mesuré (0.6.32, Écarlate) : rapports reçu / prévu de 4,1 (454 / 112), 3,6 (795 / 218), 10,9 (1 182 / 108) ;
+-- k a touché son plafond de 4,00 à 58,1 min et les vagues suivantes restaient sous-estimées. 12000 SUPPOSÉ (non mesuré au-delà de 10,9).
+Pv.K0, Pv.K_MIN, Pv.K_MAX = 1000, 50, 12000
+-- Lot S1 : mémoire des vagues REÇUES de l'équipe (la prévision n'en voyait aucune : 45 « RATÉ » sur 0.6.32, pollution reçue 0/min) ; lue par
+-- shared/team/survie_qg.lua (menace du QG). Fenêtre de 30 min, 24 faits au plus.
+Pv.MEM_TICKS, Pv.MEM_MAX = 30 * 3600, 24
 Pv.TEAM = "*"
 Pv.LOSS_UNITS = 3                -- une pièce perdue au contact compte comme 3 unités moyennes reçues (HYPOTHÈSE)
 -- C12 : part de notre pollution qui atteint des nids quand aucun n'en absorbe encore (nids connus seulement).
@@ -375,6 +380,17 @@ function Pv.calibrate(cal, keys, facts, tick)
     team = { k = Pv.K0, hit = 0, fa = 0 }
     cal[Pv.TEAM] = team
   end
+  -- Lot S1 : toute vague reçue (prévue ou ratée) entre dans la mémoire de l'équipe ; les faits de plus de Pv.MEM_TICKS et au-delà de
+  -- Pv.MEM_MAX s'en vont. Les entrées sont des nombres et des chaînes (elle vit dans la sauvegarde).
+  local function remember(key, recv, kind)
+    local w = team.waves
+    if not w then
+      w = {}
+      team.waves = w
+    end
+    w[#w + 1] = { t = tick, pv = recv, key = key, kind = kind }
+    while #w > Pv.MEM_MAX or (#w > 0 and tick - w[1].t > Pv.MEM_TICKS) do table.remove(w, 1) end
+  end
   for _, key in ipairs(keys or {}) do
     local f = facts[key] or {}
     local c = cal[key]
@@ -409,10 +425,12 @@ function Pv.calibrate(cal, keys, facts, tick)
         evs[#evs + 1] = { key = key, kind = "vague", pred = pred, recv = recv, seen = seen, killed = killed, lost = lost, k0 = k0, k1 = team.k,
           censored = censored }
         c.floor = nil
+        remember(key, recv, "vague")
       else
         c.miss = (c.miss or 0) + 1
         c.floor = recv
         evs[#evs + 1] = { key = key, kind = "rate", pred = 0, recv = recv, seen = seen, killed = killed, lost = lost, k0 = k0, k1 = team.k }
+        remember(key, recv, "rate")
       end
       c.atk, c.peak, c.kill, c.lost, c.ep = nil, nil, nil, nil, nil
     end
@@ -434,6 +452,28 @@ function Pv.calibrate(cal, keys, facts, tick)
     end
   end
   return evs
+end
+
+--- Lot S1 : les vagues reçues gardées par la calibration, au format de Sq.threat : { { t, pv, hq } } (hq : reçue au site `hq_key`).
+--- Une calibration sans mémoire (sauvegarde d'avant le lot) rend une liste vide.
+function Pv.threat_waves(cal, hq_key)
+  local out = {}
+  local team = cal and cal[Pv.TEAM]
+  for _, w in ipairs(team and team.waves or {}) do
+    out[#out + 1] = { t = w.t, pv = w.pv, hq = w.key == hq_key }
+  end
+  return out
+end
+
+--- Lot S1 : la plus grosse vague REÇUE au site `key` dans les Pv.MEM_TICKS derniers ticks (0 sans fait). Plancher durable du QG : le plancher d'un
+--- raté (c.floor) tombe dès que « plus rien ne nous vise », alors que le modèle ne voit aucun nid (0.6.32 : 45 ratés, pollution reçue 0/min).
+function Pv.mem_floor(cal, key, tick)
+  local best = 0
+  local team = cal and cal[Pv.TEAM]
+  for _, w in ipairs(team and team.waves or {}) do
+    if w.key == key and tick >= w.t and tick - w.t <= Pv.MEM_TICKS and (w.pv or 0) > best then best = w.pv end
+  end
+  return best
 end
 
 ---------------------------------------------------------------------------------------------------

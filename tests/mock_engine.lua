@@ -818,6 +818,9 @@ function M.new_world(opts)
       ["fo-war-industrie"] = (opts.industrie ~= false) and (os.getenv("FO_INDUSTRIE") ~= "0"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
+      -- Lot RB-1 : robots, ALLUMÉ par défaut comme le jeu (settings/robots.lua) ; éteint par l'option (robots = false) ;
+      -- plafond automatique (0) sauf option (robots_cap)
+      ["fo-war-robots"] = opts.robots ~= false, ["fo-war-robots-cap"] = opts.robots_cap or 0,
       -- Lot KIT : kit de départ des factions. Défaut du JEU = égal à votre équipe (faux) ; les tests hors jeu et les bancs gardent
       -- le kit généreux d'avant (leurs attendus datent de ce kit, comme control.lua des bancs en moteur réel) ; l'option
       -- (kit_egal = true) ou FO_KIT_EGAL=1 joue le kit égal du jeu.
@@ -967,6 +970,10 @@ function M.new_world(opts)
     on_entity_damaged = 33,
     on_chunk_generated = 34, -- lot EQUILIBRE : zone sûre des QG (script/faction/war.lua) ; levé à la main par tests/zone_sure_test.lua
     on_biter_base_built = 35, -- idem
+    -- lot RB-2 : outils de sélection des robots (script/robots/outils.lua) ; le mock n'en lève aucun, tests/robots_ui_test.lua rejoue
+    -- les gestionnaires à la main
+    on_player_selected_area = 36, on_player_alt_selected_area = 37, on_player_reverse_selected_area = 38,
+    on_player_alt_reverse_selected_area = 39,
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
