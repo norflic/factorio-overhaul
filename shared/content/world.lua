@@ -632,14 +632,16 @@ W.resources = {
     copy_icon = "stone",
     tint = { r = 1.00, g = 0.72, b = 0.30 },
     glint = { tint = { r = 1.00, g = 0.70, b = 0.30 }, min = 0.15, max = 0.45, period = 4 },
-    -- Feuille PROPRE du kit minerai (30/10 ; direction S2 : cristaux résineux miel et rubis, gros et serrés, 128
-    -- échantillons ; S1, trop clairsemée et à ΔE 8 de la pierre, écartée). check_gisement 6 OK, 1 ECHEC (stades 1 à 4 de
-    -- couverture presque égale, 0,23 ; écart 0,084 à la vanilla). ΔE 13 à la pierre, 24 au cuivre. Choix provisoire, sans
-    -- verdict du DC.
+    -- Feuille PROPRE du kit minerai, REFAITE au lot DESIGN-BLENDE (30/10, retour du DC : « je n'aime pas du tout la forme
+    -- de ces minerais : Blende, ... Il faut les refaire ») : direction S8, druses de TÉTRAÈDRES tronqués (la forme
+    -- cristalline de la sphalérite) brun-rouge résineux, rubis et ambre, 128 échantillons. Avant : S2 (petits cubes et
+    -- galets lisses : « dés et bonbons », doublon de forme de la galène). Mesures et planches :
+    -- fo-logs/2026-10-30_RETOUR-MATIN/MINERAIS/blende. Choix provisoire, sans verdict du DC.
     sheet = {
       dir = "__factorio-overhaul__/graphics/ressources/blende",
       name = "blende",
-      mining_visualisation_tint = { r = 0.55, g = 0.28, b = 0.08, a = 1 },
+      -- brun-rouge de S8 (miel de S2 avant)
+      mining_visualisation_tint = { r = 0.48, g = 0.16, b = 0.06, a = 1 },
       effet = { period = 4, deviation = 1, darkness_multiplier = 60, min = 0.02, max = 0.08 },
     },
     -- Bleu nuit sur la carte : la seule teinte restée à ΔE76 ≥ 45 de tous les minerais, fluides et sols (recherche sur une

@@ -130,6 +130,56 @@ def bloc(rng, taille, haut):
     return verts, faces
 
 
+def tetra(rng, taille, tronc=(0.18, 0.30), enfoui=(0.15, 0.40), bruit=0.0):
+    """Tétraèdre TRONQUÉ (lot DESIGN-BLENDE, 30/10) : la forme cristalline de la sphalérite (blende), 4 grandes faces
+    triangulaires coupées aux pointes (4 hexagones + 4 petits triangles). Orientation au hasard, enfoui dans le sol
+    d'une part `enfoui` de sa hauteur (fond aplati à z = 0) : une pointe ou une arête dressée, jamais un dé posé."""
+    T = ((1.0, 1.0, 1.0), (1.0, -1.0, -1.0), (-1.0, 1.0, -1.0), (-1.0, -1.0, 1.0))
+    t = rng.uniform(*tronc)
+    verts, idx = [], {}
+    for i in range(4):
+        for j in range(4):
+            if i != j:
+                idx[(i, j)] = len(verts)
+                verts.append(tuple(T[i][k] + t * (T[j][k] - T[i][k]) for k in range(3)))
+    # bruit (critique DA du 30/10, S9) : sommets déplacés au hasard, faces gauchies, cristal naturel et non solide de
+    # géométrie (« pyramide en papier ») ; bruit = 0 ne tire RIEN (S4 à S8 rendus à l'identique)
+    if bruit > 0.0:
+        verts = [tuple(v[k] + rng.uniform(-bruit, bruit) for k in range(3)) for v in verts]
+    faces = []
+    for i in range(4):                       # petits triangles des pointes coupées
+        autres = [j for j in range(4) if j != i]
+        faces.append([idx[(i, j)] for j in autres])
+    for f in range(4):                       # grandes faces (hexagones) : face opposée au sommet f
+        a, b, c = [j for j in range(4) if j != f]
+        faces.append([idx[(a, b)], idx[(b, a)], idx[(b, c)], idx[(c, b)], idx[(c, a)], idx[(a, c)]])
+    # rotation au hasard (trois angles), échelle (rayon du tétraèdre ≈ √3 → taille), puis à plat dans le sol
+    ax, ay, az = rng.uniform(0, 2 * math.pi), rng.uniform(0, 2 * math.pi), rng.uniform(0, 2 * math.pi)
+    k = taille / math.sqrt(3.0)
+    out = []
+    for x, y, z in verts:
+        y, z = y * math.cos(ax) - z * math.sin(ax), y * math.sin(ax) + z * math.cos(ax)
+        x, z = x * math.cos(ay) + z * math.sin(ay), -x * math.sin(ay) + z * math.cos(ay)
+        x, y = x * math.cos(az) - y * math.sin(az), x * math.sin(az) + y * math.cos(az)
+        out.append((x * k, y * k, z * k * rng.uniform(0.97, 1.03)))
+    # orientation des faces vers l'extérieur, sur le solide convexe entier (centre à l'origine), AVANT l'aplatissement
+    cx = cy = cz = 0.0
+    ok = []
+    for f in faces:
+        p0, p1, p2 = out[f[0]], out[f[1]], out[f[2]]
+        u = [p1[q] - p0[q] for q in range(3)]
+        w = [p2[q] - p0[q] for q in range(3)]
+        n = (u[1] * w[2] - u[2] * w[1], u[2] * w[0] - u[0] * w[2], u[0] * w[1] - u[1] * w[0])
+        m = [sum(out[q][r] for q in f) / len(f) for r in range(3)]
+        dot = n[0] * (m[0] - cx) + n[1] * (m[1] - cy) + n[2] * (m[2] - cz)
+        ok.append(f if dot >= 0 else list(reversed(f)))
+    z0 = min(v[2] for v in out)
+    h = max(v[2] for v in out) - z0
+    zb = z0 + rng.uniform(*enfoui) * h
+    out = [(x, y, max(0.0, z - zb)) for x, y, z in out]
+    return out, ok
+
+
 # ------------------------------------------------------------------------------------------------
 # Placement
 # ------------------------------------------------------------------------------------------------
@@ -205,6 +255,20 @@ def cellule(S, C, mats, lave, d, cle, r, c, stade, rng, icone=False):
             o = _objet("%s_lame%d_%d" % (tag, i, j), vv, f, mats[rng.choice(d["lame_mats"])], S)
             S.bevel(o, 0.006, 1)
             objs.append(o)
+    # druses de tétraèdres tronqués (blende, lot DESIGN-BLENDE) : seulement si la direction en déclare
+    if d.get("tetras"):
+        n_dr = _compte(d["tetras"], stade, e, rng)
+        for i, (gx, gy) in enumerate(_places(rng, n_dr, rayon * 0.92, 0.26, occupe)):
+            occupe.append((gx, gy))
+            n_t = rng.randint(*d["tetra_n"])
+            for j in range(n_t):
+                t = rng.uniform(*d["tetra_taille"]) * (1.0 if j == 0 else rng.uniform(0.55, 0.85))
+                v, f = tetra(rng, t, tronc=d.get("tetra_tronc", (0.18, 0.30)),
+                             enfoui=d.get("tetra_enfoui", (0.15, 0.40)), bruit=d.get("tetra_bruit", 0.0))
+                a = rng.uniform(0, 2 * math.pi)
+                rr = 0.0 if j == 0 else rng.uniform(*d.get("tetra_ecart", (0.07, 0.13)))
+                pose(v, f, mats[rng.choice(d["tetra_mats"])], gx + rr * math.cos(a), gy + rr * math.sin(a),
+                     "%s_tetra%d_%d" % (tag, i, j), biseau=d.get("tetra_biseau", 0.008))
     # filons de lave (C) : bandes basses émissives au sol, entre les roches
     if lave is not None and d.get("filons"):
         n_f = _compte(d["filons"], stade, 1.0, rng) + (1 if icone else 0)
@@ -283,6 +347,19 @@ def cellule_icone(S, C, mats, d, cle, c, rng):
         vv = _transforme(v, 0.0, rng.uniform(0, 2 * math.pi), bx, by, 0.0)
         o = _objet("%s_bloc%d" % (tag, j), vv, f, mats[rng.choice(ic["bloc_mats"])], S)
         S.bevel(o, 0.02, 1)
+        objs.append(o)
+    # tétraèdres tronqués (blende, lot DESIGN-BLENDE) : seulement si ICONE en demande
+    for j in range(ic.get("tetras", 0)):
+        a = rng.uniform(0, 2 * math.pi)
+        rr = 0.0 if j == 0 else rng.uniform(0.14, 0.24)
+        gx, gy = rr * math.cos(a), 0.8 * rr * math.sin(a)
+        t = rng.uniform(*ic["tetra_taille"]) * (1.0 if j == 0 else rng.uniform(0.6, 0.85))
+        v, f = tetra(rng, t, tronc=ic.get("tetra_tronc", (0.18, 0.30)), enfoui=ic.get("tetra_enfoui", (0.15, 0.40)),
+                     bruit=ic.get("tetra_bruit", 0.0))
+        bx, by, _ = C.tile_to_blender(cx + gx, cy + gy)
+        vv = _transforme(v, 0.0, rng.uniform(0, 2 * math.pi), bx, by, 0.0)
+        o = _objet("%s_tetra%d" % (tag, j), vv, f, mats[rng.choice(ic["tetra_mats"])], S)
+        S.bevel(o, 0.012, 1)
         objs.append(o)
     return objs
 
