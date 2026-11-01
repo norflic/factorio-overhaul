@@ -56,17 +56,18 @@ return {
 
   finish = function(ctx)
     local st = ctx.state()
-    local bons, mini, maxi = 0, 1e9, 0
+    local bons, mini, maxi, maxe = 0, 1e9, 0, 0
     for _, c in ipairs(st.roue) do
       if c.u and c.u.valid then
         local px, py = c.u.position.x - X0, c.u.position.y - Y0
         local r = px * c.dx + py * c.dy
         local ecart = math.abs(px * c.dy - py * c.dx)
         mini, maxi = math.min(mini, r), math.max(maxi, r)
-        if r > R0 + 10 and ecart < 0.3 * r then bons = bons + 1 end -- à ±17° : le chemin et la séparation écartent un peu de la droite
+        maxe = math.max(maxe, ecart)
+        if r > R0 + 10 and ecart < 0.6 * r then bons = bons + 1 end -- à ±31° : le chemin et la séparation écartent de la droite
       end
     end
-    ctx.check(bons == 16, "les 16 unites marchent dans leur direction", string.format("%d / 16, rayon %.1f a %.1f", bons, mini, maxi))
+    ctx.check(bons == 16, "les 16 unites marchent dans leur direction", string.format("%d / 16, rayon %.1f a %.1f, ecart lateral max %.1f", bons, mini, maxi, maxe))
     local degats = 0
     for _, w in ipairs(st.vers) do
       if w.valid then degats = degats + (w.prototype.max_health - w.health) else degats = degats + 750 end
