@@ -38,11 +38,11 @@ vue(2330, "cull-ombre-seule", SITES.E + 62, Y - 5, 1, { 1600, 900 })
 vue(2335, "cull-ancre-avant", SITES.E, Y + 24, 1, { 1600, 900 })
 vue(2340, "cull-z02-loin", SITES.E, Y - 90, 0.2, { 1600, 900 })
 -- le vol : les ancres remontent, la cloche part, retombent à l'arrivée
-for _, t in ipairs({ 2520, 2560, 2600, 2760, 2900 }) do
+for _, t in ipairs({ 2520, 2560, 2600, 2700, 2800 }) do
   vue(t, string.format("vol-t%04d", t), SITES.E + (t >= 2700 and 30 or 0), Y - 18, 0.6, { 2000, 1600 })
 end
-for k = 0, 11 do
-  vue(3040 + k * 15, string.format("pose-t%04d", 3040 + k * 15), SITES.E + 60, Y - 14, 0.6, { 2000, 1600 })
+for k = 0, 15 do
+  vue(2860 + k * 15, string.format("pose-t%04d", 2860 + k * 15), SITES.E + 60, Y - 14, 0.6, { 2000, 1600 })
 end
 table.sort(PLAN, function(a, b) return a.tick < b.tick end)
 
@@ -91,10 +91,10 @@ return {
         p.update_selected_entity({ SITES.E + 0.5, Y - 19.5 })
         local sel = p.selected
         ctx.check(sel and sel.name == "lab", "le clic prend le batiment sous la cloche", sel and sel.name or "rien")
-        for _, dy in ipairs({ -1, -4, -8, -14, -20, -30, -40 }) do
-          p.update_selected_entity({ SITES.E - 9, Y + dy })
+        for _, q in ipairs({ { 0.2, 0.2 }, { 1, -1 }, { -9, -4 }, { -9, -14 }, { -9, -30 } }) do
+          p.update_selected_entity({ SITES.E + q[1], Y + q[2] })
           sel = p.selected
-          ctx.log(string.format("selection a %d tuiles au-dessus de la position : %s", -dy, sel and sel.name or "rien"))
+          ctx.log(string.format("selection en (%g, %g) : %s", q[1], q[2], sel and sel.name or "rien"))
         end
       else
         ctx.log("pas de joueur : selection non jouee")

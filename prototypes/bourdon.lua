@@ -44,19 +44,19 @@ local function patte(n)
     collision_mask = {},
     selectable_in_game = false,
     flags = { "not-on-map", "not-blueprintable", "not-deconstructable", "hidden", "not-flammable" },
-    target_position_randomisation_distance = 0.5,
-    minimal_step_size = 3,
-    part_length = 7,
-    initial_movement_speed = 0.05,
-    movement_acceleration = 0.025,
+    target_position_randomisation_distance = 0.25,
+    minimal_step_size = 1,
+    part_length = 3.5,
+    initial_movement_speed = 0.025,
+    movement_acceleration = 0.012,
     max_health = 100,
-    movement_based_position_selection_distance = 7,
+    movement_based_position_selection_distance = 4,
     graphics_set = {},
   }
 end
 
 local pattes = {}
-local POSES = { { -6, -6 }, { 6, -6 }, { -6, 6 }, { 6, 6 } }
+local POSES = { { -3, -3 }, { 3, -3 }, { -3, 3 }, { 3, 3 } }
 for n = 1, 4 do
   protos[#protos + 1] = patte(n)
   local opp = { 4, 3, 2, 1 }

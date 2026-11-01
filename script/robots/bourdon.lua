@@ -68,7 +68,7 @@ local function creer_corps(b)
     local so = SPR["ancre-ombre"].shift
     b.ancres[i] = {
       e = 0.0, pose = false,
-      chaine = retient(dessine(s, "chaine", e, { cx, cy }, COUCHE_DERRIERE, { orientation = a.o })),
+      chaine = retient(dessine(s, "chaine", e, { cx, cy }, COUCHE_DERRIERE, { orientation = a.o, x_scale = 1.25 })),
       corps = retient(dessine(s, "ancre", e, { ax + sc[1], ay + sc[2] }, COUCHE_DERRIERE)),
       lueur = retient(dessine(s, "ancre-lueur", e, { ax + sl[1], ay + sl[2] }, COUCHE_DERRIERE)),
       ombre = retient(dessine(s, "ancre-ombre", e, { a.sol[1] + so[1], a.sol[2] + so[2] }, COUCHE_OMBRE, { visible = false })),
