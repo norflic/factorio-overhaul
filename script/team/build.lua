@@ -49,6 +49,7 @@ local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et encei
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
+local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
@@ -2503,6 +2504,7 @@ local function plan_project(f, surface, p)
   if spec.enceinte then return plan_enceinte(f, surface, p) end
   if spec.alim then return plan_alim(f, surface, p) end -- lot CHARBON-CENTRALE
   if spec.raccord then return plan_raccord(f, surface, p) end -- lot PD-ELEC (D05)
+  if spec.liaison then return Liaison.plan({ read_masks = function(x0, y0, x1, y1) return read_masks(f, surface, x0, y0, x1, y1) end, reserve_tiles = reserve_tiles, wood_of = wood_of, free_spot = free_spot, add_obstacle = add_obstacle, item_of = item_of, seg_passable = seg_passable, REACH = REACH }, f, surface, p) end -- lot INDUSTRIE I7
   Profiler.start("build:plan:place") -- lot IA3-e : parts du coût d'un plan (pics de K10), mesure seulement
   -- Lot PETROLE : un SITE (spec.site) est implanté par son planificateur (Build.SITES[nom], hors du treillis : au gisement
   -- d'un fluide) ; le chantier qui suit est le même (réserve, défrichage, fantômes, ravivage, fils, quais).
@@ -2543,7 +2545,8 @@ local function plan_project(f, surface, p)
   local g, why = template_of(spec, topts)
   if not g then return false, why end
   p.consumes = {}
-  for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true end
+  p.inflow = {} -- lot INDUSTRIE I7 : débit nominal de chaque entrée (objets/s), lu par script/team/liaison.lua pour le prix d'une liaison de quai
+  for _, k in ipairs(sorted_keys(g.inputs or {})) do p.consumes[k] = true; p.inflow[k] = g.inputs[k] end
   local main
   local is_plant = g.gen == "steam"
   local toward
@@ -4171,6 +4174,8 @@ local function pulse_team(f, tick)
   Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
   Raccord.step({ request = Build.request, prio = Build.PRIO + 4 }, f, surface, tick)
+  -- 4 ter. lot INDUSTRIE I7 : un quai d'entrée porté à la main par un PNJ, relié par un tapis à la sortie d'un module du même objet
+  Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)
   local nb, stale = PlantArms.watch(f, surface, tick)
   for _, id in ipairs(stale or {}) do Build.cancel(f, id, PlantArms.STALE_REASON) end
