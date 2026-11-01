@@ -1,14 +1,14 @@
 {
  "blender": "5.2.2 LTS",
  "couverture_par_stade": [
-  0.2822,
-  0.2491,
-  0.2179,
-  0.1968,
-  0.1717,
-  0.1464,
-  0.091,
-  0.0548
+  0.3165,
+  0.2895,
+  0.24,
+  0.2093,
+  0.1756,
+  0.1396,
+  0.1069,
+  0.0565
  ],
  "couverture_vanilla": [
   0.316,
@@ -20,7 +20,7 @@
   0.09,
   0.055
  ],
- "direction": "C1",
+ "direction": "C14",
  "echantillons": 128,
  "effet": "eclats",
  "effet_reglages": {
@@ -43,29 +43,29 @@
   "variation_count": 8
  },
  "nom": "cassiterite",
- "nom_direction": "placer de galets de cassitérite brun chocolat et de quartz blanc",
+ "nom_direction": "gros blocs trapus et pépites bipyramidales de cassitérite brun chocolat sur poussière sombre",
  "outil": "tools/render/pieces/ressources/feuille.py",
  "repartition": {
   "L": [
-   0.109,
-   0.541,
-   0.161,
-   0.188
+   0.293,
+   0.594,
+   0.1,
+   0.014
   ],
-  "acier": 0.165,
+  "acier": 0.025,
   "acier_bleutes": 0.0,
-  "chauds": 0.797,
-  "sombres": 0.038
+  "chauds": 0.877,
+  "sombres": 0.097
  },
- "secondes_blender": 1911.28,
+ "secondes_blender": 1558.65,
  "sha256": {
-  "cassiterite-effet.png": "c4f69104e55c4598a49e2ad6f23328d366a4991fbe9b4160afe298fe8819d4e3",
-  "cassiterite.png": "3985253a0709b47ce28036f9963835007352892ec4938a1a3a32beff549ba481",
-  "hr-cassiterite-effet.png": "5fb36feb878f12202dd0c87e6e99444f15058156b823c6a244ad5d6d9a551917",
-  "hr-cassiterite.png": "dcd3f0b9eb44a8e2138ad0db4b7cd44464f3375a2aab64b325560565d6f430cb",
-  "icone-1.png": "841f881713a7fcefabf7cf1c23b5acbf9d7b0646979aa55b1ae73d0e3458b293",
-  "icone-2.png": "b1f820eb768e02d89c7cbb95926be479528fadfdd6aa582cc35f108cc17947a5",
-  "icone-3.png": "920994684d6dce530c33a8c0b544e677b20d8fd9decd7bc0015519ebfae4db1a",
-  "icone.png": "4c541ecafc7f5c700243e05927e0a91a86466cecee1f59dfb9a068a9d2a63ae0"
+  "cassiterite-effet.png": "64e6f3f136f6d3e170aaac2b077fb04e488eb21a85ffd1610813f6c432b5dc06",
+  "cassiterite.png": "0481edfac801eeb0fe66a59fd342d59fe61b7e9feaaab3d04b5a0829ca4f5836",
+  "hr-cassiterite-effet.png": "817c3f987a9cb2751069f7f155588e75e5c54192f5d5c544e8a2e44c93fe2815",
+  "hr-cassiterite.png": "4149a83c3bd73899233f780fa4b7587568d0ddc8a26d7c86231b28a4ee99908a",
+  "icone-1.png": "9de9cb70dab79c115028cbb48c82bb5d3fcc51981b7db064757434557e981cef",
+  "icone-2.png": "57104292f0e9889683434eed5dd2414df204887d3f0ac826c1eb3ebeeebb6ab3",
+  "icone-3.png": "0d73c68e4e376f7c32e13f69879f81754c15da312dbb6e60cb2e69cc8ab9dd1b",
+  "icone.png": "4ef35eddf20506a08156a63c5d8dadb9d81b7af3fbe8059ba982da7a662f9444"
  }
 }

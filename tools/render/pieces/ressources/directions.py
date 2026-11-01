@@ -568,14 +568,215 @@ ROCHE_APLAT["S2"], ROCHE_CASSURE["S2"] = ROCHE_APLAT["S1"], ROCHE_CASSURE["S1"]
 ICONE["S2"] = dict(ICONE["S1"], roche_mats=("blende_rubis", "quartz_gris"))
 EFFET["S2"] = dict(EFFET["S1"])
 
+# C2 à C4 (retour du DC du 30/10, 9 h : « je n'aime pas du tout la forme de ces minerais : […] Cassitérite […]. Il faut
+# les refaire. ») : la FORME de C1 est refaite, la couleur brun chocolat gardée. Pourquoi C1 déplaît (planche
+# fo-logs/2026-10-30_RETOUR-MATIN/MINERAIS/cassiterite) : (1) silhouette = un DISQUE régulier, la vanilla fait 2 ou 3 tas
+# irréguliers ; (2) galets ronds, petits, tous de la même taille, lissés et vernis : « dragées de chocolat », pas un
+# minerai ; (3) densité uniforme, aucun gros morceau, aucun vide ; (4) au zoom 1, une tache brune grenue sans forme ;
+# (5) même gabarit que la monazite et la bauxite (placer Z1), et le quartz blanc en œufs lisses fait « neige ».
+# Trois formes, toutes en AMAS (gisement._places_amas) :
+#   C2 : masses ANGULEUSES (cassures franches, peu lissées) de tailles variées, à la manière de la vanilla ;
+#   C3 : cristaux BIPYRAMIDAUX (l'habitus réel de la cassitérite, gisement.bipyramide) en gerbes sur une gangue anguleuse ;
+#   C4 : masses anguleuses de C2 hérissées de quelques bipyramides (mixte).
+# Le quartz n'est plus qu'en esquilles (grains et fins) et en rares petits éclats anguleux. Choix provisoires, sans
+# verdict du DC.
+MAT.update({
+    # éclat adamantin : faces planes très réfléchissantes, un peu de métal (reflets francs sur les cassures)
+    "cassiterite_noir": dict(color=(0.065, 0.032, 0.018), rough=0.18, met=0.40, grain=0.2, gscale=40.0, dirt=0.4),
+    "cassiterite_ambre": dict(color=(0.42, 0.20, 0.07), rough=0.20, met=0.25, grain=0.2, gscale=40.0, dirt=0.35),
+    "sable_etain": dict(color=(0.30, 0.20, 0.12), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.2),
+})
+_C_AMAS = dict(n=(3, 3, 3, 2, 2, 2, 1, 1), etal=0.17, centre=0.60, ecart=0.55)
+DIRECTIONS["C2"] = dict(DIRECTIONS["C1"], nom="masses anguleuses de cassitérite brun chocolat, en amas",
+                        tas=_C_AMAS, roche_ecart=0.15,
+                        roches=(12, 10, 8, 7, 5, 4, 3, 2), roche_taille=(0.09, 0.15), roche_gros=(0.35, (0.17, 0.24)),
+                        roche_mats=("cassiterite_brun", "cassiterite_brun", "cassiterite_roux", "cassiterite_noir",
+                                    "cassiterite_brun"),
+                        blocs=(1, 1, 1, 1, 0, 0, 0, 0), bloc_taille=(0.06, 0.09), bloc_haut=(0.05, 0.08),
+                        bloc_mats=("quartz_blanc",),
+                        grains=(30, 24, 18, 15, 12, 9, 6, 4),
+                        grain_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_noir", "quartz_blanc"),
+                        fins=(160, 135, 115, 95, 78, 62, 42, 24),
+                        fin_mats=("sable_etain", "sable_etain", "cassiterite_brun", "cassiterite_roux", "quartz_blanc"))
+CALIB["C2"] = dict(CALIB["C1"])
+ROCHE_COUPES["C2"], ROCHE_LISSE["C2"] = 7, 20
+ROCHE_APLAT["C2"], ROCHE_CASSURE["C2"] = 0.72, (0.35, 0.70)
+DIRECTIONS["C3"] = dict(DIRECTIONS["C2"], nom="gerbes de cristaux bipyramidaux de cassitérite sur gangue anguleuse",
+                        roches=(6, 5, 4, 4, 3, 2, 2, 1), roche_taille=(0.08, 0.13), roche_gros=(0.25, (0.14, 0.19)),
+                        roche_mats=("cassiterite_noir", "cassiterite_brun", "cassiterite_brun"),
+                        touffes=(5, 4, 4, 3, 3, 2, 2, 1), lames=(2, 4), lame_forme="bipyramide", touffe_ecart=0.20,
+                        lame_long=(0.15, 0.26), lame_larg=(0.09, 0.14), lame_ep=(0.0, 0.0), lame_incl=(15, 60),
+                        lame_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_noir", "cassiterite_ambre"))
+CALIB["C3"] = dict(CALIB["C1"])
+ROCHE_COUPES["C3"], ROCHE_LISSE["C3"] = 7, 20
+ROCHE_APLAT["C3"], ROCHE_CASSURE["C3"] = 0.72, (0.35, 0.70)
+DIRECTIONS["C4"] = dict(DIRECTIONS["C2"], nom="masses anguleuses de cassitérite hérissées de cristaux bipyramidaux",
+                        roches=(9, 8, 6, 5, 4, 3, 2, 2),
+                        touffes=(3, 2, 2, 2, 1, 1, 1, 0), lames=(2, 3), lame_forme="bipyramide", touffe_ecart=0.20,
+                        lame_long=(0.14, 0.24), lame_larg=(0.08, 0.13), lame_ep=(0.0, 0.0), lame_incl=(15, 55),
+                        lame_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_ambre"))
+CALIB["C4"] = dict(CALIB["C1"])
+ROCHE_COUPES["C4"], ROCHE_LISSE["C4"] = 7, 20
+ROCHE_APLAT["C4"], ROCHE_CASSURE["C4"] = 0.72, (0.35, 0.70)
+for _k in ("C2", "C3", "C4"):
+    EFFET[_k] = dict(EFFET["C1"])
+
+# Essai 1 (16 échantillons, planche travail/essai1-cadres.png) : C2 sort en ÉCLATS PLATS (aplatissement et cassures
+# profondes) trop petits ; les bipyramides de C3 en BÂTONNETS (prismes trop fins : « allumettes ») ; grains de quartz
+# blanc épars = confettis ; couverture 0,18 au stade 1 (vanilla 0,32). Vanilla (fer) : GROS morceaux trapus (0,4 à 0,5
+# tuile), hauts, serrés en tas, peu de grains, une poussière dessous. Essai 2 :
+#   C5 : gros BLOCS trapus anguleux en tas (la manière vanilla), brun chocolat, aucun cristal ;
+#   C6 : C5 dont un tiers des morceaux sont des bipyramides TRAPUES (pointe large, prisme court) : pépites pointues ;
+#   C7 : tas de bipyramides trapues serrées sur quelques blocs (cristaux dominants).
+# Le quartz n'est plus qu'une poussière (1 fin sur 8).
+_C_AMAS2 = dict(n=(3, 3, 2, 2, 2, 2, 1, 1), etal=0.15, centre=0.55, ecart=0.60)
+_C_FINS = ("sable_etain", "sable_etain", "sable_etain", "cassiterite_brun", "cassiterite_roux", "sable_etain",
+           "cassiterite_noir", "quartz_blanc")
+DIRECTIONS["C5"] = dict(DIRECTIONS["C1"], nom="gros blocs anguleux de cassitérite brun chocolat, en tas",
+                        tas=_C_AMAS2, roche_ecart=0.17,
+                        roches=(10, 9, 7, 6, 5, 4, 3, 2), roche_taille=(0.13, 0.19), roche_gros=(0.30, (0.21, 0.26)),
+                        roche_mats=("cassiterite_brun", "cassiterite_brun", "cassiterite_roux", "cassiterite_noir",
+                                    "cassiterite_brun", "cassiterite_ambre"),
+                        blocs=(0, 0, 0, 0, 0, 0, 0, 0),
+                        grains=(10, 8, 7, 6, 5, 4, 3, 2),
+                        grain_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_noir"),
+                        fins=(150, 130, 110, 90, 74, 58, 40, 22), fin_mats=_C_FINS)
+CALIB["C5"] = dict(CALIB["C1"])
+ROCHE_COUPES["C5"], ROCHE_LISSE["C5"] = 6, 25
+ROCHE_APLAT["C5"], ROCHE_CASSURE["C5"] = 0.95, (0.45, 0.80)
+DIRECTIONS["C6"] = dict(DIRECTIONS["C5"], nom="gros blocs de cassitérite et pépites bipyramidales trapues, en tas",
+                        roches=(7, 6, 5, 4, 4, 3, 2, 1),
+                        touffes=(3, 3, 2, 2, 2, 1, 1, 1), lames=(1, 3), lame_forme="bipyramide", touffe_ecart=0.18,
+                        lame_long=(0.17, 0.26), lame_larg=(0.15, 0.21), lame_ep=(0.0, 0.0), lame_incl=(15, 50),
+                        lame_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_noir", "cassiterite_ambre"))
+CALIB["C6"] = dict(CALIB["C1"])
+ROCHE_COUPES["C6"], ROCHE_LISSE["C6"] = 6, 25
+ROCHE_APLAT["C6"], ROCHE_CASSURE["C6"] = 0.95, (0.45, 0.80)
+DIRECTIONS["C7"] = dict(DIRECTIONS["C6"], nom="tas de bipyramides trapues de cassitérite sur quelques blocs",
+                        roches=(4, 3, 3, 2, 2, 1, 1, 1), roche_taille=(0.11, 0.16), roche_gros=(0.2, (0.18, 0.22)),
+                        roche_mats=("cassiterite_noir", "cassiterite_brun"),
+                        touffes=(6, 5, 4, 4, 3, 2, 2, 1), lames=(2, 3))
+CALIB["C7"] = dict(CALIB["C1"])
+ROCHE_COUPES["C7"], ROCHE_LISSE["C7"] = 6, 25
+ROCHE_APLAT["C7"], ROCHE_CASSURE["C7"] = 0.95, (0.45, 0.80)
+for _k in ("C5", "C6", "C7"):
+    EFFET[_k] = dict(EFFET["C1"])
+
+# Essai 2 (16 échantillons ; travail/essai2-cadres.png, essai2-z1-sable.png, essai2-z2-herbe.png) : les formes tiennent
+# (blocs trapus, pointes bipyramidales lisibles au zoom 2 et au-delà) ; C6 retenue (masse « à la vanilla » + signature
+# en pointes ; C5 seule = un charbon brun, C7 = pointes illisibles au zoom 1). Défauts : couverture 0,20 au stade 1
+# (vanilla 0,32), tas trop serrés au centre du cadre, faces sombres sans reflet franc sur le sable (lecture terne), fins
+# brun foncé = miettes sales. C8 = C6 + tas plus nombreux et plus étalés, faces rousses et ambrées plus fréquentes,
+# éclat adamantin un peu plus fort (ciel spéculaire × 3), poussière à la couleur du minerai, moins de fins.
+DIRECTIONS["C8"] = dict(DIRECTIONS["C6"], nom="blocs et pépites bipyramidales de cassitérite brun chocolat, en tas",
+                        tas=dict(n=(4, 3, 3, 3, 2, 2, 2, 1), etal=0.20, centre=0.80, ecart=0.45), roche_ecart=0.19,
+                        roches=(10, 9, 7, 6, 5, 4, 3, 2), touffes=(4, 3, 3, 2, 2, 2, 1, 1),
+                        roche_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_brun", "cassiterite_ambre",
+                                    "cassiterite_noir", "cassiterite_roux"),
+                        grain_mats=("cassiterite_roux", "cassiterite_brun", "cassiterite_ambre"),
+                        fins=(110, 95, 80, 66, 54, 42, 28, 16),
+                        fin_mats=("cassiterite_roux", "sable_etain", "cassiterite_ambre", "cassiterite_brun", "sable_etain",
+                                  "quartz_blanc", "cassiterite_roux", "sable_etain"))
+CALIB["C8"] = {"SKY_GLOSSY_FACTOR": 3.0}
+ROCHE_COUPES["C8"], ROCHE_LISSE["C8"] = 6, 25
+ROCHE_APLAT["C8"], ROCHE_CASSURE["C8"] = 0.95, (0.45, 0.80)
+EFFET["C8"] = dict(EFFET["C1"])
+# Icône en gros plan : 3 ou 4 blocs et 3 à 5 grosses pépites bipyramidales (gisement.cellule_icone).
+ICONE["C8"] = dict(lames=(3, 5), echelle=1.5, roches=(3, 4), roche_taille=(0.17, 0.23), roche_coupes=6,
+                   roche_cassure=(0.45, 0.80), roche_aplat=0.95,
+                   roche_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_noir", "cassiterite_brun"),
+                   lame_mats=("cassiterite_roux", "cassiterite_ambre", "cassiterite_brun"))
+
+# C9 (mesure.py sur C8 à 16 échantillons) : couverture juste (0,292 → 0,070 contre 0,316 → 0,055) et loin de tous les
+# minerais (ΔE76 : fer 23, cuivre 30, charbon 19, pierre 15, uranium 52), mais REFLETS FAIBLES : luminance p95 120 contre
+# 186 à 215 pour la vanilla (fer 196, pierre 186, cuivre 216) : lecture terne sur le sable. Même forme ; éclat adamantin
+# plus fort (ciel spéculaire × 5) et faces au soleil d'un brun cuir plus clair (la masse reste brun chocolat).
+MAT["cassiterite_cuir"] = dict(color=(0.40, 0.19, 0.075), rough=0.20, met=0.30, grain=0.2, gscale=40.0, dirt=0.35)
+DIRECTIONS["C9"] = dict(DIRECTIONS["C8"], nom="blocs et pépites bipyramidales de cassitérite brun chocolat à éclat adamantin",
+                        roche_mats=("cassiterite_brun", "cassiterite_cuir", "cassiterite_brun", "cassiterite_ambre",
+                                    "cassiterite_noir", "cassiterite_roux"),
+                        lame_mats=("cassiterite_cuir", "cassiterite_roux", "cassiterite_noir", "cassiterite_ambre"))
+CALIB["C9"] = {"SKY_GLOSSY_FACTOR": 5.0}
+ROCHE_COUPES["C9"], ROCHE_LISSE["C9"] = 6, 25
+ROCHE_APLAT["C9"], ROCHE_CASSURE["C9"] = 0.95, (0.45, 0.80)
+EFFET["C9"] = dict(EFFET["C1"])
+ICONE["C9"] = dict(ICONE["C8"], roche_mats=("cassiterite_brun", "cassiterite_cuir", "cassiterite_noir", "cassiterite_brun"),
+                   lame_mats=("cassiterite_cuir", "cassiterite_ambre", "cassiterite_brun"))
+
+# C10 (critique de directeur artistique, 30/10 vers 10 h 45, CRITIQUE.md de la page) : C9 se lit en jeu comme des
+# « copeaux » et du gravier. Contre le charbon et le cuivre vanilla, trois écarts : (1) morceaux plats (cassures
+# profondes) et trop nombreux, au lieu de quelques gros blocs trapus ; (2) pièces cuir et ambre claires qui se fondent
+# dans le sable (bigarrure) au lieu d'une seule matière éclairée ; (3) grains ronds bien visibles et éclats de quartz
+# blanc (gravier, paillettes) au lieu de la POUSSIÈRE sombre et fine qui ancre les tas vanilla au sol. C10 = C9 avec
+# moins de morceaux plus gros, plus hauts et moins cassés ; brun chocolat et noir dominants (reflets par l'éclat
+# adamantin, pas par la teinte) ; presque plus de grains ; poussière fine et sombre (clé `fin_taille`).
+MAT["poussiere_etain"] = dict(color=(0.075, 0.042, 0.024), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.2)
+DIRECTIONS["C10"] = dict(DIRECTIONS["C9"], nom="gros blocs trapus et pépites bipyramidales de cassitérite brun chocolat sur poussière sombre",
+                         roches=(8, 7, 6, 5, 4, 3, 2, 2), roche_taille=(0.15, 0.21), roche_gros=(0.35, (0.22, 0.28)),
+                         roche_mats=("cassiterite_brun", "cassiterite_brun", "cassiterite_noir", "cassiterite_roux",
+                                     "cassiterite_brun", "cassiterite_noir"),
+                         touffes=(3, 3, 2, 2, 2, 1, 1, 1),
+                         lame_mats=("cassiterite_brun", "cassiterite_roux", "cassiterite_noir"),
+                         grains=(3, 3, 2, 2, 2, 1, 1, 1), grain_mats=("cassiterite_brun", "cassiterite_noir"),
+                         fins=(420, 360, 300, 250, 200, 160, 110, 70), fin_taille=(0.007, 0.012),
+                         fin_mats=("poussiere_etain", "poussiere_etain", "poussiere_etain", "sable_etain",
+                                   "cassiterite_noir"))
+CALIB["C10"] = {"SKY_GLOSSY_FACTOR": 5.0}
+ROCHE_COUPES["C10"], ROCHE_LISSE["C10"] = 5, 25
+ROCHE_APLAT["C10"], ROCHE_CASSURE["C10"] = 1.15, (0.62, 0.88)
+EFFET["C10"] = dict(EFFET["C1"])
+ICONE["C10"] = dict(ICONE["C9"], roche_aplat=1.15, roche_cassure=(0.62, 0.88),
+                    roche_mats=("cassiterite_brun", "cassiterite_noir", "cassiterite_roux", "cassiterite_brun"),
+                    lame_mats=("cassiterite_roux", "cassiterite_brun", "cassiterite_noir"))
+# C11 (essai C10 à 16 échantillons, essai5) : blocs trapus et matière unie, mieux ; mais la poussière reste en points
+# discrets (gravier) et les blocs se soudent en une seule motte ; couverture un peu haute aux stades 2 et 3 (0,290 et
+# 0,253 contre 0,270 et 0,231). C11 = C10 avec une poussière 3 fois plus dense et 2 fois plus fine (spray vanilla),
+# des blocs un peu plus écartés et un de moins aux stades 2 et 3.
+DIRECTIONS["C11"] = dict(DIRECTIONS["C10"], roche_ecart=0.23, roches=(8, 6, 5, 5, 4, 3, 2, 2),
+                         fins=(1250, 1050, 880, 730, 590, 460, 320, 190), fin_taille=(0.0035, 0.0065))
+CALIB["C11"] = dict(CALIB["C10"])
+ROCHE_COUPES["C11"], ROCHE_LISSE["C11"] = ROCHE_COUPES["C10"], ROCHE_LISSE["C10"]
+ROCHE_APLAT["C11"], ROCHE_CASSURE["C11"] = ROCHE_APLAT["C10"], ROCHE_CASSURE["C10"]
+EFFET["C11"] = dict(EFFET["C10"])
+ICONE["C11"] = dict(ICONE["C10"])
+# C12 (essai C11, essai6) : la poussière de 0,0035 à 0,0065 tuile passe sous le pixel (64 px par tuile) et disparaît ;
+# blocs inchangés. C12 = C11 avec des grains de poussière d'environ 1 px (0,008 à 0,013 tuile), 900 au stade 1.
+DIRECTIONS["C12"] = dict(DIRECTIONS["C11"], fins=(900, 780, 650, 540, 430, 340, 230, 140), fin_taille=(0.008, 0.013))
+CALIB["C12"] = dict(CALIB["C11"])
+ROCHE_COUPES["C12"], ROCHE_LISSE["C12"] = ROCHE_COUPES["C11"], ROCHE_LISSE["C11"]
+ROCHE_APLAT["C12"], ROCHE_CASSURE["C12"] = ROCHE_APLAT["C11"], ROCHE_CASSURE["C11"]
+EFFET["C12"] = dict(EFFET["C11"])
+ICONE["C12"] = dict(ICONE["C11"])
+# C13 (essai C12, essai7) : poussière fine et sombre enfin lisible, blocs trapus d'une seule matière ; couverture du
+# stade 1 un peu haute (0,342 contre 0,316, dans la tolérance de ± 0,05). C13 = C12 avec un bloc de moins au stade 1.
+# Feuille de production (128 échantillons) proposée au DC à la place de C9.
+DIRECTIONS["C13"] = dict(DIRECTIONS["C12"], roches=(7, 6, 5, 5, 4, 3, 2, 2))
+CALIB["C13"] = dict(CALIB["C12"])
+ROCHE_COUPES["C13"], ROCHE_LISSE["C13"] = ROCHE_COUPES["C12"], ROCHE_LISSE["C12"]
+ROCHE_APLAT["C13"], ROCHE_CASSURE["C13"] = ROCHE_APLAT["C12"], ROCHE_CASSURE["C12"]
+EFFET["C13"] = dict(EFFET["C12"])
+ICONE["C13"] = dict(ICONE["C12"])
+# C14 (production C13, 128 échantillons) : la direction tient (masse sombre, blocs, reflets), mais check_gisement ÉCHOUE :
+# couverture 0,317 / 0,290 / 0,240 / 0,240 / 0,210 / 0,144 / 0,111 / 0,107 (stades 3 et 4 égaux ; stade 8 à + 0,052 de
+# la vanilla). C14 = C13 avec moins de blocs aux stades 4, 5 et 8 et moins de poussière aux stades pauvres.
+DIRECTIONS["C14"] = dict(DIRECTIONS["C13"], roches=(7, 6, 5, 4, 3, 3, 2, 1),
+                         fins=(900, 740, 600, 480, 370, 280, 180, 100))
+CALIB["C14"] = dict(CALIB["C13"])
+ROCHE_COUPES["C14"], ROCHE_LISSE["C14"] = ROCHE_COUPES["C13"], ROCHE_LISSE["C13"]
+ROCHE_APLAT["C14"], ROCHE_CASSURE["C14"] = ROCHE_APLAT["C13"], ROCHE_CASSURE["C13"]
+EFFET["C14"] = dict(EFFET["C13"])
+ICONE["C14"] = dict(ICONE["C13"])
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
-           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45, "S2": 1.45}
+           "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45, "S2": 1.45,
+           "C2": 1.3, "C3": 1.3, "C4": 1.3, "C5": 1.3, "C6": 1.3, "C7": 1.3, "C8": 1.5, "C9": 1.5, "C10": 1.5, "C11": 1.5, "C12": 1.5, "C13": 1.5, "C14": 1.5}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
-          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313, "S2": 6717}
+          "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313, "S2": 6717,
+          "C2": 6515, "C3": 6515, "C4": 6515, "C5": 6515, "C6": 6515, "C7": 6515, "C8": 6515, "C9": 6515, "C10": 6515, "C11": 6515, "C12": 6515, "C13": 6515, "C14": 6515}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
@@ -758,7 +959,7 @@ DIRECTIONS["J1"] = dict(
     lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("ilmenite_j",),
     roches=(15, 13, 11, 9, 7, 6, 4, 2), roche_taille=(0.13, 0.20),
     roche_mats=("ilmenite_j", "ilmenite_j", "ilmenite_j", "ilmenite_brun", "ilmenite_bronze", "ilmenite_j"),
-    amas=dict(taille=(2, 4), rayon=0.13, ecart=0.34, incl=(0, 28), tete=1.25),
+    amas_roches=dict(taille=(2, 4), rayon=0.13, ecart=0.34, incl=(0, 28), tete=1.25),
     blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("ilmenite_j",),
     grains=(18, 16, 14, 12, 10, 8, 6, 4), grain_mats=("ilmenite_j", "ilmenite_bronze", "leucoxene_sombre"),
     fins=_J_FINS, fin_mats=_J_FIN_MATS,
@@ -779,7 +980,7 @@ DIRECTIONS["J2"] = dict(
 )
 DIRECTIONS["J3"] = dict(DIRECTIONS["J1"], nom="amas de blocs d'ilménite hérissés de tablettes",
                         roches=(12, 10, 9, 7, 6, 5, 3, 2),
-                        amas=dict(taille=(2, 3), rayon=0.12, ecart=0.36, incl=(0, 25), tete=1.2, lames=(1, 2)),
+                        amas_roches=dict(taille=(2, 3), rayon=0.12, ecart=0.36, incl=(0, 25), tete=1.2, lames=(1, 2)),
                         lame_long=(0.12, 0.18), lame_larg=(0.15, 0.22), lame_ep=(0.028, 0.042), lame_incl=(15, 50),
                         lame_mats=("ilmenite_j", "ilmenite_bronze", "ilmenite_j"))
 for _k in ("J1", "J2", "J3"):
@@ -810,19 +1011,19 @@ ROCHE_BOSSE = {}
 _K_ROCHE_MATS = ("ilmenite_k", "ilmenite_k", "ilmenite_k", "ilmenite_brun", "ilmenite_bronze", "ilmenite_k")
 DIRECTIONS["J4"] = dict(DIRECTIONS["J1"], nom="amas de morceaux bosselés d'ilménite brun-noir à reflets bronze",
                         roches=(17, 15, 12, 10, 8, 7, 4, 2), roche_taille=(0.17, 0.25), roche_mats=_K_ROCHE_MATS,
-                        amas=dict(taille=(2, 4), rayon=0.16, ecart=0.38, incl=(0, 25), tete=1.2),
+                        amas_roches=dict(taille=(2, 4), rayon=0.16, ecart=0.38, incl=(0, 25), tete=1.2),
                         grains=(10, 9, 8, 7, 6, 5, 4, 3), grain_mats=("ilmenite_k", "ilmenite_bronze", "leucoxene_sombre"),
                         fins=(700, 600, 520, 440, 360, 280, 200, 120), fin_taille=(0.007, 0.012), fins_autour=(0.75, 1.3),
                         fin_mats=("poussiere_ilm", "poussiere_ilm", "leucoxene_sombre", "ilmenite_brun", "poussiere_ilm",
                                   "regolithe"))
 DIRECTIONS["J5"] = dict(DIRECTIONS["J4"], nom="amas de morceaux d'ilménite hérissés de tablettes",
                         roches=(15, 13, 11, 9, 7, 6, 4, 2),
-                        amas=dict(taille=(2, 3), rayon=0.16, ecart=0.38, incl=(0, 25), tete=1.2, lames=(1, 2)),
+                        amas_roches=dict(taille=(2, 3), rayon=0.16, ecart=0.38, incl=(0, 25), tete=1.2, lames=(1, 2)),
                         lame_long=(0.13, 0.19), lame_larg=(0.16, 0.22), lame_ep=(0.030, 0.045), lame_incl=(20, 50),
                         lame_mats=("ilmenite_k", "ilmenite_bronze", "ilmenite_k"))
 DIRECTIONS["J6"] = dict(DIRECTIONS["J5"], nom="tas de tablettes épaisses d'ilménite sur morceaux",
                         roches=(11, 10, 8, 7, 6, 4, 3, 2),
-                        amas=dict(taille=(1, 2), rayon=0.14, ecart=0.38, incl=(0, 20), tete=1.1, lames=(2, 3)),
+                        amas_roches=dict(taille=(1, 2), rayon=0.14, ecart=0.38, incl=(0, 20), tete=1.1, lames=(2, 3)),
                         lame_long=(0.14, 0.20), lame_larg=(0.17, 0.24), lame_ep=(0.050, 0.070), lame_incl=(35, 70))
 for _k in ("J4", "J5", "J6"):
     CALIB[_k] = {"SKY_GLOSSY_FACTOR": 5.0}
@@ -844,7 +1045,7 @@ ICONE["J6"] = dict(ICONE["J5"], lames=(3, 4), roches=(2, 3))
 # comptes recalés au rapport vanilla / mesuré de J4.
 DIRECTIONS["J7"] = dict(DIRECTIONS["J4"], nom="morceaux bosselés d'ilménite brun-noir à reflets bronze, tablettes d'accent",
                         roches=(24, 20, 17, 14, 11, 9, 6, 3),
-                        amas=dict(taille=(2, 3), rayon=0.11, ecart=0.28, incl=(0, 25), tete=1.15, lames=(0, 1)),
+                        amas_roches=dict(taille=(2, 3), rayon=0.11, ecart=0.28, incl=(0, 25), tete=1.15, lames=(0, 1)),
                         lame_long=(0.12, 0.17), lame_larg=(0.14, 0.20), lame_ep=(0.035, 0.050), lame_incl=(25, 55),
                         lame_mats=("ilmenite_k", "ilmenite_bronze", "ilmenite_k"),
                         fins=(1000, 860, 740, 620, 500, 400, 280, 170), fin_taille=(0.010, 0.016), fins_autour=(0.85, 1.0),
