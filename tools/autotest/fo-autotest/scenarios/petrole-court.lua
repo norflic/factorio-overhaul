@@ -1,17 +1,17 @@
 --[[
   Lot PETROLE2-REPRISE (30/10, reprise de la branche petrole2 sur 0.6.20) : micro-banc COURT (palier 3, < 5 000 ticks) du
-  branchement du lot en moteur réel, réglage fo-war-petrole ÉTEINT par défaut puis ALLUMÉ en cours de partie (comme le DC
-  le ferait dans Échap > Réglages > Carte). Ce banc NE prouve PAS qu'une faction bâtit un site ni atteint le pack chimique
-  (parties longues petrole-guide, petrole-site : > 10 000 ticks, accord du DC requis) ; il prouve seulement :
-    1. réglage éteint par défaut à la création ;
-    2. aucun état du lot tant que le réglage est éteint (sauvegardes 0.6.20 inchangées) ;
+  branchement du lot en moteur réel. ALLUMÉ par défaut depuis 0.6.30 (décision Q20 du DC) : le banc l'ÉTEINT à la création (le joueur reste maître), puis
+  le rallume en cours de partie (comme le DC le ferait dans Échap > Réglages > Carte). Ce banc NE prouve PAS qu'une faction bâtit un site ni atteint le pack
+  chimique (parties longues petrole-guide, petrole-site : > 10 000 ticks, accord du DC requis) ; il prouve seulement :
+    1. réglage ALLUMÉ par défaut à la création ;
+    2. aucun état du lot tant que le réglage est éteint ;
     3. allumé en cours de partie, chaque faction et votre équipe créent leur état au premier passage du cerveau, sans erreur ;
     4. les interfaces de lecture (status, tasks : plus de require pendant l'appel, F24) répondent ;
     5. aucune technologie perdue, global sérialisable par le moteur (la partie continue jusqu'au contrôle).
   Création : PvP Paisible ; guerre de 2 factions (30 soldats, 10 ouvriers dont 8 au départ) ; coffre d'équipe garni.
   Lancement : py -3.9 -B tools/autotest/banc.py --out <archive> --qui PETROLE2-REPRISE -- 4300 petrole-court <source>
-  Sauvegarde 0.6.20 (double source) : même commande avec --creation <source de main 0.6.20, feuilles comprises> : la carte est
-  créée (on_init) par main, rechargée par la branche, le réglage absent de la sauvegarde y prend son défaut (éteint).
+  Sauvegarde sans le lot (double source) : même commande avec --creation <source de main 0.6.20, feuilles comprises> : la carte est créée (on_init) par
+  main, rechargée par la branche, le réglage absent de la sauvegarde y est allumé (une fois, script/ai3/petrole.lua) : le contrôle 2 ne s'y applique pas.
   Journal : [FO-PETROLE-COURT].
 ]]
 
@@ -49,7 +49,7 @@ local function teams()
 end
 
 return {
-  description = "PETROLE2-REPRISE : reglage fo-war-petrole eteint par defaut, allume en cours de partie (micro-banc)",
+  description = "PETROLE2-REPRISE : reglage fo-war-petrole allume par defaut, eteint a la creation puis rallume en cours de partie (micro-banc)",
   base = nil,
   check_tick = 4200,
 
@@ -61,13 +61,15 @@ return {
     local sv = settings.global["fo-war-petrole"]
     st.create_has = sv ~= nil -- faux : carte créée par une source sans le lot (double source, main 0.6.20)
     st.default = sv and sv.value
+    if sv then st.turned_off = remote.call("factorio-overhaul", "war_setting", "fo-war-petrole", false) end
     ctx.log("creation : guerre " .. tostring(st.war) .. ", coffre " .. tostring(st.chest) .. ", fo-war-petrole = " ..
-      tostring(st.default))
+      tostring(st.default) .. ", eteint par le banc : " .. tostring(st.turned_off))
   end,
 
   tick = function(ctx, e)
     local st = ctx.state()
     if e.tick == SWITCH then
+      st.off_before = settings.global["fo-war-petrole"].value == false
       st.before, st.techs0 = {}, {}
       for _, r in ipairs(teams()) do
         local ok, s = pcall(remote.call, "fo-petrole", "status", r.key)
@@ -92,15 +94,17 @@ return {
 
   finish = function(ctx)
     local st = ctx.state()
-    ctx.check(st.default == false or (st.default == nil and st.create_has == false),
-      "reglage fo-war-petrole eteint par defaut a la creation (ou absent : sauvegarde d'une source sans le lot)",
+    ctx.check(st.default == true or (st.default == nil and st.create_has == false),
+      "reglage fo-war-petrole allume par defaut a la creation (ou absent : sauvegarde d'une source sans le lot)",
       tostring(st.default) .. (st.create_has == false and " (absent a la creation)" or ""))
+    -- une carte créée sans le lot a été allumée par la migration (Q20) : le contrôle ne vaut que réglage éteint, jamais sauté sur une carte créée avec le lot
+    ctx.check(st.off_before == true or st.create_has == false, "reglage eteint par le banc jusqu'au tick " .. SWITCH, tostring(st.off_before))
     local none, okb = true, true
     for _, b in ipairs(st.before or {}) do
       if not b.ok then okb = false end
       if b.has then none = false end
     end
-    ctx.check(#(st.before or {}) >= 2 and okb and none, "aucun etat du lot tant que le reglage est eteint",
+    ctx.check(#(st.before or {}) >= 2 and okb and (none or not st.off_before), "aucun etat du lot tant que le reglage est eteint",
       tostring(#(st.before or {})) .. " equipe(s)")
     ctx.check(st.switched == true, "reglage allume en cours de partie", tostring(st.switched))
     ctx.check(remote.call("fo-petrole", "on") == true, "Pet.on() vrai apres l'allumage")

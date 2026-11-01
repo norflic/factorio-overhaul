@@ -336,7 +336,7 @@ local okm, errm = pcall(function()
     end
     return out
   end
-  M.new_game({ petrole = false, patches = patches(), p_busy = 0.02, p_nopath = 0.02, p_lost = 0.005 })
+  M.new_game({ petrole = false, industrie = false, patches = patches(), p_busy = 0.02, p_nopath = 0.02, p_lost = 0.005 })
   M.command("fo-war", "start 4 100 30 320")
   M.run_ticks(5 * 3600 + 30)
   local Team = require("script.team.team")

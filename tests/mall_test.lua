@@ -2,9 +2,9 @@
   Lot PILE-MALL : banc HORS JEU de la règle du mall (shared/ai3/mall.lua) et de son branchement au cerveau par besoins (st.mall,
   journal [FO-MALL]). Lancement, depuis la racine du mod : lua5.2 tests/mall_test.lua
     1. relevé de la demande à la main (épisodes, volume, fenêtre par moitié, demande ré-émise à l'identique = un seul épisode) ;
-    2. choix des objets (minimum d'épisodes, recette connue, plafond, ordre), usines par objet, cible, hystérésis du coffre ;
+    2. choix des objets (minimum d'épisodes, recette connue, plafond, ordre), usines par objet, cible ;
     3. la main n'est permise que pour l'amorçage (Ml.hand_allowed) ;
-    4. gabarit : rôles seulement, aucune superposition, emprise, déterminisme ;
+    4. lot INDUSTRIE I6 : demande d'une autre source (Ml.want, Ml.sources), péremption, journal ;
     5. cerveau par besoins : la pensée tient st.mall à jour, état sérialisable, sans effet quand le réglage est éteint ;
     6. mutants.
 ]]
@@ -56,16 +56,16 @@ local function battery(Ml, verbose)
   ck(#Ml.decide(s3, book, {}) == 0, "2c. moins de " .. Ml.MIN_EPISODES .. " épisodes : pas de mall pour cet objet")
   ck(Ml.machines(0, nil) == 1 and Ml.machines(1000, 6) == Ml.MACHINES_MAX and Ml.machines(6, 6) == Ml.LEAD, "2d. usines : au moins 1, au plus le plafond, 2 fois le débit voulu")
   ck(Ml.target(3) == 3 * Ml.HORIZON_MIN and Ml.target(0) == 1, "2e. cible = demande de " .. Ml.HORIZON_MIN .. " minutes")
-  local h = { on = {} }
-  ck(Ml.refill(h, "x", 0, 100) == true and Ml.refill(h, "x", 60, 100) == true and Ml.refill(h, "x", 100, 100) == false
-    and Ml.refill(h, "x", 60, 100) == false and Ml.refill(h, "x", 49, 100) == true, "2f. hystérésis du coffre : s'allume sous " .. Ml.LOW_PCT .. " %, s'éteint à " .. Ml.HIGH_PCT .. " %")
+  ck(Ml.refill == nil and Ml.layout == nil and Ml.extent == nil, "2f. lot I6 : hystérésis du coffre et gabarit en rangée retirés (la barre du coffre et les patrons les remplacent)")
   local s4 = Ml.new()
-  for i = 1, Ml.MAX_ITEMS + 3 do
-    local item = ({ TURRET, MAG, GEAR, "iron-plate", "pipe", "inserter", "transport-belt", "small-electric-pole", "stone-furnace", "boiler", "offshore-pump" })[i]
+  local anybook = { recipe_for = function() return "r" end }
+  for i = 1, Ml.MAX_ITEMS + 5 do
+    local item = string.format("objet-%03d", i)
     for j = 1, 3 do Ml.note(s4, j * 10, { [item] = i + 1 }); Ml.note(s4, j * 10 + 5, {}) end
   end
-  local out4 = Ml.decide(s4, book, {})
-  ck(#out4 <= Ml.MAX_ITEMS, "2g. au plus " .. Ml.MAX_ITEMS .. " objets (" .. #out4 .. ")")
+  local out4 = Ml.decide(s4, anybook, {})
+  ck(#out4 == Ml.MAX_ITEMS and Ml.MAX_ITEMS > 8, "2g. au plus " .. Ml.MAX_ITEMS .. " objets, le plafond n'est plus 8 (" .. #out4 .. ")")
+  ck(out4[1].item == string.format("objet-%03d", Ml.MAX_ITEMS + 5), "2g2. les plus demandés d'abord")
   -- 3. la main
   local s5 = { running = { [TURRET] = true } }
   ck(Ml.hand_allowed(s5, TURRET, 10) == false and Ml.hand_allowed(s5, TURRET, 0) == true and Ml.hand_allowed(s5, MAG, 10) == true
@@ -85,28 +85,25 @@ local function battery(Ml, verbose)
   ck(#Ml.filter_crafts(s6, { { kind = "craft", item = TURRET, prio = 30 } }, { [TURRET] = 0 }, 60) == 1, "3g. à sec : la main reprend")
   Ml.set_running(s6, {})
   ck(#Ml.filter_crafts(s6, { { kind = "craft", item = TURRET, prio = 30 } }, { [TURRET] = 5 }, 60) == 1, "3h. machine arrêtée : la main reprend (aucun blocage)")
-  -- 4. gabarit
-  local items = { { item = TURRET, machines = 3 }, { item = MAG, machines = 2 } }
-  local cells = Ml.layout(items)
-  local roles, n_asm = {}, 0
-  for _, c in ipairs(cells) do roles[c.role] = true if c.role == "assembleur" then n_asm = n_asm + 1 end end
-  ck(n_asm == 5 and roles.coffre_entree and roles.coffre_sortie and roles.inserteur_entree and roles.inserteur_sortie and roles.poteau,
-    "4a. 5 assembleurs, chacun avec coffre d'entrée, coffre de sortie, deux inserteurs et un poteau")
-  local grid, overlap = {}, 0
-  for _, c in ipairs(cells) do
-    for dx = 0, c.w - 1 do for dy = 0, c.h - 1 do
-      local k = (c.x + dx) .. "," .. (c.y + dy)
-      if grid[k] then overlap = overlap + 1 end
-      grid[k] = true
-    end end
-  end
-  ck(overlap == 0, "4b. aucune superposition de tuiles (" .. overlap .. ")")
-  local ext = Ml.extent(cells)
-  ck(ext.w == (3 - 1) * Ml.PITCH_X + 4 and ext.h == Ml.PITCH_Y + 7, "4c. emprise " .. ext.w .. " x " .. ext.h)
-  local c2 = Ml.layout(items)
-  local same = #c2 == #cells
-  for i = 1, #cells do if cells[i].x ~= c2[i].x or cells[i].y ~= c2[i].y or cells[i].role ~= c2[i].role then same = false end end
-  ck(same and Ml.extent({}).w == 0 and #Ml.layout({}) == 0, "4d. déterministe, vide sans objet")
+  -- 4. lot INDUSTRIE I6 : la demande d'une autre source
+  local s7 = Ml.new()
+  ck(Ml.want(s7, 100, "x", 3, "refus") == true and Ml.want(s7, 100, "y", 0, "refus") == false and Ml.want(s7, 100, 5, 1) == false,
+    "4a. Ml.want : une demande positive est notée, nulle ou sans nom refusée")
+  Ml.note(s7, 100, { [TURRET] = 5, [MAG] = 9 }); Ml.note(s7, 110, {}); Ml.note(s7, 120, { [TURRET] = 5, [MAG] = 9 }); Ml.note(s7, 130, {}); Ml.note(s7, 140, { [TURRET] = 5 })
+  local src = Ml.sources(s7, 150)
+  local by = {}
+  for _, c in ipairs(src) do by[c.item] = c end
+  ck(#src == 2 and by[TURRET] and by[TURRET].src == "main" and math.abs(by[TURRET].rate - 15 / Ml.WINDOW_MIN) < 1e-9
+    and by.x and by.x.src == "refus" and by.x.rate == 3, "4b. Ml.sources : la main (volume ÷ fenêtre) et la demande notée")
+  ck(#Ml.sources(s7, 100 + Ml.WANT_TTL + 1) == 1 and s7.want.x == nil, "4c. une demande qu'on ne renouvelle pas s'éteint après " .. Ml.WANT_TTL .. " ticks")
+  Ml.want(s7, 5000, "x", 4, "refus")
+  ck(Ml.sources(s7, 5000 + Ml.WANT_TTL)[2] ~= nil and Ml.sources(s7, 5000 + Ml.WANT_TTL)[2].rate == 4, "4d. renouvelée, elle dure (la dernière valeur compte)")
+  local s8 = { items = {}, want = { w = { rate = 1, tick = 0, src = "refus" } } }
+  Ml.set_running(s8, { w = { made = 3, hand = 0 } })
+  ck(s8.running.w == true, "4e. un objet de bloc (demande notée) qui produit est dit TOURNE")
+  Ml.set_running(s8, { w = { made = 3, hand = 3 } })
+  ck(not s8.running.w, "4f. produit à la main seulement : ne tourne pas")
+  ck(Ml.sources(nil, 0) ~= nil and #Ml.sources(nil, 0) == 0, "4g. sans état : aucune demande")
   ck(Ml.describe(s2):find("amorcage a la main", 1, true) ~= nil, "4e. journal [FO-MALL] : amorçage à la main tant que le mall ne tourne pas")
   return fails
 end
@@ -195,14 +192,17 @@ mut("u.episodes >= Ml.MIN_EPISODES", "true", "minimum d'épisodes retiré")
 mut("and book:recipe_for(k) ~= nil", "", "recette inconnue acceptée")
 mut("if n > Ml.MACHINES_MAX then n = Ml.MACHINES_MAX end", "", "plafond d'usines retiré")
 mut("if n < 1 then n = 1 end", "", "au moins une usine retiré")
-mut("if have * 100 < target * Ml.LOW_PCT then on = true", "if have * 100 < target * Ml.HIGH_PCT then on = true", "hystérésis du coffre retirée")
 mut("return (have or 0) <= 0", "return true", "la main toujours permise")
 mut("math.min(#cands, Ml.MAX_ITEMS)", "#cands", "plafond d'objets retiré")
 mut("if a.n ~= b.n then return a.n > b.n end", "if a.n ~= b.n then return a.n < b.n end", "ordre inversé")
-mut("local y = (r - 1) * Ml.PITCH_Y + 2", "local y = 2", "toutes les rangées au même endroit (superposition)")
 mut("u.n, u.episodes = math.floor(u.n / 2), math.floor(u.episodes / 2)", "", "fenêtre sans moitié")
 mut("if it.rate > 0 then out[#out + 1] = { item = it.item, rate = it.rate, want = it.rate } end", "", "le mall sans puits : aucune usine")
 mut("(fl.made or 0) - (fl.hand or 0) > 0", "(fl.made or 0) > 0", "la main comptée comme le mall")
+mut("if tick - (w.tick or 0) <= Ml.WANT_TTL then", "if true then", "demande notée jamais périmée")
+mut("if u.episodes >= Ml.MIN_EPISODES and u.n > 0 then out[#out + 1] = { item = k, rate = u.n / Ml.WINDOW_MIN, src = \"main\" } end",
+  "if u.n > 0 then out[#out + 1] = { item = k, rate = u.n / Ml.WINDOW_MIN, src = \"main\" } end", "sources : minimum d'épisodes oublié")
+mut("if type(item) ~= \"string\" or type(rate) ~= \"number\" or rate <= 0 then return false end", "", "Ml.want accepte tout")
+mut("-- lot INDUSTRIE I6 : un objet du bloc de mall (demande notée par Ml.want) tourne lui aussi\n  for _, k in ipairs(sorted_keys(st.want)) do\n    local fl = (flows or {})[k]\n    if fl and (fl.made or 0) - (fl.hand or 0) > 0 then run[k] = true end\n  end", "", "un objet de bloc ne tourne jamais")
 mut("(t.prio or 0) >= urgent or ", "", "la défense perd la main")
 print(string.format("   mutants refusés : %d / %d", killed, total))
 check(killed == total, "tous les mutants refusés")

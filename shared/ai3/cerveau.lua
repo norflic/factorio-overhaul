@@ -41,6 +41,7 @@ local Ca = require("shared.ai3.capitalisation") -- lot CAPIB : buts de FOND de l
 P.EMIT.capi = Ca.emit(P)
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manque par rapport au besoin
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
+local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le reste du stock s'investit
 
 local C = {}
 
@@ -183,8 +184,22 @@ function C.think(view, book, st, ctx)
   end
   table.sort(capi_open, function(x, y) return tostring(x.key) < tostring(y.key) end)
   for _, o in ipairs(capi_open) do ups[#ups + 1] = { key = "capi:" .. tostring(o.key), cost = o.missing } end
-  local pile = Pi.update(st.pile, Pi.signals(view, base, ctx.pile, s, ctx,
-    R.PILE_BUDGET and { book = book, avail = avail0, upgrades = ups } or nil), tick)
+  local sig = Pi.signals(view, base, ctx.pile, s, ctx, R.PILE_BUDGET and { book = book, avail = avail0, upgrades = ups } or nil)
+  local pile = Pi.update(st.pile, sig, tick)
+  -- Lot INDUSTRIE I1 (réglage fo-war-industrie, ctx.industrie) : le BESOIN de cette pensée est évalué sur le stock que voit la
+  -- capitalisation (view.stock) ; elle investit le reste (shared/ai3/reserve.lua). Lu à la pensée suivante (Capi.think précède C.think).
+  if ctx.industrie then
+    local floor = (view.emergency and view.emergency.floor) or view.recover_floor
+    local eff = view.effectif
+    local n_rec, rec = Rs.recruits({ workers = view.workers, wanted = view.workers_wanted, floor = floor, blocked = view.recruit_blocked,
+      held = view.recruit_held, reason = eff and eff.reason or nil, cost = view.recruit_cost,
+      margin = eff and eff.margin_item and { eff.margin_item, eff.margin } or nil })
+    st.noyau = Rs.state(book, view.stock, { posts = sig.posts, repair = sig.repair, plan_wants = sig.plan_wants,
+      planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need }, tick)
+    st.noyau.recruits = n_rec
+  else
+    st.noyau = nil
+  end
   s.focus = pile.hold and pile.focus or nil -- lu par B.targets : une matière d'un cadre ouvert fait grandir son extraction
   -- Intégration 0.6.28 : matières en manque que la porte de la pile laisse passer, au stock de CETTE pensée (G.passent : un cadre ouvert plus en manque passe d'abord)
   local starved_pass = Gi.passent(Gi.penurie(Gi.rows(T.OUTPOST_ORDER, T.outposts, sorted_keys(T.smelter_inputs), view.stock, st.need)), pile.focus)

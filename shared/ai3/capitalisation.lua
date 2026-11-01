@@ -112,6 +112,7 @@ Ca.THREAT_DIV = 4                           -- menace : retour accepté ÷ 4 (co
 Ca.HQ_LEVERS = { fours = true, chaine = true, packs = true, labos = true, energie = true, equiper = true, techno = true }
 -- Budget, croissance, bras.
 Ca.STOCK_PCT = 50       -- part du stock libre convertible investissable par cycle
+Ca.RESERVE_PCT = 100    -- lot INDUSTRIE I1 : part du stock HORS BESOIN investissable par cycle (le besoin est évalué, shared/ai3/reserve.lua)
 Ca.BANK_H = 30          -- épargne du flux réinvesti : au plus 30 min de ce flux
 Ca.CYCLE_MIN = 1        -- un cycle = 1 min (le runtime donne `dt` en minutes)
 Ca.G_MAX = 150          -- ‰ de croissance de la demande élastique par cycle, au plus
@@ -539,12 +540,15 @@ end
 --- Budget matières du cycle (MU). keep = (1000 − δ − α) ‰, appliqué au flux ET au stock (les parts de la défense et de
 --- l'armée sont prises avant). Flux : s × Y × keep par minute, ÉPARGNÉ (bank) et plafonné à Ca.BANK_H minutes ; stock :
 --- s × stock libre convertible × keep × Ca.STOCK_PCT %. Rend budget, épargne disponible ce cycle, part du stock.
-function Ca.budget(ch, Y, free_mu, dt, bank)
+function Ca.budget(ch, Y, free_mu, dt, bank, reserve)
   local keep = (1000 - ch.delta - ch.alpha) / 1000
   local per_min = ch.s / 1000 * (Y or 0) * keep
   local b = math.min(Ca.BANK_H * per_min, (bank or 0) + per_min * (dt or Ca.CYCLE_MIN))
   if b < 0 then b = 0 end
   local stock_part = ch.s / 1000 * (free_mu or 0) * keep * Ca.STOCK_PCT / 100
+  -- Lot INDUSTRIE I1 : le besoin (défense, reconstruction, recrues, consommation prévue) est évalué et déjà retiré du stock libre ;
+  -- ce qui reste s'investit sans pourcentage ni part de caractère (le flux garde s, δ et α).
+  if reserve then stock_part = (free_mu or 0) * Ca.RESERVE_PCT / 100 end
   return b + stock_part, b, stock_part
 end
 
@@ -989,7 +993,10 @@ local function prepare(input, st)
     cs = {}, ds = {},
     -- Lot PREVISION (C12, arbitrage du DC « oui, compter la défense ») : prix de la défense induite, en MU par pollution/min de
     -- plus (shared/ai3/prevision.lua, Pv.defense_price ; nil : aucun nid connu ne reçoit notre pollution, ou prévision coupée).
-    def_price = input.defense and input.defense.price or nil }
+    def_price = input.defense and input.defense.price or nil,
+    -- Lot INDUSTRIE I1 : stock hors besoin ({ free = { [objet] = n } }, shared/ai3/reserve.lua) ; jamais sous menace du QG (la règle
+    -- d'avant s'applique en entier).
+    reserve = (not input.threat) and input.reserve or nil }
   Lv.prepare(ctx)
   ctx.ch = Ca.character(input.traits, input.weights, ctx.threat, input.production_first)
   local w = input.weights or {}
@@ -1758,9 +1765,16 @@ end
 --- Stock libre (MU) : ce qui dépasse le tampon de Ca.H_BUF minutes de besoin, pour les seuls objets CONVERTIBLES.
 local function free_stock_mu(ctx, req)
   local v = 0
+  local res = ctx.reserve
   for _, k in ipairs(sorted_keys(ctx.stock)) do
     local m = ctx.D.mu[k]
-    if m and Ca.convertible(ctx, k) then v = v + math.max(0, (ctx.stock[k] or 0) - (req.R[k] or 0) * Ca.H_BUF) * m end
+    if m and Ca.convertible(ctx, k) then
+      local have = ctx.stock[k] or 0
+      -- Lot INDUSTRIE I1 : le stock libre est ce qui reste une fois le besoin payé (au plus le stock d'aujourd'hui) ; le tampon des
+      -- chaînes en marche (H_BUF minutes de leur consommation) reste un besoin.
+      if res then have = math.min(have, (res.free or {})[k] or 0) end
+      v = v + math.max(0, have - (req.R[k] or 0) * Ca.H_BUF) * m
+    end
   end
   return v
 end
@@ -1787,7 +1801,7 @@ function Ca.decide(input, st)
   local plan = new_plan(ctx)
   local req = Ca.requirements(ctx, plan)
   local free_mu = free_stock_mu(ctx, req)
-  local budget, bank, stock_part = Ca.budget(ctx.ch, ctx.Y, free_mu, ctx.dt, st.bank)
+  local budget, bank, stock_part = Ca.budget(ctx.ch, ctx.Y, free_mu, ctx.dt, st.bank, ctx.reserve)
   local b_left, l_left, work_used = budget, ctx.labor, 0
   local function fits(o) return o.cost_m <= b_left + Ca.EPS and (o.work or 0) <= l_left + Ca.EPS end
   local room = Ca.OPEN_MAX - #ctx.open
@@ -1862,6 +1876,7 @@ function Ca.decide(input, st)
   return { repli = repli, want = Lv.wanted(ctx), unlocks = ctx.lv_unlock or {}, orders = orders, refus = refus, explore = explore, s = ctx.ch.s, delta = ctx.ch.delta, alpha = ctx.ch.alpha,
     tmax = ctx.ch.tmax, g = ctx.g, lambda = ctx.lambda, Y = ctx.Y, K = plan.K, budget = budget, bank = st.bank,
     flow_part = bank, stock_part = stock_part, spent = spent, labor = ctx.labor, labor_used = work_used,
+    reserve = ctx.reserve and true or nil, free_mu = free_mu,
     u_star = ctx.u_star, labs_target = ctx.lab_rate > 0 and math.ceil(ctx.u_star / ctx.lab_rate - Ca.EPS) or 0,
     coverage = coverage, bottleneck = bottleneck and { item = bottleneck, theta = theta } or nil, R = req.R,
     open_n = #ctx.open }
@@ -1909,8 +1924,15 @@ end
 --- dessous. Les parts de la défense et de l'armée restent réservées même quand elles n'ont rien demandé ce cycle.
 function Ca.capi_view(avail, res)
   local keep = 1000 - ((res and res.delta) or 0) - ((res and res.alpha) or 0)
+  local free = res and res.free
   local out = {}
-  for _, k in ipairs(sorted_keys(avail)) do out[k] = math.floor((avail[k] or 0) * keep / 1000) end
+  for _, k in ipairs(sorted_keys(avail)) do
+    out[k] = math.floor((avail[k] or 0) * keep / 1000)
+    -- Lot INDUSTRIE I1 : le besoin est évalué (shared/ai3/reserve.lua) : les projets de la capitalisation voient le stock HORS BESOIN
+    -- en entier, plus la part (1000 - δ - α) ‰ qui dormait. Un objet absent de l'évaluation garde la part d'avant.
+    if free and free[k] ~= nil then out[k] = math.min(math.floor(avail[k] or 0), math.floor(free[k])) end
+    if res and res.zero and res.zero[k] then out[k] = 0 end -- intégration 0.6.30 : le besoin la prend en entier
+  end
   return out
 end
 
@@ -1949,6 +1971,7 @@ end
 function Ca.text(res)
   local parts = {}
   local rp = res.repli and (" repli=[" .. res.repli.text .. "]") or ""
+  if res.reserve then rp = rp .. string.format(" reserve=[besoin evalue ; stock libre %s MU, investi sans pourcentage]", fmt(res.free_mu or 0)) end
   for _, o in ipairs(res.orders) do
     parts[#parts + 1] = string.format("%s %s x%d T=%s v=%d%s", o.kind, tostring(o.item or o.key), o.n or 1, fmt(o.T), o.value or 0,
       (o.def_mu or 0) > 0 and (" defense " .. fmt(o.def_mu) .. " MU") or "") -- lot PREVISION : défense induite comptée

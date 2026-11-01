@@ -55,12 +55,14 @@
 
 local T = require("shared.team.config")
 local Ca = require("shared.ai3.capitalisation")
+local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : description du besoin évalué (journal [FO-RESERVE])
 local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
 local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements du plan directeur (figés, stock riche, décision)
 local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
 local Pl = require("shared.team.plan")
+local Tr = require("shared.team.treillis") -- lot INDUSTRIE I3 : portée du plan directeur vers un gisement (règles pures)
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Sites = require("script.faction.sites")
@@ -78,6 +80,8 @@ local Sv = require("shared.team.survie")
 local Pv = require("shared.ai3.prevision") -- lot PREVISION (C12) : prix de la défense induite
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (relevé de l'équipe)
 local Ml = require("shared.ai3.mall") -- lot PILE-MALL (relecture) : la demande du mall est un puits de la capitalisation
+local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le stock hors besoin s'investit
+local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patron (rangée ou bloc de mall), lecture des prototypes
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 
@@ -815,7 +819,8 @@ local function build_input(f, cs, view, book, tick, D, w)
   -- gisements : recensés, ouverts s'ils portent une foreuse de la force ou un avant-poste ; portée du plan directeur
   -- (lot GISEMENTS : une enceinte fige le treillis sous RADIUS_MAX, journal du DC « rayon 4 » : au-delà, ordres refusés sans fin)
   local enc = f.build and f.build.enc
-  local reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH
+  local reach = (Tr.reach_radius(enc and enc.r, Build.RADIUS_ORE) + 0.5) * Pl.PITCH -- lot INDUSTRIE I3 : jusqu'à RADIUS_ORE (12), plus RADIUS_MAX (5)
+  if not Rsv.on() then reach = ((enc and enc.r and math.min(enc.r, Build.RADIUS_MAX) or Build.RADIUS_MAX) + 0.5) * Pl.PITCH end -- réglage maître éteint
   local open_dep = {}
   for _, dr in ipairs(cs.scan and cs.scan.drills or {}) do if dr.deposit ~= "?" then open_dep[dr.deposit] = true end end
   local deposits = {}
@@ -916,9 +921,10 @@ local function build_input(f, cs, view, book, tick, D, w)
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
     deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
-    limits = { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
+    limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
+    reserve = (not threat) and Rsv.input(f, tick) or nil, -- lot INDUSTRIE I1 : stock hors besoin (nil : réglage éteint, besoin périmé ou QG menacé)
     -- Lot PRIORITE-RESSOURCES : la pensée précédente du cerveau a décidé « production d'abord » (shared/team/priorite.lua)
     -- Lot SURVIE-PENURIE : en mode survie (pénurie durable d'une matière clé), aucune part pour la défense ni l'armée et la menace
     -- ne ferme plus les leviers hors du QG (Sv.capi) ; les gisements dangereux restent exclus (`danger` de chaque gisement).
@@ -990,10 +996,10 @@ local function execute(f, cs, o, view, book, tick, research)
           break
         end
         ids[#ids + 1] = id
-        -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_MAX)
+        -- portée du plan directeur : le treillis grandit jusqu'au gisement (au plus Build.RADIUS_ORE, lot INDUSTRIE I3)
         if f.build and dep then
           local far = math.max(math.abs(dep.cx - f.hq_pos.x), math.abs(dep.cy - f.hq_pos.y))
-          Build.grow(f, math.min(Build.RADIUS_MAX, math.ceil(far / Pl.PITCH)))
+          Build.grow(f, Tr.grow_target(far, Pl.PITCH, Build.RADIUS_ORE), Build.RADIUS_ORE)
         end
       end
       if #ids == 0 then return nil, why end
@@ -1347,7 +1353,16 @@ local function decide(f, cs, view, book, tick, research, w)
   Auto.want(f, cs.wanted)
   cs.decisions = cs.decisions + 1
   cs.res = { delta = res.delta, alpha = res.alpha, s = res.s, K = res.K, Y = res.Y, budget = res.budget, spent = res.spent,
-    labs_target = res.labs_target, u_star = res.u_star }
+    labs_target = res.labs_target, u_star = res.u_star, free = input.reserve and input.reserve.free or nil,
+    zero = input.reserve and input.reserve.zero or nil }
+  if input.reserve then
+    -- Lot INDUSTRIE I1 : journal du besoin évalué et de ce qui s'investit (une ligne par décision, au plus une par minute et par équipe).
+    local stk = 0
+    for _, k in ipairs(sorted_keys(view.stock or {})) do stk = stk + (view.stock[k] or 0) end
+    log(string.format("[FO-RESERVE] %s minute %d | %s | stock libre %s MU investissable (part du stock au budget %s, depense %s, %d ordre(s)) | objets au coffre %d",
+      f.key or "?", math.floor(minutes(f, tick) + 0.5), Rs.describe(input.reserve), string.format("%.0f", res.free_mu or 0), string.format("%.0f", res.stock_part or 0),
+      string.format("%.0f", res.spent or 0), #res.orders, stk))
+  end
   local sent, refused = {}, {}
   -- Lot CAPI-DEBIT : le plafond des emplacements vaut pour la décision entière (avant : de 0 module ouvert, jusqu'à
   -- Capi.MAX_ORDERS modules partaient d'un coup) ; un ordre qui ouvrirait un module de trop est refusé, son épargne rendue.
@@ -1380,6 +1395,7 @@ local function decide(f, cs, view, book, tick, research, w)
     end
   end
   couv_report(f, cs, res, input, D, tick) -- lot CAPI-MESURE
+  Ind.think(f, cs, res, view, book, tick) -- lot INDUSTRIE I6 : demande non servie -> patron (rangée ou bloc de mall) -> module
   -- couverture relue et dépôts suivis (journal : critères (1) et (3))
   local deps = {}
   for _, id in ipairs(sorted_keys(cs.deps)) do
@@ -1403,6 +1419,7 @@ function Capi.think(f, view, book, tick, research, w)
   if not Capi.on(f) then return nil end
   local cs = state_of(f)
   Profiler.start("capi:think")
+  Ind.sweep(f, tick) -- lot INDUSTRIE I6 : sorties des patrons à la collecte, barre posée (à chaque pensée, pas seulement à la décision)
   local phase = cs.n % Capi.CYCLE
   cs.n = cs.n + 1
   if phase == 0 then

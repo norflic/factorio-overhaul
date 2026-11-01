@@ -338,7 +338,7 @@ function Board.sync(f, planned, tick, plan, view, book)
     for _, key in ipairs(sorted_keys(keep)) do
       keys[key] = true
       local t = keep[key]
-      if t.kind == "mine" and t.resource then
+      if t.kind == "mine" and t.resource and not t.safe then -- (la file sûre ne remplace pas ce minage, intégration 0.6.30)
         mines[t.resource] = (mines[t.resource] or 0) + 1
         if t.worker then taken[t.resource] = (taken[t.resource] or 0) + 1 end
       end
@@ -820,20 +820,21 @@ end
 --- tâches libres comptent. Ne crée rien.
 function Board.takeable(f)
   local b = Board.get(f)
-  local reg = f.team and f.team.reg
   local n = 0
   for _, t in ipairs(b.list) do
-    if not t.worker then
-      local ok = true
-      if reg then
-        for _, it in ipairs(Board.strict_list(t) or {}) do
-          if R.free(reg, it[1]) < it[2] then ok = false break end
-        end
-      end
-      if ok then n = n + 1 end
-    end
+    if not t.worker and not t.safe and Board.prenable(f, t) then n = n + 1 end -- (la file sûre attend un PNJ libre, elle ne le rend pas utile)
   end
   return n
+end
+
+--- La matière stricte de la tâche `t` est-elle libre au registre ? (Sans registre : oui.)
+function Board.prenable(f, t)
+  local reg = f.team and f.team.reg
+  if not reg then return true end
+  for _, it in ipairs(Board.strict_list(t) or {}) do
+    if R.free(reg, it[1]) < it[2] then return false end
+  end
+  return true
 end
 
 function Board.count(f)

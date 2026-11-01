@@ -31,6 +31,9 @@
        module(s) ouvert(s), 2 en attente de matiere) ». Un module SUSPENDU PAR LA PILE depuis Em.PILE_HOLD ne tient donc plus
        d'emplacement (la règle 1 protège le coffre d'une réserve qui PREND ; celle-ci ne prend rien). Au plus Em.PILED_FREE
        modules suspendus hors du compte, comme pour les figés.
+    6. Lot INDUSTRIE I6 : le BLOC DE MALL a son emplacement à lui (Em.mall, Em.MALL_SLOTS = 1), hors du compte des fonderies et des
+       chaînes : sinon la fonte, qui paie en premier, le privait toujours de sa place (plan INDUSTRIE §3). Un bloc FIGÉ (Em.STALL) ou
+       SUSPENDU par la pile (Em.PILE_HOLD) libère l'emplacement, comme un module ordinaire : le mall ne bloque jamais.
   Déterminisme : listes parcourues dans l'ordre donné, aucun hasard, aucun temps mesuré ; entrée et sortie : nombres, chaînes,
   tables.
 ]]
@@ -43,6 +46,7 @@ Em.EXTRA_MAX = 2       -- emplacements de plus au plus avec un stock riche
 Em.PILE_HOLD = 5 * 3600 -- ticks de suspension continue par la pile avant de libérer l'emplacement (lot DIAG-USINE)
 Em.PILED_FREE = 2      -- modules suspendus par la pile au plus hors du compte des emplacements
 Em.PER_SLOT = 1000     -- plaques libres de chaque produit des fonderies par emplacement de plus
+Em.MALL_SLOTS = 1      -- lot INDUSTRIE I6 : blocs de mall ouverts à la fois (emplacement à part)
 
 -- États de l'exécutant (script/team/build.lua) où la matière du module se réserve encore ou n'est pas encore planifiée.
 Em.MATERIAL_STATES = { attente = true, plan = true, reserve = true }
@@ -147,6 +151,22 @@ function Em.slots(s)
   return { cap = cap, base = base, extra = extra, counted = counted, stalled = stalled, free_stalled = free_stalled,
     piled = piled, free_piled = free_piled, keys_piled = keys_piled,
     materials = materials, open = #mods, room = room, busy = room <= 0, keys_stalled = keys_stalled, why = why }
+end
+
+--- Lot INDUSTRIE I6 : l'emplacement des blocs de mall. s = { mods = liste de { states, progress_tick, opened, work_tick, pile_tick, key }
+--- (les blocs ouverts), tick, base (défaut Em.MALL_SLOTS) }. Un bloc figé ou suspendu par la pile ne tient pas l'emplacement.
+--- Rend { cap, counted, room, busy, open, why }.
+function Em.mall(s)
+  local cap = math.max(0, math.floor((s and s.base) or Em.MALL_SLOTS))
+  local counted, free = 0, 0
+  for _, m in ipairs((s and s.mods) or {}) do
+    local c = Em.class(m, s.tick)
+    if c == "fige" or c == "pile" then free = free + 1 else counted = counted + 1 end
+  end
+  local room = math.max(0, cap - counted)
+  return { cap = cap, counted = counted, room = room, busy = room <= 0, open = #((s and s.mods) or {}), free = free,
+    why = string.format("%d bloc(s) de mall ouvert(s), %d compte(s) sur %d emplacement(s), %d fige(s) ou suspendu(s) hors du compte",
+      #((s and s.mods) or {}), counted, cap, free) }
 end
 
 --- Texte du refus quand plus aucun emplacement n'est libre (préfixe « plan directeur occupe » : celui de main, relu par les journaux).
