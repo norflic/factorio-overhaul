@@ -25,7 +25,7 @@ local function biter_name(tier) return "fo-" .. TIER_NAMES[tier] .. "-biter" end
 --MODELE-DEBUT
 local MODELE = {
   ["toroid"] = { age = 13, tier = 10, frac = 0.35, ticks = 4670 },
-  ["heliast"] = { age = 14, tier = 12, frac = 0.36, ticks = 3860 },
+  ["heliast"] = { age = 14, tier = 12, frac = 0.35, ticks = 2660 },
   ["crowned"] = { age = 15, tier = 12, frac = 0.35, ticks = 5570 },
 }
 --MODELE-FIN
@@ -60,15 +60,17 @@ return {
     ctx.call("war_setting", "fo-war-robots-cap", 400)
     -- surfaces : une grande bande pour l'ordre, des sites de duel, la chaîne
     ctx.prepare_area(X0 - 70, Y0 - 40, X0 + 180, Y0 + 40, "grass-1")
-    ctx.prepare_area(X0 - 70, Y0 + 60, X0 + 40, Y0 + 60 + 80 * 3, "grass-1")
+    -- sites de duel : 300 tuiles l'un de l'autre et à 400 de la bande des ordres (un canon de portée 100 ne doit jamais atteindre le voisin)
+    for k = 1, 3 do ctx.prepare_area(X0 - 70, Y0 + 400 + 300 * (k - 1) - 40, X0 + 40, Y0 + 400 + 300 * (k - 1) + 40, "grass-1") end
+    ctx.prepare_area(X0 + 680, Y0 + 280, X0 + 780, Y0 + 420, "grass-1")
     ctx.prepare_area(X0 - 30, Y0 - 100, X0 + 30, Y0 - 50, "grass-1")
-    ctx.prepare_area(X0 + 80, Y0 + 100, X0 + 190, Y0 + 180, "grass-1")
-    C.sans_ennemis(s, X0 - 90, Y0 - 120, X0 + 200, Y0 + 60 + 80 * 3 + 30)
+    C.sans_ennemis(s, X0 - 90, Y0 - 120, X0 + 200, Y0 + 1100)
+    C.sans_ennemis(s, X0 + 660, Y0 + 260, X0 + 800, Y0 + 440)
     ctx.power(X0, Y0 - 90, "rb-chain")
 
     -- RELECTURE : un géant d'âge 13 posé à la création
     R(ctx, "set_age", "rb-relu", 13)
-    st.relu = R(ctx, "spawn", "rb-relu", "toroid", X0 - 30, Y0 - 60)
+    st.relu = R(ctx, "spawn", "rb-relu", "toroid", X0 + 700, Y0 + 300)
     local i = st.relu and G(ctx, "info", st.relu)
     st.relu_obus = i and i.shells
     ctx.log(string.format("relecture : geant %s (obus %s)", tostring(st.relu), tostring(st.relu_obus)))
@@ -78,7 +80,7 @@ return {
     st.duel = {}
     for k, id in ipairs(DUEL) do
       local m = MODELE[id]
-      local y = Y0 + 60 + 80 * (k - 1)
+      local y = Y0 + 400 + 300 * (k - 1)
       local un, why = R(ctx, "spawn", "rb-duel", id, X0, y)
       local site = { id = id, y = y, un = un, why = why, tier = m.tier, biters = {} }
       for b = 1, 3 do
@@ -141,14 +143,14 @@ return {
       local f = "rb-cap"
       C.force(f)
       R(ctx, "set_age", f, 13)
-      local a1 = R(ctx, "spawn", f, "toroid", X0 + 100, Y0 + 140)
-      local a2, w2 = R(ctx, "spawn", f, "heliast", X0 + 120, Y0 + 140)
+      local a1 = R(ctx, "spawn", f, "toroid", X0 + 700, Y0 + 400)
+      local a2, w2 = R(ctx, "spawn", f, "heliast", X0 + 720, Y0 + 400)
       R(ctx, "set_age", f, 14)
-      local b2 = R(ctx, "spawn", f, "heliast", X0 + 120, Y0 + 140)
-      local b3, w3 = R(ctx, "spawn", f, "crowned", X0 + 140, Y0 + 140)
+      local b2 = R(ctx, "spawn", f, "heliast", X0 + 720, Y0 + 400)
+      local b3, w3 = R(ctx, "spawn", f, "crowned", X0 + 740, Y0 + 400)
       R(ctx, "set_age", f, 15)
-      local c3 = R(ctx, "spawn", f, "crowned", X0 + 140, Y0 + 140)
-      local c4, w4 = R(ctx, "spawn", f, "toroid", X0 + 160, Y0 + 140)
+      local c3 = R(ctx, "spawn", f, "crowned", X0 + 740, Y0 + 400)
+      local c4, w4 = R(ctx, "spawn", f, "toroid", X0 + 760, Y0 + 400)
       ctx.check(a1 ~= nil and a2 == nil and b2 ~= nil and b3 == nil and c3 ~= nil and c4 == nil,
         "(PLAFOND) 1 geant a l'age 13, 2 a l'age 14, 3 a l'age 15, jamais un de plus",
         string.format("age 13 : %s/%s (%s) ; age 14 : %s/%s (%s) ; age 15 : %s/%s (%s)", tostring(a1), tostring(a2), tostring(w2), tostring(b2),
@@ -191,6 +193,7 @@ return {
       local g = G(ctx, "info", st.ordre)
       if g then
         st.dernier = g
+        st.dernier_t = t
         if g.autopilot > 0 then st.marche = st.marche or { t = t, x = g.x, y = g.y } end
         if st.marche and not st.arrive and g.autopilot == 0 then st.arrive = { t = t, x = g.x, y = g.y } end
       end
@@ -236,15 +239,15 @@ return {
     -- ORDRE
     local g = st.dernier
     local nid_detruit = not (st.nid and st.nid.valid)
-    local vitesse = (st.marche and st.arrive and st.arrive.t > st.marche.t) and
-      (dist(st.marche.x, st.marche.y, st.arrive.x, st.arrive.y) / (st.arrive.t - st.marche.t)) or nil
+    local vitesse = (st.marche and g and st.dernier_t and st.dernier_t > st.marche.t) and
+      (dist(st.marche.x, st.marche.y, g.x, g.y) / (st.dernier_t - st.marche.t)) or nil
     ctx.check(st.ordre_rep and st.ordre_rep.ordered >= 1 and nid_detruit,
-      "(ORDRE) le geant recoit l'ordre d'attaque, avance par un chemin demande au moteur et detruit le nid a 120 tuiles",
+      "(ORDRE) le geant recoit l'ordre d'attaque, avance par un chemin demande au moteur et detruit le nid a 220 tuiles",
       string.format("ordres %s, nid detruit %s (tick %s), derniere info %s", tostring(st.ordre_rep and st.ordre_rep.ordered), tostring(nid_detruit),
         tostring(st.nid_mort_tick), g and string.format("x=%.1f autopilote=%d arrive=%s tentatives=%d obus=%d", g.x, g.autopilot, tostring(g.arrived), g.tries, g.shells) or "mort"))
     ctx.check(g ~= nil and g.shells >= 1, "(ORDRE) la munition du geant est tenue", string.format("obus %s", tostring(g and g.shells)))
-    ctx.log(string.format("[FO-RB-GEANT] ordre : depart x=%s, marche %s, arrivee %s, vitesse mesuree %s tuile/tick (cible 0,12)",
-      tostring(st.depart and st.depart.x), tostring(st.marche and st.marche.t), tostring(st.arrive and st.arrive.t), tostring(vitesse)))
+    ctx.log(string.format("[FO-RB-GEANT] ordre : depart x=%s, marche %s, vitesse mesuree %s tuile/tick (cible 0,12)",
+      tostring(st.depart and st.depart.x), tostring(st.marche and st.marche.t), tostring(vitesse)))
     ctx.check(R(ctx, "check") == true, "registre des robots coherent")
   end,
 }

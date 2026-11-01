@@ -81,7 +81,8 @@ Ro.CATEGORIES = { "fo-robots-1", "fo-robots-2", "fo-robots-3", "fo-robots-4" }
 --- chiffres CALIBRÉS (`hp`, `shot.damage`) : ceux que shared/robots/duel.lua calcule pour que le robot gagne son duel (1 contre 3
 --- déchiqueteurs du palier de son âge, marge Duel.TARGET) ; tests/robots_duel_test.lua les contrôle, `--calibrer` les imprime.
 --- `shot` = { dégâts par tir, cadence en ticks } ; `dtype` : type de dégâts (les résistances des déchiqueteurs sont lues par type) ;
---- `area` : rayon d'une explosion ; `min_range` : artillerie ; `heal`, `engineer` : soutien ; `giant` : araignée (spider-vehicle).
+--- `area` : rayon d'une explosion ; `area_share` : part des dégâts reçue par les voisins de la cible, MESURÉE au moteur (rb-duel : Bobineur 0,5 ;
+--- rb-geant : Héliaste 1 sur des cibles groupées ; Chanfrein 0,75 entre les deux, non mesuré en duel) ; `min_range` : artillerie ; `heal`, `engineer` : soutien ; `giant` : araignée (spider-vehicle).
 --- `ingredients` : au plus 100 de chaque (un bras ne livre pas plus, RB0-1) ; `mu` : valeur visée (tests/robots_test.lua : ±20 %).
 Ro.ROBOTS = {
   {
@@ -96,7 +97,7 @@ Ro.ROBOTS = {
     time = 15, mu = 680,
   },
   {
-    id = "coiler", age = 6, class = "P", role = "anti-swarm", factory = "fo-robot-workshop", dtype = "electric", area = 4,
+    id = "coiler", age = 6, class = "P", role = "anti-swarm", factory = "fo-robot-workshop", dtype = "electric", area = 4, area_share = 0.5,
     hp0 = 2500, dmg0 = 225, hp = 926, shot = { damage = 83.4, cooldown = 45 }, range = 14, speed = 0.13, half = 0.4, tons = 2,
     ingredients = { { "battery", 60 }, { "steel-plate", 30 }, { "engine-unit", 15 } }, time = 12, mu = 610,
   },
@@ -113,8 +114,8 @@ Ro.ROBOTS = {
       { "fo-controller", 20 }, { "fo-servo-motor", 25 } }, time = 25, mu = 4100,
   },
   {
-    id = "chamfer", age = 9, class = "G", role = "artillery", factory = "fo-robotics-bay", dtype = "explosion", area = 3, min_range = 12,
-    hp0 = 15000, dmg0 = 2000, hp = 81400, shot = { damage = 10900, cooldown = 120 }, range = 45, speed = 0.07, half = 0.9, tons = 5,
+    id = "chamfer", age = 9, class = "G", role = "artillery", factory = "fo-robotics-bay", dtype = "explosion", area = 3, area_share = 0.75, min_range = 12,
+    hp0 = 15000, dmg0 = 2000, hp = 54300, shot = { damage = 7240, cooldown = 120 }, range = 45, speed = 0.07, half = 0.9, tons = 5,
     ingredients = { { "uranium-238", 100 }, { "fo-lead-plate", 100 }, { "steel-plate", 100 }, { "fo-servo-motor", 40 }, { "fo-controller", 40 },
       { "fo-optical-sensor", 100 }, { "battery", 100 }, { "processing-unit", 60 }, { "plastic-bar", 100 } }, time = 40, mu = 11250,
   },
@@ -142,15 +143,15 @@ Ro.ROBOTS = {
   {
     id = "toroid", age = 13, class = "giant", role = "experimental-assault", factory = "fo-robot-gantry", dtype = "electric",
     hp0 = 600000, dmg0 = 10000, hp = 834000, shot = { damage = 13900, cooldown = 30 }, range = 100, speed = 0.12, half = 1.5, tons = 12,
-    giant = { scale = 1.5, leg_scale = 1, leg_speed = 0.5 },
+    giant = { scale = 1.5, leg_scale = 1, leg_speed = 0.32 },
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
       { "fo-laser-module", 60 }, { "fo-titanium-plate", 100 } }, time = 30 },
     ingredients = {}, time = 120, mu = 251000,
   },
   {
-    id = "heliast", age = 14, class = "giant", role = "experimental-artillery", factory = "fo-robot-gantry", dtype = "fire", area = 4,
-    hp0 = 1000000, dmg0 = 40000, hp = 2230000, shot = { damage = 89200, cooldown = 60 }, range = 100, speed = 0.09, half = 2, tons = 14,
-    giant = { scale = 2, leg_scale = 1, leg_speed = 0.5 },
+    id = "heliast", age = 14, class = "giant", role = "experimental-artillery", factory = "fo-robot-gantry", dtype = "fire", area = 4, area_share = 1,
+    hp0 = 1000000, dmg0 = 40000, hp = 1870000, shot = { damage = 74600, cooldown = 60 }, range = 100, speed = 0.09, half = 2, tons = 14,
+    giant = { scale = 2, leg_scale = 1, leg_speed = 0.24 },
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
       { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 50 } }, time = 30 },
     ingredients = {}, time = 120, mu = 459000,
@@ -158,7 +159,7 @@ Ro.ROBOTS = {
   {
     id = "crowned", age = 15, class = "giant", role = "experimental-final", factory = "fo-robot-gantry", dtype = "laser",
     hp0 = 2500000, dmg0 = 50000, hp = 2660000, shot = { damage = 53300, cooldown = 30 }, range = 100, speed = 0.10, half = 2, tons = 16,
-    giant = { scale = 2.2, leg_scale = 1, leg_speed = 0.5 },
+    giant = { scale = 2.2, leg_scale = 1, leg_speed = 0.27 },
     segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
       { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 100 },
       { "fo-servo-motor", 100 }, { "fo-motherboard", 100 }, { "fo-titanium-plate", 100 }, { "fo-titanium-composite", 100 } }, time = 30 },

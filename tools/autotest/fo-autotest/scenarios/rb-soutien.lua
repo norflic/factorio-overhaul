@@ -25,7 +25,7 @@ local function S(ctx, fn, ...) return ctx.remote("fo-robots-soutien", fn, ...) e
 
 -- Règle de résistance du moteur (shared/robots/duel.lua Duel.after_resist) pour un déchiqueteur de palier 12 : explosion 76 fixe, 74 %.
 local function degats_explosion_t12(montant) return (montant - 76) * (1 - 0.74) end
-local DEGATS_CHANFREIN = 10900 -- shot.damage du Chanfrein (shared/content/robots.lua) ; contrôlé par tests/robots_duel_test.lua
+local DEGATS_CHANFREIN = 7240 -- shot.damage du Chanfrein (shared/content/robots.lua) ; contrôlé par tests/robots_duel_test.lua
 
 return {
   description = "RB-4 : soin de la Cloche, artillerie du Chanfrein (zone, portee minimale), Truelle (ravive, repare)",
@@ -60,7 +60,7 @@ return {
       local nb = 11
       for k = 1, nb do
         local ang = (k / nb) * 2 * math.pi
-        local rr = 3 + ring * 2.5
+        local rr = 2 + ring * 2
         local un = R(ctx, "spawn", "rb-duel", "steam-trotter", X0 + rr * math.cos(ang), ya + rr * math.sin(ang))
         if un then st.troupe[#st.troupe + 1] = un n = n + 1 end
       end
@@ -137,9 +137,28 @@ return {
     if t == T_P2 then
       local soignes, total = gains()
       local loin = R(ctx, "unit_info", st.loin)
-      ctx.check(soignes >= #st.troupe and math.abs(loin.health - st.avant_loin) < 5,
+      local cl = R(ctx, "unit_info", st.cloche)
+      local non = {}
+      for _, un in ipairs(st.troupe) do
+        local i = R(ctx, "unit_info", un)
+        if not i then non[#non + 1] = un .. ":mort"
+        elseif i.health - st.avant[un] < 100 then
+          non[#non + 1] = string.format("%d:gain %.0f a %.1f tuiles", un, i.health - st.avant[un], math.sqrt((i.x - cl.x) ^ 2 + (i.y - cl.y) ^ 2))
+        end
+      end
+      ctx.log("A2 non soignes : " .. table.concat(non, " ; "))
+      -- un robot peut dériver hors du rayon (séparation des unités) : ceux qui sont encore à 12 tuiles au plus doivent tous avoir été soignés
+      local dedans, dedans_soignes = 0, 0
+      for _, un in ipairs(st.troupe) do
+        local i = R(ctx, "unit_info", un)
+        if i and math.sqrt((i.x - cl.x) ^ 2 + (i.y - cl.y) ^ 2) <= 12 then
+          dedans = dedans + 1
+          if i.health - st.avant[un] >= 100 then dedans_soignes = dedans_soignes + 1 end
+        end
+      end
+      ctx.check(dedans >= 30 and dedans_soignes == dedans and math.abs(loin.health - st.avant_loin) < 5,
         "(A2) la seconde impulsion soigne le reste ; le robot hors du rayon n'est jamais soigne",
-        string.format("soignes %d sur %d, total %.0f", soignes, #st.troupe, total))
+        string.format("soignes %d sur %d (dans le rayon : %d sur %d), total %.0f", soignes, #st.troupe, dedans_soignes, dedans, total))
     end
 
     -- B : premier tir sur T1 (perte constatée une seule fois)

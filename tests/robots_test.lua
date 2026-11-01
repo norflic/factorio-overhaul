@@ -472,7 +472,7 @@ local RO_MUTANTS = {
   { "Hall en 4 × 4", 'name = "fo-robotics-bay", tier = 2, age = 7, size = 5', 'name = "fo-robotics-bay", tier = 2, age = 7, size = 4' },
   { "portique à l'âge 12", 'name = "fo-robot-gantry", tier = 4, age = 13', 'name = "fo-robot-gantry", tier = 4, age = 12' },
   { "Cloche qui tire", 'heal = { amount = 172, radius = 12, max = 30, period = 60 }', 'heal = { amount = 172, radius = 12, max = 31, period = 60 }' },
-  { "artillerie sans portée minimale", "dtype = \"explosion\", area = 3, min_range = 12", "dtype = \"explosion\", area = 3" },
+  { "artillerie sans portée minimale", "dtype = \"explosion\", area = 3, area_share = 0.75, min_range = 12", "dtype = \"explosion\", area = 3, area_share = 0.75" },
   { "segment retiré d'un géant", "ingredients = {}, time = 120, mu = 459000", "ingredients = {}, time = 100, mu = 459000" },
   { "ingrédient du Lévite en double", '{ "fo-superconducting-coil", 100 }, { "fo-titanium-plate", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },\n      { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 100 },',
     '{ "fo-superconducting-coil", 100 }, { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },\n      { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "low-density-structure", 100 },' },
