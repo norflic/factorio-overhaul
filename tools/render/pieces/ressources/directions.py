@@ -767,16 +767,160 @@ ROCHE_APLAT["C14"], ROCHE_CASSURE["C14"] = ROCHE_APLAT["C13"], ROCHE_CASSURE["C1
 EFFET["C14"] = dict(EFFET["C13"])
 ICONE["C14"] = dict(ICONE["C13"])
 
+# ------------------------------------------------------------------------------------------------
+# MONAZITE, FORME REFAITE (lot design-minerai-monazite, 30/10). Retour du DC (30/10, vers 9 h) : « je n'aime pas du tout
+# la forme de ces minerais : Blende, Cassitérite, Minerai d'ilménite, Minerai de monazite. Il faut les refaire. »
+# Pourquoi Z3 déplaît (feuille comparée aux hr vanilla, cadres 128 px, et capture en moteur du 25/10, zoom 4) :
+#   1. silhouette : galets CONVEXES, lisses et ronds (4 coupes, lissage 38°) ; une roche vanilla a des rentrants, des
+#      arêtes et un côté d'ombre franc ;
+#   2. taille : 20 à 30 pièces de taille presque égale par cadre ; la vanilla a 2 ou 3 gros morceaux, des moyens, des
+#      petits ;
+#   3. densité : un semis RÉGULIER qui remplit un disque parfait (cadre rond, écarts égaux) ; la vanilla fait des amas
+#      qui se touchent et laissent des trous ;
+#   4. lecture au zoom 1 : jaune pâle uniforme presque sans ombre propre, plus des confettis jaunes (grains et fins
+#      dorés) : « pop-corn », « lentilles » ou bonbons (galets brun-rouge lisses), pas un minerai ;
+#   5. ressemblance : par la taille et la forme, des cailloux de la pierre vanilla repeints en jaune.
+# Trois formes à bas échantillonnage, même palette miel-or (la teinte n'était pas en cause : la carte et la chaîne la
+# gardent), plus contrastée (moins de jaune paille, faces miel et brun résine, éclat résineux) :
+#   M1 : ROGNONS anguleux (roches à encoches, 7 coupes, peu lissées), en amas, un ou deux gros par cadre ;
+#   M2 : rognons de M1 moins nombreux d'où sortent des PRISMES courts et trapus (cristaux en coin dressés) ;
+#   M3 : ÉCLATS EN COIN (gisement.coin : base polygonale, dessus incliné, arêtes vives) en amas, quelques rognons.
+# Tapis : sable de magnétite brun-noir et grains miel épars (le « sable » sombre des minerais vanilla), plus de
+# confettis dorés.
+# ------------------------------------------------------------------------------------------------
+MAT.update({
+    # monazite résine : miel sombre (faces à l'ombre, brun résineux)
+    "monazite_resine": dict(color=(0.36, 0.17, 0.028), rough=0.30, met=0.0, grain=0.25, gscale=36.0, dirt=0.45),
+    # sable de magnétite brun (tapis : plus chaud et un peu plus clair que le sol de sables noirs)
+    "sable_brun": dict(color=(0.10, 0.060, 0.035), rough=0.9, met=0.0, grain=0.3, gscale=30.0, dirt=0.2),
+})
+ROCHE_CREUX = {}
+DIRECTIONS["M1"] = dict(
+    nom="rognons anguleux de monazite miel en amas",
+    touffes=(0, 0, 0, 0, 0, 0, 0, 0), lames=(0, 0),
+    lame_long=(0.0, 0.0), lame_larg=(0.0, 0.0), lame_ep=(0.0, 0.0), lame_incl=(0, 0), lame_mats=("monazite_or",),
+    roches=(13, 11, 9, 8, 7, 5, 3, 2), roche_taille=(0.10, 0.165),
+    roche_mats=("monazite_or", "monazite_or", "monazite_miel", "monazite_resine", "monazite_soufre", "monazite_miel",
+                "monazite_brun"),
+    blocs=(0, 0, 0, 0, 0, 0, 0, 0), bloc_taille=(0.1, 0.1), bloc_haut=(0.1, 0.1), bloc_mats=("monazite_or",),
+    grains=(14, 12, 10, 9, 7, 6, 4, 2), grain_mats=("monazite_miel", "monazite_resine", "magnetite", "monazite_or"),
+    fins=(170, 150, 128, 108, 88, 70, 48, 28),
+    fin_mats=("sable_brun", "magnetite", "sable_brun", "monazite_resine", "sable_noir", "monazite_miel"),
+    amas=(3, 3, 3, 3, 2, 2, 2, 1), amas_etendue=0.17, amas_serre=0.72,
+    gros=((2, 2, 2, 1, 1, 1, 1, 0), 1.55),
+    rayon=0.62,
+    effet="eclats",
+)
+CALIB["M1"] = {"SKY_GLOSSY_FACTOR": 3.0}
+ROCHE_COUPES["M1"], ROCHE_LISSE["M1"] = 7, 24
+ROCHE_APLAT["M1"], ROCHE_CASSURE["M1"] = 0.62, (0.40, 0.75)
+ROCHE_CREUX["M1"] = 3
+ICONE["M1"] = dict(lames=(0, 0), roches=(4, 5), roche_taille=(0.19, 0.26), roche_coupes=7, roche_cassure=(0.40, 0.75),
+                   roche_aplat=0.7, roche_creux=3,
+                   roche_mats=("monazite_or", "monazite_miel", "monazite_resine", "monazite_or", "monazite_soufre"))
+# Production (128 éch.) : check_gisement refusait UN pixel d'effet hors du minerai (bord d'un rognon) avec le seuil de Z3
+# (0,45 à 0,80) : seuil 0,48 à 0,82 (part du minerai allumée 56 %, Z3 : 62 %).
+# Captures en moteur x2-supra (30/10, x2_lisibilite.py) au seuil 0,48 à 0,82 : 10 OK, 2 ECHEC (N1 : nuit, ΔE76 au cuivre
+# 9,8 / 9,3 ; Z3 donnait 14,0 / 13,7 ; N6 en échec pour moitié comme Z3) : M1, plus sombre que Z3, allume moins de faces
+# de nuit. Seuil abaissé à 0,40 à 0,75 (le pixel hors minerai est désormais éteint par feuille.post).
+EFFET["M1"] = dict(teinte=(1.0, 0.78, 0.25), seuil=(0.40, 0.75))
+
+DIRECTIONS["M2"] = dict(DIRECTIONS["M1"], nom="rognons de monazite hérissés de prismes en coin",
+                        roches=(9, 8, 7, 6, 5, 4, 2, 2),
+                        touffes=(4, 4, 3, 3, 2, 2, 1, 1), lames=(2, 4),
+                        lame_long=(0.10, 0.17), lame_larg=(0.085, 0.125), lame_ep=(0.06, 0.09), lame_incl=(12, 48),
+                        lame_mats=("monazite_or", "monazite_soufre", "monazite_miel", "monazite_or"),
+                        roche_mats=("monazite_miel", "monazite_resine", "monazite_or", "monazite_brun", "monazite_miel"))
+CALIB["M2"] = dict(CALIB["M1"])
+ROCHE_COUPES["M2"], ROCHE_LISSE["M2"] = 7, 24
+ROCHE_APLAT["M2"], ROCHE_CASSURE["M2"] = 0.62, (0.40, 0.75)
+ROCHE_CREUX["M2"] = 3
+ICONE["M2"] = dict(lames=(4, 6), echelle=1.7, roches=(3, 3), roche_taille=(0.18, 0.24), roche_coupes=7,
+                   roche_cassure=(0.40, 0.75), roche_aplat=0.7, roche_creux=3,
+                   roche_mats=("monazite_miel", "monazite_resine", "monazite_or"),
+                   lame_mats=("monazite_or", "monazite_soufre", "monazite_miel"))
+EFFET["M2"] = dict(EFFET["M1"])
+
+DIRECTIONS["M3"] = dict(DIRECTIONS["M1"], nom="éclats en coin de monazite miel en amas",
+                        roches=(3, 3, 2, 2, 2, 1, 1, 0), roche_taille=(0.09, 0.14),
+                        roche_mats=("monazite_resine", "monazite_brun", "monazite_miel"),
+                        coins=(12, 10, 9, 8, 6, 5, 3, 2), coin_taille=(0.17, 0.27), coin_haut=(0.07, 0.12),
+                        coin_mats=("monazite_or", "monazite_or", "monazite_miel", "monazite_soufre", "monazite_resine",
+                                   "monazite_miel"),
+                        gros=None, gros_coins=((2, 2, 2, 1, 1, 1, 1, 0), 1.45))
+CALIB["M3"] = dict(CALIB["M1"])
+ROCHE_COUPES["M3"], ROCHE_LISSE["M3"] = 7, 24
+ROCHE_APLAT["M3"], ROCHE_CASSURE["M3"] = 0.62, (0.40, 0.75)
+ROCHE_CREUX["M3"] = 2
+# Ronde 2 (essai à 12 échantillons, 9 h 27) : formes et amas justes, mais pièces DEUX FOIS trop petites et plates
+# (couverture du stade 1 : M1 0,138, M2 0,159, M3 0,114 contre 0,316 en vanilla ; diamètre d'un rognon 17 px hr contre
+# 25 à 35 px pour le fer) : tailles × 1,45, rognons plus hauts (aplat 0,78), prismes et coins plus grands.
+DIRECTIONS["M1"].update(roche_taille=(0.15, 0.235))
+DIRECTIONS["M2"].update(roche_taille=(0.15, 0.235), touffes=(3, 3, 3, 2, 2, 2, 1, 1),
+                        lame_long=(0.15, 0.25), lame_larg=(0.11, 0.16), lame_ep=(0.08, 0.12))
+DIRECTIONS["M3"].update(roche_taille=(0.13, 0.20), coin_taille=(0.25, 0.38), coin_haut=(0.10, 0.17))
+for _k in ("M1", "M2", "M3"):
+    ROCHE_APLAT[_k] = 0.78
+# Ronde 3 (après l'essai à 12 échantillons de 9 h 43) : M1 RETENUE (rognons anguleux en amas : la silhouette, les tailles
+# et les trous de la vanilla ; M2 : les prismes se lisent en bâtonnets, « frites » ; M3 : les coins, petits, se lisent en
+# miettes ou en dés). Couverture de M1 0,205 → 0,036 contre 0,316 → 0,055 : rognons × 1,12 et comptes × 1,25 environ ;
+# facettes trop « low poly » à 24° : lissage 34° (les plans de cassure restent vifs) ; icône : 4 ou 5 gros rognons
+# plus sombres (miel et résine), comme les 4 gros morceaux des icônes vanilla.
+DIRECTIONS["M1"].update(roche_taille=(0.165, 0.26), roches=(16, 14, 11, 10, 8, 7, 4, 3),
+                        grains=(18, 15, 12, 11, 9, 7, 5, 3))
+ROCHE_LISSE["M1"] = 34
+ICONE["M1"] = dict(ICONE["M1"], roches=(4, 5), roche_taille=(0.24, 0.30), roche_aplat=0.8,
+                   roche_mats=("monazite_or", "monazite_miel", "monazite_resine", "monazite_miel", "monazite_or"))
+# Ronde 4 (essai 12 éch. de 9 h 46 : couverture 0,264 / 0,229 / 0,206 / 0,181 / 0,144 / 0,130 / 0,105 / 0,049, stade 1
+# hors tolérance de 0,002) : rognons encore plats (lus « éclats de tuile ») et un gros rognon par cadre trop gros (× 1,55,
+# 0,8 tuile) : rognons plus hauts et moins coupés (aplat 0,9, cassure 0,45 à 0,80), gros × 1,3, comptes des stades 1 à 5
+# relevés ; icône : 4 gros rognons qui remplissent le cadre.
+DIRECTIONS["M1"].update(roches=(20, 17, 13, 11, 9, 7, 4, 3), gros=((2, 2, 2, 1, 1, 1, 1, 0), 1.3))
+ROCHE_APLAT["M1"], ROCHE_CASSURE["M1"] = 0.90, (0.45, 0.80)
+ICONE["M1"] = dict(ICONE["M1"], roches=(4, 4), roche_taille=(0.27, 0.33), roche_aplat=0.9, roche_cassure=(0.45, 0.80))
+# Ronde 5 (essai 12 éch. de 9 h 53 : couverture à 0,015 au plus de la vanilla à tous les stades) : les stades riches
+# font UN tas serré (« tas de pommes de terre ») ; la vanilla garde des pièces distinctes et des jours : amas plus
+# nombreux et plus larges, écart minimal plein (0,95), comptes des stades 1 à 3 un peu réduits.
+DIRECTIONS["M1"].update(roches=(18, 15, 12, 11, 9, 7, 4, 3), amas=(4, 4, 3, 3, 3, 2, 2, 1), amas_etendue=0.21,
+                        amas_serre=0.95)
+# Critique du directeur artistique (30/10, 11 h, CRITIQUE.md de la page) : forme juste, MATIÈRE pas au niveau vanilla.
+# (1) deux familles de teinte mêlées (jaune citron « soufre » et brun-rouge « brun ») : bruit de pixels au zoom 1,
+# lecture « corn flakes », « feuilles mortes », et le brun-rouge rapproche du cuivre, de la bauxite et de la blende ;
+# (2) faces mates (rugosité 0,36 à 0,40) : aucun reflet franc, alors que le cuivre et le fer vanilla en ont un et que
+# la monazite réelle a un éclat RÉSINEUX ; (3) grains de magnétite tombés sur les rognons : points noirs au zoom 4.
+# Correction de MATIÈRE seule : mêmes longueurs de listes de matières, donc mêmes tirages (rng.choice) et MÊME
+# géométrie, même couverture que M1 production ; une seule famille or-miel-ambre, éclat résineux (rugosité 0,24 à
+# 0,28), une pièce sur sept en résine sombre pour la profondeur, plus de soufre ni de brun-rouge ; grains sans magnétite
+# (la magnétite reste dans le tapis de fins, au sol).
+MAT.update({
+    "monazite_or_v": dict(color=(0.62, 0.40, 0.035), rough=0.24, met=0.0, grain=0.22, gscale=36.0, dirt=0.3),
+    "monazite_miel_v": dict(color=(0.50, 0.25, 0.040), rough=0.26, met=0.0, grain=0.25, gscale=36.0, dirt=0.35),
+    "monazite_ambre": dict(color=(0.58, 0.33, 0.035), rough=0.24, met=0.0, grain=0.22, gscale=36.0, dirt=0.3),
+})
+DIRECTIONS["M1"].update(
+    roche_mats=("monazite_or_v", "monazite_or_v", "monazite_miel_v", "monazite_ambre", "monazite_or_v",
+                "monazite_miel_v", "monazite_resine"),
+    grain_mats=("monazite_miel_v", "monazite_resine", "monazite_resine", "monazite_or_v"))
+ICONE["M1"] = dict(ICONE["M1"], roche_mats=("monazite_or_v", "monazite_miel_v", "monazite_ambre", "monazite_miel_v",
+                                            "monazite_or_v"))
+ICONE["M3"] = dict(lames=(0, 0), roches=(1, 2), roche_taille=(0.14, 0.18), roche_coupes=7, roche_cassure=(0.40, 0.75),
+                   roche_aplat=0.7, roche_creux=2, roche_mats=("monazite_resine", "monazite_miel"),
+                   coins=4, coin_taille=(0.30, 0.40), coin_haut=(0.14, 0.20),
+                   coin_mats=("monazite_or", "monazite_miel", "monazite_soufre", "monazite_or"))
+EFFET["M3"] = dict(EFFET["M1"])
+
 # Échelle des comptes (réglée par mesure de la couverture, feuille.py --couverture) : multiplie touffes, roches,
 # blocs et grains d'une direction. 1,0 tant que rien n'est mesuré.
 ECHELLE = {"A": 1.0, "B": 1.0, "C": 1.0, "A2": 1.0, "A3": 1.0, "A4": 1.0, "I1": 1.45, "I2": 1.45, "I3": 1.45,
            "Z1": 1.6, "Z2": 1.6, "Z3": 1.6, "G1": 1.45, "K1": 1.3, "I2S": 1.45, "C1": 1.6, "B1": 1.6, "S1": 1.45, "G2": 1.45, "S2": 1.45,
-           "C2": 1.3, "C3": 1.3, "C4": 1.3, "C5": 1.3, "C6": 1.3, "C7": 1.3, "C8": 1.5, "C9": 1.5, "C10": 1.5, "C11": 1.5, "C12": 1.5, "C13": 1.5, "C14": 1.5}
+           "C2": 1.3, "C3": 1.3, "C4": 1.3, "C5": 1.3, "C6": 1.3, "C7": 1.3, "C8": 1.5, "C9": 1.5, "C10": 1.5, "C11": 1.5, "C12": 1.5, "C13": 1.5, "C14": 1.5,
+           "M1": 1.0, "M2": 1.0, "M3": 1.0}
 
 # Graine de chaque direction (hasard local déterministe). A2 à A4 gardent la graine de A : mêmes positions.
 GRAINE = {"A": 5101, "B": 5202, "C": 5303, "A2": 5101, "A3": 5101, "A4": 5101, "I1": 6111, "I2": 6111, "I3": 6111,
           "Z1": 6212, "Z2": 6212, "Z3": 6212, "G1": 6313, "K1": 6414, "I2S": 6111, "C1": 6515, "B1": 6616, "S1": 6717, "G2": 6313, "S2": 6717,
-          "C2": 6515, "C3": 6515, "C4": 6515, "C5": 6515, "C6": 6515, "C7": 6515, "C8": 6515, "C9": 6515, "C10": 6515, "C11": 6515, "C12": 6515, "C13": 6515, "C14": 6515}
+          "C2": 6515, "C3": 6515, "C4": 6515, "C5": 6515, "C6": 6515, "C7": 6515, "C8": 6515, "C9": 6515, "C10": 6515, "C11": 6515, "C12": 6515, "C13": 6515, "C14": 6515,
+          "M1": 6818, "M2": 6818, "M3": 6818}
 
 # Grille de rendu : 8 variantes (colonnes) × 8 stades (lignes) + une ligne d'icônes (icône + 3 images d'objet).
 COLONNES = 8
