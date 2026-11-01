@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.34
+Date: 2026-11-01
+  Changes:
+    - Le Bourdon, experimental de l'age 15 : /fo-bourdon, /fo-glas, Ctrl+Maj+G, onde de choc (prototype : pas encore dans l'arbre).
+    - Les 4 usines de robots ont leur vrai visuel par age.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.33
 Date: 2026-11-01
   Changes:
