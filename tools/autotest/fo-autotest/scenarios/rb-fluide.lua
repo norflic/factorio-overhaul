@@ -22,6 +22,7 @@ local TECHS = { "automation", "logistic-science-pack", "steel-processing", "mili
 
 local PARTS = {
   { WORKSHOP, 4 }, { "automation-science-pack", 100 }, { "logistic-science-pack", 100 }, { "military-science-pack", 100 },
+  { "chemical-science-pack", 100 }, -- ce que la chaine du petrole produirait : le banc le donne (voir le rapport), sinon military-3 tient le laboratoire
   { "assembling-machine-1", 12 }, { "assembling-machine-2", 24 }, { "inserter", 80 }, { "long-handed-inserter", 40 },
   { "fast-inserter", 30 }, { "wood", 200 }, { "transport-belt", 300 }, { "iron-chest", 30 }, { "wooden-chest", 10 }, { "small-electric-pole", 60 },
   { "medium-electric-pole", 40 }, { "copper-plate", 800 }, { "stone-brick", 300 }, { "coal", 400 },
@@ -34,6 +35,14 @@ local function teams(ctx)
   end
   table.sort(out, function(a, b) return a.key < b.key end)
   return out
+end
+
+--- Le module du kit (le mall en demande d'autres : blocs d'objets de base) ; nil s'il n'y en a pas.
+local function kit_bloc(status)
+  for _, b in ipairs(status and status.blocs or {}) do
+    if b.items and b.items[1] == KIT then return b end
+  end
+  return nil
 end
 
 local function module_ents(ctx, key, id)
@@ -104,7 +113,7 @@ return {
     end
     if t % 120 == 0 and st.done_tech and not st.done_fini then
       local s0 = ctx.remote("fo-ind", "status", st.key)
-      local b0 = s0 and s0.blocs and s0.blocs[1]
+      local b0 = kit_bloc(s0)
       if b0 and (b0.state == "fantomes" or b0.state == "chantier" or b0.state == "raccordement" or b0.state == "fini") then
         local s1 = ctx.surface()
         local ents = module_ents(ctx, st.key, b0.id)
@@ -144,7 +153,7 @@ return {
     ctx.check(st.chosen ~= nil, st.key .. " : (1) la recherche des robots est choisie par le cerveau (aucune donnee du banc)", tostring(st.chosen))
     ctx.check(st.done_tech ~= nil, st.key .. " : (2) la technologie des robots est faite par le laboratoire", tostring(st.done_tech))
     local s = ctx.remote("fo-ind", "status", st.key)
-    local b = s and s.blocs[1]
+    local b = kit_bloc(s)
     ctx.check(b ~= nil and b.kind == "seul" and b.items[1] == KIT, "(4) le module est une cellule seule du kit", b and (b.kind .. " " .. tostring(b.items[1])) or "aucun module")
     ctx.check(b ~= nil and b.state == "fini", "(4) la cellule est finie", b and (tostring(b.state) .. " " .. tostring(b.reason)) or "aucun module")
     local etat = ctx.remote("fo-robots", "state", st.force)

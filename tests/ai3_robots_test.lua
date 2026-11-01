@@ -268,18 +268,30 @@ local function id_suite(Id)
   local served = Id.decide({}, { tick = 0, sources = { { { item = "kit-a", rate = 10, src = "unite" } } }, fab = fab, bloc_max = 6,
     unites = { ["kit-a"] = true }, served = { ["kit-a"] = true } })
   ck(#served.seuls == 0 and #served.rows == 0)
+  -- ordre d'examen : la cellule d'un kit d'unité d'abord, puis les blocs, puis les autres cellules
+  local o = Id.order({ blocs = { { items = { "b1" } }, { items = { "b2" } } },
+    seuls = { { item = "s1" }, { item = "k1", unite = true }, { item = "s2" } } })
+  ck(#o == 5 and o[1].dec.item == "k1" and o[1].kind == "seul" and o[1].items[1] == "k1")
+  ck(o[2].kind == "bloc" and o[2].items[1] == "b1" and o[3].kind == "bloc" and o[3].items[1] == "b2")
+  ck(o[4].kind == "seul" and o[4].dec.item == "s1" and o[5].dec.item == "s2")
+  ck(#Id.order({}) == 0)
   return pass2, fail2
 end
 do
   local Id = assert(load_id(ID_SRC))
   local p2, f2 = id_suite(Id)
-  check8(f2 == 0 and p2 == 6, "§11 mall : kit d'unité en cellule seule « unité » (" .. p2 .. " OK, " .. f2 .. " ECHEC)")
+  check8(f2 == 0 and p2 == 10, "§11 mall : kit d'unité en cellule seule « unité » (" .. p2 .. " OK, " .. f2 .. " ECHEC)")
   local ID_MUT = {
     { "unité non routée", "if inp.unites and inp.unites[c.item] then", "if false then" },
     { "tout objet routé en unité", "if inp.unites and inp.unites[c.item] then", "if inp.unites then" },
     { "unité rangée comme avant", "out.seuls[#out.seuls + 1] = { item = c.item, recipe = pr.recipe, machine = pr.machine.entity, rate = c.rate, need = need, unite = true }",
       "out.seuls[#out.seuls + 1] = { item = c.item, recipe = pr.recipe, machine = pr.machine.entity, rate = c.rate, need = need }" },
     { "unité servie redemandée", "if inp.served and inp.served[c.item] then", "if false then" },
+    { "kit d'unité derrière les blocs", [==[    if d.unite then cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end]==],
+      [==[    if false then cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end]==] },
+    { "autres cellules perdues", [==[    if not d.unite then cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end]==],
+      [==[    if false then cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end]==] },
+    { "blocs perdus", [==[  for _, d in ipairs(out.blocs or {}) do cands[#cands + 1] = { dec = d, kind = "bloc", items = d.items } end]==], "" },
   }
   local refused2, kept2 = 0, {}
   for _, m in ipairs(ID_MUT) do
@@ -287,7 +299,7 @@ do
     if not a then kept2[#kept2 + 1] = m[1] .. " (motif absent)" else
       local mod = load_id(ID_SRC:sub(1, a - 1) .. m[3] .. ID_SRC:sub(b + 1))
       local ok, pp, ff = pcall(id_suite, mod)
-      if (not ok) or ff > 0 or pp ~= 6 then refused2 = refused2 + 1 else kept2[#kept2 + 1] = m[1] end
+      if (not ok) or ff > 0 or pp ~= 10 then refused2 = refused2 + 1 else kept2[#kept2 + 1] = m[1] end
     end
   end
   check8(#kept2 == 0, "§11 mutants du mall NON refusés : " .. table.concat(kept2, " ; "))
