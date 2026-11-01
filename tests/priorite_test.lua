@@ -578,7 +578,7 @@ local mutants = {
   { "règle pure : un pas inexistant compte comme zéro", "Pr", "local has_step = a.production_cost ~= nil", "local has_step = true" },
   { "planificateur : l'avant-poste sous-défendu attend toujours sa tourelle", "Pl", "local block = turret_ok and not pri.production_first", "local block = turret_ok" },
   { "planificateur : le pas de production n'est pas réservé", "Pl", "local held = math.min(pri.hold or 0, avail[iron_key] or 0)", "local held = 0" },
-  { "planificateur : le fer sous le plancher compte pour la défense", "Pl", "funds = (avail[iron_key] or 0) - T.defend_iron_floor,", "funds = (avail[iron_key] or 0)," },
+  { "planificateur : le fer sous le plancher compte pour la défense", "Pl", "funds = (avail[iron_key] or 0) - fl_i,", "funds = (avail[iron_key] or 0)," },
   { "planificateur : l'objectif militaire n'est plus sauté", "Pl", "elseif Pr.skip_goal(pri, g.need, T.turret_ammo) then", "elseif false then" },
   { "planificateur : la survie ne protège plus", "Pl", "survival = decimated,", "survival = false," },
   { "planificateur : un avant-poste meurtrier devient agrandissable", "Pl", "o.drills < T.max_drills(o.kind) and not lethal_only[o.id] then\n        growable", "o.drills < T.max_drills(o.kind) then\n        growable" },
