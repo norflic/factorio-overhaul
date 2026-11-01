@@ -1345,7 +1345,9 @@ local function plan_feed(f, surface, p, place, part)
           -- tapis, JAMAIS par un quai (il se remplit depuis le coffre, où il n'y a pas de minerai : e7 et e10-usine,
           -- fours « no_ingredients », 0 plaque sans PNJ) ; sinon le plan est refusé, raison « gisement : … ».
           local need_belt = p.spec.feed == "tapis" and M.ORES[item] and item ~= "coal"
-          if M.ORES[item] and flow >= P.AUTO_FLOW and p.spec.feed ~= "quai" then
+          -- Lot C2 : seuil du tapis par le coût réel de la voie (f.team.ia3e.belt_flow, shared/ai3/demande.lua) ; à défaut, la constante P.AUTO_FLOW
+          local belt_thr = (f.team and f.team.ia3e and f.team.ia3e.belt_flow) or P.AUTO_FLOW
+          if M.ORES[item] and flow >= belt_thr and p.spec.feed ~= "quai" then
             local dt = deposit_toward(b, item)
             if not dt and need_belt then -- lot GISEMENTS
               scan_ore_lots(f, surface, item)
@@ -1366,7 +1368,7 @@ local function plan_feed(f, surface, p, place, part)
               return false, dt and string.format("gisement : %s a %d tuiles du lot", item, d) or ("gisement : " .. item .. " hors du treillis")
             end
           elseif need_belt then
-            return false, string.format("gisement : %s %.2f/s, sous le seuil du tapis", item, flow)
+            return false, string.format("gisement : %s %.2f/s, sous le seuil du tapis (%.2f/s)", item, flow, belt_thr)
           end
         end
       end

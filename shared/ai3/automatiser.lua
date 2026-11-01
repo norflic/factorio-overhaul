@@ -47,6 +47,7 @@
 
 local M = require("shared.team.modules")
 local T = require("shared.team.config")
+local Dm = require("shared.ai3.demande") -- lot C2 : décision sur le débit voulu, seuil du tapis par le coût réel
 local D = require("shared.team.automatisation_donnees") -- lot IA3-e : ce que l'exécutant sait poser (données nommées)
 local Book = require("shared.team.book") -- lot AUTO : livre de la main, pour A.exec_recipes (même règle que A.method_for)
 local Pt = require("shared.team.patrons") -- lot INDUSTRIE I6 : patrons (cellule, bloc) des recettes que la rangée simple refuse
@@ -342,13 +343,14 @@ end
 --- Entités supplémentaires estimées du plan directeur autour d'un gabarit : foreuses et leur tapis (voie de minerai
 --- au-delà de A.BELT_FLOW), quais d'entrée (autres voies), quais de sortie, poteaux de réseau. Rend items, n, quais
 --- d'entrée { { objet, flux/s } }, quais de sortie (nombre).
-local function feed_extra(method, g)
+local function feed_extra(method, g, belt_flow)
+  belt_flow = belt_flow or A.BELT_FLOW
   local items, n = {}, 0
   local function add(name, k) items[name] = (items[name] or 0) + k; n = n + k end
   local quais_in = {}
   for _, it in ipairs(sorted_keys(g.inputs)) do
     local flow = g.inputs[it]
-    if method.ore == it and flow >= A.BELT_FLOW then
+    if method.ore == it and flow >= belt_flow then
       local nd = math.max(1, math.ceil(flow / (2 * A.DRILL_RATE) - 1e-9))
       local d = A.template("drills", { it, nd }, g.pole)
       if d then
@@ -377,7 +379,7 @@ end
 function A.cost(method, g, ctx)
   local items = {}
   for _, name in ipairs(sorted_keys(g.items)) do items[name] = g.items[name] end
-  local extra, n_extra, quais_in, outs = feed_extra(method, g)
+  local extra, n_extra, quais_in, outs = feed_extra(method, g, ctx.belt_flow)
   for _, name in ipairs(sorted_keys(extra)) do items[name] = (items[name] or 0) + extra[name] end
   local n_ent = g.n_ent + n_extra
   if (g.power_kw or 0) > 0 and not ctx.has_plant then
@@ -406,6 +408,27 @@ function A.cost(method, g, ctx)
     end
   end
   return pose + craft_s + raw_s, items, n_ent, { pose = pose, craft = craft_s, raw = raw_s, quais_in = quais_in, outs = outs }
+end
+
+--- Lot C2 : coût RÉEL (PNJ-secondes) d'une voie de minerai servie par foreuses et tapis : une paire de foreuses, le tapis jusqu'à la tête
+--- d'alimentation (A.BELT_LEN), leur pose et leurs matières lues au livre. ctx = { book, stock, dist, price }. Rend le coût ou nil.
+function A.belt_cost(ctx)
+  local ore = nil
+  for _, m in ipairs(A.METHODS) do if m.ore then ore = m.ore break end end
+  local d = ore and A.template("drills", { ore, 1 })
+  if not d then return nil end
+  local items = {}
+  for _, name in ipairs(sorted_keys(d.items)) do items[name] = d.items[name] end
+  items[D.PARTS.belt] = (items[D.PARTS.belt] or 0) + A.BELT_LEN
+  local c = A.cost({ gen = "drills" }, { items = items, n_ent = d.n_ent + A.BELT_LEN, inputs = {}, nominal = {}, power_kw = 0 }, ctx)
+  return c
+end
+
+--- Lot C2 (AUDIT n°3 : 152 refus « copper-ore 0.63/s, sous le seuil du tapis ») : seuil du tapis (objets/s) par le coût réel de la voie
+--- contre le gain des porteurs, retour accepté `tmax` minutes (shared/ai3/demande.lua, Dm.belt_flow) ; jamais plus strict que A.BELT_FLOW.
+function A.belt_flow(ctx, tmax)
+  if not (ctx and ctx.book) then return A.BELT_FLOW end -- sans livre, les matières sont inconnues : le coût serait sous-estimé
+  return Dm.belt_flow(A.belt_cost(ctx), A.PLATE_S, tmax, A.BELT_FLOW)
 end
 
 --- Logistique qui RESTE avec le module (PNJ) : porteurs des quais d'entrée et de sortie.
@@ -774,6 +797,13 @@ function A.decide(input)
     if not price[p] and price[input[1]] then price[p] = input[2] * price[input[1]] end
   end
   local out = { requests = {}, verdicts = {}, wanted = {} }
+  -- Lot C2 : seuil du tapis par le coût réel (réglage maître allumé seulement), et demande de la capitalisation (débit voulu par objet).
+  local belt = A.BELT_FLOW
+  if input.demande then
+    belt = A.belt_flow({ book = input.book, stock = input.stock, dist = input.dist, price = price }, H) or A.BELT_FLOW
+    out.belt_flow = belt
+  end
+  out.demande = {}
   -- Objets pesés : produits des gabarits écrits, objets demandés par l'appelant, objets qui ont coûté de la charge à la
   -- main dans la fenêtre (n'importe lequel : consigne du DC du 27/10).
   local book = input.book
@@ -800,7 +830,12 @@ function A.decide(input)
   for _, item in ipairs(cands) do
     local st = mods[item] or { open = 0, fini = 0 }
     local L, D, _, n = A.measure(window, item, st.last_m)
-    order[#order + 1] = { item = item, depth = A.depth(item, book, memo, meth_of), L = L, D = D, n = n,
+    -- Lot C2 : la décision porte sur le débit VOULU (la charge à la main au débit que la capitalisation vise), non sur la charge d'aujourd'hui.
+    local L0, D0 = L, D
+    local scaled
+    L, D, scaled = Dm.load(L, D, input.wanted and input.wanted[item])
+    if scaled then out.demande[#out.demande + 1] = { item = item, L0 = L0, L = L, D0 = D0, D = D } end
+    order[#order + 1] = { item = item, depth = A.depth(item, book, memo, meth_of), L = L, D = D, n = n, scaled = scaled and true or nil,
       inputs = A.inputs_of(item, book, meth_of(item)) }
   end
   table.sort(order, function(a, b)
@@ -831,7 +866,7 @@ function A.decide(input)
     elseif n < A.RESEARCH_WINDOW then
       v.verdict, v.why = "attente", "fenetre " .. n .. "/" .. A.WINDOW .. " min"
     elseif L <= A.LOAD_MIN then
-      v.verdict, v.why = "non", string.format("charge %.2f PNJ <= %.2f", L, A.LOAD_MIN)
+      v.verdict, v.why = "non", string.format("charge %.2f PNJ <= %.2f", L, A.LOAD_MIN) .. (c.scaled and (" (au debit voulu " .. string.format("%.1f", D) .. "/min)") or "")
     elseif not meth then
       v.verdict, v.why = "limite", tostring(whys[c.item])
     else
@@ -842,7 +877,7 @@ function A.decide(input)
       -- dessous, c'est un quai que les porteurs remplissent DEPUIS LE COFFRE, où il n'y a pas de minerai (les avant-postes
       -- livrent des plaques) : moteur réel, e6-usine, emerald, seconde fonderie de fer à quai de minerai vide 30 min. La
       -- plus petite taille servie par tapis, donc.
-      local function belt_ok(gg) return not meth.ore or (gg.inputs[meth.ore] or 0) >= A.BELT_FLOW - 1e-9 end
+      local function belt_ok(gg) return not meth.ore or (gg.inputs[meth.ore] or 0) >= belt - 1e-9 end
       if g and g.ext and not belt_ok(g) then
         for n = args[g.ext.arg] + 1, g.ext.max do
           local a2 = {}
@@ -853,7 +888,7 @@ function A.decide(input)
         end
       end
       local function missing_of(gg)
-        local _, its = A.cost(meth, gg, { has_plant = true })
+        local _, its = A.cost(meth, gg, { has_plant = true, belt_flow = belt })
         local miss = {}
         for _, name in ipairs(sorted_keys(its)) do
           if not (input.obtainable and input.obtainable(name)) then miss[#miss + 1] = name end
@@ -877,7 +912,7 @@ function A.decide(input)
       else
         local rate_nom = (g.nominal[c.item] or 0) * 60
         local C, items, n_ent, det = A.cost(meth, g, { book = input.book, stock = input.stock, dist = input.dist,
-          price = price, has_plant = input.has_plant })
+          price = price, has_plant = input.has_plant, belt_flow = belt })
         local electric = (g.power_kw or 0) > 0
         local missing = {}
         for _, name in ipairs(sorted_keys(items)) do

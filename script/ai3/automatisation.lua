@@ -32,6 +32,7 @@ local Profiler = require("script.core.profiler")
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-DECLENCHE : la ligne neuve d'une migration de champ est un projet du cerveau
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (agrandissement des lignes)
 local Pi = require("shared.ai3.pile") -- lot FUITES-PILE : famille d'un module (reconstruction, neuf, agrandissement)
+local Rsv = require("script.ai3.reserve") -- lot C2 : réglage maître (fo-war-industrie), puits ouvert
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D10) : module au plafond de son produit, plus nourri
 
 local Auto = {}
@@ -499,6 +500,12 @@ function Auto.submit(f, rq, tick, research)
   return submit(f, state_of(f), tick, rq, research)
 end
 
+--- Lot C2 : seuil du tapis en vigueur (objets/s) de l'équipe, ou nil (réglage éteint : A.BELT_FLOW).
+function Auto.belt_flow(f)
+  local st = f and f.team and f.team.ia3e
+  return st and st.belt_flow or nil
+end
+
 --- Lot CAPIB : le module `id` suivi par l'automatisation (état, manques, raison, construits) ou nil.
 function Auto.module(f, id)
   local st = f and f.team and f.team.ia3e
@@ -531,6 +538,8 @@ function Auto.think(f, view, book, tick, research)
       window = st.window, threatened = view.threatened, mods = st.mods,
       obtainable = function(item) return book:handcraftable(item) or (stock[item] or 0) > 0 end,
       book = book, stock = stock, sig = st.sig,
+      -- lot C2 : décision sur le débit voulu (la capitalisation écrit le débit de chaque objet, puits compris, f.team.ia3.puits) et seuil du tapis par le coût réel
+      demande = Rsv.on() and not (f.team.capi and f.team.capi.demande_off), wanted = (f.team.ia3 and f.team.ia3.puits and f.team.ia3.puits.flow) or nil,
       -- lot PLANDIR : poteau des gabarits = le moins cher dont la recette est débloquée (jamais un nom écrit ici)
       pole = A.choose_pole(book, stock, Harvest.reachable(f)), -- lot KIT : le bois à portée compte
       has_plant = st.plant_id ~= nil and st.plant_state ~= "refuse",
@@ -542,6 +551,22 @@ function Auto.think(f, view, book, tick, research)
         (st.hold_until or 0) / 3600, st.starved or 0) or nil,
     })
     st.wanted = res.wanted
+    -- Lot C2 : seuil du tapis (objets/s) gardé dans l'état (build.lua le lit ; jamais une variable de module : déterminisme à la reprise d'une sauvegarde)
+    if res.belt_flow ~= st.belt_flow then
+      log(string.format("[FO-DEMANDE] %s : SEUIL DU TAPIS %s -> %.3f minerai/s (cout reel de la voie a foreuses et tapis contre le gain des porteurs, retour %d min ; ancien seuil constant %.1f) a %.1f min",
+        f.key or "player", st.belt_flow and string.format("%.3f", st.belt_flow) or "-", res.belt_flow or A.BELT_FLOW, view.threatened and A.H_THREAT or A.H_SAFE, A.BELT_FLOW, minutes(f, tick)))
+    end
+    st.belt_flow = res.belt_flow
+    local dsig = {}
+    for _, d in ipairs(res.demande or {}) do dsig[#dsig + 1] = string.format("%s:%.2f->%.2f PNJ a %.0f->%.0f/min", d.item, d.L0, d.L, d.D0, d.D) end
+    local dtext = table.concat(dsig, " ; ")
+    if dtext ~= (st.demande_sig or "") then
+      st.demande_sig = dtext
+      if dtext ~= "" then
+        log(string.format("[FO-DEMANDE] %s : DECISION SUR LE DEBIT VOULU (charge a la main mise a l'echelle du debit vise par la capitalisation, seuil %.2f PNJ) : %s a %.1f min",
+          f.key or "player", A.LOAD_MIN, dtext, minutes(f, tick)))
+      end
+    end
     st.verdicts = {}
     for _, v in ipairs(res.verdicts) do
       st.verdicts[#st.verdicts + 1] = { product = v.product, verdict = v.verdict, why = v.why, L = v.L, D = v.D, T = v.T,

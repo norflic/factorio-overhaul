@@ -88,16 +88,16 @@ function Br.need_floor(workers, floor)
 end
 
 --- Capacités visées au plus par ressource : Br.CAP_PCT % de l'effectif, au moins `floor` (le plafond d'avant).
-function Br.cap_max(workers, floor) return math.max(floor or 0, pct(workers, Br.CAP_PCT)) end
+function Br.cap_max(workers, floor, extra) return math.max(floor or 0, pct(workers, Br.CAP_PCT)) + (extra or 0) end -- extra : lot C2 (bras libres, Dm.extra_cap)
 
 --- Fours du QG au plus : Br.SMELT_PCT % de l'effectif, au moins `floor` (le défaut d'avant).
-function Br.smelt_max(workers, floor) return math.max(floor or 0, pct(workers, Br.SMELT_PCT)) end
+function Br.smelt_max(workers, floor, extra) return math.max(floor or 0, pct(workers, Br.SMELT_PCT)) + (extra or 0) end
 
 --- Recherches suivantes préparées d'avance au plus : Br.DEPTH_PCT % de l'effectif, au moins `floor` (3, IA-G).
 function Br.depth_max(workers, floor) return math.max(floor or 0, pct(workers, Br.DEPTH_PCT)) end
 
 --- Laboratoires au plus : Br.LABS_PCT % de l'effectif, au moins `floor` (3, IA3-c).
-function Br.labs_max(workers, floor) return math.max(floor or 0, pct(workers, Br.LABS_PCT)) end
+function Br.labs_max(workers, floor, extra) return math.max(floor or 0, pct(workers, Br.LABS_PCT)) + (extra or 0) end
 
 --- Fenêtre d'un laboratoire de plus (secondes de recherche restante par laboratoire) : `window` sans bras libres ;
 --- avec `spare` bras libres, window × HANDS_PER_CAP / (HANDS_PER_CAP + spare), au moins Br.LAB_WINDOW_MIN_PCT %.
@@ -123,7 +123,7 @@ function Br.smelters(s, st, base, grow_thinks)
   local have = (s.smelters or 0) + (s.smelters_pending or 0)
   -- Les fours déjà posés (fonderie d'amorçage, P.boot_smelters) comptent : la vague part de ce qui est là.
   local target = math.max(base or 0, st.smelt_target or 0, have)
-  local max = Br.smelt_max(s.workers, base)
+  local max = Br.smelt_max(s.workers, base, s.extra_cap)
   -- … et la borne monte avec le minerai qui attend au coffre (jamais sous la borne de l'effectif).
   -- Lot PD-FONDERIEQG (D77) : le minerai d'une plaque fondue par une ligne à tapis (module fini) n'agrandit plus la fonderie
   -- nourrie à la main : c'est le travail de la ligne (shared/ai3/fonderie_qg.lua).
