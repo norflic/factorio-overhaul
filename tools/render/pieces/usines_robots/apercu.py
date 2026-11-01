@@ -39,6 +39,7 @@ def _faux_bpy():
     MT.surface = surface
     MT.verre = lambda name, col=(0.02, 0.045, 0.05), reflet=(0.16, 0.24, 0.26): _Mat(name, tuple(0.5 * (a + b) for a, b in zip(col, reflet)))
     MT.lumiere = lambda S, name, col, force=6.0, main=0.35: _Mat(name, col, True)
+    MT.degrade = lambda S, name, coeur, bord, force, **kw: _Mat(name, coeur, True)
     return MT
 
 

@@ -25,31 +25,34 @@ K_ROB = 1.22           # échelle du robot sur le plateau
 
 def matieres(S):
     M = {}
-    MT.PATINE.update(ta=0.06, ra=0.1, ec=0.25, nu_k=1.2, ec_col=(0.17, 0.175, 0.19), sans=("noir", "ecran", "chrome"))
+    MT.PATINE.update(ta=0.14, ra=0.2, ec=0.42, nu_k=1.3, ec_col=(0.13, 0.095, 0.055), sans=("noir", "ecran", "chrome"))
     sf = MT.surface
     cr = (0.012, 0.013, 0.016)
-    M["car"] = sf("d10_car", (0.5, 0.52, 0.55), rough=0.3, met=0.1, tole=(1.15, 0.72), joint=0.3, joint_l=0.012, var=0.045, usure=0.3,
-                  nu=(0.72, 0.73, 0.75), crasse=0.65, crasse_col=cr, coulures=0.18, rouille=(0.12, 0.12, 0.13), grain=0.05, relief=0.7, graine=101)
-    M["car2"] = sf("d10_car2", (0.42, 0.44, 0.47), rough=0.33, met=0.1, tole=(0.8, 0.42), joint=0.3, joint_l=0.012, var=0.05, usure=0.3,
-                   nu=(0.66, 0.67, 0.7), crasse=0.65, crasse_col=cr, coulures=0.2, rouille=(0.1, 0.1, 0.11), grain=0.05, relief=0.7, graine=102)
-    M["uni"] = sf("d10_uni", (0.52, 0.54, 0.57), rough=0.28, met=0.1, usure=0.3, nu=(0.78, 0.79, 0.8), crasse=0.6, crasse_col=cr, grain=0.04, graine=103)
-    M["blanc"] = sf("d10_blanc", (0.58, 0.59, 0.61), rough=0.25, met=0.05, usure=0.2, nu=(0.85, 0.85, 0.86), crasse=0.55, crasse_col=cr, grain=0.03, graine=104)
+    M["car"] = sf("d10_car", (0.6, 0.46, 0.24), rough=0.42, met=0.08, tole=(1.15, 0.5), joint=0.32, joint_l=0.012, var=0.09, usure=0.55,
+                  nu=(0.78, 0.7, 0.52), crasse=0.85, crasse_col=cr, coulures=0.7, rouille=(0.09, 0.065, 0.04), pied=(0.4, 1.8, 0.45), grain=0.09, relief=0.8, graine=101)
+    M["car2"] = sf("d10_car2", (0.48, 0.365, 0.185), rough=0.45, met=0.08, tole=(0.8, 0.36), joint=0.32, joint_l=0.012, var=0.1, usure=0.55,
+                   nu=(0.72, 0.64, 0.46), crasse=0.85, crasse_col=cr, coulures=0.7, rouille=(0.08, 0.06, 0.035), grain=0.1, relief=0.8, graine=102)
+    M["uni"] = sf("d10_uni", (0.5, 0.39, 0.21), rough=0.42, met=0.08, usure=0.5, nu=(0.76, 0.68, 0.5), crasse=0.8, crasse_col=cr, coulures=0.55, rouille=(0.09, 0.065, 0.04), grain=0.08, graine=103)
+    M["blanc"] = sf("d10_blanc", (0.56, 0.45, 0.27), rough=0.38, met=0.05, usure=0.45, nu=(0.8, 0.72, 0.55), crasse=0.75, crasse_col=cr, coulures=0.55, rouille=(0.09, 0.065, 0.04), grain=0.07, graine=104)
     M["noir"] = sf("d10_noir", (0.016, 0.017, 0.02), rough=0.55, met=0.3, usure=0.25, nu=(0.13, 0.135, 0.15), crasse=0.3, crasse_col=(0.004, 0.004, 0.005), graine=105)
     M["noir_p"] = sf("d10_noir_p", (0.022, 0.023, 0.027), rough=0.5, met=0.35, tole=(0.7, 0.34), joint=0.3, joint_l=0.012, var=0.15, usure=0.3,
                      nu=(0.16, 0.165, 0.18), crasse=0.3, crasse_col=(0.004, 0.004, 0.005), relief=0.7, graine=106)
     M["chrome"] = sf("d10_chrome", (0.58, 0.6, 0.63), rough=0.16, met=1.0, usure=0.0, crasse=0.3, crasse_col=cr, graine=107)
     M["acier"] = sf("d10_acier", (0.15, 0.155, 0.165), rough=0.4, met=0.85, usure=0.5, nu=(0.6, 0.61, 0.63), crasse=0.5, crasse_col=cr, graine=108)
-    M["sol"] = sf("d10_sol", (0.17, 0.175, 0.19), rough=0.5, met=0.3, tole=(0.6, 0.6), joint=0.35, joint_l=0.01, var=0.1, usure=0.35, nu=(0.32, 0.33, 0.35),
-                  crasse=0.65, crasse_col=cr, relief=0.5, grain=0.06, graine=109)
-    M["chevron"] = sf("d10_chevron", (0.46, 0.48, 0.5), rough=0.45, met=0.1, bandes=(0.22, (0.02, 0.021, 0.025), 0.5), usure=0.45, nu=(0.55, 0.55, 0.57),
-                      crasse=0.6, crasse_col=cr, grain=0.06, graine=110)
+    M["sol"] = sf("d10_sol", (0.19, 0.155, 0.1), rough=0.6, met=0.2, tole=(0.6, 0.6), joint=0.35, joint_l=0.01, var=0.14, usure=0.45, nu=(0.36, 0.31, 0.22),
+                  crasse=0.85, crasse_col=cr, relief=0.5, grain=0.14, graine=109)
+    M["joue"] = sf("d10_joue", (0.13, 0.115, 0.09), rough=0.85, met=0.1, usure=0.5, nu=(0.3, 0.27, 0.21), crasse=0.85, crasse_col=cr, grain=0.18, graine=114)
+    M["rampe"] = sf("d10_rampe", (0.21, 0.195, 0.17), rough=0.8, met=0.12, tole=(0.9, 0.4), joint=0.4, joint_l=0.009, var=0.14, usure=0.5, nu=(0.36, 0.34, 0.3),
+                    crasse=0.85, crasse_col=cr, relief=0.5, grain=0.18, graine=113)
+    M["chevron"] = sf("d10_chevron", (0.3, 0.23, 0.11), rough=0.6, met=0.1, bandes=(0.22, (0.025, 0.023, 0.024), 0.5), usure=0.55, nu=(0.42, 0.38, 0.3),
+                      crasse=0.8, crasse_col=cr, grain=0.14, graine=110)
     M["caout"] = sf("d10_caout", (0.02, 0.02, 0.022), rough=0.65, met=0.0, usure=0.2, nu=(0.07, 0.07, 0.075), crasse=0.3, graine=111)
     M["orange"] = sf("d10_orange", (0.55, 0.16, 0.02), rough=0.4, met=0.1, usure=0.3, nu=(0.7, 0.55, 0.4), crasse=0.5, crasse_col=cr, graine=112)
-    M["bleu"] = MT.lumiere(S, "d10_bleu", (0.03, 0.34, 1.0), 1.5, main=0.8)
-    M["bleu_f"] = MT.lumiere(S, "d10_bleu_f", (0.04, 0.4, 1.0), 0.9, main=0.8)
-    M["ecran"] = S.mat_emissive("d10_ecran", (0.12, 0.62, 1.0), strength=0.7, base=(0.008, 0.03, 0.06), main_scale=0.8, crust=(55.0, 0.75, 6.0))
-    M["blanc_l"] = MT.lumiere(S, "d10_blanc_l", (0.6, 0.85, 1.0), 2.6, main=0.7)
-    M["rouge"] = MT.lumiere(S, "d10_rouge", (1.0, 0.06, 0.03), 2.5, main=0.6)
+    M["bleu"] = MT.degrade(S, "d10_bleu", (0.32, 0.68, 1.0), (0.01, 0.12, 0.5), 0.72, main=0.85, crust=(14.0, 0.35, 31.0))
+    M["bleu_f"] = MT.degrade(S, "d10_bleu_f", (0.26, 0.6, 1.0), (0.008, 0.1, 0.42), 0.45, main=0.85, crust=(14.0, 0.35, 33.0), mode="uv", rayon=0.12)
+    M["ecran"] = MT.degrade(S, "d10_ecran", (0.22, 0.66, 1.0), (0.004, 0.05, 0.16), 0.75, main=0.82, base=(0.008, 0.03, 0.06), crust=(55.0, 0.75, 6.0), mode="uv", rayon=0.34)
+    M["blanc_l"] = MT.degrade(S, "d10_blanc_l", (0.7, 0.88, 1.0), (0.05, 0.25, 0.6), 1.5, main=0.8, crust=(20.0, 0.3, 35.0))
+    M["rouge"] = MT.degrade(S, "d10_rouge", (1.0, 0.2, 0.1), (0.4, 0.01, 0.005), 1.5, main=0.75, crust=(20.0, 0.3, 37.0))
     M["verre"] = MT.verre("d10_verre", col=(0.01, 0.03, 0.05), reflet=(0.25, 0.42, 0.55))
     return M
 
@@ -186,7 +189,7 @@ def build(S, lot):
         def Q(f, t, g, R=R):
             rr = (R + g) * math.cos(f)
             return (CH[0] + (R + g) * math.sin(f), CH[1] + rr * math.cos(t), CH[2] + rr * math.sin(t))
-        lot.put(M["bleu"], G.tube([Q(-1.34 + 2.68 * j / 48.0, t1, -ep * 0.5) for j in range(49)], 0.024, 6))
+        lot.put(M["bleu"], G.tube([Q(-1.34 + 2.68 * j / 48.0, t1, -ep * 0.5) for j in range(49)], 0.012, 6))
         lot.put(M["noir"], G.tube([Q(-1.34 + 2.68 * j / 48.0, t1 - 0.012, 0.015) for j in range(49)], 0.022, 6))
         for f in [-1.08 + 2.16 * k / 8.0 for k in range(9)]:
             pts = [Q(f, t0 + (t1 - t0) * j / 12.0, -ep - 0.012) for j in range(13)]
@@ -276,11 +279,11 @@ def build(S, lot):
     O.bras(lot, M["blanc"], M["noir"], M["caout"], (2.42, -1.62, ZD), (2.42, -1.62, ZD + 0.66), (2.86, -0.7, ZD + 2.08), (2.15, -1.3, zt + 0.1),
            (1.6, -1.33, zt - 0.28), r=0.2, socle=0.36, lum=None, riv=M["bleu"])
     # le bras est tient une plaque de carène du torse et la présente
-    pz = (zt - 1.28, zt - 0.86, zt - 0.42, zt - 0.06)
+    pz = (zt - 1.02, zt - 0.72, zt - 0.42, zt - 0.2)
     pl = []
     for z in pz:
         k = 0.56 + 0.09 * (z - pz[0])
-        pl.append([(1.15 + k * math.sin(a), -1.42 - k * 0.62 * math.cos(a), z) for a in [-0.95 + 1.9 * i / 12.0 for i in range(13)]])
+        pl.append([(1.15 + k * math.sin(a), -1.42 - k * 0.62 * math.cos(a), z) for a in [-0.72 + 1.44 * i / 12.0 for i in range(13)]])
     lot.put(M["car"], G.loft(pl, closed=False))
     lot.put(M["bleu"], G.tube([G.add(p, (0.0, -0.006, 0.0)) for p in pl[2]], 0.012, 5))
     lot.put(M["noir"], G.tube([(1.6, -1.33, zt - 0.28), (1.28, -1.74, zt - 0.5)], 0.05, 8))
@@ -300,7 +303,7 @@ def build(S, lot):
     rx0, rx1 = -1.42, 0.62
     y0_r, y1_r = cdy - RD + 0.25, -4.92
     q = [(rx0, y0_r, ZD + 0.01), (rx1, y0_r, ZD + 0.01), (rx1, y1_r, 0.02), (rx0, y1_r, 0.02)]
-    lot.put(M["sol"], G.loft([[q[3], q[2]], [q[0], q[1]]], closed=False))
+    lot.put(M["rampe"], G.loft([[q[3], q[2]], [q[0], q[1]]], closed=False))
     for k in range(9):                                                   # nervures antidérapantes et rails de sortie
         t = (k + 0.5) / 9.0
         a, b = G.lerp(q[0], q[3], t), G.lerp(q[1], q[2], t)
@@ -314,8 +317,7 @@ def build(S, lot):
         a, b = (x, y0_r, ZD + 0.01), (x, y1_r, 0.02)
         rg = [[(x + s * 0.0, y0_r, ZD + 0.14), (x + s * 0.22, y0_r, ZD + 0.14), (x + s * 0.26, y0_r, 0.0)],
               [(x + s * 0.0, y1_r - 0.04, 0.08), (x + s * 0.2, y1_r - 0.04, 0.08), (x + s * 0.24, y1_r - 0.04, 0.0)]]
-        lot.put(M["uni"], G.loft(rg, closed=False))
-        lot.put(M["bleu"], G.tube([(x + s * 0.11, y0_r, ZD + 0.155), (x + s * 0.11, y1_r - 0.02, 0.095)], 0.014, 5))
+        lot.put(M["joue"], G.loft(rg, closed=False))
     for (s, bx, H) in ((-1, -1.86, 1.0), (1, 1.06, 0.62)):               # balises de porte, inégales
         by = cdy - RD + 0.14
         O.profil(lot, M["uni"], (bx, by, ZD - 0.2), (0, 0, 1), [(0.0, 0.34), (0.2, 0.34), (0.4, 0.22), (1.72 * H, 0.16), (1.72 * H + 0.24, 0.12), (1.72 * H + 0.3, 0.0)], 20)
@@ -332,9 +334,10 @@ def build(S, lot):
         _pied(lot, M, cx + dx, cy + dy, cz - 0.22)
     rg = [[(cx - 0.62 + 1.24 * i / 10.0, cy + 0.51 * math.cos(t), cz + 0.51 * math.sin(t)) for i in range(11)] for t in (-1.0, -0.6, -0.2)]
     rg = [[(cx - 0.62 + 1.24 * i / 10.0, cy - 0.51 * math.cos(t), cz + 0.51 * math.sin(t)) for i in range(11)] for t in (-0.05, 0.28, 0.62)]
-    lot.put(M["ecran"], G.loft(rg, closed=False))
-    for i in (0, 3, 6, 10):
-        lot.put(M["noir"], G.tube([G.add(rg[j][i], (0, -0.008, 0.002)) for j in range(3)], 0.012, 4))
+    for i in range(3):
+        ec = (cx - 0.4 + 0.4 * i, cy - 0.5, cz + 0.17)
+        lot.put(M["noir"], O.pose_plane(G.boite((0, 0, 0.0), (0.38, 0.32, 0.02)), ec, (0.0, -0.9, 0.42)))
+        lot.put(M["ecran"], O.pose_plane(G.boite((0, 0, 0.012), (0.32, 0.26, 0.012)), ec, (0.0, -0.9, 0.42)))
     lot.put(M["blanc_l"], G.sphere((cx + 0.75, cy - 0.3, cz + 0.42), 0.026, 6, 3))
     O.faisceau(lot, M["caout"], M["noir"], (cx + 0.62, cy + 0.42, cz), (-1.86, cdy - RD + 0.42, ZD - 0.15), 0.3, 3, 0.014, 0.05, r)
     # fouet haut de la cabine

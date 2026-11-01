@@ -17,8 +17,8 @@ import compo as K  # noqa: E402
 ENT = os.path.join(K.DATA, "base", "graphics", "entity")
 ROOT = K.ROOT
 QG = ROOT + "/fo-logs/2026-10-31_QG/age08/final"
-EMPRISE = {"atelier": 3, "dock": 7, "portique": 11}
-TITRES = {"atelier": "Atelier d'automates · âge 3", "dock": "Dock de pilotage · âge 10", "portique": "Portique · âge 13"}
+EMPRISE = {"atelier": 3, "hall": 5, "dock": 7, "portique": 11}
+TITRES = {"atelier": "Atelier d'automates · âge 3", "hall": "Hall de montage · âge 7", "dock": "Dock de pilotage · âge 10", "portique": "Portique · âge 13"}
 # (fichier, (x, y, l, h) de la 1re image, shift en px du zoom 1, type) ; ordre de dessin du jeu
 VANILLA = {
     "assembleur3": ("Vanilla : assembleur 3", (3, 3), [
@@ -113,12 +113,12 @@ def main():
     ap.add_argument("--gros", default="")
     a = ap.parse_args()
     n = a.etat
-    ref = {"atelier": ["van:assembleur3", "atelier", "qg08"], "dock": ["van:assembleur3", "dock", "qg08"], "portique": ["van:silo", "portique", "qg08"]}[n]
-    haut = {"atelier": 12.0, "dock": 12.0, "portique": 18.0}[n]
+    ref = {"atelier": ["van:assembleur3", "atelier", "qg08"], "hall": ["van:assembleur3", "hall", "qg08"], "dock": ["van:assembleur3", "dock", "qg08"], "portique": ["van:silo", "portique", "qg08"]}[n]
+    haut = {"atelier": 12.0, "hall": 12.0, "dock": 12.0, "portique": 18.0}[n]
     if a.z1:
         planche(ref, a.src, a.z1, 1, haut, "%s, à l'échelle du jeu (zoom 1), à côté de vrais sprites vanilla et du QG gelé" % TITRES[n])
     if a.gros:
-        gros(n, a.src, a.gros, {"atelier": 160, "dock": 96, "portique": 64}[n])
+        gros(n, a.src, a.gros, {"atelier": 160, "hall": 112, "dock": 96, "portique": 64}[n])
 
 
 if __name__ == "__main__":

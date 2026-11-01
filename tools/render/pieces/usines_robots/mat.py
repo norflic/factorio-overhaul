@@ -261,3 +261,34 @@ def verre(name, col=(0.02, 0.045, 0.05), reflet=(0.16, 0.24, 0.26)):
 def lumiere(S, name, col, force=6.0, main=0.35):
     """Surface lumineuse (couche lueur) : voyants, hublots, fentes de foyer."""
     return S.mat_emissive(name, col, strength=force, base=tuple(c * 0.08 for c in col), main_scale=main)
+
+
+def degrade(S, name, coeur, bord, force, main=0.85, base=None, crust=(8.0, 0.4, 3.0), mode="face", rayon=0.2):
+    """Surface lumineuse À DÉGRADÉ (critique du 1/11 : « aucune surface émissive sans dégradé ») : cœur clair, bord sombre.
+    mode « face » : selon l'incidence (tubes, sphères : clair au milieu, sombre aux bords) ; « uv » : selon la distance au centre
+    des UV d'une boîte de geo.boite (écrans, fentes), rayon en unités ; « hauteur » : uv.x de 0 au pied (sombre) à 1 en pointe (clair)."""
+    m = S.mat_emissive(name, coeur, strength=force, base=base or tuple(c * 0.08 for c in bord), main_scale=main, crust=crust)
+    nt = m.node_tree
+    N, L = nt.nodes, nt.links
+    k = next(n for n in N if n.name == "fo_emit_strength")
+    if mode == "face":
+        lw = N.new("ShaderNodeLayerWeight")
+        lw.inputs["Blend"].default_value = 0.5
+        t = lw.outputs["Facing"]
+    else:
+        tc = N.new("ShaderNodeTexCoord")
+        if mode == "uv":
+            ln = N.new("ShaderNodeVectorMath")
+            ln.operation = "LENGTH"
+            L.new(tc.outputs["UV"], ln.inputs[0])
+            t = _range(N, L, ln.outputs["Value"], 0.0, float(rayon))
+        else:
+            sp = N.new("ShaderNodeSeparateXYZ")
+            L.new(tc.outputs["UV"], sp.inputs["Vector"])
+            t = _range(N, L, sp.outputs["X"], 1.0, 0.0)
+    g = _range(N, L, t, 0.0, 1.0, 1.0, 0.1, True)
+    prev = k.inputs[0].links[0].from_socket
+    L.new(_math(N, L, "MULTIPLY", prev, g), k.inputs[0])
+    p = N["Principled BSDF"]
+    L.new(_mix(N, L, t, tuple(coeur), tuple(bord)), p.inputs["Emission Color"])
+    return m
