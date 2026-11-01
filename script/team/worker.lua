@@ -18,6 +18,7 @@ local Render = require("script.companion.render")
 local Brain = require("script.companion.brain")
 local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
+local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
@@ -1347,6 +1348,24 @@ FSM.define(MACHINE, {
           if f then Build.note_walk(f, "stuck") end
         end
         local reason = agent.nav_fail or "no_path"
+        -- Lot C4 PLATEAU 3 : tournée, agrandissement ou fortification dont le chemin échoue alors que le PNJ est déjà dans l'avant-poste :
+        -- l'acte n'a besoin d'aucune distance (shared/team/arrivee.lua), la tâche continue au lieu d'être abandonnée
+        local nst = agent.steps and agent.steps[agent.pc]
+        if f and nst and nst[1] == "goto" and agent.task and Ar.KINDS[agent.task.kind] and agent.entity.valid then
+          local o = f.outposts[agent.task.outpost]
+          local ep = agent.entity.position
+          if o and Ar.arrived(agent.task.kind, Outposts.nearest_d2(o, ep.x, ep.y)) then
+            f.stats.nav_arrived = (f.stats.nav_arrived or 0) + 1
+            if f.stats.nav_arrived <= 12 then
+              log(string.format("[FO-NAV-ARRIVE] %s : %s, chemin refuse (%s) mais le PNJ est a %d tuile(s) d'un batiment de l'avant-poste %s : la tache continue (n. %d) a %.1f min",
+                f.key, tostring(agent.task.key), reason, math.floor(math.sqrt(Outposts.nearest_d2(o, ep.x, ep.y)) + 0.5), tostring(o.kind), f.stats.nav_arrived, tick / 3600))
+            end
+            agent.walk_retries = 0
+            agent.pc = agent.pc + 1
+            set(agent, "step", tick)
+            return
+          end
+        end
         local H = Worker.hook -- lot IA3-k : un point de passage injoignable ne fait pas échouer la tâche
         if H and H.nav_failed(agent, tick) then set(agent, "step", tick) return end
         agent.walk_retries = (agent.walk_retries or 0) + 1
@@ -1385,6 +1404,22 @@ FSM.define(MACHINE, {
           local p = agent.entity.position
           log(string.format("[FO-TEAM] %s : ouvrier %d, chemin introuvable (%s) depuis (%d,%d) pour %s",
             f.key, agent.id, reason, math.floor(p.x), math.floor(p.y), agent.task and agent.task.key or "?"))
+        end
+        -- Lot C4 PLATEAU 3 (diagnostic) : pourquoi une tournée d'avant-poste ne trouve pas son chemin (6 lignes au plus par équipe)
+        if f and agent.task and (agent.task.kind == "service" or agent.task.kind == "extend") and agent.goal and agent.entity.valid
+          and (f.stats.nav_diag or 0) < 6 then
+          f.stats.nav_diag = (f.stats.nav_diag or 0) + 1
+          local sf, g, p = agent.entity.surface, agent.goal, agent.entity.position
+          local o = f.outposts[agent.task.outpost]
+          local near, parts = {}, {}
+          for _, e in ipairs(sf.find_entities_filtered({ position = g, radius = 8 })) do near[e.type] = (near[e.type] or 0) + 1 end
+          for _, k in ipairs(State.sorted_keys(near)) do parts[#parts + 1] = k .. "=" .. near[k] end
+          local free = sf.find_non_colliding_position("character", g, 6, 0.5)
+          local gw = sf.count_tiles_filtered({ position = g, radius = 8, collision_mask = "water-tile" })
+          log(string.format("[FO-NAV-SERVICE] %s : %s, PNJ en (%d,%d), but (%d,%d) a %d tuiles, avant-poste %s en (%d,%d) acces %s, place libre a 6 tuiles du but : %s, eau %d tuile(s), entites a 8 tuiles : %s a %.1f min",
+            f.key, tostring(agent.task.key), p.x, p.y, g.x, g.y, math.floor(math.sqrt((p.x - g.x) ^ 2 + (p.y - g.y) ^ 2)),
+            o and o.kind or "?", o and o.pos.x or 0, o and o.pos.y or 0, (o and o.access) and "pose" or "defaut",
+            free and string.format("oui (%d,%d)", free.x, free.y) or "NON", gw, table.concat(parts, " "), tick / 3600))
         end
         abort(agent, f, tick, "chemin")
       end,

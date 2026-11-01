@@ -20,6 +20,7 @@ local R = require("shared.ai3.reglages") -- lot TOURELLES : rôles des types du 
 local Pose = require("shared.team.pose_tourelles") -- lot TOURELLES : quels emplacements prendre (règle pure)
 local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : une tourelle ne se pose pas sur une tuile réservée (règle pure)
 local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règle pure)
+local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un four à la pile (règle pure)
 local Chaine = require("shared.team.chaine_main") -- lot BRIQUES : partage des fours (C.releases, règle pure)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
@@ -783,6 +784,14 @@ local function contents_of(e)
   if e.type == "furnace" then inv = e.get_output_inventory()
   elseif e.type == "container" then inv = e.get_inventory(defines.inventory.chest) end
   return inv and inv.get_contents() or {}
+end
+
+--- Lot C4 PLATEAU 3 : distance carrée du point (x, y) au bâtiment (foreuse, four, coffre) le plus proche de l'avant-poste ; nil si aucun.
+function Outposts.nearest_d2(o, x, y)
+  local pts = {}
+  for _, e in ipairs(valid_list(o.sinks)) do pts[#pts + 1] = e.position end
+  for _, e in ipairs(valid_list(o.drill_list)) do pts[#pts + 1] = e.position end
+  return Ar.nearest_d2(pts, x, y)
 end
 
 --- État d'un avant-poste : brûleur à court de charbon, production en attente, tourelles.
