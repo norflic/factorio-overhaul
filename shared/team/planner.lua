@@ -355,7 +355,10 @@ function P.plan(view, book)
   -- Lot S1 : QG EN PÉRIL (shared/team/survie_qg.lua, view.qg_peril = résultat de Sq.peril) : planchers de fer et de cuivre de la défense
   -- réduits, tourelles voulues au QG = celles qui couvrent la menace mémorisée.
   local qp = view.qg_peril
-  local in_peril = (qp and qp.peril) and true or false
+  local peril_seen = (qp and qp.peril) and true or false
+  -- La défense d'abord n'a de sens que si une tourelle peut être posée (au stock ou fabricable) : sans recette (0.6.32, votre équipe : 34 min de péril
+  -- sans « gun-turret » recherchée), le péril ne prend pas le pas sur la production. Le remplissage des tourelles posées n'a pas besoin de recette.
+  local in_peril = peril_seen and turret_ok
   local fl_i, fl_c = Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)
   if df and view.base_alert then
     local cu_key = T.outposts.copper.product
@@ -623,7 +626,7 @@ function P.plan(view, book)
   local ammo = T.turret_ammo
   -- Lot S1 : en péril, le groupe du QG est servi AVANT les autres (la commande de chargeurs d'un avant-poste réservait le stock, le QG n'en avait plus).
   local groups = view.turret_groups
-  if in_peril then
+  if peril_seen then
     groups = {}
     for _, g in ipairs(view.turret_groups) do if g.key == "hq" then groups[#groups + 1] = g end end
     for _, g in ipairs(view.turret_groups) do if g.key ~= "hq" then groups[#groups + 1] = g end end
@@ -633,7 +636,7 @@ function P.plan(view, book)
       local n = g.low * T.turret_ammo_target
       -- Lot S1 : au QG en péril, un stock de chargeurs incomplet remplit quand même les tourelles vides (tout ou rien avant : 160 chargeurs
       -- pour 8 tourelles, jamais atteints avec 0 fer, et les tourelles restaient vides).
-      local part = (g.key == "hq" and in_peril) and Sq.refill_take(g.low, T.turret_ammo_target, avail[ammo] or 0, true) or 0
+      local part = (g.key == "hq" and peril_seen) and Sq.refill_take(g.low, T.turret_ammo_target, avail[ammo] or 0, true) or 0
       if (avail[ammo] or 0) >= n or (avail["firearm-magazine"] or 0) >= n or part > 0 then
         add({ key = "refill:" .. g.key, kind = "refill", prio = 90, group = g.key })
         local use = (avail[ammo] or 0) >= n and ammo or "firearm-magazine"
