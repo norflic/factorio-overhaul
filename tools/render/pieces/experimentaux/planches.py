@@ -35,7 +35,7 @@ def z1(src, nom, dest):
     sc = SC.Scene(W_t, H_t, ppt, seed=11)
     sol_y = gy
     ents = [{"pos": (9, sol_y), "layers": SC.vanilla("silo", ppt)}, {"pos": (23, sol_y + 1), "layers": SC.behemoth(ppt)}, {"pos": (37, sol_y), "layers": SC.qg(ppt)}]
-    img = sc.rendu(ents, [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom]}])
+    img = sc.rendu(ents, [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom], "mult": {"glow_soleil": 0.7}}])
     im = SC.to_im(img)
     d = ImageDraw.Draw(im)
     f = SC.police(22)
@@ -56,7 +56,7 @@ def gros(src, nom, dest):
     else:
         W_t, H_t, gx, gy = 50, 62, 25, 53
     sc = SC.Scene(W_t, H_t, ppt, seed=12)
-    img = sc.rendu([], [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom]}])
+    img = sc.rendu([], [{"pos": (gx, gy), "layers": couches(src, nom, ppt), "ordre": ORDRE[nom], "mult": {"glow_soleil": 0.7}}])
     im = SC.to_im(img)
     ImageDraw.Draw(im).text((14, 10), TITRES[nom] + " · gros plan, 40 px/tuile (rendu du corps)", fill=(255, 225, 150), font=SC.police(30))
     im.save(os.path.join(dest, "%s-gros.png" % nom), optimize=True)

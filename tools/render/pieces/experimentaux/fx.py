@@ -101,13 +101,15 @@ def panache(wp, hp, seed, pal):
     n2 = SC.fbm(hp, wp, seed + 9, cell=max(3.0, wp / 7.0), oct=4, persist=0.6)
     v = np.linspace(0.0, 1.0, hp, dtype=np.float32)[:, None]    # 0 en haut, 1 au pied
     u = np.linspace(-1.0, 1.0, wp, dtype=np.float32)[None, :]
-    largeur = 0.18 + 0.55 * v ** 0.8
+    largeur = 0.16 + 0.52 * np.sin(np.clip(v, 0, 1) * 2.6) ** 0.9
     # ondulation latérale : le panache se tord en montant
     dec = (n1 - 0.5) * 0.55 * (1.1 - v)
     d = np.abs(u + dec) / largeur
     prof = np.clip(1.0 - d ** 1.7, 0, 1)
     corps = prof * (0.45 + 0.75 * n2) * np.clip(v * 1.5 + 0.15 * n1, 0, 1) ** 0.9
     corps = np.clip(corps * (0.85 + 0.65 * v), 0, 1)
+    # pied et bords fondus : jamais de rectangle visible, même une fois tourné
+    corps = corps * np.clip((1.0 - v) * 9.0, 0, 1) * np.clip((1.0 - np.abs(u)) * 5.0, 0, 1) * np.clip(v * 6.0, 0, 1)
     rgb = rampe(corps, pal)
     _PAN[cle] = rgb
     return rgb

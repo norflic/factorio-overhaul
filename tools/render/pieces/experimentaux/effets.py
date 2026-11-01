@@ -105,7 +105,7 @@ def effet_ixion(src, dest):
     D = math.radians(15.0)
     V = 46.0                    # tuiles par unité de temps
     rs = X.Reseau(1313)
-    rs.trace((gx + 1.5, gy + 0.2), D, 92.0, 0.0, 2.0, wob=0.42, pas=1.1, branches=0.075)
+    rs.trace((gx + 1.5, gy + 0.2), D, 92.0, 0.0, 1.5, wob=0.3, pas=0.7, branches=0.075)
     A = rs.rasterise(W_t, H_t, PPT) / V
     masque = (A < 1e6).astype(np.float32)
     A2 = np.where(A < 1e6, A, 0.0)
@@ -132,14 +132,18 @@ def effet_ixion(src, dest):
     ents0 = materialise(L)
     FLAMMES = [(p[1] * 1.0, p) for p in []]
     pts_geysers = []
+    cases = set()
     rr = np.random.RandomState(77)
     for (x0, y0, x1, y1, w, s) in rs.seg:
-        if s > 12.0 and rr.rand() < 0.07 + 0.2 * min(1.0, w):
+        # un geyser au plus par case de 7 × 4 tuiles : l'additif sature vite en aplat blanc
+        case = (int(x0 / 7.0), int(y0 / 4.0))
+        if s > 14.0 and case not in cases and rr.rand() < 0.5:
+            cases.add(case)
             pts_geysers.append((x0, y0, s / V, w, int(rr.randint(1, 5)), rr.uniform(0.7, 1.3)))
     # ======= le temps
     T = [-2.0, -0.6, 0.12, 0.65, 1.3, 2.0, 3.1, 6.0]
     plasma_k = [1.0, 1.7, 2.3, 2.0, 1.8, 1.7, 1.2, 0.55]
-    soleil_k = [1.0, 1.7, 2.2, 1.6, 1.4, 1.2, 0.9, 0.5]
+    soleil_k = [0.7, 1.2, 1.6, 1.2, 1.0, 0.9, 0.7, 0.4]
     charge = [0.0, 0.7, 1.0, 0.85, 0.75, 0.65, 0.3, 0.0]
     legendes = ["1 · Roue au repos", "2 · Elle prend feu : arcs du soleil captif vers la jante", "3 · Elle mord le sol : le front part", "4 · 30 tuiles en 0,4 s, la ligne de tourelles saute",
                 "5 · Les geysers sortent derrière le front", "6 · 90 tuiles, toute la fissure crache", "7 · Les geysers retombent, les ruines brûlent", "8 · Cicatrice : on voit où elle a frappé"]
@@ -212,7 +216,7 @@ def effet_ixion(src, dest):
                 hp = int(round(h * PPT / 32)) * 32
                 hp = max(32, hp)
                 sp = X.panache(max(16, int(hp * 0.3)), hp, sd, X.PAL_PLASMA if a < 1.3 else X.PAL_FEU)
-                X.pose_add(img, sp, x0 * PPT, (y0 + 0.2) * PPT, 0.42 + 0.3 * math.exp(-a / 1.3))
+                X.pose_add(img, sp, x0 * PPT, (y0 + 0.2) * PPT, 0.34 + 0.24 * math.exp(-a / 1.3))
             for (x0, y0, a, d) in sorted(expl, key=lambda q: q[1]):
                 # vraie explosion vanilla au passage, puis feu
                 i = int(a * 42)
@@ -246,14 +250,14 @@ def effet_ixion(src, dest):
                     if hp < 40:
                         continue
                     hp = hp // 16 * 16
-                    wp = int(hp * 0.72)
+                    wp = int(hp * 0.5)
                     ang = int(round((math.degrees(th) - 90.0) / 15.0)) % 24
                     fl = panache_tourne(wp, hp, (int(th * 7) % 3) + 41, ang)
                     # décalage : la flamme part de la dent vers l'extérieur (axe écran : rayon projeté)
                     dx, dy = math.cos(th) * math.cos(PSI), -math.sin(th) * COS - math.cos(th) * math.sin(PSI) * COS
                     n = math.hypot(dx, dy) or 1.0
-                    cxp = sx + dx / n * hp * 0.4
-                    cyp = sy + dy / n * hp * 0.4
+                    cxp = sx + dx / n * hp * 0.3
+                    cyp = sy + dy / n * hp * 0.3
                     pose_add_centre(img, fl, cxp, cyp, 0.62 * (0.5 + 0.5 * cont))
             # arcs du soleil vers la jante
             if cont > 0.2:
