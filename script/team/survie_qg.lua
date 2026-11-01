@@ -16,6 +16,7 @@ local Prev = require("script.ai3.prevision")
 local Pv = require("shared.ai3.prevision")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
+local T = require("shared.team.config")
 
 local SurvieQg = {}
 
@@ -60,6 +61,63 @@ function SurvieQg.update(f, tick)
     s.last_log = tick
   end
   s.was = r.peril
+  return r
+end
+
+---------------------------------------------------------------------------------------------------
+-- Protéger avant d'agrandir ou de refaire (avant-postes touchés par des vagues), réserve de chargeurs sur la menace
+---------------------------------------------------------------------------------------------------
+--- PV reçus dans la fenêtre au site de l'avant-poste `oid` (clé « ap<oid> » de la prévision), 0 sans fait.
+function SurvieQg.hit(f, oid, tick)
+  local st = f.prevision
+  if not (st and st.cal) then return 0 end
+  return Pv.mem_floor(st.cal, "ap" .. tostring(oid), tick)
+end
+
+--- L'avant-poste doit-il être protégé d'abord ? (vagues reçues et tourelles manquantes ; `turrets` : tourelles posées, `wanted` : voulues.)
+function SurvieQg.protect(f, oid, tick, turrets, wanted)
+  return Sq.protect_first({ hit = SurvieQg.hit(f, oid, tick), turrets = turrets, wanted = wanted })
+end
+
+--- Comme SurvieQg.protect, et note le résultat dans f.team.s1.prot (tick du dernier constat, nombres seulement) : la reconstruction le lit sans
+--- dépendre de ce module (script.ai3.prevision -> comportement -> ... : pas de cycle de require).
+function SurvieQg.mark_protect(f, oid, tick, turrets, wanted)
+  local s = state(f)
+  s.prot = s.prot or {}
+  local p = SurvieQg.protect(f, oid, tick, turrets, wanted)
+  s.prot[oid] = p and tick or nil
+  return p
+end
+
+--- Une tourelle est-elle posable (au stock ou fabricable) selon le dernier plan ? Les attentes de protection ne valent que si oui : sans
+--- recette, attendre des tourelles gèlerait la production pour rien.
+function SurvieQg.can_protect(f)
+  return f.team ~= nil and f.team.s1 ~= nil and f.team.s1.turret_ok == true
+end
+
+--- Écrit, après le plan de la pensée, si une tourelle est posable (`plan.turret_ok`, planificateur).
+function SurvieQg.note_plan(f, plan)
+  if not (f and f.team and plan) then return end
+  state(f).turret_ok = plan.turret_ok == true
+end
+
+--- Réserve de chargeurs voulue au coffre (Sq.ammo_reserve) : menace = la plus grosse vague reçue n'importe où en 30 min, tourelles = celles
+--- de l'équipe. 0 sans fait. Lue par le cerveau (ctx.ammo_reserve -> shared/ai3/buts.lua).
+function SurvieQg.ammo_reserve(f, tick)
+  local st = f.prevision
+  if not (st and st.cal and Prev.enabled()) then return 0 end
+  local turrets = 0
+  for _, id in ipairs(State.sorted_keys(f.turrets or {})) do
+    local t = f.turrets[id]
+    if t.valid then turrets = turrets + 1 end
+  end
+  local r = Sq.ammo_reserve({ threat = Sq.threat_any(Pv.threat_waves(st.cal, "qg"), tick), turrets = turrets, per_turret = T.turret_ammo_target })
+  local s = state(f)
+  if r > 0 and s.reserve_said ~= r then
+    log(string.format("[FO-SURVIE] %s : reserve de chargeurs au coffre voulue a %.1f min : %d (menace recue %d PV en 30 min, %d tourelle(s) de l'equipe, %d chargeurs par tourelle au plus)",
+      tostring(f.key or "?"), tick / 3600, r, Sq.threat_any(Pv.threat_waves(st.cal, "qg"), tick), turrets, T.turret_ammo_target))
+  end
+  s.reserve_said = r
   return r
 end
 

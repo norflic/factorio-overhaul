@@ -77,7 +77,7 @@ end
 function Rs.core(inp)
   inp = inp or {}
   local acc = {}
-  local parts = { defense = 0, rebuild = 0, planned = 0, recruit = 0 }
+  local parts = { defense = 0, rebuild = 0, planned = 0, recruit = 0, research = 0 }
   local function count(list) local s = 0 for _, it in ipairs(list or {}) do s = s + (it[2] or 0) end return s end
   -- consommation déjà décidée du planificateur
   local planned = {}
@@ -106,6 +106,9 @@ function Rs.core(inp)
   parts.rebuild = parts.rebuild + count(inp.plan_wants)
   add(acc, inp.recruit)
   parts.recruit = count(inp.recruit)
+  -- Lot S1 : packs de la recherche qui débloque la tourelle (sans elle, la défense ne se bâtit pas)
+  add(acc, inp.research)
+  parts.research = count(inp.research)
   local list = {}
   for _, k in ipairs(sorted_keys(acc)) do list[#list + 1] = { k, acc[k] } end
   return list, parts
@@ -169,8 +172,9 @@ function Rs.describe(st)
   local p = st.parts or {}
   local miss = {}
   for _, k in ipairs(sorted_keys(st.missing)) do miss[#miss + 1] = k .. " " .. math.ceil(st.missing[k] - 1e-9) end
-  return string.format("besoin %s : prevu %d, defense %d, reconstruction %d, recrues %d (objets, marge %d %%)%s",
-    st.covered and "COUVERT" or "NON couvert", p.planned or 0, p.defense or 0, p.rebuild or 0, p.recruit or 0, Rs.MARGIN_PCT,
+  return string.format("besoin %s : prevu %d, defense %d, reconstruction %d, recrues %d%s (objets, marge %d %%)%s",
+    st.covered and "COUVERT" or "NON couvert", p.planned or 0, p.defense or 0, p.rebuild or 0, p.recruit or 0,
+    (p.research or 0) > 0 and string.format(", recherche de la tourelle %d", p.research) or "", Rs.MARGIN_PCT,
     #miss > 0 and (" ; manque " .. table.concat(miss, ", ")) or "")
 end
 

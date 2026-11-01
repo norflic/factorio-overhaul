@@ -353,13 +353,18 @@ function B.generate(s, st)
   -- Amorçage d'abord : fer et charbon en route avant la réserve et l'armée de départ (l'ordre de l'ancienne échelle :
   -- charbon, fer, … puis « defense » et « army » ; moteur simulé de pvp_test, essai 3 de ce lot : 240 fers de chargeurs
   -- dès la 1re minute, fer à 35 à 5 min, armée à 0), sauf menace ou guerre.
-  local boot = ((s.cap[key.top] or 0) >= 0.75 and (s.cap[key.fuel] or 0) >= 0.75) or s.at_war
+  -- Lot S1 : des vagues ont été REÇUES (s.ammo_reserve, shared/team/survie_qg.lua : menace / valeur d'un chargeur, au plus la charge des tourelles de
+  -- l'équipe) : la réserve monte à cette valeur et sa part jusqu'à elle reste payée même quand la production passe d'abord (0.6.32 : Écarlate,
+  -- 59 chargeurs pour 7 tourelles quand la vague de 1 740 PV est arrivée, fer à 0 depuis 40 min).
+  local reserve = s.ammo_reserve or 0
+  local boot = ((s.cap[key.top] or 0) >= 0.75 and (s.cap[key.fuel] or 0) >= 0.75) or s.at_war or reserve > 0
   local ammo = T.turret_ammo
-  if boot and (s.stock[ammo] or 0) < B.AMMO_STOCK then
+  local ammo_target = math.max(B.AMMO_STOCK, reserve)
+  if boot and (s.stock[ammo] or 0) < ammo_target then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,
-      n = B.AMMO_STOCK - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense), permanent = true,
+      n = ammo_target - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense), permanent = true,
       -- lot INTEG-ECONOMIE (D1) : sous B.AMMO_MIN, la part jusqu'au minimum reste payée même quand la production passe d'abord
-      minimal_n = math.max(0, B.AMMO_MIN - (s.stock[ammo] or 0)) }
+      minimal_n = math.max(0, math.max(B.AMMO_MIN, reserve) - (s.stock[ammo] or 0)) }
   end
   -- Recherche (factions) : la technologie choisie par le runtime. ÉCONOMIE D'ABORD (revue B3 : IA2-a, 3e essai, une
   -- faction qui payait sa recherche avant son fer II s'est effondrée ; moteur simulé de pvp_test, essai 3 de ce lot :
@@ -377,11 +382,11 @@ function B.generate(s, st)
     local cheap = r.iron_cost ~= nil and r.iron_cost <= B.RESEARCH_CHEAP
     -- Lot IA3-e : une recherche qui débloque un objet que l'automatisation attend (r.for_auto : poteau moyen d'une
     -- fonderie électrique) n'est pas plafonnée : elle libère des bras (le plancher de fer des packs reste).
-    if not s.economy_done and v > B.RESEARCH_PRE and not cheap and not r.for_auto then v = B.RESEARCH_PRE end
+    if not s.economy_done and v > B.RESEARCH_PRE and not cheap and not r.for_auto and not r.for_defense then v = B.RESEARCH_PRE end
     -- Lot IA-G : une recherche PEU CHÈRE (même règle) est un travail COURT : elle est servie avant les familles
     -- permanentes (armée, réserve) ; voir P.update (le plus court d'abord).
     goals[#goals + 1] = { key = "recherche", family = "recherche", kind = "research", tech = r.tech, value = v,
-      short = cheap or nil }
+      short = (cheap or r.for_defense) or nil } -- lot S1 : la recherche de la tourelle est servie d'abord, sans plancher de fer (EMIT.research)
   end
   -- Armée (factions).
   -- Une faction EN GUERRE (déclarée au joueur, ou posture guerrière du chef) s'arme d'abord : valeur × B.ARMY_WAR_PCT.

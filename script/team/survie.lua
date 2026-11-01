@@ -171,7 +171,7 @@ function Survie.think(f, view, plan, tick)
   local ops, lethal = {}, {}
   for _, o in ipairs(view.outposts or {}) do
     ops[#ops + 1] = { id = o.id, kind = o.kind, drills = o.drills, full = o.full, d2 = o.d2, max = T.max_drills(o.kind) }
-    if o.lethal then lethal[o.id] = true end
+    if o.lethal or (o.protect and f.team.s1 and f.team.s1.turret_ok == true) then lethal[o.id] = true end -- lot S1 : un site touché sans ses tourelles ne s'agrandit pas
   end
   for _, e in ipairs(Sv.extends({ short = short, kind_of = KIND_OF, outposts = ops, lethal = lethal, affordable = aff })) do
     tasks[#tasks + 1] = { key = "extend:" .. e.id, kind = "extend", prio = Sv.PRIO, outpost = e.id, outpost_kind = e.kind,

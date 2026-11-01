@@ -112,6 +112,8 @@ return {
     ctx.check(#b2 >= 24, "la vague 2 est nee (au moins 24 petits biters)", #b2)
     if opts.expect then
       ctx.check(st.noted == true, "la vague de 1500 PV est entree dans la memoire de l'equipe", tostring(st.noted))
+      local reserve = pv and pv.s1 and pv.s1.reserve_said or 0
+      ctx.check(reserve >= 30, "la reserve de chargeurs voulue d'apres la vague recue est montee (>= 30 pour 1500 PV)", reserve)
       ctx.check(entered_before >= 1, "le QG est entre en peril avant la vague 2 (s1.entries)", entered_before)
       ctx.check((st.ammo_before or 0) >= 20, "les tourelles du QG ont ete remplies avec le stock incomplet avant la vague 2", st.ammo_before)
       ctx.check(tur >= 3, "au moins 3 des 4 tourelles tiennent la vague 2", tur)

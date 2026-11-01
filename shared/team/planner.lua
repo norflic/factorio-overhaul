@@ -356,9 +356,20 @@ function P.plan(view, book)
   -- réduits, tourelles voulues au QG = celles qui couvrent la menace mémorisée.
   local qp = view.qg_peril
   local peril_seen = (qp and qp.peril) and true or false
+  -- Lot S1 : AVANT-POSTES touchés par des vagues et sans leurs tourelles (view.outposts[i].protect) : on les protège avant de les agrandir ou
+  -- de les refaire (le DC : « réparer + protéger puis améliorer » ; « les ressources d'abord » : protéger le fer, c'est le garder). Le péril
+  -- met la production derrière la défense (Pr.decide) : `block` ci-dessous exclut alors tout avant-poste sans tourelles de l'agrandissement.
+  local protect_any = false
+  if df and turret_ok then
+    for _, o in ipairs(view.outposts or {}) do
+      if o.protect and (o.turrets or 0) < T.defend_turrets(o.drills) then protect_any = true end
+    end
+  end
+  out.turret_ok = turret_ok -- lot S1 : lu par script/team/survie_qg.lua (reconstruction et agrandissement de survie attendent les tourelles)
   -- La défense d'abord n'a de sens que si une tourelle peut être posée (au stock ou fabricable) : sans recette (0.6.32, votre équipe : 34 min de péril
   -- sans « gun-turret » recherchée), le péril ne prend pas le pas sur la production. Le remplissage des tourelles posées n'a pas besoin de recette.
-  local in_peril = peril_seen and turret_ok
+  local qg_peril = peril_seen and turret_ok
+  local in_peril = qg_peril or protect_any
   local fl_i, fl_c = Sq.floors(in_peril, T.defend_iron_floor, T.defend_copper_floor)
   if df and view.base_alert then
     local cu_key = T.outposts.copper.product
@@ -370,7 +381,7 @@ function P.plan(view, book)
   end
   out.defchoix = dc
   if df then
-    posts[1] = { id = "hq", want = in_peril and math.max(dc.want, qp.want or 0) or dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
+    posts[1] = { id = "hq", want = qg_peril and math.max(dc.want, qp.want or 0) or dc.want, have = view.hq_turrets or 0, busy = view.hq_fortify }
     for _, o in ipairs(view.outposts) do
       if lacking[o.id] then
         local ospec = T.outposts[o.kind]
@@ -713,7 +724,7 @@ function P.plan(view, book)
               -- (lot INTEG-DEFENSE 3.4 : le QG et la centrale ont la même commande partielle, aux planchers ordinaires ;
               -- D3 : le plancher réduit du front garde au moins le fer du prochain pas de production, pri.production_cost)
               local fi, fc, reduced = T.defend_iron_floor, T.defend_copper_floor, false
-              if p.id == "hq" and in_peril then fi, fc, reduced = fl_i, fl_c, true end -- lot S1 : le QG en péril
+              if p.id == "hq" and (qg_peril or protect_any) then fi, fc, reduced = fl_i, fl_c, true end -- lot S1 : le QG en péril
               if p.id == "front" then
                 fi, fc, reduced = Fr.floors(p.score, iron_producing, T.defend_iron_floor, T.defend_copper_floor, pri.production_cost)
               end

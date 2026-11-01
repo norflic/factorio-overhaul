@@ -495,6 +495,9 @@ function Team.view(f, tick)
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
       lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,
+      -- Lot S1 : des vagues ont touché cet avant-poste (mémoire de la prévision) et il lui manque des tourelles : à protéger avant d'être agrandi
+      -- ou refait (shared/team/survie_qg.lua, Sq.protect_first ; lu par le planificateur si une tourelle est posable).
+      protect = SurvieQg.mark_protect(f, oid, tick, st.turrets, T.defend_turrets(o.drills)) or nil,
       -- R-QCM-25c (c) : distance au QG au carré (tuiles entières ; transport de fond sans tourelle : avant-postes proches).
       d2 = math.floor((o.pos.x - f.hq_pos.x) ^ 2 + (o.pos.y - f.hq_pos.y) ^ 2),
     }
@@ -750,6 +753,7 @@ function Team.think(f, surface, tick)
 
   Profiler.start("team:board")
   Board.sync(f, plan.tasks, tick, plan, view, book_for(f)) -- lot IA3-b : manque de plaques (réglage allumé)
+  SurvieQg.note_plan(f, plan) -- lot S1 : une tourelle est-elle posable ? (les attentes de protection ne valent que si oui)
   Survie.think(f, view, plan, tick) -- lot SURVIE-PENURIE : entrée / sortie du mode survie et ses tâches (minage à la main, fours, foreuses)
   Profiler.stop("team:board")
 

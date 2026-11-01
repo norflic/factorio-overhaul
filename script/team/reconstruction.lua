@@ -392,8 +392,13 @@ function Recon.think(f, surface, tick)
     -- Lot REBUILD-AVANT-POSTE : une pièce d'avant-poste de ressource attend aussi que nids et vers ne soient plus à portée (le champ est
     -- loin du QG, le PNJ y mourrait), et attend plus longtemps (priorité des ressources : on n'abandonne pas le champ au bout de 3 min).
     local foe = seed.kind and surface.find_nearest_enemy({ position = { x = seed.x, y = seed.y }, max_distance = Recon.SAFE_RADIUS, force = f.force })
-    if #near > 0 or (foe and foe.valid) then
-      Rc.defer(s, seed.key, tick + Recon.RETRY, tick, seed.kind and Ru.MAX_DEFERS or nil)
+    -- Lot S1 : un avant-poste que des vagues touchent et qui n'a pas ses tourelles (f.team.s1.prot, noté par Team.view) n'est pas refait à perte : la
+    -- pièce attend ses tourelles (mêmes reports bornés, Ru.MAX_DEFERS), si une tourelle est posable.
+    local s1 = f.team and f.team.s1
+    local protect_wait = seed.kind and s1 and s1.turret_ok == true and s1.prot and s1.prot[seed.oid] ~= nil and tick - s1.prot[seed.oid] <= 1800
+    if protect_wait or #near > 0 or (foe and foe.valid) then
+      -- (attendre ses tourelles ne compte pas pour l'abandon : la mémoire des vagues s'éteint seule après 30 min)
+      Rc.defer(s, seed.key, tick + Recon.RETRY, tick, protect_wait and math.huge or (seed.kind and Ru.MAX_DEFERS or nil))
       stat(s, "deferred")
     else
       -- Le lot : les pièces voisines dont l'objet est au stock (compté pièce par pièce).

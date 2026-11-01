@@ -53,6 +53,7 @@ local Bilan = require("script.ai3.bilan") -- lot BILAN : production moins consom
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du runtime de la pile (pièces détruites, projet rouvert)
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
+local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 
 local Ia3 = {}
@@ -509,6 +510,18 @@ local function research_step(f, st, book, w, tick, view)
     info.tech = "?"
     return info
   end
+  -- Lot S1 : la recherche qui débloque la TOURELLE tant que l'équipe ne peut pas en fabriquer passe avant le reste (pas de plafond d'économie, ni de
+  -- plancher de fer pour ses packs) : 0.6.32, votre équipe sans « gun-turret » pendant 120 min, 52 PNJ tués au QG, recherche commencée à 8,9 min et
+  -- jamais finie (fer 6, plancher de recrues 150).
+  do
+    local rec = force.recipes[T.turret]
+    local tp = game.technology_prototypes[tech]
+    if rec and not rec.enabled and tp then
+      for _, e in ipairs(tp.effects or {}) do
+        if e.type == "unlock-recipe" and e.recipe == T.turret then info.for_defense = true end
+      end
+    end
+  end
   local spec = c.techs[tech]
   st.lab = st.lab or {}
   local lab = st.lab
@@ -799,6 +812,7 @@ function Ia3.plan(f, view, book, surface, tick)
     expansion = expansion, dominant = dominant, desired = Ex.desired(f.tech, f.traits and f.traits.ambition or 1000),
     reach = reach, known = known, harvest = harvest, mines_open = mines_open, iron_floor = iron_floor, floor_item = floor_item,
     army_target = army_target,
+    ammo_reserve = SurvieQg.ammo_reserve(f, tick), -- lot S1 : chargeurs voulus au coffre d'après la plus grosse vague reçue (0 : réserve ordinaire)
     at_war = at_war and true or false, home_known = home ~= false,
     -- Lot IA-G : ressources clés déduites du dépliage (factions) ; nil : repli (votre équipe).
     key = (not f.is_player) and General.on() and General.key(f) or nil,
