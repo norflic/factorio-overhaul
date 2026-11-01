@@ -346,6 +346,24 @@ for _, path in ipairs({ "shared/content/robots.lua", "shared/robots/modele.lua",
   check6(not code:find("%f[%w_]game%.") and not code:find("%f[%w_]defines%.") and not code:find("%f[%w_]script%.") and not code:find("%f[%w_]settings%.")
     and not code:find("%f[%w_]data:extend") and not code:find("%f[%w_]log%s*%("), "§6 " .. path .. " : Lua pur (aucune API du jeu)")
 end
+-- §6 bis Intégration 0.6.33 : la demande d'une faction écarte ce que personne ne fabriquerait (plafond, géants admis, refus du mall) et demande les segments
+do
+  local fa = strip(read("script/robots/faction.lua"))
+  check6(fa:find("Mo.can_release(Armee.release_params(force, r))", 1, true) ~= nil, "§6 bis candidats : la règle du balayage des ateliers (plafond, géants admis)")
+  check6(fa:find("Ml.refused(ml, tick, kit)", 1, true) ~= nil and fa:find("Ml.refused(ml, tick, r.segment_item)", 1, true) ~= nil, "§6 bis candidats : refus du mall lus (kit, segments)")
+  check6(fa:find("Ml.want(ml, tick, rb.segment_item, demand.rate * Ro.SEGMENTS, Id.SRC_REFUS)", 1, true) ~= nil, "§6 bis les segments d'un géant sont demandés")
+  local ind = strip(read("script/ai3/industrie.lua"))
+  check6(ind:find("Ml.refuse(ml, tick, r.item)", 1, true) ~= nil and ind:find("Ml.refuse(ml, tick, it)", 1, true) ~= nil, "§6 bis le mall note ses refus (règle du choix, gabarit)")
+  local Ml = require("shared.ai3.mall")
+  local ms = Ml.new()
+  Ml.refuse(ms, 100, "x")
+  check6(Ml.refused(ms, 100, "x") and Ml.refused(ms, 100 + Ml.REFUS_TTL - 1, "x") and not Ml.refused(ms, 100 + Ml.REFUS_TTL, "x") and not Ml.refused(ms, 100, "y"),
+    "§6 bis un refus du mall s'éteint après Ml.REFUS_TTL")
+  -- les kits que le patron refuse (plus de 8 entrées) existent bien : la règle ci-dessus sert à quelque chose
+  local over = 0
+  for _, r in ipairs(Ro0.ROBOTS) do if #r.ingredients > 8 then over = over + 1 end end
+  check6(over == 3, "§6 bis 3 kits à plus de 8 entrées solides (Chanfrein, Aileron, Lévite)")
+end
 -- aucun nom du lot dans le cerveau (tests/iag_test.lua §8 le contrôle aussi, par permutation)
 local brain_hits = {}
 local p = assert(io.popen('git ls-files "shared/ai3/*.lua" "script/ai3/*.lua"'))

@@ -245,6 +245,33 @@ check(has(src.cer, "e.type == \"unlock-recipe\" and e.recipe == T.turret") and h
 check(has(src.res, "add(acc, inp.research)"), "maillon 7 (noyau) : Rs.core ajoute les packs")
 
 ---------------------------------------------------------------------------------------------------
+section("4 bis. Intégration 0.6.33 : le plan du cerveau publie la tourelle posable, la réserve est du besoin, l'attente n'abandonne pas")
+---------------------------------------------------------------------------------------------------
+do
+  local hit = { op(1, "coal", 4, 1), op(2, "iron", 8, 0, true), op(3, "copper", 3, 1), op(4, "stone", 2, 1) }
+  local rich = Planner.plan(view({ stock = stock_of(), outposts = hit }), book)
+  local broke = Planner.plan(view({ stock = stock_of({ [IRON] = 0, [COPPER] = 0, ["gun-turret"] = 0, ["iron-gear-wheel"] = 0 }), outposts = hit }), book)
+  check(rich.turret_ok == true and rich.turret_payable == true, "fer au coffre : la tourelle est posable tout de suite")
+  check(broke.turret_ok == true and broke.turret_payable == false, "recette connue, 0 de fer : pas posable tout de suite (refaire passe avant d'attendre une tourelle)")
+  local function think(reserve)
+    local v = view({ is_player = true, stock = stock_of(), workers = 8, smelters = 4, outposts = hit, ladder = T.player_ladder, defend_first = true, hq_turrets = 0, hq_defend = 0 })
+    local stt = C.new_state(0)
+    local plan = C.think(v, book, stt, { tick = 0, weights = B.weights({}, nil), reach = {}, iron_floor = 150, is_player = true, industrie = true, ammo_reserve = reserve })
+    return plan, stt
+  end
+  local plan0, st0 = think(0)
+  local plan1, st1 = think(100)
+  check(plan1.turret_ok == true and plan1.turret_payable == true, "le plan du CERVEAU (allumé par défaut) publie turret_ok et turret_payable : sans eux, les maillons 3 et 4 ne s'allument jamais")
+  check(st1.noyau.parts.defense == st0.noyau.parts.defense + 100, "la réserve de chargeurs est dans le noyau : ni I1 ni le puits de C2 n'en prennent le fer")
+  local Rc = require("shared.team.reconstruction")
+  local rst = { lost = { k = { defers = 3 } } }
+  for i = 1, 200 do Rc.defer(rst, "k", i, i, math.huge) end
+  check(rst.lost.k.defers == 3 and not rst.lost.k.abandoned and rst.lost.k.retry == 200, "attendre ses tourelles ne compte aucun report (200 attentes : ni compteur ni abandon)")
+  Rc.defer(rst, "k", 300, 300, 3)
+  check(rst.lost.k.abandoned == true, "témoin : un report compté au-delà de son plafond abandonne")
+end
+
+---------------------------------------------------------------------------------------------------
 section("5. Mutants")
 ---------------------------------------------------------------------------------------------------
 local base = {

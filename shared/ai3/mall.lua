@@ -36,6 +36,7 @@ Ml.HORIZON_MIN = 10        -- minutes de demande gardées au coffre de sortie (l
 Ml.WINDOW_TICKS = 10 * 3600 -- la mémoire de la demande est divisée par deux toutes les 10 minutes de jeu
 Ml.WINDOW_MIN = 20         -- fenêtre de lecture du débit (deux demi-vies)
 Ml.UNIT_RATE_DEFAULT = 6   -- objets par minute d'un assembleur quand l'appelant ne donne pas le débit de la recette
+Ml.REFUS_TTL = 30 * 3600   -- un refus (Ml.refuse) vaut 30 minutes de jeu
 Ml.WANT_TTL = 10 * 3600    -- une demande notée par Ml.want s'éteint si personne ne la renouvelle en 10 minutes de jeu
 
 local function sorted_keys(t)
@@ -127,6 +128,20 @@ function Ml.want(st, tick, item, rate, src)
   st.want = st.want or {}
   st.want[item] = { rate = rate, tick = tick, src = src or "?" }
   return true
+end
+
+--- Intégration 0.6.33 : l'objet a été REFUSÉ par la règle du choix ou par le gabarit (trop d'entrées, machine inutilisable). Lu par la demande de robots
+--- (script/robots/faction.lua) : elle change d'unité au lieu d'attendre pour toujours un kit que personne ne fabriquera. La note s'éteint après Ml.REFUS_TTL
+--- ticks de jeu : la machine peut s'ouvrir entre-temps.
+function Ml.refuse(st, tick, item)
+  st.refus = st.refus or {}
+  st.refus[item] = tick
+end
+
+--- L'objet a-t-il été refusé il y a moins de Ml.REFUS_TTL ticks ?
+function Ml.refused(st, tick, item)
+  local t = st.refus and st.refus[item]
+  return t ~= nil and tick - t < Ml.REFUS_TTL
 end
 
 --- Demande entière du mall, pour la règle du choix : la main (volume ÷ fenêtre, au moins Ml.MIN_EPISODES épisodes) et les demandes

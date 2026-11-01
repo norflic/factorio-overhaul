@@ -545,6 +545,9 @@ function P.plan(view, book)
     avail[def_iron], avail[def_copper] = si, sc
     return next(p.raw) == nil, p
   end
+  -- Intégration 0.6.33 : une tourelle est-elle posable TOUT DE SUITE (au stock, ou payable au-dessus des planchers) ? `turret_ok` ne dit que « recette
+  -- connue » : à 0 de fer, la seule foreuse de fer au coffre attendait une tourelle que seul ce fer aurait payée (reconstruction, agrandissement de survie).
+  out.turret_payable = turret_ok and ((avail[T.turret] or 0) > 0 or (affordable({ { T.turret, 1 } }, fl_i, fl_c))) or false
   -- L'équipe produit-elle encore du fer ? (un avant-poste de fer avec des foreuses) : sinon le coffre est sa dernière réserve et le plancher
   -- du front ne baisse pas (F.floors).
   local iron_producing = false
