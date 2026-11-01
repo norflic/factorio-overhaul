@@ -25,9 +25,9 @@ function Ordres.select(force, surface, area)
   if not (s and force and surface and type(area) == "table") then return {} end
   local found
   if area.radius then
-    found = surface.find_entities_filtered({ type = "unit", force = force, position = { x = area.x, y = area.y }, radius = area.radius })
+    found = surface.find_entities_filtered({ type = { "unit", "spider-vehicle" }, force = force, position = { x = area.x, y = area.y }, radius = area.radius })
   else
-    found = surface.find_entities_filtered({ type = "unit", force = force, area = { { area.x0, area.y0 }, { area.x1, area.y1 } } })
+    found = surface.find_entities_filtered({ type = { "unit", "spider-vehicle" }, force = force, area = { { area.x0, area.y0 }, { area.x1, area.y1 } } })
   end
   local out = {}
   for _, e in ipairs(found) do

@@ -21,6 +21,7 @@ require("prototypes.enemies")
 require("prototypes.arsenal")
 require("prototypes.arsenal_special")
 require("prototypes.faction")
+require("prototypes.robot_parts") -- lot RB-4 (1/11) : pièces d'X3 des robots (servomoteur, capteur, contrôleur, noyau, actionneur, module laser) ; après compute, bauxite, tin, superconductors
 require("prototypes.robots") -- lot RB-1 (31/10) : robots, atelier d'automates, kit, unités par propriétaire ; après prototypes.enemies
 require("prototypes.levels")
 require("prototypes.tirs") -- lot TIRS : effets de tir par âge (explosions, traçantes) et effet script des chargeurs

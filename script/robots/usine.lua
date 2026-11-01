@@ -19,6 +19,8 @@ local State = require("script.faction.state")
 local Military = require("script.faction.military")
 local Armee = require("script.robots.armee")
 local Ordres = require("script.robots.ordres")
+require("script.robots.soutien") -- lot RB-4 : soin de la Cloche, Truelle
+require("script.robots.geant")   -- lot RB-5 : géants (chemin, munition)
 local Ro = require("shared.content.robots")
 local Mo = require("shared.robots.modele")
 
@@ -64,7 +66,7 @@ local function rescan()
   for _, surf in pairs(game.surfaces) do surfaces[#surfaces + 1] = surf end -- trié juste après
   table.sort(surfaces, function(a, b) return a.index < b.index end)
   local names = {}
-  for _, w in ipairs(Ro.WORKSHOPS) do names[#names + 1] = w.name end
+  for _, w in ipairs(Ro.FACTORIES) do names[#names + 1] = w.name end
   for _, surf in ipairs(surfaces) do
     for _, e in ipairs(surf.find_entities_filtered({ name = names })) do track(e) end
   end
@@ -161,16 +163,13 @@ local function process(e, rec, tick)
   drive_recipe(e, rec, inv, tick)
   if inv.is_empty() then return 0 end
   local s = Armee.S()
-  local w = Ro.workshop(e.name)
+  local w = Ro.factory(e.name)
   local force = e.force
-  local cap = Armee.cap(force)
   local used = Armee.used(force.name)
-  local made = 0
+  local made, giants_made = 0, 0
   for _, r in ipairs(Ro.robots_of(e.name)) do
     if inv.get_item_count(r.kit) > 0 then
-      local ok = Mo.can_release({
-        used = used, cap = cap, points = r.points, have = Armee.have(force.name, r.id), keep = Mo.queue_target(rec.queue, r.id),
-      })
+      local ok = Mo.can_release(Armee.release_params(force, r, Mo.queue_target(rec.queue, r.id), used, giants_made))
       if ok and inv.remove({ name = r.kit, count = 1 }) == 1 then
         local rally = rec.rally or Mo.default_rally(e.position, w.size)
         local u = Armee.create(e.surface, force, r.id, Mo.out_point(e.position, w.size), rally, e.unit_number)
@@ -178,6 +177,7 @@ local function process(e, rec, tick)
           s.stats.kits_removed = s.stats.kits_removed + 1
           used = used + r.points
           made = made + 1
+          if r.is_giant then giants_made = giants_made + 1 end
         else
           inv.insert({ name = r.kit, count = 1 }) -- rien de perdu : le kit revient, on réessaiera
           s.stats.create_failed = s.stats.create_failed + 1
@@ -217,7 +217,7 @@ end
 --- Ralliement d'un atelier : le sien, sinon le point par défaut au sud de sa sortie. Rend { x, y }.
 function Usine.rally_of(rec)
   if rec.rally then return rec.rally end
-  return Mo.default_rally(rec.e.position, Ro.workshop(rec.e.name).size)
+  return Mo.default_rally(rec.e.position, Ro.factory(rec.e.name).size)
 end
 
 --- « Maintenir N » d'un robot (n nil : pas de limite). Rend vrai si le réglage a changé. Écrit dans la file (migrée au passage).
@@ -341,7 +341,7 @@ remote.add_interface("fo-robots", {
   unit_info = function(unit_number)
     local e = Armee.entity(unit_number)
     if not e then return nil end
-    return { name = e.name, x = e.position.x, y = e.position.y, force = e.force.name }
+    return { name = e.name, x = e.position.x, y = e.position.y, force = e.force.name, health = e.health, max = e.prototype.max_health }
   end,
   --- Tue un robot inscrit (bancs : mort réelle, événement compris) ; vrai s'il existait.
   kill = function(unit_number)

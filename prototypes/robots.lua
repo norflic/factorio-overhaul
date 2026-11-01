@@ -1,16 +1,21 @@
 --[[
-  Lot RB-1 CHAÎNE (31/10) : prototypes des robots. Données : shared/content/robots.lua ; exécution : script/robots/*.
+  Lots RB-1 CHAÎNE (31/10), RB-4 GAMME et RB-5 GÉANTS (1/11) : prototypes des robots. Données : shared/content/robots.lua ;
+  exécution : script/robots/*.
 
-  - Atelier d'automates : `assembling-machine` (copie teintée de l'assembleur 2, 0 image neuve), catégorie de fabrication
-    « fo-robots-1 » ; ni fluide, ni productivité (le kit pèse 1 case, RB0-3).
-  - Kit : objet de pile 1, produit de la recette du robot (ingrédients d'au plus 100 chacun : RB0-1). Pas de `place_result` :
-    poser un kit à la main viendra avec l'outil du joueur (RB-2).
+  - 4 usines (Atelier, Hall, Dock, Portique) : `assembling-machine` (copie teintée et agrandie d'un assembleur vanilla, 0 image
+    neuve), une catégorie de fabrication chacune « fo-robots-1 » à « -4 » ; ni fluide, ni productivité (le kit pèse 1 case, RB0-3).
+  - Kit : objet de pile 1, produit de la recette du robot (ingrédients d'au plus 100 chacun : RB0-1). Son `place_result` est
+    l'unité du joueur (le cerveau lit ce lien ; un kit posé à la main est inscrit au registre par script/robots/usine.lua).
   - Unité : `unit` par PROPRIÉTAIRE (le joueur et les 4 factions) : une unité n'a pas de couleur au jeu (PLAN §3). Visuel PROVISOIRE
-    (Ro.PROVISIONAL) : animations du petit cracheur vanilla régénérées en gris acier (une teinte ne fait que multiplier, F36 : on
-    repasse par les fonctions globales du jeu avec d'autres teintes, comme prototypes/enemies.lua), mêlées d'un peu de la couleur de la faction.
-  - Arme : tir à portée (balles physiques) de catégorie « fo-robot » ; PV et DPS du plan, à recaler (RB-4).
-  - Technologie « Automates à vapeur » : débloque l'atelier et le Trotte-Vapeur (âge 3).
-  À charger APRÈS prototypes/enemies.lua (les globales des animations du petit cracheur) : voir data.lua.
+    (Ro.PROVISIONAL) : animations des cracheurs vanilla régénérées avec d'autres teintes et tailles (une teinte ne fait que multiplier,
+    F36 : on repasse par les fonctions globales du jeu, comme prototypes/enemies.lua), mêlées d'un peu de la couleur de la faction.
+  - Arme : tir à portée de catégorie « fo-robot », PV et dégâts CALIBRÉS par shared/robots/duel.lua ; zone (`area`), portée minimale
+    (artillerie), aucun dégât (Cloche : le soin est un script, script/robots/soutien.lua).
+  - Géant (âges 13 à 15) : `spider-vehicle` fabriqué par `create_spidertron` (fonction du jeu de base), un canon de portée 100 (RB0 :
+    zones mortes au-delà de l'échelle 3 avec un canon de 60), munition posée par script (script/robots/geant.lua) ; 10 segments (dock)
+    puis un assemblage final (portique).
+  - Technologies : une par palier, plus celles des pièces (prototypes/robot_parts.lua).
+  À charger APRÈS prototypes/enemies.lua (les globales des animations des cracheurs) et prototypes/robot_parts.lua : voir data.lua.
 ]]
 
 local lib = require("prototypes.lib")
@@ -22,13 +27,15 @@ local out = {}
 
 out[#out + 1] = { type = "item-subgroup", name = Ro.SUBGROUP, group = "combat", order = "z[fo]-robots" }
 out[#out + 1] = { type = "ammo-category", name = Ro.AMMO_CATEGORY }
+out[#out + 1] = { type = "ammo-category", name = Ro.SHELL_CATEGORY }
 for _, c in ipairs(Ro.CATEGORIES) do out[#out + 1] = { type = "recipe-category", name = c } end
 
 local STEEL = { r = 0.62, g = 0.67, b = 0.74 }
 local KIT_TINT = { r = 0.75, g = 0.80, b = 0.90 }
 
 local function icons_of(ptype, name, tint)
-  local src = assert(data.raw[ptype][name], "robots : icône source absente " .. ptype .. "/" .. name)
+  local src = data.raw[ptype][name] or (ptype == "item" and data.raw["item-with-entity-data"][name])
+  assert(src, "robots : icône source absente " .. ptype .. "/" .. name)
   return { { icon = src.icon, icon_size = src.icon_size, icon_mipmaps = src.icon_mipmaps, tint = tint } }
 end
 
@@ -39,11 +46,11 @@ local function ingredients(list)
 end
 
 ---------------------------------------------------------------------------------------------------
--- Ateliers
+-- Usines
 ---------------------------------------------------------------------------------------------------
 local VISUAL_KEYS = { "animation", "idle_animation", "working_visualisations", "integration_patch", "shadow" }
 
-for i, w in ipairs(Ro.WORKSHOPS) do
+for i, w in ipairs(Ro.FACTORIES) do
   local e = lib.copy("assembling-machine", w.copy)
   local h = w.size / 2
   e.name = w.name
@@ -59,29 +66,34 @@ for i, w in ipairs(Ro.WORKSHOPS) do
   e.energy_source = { type = "electric", usage_priority = "secondary-input", emissions_per_minute = 4 }
   e.collision_box = { { -h + 0.3, -h + 0.3 }, { h - 0.3, h - 0.3 } }
   e.selection_box = { { -h, -h }, { h, h } }
+  e.drawing_box = nil
   e.module_specification = { module_slots = w.module_slots }
   e.allowed_effects = { "consumption", "speed", "pollution" } -- jamais de productivité : le kit n'a qu'une case (RB0-3)
   e.fluid_boxes = nil
+  local k = w.size / 3
   for _, key in ipairs(VISUAL_KEYS) do
-    if e[key] then lib.tint_sprites(e[key], w.tint) end
+    if e[key] then
+      if k ~= 1 then lib.scale_sprites(e[key], k) end
+      lib.tint_sprites(e[key], w.tint)
+    end
   end
   lib.set_icons(e, icons_of("item", w.copy, w.tint))
   out[#out + 1] = e
   out[#out + 1] = {
     type = "item", name = w.name,
     localised_name = { "entity-name." .. w.name }, localised_description = { "entity-description." .. w.name },
-    icons = icons_of("item", w.copy, w.tint), subgroup = Ro.SUBGROUP, order = string.format("a[workshop]-%02d", i),
+    icons = icons_of("item", w.copy, w.tint), subgroup = Ro.SUBGROUP, order = string.format("a[factory]-%02d", i),
     place_result = w.name, stack_size = 10,
   }
   out[#out + 1] = {
-    type = "recipe", name = w.name, enabled = false, energy_required = 10,
+    type = "recipe", name = w.name, enabled = false, energy_required = w.time,
     ingredients = ingredients(w.ingredients), results = { { type = "item", name = w.name, amount = 1 } },
     main_product = w.name,
   }
 end
 
 ---------------------------------------------------------------------------------------------------
--- Robots : kit, recette, une unité par propriétaire
+-- Robots : kit, recette, une unité par propriétaire (un géant : une araignée)
 ---------------------------------------------------------------------------------------------------
 local function owner_tint(owner)
   if owner == Ro.PLAYER_OWNER then return STEEL end
@@ -94,9 +106,41 @@ local function owner_tint(owner)
 end
 
 local function rgba(c) return { r = c.r, g = c.g, b = c.b, a = 1 } end
+local function mul(c, k) return { r = math.min(1, c.r * k), g = math.min(1, c.g * k), b = math.min(1, c.b * k) } end
 
--- Tir : balles physiques, comme les soldats (prototypes/faction.lua), de catégorie « fo-robot ».
-local function robot_ammo(damage)
+-- Teinte propre à chaque robot (visuel PROVISOIRE : le robot se reconnaît à sa couleur et à sa taille, pas encore à sa forme).
+local ROBOT_TINT = {
+  ["steam-trotter"] = { r = 0.80, g = 0.62, b = 0.40 }, ["scalehide"] = { r = 0.62, g = 0.36, b = 0.28 },
+  ["coiler"] = { r = 0.45, g = 0.70, b = 0.95 }, ["needle"] = { r = 0.70, g = 0.50, b = 0.95 },
+  ["bellwether"] = { r = 0.55, g = 0.95, b = 0.80 }, ["chamfer"] = { r = 0.75, g = 0.75, b = 0.45 },
+  ["trowel"] = { r = 0.95, g = 0.85, b = 0.35 }, ["finback"] = { r = 0.90, g = 0.95, b = 1.00 },
+  ["levite"] = { r = 0.55, g = 0.85, b = 0.95 }, ["toroid"] = { r = 0.95, g = 0.55, b = 0.85 },
+  ["heliast"] = { r = 1.00, g = 0.80, b = 0.35 }, ["crowned"] = { r = 1.00, g = 0.95, b = 0.80 },
+}
+-- Taille de l'image par classe : petit, moyen, gros cracheur.
+local CLASS_SCALE = { P = "scale_spitter_medium", M = "scale_spitter_big", G = "scale_spitter_behemoth" }
+local CLASS_BASE = { P = "medium-spitter", M = "big-spitter", G = "behemoth-spitter" }
+
+local smg = data.raw.gun["submachine-gun"]
+
+--- Effet d'un tir : dégâts du robot (par type), en zone si `area`. Un robot sans dégâts (soutien) n'a que l'effet visuel.
+local function robot_ammo(r)
+  local damage = { type = "damage", damage = { amount = r.shot.damage, type = r.dtype } }
+  local hit = { type = "create-entity", entity_name = "explosion-hit" }
+  local target_effects
+  if r.shot.damage <= 0 then
+    target_effects = { hit }
+  elseif r.area then
+    target_effects = {
+      { type = "create-entity", entity_name = "big-explosion" },
+      { type = "nested-result", action = {
+        type = "area", radius = r.area, force = "enemy",
+        action_delivery = { type = "instant", target_effects = { damage } },
+      } },
+    }
+  else
+    target_effects = { hit, damage }
+  end
   return {
     category = Ro.AMMO_CATEGORY,
     action = {
@@ -104,83 +148,135 @@ local function robot_ammo(damage)
       action_delivery = {
         type = "instant",
         source_effects = { type = "create-explosion", entity_name = "explosion-gunshot" },
-        target_effects = {
-          { type = "create-entity", entity_name = "explosion-hit" },
-          { type = "damage", damage = { amount = damage, type = "physical" } },
-        },
+        target_effects = target_effects,
       },
     },
   }
 end
 
-local smg = data.raw.gun["submachine-gun"]
+--- Une unité de robot pour un propriétaire.
+local function make_unit(r, owner, i)
+  local u = lib.copy("unit", CLASS_BASE[r.class])
+  local tint = owner_tint(owner)
+  local own = ROBOT_TINT[r.id]
+  tint = { r = (tint.r + own.r) / 2, g = (tint.g + own.g) / 2, b = (tint.b + own.b) / 2 }
+  local t1, t2 = rgba(tint), rgba(mul(tint, 0.7))
+  local scale = _G[CLASS_SCALE[r.class]] * (r.class == "P" and 0.9 or 1)
+  u.name = Ro.unit_name(owner, r.id)
+  u.localised_name = { "fo-robots.unit-name", { "fo-robots.name-" .. r.id } }
+  u.localised_description = { "fo-robots.desc-" .. r.id }
+  u.order = string.format("z[fo-robot]-%s-%02d", owner, i)
+  u.subgroup = Ro.SUBGROUP
+  u.max_health = r.hp
+  u.resistances = nil
+  u.healing_per_tick = 0.02
+  local hb = r.half
+  u.collision_box = { { -hb, -hb }, { hb, hb } }
+  u.selection_box = { { -hb - 0.1, -hb - 0.3 }, { hb + 0.1, hb + 0.3 } }
+  u.movement_speed = r.speed
+  u.vision_distance = math.min(45, math.max(30, r.range)) -- jamais au-delà de 45 (PLAN §3 : comportement non documenté)
+  u.distraction_cooldown = 300
+  u.min_pursue_time = 10 * 60
+  u.max_pursue_distance = 50
+  u.pollution_to_join_attack = 1
+  u.spawning_time_modifier = nil
+  u.absorptions_to_join_attack = nil
+  u.attack_parameters = {
+    type = "projectile",
+    ammo_category = Ro.AMMO_CATEGORY,
+    range = r.range,
+    min_range = r.min_range,
+    cooldown = r.shot.cooldown,
+    cooldown_deviation = 0.1,
+    projectile_creation_distance = 0.6,
+    range_mode = "bounding-box-to-bounding-box",
+    ammo_type = robot_ammo(r),
+    animation = spitterattackanimation(scale, t1, t2),
+    sound = smg.attack_parameters.sound,
+  }
+  u.run_animation = spitterrunanimation(scale, t1, t2)
+  u.ai_settings = { destroy_when_commands_fail = false, allow_try_return_to_spawner = false, do_separation = true }
+  lib.set_icons(u, icons_of("unit", CLASS_BASE[r.class], tint))
+  return u
+end
+
+--- Un géant : araignée du jeu de base à l'échelle voulue, un canon de portée 100 et sa munition (posée par script).
+local function make_giant(r, i)
+  local g = r.giant
+  local nm = Ro.unit_name(Ro.PLAYER_OWNER, r.id)
+  local gun_name, shell_name = Ro.gun_name(r.id), Ro.shell_name(r.id)
+  -- Munition : un chargeur de 1 000 coups, caché ; le script en garde toujours 2 à 4 dans le magasin.
+  local effect = robot_ammo(r)
+  out[#out + 1] = {
+    type = "ammo", name = shell_name,
+    localised_name = { "item-name." .. shell_name }, localised_description = { "item-description." .. shell_name },
+    icons = icons_of("ammo", "explosive-rocket", ROBOT_TINT[r.id]), flags = { "hidden" }, subgroup = Ro.SUBGROUP,
+    order = string.format("c[shell]-%02d", i), stack_size = 10, magazine_size = 1000,
+    ammo_type = {
+      category = Ro.SHELL_CATEGORY,
+      action = effect.action,
+    },
+  }
+  local rocket = data.raw.gun["spidertron-rocket-launcher-1"]
+  out[#out + 1] = {
+    type = "gun", name = gun_name,
+    localised_name = { "item-name." .. gun_name },
+    icons = icons_of("gun", "spidertron-rocket-launcher-1", ROBOT_TINT[r.id]), flags = { "hidden" }, subgroup = "gun",
+    order = string.format("z[fo-robot-gun]-%02d", i), stack_size = 1,
+    attack_parameters = {
+      type = "projectile", ammo_category = Ro.SHELL_CATEGORY, cooldown = r.shot.cooldown, range = r.range,
+      projectile_creation_distance = 0, sound = rocket.attack_parameters.sound,
+    },
+  }
+  return nm, gun_name, g
+end
+
+local STUB = {} -- araignées à créer après data:extend (create_spidertron écrit dans data.raw)
 
 for i, r in ipairs(Ro.ROBOTS) do
   local ings = ingredients(r.ingredients)
+  local place = Ro.unit_name(Ro.PLAYER_OWNER, r.id)
   out[#out + 1] = {
     type = "item", name = r.kit,
     localised_name = { "item-name." .. r.kit }, localised_description = { "item-description." .. r.kit },
-    icons = icons_of("item", "engine-unit", KIT_TINT), subgroup = Ro.SUBGROUP, order = string.format("b[kit]-%02d", i),
-    stack_size = 1,
-    -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit`) : le cerveau lit ce lien dans les prototypes (items_to_place_this),
-    -- sans nom ; un kit posé à la main est inscrit au registre par script/robots/usine.lua.
-    place_result = Ro.unit_name(Ro.PLAYER_OWNER, r.id),
+    icons = icons_of("item", r.is_giant and "spidertron" or "engine-unit", ROBOT_TINT[r.id]), subgroup = Ro.SUBGROUP,
+    order = string.format("b[kit]-%02d", i), stack_size = 1,
+    -- Lot RB-3 : le kit « pose » l'unité du joueur (prototype `unit` ou `spider-vehicle`) : le cerveau lit ce lien dans les
+    -- prototypes (items_to_place_this), sans nom ; un kit posé à la main est inscrit au registre par script/robots/usine.lua.
+    place_result = place,
   }
   out[#out + 1] = {
-    type = "recipe", name = r.recipe, category = Ro.WORKSHOPS[1].category, enabled = false, energy_required = r.time,
+    type = "recipe", name = r.recipe, category = Ro.factory(r.factory).category, enabled = false, energy_required = r.time,
     ingredients = ings, results = { { type = "item", name = r.kit, amount = 1 } }, main_product = r.kit,
     localised_name = { "item-name." .. r.kit },
   }
-  for _, owner in ipairs(Ro.OWNERS) do
-    local u = lib.copy("unit", "medium-spitter")
-    local tint = owner_tint(owner)
-    local t1, t2 = rgba(tint), rgba({ r = tint.r * 0.7, g = tint.g * 0.7, b = tint.b * 0.7 })
-    local scale = _G.scale_spitter_medium
-    u.name = Ro.unit_name(owner, r.id)
-    u.localised_name = { "fo-robots.unit-name", { "fo-robots.name-" .. r.id } }
-    u.localised_description = { "fo-robots.unit-desc", { "fo-robots.name-" .. r.id } }
-    u.order = string.format("z[fo-robot]-%s-%02d", owner, i)
-    u.subgroup = Ro.SUBGROUP
-    u.max_health = r.hp
-    u.resistances = nil
-    u.healing_per_tick = 0.02
-    local hb = r.half
-    u.collision_box = { { -hb, -hb }, { hb, hb } }
-    u.selection_box = { { -hb - 0.1, -hb - 0.3 }, { hb + 0.1, hb + 0.3 } }
-    u.movement_speed = r.speed
-    u.vision_distance = 30 -- jamais au-delà de 45 (PLAN §3 : comportement non documenté)
-    u.distraction_cooldown = 300
-    u.min_pursue_time = 10 * 60
-    u.max_pursue_distance = 50
-    u.pollution_to_join_attack = 1
-    u.spawning_time_modifier = nil
-    u.absorptions_to_join_attack = nil
-    u.attack_parameters = {
-      type = "projectile",
-      ammo_category = Ro.AMMO_CATEGORY,
-      range = r.range,
-      cooldown = r.shot.cooldown,
-      cooldown_deviation = 0.1,
-      projectile_creation_distance = 0.6,
-      range_mode = "bounding-box-to-bounding-box",
-      ammo_type = robot_ammo(r.shot.damage),
-      animation = spitterattackanimation(scale, t1, t2),
-      sound = smg.attack_parameters.sound,
+  if r.segment then
+    -- Segment d'un géant : fabriqué au dock (catégorie du dock), consommé 10 par assemblage final au portique.
+    out[#out + 1] = {
+      type = "item", name = r.segment_item,
+      localised_name = { "item-name." .. r.segment_item }, localised_description = { "item-description." .. r.segment_item },
+      icons = icons_of("item", "low-density-structure", ROBOT_TINT[r.id]), subgroup = Ro.SUBGROUP,
+      order = string.format("b[segment]-%02d", i), stack_size = 10,
     }
-    u.run_animation = spitterrunanimation(scale, t1, t2)
-    u.ai_settings = { destroy_when_commands_fail = false, allow_try_return_to_spawner = false, do_separation = true }
-    lib.set_icons(u, icons_of("unit", "medium-spitter", tint))
-    out[#out + 1] = u
+    out[#out + 1] = {
+      type = "recipe", name = r.segment_recipe, category = "fo-robots-3", enabled = false, energy_required = r.segment.time,
+      ingredients = ingredients(r.segment.ingredients), results = { { type = "item", name = r.segment_item, amount = 1 } },
+      main_product = r.segment_item, localised_name = { "item-name." .. r.segment_item },
+    }
+  end
+  if r.is_giant then
+    STUB[#STUB + 1] = { r = r, i = i, nm = make_giant(r, i) }
+  else
+    for _, owner in ipairs(Ro.OWNERS) do out[#out + 1] = make_unit(r, owner, i) end
   end
 end
 
 ---------------------------------------------------------------------------------------------------
--- Technologie
+-- Technologies
 ---------------------------------------------------------------------------------------------------
-do
-  local t = Ro.TECH
+for _, t in ipairs(Ro.TECHS) do
   local effects = {}
-  for _, rn in ipairs(Ro.tech_unlocks()) do effects[#effects + 1] = lib.unlock(rn) end
+  for _, rn in ipairs(Ro.tech_unlocks(t)) do effects[#effects + 1] = lib.unlock(rn) end
   out[#out + 1] = lib.technology({
     name = t.name,
     localised_name = { "technology-name." .. t.name },
@@ -241,3 +337,31 @@ do
 end
 
 data:extend(out)
+
+---------------------------------------------------------------------------------------------------
+-- Géants : araignées du jeu de base (create_spidertron écrit dans data.raw : après data:extend, les canons existent)
+---------------------------------------------------------------------------------------------------
+for _, g in ipairs(STUB) do
+  local r, i = g.r, g.i
+  local nm = Ro.unit_name(Ro.PLAYER_OWNER, r.id)
+  local cfg = r.giant
+  create_spidertron({ name = nm, scale = cfg.scale, leg_scale = cfg.leg_scale, leg_thickness = 1, leg_movement_speed = cfg.leg_speed })
+  local s = data.raw["spider-vehicle"][nm]
+  s.localised_name = { "fo-robots.unit-name", { "fo-robots.name-" .. r.id } }
+  s.localised_description = { "fo-robots.desc-" .. r.id }
+  s.order = string.format("z[fo-robot]-giant-%02d", i)
+  s.subgroup = Ro.SUBGROUP
+  s.minable = { mining_time = 1, result = r.kit }
+  s.max_health = r.hp
+  s.resistances = nil
+  s.equipment_grid = nil
+  s.inventory_size = 4
+  s.trash_inventory_size = 0
+  s.guns = { Ro.gun_name(r.id) }
+  s.icons = icons_of("item", "spidertron", ROBOT_TINT[r.id])
+  s.icon, s.icon_size, s.icon_mipmaps = nil, nil, nil
+  for k = 1, 8 do
+    local leg = data.raw["spider-leg"][nm .. "-leg-" .. k]
+    if leg then leg.localised_name = { "fo-robots.unit-name", { "fo-robots.name-" .. r.id } } end
+  end
+end
