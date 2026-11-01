@@ -638,9 +638,10 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   local function choose()
     return Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
       k1 = k1 or nil, levers = levers, new_pack = Pet.on() or nil, -- lot PETROLE (réglage fo-war-petrole)
-      -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier pour une FACTION (votre équipe cherche à la main) ; la recette
-      -- est celle que les planificateurs commandent (T.turret), la règle pure ne la nomme pas.
-      defense = (not f.is_player) and T.turret or nil })
+      -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier ; la recette est celle que les planificateurs commandent
+      -- (T.turret), la règle pure ne la nomme pas. Lot EQUIPE (1/11) : aussi pour votre équipe (recherche de la tourelle à 10,9 min,
+      -- QG attaqué dès 8,6 min : fo-logs/2026-11-01_EQUIPE/RAPPORT.md).
+      defense = T.turret })
   end
   local d = choose()
   -- Lot RB-FLUIDE : rien d'autre de payable : la recherche lâchée depuis le plus longtemps revient (le laboratoire ne reste pas oisif), sans reprise de la garde avant la fin de la pause

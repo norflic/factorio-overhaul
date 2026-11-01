@@ -55,6 +55,9 @@ end
 local function setup()
   M.new_game({ patches = patches(), p_busy = 0, p_nopath = 0, p_lost = 0 })
   if W().remote["fo-ia3f"] then remote.call("fo-ia3f", "set_fog", false) end
+  -- Lot EQUIPE : la technologie de la tourelle est un palier pour votre équipe aussi (script/ai3/general.lua) : sa recherche passerait en tête
+  -- et ôterait le « pas de production » que ce banc attend. Faite d'avance ici ; tests/equipe_moteur_test.lua prouve la recherche elle-même.
+  game.forces.player.technologies["gun-turret"].researched = true
   W().prototypes["small-worm-turret"] = { type = "turret", max_health = 200,
     collision_box = { left_top = { x = -0.9, y = -0.8 }, right_bottom = { x = 0.9, y = 0.8 } },
     attack_parameters = { range = 25 } }

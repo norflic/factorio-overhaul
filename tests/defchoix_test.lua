@@ -151,7 +151,9 @@ local function planner_cases()
   -- relecture (famine) : Dc.turrets juge 1 tourelle payable sur le stock d'avant les recharges ; une recharge de tourelle mange le fer,
   -- le QG n'est plus servi (« fer ») : la levée d'urgence ne doit PAS être retenue (sinon ni tourelle ni soldat pendant toute l'alerte).
   local lean = { [IRON] = T.defend_iron_floor + 125, [COPPER] = 600, coal = 100, stone = 100 }
-  local pr = Planner.plan(view({ stock = lean, base_alert = true,
+  -- (Lot EQUIPE : avec moins de deux tourelles au QG le plancher est réduit et le QG est servi ; le cas jugé ici est celui d'un QG DÉJÀ
+  -- au-delà du premier palier, planchers ordinaires.)
+  local pr = Planner.plan(view({ stock = lean, base_alert = true, hq_turrets = 2,
     turret_groups = { { key = "o1", low = 1, has_task = false } } }), book)
   c(pr.defchoix.paid == 1 and not pr.defchoix.hold_soldiers and army_wants(pr),
     "recharges qui mangent le fer, QG non servi : la levée d'urgence n'est pas retenue")
