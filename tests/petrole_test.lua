@@ -700,5 +700,145 @@ do
   check(Fl.pick_unclaimed(list, function(d) return Fl.near_any(nil, d, 24) end).id == "a", "§11 mutant refusé : sans mémoire, retour au premier gisement")
 end
 
+-- §12 à §14 (lot DIAG-PETROLE, 01/11) : données SYNTHÉTIQUES (aucun nom du jeu) qui reproduisent les trois défauts mesurés en
+-- moteur réel (petrole-refus : pack chimique ouvert, aucun site pendant 80 minutes de partie, journal muet) :
+--   (a) un objet que le four fait déjà (l'acier) était demandé à la cellule d'un autre four (verrouillée), et cette recette
+--       verrouillée retenait TOUT le pack ;
+--   (b) deux recettes à égalité pour le plastique : celle qui vient première par le nom mange un fluide sans recette, et la
+--       chaîne rendue gardait la raffinerie mais PAS l'usine du plastique (le pack se croyait complet) ;
+--   (c) aucune ligne de journal ne disait pourquoi (Fl.news : cause nouvelle, changée, rappelée, levée).
+-- Chaque règle est rejouée sur une copie MUTÉE de shared/ai3/fluides.lua : le mutant doit échouer à la batterie.
+local function slurp(p) local f = assert(io.open(p, "rb")) local t = f:read("*a") f:close() return t end
+local FLUIDES_SRC = slurp("shared/ai3/fluides.lua")
+
+local function synth()
+  local function boxes(nin, nout)
+    local o = {}
+    local c = { [0] = { { 0, 0 } }, [2] = { { 0, 0 } }, [4] = { { 0, 0 } }, [6] = { { 0, 0 } } }
+    for _ = 1, nin do o[#o + 1] = { type = "input", conns = c } end
+    for _ = 1, nout do o[#o + 1] = { type = "output", conns = c } end
+    return o
+  end
+  local rel = { hand = { make = true }, entities = {}, resources = {}, recipes = {} }
+  rel.entities["drill"] = { role = "foreuse", item = "drill", w = 3, h = 3, rescats = { "liq" }, boxes = boxes(0, 1) }
+  rel.entities["refine"] = { role = "fabrique", item = "refine", w = 5, h = 5, categories = { "split" }, boxes = boxes(2, 3) }
+  rel.entities["mixer"] = { role = "fabrique", item = "mixer", w = 3, h = 3, categories = { "mix" }, boxes = boxes(2, 2) }
+  rel.entities["kiln"] = { role = "fabrique", item = "kiln", w = 3, h = 3, categories = { "bake" }, boxes = boxes(0, 0) }
+  rel.entities["oven"] = { role = "fabrique", item = "oven", w = 2, h = 2, categories = { "heat" }, boxes = boxes(0, 0) }
+  rel.resources = { { entity = "seep", category = "liq", products = { { type = "fluid", name = "crude" } } },
+    { entity = "brinepit", category = "liq", products = { { type = "fluid", name = "brine" } } } }
+  local R = rel.recipes
+  local function rc(name, category, ins, outs, hidden)
+    local i, o = {}, {}
+    for _, x in ipairs(ins) do i[#i + 1] = { name = x[1], amount = x[2], type = x[3] or "item" } end
+    for _, x in ipairs(outs) do o[#o + 1] = { name = x[1], amount = x[2], type = x[3] or "item" } end
+    R[name] = { category = category, energy = 1, hidden = hidden or false, ingredients = i, products = o }
+  end
+  rc("split-crude", "split", { { "crude", 100, "fluid" } }, { { "gas", 45, "fluid" } })
+  rc("mix-resin", "mix", { { "gas", 20, "fluid" }, { "filler", 1 } }, { { "resin", 2 } })
+  -- à égalité avec « mix-resin » (un fluide, un solide) et AVANT elle par le nom : mange de la saumure PUIS de la vapeur
+  rc("aaa-resin", "mix", { { "ethyl", 20, "fluid" }, { "filler", 1 } }, { { "resin", 3 } })
+  rc("make-ethyl", "mix", { { "brine", 30, "fluid" }, { "vapor", 20, "fluid" } }, { { "ethyl", 30, "fluid" } })
+  -- … et une troisième, aussi avant elle : mange du gaz (une cellule POSÉE avec succès) PUIS de la vapeur
+  rc("aab-resin", "mix", { { "ethyl2", 20, "fluid" }, { "filler", 1 } }, { { "resin", 3 } })
+  rc("make-ethyl2", "mix", { { "gas", 30, "fluid" }, { "vapor", 20, "fluid" } }, { { "ethyl2", 30, "fluid" } })
+  -- l'acier : un four le fait déjà (catégorie « heat », exécutant), et un second four, qui n'est pas posé, le fait aussi
+  rc("heat-steel", "heat", { { "plate", 5 } }, { { "steel", 1 } })
+  rc("bake-steel", "bake", { { "plate", 3 }, { "carbon", 1 } }, { { "steel", 1 } })
+  rc("hand-gear", "make", { { "plate", 2 } }, { { "gear", 1 } })
+  rc("orphan-item", "mix", { { "vapor", 10, "fluid" }, { "filler", 1 } }, { { "orphan", 1 } })
+  rc("hidden-hand", "make", { { "plate", 9 } }, { { "hiddenitem", 1 } }, true)
+  return rel
+end
+
+local function battery(Flx)
+  local bad = 0
+  local function chk(c) if not c then bad = bad + 1 end end
+  local rel = synth()
+  local _, info = Flx.executors(rel, { oven = true }) -- le four « heat » est un exécutant déjà là
+  -- §12 `other` : objets qu'une autre recette VISIBLE fait déjà (main ou exécutant)
+  chk(info.other.steel == true)      -- l'acier du four existant
+  chk(info.other.gear == true)       -- l'engrenage fait à la main
+  chk(info.other.resin == nil)       -- le plastique n'a que des cellules du lot
+  chk(info.other.hiddenitem == nil)  -- une recette cachée ne compte pas
+  chk(info.recipes["bake-steel"] ~= nil and info.recipes["heat-steel"] == nil) -- l'autre four reste une cellule du lot
+  -- §13 chaîne : la plus courte d'abord, la suivante quand elle n'aboutit pas, rien de laissé par la tentative manquée
+  local ch, why = Flx.chain(rel, info, { "resin" }, {})
+  chk(ch ~= nil)
+  if ch then
+    local rs = {}
+    for _, c in ipairs(ch.cells) do rs[#rs + 1] = c.recipe end
+    chk(table.concat(rs, " ") == "split-crude mix-resin")           -- la raffinerie d'abord, puis l'usine du plastique : 2 cellules
+    chk(#ch.made == 1 and ch.made[1] == "resin")
+    chk(ch.sources.brine == nil and ch.sources.vapor == nil)        -- la saumure de la tentative manquée n'est pas une source
+    chk(ch.sources.crude == "extract")
+    chk(why == nil)
+  end
+  -- un objet sans aucune chaîne : nil et la raison ; avec un objet qui en a une : la chaîne de celui-ci seulement, et la raison
+  local c2, w2 = Flx.chain(rel, info, { "orphan" }, {})
+  chk(c2 == nil and type(w2) == "string")
+  local c3, w3 = Flx.chain(rel, info, { "orphan", "resin" }, {})
+  chk(c3 ~= nil and #c3.made == 1 and c3.made[1] == "resin" and type(w3) == "string")
+  -- la vapeur donnée (pompe) rend la première recette possible : le choix ordinaire est gardé
+  local c4 = Flx.chain(rel, info, { "resin" }, { vapor = "pompe" })
+  chk(c4 ~= nil and c4.cells[#c4.cells].recipe == "aaa-resin")
+  -- §14 causes d'attente
+  local memo = {}
+  local say, gone = Flx.news(memo, { b = "B", a = "A" }, 100, 50)
+  chk(#say == 2 and say[1] == "a" and say[2] == "b" and #gone == 0)              -- nouvelles, triées
+  say = Flx.news(memo, { b = "B", a = "A" }, 120, 50)
+  chk(#say == 0)                                                                  -- rien de changé, trop tôt
+  say = Flx.news(memo, { b = "B2", a = "A" }, 130, 50)
+  chk(#say == 1 and say[1] == "b")                                                -- texte changé
+  say = Flx.news(memo, { b = "B2", a = "A" }, 149, 50)
+  chk(#say == 0)                                                                  -- « a » dite à 100 : 49 ticks, pas encore
+  say = Flx.news(memo, { b = "B2", a = "A" }, 150, 50)
+  chk(#say == 1 and say[1] == "a")                                                -- rappel pile à 50 ticks
+  say = Flx.news(memo, { b = "B2", a = "A" }, 151, 50)
+  chk(#say == 0)                                                                  -- le rappel remet le compteur à zéro
+  say, gone = Flx.news(memo, { a = "A" }, 160, 50)
+  chk(#say == 0 and #gone == 1 and gone[1] == "b" and memo.b == nil)              -- cause levée
+  say = Flx.news(memo, { a = "A", b = "B2" }, 170, 50)
+  chk(#say == 1 and say[1] == "b")                                                -- revenue : redite
+  return bad
+end
+
+do
+  check(battery(Fl) == 0, "§12-14 batterie des règles du lot DIAG-PETROLE sur shared/ai3/fluides.lua")
+  local killed, total = 0, 0
+  local function mutant(from, to, name)
+    total = total + 1
+    local i, j = FLUIDES_SRC:find(from, 1, true)
+    if not i then check(false, "§12-14 mutant '" .. name .. "' : texte introuvable") return end
+    local chunk = load(FLUIDES_SRC:sub(1, i - 1) .. to .. FLUIDES_SRC:sub(j + 1), "=mutant")
+    local ok, mod = pcall(chunk)
+    local n = ok and select(2, pcall(battery, mod)) or 1
+    if type(n) ~= "number" or n > 0 then killed = killed + 1 else check(false, "§12-14 mutant survivant : " .. name) end
+  end
+  mutant("for _, o in ipairs(so) do info.other[o] = true end", "", "`other` jamais rempli : l'acier du four redemandé")
+  mutant("local done = not needs or done_by(rel, exec, rname, r.category)", "local done = done_by(rel, exec, rname, r.category)",
+    "`other` sans la main")
+  mutant("local done = not needs or done_by(rel, exec, rname, r.category)", "local done = not needs",
+    "`other` sans les exécutants")
+  mutant("if done and not r.hidden then", "if done then", "`other` compte une recette cachée")
+  mutant("for _, rname in ipairs(names) do\n      if by_recipe[rname] then return by_recipe[rname] end",
+    "for _, rname in ipairs({ names[1] }) do\n      if by_recipe[rname] then return by_recipe[rname] end", "une seule recette essayée par objet")
+  mutant("while #cells > n0 do cells[#cells] = nil end", "", "cellules de la tentative manquée gardées")
+  mutant("for k in pairs(by_recipe) do if not rec0[k] then by_recipe[k] = nil end end", "", "recettes de la tentative manquée gardées")
+  mutant("need_src = src0", "", "sources de la tentative manquée gardées")
+  mutant("(#missed > 0) and why or nil", "why", "raison rendue même quand tous les objets ont une chaîne")
+  mutant("(#missed > 0) and why or nil", "nil", "raison jamais rendue")
+  mutant("if visit(t, 1) then made[#made + 1] = t else missed[#missed + 1] = t end",
+    "visit(t, 1) made[#made + 1] = t", "objet sans chaîne compté comme fait")
+  mutant("if (not w) or w.text ~= now[k] or tick - w.tick >= every then", "if (not w) or tick - w.tick >= every then", "texte changé non redit")
+  mutant("if (not w) or w.text ~= now[k] or tick - w.tick >= every then", "if (not w) or w.text ~= now[k] then", "aucun rappel")
+  mutant("if (not w) or w.text ~= now[k] or tick - w.tick >= every then", "if (not w) or w.text ~= now[k] or tick - w.tick > every then", "rappel un tick trop tard")
+  mutant("why[k] = { text = now[k], tick = tick }", "why[k] = { text = now[k], tick = w and w.tick or tick }", "rappel qui ne remet pas le compteur à zéro")
+  mutant("if now[k] == nil then gone[#gone + 1] = k; why[k] = nil end", "", "cause levée jamais dite")
+  mutant("if now[k] == nil then gone[#gone + 1] = k; why[k] = nil end", "if now[k] == nil then gone[#gone + 1] = k end", "cause levée gardée en mémoire")
+  say("§12-14 mutants de fluides.lua refusés : " .. killed .. "/" .. total)
+  check(killed == total, "§12-14 tous les mutants refusés (" .. killed .. "/" .. total .. ")")
+end
+
 print(string.format("[PETROLE] BILAN : %d OK, %d ECHEC(S)", pass, fail))
 os.exit(fail == 0 and 0 or 1)
