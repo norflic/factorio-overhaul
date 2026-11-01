@@ -37,6 +37,10 @@ def matieres(S):
     M["hazard"] = sf("q6_hazard", (0.36, 0.25, 0.03), rough=0.5, met=0.2, bandes=(0.2, (0.012, 0.011, 0.01), 0.5), usure=0.8, nu=(0.4, 0.38, 0.35), crasse=0.7, crasse_col=cr, coulures=0.6, graine=65)
     M["dalle"] = sf("q6_dalle", (0.115, 0.112, 0.1), rough=0.85, met=0.0, tole=(0.7, 0.44), joint=0.35, var=0.14, coulures=0.4, usure=0.5, nu=(0.32, 0.31, 0.29), crasse=0.85, crasse_col=cr, relief=0.5, grain=0.14, graine=66)
     M["radia"] = sf("q6_radia", (0.1, 0.115, 0.13), rough=0.5, met=0.6, usure=0.8, nu=(0.55, 0.57, 0.6), crasse=0.8, crasse_col=cr, coulures=0.7, rouille=(0.14, 0.07, 0.03), graine=67)
+    M["cer_brun"] = sf("q6_cerb", (0.17, 0.08, 0.036), rough=0.26, met=0.0, coulures=0.7, rouille=(0.06, 0.035, 0.02), usure=0.45, nu=(0.5, 0.34, 0.2), crasse=0.9, crasse_col=cr, grain=0.12, graine=68)
+    M["cuivre_s"] = sf("q6_cuivres", (0.17, 0.075, 0.03), rough=0.42, met=0.8, coulures=0.8, rouille=(0.04, 0.12, 0.08), usure=0.7, nu=(0.62, 0.36, 0.18), crasse=0.85, crasse_col=cr, grain=0.12, graine=69)
+    for (k, f_) in (("halo0", 0.7), ("halo1", 0.36), ("halo2", 0.18), ("halo3", 0.08)):
+        M[k] = S.mat_emissive("q6_" + k, (0.1, 0.55, 1.0), strength=f_, base=(0.02, 0.03, 0.035), main_scale=0.3, crust=(10.0, 0.6, 6.0))
     M["arc"] = MT.lumiere(S, "q6_arc", (0.1, 0.55, 1.0), 2.6, main=0.3)
     M["coeur"] = S.mat_emissive("q6_coeur", (0.2, 0.68, 1.0), strength=2.8, base=(0.02, 0.06, 0.09), main_scale=0.55, crust=(9.0, 0.45, 5.0))
     return M
@@ -198,7 +202,7 @@ def tour_centrale(lot, M, u, v):
         a = TAU * k / 6 + 0.3
         lot.put(M["acier"], G.tube([(u + 0.6 * math.cos(a), v + 0.6 * math.sin(a), 2.5), (u + Rb * math.cos(a), v + Rb * math.sin(a), 3.03)], 0.016, 4))
     # mât d'isolateurs et tore
-    zt = E.pile_iso(lot, M, u, v, 3.48, 9, 0.2, 0.115)
+    zt = E.pile_iso(lot, M, u, v, 3.48, 6, 0.22, 0.17, "cer_brun", "cuivre_s")
     zT = zt + 0.3
     lot.put(M["acier"], G.tour([(zt - 0.02, 0.09), (zT, 0.09)], 12, "z", c))
     lot.put(M["alu"], E.tore(0.56, 0.16, (u, v, zT), "z", 48, 14))
@@ -217,10 +221,15 @@ def grande_pile(lot, M, x, y, n):
     lot.put(M["acier"], G.prisme([(x - 0.33, y - 0.33), (x + 0.33, y - 0.33), (x + 0.33, y + 0.33), (x - 0.33, y + 0.33)], 0.2, 0.46, top_scale=0.72))
     for (dx, dy) in ((-0.28, -0.28), (0.28, -0.28), (0.28, 0.28), (-0.28, 0.28)):
         lot.put(M["riv"], G.rivets_le_long([((x + dx, y + dy, 0.205), (0, 0, 1))], 0.04, 0.03))
-    z1 = E.pile_iso(lot, M, x, y, 0.53, n, 0.29, 0.165)
-    for t in (0.33, 0.66):                                              # bagues de reprise
-        z = 0.53 + 0.165 * n * t
-        lot.put(M["acier"], G.tour([(z - 0.02, 0.17), (z + 0.02, 0.17)], 16, "z", (x, y, 0.0)))
+    z = 0.46
+    for (hm, nd) in ((0.34, n), (0.22, n), (0.14, 2)):
+        lot.put(M["cuivre_s"], G.tour([(z, 0.2), (z + hm, 0.2)], 18, "z", (x, y, 0.0)))
+        for zb in (z + 0.03, z + hm - 0.03):
+            lot.put(M["acier"], G.tour([(zb - 0.018, 0.225), (zb + 0.018, 0.225)], 18, "z", (x, y, 0.0)))
+        nr = 10
+        lot.put(M["riv"], G.rivets_le_long([((x + 0.225 * math.cos(TAU * k / nr), y + 0.225 * math.sin(TAU * k / nr), z + hm / 2), (math.cos(TAU * k / nr), math.sin(TAU * k / nr), 0.0)) for k in range(nr)], 0.018, 0.012))
+        z = E.pile_iso(lot, M, x, y, z + hm, nd, 0.31, 0.2, "cer_brun", "cuivre_s") - 0.1
+    z1 = z + 0.1
     lot.put(M["bobine"], E.tore(0.3, 0.035, (x, y, z1 - 0.3), "z", 28, 8))
     lot.put(M["alu"], E.tore(0.27, 0.07, (x, y, z1 + 0.04), "z", 30, 10))
     for k in range(3):
@@ -286,7 +295,7 @@ def build(S, lot0):
     rarc = G.Rnd(6600)
 
     # ======================================================================== le radier (dalles décalées) : dessous de tout
-    for (cx, cy, sx, sy, rz, h) in ((-4.3, -2.6, 2.4, 1.9, 0.2, 0.05), (-0.45, -2.75, 6.0, 2.3, -0.1, 0.06), (3.75, -2.6, 2.3, 2.1, -0.22, 0.05)):
+    for (cx, cy, sx, sy, rz, h) in ((-4.3, -2.6, 2.4, 1.9, 0.2, 0.05), (-0.45, -3.05, 6.3, 2.95, -0.1, 0.06), (3.75, -2.6, 2.3, 2.1, -0.22, 0.05)):
         lot.put(M["dalle"], G.boite((cx, cy, h / 2), (sx, sy, h), rz))
         lot.put(M["hazard"], G.boite(G.add((cx, cy, 0.06), G.rot_z((0.0, -sy / 2, 0.0), rz)), (sx * 0.45, 0.05, 0.08), rz))
 
@@ -305,11 +314,15 @@ def build(S, lot0):
     ct = niv((u_t, v_t, zT))
 
     # ======================================================================== les 2 hautes piles sur les côtés, l'arc qui les relie
-    a = grande_pile(lot, M, -3.35, -2.2, 16)
-    b = grande_pile(lot, M, 3.05, -2.55, 18)
-    E.eclair(lot, M["arc"], G.add(a, (0.02, 0, 0.0)), G.add(b, (-0.02, 0, 0.0)), rarc, 19, 0.15, 0.011, 3)
+    a = grande_pile(lot, M, -3.35, -2.2, 4)
+    b = grande_pile(lot, M, 3.05, -2.55, 5)
+    E.eclair(lot, M["arc"], G.add(a, (0.02, 0, 0.0)), G.add(b, (-0.02, 0, 0.0)), rarc, 19, 0.15, 0.022, 3)
     for (d0, d1) in (((-0.62, 0.05, 0.0), (-0.98, 0.0, -0.42)), ((0.64, -0.05, 0.02), (1.02, 0.02, 0.4))):      # aigrettes du tore
-        E.eclair(lot, M["arc"], G.add(ct, d0), G.add(ct, d1), rarc, 4, 0.05, 0.006, 1)
+        E.eclair(lot, M["arc"], G.add(ct, d0), G.add(ct, d1), rarc, 4, 0.05, 0.012, 1)
+
+    for (hx, hy) in ((a[0], a[1]), (b[0], b[1])):
+        for (k, r0, r1) in (("halo0", 0.46, 0.58), ("halo1", 0.58, 0.72), ("halo2", 0.72, 0.88), ("halo3", 0.88, 1.08)):
+            lot.put(M[k], G.tour([(0.072, r0), (0.072, r1)], 40, "z", (hx, hy, 0.0)))
 
     # ======================================================================== la salle des machines, de biais ; transformateurs ; grosse bobine
     ra = G.Rnd(6303)
@@ -318,6 +331,14 @@ def build(S, lot0):
         salle(lot, M, ra)
     tA = transfo(lot, M, ra, (-1.85, -3.55, 0.0), 0.12, 0.9)
     tB = transfo(lot, M, ra, (1.5, -3.75, 0.0), -0.2, 1.05)
+    transfo(lot, M, ra, (-3.25, -3.5, 0.0), 0.18, 0.85)
+    transfo(lot, M, ra, (2.95, -3.58, 0.0), -0.26, 0.95)
+    for (ctrl, rc) in (([(-3.1, -3.02, 0.13), (-2.75, -2.82, 0.09), (-2.25, -2.92, 0.09), (-1.85, -3.12, 0.2)], 0.062),
+                       ([(-1.25, -3.55, 0.14), (-0.92, -3.32, 0.09), (-0.72, -3.25, 0.1), (-0.3, -3.2, 0.09), (0.45, -3.3, 0.09), (0.9, -3.48, 0.16)], 0.066),
+                       ([(2.25, -3.42, 0.14), (2.42, -3.14, 0.09), (2.72, -3.12, 0.09), (3.05, -3.0, 0.24)], 0.062)):
+        C.flexible(lot, M["caoutchouc"], ctrl, rc, 0.07)
+        for t_ in (ctrl[1], ctrl[-2]):                                  # colliers boulonnés au sol
+            lot.put(M["acier"], G.boite((t_[0], t_[1], 0.09), (0.09, 0.2, 0.05)))
     bobine_axe(lot, M, (-0.1, -3.62, 0.56), 0.95, 0.38, rz=-0.08)
     with E.dans(lot, (-0.1, -3.62, 0.0), -0.08):
         for x in (-0.5, 0.5):
@@ -346,7 +367,7 @@ def build(S, lot0):
     for (p, q, fl) in ((ends[0], P.xf((3.9, 0.3, C.z_dessus(3.9) + 0.04)), 0.35), (ends[2], (3.5, 3.0, 1.9), 0.28), (ends[1], (5.95, 1.9, 2.15), 0.2), (ends[3], (5.95, 3.2, 1.7), 0.2)):
         lot.put(M["noir"], G.tube(G.chainette(p, q, fl, 16), 0.008, 3))
     # poteaux à isolateurs le long du front, câbles pendants
-    ps = [(-5.2, -3.45), (-3.45, -3.92), (-0.1, -4.25), (3.1, -3.95), (4.7, -3.4)]
+    ps = [(-5.2, -3.45), (-3.45, -4.28), (-0.1, -4.5), (3.1, -4.3), (4.7, -3.4)]
     tp = []
     for (x, y) in ps:
         lot.put(M["poutre"], G.tour([(0.0, 0.04), (1.05, 0.03)], 8, "z", (x, y, 0.0), cap1=True))
@@ -381,7 +402,7 @@ def build(S, lot0):
     pv = niv
     C.tuyau(lot, M["conduit"], M["acier"], [(-3.3, -1.35, 0.55), (-3.3, -2.0, 0.55)], 0.06, rb=0.1)
     C.tuyau(lot, M["conduit"], M["acier"], [(-4.0, -2.15, 0.7), (-2.55, -2.05, 0.7), (-2.25, -1.95, 0.7)], 0.07, rb=0.14, pas_bride=0.45)
-    C.tuyau(lot, M["cuivre"], M["acier"], [(-5.2, -3.3, 0.2), (-3.1, -3.95, 0.2), (0.0, -4.12, 0.2), (3.25, -3.72, 0.2)], 0.035, rb=0.14, pas_bride=0.55)
+    C.tuyau(lot, M["cuivre"], M["acier"], [(-5.2, -3.3, 0.2), (-3.1, -4.2, 0.2), (0.0, -4.38, 0.2), (3.25, -4.18, 0.2)], 0.035, rb=0.14, pas_bride=0.55)
     C.tuyau(lot, M["conduit"], M["acier"], [pv((1.95, -1.15, 0.95)), pv((2.55, -1.4, 0.95)), (2.75, -2.15, 0.95), (2.85, -2.3, 0.75)], 0.05, rb=0.12, pas_bride=0.45)
     C.tuyau(lot, M["acier"], M["acier"], [(0.7, 2.7, 0.7), (0.2, 2.7, 0.7), (0.2, 1.95, 0.45)], 0.06, rb=0.13)
     for (a_, b_, c_) in (((-4.55, -1.4, 1.15), (-4.8, -1.75, 0.3), (-4.75, -2.5, 0.38)), ((-3.6, -1.15, 1.15), (-3.65, -1.55, 0.4), (-3.2, -2.0, 0.4)),
