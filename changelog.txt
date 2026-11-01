@@ -1,4 +1,13 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.33
+Date: 2026-11-01
+  Changes:
+    - Les 16 QG : epave a l'age 0, puis un visuel par age, emprises 2:1 de 8x4 a 16x8, sauvegardes migrees. Le QG des factions recoit l'epave, son centre lie porte les ages.
+    - Minerais : formes de blende, cassiterite, ilmenite et monazite, nouvelles icones.
+    - Robots : gamme de 12, 4 usines, 3 geants, calibres par duel contre les biters de leur palier. Visuels encore provisoires.
+    - Proteger d'abord : un avant-poste touche par des vagues recoit ses tourelles avant d'etre agrandi, reserve de chargeurs selon la menace, recherche de la tourelle en priorite pour votre equipe, coffre de votre equipe repose s'il reste des PNJ.
+    - Rien n'a ete rejoue au-dela de 2 h au moment de la fusion.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.32
 Date: 2026-11-01
   Changes:
