@@ -603,7 +603,12 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
   -- Lot RB-FLUIDE : la garde du joueur vaut pour toute équipe (règle pure shared/ai3/impayable.lua) ; les packs qui manquaient sont retenus pour le retour.
   st.grace = st.grace or {}
   Im.expire_grace(st, tick)
-  if Im.should_stall(lab, tick, lab and lab.tech and st.techs[lab.tech], lab and lab.tech and st.grace[lab.tech]) then
+  -- Relecture d'intégration 0.6.35 : la recherche qui OUVRE la tourelle n'est jamais lâchée tant que la recette est fermée (palier de défense, S1 : ses packs
+  -- passent avant tout) ; lâchée au fer à 0, elle laissait la place à une autre recherche qui la gardait jusqu'à sa fin, tourelle repoussée de dizaines de minutes.
+  local defense_tech = c.g.unlocked_by[T.turret]
+  local turret_rec = force.recipes[T.turret]
+  local keep_defense = defense_tech ~= nil and lab ~= nil and lab.tech == defense_tech and turret_rec ~= nil and not turret_rec.enabled
+  if not keep_defense and Im.should_stall(lab, tick, lab and lab.tech and st.techs[lab.tech], lab and lab.tech and st.grace[lab.tech]) then
     local spec = c.techs[lab.tech]
     local stock = view.stock or {}
     Im.stall(st, lab.tech, tick, Im.missing(spec and spec.ingredients, stock))
