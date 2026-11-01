@@ -787,7 +787,7 @@ local function build_input(f, cs, view, book, tick, D, w)
   D.bonus.mining = (force and force.mining_drill_productivity_bonus) or 0
   D.bonus.lab = (force and force.laboratory_speed_modifier) or 0
   local stock = view.stock or {}
-  local threat, production_first = Sv.capi(Survie.on(f), view.threatened or false, (f.team and f.team.priorite_pf) or false)
+  local threat, production_first = Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_peril.peril), view.threatened or false, (f.team and f.team.priorite_pf) or false)
   if threat and R.PILE_BUDGET and Pi.threat_open(st.pile) then threat = false end -- lot PILE-BUDGET (relecture) : défense payée, l'évolution continue
   -- foreuse imposée par ressource : électrique (fonderie du plan directeur) si le gabarit se pose aujourd'hui ; sinon
   -- AUCUNE (« » : la règle refuse « aucune foreuse disponible »). Les avant-postes à combustion restent au décideur

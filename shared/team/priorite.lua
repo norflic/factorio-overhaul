@@ -43,6 +43,7 @@ Pr.MODE_PRODUCTION = "production"
 Pr.MODE_DEFENSE_D_ABORD = "defense_d_abord"
 Pr.MODE_PRODUCTION_D_ABORD = "production_d_abord"
 Pr.MODE_SURVIE_PENURIE = "survie_penurie" -- lot SURVIE-PENURIE (shared/team/survie.lua) : la production d'abord, même si le fer paie les deux
+Pr.MODE_QG_PERIL = "qg_peril" -- lot S1 (shared/team/survie_qg.lua) : le QG ne tient pas la menace mémorisée : la défense d'abord, même en mode survie-pénurie
 Pr.CONFIRM = 2 -- pensées de suite qui doivent demander la bascule « défense d'abord » / « production d'abord » (hystérésis, lot INTEG-DEFENSE D-D)
 
 local function num(x)
@@ -100,6 +101,16 @@ function Pr.decide(a)
     out.production_first = true
     out.hold = math.min(funds, cp)
     out.defense_budget = funds - out.hold
+  end
+  -- Lot S1 (`peril` : le QG ne tient pas la menace reçue, shared/team/survie_qg.lua) : la DÉFENSE passe d'abord, même en mode survie-pénurie
+  -- et même quand le fer ne paie pas les deux : un QG tombé ne produit plus rien (mesuré : Écarlate 0.6.32, 40 min de « production d'abord »
+  -- avec 0 fer, QG détruit à 79,9 min). Rien n'est mis de côté ; la production reprend quand le péril cesse (la défense est bornée à la
+  -- menace). La survie des effectifs (`survival`) garde la main.
+  if a.peril and not a.survival then
+    out.mode = Pr.MODE_QG_PERIL
+    out.production_first = false
+    out.hold = 0
+    out.defense_budget = funds
   end
   return out
 end
