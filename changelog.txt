@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.37
+Date: 2026-11-02
+  Changes:
+    - Champs de minerai (lot CHAMP) : les paires foreuse thermique + four sont remplacees par des bandes en rangees [poteaux | foreuses | tapis | foreuses | poteaux], tapis qui sortent par le bout le plus proche, fonderie de N fours au bout, poteaux en rangees. Les ordres couvrir/ouvrir de fer et cuivre passent par le champ. Mesure sur 150 min : part de foreuses electriques fer+cuivre 6 a 71 % (graine 20261020) et 9 a 25 % (graine 271828182) contre le temoin.
+    - A SURVEILLER : fours de bande sans combustible ou sortie pleine (ravitaillement par les PNJ, lot FLUX non fini), charbon et pierre toujours en paires, un avant-poste neuf commence encore en paires, 50 % non atteint sur la 2e graine, une sauvegarde 0.6.36 garde ses lignes electriques deja posees.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.36
 Date: 2026-11-02
   Changes:

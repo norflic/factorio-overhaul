@@ -371,7 +371,7 @@ function Pi.improving(g, focus)
   local item
   if g.kind == "module" and (g.pile or g.grow) then
     if g.pile and (Pi.FAMILY_RANK[g.pile] or Pi.AMELIORER) <= Pi.ADAPTER then return false end
-    item = g.product
+    item = g.item or g.product -- lot CHAMP : une bande du champ porte sa plaque
   elseif g.kind == "capi" then
     item = g.order and g.order.item
   else
