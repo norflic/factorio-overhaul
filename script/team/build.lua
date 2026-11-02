@@ -3773,8 +3773,13 @@ local function wire_project(f, surface, p)
   for _, c in ipairs(cand) do
     local ra, rc = find(c[2]), find(c[3])
     if ra ~= rc then
-      if poles[c[2]].connect_neighbour(poles[c[3]]) then n = n + 1 end
-      parent[rc] = ra
+      -- lot CHAMP : la liaison n'unit les deux réseaux que si le fil est POSÉ ; un poteau qui a déjà ses 5 fils (reliés par le moteur au
+      -- ravivage) refuse, et l'arête suivante doit être essayée. Avant, le refus comptait comme une liaison : des fonderies de champ restaient
+      -- sur un réseau sans centrale (mesuré : 12 à 26 bras « sans courant » par bande, graine 271828182, [FO-CHAMP-ETAT])
+      if poles[c[2]].connect_neighbour(poles[c[3]]) then
+        n = n + 1
+        parent[rc] = ra
+      end
     end
   end
   -- liaisons de cuivre des poteaux du projet (le moteur relie lui-même un poteau ravivé à ses voisins : les fils
