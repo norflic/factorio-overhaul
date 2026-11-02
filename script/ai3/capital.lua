@@ -245,9 +245,18 @@ end
 --- planificateur ne regarde que le rayon du QG et les tourelles suivies : une famille bloquante dont les bâtiments sont loin
 --- (murs d'un avant-poste, foreuses) lui restait invisible, le centre était choisi puis refusé « cc-families » (mesuré, 2
 --- graines : 3 refus sur 3 centres choisis).
+local FAR_LEVELS = 6 -- niveaux cherchés un à un depuis le haut ; en dessous, UNE recherche pour tous les niveaux restants
 local function far_best(f, surface, fam, cond)
-  for n = math.min(cond, fam.max) - 1, 1, -1 do
+  local top = math.min(cond, fam.max) - 1
+  for n = top, math.max(1, top - FAR_LEVELS + 1), -1 do
     local found = surface.find_entities_filtered({ force = f.force, name = L.name(fam, n), limit = 1 })
+    local e = found and found[1]
+    if e and e.valid and e.unit_number then return e end
+  end
+  local rest = {}
+  for n = 1, top - FAR_LEVELS do rest[#rest + 1] = L.name(fam, n) end
+  if #rest > 0 then
+    local found = surface.find_entities_filtered({ force = f.force, name = rest, limit = 1 })
     local e = found and found[1]
     if e and e.valid and e.unit_number then return e end
   end
