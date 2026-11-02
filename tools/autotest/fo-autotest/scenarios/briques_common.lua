@@ -93,8 +93,9 @@ return function(mode, rule)
           if mode == "monopole" then
             put[#put + 1] = f.get_inventory(defines.inventory.furnace_source).insert({ name = "iron-plate", count = 40 })
           else
-            put[#put + 1] = f.get_inventory(defines.inventory.furnace_source).insert({ name = "stone", count = 18 })
-            put[#put + 1] = f.get_output_inventory().insert({ name = "steel-plate", count = 1 })
+            -- Le cas mesure (azure) : une fabrication d'acier est EN COURS (ses 5 plaques sont consommees, la case d'entree est vide),
+            -- la tournee charge de la pierre dans le four « vide » ; l'acier termine, sa plaque bloque la sortie.
+            put[#put + 1] = f.get_inventory(defines.inventory.furnace_source).insert({ name = "iron-plate", count = 5 })
           end
           if f.get_fuel_inventory().get_item_count("coal") < 20 then f.get_fuel_inventory().insert({ name = "coal", count = 20 }) end
         end
@@ -105,6 +106,14 @@ return function(mode, rule)
         st.brick0 = stats.get_input_count("stone-brick")
         st.steel0 = stats.get_input_count("steel-plate")
         st.mod0 = ctx.remote("fo-ia1", "smelt_stats", "player") or {}
+      end
+      if mode == "bloque" and e.tick == W0 + 60 then
+        local n = 0
+        for _, f in ipairs(furnaces_of(ctx, st.hq)) do
+          local src = f.get_inventory(defines.inventory.furnace_source)
+          if src.is_empty() then n = n + src.insert({ name = "stone", count = 18 }) end
+        end
+        ctx.log("pierre chargee dans les fours a case vide (acier en cours) : " .. n)
       end
       if st.t0 and e.tick > W0 and (e.tick - W0) % MIN == 0 and e.tick <= W0 + WINDOW then
         local list = furnaces_of(ctx, st.hq)
