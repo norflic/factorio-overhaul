@@ -608,11 +608,12 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     end
   end
   table.sort(ids)
-  -- lot THERMIQUE : un minerai CRITIQUE (le charbon de la centrale) ne perd jamais ses paires sous une bande tant que l'approvisionnement qui
-  -- reste n'atteint pas son plancher : cette bande-là est mise de côté et une bande sans paire (ou moins chargée) passe devant
+  -- lot THERMIQUE : un minerai ne perd pas ses paires sous une bande tant que l'approvisionnement qui reste n'atteint pas son plancher ou qu'il
+  -- reste sans source (dernière source, centrale) : cette bande-là est mise de côté et une bande sans paire (ou moins chargée) passe devant, de
+  -- sorte que l'électrique PRODUISE avant qu'une paire parte (mesuré, 1re mesure : 45 à 57 attentes « protege » de 10 min sinon)
   if #ids > 0 and free then
     local ctx = th_context(f, surface, f.build, free, nil)
-    if ctx.critical[o.kind] then
+    do
       local fields, byid = build_fields(f, surface, ms, free)
       local fl = byid[o.id]
       if fl then
