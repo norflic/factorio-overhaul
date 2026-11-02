@@ -198,15 +198,16 @@ function Sante.work(f, p, surface, inv, tick)
   return "done"
 end
 
---- Puissance (kW) des consommateurs EN CHANTIER (admis, pas encore finis) et des modules RETENUS par la porte.
+--- Puissance (kW nominaux) des consommateurs EN CHANTIER (admis, pas encore finis) et des modules RETENUS par la porte.
 function Sante.committed(f, except)
   local b = f.build
   local kw = 0
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
-    if p and pid ~= except and p.power_kw and p.power_kw > 0 and p.admitted
-      and (p.state == "plan" or p.state == "reserve" or p.state == "defrichage" or p.state == "fantomes" or p.state == "chantier"
-        or p.state == "raccordement") then
+    -- admis et pas fini : « attente » compris (le plan attend un réseau, des masques : l'état revient à « attente » entre deux essais), jamais
+    -- un projet rouvert (son module a déjà sa part dans la production)
+    if p and pid ~= except and p.power_kw and p.power_kw > 0 and p.admitted and not p.reopened and not p.abandoned
+      and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
       kw = kw + p.power_kw
     end
   end

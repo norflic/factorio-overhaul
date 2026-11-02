@@ -314,6 +314,20 @@ local pb = { id = 6, state = "attente", spec = { kw = 1000 } }
 fg.build.projects[6] = pb; fg.build.order[2] = 6
 check(Sante.gate(fg, pb, 1010, kw_of) == false and pb.reason == "courant" and not pb.admitted, "900 + 600 (en chantier) + 600 > 1800 : retenu")
 check(Sante.held(fg) == 1000, "le module retenu compte dans la demande")
+do
+  -- un projet admis dont le plan attend (retour a « attente ») reste un consommateur en chantier ; un projet rouvert, fini ou refuse, non
+  local fc = gate_f(30000, 0)
+  local function add(id, st, extra)
+    local q = { id = id, state = st, admitted = true, power_kw = 500 }
+    if extra then for k, v in pairs(extra) do q[k] = v end end
+    fc.build.projects[id] = q; fc.build.order[#fc.build.order + 1] = id
+  end
+  add(1, "attente"); add(2, "plan"); add(3, "chantier"); add(4, "fini"); add(5, "refuse"); add(6, "bloque"); add(7, "bloque", { retry_at = 5 })
+  add(8, "reserve", { reopened = 1 }); add(9, "chantier", { abandoned = true })
+  fc.build.projects[10] = { id = 10, state = "attente", power_kw = 500 }; fc.build.order[#fc.build.order + 1] = 10 -- pas admis : compte comme retenu, pas ici
+  check(Sante.committed(fc) == 4 * 500, "committed : attente/plan/chantier admis + bloque avec reprise = 4 x 500")
+  check(Sante.committed(fc, 1) == 3 * 500, "committed sans le projet juge")
+end
 check(table.concat(LOG, "\n"):find("projet 6 retenu", 1, true) ~= nil, "journal : retenu")
 local n_logs = #LOG
 Sante.gate(fg, pb, 1020, kw_of)
