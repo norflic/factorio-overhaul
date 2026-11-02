@@ -80,10 +80,12 @@ Cap.REPLACE_BATCH = 4
 -- parties). Le choix est un rapport valeur ÷ coût (règle de Smith) : exact pour un ensemble FINI de travaux, mais le centre
 -- (un gros prix qui ouvre l'époque, rapport 170 à 560) passait derrière un flux qui ne tarit pas (chaque tourelle, mur ou
 -- foreuse posé offre une amélioration à 700 à 14 000) : mesuré sur 2 graines de 3 h, 1 faction sur 6 a monté son centre.
--- Règle du « loueur de skis » (compétitive : on ne perd jamais plus du double) : tant que le centre est payable, on peut le
--- reporter pour des travaux moins chers, mais plus longtemps que ce que ces reports ont coûté AU TOTAL le prix du centre
--- (Cap.DEFER_PCT % de son coût en travail) : il passe alors devant (d.starved), et son but est servi comme un travail court
--- (juste après le premier projet : l'armée et les réserves ne lui prennent plus son fer).
+-- Règle du « loueur de skis » (compétitive : on ne perd jamais plus du double), comptée en VALEUR : tant que le centre est
+-- payable, on peut le reporter pour des travaux de meilleur rapport, mais pas au-delà du moment où ces reports ont rapporté
+-- AU TOTAL autant que le centre lui-même (Cap.DEFER_PCT % de sa valeur) : il passe alors devant (d.starved), et son but est
+-- servi comme un travail court (juste après le premier projet : l'armée et les réserves ne lui prennent plus son fer).
+-- (Essai 2, mesuré : compté en COÛT, le report d'un centre de l'époque 3 — 80 acier — dépassait l'heure pour une faction
+-- qui paie 40 de travail par minute ; en valeur, il faut la valeur d'environ 25 tourelles.)
 Cap.DEFER_PCT = 100
 
 local function sorted_keys(t)
@@ -433,13 +435,13 @@ function Cap.choose(Ld, census, ctx)
   return d
 end
 
---- Le centre a-t-il été reporté assez longtemps ? defer = { key, spent } (travail payé en améliorations moins chères pendant
---- que le centre `key` était payable, tenu par le runtime), gate = le candidat centre (d.work : son coût en travail).
+--- Le centre a-t-il été reporté assez longtemps ? defer = { key, spent } (VALEUR des améliorations payées pendant que le centre
+--- `key` était payable, tenue par le runtime), gate = le candidat centre (gate.value : sa valeur).
 function Cap.starved(defer, gate)
   if not (defer and gate and gate.center and gate.key and defer.key == gate.key) then return false end
-  local work = gate.work or 0
-  if work <= 0 then return false end
-  return (defer.spent or 0) * 100 >= work * Cap.DEFER_PCT
+  local value = gate.value or 0
+  if value <= 0 then return false end
+  return (defer.spent or 0) * 100 >= value * Cap.DEFER_PCT
 end
 
 --- Le centre est-il PAYABLE à cette décision (aucune condition qui le bloque, pas de refus récent) ? centre = res.centre de
