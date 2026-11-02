@@ -575,8 +575,8 @@ function Team.view(f, tick)
     local defended = FerEquipe.defended({ turret_ok = grow, hq_turrets = hq_turrets, defend_hq = T.defend_hq, outposts = needs })
     iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended, evaluated)
   end
-  -- Lot FLUX : les sorties des avant-postes (plaques d'un four, charbon d'un coffre) sont des objets ATTENDUS : le cerveau ne fait ni
-  -- miner ni fabriquer ce qui dort déjà chez lui (la tournée qui les rapporte monte en priorité, shared/team/flux.lua).
+  -- Lot FLUX : les plaques qui dorment dans les sorties des avant-postes (view.repat) : le tableau retient autant de minage à la main
+  -- (Board.sync / Board.add) et le fond les compte dans le stock de minerai ÉQUIVALENT ; la vue du planificateur, elle, ne change pas.
   -- Lot FLUX : niveau de remplissage des brûleurs pour les tournées de la pensée SUIVANTE et des tournées en cours (charbon du coffre,
   -- brûleurs de cette pensée) : shared/team/flux.lua, Fx.refill_to.
   local n_burners = 0
@@ -584,7 +584,6 @@ function Team.view(f, tick)
   f.team.flux_fill = Flux.refill_to(stock0[T.fuel] or 0, n_burners, T.fuel_refill_to, Flux.REFILL_MAX)
   local repat = Flux.repatriable(outposts, REPAT_ONLY)
   local incoming = Board.incoming(f)
-  for _, k in ipairs(State.sorted_keys(repat)) do incoming[k] = (incoming[k] or 0) + repat[k] end
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
   local four_rule = Outposts.four_rule(f)

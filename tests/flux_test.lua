@@ -148,20 +148,26 @@ local function suite()
   local p2 = Planner.plan(view({ stock = { [IRON.product] = 5000 }, outposts = { op(3, "iron", { output = 90, stuck = 1 }) } }), book)
   check(service(p2, 3) and service(p2, 3).prio == 70, "planificateur : coffre qui couvre le produit : 70")
 
-  -- le minage d'un minerai dont la plaque dort dans les sorties : le manque de plaques ne le demande plus (objets attendus)
-  local goal_view = function(incoming)
-    return view({ smelters = 2, stock = { ["iron-ore"] = 0 }, incoming = incoming, no_research = false,
-      workers_idle = 4, done = {}, outposts = {} })
+  -- §7 bis rétention des minages à la main : les plaques déjà dans les sorties
+  local function mt(key, res, count, prio, extra)
+    local t = { key = key, kind = "mine", resource = res, count = count, prio = prio }
+    for k, x in pairs(extra or {}) do t[k] = x end
+    return t
   end
-  local function mine_tasks(plan)
-    local n = 0
-    for _, t in ipairs(plan.tasks) do if t.kind == "mine" and t.resource == IRON.resource then n = n + 1 end end
-    return n
-  end
-  local m0 = Planner.plan(goal_view({}), book)
-  local m1 = Planner.plan(goal_view({ [IRON.product] = 100000 }), book)
-  check(mine_tasks(m1) == 0, "planificateur : des plaques attendues en quantité : aucun minage de leur minerai")
-  check(mine_tasks(m0) >= 0, "planificateur : (témoin) la même vue sans objets attendus se calcule")
+  local budget = Fx.hold_budget(map, { [plate] = 120 })
+  check(budget[ore] == 120 * ratio and budget[COPPER.resource] == 0, "budget : les plaques attendues, en minerai")
+  local list = { mt("b", ore, 50, 45), mt("a", ore, 50, 45), mt("c", ore, 50, 45), mt("d", ore, 50, 85), mt("e", COAL.resource, 50, 45),
+    mt("f", ore, 50, 95), mt("g", ore, 50, 30, { worker = 7 }) }
+  local held = Fx.hold_mines(list, map, budget, Fx.URGENT)
+  check(#held == 2 and held[1] == "a" and held[2] == "b", "rétention : 120 plaques = 2 minages de 50, du moins prioritaire, clé croissante : " .. table.concat(held, ","))
+  check(budget[ore] == 120 * ratio - 100, "rétention : le budget est entamé")
+  local held2 = Fx.hold_mines(list, map, { [ore] = 49 }, Fx.URGENT)
+  check(#held2 == 0, "rétention : jamais plus que ce que les sorties rapporteront (49 < 50)")
+  local held3 = Fx.hold_mines({ mt("u", ore, 50, Fx.URGENT) }, map, { [ore] = 500 }, Fx.URGENT)
+  check(#held3 == 0, "rétention : une urgence n'est jamais retenue")
+  local held4 = Fx.hold_mines({ mt("k", COAL.resource, 50, 45), mt("w", ore, 50, 45, { worker = 3 }) }, map, { [ore] = 500, [COAL.resource] = 500 }, Fx.URGENT)
+  check(#held4 == 0, "rétention : ni une ressource sans plaque, ni une tâche déjà prise")
+  check(#Fx.hold_mines(nil, map, {}, 90) == 0 and #Fx.hold_mines(list, nil, {}, 90) == 0, "rétention : entrées vides")
 
   -- §8 fond
   local function fview() return { outposts = {}, sites = {}, smelters = 2, stock = {}, incoming = {} } end
@@ -196,6 +202,33 @@ local MUTANTS = {
   { "repat-all-items", function()
       local o = Fx.repatriable
       Fx.repatriable = function(rows) return o(rows, nil) end
+    end },
+  { "hold-never", function() Fx.hold_mines = function() return {} end end },
+  { "hold-unbounded", function()
+      Fx.hold_mines = function(tasks, map, left, urgent)
+        local held = {}
+        for _, t in ipairs(tasks or {}) do
+          if t.kind == "mine" and t.resource and map and map[t.resource] and not t.worker and (t.prio or 0) < (urgent or 90) then held[#held + 1] = t.key end
+        end
+        table.sort(held)
+        return held
+      end
+    end },
+  { "hold-urgent", function()
+      local o = Fx.hold_mines
+      Fx.hold_mines = function(tasks, map, left) return o(tasks, map, left, 1000) end
+    end },
+  { "hold-most-urgent-first", function()
+      Fx.hold_mines = function(tasks, map, left, urgent)
+        local list = {}
+        for _, t in ipairs(tasks or {}) do
+          if t.kind == "mine" and t.resource and map and map[t.resource] and not t.worker and (t.prio or 0) < (urgent or 90) then list[#list + 1] = t end
+        end
+        table.sort(list, function(a, b) if a.prio ~= b.prio then return a.prio > b.prio end return a.key < b.key end)
+        local held = {}
+        for _, t in ipairs(list) do if (left[t.resource] or 0) >= (t.count or 0) then left[t.resource] = left[t.resource] - t.count; held[#held + 1] = t.key end end
+        return held
+      end
     end },
   { "equiv-plates-off", function() Fx.equiv = function(res, _, stock) return math.max(0, (stock and stock[res]) or 0) end end },
   { "equiv-repat-off", function()

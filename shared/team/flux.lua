@@ -25,6 +25,7 @@
                                         pour un ravitaillement vital ou des sorties pleines.
     Fx.vital(spec, fuel, inputs)     -> { [type d'avant-poste] = vrai } : ceux dont le produit est une plaque fondue au QG ou le
                                         combustible.
+    Fx.hold_mines(tasks, map, left, urgent) -> clés des minages retenus (plaques déjà dans les sorties) ; Fx.hold_budget(map, repat).
     Fx.refill_to(coal, burners, base, max) -> niveau de remplissage des brûleurs d'une tournée (10 à 50 selon le coffre).
     Fx.drop_service(o, dropped)      -> la tournée d'un produit saturé est-elle retirée ? Pas quand ses sorties sont pleines.
 ]]
@@ -151,6 +152,42 @@ end
 function Fx.drop_service(o, dropped)
   if not dropped then return false end
   return (o.stuck or 0) == 0
+end
+
+--- Minages à la main RETENUS tant que les plaques qu'ils donneraient attendent déjà dans les sorties des avant-postes.
+--- tasks = tâches libres { key, kind, resource, count, prio, ... } ; map = Fx.plate_map ; repat = Fx.repatriable ; left = { [minerai] = minerai
+--- retenable } (rendu par Fx.hold_budget, entamé ici) ; urgent = seuil des urgences (jamais retenues). On retient, du moins prioritaire au
+--- plus prioritaire (à égalité, clé croissante), des tâches ENTIÈRES tant que leur total ne dépasse pas le budget de la ressource : au plus
+--- ce que les sorties rapporteront, jamais plus. Rend la liste des clés retenues (ordre de décision, aucun pairs).
+--- (Les objets attendus ne passent PAS par la vue du planificateur : compter des plaques « attendues » cachait aussi la pénurie aux
+--- projets d'extraction et retardait l'ouverture de l'extraction de cuivre à 0,8 min, banc dc-croissance 271828182, Écarlate.)
+function Fx.hold_mines(tasks, map, left, urgent)
+  local list = {}
+  for _, t in ipairs(tasks or {}) do
+    if t.kind == "mine" and t.resource and map and map[t.resource] and not t.worker and (t.prio or 0) < (urgent or Fx.URGENT) then
+      list[#list + 1] = t
+    end
+  end
+  table.sort(list, function(a, b)
+    if (a.prio or 0) ~= (b.prio or 0) then return (a.prio or 0) < (b.prio or 0) end
+    return tostring(a.key) < tostring(b.key)
+  end)
+  local held = {}
+  for _, t in ipairs(list) do
+    local n = t.count or 0
+    if n > 0 and (left[t.resource] or 0) >= n then
+      left[t.resource] = left[t.resource] - n
+      held[#held + 1] = t.key
+    end
+  end
+  return held
+end
+
+--- Budget de rétention par minerai (en minerai) : les plaques attendues dans les sorties, fois le minerai par plaque.
+function Fx.hold_budget(map, repat)
+  local out = {}
+  for ore, m in pairs(map or {}) do out[ore] = math.max(0, (repat and repat[m.plate]) or 0) * m.ratio end
+  return out
 end
 
 --- Niveau auquel une tournée REMPLIT chaque brûleur (foreuse à combustion, four d'avant-poste) : `base` (T.fuel_refill_to) quand le coffre

@@ -33,7 +33,8 @@ local X = require("shared.ai3.manque")
 local Registry = require("script.companion.registry")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Fx = require("shared.team.flux") -- lot FLUX : tournées qui vieillissent (règle pure)
-local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs) -- lot FLUX : types d'avant-poste dont le ravitaillement passe en tête
+local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs)
+local PLATE_MAP = Fx.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs) -- lot FLUX : minerai -> plaque (rétention des minages) -- lot FLUX : types d'avant-poste dont le ravitaillement passe en tête
 local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en attente des avant-postes en échec)
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
@@ -372,6 +373,18 @@ function Board.sync(f, planned, tick, plan, view, book)
   else
     b.need_mult = nil
   end
+  -- Lot FLUX : minages à la main RETENUS tant que leurs plaques attendent dans les sorties des avant-postes (shared/team/flux.lua) ;
+  -- le budget restant sert Board.add (fond, survie : ajoutés après la synchronisation). Urgences (>= 90) jamais retenues.
+  b.hold_left = nil
+  if view and view.repat and Board.market(f) then
+    local left = Fx.hold_budget(PLATE_MAP, view.repat)
+    local free = {}
+    for _, key in ipairs(sorted_keys(keep)) do free[#free + 1] = keep[key] end
+    local held = Fx.hold_mines(free, PLATE_MAP, left, Fx.URGENT)
+    for _, key in ipairs(held) do keep[key] = nil end
+    if #held > 0 then bump(f, "flux_held", #held) end
+    b.hold_left = left
+  end
   b.tasks = keep
   b.born = born
   rebuild_list(b)
@@ -383,6 +396,18 @@ function Board.add(f, tasks, tick)
   local b = Board.get(f)
   local born = b.born or {}
   local n = 0
+  -- Lot FLUX : même rétention pour le travail ajouté après la synchronisation (fond, survie), sur le budget que Board.sync a laissé.
+  if b.hold_left then
+    local held = Fx.hold_mines(tasks, PLATE_MAP, b.hold_left, Fx.URGENT)
+    if #held > 0 then
+      local skip = {}
+      for _, key in ipairs(held) do skip[key] = true end
+      local kept = {}
+      for _, t in ipairs(tasks) do if not skip[t.key] then kept[#kept + 1] = t end end
+      tasks = kept
+      bump(f, "flux_held", #held)
+    end
+  end
   for _, t in ipairs(tasks) do
     local cd = b.cooldown[t.key]
     if not b.tasks[t.key] and not (cd and tick < cd) then
