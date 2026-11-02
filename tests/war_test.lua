@@ -42,10 +42,12 @@ end
 local function war(text) M.command("fo-war", text) end
 local function W() return M.world() end
 
+-- Lot PARITE : la commande /fo-war start pose aussi, d'office, le coffre de VOTRE équipe (force « player »), avec ses tourelles et ses PNJ :
+-- ce banc juge les factions, il les compte hors force « player » (tests/parite_test.lua prouve l'équipe).
 local function count_entities(name, force)
   local n = 0
   for _, e in ipairs(W().entities) do
-    if e.valid and e.name == name and (not force or e.force.name == force) then n = n + 1 end
+    if e.valid and e.name == name and ((force and e.force.name == force) or (not force and e.force.name ~= "player")) then n = n + 1 end
   end
   return n
 end
@@ -64,6 +66,8 @@ for _, key in ipairs({ "scarlet", "azure", "emerald", "amber" }) do
   check(game.forces.player.get_cease_fire(f) == true, "cessez-le-feu joueur -> " .. key)
 end
 check(count_entities("fo-faction-hq") == 4, "4 QG posés")
+check(count_entities("fo-team-chest", "player") == 1 and count_entities("gun-turret", "player") == 4,
+  "lancement par la commande : le coffre de votre équipe est posé d'office, avec ses 4 tourelles (lot PARITE)")
 -- Lot KIT : le kit généreux (défaut du moteur simulé) offre 4 tourelles de QG par faction ; le kit égal (FO_KIT_EGAL=1, le
 -- jeu réel) n'en offre aucune, ni stock de départ au coffre.
 local kit_egal = os.getenv("FO_KIT_EGAL") == "1"

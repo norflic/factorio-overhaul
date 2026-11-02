@@ -13,7 +13,13 @@
   PNJ). Migration : on_configuration_changed et remote fo-adopte.migrate (machines déjà posées dans le rayon, par numéro
   d'unité). Réglage de carte fo-war-adopte (vrai par défaut) : l'éteindre rend les machines adoptées au joueur à la
   migration suivante et stoppe toute nouvelle adoption.
-  État : f.adopt = { units = { [numéro d'unité] = true }, refused = { [numéro] = motif }, n = adoptées au total, logs = n }.
+  État : f.adopt = { units = { [numéro d'unité] = true }, refused = { [numéro] = motif }, n = adoptées au total, logs = n,
+  drills = { [numéro de foreuse] = { oid, sink = numéro de la réception } } }.
+
+  Lot PARITE (retour du DC du 2/11 : « elles ont même pas su s'adapter au bâtiment que j'ai posé ») : une FOREUSE à combustion posée
+  à la main, avec sa réception (four ou coffre) au bout, isolée, dans le rayon de service, devient un AVANT-POSTE de l'équipe
+  (o.adopted) : les tournées d'entretien la ravitaillent et vident sa réception, elle compte dans la capacité du minerai, sa perte
+  est une perte d'avant-poste. Rendue au joueur quand une ligne la rejoint ou qu'il la ramasse (règle pure : A.decide_drill).
 ]]
 
 local Events = require("script.core.events")
@@ -97,6 +103,55 @@ local function linked(ent)
   return ent.surface.count_entities_filtered({ area = A.search_box(ent.position, hw, hh), type = R.ADOPT_BLOCKERS, limit = 1 }) > 0
 end
 
+--- Lot PARITE : type d'avant-poste de la ressource que mine la foreuse (nil : aucune ressource connue de l'équipe sous elle).
+local function kind_under(drill)
+  local target = drill.mining_target
+  local name = target and target.valid and target.name
+  if not name then
+    -- Une foreuse tout juste posée n'a pas encore choisi sa cible : la ressource est lue dans sa zone de minage.
+    local r = (drill.prototype and drill.prototype.mining_drill_radius) or 1
+    local list = drill.surface.find_entities_filtered({ area = { { drill.position.x - r, drill.position.y - r }, { drill.position.x + r, drill.position.y + r } },
+      type = { "resource" } })
+    table.sort(list, function(a, b)
+      if a.name ~= b.name then return a.name < b.name end
+      if a.position.x ~= b.position.x then return a.position.x < b.position.x end
+      return a.position.y < b.position.y
+    end)
+    for _, res in ipairs(list) do
+      if res.valid then name = res.name break end
+    end
+  end
+  if not name then return nil end
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    if T.outposts[kind].resource == name then return kind end
+  end
+  return nil
+end
+
+--- Lot PARITE : la réception (four ou coffre) au point de dépôt de la foreuse, ou nil.
+local function sink_under(drill)
+  if not drill.drop_position then return nil end
+  local list = drill.surface.find_entities_filtered({ position = drill.drop_position, radius = 0.5, type = { "furnace", "container" },
+    force = drill.force.name })
+  table.sort(list, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
+  for _, e in ipairs(list) do
+    if e.valid and e.unit_number then return e end
+  end
+  return nil
+end
+
+--- Lot PARITE : un bras, un tapis ou une autre foreuse touche la paire (hors la foreuse elle-même) : c'est une ligne du joueur.
+local function pair_linked(drill, sink)
+  for _, e in ipairs({ drill, sink }) do
+    local hw, hh = half_size(e)
+    local near = e.surface.find_entities_filtered({ area = A.search_box(e.position, hw, hh), type = R.ADOPT_BLOCKERS })
+    for _, n in ipairs(near) do
+      if n.unit_number ~= drill.unit_number then return true end
+    end
+  end
+  return false
+end
+
 local function listed(f, registry, ent)
   for _, e in ipairs(list_of(f, registry) or {}) do
     if e == ent then return true end
@@ -137,6 +192,101 @@ function Adopte.consider(f, ent, sinks)
   return true
 end
 
+--- Lot PARITE : adopte une foreuse à combustion posée à la main (avec sa réception) comme avant-poste de l'équipe. `sinks` : réceptacles
+--- d'avant-poste déjà connus (migration). Rend vrai si adoptée.
+function Adopte.consider_drill(f, ent, sinks)
+  if not (f and f.hq and f.hq.valid and ent and ent.valid and ent.unit_number and ent.type == "mining-drill"
+    and ent.force.name == f.force) then return false end
+  local st = state(f)
+  st.drills = st.drills or {}
+  local u = ent.unit_number
+  local sink = sink_under(ent)
+  local kind = kind_under(ent)
+  local dx, dy = ent.position.x - f.hq_pos.x, ent.position.y - f.hq_pos.y
+  local ok, why = A.decide_drill({
+    on = Adopte.on(), kind = kind, burner = ent.burner ~= nil, already = st.drills[u] ~= nil or State.owner(u) ~= nil,
+    sink = sink ~= nil and State.owner(sink.unit_number) == nil,
+    reserved = (Outposts.reserved and Outposts.reserved(f, ent.name, ent.position, ent.direction)) or (sinks or outpost_sinks(f))[u] or false,
+    dist2 = dx * dx + dy * dy, radius = A.RADIUS,
+    linked = function() return pair_linked(ent, sink) end, -- lu en dernier : deux recherches
+  })
+  if not ok then
+    if why == "ligne" or why == "loin" or why == "plan" or why == "sans-reception" then st.refused[u] = why end
+    if why ~= "deja" and why ~= "coupe" then
+      say(f, st, string.format("foreuse %s en (%.1f, %.1f) non adoptee (%s)", ent.name, ent.position.x, ent.position.y, why))
+    end
+    return false
+  end
+  -- La réception de la paire n'est plus un four de la fonderie du QG (adopté seul avant que la foreuse soit posée) : elle sert la paire.
+  if st.units[sink.unit_number] then
+    local registry = sink.type == "furnace" and "smelters" or "annex"
+    local list = list_of(f, registry) or {}
+    for i = #list, 1, -1 do
+      if list[i] == sink then table.remove(list, i) end
+    end
+    st.units[sink.unit_number] = nil
+  end
+  local pool = {}
+  for _, oid in ipairs(State.sorted_keys(f.outposts)) do
+    local o = f.outposts[oid]
+    if o.adopted then pool[#pool + 1] = { oid = oid, kind = o.kind, x = o.pos.x, y = o.pos.y } end
+  end
+  local oid = A.join_target(pool, kind, ent.position.x, ent.position.y)
+  local o = oid and f.outposts[oid]
+  if not o then
+    f.next_oid = (f.next_oid or 0) + 1
+    oid = f.next_oid
+    o = { id = oid, kind = kind, pos = { x = ent.position.x, y = ent.position.y }, drills = 0, drill_list = {}, sinks = {}, turret_list = {},
+      last_service = game.tick, adopted = true, site_info = {},
+      -- jamais agrandi par des paires de l'équipe (c'est la paire du joueur) : plein pour de bon, au sens de pose_paires
+      full = true, full_by = "pose_paires", full_why = "adopte" }
+    f.outposts[oid] = o
+    f.outposts_count = (f.outposts_count or 0) + 1
+  end
+  o.drills = o.drills + 1
+  o.drill_list[#o.drill_list + 1] = ent
+  o.sinks[#o.sinks + 1] = sink
+  State.own(ent, f.id, "drill", oid)
+  State.own(sink, f.id, "sink", oid)
+  st.drills[u] = { oid = oid, sink = sink.unit_number }
+  st.refused[u] = nil
+  st.n_drills = (st.n_drills or 0) + 1
+  f.stats = f.stats or {}
+  f.stats.adopted = (f.stats.adopted or 0) + 1
+  say(f, st, string.format("%s adopte en (%.1f, %.1f), a %.0f tuiles du coffre (avant-poste %d de %s, %d foreuse(s), reception %s)", ent.name,
+    ent.position.x, ent.position.y, math.sqrt(dx * dx + dy * dy), oid, kind, o.drills, sink.name))
+  return true
+end
+
+--- Lot PARITE : rend au joueur une foreuse adoptée et sa réception (l'entité n'est pas touchée ; ni perte d'avant-poste, ni pénalité).
+local function release_drill(f, unit, why)
+  local st = f.adopt
+  local rec = st and st.drills and st.drills[unit]
+  if not rec then return end
+  st.drills[unit] = nil
+  local o = f.outposts[rec.oid]
+  local ent
+  if o then
+    for i = #o.drill_list, 1, -1 do
+      if o.drill_list[i].valid and o.drill_list[i].unit_number == unit then ent = table.remove(o.drill_list, i) end
+    end
+    for i = #o.sinks, 1, -1 do
+      if o.sinks[i].valid and o.sinks[i].unit_number == rec.sink then table.remove(o.sinks, i) end
+    end
+    o.drills = math.max(0, o.drills - 1)
+    if o.drills == 0 then
+      f.outposts[rec.oid] = nil
+      f.outposts_count = math.max(0, (f.outposts_count or 1) - 1)
+    end
+  end
+  State.disown(unit)
+  State.disown(rec.sink)
+  st.refused[unit] = why
+  st.released = (st.released or 0) + 1
+  say(f, st, string.format("foreuse %s rendue au joueur%s (%s)", tostring(unit),
+    ent and ent.valid and string.format(" en (%.1f, %.1f)", ent.position.x, ent.position.y) or "", why))
+end
+
 --- Rend au joueur une machine adoptée (hors de la liste ; l'entité n'est pas touchée).
 local function release(f, registry, ent, why)
   local st = state(f)
@@ -155,8 +305,37 @@ end
 --- Un bras, un tapis ou une foreuse vient d'être posé : les machines adoptées qu'il touche sont rendues au joueur.
 local function on_neighbor(f, ent)
   local st = f.adopt
-  if not (st and st.n > 0 and BLOCKER[ent.type]) then return end
+  if not (st and BLOCKER[ent.type]) then return end
   local p = ent.position
+  -- Lot PARITE : une paire foreuse + réception touchée par une ligne (hors la foreuse qui vient d'être posée) est rendue au joueur
+  if st.drills and next(st.drills) ~= nil then
+    local give = {}
+    for _, oid in ipairs(State.sorted_keys(f.outposts)) do
+      local o = f.outposts[oid]
+      if o.adopted then
+        for _, d in ipairs(o.drill_list) do
+          if d.valid and st.drills[d.unit_number] and d.unit_number ~= ent.unit_number and d.surface == ent.surface then
+            local sink
+            for _, s in ipairs(o.sinks) do
+              if s.valid and s.unit_number == st.drills[d.unit_number].sink then sink = s end
+            end
+            for _, m in ipairs({ d, sink }) do
+              if m then
+                local hw, hh = half_size(m)
+                if math.abs(p.x - m.position.x) <= hw + A.CLEAR and math.abs(p.y - m.position.y) <= hh + A.CLEAR then
+                  give[#give + 1] = d.unit_number
+                  break
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    table.sort(give)
+    for _, u in ipairs(give) do release_drill(f, u, "ligne") end
+  end
+  if not (st.n > 0) then return end
   for _, ty in ipairs(ADOPT_TYPES) do
     local registry = R.ADOPT[ty].registry
     local give = {}
@@ -188,9 +367,24 @@ local function on_built(e)
   if not (f and f.hq and f.hq.valid) then return end
   if BLOCKER[ent.type] then
     on_neighbor(f, ent)
+    if ent.type == "mining-drill" then Adopte.consider_drill(f, ent) end
   elseif R.ADOPT[ent.type] then
-    Adopte.consider(f, ent)
+    -- Lot PARITE : la réception posée APRÈS la foreuse (paire dans l'autre ordre) : la foreuse voisine est étudiée à son tour
+    local adopted = Adopte.consider(f, ent)
+    if not adopted and (ent.type == "furnace" or ent.type == "container") then
+      local near = ent.surface.find_entities_filtered({ position = ent.position, radius = 4, type = { "mining-drill" }, force = f.force })
+      table.sort(near, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
+      for _, d in ipairs(near) do Adopte.consider_drill(f, d) end
+    end
   end
+end
+
+--- Lot PARITE : le joueur (ou ses robots) ramasse une foreuse adoptée : elle sort de l'équipe SANS compter comme une perte d'avant-poste.
+local function on_mined(e)
+  local ent = e.entity
+  if not (ent and ent.valid and ent.type == "mining-drill") then return end
+  local f = team()
+  if f and f.adopt and f.adopt.drills and f.adopt.drills[ent.unit_number] then release_drill(f, ent.unit_number, "ramassee") end
 end
 
 --- Migration : les machines déjà posées dans le rayon de service (sauvegarde d'avant le lot, réglage rallumé) sont étudiées
@@ -201,6 +395,13 @@ function Adopte.migrate(f)
   local st = state(f)
   local given, taken = 0, 0
   if not Adopte.on() then
+    local mine_drills = {}
+    for u in pairs(st.drills or {}) do mine_drills[#mine_drills + 1] = u end
+    table.sort(mine_drills)
+    for _, u in ipairs(mine_drills) do
+      release_drill(f, u, "coupe")
+      given = given + 1
+    end
     for _, ty in ipairs(ADOPT_TYPES) do
       local registry = R.ADOPT[ty].registry
       local mine = {}
@@ -222,11 +423,19 @@ function Adopte.migrate(f)
   for _, ent in ipairs(found) do
     if Adopte.consider(f, ent, sinks) then taken = taken + 1 end
   end
+  -- Lot PARITE : les paires foreuse + réception déjà posées dans le rayon de service
+  local drills = surface.find_entities_filtered({ position = f.hq_pos, radius = A.RADIUS, force = f.force, type = { "mining-drill" } })
+  table.sort(drills, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
+  for _, ent in ipairs(drills) do
+    if Adopte.consider_drill(f, ent, sinks) then taken = taken + 1 end
+  end
   return taken, given
 end
 
 Events.on(defines.events.on_built_entity, on_built)
 Events.on(defines.events.on_robot_built_entity, on_built)
+Events.on(defines.events.on_player_mined_entity, on_mined)
+Events.on(defines.events.on_robot_mined_entity, on_mined)
 Events.on_configuration_changed(function() Adopte.migrate() end)
 
 remote.add_interface("fo-adopte", {
@@ -237,10 +446,11 @@ remote.add_interface("fo-adopte", {
   status = function()
     local f = team()
     local st = f and f.adopt
-    if not st then return { n = 0, listed = 0, released = 0 } end
-    local n = 0
+    if not st then return { n = 0, listed = 0, released = 0, drills = 0 } end
+    local n, nd = 0, 0
     for _ in pairs(st.units) do n = n + 1 end
-    return { n = st.n, listed = n, released = st.released or 0 }
+    for _ in pairs(st.drills or {}) do nd = nd + 1 end
+    return { n = st.n, listed = n, released = st.released or 0, drills = nd }
   end,
 })
 

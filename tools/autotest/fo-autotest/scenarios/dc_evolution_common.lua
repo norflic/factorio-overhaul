@@ -3,8 +3,8 @@
 -- banc.py --captures --visuel="--ticks 436000 --timeout 28800" --qui <lot> -- 436000 dc-evolution <source>
 -- Toutes les 15 min, pour votre equipe et chaque faction : vue large de la base, gros plan du QG, ligne [FO-EVOL].
 -- Les controles du guide (2 factions, 4 ouvriers) ne valent pas ici : le bilan dit seulement si la partie est allee au bout.
-return function(CHECK)
-local base = require("scenarios/verif_guide_common")(30)
+return function(CHECK, AUTO)
+local base = require("scenarios/verif_guide_common")(30, AUTO)
 local EVERY, SPEED = 54000, 8
 local TYPES = { "assembling-machine", "furnace", "mining-drill", "lab", "boiler", "generator", "ammo-turret",
   "electric-turret", "container", "transport-belt", "inserter", "electric-pole", "wall" }
