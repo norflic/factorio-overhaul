@@ -271,6 +271,7 @@ return function(variant, opts)
         if st.load_t and not st.cut_t and t >= st.load_t + 3 * MIN then
           st.cut_t = t
           local n = 0
+          local c = st.c
           local list = s.find_entities_filtered({ type = "electric-pole", force = "player", area = { { c.x - 20, c.y - 110 }, { c.x - 12, c.y + 140 } } })
           for _, pole in ipairs(list) do if pole.valid then pole.destroy(); n = n + 1 end end
           st.cut_n = n
