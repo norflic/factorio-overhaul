@@ -50,6 +50,7 @@ local M = require("shared.gui.ia1i")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Team = require("script.team.team")
+local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif
 local Poles = require("script.team.poles")
 local PlayerTeam = require("script.team.player_team")
 local Auto3e = require("shared.ai3.automatiser")
@@ -252,7 +253,7 @@ local function ia3_projects(parent, f, w, compact)
   end)
   for i, p in ipairs(list) do
     if compact and i > 4 then break end
-    local name = { "fo-team.goal-" .. ("ia3-" .. p.key):gsub(":", "-") }
+    local name = Objectif.name((("ia3-" .. p.key):gsub(":", "-"))) -- lot AGES : toute clé de but a un libellé
     name = ia3_outpost_name(f, p, p.cause or "") or name -- lot EXTENSION-FER
     -- Lot IA3-e : module GÉNÉRÉ pour un objet quelconque (sans clé de traduction propre) : nom de l'objet du jeu.
     local auto_item = p.key:match("^auto:(.+)$")
@@ -324,7 +325,7 @@ tabs.equipe = {
     if not f then return no_team(c) end
     local t = f.team
     heading(c, { "fo-ia1i.goal" })
-    label(c, t.goal and { "fo-team.goal-" .. t.goal } or { "fo-team.goal-line-done" }, { font = "default-bold" })
+    label(c, t.goal and Objectif.name(t.goal) or { "fo-team.goal-line-done" }, { font = "default-bold" })
 
     heading(c, { "fo-ia1i.missing" })
     local shown = 0

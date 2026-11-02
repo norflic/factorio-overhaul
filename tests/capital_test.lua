@@ -340,6 +340,80 @@ local function run_all()
   check(dx.key ~= da.key and refused, "§9 une cible refusée par l'exécutant est écartée (" .. tostring(dx.key) .. ")")
   local di = Cap.choose(L, census(guns({ 1, 1, 1, 1 }), center1), ctx({ current = "gun:2:104" }))
   check(di.key == "gun:2:104" or di.chain, "§9 inertie : la cible en cours garde sa place à valeur proche")
+
+  -- §13 Lot AGES : le centre payable ne meurt pas de faim (règle du loueur de skis : reporté pour autant que son prix, il passe devant).
+  do
+    local cen = census(guns({ 2, 1, 1, 1 }), center1)
+    local base = Cap.candidates(L, cen, ctx())
+    local gate
+    for _, c in ipairs(base.cands) do if c.center then gate = c end end
+    check(gate ~= nil and gate.work and gate.work > Cap.SHORT_WORK, "§13 le centre est payable et son prix dépasse le travail court (" .. tostring(gate and gate.work) .. ")")
+    check(Cap.gate_open(base.centre) == true, "§13 centre payable : porte ouverte")
+    local blocked = Cap.candidates(L, census(guns({ 1, 1, 1, 1 }), center1), ctx())
+    check(Cap.gate_open(blocked.centre) == false, "§13 centre bloqué par la condition Q16 : porte fermée (les reports ne comptent pas)")
+    local none = Cap.candidates(L, census(guns({ 2, 1 }), nil), ctx())
+    check(Cap.gate_open(none.centre) == false or none.centre.key ~= nil, "§13 sans centre posé : la porte est celle de la pose")
+    local d0 = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = 0 } }))
+    check(d0.family == "gun" and not d0.starved and d0.gate_key == gate.key and d0.gate_open, "§13 reports nuls : la tourelle moins chère passe encore (" .. tostring(d0.key) .. ")")
+    local d1 = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = gate.value - 1 } }))
+    check(d1.family == "gun" and not d1.starved, "§13 reports d'une valeur de moins que celle du centre : le centre attend encore")
+    local d2s = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = gate.value } }))
+    check(d2s.center == true and d2s.starved == true and d2s.key == gate.key, "§13 reports égaux à la valeur du centre : le centre passe devant (" .. tostring(d2s.key) .. ")")
+    check(Cap.why_text(d2s):find("PRIORITAIRE", 1, true) ~= nil, "§13 le journal dit que le centre est prioritaire")
+    local g2s = Cap.goal(d2s, {})
+    local gn = Cap.goal(d0, {})
+    check(g2s and g2s.short == true and g2s.fond == true, "§13 le but du centre prioritaire est un travail court (servi juste après le premier projet)")
+    check(gn and gn.short == nil, "§13 une tourelle ordinaire n'est pas un travail court")
+    local dw = Cap.choose(L, cen, ctx({ defer = { key = "command:9:999", spent = 10 * gate.value } }))
+    check(dw.family == "gun" and not dw.starved, "§13 reports d'un autre centre (niveau déjà monté) : ignorés")
+    local dn = Cap.choose(L, cen, ctx({ defer = { key = gate.key } }))
+    check(dn.family == "gun" and not dn.starved, "§13 reports sans total : aucun passe-droit")
+    -- Le passe-droit tient tant que les reports ne baissent pas : décision suivante identique avec la cible en cours.
+    local d3s = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = 3 * gate.value }, current = d2s.key }))
+    check(d3s.key == gate.key and d3s.starved, "§13 le centre prioritaire garde sa place aux décisions suivantes")
+    -- Pas de centre payable : aucun passe-droit (rien à servir), le meilleur candidat ordinaire reste choisi.
+    local dnb = Cap.choose(L, census(guns({ 1, 1, 1, 1 }), center1), ctx({ defer = { key = gate.key, spent = 9 * gate.value } }))
+    check(dnb.family == "gun" and not dnb.starved, "§13 centre bloqué par la condition : les tourelles d'abord (c'est le chemin pour l'ouvrir)")
+    -- Déterminisme.
+    local da = Cap.choose(L, cen, ctx({ defer = { key = gate.key, spent = gate.value } }))
+    check(da.key == d2s.key, "§13 déterminisme")
+  end
+
+  -- §14 Lot AGES : la condition du centre comme le JEU la compte (census.blockers, toute la surface). Mesuré en moteur réel : le
+  -- planificateur ne voyait que la base, jugeait le centre payable, l'exécutant le refusait « cc-families » (une famille dont
+  -- les bâtiments sont loin du QG) et le centre restait au niveau 1.
+  do
+    local WALL = L.by_key.wall
+    local list = guns({ 2, 1, 1, 1 })
+    list[#list + 1] = { id = 900, name = L.name(WALL, 1), working = false } -- un mur d'un avant-poste, ramené au relevé
+    local plain = Cap.candidates(L, census(guns({ 2, 1, 1, 1 }), center1), ctx()) -- le relevé de la base : pas de mur
+    local gate_plain
+    for _, c in ipairs(plain.cands) do if c.center then gate_plain = c end end
+    check(gate_plain ~= nil, "§14 sans la condition du jeu : le planificateur croit le centre payable (comportement d'avant)")
+    local cen = census(list, center1)
+    cen.blockers = { "wall" }
+    local res = Cap.candidates(L, cen, ctx())
+    local gate
+    for _, c in ipairs(res.cands) do if c.center then gate = c end end
+    check(gate == nil and res.centre.causes and res.centre.causes[1] == "condition:wall",
+      "§14 la condition du jeu bloque le centre : cause condition:wall")
+    check(Cap.gate_open(res.centre) == false, "§14 centre bloqué par le jeu : porte fermée (aucun report compté)")
+    local d = Cap.choose(L, cen, ctx())
+    check(d.family == "wall" and d.id == 900 and d.chain and d.chain.target:sub(1, 8) == "command:",
+      "§14 le mur bloquant est amélioré d'abord (chaîne Q16 : « monter ce mur ouvre l'époque ») : " .. tostring(d.key))
+    local cen2 = census(list, center1)
+    cen2.blockers = {}
+    local res2 = Cap.candidates(L, cen2, ctx())
+    local g2
+    for _, c in ipairs(res2.cands) do if c.center then g2 = c end end
+    check(g2 ~= nil, "§14 la condition du jeu remplie : le centre est candidat")
+    local cen3 = census(guns({ 1, 1, 1, 1 }), center1)
+    cen3.blockers = {}
+    local res3 = Cap.candidates(L, cen3, ctx())
+    local g3
+    for _, c in ipairs(res3.cands) do if c.center then g3 = c end end
+    check(g3 ~= nil, "§14 le jeu fait foi aussi dans l'autre sens : relevé de la base incomplet, condition remplie ailleurs")
+  end
 end
 
 run_all()
@@ -383,6 +457,26 @@ do
   local cg = Cap.goal
   M("but ordinaire (pas de fond)", function() Cap.goal = function(d, w) local g = cg(d, w) if g then g.fond = nil end return g end end,
     function() Cap.goal = cg end)
+  local st0 = Cap.starved
+  M("centre jamais prioritaire", function() Cap.starved = function() return false end end, function() Cap.starved = st0 end)
+  local dp = Cap.DEFER_PCT
+  M("report sans limite", function() Cap.DEFER_PCT = 1e12 end, function() Cap.DEFER_PCT = dp end)
+  M("report nul", function() Cap.DEFER_PCT = 0 end, function() Cap.DEFER_PCT = dp end)
+  M("centre prioritaire pas court", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and d.starved and (d.work or 0) > Cap.SHORT_WORK then g.short = nil end return g end
+  end, function() Cap.goal = cg end)
+  local go = Cap.gate_open
+  M("porte toujours ouverte", function() Cap.gate_open = function() return true end end, function() Cap.gate_open = go end)
+  M("porte toujours fermée", function() Cap.gate_open = function() return false end end, function() Cap.gate_open = go end)
+  local cd0 = Cap.candidates
+  M("condition du jeu ignorée", function()
+    Cap.candidates = function(Ld, cen, c)
+      local copy = {}
+      for k, v in pairs(cen) do copy[k] = v end
+      copy.blockers = nil
+      return cd0(Ld, copy, c)
+    end
+  end, function() Cap.candidates = cd0 end)
   check(n_caught == n_mut, string.format("§10 mutants : %d refusés sur %d", n_caught, n_mut))
 end
 

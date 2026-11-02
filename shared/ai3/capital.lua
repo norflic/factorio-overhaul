@@ -76,6 +76,17 @@ Cap.SHORT_WORK = 800
 -- machine d'une famille : four de pierre, premier assembleur) remplacées SUR PLACE par la machine supérieure, lue dans
 -- les prototypes (Cap.successors). Au plus Cap.REPLACE_BATCH machines identiques par décision (un paiement par pensée).
 Cap.REPLACE_BATCH = 4
+-- Lot AGES « le passage d'âge ne meurt pas de faim » (retour du DC du 2/11, points 8 et 17 : l'âge 2 vu une fois sur huit
+-- parties). Le choix est un rapport valeur ÷ coût (règle de Smith) : exact pour un ensemble FINI de travaux, mais le centre
+-- (un gros prix qui ouvre l'époque, rapport 170 à 560) passait derrière un flux qui ne tarit pas (chaque tourelle, mur ou
+-- foreuse posé offre une amélioration à 700 à 14 000) : mesuré sur 2 graines de 3 h, 1 faction sur 6 a monté son centre.
+-- Règle du « loueur de skis » (compétitive : on ne perd jamais plus du double), comptée en VALEUR : tant que le centre est
+-- payable, on peut le reporter pour des travaux de meilleur rapport, mais pas au-delà du moment où ces reports ont rapporté
+-- AU TOTAL autant que le centre lui-même (Cap.DEFER_PCT % de sa valeur) : il passe alors devant (d.starved), et son but est
+-- servi comme un travail court (juste après le premier projet : l'armée et les réserves ne lui prennent plus son fer).
+-- (Essai 2, mesuré : compté en COÛT, le report d'un centre de l'époque 3 — 80 acier — dépassait l'heure pour une faction
+-- qui paie 40 de travail par minute ; en valeur, il faut la valeur d'environ 25 tourelles.)
+Cap.DEFER_PCT = 100
 
 local function sorted_keys(t)
   local ks = {}
@@ -350,7 +361,9 @@ function Cap.candidates(Ld, census, ctx)
       cc = { key = cfam.key .. ":" .. (cc_level + 1) .. ":" .. center.id, id = center.id, family = cfam.key,
         from = cc_level, to = cc_level + 1, cost = Ld.cost(cfam, cc_level + 1), value = cv,
         why = { { "epoque", cc_level + 1 }, { "debloque", unlocked } }, center = true }
-      blockers = Ld.cc_blockers(q16)
+      -- Lot AGES : le relevé peut porter la condition telle que le JEU la compte (census.blockers : toute la surface) ; le
+      -- planificateur ne voit sinon que la base et choisissait un centre que l'exécutant refusait (« cc-families »).
+      blockers = census.blockers or Ld.cc_blockers(q16)
     end
     if cc then
       centre.state, centre.key = cc_level == 0 and "pose" or "monte", cc.key
@@ -394,8 +407,17 @@ end
 --- d.wanted = objets sans coût connu des candidats de valeur bloqués par eux (H8 -> H9).
 function Cap.choose(Ld, census, ctx)
   local res = Cap.candidates(Ld, census, ctx)
-  local d = res.cands[1] and {} or { none = true }
-  for k, v in pairs(res.cands[1] or {}) do d[k] = v end
+  -- Lot AGES : le centre reporté plus que son prix passe devant (Cap.starved).
+  local first = res.cands[1]
+  local starved = false
+  for _, c in ipairs(res.cands) do
+    if c.center and (Cap.starved(ctx.defer, c) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
+  end
+  local d = first and {} or { none = true }
+  for k, v in pairs(first or {}) do d[k] = v end
+  d.starved = starved or nil
+  d.gate_open = Cap.gate_open(res.centre)
+  d.gate_key = res.centre and res.centre.key or nil
   d.ranked = {}
   for i = 1, math.min(Cap.TOP, #res.cands) do d.ranked[i] = { res.cands[i].key, res.cands[i].score } end
   d.n_cands = #res.cands
@@ -413,6 +435,21 @@ function Cap.choose(Ld, census, ctx)
   return d
 end
 
+--- Le centre a-t-il été reporté assez longtemps ? defer = { key, spent } (VALEUR des améliorations payées pendant que le centre
+--- `key` était payable, tenue par le runtime), gate = le candidat centre (gate.value : sa valeur).
+function Cap.starved(defer, gate)
+  if not (defer and gate and gate.center and gate.key and defer.key == gate.key) then return false end
+  local value = gate.value or 0
+  if value <= 0 then return false end
+  return (defer.spent or 0) * 100 >= value * Cap.DEFER_PCT
+end
+
+--- Le centre est-il PAYABLE à cette décision (aucune condition qui le bloque, pas de refus récent) ? centre = res.centre de
+--- Cap.candidates. Vrai : les améliorations moins chères payées ensuite le reportent (defer.spent).
+function Cap.gate_open(centre)
+  return centre ~= nil and centre.key ~= nil and (centre.state == "monte" or centre.state == "pose") and centre.causes == nil
+end
+
 local function clamp(x, a, b)
   if x < a then return a end
   if x > b then return b end
@@ -427,7 +464,7 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and d.work <= Cap.SHORT_WORK) or nil, replace = d.replace and true or nil }
+    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil }
 end
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
@@ -468,6 +505,7 @@ function Cap.why_text(d)
   for _, it in ipairs(d.cost or {}) do cost[#cost + 1] = it[1] .. " " .. it[2] end
   local txt = "raisons [" .. table.concat(parts, ", ") .. "] cout [" .. table.concat(cost, ", ") .. "]"
   if d.chain then txt = txt .. " ; ouvre '" .. d.chain.target .. "' (+" .. d.chain.v .. ")" end
+  if d.starved then txt = txt .. " ; PRIORITAIRE (reporte plus que son prix)" end
   local r = {}
   for i = 2, #(d.ranked or {}) do r[#r + 1] = d.ranked[i][1] .. " " .. d.ranked[i][2] end
   if #r > 0 then txt = txt .. " ; suivantes : " .. table.concat(r, ", ") end
