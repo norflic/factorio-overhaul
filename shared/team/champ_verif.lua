@@ -44,7 +44,7 @@ function Cv.verify(plan, spec)
       local k = Ch.key(t[1], t[2])
       if at[k] then rep.overlaps = rep.overlaps + 1 end
       at[k] = e
-      if spec.blocked and spec.blocked[k] then rep.blocked = rep.blocked + 1 end
+      if spec.blocked and spec.blocked[k] and not (spec.mine and spec.mine[k]) then rep.blocked = rep.blocked + 1 end
     end
   end
   -- couverture

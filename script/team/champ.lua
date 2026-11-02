@@ -29,6 +29,8 @@ local Conv = require("script.team.convoyeurs")
 
 local Champ = {}
 
+Champ.SIB_R = 64 -- tuiles : deux avant-postes du même minerai plus proches sont sur le même gisement (un seul champ)
+
 Champ.CFG = {
   radius = 96,      -- tuiles autour de l'avant-poste où le gisement est lu
   side = 8,         -- foreuses par côté et par groupe au plus (une bande coûte ce que sa fonderie coûte : la suivante l'agrandit)
@@ -122,18 +124,25 @@ local function ore_tiles(surface, o)
   return out
 end
 
-local function add_box(set, e)
+local function add_box(set, e, what)
   local bb = e.bounding_box
   for x = math.floor(bb.left_top.x + 0.01), math.ceil(bb.right_bottom.x - 0.01) - 1 do
-    for y = math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.y - 0.01) - 1 do set[Ch.key(x, y)] = true end
+    for y = math.floor(bb.left_top.y + 0.01), math.ceil(bb.right_bottom.y - 0.01) - 1 do set[Ch.key(x, y)] = what or true end
   end
 end
 
---- Tuiles NÔTRES (libres pour le plan) : paires de l'avant-poste et entités des bandes déjà demandées pour lui.
+--- Tuiles NÔTRES (libres pour le plan) : paires de l'avant-poste et de ses voisins du même minerai sur le gisement (Champ.SIB_R), et
+--- entités des bandes déjà demandées pour lui.
 local function mine_of(f, o)
   local mine = {}
-  for _, l in ipairs({ o.drill_list or {}, o.sinks or {} }) do
-    for _, e in ipairs(l) do if e.valid then add_box(mine, e) end end
+  local r2 = Champ.SIB_R * Champ.SIB_R
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local q = f.outposts[oid]
+    if q == o or (q.kind == o.kind and (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2) then
+      for _, l in ipairs({ q.drill_list or {}, q.sinks or {} }) do
+        for _, e in ipairs(l) do if e.valid then add_box(mine, e) end end
+      end
+    end
   end
   local b = f.build
   for _, pid in ipairs(b and b.order or {}) do
@@ -150,16 +159,16 @@ end
 local function blocked_in(f, surface, x0, y0, x1, y1, mine)
   local blocked = {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
-    blocked[Ch.key(math.floor(t.position.x), math.floor(t.position.y))] = true
+    blocked[Ch.key(math.floor(t.position.x), math.floor(t.position.y))] = "eau"
   end
   for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
     local soft = e.type == "tree" or e.type == "simple-entity" or (e.force.name == "neutral" and e.type ~= "cliff")
-    if not soft and e.type ~= "resource" then add_box(blocked, e) end
+    if not soft and e.type ~= "resource" then add_box(blocked, e, e.name) end
   end
   local occ = f.build and f.build.occ or {}
   for x = math.floor(x0), math.ceil(x1) do
     for y = math.floor(y0), math.ceil(y1) do
-      if occ[P.tkey(x, y)] then blocked[Ch.key(x, y)] = true end
+      if occ[P.tkey(x, y)] and not blocked[Ch.key(x, y)] then blocked[Ch.key(x, y)] = "reserve" end
     end
   end
   return blocked
@@ -204,6 +213,20 @@ function Champ.frame(f, surface, o)
   local plan, why = Ch.plan(spec)
   if not plan then return nil, why end
   local rep = Cv.verify(plan, spec)
+  -- ce qui occupe le gisement (hors de nos paires) : cause des tuiles que le champ ne couvre pas
+  local why, keys = {}, {}
+  for i = 1, #spec.ore - 1, 2 do
+    local k = Ch.key(spec.ore[i], spec.ore[i + 1])
+    local w = spec.blocked[k]
+    if w and not spec.mine[k] then
+      w = tostring(w)
+      if not why[w] then why[w] = 0; keys[#keys + 1] = w end
+      why[w] = why[w] + 1
+    end
+  end
+  table.sort(keys)
+  local occ = {}
+  for _, w in ipairs(keys) do occ[#occ + 1] = w .. " " .. why[w] end
   -- ordre : bandes qui portent des paires de l'avant-poste (le plus de paires d'abord), puis la plus proche du QG en travers
   local hv = (plan.axis == "x") and f.hq_pos.y or f.hq_pos.x
   local pairs_in = {}
@@ -227,7 +250,7 @@ function Champ.frame(f, surface, o)
   for _, it in ipairs(order) do prs[#prs + 1] = it.pr; if it.n > 0 then with = with + 1 end end
   say(f, string.format("avant-poste %d (%s) : plan du champ, %d bande(s) (%d avec des paires), axe %s, sortie %s ; %d foreuses, %d fours, %d poteaux, %d tapis ; %s",
     o.id, o.kind, #prs, with, plan.axis, plan.exit > 0 and "+" or "-", plan.stats.drills, plan.stats.furnaces,
-    plan.stats.poles, plan.stats.belts, Cv.line(rep)))
+    plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien"))
   return plan.frame, prs, plan
 end
 

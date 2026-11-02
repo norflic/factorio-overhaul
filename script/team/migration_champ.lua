@@ -109,6 +109,28 @@ local function survey(o)
   return Mg.match(drills, sinks, T.drill_drop), ents
 end
 
+--- Lot CHAMP : avant-postes du MÊME minerai sur le même gisement que `o` (centre à moins de Champ.SIB_R tuiles), triés par numéro.
+--- Un champ se planifie une fois pour tout le gisement : leurs paires sont retirées sous les bandes comme celles de `o`.
+local function siblings(f, o)
+  local out = {}
+  local r2 = Champ.SIB_R * Champ.SIB_R
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local q = f.outposts[oid]
+    if q ~= o and q.kind == o.kind and (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2 then out[#out + 1] = q end
+  end
+  return out
+end
+
+--- Paires de `o` et de ses voisins du même gisement (lot CHAMP), comme survey(o).
+local function survey_field(f, o)
+  local all = { drill_list = {}, sinks = {} }
+  for _, q in ipairs({ o, table.unpack(siblings(f, o)) }) do
+    for _, d in ipairs(q.drill_list or {}) do all.drill_list[#all.drill_list + 1] = d end
+    for _, x in ipairs(q.sinks or {}) do all.sinks[#all.sinks + 1] = x end
+  end
+  return survey(all)
+end
+
 --- Lots de gisement du treillis qui portent des paires (clé du lot posée sur chaque paire) : { [clé] = { x0, y0, x1, y1 } }.
 local function lots_of(f, o, list)
   local b = f.build
@@ -227,6 +249,13 @@ local function retire(f, surface, o, st, list, ents)
   local byid = {}
   for _, pr in ipairs(list) do byid[pr.id] = pr end
   local got, removed, gone_drills, gone_sinks = {}, 0, {}, {}
+  -- lot CHAMP : à qui appartient chaque foreuse (l'avant-poste ou un voisin du même gisement), lu AVANT le retrait
+  local owners = st.frame and { o, table.unpack(siblings(f, o)) } or { o }
+  local owner_of, rem = {}, {}
+  for i, q in ipairs(owners) do
+    rem[i] = 0
+    for _, d in ipairs(q.drill_list or {}) do if d.valid and d.unit_number then owner_of[d.unit_number] = i end end
+  end
   for _, id in ipairs(st.ids) do
     local pr = byid[id]
     if pr then
@@ -237,6 +266,8 @@ local function retire(f, surface, o, st, list, ents)
         give(f, surface, d.name, 1)
         got[d.name] = (got[d.name] or 0) + 1
         gone_drills[d.unit_number] = true
+        local oi = owner_of[d.unit_number]
+        if oi then rem[oi] = rem[oi] + 1 end
         d.destroy()
         removed = removed + 1
       end
@@ -252,16 +283,19 @@ local function retire(f, surface, o, st, list, ents)
       end
     end
   end
-  local keep_d, keep_s = {}, {}
-  for _, d in ipairs(o.drill_list or {}) do
-    if d.valid and not (d.unit_number and gone_drills[d.unit_number]) then keep_d[#keep_d + 1] = d end
+  -- lot CHAMP : les voisins du même gisement perdent aussi les paires retirées sous la bande
+  for i, q in ipairs(owners) do
+    local keep_d, keep_s = {}, {}
+    for _, d in ipairs(q.drill_list or {}) do
+      if d.valid and not (d.unit_number and gone_drills[d.unit_number]) then keep_d[#keep_d + 1] = d end
+    end
+    for _, s in ipairs(q.sinks or {}) do
+      if s.valid and not (s.unit_number and gone_sinks[s.unit_number]) then keep_s[#keep_s + 1] = s end
+    end
+    q.drill_list, q.sinks = keep_d, keep_s
+    q.drills = math.max(0, (q.drills or 0) - rem[i])
+    q.ext_dead = nil
   end
-  for _, s in ipairs(o.sinks or {}) do
-    if s.valid and not (s.unit_number and gone_sinks[s.unit_number]) then keep_s[#keep_s + 1] = s end
-  end
-  o.drill_list, o.sinks = keep_d, keep_s
-  o.drills = math.max(0, (o.drills or 0) - removed)
-  o.ext_dead = nil
   return removed, got
 end
 
@@ -296,6 +330,11 @@ end
 --- Fin du suivi d'un avant-poste (état final posé sur l'avant-poste) ; la pensée suivante passe au suivant.
 local function finish(f, ms, o, st, how, text)
   st.stage, st.pid, st.ids = "veille", nil, nil
+  if st.frame then -- lot CHAMP : les voisins du même gisement suivent (plus de paire posée par eux sur le champ)
+    for _, q in ipairs(siblings(f, o)) do
+      q.migr, q.full, q.full_by = (how == "abandon") and nil or how, how ~= "abandon", (how ~= "abandon") and "migration" or nil
+    end
+  end
   if how == "abandon" then
     st.abandoned = true
     st.abandoned_at = game.tick -- lot MIGRATION-DECLENCHE : reprise d'un état neuf après CFG.revive (start_next)
@@ -405,6 +444,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   st.stage, st.pid, st.ids, st.t0, st.band_key = "projet", id, ids, tick, pr
   st.cx, st.cy, st.gate_t0, st.why_last, st.retired = cx, cy, nil, nil, nil
   o.migr, o.full, o.full_by = "en cours", true, "migration"
+  for _, q in ipairs(siblings(f, o)) do q.migr, q.full, q.full_by = "en cours", true, "migration" end -- même gisement : plus de paire de plus
   ms.cur = o.id
   ms.requests = (ms.requests or 0) + 1
   local nd, nf = 0, 0
@@ -504,7 +544,7 @@ local function step_project(f, surface, ms, o, st, tick)
   local list, ents
   if p and p.state == "reserve" and p.reason == "degel" then
     st.gate_t0 = st.gate_t0 or tick
-    list, ents = survey(o)
+    if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end
     local ids, added = part_ids(st, list, p.spec and p.spec.degel and p.spec.degel.tiles)
     if added > 0 then
       st.ids = ids
@@ -533,7 +573,7 @@ local function step_project(f, surface, ms, o, st, tick)
   end
   -- "retirer" ou "passer" : le plan reprend (p.degele)
   if act == "retirer" then
-    if not list then list, ents = survey(o) end
+    if not list then if st.frame then list, ents = survey_field(f, o) else list, ents = survey(o) end end
     local removed, got = retire(f, surface, o, st, list, ents)
     local purged = purge_recon(f, o)
     st.retired = removed
@@ -627,12 +667,20 @@ local function start_next(f, surface, ms, free, obtainable, tick)
       ms.o[oid] = st
       say(f, ms, string.format("avant-poste %d (%s) : migration reprise apres abandon (%.0f min)", o.id, o.kind, CFG.revive / 3600), true)
     end
-    if not (st and st.abandoned) and o.migr ~= "fini" and o.migr ~= "partiel" then
+    -- lot CHAMP : un voisin d'un gisement déjà planifié par un autre avant-poste n'en planifie pas un second
+    local owner
+    for _, q in ipairs(siblings(f, o)) do
+      local sq = ms.o[q.id]
+      if not owner and sq and sq.frame and not sq.abandoned then owner = q end
+    end
+    if owner then
+      if st then say_why(f, ms, st, "champ-de:" .. owner.id, string.format("avant-poste %d (%s) : son gisement est le champ de l'avant-poste %d", o.id, o.kind, owner.id)) end
+    elseif not (st and st.abandoned) and o.migr ~= "fini" and o.migr ~= "partiel" then
       st = st or new_state()
       ms.o[oid] = st
-      local list = survey(o)
       -- lot CHAMP : le champ en bandes quand la règle a ses données (foreuse, tapis débloqué, poteau) ; sinon le treillis comme avant
       local champ = Champ.data(f, o.kind) ~= nil
+      local list = champ and survey_field(f, o) or survey(o)
       local rects = champ and {} or lots_of(f, o, list)
       local product = T.outposts[o.kind].product
       local cfg = champ and CHAMP_CFG or CFG
