@@ -784,7 +784,7 @@ function Ia3.plan(f, view, book, surface, tick)
   end
   local army_target = 0
   local spare_hands = General.spare_hands(f, view, tick) -- lot SCALE : bras libres durables (0 pour votre équipe)
-  if not f.is_player then
+  do -- Lot PARITE (reprise du 2/11, écart 2) : l'armée visée vaut aussi pour votre équipe (plafond fo-war-soldiers)
     local share = T.army_share[view.personality] or 0.6
     army_target = math.floor((view.soldiers_max or 0) * share)
     -- Lot SCALE (armée selon le caractère) : une faction agressive aux bras libres arme d'avance, quand sa matière clé ne

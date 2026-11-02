@@ -390,7 +390,7 @@ function B.generate(s, st)
   end
   -- Armée (factions).
   -- Une faction EN GUERRE (déclarée au joueur, ou posture guerrière du chef) s'arme d'abord : valeur × B.ARMY_WAR_PCT.
-  if boot and not s.is_player and (s.soldiers_max or 0) > 0 then
+  if boot and (s.soldiers_max or 0) > 0 then -- Lot PARITE (reprise du 2/11, écart 2) : plus d'exception pour votre équipe
     local first = math.min(B.ARMY_FIRST_N, s.soldiers_max)
     local war = s.at_war and B.ARMY_WAR_PCT or 100
     local alert_need = s.army_alert and math.min(s.army_need or 0, s.soldiers_max) or 0
