@@ -293,6 +293,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       tries = st.tries[g.key] or 0, since_try = last and (tick - last) or R.RETRY_AFTER }
     if inp.has_live and not inp.open then
       inp.lost, g.foes = lost_near(f, surface, b, g)
+      -- lot ENERGIE (2/11) : [FO-RESEAU] a jugé qu'aucun chemin sûr de poteaux perdus ne relie l'îlot (second chemin) : ces poteaux ne le retiennent plus
+      local sv = b.sante
+      if sv and sv.second_tick and tick - sv.second_tick <= R.SECOND_WINDOW and not Rv.coupure_off(b) then inp.lost = 0 end
       if inp.lost == 0 then inp.pending = pending_near(b, g) end
       if inp.lost == 0 and (inp.pending or 0) == 0 and (inp.seen or 0) >= R.CONFIRM then
         local foe = surface.find_nearest_enemy({ position = { x = g.x, y = g.y }, max_distance = R.ENEMY_R, force = f.force })
@@ -366,7 +369,10 @@ function Ra.step(api, f, surface, tick)
     st.next = tick + R.PERIOD
     -- rien à relever tant que la centrale n'est pas finie (b.plant) : [FO-RESEAU] et la construction s'en chargent
     local pp = b.plant and b.projects[b.plant]
-    if not (pp and pp.state == "fini") then return end
+    -- lot ENERGIE (2/11) : une centrale rouverte pour un poteau (chantier) ne ferme plus le relevé : sans cela, un seul poteau sûr rouvert et
+    -- jamais posé (PNJ qui évitent l'ennemi) retenait le raccordement du second chemin (mesuré au banc energie-ilot-ennemi)
+    local reopened_ok = pp and (pp.reopened or 0) > 0 and pp.state ~= "attente" and pp.state ~= "plan" and pp.state ~= "refuse" and not Rv.coupure_off(b)
+    if not (pp and (pp.state == "fini" or reopened_ok)) then return end
     st.cyc = start_cycle(f, surface, b)
     return
   end

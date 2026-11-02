@@ -248,10 +248,30 @@ do
   run(3 * (R.PERIOD + 100))
   local got = REQ[n0 + 1]
   check(got ~= nil and got.key == "u5:1", "6.10 poteau perdu tenu par un ennemi : raccordement demande")
-  check(got and got.avoid and #got.avoid == 1 and got.avoid[1].r == 28 and got.avoid[1].x == 48 and got.avoid[1].y == -28,
+  check(got and got.avoid and #got.avoid == 1 and got.avoid[1].r == 40 and got.avoid[1].x == 48 and got.avoid[1].y == -28,
     "6.11 la zone des ennemis est dans la demande (second chemin)")
   check(logs_with("u5:1") > 0 and no_function(b.raccord), "6.12 etat sans fonction, journal")
   surface.find_nearest_enemy = real_enemy
+end
+
+-- 6 quater. [FO-RESEAU] annonce un « second chemin » (b.sante.second_tick) : le poteau perdu (non tenu) ne retient plus le raccordement ;
+-- l'annonce perimee (plus de R.SECOND_WINDOW) ne vaut plus ; avec no_coupure, jamais
+do
+  local n0 = #REQ
+  b.raccord.tries["u5:1"], b.raccord.open["u5:1"], b.raccord.last_try["u5:1"] = nil, nil, nil
+  b.sante = { second_tick = tick - R.SECOND_WINDOW - 100 }
+  run(3 * (R.PERIOD + 100))
+  check(#REQ == n0, "6.13 annonce perimee : le poteau perdu retient toujours le raccordement")
+  b.sante = { second_tick = tick }
+  b.opts.no_coupure = true
+  run(3 * (R.PERIOD + 100))
+  check(#REQ == n0, "6.14 no_coupure : l'annonce est ignoree")
+  b.opts.no_coupure = nil
+  b.sante.second_tick = tick
+  run(3 * (R.PERIOD + 100))
+  check(#REQ == n0 + 1 and REQ[#REQ].key == "u5:1" and REQ[#REQ].avoid == nil, "6.15 second chemin annonce : raccordement demande malgre le poteau perdu")
+  b.sante = nil
+  b.raccord.open["u5:1"] = nil
 end
 
 -- 7. interrupteur d'essai

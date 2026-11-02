@@ -24,6 +24,10 @@
 local K = {}
 
 K.ENEMY_R = 28         -- tuiles : jamais de pose d'un poteau avec un ennemi à cette portée (= Rv.POLE_ENEMY_R)
+K.AVOID_R = 40         -- tuiles : rayon de la zone qu'une chaîne NEUVE évite = le rayon de danger des poseurs (shared/ai3/danger.lua : portée 30 d'un ver ou
+                       -- d'un nid + D.MARGIN 10) ; à 28 la chaîne était planifiée mais les PNJ refusaient de la bâtir (« danger », 14 min, banc energie-ilot-ennemi)
+K.EXEMPT_R = 0         -- tuiles autour des bouts où la zone ne vaut pas : AUCUNE (un poteau posé dans la zone ne serait jamais bâti, le projet resterait
+                       -- ouvert pour toujours) ; une chaîne qui ne peut pas sortir de la zone est refusée, honnêtement ("aucune chaine")
 K.W = 1e6              -- poids d'un poteau perdu à reposer devant la longueur de fil
 K.MAX_NODES = 600      -- nœuds au plus par décision (au-delà : les plus proches de la zone perdue, voir K.trim)
 K.EDGE_SLACK = 1e-9
@@ -48,7 +52,7 @@ end
 --- Zone à éviter pour une chaîne neuve : les ennemis, avec leur rayon. Rend au plus `max` ennemis (les plus proches de `near`, puis y, x).
 function K.avoid_zone(enemies, near, max, r)
   local out = {}
-  for _, e in ipairs(enemies or {}) do out[#out + 1] = { x = e.x, y = e.y, r = r or K.ENEMY_R } end
+  for _, e in ipairs(enemies or {}) do out[#out + 1] = { x = e.x, y = e.y, r = r or K.AVOID_R } end
   table.sort(out, function(a, b)
     local da = near and dist(a, near) or 0
     local db = near and dist(b, near) or 0
@@ -63,9 +67,16 @@ end
 --- Une position est-elle dans la zone à éviter ? Les bouts de la chaîne (rayon `exempt` autour de chacun) restent permis : une chaîne doit
 --- pouvoir sortir de la zone qui tient son point de départ.
 function K.in_zone(x, y, zone, exempt_pts, exempt_r)
+  -- l'exemption ne vaut que pour un bout QUI EST DANS la zone (de plus d'une demi-tuile) : un bout au bord (28,0 tuiles de l'ennemi) n'exempte rien,
+  -- sinon les premiers poteaux de la chaîne seraient posés à portée du ver (mesuré au banc energie-ilot-ennemi : 24 tuiles d'un ver de portée 25)
   for _, p in ipairs(exempt_pts or {}) do
+    local inside = false
+    for _, z in ipairs(zone or {}) do
+      local ex, ey = p.x - z.x, p.y - z.y
+      if ex * ex + ey * ey < (z.r - 0.5) * (z.r - 0.5) then inside = true end
+    end
     local dx, dy = x - p.x, y - p.y
-    if dx * dx + dy * dy <= (exempt_r or 0) * (exempt_r or 0) then return false end
+    if inside and dx * dx + dy * dy <= (exempt_r or 0) * (exempt_r or 0) then return false end
   end
   for _, z in ipairs(zone or {}) do
     local dx, dy = x - z.x, y - z.y
