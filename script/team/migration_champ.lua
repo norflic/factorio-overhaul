@@ -53,6 +53,7 @@ CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
 -- pour être redemandée 15 min plus tard, réserve rendue entre les deux (mesuré, partie de 150 min, graine 20261020 : deux bandes d'Azure
 -- annulées « matieres » à 52 et 68 min, la suivante demandée à 87 min : 35 min sans bande)
 CHAMP_CFG.gate_wait, CHAMP_CFG.retry = 90 * 3600, 3 * 3600
+CHAMP_CFG.block_max = 15 * 3600 -- une bande bloquée (fantôme refusé) est laissée au plan après 15 min : la suivante part (step_build)
 local EXT_PLATES = 3000
 local FURNACE_INVENTORIES = { "furnace_source", "furnace_result", "fuel" }
 
@@ -636,6 +637,26 @@ local function step_build(f, surface, ms, o, st, tick)
   local b = f.build
   local p = b.projects[st.pid]
   local env = { now = tick, made = 0 }
+  -- Lot CHAMP : une bande BLOQUÉE (fantôme refusé : une tourelle de l'équipe posée depuis sur son emprise ; mesuré, banc final-lot-20261020,
+  -- azure projet 6, 41 entités bâties sur 42) gardait le créneau 90 min, puis arrêtait TOUT le champ (Mg.watch « abandonner ») : 40 paires
+  -- de fer restées thermiques. Après CHAMP_CFG.block_max, elle est laissée au plan (qui peut encore la finir), comptée comme posée, et la
+  -- bande suivante part.
+  if st.frame then
+    if p and p.state == "bloque" then
+      st.block_t0 = st.block_t0 or tick
+      if tick - st.block_t0 > CHAMP_CFG.block_max then
+        if st.band_key then st.done_pr[tostring(st.band_key)] = true end
+        say(f, ms, string.format("avant-poste %d : bande %s du projet %d bloquee depuis %.0f min (%s) : laissee au plan, bande suivante", o.id,
+          tostring(st.band_key), st.pid, (tick - st.block_t0) / 3600, tostring(p.reason)), true)
+        st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last, st.block_t0 = "veille", nil, nil, nil, nil, nil, nil
+        st.retry = tick
+        release(ms, o.id)
+        return
+      end
+    else
+      st.block_t0 = nil
+    end
+  end
   if p and p.state == "fini" then
     st.t_done = st.t_done or tick
     env.made = made_by(f, surface, p)

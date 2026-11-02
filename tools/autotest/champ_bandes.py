@@ -76,6 +76,8 @@ def analyse(lines):
             continue
         if "la ligne neuve du projet" in text and "produit" in text:
             q["end"] = ("produit", minute)
+        elif "laissee au plan, bande suivante" in text:
+            q["end"] = ("bloquee, laissee au plan", minute)
         elif "partie annulee" in text:
             why = re.search(r"partie annulee \(([^)]*)\)", text)
             q["end"] = ("annulee : " + (why.group(1) if why else "?"), minute)

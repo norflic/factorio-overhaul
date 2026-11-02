@@ -1372,5 +1372,37 @@ do
   E.restore()
 end
 
+do
+  -- W3. Lot CHAMP : une bande BLOQUÉE en chantier est laissée au plan après 15 min (la suivante part) ; une bande en chantier ordinaire attend
+  section("W3. bande bloquee laissee au plan (lot CHAMP)")
+  local function setup(pstate)
+    local E = executor_run({ pairs = 8 })
+    local f = E.f
+    local id = E.Build.request(f, { site = "champ" })
+    local p = f.build.projects[id]
+    p.state = pstate
+    f.migration = { next = 0, logs = 0, logs_f = 0, o = {}, cur = 1 }
+    f.migration.o[1] = { stage = "chantier", pid = id, ids = {}, t0 = 0, t_degel = 0, band_key = 5, frame = { axis = "x" }, order = { 5 },
+      done_pr = {}, fails = 0, noop = 0, done = 0, produced = 0, retry = 0, retired = 2 }
+    return E, f.migration.o[1]
+  end
+  local E, st = setup("bloque")
+  E.think()
+  check(st.stage == "chantier" and st.block_t0 ~= nil, "W3 : bande bloquee : le minuteur part, la bande garde son creneau")
+  game.tick = game.tick + 15 * 3600
+  E.think()
+  local said = false
+  for _, l in ipairs(E.logs) do if l:find("laissee au plan, bande suivante") then said = true end end
+  check(st.done_pr["5"] == true and said,
+    "W3 : apres 15 min, la bande bloquee est laissee au plan et comptee posee (journal)")
+  E.restore()
+  local E2, st2 = setup("chantier")
+  E2.think()
+  game.tick = game.tick + 16 * 3600
+  E2.think()
+  check(st2.stage == "chantier" and not st2.done_pr["5"], "W3 : une bande en chantier ordinaire n'est pas laissee (16 min)")
+  E2.restore()
+end
+
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

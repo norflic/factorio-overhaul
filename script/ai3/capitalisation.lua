@@ -998,6 +998,8 @@ local function execute(f, cs, o, view, book, tick, research)
     -- quand une bande de ce champ produit (Mig.follow), ses manques sont les buts de la bande (script/ai3/automatisation.lua)
     local dep = cs.deps[o.deposit]
     if not dep then return nil, "champ : gisement non recense" end
+    -- plan directeur et centrale d'abord, comme avant le premier module électrique (Auto.submit) : le champ attend un réseau qui produit
+    Auto.ensure_power(f, tick, A.choose_pole(book, view.stock or {}, Harvest.reachable(f)))
     local fid, produced = MigChamp.want(f, dep, tick)
     if not fid then return nil, "champ : " .. tostring(produced) end
     rec.exec, rec.field, rec.produced0, rec.missing = "champ", fid, produced or 0, {}
