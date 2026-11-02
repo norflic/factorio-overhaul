@@ -430,5 +430,24 @@ mutant("poteau sur le cote d'abord ignore", "{ site%.ax %+ px, site%.ay %+ py },
 mutant_ok("poteau sur tuile prise", "and not %(taken and taken%[c%[1%] %.%. \":\" %.%. c%[2%]%]%) then", "then",
   function(Lm) return Lm.pole_tile(sites[1], open_grid(), { ["9:9"] = true }) == 11 end)
 
+-- 6 bis. diagnostic du lot MALL : la cause de chaque quai sans tapis
+do
+  local function dk(key, pid, x, y, item, flow, mall, linked)
+    local d = dock(key, pid, x, y, item, flow, linked); d.mall = mall; return d
+  end
+  local n, sp = Li.diagnose({
+    dk("a", 1, 0, 0, "X", 1, true), dk("b", 1, 0, 0, "Y", 1, true), dk("c", 1, 0, 0, "Z", 1, true), dk("d", 1, 0, 0, "W", 0.001, true),
+    dk("e", 1, 0, 0, "V", 1, false), dk("f", 1, 0, 0, "U", 1, false, true), dk("g", 1, 0, 0, "T", 1, false),
+  }, {
+    src("s1", 2, 5, 0, "X"), src("s2", 1, 5, 0, "Y"), src("s3", 2, Li.MAX_SPAN + 9, 0, "Z"), src("s4", 2, 5, 0, "T"), src("s5", 3, 6, 0, "T"),
+  })
+  check(n.mall.possible == 1 and n.mall["meme-projet"] == 1 and n.mall.loin == 1 and n.mall.debit == 1, "6b.1 causes des quais de mall")
+  check(n.autre["sans-sortie"] == 1 and n.autre.servi == 1 and n.autre.possible == 1, "6b.2 causes des autres quais")
+  check(sp.loin and sp.loin[1] == Li.MAX_SPAN + 9, "6b.3 la sortie la plus proche d'un quai LOIN est rendue")
+  check(Li.diagnose_text(n, sp):find("mall : ", 1, true) and Li.diagnose_text(n, sp):find("LOIN", 1, true), "6b.4 texte du diagnostic")
+  local n0 = Li.diagnose({ dk("p", 1, 0, 0, "X", 1, true), dk("q", 2, 0, 0, "X", 1, true) }, { src("s1", 3, 5, 0, "X") })
+  check(n0.mall.possible == 1 and n0.mall.prise == 1, "6b.5 sortie deja prise par un autre quai")
+end
+
 print(string.format("[LIAISON] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

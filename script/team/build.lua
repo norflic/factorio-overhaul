@@ -3440,6 +3440,11 @@ function Build.work(agent, f, tick)
       local put = chest.insert({ name = q.item, count = n })
       if put > 0 then inv.remove({ name = q.item, count = put }) end
       b.stats.filled = b.stats.filled + put
+      b.stats.fill_trips = (b.stats.fill_trips or 0) + 1 -- lot MALL : voyages de portage vers un quai, dont ceux d'un mall
+      if p.spec and (p.spec.gen == "patron" or p.spec.gen == "bloc") then
+        b.stats.fill_mall_trips = (b.stats.fill_mall_trips or 0) + 1
+        b.stats.fill_mall = (b.stats.fill_mall or 0) + put
+      end
     end
     return "done"
   elseif job.mode == "collect" then

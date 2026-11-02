@@ -286,6 +286,94 @@ function Li.pairs(docks, srcs)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- 4 bis. Diagnostic (lot MALL) : pourquoi un quai n'a PAS de paire
+---------------------------------------------------------------------------------------------------
+--- Cause pour laquelle chaque quai n'est pas servi par un tapis, comptée par genre de quai (d.mall : quai d'un mall). Lecture seule : aucune
+--- décision ne la lit. Causes : "servi" (d.linked), "debit" (sous Li.MIN_FLOW), "sans-sortie" (aucun coffre de sortie qui porte l'objet),
+--- "meme-projet" (seules sorties de l'objet : celles du projet du quai), "loin" (la plus proche à plus de Li.MAX_SPAN), "prise" (sorties
+--- déjà prises par un autre quai), "possible". Rend { mall = { cause = n }, autre = { cause = n } }, { loin = { span les plus proches } }.
+function Li.diagnose(docks, srcs)
+  local n = { mall = {}, autre = {} }
+  local spans = {}
+  local by_item = {}
+  for _, s in ipairs(srcs) do
+    if s.item then by_item[s.item] = by_item[s.item] or {}; table.insert(by_item[s.item], s) end
+  end
+  local paired = {}
+  for _, pr in ipairs(Li.pairs(docks, srcs)) do paired[pr.dock.key] = true end
+  for _, d in ipairs(docks) do
+    local cause
+    if d.linked then cause = "servi"
+    elseif (d.flow or 0) < Li.MIN_FLOW then cause = "debit"
+    elseif paired[d.key] then cause = "possible"
+    else
+      local list = by_item[d.item] or {}
+      local other, best = 0, nil
+      for _, s in ipairs(list) do
+        if s.pid ~= d.pid then
+          other = other + 1
+          local sp = manhattan(s.x, s.y, d.x, d.y)
+          if not best or sp < best then best = sp end
+        end
+      end
+      if #list == 0 then cause = "sans-sortie"
+      elseif other == 0 then cause = "meme-projet"
+      elseif best > Li.MAX_SPAN then
+        cause = "loin"
+        spans.loin = spans.loin or {}
+        table.insert(spans.loin, best)
+      else cause = "prise" end
+    end
+    local g = d.mall and n.mall or n.autre
+    g[cause] = (g[cause] or 0) + 1
+  end
+  if spans.loin then table.sort(spans.loin) end
+  -- détail des quais "sans-sortie" (objets demandés) et des sorties (objet vu, "?" jamais vu seul, "+" plusieurs objets)
+  local want, have = {}, {}
+  for _, d in ipairs(docks) do
+    if not d.linked and (d.flow or 0) >= Li.MIN_FLOW and not by_item[d.item] then
+      local k = (d.mall and "mall:" or "") .. tostring(d.item)
+      want[k] = (want[k] or 0) + 1
+    end
+  end
+  for _, s in ipairs(srcs) do
+    local k = (s.mixed and "+") or s.item or "?"
+    have[k] = (have[k] or 0) + 1
+  end
+  spans.want, spans.have = want, have
+  return n, spans
+end
+
+--- Texte du diagnostic : "mall : 3 sans-sortie, 2 loin ; autres : 1 servi".
+function Li.diagnose_text(n, spans)
+  local function one(g)
+    local ks = {}
+    for k in next, g do ks[#ks + 1] = k end
+    table.sort(ks)
+    local out = {}
+    for _, k in ipairs(ks) do out[#out + 1] = g[k] .. " " .. k end
+    return #out > 0 and table.concat(out, ", ") or "aucun"
+  end
+  local far = spans and spans.loin
+  local fs = ""
+  if far and #far > 0 then
+    local m = {}
+    for i = 1, math.min(#far, 6) do m[#m + 1] = tostring(far[i]) end
+    fs = " ; sortie la plus proche des quais LOIN : " .. table.concat(m, ",") .. " tuiles"
+  end
+  local function kv(t)
+    local ks = {}
+    for k in next, t or {} do ks[#ks + 1] = k end
+    table.sort(ks)
+    local out = {}
+    for _, k in ipairs(ks) do out[#out + 1] = k .. " " .. t[k] end
+    return #out > 0 and table.concat(out, ", ") or "aucun"
+  end
+  local detail = spans and spans.want and (" ; sans sortie pour [" .. kv(spans.want) .. "] ; sorties [" .. kv(spans.have) .. "]") or ""
+  return "mall : " .. one(n.mall) .. " ; autres : " .. one(n.autre) .. fs .. detail
+end
+
+---------------------------------------------------------------------------------------------------
 -- 5. Décision d'une paire
 ---------------------------------------------------------------------------------------------------
 --- Liaisons en construction permises à la fois : autant que de PNJ libres (`free` : sans tâche, ou sur la file sûre que tout préempte), au moins Li.MIN_OPEN.

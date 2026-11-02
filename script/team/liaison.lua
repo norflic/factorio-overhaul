@@ -104,7 +104,7 @@ local function start_cycle(b)
   for _, pid in ipairs(b.order) do
     if eligible(b.projects[pid]) then units[#units + 1] = pid end
   end
-  return { units = units, i = 1, docks = {}, srcs = {} }
+  return { units = units, i = 1, docks = {}, srcs = {}, made = {} }
 end
 
 local function scan_unit(f, surface, b, st, c, pid)
@@ -118,7 +118,7 @@ local function scan_unit(f, surface, b, st, c, pid)
     if ch and not seen[tk] then
       seen[tk] = true
       c.docks[#c.docks + 1] = { key = pid .. ":q" .. idx, pid = pid, idx = idx, x = math.floor(q.x), y = math.floor(q.y), item = q.item,
-        flow = flows and flows[q.item] or 0, n = ch.get_item_count(q.item) }
+        flow = flows and flows[q.item] or 0, n = ch.get_item_count(q.item), mall = (p.spec.gen == "patron" or p.spec.gen == "bloc") }
     end
   end
   for idx, o in ipairs(p.outs or {}) do
@@ -129,7 +129,8 @@ local function scan_unit(f, surface, b, st, c, pid)
       local item
       if #names == 1 then item = names[1]; st.src_item[key] = item
       elseif #names == 0 then item = st.src_item[key] end -- sortie vide : l'objet vu la dernière fois
-      c.srcs[#c.srcs + 1] = { key = key, pid = pid, idx = idx, x = math.floor(o.x), y = math.floor(o.y), item = item }
+      if item and (p.spec.gen == "patron" or p.spec.gen == "bloc") then c.made[item] = true end -- lot MALL : objets fabriqués par les malls (diagnostic)
+      c.srcs[#c.srcs + 1] = { key = key, pid = pid, idx = idx, x = math.floor(o.x), y = math.floor(o.y), item = item, mixed = #names >= 2 or nil }
     end
   end
 end
@@ -261,6 +262,22 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       active, open, st.n.demandes, st.n.finis, st.n.refuses, st.n.coupees))
   end
   st.last_docks = #c.docks
+  -- lot MALL (diagnostic, lecture seule) : pourquoi les quais ne sont pas servis par tapis, et ce que le portage à la main a coûté
+  if #c.docks > 0 and tick >= (st.diag_next or 0) then
+    st.diag_next = tick + Ln.LOG_EVERY
+    local nn, sp = Ln.diagnose(c.docks, c.srcs)
+    local sb = b.stats or {}
+    -- objets fabriqués par les malls depuis le dernier relevé (statistiques de production de la force : compteurs cumulés)
+    local made, n_items = 0, 0
+    local stats = game.forces[f.force] and game.forces[f.force].item_production_statistics
+    if stats then
+      for _, it in ipairs(sorted_keys(c.made)) do made = made + stats.get_input_count(it); n_items = n_items + 1 end
+    end
+    local per_min = (st.made_tick and tick > st.made_tick) and (made - (st.made_total or 0)) * 3600 / (tick - st.made_tick) or 0
+    st.made_total, st.made_tick = made, tick
+    say(f, tick, string.format("[FO-MALL-ALIM] quais sans tapis : %s | portage a la main : %d voyage(s), %d objet(s) dont %d voyage(s) et %d objet(s) vers des malls | malls : %d objet(s) suivis, %.1f fabrique(s)/min depuis le dernier releve",
+      Ln.diagnose_text(nn, sp), sb.fill_trips or 0, sb.filled or 0, sb.fill_mall_trips or 0, sb.fill_mall or 0, n_items, per_min))
+  end
   if #pairs_ == 0 then return end
   -- décisions (au plus une liaison demandée par relevé)
   local threat = hq_threat(f, surface)
