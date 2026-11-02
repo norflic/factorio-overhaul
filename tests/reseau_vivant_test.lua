@@ -298,6 +298,63 @@ do
     "îlot + ennemi à 28 tuiles : poteau pas rouvert (pas de pose sous le feu)")
 end
 
+-- §5 ter lot ENERGIE (2/11) : ligne de 4 poteaux perdus entre la centrale et un ilot, plus une branche perdue qui ne mene nulle part :
+-- le chemin le plus court est rouvert d'abord (la branche attend) ; un ennemi sur la ligne : rien n'est rouvert, second chemin annonce ;
+-- interrupteur no_coupure : la regle d'avant (tout ce qu'aucun ennemi ne tient)
+local function ligne_world(enemy)
+  local w = new_world()
+  local f = team(w)
+  local ents = {}
+  for _, x in ipairs({ 11, 18, 25, 32 }) do ents[#ents + 1] = { name = "small-electric-pole", x = x, y = 0, built = true, role = "rue" } end
+  ents[#ents + 1] = { name = "small-electric-pole", x = 6, y = -6, built = true, role = "rue" } -- branche perdue hors chemin
+  ents[#ents + 1] = { name = "small-electric-pole", x = 39, y = 0, built = true, role = "rue" }
+  f.build.projects[2] = { id = 2, state = "fini", ents = ents, parts = {} }
+  for _, e in ipairs(w.ents) do
+    if e.type == "electric-pole" and (e.position.x == 10 or e.position.x == 13) then e.valid = false end
+  end
+  w:add(entity("small-electric-pole", "electric-pole", 39, 0, { net = 2 }))
+  w:add(entity("assembling-machine-1", "assembling-machine", 40, 1.5, { net = 2, consumer = true }))
+  if enemy then w.enemies[1] = { valid = true, position = { x = 24, y = 8 } } end
+  return w, f
+end
+
+do
+  logs = {}
+  local w, f = ligne_world(false)
+  run(f, w, 1200, 7200 + 1200 * 6)
+  local q2 = f.build.projects[2]
+  local rouverts = ""
+  for i = 1, 4 do rouverts = rouverts .. (q2.ents[i].built and "." or "X") end
+  check(rouverts == "XXXX", "ligne : les 4 poteaux du chemin le plus court sont rouverts (" .. rouverts .. ")")
+  check(q2.ents[5].built == true, "ligne : la branche perdue hors chemin attend")
+  check(count("coupure: ") >= 1 and count("chemin le plus court") >= 1, "ligne : la decision est au journal")
+
+  logs = {}
+  w, f = ligne_world(true)
+  run(f, w, 1200, 7200 + 1200 * 6)
+  q2 = f.build.projects[2]
+  check(q2.ents[1].built and q2.ents[2].built and q2.ents[3].built and q2.ents[4].built, "ligne + ennemi : aucun poteau du chemin tenu n'est rouvert")
+  check(count("sans chemin sur") >= 1, "ligne + ennemi : le second chemin est annonce")
+
+  logs = {}
+  w, f = ligne_world(false)
+  f.build.opts.no_coupure = true
+  run(f, w, 1200, 7200 + 1200 * 6)
+  q2 = f.build.projects[2]
+  check(not q2.ents[5].built and not q2.ents[1].built, "no_coupure : la regle d'avant rouvre tout, branche comprise")
+  check(count("coupure: ") == 0, "no_coupure : rien de la coupure au journal")
+
+  -- un poteau deja rouvert (en reconstruction) garde le chemin continu : le releve suivant ne rouvre pas la branche
+  logs = {}
+  w, f = ligne_world(false)
+  run(f, w, 1200, 7200 + 1200 * 2)
+  local before = 0
+  for _, e in ipairs(f.build.projects[2].ents) do if e.built then before = before + 1 end end
+  f.build.sante.idle_until = nil
+  run(f, w, 7200 + 1200 * 3, 7200 + 1200 * 12)
+  check(f.build.projects[2].ents[5].built == true, "reconstruction en cours : la branche hors chemin n'est toujours pas rouverte")
+end
+
 -- §5 bis plafond de réouvertures des poteaux : propre aux poteaux (la centrale rouverte n'en use pas), et jamais pour une centrale abandonnée
 do
   logs = {}

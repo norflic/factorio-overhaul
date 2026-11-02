@@ -80,11 +80,19 @@ local function battery(Cv, C)
   section("3. Perte de la centrale")
   local st = {}
   local fired = false
-  for _ = 1, 119 do fired = fired or Cv.lost(st, 100, 0) end
+  for _ = 1, 119 do fired = fired or Cv.lost(st, 100, 10) end
   check(not fired, "pas de remplacement avant 120 releves (10 min : la reconstruction sur place a sa chance)")
-  check(Cv.lost(st, 100, 0) == true and st.lost == 0, "au 120e releve : remplacement, compteur remis a zero")
+  check(Cv.lost(st, 100, 10) == true and st.lost == 0, "au 120e releve : remplacement, compteur remis a zero")
+  -- lot ENERGIE (2/11) : perte TOTALE (aucune machine vivante) = 36 releves (3 min), pas 120
+  st, fired = {}, false
+  for _ = 1, 35 do fired = fired or Cv.lost(st, 100, 0) end
+  check(not fired, "perte totale : pas de remplacement avant 36 releves (3 min)")
+  check(Cv.lost(st, 100, 0) == true and st.lost == 0 and Cv.LOSS_CHECKS_TOTAL == 36, "perte totale : remplacement au 36e releve")
   st = {}
-  for _ = 1, 119 do Cv.lost(st, 100, 0) end
+  for _ = 1, 35 do Cv.lost(st, 100, 0) end
+  check(Cv.lost(st, 100, 5) == false, "une machine revenue (5 %) : perte partielle, il faut de nouveau 120 releves")
+  st = {}
+  for _ = 1, 119 do Cv.lost(st, 100, 10) end
   check(Cv.lost(st, 100, 60) == false and st.lost == 0, "la moitie revenue : plus perdue, compteur a zero")
   st = {}
   for _ = 1, 2 * Cv.LOSS_CHECKS do check(Cv.lost(st, 0, 0) == false, "rien de prevu : jamais perdue") end
@@ -206,6 +214,8 @@ mutant("champ minimal d'une chaudiere", function(Cm) Cm.MIN_FIELD = 1 end)
 mutant("champ non borne", function(Cm) Cm.MAX_FIELD = 100 end)
 mutant("refus du plan ignores", function(Cm) local old = Cm.boilers_for; Cm.boilers_for = function(b, _, l) return old(b, 0, l) end end)
 mutant("voie de tapis ignoree", function(Cm) local old = Cm.boilers_for; Cm.boilers_for = function(b, s) return old(b, s, nil) end end)
+mutant("perte totale comme une perte partielle (10 min)", function(Cm) Cm.LOSS_CHECKS_TOTAL = Cm.LOSS_CHECKS end)
+mutant("perte totale immediate", function(Cm) Cm.LOSS_CHECKS_TOTAL = 1 end)
 mutant("perte immediate", function(Cm) Cm.LOSS_CHECKS = 1 end)
 mutant("perte jamais", function(Cm) Cm.lost = function() return false end end)
 mutant("seuil de perte a 100 %", function(Cm) Cm.LOSS_FRAC = 1.0 end)
@@ -243,13 +253,16 @@ end)
 section("10. Perte d'une centrale ROUVERTE (PA.watch reel)")
 do
   log = log or function() end
-  package.preload["script.team.stock"] = package.preload["script.team.stock"] or function() return {} end
+  package.preload["script.team.stock"] = package.preload["script.team.stock"] or function() return { count = function() return 0 end } end
   package.preload["script.team.centrale_mort"] = package.preload["script.team.centrale_mort"] or function() return {} end
   local PA = require("script.team.plant_arms")
   local Cvr = require("shared.team.champ_vapeur")
   local alive = {} -- nom .. position -> vivant
   local surface = { find_entity = function(name, pos)
-    if alive[name .. ":" .. pos[1]] then return { valid = true, force = { name = "f" }, energy_generated_last_tick = 0 } end
+    if alive[name .. ":" .. pos[1]] then
+      return { valid = true, force = { name = "f" }, energy_generated_last_tick = 0,
+        get_fuel_inventory = function() return { is_empty = function() return false end } end } -- (lot ENERGIE 2/11 : la sante lit les chaudieres)
+    end
     return nil
   end }
   local plant = { id = 1, state = "fini", finished = 10, spec = { gen = "steam" },
@@ -262,8 +275,8 @@ do
   -- destruction ; la reconstruction rouvre le projet (Sweep.reopen_pieces) et n'aboutit pas
   alive = {}
   plant.state, plant.reopened, plant.reopened_tick = "reserve", 1, tick
-  check(run(Cvr.LOSS_CHECKS - 1) == false, "avant 10 min : on laisse la reconstruction faire")
-  check(run(1) == true and asked == Cvr.MIN_FIELD, "10 min sans retour, projet rouvert : champ de remplacement (" .. tostring(asked) .. ")")
+  check(run(Cvr.LOSS_CHECKS_TOTAL - 1) == false, "avant 3 min : on laisse la reconstruction faire")
+  check(run(1) == true and asked == Cvr.MIN_FIELD, "3 min sans aucune machine, projet rouvert : champ de remplacement (" .. tostring(asked) .. ")")
   -- le remplacement est en chantier : pas un second
   f.build.extra_plants = { 2 }
   f.build.projects[2] = { id = 2, state = "chantier", spec = {}, ents = {} }

@@ -34,6 +34,8 @@ Cv.MAX_LEGS = 4         -- troncons au plus (360 tuiles)
 Cv.WAYPOINT_R = 6       -- rayon de recherche d'une tuile libre pour un point de passage
 Cv.LOSS_FRAC = 0.5      -- part de la capacite prevue en dessous de laquelle la centrale est dite perdue
 Cv.LOSS_CHECKS = 120    -- releves (5 s) de perte de suite avant le remplacement : 10 min
+Cv.LOSS_CHECKS_TOTAL = 36 -- lot ENERGIE (2/11) : perte TOTALE (plus aucune machine vivante : toute la base sans courant, Scarlet a 57,3 min,
+                          -- 129 consommateurs sur 136 a 60 min) : 3 min, le temps qu'une reconstruction sur place aboutisse sinon
 
 --- Chaudieres bâties vivantes -> chaudieres du champ a demander. built : chaudieres vivantes (nil : inconnu) ; shrink : refus du plan
 --- deja subis (une chaudiere de moins par refus, jamais moins de 1) ; lane_cap : chaudieres qu'une voie de tapis nourrit (nil : sans borne).
@@ -147,7 +149,8 @@ end
 --- quand la perte dure depuis Cv.LOSS_CHECKS releves ; un champ de remplacement est alors demande (et le compte repart de zero).
 function Cv.lost(st, planned, alive)
   if planned and planned > 0 and (alive or 0) < planned * Cv.LOSS_FRAC then st.lost = (st.lost or 0) + 1 else st.lost = 0 end
-  if st.lost >= Cv.LOSS_CHECKS then st.lost = 0 return true end
+  local need = (planned and planned > 0 and (alive or 0) <= 0) and Cv.LOSS_CHECKS_TOTAL or Cv.LOSS_CHECKS
+  if st.lost >= need then st.lost = 0 return true end
   return false
 end
 

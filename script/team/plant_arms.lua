@@ -14,6 +14,7 @@ local Stock = require("script.team.stock")
 local Bras = require("shared.team.bras_retour")
 local C = require("shared.team.centrale") -- lot CORR-ENERGIE : croissance de la centrale
 local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (taille, perte)
+local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : santé de la centrale, amorce à la main, croissance avant saturation
 
 local PA = {}
 
@@ -171,9 +172,13 @@ function PA.watch(f, surface, tick)
   for _, id in ipairs(b.extra_plants or {}) do
     if not seen[id] then seen[id] = true; ids[#ids + 1] = id end
   end
+  local plants = {}
   for _, pid in ipairs(ids) do
     local p = b.projects[pid]
     if p then
+      plants[#plants + 1] = p
+      -- lot ENERGIE (2/11) : santé de la centrale posée (chaudières à sec -> amorce à la main, pièces manquantes, temps sans courant)
+      if p.state == "fini" or (p.reopened and p.finished) then Sante.observe(f, surface, p, tick) end
       if p.state == "fini" then
         done = done + 1
         for _, e in ipairs(p.ents) do
@@ -237,11 +242,23 @@ function PA.watch(f, surface, tick)
   local hold = tick < (b.grow_hold_until or 0)
   -- lot ENERGIE : perte (machines détruites non revenues depuis 10 min) et taille du champ (chaudières vivantes, voie de tapis)
   local lost = Cv.lost(g, planned, capacity + reopened_alive)
-  local nb, why = C.growth(g, { done = done, pending = pending, rebuilding = rebuilding, refused = refused, hold = hold, cool = tick < (g.cool_until or 0),
-    off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
+  -- lot ENERGIE (2/11) : la centrale de plus part AVANT la saturation (production + chantiers + modules retenus), et une reconstruction sans
+  -- progrès depuis Sante.STALL ne retient plus la croissance (Ambre : 23 min saturée à 100 % pendant que 13 pièces sur 28 attendaient du fer)
+  local anticipate, stalled, used_kw, committed_kw, cap_kw = Sante.growth(f, tick, plants, power, capacity + reopened_alive)
+  local ns = 0
+  for _, id in ipairs(stalled) do
+    local q = b.projects[id]
+    if q and q.state ~= "refuse" and not (q.state == "bloque" and not q.retry_at) then ns = ns + 1 end
+  end
+  local nb, why = C.growth(g, { done = done, pending = pending - ns, rebuilding = math.max(0, rebuilding - ns), refused = refused, hold = hold,
+    cool = tick < (g.cool_until or 0), off = b.opts and b.opts.no_grow == true, lost = lost, built = boilers_alive,
+    anticipate = anticipate,
     lane_cap = Cv.lane_cap(M.BELT_RATE, boiler_kw, M.COAL_J) })
   if nb and lost then
     log(Cv.line({ kind = "perte", team = f.key or "player", tick = tick, alive = capacity + reopened_alive, planned = planned, nb = nb }))
+  elseif nb and not g.saturated and anticipate then
+    log(Sante.line_avance(f, tick, used_kw, committed_kw, cap_kw))
+    log(Cv.line({ kind = "champ", team = f.key or "player", tick = tick, nb = nb, built = boilers_alive, refused = refused, why = "avant la saturation" }))
   elseif nb then
     log(Cv.line({ kind = "champ", team = f.key or "player", tick = tick, nb = nb, built = boilers_alive, refused = refused }))
   end

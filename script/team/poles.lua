@@ -32,6 +32,7 @@ local Sur = require("shared.team.travail_sur") -- lot INDUSTRIE I2 : file sûre 
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE : le réglage maître (fo-war-industrie)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : le fond ne propose pas ce que les coffres couvrent
 local FerEquipe = require("shared.team.fer_equipe") -- lot FER-EQUIPE : minage de fer de renfort pour les inactifs
+local Fx = require("shared.team.flux") -- lot FLUX : plaques des sorties comptées avant de miner à la main (règle pure)
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09) : ressources que les machines sortent en quantité
 local Planner = require("shared.team.planner") -- lot IA1-b2 : avant-postes non défendus (P.undefended)
 local State = require("script.faction.state")
@@ -89,6 +90,10 @@ for _, kind in ipairs(T.OUTPOST_ORDER) do
   local spec = T.outposts[kind]
   if T.smelter_inputs[spec.product] then PLATE_OF_RES[spec.resource] = spec.product end
 end
+
+-- Lot FLUX : minerai -> { plaque, minerai par plaque } : le minage à la main de remplissage (fond, file sûre, renfort de fer) compte les
+-- plaques du coffre ET celles qui dorment dans les sorties des avant-postes (shared/team/flux.lua, Fx.equiv).
+local PLATE_MAP = Fx.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)
 
 --- Intégration 0.6.30 (PLAN §5, ③ « toujours préemptée ») : PNJ de la file sûre à rappeler pour une tâche du CERVEAU libre qu'aucun PNJ sans tâche ne
 --- peut prendre : avant la file, ces PNJ attendaient au QG et la prenaient aussitôt ; un minage de la file dure près de 2 min. Rend la liste
@@ -410,7 +415,8 @@ function Poles.think(f, view, book, tick, plan)
   if spec then
     local idle_n = 0
     for _, np in ipairs(npcs) do if np.idle and np.role ~= "generalist" then idle_n = idle_n + 1 end end
-    iron_extra = { res = spec.resource, n = FerEquipe.extra_mines({ idle = idle_n, plates = free[spec.product],
+    iron_extra = { res = spec.resource, n = FerEquipe.extra_mines({ idle = idle_n,
+      plates = (free[spec.product] or 0) + (Fx.ENABLE.equiv and (view.repat or {})[spec.product] or 0), -- lot FLUX : plus les plaques des sorties
       ore = free[spec.resource], smelters = view.smelters, prudent = prudent, skip = skip[spec.resource] }) }
     if iron_extra.n > 0 and (fond_on or fer_off) and not org.fer_logged then
       org.fer_logged = tick
@@ -432,7 +438,8 @@ function Poles.think(f, view, book, tick, plan)
       -- avant-poste meurtrier non défendu et la prudence (pertes récentes) l'arrêtent.
       transport = player or nil, reserve = player and Fond.PLAYER_RESERVE or nil,
       mine_radius = player and T.near_mine or nil, annex_want = Stock.wanted(f), iron_extra = iron_extra,
-      saturated = f.team.ia3 and f.team.ia3.saturated or nil } -- lot SITE-PROCHE (R4)
+      saturated = f.team.ia3 and f.team.ia3.saturated or nil, -- lot SITE-PROCHE (R4)
+      plate_map = PLATE_MAP, repat = view.repat } -- lot FLUX
     cands = Fond.candidates(view, free, fctx)
     -- Lot SCALE-COMPLET : builds LOINTAINS refusés par le fond (shared/team/fond.lua, F.far_build ; écrits dans fctx.far_builds) :
     -- un avant-poste proche du même type a encore des places. Journal [FO-LOIN], Poles.FAR_LOGS lignes au plus par équipe.
@@ -634,7 +641,7 @@ function Poles.think(f, view, book, tick, plan)
       end
       local resources = {}
       for _, m in ipairs(Fond.MINE_TARGETS) do
-        local have = math.max(0, free[m[1]] or 0)
+        local have = Fx.equiv(m[1], PLATE_MAP, free, view.repat) -- lot FLUX : minerai + plaques (coffre et sorties) en minerai
         local gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2])
         resources[#resources + 1] = { res = m[1], gap = gap,
           ok = gap > 0 and not skip[m[1]] and (not m[3] or (view.smelters or 0) > 0) and not Sur.blocked(sur.bad, m[1], tick)
