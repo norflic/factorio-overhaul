@@ -78,6 +78,15 @@ check(Rv.hand_due(10, 100, 60, true), "4.5 secours : 10 objets avec une ligne fi
 check(not Rv.hand_due(10, 0, 60, true) and not Rv.hand_due(10, nil, 60, false), "4.6 sans stock au QG, aucune tâche")
 check(not Rv.hand_due(60, 100, 60, false) and Rv.hand_due(59, 100, 60, false), "4.7 le seuil sans ligne est exclusif (n < low)")
 
+-- 4 bis. charge minimale d'un voyage vers un quai de mall
+check(Rv.batch_min(400) == 100 and Rv.batch_min(10) == 3 and Rv.batch_min(0) == 1 and Rv.batch_min(nil) == 1, "4b.1 le quart de la charge pleine, au moins 1")
+check(Rv.batch_ok(false, 50, 1, 400), "4b.2 hors mall : toujours (comportement d'avant)")
+check(not Rv.batch_ok(true, 50, 60, 400), "4b.3 mall : 60 objets pour un voyage de 400, le PNJ attend")
+check(Rv.batch_ok(true, 50, 100, 400), "4b.4 mall : le quart de la charge, il part")
+check(Rv.batch_ok(true, 0, 3, 400), "4b.5 mall, quai à sec : il porte ce qu'il y a")
+check(Rv.batch_ok(true, 395, 5, 400), "4b.6 mall : la charge comble le coffre, il part")
+check(not Rv.batch_ok(true, 300, 20, 400), "4b.7 mall : 20 objets pour 100 de place libre, le PNJ attend")
+
 -- §5 déterminisme
 local function shuffle(t)
   local out, n = {}, #t
@@ -111,6 +120,7 @@ check(SCRIPT:find("tmax = Rv%.tmax%(d, Ln%.TMAX%)") ~= nil, "7.2 le prix d'un qu
 check(SCRIPT:find("Rv%.len_max%(") ~= nil and SCRIPT:find("mall = d%.mall }") ~= nil, "7.3 la longueur du tapis suit le genre du quai (lc.mall au plan)")
 check(SCRIPT:find("mark_line%(b, link,") ~= nil and SCRIPT:find("dp%.line_ok%[link%.dock_idx%] = true") ~= nil, "7.4 une ligne finie est notée sur le projet du quai")
 check(BUILD:find("Ra%.hand_due%(n, have, Build%.QUAI_LOW, p%.line_ok and p%.line_ok%[i%]%)") ~= nil, "7.5 le portage lit la ligne finie du quai")
+check(BUILD:find("Ra%.batch_ok%(mall, n, load, Build%.QUAI_FILL%)") ~= nil, "7.5b le voyage vers un mall lit la charge minimale")
 check(SCRIPT:find("made_by_neighbour%(f, surface, o%.x, o%.y%)") ~= nil, "7.6 la sortie vide d'un mall prend l'objet de sa machine")
 check(SCRIPT:find("s%.taken = taken%[s%.key%] or 0") ~= nil, "7.7 le relevé compte les liaisons tirées de chaque sortie")
 check(not SCRIPT:find("function%s*%(%)%s*[^\n]*line_ok"), "7.8 l'état noté sur le projet ne garde aucune fonction")
@@ -165,6 +175,12 @@ mutant_rv("secours sans plancher", "return math%.max%(1, math%.floor%(low / Rv%.
 mutant_rv("tiers devenu moitie", "Rv%.RESCUE_DIV = 3", "Rv.RESCUE_DIV = 2", function(R) return R.rescue_low(60, true) ~= 20 end)
 mutant_rv("portage sans stock", "and %(have or 0%) > 0", "", function(R) return R.hand_due(10, 0, 60, true) end)
 mutant_rv("seuil inclusif", "return n < Rv%.rescue_low", "return n <= Rv.rescue_low", function(R) return R.hand_due(60, 100, 60, false) end)
+mutant_rv("charge minimale oubliee", "return load >= Rv%.batch_min%(fill%) or load >= %(fill or 0%) %- n", "return true",
+  function(R) return R.batch_ok(true, 50, 60, 400) end)
+mutant_rv("quai a sec attend", "if n <= 0 then return true end", "", function(R) return not R.batch_ok(true, 0, 3, 400) end)
+mutant_rv("coffre a combler attend", " or load >= %(fill or 0%) %- n", "", function(R) return not R.batch_ok(true, 395, 5, 400) end)
+mutant_rv("hors mall attend", "if not mall then return true end", "", function(R) return not R.batch_ok(false, 50, 1, 400) end)
+mutant_rv("quart devenu moitie", "Rv%.BATCH_DIV = 4", "Rv.BATCH_DIV = 2", function(R) return R.batch_min(400) ~= 100 end)
 mutant_li("portee d'un mall oubliee dans l'appariement", "local reach, cap = Rv%.span_max%(d, Li%.MAX_SPAN%), Rv%.fan%(d%)", "local reach, cap = Li.MAX_SPAN, Rv.fan(d)",
   function(L) return #L.pairs({ dock("d", 1, 0, 0, "X", 1, true) }, { src("s", 2, far, 0, "X") }) == 0 end)
 mutant_li("partage oublie dans l'appariement", "local reach, cap = Rv%.span_max%(d, Li%.MAX_SPAN%), Rv%.fan%(d%)", "local reach, cap = Rv.span_max(d, Li.MAX_SPAN), 1",

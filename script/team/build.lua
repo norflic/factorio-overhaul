@@ -3706,13 +3706,17 @@ local function quai_tasks(f, p, surface, out)
           }
         end
       elseif Ra.hand_due(n, have, Build.QUAI_LOW, p.line_ok and p.line_ok[i]) then -- lot MALL : une ligne finie ne laisse que le secours au PNJ
-        local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
-        if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
-        out[#out + 1] = {
-          key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = p.prio + 3, domain = "logistique", work = 40,
-          items = { { q.item, math.min(Build.QUAI_FILL - n, have) } },
-          ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
-        }
+        local load = math.min(Build.QUAI_FILL - n, have)
+        local mall = p.spec ~= nil and (p.spec.gen == "patron" or p.spec.gen == "bloc" or p.spec.mall == true)
+        if Ra.batch_ok(mall, n, load, Build.QUAI_FILL) then -- lot MALL : pas de voyage pour une poignée d'objets, sauf quai à sec
+          local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
+          if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
+          out[#out + 1] = {
+            key = "ia1d:" .. p.id .. ":q:" .. i, kind = "carry", prio = p.prio + 3, domain = "logistique", work = 40,
+            items = { { q.item, load } },
+            ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
+          }
+        end
       end
     end
   end

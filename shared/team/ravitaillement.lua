@@ -16,7 +16,10 @@
        reste borné par Li.route_ok. Au-delà, le portage à la main continue (l'ancien mode est le secours, il ne change pas).
     2. Prix : un mall dure toute la partie ; le retour d'une ligne de mall est jugé sur Rv.TMAX minutes (4 fois Li.TMAX), pas sur 90.
     3. Partage : une sortie sert jusqu'à Rv.FAN quais de mall (deux bras de côtés différents, un seul quai pour les autres modules).
-    4. Portage à la main : une ligne FINIE réduit le seuil du portage à Rv.rescue_low(low) : le PNJ ne porte plus que pour le démarrage (la ligne
+    4. Portage à la main, charge minimale (témoin Emerald, graine 271828182 : 28 voyages de 10 plaques d'acier, 34 voyages de 60 engrenages pour
+       un voyage plein de 400) : un voyage vers un quai de mall ne part que s'il porte au moins Rv.batch_min(fill), sauf quai à sec (n = 0 : la
+       machine s'arrête, le PNJ porte ce qu'il y a).
+    5. Portage à la main : une ligne FINIE réduit le seuil du portage à Rv.rescue_low(low) : le PNJ ne porte plus que pour le démarrage (la ligne
        n'existe pas encore) et le secours (le coffre est presque vide, donc la ligne ne suit plus).
   Déterminisme : entiers et fractions fixes, aucun pairs, aucune horloge mesurée.
 ]]
@@ -28,6 +31,7 @@ Rv.LEN = 96         -- tuiles de tapis au plus pour un quai de mall (Li.MAX_LEN 
 Rv.TMAX = 360       -- minutes : retour accepté d'une ligne de mall (Li.TMAX : 90)
 Rv.FAN = 2          -- quais de mall servis au plus par un même coffre de sortie
 Rv.RESCUE_DIV = 3   -- le portage de secours d'un quai relié part au tiers du seuil ordinaire
+Rv.BATCH_DIV = 4    -- un voyage vers un quai de mall porte au moins le quart de la charge d'un voyage plein, sauf quai à sec
 
 --- Le quai est-il celui d'un mall ? (d.mall posé par le relevé : projet « patron » ou « bloc »)
 function Rv.is_mall(d) return d ~= nil and d.mall == true end
@@ -55,6 +59,19 @@ end
 function Rv.rescue_low(low, line_done)
   if not line_done then return low end
   return math.max(1, math.floor(low / Rv.RESCUE_DIV))
+end
+
+--- Charge minimale d'un voyage vers un quai de mall : le quart (arrondi au-dessus, au moins 1) de `fill` (Build.QUAI_FILL).
+function Rv.batch_min(fill)
+  return math.max(1, math.ceil((fill or 1) / Rv.BATCH_DIV))
+end
+
+--- Le voyage vaut-il d'être fait ? load : ce que le PNJ porterait (min(fill - n, stock du QG)) ; n : objets au coffre ; mall : quai de mall.
+--- Hors mall : toujours (comportement d'avant). Mall : quai à sec, ou charge d'au moins Rv.batch_min(fill), ou charge qui comble le coffre.
+function Rv.batch_ok(mall, n, load, fill)
+  if not mall then return true end
+  if n <= 0 then return true end
+  return load >= Rv.batch_min(fill) or load >= (fill or 0) - n
 end
 
 --- Le PNJ doit-il porter à ce quai ? n : objets au coffre ; have : stock du QG ; low : Build.QUAI_LOW ; line_done : ligne finie.
