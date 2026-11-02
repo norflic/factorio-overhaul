@@ -68,6 +68,8 @@ local function setup()
     chest.insert({ name = it[1], count = it[2] })
   end
   W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  -- Lot PARITE : le QG naît avec les 4 tourelles d'une faction ; ce banc juge un QG SANS défense (mode survie), elles sont retirées.
+  for _, e in ipairs(s.find_entities_filtered({ name = "gun-turret", force = "player" })) do e.destroy() end
   M.run_ticks(600)
   return global.fo.pteam.team, chest
 end

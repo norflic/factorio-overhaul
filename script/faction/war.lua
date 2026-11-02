@@ -29,6 +29,7 @@ local Storage = require("script.core.storage")
 local PvP = require("script.faction.pvp")
 local Config = require("script.core.config")
 local Character = require("script.faction.character")
+local PlayerTeam = require("script.team.player_team") -- lot PARITE : coffre d'équipe posé d'office aux lancements humains
 local CentreQG = require("script.faction.centre_qg") -- lot PD-CENTREQG (D20) : le QG d'une faction est son centre de commandement
 local JournauxDC = require("script.faction.journaux_dc") -- lot JOURNAUX-DC : [FO-ANEANTI], [FO-REGLAGES]
 local JDCrules = require("shared.team.journaux_dc")
@@ -173,16 +174,8 @@ local function found_hq(f, surface, pos)
   f.hq = hq
   f.hq_pos = { x = hq_pos.x, y = hq_pos.y }
   State.own(hq, f.id, "hq")
-  local offsets = { { 12, 0 }, { -12, 0 }, { 0, 10 }, { 0, -10 } }
-  -- Lot KIT : tourelles de QG offertes seulement avec le kit généreux (bancs) ; sinon la faction pose les siennes (T.defend_hq)
-  for k = 1, math.min(#offsets, Team.faction_grant().hq_turrets) do
-    local o = offsets[k]
-    local tpos = surface.find_non_colliding_position("gun-turret", { x = hq_pos.x + o[1], y = hq_pos.y + o[2] }, 10, 1)
-    if tpos then
-      local t = surface.create_entity({ name = "gun-turret", position = tpos, force = force })
-      if t then Outposts.add_turret(f, t, nil, 20) end
-    end
-  end
+  -- Lot PARITE : la même pose que celle de votre équipe (Team.place_hq_turrets ; emplacements : shared/team/depart.lua)
+  Team.place_hq_turrets(f, surface, hq_pos, Team.faction_grant().hq_turrets)
   f.label = rendering.draw_text({
     text = faction_name(f), surface = surface, target = hq, target_offset = { 0, -7 },
     color = f.color, scale = 3, alignment = "center",
@@ -340,8 +333,18 @@ function War.start_at(surface, center, n, soldiers_max, engineers_max, distance)
   return true
 end
 
+--- Lot PARITE : le coffre d'équipe est posé d'office près du point de départ du joueur quand la guerre part par un chemin HUMAIN
+--- (réglage de carte, commande, bouton) : votre équipe naît comme une faction (shared/team/depart.lua).
+local function offer_player_team(surface, center)
+  local ok, why = PlayerTeam.found_default(surface, center)
+  log(string.format("[FO-WAR] coffre d'equipe d'office : %s (%s)", ok and "pose" or "non pose", tostring(why)))
+end
+
 function War.start(player, n, soldiers_max, engineers_max, distance)
-  return War.start_at(player.surface, player.force.get_spawn_position(player.surface), n, soldiers_max, engineers_max, distance)
+  local center = player.force.get_spawn_position(player.surface)
+  local ok, err = War.start_at(player.surface, center, n, soldiers_max, engineers_max, distance)
+  if ok then offer_player_team(player.surface, center) end
+  return ok, err
 end
 
 function War.stop()
@@ -474,9 +477,10 @@ local function autostart(war)
   local g = settings.global
   -- Ouvriers : nil (lot IA1-a, fusion avec 0.4.15) : la taille suit fo-war-workers EN COURS de partie. Une guerre
   -- lancée seule par 0.4.15 garde le nombre écrit à son lancement (war.settings, aucune migration).
-  local ok, err = War.start_at(surface, game.forces.player.get_spawn_position(surface), g["fo-war-factions"].value,
-    g["fo-war-soldiers"].value, nil, F.defaults.distance)
+  local center = game.forces.player.get_spawn_position(surface)
+  local ok, err = War.start_at(surface, center, g["fo-war-factions"].value, g["fo-war-soldiers"].value, nil, F.defaults.distance)
   log(string.format("[FO-WAR] lancement automatique au tick %d : %s", game.tick, ok and "ok" or tostring(err)))
+  if ok then offer_player_team(surface, center) end
 end
 
 -- Rafraîchit les étiquettes des QG (nom, objectif d'équipe, ce qui manque) toutes les 10 s ; lance la guerre si le

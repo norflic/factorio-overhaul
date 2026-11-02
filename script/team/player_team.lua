@@ -29,6 +29,8 @@ local Registry = require("script.companion.registry")
 local Team = require("script.team.team")
 local Poles = require("script.team.poles")
 local Sq = require("shared.team.survie_qg") -- lot S1 : sort du coffre détruit (reposé si des PNJ vivent)
+local Depart = require("shared.team.depart") -- lot PARITE : coffre posé d'office et tourelles de QG, comme une faction
+local Fondation = require("shared.team.fondation")
 require("script.team.adopte") -- lot ADOPTE : machines posées à la main par le joueur, inscrites au registre de l'équipe
 
 local PlayerTeam = {}
@@ -57,6 +59,14 @@ local function create(chest)
   }
   Storage.ns("pteam").team = f
   Team.init(f, surface)
+  -- Lot PARITE (retour du DC du 2/11, point 19) : l'équipe naît avec les tourelles de QG d'une faction, UNE fois par partie (un coffre
+  -- perdu puis refabriqué ne les redonne pas ; une équipe déjà lancée à la montée de version ne les reçoit pas : voir plus bas).
+  local ns = Storage.ns("pteam")
+  local due = Depart.turrets_due({ grant = Fondation.grant(true, false).hq_turrets, offered = Depart.is_offered(ns.depart_offert) })
+  local placed = due > 0 and Team.place_hq_turrets(f, surface, chest.position, due) or 0
+  ns.depart_offert = true
+  log(string.format("[FO-PTEAM] depart tick %d : %d tourelle(s) de QG offerte(s) sur %d voulue(s)%s", game.tick, placed, due,
+    due == 0 and " (depart deja offert a cette partie)" or ""))
   f.chest_reg = script.register_on_entity_destroyed(chest)
   f.goal_label = rendering.draw_text({
     text = Team.goal_text(f), surface = surface, target = chest, target_offset = { 0, -1.6 },
@@ -68,6 +78,27 @@ local function create(chest)
   log(string.format("[FO-PTEAM] cree tick %d : coffre d'equipe pose en (%d, %d), force %s, %d PNJ offerts, plafond %d",
     game.tick, math.floor(chest.position.x), math.floor(chest.position.y), f.force, f.engineers_count or 0, Team.npc_max(f)))
   return f
+end
+
+--- Lot PARITE : pose d'office le coffre d'équipe près du point de départ du joueur, comme une faction naît avec son QG. Appelé par les
+--- chemins de lancement HUMAINS de la guerre (réglage de carte, commande, bouton : script/faction/war.lua), jamais par les bancs
+--- (remote war_start), qui posent leur coffre eux-mêmes. Rend vrai si le coffre a été posé, sinon faux et le motif.
+function PlayerTeam.found_default(surface, center)
+  local ns = Storage.ns("pteam")
+  local ok, why = Depart.chest_due({ human = true, team = get() ~= nil, offered = Depart.is_offered(ns.depart_offert) })
+  if not ok then
+    log(string.format("[FO-PTEAM] coffre d'office tick %d : non pose (%s)", game.tick, why))
+    return false, why
+  end
+  local near = { x = center.x + Depart.CHEST_OFFSET[1], y = center.y + Depart.CHEST_OFFSET[2] }
+  local pos = surface.find_non_colliding_position(CHEST, near, 20, 1)
+  local chest = pos and surface.create_entity({ name = CHEST, position = pos, force = "player", raise_built = true })
+  if not (chest and chest.valid and get()) then
+    log(string.format("[FO-PTEAM] coffre d'office tick %d : non pose (aucune place a 20 tuiles du depart)", game.tick))
+    return false, "pas-de-place"
+  end
+  game.print({ "fo-parite.office" })
+  return true, why
 end
 
 local function dismiss(f, refund)
@@ -99,6 +130,17 @@ local function on_built(e)
   end
   create(ent)
 end
+
+-- Lot PARITE : une équipe DÉJÀ lancée à la montée de version ne reçoit rien d'office (ni tourelles, ni coffre si elle perd le sien) ;
+-- une partie sans équipe garde le départ à offrir.
+Events.on_configuration_changed(function()
+  local ns = Storage.ns("pteam")
+  if not ns then return end
+  local before = ns.depart_offert
+  ns.depart_offert = Depart.migrate_offered({ team = ns.team ~= nil, offered = ns.depart_offert })
+  log(string.format("[FO-PTEAM] montee de version : depart offert %s -> %s (equipe %s)", tostring(before), tostring(ns.depart_offert),
+    ns.team ~= nil and "lancee" or "absente"))
+end)
 
 Events.on(defines.events.on_built_entity, on_built)
 Events.on(defines.events.on_robot_built_entity, on_built)

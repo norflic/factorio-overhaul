@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.38
+Date: 2026-11-02
+  Changes:
+    - Votre equipe nait comme une faction : coffre d'equipe pose d'office a la fondation (la fabrication d'un coffre reste possible), 4 tourelles de QG avec 20 chargeurs chacune, une foreuse a combustion posee a la main avec son four ou coffre est adoptee par l'equipe. Une sauvegarde deja lancee ne recoit rien.
+    - Mesure : sans ce depart, avec un coffre vide, l'equipe finit a 1 PNJ et 0 tourelle a 1 h ; avec, 7 a 8 PNJ et 5 a 6 tourelles. Le critere de non-regression V3 est ECHOUE sur une graine (9 PNJ perdus a 45 min contre 4). La parite de croissance n'est pas atteinte : sur la graine 20261020 l'equipe est detruite vers 48 min.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.37
 Date: 2026-11-02
   Changes:

@@ -42,6 +42,10 @@ end
 --- (verif-guide et pnj-reduit, graine 1618033988), l'ancien choix de tuile rendait 0 sur 50 pour 40 à 50 % des minages de
 --- votre équipe ; la correction lui fait tirer 1,5 à 2 fois plus de minerai et change toute sa trajectoire de 60 min (ses
 --- avant-postes tombent de 2 à 1 contre les biters, ses PNJ meurent plus tôt) : à adopter par le lot de votre équipe.
+--- Lot PARITE (2/11) : essayé à vrai, DÉFAVORABLE sur 3 paires de parties de 60 min (une exécution chacune, fo-logs/2026-11-02_PARITE/RAPPORT.md §5) :
+--- verif-guide 271828182, fer livré 0-50 min 18 536 contre 31 548 sans la correction, PNJ à 59 min 17 contre 30 ; verif-guide 1618033988, 14 503 contre
+--- 9 657 mais PNJ perdus à 45 min 12 contre 9 ; dc-evolution parité pure, 2 PNJ, 1 tourelle à 60 min contre 8 et 5. Rien ne protège ici un choix manuel
+--- du joueur : le gardé faux est une mesure, pas une protection. À reprendre par un lot qui isole la récolte (plusieurs graines).
 Harvest.PLAYER = false
 
 --- La correction vaut-elle pour cette équipe ?

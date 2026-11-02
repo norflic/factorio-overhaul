@@ -40,6 +40,11 @@ local function run(opts)
     chest.insert({ name = it[1], count = it[2] })
   end
   W().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  -- Lot PARITE : le QG naît avec les 4 tourelles d'une faction ; ce banc juge le PREMIER palier d'un QG SANS tourelle, elles sont retirées
+  -- (tests/parite_test.lua prouve le départ lui-même ; opts.keep_turrets les garde).
+  if not opts.keep_turrets then
+    for _, e in ipairs(s.find_entities_filtered({ name = "gun-turret", force = "player" })) do e.destroy() end
+  end
   M.run_ticks(opts.ticks)
   local logs, turrets = W().logs, 0
   for _, e in ipairs(W().entities) do
@@ -68,6 +73,10 @@ check(b.first >= 1, "journal [FO-DEFENSE] : « premiere tourelle » (" .. b.firs
 -- Mutant : sans premier palier (FIRST_N = 0), le QG garde le plancher ordinaire et la ligne n'apparaît jamais.
 local m = run({ iron = 214, ticks = 7200, researched = true, first_n = 0 })
 check(m.first == 0, "mutant FIRST_N = 0 : plus de ligne « premiere tourelle » (" .. m.first .. ")")
+-- Lot PARITE : un QG qui naît avec ses 4 tourelles (départ d'une faction) n'a plus de premier palier à payer.
+local c = run({ iron = 214, ticks = 7200, researched = true, keep_turrets = true })
+check(c.first == 0, "QG né avec ses 4 tourelles : aucune ligne « premiere tourelle » (" .. c.first .. ")")
+check(c.turrets >= 4, "QG né avec ses 4 tourelles : au moins 4 tourelles à la fin (" .. c.turrets .. ")")
 -- (Le nombre de tourelles posées n'est pas jugé ici : le moteur simulé dépense le fer du départ avant la première pensée de défense, et
 -- le résultat varie avec la quantité de fer sans ordre ; la preuve du palier est au planificateur, tests/equipe_defense_test.lua.)
 print(string.format("[EQUIPE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))

@@ -84,6 +84,7 @@ package.loaded["script.core.events"] = {
 }
 local ns = { pteam = {} }
 package.loaded["script.core.storage"] = { ns = function(n) ns[n] = ns[n] or {}; return ns[n] end }
+local owners = {} -- lot PARITE : propriété des entités (State.own / owner / disown)
 package.loaded["script.faction.state"] = {
   sorted_keys = function(t)
     local k = {}
@@ -91,10 +92,13 @@ package.loaded["script.faction.state"] = {
     table.sort(k)
     return k
   end,
+  own = function(e, fid, kind, oid) owners[e.unit_number] = { f = fid, kind = kind, oid = oid } end,
+  owner = function(u) return u and owners[u] or nil end,
+  disown = function(u) owners[u] = nil end,
 }
 local Outposts = { reserved = nil }
 package.loaded["script.faction.outposts"] = Outposts
-defines = { events = { on_built_entity = 1, on_robot_built_entity = 2 } }
+defines = { events = { on_built_entity = 1, on_robot_built_entity = 2, on_player_mined_entity = 3, on_robot_mined_entity = 4 } }
 local setting_value = true
 settings = { global = setmetatable({}, { __index = function(_, k)
   if k == "fo-war-adopte" then return { value = setting_value } end
@@ -143,9 +147,15 @@ world.surface = {
     for _, ty in ipairs(t.type) do want[ty] = true end
     local out = {}
     for _, e in ipairs(world.entities) do
-      if e.valid and want[e.type] and e.force.name == t.force then
-        local dx, dy = e.position.x - t.position.x, e.position.y - t.position.y
-        if dx * dx + dy * dy <= t.radius * t.radius then out[#out + 1] = e end
+      if e.valid and want[e.type] and (t.force == nil or e.force.name == t.force) then
+        if t.area then -- lot PARITE : recherche par boîte (voisins d'une paire)
+          if e.position.x >= t.area[1][1] and e.position.x <= t.area[2][1] and e.position.y >= t.area[1][2] and e.position.y <= t.area[2][2] then
+            out[#out + 1] = e
+          end
+        else
+          local dx, dy = e.position.x - t.position.x, e.position.y - t.position.y
+          if dx * dx + dy * dy <= t.radius * t.radius then out[#out + 1] = e end
+        end
       end
     end
     -- ordre volontairement inversé : l'exécutant doit trier
@@ -293,6 +303,130 @@ do
   check(logs[1] and logs[1]:find("%[FO%-ADOPTE%]"), "ligne de trace [FO-ADOPTE]")
   local st = remotes["fo-adopte"].status()
   check(st.n >= 2, "interface distante : état")
+end
+
+---------------------------------------------------------------------------------------------------
+section("Lot PARITE : foreuse posée à la main, adoptée comme avant-poste de l'équipe")
+do
+  local TT = require("shared.team.config")
+  local kind1 = TT.OUTPOST_ORDER[1]
+  local res1 = TT.outposts[kind1].resource
+  local function team_of_hand()
+    world.entities = {}
+    for k in pairs(owners) do owners[k] = nil end
+    local f = new_team()
+    f.next_oid, f.outposts_count = 0, 0
+    return f
+  end
+  -- une foreuse (2x2) en (x, y) qui dépose sur sa réception (four) posée à 2 tuiles à l'est
+  local function pair(x, y, over)
+    local d = new_entity(DRILL_TYPE, x, y, { mining_target = { valid = true, name = res1 }, drop_position = { x = x + 2, y = y } })
+    for k, v in pairs(over or {}) do d[k] = v end
+    local s = new_entity(FURNACE_TYPE, x + 2, y)
+    return d, s
+  end
+  local function put(d, s) build(d); build(s) end -- la foreuse d'abord (sans réception), la réception ensuite : le cas du DC dans l'autre sens
+  local f = team_of_hand()
+  local s = new_entity(FURNACE_TYPE, 22, 0)
+  build(s) -- le four isolé est d'abord adopté seul...
+  check(count(f) == 1, "four posé seul : adopté à f.smelters")
+  local d = new_entity(DRILL_TYPE, 20, 0, { mining_target = { valid = true, name = res1 }, drop_position = { x = 22, y = 0 } })
+  build(d) -- ... puis la foreuse arrive à son flanc : la PAIRE devient un avant-poste
+  local o = f.outposts[1]
+  check(o and o.adopted and o.kind == kind1 and o.drills == 1 and o.drill_list[1] == d and o.sinks[1] == s, "foreuse + four adoptés : avant-poste adopté de la ressource (kind " .. tostring(kind1) .. ")")
+  check(f.outposts_count == 1 and o.full == true and o.full_by == "pose_paires", "avant-poste plein : l'équipe n'y pose pas de paire de plus")
+  check(count(f) == 0 and not f.adopt.units[s.unit_number], "le four de la paire sort de la fonderie du QG (il sert la paire)")
+  check(owners[d.unit_number] and owners[d.unit_number].kind == "drill" and owners[d.unit_number].oid == 1 and owners[s.unit_number].kind == "sink",
+    "propriété enregistrée : foreuse (drill) et réception (sink), sinon aucune perte ne serait vue")
+  check(f.adopt.drills[d.unit_number] and f.adopt.drills[d.unit_number].oid == 1 and remotes["fo-adopte"].status().drills == 1, "état et interface distante : 1 foreuse adoptée")
+  build(d)
+  check(o.drills == 1 and f.outposts_count == 1, "pose répétée : pas de doublon")
+  -- une ligne arrive : un bras contre la réception ; la paire est rendue sans perte
+  local ins = new_entity(INSERTER_TYPE, 22, 1.5)
+  build(ins)
+  check(f.outposts[1] == nil and f.outposts_count == 0 and f.adopt.refused[d.unit_number] == "ligne" and owners[d.unit_number] == nil,
+    "bras contre la réception : paire rendue au joueur (avant-poste retiré, propriété retirée)")
+  check(d.valid and s.valid and destroyed == 0, "aucun bâtiment du joueur n'est détruit ni déplacé")
+
+  -- l'ordre inverse : foreuse d'abord (sans réception), réception ensuite
+  f = team_of_hand()
+  d = new_entity(DRILL_TYPE, -20, 0, { mining_target = { valid = true, name = res1 }, drop_position = { x = -18, y = 0 } })
+  build(d)
+  check(f.outposts[1] == nil and f.adopt.refused[d.unit_number] == "sans-reception", "foreuse sans réception : non adoptée (sans-reception)")
+  s = new_entity(FURNACE_TYPE, -18, 0)
+  build(s)
+  check(f.outposts[1] and f.outposts[1].drills == 1, "réception posée ensuite : la foreuse voisine est étudiée et adoptée")
+
+  -- deuxième paire proche : rejoint l'avant-poste (même ressource à moins de A.JOIN_RADIUS)
+  local d2, s2 = pair(-30, 0)
+  put(d2, s2)
+  check(f.outposts[1].drills == 2 and f.outposts_count == 1 and #f.outposts[1].sinks == 2, "deuxième paire à 10 tuiles : rejoint le même avant-poste (2 foreuses)")
+  local d3, s3 = pair(-30, 12)
+  d3.mining_target = { valid = true, name = "autre-ressource-inconnue" }
+  put(d3, s3)
+  check(f.outposts[1].drills == 2 and not f.adopt.drills[d3.unit_number], "ressource inconnue de l'équipe sous la foreuse : non adoptée")
+  -- le joueur ramasse la foreuse adoptée : ni perte, ni pénalité
+  local lost0 = f.stats.outposts_lost or 0
+  for _, h in ipairs(handlers[3]) do h({ entity = d2 }) end
+  check(f.outposts[1].drills == 1 and (f.stats.outposts_lost or 0) == lost0 and owners[d2.unit_number] == nil and f.adopt.refused[d2.unit_number] == "ramassee",
+    "foreuse ramassée par le joueur : sort de l'avant-poste sans compter comme une perte")
+
+  -- refus : sans combustion, loin, ligne déjà là, tuile du plan, réglage coupé, autre force
+  f = team_of_hand()
+  local e1, es1 = pair(10, 10)
+  e1.burner = nil
+  put(e1, es1)
+  check(f.outposts[1] == nil, "foreuse sans combustion : non adoptée (rien à ravitailler)")
+  local l1, ls1 = pair(90, 0)
+  put(l1, ls1)
+  check(f.outposts[1] == nil and f.adopt.refused[l1.unit_number] == "loin", "foreuse hors du rayon de service : reste au joueur (loin)")
+  local n1, ns1 = pair(0, 20)
+  new_entity("transport-belt", 0, 22.5)
+  put(n1, ns1)
+  check(f.outposts[1] == nil and f.adopt.refused[n1.unit_number] == "ligne", "foreuse avec un tapis à son flanc : ligne du joueur (ligne)")
+  Outposts.reserved = function(_, _, pos) return pos.x == 30 end
+  local p1, ps1 = pair(30, -10)
+  put(p1, ps1)
+  check(f.outposts[1] == nil and f.adopt.refused[p1.unit_number] == "plan", "tuile du plan directeur : refusée (plan)")
+  Outposts.reserved = nil
+  setting_value = false
+  local c1, cs1 = pair(-10, -20)
+  put(c1, cs1)
+  check(f.outposts[1] == nil, "réglage coupé : aucune adoption de foreuse")
+  setting_value = true
+  local o1, os1 = pair(15, -25)
+  o1.force = { name = "fo-scarlet" }
+  put(o1, os1)
+  check(f.outposts[1] == nil, "foreuse d'une autre force : ignorée")
+  -- migration : paires déjà posées, ordre des numéros d'unité, idempotente ; réglage coupé : tout est rendu
+  f = team_of_hand()
+  local m1 = pair(25, 5)
+  local m2 = pair(-25, -5)
+  local taken = Adopte.migrate(f)
+  check(taken == 2 and f.outposts_count == 2 and f.outposts[1].drill_list[1] == m1 and f.outposts[2].drill_list[1] == m2,
+    "migration : deux paires adoptées, dans l'ordre des numéros d'unité (" .. tostring(taken) .. ")")
+  check(Adopte.migrate(f) == 0 and f.outposts_count == 2, "migration rejouée : idempotente")
+  setting_value = false
+  local _, given = Adopte.migrate(f)
+  check(given >= 2 and f.outposts_count == 0 and next(f.adopt.drills) == nil, "réglage coupé : la migration rend les deux paires (" .. tostring(given) .. ")")
+  setting_value = true
+  check(destroyed == 0, "aucune destruction")
+  -- règle pure et mutants
+  local dd = A.decide_drill
+  local base = { on = true, kind = kind1, burner = true, sink = true, dist2 = 100, linked = false }
+  local function with(over) local c = {} for k, v in pairs(base) do c[k] = v end for k, v in pairs(over) do c[k] = v end return c end
+  check(dd(base) == true, "règle pure : paire isolée dans le rayon adoptée")
+  check(not dd(with({ on = false })) and not dd(with({ burner = false })) and not dd(with({ sink = false }))
+    and not dd(with({ already = true })) and not dd(with({ reserved = true })) and not dd(with({ dist2 = 99999 })) and not dd(with({ linked = true })),
+    "règle pure : chaque refus est tenu (coupe, combustible, réception, deja, plan, loin, ligne)")
+  check(not dd({ on = true, burner = true, sink = true, dist2 = 100, linked = false }), "règle pure : sans ressource connue, refusée")
+  local pool = { { oid = 3, kind = "k", x = 0, y = 0 } }
+  check(A.join_target(pool, "k", 10, 0) == 3 and A.join_target(pool, "k", 40, 0) == nil and A.join_target(pool, "autre", 1, 0) == nil,
+    "règle pure : rejoindre = même ressource et moins de A.JOIN_RADIUS")
+  local keep = A.JOIN_RADIUS
+  A.JOIN_RADIUS = 0
+  check(A.join_target(pool, "k", 10, 0) == nil, "mutant : JOIN_RADIUS nul, plus aucune jonction")
+  A.JOIN_RADIUS = keep
 end
 
 section("Pose des fours dormants (Stock.deploy_idle)")
