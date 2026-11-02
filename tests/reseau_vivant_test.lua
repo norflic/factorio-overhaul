@@ -335,6 +335,14 @@ do
   q2 = f.build.projects[2]
   check(q2.ents[1].built and q2.ents[2].built and q2.ents[3].built and q2.ents[4].built, "ligne + ennemi : aucun poteau du chemin tenu n'est rouvert")
   check(count("sans chemin sur") >= 1, "ligne + ennemi : le second chemin est annonce")
+  check(f.build.sante.second_tick ~= nil, "ligne + ennemi : l'annonce du second chemin est posee pour le raccordement")
+
+  -- un poteau perdu LOIN de l'ennemi mais qui ne relie rien : avec un ilot sans chemin sur, il n'est pas rouvert (il retiendrait la centrale en chantier)
+  logs = {}
+  w, f = ligne_world(true)
+  table.insert(f.build.projects[2].ents, { name = "small-electric-pole", x = -30, y = 0, built = true, role = "rue" })
+  run(f, w, 1200, 7200 + 1200 * 6)
+  check(f.build.projects[2].ents[7].built == true and f.build.projects[2].state == "fini", "ligne + ennemi : le poteau perdu loin de l'ennemi n'est pas rouvert pour rien")
 
   logs = {}
   w, f = ligne_world(false)
@@ -342,6 +350,7 @@ do
   run(f, w, 1200, 7200 + 1200 * 6)
   q2 = f.build.projects[2]
   check(not q2.ents[5].built and not q2.ents[1].built, "no_coupure : la regle d'avant rouvre tout, branche comprise")
+  check(f.build.sante.second_tick == nil, "no_coupure : aucune annonce de second chemin")
   check(count("coupure: ") == 0, "no_coupure : rien de la coupure au journal")
 
   -- un poteau deja rouvert (en reconstruction) garde le chemin continu : le releve suivant ne rouvre pas la branche

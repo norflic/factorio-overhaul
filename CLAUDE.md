@@ -62,6 +62,8 @@ moteur F21 à F295, historique des chiffres) est dans **`docs/MEMO_COMPLET.md`**
    volumes à 0 du `config.ini` de test NE suffisent PAS : des sessions de test ont été audibles chez le DC le 23/10.
 
 ## 5. Commandes utiles
+
+**Graphe du code (lot GRAPHIFY, 2/11)** : `py -3.9 -B tools/graphe/build.py` (3 s, `tools/graphe/out/`, hors git) puis `py -3.9 -B tools/graphe/q.py <fonction|module|journal|évènement|réglage|ns:x>` : appelants, appelés, chaîne causale déclencheur → fonction, journaux `[FO-*]`, réglages, états. À utiliser AVANT un grep pour retrouver une chaîne ; un `~` = appel deviné, « sans déclencheur » = non résolu (pas « jamais appelé »). Test : `py -3.9 -B tools/graphe/test_graphe.py` (33 OK). Graphify (paquet public) refusé : écrit des hooks et peut appeler un modèle.
 - **Worktree neuf : copier ou régénérer les feuilles hors de git** (D-6), sinon le jeu refuse le mod :
   `py -3.9 tools/render/pieces/levels/gun_e/feuilles.py` (376 PNG), puis `four_e`, `assembleur_e`, `foreuse_e`
   (`.../<kit>/feuilles.py`, sans argument). Copier depuis un checkout qui les a est plus rapide.

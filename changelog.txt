@@ -1,4 +1,10 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.39
+Date: 2026-11-02
+  Changes:
+    - Correctif : le minerai equivalent et la retention des minages (0.6.36) font chuter Ecarlate de moitie en partie (30 686 a 14 074 plaques a 1 h, graine 271828182) : ETEINTS par defaut.
+    - Sante du reseau electrique : poteaux perdus reposes par le chemin le plus court vers l'ilot, second chemin si un ennemi est a moins de 28 tuiles. Prouve sur banc provoque (coupure avec un ver sur le poteau critique : foreuses rallumees en 118 s, jamais au temoin).
+---------------------------------------------------------------------------------------------------
 Version: 0.6.38
 Date: 2026-11-02
   Changes:

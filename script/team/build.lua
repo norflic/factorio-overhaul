@@ -2430,7 +2430,7 @@ local function plan_raccord(f, surface, p)
   local ends = { { x = start.x, y = start.y }, { x = rc.target.x, y = rc.target.y } }
   local function free(x, y)
     local tx, ty = math.floor(x), math.floor(y)
-    if avoid and Cr.in_zone(tx + 0.5, ty + 0.5, avoid, ends, rc.reach * 2) then return false end
+    if avoid and Cr.in_zone(tx + 0.5, ty + 0.5, avoid, ends, Cr.EXEMPT_R) then return false end
     return view.free(tx, ty) and not taken[P.tkey(tx, ty)] and not view.clear(tx, ty)
   end
   -- poteaux déjà prévus ou posés (projets en chantier ou finis, comme plan_power) : la chaîne les traverse au lieu d'en doubler un
@@ -2444,7 +2444,7 @@ local function plan_raccord(f, surface, p)
           -- ou tenu par un ennemi, ne relie rien)
           local usable = true
           if avoid then
-            usable = e.built and not Cr.in_zone(e.x, e.y, avoid, ends, rc.reach * 2) and pole_at(e.x, e.y) ~= nil
+            usable = e.built and not Cr.in_zone(e.x, e.y, avoid, ends, Cr.EXEMPT_R) and pole_at(e.x, e.y) ~= nil
           end
           if usable then known[#known + 1] = { x = e.x, y = e.y } end
         end
