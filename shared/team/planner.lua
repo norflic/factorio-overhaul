@@ -533,9 +533,9 @@ function P.plan(view, book)
   end
   -- Lot PARITE (reprise du 2/11) : réserve de survie (shared/team/priorite.lua, Pr.survival_reserve) : en « production d'abord », tant qu'une
   -- cellule attaquée attend ses tourelles, la production (agrandir, charbon, objectif) ne descend pas sous plancher + une unité de défense.
-  if df and pri.production_first then
+  if df then
     local unit = (book:raw_cost(turret_items(1)) or {})[iron_key] or 0
-    pri.reserve = Pr.survival_reserve({ mode = pri.mode, defense_cost = pri.defense_cost, floor = fl_i, unit_cost = unit,
+    pri.reserve = Pr.survival_reserve({ mode = pri.mode, defense_cost = pri.defense_cost, floor = fl_i, unit_cost = unit, funds = pri.funds,
       attacked = (view.front and view.front.pick) and true or false })
     prod_reserve = pri.reserve
   end

@@ -38,7 +38,7 @@ local AMMO = T.turret_ammo
 
 local function load_world(over)
   over = over or {}
-  local names = { "shared.team.priorite", "shared.team.planner", "shared.ai3.reserve" }
+  local names = { "shared.team.priorite", "shared.team.planner", "shared.ai3.reserve", "shared.ai3.projets" }
   local saved = {}
   for _, n in ipairs(names) do saved[n] = package.loaded[n]; package.loaded[n] = nil end
   local function mod(name, path)
@@ -54,6 +54,7 @@ local function load_world(over)
   W.Pr = mod("shared.team.priorite", "priorite")
   W.Planner = mod("shared.team.planner", "planner")
   W.Rs = mod("shared.ai3.reserve", "reserve")
+  W.P = mod("shared.ai3.projets", "projets")
   for _, n in ipairs(names) do package.loaded[n] = saved[n] end
   return W
 end
@@ -102,13 +103,16 @@ check(res({ unit_cost = 500 }) == 450, "une unité plus chère que la défense v
 check(res({ attacked = false }) == 0, "aucune cellule attaquée : rien de retenu (la production comme avant)")
 check(res({ defense_cost = 0 }) == 0, "aucune défense à payer : rien de retenu")
 check(res({ mode = Pr.MODE_SURVIE_PENURIE }) == 0, "survie-pénurie : la production est la sortie, rien de retenu")
+check(res({ mode = Pr.MODE_DEFENSE }) == 270, "aucun pas de production et la défense attend du fer : plancher + une unité")
+check(res({ mode = Pr.MODE_DEFENSE, funds = 300 }) == 0 and res({ funds = 299 }) == 270 and res({ funds = 300 }) == 0,
+  "le fer au-dessus du plancher paie déjà toute la défense : rien de retenu (borne : 300 contre 300)")
 check(res({ mode = Pr.MODE_QG_PERIL }) == 0 and res({ mode = Pr.MODE_DEFENSE_D_ABORD }) == 0 and res({ mode = Pr.MODE_RIEN }) == 0
   and res({ mode = Pr.MODE_SURVIE }) == 0 and res({ mode = "inconnu" }) == 0, "les autres modes : rien de retenu")
 check(Pr.survival_reserve(nil) == 0 and Pr.survival_reserve({}) == 0, "entrée vide : 0")
 check(res({ floor = -5, unit_cost = -1, defense_cost = 10 }) == 0 or res({ floor = -5, unit_cost = -1, defense_cost = 10 }) >= 0,
   "entrées négatives : jamais de réserve négative")
 local bad, n_cases = {}, 0
-for _, mode in ipairs({ PF, Pr.MODE_DEFENSE_D_ABORD, Pr.MODE_SURVIE_PENURIE, Pr.MODE_QG_PERIL }) do
+for _, mode in ipairs({ PF, Pr.MODE_DEFENSE, Pr.MODE_DEFENSE_D_ABORD, Pr.MODE_SURVIE_PENURIE, Pr.MODE_QG_PERIL }) do
   for _, cd in ipairs({ 0, 10, 300 }) do
     for _, fl in ipairs({ 0, 60, 150 }) do
       for _, u in ipairs({ 0, 50, 400 }) do
@@ -116,7 +120,7 @@ for _, mode in ipairs({ PF, Pr.MODE_DEFENSE_D_ABORD, Pr.MODE_SURVIE_PENURIE, Pr.
           n_cases = n_cases + 1
           local r = Pr.survival_reserve({ mode = mode, defense_cost = cd, floor = fl, unit_cost = u, attacked = att })
           if r < 0 then bad[#bad + 1] = "negatif" end
-          if mode ~= PF and r ~= 0 then bad[#bad + 1] = "hors mode" end
+          if mode ~= PF and mode ~= Pr.MODE_DEFENSE and r ~= 0 then bad[#bad + 1] = "hors mode" end
           if r > fl + cd then bad[#bad + 1] = "plus que plancher + defense" end
           if (cd <= 0 or not att) and r ~= 0 then bad[#bad + 1] = "sans besoin" end
         end
@@ -168,6 +172,30 @@ local function defense_crafts(plan)
 end
 check(defense_crafts(attacked) >= defense_crafts(no_front), "la défense fabrique autant avec la réserve que sans (" .. defense_crafts(attacked) .. " contre " .. defense_crafts(no_front) .. ")")
 
+-- Les projets du cerveau par besoins (shared/ai3/projets.lua, P.emit) respectent la même réserve.
+local function emit_with(W, goal_kind, iron, reserve)
+  local stock = with(base_stock, { [IRON] = iron })
+  local E = W.P.context(stock, book, view({ stock = stock, outposts = outs, sites = { iron = 1 } }), {})
+  E.priorite = { reserve = reserve, production_first = true, mode = PF }
+  local proj = { id = 1, key = goal_kind .. ":iron", prio = 50, goal = { kind = goal_kind, outpost = "iron", item = AMMO, n = 60 } }
+  W.P.emit(E, proj, { tick = 0 }, 0)
+  return E, proj
+end
+local function iron_crafted(E)
+  local n = 0
+  for _, t in ipairs(E.tasks) do if t.kind == "craft" then n = n + 1 end end
+  return n
+end
+do
+  local E0 = emit_with(W0, "outpost", 260, 0)
+  local E1 = emit_with(W0, "outpost", 260, 250)
+  check(iron_crafted(E0) > iron_crafted(E1), string.format("projet de production : avec la réserve il fabrique moins (%d tâche(s) contre %d)", iron_crafted(E1), iron_crafted(E0)))
+  check(E1.avail[IRON] == nil or E1.avail[IRON] >= 0, "le fer rendu à la fin du projet (stock virtuel non négatif)")
+  local S0 = emit_with(W0, "stock", 260, 0)
+  local S1 = emit_with(W0, "stock", 260, 250)
+  check(iron_crafted(S0) == iron_crafted(S1), "réserve de munitions (défense) : exemptée, mêmes fabrications avec ou sans réserve (" .. iron_crafted(S1) .. ")")
+end
+
 ---------------------------------------------------------------------------------------------------
 section("3. Le noyau de la capitalisation compte la réserve comme du besoin")
 ---------------------------------------------------------------------------------------------------
@@ -193,6 +221,7 @@ section("5. Mutants")
 ---------------------------------------------------------------------------------------------------
 local src = {
   Pr = read_src("shared/team/priorite.lua"), Pl = read_src("shared/team/planner.lua"), Rs = read_src("shared/ai3/reserve.lua"),
+  Pj = read_src("shared/ai3/projets.lua"),
 }
 local function mutate(text, from, to)
   local i, j = text:find(from, 1, true)
@@ -213,13 +242,17 @@ local function facts(W)
   out[#out + 1] = tostring(W.Pr.survival_reserve({ mode = PF, defense_cost = 50, floor = 150, unit_cost = 120, attacked = true }))
   local c, p = W.Rs.core({ floor = { { IRON, 270 } } })
   out[#out + 1] = tostring(iron_in(c)) .. "/" .. tostring(p.defense)
+  out[#out + 1] = tostring(emit_with(W, "outpost", 260, 250).avail[IRON])
+  out[#out + 1] = tostring(iron_crafted(emit_with(W, "outpost", 260, 250))) .. "/" .. tostring(iron_crafted(emit_with(W, "stock", 260, 250)))
+  out[#out + 1] = tostring(W.Pr.survival_reserve({ mode = Pr.MODE_DEFENSE, defense_cost = 300, floor = 150, unit_cost = 120, attacked = true }))
+  out[#out + 1] = tostring(W.Pr.survival_reserve({ mode = Pr.MODE_DEFENSE, defense_cost = 300, floor = 150, unit_cost = 120, attacked = true, funds = 400 }))
   return table.concat(out, "\n")
 end
 local base_facts = facts(W0)
 local mutants = {
   { "règle : la réserve ne dépend plus de la cellule attaquée", "Pr", "if cd <= 0 or not a.attacked then return 0 end", "if cd <= 0 then return 0 end" },
   { "règle : la réserve vaut aussi sans défense à payer", "Pr", "if cd <= 0 or not a.attacked then return 0 end", "if not a.attacked then return 0 end" },
-  { "règle : le mode survie-pénurie est aussi retenu", "Pr", "Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true }", "Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true, [Pr.MODE_SURVIE_PENURIE] = true }" },
+  { "règle : le mode survie-pénurie est aussi retenu", "Pr", "Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true, [Pr.MODE_DEFENSE] = true }", "Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true, [Pr.MODE_DEFENSE] = true, [Pr.MODE_SURVIE_PENURIE] = true }" },
   { "règle : le plancher n'est plus compté", "Pr", "return num(a.floor) + math.min(num(a.unit_cost), cd)", "return math.min(num(a.unit_cost), cd)" },
   { "règle : l'unité n'est plus bornée par la défense", "Pr", "math.min(num(a.unit_cost), cd)", "num(a.unit_cost)" },
   { "règle : l'unité de défense n'est plus comptée", "Pr", "return num(a.floor) + math.min(num(a.unit_cost), cd)", "return num(a.floor)" },
@@ -229,6 +262,11 @@ local mutants = {
   { "planificateur : le charbon n'est plus limité", "Pl", "local PROD_TAGS = { charbon = true, objectif = true }", "local PROD_TAGS = { objectif = true }" },
   { "planificateur : l'objectif n'est plus limité", "Pl", "local PROD_TAGS = { charbon = true, objectif = true }", "local PROD_TAGS = { charbon = true }" },
   { "planificateur : la cellule attaquée est ignorée", "Pl", "attacked = (view.front and view.front.pick) and true or false })", "attacked = true })" },
+  { "règle : le mode « défense seule » n'est plus retenu", "Pr", "Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true, [Pr.MODE_DEFENSE] = true }", "Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true }" },
+  { "règle : le fer qui paie déjà la défense est retenu quand même", "Pr", "  if a.funds ~= nil and num(a.funds) >= cd then return 0 end", "" },
+  { "projets : la réserve n'est plus respectée", "Pj", "  if res > 0 and not P.RESERVE_EXEMPT[proj.goal.kind] then", "  if false and not P.RESERVE_EXEMPT[proj.goal.kind] then" },
+  { "projets : la défense (munitions) est aussi limitée", "Pj", "P.RESERVE_EXEMPT = { army = true, stock = true, research = true, smelters = true }", "P.RESERVE_EXEMPT = { army = true, research = true, smelters = true }" },
+  { "projets : le fer retenu n'est pas rendu", "Pj", "  if keep > 0 then E.avail[P.IRON] = (E.avail[P.IRON] or 0) + keep end\n  proj.emitted", "  proj.emitted" },
   { "noyau : la réserve n'est plus du besoin", "Rs", "  add(acc, inp.floor)\n", "" },
   { "noyau : la réserve n'est plus comptée en défense", "Rs", "  parts.defense = parts.defense + count(inp.floor)\n", "" },
 }
@@ -238,7 +276,7 @@ for _, m in ipairs(mutants) do
   local mutated = mutate(src[which], from, to)
   if check(mutated ~= nil, "mutant « " .. name .. " » : le texte à muter existe encore (une seule fois)") then
     local over = {}
-    over[({ Pr = "shared.team.priorite", Pl = "shared.team.planner", Rs = "shared.ai3.reserve" })[which]] = mutated
+    over[({ Pr = "shared.team.priorite", Pl = "shared.team.planner", Rs = "shared.ai3.reserve", Pj = "shared.ai3.projets" })[which]] = mutated
     local ok, got = pcall(function() return facts(load_world(over)) end)
     if check((not ok) or got ~= base_facts, "mutant « " .. name .. " » refusé (un fait change)") then killed = killed + 1 end
   end

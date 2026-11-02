@@ -560,12 +560,25 @@ EMIT.research = function(E, proj, g, ctx)
 end
 
 --- Émet les tâches d'un projet ; met à jour son état (actif, bloqué + cause) et ses manques.
+-- Lot PARITE (reprise du 2/11, essai 2) : RÉSERVE DE SURVIE (shared/team/priorite.lua, Pr.survival_reserve) : tant qu'une cellule attaquée attend ses
+-- tourelles et que le fer ne paie pas la défense, les projets de production et d'amélioration ne descendent pas sous plancher + une unité de défense.
+-- Mesure (runs150/final-pur-20261020, 25 à 31 min) : le planificateur permanent ne sert la défense qu'au-dessus de son plancher ; les projets,
+-- servis ensuite sur tout le fer restant, fabriquent avec chaque plaque qui arrive, et le coffre n'atteint jamais ce plancher. La défense (armée,
+-- réserve de munitions, recherche de la tourelle) et les fours d'amorçage gardent tout le fer comme avant.
+P.RESERVE_EXEMPT = { army = true, stock = true, research = true, smelters = true }
 function P.emit(E, proj, ctx, tick)
   proj.missing = {}
   local before = #E.tasks
   local fn = EMIT[proj.goal.kind]
   local status, cause = "bloque", "type"
+  local res = E.priorite and E.priorite.reserve or 0
+  local keep = 0
+  if res > 0 and not P.RESERVE_EXEMPT[proj.goal.kind] then
+    keep = math.min(E.avail[P.IRON] or 0, res)
+    E.avail[P.IRON] = (E.avail[P.IRON] or 0) - keep
+  end
   if fn then status, cause = fn(E, proj, proj.goal, ctx) end
+  if keep > 0 then E.avail[P.IRON] = (E.avail[P.IRON] or 0) + keep end
   proj.emitted = #E.tasks - before
   local was = proj.state
   if status == "bloque" then

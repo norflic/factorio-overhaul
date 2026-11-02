@@ -124,16 +124,20 @@ end
 -- à 34 min, l'équipe est détruite à 48 min. La règle ne retire pas la production d'abord (remarque du DC du 29/10) : elle lui interdit
 -- seulement de descendre sous plancher + UNE unité de défense tant qu'une cellule attaquée n'a pas ses tourelles.
 ---------------------------------------------------------------------------------------------------
-Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true } -- ni la survie-pénurie (la production y est la sortie), ni le péril (la défense y a déjà tout)
+-- « défense » = aucun pas de production à faire (la défense seule attend du fer) ; ni la survie-pénurie (la production y est la sortie), ni le péril
+-- (la défense y a déjà tout), ni « défense d'abord » (le fer paie les deux).
+Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true, [Pr.MODE_DEFENSE] = true }
 
 --- Fer que la production ne peut pas toucher. a = { mode (Pr.decide), defense_cost (fer de la défense voulue), floor (plancher de fer de la
---- défense), unit_cost (fer d'UNE unité de défense : tourelle et ses chargeurs), attacked (une cellule attaquée attend ses tourelles) }.
+--- défense), unit_cost (fer d'UNE unité de défense : tourelle et ses chargeurs), attacked (une cellule attaquée attend ses tourelles),
+--- funds (facultatif : fer au-dessus du plancher ; au moins égal à la défense, rien n'est retenu) }.
 --- Rend un nombre >= 0 (en plaques de la clé) ; 0 : la production dispose de tout le fer comme avant.
 function Pr.survival_reserve(a)
   a = a or {}
   if not Pr.RESERVE_MODES[a.mode] then return 0 end
   local cd = num(a.defense_cost)
   if cd <= 0 or not a.attacked then return 0 end
+  if a.funds ~= nil and num(a.funds) >= cd then return 0 end -- le fer au-dessus du plancher paie déjà toute la défense : rien à retenir
   return num(a.floor) + math.min(num(a.unit_cost), cd)
 end
 
