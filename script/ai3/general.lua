@@ -646,7 +646,8 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
       -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier ; la recette est celle que les planificateurs commandent
       -- (T.turret), la règle pure ne la nomme pas. Lot EQUIPE (1/11) : aussi pour votre équipe (recherche de la tourelle à 10,9 min,
       -- QG attaqué dès 8,6 min : fo-logs/2026-11-01_EQUIPE/RAPPORT.md).
-      defense = T.turret })
+      defense = T.turret,
+      defense_soldier = ((view.soldiers_max or 0) > 0) and T.kits.rifleman[1][1] or nil }) -- lot PARITE (escorte) : l'arme du soldat, si l'équipe a des soldats
   end
   local d = choose()
   -- Lot RB-FLUIDE : rien d'autre de payable : la recherche lâchée depuis le plus longtemps revient (le laboratoire ne reste pas oisif), sans reprise de la garde avant la fin de la pause
