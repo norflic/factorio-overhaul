@@ -6,10 +6,11 @@
   (four d'abord) ; une 2e paire sur LIGNE (bras entre la foreuse et le four) reste intacte. Chaque pose passe par le gestionnaire de pose
   du mod (interface fo-adopte.built : le moteur interdit à un script de lever on_built_entity).
   Le coffre est garni de charbon ET d'aucune plaque : toute plaque au coffre vient de la paire du joueur, servie par les PNJ.
-  Contrôles : CRITERES.md P3.1 à P3.3. Lancement : `banc.py --qui PARITE -- 2600 parite-adopte <source>` ; journal : [FO-PARITE-ADOPTE].
+  Contrôles : CRITERES.md P3.1 à P3.3. Lancement : `banc.py --qui PARITE -- 14200 parite-adopte <source>` ; journal : [FO-PARITE-ADOPTE].
 ]]
 local TAG = "[FO-PARITE-ADOPTE] "
-local CHECK, PLACE = 2500, 120
+-- la tournee d'entretien revient au plus tard apres T.service_period (3 min) : le controle est apres la 2e tournee
+local CHECK, PLACE = 14000, 120
 
 local function patch(s, cx, cy, name)
   for dx = -4, 4 do
