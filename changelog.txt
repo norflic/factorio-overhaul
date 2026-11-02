@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.36
+Date: 2026-11-02
+  Changes:
+    - Centrale : amorce a la main des chaudieres a sec (50 charbons du stock du QG), centrale de plus avant la saturation, reconstruction bloquee qui n'empeche plus d'agrandir ; sante du reseau (poteaux perdus). Prouve sur banc provoque : courant 0,43 min apres la fin de la centrale (0 kW pendant 25 min avant), panne bras et tapis : 13 s de production nulle (356 s avant).
+    - Minage de fond : votre equipe ne mine plus une ressource sans manque (cuivre mine avec plus de 1 000 plaques au coffre) ; plaques des sorties de fours comptees au stock. Les regles de tournees non prouvees sont eteintes.
+    - Pas corrige : gisements en rangees, thermique dominant, minerai fige, tourelles autour du QG, ages, depart de votre equipe : lots en cours.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.35
 Date: 2026-11-01
   Changes:
