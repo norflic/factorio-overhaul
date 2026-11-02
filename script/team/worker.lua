@@ -13,6 +13,7 @@
 local FSM = require("script.core.fsm")
 local T = require("shared.team.config")
 local Scale = require("shared.team.scale")
+local Depart = require("shared.team.depart") -- lot PARITE : cause de mort hostile (QG occupé)
 local Registry = require("script.companion.registry")
 local Render = require("script.companion.render")
 local Brain = require("script.companion.brain")
@@ -1570,7 +1571,8 @@ Registry.on_removed(function(agent)
     -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (factions) : T.hq_lethal_deaths PNJ tués par la force
     -- « enemy » à moins de Worker.SAFE_HOME tuiles du QG en moins de T.hq_lethal_window : plus de recrue pendant
     -- T.hq_lethal_ticks (script/team/team.lua, view.hold_recruits). Dates gardées : les T.hq_lethal_deaths dernières.
-    if not f.is_player and agent.death_cause:find("/enemy:", 1, true) and p and f.hq_pos
+    -- Lot PARITE : tout tueur hostile compte (soldats d'une faction comme biters), et votre équipe aussi
+    if Depart.hostile_cause(agent.death_cause) and p and f.hq_pos
       and dist2(p, f.hq_pos) <= Worker.SAFE_HOME * Worker.SAFE_HOME then
       local hd = f.hq_deaths or {}
       f.hq_deaths = hd

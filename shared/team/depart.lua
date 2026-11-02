@@ -51,6 +51,30 @@ function D.migrate_offered(c)
   return c.team and true or false
 end
 
+-- Gisements de départ (retour du DC, audit du 2/11) : une faction naît avec 4 gisements de 3 000 unités à 46 tuiles de son QG (« comme la zone de
+-- départ du joueur », script/team/team.lua) ; sur la graine 20261020 le fer le plus proche de VOTRE coffre est à 118 tuiles : son premier avant-poste de fer
+-- ne finit qu'à 15 min contre 5 min pour une faction. Règle : à la PREMIÈRE fondation seulement, un gisement manquant à moins de D.SEED_NEAR tuiles du
+-- coffre est posé comme pour une faction ; une ressource déjà là à cette distance n'est pas touchée (la carte du joueur reste la sienne).
+D.SEED_NEAR = 70
+
+--- Types d'avant-poste à semer. `order` = liste des types (ordre de T.OUTPOST_ORDER), `present[type]` = un gisement existe à moins de D.SEED_NEAR du coffre.
+--- Rend la liste (même ordre) de ceux qui manquent.
+function D.seed_missing(order, present)
+  local out = {}
+  for _, kind in ipairs(order or {}) do
+    if not (present or {})[kind] then out[#out + 1] = kind end
+  end
+  return out
+end
+
+--- Un PNJ tué par `cause` (« unité/force:dégât », script/companion/registry.lua) l'est-il par une force hostile ? Biters (« enemy ») comme soldats d'une
+--- faction ; jamais par sa propre force ni sans tueur (« aucune:acid »). Sert à la règle « QG occupé » (T.hq_lethal_*).
+function D.hostile_cause(cause)
+  if type(cause) ~= "string" then return false end
+  local force = cause:match("/([^:/]*):")
+  return force ~= nil and force ~= "" and force ~= "player"
+end
+
 --- Tourelles à poser : les D.HQ_OFFSETS dans l'ordre, au plus `n` (liste de { dx, dy }).
 function D.offsets(n)
   local out = {}

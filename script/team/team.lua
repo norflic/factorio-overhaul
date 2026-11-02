@@ -161,8 +161,8 @@ local SEED_AMOUNT = 3000
 -- angles 0,35 ; 1,9 ; 3,45 ; 5,0 ; 2,7 ; 4,2 ; 5,8 ; 1,1 rad avant, mêmes valeurs à 17 chiffres).
 local SEED_OFFSETS = Scale.SEED_OFFSETS
 
-local function seed_resources(f, surface)
-  f.prospects = {}
+local function seed_resources(f, surface, only)
+  f.prospects = f.prospects or {} -- lot PARITE : votre équipe garde les gisements déjà connus de sa fondation
   local used = {}
   -- Lot IA2-b : les 4 gisements en ÉVENTAIL autour d'un axe tiré du flux d'expansion de la faction (sel 100 + id),
   -- et non plus en croix aux mêmes angles pour toutes : la base s'étire d'un côté (shared/faction/valeur.lua V.FAN).
@@ -176,7 +176,7 @@ local function seed_resources(f, surface)
     local res = T.outposts[kind].resource
     local radius = T.seed_radius[kind] or 8
     for i, d in ipairs(offsets) do
-      if not used[i] then
+      if not used[i] and (only == nil or only[kind]) then
         local c = { x = math.floor(f.hq_pos.x + d[1]) + 0.5, y = math.floor(f.hq_pos.y + d[2]) + 0.5 }
         local water = surface.count_tiles_filtered({ position = c, radius = SEED_RADIUS_MAX + 2, collision_mask = "water-tile" })
         if water == 0 then
@@ -264,6 +264,21 @@ function Team.place_hq_turrets(f, surface, center, n)
     end
   end
   return placed
+end
+
+--- Lot PARITE : gisements de départ de VOTRE équipe, à sa première fondation (règle : shared/team/depart.lua, D.seed_missing) : seuls les types sans
+--- gisement à moins de D.SEED_NEAR tuiles du coffre sont semés, comme pour une faction. Rend la liste des types semés.
+function Team.seed_start(f, surface)
+  local present = {}
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    present[kind] = surface.count_entities_filtered({ name = T.outposts[kind].resource, position = f.hq_pos, radius = Depart.SEED_NEAR, limit = 1 }) > 0
+  end
+  local missing = Depart.seed_missing(T.OUTPOST_ORDER, present)
+  if #missing == 0 then return missing end
+  local only = {}
+  for _, kind in ipairs(missing) do only[kind] = true end
+  seed_resources(f, surface, only)
+  return missing
 end
 
 --- Prépare l'équipe d'un QG fraîchement posé : stock de départ, technologies de base, premiers ouvriers.
@@ -491,7 +506,8 @@ function Team.view(f, tick)
   local hold_recruits = defend_first and T.recruit_calm > 0 and last_loss ~= nil and tick - last_loss < T.recruit_calm or false
   -- Lot SCALE (correction après revue) : QG OCCUPÉ par les biters (script/team/worker.lua, f.hq_lethal_tick ; données
   -- T.hq_lethal_* de shared/team/config.lua) : une faction n'envoie plus de recrue mourir à son QG (ni survie, ni secours).
-  if not f.is_player and f.hq_lethal_tick and tick - f.hq_lethal_tick < T.hq_lethal_ticks then hold_recruits = true end
+  -- Lot PARITE : vaut aussi pour votre équipe (parité pure, 60 min : 20 PNJ sur 27 tués au QG par les soldats d'une faction, recrue après recrue)
+  if f.hq_lethal_tick and tick - f.hq_lethal_tick < T.hq_lethal_ticks then hold_recruits = true end
   -- Plancher (correction 3) : sous son effectif de départ, une équipe se reconstruit sans frein.
   local floor = Scale.start_headcount(Config.get("npc_start"), workers_max)
   local recruit_held = Scale.recruit_held(workers_idle + on_fond, Config.get("recruit_idle_max"), f.engineers_count or 0, floor)

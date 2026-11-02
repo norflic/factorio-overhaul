@@ -64,9 +64,10 @@ local function create(chest)
   local ns = Storage.ns("pteam")
   local due = Depart.turrets_due({ grant = Fondation.grant(true, false).hq_turrets, offered = Depart.is_offered(ns.depart_offert) })
   local placed = due > 0 and Team.place_hq_turrets(f, surface, chest.position, due) or 0
+  local seeded = due > 0 and Team.seed_start(f, surface) or {}
   ns.depart_offert = true
-  log(string.format("[FO-PTEAM] depart tick %d : %d tourelle(s) de QG offerte(s) sur %d voulue(s)%s", game.tick, placed, due,
-    due == 0 and " (depart deja offert a cette partie)" or ""))
+  log(string.format("[FO-PTEAM] depart tick %d : %d tourelle(s) de QG offerte(s) sur %d voulue(s)%s ; gisements semes (aucun a moins de %d tuiles) : %s", game.tick,
+    placed, due, due == 0 and " (depart deja offert a cette partie)" or "", Depart.SEED_NEAR, #seeded > 0 and table.concat(seeded, ",") or "aucun"))
   f.chest_reg = script.register_on_entity_destroyed(chest)
   f.goal_label = rendering.draw_text({
     text = Team.goal_text(f), surface = surface, target = chest, target_offset = { 0, -1.6 },

@@ -194,6 +194,49 @@ do
 end
 
 ---------------------------------------------------------------------------------------------------
+section("3e. Gisements de départ : seuls les types manquants à moins de D.SEED_NEAR tuiles sont semés")
+check(D.SEED_NEAR == 70, "rayon 70 tuiles")
+do
+  local order = { "a", "b", "c" }
+  local m = D.seed_missing(order, { a = true, c = true })
+  check(#m == 1 and m[1] == "b", "règle pure : seul le type absent est semé")
+  check(#D.seed_missing(order, { a = true, b = true, c = true }) == 0 and #D.seed_missing(order, nil) == 3, "tout présent : rien ; rien de connu : tout")
+  check(D.hostile_cause("fo-scarlet-rifleman/fo-scarlet:physical") and D.hostile_cause("small-biter/enemy:physical"), "cause hostile : soldat de faction, biter")
+  check(not D.hostile_cause("aucune:acid") and not D.hostile_cause("x/player:physical") and not D.hostile_cause(nil), "pas hostile : sans tueur, sa propre force, rien")
+end
+M.new_game({ patches = {}, p_busy = 0.01, p_nopath = 0.01, p_lost = 0 }) -- carte sans aucun gisement
+do
+  local s = game.surfaces[1]
+  local T = require("shared.team.config")
+  local chest = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+  M.world().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  local f = global.fo.pteam.team
+  check(f ~= nil, "équipe créée sur une carte sans gisement")
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local n = s.count_entities_filtered({ name = T.outposts[kind].resource, position = f.hq_pos, radius = 70, limit = 1 })
+    check(n > 0, "gisement de départ semé à moins de 70 tuiles : " .. kind)
+  end
+  check(#f.prospects >= 1, "les gisements semés sont des sites connus de l'équipe (" .. #f.prospects .. ")")
+  -- coffre perdu puis refabriqué : rien de plus (départ déjà offert)
+  local before = s.count_entities_filtered({ name = T.outposts[T.OUTPOST_ORDER[1]].resource, position = { x = 0, y = 0 }, radius = 3000 })
+  chest.destroy()
+  M.run_ticks(2)
+  local again = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+  M.world().events[defines.events.on_built_entity]({ created_entity = again, player_index = 1, tick = game.tick })
+  local after = s.count_entities_filtered({ name = T.outposts[T.OUTPOST_ORDER[1]].resource, position = { x = 0, y = 0 }, radius = 3000 })
+  check(after == before, "départ déjà offert : aucun gisement de plus (" .. before .. " puis " .. after .. ")")
+end
+M.new_game({ patches = patches(), p_busy = 0.01, p_nopath = 0.01, p_lost = 0 }) -- les quatre minerais à 60 tuiles : rien à semer
+do
+  local s = game.surfaces[1]
+  local T = require("shared.team.config")
+  local n0 = s.count_entities_filtered({ type = "resource", position = { x = 0, y = 0 }, radius = 3000 })
+  local chest = s.create_entity({ name = "fo-team-chest", position = { x = 5, y = 5 }, force = "player" })
+  M.world().events[defines.events.on_built_entity]({ created_entity = chest, player_index = 1, tick = game.tick })
+  check(s.count_entities_filtered({ type = "resource", position = { x = 0, y = 0 }, radius = 3000 }) == n0, "carte avec les quatre minerais à 60 tuiles : aucun gisement ajouté")
+end
+
+---------------------------------------------------------------------------------------------------
 section("4. Mutants")
 local function mutant(name, fn)
   local ok, killed = pcall(fn)
@@ -230,6 +273,20 @@ do
     local v = D.migrate_offered({ team = true, offered = nil })
     D.migrate_offered = migrate
     return v == false
+  end)
+  mutant("semer tout, même ce qui est déjà là", function()
+    local sm = D.seed_missing
+    D.seed_missing = function(order) return sm(order, {}) end
+    local n = #D.seed_missing({ "a", "b" }, { a = true, b = true })
+    D.seed_missing = sm
+    return n > 0
+  end)
+  mutant("un tueur de sa propre force compte comme hostile", function()
+    local hc = D.hostile_cause
+    D.hostile_cause = function(c) return type(c) == "string" and c:find("/", 1, true) ~= nil end
+    local bad = D.hostile_cause("x/player:physical")
+    D.hostile_cause = hc
+    return bad == true
   end)
   mutant("la fondation de votre équipe sans tourelles", function()
     local grant0 = Fondation.grant
