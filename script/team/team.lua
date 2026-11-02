@@ -780,6 +780,14 @@ function Team.think(f, surface, tick)
       math.floor(pri and pri.defense_cost or 0), tostring(pri and pri.production_cost and math.floor(pri.production_cost) or "aucun"),
       math.floor(pri and pri.hold or 0), plan.skipped_goals or 0))
   end
+  -- Lot PARITE (reprise du 2/11) : journal de la réserve de survie (une ligne quand elle s'allume ou s'éteint ; aucune décision n'en dépend).
+  local res_on = (pri and (pri.reserve or 0) > 0) or false
+  if res_on ~= (f.team.priorite_res or false) then
+    f.team.priorite_res = res_on
+    log(string.format("[FO-RESERVE-SURVIE] %s : %s a %.1f min : fer %d, defense %d, reserve %d (la production ne descend pas dessous)",
+      f.key or "?", res_on and "ALLUMEE" or "eteinte", tick / 3600, math.floor(pri and pri.funds or 0),
+      math.floor(pri and pri.defense_cost or 0), math.floor(pri and pri.reserve or 0)))
+  end
 
   -- Besoins de prospection, par ressource.
   local needs = {}

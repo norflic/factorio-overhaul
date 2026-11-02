@@ -93,6 +93,10 @@ function Rs.core(inp)
       end
     end
   end
+  -- Lot PARITE (reprise du 2/11) : réserve de survie (shared/team/priorite.lua, Pr.survival_reserve) : en « production d'abord », le fer de la
+  -- défense d'une cellule attaquée n'est pas du stock libre (ni la capitalisation ni le puits ne le prennent) ; payée même si la production passe d'abord
+  add(acc, inp.floor)
+  parts.defense = parts.defense + count(inp.floor)
   -- reconstruction : pièces dont aucune tâche n'est prise (une place tenue par l'ennemi n'est pas refaite), puis le projet rouvert
   local by_item = {}
   for _, r in ipairs(inp.repair or {}) do
