@@ -1,18 +1,18 @@
 # Lot DEFENSE : lecture des archives du scenario dc-defense (tools/autotest/fo-autotest/scenarios/dc-defense.lua) et comparaison
 # temoin / essai selon fo-logs/2026-11-02_DEFENSE/CRITERES.md.
 # Usage : py -3.9 -B tools/autotest/defense_mesures.py --temoin <dossier> [<dossier>...] --essai <dossier> [<dossier>...]
-#   chaque dossier : une archive banc.py (benchmark.log.gz ou benchmark.log) ; l'ordre des dossiers de --temoin et de --essai est celui des graines.
+#   chaque dossier : une archive banc.py (benchmark.log.gz ou benchmark.log). Les grandeurs sont rendues pour les FACTIONS seules, pour VOTRE
+#   EQUIPE seule et pour le total (le critere du lot porte sur le total ; les factions et votre equipe n'ont pas le meme comportement).
 import argparse
 import gzip
 import re
 import sys
 from pathlib import Path
 
-MES = re.compile(r"\[FO-DEF-MESURE\] minute (\d+) \| (\S+) \| tourelles=(\d+) pres_qg15=(\d+) pres_qg40=(\d+) pieces_prod=(\d+)")
+MES = re.compile(r"\[FO-DEF-MESURE\] minute (\d+) \| (\S+) \| tourelles=(\d+) pres_qg15=(\d+) pres_qg40=(\d+) pieces_prod=(\d+)(?: couvertes=(\d+) assembleurs=(\d+) assembleurs_couverts=(\d+))?")
 PERTE = re.compile(r"\[FO-DEF-PERTE\] (\S+) \| vagues=(\d+) \| pieces_prod_perdues=(\d+) dont_hors_portee_de_tourelle=(\d+) \| "
                    r"tourelles_perdues=(\d+) \| pire_vague_prod=(\d+) pire_vague_tourelles=(\d+)")
-TOTAL = re.compile(r"\[FO-DEF-PERTE\] TOTAL \| vagues=(\d+) \| pieces_prod_perdues=(\d+) dont_hors_portee=(\d+) \((\d+)%\) \| "
-                   r"tourelles_perdues=(\d+) \| pertes_prod_par_vague=([\d.]+) \| factions_vivantes=(-?\d+)")
+VIVANTES = re.compile(r"\[FO-DEF-PERTE\] TOTAL .* factions_vivantes=(-?\d+)")
 
 
 def lire(dossier):
@@ -26,41 +26,53 @@ def lire(dossier):
     sys.exit("aucun benchmark.log dans " + str(d))
 
 
-def analyser(dossier):
-    lignes = lire(dossier)
-    mes, perte, total = {}, {}, None
-    for l in lignes:
-        m = MES.search(l)
-        if m:
-            minute, cle = int(m.group(1)), m.group(2)
-            mes.setdefault(cle, {})[minute] = tuple(int(m.group(i)) for i in range(3, 7))
-        m = PERTE.search(l)
-        if m:
-            perte[m.group(1)] = tuple(int(m.group(i)) for i in range(2, 8))
-        m = TOTAL.search(l)
-        if m:
-            total = (int(m.group(1)), int(m.group(2)), int(m.group(3)), int(m.group(4)), int(m.group(5)), float(m.group(6)), int(m.group(7)))
-    return mes, perte, total
+def groupe(cle):
+    return "equipe" if cle == "player" else "factions"
 
 
 def resume(dossier):
-    mes, perte, total = analyser(dossier)
-    tot = near = prod_perdu = hors = vagues = tur_perdues = 0
-    for cle in sorted(mes):
-        derniere = mes[cle][max(mes[cle])]
-        tot += derniere[0]
-        near += derniere[1]
-    for cle in sorted(perte):
-        v, pp, hp, tp, _, _ = perte[cle]
-        vagues, prod_perdu, hors, tur_perdues = vagues + v, prod_perdu + pp, hors + hp, tur_perdues + tp
-    return {
-        "A": (near, tot), "B": (hors, prod_perdu), "C": (prod_perdu, vagues), "D": total[6] if total else -1, "E": tur_perdues,
-        "equipes": {cle: mes[cle][max(mes[cle])] for cle in sorted(mes)},
-    }
+    """{groupe: {tour, pres, prod_perdu, hors, vagues, tur_perdues}} + vivantes."""
+    out = {g: dict(tour=0, pres=0, prod_perdu=0, hors=0, vagues=0, tur_perdues=0, pieces=0, couv=0, asm=0, asm_couv=0) for g in ("factions", "equipe")}
+    mes, vivantes = {}, -1
+    for l in lire(dossier):
+        m = MES.search(l)
+        if m:
+            mes.setdefault(m.group(2), {})[int(m.group(1))] = tuple(int(m.group(i) or 0) for i in (3, 4, 6, 7, 8, 9))
+        m = PERTE.search(l)
+        if m and m.group(1) != "TOTAL":
+            g = out[groupe(m.group(1))]
+            g["vagues"] += int(m.group(2))
+            g["prod_perdu"] += int(m.group(3))
+            g["hors"] += int(m.group(4))
+            g["tur_perdues"] += int(m.group(5))
+        m = VIVANTES.search(l)
+        if m:
+            vivantes = int(m.group(1))
+    for cle, par_minute in mes.items():
+        tour, pres, pieces, couv, asm, asm_couv = par_minute[max(par_minute)]
+        g = out[groupe(cle)]
+        g["tour"] += tour
+        g["pres"] += pres
+        g["pieces"] += pieces
+        g["couv"] += couv
+        g["asm"] += asm
+        g["asm_couv"] += asm_couv
+    return out, vivantes
 
 
 def pct(a, b):
     return 100.0 * a / b if b else 0.0
+
+
+def add(a, b):
+    return {k: a[k] + b[k] for k in a}
+
+
+def ligne(nom, g):
+    return (f"{nom:9s} A {pct(g['pres'], g['tour']):3.0f} % ({g['pres']}/{g['tour']}) | B {pct(g['hors'], g['prod_perdu']):3.0f} % "
+            f"({g['hors']}/{g['prod_perdu']}) | C {g['prod_perdu'] / g['vagues'] if g['vagues'] else 0:4.1f} par vague ({g['prod_perdu']}/{g['vagues']}) "
+            f"| E tourelles perdues {g['tur_perdues']} | F pieces couvertes {pct(g['couv'], g['pieces']):3.0f} % ({g['couv']}/{g['pieces']}) "
+            f"| G assembleurs couverts {pct(g['asm_couv'], g['asm']):3.0f} % ({g['asm_couv']}/{g['asm']})")
 
 
 def main():
@@ -68,26 +80,26 @@ def main():
     ap.add_argument("--temoin", nargs="+", required=True)
     ap.add_argument("--essai", nargs="*", default=[])
     a = ap.parse_args()
-    cumul = {"t": [0, 0, 0, 0, 0, 0, 0, 0], "e": [0, 0, 0, 0, 0, 0, 0, 0]}
+    cumul = {}
     for tag, dossiers in (("temoin", a.temoin), ("essai", a.essai)):
-        c = cumul[tag[0]]
+        tot = {g: dict(tour=0, pres=0, prod_perdu=0, hors=0, vagues=0, tur_perdues=0, pieces=0, couv=0, asm=0, asm_couv=0) for g in ("factions", "equipe")}
+        viv = 0
         for d in dossiers:
-            r = resume(d)
-            print(f"[{tag}] {d}")
-            print(f"   A tourelles a <=15 tuiles du QG / total : {r['A'][0]}/{r['A'][1]} = {pct(*r['A']):.0f} %")
-            print(f"   B pieces de production perdues hors de portee de toute tourelle : {r['B'][0]}/{r['B'][1]} = {pct(*r['B']):.0f} %")
-            print(f"   C pertes de production par vague : {r['C'][0]}/{r['C'][1]} = {r['C'][0] / r['C'][1] if r['C'][1] else 0:.1f}")
-            print(f"   D factions vivantes a la fin : {r['D']}   E tourelles perdues : {r['E']}")
-            for cle, v in r["equipes"].items():
-                print(f"      {cle:12s} tourelles {v[0]:3d}, a 15 tuiles du QG {v[1]:3d}, a 40 tuiles {v[2]:3d}, pieces de production {v[3]}")
-            for i, x in enumerate((r["A"][0], r["A"][1], r["B"][0], r["B"][1], r["C"][0], r["C"][1], r["D"], r["E"])):
-                c[i] += x
-    for tag in ("t", "e"):
-        c = cumul[tag]
-        if not c[1]:
+            r, v = resume(d)
+            print(f"[{tag}] {Path(d).name}  factions vivantes {v}")
+            print("   " + ligne("factions", r["factions"]))
+            print("   " + ligne("equipe", r["equipe"]))
+            tot = {g: add(tot[g], r[g]) for g in tot}
+            viv += v
+        cumul[tag] = (tot, viv)
+    for tag in ("temoin", "essai"):
+        if tag not in cumul or not cumul[tag][0]["factions"]["tour"]:
             continue
-        print(f"CUMUL {'temoin' if tag == 't' else 'essai'} : A {pct(c[0], c[1]):.0f} % ({c[0]}/{c[1]}) ; B {pct(c[2], c[3]):.0f} % ({c[2]}/{c[3]}) ; "
-              f"C {c[4] / c[5] if c[5] else 0:.1f} par vague ({c[4]}/{c[5]}) ; D {c[6]} ; E {c[7]}")
+        tot, viv = cumul[tag]
+        print(f"CUMUL {tag} (factions vivantes {viv})")
+        print("   " + ligne("factions", tot["factions"]))
+        print("   " + ligne("equipe", tot["equipe"]))
+        print("   " + ligne("total", add(tot["factions"], tot["equipe"])))
 
 
 if __name__ == "__main__":

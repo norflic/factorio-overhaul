@@ -108,18 +108,37 @@ local function census(ctx, minute)
   for _, row in ipairs(teams()) do
     local q = hq_of(s, row)
     local total, near, far = 0, 0, 0
+    local turrets = {}
     for _, t in ipairs(s.find_entities_filtered({ force = row.force, type = TURRET_TYPES })) do
       total = total + 1
       local dx, dy = t.position.x - q.x, t.position.y - q.y
       local d2 = dx * dx + dy * dy
       if d2 <= NEAR_QG * NEAR_QG then near = near + 1 end
       if d2 <= FAR_QG * FAR_QG then far = far + 1 end
+      local proto = game.entity_prototypes[t.name]
+      local range = proto and proto.turret_range or 18
+      turrets[#turrets + 1] = { x = t.position.x, y = t.position.y, r2 = range * range }
     end
-    local prod = 0
+    -- Couverture STATIQUE : pieces de production (par type) a portee d'au moins une tourelle vivante de l'equipe.
+    local prod, cov = 0, 0
+    local by = {}
     for _, t in ipairs(s.find_entities_filtered({ force = row.force, type = { "assembling-machine", "furnace", "mining-drill", "lab" } })) do
-      if t.valid then prod = prod + 1 end
+      if t.valid then
+        prod = prod + 1
+        local ok = false
+        for _, u in ipairs(turrets) do
+          local dx, dy = u.x - t.position.x, u.y - t.position.y
+          if dx * dx + dy * dy <= u.r2 then ok = true break end
+        end
+        if ok then cov = cov + 1 end
+        local b = by[t.type] or { 0, 0 }
+        by[t.type] = b
+        b[1], b[2] = b[1] + 1, b[2] + (ok and 1 or 0)
+      end
     end
-    ctx.log(string.format("[FO-DEF-MESURE] minute %d | %s | tourelles=%d pres_qg15=%d pres_qg40=%d pieces_prod=%d", minute, row.key, total, near, far, prod))
+    local a = by["assembling-machine"] or { 0, 0 }
+    ctx.log(string.format("[FO-DEF-MESURE] minute %d | %s | tourelles=%d pres_qg15=%d pres_qg40=%d pieces_prod=%d couvertes=%d assembleurs=%d assembleurs_couverts=%d",
+      minute, row.key, total, near, far, prod, cov, a[1], a[2]))
   end
 end
 
