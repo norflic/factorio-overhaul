@@ -30,6 +30,7 @@ S.PRIO = 92           -- priorité de la tâche d'amorce : au-dessus de l'urgenc
 S.STALL = 18000       -- ticks (5 min) sans pièce reposée au bout desquels une reconstruction ne retient plus la centrale de plus
 S.ANTICIPATE = 0.7    -- part de la capacité (production + consommateurs en chantier) à partir de laquelle la centrale de plus est demandée
 S.ANTICIPATE_CHECKS = 6 -- relevés (5 s) de suite au-dessus de S.ANTICIPATE : 30 s, comme la saturation (un pic de mise en route n'est pas un besoin)
+S.DRAW = 0.6          -- part de sa puissance nominale qu'un module en chantier tire en vrai (entrées limitées, machines à l'arrêt : mesuré à la moitié environ)
 S.GATE_FRAC = 1.0     -- part de la capacité que production + consommateurs en chantier + nouveau module ne dépassent pas
 S.GATE_WAIT = 43200   -- ticks (12 min) d'attente au plus d'un module retenu pour le courant : au-delà il passe (jamais de blocage définitif)
 S.LOGS = 60           -- lignes [FO-SANTE-CENTRALE] au plus par équipe
@@ -93,10 +94,11 @@ function S.stalled(st, key, built, tick)
   return tick - m.since >= S.STALL
 end
 
---- Faut-il une centrale de plus AVANT la saturation ? used : production (kW) ; committed : consommateurs en chantier (kW) ; capacity (kW).
+--- Faut-il une centrale de plus AVANT la saturation ? used : production (kW) ; committed : consommateurs en chantier ou retenus (kW
+--- nominaux, comptés à S.DRAW) ; capacity (kW).
 function S.anticipate(used, committed, capacity)
   if not capacity or capacity <= 0 then return false end
-  return (used or 0) + (committed or 0) >= S.ANTICIPATE * capacity
+  return (used or 0) + S.DRAW * (committed or 0) >= S.ANTICIPATE * capacity
 end
 
 --- Durée de l'avance. st : mémoire { ant_n } ; flag : S.anticipate à ce relevé. Rend vrai quand elle dure depuis S.ANTICIPATE_CHECKS relevés.
@@ -105,15 +107,17 @@ function S.sustain(st, flag)
   return st.ant_n >= S.ANTICIPATE_CHECKS
 end
 
---- Un nouveau module électrique de `new` kW peut-il s'ouvrir ? c : { capacity, used, committed (kW) } ; st : mémoire { since } du module ;
+--- Un nouveau module électrique de `new` kW nominaux peut-il s'ouvrir ? c : { capacity, used, committed (kW) } ; st : mémoire { since } du module ;
 --- tick. Rend (vrai, nil) ou (faux, raison) ; le module retenu passe après S.GATE_WAIT. Sans centrale finie (capacité nulle) : vrai (la
 --- centrale précède, elle ne se juge pas elle-même).
 function S.admit(st, c, new, tick)
   if not (c.capacity and c.capacity > 0) or (new or 0) <= 0 then st.since = nil return true, nil end
-  if (c.used or 0) + (c.committed or 0) + new <= S.GATE_FRAC * c.capacity then st.since = nil return true, nil end
+  local want = (c.used or 0) + S.DRAW * ((c.committed or 0) + new)
+  if want <= S.GATE_FRAC * c.capacity then st.since = nil return true, nil end
   st.since = st.since or tick
   if tick - st.since >= S.GATE_WAIT then return true, "delai" end
-  return false, string.format("courant : %.0f + %.0f + %.0f kW au-dela de %.0f kW", c.used or 0, c.committed or 0, new, c.capacity)
+  return false, string.format("courant : %.0f kW produits + %.0f%% de (%.0f en chantier + %.0f ce module) = %.0f kW au-dela de %.0f kW", c.used or 0,
+    S.DRAW * 100, c.committed or 0, new, want, c.capacity)
 end
 
 --- Ligne du journal [FO-SANTE-CENTRALE] (une seule mise en forme, pour la lire au banc). ev = { team, kind, tick, ... }.

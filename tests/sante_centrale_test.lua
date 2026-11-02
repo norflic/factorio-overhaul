@@ -95,7 +95,9 @@ local function battery(S)
   check(not S.anticipate(1000, 0, 0) and not S.anticipate(1000, 0, nil), "sans capacite : jamais")
   check(not S.anticipate(1200, 0, 1800), "66 % : pas encore")
   check(S.anticipate(1260, 0, 1800), "70 % : oui")
-  check(S.anticipate(600, 700, 1800), "production + chantiers en cours : 72 %")
+  check(S.anticipate(600, 1300, 1800), "production + chantiers en cours (a 60 % de leur puissance nominale) : 76 %")
+  check(not S.anticipate(600, 700, 1800), "600 + 60 % de 700 = 56 % : pas encore")
+  check(S.DRAW == 0.6, "un module en chantier tire 60 % de sa puissance nominale")
   check(not S.anticipate(0, 0, 1800), "rien : non")
   check(S.ANTICIPATE < 0.8, "avant le seuil de saturation (80 %)")
 
@@ -112,26 +114,26 @@ local function battery(S)
   local g = {}
   local ok, w = S.admit(g, { capacity = 1800, used = 0, committed = 0 }, 700, 0)
   check(ok and w == nil, "marge large : admis")
-  ok, w = S.admit(g, { capacity = 1800, used = 1000, committed = 0 }, 700, 100)
-  check(ok, "1000 + 700 <= 1800 : admis")
-  ok, w = S.admit(g, { capacity = 1800, used = 1200, committed = 0 }, 700, 100)
-  check(not ok and w and w:find("courant", 1, true), "1200 + 700 > 1800 : retenu, raison « courant »")
+  ok, w = S.admit(g, { capacity = 1800, used = 1000, committed = 0 }, 1100, 100)
+  check(ok, "1000 + 60 % de 1100 = 1660 <= 1800 : admis")
+  ok, w = S.admit(g, { capacity = 1800, used = 1200, committed = 0 }, 1100, 100)
+  check(not ok and w and w:find("courant", 1, true), "1200 + 60 % de 1100 = 1860 > 1800 : retenu, raison « courant »")
   check(g.since == 100, "l'attente commence au premier refus")
-  ok = S.admit(g, { capacity = 1800, used = 1200, committed = 0 }, 700, 100 + 43199)
+  ok = S.admit(g, { capacity = 1800, used = 1200, committed = 0 }, 1100, 100 + 43199)
   check(not ok, "presque 12 min : toujours retenu")
-  ok, w = S.admit(g, { capacity = 1800, used = 1200, committed = 0 }, 700, 100 + 43200)
+  ok, w = S.admit(g, { capacity = 1800, used = 1200, committed = 0 }, 1100, 100 + 43200)
   check(ok and w == "delai", "12 min : passe quand meme (jamais de blocage definitif)")
   g = {}
-  ok = S.admit(g, { capacity = 1800, used = 600, committed = 700 }, 700, 0)
-  check(not ok, "les consommateurs en chantier comptent")
-  ok = S.admit(g, { capacity = 1800, used = 600, committed = 400 }, 700, 0)
+  ok = S.admit(g, { capacity = 1800, used = 600, committed = 1500 }, 1000, 0)
+  check(not ok, "les consommateurs en chantier comptent : 600 + 60 % de 2500 = 2100 > 1800")
+  ok = S.admit(g, { capacity = 1800, used = 600, committed = 400 }, 1000, 0)
   check(ok and g.since == nil, "marge retrouvee : admis, l'attente est effacee")
   ok = S.admit({}, { capacity = 0, used = 0, committed = 0 }, 700, 0)
   check(ok, "aucune centrale finie (capacite nulle) : la porte est ouverte (la centrale precede)")
   ok = S.admit({}, { capacity = 1800, used = 1800, committed = 0 }, 0, 0)
   check(ok, "module sans puissance : admis")
-  ok = S.admit({}, { capacity = 1800, used = 1100, committed = 0 }, 700, 0)
-  check(ok, "exactement a la capacite : admis")
+  ok = S.admit({}, { capacity = 1800, used = 1200, committed = 0 }, 1000, 0)
+  check(ok, "exactement a la capacite (1200 + 600) : admis")
 
   section("1g. Journal")
   local l = S.line({ kind = "etat", team = "azure", plant = 17, tick = 3600 * 150, causes = { "chaudiere_a_sec", "bras_manquants" },
@@ -304,14 +306,14 @@ local function gate_f(cap_j, power_j)
 end
 local kw_of = function(spec) return spec.kw end
 local fg = gate_f(30000, 15000) -- 1800 kW, 900 kW produits
-local pa = { id = 5, state = "attente", spec = { kw = 600 } }
+local pa = { id = 5, state = "attente", spec = { kw = 1000 } }
 fg.build.projects[5] = pa; fg.build.order[1] = 5
-check(Sante.gate(fg, pa, 1000, kw_of) == true and pa.admitted and pa.power_kw == 600, "900 + 600 <= 1800 : admis, puissance notee")
+check(Sante.gate(fg, pa, 1000, kw_of) == true and pa.admitted and pa.power_kw == 1000, "900 + 600 <= 1800 : admis, puissance notee")
 pa.state = "plan"
-local pb = { id = 6, state = "attente", spec = { kw = 600 } }
+local pb = { id = 6, state = "attente", spec = { kw = 1000 } }
 fg.build.projects[6] = pb; fg.build.order[2] = 6
 check(Sante.gate(fg, pb, 1010, kw_of) == false and pb.reason == "courant" and not pb.admitted, "900 + 600 (en chantier) + 600 > 1800 : retenu")
-check(Sante.held(fg) == 600, "le module retenu compte dans la demande")
+check(Sante.held(fg) == 1000, "le module retenu compte dans la demande")
 check(table.concat(LOG, "\n"):find("projet 6 retenu", 1, true) ~= nil, "journal : retenu")
 local n_logs = #LOG
 Sante.gate(fg, pb, 1020, kw_of)
@@ -319,7 +321,7 @@ check(#LOG == n_logs, "une seule ligne par module retenu")
 pa.state = "fini"
 check(Sante.gate(fg, pb, 1030, kw_of) == true and pb.admitted and Sante.held(fg) == 0, "le premier fini et compte dans la production : libere ... ")
 fg.build.grow.power = 29000
-local pc = { id = 7, state = "attente", spec = { kw = 600 } }
+local pc = { id = 7, state = "attente", spec = { kw = 1000 } }
 fg.build.projects[7] = pc; fg.build.order[3] = 7
 check(Sante.gate(fg, pc, 2000, kw_of) == false, "centrale saturee : tout module est retenu")
 check(Sante.gate(fg, pc, 2000 + S.GATE_WAIT, kw_of) == true, "apres 12 min il passe")
@@ -335,11 +337,11 @@ check(Sante.gate(fg, { id = 34, state = "attente", spec = { kw = 9999 } }, 3000,
 fg.build.plant, fg.build.extra_plants = nil, nil
 local pz = { id = 31, state = "attente", spec = { kw = 0 } }
 check(Sante.gate(fg, pz, 3000, kw_of) == true, "module sans puissance : admis")
-local pr2 = { id = 32, state = "attente", spec = { kw = 600 }, reopened = 1 }
+local pr2 = { id = 32, state = "attente", spec = { kw = 1000 }, reopened = 1 }
 check(Sante.gate(fg, pr2, 3000, kw_of) == true, "projet rouvert (reconstruction) : jamais retenu")
 local f0 = { key = "azure", force = "fo-azure", build = { order = {}, projects = {}, grow = nil } }
-check(Sante.gate(f0, { id = 40, state = "attente", spec = { kw = 600 } }, 0, kw_of) == true, "pas encore de releve de centrale : ouvert")
-check(Sante.gate(gate_f(0, 0), { id = 41, state = "attente", spec = { kw = 600 } }, 0, kw_of) == true, "aucune machine vivante (capacite 0) : ouvert (rien a juger)")
+check(Sante.gate(f0, { id = 40, state = "attente", spec = { kw = 1000 } }, 0, kw_of) == true, "pas encore de releve de centrale : ouvert")
+check(Sante.gate(gate_f(0, 0), { id = 41, state = "attente", spec = { kw = 1000 } }, 0, kw_of) == true, "aucune machine vivante (capacite 0) : ouvert (rien a juger)")
 
 -- 2h. croissance
 section("2h. Croissance")
@@ -352,9 +354,9 @@ ant = Sante.growth(fgr, 100, { fin }, 21000, 30000)
 check(ant == true, "70 % de la capacite pendant 30 s : avance")
 ant = Sante.growth(fgr, 100, { fin }, 15000, 30000)
 check(ant == false and fgr.build.sante.ant_n == 0, "50 % : pas d'avance, le compte repart")
-fgr.build.sante.held = { [9] = 500 }
+fgr.build.sante.held = { [9] = 1000 }
 for i = 1, 6 do ant, _, _, comm = Sante.growth(fgr, 100, { fin }, 15000, 30000) end
-check(ant == true and comm == 500, "50 % + un module retenu de 500 kW pendant 30 s : avance")
+check(ant == true and comm == 1000, "50 % + un module retenu de 1000 kW (a 60 %) pendant 30 s : avance")
 fgr.build.sante.held = {}
 fgr.build.sante.ant_n = 0
 local reo = { id = 17, state = "chantier", reopened = 1, ents = { { built = true }, { built = false }, { built = false } } }
@@ -379,7 +381,7 @@ do
   for i = 1, 4 do r = Sante.observe(fo, wo.surface, po, 300 * i) end
   check(r.c.boilers.dry == 2 and fo.build.sante.plants[17].prime == nil, "no_sante : les chaudieres a sec sont lues, aucune amorce")
   check(has(r.causes, "bras_manquants"), "no_sante : le releve et le journal restent")
-  local pg = { id = 8, state = "attente", spec = { kw = 600 } }
+  local pg = { id = 8, state = "attente", spec = { kw = 1000 } }
   check(Sante.gate(fo, pg, 0, kw_of) == true, "no_sante : la porte est ouverte meme centrale saturee")
   local ant, st2 = Sante.growth(fo, 0, { fin }, 29000, 30000)
   check(ant == false and #st2 == 0, "no_sante : pas d'avance, pas de reconstruction bloquee")
@@ -460,6 +462,8 @@ mutant("reconstruction jamais bloquee", function(X) X.STALL = 10 ^ 12 end)
 mutant("reconstruction bloquee tout de suite", function(X) X.STALL = 0 end)
 mutant("avance a 90 %", function(X) X.ANTICIPATE = 0.9 end)
 mutant("avance a 30 %", function(X) X.ANTICIPATE = 0.3 end)
+mutant("modules en chantier comptes a 100 %", function(X) X.DRAW = 1.0 end)
+mutant("modules en chantier comptes a 10 %", function(X) X.DRAW = 0.1 end)
 mutant("avance sans duree (un pic suffit)", function(X) X.ANTICIPATE_CHECKS = 1 end)
 mutant("avance qui ne tient jamais", function(X) X.ANTICIPATE_CHECKS = 1000 end)
 mutant("compte de l'avance jamais remis a zero", function(X)
