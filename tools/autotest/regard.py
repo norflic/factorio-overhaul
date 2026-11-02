@@ -34,7 +34,9 @@ COUPE_MAX = 0.05        # part des consommateurs sans courant (de 10 consommateu
 COUPE_DEPUIS = 25       # minute a partir de laquelle on juge le courant (avant, la centrale se monte)
 FOURS_PLEINS = 0.90     # part des fours en marche qui, avec du minerai bouche, veut dire « fonderie saturee »
 BOUCHE_MIN = 100        # minerai bouche (objets) qui rend la saturation parlante
-STOCK_MIN = 300         # stock (coffres + plaques qui dorment) a partir duquel miner a la main est injustifie
+STOCK_MIN = 1000        # stock (coffres + plaques qui dorment) a partir duquel miner a la main est injustifie
+STOCK_INFO = 300        # seuil bas, compte a titre d'information (le coffre de depart du guide porte 400 plaques de fer)
+MAIN_DEPUIS = 10        # minute a partir de laquelle on juge le minage a la main (avant, il n'y a pas de fonderie)
 
 
 def lire(arch):
@@ -218,8 +220,10 @@ def v_main(rel_f, minutes, minages, cle, stock_min):
     par_item = {}
     for x in mines:
         par_item[x["item"]] = par_item.get(x["item"], 0) + 1
-    mauvais = []
+    mauvais, bas = [], 0
     for x in mines:
+        if x["min"] < MAIN_DEPUIS:
+            continue
         if x["item"] not in ("iron-ore", "copper-ore", "coal", "stone"):
             continue
         avant = [m for m in minutes if m <= x["min"]] or [minutes[0]]
@@ -228,11 +232,14 @@ def v_main(rel_f, minutes, minages, cle, stock_min):
         equiv = PLATE_OF.get(x["item"])
         fours = g(r.get("F"), {"iron-plate": "fer_dort", "copper-plate": "cuivre_dort"}.get(equiv, "_"))
         total = max(x["coffre"], g(stock, x["item"])) + (g(stock, equiv) + fours if equiv else 0)
+        if total >= STOCK_INFO:
+            bas += 1
         if total >= stock_min:
             mauvais.append((x["min"], x["item"], total))
-    det = "%d minage(s) a la main (%s)" % (len(mines), ", ".join("%s %d" % kv for kv in sorted(par_item.items())) or "aucun")
+    det = "%d minage(s) a la main (%s) ; apres la minute %d, %d avec un stock >= %d" % (
+        len(mines), ", ".join("%s %d" % kv for kv in sorted(par_item.items())) or "aucun", MAIN_DEPUIS, bas, STOCK_INFO)
     if mauvais:
-        det += " ; %d avec un stock >= %d : %s" % (len(mauvais), stock_min, ", ".join("min %.0f %s (stock %d)" % x for x in mauvais[:6]))
+        det += " dont %d >= %d : %s" % (len(mauvais), stock_min, ", ".join("min %.0f %s (stock %d)" % x for x in mauvais[:6]))
     return not mauvais, det
 
 
