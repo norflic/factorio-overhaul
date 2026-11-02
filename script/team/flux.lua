@@ -12,6 +12,7 @@ local L = {}
 
 L.EVERY = 5 * 3600 -- ticks entre deux lignes
 local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs)
+local ONLY = Fx.plates_of(Fx.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs))
 
 local function sorted(t)
   local ks = {}
@@ -30,7 +31,9 @@ function L.think(f, view, tick)
     team.flux = st
   end
   local burners, dry, stuck, sinks = 0, 0, 0, 0
+  local all_out = 0 -- tout ce qui dort dans les sorties, comptées ou non (avant-poste dangereux, tournées ratées)
   for _, o in ipairs(view.outposts or {}) do
+    for _, n in pairs(o.outputs or {}) do all_out = all_out + n end
     if VITAL[o.kind] then
       burners = burners + (o.burners or 0)
       dry = dry + (o.dry or 0)
@@ -45,7 +48,7 @@ function L.think(f, view, tick)
   end
   if tick - st.t < L.EVERY then return end
   st.t = tick
-  local repat, total = Fx.repatriable(view.outposts)
+  local repat, total = Fx.repatriable(view.outposts, ONLY)
   local parts = {}
   for _, k in ipairs(sorted(repat)) do parts[#parts + 1] = k .. " " .. repat[k] end
   -- tournées libres au tableau
@@ -57,9 +60,9 @@ function L.think(f, view, tick)
       if age > oldest then oldest, oprio = age, t.prio or 0 end
     end
   end
-  log(string.format("[FO-FLUX] %s a %.1f min : sorties comptees %d (%s) ; receptacles pleins %d ; tournees libres %d (plus vieille %d s, prio %d) ; "
+  log(string.format("[FO-FLUX] %s a %.1f min : sorties comptees %d (%s) sur %d en tout ; receptacles pleins %d ; tournees libres %d (plus vieille %d s, prio %d) ; "
     .. "bruleurs vitaux %d dont %d a sec, remplissage a %d charbons ; pendant menace : %d pensee(s), %.1f %% des bruleurs vitaux a sec",
-    f.key or "player", tick / 3600, total, table.concat(parts, ", "), stuck, free, oldest / 60, oprio, burners, dry,
+    f.key or "player", tick / 3600, total, table.concat(parts, ", "), all_out, stuck, free, oldest / 60, oprio, burners, dry,
     team.flux_fill or T.fuel_refill_to, st.thr,
     st.thr_burners > 0 and 100 * st.thr_dry / st.thr_burners or 0))
   st.thr, st.thr_burners, st.thr_dry = 0, 0, 0

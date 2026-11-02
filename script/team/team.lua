@@ -45,6 +45,7 @@ local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
+local REPAT_ONLY = Flux.plates_of(Flux.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)) -- lot FLUX : seules les plaques comptent comme objets attendus
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : pas de minage à la main de ce que les machines sortent, plafond des intermédiaires
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
 local Profiler = require("script.core.profiler")
@@ -581,7 +582,7 @@ function Team.view(f, tick)
   local n_burners = 0
   for _, o in ipairs(outposts) do n_burners = n_burners + (o.burners or 0) end
   f.team.flux_fill = Flux.refill_to(stock0[T.fuel] or 0, n_burners, T.fuel_refill_to, Flux.REFILL_MAX)
-  local repat = Flux.repatriable(outposts)
+  local repat = Flux.repatriable(outposts, REPAT_ONLY)
   local incoming = Board.incoming(f)
   for _, k in ipairs(State.sorted_keys(repat)) do incoming[k] = (incoming[k] or 0) + repat[k] end
   local smelter_out, smelter_low = Outposts.smelters_status(f)

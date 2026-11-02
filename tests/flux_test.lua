@@ -52,6 +52,13 @@ local function suite()
   check(repat[IRON.product] == 170 and repat[COPPER.product] == 30 and total == 200,
     "comptées : 100 + 50 + 20 de fer, 30 de cuivre ; ni meurtrier, ni tournée libre depuis 5 min, ni 3 échecs de suite")
   check(select(2, Fx.repatriable({ { outputs = { [IRON.product] = 50 }, unsafe = true } })) == 0, "avant-poste dangereux : ses sorties ne sont pas comptées")
+  local only = Fx.plates_of(map)
+  check(only[IRON.product] and only[COPPER.product] and not only[COAL.product] and not only[STONE.product], "objets comptés : les plaques")
+  local ro, to = Fx.repatriable({ { outputs = { [IRON.product] = 100, [COAL.product] = 900, [STONE.product] = 50 } } }, only)
+  check(ro[IRON.product] == 100 and ro[COAL.product] == nil and ro[STONE.product] == nil and to == 100,
+    "sorties : le charbon et la pierre d'un coffre d'avant-poste ne comptent pas comme objets attendus")
+  local rn = Fx.repatriable({ { outputs = { [COAL.product] = 900 } } })
+  check(rn[COAL.product] == 900, "sans filtre : tout compte (anciens appelants)")
   local r2 = Fx.repatriable({ { outputs = { x = 0, y = -3, z = "a" } } })
   check(next(r2) == nil, "zéro, négatif ou non numérique : rien")
   check(next((Fx.repatriable(nil))) == nil and select(2, Fx.repatriable({})) == 0, "aucune rangée : rien")
@@ -186,6 +193,10 @@ local MUTANTS = {
   { "stale-ignore", function() Fx.counted = function(o) return not o.lethal and (o.fails or 0) < Fx.FAILS_MAX end end },
   { "lethal-ignore", function() Fx.counted = function(o) return (o.free_age or 0) < Fx.STALE_TICKS and (o.fails or 0) < Fx.FAILS_MAX end end },
   { "fails-ignore", function() Fx.counted = function(o) return not o.lethal and (o.free_age or 0) < Fx.STALE_TICKS end end },
+  { "repat-all-items", function()
+      local o = Fx.repatriable
+      Fx.repatriable = function(rows) return o(rows, nil) end
+    end },
   { "equiv-plates-off", function() Fx.equiv = function(res, _, stock) return math.max(0, (stock and stock[res]) or 0) end end },
   { "equiv-repat-off", function()
       local orig = Fx.equiv

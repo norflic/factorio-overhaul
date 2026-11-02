@@ -55,6 +55,13 @@ function Fx.vital(spec, fuel, inputs)
   return out
 end
 
+--- Objets dont les sorties comptent (Fx.repatriable) : les plaques de la carte minerai -> plaque.
+function Fx.plates_of(map)
+  local out = {}
+  for _, m in pairs(map or {}) do out[m.plate] = true end
+  return out
+end
+
 --- Correspondance minerai -> { plaque, ratio } (ratio = minerai par plaque) pour les avant-postes dont le produit est une plaque
 --- fondue à partir de leur ressource. order = T.OUTPOST_ORDER (ordre stable).
 function Fx.plate_map(order, spec, inputs)
@@ -77,9 +84,11 @@ function Fx.counted(o)
   return true
 end
 
---- Objets que les sorties des avant-postes rapporteront. rows = { { outputs = { [objet] = n }, lethal, free_age, ... } }.
+--- Objets que les sorties des avant-postes rapporteront. rows = { { outputs = { [objet] = n }, lethal, free_age, ... } } ; only = { [objet]
+--- = vrai } (facultatif) : seuls ces objets comptent (les PLAQUES : le charbon d'un coffre d'avant-poste est du combustible que la centrale
+--- et les brûleurs attendent AU COFFRE ; compté « attendu », il aurait masqué la pénurie : banc dc-croissance 271828182, Écarlate).
 --- Rend la table et le total ; les objets sont sommés dans l'ordre des rangées puis des noms (aucun pairs dans une décision).
-function Fx.repatriable(rows)
+function Fx.repatriable(rows, only)
   local out, total = {}, 0
   for _, o in ipairs(rows or {}) do
     if Fx.counted(o) then
@@ -88,7 +97,7 @@ function Fx.repatriable(rows)
       table.sort(names)
       for _, k in ipairs(names) do
         local n = o.outputs[k]
-        if type(n) == "number" and n > 0 then
+        if type(n) == "number" and n > 0 and (only == nil or only[k] == true) then
           out[k] = (out[k] or 0) + n
           total = total + n
         end

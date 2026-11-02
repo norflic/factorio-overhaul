@@ -106,8 +106,9 @@ def main():
                 c = [k for k in ms if k <= m]
                 return d[c[-1]] if c else -1
             att = x["att"]
-            print("  %-12s minage>=1000 %2d  >=300 %2d | dort min30 %5d min45 %5d min55 %5d | sortie_pleine max %3d | sans_combustible en attaque %s | plaques %6d | PNJ %2d perdus %2d | fer coffre %5d"
-                  % (force, x["mauvais"], x["bas"], at(30), at(45), at(55), max(x["pleine"].values()) if x["pleine"] else 0,
+            moy = sum(d[k] for k in ms if k >= 10) / max(1, len([k for k in ms if k >= 10]))
+            print("  %-12s minage>=1000 %2d  >=300 %2d | dort moy %5d (min30 %5d min45 %5d min55 %5d) | sortie_pleine max %3d | sans_combustible en attaque %s | plaques %6d | PNJ %2d perdus %2d | fer coffre %5d"
+                  % (force, x["mauvais"], x["bas"], moy, at(30), at(45), at(55), max(x["pleine"].values()) if x["pleine"] else 0,
                      (str(att) if att else "aucune attaque"), x["plaques"], x["pnj"], x["perdus"], x["stock_fer"]))
         for key in sorted(fl):
             t = fl[key]
