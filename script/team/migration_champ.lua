@@ -49,6 +49,10 @@ local CFG = Mg.CFG
 local CHAMP_CFG = {}
 for _, k in ipairs(State.sorted_keys(CFG)) do CHAMP_CFG[k] = CFG[k] end
 CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
+-- gate_wait 90 min, retry 3 min : une bande qui attend ses matières (tapis, bras, poteaux à fabriquer) n'est plus annulée au bout de 30 min
+-- pour être redemandée 15 min plus tard, réserve rendue entre les deux (mesuré, partie de 150 min, graine 20261020 : deux bandes d'Azure
+-- annulées « matieres » à 52 et 68 min, la suivante demandée à 87 min : 35 min sans bande)
+CHAMP_CFG.gate_wait, CHAMP_CFG.retry = 90 * 3600, 3 * 3600
 local EXT_PLATES = 3000
 local FURNACE_INVENTORIES = { "furnace_source", "furnace_result", "fuel" }
 
@@ -365,7 +369,7 @@ end
 --- Demande échouée (avant ou après un retrait) : nouvel essai plus tard, abandon après CFG.max_fails échecs de suite.
 local function failed(f, ms, o, st, tick, why)
   st.fails = st.fails + 1
-  st.retry = tick + CFG.retry
+  st.retry = tick + (st.frame and CHAMP_CFG.retry or CFG.retry) -- (lot CHAMP : une bande annulée est redemandée sous 3 min)
   -- lot MIGRATION-DECLENCHE : le plan a REFUSÉ cette partie (ex. « tapis des foreuses (minerai) ») : elle est écartée des choix suivants
   -- (Mg.pick_band, ctx.skip) et une AUTRE partie est essayée sous une minute (la même était redemandée 3 fois à 15 min d'écart, puis abandon)
   if why == "refuse" and st.band_key then
