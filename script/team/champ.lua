@@ -479,8 +479,10 @@ Build.SITES.champ = function(f, surface, p, h)
     if taken then dropped = dropped + 1 else ents[#ents + 1] = e end
   end
   -- raccord au réseau : un poteau alimenté à portée d'un poteau de la bande, sinon une chaîne de poteaux
+  -- (lot FONDERIE) les poteaux du réseau du charbon (loin, vers le gisement de charbon) ne comptent pas : le raccord part de la bande
   local poles = {}
-  for _, e in ipairs(ents) do if e.name == bd.names.pole then poles[#poles + 1] = e end end
+  for _, e in ipairs(ents) do if e.name == bd.names.pole and e.role ~= "champ-charbon" then poles[#poles + 1] = e end end
+  if #poles == 0 then for _, e in ipairs(ents) do if e.name == bd.names.pole then poles[#poles + 1] = e end end end
   local wire = bd.spec.pole.wire
   local cx, cy = 0, 0
   for _, e in ipairs(poles) do cx, cy = cx + e.x, cy + e.y end
