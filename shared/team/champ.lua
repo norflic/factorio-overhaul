@@ -43,7 +43,7 @@ Ch.CFG = {
   min_ore = 3,        -- tuiles de minerai au moins dans la zone d'une foreuse
   corridor = 32,      -- tuiles le long des rangées entre deux couloirs de passage (0 : aucun)
   gap = 2,            -- tuiles libres entre le bout du champ et la fonderie (passage)
-  shift = 12,         -- tuiles dont la fonderie peut reculer pour trouver sa place
+  shift = 24,         -- tuiles dont la fonderie peut reculer pour trouver sa place (12 : bandes vides en jeu, la place prise par un autre chantier)
   both_ends = true,   -- une bande trop longue pour un tapis sort aussi par l'autre bout
   eps = 1e-9,
 }
@@ -393,7 +393,7 @@ function Ch.plan(spec)
   if spec.max_side then cap = math.min(cap, spec.max_side) end
   if cap < 1 then return nil, "tapis trop lent pour une foreuse" end
   local ents, out_bands = {}, {}
-  local capped, flow_all, cap_all = 0, 0, 0
+  local capped, flow_all, cap_all, no_smelter = 0, 0, 0, 0
   local function emit(kind, u, v, size, du, dv, bi, gi, pr, role, belt, module)
     local x, y = c.xy(u, v)
     local x2, y2 = c.xy(u + size - 1, v + size - 1)
@@ -421,6 +421,8 @@ function Ch.plan(spec)
           end
           groups[#groups + 1] = g
           limit = g.cut
+        else
+          no_smelter = no_smelter + 1
         end
       end
     end
@@ -481,7 +483,8 @@ function Ch.plan(spec)
     axis = axis, exit = exit, phase = phase, pitch = pitch, ents = ents, bands = out_bands,
     frame = { axis = axis, phase = phase, exit = exit, origin = origin, umin = umin, umax = umax, v0 = box.v0, offsets = offsets },
     stats = { tiles = #c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
-      chests = n.coffre, capped = capped, flow = flow_all, capacity = cap_all, umin = umin, umax = umax },
+      chests = n.coffre, capped = capped, flow = flow_all, capacity = cap_all, umin = umin, umax = umax, no_smelter = no_smelter,
+      band_drills = (function() local k = 0; for _, bd in ipairs(bands) do k = k + #bd.n + #bd.s end; return k end)() },
   }
 end
 

@@ -610,14 +610,18 @@ function Auto.think(f, view, book, tick, research)
   -- thermiques comme ça posées ») : la ligne électrique demandée par la migration du champ (script/team/migration_champ.lua) est un
   -- projet du cerveau comme la centrale : ses matériaux manquants (foreuses électriques, bras, tapis, poteaux) deviennent des buts
   -- « auto:migration » (fabriquer, fondre). Avant, personne ne les fabriquait : réserve « materiaux » 30 min, demande annulée, 0 partie migrée.
-  local mig_id = MigChamp.project(f)
-  if mig_id then
+  -- Lot CHAMP : un but par créneau de la migration (deux champs de minerais différents en même temps) ; une bande du champ porte sa plaque
+  -- (`item`) : la porte de la pile lit la plaque, pas l'étiquette du but (shared/ai3/cerveau.lua), famille d'investissement « capi »
+  for i, mp in ipairs(MigChamp.projects(f)) do
+    local mig_id = mp.pid
     local ps = Build.brief(f, mig_id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      Build.tag(f, mig_id, "migration", nil) -- lot FUITES-PILE : sauvegardes d'avant ce lot
+      if not mp.item then Build.tag(f, mig_id, "migration", nil) end -- lot FUITES-PILE : sauvegardes d'avant ce lot
       -- lot FUITES-PILE : famille de la pile ; une migration EN CHANTIER (paires déjà retirées) continue pendant la retenue
-      mods[#mods + 1] = { product = "migration", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, -- valeur de base d'un module
-        pile = (not ps.rebuilding and not PileRt.migration_building(f)) and "migration" or nil }
+      local fam = mp.item and "capi" or "migration"
+      mods[#mods + 1] = { product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing or {},
+        reason = ps.reason, gain = 0, -- valeur de base d'un module
+        pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
     end
   end
   local feeds = {}

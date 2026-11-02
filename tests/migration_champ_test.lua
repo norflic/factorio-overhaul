@@ -1225,9 +1225,11 @@ do
   local fh = io.open("script/ai3/automatisation.lua", "rb")
   local src = fh and fh:read("*a") or ""
   if fh then fh:close() end
-  check(src:find("local mig_id = MigChamp.project(f)", 1, true) ~= nil and src:find('product = "migration", state = ps.state, missing = ps.missing', 1, true) ~= nil,
+  -- (lot CHAMP : un but par créneau de la migration, Mig.projects ; le premier garde l'étiquette « migration »)
+  check(src:find("for i, mp in ipairs(MigChamp.projects(f)) do", 1, true) ~= nil
+    and src:find('product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing', 1, true) ~= nil,
     "K12 bis : câblage : Auto.think met la ligne de la migration dans les projets du cerveau")
-  local a1 = src:find("local mig_id = MigChamp.project(f)", 1, true)
+  local a1 = src:find("for i, mp in ipairs(MigChamp.projects(f)) do", 1, true)
   local a2 = src:find("return { mods = mods", 1, true)
   check(a1 and a2 and a1 < a2, "K12 ter : avant le retour du contexte du cerveau")
 end

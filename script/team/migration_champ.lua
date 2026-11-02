@@ -445,8 +445,11 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   local cx, cy, n = 0, 0, 0
   for _, e in ipairs(bd.ents) do cx, cy, n = cx + e.x, cy + e.y, n + 1 end
   cx, cy = cx / math.max(1, n), cy / math.max(1, n)
+  -- la bande porte sa plaque (spec.product) et la famille d'investissement de la pile « capi » (shared/ai3/pile.lua) : pendant une retenue,
+  -- elle avance pour une plaque d'un cadre ouvert ou qui manque, comme un module de la capitalisation (avant : « migration », rang améliorer,
+  -- jamais d'exception : 4 à 6 refus par équipe et par heure, réserve rendue à chaque refus)
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
-    domain = "production", lazy_clear = true, pile = "migration" }
+    domain = "production", lazy_clear = true, pile = "capi", product = product }
   if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
   local id, rwhy = Build.request(f, spec)
   if not id then
@@ -737,6 +740,10 @@ function Mig.think(f, surface, book, free, tick)
   end
   if tick < ms.next then return 0 end
   ms.next = tick + CFG.every
+  if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
+    ms.report_next = tick + Champ.REPORT_EVERY
+    Champ.report(f, surface, tick)
+  end
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
   local did = 0
@@ -781,6 +788,23 @@ function Mig.project(f)
   local st = ms and ms.cur and ms.o and ms.o[ms.cur]
   if st and (st.stage == "projet" or st.stage == "chantier") and st.pid then return st.pid end
   return nil
+end
+
+--- Lot CHAMP : projets des DEUX créneaux (étapes « projet » et « chantier ») : { { pid, item } } (item : la plaque que la bande
+--- produit, lue par la porte de la pile). Lecteur : script/ai3/automatisation.lua (un but « fabriquer » par créneau ; avant, le second
+--- créneau n'avait aucun but et attendait ses matières : 26 min contre 15 pour le premier, azure, graine 20261020). Lecture seule.
+function Mig.projects(f)
+  local ms = f and f.migration
+  local out = {}
+  for _, slot in ipairs({ "cur", "cur2" }) do
+    local id = ms and ms[slot]
+    local st = id and ms.o and ms.o[id]
+    local o = id and f.outposts and f.outposts[id]
+    if st and (st.stage == "projet" or st.stage == "chantier") and st.pid then
+      out[#out + 1] = { pid = st.pid, item = st.frame and o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
+    end
+  end
+  return out
 end
 
 --- Résumé pour les bancs et la fenêtre (lecture seule) : nombres seulement.

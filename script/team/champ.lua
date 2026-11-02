@@ -289,7 +289,10 @@ function Champ.band(f, surface, o, frame, pr)
   if not spec then return nil, names end
   local plan, why = Ch.plan(spec)
   if not plan then return nil, why end
-  if #plan.ents == 0 then return nil, "bande vide" end
+  if #plan.ents == 0 then
+    return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie", plan.stats.band_drills or 0,
+      plan.stats.no_smelter or 0)
+  end
   local ents, quais, outs = named(plan, names)
   local tiles = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do tiles[#tiles + 1] = t[1]; tiles[#tiles + 1] = t[2] end end
@@ -357,9 +360,16 @@ Build.SITES.champ = function(f, surface, p, h)
       local blocked = blocked_in(f, surface, x0, y0, x1, y1, bd.spec.mine)
       local used = {}
       for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do used[Ch.key(t[1], t[2])] = true end end
+      local ore = {}
+      for i = 1, #bd.spec.ore - 1, 2 do ore[Ch.key(bd.spec.ore[i], bd.spec.ore[i + 1])] = true end
+      -- la chaîne ne passe sur le minerai que dans les rangées de SA bande (les autres bandes du champ gardent leur place)
+      local b1 = bd.plan.bands[1]
+      local v0, v1 = b1 and b1.pr or 0, b1 and (b1.pr + bd.plan.pitch) or -1
       local function free(x, y)
-        local k = Ch.key(math.floor(x), math.floor(y))
-        return not blocked[k] and not used[k]
+        local tx, ty = math.floor(x), math.floor(y)
+        local k = Ch.key(tx, ty)
+        local v = (bd.plan.axis == "x") and ty or tx
+        return not blocked[k] and not used[k] and (not ore[k] or (v >= v0 and v <= v1))
       end
       local chain = P.pole_chain({ x = start.x, y = start.y }, net, wire, false, free, nil)
       if not chain then return nil, "champ: aucune chaine de poteaux jusqu'au reseau" end
@@ -379,6 +389,76 @@ Build.SITES.champ = function(f, surface, p, h)
   say(f, string.format("projet %d : bande %d du champ de l'avant-poste %d (%s) : %d foreuses, %d fours, %d entites (%d deja au plan), raccord %s",
     p.id, cs.pr, o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu"))
   return { key = "champ:" .. o.id .. ":" .. cs.pr, box = { x0, y0, x1, y1 }, ents = ents, quais = bd.quais, outs = bd.outs, masks = masks }
+end
+
+---------------------------------------------------------------------------------------------------
+-- État des champs (journal)
+---------------------------------------------------------------------------------------------------
+Champ.REPORT_EVERY = 5 * 3600 -- une ligne [FO-CHAMP-ETAT] par équipe toutes les 5 min
+
+--- Une ligne par équipe : bandes par état (et ce qui manque à celles qui attendent leurs matières), foreuses et fours des bandes, coffres
+--- de sortie (plaques qui attendent la collecte) et de combustible. Lecture seule (entités relues au moteur).
+function Champ.report(f, surface, tick)
+  local b = f.build
+  if not b then return end
+  local st, miss, ids = {}, {}, {}
+  local d = { n = 0, run = 0, stuck = 0, nopow = 0 }
+  local fu = { n = 0, run = 0, noin = 0, nofuel = 0, full = 0 }
+  local out = { n = 0, sum = 0, max = 0, due = 0 }
+  local fuel = { n = 0, min = nil }
+  local S = defines.entity_status
+  for _, pid in ipairs(b.order) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.champ then
+      ids[#ids + 1] = pid
+      local key = p.state .. ((p.state == "reserve" and p.reason) and (":" .. p.reason) or "")
+      st[key] = (st[key] or 0) + 1
+      if p.state == "reserve" then
+        for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
+      end
+      for _, e in ipairs(p.ents) do
+        if e.built and (e.role == "champ-foreuse" or e.role == "champ-four") then
+          local ent = surface.find_entity(e.name, { e.x, e.y })
+          if ent and ent.valid then
+            local s = ent.status
+            if e.role == "champ-foreuse" then
+              d.n = d.n + 1
+              if s == S.working then d.run = d.run + 1 elseif s == S.waiting_for_space_in_destination then d.stuck = d.stuck + 1
+              elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1 end
+            else
+              fu.n = fu.n + 1
+              if s == S.working then fu.run = fu.run + 1 elseif s == S.no_ingredients then fu.noin = fu.noin + 1
+              elseif s == S.no_fuel then fu.nofuel = fu.nofuel + 1 elseif s == S.full_output then fu.full = fu.full + 1 end
+            end
+          end
+        end
+      end
+      for _, o in ipairs(p.outs or {}) do
+        local c = surface.find_entity(D.CHEST, { o.x, o.y })
+        if c and c.valid then
+          local n = c.get_inventory(defines.inventory.chest).get_item_count()
+          out.n, out.sum, out.max = out.n + 1, out.sum + n, math.max(out.max, n)
+          if n >= (o.at or Build.COLLECT_AT) then out.due = out.due + 1 end
+        end
+      end
+      for _, q in ipairs(p.quais or {}) do
+        local c = surface.find_entity(D.CHEST, { q.x, q.y })
+        if c and c.valid then
+          local n = c.get_item_count(q.item)
+          fuel.n, fuel.min = fuel.n + 1, math.min(fuel.min or n, n)
+        end
+      end
+    end
+  end
+  if #ids == 0 then return end
+  local parts, mparts = {}, {}
+  for _, k in ipairs(sorted_keys(st)) do parts[#parts + 1] = k .. " " .. st[k] end
+  local mk = sorted_keys(miss)
+  table.sort(mk, function(a, c) if miss[a] ~= miss[c] then return miss[a] > miss[c] end return a < c end)
+  for i, k in ipairs(mk) do if i <= 5 then mparts[#mparts + 1] = k .. " " .. miss[k] end end
+  log(string.format("[FO-CHAMP-ETAT] %s min %.0f | bandes %d (%s)%s | foreuses %d (marche %d, figees %d, sans courant %d) | fours %d (marche %d, sans entree %d, sans combustible %d, sortie pleine %d) | coffres de sortie %d (plaques %d, max %d, %d au seuil de collecte) | coffres de combustible %d (charbon min %s)",
+    f.key or "player", tick / 3600, #ids, table.concat(parts, ", "), #mparts > 0 and (" ; manque " .. table.concat(mparts, ", ")) or "",
+    d.n, d.run, d.stuck, d.nopow, fu.n, fu.run, fu.noin, fu.nofuel, fu.full, out.n, out.sum, out.max, out.due, fuel.n, tostring(fuel.min or "-")))
 end
 
 return Champ
