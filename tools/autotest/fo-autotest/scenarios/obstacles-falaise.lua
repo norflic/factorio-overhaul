@@ -74,6 +74,16 @@ return {
         end
         ctx.log(string.format("FALAISE o=%s cx=%g cy=%g bb=%g,%g,%g,%g bloque=%s", c.cliff_orientation, c.position.x, c.position.y,
           bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y, table.concat(bl, ",")))
+        -- la recherche par zone voit-elle la falaise depuis chaque tuile refusee ? (masque object-layer comme read_masks, puis type)
+        local m_mask, m_type = 0, 0
+        for _, k in ipairs(bl) do
+          local a, b = k:match("(-?%d+):(-?%d+)")
+          local tx, ty = tonumber(a), tonumber(b)
+          local area = { { tx + 0.01, ty + 0.01 }, { tx + 0.99, ty + 0.99 } }
+          if s.count_entities_filtered({ area = area, collision_mask = "object-layer", type = "cliff" }) > 0 then m_mask = m_mask + 1 end
+          if s.count_entities_filtered({ area = area, type = "cliff" }) > 0 then m_type = m_type + 1 end
+        end
+        ctx.log(string.format("RECHERCHE o=%s tuiles=%d vues_par_masque_object-layer=%d vues_par_type=%d", c.cliff_orientation, #bl, m_mask, m_type))
         ctx.check(#bl >= 2, "falaise " .. fa.o .. " : le moteur refuse au moins 2 tuiles au tapis", #bl)
       end
     end

@@ -408,7 +408,7 @@ local function read_masks(f, surface, x0, y0, x1, y1)
       end
     end
   end
-  -- lot OBSTACLES : `bounding_box` d'une falaise est la boîte GÉNÉRIQUE du prototype (±1 × ±0,5), alors que sa collision réelle suit
+  -- lot OBSTACLES : `bounding_box` d'une falaise TOURNÉE (coin, entrée) est la petite boîte alignée du rectangle tourné, alors que sa collision réelle suit
   -- son orientation (jusqu'à 4 × 3 tuiles, coins tournés). Mesuré sur 4 parties sur 4 : un tapis planifié à 1,5 tuile du centre d'une
   -- falaise était refusé « occupe », projet bloqué puis abandonné après 3 reprises au même plan (F294, shared/team/falaise.lua). Les
   -- tuiles réelles sont bloquées, avec celles que le moteur a déjà refusées (mémoire b.hard, apprise par learn_cliff).

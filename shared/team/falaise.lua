@@ -4,15 +4,17 @@
 
   Cause mesurée (journal [FO-IA1D], 4 parties sur 4 : graines 20261020, 123456789, 271828182 du lot REGARD et la partie du DC du
   2/11) : un fantôme de TAPIS refusé « occupe » par une falaise, projet « bloque » puis « abandon » après 3 reprises au même plan
-  (fonderie de Scarlet, de 82 à 267 min sur 271828182 ; alimentation de la centrale d'Amber à 20 min chez le DC). La boîte
-  `LuaEntity::bounding_box` d'une falaise est la boîte de collision GÉNÉRIQUE du prototype (±1 × ±0,5), alors que la collision
-  réelle dépend de l'orientation de la falaise (`cliff_orientation`, données de base : entities.lua, scaled_cliff) : jusqu'à
-  4 × 3 tuiles pour « west-to-east », 2 × 4 pour « north-to-south », et des rectangles tournés de 45° aux coins. Les masques du
-  plan (read_masks) ne bloquaient que la boîte générique : un tapis passait à 1,5 tuile du centre de la falaise, le moteur
-  refusait le fantôme (F294 le décrivait pour un poteau).
+  (alimentation de la centrale ; fonderie de Scarlet de 82 à 267 min sur 271828182). Diagnostic au moteur réel (3/11, graine
+  271828182, falaise « east-to-none » en (358 ; −405,5)) : au moment du plan la tuile du tapis (357 ; −404) n'est pas dans les
+  masques, et le moteur la refuse plus tard. `LuaEntity::bounding_box` est exacte pour les 4 falaises droites (west-to-east 4 × 3,
+  north-to-south 2 × 4…) mais, pour les 16 falaises tournées (coins, entrées), c'est la petite boîte alignée du rectangle tourné :
+  2,8 × 1,4 tuiles pour east-to-none, alors que le moteur refuse 9 tuiles (relevé des 20 orientations, scénario obstacles-falaise :
+  222 tuiles refusées, tests/fixtures/falaise_moteur.txt). Les masques du plan (read_masks) ne bloquaient que `bounding_box` (F294
+  le décrivait pour un poteau).
 
   Ici : l'emprise réelle d'une falaise (liste de tuiles) à partir de sa position, de son orientation et de l'échelle du prototype.
-  - Les boîtes viennent des données de base (entities.lua:608 à 631), dans le repère de la falaise, y vers le sud.
+  - Les boîtes viennent des données de base (entities.lua:608 à 631), dans le repère de la falaise, y vers le sud. Prouvé au moteur
+    réel le 3/11 : 0 tuile refusée par le moteur absente du modèle sur les 20 orientations (49 tuiles en trop, surtout aux coins).
   - Un rectangle tourné (coins, entrées) est pris tourné de ±45° AUTOUR DE SON CENTRE, UNIE à sa version non tournée : la
     documentation dit que le 3e membre d'une BoundingBox (l'orientation) est « inutilisé », et le moteur n'est pas lisible ici.
     Sur-bloquer quelques tuiles d'un coin coûte un détour ; sous-bloquer coûte un projet bloqué 3 fois de suite.

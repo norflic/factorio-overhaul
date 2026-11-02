@@ -52,26 +52,39 @@ end
 local function has(flat, tx, ty) return set_of(flat)[tx .. ":" .. ty] == true end
 local function count(flat) return #flat / 2 end
 
--- Les observations du journal : { falaise x, y, orientation DÉDUITE du modèle, tapis refusé x, y }. L'orientation n'est pas dans
--- le journal ([FO-IA1D] n'écrit que le nom et la position) : elle est déduite ici de l'écart (le seul modèle compatible).
+-- Les observations du journal. Seul le cas 271828182 a son orientation et sa boîte relues au moteur (diagnostic du 3/11 : falaise
+-- « east-to-none », LuaEntity::bounding_box = 357,336 ; −405,461 ; 360,164 ; −404,043, soit 3 × 1,4 tuiles, alors que le moteur refuse
+-- 9 tuiles). Pour les autres le journal ne donne pas l'orientation : on exige qu'au moins une orientation du modèle couvre le tapis.
 local OBS = {
-  { name = "REGARD 20261020 scarlet projet 3", cx = 178.0, cy = -429.5, o = "west-to-east", belts = { { 176.5, -428.5 }, { 177.5, -428.5 } } },
-  { name = "REGARD 123456789 emerald projet 4", cx = -250.0, cy = 434.5, o = "west-to-east", belts = { { -251.5, 433.5 } } },
-  { name = "REGARD 271828182 scarlet projet 4", cx = 358.0, cy = -405.5, o = "north-to-south", belts = { { 357.5, -403.5 }, { 358.5, -403.5 } } },
-  { name = "DC 2/11 amber projet 4 (centrale-alim)", cx = -378.0, cy = -429.5, o = "west-to-east", belts = { { -379.5, -430.5 } } },
+  { name = "REGARD 20261020 scarlet projet 3", cx = 178.0, cy = -429.5, belts = { { 176.5, -428.5 }, { 177.5, -428.5 } } },
+  { name = "REGARD 123456789 emerald projet 4", cx = -250.0, cy = 434.5, belts = { { -251.5, 433.5 } } },
+  { name = "REGARD 271828182 scarlet projet 4", cx = 358.0, cy = -405.5, o = "east-to-none", bb = { 357.336, -405.461, 360.164, -404.043 },
+    belts = { { 357.5, -403.5 }, { 358.5, -403.5 } } },
+  { name = "DC 2/11 amber projet 4 (centrale-alim)", cx = -378.0, cy = -429.5, belts = { { -379.5, -430.5 } } },
 }
 
 local function run(F, label)
   local fails0 = fail_n
   -- §1 les refus mesurés
+  local all_names = {}
+  for k in pairs(F.BOXES) do all_names[#all_names + 1] = k end
+  table.sort(all_names)
   for _, ob in ipairs(OBS) do
-    local real = F.tiles(ob.cx, ob.cy, ob.o, 1)
-    -- boîte générique de bounding_box : ±1 × ±0,5 autour du centre
-    local generic = F.box_tiles(ob.cx - 1, ob.cy - 0.5, ob.cx + 1, ob.cy + 0.5)
-    for _, bl in ipairs(ob.belts) do
-      local tx, ty = math.floor(bl[1]), math.floor(bl[2])
-      check(label .. " §1 " .. ob.name .. " : tapis (" .. bl[1] .. ", " .. bl[2] .. ") dans l'emprise réelle", has(real, tx, ty))
-      check(label .. " §1 " .. ob.name .. " : la boîte générique ne le contenait pas (cause du refus)", not has(generic, tx, ty))
+    if ob.o then
+      local real = F.tiles(ob.cx, ob.cy, ob.o, 1)
+      local bbt = F.box_tiles(ob.bb[1], ob.bb[2], ob.bb[3], ob.bb[4]) -- ce que read_masks bloquait avant (bounding_box)
+      for _, bl in ipairs(ob.belts) do
+        local tx, ty = math.floor(bl[1]), math.floor(bl[2])
+        check(label .. " §1 " .. ob.name .. " : tapis (" .. bl[1] .. ", " .. bl[2] .. ") dans l'emprise réelle", has(real, tx, ty))
+        check(label .. " §1 " .. ob.name .. " : bounding_box ne le contenait pas (cause du refus)", not has(bbt, tx, ty))
+      end
+    else
+      for _, bl in ipairs(ob.belts) do
+        local tx, ty = math.floor(bl[1]), math.floor(bl[2])
+        local any = false
+        for _, o in ipairs(all_names) do if has(F.tiles(ob.cx, ob.cy, o, 1), tx, ty) then any = true break end end
+        check(label .. " §1 " .. ob.name .. " : une orientation du modèle couvre le tapis", any)
+      end
     end
   end
   -- §2 géométrie
@@ -230,6 +243,25 @@ do
     for k in pairs(on) do if trees[k] then seen = seen + 1 end end
     return seen == under
   end)())
+end
+
+-- §9 vérité moteur : tests/fixtures/falaise_moteur.txt = les 20 lignes du scénario obstacles-falaise relevées au moteur réel le 2/11
+-- (can_place_entity d'un tapis, tuile par tuile) : aucune tuile refusée par le moteur ne doit manquer au modèle
+do
+  local lines = {}
+  for l in read("tests/fixtures/falaise_moteur.txt"):gmatch("[^\r\n]+") do lines[#lines + 1] = l end
+  check("§9 20 falaises relevées au moteur", #lines == 20, #lines)
+  local misses, engine_total = 0, 0
+  for _, l in ipairs(lines) do
+    local o, cx, cy, bl = l:match("FALAISE o=(%S+) cx=(%S+) cy=(%S+) bb=%S+ bloque=(%S*)")
+    local t = set_of(F.tiles(tonumber(cx), tonumber(cy), o, 1))
+    for tx, ty in bl:gmatch("(%-?%d+):(%-?%d+)") do
+      engine_total = engine_total + 1
+      if not t[tonumber(tx) .. ":" .. tonumber(ty)] then misses = misses + 1 end
+    end
+  end
+  check("§9 222 tuiles refusées par le moteur", engine_total == 222, engine_total)
+  check("§9 0 tuile du moteur absente du modèle", misses == 0, misses)
 end
 
 -- §7 branchement (lecture des sources)
