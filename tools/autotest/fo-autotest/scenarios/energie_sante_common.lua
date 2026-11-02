@@ -295,6 +295,23 @@ return function(variant, opts)
             if not (pole.unit_number and st.load_poles and st.load_poles[pole.unit_number]) then cutlist[#cutlist + 1] = pole end
           end
           list = cutlist
+          -- on ne coupe QUE les poteaux a 32 tuiles au moins des foreuses : un ilot garde son poteau (sinon les foreuses seraient « sous aucun
+          -- poteau », un autre cas), et un ennemi pose au centre des poteaux coupes reste a plus de 28 tuiles des foreuses
+          do
+            local dx, dy, dn = 0, 0, 0
+            for _, d in ipairs(s.find_entities_filtered({ name = "electric-mining-drill", force = "player" })) do
+              dx, dy, dn = dx + d.position.x, dy + d.position.y, dn + 1
+            end
+            if dn > 0 then
+              dx, dy = dx / dn, dy / dn
+              local far = {}
+              for _, pole in ipairs(list) do
+                if (pole.position.x - dx) ^ 2 + (pole.position.y - dy) ^ 2 >= 32 ^ 2 then far[#far + 1] = pole end
+              end
+              st.drill_c = { x = dx, y = dy }
+              list = far
+            end
+          end
           do -- état avant la coupe : combien de foreuses sont déjà hors du réseau de la machine à vapeur (doit être 0)
             local eng0 = s.find_entities_filtered({ name = "steam-engine", force = "player", limit = 1 })[1]
             local off0, all0 = 0, 0
@@ -313,14 +330,16 @@ return function(variant, opts)
           ctx.log(string.format("LIGNE COUPEE a %.2f min : %d poteau(x) detruit(s) sur %d du couloir (centre %.0f, %.0f)", t / MIN, n, #list,
             n > 0 and sx / n or 0, n > 0 and sy / n or 0))
           if opts.enemy and n > 0 then
-            -- un ennemi immobile et indestructible au milieu des poteaux retires : ils sont tenus (28 tuiles), le chemin sur n'existe pas
-            local biter = s.create_entity({ name = "small-biter", position = { sx / n, sy / n }, force = "enemy" })
+            -- un ver (ennemi immobile, portee 25 : les poseurs restent a 28) au milieu des poteaux retires : ils sont tenus (28 tuiles), le chemin sur n'existe pas
+            local biter = s.create_entity({ name = "small-worm-turret", position = { sx / n, sy / n }, force = "enemy" })
             if biter then
-              pcall(function() biter.active = false end)
-              biter.destructible = false
+              local okact = true
               st.biter = biter
+              local dd = st.drill_c and math.sqrt((biter.position.x - st.drill_c.x) ^ 2 + (biter.position.y - st.drill_c.y) ^ 2) or -1
+              ctx.log(string.format("ENNEMI (ver) pose en (%.0f, %.0f) a %.0f tuiles des foreuses : %s", biter.position.x, biter.position.y, dd, tostring(okact)))
+            else
+              ctx.log("ENNEMI : create_entity a echoue")
             end
-            ctx.log(string.format("ENNEMI pose : %s", biter and "oui" or "NON (create_entity a echoue)"))
           end
         end
         if st.cut_t then
