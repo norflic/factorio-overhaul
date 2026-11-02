@@ -36,10 +36,20 @@ local Rc = require("shared.team.reconstruction")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Build = require("script.team.build")
+local Champ = require("script.team.champ") -- lot CHAMP : la partie migrée est une BANDE du champ en rangées (shared/team/champ.lua), hors du treillis
 
 local Mig = {}
 
 local CFG = Mg.CFG
+-- Lot CHAMP : règles de la migration en BANDES du champ (la règle de shared/team/migration_champ.lua, ces seuils changés) :
+--   min_pairs 1    une seule paire suffit (un avant-poste neuf de paires passe au champ dès que le courant et les objets le permettent) ;
+--   keep_pairs 0   la bande qui remplace les paires produit plus qu'elles : un petit avant-poste n'est plus bloqué par la garde
+--                  (« garde » annulait la demande : un champ d'une seule bande ne migrait jamais) ;
+--   EXT_PLATES     une bande SANS paire (agrandissement du champ) n'est demandée que si la plaque du champ est sous ce stock libre.
+local CHAMP_CFG = {}
+for _, k in ipairs(State.sorted_keys(CFG)) do CHAMP_CFG[k] = CFG[k] end
+CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
+local EXT_PLATES = 3000
 local FURNACE_INVENTORIES = { "furnace_source", "furnace_result", "fuel" }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -327,6 +337,83 @@ local function failed(f, ms, o, st, tick, why)
   end
 end
 
+--- Lot CHAMP : la bande suivante du champ de l'avant-poste `o` (cadre figé au premier appel), demandée au plan directeur comme un SITE
+--- (Build.SITES.champ, script/team/champ.lua). Les paires dont une tuile est sous la bande sont celles que le dégel retire. Rend vrai si la
+--- demande est partie.
+local function begin_band(f, surface, ms, o, st, list, tick, free)
+  if not st.frame then
+    local frame, order = Champ.frame(f, surface, o)
+    if not frame then
+      st.fails, st.retry = st.fails + 1, tick + CFG.retry
+      say_why(f, ms, st, "champ:" .. tostring(order), string.format("avant-poste %d : pas de plan de champ (%s), essai %d/%d", o.id, tostring(order), st.fails, CFG.max_fails))
+      if st.fails >= CFG.max_fails then st.abandoned, st.abandoned_at = true, tick end
+      return false
+    end
+    st.frame, st.order, st.done_pr = frame, order, {}
+  end
+  local bad = {}
+  for _, k in ipairs(st.bad or {}) do bad[k] = true end
+  local product = T.outposts[o.kind].product
+  local pr
+  for _, x in ipairs(st.order) do
+    if not pr and not st.done_pr[tostring(x)] and not bad[x] then pr = x end
+  end
+  if not pr then
+    finish(f, ms, o, st, (st.done > 0 or st.produced > 0) and "fini" or "abandon", string.format("avant-poste %d : champ pose (%d bande(s) produisent)", o.id, st.produced))
+    return false
+  end
+  local bd, why = Champ.band(f, surface, o, st.frame, pr)
+  if not bd then
+    st.bad = st.bad or {}
+    st.bad[#st.bad + 1] = pr
+    st.retry = tick + CFG.retry_refuse
+    say(f, ms, string.format("avant-poste %d : bande %d ecartee (%s)", o.id, pr, tostring(why)))
+    return false
+  end
+  -- paires sous la bande : retirées au dégel
+  local under = {}
+  for i = 1, #bd.tiles - 1, 2 do under[P.tkey(bd.tiles[i], bd.tiles[i + 1])] = true end
+  local ids, thaw = {}, {}
+  for _, pr2 in ipairs(list) do
+    local t = Mg.tiles({ Mg.box(pr2.drill), Mg.box(pr2.sink) })
+    local hit = false
+    for i = 1, #t - 1, 2 do if under[P.tkey(t[i], t[i + 1])] then hit = true end end
+    if hit then
+      ids[#ids + 1] = pr2.id
+      for i = 1, #t do thaw[#thaw + 1] = t[i] end
+    end
+  end
+  table.sort(ids)
+  if #ids == 0 and (free[product] or 0) >= EXT_PLATES then
+    say_why(f, ms, st, "ext:" .. pr, string.format("avant-poste %d : bande %d sans paire en attente (%d %s libres, agrandissement sous %d)", o.id, pr,
+      free[product] or 0, product, EXT_PLATES))
+    st.retry = tick + CFG.retry
+    return false
+  end
+  local cx, cy, n = 0, 0, 0
+  for _, e in ipairs(bd.ents) do cx, cy, n = cx + e.x, cy + e.y, n + 1 end
+  cx, cy = cx / math.max(1, n), cy / math.max(1, n)
+  local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
+    domain = "production", lazy_clear = true, pile = "migration" }
+  if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
+  local id, rwhy = Build.request(f, spec)
+  if not id then
+    st.fails, st.retry = st.fails + 1, tick + CFG.retry
+    say_why(f, ms, st, "req:" .. tostring(rwhy), string.format("avant-poste %d : demande au plan impossible (%s)", o.id, tostring(rwhy)))
+    return false
+  end
+  st.stage, st.pid, st.ids, st.t0, st.band_key = "projet", id, ids, tick, pr
+  st.cx, st.cy, st.gate_t0, st.why_last, st.retired = cx, cy, nil, nil, nil
+  o.migr, o.full, o.full_by = "en cours", true, "migration"
+  ms.cur = o.id
+  ms.requests = (ms.requests or 0) + 1
+  local nd, nf = 0, 0
+  for _, e in ipairs(bd.plan.ents) do if e.kind == "foreuse" then nd = nd + 1 elseif e.kind == "four" then nf = nf + 1 end end
+  say(f, ms, string.format("avant-poste %d (%s) : bande %d du champ demandee, projet %d : %d foreuse(s) electrique(s), %d four(s), %d paire(s) thermique(s) dessous (%s), %d paire(s) ailleurs",
+    o.id, o.kind, pr, id, nd, nf, #ids, table.concat(ids, ","), #list - #ids), true)
+  return true
+end
+
 --- Choisit une partie et la demande au plan. Rend vrai si la demande est partie.
 local function begin_part(f, surface, ms, o, st, list, rects, tick)
   local m = method_of(o.kind)
@@ -433,7 +520,7 @@ local function step_project(f, surface, ms, o, st, tick)
     env.uses = uses_thaw(p, p.spec.degel.tiles)
     env.gate_age = tick - st.gate_t0
   end
-  local act, why = Mg.gate(st, p, env)
+  local act, why = Mg.gate(st, p, env, st.frame and CHAMP_CFG or nil)
   if act == "attendre" then
     say_why(f, ms, st, "gate:" .. why, string.format("avant-poste %d : projet %d en attente (%s)%s", o.id, st.pid, why,
       why == "ennemi" and string.format(", ennemi a moins de %d tuiles, rien n'est retire", CFG.safe) or ""))
@@ -482,6 +569,7 @@ local function step_build(f, surface, ms, o, st, tick)
     end
     st.produced = st.produced + 1
     st.fails = 0
+    if st.frame and st.band_key then st.done_pr[tostring(st.band_key)] = true end -- lot CHAMP : bande posée et qui produit
     ms.lines = (ms.lines or 0) + 1
     say(f, ms, string.format("avant-poste %d : la ligne neuve du projet %d produit (%d produits finis), partie %d terminee en %.1f min", o.id, st.pid,
       env.made, st.done, (tick - st.t0) / 3600), true)
@@ -518,32 +606,49 @@ end
 --- Premier avant-poste (par numéro) dont la migration peut partir.
 local function start_next(f, surface, ms, free, obtainable, tick)
   local b = f.build
+  -- Lot CHAMP : la plaque la plus en manque d'abord (retour du DC du 2/11 : « 57 plaques de cuivre » pour près de 1 000 de fer), puis
+  -- le numéro d'avant-poste
+  local cand = {}
   for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local o = f.outposts[oid]
+    if is_furnace_kind(o.kind) then cand[#cand + 1] = { oid = oid, have = free[T.outposts[o.kind].product] or 0 } end
+  end
+  table.sort(cand, function(a, c) if a.have ~= c.have then return a.have < c.have end return a.oid < c.oid end)
+  for _, it in ipairs(cand) do
+    local oid = it.oid
     local o = f.outposts[oid]
     local st = ms.o[oid]
     -- lot MIGRATION-DECLENCHE : un abandon (échecs de suite, ligne perdue) n'est plus définitif : après CFG.revive, l'avant-poste repart
     -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
     -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
     local since = st and st.abandoned and not st.sans_gabarit and (st.abandoned_at or 0) or nil
-    if since and tick >= since + CFG.revive and is_furnace_kind(o.kind) and o.migr == nil then
+    if since and tick >= since + CFG.revive and o.migr == nil then
       st = new_state()
       ms.o[oid] = st
       say(f, ms, string.format("avant-poste %d (%s) : migration reprise apres abandon (%.0f min)", o.id, o.kind, CFG.revive / 3600), true)
     end
-    if is_furnace_kind(o.kind) and not (st and st.abandoned) and o.migr ~= "fini" and o.migr ~= "partiel" then
+    if not (st and st.abandoned) and o.migr ~= "fini" and o.migr ~= "partiel" then
       st = st or new_state()
       ms.o[oid] = st
       local list = survey(o)
-      local rects = lots_of(f, o, list)
+      -- lot CHAMP : le champ en bandes quand la règle a ses données (foreuse, tapis débloqué, poteau) ; sinon le treillis comme avant
+      local champ = Champ.data(f, o.kind) ~= nil
+      local rects = champ and {} or lots_of(f, o, list)
       local product = T.outposts[o.kind].product
+      local cfg = champ and CHAMP_CFG or CFG
+      local npairs = #list
+      if champ and st.frame and npairs == 0 then npairs = 1 end -- bandes sans paire : agrandissement du champ (begin_band)
+      local lattice = champ or next(rects) ~= nil
       -- la recherche d'ennemi (coûteuse) seulement quand le reste est réuni
       local enemy = false
-      if #list >= CFG.min_pairs and next(rects) ~= nil and tick >= (st.retry or 0) then enemy = enemy_near(f, surface, o.pos.x, o.pos.y) end
+      if npairs >= cfg.min_pairs and lattice and tick >= (st.retry or 0) then enemy = enemy_near(f, surface, o.pos.x, o.pos.y) end
       local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = free[product] or 0,
-        lattice = next(rects) ~= nil, pairs = #list, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned })
+        lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
       if ok then
-        if begin_part(f, surface, ms, o, st, list, rects, tick) then return true end
-      elseif o.migr == "en cours" and (why == "paires" or why == "treillis") and st.done > 0 then
+        if champ then
+          if begin_band(f, surface, ms, o, st, list, tick, free) then return true end
+        elseif begin_part(f, surface, ms, o, st, list, rects, tick) then return true end
+      elseif o.migr == "en cours" and (why == "paires" or why == "treillis") and st.done > 0 and not (champ and st.frame) then
         -- plus assez de paires pour une partie de plus : le reste est laissé tel quel
         finish(f, ms, o, st, (#list == 0) and "fini" or "partiel",
           string.format("avant-poste %d : %d paire(s) restent (%s), %d partie(s) migree(s)", o.id, #list, why, st.done))
