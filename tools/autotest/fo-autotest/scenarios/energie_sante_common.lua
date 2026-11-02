@@ -34,7 +34,7 @@ local function water_disc(tiles, cx, cy, r)
 end
 
 --- Terrain : tout vidé puis herbe, deux lacs, charbon (le gisement proche d'un lac : la voie « tapis » du plan le choisit).
-local function shape(ctx, c, coal_near)
+local function shape(ctx, c, coal_near, far)
   local s = ctx.surface()
   s.request_to_generate_chunks({ c.x, c.y }, 6)
   s.force_generate_chunk_requests()
@@ -50,7 +50,7 @@ local function shape(ctx, c, coal_near)
   water_disc(water, c.x + 4, c.y - 78, 20)
   s.set_tiles(water, true) -- eau AVANT les entités (F135)
   if coal_near then
-    deposit(s, "coal", c.x - 40, c.y + 52, 8, 40000)
+    deposit(s, "coal", c.x - (far and 84 or 40), c.y + 52, 8, 40000) -- far : ligne de poteaux plus longue (banc ilot)
   else
     deposit(s, "coal", c.x - 56, c.y - 56, 8, 30000)
   end
@@ -211,7 +211,7 @@ return function(variant, opts)
       local st = ctx.state()
       local c = { x = 0, y = 0 }
       st.c = c
-      shape(ctx, c, opts.mode == "froid" or opts.mode == "ilot")
+      shape(ctx, c, opts.mode == "froid" or opts.mode == "ilot", opts.mode == "ilot")
       local a = ctx.call("war_setting", "fo-war-ia3e", false)
       ctx.check(a == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)", tostring(a))
       ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
@@ -278,51 +278,60 @@ return function(variant, opts)
         if st.load_t and not st.cut_t and t >= st.load_t + 3 * MIN then
           st.cut_t = t
           local c = st.c
-          -- les 10 poteaux les plus proches du milieu du couloir entre le gisement de charbon (c.x-40, c.y+52) et la centrale (c.x, c.y)
-          local mid = { x = c.x - 20, y = c.y + 26 }
-          local list = s.find_entities_filtered({ type = "electric-pole", force = "player", area = { { c.x - 60, c.y - 8 }, { c.x + 4, c.y + 70 } } })
+          -- jusqu'a 10 poteaux du couloir foreuses de charbon -> centrale, les plus proches de son milieu, sauf :
+          --  * les poteaux de la CHARGE (poses par le banc, jamais au plan : personne ne les referait) ;
+          --  * ceux a moins de 20 tuiles des foreuses : l'ilot garde ses poteaux (sinon les foreuses seraient « sous aucun poteau », un autre cas).
+          local eng = s.find_entities_filtered({ name = "steam-engine", force = "player", limit = 1 })[1]
+          local dx, dy, dn = 0, 0, 0
+          for _, d in ipairs(s.find_entities_filtered({ name = "electric-mining-drill", force = "player" })) do
+            dx, dy, dn = dx + d.position.x, dy + d.position.y, dn + 1
+          end
+          local D = dn > 0 and { x = dx / dn, y = dy / dn } or { x = c.x - 40, y = c.y + 52 }
+          local E = eng and { x = eng.position.x, y = eng.position.y } or { x = c.x, y = c.y }
+          st.drill_c = D
+          local mid = { x = (D.x + E.x) / 2, y = (D.y + E.y) / 2 }
+          local list = s.find_entities_filtered({ type = "electric-pole", force = "player", area = { { c.x - 110, c.y - 8 }, { c.x + 10, c.y + 75 } } })
+          local function d2(p, q) return (p.x - q.x) ^ 2 + (p.y - q.y) ^ 2 end
           table.sort(list, function(a, b)
-            local da = (a.position.x - mid.x) ^ 2 + (a.position.y - mid.y) ^ 2
-            local db = (b.position.x - mid.x) ^ 2 + (b.position.y - mid.y) ^ 2
+            local da, db = d2(a.position, mid), d2(b.position, mid)
             if da ~= db then return da < db end
             if a.position.x ~= b.position.x then return a.position.x < b.position.x end
             return a.position.y < b.position.y
           end)
-          local n, sx, sy = 0, 0, 0
-          -- les poteaux de la CHARGE (posés par le banc, jamais au plan) ne sont pas coupés : personne ne les referait
-          local cutlist = {}
+          local rows = {}
+          for _, pole in ipairs(list) do rows[#rows + 1] = string.format("(%.0f,%.0f)%s", pole.position.x, pole.position.y,
+            (pole.unit_number and st.load_poles and st.load_poles[pole.unit_number]) and "c" or "") end
+          ctx.log("poteaux du couloir (c = charge) : " .. table.concat(rows, " ") .. string.format(" ; foreuses (%.0f, %.0f), machine a vapeur (%.0f, %.0f)", D.x, D.y, E.x, E.y))
+          local elig = {}
           for _, pole in ipairs(list) do
-            if not (pole.unit_number and st.load_poles and st.load_poles[pole.unit_number]) then cutlist[#cutlist + 1] = pole end
+            local load = pole.unit_number and st.load_poles and st.load_poles[pole.unit_number]
+            if not load and d2(pole.position, D) >= 20 ^ 2 and #elig < 10 then elig[#elig + 1] = pole end
           end
-          list = cutlist
-          -- on ne coupe QUE les poteaux a 32 tuiles au moins des foreuses : un ilot garde son poteau (sinon les foreuses seraient « sous aucun
-          -- poteau », un autre cas), et un ennemi pose au centre des poteaux coupes reste a plus de 28 tuiles des foreuses
-          do
-            local dx, dy, dn = 0, 0, 0
-            for _, d in ipairs(s.find_entities_filtered({ name = "electric-mining-drill", force = "player" })) do
-              dx, dy, dn = dx + d.position.x, dy + d.position.y, dn + 1
+          if opts.enemy and #elig > 0 then
+            -- avec un ennemi : le poteau eligible le plus proche du milieu du couloir et ceux a moins de 27 tuiles de lui (le ver est pose sur
+            -- le premier : tous sont tenus). La ligne bâtie par le plan est faite de grands poteaux espaces de 28 tuiles : en general UN seul.
+            -- Le ver reste ainsi a plus de 28 tuiles des foreuses (sinon le raccordement attend, a raison) et les poteaux vivants voisins
+            -- sont les bouts du second chemin.
+            local m = elig[1]
+            local near = {}
+            for _, pole in ipairs(elig) do
+              if d2(pole.position, m.position) <= 27 ^ 2 then near[#near + 1] = pole end
             end
-            if dn > 0 then
-              dx, dy = dx / dn, dy / dn
-              local far = {}
-              for _, pole in ipairs(list) do
-                if (pole.position.x - dx) ^ 2 + (pole.position.y - dy) ^ 2 >= 32 ^ 2 then far[#far + 1] = pole end
-              end
-              st.drill_c = { x = dx, y = dy }
-              list = far
-            end
+            elig = near
           end
+          list = elig
           do -- état avant la coupe : combien de foreuses sont déjà hors du réseau de la machine à vapeur (doit être 0)
-            local eng0 = s.find_entities_filtered({ name = "steam-engine", force = "player", limit = 1 })[1]
             local off0, all0 = 0, 0
             for _, d in ipairs(s.find_entities_filtered({ name = "electric-mining-drill", force = "player" })) do
               all0 = all0 + 1
-              if eng0 and d.electric_network_id ~= eng0.electric_network_id then off0 = off0 + 1 end
+              if eng and d.electric_network_id ~= eng.electric_network_id then off0 = off0 + 1 end
             end
             st.drills_off_before = off0
-            ctx.log(string.format("AVANT la coupe : %d foreuse(s) electriques dont %d hors du reseau de la machine a vapeur ; %d poteau(x) retenable(s) dans le couloir", all0, off0, #list))
+            ctx.log(string.format("AVANT la coupe : %d foreuse(s) electriques dont %d hors du reseau de la machine a vapeur ; %d poteau(x) a couper", all0, off0, #list))
           end
-          for i = 1, math.min(10, #list) do
+          local n, sx, sy = 0, 0, 0
+          if opts.enemy and list[1] then st.worm_x, st.worm_y = list[1].position.x, list[1].position.y end
+          for i = 1, #list do
             local pole = list[i]
             if pole.valid then sx, sy = sx + pole.position.x, sy + pole.position.y; pole.destroy(); n = n + 1 end
           end
@@ -331,7 +340,7 @@ return function(variant, opts)
             n > 0 and sx / n or 0, n > 0 and sy / n or 0))
           if opts.enemy and n > 0 then
             -- un ver (ennemi immobile, portee 25 : les poseurs restent a 28) au milieu des poteaux retires : ils sont tenus (28 tuiles), le chemin sur n'existe pas
-            local biter = s.create_entity({ name = "small-worm-turret", position = { sx / n, sy / n }, force = "enemy" })
+            local biter = s.create_entity({ name = "small-worm-turret", position = { st.worm_x or (sx / n), st.worm_y or (sy / n) }, force = "enemy" })
             if biter then
               local okact = true
               st.biter = biter
@@ -363,7 +372,16 @@ return function(variant, opts)
             st.gap_s = 0
           end
           st.dark_now = dark
-          if t % MIN == 0 then ctx.log(string.format("foreuses hors du reseau de la machine a vapeur : %d", dark)) end
+          if t % MIN == 0 then
+            ctx.log(string.format("foreuses hors du reseau de la machine a vapeur : %d", dark))
+            -- diagnostic : les projets pas finis (le raccordement du second chemin est-il bloque, et ou ?)
+            local r = ctx.remote("fo-ia1d", "report", "player")
+            for _, pr in ipairs(r and r.projects or {}) do
+              if pr.state ~= "fini" then
+                ctx.log(string.format("projet %s : etat %s, raison %s", tostring(pr.id), tostring(pr.state), tostring(pr.reason)))
+              end
+            end
+          end
         end
       end
       if opts.mode == "porte" then
@@ -455,7 +473,7 @@ return function(variant, opts)
           ctx.check(st.radars and st.radars >= opts.radars, "AVEC la regle : la charge a ete posee (" .. tostring(st.radars) .. " radars)")
         end
       elseif opts.mode == "ilot" then
-        ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= 8, "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x) sur " .. tostring(st.poles_in_box) .. " du couloir)")
+        ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= (opts.enemy and 1 or 8), "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x) sur " .. tostring(st.poles_in_box) .. " du couloir)")
         ctx.check((st.drills_off_before or 1) == 0, "avant la coupe, aucune foreuse hors du reseau (" .. tostring(st.drills_off_before) .. ")")
         ctx.check(st.saw_dark == true, "la coupe isole bien des foreuses (ilot sans courant)")
         if opts.enemy then ctx.check(st.biter ~= nil and st.biter.valid, "l'ennemi est pose et vivant a la fin") end

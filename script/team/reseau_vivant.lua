@@ -380,7 +380,12 @@ function Rv.step(api, f, surface, tick)
     if plan and plan.action == "chemin" then
       chosen = {}
       for _, i in ipairs(plan.order) do chosen[i] = true end
+    elseif plan and plan.action == "second" then
+      -- aucun chemin sûr, aucun poteau perdu ne relie l'îlot : en reposer d'autres ne sert à rien (et ouvre un chantier de la centrale qui
+      -- retient le raccordement, mesuré au banc energie-ilot-ennemi) ; le raccordement bâtit une chaîne neuve
+      chosen = {}
     end
+    if plan and #plan.second > 0 then sv.second_tick = tick end -- le raccordement (script/team/raccord.lua) ne laisse plus la main à ces poteaux
     for i, c in ipairs(cands) do
       if not chosen or chosen[i] then
         local foe = Rv.foe_near(f, surface, c.e.x, c.e.y)
