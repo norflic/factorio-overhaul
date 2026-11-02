@@ -429,6 +429,9 @@ function Gen.choose(cat, ev, state, ctx)
   end
   -- Lot DEFENSE-FACTIONS D2 APRÈS le pack nouveau (reprise PETROLE2 sur 0.6.20) : la tourelle passe en tête « quelle que soit »
   -- la règle qui a classé avant elle, pack nouveau compris.
+  -- Lot PARITE (escorte, 2/11) : la recherche qui ouvre le SOLDAT (l'arme de son équipement) passe en tête comme celle de la tourelle ; la tourelle reste devant
+  -- (appelée en dernier). `ctx.defense_soldier` : la recette de l'arme, donnée par l'appelant.
+  if ctx.defense_soldier then Gen.defense_first(cat, state, cands, ctx.defense_soldier) end
   if ctx.defense then Gen.defense_first(cat, state, cands, ctx.defense) end -- lot DEFENSE-FACTIONS D2
   if #cands == 0 and #zero > 0 then cands[1] = Gen.fallback(cat, ev, state, zero, ctx.lab_speed) end
   local d = cands[1] or { tech = nil }

@@ -696,6 +696,16 @@ Events.on_nth_tick(SD.PERIOD, function(e)
   if surface then hq_threat(f, C.team(f), surface, e.tick) end
 end)
 
+-- Lot PARITE (escorte, 2/11) : votre équipe a des soldats (plafond fo-war-soldiers) : mêmes rôles que les factions (escorte, nettoyage, défense), une période sur deux
+-- de plus que les factions (elle n'est pas dans State.alive).
+Events.on_nth_tick(SD.PERIOD + 1, function(e)
+  if not C.enabled() then return end
+  local war = State.war()
+  if not war.active then return end
+  local f = State.faction("player")
+  if f and f.hq_pos and f.hq and f.hq.valid and (f.soldiers_count or 0) > 0 then pass(f, e.tick) end
+end)
+
 -- Votre équipe n'a pas de soldats : seule la mise à l'abri (C7) la concerne, toutes les 120 ticks.
 Events.on_nth_tick(120, function(e)
   if not C.enabled() then return end
