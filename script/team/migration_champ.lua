@@ -822,12 +822,14 @@ function Mig.want(f, dep, tick)
   local st = ms.o[o.id]
   if not st then st = new_state(); ms.o[o.id] = st end
   if st.sans_gabarit then return nil, "champ impossible (gabarit)" end
-  if st.abandoned and tick >= (st.abandoned_at or 0) + CHAMP_CFG.retry then
+  -- (un cadre VIDE, « aucune bande ne tient », n'est replanifié qu'après CFG.revive : le plan entier d'un grand gisement coûte cher)
+  local wait = (st.order and #st.order == 0) and CFG.revive or CHAMP_CFG.retry
+  if st.abandoned and tick >= (st.abandoned_at or 0) + wait then
     -- un champ abandonné (échecs de suite, aucune bande ne tenait) repart : refus et cadre vide oubliés (le gisement a pu changer)
     st.abandoned, st.abandoned_at, st.fails, st.bad = nil, nil, 0, nil
     if st.order and #st.order == 0 then st.frame, st.order = nil, nil end
   end
-  if st.abandoned then return nil, "champ abandonne il y a moins de " .. math.floor(CHAMP_CFG.retry / 3600) .. " min" end
+  if st.abandoned then return nil, "champ abandonne il y a moins de " .. math.floor(wait / 3600) .. " min" end
   if o.migr == "partiel" and st.stage == "veille" then o.migr, st.fails, st.bad = nil, 0, nil end -- arrêté après des échecs : on reprend
   st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)
   return o.id, st.produced
