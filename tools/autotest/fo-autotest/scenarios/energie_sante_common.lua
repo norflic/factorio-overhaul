@@ -224,6 +224,9 @@ return function(variant, opts)
       if opts.off then
         ctx.check(ctx.remote("fo-ia1d", "set_option", "player", "no_sante", true) == true, "regle de sante de la centrale COUPEE (temoin)")
       end
+      if opts.off_coupure then
+        ctx.check(ctx.remote("fo-ia1d", "set_option", "player", "no_coupure", true) == true, "chemin le plus court et second chemin des poteaux COUPES (temoin)")
+      end
       st.t0 = game.tick
       st.rows = {}
       st.max_gap, st.gap, st.zero_after_cut = 0, 0, 0
@@ -266,16 +269,40 @@ return function(variant, opts)
         ctx.log(string.format("%scharge posee a %.2f min : %d radar(s) (%s)", TAG, t / MIN, placed, tostring(why or "ok")))
       end
       if opts.mode == "ilot" then
-        -- ligne de poteaux COUPEE (les ennemis de Scarlet, 100-125 min) : 3 min après la charge, tous les poteaux du plan d'une bande de 8 tuiles
-        -- entre les foreuses de charbon (a l'ouest) et la centrale sont détruits ; les foreuses sont alors sur un îlot sans courant
+        -- ligne de poteaux COUPEE (Scarlet, 100-125 min) : 3 min après la charge, les 10 poteaux du couloir foreuses de charbon -> centrale les plus
+        -- proches de son milieu sont détruits ; les foreuses sont alors sur un îlot sans courant. Avec `enemy` : un ennemi immobile au milieu de
+        -- la coupure (les poteaux retirés sont tenus : il n'y a pas de chemin sûr, seul un second chemin neuf peut les relier)
         if st.load_t and not st.cut_t and t >= st.load_t + 3 * MIN then
           st.cut_t = t
-          local n = 0
           local c = st.c
-          local list = s.find_entities_filtered({ type = "electric-pole", force = "player", area = { { c.x - 20, c.y - 110 }, { c.x - 12, c.y + 140 } } })
-          for _, pole in ipairs(list) do if pole.valid then pole.destroy(); n = n + 1 end end
-          st.cut_n = n
-          ctx.log(string.format("LIGNE COUPEE a %.2f min : %d poteau(x) detruit(s) dans la bande x de -20 a -12", t / MIN, n))
+          -- les 10 poteaux les plus proches du milieu du couloir entre le gisement de charbon (c.x-40, c.y+52) et la centrale (c.x, c.y)
+          local mid = { x = c.x - 20, y = c.y + 26 }
+          local list = s.find_entities_filtered({ type = "electric-pole", force = "player", area = { { c.x - 60, c.y - 8 }, { c.x + 4, c.y + 70 } } })
+          table.sort(list, function(a, b)
+            local da = (a.position.x - mid.x) ^ 2 + (a.position.y - mid.y) ^ 2
+            local db = (b.position.x - mid.x) ^ 2 + (b.position.y - mid.y) ^ 2
+            if da ~= db then return da < db end
+            if a.position.x ~= b.position.x then return a.position.x < b.position.x end
+            return a.position.y < b.position.y
+          end)
+          local n, sx, sy = 0, 0, 0
+          for i = 1, math.min(10, #list) do
+            local pole = list[i]
+            if pole.valid then sx, sy = sx + pole.position.x, sy + pole.position.y; pole.destroy(); n = n + 1 end
+          end
+          st.cut_n, st.poles_in_box = n, #list
+          ctx.log(string.format("LIGNE COUPEE a %.2f min : %d poteau(x) detruit(s) sur %d du couloir (centre %.0f, %.0f)", t / MIN, n, #list,
+            n > 0 and sx / n or 0, n > 0 and sy / n or 0))
+          if opts.enemy and n > 0 then
+            -- un ennemi immobile et indestructible au milieu des poteaux retires : ils sont tenus (28 tuiles), le chemin sur n'existe pas
+            local biter = s.create_entity({ name = "small-biter", position = { sx / n, sy / n }, force = "enemy" })
+            if biter then
+              pcall(function() biter.active = false end)
+              biter.destructible = false
+              st.biter = biter
+            end
+            ctx.log(string.format("ENNEMI pose : %s", biter and "oui" or "NON (create_entity a echoue)"))
+          end
         end
         if st.cut_t then
           local dark = 0
@@ -386,11 +413,17 @@ return function(variant, opts)
           ctx.check(st.radars and st.radars >= opts.radars, "AVEC la regle : la charge a ete posee (" .. tostring(st.radars) .. " radars)")
         end
       elseif opts.mode == "ilot" then
-        ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= 1, "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x))")
+        ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= 8, "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x) sur " .. tostring(st.poles_in_box) .. " du couloir)")
         ctx.check(st.saw_dark == true, "la coupe isole bien des foreuses (ilot sans courant)")
-        ctx.check(st.back_t ~= nil and (st.back_t - (st.cut_t or 0)) <= 4 * MIN,
-          string.format("les poteaux sont reposes et les foreuses rallumees en 4 min au plus (%s)", st.back_t and string.format("%.0f s", (st.back_t - st.cut_t) / 60) or "jamais"))
-        ctx.check((st.dark_now or 1) == 0, "plus aucune foreuse sans courant a la fin")
+        if opts.enemy then ctx.check(st.biter ~= nil and st.biter.valid, "l'ennemi est pose et vivant a la fin") end
+        if opts.expect == "dead" then
+          ctx.check(st.back_t == nil, "SANS la regle : les foreuses ne sont jamais rallumees (ennemi sur la ligne, aucun second chemin)")
+        else
+          local limit = (opts.back_min or 4) * MIN
+          ctx.check(st.back_t ~= nil and (st.back_t - (st.cut_t or 0)) <= limit,
+            string.format("AVEC la regle : les foreuses sont rallumees en %d min au plus (%s)", opts.back_min or 4, st.back_t and string.format("%.0f s", (st.back_t - st.cut_t) / 60) or "jamais"))
+          ctx.check((st.dark_now or 1) == 0, "AVEC la regle : plus aucune foreuse sans courant a la fin")
+        end
         ctx.check(power > 0, "production non nulle a la fin")
       elseif opts.mode == "porte" then
         ctx.check(st.req_t ~= nil, "les trois modules ont ete demandes")

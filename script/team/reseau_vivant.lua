@@ -18,6 +18,7 @@
 
 local M = require("shared.team.modules")
 local S = require("shared.team.reseau_sante")
+local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : chemin le plus court des poteaux à reposer, second chemin
 
 local Rv = {}
 
@@ -54,6 +55,7 @@ local function is_pole(name) return name:find("electric%-pole") ~= nil end
 function Rv.reopen(q, ents, why, surface)
   for _, e in ipairs(ents) do
     e.built, e.ghosted, e.fails, e.npc_blocks = false, nil, 0, 0
+    e.rtick = game.tick -- lot ENERGIE : rouverte à ce tick (le graphe de la coupure compte un poteau déjà en reconstruction)
   end
   if q.state == "fini" then
     q.counted = true -- déjà compté aux statistiques : une sauvegarde d'avant ce drapeau ne recompte pas au « fini » suivant
@@ -144,14 +146,14 @@ local function net_read(f, surface, b)
     local id = g.electric_network_id
     if id then gnets[id] = true end
   end
-  local out = { islands = 0, uncovered = 0 }
+  local out = { islands = 0, uncovered = 0, nets = {}, live = gnets } -- (lot ENERGIE : nets = réseaux des îlots, live = réseaux alimentés)
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = ELEC_TYPES })) do
     -- Le réseau d'abord : la quasi-totalité des machines est sur un réseau avec centrale, et le prototype (objet créé à chaque lecture)
     -- ne se lit que pour les autres (revue statique 29/10 : le relevé touchait toutes les machines de la force toutes les 2 min).
     local id = e.electric_network_id
     if not (id and gnets[id]) and e.prototype.electric_energy_source_prototype
       and not in_construction(b, e.position.x, e.position.y) then
-      if id then out.islands = out.islands + 1 else out.uncovered = out.uncovered + 1 end
+      if id then out.islands = out.islands + 1; out.nets[id] = true else out.uncovered = out.uncovered + 1 end
     end
   end
   return out
@@ -172,6 +174,74 @@ local function lost_poles(f, surface, b)
     end
   end
   return out
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot ENERGIE (2/11) : chemin le plus court et second chemin (règle pure : shared/team/coupure_reseau.lua)
+---------------------------------------------------------------------------------------------------
+--- Interrupteur D'ESSAI (remote fo-ia1d set_option no_coupure) : le témoin des bancs ; allumé sinon.
+function Rv.coupure_off(b) return b.opts ~= nil and b.opts.no_coupure == true end
+
+--- Ennemi à moins de Rv.POLE_ENEMY_R du point (x, y) : sa position, ou nil.
+function Rv.foe_near(f, surface, x, y)
+  local foe = surface.find_nearest_enemy({ position = { x = x, y = y }, max_distance = Rv.POLE_ENEMY_R, force = f.force })
+  if foe and foe.valid then return { x = foe.position.x, y = foe.position.y } end
+  return nil
+end
+
+--- Décision de la coupure : les candidats perdus `cands` ({ e, q }), la lecture du réseau `nr` (net_read). Rend le plan de K.plan
+--- (order = numéros de candidats), la liste des ennemis vus et le nombre de poteaux lus ; nil si rien à décider (règle coupée, pas d'îlot).
+local function coupure_plan(f, surface, b, nr, cands)
+  if Rv.coupure_off(b) or not nr or not next(nr.nets) then return nil end
+  local enemies, seen = {}, {}
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  local poles, reach_of = {}, {}
+  local function reach(name)
+    local r = reach_of[name]
+    if r == nil then
+      local proto = game.entity_prototypes[name]
+      r = proto and proto.max_wire_distance or 9
+      reach_of[name] = r
+    end
+    return r
+  end
+  for i, c in ipairs(cands) do
+    local foe = Rv.foe_near(f, surface, c.e.x, c.e.y)
+    if foe then
+      local key = math.floor(foe.x) .. ":" .. math.floor(foe.y)
+      if not seen[key] then seen[key] = true; enemies[#enemies + 1] = foe end
+    end
+    poles[#poles + 1] = { id = i, kind = "lost", x = c.e.x, y = c.e.y, reach = reach(c.e.name) }
+    x0, y0, x1, y1 = math.min(x0, c.e.x), math.min(y0, c.e.y), math.max(x1, c.e.x), math.max(y1, c.e.y)
+  end
+  -- poteaux DÉJÀ rouverts (en reconstruction) : ils comptent comme des poteaux perdus du graphe, pour que le chemin reste continu
+  -- pendant la reconstruction (sinon le relevé suivant ne voit plus de chemin et rouvre tout le reste) ; jamais rouverts une seconde fois
+  local k = #cands
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    if q and not q.abandoned and q.state ~= "refuse" then
+      for _, e in ipairs(q.ents) do
+        if e.rtick and not e.built and is_pole(e.name) and k < #cands + Rv.CAND_MAX then
+          k = k + 1
+          poles[#poles + 1] = { id = k, kind = "lost", open = true, x = e.x, y = e.y, reach = reach(e.name) }
+          x0, y0, x1, y1 = math.min(x0, e.x), math.min(y0, e.y), math.max(x1, e.x), math.max(y1, e.y)
+        end
+      end
+    end
+  end
+  if x0 == math.huge then return nil end
+  local m = 35
+  for _, p in ipairs(surface.find_entities_filtered({ area = { { x0 - m, y0 - m }, { x1 + m, y1 + m } }, force = f.force, type = "electric-pole" })) do
+    local id = p.electric_network_id
+    local kind = id and ((nr.live[id] and "live") or (nr.nets[id] and "isl")) or nil
+    if kind then
+      k = k + 1
+      poles[#poles + 1] = { id = k, kind = kind, net = id, x = p.position.x, y = p.position.y, reach = reach(p.name) }
+    end
+  end
+  local n_read = #poles
+  poles = Cr.trim(poles, Cr.MAX_NODES)
+  return Cr.plan({ poles = poles, enemies = enemies, enemy_r = Rv.POLE_ENEMY_R }), enemies, n_read
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -302,13 +372,29 @@ function Rv.step(api, f, surface, tick)
     end
     -- les poteaux PERDUS (jamais un poteau neuf) : ceux de leurs projets sont rouverts, sauf sous le feu
     local per, n = {}, 0
-    for _, c in ipairs(lost_poles(f, surface, b)) do
-      local foe = surface.find_nearest_enemy({ position = { x = c.e.x, y = c.e.y }, max_distance = Rv.POLE_ENEMY_R, force = f.force })
-      if not foe then
-        per[c.q.id] = per[c.q.id] or { q = c.q, ents = {} }
-        per[c.q.id].ents[#per[c.q.id].ents + 1] = c.e
-        n = n + 1
+    local cands = lost_poles(f, surface, b)
+    -- lot ENERGIE (2/11) : d'abord le CHEMIN LE PLUS COURT du réseau alimenté vers les îlots (sûr : aucun poteau tenu par un ennemi) ;
+    -- s'il n'y en a pas, la règle d'avant (tous les poteaux que personne ne tient)
+    local plan, enemies, n_read = coupure_plan(f, surface, b, nr, cands)
+    local chosen
+    if plan and plan.action == "chemin" then
+      chosen = {}
+      for _, i in ipairs(plan.order) do chosen[i] = true end
+    end
+    for i, c in ipairs(cands) do
+      if not chosen or chosen[i] then
+        local foe = Rv.foe_near(f, surface, c.e.x, c.e.y)
+        if not foe then
+          per[c.q.id] = per[c.q.id] or { q = c.q, ents = {} }
+          per[c.q.id].ents[#per[c.q.id].ents + 1] = c.e
+          n = n + 1
+        end
       end
+    end
+    if plan then
+      say(f, tick, string.format("coupure: %s ; %d poteau(x) perdu(s) lu(s), %d ennemi(s) vu(s), %d poteau(x) du graphe, %d rouvert(s) maintenant%s",
+        plan.reason ~= "" and plan.reason or plan.action, #cands, #enemies, n_read or 0, n,
+        #plan.second > 0 and string.format(" ; %d ilot(s) sans chemin sur : chaine neuve par le raccordement", #plan.second) or ""))
     end
     for _, pid in ipairs(sorted_keys(per)) do
       local q = per[pid].q

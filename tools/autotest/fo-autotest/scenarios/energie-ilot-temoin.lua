@@ -1,0 +1,2 @@
+-- Lot ENERGIE (2/11) : ilot-temoin, meme coupure, chemin le plus court coupe (regle d'avant) (voir energie_sante_common.lua).
+return require("scenarios/energie_sante_common")("ilot-temoin", { mode = "ilot", boilers = 3, radars = 4, expect = "heal", off_coupure = true, check_tick = 72000 })

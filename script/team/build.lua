@@ -40,6 +40,7 @@ local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de fo
 local CvRegle = require("shared.team.convoyeurs")  -- lot RANGEES-DEBIT (relecture) : choix du tapis sans le journal du premier vrai tracé
 local Conv = require("script.team.convoyeurs") -- lot CONVOYEURS : tapis selon la technologie
 local T = require("shared.team.config")      -- lot ESPACE : nom du mur de l'enceinte (T.wall)
+local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : zone des ennemis d'un second chemin de poteaux
 local Pt = require("shared.team.poteaux")   -- lot POTEAUX-COURT : longueur de fil, choix direct ou escalier (règles pures)
 local Mq = require("shared.team.masques")   -- lot POTEAUX-MASQUES : relevé paresseux des masques par chunk (règles pures)
 local Or = require("shared.team.orient")      -- lot PD-FONDERIEQG (D82) : sens du gisement (règle pure)
@@ -2423,8 +2424,12 @@ local function plan_raccord(f, surface, p)
   if not view then return false, "masques (couloir du raccordement en cours de releve)", "masques" end
   local taken = {}
   if rc.start.new then taken[P.tkey(math.floor(start.x), math.floor(start.y))] = true end
+  -- lot ENERGIE (2/11) : second chemin, la chaîne neuve reste hors de la zone des ennemis (sauf autour de ses deux bouts)
+  local avoid = rc.avoid
+  local ends = { { x = start.x, y = start.y }, { x = rc.target.x, y = rc.target.y } }
   local function free(x, y)
     local tx, ty = math.floor(x), math.floor(y)
+    if avoid and Cr.in_zone(tx + 0.5, ty + 0.5, avoid, ends, rc.reach * 2) then return false end
     return view.free(tx, ty) and not taken[P.tkey(tx, ty)] and not view.clear(tx, ty)
   end
   -- poteaux déjà prévus ou posés (projets en chantier ou finis, comme plan_power) : la chaîne les traverse au lieu d'en doubler un
@@ -2433,7 +2438,15 @@ local function plan_raccord(f, surface, p)
     local q = b.projects[pid]
     if q and q ~= p and not q.abandoned and REUSE_STATES[q.state] then
       for _, e in ipairs(q.ents) do
-        if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= rc.reach - 1e-9 then known[#known + 1] = { x = e.x, y = e.y } end
+        if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= rc.reach - 1e-9 then
+          -- second chemin : seuls les poteaux qui EXISTENT et hors de la zone des ennemis sont traversés sans en poser (un poteau perdu,
+          -- ou tenu par un ennemi, ne relie rien)
+          local usable = true
+          if avoid then
+            usable = e.built and not Cr.in_zone(e.x, e.y, avoid, ends, rc.reach * 2) and pole_at(e.x, e.y) ~= nil
+          end
+          if usable then known[#known + 1] = { x = e.x, y = e.y } end
+        end
       end
     end
   end
@@ -2466,8 +2479,9 @@ local function plan_raccord(f, surface, p)
   end
   p.parts[1] = { kind = "raccord", key = "raccord", ox = start.x, oy = start.y, w = 1, h = 1, power = false }
   p.counted = true -- un raccordement n'est pas un module : finish_project ne le compte pas aux modules finis
-  log(string.format("[FO-RACCORD] %s : projet %d planifie (groupe %s) : %d poteau(x) %s de (%.1f, %.1f) a (%.1f, %.1f), portee %g, %d obstacle(s)",
-    f.key or "player", p.id, tostring(rc.key), #p.ents, rc.pole, start.x, start.y, rc.target.x, rc.target.y, rc.reach, #p.obstacles))
+  log(string.format("[FO-RACCORD] %s : projet %d planifie (groupe %s) : %d poteau(x) %s de (%.1f, %.1f) a (%.1f, %.1f), portee %g, %d obstacle(s)%s",
+    f.key or "player", p.id, tostring(rc.key), #p.ents, rc.pole, start.x, start.y, rc.target.x, rc.target.y, rc.reach, #p.obstacles,
+    avoid and string.format(" ; SECOND CHEMIN, %d ennemi(s) evite(s) a %d tuiles, %d poteau(x) existant(s) reutilise(s)", #avoid, avoid[1] and avoid[1].r or 0, #known) or ""))
   return true
 end
 
@@ -4825,7 +4839,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim" or name == "no_sante")) then return nil end -- no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim" or name == "no_sante" or name == "no_coupure")) then return nil end -- no_coupure : coupe le chemin le plus court et le second chemin des poteaux perdus (lot ENERGIE 2/11, témoin des bancs) ; no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

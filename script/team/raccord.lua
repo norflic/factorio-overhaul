@@ -16,6 +16,7 @@ local R = require("shared.team.raccord")
 local M = require("shared.team.modules")
 local P = require("shared.team.plan")
 local Rv = require("script.team.reseau_vivant")
+local Cr = require("shared.team.coupure_reseau") -- lot ENERGIE (2/11) : second chemin autour des ennemis
 
 local Ra = {}
 
@@ -130,6 +131,7 @@ end
 --- R.LOST_NEAR de sa boîte. Au plus 40 lectures du moteur.
 local function lost_near(f, surface, b, g)
   local n, reads = 0, 0
+  local foes, seen = {}, {} -- lot ENERGIE (2/11) : les poteaux perdus TENUS par un ennemi ne comptent pas (reseau_vivant ne les rouvre pas)
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
     if q and not q.abandoned and LIVE_STATES[q.state] and (q.poles_reopened or 0) < Rv.POLE_REOPEN_MAX then
@@ -137,14 +139,22 @@ local function lost_near(f, surface, b, g)
       for _, e in ipairs(q.ents) do
         if e.built and not e.dropped and is_pole(e.name) and (own or near_box(g.box, e.x, e.y, R.LOST_NEAR)) then
           reads = reads + 1
-          if reads > 40 then return n end
+          if reads > 40 then return n, foes end
           local found = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.6, force = f.force, type = "electric-pole", limit = 1 })
-          if not found[1] then n = n + 1 end
+          if not found[1] then
+            local foe = (not Rv.coupure_off(b)) and Rv.foe_near(f, surface, e.x, e.y) or nil
+            if foe then
+              local key = math.floor(foe.x) .. ":" .. math.floor(foe.y)
+              if not seen[key] then seen[key] = true; foes[#foes + 1] = foe end
+            else
+              n = n + 1
+            end
+          end
         end
       end
     end
   end
-  return n
+  return n, foes
 end
 
 --- Poteaux pas encore bâtis d'un chantier (autre qu'un raccordement de ce groupe) à R.LOST_NEAR : l'île est peut-être attendue.
@@ -208,6 +218,8 @@ local function ends_of(f, surface, g, live)
   end
   local spec = { key = g.key, kind = g.kind, pole = pole, reach = reach, big = proto ~= nil and proto.tile_width >= 2,
     target = { x = t.x, y = t.y }, dist = d }
+  -- lot ENERGIE (2/11) : les ennemis qui tenaient des poteaux perdus de la ligne : la chaîne neuve les contourne (second chemin)
+  if g.foes and #g.foes > 0 then spec.avoid = Cr.avoid_zone(g.foes, { x = t.x, y = t.y }, 6) end
   if new then
     spec.start = { new = true }
     spec.cands = {}
@@ -280,7 +292,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     local inp = { has_live = c.n_live > 0, open = st.open[g.key] ~= nil, open_total = open_total, seen = st.seen[g.key],
       tries = st.tries[g.key] or 0, since_try = last and (tick - last) or R.RETRY_AFTER }
     if inp.has_live and not inp.open then
-      inp.lost = lost_near(f, surface, b, g)
+      inp.lost, g.foes = lost_near(f, surface, b, g)
       if inp.lost == 0 then inp.pending = pending_near(b, g) end
       if inp.lost == 0 and (inp.pending or 0) == 0 and (inp.seen or 0) >= R.CONFIRM then
         local foe = surface.find_nearest_enemy({ position = { x = g.x, y = g.y }, max_distance = R.ENEMY_R, force = f.force })
