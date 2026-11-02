@@ -34,6 +34,7 @@ local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, gén
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
+local BriquesLog = require("script.team.briques") -- lot BRIQUES : journal [FO-BRIQUES] (lecture seule)
 local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qui dorment et des brûleurs vitaux à sec
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
@@ -716,12 +717,14 @@ function Team.think(f, surface, tick)
   local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
   -- Lot FOURS (remarque 13 du DC) : une tournée de fonte ne part que si elle sert (shared/team/chaine_main.lua) : minerai à
   -- charger dans un four libre ou à compléter, sortie qui vaut le déplacement, four à ravitailler avec du charbon au coffre.
+  local tasks_avant_filtre = plan.tasks
   if view.four_rule then
     plan.tasks = ChaineMain.filter_tasks(plan.tasks, { inputs = T.smelter_inputs, stock = view.stock, output = view.smelter_output,
       fuel_low = view.smelter_fuel_low, fuel_stock = view.stock[T.fuel] or 0, free = view.smelters_free, loads = view.smelter_loads,
       collect_min = T.smelt_collect_min })
   end
   Profiler.stop("team:plan")
+  BriquesLog.think(f, view, plan, tasks_avant_filtre, tick)
   DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
   FluxLog.think(f, view, tick) -- lot FLUX : journal [FO-FLUX] (lecture seule, toutes les 5 min)
   -- Lot DEFENSE-CHOIX : journal [FO-DEFCHOIX], une ligne quand « tourelles du QG d'abord » commence ou finit (f.team.defchoix_first, écrit et
