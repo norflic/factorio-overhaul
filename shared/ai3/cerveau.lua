@@ -43,6 +43,7 @@ P.EMIT.capi = Ca.emit(P)
 local Gi = require("shared.team.gisement") -- lot GISEMENTS : matières en manque par rapport au besoin
 local Pi = require("shared.ai3.pile") -- lot PILE-PRIORITE : réparer + protéger, puis produire, puis améliorer
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué, le reste du stock s'investit
+local Fx = require("shared.team.flux") -- lot FLUX : tournée des sorties pleines gardée (règle pure)
 
 local C = {}
 
@@ -386,8 +387,8 @@ function C.think(view, book, st, ctx)
   st.other_short = other_short
   st.explore = E.explore
   -- 8. Plan.
-  local product_of = {}
-  for _, o in ipairs(view.outposts or {}) do product_of[o.id] = T.outposts[o.kind].product end
+  local product_of, row_of = {}, {}
+  for _, o in ipairs(view.outposts or {}) do product_of[o.id] = T.outposts[o.kind].product; row_of[o.id] = o end
   local tasks, keys = {}, {}
   local dropped = 0
   -- Lot IA3-e : « fini retire du travail à la main le débit nominal » : les tournées ordinaires (sous les urgences) des
@@ -409,6 +410,8 @@ function C.think(view, book, st, ctx)
       or (t.kind == "service" and t.prio < 90 and covered[prod])
       or (t.kind == "mine" and t.prio < 90 and t.resource ~= nil and pile_mined[t.resource] and ia3_mined[t.resource]
         and t.key == "mine:" .. t.resource) or false
+    -- Lot FLUX : un produit saturé ou couvert garde la tournée de ses sorties PLEINES (le four s'arrête : 17 fours à 100 plaques de cuivre).
+    if drop and t.kind == "service" then drop = Fx.drop_service(row_of[t.outpost] or {}, drop) end
     if drop then dropped = dropped + 1 else
       tasks[#tasks + 1] = t
       keys[t.key] = true

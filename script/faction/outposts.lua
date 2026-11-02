@@ -24,6 +24,7 @@ local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un fou
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
+local Flux = require("shared.team.flux") -- lot FLUX : sorties pleines d'un avant-poste (règle pure)
 
 local Outposts = {}
 
@@ -775,18 +776,41 @@ function Outposts.burners(o)
   return list
 end
 
+--- Contenu d'un réceptacle (sortie d'un four, coffre) : { [objet] = n }.
+local function contents_of(e)
+  local inv
+  if e.type == "furnace" then inv = e.get_output_inventory()
+  elseif e.type == "container" then inv = e.get_inventory(defines.inventory.chest) end
+  return inv and inv.get_contents() or {}
+end
+
 --- État d'un avant-poste : brûleur à court de charbon, production en attente, tourelles.
+--- Lot FLUX : `outputs` = { [objet] = n } des sorties (ce que la tournée rapportera), `stuck` = réceptacles dont la sortie est
+--- pleine (shared/team/flux.lua, Fx.STUCK_AT : le four ne fond plus), `burners` / `dry` = brûleurs et brûleurs sans une braise.
 function Outposts.status(o, tick)
   local low, output = false, 0
+  local burners, dry = 0, 0
   for _, b in ipairs(Outposts.burners(o)) do
-    if fuel_of(b) < T.fuel_low then low = true end
+    local fuel = fuel_of(b)
+    if fuel < T.fuel_low then low = true end
+    burners = burners + 1
+    if fuel <= 0 then dry = dry + 1 end
   end
-  for _, s in ipairs(valid_list(o.sinks)) do output = output + output_of(s) end
+  local outputs, stuck = {}, 0
+  for _, s in ipairs(valid_list(o.sinks)) do
+    local n = output_of(s)
+    output = output + n
+    if n > 0 then
+      if n >= Flux.STUCK_AT then stuck = stuck + 1 end
+      for name, c in pairs(contents_of(s)) do outputs[name] = (outputs[name] or 0) + c end
+    end
+  end
   o.turret_list = valid_list(o.turret_list)
   -- Lot MIGRATION-CHAMP : un champ entièrement migré n'a plus rien à ravitailler ni à collecter ici (la fonderie du plan a ses coffres) :
   -- pas de tournée d'entretien « à l'heure » (les tourelles gardent leur ravitaillement par leurs propres tâches)
   local idle = (o.migr == "fini" and #valid_list(o.drill_list) == 0) and 0 or (tick - (o.last_service or 0))
-  return { fuel_low = low, output = output, turrets = #o.turret_list, idle_ticks = idle }
+  return { fuel_low = low, output = output, turrets = #o.turret_list, idle_ticks = idle,
+    outputs = outputs, stuck = stuck, burners = burners, dry = dry }
 end
 
 --- Charbon à apporter pour compléter tous les brûleurs d'une liste.

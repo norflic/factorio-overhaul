@@ -35,12 +35,14 @@ local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refu
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
+local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
 
 local P = {}
 
 local MAX_CRAFT_TASKS = 8
 local CHUNK_SECONDS = 30
 local MINE_BATCH = 50
+local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs) -- lot FLUX : types d'avant-poste dont le ravitaillement passe en tête
 local MINE_MIN = 20 -- une sortie de minage rapporte au moins 20 minerais (9 plaques manquantes : 9 minerais, trop peu)
 
 local function sorted_uses(uses)
@@ -591,10 +593,14 @@ function P.plan(view, book)
       -- T.lethal_need : essai 5 du lot, graine 314159265, cuivre à 0 pendant 26 min, aucun pistolet pour les recrues).
       out.lethal_skip = (out.lethal_skip or 0) + 1
     elseif not o.has_task then
+      -- Lot FLUX : ravitailler ce qui produit (96) et vider des sorties pleines quand le coffre manque du produit (88) passent devant
+      -- le minage ; sinon les priorités d'avant (95 et 70), qui vieillissent à la synchronisation du tableau (script/team/board.lua).
+      local product = T.outposts[o.kind] and T.outposts[o.kind].product
+      local have = product and (view.stock[product] or 0) or 0
       if o.fuel_low then
-        add({ key = "service:" .. o.id, kind = "service", prio = 95, outpost = o.id })
+        add({ key = "service:" .. o.id, kind = "service", prio = Fx.service_prio(95, o, VITAL[o.kind], have), outpost = o.id })
       elseif o.output >= T.collect_at or o.idle_ticks >= T.service_period then
-        add({ key = "service:" .. o.id, kind = "service", prio = 70, outpost = o.id })
+        add({ key = "service:" .. o.id, kind = "service", prio = Fx.service_prio(70, o, VITAL[o.kind], have), outpost = o.id })
       end
     end
   end

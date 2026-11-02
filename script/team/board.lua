@@ -32,6 +32,8 @@ local R = require("shared.ai3.registre")
 local X = require("shared.ai3.manque")
 local Registry = require("script.companion.registry")
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
+local Fx = require("shared.team.flux") -- lot FLUX : tournées qui vieillissent (règle pure)
+local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs) -- lot FLUX : types d'avant-poste dont le ravitaillement passe en tête
 local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en attente des avant-postes en échec)
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
@@ -332,6 +334,20 @@ function Board.sync(f, planned, tick, plan, view, book)
     end
   end
   b.hint, b.hinted = nil, nil
+  -- Lot FLUX : une tournée d'avant-poste (du cerveau) qui attend monte d'un cran toutes les Fx.AGE_STEP ticks : à la note de la place
+  -- de marché la distance la battait contre le travail proche, des heures (fours pleins, brûleurs à sec : journaux du DC, 0.6.34).
+  if view and Board.market(f) then
+    local kinds = {}
+    for _, o in ipairs(view.outposts or {}) do
+      kinds[o.id] = { stuck = (o.stuck or 0) > 0 or nil, dry = (o.fuel_low and VITAL[o.kind]) or nil }
+    end
+    for _, key in ipairs(sorted_keys(keep)) do
+      local t = keep[key]
+      if t.kind == "service" and not t.worker and not t.fond and t.created then
+        t.prio = Fx.aged(t.prio, tick - t.created, kinds[t.outpost])
+      end
+    end
+  end
   if plan and view and Board.market(f) then
     local missing = plate_shortage(plan)
     local keys, mines, taken = {}, {}, {}
@@ -785,6 +801,11 @@ function Board.finish(f, task, ok, tick)
   if Board.on_done then Board.on_done(f, task, ok, tick) end -- lot IA3-e : charge à la main mesurée (fin de tâche)
   local b = Board.get(f)
   if b.tasks[task.key] == task then b.tasks[task.key] = nil end
+  -- Lot FLUX : tournées ratées de suite d'un avant-poste (shared/team/flux.lua, Fx.counted : ses sorties ne comptent plus).
+  local fo = task.kind == "service" and f.outposts and f.outposts[task.outpost]
+  if fo then
+    if ok then fo.flux_fails = 0 elseif task.fail ~= "preempte" then fo.flux_fails = (fo.flux_fails or 0) + 1 end
+  end
   local st = f.team.task_stats
   st[task.kind] = st[task.kind] or { ok = 0, fail = 0 }
   if ok then
@@ -864,6 +885,13 @@ end
 function Board.has(f, key)
   local t = Board.get(f).tasks[key]
   return t ~= nil and t.worker ~= nil
+end
+
+--- Lot FLUX : ticks depuis lesquels la tâche `key` est au tableau SANS preneur (nil : absente ou prise).
+function Board.free_age(f, key, tick)
+  local t = Board.get(f).tasks[key]
+  if t == nil or t.worker ~= nil then return nil end
+  return tick - (t.created or tick)
 end
 
 --- Lot IA1-d (option « seul » d'un banc du plan directeur) : retire les tâches LIBRES que `keep(t)` refuse ; les

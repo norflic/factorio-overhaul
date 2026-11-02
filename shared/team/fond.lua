@@ -37,6 +37,7 @@
 
 local T = require("shared.team.config")
 local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
+local Fx = require("shared.team.flux") -- lot FLUX : minerai équivalent (coffre + plaques + sorties), règle pure
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 
 local F = {}
@@ -252,8 +253,12 @@ local function extraction(view, free, ctx, out)
     local list = {}
     for i, m in ipairs(F.MINE_TARGETS) do
       if (not m[3] or (view.smelters or 0) > 0) and not (ctx.mine_skip and ctx.mine_skip[m[1]]) then
-        local have = math.max(0, free[m[1]] or 0)
-        list[#list + 1] = { res = m[1], gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2]), i = i }
+        -- Lot FLUX : le minerai ET les plaques qu'il donne (coffre et sorties des avant-postes) ; ctx sans carte : le minerai seul.
+        local have = Fx.equiv(m[1], ctx.plate_map, free, ctx.repat)
+        local gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2])
+        -- ... et une ressource dont le stock couvre déjà la cible n'est plus minée « à tour de rôle » (« 5700 de charbon » au coffre, des
+        -- plaques en quantité, et le fond minait quand même : le tour de rôle prenait aussi les ressources sans manque).
+        if gap > 0 or not ctx.plate_map then list[#list + 1] = { res = m[1], gap = gap, i = i } end
       end
     end
     table.sort(list, function(a, b)
