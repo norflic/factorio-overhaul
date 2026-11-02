@@ -28,6 +28,7 @@
 
 local L = require("shared.levels.config")
 local Cap = require("shared.ai3.capital")
+local Dg = require("shared.team.degel") -- lot AGES : le gel du centre n'est pas indéfini
 local Gen = require("shared.ai3.general")
 local R = require("shared.ai3.reglages")
 local State = require("script.faction.state")
@@ -458,7 +459,7 @@ function Capital.goal(f, view, book, tick, w)
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
-    exclude = exclude, defer = c.defer }
+    exclude = exclude, defer = c.defer, thaw = (c.thaw and c.thaw.active) or false }
   local d = Cap.choose(L, census, ctx)
   -- Lot AGES : la valeur des améliorations payées PENDANT que le centre est payable (Cap.starved) ; remise à zéro
   -- quand le centre change (niveau suivant, autre centre) ; le compte vit dans la sauvegarde (nombres et chaînes seulement).
@@ -650,13 +651,34 @@ function Capital.attente(f, cause, tick, detail)
     detail and (" (" .. detail .. ")") or "", minutes(f, tick)))
 end
 
+--- Lot AGES : un pas du compte de gel du centre (appelé par script/team/team.lua à chaque pensée, avec `held` = une garde de la pile ou
+--- de la reconstruction gèle les améliorations). Rend vrai quand le centre, lui seul, passe malgré le gel : gel cumulé au-delà de
+--- Dg.AFTER et défense minimale du QG tenue (S1 : hors de péril ; sans relevé de S1, rien ne passe). Une ligne [FO-CAPITAL-DEGEL] par
+--- changement.
+function Capital.thaw_step(f, held, tick)
+  if not Capital.on() or f.is_player then return false end
+  local c = state_of(f)
+  local d = c.defer
+  local s1 = f.team and f.team.s1
+  local was = c.thaw and c.thaw.active or false
+  c.thaw = Dg.step(c.thaw, { key = d and d.key or nil, open = d and d.open or false, held = held, tick = tick,
+    floor_ok = (s1 ~= nil and s1.was == false) })
+  if c.thaw.active ~= was then
+    log(string.format("[FO-CAPITAL-DEGEL] %s : %s a %.1f min (gel cumule %.1f min, defense minimale %s)", f.key or "?",
+      c.thaw.active and "le centre passe malgre le gel" or "le gel reprend", minutes(f, tick), c.thaw.frozen / 3600,
+      (s1 and s1.was == false) and "tenue" or "sous le plancher"))
+  end
+  return c.thaw.active
+end
+
 --- Paie l'amélioration prête (plan.ia3.pay : coût réservé au stock virtuel par la pensée pure) si le stock LIBRE la
 --- couvre. Rend le nombre d'améliorations faites.
-function Capital.pay(f, surface, tick, plan, stock)
+function Capital.pay(f, surface, tick, plan, stock, only_center)
   local list = plan and plan.ia3 and plan.ia3.pay
   if not Capital.any_on() then return 0 end
   local c = state_of(f)
   local d = c.current
+  if only_center and not (d and d.center) then return 0 end -- lot AGES : gel levé pour le centre seulement
   if not list or #list == 0 then
     if d then Capital.attente(f, "non-reserve", tick, "aucun paiement prevu par le cerveau") end
     return 0

@@ -411,7 +411,7 @@ function Cap.choose(Ld, census, ctx)
   local first = res.cands[1]
   local starved = false
   for _, c in ipairs(res.cands) do
-    if c.center and Cap.starved(ctx.defer, c) then first, starved = c, true end
+    if c.center and (Cap.starved(ctx.defer, c) or ctx.thaw) then first, starved = c, true end -- ctx.thaw : le gel du centre est levé (shared/team/degel.lua)
   end
   local d = first and {} or { none = true }
   for k, v in pairs(first or {}) do d[k] = v end
