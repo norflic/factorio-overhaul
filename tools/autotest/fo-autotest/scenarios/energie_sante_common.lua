@@ -367,7 +367,7 @@ return function(variant, opts)
       elseif opts.mode == "avance" then
         ctx.check(st.load_t ~= nil and (st.radars or 0) >= opts.radars, "la charge est posee (" .. tostring(st.radars) .. " radars)")
         if opts.expect == "dead" then
-          ctx.check(st.fini == 1, "SANS la regle : 75 % de la capacite ne demande pas de centrale de plus (" .. tostring(st.fini) .. " finie(s))")
+          ctx.check(st.fini == 1, "SANS la regle : 72 % de la capacite ne demande pas de centrale de plus (" .. tostring(st.fini) .. " finie(s))")
         else
           ctx.check(st.fini == 2, "AVEC la regle : la centrale de plus est finie AVANT la saturation (" .. tostring(st.fini) .. " finie(s))")
         end
