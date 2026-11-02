@@ -131,7 +131,10 @@ end
 --- Lot PARITE : la réception (four ou coffre) au point de dépôt de la foreuse, ou nil.
 local function sink_under(drill)
   if not drill.drop_position then return nil end
-  local list = drill.surface.find_entities_filtered({ position = drill.drop_position, radius = 0.5, type = { "furnace", "container" },
+  -- par boîte (recouvrement de la boîte de collision), non par rayon : le rayon ne compte que le CENTRE de l'entité (moteur réel, parite-adopte :
+  -- le four voisin de 2 x 2 n'était pas vu à 1,1 tuile de son centre)
+  local d = drill.drop_position
+  local list = drill.surface.find_entities_filtered({ area = { { d.x - 0.1, d.y - 0.1 }, { d.x + 0.1, d.y + 0.1 } }, type = { "furnace", "container" },
     force = drill.force.name })
   table.sort(list, function(a, b) return (a.unit_number or 0) < (b.unit_number or 0) end)
   for _, e in ipairs(list) do
