@@ -686,7 +686,13 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
   local d = c.current
   if only_center and not (d and d.center) then return 0, true end -- lot AGES : gel levé pour le centre seulement (2e valeur : rien tenté)
   if not list or #list == 0 then
-    if d then Capital.attente(f, "non-reserve", tick, "aucun paiement prevu par le cerveau") end
+    if d then
+      -- Lot AGES : le stock libre est dit aussi ici (essai 6 : « non-reserve » 73 min de suite pour le centre d'azure avec du fer libre,
+      -- sans que le journal dise quel objet manquait).
+      local have = {}
+      for _, it in ipairs(d.cost or {}) do have[#have + 1] = it[1] .. " " .. ((stock or {})[it[1]] or 0) .. "/" .. it[2] end
+      Capital.attente(f, "non-reserve", tick, "aucun paiement prevu par le cerveau ; stock libre : " .. table.concat(have, ", "))
+    end
     return 0
   end
   if d then
