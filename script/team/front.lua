@@ -198,8 +198,9 @@ function Front.view(f, fortify_open)
       st.belt = { sig = sig, tick = tick, sites = belt and belt.sites or nil }
       if belt then
         pick.sites = belt.sites
-        st.belt_logs = (st.belt_logs or 0) + 1
-        if st.belt_logs <= Front.LOGS then
+        if st.belt_said ~= sig and (st.belt_logs or 0) < Front.LOGS then
+          st.belt_said = sig
+          st.belt_logs = (st.belt_logs or 0) + 1
           log(string.format("[FO-CEINTURE] %s cellule %s (%s) en (%.0f, %.0f) : %d tourelle(s) a poser, %d emplacement(s) de contour a moins de %d tuiles, %d batiment(s), %d point(s) de menace ; poids couvert en plus %d sur %d",
             f.key or "player", pick.key, pick.kind, pick.x, pick.y, pick.count, belt.info.cands,
             (pick.kind == "couverture" and Fr.ACCEPT_COVER or Fr.ACCEPT) - 1, belt.info.assets, belt.info.threats, belt.info.covered, belt.info.total))

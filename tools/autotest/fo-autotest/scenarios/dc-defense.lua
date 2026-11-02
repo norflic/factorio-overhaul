@@ -34,17 +34,27 @@ local function row_of(force_name)
 end
 
 --- Une tourelle vivante de la force couvre-t-elle (x, y) ? (portee lue au prototype de chaque tourelle ; la piece morte est exclue)
+--- Rend aussi la distance a la tourelle vivante la plus proche (dans 80 tuiles ; nil au-dela), pour le journal de chaque perte.
 local function covered(s, ent, force)
   local p = ent.position
-  for _, t in ipairs(s.find_entities_filtered({ position = p, radius = 40, force = force, type = TURRET_TYPES })) do
+  local ok, nearest = false, nil
+  for _, t in ipairs(s.find_entities_filtered({ position = p, radius = 80, force = force, type = TURRET_TYPES })) do
     if t.valid and t ~= ent then
       local proto = game.entity_prototypes[t.name]
       local range = proto and proto.turret_range or 18
       local dx, dy = t.position.x - p.x, t.position.y - p.y
-      if dx * dx + dy * dy <= range * range then return true end
+      local d2 = dx * dx + dy * dy
+      if d2 <= range * range then ok = true end
+      if not nearest or d2 < nearest then nearest = d2 end
     end
   end
-  return false
+  return ok, nearest and math.sqrt(nearest) or nil
+end
+
+local function hq_dist(s, ent)
+  local hq = s.find_entities_filtered({ name = "fo-faction-hq", force = ent.force, limit = 1 })[1]
+  local q = hq and hq.valid and hq.position or game.forces.player.get_spawn_position(s)
+  return math.sqrt((ent.position.x - q.x) ^ 2 + (ent.position.y - q.y) ^ 2)
 end
 
 script.on_event(defines.events.on_entity_died, function(e)
@@ -62,7 +72,14 @@ script.on_event(defines.events.on_entity_died, function(e)
     r.wave_prod, r.wave_tur = 0, 0
   end
   r.last = e.tick
-  local out = not covered(en.surface, en, en.force)
+  local cov, near = covered(en.surface, en, en.force)
+  local out = not cov
+  r.logs = (r.logs or 0) + 1
+  if r.logs <= 120 then
+    log(string.format("[FO-DEF-PIECE] minute %.1f | %s | %s (%s) en (%.0f, %.0f) a %.0f tuiles du QG | tourelle vivante la plus proche : %s | %s",
+      e.tick / 3600, fname, en.name, en.type, en.position.x, en.position.y, hq_dist(en.surface, en),
+      near and string.format("%.0f tuiles", near) or "aucune a 80 tuiles", out and "HORS PORTEE" or "a portee"))
+  end
   if is_tur then
     r.tur_dead = r.tur_dead + 1
     r.wave_tur = r.wave_tur + 1
