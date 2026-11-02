@@ -409,7 +409,9 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     if not pr and not st.done_pr[tostring(x)] and not bad[x] then pr = x end
   end
   if not pr then
-    finish(f, ms, o, st, (st.done > 0 or st.produced > 0) and "fini" or "abandon", string.format("avant-poste %d : champ pose (%d bande(s) produisent)", o.id, st.produced))
+    finish(f, ms, o, st, (st.done > 0 or st.produced > 0) and "fini" or "abandon", (#st.order == 0)
+      and string.format("avant-poste %d : aucune bande ne tient sur le gisement (occupe : voir [FO-CHAMP]), les paires restent", o.id)
+      or string.format("avant-poste %d : champ pose (%d bande(s) produisent)", o.id, st.produced))
     return false
   end
   local bd, why = Champ.band(f, surface, o, st.frame, pr)
