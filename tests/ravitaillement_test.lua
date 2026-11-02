@@ -114,6 +114,10 @@ check(BUILD:find("Ra%.hand_due%(n, have, Build%.QUAI_LOW, p%.line_ok and p%.line
 check(SCRIPT:find("made_by_neighbour%(f, surface, o%.x, o%.y%)") ~= nil, "7.6 la sortie vide d'un mall prend l'objet de sa machine")
 check(SCRIPT:find("s%.taken = taken%[s%.key%] or 0") ~= nil, "7.7 le relevé compte les liaisons tirées de chaque sortie")
 check(not SCRIPT:find("function%s*%(%)%s*[^\n]*line_ok"), "7.8 l'état noté sur le projet ne garde aucune fonction")
+check(SCRIPT:find("local PRODUCING = { chantier = true, raccordement = true }", 1, true) ~= nil and SCRIPT:find("eligible%(b%.projects%[pid%]%) or eligible_source%(b%.projects%[pid%]%)") ~= nil,
+  "7.9 un chantier qui fabrique déjà peut servir de départ")
+check(SCRIPT:find("for idx, q in ipairs(fini and p.quais or {}) do", 1, true) ~= nil, "7.10 jamais un quai d'arrivée sur un module non fini")
+check(SCRIPT:find("elseif #names == 0 and fini then", 1, true) ~= nil, "7.11 un chantier non fini ne sert que s'il est vu plein d'un seul objet (ni mémoire, ni machine voisine)")
 
 -- §8 mutants
 local function load_mod(text, name)

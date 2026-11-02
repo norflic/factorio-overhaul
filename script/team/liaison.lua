@@ -78,6 +78,16 @@ local function eligible(p)
   return true
 end
 
+--- Lot MALL : un projet dont le chantier n'est pas fini (quelques pièces manquent, raccordement en cours) fabrique déjà : son coffre de sortie peut
+--- servir de départ à une ligne si on le VOIT plein d'un seul objet. Jamais un quai d'arrivée : le module doit être fini (eligible).
+local PRODUCING = { chantier = true, raccordement = true }
+local function eligible_source(p)
+  if not p or p.abandoned or not p.spec or not PRODUCING[p.state] then return false end
+  for _, k in ipairs(SKIP_KEYS) do if p.spec[k] then return false end end
+  local first = p.parts and p.parts[1]
+  return not (first and first.kind == "centrale")
+end
+
 local function chest_at(f, surface, x, y)
   return surface.find_entities_filtered({ position = { x, y }, radius = 0.4, force = f.force, type = "container", limit = 1 })[1]
 end
@@ -126,17 +136,18 @@ end
 local function start_cycle(b)
   local units = {}
   for _, pid in ipairs(b.order) do
-    if eligible(b.projects[pid]) then units[#units + 1] = pid end
+    if eligible(b.projects[pid]) or eligible_source(b.projects[pid]) then units[#units + 1] = pid end
   end
   return { units = units, i = 1, docks = {}, srcs = {}, made = {} }
 end
 
 local function scan_unit(f, surface, b, st, c, pid)
   local p = b.projects[pid]
-  if not eligible(p) then return end
-  local flows = inflow_of(st, p)
+  local fini = eligible(p)
+  if not fini and not eligible_source(p) then return end
+  local flows = fini and inflow_of(st, p) or nil
   local seen = {} -- p.quais garde les quais des plans précédents d'un projet replanifié : un coffre ne compte qu'une fois (sinon, deux liaisons vers lui)
-  for idx, q in ipairs(p.quais or {}) do
+  for idx, q in ipairs(fini and p.quais or {}) do
     local ch = q.item and chest_at(f, surface, q.x, q.y)
     local tk = math.floor(q.x) .. ":" .. math.floor(q.y) .. ":" .. tostring(q.item)
     if ch and not seen[tk] then
@@ -152,7 +163,7 @@ local function scan_unit(f, surface, b, st, c, pid)
       local names = sorted_keys(ch.get_inventory(defines.inventory.chest).get_contents())
       local item
       if #names == 1 then item = names[1]; st.src_item[key] = item
-      elseif #names == 0 then
+      elseif #names == 0 and fini then
         item = st.src_item[key] -- sortie vide : l'objet vu la dernière fois
         if not item and is_mall(p) then -- lot MALL : sinon, celui de la machine voisine
           item = made_by_neighbour(f, surface, o.x, o.y)
