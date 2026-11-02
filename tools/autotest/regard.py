@@ -30,8 +30,13 @@ FONDERIE_MIN = 0.90     # plaques produites / minerai extrait (fer + cuivre), de
 RAPPORT_ECART = 1.5     # cuivre/fer des plaques contre cuivre/fer des gisements : facteur toléré
 TOUR_QG_MAX = 0.5       # part des tourelles a moins de 15 tuiles du QG
 TOUR_MIN = 8            # en dessous, pas de verdict
-COUPE_MAX = 0.05        # part des consommateurs sans courant
-STOCK_MIN = 300         # stock (coffres + plaques qui dorment) a partir duquel miner a la main est injustifie
+COUPE_MAX = 0.05        # part des consommateurs sans courant (de 10 consommateurs electriques au moins)
+COUPE_DEPUIS = 25       # minute a partir de laquelle on juge le courant (avant, la centrale se monte)
+FOURS_PLEINS = 0.90     # part des fours en marche qui, avec du minerai bouche, veut dire « fonderie saturee »
+BOUCHE_MIN = 100        # minerai bouche (objets) qui rend la saturation parlante
+STOCK_MIN = 1000        # stock (coffres + plaques qui dorment) a partir duquel miner a la main est injustifie
+STOCK_INFO = 300        # seuil bas, compte a titre d'information (le coffre de depart du guide porte 400 plaques de fer)
+MAIN_DEPUIS = 10        # minute a partir de laquelle on juge le minage a la main (avant, il n'y a pas de fonderie)
 
 
 def lire(arch):
@@ -176,7 +181,15 @@ def v_fonderie(rel_f, minutes):
     det = "plaques %d pour %d minerai extrait (fer+cuivre, min 10 a %d) = %.2f ; seuil %.2f" % (plaques, ore, minutes[-1], rap, FONDERIE_MIN)
     if fours:
         det += " ; fours en marche %.0f %% en moyenne" % (100 * sum(fours) / len(fours))
-    return rap >= FONDERIE_MIN, det
+    # Saturation (retour du DC : « les fours tournent 24/24 et il n'y a pas assez de debit de fonderie ») : fours pleins ET minerai bouche.
+    sat = []
+    for m in minutes[-3:]:
+        F, T = rel_f[m].get("F"), rel_f[m].get("T")
+        if F and T and g(F, "fours") and g(F, "marche") / g(F, "fours") >= FOURS_PLEINS and g(T, "minerai_bouche") >= BOUCHE_MIN:
+            sat.append(m)
+    if len(sat) >= 2:
+        det += " ; SATUREE : fours en marche >= %.0f %% avec >= %d minerai bouche aux releves %s" % (100 * FOURS_PLEINS, BOUCHE_MIN, sat)
+    return rap >= FONDERIE_MIN and len(sat) < 2, det
 
 
 def v_rapport(rel_f, minutes):
@@ -207,8 +220,10 @@ def v_main(rel_f, minutes, minages, cle, stock_min):
     par_item = {}
     for x in mines:
         par_item[x["item"]] = par_item.get(x["item"], 0) + 1
-    mauvais = []
+    mauvais, bas = [], 0
     for x in mines:
+        if x["min"] < MAIN_DEPUIS:
+            continue
         if x["item"] not in ("iron-ore", "copper-ore", "coal", "stone"):
             continue
         avant = [m for m in minutes if m <= x["min"]] or [minutes[0]]
@@ -217,11 +232,14 @@ def v_main(rel_f, minutes, minages, cle, stock_min):
         equiv = PLATE_OF.get(x["item"])
         fours = g(r.get("F"), {"iron-plate": "fer_dort", "copper-plate": "cuivre_dort"}.get(equiv, "_"))
         total = max(x["coffre"], g(stock, x["item"])) + (g(stock, equiv) + fours if equiv else 0)
+        if total >= STOCK_INFO:
+            bas += 1
         if total >= stock_min:
             mauvais.append((x["min"], x["item"], total))
-    det = "%d minage(s) a la main (%s)" % (len(mines), ", ".join("%s %d" % kv for kv in sorted(par_item.items())) or "aucun")
+    det = "%d minage(s) a la main (%s) ; apres la minute %d, %d avec un stock >= %d" % (
+        len(mines), ", ".join("%s %d" % kv for kv in sorted(par_item.items())) or "aucun", MAIN_DEPUIS, bas, STOCK_INFO)
     if mauvais:
-        det += " ; %d avec un stock >= %d : %s" % (len(mauvais), stock_min, ", ".join("min %.0f %s (stock %d)" % x for x in mauvais[:6]))
+        det += " dont %d >= %d : %s" % (len(mauvais), stock_min, ", ".join("min %.0f %s (stock %d)" % x for x in mauvais[:6]))
     return not mauvais, det
 
 
@@ -239,21 +257,23 @@ def v_tourelles(rel_f, minutes):
 
 
 def v_courant(rel_f, minutes):
-    pic, mn, cons = 0.0, None, 0
-    sans_comb = 0.0
+    serie, sans_comb = [], 0.0
     for m in minutes:
         C = rel_f[m].get("C")
-        if not C or g(C, "consommateurs") < 10:
+        if not C or m < COUPE_DEPUIS or g(C, "consommateurs") < 10:
             continue
-        p = g(C, "sans_courant") / g(C, "consommateurs")
-        if p >= pic:
-            pic, mn, cons = p, m, g(C, "consommateurs")
+        serie.append((m, g(C, "sans_courant") / g(C, "consommateurs"), g(C, "consommateurs")))
         if g(C, "chaudieres"):
             sans_comb = max(sans_comb, g(C, "chaudieres_sans_combustible") / g(C, "chaudieres"))
-    if mn is None:
-        return None, "moins de 10 consommateurs electriques"
-    return pic < COUPE_MAX, "pic de consommateurs sans courant %.1f %% (min %d, sur %d) ; chaudieres sans combustible au pire %.0f %% ; seuil %.0f %%" % (
-        100 * pic, mn, cons, 100 * sans_comb, 100 * COUPE_MAX)
+    if not serie:
+        return None, "moins de 10 consommateurs electriques depuis la minute %d" % COUPE_DEPUIS
+    coupes = [(m, p, n) for m, p, n in serie if p >= COUPE_MAX]
+    persistant = any(a[0] + 5 == b[0] for a, b in zip(coupes, coupes[1:])) or (coupes and coupes[-1][0] == serie[-1][0])
+    pic = max(serie, key=lambda x: x[1])
+    det = "pic de consommateurs sans courant %.1f %% (min %d, sur %d) ; releves >= %.0f %% : %s ; chaudieres sans combustible au pire %.0f %%" % (
+        100 * pic[1], pic[0], pic[2], 100 * COUPE_MAX, ", ".join("min %d %.0f %%" % (m, 100 * p) for m, p, n in coupes[:8]) or "aucun",
+        100 * sans_comb)
+    return not persistant, det + " (faux si 2 releves de suite ou le dernier)"
 
 
 def v_pnj(rel_f, minutes):
@@ -317,12 +337,13 @@ def traiter(arch, args):
                 ok, det = fn(rel_f, minutes)
             bilan[force][nom] = ok
             print("  [%s] %s : %s" % (marque(ok), nom, det))
-    cout = [c for c in couts if c[0] == "COUT"]
+    cout = [duree_ms(c[1]) for c in couts if c[0] == "COUT"]
     if cout:
-        print("\n-- cout du releve (profileur du moteur, par force et par releve) : %d ligne(s), p. ex. %s" % (len(cout), cout[-1][1]))
-    taches = [c[1] for c in couts if c[0] == "TACHE"]
+        print("\n-- cout du releve (profileur du moteur), par force et par releve : %d mesure(s), moyenne %.0f ms, maximum %.0f ms" % (
+            len(cout), sum(cout) / len(cout), max(cout)))
+    taches = [(duree_ms(c[1]), c[1]) for c in couts if c[0] == "TACHE"]
     if taches:
-        print("   plus longue tache du premier releve : " + max(taches, key=lambda s: duree_ms(s)))
+        print("   plus longue tache (par tick) du premier releve : %.1f ms (%s)" % max(taches))
     return bilan
 
 
