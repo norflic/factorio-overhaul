@@ -60,6 +60,43 @@ def resume(dossier):
     return out, vivantes
 
 
+PIECE = re.compile(r"\[FO-DEF-PIECE\] minute ([\d.]+) \| (\S+) \| (\S+) \((\S+)\) en \((-?\d+), (-?\d+)\) a (\d+) tuiles du QG \| "
+                   r"tourelle vivante la plus proche : (aucune a 80 tuiles|\d+ tuiles) \| (HORS PORTEE|a portee)")
+
+
+def pertes(dossiers):
+    """Positions des pertes contre positions des tourelles : tranche de distance a la tourelle vivante la plus proche, par groupe et par type.
+    Le journal garde les 120 premieres pertes par equipe (cause : echantillon, pas le total)."""
+    tranches = [("aucune a 80 tuiles", None), ("40 a 80 tuiles", (40, 81)), ("19 a 39 tuiles", (19, 40)), ("<= 18 tuiles (a portee)", (0, 19))]
+    cpt, types, qg = {}, {}, {}
+    for d in dossiers:
+        for l in lire(d):
+            m = PIECE.search(l)
+            if not m or m.group(3) == "":
+                continue
+            g, typ, dqg, near = groupe(m.group(2)), m.group(4), int(m.group(7)), m.group(8)
+            if typ in ("ammo-turret", "electric-turret", "fluid-turret"):
+                continue
+            dist = None if near.startswith("aucune") else int(near.split()[0])
+            for nom, rng in tranches:
+                if (rng is None and dist is None) or (rng is not None and dist is not None and rng[0] <= dist < rng[1]):
+                    cpt[(g, nom)] = cpt.get((g, nom), 0) + 1
+                    break
+            types[(g, typ)] = types.get((g, typ), 0) + 1
+            qg.setdefault(g, []).append(dqg)
+    for g in ("factions", "equipe"):
+        tot = sum(v for (gg, _), v in cpt.items() if gg == g)
+        if not tot:
+            continue
+        print(f"PERTES {g} (pieces de production, echantillon journal) : {tot}")
+        for nom, _ in tranches:
+            n = cpt.get((g, nom), 0)
+            print(f"   tourelle vivante la plus proche : {nom:26s} {n:4d} ({pct(n, tot):3.0f} %)")
+        print("   par type : " + ", ".join(f"{t}={v}" for (gg, t), v in sorted(types.items()) if gg == g))
+        ds = sorted(qg[g])
+        print(f"   distance au QG : mediane {ds[len(ds) // 2]} tuiles, <= 15 tuiles {pct(sum(1 for x in ds if x <= 15), len(ds)):.0f} %, > 40 tuiles {pct(sum(1 for x in ds if x > 40), len(ds)):.0f} %")
+
+
 def pct(a, b):
     return 100.0 * a / b if b else 0.0
 
@@ -79,6 +116,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--temoin", nargs="+", required=True)
     ap.add_argument("--essai", nargs="*", default=[])
+    ap.add_argument("--pertes", action="store_true", help="positions des pertes contre positions des tourelles (temoin puis essai)")
     a = ap.parse_args()
     cumul = {}
     for tag, dossiers in (("temoin", a.temoin), ("essai", a.essai)):
@@ -100,6 +138,8 @@ def main():
         print("   " + ligne("factions", tot["factions"]))
         print("   " + ligne("equipe", tot["equipe"]))
         print("   " + ligne("total", add(tot["factions"], tot["equipe"])))
+        if a.pertes:
+            pertes(a.temoin if tag == "temoin" else a.essai)
 
 
 if __name__ == "__main__":
