@@ -29,6 +29,7 @@ R.RETRY_AFTER = 30 * 3600 -- ticks : essais épuisés, un essai de plus après 3
 R.LOST_NEAR = 32         -- tuiles : un poteau perdu (ou un poteau d'un chantier pas fini) à cette distance laisse la main
 R.MAX_DIST = 160         -- tuiles : au-delà, pas de chaîne (le graphe borné de la recherche de chemin n'y suffit plus)
 R.ENEMY_R = 28           -- tuiles : jamais de pose avec un ennemi à cette portée du départ
+R.SECOND_WINDOW = 6 * 3600 -- ticks : durée de validité d'un « second chemin » annoncé par [FO-RESEAU] (lot ENERGIE)
 R.LOG_EVERY = 5 * 3600   -- une synthèse au plus par équipe et par 5 min (hors changement)
 
 --- Une machine relevée : "ok", "ile" ou "sans_reseau". net = numéro de réseau (nil : sous aucun poteau), live(net) -> bool

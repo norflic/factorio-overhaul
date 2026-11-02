@@ -307,16 +307,17 @@ return function(variant, opts)
             local load = pole.unit_number and st.load_poles and st.load_poles[pole.unit_number]
             if not load and d2(pole.position, D) >= 20 ^ 2 and #elig < 10 then elig[#elig + 1] = pole end
           end
-          if opts.enemy then
-            -- le ver au centre des poteaux coupes doit etre a plus de 28 tuiles des foreuses (sinon le raccordement attend, a raison)
-            while #elig > 1 do
-              local sx0, sy0 = 0, 0
-              for _, pole in ipairs(elig) do sx0, sy0 = sx0 + pole.position.x, sy0 + pole.position.y end
-              if d2({ x = sx0 / #elig, y = sy0 / #elig }, D) >= 30 ^ 2 then break end
-              local k, kd = 1, math.huge
-              for i, pole in ipairs(elig) do local dd = d2(pole.position, D); if dd < kd then k, kd = i, dd end end
-              table.remove(elig, k)
+          if opts.enemy and #elig > 0 then
+            -- avec un ennemi : le poteau eligible le plus proche du milieu du couloir et ceux a moins de 27 tuiles de lui (le ver est pose sur
+            -- le premier : tous sont tenus). La ligne bâtie par le plan est faite de grands poteaux espaces de 28 tuiles : en general UN seul.
+            -- Le ver reste ainsi a plus de 28 tuiles des foreuses (sinon le raccordement attend, a raison) et les poteaux vivants voisins
+            -- sont les bouts du second chemin.
+            local m = elig[1]
+            local near = {}
+            for _, pole in ipairs(elig) do
+              if d2(pole.position, m.position) <= 27 ^ 2 then near[#near + 1] = pole end
             end
+            elig = near
           end
           list = elig
           do -- état avant la coupe : combien de foreuses sont déjà hors du réseau de la machine à vapeur (doit être 0)
@@ -329,6 +330,7 @@ return function(variant, opts)
             ctx.log(string.format("AVANT la coupe : %d foreuse(s) electriques dont %d hors du reseau de la machine a vapeur ; %d poteau(x) a couper", all0, off0, #list))
           end
           local n, sx, sy = 0, 0, 0
+          if opts.enemy and list[1] then st.worm_x, st.worm_y = list[1].position.x, list[1].position.y end
           for i = 1, #list do
             local pole = list[i]
             if pole.valid then sx, sy = sx + pole.position.x, sy + pole.position.y; pole.destroy(); n = n + 1 end
@@ -338,7 +340,7 @@ return function(variant, opts)
             n > 0 and sx / n or 0, n > 0 and sy / n or 0))
           if opts.enemy and n > 0 then
             -- un ver (ennemi immobile, portee 25 : les poseurs restent a 28) au milieu des poteaux retires : ils sont tenus (28 tuiles), le chemin sur n'existe pas
-            local biter = s.create_entity({ name = "small-worm-turret", position = { sx / n, sy / n }, force = "enemy" })
+            local biter = s.create_entity({ name = "small-worm-turret", position = { st.worm_x or (sx / n), st.worm_y or (sy / n) }, force = "enemy" })
             if biter then
               local okact = true
               st.biter = biter
@@ -462,7 +464,7 @@ return function(variant, opts)
           ctx.check(st.radars and st.radars >= opts.radars, "AVEC la regle : la charge a ete posee (" .. tostring(st.radars) .. " radars)")
         end
       elseif opts.mode == "ilot" then
-        ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= 8, "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x) sur " .. tostring(st.poles_in_box) .. " du couloir)")
+        ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= (opts.enemy and 1 or 8), "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x) sur " .. tostring(st.poles_in_box) .. " du couloir)")
         ctx.check((st.drills_off_before or 1) == 0, "avant la coupe, aucune foreuse hors du reseau (" .. tostring(st.drills_off_before) .. ")")
         ctx.check(st.saw_dark == true, "la coupe isole bien des foreuses (ilot sans courant)")
         if opts.enemy then ctx.check(st.biter ~= nil and st.biter.valid, "l'ennemi est pose et vivant a la fin") end
