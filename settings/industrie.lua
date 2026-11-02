@@ -24,3 +24,16 @@ data:extend({
     order = "e-war-z-industrie",
   },
 })
+
+-- Lot ECHELON (fo-logs/2026-11-02_ECHELON) : le producteur de ce qui manque passe d'abord à la réserve des chantiers (script/team/echelon.lua) et
+-- l'arriéré des chantiers devient une demande de module (script/ai3/industrie.lua, Ind.echelon_sources). Relu à chaque appel. Préfixe « fo-war- » :
+-- réglable par les bancs (war_setting). Traductions : locale/*/echelon.cfg.
+data:extend({
+  {
+    type = "bool-setting",
+    name = "fo-war-echelon",
+    setting_type = "runtime-global",
+    default_value = true,
+    order = "e-war-z-industrie-b",
+  },
+})

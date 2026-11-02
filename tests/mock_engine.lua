@@ -816,6 +816,8 @@ function M.new_world(opts)
       ["fo-war-petrole"] = (opts.petrole ~= false) and (os.getenv("FO_PETROLE") ~= "0"),
       -- Lot INDUSTRIE : ALLUMÉ par défaut comme le jeu (settings/industrie.lua) ; éteint par l'option (industrie = false) ou FO_INDUSTRIE=0
       ["fo-war-industrie"] = (opts.industrie ~= false) and (os.getenv("FO_INDUSTRIE") ~= "0"),
+      -- Lot ECHELON : ALLUMÉ par défaut comme le jeu (settings/industrie.lua) ; éteint par l'option (echelon = false) ou FO_ECHELON=0
+      ["fo-war-echelon"] = (opts.echelon ~= false) and (os.getenv("FO_ECHELON") ~= "0"),
       -- lot IA3-k : comportements visibles (défaut du jeu : allumé)
       ["fo-war-ia3-comportement"] = opts.ia3k ~= false,
       -- Lot RB-1 : robots, ALLUMÉ par défaut comme le jeu (settings/robots.lua) ; éteint par l'option (robots = false) ;

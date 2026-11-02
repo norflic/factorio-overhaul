@@ -51,6 +51,7 @@ local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de
 local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : amorce à la main des chaudières à sec, porte des consommateurs
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
+local Echel = require("script.team.echelon") -- lot ECHELON : le producteur de ce qui manque passe d'abord à la réserve (reserve)
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
@@ -2852,10 +2853,14 @@ local function reserve(f, p)
   local need = needs_of(p)
   local missing = {}
   local free = free_stock(f)
+  -- lot ECHELON : ce que les producteurs en attente retiennent (nil : réglage éteint ou aucun) ; le module d'un objet qui exige cet objet pour
+  -- être bâti passait derrière tous les chantiers plus anciens (17 à 19 min en « reserve:materiaux » dans deux parties)
+  local held = Echel.held(f, game.tick)
+  local prod = held and Echel.produces(p) or nil
   for _, it in ipairs(sorted_keys(need)) do
     local want = need[it] - (p.stock[it] or 0)
     if want > 0 then
-      local have = math.min(Stock.count(f, it), free[it] or 0)
+      local have = Echel.limit(held, prod, it, math.min(Stock.count(f, it), free[it] or 0))
       local n = math.min(want, have)
       if n > 0 then
         local got = Stock.remove(f, it, n)

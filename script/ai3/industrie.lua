@@ -38,6 +38,8 @@ local Harvest = require("script.team.harvest")
 local Profiler = require("script.core.profiler")
 local PileRt = require("script.team.pile")
 local Events = require("script.core.events")
+local Ech = require("shared.ai3.echelon") -- lot ECHELON : l'arriéré des chantiers devient une demande
+local Ex = require("script.team.echelon")
 
 local Ind = {}
 
@@ -246,6 +248,57 @@ local function affordable(f, book, view, mod, tick, orders)
 end
 
 ---------------------------------------------------------------------------------------------------
+-- Lot ECHELON : l'arriéré des chantiers est une demande
+---------------------------------------------------------------------------------------------------
+--- Demande des chantiers en attente de matière depuis Ech.WAIT_MIN minutes ou plus : liste { item, rate, src = "chantier" } (objets par minute pour
+--- rattraper l'arriéré en Ech.CATCHUP_MIN minutes), limitée aux objets que la lecture sait fabriquer en patron (un objet brut ou à fluide n'est pas
+--- une demande de module : la règle du choix le refuserait et le noterait refusé). Liste vide quand le réglage est éteint.
+function Ind.echelon_sources(f, tick)
+  if not (Ex.on() and Rsv.on()) then return {} end
+  local lec = lecture()
+  if not lec then return {} end
+  local rows = Ech.backlog(Ex.waiters(f), tick)
+  local out = {}
+  for _, r in ipairs(rows) do
+    if r.due then
+      local pr = Id.profile(lec.fab, r.item, nil)
+      if pr and pr.par_min > 0 then
+        out[#out + 1] = { item = r.item, rate = r.rate, src = "chantier" }
+        Ex.say(f, tick, "arriere:" .. r.item, Ech.describe(r.item, { bound = "demande", n = 0, n_target = 0, need = r.rate, cap_in = math.huge,
+          why = "l'arriere des chantiers est une demande : le module s'ouvre sans attendre trois episodes de fabrication a la main" }, r))
+      end
+    end
+  end
+  return out
+end
+
+--- Les puits du mall plus la demande des chantiers : une ligne par objet, le plus grand débit (la capitalisation en tire les machines de plus).
+function Ind.with_echelon(f, sinks, tick)
+  local extra = Ind.echelon_sources(f, tick)
+  if #extra == 0 then return sinks end
+  local by = {}
+  for _, s in ipairs(sinks or {}) do
+    by[s.item] = s
+  end
+  local merged = {}
+  for _, s in ipairs(sinks or {}) do merged[#merged + 1] = s end
+  for _, e in ipairs(extra) do
+    local cur = by[e.item]
+    if cur then
+      if e.rate > cur.rate then
+        local copy = {}
+        for k, v in pairs(cur) do copy[k] = v end
+        copy.rate, copy.want = e.rate, math.max(copy.want or 0, e.rate)
+        for i, m in ipairs(merged) do if m.item == e.item then merged[i] = copy end end
+      end
+    else
+      merged[#merged + 1] = { item = e.item, rate = e.rate, want = e.rate }
+    end
+  end
+  return merged
+end
+
+---------------------------------------------------------------------------------------------------
 -- Pensée (appelée une fois par décision de la capitalisation)
 ---------------------------------------------------------------------------------------------------
 function Ind.think(f, cs, res, view, book, tick)
@@ -301,6 +354,7 @@ function Ind.think(f, cs, res, view, book, tick)
   -- 3. la décision
   local stock = view.stock or {}
   local sources = Ml.sources(ml, tick)
+  for _, e in ipairs(Ind.echelon_sources(f, tick)) do sources[#sources + 1] = e end -- lot ECHELON : l'arriéré des chantiers est une demande (éteint : rien)
   local keep = {}
   for _, c in ipairs(sources) do if not (st.hold[c.item] and st.hold[c.item] > tick) then keep[#keep + 1] = c end end
   local width = {}

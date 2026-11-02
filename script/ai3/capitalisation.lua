@@ -943,7 +943,7 @@ local function build_input(f, cs, view, book, tick, D, w)
     can_exec = can_exec, skip = skip, successors = successors_for(cs),
     data = D, state = { techs = st.techs or {}, known = st.known }, stock = stock, flows = cs.flows or {},
     machines = cs.scan and cs.scan.machines or {}, drills = cs.scan and cs.scan.drills or {}, labs = labs,
-    deposits = deposits, open = open, sinks = cs.bench_sinks or Ml.sinks(st.mall), need = need, research = research, drill_for = drill_for,
+    deposits = deposits, open = open, sinks = cs.bench_sinks or Ind.with_echelon(f, Ml.sinks(st.mall), tick), need = need, research = research, drill_for = drill_for,
     limits = Rsv.on() and {} or { max_ingredients = 2 }, workers = view.workers or 0, idle = Ca.idle_of(g and g.idle_ema or 0),
     can_grow = (view.workers or 0) < (view.workers_wanted or 0), traits = f.traits or {},
     weights = w or {}, threat = threat, dt = 1, lag = cs.lag, starved = Pi.threat_exempt(st.pile, st.starved_open), -- (intégration 0.6.28)
