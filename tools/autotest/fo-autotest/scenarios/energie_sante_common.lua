@@ -372,7 +372,16 @@ return function(variant, opts)
             st.gap_s = 0
           end
           st.dark_now = dark
-          if t % MIN == 0 then ctx.log(string.format("foreuses hors du reseau de la machine a vapeur : %d", dark)) end
+          if t % MIN == 0 then
+            ctx.log(string.format("foreuses hors du reseau de la machine a vapeur : %d", dark))
+            -- diagnostic : les projets pas finis (le raccordement du second chemin est-il bloque, et ou ?)
+            local r = ctx.remote("fo-ia1d", "report", "player")
+            for _, pr in ipairs(r and r.projects or {}) do
+              if pr.state ~= "fini" then
+                ctx.log(string.format("projet %s : etat %s, raison %s", tostring(pr.id), tostring(pr.state), tostring(pr.reason)))
+              end
+            end
+          end
         end
       end
       if opts.mode == "porte" then
