@@ -240,10 +240,41 @@ local function state_of(f)
   return f.team.capital
 end
 
---- Relevé des bâtiments à niveaux de la force : { list = { {id, name, working} }, center = {id, name} }.
+--- Lot AGES : le meilleur bâtiment d'une famille (le niveau le plus haut sous `cond`) où qu'il soit sur la surface du QG, ou nil.
+--- Le jeu compte la condition du centre (Q16) sur TOUTE la surface (script/levels/levels.lua, Levels.census) ; le relevé du
+--- planificateur ne regarde que le rayon du QG et les tourelles suivies : une famille bloquante dont les bâtiments sont loin
+--- (murs d'un avant-poste, foreuses) lui restait invisible, le centre était choisi puis refusé « cc-families » (mesuré, 2
+--- graines : 3 refus sur 3 centres choisis).
+local function far_best(f, surface, fam, cond)
+  for n = math.min(cond, fam.max) - 1, 1, -1 do
+    local found = surface.find_entities_filtered({ force = f.force, name = L.name(fam, n), limit = 1 })
+    local e = found and found[1]
+    if e and e.valid and e.unit_number then return e end
+  end
+  return nil
+end
+
+--- Relevé des bâtiments à niveaux de la force : { list = { {id, name, working} }, center = {id, name}, blockers = familles que
+--- le JEU dit bloquantes (condition Q16, relevé de toute la surface) }.
 local function scan(f, c)
   local surface = f.hq.surface
   local by_id = {}
+  -- Lot AGES : la condition du centre telle que le jeu la compte, et le meilleur bâtiment de chaque famille bloquante.
+  local cc0 = Levels.cc(game.forces[f.force])
+  local lvl0 = 0
+  if cc0 and cc0.valid then
+    local _, n0 = L.parse(cc0.name)
+    lvl0 = n0 or 0
+  end
+  local blockers
+  if lvl0 >= 1 and lvl0 < CFAM.max then
+    local cond = L.cc_condition_level(lvl0)
+    blockers = L.cc_blockers(Levels.census_cached(game.forces[f.force], cond, true))
+    for _, key in ipairs(blockers) do
+      local e = far_best(f, surface, L.by_key[key], cond)
+      if e then by_id[e.unit_number] = e end
+    end
+  end
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, name = NAMES, position = f.hq_pos,
       radius = Capital.RADIUS })) do
     if e.valid and e.unit_number then by_id[e.unit_number] = e end
@@ -274,7 +305,7 @@ local function scan(f, c)
   else
     c.cc_level = 0
   end
-  return { list = list, center = center }
+  return { list = list, center = center, blockers = blockers }
 end
 
 --- Niveau réel du centre de la force (0 : aucun), lu au module des niveaux. Lot C1 : lu aussi quand les améliorations sont
@@ -355,13 +386,17 @@ end
 function Capital.log_centre(f, c, d, tick)
   local cause = Capital.centre_cause(f, d)
   local causes = (d and d.centre and d.centre.causes) or {}
-  local sig = cause .. "|" .. table.concat(causes, ",") .. "|" .. tostring(c.cc_level or 0)
+  local sig = cause .. "|" .. table.concat(causes, ",") .. "|" .. tostring(c.cc_level or 0) .. "|" .. tostring(d and d.starved or false)
   if c.centre_sig == sig then return end
   c.centre_sig = sig
   local why = #causes > 0 and (" bloque par [" .. table.concat(causes, " ") .. "]") or ""
   local key = d and d.centre and d.centre.key
   log(string.format("[FO-CAPITAL-CENTRE] %s : %s%s ; centre niveau %d%s a %.1f min", f.key or "?", cause, why, c.cc_level or 0,
     key and (", cible '" .. key .. "'") or "", minutes(f, tick)))
+  if d and d.starved then
+    log(string.format("[FO-CAPITAL-CENTRE] %s : le centre passe devant (reporte pour %d de travail, son prix %d) a %.1f min", f.key or "?",
+      (c.defer and c.defer.spent) or 0, d.work or 0, minutes(f, tick)))
+  end
 end
 
 --- But « amélioration » de la pensée (nil : aucun, ou éteint). w = poids des familles (B.weights).
@@ -389,8 +424,16 @@ function Capital.goal(f, view, book, tick, w)
     available = function(item) return unlocked(f, item) end,
     unit_cost = unit_cost_fn(f, book), stock = view.stock or {}, weights = w,
     threat = view.threatened or (f.pvp and f.pvp.declared) or false, current = c.current and c.current.key or nil,
-    exclude = exclude }
+    exclude = exclude, defer = c.defer }
   local d = Cap.choose(L, census, ctx)
+  -- Lot AGES : le travail payé en améliorations moins chères PENDANT que le centre est payable (Cap.starved) ; remis à zéro
+  -- quand le centre change (niveau suivant, autre centre) ; le compte vit dans la sauvegarde (nombres et chaînes seulement).
+  if d.gate_key then
+    if not (c.defer and c.defer.key == d.gate_key) then c.defer = { key = d.gate_key, spent = 0 } end
+    c.defer.open = d.gate_open or false
+  else
+    c.defer = nil
+  end
   c.wanted = {}
   for _, k in ipairs(sorted_keys(d.wanted)) do c.wanted[k] = true end
   Capital.log_centre(f, c, d, tick)
@@ -629,6 +672,13 @@ function Capital.pay(f, surface, tick, plan, stock)
           ok, res, info, new = Levels.start(e, nil, { inventories = Stock.inventories(f) })
           if d.center then CentreQG.relink(f, ok and "amelioration" or "amelioration-refusee") end
           why = res
+          -- Lot AGES : un refus « cc-families » dit quelles familles bloquent (le recensement du jeu couvre toute la surface, celui
+          -- du planificateur la base) et ce que le planificateur croyait voir près du QG.
+          if res == "cc-families" and info and info.blocking then
+            local seen = {}
+            for _, k in ipairs(sorted_keys(c.by_family)) do seen[#seen + 1] = k .. "=" .. c.by_family[k] end
+            why = res .. " [bloquent " .. table.concat(info.blocking, " ") .. " ; vu pres du QG " .. table.concat(seen, " ") .. "]"
+          end
           if ok and new and new.valid then
             for _, it in ipairs(d.cost) do f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + it[2] end
             if owner and owner.kind == "turret" then Outposts.add_turret(f, new, owner.oid, 0) end
@@ -644,6 +694,7 @@ function Capital.pay(f, surface, tick, plan, stock)
       if ok then
         done = done + 1
         c.upgrades = (c.upgrades or 0) + 1
+        if not d.center and c.defer and c.defer.open then c.defer.spent = (c.defer.spent or 0) + (d.work or 0) end -- lot AGES
         local m = {}
         for _, it in ipairs(d.cost) do m[it[1]] = it[2] end
         if d.replace then

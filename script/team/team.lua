@@ -37,6 +37,7 @@ local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : 
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
+local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif (aucune clé de traduction inconnue)
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à combustion à l'arrêt rebranchées ou retirées
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
@@ -984,8 +985,8 @@ function Team.goal_text(f)
     shown = shown + 1
     if shown < math.min(3, #t.missing) then parts[#parts + 1] = ", " end
   end
-  if shown == 0 then return { "fo-team.goal-line", { "fo-team.goal-" .. t.goal } } end
-  return { "fo-team.goal-line-missing", { "fo-team.goal-" .. t.goal }, parts }
+  if shown == 0 then return { "fo-team.goal-line", Objectif.name(t.goal) } end
+  return { "fo-team.goal-line-missing", Objectif.name(t.goal), parts }
 end
 
 local KEY_ITEMS = { "iron-plate", "copper-plate", "coal", "stone", "steel-plate", "firearm-magazine", "automation-science-pack" }
