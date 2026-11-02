@@ -416,7 +416,7 @@ function Poles.think(f, view, book, tick, plan)
     local idle_n = 0
     for _, np in ipairs(npcs) do if np.idle and np.role ~= "generalist" then idle_n = idle_n + 1 end end
     iron_extra = { res = spec.resource, n = FerEquipe.extra_mines({ idle = idle_n,
-      plates = (free[spec.product] or 0) + ((view.repat or {})[spec.product] or 0), -- lot FLUX : plus les plaques des sorties
+      plates = (free[spec.product] or 0) + (Fx.ENABLE.equiv and (view.repat or {})[spec.product] or 0), -- lot FLUX : plus les plaques des sorties
       ore = free[spec.resource], smelters = view.smelters, prudent = prudent, skip = skip[spec.resource] }) }
     if iron_extra.n > 0 and (fond_on or fer_off) and not org.fer_logged then
       org.fer_logged = tick

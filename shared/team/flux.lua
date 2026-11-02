@@ -35,7 +35,8 @@ local Fx = {}
 -- elles ne prouvent aucun gain et, sur la graine 271828182, la partie d'Écarlate retombe à la moitié des plaques du témoin avec elles comme sans
 -- les plus récentes (cause non isolée) ; le minerai équivalent et la rétention des minages (F1), eux, sont allumés. Un banc ou une relecture peut
 -- les allumer : `Fx.ENABLE.prio = true`, etc. (tests/flux_test.lua joue les deux états).
-Fx.ENABLE = { prio = false, aging = false, keep_drop = false, refill = false }
+Fx.ENABLE = { prio = false, aging = false, keep_drop = false, refill = false,
+  equiv = true, hold = true } -- equiv/hold : minerai équivalent et rétention des minages (F1), allumés ; interrupteurs pour les parties de contrôle
 
 Fx.STUCK_AT = 90          -- sortie de four au moins aussi pleine (pile de 100) : le four ne fond plus
 Fx.STALE_TICKS = 5 * 3600 -- une tournée libre depuis 5 min : ses sorties ne sont plus comptées (le minage reprend la main)
@@ -119,7 +120,7 @@ end
 function Fx.equiv(res, map, stock, repat)
   local have = math.max(0, (stock and stock[res]) or 0)
   local m = map and map[res]
-  if not m then return have end
+  if not m or not Fx.ENABLE.equiv then return have end
   local plates = math.max(0, (stock and stock[m.plate]) or 0) + math.max(0, (repat and repat[m.plate]) or 0)
   return have + plates * m.ratio
 end
@@ -172,6 +173,7 @@ end
 --- projets d'extraction et retardait l'ouverture de l'extraction de cuivre à 0,8 min, banc dc-croissance 271828182, Écarlate.)
 function Fx.hold_mines(tasks, map, left, urgent)
   local list = {}
+  if not Fx.ENABLE.hold then return {} end
   for _, t in ipairs(tasks or {}) do
     if t.kind == "mine" and t.resource and map and map[t.resource] and not t.worker and (t.prio or 0) < (urgent or Fx.URGENT) then
       list[#list + 1] = t

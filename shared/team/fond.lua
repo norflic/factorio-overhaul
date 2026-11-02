@@ -258,7 +258,7 @@ local function extraction(view, free, ctx, out)
         local gap = math.floor(math.max(0, m[2] - have) * 1000 / m[2])
         -- ... et une ressource dont le stock couvre déjà la cible n'est plus minée « à tour de rôle » (« 5700 de charbon » au coffre, des
         -- plaques en quantité, et le fond minait quand même : le tour de rôle prenait aussi les ressources sans manque).
-        if gap > 0 or not ctx.plate_map then list[#list + 1] = { res = m[1], gap = gap, i = i } end
+        if gap > 0 or not ctx.plate_map or not Fx.ENABLE.equiv then list[#list + 1] = { res = m[1], gap = gap, i = i } end
       end
     end
     table.sort(list, function(a, b)
