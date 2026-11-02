@@ -28,6 +28,7 @@
   M.supply(fl)                          -> thermique ore/s, électrique ore/s
   M.cut_ok(fl, fields, lost, ctx, cfg)  -> vrai/faux, raison  (protection)
   M.sweep(fields, ctx, cfg)             -> actions { id, res, pairs } et refus { id, why }
+  M.verdict(ok, critical, age, cfg)     -> "retirer" | "attendre" | "annuler"  (au moment du retrait d'une bande)
   M.financed(fl, ctx, cfg)              -> vrai/faux, raison  (courant + fer)
   M.order(cands)                        -> liste triée (voulus, puis les plus productifs)
   M.free_slot(res, busy, cfg)           -> vrai/faux, raison
@@ -44,7 +45,9 @@ local M = {}
 M.CFG = {
   cover_ratio = 1.0,      -- extraction électrique en marche / extraction thermique restante à partir de laquelle le gisement est couvert
   min_working = 2,        -- foreuses électriques en marche au moins pour qu'une bande compte comme productive
-  horizon = 20 * 60,      -- s : durée de chantier d'une bande que le stock d'un minerai ordinaire doit pouvoir ponter
+  horizon = 10 * 60,      -- s : durée de coupure d'une bande que le stock d'un minerai ordinaire doit pouvoir ponter
+  protect_wait = 10 * 3600, -- ticks : attente au plus d'un pont de stock avant une coupe d'un minerai ordinaire (jamais un blocage définitif)
+  critical_wait = 20 * 3600, -- ticks : attente d'une coupe d'un minerai critique avant d'annuler la demande (la bande est redemandée plus tard)
   fund_ratio = 1.0,       -- fer libre / coût des foreuses de remplacement à partir duquel une bande est financée
   per_mineral = 1,        -- chantiers de bande simultanés au plus par minerai
   slots = 3,              -- chantiers de bande simultanés au plus, tous minerais
@@ -131,6 +134,21 @@ function M.sweep(fields, ctx, cfg)
   end
   for i = cfg.sweep_max + 1, #cands do refused[#refused + 1] = { id = cands[i].id, why = "file" } end
   return out, refused
+end
+
+--- Verdict au moment de retirer les paires d'une bande : ok/why de M.cut_ok, `critical` (le minerai l'est), `age` (ticks d'attente de la
+--- coupe). Rend "retirer", "attendre" ou "annuler". Un minerai ordinaire attend `protect_wait` au plus (la protection ne bloque jamais pour
+--- toujours : sans cela un cuivre dont la seule source est une bande ne migrerait jamais) ; un minerai critique n'est jamais coupé sous son
+--- plancher : après `critical_wait`, la demande est annulée.
+function M.verdict(ok, critical, age, cfg)
+  cfg = cfg_of(cfg)
+  if ok then return "retirer" end
+  if critical then
+    if age > cfg.critical_wait then return "annuler" end
+    return "attendre"
+  end
+  if age > cfg.protect_wait then return "retirer" end
+  return "attendre"
 end
 
 --- Une bande qui remplace les paires du gisement est-elle financée ? Courant qui tient ET fer libre >= fund_ratio × coût des foreuses

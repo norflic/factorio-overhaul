@@ -184,6 +184,17 @@ local function suite(Th, verbose)
     check(not s and w == "creneaux", "4 : tous les créneaux pris : attendre (" .. tostring(w) .. ")")
   end
 
+  -- 4 bis. verdict au retrait
+  do
+    check(Th.verdict(true, true, 0) == "retirer", "4b : coupe permise : retirer")
+    check(Th.verdict(false, false, 0) == "attendre", "4b : coupe refusée, minerai ordinaire : attendre")
+    check(Th.verdict(false, false, C.protect_wait) == "attendre", "4b : à la limite exacte, on attend encore")
+    check(Th.verdict(false, false, C.protect_wait + 1) == "retirer", "4b : le pont de stock n'attend pas plus que protect_wait (jamais un blocage définitif)")
+    check(Th.verdict(false, true, 0) == "attendre", "4b : minerai critique : attendre")
+    check(Th.verdict(false, true, C.protect_wait + 1) == "attendre", "4b : un minerai critique ne passe jamais au bout de protect_wait")
+    check(Th.verdict(false, true, C.critical_wait + 1) == "annuler", "4b : minerai critique : la demande est annulée après critical_wait")
+  end
+
   -- 5. parts par minerai (critères T1 et T2)
   do
     local fields = {
@@ -241,6 +252,9 @@ local mutants = {
   { "order : le moins productif d'abord", "if ta ~= tb then return ta > tb end\n    local ha", "if ta ~= tb then return ta < tb end\n    local ha" },
   { "order : stock le plus haut d'abord", "if ha ~= hb then return ha < hb end", "if ha ~= hb then return ha > hb end" },
   { "order : tri en place", "local out = {}\n  for _, g in ipairs(cands) do out[#out + 1] = g end\n  table.sort(out,", "local out = cands\n  table.sort(out," },
+  { "verdict : le critique passe après l'attente", "if age > cfg.critical_wait then return \"annuler\" end\n    return \"attendre\"", "return \"retirer\"" },
+  { "verdict : l'ordinaire n'attend jamais", "if age > cfg.protect_wait then return \"retirer\" end", "return \"retirer\"" },
+  { "verdict : l'ordinaire attend toujours", "if age > cfg.protect_wait then return \"retirer\" end", "if false then return \"retirer\" end" },
   { "free_slot : un minerai plusieurs chantiers", "if (busy[res] or 0) >= cfg.per_mineral then", "if false then" },
   { "free_slot : total ignoré", "if (busy.total or 0) >= cfg.slots then", "if false then" },
   { "shares : paires des gisements couverts non comptées", "if (g.pairs or 0) > 0 and M.covered(g, cfg) then", "if false then" },
