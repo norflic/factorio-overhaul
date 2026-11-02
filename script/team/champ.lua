@@ -408,6 +408,21 @@ end
 ---------------------------------------------------------------------------------------------------
 -- État des champs (journal)
 ---------------------------------------------------------------------------------------------------
+--- Lot CHAMP (corr-champ2) : coffres de sortie et de combustible des bandes du champ posées ou en chantier, dans l'ordre des projets ;
+--- et le nom du coffre. Lu par le flux du champ (script/team/migration_champ.lua, script/team/champ_flux.lua). Lecture seule.
+function Champ.flux_sites(f)
+  local outs, quais = {}, {}
+  local b = f.build
+  for _, pid in ipairs(b and b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.champ and (p.state == "fini" or p.state == "chantier" or p.state == "bloque") then
+      for _, o in ipairs(p.outs or {}) do outs[#outs + 1] = { x = o.x, y = o.y } end
+      for _, q in ipairs(p.quais or {}) do quais[#quais + 1] = { x = q.x, y = q.y, item = q.item } end
+    end
+  end
+  return outs, quais, D.CHEST
+end
+
 Champ.REPORT_EVERY = 5 * 3600 -- une ligne [FO-CHAMP-ETAT] par équipe toutes les 5 min
 
 --- Une ligne par équipe : bandes par état (et ce qui manque à celles qui attendent leurs matières), foreuses et fours des bandes, coffres

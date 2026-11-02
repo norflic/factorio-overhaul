@@ -12,6 +12,10 @@ package.loaded["shared.team.champ_fonderie"] = package.loaded["shared.team.champ
 package.loaded["shared.team.champ"] = package.loaded["shared.team.champ"] or require("__factorio-overhaul__/shared/team/champ")
 local Ch = package.loaded["shared.team.champ"]
 local Cv = require("__factorio-overhaul__/shared/team/champ_verif")
+-- lot CHAMP (corr-champ2) : flux du champ (sorties -> stock, stock -> combustible), règle pure et application en moteur
+package.loaded["shared.team.champ_flux"] = package.loaded["shared.team.champ_flux"] or require("__factorio-overhaul__/shared/team/champ_flux")
+local Fx = package.loaded["shared.team.champ_flux"]
+local FluxRt = require("__factorio-overhaul__/script/team/champ_flux")
 
 local X0, Y0 = 4200, 3000
 local NAMES = { foreuse = "electric-mining-drill", tapis = "transport-belt", poteau = "small-electric-pole", four = "stone-furnace",
@@ -92,7 +96,12 @@ local function place(ctx, key, ore, plate, shape, target, min_cov)
       q.connect_neighbour(west)
     end
   end
-  st[key] = { made = made, plan_drills = plan.stats.drills, cov = rep.elec }
+  local outs, quais = {}, {}
+  for _, e in ipairs(plan.ents) do
+    if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end
+    if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = "coal" } end
+  end
+  st[key] = { made = made, plan_drills = plan.stats.drills, cov = rep.elec, outs = outs, quais = quais }
 end
 
 local function disc(cx, cy, r)
@@ -157,6 +166,50 @@ return {
         ctx.check(furnaces > 0 and produced >= 0.8 * furnaces, key .. " : fours qui produisent (>= 80 %)", produced .. " / " .. furnaces)
         ctx.check(plates > 0, key .. " : plaques dans les coffres de sortie", tostring(plates))
       end
+    end
+    -- lot CHAMP (corr-champ2) : un passage du flux sur le champ « normal », contre les VRAIS coffres : coffres de combustible vidés à 5 charbons,
+    -- stock compté (2 000 charbons) ; sorties vidées vers le stock, combustible donné, rien perdu, plancher du stock respecté
+    local r = st.normal
+    if r and r.outs then
+      local s = ctx.surface()
+      local function chest(p) local e = s.find_entity("iron-chest", { p.x, p.y }); return (e and e.valid) and e or nil end
+      local p0, c0 = 0, 0
+      for _, p in ipairs(r.outs) do local e = chest(p); if e then p0 = p0 + e.get_inventory(defines.inventory.chest).get_item_count() end end
+      for _, p in ipairs(r.quais) do
+        local e = chest(p)
+        if e then
+          local n = e.get_item_count("coal")
+          if n > 5 then e.remove_item({ name = "coal", count = n - 5 }) end
+          c0 = c0 + e.get_item_count("coal")
+        end
+      end
+      local bank = { coal = 2000 }
+      local stock = {
+        count = function(i) return bank[i] or 0 end,
+        remove = function(i, n) local g = math.min(n, bank[i] or 0); bank[i] = (bank[i] or 0) - g; return g end,
+        insert = function(i, n) bank[i] = (bank[i] or 0) + n; return n end,
+      }
+      local moved, given = FluxRt.apply(s, "iron-chest", r.outs, r.quais, "coal", stock)
+      local p1, c1, low, full = 0, 0, 0, 0
+      for _, p in ipairs(r.outs) do
+        local e = chest(p)
+        if e then
+          local n = e.get_inventory(defines.inventory.chest).get_item_count()
+          p1 = p1 + n
+          if n >= Fx.CFG.out_min then full = full + 1 end
+        end
+      end
+      for _, p in ipairs(r.quais) do
+        local e = chest(p)
+        if e then local n = e.get_item_count("coal"); c1 = c1 + n; if n < Fx.CFG.fuel_low then low = low + 1 end end
+      end
+      local plates_in = (bank["iron-plate"] or 0)
+      ctx.log(string.format("[FO-CHAMP-BANC] flux normal : %d coffres de sortie (%d objets avant, %d apres, %d au stock), %d coffres de combustible (%d charbons avant, %d apres, %d donnes), stock de charbon %d",
+        #r.outs, p0, p1, plates_in, #r.quais, c0, c1, given, bank.coal))
+      ctx.check(moved > 0 and p0 - p1 == moved and plates_in == moved and full == 0,
+        "flux : sorties videes vers le stock, rien perdu", string.format("%d deplaces, %d -> %d, %d au stock, %d encore pleins", moved, p0, p1, plates_in, full))
+      ctx.check(given > 0 and c1 - c0 == given and bank.coal == 2000 - given and bank.coal >= Fx.CFG.fuel_floor and low == 0,
+        "flux : coffres de combustible remplis depuis le stock, plancher garde", string.format("%d donnes, %d -> %d, stock %d, %d sous le seuil", given, c0, c1, bank.coal, low))
     end
   end,
 }

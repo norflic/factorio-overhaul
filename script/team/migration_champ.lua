@@ -37,6 +37,8 @@ local State = require("script.faction.state")
 local Stock = require("script.team.stock")
 local Build = require("script.team.build")
 local Champ = require("script.team.champ") -- lot CHAMP : la partie migrée est une BANDE du champ en rangées (shared/team/champ.lua), hors du treillis
+local Fx = require("shared.team.champ_flux") -- lot CHAMP (corr-champ2) : flux sorties -> QG et QG -> combustible, règle pure
+local FluxRt = require("script.team.champ_flux")
 
 local Mig = {}
 
@@ -894,6 +896,24 @@ function Mig.think(f, surface, book, free, tick)
   if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
     ms.report_next = tick + Champ.REPORT_EVERY
     Champ.report(f, surface, tick)
+  end
+  -- lot CHAMP (corr-champ2) : flux du champ, une fois par minute : coffres de sortie des bandes vidés vers le stock du QG, coffres de
+  -- combustible remplis depuis lui, par script (shared/team/champ_flux.lua) ; avant, seulement par les tâches de collecte et de quai des PNJ
+  -- (mesuré à 150 min, graine 20261020 : 33 fours de bande sur 69 sans combustible chez azure, 21 095 plaques dans les sorties d'emerald)
+  if tick >= (ms.flux_next or 0) then
+    ms.flux_next = tick + Fx.CFG.every
+    local outs, quais, chest = Champ.flux_sites(f)
+    if #outs + #quais > 0 then
+      local stock = { count = function(i) return Stock.count(f, i) end, remove = function(i, n) return Stock.remove(f, i, n) end,
+        insert = function(i, n) return Stock.insert(f, i, n) end }
+      local moved, given = FluxRt.apply(surface, chest, outs, quais, T.fuel, stock)
+      ms.flux_out, ms.flux_fuel = (ms.flux_out or 0) + moved, (ms.flux_fuel or 0) + given
+      if tick >= (ms.flux_log or 0) then
+        ms.flux_log = tick + Champ.REPORT_EVERY
+        log(string.format("[FO-CHAMP-FLUX] %s min %.0f | coffres de sortie %d, coffres de combustible %d | ce passage : %d objets au QG, %d combustible donne | cumul : %d objets, %d combustible",
+          name_of(f), tick / 3600, #outs, #quais, moved, given, ms.flux_out, ms.flux_fuel))
+      end
+    end
   end
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
