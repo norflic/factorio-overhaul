@@ -1116,6 +1116,16 @@ section("Runtime : Normal, base témoin attaquée après la grâce")
 local runs = {}
 do
   new_world("normal")
+  -- Lot PARITE (adaptation de prémisse) : depuis le départ d'office, `fo-war start` fonde l'équipe du joueur (coffre + 4 tourelles), et ses PNJ
+  -- bâtissent pendant la partie (20 min : 81 -> 268 bâtiments de la force « player » alors que la faction en détruit 4). Le décompte global ne
+  -- mesure plus les pertes : on suit les bâtiments de la base témoin du banc (posés avant la guerre), les seuls que la faction vise ici.
+  local fixture = {}
+  for _, e in ipairs(W().entities) do if e.valid and e.force.name == "player" and e.type ~= "character" then fixture[#fixture + 1] = e end end
+  local function fixture_alive()
+    local n = 0
+    for _, e in ipairs(fixture) do if e.valid then n = n + 1 end end
+    return n
+  end
   war("start 2 60 6 320")
   check(printed("fo-pvp.intro:") == 1, "message d'introduction (difficulté, délai)")
   check(ceasefire(1) and ceasefire(2), "cessez-le-feu au lancement")
@@ -1138,6 +1148,7 @@ do
   check(ceasefire(2) and S.grace_ticks("normal", char(2)) > g1 + 301,
     string.format("Azur (grâce %.1f min) toujours en cessez-le-feu", S.grace_ticks("normal", char(2)) / MIN))
   local before = player_buildings()
+  local fixture_before = fixture_alive()
   M.run_ticks(20 * MIN)
   local fp = fac(1).pvp
   check(fp.attacks >= 1, "Écarlate a attaqué le joueur (" .. fp.attacks .. " attaques, " .. fp.soldiers .. " soldats)")
@@ -1164,7 +1175,11 @@ do
       string.format("IA2-c : 1re attaque de la partie au tick %s, pas avant son moment (%d, tempo %s)", tostring(first), fa or -1,
         tostring(pvp().tempo)))
   end
-  check(pvp().losses >= 1 and player_buildings() < before, "pertes du joueur causées par la faction (" .. pvp().losses .. ")")
+  -- INTENTION gardée : la faction détruit des bâtiments du joueur (pertes comptées ET bâtiments de la base témoin disparus) ; la valeur du
+  -- décompte global (équipe qui bâtit) n'est plus la preuve, mais elle est écrite pour mémoire.
+  check(pvp().losses >= 1 and fixture_alive() < fixture_before,
+    string.format("pertes du joueur causées par la faction (%d ; base témoin %d -> %d bâtiments ; force entière %d -> %d avec l'équipe qui bâtit)",
+      pvp().losses, fixture_before, fixture_alive(), before, player_buildings()))
   check(fac(1).stats.attacks > fp.attacks or fac(2).stats.attacks > 0, "les guerres entre factions continuent")
   check(fp.sent_total >= fp.sent_player, "comptes cohérents (envoyés au joueur ≤ envoyés)")
   local ok_ser = pcall(M.serialize, global)
@@ -1302,9 +1317,14 @@ local function pvp_lines(pattern)
   end
   return out
 end
+-- Lot PARITE (adaptation de prémisse, diagnostic du 2/11) : `fo-war start` (commande humaine) fonde désormais l'équipe du joueur d'office, avec
+-- ses 4 tourelles de QG près du départ (x -4 à 21, y -1) : la faction y voit une base de défense 32 (4 × 8) et l'attaque tout de suite avec 25 soldats
+-- (besoin 20), sans siège, avant d'avoir à se mesurer aux 14 tourelles (défense 112) de l'avant-poste. Ce contrôle-ci juge la règle de force contre
+-- la SEULE base défendue : la guerre y part par l'interface distante (`war_start`, chemin des bancs, qui ne fonde aucune équipe), comme avant le départ.
+-- Le cas avec l'équipe fondée est joué juste après (« base défendue avec l'équipe d'office »).
 do
   new_world("normal", { turrets = 14 })
-  war("start 4 60 6 320")
+  assert(remote.call("factorio-overhaul", "war_start", 4, 60, 6, 320) == true, "war_start")
   M.run_ticks(60 * MIN)
   local attackers, total = 0, 0
   for i = 1, 4 do
@@ -1322,6 +1342,31 @@ do
   check(#pvp_lines("^%[FO%-PVP%] siege tick (%d+)") >= 1, "sièges journalisés (« [FO-PVP] siege »)")
   check(pvp().losses >= 1, "pertes du joueur (" .. pvp().losses .. ")")
   check(pcall(M.serialize, global), "global sérialisable (plan, sièges, fenêtre)")
+end
+-- Lot PARITE : la même base défendue (14 tourelles à l'avant-poste), guerre lancée par la commande humaine : l'équipe est fondée d'office avec ses 4
+-- tourelles de QG. L'attaque reste possible, et la défense COMPTE : la faction connaît 4 tourelles au QG (défense estimée faible) et les 14 de l'avant-poste
+-- (>= 96) ; elle attaque la base la moins défendue d'abord (diagnostic : 1re attaque au QG, défense estimée 32 contre besoin 20).
+do
+  new_world("normal", { turrets = 14 })
+  war("start 4 60 6 320")
+  M.run_ticks(60 * MIN)
+  local at_hq, at_out = {}, {}
+  for _, line in ipairs(W().logs) do
+    local x, y = line:match("^%[FO%-PVP%] attaque tick %d+ %a+ %-> joueur : %d+ soldats vers %((%-?%d+), (%-?%d+)%)")
+    local d = line:match("defense estimee (%d+)")
+    if x and d then
+      if tonumber(x) < -64 and tonumber(y) >= 64 then at_out[#at_out + 1] = tonumber(d) else at_hq[#at_hq + 1] = tonumber(d) end
+    end
+  end
+  local max_hq, min_out = 0, math.huge
+  for _, d in ipairs(at_hq) do if d > max_hq then max_hq = d end end
+  for _, d in ipairs(at_out) do if d < min_out then min_out = d end end
+  print(string.format("  Normal, 14 tourelles + équipe d'office : %d attaque(s) sur le QG (défense estimée au plus %d), %d sur l'avant-poste (au moins %s)",
+    #at_hq, max_hq, #at_out, tostring(min_out)))
+  check(#at_hq + #at_out >= 3, "avec l'équipe d'office, les factions attaquent toujours le joueur (" .. (#at_hq + #at_out) .. " attaques)")
+  check(#at_out >= 1 and min_out >= 96, "l'avant-poste défendu est attaqué en CONNAISSANT sa défense (" .. tostring(min_out) .. " ≥ 96)")
+  check(#at_hq >= 1 and max_hq < 96, "le QG de l'équipe (4 tourelles) est vu comme peu défendu (" .. max_hq .. " < 96) : la défense compte dans le choix")
+  check(pvp().losses >= 1, "pertes du joueur (" .. pvp().losses .. ")")
 end
 do
   new_world("merciless", { turrets = 6 })
