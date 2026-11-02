@@ -47,6 +47,7 @@ local Blocage = require("shared.team.blocage") -- lot FACTIONS-BLOQUEES : tourel
 local Axe = require("shared.team.axe") -- lot TOURELLES-HORS-AXE : couloir d'extension des lignes (règles pures)
 local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et enceinte (règles pures)
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
+local Sante = require("script.team.sante_centrale") -- lot ENERGIE (2/11) : amorce à la main des chaudières à sec, porte des consommateurs
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
@@ -3442,6 +3443,8 @@ function Build.work(agent, f, tick)
       b.stats.filled = b.stats.filled + put
     end
     return "done"
+  elseif job.mode == "amorce" then
+    return Sante.work(f, p, surface, inv, tick) -- lot ENERGIE (2/11) : charbon porté versé dans les chaudières à sec
   elseif job.mode == "collect" then
     local o = p.outs[job.idx]
     local function out_chest(q) return surface.find_entity("iron-chest", { q.x, q.y }) end
@@ -3674,6 +3677,12 @@ local function quai_tasks(f, p, surface, out)
   if is_plant_project(p) then
     local _, kw = plant_burn_kw(p)
     rate = Cc.rate(kw, M.COAL_J)
+    -- lot ENERGIE (2/11) : chaudières à sec = amorce à la main (charbon du stock versé dans la chaudière), en tête de pile
+    Sante.tasks(f, p, out, function(x, y)
+      local a = P.anchor_for(f.build.lat, x, y, seg_passable(f.build))
+      if not a then local fx, fy = free_spot(f.build, nil, x, y); a = { x = fx, y = fy } end
+      return a
+    end)
   end
   for i, q in ipairs(p.quais) do
     local chest = surface.find_entity("iron-chest", { q.x, q.y })
@@ -3831,7 +3840,11 @@ end
 local function advance(f, surface, p, tick)
   local b = f.build
   if p.state == "attente" then
-    if b.qhead > #b.queue and tick >= (p.plan_after or 0) then p.state = "plan" end
+    if b.qhead > #b.queue and tick >= (p.plan_after or 0) then
+      -- lot ENERGIE (2/11) : un module électrique ne s'ouvre pas au-delà de ce que la centrale produit (Sante.gate : 12 min d'attente au plus)
+      local ok = Sante.gate(f, p, tick, function(spec) local g = template_of(spec); return g and g.power_kw or 0 end)
+      if ok then p.state = "plan" end
+    end
     return
   end
   if p.state == "plan" then
@@ -4812,7 +4825,7 @@ remote.add_interface("fo-ia1d", {
   end,
   set_option = function(key, name, value)
     local f = team_of_key(key)
-    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim")) then return nil end -- no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs)
+    if not (f and f.build and (name == "seul" or name == "ghosts_ahead" or name == "sante" or name == "no_grow" or name == "no_alim" or name == "no_sante")) then return nil end -- no_grow : coupe la croissance de la centrale (bancs) ; no_alim : coupe les foreuses de la centrale (lot CHARBON-CENTRALE, bancs) ; no_sante : coupe l'amorce à la main, la porte des consommateurs et l'avance de la centrale de plus (lot ENERGIE 2/11, témoin des bancs)
     f.build.opts[name] = value and true or false
     return f.build.opts[name]
   end,

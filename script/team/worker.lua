@@ -294,7 +294,7 @@ local function ia1d_program(task)
   local at = { x = j.ax, y = j.ay }
   if j.mode == "build" then
     return { { "home" }, { "take_res", j.pid, task.items }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
-  elseif j.mode == "fill" then
+  elseif j.mode == "fill" or j.mode == "amorce" then -- amorce : lot ENERGIE (2/11), charbon versé dans les chaudières à sec
     return { { "home" }, { "take", task.items, strict = true }, { "goto", at, 1 }, { "ia1d" }, { "home" } }
   elseif j.mode == "clear" or j.mode == "collect" then
     return { { "goto", at, 1 }, { "ia1d" }, { "home" } }

@@ -145,6 +145,7 @@ local env = {
   Cc = Cc0, M = M, P = P, Build = Build,
   Sweep = require("shared.team.rebuild_sweep"), -- lot FUITES-PILE : « rouvert » = reconstruction (Sweep.rebuilding) ou murs, pas un agrandissement
   Stock = { count = function() return W.stock end },
+  Sante = { tasks = function() end }, -- lot ENERGIE (2/11) : l'amorce a la main a son propre banc (tests/sante_centrale_test.lua)
   seg_passable = function() return function() return true end end,
   free_spot = function(_, _, x, y) return x, y end,
   defines = { inventory = { chest = 1 } },

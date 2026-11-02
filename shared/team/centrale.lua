@@ -44,7 +44,9 @@ end
 --- projet (ni finies ni refusées), refused = demandes de croissance refusées, hold = repli de l'équipe, cool = pause après un abandon, off = règle coupée }.
 function C.growth(st, n)
   if n.off then return nil, "regle coupee" end
-  if not st.saturated and not n.lost then return nil, "pas saturee" end
+  -- lot ENERGIE (2/11) : `anticipate` (shared/team/sante_centrale.lua : production + chantiers + modules retenus >= 70 % de la capacité) demande la
+  -- centrale AVANT la saturation ; tous les garde-fous suivants (chantier ouvert, plafonds, pauses, repli) valent aussi pour elle
+  if not st.saturated and not n.lost and not n.anticipate then return nil, "pas saturee" end
   -- lot ENERGIE (relecture) : la reconstruction qui n'aboutit pas ne retient pas le champ de remplacement (« si on y arrive vraiment pas, on
   -- le fait ailleurs ») ; n.rebuilding : ceux de n.pending qui sont des centrales rouvertes
   if n.lost then

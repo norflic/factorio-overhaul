@@ -243,13 +243,16 @@ end)
 section("10. Perte d'une centrale ROUVERTE (PA.watch reel)")
 do
   log = log or function() end
-  package.preload["script.team.stock"] = package.preload["script.team.stock"] or function() return {} end
+  package.preload["script.team.stock"] = package.preload["script.team.stock"] or function() return { count = function() return 0 end } end
   package.preload["script.team.centrale_mort"] = package.preload["script.team.centrale_mort"] or function() return {} end
   local PA = require("script.team.plant_arms")
   local Cvr = require("shared.team.champ_vapeur")
   local alive = {} -- nom .. position -> vivant
   local surface = { find_entity = function(name, pos)
-    if alive[name .. ":" .. pos[1]] then return { valid = true, force = { name = "f" }, energy_generated_last_tick = 0 } end
+    if alive[name .. ":" .. pos[1]] then
+      return { valid = true, force = { name = "f" }, energy_generated_last_tick = 0,
+        get_fuel_inventory = function() return { is_empty = function() return false end } end } -- (lot ENERGIE 2/11 : la sante lit les chaudieres)
+    end
     return nil
   end }
   local plant = { id = 1, state = "fini", finished = 10, spec = { gen = "steam" },
