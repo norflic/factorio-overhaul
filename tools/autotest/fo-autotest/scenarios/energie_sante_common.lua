@@ -209,7 +209,7 @@ return function(variant, opts)
       local st = ctx.state()
       local c = { x = 0, y = 0 }
       st.c = c
-      shape(ctx, c, opts.mode == "froid")
+      shape(ctx, c, opts.mode == "froid" or opts.mode == "ilot")
       local a = ctx.call("war_setting", "fo-war-ia3e", false)
       ctx.check(a == false, "reglage fo-war-ia3e coupe (le banc est le cerveau)", tostring(a))
       ctx.check(ctx.remote("fo-ia1", "set_setting", "fo-npc-start", 8) == 8, "effectif de depart 8")
@@ -264,6 +264,37 @@ return function(variant, opts)
         local placed, why = place_load(ctx, opts.radars)
         st.load_t, st.radars = t, placed
         ctx.log(string.format("%scharge posee a %.2f min : %d radar(s) (%s)", TAG, t / MIN, placed, tostring(why or "ok")))
+      end
+      if opts.mode == "ilot" then
+        -- ligne de poteaux COUPEE (les ennemis de Scarlet, 100-125 min) : 3 min après la charge, tous les poteaux du plan d'une bande de 8 tuiles
+        -- entre les foreuses de charbon (a l'ouest) et la centrale sont détruits ; les foreuses sont alors sur un îlot sans courant
+        if st.load_t and not st.cut_t and t >= st.load_t + 3 * MIN then
+          st.cut_t = t
+          local n = 0
+          local list = s.find_entities_filtered({ type = "electric-pole", force = "player", area = { { c.x - 20, c.y - 110 }, { c.x - 12, c.y + 140 } } })
+          for _, pole in ipairs(list) do if pole.valid then pole.destroy(); n = n + 1 end end
+          st.cut_n = n
+          ctx.log(string.format("LIGNE COUPEE a %.2f min : %d poteau(x) detruit(s) dans la bande x de -20 a -12", t / MIN, n))
+        end
+        if st.cut_t then
+          local dark = 0
+          for _, d in ipairs(s.find_entities_filtered({ name = "electric-mining-drill", force = "player" })) do
+            if d.status == defines.entity_status.no_power then dark = dark + 1 end
+          end
+          if dark > 0 and t > st.cut_t then
+            st.dark_s = (st.dark_s or 0) + 1
+            st.gap_s = (st.gap_s or 0) + 1
+            if st.gap_s > (st.max_gap_s or 0) then st.max_gap_s = st.gap_s end
+            st.saw_dark = true
+          elseif dark == 0 and st.saw_dark and not st.back_t then
+            st.back_t = t
+            st.gap_s = 0
+            ctx.log(string.format("foreuses de nouveau alimentees a %.2f min (%.0f s apres la coupe)", t / MIN, (t - st.cut_t) / 60))
+          elseif dark == 0 then
+            st.gap_s = 0
+          end
+          st.dark_now = dark
+        end
       end
       if opts.mode == "porte" then
         -- trois modules électriques demandés d'un coup 30 s après la fin de la centrale : la porte en laisse passer un, retient les autres
@@ -353,6 +384,13 @@ return function(variant, opts)
           ctx.check(last3 >= 3, "AVEC la regle : production non nulle chaque minute des 4 dernieres, sous charge (" .. last3 .. ")")
           ctx.check(st.radars and st.radars >= opts.radars, "AVEC la regle : la charge a ete posee (" .. tostring(st.radars) .. " radars)")
         end
+      elseif opts.mode == "ilot" then
+        ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= 1, "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x))")
+        ctx.check(st.saw_dark == true, "la coupe isole bien des foreuses (ilot sans courant)")
+        ctx.check(st.back_t ~= nil and (st.back_t - (st.cut_t or 0)) <= 4 * MIN,
+          string.format("les poteaux sont reposes et les foreuses rallumees en 4 min au plus (%s)", st.back_t and string.format("%.0f s", (st.back_t - st.cut_t) / 60) or "jamais"))
+        ctx.check((st.dark_now or 1) == 0, "plus aucune foreuse sans courant a la fin")
+        ctx.check(power > 0, "production non nulle a la fin")
       elseif opts.mode == "porte" then
         ctx.check(st.req_t ~= nil, "les trois modules ont ete demandes")
         if opts.expect == "dead" then
