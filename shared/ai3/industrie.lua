@@ -268,6 +268,21 @@ function Id.decide(st, inp)
   return out
 end
 
+--- Ordre d'examen des modules décidés (lot RB-FLUIDE) : { { dec, kind = "seul" | "bloc", items } } ; la cellule d'un KIT d'unité (dec.unite) d'abord, puis les
+--- blocs, puis les autres cellules seules. Un module au plus est demandé par décision (le premier accepté) : sans cet ordre, un bloc de mall était demandé à chaque
+--- décision et la cellule du kit restait « le mall n'a pas décidé » (banc rb-fluide : demande notée au tick 9 300, aucun module à 22 000).
+function Id.order(out)
+  local cands = {}
+  for _, d in ipairs(out.seuls or {}) do
+    if d.unite then cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end
+  end
+  for _, d in ipairs(out.blocs or {}) do cands[#cands + 1] = { dec = d, kind = "bloc", items = d.items } end
+  for _, d in ipairs(out.seuls or {}) do
+    if not d.unite then cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end
+  end
+  return cands
+end
+
 --- Une ligne du journal [FO-MALL] (aucune décision ne la lit).
 function Id.describe(out)
   local rows, blocs = {}, {}

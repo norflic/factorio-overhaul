@@ -331,9 +331,7 @@ function Ind.think(f, cs, res, view, book, tick)
         say(f, tick, line)
       end
     end
-    local cands = {}
-    for _, d in ipairs(out.blocs) do cands[#cands + 1] = { dec = d, kind = "bloc", items = d.items } end
-    for _, d in ipairs(out.seuls) do cands[#cands + 1] = { dec = d, kind = "seul", items = { d.item } } end
+    local cands = Id.order(out) -- lot RB-FLUIDE : la cellule d'un kit d'unité passe devant les blocs
     for _, c in ipairs(cands) do
       local dec, kind = c.dec, c.kind
       local label = kind == "bloc" and ("[" .. table.concat(dec.items, ",") .. "]") or dec.item

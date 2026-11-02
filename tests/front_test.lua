@@ -416,8 +416,15 @@ end
 local hqd = post_of(hq_poor, "hq")
 check(hqd and hqd.partial == true and hqd.why == "fabrication" and crafts_of(hq_poor, "defense") >= 2,
   "3.4 : QG sans tourelle, fer 300 (la commande de 4 n'est pas payable) : commande PARTIELLE fabriquée")
-local hq_nope = Planner.plan(view({ stock = { ["iron-plate"] = 160, ["copper-plate"] = cu }, hq_turrets = 0 }), book)
-check(post_of(hq_nope, "hq") and post_of(hq_nope, "hq").why == "fer" and crafts_of(hq_nope, "defense") == 0, "3.4 : fer 160 : même la partielle ne passe pas, le plancher ordinaire est gardé")
+-- Lot EQUIPE : sous son premier palier de tourelles (shared/team/premiere_tourelle.lua) le QG se paie au plancher RÉDUIT (60) : 160 de fer paient
+-- la partielle (80 + 60) ; 130 ne la paient pas. Avec 2 tourelles au QG (au-delà du palier), le plancher ordinaire (150) est gardé comme avant.
+local hq_nope = Planner.plan(view({ stock = { ["iron-plate"] = 130, ["copper-plate"] = cu }, hq_turrets = 0 }), book)
+check(post_of(hq_nope, "hq") and post_of(hq_nope, "hq").why == "fer" and crafts_of(hq_nope, "defense") == 0, "3.4 : fer 130 : même la partielle ne passe pas (plancher réduit du premier palier)")
+local hq_first = Planner.plan(view({ stock = { ["iron-plate"] = 160, ["copper-plate"] = cu }, hq_turrets = 0 }), book)
+check(post_of(hq_first, "hq") and post_of(hq_first, "hq").why == "fabrication" and post_of(hq_first, "hq").first == true and crafts_of(hq_first, "defense") >= 2,
+  "EQUIPE : fer 160, aucune tourelle : la première tourelle part au plancher réduit (avant : « fer »)")
+local hq_two = Planner.plan(view({ stock = { ["iron-plate"] = 160, ["copper-plate"] = cu }, hq_turrets = 2 }), book)
+check(post_of(hq_two, "hq") and post_of(hq_two, "hq").why == "fer" and crafts_of(hq_two, "defense") == 0, "3.4 : fer 160, deux tourelles au QG : le plancher ordinaire est gardé")
 local hq_full = Planner.plan(view({ stock = { ["iron-plate"] = 2000, ["copper-plate"] = 500 }, hq_turrets = 0 }), book)
 check(post_of(hq_full, "hq") and post_of(hq_full, "hq").partial == nil and post_of(hq_full, "hq").why == "fabrication", "3.4 : fer largement suffisant : commande complète, comme avant")
 -- 3.3 (le hold ne retient pas le QG) : tests/priorite_test.lua, section 6 bis et mutant.

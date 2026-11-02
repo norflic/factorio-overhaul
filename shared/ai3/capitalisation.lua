@@ -279,7 +279,7 @@ function Ca.data(dump, opts)
   opts = opts or {}
   local D = { recipes = {}, recipe_list = {}, producers = {}, hand = {}, hand_mine = {}, makers = {}, drills = {},
     labs = {}, res = {}, res_list = {}, packs = {}, item_of = {}, maker_by = {}, drill_by = {}, lab_by = {},
-    unlocked_by = {}, fuel = opts.fuel, fuel_kj = 0, items = dump.items or {}, mil = {},
+    unlocked_by = {}, fuel = opts.fuel, fuel_kj = 0, items = dump.items or {}, mil = {}, pumped = {},
     bonus = { mining = opts.mining_bonus or 0, lab = opts.lab_bonus or 0 } }
   local ents = {}
   for _, e in ipairs(dump.entities or {}) do ents[#ents + 1] = e end
@@ -298,6 +298,9 @@ function Ca.data(dump, opts)
         for _, c in ipairs(e.crafting_categories or {}) do D.hand[c] = true end
         for _, c in ipairs(e.resource_categories or {}) do D.hand_mine[c] = true end
       end
+    elseif role == "pompe" then
+      -- Lot RB-FLUIDE : le fluide qu'une pompe exécutable tire (eau d'une rive) : la force le sait produire, sans recette
+      if e.fluid and e.item and executable(e, role) then D.pumped[e.fluid] = true end
     elseif e.item and (role == "fabrique" or role == "foreuse" or role == "labo") then
       D.item_of[e.name] = e.item
       local m = { name = e.name, item = e.item, speed = e.speed or 1, energy = e.energy or "none", kw = e.energy_kw or 0,
@@ -591,7 +594,11 @@ end
 function Ca.is_known(ctx, item) return ctx.known == nil or ctx.known[item] == true end
 
 --- Objet obtenable : au stock, ressource connue et extractible, ou recette ouverte d'une catégorie faisable (main,
---- machine posée ou au stock) dont tous les ingrédients sont obtenables. input.obtainable remplace ce calcul : une
+--- machine posée ou au stock) dont tous les ingrédients sont obtenables. Lot RB-FLUIDE : un FLUIDE entre dans la même règle. Une recette qui
+--- demande ou rend un fluide reste obtenable quand la force sait produire chaque fluide qu'elle demande : un fluide est obtenable comme un
+--- objet (ressource fluide connue et extractible par un exécutant ; fluide d'une pompe exécutable et connu ; ou recette ouverte d'une
+--- catégorie présente dont les entrées sont obtenables). Avant le lot, TOUTE recette à fluide était écartée : le pack chimique (soufre et
+--- plastique viennent du gaz de pétrole) était « non obtenable » même avec le site de pétrole fini. input.obtainable remplace ce calcul : une
 --- FONCTION (objet -> booléen) ou une TABLE { [objet] = vrai } (en jeu : ev.feas d'IA-G, qui est une table).
 function Ca.obtainable(ctx, item)
   local io = ctx.input.obtainable
@@ -606,12 +613,13 @@ function Ca.obtainable(ctx, item)
     local rs = D.res[item]
     local ext = D.hand_mine[rs.category] or false
     for _, d in ipairs(D.drills) do if d.exec and d.cats[rs.category] then ext = true end end
-    ok = Ca.is_known(ctx, item) and ext and not rs.fluid
+    ok = Ca.is_known(ctx, item) and ext
   end
+  if not ok and D.pumped[item] then ok = Ca.is_known(ctx, item) end
   if not ok then
     for _, rn in ipairs(D.producers[item] or {}) do
       local r = D.recipes[rn]
-      if Ca.recipe_open(ctx, rn) and not r.fluid and ctx.cats_present[r.category] then
+      if Ca.recipe_open(ctx, rn) and ctx.cats_present[r.category] then
         local all = true
         for _, i in ipairs(r.ingredients) do
           if not Ca.obtainable(ctx, i.name) then all = false break end

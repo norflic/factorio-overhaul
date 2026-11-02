@@ -1,4 +1,12 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.35
+Date: 2026-11-01
+  Changes:
+    - Factions : une recherche impayable est lachee apres 8 min sans unite payee, puis reprise quand ses packs sont la (technologies finies en 1 h : azure 4 a 15, emerald 5 a 10, scarlet 7 a 15, une graine).
+    - Factions : la recette a fluide est accessible, la technologie des robots est voulue, la cellule du kit passe devant : la chaine sort des robots au banc (packs donnes). Une ligne [FO-ROBOTS] par attente.
+    - Votre equipe : recherche de la tourelle en tete, 2 premieres tourelles du QG payees au plancher reduit. Effondrement de 50-60 min dans une partie sans joueur : non corrige.
+    - Plafond de croissance vers 2 h : toujours ouvert.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.34
 Date: 2026-11-01
   Changes:

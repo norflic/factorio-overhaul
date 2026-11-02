@@ -344,7 +344,7 @@ do
   local st = C.new_state(0)
   local auto = { mods = { { product = "iron-plate", state = "reserve", missing = { { "electric-mining-drill", 4 }, { "inserter", 6 } } } },
     cap = {}, covered = {} }
-  local plan = C.think(view({ stock = base_stock, outposts = outs }), book, st, ctx_of(auto))
+  local plan = C.think(view({ stock = base_stock, outposts = outs, hq_turrets = 2 }), book, st, ctx_of(auto)) -- (lot EQUIPE : QG au-dela du premier palier, sinon le plancher reduit le sert d'abord)
   local proj = nil
   for _, p in ipairs(st.projects) do if p.key == "auto:iron-plate" then proj = p end end
   check(proj ~= nil and proj.state == "actif", "un module demandé est un PROJET actif du cerveau (" .. tostring(proj and proj.state) .. ")")

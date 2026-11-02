@@ -25,6 +25,7 @@
 local T = require("shared.team.config")
 local R = require("shared.ai3.reglages")
 local K = require("shared.ai3.catalogue")
+local Im = require("shared.ai3.impayable") -- lot RB-FLUIDE : la recherche impayable lâchée, reprise quand son pack est produit
 local Br = require("shared.ai3.bras") -- lot SCALE : bras libres lissés
 local Gen = require("shared.ai3.general")
 local L = require("shared.ai3.lecture") -- lot INDUSTRIE I4 : bilan de la lecture des recettes et machines
@@ -46,8 +47,10 @@ General.AUTO_PAUSE = 20 * 3600 -- … les autres passent 20 min
 -- Votre équipe : une recherche (quelle qu'elle soit) sans unité payée depuis 8 min laisse la place aux autres pendant 30 min
 -- (un joueur ne garde pas son seul laboratoire sur une recherche dont il ne peut pas fabriquer les packs : moteur réel,
 -- etape1-guide, « defender » gardait le laboratoire de 27,8 à 38,8 min, puis de 27,8 à 49,3 min).
-General.PLAYER_STALL = 8 * 3600
-General.PLAYER_STALL_PAUSE = 30 * 3600
+-- Lot RB-FLUIDE : la même garde vaut pour les FACTIONS (partie de 4 h, C4 : `military-3` tient le laboratoire 157 min sans pack) ; règle pure
+-- shared/ai3/impayable.lua, qui porte ces deux durées.
+General.PLAYER_STALL = Im.STALL
+General.PLAYER_STALL_PAUSE = Im.PAUSE
 General.ARMY_FIRST = B.ARMY_FIRST_N
 General.AMMO_STOCK = B.AMMO_STOCK
 
@@ -483,6 +486,32 @@ function General.spare_hands(f, view, tick)
   return (g and g.spare_hands) or 0
 end
 
+--- Lot RB-FLUIDE : où en est une technologie pour une faction, à la dernière évaluation de la force (journal [FO-ROBOTS], aucune décision n'en dépend) :
+--- { done, ready (prérequis faits), missing (prérequis manquants), tfeas (payable d'après le graphe), packs = { { pack, fabricable } },
+--- value (valeur propre, sans chaîne), rank (0 : recherche en cours ; n : n-ième des suivantes ; nil : hors classement), current (technologie en cours) }.
+function General.tech_info(f, t)
+  local st = f.team and f.team.ia3
+  local c = General.catalogue()
+  local spec = c and c.techs[t]
+  if not (st and spec) then return nil end
+  local techs = st.techs or {}
+  local info = { done = techs[t] == true, missing = {}, packs = {} }
+  for _, p in ipairs(spec.prerequisites) do if not techs[p] then info.missing[#info.missing + 1] = p end end
+  info.ready = #info.missing == 0
+  local m = memos[f.force]
+  if m and m.ev then
+    info.tfeas = m.ev.tfeas[t] == true
+    for _, ing in ipairs(spec.ingredients) do info.packs[#info.packs + 1] = { ing[1], m.ev.feas[ing[1]] == true } end
+    info.value = Gen.value(c, m.ev, { stock = {}, techs = techs, built = {}, known = {} }, t, {})
+  end
+  info.current = st.lab and st.lab.tech or nil
+  if info.current == t then info.rank = 0 end
+  for i, n in ipairs((f.team.iag and f.team.iag.next) or {}) do
+    if n == t then info.rank = i end
+  end
+  return info
+end
+
 --- Faisabilité d'un objet à la dernière évaluation de la force (nil : inconnue).
 function General.feasible(f, item)
   local m = memos[f.force]
@@ -571,13 +600,22 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     lab.for_auto = nil
     lab.stalled = true
   end
-  if f.is_player and lab and lab.tech and not st.techs[lab.tech] and not lab.stalled
-      and tick - (lab.paid_tick or lab.started or tick) > General.PLAYER_STALL then
-    st.stalled = st.stalled or {}
-    st.stalled[lab.tech] = tick + General.PLAYER_STALL_PAUSE
+  -- Lot RB-FLUIDE : la garde du joueur vaut pour toute équipe (règle pure shared/ai3/impayable.lua) ; les packs qui manquaient sont retenus pour le retour.
+  st.grace = st.grace or {}
+  Im.expire_grace(st, tick)
+  -- Relecture d'intégration 0.6.35 : la recherche qui OUVRE la tourelle n'est jamais lâchée tant que la recette est fermée (palier de défense, S1 : ses packs
+  -- passent avant tout) ; lâchée au fer à 0, elle laissait la place à une autre recherche qui la gardait jusqu'à sa fin, tourelle repoussée de dizaines de minutes.
+  local defense_tech = c.g.unlocked_by[T.turret]
+  local turret_rec = force.recipes[T.turret]
+  local keep_defense = defense_tech ~= nil and lab ~= nil and lab.tech == defense_tech and turret_rec ~= nil and not turret_rec.enabled
+  if not keep_defense and Im.should_stall(lab, tick, lab and lab.tech and st.techs[lab.tech], lab and lab.tech and st.grace[lab.tech]) then
+    local spec = c.techs[lab.tech]
+    local stock = view.stock or {}
+    Im.stall(st, lab.tech, tick, Im.missing(spec and spec.ingredients, stock))
     lab.stalled = true
-    log(string.format("[FO-CERVEAU] %s : recherche '%s' sans progres depuis %d min : les autres passent %d min",
-      f.key or "?", lab.tech, math.floor(General.PLAYER_STALL / 3600), math.floor(General.PLAYER_STALL_PAUSE / 3600)))
+    log(string.format("[FO-CERVEAU] %s : recherche '%s' sans progres depuis %d min (packs qui manquent : %s) : les autres passent %d min au plus, retour des que les packs sont au coffre",
+      f.key or "?", lab.tech, math.floor(Im.STALL / 3600), table.concat(st.stall_packs[lab.tech], ",") ~= "" and table.concat(st.stall_packs[lab.tech], ",") or "aucun",
+      math.floor(Im.PAUSE / 3600)))
   end
   local k1 = wanted ~= nil and Auto.on()
   if st.auto_pause and tick < st.auto_pause then wanted = nil end
@@ -593,19 +631,35 @@ function General.choose_tech(f, force, st, book, w, tick, view, wanted)
     local ft = force.technologies[t]
     if not ft or not ft.enabled then disabled[t] = true end
   end
-  for _, t in ipairs(sorted_keys(st.stalled)) do
-    if tick < st.stalled[t] then disabled[t] = true else st.stalled[t] = nil end
-  end
+  local stalled_now = Im.active(st, tick,
+    function(t) return c.techs[t] and c.techs[t].ingredients or {} end,
+    function(t) return c.techs[t] and c.techs[t].count or 0 end, view.stock or {})
+  for _, t in ipairs(sorted_keys(stalled_now)) do disabled[t] = true end
   local speed = 1
   for _, l in ipairs(c.labs) do speed = math.max(speed, l.speed or 1) end
   -- Lot LEVIERS : recherches à effet choisies par la capitalisation (script/ai3/capitalisation.lua), lues à l'appel.
   local Capi = package.loaded["script.ai3.capitalisation"]
   local levers = Capi and Capi.techs_wanted and Capi.techs_wanted(f) or nil
-  local d = Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
-    k1 = k1 or nil, levers = levers, new_pack = Pet.on() or nil, -- lot PETROLE (réglage fo-war-petrole)
-    -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier pour une FACTION (votre équipe cherche à la main) ; la recette
-    -- est celle que les planificateurs commandent (T.turret), la règle pure ne la nomme pas.
-    defense = (not f.is_player) and T.turret or nil })
+  local function choose()
+    return Gen.choose(c, ev, state, { weights = w, wanted = wanted, disabled = disabled, lab_speed = speed * math.max(1, nlabs),
+      k1 = k1 or nil, levers = levers, new_pack = Pet.on() or nil, -- lot PETROLE (réglage fo-war-petrole)
+      -- Lot DEFENSE-FACTIONS D2 : la technologie de la tourelle est un palier ; la recette est celle que les planificateurs commandent
+      -- (T.turret), la règle pure ne la nomme pas. Lot EQUIPE (1/11) : aussi pour votre équipe (recherche de la tourelle à 10,9 min,
+      -- QG attaqué dès 8,6 min : fo-logs/2026-11-01_EQUIPE/RAPPORT.md).
+      defense = T.turret })
+  end
+  local d = choose()
+  -- Lot RB-FLUIDE : rien d'autre de payable : la recherche lâchée depuis le plus longtemps revient (le laboratoire ne reste pas oisif), sans reprise de la garde avant la fin de la pause
+  if not d.tech then
+    local back = Im.lift(st, tick)
+    if back then
+      disabled[back] = nil
+      if lab and lab.tech == back then lab.stalled = nil end -- la garde se réarme (après sa `grace`)
+      log(string.format("[FO-CERVEAU] %s : rien d'autre de payable : la recherche '%s' revient (pas de nouvel arret avant %d min)", f.key or "?", back,
+        math.floor(Im.PAUSE / 3600)))
+      d = choose()
+    end
+  end
   -- Ce que rapporterait chaque ressource inconnue qu'un exécutant sait extraire (« quelles ressources peuvent rapporter ») :
   -- la meilleure, si elle rapporte, est à explorer (A6 : explorer pour une raison).
   local rv = Gen.resource_values(c, ev, state, { weights = w, wanted = wanted })
