@@ -1348,6 +1348,19 @@ do
   game.tick = tick
   E.think()
   check(asked[1] == id2 and asked[2] == 1, "W2 : le champ voulu est planifie d'abord (ordre : " .. table.concat(asked, ",") .. ")")
+  -- un gisement sans avant-poste n'avale pas un avant-poste d'un gisement VOISIN (à moins de 64 tuiles, hors de sa boîte) : l'avant-poste 7,
+  -- 30 tuiles à l'est de la boîte, garde sa propre migration (il n'est ni « voisin » du champ voulu, ni écarté comme « champ de »)
+  f.outposts[7] = { id = 7, kind = "iron", pos = { x = 550 + CFG.want_margin + 1, y = 515 }, drill_list = {}, sinks = {}, drills = 0 }
+  f.migration.o[id2].frame, f.migration.o[id2].order = { axis = "x" }, { 1 }
+  local logs0 = #E.logs
+  game.tick = game.tick + CFG.every
+  Mig.think(f, E.surface, E.book, E.free, game.tick)
+  local swallowed = false
+  for k = logs0 + 1, #E.logs do if E.logs[k]:find("avant%-poste 7 .*champ de") then swallowed = true end end
+  -- (sous la règle des 64 tuiles, l'avant-poste 7 serait sauté sans état de migration : ms.o[7] resterait vide)
+  check(not swallowed and f.migration.o[7] ~= nil, "W2 : un avant-poste hors de la boite du gisement voulu n'est pas pris pour son voisin")
+  f.outposts[7] = nil
+  f.migration.o[id2].frame, f.migration.o[id2].order = nil, nil
   -- abandon récent : refus ; 3 min plus tard : repris
   local st2 = f.migration.o[id2]
   st2.abandoned, st2.abandoned_at = true, game.tick

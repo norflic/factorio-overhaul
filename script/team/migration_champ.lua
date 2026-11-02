@@ -126,18 +126,31 @@ end
 
 --- Lot CHAMP : avant-postes du MÊME minerai sur le même gisement que `o` (centre à moins de Champ.SIB_R tuiles), triés par numéro.
 --- Un champ se planifie une fois pour tout le gisement : leurs paires sont retirées sous les bandes comme celles de `o`.
+--- Lot CHAMP : la position `p` est-elle dans la boîte du gisement d'un champ sans avant-poste (Mig.want, marge CFG.want_margin) ?
+local function in_box(box, p)
+  local m = Mg.CFG.want_margin
+  return p.x >= box[1] - m and p.x <= box[3] + m and p.y >= box[2] - m and p.y <= box[4] + m
+end
+
 local function siblings(f, o)
   local out = {}
   local r2 = Champ.SIB_R * Champ.SIB_R
+  -- un gisement sans avant-poste (o.box) n'a pour voisins que ce qui est dans SA boîte : à 64 tuiles, un avant-poste d'un gisement voisin
+  -- serait pris pour le même gisement et ne migrerait plus (« son gisement est le champ de... »)
+  local function near(q)
+    if o.box then return in_box(o.box, q.pos) end
+    if q.box then return in_box(q.box, o.pos) end
+    return (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2
+  end
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local q = f.outposts[oid]
-    if q ~= o and q.kind == o.kind and (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2 then out[#out + 1] = q end
+    if q ~= o and q.kind == o.kind and near(q) then out[#out + 1] = q end
   end
   -- gisements sans avant-poste demandés par la capitalisation (Mig.want) : voisins eux aussi (un seul champ par gisement)
   local fields = f.migration and f.migration.fields
   for _, fid in ipairs(sorted_keys(fields)) do
     local q = fields[fid]
-    if q ~= o and q.kind == o.kind and (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2 then out[#out + 1] = q end
+    if q ~= o and q.kind == o.kind and near(q) then out[#out + 1] = q end
   end
   return out
 end
@@ -813,7 +826,8 @@ function Mig.want(f, dep, tick)
     end
     ms.nfield = (ms.nfield or 0) + 1
     local id = Champ.FIELD_BASE + ms.nfield
-    o = { id = id, kind = kind, pos = { x = dep.cx, y = dep.cy }, field = true, dep = dep.id, drill_list = {}, sinks = {}, drills = 0 }
+    o = { id = id, kind = kind, pos = { x = dep.cx, y = dep.cy }, field = true, dep = dep.id, drill_list = {}, sinks = {}, drills = 0,
+      box = { dep.x0, dep.y0, dep.x1, dep.y1 } }
     ms.fields[id] = o
     say(f, ms, string.format("gisement %d (%s) : champ voulu par la capitalisation sur %s (%d tuiles), sans avant-poste", id, kind,
       tostring(dep.id), dep.tiles or 0), true)

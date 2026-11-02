@@ -74,6 +74,48 @@ def fmt(v, f="%.0f"):
     return "-" if v is None else f % v
 
 
+ORES = ("iron-ore", "copper-ore")
+
+
+def crit(rel, minute):
+    """Critères C1 à C5 de CRITERES.md lus sur les relevés REGARD (mêmes lignes pour le témoin et le lot), factions vivantes à `minute`.
+    C1 part électrique fer + cuivre ; C2 médiane, par faction et minerai qui ont des foreuses électriques, de la couverture électrique du
+    gisement le plus couvert ; C3 foreuses électriques fer + cuivre bloquées en sortie / électriques, moyenne des 4 derniers relevés ; C4 fours
+    sans entrée, moyenne des 4 derniers relevés (somme des factions) ; C5 plaques cuivre / fer par faction (flux du relevé)."""
+    de = dt = 0
+    cov, c3n, c3d, c4, c5 = [], [], [], [], {}
+    for force in sorted(rel):
+        if force not in FACTIONS:
+            continue
+        keys = sorted(k for k in rel[force] if k <= minute)
+        if not keys or keys[-1] < minute - 5:
+            continue
+        r = rel[force][keys[-1]]
+        G = [g for g in r["G"] if g.get("res") in ORES]
+        if not G and not r.get("F"):
+            continue
+        de += sum(g.get("de", 0) for g in G)
+        dt += sum(g.get("dt", 0) for g in G)
+        for ore in ORES:
+            ex = [100.0 * g.get("couv_e", 0) / g["tuiles"] for g in G if g.get("res") == ore and g.get("de", 0) > 0 and g.get("tuiles")]
+            if ex:
+                cov.append(max(ex))
+        for k in keys[-4:]:
+            rr = rel[force][k]
+            GG = [g for g in rr["G"] if g.get("res") in ORES]
+            c3n.append(sum(g.get("de_pleine", 0) for g in GG))
+            c3d.append(sum(g.get("de", 0) for g in GG))
+        c4.append(sum(rel[force][k].get("F", {}).get("sans_entree", 0) for k in keys[-4:]) / max(1, len(keys[-4:])))
+        flux = (r.get("R") or {}).get("flux_min", {})
+        fe, cu = flux.get("iron-plate"), flux.get("copper-plate")
+        if fe and fe > 0:
+            c5[force[3:]] = (cu or 0) / fe
+    cov.sort()
+    med = (cov[len(cov) // 2] if len(cov) % 2 else (cov[len(cov) // 2 - 1] + cov[len(cov) // 2]) / 2) if cov else None
+    return {"c1": (de, de + dt, 100.0 * de / (de + dt) if de + dt else None), "c2": (med, len(cov)),
+            "c3": (sum(c3n), sum(c3d), 100.0 * sum(c3n) / sum(c3d) if sum(c3d) else None), "c4": sum(c4), "c5": c5}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--minutes", default="60,120,150")
@@ -99,6 +141,12 @@ def main():
                 print("  %-11s %3d  %5s  %3d/%-4d %6d %5.0f       %6d %5.0f       %5s>%-5s  %5s>%-5s  %6s         %6s           %d/%d  %d" % (
                     force[3:], m, fmt(o["share"]), o["de"], o["dt"], fe[0], fe[1], cu[0], cu[1], fmt(o["ore_fe"]), fmt(o["pl_fe"]),
                     fmt(o["ore_cu"]), fmt(o["pl_cu"]), fmt(cf, "%.2f"), fmt(cg, "%.2f"), o["fours"][0], o["fours"][1], o["dort"]))
+        for mn in mins:
+            c = crit(rel, mn)
+            e, t, p = c["c1"]
+            print("  criteres min %d : C1 %d/%d = %s %% | C2 mediane %s %% (%d cas) | C3 %d/%d = %s %% figees | C4 fours sans entree %.1f | C5 %s"
+                  % (mn, e, t, fmt(p), fmt(c["c2"][0]), c["c2"][1], c["c3"][0], c["c3"][1], fmt(c["c3"][2]), c["c4"],
+                     " ".join("%s %.2f" % (k, v) for k, v in sorted(c["c5"].items())) or "-"))
 
 
 if __name__ == "__main__":
