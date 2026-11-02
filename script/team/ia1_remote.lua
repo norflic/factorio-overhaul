@@ -167,12 +167,43 @@ remote.add_interface("fo-ia1", {
     f.team.four_regle = on
     return Outposts.four_rule(f)
   end,
+  -- Lot BRIQUES (bancs seulement) : interrupteur de la règle de partage des fours (vrai par défaut ; faux = comportement de 0.6.37,
+  -- pour les témoins). Clé « * » : toutes les équipes vivantes.
+  set_regle_partage = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    if key == "*" then
+      local n = 0
+      local list = { State.faction("player") }
+      for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+      for _, f in ipairs(list) do
+        if f and f.team then
+          f.team.partage_regle = on
+          n = n + 1
+        end
+      end
+      return n
+    end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    f.team.partage_regle = on
+    return Outposts.partage_rule(f)
+  end,
+  -- Lot BRIQUES (bancs seulement) : demande de fonte imposée { [produit] = n } ajoutée à celle du plan à chaque pensée (nil : retirée) ;
+  -- `only` vrai : elle REMPLACE celle du plan.
+  bench_smelt_demand = function(key, demand, only)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    if demand ~= nil and type(demand) ~= "table" then return nil end
+    f.team.bench_smelt = demand
+    f.team.bench_smelt_seul = only == true or nil -- vrai : la demande du plan est remplacee, et non complétée
+    return true
+  end,
   smelt_stats = function(key)
     local f = team_of(key)
     if not (f and f.team) then return nil end
     local m = (f.stats and f.stats.smelt) or {}
     return { visits = m.visits or 0, empty = m.empty or 0, loaded = m.loaded or 0, collected = m.collected or 0,
-      fueled = m.fueled or 0, smelters = #Outposts.smelters(f), rule = Outposts.four_rule(f) }
+      fueled = m.fueled or 0, freed = m.freed or 0, smelters = #Outposts.smelters(f), rule = Outposts.four_rule(f) }
   end,
   bench_smelters = function(key, n)
     local f = team_of(key)
