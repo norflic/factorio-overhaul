@@ -5,7 +5,7 @@ local base = require("scenarios/dc_evolution_common")(860000)
 local tick0 = base.tick
 base.tick = function(ctx, e)
   tick0(ctx, e)
-  if e.tick % 600 == 0 and e.tick <= 36000 then
+  if e.tick % 600 == 0 then
     local ok, rows = pcall(remote.call, "fo-ia1", "teams")
     local n = 0
     for _, row in ipairs(ok and rows or {}) do
