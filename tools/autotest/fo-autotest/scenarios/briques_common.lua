@@ -6,8 +6,9 @@
   [FO-BRIQUES] sur 3 factions :
     « monopole » : tous les fours du QG fondent de l'acier, completes au tiers de leur pile par la demande d'acier, jamais vides : la tournee
                    de briques est refusee (« fours-occupes ») ; 35 a 50 min sans une brique, pierre 2 000 a 10 000 au coffre.
-    « bloque »   : quatre fours charges de pierre, une plaque d'acier restee en sortie (statut full_output) : arretes pour toujours, la
-                   sortie (4 plaques) est sous le seuil de tournee (10) ; briques constantes 50 min.
+    « bloque »   : quatre fours charges de pierre pendant qu'une fabrication d'acier finissait (case d'entree vide, craft en cours) : la
+                   plaque d'acier arrive en sortie et bloque la pierre (statut full_output) pour toujours, la sortie (4 plaques) est sous
+                   le seuil de tournee (10) ; briques constantes 50 min.
   Equipe du joueur (8 PNJ), 4 fours poses au QG (bench_smelters), coffre garni (plaques de fer, pierre, charbon), demande de fonte imposee
   (fo-ia1 bench_smelt_demand) : « monopole » = acier permanent + briques ; « bloque » = briques seules. Mesure pendant 5 min a partir du
   tick 600 : briques et acier produits (statistiques de production), etat des fours chaque minute.
