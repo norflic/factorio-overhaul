@@ -294,7 +294,10 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   -- appariement
   local taken = {}
   for _, dkey in ipairs(sorted_keys(st.links)) do taken[st.links[dkey].src] = (taken[st.links[dkey].src] or 0) + 1 end
-  for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil end
+  for _, d in ipairs(c.docks) do
+    d.linked = st.links[d.key] ~= nil
+    d.building = d.linked and not st.links[d.key].done or nil -- lot MALL (diagnostic) : liaison demandée, pas encore finie
+  end
   for _, s in ipairs(c.srcs) do s.taken = taken[s.key] or 0; s.linked = s.taken > 0 end -- lot MALL : une sortie sert jusqu'à Rv.fan quais de mall
   local pairs_ = Ln.pairs(c.docks, c.srcs)
   local present = {}
@@ -330,8 +333,13 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     end
     local per_min = (st.made_tick and tick > st.made_tick) and (made - (st.made_total or 0)) * 3600 / (tick - st.made_tick) or 0
     st.made_total, st.made_tick = made, tick
-    say(f, tick, string.format("[FO-MALL-ALIM] quais sans tapis : %s | portage a la main : %d voyage(s), %d objet(s) dont %d voyage(s) et %d objet(s) vers des malls | malls : %d objet(s) suivis, %.1f fabrique(s)/min depuis le dernier releve",
-      Ln.diagnose_text(nn, sp), sb.fill_trips or 0, sb.filled or 0, sb.fill_mall_trips or 0, sb.fill_mall or 0, n_items, per_min))
+    local by, by_keys = sb.fill_by or {}, {}
+    for _, k in ipairs(sorted_keys(by)) do by_keys[#by_keys + 1] = k end
+    table.sort(by_keys, function(u, v) if by[u].n ~= by[v].n then return by[u].n > by[v].n end return u < v end)
+    local top = {}
+    for i = 1, math.min(#by_keys, 6) do top[#top + 1] = string.format("%s %d voy/%d", by_keys[i], by[by_keys[i]].t, by[by_keys[i]].n) end
+    say(f, tick, string.format("[FO-MALL-ALIM] quais sans tapis : %s | portage a la main : %d voyage(s), %d objet(s) dont %d voyage(s) et %d objet(s) vers des malls | malls : %d objet(s) suivis, %.1f fabrique(s)/min depuis le dernier releve | portage des malls par objet [%s]",
+      Ln.diagnose_text(nn, sp), sb.fill_trips or 0, sb.filled or 0, sb.fill_mall_trips or 0, sb.fill_mall or 0, n_items, per_min, table.concat(top, ", ")))
   end
   if #pairs_ == 0 then return end
   -- décisions (au plus une liaison demandée par relevé)

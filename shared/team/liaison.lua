@@ -307,7 +307,7 @@ function Li.diagnose(docks, srcs)
   for _, pr in ipairs(Li.pairs(docks, srcs)) do paired[pr.dock.key] = true end
   for _, d in ipairs(docks) do
     local cause
-    if d.linked then cause = "servi"
+    if d.linked then cause = d.building and "en-construction" or "servi"
     elseif (d.flow or 0) < Li.MIN_FLOW then cause = "debit"
     elseif paired[d.key] then cause = "possible"
     else

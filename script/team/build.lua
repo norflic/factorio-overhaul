@@ -3445,6 +3445,12 @@ function Build.work(agent, f, tick)
       if p.spec and (p.spec.gen == "patron" or p.spec.gen == "bloc" or p.spec.mall) then
         b.stats.fill_mall_trips = (b.stats.fill_mall_trips or 0) + 1
         b.stats.fill_mall = (b.stats.fill_mall or 0) + put
+        -- par objet, et selon qu'une ligne finie dessert le quai (« ligne ») ou non (« main ») : lu par le journal [FO-MALL-ALIM]
+        local k = ((p.line_ok and p.line_ok[job.idx]) and "ligne:" or "main:") .. tostring(q.item)
+        b.stats.fill_by = b.stats.fill_by or {}
+        local e = b.stats.fill_by[k] or { t = 0, n = 0 }
+        e.t, e.n = e.t + 1, e.n + put
+        b.stats.fill_by[k] = e
       end
     end
     return "done"

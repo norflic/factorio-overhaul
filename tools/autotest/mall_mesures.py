@@ -19,7 +19,8 @@ LIGNE = re.compile(
     r"(?: ; sortie la plus proche des quais LOIN : (?P<loin>[\d,]+) tuiles)?"
     r"(?: ; sans sortie pour \[(?P<sans>.*?)\] ; sorties \[(?P<sorties>.*?)\])?"
     r" \| portage a la main : (?P<voy>\d+) voyage\(s\), (?P<obj>\d+) objet\(s\) dont (?P<mvoy>\d+) voyage\(s\) et (?P<mobj>\d+) objet\(s\) vers des malls"
-    r" \| malls : (?P<nit>\d+) objet\(s\) suivis, (?P<fab>[\d.]+) fabrique\(s\)/min depuis le dernier releve a (?P<min>[\d.]+) min")
+    r" \| malls : (?P<nit>\d+) objet\(s\) suivis, (?P<fab>[\d.]+) fabrique\(s\)/min depuis le dernier releve"
+    r"(?: \| portage des malls par objet \[(?P<par>.*?)\])? a (?P<min>[\d.]+) min")
 
 
 def causes(texte):
@@ -54,7 +55,7 @@ def lire(archive):
             r = {
                 "min": float(d["min"]), "mall": causes(d["mall"]), "autres": causes(d["autres"]),
                 "voy": int(d["voy"]), "obj": int(d["obj"]), "mvoy": int(d["mvoy"]), "mobj": int(d["mobj"]),
-                "nit": int(d["nit"]), "fab": float(d["fab"]), "sans": d["sans"], "sorties": d["sorties"],
+                "nit": int(d["nit"]), "fab": float(d["fab"]), "sans": d["sans"], "sorties": d["sorties"], "par": d["par"],
             }
             rel.setdefault(d["eq"], []).append(r)
     return rel
@@ -87,6 +88,8 @@ def afficher(archive, rel):
                 r["min"], causes_txt[:40], r["voy"], r["obj"], r["mvoy"], r["mobj"], r["nit"], r["fab"]))
             if r.get("sans") and r["min"] >= 30:
                 print("        sans sortie pour [%s] ; sorties [%s]" % (r["sans"], r["sorties"]))
+            if r.get("par") and r["min"] >= 30:
+                print("        portage des malls par objet [%s]" % r["par"])
 
 
 def comparer(temoin, essai):
