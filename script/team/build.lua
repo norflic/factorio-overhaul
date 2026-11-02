@@ -3678,6 +3678,12 @@ local function out_wanted(f, p, chest)
   return false
 end
 
+--- Lot MALL : le projet est-il un mall (rangée « patron », bloc partagé, ou module fictif de banc `spec.mall`) ?
+local function is_mall_project(p)
+  local s = p.spec
+  return s ~= nil and (s.gen == "patron" or s.gen == "bloc" or s.mall == true)
+end
+
 local function quai_tasks(f, p, surface, out)
   -- lot CHARBON-CENTRALE : le coffre d'une centrale se remplit en URGENCE dès qu'il passe sous un seuil d'avance (consommation à pleine
   -- charge des chaudières × Cc.LEAD_S), jamais seulement au-dessous de Build.QUAI_LOW à la priorité du projet (63 : coffre oublié, centrale
@@ -3705,9 +3711,9 @@ local function quai_tasks(f, p, surface, out)
             ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
           }
         end
-      elseif Ra.hand_due(n, have, Build.QUAI_LOW, p.line_ok and p.line_ok[i]) then -- lot MALL : une ligne finie ne laisse que le secours au PNJ
+      elseif Ra.hand_due(n, have, Build.QUAI_LOW, p.line_ok and p.line_ok[i] and is_mall_project(p)) then -- lot MALL : une ligne finie ne laisse que le secours au PNJ d'un mall
         local load = math.min(Build.QUAI_FILL - n, have)
-        local mall = p.spec ~= nil and (p.spec.gen == "patron" or p.spec.gen == "bloc" or p.spec.mall == true)
+        local mall = is_mall_project(p)
         if Ra.batch_ok(mall, n, load, Build.QUAI_FILL) then -- lot MALL : pas de voyage pour une poignée d'objets, sauf quai à sec
           local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
           if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end

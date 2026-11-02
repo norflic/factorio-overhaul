@@ -119,7 +119,8 @@ check(SCRIPT:find('require%("shared%.team%.ravitaillement"%)') ~= nil and BUILD:
 check(SCRIPT:find("tmax = Rv%.tmax%(d, Ln%.TMAX%)") ~= nil, "7.2 le prix d'un quai de mall est jugé sur la durée du mall")
 check(SCRIPT:find("Rv%.len_max%(") ~= nil and SCRIPT:find("mall = d%.mall }") ~= nil, "7.3 la longueur du tapis suit le genre du quai (lc.mall au plan)")
 check(SCRIPT:find("mark_line%(b, link,") ~= nil and SCRIPT:find("dp%.line_ok%[link%.dock_idx%] = true") ~= nil, "7.4 une ligne finie est notée sur le projet du quai")
-check(BUILD:find("Ra%.hand_due%(n, have, Build%.QUAI_LOW, p%.line_ok and p%.line_ok%[i%]%)") ~= nil, "7.5 le portage lit la ligne finie du quai")
+check(BUILD:find("Ra%.hand_due%(n, have, Build%.QUAI_LOW, p%.line_ok and p%.line_ok%[i%] and is_mall_project%(p%)%)") ~= nil,
+  "7.5 le portage lit la ligne finie du quai, pour un mall seulement (les autres modules gardent le seuil d'avant)")
 check(BUILD:find("Ra%.batch_ok%(mall, n, load, Build%.QUAI_FILL%)") ~= nil, "7.5b le voyage vers un mall lit la charge minimale")
 check(SCRIPT:find("made_by_neighbour%(f, surface, o%.x, o%.y%)") ~= nil, "7.6 la sortie vide d'un mall prend l'objet de sa machine")
 check(SCRIPT:find("s%.taken = taken%[s%.key%] or 0") ~= nil, "7.7 le relevé compte les liaisons tirées de chaque sortie")
