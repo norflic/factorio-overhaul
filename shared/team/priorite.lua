@@ -115,6 +115,28 @@ function Pr.decide(a)
   return out
 end
 
+---------------------------------------------------------------------------------------------------
+-- Lot PARITE (reprise du 2/11 soir) : RÉSERVE DE SURVIE. Décision du DC en autonomie : « un ordre de capitalisation ne descend pas le
+-- coffre sous la réserve de survie (défense du QG + reconstruction d'un avant-poste) tant que le QG n'a pas sa défense ». Mesure (fo-logs/
+-- 2026-11-02_PARITE/runs150/final-pur-20261020, 25 à 31 min) : en « production d'abord » à 9 plaques de fer, la défense ne s'achète qu'au-dessus de
+-- son plancher (T.defend_iron_floor) ; la production (agrandir, charbon, objectif), servie après, fabrique avec CHAQUE plaque qui arrive,
+-- donc le coffre n'atteint jamais le plancher : le fer coule à 350/min et le front attaqué reste à 0 tourelle sur 3, les avant-postes tombent
+-- à 34 min, l'équipe est détruite à 48 min. La règle ne retire pas la production d'abord (remarque du DC du 29/10) : elle lui interdit
+-- seulement de descendre sous plancher + UNE unité de défense tant qu'une cellule attaquée n'a pas ses tourelles.
+---------------------------------------------------------------------------------------------------
+Pr.RESERVE_MODES = { [Pr.MODE_PRODUCTION_D_ABORD] = true } -- ni la survie-pénurie (la production y est la sortie), ni le péril (la défense y a déjà tout)
+
+--- Fer que la production ne peut pas toucher. a = { mode (Pr.decide), defense_cost (fer de la défense voulue), floor (plancher de fer de la
+--- défense), unit_cost (fer d'UNE unité de défense : tourelle et ses chargeurs), attacked (une cellule attaquée attend ses tourelles) }.
+--- Rend un nombre >= 0 (en plaques de la clé) ; 0 : la production dispose de tout le fer comme avant.
+function Pr.survival_reserve(a)
+  a = a or {}
+  if not Pr.RESERVE_MODES[a.mode] then return 0 end
+  local cd = num(a.defense_cost)
+  if cd <= 0 or not a.attacked then return 0 end
+  return num(a.floor) + math.min(num(a.unit_cost), cd)
+end
+
 --- Un objectif de l'échelle est-il MILITAIRE (soldats, tourelles d'avant-poste, réserve de la seule munition `ammo`) ? `need` :
 --- le champ `need` de l'objectif (shared/team/config.lua, T.ladder). `ammo` : le nom de la munition (T.turret_ammo), donné par
 --- l'appelant.

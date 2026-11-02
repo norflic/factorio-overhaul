@@ -211,6 +211,8 @@ function C.think(view, book, st, ctx)
       margin = eff and eff.margin_item and { eff.margin_item, eff.margin } or nil })
     st.noyau = Rs.state(book, view.stock, { posts = sig.posts, repair = sig.repair, plan_wants = sig.plan_wants,
       planned = used, recruit = rec, production_first = sig.production_first, raw_need = sig.raw_need,
+      -- Lot PARITE (reprise du 2/11) : réserve de survie du planificateur (en « production d'abord », une cellule attaquée sans ses tourelles)
+      floor = (base.priorite and (base.priorite.reserve or 0) > 0) and { { T.outposts.iron.product, base.priorite.reserve } } or nil,
       -- Intégration 0.6.33 : la réserve de chargeurs sur la menace (lot S1) est du besoin : ni les blocs d'I1 ni le puits de C2 n'en prennent le fer
       ammo = (ctx.ammo_reserve or 0) > 0 and { { T.turret_ammo, ctx.ammo_reserve } } or nil,
       -- Lot S1 : les packs de la recherche de la tourelle sont du besoin (les blocs de l'industrie n'en prennent pas le fer)
