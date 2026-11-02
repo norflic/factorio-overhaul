@@ -44,6 +44,19 @@ Champ.CFG = {
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
+-- Lot CHAMP (ordres « couvrir / ouvrir » de la capitalisation) : un champ se pose sur un avant-poste (f.outposts) ou sur un gisement SANS
+-- avant-poste demandé par la capitalisation (f.migration.fields, numéros à partir de FIELD_BASE : jamais ceux d'un avant-poste).
+Champ.FIELD_BASE = 100000
+
+--- La cible d'un champ par son numéro : l'avant-poste, ou le gisement de la capitalisation, ou nil. Lecture seule.
+function Champ.target(f, id)
+  if id == nil or not f then return nil end
+  local o = f.outposts and f.outposts[id]
+  if o then return o end
+  local ms = f.migration
+  return ms and ms.fields and ms.fields[id] or nil
+end
+
 local function say(f, text)
   f.champ_logs = (f.champ_logs or 0) + 1
   if f.champ_logs > Champ.CFG.logs then return end
@@ -319,11 +332,12 @@ local function powered_pole(f, surface, x, y)
   end
   return best
 end
+Champ.powered_pole = powered_pole
 
 Build.SITES = Build.SITES or {}
 Build.SITES.champ = function(f, surface, p, h)
   local cs = p.spec.champ
-  local o = cs and f.outposts and f.outposts[cs.oid]
+  local o = cs and Champ.target(f, cs.oid)
   if not o then return nil, "champ: avant-poste perdu" end
   local bd, why = Champ.band(f, surface, o, cs.frame, cs.pr)
   if not bd then return nil, "champ: " .. tostring(why) end
@@ -412,7 +426,8 @@ function Champ.report(f, surface, tick)
     local p = b.projects[pid]
     if p and p.spec and p.spec.champ then
       ids[#ids + 1] = pid
-      local key = p.state .. ((p.state == "reserve" and p.reason) and (":" .. p.reason) or "")
+      -- (lot CHAMP : raison d'une bande en réserve ET d'une bande refusée ou annulée, coupée à 40 caractères)
+      local key = p.state .. (((p.state == "reserve" or p.state == "refuse") and p.reason) and (":" .. tostring(p.reason):sub(1, 40)) or "")
       st[key] = (st[key] or 0) + 1
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end

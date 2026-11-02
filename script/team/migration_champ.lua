@@ -64,7 +64,7 @@ local function name_of(f) return f.key or "player" end
 local function say(f, ms, text, force)
   if force then
     ms.logs_f = (ms.logs_f or 0) + 1
-    if ms.logs_f > 40 then return end
+    if ms.logs_f > 120 then return end -- (lot CHAMP : 40 avant ; le devenir de chaque bande est forcé, champ_bandes.py le lit)
   else
     ms.logs = ms.logs + 1
     if ms.logs > CFG.logs then return end
@@ -73,10 +73,10 @@ local function say(f, ms, text, force)
 end
 
 --- Une raison d'attente n'est écrite qu'à son changement.
-local function say_why(f, ms, st, key, text)
+local function say_why(f, ms, st, key, text, force)
   if st.why_last == key then return end
   st.why_last = key
-  say(f, ms, text)
+  say(f, ms, text, force)
 end
 
 --- Lot CHAMP : deux champs migrent EN MÊME TEMPS au plus (créneaux ms.cur et ms.cur2, de minerais différents : le fer et le cuivre
@@ -131,6 +131,12 @@ local function siblings(f, o)
   local r2 = Champ.SIB_R * Champ.SIB_R
   for _, oid in ipairs(sorted_keys(f.outposts)) do
     local q = f.outposts[oid]
+    if q ~= o and q.kind == o.kind and (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2 then out[#out + 1] = q end
+  end
+  -- gisements sans avant-poste demandés par la capitalisation (Mig.want) : voisins eux aussi (un seul champ par gisement)
+  local fields = f.migration and f.migration.fields
+  for _, fid in ipairs(sorted_keys(fields)) do
+    local q = fields[fid]
     if q ~= o and q.kind == o.kind and (q.pos.x - o.pos.x) ^ 2 + (q.pos.y - o.pos.y) ^ 2 <= r2 then out[#out + 1] = q end
   end
   return out
@@ -387,7 +393,7 @@ local function failed(f, ms, o, st, tick, why)
         (st.done > 0) and "arretee" or "abandonnee", st.fails, tostring(why), st.done))
   else
     say(f, ms, string.format("avant-poste %d : partie annulee (%s), echec %d/%d, nouvel essai a %.1f min", o.id, tostring(why), st.fails,
-      CFG.max_fails, st.retry / 3600))
+      CFG.max_fails, st.retry / 3600), st.frame ~= nil) -- (lot CHAMP : forcée pour une bande du champ)
   end
 end
 
@@ -440,7 +446,9 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     end
   end
   table.sort(ids)
-  if #ids == 0 and (free[product] or 0) >= EXT_PLATES then
+  -- une bande voulue par la capitalisation (Mig.want) n'attend pas que la plaque manque : la règle a déjà jugé l'agrandissement rentable
+  local wanted = (st.want_until or 0) > tick
+  if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted then
     say_why(f, ms, st, "ext:" .. pr, string.format("avant-poste %d : bande %d sans paire en attente (%d %s libres, agrandissement sous %d)", o.id, pr,
       free[product] or 0, product, EXT_PLATES))
     st.retry = tick + CFG.retry
@@ -469,8 +477,9 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   ms.requests = (ms.requests or 0) + 1
   local nd, nf = 0, 0
   for _, e in ipairs(bd.plan.ents) do if e.kind == "foreuse" then nd = nd + 1 elseif e.kind == "four" then nf = nf + 1 end end
-  say(f, ms, string.format("avant-poste %d (%s) : bande %d du champ demandee, projet %d : %d foreuse(s) electrique(s), %d four(s), %d paire(s) thermique(s) dessous (%s), %d paire(s) ailleurs",
-    o.id, o.kind, pr, id, nd, nf, #ids, table.concat(ids, ","), #list - #ids), true)
+  say(f, ms, string.format("%s %d (%s) : bande %d du champ demandee, projet %d : %d foreuse(s) electrique(s), %d four(s), %d paire(s) thermique(s) dessous (%s), %d paire(s) ailleurs%s",
+    o.field and "gisement" or "avant-poste", o.id, o.kind, pr, id, nd, nf, #ids, table.concat(ids, ","), #list - #ids,
+    wanted and " (voulue par la capitalisation)" or ""), true)
   return true
 end
 
@@ -656,10 +665,10 @@ local function step_build(f, surface, ms, o, st, tick)
     return
   end
   if p and p.state == "fini" and tick - st.t_done > CFG.fini_wait then
-    say_why(f, ms, st, "fini:" .. why, string.format("avant-poste %d : ligne finie du projet %d, pas encore de produit fini (%d)", o.id, st.pid, env.made))
+    say_why(f, ms, st, "fini:" .. why, string.format("avant-poste %d : ligne finie du projet %d, pas encore de produit fini (%d)", o.id, st.pid, env.made), st.frame ~= nil)
   elseif tick - st.t_degel > CFG.build_warn then
     say_why(f, ms, st, "lent:" .. tostring(why), string.format("avant-poste %d : chantier lent, projet %d a %s depuis %.0f min", o.id, st.pid, tostring(why),
-      (tick - st.t_degel) / 3600))
+      (tick - st.t_degel) / 3600), st.frame ~= nil)
   end
 end
 
@@ -668,15 +677,24 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy)
   local b = f.build
   -- Lot CHAMP : la plaque la plus en manque d'abord (retour du DC du 2/11 : « 57 plaques de cuivre » pour près de 1 000 de fer), puis
   -- le numéro d'avant-poste
+  -- Lot CHAMP (ordres « couvrir / ouvrir ») : les champs voulus par la capitalisation d'abord (Mig.want), gisements sans avant-poste compris
   local cand = {}
-  for _, oid in ipairs(sorted_keys(f.outposts)) do
-    local o = f.outposts[oid]
-    if is_furnace_kind(o.kind) then cand[#cand + 1] = { oid = oid, have = free[T.outposts[o.kind].product] or 0 } end
+  local function add(oid, o)
+    if is_furnace_kind(o.kind) then
+      local sq = ms.o[oid]
+      cand[#cand + 1] = { oid = oid, have = free[T.outposts[o.kind].product] or 0, want = (sq and (sq.want_until or 0) > tick) and 1 or 0 }
+    end
   end
-  table.sort(cand, function(a, c) if a.have ~= c.have then return a.have < c.have end return a.oid < c.oid end)
+  for _, oid in ipairs(sorted_keys(f.outposts)) do add(oid, f.outposts[oid]) end
+  for _, fid in ipairs(sorted_keys(ms.fields)) do add(fid, ms.fields[fid]) end
+  table.sort(cand, function(a, c)
+    if a.want ~= c.want then return a.want > c.want end
+    if a.have ~= c.have then return a.have < c.have end
+    return a.oid < c.oid
+  end)
   for _, it in ipairs(cand) do
     local oid = it.oid
-    local o = f.outposts[oid]
+    local o = Champ.target(f, oid)
     local st = ms.o[oid]
     -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement)
     if busy and (oid == busy.id or o.kind == busy.kind or Champ.data(f, o.kind) == nil) then goto next_outpost end
@@ -708,6 +726,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy)
       local cfg = champ and CHAMP_CFG or CFG
       local npairs = #list
       if champ and st.frame and npairs == 0 then npairs = 1 end -- bandes sans paire : agrandissement du champ (begin_band)
+      if champ and it.want == 1 and npairs == 0 then npairs = 1 end -- voulu par la capitalisation : un gisement sans paire se pose aussi
       local lattice = champ or next(rects) ~= nil
       -- la recherche d'ennemi (coûteuse) seulement quand le reste est réuni
       local enemy = false
@@ -734,14 +753,105 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy)
   return false
 end
 
---- Une pensée d'équipe. `free` : stock libre ({ [objet] = n }). Rend 1 si une étape a eu lieu, sinon 0.
-function Mig.think(f, surface, book, free, tick)
-  if not (f and f.outposts and f.hq and f.hq.valid and f.build) then return 0 end
+local function ms_of(f)
   local ms = f.migration
   if not ms then
     ms = { next = 0, logs = 0, logs_f = 0, o = {} }
     f.migration = ms
   end
+  return ms
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot CHAMP : ordres « couvrir / ouvrir » de la capitalisation (script/ai3/capitalisation.lua) passés par le champ
+---------------------------------------------------------------------------------------------------
+-- Demande du lead (2/11) : « faire passer les ordres couvrir / ouvrir de la capitalisation par le champ pour que ses lignes électriques ne
+-- bloquent plus les gisements ». Avant, un tel ordre posait une fonderie à foreuses du TREILLIS (gabarit d'AUTO) dont la ligne de foreuses
+-- électriques, son tapis et ses poteaux occupaient le gisement : le champ n'y trouvait plus de bande (mesuré, partie de 150 min, graine
+-- 20261020, emerald : « gisement occupe (hors paires) : electric-mining-drill 18, reserve 127 [...] transport-belt 29 », aucune bande).
+
+--- Sorte d'avant-poste (T.outposts) dont le champ sait poser le minerai `resource` aujourd'hui (réceptacle four, foreuse, tapis débloqué,
+--- poteau : Champ.data), ou nil.
+function Mig.takes(f, resource)
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    if T.outposts[kind].resource == resource and is_furnace_kind(kind) and Champ.data(f, kind) ~= nil then return kind end
+  end
+  return nil
+end
+
+--- Un ordre de la capitalisation veut le gisement recensé `dep` { id, resource, tiles, x0, y0, x1, y1, cx, cy }. La cible (Mg.want_target) :
+--- le champ déjà planifié sur ce gisement, sinon l'avant-poste à fours le plus proche du centre, sinon un gisement SANS avant-poste
+--- (ms.fields, créé ici si un réseau alimenté est à portée d'une chaîne de poteaux). La cible devient « voulue » (st.want_until) : servie
+--- avant les autres (start_next), une paire n'y est pas exigée, une bande sans paire n'attend pas que la plaque manque (begin_band).
+--- Rend (numéro de la cible, bandes qui produisent déjà) ou nil, raison.
+function Mig.want(f, dep, tick)
+  local kind = Mig.takes(f, dep.resource)
+  if not kind then return nil, "pas de champ pour ce minerai" end
+  local ms = ms_of(f)
+  ms.fields = ms.fields or {}
+  local cands = {}
+  for _, oid in ipairs(sorted_keys(f.outposts)) do
+    local q = f.outposts[oid]
+    if q.kind == kind then
+      local sq = ms.o[oid]
+      cands[#cands + 1] = { id = oid, pos = q.pos, framed = (sq and sq.frame and not sq.abandoned) and true or nil }
+    end
+  end
+  for _, fid in ipairs(sorted_keys(ms.fields)) do
+    local q = ms.fields[fid]
+    if q.kind == kind then
+      local sq = ms.o[fid]
+      cands[#cands + 1] = { id = fid, pos = q.pos, field = true, framed = (sq and sq.frame and not sq.abandoned) and true or nil }
+    end
+  end
+  local c = Mg.want_target(cands, dep, CFG.want_margin)
+  local o = c and Champ.target(f, c.id)
+  if not o then
+    -- gisement neuf : sans réseau alimenté à portée d'une chaîne de poteaux, la bande se poserait sans courant
+    if not Champ.powered_pole(f, f.hq.surface, dep.cx, dep.cy) then
+      return nil, string.format("aucun reseau alimente a moins de %d tuiles", Champ.CFG.chain_r)
+    end
+    ms.nfield = (ms.nfield or 0) + 1
+    local id = Champ.FIELD_BASE + ms.nfield
+    o = { id = id, kind = kind, pos = { x = dep.cx, y = dep.cy }, field = true, dep = dep.id, drill_list = {}, sinks = {}, drills = 0 }
+    ms.fields[id] = o
+    say(f, ms, string.format("gisement %d (%s) : champ voulu par la capitalisation sur %s (%d tuiles), sans avant-poste", id, kind,
+      tostring(dep.id), dep.tiles or 0), true)
+  end
+  if o.migr == "fini" then return nil, "champ deja pose en entier" end
+  local st = ms.o[o.id]
+  if not st then st = new_state(); ms.o[o.id] = st end
+  if st.sans_gabarit then return nil, "champ impossible (gabarit)" end
+  if st.abandoned and tick >= (st.abandoned_at or 0) + CHAMP_CFG.retry then
+    -- un champ abandonné (échecs de suite, aucune bande ne tenait) repart : refus et cadre vide oubliés (le gisement a pu changer)
+    st.abandoned, st.abandoned_at, st.fails, st.bad = nil, nil, 0, nil
+    if st.order and #st.order == 0 then st.frame, st.order = nil, nil end
+  end
+  if st.abandoned then return nil, "champ abandonne il y a moins de " .. math.floor(CHAMP_CFG.retry / 3600) .. " min" end
+  if o.migr == "partiel" and st.stage == "veille" then o.migr, st.fails, st.bad = nil, 0, nil end -- arrêté après des échecs : on reprend
+  st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)
+  return o.id, st.produced
+end
+
+--- Suivi d'un ordre de la capitalisation sur le champ `id` (garde la cible « voulue » tant que l'ordre suit). Rend { produced, stage,
+--- pid, pstate, reason, built (entités posées du projet en cours), abandoned, migr } ou nil (cible perdue).
+function Mig.follow(f, id, tick)
+  local ms = f and f.migration
+  local o = Champ.target(f, id)
+  local st = ms and ms.o and ms.o[id]
+  if not (o and st) then return nil end
+  st.want_until = math.max(st.want_until or 0, tick + CFG.want_ttl)
+  local p = st.pid and f.build and f.build.projects[st.pid]
+  local built = 0
+  if p then for _, e in ipairs(p.ents or {}) do if e.built then built = built + 1 end end end
+  return { produced = st.produced or 0, stage = st.stage, pid = st.pid, pstate = p and p.state or nil, reason = p and p.reason or nil,
+    built = built, abandoned = st.abandoned or nil, migr = o.migr }
+end
+
+--- Une pensée d'équipe. `free` : stock libre ({ [objet] = n }). Rend 1 si une étape a eu lieu, sinon 0.
+function Mig.think(f, surface, book, free, tick)
+  if not (f and f.outposts and f.hq and f.hq.valid and f.build) then return 0 end
+  local ms = ms_of(f)
   if tick < ms.next then return 0 end
   ms.next = tick + CFG.every
   if tick >= (ms.report_next or 0) then -- lot CHAMP : état des bandes du champ au journal ([FO-CHAMP-ETAT])
@@ -754,13 +864,17 @@ function Mig.think(f, surface, book, free, tick)
   for _, slot in ipairs({ "cur", "cur2" }) do
     local id = ms[slot]
     if id then
-      local o = f.outposts[id]
+      local o = Champ.target(f, id) -- (lot CHAMP : avant-poste, ou gisement voulu par la capitalisation)
       local st = o and ms.o[id]
       if not (o and st) then
         -- avant-poste perdu en cours de route : le projet du plan, s'il n'a rien retiré, est annulé (les matières rendues)
         local s2 = ms.o[id]
         release(ms, id)
         if s2 and s2.stage == "projet" and s2.pid then Build.cancel(f, s2.pid, "migration: avant-poste perdu") end
+        -- lot CHAMP : journal (avant : silencieux ; une bande annulée ainsi paraissait « en attente » jusqu'à la fin du banc)
+        if s2 and s2.pid then say(f, ms, string.format("avant-poste %d : avant-poste perdu, projet %d %s", id, s2.pid,
+          s2.stage == "projet" and "annule" or "laisse au plan"), true) end
+        if s2 then s2.stage, s2.pid = "veille", nil end
       else
         -- lot MIGRATION-DECLENCHE : le registre n'est purgé qu'APRÈS un retrait (étape « chantier ») ; en « projet » rien n'est retiré, et
         -- une paire tuée par une attaque pendant l'attente des matières (30 min au plus) doit être refaite (scarlet, avant-poste 6 : 8 paires
@@ -775,7 +889,7 @@ function Mig.think(f, surface, book, free, tick)
   end
   if ms.cur2 then return did end
   -- un créneau libre : le premier comme avant ; le second (lot CHAMP) seulement pour un champ d'un autre minerai que celui en cours
-  local busy = ms.cur and f.outposts[ms.cur]
+  local busy = ms.cur and Champ.target(f, ms.cur)
   if busy and not (ms.o[ms.cur] and ms.o[ms.cur].frame) then return did end
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
@@ -803,7 +917,7 @@ function Mig.projects(f)
   for _, slot in ipairs({ "cur", "cur2" }) do
     local id = ms and ms[slot]
     local st = id and ms.o and ms.o[id]
-    local o = id and f.outposts and f.outposts[id]
+    local o = id and Champ.target(f, id)
     if st and (st.stage == "projet" or st.stage == "chantier") and st.pid then
       out[#out + 1] = { pid = st.pid, item = st.frame and o and T.outposts[o.kind] and T.outposts[o.kind].product or nil }
     end
