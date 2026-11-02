@@ -263,7 +263,7 @@ end
 --- Entrées de la croissance (PA.watch) : { anticipate, stalled (reconstructions sans progrès : ids) }.
 function Sante.growth(f, tick, plants, used_j, capacity_j)
   local sm = mem(f)
-  if Sante.off(f) then return false, {}, 0, 0, 0 end
+  if Sante.off(f) then sm.ant_n = 0 return false, {}, 0, 0, 0 end
   local committed = Sante.committed(f) + Sante.held(f)
   local used, cap = used_j * JTICK_KW, capacity_j * JTICK_KW
   local stalled = {}
@@ -281,7 +281,7 @@ function Sante.growth(f, tick, plants, used_j, capacity_j)
       end
     end
   end
-  return S.anticipate(used, committed, cap), stalled, used, committed, cap
+  return S.sustain(sm, S.anticipate(used, committed, cap)), stalled, used, committed, cap
 end
 
 return Sante

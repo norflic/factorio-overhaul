@@ -99,6 +99,15 @@ local function battery(S)
   check(not S.anticipate(0, 0, 1800), "rien : non")
   check(S.ANTICIPATE < 0.8, "avant le seuil de saturation (80 %)")
 
+  section("1e bis. Duree de l'avance")
+  local sa = {}
+  for i = 1, 5 do check(S.sustain(sa, true) == false, "avance relevé " .. i .. " sur 6 : pas encore") end
+  check(S.sustain(sa, true) == true, "6 releves de suite : l'avance est tenue")
+  check(S.sustain(sa, false) == false and sa.ant_n == 0, "un releve sous le seuil remet le compte a zero")
+  for i = 1, 5 do S.sustain(sa, true) end
+  check(S.sustain(sa, false) == false and S.sustain(sa, true) == false, "5 releves puis une rechute : il faut de nouveau 6 releves")
+  check(S.ANTICIPATE_CHECKS == 6, "30 s comme la saturation")
+
   section("1f. Porte des consommateurs")
   local g = {}
   local ok, w = S.admit(g, { capacity = 1800, used = 0, committed = 0 }, 700, 0)
@@ -336,14 +345,18 @@ check(Sante.gate(gate_f(0, 0), { id = 41, state = "attente", spec = { kw = 600 }
 section("2h. Croissance")
 local fgr = gate_f(30000, 0)
 local fin = { id = 1, state = "fini", ents = {} }
-local ant, stalled, used, comm, cap = Sante.growth(fgr, 100, { fin }, 21000, 30000)
-check(ant == true and used == 1260 and cap == 1800 and #stalled == 0, "70 % de la capacite : avance")
+local ant, stalled, used, comm, cap
+for i = 1, 5 do ant, stalled, used, comm, cap = Sante.growth(fgr, 100, { fin }, 21000, 30000) end
+check(ant == false and used == 1260 and cap == 1800 and #stalled == 0, "70 % de la capacite pendant 25 s : pas encore")
+ant = Sante.growth(fgr, 100, { fin }, 21000, 30000)
+check(ant == true, "70 % de la capacite pendant 30 s : avance")
 ant = Sante.growth(fgr, 100, { fin }, 15000, 30000)
-check(ant == false, "50 % : pas d'avance")
+check(ant == false and fgr.build.sante.ant_n == 0, "50 % : pas d'avance, le compte repart")
 fgr.build.sante.held = { [9] = 500 }
-ant, _, _, comm = Sante.growth(fgr, 100, { fin }, 15000, 30000)
-check(ant == true and comm == 500, "50 % + un module retenu de 500 kW : avance")
+for i = 1, 6 do ant, _, _, comm = Sante.growth(fgr, 100, { fin }, 15000, 30000) end
+check(ant == true and comm == 500, "50 % + un module retenu de 500 kW pendant 30 s : avance")
 fgr.build.sante.held = {}
+fgr.build.sante.ant_n = 0
 local reo = { id = 17, state = "chantier", reopened = 1, ents = { { built = true }, { built = false }, { built = false } } }
 ant, stalled = Sante.growth(fgr, 100, { fin, reo }, 0, 30000)
 check(#stalled == 0, "reconstruction : premier releve, pas bloquee")
@@ -447,6 +460,11 @@ mutant("reconstruction jamais bloquee", function(X) X.STALL = 10 ^ 12 end)
 mutant("reconstruction bloquee tout de suite", function(X) X.STALL = 0 end)
 mutant("avance a 90 %", function(X) X.ANTICIPATE = 0.9 end)
 mutant("avance a 30 %", function(X) X.ANTICIPATE = 0.3 end)
+mutant("avance sans duree (un pic suffit)", function(X) X.ANTICIPATE_CHECKS = 1 end)
+mutant("avance qui ne tient jamais", function(X) X.ANTICIPATE_CHECKS = 1000 end)
+mutant("compte de l'avance jamais remis a zero", function(X)
+  X.sustain = function(st, flag) if flag then st.ant_n = (st.ant_n or 0) + 1 end return (st.ant_n or 0) >= X.ANTICIPATE_CHECKS end
+end)
 mutant("porte qui n'attend jamais", function(X) X.GATE_WAIT = 0 end)
 mutant("porte qui bloque a jamais", function(X) X.GATE_WAIT = 10 ^ 12 end)
 mutant("porte a 150 % de la capacite", function(X) X.GATE_FRAC = 1.5 end)

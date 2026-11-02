@@ -29,6 +29,7 @@ S.COOL = 5400         -- ticks entre deux amorces d'une même centrale (90 s : 5
 S.PRIO = 92           -- priorité de la tâche d'amorce : au-dessus de l'urgence du coffre (91) et de « défendre d'abord » (90)
 S.STALL = 18000       -- ticks (5 min) sans pièce reposée au bout desquels une reconstruction ne retient plus la centrale de plus
 S.ANTICIPATE = 0.7    -- part de la capacité (production + consommateurs en chantier) à partir de laquelle la centrale de plus est demandée
+S.ANTICIPATE_CHECKS = 6 -- relevés (5 s) de suite au-dessus de S.ANTICIPATE : 30 s, comme la saturation (un pic de mise en route n'est pas un besoin)
 S.GATE_FRAC = 1.0     -- part de la capacité que production + consommateurs en chantier + nouveau module ne dépassent pas
 S.GATE_WAIT = 43200   -- ticks (12 min) d'attente au plus d'un module retenu pour le courant : au-delà il passe (jamais de blocage définitif)
 S.LOGS = 60           -- lignes [FO-SANTE-CENTRALE] au plus par équipe
@@ -96,6 +97,12 @@ end
 function S.anticipate(used, committed, capacity)
   if not capacity or capacity <= 0 then return false end
   return (used or 0) + (committed or 0) >= S.ANTICIPATE * capacity
+end
+
+--- Durée de l'avance. st : mémoire { ant_n } ; flag : S.anticipate à ce relevé. Rend vrai quand elle dure depuis S.ANTICIPATE_CHECKS relevés.
+function S.sustain(st, flag)
+  if flag then st.ant_n = (st.ant_n or 0) + 1 else st.ant_n = 0 end
+  return st.ant_n >= S.ANTICIPATE_CHECKS
 end
 
 --- Un nouveau module électrique de `new` kW peut-il s'ouvrir ? c : { capacity, used, committed (kW) } ; st : mémoire { since } du module ;
