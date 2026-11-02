@@ -26,6 +26,7 @@ local Paires = require("shared.team.pose_paires")
 local State = require("script.faction.state")
 local Build = require("script.team.build")
 local Conv = require("script.team.convoyeurs")
+local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise réelle des falaises
 
 local Champ = {}
 
@@ -178,8 +179,11 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine)
   end
   for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
     local soft = e.type == "tree" or e.type == "simple-entity" or (e.force.name == "neutral" and e.type ~= "cliff")
-    if not soft and e.type ~= "resource" then add_box(blocked, e, e.name) end
+    if not soft and e.type ~= "resource" and e.type ~= "cliff" then add_box(blocked, e, e.name) end
   end
+  -- lot OBSTACLES : une falaise bloque son emprise RÉELLE (orientation), pas la boîte générique de bounding_box (shared/team/falaise.lua)
+  Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
+  Fal.mark_learned(f.build and f.build.hard, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
   local occ = f.build and f.build.occ or {}
   for x = math.floor(x0), math.ceil(x1) do
     for y = math.floor(y0), math.ceil(y1) do
