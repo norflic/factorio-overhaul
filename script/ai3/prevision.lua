@@ -571,7 +571,7 @@ function Prev.think(f, tick, opts)
   end
   -- 7. Décisions.
   local soldiers = f.soldiers_count or 0
-  local smax = (war and war.settings and war.settings.soldiers_max) or 0 -- Lot PARITE (reprise du 2/11, écart 2) : aussi pour votre équipe
+  local smax = (not f.is_player) and ((war and war.settings and war.settings.soldiers_max) or 0) or 0
   local sdps = 0
   if smax > 0 then
     local key = Planner.best_unit(f.tech or 0)
