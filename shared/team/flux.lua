@@ -31,6 +31,12 @@
 ]]
 local Fx = {}
 
+-- Interrupteurs des règles qui touchent aux TOURNÉES et au ravitaillement (F2, F3 du lot). ÉTEINTES par défaut : aux bancs de 1 h (fo-logs/2026-11-02_FLUX)
+-- elles ne prouvent aucun gain et, sur la graine 271828182, la partie d'Écarlate retombe à la moitié des plaques du témoin avec elles comme sans
+-- les plus récentes (cause non isolée) ; le minerai équivalent et la rétention des minages (F1), eux, sont allumés. Un banc ou une relecture peut
+-- les allumer : `Fx.ENABLE.prio = true`, etc. (tests/flux_test.lua joue les deux états).
+Fx.ENABLE = { prio = false, aging = false, keep_drop = false, refill = false }
+
 Fx.STUCK_AT = 90          -- sortie de four au moins aussi pleine (pile de 100) : le four ne fond plus
 Fx.STALE_TICKS = 5 * 3600 -- une tournée libre depuis 5 min : ses sorties ne sont plus comptées (le minage reprend la main)
 Fx.AGE_STEP = 600         -- +1 de priorité toutes les 10 s d'attente
@@ -123,6 +129,7 @@ end
 --- brûle), un avant-poste de plaque à sec garde 95 et vieillit (Fx.aged) ; have : objets de son produit au coffre.
 function Fx.service_prio(base, o, vital, have)
   local p = base
+  if not Fx.ENABLE.prio then return p end
   if o.unsafe or o.lethal then return p end -- jamais d'urgence vers un avant-poste que la porte refuserait
   if vital == "fuel" and o.fuel_low then p = math.max(p, Fx.VITAL_PRIO) end
   if (o.stuck or 0) > 0 and (have or 0) < Fx.COVER then p = math.max(p, Fx.AGE_CAP_STUCK) end
@@ -134,6 +141,7 @@ end
 --- travail proche qui la battait à la note (la note retire la distance). kind = { stuck = sorties pleines, dry = brûleur vital à sec } :
 --- au-delà de Fx.URGENT_AFTER d'attente, une tournée de l'un ou l'autre devient une URGENCE (M.URGENT : elle passe devant le minage).
 function Fx.aged(prio, waited, kind)
+  if not Fx.ENABLE.aging then return prio end
   kind = kind or {}
   waited = waited or 0
   if kind.unsafe then return prio end
@@ -150,6 +158,7 @@ end
 --- sorties sont pleines : il s'arrête, et la saturation d'aujourd'hui est la pénurie de demain (les 17 fours à 100 plaques de
 --- cuivre du DC). `dropped` : ce que la règle d'avant décidait.
 function Fx.drop_service(o, dropped)
+  if not Fx.ENABLE.keep_drop then return dropped end
   if not dropped then return false end
   return (o.stuck or 0) == 0
 end
@@ -196,6 +205,7 @@ end
 --- exige une visite toutes les 3 min ; à 25, 11 min : la production ne dépend plus d'un PNJ libre à l'instant (crise, attaque).
 function Fx.refill_to(coal, burners, base, max)
   base = base or 10
+  if not Fx.ENABLE.refill then return base end
   max = max or base
   if (burners or 0) <= 0 then return base end
   local per = math.floor(math.max(0, coal or 0) / (2 * burners))

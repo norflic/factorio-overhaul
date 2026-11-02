@@ -30,6 +30,7 @@ local IRON, COPPER, COAL, STONE = T.outposts.iron, T.outposts.copper, T.outposts
 
 --- Tous les contrôles qui voient les mutants (rejoués une fois par mutant, `mutants` ci-dessous).
 local function suite()
+  for k in pairs(Fx.ENABLE) do Fx.ENABLE[k] = true end -- les règles de tournées se jouent allumées (éteintes par défaut)
   -- §1 données
   local vital = Fx.vital(T.outposts, T.fuel, T.smelter_inputs)
   check(vital.iron == "plate" and vital.copper == "plate" and vital.coal == "fuel" and not vital.stone,
@@ -193,6 +194,20 @@ local function suite()
 end
 
 suite()
+
+-- §8 bis interrupteurs : éteintes (défaut du module), les règles de tournées ne changent rien
+do
+
+  package.loaded["shared.team.flux"] = nil
+  local F0 = require("shared.team.flux")
+  check(F0.ENABLE.prio == false and F0.ENABLE.aging == false and F0.ENABLE.keep_drop == false and F0.ENABLE.refill == false,
+    "tournées, vieillissement, tournée des produits saturés, remplissage : éteints par défaut")
+  check(F0.service_prio(70, { stuck = 2, fuel_low = true }, "fuel", 0) == 70 and F0.aged(70, 99999, { stuck = true }) == 70
+    and F0.drop_service({ stuck = 5 }, true) == true and F0.refill_to(1e6, 10, 10, 50) == 10, "éteintes : la priorité, l'âge, le retrait et le remplissage d'avant")
+  check(F0.hold_budget({ a = { plate = "p", ratio = 1 } }, { p = 5 }).a == 5 and F0.equiv("a", { a = { plate = "p", ratio = 1 } }, { a = 1 }, { p = 5 }) == 6,
+    "le minerai équivalent et la rétention restent allumés")
+  package.loaded["shared.team.flux"] = Fx
+end
 
 -- §9 mutants : la règle est cassée à la main, au moins un contrôle doit échouer.
 local MUTANTS = {
