@@ -42,16 +42,11 @@ local function as_map(list) local m = {} for _, it in ipairs(list) do m[it[1]] =
 ---------------------------------------------------------------------------------------------------
 section("1. Kit égal : faction == votre équipe")
 local player, faction, generous = F.grant(true, false), F.grant(false, false), F.grant(false, true)
-do -- seule différence : les 4 tourelles de QG des factions (exception documentée, shared/team/config.lua)
-  local a, b = {}, {}
-  for k, v in pairs(player) do a[k] = v end
-  for k, v in pairs(faction) do b[k] = v end
-  a.hq_turrets, b.hq_turrets = nil, nil
-  check(same(a, b), "F.grant(joueur) == F.grant(faction) champ par champ (coffre, fours, kit ouvrier), sauf les tourelles de QG")
-end
+-- Lot PARITE : plus aucune exception, les tourelles de QG sont celles des deux équipes
+check(same(player, faction), "F.grant(joueur) == F.grant(faction) champ par champ (coffre, fours, kit ouvrier, tourelles de QG)")
 check(#faction.chest == 0 and faction.smelters == 0, "kit égal : coffre vide, aucun four posé")
 check(same(F.grant(true, true), player), "le réglage généreux n'agit jamais sur votre équipe")
-check(player.hq_turrets == 0 and faction.hq_turrets == 4, "tourelles de QG : jamais pour votre équipe, 4 pour une faction (plancher de défense)")
+check(player.hq_turrets == 4 and faction.hq_turrets == 4, "tourelles de QG : 4 pour votre équipe comme pour une faction (lot PARITE)")
 check(same(T.start_kit, {}) and T.start_smelters == 0, "T.start_kit vide et T.start_smelters 0 (kit égal)")
 check(same(faction.worker_kit, player.worker_kit) and #faction.worker_kit > 0, "kit de l'ouvrier commun aux deux équipes")
 check(same(F.grant(false, false), F.grant(false, false)), "déterminisme : deux appels, même résultat")

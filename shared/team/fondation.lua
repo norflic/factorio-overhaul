@@ -7,7 +7,9 @@
     F.grant(is_player, generous, brain_off)  ->  { chest = { {objet, n}, ... } (triée), smelters = n, hq_turrets = n, unlock0 = bool, worker_kit = { {objet, n}, ... },
                                         start = nombre d'ouvriers de départ (réglage fo-npc-start, lu par l'appelant) }
   - votre équipe : jamais de coffre garni ni de four (le coffre du guide est l'apport manuel du joueur) ;
-  - une faction : le MÊME résultat, sauf `generous` (réglage fo-war-kit-genereux, pour les bancs), qui rend l'ancien kit.
+  - une faction : le MÊME résultat, sauf `generous` (réglage fo-war-kit-genereux, pour les bancs), qui rend l'ancien kit ;
+  - lot PARITE (retour du DC du 2/11) : les tourelles de QG sont les MÊMES pour les deux équipes (T.start_hq_turrets), offertes une fois
+    par partie (shared/team/depart.lua) ; seul le kit généreux de banc reste réservé aux factions.
   Le kit de l'ouvrier (T.kits.worker) est commun aux deux dans tous les cas. Listes triées par nom (déterminisme).
 ]]
 
@@ -30,7 +32,7 @@ function F.grant(is_player, generous, brain_off)
   return {
     chest = copy_sorted(give_more and T.start_kit_generous or T.start_kit),
     smelters = give_more and T.start_smelters_generous or T.start_smelters,
-    hq_turrets = is_player and 0 or (give_more and T.start_hq_turrets_generous or T.start_hq_turrets), -- exception faction
+    hq_turrets = give_more and T.start_hq_turrets_generous or T.start_hq_turrets, -- lot PARITE : plus d'exception faction
     -- technologies du niveau 0 (T.unlocks[0]) : kit généreux, ou faction à l'ancien cerveau (échelle d'objectifs qui les suppose)
     unlock0 = give_more or ((not is_player) and brain_off == true),
     worker_kit = copy_sorted(T.kits.worker),

@@ -13,6 +13,7 @@
 local Events = require("script.core.events")
 local T = require("shared.team.config")
 local Fondation = require("shared.team.fondation") -- lot KIT : kit de départ commun aux deux équipes
+local Depart = require("shared.team.depart") -- lot PARITE : tourelles de QG offertes au départ (emplacements)
 local Book = require("shared.team.book")
 local Planner = require("shared.team.planner")
 local ChaineMain = require("shared.team.chaine_main") -- lot FOURS : pas de tournée de fonte à vide
@@ -248,6 +249,25 @@ end
 
 --- Lot KIT : ce que reçoit une faction à la fondation (règle pure : shared/team/fondation.lua).
 function Team.faction_grant() return Fondation.grant(false, Team.kit_generous(), Team.brain_off()) end
+
+--- Lot PARITE : pose les `n` tourelles de QG offertes à la fondation (emplacements : shared/team/depart.lua), chargées de 20
+--- chargeurs, inscrites au groupe « hq » de l'équipe. UNE fonction pour les deux équipes (le QG d'une faction : script/faction/war.lua,
+--- found_hq ; le coffre de la vôtre : script/team/player_team.lua). `center` : centre du QG ou du coffre. Rend le nombre posé.
+function Team.place_hq_turrets(f, surface, center, n)
+  local force = game.forces[f.force]
+  local placed = 0
+  for _, o in ipairs(Depart.offsets(n)) do
+    local tpos = surface.find_non_colliding_position(T.turret, { x = center.x + o[1], y = center.y + o[2] }, 10, 1)
+    if tpos then
+      local t = surface.create_entity({ name = T.turret, position = tpos, force = force })
+      if t then
+        Outposts.add_turret(f, t, nil, 20)
+        placed = placed + 1
+      end
+    end
+  end
+  return placed
+end
 
 --- Prépare l'équipe d'un QG fraîchement posé : stock de départ, technologies de base, premiers ouvriers.
 function Team.init(f, surface)

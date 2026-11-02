@@ -38,11 +38,13 @@ local function load_protos()
 end
 
 --- Lot KIT : les corrections de récolte (entité sur la tuile, une tuile par mineur, ressource étrangère, arbres pour le bois)
---- valent pour les FACTIONS. Votre équipe garde l'ancien minage tant que Harvest.PLAYER est faux : mesuré en moteur réel
+--- valent pour les FACTIONS. Votre équipe gardait l'ancien minage tant que Harvest.PLAYER était faux : mesuré en moteur réel
 --- (verif-guide et pnj-reduit, graine 1618033988), l'ancien choix de tuile rendait 0 sur 50 pour 40 à 50 % des minages de
 --- votre équipe ; la correction lui fait tirer 1,5 à 2 fois plus de minerai et change toute sa trajectoire de 60 min (ses
---- avant-postes tombent de 2 à 1 contre les biters, ses PNJ meurent plus tôt) : à adopter par le lot de votre équipe.
-Harvest.PLAYER = false
+--- avant-postes tombent de 2 à 1 contre les biters, ses PNJ meurent plus tôt) : « à adopter par le lot de votre équipe ».
+--- Lot PARITE (retour du DC du 2/11 : « elle s'est développée bien plus lentement ») : adoptée, vrai pour les deux équipes. Rien
+--- ne protège ici un choix manuel du joueur : le minage à la main est celui des PNJ.
+Harvest.PLAYER = true
 
 --- La correction vaut-elle pour cette équipe ?
 function Harvest.applies(f) return not (f and f.is_player) or Harvest.PLAYER end

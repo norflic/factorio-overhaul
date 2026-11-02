@@ -42,6 +42,43 @@ function A.decide(c)
   return true, "ok"
 end
 
+-- Lot PARITE (retour du DC du 2/11 : « elles ont même pas su s'adapter au bâtiment que j'ai posé » ; journal : un four posé à la main
+-- était adopté à 3,5 min puis rendu à 3,6 min dès que le joueur lui avait posé sa foreuse). Une FOREUSE à combustion posée à la main, avec
+-- sa réception (four ou coffre) au bout, isolée de toute ligne, dans le rayon de service du coffre, devient un AVANT-POSTE de l'équipe :
+-- ses tournées la ravitaillent en combustible et vident sa réception, elle compte dans la capacité du minerai. La paire est rendue
+-- au joueur quand une ligne la rejoint, ou quand il la ramasse.
+A.JOIN_RADIUS = 16 -- tuiles : une foreuse adoptée de la même ressource à moins de ce rayon d'un avant-poste adopté le rejoint (une paire de plus)
+
+--- c = { on, kind (type d'avant-poste de la ressource sous la foreuse, nil : aucune), burner, already, sink (réception au bout),
+--- reserved, dist2, radius, linked (booléen ou fonction) }. Rend adopter, motif (coupe, ressource, combustible, deja, sans-reception,
+--- plan, loin, ligne, ok).
+function A.decide_drill(c)
+  if not c.on then return false, "coupe" end
+  if c.kind == nil then return false, "ressource" end
+  if not c.burner then return false, "combustible" end
+  if c.already then return false, "deja" end
+  if not c.sink then return false, "sans-reception" end
+  if c.reserved then return false, "plan" end
+  local r = c.radius or A.RADIUS
+  if (c.dist2 or 0) > r * r then return false, "loin" end
+  local l = c.linked
+  if type(l) == "function" then l = l() end
+  if l then return false, "ligne" end
+  return true, "ok"
+end
+
+--- Avant-poste adopté à rejoindre : `list` = { { oid, kind, x, y }, ... } (triée par oid par l'appelant) ; rend l'oid du premier de la même
+--- ressource à moins de A.JOIN_RADIUS de (x, y), sinon nil.
+function A.join_target(list, kind, x, y)
+  for _, o in ipairs(list or {}) do
+    if o.kind == kind then
+      local dx, dy = o.x - x, o.y - y
+      if dx * dx + dy * dy <= A.JOIN_RADIUS * A.JOIN_RADIUS then return o.oid end
+    end
+  end
+  return nil
+end
+
 --- Une machine adoptée est rendue au joueur quand une ligne la rejoint ou quand l'adoption est coupée.
 function A.releasable(c)
   return (not c.on) or (c.linked and true or false)

@@ -15,7 +15,9 @@
 
 -- Lot SCALE : la même partie avec un autre plafond d'ouvriers des factions (fo-war-workers), pour mesurer la
 -- proposition P1 d'IA3-d (défaut 4 -> 30, D-14) : scenarios/scale-guide30.lua. verif-guide reste à 4 (le guide).
-return function(WORKERS)
+-- Lot PARITE : AUTO vrai = aucun coffre posé par le banc ; le coffre d'équipe est posé d'office par le lancement automatique de la guerre
+-- (votre équipe naît comme une faction : coffre vide, 4 tourelles de QG), scenarios/dc-evolution-parite.lua.
+return function(WORKERS, AUTO)
 local CHECK = 214000
 local RUN_MAX = 5     -- minutes de suite sous l'effectif de départ, fer au coffre : au-delà, l'équipe ne se reconstruit pas
 local IRON_MIN = 100  -- plaques de fer au coffre (une recrue coûte environ 60 plaques équipée au QG)
@@ -71,7 +73,7 @@ return {
     ctx.call("profiler", true)
     local s = ctx.surface()
     local c = game.forces.player.get_spawn_position(s)
-    local p = s.find_non_colliding_position("fo-team-chest", { x = c.x + 6, y = c.y + 6 }, 20, 1)
+    local p = (not AUTO) and s.find_non_colliding_position("fo-team-chest", { x = c.x + 6, y = c.y + 6 }, 20, 1)
     local chest = p and s.create_entity({ name = "fo-team-chest", position = p, force = "player", raise_built = true })
     if chest then
       for _, it in ipairs({ { "iron-plate", 400 }, { "copper-plate", 100 }, { "coal", 200 }, { "stone", 100 },
@@ -79,7 +81,7 @@ return {
         chest.insert({ name = it[1], count = it[2] })
       end
     end
-    ctx.check(chest ~= nil, "coffre d'equipe pose")
+    ctx.check(AUTO or chest ~= nil, "coffre d'equipe pose")
     local st = ctx.state()
     st.chest = chest
     st.floor = math.min(settings.global["fo-npc-start"].value, settings.global["fo-player-team-npc-max"].value)
@@ -96,6 +98,7 @@ return {
     end
     if e.tick % 3600 ~= 0 or e.tick == 0 then return end
     local s = ctx.surface()
+    if AUTO and not (st.chest and st.chest.valid) then st.chest = s.find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1] end
     local pvp = ctx.remote("fo-pvp", "status")
     st.polls = (st.polls or 0) + 1
     if pvp.difficulty == "easy" then st.easy = (st.easy or 0) + 1 end

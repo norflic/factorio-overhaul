@@ -31,7 +31,8 @@ function State.war()
   return Storage.ns("war")
 end
 
-Storage.declare("pteam", function() return { team = nil } end)
+-- lot PARITE : depart_offert = faux dans une partie NEUVE (le depart de l'equipe reste a offrir) ; absent dans une sauvegarde d'avant le lot (= deja offert)
+Storage.declare("pteam", function() return { team = nil, depart_offert = false } end)
 
 --- Faction IA (id numérique) ou équipe du joueur (id "player", namespace "pteam").
 function State.faction(id)
