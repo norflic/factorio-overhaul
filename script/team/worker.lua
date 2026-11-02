@@ -748,6 +748,7 @@ end
 local function finish(agent, f, ok, tick)
   local task = agent.task
   agent.task = nil
+  agent.unstick_n, agent.still = nil, nil -- lot C4 PLATEAU 3 : dégagements par tâche
   agent.steps = nil
   Board.release(f, agent) -- lot IA3-b : réservation non prise rendue au libre
   if task then
@@ -762,6 +763,26 @@ local function finish(agent, f, ok, tick)
 end
 
 --- Échec : on rapporte au QG ce qu'on porte, puis la tâche est rendue.
+--- Lot C4 PLATEAU 3 : dégage un PNJ coincé vers la case libre la plus proche (une ligne de journal par cas). Rend vrai si déplacé.
+local function unstick(agent, f, tick, why)
+  local e = agent.entity
+  if not (e and e.valid) then return false end
+  local p = e.position
+  local spot = e.surface.find_non_colliding_position(e.name, p, Ar.FREE_RADIUS, 0.25)
+  if not spot then return false end
+  e.teleport(spot)
+  agent.still = nil
+  agent.unstick_n = (agent.unstick_n or 0) + 1
+  if f then
+    f.stats.unstuck = (f.stats.unstuck or 0) + 1
+    if f.stats.unstuck <= 30 then
+      log(string.format("[FO-DEGAGE] %s : ouvrier %d (%s) de (%.1f,%.1f) vers la case libre (%.1f,%.1f), tache %s, n. %d a %.1f min",
+        f.key, agent.id, why, p.x, p.y, spot.x, spot.y, agent.task and agent.task.key or "?", f.stats.unstuck, tick / 3600))
+    end
+  end
+  return true
+end
+
 local function abort(agent, f, tick, reason)
   if agent.task then agent.task.fail = reason end
   agent.failed = true
@@ -1326,6 +1347,13 @@ FSM.define(MACHINE, {
       Profiler.fstart("nav:think")
       Nav.think(agent, tick)
       Profiler.fstop("nav:think")
+      -- Lot C4 PLATEAU 3 : immobile depuis 2 min en marche (shared/team/arrivee.lua, Ar.still) : dégagé vers la case libre la plus proche
+      local ent = agent.entity
+      if ent and ent.valid and agent.nav == "moving" then
+        local due
+        agent.still, due = Ar.still(agent.still, ent.position.x, ent.position.y, tick)
+        if due and (agent.unstick_n or 0) < Ar.UNSTICK_MAX then unstick(agent, faction_of(agent), tick, "immobile 2 min") end
+      end
     end,
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
     on = {
@@ -1360,6 +1388,14 @@ FSM.define(MACHINE, {
             end
             agent.walk_retries = 0
             agent.pc = agent.pc + 1
+            set(agent, "step", tick)
+            return
+          end
+        end
+        -- Lot C4 PLATEAU 3 : chemin refusé tout près du but (coincé entre foreuses et fours) : dégagé et nouvel essai, 3 fois au plus par tâche
+        if nst and nst[1] == "goto" and agent.goal and agent.entity.valid then
+          local ep, g = agent.entity.position, agent.goal
+          if Ar.free_due((ep.x - g.x) ^ 2 + (ep.y - g.y) ^ 2, agent.unstick_n) and unstick(agent, f, tick, "chemin refuse pres du but") then
             set(agent, "step", tick)
             return
           end

@@ -29,4 +29,26 @@ function Ar.arrived(kind, d2)
   return Ar.KINDS[kind] == true and d2 ~= nil and d2 <= Ar.NEAR * Ar.NEAR
 end
 
+-- PNJ coincés (retour du DC du 2/11, point 7 : « entre foreuses thermiques et fours collés, ils ne bougent plus »).
+Ar.STILL_TICKS = 2 * 3600   -- immobile depuis 2 min en marche : dégagé
+Ar.STILL_MOVE = 0.5         -- tuiles : en deçà, le PNJ n'a pas bougé
+Ar.GOAL_NEAR = 12           -- tuiles du but : un chemin refusé si près est un coincement, pas un but injoignable
+Ar.FREE_RADIUS = 6          -- tuiles : rayon de recherche de la case libre
+Ar.UNSTICK_MAX = 3          -- dégagements au plus par tâche (au-delà, la tâche est abandonnée comme avant)
+
+--- Suivi d'immobilité : prev = { x, y, t } ou nil ; rend le nouvel état et vrai quand le PNJ est immobile depuis Ar.STILL_TICKS.
+--- Un déplacement d'au moins Ar.STILL_MOVE remet l'horloge à zéro ; un dégagement la remet aussi (état neuf).
+function Ar.still(prev, x, y, tick)
+  if not prev then return { x = x, y = y, t = tick }, false end
+  local dx, dy = x - prev.x, y - prev.y
+  if dx * dx + dy * dy >= Ar.STILL_MOVE * Ar.STILL_MOVE then return { x = x, y = y, t = tick }, false end
+  if tick - prev.t >= Ar.STILL_TICKS then return { x = x, y = y, t = tick }, true end
+  return prev, false
+end
+
+--- Un chemin refusé à d2 (tuiles²) du but, après `done` dégagements de cette tâche : faut-il dégager le PNJ plutôt qu'abandonner ?
+function Ar.free_due(d2_goal, done)
+  return d2_goal ~= nil and d2_goal <= Ar.GOAL_NEAR * Ar.GOAL_NEAR and (done or 0) < Ar.UNSTICK_MAX
+end
+
 return Ar
