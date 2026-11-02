@@ -824,6 +824,7 @@ function M.new_world(opts)
       -- Lot KIT : kit de départ des factions. Défaut du JEU = égal à votre équipe (faux) ; les tests hors jeu et les bancs gardent
       -- le kit généreux d'avant (leurs attendus datent de ce kit, comme control.lua des bancs en moteur réel) ; l'option
       -- (kit_egal = true) ou FO_KIT_EGAL=1 joue le kit égal du jeu.
+      ["fo-war-adopte"] = true, -- lot ADOPTE (settings/adopte.lua : vrai par defaut) ; lu par on_configuration_changed depuis PARITE
       ["fo-war-kit-genereux"] = not ((opts.kit_egal == true) or (os.getenv("FO_KIT_EGAL") == "1")),
     },
     groups_hit_player = opts.groups_hit_player or false, -- lot IA0 : les attaques de faction touchent le joueur
