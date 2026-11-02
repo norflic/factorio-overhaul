@@ -165,7 +165,7 @@ local function scan_unit(f, surface, b, st, c, pid)
       if #names == 1 then item = names[1]; st.src_item[key] = item
       elseif #names == 0 and fini then
         item = st.src_item[key] -- sortie vide : l'objet vu la dernière fois
-        if not item and is_mall(p) then -- lot MALL : sinon, celui de la machine voisine
+        if not item then -- lot MALL : sinon, celui de la machine voisine (malls, rangées d'engrenages, de câbles, de tuyaux… : un assembleur)
           item = made_by_neighbour(f, surface, o.x, o.y)
           if item then st.src_item[key] = item end
         end
