@@ -229,6 +229,31 @@ check(#REQ == nreq6b + 1 and REQ[#REQ].key == "u4:2", "6.6 essais epuises depuis
 check(st.tries["u4:2"] == R.MAX_TRIES and st.last_try["u4:2"] > tick - R.PERIOD - 100, "6.7 compteur borne a R.MAX_TRIES, date du dernier essai")
 check(no_function(b.raccord), "6.8 etat sans fonction")
 
+-- 6 ter. lot ENERGIE (2/11) : le poteau perdu est TENU par un ennemi a 28 tuiles (reseau_vivant ne le rouvre pas) : il ne retient plus le
+-- raccordement, qui est demande avec la zone a eviter (second chemin) ; avec l'interrupteur no_coupure : la regle d'avant (laisser)
+do
+  local foe = { valid = true, position = { x = 48, y = -28 } } -- a 28 du poteau perdu (48, 0), a 31 de la machine (48, 3)
+  local real_enemy = surface.find_nearest_enemy
+  surface.find_nearest_enemy = function(q)
+    local dx, dy = q.position.x - foe.position.x, q.position.y - foe.position.y
+    if dx * dx + dy * dy <= q.max_distance ^ 2 then return foe end
+    return nil
+  end
+  local n0 = #REQ
+  b.raccord.tries["u5:1"], b.raccord.open["u5:1"] = nil, nil
+  b.opts.no_coupure = true
+  run(3 * (R.PERIOD + 100))
+  check(#REQ == n0, "6.9 no_coupure : poteau perdu tenu par un ennemi, toujours laisse a [FO-RESEAU] (regle d'avant)")
+  b.opts.no_coupure = nil
+  run(3 * (R.PERIOD + 100))
+  local got = REQ[n0 + 1]
+  check(got ~= nil and got.key == "u5:1", "6.10 poteau perdu tenu par un ennemi : raccordement demande")
+  check(got and got.avoid and #got.avoid == 1 and got.avoid[1].r == 28 and got.avoid[1].x == 48 and got.avoid[1].y == -28,
+    "6.11 la zone des ennemis est dans la demande (second chemin)")
+  check(logs_with("u5:1") > 0 and no_function(b.raccord), "6.12 etat sans fonction, journal")
+  surface.find_nearest_enemy = real_enemy
+end
+
 -- 7. interrupteur d'essai
 local before = #LOGS
 b.opts.raccord = false

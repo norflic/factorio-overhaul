@@ -2420,7 +2420,8 @@ local function plan_raccord(f, surface, p)
     if sp.electric_network_id == tgt.electric_network_id then return false, "raccord: deja relie" end
     start = { x = rc.start.x, y = rc.start.y }
   end
-  local view = masques_view(f, surface, p, masks, { { a = start, b = { x = rc.target.x, y = rc.target.y } } }, rc.reach)
+  -- lot ENERGIE (2/11) : un second chemin contourne une zone de 28 tuiles : couloir de masques plus large (margin(2 x reach) plafonne à 32)
+  local view = masques_view(f, surface, p, masks, { { a = start, b = { x = rc.target.x, y = rc.target.y } } }, rc.avoid and rc.reach * 2 or rc.reach)
   if not view then return false, "masques (couloir du raccordement en cours de releve)", "masques" end
   local taken = {}
   if rc.start.new then taken[P.tkey(math.floor(start.x), math.floor(start.y))] = true end
@@ -2450,7 +2451,9 @@ local function plan_raccord(f, surface, p)
       end
     end
   end
-  local chain = P.pole_chain(start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known)
+  -- second chemin : le détour de la zone des ennemis demande plus de cellules que le plafond ordinaire (600 : couloir trop grand)
+  local chain = P.pole_chain(start, { x = rc.target.x, y = rc.target.y }, rc.reach, rc.big, free, known,
+    avoid and { max_cells = 2500, max_expand = 10000 } or nil)
   if not chain then return false, "raccord: aucune chaine de poteaux (relief, eau, place)" end
   local ents = {}
   if rc.start.new then ents[1] = { name = rc.pole, x = start.x, y = start.y, dir = 0, part = 1, role = "liaison" } end
