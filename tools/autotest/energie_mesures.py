@@ -21,6 +21,7 @@ import sys
 BILAN = re.compile(r"\[FO-ENERGIE\] (\S+) : bilan a ([\d.]+) min : production (\d+) kW, capacite (\d+) kW, charge (\d+) % .*?, (\d+) centrale\(s\) finie\(s\), (\d+) en projet")
 SECHE = re.compile(r"\[FO-RESEAU\] (\S+) : centrale: production nulle, source\(s\) a sec .* a ([\d.]+) min")
 SYNTH = re.compile(r"\[FO-RESEAU\] (\S+) : synthese : centrale (\S+), production (\d+) kW, sources (\d+)/(\d+) a sec (\d+)")
+SATURE = re.compile(r"\[FO-ENERGIE\] (\S+) : centrale saturee a ([\d.]+) min")
 COURANT = re.compile(r"\[FO-PLANDIR\] (\S+) : centrale, 1er courant a ([\d.]+) min")
 AMORCE = re.compile(r"\[FO-SANTE-CENTRALE\] (\S+) : centrale \S+ a ([\d.]+) min : amorce a la main")
 RETENU = re.compile(r"\[FO-SANTE-CENTRALE\] (\S+) : projet \S+ retenu a ([\d.]+) min")
@@ -48,7 +49,7 @@ def mesurer(chemin):
 
     def e(k):
         return eq.setdefault(k, {"sec": [], "bilans": [], "synth": None, "courant": None, "amorces": 0, "retenus": 0, "avance": 0,
-                                 "bloquee": 0, "champs": 0, "morts": 0})
+                                 "bloquee": 0, "champs": 0, "morts": 0, "saturee": []})
 
     erreurs = []
     for ln in lignes:
@@ -67,6 +68,10 @@ def mesurer(chemin):
         m = COURANT.search(ln)
         if m:
             e(m.group(1))["courant"] = float(m.group(2))
+            continue
+        m = SATURE.search(ln)
+        if m:
+            e(m.group(1))["saturee"].append(float(m.group(2)))
             continue
         for rx, cle in ((AMORCE, "amorces"), (RETENU, "retenus"), (AVANCE, "avance"), (BLOQUEE, "bloquee"), (CHAMP, "champs")):
             m = rx.search(ln)
@@ -97,6 +102,7 @@ def mesurer(chemin):
             "plus_longue_panne_min": round(longest, 1),
             "bilans": len(b),
             "bilans_satures": sat,
+            "evenements_saturee": len(d["saturee"]),
             "part_saturee": round(sat / len(b), 2) if b else None,
             "dernier_bilan": {"min": b[-1][0], "production_kw": b[-1][1], "capacite_kw": b[-1][2], "charge_pct": b[-1][3], "centrales_finies": b[-1][4], "en_projet": b[-1][5]} if b else None,
             "chaudieres_vivantes": d["synth"][3] if d["synth"] else None,
@@ -119,8 +125,8 @@ def main(argv):
     for r in res:
         print("== %s (%d lignes)" % (r["archive"], r["lignes"]))
         for k, d in r["equipes"].items():
-            print("  %-9s courant %-5s | sans courant %5.1f min (plus longue %4.1f) | bilans satures %s/%s | dernier %s | chaudieres %s (a sec %s) | amorces %d retenus %d avance %d bloquees %d champs %d morts %d"
-                  % (k, d["1er_courant_min"], d["min_sans_courant"], d["plus_longue_panne_min"], d["bilans_satures"], d["bilans"],
+            print("  %-9s courant %-5s | sans courant %5.1f min (plus longue %4.1f) | saturee (evenements) %d, bilans >= 90 %% %s/%s | dernier %s | chaudieres %s (a sec %s) | amorces %d retenus %d avance %d bloquees %d champs %d morts %d"
+                  % (k, d["1er_courant_min"], d["min_sans_courant"], d["plus_longue_panne_min"], d["evenements_saturee"], d["bilans_satures"], d["bilans"],
                      ("%d/%d kW %d%% %d centrale(s)" % (d["dernier_bilan"]["production_kw"], d["dernier_bilan"]["capacite_kw"], d["dernier_bilan"]["charge_pct"], d["dernier_bilan"]["centrales_finies"])) if d["dernier_bilan"] else "-",
                      d["chaudieres_vivantes"], d["chaudieres_a_sec"], d["amorces"], d["retenus"], d["centrales_avant_saturation"],
                      d["reconstructions_bloquees"], d["champs_ou_pertes"], d["pieces_de_centrale_mortes"]))
