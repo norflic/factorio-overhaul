@@ -406,6 +406,7 @@ function Champ.report(f, surface, tick)
   local fu = { n = 0, run = 0, noin = 0, nofuel = 0, full = 0 }
   local out = { n = 0, sum = 0, max = 0, due = 0 }
   local fuel = { n = 0, min = nil }
+  local bad = {} -- bandes finies dont une pièce manque au terrain (détruite) ou dont des foreuses sont figées : détail par projet
   local S = defines.entity_status
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
@@ -416,22 +417,35 @@ function Champ.report(f, surface, tick)
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
+      local pd = { lost = {}, stuck = 0, noin = 0 }
       for _, e in ipairs(p.ents) do
+        if e.built and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
+          local ent = surface.find_entity(e.name, { e.x, e.y })
+          if not (ent and ent.valid) then pd.lost[e.role or "?"] = (pd.lost[e.role or "?"] or 0) + 1 end
+        end
         if e.built and (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
+          if not (ent and ent.valid) and p.state == "fini" then pd.lost[e.role] = (pd.lost[e.role] or 0) + 1 end
           if ent and ent.valid then
             local s = ent.status
             if e.role == "champ-foreuse" then
               d.n = d.n + 1
-              if s == S.working then d.run = d.run + 1 elseif s == S.waiting_for_space_in_destination then d.stuck = d.stuck + 1
+              if s == S.working then d.run = d.run + 1 elseif s == S.waiting_for_space_in_destination then d.stuck = d.stuck + 1; pd.stuck = pd.stuck + 1
               elseif s == S.no_power or s == S.low_power then d.nopow = d.nopow + 1 end
             else
               fu.n = fu.n + 1
-              if s == S.working then fu.run = fu.run + 1 elseif s == S.no_ingredients then fu.noin = fu.noin + 1
+              if s == S.working then fu.run = fu.run + 1 elseif s == S.no_ingredients then fu.noin = fu.noin + 1; pd.noin = pd.noin + 1
               elseif s == S.no_fuel then fu.nofuel = fu.nofuel + 1 elseif s == S.full_output then fu.full = fu.full + 1 end
             end
           end
         end
+      end
+      local lk = sorted_keys(pd.lost)
+      if (#lk > 0 or pd.stuck > 0) and #bad < 4 then
+        local lt = {}
+        for _, k in ipairs(lk) do lt[#lt + 1] = k .. " " .. pd.lost[k] end
+        bad[#bad + 1] = string.format("p%d bande %s : figees %d, fours sans entree %d, pieces manquantes [%s]", pid, tostring(p.spec.champ.pr),
+          pd.stuck, pd.noin, table.concat(lt, ", "))
       end
       for _, o in ipairs(p.outs or {}) do
         local c = surface.find_entity(D.CHEST, { o.x, o.y })
@@ -458,7 +472,8 @@ function Champ.report(f, surface, tick)
   for i, k in ipairs(mk) do if i <= 5 then mparts[#mparts + 1] = k .. " " .. miss[k] end end
   log(string.format("[FO-CHAMP-ETAT] %s min %.0f | bandes %d (%s)%s | foreuses %d (marche %d, figees %d, sans courant %d) | fours %d (marche %d, sans entree %d, sans combustible %d, sortie pleine %d) | coffres de sortie %d (plaques %d, max %d, %d au seuil de collecte) | coffres de combustible %d (charbon min %s)",
     f.key or "player", tick / 3600, #ids, table.concat(parts, ", "), #mparts > 0 and (" ; manque " .. table.concat(mparts, ", ")) or "",
-    d.n, d.run, d.stuck, d.nopow, fu.n, fu.run, fu.noin, fu.nofuel, fu.full, out.n, out.sum, out.max, out.due, fuel.n, tostring(fuel.min or "-")))
+    d.n, d.run, d.stuck, d.nopow, fu.n, fu.run, fu.noin, fu.nofuel, fu.full, out.n, out.sum, out.max, out.due, fuel.n, tostring(fuel.min or "-"))
+    .. (#bad > 0 and (" | " .. table.concat(bad, " ; ")) or ""))
 end
 
 return Champ
