@@ -258,7 +258,7 @@ function P.plan(view, book)
   --- Fait fabriquer `list` (fabrication à la main depuis le stock virtuel). Renvoie true si tout est servi.
   --- fresh = besoin d'ACCUMULATION (stock visé, packs de recherche) : la quantité demandée est à fabriquer
   --- en plus du stock, elle n'y est pas prélevée.
-  local function want_inner(list, prio, tag, fresh)
+  local function want(list, prio, tag, fresh)
     local missing_here = false
     last_raw = {}
     local function short_raw(item, n)
@@ -312,22 +312,6 @@ function P.plan(view, book)
       end
     end
     return not missing_here
-  end
-  -- Lot PARITE (reprise du 2/11) : RÉSERVE DE SURVIE, voir Pr.survival_reserve. `prod_reserve` est fixée plus bas (après Pr.decide) ; les
-  -- fabrications de PRODUCTION (agrandir, charbon, objectif) ne descendent pas sous elle. La défense, la reconstruction, la survie, les
-  -- recrues, la recherche et les munitions gardent tout le fer comme avant.
-  local prod_reserve = 0
-  local PROD_TAGS = { charbon = true, objectif = true }
-  local function want(list, prio, tag, fresh)
-    local key = T.outposts.iron.product
-    local keep = 0
-    if prod_reserve > 0 and PROD_TAGS[tag] then
-      keep = math.min(avail[key] or 0, prod_reserve)
-      avail[key] = (avail[key] or 0) - keep
-    end
-    local ok = want_inner(list, prio, tag, fresh)
-    if keep > 0 then avail[key] = (avail[key] or 0) + keep end
-    return ok
   end
 
   ---------------------------------------------------------------------------------------------------
@@ -530,14 +514,6 @@ function P.plan(view, book)
       survie = view.survie, -- lot SURVIE-PENURIE : mode survie de l'équipe (script/team/survie.lua) -> la production d'abord
       survival = decimated,
       prev_pf = view.priorite_pf, streak = view.priorite_streak or 0 }) -- lot INTEG-DEFENSE D-D : bascule confirmée sur 2 pensées
-  end
-  -- Lot PARITE (reprise du 2/11) : réserve de survie (shared/team/priorite.lua, Pr.survival_reserve) : en « production d'abord », tant qu'une
-  -- cellule attaquée attend ses tourelles, la production (agrandir, charbon, objectif) ne descend pas sous plancher + une unité de défense.
-  if df and pri.production_first then
-    local unit = (book:raw_cost(turret_items(1)) or {})[iron_key] or 0
-    pri.reserve = Pr.survival_reserve({ mode = pri.mode, defense_cost = pri.defense_cost, floor = fl_i, unit_cost = unit,
-      attacked = (view.front and view.front.pick) and true or false })
-    prod_reserve = pri.reserve
   end
   out.priorite = pri
   -- Production d'abord : un avant-poste sans sa tourelle s'agrandit quand même et un nouvel avant-poste se bâtit sans les siennes
