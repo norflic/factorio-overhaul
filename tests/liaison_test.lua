@@ -18,6 +18,7 @@ local function read(path)
   return s
 end
 local SRC = read("shared/team/liaison.lua")
+local Rv = require("shared.team.ravitaillement")
 local function load_l(src)
   local fn, err = load(src, "=liaison", "t")
   assert(fn, err)
@@ -377,7 +378,7 @@ mutant("bouts non tries", "if a%.span ~= b%.span then return a%.span < b%.span e
   function(Lm) local e = Lm.pick_ends(S, D, open_grid()); return e[1].span ~= 16 end)
 mutant_ok("detour sans limite", "if len > lim then", "if false then",
   function(Lm) return Lm.route_ok(40, 10) == false end)
-mutant_ok("longueur sans limite", "if len > Li%.MAX_LEN then", "if false then",
+mutant_ok("longueur sans limite", "if len > max_len then", "if false then",
   function(Lm) return Lm.route_ok(Li.MAX_LEN + 1, Li.MAX_LEN) == false end)
 mutant("bras de depart non retourne", "dir = opposite%(s%.dir%), role", "dir = s.dir, role",
   function(Lm)
@@ -397,13 +398,13 @@ mutant_ok("meme projet admis", "and s%.pid ~= d%.pid then", "then",
   function(Lm) return #Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 1, 5, 0, "X") }) == 0 end)
 mutant_ok("objet non compare", "for _, s in ipairs%(by_item%[d%.item%] or {}%) do", "for _, s in ipairs(ss) do",
   function(Lm) return #Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 2, 5, 0, "Z") }) == 0 end)
-mutant_ok("portee d'appariement oubliee", "if span <= Li%.MAX_SPAN and", "if",
+mutant_ok("portee d'appariement oubliee", "if span <= reach and", "if",
   function(Lm) return #Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s", 2, 500, 0, "X") }) == 0 end)
-mutant_ok("source prise deux fois", "used%[best%.key%] = true", "",
+mutant_ok("source prise deux fois", "used%[best%.key%] = %(used%[best%.key%] or 0%) %+ 1", "",
   function(Lm) return #Lm.pairs({ dock("a", 1, 0, 0, "X", 1), dock("b", 2, 0, 10, "X", 1) }, { src("s", 3, 5, 5, "X") }) == 1 end)
 mutant_ok("quai relie reutilise", "if not d%.linked and d%.item", "if d.item",
   function(Lm) return #Lm.pairs({ dock("d", 1, 0, 0, "X", 1, true) }, { src("s", 2, 5, 0, "X") }) == 0 end)
-mutant_ok("plus proche non retenue", "if span <= Li%.MAX_SPAN and %(not bspan or span < bspan%) then", "if span <= Li.MAX_SPAN and (not bspan) then",
+mutant_ok("plus proche non retenue", "if span <= reach and %(not bspan or span < bspan%) then", "if span <= reach and (not bspan) then",
   function(Lm) return Lm.pairs({ dock("d", 1, 0, 0, "X", 1) }, { src("s1", 2, 30, 0, "X"), src("s2", 3, 5, 0, "X") })[1].src.key == "s2" end)
 mutant_ok("gros debit non prioritaire", "if %(a%.flow or 0%) ~= %(b%.flow or 0%) then return %(a%.flow or 0%) > %(b%.flow or 0%) end", "",
   function(Lm) return Lm.pairs({ dock("a", 1, 0, 0, "X", 1), dock("b", 2, 0, 10, "X", 5) }, { src("s", 3, 5, 5, "X") })[1].dock.key == "b" end)
@@ -439,14 +440,14 @@ do
     dk("a", 1, 0, 0, "X", 1, true), dk("b", 1, 0, 0, "Y", 1, true), dk("c", 1, 0, 0, "Z", 1, true), dk("d", 1, 0, 0, "W", 0.001, true),
     dk("e", 1, 0, 0, "V", 1, false), dk("f", 1, 0, 0, "U", 1, false, true), dk("g", 1, 0, 0, "T", 1, false),
   }, {
-    src("s1", 2, 5, 0, "X"), src("s2", 1, 5, 0, "Y"), src("s3", 2, Li.MAX_SPAN + 9, 0, "Z"), src("s4", 2, 5, 0, "T"), src("s5", 3, 6, 0, "T"),
+    src("s1", 2, 5, 0, "X"), src("s2", 1, 5, 0, "Y"), src("s3", 2, Rv.SPAN + 9, 0, "Z"), src("s4", 2, 5, 0, "T"), src("s5", 3, 6, 0, "T"),
   })
   check(n.mall.possible == 1 and n.mall["meme-projet"] == 1 and n.mall.loin == 1 and n.mall.debit == 1, "6b.1 causes des quais de mall")
   check(n.autre["sans-sortie"] == 1 and n.autre.servi == 1 and n.autre.possible == 1, "6b.2 causes des autres quais")
-  check(sp.loin and sp.loin[1] == Li.MAX_SPAN + 9, "6b.3 la sortie la plus proche d'un quai LOIN est rendue")
+  check(sp.loin and sp.loin[1] == Rv.SPAN + 9, "6b.3 la sortie la plus proche d'un quai LOIN est rendue")
   check(Li.diagnose_text(n, sp):find("mall : ", 1, true) and Li.diagnose_text(n, sp):find("LOIN", 1, true), "6b.4 texte du diagnostic")
-  local n0 = Li.diagnose({ dk("p", 1, 0, 0, "X", 1, true), dk("q", 2, 0, 0, "X", 1, true) }, { src("s1", 3, 5, 0, "X") })
-  check(n0.mall.possible == 1 and n0.mall.prise == 1, "6b.5 sortie deja prise par un autre quai")
+  local n0 = Li.diagnose({ dk("p", 1, 0, 0, "X", 1, false), dk("q", 2, 0, 0, "X", 1, false) }, { src("s1", 3, 5, 0, "X") })
+  check(n0.autre.possible == 1 and n0.autre.prise == 1, "6b.5 sortie deja prise par un autre quai")
 end
 
 print(string.format("[LIAISON] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))

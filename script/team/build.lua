@@ -49,6 +49,7 @@ local Enc = require("shared.team.enceinte")  -- lot ESPACE : croissance et encei
 local PlantArms = require("script.team.plant_arms") -- lot PLANDIR : moniteur de la centrale (journal)
 local Rv = require("script.team.reseau_vivant") -- lot CORR-RESEAU : santé de la centrale et du réseau après « fini »
 local Raccord = require("script.team.raccord") -- lot PD-ELEC (D05) : machines sans courant hors poteau perdu, raccordement
+local Ra = require("shared.team.ravitaillement") -- lot MALL : portage de secours des quais reliés par une ligne
 local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du coffre de sortie d'un module au quai d'entrée d'un autre (le PNJ ne porte plus)
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
@@ -3441,7 +3442,7 @@ function Build.work(agent, f, tick)
       if put > 0 then inv.remove({ name = q.item, count = put }) end
       b.stats.filled = b.stats.filled + put
       b.stats.fill_trips = (b.stats.fill_trips or 0) + 1 -- lot MALL : voyages de portage vers un quai, dont ceux d'un mall
-      if p.spec and (p.spec.gen == "patron" or p.spec.gen == "bloc") then
+      if p.spec and (p.spec.gen == "patron" or p.spec.gen == "bloc" or p.spec.mall) then
         b.stats.fill_mall_trips = (b.stats.fill_mall_trips or 0) + 1
         b.stats.fill_mall = (b.stats.fill_mall or 0) + put
       end
@@ -3698,7 +3699,7 @@ local function quai_tasks(f, p, surface, out)
             ia1d = { pid = p.id, mode = "fill", idx = i, ax = a.x, ay = a.y },
           }
         end
-      elseif n < Build.QUAI_LOW and have > 0 then
+      elseif Ra.hand_due(n, have, Build.QUAI_LOW, p.line_ok and p.line_ok[i]) then -- lot MALL : une ligne finie ne laisse que le secours au PNJ
         local a = P.anchor_for(f.build.lat, q.x, q.y, seg_passable(f.build))
         if not a then local fx, fy = free_spot(f.build, nil, q.x, q.y); a = { x = fx, y = fy } end
         out[#out + 1] = {
@@ -4758,7 +4759,7 @@ function Build.report(f)
     radius = b.radius, lots = lots, segs = segs, queue = #b.queue - b.qhead + 1, projects = projects,
     lots_refused = st.lots_refused, segs_closed = st.segs_closed, plan_refused = st.plan_refused,
     ghosts = st.ghosts, ghost_refused = st.ghost_refused, revived = st.revived, revive_fail = st.revive_fail,
-    cleared = st.cleared, filled = st.filled, collected = st.collected, npc_blocks = st.npc_blocks or 0,
+    cleared = st.cleared, filled = st.filled, fill_trips = st.fill_trips or 0, fill_mall_trips = st.fill_mall_trips or 0, fill_mall = st.fill_mall or 0, collected = st.collected, npc_blocks = st.npc_blocks or 0,
     route_calls = st.route_calls or 0, route_nil = st.route_nil or 0, route_resets = ROUTE_RESETS[f.key or "player"] or 0,
     self_skips = st.self_skips or 0,
     street_walks = st.street_walks, street_ok = st.street_ok, street_stuck = st.street_stuck,

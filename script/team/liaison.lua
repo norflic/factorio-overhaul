@@ -25,6 +25,7 @@
 ]]
 
 local Ln = require("shared.team.liaison")
+local Rv = require("shared.team.ravitaillement") -- lot MALL
 local M = require("shared.team.modules")
 local P = require("shared.team.plan")
 local T = require("shared.team.config")
@@ -62,6 +63,12 @@ local function new_state(tick)
     log_next = 0, last_docks = -1, n = { demandes = 0, finis = 0, refuses = 0, coupees = 0 } }
 end
 
+--- Lot MALL : le projet est-il un mall (rangée « patron » ou bloc partagé) ? `spec.mall` : modules fictifs de banc.
+local function is_mall(p)
+  local s = p.spec
+  return s.gen == "patron" or s.gen == "bloc" or s.mall == true
+end
+
 --- Un projet fini qui peut porter un quai ou une sortie de liaison.
 local function eligible(p)
   if not p or p.state ~= "fini" or p.abandoned or not p.spec then return false end
@@ -73,6 +80,23 @@ end
 
 local function chest_at(f, surface, x, y)
   return surface.find_entities_filtered({ position = { x, y }, radius = 0.4, force = f.force, type = "container", limit = 1 })[1]
+end
+
+--- Lot MALL : l'objet qu'une sortie de mall fabriquera, lu à la recette de la machine la plus proche du coffre (sortie VIDE jamais vue seule : sans
+--- cela, la sortie d'un mall neuf ou aussitôt vidée par la collecte n'a pas d'objet et aucun quai n'est relié à elle, cause « sans-sortie » du témoin
+--- main 0.6.35). Une recette à un seul produit de type objet seulement ; la machine la plus proche, la plus au nord-ouest en cas d'égalité.
+local function made_by_neighbour(f, surface, x, y)
+  local best, bd
+  for _, m in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = 4.5, force = f.force, type = "assembling-machine" })) do
+    local dx, dy = m.position.x - x, m.position.y - y
+    local d = dx * dx + dy * dy
+    if not bd or d < bd - 1e-6 or (math.abs(d - bd) <= 1e-6 and (m.position.y < best.position.y or (m.position.y == best.position.y and m.position.x < best.position.x))) then
+      best, bd = m, d
+    end
+  end
+  local rec = best and best.get_recipe()
+  if rec and #rec.products == 1 and rec.products[1].type == "item" then return rec.products[1].name end
+  return nil
 end
 
 --- Débits nominaux des entrées d'un module { objet = objets/s } : gardés au plan (p.inflow), sinon relus au gabarit (module d'avant le
@@ -118,7 +142,7 @@ local function scan_unit(f, surface, b, st, c, pid)
     if ch and not seen[tk] then
       seen[tk] = true
       c.docks[#c.docks + 1] = { key = pid .. ":q" .. idx, pid = pid, idx = idx, x = math.floor(q.x), y = math.floor(q.y), item = q.item,
-        flow = flows and flows[q.item] or 0, n = ch.get_item_count(q.item), mall = (p.spec.gen == "patron" or p.spec.gen == "bloc") }
+        flow = flows and flows[q.item] or 0, n = ch.get_item_count(q.item), mall = is_mall(p) }
     end
   end
   for idx, o in ipairs(p.outs or {}) do
@@ -128,8 +152,14 @@ local function scan_unit(f, surface, b, st, c, pid)
       local names = sorted_keys(ch.get_inventory(defines.inventory.chest).get_contents())
       local item
       if #names == 1 then item = names[1]; st.src_item[key] = item
-      elseif #names == 0 then item = st.src_item[key] end -- sortie vide : l'objet vu la dernière fois
-      if item and (p.spec.gen == "patron" or p.spec.gen == "bloc") then c.made[item] = true end -- lot MALL : objets fabriqués par les malls (diagnostic)
+      elseif #names == 0 then
+        item = st.src_item[key] -- sortie vide : l'objet vu la dernière fois
+        if not item and is_mall(p) then -- lot MALL : sinon, celui de la machine voisine
+          item = made_by_neighbour(f, surface, o.x, o.y)
+          if item then st.src_item[key] = item end
+        end
+      end
+      if item and is_mall(p) then c.made[item] = true end -- lot MALL : objets fabriqués par les malls (diagnostic)
       c.srcs[#c.srcs + 1] = { key = key, pid = pid, idx = idx, x = math.floor(o.x), y = math.floor(o.y), item = item, mixed = #names >= 2 or nil }
     end
   end
@@ -208,10 +238,24 @@ local function apply_bar(api, f, surface, b, link)
   if inv.supports_bar() and inv.get_bar() ~= want then inv.set_bar(want) end
 end
 
+--- Lot MALL : le quai du module d'arrivée a-t-il une ligne FINIE ? p.line_ok[indice du quai] (booléens, lu par le portage de script/team/build.lua :
+--- une ligne finie baisse le seuil du portage à la main, Rv.rescue_low).
+local function mark_line(b, link, on)
+  local dp = b.projects[link.dock_pid]
+  if not dp then return end
+  if on then
+    dp.line_ok = dp.line_ok or {}
+    dp.line_ok[link.dock_idx] = true
+  elseif dp.line_ok then
+    dp.line_ok[link.dock_idx] = nil
+  end
+end
+
 local function follow_links(api, f, surface, b, st, tick)
   for _, dkey in ipairs(sorted_keys(st.links)) do
     local link = st.links[dkey]
     local q = b.projects[link.pid]
+    mark_line(b, link, q ~= nil and q.state == "fini")
     if not q then
       st.links[dkey] = nil
     elseif q.state == "fini" then
@@ -238,9 +282,9 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   follow_links(api, f, surface, b, st, tick)
   -- appariement
   local taken = {}
-  for _, dkey in ipairs(sorted_keys(st.links)) do taken[st.links[dkey].src] = true end
+  for _, dkey in ipairs(sorted_keys(st.links)) do taken[st.links[dkey].src] = (taken[st.links[dkey].src] or 0) + 1 end
   for _, d in ipairs(c.docks) do d.linked = st.links[d.key] ~= nil end
-  for _, s in ipairs(c.srcs) do s.linked = taken[s.key] == true end
+  for _, s in ipairs(c.srcs) do s.taken = taken[s.key] or 0; s.linked = s.taken > 0 end -- lot MALL : une sortie sert jusqu'à Rv.fan quais de mall
   local pairs_ = Ln.pairs(c.docks, c.srcs)
   local present = {}
   for _, pr in ipairs(pairs_) do
@@ -288,7 +332,8 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     if asked and reads >= Ln.DECIDE_MAX then break end
     local d, s = pr.dock, pr.src
     local pk = d.key .. ">" .. s.key
-    local ok, why, det = Ln.worth({ flow = d.flow, dist = dist_hq(f, d.x, d.y), span = pr.span, fill = api.fill, low = api.low, threat = threat })
+    local ok, why, det = Ln.worth({ flow = d.flow, dist = dist_hq(f, d.x, d.y), span = pr.span, fill = api.fill, low = api.low, threat = threat,
+      tmax = Rv.tmax(d, Ln.TMAX) })
     local last = st.last_try[d.key]
     local seen = st.seen[pk] or 0
     if st.confirm then seen = seen >= st.confirm and Ln.CONFIRM or 0 end -- (réglage de banc)
@@ -318,7 +363,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         st.tries[d.key] = (st.tries[d.key] or 0) + 1
         st.last_try[d.key] = tick
         local spec = { liaison = { key = d.key, item = d.item, flow = d.flow, arm = arm, pole = pole, belt = belt,
-          dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y }, src = { pid = s.pid, idx = s.idx, x = s.x, y = s.y, key = s.key } },
+          dock = { pid = d.pid, idx = d.idx, x = d.x, y = d.y }, src = { pid = s.pid, idx = s.idx, x = s.x, y = s.y, key = s.key }, mall = d.mall },
           prio = api.prio, domain = "infrastructures", pile = "capital", product = d.item }
         local id = api.request(f, spec)
         if id then
@@ -427,7 +472,7 @@ function Liaison.plan(api, f, surface, p)
     end
     local tiles, why = P.belt_route({ x = e.src.bx, y = e.src.by }, { x = e.dst.bx, y = e.dst.by }, Ln.end_dir(e.dst), bounds, cost)
     if tiles then
-      local ok, w2 = Ln.route_ok(#tiles, Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by))
+      local ok, w2 = Ln.route_ok(#tiles, Ln.manhattan(e.src.bx, e.src.by, e.dst.bx, e.dst.by), Rv.len_max({ mall = lc.mall }, Ln.MAX_LEN))
       if ok then chosen = { e = e, tiles = tiles } break end
       last_why = w2
     else
@@ -494,7 +539,7 @@ local function team_of_key(key)
 end
 
 remote.add_interface("fo-liaison", {
-  --- Module FINI fictif : d = { quais = { {x, y, item} }, outs = { {x, y} }, inflow = { objet = objets/s }, names = { arm, pole } }.
+  --- Module FINI fictif : d = { quais = { {x, y, item} }, outs = { {x, y} }, inflow = { objet = objets/s }, names = { arm, pole }, mall = bool }.
   --- Les coffres sont posés par le banc ; rien n'est bâti ici. Rend le numéro du projet.
   inject = function(key, d)
     local f = team_of_key(key)
@@ -506,7 +551,7 @@ remote.add_interface("fo-liaison", {
     for _, q in ipairs(d.quais or {}) do x, y = q.x, q.y end
     for _, o in ipairs(d.outs or {}) do x, y = o.x, o.y end
     local p = {
-      id = id, spec = { gen = "banc", names = d.names }, state = "fini", created = game.tick, finished = game.tick, parts = {}, ents = {}, wires = {},
+      id = id, spec = { gen = "banc", names = d.names, mall = d.mall and true or nil }, state = "fini", created = game.tick, finished = game.tick, parts = {}, ents = {}, wires = {},
       stock = {}, quais = {}, outs = {}, obstacles = {}, fails = 0, prio = 55, domain = "production", counted = true, inflow = d.inflow,
     }
     p.parts[1] = { kind = "module", key = "banc", ox = math.floor(x), oy = math.floor(y), w = 1, h = 1, power = true }

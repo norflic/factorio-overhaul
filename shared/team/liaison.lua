@@ -26,6 +26,8 @@
   Déterminisme : listes triées, aucun `pairs` dans une décision, aucune trigonométrie, aucune horloge mesurée.
 ]]
 
+local Rv = require("shared.team.ravitaillement") -- lot MALL : portée, prix et partage des lignes de mall
+
 local Li = {}
 
 -- Relevé et décision (script/team/liaison.lua)
@@ -168,8 +170,9 @@ function Li.pole_tile(site, free, taken)
 end
 
 --- Le tracé est-il acceptable ? len = nombre de tuiles, m = Manhattan des deux tuiles de tapis. Rend ok, raison.
-function Li.route_ok(len, m)
-  if len > Li.MAX_LEN then return false, string.format("tapis de %d tuiles > %d", len, Li.MAX_LEN) end
+function Li.route_ok(len, m, max_len)
+  max_len = max_len or Li.MAX_LEN
+  if len > max_len then return false, string.format("tapis de %d tuiles > %d", len, max_len) end
   local lim = Li.DETOUR * (m + 1) + Li.DETOUR_SLACK
   if len > lim then return false, string.format("detour de %d tuiles pour %d a vol d'oiseau (limite %.0f)", len, m + 1, lim) end
   return true, ""
@@ -257,7 +260,7 @@ end
 function Li.pairs(docks, srcs)
   local ds, ss = {}, {}
   for _, d in ipairs(docks) do if not d.linked and d.item and (d.flow or 0) >= Li.MIN_FLOW then ds[#ds + 1] = d end end
-  for _, s in ipairs(srcs) do if not s.linked and s.item then ss[#ss + 1] = s end end
+  for _, s in ipairs(srcs) do if s.item then ss[#ss + 1] = s end end -- (une sortie déjà prise peut encore servir un quai de mall : Rv.fan)
   table.sort(ds, function(a, b)
     if (a.flow or 0) ~= (b.flow or 0) then return (a.flow or 0) > (b.flow or 0) end
     return a.key < b.key
@@ -271,14 +274,15 @@ function Li.pairs(docks, srcs)
   local used, out = {}, {}
   for _, d in ipairs(ds) do
     local best, bspan
+    local reach, cap = Rv.span_max(d, Li.MAX_SPAN), Rv.fan(d)
     for _, s in ipairs(by_item[d.item] or {}) do
-      if not used[s.key] and s.pid ~= d.pid then
+      if (used[s.key] or 0) + Rv.taken(s) < cap and s.pid ~= d.pid then
         local span = manhattan(s.x, s.y, d.x, d.y)
-        if span <= Li.MAX_SPAN and (not bspan or span < bspan) then best, bspan = s, span end
+        if span <= reach and (not bspan or span < bspan) then best, bspan = s, span end
       end
     end
     if best then
-      used[best.key] = true
+      used[best.key] = (used[best.key] or 0) + 1
       out[#out + 1] = { dock = d, src = best, span = bspan }
     end
   end
@@ -318,7 +322,7 @@ function Li.diagnose(docks, srcs)
       end
       if #list == 0 then cause = "sans-sortie"
       elseif other == 0 then cause = "meme-projet"
-      elseif best > Li.MAX_SPAN then
+      elseif best > Rv.span_max(d, Li.MAX_SPAN) then
         cause = "loin"
         spans.loin = spans.loin or {}
         table.insert(spans.loin, best)
