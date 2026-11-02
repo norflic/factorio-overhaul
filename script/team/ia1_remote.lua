@@ -167,6 +167,35 @@ remote.add_interface("fo-ia1", {
     f.team.four_regle = on
     return Outposts.four_rule(f)
   end,
+  -- Lot BRIQUES (bancs seulement) : interrupteur de la règle de partage des fours (vrai par défaut ; faux = comportement de 0.6.37,
+  -- pour les témoins). Clé « * » : toutes les équipes vivantes.
+  set_regle_partage = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    if key == "*" then
+      local n = 0
+      local list = { State.faction("player") }
+      for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+      for _, f in ipairs(list) do
+        if f and f.team then
+          f.team.partage_regle = on
+          n = n + 1
+        end
+      end
+      return n
+    end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    f.team.partage_regle = on
+    return Outposts.partage_rule(f)
+  end,
+  -- Lot BRIQUES (bancs seulement) : demande de fonte imposée { [produit] = n } ajoutée à celle du plan à chaque pensée (nil : retirée).
+  bench_smelt_demand = function(key, demand)
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    if demand ~= nil and type(demand) ~= "table" then return nil end
+    f.team.bench_smelt = demand
+    return true
+  end,
   smelt_stats = function(key)
     local f = team_of(key)
     if not (f and f.team) then return nil end
