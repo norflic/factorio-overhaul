@@ -54,6 +54,7 @@ Capital.CENTER_OFFSETS = { { 0, 14 }, { 14, 0 }, { -14, 0 }, { 0, -14 }, { 14, 1
 Capital.CENTER_SEARCH = 12
 Capital.HISTORY = 32
 Capital.REFUSE_TICKS = 5 * 3600 -- une cible refusée par l'exécutant est écartée 5 min (pas de nouvel essai à chaque pensée)
+Capital.RECHECK_TICKS = 3600    -- lot AGES : un refus « cc-families » (familles à monter connues) n'écarte le centre qu'1 min
 
 local Levels = package.loaded["script.levels.levels"] -- lien inverse : script/levels/levels.lua, Capital.bind
 function Capital.bind(levels) Levels = levels end
@@ -245,6 +246,13 @@ end
 --- planificateur ne regarde que le rayon du QG et les tourelles suivies : une famille bloquante dont les bâtiments sont loin
 --- (murs d'un avant-poste, foreuses) lui restait invisible, le centre était choisi puis refusé « cc-families » (mesuré, 2
 --- graines : 3 refus sur 3 centres choisis).
+--- Une famille a-t-elle un bâtiment au niveau voulu par la condition du centre (cond ou plus), où que ce soit sur la surface ?
+local function top_exists(f, surface, fam, cond)
+  local names = {}
+  for n = math.min(cond, fam.max), fam.max do names[#names + 1] = L.name(fam, n) end
+  return surface.count_entities_filtered({ force = f.force, name = names, limit = 1 }) > 0
+end
+
 local FAR_LEVELS = 6 -- niveaux cherchés un à un depuis le haut ; en dessous, UNE recherche pour tous les niveaux restants
 local function far_best(f, surface, fam, cond)
   local top = math.min(cond, fam.max) - 1
@@ -269,6 +277,9 @@ local function scan(f, c)
   local surface = f.hq.surface
   local by_id = {}
   -- Lot AGES : la condition du centre telle que le jeu la compte, et le meilleur bâtiment de chaque famille bloquante.
+  -- Le recensement du jeu (toute la surface : 12 balayages, mesuré : 100 s sur 3 h à 3 factions, ×33 pour capital:decide) n'est PAS
+  -- refait à chaque relevé : le refus « cc-families » de l'exécutant nomme les familles bloquantes (c.eblock, Capital.pay), et seules
+  -- celles-là sont revérifiées ici, une recherche chacune (une famille qui a un bâtiment au niveau voulu ne bloque plus).
   local cc0 = Levels.cc(game.forces[f.force])
   local lvl0 = 0
   if cc0 and cc0.valid then
@@ -276,13 +287,27 @@ local function scan(f, c)
     lvl0 = n0 or 0
   end
   local blockers
-  if lvl0 >= 1 and lvl0 < CFAM.max then
+  local eb = c.eblock
+  if eb and eb.level == lvl0 and lvl0 >= 1 and lvl0 < CFAM.max then
     local cond = L.cc_condition_level(lvl0)
-    blockers = L.cc_blockers(Levels.census_cached(game.forces[f.force], cond, true))
-    for _, key in ipairs(blockers) do
-      local e = far_best(f, surface, L.by_key[key], cond)
-      if e then by_id[e.unit_number] = e end
+    blockers = {}
+    c.far = c.far or {}
+    for _, key in ipairs(eb.keys) do
+      local fam = L.by_key[key]
+      if fam and not top_exists(f, surface, fam, cond) then
+        blockers[#blockers + 1] = key
+        -- Le bâtiment qu'on fait monter est retenu d'un relevé à l'autre (il change de numéro à chaque niveau : Capital.pay le suit).
+        local e = c.far[key]
+        if not (e and e.valid and e.force.name == f.force and L.parse(e.name) == fam) then e = far_best(f, surface, fam, cond) end
+        if e then
+          by_id[e.unit_number] = e
+        end
+        c.far[key] = e or nil
+      end
     end
+    if #blockers == 0 then c.eblock, blockers = nil, nil end
+  else
+    c.eblock = nil
   end
   for _, e in ipairs(surface.find_entities_filtered({ force = f.force, name = NAMES, position = f.hq_pos,
       radius = Capital.RADIUS })) do
@@ -678,12 +703,18 @@ function Capital.pay(f, surface, tick, plan, stock)
           -- Lot PD-CENTREQG : le centre lié (indestructible, non minable) est libéré le temps du remplacement, puis le
           -- centre courant (le nouveau, ou l'ancien sur un refus) est relié au QG.
           if d.center then CentreQG.release(f, e) end
+          local far_key
+          for _, k in ipairs(sorted_keys(c.far)) do
+            if c.far[k] and c.far[k].valid and c.far[k].unit_number == d.id then far_key = k end
+          end
           ok, res, info, new = Levels.start(e, nil, { inventories = Stock.inventories(f) })
           if d.center then CentreQG.relink(f, ok and "amelioration" or "amelioration-refusee") end
           why = res
           -- Lot AGES : un refus « cc-families » dit quelles familles bloquent (le recensement du jeu couvre toute la surface, celui
           -- du planificateur la base) et ce que le planificateur croyait voir près du QG.
           if res == "cc-families" and info and info.blocking then
+            c.eblock = { keys = {}, level = c.cc_level or 0 }
+            for i, k in ipairs(info.blocking) do c.eblock.keys[i] = k end
             local seen = {}
             for _, k in ipairs(sorted_keys(c.by_family)) do seen[#seen + 1] = k .. "=" .. c.by_family[k] end
             why = res .. " [bloquent " .. table.concat(info.blocking, " ") .. " ; vu pres du QG " .. table.concat(seen, " ") .. "]"
@@ -691,6 +722,8 @@ function Capital.pay(f, surface, tick, plan, stock)
           if ok and new and new.valid then
             for _, it in ipairs(d.cost) do f.team.consumed[it[1]] = (f.team.consumed[it[1]] or 0) + it[2] end
             if owner and owner.kind == "turret" then Outposts.add_turret(f, new, owner.oid, 0) end
+            -- Lot AGES : le bâtiment éloigné qu'on fait monter garde sa piste (nouveau numéro à chaque niveau).
+            if far_key then c.far[far_key] = new end
             if d.center then
               log(string.format("[FO-CAPITAL] %s : centre monte au niveau %d (epoque %d ouverte) a %.1f min", f.key or "?",
                 d.to, d.to, minutes(f, tick)))
@@ -716,7 +749,8 @@ function Capital.pay(f, surface, tick, plan, stock)
       else
         c.refused = (c.refused or 0) + 1
         c.refused_until = c.refused_until or {}
-        c.refused_until[d.key] = tick + Capital.REFUSE_TICKS
+        -- Lot AGES : un refus « cc-families » nomme les familles à monter (c.eblock) : le centre est revu à la minute, pas à 5 min.
+        c.refused_until[d.key] = tick + ((tostring(why):sub(1, 11) == "cc-families") and Capital.RECHECK_TICKS or Capital.REFUSE_TICKS)
         c.current = nil
         if c.refused_sig ~= (d.key .. "|" .. tostring(why)) then
           c.refused_sig = d.key .. "|" .. tostring(why)
