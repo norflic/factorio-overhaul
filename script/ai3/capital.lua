@@ -651,6 +651,12 @@ function Capital.attente(f, cause, tick, detail)
     detail and (" (" .. detail .. ")") or "", minutes(f, tick)))
 end
 
+--- Lot AGES : le gel du centre est-il levé (dernier pas de Capital.thaw_step) ?
+function Capital.thaw_active(f)
+  local c = f.team and f.team.capital
+  return (c and c.thaw and c.thaw.active) or false
+end
+
 --- Lot AGES : un pas du compte de gel du centre (appelé par script/team/team.lua à chaque pensée, avec `held` = une garde de la pile ou
 --- de la reconstruction gèle les améliorations). Rend vrai quand le centre, lui seul, passe malgré le gel : gel cumulé au-delà de
 --- Dg.AFTER et défense minimale du QG tenue (S1 : hors de péril ; sans relevé de S1, rien ne passe). Une ligne [FO-CAPITAL-DEGEL] par
@@ -678,7 +684,7 @@ function Capital.pay(f, surface, tick, plan, stock, only_center)
   if not Capital.any_on() then return 0 end
   local c = state_of(f)
   local d = c.current
-  if only_center and not (d and d.center) then return 0 end -- lot AGES : gel levé pour le centre seulement
+  if only_center and not (d and d.center) then return 0, true end -- lot AGES : gel levé pour le centre seulement (2e valeur : rien tenté)
   if not list or #list == 0 then
     if d then Capital.attente(f, "non-reserve", tick, "aucun paiement prevu par le cerveau") end
     return 0

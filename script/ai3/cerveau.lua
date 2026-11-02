@@ -829,6 +829,7 @@ function Ia3.plan(f, view, book, surface, tick)
     spare = spare_hands > 0 and spare_hands or nil, -- lot SCALE : taille des vagues d'extraction d'avance
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
+    thaw = Capital.thaw_active(f), -- lot AGES : le gel du centre est levé (shared/team/degel.lua) : la pile laisse passer son but
     capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
@@ -961,7 +962,7 @@ end
 
 --- Lot CAPITAL : décisions immédiates sur le stock libre (script/team/team.lua) : paie l'amélioration prête.
 function Ia3.capital_pay(f, surface, tick, plan, stock, only_center)
-  return Capital.pay(f, surface, tick, plan, stock, only_center)
+  return Capital.pay(f, surface, tick, plan, stock, only_center) -- lot AGES : nombre payé, et vrai si rien n'a été tenté (gel levé, autre cible)
 end
 
 --- Lot AGES : un pas du compte de gel du centre (shared/team/degel.lua) ; vrai : le centre, lui seul, passe malgré la garde.

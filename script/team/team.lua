@@ -887,8 +887,9 @@ function Team.think(f, surface, tick)
     Ia3.capital_thaw(f, false, tick)
     Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))
   elseif ia3 then
-    local paid = thaw and Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan), true) or 0
-    if paid == 0 then
+    local paid, skipped = 0, true
+    if thaw then paid, skipped = Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan), true) end
+    if paid == 0 and skipped then -- sinon Capital.pay a déjà dit sa cause
       Ia3.capital_attente(f, pile_hold and "pile" or "reconstruction", tick) -- lot C1 : la cause d'une amélioration retenue est dite
     end
   end
