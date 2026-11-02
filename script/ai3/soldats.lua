@@ -382,7 +382,9 @@ local function pass(f, tick)
   t.alerts = alerts
   -- Coupure de banc : war_option « soldats_offensive » = false (ni expédition, ni nids de la carte de connaissance, ni retraite).
   local ws = State.war().settings
-  local offense = not (ws and ws.soldats_offensive == false)
+  -- Lot PARITE (escorte, essai 2) : les soldats de votre équipe escortent, défendent et nettoient près de la base, sans expédition lointaine
+  -- (essai 1, 20261020 : 6 soldats sur 9 morts à l'expédition en (-133, -113), 17 min).
+  local offense = not (ws and ws.soldats_offensive == false) and not f.is_player
   local km = f.ai3f and f.ai3f.m
   -- Menaces candidates au nettoyage (vues par l'équipe), regroupées ; « a tué » : une mort de l'heure à 48 tuiles.
   local cand = {}
