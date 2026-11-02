@@ -15,6 +15,7 @@ LINE = re.compile(r"\[FO-CHAMP-MESURE\] minute ([\d.]+) \| (\w+) \| foreuses (.*
                   r" \| tapis minerai (\d+) pleins (\d+) \| fours marche (\d+) sans_entree (\d+) sortie_pleine (\d+) sans_combustible (\d+)"
                   r" autre (\d+) \| fer (\S+)/min cuivre (\S+)/min rapport (\S+)")
 DRILL = re.compile(r"(\S+) (\d+)/(\d+) \(")
+TAIL = re.compile(r"minute ([\d.]+) \| (\w+) \|.*\| minerai fer (\S+)/min cuivre (\S+)/min \| coffres hors QG (\d+) : fer (\d+) cuivre (\d+)")
 DEP = re.compile(r"(\S+)@(-?\d+),(-?\d+) (\d+) tuiles elec (\d+)% tout (\d+)%")
 
 
@@ -68,6 +69,11 @@ def summary(folder):
     out["c4"] = (sum(r["f_noin"] for r in st) / max(1, len(st)), sum(r["f_work"] + r["f_noin"] + r["f_full"] + r["f_nofuel"] for r in st) / max(1, len(st)))
     out["c4_full"] = sum(r["f_full"] for r in st) / max(1, len(st))
     out["c5"] = {r["team"]: (r["iron"], r["copper"]) for r in rows if r["minute"] == last_min}
+    tails = {}
+    for m in TAIL.finditer(text):
+        if float(m.group(1)) == last_min:
+            tails[m.group(2)] = (m.group(3), m.group(4), int(m.group(5)), int(m.group(6)), int(m.group(7)))
+    out["tails"] = tails
     out["bilan"] = re.findall(r"\[FO-CHAMP-CROISSANCE\] BILAN : [^\n]*", text)
     out["errors"] = len(re.findall(r"Error|erreur Lua", text))
     out["champ"] = len(re.findall(r"\[FO-CHAMP\]", text))
@@ -95,6 +101,8 @@ def main():
         for team, (ir, cr) in sorted(s["c5"].items()):
             ratio = (cr / ir) if (ir and cr is not None and ir > 0) else None
             print("   %-8s fer %s/min cuivre %s/min rapport %s" % (team, ir, cr, "%.2f" % ratio if ratio is not None else "-"))
+        for team, t in sorted(s.get("tails", {}).items()):
+            print("   %-8s minerai extrait fer %s/min cuivre %s/min ; coffres hors QG %d : %d fer, %d cuivre qui attendent" % ((team,) + t))
         print("C6 %s ; erreurs %d ; lignes [FO-CHAMP] %d, bandes demandees %d, bandes qui produisent %d" % (
             "; ".join(s["bilan"]) or "pas de BILAN", s["errors"], s["champ"], s["bandes"], s["produit"]))
 
