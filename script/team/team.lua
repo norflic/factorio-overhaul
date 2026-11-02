@@ -456,7 +456,8 @@ end
 ---------------------------------------------------------------------------------------------------
 function Team.view(f, tick)
   local war = State.war()
-  local soldiers_max = f.is_player and 0 or war.settings.soldiers_max
+  -- Lot PARITE (reprise du 2/11, écart 2) : votre équipe a des soldats comme une faction (« mêmes décisions générales », DC 2/11) : plafond fo-war-soldiers.
+  local soldiers_max = war.settings.soldiers_max or 0
   -- Lot IA1-a : plafond d'effectif de l'époque (Q-IA1-2 (2) : le maximum dès l'époque 1), recrue au prix
   -- O.recruit_cost, recrutement suspendu au-delà de fo-agents-max agents riches (garde comptée en agents).
   local workers_max = Team.npc_max(f)
