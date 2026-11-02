@@ -109,7 +109,7 @@ local function plant_state(r)
 end
 
 --- Charge : n radars par grappes de 8 autour d'un poteau moyen relié au réseau de la centrale (comme energie_demande_common.lua).
-local function place_load(ctx, n)
+local function place_load(ctx, n, keep)
   local s = ctx.surface()
   local eng = s.find_entities_filtered({ name = "steam-engine", force = "player", limit = 1 })[1]
   if not eng then return 0, "pas de machine a vapeur" end
@@ -135,6 +135,7 @@ local function place_load(ctx, n)
     local pos = s.find_non_colliding_position("medium-electric-pole", { last.position.x + dx * k, last.position.y + dy * k }, 2, 0.5)
     local pole = pos and s.create_entity({ name = "medium-electric-pole", position = pos, force = "player" })
     if not pole then return placed, "chaine de poteaux coupee" end
+    if keep and pole.unit_number then keep[pole.unit_number] = true end
     pole.connect_neighbour(last)
     last = pole
     steps = steps + 1
@@ -146,6 +147,7 @@ local function place_load(ctx, n)
     local hub_pos = s.find_non_colliding_position("medium-electric-pole", { last.position.x + 5, last.position.y }, 3, 0.5)
     local hub = hub_pos and s.create_entity({ name = "medium-electric-pole", position = hub_pos, force = "player" })
     if not hub then return placed, "poteau de grappe impossible" end
+    if keep and hub.unit_number then keep[hub.unit_number] = true end
     hub.connect_neighbour(last)
     for _, o in ipairs(offsets) do
       if placed < n then
@@ -264,7 +266,8 @@ return function(variant, opts)
       -- charge (radars) posée une minute après le premier courant : une demande durable, la centrale doit tenir seule
       local base_t = st.first_t or (opts.mode == "avance" and st.fini_t or nil)
       if opts.radars and base_t and not st.load_t and t >= base_t + 1 * MIN then
-        local placed, why = place_load(ctx, opts.radars)
+        st.load_poles = {}
+        local placed, why = place_load(ctx, opts.radars, st.load_poles)
         st.load_t, st.radars = t, placed
         ctx.log(string.format("%scharge posee a %.2f min : %d radar(s) (%s)", TAG, t / MIN, placed, tostring(why or "ok")))
       end
@@ -286,6 +289,12 @@ return function(variant, opts)
             return a.position.y < b.position.y
           end)
           local n, sx, sy = 0, 0, 0
+          -- les poteaux de la CHARGE (posés par le banc, jamais au plan) ne sont pas coupés : personne ne les referait
+          local cutlist = {}
+          for _, pole in ipairs(list) do
+            if not (pole.unit_number and st.load_poles and st.load_poles[pole.unit_number]) then cutlist[#cutlist + 1] = pole end
+          end
+          list = cutlist
           for i = 1, math.min(10, #list) do
             local pole = list[i]
             if pole.valid then sx, sy = sx + pole.position.x, sy + pole.position.y; pole.destroy(); n = n + 1 end
@@ -305,9 +314,12 @@ return function(variant, opts)
           end
         end
         if st.cut_t then
+          -- foreuse « sans courant » = hors du réseau de la machine à vapeur (le statut no_power ne se voit pas sur une foreuse à l'arrêt)
           local dark = 0
+          local eng = s.find_entities_filtered({ name = "steam-engine", force = "player", limit = 1 })[1]
+          local net = eng and eng.electric_network_id
           for _, d in ipairs(s.find_entities_filtered({ name = "electric-mining-drill", force = "player" })) do
-            if d.status == defines.entity_status.no_power then dark = dark + 1 end
+            if d.electric_network_id ~= net or d.status == defines.entity_status.no_power then dark = dark + 1 end
           end
           if dark > 0 and t > st.cut_t then
             st.dark_s = (st.dark_s or 0) + 1
