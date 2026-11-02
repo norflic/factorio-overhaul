@@ -41,6 +41,7 @@ P.ANCHOR_STEP = 8           -- points d'appui tous les 8 tuiles le long d'une ru
 P.MIN_RES_TILES = 24        -- un lot « gisement » porte au moins 24 tuiles d'une ressource
 P.WATER_REFUSE = 0.5        -- part d'eau au-delà de laquelle un lot est refusé
 P.DRILL_COVER = 0.6         -- part des tuiles minées par les foreuses qui doit porter le minerai
+P.FOREIGN_MAX = 0           -- lot FLUX-VOIE : tuiles minées au plus qui portent une AUTRE ressource solide (opts.foreign de P.fit)
 P.FEED_DEPTH = 3            -- profondeur d'une tête d'alimentation derrière un port d'entrée
 P.AUTO_FLOW = 1.0           -- objets/s : au-delà, une voie est servie par tapis (règle d'automatisation, 60/min)
 P.PLANT_WET = 0.2           -- part d'eau du gabarit d'eau de la centrale (lot IA3-e ; 0,6 avant)
@@ -476,6 +477,7 @@ function P.fit(g, rect, opts)
   local margin = opts.margin or 1
   local best
   local tried = 0
+  local foreign_rej = 0
   -- Somme cumulée 2D des tuiles bloquées du rectangle : emprise contrôlée en O(1) par position.
   local W, H = rect.x1 - rect.x0, rect.y1 - rect.y0
   local sat
@@ -612,6 +614,18 @@ function P.fit(g, rect, opts)
             cover = #res > 0 and hit / #res or 0
             if cover < (opts.cover_min or P.DRILL_COVER) - 1e-9 then ok = false end
           end
+          -- lot FLUX-VOIE (retour du DC du 2/11, point 15) : une foreuse mine TOUT ce que couvre sa zone ; une tuile d'une autre ressource
+          -- (du charbon dans le fer) met l'objet étranger sur la voie du minerai, où il s'accumule (le four n'en prend que son besoin de
+          -- combustible) jusqu'à boucher la voie. `opts.foreign` = { [tkey] = true } des tuiles étrangères (build.lua, ore_set).
+          if ok and res and opts.foreign and next(opts.foreign) then
+            local n = 0
+            for _, t in ipairs(res) do
+              if not t.well and opts.foreign[tkey(ox + t[1], oy + t[2])] then
+                n = n + 1
+                if n > (opts.foreign_max or P.FOREIGN_MAX) then ok = false; foreign_rej = foreign_rej + 1 break end
+              end
+            end
+          end
           if ok then
             local cx, cy = ox + r.w / 2, oy + r.h / 2
             local d = 0
@@ -627,7 +641,7 @@ function P.fit(g, rect, opts)
       end
     end
   end
-  if not best then return nil, tried == 0 and "trop grand" or (opts.ore and "minerai" or "place") end
+  if not best then return nil, tried == 0 and "trop grand" or (opts.ore and (foreign_rej > 0 and "minerai mele" or "minerai") or "place") end
   return best
 end
 

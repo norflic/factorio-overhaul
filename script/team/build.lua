@@ -604,6 +604,22 @@ local function ore_set(surface, rect, res)
     n = n + 1
   end
   set.axis = Or.axis(m)
+  -- lot FLUX-VOIE (retour du DC du 2/11, point 15 : « deux rangées de charbon [...] le fer ne peut pas descendre ») : tuiles d'une AUTRE
+  -- ressource SOLIDE, dans le lot élargi de la portée d'une foreuse (3 tuiles : sa zone de 5 × 5 déborde du lot) ; P.fit refuse une ligne
+  -- de foreuses dont la zone en recouvre une (opts.foreign) : le moteur mine tout ce que couvre la zone.
+  local foreign, solid = {}, {}
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { rect.x0 - 3 + 0.01, rect.y0 - 3 + 0.01 }, { rect.x1 + 3 - 0.01, rect.y1 + 3 - 0.01 } }, type = "resource" })) do
+    local nm = e.name
+    if nm ~= res then
+      if solid[nm] == nil then
+        local mp = e.prototype and e.prototype.mineable_properties
+        local pr = mp and mp.products and mp.products[1]
+        solid[nm] = (pr and pr.type == "item") and true or false
+      end
+      if solid[nm] then foreign[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true end
+    end
+  end
+  set.foreign = foreign
   return set, n
 end
 
@@ -665,7 +681,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.cover_min then fopts.cover_min = opts.cover_min end
     if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
-    if res then fopts.ore = ores end
+    if res then fopts.ore = ores; fopts.foreign = ores and ores.foreign end
     -- lot PD-FONDERIEQG (D82) : ligne de foreuses (gabarit « drills ») dans le sens du gisement, sortie du collecteur vers l'arrivée
     if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
@@ -1305,7 +1321,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
       local masks, ores = lot_scan(f, surface, c, rect, prm.ore, cache)
       for n = ub, pairs_dep + 1, -1 do
         local gd2 = M.GEN.drills(prm.ore, n)
-        if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, cover_min = cfg.cover }) then pairs_dep = n break end
+        if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, foreign = ores and ores.foreign, cover_min = cfg.cover }) then pairs_dep = n break end
       end
     end
   end
