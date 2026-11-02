@@ -135,7 +135,12 @@ local function grenade_ammo()
   }
 end
 
-for _, faction in ipairs(F.factions) do
+-- Lot PARITE (reprise du 2/11, écart 2) : votre équipe a ses soldats, de la couleur de son QG (Military.train les nomme fo-player-<soldat>).
+local unit_owners = {}
+for _, faction in ipairs(F.factions) do unit_owners[#unit_owners + 1] = faction end
+unit_owners[#unit_owners + 1] = { key = "player", color = { r = 0.95, g = 0.85, b = 0.3 } }
+
+for _, faction in ipairs(unit_owners) do
   for _, key in ipairs(F.soldier_order) do
     local s = F.soldiers[key]
     local anims = character.animations[s.armor] or character.animations[1]
