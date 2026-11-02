@@ -13,11 +13,11 @@
   tick 600 : briques et acier produits (statistiques de production), etat des fours chaque minute.
 
   Journal : [FO-BRIQUES-MONOPOLE|BLOQUE, suffixe -TEMOIN] ; ligne « RESULTAT » en cle=valeur.
-  Lancement : banc.py --qui BRIQUES -- 19000 briques-monopole <source>   (3 scenarios freres : -temoin, briques-bloque, briques-bloque-temoin).
+  Lancement : banc.py --qui BRIQUES -- 22000 briques-monopole <source>   (3 scenarios freres : -temoin, briques-bloque, briques-bloque-temoin).
 ]]
 
 local MIN = 3600
-local W0 = 600
+local W0 = 3000          -- les fours sont arranges et la demande imposee a ce tick (apres la mise en route de l'equipe)
 local WINDOW = 5 * MIN
 local CHECK = W0 + WINDOW + 100
 
@@ -74,18 +74,9 @@ return function(mode, rule)
       st.hq = { x = chest.position.x, y = chest.position.y }
       local list = furnaces_of(ctx, chest.position)
       ctx.check(#list == 4, "4 fours trouves", tostring(#list))
-      for _, e in ipairs(list) do
-        if mode == "monopole" then
-          e.get_inventory(defines.inventory.furnace_source).insert({ name = "iron-plate", count = 40 })
-        else
-          e.get_inventory(defines.inventory.furnace_source).insert({ name = "stone", count = 18 })
-          e.get_output_inventory().insert({ name = "steel-plate", count = 1 })
-        end
-        e.get_fuel_inventory().insert({ name = "coal", count = 10 })
-      end
       st.n_fours = #list
-      local demand = mode == "monopole" and { ["steel-plate"] = 100000, ["stone-brick"] = 200 } or { ["stone-brick"] = 200 }
-      ctx.check(ctx.remote("fo-ia1", "bench_smelt_demand", "player", demand) == true, "demande de fonte imposee")
+      -- Le moteur refuse d'inserer une matiere dont aucune recette n'est ouverte : l'acier (recherche) est ouvert pour le banc.
+      game.forces.player.recipes["steel-plate"].enabled = true
       ctx.log("depart : " .. state_text(list))
     end,
 
@@ -94,12 +85,28 @@ return function(mode, rule)
       if not st.hq or e.tick < 10 then return end
       local stats = game.forces.player.item_production_statistics
       if e.tick == W0 then
+        local list = furnaces_of(ctx, st.hq)
+        local put = {}
+        for _, f in ipairs(list) do
+          f.get_inventory(defines.inventory.furnace_source).clear()
+          f.get_output_inventory().clear()
+          if mode == "monopole" then
+            put[#put + 1] = f.get_inventory(defines.inventory.furnace_source).insert({ name = "iron-plate", count = 40 })
+          else
+            put[#put + 1] = f.get_inventory(defines.inventory.furnace_source).insert({ name = "stone", count = 18 })
+            put[#put + 1] = f.get_output_inventory().insert({ name = "steel-plate", count = 1 })
+          end
+          if f.get_fuel_inventory().get_item_count("coal") < 20 then f.get_fuel_inventory().insert({ name = "coal", count = 20 }) end
+        end
+        local demand = mode == "monopole" and { ["steel-plate"] = 100000, ["stone-brick"] = 200 } or { ["stone-brick"] = 200 }
+        ctx.check(ctx.remote("fo-ia1", "bench_smelt_demand", "player", demand) == true, "demande de fonte imposee")
+        ctx.log("arrangement : insertions " .. table.concat(put, " ") .. " | " .. state_text(list))
         st.t0 = e.tick
         st.brick0 = stats.get_input_count("stone-brick")
         st.steel0 = stats.get_input_count("steel-plate")
         st.mod0 = ctx.remote("fo-ia1", "smelt_stats", "player") or {}
       end
-      if st.t0 and e.tick >= W0 and (e.tick - W0) % MIN == 0 and e.tick <= W0 + WINDOW then
+      if st.t0 and e.tick > W0 and (e.tick - W0) % MIN == 0 and e.tick <= W0 + WINDOW then
         local list = furnaces_of(ctx, st.hq)
         ctx.log(string.format("minute %d | briques %d, acier %d | fours %s", math.floor((e.tick - W0) / MIN),
           stats.get_input_count("stone-brick") - st.brick0, stats.get_input_count("steel-plate") - st.steel0, state_text(list)))
