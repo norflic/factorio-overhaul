@@ -34,6 +34,7 @@ local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, gén
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
+local BriquesLog = require("script.team.briques") -- lot BRIQUES : journal [FO-BRIQUES] (lecture seule)
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
@@ -564,6 +565,9 @@ function Team.view(f, tick)
   local four_rule = Outposts.four_rule(f)
   local smelter_free, smelter_loads
   if four_rule then smelter_free, smelter_loads = Outposts.smelters_gate(f) end
+  -- Lot BRIQUES : descripteurs des fours et fours à sortie pleine, pour le partage (shared/team/chaine_main.lua) ; absents règle coupée.
+  local smelter_furnaces, smelter_blocked
+  if Outposts.partage_rule(f) then smelter_furnaces, smelter_blocked = Outposts.smelter_furnaces(f), Outposts.smelters_blocked(f) end
   -- Lot IA3-b (réglage fo-war-ia3-marche) : le cerveau voit le coffre MOINS ce que les tâches prises y ont réservé.
   local stock_free = Board.view_stock(f, stock_of(f), tick, true)
   local threatened = tick < (f.threatened_until or 0)
@@ -605,6 +609,7 @@ function Team.view(f, tick)
     smelter_coal = Outposts.coal_needed_for(Outposts.smelters(f)),
     build_burn = Build.burn_rate(f, game.tick), -- lot INTEG-ECONOMIE (D4) : charbon/s des fours du plan directeur (bilan du charbon du planificateur)
     four_rule = four_rule, smelters_free = smelter_free, smelter_loads = smelter_loads, -- lot FOURS
+    smelter_furnaces = smelter_furnaces, smelter_blocked = smelter_blocked, -- lot BRIQUES
     turret_groups = groups,
     soldiers = f.soldiers_count, soldiers_max = soldiers_max,
     workers = f.engineers_count, workers_max = workers_max, workers_idle = workers_idle, workers_waiting = workers_waiting,
@@ -689,14 +694,31 @@ function Team.think(f, surface, tick)
   -- Lot IA3-c : bascule figée par équipe à sa première pensée (script/ai3/cerveau.lua) ; éteinte : planificateur d'avant.
   local ia3 = Ia3.active(f, tick)
   local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
+  -- Lot BRIQUES (bancs seulement, f.team.bench_smelt posé par fo-ia1 bench_smelt_demand) : demande de fonte imposée, ajoutée au plan.
+  if f.team.bench_smelt then
+    plan.smelt = f.team.bench_smelt_seul and {} or plan.smelt or {}
+    for _, p in ipairs(State.sorted_keys(f.team.bench_smelt)) do plan.smelt[p] = (plan.smelt[p] or 0) + f.team.bench_smelt[p] end
+    local has = false
+    for _, t in ipairs(plan.tasks) do
+      if t.kind == "smelt" then
+        t.smelt = plan.smelt
+        has = true
+      end
+    end
+    if not has and view.smelters > 0 and not view.smelter_task then
+      plan.tasks[#plan.tasks + 1] = { key = "smelt", kind = "smelt", prio = 85, smelt = plan.smelt }
+    end
+  end
+  local tasks_avant_filtre = plan.tasks
   -- Lot FOURS (remarque 13 du DC) : une tournée de fonte ne part que si elle sert (shared/team/chaine_main.lua) : minerai à
   -- charger dans un four libre ou à compléter, sortie qui vaut le déplacement, four à ravitailler avec du charbon au coffre.
   if view.four_rule then
     plan.tasks = ChaineMain.filter_tasks(plan.tasks, { inputs = T.smelter_inputs, stock = view.stock, output = view.smelter_output,
       fuel_low = view.smelter_fuel_low, fuel_stock = view.stock[T.fuel] or 0, free = view.smelters_free, loads = view.smelter_loads,
-      collect_min = T.smelt_collect_min })
+      collect_min = T.smelt_collect_min, blocked = view.smelter_blocked, furnaces = view.smelter_furnaces })
   end
   Profiler.stop("team:plan")
+  BriquesLog.think(f, view, plan, tasks_avant_filtre, tick)
   DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
   -- Lot DEFENSE-CHOIX : journal [FO-DEFCHOIX], une ligne quand « tourelles du QG d'abord » commence ou finit (f.team.defchoix_first, écrit et
   -- lu ICI seulement, en événement).
