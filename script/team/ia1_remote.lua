@@ -201,7 +201,7 @@ remote.add_interface("fo-ia1", {
     if not (f and f.team) then return nil end
     local m = (f.stats and f.stats.smelt) or {}
     return { visits = m.visits or 0, empty = m.empty or 0, loaded = m.loaded or 0, collected = m.collected or 0,
-      fueled = m.fueled or 0, smelters = #Outposts.smelters(f), rule = Outposts.four_rule(f) }
+      fueled = m.fueled or 0, freed = m.freed or 0, smelters = #Outposts.smelters(f), rule = Outposts.four_rule(f) }
   end,
   bench_smelters = function(key, n)
     local f = team_of(key)
