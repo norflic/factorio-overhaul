@@ -38,6 +38,7 @@ Champ.CFG = {
   margin_u = 120,   -- tuiles lues le long de l'axe au-delà du gisement (fonderies)
   chain_r = 160,    -- tuiles : poteau alimenté le plus loin cherché pour raccorder une bande
   logs = 40,        -- lignes [FO-CHAMP] au plus par équipe
+  charge = 40,      -- combustible posé avec chaque coffre de combustible d'une fonderie (deux fours de pierre : 15 min)
 }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -267,7 +268,9 @@ local function named(plan, names)
     elseif e.kind == "coffre" then name = names.chest end
     if name then
       local role = (e.kind == "coffre" and e.role == "sortie") and "sortie" or ("champ-" .. e.kind)
-      ents[#ents + 1] = { name = name, x = e.x, y = e.y, dir = e.dir, role = role }
+      local ent = { name = name, x = e.x, y = e.y, dir = e.dir, role = role }
+      if e.kind == "coffre" and e.role == "combustible" then ent.charge = { item = names.fuel, count = Champ.CFG.charge } end
+      ents[#ents + 1] = ent
       if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel } end
       if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end
     end
