@@ -91,6 +91,15 @@ local function suite()
   check(Fx.drop_service({ stuck = 1 }, false) == false and Fx.drop_service({}, false) == false, "pas retirée par la règle d'avant : gardée")
   check(Fx.stuck_count({ Fx.STUCK_AT, Fx.STUCK_AT - 1, 100, 0 }) == 2 and Fx.stuck_count(nil) == 0, "réceptacles pleins")
 
+  -- §6 bis remplissage des brûleurs
+  check(Fx.refill_to(0, 100, 10, 50) == 10 and Fx.refill_to(1500, 100, 10, 50) == 10, "coffre pauvre : le niveau de base")
+  check(Fx.refill_to(5700, 111, 10, 50) == 25, "5700 charbons, 111 brûleurs : 25 (la moitié du coffre)")
+  check(Fx.refill_to(1000000, 111, 10, 50) == 50, "coffre immense : la pile, 50")
+  check(Fx.refill_to(5000, 0, 10, 50) == 10 and Fx.refill_to(5000, nil, 10, 50) == 10, "aucun brûleur : le niveau de base")
+  check(Fx.refill_to(-5, 10, 10, 50) == 10 and Fx.refill_to(nil, 10, 10, 50) == 10, "coffre négatif ou inconnu : le niveau de base")
+  check(Fx.refill_to(5000, 10, 10, nil) == 10 and Fx.refill_to(5000, 10, nil, nil) == 10, "sans maximum : jamais au-dessus de la base")
+  check(Fx.refill_to(900, 10, 10, 50) == 45, "rond vers le bas : 900 / 20 = 45")
+
   -- §7 planificateur
   local book = Book.new(dofile("tests/fixtures/recipes.lua"))
   local cost = S.recruit_cost(8)
@@ -187,6 +196,9 @@ local MUTANTS = {
         return math.min(cap, p + math.floor((w or 0) / Fx.AGE_STEP)) end
     end },
   { "drop-always", function() Fx.drop_service = function(_, dropped) return dropped end end },
+  { "refill-ignores-coal", function() Fx.refill_to = function(_, _, base) return base or 10 end end },
+  { "refill-uncapped", function() Fx.refill_to = function(c, b, base) return math.max(base or 10, math.floor((c or 0) / (2 * math.max(1, b or 1)))) end end },
+  { "refill-all-coal", function() Fx.refill_to = function(c, b, base, max) return math.max(base or 10, math.min(max or 10, math.floor((c or 0) / math.max(1, b or 1)))) end end },
   { "vital-all", function()
       Fx.vital = function(spec) local out = {} for k in pairs(spec) do out[k] = true end return out end
     end },

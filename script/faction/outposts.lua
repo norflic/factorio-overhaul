@@ -814,14 +814,15 @@ function Outposts.status(o, tick)
 end
 
 --- Charbon à apporter pour compléter tous les brûleurs d'une liste.
-function Outposts.coal_needed_for(burners)
+function Outposts.coal_needed_for(burners, fill)
   local n = 0
-  for _, b in ipairs(burners) do n = n + math.max(0, T.fuel_refill_to - fuel_of(b)) end
+  fill = fill or T.fuel_refill_to -- lot FLUX : niveau de remplissage de l'équipe (shared/team/flux.lua, Fx.refill_to)
+  for _, b in ipairs(burners) do n = n + math.max(0, fill - fuel_of(b)) end
   return n
 end
 
-function Outposts.coal_needed(o)
-  return Outposts.coal_needed_for(Outposts.burners(o))
+function Outposts.coal_needed(o, fill)
+  return Outposts.coal_needed_for(Outposts.burners(o), fill)
 end
 
 --- Ramasse la production des réceptacles dans l'inventaire de l'ouvrier. Renvoie le nombre d'objets.
@@ -838,7 +839,8 @@ local function collect(sinks, carrier)
   return collected
 end
 
-local function refuel(burners, carrier)
+local function refuel(burners, carrier, fill)
+  fill = fill or T.fuel_refill_to
   -- Lot PLAFOND-FOREUSES : sans plafond, un avant-poste peut compter des centaines de brûleurs et le charbon porté ne suffit plus à
   -- tous ; le plus à court d'abord (à égalité, l'ordre de la liste), et non plus toujours les foreuses avant les fours de la liste.
   local order = {}
@@ -848,7 +850,7 @@ local function refuel(burners, carrier)
   for i, it in ipairs(order) do burners[i] = it.b end
   local short = 0
   for _, b in ipairs(burners) do
-    local n = math.min(T.fuel_refill_to - fuel_of(b), carrier.get_item_count(T.fuel))
+    local n = math.min(fill - fuel_of(b), carrier.get_item_count(T.fuel))
     if n > 0 then b.get_fuel_inventory().insert({ name = T.fuel, count = carrier.remove({ name = T.fuel, count = n }) }) end
     if fuel_of(b) < T.fuel_low then short = short + 1 end
   end
@@ -861,10 +863,10 @@ Outposts.COAL_SHORT_LOGS = 5 -- lot PLAFOND-FOREUSES : lignes [FO-CHARBON] au pl
 --- complète le charbon de chaque brûleur. Renvoie le nombre d'objets ramassés.
 --- Lot PLAFOND-FOREUSES : brûleurs laissés sous T.fuel_low faute de charbon porté comptés dans `o.coal_short` (tournées courtes ;
 --- lecteur : le journal [FO-CHARBON], les premières fois seulement, et tests/extension_fer_moteur_test.lua).
-function Outposts.service(o, carrier, tick)
+function Outposts.service(o, carrier, tick, fill)
   local collected = collect(valid_list(o.sinks), carrier)
   local burners = Outposts.burners(o)
-  local short = refuel(burners, carrier)
+  local short = refuel(burners, carrier, fill)
   if short > 0 then
     o.coal_short = (o.coal_short or 0) + 1
     if o.coal_short <= Outposts.COAL_SHORT_LOGS then

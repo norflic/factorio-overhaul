@@ -492,7 +492,7 @@ function Team.view(f, tick)
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
-      id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
+      id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o, f.team.flux_fill),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       -- Lot FLUX : ce que la tournée rapportera (sorties par objet), réceptacles pleins, brûleurs (à sec), âge de la tournée libre.
       outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, free_age = Board.free_age(f, "service:" .. oid, tick),
@@ -565,6 +565,11 @@ function Team.view(f, tick)
   end
   -- Lot FLUX : les sorties des avant-postes (plaques d'un four, charbon d'un coffre) sont des objets ATTENDUS : le cerveau ne fait ni
   -- miner ni fabriquer ce qui dort déjà chez lui (la tournée qui les rapporte monte en priorité, shared/team/flux.lua).
+  -- Lot FLUX : niveau de remplissage des brûleurs pour les tournées de la pensée SUIVANTE et des tournées en cours (charbon du coffre,
+  -- brûleurs de cette pensée) : shared/team/flux.lua, Fx.refill_to.
+  local n_burners = 0
+  for _, o in ipairs(outposts) do n_burners = n_burners + (o.burners or 0) end
+  f.team.flux_fill = Flux.refill_to(stock0[T.fuel] or 0, n_burners, T.fuel_refill_to, Flux.REFILL_MAX)
   local repat = Flux.repatriable(outposts)
   local incoming = Board.incoming(f)
   for _, k in ipairs(State.sorted_keys(repat)) do incoming[k] = (incoming[k] or 0) + repat[k] end

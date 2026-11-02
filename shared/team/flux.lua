@@ -25,6 +25,7 @@
                                         pour un ravitaillement vital ou des sorties pleines.
     Fx.vital(spec, fuel, inputs)     -> { [type d'avant-poste] = vrai } : ceux dont le produit est une plaque fondue au QG ou le
                                         combustible.
+    Fx.refill_to(coal, burners, base, max) -> niveau de remplissage des brûleurs d'une tournée (10 à 50 selon le coffre).
     Fx.drop_service(o, dropped)      -> la tournée d'un produit saturé est-elle retirée ? Pas quand ses sorties sont pleines.
 ]]
 local Fx = {}
@@ -39,6 +40,7 @@ Fx.URGENT = 90            -- M.URGENT (shared/ai3/marche.lua) : seuil des urgenc
 Fx.URGENT_AFTER = 3 * 3600 -- attente (3 min) au-delà de laquelle une tournée vitale ou de sorties pleines devient une urgence
 Fx.VITAL_PRIO = 96        -- ravitailler ce qui produit passe devant tout sauf la défense d'urgence
 Fx.FAILS_MAX = 3          -- tournées ratées de suite (chemin, danger) au-delà desquelles ses sorties ne sont plus comptées
+Fx.REFILL_MAX = 50        -- charbons au plus par brûleur (la pile)
 Fx.COVER = 100            -- plaques au coffre en deçà desquelles un produit « manque » à la tournée de ses sorties
 
 --- Types d'avant-poste VITAUX : leur produit est le combustible, ou une plaque que le QG fond à partir de la ressource de
@@ -136,6 +138,18 @@ end
 function Fx.drop_service(o, dropped)
   if not dropped then return false end
   return (o.stuck or 0) == 0
+end
+
+--- Niveau auquel une tournée REMPLIT chaque brûleur (foreuse à combustion, four d'avant-poste) : `base` (T.fuel_refill_to) quand le coffre
+--- est pauvre, jusqu'à `max` (la pile d'un brûleur) quand il est riche : au plus la moitié du charbon du coffre sert au remplissage
+--- (coal / (2 × brûleurs)). « 5700 de charbon » au coffre et des foreuses thermiques à sec : à 10 charbons, un brûleur tient 4 min et
+--- exige une visite toutes les 3 min ; à 25, 11 min : la production ne dépend plus d'un PNJ libre à l'instant (crise, attaque).
+function Fx.refill_to(coal, burners, base, max)
+  base = base or 10
+  max = max or base
+  if (burners or 0) <= 0 then return base end
+  local per = math.floor(math.max(0, coal or 0) / (2 * burners))
+  return math.max(base, math.min(max, per))
 end
 
 --- Sorties pleines : nombre de réceptacles (de `outs`, la sortie de chacun) à STUCK_AT ou plus.

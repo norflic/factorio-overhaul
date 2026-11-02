@@ -58,8 +58,9 @@ function L.think(f, view, tick)
     end
   end
   log(string.format("[FO-FLUX] %s a %.1f min : sorties comptees %d (%s) ; receptacles pleins %d ; tournees libres %d (plus vieille %d s, prio %d) ; "
-    .. "bruleurs vitaux %d dont %d a sec ; pendant menace : %d pensee(s), %.1f %% des bruleurs vitaux a sec",
-    f.key or "player", tick / 3600, total, table.concat(parts, ", "), stuck, free, oldest / 60, oprio, burners, dry, st.thr,
+    .. "bruleurs vitaux %d dont %d a sec, remplissage a %d charbons ; pendant menace : %d pensee(s), %.1f %% des bruleurs vitaux a sec",
+    f.key or "player", tick / 3600, total, table.concat(parts, ", "), stuck, free, oldest / 60, oprio, burners, dry,
+    team.flux_fill or T.fuel_refill_to, st.thr,
     st.thr_burners > 0 and 100 * st.thr_dry / st.thr_burners or 0))
   st.thr, st.thr_burners, st.thr_dry = 0, 0, 0
 end
