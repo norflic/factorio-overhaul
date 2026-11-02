@@ -1,0 +1,510 @@
+--[[
+  Tests hors jeu du lot FONDERIE (retour du DC du 2/11 au soir : « il faut tout le temps remplir n/2 coffres de charbons + n/2 coffres
+  de cuivre pour n fours [...] la fonderie entière cesse de fonctionner » ; « Faites attention aux passages sous-terrain et aux
+  splitters (si pas recherchés) »). Pur, aucune API Factorio. Usage, depuis la racine du mod :   lua5.2 tests/champ_colonne_test.lua
+
+  1. tracé (Co.route) : tout droit, mur franchi par souterrain seulement s'il est débloqué et à portée, entrée et sortie droites,
+     jamais par-dessus un souterrain déjà posé, déterminisme ;
+  2. ligne de charbon (Co.coal_line) : foreuses sur des tuiles libres, charbon sous chacune, poteaux qui les couvrent ;
+  3. champs entiers en colonne (Ch.plan, design « colonne ») : le contrôle de champ_verif, voies des tapis comprises (chaque four
+     reçoit minerai ET charbon, chaque coffre de quai reçoit des plaques, aucune voie mêlée, aucun raccord faux) ; ce que le DC voit :
+     0 coffre de combustible quand le charbon est joignable, un seul par colonne sinon ; quai assez rapide ; répartiteurs et
+     souterrains seulement s'ils sont débloqués ; le tracé du charbon hors du champ ;
+  4. stabilité (une bande seule, cadre figé, ⊂ plan entier ; toutes les pièces du plan entier posées par au moins une bande) ;
+     cadre d'avant le lot (sans `design`) : fonderie à coffres inchangée ;
+  5. déterminisme ;
+  6. mutants : défauts injectés dans un plan ou dans la règle, chacun vu.
+]]
+package.path = "./?.lua;" .. package.path
+
+local Ch = require("shared.team.champ")
+local Co = require("shared.team.champ_colonne")
+local Cv = require("shared.team.champ_verif")
+
+local passes, failures = 0, 0
+local function check(cond, msg)
+  if cond then passes = passes + 1 else failures = failures + 1; print("  ECHEC : " .. msg) end
+end
+local function section(name) print("== " .. name) end
+
+local BELTS3 = { { lane = 7.5 }, { lane = 15 }, { lane = 22.5 } }
+local function disc(cx, cy, r, out)
+  out = out or {}
+  for x = cx - r, cx + r do for y = cy - r, cy + r do if (x - cx) ^ 2 + (y - cy) ^ 2 <= r * r then out[#out + 1] = x; out[#out + 1] = y end end end
+  return out
+end
+local function ellipse(cx, cy, a, b)
+  local o = {}
+  for x = cx - a, cx + a do for y = cy - b, cy + b do if ((x - cx) / a) ^ 2 + ((y - cy) / b) ^ 2 <= 1 then o[#o + 1] = x; o[#o + 1] = y end end end
+  return o
+end
+
+--- Spec d'un champ en colonne. o : coal (liste plate), split, ug, pole ("petit" | "moyen"), electric, belts, blocked, drill, fs, frame.
+local function spec_of(ore, o)
+  o = o or {}
+  local pole = (o.pole == "moyen") and { reach = 3, wire = 9 } or { reach = 2, wire = 7.5 }
+  local sp = { ore = ore, blocked = o.blocked or {}, drill = o.drill or { size = 3, reach = 1, rate = 0.5 }, pole = pole,
+    belts = o.belts or BELTS3, furnace = { size = o.fs or 2, rate = 0.3125, fuel = true, fuel_rate = 0.0225 }, inserter = { rate = 0.83 },
+    target = o.target or { x = 1000, y = 0 }, max_side = o.max_side or 8, frame = o.frame, design = "colonne",
+    coal = o.coal and { tiles = o.coal, rate = 0.5 } or nil, logistics = { splitter = o.split, underground = o.ug } }
+  if o.electric then sp.furnace = { size = o.fs or 2, rate = 0.625, fuel = false } end
+  return sp
+end
+
+local function sig(e)
+  return string.format("%s|%.1f|%.1f|%d|%s", e.kind, e.x, e.y, e.dir or 0, tostring(e.ug))
+end
+local function count(plan, pred) local n = 0; for _, e in ipairs(plan.ents) do if pred(e) then n = n + 1 end end; return n end
+
+---------------------------------------------------------------------------------------------------
+section("1. trace du charbon (Co.route)")
+---------------------------------------------------------------------------------------------------
+local function wall(x0, x1, y0, y1)
+  local s = {}
+  for x = x0, x1 do for y = y0, y1 do s[Co.tk(x, y)] = true end end
+  return function(u, v) return not s[Co.tk(u, v)] end
+end
+local function free_all() return true end
+local BOX = { u0 = -40, v0 = -40, u1 = 60, v1 = 40 }
+local function route_ok(r, ug, name)
+  -- chaque tuile une fois ; chaque pas va à la suivante ; une paire de souterrains : entrée droite, écart ≤ ug, sortie suivie tout droit
+  local seen, okk = {}, true
+  for i, t in ipairs(r) do
+    local k = Co.tk(t.u, t.v)
+    if seen[k] then okk = false end
+    seen[k] = true
+    if t.kind == "souterrain" and t.ug == "input" then
+      local o = r[i + 1]
+      local d = Co.D4[t.d]
+      local gap = o and ((o.u - t.u) * d[1] + (o.v - t.v) * d[2]) or -1
+      if not (o and o.ug == "output" and o.d == t.d and gap >= 2 and gap <= ug) then okk = false end
+      if i > 1 then
+        local p = r[i - 1]
+        if not (p.u + Co.D4[p.d][1] == t.u and p.v + Co.D4[p.d][2] == t.v and p.d == t.d) then okk = false end
+      end
+      local nx = r[i + 2]
+      if nx and nx.d ~= t.d then okk = false end
+    elseif t.kind == "tapis" and i < #r then
+      local d = Co.D4[t.d]
+      if not (r[i + 1].u == t.u + d[1] and r[i + 1].v == t.v + d[2]) then okk = false end
+    end
+  end
+  check(okk, name .. " : tracé cohérent (pas, souterrains droits, écart ≤ " .. tostring(ug) .. ")")
+end
+local function nug(r) local n = 0; for _, t in ipairs(r) do if t.kind == "souterrain" then n = n + 1 end end; return n end
+do
+  local r = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, free_all, nil, nil, BOX)
+  check(r and #r == 21 and nug(r) == 0, "tout droit : 21 tapis, 0 souterrain")
+  r = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, free_all, nil, 5, BOX)
+  check(r and nug(r) == 0, "tout droit, souterrains débloqués : aucun (ils ne servent qu'à passer un obstacle)")
+  -- mur de 3 tuiles d'épaisseur, de haut en bas de la boîte : sans souterrain, aucun chemin ; avec, une paire
+  local w3 = wall(9, 11, -100, 100)
+  r = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, w3, nil, nil, BOX)
+  check(r == nil, "mur infranchissable sans souterrain : aucun tracé (repli au coffre de tête)")
+  r = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, w3, nil, 5, BOX)
+  check(r ~= nil and nug(r) == 2, "mur de 3 avec souterrains (portée 5) : une paire")
+  if r then route_ok(r, 5, "mur de 3") end
+  -- portée : 4 tuiles passent à 5 (entrée et sortie distantes de 5), 5 tuiles ne passent pas
+  r = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, wall(9, 12, -100, 100), nil, 5, BOX)
+  check(r ~= nil and nug(r) == 2, "mur de 4, portée 5 : franchi")
+  r = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, wall(9, 13, -100, 100), nil, 5, BOX)
+  check(r == nil, "mur de 5, portée 5 : non franchi")
+  -- mur fini : sans souterrain, contournement ; avec, le contournement long est remplacé par une paire
+  local wf = wall(9, 11, -12, 12)
+  local r1 = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, wf, nil, nil, BOX)
+  local r2 = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, wf, nil, 5, BOX)
+  check(r1 ~= nil and nug(r1) == 0 and #r1 > 40, "mur fini sans souterrain : contournement (" .. tostring(r1 and #r1) .. " tuiles)")
+  check(r2 ~= nil and nug(r2) == 2 and #r2 < 25, "mur fini avec souterrains : une paire au lieu du détour (" .. tostring(r2 and #r2) .. " tuiles)")
+  if r1 then route_ok(r1, 5, "contournement") end
+  -- un souterrain déjà posé sous le mur : on ne passe pas par-dessus (la paire se lierait à lui)
+  local ugs = { [Co.tk(10, 0)] = true }
+  r = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, wall(9, 11, -1, 1), function(u, v) return not ugs[Co.tk(u, v)] end, 5, BOX)
+  local over = false
+  if r then
+    for i, t in ipairs(r) do
+      if t.ug == "input" then
+        local o = r[i + 1]
+        local d = Co.D4[t.d]
+        for k = 1, (o.u - t.u) * d[1] + (o.v - t.v) * d[2] - 1 do if ugs[Co.tk(t.u + k * d[1], t.v + k * d[2])] then over = true end end
+      end
+    end
+  end
+  check(r ~= nil and not over, "aucune paire au-dessus d'un souterrain existant")
+  -- virage à l'arrivée et sens imposé
+  r = Co.route({ u = 0, v = 0 }, 2, { u = 10, v = 10 }, 3, free_all, nil, 5, BOX)
+  check(r and r[#r].u == 10 and r[#r].v == 10 and r[#r].d == 3, "arrivée tournée vers le sens demandé")
+  -- déterminisme
+  local a = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 7 }, 2, wf, nil, 5, BOX)
+  local b = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 7 }, 2, wf, nil, 5, BOX)
+  local same = a and b and #a == #b
+  if same then for i = 1, #a do if a[i].u ~= b[i].u or a[i].v ~= b[i].v or a[i].d ~= b[i].d or a[i].kind ~= b[i].kind then same = false end end end
+  check(same, "tracé déterministe")
+end
+
+---------------------------------------------------------------------------------------------------
+section("2. ligne de charbon (Co.coal_line)")
+---------------------------------------------------------------------------------------------------
+do
+  local coal, set = {}, {}
+  for x = 40, 55 do for y = -6, 6 do coal[#coal + 1] = { x, y }; set[Co.tk(x, y)] = true end end
+  local isc = function(u, v) return set[Co.tk(u, v)] == true end
+  local line = Co.coal_line(coal, isc, free_all, { size = 3, reach = 1 }, 3, { u = 0, v = 0 }, 2, 7.5)
+  check(line ~= nil and line.drills == 3, "ligne de 3 foreuses sur un gisement de 16 x 13")
+  if line then
+    local okc = true
+    for _, e in ipairs(line.ents) do
+      if e.kind == "foreuse" then
+        local n = 0
+        for x = e.u - 1, e.u + 3 do for y = e.v - 1, e.v + 3 do if isc(x, y) then n = n + 1 end end end
+        if n < 3 then okc = false end
+      end
+    end
+    check(okc, "chaque foreuse a du charbon dans sa zone")
+    check(math.abs(line.exit.u - 0) + math.abs(line.exit.v) <= 42, "sortie de la ligne du côté de la cible (" .. line.exit.u .. ", " .. line.exit.v .. ")")
+  end
+  local big = Co.coal_line(coal, isc, free_all, { size = 3, reach = 1 }, 40, { u = 0, v = 0 }, 2, 7.5)
+  check(big ~= nil and big.drills >= 4 and big.drills <= 14, "ligne bornée par le gisement (" .. tostring(big and big.drills) .. " foreuses pour 40 voulues ; 7 par côté au plus sur 16 + 2 tuiles)")
+  local one = Co.coal_line(coal, isc, free_all, { size = 3, reach = 1 }, 40, { u = 0, v = 0 }, 2, 7.5, 5)
+  local per = { 0, 0 }
+  if one then for _, e in ipairs(one.ents) do if e.kind == "foreuse" then per[e.dv ~= 0 and (e.dv > 0 and 1 or 2) or (e.du > 0 and 1 or 2)] = per[e.dv ~= 0 and (e.dv > 0 and 1 or 2) or (e.du > 0 and 1 or 2)] + 1 end end end
+  check(one ~= nil and per[1] <= 5 and per[2] <= 5, "au plus 5 foreuses par côté quand une voie en porte 5 (" .. per[1] .. ", " .. per[2] .. ")")
+  check(Co.coal_line({}, isc, free_all, { size = 3, reach = 1 }, 3, { u = 0, v = 0 }, 2, 7.5) == nil, "aucun charbon : aucune ligne")
+end
+
+---------------------------------------------------------------------------------------------------
+section("3. champs en colonne")
+---------------------------------------------------------------------------------------------------
+--- Ce que le DC voit d'un plan : rapport du contrôle + compteurs propres au lot. Rend le rapport.
+local function judge(name, sp, p, o)
+  o = o or {}
+  check(p ~= nil, name .. " : plan rendu")
+  if not p then return nil end
+  local rep = Cv.verify(p, sp)
+  check(rep.ok, name .. " : contrôle " .. Cv.line(rep))
+  local cols = 0
+  for _, bd in ipairs(p.bands) do cols = cols + #bd.groups end
+  local fuel_chests = count(p, function(e) return e.kind == "coffre" and e.role == "combustible" end)
+  local n_ug = count(p, function(e) return e.kind == "souterrain" end)
+  local n_sp = count(p, function(e) return e.kind == "repartiteur" end)
+  if o.voie then
+    check(fuel_chests == 0, string.format("%s : 0 coffre de combustible à garnir (%d colonnes, %d coffres)", name, cols, fuel_chests))
+    if sp.furnace.fuel then
+      -- la ligne de charbon suffit aux fours (foreuses de charbon × débit ≥ fours × charbon d'un four), relu sur les entités
+      local cd = count(p, function(e) return e.kind == "foreuse" and e.role == "charbon" end)
+      check(cd * sp.coal.rate + 1e-9 >= p.stats.furnaces * sp.furnace.fuel_rate,
+        string.format("%s : charbon extrait %.2f/s >= brûlé %.2f/s", name, cd * sp.coal.rate, p.stats.furnaces * sp.furnace.fuel_rate))
+    end
+  else
+    check(fuel_chests <= cols, string.format("%s : au plus un coffre de combustible par colonne (%d colonnes, %d coffres)", name, cols, fuel_chests))
+  end
+  if not sp.logistics.underground then check(n_ug == 0, name .. " : aucun souterrain sans la recherche (" .. n_ug .. ")") end
+  if not sp.logistics.splitter then check(n_sp == 0, name .. " : aucun répartiteur sans la recherche (" .. n_sp .. ")") end
+  if o.want_ug then check(n_ug >= 2, name .. " : souterrains utilisés (" .. n_ug .. ")") end
+  if o.want_split then check(n_sp >= 1, name .. " : répartiteurs utilisés (" .. n_sp .. ")") end
+  -- quai : bras de quai × débit d'un bras sur tapis ≥ plaques de la colonne (relu ici sur les entités, pas sur la règle)
+  local short = 0
+  local per = {}
+  for _, e in ipairs(p.ents) do
+    local k = (e.band or 0) .. ":" .. (e.group or 0)
+    per[k] = per[k] or { f = 0, bay = 0 }
+    if e.kind == "four" then per[k].f = per[k].f + 1 end
+    if e.kind == "coffre" and e.role == "sortie" then per[k].bay = per[k].bay + 1 end
+  end
+  for bi, bd in ipairs(p.bands) do
+    for gi in ipairs(bd.groups) do
+      local q = per[bi .. ":" .. gi] or { f = 0, bay = 0 }
+      if q.bay * 0.83 * 0.85 + 1e-9 < q.f * sp.furnace.rate then short = short + 1 end
+    end
+  end
+  check(short == 0, name .. " : quais assez rapides pour les plaques (" .. short .. " trop lents)")
+  -- le tracé du charbon ne traverse pas le gisement de minerai
+  local ore = {}
+  for i = 1, #sp.ore - 1, 2 do ore[Ch.key(sp.ore[i], sp.ore[i + 1])] = true end
+  local on_ore = 0
+  for _, e in ipairs(p.ents) do
+    if (e.kind == "tapis" or e.kind == "souterrain") and e.role == "charbon" and (e.band or 0) == 0 then
+      if ore[Ch.key(math.floor(e.x), math.floor(e.y))] then on_ore = on_ore + 1 end
+    end
+  end
+  check(on_ore == 0, name .. " : tracé du charbon hors du gisement (" .. on_ore .. " tuiles dessus)")
+  print(string.format("  %s : %d colonnes, %d fours, %d foreuses, %d coffres de combustible, %d coffres de quai, %d souterrains, %d répartiteurs ; %s",
+    name, cols, p.stats.furnaces, p.stats.drills, fuel_chests,
+    count(p, function(e) return e.kind == "coffre" and e.role == "sortie" end), n_ug, n_sp, Cv.line(rep)))
+  for _, cs in ipairs(p.stats.coal or {}) do
+    print(string.format("    charbon côté %+d : %s%s", cs.side, cs.voie and "voie" or "coffre de tête", cs.why and (" (" .. cs.why .. ")") or ""))
+  end
+  return rep
+end
+
+local ORE = disc(0, 0, 20)
+local COAL_NEAR = disc(60, 40, 8)
+local plans = {}
+do
+  local cases = {
+    { "disque, charbon proche, sans logistique", { coal = COAL_NEAR }, { voie = true } },
+    { "disque, répartiteurs", { coal = COAL_NEAR, split = true }, { voie = true, want_split = true } },
+    { "disque, répartiteurs et souterrains", { coal = COAL_NEAR, split = true, ug = 5 }, { voie = true, want_split = true } },
+    { "disque, poteaux moyens", { coal = COAL_NEAR, pole = "moyen" }, { voie = true } },
+    { "disque, sans charbon (coffre de tête)", {}, {} },
+  }
+  for _, cs in ipairs(cases) do
+    local sp = spec_of(ORE, cs[2])
+    local p = Ch.plan(sp)
+    plans[cs[1]] = { sp = sp, p = p }
+    judge(cs[1], sp, p, cs[3])
+  end
+  -- four électrique : ni tête ni charbon, deux voies de minerai
+  local sp = spec_of(ORE, { electric = true, coal = COAL_NEAR })
+  local p = Ch.plan(sp)
+  judge("disque, four électrique", sp, p, { voie = true })
+  check(p and count(p, function(e) return e.role == "charbon" end) == 0, "four électrique : aucune pièce de charbon")
+  -- deux bouts (ellipse longue au tapis jaune) : deux réseaux de charbon
+  local sp2 = spec_of(ellipse(0, 0, 60, 14), { coal = disc(0, 60, 9), belts = { { lane = 7.5 } }, max_side = 30 })
+  local p2 = Ch.plan(sp2)
+  judge("ellipse longue, deux bouts", sp2, p2, { voie = true })
+  local sides = 0
+  for _, cs in ipairs(p2 and p2.stats.coal or {}) do if cs.voie then sides = sides + 1 end end
+  check(sides == 2, "ellipse longue : charbon par tapis des deux côtés (" .. sides .. ")")
+  -- rivière de 3 tuiles entre le champ et le charbon, sur toute la carte : sans souterrain, repli ; avec, franchie
+  local river = {}
+  for x = 36, 38 do for y = -400, 400 do river[Ch.key(x, y)] = true end end
+  local coal_far = disc(60, 0, 8)
+  local spn = spec_of(ORE, { coal = coal_far, blocked = river })
+  local pn = Ch.plan(spn)
+  judge("rivière sans souterrain", spn, pn, {})
+  check(pn and count(pn, function(e) return e.kind == "coffre" and e.role == "combustible" end) > 0, "rivière sans souterrain : repli au coffre de tête")
+  local spu = spec_of(ORE, { coal = coal_far, blocked = river, ug = 5 })
+  local pu = Ch.plan(spu)
+  plans["rivière avec souterrains"] = { sp = spu, p = pu }
+  judge("rivière avec souterrains", spu, pu, { voie = true, want_ug = true })
+  -- autre ligne de l'équipe (tapis posé) qui barre le chemin : contournée sans souterrain, passée dessous avec
+  local line = {}
+  for y = -120, 120 do line[Ch.key(45, y)] = true end
+  local spl = spec_of(ORE, { coal = disc(70, 0, 8), blocked = line })
+  judge("ligne voisine, sans souterrain", spl, Ch.plan(spl), {})
+  local spl2 = spec_of(ORE, { coal = disc(70, 0, 8), blocked = line, ug = 5 })
+  judge("ligne voisine, avec souterrains", spl2, Ch.plan(spl2), { voie = true, want_ug = true })
+  -- foreuses de 5 et fours de 3 ou 4 (côtés impairs des foreuses : un côté pair n'a pas de tuile de dépôt centrale, la règle du
+  -- champ ne le pose pas ; le jeu lit la foreuse de base, 3 x 3)
+  for _, fs in ipairs({ 3, 4 }) do
+    local sp5 = spec_of(disc(0, 0, 26), { coal = disc(70, 50, 16), drill = { size = 5, reach = 1, rate = 1 }, fs = fs })
+    judge("foreuses de 5, fours de " .. fs, sp5, Ch.plan(sp5), { voie = true })
+  end
+  -- gisement de charbon trop petit pour tout le côté : les premières colonnes du tronc par la voie, les autres au coffre de tête,
+  -- jamais une colonne « en voie » que la ligne ne peut pas nourrir (le contrôle de capacité de judge le dit)
+  local spp = spec_of(disc(0, 0, 26), { coal = disc(70, 50, 10), drill = { size = 5, reach = 1, rate = 1 }, fs = 3 })
+  local pp = Ch.plan(spp)
+  judge("charbon trop petit", spp, pp, {})
+  local part, chests = false, 0
+  for _, cs in ipairs(pp and pp.stats.coal or {}) do if cs.voie and cs.why and cs.why:find("charbon pour", 1, true) then part = true end end
+  chests = pp and count(pp, function(e) return e.kind == "coffre" and e.role == "combustible" end) or 0
+  check(part and chests >= 1, "charbon trop petit : voie pour une partie des colonnes, coffre de tête pour les autres (" .. chests .. ")")
+  if pp then
+    local cd = count(pp, function(e) return e.kind == "foreuse" and e.role == "charbon" end)
+    local fed = 0
+    for _, e in ipairs(pp.ents) do if e.kind == "four" then fed = fed + 1 end end
+    -- fours des colonnes en voie seulement : fours de la bande dont la colonne n'a pas de coffre de tête
+    local chest_cols = {}
+    for _, e in ipairs(pp.ents) do if e.kind == "coffre" and e.role == "combustible" then chest_cols[e.band .. ":" .. e.group] = true end end
+    local fv = 0
+    for _, e in ipairs(pp.ents) do if e.kind == "four" and not chest_cols[e.band .. ":" .. e.group] then fv = fv + 1 end end
+    check(cd * spp.coal.rate + 1e-9 >= fv * spp.furnace.fuel_rate, string.format("charbon trop petit : la ligne (%.2f/s) nourrit les colonnes en voie (%.2f/s)",
+      cd * spp.coal.rate, fv * spp.furnace.fuel_rate))
+  end
+end
+
+---------------------------------------------------------------------------------------------------
+section("4. stabilite et cadres d'avant le lot")
+---------------------------------------------------------------------------------------------------
+local lone, lone_bad = 0, 0
+local function stability(ore, o)
+  local sp = spec_of(ore, o)
+  local full = Ch.plan(sp)
+  local in_full, need = {}, {}
+  for _, e in ipairs(full.ents) do
+    in_full[sig(e)] = true
+    if e.role ~= "relais" and e.kind ~= "poteau" then need[sig(e)] = true end
+  end
+  local bad, total, seen = 0, 0, {}
+  for _, bd in ipairs(full.bands) do
+    local fr = {}
+    for _, k in ipairs({ "axis", "phase", "exit", "origin", "umin", "umax", "v0", "offsets", "design", "cols", "coal" }) do fr[k] = full.frame[k] end
+    fr.only = { [bd.pr] = true }
+    local oo = {}
+    for k, v in pairs(o or {}) do oo[k] = v end
+    oo.frame = fr
+    local spp = spec_of(ore, oo)
+    local part = Ch.plan(spp)
+    -- une bande bâtie seule (les autres pas encore) marche seule : un réseau, chaque four nourri (minerai et charbon), plaques au quai
+    if part and #part.ents > 0 then
+      local r = Cv.verify(part, spp)
+      if not (r.components <= 1 and r.unpowered == 0 and r.no_ore == 0 and r.no_coal == 0 and r.no_plate == 0 and r.junction == 0
+        and r.mixed == 0 and r.arms == 0 and r.drops == 0) then
+        lone_bad = lone_bad + 1
+        print("    bande " .. bd.pr .. " seule : " .. Cv.line(r))
+      end
+      lone = lone + 1
+    end
+    for _, e in ipairs(part and part.ents or {}) do
+      total = total + 1
+      seen[sig(e)] = true
+      if not in_full[sig(e)] and e.kind ~= "poteau" then bad = bad + 1 end
+    end
+  end
+  local missing = 0
+  for _, e in ipairs(full.ents) do if need[sig(e)] and not seen[sig(e)] then missing = missing + 1 end end
+  return bad, total, missing
+end
+do
+  for _, c in ipairs({ { "voie", { coal = COAL_NEAR } }, { "répartiteurs", { coal = COAL_NEAR, split = true } },
+      { "coffre de tête", {} } }) do
+    local bad, total, missing = stability(ORE, c[2])
+    check(total > 0 and bad == 0, string.format("%s, bandes seules : %d entités, %d absentes du plan entier", c[1], total, bad))
+    check(missing == 0, string.format("%s : toutes les pièces du plan entier (hors poteaux) posées par une bande (%d manquent)", c[1], missing))
+  end
+  check(lone > 0 and lone_bad == 0, string.format("bandes bâties seules : %d sur %d marchent seules (réseau, minerai, charbon, plaques)", lone - lone_bad, lone))
+  -- cadre d'avant le lot (0.6.38, sans design) : la bande garde la fonderie à coffres
+  local sp = spec_of(ORE, { coal = COAL_NEAR })
+  sp.design = nil
+  local old = Ch.plan(sp)
+  check(old and old.frame.design == nil and count(old, function(e) return e.role == "combustible" end) > 0,
+    "plan sans design : fonderie à coffres (coffres de combustible)")
+  local fr = {}
+  for k, v in pairs(old.frame) do fr[k] = v end
+  fr.only = { [old.bands[1].pr] = true }
+  local sp2 = spec_of(ORE, { coal = COAL_NEAR, frame = fr }) -- le runtime demande la colonne : le cadre figé l'emporte
+  local part = Ch.plan(sp2)
+  check(part and part.design == nil and count(part, function(e) return e.role == "charbon" end) == 0,
+    "cadre 0.6.38 rejoué avec design colonne demandé : motif du cadre gardé (rien à migrer)")
+end
+
+---------------------------------------------------------------------------------------------------
+section("5. determinisme")
+---------------------------------------------------------------------------------------------------
+do
+  local function ser(p) local t = {}; for _, e in ipairs(p.ents) do t[#t + 1] = sig(e) end; return table.concat(t, ";") end
+  local a = Ch.plan(spec_of(ORE, { coal = COAL_NEAR, split = true, ug = 5 }))
+  local b = Ch.plan(spec_of(ORE, { coal = COAL_NEAR, split = true, ug = 5 }))
+  check(a and b and ser(a) == ser(b), "deux plans identiques")
+end
+
+---------------------------------------------------------------------------------------------------
+section("6. mutants")
+---------------------------------------------------------------------------------------------------
+--- Plan muté : copie des entités, `f` modifie la liste ; rend le rapport du contrôle.
+local function mutate(base, f)
+  local p = {}
+  for k, v in pairs(base.p) do p[k] = v end
+  p.ents = {}
+  for _, e in ipairs(base.p.ents) do local c = {}; for k, v in pairs(e) do c[k] = v end; p.ents[#p.ents + 1] = c end
+  f(p.ents)
+  return Cv.verify(p, base.sp)
+end
+local function drop_first(list, pred)
+  for i, e in ipairs(list) do if pred(e) then table.remove(list, i) return true end end
+  return false
+end
+do
+  local voie = plans["disque, charbon proche, sans logistique"]
+  local split = plans["disque, répartiteurs"]
+  local chest = plans["disque, sans charbon (coffre de tête)"]
+  local muts = {
+    { "tuile du charbon à la tête retirée", voie, function(l)
+      local bdir
+      for _, e in ipairs(l) do if e.role == "bande" and e.band == 1 and e.group == 1 then bdir = e.dir end end
+      -- la seule tuile de la voie de charbon de la colonne qui est en travers du sens de la bande : celle qui charge la tête
+      drop_first(l, function(e) return e.kind == "tapis" and e.role == "charbon" and e.band == 1 and e.group == 1 and (e.dir - bdir) % 4 == 2 end)
+    end, function(r) return r.no_coal > 0 end },
+    { "bras de dérivation retiré", voie, function(l) drop_first(l, function(e) return e.kind == "bras" and e.role == "charbon" end) end,
+      function(r) return r.no_coal > 0 or r.unpowered > 0 end },
+    { "répartiteur retiré", split, function(l) drop_first(l, function(e) return e.kind == "repartiteur" end) end, function(r) return r.no_coal > 0 end },
+    { "tête droite (minerai sur les deux voies, charbon mêlé)", voie, function(l)
+      for _, e in ipairs(l) do if e.role == "tete" then e.kind = "foreuse_absente" end end
+      for _, e in ipairs(l) do if e.kind == "foreuse_absente" then e.kind = "rien" end end
+      local i = 1
+      while i <= #l do if l[i].kind == "rien" then table.remove(l, i) else i = i + 1 end end
+      -- la bande entre tout droit dans la tête : une tuile de bande de plus dans l'axe
+      for _, e in ipairs(l) do if e.role == "bande" and e.band == 1 and e.group == 1 then e.last_bande = true end end
+      local last
+      for _, e in ipairs(l) do if e.last_bande then last = e end end
+      if last then
+        local v = ({ [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } })[last.dir]
+        -- prolonger la bande jusqu'à la tête
+        for k = 1, 3 do
+          local x, y = last.x + k * v[1], last.y + k * v[2]
+          local occupied = false
+          for _, q in ipairs(l) do if math.abs(q.x - x) < 0.6 and math.abs(q.y - y) < 0.6 and (q.size or 1) == 1 then occupied = true end end
+          if not occupied then l[#l + 1] = { kind = "tapis", x = x, y = y, size = 1, dir = last.dir, band = 1, group = 1, role = "bande" } end
+        end
+      end
+    end, function(r) return r.mixed > 0 or r.no_ore > 0 or r.no_coal > 0 or r.junction > 0 end },
+    { "quai sans bras", voie, function(l)
+      local b, g
+      for _, e in ipairs(l) do if e.kind == "coffre" and e.role == "sortie" then b, g = e.band, e.group break end end
+      local i = 1
+      while i <= #l do
+        local e = l[i]
+        local is_bay = false
+        if e.kind == "bras" and e.band == b and e.group == g then
+          for _, q in ipairs(l) do
+            if q.kind == "coffre" and q.role == "sortie" and math.abs(q.x - e.x) + math.abs(q.y - e.y) < 1.1 then is_bay = true end
+          end
+        end
+        if is_bay then table.remove(l, i) else i = i + 1 end
+      end
+    end, function(r) return r.no_plate > 0 end },
+    { "coffre de tête retiré", chest, function(l) drop_first(l, function(e) return e.kind == "coffre" and e.role == "combustible" end) end,
+      function(r) return r.no_coal > 0 or r.arms > 0 end },
+    { "souterrain de sortie retiré", plans["rivière avec souterrains"], function(l)
+      drop_first(l, function(e) return e.kind == "souterrain" and e.ug == "output" end)
+    end, function(r) return r.junction > 0 or r.no_coal > 0 end },
+    { "poteaux du charbon retirés", voie, function(l)
+      while drop_first(l, function(e) return e.kind == "poteau" and e.role == "charbon" end) do end
+    end, function(r) return r.unpowered > 0 or r.components > 1 end },
+  }
+  for _, m in ipairs(muts) do
+    if m[2] and m[2].p then
+      local r = mutate(m[2], m[3])
+      check(m[4](r), "mutant « " .. m[1] .. " » vu (" .. Cv.line(r) .. ")")
+    else
+      check(false, "mutant « " .. m[1] .. " » : plan de base absent")
+    end
+  end
+  -- mutants de la RÈGLE : la règle fautive doit être vue par le contrôle
+  local function rule_mutant(name, apply, restore, o, pred)
+    apply()
+    local ok, sp, p = pcall(function() local s = spec_of(ORE, o); return s, Ch.plan(s) end)
+    restore()
+    if not ok then check(true, "mutant de règle « " .. name .. " » : la règle lève une erreur") return end
+    local seen = (p == nil) or pred(Cv.verify(p, sp), p)
+    check(seen, "mutant de règle « " .. name .. " » vu")
+  end
+  local pk = Co.PICKUP
+  rule_mutant("quai compté à 10 objets par bras", function() Co.PICKUP = 10 end, function() Co.PICKUP = pk end, { coal = COAL_NEAR },
+    function(_, p)
+      local fours, bay = 0, 0
+      for _, e in ipairs(p.ents) do if e.kind == "four" then fours = fours + 1 elseif e.kind == "coffre" and e.role == "sortie" then bay = bay + 1 end end
+      return bay * 0.83 * 0.85 < fours * 0.3125
+    end)
+  local lay = Co.layout
+  rule_mutant("tête sans chargement du charbon", function()
+    Co.layout = function(...)
+      local l, n, i = lay(...)
+      if l then for k = #l, 1, -1 do if l[k].role == "charbon" and l[k].col == 1 then table.remove(l, k) end end end
+      return l, n, i
+    end
+  end, function() Co.layout = lay end, { coal = COAL_NEAR }, function(r) return r.no_coal > 0 end)
+  local rt = Co.route
+  rule_mutant("souterrain au-delà de la portée", function()
+    Co.route = function(s, sd, t, td, free, span, ug, box, cap) return rt(s, sd, t, td, free, span, ug and (ug + 3), box, cap) end
+  end, function() Co.route = rt end, { coal = disc(60, 0, 8), blocked = (function()
+    local rv = {}; for x = 36, 42 do for y = -400, 400 do rv[Ch.key(x, y)] = true end end; return rv end)(), ug = 5 },
+    function(r) return r.junction > 0 or r.no_coal > 0 end)
+  local br = Co.branch
+  rule_mutant("dérivation qui s'arrête avant le tronc", function()
+    Co.branch = function(col, net, side, wire) local l = br(col, net, side, wire); table.remove(l, 1); return l end
+  end, function() Co.branch = br end, { coal = COAL_NEAR }, function(r) return r.no_coal > 0 end)
+end
+
+print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
+os.exit(failures == 0 and 0 or 1)

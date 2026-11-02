@@ -373,7 +373,8 @@ local DECLARED = {}
 function P.declare_size(name, w, h) DECLARED[name] = { w = w, h = h } end
 function P.size(name, dir)
   local x = EXTRA[name] or DECLARED[name]
-  if x then return x.w, x.h end
+  -- lot FONDERIE : une emprise déclarée non carrée (répartiteur, 2 × 1 vers le nord) tourne avec l'entité ; les autres sont carrées
+  if x then if dir == 2 or dir == 6 then return x.h, x.w end return x.w, x.h end
   -- Lot CONVOYEURS : un tapis des données du jeu que modules.lua ne connaît pas (niveau supérieur) occupe une tuile.
   if not M.BASE[name] and name:find("belt", 1, true) and not M.spec(name) then return 1, 1 end
   return M.size(name, dir or 0)

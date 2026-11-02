@@ -2558,7 +2558,8 @@ local function plan_project(f, surface, p)
       w = lay.box[3] - lay.box[1] + 1, h = lay.box[4] - lay.box[2] + 1, power = true }
     local ents = {}
     for _, e in ipairs(lay.ents) do
-      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge, rank = e.rank } -- (lot CHAMP : charge du coffre de combustible, rang de pose)
+      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge, rank = e.rank,
+        type = e.type } -- (lot CHAMP : charge du coffre de combustible, rang de pose ; lot FONDERIE : entrée ou sortie d'un souterrain)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item } end
@@ -3102,8 +3103,9 @@ local function place_ghost(surface, f, e)
     if npc_on(surface, e) then return "pnj" end
     return "occupe"
   end
+  -- lot FONDERIE : `type` (« input » | « output ») d'un tapis souterrain, passé au fantôme comme à l'entité (H-FONDERIE-1, à prouver au banc)
   local gh = surface.create_entity({ name = "entity-ghost", inner_name = e.name, position = { e.x, e.y }, direction = e.dir,
-    force = f.force, expires = false })
+    force = f.force, expires = false, type = e.type })
   if not gh then return "occupe" end
   return "ok"
 end
@@ -3333,6 +3335,16 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     return false
   end
   if e.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, e.recipe) end
+  -- lot FONDERIE : un souterrain ravivé dans l'autre sens que prévu (si le fantôme n'a pas gardé `type`, H-FONDERIE-1) est retourné ;
+  -- journal [FO-FONDERIE] à chaque retournement (le banc dit si la branche sert)
+  if e.type then
+    local got, bt = pcall(function() return ent.belt_to_ground_type end) -- lisible sur un souterrain seulement
+    if got and bt and bt ~= e.type then
+      local ok = pcall(ent.rotate)
+      log(string.format("[FO-FONDERIE] %s : souterrain (%.1f, %.1f) ravive en %s au lieu de %s, retourne %s", f.key or "player", e.x, e.y,
+        tostring(bt), e.type, ok and "oui" or "non"))
+    end
+  end
   if e.name == "burner-inserter" and inv.get_item_count("coal") >= 2 then
     local fuel = ent.get_fuel_inventory()
     if fuel then fuel.insert({ name = "coal", count = inv.remove({ name = "coal", count = 2 }) }) end

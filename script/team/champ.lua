@@ -41,6 +41,11 @@ Champ.CFG = {
   logs = 40,        -- lignes [FO-CHAMP] au plus par équipe
   charge = 40,      -- combustible posé avec chaque coffre de combustible d'une fonderie (deux fours de pierre : 15 min)
   drill_rank = 7,   -- rang de pose des foreuses du champ (P.sort_build : après les tapis, rang 5)
+  -- lot FONDERIE
+  coal_r = 192,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché
+  coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
+  route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
+  charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
 }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -72,6 +77,23 @@ local function enabled(f, item)
   local force = game.forces[f.force]
   local r = force and force.recipes[item]
   return r ~= nil and r.enabled == true
+end
+
+--- Lot FONDERIE : pièce de logistique la moins chère (vitesse de tapis, puis nom) d'un type de prototype (« splitter »,
+--- « underground-belt ») dont la recette de l'objet est débloquée pour la force : { name, maxd } ou nil. Aucun nom écrit ici.
+local function logistic(f, typ)
+  local protos = game.get_filtered_entity_prototypes({ { filter = "type", type = typ } })
+  local list = {}
+  for name, pr in pairs(protos) do
+    local items = pr.items_to_place_this
+    if items and items[1] and not pr.has_flag("hidden") then
+      list[#list + 1] = { name = name, speed = pr.belt_speed or 0, item = items[1].name, maxd = pr.max_underground_distance,
+        w = pr.tile_width, h = pr.tile_height }
+    end
+  end
+  table.sort(list, function(a, b) if a.speed ~= b.speed then return a.speed < b.speed end return a.name < b.name end)
+  for _, x in ipairs(list) do if enabled(f, x.item) then return x end end
+  return nil
 end
 
 --- Caractéristiques lues aux prototypes, et les noms : (data, names) ou nil, raison.
@@ -115,16 +137,65 @@ function Champ.data(f, kind)
     for _, ing in ipairs(rec and rec.ingredients or {}) do if ing.name == spec.resource then per = ing.amount end end
     if not (rec and rec.energy and rec.energy > 0) then return nil, "recette du four" end
     data.furnace = { size = fp.tile_width, rate = (fp.crafting_speed or 1) * per / rec.energy, fuel = fp.burner_prototype ~= nil }
+    -- lot FONDERIE : charbon brûlé par un four (énergie du prototype, pouvoir du combustible) : taille de la ligne de charbon
+    if data.furnace.fuel then
+      local cp = game.item_prototypes[T.fuel]
+      local eu = (fp.energy_usage or 0) * 60
+      if cp and cp.fuel_value and cp.fuel_value > 0 and eu > 0 then data.furnace.fuel_rate = eu / cp.fuel_value end
+    end
     names.furnace = spec.sink
   end
   local ap = game.entity_prototypes[D.ARM]
   data.inserter = { rate = ap and ap.inserter_rotation_speed and ap.inserter_rotation_speed * 60 or 0.83 }
+  -- lot FONDERIE : colonne à tapis pour un cadre neuf ; répartiteur et souterrain SEULEMENT si leur recette est débloquée
+  data.design = "colonne"
+  local sp, ug = logistic(f, T.LOGISTIC_TYPES.splitter), logistic(f, T.LOGISTIC_TYPES.underground)
+  data.logistics = { splitter = sp ~= nil, underground = ug and ug.maxd and ug.maxd >= 2 and ug.maxd or nil }
+  names.splitter, names.underground = sp and sp.name, ug and ug.name
+  if sp then P.declare_size(sp.name, sp.w or 2, sp.h or 1) end
+  if ug then P.declare_size(ug.name, 1, 1) end
+  local cr = game.entity_prototypes[T.outposts.coal.resource]
+  if cr and cr.mineable_properties then
+    data.coal_rate = dp.mining_speed / (cr.mineable_properties.mining_time or 1) * (1 + prod)
+  end
   -- emprises des pièces pour le plan directeur (P.tiles_of) : lues aux prototypes
   for _, n in ipairs({ names.drill, names.pole, names.arm, names.chest, names.furnace or names.drill }) do
     local pp = game.entity_prototypes[n]
     if pp then P.declare_size(n, pp.tile_width, pp.tile_height) end
   end
   return data, names
+end
+
+--- Lot FONDERIE : tuiles de charbon du gisement le plus proche du champ (fenêtre autour de la tuile la plus proche de `pos`, triées) et
+--- leur boîte, ou nil.
+local function coal_tiles(surface, pos)
+  local res = T.outposts.coal.resource
+  local found = surface.find_entities_filtered({ position = pos, radius = Champ.CFG.coal_r, name = res })
+  local best, bd
+  for _, r in ipairs(found) do
+    if r.valid then
+      local d = (r.position.x - pos.x) ^ 2 + (r.position.y - pos.y) ^ 2
+      if not bd or d < bd or (d == bd and (r.position.x < best.x or (r.position.x == best.x and r.position.y < best.y))) then
+        best, bd = { x = r.position.x, y = r.position.y }, d
+      end
+    end
+  end
+  if not best then return nil end
+  local W = Champ.CFG.coal_window
+  local list = {}
+  for _, r in ipairs(found) do
+    if r.valid and math.abs(r.position.x - best.x) <= W and math.abs(r.position.y - best.y) <= W then
+      list[#list + 1] = { math.floor(r.position.x), math.floor(r.position.y) }
+    end
+  end
+  table.sort(list, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
+  local flat = {}
+  local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
+  for _, t in ipairs(list) do
+    flat[#flat + 1] = t[1]; flat[#flat + 1] = t[2]
+    x0, y0, x1, y1 = math.min(x0, t[1]), math.min(y0, t[2]), math.max(x1, t[1]), math.max(y1, t[2])
+  end
+  return flat, { x0, y0, x1, y1 }
 end
 
 --- Tuiles (liste plate) du gisement de l'avant-poste : composante connexe des tuiles de minerai autour de son centre.
@@ -206,13 +277,35 @@ local function spec_of(f, surface, o, frame, only)
   end
   local axis = frame and frame.axis or ((y1 - y0 > x1 - x0) and "y" or "x")
   local mu, mv = Champ.CFG.margin_u, Champ.CFG.margin_v
+  local cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
   if axis == "x" then x0, x1, y0, y1 = x0 - mu, x1 + mu, y0 - mv, y1 + mv else x0, x1, y0, y1 = x0 - mv, x1 + mv, y0 - mu, y1 + mu end
+  -- lot FONDERIE : un cadre NEUF d'un four à combustible lit aussi le gisement de charbon le plus proche, et la boîte lue va jusqu'à lui
+  -- (le tracé du charbon ne passe que sur des tuiles lues) ; une bande seule rejoue le réseau gardé dans le cadre
+  local coal, ugs
+  if not frame and data.furnace and data.furnace.fuel and data.coal_rate then
+    local box
+    coal, box = coal_tiles(surface, { x = cx, y = cy })
+    if box then
+      local m = Champ.CFG.route_margin
+      x0, y0, x1, y1 = math.min(x0, box[1] - m), math.min(y0, box[2] - m), math.max(x1, box[3] + m), math.max(y1, box[4] + m)
+    end
+  end
   local mine = mine_of(f, o)
   local spec = {
     ore = ore, blocked = blocked_in(f, surface, x0, y0, x1, y1, mine), mine = mine,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
+    design = data.design, logistics = data.logistics,
   }
+  if coal then
+    spec.coal = { tiles = coal, rate = data.coal_rate }
+    ugs = {}
+    for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, type = T.LOGISTIC_TYPES.underground })) do
+      ugs[#ugs + 1] = { math.floor(e.position.x), math.floor(e.position.y) }
+    end
+    table.sort(ugs, function(a, b) if a[1] ~= b[1] then return a[1] < b[1] end return a[2] < b[2] end)
+    spec.ug_tiles = ugs
+  end
   if frame then
     local fr = {}
     for _, k in ipairs(sorted_keys(frame)) do fr[k] = frame[k] end
@@ -267,15 +360,35 @@ function Champ.frame(f, surface, o)
   end)
   local prs, with = {}, 0
   for _, it in ipairs(order) do prs[#prs + 1] = it.pr; if it.n > 0 then with = with + 1 end end
+  -- lot FONDERIE : motif, charbon de chaque côté (voie ou coffre de tête, et pourquoi), souterrains et répartiteurs posés
+  local cs = {}
+  for _, c in ipairs(plan.stats.coal or {}) do
+    cs[#cs + 1] = string.format("cote %s %s%s", c.side > 0 and "+" or "-", c.voie and "voie de charbon" or "coffre de tete",
+      c.why and (" (" .. c.why .. ")") or "")
+  end
   say(f, string.format("avant-poste %d (%s) : plan du champ, %d bande(s) (%d avec des paires), axe %s, sortie %s ; %d foreuses, %d fours, %d poteaux, %d tapis ; %s",
     o.id, o.kind, #prs, with, plan.axis, plan.exit > 0 and "+" or "-", plan.stats.drills, plan.stats.furnaces,
-    plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien"))
+    plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
+    .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
+      plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or ""))
   return plan.frame, prs, plan
+end
+
+--- Lot FONDERIE : vrai si une bande du champ de `o` a déjà été demandée au plan directeur (un cadre d'avant le lot, sans `design`, n'est
+--- rejoué que dans ce cas ; sinon il est replanifié en colonne).
+function Champ.has_band(f, o)
+  local b = f.build
+  for _, pid in ipairs(b and b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == o.id then return true end
+  end
+  return false
 end
 
 --- Entités nommées d'un plan (bande seule) : ents { name, x, y, dir, role }, quais, outs, emprise { tuiles }.
 local function named(plan, names)
   local ents, quais, outs = {}, {}, {}
+  local design = plan.design
   for _, e in ipairs(plan.ents) do
     local name
     if e.kind == "foreuse" then name = names.drill
@@ -283,11 +396,19 @@ local function named(plan, names)
     elseif e.kind == "poteau" then name = names.pole
     elseif e.kind == "four" then name = names.furnace
     elseif e.kind == "bras" then name = names.arm
-    elseif e.kind == "coffre" then name = names.chest end
+    elseif e.kind == "coffre" then name = names.chest
+    elseif e.kind == "souterrain" then name = names.underground -- lot FONDERIE
+    elseif e.kind == "repartiteur" then name = names.splitter end
     if name then
       local role = (e.kind == "coffre" and e.role == "sortie") and "sortie" or ("champ-" .. e.kind)
-      local ent = { name = name, x = e.x, y = e.y, dir = e.dir, role = role }
-      if e.kind == "coffre" and e.role == "combustible" then ent.charge = { item = names.fuel, count = Champ.CFG.charge } end
+      -- lot FONDERIE : le réseau du charbon (ligne de foreuses, tracé, tronc, dérivations) a son rôle : ses foreuses arrêtées quand la
+      -- voie de charbon est pleine ne comptent pas parmi les foreuses figées du champ ([FO-CHAMP-ETAT])
+      if e.role == "charbon" and e.kind ~= "coffre" then role = "champ-charbon" end
+      local ent = { name = name, x = e.x, y = e.y, dir = e.dir, role = role, type = e.ug }
+      if e.kind == "coffre" and e.role == "combustible" then
+        -- coffre de tête d'une colonne (lot FONDERIE) : un seul pour toute la colonne, posé mieux garni
+        ent.charge = { item = names.fuel, count = (design == "colonne") and Champ.CFG.charge_tete or Champ.CFG.charge }
+      end
       -- les foreuses se posent en DERNIER (après poteaux, fours, bras, coffres et tapis : rangs 1 à 6 de P.sort_build) : une foreuse posée
       -- avant son tapis et sa fonderie remplit le tapis de minerai qui ne va nulle part (mesuré : 12 foreuses figées sur un chantier de
       -- 18 min, scarlet, graine 20261020)
