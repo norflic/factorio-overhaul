@@ -31,6 +31,7 @@ local T = require("shared.team.config")
 local FC = require("shared.faction.config")
 local FS = require("shared.faction.strategy")
 local Pv = require("shared.ai3.prevision")
+local Ar = require("shared.ai3.armure") -- lot TENUE : dégâts réels contre les résistances des unités ennemies
 local Sq = require("shared.team.survie_qg") -- lot S1 : poids d'une tourelle selon ses munitions, menace mémorisée du QG
 local Pc = require("shared.ai3.prevision_choix")
 local Stock = require("script.team.stock")
@@ -115,8 +116,21 @@ local function kinds()
             pts[#pts + 1] = { math.floor((sp.evolution_factor or 0) * 1000 + 0.5), sp.weight or 0 }
           end
           table.sort(pts, function(a, b) return a[1] < b[1] end)
+          -- Lot TENUE : résistances de l'unité ({ [type de dégâts] = { plat, fraction } }), lues telles que le moteur les donne.
+          local res = nil
+          local rs = get(up, "resistances")
+          if type(rs) == "table" then
+            for _, ty in ipairs(sorted_keys(rs)) do
+              local r = rs[ty]
+              local flat, pct = get(r, "decrease") or 0, get(r, "percent") or 0
+              if flat > 0 or pct > 0 then
+                res = res or {}
+                res[ty] = { flat, pct }
+              end
+            end
+          end
           units[#units + 1] = { hp = get(up, "max_health") or 0, cost = get(up, "pollution_to_join_attack") or 0,
-            speed = get(up, "speed") or Pv.SPEED0, pts = pts }
+            speed = get(up, "speed") or Pv.SPEED0, pts = pts, res = res }
         end
       end
       -- spawn_cooldown { min, max } : `min` est le délai à l'évolution 0 (360), `max` celui à l'évolution 1 (150) (moteur réel,
@@ -175,7 +189,29 @@ local function damage_of(action, depth)
   return sum
 end
 
---- Tourelle : { dps (par seconde, sans bonus de force), range, cat } lus aux prototypes (munition de l'exécutant pour une
+--- Type de dégâts du premier effet « damage » d'une action de munition (même parcours que damage_of), nil sans effet.
+local function damage_type_of(action, depth)
+  if not action or (depth or 0) > 3 then return nil end
+  local list = action[1] and action or { action }
+  for _, a in ipairs(list) do
+    local dl = a.action_delivery
+    dl = dl and (dl[1] and dl or { dl }) or {}
+    for _, d in ipairs(dl) do
+      local te = d.target_effects
+      te = te and (te[1] and te or { te }) or {}
+      for _, ef in ipairs(te) do
+        if ef.type == "damage" and ef.damage then return ef.damage.type end
+        if ef.type == "nested-result" then
+          local t = damage_type_of(ef.action, (depth or 0) + 1)
+          if t then return t end
+        end
+      end
+    end
+  end
+  return nil
+end
+
+--- Tourelle : { dps (par seconde, sans bonus de force), range, cat, hit (dégâts d'un coup, sans bonus), dtype } lus aux prototypes (munition de l'exécutant pour une
 --- tourelle à munitions). Cache par nom.
 local function turret_of(name)
   local c = turret_cache[name]
@@ -184,18 +220,20 @@ local function turret_of(name)
   local p = game.entity_prototypes[name]
   local ap = p and get(p, "attack_parameters")
   if ap and (ap.cooldown or 0) > 0 then
-    local dmg, cat = 0, nil
+    local dmg, cat, dtype = 0, nil, nil
     if ap.ammo_type and ap.ammo_type.action then
       dmg = damage_of(ap.ammo_type.action)
       cat = ap.ammo_type.category
+      dtype = damage_type_of(ap.ammo_type.action)
     else
       local ip = game.item_prototypes[T.turret_ammo]
       local ok, at = pcall(function() return ip.get_ammo_type("turret") end)
       if not (ok and at) then ok, at = pcall(function() return ip.get_ammo_type() end) end
-      if ok and at then dmg, cat = damage_of(at.action), at.category end
+      if ok and at then dmg, cat, dtype = damage_of(at.action), at.category, damage_type_of(at.action) end
     end
     if dmg > 0 then
-      c = { dps = dmg * (ap.damage_modifier or 1) * 60 / ap.cooldown, range = ap.range or 0, cat = cat }
+      c = { dps = dmg * (ap.damage_modifier or 1) * 60 / ap.cooldown, range = ap.range or 0, cat = cat,
+        hit = dmg * (ap.damage_modifier or 1), dtype = dtype }
     end
   end
   turret_cache[name] = c
@@ -221,6 +259,19 @@ local function force_mult(force, name, cat)
     if ok and v then m = m * (1 + v) end
     local ok3, s = pcall(function() return force.get_gun_speed_modifier(cat) end)
     if ok3 and s then m = m * (1 + s) end
+  end
+  local ok2, v2 = pcall(function() return force.get_turret_attack_modifier(name) end)
+  if ok2 and v2 then m = m * (1 + v2) end
+  return m
+end
+
+--- Bonus de force sur le COUP d'une tourelle (dégâts de la munition et de la tourelle, pas la cadence) ; 1 sans lecture possible.
+local function hit_mult(force, name, cat)
+  if not force then return 1 end
+  local m = 1
+  if cat then
+    local ok, v = pcall(function() return force.get_ammo_damage_modifier(cat) end)
+    if ok and v then m = m * (1 + v) end
   end
   local ok2, v2 = pcall(function() return force.get_turret_attack_modifier(name) end)
   if ok2 and v2 then m = m * (1 + v2) end
@@ -414,6 +465,10 @@ function Prev.think(f, tick, opts)
   local enemy = game.forces["enemy"]
   local gather, tf, pf, poll_on, diff, sat = map_settings()
   local team_map = C.team(f).map
+  -- Lot TENUE : le mélange d'unités à l'évolution du moment, pour les résistances (la défense compte les dégâts RÉELS, Ar.factor).
+  local evo = enemy and math.floor((get(enemy, "evolution_factor") or 0) * 1000 + 0.5) or 0
+  local mix_now = Pv.mix(kinds(), evo)
+  local function armor(hit, dtype) return Ar.factor(mix_now and mix_now.units, hit, dtype) end
   -- 1. Sites : bâtiments (émission, tourelles).
   local sites = sites_of(f)
   local best_turret = nil
@@ -437,6 +492,7 @@ function Prev.think(f, tick, opts)
           s.ammo = s.ammo + (have or 0)
           if tp then
             local dps = tp.dps * force_mult(force, e.name, tp.cat) * share / 1000
+              * armor(tp.hit * hit_mult(force, e.name, tp.cat), tp.dtype) / Ar.ONE
             s.dps, s.dpsr = s.dps + dps, s.dpsr + dps * tp.range
           end
         end
@@ -445,7 +501,10 @@ function Prev.think(f, tick, opts)
   end
   -- Tourelle de l'exécutant (celle que l'équipe pose) : valeur d'une tourelle de plus.
   local tp = turret_of(T.turret)
-  if tp then best_turret = { dps = tp.dps * force_mult(force, T.turret, tp.cat), range = tp.range } end
+  if tp then
+    local fac = armor(tp.hit * hit_mult(force, T.turret, tp.cat), tp.dtype)
+    best_turret = { dps = tp.dps * force_mult(force, T.turret, tp.cat) * fac / Ar.ONE, range = tp.range, armor = fac }
+  end
   -- 2. Nids CONNUS de l'équipe (carte de connaissance et carte du danger ; jamais un nid jamais vu).
   local known = nests_of(f, sites, team_map)
   -- 2 bis. Unités ennemies VUES à portée d'œil d'un site (biters seulement), chacune au site le plus proche.
@@ -525,7 +584,6 @@ function Prev.think(f, tick, opts)
       if m > (floors.qg or 0) then floors.qg = m end
     end
   end
-  local evo = enemy and math.floor((get(enemy, "evolution_factor") or 0) * 1000 + 0.5) or 0
   local est = Pv.estimate({ evo = evo, g = tf * 60 + pf * emit, kinds = kinds(), gather = gather, diff = diff, sat = sat, sites = sites,
     nests = nests, rivals = rivals, k = kfac, floor = floors })
   -- 6. Calibration (faits : contact, pertes, fenêtre du moteur).
@@ -572,14 +630,17 @@ function Prev.think(f, tick, opts)
   -- 7. Décisions.
   local soldiers = f.soldiers_count or 0
   local smax = (not f.is_player) and ((war and war.settings and war.settings.soldiers_max) or 0) or 0
-  local sdps = 0
+  local sdps, sdps_armor = 0, Ar.ONE
   if smax > 0 then
     local key = Planner.best_unit(f.tech or 0)
     local sp = FC.soldiers[key]
-    sdps = sp.damage * 60 / sp.cooldown * FS.soldier_strength(key, f.tech or 0, f.upgrades or 0)
-      / FS.soldier_strength(key, 0, 0)
+    local boost = FS.soldier_strength(key, f.tech or 0, f.upgrades or 0) / FS.soldier_strength(key, 0, 0)
+    -- Lot TENUE : le coup du soldat (physique), avec son bonus, contre les résistances du mélange du moment.
+    sdps_armor = armor(sp.damage * boost, "physical")
+    sdps = sp.damage * 60 / sp.cooldown * boost * sdps_armor / Ar.ONE
   end
   local sv = Pv.soldier_value(sdps)
+  local armor_t = best_turret and best_turret.armor or Ar.ONE
   local tv = best_turret and Pv.turrets_value(best_turret.dps, best_turret.dps * best_turret.range, est.mix and est.mix.speed) or 0
   local front = {}
   local fm = f.front_mem
@@ -618,6 +679,7 @@ function Prev.think(f, tick, opts)
     if n.c >= sat then st.est.nsat = st.est.nsat + 1 end
   end
   st.est.k = Pv.k_of(st.cal)
+  st.est.armor_t, st.est.armor_s = armor_t, sdps_armor -- lot TENUE : facteurs de résistance (‰) de la tourelle de plus et du soldat, au journal
   st.view = Prev.slim(est) -- estimation du relevé (lue par l'armée : porte du raid, champs chauds) ; copie sans références partagées
   Prev.journal(f, st, est, cal_evs, tick)
   return st
@@ -735,11 +797,11 @@ function Prev.journal(f, st, est, cal_evs, tick)
       if o.w15 > 0 or o.turrets > 0 or o.key == "qg" then parts[#parts + 1] = site_text(pc.sites[o.key], o) end
     end
     local e = st.est
-    log(string.format("[FO-PREVISION] %s %.1f min ETAT evo %.3f (%.3f a 15 min) | %d nid(s) connu(s), %d nous visent (pollution recue %d/min sur %d/min emise, part %d pour mille ; cases des nids %d, %d au-dessus du seuil %d, voisines au-dessus %d ; k equipe %.2f) | unite moyenne %d PV, %d de pollution | %d unite(s) vue(s) | %s | armee : alerte %s, besoin %d, a 15 min %d | defense induite %.2f PV par pollution/min",
+    log(string.format("[FO-PREVISION] %s %.1f min ETAT evo %.3f (%.3f a 15 min) | %d nid(s) connu(s), %d nous visent (pollution recue %d/min sur %d/min emise, part %d pour mille ; cases des nids %d, %d au-dessus du seuil %d, voisines au-dessus %d ; k equipe %.2f) | unite moyenne %d PV, %d de pollution | %d unite(s) vue(s) | %s | armee : alerte %s, besoin %d, a 15 min %d | defense induite %.2f PV par pollution/min | armure : tourelle %d pour mille, soldat %d pour mille",
       who, minutes(tick), e.evo / 1000, e.evo15 / 1000, e.known, e.nests, n0(e.absorbed), n0(e.emit), e.reach, n0(e.poll_c), e.nsat or 0,
       n0(e.sat), n0(e.poll_nb), (e.k or Pv.K0) / 1000, n0(e.hbar), n0(e.pbar),
       e.units, #parts > 0 and table.concat(parts, " ; ") or "aucun site", tostring(pc.alert), pc.army_need or 0, pc.army_soon or 0,
-      st.hp_per_emit or 0))
+      st.hp_per_emit or 0, e.armor_t or Ar.ONE, e.armor_s or Ar.ONE))
   end
 end
 

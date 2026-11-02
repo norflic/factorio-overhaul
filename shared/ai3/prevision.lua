@@ -115,22 +115,31 @@ end
 --- Rend { pbar, hbar, speed, cap } ou nil (cap : unités/min d'un nid à l'évolution e).
 function Pv.mix(kinds, e)
   local nk, sc, sh, sv, cap = 0, 0, 0, 0, 0
+  local per = {}
   for _, k in ipairs(kinds or {}) do
     local W, C, H, V = 0, 0, 0, 0
+    local us = {}
     for _, u in ipairs(k.units or {}) do
       local w = Pv.weight_at(u.pts, e)
       if w > 0 and (u.cost or 0) > 0 then
         W, C, H, V = W + w, C + w * u.cost, H + w * (u.hp or 0), V + w * (u.speed or Pv.SPEED0)
+        us[#us + 1] = { w = w, hp = u.hp or 0, res = u.res }
       end
     end
     if W > 0 then
       nk = nk + 1
       sc, sh, sv = sc + C / W, sh + H / W, sv + V / W
       cap = cap + Pv.rate_at(k.rate_max, k.rate_max1, e)
+      per[#per + 1] = { W = W, us = us }
     end
   end
   if nk == 0 then return nil end
-  return { pbar = sc / nk, hbar = sh / nk, speed = sv / nk, cap = cap / nk }
+  -- Lot TENUE : les unités du mélange (poids normalisé, somme 1), pour les résistances (shared/ai3/armure.lua).
+  local list = {}
+  for _, p in ipairs(per) do
+    for _, u in ipairs(p.us) do list[#list + 1] = { w = u.w / p.W / nk, hp = u.hp, res = u.res } end
+  end
+  return { pbar = sc / nk, hbar = sh / nk, speed = sv / nk, cap = cap / nk, units = list }
 end
 
 --- Évolution (‰) projetée de H minutes : chaque minute, e += (1000 − e) × g (g = gain par minute en fraction : time_factor
