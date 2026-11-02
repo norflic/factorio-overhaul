@@ -39,6 +39,7 @@ local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qu
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
+local Objectif = require("script.team.objectif") -- lot AGES : libellé d'un objectif (aucune clé de traduction inconnue)
 local Reparation = require("script.team.reparation") -- lot PD-REPARATION (D79) : bâtiments endommagés réparés (toutes les équipes)
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à combustion à l'arrêt rebranchées ou retirées
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
@@ -925,10 +926,23 @@ function Team.think(f, surface, tick)
   end
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
   -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
-  if ia3 and not pile_hold and not Recon.hold_upgrades(f) then
+  local recon_hold = ia3 and Recon.hold_upgrades(f)
+  -- Lot AGES : le gel du centre n'est pas indéfini (shared/team/degel.lua) : au-delà de 20 min de gel cumulées, et la défense minimale du QG
+  -- tenue, le centre (lui seul) se paie avec le stock moins la réserve de la reconstruction (SANS-GEL).
+  local thaw = ia3 and (pile_hold or recon_hold) and Ia3.capital_thaw(f, true, tick)
+  if ia3 and not (pile_hold or recon_hold) then
+    Ia3.capital_thaw(f, false, tick)
     Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))
   elseif ia3 then
-    Ia3.capital_attente(f, pile_hold and "pile" or "reconstruction", tick) -- lot C1 : la cause d'une amélioration retenue est dite
+    local paid, skipped = 0, true
+    -- Mesure (essai 6, graine 271828182, emerald 151,6 min) : fer 35 571, cuivre 8 057, briques 404 au coffre, mais « electronic-circuit
+    -- 0/60 » au stock libre : les 138 circuits du coffre sont retenus par la reconstruction de 12 projets rouverts (Recon.upgrade_stock,
+    -- [FO-REBUILD-PRIO]) que l'ennemi empêche de refaire. Le gel levé paie donc le centre sur le stock du coffre SANS cette retenue : la
+    -- défense minimale est tenue (floor_ok) et le gel a duré plus de Dg.AFTER ; refaire une pièce attend, le centre non.
+    if thaw then paid, skipped = Ia3.capital_pay(f, surface, tick, plan, stock, true) end
+    if paid == 0 and skipped then -- sinon Capital.pay a déjà dit sa cause
+      Ia3.capital_attente(f, pile_hold and "pile" or "reconstruction", tick) -- lot C1 : la cause d'une amélioration retenue est dite
+    end
   end
   if ia3 then PileRt.journal(f, tick) end -- lot PILE-PRIORITE : journal [FO-PILE] (changement de sommet, toutes les 5 min)
   if plan.research and has_list(stock, T.research[plan.research]) then
@@ -1031,8 +1045,8 @@ function Team.goal_text(f)
     shown = shown + 1
     if shown < math.min(3, #t.missing) then parts[#parts + 1] = ", " end
   end
-  if shown == 0 then return { "fo-team.goal-line", { "fo-team.goal-" .. t.goal } } end
-  return { "fo-team.goal-line-missing", { "fo-team.goal-" .. t.goal }, parts }
+  if shown == 0 then return { "fo-team.goal-line", Objectif.name(t.goal) } end
+  return { "fo-team.goal-line-missing", Objectif.name(t.goal), parts }
 end
 
 local KEY_ITEMS = { "iron-plate", "copper-plate", "coal", "stone", "steel-plate", "firearm-magazine", "automation-science-pack" }
