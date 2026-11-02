@@ -3,9 +3,9 @@
     - « normal » : disque de fer de rayon 12, site de fonderie à l'ouest (sortie vers l'ouest) ;
     - « long »   : ellipse de cuivre de 121 × 21, tapis jaune seul (15 foreuses par côté au plus : la bande sort par ses deux bouts).
   Caractéristiques lues aux prototypes (foreuse électrique, petit poteau, tapis jaune, four de pierre, bras, coffre de fer), courant de
-  l'alimentation invisible du mod de test, charbon dans les fours et les coffres de combustible. Contrôles au tick 3 000 :
+  l'alimentation invisible du mod de test, charbon dans les fours et les coffres de combustible. Contrôles au tick 7 000 (le minerai a parcouru les fonderies les plus longues) :
   tout posé, un seul réseau, foreuses qui extraient, minerai qui ne reste pas figé, fours qui produisent, plaques dans les coffres de
-  sortie, contrôle pur du plan sans défaut. Lancement : banc.py --qui CHAMP -- 3200 champ-banc <source>. Journal : [FO-CHAMP-BANC].
+  sortie, contrôle pur du plan sans défaut. Lancement : banc.py --qui CHAMP -- 7200 champ-banc <source>. Journal : [FO-CHAMP-BANC].
 ]]
 -- (les require internes de la règle sont relatifs à la racine du mod : leurs modules sont chargés d'abord sous leur nom)
 package.loaded["shared.team.champ_fonderie"] = package.loaded["shared.team.champ_fonderie"] or require("__factorio-overhaul__/shared/team/champ_fonderie")
@@ -111,7 +111,7 @@ end
 return {
   description = "CHAMP : plan de champ en rangees pose en moteur reel (gisement normal, gisement long au tapis jaune)",
   base = nil,
-  check_tick = 3000,
+  check_tick = 7000,
 
   init = function(ctx)
     local s = ctx.surface()
