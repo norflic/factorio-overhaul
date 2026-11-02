@@ -138,6 +138,15 @@ local many = {}
 for i = 0, Ce.MAX_BOXES + 50 do many[#many + 1] = { x0 = i * 3, y0 = 0, x1 = i * 3 + 2, y1 = 2 } end
 check(#Ce.contour(many, { center = { x = 0, y = 0 } }) > 0, "plus de Ce.MAX_BOXES rectangles : borné, pas d'erreur")
 check(#Ce.contour(many, { center = { x = 0, y = 0 } }) <= Ce.MAX_CANDS, "au plus Ce.MAX_CANDS candidats")
+local wide = {}
+for i = 0, 99 do wide[#wide + 1] = { x0 = i * 4, y0 = 0, x1 = i * 4 + 3, y1 = 3 } end
+local rw = Ce.contour(wide, { center = { x = 200, y = 0 } })
+local wx0, wx1 = math.huge, -math.huge
+for _, p in ipairs(rw) do
+  if p.x < wx0 then wx0 = p.x end
+  if p.x > wx1 then wx1 = p.x end
+end
+check(#rw == Ce.MAX_CANDS and wx0 < 20 and wx1 > 380, "site de 400 tuiles : le sous-échantillon couvre les deux bouts (" .. #rw .. " candidats, x de " .. wx0 .. " à " .. wx1 .. ")")
 
 ---------------------------------------------------------------------------------------------------
 section("4. Choix des emplacements")
@@ -333,6 +342,12 @@ local function battery()
   end
   t(mouth > 0)
   t(#Ce.contour({ { x0 = 0, y0 = 0, x1 = 400, y1 = 400 } }, {}) == 0)
+  do
+    local rw2 = Ce.contour(wide, { center = { x = 200, y = 0 } })
+    local a, b = math.huge, -math.huge
+    for _, p in ipairs(rw2) do a = math.min(a, p.x); b = math.max(b, p.x) end
+    t(a < 20 and b > 380)
+  end
   local c1 = Ce.choose({ cands = cands, assets = all, range = 18, existing = {}, count = 1, gap = 6, center = { x = 0, y = 0 }, threats = {} })
   t(c1.order[1].x == -28)
   local ce = Ce.choose({ cands = cs, assets = sym, range = 18, existing = {}, count = 1, gap = 6, center = { x = 0, y = 0 }, threats = { { x = 80, y = 0, w = 800 } } })

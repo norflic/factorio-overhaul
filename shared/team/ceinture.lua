@@ -203,7 +203,12 @@ function Ce.contour(boxes, o)
       if dx * dx + dy * dy < lim then ok = false break end
     end
     if ok then thin[#thin + 1] = c end
-    if #thin >= Ce.MAX_CANDS then break end
+  end
+  -- Au-delà de Ce.MAX_CANDS : un sous-échantillon régulier (jamais les premiers de la trame, qui sont tous du même côté du site).
+  if #thin > Ce.MAX_CANDS then
+    local keep = {}
+    for i = 1, Ce.MAX_CANDS do keep[i] = thin[floor((i - 1) * #thin / Ce.MAX_CANDS) + 1] end
+    thin = keep
   end
   return thin
 end
