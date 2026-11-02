@@ -486,9 +486,20 @@ function Team.view(f, tick)
   Profiler.fstart("view:2-avant-postes")
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
+  local fsurface = f.hq and f.hq.valid and f.hq.surface
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
     local st = Outposts.status(o, tick)
+    -- Lot FLUX : avant-poste DANGEREUX (nid ou ver à moins de Poles.DANGER_RADIUS tuiles, ou perte récente de votre équipe : la même règle
+    -- que le fond, script/team/poles.lua) : ni tournée en urgence ni sorties comptées, la porte le refuserait et ses refus pousseraient
+    -- l'équipe au mode survie, puis à y aller sans escorte (banc dc-croissance 20261020 : 4 PNJ perdus de votre équipe à 10 min).
+    -- Cherché seulement quand une tournée de cet avant-poste serait en jeu.
+    local unsafe
+    if fsurface and (st.fuel_low or (st.stuck or 0) > 0 or st.output >= T.collect_at) then
+      local pos = o.access or o.pos
+      unsafe = (pos and (fsurface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
+        type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick)))) or nil
+    end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
@@ -496,7 +507,7 @@ function Team.view(f, tick)
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
       -- Lot FLUX : ce que la tournée rapportera (sorties par objet), réceptacles pleins, brûleurs (à sec), âge de la tournée libre.
       outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, free_age = Board.free_age(f, "service:" .. oid, tick),
-      fails = o.flux_fails,
+      fails = o.flux_fails, unsafe = unsafe,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
       lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,

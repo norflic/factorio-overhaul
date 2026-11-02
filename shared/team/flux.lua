@@ -35,7 +35,7 @@ Fx.STALE_TICKS = 5 * 3600 -- une tournée libre depuis 5 min : ses sorties ne so
 Fx.AGE_STEP = 600         -- +1 de priorité toutes les 10 s d'attente
 Fx.AGE_CAP = 80           -- plafond d'une tournée ordinaire qui vieillit
 Fx.AGE_CAP_STUCK = 88     -- plafond d'une tournée dont les fours sont pleins (sous M.URGENT = 90 : ni ruée, ni préemption)
-Fx.AGE_CAP_DRY = 97       -- plafond d'un ravitaillement vital qui attend (sous la garde du QG menacé, 96 + l'âge : jamais devant elle d'un coup)
+Fx.AGE_CAP_DRY = 97       -- plafond d'un ravitaillement vital qui attend (la garde du QG menacé est à 96 : jamais devant elle d'un coup)
 Fx.URGENT = 90            -- M.URGENT (shared/ai3/marche.lua) : seuil des urgences
 Fx.URGENT_AFTER = 3 * 3600 -- attente (3 min) au-delà de laquelle une tournée vitale ou de sorties pleines devient une urgence
 Fx.VITAL_PRIO = 96        -- ravitailler ce qui produit passe devant tout sauf la défense d'urgence
@@ -43,13 +43,14 @@ Fx.FAILS_MAX = 3          -- tournées ratées de suite (chemin, danger) au-del�
 Fx.REFILL_MAX = 50        -- charbons au plus par brûleur (la pile)
 Fx.COVER = 100            -- plaques au coffre en deçà desquelles un produit « manque » à la tournée de ses sorties
 
---- Types d'avant-poste VITAUX : leur produit est le combustible, ou une plaque que le QG fond à partir de la ressource de
---- l'avant-poste (spec = T.outposts, fuel = T.fuel, inputs = T.smelter_inputs = { produit = { entrée, quantité } }).
+--- Types d'avant-poste VITAUX : leur produit est le combustible ("fuel"), ou une plaque que le QG fond à partir de la ressource de
+--- l'avant-poste ("plate") (spec = T.outposts, fuel = T.fuel, inputs = T.smelter_inputs = { produit = { entrée, quantité } }).
 function Fx.vital(spec, fuel, inputs)
   local out = {}
   for kind, s in pairs(spec or {}) do
     local input = inputs and inputs[s.product]
-    if s.product == fuel or (input and input[1] == s.resource) then out[kind] = true end
+    if s.product == fuel then out[kind] = "fuel"
+    elseif input and input[1] == s.resource then out[kind] = "plate" end
   end
   return out
 end
@@ -70,7 +71,7 @@ end
 --- peu), pas une tournée libre depuis trop longtemps, ni ratée Fx.FAILS_MAX fois de suite (personne n'y arrive : mieux vaut miner que
 --- compter sur elle).
 function Fx.counted(o)
-  if o.lethal then return false end
+  if o.lethal or o.unsafe then return false end
   if (o.fails or 0) >= Fx.FAILS_MAX then return false end
   if (o.free_age or 0) >= Fx.STALE_TICKS then return false end
   return true
@@ -107,11 +108,13 @@ function Fx.equiv(res, map, stock, repat)
   return have + plates * m.ratio
 end
 
---- Priorité d'une tournée. base : celle du planificateur ; o : { fuel_low, stuck } de l'avant-poste ; vital : son type est vital ;
---- have : plaques (ou objets) de son produit au coffre.
+--- Priorité d'une tournée. base : celle du planificateur ; o : { fuel_low, stuck } de l'avant-poste ; vital : sa classe (Fx.vital) :
+--- un avant-poste de COMBUSTIBLE à sec passe à 96 (sans son charbon, plus rien ne tourne : un brûleur de charbon rend six fois ce qu'il
+--- brûle), un avant-poste de plaque à sec garde 95 et vieillit (Fx.aged) ; have : objets de son produit au coffre.
 function Fx.service_prio(base, o, vital, have)
   local p = base
-  if vital and o.fuel_low then p = math.max(p, Fx.VITAL_PRIO) end
+  if o.unsafe or o.lethal then return p end -- jamais d'urgence vers un avant-poste que la porte refuserait
+  if vital == "fuel" and o.fuel_low then p = math.max(p, Fx.VITAL_PRIO) end
   if (o.stuck or 0) > 0 and (have or 0) < Fx.COVER then p = math.max(p, Fx.AGE_CAP_STUCK) end
   return p
 end
@@ -123,6 +126,7 @@ end
 function Fx.aged(prio, waited, kind)
   kind = kind or {}
   waited = waited or 0
+  if kind.unsafe then return prio end
   local cap = Fx.AGE_CAP
   if kind.stuck then cap = Fx.AGE_CAP_STUCK end
   if kind.dry then cap = Fx.AGE_CAP_DRY end

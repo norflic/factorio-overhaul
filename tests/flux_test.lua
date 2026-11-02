@@ -32,7 +32,8 @@ local IRON, COPPER, COAL, STONE = T.outposts.iron, T.outposts.copper, T.outposts
 local function suite()
   -- §1 données
   local vital = Fx.vital(T.outposts, T.fuel, T.smelter_inputs)
-  check(vital.iron and vital.copper and vital.coal and not vital.stone, "vitaux : fer, cuivre, charbon ; pas la pierre")
+  check(vital.iron == "plate" and vital.copper == "plate" and vital.coal == "fuel" and not vital.stone,
+    "vitaux : le fer et le cuivre (plaque), le charbon (combustible) ; pas la pierre")
   local map = Fx.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)
   check(map[IRON.resource] and map[IRON.resource].plate == IRON.product and map[IRON.resource].ratio == T.smelter_inputs[IRON.product][2],
     "carte : le minerai de fer donne sa plaque")
@@ -50,6 +51,7 @@ local function suite()
   local repat, total = Fx.repatriable(rows)
   check(repat[IRON.product] == 170 and repat[COPPER.product] == 30 and total == 200,
     "comptées : 100 + 50 + 20 de fer, 30 de cuivre ; ni meurtrier, ni tournée libre depuis 5 min, ni 3 échecs de suite")
+  check(select(2, Fx.repatriable({ { outputs = { [IRON.product] = 50 }, unsafe = true } })) == 0, "avant-poste dangereux : ses sorties ne sont pas comptées")
   local r2 = Fx.repatriable({ { outputs = { x = 0, y = -3, z = "a" } } })
   check(next(r2) == nil, "zéro, négatif ou non numérique : rien")
   check(next((Fx.repatriable(nil))) == nil and select(2, Fx.repatriable({})) == 0, "aucune rangée : rien")
@@ -65,13 +67,16 @@ local function suite()
   check(Fx.equiv(ore, map, { [ore] = -5, [plate] = -9 }, { [plate] = -1 }) == 0, "jamais négatif")
 
   -- §4 priorité d'une tournée
-  check(Fx.service_prio(95, { fuel_low = true }, true, 0) == Fx.VITAL_PRIO, "brûleur vital à sec : 96")
-  check(Fx.service_prio(95, { fuel_low = true }, false, 0) == 95, "brûleur non vital à sec : 95 (inchangé)")
-  check(Fx.service_prio(70, {}, true, 0) == 70, "vital sans manque de combustible : 70")
-  check(Fx.service_prio(70, { stuck = 2 }, true, Fx.COVER - 1) == Fx.AGE_CAP_STUCK, "sorties pleines, coffre qui manque du produit : 88")
-  check(Fx.service_prio(70, { stuck = 2 }, true, Fx.COVER) == 70, "sorties pleines, coffre qui couvre : 70 (il vieillira)")
-  check(Fx.service_prio(70, { stuck = 0 }, true, 0) == 70, "aucune sortie pleine : 70")
-  check(Fx.service_prio(97, { fuel_low = true, stuck = 1 }, true, 0) == 97, "jamais en dessous de la base")
+  check(Fx.service_prio(95, { fuel_low = true }, "fuel", 0) == Fx.VITAL_PRIO, "avant-poste de combustible à sec : 96")
+  check(Fx.service_prio(95, { fuel_low = true }, "plate", 0) == 95, "avant-poste de plaque à sec : 95 (il vieillit)")
+  check(Fx.service_prio(95, { fuel_low = true }, nil, 0) == 95, "avant-poste non vital à sec : 95 (inchangé)")
+  check(Fx.service_prio(70, {}, "fuel", 0) == 70, "combustible sans manque de brûleur : 70")
+  check(Fx.service_prio(70, { stuck = 2 }, "plate", Fx.COVER - 1) == Fx.AGE_CAP_STUCK, "sorties pleines, coffre qui manque du produit : 88")
+  check(Fx.service_prio(70, { stuck = 2 }, "plate", Fx.COVER) == 70, "sorties pleines, coffre qui couvre : 70 (il vieillira)")
+  check(Fx.service_prio(70, { stuck = 0 }, "plate", 0) == 70, "aucune sortie pleine : 70")
+  check(Fx.service_prio(97, { fuel_low = true, stuck = 1 }, "fuel", 0) == 97, "jamais en dessous de la base")
+  check(Fx.service_prio(95, { fuel_low = true, unsafe = true }, "fuel", 0) == 95 and Fx.service_prio(70, { stuck = 3, unsafe = true }, "plate", 0) == 70
+    and Fx.service_prio(95, { fuel_low = true, lethal = true }, "fuel", 0) == 95, "avant-poste dangereux ou meurtrier : jamais d'urgence")
 
   -- §5 vieillissement
   check(Fx.aged(70, 0, nil) == 70 and Fx.aged(70, -5, nil) == 70 and Fx.aged(70, nil, nil) == 70, "pas d'attente : inchangée")
@@ -83,6 +88,7 @@ local function suite()
     "sorties pleines : urgence après 3 min d'attente")
   check(Fx.aged(95, Fx.URGENT_AFTER, { dry = true }) >= Fx.URGENT and Fx.aged(95, 1, { dry = true }) == 95, "vital à sec : jamais sous 95")
   check(Fx.aged(70, Fx.URGENT_AFTER * 4, nil) < Fx.URGENT, "une tournée ordinaire ne devient jamais une urgence")
+  check(Fx.aged(70, Fx.AGE_STEP * 99, { unsafe = true, stuck = true, dry = true }) == 70, "avant-poste dangereux : la tournée ne vieillit pas")
   check(Fx.aged(95, Fx.AGE_STEP * 99, { dry = true }) == Fx.AGE_CAP_DRY, "vital à sec : plafond 97")
 
   -- §6 produit saturé
@@ -126,8 +132,10 @@ local function suite()
   end
   local p1 = Planner.plan(view({ outposts = { op(1, "iron", { fuel_low = true }), op(2, "stone", { fuel_low = true }),
     op(3, "iron", { output = 90, stuck = 1 }), op(4, "copper", { output = 90 }) } }), book)
-  check(service(p1, 1) and service(p1, 1).prio == Fx.VITAL_PRIO, "planificateur : le fer à sec passe à 96")
+  check(service(p1, 1) and service(p1, 1).prio == 95, "planificateur : le fer à sec reste à 95 (il vieillit au tableau)")
   check(service(p1, 2) and service(p1, 2).prio == 95, "planificateur : la pierre à sec reste à 95")
+  local p1c = Planner.plan(view({ outposts = { op(7, "coal", { fuel_low = true }) } }), book)
+  check(service(p1c, 7) and service(p1c, 7).prio == Fx.VITAL_PRIO, "planificateur : le charbon à sec passe à 96")
   check(service(p1, 3) and service(p1, 3).prio == Fx.AGE_CAP_STUCK, "planificateur : sorties pleines, coffre vide : 88")
   check(service(p1, 4) and service(p1, 4).prio == 70, "planificateur : sorties sans four plein : 70")
   local p2 = Planner.plan(view({ stock = { [IRON.product] = 5000 }, outposts = { op(3, "iron", { output = 90, stuck = 1 }) } }), book)
@@ -183,11 +191,18 @@ local MUTANTS = {
       local orig = Fx.equiv
       Fx.equiv = function(res, map, stock, _) return orig(res, map, stock, nil) end
     end },
-  { "vital-prio-off", function() local o = Fx.service_prio; Fx.service_prio = function(b, r, v, h) return o(b, r, false, h) end end },
+  { "vital-prio-off", function() local o = Fx.service_prio; Fx.service_prio = function(b, r, v, h) return o(b, r, nil, h) end end },
+  { "vital-prio-all", function() local o = Fx.service_prio; Fx.service_prio = function(b, r, v, h) return o(b, r, v and "fuel", h) end end },
   { "stuck-prio-off", function() local o = Fx.service_prio; Fx.service_prio = function(b, r, v, h) return o(b, { fuel_low = r.fuel_low }, v, h) end end },
   { "stuck-cover-ignored", function()
       Fx.service_prio = function(b, o, v, _) local p = b; if v and o.fuel_low then p = math.max(p, Fx.VITAL_PRIO) end
         if (o.stuck or 0) > 0 then p = math.max(p, Fx.AGE_CAP_STUCK) end return p end
+    end },
+  { "unsafe-ignored", function()
+      local oa, os_, oc = Fx.aged, Fx.service_prio, Fx.counted
+      Fx.aged = function(p, w, k) k = k or {}; return oa(p, w, { stuck = k.stuck, dry = k.dry }) end
+      Fx.service_prio = function(b, o, v, h) return os_(b, { fuel_low = o.fuel_low, stuck = o.stuck }, v, h) end
+      Fx.counted = function(o) return oc({ lethal = o.lethal, free_age = o.free_age, fails = o.fails }) end
     end },
   { "aged-never", function() Fx.aged = function(p) return p end end },
   { "aged-uncapped", function() Fx.aged = function(p, w) return p + math.floor((w or 0) / Fx.AGE_STEP) end end },
@@ -200,7 +215,7 @@ local MUTANTS = {
   { "refill-uncapped", function() Fx.refill_to = function(c, b, base) return math.max(base or 10, math.floor((c or 0) / (2 * math.max(1, b or 1)))) end end },
   { "refill-all-coal", function() Fx.refill_to = function(c, b, base, max) return math.max(base or 10, math.min(max or 10, math.floor((c or 0) / math.max(1, b or 1)))) end end },
   { "vital-all", function()
-      Fx.vital = function(spec) local out = {} for k in pairs(spec) do out[k] = true end return out end
+      Fx.vital = function(spec) local out = {} for k in pairs(spec) do out[k] = "fuel" end return out end
     end },
 }
 -- Chaque mutant est rejoué sur le module rechargé (les lecteurs ont gardé leurs références : on recharge tout).

@@ -339,7 +339,7 @@ function Board.sync(f, planned, tick, plan, view, book)
   if view and Board.market(f) then
     local kinds = {}
     for _, o in ipairs(view.outposts or {}) do
-      kinds[o.id] = { stuck = (o.stuck or 0) > 0 or nil, dry = (o.fuel_low and VITAL[o.kind]) or nil }
+      kinds[o.id] = { stuck = (o.stuck or 0) > 0 or nil, dry = (o.fuel_low and VITAL[o.kind]) or nil, unsafe = (o.unsafe or o.lethal) or nil }
     end
     for _, key in ipairs(sorted_keys(keep)) do
       local t = keep[key]
