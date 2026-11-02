@@ -888,7 +888,11 @@ function Team.think(f, surface, tick)
     Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan))
   elseif ia3 then
     local paid, skipped = 0, true
-    if thaw then paid, skipped = Ia3.capital_pay(f, surface, tick, plan, Recon.upgrade_stock(f, book_for(f), stock, tick, plan), true) end
+    -- Mesure (essai 6, graine 271828182, emerald 151,6 min) : fer 35 571, cuivre 8 057, briques 404 au coffre, mais « electronic-circuit
+    -- 0/60 » au stock libre : les 138 circuits du coffre sont retenus par la reconstruction de 12 projets rouverts (Recon.upgrade_stock,
+    -- [FO-REBUILD-PRIO]) que l'ennemi empêche de refaire. Le gel levé paie donc le centre sur le stock du coffre SANS cette retenue : la
+    -- défense minimale est tenue (floor_ok) et le gel a duré plus de Dg.AFTER ; refaire une pièce attend, le centre non.
+    if thaw then paid, skipped = Ia3.capital_pay(f, surface, tick, plan, stock, true) end
     if paid == 0 and skipped then -- sinon Capital.pay a déjà dit sa cause
       Ia3.capital_attente(f, pile_hold and "pile" or "reconstruction", tick) -- lot C1 : la cause d'une amélioration retenue est dite
     end

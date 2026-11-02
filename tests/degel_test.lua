@@ -106,8 +106,8 @@ local function run_all()
   check(rt:find("floor_ok = (s1 ~= nil and s1.was == false)", 1, true) ~= nil, "§5 défense minimale = S1 hors de péril, absente = rien ne passe")
   check(rt:find("thaw = (c.thaw and c.thaw.active) or false", 1, true) ~= nil, "§5 la décision lit l'état de levée")
   local tm = read("script/team/team.lua")
-  check(tm:find("Ia3.capital_thaw(f, true, tick)", 1, true) ~= nil and tm:find("Recon.upgrade_stock(f, book_for(f), stock, tick, plan), true)", 1, true) ~= nil,
-    "§5 team.lua : le pas de gel et le paiement du centre avec le stock moins la réserve de la reconstruction")
+  check(tm:find("Ia3.capital_thaw(f, true, tick)", 1, true) ~= nil and tm:find("Ia3.capital_pay(f, surface, tick, plan, stock, true)", 1, true) ~= nil,
+    "§5 team.lua : le pas de gel et le paiement du centre avec le stock moins le stock du coffre, SANS la retenue de la reconstruction (essai 6 : circuits 0/60 avec 138 retenus)")
   check(tm:find("Ia3.capital_thaw(f, false, tick)", 1, true) ~= nil, "§5 team.lua : le pas est aussi fait sans garde (le tick suit)")
 
   -- §6 Aucun nom du jeu.
