@@ -174,7 +174,12 @@ local function suite(C, report)
   t(#rel == 0, "§6 chaque produit demandé a déjà un four : rien n'est repris")
   rel = C.releases(fur({ "m-fer", 40 }, { "m-fer", 40 }, { "m-fer", 40 }), { ["p-acier"] = 9, ["p-brique"] = 4 }, I3,
     { ["m-pierre"] = 9, ["p-fer"] = 90 })
-  t(eq(rel, { 1, 2 }), "§6 deux produits sans four, trois fours d'une entrée non demandée : deux fours repris")
+  t(eq(rel, { 1 }), "§6 le produit dont l'entrée est brute est seul servi (l'acier, entrée dérivée, garde l'ordre d'avant) : un four repris")
+  rel = C.releases(fur({ "m-fer", 40 }, { "m-fer", 40 }, { "m-fer", 40 }), { ["p-acier"] = 9 }, I3, { ["p-fer"] = 90 })
+  t(#rel == 0, "§6 l'acier seul sans four : aucun four repris (entrée dérivée)")
+  local I4 = { ["p-fer"] = { "m-fer", 1 }, ["p-brique"] = { "m-pierre", 2 }, ["p-verre"] = { "m-sable", 2 } }
+  rel = C.releases(fur({ "m-fer", 40 }, { "m-fer", 40 }, { "m-fer", 40 }), { ["p-brique"] = 4, ["p-verre"] = 3 }, I4, { ["m-pierre"] = 9, ["m-sable"] = 9 })
+  t(eq(rel, { 1, 2 }), "§6 deux produits à entrée brute sans four, trois fours d'une entrée non demandée : deux fours repris")
   rel = C.releases(fur({ "m-fer", 10 }, { "m-fer", 10 }, { "m-fer", 10 }, { "p-fer", 40 }), { ["p-fer"] = 3, ["p-brique"] = 4 }, I3, { ["m-pierre"] = 9, ["m-fer"] = 9 })
   t(eq(rel, { 4 }), "§6 un donneur d'entrée non demandée passe avant un donneur d'entrée demandée")
   -- force brute : le nombre de fours repris suit une formule écrite à part, les invariants tiennent
@@ -207,7 +212,7 @@ local function suite(C, report)
             if f.item then holds[f.item] = (holds[f.item] or 0) + 1 else free = free + 1 end
           end
           local starved, avail = 0, 0
-          for item in pairs(want) do if (holds[item] or 0) == 0 then starved = starved + 1 end end
+          for item in pairs(want) do if (holds[item] or 0) == 0 and not I3[item] then starved = starved + 1 end end
           for item, h in pairs(holds) do avail = avail + (want[item] and (h - 1) or h) end
           local expect = free > 0 and 0 or math.min(starved, avail)
           local ok = (#r == expect)
@@ -301,7 +306,8 @@ local MUTANTS = {
   { 'if (a.blocked or 0) > 0 then return true, "bloque", kept end', 'if (a.blocked or 0) > 99 then return true, "bloque", kept end', "four à sortie pleine ignoré" },
   { 'if a.furnaces and next(kept) ~= nil and next(C.releases(a.furnaces, kept, inputs, stock)) ~= nil then return true, "partage", kept end', '', "partage des fours retiré de la décision" },
   { 'if free > 0 then return {} end', '', "four libre non regardé avant de reprendre un four" },
-  { 'if (holds[item] or 0) == 0 then starved[#starved + 1] = item end', 'if (holds[item] or 0) <= 1 then starved[#starved + 1] = item end', "produit à un seul four compté sans four" },
+  { 'if (holds[item] or 0) == 0 and not (inputs and inputs[item]) then starved[#starved + 1] = item end', 'if (holds[item] or 0) <= 1 and not (inputs and inputs[item]) then starved[#starved + 1] = item end', "produit à un seul four compté sans four" },
+  { 'and not (inputs and inputs[item]) then starved[#starved + 1] = item end', 'then starved[#starved + 1] = item end', "entrée dérivée (l'acier) servie par reprise" },
   { '(not want[f.item] or holds[f.item] >= 2)', '(true)', "dernier four d'une entrée demandée repris" },
   { 'local k1 = want[f.item] and 1 or 0', 'local k1 = want[f.item] and 0 or 1', "donneur demandé avant le donneur non demandé" },
   { 'local k3 = f.count or 0', 'local k3 = -(f.count or 0)', "four le plus chargé repris" },

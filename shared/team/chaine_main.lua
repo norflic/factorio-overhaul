@@ -86,7 +86,9 @@ end
 --- demande } ; `inputs` = { [produit] = { entrée, quantité } } ; `stock` = { [entrée] = quantité disponible } (absent : présente).
 --- Rend la liste (croissante) des indices de fours à vider. Un seul four par produit sans four, jamais le dernier four d'une
 --- entrée encore demandée ; le donneur est un four d'une entrée non demandée d'abord, puis celui de l'entrée qui a le plus de
---- fours, puis le moins chargé, puis le premier. Rien quand un four est libre (la charge ordinaire le sert).
+--- fours, puis le moins chargé, puis le premier. Rien quand un four est libre (la charge ordinaire le sert). Seul un produit dont
+--- l'entrée est BRUTE (la pierre des briques) est servi : un produit dont l'entrée est elle-même un produit de fonte (l'acier, qui
+--- veut des plaques) garde le comportement d'avant.
 function C.releases(furnaces, smelt, inputs, stock)
   local want = wanted_inputs(smelt, inputs, stock)
   local holds, free = {}, 0
@@ -96,7 +98,9 @@ function C.releases(furnaces, smelt, inputs, stock)
   if free > 0 then return {} end
   local starved = {}
   for _, item in ipairs(sorted_keys(want)) do
-    if (holds[item] or 0) == 0 then starved[#starved + 1] = item end
+    -- Seule une entrée BRUTE (qui n'est le produit d'aucune fonte) est servie ainsi : l'acier, dont l'entrée est la plaque, garde
+    -- l'ordre d'avant (mesuré, 4 graines : sa reprise aux fours de plaques du QG, tôt dans la partie, a coûté du fer à Emeraude).
+    if (holds[item] or 0) == 0 and not (inputs and inputs[item]) then starved[#starved + 1] = item end
   end
   table.sort(starved, function(a, b)
     if want[a] ~= want[b] then return want[a] > want[b] end
