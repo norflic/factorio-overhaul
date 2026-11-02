@@ -642,7 +642,10 @@ local function start_next(f, surface, ms, free, obtainable, tick)
       -- la recherche d'ennemi (coûteuse) seulement quand le reste est réuni
       local enemy = false
       if npairs >= cfg.min_pairs and lattice and tick >= (st.retry or 0) then enemy = enemy_near(f, surface, o.pos.x, o.pos.y) end
-      local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = free[product] or 0,
+      -- lot CHAMP : la bande coûte surtout du FER (foreuses, bras, tapis) : la garde de stock lit les plaques de fer ; elle lisait la plaque
+      -- du champ, et un champ de cuivre ne migrait jamais quand le cuivre manquait (le cas même du DC)
+      local plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
+      local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates,
         lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
       if ok then
         if champ then

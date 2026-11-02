@@ -7,7 +7,10 @@
   tout posé, un seul réseau, foreuses qui extraient, minerai qui ne reste pas figé, fours qui produisent, plaques dans les coffres de
   sortie, contrôle pur du plan sans défaut. Lancement : banc.py --qui CHAMP -- 3200 champ-banc <source>. Journal : [FO-CHAMP-BANC].
 ]]
-local Ch = require("__factorio-overhaul__/shared/team/champ")
+-- (les require internes de la règle sont relatifs à la racine du mod : leurs modules sont chargés d'abord sous leur nom)
+package.loaded["shared.team.champ_fonderie"] = package.loaded["shared.team.champ_fonderie"] or require("__factorio-overhaul__/shared/team/champ_fonderie")
+package.loaded["shared.team.champ"] = package.loaded["shared.team.champ"] or require("__factorio-overhaul__/shared/team/champ")
+local Ch = package.loaded["shared.team.champ"]
 local Cv = require("__factorio-overhaul__/shared/team/champ_verif")
 
 local X0, Y0 = 4200, 3000
