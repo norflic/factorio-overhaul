@@ -721,7 +721,7 @@ function Team.think(f, surface, tick)
   local plan = ia3 and Ia3.plan(f, view, book_for(f), surface, tick) or Planner.plan(view, book_for(f))
   -- Lot BRIQUES (bancs seulement, f.team.bench_smelt posé par fo-ia1 bench_smelt_demand) : demande de fonte imposée, ajoutée au plan.
   if f.team.bench_smelt then
-    plan.smelt = plan.smelt or {}
+    plan.smelt = f.team.bench_smelt_seul and {} or plan.smelt or {}
     for _, p in ipairs(State.sorted_keys(f.team.bench_smelt)) do plan.smelt[p] = (plan.smelt[p] or 0) + f.team.bench_smelt[p] end
     local has = false
     for _, t in ipairs(plan.tasks) do

@@ -188,12 +188,14 @@ remote.add_interface("fo-ia1", {
     f.team.partage_regle = on
     return Outposts.partage_rule(f)
   end,
-  -- Lot BRIQUES (bancs seulement) : demande de fonte imposée { [produit] = n } ajoutée à celle du plan à chaque pensée (nil : retirée).
-  bench_smelt_demand = function(key, demand)
+  -- Lot BRIQUES (bancs seulement) : demande de fonte imposée { [produit] = n } ajoutée à celle du plan à chaque pensée (nil : retirée) ;
+  -- `only` vrai : elle REMPLACE celle du plan.
+  bench_smelt_demand = function(key, demand, only)
     local f = team_of(key)
     if not (f and f.team) then return nil end
     if demand ~= nil and type(demand) ~= "table" then return nil end
     f.team.bench_smelt = demand
+    f.team.bench_smelt_seul = only == true or nil -- vrai : la demande du plan est remplacee, et non complétée
     return true
   end,
   smelt_stats = function(key)

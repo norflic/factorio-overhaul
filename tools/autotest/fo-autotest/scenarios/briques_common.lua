@@ -99,7 +99,7 @@ return function(mode, rule)
           if f.get_fuel_inventory().get_item_count("coal") < 20 then f.get_fuel_inventory().insert({ name = "coal", count = 20 }) end
         end
         local demand = mode == "monopole" and { ["steel-plate"] = 100000, ["stone-brick"] = 200 } or { ["stone-brick"] = 200 }
-        ctx.check(ctx.remote("fo-ia1", "bench_smelt_demand", "player", demand) == true, "demande de fonte imposee")
+        ctx.check(ctx.remote("fo-ia1", "bench_smelt_demand", "player", demand, mode ~= "monopole") == true, "demande de fonte imposee")
         ctx.log("arrangement : insertions " .. table.concat(put, " ") .. " | " .. state_text(list))
         st.t0 = e.tick
         st.brick0 = stats.get_input_count("stone-brick")
