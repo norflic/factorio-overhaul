@@ -24,6 +24,8 @@
 local K = {}
 
 K.ENEMY_R = 28         -- tuiles : jamais de pose d'un poteau avec un ennemi à cette portée (= Rv.POLE_ENEMY_R)
+K.EXEMPT_R = 12        -- tuiles autour de chaque bout d'une chaîne neuve où la zone des ennemis ne vaut pas (la chaîne doit pouvoir en sortir) ; PAS
+                       -- proportionnel à la portée de fil : 2 x 30 = 60 tuiles effaçait toute la zone d'un ennemi (mesuré au banc energie-ilot-ennemi, 2/11)
 K.W = 1e6              -- poids d'un poteau perdu à reposer devant la longueur de fil
 K.MAX_NODES = 600      -- nœuds au plus par décision (au-delà : les plus proches de la zone perdue, voir K.trim)
 K.EDGE_SLACK = 1e-9
@@ -63,9 +65,16 @@ end
 --- Une position est-elle dans la zone à éviter ? Les bouts de la chaîne (rayon `exempt` autour de chacun) restent permis : une chaîne doit
 --- pouvoir sortir de la zone qui tient son point de départ.
 function K.in_zone(x, y, zone, exempt_pts, exempt_r)
+  -- l'exemption ne vaut que pour un bout QUI EST DANS la zone (de plus d'une demi-tuile) : un bout au bord (28,0 tuiles de l'ennemi) n'exempte rien,
+  -- sinon les premiers poteaux de la chaîne seraient posés à portée du ver (mesuré au banc energie-ilot-ennemi : 24 tuiles d'un ver de portée 25)
   for _, p in ipairs(exempt_pts or {}) do
+    local inside = false
+    for _, z in ipairs(zone or {}) do
+      local ex, ey = p.x - z.x, p.y - z.y
+      if ex * ex + ey * ey < (z.r - 0.5) * (z.r - 0.5) then inside = true end
+    end
     local dx, dy = x - p.x, y - p.y
-    if dx * dx + dy * dy <= (exempt_r or 0) * (exempt_r or 0) then return false end
+    if inside and dx * dx + dy * dy <= (exempt_r or 0) * (exempt_r or 0) then return false end
   end
   for _, z in ipairs(zone or {}) do
     local dx, dy = x - z.x, y - z.y

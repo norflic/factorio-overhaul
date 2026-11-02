@@ -163,6 +163,15 @@ check(K.in_zone(10, 40, z, nil, 0) == false, "point hors zone")
 check(K.in_zone(10, 20, z, { { x = 10, y = 22 } }, 5) == false, "un bout de chaine reste permis dans la zone")
 check(K.in_zone(10, 20, z, { { x = 10, y = 60 } }, 5) == true, "loin du bout : la zone vaut")
 
+-- exemption autour des bouts : constante petite (12), pas la portee d'un grand poteau
+check(K.EXEMPT_R > 0 and K.EXEMPT_R <= 16, "exemption des bouts : petite et fixe (" .. tostring(K.EXEMPT_R) .. ")")
+do -- zone de 28 autour de l'ennemi, bout de la chaine DANS la zone (a 24) : la tuile a 14 du bout reste dans la zone (hors exemption de 12), celle a 11 est permise
+  local zz = K.avoid_zone({ { x = 0, y = 0 } }, nil, 6, 28)
+  check(K.in_zone(0, 10, zz, { { x = 0, y = 24 } }, K.EXEMPT_R) == true, "hors exemption : dans la zone")
+  check(K.in_zone(0, 13, zz, { { x = 0, y = 24 } }, K.EXEMPT_R) == false, "dans l'exemption du bout : permis")
+  check(K.in_zone(0, 17, zz, { { x = 0, y = 28 } }, K.EXEMPT_R) == true, "un bout AU BORD de la zone (28,0 tuiles) n'exempte rien")
+end
+
 -- §7 aucun nom d'objet de jeu dans la règle pure
 for _, name in ipairs({ "electric-pole", "medium-", "big-", "small-", "steam", "boiler", "transport-belt", "inserter", "game.", "global" }) do
   check(SRC:find(name, 1, true) == nil, "la regle pure ne nomme pas '" .. name .. "'")
@@ -202,6 +211,11 @@ local function suite(Kx)
   local zz = Kx.avoid_zone({ { x = 50, y = 0 }, { x = 10, y = 0 }, { x = 30, y = 0 } }, { x = 0, y = 0 }, 2)
   c(#zz == 2 and zz[1].x == 10)
   c(Kx.in_zone(10, 20, zz, { { x = 10, y = 22 } }, 5) == false and Kx.in_zone(10, 20, zz, nil, 0) == true)
+  do
+    local z2 = Kx.avoid_zone({ { x = 0, y = 0 } }, nil, 6, 28)
+    c(Kx.in_zone(0, 10, z2, { { x = 0, y = 24 } }, Kx.EXEMPT_R) == true and Kx.in_zone(0, 13, z2, { { x = 0, y = 24 } }, Kx.EXEMPT_R) == false)
+    c(Kx.in_zone(0, 17, z2, { { x = 0, y = 28 } }, Kx.EXEMPT_R) == true)
+  end
   local ro = Kx.plan({ poles = rev, enemies = {} })
   c(ids(ro.order) == "1,2,3,4")
   local m5 = Kx.plan({ poles = { P(100, "live", 0, 0), P(200, "isl", 40, 0, { net = 1 }), P(201, "isl", 32, 9, { net = 2 }), P(1, "lost", 8, 0), P(2, "lost", 16, 0), P(3, "lost", 24, 0), P(4, "lost", 32, 0) }, enemies = {} })
@@ -243,7 +257,10 @@ mutant("tenu seulement au-dela du rayon (< au lieu de <=)", "if dx %* dx %+ dy %
 mutant("rayon de l'ennemi ignore (28 fixe a 5)", "K%.ENEMY_R = 28", "K.ENEMY_R = 5")
 mutant("trim jette les perdus", "for _, p in ipairs%(lost%) do if #out < max then out%[#out %+ 1%] = p end end", "")
 mutant("zone : tous les ennemis (pas de plafond)", "while #out > %(max or 6%) do table%.remove%(out%) end", "")
-mutant("zone : bouts non exemptes", "if dx %* dx %+ dy %* dy <= %(exempt_r or 0%) %* %(exempt_r or 0%) then return false end", "")
+mutant("exemption des bouts = 60 tuiles", "K%.EXEMPT_R = 12", "K.EXEMPT_R = 60")
+mutant("zone : bouts non exemptes", "if inside and dx %* dx %+ dy %* dy <= %(exempt_r or 0%) %* %(exempt_r or 0%) then return false end", "")
+mutant("zone : un bout hors zone exempte aussi", "if inside and dx %* dx", "if dx * dx")
+mutant("zone : bout au bord compte comme dans la zone", "< %(z%.r %- 0%.5%) %* %(z%.r %- 0%.5%)", "<= (z.r + 1) * (z.r + 1)")
 mutant("zone : ennemis les plus loin d'abord", "if da ~= db then return da < db end\n    if a%.y ~= b%.y then return a%.y < b%.y end\n    return a%.x < b%.x\n  end%)\n  while", "if da ~= db then return da > db end\n    if a.y ~= b.y then return a.y < b.y end\n    return a.x < b.x\n  end)\n  while")
 
 print(string.format("[COUPURE-RESEAU] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
