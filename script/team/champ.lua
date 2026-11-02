@@ -417,11 +417,12 @@ function Champ.report(f, surface, tick)
       if p.state == "reserve" then
         for _, m in ipairs(p.missing or {}) do miss[m[1]] = (miss[m[1]] or 0) + (m[2] or 0) end
       end
-      local pd = { lost = {}, stuck = 0, noin = 0 }
+      local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0 }
       for _, e in ipairs(p.ents) do
         if e.built and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
-          if not (ent and ent.valid) then pd.lost[e.role or "?"] = (pd.lost[e.role or "?"] or 0) + 1 end
+          if not (ent and ent.valid) then pd.lost[e.role or "?"] = (pd.lost[e.role or "?"] or 0) + 1
+          elseif e.role == "champ-bras" and (ent.status == S.no_power or ent.status == S.low_power) then pd.armoff = pd.armoff + 1 end
         end
         if e.built and (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
@@ -441,11 +442,11 @@ function Champ.report(f, surface, tick)
         end
       end
       local lk = sorted_keys(pd.lost)
-      if (#lk > 0 or pd.stuck > 0) and #bad < 4 then
+      if (#lk > 0 or pd.stuck > 0 or pd.armoff > 0) and #bad < 4 then
         local lt = {}
         for _, k in ipairs(lk) do lt[#lt + 1] = k .. " " .. pd.lost[k] end
-        bad[#bad + 1] = string.format("p%d bande %s : figees %d, fours sans entree %d, pieces manquantes [%s]", pid, tostring(p.spec.champ.pr),
-          pd.stuck, pd.noin, table.concat(lt, ", "))
+        bad[#bad + 1] = string.format("p%d bande %s : figees %d, fours sans entree %d, bras sans courant %d, pieces manquantes [%s]", pid,
+          tostring(p.spec.champ.pr), pd.stuck, pd.noin, pd.armoff, table.concat(lt, ", "))
       end
       for _, o in ipairs(p.outs or {}) do
         local c = surface.find_entity(D.CHEST, { o.x, o.y })
