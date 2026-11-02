@@ -295,6 +295,16 @@ return function(variant, opts)
             if not (pole.unit_number and st.load_poles and st.load_poles[pole.unit_number]) then cutlist[#cutlist + 1] = pole end
           end
           list = cutlist
+          do -- état avant la coupe : combien de foreuses sont déjà hors du réseau de la machine à vapeur (doit être 0)
+            local eng0 = s.find_entities_filtered({ name = "steam-engine", force = "player", limit = 1 })[1]
+            local off0, all0 = 0, 0
+            for _, d in ipairs(s.find_entities_filtered({ name = "electric-mining-drill", force = "player" })) do
+              all0 = all0 + 1
+              if eng0 and d.electric_network_id ~= eng0.electric_network_id then off0 = off0 + 1 end
+            end
+            st.drills_off_before = off0
+            ctx.log(string.format("AVANT la coupe : %d foreuse(s) electriques dont %d hors du reseau de la machine a vapeur ; %d poteau(x) retenable(s) dans le couloir", all0, off0, #list))
+          end
           for i = 1, math.min(10, #list) do
             local pole = list[i]
             if pole.valid then sx, sy = sx + pole.position.x, sy + pole.position.y; pole.destroy(); n = n + 1 end
@@ -334,6 +344,7 @@ return function(variant, opts)
             st.gap_s = 0
           end
           st.dark_now = dark
+          if t % MIN == 0 then ctx.log(string.format("foreuses hors du reseau de la machine a vapeur : %d", dark)) end
         end
       end
       if opts.mode == "porte" then
@@ -426,6 +437,7 @@ return function(variant, opts)
         end
       elseif opts.mode == "ilot" then
         ctx.check(st.cut_t ~= nil and (st.cut_n or 0) >= 8, "la ligne a ete coupee (" .. tostring(st.cut_n) .. " poteau(x) sur " .. tostring(st.poles_in_box) .. " du couloir)")
+        ctx.check((st.drills_off_before or 1) == 0, "avant la coupe, aucune foreuse hors du reseau (" .. tostring(st.drills_off_before) .. ")")
         ctx.check(st.saw_dark == true, "la coupe isole bien des foreuses (ilot sans courant)")
         if opts.enemy then ctx.check(st.biter ~= nil and st.biter.valid, "l'ennemi est pose et vivant a la fin") end
         if opts.expect == "dead" then
