@@ -39,6 +39,7 @@ Champ.CFG = {
   chain_r = 160,    -- tuiles : poteau alimenté le plus loin cherché pour raccorder une bande
   logs = 40,        -- lignes [FO-CHAMP] au plus par équipe
   charge = 40,      -- combustible posé avec chaque coffre de combustible d'une fonderie (deux fours de pierre : 15 min)
+  drill_rank = 7,   -- rang de pose des foreuses du champ (P.sort_build : après les tapis, rang 5)
 }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -270,6 +271,10 @@ local function named(plan, names)
       local role = (e.kind == "coffre" and e.role == "sortie") and "sortie" or ("champ-" .. e.kind)
       local ent = { name = name, x = e.x, y = e.y, dir = e.dir, role = role }
       if e.kind == "coffre" and e.role == "combustible" then ent.charge = { item = names.fuel, count = Champ.CFG.charge } end
+      -- les foreuses se posent en DERNIER (après poteaux, fours, bras, coffres et tapis : rangs 1 à 6 de P.sort_build) : une foreuse posée
+      -- avant son tapis et sa fonderie remplit le tapis de minerai qui ne va nulle part (mesuré : 12 foreuses figées sur un chantier de
+      -- 18 min, scarlet, graine 20261020)
+      if e.kind == "foreuse" then ent.rank = Champ.CFG.drill_rank end
       ents[#ents + 1] = ent
       if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel } end
       if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end

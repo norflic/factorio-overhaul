@@ -2530,7 +2530,7 @@ local function plan_project(f, surface, p)
       w = lay.box[3] - lay.box[1] + 1, h = lay.box[4] - lay.box[2] + 1, power = true }
     local ents = {}
     for _, e in ipairs(lay.ents) do
-      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge } -- (lot CHAMP : charge du coffre de combustible)
+      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge, rank = e.rank } -- (lot CHAMP : charge du coffre de combustible, rang de pose)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item } end
