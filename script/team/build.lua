@@ -34,6 +34,8 @@ local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Gisements = require("shared.team.gisement") -- lot GISEMENTS : un lot qui porte un minerai sert de gisement
 local Tr = require("shared.team.treillis") -- lot INDUSTRIE I3 : jusqu'où le treillis grandit vers un gisement, cause du refus (règles pures)
+local Fal = require("script.team.falaise") -- lot OBSTACLES : emprise RÉELLE des falaises (orientation), pas la boîte générique de bounding_box
+local FalPure = require("shared.team.falaise") -- lot OBSTACLES : mémoire bornée des tuiles refusées à cause d'une falaise
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE : le réglage maître (fo-war-industrie)
 local Rg = require("shared.team.rangees")     -- lot AGENCEMENT : foreuses en rangées qui couvrent le gisement (règles pures)
 local Db = require("shared.team.debit")       -- lot RANGEES-DEBIT : ligne de foreuses dimensionnée par le débit du tapis (règles pures)
@@ -405,6 +407,14 @@ local function read_masks(f, surface, x0, y0, x1, y1)
         if soft then clear[k] = true else blocked[k] = true end
       end
     end
+  end
+  -- lot OBSTACLES : `bounding_box` d'une falaise est la boîte GÉNÉRIQUE du prototype (±1 × ±0,5), alors que sa collision réelle suit
+  -- son orientation (jusqu'à 4 × 3 tuiles, coins tournés). Mesuré sur 4 parties sur 4 : un tapis planifié à 1,5 tuile du centre d'une
+  -- falaise était refusé « occupe », projet bloqué puis abandonné après 3 reprises au même plan (F294, shared/team/falaise.lua). Les
+  -- tuiles réelles sont bloquées, avec celles que le moteur a déjà refusées (mémoire b.hard, apprise par learn_cliff).
+  Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[P.tkey(tx, ty)] = true end)
+  if b.hard and b.hard.t then
+    for k in pairs(b.hard.t) do blocked[k] = true end -- union d'un ensemble : l'ordre n'a aucun effet
   end
   if THAW then
     for i = 1, #THAW - 1, 2 do blocked[P.tkey(THAW[i], THAW[i + 1])] = nil end
@@ -3029,6 +3039,40 @@ local function npc_on(surface, e)
   return surface.count_entities_filtered({ area = footprint(e), type = { "character", "unit" }, limit = 1 }) > 0
 end
 
+Build.OBST_LOGS = 12 -- lot OBSTACLES : lignes [FO-OBSTACLES] écrites au plus, par équipe
+
+--- Lot OBSTACLES : un fantôme refusé « occupe » alors qu'une FALAISE touche son emprise (le moteur la voit, les masques ne la voyaient
+--- pas : emprise réelle selon l'orientation). Les tuiles de la falaise (modèle de shared/team/falaise.lua) et celles de l'entité
+--- refusée (ce que le moteur a vraiment refusé) sont apprises dans b.hard, que read_masks bloque désormais ; le relevé en cache de
+--- la zone est jeté. Rend vrai si une falaise est en cause : l'entité est marquée (e.cliff_hit), et le projet ne retentera pas le
+--- même plan 3 fois de suite (voir le blocage du chantier), la reprise se fait par un NOUVEAU plan.
+local function learn_cliff(f, surface, p, e, r)
+  if r ~= "occupe" then return false end
+  local cliffs = surface.find_entities_filtered({ area = footprint(e), type = "cliff" })
+  if #cliffs == 0 then return false end
+  local b = f.build
+  b.hard = b.hard or { n = 0, t = {} }
+  local added = 0
+  for _, c in ipairs(cliffs) do
+    if c.valid then added = added + FalPure.learn(b.hard, Fal.tiles(c), P.tkey) end
+  end
+  local a = footprint(e)
+  added = added + FalPure.learn(b.hard, FalPure.box_tiles(a[1][1], a[1][2], a[2][1], a[2][2]), P.tkey)
+  if not e.cliff_hit then
+    b.stats.cliff_hits = (b.stats.cliff_hits or 0) + 1
+    b.hard_logs = (b.hard_logs or 0) + 1
+    if b.hard_logs <= Build.OBST_LOGS then
+      log(string.format("[FO-OBSTACLES] %s : projet %d, %s en (%g, %g) refuse par %d falaise(s) (%s) : %d tuile(s) apprise(s) (%d en memoire), nouveau plan a la reprise",
+        f.key or "player", p and p.id or 0, tostring(e.name), e.x, e.y, #cliffs, tostring(cliffs[1].valid and cliffs[1].cliff_orientation), added, b.hard.n))
+    end
+  end
+  e.cliff_hit = true
+  if MASQ[surface.index] then
+    Mq.invalidate(MASQ[surface.index], math.floor(a[1][1]) - 6, math.floor(a[1][2]) - 6, math.ceil(a[2][1]) + 6, math.ceil(a[2][2]) + 6)
+  end
+  return true
+end
+
 --- Pose le fantôme d'une entité planifiée : "ok", "deja" (bâtie), "obstacle" (arbre, rocher), "pnj" (un personnage
 --- debout dessus, passager), "occupe" (autre).
 --- Lot CORR-RESEAU : retire les RESTES neutres (cadavres de machine, objets au sol) de l'emprise d'une pièce à poser, marge de 0,6.
@@ -3263,6 +3307,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
       -- échec (il est coupé par la tâche de défrichage ; moteur réel, petrole-site : raffinerie « bloquée » par un arbre)
       if not (r == "obstacle" and p.spec and p.spec.lazy_clear) then e.fails = (e.fails or 0) + 1 end
       st.revive_fail = st.revive_fail + 1
+      learn_cliff(f, surface, p, e, r) -- lot OBSTACLES : falaise cachée aux masques, apprise
       log_refusal(f, p, e, r, surface)
       if r == "obstacle" then add_obstacle(p, { x = e.x, y = e.y, anchor = e.anchor, ax = e.ax, ay = e.ay }) end
       return false
@@ -4017,6 +4062,7 @@ local function advance(f, surface, p, tick)
           e.ghosted = true
           e.fails = (e.fails or 0) + 1
           b.stats.ghost_refused = b.stats.ghost_refused + 1
+          learn_cliff(f, surface, p, e, r) -- lot OBSTACLES
           log_refusal(f, p, e, r, surface)
         end
       end
@@ -4046,6 +4092,9 @@ local function advance(f, surface, p, tick)
         elseif not e.built and (e.fails or 0) >= Build.FAIL_LIMIT * 2 then
           p.state, p.reason = "bloque", "fantome refuse (" .. e.name .. " en " .. e.x .. "," .. e.y .. ")"
           b.stats.projects_blocked = b.stats.projects_blocked + 1
+          -- lot OBSTACLES : refus par une falaise = le MÊME plan échouera aux 3 reprises (mesuré : 4 parties sur 4, abandon à 267 min
+          -- pour la fonderie de Scarlet) ; abandon tout de suite, le demandeur replanifie avec les tuiles apprises (b.hard)
+          if e.cliff_hit then p.retries = Build.RETRIES end
           p.retries = (p.retries or 0) + 1
           p.retry_at = p.retries <= Build.RETRIES and (tick + Build.RETRY_TICKS) or nil
           -- lot PD-CENTRALE : la pompe d'une centrale lointaine refusée au moteur ne passera pas à la reprise : rive écartée, abandon
