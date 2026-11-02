@@ -69,6 +69,8 @@ end
 --- est fabricable ou au stock), busy (tâche de pose du QG déjà ouverte), funds_iron, cost_iron, funds_copper, cost_copper (fer et cuivre
 --- AU-DESSUS des planchers de la défense ; coût d'UNE tourelle avec ses chargeurs), stock (tourelles déjà au stock : déjà payées, payables
 --- au moins en ce nombre ; relecture du lot : sans elles, des tourelles au coffre restaient au coffre quand le fer était au plancher) }.
+--- Lot DEFENSE : `cap` (facultatif) est un plafond PLUS BAS que D.HQ_CAP, proportionnel à la menace reçue au QG (shared/team/ceinture.lua,
+--- Ce.hq_cap) : la hausse « base menacée et riche » s'arrête là ; sans lui, D.HQ_CAP (règle d'avant). Jamais sous `want`.
 --- Rend { want, first (des tourelles du QG manquent et se paient : elles passent avant les soldats), hold_soldiers (cette pensée ne lance
 --- pas la levée d'urgence), paid (tourelles payables), why }.
 function D.turrets(a)
@@ -85,11 +87,13 @@ function D.turrets(a)
     return math.floor(funds / cost)
   end
   local paid = math.min(count(a.funds_iron, a.cost_iron), count(a.funds_copper, a.cost_copper))
-  if paid == math.huge then paid = D.HQ_CAP end
-  paid = math.min(D.HQ_CAP, math.max(paid, math.floor(num(a.stock) or 0))) -- le plus grand : une somme dépassait le stock (fabrication avant pose)
+  local cap = D.HQ_CAP
+  if num(a.cap) and a.cap < cap then cap = a.cap end
+  if paid == math.huge then paid = cap end
+  paid = math.min(cap, math.max(paid, math.floor(num(a.stock) or 0))) -- le plus grand : une somme dépassait le stock (fabrication avant pose)
   out.paid = paid
   if paid < 1 then out.why = "fonds" return out end
-  local target = math.max(want0, math.min(D.HQ_CAP, have + paid))
+  local target = math.max(want0, math.min(cap, have + paid))
   out.want = target
   out.first = target > have
   out.hold_soldiers = out.first and not a.busy

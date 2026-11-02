@@ -81,6 +81,16 @@ function Sq.threat(waves, tick)
   return at_hq > other and at_hq or other
 end
 
+--- Lot DEFENSE : la plus grosse vague reçue AU QG seulement dans la fenêtre (rien ailleurs : une vague reçue à un avant-poste ne justifie
+--- pas des tourelles au QG ; lu par Ce.hq_cap, shared/team/ceinture.lua). Même format que Sq.threat.
+function Sq.threat_hq(waves, tick)
+  local best = 0
+  for _, w in ipairs(waves or {}) do
+    if w.hq and w.t and tick >= w.t and tick - w.t <= Sq.WINDOW and num(w.pv) > best then best = num(w.pv) end
+  end
+  return best
+end
+
 --- La plus grosse vague reçue n'importe où dans la fenêtre (même format que Sq.threat).
 function Sq.threat_any(waves, tick)
   local best = 0

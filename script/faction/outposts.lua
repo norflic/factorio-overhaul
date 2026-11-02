@@ -24,6 +24,7 @@ local Charge = require("shared.team.charge_four") -- lot FOURS : charge d'un fou
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
+local Ceinture = require("script.team.ceinture") -- lot DEFENSE : emplacements de tourelles sur le CONTOUR du site, côté exposé d'abord
 
 local Outposts = {}
 
@@ -570,6 +571,27 @@ local function pose_order(f, surface, outpost, count)
     existing[#existing + 1] = { x = t.position.x, y = t.position.y }
   end
   table.sort(existing, function(a, b) if a.y ~= b.y then return a.y < b.y end return a.x < b.x end)
+  -- Lot DEFENSE (retour du DC du 2/11, point 10 : « surtout au niveau des contours, de la protection de la base ») : les emplacements sont ceux du
+  -- CONTOUR des bâtiments du site (bord de leur emprise élargie), le côté d'où viennent les attaques et les nids connus d'abord, au lieu des 8 points
+  -- fixes autour du centre. Sans bâtiment à entourer : la pose d'avant (plus bas).
+  local belt = Ceinture.sites(f, surface, center, count, { radius = radius, range = range, existing = existing })
+  if belt then
+    f.stats = f.stats or {}
+    f.stats.belt_logs = (f.stats.belt_logs or 0) + 1
+    if f.stats.belt_logs <= Outposts.POSE_LOGS then
+      local nearest = nil
+      for i = 1, math.min(count, belt.info.chosen) do
+        local s = belt.sites[i]
+        local d = math.sqrt((s.x - center.x) ^ 2 + (s.y - center.y) ^ 2)
+        if not nearest or d > nearest then nearest = d end
+      end
+      log(string.format("[FO-CEINTURE] %s %s en (%.0f, %.0f) : %d tourelle(s) voulue(s), %d emplacement(s) de contour, %d batiment(s), %d point(s) de menace ; " ..
+        "poids couvert en plus %d sur %d ; le plus loin des %d premiers a %.0f tuiles du centre",
+        f.key or "?", is_hq and "QG" or ("avant-poste " .. tostring(outpost.id)), center.x, center.y, count, belt.info.cands, belt.info.assets,
+        belt.info.threats, belt.info.covered, belt.info.total, math.min(count, belt.info.chosen), nearest or 0))
+    end
+    return belt.sites
+  end
   local assets = assets_around(f, surface, center, radius)
   -- lot PD-ESPACEMENT : écart minimal entre tourelles (un emplacement serré contre une tourelle déjà là passe après les autres)
   local pick = Pose.choose({ candidates = cands, assets = assets, range = range, existing = existing, count = count, gap = Pose.gap(range) })

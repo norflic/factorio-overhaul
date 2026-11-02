@@ -33,6 +33,7 @@ local Pr = require("shared.team.priorite") -- lot PRIORITE-RESSOURCES : producti
 local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du front, commande partielle (constantes de ce module)
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
+local Ce = require("shared.team.ceinture") -- lot DEFENSE : plafond du QG proportionnel à la menace reçue au QG
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 
@@ -375,7 +376,15 @@ function P.plan(view, book)
   if df and view.base_alert then
     local cu_key = T.outposts.copper.product
     local rc = book:raw_cost(turret_items(1))
-    dc = Dc.turrets({ alert = true, want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, ok = turret_ok,
+    -- Lot DEFENSE (retour du DC du 2/11, point 10) : la hausse « base menacée et riche » jusqu'à Dc.HQ_CAP tourelles se faisait quelle que soit la taille
+    -- des vagues reçues (Écarlate : 14 à 18 tourelles à 48 tuiles du QG pour une menace de 19 à 738 PV) ; le plafond suit la plus grosse vague reçue AU
+    -- QG (Ce.hq_cap). Sans mesure (prévision éteinte, aucun relevé du QG : qp nil) : D.HQ_CAP, comme avant.
+    local hq_cap = nil
+    if qp and qp.hq_threat ~= nil then
+      hq_cap = Ce.hq_cap({ threat = qp.hq_threat, value = qp.turret_value, want = view.hq_defend or T.defend_hq, cap = Dc.HQ_CAP })
+    end
+    out.hq_cap = hq_cap -- lu par le journal [FO-DEFCHOIX] et les bancs
+    dc = Dc.turrets({ alert = true, want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, ok = turret_ok, cap = hq_cap,
       busy = (view.hq_fortify or open["fortify:hq"]) and true or false,
       funds_iron = (avail[iron_key] or 0) - fl_i, cost_iron = rc[iron_key] or 0,
       funds_copper = (avail[cu_key] or 0) - fl_c, cost_copper = rc[cu_key] or 0, stock = avail[T.turret] or 0 })
