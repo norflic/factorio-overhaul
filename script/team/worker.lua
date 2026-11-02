@@ -387,9 +387,7 @@ function Worker.program(f, task, surface, tick)
     if not o then return nil end
     local need = Outposts.coal_needed(o, f.team and f.team.flux_fill) -- lot FLUX : remplissage selon le coffre
     local steps = { { "home" } }
-    -- Lot FLUX : le charbon du coffre va AUSSI aux brûleurs d'un avant-poste de charbon (jusque-là ils ne vivaient que de leur propre
-    -- sortie : coffre vide et brûleurs à sec, plus aucun charbon nulle part, la famine d'Azur au banc) ; la prise rend ce qu'il y a.
-    if need > 0 then steps[#steps + 1] = { "take", { { T.fuel, need } } } end
+    if need > 0 and o.kind ~= "coal" then steps[#steps + 1] = { "take", { { T.fuel, need } } } end
     steps[#steps + 1] = { "goto", access(o), 3 }
     steps[#steps + 1] = { "act", "service" }
     steps[#steps + 1] = { "home" }
