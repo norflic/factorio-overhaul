@@ -24,8 +24,10 @@
 local K = {}
 
 K.ENEMY_R = 28         -- tuiles : jamais de pose d'un poteau avec un ennemi à cette portée (= Rv.POLE_ENEMY_R)
-K.EXEMPT_R = 12        -- tuiles autour de chaque bout d'une chaîne neuve où la zone des ennemis ne vaut pas (la chaîne doit pouvoir en sortir) ; PAS
-                       -- proportionnel à la portée de fil : 2 x 30 = 60 tuiles effaçait toute la zone d'un ennemi (mesuré au banc energie-ilot-ennemi, 2/11)
+K.AVOID_R = 40         -- tuiles : rayon de la zone qu'une chaîne NEUVE évite = le rayon de danger des poseurs (shared/ai3/danger.lua : portée 30 d'un ver ou
+                       -- d'un nid + D.MARGIN 10) ; à 28 la chaîne était planifiée mais les PNJ refusaient de la bâtir (« danger », 14 min, banc energie-ilot-ennemi)
+K.EXEMPT_R = 0         -- tuiles autour des bouts où la zone ne vaut pas : AUCUNE (un poteau posé dans la zone ne serait jamais bâti, le projet resterait
+                       -- ouvert pour toujours) ; une chaîne qui ne peut pas sortir de la zone est refusée, honnêtement ("aucune chaine")
 K.W = 1e6              -- poids d'un poteau perdu à reposer devant la longueur de fil
 K.MAX_NODES = 600      -- nœuds au plus par décision (au-delà : les plus proches de la zone perdue, voir K.trim)
 K.EDGE_SLACK = 1e-9
@@ -50,7 +52,7 @@ end
 --- Zone à éviter pour une chaîne neuve : les ennemis, avec leur rayon. Rend au plus `max` ennemis (les plus proches de `near`, puis y, x).
 function K.avoid_zone(enemies, near, max, r)
   local out = {}
-  for _, e in ipairs(enemies or {}) do out[#out + 1] = { x = e.x, y = e.y, r = r or K.ENEMY_R } end
+  for _, e in ipairs(enemies or {}) do out[#out + 1] = { x = e.x, y = e.y, r = r or K.AVOID_R } end
   table.sort(out, function(a, b)
     local da = near and dist(a, near) or 0
     local db = near and dist(b, near) or 0

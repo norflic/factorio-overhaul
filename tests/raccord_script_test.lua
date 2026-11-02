@@ -248,7 +248,7 @@ do
   run(3 * (R.PERIOD + 100))
   local got = REQ[n0 + 1]
   check(got ~= nil and got.key == "u5:1", "6.10 poteau perdu tenu par un ennemi : raccordement demande")
-  check(got and got.avoid and #got.avoid == 1 and got.avoid[1].r == 28 and got.avoid[1].x == 48 and got.avoid[1].y == -28,
+  check(got and got.avoid and #got.avoid == 1 and got.avoid[1].r == 40 and got.avoid[1].x == 48 and got.avoid[1].y == -28,
     "6.11 la zone des ennemis est dans la demande (second chemin)")
   check(logs_with("u5:1") > 0 and no_function(b.raccord), "6.12 etat sans fonction, journal")
   surface.find_nearest_enemy = real_enemy
