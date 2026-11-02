@@ -204,8 +204,15 @@ do
     "tournées, vieillissement, tournée des produits saturés, remplissage : éteints par défaut")
   check(F0.service_prio(70, { stuck = 2, fuel_low = true }, "fuel", 0) == 70 and F0.aged(70, 99999, { stuck = true }) == 70
     and F0.drop_service({ stuck = 5 }, true) == true and F0.refill_to(1e6, 10, 10, 50) == 10, "éteintes : la priorité, l'âge, le retrait et le remplissage d'avant")
-  check(F0.hold_budget({ a = { plate = "p", ratio = 1 } }, { p = 5 }).a == 5 and F0.equiv("a", { a = { plate = "p", ratio = 1 } }, { a = 1 }, { p = 5 }) == 6,
-    "le minerai équivalent et la rétention restent allumés")
+  local map0 = { a = { plate = "p", ratio = 1 } }
+  check(F0.ENABLE.equiv == false and F0.ENABLE.hold == false, "minerai équivalent et rétention des minages : éteints par défaut (lot FLUX, bancs de contrôle c1/c2)")
+  check(F0.equiv("a", map0, { a = 1 }, { p = 5 }) == 1 and #F0.hold_mines({ { key = "k", kind = "mine", resource = "a", count = 3, prio = 10 } }, map0, { a = 9 }, 90) == 0,
+    "éteints : le minerai seul, aucun minage retenu")
+  F0.ENABLE.equiv, F0.ENABLE.hold = true, true
+  check(F0.hold_budget(map0, { p = 5 }).a == 5 and F0.equiv("a", map0, { a = 1 }, { p = 5 }) == 6
+    and #F0.hold_mines({ { key = "k", kind = "mine", resource = "a", count = 3, prio = 10 } }, map0, { a = 9 }, 90) == 1,
+    "allumés : le minerai équivalent et la rétention")
+  F0.ENABLE.equiv, F0.ENABLE.hold = false, false
   package.loaded["shared.team.flux"] = Fx
 end
 

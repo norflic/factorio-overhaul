@@ -31,12 +31,15 @@
 ]]
 local Fx = {}
 
--- Interrupteurs des règles qui touchent aux TOURNÉES et au ravitaillement (F2, F3 du lot). ÉTEINTES par défaut : aux bancs de 1 h (fo-logs/2026-11-02_FLUX)
--- elles ne prouvent aucun gain et, sur la graine 271828182, la partie d'Écarlate retombe à la moitié des plaques du témoin avec elles comme sans
--- les plus récentes (cause non isolée) ; le minerai équivalent et la rétention des minages (F1), eux, sont allumés. Un banc ou une relecture peut
--- les allumer : `Fx.ENABLE.prio = true`, etc. (tests/flux_test.lua joue les deux états).
+-- Interrupteurs des règles. TOUS ÉTEINTS par défaut : le jeu est alors celui de `main` à l'identique (parties c1-rien de fo-logs/2026-11-02_FLUX,
+-- graines 271828182 et 20261020 : mêmes plaques, mêmes PNJ que le témoin au chiffre près). Preuves (bancs de 1 h, graine 271828182, Écarlate, plaques
+-- produites ; témoin 30 686) : minerai équivalent + rétention 14 074 ; minerai équivalent seul 16 366 (2 000 à 3 200 plaques qui dorment dans les
+-- fours, sorties pleines 32) ; rétention seule 32 483 (Émeraude 40 689 contre 55 335 et votre équipe 17 064 contre 24 140 : sans gain mesuré sur F1).
+-- Compter les plaques des sorties comme disponibles, alors qu'aucune règle de tournée ne les ramène, arrête le minage sans que les plaques arrivent.
+-- prio/aging/keep_drop/refill : règles de tournées (F2, F3), aucun gain prouvé. Un banc peut les allumer : `Fx.ENABLE.prio = true` (tests/flux_test.lua
+-- joue les deux états).
 Fx.ENABLE = { prio = false, aging = false, keep_drop = false, refill = false,
-  equiv = true, hold = true } -- equiv/hold : minerai équivalent et rétention des minages (F1), allumés ; interrupteurs pour les parties de contrôle
+  equiv = false, hold = false } -- minerai équivalent et rétention des minages (F1)
 
 Fx.STUCK_AT = 90          -- sortie de four au moins aussi pleine (pile de 100) : le four ne fond plus
 Fx.STALE_TICKS = 5 * 3600 -- une tournée libre depuis 5 min : ses sorties ne sont plus comptées (le minage reprend la main)
