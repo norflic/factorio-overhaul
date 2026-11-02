@@ -2548,7 +2548,7 @@ local function plan_project(f, surface, p)
       w = lay.box[3] - lay.box[1] + 1, h = lay.box[4] - lay.box[2] + 1, power = true }
     local ents = {}
     for _, e in ipairs(lay.ents) do
-      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role }
+      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge, rank = e.rank } -- (lot CHAMP : charge du coffre de combustible, rang de pose)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item } end
@@ -2773,6 +2773,7 @@ local function needs_of(p)
       bump(need, e.item)
       if e.name == "burner-inserter" then bump(need, "coal", 2) end
       if e.subst then bump(need, T.fuel, Rr.SUBST_FUEL) end -- lot REBUILD-RAPIDE (d) : combustible de la foreuse à combustion de secours
+      if e.charge then bump(need, e.charge.item, e.charge.count) end -- lot CHAMP : coffre de combustible posé garni
     end
   end
   return need
@@ -3295,6 +3296,15 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     local fuel = ent.get_fuel_inventory()
     if fuel then fuel.insert({ name = T.fuel, count = inv.remove({ name = T.fuel, count = math.min(Rr.SUBST_FUEL, inv.get_item_count(T.fuel)) }) }) end
   end
+  -- lot CHAMP : un coffre de combustible d'une fonderie de champ est posé garni (la charge portée par le PNJ avec lui) : ses fours
+  -- démarrent sans attendre le premier remplissage du quai (mesuré : jusqu'à 32 fours « sans combustible » par équipe à 58 min)
+  if e.charge and inv.get_item_count(e.charge.item) >= 1 then
+    local n = inv.remove({ name = e.charge.item, count = math.min(e.charge.count, inv.get_item_count(e.charge.item)) })
+    if n > 0 then
+      local put = ent.insert({ name = e.charge.item, count = n })
+      if put < n then inv.insert({ name = e.charge.item, count = n - put }) end
+    end
+  end
   e.built = true
   st.revived = st.revived + 1
   return true
@@ -3553,6 +3563,7 @@ local function batch_tasks(f, p, out, free_of)
       bt.main[#bt.main + 1] = e.item -- relecture REBUILD-RAPIDE : objets qui posent les pièces du lot (Rr.batch_ready)
       if e.name == "burner-inserter" then bump(bt.items, "coal", 2) end
       if e.subst then bump(bt.items, T.fuel, Rr.SUBST_FUEL) end -- lot REBUILD-RAPIDE (d) : combustible porté avec la foreuse de secours
+      if e.charge then bump(bt.items, e.charge.item, e.charge.count) end -- lot CHAMP : charge portée avec le coffre de combustible
       bt.n = bt.n + 1
     end
   end
@@ -3788,8 +3799,13 @@ local function wire_project(f, surface, p)
   for _, c in ipairs(cand) do
     local ra, rc = find(c[2]), find(c[3])
     if ra ~= rc then
-      if poles[c[2]].connect_neighbour(poles[c[3]]) then n = n + 1 end
-      parent[rc] = ra
+      -- lot CHAMP : la liaison n'unit les deux réseaux que si le fil est POSÉ ; un poteau qui a déjà ses 5 fils (reliés par le moteur au
+      -- ravivage) refuse, et l'arête suivante doit être essayée. Avant, le refus comptait comme une liaison : des fonderies de champ restaient
+      -- sur un réseau sans centrale (mesuré : 12 à 26 bras « sans courant » par bande, graine 271828182, [FO-CHAMP-ETAT])
+      if poles[c[2]].connect_neighbour(poles[c[3]]) then
+        n = n + 1
+        parent[rc] = ra
+      end
     end
   end
   -- liaisons de cuivre des poteaux du projet (le moteur relie lui-même un poteau ravivé à ses voisins : les fils

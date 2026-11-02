@@ -894,7 +894,8 @@ end
 --- Trie une liste d'entités planifiées dans l'ordre de pose (rang, puis y, puis x, puis nom).
 function P.sort_build(list)
   table.sort(list, function(a, b)
-    local ra, rb = P.kind_rank(a.name), P.kind_rank(b.name)
+    -- lot CHAMP : une entité peut porter son rang (`rank`) : les foreuses d'un champ se posent APRÈS leur tapis et leur fonderie
+    local ra, rb = a.rank or P.kind_rank(a.name), b.rank or P.kind_rank(b.name)
     if ra ~= rb then return ra < rb end
     if a.y ~= b.y then return a.y < b.y end
     if a.x ~= b.x then return a.x < b.x end

@@ -274,7 +274,8 @@ function C.think(view, book, st, ctx)
         keep = Pi.allows(pile, "extraction", g.why) or starved_prev[g.why] == true
         if not keep then Pi.suspend(pile, g.key, "releve (" .. tostring(g.releve) .. ") : la pile d'abord") end
       elseif g.kind == "module" and g.pile then
-        local ok, why = Pi.porte(pile, g.pile, g.product, ((short_prev[g.product] or 0) > 0) or starved_prev[g.product] == true)
+        local it = g.item or g.product -- lot CHAMP : une bande du champ est jugée sur sa plaque, pas sur l'étiquette de son but
+        local ok, why = Pi.porte(pile, g.pile, it, ((short_prev[it] or 0) > 0) or starved_prev[it] == true)
         if not ok then
           keep = false
           Pi.suspend(pile, g.key, "module neuf du plan directeur (" .. tostring(g.pile) .. ") : " .. tostring(why))

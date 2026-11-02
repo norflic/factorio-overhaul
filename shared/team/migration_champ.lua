@@ -68,6 +68,9 @@ M.CFG = {
   retry_refuse = 3600,    -- 1 min : nouvel essai après un refus du plan (une AUTRE partie : la refusée est écartée)
   max_bad = 8,            -- parties refusées retenues au plus par avant-poste
   revive = 30 * 3600,     -- 30 min : un avant-poste abandonné (échecs de suite) repart d'un état neuf
+  -- lot CHAMP (ordres « couvrir / ouvrir » de la capitalisation passés par le champ, M.want_target)
+  want_margin = 8,        -- tuiles : un avant-poste dont le centre est à cette marge de la boîte du gisement est sur ce gisement
+  want_ttl = 10 * 3600,   -- 10 min : un champ reste « voulu » (servi d'abord) tant que l'ordre de la capitalisation le suit
 }
 
 local EPS = 1e-6
@@ -368,6 +371,29 @@ function M.gate(st, p, env, cfg)
     return "attendre", why
   end
   return "passer", "deja-avance" -- état plus avancé que prévu (sauvegarde ou projet repris) : on ne retire rien de plus
+end
+
+--- Lot CHAMP : cible d'un ordre « couvrir » ou « ouvrir » de la capitalisation sur le gisement recensé `dep` { x0, y0, x1, y1, cx, cy }.
+--- `cands` : cibles du même minerai, dans l'ordre de leur numéro, { id, pos = { x, y }, field (gisement sans avant-poste), framed (champ
+--- déjà planifié et non abandonné) }. Seules comptent celles dont le centre est dans la boîte du gisement élargie de `margin` tuiles.
+--- Rend la cible : le champ déjà planifié d'abord (un seul champ par gisement), puis l'avant-poste le plus proche du centre (numéro le
+--- plus petit à égalité), puis un gisement sans avant-poste ; ou nil (gisement neuf).
+function M.want_target(cands, dep, margin)
+  margin = margin or M.CFG.want_margin
+  local owner, best, bd, field
+  for _, c in ipairs(cands) do
+    local p = c.pos
+    if p.x >= dep.x0 - margin and p.x <= dep.x1 + margin and p.y >= dep.y0 - margin and p.y <= dep.y1 + margin then
+      if c.framed and not owner then owner = c end
+      if c.field then
+        field = field or c
+      else
+        local d = (p.x - dep.cx) ^ 2 + (p.y - dep.cy) ^ 2
+        if not bd or d < bd - EPS or (math.abs(d - bd) <= EPS and c.id < best.id) then best, bd = c, d end
+      end
+    end
+  end
+  return owner or best or field
 end
 
 --- Suite du chantier après le retrait. env = { now, made (produits finis des fours de la ligne), t_done (tick où la ligne est finie ou nil) }.

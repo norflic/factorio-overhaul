@@ -500,6 +500,28 @@ function Auto.submit(f, rq, tick, research)
   return submit(f, state_of(f), tick, rq, research)
 end
 
+--- Lot CHAMP : ce que submit fait avant le premier module ÉLECTRIQUE (plan directeur allumé, centrale demandée), pour un ordre de la
+--- capitalisation qui va au champ au lieu d'un module. Sans lui, la centrale n'était plus demandée par le premier ordre « ouvrir » (minute 1)
+--- mais par le premier module électrique d'une autre sorte : 29,8 min pour emerald, jamais pour scarlet (banc final-lot-20261020, graine
+--- 20261020) ; la migration attendait « courant » toute la partie. Rend vrai si quelque chose a été demandé.
+function Auto.ensure_power(f, tick, pole)
+  if not enabled(f) then return false end
+  local st = state_of(f)
+  local did = false
+  if not f.build then
+    Build.enable(f, { radius = Auto.RADIUS })
+    note(f, st, tick, "plan directeur allume (rayon " .. Auto.RADIUS .. ")")
+    did = true
+  end
+  if not st.plant_id then
+    st.plant_id = Build.plant(f, pole)
+    st.plant_state = "attente"
+    note(f, st, tick, "centrale demandee (projet " .. tostring(st.plant_id) .. ") avant le premier champ electrique")
+    did = true
+  end
+  return did
+end
+
 --- Lot C2 : seuil du tapis en vigueur (objets/s) de l'équipe, ou nil (réglage éteint : A.BELT_FLOW).
 function Auto.belt_flow(f)
   local st = f and f.team and f.team.ia3e
@@ -610,14 +632,18 @@ function Auto.think(f, view, book, tick, research)
   -- thermiques comme ça posées ») : la ligne électrique demandée par la migration du champ (script/team/migration_champ.lua) est un
   -- projet du cerveau comme la centrale : ses matériaux manquants (foreuses électriques, bras, tapis, poteaux) deviennent des buts
   -- « auto:migration » (fabriquer, fondre). Avant, personne ne les fabriquait : réserve « materiaux » 30 min, demande annulée, 0 partie migrée.
-  local mig_id = MigChamp.project(f)
-  if mig_id then
+  -- Lot CHAMP : un but par créneau de la migration (deux champs de minerais différents en même temps) ; une bande du champ porte sa plaque
+  -- (`item`) : la porte de la pile lit la plaque, pas l'étiquette du but (shared/ai3/cerveau.lua), famille d'investissement « capi »
+  for i, mp in ipairs(MigChamp.projects(f)) do
+    local mig_id = mp.pid
     local ps = Build.brief(f, mig_id)
     if ps and ps.state ~= "fini" and ps.state ~= "refuse" then
-      Build.tag(f, mig_id, "migration", nil) -- lot FUITES-PILE : sauvegardes d'avant ce lot
+      if not mp.item then Build.tag(f, mig_id, "migration", nil) end -- lot FUITES-PILE : sauvegardes d'avant ce lot
       -- lot FUITES-PILE : famille de la pile ; une migration EN CHANTIER (paires déjà retirées) continue pendant la retenue
-      mods[#mods + 1] = { product = "migration", state = ps.state, missing = ps.missing or {}, reason = ps.reason, gain = 0, -- valeur de base d'un module
-        pile = (not ps.rebuilding and not PileRt.migration_building(f)) and "migration" or nil }
+      local fam = mp.item and "capi" or "migration"
+      mods[#mods + 1] = { product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing or {},
+        reason = ps.reason, gain = 0, -- valeur de base d'un module
+        pile = (not ps.rebuilding and not (i == 1 and PileRt.migration_building(f))) and fam or nil }
     end
   end
   local feeds = {}

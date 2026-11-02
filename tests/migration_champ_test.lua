@@ -1225,9 +1225,11 @@ do
   local fh = io.open("script/ai3/automatisation.lua", "rb")
   local src = fh and fh:read("*a") or ""
   if fh then fh:close() end
-  check(src:find("local mig_id = MigChamp.project(f)", 1, true) ~= nil and src:find('product = "migration", state = ps.state, missing = ps.missing', 1, true) ~= nil,
+  -- (lot CHAMP : un but par créneau de la migration, Mig.projects ; le premier garde l'étiquette « migration »)
+  check(src:find("for i, mp in ipairs(MigChamp.projects(f)) do", 1, true) ~= nil
+    and src:find('product = (i == 1) and "migration" or ("migration-" .. i), item = mp.item, state = ps.state, missing = ps.missing', 1, true) ~= nil,
     "K12 bis : câblage : Auto.think met la ligne de la migration dans les projets du cerveau")
-  local a1 = src:find("local mig_id = MigChamp.project(f)", 1, true)
+  local a1 = src:find("for i, mp in ipairs(MigChamp.projects(f)) do", 1, true)
   local a2 = src:find("return { mods = mods", 1, true)
   check(a1 and a2 and a1 < a2, "K12 ter : avant le retour du contexte du cerveau")
 end
@@ -1256,6 +1258,150 @@ do
   check(#E2.Build.requests == n, "K13b : mutant « abandon définitif » : aucune reprise (refusé par K7)")
   E2.restore()
   CFG.revive = saved
+end
+
+do
+  -- W. Lot CHAMP : cible d'un ordre « couvrir / ouvrir » de la capitalisation (M.want_target) ; cas, puis mutants refusés
+  section("W. cible d'un ordre de la capitalisation sur un gisement (lot CHAMP)")
+  local dep = { x0 = 0, y0 = 0, x1 = 40, y1 = 20, cx = 20, cy = 10 }
+  local m = CFG.want_margin
+  local cases = {
+    { "un avant-poste dans la boite", { { id = 3, pos = { x = 5, y = 5 } } }, 3 },
+    { "le plus proche du centre", { { id = 1, pos = { x = 2, y = 2 } }, { id = 2, pos = { x = 19, y = 11 } } }, 2 },
+    { "egalite : le plus petit numero", { { id = 7, pos = { x = 10, y = 10 } }, { id = 4, pos = { x = 30, y = 10 } } }, 4 },
+    { "le champ deja planifie d'abord", { { id = 1, pos = { x = 20, y = 10 } }, { id = 2, pos = { x = 1, y = 1 }, framed = true } }, 2 },
+    { "hors de la boite elargie : ignore", { { id = 1, pos = { x = 41 + m, y = 10 } } }, nil },
+    { "au bord de la marge : compte", { { id = 1, pos = { x = 40 + m, y = 10 } } }, 1 },
+    { "gisement sans avant-poste seul", { { id = 100001, pos = { x = 20, y = 10 }, field = true } }, 100001 },
+    { "avant-poste avant gisement sans avant-poste", { { id = 5, pos = { x = 38, y = 18 } }, { id = 100001, pos = { x = 20, y = 10 }, field = true } }, 5 },
+    { "gisement planifie avant avant-poste", { { id = 5, pos = { x = 20, y = 10 } }, { id = 100001, pos = { x = 21, y = 10 }, field = true, framed = true } }, 100001 },
+    { "aucune cible", {}, nil },
+  }
+  local function run(fn)
+    local bad = 0
+    for _, c in ipairs(cases) do
+      local got = fn(c[2], dep, m)
+      if (got and got.id) ~= c[3] then bad = bad + 1 end
+    end
+    return bad
+  end
+  for _, c in ipairs(cases) do
+    local got = Mg.want_target(c[2], dep, m)
+    check((got and got.id) == c[3], "W : " .. c[1] .. " (attendu " .. tostring(c[3]) .. ", obtenu " .. tostring(got and got.id) .. ")")
+  end
+  local real = Mg.want_target
+  local mutants = {
+    { "champ planifie ignore", function(cs, d, mg) local c2 = {}; for i, c in ipairs(cs) do c2[i] = { id = c.id, pos = c.pos, field = c.field } end; return real(c2, d, mg) end },
+    { "marge ignoree", function(cs, d, mg) return real(cs, d, 0) end },
+    { "marge infinie", function(cs, d, mg) return real(cs, d, 1e9) end },
+    { "le premier dans la boite (pas le plus proche)", function(cs, d, mg)
+      for _, c in ipairs(cs) do if c.framed then return real(cs, d, mg) end end
+      for _, c in ipairs(cs) do
+        if not c.field and c.pos.x >= d.x0 - mg and c.pos.x <= d.x1 + mg and c.pos.y >= d.y0 - mg and c.pos.y <= d.y1 + mg then return c end
+      end
+      return real(cs, d, mg) end },
+    { "gisement sans avant-poste d'abord", function(cs, d, mg) for _, c in ipairs(cs) do if c.field then return c end end; return real(cs, d, mg) end },
+  }
+  local survivors = 0
+  for _, mu in ipairs(mutants) do
+    local bad = run(mu[2])
+    check(bad > 0, "W : mutant refusé : " .. mu[1])
+    if bad == 0 then survivors = survivors + 1 end
+  end
+  check(run(real) == 0, "W : la règle passe tous les cas")
+  print(string.format("[MIGRATION-CHAMP] cible capitalisation : %d cas, mutants %d refusés sur %d", #cases, #mutants - survivors, #mutants))
+end
+
+do
+  -- W2. Lot CHAMP : Mig.want / Mig.follow et la priorité des champs voulus, sous le moteur simulé (Champ.data, Champ.powered_pole et
+  -- Champ.frame remplacés : le moteur simulé n'a ni prototypes de foreuse électrique ni minerai ; on suit QUI la migration planifie d'abord)
+  section("W2. ordres de la capitalisation vers le champ, sous moteur simulé (lot CHAMP)")
+  local E = executor_run({ pairs = 8 })
+  local Mig, f, o = E.Mig, E.f, E.o
+  local Ch = package.loaded["script.team.champ"]
+  local saved = { data = Ch.data, pole = Ch.powered_pole, frame = Ch.frame }
+  local powered, asked = true, {}
+  Ch.data = function() return { stub = true }, {} end
+  Ch.powered_pole = function() return powered and { x = 0, y = 0 } or nil end
+  Ch.frame = function(_, _, oo) asked[#asked + 1] = oo.id; return nil, "essai" end
+  local res = T.outposts.iron.resource
+  local tick = 1000
+  local dep1 = { id = "a", resource = res, tiles = 300, x0 = o.pos.x - 10, y0 = o.pos.y - 10, x1 = o.pos.x + 10, y1 = o.pos.y + 10, cx = o.pos.x, cy = o.pos.y }
+  local id1, p1 = Mig.want(f, dep1, tick)
+  check(id1 == 1 and p1 == 0, "W2 : le gisement de l'avant-poste 1 le cible")
+  check((f.migration.o[1].want_until or 0) > tick, "W2 : l'avant-poste est voulu")
+  local dep2 = { id = "b", resource = res, tiles = 200, x0 = 500, y0 = 500, x1 = 520, y1 = 530, cx = 510, cy = 515 }
+  local id2 = Mig.want(f, dep2, tick)
+  check(id2 == Ch.FIELD_BASE + 1 and f.migration.fields[id2] ~= nil and f.migration.fields[id2].kind == "iron", "W2 : gisement sans avant-poste cree")
+  check(Mig.want(f, dep2, tick + 60) == id2, "W2 : le meme gisement redemande donne la meme cible")
+  check(Ch.target(f, id2) == f.migration.fields[id2] and Ch.target(f, 1) == o, "W2 : Champ.target rend l'avant-poste ou le gisement")
+  powered = false
+  local id3, why3 = Mig.want(f, { id = "c", resource = res, tiles = 90, x0 = -900, y0 = -900, x1 = -880, y1 = -880, cx = -890, cy = -890 }, tick)
+  check(id3 == nil and tostring(why3):find("reseau") ~= nil and f.migration.nfield == 1, "W2 : sans reseau alimente, refus et rien de cree")
+  powered = true
+  local id4 = Mig.want(f, { id = "d", resource = T.outposts.coal.resource, tiles = 90, x0 = dep1.x0, y0 = dep1.y0, x1 = dep1.x1, y1 = dep1.y1, cx = dep1.cx, cy = dep1.cy }, tick)
+  check(id4 == nil, "W2 : minerai sans four : pas de champ")
+  local s = Mig.follow(f, id2, tick + 100)
+  check(s ~= nil and s.produced == 0 and s.stage == "veille" and f.migration.o[id2].want_until > tick + 100, "W2 : suivi d'un champ voulu (et voulu plus longtemps)")
+  -- priorité : l'avant-poste 1 n'est plus voulu ; le gisement voulu (sans paire) est planifié AVANT lui, et l'est malgré 0 paire
+  f.migration.o[1].want_until = 0
+  game.tick = tick
+  E.think()
+  check(asked[1] == id2 and asked[2] == 1, "W2 : le champ voulu est planifie d'abord (ordre : " .. table.concat(asked, ",") .. ")")
+  -- un gisement sans avant-poste n'avale pas un avant-poste d'un gisement VOISIN (à moins de 64 tuiles, hors de sa boîte) : l'avant-poste 7,
+  -- 30 tuiles à l'est de la boîte, garde sa propre migration (il n'est ni « voisin » du champ voulu, ni écarté comme « champ de »)
+  f.outposts[7] = { id = 7, kind = "iron", pos = { x = 550 + CFG.want_margin + 1, y = 515 }, drill_list = {}, sinks = {}, drills = 0 }
+  f.migration.o[id2].frame, f.migration.o[id2].order = { axis = "x" }, { 1 }
+  local logs0 = #E.logs
+  game.tick = game.tick + CFG.every
+  Mig.think(f, E.surface, E.book, E.free, game.tick)
+  local swallowed = false
+  for k = logs0 + 1, #E.logs do if E.logs[k]:find("avant%-poste 7 .*champ de") then swallowed = true end end
+  -- (sous la règle des 64 tuiles, l'avant-poste 7 serait sauté sans état de migration : ms.o[7] resterait vide)
+  check(not swallowed and f.migration.o[7] ~= nil, "W2 : un avant-poste hors de la boite du gisement voulu n'est pas pris pour son voisin")
+  f.outposts[7] = nil
+  f.migration.o[id2].frame, f.migration.o[id2].order = nil, nil
+  -- abandon récent : refus ; 3 min plus tard : repris
+  local st2 = f.migration.o[id2]
+  st2.abandoned, st2.abandoned_at = true, game.tick
+  check(Mig.want(f, dep2, game.tick + 60) == nil, "W2 : champ abandonne il y a moins de 3 min : refus")
+  check(Mig.want(f, dep2, game.tick + 3 * 3600 + 1) == id2 and not st2.abandoned, "W2 : champ abandonne repris apres 3 min")
+  f.migration.fields[id2].migr = "fini"
+  check(Mig.want(f, dep2, game.tick) == nil, "W2 : champ pose en entier : refus")
+  Ch.data, Ch.powered_pole, Ch.frame = saved.data, saved.pole, saved.frame
+  E.restore()
+end
+
+do
+  -- W3. Lot CHAMP : une bande BLOQUÉE en chantier est laissée au plan après 15 min (la suivante part) ; une bande en chantier ordinaire attend
+  section("W3. bande bloquee laissee au plan (lot CHAMP)")
+  local function setup(pstate)
+    local E = executor_run({ pairs = 8 })
+    local f = E.f
+    local id = E.Build.request(f, { site = "champ" })
+    local p = f.build.projects[id]
+    p.state = pstate
+    f.migration = { next = 0, logs = 0, logs_f = 0, o = {}, cur = 1 }
+    f.migration.o[1] = { stage = "chantier", pid = id, ids = {}, t0 = 0, t_degel = 0, band_key = 5, frame = { axis = "x" }, order = { 5 },
+      done_pr = {}, fails = 0, noop = 0, done = 0, produced = 0, retry = 0, retired = 2 }
+    return E, f.migration.o[1]
+  end
+  local E, st = setup("bloque")
+  E.think()
+  check(st.stage == "chantier" and st.block_t0 ~= nil, "W3 : bande bloquee : le minuteur part, la bande garde son creneau")
+  game.tick = game.tick + 15 * 3600
+  E.think()
+  local said = false
+  for _, l in ipairs(E.logs) do if l:find("laissee au plan, bande suivante") then said = true end end
+  check(st.done_pr["5"] == true and said,
+    "W3 : apres 15 min, la bande bloquee est laissee au plan et comptee posee (journal)")
+  E.restore()
+  local E2, st2 = setup("chantier")
+  E2.think()
+  game.tick = game.tick + 16 * 3600
+  E2.think()
+  check(st2.stage == "chantier" and not st2.done_pr["5"], "W3 : une bande en chantier ordinaire n'est pas laissee (16 min)")
+  E2.restore()
 end
 
 print(string.format("[MIGRATION-CHAMP] BILAN : %d OK, %d ECHEC(S)", passes, failures))

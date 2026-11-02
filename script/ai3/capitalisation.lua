@@ -86,6 +86,7 @@ local Ind = require("script.ai3.industrie") -- lot INDUSTRIE I6 : choix du patro
 local PileRt = require("script.team.pile") -- lot FUITES-PILE : la porte de la pile (ordres neufs, équipement en modules)
 local Pi = require("shared.ai3.pile")
 local Ext = require("script.ai3.extension") -- lot C3 EXTENSION : rayon de base (étendue des avant-postes)
+local MigChamp = require("script.team.migration_champ") -- lot CHAMP : « couvrir / ouvrir » d'un minerai à fondre passent par le champ
 
 local Capi = {}
 
@@ -975,6 +976,16 @@ function Capi.split(rate, factor)
   return out
 end
 
+--- Lot CHAMP (demande du lead, 2/11) : un ordre « couvrir » ou « ouvrir » à foreuses électriques d'un minerai que le CHAMP sait poser (minerai
+--- à fondre, script/team/migration_champ.lua Mig.takes) va au champ (bandes en rangées hors du treillis), plus à une fonderie à foreuses du
+--- treillis : la ligne électrique de cette fonderie occupait le gisement et le champ n'y posait plus de bande (mesuré, partie de 150 min,
+--- graine 20261020 : emerald, « gisement occupe (hors paires) : electric-mining-drill 18, reserve 127 », aucune bande sur ce gisement).
+local function to_champ(f, cs, o)
+  if o.kind ~= "couvrir" and o.kind ~= "ouvrir" then return false end
+  local dm = Capi.data().drill_by[o.entity]
+  return dm ~= nil and dm.energy == "electric" and MigChamp.takes(f, o.resource) ~= nil
+end
+
 --- Envoie un ordre de la règle à son exécutant. Rend l'enregistrement de l'ordre ouvert, ou nil et la raison.
 local function execute(f, cs, o, view, book, tick, research)
   local rec = { key = o.key, kind = o.kind, item = o.item, resource = o.resource, deposit = o.deposit, entity = o.entity,
@@ -982,6 +993,18 @@ local function execute(f, cs, o, view, book, tick, research)
     smelt_recipe = o.smelt_recipe, smelt_entity = o.smelt_entity, value = o.value, T = o.T, opened = tick,
     progress_tick = tick, missing = {}, why = o.why }
   local D = Capi.data()
+  if to_champ(f, cs, o) then
+    -- le champ du gisement : une bande de plus (la suivante de son cadre), demandée au plan directeur par la migration ; l'ordre est fini
+    -- quand une bande de ce champ produit (Mig.follow), ses manques sont les buts de la bande (script/ai3/automatisation.lua)
+    local dep = cs.deps[o.deposit]
+    if not dep then return nil, "champ : gisement non recense" end
+    -- plan directeur et centrale d'abord, comme avant le premier module électrique (Auto.submit) : le champ attend un réseau qui produit
+    Auto.ensure_power(f, tick, A.choose_pole(book, view.stock or {}, Harvest.reachable(f)))
+    local fid, produced = MigChamp.want(f, dep, tick)
+    if not fid then return nil, "champ : " .. tostring(produced) end
+    rec.exec, rec.field, rec.produced0, rec.missing = "champ", fid, produced or 0, {}
+    return rec
+  end
   if o.kind == "couvrir" or o.kind == "ouvrir" then
     local dm = D.drill_by[o.entity]
     if dm and dm.energy == "electric" then
@@ -1156,6 +1179,21 @@ local function follow(f, cs, rec, tick)
       if (rec.inserted or 0) > 0 then return "fini" end
       return "echec", "aucun module pose (" .. tostring(rec.why_refused) .. ")"
     end
+    return "ouvert"
+  elseif rec.exec == "champ" then
+    -- Lot CHAMP : fini quand une bande de plus du champ produit ; échec si le champ est perdu, posé en entier ou abandonné ; progrès à
+    -- chaque changement d'étape, d'état du projet ou d'entité posée
+    local s = MigChamp.follow(f, rec.field, tick)
+    if not s then return "echec", "champ : cible perdue" end
+    if s.produced > (rec.produced0 or 0) then
+      rec.n_left = 0
+      return "fini"
+    end
+    if s.migr == "fini" then return "echec", "champ : pose en entier" end
+    if s.abandoned then return "echec", "champ : abandonne" end
+    local tag = table.concat({ tostring(s.stage), tostring(s.pid), tostring(s.pstate), tostring(s.reason), tostring(s.built) }, ":")
+    if tag ~= rec.tag then rec.tag, rec.progress_tick = tag, tick end
+    rec.missing = {}
     return "ouvert"
   elseif rec.exec == "techno" then
     -- Lot LEVIERS : fini quand la technologie est faite ; progrès tant que le laboratoire la cherche ou qu'elle attend sa file.
@@ -1419,7 +1457,7 @@ local function decide(f, cs, view, book, tick, research, w)
     local rec, why
     -- (Intégration 0.6.25 : la porte de la pile de FUITES-PILE d'abord, puis le plafond des emplacements de CAPI-DEBIT.)
     local allowed, pwhy = pile_ok(f, o)
-    if allowed and room ~= nil and room <= 0 and Capi.MODULE_KINDS[o.kind] then
+    if allowed and room ~= nil and room <= 0 and Capi.MODULE_KINDS[o.kind] and not to_champ(f, cs, o) then -- (lot CHAMP : le champ n'est pas un module)
       rec, why = nil, Em.busy_text(cs.slots) .. " ; emplacements libres pris par cette decision"
       cs.blocked_slots = (cs.blocked_slots or 0) + 1 -- (intégration 0.6.32 : retenu faute de place lui aussi)
     elseif allowed then rec, why = execute(f, cs, o, view, book, tick, research)
