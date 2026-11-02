@@ -34,6 +34,7 @@ local Poles = require("script.team.poles") -- lot IA1-b : pôles, managers, gén
 local Build = require("script.team.build") -- lot IA1-d : plan directeur et construction (rien sans f.build)
 local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARDE : la centrale finie est un poste à défendre
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
+local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qui dorment et des brûleurs vitaux à sec
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
@@ -43,6 +44,8 @@ local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à 
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
+local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
+local REPAT_ONLY = Flux.plates_of(Flux.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)) -- lot FLUX : seules les plaques comptent comme objets attendus
 local Inter = require("script.team.intermediaires") -- lot MAIN-ET-INTERMEDIAIRES (D09, D10) : pas de minage à la main de ce que les machines sortent, plafond des intermédiaires
 local MigChamp = require("script.team.migration_champ") -- lot MIGRATION-CHAMP : un avant-poste de paires thermiques migré par parties vers des rangées électriques
 local Profiler = require("script.core.profiler")
@@ -484,14 +487,28 @@ function Team.view(f, tick)
   Profiler.fstart("view:2-avant-postes")
   local pend, smelters_pending, fortify_open = Board.pending(f)
   local outposts = {}
+  local fsurface = f.hq and f.hq.valid and f.hq.surface
   for _, oid in ipairs(State.sorted_keys(f.outposts)) do
     local o = f.outposts[oid]
     local st = Outposts.status(o, tick)
+    -- Lot FLUX : avant-poste DANGEREUX (nid ou ver à moins de Poles.DANGER_RADIUS tuiles, ou perte récente de votre équipe : la même règle
+    -- que le fond, script/team/poles.lua) : ni tournée en urgence ni sorties comptées, la porte le refuserait et ses refus pousseraient
+    -- l'équipe au mode survie, puis à y aller sans escorte (banc dc-croissance 20261020 : 4 PNJ perdus de votre équipe à 10 min).
+    -- Cherché seulement quand une tournée de cet avant-poste serait en jeu.
+    local unsafe
+    if fsurface and (st.fuel_low or (st.stuck or 0) > 0 or st.output >= T.collect_at) then
+      local pos = o.access or o.pos
+      unsafe = (pos and (fsurface.count_entities_filtered({ position = pos, radius = Poles.DANGER_RADIUS, force = "enemy",
+        type = { "unit-spawner", "turret" }, limit = 1 }) > 0 or (f.is_player and Poles.near_loss(f, pos, tick)))) or nil
+    end
     outposts[#outposts + 1] = {
       -- lot MIGRATION-CHAMP : un champ migré (o.migr) n'est jamais « agrandissable » en paires thermiques, même quand la fin d'une attente
       -- (board.lua, release_holds) a remis o.full à faux : sinon des tâches « extend » inutiles (Outposts.extend rend 0) tourneraient sans fin
-      id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o),
+      id = oid, kind = o.kind, drills = o.drills, full = (o.full or o.migr ~= nil) or false, turrets = st.turrets, coal_needed = Outposts.coal_needed(o, f.team.flux_fill),
       fuel_low = st.fuel_low, output = st.output, idle_ticks = st.idle_ticks,
+      -- Lot FLUX : ce que la tournée rapportera (sorties par objet), réceptacles pleins, brûleurs (à sec), âge de la tournée libre.
+      outputs = st.outputs, stuck = st.stuck, burners = st.burners, dry = st.dry, free_age = Board.free_age(f, "service:" .. oid, tick),
+      fails = o.flux_fails, unsafe = unsafe,
       has_task = Board.has(f, "service:" .. oid), has_fortify = fortify_open[oid] or false,
       -- Lot IA1-b2 : un PNJ y a été tué il y a moins de T.lethal_ticks (script/team/worker.lua).
       lethal = (o.lethal_tick ~= nil and tick - o.lethal_tick < T.lethal_ticks) or nil,
@@ -558,6 +575,15 @@ function Team.view(f, tick)
     local defended = FerEquipe.defended({ turret_ok = grow, hq_turrets = hq_turrets, defend_hq = T.defend_hq, outposts = needs })
     iron_reserve = FerEquipe.reserve(grow and T.grow_iron_reserve or nil, defended, evaluated)
   end
+  -- Lot FLUX : les plaques qui dorment dans les sorties des avant-postes (view.repat) : le tableau retient autant de minage à la main
+  -- (Board.sync / Board.add) et le fond les compte dans le stock de minerai ÉQUIVALENT ; la vue du planificateur, elle, ne change pas.
+  -- Lot FLUX : niveau de remplissage des brûleurs pour les tournées de la pensée SUIVANTE et des tournées en cours (charbon du coffre,
+  -- brûleurs de cette pensée) : shared/team/flux.lua, Fx.refill_to.
+  local n_burners = 0
+  for _, o in ipairs(outposts) do n_burners = n_burners + (o.burners or 0) end
+  f.team.flux_fill = Flux.refill_to(stock0[T.fuel] or 0, n_burners, T.fuel_refill_to, Flux.REFILL_MAX)
+  local repat = Flux.repatriable(outposts, REPAT_ONLY)
+  local incoming = Board.incoming(f)
   local smelter_out, smelter_low = Outposts.smelters_status(f)
   -- Lot FOURS : fours libres et fours à compléter, lus par la décision d'une tournée de fonte (shared/team/chaine_main.lua).
   local four_rule = Outposts.four_rule(f)
@@ -597,7 +623,7 @@ function Team.view(f, tick)
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
-    stock = stock_free, incoming = Board.incoming(f),
+    stock = stock_free, incoming = incoming, repat = repat,
     outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
@@ -697,6 +723,7 @@ function Team.think(f, surface, tick)
   end
   Profiler.stop("team:plan")
   DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
+  FluxLog.think(f, view, tick) -- lot FLUX : journal [FO-FLUX] (lecture seule, toutes les 5 min)
   -- Lot DEFENSE-CHOIX : journal [FO-DEFCHOIX], une ligne quand « tourelles du QG d'abord » commence ou finit (f.team.defchoix_first, écrit et
   -- lu ICI seulement, en événement).
   local dcp = plan.defchoix

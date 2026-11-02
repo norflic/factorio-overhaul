@@ -385,7 +385,7 @@ function Worker.program(f, task, surface, tick)
   elseif k == "service" then
     local o = f.outposts[task.outpost]
     if not o then return nil end
-    local need = Outposts.coal_needed(o)
+    local need = Outposts.coal_needed(o, f.team and f.team.flux_fill) -- lot FLUX : remplissage selon le coffre
     local steps = { { "home" } }
     if need > 0 and o.kind ~= "coal" then steps[#steps + 1] = { "take", { { T.fuel, need } } } end
     steps[#steps + 1] = { "goto", access(o), 3 }
@@ -672,7 +672,7 @@ end
 ACTS.service = function(agent, f, task, surface, tick)
   local o = f.outposts[task.outpost]
   if not o then return false end
-  local n = Outposts.service(o, main_inv(agent), tick)
+  local n = Outposts.service(o, main_inv(agent), tick, f.team and f.team.flux_fill)
   f.stats.serviced = (f.stats.serviced or 0) + 1
   f.team.collected = (f.team.collected or 0) + n
   return true
