@@ -75,6 +75,17 @@ local function say_why(f, ms, st, key, text)
   say(f, ms, text)
 end
 
+--- Lot CHAMP : deux champs migrent EN MÊME TEMPS au plus (créneaux ms.cur et ms.cur2, de minerais différents : le fer et le cuivre
+--- avancent ensemble) ; ms.cur reste le créneau lu par les autres modules (script/team/pile.lua, Mig.project).
+local function claim(ms, id)
+  if not ms.cur then ms.cur = id else ms.cur2 = id end
+end
+local function release(ms, id)
+  if ms.cur == id then ms.cur = nil end
+  if ms.cur2 == id then ms.cur2 = nil end
+  if ms.cur2 and not ms.cur then ms.cur, ms.cur2 = ms.cur2, nil end
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Lectures
 ---------------------------------------------------------------------------------------------------
@@ -346,7 +357,7 @@ local function finish(f, ms, o, st, how, text)
     o.full = true
     o.full_by = "migration"
   end
-  ms.cur = nil
+  release(ms, o.id)
   say(f, ms, string.format("%s [equipe : %d demande(s), %d paire(s) retiree(s), %d ligne(s) neuve(s) ont produit]", text, ms.requests or 0, ms.retired or 0,
     ms.lines or 0), true)
 end
@@ -364,7 +375,7 @@ local function failed(f, ms, o, st, tick, why)
   end
   st.band_key = nil
   st.stage, st.pid, st.ids, st.gate_t0, st.t_done = "veille", nil, nil, nil, nil
-  ms.cur = nil
+  release(ms, o.id)
   if st.done == 0 and st.produced == 0 then o.migr, o.full, o.full_by = nil, false, nil end -- rien de migré : l'avant-poste est rendu en attendant
   if st.fails >= CFG.max_fails then
     finish(f, ms, o, st, (st.done > 0) and "partiel" or "abandon",
@@ -445,7 +456,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   st.cx, st.cy, st.gate_t0, st.why_last, st.retired = cx, cy, nil, nil, nil
   o.migr, o.full, o.full_by = "en cours", true, "migration"
   for _, q in ipairs(siblings(f, o)) do q.migr, q.full, q.full_by = "en cours", true, "migration" end -- même gisement : plus de paire de plus
-  ms.cur = o.id
+  claim(ms, o.id)
   ms.requests = (ms.requests or 0) + 1
   local nd, nf = 0, 0
   for _, e in ipairs(bd.plan.ents) do if e.kind == "foreuse" then nd = nd + 1 elseif e.kind == "four" then nf = nf + 1 end end
@@ -501,7 +512,7 @@ local function begin_part(f, surface, ms, o, st, list, rects, tick)
   st.stage, st.pid, st.ids, st.t0, st.band_key = "projet", id, band.ids, tick, band.key
   st.cx, st.cy, st.gate_t0, st.why_last, st.retired = band.cx, band.cy, nil, nil, nil
   o.migr, o.full, o.full_by = "en cours", true, "migration"
-  ms.cur = o.id
+  claim(ms, o.id)
   ms.requests = (ms.requests or 0) + 1
   say(f, ms, string.format("avant-poste %d (%s) : partie %d demandee : %d paire(s) thermique(s) %s (lot %s), projet %d : fonderie de %d rangee(s) "
     .. "et ligne de %d paire(s) de foreuses electriques visees, %.0f plaques/min (la partie en livrait %.1f/s), %d paire(s) restent debout",
@@ -615,7 +626,7 @@ local function step_build(f, surface, ms, o, st, tick)
       env.made, st.done, (tick - st.t0) / 3600), true)
     st.stage, st.pid, st.ids, st.t_done, st.gate_t0, st.why_last = "veille", nil, nil, nil, nil, nil
     st.retry = tick
-    ms.cur = nil
+    release(ms, o.id)
     if st.noop >= CFG.max_noop then
       finish(f, ms, o, st, (st.done > 0) and "partiel" or "abandon",
         string.format("avant-poste %d : %d ligne(s) posee(s) sans liberer la place voulue : migration arretee, %d partie(s) migree(s)", o.id, st.noop, st.done))
@@ -630,7 +641,7 @@ local function step_build(f, surface, ms, o, st, tick)
     return
   end
   if act == "perdu" then
-    ms.cur = nil
+    release(ms, o.id)
     finish(f, ms, o, st, "abandon", string.format("avant-poste %d : la ligne du projet %d est perdue apres le retrait (%s) : migration abandonnee, "
       .. "l'avant-poste redevient extensible", o.id, st.pid, why))
     return
@@ -644,7 +655,7 @@ local function step_build(f, surface, ms, o, st, tick)
 end
 
 --- Premier avant-poste (par numéro) dont la migration peut partir.
-local function start_next(f, surface, ms, free, obtainable, tick)
+local function start_next(f, surface, ms, free, obtainable, tick, busy)
   local b = f.build
   -- Lot CHAMP : la plaque la plus en manque d'abord (retour du DC du 2/11 : « 57 plaques de cuivre » pour près de 1 000 de fer), puis
   -- le numéro d'avant-poste
@@ -658,6 +669,8 @@ local function start_next(f, surface, ms, free, obtainable, tick)
     local oid = it.oid
     local o = f.outposts[oid]
     local st = ms.o[oid]
+    -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement)
+    if busy and (oid == busy.id or o.kind == busy.kind or Champ.data(f, o.kind) == nil) then goto next_outpost end
     -- lot MIGRATION-DECLENCHE : un abandon (échecs de suite, ligne perdue) n'est plus définitif : après CFG.revive, l'avant-poste repart
     -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
     -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
@@ -707,6 +720,7 @@ local function start_next(f, surface, ms, free, obtainable, tick)
         say_why(f, ms, st, "start:" .. why, string.format("avant-poste %d (%s) : migration en veille (%s), %d paire(s) thermique(s)", o.id, o.kind, why, #list))
       end
     end
+    ::next_outpost::
   end
   return false
 end
@@ -723,28 +737,37 @@ function Mig.think(f, surface, book, free, tick)
   ms.next = tick + CFG.every
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
-  if ms.cur then
-    local o = f.outposts[ms.cur]
-    local st = o and ms.o[ms.cur]
-    if not (o and st) then
-      -- avant-poste perdu en cours de route : le projet du plan, s'il n'a rien retiré, est annulé (les matières rendues)
-      local s2 = ms.o[ms.cur]
-      ms.cur = nil
-      if s2 and s2.stage == "projet" and s2.pid then Build.cancel(f, s2.pid, "migration: avant-poste perdu") end
-      return 0
+  local did = 0
+  for _, slot in ipairs({ "cur", "cur2" }) do
+    local id = ms[slot]
+    if id then
+      local o = f.outposts[id]
+      local st = o and ms.o[id]
+      if not (o and st) then
+        -- avant-poste perdu en cours de route : le projet du plan, s'il n'a rien retiré, est annulé (les matières rendues)
+        local s2 = ms.o[id]
+        release(ms, id)
+        if s2 and s2.stage == "projet" and s2.pid then Build.cancel(f, s2.pid, "migration: avant-poste perdu") end
+      else
+        -- lot MIGRATION-DECLENCHE : le registre n'est purgé qu'APRÈS un retrait (étape « chantier ») ; en « projet » rien n'est retiré, et
+        -- une paire tuée par une attaque pendant l'attente des matières (30 min au plus) doit être refaite (scarlet, avant-poste 6 : 8 paires
+        -- avant la vague, 3 après, demande annulée sans rien migrer)
+        if st.stage == "chantier" then purge_recon(f, o) end
+        if st.stage == "projet" then step_project(f, surface, ms, o, st, tick)
+        elseif st.stage == "chantier" then step_build(f, surface, ms, o, st, tick)
+        else release(ms, id) end
+        did = 1
+      end
     end
-    -- lot MIGRATION-DECLENCHE : le registre n'est purgé qu'APRÈS un retrait (étape « chantier ») ; en « projet » rien n'est retiré, et
-    -- une paire tuée par une attaque pendant l'attente des matières (30 min au plus) doit être refaite (scarlet, avant-poste 6 : 8 paires
-    -- avant la vague, 3 après, demande annulée sans rien migrer)
-    if st.stage == "chantier" then purge_recon(f, o) end
-    if st.stage == "projet" then step_project(f, surface, ms, o, st, tick)
-    elseif st.stage == "chantier" then step_build(f, surface, ms, o, st, tick)
-    else ms.cur = nil end
-    return 1
   end
+  if ms.cur2 then return did end
+  -- un créneau libre : le premier comme avant ; le second (lot CHAMP) seulement pour un champ d'un autre minerai que celui en cours
+  local busy = ms.cur and f.outposts[ms.cur]
+  if busy and not (ms.o[ms.cur] and ms.o[ms.cur].frame) then return did end
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
-  return start_next(f, surface, ms, free or {}, obtainable, tick) and 1 or 0
+  local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy and { id = busy.id, kind = busy.kind } or nil)
+  return (started or did == 1) and 1 or 0
 end
 
 --- Lot MIGRATION-DECLENCHE : numéro du projet du plan directeur de la partie en cours (étapes « projet » et « chantier »), ou nil.
