@@ -49,7 +49,7 @@ local function defense(res, hit)
   for i = 1, 4 do s.create_entity({ name = "gun-turret", position = { x = f.hq_pos.x - 6 + i * 3, y = f.hq_pos.y + 8 }, force = f.force }) end
   if f.prevision then f.prevision.t = nil end
   local st = Prev.think(f, game.tick)
-  local out = { d = st and st.view.sites[1].d or -1, tv = st and st.turret_value or -1, ser = pcall(M.serialize, global) }
+  local out = { d = st and st.view.sites[1].d or -1, tv = st and st.turret_value or -1, at = st and st.est.armor_t or -1, ser = pcall(M.serialize, global) }
   return out
 end
 
@@ -69,6 +69,7 @@ local zero = defense({}, 5)
 check(math.abs(zero.d - base.d) < 1e-9, "table de résistances vide : valeur inchangée")
 local again = defense({ physical = { decrease = 8, percent = 0.1 } }, 5)
 check(again.d == armoured.d and again.tv == armoured.tv, "deux passages identiques")
+check(armoured.at == 36 and base.at == 1000, "facteur de la tourelle au journal : 36 ‰ contre 1000 ‰ (" .. tostring(armoured.at) .. ", " .. tostring(base.at) .. ")")
 check(armoured.ser and base.ser, "global sérialisable")
 
 print(string.format("[TENUE-MOTEUR] BILAN : %d OK, %d ECHEC(S)", passes, failures))
