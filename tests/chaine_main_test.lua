@@ -144,6 +144,108 @@ local function suite(C, report)
   w = C.smelt_worth({ smelt = {}, inputs = { aa = { "mm", 2 }, bb = { "mm", 5 } }, stock = { mm = 3 }, output = 0, free = 0,
     loads = { mm = 1 } })
   t(w, "§2 une entrée de deux produits : la plus petite quantité par fabrication décide (3 >= 2)")
+  -- §6 (lot BRIQUES) partage des fours : un produit demandé sans four reprend un four à une autre entrée ; four à sortie pleine
+  local I3 = { ["p-fer"] = { "m-fer", 1 }, ["p-acier"] = { "p-fer", 5 }, ["p-brique"] = { "m-pierre", 2 } }
+  local function fur(...)
+    local o = {}
+    for _, d in ipairs({ ... }) do o[#o + 1] = d == "-" and {} or { item = d[1], count = d[2] } end
+    return o
+  end
+  local function eq(a, b)
+    if #a ~= #b then return false end
+    for i = 1, #a do if a[i] ~= b[i] then return false end end
+    return true
+  end
+  local rel = C.releases(fur({ "p-fer", 40 }, { "p-fer", 40 }, { "p-fer", 40 }, { "p-fer", 40 }, { "p-fer", 40 }),
+    { ["p-acier"] = 18, ["p-brique"] = 6 }, I3, { ["m-pierre"] = 900, ["p-fer"] = 900 })
+  t(eq(rel, { 1 }), "§6 cinq fours d'acier, des briques demandées, de la pierre au coffre : un four repris (le premier à charge égale)")
+  rel = C.releases(fur({ "p-fer", 40 }, { "p-fer", 10 }, { "p-fer", 30 }), { ["p-acier"] = 18, ["p-brique"] = 6 }, I3,
+    { ["m-pierre"] = 9, ["p-fer"] = 90 })
+  t(eq(rel, { 2 }), "§6 le four le moins chargé est repris")
+  rel = C.releases(fur({ "p-fer", 40 }, { "p-fer", 40 }), { ["p-brique"] = 6 }, I3, { ["m-pierre"] = 9, ["p-fer"] = 90 })
+  t(eq(rel, { 1 }), "§6 l'entrée du donneur n'est plus demandée : un four repris")
+  rel = C.releases(fur({ "p-fer", 40 }), { ["p-acier"] = 4, ["p-brique"] = 6 }, I3, { ["m-pierre"] = 9, ["p-fer"] = 90 })
+  t(#rel == 0, "§6 un seul four d'une entrée encore demandée : jamais repris")
+  rel = C.releases(fur({ "p-fer", 40 }, "-"), { ["p-brique"] = 6 }, I3, { ["m-pierre"] = 9 })
+  t(#rel == 0, "§6 un four vide existe : la charge ordinaire le sert, rien n'est repris")
+  rel = C.releases(fur({ "p-fer", 40 }, { "p-fer", 40 }), { ["p-brique"] = 6 }, I3, { ["m-pierre"] = 1 })
+  t(#rel == 0, "§6 la pierre ne fait pas une fabrication au coffre : rien n'est repris")
+  rel = C.releases(fur({ "p-fer", 40 }, { "p-fer", 40 }, { "m-pierre", 30 }), { ["p-brique"] = 6, ["p-acier"] = 2 }, I3, { ["m-pierre"] = 9, ["p-fer"] = 90 })
+  t(#rel == 0, "§6 chaque produit demandé a déjà un four : rien n'est repris")
+  rel = C.releases(fur({ "m-fer", 40 }, { "m-fer", 40 }, { "m-fer", 40 }), { ["p-acier"] = 9, ["p-brique"] = 4 }, I3,
+    { ["m-pierre"] = 9, ["p-fer"] = 90 })
+  t(eq(rel, { 1 }), "§6 le produit dont l'entrée est brute est seul servi (l'acier, entrée dérivée, garde l'ordre d'avant) : un four repris")
+  rel = C.releases(fur({ "m-fer", 40 }, { "m-fer", 40 }, { "m-fer", 40 }), { ["p-acier"] = 9 }, I3, { ["p-fer"] = 90 })
+  t(#rel == 0, "§6 l'acier seul sans four : aucun four repris (entrée dérivée)")
+  local I4 = { ["p-fer"] = { "m-fer", 1 }, ["p-brique"] = { "m-pierre", 2 }, ["p-verre"] = { "m-sable", 2 } }
+  rel = C.releases(fur({ "m-fer", 40 }, { "m-fer", 40 }, { "m-fer", 40 }), { ["p-brique"] = 4, ["p-verre"] = 3 }, I4, { ["m-pierre"] = 9, ["m-sable"] = 9 })
+  t(eq(rel, { 1, 2 }), "§6 deux produits à entrée brute sans four, trois fours d'une entrée non demandée : deux fours repris")
+  rel = C.releases(fur({ "m-fer", 10 }, { "m-fer", 10 }, { "m-fer", 10 }, { "p-fer", 40 }), { ["p-fer"] = 3, ["p-brique"] = 4 }, I3, { ["m-pierre"] = 9, ["m-fer"] = 9 })
+  t(eq(rel, { 4 }), "§6 un donneur d'entrée non demandée passe avant un donneur d'entrée demandée")
+  -- force brute : le nombre de fours repris suit une formule écrite à part, les invariants tiennent
+  local kinds = { "m-fer", "p-fer", "m-pierre", "m-autre" }
+  local bad6, cases6 = 0, 0
+  local demands6 = { {}, { ["p-fer"] = 5 }, { ["p-brique"] = 5 }, { ["p-acier"] = 3, ["p-brique"] = 2 }, { ["p-fer"] = 2, ["p-acier"] = 2, ["p-brique"] = 2 },
+    { ["p-brique"] = 0 } }
+  local stocks6 = { {}, { ["m-pierre"] = 9 }, { ["m-pierre"] = 9, ["p-fer"] = 9, ["m-fer"] = 9 }, { ["m-pierre"] = 1, ["p-fer"] = 5 } }
+  local function each_fur(n, k, acc, f)
+    if k > n then f(acc) return end
+    for _, v in ipairs({ "-", 1, 2, 3, 4 }) do
+      local nx = {}
+      for i = 1, #acc do nx[i] = acc[i] end
+      nx[k] = v == "-" and {} or { item = kinds[v], count = 10 * k }
+      each_fur(n, k + 1, nx, f)
+    end
+  end
+  for n = 1, 4 do
+    each_fur(n, 1, {}, function(fs)
+      for _, d in ipairs(demands6) do
+        for _, st in ipairs(stocks6) do
+          cases6 = cases6 + 1
+          local r = C.releases(fs, d, I3, st)
+          local want, holds, free = {}, {}, 0
+          for p, q in pairs(d) do
+            local inp = I3[p]
+            if inp and q > 0 and (st[inp[1]] or 0) >= inp[2] then want[inp[1]] = true end
+          end
+          for _, f in ipairs(fs) do
+            if f.item then holds[f.item] = (holds[f.item] or 0) + 1 else free = free + 1 end
+          end
+          local starved, avail = 0, 0
+          for item in pairs(want) do if (holds[item] or 0) == 0 and not I3[item] then starved = starved + 1 end end
+          for item, h in pairs(holds) do avail = avail + (want[item] and (h - 1) or h) end
+          local expect = free > 0 and 0 or math.min(starved, avail)
+          local ok = (#r == expect)
+          local seen, left = {}, {}
+          for item, h in pairs(holds) do left[item] = h end
+          for _, i in ipairs(r) do
+            if seen[i] or not fs[i] or not fs[i].item then ok = false else
+              seen[i] = true
+              left[fs[i].item] = left[fs[i].item] - 1
+            end
+          end
+          for item in pairs(want) do if (holds[item] or 0) > 0 and left[item] < 1 then ok = false end end
+          if not ok then bad6 = bad6 + 1 end
+        end
+      end
+    end)
+  end
+  t(cases6 >= 2000 and bad6 == 0, "§6 force brute : " .. cases6 .. " cas, " .. bad6 .. " écart(s) avec la formule et les invariants")
+  local r1 = C.releases(fur({ "p-fer", 40 }, { "p-fer", 40 }, { "m-fer", 3 }), { ["p-brique"] = 2, ["p-acier"] = 1 }, I3, { ["m-pierre"] = 9, ["p-fer"] = 9 })
+  local r2 = C.releases(fur({ "p-fer", 40 }, { "p-fer", 40 }, { "m-fer", 3 }), { ["p-acier"] = 1, ["p-brique"] = 2 }, I3, { ["p-fer"] = 9, ["m-pierre"] = 9 })
+  t(eq(r1, r2), "§6 déterminisme : l'ordre de construction des tables est sans effet")
+  w, r = C.smelt_worth({ smelt = { ["p-acier"] = 18, ["p-brique"] = 6 }, inputs = I3, stock = { ["m-pierre"] = 900, ["p-fer"] = 900 }, output = 0, free = 0,
+    furnaces = fur({ "p-fer", 40 }, { "p-fer", 40 }, { "p-fer", 40 }) })
+  t(w and r == "partage", "§6 tournée utile par partage : les fours sont tous à l'acier, la brique n'a aucun four")
+  w, r = C.smelt_worth({ smelt = { ["p-acier"] = 18, ["p-brique"] = 6 }, inputs = I3, stock = { ["m-pierre"] = 900, ["p-fer"] = 900 }, output = 0, free = 0 })
+  t(not w and r == "fours-occupes", "§6 sans descripteurs de fours (règle coupée) : comme avant, fours occupés")
+  w, r = C.smelt_worth({ smelt = { ["p-brique"] = 6 }, inputs = I3, stock = { ["m-pierre"] = 1 }, output = 0, free = 0,
+    furnaces = fur({ "p-fer", 40 }, { "p-fer", 40 }) })
+  t(not w, "§6 pierre insuffisante au coffre : pas de tournée de partage")
+  w, r = C.smelt_worth({ smelt = {}, inputs = I3, stock = {}, output = 4, free = 0, collect_min = 10, blocked = 4 })
+  t(w and r == "bloque", "§6 quatre fours à sortie pleine, quatre plaques en sortie (seuil 10) : tournée pour les vider")
+  w = C.smelt_worth({ smelt = {}, inputs = I3, stock = {}, output = 4, free = 0, collect_min = 10, blocked = 0 })
+  t(not w, "§6 aucun four bloqué : pas de tournée")
   -- §3 filter_tasks
   local mine = { key = "mine:x", kind = "mine", prio = 45 }
   local smelt = { key = "smelt", kind = "smelt", prio = 60, smelt = { ["p-fer"] = 8, ["p-cuivre"] = 4 } }
@@ -201,6 +303,16 @@ local MUTANTS = {
   { 'and (not (inputs and inputs[item]) or demanded(smelt, inputs, item)) then', 'then', "complément d'un produit intermédiaire sans demande" },
   { 'if n and n > 0 and ratio', 'if n and ratio', "four à compléter : nombre nul accepté" },
   { "c.smelt = kept", "c.smelt = t.smelt", "produits sans minerai gardés dans la tournée" },
+  { 'if (a.blocked or 0) > 0 then return true, "bloque", kept end', 'if (a.blocked or 0) > 99 then return true, "bloque", kept end', "four à sortie pleine ignoré" },
+  { 'if a.furnaces and next(kept) ~= nil and next(C.releases(a.furnaces, kept, inputs, stock)) ~= nil then return true, "partage", kept end', '', "partage des fours retiré de la décision" },
+  { 'if free > 0 then return {} end', '', "four libre non regardé avant de reprendre un four" },
+  { 'if (holds[item] or 0) == 0 and not (inputs and inputs[item]) then starved[#starved + 1] = item end', 'if (holds[item] or 0) <= 1 and not (inputs and inputs[item]) then starved[#starved + 1] = item end', "produit à un seul four compté sans four" },
+  { 'and not (inputs and inputs[item]) then starved[#starved + 1] = item end', 'then starved[#starved + 1] = item end', "entrée dérivée (l'acier) servie par reprise" },
+  { '(not want[f.item] or holds[f.item] >= 2)', '(true)', "dernier four d'une entrée demandée repris" },
+  { 'local k1 = want[f.item] and 1 or 0', 'local k1 = want[f.item] and 0 or 1', "donneur demandé avant le donneur non demandé" },
+  { 'local k3 = f.count or 0', 'local k3 = -(f.count or 0)', "four le plus chargé repris" },
+  { 'if not best then break end', 'if not best then best = 1 end', "aucun donneur : un four repris quand même" },
+  { 'if inp and n > 0 and (stock == nil or (stock[inp[1]] or 0) >= inp[2]) then', 'if inp and n > 0 then', "entrée absente du coffre comptée demandée" },
   { 'if inp[1] == item and (not best or inp[2] < best) then best = inp[2] end', 'if inp[1] == item then best = inp[2] end', "plus petit rapport non retenu" },
 }
 -- (le mutant « inp[1] == item » ci-dessus est écrit sur la ligne exacte de la source)
