@@ -135,6 +135,19 @@ local function suite(Dp, Cap, Em)
   check(r == "matiere" and w == 1, "§7 le stock dort : le bâtiment fait fabriquer ses intermédiaires sans bras libre")
   r, w = emit_case({ cost = { { "x", 1 } } }, 2, false)
   check(w == 1, "§7 bras libres : servi comme avant")
+  -- prêt de l'excédent qui dort au stock virtuel, le temps du dépliage seulement
+  do
+    local seen, E = nil, { view = { workers_idle = 0 }, avail = { p = 5, q = 2 } }
+    local P = { take = function() return false end,
+      want = function(E_) seen = E_.avail.p; E_.avail.p = E_.avail.p - 30 end }
+    Cap.emit(P)(E, { prio = 50 }, { cost = { { "x", 1 } }, depense = { p = 100 } })
+    check(seen == 105, "§7 l'excédent qui dort est prêté au stock virtuel pendant le dépliage (" .. tostring(seen) .. ")")
+    check(E.avail.p == 5 and E.avail.q == 2, "§7 le prêt non servi n'est jamais donné aux projets suivants (" .. tostring(E.avail.p) .. ")")
+    local E3 = { view = { workers_idle = 0 }, avail = { p = 5 } }
+    local P3 = { take = function() return false end, want = function(E_) E_.avail.p = E_.avail.p - 103 end }
+    Cap.emit(P3)(E3, { prio = 50 }, { cost = { { "x", 1 } }, depense = { p = 100 } })
+    check(E3.avail.p == 2, "§7 au-delà du prêt, le stock virtuel ordinaire paie (" .. tostring(E3.avail.p) .. ")")
+  end
   local r2, w2, E2 = emit_case({ cost = { { "x", 1 } }, depense = true, key = "k", target = "t" }, 0, true)
   check(r2 == "ok" and w2 == 0 and E2.pay and #E2.pay == 1, "§7 coût au stock virtuel : payé, rien à fabriquer")
 
@@ -197,6 +210,8 @@ run_mutant("interrupteur sans effet", "dp", "  if not inp.on then", "  if false 
 run_mutant("amélioration servie même à moitié", "dp", "\n    and (res.grant.intermediaires or 0) >= math.max(0, num(d.intermediaires)) - 1e-9", "")
 run_mutant("production non lissée", "dp", "(num(old) * Dp.PROD_KEEP + per_min * (1000 - Dp.PROD_KEEP)) / 1000", "per_min")
 run_mutant("Cap.emit ignore g.depense", "cap", "not g.depense and ", "")
+run_mutant("prêt gardé par les projets suivants", "cap", "E.avail[k] = math.min(E.avail[k] or 0, before[k])", "E.avail[k] = E.avail[k]")
+run_mutant("aucun prêt", "cap", "E.avail[k] = before[k] + math.max(0, math.floor(lent[k] or 0))", "E.avail[k] = before[k]")
 run_mutant("Em.slots ignore le bonus", "em", "  local cap = base + extra + bonus\n", "  local cap = base + extra\n")
 
 print(string.format("[DEPENSES] BILAN : %d OK, %d ECHEC(S)%s", passes, failures, base_fail > 0 and " (passe de reference en echec)" or ""))

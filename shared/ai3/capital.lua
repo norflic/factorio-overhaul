@@ -484,8 +484,23 @@ function Cap.emit(P)
     -- Lot DEPENSES : g.depense (script/ai3/depenses.lua, Dep.mark) : le stock DORT (shared/ai3/depenses.lua) ; ses intermédiaires
     -- (engrenages, circuits) se fabriquent aussi sans bras libre. Journal du DC (3/11) : 5 472 plaques de fer libres chez Azur,
     -- 'drill:2' attendait 3 engrenages et 2 circuits, 0 PNJ sans tâche sur 8, rien n'était fabriqué.
+    -- Banc verif-guide 271828182 (lot DEPENSES, essai 1) : le bâtiment de fond est servi APRÈS tous les projets (reste du stock
+    -- virtuel) ; ses engrenages n'étaient toujours pas fabriqués (« non-reserve », 0/3, 10 720 plaques de fer libres) : le reste
+    -- virtuel était à 0. g.depense = { [plaque] = excédent qui dort } : cet excédent, hors besoin évalué et au-delà de 6 min de
+    -- production, est PRÊTÉ au stock virtuel le temps de ce dépliage ; ce qu'il n'a pas servi n'est jamais donné aux suivants.
     if not g.center and not g.replace and not g.depense and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
+    local lent = type(g.depense) == "table" and E.avail and g.depense or nil
+    local before = {}
+    if lent then
+      for _, k in ipairs(sorted_keys(lent)) do
+        before[k] = E.avail[k] or 0
+        E.avail[k] = before[k] + math.max(0, math.floor(lent[k] or 0))
+      end
+    end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
+    if lent then
+      for _, k in ipairs(sorted_keys(lent)) do E.avail[k] = math.min(E.avail[k] or 0, before[k]) end
+    end
     return "matiere"
   end
 end

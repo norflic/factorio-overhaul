@@ -85,7 +85,16 @@ end
 function Dep.mark(f, goal)
   if type(goal) ~= "table" or goal.center then return goal end
   local r = fresh(f, game and game.tick or nil)
-  goal.depense = (r and r.upgrade) or nil
+  -- L'excédent qui dort, par produit (prêté au stock virtuel par Cap.emit le temps du dépliage) ; nil : rien ne dort.
+  local lent = nil
+  if r and r.upgrade then
+    lent = {}
+    local ks = {}
+    for k in next, (r.per or {}) do ks[#ks + 1] = k end
+    table.sort(ks)
+    for _, k in ipairs(ks) do lent[k] = math.floor(r.per[k]) end
+  end
+  goal.depense = lent
   return goal
 end
 
