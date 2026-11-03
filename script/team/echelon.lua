@@ -14,6 +14,10 @@ local Ex = {}
 
 Ex.SETTING = "fo-war-echelon"
 
+--- Essai 2 du lot (3/11) : la demande des chantiers (Ind.echelon_sources) a fait perdre 29 % des plaques sur 20261020 ; ELLE EST COUPEE tant qu'une mesure ne la rehabilite pas.
+--- Le producteur d'abord (Ex.held) reste actif.
+Ex.DEMAND = false
+
 function Ex.on()
   local ok, s = pcall(function() return settings.global[Ex.SETTING] end)
   return ok and s ~= nil and s.value == true

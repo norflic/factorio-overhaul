@@ -254,7 +254,7 @@ end
 --- rattraper l'arriéré en Ech.CATCHUP_MIN minutes), limitée aux objets que la lecture sait fabriquer en patron (un objet brut ou à fluide n'est pas
 --- une demande de module : la règle du choix le refuserait et le noterait refusé). Liste vide quand le réglage est éteint.
 function Ind.echelon_sources(f, tick)
-  if not (Ex.on() and Rsv.on()) then return {} end
+  if not (Ex.DEMAND and Ex.on() and Rsv.on()) then return {} end
   local lec = lecture()
   if not lec then return {} end
   local rows = Ech.backlog(Ex.waiters(f), tick)
