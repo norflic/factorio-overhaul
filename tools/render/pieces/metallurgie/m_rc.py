@@ -8,6 +8,7 @@ import math
 
 import commun as K
 import geo as G
+import mat as MT
 import outils as O
 
 TAU = G.TAU
@@ -57,24 +58,27 @@ def capots(lot, M, ouvert):
     if ouvert:
         x0, x1 = ouvert
         # bain sous la croûte : fissures orange, croûte sombre en plaques
-        # croûte sombre fendue : la lueur n'est que dans les fissures
+        # croûte CLAIRE d'alumine figée (contre-relecture du 4/11), fissures fines et ramifiées : la lueur n'est que dedans
         cy0, cy1 = Y0 + 0.04, YC - 0.4
-        lot.put(M["croute"], G.boite(((x0 + x1) / 2, (cy0 + cy1) / 2, ZP + 0.06), (x1 - x0 - 0.04, cy1 - cy0, 0.02)))
+        lot.put(M["croute_claire"], G.boite(((x0 + x1) / 2, (cy0 + cy1) / 2, ZP + 0.06), (x1 - x0 - 0.04, cy1 - cy0, 0.02)))
         r = G.Rnd(6611)
-        for k in range(5):
-            px, py = r.f(x0 + 0.08, x1 - 0.08), cy0 + 0.05
-            ang = math.pi / 2 + r.f(-0.5, 0.5)
-            for j in range(7):
-                L = r.f(0.1, 0.2)
+        branches = [((x0 + x1) / 2 + r.f(-0.15, 0.15), cy0 + 0.04, math.pi / 2 + r.f(-0.3, 0.3), 0.032, 9)]
+        n = 0
+        while branches and n < 40:
+            px, py, ang, w, k = branches.pop(0)
+            for j in range(k):
+                L = r.f(0.07, 0.13)
                 qx = min(x1 - 0.04, max(x0 + 0.04, px + L * math.cos(ang)))
-                qy = min(cy1 - 0.02, py + L * math.sin(ang))
-                lot.put(M["bain"], G.boite(((px + qx) / 2, (py + qy) / 2, ZP + 0.072), (math.hypot(qx - px, qy - py) + 0.03, 0.035, 0.008),
+                qy = min(cy1 - 0.02, max(cy0 + 0.02, py + L * math.sin(ang)))
+                lot.put(M["bain"], G.boite(((px + qx) / 2, (py + qy) / 2, ZP + 0.072), (math.hypot(qx - px, qy - py) + w, w, 0.008),
                                            math.atan2(qy - py, qx - px)))
+                n += 1
+                if r.f() < 0.33 and w > 0.026:
+                    branches.append((qx, qy, ang + (0.9 if r.f() < 0.5 else -0.9), w * 0.82, max(2, k - j - 2)))
                 px, py = qx, qy
-                ang += r.f(-0.7, 0.7)
+                ang += r.f(-0.45, 0.45)
                 if py >= cy1 - 0.03:
                     break
-        lot.put(M["bain"], G.boite(((x0 + x1) / 2 + 0.05, cy0 + 0.25, ZP + 0.073), (0.09, 0.07, 0.008), 0.4))
         # le panneau levé, posé debout contre la superstructure
         lot.put(M["acier"], G.boite(((x0 + x1) / 2, YC - 0.5, 1.45), (x1 - x0 - 0.05, 0.03, 0.42), 0.0, 0.25))
 
@@ -193,6 +197,14 @@ def creuset(lot, M, x, y, cible):
 
 def build(S, lot, v):
     M = K.matieres(S, PALETTE)
+    # matières propres à la cuve (contre-relecture du 4/11) : aluminium VIF sans usure d'arête (le bruit d'usure faisait un
+    # pointillé blanc), croûte claire d'alumine figée, poudre d'alumine claire ; commun.py n'est pas touché (autres machines)
+    M["alu_vif"] = MT.surface("m_alu_vif", (0.78, 0.79, 0.81), rough=0.32, met=0.2, usure=0.0, crasse=0.12, crasse_col=(0.2, 0.2, 0.21),
+                              grain=0.04, graine=61)
+    M["croute_claire"] = MT.surface("m_croute_claire", (0.36, 0.35, 0.33), rough=0.9, met=0.0, usure=0.0, crasse=0.5,
+                                    crasse_col=(0.08, 0.075, 0.07), grain=0.3, graine=62)
+    M["alumine"] = MT.surface("m_alumine_cuve", (0.72, 0.72, 0.7), rough=0.95, met=0.0, usure=0.0, crasse=0.25, crasse_col=(0.3, 0.3, 0.29),
+                              grain=0.25, graine=63)
     v = VAR[v]
     lot.put(M["beton"], G.prisme([(-1.97, -2.78), (1.97, -2.78), (1.97, 2.78), (-1.97, 2.78)], 0.0, 0.03))
     K.chevrons(lot, M, -1.9, 1.9, -2.7, 0.03)
@@ -239,24 +251,26 @@ def superstructure_v2(lot, M):
         lot.put(M["chevron"], G.boite((x, YC - 0.175, zg0 - 0.25), (0.14, 0.012, 0.18)))
     for s in (-1, 1):
         yb = YC + s * 0.27
-        lot.put(M["alu"], G.boite((0.0, yb, 1.52), (2 * XP - 0.35, 0.15, 0.2)))
+        lot.put(M["alu_vif"], G.boite((0.0, yb, 1.52), (2 * XP - 0.35, 0.15, 0.2)))
         for x in (-1.1, 0.0, 1.1):
             K.rev(lot, M["jaune"], x, YC + s * 0.17, [(1.6, 0.045), (zg0 + 0.02, 0.045)], 10)
         yt = YC + s * 0.4
         for i in range(9):
             x = -1.44 + i * 0.36
-            lot.put(M["alu"], G.boite((x, yt, 1.3), (0.085, 0.085, 0.76)))
-            lot.put(M["cuivre"], G.boite((x, yb + s * 0.09, 1.55), (0.14, 0.08, 0.12)))
-            lot.put(M["acier_clair"], G.tube([(x - 0.06, yb + s * 0.13, 1.55), (x + 0.06, yb + s * 0.13, 1.55)], 0.016, 5))
+            lot.put(M["alu_vif"], G.boite((x, yt, 1.56), (0.09, 0.09, 1.24)))
+            lot.put(M["cuivre"], G.boite((x, yb + s * 0.1, 1.55), (0.17, 0.1, 0.15)))
+            lot.put(M["cuivre"], G.boite((x, yt, 2.2), (0.12, 0.12, 0.05)))
+            lot.put(M["acier_clair"], G.tube([(x - 0.07, yb + s * 0.155, 1.55), (x + 0.07, yb + s * 0.155, 1.55)], 0.018, 5))
             K.rev(lot, M["acier2"], x, yt, [(1.0, 0.075), (1.05, 0.075)], 8)
     # trémies d'alumine
     for x in (-0.85, 0.85):
-        base = [(x - 0.2, YC - 0.18), (x + 0.2, YC - 0.18), (x + 0.2, YC + 0.18), (x - 0.2, YC + 0.18)]
-        lot.put(M["acier"], G.prisme(base, zg1, zg1 + 0.12))
-        lot.put(M["acier"], G.prisme(base, zg1 + 0.12, zg1 + 0.55, 1.4))
-        lot.put(M["acier2"], G.prisme([(x - 0.3, YC - 0.27), (x + 0.3, YC - 0.27), (x + 0.3, YC + 0.27), (x - 0.3, YC + 0.27)], zg1 + 0.55, zg1 + 0.6))
-        lot.put(M["alumine"], G.prisme([(x - 0.25, YC - 0.22), (x + 0.25, YC - 0.22), (x + 0.25, YC + 0.22), (x - 0.25, YC + 0.22)], zg1 + 0.56, zg1 + 0.62, 0.7))
-        lot.put(M["chevron"], G.boite((x, YC - 0.255, zg1 + 0.4), (0.4, 0.012, 0.08)))
+        K.rev(lot, M["acier"], x, YC, [(zg1, 0.07), (zg1 + 0.3, 0.27), (zg1 + 0.62, 0.27)], 28, cap=False)
+        K.cerclage(lot, M["acier2"], x, YC, zg1 + 0.6, 0.27, 0.04, 0.02, 28)
+        K.cerclage(lot, M["chevron"], x, YC, zg1 + 0.44, 0.27, 0.07, 0.006, 28)
+        K.rev(lot, M["alumine"], x, YC, [(zg1 + 0.5, 0.262), (zg1 + 0.56, 0.2), (zg1 + 0.66, 0.0)], 28)
+        for k in range(4):
+            a = math.pi / 4 + k * math.pi / 2
+            lot.put(M["acier2"], G.tube([(x + 0.2 * math.cos(a), YC + 0.2 * math.sin(a), zg1 + 0.22), (x + 0.3 * math.cos(a), YC + 0.3 * math.sin(a), zg1)], 0.02, 5))
     O.tuyau(lot, M["acier_clair"], M["acier2"], [(-0.85, YC + 0.2, zg1 + 0.66), (-0.85, YC + 0.2, zg1 + 0.78), (0.85, YC + 0.2, zg1 + 0.78),
                                                  (0.85, YC + 0.2, zg1 + 0.66)], 0.035, rb=0.08, pas_bride=0.6)
     # piqueurs de croûte : vérins jaunes, tige jusqu'au bain
@@ -273,7 +287,13 @@ def barres_v2(lot, M):
     """Deux barres omnibus massives en aluminium vif le long des grands côtés, 4 montées en paquets de plaques vers le cadre
     anodique nord, souples de cuivre, plaques « danger »."""
     for y in (Y1 + 0.24, Y0 - 0.24):
-        lot.put(M["alu"], G.boite((0.0, y, 0.15), (2 * XP + 0.3, 0.26, 0.2)))
+        lot.put(M["alu_vif"], G.boite((0.0, y, 0.15), (2 * XP + 0.3, 0.26, 0.2)))
+        # souples de cuivre des barres cathodiques, de la cuve à la barre omnibus (accent chaud)
+        sgn = 1 if y > 0 else -1
+        for k in range(12):
+            xx = -XP + 0.18 + k * (2 * XP - 0.36) / 11
+            O.flexible(lot, M["cuivre"], [(xx, y - sgn * 0.3, 0.32), (xx, y - sgn * 0.2, 0.36), (xx, y - sgn * 0.08, 0.26)], 0.03)
+            lot.put(M["cuivre"], G.boite((xx, y - sgn * 0.08, 0.27), (0.1, 0.06, 0.04)))
         for x in (-1.6, -0.6, 0.6, 1.6):
             lot.put(M["acier2"], G.boite((x, y, 0.03), (0.1, 0.3, 0.06)))
     yb = YC + 0.27
@@ -281,10 +301,10 @@ def barres_v2(lot, M):
         yr = Y1 + 0.24
         for k in range(5):
             xx = x - 0.09 + k * 0.045
-            lot.put(M["alu"], G.boite((xx, yr, 0.95), (0.03, 0.14, 1.3)))
-            lot.put(M["alu"], G.boite((xx, (yr + yb + 0.15) / 2, 1.65), (0.03, yr - yb - 0.1, 0.1)))
-        lot.put(M["acier2"], G.boite((x, yr, 0.62), (0.28, 0.18, 0.06)))
-        lot.put(M["acier2"], G.boite((x, yr, 1.25), (0.28, 0.18, 0.06)))
+            lot.put(M["alu_vif"], G.boite((xx, yr, 0.95), (0.03, 0.14, 1.3)))
+            lot.put(M["alu_vif"], G.boite((xx, (yr + yb + 0.15) / 2, 1.65), (0.03, yr - yb - 0.1, 0.1)))
+        lot.put(M["cuivre"], G.boite((x, yr, 0.62), (0.28, 0.18, 0.07)))
+        lot.put(M["cuivre"], G.boite((x, yr, 1.25), (0.28, 0.18, 0.07)))
         lot.put(M["chevron"], G.boite((x, yr - 0.1, 0.9), (0.2, 0.012, 0.14)))
         for k in range(3):
             xx = x - 0.07 + k * 0.07

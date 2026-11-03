@@ -7,6 +7,7 @@ de garde et feu de balisage rouge (lueur de jour). Direction 0 (consoles est-oue
 import math
 
 import commun as K
+import fils_py as F
 import geo as G
 import outils as O
 
@@ -145,9 +146,15 @@ def tete_chat(lot, M, taille, haut):
 
 
 def build(S, lot, v):
+    """v : « a », « b », « c » ; « c1 » à « c3 » : variante C, tête tournée pour la direction 1 à 3 du moteur (fils_py)."""
     M = K.matieres(S, PALETTE)
-    v = VAR[v]
+    d = int(v[1:]) if len(v) > 1 else 0
+    v = VAR[v[0]]
     fut(lot, M, v["taille"], v["haut"] if v["tete"] == "pic" else v["taille"])
+    if d:
+        # la tête tourne ; le fût reste fixe : vrille progressive sur 0,6 au-dessus de la taille (les bras restent soudés)
+        zb, a = v["taille"], F.angle(d)
+        lot.xf = lambda p: G.rot_z(p, a * min(1.0, max(0.0, (p[2] - zb) / 0.6)))
     if v["tete"] == "pic":
         pts = []
         for (z, L) in v["consoles"]:
@@ -164,4 +171,5 @@ def build(S, lot, v):
             lot.put(M["feu_rouge"], G.sphere((s * (v["consoles"][0][1] - 0.02), 0.0, v["consoles"][0][0] + 0.12), 0.05, 10, 5))
     else:
         pts = tete_chat(lot, M, v["taille"], v["haut"])
+    lot.xf = None
     return {"fils": pts}
