@@ -364,6 +364,9 @@ function M.gate(st, p, env, cfg)
       return "attendre", "matieres"
     end
     if not env.uses then return "passer", "hors-partie" end
+    -- lot THERMIQUE : la protection (shared/team/thermique.lua) retient la coupe ou annule la demande
+    if env.hold == "annuler" then return "annuler", "protege" end
+    if env.hold == "attendre" then return "attendre", "protege" end
     local ok, why = M.can_retire(env, cfg)
     if ok then return "retirer", why end
     if why == "garde" then return "annuler", "garde" end
