@@ -42,7 +42,8 @@ function SurvieQg.update(f, tick)
   local threat = Sq.threat(v.waves, tick)
   QgG.think(f, tick) -- lot QGGROUPE : regroupement en calme (votre équipe, interrupteur T.qg_groupe_pose_on)
   -- lot QGGROUPE : défense face à une vague = celle du point le plus faible (votre équipe, T.qg_groupe_peril_on) ; sinon la somme
-  local armed = QgG.facing(f, q.value) or q.value
+  local facing, decides = QgG.facing(f, q.value)
+  local armed = (decides and facing) or q.value
   local r = Sq.peril({ threat = threat, armed_value = armed, turret_value = q.turret_value, turrets = q.turrets, armed = q.armed,
     cap = Dc.HQ_CAP, was = s.was })
   r.tick, r.threat = tick, threat
@@ -63,7 +64,7 @@ function SurvieQg.update(f, tick)
     log(string.format("[FO-SURVIE] %s : QG recensement a %.1f min : %d tourelle(s) dont %d armee(s), %d chargeur(s), defense armee %d PV, " ..
       "menace %d PV, %s ; face a une vague %d PV (appui %d sur %d)",
       who, min_of(tick), q.turrets, q.armed, q.ammo, math.floor(q.value), threat, r.peril and ("PERIL (" .. tostring(r.cause) .. ")") or "hors de peril",
-      math.floor(armed), f.team.qgg and f.team.qgg.weakest or -1, f.team.qgg and f.team.qgg.total or -1))
+      math.floor(facing or -1), f.team.qgg and f.team.qgg.weakest or -1, f.team.qgg and f.team.qgg.total or -1))
     s.last_log = tick
   end
   s.was = r.peril
