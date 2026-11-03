@@ -198,6 +198,18 @@ function Sante.work(f, p, surface, inv, tick)
   return "done"
 end
 
+--- Lot COURANT2 (revue du 3/11, défaut 1) : un SITE (spec.site : bande de champ, pompes, fonderie au gisement) échappe à la porte (admis sans
+--- calcul) et n'a pas de gabarit (template_of rend nil) : sa puissance nominale est la somme de ses entités planifiées, notée au plan.
+function Sante.site_kw(p)
+  local kw = 0
+  for _, e in ipairs(p.ents or {}) do kw = kw + M.power_kw(e.name) end
+  return kw
+end
+
+-- Un site ne pèse sur la centrale qu'à partir du moment où ses fantômes se posent : en « reserve » (matières, jusqu'à 90 min) il ne
+-- consomme rien et ferait demander une centrale trop tôt.
+local SITE_COMMIT_STATES = { fantomes = true, chantier = true, raccordement = true }
+
 --- Puissance (kW nominaux) des consommateurs EN CHANTIER (admis, pas encore finis) et des modules RETENUS par la porte.
 function Sante.committed(f, except)
   local b = f.build
@@ -207,7 +219,8 @@ function Sante.committed(f, except)
     -- admis et pas fini : « attente » compris (le plan attend un réseau, des masques : l'état revient à « attente » entre deux essais), jamais
     -- un projet rouvert (son module a déjà sa part dans la production)
     if p and pid ~= except and p.power_kw and p.power_kw > 0 and p.admitted and not p.reopened and not p.abandoned
-      and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at) then
+      and p.state ~= "fini" and p.state ~= "refuse" and not (p.state == "bloque" and not p.retry_at)
+      and (not (p.spec and p.spec.site) or SITE_COMMIT_STATES[p.state]) then
       kw = kw + p.power_kw
     end
   end

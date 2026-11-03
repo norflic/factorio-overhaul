@@ -4001,6 +4001,8 @@ local function advance(f, surface, p, tick)
       p.masq_n = nil -- lot POTEAUX-MASQUES : l'accord de chunks repart de zéro au prochain plan de ce projet
       p.state = "reserve"
       p.started = tick
+      -- lot COURANT2 : un site (bande de champ…) n'a pas de gabarit, donc pas de puissance à la porte : la noter ici (Sante.committed)
+      if (p.power_kw or 0) <= 0 and p.spec.site then p.power_kw = Sante.site_kw(p) end
       log(string.format("[FO-IA1D] %s : projet %d plan (%s, lot %s, %d entites, %d obstacles) a %.1f min", f.key or "player", p.id,
         p.parts[1].key, p.parts[1].lot, #p.ents, #p.obstacles, tick / 3600))
     elseif wait == "masques" then
