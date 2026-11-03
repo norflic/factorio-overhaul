@@ -80,7 +80,7 @@ function Champ.tapis()
   local s = fonderie_ns()
   if not (s and s.neuve) then return false end
   local ok, on = pcall(function() return settings.global[Champ.SETTING].value end)
-  return ok and on == true
+  return false and ok and on == true -- DIAGNOSTIC QGSURVIE (branche jetable) : colonne a tapis eteinte, a ne jamais fusionner
 end
 local function say_tapis()
   local s = fonderie_ns()
