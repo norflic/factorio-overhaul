@@ -1,0 +1,241 @@
+{
+ "fichiers": {
+  "icones/fo-chilled-water.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "b86d9d05036b38fa9b18ae99e6685ea11f22e72ab420fed4081570c2718a5c49"
+  },
+  "icones/fo-cooling-rack.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "b400a94a7b023021dcd8059d90f5574cbc12e91c726e7eac581b7f1e3038032c"
+  },
+  "icones/fo-crystal-laser.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "88aa42b07e76d97a109315492dc016ce43b3519d4fbc5a6d953b434cf44b04c4"
+  },
+  "icones/fo-degassed-ilmenite.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "60393975f9f217039adfd524cdd34bddbfe7c68af1a9425ea66447caa2d7d0d6"
+  },
+  "icones/fo-dilution-mix.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "02cbaa6caa2300584a6237bf5f655472e0b8929aa54ab2311dce90bfd96dffcb"
+  },
+  "icones/fo-dilution-stage.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "42bb4394c829734e09f1265dbe2f7855f047b7b4cafc96c84c78586f5ec2072d"
+  },
+  "icones/fo-dram-die.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "70c70c551aa63fb3b3473a40a4abaf87f5a990e78f7c6ee2d6d829b69f7e7eb8"
+  },
+  "icones/fo-etched-wafer.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "a7ad8a8611519056ea4f17a8c9a5ba3bd7b5ed7fbcd6f04b5447ae87ef67ac34"
+  },
+  "icones/fo-exposed-wafer.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "4ecb3acbd82ba96af516208f0854b549b17e39517d86ac5d5cd6e95ff50667ca"
+  },
+  "icones/fo-flash-drive.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "a420f4b4042701005a783b1ae52ef0f49640a2783de0f9d97b7c9a2936845d90"
+  },
+  "icones/fo-gpu-blade.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "9647d757efb480d658c9c2d18c772b377056494b83627762cfce06f5dc85ef84"
+  },
+  "icones/fo-graphics-card.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "bb50761282595b87903d9d447d7cc9d714261e5c430e99965a273b9e245c9449"
+  },
+  "icones/fo-heat-sink.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "b956cd2d6e62d68f47c5c2f1f1f425bd94a90850f62bf42530a5bfb35ea8fd5f"
+  },
+  "icones/fo-helium-3.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "553b347d8e48a349105a8d97c6f2f1c05f18868467b481d30dca515721bb9656"
+  },
+  "icones/fo-logic-die.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "bcd9995e80aee0d39ed1403a7c5788b109f989efbaa131ac63fe1f7a22c194f4"
+  },
+  "icones/fo-memory-module.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "b0eb99b142bc09b0a7bb746a1bffeb17332ac9324cc6db020d6854daa48ba4c4"
+  },
+  "icones/fo-memory-rack.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "d88c456c0f63118d46e89ff651c2a1d99d0cb3a16685c0f0294ef38bbdd25d57"
+  },
+  "icones/fo-motherboard.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "ea792d59cfd039ac129987c8946eda08e28b8b445d13975867bf3d7021d94052"
+  },
+  "icones/fo-nand-die.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "bbae7a9d4a91d239262504a349dcaaf29c54b111e494ead05a447a5e0c6d3d0c"
+  },
+  "icones/fo-network-rack.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "246486846f456644733b69be789536e55dac54bfb1a5d7b5bcd0799a65a5765a"
+  },
+  "icones/fo-network-switch.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "751e947145fcbcd85454f5f0846ec1a3c15409f0d9b913d1ab35f9dc818427d5"
+  },
+  "icones/fo-optical-fiber.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "aa11e0ca50602a96212d358fd63868fe317d0c17c2d9573a14e9a67e40e0114a"
+  },
+  "icones/fo-photomask.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "6953eca1491bc186abbbc6ad4be2b74d1945a10a6b4d39369bb35dcbd261e6c2"
+  },
+  "icones/fo-photoresist.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "e46d3e12256f211e278dd0e9bda2c087854102c9a688e90b1926d1e2eff6848e"
+  },
+  "icones/fo-quantum-processor.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "6c5fcae8875037942deb186529c99c591c6d62d1ef6e84d1b49bcb0cfabbb0f1"
+  },
+  "icones/fo-quantum-rack.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "86b43da573abefdef8154b205f4d9e282974100759c3569dcca4c0837fcb7768"
+  },
+  "icones/fo-qubit-chip.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "b5da1e7499e645d14775bd1de6712eb8ad6d6906707f5fd3bfa3b9fe3b75e41e"
+  },
+  "icones/fo-server-blade.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "73f39b684d8f5380a982fdb55dd3350543f1ac2597381a28167bbe585fc25395"
+  },
+  "icones/fo-silicon-ingot.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "3fb06b0205cd2704490b814027d454bf1c91f40125544b7aa6e07ff3941b9c4b"
+  },
+  "icones/fo-sram-die.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "f9af03b87b52360a59c6a7c1fec8bae1e4c589a9b8097085aae1285bcc7f2e38"
+  },
+  "icones/fo-storage-rack.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "4518d1f27e3e66d696d8a9421f408d39484bd94bda8e6b90493a4ddfbd5d70d3"
+  },
+  "icones/fo-warm-water.png": {
+   "genre": "item",
+   "icon_mipmaps": 4,
+   "icon_size": 64,
+   "sha256": "0656aa937ea051cb76fa4e25e015b553d46c5e504fede1a36f47e5dd5d6f9466"
+  },
+  "tech/fo-chip-foundry.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "66b857fd4b715e1f280e3a7aab0714904d7c9ed91a97f4b05539cf54c96ce78c"
+  },
+  "tech/fo-data-centers-2.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "ec4f0747567c9ae4a0f0890795608ad1010bfcbe036c7f9d97daa3ebf5000a7f"
+  },
+  "tech/fo-data-centers.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "3b8879daf6d1c11e59e41095949fbf74928914cb8117483486376004a3bda731"
+  },
+  "tech/fo-gpu-computing.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "b16b34ef762e721a89fb6850b6618fc9803f7325b96040ec4d7fd425574e898e"
+  },
+  "tech/fo-quantum-computing.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "100d2de834b069728a2c9f1dbde9a64fdc22918596768f1111f375fc32c4d611"
+  },
+  "tech/fo-regolith-degassing.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "af7ea109cd81c5647d0e73d7f5c1dc3e573c507ec85fc0053bc73b11cdae413d"
+  },
+  "tech/fo-wafer-fab.png": {
+   "genre": "tech",
+   "icon_mipmaps": 4,
+   "icon_size": 256,
+   "sha256": "2ed7e29551c01f6751ef838e65fa22d24c1cf216ed120007c4a5c9f959ed5c41"
+  }
+ },
+ "outil": "tools/render/pieces/calcul/icones.py",
+ "samples": 16,
+ "version": 1
+}
