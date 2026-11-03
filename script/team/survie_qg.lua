@@ -17,6 +17,7 @@ local Pv = require("shared.ai3.prevision")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 local T = require("shared.team.config")
+require("script.team.qg_tourelle") -- lot QGSURVIE2 : journal [FO-QG-TOURELLE] de la mort des tourelles du QG (abonnement au bus, lecture seule)
 
 local SurvieQg = {}
 
