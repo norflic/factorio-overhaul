@@ -287,6 +287,61 @@ RG_TASKS.C = function(ctx, rg, t, tick)
       .. "generateurs=%d generateurs_en_marche=%d prod_kw=%d capacite_kw=%d reseaux=%d reseau_prod_kw=%d reseau_conso_kw=%d",
     rg_min(tick), t.f, cons, cut, low, boilers, nofuel, gens, working, rg_i(prod / 1000), rg_i(cap / 1000), nets,
     rg_i(math.max(e_in - prev.e_in, 0) / sec / 1000), rg_i(math.max(e_out - prev.e_out, 0) / sec / 1000)))
+  -- lot ENERGIE4 (diagnostic, ne change rien au jeu) : les consommateurs sans courant par reseau, depuis combien de temps, ou.
+  rg.nop = rg.nop or {}
+  rg.nop[t.f] = rg.nop[t.f] or {}
+  local nop = rg.nop[t.f]
+  local seen, groups, ids = {}, {}, {}
+  for _, e in ipairs(rg_ents(rg, t.f, RG_CONSUMERS)) do
+    if rg_is_elec(e.name) and rg_status(e) == "no_power" then
+      local un = e.unit_number
+      seen[un] = true
+      nop[un] = nop[un] or tick
+      local id = e.electric_network_id or -1
+      local g = groups[id]
+      if not g then
+        g = { n = 0, old = 0, names = {}, x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, poles = 0, gens = 0, first = tick }
+        groups[id] = g
+        ids[#ids + 1] = id
+      end
+      g.n = g.n + 1
+      if tick - nop[un] >= 36000 then g.old = g.old + 1 end
+      if nop[un] < g.first then g.first = nop[un] end
+      g.names[e.name] = (g.names[e.name] or 0) + 1
+      local p = e.position
+      g.x0, g.y0, g.x1, g.y1 = math.min(g.x0, p.x), math.min(g.y0, p.y), math.max(g.x1, p.x), math.max(g.y1, p.y)
+    end
+  end
+  for un in pairs(nop) do if not seen[un] then nop[un] = nil end end
+  table.sort(ids)
+  local live = {}
+  for _, e in ipairs(rg_ents(rg, t.f, "generator")) do if e.electric_network_id then live[e.electric_network_id] = true end end
+  local lp = {}
+  for _, p in ipairs(rg_ents(rg, t.f, "electric-pole")) do
+    local g = groups[p.electric_network_id or -2]
+    if g then g.poles = g.poles + 1 end
+    if live[p.electric_network_id or -2] then lp[#lp + 1] = p.position end
+  end
+  for _, e in ipairs(rg_ents(rg, t.f, "generator")) do
+    local g = groups[e.electric_network_id or -2]
+    if g then g.gens = g.gens + 1 end
+  end
+  for _, id in ipairs(ids) do
+    local g = groups[id]
+    local cx, cy, best = (g.x0 + g.x1) / 2, (g.y0 + g.y1) / 2, 1e9
+    for _, q in ipairs(lp) do
+      local d = math.sqrt((q.x - cx) ^ 2 + (q.y - cy) ^ 2)
+      if d < best then best = d end
+    end
+    g.gap = best
+    local nm = {}
+    for k in pairs(g.names) do nm[#nm + 1] = k end
+    table.sort(nm)
+    for i, k in ipairs(nm) do nm[i] = k .. "=" .. g.names[k] end
+    ctx.log(string.format("[FO-REGARD] N min=%d force=%s reseau=%d sans_courant=%d depuis10min=%d premier_min=%.1f poteaux=%d generateurs=%d ecart_reseau_vivant=%.0f "
+      .. "boite=%d,%d..%d,%d noms={%s}", rg_min(tick), t.f, id, g.n, g.old, g.first / 3600, g.poles, g.gens, g.gap,
+      rg_i(g.x0), rg_i(g.y0), rg_i(g.x1), rg_i(g.y1), table.concat(nm, " ")))
+  end
 end
 
 --- G0 : foreuses de la force, regroupees en grappes (cellules de 32 tuiles, voisines a 2 cellules) par minerai ;
