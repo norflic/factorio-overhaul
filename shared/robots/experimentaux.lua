@@ -85,9 +85,58 @@ Xp.ROBOTS = {
   },
 }
 
+--- Palier 3, les 5 GÉANTS (FAISABILITE : Cairn, Stylet, Trombe, Tournesol ; Ixion du premier tableau). `spider-vehicle` sans arme : l'effet
+--- part du script, à la cadence, vers l'ennemi le plus proche à portée. Chaîne : 10 segments (Dock, comme les géants de shared/content/robots.lua,
+--- au plus 100 de chaque ingrédient) puis l'assemblage final (60 s) à l'usine de son âge. `mu` : coût de FAISABILITE (Ixion : non écrit,
+--- celui du Torique, géant du même âge, déclaré). Corps : 1 image, flotte (pattes sans image, sans collision, comme le Bourdon).
+--- `effect` : la règle de l'effet (voir plus bas) ; `range`, `cooldown` : portée (tuiles) et cadence (ticks) ; `split` : le coup est PARTAGÉ
+--- entre les cibles (la valeur ne change pas avec le nombre de cibles).
+Xp.SEGMENTS = 10
+Xp.SEGMENT_FACTORY = "fo-robot-dock"
+Xp.GEANTS = {
+  {
+    id = "cairn", src = "cairn", age = 10, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-dock", ref = "trowel", mu = 41000,
+    time = 60, range = 40, cooldown = 180, dtype = "electric", speed = 0.12, effect = "balayage", marks = 8, delay = 30,
+    segment = { ingredients = { { "processing-unit", 30 }, { "fo-guidance-core", 10 }, { "fo-servo-motor", 10 }, { "fo-controller", 10 },
+      { "battery", 50 }, { "steel-plate", 50 } }, time = 30 },
+    lueur = { r = 0.35, g = 0.75, b = 1.0 },
+  },
+  {
+    id = "stylet", src = "stylet", age = 11, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-finback", ref = "finback", mu = 75000,
+    time = 60, range = 45, cooldown = 240, dtype = "electric", speed = 0.12, effect = "ecriture", nodes = 6, node_radius = 3, step_ticks = 4,
+    segment = { ingredients = { { "fo-titanium-plate", 100 }, { "processing-unit", 40 }, { "fo-guidance-core", 20 }, { "fo-graphics-card", 10 },
+      { "steel-plate", 100 } }, time = 30 },
+    lueur = { r = 0.75, g = 0.9, b = 1.0 },
+  },
+  {
+    id = "trombe", src = "trombe", age = 12, kind = "giant", factory = "fo-robot-dock", after = "fo-robot-levite", ref = "levite", mu = 137000,
+    time = 60, range = 40, cooldown = 300, dtype = "physical", speed = 0.1, effect = "gel", radius = 22, freeze = 120,
+    segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 30 },
+      { "fo-titanium-plate", 50 }, { "fo-graphics-card", 10 } }, time = 30 },
+    lueur = { r = 0.6, g = 0.95, b = 1.0 },
+  },
+  {
+    id = "ixion", src = "ixion", age = 13, kind = "giant", factory = "fo-robot-gantry", after = "fo-robot-gantry", ref = "toroid", mu = 251000,
+    time = 60, range = 45, cooldown = 240, dtype = "fire", speed = 0.1, effect = "tranchee", step = 3, width = 3, step_ticks = 3, beyond = 10,
+    segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 80 },
+      { "fo-laser-module", 60 }, { "fo-titanium-plate", 100 } }, time = 30 },
+    lueur = { r = 1.0, g = 0.55, b = 0.2 },
+  },
+  {
+    id = "tournesol", src = "tournesol", age = 14, kind = "giant", factory = "fo-robot-gantry", after = "fo-robot-gantry-heliast", ref = "heliast",
+    mu = 459000, time = 60, range = 60, cooldown = 30, dtype = "laser", speed = 0.09, effect = "foyer", night = 0.5, glass_every = 2,
+    segment = { ingredients = { { "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 100 },
+      { "fo-laser-module", 100 }, { "fo-graphics-card", 100 }, { "fo-guidance-core", 100 }, { "fo-titanium-composite", 100 },
+      { "low-density-structure", 50 } }, time = 30 },
+    lueur = { r = 1.0, g = 0.85, b = 0.45 },
+  },
+}
+
 local by_id = {}
 
 function Xp.name(id) return Xp.PREFIX .. id end
+function Xp.segment_name(id) return Xp.PREFIX .. "segment-" .. id end
+function Xp.segment_recipe_name(id) return Xp.PREFIX .. "make-segment-" .. id end
 function Xp.recipe_name(id) return Xp.PREFIX .. "make-" .. id end
 function Xp.tech_name(id) return Xp.PREFIX .. id end
 
@@ -104,7 +153,7 @@ function Xp.stats(r)
   local k = r.mu / ref.mu
   local dps = ref.dps * k
   local hp = ref.hp * k
-  if r.kind ~= "unit-capsule" then hp = hp * Xp.HP_POSE end
+  if r.kind == "turret" or r.kind == "turret-electric" then hp = hp * Xp.HP_POSE end
   local out = { k = k, dps = round(dps, 0.1), hp = round(hp), shot = round(dps * r.cooldown / 60, 0.1) }
   if r.single_use then out.burst = round(dps * Xp.BURST_SECONDS) end
   return out
@@ -119,6 +168,33 @@ for _, r in ipairs(Xp.ROBOTS) do
   local s = Xp.stats(r)
   r.hp, r.dps, r.shot, r.burst = s.hp, s.dps, s.shot, s.burst
   by_id[r.id] = r
+end
+for _, r in ipairs(Xp.GEANTS) do
+  r.name = Xp.name(r.id)
+  r.recipe = Xp.recipe_name(r.id)
+  r.tech = Xp.tech_name(r.id)
+  r.is_giant = true
+  r.segment_item = Xp.segment_name(r.id)
+  r.segment_recipe = Xp.segment_recipe_name(r.id)
+  r.ingredients = { { r.segment_item, Xp.SEGMENTS } }
+  local s = Xp.stats(r)
+  r.hp, r.dps, r.shot = s.hp, s.dps, s.shot
+  by_id[r.id] = r
+end
+
+--- Géants admis pour une force à l'âge `age`, géants de shared/content/robots.lua COMPRIS : le plafond de Ro.giant_allowed (1, 2, 3 aux
+--- âges 13, 14, 15), et UN dès l'âge 10 (Cairn, Stylet, Trombe arrivent avant l'âge 13 : sans cela, ils ne sortiraient jamais).
+--- PROPOSITION du lot, à trancher par le lead : voir RAPPORT.md.
+Xp.GIANT_EARLY_AGE = 10
+function Xp.giant_cap(age)
+  age = math.floor(tonumber(age) or 1)
+  local early = age >= Xp.GIANT_EARLY_AGE and 1 or 0
+  return math.max(Ro.giant_allowed(age), early)
+end
+
+--- Un géant de plus est-il admis ? (déjà là : tous les géants vivants de la force, des deux familles)
+function Xp.giant_ok(age, have)
+  return (have or 0) < Xp.giant_cap(age)
 end
 
 function Xp.robot(id) return by_id[id] end
@@ -232,6 +308,59 @@ function Xp.in_radius(p, candidates, radius)
     return a.c.id < b.c.id
   end)
   return out
+end
+
+---------------------------------------------------------------------------------------------------
+-- Règles des géants
+---------------------------------------------------------------------------------------------------
+--- Part de chaque cible quand un coup est partagé entre `n` cibles (au moins une).
+function Xp.split(shot, n)
+  return shot / math.max(1, n or 0)
+end
+
+--- Cairn, « Le Balayage » : les `n` cibles les plus proches dans la portée (distance, puis numéro).
+function Xp.marks(p, candidates, n, range)
+  local all = Xp.in_radius(p, candidates, range)
+  local out = {}
+  for i = 1, math.min(n, #all) do out[i] = all[i].c end
+  return out
+end
+
+--- Stylet, « L'Écriture » : les nœuds (la cible, puis de proche en proche, au plus `n`, chacun à moins de `hop` tuiles du précédent)
+--- et le tracé à angles droits qui les relie depuis `from` : liste de points (coude horizontal puis vertical à chaque nœud).
+function Xp.circuit(from, target, candidates, n, hop)
+  local nodes = { target }
+  for _, c in ipairs(Xp.chain(target, candidates, n - 1, hop)) do nodes[#nodes + 1] = c end
+  local pts = { { x = from.x, y = from.y } }
+  local cur = pts[1]
+  for _, nd in ipairs(nodes) do
+    local corner = { x = nd.x, y = cur.y }
+    if corner.x ~= cur.x then pts[#pts + 1] = corner end
+    if nd.y ~= cur.y then pts[#pts + 1] = { x = nd.x, y = nd.y } end
+    cur = { x = nd.x, y = nd.y }
+  end
+  return nodes, pts
+end
+
+--- Ixion, « La Tranchée » : points de la fissure, tous les `step` tuiles depuis `from` vers `to`, prolongée de `beyond` tuiles au-delà.
+function Xp.fissure(from, to, step, beyond)
+  local dx, dy = to.x - from.x, to.y - from.y
+  local len = math.sqrt(dx * dx + dy * dy)
+  local out = {}
+  if len < 1e-9 then return out end
+  local ux, uy = dx / len, dy / len
+  local total = len + beyond
+  local k = 1
+  while k * step <= total + 1e-9 do
+    out[#out + 1] = { x = from.x + ux * k * step, y = from.y + uy * k * step }
+    k = k + 1
+  end
+  return out
+end
+
+--- Tournesol, « Le Foyer » : il ne tire que de jour (obscurité de la surface sous le seuil `night`).
+function Xp.foyer_fires(darkness, night)
+  return (darkness or 0) < night
 end
 
 --- Usine et catégorie de fabrication d'un expérimental (lues dans Ro.FACTORIES).

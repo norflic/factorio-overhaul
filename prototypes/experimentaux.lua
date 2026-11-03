@@ -242,17 +242,20 @@ local function base_tourelle(r, type_)
   return t
 end
 
+-- Bouche du Mât-Foudre : la sphère au sommet, relevée sur capture (i1 : 14,4 tuiles au-dessus de la position). Le moteur ADDITIONNE le
+-- décalage des paramètres d'attaque et celui de la livraison (i1 : rayon parti de 2 × 12,9 tuiles) : un seul des deux est écrit.
+local MAT_SPHERE = { 0, -14.4 }
+
 local function mat_foudre(r)
   local t = base_tourelle(r, "electric-turret")
-  local src = bouche(r.id, "arc")
+  local src = MAT_SPHERE
   t.energy_source = { type = "electric", buffer_capacity = "3MJ", input_flow_limit = "6MW", drain = "40kW", usage_priority = "primary-input" }
   t.attack_parameters = {
     type = "beam", ammo_category = Xp.AMMO_CATEGORY, cooldown = r.cooldown, range = r.range,
     source_direction_count = 1, source_offset = src,
     ammo_type = {
       category = Xp.AMMO_CATEGORY, energy_consumption = "1500kJ",
-      action = { type = "direct", action_delivery = { type = "beam", beam = Xp.PREFIX .. "arc", max_length = r.range + 12, duration = 20,
-        source_offset = src } },
+      action = { type = "direct", action_delivery = { type = "beam", beam = Xp.PREFIX .. "arc", max_length = r.range + 20, duration = 20 } },
     },
   }
   return t

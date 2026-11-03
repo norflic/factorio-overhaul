@@ -2,10 +2,11 @@
 -- (tourelle à balles, tourelle laser, gros déchiqueteur ; force neutre), de jour et de nuit, avec leurs effets ; et le joueur qui POSE une
 -- tourelle depuis son curseur (build_from_cursor) et LANCE une capsule (use_from_cursor).
 --   py -3.9 -B tools/autotest/banc.py --out <archive> --captures --visuel="--no-atlas-cache --ticks 1500" --qui EXPERIMENTAUX -- 1500 xp-images <source>
--- Les cibles (force hostile qui ne tire pas) sont soignées à chaque tick : l'effet continue pendant les captures.
+-- Les cibles (force hostile qui ne tire pas) sont soignées à chaque tick et REPOSÉES quand elles meurent (passage i1 : un coup de Veilleuse
+-- les tue toutes, plus rien ne tirait pendant les rafales) ; la Demi-Vie de jour et de nuit est une seconde unité, loin de tout ennemi.
 local C = require("scenarios/xp_commun")
 
-local CHECK = 1400
+local CHECK = 980 -- la session avec images s'arrête à la dernière capture (i1 : pas de BILAN à 1 400)
 local JOUEUR_X = C.x(6)
 
 local PLAN = {}
@@ -17,18 +18,30 @@ local T0 = 300
 for i, id in ipairs(C.IDS) do
   local x, d = C.x(i), C.DIST[id]
   local t = T0 + (i - 1) * 120
-  vue(t, id .. "-jour", x + d / 2 - 6, C.Y - 7, 1)
-  vue(t + 2, id .. "-nuit", x + d / 2 - 6, C.Y - 7, 1, true)
+  local vx = id == "demi-vie" and C.x(8) + 6 or x + d / 2 - 6
+  vue(t, id .. "-jour", vx, C.Y - 7, 1)
+  vue(t + 2, id .. "-nuit", vx, C.Y - 7, 1, true)
   for k = 0, 5 do vue(t + 10 + k * 9, string.format("%s-effet-%d", id, k), x + d / 2, C.Y - 5, 1) end
   vue(t + 70, id .. "-z05", x + d / 2, C.Y - 6, 0.5)
 end
-vue(1000, "joueur-pose-et-lance", JOUEUR_X + 10, C.Y - 6, 0.7)
+vue(990, "joueur-pose-et-lance", JOUEUR_X + 10, C.Y - 6, 0.7)
 table.sort(PLAN, function(a, b) return a.tick < b.tick end)
 
-local function soigne(list)
-  for _, e in ipairs(list or {}) do
-    if e.valid then e.health = e.prototype.max_health end
+--- Cibles soignées, et reposées à leur place quand elles meurent.
+local function garnit(s, list)
+  for k, c in ipairs(list or {}) do
+    if c.e and c.e.valid then
+      c.e.health = c.e.prototype.max_health
+    else
+      c.e = s.create_entity({ name = "gun-turret", position = c.p, force = C.CIBLE })
+    end
   end
+end
+
+local function places(list)
+  local out = {}
+  for _, e in ipairs(list) do out[#out + 1] = { e = e, p = { e.position.x, e.position.y } } end
+  return out
 end
 
 return {
@@ -46,7 +59,7 @@ return {
       local x = C.x(i)
       C.terrain(ctx, x)
       local d = C.DIST[id]
-      local site = { id = id, x = x, cibles = C.cibles(s, x + d, C.Y, 3, 3) }
+      local site = { id = id, x = x, cibles = places(C.cibles(s, x + d, C.Y, 3, 3)) }
       -- repères vanilla, force neutre, à gauche
       s.create_entity({ name = "gun-turret", position = { x - 10, C.Y + 3 }, force = "neutral" })
       s.create_entity({ name = "laser-turret", position = { x - 13, C.Y + 3 }, force = "neutral" })
@@ -59,20 +72,26 @@ return {
     end
     -- le site du joueur
     C.terrain(ctx, JOUEUR_X)
-    st.cibles_joueur = C.cibles(s, JOUEUR_X + 40, C.Y, 3, 3)
+    st.cibles_joueur = places(C.cibles(s, JOUEUR_X + 40, C.Y, 3, 3))
+    -- la Demi-Vie montrée de jour et de nuit : loin de tout ennemi, elle attend
+    C.terrain(ctx, C.x(8))
+    s.create_entity({ name = "gun-turret", position = { C.x(8) - 10, C.Y + 3 }, force = "neutral" })
+    s.create_entity({ name = "laser-turret", position = { C.x(8) - 13, C.Y + 3 }, force = "neutral" })
   end,
 
   tick = function(ctx, e)
     local st = ctx.state()
     local t = e.tick
-    for _, site in ipairs(st.sites) do soigne(site.cibles) end
-    soigne(st.cibles_joueur)
+    local s = ctx.surface()
+    for _, site in ipairs(st.sites) do garnit(s, site.cibles) end
+    garnit(s, st.cibles_joueur)
+    if t == 5 then remote.call("fo-xp", "lancer", "demi-vie", "player", C.x(8), C.Y) end
     -- attaquants : lancés juste avant leur fenêtre d'images, assez près pour agir pendant la rafale
     for i, site in ipairs(st.sites) do
       local fen = T0 + (i - 1) * 120
-      if site.id == "geode" and t == fen - 60 then
+      if site.id == "geode" and t == fen - 220 then
         remote.call("fo-xp", "lancer", "geode", "player", site.x + 14, C.Y)
-      elseif site.id == "demi-vie" and t == fen - 40 then
+      elseif site.id == "demi-vie" and t == fen - 30 then
         remote.call("fo-xp", "lancer", "demi-vie", "player", site.x + C.DIST["demi-vie"] - 6, C.Y)
       end
     end

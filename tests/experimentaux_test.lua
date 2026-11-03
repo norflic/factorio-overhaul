@@ -176,6 +176,60 @@ local function suite(Xp)
     dups[v] = true
   end
   check(uniq, "§3 effets script : identifiants distincts")
+
+  -- §8 géants (palier 3)
+  local wantg = {
+    { "cairn", 10, "fo-robot-dock", 41000, "balayage" }, { "stylet", 11, "fo-robot-dock", 75000, "ecriture" },
+    { "trombe", 12, "fo-robot-dock", 137000, "gel" }, { "ixion", 13, "fo-robot-gantry", 251000, "tranchee" },
+    { "tournesol", 14, "fo-robot-gantry", 459000, "foyer" },
+  }
+  check(#Xp.GEANTS == #wantg and Xp.SEGMENTS == 10, "§8 cinq géants, 10 segments chacun")
+  for i, w in ipairs(wantg) do
+    local r = Xp.GEANTS[i]
+    check(r and r.id == w[1] and r.age == w[2] and r.factory == w[3] and r.mu == w[4] and r.effect == w[5] and r.time == 60,
+      "§8 " .. w[1] .. " : âge, usine, coût, effet, 60 s")
+    if r then
+      local f = Ro.factory(r.factory)
+      local best
+      for _, ff in ipairs(Ro.FACTORIES) do if ff.age <= r.age and (not best or ff.age > best.age) then best = ff end end
+      check(f and f == best, "§8 " .. r.id .. " : assemblé à l'usine de son âge")
+      local t = Ro.tech(r.after)
+      check(t and t.epoch == r.age, "§8 " .. r.id .. " : technologie de robot de son époque (" .. tostring(r.after) .. ")")
+      local ok100, dup, seen, c = true, false, {}, 0
+      for _, g in ipairs(r.segment.ingredients) do
+        if g[2] > 100 or g[2] < 1 then ok100 = false end
+        if seen[g[1]] then dup = true end
+        seen[g[1]] = true
+        c = c + mu_of(g[1]) * g[2]
+      end
+      check(ok100 and not dup, "§8 " .. r.id .. " : segment de 1 à 100 par ingrédient, sans doublon")
+      local ratio = c * Xp.SEGMENTS / r.mu
+      check(ratio >= 0.8 and ratio <= 1.2, string.format("§8 %s : 10 segments = %.0f MU contre %d (±20 %%)", r.id, c * Xp.SEGMENTS, r.mu))
+      check(r.ingredients[1][1] == r.segment_item and r.ingredients[1][2] == Xp.SEGMENTS and #r.ingredients == 1, "§8 " .. r.id .. " : assemblage = 10 segments")
+      check(r.is_giant and not r.is_unit and not r.is_turret and Xp.of_name(r.name) == r, "§8 " .. r.id .. " : géant, retrouvé par son nom")
+      local ref = Ro.robot(r.ref)
+      check(ref and ref.age == r.age and near(r.hp, math.floor(ref.hp * r.mu / ref.mu + 0.5), 1e-9) and near(r.dps, ref.dps * r.mu / ref.mu, 1e-3),
+        "§8 " .. r.id .. " : valeur pour la valeur (référence de son âge, PV sans facteur)")
+      check(r.range > 0 and r.cooldown > 0 and r.speed > 0, "§8 " .. r.id .. " : portée, cadence, vitesse")
+    end
+  end
+  check(Xp.giant_cap(9) == 0 and Xp.giant_cap(10) == 1 and Xp.giant_cap(12) == 1 and Xp.giant_cap(13) == 1 and Xp.giant_cap(14) == 2
+    and Xp.giant_cap(15) == 3 and Xp.giant_cap(nil) == 0, "§8 plafond : 0 avant l'âge 10, 1 de 10 à 13, puis celui de Ro (2, 3)")
+  check(Xp.giant_ok(10, 0) and not Xp.giant_ok(10, 1) and Xp.giant_ok(14, 1) and not Xp.giant_ok(14, 2) and not Xp.giant_ok(9, 0),
+    "§8 plafond : un de plus admis seulement sous le plafond")
+  check(near(Xp.split(90, 3), 30) and near(Xp.split(90, 0), 90), "§8 coup partagé entre les cibles (au moins une)")
+  local mk = Xp.marks(P(0, 0), { P(5, 0, 4), P(1, 0, 9), P(50, 0, 1), P(0, 2, 3) }, 2, 40)
+  check(#mk == 2 and mk[1].id == 9 and mk[2].id == 3, "§8 Cairn : les n plus proches dans la portée")
+  local nodes, pts = Xp.circuit(P(0, 0), P(10, 5, 1), { P(10, 5, 1), P(12, 8, 2), P(40, 40, 3) }, 6, 6)
+  check(#nodes == 2 and nodes[1].id == 1 and nodes[2].id == 2, "§8 Stylet : la cible puis de proche en proche (bond au plus 6)")
+  local droit = true
+  for i = 2, #pts do if pts[i].x ~= pts[i - 1].x and pts[i].y ~= pts[i - 1].y then droit = false end end
+  check(droit and pts[#pts].x == 12 and pts[#pts].y == 8, "§8 Stylet : tracé à angles droits jusqu'au dernier nœud")
+  local fz = Xp.fissure(P(0, 0), P(30, 0), 3, 10)
+  check(#fz == 13 and near(fz[1].x, 3) and near(fz[13].x, 39) and near(fz[13].y, 0), "§8 Ixion : fissure tous les 3, prolongée de 10")
+  check(#Xp.fissure(P(1, 1), P(1, 1), 3, 10) == 0, "§8 Ixion : cible sur place, pas de fissure")
+  check(Xp.foyer_fires(0, 0.5) and Xp.foyer_fires(0.49, 0.5) and not Xp.foyer_fires(0.5, 0.5) and not Xp.foyer_fires(0.85, 0.5),
+    "§8 Tournesol : ne tire pas la nuit")
   return pass, fail, msgs
 end
 
@@ -246,13 +300,17 @@ local function no_require_in_function(src)
   end
   return true
 end
-check(no_require_in_function(SCRIPT), "§5 script : aucun require dans une fonction (F24)")
-check(not SCRIPT:find("%f[%w]global%f[%W]%s*[%.%[]") and not XP_SRC:find("%f[%w]global%f[%W]%s*[%.%[]"), "§5 `global` jamais nommé")
-local pairs_ok = true
-for line in SCRIPT:gmatch("[^\n]*") do
-  if line:find("[^i]pairs%(") and not line:find("trié juste après") then pairs_ok = false end
+for _, p in ipairs({ "script/robots/experimentaux.lua", "script/robots/experimentaux_commun.lua", "script/robots/experimentaux_geants.lua" }) do
+  local src = read(p)
+  check(no_require_in_function(src), "§5 " .. p .. " : aucun require dans une fonction (F24)")
+  check(not src:find("%f[%w]global%f[%W]%s*[%.%[]"), "§5 " .. p .. " : `global` jamais nommé")
+  local pairs_ok = true
+  for line in src:gmatch("[^\n]*") do
+    if line:find("[^i]pairs%(") and not line:find("trié juste après") then pairs_ok = false end
+  end
+  check(pairs_ok, "§5 " .. p .. " : pairs seulement sur game.forces, trié juste après")
 end
-check(pairs_ok, "§5 script : un seul pairs, sur game.forces, trié juste après")
+check(not XP_SRC:find("%f[%w]global%f[%W]%s*[%.%[]"), "§5 shared : `global` jamais nommé")
 
 -- §6 traductions
 local function cfg(p)
@@ -292,7 +350,20 @@ local MUTANTS = {
   { "ingrédient au-delà de 100", '{ "battery", 100 }, { "steel-plate", 100 }, { "engine-unit", 60 }', '{ "battery", 101 }, { "steel-plate", 100 }, { "engine-unit", 60 }' },
   { "coût de la Sarracénie divisé", '{ "fo-methane-barrel", 100 }, { "fo-servo-motor", 50 }', '{ "fo-methane-barrel", 10 }, { "fo-servo-motor", 5 }' },
   { "ingrédient en double", '{ "fo-lead-plate", 100 }, { "processing-unit", 40 }', '{ "uranium-238", 100 }, { "processing-unit", 40 }' },
-  { "PV sans le facteur des défenses", 'if r.kind ~= "unit-capsule" then hp = hp * Xp.HP_POSE end', '' },
+  { "PV sans le facteur des défenses", 'if r.kind == "turret" or r.kind == "turret-electric" then hp = hp * Xp.HP_POSE end', '' },
+  { "géant compté comme défense posée", 'if r.kind == "turret" or r.kind == "turret-electric" then', 'if r.kind ~= "unit-capsule" then' },
+  { "géants admis avant l'âge 10", "Xp.GIANT_EARLY_AGE = 10", "Xp.GIANT_EARLY_AGE = 9" },
+  { "plafond des géants sans Ro", "return math.max(Ro.giant_allowed(age), early)", "return early" },
+  { "géant admis au plafond", "return (have or 0) < Xp.giant_cap(age)", "return (have or 0) <= Xp.giant_cap(age)" },
+  { "Cairn marque une cible de trop", "for i = 1, math.min(n, #all) do out[i] = all[i].c end", "for i = 1, math.min(n + 1, #all) do out[i] = all[i].c end" },
+  { "coup non partagé", "return shot / math.max(1, n or 0)", "return shot" },
+  { "circuit en diagonale", "local corner = { x = nd.x, y = cur.y }", "local corner = { x = nd.x, y = nd.y }" },
+  { "circuit sans la cible", "local nodes = { target }", "local nodes = {}" },
+  { "fissure sans prolongement", "local total = len + beyond", "local total = len" },
+  { "Tournesol qui tire la nuit", "return (darkness or 0) < night", "return true" },
+  { "Ixion coûte moitié", '{ "fo-superconducting-coil", 100 }, { "processing-unit", 100 }, { "fo-magnetic-actuator", 80 },', '{ "fo-superconducting-coil", 50 }, { "processing-unit", 50 }, { "fo-magnetic-actuator", 40 },' },
+  { "Trombe au Portique", 'id = "trombe", src = "trombe", age = 12, kind = "giant", factory = "fo-robot-dock"', 'id = "trombe", src = "trombe", age = 12, kind = "giant", factory = "fo-robot-gantry"' },
+  { "neuf segments", "Xp.SEGMENTS = 10", "Xp.SEGMENTS = 9" },
   { "valeur sans le rapport des coûts", "local k = r.mu / ref.mu", "local k = 1" },
   { "coup sans la cadence", "shot = round(dps * r.cooldown / 60, 0.1)", "shot = round(dps, 0.1)" },
   { "plus proche sans départage", "(d == bd and c.id < best.id)", "(d == bd and c.id > best.id)" },

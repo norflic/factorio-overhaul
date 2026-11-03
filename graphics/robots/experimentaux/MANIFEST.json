@@ -44,6 +44,12 @@
    "sha256": "bfb2e77fd34e90727e567b7ff03682208c930f0cb9c452a14500c0f7073e449e",
    "taille": 96952
   },
+  "eclair-blanc.png": {
+   "hauteur": 128,
+   "largeur": 128,
+   "sha256": "7793e5c386de33469626363b8b4e3f78da8489a11bc1866b9f6b40e3d3e48a6f",
+   "taille": 4609
+  },
   "eclair.png": {
    "hauteur": 128,
    "largeur": 128,
@@ -67,6 +73,12 @@
    "largeur": 289,
    "sha256": "7a608fbb8f6657a81a69df27035eb34f94162384b4cba36a0bf60bb31805db95",
    "taille": 80532
+  },
+  "glace.png": {
+   "hauteur": 42,
+   "largeur": 18,
+   "sha256": "5be1657a12456ad21b5cead17e3eec55715e7fa3df3fb370dfd9bff6d8eb0bf7",
+   "taille": 1261
   },
   "hr-cairn-lueur.png": {
    "hauteur": 1609,
@@ -110,6 +122,12 @@
    "sha256": "c88f6817694c6aa0260ce3c52e23eff3fafb0715665b21a8a3f3b4d5db47fbaf",
    "taille": 591211
   },
+  "hr-eclair-blanc.png": {
+   "hauteur": 256,
+   "largeur": 256,
+   "sha256": "91e3189f9efec2d238c0429458e4b3f6c33a39206b02f7c2a81220e56b138dc1",
+   "taille": 12631
+  },
   "hr-eclair.png": {
    "hauteur": 256,
    "largeur": 256,
@@ -133,6 +151,12 @@
    "largeur": 866,
    "sha256": "ee9b27b7ae2abd57baae1e420ec604a8aacd090b44028ba37637d2786a5b0f0b",
    "taille": 434645
+  },
+  "hr-glace.png": {
+   "hauteur": 83,
+   "largeur": 35,
+   "sha256": "fd2a62af345851ccaca2676a392c57559c933ae240b8d92f31080c0d0847287d",
+   "taille": 2527
   },
   "hr-ixion-lueur.png": {
    "hauteur": 1507,

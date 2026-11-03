@@ -618,6 +618,37 @@ return {
       },
       shift = { 0.0, 0.0 },
     },
+    ["eclair-blanc"] = {
+      additif = true,
+      hr = {
+        filename = "__factorio-overhaul__/graphics/robots/experimentaux/hr-eclair-blanc.png",
+        height = 256,
+        scale = 1.0,
+        width = 256,
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/robots/experimentaux/eclair-blanc.png",
+        height = 128,
+        scale = 2.0,
+        width = 128,
+      },
+      shift = { 0.0, 0.0 },
+    },
+    glace = {
+      hr = {
+        filename = "__factorio-overhaul__/graphics/robots/experimentaux/hr-glace.png",
+        height = 83,
+        scale = 1.0,
+        width = 35,
+      },
+      lr = {
+        filename = "__factorio-overhaul__/graphics/robots/experimentaux/glace.png",
+        height = 42,
+        scale = 2.0,
+        width = 18,
+      },
+      shift = { 0.0, -1.3 },
+    },
     pointe = {
       base = 1.3,
       hr = {

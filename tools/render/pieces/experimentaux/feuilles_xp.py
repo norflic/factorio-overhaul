@@ -232,8 +232,12 @@ def additif(c):
     return np.round(np.concatenate([rgb, m], -1) * 255).astype(np.uint8)
 
 
-def pointe(ppt, lueur=False):
-    """Pointe de cristal violet (Géode) : 1,1 × 2,6 tuiles, deux faces, arête claire ; base au bas de l'image."""
+VIOLET = ((176, 112, 240), (96, 44, 160), (236, 210, 255), (214, 170, 255), (190, 120, 255))
+GLACE = ((214, 240, 255), (120, 176, 214), (250, 254, 255), (236, 248, 255), (170, 230, 255))
+
+
+def pointe(ppt, lueur=False, teintes=VIOLET):
+    """Pointe de cristal (Géode : violet ; Trombe : glace) : 1,1 × 2,6 tuiles, deux faces, arête claire ; base au bas de l'image."""
     ss = 4
     w, h = int(round(1.1 * ppt)) * ss, int(round(2.6 * ppt)) * ss
     im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -242,15 +246,15 @@ def pointe(ppt, lueur=False):
     gauche = [(cx, top), (cx - half, base * 0.78), (cx - half * 0.55, base), (cx, base * 0.9)]
     droite = [(cx, top), (cx, base * 0.9), (cx + half * 0.55, base), (cx + half, base * 0.78)]
     if lueur:
-        d.polygon(gauche + droite, fill=(190, 120, 255, 255))
+        d.polygon(gauche + droite, fill=teintes[4] + (255,))
         im = im.filter(ImageFilter.GaussianBlur(ss * 2))
         a = np.asarray(im.resize((w // ss, h // ss), Image.LANCZOS)).astype(np.float32) / 255.0
         e = a[..., :3] * a[..., 3:4] * 0.9
         return additif(e)
-    d.polygon(gauche, fill=(176, 112, 240, 255))
-    d.polygon(droite, fill=(96, 44, 160, 255))
-    d.line([(cx, top), (cx, base * 0.9)], fill=(236, 210, 255, 255), width=ss)
-    d.line([(cx, top), (cx - half, base * 0.78)], fill=(214, 170, 255, 255), width=max(1, ss // 2))
+    d.polygon(gauche, fill=teintes[0] + (255,))
+    d.polygon(droite, fill=teintes[1] + (255,))
+    d.line([(cx, top), (cx, base * 0.9)], fill=teintes[2] + (255,), width=ss)
+    d.line([(cx, top), (cx - half, base * 0.78)], fill=teintes[3] + (255,), width=max(1, ss // 2))
     return np.asarray(im.resize((w // ss, h // ss), Image.LANCZOS)).copy()
 
 
@@ -301,8 +305,11 @@ def effets(S):
     e["pointe-lueur"] = S.couche("pointe-lueur", pointe(PPT, True), PPT, pointe(LR_PPT, True), LR_PPT, (0.0, -1.3))
     e["eclair"] = S.couche("eclair", disque(256, (1.0, 0.25, 0.85)), PPT, disque(128, (1.0, 0.25, 0.85)), LR_PPT, (0.0, 0.0))
     e["verre"] = S.couche("verre", verre(160, 7), PPT, verre(80, 7), LR_PPT, (0.0, 0.0))
+    # géants : éclair blanc (teinté par l'explosion qui l'emploie), pointe de glace (Trombe)
+    e["eclair-blanc"] = S.couche("eclair-blanc", disque(256, (1.0, 1.0, 1.0), 0.45), PPT, disque(128, (1.0, 1.0, 1.0), 0.45), LR_PPT, (0.0, 0.0))
+    e["glace"] = S.couche("glace", pointe(PPT, False, GLACE), PPT, pointe(LR_PPT, False, GLACE), LR_PPT, (0.0, -1.3))
     e["pointe"]["base"] = 1.3
-    for k in ("pointe-lueur", "eclair"):
+    for k in ("pointe-lueur", "eclair", "eclair-blanc"):
         e[k]["additif"] = True
     return e
 
