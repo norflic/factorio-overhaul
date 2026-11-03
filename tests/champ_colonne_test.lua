@@ -628,10 +628,22 @@ do
   local river = {}
   for x = 36, 38 do for y = -400, 400 do river[Ch.key(x, y)] = true end end
   local spn = spec_of(ORE, { coal = disc(60, 0, 8), blocked = river })
-  local pn, wn = Ch.plan(spn)
-  check(chests(pn) == 0, "rivière sans souterrain : aucun coffre de tête (" .. chests(pn) .. ")")
-  check(pn == nil or (pn.refused and #pn.refused > 0 and count(pn, function(e) return e.kind == "four" end) == 0),
-    "rivière sans souterrain : colonnes refusées, aucun four sans voie (" .. tostring(pn and pn.refused and #pn.refused or wn) .. ")")
+  local pn = Ch.plan(spn)
+  -- (décision du lead, 3/11) refuser coûterait tout le champ : le cadre garde ses colonnes au coffre de tête (0.6.42), coût écrit
+  check(pn ~= nil and chests(pn) > 0 and pn.coffre_cost == 100 and pn.refused == nil,
+    string.format("rivière sans souterrain : refus à %s %% -> cadre à coffres (%d coffres de tête)", tostring(pn and pn.coffre_cost), chests(pn)))
+  local refusee = 0
+  for _, sides in pairs(pn and pn.frame.cols or {}) do for _, fc in pairs(sides) do if fc.mode == "refusee" then refusee = refusee + 1 end end end
+  check(refusee == 0, "cadre à coffres : aucune colonne notée « refusee » au cadre (" .. refusee .. ")")
+  local rb, rt, rm = stability(ORE, { coal = disc(60, 0, 8), blocked = river })
+  check(rt > 0 and rb == 0 and rm == 0, string.format("cadre à coffres, bandes seules : %d entités, %d absentes du plan entier, %d manquent", rt, rb, rm))
+  -- règle pure du seuil (Ch.CFG.refuse_min = 0,5) : cas azure (champ-longue 20261020 : 41 foreuses -> 4), 3 colonnes sur 4, 1 sur 10
+  local k1, c1 = Ch.refuse_keeps(41, 4)
+  local k2, c2 = Ch.refuse_keeps(4, 1)
+  local k3, c3 = Ch.refuse_keeps(10, 9)
+  local k4 = Ch.refuse_keeps(10, 5)
+  check(not k1 and c1 == 90 and not k2 and c2 == 75 and k3 and c3 == 10 and k4,
+    string.format("seuil 50 %% : azure 41->4 repli (%d %%), 3 sur 4 repli (%d %%), 1 sur 10 refus (%d %%), 5 sur 10 refus", c1, c2, c3))
   -- charbon trop petit pour tout le côté : les colonnes nourries gardent la voie, les autres sont refusées (moins de colonnes)
   local o = { coal = disc(70, 50, 10), drill = { size = 5, reach = 1, rate = 1 }, fs = 3 }
   local spp = spec_of(disc(0, 0, 26), o)
@@ -677,6 +689,14 @@ do
   local pm = Ch.plan(spec_of(disc(0, 0, 26), o))
   Ch.CFG.refuse_coffre = true
   check(chests(pm) > 0, "mutant « refus coupé » vu : le coffre de tête revient (" .. chests(pm) .. ")")
+  check(pp and pp.refuse_cost == 30 and pp.coffre_cost == nil, "charbon trop petit : refus gardé, il coûte " .. tostring(pp and pp.refuse_cost) .. " % (< 50 %)")
+  -- mutants du seuil : 0 (toujours refuser) -> la rivière perd ses coffres ; > 1 (jamais refuser) -> le charbon trop petit garde les siens
+  Ch.CFG.refuse_min = 0
+  local m1 = Ch.plan(spec_of(ORE, { coal = disc(60, 0, 8), blocked = river }))
+  Ch.CFG.refuse_min = 1.01
+  local m2 = Ch.plan(spec_of(disc(0, 0, 26), o))
+  Ch.CFG.refuse_min = 0.5
+  check(chests(m1) == 0 and chests(m2) > 0, string.format("mutants du seuil vus (toujours refuser : %d coffres ; jamais : %d)", chests(m1), chests(m2)))
 end
 
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))

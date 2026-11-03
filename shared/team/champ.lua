@@ -55,6 +55,10 @@ Ch.CFG = {
   -- sans elle (ses foreuses peuvent aller à l'autre bout de la bande), au plus refuse_passes fois
   refuse_coffre = true,
   refuse_passes = 4,
+  -- (lot FONDERIE, 3/11, décision du lead) le refus ne vaut que s'il garde au moins cette part des foreuses du champ (ligne de charbon
+  -- exclue) ; sinon le cadre garde ses colonnes au coffre de tête (champ-longue 20261020 : le refus réduisait un champ d'azure de 41
+  -- foreuses à 4, de 97 % à 3 % du gisement)
+  refuse_min = 0.5,
   eps = 1e-9,
 }
 
@@ -801,9 +805,26 @@ end
 --- Plan du champ (voir plus haut). Lot FONDERIE : un cadre NEUF en colonne à combustible ne garde aucune colonne retombée sur le coffre de
 --- tête : elles sont refusées (spec.refuse) et le plan est refait sans elles ; le cadre les note « refusee » (une bande seule les saute).
 --- plan.refused = { { pr, side, why } } (journal « colonne refusee : pas de voie de charbon »).
+--- Foreuses du champ d'un plan (la ligne de charbon exclue).
+function Ch.field_drills(p)
+  local n = 0
+  for _, e in ipairs(p and p.ents or {}) do if e.kind == "foreuse" and e.role ~= "charbon" then n = n + 1 end end
+  return n
+end
+
+--- Règle pure (lot FONDERIE, 3/11) : le refus des colonnes sans voie de charbon est-il gardé ? before / after : foreuses du champ avec le
+--- coffre de tête / avec le refus. Rend (gardé, coût en % des foreuses perdues, arrondi).
+function Ch.refuse_keeps(before, after, min)
+  if before <= 0 then return true, 0 end
+  local cost = math.floor((1 - after / before) * 100 + 0.5)
+  return after >= (min or Ch.CFG.refuse_min) * before - 1e-9, cost
+end
+
 function Ch.plan(spec)
   local p, why = plan_once(spec)
   if not (Ch.CFG.refuse_coffre and p and p.design == "colonne" and p.fuelled and not spec.frame) then return p, why end
+  if not (p.fallback and #p.fallback > 0) then return p, why end
+  local p0, why0 = p, why -- plan avec les colonnes au coffre de tête (0.6.42) : gardé si le refus coûte trop
   local refuse, refused = {}, {}
   for _ = 1, Ch.CFG.refuse_passes do
     if not (p.fallback and #p.fallback > 0) then break end
@@ -815,13 +836,17 @@ function Ch.plan(spec)
     for k, v in pairs(spec) do sp[k] = v end
     sp.refuse = refuse
     p, why = plan_once(sp)
-    if not p then return nil, why end
+    if not p then break end
   end
-  if p.fallback and #p.fallback > 0 then
-    return nil, string.format("colonnes sans voie de charbon apres %d passes", Ch.CFG.refuse_passes)
+  -- refus impossible (plan vide, ou replis encore là après les passes) : il coûte tout le champ
+  local after = (p and not (p.fallback and #p.fallback > 0)) and Ch.field_drills(p) or 0
+  local keep, cost = Ch.refuse_keeps(Ch.field_drills(p0), after)
+  if not keep then
+    p0.coffre_cost, p0.coffre_cols = cost, #p0.fallback
+    return p0, why0
   end
   table.sort(refused, function(a, b) if a.pr ~= b.pr then return a.pr < b.pr end return a.side < b.side end)
-  p.refused = refused
+  p.refused, p.refuse_cost = refused, cost
   if p.frame.cols then
     for _, x in ipairs(refused) do
       local key = tostring(x.pr)
