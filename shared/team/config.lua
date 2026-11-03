@@ -202,6 +202,9 @@ T.turret_ammo_low = 8
 -- T.munitions_on faux : règle d'avant (seuil bas, tout ou rien, réserve fixe), code gardé.
 T.munitions_on = true
 T.turret_ammo_rich = 50
+-- Lot MUNITIONS : échelle des munitions des mitrailleuses, de la moins bonne à la meilleure (Mu.best_ammo : la meilleure dont la recette est
+-- ouverte et qui se fabrique depuis le coffre ; balles perforantes : recherche « military-2 », 8 de dégâts contre 5). La première est T.turret_ammo.
+T.turret_ammo_ladder = { "firearm-magazine", "piercing-rounds-magazine", "uranium-rounds-magazine" }
 -- Les tourelles reçoivent des chargeurs standard (bon marché) ; l'acier va aux mitrailleurs.
 T.turret_ammo = "firearm-magazine"
 T.turret = "gun-turret" -- lot CENTRALE-GARDE : la tourelle posée (portée lue à son prototype)

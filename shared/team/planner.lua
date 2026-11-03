@@ -659,7 +659,11 @@ function P.plan(view, book)
   -- Le charbon nécessaire aux tournées est réservé avant toute fabrication (grenades, etc.).
   avail[T.fuel] = math.max(0, (avail[T.fuel] or 0) - math.min(fuel_reserve, avail[T.fuel] or 0))
 
-  local ammo = T.turret_ammo
+  -- Lot MUNITIONS : la munition FABRIQUÉE et PORTÉE aux tourelles (view.turret_ammo : la meilleure fabricable, Mu.best_ammo) ; la pose d'une
+  -- tourelle reste payée en munition de base (base_ammo, Outposts.add_turret).
+  local base_ammo = T.turret_ammo
+  local ammo = view.turret_ammo or base_ammo
+  local surplus = {} -- lot MUNITIONS : surplus de la cible riche, servi APRÈS les recrues (section 4)
   -- Lot S1 : en péril, le groupe du QG est servi AVANT les autres (la commande de chargeurs d'un avant-poste réservait le stock, le QG n'en avait plus).
   local groups = view.turret_groups
   if peril_seen then
@@ -672,15 +676,21 @@ function P.plan(view, book)
       -- Lot MUNITIONS (shared/team/munitions.lua) : une tourelle sous 75 % de sa cible est rechargée AU PLEIN (g.missing chargeurs) ; la
       -- tournée part avec ce que le stock donne (Mu.take, recharge partielle) et le reste se fabrique aussitôt, à la même priorité. Avant :
       -- seulement sous le seuil bas, et tout ou rien hors péril (QG à 120 chargeurs pour 8 tourelles quand la vague de 140 min l'a vidé).
+      -- Part URGENTE (jusqu'à la cible ordinaire, g.missing_base) : priorité 90, avant les recrues ; SURPLUS de la cible riche : après elles
+      -- (essai 1, verif-guide 271828182 : 988 chargeurs au coffre, 14 PNJ contre 23).
       if Mu.due(g) and not g.has_task then
         local n = g.missing
+        local nb = math.min(n, g.missing_base or n)
         local stock = avail[ammo] or 0
-        local part = Mu.take(n, g.short, stock)
+        local part = Mu.take(nb, math.max(1, g.short_base or g.short), stock)
+        local task = nil
         if part > 0 then
-          add({ key = "refill:" .. g.key, kind = "refill", prio = 90, group = g.key })
+          task = { key = "refill:" .. g.key, kind = "refill", prio = 90, group = g.key, count = part }
+          add(task)
           avail[ammo] = stock - part
         end
-        if part < n then want({ { ammo, n - part } }, 90, "munitions") end
+        if part < nb then want({ { ammo, nb - part } }, 90, "munitions") end
+        if n > nb then surplus[#surplus + 1] = { g = g, n = n - nb, task = task } end
       end
     elseif g.low > 0 and not g.has_task then
       local n = g.low * T.turret_ammo_target
@@ -1093,7 +1103,7 @@ function P.plan(view, book)
         -- Lot IA1-b2 : déjà demandé en urgence (défendre d'abord, plus haut) ; seul le manque s'affiche.
         if not turret_craftable and (avail["gun-turret"] or 0) == 0 then add_missing({ ["gun-turret"] = part.n }) end
       elseif part.fortify then
-        local items = { { "gun-turret", part.n }, { ammo, part.n * T.turret_ammo_target } }
+        local items = { { "gun-turret", part.n }, { base_ammo, part.n * T.turret_ammo_target } }
         if take(items) then
           add({ key = "fortify:" .. part.fortify, kind = "fortify", prio = 75, outpost = part.fortify, items = items })
         elseif not want(items, 50, "objectif") then
@@ -1211,6 +1221,22 @@ function P.plan(view, book)
 
   -- Réserve de munitions pour les tourelles.
   if (view.stock[ammo] or 0) < 40 then want({ { ammo, 20 } }, 35, "reserve", true) end
+
+  -- Lot MUNITIONS : le SURPLUS de la cible riche, APRÈS les recrues, l'armée et la recherche (dernier usage du fer de la section 4) : la
+  -- tournée prend ce qui reste au coffre (au plus le surplus), le reste se fabrique à Mu.SURPLUS_PRIO avec le fer que les recrues n'ont pas pris.
+  for _, sp in ipairs(surplus) do
+    local stock = avail[ammo] or 0
+    local got = math.min(sp.n, stock)
+    if sp.task then
+      sp.task.count = sp.task.count + got
+    elseif got >= Mu.TRIP_MIN or (got > 0 and (sp.g.low or 0) > 0) then
+      add({ key = "refill:" .. sp.g.key, kind = "refill", prio = 90, group = sp.g.key, count = got })
+    else
+      got = 0
+    end
+    avail[ammo] = stock - got
+    if got < sp.n then want({ { ammo, sp.n - got } }, Mu.SURPLUS_PRIO, "munitions-surplus") end
+  end
 
   ---------------------------------------------------------------------------------------------------
   -- 5. Matières premières manquantes : avant-poste existant (on attend sa tournée), fonderie, minage

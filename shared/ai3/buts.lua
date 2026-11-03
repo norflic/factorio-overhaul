@@ -379,12 +379,13 @@ function B.generate(s, st)
   -- 59 chargeurs pour 7 tourelles quand la vague de 1 740 PV est arrivée, fer à 0 depuis 40 min).
   local reserve = s.ammo_reserve or 0
   local boot = ((s.cap[key.top] or 0) >= 0.75 and (s.cap[key.fuel] or 0) >= 0.75) or s.at_war or reserve > 0
-  local ammo = T.turret_ammo
+  local ammo = s.turret_ammo or T.turret_ammo -- lot MUNITIONS : la munition choisie (la meilleure fabricable)
   local ammo_target = math.max(B.AMMO_STOCK, reserve)
   -- Lot MUNITIONS (retour du DC du 3/11, 0.6.46 : réserve de 60 à 158 chargeurs pour 15 à 44 tourelles, coffre à 8 000 à 11 000 plaques de
-  -- fer) : le stock visé couvre le manque des tourelles au plein plus Mu.SPARE chargeurs par tourelle. Vue sans ce relevé : règle d'avant.
+  -- fer) : le stock visé couvre le manque URGENT des tourelles (jusqu'à la cible ordinaire) plus Mu.SPARE chargeurs par tourelle, au plus une
+  -- charge ordinaire par tourelle (essai 1 : 988 chargeurs au coffre, les recrues sans fer). Vue sans ce relevé : règle d'avant.
   if T.munitions_on and s.turrets_n then
-    ammo_target = Mu.stock_target({ turrets = s.turrets_n, missing = s.ammo_missing, floor = ammo_target })
+    ammo_target = Mu.stock_target({ turrets = s.turrets_n, missing = s.ammo_missing, base = T.turret_ammo_target, floor = ammo_target })
   end
   if boot and (s.stock[ammo] or 0) < ammo_target then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,

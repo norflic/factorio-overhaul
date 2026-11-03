@@ -463,7 +463,7 @@ function Worker.program(f, task, surface, tick)
     if not pos then return nil end
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
     if o then pos = access(o, f) end
-    local ammo = Outposts.ammo_name(f.tech)
+    local ammo = Outposts.ammo_name(f.tech, f) -- lot MUNITIONS : la meilleure munition fabricable de l'équipe (f.team.ammo_item)
     if Board.market(f) then
       -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
       -- « firearm-magazine », soit jusqu'à 400 chargeurs sortis du coffre pendant la tournée : la matière promise aux
@@ -478,7 +478,12 @@ function Worker.program(f, task, surface, tick)
         if have < target then need = need + target - have end
       end
       if need <= 0 then return nil end
-      return { { "home" }, { "take", { { ammo, need } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
+      -- Lot MUNITIONS : la tournée porte au plus ce que le planificateur lui a donné (task.count : la part urgente avant les recrues, le
+      -- surplus de la cible riche après elles) ; la munition choisie d'abord, la munition de base en complément (prise non stricte).
+      if type(task.count) == "number" and task.count > 0 and task.count < need then need = task.count end
+      local list = { { ammo, need } }
+      if ammo ~= T.turret_ammo then list[2] = { T.turret_ammo, need } end
+      return { { "home" }, { "take", list }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
     end
     return { { "home" }, { "take", { { ammo, 200 }, { "firearm-magazine", 200 } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
   elseif k == "fortify" then
