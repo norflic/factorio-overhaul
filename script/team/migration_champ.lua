@@ -1072,11 +1072,15 @@ local function sweep(f, surface, ms, free, book, tick)
   -- Th.CFG.dry_wait sur un gisement dont une bande est FINIE est retiré seul (Th.dry_retire), sans exiger « couvert » ; jamais pendant qu'une
   -- bande du champ attend son dégel (« projet »), jamais le charbon de la centrale sous son plancher (Th.cut_ok sans perte). Date par
   -- foreuse ms.dry[numéro], refaite à chaque passage avec les seules foreuses vues (ménage sans `pairs`).
+  -- (variante B' : une bande FINIE du MÊME MINERAI dans la force suffit, pas forcément sur ce gisement : les brûleurs à sec sont surtout sur
+  -- des gisements sans bande, e3-lot 271828182 : Émeraude fer 50, charbon du joueur 17, pierre 9)
+  local done_res = {}
+  for _, fl in ipairs(fields) do if (fl.fini or 0) > 0 then done_res[fl.res] = true end end
   local dry = {}
   for _, fl in ipairs(fields) do
     local o = Champ.target(f, fl.id)
     local st = ms.o[fl.id]
-    if o and st and st.stage ~= "projet" and (fl.fini or 0) > 0 and (fl.pairs or 0) > (fl.fueled or 0) then
+    if o and (not st or st.stage ~= "projet") and done_res[fl.res] and (fl.pairs or 0) > (fl.fueled or 0) then
       local prot = not ctx.critical[fl.res] or (Th.cut_ok(fl, fields, 0, ctx))
       local list, ents, owners = sweep_list(f, o)
       local ids = {}
@@ -1097,7 +1101,8 @@ local function sweep(f, surface, ms, free, book, tick)
         ms.dry_retired = (ms.dry_retired or 0) + removed
         swept = swept + removed
         log(string.format("[FO-THERMIQUE] %s : brûleur(s) à sec retiré(s) : %d sur le gisement de l'avant-poste %d (%s), à sec depuis %d min au moins, "
-          .. "%d bande(s) finie(s), %d paire(s) restent ; repris au stock : %s", name_of(f), removed, o.id, o.kind, Th.CFG.dry_wait / 3600, fl.fini,
+          .. "%d bande(s) finie(s) sur ce gisement (une au moins sur ce minerai), %d paire(s) restent ; repris au stock : %s", name_of(f), removed, o.id,
+          o.kind, Th.CFG.dry_wait / 3600, fl.fini or 0,
           math.max(0, fl.pairs - removed), items_text(got)))
       end
     end

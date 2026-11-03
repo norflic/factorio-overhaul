@@ -1660,6 +1660,24 @@ do
     for _ = 1, nmin + 4 do E.sweep() end
     check(E.alive() == 8, "T10c : aucune bande finie : les brûleurs à sec restent (" .. E.alive() .. ")")
     E.restore()
+    -- T10e (variante B') : bande du champ en chantier, mais une bande FINIE du même minerai sur un autre gisement : les brûleurs à sec partent
+    E = setup({ working = 1 })
+    for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "chantier" end
+    E.ms.fields[2] = { id = 2, kind = E.o.kind, pos = { x = 20000, y = 20000 }, field = true, drill_list = {}, sinks = {}, drills = 0,
+      box = { 19990, 19990, 20010, 20010 } }
+    E.ms.o[2] = { stage = "veille", fails = 0, noop = 0, done = 1, produced = 1, retry = 0, frame = { axis = "x" }, order = {}, done_pr = {} }
+    local id2 = E.Build.request(E.f, { site = "champ", champ = { oid = 2, pr = 1, frame = {} } })
+    local p2 = E.f.build.projects[id2]
+    p2.state, p2.ents = "fini", {}
+    E.f.build.order[#E.f.build.order + 1] = id2
+    for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
+    for _ = 1, nmin + 2 do E.sweep() end
+    check(E.alive() == 5, "T10e : bande finie du même minerai ailleurs : les 3 brûleurs à sec partent (" .. E.alive() .. ")")
+    E.ms.o[1].stage = "projet"
+    for k, d in ipairs(E.o.drill_list) do if d.valid then d.fuel_n = 0 end end
+    for _ = 1, nmin + 2 do E.sweep() end
+    check(E.alive() == 5, "T10e : bande du champ en « projet » : rien ne part (" .. E.alive() .. ")")
+    E.restore()
     -- T10d : charbon de la centrale (minerai critique) sous son plancher : gardé
     local saved_fuel2 = T.fuel
     E = setup({ working = 1 })
@@ -1703,7 +1721,8 @@ do
     { "foreuse à l'arrêt comptée en marche", mut("if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end", "if de and de.valid then n = n + 1 end") },
     -- lot THERMIQUE5
     { "bande en chantier comptée (priorité 0)", mut("p.spec.champ.oid == oid and Th.band_covers(p.state, made >= CFG.produce_min) then", "p.spec.champ.oid == oid then") },
-    { "règle B : bande finie non exigée", mut("(fl.fini or 0) > 0 and (fl.pairs or 0) > (fl.fueled or 0)", "(fl.pairs or 0) > (fl.fueled or 0)") },
+    { "règle B : bande finie non exigée", mut("and done_res[fl.res] and (fl.pairs or 0) > (fl.fueled or 0)", "and (fl.pairs or 0) > (fl.fueled or 0)") },
+    { "règle B : bande en projet ignorée", mut("(not st or st.stage ~= \"projet\") and done_res", "done_res") },
     { "règle B : date jamais remise à zéro", mut("  ms.dry = dry\n", "  for _, k in ipairs(State.sorted_keys(ms.dry or {})) do dry[k] = dry[k] or ms.dry[k] end\n  ms.dry = dry\n") },
     { "règle B : protection de la centrale ignorée", mut("local prot = not ctx.critical[fl.res] or (Th.cut_ok(fl, fields, 0, ctx))", "local prot = true") },
     { "bloquée sans produit comptée (THERMIQUE6)", mut("Th.band_covers(p.state, made >= CFG.produce_min)", "Th.band_covers(p.state, true)") },
