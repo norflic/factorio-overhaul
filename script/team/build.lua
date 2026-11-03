@@ -606,6 +606,17 @@ end
 
 --- Tuiles de minerai `res` d'un lot (un appel). Lot PD-FONDERIEQG (D82) : `set.axis` = sens du gisement dans le lot ("x", "y"
 --- ou nil : rond ou trop petit ; shared/team/orient.lua), lu par place_module pour orienter une ligne de foreuses.
+local MEL_CAT = {} -- lot MELANGE : catégorie d'une ressource (mémoire LOCALE, prototypes seulement)
+local function mel_category(name)
+  local c = MEL_CAT[name]
+  if c == nil then
+    local pp = game.entity_prototypes[name]
+    c = pp and pp.resource_category or false
+    MEL_CAT[name] = c
+  end
+  return c
+end
+
 local function ore_set(surface, rect, res)
   local set, n = {}, 0
   local m = Or.moments()
@@ -616,6 +627,17 @@ local function ore_set(surface, rect, res)
     n = n + 1
   end
   set.axis = Or.axis(m)
+  -- lot MELANGE : tuiles d'une AUTRE ressource que la foreuse électrique sait miner (P.fit, opts.foreign)
+  local dp = game.entity_prototypes[T.DRILL_ELECTRIC]
+  local cats = dp and dp.resource_categories or {}
+  local frn = {}
+  for _, e in ipairs(surface.find_entities_filtered({ area = { { rect.x0 - 3.99, rect.y0 - 3.99 }, { rect.x1 + 3.99, rect.y1 + 3.99 } }, type = "resource" })) do
+    if e.name ~= res then
+      local c = mel_category(e.name)
+      if c and cats[c] then frn[P.tkey(math.floor(e.position.x), math.floor(e.position.y))] = true end
+    end
+  end
+  set.foreign = frn
   return set, n
 end
 
@@ -677,7 +699,7 @@ local function place_module(f, surface, g, kind_states, toward, res, opts)
     if opts and opts.cover_min then fopts.cover_min = opts.cover_min end
     if opts and opts.within then fopts.within = opts.within end -- lot MIGRATION-CHAMP : la ligne tient dans la place libérée
     if opts and opts.fan then fopts.fan = opts.fan end
-    if res then fopts.ore = ores end
+    if res then fopts.ore = ores; fopts.foreign = ores and ores.foreign or nil end -- (lot MELANGE)
     -- lot PD-FONDERIEQG (D82) : ligne de foreuses (gabarit « drills ») dans le sens du gisement, sortie du collecteur vers l'arrivée
     if res and g.gen == "drills" then fopts.axis = ores and ores.axis or nil; fopts.out_toward = true end
     if opts and opts.water then fopts.water = masks.water end
@@ -1317,7 +1339,7 @@ local function line_rows(f, surface, spec, g, cur, rev)
       local masks, ores = lot_scan(f, surface, c, rect, prm.ore, cache)
       for n = ub, pairs_dep + 1, -1 do
         local gd2 = M.GEN.drills(prm.ore, n)
-        if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, cover_min = cfg.cover }) then pairs_dep = n break end
+        if gd2 and P.fit(gd2, rect, { free = masks.free, ore = ores, foreign = ores and ores.foreign or nil, cover_min = cfg.cover }) then pairs_dep = n break end
       end
     end
   end

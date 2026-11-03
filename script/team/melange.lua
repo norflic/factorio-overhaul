@@ -199,7 +199,7 @@ end
 
 --- Banc en moteur réel (scénario melange-banc) : le même relevé sur des entités données, une équipe fictive dont le stock est le coffre
 --- `hq`. args = { hq, resource, drills = { LuaEntity }, belts = { LuaEntity } } -> cumuls { checked, mixed, removed, items, jams, by }.
-remote.add_interface("fo-melange", {
+if remote and remote.add_interface then remote.add_interface("fo-melange", {
   releve = function(args)
     local f = { key = "melange-banc", hq = args.hq, build = { order = {}, projects = {} } }
     local ents = {}
@@ -214,6 +214,6 @@ remote.add_interface("fo-melange", {
     project(f, args.hq.surface, s, "banc", p, args.resource)
     return { checked = s.checked, mixed = s.mixed, removed = s.removed, items = s.items, jams = s.jams, by = s.by }
   end,
-})
+}) end -- (hors jeu, les bancs simulés n'ont pas `remote`)
 
 return Run

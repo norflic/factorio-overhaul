@@ -187,6 +187,40 @@ do
   check(d1 and d2 and sig(d1) == sig(d2), "determinisme avec charbon")
 end
 
+section("2 bis. gabarit de foreuses du plan directeur (P.fit) : opts.foreign")
+local P = require("shared.team.plan")
+local Mo = require("shared.team.modules")
+local function fit_case(foreign_on, slow)
+  local lat = P.lattice({ x = 0.5, y = 0.5 })
+  local x0, y0, x1, y1 = P.lot_rect(lat, 3, 3)
+  local rect = { x0 = x0, y0 = y0, x1 = x1, y1 = y1 }
+  local ore, foreign = {}, {}
+  -- tout le lot est du fer, sauf deux tuiles de charbon là où la ligne irait (près du but) : sans la règle, la couverture perd
+  -- moins que la distance ne gagne
+  local cx = x0 + 12
+  for x = x0 - 4, x1 + 4 do
+    for y = y0 - 4, y1 + 4 do
+      if (x == cx or x == cx + 1) and y == y0 + 12 then foreign[P.tkey(x, y)] = true else ore[P.tkey(x, y)] = true end
+    end
+  end
+  local g = Mo.GEN.drills("iron-ore", 2)
+  local fit = P.fit(g, rect, { ore = ore, foreign = foreign_on and foreign or nil, free = function() return true end, slow_cover = slow,
+    toward = { x = cx + 1, y = y0 + 12 } })
+  if not fit then return nil, 0 end
+  local r = (fit.k == 0) and g or Mo.rotate(g, fit.k)
+  local hit = 0
+  for _, t in ipairs(Mo.resource_tiles(r)) do if foreign[P.tkey(fit.ox + t[1], fit.oy + t[2])] then hit = hit + 1 end end
+  return fit, hit
+end
+do
+  local f0, h0 = fit_case(false, false)
+  local f1, h1 = fit_case(true, false)
+  local f2, h2 = fit_case(true, true)
+  check(f0 ~= nil and h0 > 0, "temoin : sans foreign, la ligne la plus proche du but mine le charbon (" .. h0 .. " tuile(s))")
+  check(f1 ~= nil and h1 == 0, "avec foreign (sommes cumulees) : ligne posee, 0 tuile de charbon minee, lu " .. tostring(h1))
+  check(f2 ~= nil and h2 == 0, "avec foreign (decompte tuile par tuile) : 0 tuile de charbon minee, lu " .. tostring(h2))
+end
+
 section("5. mutants")
 local mutants, seen = 0, 0
 local function mutant(name, detected)
@@ -218,6 +252,11 @@ do
   local bad = plan_cases(false)
   M.count = keep
   mutant("plan du champ sans la regle MELANGE", bad > 0)
+end
+-- P.fit sans la règle : la ligne retombe sur le charbon
+do
+  local _, h = fit_case(false, false)
+  mutant("P.fit sans opts.foreign", h > 0)
 end
 -- champ_verif : une foreuse posée sur la zone mêlée dans un plan juste
 do
