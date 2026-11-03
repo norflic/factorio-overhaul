@@ -83,6 +83,9 @@ end
 --- La règle est-elle allumée pour cette équipe ?
 function S.on(f) return f.team ~= nil and Sm.on(f.team.sorties_regle) end
 
+--- Lot CHARBON3 : partie `name` (« main », « prio », « porte ») allumée pour cette équipe ? (Sm.part, interrupteur f.team.sorties_<name>)
+function S.part(f, name) return f.team ~= nil and Sm.part(f.team.sorties_regle, f.team["sorties_" .. name], name) end
+
 --- Combustible à porter du coffre vers l'avant-poste `o` dont les brûleurs manquent de `need` (Sm.carry_fuel).
 function S.carry_fuel(f, o, need)
   local spec = T.outposts[o.kind]
@@ -98,7 +101,7 @@ end
 
 --- Minage à la main de `item` : ok, raison, objets dans les sorties comptées. Règle coupée (f.team.sorties_regle == false) : toujours ok.
 function S.hand_ok(f, item, tick, crisis)
-  if not (f.team and Sm.on(f.team.sorties_regle)) then return true, "coupee", 0 end
+  if not S.part(f, "main") then return true, "coupee", 0 end -- lot CHARBON3 : partie « main »
   local total = Sm.dormant(S.rows(f, item, tick), RAW, item)
   local ok, why = Sm.hand_ok({ dormant = total, crisis = crisis })
   return ok, why, total

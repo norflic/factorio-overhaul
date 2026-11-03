@@ -452,7 +452,7 @@ function Worker.program(f, task, surface, tick)
     -- (avant : jamais, il ne repartait plus une fois à sec avec des coffres vides ; règle coupée : le comportement de 0.6.41).
     local carry = need
     if o.kind == "coal" then carry = 0 end
-    if Sorties.on(f) then carry = Sorties.carry_fuel(f, o, need) end
+    if Sorties.part(f, "porte") then carry = Sorties.carry_fuel(f, o, need) end -- lot CHARBON3 : partie « porte »
     if carry > 0 then steps[#steps + 1] = { "take", { { T.fuel, carry } } } end
     steps[#steps + 1] = { "goto", access(o, f), 3 }
     steps[#steps + 1] = { "act", "service" }
