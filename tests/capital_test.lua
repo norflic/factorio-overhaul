@@ -469,6 +469,10 @@ local function run_all()
     local gch = Cap.goal(dbl, {})
     check(gch and gch.opens == true and gch.center == nil, "§15 but du bâtiment de la chaîne : marqué `opens`")
     check(gch.short == true and gch.fond == true, "§15 but du bâtiment de la chaîne : travail court (servi juste après le premier projet)")
+    check(gch.value == 62 and gb.value == 62, "§15 pas d'époque (chaîne, centre prioritaire) : valeur au rang de la recherche, 62 (" ..
+      tostring(gch.value) .. ", " .. tostring(gb.value) .. ")")
+    local gcn = Cap.goal(Cap.choose(L, cen, ctx({ defer = open, tick = T0 + IDLE10 - 1 })), {})
+    check(gcn and gcn.value < 62, "§15 bâtiment ordinaire : valeur d'avant, sous la recherche (" .. tostring(gcn and gcn.value) .. ")")
     -- Ordre de service : le but court de la chaîne passe devant un projet ordinaire et l'armée permanente ; le même bâtiment hors
     -- chaîne reste servi en dernier.
     local stp = {}
@@ -591,6 +595,11 @@ do
   end, function() Cap.defer_paid = dpd end)
   M("chaîne sans ses pièces", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g then g.opens = nil end return g end
+  end, function() Cap.goal = cg end)
+  local gs = Cap.GOAL_STEP
+  M("pas d'époque sous la recherche", function() Cap.GOAL_STEP = 0 end, function() Cap.GOAL_STEP = gs end)
+  M("tout but au rang de la recherche", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g then g.value = math.max(g.value, 62) end return g end
   end, function() Cap.goal = cg end)
   local cf0 = Cap.craft_first
   M("plaques avant les pièces (ordre du coût)", function() Cap.craft_first = function(l) return l end end,

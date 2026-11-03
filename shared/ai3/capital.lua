@@ -59,6 +59,12 @@ Cap.TOP = 3             -- candidats gardés pour le journal
 Cap.GOAL_VALUE = 30
 Cap.GOAL_STOCK = 12
 Cap.GOAL_EPOCH = 6
+-- Lot AGEBLOCAGE : valeur d'un PAS D'ÉPOQUE (centre prioritaire, Cap.starved ; bâtiment de la chaîne Q16), celle de la recherche
+-- (B.RESEARCH, shared/ai3/buts.lua) : ses fabrications (circuits du centre, engrenages de la tourelle) passent au rang de celles
+-- des packs au lieu de 53 à 61. Banc verif-guide 123456789 (essai 3, 4 ouvriers) : centre d'Azur prioritaire de 10,3 à 60 min,
+-- 13 727 fers libres, circuits montés à 39 sur 60 puis retombés à 0, consommés par les packs de la recherche ; au témoin, le
+-- centre y était monté à 55,2 min. Coût borné : un pas par famille qui bloque et un centre par époque.
+Cap.GOAL_STEP = 62
 -- Le but est de FOND (shared/ai3/projets.lua, P.update : g.fond) : aucune des K places de projet, servi après tous les
 -- autres projets, avec ce qui reste au stock virtuel ; ses tâches (fabrication, manques) à la priorité de sa valeur (53 à
 -- 61, sous la recherche et l'extraction). Moteur réel, bancs c1 et c1-temoin (27/10, graine 271828182, même code, capital
@@ -493,8 +499,11 @@ function Cap.goal(d, weights)
   if not d or d.none or not d.key then return nil end
   local base = Cap.GOAL_VALUE + (d.all_in and Cap.GOAL_STOCK or 0) + (d.center and Cap.GOAL_EPOCH or 0)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
+  local value = clamp(math.floor(base * w / 1000), 1, 100)
+  -- Lot AGEBLOCAGE : un PAS D'ÉPOQUE (centre prioritaire, bâtiment de la chaîne Q16) est servi au rang de la recherche.
+  if (d.center and d.starved) or (d.chain ~= nil and not d.center) then value = math.max(value, Cap.GOAL_STEP) end
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
-    value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
+    value = value, center = d.center or nil, fond = true,
     short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or (d.chain ~= nil and not d.center) or nil,
     replace = d.replace and true or nil,
     opens = (d.chain ~= nil and not d.center) or nil } -- lot AGEBLOCAGE : le bâtiment de la chaîne Q16 (sa montée ouvre le centre)
