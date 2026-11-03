@@ -1448,9 +1448,13 @@ FSM.define(MACHINE, {
             log(string.format("[FO-NAV2-ENCLOS] %s : ouvrier %d en (%.2f,%.2f), 3 echecs de suite depuis la tuile (%d,%d), raison %s, tache %s, a %.1f min ; libre ici pour le corps : %s ; entites a 6 tuiles (%d) : %s",
               f.key, agent.id, p.x, p.y, tx, ty, tostring(reason), agent.task and agent.task.key or "?", tick / 3600,
               tostring(sf.can_place_entity({ name = e.name, position = p })), #near, table.concat(near, " ")))
-            for dy = -7, 7 do
+            local tl = sf.get_tile(tx, ty)
+            log(string.format("[FO-NAV2-ENCLOS] %s ouvrier %d tuile %s, bloque le corps : %s", f.key, agent.id, tl.name, tostring(tl.collides_with("player-layer"))))
+            local R = 24
+            local grid = {}
+            for dy = -R, R do
               local row = {}
-              for dx = -7, 7 do
+              for dx = -R, R do
                 local x, y = tx + dx + 0.5, ty + dy + 0.5
                 local ch = "."
                 if dx == 0 and dy == 0 then ch = "@"
@@ -1461,15 +1465,37 @@ FSM.define(MACHINE, {
                       if bb.left_top.x < x + 0.2 and bb.right_bottom.x > x - 0.2 and bb.left_top.y < y + 0.2 and bb.right_bottom.y > y - 0.2 then ch = "#" break end
                     elseif q.valid and q ~= e then ch = "c" end
                   end
-                  if ch == "." then
+                  if ch == "." or ch == "c" then
                     local t = sf.get_tile(tx + dx, ty + dy)
-                    if t.valid and t.collides_with("water-tile") then ch = "~" end
+                    if t.valid and t.collides_with("player-layer") then ch = "~" end
                   end
                 end
                 row[#row + 1] = ch
               end
+              grid[dy] = row
               log(string.format("[FO-NAV2-ENCLOS] %s ouvrier %d carte %+d %s", f.key, agent.id, dy, table.concat(row)))
             end
+            -- remplissage (4-voisinage) depuis le bord de la carte : la tuile du PNJ est-elle atteinte ?
+            local seen, list = {}, {}
+            local function push(x, y)
+              if x < -R or x > R or y < -R or y > R then return end
+              local k = x * 1000 + y
+              if seen[k] then return end
+              local ch = grid[y][x + R + 1]
+              if ch == "#" or ch == "~" then return end
+              seen[k] = true
+              list[#list + 1] = { x, y }
+            end
+            for x = -R, R do push(x, -R) push(x, R) end
+            for y = -R + 1, R - 1 do push(-R, y) push(R, y) end
+            local i = 1
+            while i <= #list do
+              local c = list[i]
+              i = i + 1
+              push(c[1] + 1, c[2]) push(c[1] - 1, c[2]) push(c[1], c[2] + 1) push(c[1], c[2] - 1)
+            end
+            log(string.format("[FO-NAV2-ENCLOS] %s ouvrier %d : tuile du PNJ atteinte depuis le bord (rayon %d) : %s ; %d tuile(s) atteintes",
+              f.key, agent.id, R, tostring(seen[0] == true), #list))
           end
         end
         -- Lot C4 PLATEAU 3 (diagnostic) : pourquoi une tournée d'avant-poste ne trouve pas son chemin (6 lignes au plus par équipe)
