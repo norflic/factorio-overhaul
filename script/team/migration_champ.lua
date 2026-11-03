@@ -265,9 +265,10 @@ local function uses_thaw(p, thaw)
   return false
 end
 
---- Produits finis des fours de la ligne neuve (au plus 24 fours lus).
+--- Produits finis des fours de la ligne neuve (au plus 24 fours lus), et (lot THERMIQUE6) vrai si la ligne produit EN CE MOMENT (un four
+--- au moins en marche ; bande à coffres : au moins deux foreuses en marche, ou toutes si elle n'en a qu'une).
 local function made_by(f, surface, p)
-  local n, seen = 0, 0
+  local n, seen, live = 0, 0, false
   local drills, working = 0, 0
   for _, e in ipairs(p.ents or {}) do
     local proto = game.entity_prototypes[e.name]
@@ -276,7 +277,10 @@ local function made_by(f, surface, p)
         seen = seen + 1
         local found = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.6, type = "furnace", force = f.force })
         local fe = found[1]
-        if fe and fe.valid then n = n + fe.products_finished end
+        if fe and fe.valid then
+          n = n + fe.products_finished
+          if fe.status == defines.entity_status.working then live = true end
+        end
       end
     elseif e.built and e.role == "champ-foreuse" and drills < 24 then
       drills = drills + 1
@@ -286,8 +290,8 @@ local function made_by(f, surface, p)
   end
   -- lot THERMIQUE : une bande de COFFRES (charbon, pierre) n'a pas de four qui compte ses produits : elle produit quand ses foreuses minent
   -- (au moins deux en marche, ou toutes si elle n'en a qu'une)
-  if seen == 0 and drills > 0 and working >= math.min(2, drills) then n = CFG.produce_min end
-  return n
+  if seen == 0 and drills > 0 and working >= math.min(2, drills) then n, live = CFG.produce_min, true end
+  return n, live
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -427,17 +431,18 @@ local function thermal_count(o)
   return n, fueled
 end
 
---- Lot THERMIQUE5 : états moteur qui COUVRENT (Th.covering : en marche, ou sortie pleine), lus une fois (defines ne change pas en partie).
-local covering_set
-local function covering(status)
-  if not covering_set then
-    covering_set = {}
+--- Lot THERMIQUE5 : nom de l'état moteur s'il est de ceux qui COUVRENT (Th.COVERING_STATUS : en marche, sortie pleine), sinon nil ; table lue
+--- une fois (defines ne change pas en partie). Lot THERMIQUE6 : la décision est Th.drill_counts (sortie pleine seulement si la bande produit).
+local covering_name
+local function status_name(status)
+  if not covering_name then
+    covering_name = {}
     for _, k in ipairs(Th.COVERING_STATUS) do
       local v = defines.entity_status[k]
-      if v ~= nil then covering_set[v] = true end
+      if v ~= nil then covering_name[v] = k end
     end
   end
-  return covering_set[status] == true
+  return covering_name[status]
 end
 
 --- Fer d'une foreuse électrique (matières premières du livre), lu une fois : le livre est fait des recettes, qui ne changent pas en partie.
@@ -458,12 +463,14 @@ local function working_of(f, surface, oid)
     local p = b.projects[pid]
     -- (lot THERMIQUE5, priorité 0 : seule une bande FINIE au plan couvre, Th.band_covers ; avant, toute bande comptait ses foreuses posées et en
     -- marche, et l'amorce d'une bande en chantier faisait balayer les dernières paires : Scarlet, INTEG-0643N)
-    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state) then
+    -- (lot THERMIQUE6, essai 3 : une bande bloquée dont les fours ont produit couvre aussi ; la sortie pleine ne compte que si elle produit)
+    local made, live = 0, false
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and (p.state == "fini" or p.state == "bloque") then made, live = made_by(f, surface, p) end
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state, made >= CFG.produce_min) then
       for _, e in ipairs(p.ents or {}) do
         if e.built and e.role == "champ-foreuse" then
           local de = surface.find_entity(e.name, { e.x, e.y })
-          -- (lot THERMIQUE5 : une foreuse à sortie pleine couvre aussi, Th.covering ; revue du 3/11)
-          if de and de.valid and covering(de.status) then n = n + 1 end
+          if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end
         end
       end
     end

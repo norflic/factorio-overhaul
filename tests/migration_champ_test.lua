@@ -432,7 +432,8 @@ local function executor_run(scn)
   scn = scn or {}
   local logs = {}
   _G.log = function(s) logs[#logs + 1] = s end
-  _G.defines = { direction = { north = 0, east = 2, south = 4, west = 6 }, inventory = { furnace_source = 1, furnace_result = 2, fuel = 3 } }
+  _G.defines = { direction = { north = 0, east = 2, south = 4, west = 6 }, inventory = { furnace_source = 1, furnace_result = 2, fuel = 3 },
+    entity_status = { working = 1, no_power = 2, waiting_for_space_in_destination = 3, no_fuel = 4 } } -- (lot THERMIQUE6 : made_by lit l'état des fours)
   local sink_name, drill_name, edrill_name = T.outposts.iron.sink, T.DRILL, T.DRILL_ELECTRIC
   _G.game = { tick = 0, entity_prototypes = {
     [sink_name] = { type = "furnace", tile_width = 2, tile_height = 2 },
@@ -1493,7 +1494,7 @@ do
     game.entity_prototypes[T.DRILL_ELECTRIC].mining_speed = 0.5
     game.forces = { [f.force] = { mining_drill_productivity_bonus = 0 } }
     game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
-    defines.entity_status = { working = 1, no_power = 2, waiting_for_space_in_destination = 3 }
+    defines.entity_status = { working = 1, no_power = 2, waiting_for_space_in_destination = 3, no_fuel = 4 }
     local id = E.Build.request(f, { site = "champ", champ = { oid = 1, pr = 5, frame = {} } })
     local p = f.build.projects[id]
     p.state, p.ents = "fini", {}
@@ -1507,8 +1508,21 @@ do
     E.surface.find_entity = function(name, pos) return edrills[pos[1] .. "," .. pos[2]] end
     local base_find = E.surface.find_entities_filtered
     E.gens = {}
+    -- lot THERMIQUE6 : fours de la bande (made_by : produits finis et four en marche)
+    local tfurn = {}
+    local fu = opts.furnaces
+    for k = 1, fu and fu.n or 0 do
+      local e = { name = T.outposts.iron.sink, x = 9500 + 2 * k, y = 9000, built = true }
+      p.ents[#p.ents + 1] = e
+      tfurn[e.x .. "," .. e.y] = { valid = true, products_finished = fu.products or 0, status = fu.status or defines.entity_status.working }
+    end
+    E.tfurn = tfurn
     E.surface.find_entities_filtered = function(args)
       if args.type == "generator" then return E.gens end
+      if args.type == "furnace" and args.position then
+        local fe = tfurn[args.position[1] .. "," .. args.position[2]]
+        if fe then return { fe } end
+      end
       return base_find(args)
     end
     f.migration = { next = 0, logs = 0, logs_f = 0, fields = {},
@@ -1598,7 +1612,7 @@ do
     -- T8 (lot THERMIQUE5, priorité 0 ; revue-fonderie, Scarlet INTEG-0643N) : bande EN CHANTIER dont l'amorce fait tourner 6 foreuses : les
     -- paires restent ; la bande finie au plan, elles partent
     for _, stp in ipairs({ "chantier", "fantomes", "reserve", "bloque" }) do
-      E = setup({})
+      E = setup({ furnaces = { n = 4, products = 0 } }) -- (lot THERMIQUE6 : fours qui n'ont encore rien produit)
       for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = stp end
       for _ = 1, 4 do E.sweep() end
       check(E.alive() == 8, "T8 : bande « " .. stp .. " » (amorce en marche) : aucune paire retirée (" .. E.alive() .. " restent)")
@@ -1608,10 +1622,27 @@ do
       E.restore()
     end
 
-    -- T7 (lot THERMIQUE5) : 6 électriques à SORTIE PLEINE couvrent (le minerai est déjà en trop)
-    E = setup({ status = 3 })
+    -- T7 (lots THERMIQUE5 et THERMIQUE6) : 6 électriques à SORTIE PLEINE couvrent si la bande produit (un four en marche) ; fonderie à l'arrêt
+    -- (fours sans combustible : Émeraude, p0-lot), la sortie est pleine faute de fonte : elles ne couvrent pas
+    E = setup({ status = 3, furnaces = { n = 4, products = 50 } })
     E.sweep(); E.sweep()
-    check(E.alive() == 0, "T7 : électriques à sortie pleine : gisement couvert, les paires partent (" .. E.alive() .. " restent)")
+    check(E.alive() == 0, "T7 : sortie pleine, fours en marche : gisement couvert, les paires partent (" .. E.alive() .. " restent)")
+    E.restore()
+    E = setup({ status = 3, furnaces = { n = 4, products = 50, status = 4 } })
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 8, "T7 : sortie pleine, fours à l'arrêt (sans combustible) : pas couvert, les paires restent (" .. E.alive() .. " restent)")
+    E.restore()
+
+    -- T9 (lot THERMIQUE6, essai 3) : bande BLOQUÉE laissée au plan dont les fours ont produit : elle couvre ; sans produit, non
+    E = setup({ furnaces = { n = 4, products = 30 } })
+    for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "bloque" end
+    E.sweep(); E.sweep()
+    check(E.alive() == 0, "T9 : bande bloquée dont les fours ont produit (120) : les paires partent (" .. E.alive() .. " restent)")
+    E.restore()
+    E = setup({ furnaces = { n = 4, products = 2 } })
+    for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "bloque" end
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 8, "T9 : bande bloquée sous produce_min (8 produits) : les paires restent (" .. E.alive() .. " restent)")
     E.restore()
   end
   suite()
@@ -1630,10 +1661,13 @@ do
     { "confirmation ignorée", mut("if not st or (st.cov_n or 0) < SWEEP_CONFIRM then g.working = 0 end", "") },
     { "comptabilité des foreuses perdue", mut("q.drills = before[i]", "local _ = 0") },
     { "crédit de la migration oublié", mut("o.migr_credit = (o.migr_credit or 0) + removed", "local _ = 0") },
-    { "foreuse à l'arrêt comptée en marche", mut("if de and de.valid and covering(de.status) then n = n + 1 end", "if de and de.valid then n = n + 1 end") },
+    { "foreuse à l'arrêt comptée en marche", mut("if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end", "if de and de.valid then n = n + 1 end") },
     -- lot THERMIQUE5
-    { "bande en chantier comptée (priorité 0)", mut("p.spec.champ.oid == oid and Th.band_covers(p.state) then", "p.spec.champ.oid == oid then") },
-    { "sortie pleine ignorée", mut("if de and de.valid and covering(de.status) then n = n + 1 end", "if de and de.valid and de.status == 1 then n = n + 1 end") },
+    { "bande en chantier comptée (priorité 0)", mut("p.spec.champ.oid == oid and Th.band_covers(p.state, made >= CFG.produce_min) then", "p.spec.champ.oid == oid then") },
+    { "bloquée sans produit comptée (THERMIQUE6)", mut("Th.band_covers(p.state, made >= CFG.produce_min)", "Th.band_covers(p.state, true)") },
+    { "sortie pleine sans production comptée (THERMIQUE6)", mut("Th.drill_counts(status_name(de.status), live)", "Th.drill_counts(status_name(de.status), true)") },
+    { "four en marche ignoré (THERMIQUE6)", mut("if fe.status == defines.entity_status.working then live = true end", "") },
+    { "sortie pleine ignorée", mut("if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end", "if de and de.valid and de.status == 1 then n = n + 1 end") },
     { "brûleurs à sec comptés", mut("pairs = n, fueled = nf,", "pairs = n, fueled = n,") },
     { "chantier en cours ignoré (les deux gardes)", function(src)
       src = mut("busy = (st and st.stage == \"projet\") and true or false", "busy = false")(src)

@@ -56,6 +56,7 @@ M.CFG = {
   sweep_max = 1,          -- gisements balayés au plus par pensée (le retrait est immédiat : un gisement à la fois suffit)
   every = 600,            -- ticks entre deux balayages (une pensée d'équipe de la migration)
   raw_stock_max = 3000,   -- lot THERMIQUE2 (essai 3, décision du lead) : stock libre d'un minerai BRUT au-delà duquel plus aucun brûleur n'est posé
+  cover_by_output = true, -- lot THERMIQUE6 (essai 3) : couverture lue à la production de la bande (bloquée qui a produit, sortie pleine si elle produit)
 }
 
 local EPS = 1e-9
@@ -95,8 +96,23 @@ end
 --- balayées « 14 foreuses en marche » alors que la bande était EN CHANTIER, puis 20 fours sur 23 sans combustible et 14 foreuses figées à
 --- 57 min) : l'amorce d'une bande suffit à faire tourner ses premières foreuses. Les foreuses d'une bande ne comptent pour « couvert » que si
 --- son projet est FINI au plan directeur (`state` : état du projet, p.state). Rend vrai/faux.
-function M.band_covers(state)
-  return state == "fini"
+function M.band_covers(state, made_ok, cfg)
+  cfg = cfg_of(cfg)
+  if state == "fini" then return true end
+  -- lot THERMIQUE6 (essai 3, GO du lead 3/11) : une bande BLOQUÉE (fantôme refusé) laissée au plan n'est jamais « fini » ; elle couvre si ses
+  -- fours ont produit (`made_ok` : made_by >= produce_min ; p0-lot 271828182 : Émeraude AP4 12 brûleurs et Azure cuivre 11 gardés sinon)
+  return cfg.cover_by_output == true and state == "bloque" and made_ok == true
+end
+
+--- Lot THERMIQUE6 (essai 3) : une foreuse électrique d'une bande qui couvre compte-t-elle ? `status_name` : état moteur (Th.COVERING_STATUS) ;
+--- `live` : la bande produit EN CE MOMENT (au moins un four en marche ; bande à coffres : au moins 2 foreuses en marche). En marche : oui. Sortie
+--- pleine : seulement si la bande produit (sinon la sortie est pleine parce que la fonderie est à l'arrêt : Émeraude, 45 fours sur 45 sans
+--- combustible à 151 min, p0-lot). Éteint (cfg.cover_by_output faux) : la règle de THERMIQUE5 (Th.covering). Rend vrai/faux.
+function M.drill_counts(status_name, live, cfg)
+  cfg = cfg_of(cfg)
+  if not M.covering(status_name) then return false end
+  if cfg.cover_by_output ~= true or status_name == "working" then return true end
+  return live == true
 end
 
 --- Lot THERMIQUE5 (revue du 3/11, cause 1 : la retenue de la pile gelait TOUTE la migration du champ, balayage et dégel compris ; Azure et

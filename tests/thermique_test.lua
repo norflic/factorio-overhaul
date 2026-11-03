@@ -263,6 +263,18 @@ local function suite(Th, verbose)
       check(Th.band_covers(st) == false, "8h : bande « " .. st .. " » : ses foreuses ne couvrent pas")
     end
     check(Th.band_covers(nil) == false, "8h : état inconnu : ne couvre pas")
+    -- 8i. lot THERMIQUE6 (essai 3) : bande bloquée qui a produit ; sortie pleine seulement si la bande produit ; éteint : règle de THERMIQUE5
+    check(Th.band_covers("bloque", true) == true, "8i : bande bloquée dont les fours ont produit : couvre")
+    check(Th.band_covers("bloque", false) == false, "8i : bande bloquée sans produit : ne couvre pas")
+    check(Th.band_covers("chantier", true) == false and Th.band_covers("fantomes", true) == false, "8i : en chantier, même avec produit : ne couvre pas")
+    check(Th.band_covers("fini", false) == true, "8i : finie : couvre")
+    local OFF = { cover_by_output = false }
+    check(Th.band_covers("bloque", true, OFF) == false and Th.band_covers("fini", false, OFF) == true, "8i : éteint : seule la bande finie couvre")
+    check(Th.drill_counts("working", false) == true, "8i : foreuse en marche : compte, même bande sans fonte")
+    check(Th.drill_counts("waiting_for_space_in_destination", true) == true, "8i : sortie pleine, bande qui produit : compte")
+    check(Th.drill_counts("waiting_for_space_in_destination", false) == false, "8i : sortie pleine, fonderie à l'arrêt : ne compte pas")
+    check(Th.drill_counts("no_power", true) == false and Th.drill_counts(nil, true) == false, "8i : sans courant, état inconnu : ne compte pas")
+    check(Th.drill_counts("waiting_for_space_in_destination", false, OFF) == true, "8i : éteint : sortie pleine compte (règle de THERMIQUE5)")
     -- 8g. brûleurs à sec : n'extraient rien
     local th0 = Th.supply(fl(1, "a", 24, 12, { fueled = 0 }))
     check(th0 == 0, "8g : 24 paires à sec : extraction thermique nulle")
@@ -337,6 +349,12 @@ local mutants = {
   { "covering : tout couvre", "  for _, s in ipairs(M.COVERING_STATUS) do if s == status_name then return true end end\n  return false", "  return true" },
   { "band_covers : toute bande couvre", "  return state == \"fini\"\nend", "  return true\nend" },
   { "band_covers : bande en chantier couvre", "  return state == \"fini\"\nend", "  return state == \"fini\" or state == \"chantier\"\nend" },
+  { "band_covers : bloquée sans produit", "return cfg.cover_by_output == true and state == \"bloque\" and made_ok == true", "return cfg.cover_by_output == true and state == \"bloque\"" },
+  { "band_covers : bloquée ignorée", "return cfg.cover_by_output == true and state == \"bloque\" and made_ok == true", "return false" },
+  { "band_covers : interrupteur ignoré", "return cfg.cover_by_output == true and state == \"bloque\" and made_ok == true", "return state == \"bloque\" and made_ok == true" },
+  { "drill_counts : sortie pleine toujours", "  return live == true\nend", "  return true\nend" },
+  { "drill_counts : sortie pleine jamais", "  return live == true\nend", "  return false\nend" },
+  { "drill_counts : interrupteur ignoré", "if cfg.cover_by_output ~= true or status_name == \"working\" then return true end", "if status_name == \"working\" then return true end" },
   { "supply : brûleurs à sec comptés", "  local th = fl.fueled\n", "  local th = nil\n" },
 }
 
