@@ -265,9 +265,10 @@ local function uses_thaw(p, thaw)
   return false
 end
 
---- Produits finis des fours de la ligne neuve (au plus 24 fours lus).
+--- Produits finis des fours de la ligne neuve (au plus 24 fours lus), et (lot THERMIQUE6) vrai si la ligne produit EN CE MOMENT (un four
+--- au moins en marche ; bande à coffres : au moins deux foreuses en marche, ou toutes si elle n'en a qu'une).
 local function made_by(f, surface, p)
-  local n, seen = 0, 0
+  local n, seen, live = 0, 0, false
   local drills, working = 0, 0
   for _, e in ipairs(p.ents or {}) do
     local proto = game.entity_prototypes[e.name]
@@ -276,7 +277,10 @@ local function made_by(f, surface, p)
         seen = seen + 1
         local found = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.6, type = "furnace", force = f.force })
         local fe = found[1]
-        if fe and fe.valid then n = n + fe.products_finished end
+        if fe and fe.valid then
+          n = n + fe.products_finished
+          if fe.status == defines.entity_status.working then live = true end
+        end
       end
     elseif e.built and e.role == "champ-foreuse" and drills < 24 then
       drills = drills + 1
@@ -286,8 +290,8 @@ local function made_by(f, surface, p)
   end
   -- lot THERMIQUE : une bande de COFFRES (charbon, pierre) n'a pas de four qui compte ses produits : elle produit quand ses foreuses minent
   -- (au moins deux en marche, ou toutes si elle n'en a qu'une)
-  if seen == 0 and drills > 0 and working >= math.min(2, drills) then n = CFG.produce_min end
-  return n
+  if seen == 0 and drills > 0 and working >= math.min(2, drills) then n, live = CFG.produce_min, true end
+  return n, live
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -427,17 +431,18 @@ local function thermal_count(o)
   return n, fueled
 end
 
---- Lot THERMIQUE5 : états moteur qui COUVRENT (Th.covering : en marche, ou sortie pleine), lus une fois (defines ne change pas en partie).
-local covering_set
-local function covering(status)
-  if not covering_set then
-    covering_set = {}
+--- Lot THERMIQUE5 : nom de l'état moteur s'il est de ceux qui COUVRENT (Th.COVERING_STATUS : en marche, sortie pleine), sinon nil ; table lue
+--- une fois (defines ne change pas en partie). Lot THERMIQUE6 : la décision est Th.drill_counts (sortie pleine seulement si la bande produit).
+local covering_name
+local function status_name(status)
+  if not covering_name then
+    covering_name = {}
     for _, k in ipairs(Th.COVERING_STATUS) do
       local v = defines.entity_status[k]
-      if v ~= nil then covering_set[v] = true end
+      if v ~= nil then covering_name[v] = k end
     end
   end
-  return covering_set[status] == true
+  return covering_name[status]
 end
 
 --- Fer d'une foreuse électrique (matières premières du livre), lu une fois : le livre est fait des recettes, qui ne changent pas en partie.
@@ -453,22 +458,28 @@ end
 --- Foreuses électriques EN MARCHE des bandes du champ `oid` (posées) (une bande qui ne mine pas ne couvre rien : sortie bouchée, courant coupé).
 local function working_of(f, surface, oid)
   local b = f.build
-  local n = 0
+  local n, nfini = 0, 0
   for _, pid in ipairs(b.order or {}) do
     local p = b.projects[pid]
     -- (lot THERMIQUE5, priorité 0 : seule une bande FINIE au plan couvre, Th.band_covers ; avant, toute bande comptait ses foreuses posées et en
     -- marche, et l'amorce d'une bande en chantier faisait balayer les dernières paires : Scarlet, INTEG-0643N)
-    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state) then
+    -- (lot THERMIQUE6, essai 3 : une bande bloquée dont les fours ont produit couvre aussi ; la sortie pleine ne compte que si elle produit)
+    -- (lot THERMIQUE7, essai 4 : toute bande est jugée à sa PRODUCTION, quel que soit son état au plan, Th.band_covers ; elle compte aussi comme
+    -- « finie » pour la règle B ; une bande qui n'a jamais produit ne couvre rien)
+    local mine = p and p.spec and p.spec.champ and p.spec.champ.oid == oid and not p.spec.champ.coal
+    local made, live = 0, false
+    if mine then made, live = made_by(f, surface, p) end
+    if mine and Th.band_covers(p.state, made >= CFG.produce_min, live) then
+      nfini = nfini + 1 -- (règle B : bande qui produit)
       for _, e in ipairs(p.ents or {}) do
         if e.built and e.role == "champ-foreuse" then
           local de = surface.find_entity(e.name, { e.x, e.y })
-          -- (lot THERMIQUE5 : une foreuse à sortie pleine couvre aussi, Th.covering ; revue du 3/11)
-          if de and de.valid and covering(de.status) then n = n + 1 end
+          if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end
         end
       end
     end
   end
-  return n
+  return n, nfini
 end
 
 --- Combustible (ore/s) que brûlent les générateurs de la force à cet instant : plancher du minerai CRITIQUE (le charbon de la centrale).
@@ -512,7 +523,9 @@ local function build_fields(f, surface, ms, free)
           end
         end
         -- (lot THERMIQUE5 : fueled = paires avec combustible, l'extraction thermique de Th.supply ; pairs = paires à retirer)
-        local fl = { id = o.id, res = o.kind, pairs = n, fueled = nf, th_rate = th, el_rate = el, working = framed and working_of(f, surface, o.id) or 0,
+        local w, nfini = 0, 0
+        if framed then w, nfini = working_of(f, surface, o.id) end
+        local fl = { id = o.id, res = o.kind, pairs = n, fueled = nf, th_rate = th, el_rate = el, working = w, fini = nfini,
           busy = (st and st.stage == "projet") and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
           have = free[T.outposts[o.kind].product] or 0, framed = framed }
         fields[#fields + 1] = fl
@@ -1058,6 +1071,46 @@ local function sweep(f, surface, ms, free, book, tick)
       end
     end
   end
+  -- Lot THERMIQUE6, règle B (GO du lead, 3/11 ; le DC : « 35 foreuses thermiques qui ne sont plus alimentées ») : un brûleur À SEC depuis
+  -- Th.CFG.dry_wait sur un gisement dont une bande est FINIE est retiré seul (Th.dry_retire), sans exiger « couvert » ; jamais pendant qu'une
+  -- bande du champ attend son dégel (« projet »), jamais le charbon de la centrale sous son plancher (Th.cut_ok sans perte). Date par
+  -- foreuse ms.dry[numéro], refaite à chaque passage avec les seules foreuses vues (ménage sans `pairs`).
+  -- (variante B' : une bande FINIE du MÊME MINERAI dans la force suffit, pas forcément sur ce gisement : les brûleurs à sec sont surtout sur
+  -- des gisements sans bande, e3-lot 271828182 : Émeraude fer 50, charbon du joueur 17, pierre 9)
+  local done_res = {}
+  for _, fl in ipairs(fields) do if (fl.fini or 0) > 0 then done_res[fl.res] = true end end
+  local dry = {}
+  for _, fl in ipairs(fields) do
+    local o = Champ.target(f, fl.id)
+    local st = ms.o[fl.id]
+    if o and (not st or st.stage ~= "projet") and done_res[fl.res] and (fl.pairs or 0) > (fl.fueled or 0) then
+      local prot = not ctx.critical[fl.res] or (Th.cut_ok(fl, fields, 0, ctx))
+      local list, ents, owners = sweep_list(f, o)
+      local ids = {}
+      for _, pr in ipairs(list) do
+        local d = ents[pr.id]
+        if d and d.valid and not has_fuel(d) then
+          dry[pr.id] = (ms.dry and ms.dry[pr.id]) or tick
+          if Th.dry_retire(dry[pr.id], tick, true, prot) then ids[#ids + 1] = pr.id end
+        end
+      end
+      if #ids > 0 then
+        table.sort(ids)
+        local before = {}
+        for i, q in ipairs(owners) do before[i] = q.drills or 0 end
+        local removed, got = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
+        for i, q in ipairs(owners) do q.drills = (before)[i]; purge_recon(f, q) end -- (comptabilité inchangée, comme le balayage)
+        ms.retired = (ms.retired or 0) + removed
+        ms.dry_retired = (ms.dry_retired or 0) + removed
+        swept = swept + removed
+        log(string.format("[FO-THERMIQUE] %s : brûleur(s) à sec retiré(s) : %d sur le gisement de l'avant-poste %d (%s), à sec depuis %d min au moins, "
+          .. "%d bande(s) finie(s) sur ce gisement (une au moins sur ce minerai), %d paire(s) restent ; repris au stock : %s", name_of(f), removed, o.id,
+          o.kind, Th.CFG.dry_wait / 3600, fl.fini or 0,
+          math.max(0, fl.pairs - removed), items_text(got)))
+      end
+    end
+  end
+  ms.dry = dry
   if tick >= (ms.th_report_next or 0) then
     ms.th_report_next = tick + REPORT_EVERY
     ms.th_logs = (ms.th_logs or 0) + 1

@@ -56,6 +56,8 @@ M.CFG = {
   sweep_max = 1,          -- gisements balayés au plus par pensée (le retrait est immédiat : un gisement à la fois suffit)
   every = 600,            -- ticks entre deux balayages (une pensée d'équipe de la migration)
   raw_stock_max = 3000,   -- lot THERMIQUE2 (essai 3, décision du lead) : stock libre d'un minerai BRUT au-delà duquel plus aucun brûleur n'est posé
+  cover_by_output = true, -- lot THERMIQUE6 (essai 3) : couverture lue à la production de la bande (bloquée qui a produit, sortie pleine si elle produit)
+  dry_wait = 10 * 3600,   -- lot THERMIQUE6, règle B : ticks à sec avant qu'un brûleur d'un gisement à bande finie soit retiré seul
 }
 
 local EPS = 1e-9
@@ -95,8 +97,36 @@ end
 --- balayées « 14 foreuses en marche » alors que la bande était EN CHANTIER, puis 20 fours sur 23 sans combustible et 14 foreuses figées à
 --- 57 min) : l'amorce d'une bande suffit à faire tourner ses premières foreuses. Les foreuses d'une bande ne comptent pour « couvert » que si
 --- son projet est FINI au plan directeur (`state` : état du projet, p.state). Rend vrai/faux.
-function M.band_covers(state)
-  return state == "fini"
+--- Lot THERMIQUE7 (essai 4, GO du lead 3/11 18 h) : les bandes n'atteignent pas l'état « fini » au plan, ou ne le gardent pas (e3-lot
+--- 271828182 : joueur, 5 bandes en chantier et 0 finie à 149 min, alors que ses électriques tournent). Une bande est jugée à sa PRODUCTION,
+--- quel que soit son état : elle couvre si ses fours ont produit (`made_ok` : made_by >= produce_min) ET si elle produit EN CE MOMENT (`live` :
+--- un four en marche ; bande à coffres : 2 foreuses en marche). Une bande qui n'a jamais produit ne couvre rien (P0 : pas de retrait avant que
+--- la bande remplaçante fonde). Éteint (cfg.cover_by_output faux) : la règle de P0, bande « fini » seulement. Rend vrai/faux.
+function M.band_covers(state, made_ok, live, cfg)
+  cfg = cfg_of(cfg)
+  if cfg.cover_by_output ~= true then return state == "fini" end
+  return made_ok == true and live == true
+end
+
+--- Lot THERMIQUE6, règle B (GO du lead, 3/11 ; plainte du DC : « 35 foreuses thermiques qui ne sont plus alimentées ») : un brûleur À SEC
+--- depuis `since` (tick de la première vue à sec, nil s'il a du combustible) est-il retiré seul, sans exiger que le gisement soit couvert ?
+--- Oui si la date est connue, si `now - since >= cfg.dry_wait`, si une bande du même gisement est FINIE (`band_done`) et si la protection ne
+--- refuse pas (`protect_ok` : faux pour le charbon de la centrale sous son plancher ou sans autre source, M.cut_ok sans perte). Rend vrai/faux.
+function M.dry_retire(since, now, band_done, protect_ok, cfg)
+  cfg = cfg_of(cfg)
+  if since == nil or band_done ~= true or protect_ok == false then return false end
+  return now - since >= cfg.dry_wait
+end
+
+--- Lot THERMIQUE6 (essai 3) : une foreuse électrique d'une bande qui couvre compte-t-elle ? `status_name` : état moteur (Th.COVERING_STATUS) ;
+--- `live` : la bande produit EN CE MOMENT (au moins un four en marche ; bande à coffres : au moins 2 foreuses en marche). En marche : oui. Sortie
+--- pleine : seulement si la bande produit (sinon la sortie est pleine parce que la fonderie est à l'arrêt : Émeraude, 45 fours sur 45 sans
+--- combustible à 151 min, p0-lot). Éteint (cfg.cover_by_output faux) : la règle de THERMIQUE5 (Th.covering). Rend vrai/faux.
+function M.drill_counts(status_name, live, cfg)
+  cfg = cfg_of(cfg)
+  if not M.covering(status_name) then return false end
+  if cfg.cover_by_output ~= true or status_name == "working" then return true end
+  return live == true
 end
 
 --- Lot THERMIQUE5 (revue du 3/11, cause 1 : la retenue de la pile gelait TOUTE la migration du champ, balayage et dégel compris ; Azure et
