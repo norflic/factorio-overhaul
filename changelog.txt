@@ -1,4 +1,9 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.41
+Date: 2026-11-03
+  Changes:
+    - Correctif de plantage : une bande de champ dont toutes les pieces sont deja au plan n'a plus d'entite a poser ; sa boite etait infinie (« real number expected got inf » en find_tiles_filtered) et arretait le jeu vers 44 min dans une partie de test. Garde d'une ligne. Present depuis la 0.6.37.
+---------------------------------------------------------------------------------------------------
 Version: 0.6.40
 Date: 2026-11-03
   Changes:
