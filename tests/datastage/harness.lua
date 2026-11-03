@@ -992,6 +992,13 @@ for _, l in ipairs(CentreSheets.lines(centre_sheets)) do print(l) end
 local UsinesSheets = dofile(HERE .. "/usines_sheets.lua")
 local usines_sheets = UsinesSheets.check(MOD_ROOT)
 for _, l in ipairs(UsinesSheets.lines(usines_sheets)) do print(l) end
+-- Feuilles des 20 machines du calcul hors de git (D-6, lot MACHINES-CALCUL) : même contrôle, plus le branchement dans les données
+-- finales (couches tirées des feuilles, aucune teinte, objet à l'icône dessinée)
+local CalcSheets = dofile(HERE .. "/calc_sheets.lua")
+local calc_sheets = CalcSheets.check(MOD_ROOT)
+for _, l in ipairs(CalcSheets.lines(calc_sheets)) do print(l) end
+local calc_protos = CalcSheets.check_protos(modded)
+for _, l in ipairs(CalcSheets.lines_protos(calc_protos)) do print(l) end
 -- Sons (lot S0)
 print(string.format("Sons : %d violation(s) (fichier manquant, format non lu par le moteur, en-tête faux, .ogg autre que "
   .. "Vorbis, en-têtes Vorbis invalides, fichier tronqué) ; étalonnage "
@@ -1061,4 +1068,5 @@ os.exit((#new_errors == 0 and #own_paths == 0 and #missing_locale == 0 and #rule
   and #unlock_errors == 0 and unlock_self == 2 and #lot_errors == 0 and lot_self == 2
   and #img_errors == 0 and #img_vanilla == 0 and #img_self_fail == 0 and GunSheets.ok(gun_sheets)
   and FourSheets.ok(four_sheets) and AsmSheets.ok(asm_sheets) and DrillSheets.ok(drill_sheets) and UsinesSheets.ok(usines_sheets) and CentreSheets.ok(centre_sheets)
+  and CalcSheets.ok(calc_sheets) and CalcSheets.ok_protos(calc_protos)
   and #snd_errors == 0 and #snd_vanilla == 0 and #snd_self_fail == 0) and 0 or 1)
