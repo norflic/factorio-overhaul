@@ -16,6 +16,7 @@
   M.count(x0, y0, x1, y1, pred)            -> tuiles du rectangle où pred(x, y) est vrai
   M.zone_verdict(found, targets)           -> "ok" | "melange", { { name, n } } étrangers triés ; found = { { name, n } } des ressources
                                               MINABLES vues dans la zone (celles que la foreuse ne sait pas miner n'y sont pas)
+  M.belt_items(ore, products, carried)     -> { [nom] = true } : objets ADMIS sur les tapis d'une bande (minerai, produit fondu, charbon de la colonne)
   M.belt_verdict(contents, targets)        -> { target, foreign, clear = { { name, n } } triée, majority } ; contents = { [nom] = n }
   Déterminisme : listes triées par nom, entiers, aucune trigonométrie.
 ]]
@@ -55,6 +56,17 @@ function M.zone_verdict(found, targets)
   end
   table.sort(out, by_name)
   return #out > 0 and "melange" or "ok", out
+end
+
+--- Objets admis sur les tapis d'une bande : le minerai visé (`ore`, { [nom] = true }), le PRODUIT de sa ressource (`products`, liste de
+--- noms : la colonne à tapis porte ses plaques sur un tapis `champ-tapis`, MELANGE2 B1 : retirées, elles volaient la production de la
+--- fonderie) et, pour la colonne seulement, ce que porte sa seconde voie (`carried`, liste : charbon, combustible).
+function M.belt_items(ore, products, carried)
+  local out = {}
+  for name in pairs(ore or {}) do out[name] = true end
+  for _, name in ipairs(products or {}) do out[name] = true end
+  for _, name in ipairs(carried or {}) do out[name] = true end
+  return out
 end
 
 --- Contenu d'un tapis de bande : objets étrangers à relever (tous), et « encombré » quand l'étranger y est MAJORITAIRE (le minerai de la

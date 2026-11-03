@@ -26,6 +26,7 @@ local Chaine = require("shared.team.chaine_main") -- lot BRIQUES : partage des f
 local Gisement = require("script.team.gisement") -- lot GISEMENTS : plus de paire foreuse + four sur le minerai quand l'électrique a pris ce champ
 local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcours des emplacements, emplacements occupés écartés sans coût (règle pure)
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
+local Zone = require("script.team.zone_melee") -- lot MELANGE2 : zone minée de la foreuse thermique (2 × 2) lue au moteur, sans cycle de require
 local Flux = require("shared.team.flux") -- lot FLUX : sorties pleines d'un avant-poste (règle pure)
 
 local Outposts = {}
@@ -148,6 +149,16 @@ local function clear_trees(surface, carrier, center, radius, area)
   end
 end
 
+local MELANGE_LOGS, MELANGE_SEEN = 40, 0 -- (journal seulement : compteur LOCAL au chargement, aucune décision n'en dépend)
+--- lot MELANGE2 : une ligne [FO-MELANGE] par emplacement thermique refusé pour zone mêlée (plafonnée).
+local function note_mixed(f, kind, pos)
+  MELANGE_SEEN = MELANGE_SEEN + 1
+  if MELANGE_SEEN <= MELANGE_LOGS then
+    log(string.format("[FO-MELANGE] %s : paire thermique %s refusee en (%.1f, %.1f) : sa zone minerait aussi une autre ressource (%d cas)",
+      f.key or "player", kind, pos.x, pos.y, MELANGE_SEEN))
+  end
+end
+
 --- Pose jusqu'à `max_pairs` paires foreuse + réceptacle sur le gisement `kind` autour de `center`, avec
 --- les objets portés par `carrier` (inventaire de l'ouvrier). Renvoie drills, sinks, rapport.
 --- Lot EXTENSION-FER : `o` (l'avant-poste, agrandissement seulement) limite le parcours au gisement du centre et mémorise dans
@@ -172,6 +183,7 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
     mined = o and mined_set(o) or nil }) -- lot PLAFOND-FOREUSES : couverture du gisement (verdict « couverture »)
   local drills, sinks = {}, {}
   local lacking = false
+  local mixed = 0 -- lot MELANGE2 : emplacements refusés pour zone mêlée
   -- lot PLAFOND-FOREUSES : gisement déjà couvert à Paires.KAPPA (foreuses électriques du lot FOREUSES, zone de minage 5 x 5) : rien
   -- de plus à poser, le verdict dira « couverture »
   if o then
@@ -189,7 +201,11 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
       clear_trees(surface, carrier, nil, nil, { { pos.x - 4, pos.y - 4 }, { pos.x + 4, pos.y + 4 } })
     end
     local done = false
-    for _, dir in ipairs(DIRS) do
+    -- lot MELANGE2 (revue du 3/11) : une foreuse dont les 2 × 2 tuiles minées portent une AUTRE ressource minable en déverserait dans son
+    -- four (charbon dans un four de fer : four plein, foreuse figée pour toujours) : l'emplacement est refusé, comme les autres
+    local zone_ok = Zone.verdict(surface, T.DRILL, pos.x, pos.y, spec.resource) == "ok"
+    if not zone_ok then mixed = mixed + 1; note_mixed(f, kind, pos) end
+    for _, dir in ipairs(zone_ok and DIRS or {}) do
       local v = drop_vector(dir)
       local drop = { x = pos.x + v[1], y = pos.y + v[2] }
       local spos = sink_position(surface, spec.sink, drop, force, pos)
@@ -227,6 +243,7 @@ local function place_pairs(f, surface, kind, center, carrier, max_pairs, radius,
   end
   local rep = pl.report()
   rep.lacking = lacking
+  rep.melange = mixed
   if o and rep.exhausted then o.ext_dead = nil end -- balayage complet : le prochain repart de zéro (un obstacle a pu partir)
   return drills, sinks, rep
 end
@@ -274,7 +291,9 @@ function Outposts.preview_pairs(f, surface, kind, center, max_pairs, radius, o)
   while #out < max_pairs do
     local pos = pl.next()
     if not pos then break end
-    for _, dir in ipairs(DIRS) do
+    -- lot MELANGE2 : même refus que place_pairs (zone mêlée) : l'aperçu ne promet pas un fantôme que la pose refuserait
+    local zone_ok = Zone.verdict(surface, T.DRILL, pos.x, pos.y, spec.resource) == "ok"
+    for _, dir in ipairs(zone_ok and DIRS or {}) do
       local v = drop_vector(dir)
       local drop = { x = pos.x + v[1], y = pos.y + v[2] }
       local spos = sink_position(surface, spec.sink, drop, force, pos, function(name, p) return fits(name, p, 0) end)

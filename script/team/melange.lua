@@ -19,6 +19,7 @@ local Stock = require("script.team.stock")
 local State = require("script.faction.state")
 local T = require("shared.team.config")
 local Champ = require("script.team.champ")
+local Zone = require("script.team.zone_melee") -- lot MELANGE2 : lecture de la zone au moteur (sans cycle de require)
 
 local Run = {}
 
@@ -61,33 +62,15 @@ local function names_line(list)
   return table.concat(t, ", ")
 end
 
---- Ressources minables dans la zone d'une foreuse du prototype `pr` posée au centre (x, y) : verdict, étrangers { { nom, tuiles } }.
-local function zone_at(surface, pr, x, y, res)
-  local rad = pr.mining_drill_radius or 0
-  local cats = pr.resource_categories or {}
-  local found, idx = {}, {}
-  for _, r in ipairs(surface.find_entities_filtered({ area = { { x - rad, y - rad }, { x + rad, y + rad } }, type = "resource" })) do
-    if r.valid and Mel.in_zone(r.position.x - x, r.position.y - y, rad) then
-      local c = Champ.category(r.name)
-      if c and cats[c] then
-        if not idx[r.name] then idx[r.name] = #found + 1; found[#found + 1] = { r.name, 0 } end
-        found[idx[r.name]][2] = found[idx[r.name]][2] + 1
-      end
-    end
-  end
-  return Mel.zone_verdict(found, { [res] = true })
-end
-
 --- Lot MELANGE : zone d'une foreuse `name` (prototype) posée au centre (x, y), ressource visée `res` -> "ok" | "melange", étrangers.
 --- Lecteur : script/team/foreuse_swap.lua (une foreuse électrique de 5 × 5 à la place d'une thermique de 2 × 2). Lecture seule.
+--- (lot MELANGE2 : la lecture vit dans script/team/zone_melee.lua, que script/faction/outposts.lua charge sans cycle)
 function Run.zone_at(surface, name, x, y, res)
-  local pr = game.entity_prototypes[name]
-  if not (pr and res) then return "ok", {} end
-  return zone_at(surface, pr, x, y, res)
+  return Zone.verdict(surface, name, x, y, res)
 end
 
 local function zone_of(surface, ent, res)
-  return zone_at(surface, ent.prototype, ent.position.x, ent.position.y, res)
+  return Zone.zone_at(surface, ent.prototype, ent.position.x, ent.position.y, res)
 end
 
 local function item_of(e, ent)
@@ -136,17 +119,21 @@ end
 
 --- Un projet de bande : foreuses à zone mêlée retirées, tapis relevés. `res` : ressource visée.
 local function project(f, surface, s, pid, p, res)
-  local items = products(res)
+  -- B1 (MELANGE2) : le PRODUIT de la ressource (plaques) est admis sur les tapis de la bande ; la colonne à tapis le porte sur le sien
+  local made = {}
+  for _, k in ipairs(T.OUTPOST_ORDER) do
+    if T.outposts[k].resource == res then made[#made + 1] = T.outposts[k].product end
+  end
   -- lot FONDERIE (colonne à tapis, 0.6.42) : la colonne porte le charbon sur sa seconde voie ; il n'est pas étranger sur ses tapis
+  local carried
   local fr = p.spec.champ.frame
   if fr and fr.design == "colonne" then
-    local all = {}
-    for _, name in ipairs(State.sorted_keys(items)) do all[name] = true end
+    carried = {}
     local cs = T.outposts.coal
-    for _, name in ipairs(State.sorted_keys(cs and products(cs.resource) or {})) do all[name] = true end
-    if T.fuel then all[T.fuel] = true end
-    items = all
+    for _, name in ipairs(State.sorted_keys(cs and products(cs.resource) or {})) do carried[#carried + 1] = name end
+    if T.fuel then carried[#carried + 1] = T.fuel end
   end
+  local items = Mel.belt_items(products(res), made, carried)
   local tot, lines = {}, {}
   for _, e in ipairs(p.ents) do
     if e.built and not e.dropped and e.role == "champ-foreuse" and not e.mel_ok then
@@ -196,6 +183,38 @@ local function project(f, surface, s, pid, p, res)
   end
 end
 
+--- Lot MELANGE2 (revue du 3/11, « NON COUVERT » n° 2) : foreuses d'un GABARIT du plan directeur (parties `foreuses` d'un projet, posées
+--- avant la règle de 0.6.42 ou par une sauvegarde plus ancienne) : zone relue au moteur contre la ressource de la partie, foreuse à
+--- zone mêlée retirée comme celles des bandes du champ. Le projet garde sa pièce (e.dropped) : jamais reposée par la reconstruction.
+--- La foreuse est cherchée par position et TYPE (le nom change quand un niveau la grandit : fo-lvl-drill-N).
+local function gabarit(f, surface, s, pid, p)
+  for _, e in ipairs(p.ents) do
+    local part = e.part and p.parts and p.parts[e.part]
+    if e.built and not e.dropped and not e.mel_ok and part and part.kind == "foreuses" and part.ore and not e.role then
+      local ents = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.5, type = "mining-drill", limit = 1 })
+      local ent = ents[1]
+      if ent and ent.valid then
+        s.checked = s.checked + 1
+        local v, list = zone_of(surface, ent, part.ore)
+        if v == "ok" then
+          e.mel_ok = true -- (comme les bandes du champ : une seule lecture ; risque R2 de la revue, le niveau qui agrandit la zone, noté)
+        else
+          s.mixed = s.mixed + 1
+          local what = "laissee"
+          if Run.REMOVE then
+            take_back(f, ent, item_of(e, ent))
+            e.dropped, e.melange = true, game.tick
+            s.removed = s.removed + 1
+            what = "retiree, rendue au stock"
+          end
+          say(f, s, string.format("projet %s gabarit %s : foreuse en (%.1f, %.1f) sur une zone melee (%s ; cible %s) : %s", tostring(pid),
+            tostring(part.key), e.x, e.y, names_line(list), part.ore, what))
+        end
+      end
+    end
+  end
+end
+
 function Run.pass(f, surface, tick)
   local b = f.build
   if not (b and b.order) then return end
@@ -206,7 +225,8 @@ function Run.pass(f, surface, tick)
   for _, pid in ipairs(b.order) do
     local p = b.projects[pid]
     local res = p and p.spec and p.spec.champ and p.ents and resource_of(f, p)
-    if res then project(f, surface, s, pid, p, res) end
+    if res then project(f, surface, s, pid, p, res)
+    elseif p and p.ents and p.parts and not (p.spec and p.spec.champ) then gabarit(f, surface, s, pid, p) end
   end
   if tick >= s.report_next then
     s.report_next = tick + Run.REPORT_EVERY
@@ -218,20 +238,30 @@ function Run.pass(f, surface, tick)
 end
 
 --- Banc en moteur réel (scénario melange-banc) : le même relevé sur des entités données, une équipe fictive dont le stock est le coffre
---- `hq`. args = { hq, resource, drills = { LuaEntity }, belts = { LuaEntity } } -> cumuls { checked, mixed, removed, items, jams, by }.
+--- `hq`. args = { hq, resource, colonne = bool, gabarit = bool, drills = { LuaEntity }, belts = { LuaEntity } } -> cumuls { checked, mixed, removed, items, jams, by }.
 if remote and remote.add_interface then remote.add_interface("fo-melange", {
   releve = function(args)
     local f = { key = "melange-banc", hq = args.hq, build = { order = {}, projects = {} } }
     local ents = {}
     for _, d in ipairs(args.drills or {}) do
-      if d.valid then ents[#ents + 1] = { name = d.name, x = d.position.x, y = d.position.y, built = true, role = "champ-foreuse" } end
+      if d.valid then
+        -- gabarit (lot MELANGE2) : pièces d'une partie `foreuses`, sans rôle ; bande du champ : rôle « champ-foreuse »
+        ents[#ents + 1] = { name = d.name, x = d.position.x, y = d.position.y, built = true, role = (not args.gabarit) and "champ-foreuse" or nil,
+          part = args.gabarit and 1 or nil }
+      end
     end
     for _, t in ipairs(args.belts or {}) do
       if t.valid then ents[#ents + 1] = { name = t.name, x = t.position.x, y = t.position.y, built = true, role = "champ-tapis" } end
     end
-    local p = { spec = { champ = { oid = -1, pr = "banc" } }, ents = ents, mel_res = args.resource, state = "fini" }
+    local p = { spec = { champ = { oid = -1, pr = "banc", frame = args.colonne and { design = "colonne" } or nil } }, ents = ents, mel_res = args.resource, state = "fini" }
     local s = st_of(f)
-    project(f, args.hq.surface, s, "banc", p, args.resource)
+    if args.gabarit then
+      p.spec = {}
+      p.parts = { { kind = "foreuses", ore = args.resource, key = "banc" } }
+      gabarit(f, args.hq.surface, s, "banc", p)
+    else
+      project(f, args.hq.surface, s, "banc", p, args.resource)
+    end
     return { checked = s.checked, mixed = s.mixed, removed = s.removed, items = s.items, jams = s.jams, by = s.by }
   end,
 }) end -- (hors jeu, les bancs simulés n'ont pas `remote`)
