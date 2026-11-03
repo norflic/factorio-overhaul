@@ -252,7 +252,7 @@ T.defend_copper_floor = 30 -- 6 pistolets de recrues
 -- neuf de production (Sq.module_held, script/team/build.lua) ; recrue retenue dans un QG sans tourelle armée sous l'attaque (Sq.recruit_hold).
 -- Règle 1 ÉTEINTE (tour 1 en moteur réel, fo-logs/2026-11-03_QGSURVIE/RAPPORT.md : le fer des bandes retenues part aux recrues, le QG
 -- tombe armé ; 1618033988 : équipe finie à 54,7 min contre n = 8 au témoin).
-T.qg_reserve_on = false
+T.qg_reserve_on = true -- DIAGNOSTIC (branche jetable) : regle 1 allumee pour faire tomber le QG comme au tour 1
 T.qg_recruit_hold_on = true
 -- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
 -- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
