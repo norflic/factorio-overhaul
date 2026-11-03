@@ -43,6 +43,7 @@ local Base = require("shared.ai3.base") -- lot PORTE-BASE : zone de base par den
 local Rg = require("shared.ai3.reglages") -- lot PORTE-BASE : rôles des types du moteur (bâtiments qui font une base)
 local Board = require("script.team.board") -- lot COMPAGNONS-ACTIFS : crochet du bilan [FO-ACTIF]
 local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : la peur sert à fuir une attaque en cours, puis on revient agir
+local Vg = require("shared.team.vague") -- lot CHARBON3 (Q4) : tournée proche rejugée sans les marques d'une vague passée
 
 local M = {}
 
@@ -683,6 +684,29 @@ function M.gate(f, agent, task, steps, tick)
     local d0, w0 = D.gate(ginfo, { B = res.B, prudence = prud, escort_ok = free >= 2 })
     Survie.note_gate(f, tick, d0, w0, decision, why)
   end
+  -- Lot CHARBON3 (Q4, shared/team/vague.lua) : une TOURNÉE dont le but est à moins de Vg.NEAR_R tuiles du QG, refusée pour le danger
+  -- (route ou but, jamais pour des morts), est rejugée par la même porte SANS les marques de vague vues il y a Vg.QUIET ticks ou plus
+  -- (cases mobiles, meutes : la vague est passée) ; menaces permanentes et marques fraîches restent comptées. Elle part alors avec le
+  -- risque accepté (a.risk, comme une escalade) : M.leg prend le chemin du moindre danger, les réflexes du PNJ restent.
+  -- (0.6.43N 1618033988 : avant-poste de charbon à 33 tuiles du QG, 26 foreuses sur 26 à sec, tournée refusée de 35 à 52 min.)
+  local vague = false
+  if decision == "wait" and Vg.applies(task.kind, why, f.hq_pos, dest) then
+    local qs = R.samples(p, (alt or res).pts, dest, R.SAMPLE)
+    local d3, w3, ns, i3 = Vg.gate(ginfo, t.map, p, qs, dest, tick, { B = res.B, prudence = prud, escort_ok = free >= 2 })
+    t.stats.vague = t.stats.vague or {}
+    inc(t.stats.vague, d3 ~= "wait" and "depart" or (ns > 0 and "refus" or "fraiche"))
+    if ns > 0 and (not t.vague_log_t or tick - t.vague_log_t >= Ac.LOG_GAP) then
+      t.vague_log_t = tick
+      log(string.format("[FO-VAGUE] %s : porte : tache %s vers (%d, %d) a %d tuiles du QG refusee (%s : danger %d, but %d, seuil %d) ; sans les marques de vague vues il y a %d s ou plus (%d point(s)) : danger %d, but %d -> %s (%s) ; bilan %s",
+        tostring(f.key), tostring(task.kind), math.floor(dest.x), math.floor(dest.y), math.floor(math.sqrt(d2(f.hq_pos, dest))), tostring(why),
+        ginfo.max_d or 0, ginfo.goal_d or 0, res.B, Vg.QUIET / 60, ns, i3.max_d, i3.goal_d, d3, tostring(w3),
+        string.format("depart %d, refus %d, fraiche %d", t.stats.vague.depart or 0, t.stats.vague.refus or 0, t.stats.vague.fraiche or 0)))
+    end
+    if d3 ~= "wait" then
+      vague = true
+      decision, why = d3, d3 == "go" and "vague" or w3
+    end
+  end
   Profiler.fstop("gate:post")
   -- Lot DETOUR-BOUCLE : un but où un PNJ de l'équipe a tourné en rond (boucle de détours cassée, M.detour_guard) est refusé
   -- Dt.FAIL_TICKS : un minage cherche un autre site (ci-dessous), les autres tâches passent leur tour ; l'escalade reste
@@ -693,6 +717,7 @@ function M.gate(f, agent, task, steps, tick)
   end
   local a = astate(agent)
   a.escort, a.risk, a.calm = nil, nil, nil
+  if vague and decision == "go" then a.risk = true end -- lot CHARBON3 (Q4) : vague passée, risque accepté (M.leg, M.sense)
   -- C5 « ou change de site » : un MINAGE refusé cherche une autre tuile de son minerai hors de la zone marquée (même ordre
   -- que le programme : la plus proche du QG, au plus 40 tuiles contrôlées), puis la porte rejuge.
   -- Lot IA3-k sur 0.5.0 : réessayé au plus toutes les RETARGET_PERIOD ticks pour la même tâche (le tableau garde ses

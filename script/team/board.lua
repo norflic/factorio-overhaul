@@ -836,7 +836,12 @@ function Board.finish(f, task, ok, tick)
   st[task.kind] = st[task.kind] or { ok = 0, fail = 0 }
   -- Lot NAV2 : échecs « chemin » de suite par tâche (shared/team/repli_chemin.lua) ; règle coupée (f.team.repli_off, bancs) : 0.6.42.
   b.path_fails = b.path_fails or {}
-  local n_path = Rc.note(b.path_fails, task.key, ok, task.fail)
+  local n_path = Rc.note(b.path_fails, task.key, ok, task.fail, tick)
+  -- Lot CHARBON3 (Q2) : comptes sans échec de chemin depuis Rc.FORGET retirés (au plus une purge toutes les Rc.PURGE_EVERY ticks).
+  if Rc.purge_due(b.path_purge_t, tick) then
+    b.path_purge_t = tick
+    Rc.purge(b.path_fails, tick)
+  end
   if ok then
     st[task.kind].ok = st[task.kind].ok + 1
   else
@@ -846,13 +851,15 @@ function Board.finish(f, task, ok, tick)
     if task.fail ~= "preempte" then
       -- Lot COMPAGNONS-ACTIFS : une tâche refusée ou abandonnée pour danger revient après Ac.RETRY_DANGER (10 s ; 30 s avant) : le PNJ
       -- revient agir dès que la menace est passée, la porte rejuge à la prise.
-      local k_path = f.team.repli_off and 1 or Rc.factor(n_path)
-      b.cooldown[task.key] = tick + Ac.retry(task.fail, task.fond, RETRY_TICKS) * k_path
+      -- Lot CHARBON3 (B1, Q2) : le facteur ne vaut que pour un échec de CHEMIN ; une tâche vitale (priorité >= Rc.VITAL_PRIO) reprend au
+      -- plus après Rc.VITAL_CAP (shared/team/repli_chemin.lua, Rc.delay).
+      local delay, k_path = Rc.delay(Ac.retry(task.fail, task.fond, RETRY_TICKS), n_path, task.fail, task.prio, f.team.repli_off)
+      b.cooldown[task.key] = tick + delay
       if k_path > 1 then
         f.team.repli_logs = (f.team.repli_logs or 0) + 1
         if f.team.repli_logs <= 12 then
           log(string.format("[FO-NAV-REPLI] %s : tache %s, %d echec(s) de chemin de suite : reprise dans %.1f min (x%d) a %.1f min",
-            tostring(f.key), tostring(task.key), n_path, Ac.retry(task.fail, task.fond, RETRY_TICKS) * k_path / 3600, k_path, tick / 3600))
+            tostring(f.key), tostring(task.key), n_path, delay / 3600, k_path, tick / 3600))
         end
       end
     end
