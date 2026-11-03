@@ -111,10 +111,16 @@ local function belt_row(s, x0, y, dir_east)
   end
   local n = { plate = 0, ore = 0, coal = 0 }
   if #belts == 6 then
-    local l1, l2 = belts[1].get_transport_line(1), belts[1].get_transport_line(2)
-    for _ = 1, 12 do if l1.insert_at_back({ name = PLATE, count = 1 }) then n.plate = n.plate + 1 end end
-    for _ = 1, 5 do if l2.insert_at_back({ name = ORE, count = 1 }) then n.ore = n.ore + 1 end end
-    for _ = 1, 5 do if l2.insert_at_back({ name = OTHER, count = 1 }) then n.coal = n.coal + 1 end end
+    -- un objet par voie et par tapis (insert_at_back n'accepte qu'un objet à la fois sur une voie vide) : plaques sur la voie 1 de chaque
+    -- tapis, minerai (tapis impairs) ou charbon (tapis pairs) sur la voie 2
+    for i, b in ipairs(belts) do
+      if b.get_transport_line(1).insert_at_back({ name = PLATE, count = 1 }) then n.plate = n.plate + 1 end
+      if i % 2 == 1 then
+        if b.get_transport_line(2).insert_at_back({ name = ORE, count = 1 }) then n.ore = n.ore + 1 end
+      else
+        if b.get_transport_line(2).insert_at_back({ name = OTHER, count = 1 }) then n.coal = n.coal + 1 end
+      end
+    end
   end
   return belts, n
 end
