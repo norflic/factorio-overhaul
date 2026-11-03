@@ -26,6 +26,12 @@ RX_RSV = re.compile(r"\[FO-RESERVE\] (\S+) minute (\d+) \| (besoin [A-Z ]+?) :.*
 RX_CAPI = re.compile(r"\[FO-CAPI\] (\S+) minute (\d+) \|.*? budget=(-?[0-9.]+)/(-?[0-9.]+) ")
 RX_ATT = re.compile(r"\[FO-CAPITAL-ATTENTE\] (\S+) : '([^']+)' decide mais non paye, cause (\S+).* a ([0-9.]+) min")
 RX_DEP = re.compile(r"\[FO-DEPENSES\] (\S+) minute (\d+) \| (.*)")
+RX_RR = re.compile(r"\[FO-REGARD\] R min=(\d+) force=(\S+) .*?flux_min \{([^}]*)\}")
+RX_RC = re.compile(r"\[FO-REGARD\] C min=(\d+) force=(\S+) consommateurs=(\d+)")
+RX_RF = re.compile(r"\[FO-REGARD\] F min=(\d+) force=(\S+) fours=(\d+)")
+RX_RG = re.compile(r"\[FO-REGARD\] G min=(\d+) force=(\S+) .*? dt=(\d+) ")
+RX_PAY = re.compile(r"\[FO-CAPITAL\] (\S+) : amelioration payee")
+RX_ERR = re.compile(r"stack traceback|Error while running|script error|Erreur Lua", re.I)
 
 
 def open_log(path):
@@ -43,6 +49,7 @@ def open_log(path):
 def parse(path):
     fh, real = open_log(path)
     T = {}
+    G = {"flux": {}, "bat": {}, "pay": {}, "err": 0}
 
     def team(k):
         if k not in T:
@@ -51,7 +58,29 @@ def parse(path):
 
     with fh:
         for line in fh:
+            if RX_ERR.search(line):
+                G["err"] += 1
             if "[FO-" not in line:
+                continue
+            if "[FO-REGARD]" in line:
+                m = RX_RR.search(line)
+                if m:
+                    kv = dict(x.split("=", 1) for x in m.group(3).split() if "=" in x)
+                    G["flux"][(m.group(2), int(m.group(1)))] = sum(float(kv.get(p, 0)) for p in PLATES)
+                    continue
+                m = RX_RC.search(line) or RX_RF.search(line)
+                if m:
+                    k = (m.group(2), int(m.group(1)))
+                    G["bat"][k] = G["bat"].get(k, 0) + int(m.group(3))
+                    continue
+                m = RX_RG.search(line)
+                if m:
+                    k = (m.group(2), int(m.group(1)))
+                    G["bat"][k] = G["bat"].get(k, 0) + int(m.group(3))
+                    continue
+            m = RX_PAY.search(line)
+            if m:
+                G["pay"][m.group(1)] = G["pay"].get(m.group(1), 0) + 1
                 continue
             m = RX_BRQ.search(line)
             if m:
@@ -82,6 +111,7 @@ def parse(path):
             m = RX_DEP.search(line)
             if m:
                 team(m.group(1))["dep"].append((int(m.group(2)), m.group(3)))
+    T["__G"] = G
     return T, real
 
 
@@ -152,6 +182,7 @@ def main(argv):
     out_csv = []
     for p in paths:
         T, real = parse(p)
+        G = T.pop("__G")
         last = 0
         for d in T.values():
             for (m, _, _) in d["brq"]:
@@ -176,6 +207,14 @@ def main(argv):
                 tot_p += r["plaques"] or 0
         print("RESUME %s : a %d min, plaques libres des factions %.0f, dont DORMANTES (10 min) %.0f (%.0f %%)" % (
             os.path.basename(os.path.dirname(real)) or real, minute, tot_p, tot_d, 100.0 * tot_d / tot_p if tot_p > 0 else 0))
+        fac = lambda force: force != "player"
+        flux = [v for (force, m), v in G["flux"].items() if fac(force) and 30 <= m <= minute]
+        n_rel = len(set(m for (force, m) in G["flux"] if fac(force) and 30 <= m <= minute))
+        bat = sum(v for (force, m), v in G["bat"].items() if fac(force) and m == minute)
+        pay = sum(v for k, v in G["pay"].items() if k != "player")
+        print("RESUME2 %s : plaques produites (factions, REGARD flux_min fer+cuivre+acier, moyenne des releves 30-%d min) %.0f/min ; "
+              "batiments a %d min (consommateurs + fours + foreuses a combustion) %d ; ameliorations payees (factions) %d ; erreurs Lua %d" % (
+            os.path.basename(os.path.dirname(real)) or real, minute, (sum(flux) / n_rel) if n_rel else 0, minute, bat, pay, G["err"]))
     if csv:
         with open(csv, "w", encoding="utf-8") as f:
             f.write("source;eq;t;plaques;fer;dort;libre_mu;depense_mu;ordres;occupe;cycles;attente;regle\n")
