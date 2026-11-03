@@ -328,6 +328,34 @@ do
   check(Sante.committed(fc) == 4 * 500, "committed : attente/plan/chantier admis + bloque avec reprise = 4 x 500")
   check(Sante.committed(fc, 1) == 3 * 500, "committed sans le projet juge")
 end
+do
+  -- lot COURANT2 (revue du 3/11, defaut 1) : une bande de champ (spec.site) n'a pas de gabarit ; sa puissance (somme des entites planifiees,
+  -- 90 kW la foreuse electrique) compte pour la centrale des que ses fantomes se posent, pas avant (reserve : jusqu'a 90 min de matieres)
+  local drills = {}
+  for i = 1, 4 do drills[i] = { name = "electric-mining-drill", x = i * 3, y = 0 } end
+  drills[5] = { name = "transport-belt", x = 0, y = 5 } -- un tapis ne consomme rien
+  local ps = { id = 1, spec = { site = "champ" }, ents = drills }
+  check(Sante.site_kw(ps) == 4 * 90, "site_kw : 4 foreuses electriques = 360 kW, le tapis 0")
+  check(Sante.site_kw({ spec = { site = "champ" } }) == 0, "site_kw : projet sans entites = 0")
+  for _, st in ipairs({ "attente", "plan", "reserve", "defrichage", "bloque", "fini", "refuse" }) do
+    local fs = gate_f(30000, 0)
+    fs.build.projects[1] = { id = 1, state = st, spec = { site = "champ" }, admitted = true, power_kw = 360 }; fs.build.order[1] = 1
+    check(Sante.committed(fs) == 0, "site en '" .. st .. "' : ne pese pas encore sur la centrale")
+  end
+  for _, st in ipairs({ "fantomes", "chantier", "raccordement" }) do
+    local fs = gate_f(30000, 0)
+    fs.build.projects[1] = { id = 1, state = st, spec = { site = "champ" }, admitted = true, power_kw = 360 }; fs.build.order[1] = 1
+    check(Sante.committed(fs) == 360, "site en '" .. st .. "' : 360 kW comptes")
+    check(Sante.committed(fs, 1) == 0, "site en '" .. st .. "' : sans le projet juge, 0")
+  end
+  -- un module ordinaire (sans spec.site) garde sa regle : « reserve » admis compte
+  local fo = gate_f(30000, 0)
+  fo.build.projects[2] = { id = 2, state = "reserve", spec = { kw = 500 }, admitted = true, power_kw = 500 }; fo.build.order[1] = 2
+  check(Sante.committed(fo) == 500, "module ordinaire en reserve : toujours compte")
+  -- chaine statique : build.lua note la puissance du site au plan, avant de quitter l'etat « plan »
+  local fh = io.open("script/team/build.lua", "r"); local bsrc = fh:read("*a"); fh:close()
+  check(bsrc:find("p.power_kw = Sante.site_kw(p)", 1, true) ~= nil, "build.lua : le plan d'un site note sa puissance")
+end
 check(table.concat(LOG, "\n"):find("projet 6 retenu", 1, true) ~= nil, "journal : retenu")
 local n_logs = #LOG
 Sante.gate(fg, pb, 1020, kw_of)

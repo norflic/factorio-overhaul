@@ -70,6 +70,38 @@ check(R.decide(inp({ lost = 1, has_live = false })) == "attendre", "3.10 la cent
 check(R.decide(inp({ tries = R.MAX_TRIES, since_try = R.RETRY_AFTER - 1 })) == "laisser", "3.11 essais epuises, dernier essai recent : laisser")
 check(R.decide(inp({ tries = R.MAX_TRIES, since_try = R.RETRY_AFTER })) == "relier", "3.12 essais epuises depuis R.RETRY_AFTER : un essai de plus (jamais abandonne pour toujours)")
 
+check(R.decide(inp({ lost = 1, waited_lost = R.WAIT_LOST - 1 })) == "laisser", "3.13 poteau perdu, attente pas epuisee : laisser")
+check(R.decide(inp({ lost = 1, waited_lost = R.WAIT_LOST })) == "relier", "3.14 poteau perdu, attente epuisee (R.WAIT_LOST) : decide comme sans perte")
+check(R.decide(inp({ lost = 1, has_live = false, waited_lost = R.WAIT_LOST })) == "attendre", "3.15 attente epuisee mais pas de reseau alimente : attendre")
+check(R.decide(inp({ lost = 2, waited_lost = R.WAIT_LOST, enemies = 1 })) == "attendre", "3.16 attente epuisee : les autres portes restent (ennemi)")
+check(R.MAX_OPEN == 4, "3.17 R.MAX_OPEN = 4")
+
+-- §3 bis fenetre tournante (lot COURANT2)
+do
+  local w, nr = R.window(4, 0, 6)
+  check(#w == 4 and w[1] == 1 and w[4] == 4 and nr == 0, "3b.1 jusqu'a max groupes : tous, dans l'ordre, depart remis a 0")
+  w, nr = R.window(6, 3, 6)
+  check(#w == 6 and w[1] == 1 and nr == 0, "3b.2 exactement max groupes : tous, depart remis a 0")
+  w, nr = R.window(8, 0, 6)
+  check(#w == 6 and w[1] == 1 and w[6] == 6 and nr == 6, "3b.3 8 groupes, depart 0 : 1 a 6, puis depart 6")
+  w, nr = R.window(8, nr, 6)
+  check(#w == 6 and w[1] == 7 and w[2] == 8 and w[3] == 1 and w[6] == 4 and nr == 4, "3b.4 puis 7, 8, 1, 2, 3, 4 (fenetre qui boucle), depart 4")
+  local covered = {}
+  local rot = 0
+  for _ = 1, 4 do
+    local ww
+    ww, rot = R.window(13, rot, 6)
+    for _, i in ipairs(ww) do covered[i] = true end
+  end
+  local n = 0
+  for _ in pairs(covered) do n = n + 1 end
+  check(n == 13, "3b.5 13 groupes : tous decides en 3 releves (" .. n .. ")")
+  w = R.window(8, 8 * 5 + 3, 6)
+  check(w[1] == 4, "3b.6 depart modulo le nombre de groupes (le nombre de groupes change d'un releve a l'autre)")
+  w = R.window(8, nil, 6)
+  check(w[1] == 1, "3b.7 depart absent (sauvegarde existante) : 0")
+end
+
 -- §4 paire de bouts
 local s, t, d = R.best_pair({ { x = 0, y = 0 }, { x = 10, y = 0 } }, { { x = 30, y = 0 }, { x = 0, y = 40 } }, 100)
 check(s and s.x == 10 and t.x == 30 and math.abs(d - 20) < 1e-9, "4.1 paire la plus courte")
@@ -131,7 +163,7 @@ local function mutant(name, from, to, probe)
   local okp, seen = pcall(probe, Rm)
   check(not okp or seen, "mutant " .. name .. " vu")
 end
-mutant("perdu ignore", 'if %(inp%.lost or 0%) > 0 then return "laisser"', 'if false then return "laisser"',
+mutant("perdu ignore", 'if %(inp%.lost or 0%) > 0 and %(inp%.waited_lost or 0%) < R%.WAIT_LOST then', 'if false then',
   function(Rm) return Rm.decide(inp({ lost = 1 })) ~= "laisser" end)
 mutant("sans confirmation", "if %(inp%.seen or 0%) < R%.CONFIRM", "if false",
   function(Rm) return Rm.decide(inp({ seen = 0 })) == "relier" end)
@@ -149,6 +181,14 @@ mutant("paire sans distance max", "if d2 <= lim then", "if true then",
   function(Rm) return Rm.best_pair({ { x = 0, y = 0 } }, { { x = 200, y = 0 } }, 160) ~= nil end)
 mutant("portee du depart oubliee", "return math%.min%(start_reach or new_reach, ", "return math.min(new_reach, ",
   function(Rm) return Rm.chain_reach(5, 30, 9) ~= 5 end)
+mutant("attente derriere un poteau perdu sans borne", 'if %(inp%.lost or 0%) > 0 and %(inp%.waited_lost or 0%) < R%.WAIT_LOST then', 'if (inp.lost or 0) > 0 then',
+  function(Rm) return Rm.decide(inp({ lost = 1, waited_lost = Rm.WAIT_LOST })) == "laisser" end)
+mutant("fenetre qui ne tourne pas", 'return idxs, %(start %+ max%) %% n', 'return idxs, 0',
+  function(Rm) local _, nr = Rm.window(8, 0, 6); return nr == 0 end)
+mutant("fenetre sans retour au debut", '%(start %+ i%) %% n %+ 1', 'math.min(start + i + 1, n)',
+  function(Rm) local w = Rm.window(8, 6, 6); return w[3] ~= 1 end)
+mutant("fenetre ignorant le depart", 'local start = %(rot or 0%) %% n', 'local start = 0',
+  function(Rm) local w = Rm.window(8, 6, 6); return w[1] == 1 end)
 
 print(string.format("[RACCORD] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

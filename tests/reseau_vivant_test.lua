@@ -417,5 +417,12 @@ do
   check(a == b and #a > 0, "deux jeux identiques : mêmes journaux")
 end
 
+-- lot COURANT2 : chaine statique, le releve des ilots n'exempte que les projets dont le chantier avance (S.exempts)
+do
+  local fh = io.open("script/team/reseau_vivant.lua", "r"); local src = fh:read("*a"); fh:close()
+  check(src:find("S.exempts(q.state, q.retry_at)", 1, true) ~= nil, "COURANT2 : in_construction passe par S.exempts")
+  check(src:find('if q and q.state ~= "fini" and q.state ~= "refuse" then', 1, true) == nil, "COURANT2 : plus d'exemption de tout projet non fini")
+end
+
 print(string.format("[RESEAU-VIVANT] BILAN : %d OK, %d ECHEC(S)", oks, fails))
 os.exit(fails == 0 and 0 or 1)

@@ -283,7 +283,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         st.n.repares = st.n.repares + 1
         say(f, tick, string.format("groupe %s : plus de machine sans courant (%d raccordement(s) tente(s))", key, st.tries[key]))
       end
-      st.seen[key], st.tries[key], st.said[key], st.last_try[key], st.waited[key] = nil, nil, nil, nil, nil
+      st.seen[key], st.tries[key], st.said[key], st.last_try[key], st.waited[key], st.waited_lost[key] = nil, nil, nil, nil, nil, nil
     end
   end
   local open_total = #sorted_keys(st.open)
@@ -298,18 +298,25 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
   st.last_groups = #groups
   -- 3. décisions (au plus un raccordement demandé par relevé)
   local asked = false
-  for idx, g in ipairs(groups) do
-    if idx > DECIDE_MAX then break end
+  local window
+  window, st.rot = R.window(#groups, st.rot, DECIDE_MAX) -- lot COURANT2 : fenêtre tournante (plus de 6 groupes : chacun est décidé à son tour)
+  for _, idx in ipairs(window) do
+    local g = groups[idx]
     local last = st.last_try[g.key]
     local inp = { has_live = c.n_live > 0, open = st.open[g.key] ~= nil, open_total = open_total, seen = st.seen[g.key],
-      tries = st.tries[g.key] or 0, since_try = last and (tick - last) or R.RETRY_AFTER, waited = st.waited[g.key] or 0 }
+      tries = st.tries[g.key] or 0, since_try = last and (tick - last) or R.RETRY_AFTER, waited = st.waited[g.key] or 0,
+      waited_lost = st.waited_lost[g.key] or 0 }
     if inp.has_live and not inp.open then
       inp.lost, g.foes = lost_near(f, surface, b, g)
       -- lot ENERGIE (2/11) : [FO-RESEAU] a jugé qu'aucun chemin sûr de poteaux perdus ne relie l'îlot (second chemin) : ces poteaux ne le retiennent plus
       local sv = b.sante
       if sv and sv.second_tick and tick - sv.second_tick <= R.SECOND_WINDOW and not Rv.coupure_off(b) then inp.lost = 0 end
-      if inp.lost == 0 then inp.pending = pending_near(b, g, c.champ_live) end
-      if inp.lost == 0 and ((inp.pending or 0) == 0 or inp.waited >= R.WAIT_PENDING) and (inp.seen or 0) >= R.CONFIRM then
+      -- (lot COURANT2) plus de poteau perdu a portee (rouvert, ou second chemin) : l'attente repart de zero
+      if inp.lost == 0 then st.waited_lost[g.key], inp.waited_lost = nil, 0 end
+      -- (lot COURANT2) un poteau perdu qui retient le groupe depuis R.WAIT_LOST relevés ne le retient plus : suite de la décision comme sans perte
+      local lost_free = inp.lost == 0 or inp.waited_lost >= R.WAIT_LOST
+      if lost_free then inp.pending = pending_near(b, g, c.champ_live) end
+      if lost_free and ((inp.pending or 0) == 0 or inp.waited >= R.WAIT_PENDING) and (inp.seen or 0) >= R.CONFIRM then
         local foe = surface.find_nearest_enemy({ position = { x = g.x, y = g.y }, max_distance = R.ENEMY_R, force = f.force })
         inp.enemies = foe and 1 or 0
       end
@@ -317,6 +324,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     local action, why = R.decide(inp)
     -- (lot FONDERIE, 0.6.44) attente bornée derrière un chantier voisin : compte des relevés où le groupe a attendu pour cette raison
     if action == "attendre" and (inp.pending or 0) > 0 and inp.waited < R.WAIT_PENDING then st.waited[g.key] = inp.waited + 1 end
+    if action == "laisser" and (inp.lost or 0) > 0 and inp.waited_lost < R.WAIT_LOST then st.waited_lost[g.key] = inp.waited_lost + 1 end
     if action == "relier" and asked then action, why = "attendre", "un raccordement par releve" end
     -- relecture au moment d'agir : le relevé s'étale sur plusieurs passes et le moteur renumérote un réseau qui se coupe ou se
     -- joint ; un numéro périmé gâcherait un essai (R.MAX_TRIES) sur un groupe déjà alimenté ou sur un départ introuvable
@@ -378,6 +386,8 @@ function Ra.step(api, f, surface, tick)
   end
   st.last_try = st.last_try or {} -- (état d'un premier relevé de ce lot sans ce champ)
   st.waited = st.waited or {} -- (lot FONDERIE, 0.6.44) même chose
+  st.waited_lost = st.waited_lost or {} -- (lot COURANT2) relevés « laisser » derrière un poteau perdu, par groupe
+  st.rot = st.rot or 0 -- (lot COURANT2) départ de la fenêtre tournante des groupes décidés
   local c = st.cyc
   if not c then
     if tick < st.next then return end
