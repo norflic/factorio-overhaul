@@ -83,13 +83,14 @@ local function support_of(f, surface)
   return w, t, #list
 end
 
---- 2. Valeur armée du QG face à une vague (au point le plus faible), ou nil (interrupteur, pas votre équipe, pas de coffre).
+--- 2. Valeur armée du QG face à une vague (au point le plus faible), ou nil (pas votre équipe, pas de coffre). Rend aussi si elle décide
+--- (T.qg_groupe_peril_on) ; éteinte, elle n'est que mesurée (journal [FO-SURVIE]).
 function QgG.facing(f, value)
-  if not (f and f.is_player and f.team and T.qg_groupe_peril_on and f.hq and f.hq.valid and f.hq_pos) then return nil end
+  if not (f and f.is_player and f.team and f.hq and f.hq.valid and f.hq_pos) then return nil, false end
   local w, t = support_of(f, f.hq.surface)
   local st = state(f)
   st.weakest, st.total = w, t
-  return G.facing(value, w, t)
+  return G.facing(value, w, t), T.qg_groupe_peril_on == true
 end
 
 --- Places absolues des groupes pour n tourelles (côtés retenus), ou nil sans côté.
