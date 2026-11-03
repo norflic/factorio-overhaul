@@ -93,6 +93,9 @@ Xp.ROBOTS = {
 --- `effect` : la règle de l'effet (voir plus bas) ; `range`, `cooldown` : portée (tuiles) et cadence (ticks) ; `split` : le coup est PARTAGÉ
 --- entre les cibles (la valeur ne change pas avec le nombre de cibles).
 Xp.SEGMENTS = 10
+--- Corps d'un géant : « rendering » (sprites attachés à l'entité par le script : prouvé par le Bourdon, BO-2) ou « prototype »
+--- (graphics_set.animation du spider-vehicle : essai E-XP1, palier 2).
+Xp.GIANT_BODY = "rendering"
 Xp.SEGMENT_FACTORY = "fo-robot-dock"
 Xp.GEANTS = {
   {

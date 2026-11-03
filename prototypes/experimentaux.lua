@@ -373,3 +373,6 @@ for i, r in ipairs(Xp.ROBOTS) do
 end
 
 data:extend(out)
+
+-- Palier 3 : les 5 géants
+require("prototypes.experimentaux_geants")

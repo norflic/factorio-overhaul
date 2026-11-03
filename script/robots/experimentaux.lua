@@ -8,6 +8,7 @@
   - Géode : les pointes courent de la Géode à la cible, une tous les 3 ticks (file `jobs`, traitée à chaque tick tant qu'elle n'est pas vide).
   - Sarracénie : le jet principal tombe, le script lance les 2 autres ; Veilleuse : la goutte éclate, plaque de verre.
   - Demi-Vie : usage unique ; fusion, puis zone contaminée (impulsion toutes les 30 ticks, `zones`).
+  - Les GÉANTS (palier 3) : script/robots/experimentaux_geants.lua ; outils communs : script/robots/experimentaux_commun.lua.
   - Géode et Demi-Vie sont LANCÉES (capsule, on_player_used_capsule) : l'unité est posée au point visé, de la force du joueur, puis envoyée
     sur l'ennemi le plus proche (et renvoyée quand sa commande finit).
   Journal « [FO-XP] » (dégâts appliqués, cibles, tick) seulement si le journal est ouvert (interface « fo-xp », bancs) ; les totaux sont
@@ -15,19 +16,18 @@
 ]]
 
 local Events = require("script.core.events")
-local Storage = require("script.core.storage")
 local Xp = require("shared.robots.experimentaux")
+local K = require("script.robots.experimentaux_commun")
+local Geants = require("script.robots.experimentaux_geants")
 
 local M = {}
 
-Storage.declare("experimentaux", function()
-  return { jobs = {}, zones = {}, units = {}, last = {}, fired = {}, stats = {}, journal = false }
-end)
-
-local function S() return Storage.ns("experimentaux") end
+-- outils communs (script/robots/experimentaux_commun.lua) : stockage, comptes, journal, ennemis, dégâts
+local S, stat, journal, candidates, hit, blast = K.S, K.stat, K.journal, K.candidates, K.hit, K.blast
 
 local NAMES = {}
 for _, r in ipairs(Xp.ROBOTS) do NAMES[#NAMES + 1] = r.name end
+for _, r in ipairs(Xp.GEANTS) do NAMES[#NAMES + 1] = r.name end
 
 local CHAIN_BEAM = Xp.PREFIX .. "arc-saut"
 local SARR_JET2 = Xp.PREFIX .. "sarracenie-jet2"
@@ -35,78 +35,6 @@ local FUSION = Xp.PREFIX .. "demi-vie-fusion"
 local ZONE = Xp.PREFIX .. "demi-vie-zone"
 local ECLAIR = Xp.PREFIX .. "veilleuse-eclair"
 local SPR_POINTE, SPR_POINTE_LUEUR, SPR_VERRE = Xp.PREFIX .. "pointe", Xp.PREFIX .. "pointe-lueur", Xp.PREFIX .. "verre"
-
----------------------------------------------------------------------------------------------------
--- Comptes et journal
----------------------------------------------------------------------------------------------------
-local function stat(id)
-  local s = S()
-  local st = s.stats[id]
-  if not st then
-    st = { coups = 0, degats = 0, cibles = 0, tues = 0, sauts = 0, jets = 0 }
-    s.stats[id] = st
-  end
-  return st
-end
-
-local function journal(fmt, ...)
-  local s = S()
-  if s and s.journal then log(Xp.LOG .. " " .. string.format(fmt, ...)) end
-end
-
----------------------------------------------------------------------------------------------------
--- Ennemis et dégâts
----------------------------------------------------------------------------------------------------
---- Forces ennemies d'une force (triées par nom).
-local function enemy_forces(force)
-  local list = {}
-  for _, f in pairs(game.forces) do -- trié juste après
-    if f ~= force and force.is_enemy(f) then list[#list + 1] = f.name end
-  end
-  table.sort(list)
-  return list
-end
-
---- Entités ennemies (avec PV) autour d'un point, en candidats { x, y, id, e } (id : numéro d'unité, sinon rang).
-local function candidates(surface, force, pos, radius)
-  local forces = enemy_forces(force)
-  if #forces == 0 then return {} end
-  local found = surface.find_entities_filtered({ position = pos, radius = radius, force = forces })
-  local out = {}
-  for i, e in ipairs(found) do
-    if e.valid and e.health and e.destructible then
-      out[#out + 1] = { x = e.position.x, y = e.position.y, id = e.unit_number or (1e9 + i), e = e }
-    end
-  end
-  return out
-end
-
---- Dégâts d'un expérimental à une entité ennemie ; rend les dégâts infligés (0 si rien).
-local function hit(r, e, amount, dtype, force, src)
-  if not (e and e.valid and e.health and e.destructible) or amount <= 0 then return 0 end
-  if not force.is_enemy(e.force) then return 0 end
-  local before = e.health
-  -- le moteur refuse un 4e argument nil (« 'entity': table expected, got nil », banc p1-a) : sans tireur, 3 arguments
-  local dealt
-  if src and src.valid then dealt = e.damage(amount, force, dtype, src) else dealt = e.damage(amount, force, dtype) end
-  dealt = dealt or 0
-  local st = stat(r.id)
-  st.degats = st.degats + dealt
-  st.cibles = st.cibles + 1
-  if before > 0 and (not e.valid or e.health <= 0) then st.tues = st.tues + 1 end
-  return dealt
-end
-
---- Dégâts de zone autour d'un point (chute linéaire au bord si `edge` < 1). Rend total, nombre de cibles.
-local function blast(r, surface, force, src, pos, radius, amount, dtype, edge)
-  local list = Xp.in_radius(pos, candidates(surface, force, pos, radius + 2), radius)
-  local total, n = 0, 0
-  for _, it in ipairs(list) do
-    local d = hit(r, it.c.e, Xp.falloff(amount, it.d, radius, edge or 1), dtype, force, src)
-    if d > 0 then total, n = total + d, n + 1 end
-  end
-  return total, n
-end
 
 ---------------------------------------------------------------------------------------------------
 -- Mât-Foudre : l'arc et ses sauts
@@ -361,7 +289,10 @@ remote.add_interface("fo-xp", {
   stats = function()
     local s = S()
     local out = {}
-    for _, r in ipairs(Xp.ROBOTS) do
+    local all = {}
+    for _, r in ipairs(Xp.ROBOTS) do all[#all + 1] = r end
+    for _, r in ipairs(Xp.GEANTS) do all[#all + 1] = r end
+    for _, r in ipairs(all) do
       local st = s.stats[r.id]
       out[r.id] = { coups = st and st.coups or 0, degats = st and st.degats or 0, cibles = st and st.cibles or 0, tues = st and st.tues or 0,
         sauts = st and st.sauts or 0, jets = st and st.jets or 0 }
@@ -370,6 +301,8 @@ remote.add_interface("fo-xp", {
   end,
   journal = function(on) S().journal = on and true or false end,
   zones = function() return #S().zones end,
+  --- Géants de cette famille, vivants, pour une force (le plafond des géants les compte avec ceux de robotsjeu).
+  geants = function(force_name) return Geants.count(force_name) end,
   noms = function() return NAMES end,
 })
 
