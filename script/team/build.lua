@@ -3308,7 +3308,7 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     -- lot FONDERIE : une foreuse de BANDE refusée « occupe » pour la 3e fois, quand tout ce qui occupe son emprise est une tourelle de l'équipe
     -- posée après le plan (que move_turrets_off n'a pas pu déplacer), est SAUTÉE : la bande finit et produit sans elle, la tourelle reste
     -- (lot6-20261020 : emerald, bande 329, 551 entités bâties sur 552 jusqu'à la fin)
-    if r == "occupe" and e.role == "champ-foreuse" then
+    if r == "occupe" and e.role == "champ-foreuse" and Build.TAPIS and Build.TAPIS() then
       local turret = {}
       for _, t in ipairs(T.TURRET_TYPES or {}) do turret[t] = true end
       local bl = {}

@@ -270,6 +270,78 @@ end
 
 --- Relie les réseaux de poteaux séparés (eau, falaise, fonderie reculée) : relais en ligne droite, sur des tuiles libres, du réseau
 --- du premier poteau vers le poteau le plus proche d'un autre réseau. `poles` : { { u, v } } (complété en place). Rend les relais.
+local function bridge_0641(c, spec, poles)
+  local wire = spec.pole.wire
+  local w2 = wire * wire + Ch.CFG.eps
+  local added = {}
+  for _ = 1, 60 do
+    local parent = {}
+    for i = 1, #poles do parent[i] = i end
+    local function root(i) while parent[i] ~= i do parent[i] = parent[parent[i]]; i = parent[i] end return i end
+    local grid = {}
+    local cell = math.max(1, math.ceil(wire))
+    for i, p in ipairs(poles) do
+      local k = Ch.key(math.floor(p[1] / cell), math.floor(p[2] / cell))
+      grid[k] = grid[k] or {}
+      grid[k][#grid[k] + 1] = i
+    end
+    for i, p in ipairs(poles) do
+      local gx, gy = math.floor(p[1] / cell), math.floor(p[2] / cell)
+      for dx = -1, 1 do
+        for dy = -1, 1 do
+          for _, j in ipairs(grid[Ch.key(gx + dx, gy + dy)] or {}) do
+            local q = poles[j]
+            if j > i and (p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2 <= w2 then
+              local a, b = root(i), root(j)
+              if a ~= b then parent[a] = b end
+            end
+          end
+        end
+      end
+    end
+    local main = root(1)
+    local best, ba, bb
+    for i, p in ipairs(poles) do
+      if root(i) == main then
+        for j, q in ipairs(poles) do
+          if root(j) ~= main then
+            local d2 = (p[1] - q[1]) ^ 2 + (p[2] - q[2]) ^ 2
+            if not best or d2 < best then best, ba, bb = d2, i, j end
+          end
+        end
+      end
+    end
+    if not best then return added end
+    local a, b = poles[ba], poles[bb]
+    local dist = math.sqrt(best)
+    local n = math.ceil(dist / (wire - 0.5)) - 1
+    local prev = a
+    local ok = n >= 1
+    for k = 1, n do
+      local iu = math.floor(a[1] + (b[1] - a[1]) * k / (n + 1) + 0.5)
+      local iv = math.floor(a[2] + (b[2] - a[2]) * k / (n + 1) + 0.5)
+      local put
+      for r = 0, 3 do
+        for du = -r, r do
+          for dv = -r, r do
+            local u, v = iu + du, iv + dv
+            if not put and math.max(math.abs(du), math.abs(dv)) == r and c.free(u, v)
+              and (u - prev[1]) ^ 2 + (v - prev[2]) ^ 2 <= w2 then put = { u, v } end
+          end
+        end
+      end
+      if not put then ok = false break end
+      c.take(put[1], put[2])
+      poles[#poles + 1] = put
+      added[#added + 1] = put
+      prev = put
+    end
+    if not ok then return added end
+  end
+  return added
+end
+
+-- (lot FONDERIE) relais à plusieurs paires (Ch.BRIDGE_TRIES) pour la colonne à tapis ; le motif à coffres garde bridge_0641, à l'identique
 local function bridge(c, spec, poles)
   local wire = spec.pole.wire
   local w2 = wire * wire + Ch.CFG.eps
@@ -675,7 +747,7 @@ function Ch.plan(spec)
     end
   end
   if not (F and F.only) and #all_poles > 1 then
-    for _, p in ipairs(bridge(c, spec, all_poles)) do emit("poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
+    for _, p in ipairs((colonne and bridge or bridge_0641)(c, spec, all_poles)) do emit("poteau", p[1], p[2], 1, 0, 0, 0, 0, nil, "relais") end
   end
   local n = { foreuse = 0, poteau = 0, tapis = 0, four = 0, bras = 0, coffre = 0, souterrain = 0, repartiteur = 0 }
   for _, e in ipairs(ents) do n[e.kind] = n[e.kind] + 1 end

@@ -22,6 +22,8 @@ local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
+local Storage = require("script.core.storage")
+local Events = require("script.core.events")
 local Db = require("shared.team.debit")
 local Paires = require("shared.team.pose_paires")
 local State = require("script.faction.state")
@@ -62,6 +64,30 @@ Champ.CFG = {
 }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
+
+-- Lot FONDERIE : colonne à tapis seulement pour une PARTIE NEUVE dont le réglage de carte est allumé. La marque `neuve` n'est posée qu'à la
+-- création de la partie (on_init) ; une sauvegarde d'avant le lot reçoit l'espace par on_configuration_changed, SANS la marque : réglage
+-- éteint pour elle, comportement 0.6.41 (fonderie à coffres), rien ne change.
+Champ.SETTING = "fo-war-fonderie-tapis"
+Storage.declare("fonderie", function() return { neuve = false } end)
+local function fonderie_ns()
+  local ok, s = pcall(Storage.ns, "fonderie") -- (table persistante sans espace `fo` : moteur simulé des bancs hors jeu) -> éteint
+  return ok and s or nil
+end
+function Champ.tapis()
+  local s = fonderie_ns()
+  if not (s and s.neuve) then return false end
+  local ok, on = pcall(function() return settings.global[Champ.SETTING].value end)
+  return ok and on == true
+end
+local function say_tapis()
+  local s = fonderie_ns()
+  log(string.format("[FO-FONDERIE] fonderie des champs a tapis : %s (partie %s)", Champ.tapis() and "oui" or "non",
+    (s and s.neuve) and "creee avec le lot" or "d'avant le lot : fonderie a coffres gardee"))
+end
+Events.on_init(function() local s = fonderie_ns(); if s then s.neuve = true end; say_tapis() end)
+Events.on_configuration_changed(say_tapis)
+Build.TAPIS = Champ.tapis -- lu par script/team/build.lua (saut d'une foreuse de bande), sans require circulaire
 
 -- Lot CHAMP (ordres « couvrir / ouvrir » de la capitalisation) : un champ se pose sur un avant-poste (f.outposts) ou sur un gisement SANS
 -- avant-poste demandé par la capitalisation (f.migration.fields, numéros à partir de FIELD_BASE : jamais ceux d'un avant-poste).
@@ -160,12 +186,14 @@ function Champ.data(f, kind)
   end
   local ap = game.entity_prototypes[D.ARM]
   data.inserter = { rate = ap and ap.inserter_rotation_speed and ap.inserter_rotation_speed * 60 or 0.83 }
-  -- lot FONDERIE : colonne à tapis pour un cadre neuf ; répartiteur et souterrain SEULEMENT si leur recette est débloquée
-  data.design = "colonne"
+  -- lot FONDERIE : colonne à tapis pour un cadre NEUF, réglage allumé (Champ.tapis) ; éteint, un cadre neuf reste la fonderie à coffres
+  -- (0.6.41). Répartiteur et souterrain SEULEMENT si leur recette est débloquée ; leurs noms sont lus même éteint (lecture seule) : un cadre
+  -- déjà en colonne (réglage éteint en cours de partie) rejoue ses bandes avec eux
+  if Champ.tapis() then data.design = "colonne" end
   local sp, ug = logistic(f, T.LOGISTIC_TYPES.splitter), logistic(f, T.LOGISTIC_TYPES.underground)
   data.logistics = { splitter = sp ~= nil, underground = ug and ug.maxd and ug.maxd >= 2 and ug.maxd or nil }
   names.splitter, names.underground = sp and sp.name, ug and ug.name
-  if sp then P.declare_size(sp.name, sp.w or 2, sp.h or 1) end
+  if sp then P.declare_size(sp.name, sp.w or 2, sp.h or 1, true) end
   if ug then P.declare_size(ug.name, 1, 1) end
   local cr = game.entity_prototypes[T.outposts.coal.resource]
   if cr and cr.mineable_properties then
@@ -315,7 +343,7 @@ local function spec_of(f, surface, o, frame, only)
   -- lot FONDERIE : un cadre NEUF d'un four à combustible lit aussi le gisement de charbon le plus proche, et la boîte lue va jusqu'à lui
   -- (le tracé du charbon ne passe que sur des tuiles lues) ; une bande seule rejoue le réseau gardé dans le cadre
   local coal, ugs
-  if not frame and data.furnace and data.furnace.fuel and data.coal_rate then
+  if not frame and data.design == "colonne" and data.furnace and data.furnace.fuel and data.coal_rate then
     local box
     coal, box = coal_tiles(surface, { x = cx, y = cy })
     if box then
@@ -549,7 +577,7 @@ Build.SITES.champ = function(f, surface, p, h)
   local net = powered_pole(f, surface, cx, cy)
   -- lot FONDERIE (lot-20261020, emerald, projet 8 : « aucun reseau alimente vu » a 20,3 min, bande isolée toute la partie) : seconde
   -- recherche, plus loin, avant de poser une bande sans courant
-  if not net then net = powered_pole(f, surface, cx, cy, Champ.CFG.chain_far) end
+  if not net and Champ.tapis() then net = powered_pole(f, surface, cx, cy, Champ.CFG.chain_far) end
   local chain_n = 0
   if net then
     local start, sd
