@@ -26,6 +26,9 @@ R.CONFIRM = 2            -- relevés de suite où le groupe est vu avant d'agir 
 R.MAX_OPEN = 2           -- raccordements ouverts au plus par équipe
 R.MAX_TRIES = 3          -- raccordements tentés au plus pour un même groupe
 R.RETRY_AFTER = 30 * 3600 -- ticks : essais épuisés, un essai de plus après 30 min (le réseau a pu s'étendre ; jamais abandonné pour toujours)
+R.WAIT_PENDING = 3       -- (lot FONDERIE, 0.6.44) relevés « attendre » au plus derrière les poteaux pas encore bâtis d'un chantier voisin : ensuite
+                         -- le raccordement est demandé quand même (champ-longue 20261020 : île d'une bande d'azure en attente de la minute 29 à 84,
+                         -- derrière un chantier voisin arrêté)
 R.LOST_NEAR = 32         -- tuiles : un poteau perdu (ou un poteau d'un chantier pas fini) à cette distance laisse la main
 R.MAX_DIST = 160         -- tuiles : au-delà, pas de chaîne (le graphe borné de la recherche de chemin n'y suffit plus)
 R.ENEMY_R = 28           -- tuiles : jamais de pose avec un ennemi à cette portée du départ
@@ -94,7 +97,9 @@ function R.decide(inp)
   if not inp.has_live then return "attendre", "aucun reseau alimente (la centrale d'abord : [FO-RESEAU])" end
   if (inp.lost or 0) > 0 then return "laisser", string.format("%d poteau(x) perdu(s) a portee : [FO-RESEAU] les rouvre", inp.lost) end
   if inp.open then return "attendre", "raccordement deja en cours" end
-  if (inp.pending or 0) > 0 then return "attendre", string.format("%d poteau(x) d'un chantier voisin pas encore bati(s)", inp.pending) end
+  if (inp.pending or 0) > 0 and (inp.waited or 0) < R.WAIT_PENDING then
+    return "attendre", string.format("%d poteau(x) d'un chantier voisin pas encore bati(s) (attente %d sur %d)", inp.pending, (inp.waited or 0) + 1, R.WAIT_PENDING)
+  end
   if (inp.seen or 0) < R.CONFIRM then return "attendre", string.format("a confirmer (%d releve(s) sur %d)", inp.seen or 0, R.CONFIRM) end
   if (inp.tries or 0) >= R.MAX_TRIES and (inp.since_try or 0) < R.RETRY_AFTER then
     return "laisser", string.format("%d raccordement(s) tente(s) sans effet (nouvel essai %d min apres le dernier)", inp.tries, R.RETRY_AFTER / 3600)

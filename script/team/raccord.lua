@@ -283,7 +283,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
         st.n.repares = st.n.repares + 1
         say(f, tick, string.format("groupe %s : plus de machine sans courant (%d raccordement(s) tente(s))", key, st.tries[key]))
       end
-      st.seen[key], st.tries[key], st.said[key], st.last_try[key] = nil, nil, nil, nil
+      st.seen[key], st.tries[key], st.said[key], st.last_try[key], st.waited[key] = nil, nil, nil, nil, nil
     end
   end
   local open_total = #sorted_keys(st.open)
@@ -302,19 +302,21 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
     if idx > DECIDE_MAX then break end
     local last = st.last_try[g.key]
     local inp = { has_live = c.n_live > 0, open = st.open[g.key] ~= nil, open_total = open_total, seen = st.seen[g.key],
-      tries = st.tries[g.key] or 0, since_try = last and (tick - last) or R.RETRY_AFTER }
+      tries = st.tries[g.key] or 0, since_try = last and (tick - last) or R.RETRY_AFTER, waited = st.waited[g.key] or 0 }
     if inp.has_live and not inp.open then
       inp.lost, g.foes = lost_near(f, surface, b, g)
       -- lot ENERGIE (2/11) : [FO-RESEAU] a jugé qu'aucun chemin sûr de poteaux perdus ne relie l'îlot (second chemin) : ces poteaux ne le retiennent plus
       local sv = b.sante
       if sv and sv.second_tick and tick - sv.second_tick <= R.SECOND_WINDOW and not Rv.coupure_off(b) then inp.lost = 0 end
       if inp.lost == 0 then inp.pending = pending_near(b, g, c.champ_live) end
-      if inp.lost == 0 and (inp.pending or 0) == 0 and (inp.seen or 0) >= R.CONFIRM then
+      if inp.lost == 0 and ((inp.pending or 0) == 0 or inp.waited >= R.WAIT_PENDING) and (inp.seen or 0) >= R.CONFIRM then
         local foe = surface.find_nearest_enemy({ position = { x = g.x, y = g.y }, max_distance = R.ENEMY_R, force = f.force })
         inp.enemies = foe and 1 or 0
       end
     end
     local action, why = R.decide(inp)
+    -- (lot FONDERIE, 0.6.44) attente bornée derrière un chantier voisin : compte des relevés où le groupe a attendu pour cette raison
+    if action == "attendre" and (inp.pending or 0) > 0 and inp.waited < R.WAIT_PENDING then st.waited[g.key] = inp.waited + 1 end
     if action == "relier" and asked then action, why = "attendre", "un raccordement par releve" end
     -- relecture au moment d'agir : le relevé s'étale sur plusieurs passes et le moteur renumérote un réseau qui se coupe ou se
     -- joint ; un numéro périmé gâcherait un essai (R.MAX_TRIES) sur un groupe déjà alimenté ou sur un départ introuvable
@@ -375,6 +377,7 @@ function Ra.step(api, f, surface, tick)
     b.raccord = st
   end
   st.last_try = st.last_try or {} -- (état d'un premier relevé de ce lot sans ce champ)
+  st.waited = st.waited or {} -- (lot FONDERIE, 0.6.44) même chose
   local c = st.cyc
   if not c then
     if tick < st.next then return end
