@@ -18,11 +18,7 @@
                                      Sm.MIN de sa ressource et que le coffre en a moins de Sm.COVER ; sinon `base`.
     Sm.carry_fuel(need, self, own) -> combustible porté du coffre vers un avant-poste : celui de combustible ne prend que ce que ses propres
                                      sorties ne couvrent pas (avant : jamais rien, d'où un avant-poste à sec, coffres vides, qui ne repart plus).
-  Interrupteur par équipe (bancs) : f.team.sorties_regle == false coupe tout (comportement de 0.6.41), true allume tout.
-  Lot CHARBON3 (A/B du lead, 3/11, verif-guide, fo-logs/2026-11-03_CHARBON3/RAPPORT.md) : ÉTEINTE PAR DÉFAUT, code gardé. Avec la règle,
-  votre équipe finit plus faible sur les deux graines jouées (1618033988 : 2 PNJ contre 7 sans elle ; 123456789 : 5 perdus contre 0) et
-  AUCUNE partie coupée seule ne rend le résultat sans règle (1618033988 : sans « main » 1 PNJ et 112 perdus, sans « prio » 2, sans
-  « porte » 1) : cause non établie. Rallumer : Sm.PARTS, ou remote fo-ia1.set_regle_sorties(clé, true).
+  Interrupteur par équipe (bancs) : f.team.sorties_regle == false coupe tout (comportement de 0.6.41). Défaut : allumé.
 ]]
 local Sm = {}
 
@@ -34,22 +30,18 @@ Sm.STALE_TICKS = 5 * 3600 -- tournée libre depuis 5 min sans preneur : ses sort
 
 local function num(v) return type(v) == "number" and v or 0 end
 
---- La règle est-elle allumée pour cette équipe ? flag = f.team.sorties_regle (nil : défaut, une partie au moins allumée dans Sm.PARTS).
-function Sm.on(flag)
-  if flag ~= nil then return flag ~= false end
-  return Sm.PARTS.main == true or Sm.PARTS.prio == true or Sm.PARTS.porte == true
-end
+--- La règle est-elle allumée pour cette équipe ? flag = f.team.sorties_regle (nil : défaut, allumée).
+function Sm.on(flag) return flag ~= false end
 
 -- Lot CHARBON3 (A/B du lead, 3/11) : les TROIS parties de la règle, chacune avec son interrupteur par équipe (f.team.sorties_<partie>,
 -- nil : défaut de Sm.PARTS) : « main » = refus du minage à la main (Sm.hand_ok), « prio » = tournée urgente à Sm.FETCH_PRIO
--- (Sm.fetch_prio), « porte » = combustible porté du coffre vers un avant-poste de combustible (Sm.carry_fuel). Toutes ÉTEINTES par défaut.
-Sm.PARTS = { main = false, prio = false, porte = false }
+-- (Sm.fetch_prio), « porte » = combustible porté du coffre vers un avant-poste de combustible (Sm.carry_fuel).
+Sm.PARTS = { main = true, prio = true, porte = true }
 
---- Partie `name` allumée ? flag = f.team.sorties_<name> (interrupteur de la partie, prioritaire), all = f.team.sorties_regle
---- (interrupteur de toute la règle : bancs, set_regle_sorties), sinon le défaut de Sm.PARTS.
+--- Partie `name` allumée ? all = f.team.sorties_regle (false coupe tout), flag = f.team.sorties_<name> (nil : défaut Sm.PARTS).
 function Sm.part(all, flag, name)
+  if all == false then return false end
   if flag ~= nil then return flag and true or false end
-  if all ~= nil then return all and true or false end
   return Sm.PARTS[name] == true
 end
 
