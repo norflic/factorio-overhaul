@@ -299,7 +299,9 @@ local function team_champ(key, net, x)
     [1] = proj(1, "fini", { { name = "steam-engine", x = x, y = 500, built = true, part = 1 } }, { gen = "steam" }),
     [2] = proj(2, "chantier", { { name = "inserter", x = x + 41, y = 500, built = true, part = 1, role = "champ-bras" },
       { name = "inserter", x = x + 42, y = 500, built = true, part = 1, role = "champ-bras" },
-      { name = "medium-electric-pole", x = x + 40, y = 500, built = true, part = 1 } }, { site = "champ", champ = { oid = 4, pr = -42 } }) } }
+      { name = "medium-electric-pole", x = x + 40, y = 500, built = true, part = 1 },
+      -- poteau de la bande JAMAIS posé (chantier arrêté) : ne fait plus attendre le raccordement (champ-longue2-20261020)
+      { name = "medium-electric-pole", x = x + 45, y = 500, built = false, part = 1 } }, { site = "champ", champ = { oid = 4, pr = -42 } }) } }
   return { key = key, force = key, build = bb }
 end
 local function run_team(ff, flag, n)
@@ -323,6 +325,12 @@ check(#r_on >= 1 and r_on[1].kind == "ile", "9.2 avec champ_live : ile de la ban
 check(r_on[1] and r_on[1].start and r_on[1].start.x == 2040 and r_on[1].target and r_on[1].target.x == 2003,
   "9.3 depart : le poteau de la bande ; cible : le poteau alimente")
 check(no_function(fl.build.raccord), "9.4 etat sans fonction")
+-- 9.5 un poteau non posé d'un AUTRE chantier (pas un champ) près de l'île fait toujours attendre
+local fw = team_champ("fw", 50, 3000)
+fw.build.projects[3] = proj(3, "fantomes", { { name = "medium-electric-pole", x = 3046, y = 500, built = false, part = 1 } }, { gen = "x" })
+fw.build.order[#fw.build.order + 1] = 3
+local r_w = run_team(fw, true, 3)
+check(#r_w == 0 and logs_with("%[FO%-RACCORD%] fw : groupe .* attendre") >= 1, "9.5 poteau d'un autre chantier : attendre, rien demande (" .. #r_w .. ")")
 
 print(string.format("[RACCORD-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

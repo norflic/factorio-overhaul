@@ -166,11 +166,15 @@ local function lost_near(f, surface, b, g)
 end
 
 --- Poteaux pas encore bâtis d'un chantier (autre qu'un raccordement de ce groupe) à R.LOST_NEAR : l'île est peut-être attendue.
-local function pending_near(b, g)
+--- (lot FONDERIE, 0.6.43, champ-longue2-20261020 : île d'une bande d'azure « attendre : 14 à 44 poteaux d'un chantier voisin » de la minute
+--- 28 à 146, chantier du champ arrêté) quand `champ_live`, les poteaux non posés des projets de CHAMP ne font plus attendre : ce chantier peut
+--- ne jamais finir (obstacle, matières) ; au pire, quelques poteaux posés en double.
+local function pending_near(b, g, champ_live)
   local n = 0
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
-    if q and PENDING_STATES[q.state] and not q.abandoned and not (q.spec and q.spec.raccord and q.spec.raccord.key == g.key) then
+    if q and PENDING_STATES[q.state] and not q.abandoned and not (q.spec and q.spec.raccord and q.spec.raccord.key == g.key)
+      and not (champ_live and q.spec and q.spec.champ) then
       for _, e in ipairs(q.ents) do
         if not e.built and is_pole(e.name) and near_box(g.box, e.x, e.y, R.LOST_NEAR) then n = n + 1 end
       end
@@ -304,7 +308,7 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       -- lot ENERGIE (2/11) : [FO-RESEAU] a jugé qu'aucun chemin sûr de poteaux perdus ne relie l'îlot (second chemin) : ces poteaux ne le retiennent plus
       local sv = b.sante
       if sv and sv.second_tick and tick - sv.second_tick <= R.SECOND_WINDOW and not Rv.coupure_off(b) then inp.lost = 0 end
-      if inp.lost == 0 then inp.pending = pending_near(b, g) end
+      if inp.lost == 0 then inp.pending = pending_near(b, g, c.champ_live) end
       if inp.lost == 0 and (inp.pending or 0) == 0 and (inp.seen or 0) >= R.CONFIRM then
         local foe = surface.find_nearest_enemy({ position = { x = g.x, y = g.y }, max_distance = R.ENEMY_R, force = f.force })
         inp.enemies = foe and 1 or 0
