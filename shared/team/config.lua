@@ -254,6 +254,11 @@ T.defend_copper_floor = 30 -- 6 pistolets de recrues
 -- tombe armé ; 1618033988 : équipe finie à 54,7 min contre n = 8 au témoin).
 T.qg_reserve_on = false
 T.qg_recruit_hold_on = true
+-- Lot QGGROUPE (shared/team/qg_groupe.lua) : votre équipe seulement (les factions gardent la règle d'avant : pas de banc pvp de ce lot).
+-- Règle 1 : défense du QG au point le plus faible (appui des voisines) dans le péril ; règle 2 : tourelles du QG regroupées sur les côtés
+-- attaqués, à nombre constant (regroupement en calme, reconstruction aux places des groupes).
+T.qg_groupe_peril_on = true
+T.qg_groupe_pose_on = true
 -- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
 -- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
 -- étaient tous refusés, 2 avant-postes, fer à 35, équipe perdue à 35 min ; ceux de 314159265 (582 à 588) restent exclus.
