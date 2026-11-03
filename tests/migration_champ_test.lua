@@ -1424,7 +1424,8 @@ do
   -- temps). Pendant la retenue, une partie DÉJÀ demandée avance (dégel, retrait, ligne comptée) ; une partie neuve ne part pas, sauf si la
   -- porte de la pile (script/team/pile.lua, la vraie) laisse passer sa plaque.
   section("P. THERMIQUE5 : retenue de la pile")
-  local E = executor_run({ pairs = 8 })
+  local function run_p(mutant)
+  local E = executor_run({ pairs = 8, mutant = mutant })
   local f = E.f
   local plate = T.outposts.iron.product
   f.team = { ia3 = { pile = { hold = true, top = 1, focus = {} } } }
@@ -1454,6 +1455,29 @@ do
   think(false)
   check(#E.Build.requests == 2, "P6 : retenue levée : la partie suivante part (" .. #E.Build.requests .. ")")
   E.restore()
+  end
+  run_p(nil)
+  -- mutants de l'exécutant : la porte du départ retirée ; la retenue ignorée au départ
+  local function mutp(from, to)
+    return function(src)
+      local i, j = src:find(from, 1, true)
+      assert(i and not src:find(from, j + 1, true), "motif de mutant : " .. from)
+      return src:sub(1, i - 1) .. to .. src:sub(j + 1)
+    end
+  end
+  local real_print = print
+  for _, mu in ipairs({
+    { "porte du départ retirée", mutp('if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", product))) then', "if false then") },
+    { "départ retenu même porte ouverte", mutp('if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", product))) then', "if ok and hold then") },
+  }) do
+    local saved_p, saved_f = passes, failures
+    _G.print = function() end
+    local ok, err = pcall(run_p, mu[2])
+    _G.print = real_print
+    local bad = (not ok) and 1 or (failures - saved_f)
+    passes, failures = saved_p, saved_f
+    check(bad > 0, "P : mutant refusé : " .. mu[1] .. ((not ok) and (" (plantage : " .. tostring(err):sub(1, 60) .. ")") or ""))
+  end
 end
 
 do

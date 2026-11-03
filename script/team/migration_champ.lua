@@ -1105,12 +1105,6 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
     -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement), lot THERMIQUE : un
     -- seul chantier par minerai, trois au plus (Th.free_slot)
     if busy.total > 0 and (busy.ids[oid] or not Th.free_slot(o.kind, busy) or Champ.data(f, o.kind) == nil) then goto next_outpost end
-    -- lot THERMIQUE5 : pendant une retenue de la pile, une bande neuve ne part que si la porte laisse passer sa plaque (comme sa réserve au
-    -- plan directeur, Build.reserve_suspended, famille « capi ») ; sans retenue, rien ne change
-    if hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", T.outposts[o.kind].product))) then
-      if st then say_why(f, ms, st, "pile", string.format("avant-poste %d (%s) : bande neuve retenue par la pile", o.id, o.kind)) end
-      goto next_outpost
-    end
     -- lot MIGRATION-DECLENCHE : un abandon (échecs de suite, ligne perdue) n'est plus définitif : après CFG.revive, l'avant-poste repart
     -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
     -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
@@ -1153,7 +1147,11 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book, ho
       -- Lot THERMIQUE2 : la garde de fer du lot THERMIQUE (Th.financed : fer libre >= coût des foreuses de remplacement) est retirée : une force
       -- dont le fer est tout consommé ne lançait jamais la bande qui lui rendrait du fer (« migration en veille (fer) », champ-longue 20261020) ;
       -- la garde de plaques de Mg.start_ok (comme sur main) reste.
-      if ok then
+      -- lot THERMIQUE5 : pendant une retenue de la pile, une bande neuve ne part que si la porte laisse passer sa plaque (comme sa réserve au
+      -- plan directeur, Build.reserve_suspended, famille « capi ») ; lu au moment du départ seulement (les causes de veille restent au journal)
+      if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", product))) then
+        say_why(f, ms, st, "pile", string.format("avant-poste %d (%s) : bande neuve retenue par la pile, %d paire(s) thermique(s)", o.id, o.kind, #list))
+      elseif ok then
         if champ then
           if begin_band(f, surface, ms, o, st, list, tick, free) then return true end
         elseif begin_part(f, surface, ms, o, st, list, rects, tick) then return true end
