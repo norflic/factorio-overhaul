@@ -346,6 +346,7 @@ end
 section("4. stabilite et cadres d'avant le lot")
 ---------------------------------------------------------------------------------------------------
 local lone, lone_bad = 0, 0
+local band_max, band_nocoal = 0, 0
 local function stability(ore, o)
   local sp = spec_of(ore, o)
   local full = Ch.plan(sp)
@@ -364,6 +365,16 @@ local function stability(ore, o)
     oo.frame = fr
     local spp = spec_of(ore, oo)
     local part = Ch.plan(spp)
+    -- (projet séparé) la bande sans les pièces communes du réseau du charbon : < 800 entités (critère D3), et ses pièces propres au charbon
+    -- (dérivation, poteau de liaison) restent dans la bande
+    if part then
+      local own, shared, own_coal = 0, 0, 0
+      for _, e in ipairs(part.ents) do
+        if e.coalnet then shared = shared + 1 else own = own + 1; if e.role == "charbon" then own_coal = own_coal + 1 end end
+      end
+      band_max = math.max(band_max, own)
+      if shared > 0 and own_coal == 0 then band_nocoal = band_nocoal + 1 end
+    end
     -- une bande bâtie seule (les autres pas encore) marche seule : un réseau, chaque four nourri (minerai et charbon), plaques au quai
     if part and #part.ents > 0 then
       local r = Cv.verify(part, spp)
@@ -392,6 +403,13 @@ do
     check(missing == 0, string.format("%s : toutes les pièces du plan entier (hors poteaux) posées par une bande (%d manquent)", c[1], missing))
   end
   check(lone > 0 and lone_bad == 0, string.format("bandes bâties seules : %d sur %d marchent seules (réseau, minerai, charbon, plaques)", lone - lone_bad, lone))
+  check(band_max > 0 and band_max < 800, string.format("une bande sans le réseau commun du charbon : %d entités au plus (< 800)", band_max))
+  check(band_nocoal == 0, string.format("une bande en voie garde sa dérivation et son poteau de liaison (%d sans)", band_nocoal))
+  -- toute pièce commune du réseau du charbon est marquée (posée par le projet du réseau, pas par une bande)
+  local full = Ch.plan(spec_of(ORE, { coal = COAL_NEAR }))
+  local unmarked = 0
+  for _, e in ipairs(full.ents) do if e.role == "charbon" and (e.band or 0) == 0 and not e.coalnet then unmarked = unmarked + 1 end end
+  check(unmarked == 0, "pièces communes du réseau du charbon toutes marquées coalnet (" .. unmarked .. " sans)")
   -- cadre d'avant le lot (0.6.38, sans design) : la bande garde la fonderie à coffres
   local sp = spec_of(ORE, { coal = COAL_NEAR })
   sp.design = nil

@@ -477,6 +477,26 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   -- la bande porte sa plaque (spec.product) et la famille d'investissement de la pile « capi » (shared/ai3/pile.lua) : pendant une retenue,
   -- elle avance pour une plaque d'un cadre ouvert ou qui manque, comme un module de la capitalisation (avant : « migration », rang améliorer,
   -- jamais d'exception : 4 à 6 refus par équipe et par heure, réserve rendue à chaque refus)
+  -- lot FONDERIE (projet séparé, 3/11) : le réseau du charbon d'un côté (ligne de foreuses, tracé, tronc) est un projet À PART, demandé avant
+  -- la première bande en voie de ce côté, à la priorité d'une alimentation : aucune bande n'attend des centaines de pièces qui ne sont pas
+  -- les siennes (lot3-20261020 : 1 161 entités pour une bande, « en attente (matières) » jusqu'à la fin)
+  st.coal_req = st.coal_req or {}
+  for _, bo in ipairs(bd.plan.bands or {}) do
+    for _, g in ipairs(bo.groups or {}) do
+      local sk = tostring(g.side)
+      local old = st.coal_req[sk]
+      if old and not (f.build and f.build.projects[old]) then st.coal_req[sk] = nil end
+      if g.mode == "voie" and not st.coal_req[sk] then
+        local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = g.side }, near = { x = o.pos.x, y = o.pos.y },
+          prio = Champ.CFG.coal_prio, domain = "infrastructures", lazy_clear = true })
+        if cid then
+          st.coal_req[sk] = cid
+          say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s demande, projet %d (avant la bande %d)", o.field and "gisement" or "avant-poste",
+            o.id, o.kind, g.side > 0 and "+" or "-", cid, pr), true)
+        end
+      end
+    end
+  end
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
     domain = "production", lazy_clear = true, pile = "capi", product = product }
   if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end

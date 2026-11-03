@@ -41,6 +41,9 @@ Co.SOFT_COST = 8       -- surcoût d'un tapis posé sur un arbre ou un rocher (l
 Co.ROUTE_CAP = 200000  -- états développés au plus par tracé
 Co.ROUTE_W = 1.2       -- A* pondéré (heuristique × 1,2) : un tracé de 300 tuiles reste sous le plafond (lot2-20261020 : charbon à ~190 tuiles)
 Co.DEPOSITS = 3        -- gisements de charbon essayés (le plus proche peut être couvert par les paires thermiques de l'équipe)
+Co.ROUTE_MAX = 250     -- tuiles de tracé au plus ; au-delà, coffre de tête. (Proposé à ~120 le 3/11 ; mesuré hors jeu : un charbon à 60-70 tuiles
+                       -- du champ donne des tracés de 136 à 207 tuiles, le tracé contournant le champ et ses colonnes : 120 renvoyait presque
+                       -- tout au coffre de tête. Ce qui faisait attendre les bandes au lot3 était le charbon à 320 tuiles posé par la bande.)
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
 Co.COAL_MARGIN = 1.25  -- la ligne extrait au moins 1,25 × le charbon brûlé (banc fonderie-banc, 3/11)
@@ -667,6 +670,7 @@ function Co.network(cols, side, env)
   local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box,
     nil, tcost)
   if not route then res.why = "trace du charbon : " .. tostring(why) return res end
+  if #route > Co.ROUTE_MAX then res.why = string.format("trace du charbon trop long (%d tuiles, plafond %d)", #route, Co.ROUTE_MAX) return res end
   local nug = 0
   for _, r in ipairs(route) do
     local d = D4[r.d]

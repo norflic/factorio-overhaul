@@ -606,12 +606,19 @@ function Ch.plan(spec)
         end
         if not shared_done[g.side] then
           shared_done[g.side] = true
-          for _, e in ipairs(nt.ents) do emit_e(e, 0, 0, nil, (e.kind == "tapis" or e.kind == "souterrain" or e.kind == "repartiteur") and 1 or nil) end
+          -- (projet séparé, 3/11) pièces COMMUNES du réseau du charbon d'un côté, marquées : le runtime les pose dans le projet « réseau du
+          -- charbon » de ce côté, pas dans la bande
+          for _, e in ipairs(nt.ents) do
+            emit_e(e, 0, 0, nil, (e.kind == "tapis" or e.kind == "souterrain" or e.kind == "repartiteur") and 1 or nil)
+            ents[#ents].coalnet = g.side
+          end
         end
       end
       cols_frame[key] = cols_frame[key] or {}
       cols_frame[key][tostring(g.side)] = { s_edge = g.s_edge, count = g.count, mode = mode }
       g.mode = mode
+      local og = out_bands[it.bi] and out_bands[it.bi].groups[it.gi]
+      if og then og.mode = (mode == "voie" and nt and nt.uT) and "voie" or mode end
     end
     for _, side in ipairs({ exit, -exit }) do
       local nt = nets[side]

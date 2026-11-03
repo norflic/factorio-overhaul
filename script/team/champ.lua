@@ -43,8 +43,9 @@ Champ.CFG = {
   charge = 40,      -- combustible posé avec chaque coffre de combustible d'une fonderie (deux fours de pierre : 15 min)
   drill_rank = 7,   -- rang de pose des foreuses du champ (P.sort_build : après les tapis, rang 5)
   -- lot FONDERIE
-  coal_r = 320,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché (192 avant lot2-20261020 : emerald,
-                    -- avant-poste 5 à ~190 tuiles de son charbon, deux bandes au coffre de tête vides)
+  coal_r = 192,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché (320 au lot3 : des tracés de centaines de
+                    -- tuiles faisaient attendre les bandes ; le tracé est désormais plafonné, Co.ROUTE_MAX)
+  coal_prio = 80,   -- priorité du projet « réseau du charbon » d'un côté du champ (celle de l'alimentation d'une centrale, Cc.PROJECT_PRIO)
   coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
   route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
@@ -411,11 +412,15 @@ function Champ.has_band(f, o)
 end
 
 --- Entités nommées d'un plan (bande seule) : ents { name, x, y, dir, role }, quais, outs, emprise { tuiles }.
-local function named(plan, names)
+local function named(plan, names, coal_side)
   local ents, quais, outs = {}, {}, {}
   local design = plan.design
   for _, e in ipairs(plan.ents) do
     local name
+    -- (projet séparé) la bande ne porte pas les pièces communes du réseau du charbon ; le projet du réseau ne porte qu'elles
+    local skip
+    if coal_side then skip = e.coalnet ~= coal_side else skip = e.coalnet ~= nil end
+    if skip then goto continue end
     if e.kind == "foreuse" then name = names.drill
     elseif e.kind == "tapis" then name = names.belts[e.belt or 1]
     elseif e.kind == "poteau" then name = names.pole
@@ -443,12 +448,13 @@ local function named(plan, names)
       if e.kind == "coffre" and e.role == "combustible" then quais[#quais + 1] = { x = e.x, y = e.y, item = names.fuel } end
       if e.kind == "coffre" and e.role == "sortie" then outs[#outs + 1] = { x = e.x, y = e.y } end
     end
+    ::continue::
   end
   return ents, quais, outs
 end
 
 --- La bande `pr` seule : { ents, quais, outs, tiles (liste plate de son emprise), plan } ou nil, raison.
-function Champ.band(f, surface, o, frame, pr)
+function Champ.band(f, surface, o, frame, pr, coal_side)
   local spec, names = spec_of(f, surface, o, frame, { [pr] = true })
   if not spec then return nil, names end
   local plan, why = Ch.plan(spec)
@@ -457,7 +463,8 @@ function Champ.band(f, surface, o, frame, pr)
     return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie", plan.stats.band_drills or 0,
       plan.stats.no_smelter or 0)
   end
-  local ents, quais, outs = named(plan, names)
+  local ents, quais, outs = named(plan, names, coal_side)
+  if coal_side and #ents == 0 then return nil, "reseau du charbon vide" end
   local tiles = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do tiles[#tiles + 1] = t[1]; tiles[#tiles + 1] = t[2] end end
   return { ents = ents, quais = quais, outs = outs, tiles = tiles, plan = plan, names = names, spec = spec }
@@ -490,7 +497,7 @@ Build.SITES.champ = function(f, surface, p, h)
   local cs = p.spec.champ
   local o = cs and Champ.target(f, cs.oid)
   if not o then return nil, "champ: avant-poste perdu" end
-  local bd, why = Champ.band(f, surface, o, cs.frame, cs.pr)
+  local bd, why = Champ.band(f, surface, o, cs.frame, cs.pr, cs.coal)
   if not bd then return nil, "champ: " .. tostring(why) end
   local b = f.build
   -- poteaux d'une bande voisine déjà demandée (rangée partagée, même place sur le treillis) : déjà au plan, pas deux fois
@@ -559,9 +566,11 @@ Build.SITES.champ = function(f, surface, p, h)
   for _, e in ipairs(ents) do
     if e.name == bd.names.drill then nd = nd + 1 elseif e.name == bd.names.furnace then nf = nf + 1 end
   end
-  say(f, string.format("projet %d : bande %d du champ de l'avant-poste %d (%s) : %d foreuses, %d fours, %d entites (%d deja au plan), raccord %s",
-    p.id, cs.pr, o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu"))
-  return { key = "champ:" .. o.id .. ":" .. cs.pr, box = { x0, y0, x1, y1 }, ents = ents, quais = bd.quais, outs = bd.outs, masks = masks }
+  say(f, string.format("projet %d : %s du champ de l'avant-poste %d (%s) : %d foreuses, %d fours, %d entites (%d deja au plan), raccord %s",
+    p.id, cs.coal and string.format("reseau du charbon cote %s (bande %d)", cs.coal > 0 and "+" or "-", cs.pr) or ("bande " .. cs.pr),
+    o.id, o.kind, nd, nf, #ents, dropped, net and (chain_n > 0 and (chain_n .. " poteau(x)") or "a portee") or "aucun reseau alimente vu"))
+  return { key = "champ:" .. o.id .. ":" .. (cs.coal and ("charbon" .. cs.coal) or cs.pr), box = { x0, y0, x1, y1 }, ents = ents, quais = bd.quais,
+    outs = bd.outs, masks = masks }
 end
 
 ---------------------------------------------------------------------------------------------------
