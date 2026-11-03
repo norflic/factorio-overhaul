@@ -29,3 +29,5 @@ graphics/levels/centre/*.png
 graphics/robots/bourdon/*.png
 # Feuilles de jeu des usines de robots (lot US-V1, même règle) : tools/render/pieces/usines_robots/feuilles.py
 graphics/robots/usines/*.png
+# Feuilles de jeu des 20 machines du calcul (lot MACHINES-CALCUL, même règle) : tools/render/pieces/calcul/feuilles.py
+graphics/machines/calcul/*.png

@@ -1,0 +1,2094 @@
+{
+ "fo-arc-furnace": {
+  "age": 6,
+  "boite": [
+   [
+    -2.15625,
+    -3.15625
+   ],
+   [
+    2.0,
+    2.0
+   ]
+  ],
+  "calage_px": {
+   "est": 16,
+   "ouest": 6,
+   "sud": 20
+  },
+  "cote": 4,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-arc-glow.png",
+     "height": 176,
+     "shift": [
+      -0.8125,
+      -0.09375
+     ],
+     "width": 132
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/arc-glow.png",
+     "height": 88,
+     "shift": [
+      -0.8125,
+      -0.09375
+     ],
+     "width": 66
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-arc-main.png",
+     "height": 322,
+     "shift": [
+      -0.125,
+      -0.640625
+     ],
+     "width": 260
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/arc-main.png",
+     "height": 161,
+     "shift": [
+      -0.125,
+      -0.640625
+     ],
+     "width": 130
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-arc-shadow.png",
+     "height": 458,
+     "shift": [
+      1.390625,
+      -1.265625
+     ],
+     "width": 502
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/arc-shadow.png",
+     "height": 229,
+     "shift": [
+      1.390625,
+      -1.265625
+     ],
+     "width": 251
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-arc.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.258,
+   0.229,
+   0.199
+  ],
+  "variante": "arc"
+ },
+ "fo-chiller": {
+  "age": 10,
+  "boite": [
+   [
+    -2.03125,
+    -2.875
+   ],
+   [
+    2.03125,
+    2.15625
+   ]
+  ],
+  "calage_px": {
+   "est": 12,
+   "ouest": 15,
+   "sud": 9
+  },
+  "cote": 4,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-froid-glow.png",
+     "height": 6,
+     "shift": [
+      1.140625,
+      -1.703125
+     ],
+     "width": 30
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/froid-glow.png",
+     "height": 3,
+     "shift": [
+      1.140625,
+      -1.703125
+     ],
+     "width": 15
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-froid-main.png",
+     "height": 322,
+     "shift": [
+      0.0,
+      -0.359375
+     ],
+     "width": 260
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/froid-main.png",
+     "height": 161,
+     "shift": [
+      0.0,
+      -0.359375
+     ],
+     "width": 130
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-froid-mobile.png",
+     "height": 48,
+     "shift": [
+      0.078125,
+      -2.46875
+     ],
+     "width": 142
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/froid-mobile.png",
+     "height": 24,
+     "shift": [
+      0.078125,
+      -2.46875
+     ],
+     "width": 71
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-froid-shadow.png",
+     "height": 410,
+     "shift": [
+      0.765625,
+      -0.515625
+     ],
+     "width": 398
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/froid-shadow.png",
+     "height": 205,
+     "shift": [
+      0.765625,
+      -0.515625
+     ],
+     "width": 199
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-froid.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.258,
+   0.24,
+   0.239
+  ],
+  "variante": "froid"
+ },
+ "fo-circuit-printer": {
+  "age": 4,
+  "boite": [
+   [
+    -1.8125,
+    -2.40625
+   ],
+   [
+    1.8125,
+    1.5
+   ]
+  ],
+  "calage_px": {
+   "est": -7,
+   "ouest": -7,
+   "sud": 24
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-impr-glow.png",
+     "height": 60,
+     "shift": [
+      0.46875,
+      -0.5
+     ],
+     "width": 116
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/impr-glow.png",
+     "height": 30,
+     "shift": [
+      0.46875,
+      -0.5
+     ],
+     "width": 58
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-impr-main.png",
+     "height": 236,
+     "shift": [
+      0.0,
+      -0.5625
+     ],
+     "width": 232
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/impr-main.png",
+     "height": 118,
+     "shift": [
+      0.0,
+      -0.5625
+     ],
+     "width": 116
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-impr-mobile.png",
+     "height": 160,
+     "shift": [
+      0.171875,
+      -0.90625
+     ],
+     "width": 78
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/impr-mobile.png",
+     "height": 80,
+     "shift": [
+      0.171875,
+      -0.90625
+     ],
+     "width": 39
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-impr-shadow.png",
+     "height": 306,
+     "shift": [
+      0.890625,
+      -0.703125
+     ],
+     "width": 394
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/impr-shadow.png",
+     "height": 153,
+     "shift": [
+      0.890625,
+      -0.703125
+     ],
+     "width": 197
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-impr.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.259,
+   0.244,
+   0.168
+  ],
+  "variante": "impr"
+ },
+ "fo-cleanroom": {
+  "age": 10,
+  "boite": [
+   [
+    -2.59375,
+    -3.84375
+   ],
+   [
+    2.6875,
+    2.75
+   ]
+  ],
+  "calage_px": {
+   "est": 4,
+   "ouest": 4,
+   "sud": -3
+  },
+  "cote": 5,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-salle-glow.png",
+     "height": 378,
+     "shift": [
+      0.28125,
+      -0.890625
+     ],
+     "width": 208
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/salle-glow.png",
+     "height": 189,
+     "shift": [
+      0.28125,
+      -0.890625
+     ],
+     "width": 104
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-salle-main.png",
+     "height": 422,
+     "shift": [
+      0.046875,
+      -0.546875
+     ],
+     "width": 338
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/salle-main.png",
+     "height": 211,
+     "shift": [
+      0.046875,
+      -0.546875
+     ],
+     "width": 169
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-salle-mobile.png",
+     "height": 34,
+     "shift": [
+      -0.359375,
+      -1.890625
+     ],
+     "width": 126
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/salle-mobile.png",
+     "height": 17,
+     "shift": [
+      -0.359375,
+      -1.890625
+     ],
+     "width": 63
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-salle-shadow.png",
+     "height": 522,
+     "shift": [
+      1.578125,
+      -0.890625
+     ],
+     "width": 594
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/salle-shadow.png",
+     "height": 261,
+     "shift": [
+      1.578125,
+      -0.890625
+     ],
+     "width": 297
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-salle.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.323,
+   0.306,
+   0.288
+  ],
+  "variante": "salle"
+ },
+ "fo-cooling-tower": {
+  "age": 10,
+  "boite": [
+   [
+    -2.75,
+    -4.25
+   ],
+   [
+    2.75,
+    2.6875
+   ]
+  ],
+  "calage_px": {
+   "est": 2,
+   "ouest": 2,
+   "sud": 2
+  },
+  "cote": 5,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-tour-glow.png",
+     "height": 208,
+     "shift": [
+      0.0,
+      0.28125
+     ],
+     "width": 292
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/tour-glow.png",
+     "height": 104,
+     "shift": [
+      0.0,
+      0.28125
+     ],
+     "width": 146
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-tour-main.png",
+     "height": 444,
+     "shift": [
+      0.0,
+      -0.78125
+     ],
+     "width": 352
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/tour-main.png",
+     "height": 222,
+     "shift": [
+      0.0,
+      -0.78125
+     ],
+     "width": 176
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-tour-mobile.png",
+     "height": 90,
+     "shift": [
+      0.0,
+      -3.046875
+     ],
+     "width": 120
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/tour-mobile.png",
+     "height": 45,
+     "shift": [
+      0.0,
+      -3.046875
+     ],
+     "width": 60
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-tour-shadow.png",
+     "height": 596,
+     "shift": [
+      2.03125,
+      -1.53125
+     ],
+     "width": 648
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/tour-shadow.png",
+     "height": 298,
+     "shift": [
+      2.03125,
+      -1.53125
+     ],
+     "width": 324
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-tour.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.204,
+   0.202,
+   0.199
+  ],
+  "variante": "tour"
+ },
+ "fo-cryogenic-unit": {
+  "age": 12,
+  "boite": [
+   [
+    -2.59375,
+    -3.46875
+   ],
+   [
+    2.5,
+    2.65625
+   ]
+  ],
+  "calage_px": {
+   "est": 18,
+   "ouest": 11,
+   "sud": 2
+  },
+  "cote": 5,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-cryo-glow.png",
+     "height": 314,
+     "shift": [
+      -0.109375,
+      -0.578125
+     ],
+     "width": 86
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/cryo-glow.png",
+     "height": 157,
+     "shift": [
+      -0.109375,
+      -0.578125
+     ],
+     "width": 43
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-cryo-main.png",
+     "height": 392,
+     "shift": [
+      -0.0625,
+      -0.40625
+     ],
+     "width": 324
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/cryo-main.png",
+     "height": 196,
+     "shift": [
+      -0.0625,
+      -0.40625
+     ],
+     "width": 162
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-cryo-shadow.png",
+     "height": 574,
+     "shift": [
+      1.984375,
+      -1.296875
+     ],
+     "width": 626
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/cryo-shadow.png",
+     "height": 287,
+     "shift": [
+      1.984375,
+      -1.296875
+     ],
+     "width": 313
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-cryo.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.224,
+   0.24,
+   0.25
+  ],
+  "variante": "cryo"
+ },
+ "fo-crystal-lithograph": {
+  "age": 10,
+  "boite": [
+   [
+    -2.21875,
+    -2.96875
+   ],
+   [
+    2.21875,
+    2.125
+   ]
+  ],
+  "calage_px": {
+   "est": 3,
+   "ouest": 2,
+   "sud": 5
+  },
+  "cote": 4,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-litho-glow.png",
+     "height": 162,
+     "shift": [
+      0.359375,
+      -0.671875
+     ],
+     "width": 182
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/litho-glow.png",
+     "height": 81,
+     "shift": [
+      0.359375,
+      -0.671875
+     ],
+     "width": 91
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-litho-main.png",
+     "height": 326,
+     "shift": [
+      0.0,
+      -0.421875
+     ],
+     "width": 284
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/litho-main.png",
+     "height": 163,
+     "shift": [
+      0.0,
+      -0.421875
+     ],
+     "width": 142
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-litho-mobile.png",
+     "height": 60,
+     "shift": [
+      -0.203125,
+      0.28125
+     ],
+     "width": 106
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/litho-mobile.png",
+     "height": 30,
+     "shift": [
+      -0.203125,
+      0.28125
+     ],
+     "width": 53
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-litho-shadow.png",
+     "height": 446,
+     "shift": [
+      1.265625,
+      -0.953125
+     ],
+     "width": 486
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/litho-shadow.png",
+     "height": 223,
+     "shift": [
+      1.265625,
+      -0.953125
+     ],
+     "width": 243
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-litho.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.227,
+   0.225,
+   0.224
+  ],
+  "variante": "litho"
+ },
+ "fo-crystal-puller": {
+  "age": 10,
+  "boite": [
+   [
+    -1.625,
+    -3.21875
+   ],
+   [
+    1.65625,
+    1.59375
+   ]
+  ],
+  "calage_px": {
+   "est": 6,
+   "ouest": 10,
+   "sud": 6
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-tireuse-glow.png",
+     "height": 268,
+     "shift": [
+      0.234375,
+      -1.09375
+     ],
+     "width": 66
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/tireuse-glow.png",
+     "height": 134,
+     "shift": [
+      0.234375,
+      -1.09375
+     ],
+     "width": 33
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-tireuse-main.png",
+     "height": 308,
+     "shift": [
+      0.015625,
+      -0.8125
+     ],
+     "width": 210
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/tireuse-main.png",
+     "height": 154,
+     "shift": [
+      0.015625,
+      -0.8125
+     ],
+     "width": 105
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-tireuse-shadow.png",
+     "height": 450,
+     "shift": [
+      2.03125,
+      -1.515625
+     ],
+     "width": 512
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/tireuse-shadow.png",
+     "height": 225,
+     "shift": [
+      2.03125,
+      -1.515625
+     ],
+     "width": 256
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-tireuse.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.242,
+   0.241,
+   0.236
+  ],
+  "variante": "tireuse"
+ },
+ "fo-data-center": {
+  "age": 10,
+  "boite": [
+   [
+    -2.125,
+    -3.90625
+   ],
+   [
+    2.125,
+    2.0
+   ]
+  ],
+  "calage_px": {
+   "est": -4,
+   "ouest": 8,
+   "sud": 11
+  },
+  "cote": 4,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-centre-glow.png",
+     "height": 332,
+     "shift": [
+      0.03125,
+      -1.3125
+     ],
+     "width": 220
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/centre-glow.png",
+     "height": 166,
+     "shift": [
+      0.03125,
+      -1.3125
+     ],
+     "width": 110
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-centre-main.png",
+     "height": 378,
+     "shift": [
+      0.0,
+      -0.953125
+     ],
+     "width": 272
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/centre-main.png",
+     "height": 189,
+     "shift": [
+      0.0,
+      -0.953125
+     ],
+     "width": 136
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-centre-mobile.png",
+     "height": 82,
+     "shift": [
+      1.390625,
+      -0.453125
+     ],
+     "width": 50
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/centre-mobile.png",
+     "height": 41,
+     "shift": [
+      1.390625,
+      -0.453125
+     ],
+     "width": 25
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-centre-shadow.png",
+     "height": 448,
+     "shift": [
+      1.4375,
+      -1.0625
+     ],
+     "width": 504
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/centre-shadow.png",
+     "height": 224,
+     "shift": [
+      1.4375,
+      -1.0625
+     ],
+     "width": 252
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-centre.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.211,
+   0.209,
+   0.208
+  ],
+  "variante": "centre"
+ },
+ "fo-data-center-2": {
+  "age": 12,
+  "boite": [
+   [
+    -3.0,
+    -4.4375
+   ],
+   [
+    3.25,
+    3.25
+   ]
+  ],
+  "calage_px": {
+   "est": -2,
+   "ouest": 18,
+   "sud": -4
+  },
+  "cote": 6,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-grand_centre-glow.png",
+     "height": 438,
+     "shift": [
+      -0.171875,
+      -1.015625
+     ],
+     "width": 314
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/grand_centre-glow.png",
+     "height": 219,
+     "shift": [
+      -0.171875,
+      -1.015625
+     ],
+     "width": 157
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-grand_centre-main.png",
+     "height": 492,
+     "shift": [
+      0.125,
+      -0.59375
+     ],
+     "width": 400
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/grand_centre-main.png",
+     "height": 246,
+     "shift": [
+      0.125,
+      -0.59375
+     ],
+     "width": 200
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-grand_centre-shadow.png",
+     "height": 630,
+     "shift": [
+      1.625,
+      -1.234375
+     ],
+     "width": 632
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/grand_centre-shadow.png",
+     "height": 315,
+     "shift": [
+      1.625,
+      -1.234375
+     ],
+     "width": 316
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-grand_centre.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.149,
+   0.16,
+   0.165
+  ],
+  "variante": "grand_centre"
+ },
+ "fo-die-prober": {
+  "age": 10,
+  "boite": [
+   [
+    -1.71875,
+    -1.875
+   ],
+   [
+    1.65625,
+    1.75
+   ]
+  ],
+  "calage_px": {
+   "est": 6,
+   "ouest": 2,
+   "sud": -4
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-testeur-glow.png",
+     "height": 90,
+     "shift": [
+      -0.3125,
+      0.421875
+     ],
+     "width": 132
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/testeur-glow.png",
+     "height": 45,
+     "shift": [
+      -0.3125,
+      0.421875
+     ],
+     "width": 66
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-testeur-main.png",
+     "height": 232,
+     "shift": [
+      -0.03125,
+      -0.0625
+     ],
+     "width": 216
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/testeur-main.png",
+     "height": 116,
+     "shift": [
+      -0.03125,
+      -0.0625
+     ],
+     "width": 108
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-testeur-mobile.png",
+     "height": 144,
+     "shift": [
+      0.0,
+      -0.6875
+     ],
+     "width": 172
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/testeur-mobile.png",
+     "height": 72,
+     "shift": [
+      0.0,
+      -0.6875
+     ],
+     "width": 86
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-testeur-shadow.png",
+     "height": 320,
+     "shift": [
+      0.640625,
+      -0.34375
+     ],
+     "width": 342
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/testeur-shadow.png",
+     "height": 160,
+     "shift": [
+      0.640625,
+      -0.34375
+     ],
+     "width": 171
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-testeur.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.217,
+   0.21,
+   0.195
+  ],
+  "variante": "testeur"
+ },
+ "fo-dilution-fridge": {
+  "age": 13,
+  "boite": [
+   [
+    -1.65625,
+    -2.90625
+   ],
+   [
+    1.6875,
+    1.625
+   ]
+  ],
+  "calage_px": {
+   "est": 3,
+   "ouest": 7,
+   "sud": 3
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-dilution-glow.png",
+     "height": 238,
+     "shift": [
+      -0.671875,
+      -0.828125
+     ],
+     "width": 86
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/dilution-glow.png",
+     "height": 119,
+     "shift": [
+      -0.671875,
+      -0.828125
+     ],
+     "width": 43
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-dilution-main.png",
+     "height": 290,
+     "shift": [
+      0.015625,
+      -0.640625
+     ],
+     "width": 214
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/dilution-main.png",
+     "height": 145,
+     "shift": [
+      0.015625,
+      -0.640625
+     ],
+     "width": 107
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-dilution-shadow.png",
+     "height": 452,
+     "shift": [
+      1.84375,
+      -1.4375
+     ],
+     "width": 492
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/dilution-shadow.png",
+     "height": 226,
+     "shift": [
+      1.84375,
+      -1.4375
+     ],
+     "width": 246
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-dilution.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.326,
+   0.297,
+   0.263
+  ],
+  "variante": "dilution"
+ },
+ "fo-fiber-tower": {
+  "age": 10,
+  "boite": [
+   [
+    -1.65625,
+    -4.6875
+   ],
+   [
+    1.6875,
+    1.5
+   ]
+  ],
+  "calage_px": {
+   "est": 6,
+   "ouest": 6,
+   "sud": 13
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fibre-glow.png",
+     "height": 338,
+     "shift": [
+      -0.234375,
+      -1.859375
+     ],
+     "width": 142
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fibre-glow.png",
+     "height": 169,
+     "shift": [
+      -0.234375,
+      -1.859375
+     ],
+     "width": 71
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fibre-main.png",
+     "height": 394,
+     "shift": [
+      0.015625,
+      -1.609375
+     ],
+     "width": 214
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fibre-main.png",
+     "height": 197,
+     "shift": [
+      0.015625,
+      -1.609375
+     ],
+     "width": 107
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fibre-mobile.png",
+     "height": 78,
+     "shift": [
+      0.46875,
+      0.015625
+     ],
+     "width": 8
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fibre-mobile.png",
+     "height": 39,
+     "shift": [
+      0.46875,
+      0.015625
+     ],
+     "width": 4
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fibre-shadow.png",
+     "height": 498,
+     "shift": [
+      2.546875,
+      -1.984375
+     ],
+     "width": 582
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fibre-shadow.png",
+     "height": 249,
+     "shift": [
+      2.546875,
+      -1.984375
+     ],
+     "width": 291
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-fibre.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.232,
+   0.223,
+   0.212
+  ],
+  "variante": "fibre"
+ },
+ "fo-packaging-line": {
+  "age": 10,
+  "boite": [
+   [
+    -1.71875,
+    -2.75
+   ],
+   [
+    1.8125,
+    1.59375
+   ]
+  ],
+  "calage_px": {
+   "est": -4,
+   "ouest": 2,
+   "sud": 7
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-boitier-glow.png",
+     "height": 58,
+     "shift": [
+      0.0,
+      -0.984375
+     ],
+     "width": 176
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/boitier-glow.png",
+     "height": 29,
+     "shift": [
+      0.0,
+      -0.984375
+     ],
+     "width": 88
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-boitier-main.png",
+     "height": 278,
+     "shift": [
+      0.046875,
+      -0.578125
+     ],
+     "width": 226
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/boitier-main.png",
+     "height": 139,
+     "shift": [
+      0.046875,
+      -0.578125
+     ],
+     "width": 113
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-boitier-mobile.png",
+     "height": 192,
+     "shift": [
+      -0.484375,
+      -0.625
+     ],
+     "width": 110
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/boitier-mobile.png",
+     "height": 96,
+     "shift": [
+      -0.484375,
+      -0.625
+     ],
+     "width": 55
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-boitier-shadow.png",
+     "height": 356,
+     "shift": [
+      1.265625,
+      -0.78125
+     ],
+     "width": 422
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/boitier-shadow.png",
+     "height": 178,
+     "shift": [
+      1.265625,
+      -0.78125
+     ],
+     "width": 211
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-boitier.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.225,
+   0.221,
+   0.21
+  ],
+  "variante": "boitier"
+ },
+ "fo-plasma-etcher": {
+  "age": 10,
+  "boite": [
+   [
+    -1.71875,
+    -2.03125
+   ],
+   [
+    1.6875,
+    1.78125
+   ]
+  ],
+  "calage_px": {
+   "est": 4,
+   "ouest": 2,
+   "sud": -7
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-graveur-glow.png",
+     "height": 182,
+     "shift": [
+      0.078125,
+      -0.109375
+     ],
+     "width": 142
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/graveur-glow.png",
+     "height": 91,
+     "shift": [
+      0.078125,
+      -0.109375
+     ],
+     "width": 71
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-graveur-main.png",
+     "height": 244,
+     "shift": [
+      -0.015625,
+      -0.125
+     ],
+     "width": 218
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/graveur-main.png",
+     "height": 122,
+     "shift": [
+      -0.015625,
+      -0.125
+     ],
+     "width": 109
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-graveur-shadow.png",
+     "height": 338,
+     "shift": [
+      0.65625,
+      -0.453125
+     ],
+     "width": 352
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/graveur-shadow.png",
+     "height": 169,
+     "shift": [
+      0.65625,
+      -0.453125
+     ],
+     "width": 176
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-graveur.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.266,
+   0.25,
+   0.246
+  ],
+  "variante": "graveur"
+ },
+ "fo-quantum-lab": {
+  "age": 13,
+  "boite": [
+   [
+    -2.65625,
+    -3.375
+   ],
+   [
+    2.71875,
+    2.625
+   ]
+  ],
+  "calage_px": {
+   "est": 1,
+   "ouest": 7,
+   "sud": 6
+  },
+  "cote": 5,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-qlab-glow.png",
+     "height": 340,
+     "shift": [
+      -0.0625,
+      -0.40625
+     ],
+     "width": 288
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/qlab-glow.png",
+     "height": 170,
+     "shift": [
+      -0.0625,
+      -0.40625
+     ],
+     "width": 144
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-qlab-main.png",
+     "height": 384,
+     "shift": [
+      0.03125,
+      -0.375
+     ],
+     "width": 344
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/qlab-main.png",
+     "height": 192,
+     "shift": [
+      0.03125,
+      -0.375
+     ],
+     "width": 172
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-qlab-shadow.png",
+     "height": 540,
+     "shift": [
+      1.921875,
+      -1.15625
+     ],
+     "width": 626
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/qlab-shadow.png",
+     "height": 270,
+     "shift": [
+      1.921875,
+      -1.15625
+     ],
+     "width": 313
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-qlab.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.315,
+   0.251,
+   0.249
+  ],
+  "variante": "qlab"
+ },
+ "fo-rack-integrator": {
+  "age": 10,
+  "boite": [
+   [
+    -2.125,
+    -4.09375
+   ],
+   [
+    2.125,
+    2.0625
+   ]
+  ],
+  "calage_px": {
+   "est": 9,
+   "ouest": 8,
+   "sud": 3
+  },
+  "cote": 4,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-integ-glow.png",
+     "height": 204,
+     "shift": [
+      -0.15625,
+      -0.1875
+     ],
+     "width": 156
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/integ-glow.png",
+     "height": 102,
+     "shift": [
+      -0.15625,
+      -0.1875
+     ],
+     "width": 78
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-integ-main.png",
+     "height": 394,
+     "shift": [
+      0.0,
+      -1.015625
+     ],
+     "width": 272
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/integ-main.png",
+     "height": 197,
+     "shift": [
+      0.0,
+      -1.015625
+     ],
+     "width": 136
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-integ-shadow.png",
+     "height": 468,
+     "shift": [
+      1.53125,
+      -1.0625
+     ],
+     "width": 512
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/integ-shadow.png",
+     "height": 234,
+     "shift": [
+      1.53125,
+      -1.0625
+     ],
+     "width": 256
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-integ.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.277,
+   0.251,
+   0.204
+  ],
+  "variante": "integ"
+ },
+ "fo-sintering-furnace": {
+  "age": 5,
+  "boite": [
+   [
+    -1.625,
+    -3.09375
+   ],
+   [
+    1.6875,
+    1.65625
+   ]
+  ],
+  "calage_px": {
+   "est": 1,
+   "ouest": 5,
+   "sud": 1
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fritt-glow.png",
+     "height": 230,
+     "shift": [
+      -0.015625,
+      -0.703125
+     ],
+     "width": 170
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fritt-glow.png",
+     "height": 115,
+     "shift": [
+      -0.015625,
+      -0.703125
+     ],
+     "width": 85
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fritt-main.png",
+     "height": 304,
+     "shift": [
+      0.03125,
+      -0.71875
+     ],
+     "width": 212
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fritt-main.png",
+     "height": 152,
+     "shift": [
+      0.03125,
+      -0.71875
+     ],
+     "width": 106
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fritt-mobile.png",
+     "height": 136,
+     "shift": [
+      -0.203125,
+      -0.46875
+     ],
+     "width": 110
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fritt-mobile.png",
+     "height": 68,
+     "shift": [
+      -0.203125,
+      -0.46875
+     ],
+     "width": 55
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-fritt-shadow.png",
+     "height": 374,
+     "shift": [
+      1.09375,
+      -0.828125
+     ],
+     "width": 400
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/fritt-shadow.png",
+     "height": 187,
+     "shift": [
+      1.09375,
+      -0.828125
+     ],
+     "width": 200
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-fritt.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.201,
+   0.156,
+   0.134
+  ],
+  "variante": "fritt"
+ },
+ "fo-smt-line": {
+  "age": 10,
+  "boite": [
+   [
+    -2.21875,
+    -2.34375
+   ],
+   [
+    2.125,
+    2.0
+   ]
+  ],
+  "calage_px": {
+   "est": 5,
+   "ouest": -2,
+   "sud": 15
+  },
+  "cote": 4,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-cms-glow.png",
+     "height": 172,
+     "shift": [
+      0.34375,
+      0.15625
+     ],
+     "width": 184
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/cms-glow.png",
+     "height": 86,
+     "shift": [
+      0.34375,
+      0.15625
+     ],
+     "width": 92
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-cms-main.png",
+     "height": 274,
+     "shift": [
+      -0.046875,
+      -0.203125
+     ],
+     "width": 278
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/cms-main.png",
+     "height": 137,
+     "shift": [
+      -0.046875,
+      -0.203125
+     ],
+     "width": 139
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-cms-mobile.png",
+     "height": 80,
+     "shift": [
+      0.0,
+      -0.59375
+     ],
+     "width": 212
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/cms-mobile.png",
+     "height": 40,
+     "shift": [
+      0.0,
+      -0.59375
+     ],
+     "width": 106
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-cms-shadow.png",
+     "height": 384,
+     "shift": [
+      0.796875,
+      -0.625
+     ],
+     "width": 442
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/cms-shadow.png",
+     "height": 192,
+     "shift": [
+      0.796875,
+      -0.625
+     ],
+     "width": 221
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-cms.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.264,
+   0.261,
+   0.249
+  ],
+  "variante": "cms"
+ },
+ "fo-wire-saw": {
+  "age": 10,
+  "boite": [
+   [
+    -1.6875,
+    -2.59375
+   ],
+   [
+    1.6875,
+    1.78125
+   ]
+  ],
+  "calage_px": {
+   "est": 3,
+   "ouest": 3,
+   "sud": -6
+  },
+  "cote": 3,
+  "couches": {
+   "glow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-scie-glow.png",
+     "height": 8,
+     "shift": [
+      -1.046875,
+      1.0625
+     ],
+     "width": 10
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/scie-glow.png",
+     "height": 4,
+     "shift": [
+      -1.046875,
+      1.0625
+     ],
+     "width": 5
+    }
+   },
+   "main": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-scie-main.png",
+     "height": 280,
+     "shift": [
+      0.0,
+      -0.40625
+     ],
+     "width": 216
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/scie-main.png",
+     "height": 140,
+     "shift": [
+      0.0,
+      -0.40625
+     ],
+     "width": 108
+    }
+   },
+   "mobile": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-scie-mobile.png",
+     "height": 114,
+     "shift": [
+      0.0,
+      -0.421875
+     ],
+     "width": 168
+    },
+    "images": 8,
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/scie-mobile.png",
+     "height": 57,
+     "shift": [
+      0.0,
+      -0.421875
+     ],
+     "width": 84
+    }
+   },
+   "shadow": {
+    "hr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/hr-scie-shadow.png",
+     "height": 408,
+     "shift": [
+      1.4375,
+      -0.96875
+     ],
+     "width": 440
+    },
+    "lr": {
+     "filename": "__factorio-overhaul__/graphics/machines/calcul/scie-shadow.png",
+     "height": 204,
+     "shift": [
+      1.4375,
+      -0.96875
+     ],
+     "width": 220
+    }
+   }
+  },
+  "icone": {
+   "icon": "__factorio-overhaul__/graphics/machines/calcul/icone-scie.png",
+   "icon_mipmaps": 4,
+   "icon_size": 64
+  },
+  "map_color": [
+   0.281,
+   0.263,
+   0.251
+  ],
+  "variante": "scie"
+ }
+}
