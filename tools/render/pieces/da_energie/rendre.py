@@ -48,6 +48,29 @@ def etalonne(img, grade):
     return out
 
 
+# Nettoyage de l'alpha AVANT le rognage (note de la critique métallurgie, 3/11) : 1 à 17 pixels isolés gonflaient le
+# rectangle rogné jusqu'à × 1,85 (dépôt a) ; l'atlas est plein au plancher (F186). Seuil d'alpha, puis retrait des îles
+# (connexité 8) plus petites que MIN_ILE pixels. La lueur garde ses petites îles réelles (voyants) au-dessus de 4 px.
+SEUIL = {"main": 2.0 / 255, "shadow": 3.0 / 255, "glow": 4.0 / 255, "mobile": 2.0 / 255}
+MIN_ILE = {"main": 24, "shadow": 24, "glow": 5, "mobile": 24}
+
+
+def nettoie(img, layer):
+    from scipy import ndimage
+    out = img.copy()
+    a = out[..., 3]
+    a[a < SEUIL[layer]] = 0.0
+    m = a > 0
+    lab, n = ndimage.label(m, np.ones((3, 3)))
+    if n:
+        tailles = ndimage.sum(m, lab, range(1, n + 1))
+        petites = [i + 1 for i, t in enumerate(tailles) if t < MIN_ILE[layer]]
+        if petites:
+            a[np.isin(lab, petites)] = 0.0
+    out[..., 3] = a
+    return out
+
+
 def post(name, cache, out_root):
     d = os.path.join(cache, name)
     info = json.load(open(os.path.join(d, "render.json"), encoding="utf-8"))
@@ -74,6 +97,7 @@ def post(name, cache, out_root):
     for layer in ("main", "shadow", "glow"):
         if layer not in hr:
             continue
+        hr[layer] = nettoie(hr[layer], layer)
         box = P.trim_box(hr[layer], origin)
         if box is None:
             continue
@@ -93,7 +117,7 @@ def post(name, cache, out_root):
         for k in range(m["images"]):
             im = np.load(os.path.join(d, "%s-img%02d-main.npy" % (name, k))).astype(np.float64)
             im = etalonne(im, grade) if grade else im
-            cases.append(im[y0:y1, x0:x1])
+            cases.append(nettoie(im[y0:y1, x0:x1], "mobile"))
         w, h = x1 - x0, y1 - y0
         fn = "hr-den-%s-mobile.png" % name
         sha = P.write_png(np.concatenate(cases, 1), os.path.join(out, fn))
