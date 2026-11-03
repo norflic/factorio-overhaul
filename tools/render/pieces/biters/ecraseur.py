@@ -12,6 +12,10 @@ CREUX = 0.055
 AO = 0.38
 REFLET = 1300.0
 ETIQUETTE = "Écraseur"
+SERIE = {"course": 6, "attaque": 3, "densite": 48.0, "R": 5.5, "zmax": 5.1}      # lot BI-V1 : images, densité, rayon et hauteur du cadre
+K_JEU = 0.5            # unités du modèle -> tuiles = K_JEU × échelle de jeu (le modèle vaut l'échelle 2 de vanilla)
+FOULEE = 3.17          # tuiles du modèle par cycle : pied d'appui fixe au sol
+MASQUE = ("coque",)    # ce que la teinte du palier recolore
 
 PALETTES = {
     "coque": dict(sombre=(0.085, 0.009, 0.009), clair=(0.33, 0.036, 0.024), f=1.1, trainees=(0.46, 0.085, 0.040), force_trainees=0.6, fin_force=0.24,
@@ -36,13 +40,20 @@ def _lisse(e0, e1, x):
     return t * t * (3.0 - 2.0 * t)
 
 
-def construire(phase=0.0):
+def construire(phase=0.0, attaque=None):
     f = sdf.Forme(NOM, ((-4.2, -3.9, -0.03), (5.4, 3.9, 5.2)), 0.021)
     f.marge = 0.10
+    leve = None
+    if attaque is not None:           # coup de massue : les deux bras montent, le corps se cabre, puis tout retombe devant lui
+        phase = 0.12
+        leve = float(np.interp(attaque, (0.0, 0.25, 0.5, 0.75, 1.0), (0.2, 1.0, 0.6, 0.0, 0.2)))
     t = 2.0 * np.pi * phase
     bascule = np.sin(t)
     rebond = np.cos(2.0 * t)
-    corps = Repere((0.13 * rebond, -0.17 * bascule, 2.80 + 0.15 * rebond), rot_x(-0.09 * bascule) @ rot_y(0.16 + 0.05 * rebond))
+    if leve is None:
+        corps = Repere((0.13 * rebond, -0.17 * bascule, 2.80 + 0.15 * rebond), rot_x(-0.09 * bascule) @ rot_y(0.16 + 0.05 * rebond))
+    else:
+        corps = Repere((0.13 * rebond + 0.22 * (1.0 - leve), -0.17 * bascule, 2.72 + 0.26 * leve), rot_x(-0.09 * bascule) @ rot_y(0.30 - 0.30 * leve))
 
     def base_coque(q):
         x = q[:, 0]
@@ -73,7 +84,7 @@ def construire(phase=0.0):
     chair.append(Ell((0.0, 0, -0.45), (2.05, 1.15, 0.64), corps, k=0.10, peau=(0.018, 2.8, 6.0)))
     chair.append(Ell((1.86, 0, -0.30), (0.92, 0.92, 0.66), corps, k=0.14, peau=(0.014, 3.0, 7.0)))
     tete = corps.compose((2.62, 0.0, -0.24), rot_y(0.30 + 0.05 * rebond))
-    A.tete_biter(tete, 1.55, face, griffes, yeux, ouvre=0.5 + 0.5 * rebond, graine=9.0)
+    A.tete_biter(tete, 1.55, face, griffes, yeux, ouvre=(0.5 + 0.5 * rebond) if leve is None else 1.0 - leve, graine=9.0)
 
     # DEUX AVANT-BRAS À MASSUE : épaule de chair, bras de chitine, avant-bras qui s'évase, massue de chitine usée aux jointures.
     # Ils balancent à grande amplitude, à contretemps des jambes.
@@ -82,9 +93,11 @@ def construire(phase=0.0):
 
     for s, a_ in ((1.0, t), (-1.0, t + np.pi)):
         balance = np.sin(a_)
-        leve = max(0.0, np.cos(a_))
+        haut = max(0.0, np.cos(a_))
         epaule = corps.monde((1.22, s * 1.20, -0.44))
-        poing = np.array([2.72 + 1.15 * balance, s * 2.50, 0.74 + 0.86 * leve])
+        poing = np.array([2.72 + 1.15 * balance, s * 2.50, 0.74 + 0.86 * haut])
+        if leve is not None:
+            poing = np.array([3.30 - 0.5 * leve, s * 1.75, 0.62 + 2.90 * leve])
         coude = A.ik2(epaule, poing, 1.62, 1.55, (-0.25, s * 0.85, 0.75))
         chair.append(Ell(epaule, (0.52, 0.48, 0.48), k=0.10, peau=(0.014, 3.5, s)))
         armure.append(Os(epaule, coude, 0.44, 0.33, k=0.04, ventre=0.04, g0=0.0, g1=0.0, graine=s, plis=levres_bras, peau=(0.012, 4.0, 5.0 * s)))
