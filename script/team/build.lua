@@ -4358,7 +4358,8 @@ local function pulse_team(f, tick)
   -- 4. lot CORR-RESEAU : santé de la centrale et du réseau (horloge propre, rien si pas l'heure)
   Rv.step({ plant = Build.plant, cancel = Build.cancel }, f, surface, tick)
   -- 4 bis. lot PD-ELEC (D05) : machines des modules finis sans courant HORS poteau perdu (île, sous aucun poteau) : raccordement
-  Raccord.step({ request = Build.request, prio = Build.PRIO + 4 }, f, surface, tick)
+  -- (lot FONDERIE, 0.6.43) champ_live : les bandes de champ en cours sont relevées aussi (fonderie à tapis allumée)
+  Raccord.step({ request = Build.request, prio = Build.PRIO + 4, champ_live = (Build.TAPIS and Build.TAPIS()) or false }, f, surface, tick)
   -- 4 ter. lot INDUSTRIE I7 : un quai d'entrée porté à la main par un PNJ, relié par un tapis à la sortie d'un module du même objet
   Liaison.step({ request = Build.request, prio = Build.PRIO + 1, fill = Build.QUAI_FILL, low = Build.QUAI_LOW }, f, surface, tick)
   -- 5. lot CORR-ENERGIE : centrale saturée, une centrale de plus (même mécanisme que la première)

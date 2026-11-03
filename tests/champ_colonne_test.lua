@@ -20,6 +20,9 @@ package.path = "./?.lua;" .. package.path
 local Ch = require("shared.team.champ")
 local Co = require("shared.team.champ_colonne")
 local Cv = require("shared.team.champ_verif")
+-- (3/11, 0.6.43) sections 1 à 7 : le repli au coffre de tête, gardé pour les cadres 0.6.42 déjà posés (une colonne « coffre » du cadre) ;
+-- la section 8 contrôle la règle des cadres neufs : colonne REFUSÉE au lieu du coffre (Ch.CFG.refuse_coffre, vrai en jeu)
+Ch.CFG.refuse_coffre = false
 
 local passes, failures = 0, 0
 local function check(cond, msg)
@@ -613,6 +616,67 @@ do
   Sa.split = function() return {} end
   check(#Sa.split(700, { { -1, 200 }, { 1, 250 } }, 800) == 0, "mutant « jamais de report » vu (1 150 entités gardées)")
   Sa.split = spl
+end
+
+---------------------------------------------------------------------------------------------------
+section("8. colonne refusee au lieu du coffre de tete (cadre neuf, 0.6.43)")
+---------------------------------------------------------------------------------------------------
+Ch.CFG.refuse_coffre = true
+do
+  local function chests(p) return p and count(p, function(e) return e.kind == "coffre" and e.role == "combustible" end) or 0 end
+  -- rivière sans souterrain : aucune colonne ne reçoit de voie ; toutes refusées, aucun coffre de tête
+  local river = {}
+  for x = 36, 38 do for y = -400, 400 do river[Ch.key(x, y)] = true end end
+  local spn = spec_of(ORE, { coal = disc(60, 0, 8), blocked = river })
+  local pn, wn = Ch.plan(spn)
+  check(chests(pn) == 0, "rivière sans souterrain : aucun coffre de tête (" .. chests(pn) .. ")")
+  check(pn == nil or (pn.refused and #pn.refused > 0 and count(pn, function(e) return e.kind == "four" end) == 0),
+    "rivière sans souterrain : colonnes refusées, aucun four sans voie (" .. tostring(pn and pn.refused and #pn.refused or wn) .. ")")
+  -- charbon trop petit pour tout le côté : les colonnes nourries gardent la voie, les autres sont refusées (moins de colonnes)
+  local o = { coal = disc(70, 50, 10), drill = { size = 5, reach = 1, rate = 1 }, fs = 3 }
+  local spp = spec_of(disc(0, 0, 26), o)
+  local pp = Ch.plan(spp)
+  local voie = 0
+  for _, cs in ipairs(pp and pp.stats.coal or {}) do if cs.voie then voie = voie + 1 end end
+  check(pp ~= nil and chests(pp) == 0 and voie >= 1, string.format("charbon trop petit : %d côté(s) en voie, 0 coffre de tête (%d)", voie, chests(pp)))
+  check(pp and pp.refused and #pp.refused >= 1, "charbon trop petit : au moins une colonne refusée (" .. tostring(pp and pp.refused and #pp.refused) .. ")")
+  local why_ok, noted = true, 0
+  for _, x in ipairs(pp and pp.refused or {}) do
+    if not (x.why and #x.why > 0) then why_ok = false end
+    local fc = pp.frame.cols[tostring(x.pr)] and pp.frame.cols[tostring(x.pr)][tostring(x.side)]
+    if fc and fc.mode == "refusee" then noted = noted + 1 end
+  end
+  check(why_ok and noted == #(pp and pp.refused or {}), "colonnes refusées : raison écrite et notées « refusee » au cadre (" .. noted .. ")")
+  if pp then
+    local r = Cv.verify(pp, spp)
+    check(r.no_coal == 0 and r.no_ore == 0 and r.no_plate == 0, "charbon trop petit : chaque four restant a minerai et charbon, plaques au quai (" .. Cv.line(r) .. ")")
+    local fv, cd = count(pp, function(e) return e.kind == "four" end), count(pp, function(e) return e.kind == "foreuse" and e.role == "charbon" end)
+    check(cd * spp.coal.rate + 1e-9 >= fv * spp.furnace.fuel_rate, string.format("la ligne (%.2f/s) nourrit tous les fours restants (%.2f/s)",
+      cd * spp.coal.rate, fv * spp.furnace.fuel_rate))
+  end
+  -- bandes seules rejouées du cadre : mêmes pièces que le plan entier, aucune colonne refusée posée, aucun coffre de tête
+  local bad, total, missing = stability(disc(0, 0, 26), o)
+  check(total > 0 and bad == 0 and missing == 0, string.format("refus, bandes seules : %d entités, %d absentes du plan entier, %d manquent", total, bad, missing))
+  local band_chests = 0
+  for _, bd in ipairs(pp and pp.bands or {}) do
+    local fr = {}
+    for k, v in pairs(pp.frame) do fr[k] = v end
+    fr.only = { [bd.pr] = true }
+    local oo = {}
+    for k, v in pairs(o) do oo[k] = v end
+    oo.frame = fr
+    band_chests = band_chests + chests(Ch.plan(spec_of(disc(0, 0, 26), oo)))
+  end
+  check(band_chests == 0, "refus, bandes seules : aucun coffre de tête (" .. band_chests .. ")")
+  -- déterminisme et mutant (règle coupée : le coffre de tête revient)
+  local pp2 = Ch.plan(spec_of(disc(0, 0, 26), o))
+  local same = pp and pp2 and #pp.ents == #pp2.ents
+  for i = 1, (same and #pp.ents or 0) do if sig(pp.ents[i]) ~= sig(pp2.ents[i]) then same = false end end
+  check(same, "refus : deux plans identiques")
+  Ch.CFG.refuse_coffre = false
+  local pm = Ch.plan(spec_of(disc(0, 0, 26), o))
+  Ch.CFG.refuse_coffre = true
+  check(chests(pm) > 0, "mutant « refus coupé » vu : le coffre de tête revient (" .. chests(pm) .. ")")
 end
 
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))

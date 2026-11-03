@@ -50,6 +50,11 @@ Ch.CFG = {
   gap = 2,            -- tuiles libres entre le bout du champ et la fonderie (passage)
   shift = 24,         -- tuiles dont la fonderie peut reculer pour trouver sa place (12 : bandes vides en jeu, la place prise par un autre chantier)
   both_ends = true,   -- une bande trop longue pour un tapis sort aussi par l'autre bout
+  -- (lot FONDERIE, 3/11, le DC en 0.6.41 : « rien n'est automatique, rien n'est scalable ») une colonne d'un cadre neuf SANS voie de charbon
+  -- (tracé sans chemin, pas de place pour le tronc) est REFUSÉE au lieu de retomber sur un coffre de tête à remplir ; le plan est refait
+  -- sans elle (ses foreuses peuvent aller à l'autre bout de la bande), au plus refuse_passes fois
+  refuse_coffre = true,
+  refuse_passes = 4,
   eps = 1e-9,
 }
 
@@ -452,7 +457,7 @@ local function long_axis(spec)
   return (y1 - y0 > x1 - x0) and "y" or "x"
 end
 
-function Ch.plan(spec)
+local function plan_once(spec)
   if not (spec and spec.ore and #spec.ore >= 2 and spec.drill and spec.pole and spec.belts and #spec.belts > 0) then return nil, "donnees" end
   local d, F = spec.drill, spec.frame
   -- lot FONDERIE : colonne à tapis (shared/team/champ_colonne.lua) pour un cadre neuf qui la demande ; un cadre figé garde SON motif
@@ -539,7 +544,10 @@ function Ch.plan(spec)
         local list, len, s_edge, count, info
         if colonne then
           local fixed = F and F.cols and F.cols[tostring(bd.pr)] and F.cols[tostring(bd.pr)][tostring(side)]
-          if not (F and F.cols) or fixed then
+          local refused = (fixed and fixed.mode == "refusee") or (spec.refuse and spec.refuse[tostring(bd.pr) .. ":" .. tostring(side)])
+          if refused then
+            list = nil -- (lot FONDERIE) colonne refusée : pas de voie de charbon
+          elseif not (F and F.cols) or fixed then
             local mode = fuelled and ((fixed and fixed.mode) or "voie") or nil
             list, len, s_edge, count, info = Co.place(spec, bd.b, side, edge, Fd.count(spec, flow), Ch.CFG.gap, Ch.CFG.shift, c.free,
               c.is_ore, mode, fixed)
@@ -595,6 +603,7 @@ function Ch.plan(spec)
   end
   -- lot FONDERIE : charbon des colonnes, un réseau par côté du champ (cadre neuf : calculé ; bande seule : rejoué du cadre)
   local cols_frame, coal_frame, coal_stats = nil, nil, {}
+  local fallback = nil -- (lot FONDERIE) colonnes d'un cadre neuf retombées sur le coffre de tête : { pr, side, why }
   if colonne then
     cols_frame, coal_frame = {}, {}
     local nets = {}
@@ -668,6 +677,7 @@ function Ch.plan(spec)
       end
     end
     local shared_done = {}
+    fallback = {}
     for _, it in ipairs(pending) do
       local g = it.g
       local key = tostring(it.pr)
@@ -679,6 +689,10 @@ function Ch.plan(spec)
         else
           mode = (nt and nt.modes and nt.modes[key]) or "coffre"
         end
+      end
+      if mode == "coffre" and g.info.mode == "voie" and not F then
+        local cf = coal_frame[tostring(g.side)]
+        fallback[#fallback + 1] = { pr = it.pr, side = g.side, why = (cf and cf.why) or "pas de reseau du charbon" }
       end
       if mode == "coffre" and g.info.mode == "voie" then
         -- repli : le coffre de tête (ses tuiles sont dans celles de la voie, déjà prises)
@@ -728,7 +742,7 @@ function Ch.plan(spec)
       for _, k in ipairs(keys) do
         for _, sk in ipairs({ "1", "-1" }) do
           local fc = F.cols[k][sk]
-          if fc and not (F.only and F.only[tonumber(k)]) then
+          if fc and fc.mode ~= "refusee" and not (F.only and F.only[tonumber(k)]) then
             local l = Co.layout(spec, tonumber(k) + d.size + 1, tonumber(sk), fc.s_edge, fc.count, fc.mode)
             for _, e in ipairs(l or {}) do
               for u = e.u, e.u + e.size - 1 do for v = e.v, e.v + e.size - 1 do c.take(u, v) end end
@@ -774,6 +788,7 @@ function Ch.plan(spec)
   elseif spec.design and not F then frame.design = "coffres" end -- cadre neuf sans four (charbon, pierre) : distinct d'un cadre d'avant le lot
   return {
     axis = axis, exit = exit, phase = phase, pitch = pitch, ents = ents, bands = out_bands, design = colonne and "colonne" or nil,
+    fallback = fallback,
     fuelled = fuelled or nil,
     frame = frame,
     stats = { tiles = #c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
@@ -781,6 +796,40 @@ function Ch.plan(spec)
       undergrounds = n.souterrain, splitters = n.repartiteur, coal = coal_stats,
       band_drills = (function() local k = 0; for _, bd in ipairs(bands) do k = k + #bd.n + #bd.s end; return k end)() },
   }
+end
+
+--- Plan du champ (voir plus haut). Lot FONDERIE : un cadre NEUF en colonne à combustible ne garde aucune colonne retombée sur le coffre de
+--- tête : elles sont refusées (spec.refuse) et le plan est refait sans elles ; le cadre les note « refusee » (une bande seule les saute).
+--- plan.refused = { { pr, side, why } } (journal « colonne refusee : pas de voie de charbon »).
+function Ch.plan(spec)
+  local p, why = plan_once(spec)
+  if not (Ch.CFG.refuse_coffre and p and p.design == "colonne" and p.fuelled and not spec.frame) then return p, why end
+  local refuse, refused = {}, {}
+  for _ = 1, Ch.CFG.refuse_passes do
+    if not (p.fallback and #p.fallback > 0) then break end
+    for _, x in ipairs(p.fallback) do
+      local k = tostring(x.pr) .. ":" .. tostring(x.side)
+      if not refuse[k] then refuse[k] = true; refused[#refused + 1] = x end
+    end
+    local sp = {}
+    for k, v in pairs(spec) do sp[k] = v end
+    sp.refuse = refuse
+    p, why = plan_once(sp)
+    if not p then return nil, why end
+  end
+  if p.fallback and #p.fallback > 0 then
+    return nil, string.format("colonnes sans voie de charbon apres %d passes", Ch.CFG.refuse_passes)
+  end
+  table.sort(refused, function(a, b) if a.pr ~= b.pr then return a.pr < b.pr end return a.side < b.side end)
+  p.refused = refused
+  if p.frame.cols then
+    for _, x in ipairs(refused) do
+      local key = tostring(x.pr)
+      p.frame.cols[key] = p.frame.cols[key] or {}
+      p.frame.cols[key][tostring(x.side)] = { mode = "refusee" }
+    end
+  end
+  return p, why
 end
 
 return Ch
