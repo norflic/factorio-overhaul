@@ -39,6 +39,7 @@ local Front = require("script.team.front") -- lot DEFENSE-FRONT : tourelles pos�
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles posées dans l'emprise d'un îlot isolé
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites (tâche « rebuild »)
 local Mi = require("shared.team.main_inventaire") -- lot MAIN-INVENTAIRE : minage à la main, inventaire plein, minerai au sol
+local Sorties = require("script.team.sorties") -- lot CHARBON-MAIN : la ressource qui dort dans les coffres des avant-postes bruts
 local CB = require("shared.team.craft_bg") -- lot CRAFT-PARALLELE : fabrication en arrière-plan (règles pures, bilan [FO-CRAFT])
 
 local Worker = {}
@@ -388,7 +389,12 @@ function Worker.program(f, task, surface, tick)
     if not o then return nil end
     local need = Outposts.coal_needed(o, f.team and f.team.flux_fill) -- lot FLUX : remplissage selon le coffre
     local steps = { { "home" } }
-    if need > 0 and o.kind ~= "coal" then steps[#steps + 1] = { "take", { { T.fuel, need } } } end
+    -- Lot CHARBON-MAIN : un avant-poste de combustible à sec dont les sorties ne couvrent pas le ravitaillement reçoit le complément du coffre
+    -- (avant : jamais, il ne repartait plus une fois à sec avec des coffres vides ; règle coupée : le comportement de 0.6.41).
+    local carry = need
+    if o.kind == "coal" then carry = 0 end
+    if Sorties.on(f) then carry = Sorties.carry_fuel(f, o, need) end
+    if carry > 0 then steps[#steps + 1] = { "take", { { T.fuel, carry } } } end
     steps[#steps + 1] = { "goto", access(o), 3 }
     steps[#steps + 1] = { "act", "service" }
     steps[#steps + 1] = { "home" }
@@ -504,6 +510,23 @@ function Worker.program(f, task, surface, tick)
             f.key or "?", tostring(task.resource), why, Stock.count(f, task.resource), task.count or 0, tostring(task.key), tick / 3600))
         end
         task.fail = task.fail or "main:stock"
+        return nil
+      end
+      -- Lot CHARBON-MAIN (retour du DC du 3/11 : « des milliers de charbons réunis dans les coffres [des foreuses] et ils minent à la main
+      -- juste à côté ») : jamais à la main ce qui attend dans les coffres de sortie d'un avant-poste brut sûr ; sa tournée est une urgence
+      -- au planificateur (shared/team/sorties_main.lua, Sm.fetch_prio). Survie comprise ; seule une crise injectée par un banc passe.
+      local ok2, why2, dormant = Sorties.hand_ok(f, task.resource, tick, task.crisis)
+      if not ok2 then
+        f.stats.main_sorties = (f.stats.main_sorties or 0) + 1
+        f.stats.main_refus = f.stats.main_refus or {}
+        local key = "sorties:" .. tostring(task.resource)
+        local last = f.stats.main_refus[key]
+        if not last or tick - last >= 3600 then
+          f.stats.main_refus[key] = tick
+          log(string.format("[FO-MAIN] %s : minage a la main de '%s' REFUSE (%s) : %d dans les coffres de sortie des avant-postes, tache %s, a %.1f min (refus %d)",
+            f.key or "?", tostring(task.resource), why2, dormant, tostring(task.key), tick / 3600, f.stats.main_sorties))
+        end
+        task.fail = task.fail or "main:sorties"
         return nil
       end
     end

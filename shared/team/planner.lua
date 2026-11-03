@@ -43,6 +43,8 @@ local MAX_CRAFT_TASKS = 8
 local CHUNK_SECONDS = 30
 local MINE_BATCH = 50
 local VITAL = Fx.vital(T.outposts, T.fuel, T.smelter_inputs) -- lot FLUX : types d'avant-poste dont le ravitaillement passe en tête
+local Sm = require("shared.team.sorties_main") -- lot CHARBON-MAIN : sorties brutes rapportées avant de miner à la main
+local RAW = Sm.raw_kinds(T.outposts)
 local MINE_MIN = 20 -- une sortie de minage rapporte au moins 20 minerais (9 plaques manquantes : 9 minerais, trop peu)
 
 local function sorted_uses(uses)
@@ -597,10 +599,18 @@ function P.plan(view, book)
       -- le minage ; sinon les priorités d'avant (95 et 70), qui vieillissent à la synchronisation du tableau (script/team/board.lua).
       local product = T.outposts[o.kind] and T.outposts[o.kind].product
       local have = product and (view.stock[product] or 0) or 0
+      -- Lot CHARBON-MAIN : un avant-poste BRUT (sortie = sa ressource) dont les coffres en ont pendant que le coffre du QG en manque : sa
+      -- tournée passe en urgence (Sm.FETCH_PRIO), devant le minage à la main de cette ressource (refusé au même moment, worker.lua).
+      local function prio_of(base)
+        local p = Fx.service_prio(base, o, VITAL[o.kind], have)
+        -- (le danger de l'avant-poste, o.unsafe, n'est relevé que dans ces deux cas : script/team/team.lua)
+        if view.sorties_on and (o.fuel_low or o.output >= T.collect_at) then p = Sm.fetch_prio(p, o, RAW, have) end
+        return p
+      end
       if o.fuel_low then
-        add({ key = "service:" .. o.id, kind = "service", prio = Fx.service_prio(95, o, VITAL[o.kind], have), outpost = o.id })
+        add({ key = "service:" .. o.id, kind = "service", prio = prio_of(95), outpost = o.id })
       elseif o.output >= T.collect_at or o.idle_ticks >= T.service_period then
-        add({ key = "service:" .. o.id, kind = "service", prio = Fx.service_prio(70, o, VITAL[o.kind], have), outpost = o.id })
+        add({ key = "service:" .. o.id, kind = "service", prio = prio_of(70), outpost = o.id })
       end
     end
   end

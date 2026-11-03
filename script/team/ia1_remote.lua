@@ -216,6 +216,45 @@ remote.add_interface("fo-ia1", {
     tmp.destroy()
     return placed
   end,
+  -- Lot CHARBON-MAIN (bancs seulement) : pose un avant-poste `kind` de l'équipe autour de (x, y), comme un PNJ (Outposts.build), SANS
+  -- combustible (foreuses à sec). Rend { id, drills, sinks } ou nil.
+  bench_outpost = function(key, kind, x, y)
+    local f = team_of(key)
+    local chest = f and (f.hq or f.chest)
+    local spec = T.outposts[kind]
+    if not (chest and chest.valid and spec) or type(x) ~= "number" or type(y) ~= "number" then return nil end
+    local tmp = game.create_inventory(8)
+    tmp.insert({ name = T.DRILL, count = spec.drills })
+    tmp.insert({ name = spec.sink, count = spec.drills })
+    local o = Outposts.build(f, chest.surface, kind, { x = x, y = y }, tmp)
+    tmp.destroy()
+    if not o then return nil end
+    return { id = o.id, drills = #o.drill_list, sinks = #o.sinks }
+  end,
+  -- Lot CHARBON-MAIN (bancs seulement) : règle « sorties d'abord » (shared/team/sorties_main.lua) allumée (vrai, défaut) ou coupée (faux :
+  -- le comportement de 0.6.41, témoin). Clé « * » : toutes les équipes vivantes. Rend le nombre d'équipes touchées, ou l'état lu.
+  set_regle_sorties = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    local list = {}
+    if key == "*" then
+      list[1] = State.faction("player")
+      for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+    else
+      list[1] = team_of(key)
+    end
+    local n = 0
+    for _, f in ipairs(list) do
+      if f and f.team then
+        f.team.sorties_regle = on
+        n = n + 1
+      end
+    end
+    if key ~= "*" then
+      if n > 0 then return on end
+      return nil
+    end
+    return n
+  end,
   team_status = function(key)
     local f = team_of(key)
     return f and f.team and Poles.status(f) or nil

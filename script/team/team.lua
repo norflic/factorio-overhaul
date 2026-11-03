@@ -37,6 +37,7 @@ local GardeCentrale = require("script.team.garde_centrale") -- lot CENTRALE-GARD
 local DefenseLog = require("script.team.defense_log") -- lot DEFENSE-FACTIONS : journal des blocages de la défense
 local BriquesLog = require("script.team.briques") -- lot BRIQUES : journal [FO-BRIQUES] (lecture seule)
 local FluxLog = require("script.team.flux") -- lot FLUX : journal des sorties qui dorment et des brûleurs vitaux à sec
+local SortiesLog = require("script.team.sorties") -- lot CHARBON-MAIN : journal [FO-SEC] (brûleurs à sec et état de leur tournée)
 local Front = require("script.team.front") -- lot DEFENSE-FRONT : la défense suit les attaques
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : tourelles des îlots isolés hors de l'enceinte
 local Recon = require("script.team.reconstruction") -- lot COUVERTURE : pièces détruites refaites avant d'améliorer
@@ -649,6 +650,7 @@ function Team.view(f, tick)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
     stock = stock_free, incoming = incoming, repat = repat,
+    sorties_on = f.team.sorties_regle ~= false or nil, -- lot CHARBON-MAIN : règle « sorties brutes d'abord » (shared/team/sorties_main.lua)
     outposts = outposts, pending = pend, sites = sites, sites_near = sites_near, -- lot SITE-PROCHE (R1)
     smelters = #Outposts.smelters(f), smelters_pending = smelters_pending,
     smelter_task = Board.has(f, "smelt"), smelter_output = smelter_out, smelter_fuel_low = smelter_low,
@@ -767,6 +769,7 @@ function Team.think(f, surface, tick)
   BriquesLog.think(f, view, plan, tasks_avant_filtre, tick)
   DefenseLog.think(f, view, plan, tick) -- lot DEFENSE-FACTIONS D1 : journal [FO-DEFENSE] (lecture seule, toutes les 5 min)
   FluxLog.think(f, view, tick) -- lot FLUX : journal [FO-FLUX] (lecture seule, toutes les 5 min)
+  SortiesLog.report(f, view, tick) -- lot CHARBON-MAIN : journal [FO-SEC] (lecture seule, toutes les 5 min)
   -- Lot DEFENSE-CHOIX : journal [FO-DEFCHOIX], une ligne quand « tourelles du QG d'abord » commence ou finit (f.team.defchoix_first, écrit et
   -- lu ICI seulement, en événement).
   local dcp = plan.defchoix

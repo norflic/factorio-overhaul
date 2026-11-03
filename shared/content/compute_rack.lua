@@ -136,4 +136,23 @@ function Cr.satisfaction(energy, buffer, usage)
   return e
 end
 
+-- Migration des centres v1 (CALCUL-V2) : due UNE fois, à la montée d'une sauvegarde plus ancienne que la 0.6.29. Les recettes
+-- v1 (fo-compute-*) sont seulement CACHÉES, donc toujours valides : « la recette existe encore » ne dit rien ; seule la
+-- version d'origine de la sauvegarde le dit (data = argument de on_configuration_changed). Sans changement de version du mod
+-- (contenu seul, F130) ou version illisible : rien n'est converti.
+Cr.V2_VERSION = { 0, 6, 29 }
+
+function Cr.v1_migration_due(data, mod_name)
+  local ch = data and data.mod_changes and data.mod_changes[mod_name]
+  local old = ch and ch.old_version
+  if type(old) ~= "string" then return false end
+  local a, b, c = old:match("^(%d+)%.(%d+)%.(%d+)$")
+  if not a then return false end
+  local v = { tonumber(a), tonumber(b), tonumber(c) }
+  for i = 1, 3 do
+    if v[i] ~= Cr.V2_VERSION[i] then return v[i] < Cr.V2_VERSION[i] end
+  end
+  return false
+end
+
 return Cr

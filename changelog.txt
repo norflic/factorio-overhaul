@@ -1,4 +1,11 @@
 ---------------------------------------------------------------------------------------------------
+Version: 0.6.42
+Date: 2026-11-03
+  Changes:
+    - Fonderie a tapis (colonne a tapis mele) : un tapis porte une voie de minerai et une voie de charbon, un bras par four, les plaques sortent sur tapis ; 1 a 6 coffres de combustible a remplir contre 90 a 222. Reglage de carte « fo-war-fonderie-tapis » (vrai pour une partie neuve, eteint pour une sauvegarde existante : comportement 0.6.41, verifie plan par plan). Limite connue : le repli sur un coffre de tete reste possible quand le tronc de charbon n'a ni place ni chemin (3 cotes sur 10 en test).
+    - Production mesuree entre 39 et 88 % du temoin selon la graine (bruit de la mesure : -27 a -39 % sur une meme graine).
+
+---------------------------------------------------------------------------------------------------
 Version: 0.6.41
 Date: 2026-11-03
   Changes:
