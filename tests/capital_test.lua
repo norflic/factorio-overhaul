@@ -468,6 +468,16 @@ local function run_all()
     local book = Book.new(recipes)
     local gch = Cap.goal(dbl, {})
     check(gch and gch.opens == true and gch.center == nil, "§15 but du bâtiment de la chaîne : marqué `opens`")
+    check(gch.short == true and gch.fond == true, "§15 but du bâtiment de la chaîne : travail court (servi juste après le premier projet)")
+    -- Ordre de service : le but court de la chaîne passe devant un projet ordinaire et l'armée permanente ; le même bâtiment hors
+    -- chaîne reste servi en dernier.
+    local stp = {}
+    local goals = { { key = "obj", value = 60 }, { key = "armee", value = 45, permanent = true }, { key = "autre", value = 40 }, gch }
+    local order = P.update(stp, goals, 0, 8)
+    local pos = {}
+    for i, p in ipairs(order) do pos[p.key] = i end
+    check(pos[gch.key] == 2 and pos["armee"] == 3, "§15 ordre de service : premier projet, puis la chaîne, puis l'armée (" ..
+      tostring(pos[gch.key]) .. ")")
     local function emit0(g)
       local E = P.context({ ["iron-plate"] = 500, ["copper-plate"] = 500 }, book, { open = {}, workers_idle = 0 }, {})
       E.view = { workers_idle = 0 }
@@ -561,6 +571,12 @@ do
   end, function() Cap.defer_paid = dpd end)
   M("chaîne sans ses pièces", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g then g.opens = nil end return g end
+  end, function() Cap.goal = cg end)
+  M("chaîne servie en dernier (pas courte)", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and g.opens then g.short = nil end return g end
+  end, function() Cap.goal = cg end)
+  M("tout bâtiment court", function()
+    Cap.goal = function(d, w) local g = cg(d, w) if g and not g.center and not g.replace then g.short = true end return g end
   end, function() Cap.goal = cg end)
   M("tout bâtiment fabrique ses pièces", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g and not g.center then g.opens = true end return g end

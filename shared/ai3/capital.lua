@@ -495,9 +495,14 @@ function Cap.goal(d, weights)
   local w = math.max(1000, (weights or {}).capital or 1000) -- le caractère avance l'investissement, sans le retarder
   return { key = "capital:" .. d.key, family = "capital", kind = "upgrade", cost = d.cost, target = d.key,
     value = clamp(math.floor(base * w / 1000), 1, 100), center = d.center or nil, fond = true,
-    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or nil, replace = d.replace and true or nil,
+    short = (d.center and d.work ~= nil and (d.work <= Cap.SHORT_WORK or d.starved)) or (d.chain ~= nil and not d.center) or nil,
+    replace = d.replace and true or nil,
     opens = (d.chain ~= nil and not d.center) or nil } -- lot AGEBLOCAGE : le bâtiment de la chaîne Q16 (sa montée ouvre le centre)
 end
+-- Lot AGEBLOCAGE : le bâtiment de la chaîne Q16 est aussi COURT (servi juste après le premier projet). Banc verif-guide, graine
+-- 123456789, premier essai (pièces fabriquées sans bras libre, but de fond servi en dernier) : 'gun:2:154' attendait encore 60 min,
+-- ses engrenages faits pour lui (3/3 au stock libre à 17,6 min) repris au stock virtuel par les projets servis avant lui. Coût
+-- borné : un bâtiment par famille qui bloque le centre, une fois par époque (6 fers, 3 engrenages, 3 cuivres pour la tourelle).
 
 --- Émission du projet (enregistrée dans P.EMIT.upgrade par shared/ai3/cerveau.lua) : tout le coût au stock virtuel ->
 --- payé à cette pensée (E.pay, lu par le runtime après le tableau) ; sinon le dépliage le sert comme un besoin ordinaire
