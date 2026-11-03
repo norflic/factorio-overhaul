@@ -152,6 +152,9 @@ local function suite(Pe)
 
   -- 12. budget
   check(Pe.allowed({ iron = 2793, floor = 150, unit = 120, pct = 15, held = 0, want = 2 }) == 2, "budget : 15 % de 2 643 = 3 tourelles, 2 voulues")
+  check(Pe.allowed({ iron = 1999, floor = 150, unit = 120, pct = 15, held = 0, want = 2 }) == 0 and
+    Pe.allowed({ iron = 2000, floor = 150, unit = 120, pct = 15, held = 0, want = 2 }) == 2, "rien sous 2 000 de fer (équipe riche seulement)")
+  check(Pe.allowed({ iron = 977, floor = 150, unit = 120, pct = 15, held = 0, want = 2, rich = 0 }) == 1, "seuil de richesse réglable (0 : règle d'avant)")
   check(Pe.allowed({ iron = 2793, floor = 150, unit = 120, pct = 15, held = 1, want = 3 }) == 2, "budget : moins les tourelles déjà posées")
   check(Pe.allowed({ iron = 2793, floor = 150, unit = 120, pct = 15, held = 3, want = 2 }) == 0, "budget épuisé")
   check(Pe.allowed({ iron = 100, floor = 150, unit = 120, want = 2 }) == 0 and Pe.allowed({ iron = 9000, floor = 150, unit = 0, want = 2 }) == 0,
@@ -187,6 +190,7 @@ local mutants = {
   { "anneau extérieur avant l'intérieur", "then return (pa.ring or 0) < (pb.ring or 0) end", "then return (pa.ring or 0) > (pb.ring or 0) end" },
   { "pas de renfort sur menace", "want = th > 0 and Pe.GROUP_THREAT or Pe.GROUP", "want = Pe.GROUP" },
   { "budget sans les tourelles posées", "/ (100 * unit)) - (s.held or 0)", "/ (100 * unit))" },
+  { "prévision sans seuil de richesse", "or (s.iron or 0) < (s.rich or Pe.RICH_IRON) then return 0 end", "then return 0 end" },
   { "budget à 100 %", "math.floor((s.pct or Pe.BUDGET_PCT) * surplus / (100 * unit))", "math.floor(surplus / unit)" },
   { "prévision sans seuil de taille", "if ncore < Pe.MIN_POINTS then return ev, info end", "" },
   { "paire dans l'axe d'arrivée", "return -ny, nx, nx, ny", "return nx, ny, nx, ny" },

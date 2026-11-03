@@ -16,7 +16,8 @@
   5. POSTES D'ANNEAU : les coins, puis un poste tous les au plus Pe.SPACING_MUL × rc le long de chaque côté.
   6. GROUPES : Pe.GROUP tourelles (Pe.GROUP_THREAT si menacé) ; « déjà là » = tourelles à moins de Pe.HAVE_R du centre.
   7. ORDRE : postes « point » (menace, poids, numéro), puis anneaux 1, 2, 3 (menace, poids, numéro).
-  8. BUDGET : tourelles du périmètre vivantes <= Pe.BUDGET_PCT % du surplus de fer / coût d'une tourelle armée (Pe.allowed).
+  8. BUDGET : tourelles du périmètre vivantes <= Pe.BUDGET_PCT % du surplus de fer / coût d'une tourelle armée (Pe.allowed), et rien
+     sous Pe.RICH_IRON plaques de fer au stock (équipe riche seulement).
 ]]
 
 local Pe = {}
@@ -43,6 +44,9 @@ Pe.HAVE_R = 10         -- tuiles : tourelles « déjà là » d'un poste
 Pe.REST = 7200         -- ticks : repos d'un poste après une pose nulle (multiplié par les poses nulles de suite)
 Pe.REST_MAX = 6
 Pe.BUDGET_PCT = 15     -- % du surplus de fer que les tourelles du périmètre peuvent immobiliser
+-- Essai 1 (verif-guide 1618033988, fer de 0 à 977 : une tourelle « payable » à 950 de fer, fabriquée puis prise par les autres postes, partie
+-- divergente) : la prévision n'achète rien sous Pe.RICH_IRON plaques de fer au stock (le DC : « une fois qu'une équipe roule sur l'or »).
+Pe.RICH_IRON = 2000
 Pe.ROLE_W = { fabrique = 3, labo = 3, chauffe = 3, generateur = 3, pompe = 2, foreuse = 1 }
 Pe.HQ_W = 20
 Pe.CAT = { fabrique = "fab", labo = "labo", chauffe = "centrale", generateur = "centrale", pompe = "centrale", foreuse = "foreuse", qg = "qg" }
@@ -409,7 +413,7 @@ function Pe.rest_ticks(zero) return Pe.REST * math.min(math.max(zero or 1, 1), P
 function Pe.allowed(s)
   local unit = s.unit or 0
   local surplus = (s.iron or 0) - (s.floor or 0)
-  if unit <= 0 or surplus <= 0 then return 0 end
+  if unit <= 0 or surplus <= 0 or (s.iron or 0) < (s.rich or Pe.RICH_IRON) then return 0 end
   local a = math.floor((s.pct or Pe.BUDGET_PCT) * surplus / (100 * unit)) - (s.held or 0)
   if a <= 0 then return 0 end
   return math.min(a, math.max(0, s.want or 0))
