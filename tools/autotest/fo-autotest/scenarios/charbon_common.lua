@@ -39,10 +39,12 @@ local function chest_of(ctx)
   return ctx.surface().find_entities_filtered({ name = "fo-team-chest", force = "player", limit = 1 })[1]
 end
 
-return function(rule)
-  local TAG = "CHARBON-BANC" .. (rule and "" or "-TEMOIN")
+return function(rule, vide)
+  local TAG = "CHARBON-" .. (vide and "VIDE" or "BANC") .. (rule and "" or "-TEMOIN")
+  local per_chest = vide and 0 or PER_CHEST
   return {
-    description = string.format("CHARBON-MAIN : foreuses de charbon a sec, coffres de sortie pleins, regle %s", rule and "ALLUMEE" or "COUPEE (temoin)"),
+    description = string.format("CHARBON-MAIN : foreuses de charbon a sec, coffres de sortie %s, regle %s", vide and "VIDES et charbon au QG" or "pleins",
+      rule and "ALLUMEE" or "COUPEE (temoin)"),
     base = nil,
     check_tick = CHECK,
 
@@ -102,15 +104,20 @@ return function(rule)
         for _, c in ipairs(s.find_entities_filtered({ name = "iron-chest", force = "player", position = st.cc, radius = 18 })) do
           local inv = c.get_inventory(defines.inventory.chest)
           inv.clear()
-          inv.insert({ name = "coal", count = PER_CHEST })
+          if per_chest > 0 then inv.insert({ name = "coal", count = per_chest }) end
           st.chests[#st.chests + 1] = c
         end
         local chest = chest_of(ctx)
-        if chest then chest.get_inventory(defines.inventory.chest).remove({ name = "coal", count = 100000 }) end
-        st.coal0 = #st.chests * PER_CHEST
+        if chest then
+          local ci = chest.get_inventory(defines.inventory.chest)
+          ci.remove({ name = "coal", count = 100000 })
+          -- « vide » : l'avant-poste de charbon ne peut repartir que du charbon du QG (impasse de 0.6.41 : rien n'y est porté)
+          if vide then ci.insert({ name = "coal", count = 400 }) end
+        end
+        st.coal0 = #st.chests * per_chest
         st.hand, st.hand_any, st.samples = 0, {}, 0
-        ctx.log(string.format("[FO-%s] etat de depart : %d foreuse(s) a sec, %d coffre(s) de sortie a %d charbons, coffre du QG sans charbon",
-          TAG, #st.drills, #st.chests, PER_CHEST))
+        ctx.log(string.format("[FO-%s] etat de depart : %d foreuse(s) a sec, %d coffre(s) de sortie a %d charbons, coffre du QG a %d charbons",
+          TAG, #st.drills, #st.chests, per_chest, vide and 400 or 0))
       end
       if t == W0 then st.t0 = t end
       if not st.t0 or t > W0 + WINDOW or t % STEP ~= 0 then return end
@@ -165,8 +172,11 @@ return function(rule)
       ctx.check(#st.drills >= 9, "foreuses suivies", tostring(#st.drills))
       ctx.check(st.samples >= WINDOW / STEP - 2, "la fenetre complete est echantillonnee", tostring(st.samples))
       if rule then
-        ctx.check(fed == #st.drills, "toutes les foreuses ravitaillees en 5 min depuis leurs coffres", string.format("%d/%d", fed, #st.drills))
-        ctx.check(st.hand == 0, "personne ne mine le charbon a la main", string.format("%d echantillon(s), %d PNJ", st.hand, miners))
+        ctx.check(fed == #st.drills, "toutes les foreuses ravitaillees en 5 min" .. (vide and " (charbon du QG)" or " depuis leurs coffres"),
+          string.format("%d/%d", fed, #st.drills))
+        if not vide then
+          ctx.check(st.hand == 0, "personne ne mine le charbon a la main", string.format("%d echantillon(s), %d PNJ", st.hand, miners))
+        end
       end
     end,
   }
