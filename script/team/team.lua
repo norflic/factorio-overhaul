@@ -945,10 +945,10 @@ function Team.think(f, surface, tick)
   if not pile_hold then
     FoSwap.think(f, surface, book_for(f), stock, tick) -- lot FOREUSES (retour du DC du 29/10) : foreuses thermiques remplacées par des électriques alimentées
   end
-  -- (relecture PILE : une migration déjà EN CHANTIER continue pendant la retenue, elle ne retire plus rien ; PileRt.migration_building)
-  if not pile_hold or PileRt.migration_building(f) then
-    MigChamp.think(f, surface, book_for(f), stock, tick) -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques
-  end
+  -- lot MIGRATION-CHAMP (retour du DC du 29/10) : champ thermique migré par parties en rangées électriques. Lot THERMIQUE5 (revue du 3/11 : la
+  -- retenue gelait balayage, dégel et chantier ; Azure et Scarlet retenues 99 à 100 % du temps, 139 thermiques et 0 électrique sur 271828182) :
+  -- toujours pensée ; pendant la retenue, seul le départ d'une bande neuve est retenu (shared/team/thermique.lua, Th.pile_permits)
+  MigChamp.think(f, surface, book_for(f), stock, tick, pile_hold == true)
   -- Lot SANS-GEL : plus de gel des améliorations après une réouverture ; la reconstruction ne retient que sa matière (Recon.upgrade_stock).
   -- (Intégration 0.6.19 : garde de la pile ET stock libre de SANS-GEL, les deux gardés.)
   local recon_hold = ia3 and Recon.hold_upgrades(f)

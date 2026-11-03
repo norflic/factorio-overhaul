@@ -228,6 +228,44 @@ local function suite(Th, verbose)
     check(Th.raw_full(raw, { r = 1500 }, { raw_stock_max = 1000 }) == true, "7 : le seuil se lit du réglage")
   end
 
+  do -- 8. Lot THERMIQUE5 (revue du 3/11) : pile, fin d'ordre, lignes sans effet, arrêt, garde de plaques, électrique pleine, brûleurs à sec
+    -- 8a. pile : suivre et balayer jamais retenus ; partir retenu, sauf porte ouverte ; sans retenue tout passe
+    check(Th.pile_permits("suivre", true) and Th.pile_permits("balayer", true), "8a : retenue : une bande demandée avance, le balayage passe")
+    check(not Th.pile_permits("partir", true, false) and not Th.pile_permits("partir", true, nil), "8a : retenue : pas de bande neuve, porte fermée")
+    check(Th.pile_permits("partir", true, true), "8a : retenue : bande neuve si la porte laisse passer sa plaque")
+    check(Th.pile_permits("partir", false, false) and Th.pile_permits("suivre", false) and Th.pile_permits("balayer", nil),
+      "8a : sans retenue : tout passe, porte non lue")
+    -- 8b. fin de l'ordre des bandes
+    check(Th.order_end(31, 1, 1) == "partiel", "8b : bandes posées, 31 paires hors des bandes : partiel, pas fini")
+    check(Th.order_end(5, 0, 0) == "replanifier", "8b : rien de migré, 5 paires : cadre refait (pas d'abandon)")
+    check(Th.order_end(0, 2, 2) == "fini", "8b : plus de paire, bandes posées : fini")
+    check(Th.order_end(0, 0, 1) == "fini", "8b : bande sans paire qui produit, plus de paire : fini")
+    check(Th.order_end(0, 0, 0) == "abandon", "8b : rien de migré, plus de paire : abandon")
+    check(Th.order_end(3, 0, 1) == "partiel", "8b : une bande a produit, 3 paires : partiel")
+    -- 8c. ligne sans effet : seulement une bande qui portait des paires
+    check(Th.noop_counts({ 4, 7 }) == true, "8c : bande avec paires, rien libéré : compte comme sans effet")
+    check(Th.noop_counts({}) == false and Th.noop_counts(nil) == false, "8c : bande sans paire (agrandissement) : ne compte pas")
+    -- 8d. arrêt d'une ligne qui n'aboutit pas
+    check(Th.stop_state(0, 0, 6) == "partiel", "8d : 6 paires déjà retirées : partiel (l'avant-poste reste fermé aux brûleurs)")
+    check(Th.stop_state(0, 0, 0) == "abandon" and Th.stop_state(nil, nil, nil) == "abandon", "8d : rien retiré ni migré : abandon")
+    check(Th.stop_state(1, 0, 0) == "partiel" and Th.stop_state(0, 1, 0) == "partiel", "8d : une partie migrée ou une ligne produite : partiel")
+    -- 8e. garde de plaques
+    check(Th.min_plates(true, 150) == 0, "8e : minerai brut (charbon, pierre) : aucune plaque exigée")
+    check(Th.min_plates(false, 150) == 150, "8e : plaque : la garde reste (150)")
+    check(Th.min_plates(false, nil) == 0, "8e : garde absente : 0")
+    -- 8f. états qui couvrent
+    check(Th.covering("working") and Th.covering("waiting_for_space_in_destination"), "8f : en marche et sortie pleine couvrent")
+    check(not Th.covering("no_power") and not Th.covering("no_minable_resources") and not Th.covering("waiting_for_source_items")
+      and not Th.covering(nil), "8f : sans courant, sans minerai, sans entrée : ne couvre pas")
+    -- 8g. brûleurs à sec : n'extraient rien
+    local th0 = Th.supply(fl(1, "a", 24, 12, { fueled = 0 }))
+    check(th0 == 0, "8g : 24 paires à sec : extraction thermique nulle")
+    check(Th.covered(fl(1, "a", 24, 12, { fueled = 0 })), "8g : 12 électriques contre 24 paires à sec : couvert")
+    check(not Th.covered(fl(1, "a", 30, 12, { fueled = 30 })), "8g : 12 électriques (6,0) contre 30 paires qui brûlent (7,5) : pas couvert")
+    check(Th.supply(fl(1, "a", 8, 0)) == 2.0, "8g : sans compte de combustible : toutes les paires comptent (8 × 0,25)")
+    check(Th.supply(fl(1, "a", 8, 0, { fueled = 3 })) == 0.75, "8g : 3 paires avec combustible sur 8 : 0,75 ore/s")
+  end
+
   return failures - before
 end
 
@@ -277,6 +315,21 @@ local mutants = {
   { "raw_full : seuil strict", "return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max", "return ((stock or {})[spec.product] or 0) > cfg.raw_stock_max" },
   { "raw_full : paire avec four comptée", "if spec == nil or spec.product ~= spec.resource then return false end", "if spec == nil then return false end" },
   { "shares : paires des gisements couverts non comptées", "if (g.pairs or 0) > 0 and M.covered(g, cfg) then", "if false then" },
+  -- lot THERMIQUE5
+  { "pile : départ toujours permis", "  return porte == true\nend", "  return true\nend" },
+  { "pile : départ jamais permis sous retenue", "  return porte == true\nend", "  return false\nend" },
+  { "pile : suivi retenu", "if action == \"suivre\" or action == \"balayer\" then return true end", "if action == \"balayer\" then return true end" },
+  { "pile : balayage retenu", "if action == \"suivre\" or action == \"balayer\" then return true end", "if action == \"suivre\" then return true end" },
+  { "pile : retenue ignorée", "  if not hold then return true end\n  if action", "  if true then return true end\n  if action" },
+  { "order_end : fini avec des paires", "if (left or 0) > 0 then return migrated and \"partiel\" or \"replanifier\" end", "" },
+  { "order_end : abandon au lieu de refaire", "return migrated and \"partiel\" or \"replanifier\"", "return migrated and \"partiel\" or \"abandon\"" },
+  { "noop_counts : toute bande compte", "  return #(ids or {}) > 0\nend", "  return true\nend" },
+  { "stop_state : retrait ignoré", "or (retired or 0) > 0 then return \"partiel\" end", "then return \"partiel\" end" },
+  { "min_plates : brut gardé", "  if raw then return 0 end\n", "" },
+  { "min_plates : plaques sans garde", "  return min_plates or 0\nend", "  return 0\nend" },
+  { "covering : sortie pleine ignorée", "M.COVERING_STATUS = { \"working\", \"waiting_for_space_in_destination\" }", "M.COVERING_STATUS = { \"working\" }" },
+  { "covering : tout couvre", "  for _, s in ipairs(M.COVERING_STATUS) do if s == status_name then return true end end\n  return false", "  return true" },
+  { "supply : brûleurs à sec comptés", "  local th = fl.fueled\n", "  local th = nil\n" },
 }
 
 local survivors = 0

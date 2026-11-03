@@ -39,6 +39,7 @@ local Stock = require("script.team.stock")
 local Build = require("script.team.build")
 local Champ = require("script.team.champ") -- lot CHAMP : la partie migrée est une BANDE du champ en rangées (shared/team/champ.lua), hors du treillis
 local Melange = require("script.team.melange") -- lot MELANGE : foreuses des bandes sur une zone mêlée, tapis encombrés d'un autre minerai
+local PileRt = require("script.team.pile") -- lot THERMIQUE5 : porte de la pile pour le départ d'une bande neuve pendant une retenue
 
 local Mig = {}
 
@@ -56,6 +57,12 @@ CHAMP_CFG.min_pairs, CHAMP_CFG.keep_pairs = 1, 0
 -- annulées « matieres » à 52 et 68 min, la suivante demandée à 87 min : 35 min sans bande)
 CHAMP_CFG.gate_wait, CHAMP_CFG.retry = 90 * 3600, 3 * 3600
 CHAMP_CFG.block_max = 15 * 3600 -- une bande bloquée (fantôme refusé) est laissée au plan après 15 min : la suivante part (step_build)
+-- Lot THERMIQUE5 (revue du 3/11, cause 4) : une bande d'un minerai porté BRUT au coffre (charbon, pierre) n'exige plus de plaques de fer libres
+-- (Th.min_plates) : la demande fait fabriquer ses matières (Mig.projects) ; Azure 20261020 ne demandait ni charbon ni pierre de 41 à 150 min
+local CHAMP_RAW_CFG = {}
+for _, k in ipairs(State.sorted_keys(CHAMP_CFG)) do CHAMP_RAW_CFG[k] = CHAMP_CFG[k] end
+CHAMP_RAW_CFG.min_plates = Th.min_plates(true, CHAMP_CFG.min_plates)
+CHAMP_CFG.min_plates = Th.min_plates(false, CHAMP_CFG.min_plates)
 local EXT_PLATES = 3000
 local FURNACE_INVENTORIES = { "furnace_source", "furnace_result", "fuel" }
 local CHEST_INVENTORIES = { "chest" }
@@ -399,13 +406,38 @@ local function rates_of_kind(f, kind)
   return bp.mining_speed / mt * (1 + prod), ep.mining_speed / mt * (1 + prod)
 end
 
---- Foreuses thermiques debout d'un avant-poste (ou d'un gisement voulu).
+--- Lot THERMIQUE5 : la foreuse à combustion a-t-elle du combustible (au réservoir ou en train de brûler) ?
+local function has_fuel(d)
+  local inv = d.get_fuel_inventory()
+  if inv and not inv.is_empty() then return true end
+  local bu = d.burner
+  return bu ~= nil and (bu.remaining_burning_fuel or 0) > 0
+end
+
+--- Foreuses thermiques debout d'un avant-poste (ou d'un gisement voulu), et celles qui ont du combustible (lot THERMIQUE5 : une paire à sec
+--- n'extrait rien, Th.supply).
 local function thermal_count(o)
-  local n = 0
+  local n, fueled = 0, 0
   for _, d in ipairs(o.drill_list or {}) do
-    if d.valid and d.name == T.DRILL then n = n + 1 end
+    if d.valid and d.name == T.DRILL then
+      n = n + 1
+      if has_fuel(d) then fueled = fueled + 1 end
+    end
   end
-  return n
+  return n, fueled
+end
+
+--- Lot THERMIQUE5 : états moteur qui COUVRENT (Th.covering : en marche, ou sortie pleine), lus une fois (defines ne change pas en partie).
+local covering_set
+local function covering(status)
+  if not covering_set then
+    covering_set = {}
+    for _, k in ipairs(Th.COVERING_STATUS) do
+      local v = defines.entity_status[k]
+      if v ~= nil then covering_set[v] = true end
+    end
+  end
+  return covering_set[status] == true
 end
 
 --- Fer d'une foreuse électrique (matières premières du livre), lu une fois : le livre est fait des recettes, qui ne changent pas en partie.
@@ -428,7 +460,8 @@ local function working_of(f, surface, oid)
       for _, e in ipairs(p.ents or {}) do
         if e.built and e.role == "champ-foreuse" then
           local de = surface.find_entity(e.name, { e.x, e.y })
-          if de and de.valid and de.status == defines.entity_status.working then n = n + 1 end
+          -- (lot THERMIQUE5 : une foreuse à sortie pleine couvre aussi, Th.covering ; revue du 3/11)
+          if de and de.valid and covering(de.status) then n = n + 1 end
         end
       end
     end
@@ -469,9 +502,15 @@ local function build_fields(f, surface, ms, free)
         end
       end
       if th and not subsumed then
-        local n = thermal_count(o)
-        if framed then for _, q in ipairs(sib) do n = n + thermal_count(q) end end
-        local fl = { id = o.id, res = o.kind, pairs = n, th_rate = th, el_rate = el, working = framed and working_of(f, surface, o.id) or 0,
+        local n, nf = thermal_count(o)
+        if framed then
+          for _, q in ipairs(sib) do
+            local a, b2 = thermal_count(q)
+            n, nf = n + a, nf + b2
+          end
+        end
+        -- (lot THERMIQUE5 : fueled = paires avec combustible, l'extraction thermique de Th.supply ; pairs = paires à retirer)
+        local fl = { id = o.id, res = o.kind, pairs = n, fueled = nf, th_rate = th, el_rate = el, working = framed and working_of(f, surface, o.id) or 0,
           busy = (st and st.stage == "projet") and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
           have = free[T.outposts[o.kind].product] or 0, framed = framed }
         fields[#fields + 1] = fl
@@ -585,9 +624,21 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     end
   end
   if not pr then
-    finish(f, ms, o, st, (st.done > 0 or st.produced > 0) and "fini" or "abandon", (#st.order == 0)
+    -- lot THERMIQUE5 (revue du 3/11, cause 2) : l'ordre épuisé ne déclare plus « fini » un champ qui porte encore des paires (Th.order_end) ;
+    -- rien de migré : le cadre est refait après CFG.revive au lieu d'un abandon (qui rouvrait l'avant-poste aux brûleurs)
+    local how = Th.order_end(#list, st.done, st.produced)
+    if how == "replanifier" then
+      local empty = #st.order == 0
+      st.frame, st.order, st.done_pr, st.prot, st.bad = nil, nil, nil, nil, nil
+      st.retry = tick + CFG.revive
+      say_why(f, ms, st, "replan", string.format("avant-poste %d : %s, %d paire(s) restent : cadre refait dans %.0f min", o.id,
+        empty and "aucune bande ne tient sur le gisement (occupe : voir [FO-CHAMP])" or "aucune bande retenue", #list, CFG.revive / 3600), true)
+      return false
+    end
+    finish(f, ms, o, st, how, (#st.order == 0)
       and string.format("avant-poste %d : aucune bande ne tient sur le gisement (occupe : voir [FO-CHAMP]), les paires restent", o.id)
-      or string.format("avant-poste %d : champ pose (%d bande(s) produisent)", o.id, st.produced))
+      or string.format("avant-poste %d : champ pose (%d bande(s) produisent)%s", o.id, st.produced,
+        #list > 0 and string.format(", %d paire(s) hors des bandes : %s", #list, how) or ""))
     return false
   end
   local bd, why = Champ.band(f, surface, o, st.frame, pr)
@@ -845,7 +896,7 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
     say(f, ms, string.format("avant-poste %d : partie retiree, projet %d : %d foreuse(s) thermique(s) et leurs fours repris au stock (%s), %d paire(s) restent "
       .. "debout, %d piece(s) du registre de reconstruction ecartee(s)", o.id, st.pid, removed, items_text(got), math.max(0, #list - removed), purged), true)
   else
-    st.noop = st.noop + 1
+    if Th.noop_counts(st.ids) then st.noop = st.noop + 1 end -- lot THERMIQUE5 : une bande sans paire n'avait rien à libérer
     st.retired = 0
     say(f, ms, string.format("avant-poste %d : projet %d : le plan n'a pas besoin de la place de la partie (%s), rien n'est retire", o.id, st.pid, why), true)
   end
@@ -908,7 +959,8 @@ local function step_build(f, surface, ms, o, st, tick)
   end
   if act == "abandonner" then
     -- le projet du plan reste au plan (il peut aboutir) ; la migration ne va pas plus loin. Rien produit encore : l'avant-poste redevient extensible
-    finish(f, ms, o, st, (st.done > 0 or st.produced > 0) and "partiel" or "abandon",
+    -- (lot THERMIQUE5 : sauf si des paires ont déjà été retirées, Th.stop_state : « abandon » y reposait des brûleurs)
+    finish(f, ms, o, st, Th.stop_state(st.done, st.produced, st.retired),
       string.format("avant-poste %d : la ligne du projet %d n'aboutit pas (%s, %.0f min depuis le retrait) : migration arretee, %d partie(s) migree(s)",
         o.id, st.pid, tostring(why), (tick - st.t_degel) / 3600, st.done))
     return
@@ -1027,7 +1079,7 @@ Mig.sweep = sweep -- (bancs hors jeu : tests/migration_champ_test.lua, section T
 
 --- Premier avant-poste dont la migration peut partir (lot THERMIQUE : les gisements les plus productifs d'abord, un chantier par minerai).
 --- busy = { total, ids = { [numéro] = true }, [minerai] = chantiers en cours } : les créneaux déjà pris.
-local function start_next(f, surface, ms, free, obtainable, tick, busy, book)
+local function start_next(f, surface, ms, free, obtainable, tick, busy, book, hold)
   local b = f.build
   -- Lot CHAMP : la plaque la plus en manque d'abord (retour du DC du 2/11 : « 57 plaques de cuivre » pour près de 1 000 de fer), puis
   -- le numéro d'avant-poste
@@ -1053,6 +1105,12 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book)
     -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement), lot THERMIQUE : un
     -- seul chantier par minerai, trois au plus (Th.free_slot)
     if busy.total > 0 and (busy.ids[oid] or not Th.free_slot(o.kind, busy) or Champ.data(f, o.kind) == nil) then goto next_outpost end
+    -- lot THERMIQUE5 : pendant une retenue de la pile, une bande neuve ne part que si la porte laisse passer sa plaque (comme sa réserve au
+    -- plan directeur, Build.reserve_suspended, famille « capi ») ; sans retenue, rien ne change
+    if hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", T.outposts[o.kind].product))) then
+      if st then say_why(f, ms, st, "pile", string.format("avant-poste %d (%s) : bande neuve retenue par la pile", o.id, o.kind)) end
+      goto next_outpost
+    end
     -- lot MIGRATION-DECLENCHE : un abandon (échecs de suite, ligne perdue) n'est plus définitif : après CFG.revive, l'avant-poste repart
     -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
     -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
@@ -1078,7 +1136,8 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book)
       local list = champ and survey_field(f, o) or survey(o)
       local rects = champ and {} or lots_of(f, o, list)
       local product = T.outposts[o.kind].product
-      local cfg = champ and CHAMP_CFG or CFG
+      local raw = product == T.outposts[o.kind].resource -- (lot THERMIQUE5 : minerai porté brut, sans four)
+      local cfg = champ and (raw and CHAMP_RAW_CFG or CHAMP_CFG) or CFG
       local npairs = #list
       if champ and st.frame and npairs == 0 then npairs = 1 end -- bandes sans paire : agrandissement du champ (begin_band)
       if champ and it.wanted and npairs == 0 then npairs = 1 end -- voulu par la capitalisation : un gisement sans paire se pose aussi
@@ -1209,8 +1268,11 @@ function Mig.follow(f, id, tick)
     built = built, abandoned = st.abandoned or nil, migr = o.migr }
 end
 
---- Une pensée d'équipe. `free` : stock libre ({ [objet] = n }). Rend 1 si une étape a eu lieu, sinon 0.
-function Mig.think(f, surface, book, free, tick)
+--- Une pensée d'équipe. `free` : stock libre ({ [objet] = n }). `hold` : la pile retient l'amélioration (script/team/team.lua) : les bandes
+--- déjà demandées avancent et le balayage passe (ils rendent des objets), seul le départ d'une bande neuve est retenu, sauf si la porte de
+--- la pile laisse passer sa plaque (lot THERMIQUE5, Th.pile_permits). Rend 1 si une étape a eu lieu, sinon 0.
+function Mig.think(f, surface, book, free, tick, hold)
+  hold = hold == true
   if not (f and f.outposts and f.hq and f.hq.valid and f.build) then return 0 end
   local ms = ms_of(f)
   if tick < ms.next then return 0 end
@@ -1249,8 +1311,8 @@ function Mig.think(f, surface, book, free, tick)
       end
     end
   end
-  -- lot THERMIQUE : balayage des paires thermiques des gisements couverts (une fois par minute)
-  if free and sweep(f, surface, ms, free, book, tick) > 0 then did = 1 end
+  -- lot THERMIQUE : balayage des paires thermiques des gisements couverts (une fois par minute) ; lot THERMIQUE5 : aussi pendant une retenue
+  if free and Th.pile_permits("balayer", hold) and sweep(f, surface, ms, free, book, tick) > 0 then did = 1 end
   -- un créneau libre : trois au plus, un seul par minerai (lot THERMIQUE ; lot CHAMP : deux), la migration du treillis (sans cadre) seule
   local busy = { total = 0, ids = {} }
   for _, slot in ipairs(SLOTS) do
@@ -1265,7 +1327,7 @@ function Mig.think(f, surface, book, free, tick)
   if busy.total >= Th.CFG.slots then return did end
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
-  local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy, book)
+  local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy, book, hold)
   return (started or did == 1) and 1 or 0
 end
 

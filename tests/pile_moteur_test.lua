@@ -61,7 +61,7 @@ local function run_all()
   local Ia3 = require("script.ai3.cerveau")
   local o_swap, o_mig, o_pay = FoSwap.think, MigChamp.think, Ia3.capital_pay
   FoSwap.think = function(...) calls.swap = calls.swap + 1 return o_swap(...) end
-  MigChamp.think = function(...) calls.mig = calls.mig + 1 return o_mig(...) end
+  MigChamp.think = function(...) calls.mig = calls.mig + 1; calls.mig_hold = select(6, ...) return o_mig(...) end
   Ia3.capital_pay = function(...) calls.pay = calls.pay + 1 return o_pay(...) end
 
   section("1. La pile existe pour votre équipe (le cerveau principal aussi)")
@@ -87,8 +87,10 @@ local function run_all()
   end
   st = f.team.ia3.pile
   check(st.hold and st.top == 1, "pièce perdue sans objet : sommet s'adapter, amélioration retenue")
-  check(calls.swap == 0 and calls.mig == 0 and calls.pay == 0,
-    string.format("aucun changement de foreuses, migration ni paiement pendant la retenue (%d, %d, %d)", calls.swap, calls.mig, calls.pay))
+  -- (lot THERMIQUE5 : la migration du champ est pensée pendant la retenue, qu'elle reçoit ; seul le départ d'une bande neuve y est retenu)
+  check(calls.swap == 0 and calls.pay == 0 and calls.mig >= 1 and calls.mig_hold == true,
+    string.format("aucun changement de foreuses ni paiement pendant la retenue ; migration pensée AVEC la retenue (%d, %d, %d, %s)", calls.swap, calls.mig,
+      calls.pay, tostring(calls.mig_hold)))
   check(crafted or (f.recon.lost[key] == nil), "l'objet de la pièce est fabriqué (tâche au tableau) ou la pièce déjà refaite")
   -- Relecture : une migration du champ déjà EN CHANTIER (paires retirées) continue pendant la retenue (compte de la ligne, purge du
   -- registre) ; une migration qui n'a rien retiré attend. L'étape réelle est neutralisée (ms.next lointain) : seul l'appel est observé.
@@ -102,8 +104,10 @@ local function run_all()
   local o_hold = PileRt.hold
   PileRt.hold = function() return true end
   M.run_ticks(300)
-  check(calls.mig == 0, "retenue : la migration qui n'a rien retiré n'est pas appelée (" .. calls.mig .. ")")
+  -- lot THERMIQUE5 (revue du 3/11) : une bande en « projet » attend son dégel, que seule la pensée de la migration donne : elle est appelée
+  check(calls.mig >= 1 and calls.mig_hold == true, "retenue : la migration à l'étape projet est pensée, avec la retenue (" .. calls.mig .. ")")
   f.migration.o[1].stage = "chantier"
+  calls.mig = 0
   M.run_ticks(300)
   check(calls.mig >= 1, "retenue : la migration EN CHANTIER continue (ligne comptée, registre purgé) (" .. calls.mig .. ")")
   PileRt.hold = o_hold
