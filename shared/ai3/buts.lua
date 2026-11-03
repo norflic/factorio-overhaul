@@ -94,6 +94,12 @@ B.ARMY_WAR_PCT = 150   -- en guerre : × 1,5 (pvp_test allumé, essai 2 : sans c
 -- bâtie ni faite au fond (constat du DC). Un plancher évite qu'un besoin nul sature tout.
 B.NEED_FLOOR = 100
 B.SAT_FACTOR = 3
+-- Lot THERMIQUE2, essai 3 (décision du lead, 3/11) : un minerai porté BRUT au coffre (produit = ressource : charbon, pierre) dont le stock
+-- libre de l'équipe atteint ce seuil ne reçoit plus aucun brûleur (couverture, relève, extraction au-delà du premier avant-poste). Même seuil
+-- que l'agrandissement du champ (EXT_PLATES de script/team/migration_champ.lua). Mesure (main 0.6.41, 20261020) : Émeraude passe de 4 à 166
+-- brûleurs sur un gisement de charbon avec 45 000 charbons au coffre ; la garde par B.saturated (essai 2) ne mordait presque jamais (le
+-- besoin suit le débit du puits).
+B.RAW_STOCK_MAX = 3000
 
 local function clamp(x, a, b)
   if x < a then return a end
@@ -243,6 +249,11 @@ function B.releve(s, st)
 end
 
 --- Situation de la fonderie pour Br.smelters : entrées de la fonderie (données de shared/team/config.lua), triées.
+--- Lot THERMIQUE2 (essai 3) : minerai brut (produit = ressource) dont le stock libre atteint B.RAW_STOCK_MAX : plus de brûleur pour lui.
+function B.raw_full(s, spec)
+  return spec ~= nil and spec.product == spec.resource and ((s.stock or {})[spec.product] or 0) >= B.RAW_STOCK_MAX
+end
+
 local SMELT_INPUTS = {}
 do
   local ps = {}
@@ -273,7 +284,8 @@ function B.generate(s, st)
     local want = tg[kind] or 0
     local have = (s.cap[kind] or 0) + (s.pending[kind] or 0)
     local via_releve = s.extension and not s.is_player and want > base_max and not (s.room or {})[kind]
-    if not via_releve and want > 0 and have < want * 0.75 and not ((s.cap[kind] or 0) > 0 and B.saturated(s, spec.product)) then
+    if not via_releve and want > 0 and have < want * 0.75 and not ((s.cap[kind] or 0) > 0 and B.saturated(s, spec.product))
+      and not ((s.cap[kind] or 0) > 0 and B.raw_full(s, spec)) then
       local base
       if (s.cap[kind] or 0) < 0.75 then base = B.boot_value(s, kind)
       elseif want <= 2 and (kind == key.top or kind == key.fuel) then base = B.IRON2
@@ -301,8 +313,8 @@ function B.generate(s, st)
   -- au moteur simulé (ia1_scale_test), Écarlate et Ambre finissaient à 22 et 24 PNJ en 12 min au lieu de 30 et 29. La couverture,
   -- « au-delà du besoin », attend que l'effectif voulu soit atteint (ou la recrue retenue ou bloquée).
   -- Lot THERMIQUE2 (retour du DC du 3/11 : « Toujours une quantité insensée de foreuses thermiques => pas remplacée (charbon,
-  -- fer, cuivre...) ») : un minerai porté BRUT au coffre (produit = ressource : pas de four dans la paire) et SATURÉ ne reçoit
-  -- plus de couverture en brûleurs. Mesure (main 0.6.40, graine 20261020) : la couverture d'Émeraude rouvre « couverture:coal »
+  -- fer, cuivre...) ») : un minerai porté BRUT au coffre (produit = ressource : pas de four dans la paire) dont le stock libre atteint
+  -- B.RAW_STOCK_MAX ne reçoit plus de couverture en brûleurs (B.raw_full ; essai 2 : B.saturated, qui ne mordait presque jamais). Mesure (main 0.6.40, graine 20261020) : la couverture d'Émeraude rouvre « couverture:coal »
   -- d'affilée de 60 à 150 min et porte un gisement de charbon de 4 à 166 foreuses thermiques avec 49 000 charbons libres au
   -- coffre ; le champ, lui, n'agrandit qu'en dessous de 3 000. Le fer et le cuivre (paire avec four) gardent leur couverture :
   -- leurs paires sont remplacées par les bandes du champ et balayées (shared/team/thermique.lua).
@@ -319,7 +331,7 @@ function B.generate(s, st)
       local spec = T.outposts[kind]
       if (s.room or {})[kind] and not emitted[kind] and not (key.optional or {})[kind]
         and not (kind ~= fuel_kind and fuel_short) and not covered[spec.product]
-        and not (spec.product == spec.resource and B.saturated(s, spec.product)) then
+        and not B.raw_full(s, spec) then
         local take_only = st.other_short == true and B.saturated(s, spec.product) or nil
         goals[#goals + 1] = { key = "couverture:" .. kind, family = "extraction", kind = "outpost", outpost = kind,
           extend_only = true, take_only = take_only, fond = true,
@@ -337,7 +349,7 @@ function B.generate(s, st)
     local emitted = {}
     for _, g in ipairs(goals) do if g.outpost then emitted[g.outpost] = true end end
     for _, g in ipairs(rel.goals) do
-      if not emitted[g.kind] then
+      if not emitted[g.kind] and not B.raw_full(s, T.outposts[g.kind]) then
         local fond = g.why == "extension" or g.why == "posture"
         local v = val(Ex.VALUE[g.why], w.extraction)
         if fond then v = math.min(B.COVER_MAX, v) end

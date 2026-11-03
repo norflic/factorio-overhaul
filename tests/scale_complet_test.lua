@@ -183,8 +183,18 @@ scene_raw_sat = function()
   local low = {} for k, x in pairs(SAT) do low[k] = x end
   low[T.outposts[COAL].product], low[T.outposts[STONE].product] = 50, 50
   local gl = B.generate(sit({ stock = low, cap = cap_all(2), room = room, key = key }), stD())
+  -- essai 3 : seuil FIXE de stock libre (B.RAW_STOCK_MAX), pas B.saturated : 2 999 charbons (saturé au sens de B.saturated, 8 PNJ) gardent la
+  -- couverture, 3 000 la coupent ; la relève (site neuf en brûleurs) d'un minerai brut plein est coupée aussi.
+  local mid = {} for k, x in pairs(low) do mid[k] = x end
+  mid[T.outposts[COAL].product] = 2999 -- seuil du lead : 3 000
+  local gm = B.generate(sit({ stock = mid, cap = cap_all(2), room = room, key = key }), stD())
+  local at = {} for k, x in pairs(low) do at[k] = x end
+  at[T.outposts[COAL].product] = 3000
+  local ga = B.generate(sit({ stock = at, cap = cap_all(2), room = room, key = key }), stD())
   return goal(gs, "couverture:" .. COAL) == nil and goal(gs, "couverture:" .. STONE) == nil and goal(gs, "couverture:" .. COPPER) ~= nil
     and goal(gl, "couverture:" .. COAL) ~= nil and goal(gl, "couverture:" .. STONE) ~= nil
+    and B.saturated(sit({ stock = mid }), T.outposts[COAL].product) and goal(gm, "couverture:" .. COAL) ~= nil
+    and goal(ga, "couverture:" .. COAL) == nil and B.raw_full({ stock = at }, T.outposts[COAL]) and not B.raw_full({ stock = SAT }, T.outposts[COPPER])
 end
 do
   -- 4.1 Écarlate : tout saturé, cuivre et charbon avec des places : couverture du cuivre et du charbon, rien d'autre.
@@ -308,7 +318,7 @@ do
   local projs = {}
   for _, p in ipairs(st.projects or {}) do projs[p.key] = p end
   check(projs["couverture:" .. COPPER] ~= nil, "6.1 projet de couverture du cuivre ouvert")
-  check(projs["couverture:" .. COAL] == nil, "6.1 charbon saturé (1 500 au coffre) : plus de projet de couverture en brûleurs (THERMIQUE2)")
+  check(projs["couverture:" .. COAL] ~= nil, "6.1 projet de couverture du charbon ouvert (1 500 au coffre, sous le seuil de 3 000 de THERMIQUE2)")
   local ext_cu, build_far = nil, 0
   for _, t in ipairs(plan.tasks) do
     if t.kind == "extend" and t.outpost == 1 then ext_cu = t end
@@ -424,11 +434,16 @@ do
       g2.extend_only = nil
       return saved_emit(E, proj, g2, ctx)
     end end, function() P.EMIT.outpost = saved_emit end)
-  local saved_sat = B.saturated
-  mutant("THERMIQUE2 : minerai brut saturé encore couvert", scene_raw_sat, function() B.saturated = function() return false end end,
-    function() B.saturated = saved_sat end)
-  mutant("THERMIQUE2 : saturé toujours vrai (stock bas ignoré)", scene_raw_sat, function() B.saturated = function() return true end end,
-    function() B.saturated = saved_sat end)
+  local saved_raw = B.raw_full
+  mutant("THERMIQUE2 : minerai brut plein encore couvert", scene_raw_sat, function() B.raw_full = function() return false end end,
+    function() B.raw_full = saved_raw end)
+  mutant("THERMIQUE2 : plein toujours vrai (stock bas ignoré)", scene_raw_sat, function() B.raw_full = function() return true end end,
+    function() B.raw_full = saved_raw end)
+  local saved_max = B.RAW_STOCK_MAX
+  mutant("THERMIQUE2 : seuil pris sur B.saturated (essai 2)", scene_raw_sat, function()
+    B.raw_full = function(s, spec) return spec.product == spec.resource and B.saturated(s, spec.product) end end,
+    function() B.raw_full = saved_raw end)
+  mutant("THERMIQUE2 : seuil à 1 000", scene_raw_sat, function() B.RAW_STOCK_MAX = 1000 end, function() B.RAW_STOCK_MAX = saved_max end)
   mutant("take_only ignoré", scene_take, function()
     P.EMIT.outpost = function(E, proj, g, ctx)
       local g2 = {}
