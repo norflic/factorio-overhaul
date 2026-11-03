@@ -1,7 +1,7 @@
 --[[
   Lot THERMIQUE2, essai 3 (demande du lead, 3/11) : la garde « minerai brut au-delà de 3 000 au stock libre : plus de brûleur » (B.raw_full,
   shared/ai3/buts.lua) en moteur réel, sur la partie de dc-croissance (3 factions).
-    - tick 120 : 4 000 charbons posés dans le coffre du QG de chaque faction (le stock libre de l'équipe = QG + annexes) ;
+    - tick 120 : 7 000 charbons posés dans le coffre du QG de chaque faction (le stock libre de l'équipe = QG + annexes) ;
     - de la minute 1 à la minute 12, toutes les 10 s : foreuses à combustion de la faction sur du charbon, et charbon au stock (conteneurs de la
       force à 26 tuiles du QG, comme le relevé [FO-REGARD] R) ;
     - contrôle : aucune faction ne gagne de brûleur sur le charbon entre deux relevés quand son stock de charbon était ≥ 3 000 au premier ; au
@@ -11,7 +11,7 @@
 ]]
 local CHECK = 43200
 local base = require("scenarios/dc_evolution_common")(CHECK)
-local FUEL, DOSE, LIMIT, START, EVERY = "coal", 4000, 3000, 3600, 600
+local FUEL, DOSE, LIMIT, START, EVERY = "coal", 7000, 3000, 3600, 600
 
 local function teams()
   local ok, rows = pcall(remote.call, "fo-ia1", "teams")
