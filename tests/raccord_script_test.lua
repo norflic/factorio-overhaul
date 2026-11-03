@@ -288,6 +288,13 @@ do
   check(#REQ == n0 + 1 and REQ[#REQ].key == "u5:1", "6.17 attente derriere un poteau perdu epuisee : raccordement demande (" .. (#REQ - n0) .. ")")
   check(st5.waited_lost["u5:1"] == R.WAIT_LOST and no_function(st5), "6.18 compteur borne a R.WAIT_LOST, etat sans fonction")
   st5.open["u5:1"] = nil
+  -- 6.19 plus de poteau perdu a portee (ici : second chemin annonce) : le compteur d'attente repart de zero
+  st5.tries["u5:1"], st5.last_try["u5:1"], st5.waited_lost["u5:1"] = nil, nil, R.WAIT_LOST - 2
+  b.sante = { second_tick = tick }
+  run(2 * (R.PERIOD + 100))
+  check(st5.waited_lost["u5:1"] == nil, "6.19 lost retombe a 0 : compteur d'attente remis a zero (" .. tostring(st5.waited_lost["u5:1"]) .. ")")
+  b.sante = nil
+  st5.open["u5:1"] = nil
 end
 
 -- 7. interrupteur d'essai

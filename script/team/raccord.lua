@@ -311,6 +311,8 @@ local function finish_cycle(api, f, surface, b, st, c, tick)
       -- lot ENERGIE (2/11) : [FO-RESEAU] a jugé qu'aucun chemin sûr de poteaux perdus ne relie l'îlot (second chemin) : ces poteaux ne le retiennent plus
       local sv = b.sante
       if sv and sv.second_tick and tick - sv.second_tick <= R.SECOND_WINDOW and not Rv.coupure_off(b) then inp.lost = 0 end
+      -- (lot COURANT2) plus de poteau perdu a portee (rouvert, ou second chemin) : l'attente repart de zero
+      if inp.lost == 0 then st.waited_lost[g.key], inp.waited_lost = nil, 0 end
       -- (lot COURANT2) un poteau perdu qui retient le groupe depuis R.WAIT_LOST relevés ne le retient plus : suite de la décision comme sans perte
       local lost_free = inp.lost == 0 or inp.waited_lost >= R.WAIT_LOST
       if lost_free then inp.pending = pending_near(b, g, c.champ_live) end
