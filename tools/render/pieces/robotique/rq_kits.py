@@ -268,15 +268,15 @@ def panneau(x, y, z, w, d, rot=(0, 0, 0)):
     return objs
 
 
-def sig_heliaste():
-    """Corps doré octogonal, réservoirs d'or, 2 ailes de panneaux solaires bleus, parabole d'or."""
+def sig_heliaste(panneaux=2):
+    """Corps doré octogonal, réservoirs d'or, 2 ailes de panneaux solaires bleus (`panneaux` par aile), parabole d'or."""
     lathe([(0, 0), (1.05, 0), (1.15, 0.2), (1.15, 1.25), (0.95, 1.55), (0, 1.6)], 0, 0, 0, "or", verts=8, lisse=False, bev=0.03, phase=0.39)
     for k in range(4):
         a = 2 * math.pi * k / 4 + 0.785
         SPH(0.36, 1.15 * math.cos(a), 1.15 * math.sin(a), 0.45, "or_sombre", seg=20, rings=10)
     for s in (-1, 1):
         CYX(0.1, 1.2, s * 1.65, 0, 0.85, "alu_brosse", verts=10)
-        for i in range(2):
+        for i in range(panneaux):
             panneau(s * (2.85 + i * 1.62), 0, 0.82, 1.55, 1.25, rot=(s * 12, 0, 0))
 
     def parabole():
@@ -316,7 +316,7 @@ SIGNATURES = {
 # Caisse et kits
 # ------------------------------------------------------------------------------------------------------------------
 def caisse(famille, W=4.4, D=3.0, H=1.25):
-    """Caisse ouverte : lattes de bois sombre, poteaux d'angle et sangle à la couleur de la famille, cornière d'acier en haut,
+    """Caisse ouverte : lattes de bois sombre ; poteaux d'angle, sangle et rebord à la couleur de la famille (lisible à 32 px) ;
     voyant de famille en façade."""
     fam, rgb = peint(famille), lum_fam(famille, force=1.3)
     B(W - 0.1, D - 0.1, H - 0.25, 0, 0, 0, "fonte", bev=0.02)
@@ -336,9 +336,9 @@ def caisse(famille, W=4.4, D=3.0, H=1.25):
     B(0.06, D + 0.04, 0.42, -W / 2 - 0.06, 0, zb, fam, bev=0.01)
     B(0.06, D + 0.04, 0.42, W / 2 + 0.06, 0, zb, fam, bev=0.01)
     for sy in (-1, 1):
-        B(W, 0.16, 0.12, 0, sy * D / 2, H - 0.04, "acier_caisse", bev=0.02)
+        B(W, 0.22, 0.16, 0, sy * D / 2, H - 0.06, fam, bev=0.03)
     for sx in (-1, 1):
-        B(0.16, D, 0.12, sx * W / 2, 0, H - 0.04, "acier_caisse", bev=0.02)
+        B(0.22, D, 0.16, sx * W / 2, 0, H - 0.06, fam, bev=0.03)
     B(1.1, 0.08, 0.3, 0, -D / 2 - 0.12, H * 0.68, "noir_mat", bev=0.02)
     B(0.9, 0.06, 0.16, 0, -D / 2 - 0.16, H * 0.68 + 0.07, rgb, bev=0)
     return H
@@ -354,18 +354,22 @@ KIT = {
     "bellwether": (1.2, 0.0, -0.5, (0, 0, 0)),
     "chamfer": (1.2, 0.0, -0.6, (0, 0, 0)),
     "trowel": (1.15, -0.25, -0.25, (0, 0, 0)),
-    "finback": (1.1, 0.0, 0.5, (0, -14, -24)),
+    "finback": (1.0, 0.0, 0.25, (0, -10, -24)),
     "levite": (1.1, 0.0, -0.35, (0, 0, 0)),
     "toroid": (0.95, 0.0, -0.1, (0, 0, 0)),
-    "heliast": (1.05, 0.0, -0.2, (0, 0, -10)),
+    "heliast": (1.4, 0.0, -0.35, (0, 0, -10)),
     "crowned": (1.15, 0.0, -0.35, (0, 0, 0)),
 }
+
+
+# Signature propre au kit quand celle du robot ne tient pas à 32 px (Héliaste : un seul panneau par aile, corps plus gros).
+KIT_SIG = {"heliast": lambda: sig_heliaste(panneaux=1)}
 
 
 def kit(rid):
     s, dx, dz, rot = KIT[rid]
     H = caisse(FAMILLE[rid])
-    pivoter(capte(SIGNATURES[rid]), rot=rot, loc=(dx, 0, H + dz), s=s)
+    pivoter(capte(KIT_SIG.get(rid, SIGNATURES[rid])), rot=rot, loc=(dx, 0, H + dz), s=s)
 
 
 def _kit(rid):

@@ -6,6 +6,7 @@
 local lib = require("prototypes.lib")
 local C = require("shared.content.crafts")
 local T = require("shared.content.titanium")
+local Vis = require("prototypes.robotique_icones") -- icônes dédiées (lot DA-ICONES) ; un nom absent garde la copie teintée
 
 local out = {}
 
@@ -62,18 +63,19 @@ end
 for i, name in ipairs(C.ITEMS) do
   local x = assert(T.x_item(name), "crafts : objet X0 absent " .. name)
   local ic = assert(ICON[name], "crafts : icône provisoire absente pour " .. name)
+  local vis = Vis.icones_objet(name)
   local item = {
     type = "item",
     name = name,
     localised_name = { "item-name." .. name },
     localised_description = { "item-description." .. name },
-    icons = icon_of(ic[1], ic[2], ic[3]),
+    icons = vis or icon_of(ic[1], ic[2], ic[3]),
     subgroup = "fo-crafts",
     order = string.format("z[fo]-a[crafts]-%02d", i),
     stack_size = x.stack,
   }
   local src = data.raw[ic[1]][ic[2]]
-  if src.pictures then
+  if src.pictures and not vis then -- une icône dédiée sert aussi au sol et sur les tapis
     item.pictures = table.deepcopy(src.pictures)
     lib.tint_sprites(item.pictures, ic[3])
   end

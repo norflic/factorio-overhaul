@@ -1,11 +1,12 @@
 -- Lot RB-4 GAMME (1/11) : les pièces d'X3 que les robots exigent (servomoteur, capteur optique, contrôleur, noyau de pilotage,
 -- actionneur à aimants, barreau Nd:YAG, module laser), leurs recettes et leurs 3 technologies. Données : shared/content/robot_parts.lua.
--- Icônes PROVISOIRES (copies vanilla teintées). À charger APRÈS prototypes/crafts, bauxite, tin, compute et superconductors (objets
+-- Icônes dédiées (prototypes/robotique_icones.lua, lot DA-ICONES) ; la copie vanilla teintée n'est plus qu'un repli. À charger APRÈS prototypes/crafts, bauxite, tin, compute et superconductors (objets
 -- et technologies qu'elles exigent) et AVANT prototypes/robots.
 
 local lib = require("prototypes.lib")
 local C = require("shared.content.crafts")
 local P = require("shared.content.robot_parts")
+local Vis = require("prototypes.robotique_icones") -- icônes dédiées (lot DA-ICONES) ; un nom absent garde la copie teintée
 
 local out = {}
 
@@ -39,7 +40,7 @@ for i, name in ipairs(P.ITEMS) do
   out[#out + 1] = {
     type = "item", name = name,
     localised_name = { "item-name." .. name }, localised_description = { "item-description." .. name },
-    icons = icon_of(name), subgroup = "fo-robot-parts", order = string.format("a[part]-%02d", i), stack_size = x.stack,
+    icons = Vis.icones_objet(name) or icon_of(name), subgroup = "fo-robot-parts", order = string.format("a[part]-%02d", i), stack_size = x.stack,
   }
   local r = P.recipe(name)
   out[#out + 1] = {
@@ -56,7 +57,7 @@ for _, t in ipairs(P.TECHS) do
     name = t.name,
     localised_name = { "technology-name." .. t.name },
     localised_description = { "technology-description." .. t.name },
-    icons = icon_of(t.unlocks[1]),
+    icons = Vis.icones_tech(t.name) or icon_of(t.unlocks[1]),
     effects = effects, prerequisites = t.prerequisites, count = C.tech_count(t), packs = C.packs(t.epoch), time = t.time,
     order = "z[fo]-robot-parts-" .. t.name,
   })
