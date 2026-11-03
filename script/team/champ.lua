@@ -394,6 +394,9 @@ Build.SITES.champ = function(f, surface, p, h)
       for _, c in ipairs(chain) do ents[#ents + 1] = { name = bd.names.pole, x = c.x, y = c.y, dir = 0, role = "liaison" }; chain_n = chain_n + 1 end
     end
   end
+  -- Garde (3/11, verif-guide 1618033988 sur 0.6.40 : « real number expected got inf » en find_tiles_filtered, jeu arrêté à 44 min) : une bande dont toutes
+  -- les pièces sont déjà au plan n'a plus d'entité ; sa boîte serait (+inf, -inf).
+  if #ents == 0 then return nil, "champ: aucune entite a poser pour cette bande" end
   local x0, y0, x1, y1 = math.huge, math.huge, -math.huge, -math.huge
   for _, e in ipairs(ents) do
     x0, y0 = math.min(x0, math.floor(e.x)), math.min(y0, math.floor(e.y))
