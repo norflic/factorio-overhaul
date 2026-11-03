@@ -15,6 +15,7 @@
 ]]
 package.loaded["shared.team.champ_fonderie"] = package.loaded["shared.team.champ_fonderie"] or require("__factorio-overhaul__/shared/team/champ_fonderie")
 package.loaded["shared.team.melange"] = package.loaded["shared.team.melange"] or require("__factorio-overhaul__/shared/team/melange")
+package.loaded["shared.team.champ_colonne"] = package.loaded["shared.team.champ_colonne"] or require("__factorio-overhaul__/shared/team/champ_colonne")
 package.loaded["shared.team.champ"] = package.loaded["shared.team.champ"] or require("__factorio-overhaul__/shared/team/champ")
 local Ch = package.loaded["shared.team.champ"]
 local Cv = require("__factorio-overhaul__/shared/team/champ_verif")
