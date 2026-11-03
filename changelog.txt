@@ -1,4 +1,10 @@
-------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.44
+Date: 2026-11-03
+  Changes:
+    - Correctif de plantage au rechargement : la taille d'un repartiteur (pose en colonne a tapis) n'etait declaree qu'en cours de partie, donc perdue apres sauvegarde puis rechargement d'une partie neuve ayant un projet de bande ; le jeu levait « attempt to index local 's' (a nil value) ». La taille est maintenant lue sans declaration prealable (test de rechargement, 5 mutants).
+
+------------------------------------------------------------
 Version: 0.6.43
 Date: 2026-11-03
   Changes:
