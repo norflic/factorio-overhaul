@@ -929,7 +929,10 @@ function Team.think(f, surface, tick)
       for _, it in ipairs(pay) do Stock.insert(f, it[1], it[2]) end
     end
     stock = Board.view_stock(f, stock_of(f), tick)
-  elseif plan.recruit_unarmed and (f.engineers_count == 0 or (plan.emergency_unarmed and f.engineers_count < 2)) then
+  -- Lot QGSURVIE (règle 2) : pas de recrue sans arme non plus dans un QG sans tourelle armée sous l'attaque (f.team.s1.hold, écrit par
+  -- SurvieQg.recruit_hold à la vue) : celle de l'équipe vide y mourait toutes les 6 s (tour 1, 51,7 à 54,6 min).
+  elseif plan.recruit_unarmed and (f.engineers_count == 0 or (plan.emergency_unarmed and f.engineers_count < 2))
+    and not (f.is_player and T.qg_recruit_hold_on and f.team.s1 and f.team.s1.hold) then
     if Worker.recruit(f, surface, tick, true) then
       if f.stats then f.stats.unarmed_hires = (f.stats.unarmed_hires or 0) + 1 end
     end

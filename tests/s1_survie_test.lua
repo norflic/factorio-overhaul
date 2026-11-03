@@ -170,9 +170,9 @@ check(F0.rq_vanilla == 310 and F0.rq_noturret == 230 and F0.rq_frac == 1 and F0.
   "QGSURVIE : réserve du QG = plancher 150 + 2 × (tourelle 40 + 10 chargeurs × 4) = 310 ; sans recette de tourelle 230 ; arrondie au-dessus")
 check(F0.mh_under and not F0.mh_at and not F0.mh_rebuild and not F0.mh_noreserve,
   "QGSURVIE : module neuf retenu sous la réserve (309 < 310), libre à la réserve, jamais une reconstruction, rien sans réserve")
-check(F0.rh_fallen and not F0.rh_armed and not F0.rh_calm and F0.rh_last and not F0.rh_alone,
-  "QGSURVIE : recrue retenue dans un QG sans tourelle armée sous l'attaque (même pour le dernier PNJ), libre avec une tourelle armée, " ..
-  "sans ennemi à portée, ou quand il ne reste personne")
+check(F0.rh_fallen and not F0.rh_armed and not F0.rh_calm and F0.rh_last and F0.rh_alone,
+  "QGSURVIE : recrue retenue dans un QG sans tourelle armée sous l'attaque, même pour l'équipe vide (tour 1 : une recrue sans arme " ..
+  "tuée toutes les 6 s) ; libre avec une tourelle armée ou sans ennemi à portée")
 
 -- déterminisme et invariants sur une grille
 local bad, n = 0, 0
@@ -433,7 +433,9 @@ check(has(src.team, "if f.is_player and T.qg_recruit_hold_on and SurvieQg.recrui
   and has(src.glue, "held = Sq.recruit_hold({ armed = v.qg.armed, threat = threat, workers = f.engineers_count })")
   and has(src.glue, "[FO-QGSURVIE]"),
   "maillon 12 (recrues, QGSURVIE) : la retenue passe par Sq.recruit_hold avec le recensement et la menace, view.hold_recruits, journal")
-check(T.qg_reserve_on == true and T.qg_recruit_hold_on == true, "QGSURVIE : interrupteurs allumés par défaut")
+check(T.qg_reserve_on == false and T.qg_recruit_hold_on == true, "QGSURVIE : règle 1 éteinte par défaut (tour 1), règle 2 allumée")
+check(has(src.team, "and not (f.is_player and T.qg_recruit_hold_on and f.team.s1 and f.team.s1.hold) then"),
+  "maillon 12 bis (QGSURVIE) : la recrue SANS ARME de l'équipe vide est retenue aussi (chemin plan.recruit_unarmed)")
 
 ---------------------------------------------------------------------------------------------------
 section("6. Mutants : chaque règle retirée change au moins un fait")
@@ -485,8 +487,8 @@ local mutants = {
   { "reconstruction retenue", "Sq", "  if a.rebuild then return false end\n", "" },
   { "recrue retenue malgré une tourelle armée", "Sq", "if num(a.armed) > 0 or not a.threat then return false end", "if not a.threat then return false end" },
   { "recrue retenue sans attaque", "Sq", "if num(a.armed) > 0 or not a.threat then return false end", "if num(a.armed) > 0 then return false end" },
-  { "recrue retenue même seule", "Sq", "return num(a.workers) >= Sq.HOLD_MIN_WORKERS", "return true" },
-  { "recrue jamais retenue", "Sq", "return num(a.workers) >= Sq.HOLD_MIN_WORKERS", "return false" },
+  { "recrue jamais retenue", "Sq", "then return false end\n  return true\nend", "then return false end\n  return false\nend" },
+  { "équipe vide jamais retenue", "Sq", "then return false end\n  return true\nend", "then return false end\n  return (a.workers or 0) >= 1\nend" },
   -- priorité
   { "le péril ne force plus la défense", "Pr", "if a.peril and not a.survival then", "if false then" },
   { "le péril écrase la survie des effectifs", "Pr", "if a.peril and not a.survival then", "if a.peril then" },

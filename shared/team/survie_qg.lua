@@ -182,13 +182,16 @@ end
   et ne fait rien fabriquer tant que le fer au coffre est sous la RÉSERVE DU QG : le plancher de la défense (gardé aux recrues) plus le
   fer de Sq.RESERVE_TURRETS tourelles armées de Sq.RESERVE_MAGS chargeurs (« réparer + protéger puis améliorer », principe du DC). Ce
   n'est pas la réserve de recrues supprimée le 29/10 (FE.reserve) : rien n'est retenu aux recrues ni à la défense, seulement aux modules neufs.
-  Règle 2 (Sq.recruit_hold) : votre équipe ne recrute pas pendant que le QG n'a AUCUNE tourelle armée ET que des unités ennemies sont à
-  portée du coffre (la recrue naît au coffre et y meurt : CHARBON3, sans-main 1618033988, 112 PNJ perdus, environ 10 par minute), sauf
-  s'il ne reste aucun PNJ (sans lui, personne ne repose les tourelles).
+  Règle 2 (Sq.recruit_hold) : votre équipe ne recrute pas, ni recrue armée ni recrue SANS ARME, pendant que le QG n'a AUCUNE tourelle armée
+  ET que des unités ennemies sont à portée du coffre : la recrue naît au coffre et y meurt (CHARBON3, sans-main 1618033988, 112 PNJ perdus ;
+  tour 1 de ce lot : une recrue sans arme de l'équipe vide toutes les 6 s de 51,7 à 54,6 min, « tâche aucune », en (9, 9)). Même à 0 PNJ :
+  la recrue de l'équipe vide mourait avant d'avoir rien reposé, et le coffre tombait quand même (3 fois en 18 s). Libérée dès qu'une
+  tourelle est armée ou que l'attaque passe.
+  Tour 1 (moteur réel, RAPPORT.md §3) : la règle 1 seule ne crée PAS de réserve (le fer des bandes retenues part aux recrues) et le QG
+  tombe ARMÉ (7 tourelles, 124 chargeurs) : elle est ÉTEINTE par défaut (T.qg_reserve_on), code et banc gardés.
 ]]
 Sq.RESERVE_TURRETS = 2      -- tourelles du QG que la réserve doit pouvoir refaire et armer (le QG en péril en voulait 2 après sa chute, 47,7 min). SUPPOSÉ
 Sq.RESERVE_MAGS = 10        -- chargeurs par tourelle de la réserve (au-dessus du seuil bas T.turret_ammo_low = 8). SUPPOSÉ
-Sq.HOLD_MIN_WORKERS = 1     -- sous cet effectif, la recrue part quand même (il faut quelqu'un pour reposer les tourelles)
 
 --- Réserve de fer du QG. a = { floor (plancher de fer de la défense), turret_iron (fer d'une tourelle), mag_iron (fer d'un chargeur) }.
 function Sq.qg_reserve(a)
@@ -203,11 +206,11 @@ function Sq.module_held(a)
   return num(a.iron) < num(a.reserve)
 end
 
---- La recrue de votre équipe est-elle retenue ? a = { armed (tourelles armées du QG), threat (unités ennemies à portée du coffre), workers }.
+--- La recrue de votre équipe est-elle retenue ? a = { armed (tourelles armées du QG), threat (unités ennemies à portée du coffre) }.
 function Sq.recruit_hold(a)
   a = a or {}
   if num(a.armed) > 0 or not a.threat then return false end
-  return num(a.workers) >= Sq.HOLD_MIN_WORKERS
+  return true
 end
 
 return Sq
