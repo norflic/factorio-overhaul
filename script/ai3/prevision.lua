@@ -39,6 +39,7 @@ local Front = require("script.team.front")
 local Events = require("script.core.events")
 local C = require("script.ai3.comportement")
 local D = require("shared.ai3.danger")
+local Mv = require("shared.team.mine_vague") -- lot FONDERIE-M : sites où une vague est attendue ou insurmontable (minage prudent)
 
 local Prev = {}
 
@@ -321,6 +322,14 @@ local function sites_of(f)
     end
   end
   return out
+end
+
+--- Lot FONDERIE-M : positions des sites de l'équipe (hors QG) dont la prévision annonce une vague (« preparer ») ou la juge insurmontable ;
+--- lu par script/team/worker.lua (crochet Worker.wave_sites, posé par script/ai3/soldats.lua) pour le minage à la main prudent.
+function Prev.wave_sites(f)
+  local st = f and f.prevision
+  if not (st and st.pc and st.pc.sites and f.hq_pos) then return {} end
+  return Mv.from_states(sites_of(f), st.pc.sites)
 end
 
 --- Nids connus (carte de connaissance + carte du danger de l'équipe), dédoublonnés, triés par distance au site le plus proche.

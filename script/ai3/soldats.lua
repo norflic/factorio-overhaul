@@ -18,6 +18,8 @@ local Worker = require("script.team.worker")
 local Profiler = require("script.core.profiler")
 local A = require("shared.ai3.armee") -- lot ARMEE-ANTICIPATION : regroupement, raid (estimation : lot PREVISION)
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (une fois par minute et par équipe)
+-- lot FONDERIE-M : le minage à la main prudent et de fond (script/team/worker.lua) évite les sites où une vague est attendue ou insurmontable
+Worker.wave_sites = Prev.wave_sites
 local FC = require("shared.faction.config")
 local FS = require("shared.faction.strategy")
 local D = require("shared.ai3.danger")

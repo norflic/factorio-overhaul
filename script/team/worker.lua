@@ -24,6 +24,7 @@ local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
 local Board = require("script.team.board")
 local Poles = require("script.team.poles") -- lot IA1-b : fin de tâche (O.settle), durées mesurées
+local Mv = require("shared.team.mine_vague") -- lot FONDERIE-M : minage prudent loin d'une vague attendue
 local Tokens = require("script.team.tokens") -- lot IA1-b : jetons de travail globaux
 local Profiler = require("script.core.profiler")
 local Trace = require("script.core.trace")
@@ -546,6 +547,10 @@ function Worker.program(f, task, surface, tick)
     -- bâtiment et ne minait rien (moteur réel, E16 it. 11 : 4 minerais livrés en 50 min).
     local best, first_free, free_d
     local stride = math.max(1, math.floor(#res / 40))
+    -- lot FONDERIE-M (verif-guide 1618033988 : deux PNJ tués à 36 min en minant à 9 tuiles d'un avant-poste jugé insurmontable à 20 min) :
+    -- un minage prudent ou de fond évite les sites où la prévision attend une vague ou la juge insurmontable (shared/team/mine_vague.lua)
+    local waves = (task.fond or task.prudent) and Worker.wave_sites and Worker.wave_sites(f) or nil
+    local wave_skips = 0
     for i = 1, #res, stride do
       local r = res[i]
       local p = r.position
@@ -568,6 +573,7 @@ function Worker.program(f, task, surface, tick)
       -- 7e3e4ad : 8 PNJ tués en minage à la main à 51-57 tuiles du QG en 40 min (0.4.30 : 1), recrues de survie payées
       -- en fer, fer à 0 à 40 min, munitions épuisées, coffre perdu à 45 min.
       if busy == 0 and (task.fond or task.prudent) and f.is_player and Poles.near_loss(f, p, tick) then busy = 1 end
+      if busy == 0 and waves and #waves > 0 and Mv.blocked(p.x, p.y, waves) then busy = 1; wave_skips = wave_skips + 1 end
       -- Lot KIT : la première tuile libre ET non réservée ; à défaut, la première libre (comme avant le lot)
       if busy == 0 then
         if not first_free then
@@ -582,6 +588,15 @@ function Worker.program(f, task, surface, tick)
       end
     end
     best = best or first_free
+    if wave_skips > 0 then
+      f.stats.wave_skips = (f.stats.wave_skips or 0) + wave_skips
+      f.stats.wave_log = f.stats.wave_log or 0
+      if tick - f.stats.wave_log >= 3600 then
+        f.stats.wave_log = tick
+        log(string.format("[FO-MAIN] %s : minage a la main de '%s' : %d tuile(s) ecartee(s) a %d tuiles d'un site ou une vague est attendue (%d site(s)), %s, a %.1f min",
+          f.key or "?", tostring(task.resource), wave_skips, Mv.R, #waves, best and "autre tuile prise" or "aucune tuile sure", tick / 3600))
+      end
+    end
     if best then claim_tile(f, best.position, tick) end
     -- Lot IA3-f (constat du DC, 25/10 vers 18 h 45) : rien à portée du coffre : gisement CONNU et sûr plus loin (carte de
     -- connaissance, crochet posé par script/ai3/exploration.lua ; sinon il demande une exploration). Pas pour le fond.
