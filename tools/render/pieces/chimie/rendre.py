@@ -50,8 +50,9 @@ def etalonne(img, grade):
 # Nettoyage de l'alpha (note transversale de la critique MÉTALLURGIE, 3/11) : 1 à 14 pixels parasites par couche (bruit de
 # Cycles, alpha 3 à 5 sur 255, isolés) gonflaient le rectangle rogné de l'atlas jusqu'à x3,8 (mesure DA-CHIMIE : colonne_s
 # main 538 x 425 au lieu de 174 x 350). Alpha sous 3/255 mis à 0, puis composantes 8-connexes PETITES ET FAIBLES retirées
-# (une vraie pièce, même petite, a un alpha fort : voyants, regards). NETTOIE = (taille max, alpha max) par couche.
-NETTOIE = {"main": (16, 0.12), "shadow": (16, 0.12), "glow": (40, 0.16)}
+# (une vraie pièce, même petite, a un alpha fort : voyants, regards). NETTOIE = (taille max, alpha max) par couche ;
+# lueur prudente : à (40, 0,16) elle perdait jusqu'à 5,4 % de son énergie (électrolyseur), à (12, 0,06) 1,15 % au plus.
+NETTOIE = {"main": (16, 0.12), "shadow": (16, 0.12), "glow": (12, 0.06)}
 
 
 def nettoie(img, couche):
