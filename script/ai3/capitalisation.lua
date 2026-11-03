@@ -58,6 +58,7 @@ local Ca = require("shared.ai3.capitalisation")
 local Rs = require("shared.ai3.reserve") -- lot INDUSTRIE I1 : description du besoin évalué (journal [FO-RESERVE])
 local L = require("shared.levels.config") -- intégration 0.6.28 : vitesse de plan des bâtiments à niveaux
 local Rp = require("shared.ai3.repli") -- lot CAPI-REPLI : repli par (produit, gisement), matériaux, plafond
+local Dep = require("script.ai3.depenses") -- lot DEPENSES : le stock qui dort déclenche des dépenses (emplacements de plus)
 local Em = require("shared.ai3.emplacements") -- lot CAPI-DEBIT : emplacements du plan directeur (figés, stock riche, décision)
 local A = require("shared.ai3.automatiser")
 local R = require("shared.ai3.reglages")
@@ -765,7 +766,7 @@ function Capi.slots(f, cs, stock, tick)
   local g_iag = f.team.iag
   local hands = Ca.idle_of(g_iag and g_iag.idle_ema or 0)
   local base = Dm.slots(A.MAX_OPEN, f.team.ia3 and f.team.ia3.puits ~= nil, hands, cs.blocked_slots)
-  local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick })
+  local sl = Em.slots({ base = base, plates = plates, mods = mods, tick = tick, bonus = Dep.slots(f, tick) }) -- lot DEPENSES : bonus du stock qui dort
   if (cs.dm_base or A.MAX_OPEN) ~= base then
     log(string.format("[FO-DEMANDE] %s : EMPLACEMENTS de chantier %s -> %d (base %d + %d : %d bras libres, %d ordre(s) retenu(s) faute de place ; plafond de surete %d) a %.1f min",
       f.key or "?", cs.dm_base and tostring(cs.dm_base) or "-", base, A.MAX_OPEN, base - A.MAX_OPEN, math.floor(hands), cs.blocked_slots or 0, Dm.SLOTS_HARD, minutes(f, tick)))
@@ -1352,6 +1353,7 @@ end
 local function decide(f, cs, view, book, tick, research, w)
   local D = Capi.data()
   cs.flows = flows_of(f, cs)
+  Dep.think(f, cs, tick, PLATE_PRODUCTS, minutes(f, tick)) -- lot DEPENSES : avant les emplacements (Capi.slots lit Dep.slots)
   if f.team.ia3.mall then Ml.set_running(f.team.ia3.mall, cs.flows) end -- lot PILE-MALL (relecture)
   local input = build_input(f, cs, view, book, tick, D, w)
   Profiler.fstart("capi:decide")

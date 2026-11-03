@@ -116,7 +116,8 @@ end
 function Em.slots(s)
   local base = math.max(0, math.floor((s and s.base) or 0))
   local extra = Em.extra(s and s.plates)
-  local cap = base + extra
+  local bonus = math.max(0, math.floor(tonumber(s and s.bonus) or 0)) -- lot DEPENSES : emplacements du stock qui dort (shared/ai3/depenses.lua)
+  local cap = base + extra + bonus
   local counted, stalled, free_stalled, materials = 0, 0, 0, 0
   local piled, free_piled = 0, 0
   local keys_stalled, keys_piled = {}, {}
@@ -148,7 +149,8 @@ function Em.slots(s)
   local why = string.format("%d module(s) ouvert(s), %d compte(s) sur %d emplacement(s) (%d + %d par le stock), %d fige(s) hors du compte, %d en attente de matiere",
     #mods, counted, cap, base, extra, free_stalled, materials)
   if free_piled > 0 then why = why .. string.format(", %d suspendu(s) par la pile hors du compte", free_piled) end
-  return { cap = cap, base = base, extra = extra, counted = counted, stalled = stalled, free_stalled = free_stalled,
+  if bonus > 0 then why = why .. string.format(", %d de plus par le stock qui dort", bonus) end
+  return { cap = cap, base = base, extra = extra, bonus = bonus, counted = counted, stalled = stalled, free_stalled = free_stalled,
     piled = piled, free_piled = free_piled, keys_piled = keys_piled,
     materials = materials, open = #mods, room = room, busy = room <= 0, keys_stalled = keys_stalled, why = why }
 end

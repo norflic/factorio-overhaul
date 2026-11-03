@@ -481,7 +481,10 @@ function Cap.emit(P)
       E.pay[#E.pay + 1] = { key = g.key, target = g.target, cost = g.cost }
       return "ok"
     end
-    if not g.center and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
+    -- Lot DEPENSES : g.depense (script/ai3/depenses.lua, Dep.mark) : le stock DORT (shared/ai3/depenses.lua) ; ses intermédiaires
+    -- (engrenages, circuits) se fabriquent aussi sans bras libre. Journal du DC (3/11) : 5 472 plaques de fer libres chez Azur,
+    -- 'drill:2' attendait 3 engrenages et 2 circuits, 0 PNJ sans tâche sur 8, rien n'était fabriqué.
+    if not g.center and not g.replace and not g.depense and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
     P.want(E, proj, g.cost, proj.prio, false, "niveau")
     return "matiere"
   end

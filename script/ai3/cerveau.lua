@@ -54,6 +54,7 @@ local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : entrées du ru
 local Rsv = require("script.ai3.reserve") -- lot INDUSTRIE I1 : le besoin évalué (réglage fo-war-industrie)
 local Dm = require("shared.ai3.demande") -- lot C2 : puits ouvert (capacités de plus selon les bras libres, journal de la saturation)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : réserve de chargeurs sur la menace reçue, recherche de la tourelle
+local Dep = require("script.ai3.depenses") -- lot DEPENSES : l'amélioration de fond fabrique ses intermédiaires quand le stock dort
 local Prev = require("script.ai3.prevision") -- lot PREVISION : estimateur unique de la menace (cadres « preparer », défense induite)
 
 local Ia3 = {}
@@ -830,7 +831,7 @@ function Ia3.plan(f, view, book, surface, tick)
     auto = auto,
     -- Lot CAPITAL : but « amélioration » (niveau d'un bâtiment, pose ou passage du centre), factions seulement.
     thaw = Capital.thaw_active(f), -- lot AGES : le gel du centre est levé (shared/team/degel.lua) : la pile laisse passer son but
-    capital = Capital.goal(f, view, book, tick, w), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
+    capital = Dep.mark(f, Capital.goal(f, view, book, tick, w)), -- lot AMELIORER : votre équipe aussi (machines suivies seulement)
     bilan = bilan, -- lot BILAN : { [objet] = points de priorité } (production moins consommation)
     capi = capi, -- lot CAPIB : buts de fond de la capitalisation (nil : éteinte)
     industrie = Rsv.on(), -- lot INDUSTRIE I1 : le besoin est évalué à chaque pensée (f.team.ia3.noyau)
