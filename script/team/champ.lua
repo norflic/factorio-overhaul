@@ -502,6 +502,15 @@ function Champ.frame(f, surface, o)
   return plan.frame, prs, plan
 end
 
+--- Revue-objectifs (3/11, NAV2 : souterrains planifiés à 81,7 min, colonnes refusées « aucun chemin » jamais rejouées) : vrai si le cadre
+--- `frame` a des colonnes refusées faute de chemin sans souterrain ET que la force a maintenant débloqué un tapis souterrain ; rend aussi
+--- la liste (Ch.replan_refused). Le cadre ne peut être replanifié qu'avant sa première bande (Champ.has_band) : à l'appelant d'en juger.
+function Champ.replan_wanted(f, frame)
+  local ug = logistic(f, T.LOGISTIC_TYPES.underground)
+  local list = Ch.replan_refused(frame, ug and ug.maxd and ug.maxd >= 2 and ug.maxd or nil)
+  return #list > 0, list
+end
+
 --- Lot FONDERIE : vrai si une bande du champ de `o` a déjà été demandée au plan directeur (un cadre d'avant le lot, sans `design`, n'est
 --- rejoué que dans ce cas ; sinon il est replanifié en colonne).
 function Champ.has_band(f, o)

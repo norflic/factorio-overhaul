@@ -856,10 +856,35 @@ local function plan_order(spec)
     for _, x in ipairs(refused) do
       local key = tostring(x.pr)
       p.frame.cols[key] = p.frame.cols[key] or {}
-      p.frame.cols[key][tostring(x.side)] = { mode = "refusee" }
+      -- (revue-objectifs, 3/11) cause du refus et souterrains disponibles au plan : une colonne refusée faute de chemin sans souterrain est
+      -- rejouable quand la recherche les débloque (Ch.replan_refused)
+      p.frame.cols[key][tostring(x.side)] = { mode = "refusee", why = x.why,
+        ug = (spec.logistics and spec.logistics.underground) or false }
     end
   end
   return p, why
+end
+
+--- Règle pure (revue-objectifs, 3/11) : colonnes d'un cadre refusées par un ÉCHEC DU TRACÉ du charbon alors que les souterrains
+--- n'étaient pas disponibles, et qui sont rejouables parce que `ug_now` (portée des souterrains débloqués, ou nil) l'est désormais. Rend
+--- une liste triée { { pr, side } } (vide si rien n'est à rejouer).
+function Ch.replan_refused(frame, ug_now)
+  local out = {}
+  if not (ug_now and frame and frame.cols) then return out end
+  local keys = {}
+  for k in pairs(frame.cols) do keys[#keys + 1] = k end
+  table.sort(keys, function(a, b) return tonumber(a) < tonumber(b) end)
+  for _, k in ipairs(keys) do
+    for _, sk in ipairs({ "-1", "1" }) do
+      local fc = frame.cols[k][sk]
+      -- (tout échec du tracé : départ ou arrivée prise, recherche trop longue, aucun chemin ; le cadre est replanifié en entier, souterrains
+      -- compris ; pas un refus pour une autre cause : charbon insuffisant, dérivation occupée, pas de place pour le tronc)
+      if fc and fc.mode == "refusee" and not fc.ug and type(fc.why) == "string" and fc.why:find("trace du charbon", 1, true) == 1 then
+        out[#out + 1] = { pr = tonumber(k), side = tonumber(sk) }
+      end
+    end
+  end
+  return out
 end
 
 --- Coffres de tête (combustible) d'un plan.

@@ -793,6 +793,45 @@ do
   local pmut = Ch.plan(player())
   Co.coal_line = keep
   check(Ch.head_chests(pmut) == 5, "mutant « sortie enfermee acceptee » vu : 5 coffres de tete (" .. Ch.head_chests(pmut) .. ")")
+
+  ---------------------------------------------------------------------------------------------------
+  section("10. colonne refusee faute de chemin, rejouee quand les souterrains arrivent (revue-objectifs, 3/11)")
+  ---------------------------------------------------------------------------------------------------
+  -- le cadre de scarlet (sans souterrain) refuse une colonne du côté - : cause et souterrains notés au cadre
+  local rs = {}
+  for _, sides in pairs(ps and ps.frame.cols or {}) do for _, fc in pairs(sides) do if fc.mode == "refusee" then rs[#rs + 1] = fc end end end
+  check(#rs == 1 and type(rs[1].why) == "string" and rs[1].why:find("trace du charbon", 1, true) == 1 and rs[1].ug == false,
+    "scarlet : 1 colonne refusee notee au cadre, cause « trace du charbon », sans souterrain (" .. tostring(rs[1] and rs[1].why) .. ")")
+  check(#Ch.replan_refused(ps.frame, nil) == 0, "sans souterrain debloque : rien a rejouer")
+  local rl = Ch.replan_refused(ps.frame, 5)
+  check(#rl == 1, "souterrains debloques (portee 5) : la colonne refusee est a rejouer (" .. #rl .. ")")
+  -- rejouée avec les souterrains : plus aucune colonne refusée, charbon par tapis des deux côtés, 0 coffre de tête, toutes les foreuses
+  local su = scarlet()
+  su.logistics = { underground = 5, splitter = false }
+  local pu = Ch.plan(su)
+  local vu = 0
+  for _, cs in ipairs(pu and pu.stats.coal or {}) do if cs.voie then vu = vu + 1 end end
+  check(pu and not (pu.refused and #pu.refused > 0) and Ch.head_chests(pu) == 0 and vu == 2 and Ch.field_drills(pu) >= ps.order_swapped.drills,
+    string.format("scarlet rejoue avec souterrains : %d voie(s), %s colonne(s) refusee(s), %d coffre(s), %d foreuses (contre %d au refus)", vu,
+      tostring(pu and pu.refused and #pu.refused or 0), Ch.head_chests(pu), Ch.field_drills(pu), Ch.field_drills(ps)))
+  -- un refus pour une autre cause (charbon trop petit) ou déjà fait AVEC souterrains n'est pas rejoué
+  local fr = { cols = { ["10"] = { ["1"] = { mode = "refusee", why = "charbon pour 2 colonne(s) sur 4", ug = false } },
+    ["20"] = { ["-1"] = { mode = "refusee", why = "trace du charbon : aucun chemin", ug = 5 } },
+    ["30"] = { ["1"] = { mode = "voie" }, ["-1"] = { mode = "refusee", why = "trace du charbon : aucun chemin", ug = false } } } }
+  local fl2 = Ch.replan_refused(fr, 5)
+  check(#fl2 == 1 and fl2[1].pr == 30 and fl2[1].side == -1, "seule la colonne refusee faute de chemin SANS souterrain est rejouee (" .. #fl2 .. ")")
+  -- mutants de la règle
+  local src2 = io.open("shared/team/champ.lua"):read("*a")
+  local muts2 = { { "souterrain au plan ignore", 'and not fc.ug and type', 'and type' }, { "cause ignoree", 'and type(fc.why) == "string" and fc.why:find("trace du charbon", 1, true) == 1', '' } }
+  local caught2 = 0
+  for _, m in ipairs(muts2) do
+    local ms2, n2 = src2:gsub(m[2]:gsub("%p", "%%%0"), (m[3]:gsub("%%", "%%%%")), 1)
+    assert(n2 == 1, "mutant introuvable : " .. m[1])
+    local Mm = assert(load(ms2))()
+    local r3 = Mm.replan_refused(fr, 5)
+    if #r3 ~= 1 then caught2 = caught2 + 1 else print("mutant survivant : " .. m[1]) end
+  end
+  check(caught2 == #muts2, string.format("mutants de la regle de rejeu refuses : %d sur %d", caught2, #muts2))
 end
 
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
