@@ -19,6 +19,7 @@ local Brain = require("script.companion.brain")
 local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
+local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
@@ -286,8 +287,54 @@ end
 --- Point d'accès d'un avant-poste : là où l'ouvrier se tenait en le construisant (atteignable par
 --- construction). Moteur réel (session 4) : viser le centre du gisement, désormais couvert de foreuses,
 --- faisait échouer le pathfinder (« but occupé ») et les tournées d'entretien.
-local function access(o)
-  return o.access or o.pos
+-- Lot NAV2 : types qui bougent (ne ferment pas un champ) ; recalcul au plus toutes les ACC_TTL ticks si le nombre de bâtiments ne change pas.
+local ACC_MOVING = { character = true, unit = true, car = true, ["spider-vehicle"] = true }
+local ACC_TTL = 3600
+local ACC_LOGS = 12
+--- Lot NAV2 : point d'accès ATTEIGNABLE (shared/team/acces_champ.lua). Banc nav2-marge : le point d'accès finit dans une poche fermée
+--- par les paires jointives des agrandissements, le pathfinder n'y va pas (0 chemin sur 8, avec ou sans marge) ; le but de la marche
+--- devient la tuile libre atteignable depuis l'extérieur la plus proche. Règle coupée (f.team.acces_off, bancs témoins) : 0.6.42.
+local function access(o, f)
+  local base = o.access or o.pos
+  if not f or (f.team and f.team.acces_off) then return base end
+  local own = {}
+  for _, list in ipairs({ o.drill_list, o.sinks, o.turret_list }) do
+    for _, e in ipairs(list or {}) do if e.valid then own[#own + 1] = e end end
+  end
+  if #own == 0 then return base end
+  local tick = game.tick
+  local c = o.acces_cache
+  if c and c.n == #own and c.bx == base.x and c.by == base.y and tick - c.t < ACC_TTL then return { x = c.p.x, y = c.p.y } end
+  local own_boxes = {}
+  for i, e in ipairs(own) do
+    local bb = e.bounding_box
+    own_boxes[i] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+  end
+  local rect = Acc.rect(own_boxes, base, Acc.MARGIN)
+  local surface = own[1].surface
+  local area = { { rect[1], rect[2] }, { rect[3] + 1, rect[4] + 1 } }
+  local boxes = {}
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
+    if e.valid and not ACC_MOVING[e.type] then
+      local bb = e.bounding_box
+      boxes[#boxes + 1] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+    end
+  end
+  local tiles = {}
+  for _, t in ipairs(surface.find_tiles_filtered({ area = area, collision_mask = "water-tile" })) do
+    tiles[#tiles + 1] = { x = t.position.x, y = t.position.y }
+  end
+  local r = Acc.reach(boxes, tiles, base, rect)
+  o.acces_cache = { n = #own, t = tick, bx = base.x, by = base.y, p = { x = r.x, y = r.y } }
+  if r.moved and f.stats then
+    f.stats.acces_moved = (f.stats.acces_moved or 0) + 1
+    if f.stats.acces_moved <= ACC_LOGS then
+      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s) (n. %d) a %.1f min",
+        tostring(f.key), o.id or 0, tostring(o.kind), base.x, base.y, #own, r.x, r.y, math.sqrt((r.x - base.x) ^ 2 + (r.y - base.y) ^ 2), r.reached,
+        f.stats.acces_moved, tick / 3600))
+    end
+  end
+  return { x = r.x, y = r.y }
 end
 --- Lot IA1-d : programme d'une tâche du plan directeur (script/team/build.lua). build : prise au stock du chantier,
 --- point d'appui, ravivages ; clear : défrichage sur place ; fill : remplir un quai ; collect : vider un quai de sortie.
@@ -362,7 +409,7 @@ function Worker.program(f, task, surface, tick)
   elseif k == "extend" then
     local o = f.outposts[task.outpost]
     if not o then return nil end
-    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
+    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o, f), 3 }, { "act", "extend" }, { "home" } }
   elseif k == "rebuild" then
     return Recon.program(f, task)
   elseif k == "repair" then
@@ -377,7 +424,7 @@ function Worker.program(f, task, surface, tick)
       pos = f.home_spot
     else
       local o = f.outposts[task.post]
-      pos = o and access(o)
+      pos = o and access(o, f)
     end
     if not pos then return nil end
     return { { "goto", pos, 6 }, { "wait", task.wait or 3600 }, { "home" } }
@@ -395,7 +442,7 @@ function Worker.program(f, task, surface, tick)
     if o.kind == "coal" then carry = 0 end
     if Sorties.on(f) then carry = Sorties.carry_fuel(f, o, need) end
     if carry > 0 then steps[#steps + 1] = { "take", { { T.fuel, carry } } } end
-    steps[#steps + 1] = { "goto", access(o), 3 }
+    steps[#steps + 1] = { "goto", access(o, f), 3 }
     steps[#steps + 1] = { "act", "service" }
     steps[#steps + 1] = { "home" }
     return steps
@@ -403,7 +450,7 @@ function Worker.program(f, task, surface, tick)
     local pos = task.group == "hq" and f.home_spot or Outposts.group_pos(f, task.group)
     if not pos then return nil end
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
-    if o then pos = access(o) end
+    if o then pos = access(o, f) end
     local ammo = Outposts.ammo_name(f.tech)
     if Board.market(f) then
       -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
@@ -436,7 +483,7 @@ function Worker.program(f, task, surface, tick)
     end
     local o = f.outposts[task.outpost]
     if not o then return nil end
-    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "fortify" }, { "home" } }
+    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o, f), 3 }, { "act", "fortify" }, { "home" } }
   elseif k == "smelters" then
     return { { "home" }, { "take", task.items, strict = true }, { "act", "smelters" }, { "home" } }
   elseif k == "smelt" then
