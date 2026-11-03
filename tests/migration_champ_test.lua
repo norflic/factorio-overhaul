@@ -1488,12 +1488,12 @@ do
 
     -- T4 : une bande en chantier sur ce gisement retient le balayage
     E = setup({})
-    E.ms.o[1].stage = "chantier"
+    E.ms.o[1].stage = "projet"
     for _ = 1, 4 do E.sweep() end
-    check(E.alive() == 8, "T4 : chantier en cours sur le gisement : aucune paire retirée")
-    E.ms.o[1].stage = "veille"
+    check(E.alive() == 8, "T4 : bande demandée dont la partie n'est pas retirée : aucune paire retirée")
+    E.ms.o[1].stage = "chantier"
     E.sweep(); E.sweep()
-    check(E.alive() == 0, "T4 : le chantier fini, le balayage reprend")
+    check(E.alive() == 0, "T4 : la partie retirée (chantier), les restes sont balayés")
     E.restore()
 
     -- T5 : minerai CRITIQUE (le combustible de la centrale) : jamais coupé sous le plancher que brûlent les générateurs
@@ -1529,8 +1529,8 @@ do
     { "crédit de la migration oublié", mut("o.migr_credit = (o.migr_credit or 0) + removed", "local _ = 0") },
     { "foreuse à l'arrêt comptée en marche", mut("de.status == defines.entity_status.working then n = n + 1 end", "true then n = n + 1 end") },
     { "chantier en cours ignoré (les deux gardes)", function(src)
-      src = mut("busy = (st and st.stage ~= \"veille\") and true or false", "busy = false")(src)
-      return mut("if o and st and st.stage == \"veille\" then", "if o and st then")(src)
+      src = mut("busy = (st and st.stage == \"projet\") and true or false", "busy = false")(src)
+      return mut("if o and st and st.stage ~= \"projet\" then", "if o and st then")(src)
     end },
     { "minerai critique ignoré", mut("if spec.resource == T.fuel then", "if false then") },
     { "brûleur de la centrale sous-estimé", mut("watts = watts + (g.energy_generated_last_tick or 0) * 60", "watts = watts + (g.energy_generated_last_tick or 0)") },

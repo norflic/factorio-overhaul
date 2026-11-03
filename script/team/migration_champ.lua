@@ -380,13 +380,13 @@ local function thermal_count(o)
   return n
 end
 
---- Foreuses électriques EN MARCHE des bandes finies du champ `oid` (une bande qui ne mine pas ne couvre rien : sortie bouchée, courant coupé).
+--- Foreuses électriques EN MARCHE des bandes du champ `oid` (posées) (une bande qui ne mine pas ne couvre rien : sortie bouchée, courant coupé).
 local function working_of(f, surface, oid)
   local b = f.build
   local n = 0
   for _, pid in ipairs(b.order or {}) do
     local p = b.projects[pid]
-    if p and p.state == "fini" and p.spec and p.spec.champ and p.spec.champ.oid == oid then
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid then -- (toute bande : les foreuses POSEES et en marche comptent, comme au relevé [FO-REGARD] G)
       for _, e in ipairs(p.ents or {}) do
         if e.built and e.role == "champ-foreuse" then
           local de = surface.find_entity(e.name, { e.x, e.y })
@@ -434,7 +434,7 @@ local function build_fields(f, surface, ms, free)
         local n = thermal_count(o)
         if framed then for _, q in ipairs(sib) do n = n + thermal_count(q) end end
         local fl = { id = o.id, res = o.kind, pairs = n, th_rate = th, el_rate = el, working = framed and working_of(f, surface, o.id) or 0,
-          busy = (st and st.stage ~= "veille") and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
+          busy = (st and st.stage == "projet") and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
           have = free[T.outposts[o.kind].product] or 0, framed = framed }
         fields[#fields + 1] = fl
         byid[o.id] = fl
@@ -862,7 +862,7 @@ local function sweep(f, surface, ms, free, book, tick)
   for _, a in ipairs(acts) do
     local o = Champ.target(f, a.id)
     local st = ms.o[a.id]
-    if o and st and st.stage == "veille" then
+    if o and st and st.stage ~= "projet" then -- (avant le retrait de sa partie, une bande a besoin de ses paires ; ensuite les restes ne gênent plus)
       local list, ents, owners = sweep_list(f, o)
       if #list > 0 then
         local ids = {}
