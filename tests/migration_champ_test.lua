@@ -1566,6 +1566,11 @@ do
     for _ = 1, 4 do E.sweep() end
     check(E.alive() == 8, "T3 : foreuses électriques à l'arrêt : aucune paire retirée")
     E.restore()
+    -- T3b (lot THERMIQUE7) : la bande fond (fours en marche, produits) mais ses foreuses sont sans courant : elles ne comptent pas
+    E = setup({ status = 2, furnaces = { n = 4, products = 50 } })
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 8, "T3b : fours en marche, foreuses sans courant : aucune paire retirée (" .. E.alive() .. ")")
+    E.restore()
 
     -- T4 : une bande en chantier sur ce gisement retient le balayage
     E = setup({})
@@ -1611,14 +1616,19 @@ do
 
     -- T8 (lot THERMIQUE5, priorité 0 ; revue-fonderie, Scarlet INTEG-0643N) : bande EN CHANTIER dont l'amorce fait tourner 6 foreuses : les
     -- paires restent ; la bande finie au plan, elles partent
-    for _, stp in ipairs({ "chantier", "fantomes", "reserve", "bloque" }) do
-      E = setup({ furnaces = { n = 4, products = 0 } }) -- (lot THERMIQUE6 : fours qui n'ont encore rien produit)
+    -- (lot THERMIQUE7, essai 4 : jugée à sa PRODUCTION quel que soit son état ; l'amorce dont les fours n'ont rien produit, ou dont aucun four
+    -- ne marche, ne couvre rien ; la même bande qui fond couvre, même « chantier » au plan)
+    for _, stp in ipairs({ "chantier", "fantomes", "reserve", "bloque", "fini" }) do
+      E = setup({ furnaces = { n = 4, products = 0 } })
       for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = stp end
       for _ = 1, 4 do E.sweep() end
-      check(E.alive() == 8, "T8 : bande « " .. stp .. " » (amorce en marche) : aucune paire retirée (" .. E.alive() .. " restent)")
-      for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "fini" end
+      check(E.alive() == 8, "T8 : bande « " .. stp .. " » dont les fours n'ont rien produit (amorce en marche) : aucune paire retirée (" .. E.alive() .. ")")
+      for _, fe in pairs(E.tfurn) do fe.products_finished, fe.status = 30, 4 end
+      for _ = 1, 4 do E.sweep() end
+      check(E.alive() == 8, "T8 : bande « " .. stp .. " » qui a produit mais dont aucun four ne marche : aucune paire retirée (" .. E.alive() .. ")")
+      for _, fe in pairs(E.tfurn) do fe.status = 1 end
       E.sweep(); E.sweep()
-      check(E.alive() == 0, "T8 : la même bande finie au plan : les paires partent (" .. E.alive() .. " restent)")
+      check(E.alive() == 0, "T8 : bande « " .. stp .. " » qui fond : les paires partent (" .. E.alive() .. " restent)")
       E.restore()
     end
 
@@ -1653,22 +1663,23 @@ do
     for _ = 1, nmin - 2 do E.sweep() end
     check(E.alive() == 8, "T10b : réalimenté puis de nouveau à sec : date reprise à zéro, gardé (" .. E.alive() .. ")")
     E.restore()
-    -- T10c : bande en chantier (pas finie) : rien ne part, même après longtemps
-    E = setup({ working = 1 })
+    -- T10c : bande qui n'a jamais produit (fours sans produit) : rien ne part, même après longtemps (lot THERMIQUE7 : état au plan ignoré)
+    E = setup({ working = 1, furnaces = { n = 4, products = 0 } })
     for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "chantier" end
     for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
     for _ = 1, nmin + 4 do E.sweep() end
-    check(E.alive() == 8, "T10c : aucune bande finie : les brûleurs à sec restent (" .. E.alive() .. ")")
+    check(E.alive() == 8, "T10c : aucune bande qui produit : les brûleurs à sec restent (" .. E.alive() .. ")")
     E.restore()
     -- T10e (variante B') : bande du champ en chantier, mais une bande FINIE du même minerai sur un autre gisement : les brûleurs à sec partent
-    E = setup({ working = 1 })
+    E = setup({ working = 1, furnaces = { n = 4, products = 0 } }) -- (la bande de ce gisement n'a rien produit)
     for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "chantier" end
     E.ms.fields[2] = { id = 2, kind = E.o.kind, pos = { x = 20000, y = 20000 }, field = true, drill_list = {}, sinks = {}, drills = 0,
       box = { 19990, 19990, 20010, 20010 } }
     E.ms.o[2] = { stage = "veille", fails = 0, noop = 0, done = 1, produced = 1, retry = 0, frame = { axis = "x" }, order = {}, done_pr = {} }
     local id2 = E.Build.request(E.f, { site = "champ", champ = { oid = 2, pr = 1, frame = {} } })
     local p2 = E.f.build.projects[id2]
-    p2.state, p2.ents = "fini", {}
+    p2.state, p2.ents = "chantier", { { name = T.outposts.iron.sink, x = 9900, y = 9000, built = true } } -- (elle fond : état au plan ignoré)
+    E.tfurn["9900,9000"] = { valid = true, products_finished = 40, status = 1 }
     E.f.build.order[#E.f.build.order + 1] = id2
     for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
     for _ = 1, nmin + 2 do E.sweep() end
@@ -1720,13 +1731,14 @@ do
     { "crédit de la migration oublié", mut("o.migr_credit = (o.migr_credit or 0) + removed", "local _ = 0") },
     { "foreuse à l'arrêt comptée en marche", mut("if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end", "if de and de.valid then n = n + 1 end") },
     -- lot THERMIQUE5
-    { "bande en chantier comptée (priorité 0)", mut("p.spec.champ.oid == oid and Th.band_covers(p.state, made >= CFG.produce_min) then", "p.spec.champ.oid == oid then") },
+    { "bande qui ne produit pas comptée (P0, THERMIQUE7)", mut("if mine and Th.band_covers(p.state, made >= CFG.produce_min, live) then", "if mine then") },
     { "règle B : bande finie non exigée", mut("and done_res[fl.res] and (fl.pairs or 0) > (fl.fueled or 0)", "and (fl.pairs or 0) > (fl.fueled or 0)") },
     { "règle B : bande en projet ignorée", mut("(not st or st.stage ~= \"projet\") and done_res", "done_res") },
     { "règle B : date jamais remise à zéro", mut("  ms.dry = dry\n", "  for _, k in ipairs(State.sorted_keys(ms.dry or {})) do dry[k] = dry[k] or ms.dry[k] end\n  ms.dry = dry\n") },
     { "règle B : protection de la centrale ignorée", mut("local prot = not ctx.critical[fl.res] or (Th.cut_ok(fl, fields, 0, ctx))", "local prot = true") },
-    { "bloquée sans produit comptée (THERMIQUE6)", mut("Th.band_covers(p.state, made >= CFG.produce_min)", "Th.band_covers(p.state, true)") },
-    { "sortie pleine sans production comptée (THERMIQUE6)", mut("Th.drill_counts(status_name(de.status), live)", "Th.drill_counts(status_name(de.status), true)") },
+    { "jamais produit compté (THERMIQUE7)", mut("Th.band_covers(p.state, made >= CFG.produce_min, live)", "Th.band_covers(p.state, true, live)") },
+    { "à l'arrêt compté (THERMIQUE7)", mut("Th.band_covers(p.state, made >= CFG.produce_min, live)", "Th.band_covers(p.state, made >= CFG.produce_min, true)") },
+    -- (lot THERMIQUE7 : « sortie pleine sans production comptée » retiré : mutant ÉQUIVALENT, une bande ne couvre que si elle produit, live est vrai)
     { "four en marche ignoré (THERMIQUE6)", mut("if fe.status == defines.entity_status.working then live = true end", "") },
     { "sortie pleine ignorée", mut("if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end", "if de and de.valid and de.status == 1 then n = n + 1 end") },
     { "brûleurs à sec comptés", mut("pairs = n, fueled = nf,", "pairs = n, fueled = n,") },

@@ -97,12 +97,15 @@ end
 --- balayées « 14 foreuses en marche » alors que la bande était EN CHANTIER, puis 20 fours sur 23 sans combustible et 14 foreuses figées à
 --- 57 min) : l'amorce d'une bande suffit à faire tourner ses premières foreuses. Les foreuses d'une bande ne comptent pour « couvert » que si
 --- son projet est FINI au plan directeur (`state` : état du projet, p.state). Rend vrai/faux.
-function M.band_covers(state, made_ok, cfg)
+--- Lot THERMIQUE7 (essai 4, GO du lead 3/11 18 h) : les bandes n'atteignent pas l'état « fini » au plan, ou ne le gardent pas (e3-lot
+--- 271828182 : joueur, 5 bandes en chantier et 0 finie à 149 min, alors que ses électriques tournent). Une bande est jugée à sa PRODUCTION,
+--- quel que soit son état : elle couvre si ses fours ont produit (`made_ok` : made_by >= produce_min) ET si elle produit EN CE MOMENT (`live` :
+--- un four en marche ; bande à coffres : 2 foreuses en marche). Une bande qui n'a jamais produit ne couvre rien (P0 : pas de retrait avant que
+--- la bande remplaçante fonde). Éteint (cfg.cover_by_output faux) : la règle de P0, bande « fini » seulement. Rend vrai/faux.
+function M.band_covers(state, made_ok, live, cfg)
   cfg = cfg_of(cfg)
-  if state == "fini" then return true end
-  -- lot THERMIQUE6 (essai 3, GO du lead 3/11) : une bande BLOQUÉE (fantôme refusé) laissée au plan n'est jamais « fini » ; elle couvre si ses
-  -- fours ont produit (`made_ok` : made_by >= produce_min ; p0-lot 271828182 : Émeraude AP4 12 brûleurs et Azure cuivre 11 gardés sinon)
-  return cfg.cover_by_output == true and state == "bloque" and made_ok == true
+  if cfg.cover_by_output ~= true then return state == "fini" end
+  return made_ok == true and live == true
 end
 
 --- Lot THERMIQUE6, règle B (GO du lead, 3/11 ; plainte du DC : « 35 foreuses thermiques qui ne sont plus alimentées ») : un brûleur À SEC

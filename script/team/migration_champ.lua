@@ -464,10 +464,13 @@ local function working_of(f, surface, oid)
     -- (lot THERMIQUE5, priorité 0 : seule une bande FINIE au plan couvre, Th.band_covers ; avant, toute bande comptait ses foreuses posées et en
     -- marche, et l'amorce d'une bande en chantier faisait balayer les dernières paires : Scarlet, INTEG-0643N)
     -- (lot THERMIQUE6, essai 3 : une bande bloquée dont les fours ont produit couvre aussi ; la sortie pleine ne compte que si elle produit)
+    -- (lot THERMIQUE7, essai 4 : toute bande est jugée à sa PRODUCTION, quel que soit son état au plan, Th.band_covers ; elle compte aussi comme
+    -- « finie » pour la règle B ; une bande qui n'a jamais produit ne couvre rien)
+    local mine = p and p.spec and p.spec.champ and p.spec.champ.oid == oid and not p.spec.champ.coal
     local made, live = 0, false
-    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and (p.state == "fini" or p.state == "bloque") then made, live = made_by(f, surface, p) end
-    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state, false) then nfini = nfini + 1 end -- (règle B : bande FINIE)
-    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state, made >= CFG.produce_min) then
+    if mine then made, live = made_by(f, surface, p) end
+    if mine and Th.band_covers(p.state, made >= CFG.produce_min, live) then
+      nfini = nfini + 1 -- (règle B : bande qui produit)
       for _, e in ipairs(p.ents or {}) do
         if e.built and e.role == "champ-foreuse" then
           local de = surface.find_entity(e.name, { e.x, e.y })
@@ -1096,7 +1099,7 @@ local function sweep(f, surface, ms, free, book, tick)
         local before = {}
         for i, q in ipairs(owners) do before[i] = q.drills or 0 end
         local removed, got = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
-        for i, q in ipairs(owners) do q.drills = before[i]; purge_recon(f, q) end
+        for i, q in ipairs(owners) do q.drills = (before)[i]; purge_recon(f, q) end -- (comptabilité inchangée, comme le balayage)
         ms.retired = (ms.retired or 0) + removed
         ms.dry_retired = (ms.dry_retired or 0) + removed
         swept = swept + removed
