@@ -390,6 +390,13 @@ function P.size(name, dir)
   return M.size(name, dir or 0)
 end
 
+--- Lot COURANT3 (champ-longue 20261020, Scarlet : île de 68 machines coupée plus de 30 min) : un poteau d'un AUTRE projet sert-il de relais à une
+--- chaîne de raccordement ? Ceux d'un projet fini, oui ; ceux d'un projet pas fini seulement s'ils sont déjà BÂTIS. Un poteau seulement prévu ne relie
+--- rien : la chaîne qui le traversait sortait vide (« aucun poteau à poser »), le raccord était refusé et l'île attendait R.RETRY_AFTER.
+function P.relay_pole(state, built)
+  return state == "fini" or built == true
+end
+
 function P.wire(name)
   local x = EXTRA[name]
   if x and x.wire then return x.wire end
