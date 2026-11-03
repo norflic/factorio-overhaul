@@ -61,7 +61,7 @@ local function disc(cx, cy, r)
   return out
 end
 
-local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked, margin)
+local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked, amorce)
   local s = ctx.surface()
   local st = ctx.state()
   local flat = put_ore(s, ore, disc(cx, cy, 12), 50000)
@@ -71,10 +71,7 @@ local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked, 
     inserter = d.inserter, target = { x = cx - 500, y = cy }, max_side = 8, design = "colonne",
     coal = { tiles = coal, rate = d.coal_rate },
     logistics = { splitter = logistics, underground = logistics and d.ug or nil } }
-  local m0 = Co.COAL_MARGIN
-  Co.COAL_MARGIN = margin or m0
   local plan, why = Ch.plan(spec)
-  Co.COAL_MARGIN = m0
   ctx.check(plan ~= nil, key .. " : plan rendu", tostring(why))
   if not plan then return end
   local rep = Cv.verify(plan, spec)
@@ -88,6 +85,8 @@ local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked, 
   for _, e in ipairs(plan.ents) do
     local ent = s.create_entity({ name = NAMES[e.kind], position = { e.x, e.y }, direction = e.dir, force = "player", type = e.ug })
     if ent then
+      -- (essai 2, 3/11) le chantier pose chaque four garni de 5 charbons, une fois (script/team/champ.lua, Champ.CFG.amorce)
+      if amorce and e.kind == "four" then ent.insert({ name = "coal", count = amorce }) end
       made[#made + 1] = { ent = ent, kind = e.kind, role = e.role, band = e.band, group = e.group }
     else
       failed = failed + 1
@@ -215,10 +214,11 @@ return {
       for y = Y0 + 40, Y0 + 240 do water[#water + 1] = { name = "water", position = { x, y } }; blocked[Ch.key(x, y)] = true end
     end
     s.set_tiles(water)
-    place(ctx, "voie", "iron-ore", "iron-plate", X0, Y0, { X0 + 45, Y0 - 45 }, false, nil)
-    place(ctx, "logistique", "copper-ore", "copper-plate", X0, Y0 + 140, { X0 + 58, Y0 + 140 }, true, blocked)
-    -- diagnostic (3/11) : la géométrie de « voie », ligne de charbon doublée (Co.COAL_MARGIN = 2) : l'amorçage des fours est-il en cause ?
-    place(ctx, "marge", "iron-ore", "iron-plate", X0, Y0 + 330, { X0 + 45, Y0 + 285 }, false, nil, 2)
+    place(ctx, "voie", "iron-ore", "iron-plate", X0, Y0, { X0 + 45, Y0 - 45 }, false, nil, 5)
+    place(ctx, "logistique", "copper-ore", "copper-plate", X0, Y0 + 140, { X0 + 58, Y0 + 140 }, true, blocked, 5)
+    -- (essai 2) la géométrie de « voie » aux conditions d'origine de CRITERES.md (aucun charbon posé dans les fours) : ce qui reste du
+    -- remplissage sans l'amorce du chantier, dit tel quel
+    place(ctx, "sans-amorce", "iron-ore", "iron-plate", X0, Y0 + 330, { X0 + 45, Y0 + 285 }, false, nil, nil)
     -- H-FONDERIE-1 : fantôme d'un souterrain posé avec type = "output", ravivé
     local gh = s.create_entity({ name = "entity-ghost", inner_name = NAMES.souterrain, position = { X0 - 200.5, Y0 - 100.5 }, direction = 2,
       force = "player", type = "output", expires = false })
@@ -232,18 +232,18 @@ return {
   end,
 
   tick = function(ctx, e)
-    if e.tick == 2 then for _, k in ipairs({ "voie", "logistique", "marge" }) do diag(ctx, k, 2) end end
+    if e.tick == 2 then for _, k in ipairs({ "voie", "logistique", "sans-amorce" }) do diag(ctx, k, 2) end end
     if e.tick == T1 then
       local st = ctx.state()
-      st.t1 = { voie = sample(ctx, "voie"), logistique = sample(ctx, "logistique"), marge = sample(ctx, "marge") }
-      for _, k in ipairs({ "voie", "logistique", "marge" }) do diag(ctx, k, T1) end
+      st.t1 = { voie = sample(ctx, "voie"), logistique = sample(ctx, "logistique"), ["sans-amorce"] = sample(ctx, "sans-amorce") }
+      for _, k in ipairs({ "voie", "logistique", "sans-amorce" }) do diag(ctx, k, T1) end
     end
   end,
 
   finish = function(ctx)
     local st = ctx.state()
-    for _, k in ipairs({ "voie", "logistique", "marge" }) do diag(ctx, k, 12600) end
-    for _, key in ipairs({ "voie", "logistique", "marge" }) do
+    for _, k in ipairs({ "voie", "logistique", "sans-amorce" }) do diag(ctx, k, 12600) end
+    for _, key in ipairs({ "voie", "logistique", "sans-amorce" }) do
       local r, a = st[key], st.t1 and st.t1[key]
       local b = sample(ctx, key)
       if r and a and b then
@@ -289,7 +289,9 @@ return {
         ctx.check(mined > 0 and plates >= 0.9 * mined, key .. " : C3 plaques au quai >= minerai extrait x 0,9", plates .. " / " .. mined)
         ctx.check(fuelchests == 0, key .. " : C4 aucun coffre de combustible a garnir", tostring(fuelchests))
         if r.logistics then
-          ctx.check(ug >= 2 and ug_paired == ug and sp >= 1, key .. " : C5 souterrains lies sous la riviere, repartiteurs poses",
+          -- (essai 2, CHANGÉ et dit au rapport) répartiteurs débloqués mais NON posés sur le tronc : la cascade 50/50 affamait les dernières
+          -- colonnes (banc-2) ; « répartiteurs >= 1 » est retiré, les souterrains restent exigés
+          ctx.check(ug >= 2 and ug_paired == ug and sp == 0, key .. " : C5 souterrains lies sous la riviere (repartiteurs non poses sur le tronc)",
             ug .. " souterrains, " .. ug_paired .. " lies, " .. sp .. " repartiteurs")
         else
           ctx.check(ug == 0 and sp == 0, key .. " : C5 ni souterrain ni repartiteur sans la recherche", ug .. " / " .. sp)

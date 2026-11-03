@@ -39,7 +39,10 @@ Co.UG_COST = 3         -- surcoût d'une paire de souterrains (préférés seule
 Co.ROUTE_CAP = 120000  -- états développés au plus par tracé
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
-Co.COAL_MARGIN = 1     -- foreuses de charbon voulues = charbon brûlé × marge ÷ débit d'une foreuse (banc fonderie-banc : cas « marge »)
+Co.COAL_MARGIN = 1.25  -- la ligne extrait au moins 1,25 × le charbon brûlé (banc fonderie-banc, 3/11)
+-- (banc-2, 3/11, mesuré colonne par colonne) une ligne au plus juste laisse les DERNIÈRES colonnes du tronc sans charbon tant que les
+-- dérivations d'amont prennent plus que leur besoin pour remplir leurs voies : la ligne couvre donc ce que les dérivations PEUVENT
+-- prendre, (colonnes - 1) × débit d'un bras sur tapis + le besoin de la dernière (servie par le bout du tronc)
 
 local D4 = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } } -- N, E, S, O
 local function didx(du, dv) for i, d in ipairs(D4) do if d[1] == du and d[2] == dv then return i end end return nil end
@@ -518,7 +521,12 @@ function Co.network(cols, side, env)
   end
   local vmin, vmax = cols[1].b - sf, cols[#cols].b - sf
   local vmid = math.floor((vmin + vmax) / 2)
-  local want = math.max(1, math.ceil(res.need * Co.COAL_MARGIN / coal.rate - 1e-9))
+  local cap = (env.inserter_rate or 0.83) * Co.PICKUP
+  local maxn = 0
+  for _, c in ipairs(cols) do maxn = math.max(maxn, c.need or 0) end
+  local supply = res.need * Co.COAL_MARGIN
+  if not env.split then supply = math.max(supply, (#cols - 1) * cap + maxn) end
+  local want = math.max(1, math.ceil(supply / coal.rate - 1e-9))
   local line = Co.coal_line(coal.tiles, coal.is_coal, function(u, v) return env.free(u, v) and not env.forbid(u, v) end,
     env.drill, want, { u = base + 2 * side, v = vmid }, env.pole.reach, env.pole.wire, env.lane_drills)
   if not line then res.why = "aucune ligne de foreuses sur le charbon" return res end
@@ -549,10 +557,13 @@ function Co.network(cols, side, env)
   table.sort(keep, function(a, b) if dv > 0 then return a.b < b.b end return a.b > b.b end)
   -- ce que la ligne extrait nourrit les premières colonnes du tronc ; les suivantes gardent le coffre de tête (jamais un four sans
   -- charbon en bout de tronc parce que la ligne est trop courte)
+  -- colonnes servies : le plus long début du tronc tel que (k - 1) dérivations au plafond d'un bras + le besoin de la k-ième (la dernière,
+  -- servie par le bout du tronc) tiennent dans ce que la ligne extrait (avec répartiteurs : la somme des besoins)
   local capa, cum, fed = line.drills * coal.rate, 0, {}
-  for _, c in ipairs(keep) do
-    if cum + (c.need or 0) > capa + 1e-9 then break end
+  for i, c in ipairs(keep) do
     cum = cum + (c.need or 0)
+    local intake = env.split and cum or ((i - 1) * cap + (c.need or 0))
+    if intake > capa + 1e-9 or cum > capa + 1e-9 then break end
     fed[#fed + 1] = c
   end
   if #fed == 0 then res.why = string.format("charbon insuffisant (%d foreuse(s), %.2f/s)", line.drills, capa) return res end

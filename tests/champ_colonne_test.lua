@@ -193,6 +193,10 @@ local function judge(name, sp, p, o)
       local cd = count(p, function(e) return e.kind == "foreuse" and e.role == "charbon" end)
       check(cd * sp.coal.rate + 1e-9 >= p.stats.furnaces * sp.furnace.fuel_rate,
         string.format("%s : charbon extrait %.2f/s >= brûlé %.2f/s", name, cd * sp.coal.rate, p.stats.furnaces * sp.furnace.fuel_rate))
+      -- aucune colonne affamée pendant le remplissage : l'extrait couvre ce que les bras de dérivation peuvent prendre (relu ici)
+      local nb = count(p, function(e) return e.kind == "bras" and e.role == "charbon" end)
+      check(cd * sp.coal.rate + 1e-9 >= nb * sp.inserter.rate * 0.85,
+        string.format("%s : charbon extrait %.2f/s >= prise des %d bras de dérivation %.2f/s", name, cd * sp.coal.rate, nb, nb * sp.inserter.rate * 0.85))
     end
   else
     check(fuel_chests <= cols, string.format("%s : au plus un coffre de combustible par colonne (%d colonnes, %d coffres)", name, cols, fuel_chests))
@@ -200,7 +204,7 @@ local function judge(name, sp, p, o)
   if not sp.logistics.underground then check(n_ug == 0, name .. " : aucun souterrain sans la recherche (" .. n_ug .. ")") end
   if not sp.logistics.splitter then check(n_sp == 0, name .. " : aucun répartiteur sans la recherche (" .. n_sp .. ")") end
   if o.want_ug then check(n_ug >= 2, name .. " : souterrains utilisés (" .. n_ug .. ")") end
-  if o.want_split then check(n_sp >= 1, name .. " : répartiteurs utilisés (" .. n_sp .. ")") end
+  if o.no_split then check(n_sp == 0, name .. " : répartiteurs débloqués mais pas sur le tronc (" .. n_sp .. ")") end
   -- quai : bras de quai × débit d'un bras sur tapis ≥ plaques de la colonne (relu ici sur les entités, pas sur la règle)
   local short = 0
   local per = {}
@@ -242,8 +246,10 @@ local plans = {}
 do
   local cases = {
     { "disque, charbon proche, sans logistique", { coal = COAL_NEAR }, { voie = true } },
-    { "disque, répartiteurs", { coal = COAL_NEAR, split = true }, { voie = true, want_split = true } },
-    { "disque, répartiteurs et souterrains", { coal = COAL_NEAR, split = true, ug = 5 }, { voie = true, want_split = true } },
+    -- répartiteurs débloqués mais NON posés sur le tronc (banc-2, 3/11 : la cascade 50/50 laisse les dernières colonnes sans charbon
+    -- pendant le remplissage des tampons d'amont ; le bras de dérivation borne la prise de chaque colonne)
+    { "disque, répartiteurs", { coal = COAL_NEAR, split = true }, { voie = true, no_split = true } },
+    { "disque, répartiteurs et souterrains", { coal = COAL_NEAR, split = true, ug = 5 }, { voie = true, no_split = true } },
     { "disque, poteaux moyens", { coal = COAL_NEAR, pole = "moyen" }, { voie = true } },
     { "disque, sans charbon (coffre de tête)", {}, {} },
   }
@@ -417,7 +423,8 @@ do
     end, function(r) return r.no_coal > 0 end },
     { "bras de dérivation retiré", voie, function(l) drop_first(l, function(e) return e.kind == "bras" and e.role == "charbon" end) end,
       function(r) return r.no_coal > 0 or r.unpowered > 0 end },
-    { "répartiteur retiré", split, function(l) drop_first(l, function(e) return e.kind == "repartiteur" end) end, function(r) return r.no_coal > 0 end },
+    { "bras de dérivation retiré (répartiteurs débloqués)", split, function(l) drop_first(l, function(e) return e.kind == "bras" and e.role == "charbon" end) end,
+      function(r) return r.no_coal > 0 or r.unpowered > 0 end },
     { "tête droite (minerai sur les deux voies, charbon mêlé)", voie, function(l)
       for _, e in ipairs(l) do if e.role == "tete" then e.kind = "foreuse_absente" end end
       for _, e in ipairs(l) do if e.kind == "foreuse_absente" then e.kind = "rien" end end

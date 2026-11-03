@@ -526,7 +526,10 @@ function Ch.plan(spec)
           local env = {
             free = c.free, coal = { tiles = coal_list, is_coal = function(u, v) return coal_set[Co.tk(u, v)] == true end, rate = co and co.rate },
             forbid = function(u, v) return u >= zone.u0 - 1 and u <= zone.u1 + 1 and v >= zone.v0 - 1 and v <= zone.v1 + 1 end,
-            drill = d, pole = spec.pole, ug = lg.underground, split = lg.splitter and true or false, ugs = ugs, box = zone,
+            -- (banc-2, 3/11) pas de répartiteur sur le tronc même débloqué : la cascade 50/50 n'a pas de plafond par colonne, les dernières
+            -- attendent que les tampons d'amont se remplissent (mesuré : 12, 6, 4 et 4 fours garnis le long du tronc) ; le bras de
+            -- dérivation, lui, borne la prise de chaque colonne. Les souterrains restent (passer sous un obstacle).
+            drill = d, pole = spec.pole, ug = lg.underground, split = false, ugs = ugs, box = zone,
             inserter_rate = spec.inserter and spec.inserter.rate,
             lane_drills = co and co.rate and Ch.lane_drills(spec.belts[1].lane, co.rate) or nil,
             bridge = function(poles, free)
@@ -649,6 +652,7 @@ function Ch.plan(spec)
   elseif spec.design and not F then frame.design = "coffres" end -- cadre neuf sans four (charbon, pierre) : distinct d'un cadre d'avant le lot
   return {
     axis = axis, exit = exit, phase = phase, pitch = pitch, ents = ents, bands = out_bands, design = colonne and "colonne" or nil,
+    fuelled = fuelled or nil,
     frame = frame,
     stats = { tiles = #c.list, drills = n.foreuse, poles = n.poteau, belts = n.tapis, furnaces = n.four, inserters = n.bras,
       chests = n.coffre, capped = capped, flow = flow_all, capacity = cap_all, umin = umin, umax = umax, no_smelter = no_smelter,

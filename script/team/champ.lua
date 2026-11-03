@@ -46,6 +46,8 @@ Champ.CFG = {
   coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
   route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
+  amorce = 5,       -- charbon posé avec chaque four d'une colonne (une fois) : la limite d'insertion d'un bras (mesurée, banc-2) ; sans elle,
+                    -- les fours se garnissent un à un depuis la tête et la queue attend plusieurs minutes
 }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
@@ -405,6 +407,7 @@ local function named(plan, names)
       -- voie de charbon est pleine ne comptent pas parmi les foreuses figées du champ ([FO-CHAMP-ETAT])
       if e.role == "charbon" and e.kind ~= "coffre" then role = "champ-charbon" end
       local ent = { name = name, x = e.x, y = e.y, dir = e.dir, role = role, type = e.ug }
+      if e.kind == "four" and design == "colonne" and plan.fuelled then ent.charge = { item = names.fuel, count = Champ.CFG.amorce } end
       if e.kind == "coffre" and e.role == "combustible" then
         -- coffre de tête d'une colonne (lot FONDERIE) : un seul pour toute la colonne, posé mieux garni
         ent.charge = { item = names.fuel, count = (design == "colonne") and Champ.CFG.charge_tete or Champ.CFG.charge }
