@@ -240,7 +240,7 @@ do
     return nil
   end
   local n0 = #REQ
-  b.raccord.tries["u5:1"], b.raccord.open["u5:1"] = nil, nil
+  b.raccord.tries["u5:1"], b.raccord.open["u5:1"], b.raccord.waited_lost["u5:1"] = nil, nil, nil -- (lot COURANT2 : l'attente derriere un poteau perdu est bornee)
   b.opts.no_coupure = true
   run(3 * (R.PERIOD + 100))
   check(#REQ == n0, "6.9 no_coupure : poteau perdu tenu par un ennemi, toujours laisse a [FO-RESEAU] (regle d'avant)")
@@ -258,12 +258,13 @@ end
 -- l'annonce perimee (plus de R.SECOND_WINDOW) ne vaut plus ; avec no_coupure, jamais
 do
   local n0 = #REQ
-  b.raccord.tries["u5:1"], b.raccord.open["u5:1"], b.raccord.last_try["u5:1"] = nil, nil, nil
+  b.raccord.tries["u5:1"], b.raccord.open["u5:1"], b.raccord.last_try["u5:1"], b.raccord.waited_lost["u5:1"] = nil, nil, nil, nil
   b.sante = { second_tick = tick - R.SECOND_WINDOW - 100 }
   run(3 * (R.PERIOD + 100))
   check(#REQ == n0, "6.13 annonce perimee : le poteau perdu retient toujours le raccordement")
   b.sante = { second_tick = tick }
   b.opts.no_coupure = true
+  b.raccord.waited_lost["u5:1"] = nil
   run(3 * (R.PERIOD + 100))
   check(#REQ == n0, "6.14 no_coupure : l'annonce est ignoree")
   b.opts.no_coupure = nil
@@ -272,6 +273,21 @@ do
   check(#REQ == n0 + 1 and REQ[#REQ].key == "u5:1" and REQ[#REQ].avoid == nil, "6.15 second chemin annonce : raccordement demande malgre le poteau perdu")
   b.sante = nil
   b.raccord.open["u5:1"] = nil
+end
+
+-- 6 quinquies. (lot COURANT2, revue du 3/11) un poteau perdu que [FO-RESEAU] ne rouvre pas (hors du chemin retenu, au-dela de CAND_MAX) ne retient
+-- plus le groupe pour toujours : apres R.WAIT_LOST relevés « laisser », le raccordement est decide comme sans perte
+do
+  local n0 = #REQ
+  local st5 = b.raccord
+  st5.tries["u5:1"], st5.open["u5:1"], st5.last_try["u5:1"], st5.waited_lost["u5:1"] = nil, nil, nil, nil
+  run((R.WAIT_LOST - 3) * (R.PERIOD + 100))
+  check(#REQ == n0 and (st5.waited_lost["u5:1"] or 0) > 0 and (st5.waited_lost["u5:1"] or 0) < R.WAIT_LOST,
+    "6.16 poteau perdu : laisse tant que l'attente n'est pas epuisee (" .. tostring(st5.waited_lost["u5:1"]) .. " sur " .. R.WAIT_LOST .. ")")
+  run(6 * (R.PERIOD + 100))
+  check(#REQ == n0 + 1 and REQ[#REQ].key == "u5:1", "6.17 attente derriere un poteau perdu epuisee : raccordement demande (" .. (#REQ - n0) .. ")")
+  check(st5.waited_lost["u5:1"] == R.WAIT_LOST and no_function(st5), "6.18 compteur borne a R.WAIT_LOST, etat sans fonction")
+  st5.open["u5:1"] = nil
 end
 
 -- 7. interrupteur d'essai
@@ -335,6 +351,35 @@ check(#r_w == 0 and logs_with("%[FO%-RACCORD%] fw : groupe .* attendre") >= 1, "
 local r_w2 = run_team(fw, true, 2)
 check(#r_w2 == 1 and r_w2[1].kind == "ile", "9.6 attente bornee : raccordement demande apres " .. R.WAIT_PENDING .. " releves (" .. #r_w2 .. ")")
 check(logs_with("%[FO%-RACCORD%] fw : groupe .* %(attente 3 sur 3%)") == 1, "9.7 la derniere attente est ecrite (3 sur 3)")
+
+-- 10. (lot COURANT2, revue du 3/11) plus de R.DECIDE groupes : la fenetre tournante decide chacun a son tour. Avant : les 6 premiers (ordre des
+--     cles) etaient seuls vus, un 7e groupe n'etait jamais decide ; les 8 groupes ci-dessous attendent (4 raccordements ouverts, jamais finis)
+do
+  local x0 = 5000
+  ent("steam-engine", "generator", x0, 900, 80, { w = 3, force = "fr" })
+  ent("medium-electric-pole", "electric-pole", x0 + 3, 900, 80, { force = "fr" })
+  local bb = { order = { 1 }, plant = 1, opts = {}, projects = { [1] = proj(1, "fini",
+    { { name = "steam-engine", x = x0, y = 900, built = true, part = 1 }, { name = "medium-electric-pole", x = x0 + 3, y = 900, built = true, part = 1 } },
+    { gen = "steam" }) } }
+  for k = 1, 8 do
+    local x, y = x0 + 20 * k, 940
+    ent("assembling-machine-1", "assembling-machine", x, y, nil, { w = 3, force = "fr" })
+    bb.projects[10 + k] = proj(10 + k, "fini", { { name = "assembling-machine-1", x = x, y = y, built = true, part = 1 } })
+    bb.order[#bb.order + 1] = 10 + k
+  end
+  local fr = { key = "fr", force = "fr", build = bb }
+  local reqs = run_team(fr, false, 14)
+  local seen_keys = {}
+  for _, l in ipairs(LOGS) do
+    local k = l:match("%[FO%-RACCORD%] fr : groupe (u%d+:%d+)")
+    if k then seen_keys[k] = true end
+  end
+  local n_seen = 0
+  for _ in pairs(seen_keys) do n_seen = n_seen + 1 end
+  check(n_seen == 8, "10.1 les 8 groupes sont decides a leur tour, pas seulement les 6 premiers (" .. n_seen .. ")")
+  check(#reqs == R.MAX_OPEN and no_function(bb.raccord), "10.2 R.MAX_OPEN raccordements ouverts (" .. #reqs .. "), etat sans fonction")
+  check(type(bb.raccord.rot) == "number", "10.3 le depart de la fenetre est memorise")
+end
 
 print(string.format("[RACCORD-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

@@ -23,12 +23,15 @@ local R = {}
 R.PERIOD = 3600          -- ticks entre deux débuts de relevé (1 min)
 R.UNITS_PER_PULSE = 1    -- parties de module relevées par passe de Build (Build.PULSE = 5 ticks)
 R.CONFIRM = 2            -- relevés de suite où le groupe est vu avant d'agir (une coupure d'un instant ne se raccorde pas)
-R.MAX_OPEN = 2           -- raccordements ouverts au plus par équipe
+R.MAX_OPEN = 4           -- raccordements ouverts au plus par équipe (lot COURANT2 : 2 avant ; un par relevé de toute façon, voir script/team/raccord.lua)
 R.MAX_TRIES = 3          -- raccordements tentés au plus pour un même groupe
 R.RETRY_AFTER = 30 * 3600 -- ticks : essais épuisés, un essai de plus après 30 min (le réseau a pu s'étendre ; jamais abandonné pour toujours)
 R.WAIT_PENDING = 3       -- (lot FONDERIE, 0.6.44) relevés « attendre » au plus derrière les poteaux pas encore bâtis d'un chantier voisin : ensuite
                          -- le raccordement est demandé quand même (champ-longue 20261020 : île d'une bande d'azure en attente de la minute 29 à 84,
                          -- derrière un chantier voisin arrêté)
+R.WAIT_LOST = 10         -- (lot COURANT2, revue du 3/11) relevés « laisser » au plus derrière un poteau PERDU à portée ([FO-RESEAU] ne rouvre que les poteaux du
+                         -- chemin retenu, au plus Rv.CAND_MAX candidats : un poteau perdu hors chemin retenait le groupe pour toujours) : ensuite le
+                         -- raccordement est décidé comme s'il n'y avait pas de poteau perdu
 R.LOST_NEAR = 32         -- tuiles : un poteau perdu (ou un poteau d'un chantier pas fini) à cette distance laisse la main
 R.MAX_DIST = 160         -- tuiles : au-delà, pas de chaîne (le graphe borné de la recherche de chemin n'y suffit plus)
 R.ENEMY_R = 28           -- tuiles : jamais de pose avec un ennemi à cette portée du départ
@@ -95,7 +98,9 @@ end
 --- Rend action ("relier" | "attendre" | "laisser"), raison.
 function R.decide(inp)
   if not inp.has_live then return "attendre", "aucun reseau alimente (la centrale d'abord : [FO-RESEAU])" end
-  if (inp.lost or 0) > 0 then return "laisser", string.format("%d poteau(x) perdu(s) a portee : [FO-RESEAU] les rouvre", inp.lost) end
+  if (inp.lost or 0) > 0 and (inp.waited_lost or 0) < R.WAIT_LOST then
+    return "laisser", string.format("%d poteau(x) perdu(s) a portee : [FO-RESEAU] les rouvre (au plus %d releves)", inp.lost, R.WAIT_LOST)
+  end
   if inp.open then return "attendre", "raccordement deja en cours" end
   if (inp.pending or 0) > 0 and (inp.waited or 0) < R.WAIT_PENDING then
     return "attendre", string.format("%d poteau(x) d'un chantier voisin pas encore bati(s) (attente %d sur %d)", inp.pending, (inp.waited or 0) + 1, R.WAIT_PENDING)
@@ -107,6 +112,21 @@ function R.decide(inp)
   if (inp.enemies or 0) > 0 then return "attendre", string.format("ennemi a moins de %d tuiles", R.ENEMY_R) end
   if (inp.open_total or 0) >= R.MAX_OPEN then return "attendre", string.format("%d raccordement(s) deja ouvert(s)", inp.open_total) end
   return "relier", "machines sans courant sans poteau perdu"
+end
+
+--- Fenêtre TOURNANTE des groupes décidés à un relevé (lot COURANT2, revue du 3/11 : `idx > DECIDE_MAX then break` sur des groupes triés par clé
+--- décidait toujours les mêmes ; un groupe « laisser » ou « attendre » gardait sa place et le 7e n'était jamais vu). n = nombre de groupes, rot = départ
+--- mémorisé (nil : 0), max = groupes décidés au plus. Rend la liste des indices (de 1 à n, dans l'ordre de la fenêtre) et la nouvelle valeur de
+--- `rot`. Jusqu'à `max` groupes : tous, dans l'ordre des clés, `rot` remis à 0 (comportement d'avant).
+function R.window(n, rot, max)
+  local idxs = {}
+  if n <= max then
+    for i = 1, n do idxs[i] = i end
+    return idxs, 0
+  end
+  local start = (rot or 0) % n
+  for i = 0, max - 1 do idxs[#idxs + 1] = (start + i) % n + 1 end
+  return idxs, (start + max) % n
 end
 
 --- Paire de bouts la plus courte : starts, targets = { { x, y, ... } } ; rend s, t, d (ou nil si aucune paire à max_dist au plus).

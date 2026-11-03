@@ -184,6 +184,9 @@ local MUT = {
   { "remplacement refuse non repris", 'if ns == nil or ns == "refuse" then return "rentrer"', 'if false then return "rentrer"' },
   { "calme sans compte", "not started and st.calm >= S.CALM_READS", "not started" },
   { "chantier abandonne", 'local started = ns ~= "attente" and ns ~= "plan" and ns ~= "reserve"', "local started = false" },
+  { "exemption des projets en attente sans limite", 'S.BUILD_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true }',
+    'S.BUILD_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true, attente = true, plan = true, reserve = true }' },
+  { "projet bloque sans reprise exempte", 'return state == "bloque" and retry_at ~= nil', 'return state == "bloque"' },
   { "ennemi ne remet pas le calme a zero", "if (info.enemies or 0) > 0 then st.calm = 0 else", "if false then else" },
 }
 local function battery(S2)
@@ -240,6 +243,10 @@ local function battery(S2)
   s3.seen, s3.site_losses, s3.tries = 9, 3, 2
   S2.applied(s3, "autre_site", 5)
   exp(s3.seen == 0 and s3.site_losses == 0 and s3.tries == 0)
+  -- lot COURANT2 : exemption d'un consommateur dans l'emprise d'un projet non fini, bornee aux projets dont le chantier pose des machines
+  for _, st in ipairs({ "defrichage", "fantomes", "chantier", "raccordement" }) do exp(S2.exempts(st, nil) == true) end
+  for _, st in ipairs({ "attente", "plan", "reserve", "fini", "refuse" }) do exp(S2.exempts(st, nil) == false) end
+  exp(S2.exempts("bloque", nil) == false and S2.exempts("bloque", 5000) == true)
   return bad
 end
 check(battery(S) == 0, "la batterie des mutants passe sur le code vrai")

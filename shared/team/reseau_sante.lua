@@ -121,6 +121,18 @@ function S.note_loss(st, n)
   st.site_losses = st.site_losses + (n or 1)
 end
 
+-- Lot COURANT2 (revue du 3/11, risque 3) : états d'un projet NON fini dont le chantier pose réellement ses machines. Un consommateur dans
+-- l'emprise d'un tel projet n'est pas compté « sans courant » (ses poteaux ne sont pas forcément posés). Un projet « attente », « plan »,
+-- « reserve » ou « bloque » sans reprise ne pose rien : l'exempter sans limite de durée cachait pour toujours une machine sans courant.
+S.BUILD_STATES = { defrichage = true, fantomes = true, chantier = true, raccordement = true }
+
+--- Vrai si un consommateur dans l'emprise d'un projet à l'état `state` est exempté du relevé des îlots. retry_at : « bloque » avec reprise prévue.
+function S.exempts(state, retry_at)
+  if state == "fini" or state == "refuse" then return false end
+  if S.BUILD_STATES[state] then return true end
+  return state == "bloque" and retry_at ~= nil
+end
+
 --- La production est revenue : les essais sur place sont soldés.
 function S.recovered(st)
   st.tries, st.bad = 0, 0

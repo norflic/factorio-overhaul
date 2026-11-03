@@ -128,7 +128,7 @@ end
 local function in_construction(b, x, y)
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
-    if q and q.state ~= "fini" and q.state ~= "refuse" then
+    if q and S.exempts(q.state, q.retry_at) then -- lot COURANT2 : seulement un projet dont le chantier avance (états de pose, ou reprise prévue)
       for k = 1, 16 do
         local pt = q.parts and q.parts[k]
         if pt and pt.ox and x >= pt.ox - 3 and x <= pt.ox + (pt.w or 0) + 3 and y >= pt.oy - 3 and y <= pt.oy + (pt.h or 0) + 3 then
