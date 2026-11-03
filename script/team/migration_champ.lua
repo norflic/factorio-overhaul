@@ -481,7 +481,7 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   -- la première bande en voie de ce côté, à la priorité d'une alimentation : aucune bande n'attend des centaines de pièces qui ne sont pas
   -- les siennes (lot3-20261020 : 1 161 entités pour une bande, « en attente (matières) » jusqu'à la fin)
   st.coal_req = st.coal_req or {}
-  for _, bo in ipairs(bd.plan.bands or {}) do
+  for _, bo in ipairs(Champ.CFG.coal_project and bd.plan.bands or {}) do
     for _, g in ipairs(bo.groups or {}) do
       local sk = tostring(g.side)
       local old = st.coal_req[sk]

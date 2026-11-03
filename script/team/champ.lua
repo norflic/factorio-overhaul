@@ -47,6 +47,11 @@ Champ.CFG = {
                     -- tuiles faisaient attendre les bandes ; le tracé est désormais plafonné, Co.ROUTE_MAX)
   coal_prio = 52,   -- priorité du projet « réseau du charbon » d'un côté du champ : celle des bandes (Mg.CFG.prio). À 80 (alimentation d'une
                     -- centrale, lot4-20261020), emerald était en retard dès 30 min (14 fours sur 59, 2 735 plaques qui dorment, 10 PNJ contre 18)
+  -- (3/11, lot4 et lot5 : 6 projets séparés du réseau du charbon sur 24 jamais finis : bande refusée après la demande du réseau, matières jamais
+  -- réunies, tâches jamais prises ; leurs bandes, finies, restaient sans charbon) : le réseau du charbon est posé par la PREMIÈRE BANDE de son
+  -- côté, dans son projet (une bande ne produit pas sans lui ; la migration attend ses plaques). Taille bornée : charbon à coal_r tuiles au plus,
+  -- tracé à Co.ROUTE_MAX. Vrai : projet séparé (code gardé, éteint).
+  coal_project = false,
   coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
   route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
@@ -420,7 +425,7 @@ local function named(plan, names, coal_side)
     local name
     -- (projet séparé) la bande ne porte pas les pièces communes du réseau du charbon ; le projet du réseau ne porte qu'elles
     local skip
-    if coal_side then skip = e.coalnet ~= coal_side else skip = e.coalnet ~= nil end
+    if coal_side then skip = e.coalnet ~= coal_side else skip = Champ.CFG.coal_project and e.coalnet ~= nil end
     if skip then goto continue end
     if e.kind == "foreuse" then name = names.drill
     elseif e.kind == "tapis" then name = names.belts[e.belt or 1]

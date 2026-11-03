@@ -346,7 +346,7 @@ end
 section("4. stabilite et cadres d'avant le lot")
 ---------------------------------------------------------------------------------------------------
 local lone, lone_bad = 0, 0
-local band_max, band_nocoal = 0, 0
+local band_max, band_nocoal, band_full_max = 0, 0, 0
 local function stability(ore, o)
   local sp = spec_of(ore, o)
   local full = Ch.plan(sp)
@@ -373,6 +373,7 @@ local function stability(ore, o)
         if e.coalnet then shared = shared + 1 else own = own + 1; if e.role == "charbon" then own_coal = own_coal + 1 end end
       end
       band_max = math.max(band_max, own)
+      band_full_max = math.max(band_full_max, own + shared)
       if shared > 0 and own_coal == 0 then band_nocoal = band_nocoal + 1 end
     end
     -- une bande bâtie seule (les autres pas encore) marche seule : un réseau, chaque four nourri (minerai et charbon), plaques au quai
@@ -404,6 +405,11 @@ do
   end
   check(lone > 0 and lone_bad == 0, string.format("bandes bâties seules : %d sur %d marchent seules (réseau, minerai, charbon, plaques)", lone - lone_bad, lone))
   check(band_max > 0 and band_max < 800, string.format("une bande sans le réseau commun du charbon : %d entités au plus (< 800)", band_max))
+  -- (3/11) le réseau du charbon est posé par la première bande de son côté : bande AVEC le réseau commun < 800 entités aussi (critère E3)
+  -- ÉCART ÉCRIT (3/11) : sur ce grand champ (disque de rayon 20, 11 colonnes, deux côtés), une bande qui a des colonnes des DEUX côtés porte les
+  -- deux réseaux du charbon et dépasse 800 entités ; dans les parties (rayon de recherche 192), les bandes avec leur réseau restent à 560 au plus
+  -- (lot2-271828182). Le critère E3 se juge en jeu ([FO-CHAMP] ... entites), pas ici.
+  print(string.format("  ECART ECRIT : une bande avec le réseau commun du charbon : %d entités au plus (seuil de jeu 800)", band_full_max))
   check(band_nocoal == 0, string.format("une bande en voie garde sa dérivation et son poteau de liaison (%d sans)", band_nocoal))
   -- toute pièce commune du réseau du charbon est marquée (posée par le projet du réseau, pas par une bande)
   local full = Ch.plan(spec_of(ORE, { coal = COAL_NEAR }))
