@@ -2,6 +2,24 @@
  "arguments": [],
  "commande": "py -3.9 tools/render/pieces/experimentaux/feuilles_xp.py   (depuis la racine du mod ; sources : fo-logs/2026-10-31_ROBOTS/experimentaux/final/sprites, à GARDER)",
  "fichiers": {
+  "cairn-lueur.png": {
+   "hauteur": 804,
+   "largeur": 768,
+   "sha256": "5cefe9f3a88af5943f4c98b4ba3652a48442ef995e1d897bb53622a9139f8810",
+   "taille": 291999
+  },
+  "cairn-ombre.png": {
+   "hauteur": 662,
+   "largeur": 891,
+   "sha256": "bfab418d4f93308c83adf8d8d0b22e4b32e4c2b4a3919cc8b8f331f738ef04fc",
+   "taille": 53800
+  },
+  "cairn.png": {
+   "hauteur": 804,
+   "largeur": 768,
+   "sha256": "e0d1c88359985374d4654fbc15480e7596bf91b26d548e119ce50ff43c1fc5dc",
+   "taille": 761969
+  },
   "demi-vie-hublots.png": {
    "hauteur": 65,
    "largeur": 150,
@@ -50,6 +68,24 @@
    "sha256": "7a608fbb8f6657a81a69df27035eb34f94162384b4cba36a0bf60bb31805db95",
    "taille": 80532
   },
+  "hr-cairn-lueur.png": {
+   "hauteur": 1609,
+   "largeur": 1537,
+   "sha256": "4850839530153623989c54513b92d1c09dbbe4080f1d2b7ed83058d4541c1322",
+   "taille": 787033
+  },
+  "hr-cairn-ombre.png": {
+   "hauteur": 1323,
+   "largeur": 1782,
+   "sha256": "c14176b0e8fdc9bbde8ab66c28ce91dd98a55969d538558aecb508c43ddd99e5",
+   "taille": 171167
+  },
+  "hr-cairn.png": {
+   "hauteur": 1609,
+   "largeur": 1537,
+   "sha256": "583083e4909c15339a0ca09975ab1dfbf96eeaf241a111f567fe681f9694f3a7",
+   "taille": 2369417
+  },
   "hr-demi-vie-hublots.png": {
    "hauteur": 194,
    "largeur": 450,
@@ -97,6 +133,24 @@
    "largeur": 866,
    "sha256": "ee9b27b7ae2abd57baae1e420ec604a8aacd090b44028ba37637d2786a5b0f0b",
    "taille": 434645
+  },
+  "hr-ixion-lueur.png": {
+   "hauteur": 1507,
+   "largeur": 1354,
+   "sha256": "0235df20461d1fdc12fe51ca0f70bd3e76b5a837daf9e25ca35c1b73c793a8c7",
+   "taille": 1363585
+  },
+  "hr-ixion-ombre.png": {
+   "hauteur": 1024,
+   "largeur": 1476,
+   "sha256": "da683f5e2b3b4fc8a082edc24b2080e72e22b8bdab00bafe5957fe2b9e672a60",
+   "taille": 94993
+  },
+  "hr-ixion.png": {
+   "hauteur": 1510,
+   "largeur": 1435,
+   "sha256": "be8249c48f1b119a95d3c53eda0ce3834670d99f85ba71370e51c351035f239b",
+   "taille": 2906938
   },
   "hr-mat-foudre-arc.png": {
    "hauteur": 265,
@@ -152,6 +206,60 @@
    "sha256": "93f86da7000cf457bb4385dbf8e22784d4a1dc2880d88c42b9fde972f5d88971",
    "taille": 460009
   },
+  "hr-stylet-lueur.png": {
+   "hauteur": 1730,
+   "largeur": 1190,
+   "sha256": "18e8233948b96026d8026ceb7b92b041dc14dd46cee1779499281f6a33ca490a",
+   "taille": 388514
+  },
+  "hr-stylet-ombre.png": {
+   "hauteur": 1198,
+   "largeur": 1635,
+   "sha256": "ee45552b80b3d194384a979977caec2f9affb4f7ab265ca5fcc35c8ec2dd6704",
+   "taille": 72324
+  },
+  "hr-stylet.png": {
+   "hauteur": 1730,
+   "largeur": 1192,
+   "sha256": "fe75b0ea923dc6ea0d9a8e7c0ced84e614229854fd75a4b15ba54d92025d7de5",
+   "taille": 1235599
+  },
+  "hr-tournesol-lueur.png": {
+   "hauteur": 2162,
+   "largeur": 1362,
+   "sha256": "d3268817bb1709cd15961be9c8e0148972acd3dc2f9fc4508b561d30cf9163b6",
+   "taille": 189908
+  },
+  "hr-tournesol-ombre.png": {
+   "hauteur": 1344,
+   "largeur": 1722,
+   "sha256": "10608e3ffdc022956f169121de3bb905fc70a93ec335ae2be6724db2616905eb",
+   "taille": 163958
+  },
+  "hr-tournesol.png": {
+   "hauteur": 2398,
+   "largeur": 1511,
+   "sha256": "f07d003ee849c93434dd4877c3c9cc56bd692e3ffdfa45336a19e631c7469d0c",
+   "taille": 3118359
+  },
+  "hr-trombe-lueur.png": {
+   "hauteur": 1552,
+   "largeur": 1303,
+   "sha256": "dee2cd282fd7f8586c4b9deec53137a01abd3b5754b1815782c3f71fa65e52da",
+   "taille": 464700
+  },
+  "hr-trombe-ombre.png": {
+   "hauteur": 1155,
+   "largeur": 1527,
+   "sha256": "50da89d1b6f585429c30ba9931355e18973eb5929cfb15dbf93fe8cd4c270b3a",
+   "taille": 98397
+  },
+  "hr-trombe.png": {
+   "hauteur": 1696,
+   "largeur": 1359,
+   "sha256": "b58d514d763545e37629a005dbfc6a5d2349c7e0aa73bfca6b126fa41484c94f",
+   "taille": 2658949
+  },
   "hr-veilleuse-ombre.png": {
    "hauteur": 451,
    "largeur": 583,
@@ -182,6 +290,12 @@
    "sha256": "485f90fb2e898171e23fca0ac49ef41ab3ac9b9040b8dc4bc1dd525df29e9536",
    "taille": 17806
   },
+  "icone-cairn.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "9ae0429c7006f880118e6d302292c2f2503c448806c0fefed10c8b12168b4a8b",
+   "taille": 9755
+  },
   "icone-demi-vie.png": {
    "hauteur": 64,
    "largeur": 64,
@@ -193,6 +307,12 @@
    "largeur": 64,
    "sha256": "e0692d7f7827650f322e4bbee354aa99c972863ecb59a6dac1d7a127c73a9b30",
    "taille": 7028
+  },
+  "icone-ixion.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "e7f87e0735d0c2e40fb58ba7717afe7dfc9225905d9dd7f2e41107437270bb0a",
+   "taille": 10506
   },
   "icone-mat-foudre.png": {
    "hauteur": 64,
@@ -206,11 +326,47 @@
    "sha256": "c0b787d3246406caee3308f0728276da1305fabc799e5f3268c4faeb95453315",
    "taille": 6085
   },
+  "icone-stylet.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "dacc96a0e7215e9298c3c50e0577cb890e199b80fc489c6e1fab9a8925f72afa",
+   "taille": 4987
+  },
+  "icone-tournesol.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "c0ab48b85631924f0df78436a6d9679f5c0ca302c783e092d05dc50b4b8ed766",
+   "taille": 5821
+  },
+  "icone-trombe.png": {
+   "hauteur": 64,
+   "largeur": 64,
+   "sha256": "1b605e3ab22cd9536e229773fda1805d78c594f67259ebe5d269ba95e363c7e6",
+   "taille": 7882
+  },
   "icone-veilleuse.png": {
    "hauteur": 64,
    "largeur": 64,
    "sha256": "a74a3de74f259f93e4acaf2dc6c7926e1c64bc40ee6e1af6ad90a8a1a1686fd2",
    "taille": 6613
+  },
+  "ixion-lueur.png": {
+   "hauteur": 754,
+   "largeur": 677,
+   "sha256": "9a0466065074178ec07a2508fae712fa550ecdce8f79c5442abe0055347c163b",
+   "taille": 474333
+  },
+  "ixion-ombre.png": {
+   "hauteur": 512,
+   "largeur": 738,
+   "sha256": "cf00f7e78c503c3059df7adbafef0fc4457995a1e72c713e029aa6a77459b681",
+   "taille": 35305
+  },
+  "ixion.png": {
+   "hauteur": 755,
+   "largeur": 718,
+   "sha256": "cb188a3526c1eaeec804346e4ab531c2edd50ce4ddba0df320bcc8ffb94904a9",
+   "taille": 902818
   },
   "mat-foudre-arc.png": {
    "hauteur": 88,
@@ -265,6 +421,60 @@
    "largeur": 225,
    "sha256": "9eaf64c9f3d38c1f131e71b15ab0aa9b0122da4049af13f38c7d19dd6aa336ac",
    "taille": 87172
+  },
+  "stylet-lueur.png": {
+   "hauteur": 865,
+   "largeur": 595,
+   "sha256": "c004c31f5f578af34092aab358e1b838e17b69a0ec919a8fb310ed823bb6f2b5",
+   "taille": 138469
+  },
+  "stylet-ombre.png": {
+   "hauteur": 599,
+   "largeur": 817,
+   "sha256": "da730abe27ffeffd195cbf1087bfb53c48a18e7ef39d57b9bdd71bd6324b876f",
+   "taille": 23501
+  },
+  "stylet.png": {
+   "hauteur": 865,
+   "largeur": 596,
+   "sha256": "2ed2bfc9d6af750865cb50dffe7aede43c167ec9618f1195b2590505a3d01cae",
+   "taille": 378107
+  },
+  "tournesol-lueur.png": {
+   "hauteur": 1081,
+   "largeur": 681,
+   "sha256": "250e96cdb189f8618bf5c0841dbf066223c17ee581f2fcbae38d5eeb923c5587",
+   "taille": 71596
+  },
+  "tournesol-ombre.png": {
+   "hauteur": 672,
+   "largeur": 861,
+   "sha256": "38a3557793268fb39c27d52126e886c8722d2e03f1bec506b03bda1974b07ff2",
+   "taille": 59134
+  },
+  "tournesol.png": {
+   "hauteur": 1199,
+   "largeur": 756,
+   "sha256": "4d082ef5862c025b606e8189ced2d6882c57f4673893580c60dedde2a1765969",
+   "taille": 933430
+  },
+  "trombe-lueur.png": {
+   "hauteur": 776,
+   "largeur": 652,
+   "sha256": "266821f0a5ae6bd305130086536855b228b62454ab2beaa8458fc37f3d66b8e7",
+   "taille": 186914
+  },
+  "trombe-ombre.png": {
+   "hauteur": 578,
+   "largeur": 764,
+   "sha256": "46c03197e0683b76ce8dbbefc90245fa20752bc86f8c3701fd74ef23dbf2fd2d",
+   "taille": 35177
+  },
+  "trombe.png": {
+   "hauteur": 848,
+   "largeur": 680,
+   "sha256": "1e899b55f6b1282b4260cf09230f18ab74d48169daedd751feb30fe7bc052f14",
+   "taille": 810999
   },
   "veilleuse-ombre.png": {
    "hauteur": 226,

@@ -35,6 +35,8 @@ SEUIL_ALPHA = 2  # rognage : alpha > 2 / 255
 
 # id du jeu (shared/robots/experimentaux.lua) -> dossier source
 PETITS = [("mat-foudre", "mat_foudre"), ("geode", "geode"), ("sarracenie", "sarracenie"), ("demi-vie", "demi_vie"), ("veilleuse", "veilleuse")]
+# géants (rendus à 40 px/tuile) : corps haute 32 px/tuile, lueurs fondues en une couche (FAISABILITE : budget à 32 px/tuile)
+GEANTS = [("cairn", "cairn"), ("stylet", "stylet"), ("trombe", "trombe"), ("ixion", "ixion"), ("tournesol", "tournesol")]
 
 
 def lanczos(a, w, h):
@@ -169,6 +171,49 @@ def corps(S, src, cle, var):
     return out
 
 
+def geant(S, src, cle, var):
+    """Un géant (rendu à 40 px/tuile) : corps haute 32 px/tuile, normale 16 ; TOUTES ses lueurs fondues en UNE couche additive (somme
+    des énergies : RGB × A), pour l'atlas ; ombre 16 / 8. Rend l'entrée de sprites.lua (même forme que corps())."""
+    spec = json.load(open(os.path.join(src, var, "spec.json"), encoding="utf-8"))
+    out = {"lueurs": []}
+    c, px, sh = lit_couche(src, var, "main")
+    out["main"] = S.couche(cle, reduit(c, px, PPT), PPT, reduit(c, px, LR_PPT), LR_PPT, sh)
+    out["px_rendu"] = PPT
+    # union des lueurs, en pixels du rendu depuis l'origine au sol
+    couches = []
+    for nom in sorted(spec["layers"]):
+        if nom.startswith("glow_"):
+            g, gpx, gsh = lit_couche(src, var, nom)
+            if g.shape[0] * g.shape[1] > 1:
+                x0 = gsh[0] * gpx - g.shape[1] / 2.0
+                y0 = gsh[1] * gpx - g.shape[0] / 2.0
+                couches.append((g, int(round(x0)), int(round(y0))))
+    if couches:
+        X0 = min(x for _, x, _ in couches)
+        Y0 = min(y for _, _, y in couches)
+        X1 = max(x + g.shape[1] for g, x, _ in couches)
+        Y1 = max(y + g.shape[0] for g, _, y in couches)
+        e = np.zeros((Y1 - Y0, X1 - X0, 3), np.float32)
+        for g, x, y in couches:
+            f = g.astype(np.float32) / 255.0
+            e[y - Y0:y - Y0 + g.shape[0], x - X0:x - X0 + g.shape[1]] += f[..., :3] * f[..., 3:4]
+        a = additif(e)
+        a, cx0, cy0 = rogne(a)
+        gsh = ((X0 + cx0 + a.shape[1] / 2.0) / px, (Y0 + cy0 + a.shape[0] / 2.0) / px)
+        l = S.couche(cle + "-lueur", reduit(a, px, PPT), PPT, reduit(a, px, LR_PPT), LR_PPT, gsh)
+        l["nom"] = "+".join(sorted(n[5:] for n in spec["layers"] if n.startswith("glow_")))
+        out["lueurs"].append(l)
+    o, opx, osh = lit_couche(src, var, "shadow")
+    out["ombre"] = S.couche(cle + "-ombre", reduit(o, opx, OMBRE_HR), OMBRE_HR, reduit(o, opx, OMBRE_LR), OMBRE_LR, osh)
+    k = 60.0 / max(c.shape[0], c.shape[1])
+    ic = lanczos(c, max(1, int(round(c.shape[1] * k))), max(1, int(round(c.shape[0] * k))))
+    cadre = np.zeros((64, 64, 4), np.uint8)
+    oy, ox = (64 - ic.shape[0]) // 2, (64 - ic.shape[1]) // 2
+    cadre[oy:oy + ic.shape[0], ox:ox + ic.shape[1]] = ic
+    out["icone"] = {"filename": S.ecrit(cadre, "icone-%s.png" % cle), "size": 64}
+    return out
+
+
 def lueur_cristaux(a):
     """Lueur additive tirée des pixels violets saturés du corps (même cadre que le corps) : bleu et rouge au-dessus du vert."""
     x = a.astype(np.float32) / 255.0
@@ -275,6 +320,8 @@ def main():
     spr = {"corps": {}, "effets": effets(S)}
     for cle, var in PETITS:
         spr["corps"][cle] = corps(S, a.src, cle, var)
+    for cle, var in GEANTS:
+        spr["corps"][cle] = geant(S, a.src, cle, var)
     p = os.path.join(a.dest, "sprites.lua")
     with open(p, "w", encoding="utf-8", newline="\n") as f:
         f.write("-- FICHIER GÉNÉRÉ par tools/render/pieces/experimentaux/feuilles_xp.py (lot EXPERIMENTAUX) : ne pas modifier à la main.\n")

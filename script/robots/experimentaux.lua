@@ -93,7 +93,7 @@ local function hit(r, e, amount, dtype, force, src)
   local st = stat(r.id)
   st.degats = st.degats + dealt
   st.cibles = st.cibles + 1
-  if before > 0 and not e.valid then st.tues = st.tues + 1 end
+  if before > 0 and (not e.valid or e.health <= 0) then st.tues = st.tues + 1 end
   return dealt
 end
 
