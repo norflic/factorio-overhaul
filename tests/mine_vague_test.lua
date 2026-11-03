@@ -13,7 +13,7 @@ local function read(p) local h = assert(io.open(p, "r")); local s = h:read("*a")
 -- cas mesuré (verif-guide 1618033988) : QG en (0, 0), avant-poste de fer ap1 en (49, -50) jugé insurmontable, ap4 en (108, -29) sans vague
 local SITES = { { key = "qg", kind = "qg", x = 0, y = 0 }, { key = "ap1", kind = "ap", x = 49, y = -50 }, { key = "ap4", kind = "ap", x = 108, y = -29 },
   { key = "ch3", kind = "ch", x = -120, y = -34 } }
-local STATES = { qg = { prep = true, insurm = true }, ap1 = { prep = false, insurm = true }, ap4 = { prep = false, insurm = false }, ch3 = { prep = true } }
+local STATES = { qg = { prep = true, insurm = false }, ap1 = { prep = false, insurm = true }, ap4 = { prep = false, insurm = false }, ch3 = { prep = true } }
 
 local function run(M)
   local r = {}
@@ -42,6 +42,9 @@ check(r.death1 and r.death2, "les deux tuiles ou des PNJ sont morts en minant (4
 check(r.edge_in and not r.edge_out, "limite : 40 tuiles ecartees, 40,5 permises")
 check(not r.far and not r.qg and not r.none, "permis : site sans vague, abords du QG, aucune vague")
 check(Mv.R == 40, "rayon 40 tuiles")
+-- (essai 2) QG insurmontable : il compte ; QG seulement attendu (prep) : il ne compte pas (voir STATES)
+local wq = Mv.from_states(SITES, { qg = { insurm = true } })
+check(#wq == 1 and wq[1].x == 0 and Mv.blocked(9, 9, wq), "QG insurmontable : les tuiles du QG (9, 9) sont ecartees")
 
 -- branchement (lecture des sources) : crochet posé, sites lus à la prévision, minage prudent ET de fond concernés
 local W, P, S = read("script/team/worker.lua"), read("script/ai3/prevision.lua"), read("script/ai3/soldats.lua")
@@ -57,7 +60,7 @@ check(P:find("^local function sites_of") == nil and P:find("\nlocal function sit
 -- mutants
 local src = read("shared/team/mine_vague.lua")
 local muts = {
-  { "QG non exclu", 's.kind ~= "qg" and ps', "ps" },
+  { "QG non exclu", '(s.kind ~= "qg" and (ps.prep == true or ps.insurm == true))', "(ps.prep == true or ps.insurm == true)" },
   { "preparer ignore", "(ps.prep == true or ps.insurm == true)", "ps.insurm == true" },
   { "rayon nul", "Mv.R = 40", "Mv.R = 0" },
   { "limite exclue", "<= r2 then return true", "< r2 then return true" },
