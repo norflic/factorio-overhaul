@@ -15,6 +15,7 @@ import sys
 
 import numpy as np
 from PIL import Image
+from scipy import ndimage
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RENDER = os.path.normpath(os.path.join(HERE, "..", ".."))
@@ -30,6 +31,9 @@ PREFIXE = "__factorio-overhaul__/graphics/biters/"
 SOUCHES = {"moucheron": {"course": 6, "attaque": 3, "K": 4.23, "foulee": 0.548}, "ecraseur": {"course": 6, "attaque": 3, "K": 0.5, "foulee": 3.17}}
 REDUC = 4
 SEUIL = 2
+PLUS_PETIT_AMAS = 12   # pixels : un amas plus petit, dans le liseré de contact ou l'ombre, est du bruit de rendu (BITERS-JEU)
+SEUIL_OMBRE = 24       # sur 255 (le moteur affiche l'ombre à 50 % : 4,7 %) ; en dessous : poussière et liseré du bord du cadre, à 32 échantillons.
+                       # L'ombre rendue est presque binaire (écraseur : 9,8 % du cadre > 2, 9,2 % > 128) : son bord n'y perd presque rien.
 
 
 def chercher(d, s, anim, i, k, nb, brouillon):
@@ -46,6 +50,20 @@ def chercher(d, s, anim, i, k, nb, brouillon):
                     if os.path.exists(q):
                         return q
     raise SystemExit("AUCUNE SOURCE : %s %s" % (s, anim))
+
+
+def sans_points_isoles(a, seuil, mini=PLUS_PETIT_AMAS):
+    """Masque des pixels de `a` (> seuil) qui appartiennent à un amas d'au moins `mini` pixels (8-connexité). Lot BITERS-JEU : le bruit
+    de l'AO et de l'ombre à 32 échantillons sème des pixels isolés (alpha 4 à 13 sur 255) sur tout le cadre ; ils empêchent le moteur de
+    rogner chaque image (F147) et font payer le cadre entier à l'atlas, sans rien montrer."""
+    m = a > seuil
+    lab, n = ndimage.label(m, structure=np.ones((3, 3)))
+    if n == 0:
+        return m
+    tailles = ndimage.sum(m, lab, range(1, n + 1))
+    garde = np.zeros(n + 1, bool)
+    garde[1:] = tailles >= mini
+    return garde[lab]
 
 
 def boite(a):
@@ -95,9 +113,13 @@ def main():
                 for i in range(nb):
                     z = np.load(chercher(a.src, s, anim, i, k, nb, a.brouillon))
                     # liseré de contact sous la créature (sa couleur est droite), portée propre au modèle sans effet ici
-                    mn = P.compose_main(z["main"].astype(np.float64) / 255.0, z["ao"].astype(np.float64) / 255.0, C)
+                    # (même composition que P.compose_main, avec le liseré nettoyé de ses points isolés)
+                    fr = P.contact_fringe(z["ao"].astype(np.float64) / 255.0, C.AO_STRENGTH, C.AO_GAMMA, C.AO_COLOR)
+                    fr[..., 3] *= sans_points_isoles(fr[..., 3], SEUIL / 255.0)
+                    mn = P.over(z["main"].astype(np.float64) / 255.0, fr)
                     mn = np.round(np.clip(mn, 0, 1) * 255).astype(np.uint8)
-                    images[(k, i)] = (mn, z["ombre"], z["masque"], z["origine"], float(z["densite"][0]))
+                    om = np.where(sans_points_isoles(z["ombre"], SEUIL_OMBRE), z["ombre"], 0).astype(np.uint8)
+                    images[(k, i)] = (mn, om, z["masque"], z["origine"], float(z["densite"][0]))
             D = images[(0, 0)][4]
             ox, oy = images[(0, 0)][3]
             H0, W0 = images[(0, 0)][0].shape[:2]
