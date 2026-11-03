@@ -249,6 +249,15 @@ remote.add_interface("fo-ia1", {
     end
     return o.drills
   end,
+  -- Lot NAV2 (bancs seulement) : délai croissant des tâches au chemin raté (shared/team/repli_chemin.lua) allumé (vrai, défaut) ou coupé
+  -- (faux : 0.6.42, témoin). Rend l'état lu, ou nil.
+  set_regle_repli = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    f.team.repli_off = not on
+    return on
+  end,
   -- Lot NAV2 (bancs seulement) : point d'accès atteignable d'un avant-poste (shared/team/acces_champ.lua) allumé (vrai, défaut) ou coupé
   -- (faux : comportement de 0.6.42, témoin). Clé « * » : toutes les équipes vivantes. Rend l'état lu, ou le nombre d'équipes touchées.
   set_regle_acces = function(key, on)
