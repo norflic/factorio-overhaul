@@ -1,4 +1,15 @@
----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.45
+Date: 2026-11-03
+  Changes:
+    - Foreuses thermiques : le remplacement n'est plus gele par la retenue de la pile (le depart d'une bande neuve seul est retenu), un champ n'est plus declare « fini » tant qu'il porte des paires, le test « couvert » compte les electriques a sortie pleine, charbon et pierre n'exigent plus 150 plaques de fer libres, et le balayage ne retire plus les dernieres paires tant que la bande remplacante n'est pas finie (mesure sur une graine : 226 -> 177 thermiques, plaques 106 %, coupures de courant 34 -> 17).
+    - Fonderie a tapis : plus de coffre de tete dans les parties testees (le cote calcule en second essaie l'autre ordre ; la sortie de la ligne de charbon prefere une sortie qui peut partir) ; le projet lie du reseau de charbon est annule si sa bande l'est et redemande sinon.
+    - Melange : le releve ne retire plus les plaques du tapis de sortie de la colonne ; les paires thermiques et les foreuses de gabarit deja posees tiennent compte de la zone melee.
+    - Courant : les bandes de champ comptent dans le budget de puissance, le raccord examine une fenetre tournante de groupes (jusqu'a 4 raccordements ouverts), un poteau perdu non rouvert ne retient plus un groupe apres 10 releves, et seul un poteau deja bati sert de relais (Azure : 24 releves en coupure -> 1 sur une graine).
+    - Tournees : le delai de reprise croissant ne vaut que pour les echecs de chemin, le compteur de reprises de marche est remis a zero, les taches vitales reprennent apres 60 s au plus, et une tournee a moins de 64 tuiles du QG refusee pour danger est rejugee sans les marques de vague vues il y a plus d'une minute.
+    - Limites connues : l'equipe du joueur reste fragile sur la graine 1618033988 du verif-guide (1 a 2 PNJ a 59 min, 10 en 0.6.41) ; la regle du charbon a la main est suspectee et en cours d'isolement ; la production de la fonderie a tapis est de 39 a 88 % du temoin selon la graine ; les malls par tapis, l'usine echelonnable et la defense des champs ne sont pas dans cette version.
+
+------------------------------------------------------------
 Version: 0.6.44
 Date: 2026-11-03
   Changes:
