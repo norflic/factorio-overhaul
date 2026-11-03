@@ -33,6 +33,8 @@
   M.order(cands)                        -> liste triée (voulus, puis les plus productifs)
   M.free_slot(res, busy, cfg)           -> vrai/faux, raison
   M.shares(fields, order)               -> part électrique par minerai (journal et critères)
+  Lot THERMIQUE5 : M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...),
+  M.min_plates(brut, seuil) ; fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
   fl = { id, res, tier (0 : plaques, 1 : sans plaque), pairs (paires thermiques debout), th_rate (ore/s d'une foreuse thermique), working (foreuses électriques en marche),
          el_rate (ore/s d'une foreuse électrique), busy (une bande de ce gisement est en chantier), wanted, have }
   ctx = { power, iron (fer libre au stock), drill_cost (fer d'une foreuse électrique), floor = { [res] }, stock = { [res] }, critical = { [res] } }
@@ -70,9 +72,73 @@ function M.raw_full(spec, stock, cfg)
   return ((stock or {})[spec.product] or 0) >= cfg.raw_stock_max
 end
 
---- Extraction (ore/s) des paires thermiques debout et des foreuses électriques en marche du gisement.
+--- Extraction (ore/s) des paires thermiques qui PRODUISENT et des foreuses électriques en marche du gisement. Lot THERMIQUE5 (revue du 3/11 :
+--- Émeraude, 24 brûleurs à sec contre 12 électriques, jamais balayés) : `fl.fueled` (paires avec du combustible), quand l'exécutant le donne,
+--- remplace `fl.pairs` : une paire à sec n'extrait rien. `fl.pairs` reste le nombre de paires à retirer.
 function M.supply(fl)
-  return (fl.pairs or 0) * (fl.th_rate or 0), (fl.working or 0) * (fl.el_rate or 0)
+  local th = fl.fueled
+  if th == nil then th = fl.pairs end
+  return (th or 0) * (fl.th_rate or 0), (fl.working or 0) * (fl.el_rate or 0)
+end
+
+--- Lot THERMIQUE5 : états moteur d'une foreuse électrique qui COUVRE son gisement. Une foreuse qui mine (« working ») ou dont la sortie est
+--- pleine (« waiting_for_space_in_destination » : le minerai est déjà en trop) couvre ; à l'arrêt faute de courant, de minerai ou bouchée par
+--- autre chose, non (revue du 3/11 : une bande à sortie pleine comptait 0, refus « bande-qui-ne-produit-pas » à 150 min). Noms des états
+--- de defines.entity_status (des clés de l'API, pas des noms d'objet).
+M.COVERING_STATUS = { "working", "waiting_for_space_in_destination" }
+function M.covering(status_name)
+  for _, s in ipairs(M.COVERING_STATUS) do if s == status_name then return true end end
+  return false
+end
+
+--- Lot THERMIQUE5 (revue du 3/11, cause 1 : la retenue de la pile gelait TOUTE la migration du champ, balayage et dégel compris ; Azure et
+--- Scarlet retenues 99 à 100 % du temps, graine 271828182, 139 thermiques et 0 électrique) : que peut faire la migration pendant une retenue ?
+---   "suivre"  : étapes d'une bande DÉJÀ demandée (dégel, retrait de ses paires, chantier, ligne comptée) ;
+---   "balayer" : paires d'un gisement couvert retirées ;
+---   "partir"  : bande NEUVE demandée au plan.
+--- Suivre et balayer RENDENT des objets au stock : jamais retenus. Une bande neuve prend des matières : retenue, sauf si la porte de la pile
+--- laisse passer sa plaque (`porte` vrai : plaque d'un cadre ouvert ou qui manque, comme la réserve de la bande au plan directeur). Rend vrai/faux.
+function M.pile_permits(action, hold, porte)
+  if not hold then return true end
+  if action == "suivre" or action == "balayer" then return true end
+  return porte == true
+end
+
+--- Lot THERMIQUE5 (revue du 3/11, cause 2) : fin de l'ordre des bandes d'un champ. `left` : paires thermiques encore debout sur le gisement ;
+--- `done`, `produced` : bandes migrées, bandes qui ont produit. Rend l'état :
+---   "replanifier" : rien de migré et des paires restent : le cadre (vide, ou bandes toutes refusées) est refait après CFG.revive (le gisement
+---                   a pu se libérer), l'avant-poste reste FERMÉ aux brûleurs (avant : « abandon », qui le rendait extensible) ;
+---   "partiel"     : des paires restent hors des bandes posées : le champ n'est PAS déclaré « fini » (le balayage les retire quand il est
+---                   couvert ; un ordre de la capitalisation peut le rouvrir, Mig.want). Un cadre qui porte des bandes n'est jamais refait
+---                   (ses bandes voisines partagent leurs rangées : script/team/migration_champ.lua, begin_band) ;
+---   "fini"        : plus aucune paire ;  "abandon" : rien n'a été migré ni produit, et plus aucune paire.
+function M.order_end(left, done, produced)
+  local migrated = (done or 0) > 0 or (produced or 0) > 0
+  if (left or 0) > 0 then return migrated and "partiel" or "replanifier" end
+  return migrated and "fini" or "abandon"
+end
+
+--- Lot THERMIQUE5 (revue du 3/11, cause 2) : une ligne posée « sans libérer la place voulue » ne compte comme telle que si sa bande portait
+--- des paires (`ids` : paires sous la bande). Une bande SANS paire (agrandissement, état déjà avancé) n'avait rien à libérer : la compter
+--- arrêtait le champ en « partiel » après deux (Émeraude AP4, graine 20261020). Rend vrai si la ligne compte comme sans effet.
+function M.noop_counts(ids)
+  return #(ids or {}) > 0
+end
+
+--- Lot THERMIQUE5 (revue du 3/11, cause 2) : état d'une migration arrêtée parce que sa ligne n'aboutit pas. Des paires DÉJÀ retirées
+--- (`retired` > 0) ne reviennent pas : « partiel » (l'avant-poste reste fermé aux brûleurs) ; « abandon » rend l'avant-poste extensible, ce
+--- qui reposait des brûleurs (Azure 20261020 : 6 paires de cuivre retirées, chantier de 90 min, puis 3 -> 6 brûleurs). Rend la chaîne.
+function M.stop_state(done, produced, retired)
+  if (done or 0) > 0 or (produced or 0) > 0 or (retired or 0) > 0 then return "partiel" end
+  return "abandon"
+end
+
+--- Lot THERMIQUE5 (revue du 3/11, cause 4) : plaques de FER libres exigées pour lancer une bande. Une bande d'un minerai porté BRUT au coffre
+--- (produit = ressource : charbon, pierre ; `raw`) fait fabriquer ses matières par la demande elle-même (Mig.projects) : la garde de plaques
+--- ne la retient plus (Azure 20261020 : charbon 20 et pierre 8 jamais demandés de 41 à 150 min). Les plaques gardent la leur. Rend le seuil.
+function M.min_plates(raw, min_plates)
+  if raw then return 0 end
+  return min_plates or 0
 end
 
 --- Le gisement est-il couvert par une bande électrique qui produit ? Rend (vrai/faux, raison).

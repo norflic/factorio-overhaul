@@ -499,7 +499,10 @@ local function executor_run(scn)
     nextu = nextu + 1
     local e = { valid = true, name = name, type = etype, unit_number = nextu, position = { x = x, y = y }, direction = dir or 0,
       prototype = { tile_width = w, tile_height = h }, products_finished = 0, inv = {} }
-    e.get_fuel_inventory = function() return { get_contents = function() return { coal = 5 } end } end
+    e.fuel_n = 5 -- (lot THERMIQUE5 : combustible au réservoir, lu par has_fuel ; 0 : brûleur à sec)
+    e.get_fuel_inventory = function()
+      return { get_contents = function() return e.fuel_n > 0 and { coal = e.fuel_n } or {} end, is_empty = function() return e.fuel_n <= 0 end }
+    end
     e.get_inventory = function(id)
       return { get_contents = function() if id == defines.inventory.furnace_result then return { [T.outposts.iron.product] = 3 } end return {} end }
     end
@@ -746,8 +749,10 @@ do
   local left = E.alive()
   drive_plan(E, p, "chantier")
   for _ = 1, math.floor(CFG.build_max / CFG.every) + 3 do E.think() end
-  check(E.f.migration.cur == nil and E.o.migr == nil, "Dbis1 : chantier sans issue : plus de suivi en cours, plus de marque sur l'avant-poste")
-  check(E.f.migration.o[1].abandoned == true and E.o.full == false, "Dbis2 : l'avant-poste redevient extensible (rien n'a produit)")
+  -- (lot THERMIQUE5, revue du 3/11 : des paires DÉJÀ retirées ne reviennent pas ; avant, « abandon » rendait l'avant-poste extensible et des
+  -- brûleurs se reposaient sur la place retirée : Azure 20261020, 6 paires de cuivre retirées, puis 3 -> 6 brûleurs)
+  check(E.f.migration.cur == nil and E.o.migr == "partiel", "Dbis1 : chantier sans issue après un retrait : plus de suivi, l'avant-poste « partiel »")
+  check(not E.f.migration.o[1].abandoned and E.o.full == true, "Dbis2 : paires déjà retirées : l'avant-poste reste fermé aux brûleurs")
   check(E.alive() == left and p.state == "chantier", "Dbis3 : les paires restantes et le projet du plan ne sont pas touchés")
   local n = #E.Build.requests
   for _ = 1, 10 do E.think() end
@@ -862,7 +867,8 @@ do
   local build, outposts, team, swap = read("script/team/build.lua"), read("script/faction/outposts.lua"), read("script/team/team.lua"), read("script/team/foreuse_swap.lua")
   -- la chaîne : déclencheur (team.lua) -> décision (migration_champ.lua) -> action (Build.request, porte, retrait) -> effet (build.lua THAW)
   check(team:find('require%("script.team.migration_champ"%)') ~= nil, "C1 : team.lua charge l'exécutant")
-  check(team:find("MigChamp.think%(f, surface, book_for%(f%), stock, tick%)") ~= nil, "C2 : team.lua l'appelle à chaque pensée d'équipe")
+  check(team:find("MigChamp.think%(f, surface, book_for%(f%), stock, tick, pile_hold == true%)") ~= nil, "C2 : team.lua l'appelle à chaque pensée d'équipe (lot THERMIQUE5 : retenue de la pile passée, plus de garde autour)")
+  check(team:find("if not pile_hold or PileRt.migration_building(f) then", 1, true) == nil, "C2 bis : la retenue de la pile ne gèle plus la migration du champ (lot THERMIQUE5)")
   check(build:find("THAW = p.spec.degel and p.spec.degel.tiles or nil", 1, true) ~= nil, "C3 : le plan pose le dégel autour de plan_project")
   check(build:find("blocked[P.tkey(THAW[i], THAW[i + 1])] = nil", 1, true) ~= nil, "C4 : read_masks compte les tuiles du dégel comme libres")
   check(build:find("SCAN.tick = nil", 1, true) ~= nil, "C5 : les relevés du tick sont jetés avant et après le plan")
@@ -1414,6 +1420,67 @@ do
 end
 
 do
+  -- P. Lot THERMIQUE5 (revue du 3/11, cause 1 : la retenue de la pile gelait toute la migration ; Azure et Scarlet retenues 99 à 100 % du
+  -- temps). Pendant la retenue, une partie DÉJÀ demandée avance (dégel, retrait, ligne comptée) ; une partie neuve ne part pas, sauf si la
+  -- porte de la pile (script/team/pile.lua, la vraie) laisse passer sa plaque.
+  section("P. THERMIQUE5 : retenue de la pile")
+  local function run_p(mutant)
+  local E = executor_run({ pairs = 8, mutant = mutant })
+  local f = E.f
+  local plate = T.outposts.iron.product
+  f.team = { ia3 = { pile = { hold = true, top = 1, focus = {} } } }
+  local function think(hold)
+    game.tick = game.tick + CFG.every
+    return E.Mig.think(f, E.surface, E.book, E.free, game.tick, hold)
+  end
+  think(true)
+  check(#E.Build.requests == 0, "P1 : retenue, porte fermée : aucune partie neuve demandée (" .. #E.Build.requests .. ")")
+  f.team.ia3.pile.focus = { [plate] = true }
+  think(true)
+  check(#E.Build.requests == 1, "P2 : retenue, plaque d'un cadre ouvert : la partie part (" .. #E.Build.requests .. ")")
+  f.team.ia3.pile.focus = {}
+  local p = E.project()
+  drive_plan(E, p, "plan"); think(true)
+  drive_plan(E, p, "materiaux"); think(true)
+  drive_plan(E, p, "degel")
+  local band_n = #f.migration.o[1].ids
+  think(true)
+  check(band_n > 0 and E.alive() == 8 - band_n and f.migration.o[1].stage == "chantier",
+    "P3 : retenue : la partie déjà demandée est retirée au dégel (" .. E.alive() .. " paires, " .. band_n .. " dessous)")
+  drive_plan(E, p, "fini"); E.make_products(CFG.produce_min)
+  think(true)
+  check(f.migration.o[1].produced == 1, "P4 : retenue : la ligne neuve est comptée")
+  think(true); think(true)
+  check(#E.Build.requests == 1, "P5 : retenue, porte fermée : pas de partie suivante (" .. #E.Build.requests .. ")")
+  think(false)
+  check(#E.Build.requests == 2, "P6 : retenue levée : la partie suivante part (" .. #E.Build.requests .. ")")
+  E.restore()
+  end
+  run_p(nil)
+  -- mutants de l'exécutant : la porte du départ retirée ; la retenue ignorée au départ
+  local function mutp(from, to)
+    return function(src)
+      local i, j = src:find(from, 1, true)
+      assert(i and not src:find(from, j + 1, true), "motif de mutant : " .. from)
+      return src:sub(1, i - 1) .. to .. src:sub(j + 1)
+    end
+  end
+  local real_print = print
+  for _, mu in ipairs({
+    { "porte du départ retirée", mutp('if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", product))) then', "if false then") },
+    { "départ retenu même porte ouverte", mutp('if ok and hold and not Th.pile_permits("partir", true, (PileRt.porte(f, "capi", product))) then', "if ok and hold then") },
+  }) do
+    local saved_p, saved_f = passes, failures
+    _G.print = function() end
+    local ok, err = pcall(run_p, mu[2])
+    _G.print = real_print
+    local bad = (not ok) and 1 or (failures - saved_f)
+    passes, failures = saved_p, saved_f
+    check(bad > 0, "P : mutant refusé : " .. mu[1] .. ((not ok) and (" (plantage : " .. tostring(err):sub(1, 60) .. ")") or ""))
+  end
+end
+
+do
   -- T. Lot THERMIQUE : balayage des paires thermiques d'un gisement COUVERT, sous le moteur simulé (cadences, états des foreuses et brûleur de la
   -- centrale simulés ; Mig.sweep appelé seul, sans le reste de la pensée)
   section("T. THERMIQUE : balayage des paires d'un gisement couvert")
@@ -1426,7 +1493,7 @@ do
     game.entity_prototypes[T.DRILL_ELECTRIC].mining_speed = 0.5
     game.forces = { [f.force] = { mining_drill_productivity_bonus = 0 } }
     game.item_prototypes = { [T.fuel] = { fuel_value = 4e6 } }
-    defines.entity_status = { working = 1, no_power = 2 }
+    defines.entity_status = { working = 1, no_power = 2, waiting_for_space_in_destination = 3 }
     local id = E.Build.request(f, { site = "champ", champ = { oid = 1, pr = 5, frame = {} } })
     local p = f.build.projects[id]
     p.state, p.ents = "fini", {}
@@ -1510,6 +1577,29 @@ do
     check(E.alive() == 0, "T5 : plancher tenu par l'électrique : les paires partent")
     T.fuel = saved_fuel
     E.restore()
+
+    -- T6 (lot THERMIQUE5) : 2 électriques (1,0 ore/s) contre 8 paires À SEC (0 ore/s) : couvert, les paires à sec partent
+    E = setup({ working = 2 })
+    for _, d in ipairs(E.o.drill_list) do d.fuel_n = 0 end
+    E.sweep(); E.sweep()
+    check(E.alive() == 0, "T6 : brûleurs à sec, 2 électriques en marche : les 8 paires partent (" .. E.alive() .. " restent)")
+    E.restore()
+    E = setup({ working = 2 })
+    for k, d in ipairs(E.o.drill_list) do if k <= 4 then d.fuel_n = 0 end end -- 4 brûlent : 1,0 ore/s contre 1,0 : couvert
+    E.sweep(); E.sweep()
+    check(E.alive() == 0, "T6 : 4 paires à sec sur 8, 2 électriques : couvert, tout part")
+    E.restore()
+    E = setup({ working = 2 })
+    for k, d in ipairs(E.o.drill_list) do if k <= 2 then d.fuel_n = 0 end end -- 6 brûlent : 1,5 ore/s contre 1,0 : pas couvert
+    for _ = 1, 4 do E.sweep() end
+    check(E.alive() == 8, "T6 : 6 paires qui brûlent contre 2 électriques : pas couvert, rien ne part")
+    E.restore()
+
+    -- T7 (lot THERMIQUE5) : 6 électriques à SORTIE PLEINE couvrent (le minerai est déjà en trop)
+    E = setup({ status = 3 })
+    E.sweep(); E.sweep()
+    check(E.alive() == 0, "T7 : électriques à sortie pleine : gisement couvert, les paires partent (" .. E.alive() .. " restent)")
+    E.restore()
   end
   suite()
 
@@ -1527,7 +1617,10 @@ do
     { "confirmation ignorée", mut("if not st or (st.cov_n or 0) < SWEEP_CONFIRM then g.working = 0 end", "") },
     { "comptabilité des foreuses perdue", mut("q.drills = before[i]", "local _ = 0") },
     { "crédit de la migration oublié", mut("o.migr_credit = (o.migr_credit or 0) + removed", "local _ = 0") },
-    { "foreuse à l'arrêt comptée en marche", mut("de.status == defines.entity_status.working then n = n + 1 end", "true then n = n + 1 end") },
+    { "foreuse à l'arrêt comptée en marche", mut("if de and de.valid and covering(de.status) then n = n + 1 end", "if de and de.valid then n = n + 1 end") },
+    -- lot THERMIQUE5
+    { "sortie pleine ignorée", mut("if de and de.valid and covering(de.status) then n = n + 1 end", "if de and de.valid and de.status == 1 then n = n + 1 end") },
+    { "brûleurs à sec comptés", mut("pairs = n, fueled = nf,", "pairs = n, fueled = n,") },
     { "chantier en cours ignoré (les deux gardes)", function(src)
       src = mut("busy = (st and st.stage == \"projet\") and true or false", "busy = false")(src)
       return mut("if o and st and st.stage ~= \"projet\" then", "if o and st then")(src)
