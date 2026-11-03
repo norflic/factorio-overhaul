@@ -399,6 +399,36 @@ end
 check(scene_recruit(), "6.7 équipe sous son effectif voulu (8 sur 20) : aucun projet de couverture (les recrues d'abord)")
 
 ---------------------------------------------------------------------------------------------------
+section("6 bis. Lot THERMIQUE2 (essai 3) : le planificateur ne pose plus de brûleur de charbon au-delà de 3 000 au stock")
+local Planner = require("shared.team.planner")
+local Sc = require("shared.team.scale")
+local function pview(coal, over)
+  local v = {
+    tech = 0, personality = "balanced", done = { coal = true, iron = true, copper = true, stone = true },
+    deferred = {}, stock = { ["iron-plate"] = 600, coal = coal, stone = 500, ["copper-plate"] = 300, ["burner-mining-drill"] = 10,
+      ["stone-furnace"] = 10, ["iron-chest"] = 6 },
+    incoming = {}, pending = {}, sites = { coal = 1 }, smelters = 2, smelters_pending = 0, smelter_task = false, smelter_output = 0,
+    smelter_fuel_low = false, smelter_coal = 0, turret_groups = {}, soldiers = 0, soldiers_max = 0, workers = 8, workers_max = 30,
+    workers_idle = 0, threatened = false, open = {}, workers_wanted = 30, no_research = true, ladder = T.player_ladder,
+    hq_turrets = T.defend_hq, defend_first = false, build_burn = 3.0, -- le brûlé dépasse la production : le bilan du charbon s'ouvre
+    outposts = { { id = 1, kind = COAL, drills = 4, full = false, turrets = 1, coal_needed = 0, fuel_low = false, output = 0, idle_ticks = 0,
+      has_task = true, has_fortify = false } },
+  }
+  for k, x in pairs(over or {}) do v[k] = x end
+  v.recruit_cost = Sc.recruit_cost(v.workers)
+  return v
+end
+local function coal_step(plan)
+  for _, t in ipairs(plan.tasks) do
+    if (t.kind == "extend" or t.kind == "build") and t.outpost_kind == COAL then return true end
+  end
+  return false
+end
+local function scene_planner_raw()
+  return coal_step(Planner.plan(pview(500), book)) and not coal_step(Planner.plan(pview(3000), book))
+end
+check(scene_planner_raw(), "6b.1 bilan du charbon ouvert : 500 au stock, l'avant-poste de charbon s'agrandit ; 3 000 : aucun brûleur de charbon")
+
 section("7. Mutants (chacun doit faire échouer une scène de référence)")
 local function scene_far()
   local view = { outposts = { op(2, COAL, 42, { drills = 8 }) }, sites = { [COAL] = 1 }, sites_near = { [COAL] = 157 }, stock = {} }
@@ -453,6 +483,8 @@ do
     local Thm = require("shared.team.thermique")
     local saved_trf = Thm.raw_full
     mutant("THERMIQUE2 : le fond ignore le minerai brut plein", scene_fond_raw, function() Thm.raw_full = function() return false end end,
+      function() Thm.raw_full = saved_trf end)
+    mutant("THERMIQUE2 : le planificateur ignore le minerai brut plein", scene_planner_raw, function() Thm.raw_full = function() return false end end,
       function() Thm.raw_full = saved_trf end)
   end
   local saved_raw = B.raw_full
