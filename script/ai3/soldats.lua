@@ -389,7 +389,10 @@ local function pass(f, tick)
   -- Menaces candidates au nettoyage (vues par l'équipe), regroupées ; « a tué » : une mort de l'heure à 48 tuiles.
   local cand = {}
   for _, th in ipairs(t.map.threats) do
-    local ok = d2(th, f.hq_pos) <= SD.THREAT_HQ * SD.THREAT_HQ
+    -- Lot PARITE (escorte, essai 3, 3/11) : les soldats de votre équipe ne nettoient que près de la base (80 tuiles) et de ses avant-postes :
+    -- 9 soldats partis à 175 tuiles (-133, -113) à 8 min, 0 soldat à 15 min (dc-evolution-parite 20261020 sur 0.6.40).
+    local hq_r = f.is_player and 80 or SD.THREAT_HQ
+    local ok = d2(th, f.hq_pos) <= hq_r * hq_r
     if not ok then
       for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do
         local o = f.outposts[oid]
