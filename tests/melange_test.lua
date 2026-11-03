@@ -288,6 +288,40 @@ do
   check(p1 ~= nil and n1 > 0 and r1.melange == 0, "colonne avec la regle : ligne de charbon posee, 0 zone melangee")
 end
 
+section("4 bis. objets admis sur les tapis (MELANGE2 B1 : la colonne porte ses PLAQUES sur un champ-tapis)")
+local Tcfg = require("shared.team.config")
+-- les mêmes noms que script/team/melange.lua : produits de la ressource lus dans T.outposts, charbon et combustible pour la colonne
+local function admitted(kind, colonne, belt_items)
+  local sp = Tcfg.outposts[kind]
+  local made = {}
+  for _, k in ipairs(Tcfg.OUTPOST_ORDER) do if Tcfg.outposts[k].resource == sp.resource then made[#made + 1] = Tcfg.outposts[k].product end end
+  local carried = colonne and { Tcfg.outposts.coal.product, Tcfg.fuel } or nil
+  return (belt_items or M.belt_items)({ [sp.resource] = true }, made, carried), sp
+end
+for _, kind in ipairs(Tcfg.OUTPOST_ORDER) do
+  for _, colonne in ipairs({ false, true }) do
+    local items, sp = admitted(kind, colonne)
+    -- tapis de la colonne : minerai, plaques (sortie), et sur sa seconde voie le charbon
+    local c = { [sp.resource] = 7, [sp.product] = 40 }
+    if colonne then c[Tcfg.fuel] = 12 end
+    local v = M.belt_verdict(c, items)
+    check(v.foreign == 0 and #v.clear == 0 and not v.majority, string.format("%s%s : minerai, produit%s admis, rien a relever", kind,
+      colonne and " (colonne)" or "", colonne and " et charbon" or ""))
+    -- un objet qui n'a rien a faire sur la bande est toujours relevé
+    local d = M.belt_verdict({ [sp.resource] = 1, ["stone-brick"] = 3 }, items)
+    check(d.foreign == 3 and #d.clear == 1 and d.clear[1][1] == "stone-brick", kind .. " : un objet etranger reste releve")
+  end
+end
+do -- le charbon n'est admis que sur la colonne (sur une bande de fer ordinaire, il est étranger)
+  local fer = admitted("iron", false)
+  local col = admitted("iron", true)
+  check(M.belt_verdict({ [Tcfg.fuel] = 5 }, fer).foreign == 5, "bande ordinaire de fer : le charbon est etranger")
+  check(M.belt_verdict({ [Tcfg.fuel] = 5 }, col).foreign == 0, "colonne : le charbon est admis")
+  -- les plaques de fer ne sont pas admises sur une bande de cuivre
+  local cu = admitted("copper", true)
+  check(M.belt_verdict({ ["iron-plate"] = 4 }, cu).foreign == 4, "bande de cuivre : les plaques de fer sont etrangeres")
+end
+
 section("5. mutants")
 local mutants, seen = 0, 0
 local function mutant(name, detected)
@@ -295,6 +329,7 @@ local function mutant(name, detected)
   if detected then seen = seen + 1 end
   check(detected, "mutant non vu : " .. name)
 end
+local base_items = M.belt_items
 local base = { reach = M.reach, zone = M.zone, in_zone = M.in_zone, count = M.count, belt_verdict = M.belt_verdict, zone_verdict = M.zone_verdict }
 local function with(k, fn)
   local r = {}
@@ -347,6 +382,26 @@ do
   plan.ents[#plan.ents + 1] = { kind = "foreuse", x = 27.5, y = 23.5, size = 3, dir = 0, band = 1, group = 1 }
   local rep = Cv.verify(plan, spec)
   mutant("champ_verif : foreuse injectee sur le charbon", rep.melange >= 1 and not rep.ok)
+end
+-- B1 : produit de la ressource oublié (le relevé retire les plaques de la colonne) / admis sur toute bande
+do
+  local function no_products(ore, products, carried) return base_items(ore, {}, carried) end
+  local bad = 0
+  for _, kind in ipairs(Tcfg.OUTPOST_ORDER) do
+    local items, sp = admitted(kind, true, no_products)
+    if sp.product ~= sp.resource and M.belt_verdict({ [sp.resource] = 7, [sp.product] = 40 }, items).foreign == 0 then bad = bad + 1 end
+  end
+  mutant("belt_items sans le produit de la ressource (plaques retirees)", bad == 0)
+  local function all_products(ore, products, carried)
+    local o = base_items(ore, products, carried); o["iron-plate"] = true; o["copper-plate"] = true; return o
+  end
+  local cu = admitted("copper", true, all_products)
+  mutant("belt_items admet toutes les plaques", M.belt_verdict({ ["iron-plate"] = 4 }, cu).foreign ~= 4)
+  local function coal_everywhere(ore, products, carried)
+    local o = base_items(ore, products, nil); o[Tcfg.fuel] = true; return o
+  end
+  local fer = admitted("iron", false, coal_everywhere)
+  mutant("belt_items admet le charbon sur toute bande", M.belt_verdict({ [Tcfg.fuel] = 5 }, fer).foreign ~= 5)
 end
 print(string.format("== mutants : %d/%d vus", seen, mutants))
 

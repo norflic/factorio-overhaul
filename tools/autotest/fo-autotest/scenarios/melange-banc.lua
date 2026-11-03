@@ -102,6 +102,23 @@ local function belt_count(belts, name)
   return n
 end
 
+--- Lot MELANGE2 (B1) : une file de 6 tapis vers l'est, voie 1 chargée de plaques, voie 2 de minerai de fer et de charbon.
+local function belt_row(s, x0, y, dir_east)
+  local belts = {}
+  for i = 0, 5 do
+    local b = s.create_entity({ name = NAMES.tapis, position = { x0 + i + 0.5, y + 0.5 }, direction = dir_east, force = "player" })
+    if b then belts[#belts + 1] = b end
+  end
+  local n = { plate = 0, ore = 0, coal = 0 }
+  if #belts == 6 then
+    local l1, l2 = belts[1].get_transport_line(1), belts[1].get_transport_line(2)
+    for _ = 1, 12 do if l1.insert_at_back({ name = PLATE, count = 1 }) then n.plate = n.plate + 1 end end
+    for _ = 1, 5 do if l2.insert_at_back({ name = ORE, count = 1 }) then n.ore = n.ore + 1 end end
+    for _ = 1, 5 do if l2.insert_at_back({ name = OTHER, count = 1 }) then n.coal = n.coal + 1 end end
+  end
+  return belts, n
+end
+
 local function place(ctx, key, cx, cy, with_rule)
   local s = ctx.surface()
   local st = ctx.state()
@@ -186,6 +203,28 @@ return {
     place(ctx, "M", X0, Y0 + 2 * DY, false)
     local st = ctx.state()
     st.hq = s.create_entity({ name = "steel-chest", position = { X0 - 100.5, Y0 + 2 * DY + 0.5 }, force = "player" })
+    -- lot MELANGE2 : deux foreuses de gabarit (G), zone 5 x 5 de fer ; la seconde a du charbon dans un coin de sa zone
+    do
+      local gy = Y0 + 2 * DY + 37
+      st.G = { drills = {} }
+      for i, cx in ipairs({ X0 - 80, X0 - 70 }) do
+        for dx = -2, 2 do
+          for dy = -2, 2 do
+            local name = (i == 2 and dx == 2 and dy == 2) and OTHER or ORE
+            s.create_entity({ name = name, position = { cx + dx + 0.5, gy + dy + 0.5 }, amount = 20000 })
+          end
+        end
+        local d = s.create_entity({ name = NAMES.foreuse, position = { cx + 0.5, gy + 0.5 }, direction = defines.direction.north, force = "player" })
+        if d then st.G.drills[#st.G.drills + 1] = d end
+      end
+      ctx.check(#st.G.drills == 2, "G : deux foreuses de gabarit posees", tostring(#st.G.drills))
+    end
+    -- lot MELANGE2 (B1) : files de tapis chargées de plaques (A : bande ordinaire ; B : colonne)
+    st.PA, st.PB = {}, {}
+    st.PA.belts, st.PA.n = belt_row(s, X0 - 90, Y0 + 2 * DY + 30, defines.direction.east)
+    st.PB.belts, st.PB.n = belt_row(s, X0 - 90, Y0 + 2 * DY + 33, defines.direction.east)
+    ctx.log(string.format("[FO-MELANGE-BANC] P : files de tapis posees (%d et %d tapis), objets inseres A %d plaques %d minerai %d charbon, B %d / %d / %d",
+      #st.PA.belts, #st.PB.belts, st.PA.n.plate, st.PA.n.ore, st.PA.n.coal, st.PB.n.plate, st.PB.n.ore, st.PB.n.coal))
   end,
 
   tick = function(ctx, e)
@@ -205,6 +244,34 @@ return {
           for _, n in ipairs({ OTHER, ORE }) do by[#by + 1] = n .. " " .. tostring(res.by and res.by[n] or 0) end
           ctx.log(string.format("[FO-MELANGE-BANC] M : releve au tick %d : foreuses verifiees %d, melees %d, retirees %d ; objets releves %d (%s) ; charbon sur les tapis avant : %d",
             e.tick, res.checked, res.mixed, res.removed, res.items, table.concat(by, ", "), m.coal_releve or -1))
+        end
+      end
+      -- lot MELANGE2 : relevé des foreuses de gabarit
+      if st.G and st.hq and st.hq.valid and #st.G.drills == 2 then
+        local ok, res = pcall(remote.call, "fo-melange", "releve", { hq = st.hq, resource = ORE, gabarit = true, drills = st.G.drills, belts = {} })
+        ctx.check(ok, "G : releve du mod appele sur les foreuses de gabarit", tostring(res))
+        if ok then
+          st.G.res = res
+          ctx.log(string.format("[FO-MELANGE-BANC] G : releve : verifiees %d, melees %d, retirees %d ; foreuse saine valide %s, foreuse melee valide %s",
+            res.checked, res.mixed, res.removed, tostring(st.G.drills[1].valid), tostring(st.G.drills[2].valid)))
+        end
+      end
+      -- lot MELANGE2 (B1) : le même relevé sur les files de plaques (A ordinaire, B colonne)
+      if st.hq and st.hq.valid then
+        for _, k in ipairs({ "PA", "PB" }) do
+          local r = st[k]
+          if r and #r.belts == 6 then
+            local ok, res = pcall(remote.call, "fo-melange", "releve", { hq = st.hq, resource = ORE, colonne = (k == "PB"), drills = {}, belts = r.belts })
+            ctx.check(ok, k .. " : releve du mod appele sur la file de plaques", tostring(res))
+            if ok then
+              r.res = res
+              r.plates_after = belt_count(r.belts, PLATE)
+              r.coal_after = belt_count(r.belts, OTHER)
+              r.ore_after = belt_count(r.belts, ORE)
+              ctx.log(string.format("[FO-MELANGE-BANC] %s : releve : plaques retirees %d, charbon retire %d, minerai retire %d ; sur les tapis apres : plaques %d, charbon %d, minerai %d",
+                k, res.by and res.by[PLATE] or 0, res.by and res.by[OTHER] or 0, res.by and res.by[ORE] or 0, r.plates_after, r.coal_after, r.ore_after))
+            end
+          end
         end
       end
     elseif e.tick == MID then
@@ -234,6 +301,31 @@ return {
           k, r.n_drills, r.mixed0, r.mixed_end, r.coal_end, RELEVE, tostring(r.coal_releve), r.iron_end, #r.furnaces, r.active, r.plates_win))
       end
     end
+    local G = st.G
+    if G and G.res then
+      ctx.check(G.res.checked == 2 and G.res.mixed == 1 and G.res.removed == 1, "G : gabarit, 2 foreuses lues, 1 mêlee retiree",
+        string.format("verifiees %s, melees %s, retirees %s", tostring(G.res.checked), tostring(G.res.mixed), tostring(G.res.removed)))
+      ctx.check(G.drills[1].valid and not G.drills[2].valid, "G : la foreuse saine reste, la melee est retiree", "")
+      ctx.check(st.hq.valid and st.hq.get_item_count(NAMES.foreuse) >= (st.M and st.M.res and st.M.res.removed or 0) + 1, "G : la foreuse retiree est rendue au stock",
+        tostring(st.hq.get_item_count(NAMES.foreuse)))
+    end
+    for _, k in ipairs({ "PA", "PB" }) do
+      local r = st[k]
+      if r and r.res then
+        local by = r.res.by or {}
+        local colonne = (k == "PB")
+        ctx.check(r.n.plate >= 6 and (by[PLATE] or 0) == 0 and r.plates_after == r.n.plate, k .. " : aucune plaque retiree par le releve (B1), toutes encore sur les tapis",
+          string.format("retirees %s, sur les tapis %s / %d", tostring(by[PLATE]), tostring(r.plates_after), r.n.plate))
+        ctx.check((by[ORE] or 0) == 0 and r.ore_after == r.n.ore, k .. " : le minerai de la bande n'est jamais retire", string.format("retire %s", tostring(by[ORE])))
+        if colonne then
+          ctx.check((by[OTHER] or 0) == 0 and r.coal_after == r.n.coal and r.n.coal > 0, "PB : colonne, le charbon de sa seconde voie est admis",
+            string.format("retire %s, reste %s / %d", tostring(by[OTHER]), tostring(r.coal_after), r.n.coal))
+        else
+          ctx.check((by[OTHER] or 0) == r.n.coal and r.coal_after == 0 and r.n.coal > 0, "PA : bande ordinaire, le charbon reste etranger et est releve",
+            string.format("retire %s / %d, reste %s", tostring(by[OTHER]), r.n.coal, tostring(r.coal_after)))
+        end
+      end
+    end
     local R, T, M = st.R, st.T, st.M
     if R and R.mid then
       ctx.check(R.n_drills > 0 and R.mixed0 == 0, "R : regle, aucune foreuse posee sur la zone melee (relu au moteur)", R.mixed0 .. " / " .. R.n_drills)
@@ -261,7 +353,7 @@ return {
       ctx.check(fed > 0 and M.active >= 0.8 * fed, "M : fours qui recoivent du fer pendant 5 min (>= 80 % de ceux que les foreuses restantes nourrissent)",
         string.format("%d actifs / %d nourris (%d fours, %d foreuses restantes)", M.active, fed, #M.furnaces, left))
       local hq = st.hq
-      ctx.check(hq and hq.valid and hq.get_item_count(NAMES.foreuse) == (res.removed or -1), "M : foreuses retirees rendues au stock",
+      ctx.check(hq and hq.valid and hq.get_item_count(NAMES.foreuse) == (res.removed or -1) + (st.G and st.G.res and st.G.res.removed or 0), "M : foreuses retirees rendues au stock (gabarit G compris)",
         tostring(hq and hq.valid and hq.get_item_count(NAMES.foreuse)))
     end
   end,
