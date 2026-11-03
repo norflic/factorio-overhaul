@@ -583,12 +583,15 @@ function Team.view(f, tick)
       iron = iron0, mag_iron = f.team.mag_iron, was = f.team.ammo_rich == true })
     -- Munition choisie (Mu.best_ammo) : la meilleure de T.turret_ammo_ladder dont la recette est ouverte et qui se fabrique depuis le coffre
     -- (le livre de l'équipe : aucune matière à produire autrement), ou qui est au coffre ; collante tant qu'elle le reste.
+    -- Votre équipe seulement (T.best_ammo_factions) : chez une faction, la munition plus chère change l'armée et les attaques (pvp_test, base
+    -- défendue : 2 factions sur 4 attaquent au lieu de 3 avec l'échange) ; une faction garde la munition de base.
+    local choose = f.is_player or T.best_ammo_factions
     local book = book_for(f)
     local force = game.forces[f.force]
     local cands, cur = {}, 1
     for i, name in ipairs(T.turret_ammo_ladder) do
       local r = force and force.recipes[name]
-      local enabled = i == 1 or (r ~= nil and r.enabled == true)
+      local enabled = i == 1 or (choose and r ~= nil and r.enabled == true)
       local makeable = enabled and book:handcraftable(name) and next(book:plan({ { name, T.turret_ammo_target } }, stock0).raw) == nil
       cands[i] = { enabled = enabled, makeable = makeable, stock = stock0[name] or 0 }
       if name == f.team.ammo_item then cur = i end

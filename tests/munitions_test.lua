@@ -308,6 +308,8 @@ check(has("script/faction/outposts.lua", "local m = Mu.group(g.have, target, T.t
 check(has("script/team/worker.lua", "if r > 0 and r < best then need = need + target"), "la tournée d'échange porte la cible entière")
 check(has("shared/team/planner.lua", "local got = Mu.upgrade_take(g.worse_need, stock)"), "le planificateur lance l'échange (Mu.upgrade_take)")
 check(has("script/team/team.lua", "local idx, why = Mu.best_ammo(cands, cur)"), "Team.view choisit la munition (Mu.best_ammo)")
+check(has("script/team/team.lua", "local choose = f.is_player or T.best_ammo_factions") and T.best_ammo_factions == false,
+  "meilleure munition pour votre équipe seulement (une faction garde la munition de base)")
 check(has("script/team/team.lua", "was = f.team.ammo_rich == true"), "Team.view garde l'état riche d'une pensée à l'autre (hystérésis)")
 check(has("script/team/team.lua", "f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret("), "Team.view écrit la cible par tourelle")
 check(has("script/team/team.lua", "short = T.munitions_on and g.short or nil"), "Team.view passe short et missing au planificateur")
