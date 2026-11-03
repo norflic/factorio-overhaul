@@ -30,6 +30,7 @@ local Profiler = require("script.core.profiler")
 local Foot = require("shared.levels.footprint")
 local P = require("shared.team.plan")
 local M = require("shared.team.modules")
+local Saut = require("shared.team.champ_saut") -- lot FONDERIE : foreuse de bande sautée quand une tourelle de l'équipe a pris son emprise
 local Fonte = require("shared.team.fonte") -- lot FONDERIES : équilibre entre l'entrée des foreuses et les fours (règle pure)
 local Li = require("shared.team.ligne")       -- lot AGENCEMENT : fonderie en longue ligne extensible (règles pures)
 local Gisements = require("shared.team.gisement") -- lot GISEMENTS : un lot qui porte un minerai sert de gisement
@@ -2558,7 +2559,8 @@ local function plan_project(f, surface, p)
       w = lay.box[3] - lay.box[1] + 1, h = lay.box[4] - lay.box[2] + 1, power = true }
     local ents = {}
     for _, e in ipairs(lay.ents) do
-      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge, rank = e.rank } -- (lot CHAMP : charge du coffre de combustible, rang de pose)
+      ents[#ents + 1] = { name = e.name, x = e.x, y = e.y, dir = e.dir or 0, recipe = e.recipe, part = 1, role = e.role, charge = e.charge, rank = e.rank,
+        type = e.type } -- (lot CHAMP : charge du coffre de combustible, rang de pose ; lot FONDERIE : entrée ou sortie d'un souterrain)
     end
     if not reserve_tiles(b, p, ents) then return false, "place" end
     for _, q in ipairs(lay.quais or {}) do p.quais[#p.quais + 1] = { x = q.x, y = q.y, item = q.item } end
@@ -3102,8 +3104,9 @@ local function place_ghost(surface, f, e)
     if npc_on(surface, e) then return "pnj" end
     return "occupe"
   end
+  -- lot FONDERIE : `type` (« input » | « output ») d'un tapis souterrain, passé au fantôme comme à l'entité (H-FONDERIE-1, à prouver au banc)
   local gh = surface.create_entity({ name = "entity-ghost", inner_name = e.name, position = { e.x, e.y }, direction = e.dir,
-    force = f.force, expires = false })
+    force = f.force, expires = false, type = e.type })
   if not gh then return "occupe" end
   return "ok"
 end
@@ -3302,6 +3305,26 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     if r == "occupe" and move_turrets_off(f, surface, p, e) then r = place_ghost(surface, f, e) end -- lot TOURELLES-HORS-AXE
     if r == "deja" then e.built = true return true end
     if r == "occupe" and shift_pole(f, surface, p, e) then r = "ok" end
+    -- lot FONDERIE : une foreuse de BANDE refusée « occupe » pour la 3e fois, quand tout ce qui occupe son emprise est une tourelle de l'équipe
+    -- posée après le plan (que move_turrets_off n'a pas pu déplacer), est SAUTÉE : la bande finit et produit sans elle, la tourelle reste
+    -- (lot6-20261020 : emerald, bande 329, 551 entités bâties sur 552 jusqu'à la fin)
+    if r == "occupe" and e.role == "champ-foreuse" and Build.TAPIS and Build.TAPIS() then
+      local turret = {}
+      for _, t in ipairs(T.TURRET_TYPES or {}) do turret[t] = true end
+      local bl = {}
+      for _, x in ipairs(surface.find_entities_filtered({ area = footprint(e), collision_mask = "object-layer" })) do
+        if x.valid then bl[#bl + 1] = { own_turret = turret[x.type] == true and x.force.name == f.force } end
+      end
+      if Saut.skip(e.role, r, e.fails or 0, bl, Build.FAIL_LIMIT) then
+        -- `dropped` : la revue de reconstruction (rebuild_sweep) ne la rouvre pas comme une pièce détruite (court-g-20261020 : rouverte et
+        -- resautée toutes les 5 à 6 min, la bande restait en chantier)
+        e.built, e.skipped, e.dropped = true, "tourelle", true
+        st.skipped = (st.skipped or 0) + 1
+        log(string.format("[FO-FONDERIE] %s : projet %d, foreuse de bande (%.1f, %.1f) sautee : emprise prise par une tourelle de l'equipe posee apres le plan (non deplacee)",
+          f.key or "player", p.id, e.x, e.y))
+        return true
+      end
+    end
     if r ~= "ok" then
       -- lot PETROLE : sur un site défriché pendant le chantier (spec.lazy_clear), un arbre sous l'emprise n'est pas un
       -- échec (il est coupé par la tâche de défrichage ; moteur réel, petrole-site : raffinerie « bloquée » par un arbre)
@@ -3333,6 +3356,16 @@ local function revive_one(surface, f, p, e, inv, tick, self)
     return false
   end
   if e.recipe and ent.type == "assembling-machine" then pcall(ent.set_recipe, e.recipe) end
+  -- lot FONDERIE : un souterrain ravivé dans l'autre sens que prévu (si le fantôme n'a pas gardé `type`, H-FONDERIE-1) est retourné ;
+  -- journal [FO-FONDERIE] à chaque retournement (le banc dit si la branche sert)
+  if e.type then
+    local got, bt = pcall(function() return ent.belt_to_ground_type end) -- lisible sur un souterrain seulement
+    if got and bt and bt ~= e.type then
+      local ok = pcall(ent.rotate)
+      log(string.format("[FO-FONDERIE] %s : souterrain (%.1f, %.1f) ravive en %s au lieu de %s, retourne %s", f.key or "player", e.x, e.y,
+        tostring(bt), e.type, ok and "oui" or "non"))
+    end
+  end
   if e.name == "burner-inserter" and inv.get_item_count("coal") >= 2 then
     local fuel = ent.get_fuel_inventory()
     if fuel then fuel.insert({ name = "coal", count = inv.remove({ name = "coal", count = 2 }) }) end

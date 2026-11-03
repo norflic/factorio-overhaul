@@ -21,15 +21,200 @@ local Cv = {}
 
 local DIRS = { [0] = { 0, -1 }, [2] = { 1, 0 }, [4] = { 0, 1 }, [6] = { -1, 0 } }
 
+-- (lot FONDERIE) une entité peut être un rectangle w × h (répartiteur) ; sinon un carré `size`
+local function wh(e) return e.w or e.size, e.h or e.size end
+
 local function origin(e)
-  return math.floor(e.x - e.size / 2 + 0.5), math.floor(e.y - e.size / 2 + 0.5)
+  local w, h = wh(e)
+  return math.floor(e.x - w / 2 + 0.5), math.floor(e.y - h / 2 + 0.5)
 end
 
 local function tiles(e)
   local x0, y0 = origin(e)
+  local w, h = wh(e)
   local out = {}
-  for x = x0, x0 + e.size - 1 do for y = y0, y0 + e.size - 1 do out[#out + 1] = { x, y } end end
+  for x = x0, x0 + w - 1 do for y = y0, y0 + h - 1 do out[#out + 1] = { x, y } end end
   return out
+end
+
+---------------------------------------------------------------------------------------------------
+-- (lot FONDERIE) Voies des tapis : ce qui circule réellement, objet par objet et voie par voie (règles du moteur 1.1 : un tapis qui
+-- arrive par le côté d'un tapis qui a un tapis DERRIÈRE lui, ou un autre arrivant de l'autre côté, charge sa voie proche ; sinon c'est
+-- un virage qui garde les voies ; un bras pose sur la voie lointaine ; une foreuse dépose sur la voie lointaine ; un souterrain
+-- d'entrée rejoint la première sortie de même sens à `ug` tuiles au plus ; un répartiteur envoie ses deux entrées vers ses deux
+-- sorties). Rend le nombre de fours sans minerai, sans charbon (fours à combustible), de coffres de quai sans plaque, de voies mêlées
+-- (minerai et charbon sur la même voie) et de raccords impossibles.
+---------------------------------------------------------------------------------------------------
+local function left(d) local v = DIRS[d]; return v[2], -v[1] end
+
+function Cv.flow(plan, spec)
+  local at = {}
+  for _, e in ipairs(plan.ents) do for _, t in ipairs(tiles(e)) do at[Ch.key(t[1], t[2])] = e end end
+  local function ent_at(x, y) return at[Ch.key(x, y)] end
+  local fuel = spec.furnace and spec.furnace.fuel
+  local maxd = (spec.logistics and spec.logistics.underground) or 10
+  local isbelt = { tapis = true, souterrain = true, repartiteur = true }
+  local items = {}   -- clé de tuile -> { [1] = {objet = vrai}, [2] = {...} }
+  local held = {}    -- entité -> {objet = vrai} (fours, coffres)
+  local rep = { no_ore = 0, no_coal = 0, no_plate = 0, mixed = 0, junction = 0 }
+  local bad = {}
+  local function flag(e) if not bad[e] then bad[e] = true; rep.junction = rep.junction + 1 end end
+  local queue = {}
+  local function add(x, y, lane, it)
+    local k = Ch.key(x, y)
+    items[k] = items[k] or { {}, {} }
+    if not items[k][lane][it] then items[k][lane][it] = true; queue[#queue + 1] = { x, y }; return true end
+    return false
+  end
+  local function lane_of(bx, by, bdir, fx, fy) -- voie du tapis (bdir) du côté du vecteur (fx, fy)
+    local lx, ly = left(bdir)
+    return (fx * lx + fy * ly > 0) and 1 or 2
+  end
+  local function outputs_into(e, x, y, nx, ny) -- l'entité de tapis `e` (tuile x, y) sort-elle vers (nx, ny) ?
+    if not (e and isbelt[e.kind]) then return false end
+    if e.kind == "souterrain" and e.ug == "input" then return false end
+    local v = DIRS[e.dir]
+    return x + v[1] == nx and y + v[2] == ny
+  end
+  local function feed(x, y, d, lanes) -- ce qui sort de la tuile (x, y) dans le sens d entre en (x, y) + d
+    local v = DIRS[d]
+    local nx, ny = x + v[1], y + v[2]
+    local n = ent_at(nx, ny)
+    if not (n and isbelt[n.kind]) then return end
+    local dn = n.dir
+    local changed = false
+    if n.kind == "souterrain" then
+      if n.ug ~= "input" or dn ~= d then flag(n) return end
+      for l = 1, 2 do for it in pairs(lanes[l]) do changed = add(nx, ny, l, it) or changed end end
+      return
+    end
+    if n.kind == "repartiteur" then
+      if dn ~= d then flag(n) return end
+      for l = 1, 2 do for it in pairs(lanes[l]) do changed = add(nx, ny, l, it) or changed end end
+      return
+    end
+    if dn == d then
+      for l = 1, 2 do for it in pairs(lanes[l]) do add(nx, ny, l, it) end end
+    elseif dn == (d + 4) % 8 then
+      flag(n)
+    else
+      local bv = DIRS[dn]
+      local behind = outputs_into(ent_at(nx - bv[1], ny - bv[2]), nx - bv[1], ny - bv[2], nx, ny)
+      local lx, ly = left(dn)
+      local s1 = outputs_into(ent_at(nx + lx, ny + ly), nx + lx, ny + ly, nx, ny)
+      local s2 = outputs_into(ent_at(nx - lx, ny - ly), nx - lx, ny - ly, nx, ny)
+      if behind or (s1 and s2) then
+        local l = lane_of(nx, ny, dn, -v[1], -v[2])
+        for ll = 1, 2 do for it in pairs(lanes[ll]) do add(nx, ny, l, it) end end
+      else
+        for l = 1, 2 do for it in pairs(lanes[l]) do add(nx, ny, l, it) end end
+      end
+    end
+  end
+  local function step_belt(x, y)
+    local e = ent_at(x, y)
+    local lanes = items[Ch.key(x, y)]
+    if not (e and lanes) then return end
+    if e.kind == "tapis" or (e.kind == "souterrain" and e.ug == "output") or e.kind == "repartiteur" then
+      if e.kind == "repartiteur" then
+        -- les deux tuiles : chacune reçoit ce que l'une ou l'autre a reçu, puis sort tout droit
+        for _, t in ipairs(tiles(e)) do
+          for l = 1, 2 do for it in pairs(lanes[l]) do add(t[1], t[2], l, it) end end
+        end
+      end
+      feed(x, y, e.dir, lanes)
+    elseif e.kind == "souterrain" then
+      local v = DIRS[e.dir]
+      local pair
+      for k = 1, maxd do
+        local q = ent_at(x + k * v[1], y + k * v[2])
+        if q and q.kind == "souterrain" and q.dir == e.dir then
+          if q.ug == "output" then pair = { x + k * v[1], y + k * v[2] } end
+          break
+        end
+      end
+      if not pair then flag(e) return end
+      for l = 1, 2 do for it in pairs(lanes[l]) do add(pair[1], pair[2], l, it) end end
+    end
+  end
+  local function drain()
+    local i = 1
+    while i <= #queue do
+      local q = queue[i]
+      i = i + 1
+      step_belt(q[1], q[2])
+      if i > 400000 then break end
+    end
+    queue = {}
+  end
+  -- sources : foreuses (voie lointaine), coffres de combustible (garnis à la pose)
+  for _, e in ipairs(plan.ents) do
+    if e.kind == "foreuse" then
+      local x0, y0 = origin(e)
+      local v = DIRS[e.dir]
+      local hh = math.floor(e.size / 2)
+      local tx, ty = x0 + hh + v[1] * (hh + 1), y0 + hh + v[2] * (hh + 1)
+      local b = ent_at(tx, ty)
+      if b and b.kind == "tapis" then add(tx, ty, lane_of(tx, ty, b.dir, v[1], v[2]), e.role == "charbon" and "charbon" or "minerai") end
+    elseif e.kind == "coffre" and e.role == "combustible" then
+      held[e] = { charbon = true }
+    end
+  end
+  for _ = 1, 64 do
+    drain()
+    local changed = false
+    for _, e in ipairs(plan.ents) do
+      if e.kind == "bras" then
+        local x0, y0 = origin(e)
+        local v = DIRS[e.dir]
+        local px, py, dx, dy = x0 + v[1], y0 + v[2], x0 - v[1], y0 - v[2]
+        local src, dst = ent_at(px, py), ent_at(dx, dy)
+        local got = {}
+        if src and isbelt[src.kind] then
+          local lanes = items[Ch.key(px, py)]
+          if lanes then for l = 1, 2 do for it in pairs(lanes[l]) do got[it] = true end end end
+        elseif src and src.kind == "four" then
+          if held[src] and held[src].plaque then got.plaque = true end
+        elseif src and src.kind == "coffre" and held[src] then
+          for it in pairs(held[src]) do got[it] = true end
+        end
+        if dst and isbelt[dst.kind] then
+          local l = lane_of(dx, dy, dst.dir, -v[1], -v[2])
+          for it in pairs(got) do if add(dx, dy, l, it) then changed = true end end
+        elseif dst and (dst.kind == "four" or dst.kind == "coffre") then
+          held[dst] = held[dst] or {}
+          for it in pairs(got) do
+            local ok = dst.kind == "coffre" or it == "minerai" or (it == "charbon" and fuel)
+            if ok and not held[dst][it] then held[dst][it] = true; changed = true end
+          end
+        end
+      end
+    end
+    for _, e in ipairs(plan.ents) do
+      if e.kind == "four" and held[e] and held[e].minerai and (held[e].charbon or not fuel) and not held[e].plaque then
+        held[e].plaque = true
+        changed = true
+      end
+    end
+    if not changed and #queue == 0 then break end
+  end
+  for _, e in ipairs(plan.ents) do
+    if e.kind == "four" then
+      local h = held[e] or {}
+      if not h.minerai then rep.no_ore = rep.no_ore + 1 end
+      if fuel and not h.charbon then rep.no_coal = rep.no_coal + 1 end
+    elseif e.kind == "coffre" and e.role == "sortie" and plan.design == "colonne" then
+      if not (held[e] and held[e].plaque) then rep.no_plate = rep.no_plate + 1 end
+    end
+  end
+  for k, lanes in pairs(items) do
+    for l = 1, 2 do
+      local n = 0
+      for _, it in ipairs({ "minerai", "charbon", "plaque" }) do if lanes[l][it] then n = n + 1 end end
+      if n > 1 then rep.mixed = rep.mixed + 1 end
+    end
+  end
+  return rep
 end
 
 local function find(parent) return function(i) while parent[i] ~= i do i = parent[i] end; return i end end
@@ -116,12 +301,13 @@ function Cv.verify(plan, spec)
   end
   local roots = {}
   for i = 1, #poles do local r = root(i); if not roots[r] then roots[r] = true; rep.components = rep.components + 1 end end
-  -- tapis : rangée de leur bande, sens du groupe ; fin hors du champ
+  -- tapis : rangée de leur bande, sens du groupe ; fin hors du champ (lot FONDERIE : tapis de la bande et de la colonne seulement ;
+  -- tête, voie de charbon, plaques et réseau du charbon sont jugés par les voies, Cv.flow)
   local axis = plan.axis
   local function uv(x, y) if axis == "x" then return x, y end return y, x end
   local last = {}
   for _, e in ipairs(plan.ents) do
-    if e.kind == "tapis" then
+    if e.kind == "tapis" and (e.role == nil or e.role == "bande" or e.role == "colonne") then
       local bd = plan.bands[e.band]
       local g = bd and bd.groups[e.group]
       local x0, y0 = origin(e)
@@ -149,15 +335,23 @@ function Cv.verify(plan, spec)
       local tx = x0 + h + v[1] * (h + 1)
       local ty = y0 + h + v[2] * (h + 1)
       local t = ent_at(tx, ty)
-      if not (t and t.kind == "tapis" and t.band == e.band and t.group == e.group) then rep.drops = rep.drops + 1 end
+      local good
+      if e.role == "charbon" then good = t and t.kind == "tapis" and t.role == "charbon"
+      else good = t and t.kind == "tapis" and t.band == e.band and t.group == e.group end
+      if not good then rep.drops = rep.drops + 1 end
     elseif e.kind == "bras" then
       local x0, y0 = origin(e)
       local v = DIRS[e.dir]
       local pick, drop = ent_at(x0 + v[1], y0 + v[2]), ent_at(x0 - v[1], y0 - v[2])
+      local belt = { tapis = true, souterrain = true, repartiteur = true }
       local good = pick and drop and (
         (pick.kind == "tapis" and (drop.kind == "four" or drop.kind == "coffre")) or
         (pick.kind == "four" and drop.kind == "coffre" and drop.role == "sortie") or
-        (pick.kind == "coffre" and pick.role == "combustible" and drop.kind == "four"))
+        (pick.kind == "coffre" and pick.role == "combustible" and drop.kind == "four") or
+        -- lot FONDERIE : four -> tapis de plaques, coffre de tête -> voie de charbon, tronc -> voie de charbon
+        (pick.kind == "four" and drop.kind == "tapis" and drop.role == "sortie") or
+        (pick.kind == "coffre" and pick.role == "combustible" and drop.kind == "tapis" and drop.role == "charbon") or
+        (belt[pick.kind] and pick.role == "charbon" and drop.kind == "tapis" and drop.role == "charbon"))
       if not good then rep.arms = rep.arms + 1 end
     end
   end
@@ -185,19 +379,24 @@ function Cv.verify(plan, spec)
       local rate = spec.furnace and spec.furnace.rate or ((spec.inserter and spec.inserter.rate) or 1)
       local bt = spec.belts[g.belt]
       if (count[k] or 0) * rate + 1e-9 < flow then rep.starved = rep.starved + 1 end
-      -- (voie relue ici, pas par Ch.lane_drills : le contrôle ne partage pas la règle qu'il juge)
-      if not bt or math.floor(bt.lane / d.rate + 1e-9) < side_max then rep.starved = rep.starved + 1 end
+      -- (voie relue ici, pas par Ch.lane_drills : le contrôle ne partage pas la règle qu'il juge ; lot FONDERIE : colonne à combustible,
+      -- tout le minerai du groupe sur UNE voie après la tête)
+      local lane_need = (plan.design == "colonne" and spec.furnace and spec.furnace.fuel) and (p[0] + p[2] + p[4] + p[6]) or side_max
+      if not bt or math.floor(bt.lane / d.rate + 1e-9) < lane_need then rep.starved = rep.starved + 1 end
     end
   end
+  local fl = Cv.flow(plan, spec)
+  rep.no_ore, rep.no_coal, rep.no_plate, rep.mixed, rep.junction = fl.no_ore, fl.no_coal, fl.no_plate, fl.mixed, fl.junction
   rep.ok = rep.overlaps == 0 and rep.blocked == 0 and rep.unpowered == 0 and rep.components <= 1 and rep.traverse == 0
     and rep.inside == 0 and rep.drops == 0 and rep.arms == 0 and rep.starved == 0
+    and fl.no_ore == 0 and fl.no_coal == 0 and fl.no_plate == 0 and fl.mixed == 0 and fl.junction == 0
   return rep
 end
 
 function Cv.line(rep)
-  return string.format("couverture %d/%d (%d%%), chevauchements %d, obstacles %d, sans courant %d, reseaux %d, tapis hors bande %d, tapis finis dans le champ %d, sorties ratees %d, bras faux %d, debits courts %d",
+  return string.format("couverture %d/%d (%d%%), chevauchements %d, obstacles %d, sans courant %d, reseaux %d, tapis hors bande %d, tapis finis dans le champ %d, sorties ratees %d, bras faux %d, debits courts %d, fours sans minerai %d, sans charbon %d, quais sans plaque %d, voies melees %d, raccords faux %d",
     rep.covered, rep.tiles, math.floor(100 * rep.elec + 0.5), rep.overlaps, rep.blocked, rep.unpowered, rep.components, rep.traverse,
-    rep.inside, rep.drops, rep.arms, rep.starved)
+    rep.inside, rep.drops, rep.arms, rep.starved, rep.no_ore or 0, rep.no_coal or 0, rep.no_plate or 0, rep.mixed or 0, rep.junction or 0)
 end
 
 return Cv

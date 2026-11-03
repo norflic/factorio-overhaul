@@ -415,6 +415,9 @@ end
 --- (Build.SITES.champ, script/team/champ.lua). Les paires dont une tuile est sous la bande sont celles que le dégel retire. Rend vrai si la
 --- demande est partie.
 local function begin_band(f, surface, ms, o, st, list, tick, free)
+  -- lot FONDERIE : un cadre d'une sauvegarde d'avant le lot (fonderie à coffres) dont AUCUNE bande n'a été demandée est replanifié en
+  -- colonne à tapis ; dès qu'une bande est posée ou demandée, le cadre garde son motif (les bandes voisines partagent leurs rangées)
+  if Champ.tapis() and st.frame and st.frame.design == nil and not Champ.has_band(f, o) then st.frame, st.order, st.done_pr = nil, nil, nil end
   if not st.frame then
     local frame, order = Champ.frame(f, surface, o)
     if not frame then
@@ -474,6 +477,26 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   -- la bande porte sa plaque (spec.product) et la famille d'investissement de la pile « capi » (shared/ai3/pile.lua) : pendant une retenue,
   -- elle avance pour une plaque d'un cadre ouvert ou qui manque, comme un module de la capitalisation (avant : « migration », rang améliorer,
   -- jamais d'exception : 4 à 6 refus par équipe et par heure, réserve rendue à chaque refus)
+  -- lot FONDERIE (projet séparé, 3/11) : le réseau du charbon d'un côté (ligne de foreuses, tracé, tronc) est un projet À PART, demandé avant
+  -- la première bande en voie de ce côté, à la priorité d'une alimentation : aucune bande n'attend des centaines de pièces qui ne sont pas
+  -- les siennes (lot3-20261020 : 1 161 entités pour une bande, « en attente (matières) » jusqu'à la fin)
+  st.coal_req = st.coal_req or {}
+  for _, bo in ipairs(Champ.CFG.coal_project and bd.plan.bands or {}) do
+    for _, g in ipairs(bo.groups or {}) do
+      local sk = tostring(g.side)
+      local old = st.coal_req[sk]
+      if old and not (f.build and f.build.projects[old]) then st.coal_req[sk] = nil end
+      if g.mode == "voie" and not st.coal_req[sk] then
+        local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = g.side }, near = { x = o.pos.x, y = o.pos.y },
+          prio = Champ.CFG.coal_prio, domain = "infrastructures", lazy_clear = true })
+        if cid then
+          st.coal_req[sk] = cid
+          say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s demande, projet %d (avant la bande %d)", o.field and "gisement" or "avant-poste",
+            o.id, o.kind, g.side > 0 and "+" or "-", cid, pr), true)
+        end
+      end
+    end
+  end
   local spec = { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame }, near = { x = o.pos.x, y = o.pos.y }, prio = CFG.prio,
     domain = "production", lazy_clear = true, pile = "capi", product = product }
   if #ids > 0 then spec.degel = { oid = o.id, tiles = thaw } end
@@ -482,6 +505,13 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     st.fails, st.retry = st.fails + 1, tick + CFG.retry
     say_why(f, ms, st, "req:" .. tostring(rwhy), string.format("avant-poste %d : demande au plan impossible (%s)", o.id, tostring(rwhy)))
     return false
+  end
+  -- lot FONDERIE : réseaux du charbon reportés (bande au-delà de Champ.CFG.band_max) : projets LIÉS à la bande, demandés juste après elle
+  for _, sd in ipairs(bd.defer or {}) do
+    local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = sd, link = id }, near = { x = o.pos.x, y = o.pos.y },
+      prio = CFG.prio, domain = "production", lazy_clear = true })
+    say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s reporte dans le projet lie %s (bande %d, projet %d)", o.field and "gisement" or "avant-poste",
+      o.id, o.kind, sd > 0 and "+" or "-", tostring(cid), pr, id), true)
   end
   st.stage, st.pid, st.ids, st.t0, st.band_key = "projet", id, ids, tick, pr
   st.cx, st.cy, st.gate_t0, st.why_last, st.retired = cx, cy, nil, nil, nil
