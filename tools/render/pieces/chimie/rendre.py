@@ -47,6 +47,28 @@ def etalonne(img, grade):
     return out
 
 
+# Nettoyage de l'alpha (note transversale de la critique MÉTALLURGIE, 3/11) : 1 à 14 pixels parasites par couche (bruit de
+# Cycles, alpha 3 à 5 sur 255, isolés) gonflaient le rectangle rogné de l'atlas jusqu'à x3,8 (mesure DA-CHIMIE : colonne_s
+# main 538 x 425 au lieu de 174 x 350). Alpha sous 3/255 mis à 0, puis composantes 8-connexes PETITES ET FAIBLES retirées
+# (une vraie pièce, même petite, a un alpha fort : voyants, regards). NETTOIE = (taille max, alpha max) par couche.
+NETTOIE = {"main": (16, 0.12), "shadow": (16, 0.12), "glow": (40, 0.16)}
+
+
+def nettoie(img, couche):
+    from scipy import ndimage
+    out = img.copy()
+    out[out[..., 3] < 3.0 / 255.0] = 0.0
+    a = out[..., 3]
+    lab, nb = ndimage.label(a > 0, structure=np.ones((3, 3)))
+    if nb > 1:
+        idx = np.arange(1, nb + 1)
+        tailles = ndimage.sum(np.ones_like(a), lab, idx)
+        maxi = ndimage.maximum(a, lab, idx)
+        t, m = NETTOIE[couche]
+        out[np.isin(lab, idx[(tailles < t) & (maxi < m)])] = 0.0
+    return out
+
+
 def post(name, cache, out_root):
     d = os.path.join(cache, name)
     info = json.load(open(os.path.join(d, "render.json"), encoding="utf-8"))
@@ -73,6 +95,7 @@ def post(name, cache, out_root):
     for layer in ("main", "shadow", "glow"):
         if layer not in hr:
             continue
+        hr[layer] = nettoie(hr[layer], layer)
         box = P.trim_box(hr[layer], origin)
         if box is None:
             continue
