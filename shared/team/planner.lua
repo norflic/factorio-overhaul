@@ -33,6 +33,7 @@ local Pr = require("shared.team.priorite") -- lot PRIORITE-RESSOURCES : producti
 local Fr = require("shared.team.front") -- lot DEFENSE-FACTIONS : planchers du front, commande partielle (constantes de ce module)
 local V = require("shared.faction.valeur") -- lot SITE-PROCHE : V.extension_refused (R1)
 local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du QG avant les soldats quand la base est menacée
+local Ce = require("shared.team.ceinture") -- lot DEFENSE : plafond du QG proportionnel à la menace reçue au QG
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
@@ -377,7 +378,15 @@ function P.plan(view, book)
   if df and view.base_alert then
     local cu_key = T.outposts.copper.product
     local rc = book:raw_cost(turret_items(1))
-    dc = Dc.turrets({ alert = true, want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, ok = turret_ok,
+    -- Lot DEFENSE (retour du DC du 2/11, point 10) : la hausse « base menacée et riche » jusqu'à Dc.HQ_CAP tourelles se faisait quelle que soit la taille
+    -- des vagues reçues (Écarlate : 14 à 18 tourelles à 48 tuiles du QG pour une menace de 19 à 738 PV) ; le plafond suit la plus grosse vague reçue AU
+    -- QG (Ce.hq_cap). Sans mesure (prévision éteinte, aucun relevé du QG : qp nil) : D.HQ_CAP, comme avant.
+    local hq_cap = nil
+    if qp and qp.hq_threat ~= nil then
+      hq_cap = Ce.hq_cap({ threat = qp.hq_threat, value = qp.turret_value, want = view.hq_defend or T.defend_hq, cap = Dc.HQ_CAP })
+    end
+    out.hq_cap = hq_cap -- lu par le journal [FO-DEFCHOIX] et les bancs
+    dc = Dc.turrets({ alert = true, want = view.hq_defend or T.defend_hq, have = view.hq_turrets or 0, ok = turret_ok, cap = hq_cap,
       busy = (view.hq_fortify or open["fortify:hq"]) and true or false,
       funds_iron = (avail[iron_key] or 0) - fl_i, cost_iron = rc[iron_key] or 0,
       funds_copper = (avail[cu_key] or 0) - fl_c, cost_copper = rc[cu_key] or 0, stock = avail[T.turret] or 0 })
@@ -389,7 +398,12 @@ function P.plan(view, book)
       if lacking[o.id] then
         local ospec = T.outposts[o.kind]
         posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify,
-          iron = (ospec and ospec.product == iron_key) or nil } -- lot DEFENSE-FACTIONS D5 : un avant-poste de fer non défendu passe AVANT le front
+          iron = (ospec and ospec.product == iron_key) or nil, -- lot DEFENSE-FACTIONS D5 : un avant-poste de fer non défendu passe AVANT le front
+          -- Lot DEFENSE (retour du DC du 2/11, point 10 : « se font détruire au même endroit à répétition ») : un avant-poste TOUCHÉ par des vagues
+          -- (o.protect) ou meurtrier (o.lethal) se sert tourelle par tourelle comme le QG, la centrale et le front. Avant : tout ou rien, 5 tourelles
+          -- et leurs chargeurs d'un coup (« manque iron-plate 600 » pendant 40 min au journal, azure graine 314159265) : le fer ne s'accumulait jamais
+          -- et l'avant-poste, détruit et refait, restait sans tourelle.
+          protect = ((o.protect or o.lethal) and true) or nil }
       end
     end
     -- Lot CENTRALE-GARDE : la centrale FINIE (view.plant) est un poste comme un avant-poste : K tourelles ARMÉES à portée de toutes ses
@@ -450,7 +464,7 @@ function P.plan(view, book)
       if p.have < p.want and not p.busy and not open["fortify:" .. p.id] and not p.optional then -- (ILOTS-MURS : poste facultatif hors du coût)
         local n = p.want - p.have
         if not turret_craftable then n = math.min(n, avail[T.turret] or 0) end
-        if PARTIAL_POSTS[p.id] then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end
+        if PARTIAL_POSTS[p.id] or p.protect then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end
       end
     end
     local cd = 0
@@ -727,7 +741,7 @@ function P.plan(view, book)
               task_of(items)
               d.claim = nil
               d.why = "tache_creee"
-            elseif PARTIAL_POSTS[p.id] then
+            elseif PARTIAL_POSTS[p.id] or p.protect then
               -- Lot DEFENSE-FACTIONS D4 : plancher réduit si la cellule est très attaquée et que le fer est encore produit (Fr.floors), puis,
               -- si la commande complète n'est pas payable, une commande PARTIELLE (Fr.PARTIAL_COUNT tourelle, Fr.PARTIAL_AMMO chargeurs)
               -- au lieu du tout-ou-rien d'avant (240 fer pour 2 tourelles pleines au-dessus d'un plancher de 150).
@@ -735,6 +749,7 @@ function P.plan(view, book)
               -- D3 : le plancher réduit du front garde au moins le fer du prochain pas de production, pri.production_cost)
               local fi, fc, reduced = T.defend_iron_floor, T.defend_copper_floor, false
               if p.id == "hq" and (qg_peril or protect_any) then fi, fc, reduced = fl_i, fl_c, true end -- lot S1 : le QG en péril
+              if p.protect and protect_any then fi, fc, reduced = fl_i, fl_c, true end -- lot DEFENSE : un avant-poste touché par des vagues, mêmes planchers
               -- Lot EQUIPE : le QG sous son premier palier de tourelles (shared/team/premiere_tourelle.lua) se paie au plancher réduit, péril ou non
               local first_tier
               fi, fc, first_tier = Pt.floors(p.id, p.have, fi, fc, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)

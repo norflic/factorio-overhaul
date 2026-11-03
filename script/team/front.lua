@@ -21,18 +21,23 @@ local Outposts = require("script.faction.outposts")
 local Sec = require("shared.team.site_securise") -- lot INTEG-ECONOMIE (D5) : sites proches bloqués à couvrir
 local Rr = require("shared.team.rebuild_rapide") -- lot REBUILD-RAPIDE (c) : cellule réattaquée chez une équipe riche
 local Stock = require("script.team.stock")
+local Ceinture = require("script.team.ceinture") -- lot DEFENSE : emplacements sur le contour des bâtiments, côté attaqué d'abord
+local Ce = require("shared.team.ceinture")
 
 local Front = {}
 
 Front.LOGS = 60
 
-local LAB_TYPES, ASSET_TYPES
+local LAB_TYPES, ASSET_TYPES, MACHINE_TYPES
 local function types()
   if LAB_TYPES then return end
-  LAB_TYPES, ASSET_TYPES = {}, {}
+  LAB_TYPES, ASSET_TYPES, MACHINE_TYPES = {}, {}, {}
   for _, ty in ipairs(R.ENTITY_TYPES) do
     local role = R.ENTITY_ROLE[ty]
     if role == "labo" then LAB_TYPES[#LAB_TYPES + 1] = ty end
+    -- Lot DEFENSE (point 16 du DC : « ils défendent les gisements mais pas la base, les assembleurs ») : les machines de fabrication d'une ligne
+    -- (pas les fours, qui vont par dizaines aux avant-postes, défendus par leur poste) sont aussi des bâtiments à couvrir.
+    if role == "fabrique" and ty ~= "furnace" then MACHINE_TYPES[#MACHINE_TYPES + 1] = ty end
     if Pose.role_factor(role) > 0 then ASSET_TYPES[#ASSET_TYPES + 1] = ty end
   end
 end
@@ -109,7 +114,14 @@ local function refresh_cover(f, st, surface, tick)
     if e.valid then pos[#pos + 1] = { x = e.position.x, y = e.position.y } end
   end
   table.sort(pos, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
-  st.cover = Fr.cover_clusters(pos)
+  local mach = {}
+  if #MACHINE_TYPES > 0 then
+    for _, e in ipairs(surface.find_entities_filtered({ force = f.force, type = MACHINE_TYPES })) do
+      if e.valid then mach[#mach + 1] = { x = e.position.x, y = e.position.y } end
+    end
+    table.sort(mach, function(a, b) if a.x ~= b.x then return a.x < b.x end return a.y < b.y end)
+  end
+  st.cover = Fr.cover_clusters(Ce.cover_positions(pos, mach, Fr.CELL))
 end
 
 local function range_near()
@@ -173,6 +185,29 @@ function Front.view(f, fortify_open)
   local plan = Fr.plan({ cells = cells, cover = cover, turrets = turrets, placed = Rr.cap_placed(placed, rich), near = range_near(), rest = rest,
     allow = allow, hq = f.hq_pos, prevu = prevu })
   local pick = plan.pick
+  -- Lot DEFENSE : les emplacements de la pose sont ceux du CONTOUR des bâtiments autour de la cellule (côté d'où viennent les attaques d'abord),
+  -- pas l'anneau de Fr.RING tuiles autour de son centre ; sans contour assez proche, l'anneau d'avant. Mis en cache 30 s par cellule.
+  if pick then
+    local cache = st.belt
+    local sig = pick.key .. ":" .. pick.have .. ":" .. pick.count
+    if cache and cache.sig == sig and tick - cache.tick < 1800 then
+      if cache.sites then pick.sites = cache.sites end
+    else
+      local belt = Ceinture.sites(f, surface, { x = pick.x, y = pick.y }, pick.count, { radius = Fr.ASSET_R, range = Outposts.turret_range(),
+        existing = turrets, max_d = (pick.kind == "couverture" and Fr.ACCEPT_COVER or Fr.ACCEPT) - 1 })
+      st.belt = { sig = sig, tick = tick, sites = belt and belt.sites or nil }
+      if belt then
+        pick.sites = belt.sites
+        if st.belt_said ~= sig and (st.belt_logs or 0) < Front.LOGS then
+          st.belt_said = sig
+          st.belt_logs = (st.belt_logs or 0) + 1
+          log(string.format("[FO-CEINTURE] %s cellule %s (%s) en (%.0f, %.0f) : %d tourelle(s) a poser, %d emplacement(s) de contour a moins de %d tuiles, %d batiment(s), %d point(s) de menace ; poids couvert en plus %d sur %d",
+            f.key or "player", pick.key, pick.kind, pick.x, pick.y, pick.count, belt.info.cands,
+            (pick.kind == "couverture" and Fr.ACCEPT_COVER or Fr.ACCEPT) - 1, belt.info.assets, belt.info.threats, belt.info.covered, belt.info.total))
+        end
+      end
+    end
+  end
   if pick and pick.kind == "attaque" and boosted[pick.key] then
     local n = Rr.rich_count(pick.want, pick.have, plan.left)
     if n > pick.count then
@@ -215,8 +250,17 @@ function Front.place(f, surface, task, carrier)
   local c = task.pos
   local key = task.cell_key
   if not (c and key) then return 0 end
+  local tick0 = game.tick
+  local row_kind = nil
+  for _, r in ipairs((state(f, tick0).rows) or {}) do
+    if r.key == key then row_kind = r.kind break end
+  end
+  local acc = row_kind == "couverture" and Fr.ACCEPT_COVER or nil -- lot DEFENSE : la ceinture d'un groupe de bâtiments passe à sa périphérie
   local n = Outposts.fortify_at(f, surface, oid_of(key), task.sites or {}, task.items[1][2], carrier,
-    function(pos) return Fr.accepts(c.x, c.y, pos.x, pos.y) end)
+    function(pos)
+      if acc then return (pos.x - c.x) ^ 2 + (pos.y - c.y) ^ 2 <= acc * acc end
+      return Fr.accepts(c.x, c.y, pos.x, pos.y)
+    end)
   local tick = game.tick
   local st = state(f, tick)
   st.poses = st.poses + n

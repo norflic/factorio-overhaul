@@ -41,6 +41,8 @@ function SurvieQg.update(f, tick)
   local r = Sq.peril({ threat = threat, armed_value = q.value, turret_value = q.turret_value, turrets = q.turrets, armed = q.armed,
     cap = Dc.HQ_CAP, was = s.was })
   r.tick, r.threat = tick, threat
+  -- Lot DEFENSE : la menace reçue AU QG seulement et la valeur d'une tourelle de plus, lues par le planificateur (plafond du QG, Ce.hq_cap).
+  r.hq_threat, r.turret_value = Sq.threat_hq(v.waves, tick), q.turret_value
   local who = tostring(f.key or "?")
   if r.peril and not s.was then
     s.entries, s.since, s.cause = s.entries + 1, tick, r.cause
