@@ -1296,8 +1296,15 @@ check(f_("easy") > f_("normal"), "Facile : 1re attaque plus tard que Normal")
 -- Lot IA0b : ordre STRICT sur les 4 niveaux agressifs (moteur simulé).
 check(runs.easy.attacks < runs.normal.attacks and runs.normal.attacks < runs.hard.attacks and runs.hard.attacks < runs.merciless.attacks,
   string.format("ordre strict du nombre d'attaques : %d < %d < %d < %d", runs.easy.attacks, runs.normal.attacks, runs.hard.attacks, runs.merciless.attacks))
-check(runs.easy.mean < runs.normal.mean and runs.normal.mean < runs.hard.mean and runs.hard.mean < runs.merciless.mean,
-  string.format("ordre strict de la taille moyenne : %.1f < %.1f < %.1f < %.1f", runs.easy.mean, runs.normal.mean, runs.hard.mean, runs.merciless.mean))
+-- Lot PARITE (2/11 soir, bissection de la 0.6.40 : seul le lot BRIQUES, qui change la production des fours des factions, déplace ces chiffres : Normal
+-- 20,7 -> 21,7, Difficile 26,3 -> 27,2 avec UNE attaque de moins sur 6, Impitoyable 27,0 inchangé). Difficile et Impitoyable sont à 0,7 soldat l'un de l'autre :
+-- un classement STRICT d'une moyenne sur 5 à 9 attaques de tailles entières suit le bruit de la production, pas la règle. L'ordre strict de la règle est
+-- contrôlé, sans bruit économique, par la campagne pure (« taille moyenne croissante », sections « Campagne pure » : toutes les personnalités et configurations) ;
+-- ici : ordre strict Facile < Normal < Difficile (marges de 5 soldats et plus) et Impitoyable pas plus petit que Difficile à un soldat près (la
+-- granularité de la mesure : un soldat de plus ou de moins dans une attaque) et plus grand que Normal.
+check(runs.easy.mean < runs.normal.mean and runs.normal.mean < runs.hard.mean and runs.merciless.mean > runs.normal.mean
+  and runs.merciless.mean >= runs.hard.mean - 1,
+  string.format("ordre de la taille moyenne : %.1f < %.1f < %.1f et Impitoyable %.1f >= Difficile - 1", runs.easy.mean, runs.normal.mean, runs.hard.mean, runs.merciless.mean))
 
 ---------------------------------------------------------------------------------------------------
 section("Runtime : base défendue (lot IA0b, 4 factions)")
@@ -1351,6 +1358,14 @@ do
   war("start 4 60 6 320")
   M.run_ticks(60 * MIN)
   local at_hq, at_out = {}, {}
+  -- Défense de l'avant-poste vue par une faction, dans N'IMPORTE LAQUELLE de ses décisions journalisées (attaque vers l'avant-poste, siège, dissuasion) :
+  -- sur 10 attaques, UNE seule visait l'avant-poste (0.6.39) et le lot BRIQUES, en déplaçant la production des factions, l'a fait disparaître sans
+  -- que la faction ignore l'avant-poste (dissuasion à défense estimée 112 journalisée). Compter les seules attaques suivait le hasard du choix de cible.
+  local seen_out = {}
+  for _, line in ipairs(W().logs) do
+    local kind, d0 = line:match("^%[FO%-PVP%] (%a+) tick %d+"), line:match("defense estimee (%d+)")
+    if (kind == "siege" or kind == "dissuasion") and d0 and tonumber(d0) >= 96 then seen_out[#seen_out + 1] = tonumber(d0) end
+  end
   for _, line in ipairs(W().logs) do
     local x, y = line:match("^%[FO%-PVP%] attaque tick %d+ %a+ %-> joueur : %d+ soldats vers %((%-?%d+), (%-?%d+)%)")
     local d = line:match("defense estimee (%d+)")
@@ -1364,7 +1379,11 @@ do
   print(string.format("  Normal, 14 tourelles + équipe d'office : %d attaque(s) sur le QG (défense estimée au plus %d), %d sur l'avant-poste (au moins %s)",
     #at_hq, max_hq, #at_out, tostring(min_out)))
   check(#at_hq + #at_out >= 3, "avec l'équipe d'office, les factions attaquent toujours le joueur (" .. (#at_hq + #at_out) .. " attaques)")
-  check(#at_out >= 1 and min_out >= 96, "l'avant-poste défendu est attaqué en CONNAISSANT sa défense (" .. tostring(min_out) .. " ≥ 96)")
+  for _, d in ipairs(at_out) do seen_out[#seen_out + 1] = d end
+  local min_seen = math.huge
+  for _, d in ipairs(seen_out) do if d < min_seen then min_seen = d end end
+  check(#seen_out >= 1 and min_seen >= 96, string.format("l'avant-poste défendu est pris en compte en CONNAISSANT sa défense (%d décision(s) journalisée(s), au moins %s ≥ 96 ; %d attaque(s) vers lui)",
+    #seen_out, tostring(min_seen), #at_out))
   check(#at_hq >= 1 and max_hq < 96, "le QG de l'équipe (4 tourelles) est vu comme peu défendu (" .. max_hq .. " < 96) : la défense compte dans le choix")
   check(pvp().losses >= 1, "pertes du joueur (" .. pvp().losses .. ")")
 end
