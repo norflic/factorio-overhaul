@@ -115,8 +115,8 @@ def parse(path):
     return T, real
 
 
-def dormant(brq, t):
-    vals = [p for (m, p, _) in brq if t - WIN - 1e-6 <= m <= t + 1e-6]
+def dormant(brq, t, idx=1):
+    vals = [x[idx] for x in brq if t - WIN - 1e-6 <= x[0] <= t + 1e-6]
     if len(vals) < 2:
         return None
     return min(vals)
@@ -146,6 +146,7 @@ def table(T, last_min):
             rows.append({
                 "eq": k, "t": t,
                 "plaques": cur[0] if cur else None, "fer": cur[1] if cur else None, "dort": dor,
+                "dort_fer": dormant(d["brq"], t, 2),
                 "libre_mu": rs[-1][2] if rs else None,
                 "depense_mu": sum(r[3] for r in rs), "ordres": sum(r[4] for r in rs),
                 "budget_dep": sum(c[1] for c in cp), "budget_dispo": cp[-1][2] if cp else None,
@@ -200,13 +201,14 @@ def main(argv):
                 fmt(r["depense_mu"], 8), r["ordres"], r["occupe"], r["cycles"], att or "-", r["regle"]))
             out_csv.append((real, r))
         # Résumé à la minute demandée : stock dormant total des équipes de PNJ (votre équipe « player » à part).
-        tot_d, tot_p = 0.0, 0.0
+        tot_d, tot_p, tot_f = 0.0, 0.0, 0.0
         for r in rows:
             if r["t"] == minute and r["eq"] != "player":
                 tot_d += r["dort"] or 0
                 tot_p += r["plaques"] or 0
-        print("RESUME %s : a %d min, plaques libres des factions %.0f, dont DORMANTES (10 min) %.0f (%.0f %%)" % (
-            os.path.basename(os.path.dirname(real)) or real, minute, tot_p, tot_d, 100.0 * tot_d / tot_p if tot_p > 0 else 0))
+                tot_f += r["dort_fer"] or 0
+        print("RESUME %s : a %d min, plaques libres des factions %.0f, dont DORMANTES (10 min) %.0f (%.0f %%), dont fer %.0f" % (
+            os.path.basename(os.path.dirname(real)) or real, minute, tot_p, tot_d, 100.0 * tot_d / tot_p if tot_p > 0 else 0, tot_f))
         fac = lambda force: force != "player"
         flux = [v for (force, m), v in G["flux"].items() if fac(force) and 30 <= m <= minute]
         n_rel = len(set(m for (force, m) in G["flux"] if fac(force) and 30 <= m <= minute))
