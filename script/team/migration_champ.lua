@@ -32,6 +32,7 @@ local Mod = require("shared.team.modules")
 local P = require("shared.team.plan")
 local D = require("shared.team.automatisation_donnees")
 local Mg = require("shared.team.migration_champ")
+local Th = require("shared.team.thermique") -- lot THERMIQUE : couvert, balayage, protection, ordre, créneaux (règle pure)
 local Rc = require("shared.team.reconstruction")
 local State = require("script.faction.state")
 local Stock = require("script.team.stock")
@@ -57,6 +58,7 @@ CHAMP_CFG.gate_wait, CHAMP_CFG.retry = 90 * 3600, 3 * 3600
 CHAMP_CFG.block_max = 15 * 3600 -- une bande bloquée (fantôme refusé) est laissée au plan après 15 min : la suivante part (step_build)
 local EXT_PLATES = 3000
 local FURNACE_INVENTORIES = { "furnace_source", "furnace_result", "fuel" }
+local CHEST_INVENTORIES = { "chest" }
 
 local function sorted_keys(t) return State.sorted_keys(t or {}) end
 
@@ -81,15 +83,23 @@ local function say_why(f, ms, st, key, text, force)
   say(f, ms, text, force)
 end
 
---- Lot CHAMP : deux champs migrent EN MÊME TEMPS au plus (créneaux ms.cur et ms.cur2, de minerais différents : le fer et le cuivre
---- avancent ensemble) ; ms.cur reste le créneau lu par les autres modules (script/team/pile.lua, Mig.project).
+--- Lot CHAMP : plusieurs champs migrent EN MÊME TEMPS (créneaux ms.cur, ms.cur2 et, depuis THERMIQUE, ms.cur3, de minerais différents) ;
+--- ms.cur reste le créneau lu par les autres modules (script/team/pile.lua, Mig.project).
+-- Lot THERMIQUE : trois créneaux au plus (Th.CFG.slots), un seul par minerai (Th.free_slot) : le fer, le cuivre, le charbon et la pierre avancent
+-- ensemble (avant : deux créneaux, charbon et pierre jamais migrés).
+local SLOTS = { "cur", "cur2", "cur3" }
 local function claim(ms, id)
-  if not ms.cur then ms.cur = id else ms.cur2 = id end
+  for _, s in ipairs(SLOTS) do
+    if not ms[s] then ms[s] = id; return end
+  end
 end
 local function release(ms, id)
-  if ms.cur == id then ms.cur = nil end
-  if ms.cur2 == id then ms.cur2 = nil end
-  if ms.cur2 and not ms.cur then ms.cur, ms.cur2 = ms.cur2, nil end
+  local kept = {}
+  for _, s in ipairs(SLOTS) do
+    if ms[s] ~= nil and ms[s] ~= id then kept[#kept + 1] = ms[s] end
+    ms[s] = nil
+  end
+  for i, v in ipairs(kept) do ms[SLOTS[i]] = v end
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -99,6 +109,14 @@ local function is_furnace_kind(kind)
   local spec = T.outposts[kind]
   local proto = spec and game.entity_prototypes[spec.sink]
   return proto ~= nil and proto.type == "furnace"
+end
+
+--- Lot THERMIQUE : un avant-poste dont le réceptacle est un COFFRE (charbon, pierre) passe aussi par le champ, en mode coffres (bras tapis -> coffre
+--- de sortie, shared/team/champ.lua). Les ordres de la capitalisation (Mig.takes) restent aux avant-postes à fours.
+local function is_champ_kind(kind)
+  local spec = T.outposts[kind]
+  local proto = spec and game.entity_prototypes[spec.sink]
+  return proto ~= nil and (proto.type == "furnace" or proto.type == "container")
 end
 
 local function box_of(e)
@@ -117,7 +135,7 @@ local function survey(o)
     end
   end
   for _, s in ipairs(o.sinks or {}) do
-    if s.valid and s.type == "furnace" and s.unit_number then
+    if s.valid and (s.type == "furnace" or s.type == "container") and s.unit_number then
       local b = box_of(s)
       sinks[#sinks + 1] = { id = s.unit_number, x = b.x, y = b.y, w = b.w, h = b.h }
       ents[s.unit_number] = s
@@ -243,16 +261,25 @@ end
 --- Produits finis des fours de la ligne neuve (au plus 24 fours lus).
 local function made_by(f, surface, p)
   local n, seen = 0, 0
+  local drills, working = 0, 0
   for _, e in ipairs(p.ents or {}) do
-    if seen >= 24 then break end
     local proto = game.entity_prototypes[e.name]
     if e.built and proto and proto.type == "furnace" then
-      seen = seen + 1
-      local found = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.6, type = "furnace", force = f.force })
-      local fe = found[1]
-      if fe and fe.valid then n = n + fe.products_finished end
+      if seen < 24 then
+        seen = seen + 1
+        local found = surface.find_entities_filtered({ position = { e.x, e.y }, radius = 0.6, type = "furnace", force = f.force })
+        local fe = found[1]
+        if fe and fe.valid then n = n + fe.products_finished end
+      end
+    elseif e.built and e.role == "champ-foreuse" and drills < 24 then
+      drills = drills + 1
+      local de = surface.find_entity(e.name, { e.x, e.y })
+      if de and de.valid and de.status == defines.entity_status.working then working = working + 1 end
     end
   end
+  -- lot THERMIQUE : une bande de COFFRES (charbon, pierre) n'a pas de four qui compte ses produits : elle produit quand ses foreuses minent
+  -- (au moins deux en marche, ou toutes si elle n'en a qu'une)
+  if seen == 0 and drills > 0 and working >= math.min(2, drills) then n = CFG.produce_min end
   return n
 end
 
@@ -308,7 +335,8 @@ local function retire(f, surface, o, st, list, ents)
         removed = removed + 1
       end
       if s and s.valid and not gone_sinks[pr.sink_id] then
-        for _, inv_name in ipairs(FURNACE_INVENTORIES) do
+        -- (lot THERMIQUE : un coffre de charbon ou de pierre ne se vide pas comme un four)
+        for _, inv_name in ipairs(s.type == "furnace" and FURNACE_INVENTORIES or CHEST_INVENTORIES) do
           empty_into_stock(f, surface, s.get_inventory(defines.inventory[inv_name]), got)
         end
         State.disown(s.unit_number)
@@ -354,6 +382,119 @@ local function purge_recon(f, o)
     end
   end
   return n
+end
+
+---------------------------------------------------------------------------------------------------
+-- Lot THERMIQUE : lectures pour la règle pure shared/team/thermique.lua (« on REMPLACE les thermiques par l'électrique »)
+---------------------------------------------------------------------------------------------------
+--- Cadences (ore/s) d'une foreuse thermique et d'une foreuse électrique sur le minerai de `kind`, lues aux prototypes ; nil si illisibles.
+local function rates_of_kind(f, kind)
+  local spec = T.outposts[kind]
+  local rp = spec and game.entity_prototypes[spec.resource]
+  local bp, ep = game.entity_prototypes[T.DRILL], game.entity_prototypes[T.DRILL_ELECTRIC]
+  if not (rp and rp.mineable_properties and bp and ep and bp.mining_speed and ep.mining_speed) then return nil end
+  local mt = rp.mineable_properties.mining_time or 1
+  local force = game.forces and game.forces[f.force]
+  local prod = force and force.mining_drill_productivity_bonus or 0
+  return bp.mining_speed / mt * (1 + prod), ep.mining_speed / mt * (1 + prod)
+end
+
+--- Foreuses thermiques debout d'un avant-poste (ou d'un gisement voulu).
+local function thermal_count(o)
+  local n = 0
+  for _, d in ipairs(o.drill_list or {}) do
+    if d.valid and d.name == T.DRILL then n = n + 1 end
+  end
+  return n
+end
+
+--- Fer d'une foreuse électrique (matières premières du livre), lu une fois : le livre est fait des recettes, qui ne changent pas en partie.
+local drill_cost_cache
+local function drill_cost(book)
+  if drill_cost_cache == nil and book then
+    local ok, raw = pcall(function() return book:raw_cost({ { T.DRILL_ELECTRIC, 1 } }) end)
+    drill_cost_cache = (ok and raw and raw[T.outposts.iron.product]) or 0
+  end
+  return drill_cost_cache or 0
+end
+
+--- Foreuses électriques EN MARCHE des bandes du champ `oid` (posées) (une bande qui ne mine pas ne couvre rien : sortie bouchée, courant coupé).
+local function working_of(f, surface, oid)
+  local b = f.build
+  local n = 0
+  for _, pid in ipairs(b.order or {}) do
+    local p = b.projects[pid]
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid then -- (toute bande : les foreuses POSEES et en marche comptent, comme au relevé [FO-REGARD] G)
+      for _, e in ipairs(p.ents or {}) do
+        if e.built and e.role == "champ-foreuse" then
+          local de = surface.find_entity(e.name, { e.x, e.y })
+          if de and de.valid and de.status == defines.entity_status.working then n = n + 1 end
+        end
+      end
+    end
+  end
+  return n
+end
+
+--- Combustible (ore/s) que brûlent les générateurs de la force à cet instant : plancher du minerai CRITIQUE (le charbon de la centrale).
+local function fuel_burn(f, surface)
+  local proto = game.item_prototypes and game.item_prototypes[T.fuel]
+  local value = proto and proto.fuel_value or 0
+  if value <= 0 then return 0 end
+  local watts = 0
+  for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
+    if g.valid then watts = watts + (g.energy_generated_last_tick or 0) * 60 end
+  end
+  return watts / value
+end
+
+--- Gisements de la force pour la règle pure : un par propriétaire de champ (les voisins du même gisement lui sont rattachés), un par
+--- avant-poste ou gisement voulu sinon. Rend (liste, par numéro).
+local function build_fields(f, surface, ms, free)
+  local fields, byid = {}, {}
+  local targets = {}
+  for _, oid in ipairs(sorted_keys(f.outposts)) do targets[#targets + 1] = f.outposts[oid] end
+  for _, fid in ipairs(sorted_keys(ms.fields)) do targets[#targets + 1] = ms.fields[fid] end
+  for _, o in ipairs(targets) do
+    if is_champ_kind(o.kind) then
+      local th, el = rates_of_kind(f, o.kind)
+      local st = ms.o[o.id]
+      local framed = (st and st.frame and not st.abandoned) and true or false
+      local sib = siblings(f, o)
+      local subsumed = false
+      if not framed then
+        for _, q in ipairs(sib) do
+          local sq = ms.o[q.id]
+          if sq and sq.frame and not sq.abandoned then subsumed = true end
+        end
+      end
+      if th and not subsumed then
+        local n = thermal_count(o)
+        if framed then for _, q in ipairs(sib) do n = n + thermal_count(q) end end
+        local fl = { id = o.id, res = o.kind, pairs = n, th_rate = th, el_rate = el, working = framed and working_of(f, surface, o.id) or 0,
+          busy = (st and st.stage == "projet") and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
+          have = free[T.outposts[o.kind].product] or 0, framed = framed }
+        fields[#fields + 1] = fl
+        byid[o.id] = fl
+      end
+    end
+  end
+  return fields, byid
+end
+
+--- Contexte de la règle pure : courant, fer libre, stock de chaque minerai (son produit), minerai critique (le combustible) et son plancher.
+local function th_context(f, surface, b, free, book)
+  local ctx = { power = power_ok(b), iron = free[T.outposts.iron.product] or 0, drill_cost = drill_cost(book), floor = {}, stock = {}, critical = {} }
+  local burn
+  for _, kind in ipairs(T.OUTPOST_ORDER) do
+    local spec = T.outposts[kind]
+    ctx.stock[kind] = free[spec.product] or 0
+    if spec.resource == T.fuel then
+      burn = burn or fuel_burn(f, surface)
+      ctx.critical[kind], ctx.floor[kind] = true, burn
+    end
+  end
+  return ctx
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -434,7 +575,14 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   local product = T.outposts[o.kind].product
   local pr
   for _, x in ipairs(st.order) do
-    if not pr and not st.done_pr[tostring(x)] and not bad[x] then pr = x end
+    if not pr and not st.done_pr[tostring(x)] and not bad[x] and not (st.prot and st.prot[x]) then pr = x end
+  end
+  if not pr and st.prot then
+    -- lot THERMIQUE : toutes les bandes restantes ont été retenues par la protection : on les redemande, la coupe attendra au dégel
+    st.prot = nil
+    for _, x in ipairs(st.order) do
+      if not pr and not st.done_pr[tostring(x)] and not bad[x] then pr = x end
+    end
   end
   if not pr then
     finish(f, ms, o, st, (st.done > 0 or st.produced > 0) and "fini" or "abandon", (#st.order == 0)
@@ -464,6 +612,30 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     end
   end
   table.sort(ids)
+  -- lot THERMIQUE : un minerai ne perd pas ses paires sous une bande tant que l'approvisionnement qui reste n'atteint pas son plancher ou qu'il
+  -- reste sans source (dernière source, centrale) : cette bande-là est mise de côté et une bande sans paire (ou moins chargée) passe devant, de
+  -- sorte que l'électrique PRODUISE avant qu'une paire parte (mesuré, 1re mesure : 45 à 57 attentes « protege » de 10 min sinon)
+  -- Lot THERMIQUE2 : seulement pour le minerai CRITIQUE (le charbon de la centrale). Un minerai ordinaire part comme sur main : sa première bande
+  -- est toujours sur sa dernière source, et la mettre de côté retardait toute l'électrification (champ-longue 20261020 : bande de cuivre d'Azure
+  -- « mise de cote (derniere-source) » à 18,9 min, demandée sur main à la même minute ; première divergence des deux parties).
+  local ctx = (#ids > 0 and free) and th_context(f, surface, f.build, free, nil) or nil
+  if ctx and ctx.critical[o.kind] then
+    do
+      local fields, byid = build_fields(f, surface, ms, free)
+      local fl = byid[o.id]
+      if fl then
+        local ok, cwhy = Th.cut_ok(fl, fields, #ids * fl.th_rate, ctx)
+        if not ok then
+          st.prot = st.prot or {}
+          st.prot[pr] = true
+          st.retry = tick + CFG.retry_refuse
+          say_why(f, ms, st, "prot:" .. pr, string.format("avant-poste %d : bande %d mise de cote (%d paire(s) dessous, %s) : une bande sans paire passe devant",
+            o.id, pr, #ids, tostring(cwhy)), true)
+          return false
+        end
+      end
+    end
+  end
   -- une bande voulue par la capitalisation (Mig.want) n'attend pas que la plaque manque : la règle a déjà jugé l'agrandissement rentable
   local wanted = (st.want_until or 0) > tick
   if #ids == 0 and (free[product] or 0) >= EXT_PLATES and not wanted then
@@ -611,7 +783,7 @@ local function part_ids(st, list, thaw)
 end
 
 --- Projet demandé : attend le plan et les matières ; au moment du « degel », retire la partie.
-local function step_project(f, surface, ms, o, st, tick)
+local function step_project(f, surface, ms, o, st, tick, free, book)
   local b = f.build
   local p = b.projects[st.pid]
   local env = { now = tick }
@@ -633,6 +805,24 @@ local function step_project(f, surface, ms, o, st, tick)
     env.enemy = enemy_near(f, surface, st.cx, st.cy) or enemy_near(f, surface, o.pos.x, o.pos.y)
     env.uses = uses_thaw(p, p.spec.degel.tiles)
     env.gate_age = tick - st.gate_t0
+    -- lot THERMIQUE : protection. Couper les paires de la partie laisse-t-il assez du minerai (le charbon de la centrale, la dernière source d'un
+    -- minerai) ? Sinon la coupe attend (un pont de stock, ou une bande qui produit ailleurs) ; un minerai ordinaire ne bloque jamais plus de
+    -- Th.CFG.protect_wait, un minerai critique n'est jamais coupé sous son plancher (la demande est annulée après Th.CFG.critical_wait).
+    -- Lot THERMIQUE2 : la retenue ne vaut plus que pour le minerai CRITIQUE (un minerai ordinaire est coupé comme sur main).
+    local ctx = (st.frame and env.present > 0 and free) and th_context(f, surface, b, free, book) or nil
+    if ctx and ctx.critical[o.kind] then
+      local fields, byid = build_fields(f, surface, ms, free)
+      local fl = byid[o.id]
+      if fl then
+        local ok, cwhy = Th.cut_ok(fl, fields, env.present * fl.th_rate, ctx)
+        local verdict = Th.verdict(ok, ctx.critical[o.kind], env.gate_age)
+        if verdict ~= "retirer" then
+          env.hold = verdict
+          say_why(f, ms, st, "hold:" .. tostring(cwhy), string.format("avant-poste %d : coupe des %d paire(s) du projet %d retenue par la protection (%s, %s)",
+            o.id, env.present, st.pid, tostring(cwhy), verdict), true)
+        end
+      end
+    end
   end
   local act, why = Mg.gate(st, p, env, st.frame and CHAMP_CFG or nil)
   if act == "attendre" then
@@ -737,32 +927,132 @@ local function step_build(f, surface, ms, o, st, tick)
   end
 end
 
---- Premier avant-poste (par numéro) dont la migration peut partir.
-local function start_next(f, surface, ms, free, obtainable, tick, busy)
+---------------------------------------------------------------------------------------------------
+-- Lot THERMIQUE : balayage des paires thermiques d'un gisement COUVERT, et part électrique par minerai (journal [FO-THERMIQUE])
+---------------------------------------------------------------------------------------------------
+-- Retour du DC du 2/11 : « on REMPLACE les thermiques par l'électrique ; on voit bien les rangées de foreuses sur un ou 2 gisements (pas tous) ».
+-- Mesuré (150 min, main 0.6.37) : des paires restent sur des gisements dont une bande produit (paires hors des bandes : bords, tuiles
+-- occupées, foreuses sans four). Règle : shared/team/thermique.lua (Th.sweep). Un gisement doit être COUVERT à deux relevés de suite (une bande
+-- bouchée un instant ne fait pas retirer ses paires).
+local SWEEP_EVERY = 3600     -- 1 min entre deux relevés
+local SWEEP_CONFIRM = 2      -- relevés de suite « couvert » avant de retirer
+local REPORT_EVERY = 5 * 3600 -- une ligne [FO-THERMIQUE] par équipe toutes les 5 min
+local REPORT_LOGS = 150      -- lignes [FO-THERMIQUE] au plus par équipe
+
+--- Paires thermiques du gisement de `o` (appariées) PLUS les foreuses thermiques sans four (four détruit) : rend (liste de paires pour retire(),
+--- entités, propriétaires).
+local function sweep_list(f, o)
+  local list, ents = survey_field(f, o)
+  local matched = {}
+  for _, pr in ipairs(list) do matched[pr.id] = true end
+  local owners = { o }
+  for _, q in ipairs(siblings(f, o)) do owners[#owners + 1] = q end
+  for _, q in ipairs(owners) do
+    for _, d in ipairs(q.drill_list or {}) do
+      if d.valid and d.name == T.DRILL and d.unit_number and not matched[d.unit_number] then
+        matched[d.unit_number] = true
+        list[#list + 1] = { id = d.unit_number, drill = box_of(d) }
+        ents[d.unit_number] = d
+      end
+    end
+  end
+  return list, ents, owners
+end
+
+local function sweep(f, surface, ms, free, book, tick)
+  if tick < (ms.sweep_next or 0) then return 0 end
+  ms.sweep_next = tick + SWEEP_EVERY
+  local fields, byid = build_fields(f, surface, ms, free)
+  if #fields == 0 then return 0 end
+  local ctx = th_context(f, surface, f.build, free, book)
+  local gated = {}
+  for _, fl in ipairs(fields) do
+    local st = ms.o[fl.id]
+    if st then st.cov_n = Th.covered(fl) and ((st.cov_n or 0) + 1) or 0 end
+    local g = {}
+    for _, k in ipairs(sorted_keys(fl)) do g[k] = fl[k] end
+    if not st or (st.cov_n or 0) < SWEEP_CONFIRM then g.working = 0 end
+    gated[#gated + 1] = g
+  end
+  local acts, refused = Th.sweep(gated, ctx)
+  local swept = 0
+  for _, a in ipairs(acts) do
+    local o = Champ.target(f, a.id)
+    local st = ms.o[a.id]
+    if o and st and st.stage ~= "projet" then -- (avant le retrait de sa partie, une bande a besoin de ses paires ; ensuite les restes ne gênent plus)
+      local list, ents, owners = sweep_list(f, o)
+      if #list > 0 then
+        local ids = {}
+        for _, pr in ipairs(list) do ids[#ids + 1] = pr.id end
+        table.sort(ids)
+        local before = {}
+        for i, q in ipairs(owners) do before[i] = q.drills or 0 end
+        local fl = byid[a.id]
+        local removed, got = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
+        -- la comptabilité des foreuses de l'avant-poste ne change pas : l'électrique de la bande en tient lieu (comme au retrait d'une bande)
+        for i, q in ipairs(owners) do
+          q.drills = before[i]
+          purge_recon(f, q)
+        end
+        o.migr_credit = (o.migr_credit or 0) + removed
+        ms.retired = (ms.retired or 0) + removed
+        ms.swept = (ms.swept or 0) + removed
+        swept = swept + removed
+        say(f, ms, string.format("gisement de l'avant-poste %d (%s) : %d paire(s) thermique(s) retiree(s) de force, bande electrique productive (%d foreuse(s) en marche, "
+          .. "%.2f ore/s contre %.2f ore/s thermique), repris au stock : %s", o.id, o.kind, removed, fl and fl.working or 0,
+          fl and fl.working * fl.el_rate or 0, fl and fl.pairs * fl.th_rate or 0, items_text(got)), true)
+      end
+    end
+  end
+  if tick >= (ms.th_report_next or 0) then
+    ms.th_report_next = tick + REPORT_EVERY
+    ms.th_logs = (ms.th_logs or 0) + 1
+    if ms.th_logs <= REPORT_LOGS then
+      local parts = {}
+      for _, r in ipairs(Th.shares(fields, T.OUTPOST_ORDER)) do
+        if r.pairs + r.working > 0 then
+          parts[#parts + 1] = string.format("%s %d thermique(s), %d electrique(s) en marche, part %s, %d gisement(s) couvert(s) gardant des paires", r.res, r.pairs,
+            r.working, r.share and string.format("%.0f%%", r.share * 100) or "-", r.covered_with_pairs)
+        end
+      end
+      local why = {}
+      for _, r in ipairs(refused) do why[#why + 1] = string.format("%d:%s", r.id, r.why) end
+      log(string.format("[FO-THERMIQUE] %s min %.0f | %s | refus du balayage : %s | %d paire(s) balayee(s) depuis le debut", name_of(f), tick / 3600,
+        #parts > 0 and table.concat(parts, " ; ") or "aucune foreuse", #why > 0 and table.concat(why, ", ") or "aucun", ms.swept or 0))
+    end
+  end
+  return swept > 0 and 1 or 0
+end
+Mig.sweep = sweep -- (bancs hors jeu : tests/migration_champ_test.lua, section T)
+
+--- Premier avant-poste dont la migration peut partir (lot THERMIQUE : les gisements les plus productifs d'abord, un chantier par minerai).
+--- busy = { total, ids = { [numéro] = true }, [minerai] = chantiers en cours } : les créneaux déjà pris.
+local function start_next(f, surface, ms, free, obtainable, tick, busy, book)
   local b = f.build
   -- Lot CHAMP : la plaque la plus en manque d'abord (retour du DC du 2/11 : « 57 plaques de cuivre » pour près de 1 000 de fer), puis
   -- le numéro d'avant-poste
   -- Lot CHAMP (ordres « couvrir / ouvrir ») : les champs voulus par la capitalisation d'abord (Mig.want), gisements sans avant-poste compris
   local cand = {}
   local function add(oid, o)
-    if is_furnace_kind(o.kind) then
+    if is_champ_kind(o.kind) then
       local sq = ms.o[oid]
-      cand[#cand + 1] = { oid = oid, have = free[T.outposts[o.kind].product] or 0, want = (sq and (sq.want_until or 0) > tick) and 1 or 0 }
+      local th, el = rates_of_kind(f, o.kind)
+      cand[#cand + 1] = { id = oid, res = o.kind, tier = is_furnace_kind(o.kind) and 0 or 1, pairs = thermal_count(o), th_rate = th or 1, el_rate = el or 1, working = 0,
+        have = free[T.outposts[o.kind].product] or 0, wanted = (sq and (sq.want_until or 0) > tick) and true or false }
     end
   end
   for _, oid in ipairs(sorted_keys(f.outposts)) do add(oid, f.outposts[oid]) end
   for _, fid in ipairs(sorted_keys(ms.fields)) do add(fid, ms.fields[fid]) end
-  table.sort(cand, function(a, c)
-    if a.want ~= c.want then return a.want > c.want end
-    if a.have ~= c.have then return a.have < c.have end
-    return a.oid < c.oid
-  end)
+  cand = Th.order(cand) -- voulus d'abord, puis le plus d'extraction thermique en jeu, puis la plaque la plus en manque, puis le numéro
   for _, it in ipairs(cand) do
-    local oid = it.oid
+    local oid = it.id
     local o = Champ.target(f, oid)
     local st = ms.o[oid]
-    -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement)
-    if busy and (oid == busy.id or o.kind == busy.kind or Champ.data(f, o.kind) == nil) then goto next_outpost end
+    -- lot THERMIQUE : charbon et pierre n'existent que par le champ (le gabarit de fonderie du treillis ne sait pas poser un coffre)
+    if not is_furnace_kind(o.kind) and Champ.data(f, o.kind) == nil then goto next_outpost end
+    -- lot CHAMP : un créneau déjà pris : seulement un champ d'un AUTRE minerai (ni l'avant-poste en cours, ni son gisement), lot THERMIQUE : un
+    -- seul chantier par minerai, trois au plus (Th.free_slot)
+    if busy.total > 0 and (busy.ids[oid] or not Th.free_slot(o.kind, busy) or Champ.data(f, o.kind) == nil) then goto next_outpost end
     -- lot MIGRATION-DECLENCHE : un abandon (échecs de suite, ligne perdue) n'est plus définitif : après CFG.revive, l'avant-poste repart
     -- d'un état neuf (parties refusées oubliées : le champ, le stock et le courant ont changé). L'abandon « pas de gabarit » reste. Un
     -- abandon d'une sauvegarde 0.6.18 (sans date) compte comme daté du tick 0 : repris à la première pensée.
@@ -791,7 +1081,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy)
       local cfg = champ and CHAMP_CFG or CFG
       local npairs = #list
       if champ and st.frame and npairs == 0 then npairs = 1 end -- bandes sans paire : agrandissement du champ (begin_band)
-      if champ and it.want == 1 and npairs == 0 then npairs = 1 end -- voulu par la capitalisation : un gisement sans paire se pose aussi
+      if champ and it.wanted and npairs == 0 then npairs = 1 end -- voulu par la capitalisation : un gisement sans paire se pose aussi
       local lattice = champ or next(rects) ~= nil
       -- la recherche d'ennemi (coûteuse) seulement quand le reste est réuni
       local enemy = false
@@ -801,6 +1091,9 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy)
       local plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
       local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates,
         lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
+      -- Lot THERMIQUE2 : la garde de fer du lot THERMIQUE (Th.financed : fer libre >= coût des foreuses de remplacement) est retirée : une force
+      -- dont le fer est tout consommé ne lançait jamais la bande qui lui rendrait du fer (« migration en veille (fer) », champ-longue 20261020) ;
+      -- la garde de plaques de Mg.start_ok (comme sur main) reste.
       if ok then
         if champ then
           if begin_band(f, surface, ms, o, st, list, tick, free) then return true end
@@ -930,7 +1223,7 @@ function Mig.think(f, surface, book, free, tick)
   local item = T.DRILL_ELECTRIC
   if not game.entity_prototypes[item] then return 0 end
   local did = 0
-  for _, slot in ipairs({ "cur", "cur2" }) do
+  for _, slot in ipairs(SLOTS) do
     local id = ms[slot]
     if id then
       local o = Champ.target(f, id) -- (lot CHAMP : avant-poste, ou gisement voulu par la capitalisation)
@@ -949,20 +1242,30 @@ function Mig.think(f, surface, book, free, tick)
         -- une paire tuée par une attaque pendant l'attente des matières (30 min au plus) doit être refaite (scarlet, avant-poste 6 : 8 paires
         -- avant la vague, 3 après, demande annulée sans rien migrer)
         if st.stage == "chantier" then purge_recon(f, o) end
-        if st.stage == "projet" then step_project(f, surface, ms, o, st, tick)
+        if st.stage == "projet" then step_project(f, surface, ms, o, st, tick, free, book)
         elseif st.stage == "chantier" then step_build(f, surface, ms, o, st, tick)
         else release(ms, id) end
         did = 1
       end
     end
   end
-  if ms.cur2 then return did end
-  -- un créneau libre : le premier comme avant ; le second (lot CHAMP) seulement pour un champ d'un autre minerai que celui en cours
-  local busy = ms.cur and Champ.target(f, ms.cur)
-  if busy and not (ms.o[ms.cur] and ms.o[ms.cur].frame) then return did end
+  -- lot THERMIQUE : balayage des paires thermiques des gisements couverts (une fois par minute)
+  if free and sweep(f, surface, ms, free, book, tick) > 0 then did = 1 end
+  -- un créneau libre : trois au plus, un seul par minerai (lot THERMIQUE ; lot CHAMP : deux), la migration du treillis (sans cadre) seule
+  local busy = { total = 0, ids = {} }
+  for _, slot in ipairs(SLOTS) do
+    local id = ms[slot]
+    if id then
+      local q = Champ.target(f, id)
+      busy.total, busy.ids[id] = busy.total + 1, true
+      if q then busy[q.kind] = (busy[q.kind] or 0) + 1 end
+      if not (ms.o[id] and ms.o[id].frame) then return did end
+    end
+  end
+  if busy.total >= Th.CFG.slots then return did end
   local have = math.min(Stock.count(f, item), free and free[item] or 0)
   local obtainable = have > 0 or book:handcraftable(item)
-  local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy and { id = busy.id, kind = busy.kind } or nil)
+  local started = start_next(f, surface, ms, free or {}, obtainable, tick, busy, book)
   return (started or did == 1) and 1 or 0
 end
 
@@ -983,7 +1286,7 @@ end
 function Mig.projects(f)
   local ms = f and f.migration
   local out = {}
-  for _, slot in ipairs({ "cur", "cur2" }) do
+  for _, slot in ipairs(SLOTS) do
     local id = ms and ms[slot]
     local st = id and ms.o and ms.o[id]
     local o = id and Champ.target(f, id)
@@ -1001,7 +1304,7 @@ function Mig.summary(f)
   local n = #sorted_keys(ms.o)
   local credit = 0
   for _, oid in ipairs(sorted_keys(f.outposts or {})) do credit = credit + (f.outposts[oid].migr_credit or 0) end
-  return { requests = ms.requests or 0, retired = ms.retired or 0, lines = ms.lines or 0, outposts = n, cur = ms.cur, credit = credit }
+  return { requests = ms.requests or 0, retired = ms.retired or 0, lines = ms.lines or 0, outposts = n, cur = ms.cur, credit = credit, swept = ms.swept or 0 }
 end
 
 return Mig

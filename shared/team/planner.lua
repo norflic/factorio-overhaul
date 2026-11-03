@@ -36,6 +36,7 @@ local Dc = require("shared.team.defchoix") -- lot DEFENSE-CHOIX : tourelles du Q
 local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers réduits, tourelles voulues, remplissage partiel)
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
+local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
 
 local P = {}
 
@@ -627,7 +628,10 @@ function P.plan(view, book)
     burn_rate = burn_rate + view.smelters * 0.0225
     burn_rate = burn_rate + (view.build_burn or 0) -- lot INTEG-ECONOMIE (D4) : fours à combustible du plan directeur (relevé de script/team/build.lua)
     out.coal_rate, out.burn_rate = coal_rate, burn_rate
-    if #view.outposts > 0 and coal_rate < 1.4 * burn_rate and (view.pending.coal or 0) == 0 then
+    -- Lot THERMIQUE2 (essai 3) : banc thermique-garde (moteur réel) : ce bilan, qui ne lit que des cadences, ajoutait 4 brûleurs de charbon
+    -- toutes les 2 à 3 min avec 3 200 à 3 800 charbons au stock (chaque paire de fer ou de cuivre posée relève le brûlé) : plus au-delà du seuil.
+    if #view.outposts > 0 and coal_rate < 1.4 * burn_rate and (view.pending.coal or 0) == 0
+      and not Th.raw_full(T.outposts.coal, view.stock) then
       local items = outpost_items("coal")
       local ext = extendable(view, "coal", undefended)
       if ext and not open["extend:" .. ext.id] then
@@ -1026,7 +1030,11 @@ function P.plan(view, book)
   local research_now = false
   if goal then
     for _, part in ipairs(parts) do
-      if part.outpost then
+      if part.outpost and Th.raw_full(T.outposts[part.outpost], view.stock) then
+        -- lot THERMIQUE2 (essai 3) : minerai brut plein (stock libre au seuil) : ni agrandissement ni avant-poste en brûleurs
+        out.raw_full = out.raw_full or {}
+        out.raw_full[part.outpost] = true
+      elseif part.outpost then
         local kind = part.outpost
         local items = outpost_items(kind)
         local ext = extendable(view, kind, undefended)
