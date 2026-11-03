@@ -398,12 +398,7 @@ function P.plan(view, book)
       if lacking[o.id] then
         local ospec = T.outposts[o.kind]
         posts[#posts + 1] = { id = o.id, want = T.defend_turrets(o.drills), have = o.turrets or 0, busy = o.has_fortify,
-          iron = (ospec and ospec.product == iron_key) or nil, -- lot DEFENSE-FACTIONS D5 : un avant-poste de fer non défendu passe AVANT le front
-          -- Lot DEFENSE (retour du DC du 2/11, point 10 : « se font détruire au même endroit à répétition ») : un avant-poste TOUCHÉ par des vagues
-          -- (o.protect) ou meurtrier (o.lethal) se sert tourelle par tourelle comme le QG, la centrale et le front. Avant : tout ou rien, 5 tourelles
-          -- et leurs chargeurs d'un coup (« manque iron-plate 600 » pendant 40 min au journal, azure graine 314159265) : le fer ne s'accumulait jamais
-          -- et l'avant-poste, détruit et refait, restait sans tourelle.
-          protect = ((o.protect or o.lethal) and true) or nil }
+          iron = (ospec and ospec.product == iron_key) or nil } -- lot DEFENSE-FACTIONS D5 : un avant-poste de fer non défendu passe AVANT le front
       end
     end
     -- Lot CENTRALE-GARDE : la centrale FINIE (view.plant) est un poste comme un avant-poste : K tourelles ARMÉES à portée de toutes ses
@@ -464,7 +459,7 @@ function P.plan(view, book)
       if p.have < p.want and not p.busy and not open["fortify:" .. p.id] and not p.optional then -- (ILOTS-MURS : poste facultatif hors du coût)
         local n = p.want - p.have
         if not turret_craftable then n = math.min(n, avail[T.turret] or 0) end
-        if PARTIAL_POSTS[p.id] or p.protect then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end
+        if PARTIAL_POSTS[p.id] then n_part = n_part + math.min(n, math.max(1, Fr.PARTIAL_COUNT)) else n_miss = n_miss + n end
       end
     end
     local cd = 0
@@ -741,7 +736,7 @@ function P.plan(view, book)
               task_of(items)
               d.claim = nil
               d.why = "tache_creee"
-            elseif PARTIAL_POSTS[p.id] or p.protect then
+            elseif PARTIAL_POSTS[p.id] then
               -- Lot DEFENSE-FACTIONS D4 : plancher réduit si la cellule est très attaquée et que le fer est encore produit (Fr.floors), puis,
               -- si la commande complète n'est pas payable, une commande PARTIELLE (Fr.PARTIAL_COUNT tourelle, Fr.PARTIAL_AMMO chargeurs)
               -- au lieu du tout-ou-rien d'avant (240 fer pour 2 tourelles pleines au-dessus d'un plancher de 150).
@@ -749,7 +744,6 @@ function P.plan(view, book)
               -- D3 : le plancher réduit du front garde au moins le fer du prochain pas de production, pri.production_cost)
               local fi, fc, reduced = T.defend_iron_floor, T.defend_copper_floor, false
               if p.id == "hq" and (qg_peril or protect_any) then fi, fc, reduced = fl_i, fl_c, true end -- lot S1 : le QG en péril
-              if p.protect and protect_any then fi, fc, reduced = fl_i, fl_c, true end -- lot DEFENSE : un avant-poste touché par des vagues, mêmes planchers
               -- Lot EQUIPE : le QG sous son premier palier de tourelles (shared/team/premiere_tourelle.lua) se paie au plancher réduit, péril ou non
               local first_tier
               fi, fc, first_tier = Pt.floors(p.id, p.have, fi, fc, Sq.FLOOR_IRON, Sq.FLOOR_COPPER)
