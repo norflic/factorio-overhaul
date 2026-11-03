@@ -481,6 +481,12 @@ function Champ.frame(f, surface, o)
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
       spec.coal and spec.coal.nforeign or 0))
+  -- lot FONDERIE (3/11, décision du lead) : refuser aurait coûté plus de la moitié des foreuses du champ : ce cadre garde ses colonnes au
+  -- coffre de tête (0.6.42)
+  if plan.coffre_cost then
+    log(string.format("[FO-CHAMP] %s : cadre a coffres : refus coutait %d %% du champ (avant-poste %d, %d colonne(s) sans voie de charbon) a %.1f min",
+      f.key or "player", plan.coffre_cost, o.id, plan.coffre_cols or 0, game.tick / 3600))
+  end
   -- lot FONDERIE (3/11, 0.6.43) : colonnes refusées faute de voie de charbon (plus aucun coffre de tête à remplir)
   for _, x in ipairs(plan.refused or {}) do
     -- (hors du plafond des lignes [FO-CHAMP] de say : un refus se voit toujours)

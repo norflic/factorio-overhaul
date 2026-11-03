@@ -331,6 +331,10 @@ fw.build.projects[3] = proj(3, "fantomes", { { name = "medium-electric-pole", x 
 fw.build.order[#fw.build.order + 1] = 3
 local r_w = run_team(fw, true, 3)
 check(#r_w == 0 and logs_with("%[FO%-RACCORD%] fw : groupe .* attendre") >= 1, "9.5 poteau d'un autre chantier : attendre, rien demande (" .. #r_w .. ")")
+-- 9.6 (0.6.44) attente bornée : après R.WAIT_PENDING relevés « attendre » derrière ce chantier, le raccordement est demandé quand même
+local r_w2 = run_team(fw, true, 2)
+check(#r_w2 == 1 and r_w2[1].kind == "ile", "9.6 attente bornee : raccordement demande apres " .. R.WAIT_PENDING .. " releves (" .. #r_w2 .. ")")
+check(logs_with("%[FO%-RACCORD%] fw : groupe .* %(attente 3 sur 3%)") == 1, "9.7 la derniere attente est ecrite (3 sur 3)")
 
 print(string.format("[RACCORD-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)
