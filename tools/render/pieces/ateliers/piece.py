@@ -22,6 +22,10 @@ BATIMENTS = {
 }
 VARIANTES = ("a", "b", "c")
 MACHINES = {"%s_%s" % (b, v): (p[0], 0, p[1], p[2], p[3], v) for b, p in BATIMENTS.items() for v in VARIANTES}
+# raccords de fluide (pipe_picture, m_raccords.py) : un tronçon par direction pour les 3 machines à fluide ; ancre = connexion
+RACCORDS = {"raccord_%s_%s" % (b, d): (BATIMENTS[b][0], 0, 1, "m_raccords", "raccord", (b, d))
+            for b in ("bobineuse", "torchere", "taillerie") for d in ("n", "e", "s", "o")}
+MACHINES.update(RACCORDS)
 PIECE = {"name": "at", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {n: {"epoch": 0, "side": v[2], "dest": "machines/ateliers/" + n, "anchor_tiles": (0.0, 0.0)}
                       for n, v in MACHINES.items()}}
@@ -29,8 +33,14 @@ PHASE = 0.0
 ANIMES = ()
 
 
+# marge du canevas (px HR) : la passe light doit contenir toute la fenêtre du halo (torchère : 5 tuiles autour du pied)
+MARGE = {"torchere": 340, "machoires": 120, "concasseur": 100, "bobineuse": 100, "taillerie": 100}
+
+
 def margin_px(name):
-    return 40
+    if name.startswith("raccord_"):
+        return 24
+    return MARGE.get(name.rsplit("_", 1)[0], 40)
 
 
 def build(S, C, variant):
@@ -41,9 +51,14 @@ def build(S, C, variant):
     lot, mob, flam = geo.Lot(S, "at_" + variant), geo.Lot(S, "mob_" + variant), geo.Lot(S, "flam_" + variant)
     k = O.Kit(lot, None, seed=sum(ord(c) for c in variant), phase=PHASE, lot_mobile=mob)
     k.lot_flamme = flam
-    getattr(mod, fn)(S, k, v)
+    k.halos = []
+    k.S = S
+    if isinstance(v, tuple):
+        getattr(mod, fn)(S, k, *v)
+    else:
+        getattr(mod, fn)(S, k, v)
     n = lot.n + mob.n + flam.n
     lot.flush()
     mob.flush()
     flam.flush()
-    return {"count": {"pieces": n}, "halos": 0}
+    return {"count": {"pieces": n}, "halos": k.halos}

@@ -68,12 +68,25 @@ def post(name, cache, out_root):
         hr["glow"] = P.additive_layer(gl)
     out = os.path.join(out_root, name)
     os.makedirs(out, exist_ok=True)
-    spec = {"variant": name, "epoch": piece.PIECE["variants"][name]["epoch"], "samples": info["samples"],
+    spec = {"variant": name, "epoch": piece.PIECE["variants"][name]["epoch"], "halos": info.get("halos"), "samples": info["samples"],
             "seconds": info["seconds"], "seconds_render": info.get("seconds_render"), "verts": info.get("verts"),
             "canvas": info["canvas"], "kit": "ateliers", "layers": {}}
     li = npy("light")
     if li is not None:
-        hr["light"] = P.light_layer(li, C.LIGHT_SCALE if hasattr(C, "LIGHT_SCALE") else 1.0)
+        # comme tools/render/render.py (mode v0b) : aucun halo sur la pièce, fenêtres circulaires déclarées par la pièce
+        # (communs.halo), bords du canevas adoucis
+        main_raw = npy("main")
+        free = np.minimum(li[..., 3], 1.0 - np.clip(main_raw[..., 3], 0, 1))
+        lay = P.light_layer(np.concatenate([li[..., :3], free[..., None]], -1), C.LIGHT_SCALE)
+        wins = info.get("halos") if isinstance(info.get("halos"), list) and info.get("halos") else             [{"at": (0.0, 0.0, 0.0), "r": C.LIGHT_RADIUS_TILES}]
+        best = None
+        for wdef in wins:
+            dx, dy, z = wdef["at"]
+            u, v = C.blender_to_screen_px(0.0, 0.0, z)
+            center = (origin[0] + dx * 64.0 + u, origin[1] + dy * 64.0 + v)
+            wl = P.radial_window(lay, center, wdef["r"][0] * 64, wdef["r"][1] * 64)
+            best = wl if best is None else np.concatenate([wl[..., :3], np.maximum(best[..., 3:], wl[..., 3:])], -1)
+        hr["light"] = P.floor_alpha(P.fade_edges(best))
     for layer in ("main", "shadow", "glow", "light"):
         if layer not in hr:
             continue

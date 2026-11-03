@@ -162,7 +162,7 @@ def main():
         passe = os.path.basename(path)[:-4].rsplit("-", 1)[-1]
         flam = [o for o in S.piece_objects() if o.name.startswith("flam_")]
         for o in flam:
-            o.hide_render = passe not in ("glow", "light")
+            o.hide_render = passe != "glow"      # passe light : la source ponctuelle de la pièce porte la lumière
         try:
             return _rt(scene, path)
         finally:

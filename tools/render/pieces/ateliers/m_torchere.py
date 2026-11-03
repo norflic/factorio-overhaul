@@ -10,6 +10,7 @@ import geo as G
 
 Y = CO.Y
 TAU = 2.0 * math.pi
+HALO_W = 1300.0   # puissance (W) des sources de la flamme : À ÉTALONNER (pic au sol, CALIBRATION §4.2 ; cheminée : 300 W à z 2,2)
 
 
 def _tete(k, x, y, z, r):
@@ -135,3 +136,7 @@ def torchere(S, k, v):
     # flamme (lot à part : passes glow et light seulement)
     zf = CO.FLAMME_Z[0]
     k.flamme("flamme", xs + 0.02, ys, zf - 0.04, CO.FLAMME_Z[1] - zf, rt * 1.5, langues=6, penche=(0.16, 0.05))
+    # halo de nuit : deux sources dans la flamme (la flamme elle-même n'est pas rendue dans la passe light)
+    hf = CO.FLAMME_Z[1] - zf
+    for t, part in ((0.25, 0.6), (0.6, 0.4)):
+        CO.halo(S, k, (xs + 0.05, ys, zf + hf * t), (1.0, 0.58, 0.22), HALO_W * part, r=(2.2, 5.0))

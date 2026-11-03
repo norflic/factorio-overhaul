@@ -35,6 +35,7 @@ def _bac_cristaux(k, x, y):
         n = G.norm(ax)
         _cristal(k, (px + n[0] * L * 0.3, py + n[1] * L * 0.3, h + n[2] * L * 0.3), ax, L=L, r=k.r.f(0.045, 0.07))
     k.plaque("plaque", x, y - ly / 2.0, h * 0.55, 0.2, 0.1)
+    CO.halo(k.S, k, (x, y - 0.3, 0.7), (0.2, 0.75, 1.0), 18.0, r=(0.5, 1.3))
 
 
 def _etabli(k, x0, x1, ty0, ty1, zt):

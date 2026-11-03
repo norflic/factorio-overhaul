@@ -83,4 +83,11 @@ def flamme(S):
     return m
 
 
-FLAMME_Z = (3.0, 4.6)   # hauteurs du dégradé de la flamme (posées par la torchère avant matieres())
+FLAMME_Z = (3.0, 4.6)
+
+
+def halo(S, k, loc, rgb, watts, r=(0.5, 1.3)):
+    """Lumière portée au sol la nuit (passe light seulement, source ponctuelle sans bruit) et sa fenêtre : centrée sous la source,
+    en tuiles du JEU (x est, y SUD), pleine jusqu'à r[0], nulle à r[1] (rendre.py, comme render.py)."""
+    S.halo_light(loc, rgb, watts, radius=0.08)
+    k.halos.append({"at": (loc[0], -loc[1] / D, 0.0), "r": r})   # hauteurs du dégradé de la flamme (posées par la torchère avant matieres())
