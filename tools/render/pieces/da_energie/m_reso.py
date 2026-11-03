@@ -121,27 +121,68 @@ def v_b(S, k):
 
 
 def v_c(S, k):
-    M = E.matieres(S, k, "hitech")
+    """Obélisque de résonance sans dalle (corrections du 3/11) : socle rond à bobines de 2 tuiles, 3 logements de modules
+    en façade sud, 4 jambes vers les coins avec leurs feux cyan, disques de résonance épais à liseré cyan, diapason de a
+    et grand cristal facetté (0,8 × 1,2 tuile), anneau de 3 lentilles qui tourne."""
+    M = E.matieres(S, k, "hitech", "reso")
     E.lueurs(S, M)
-    _socle(k)
-    # obélisque à pans, disques de résonance empilés sur le mât, cristal au sommet
-    b = 0.48
-    k.put("car", G.prisme([(-b, -b), (b, -b), (b, b), (-b, b)], 0.24, 1.25, 0.62))
-    for z in (0.5, 0.85):
-        k.put("acier", G.prisme([(-b * 1.02, -b * 1.02), (b * 1.02, -b * 1.02), (b * 1.02, b * 1.02), (-b * 1.02, b * 1.02)], z - 0.025, z + 0.025, 0.98))
-    k.b("cristal_p", (0.0, -0.43, 0.68), (0.06, 0.02, 0.3), rx=math.radians(-10))
-    k.cyl("acier_clair", 0.0, 0.0, 1.25, 2.4, 0.06, 14)
-    for i, z in enumerate((1.4, 1.62, 1.82, 2.0, 2.16)):
-        r = 0.46 - i * 0.065
-        k.rev("acier_clair", 0.0, 0.0, [(z - 0.03, 0.06), (z - 0.03, r), (z, r + 0.02), (z + 0.03, r), (z + 0.03, 0.06)], 40)
-        k.tore("cristal_p", 0.0, 0.0, z, r + 0.022, 0.012, 40, 5)
-    k.cyl("acier", 0.0, 0.0, 2.3, 2.42, 0.13, 16)
-    E.bipyramide(k, "cristal", 0.0, 0.0, 2.4, 3.15, 0.17, 6, 0.3)
+    # socle rond, bobines de cuivre, fût central
+    k.rev("car", 0.0, 0.0, [(0.0, 1.0), (0.16, 1.0), (0.22, 0.94), (0.22, 0.0)], 48)
+    k.cerclages("acier", 0.0, 0.0, (0.08,), 1.0, 0.02, 0.03, 48)
+    for i in range(5):
+        k.tore("cuivre", 0.0, 0.0, 0.27 + i * 0.058, 0.76, 0.034, 56, 8)
+    for i in range(8):
+        a = TAU * (i + 0.5) / 8
+        k.bz("car2", 0.76 * math.cos(a), 0.76 * math.sin(a), 0.22, 0.09, 0.09, 0.32, rz=a)
+    k.cyl("car2", 0.0, 0.0, 0.22, 0.6, 0.56, 36)
+    # 3 logements de modules, séparés, en façade sud
+    for a_deg in (-125, -90, -55):
+        a = math.radians(a_deg)
+        px, py = 1.06 * math.cos(a), 1.06 * math.sin(a)
+        k.b("car2", (px, py, 0.17), (0.3, 0.26, 0.34), rz=a + math.pi / 2)
+        n = (math.cos(a), math.sin(a), 0.0)
+        k.b("noir", (px + n[0] * 0.13, py + n[1] * 0.13, 0.19), (0.2, 0.02, 0.2), rz=a + math.pi / 2)
+        k.b("cristal_p", (px + n[0] * 0.145, py + n[1] * 0.145, 0.15), (0.13, 0.01, 0.03), rz=a + math.pi / 2)
+        k.voyant("voyant_v", px + n[0] * 0.14 + 0.08, py + n[1] * 0.14, 0.3, 0.016)
+    # 4 jambes vers les coins, semelles, bornes à lentille cyan
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            fx, fy = sx * 1.2, sy * 1.2 * D * 0.86
+            a = math.atan2(fy, fx)
+            k.axe("car", (0.85 * math.cos(a), 0.85 * math.sin(a), 0.18), (fx, fy, 0.1), 0.06, 10)
+            k.bz("beton", fx, fy, 0.0, 0.24, 0.24, 0.1)
+            k.cyl("car2", fx, fy, 0.1, 0.42, 0.065, 12)
+            n = (math.cos(a), math.sin(a), 0.0)
+            p = (fx + n[0] * 0.05, fy + n[1] * 0.05, 0.48)
+            k.put("acier", G.oriente(G.tour([(-0.04, 0.085), (0.04, 0.085)], 16, "z", cap0=True, cap1=True), p, n))
+            k.put("cristal_p", G.oriente(G.tour([(0.0, 0.065), (0.02, 0.05), (0.03, 0.0)], 14, "z", cap0=True), G.add(p, G.mul(n, 0.04)), n))
+    # disques de résonance épais, à liseré cyan
+    for i, z in enumerate((0.7, 0.88, 1.05, 1.2)):
+        r = 0.66 - i * 0.07
+        k.rev("acier_clair", 0.0, 0.0, [(z - 0.05, 0.15), (z - 0.05, r), (z + 0.05, r), (z + 0.05, 0.15)], 44)
+        k.tore("cristal_p", 0.0, 0.0, z, r + 0.008, 0.03, 44, 6)
+    k.cyl("car2", 0.0, 0.0, 0.6, 1.32, 0.16, 20)
+    # diapason (de a) : culasse et deux branches, mâchoires
+    k.caisson("acier_clair", 0.0, 0.0, 1.3, 1.2, 0.26, 0.18, 0.03)
+    for sg in (-1, 1):
+        k.caisson("acier_clair", sg * 0.53, 0.0, 1.45, 0.15, 0.22, 1.72, 0.02)
+        k.b("car", (sg * 0.53, -0.115, 2.4), (0.15, 0.02, 0.9))
+        k.axe("acier", (sg * 0.46, 0.0, 1.95), (sg * 0.34, 0.0, 1.95), 0.04, 10)
+        k.axe("acier", (sg * 0.46, 0.0, 2.6), (sg * 0.28, 0.0, 2.6), 0.035, 10)
+        k.voyant_h("voyant", sg * 0.53, 0.0, 3.17, 0.025)
+    E.bipyramide(k, "cristal", 0.0, 0.0, 1.45, 3.15, 0.4, 6, 0.27)
+    # anneau orbital de 3 lentilles (pièce mobile)
     k.mobile(True)
-    a = TAU * k.phase / 3.0
+    a0 = TAU * k.phase / 3.0
+    R, zr = 0.8, 2.2
+    k.tore("acier_clair", 0.0, 0.0, zr, R, 0.045, 64, 10)
+    k.tore("car", 0.0, 0.0, 1.47, 0.3, 0.035, 32, 8)
     for i in range(3):
-        t = a + TAU * i / 3
-        k.axe("acier", (0.0, 0.0, 2.42), (0.36 * math.cos(t), 0.36 * math.sin(t), 2.55), 0.016, 6)
-        k.sph("cristal_p", (0.36 * math.cos(t), 0.36 * math.sin(t), 2.56), 0.045, 10, 5)
+        a = a0 + TAU * i / 3
+        c, s = math.cos(a), math.sin(a)
+        k.axe("acier", (0.3 * c, 0.3 * s, 1.47), (R * c, R * s, zr), 0.022, 6)
+        p = (R * c, R * s, zr)
+        n = (c, s, 0.0)
+        k.put("car", G.oriente(G.tour([(-0.07, 0.13), (0.07, 0.13)], 20, "z", cap0=True, cap1=True), p, n))
+        k.put("cristal_p", G.oriente(G.tour([(0.0, 0.11), (0.03, 0.09), (0.05, 0.0)], 16, "z", cap0=True), G.add(p, G.mul(n, 0.07)), n))
     k.mobile(False)
-    _bobines(k, 0.68, 0.26, 3)

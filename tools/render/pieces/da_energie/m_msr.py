@@ -14,16 +14,16 @@ HX, HY = 2.5, 2.5 * D
 ZC = 0.26           # axe du collecteur de chaleur
 
 
-def _collecteur(k, a=2.0, r=0.085):
+def _collecteur(k, a=2.0, r=0.085, mat="acier"):
     """Collecteur carré (tuiles ±a), 12 piquages jusqu'au bord, brides au bord. Rougeoie à chaud (chaleur)."""
     ay = a * D
-    k.tuyau("acier", [(-a, -ay, ZC), (a, -ay, ZC), (a, ay, ZC), (-a, ay, ZC), (-a, -ay, ZC)], r=r, coude=0.18, brides=[], segs=16)
+    k.tuyau(mat, [(-a, -ay, ZC), (a, -ay, ZC), (a, ay, ZC), (-a, ay, ZC), (-a, -ay, ZC)], r=r, coude=0.18, brides=[], segs=16)
     pts = []
     for t in (-2.0, 0.0, 2.0):
         pts += [((t, ay, ZC), (t, HY - 0.03, ZC)), ((t, -ay, ZC), (t, -HY + 0.03, ZC)),
                 ((a, t * D, ZC), (HX - 0.03, t * D, ZC)), ((-a, t * D, ZC), (-HX + 0.03, t * D, ZC))]
     for p, q in pts:
-        k.axe("acier", p, q, r * 0.92, 14)
+        k.axe(mat, p, q, r * 0.92, 14)
         n = G.norm(G.sub(q, p))
         k.collier("chaleur", G.sub(q, G.mul(n, 0.04)), n, r * 0.92, 0.03, 0.03)
         k.collier("acier", G.sub(q, G.mul(n, 0.14)), n, r * 0.92, 0.02, 0.02)
@@ -78,46 +78,98 @@ def _cuve(k, x, y, R=0.92, z0=0.2, h=1.25, dome=0.45):
     return zt
 
 
-def _pompe(k, x, y, h=1.55):
+def _pompe(k, x, y, h=1.55, r=0.26):
     """Pompe primaire : bol à brides (hublot de sel), long arbre gainé, moteur à ailettes, capot."""
-    k.cuve("car2", x, y, 0.0, 0.42, 0.26, 0.25, 28)
-    k.cerclages("acier", x, y, (0.1, 0.3), 0.26, 0.02, 0.02, 28)
-    k.rev("sel", x, y, [(0.18, 0.268), (0.24, 0.268)], 28, cap=False)
-    k.cyl("acier", x, y, 0.42, h - 0.55, 0.09, 14)
-    k.cyl("acier", x, y, h - 0.6, h - 0.55, 0.16, 18)
-    E.pompe_v(k, x, y, h - 0.55, 0.15, 0.55, corps="acier", moteur="car")
+    k.cuve("car2", x, y, 0.0, 0.42, r, 0.25, 28)
+    k.cerclages("recuit", x, y, (0.1, 0.3), r, 0.022, 0.022, 28)
+    k.rev("sel", x, y, [(0.18, r + 0.008), (0.24, r + 0.008)], 28, cap=False)
+    k.cyl("acier", x, y, 0.42, h - 0.55, r * 0.35, 14)
+    k.cyl("acier", x, y, h - 0.6, h - 0.55, r * 0.6, 18)
+    E.pompe_v(k, x, y, h - 0.55, r * 0.6, 0.55, corps="acier", moteur="car")
 
 
 def _echangeur(k, x, y, L, ax):
     k.echangeur(x, y, 0.12, L, 0.2, "car", "acier", axe=ax, cerc=4)
 
 
+def _hublots(k, a, b, r, pas=0.2):
+    """Rangée de hublots incandescents sur le dessus d'un tuyau droit de a à b (sel fondu visible)."""
+    L = G.length(G.sub(b, a))
+    n = max(1, int(L / pas))
+    d = G.norm(G.sub(b, a))
+    for i in range(n):
+        p = G.lerp(a, b, (i + 0.5) / n)
+        q = (p[0], p[1], p[2] + r * 0.92)
+        k.put("acier", G.oriente(G.tour([(0.0, r * 0.5), (0.012, r * 0.5), (0.012, 0.0)], 14, "z", cap0=True), q, (0.0, 0.0, 1.0)))
+        k.put("sel", G.oriente(G.tour([(0.0, r * 0.36), (0.016, r * 0.3), (0.02, 0.0)], 14, "z", cap0=True), (q[0], q[1], q[2] + 0.004), (0.0, 0.0, 1.0)))
+    k.collier("recuit", G.add(a, G.mul(d, 0.06)), d, r, 0.02, 0.03)
+    k.collier("recuit", G.sub(b, G.mul(d, 0.06)), d, r, 0.02, 0.03)
+
+
+def _boucle_sel(k, pts, r):
+    """Boucle de sel épaisse (0,25 tuile) : tuyau, hublots sur chaque tronçon horizontal assez long."""
+    k.tuyau("acier_clair", pts, r=r, coude=0.2, brides=[pts[0], pts[-1]], bride_mat="recuit", segs=16)
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        if abs(a[2] - b[2]) < 0.02 and G.length(G.sub(b, a)) > 0.5:
+            d = G.norm(G.sub(b, a))
+            _hublots(k, G.add(a, G.mul(d, 0.22)), G.sub(b, G.mul(d, 0.22)), r)
+
+
 def v_a(S, k):
-    M = E.matieres(S, k, "hitech")
+    """Cuve à dôme de 3 tuiles sur socle rond de protection, 4 grosses pompes aux coins, 4 boucles de sel à hublots,
+    échangeurs nord, sud, est, ouest, anneau lumineux du couvercle (corrections du 3/11)."""
+    M = E.matieres(S, k, "hitech", "msr")
     E.lueurs(S, M)
-    _collecteur(k)
-    zt = _cuve(k, 0.0, 0.1)
-    d = 1.42
+    _collecteur(k, mat="acier_clair")
+    # caillebotis le long du collecteur : le sol ne se voit plus que dans des passages étroits
+    a, ay = 2.0, 2.0 * D
+    E.caillebotis(k, 0.0, ay - 0.32, 0.07, 2 * a - 0.5, 0.42, 0.07, fond="noir")
+    E.caillebotis(k, 0.0, -ay + 0.32, 0.07, 2 * a - 0.5, 0.42, 0.07, fond="noir")
+    # socle rond de protection biologique, cuve, dôme, couvercle à anneau de sel
+    Rc = 1.45
+    k.rev("beton", 0.0, 0.0, [(0.0, Rc + 0.3), (0.26, Rc + 0.3), (0.3, Rc + 0.24), (0.3, Rc + 0.05)], 56)
+    k.cyl("acier_clair", 0.0, 0.0, 0.3, 1.15, Rc, 56)
+    k.cerclages("recuit", 0.0, 0.0, (0.42, 0.75, 1.05), Rc, 0.03, 0.035, 56)
+    k.dome("acier_clair", 0.0, 0.0, 1.15, Rc, 0.5 / Rc, 56)
+    zt = 1.15 + 0.5
+    k.cyl("recuit", 0.0, 0.0, zt - 0.08, zt + 0.06, 0.62, 40)
+    k.rev("sel", 0.0, 0.0, [(zt + 0.06, 0.58), (zt + 0.075, 0.58), (zt + 0.075, 0.45), (zt + 0.06, 0.45)], 40, cap=False)
+    k.cyl("acier", 0.0, 0.0, zt + 0.06, zt + 0.1, 0.44, 32)
+    k.boulons_rond("riv", 0.0, 0.0, zt + 0.06, 0.6, 18, 0.018)
+    for i in range(5):
+        aa = TAU * (i + 0.5) / 5
+        px, py = 0.22 * math.cos(aa), 0.22 * math.sin(aa)
+        k.cyl("acier", px, py, zt + 0.1, zt + 0.5, 0.05, 10)
+        k.cyl("car", px, py, zt + 0.5, zt + 0.62, 0.075, 12)
+        k.voyant_h("voyant_v", px, py, zt + 0.62, 0.016)
+    k.cyl("acier", 0.0, 0.0, zt + 0.1, zt + 0.18, 0.09, 14)
+    # 4 pompes aux coins, boucles cuve -> pompe (diagonales) et pompe -> échangeur est ou ouest
     for sx in (-1, 1):
         for sy in (-1, 1):
-            x, y = sx * d, sy * d * D * 0.92
-            _pompe(k, x, y)
-            _boucle(k, [(x * 0.6, y * 0.6, 0.85), (x - sx * 0.18, y - sy * 0.18, 0.85), (x - sx * 0.18, y - sy * 0.18, 0.38)], 0.065, 1)
-            _boucle(k, [(0.0, 0.1, 0.25 + 1.25 * 0.3), (x * 0.45, y * 0.45, 0.6), (x * 0.6, y * 0.6, 0.85)], 0.075, 1)
-    # échangeurs : nord et sud (axe x), est et ouest (axe y), reliés au collecteur
-    _echangeur(k, 0.0, 1.86 * D - 0.05, 1.3, "x")
-    _echangeur(k, 0.0, -1.86 * D + 0.05, 1.3, "x")
-    _echangeur(k, 1.86 - 0.05, 0.0, 1.5, "y")
-    _echangeur(k, -1.86 + 0.05, 0.0, 1.5, "y")
-    for (a, b) in (((0.0, 0.9, 0.5), (0.0, 2.3, 0.5)), ((0.0, -0.75, 0.5), (0.0, -2.3, 0.5)),
-                   ((0.88, 0.1, 0.5), (1.6, 0.1, 0.5)), ((-0.88, 0.1, 0.5), (-1.6, 0.1, 0.5))):
-        _boucle(k, [a, b], 0.06, 1)
-    # cheminée des gaz de fission (nord-est) et vanne gelée du réservoir de vidange (sud-ouest)
-    k.cyl("car2", 1.05, 2.55, 0.0, 2.4, 0.09, 16)
-    k.voyant_h("voyant_r", 1.05, 2.55, 2.4, 0.03)
-    k.cyl("acier", -1.0, -1.75, 0.0, 0.36, 0.13, 16)
-    k.cyl("givre", -1.0, -1.75, 0.36, 0.44, 0.15, 16)
-    k.ventilo(-0.55, -1.95, 0.4, 0.14, corps="noir")
+            P = (1.55 * sx, 2.22 * sy)
+            d = G.norm((P[0], P[1], 0.0))
+            _pompe(k, P[0], P[1], 1.75, r=0.34)
+            n0 = (d[0] * (Rc + 0.02), d[1] * (Rc + 0.02), 0.82)
+            _boucle_sel(k, [n0, (P[0] - d[0] * 0.55, P[1] - d[1] * 0.55, 0.82), (P[0] - d[0] * 0.3, P[1] - d[1] * 0.3, 0.82),
+                            (P[0] - d[0] * 0.3, P[1] - d[1] * 0.3, 0.42)], 0.125)
+            _boucle_sel(k, [(P[0] + sx * 0.05, P[1] - sy * 0.32, 0.3), (P[0] + sx * 0.05, P[1] - sy * 0.55, 0.62),
+                            (1.83 * sx, 1.0 * sy, 0.62), (1.83 * sx, 0.72 * sy, 0.45)], 0.1)
+    # échangeurs
+    k.echangeur(0.0, 2.45, 0.08, 1.55, 0.27, "car2", "recuit", axe="x", cerc=5)
+    k.echangeur(0.0, -2.45, 0.08, 1.55, 0.27, "car2", "recuit", axe="x", cerc=5)
+    k.echangeur(1.83, 0.0, 0.08, 1.3, 0.2, "car2", "recuit", axe="y", cerc=3)
+    k.echangeur(-1.83, 0.0, 0.08, 1.3, 0.2, "car2", "recuit", axe="y", cerc=3)
+    for sy in (-1, 1):
+        _boucle_sel(k, [(0.0, sy * (Rc - 0.05), 0.62), (0.0, sy * 2.05, 0.62), (0.0, sy * 2.2, 0.5)], 0.1)
+    # cheminée des gaz (fût de 0,35 tuile) au nord-est, vanne gelée et son ventilateur au sud-ouest
+    k.cyl("car2", 0.98, 2.98, 0.0, 2.55, 0.175, 24)
+    k.cerclages("acier", 0.98, 2.98, (0.5, 1.0, 1.5, 2.0), 0.175, 0.02, 0.025, 24)
+    k.rev("chevron", 0.98, 2.98, [(2.3, 0.18), (2.45, 0.18)], 24, cap=False)
+    k.voyant_h("voyant_r", 0.98, 2.98, 2.55, 0.04)
+    k.cyl("acier", -0.95, -1.95, 0.0, 0.32, 0.13, 16)
+    k.cyl("givre", -0.95, -1.95, 0.32, 0.4, 0.15, 16)
+    k.ventilo(-0.55, -2.0, 0.36, 0.14, corps="noir")
 
 
 def v_b(S, k):

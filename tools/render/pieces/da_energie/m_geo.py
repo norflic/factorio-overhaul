@@ -21,7 +21,7 @@ def raccord(direction):
             "east": ((HX - 0.03, 1.0 * D, ZR), (1.0, 0.0)), "west": ((-HX + 0.03, -1.0 * D, ZR), (-1.0, 0.0))}[direction]
 
 
-def _ligne(k, depart, direction, z=0.42):
+def _ligne(k, depart, direction, z=0.42, lyre=0.55, demi=0.3):
     """Tuyau alu calorifugé du départ (x, y, z) au raccord, avec une lyre de dilatation verticale sur le plus long trajet."""
     (ex, ey, ez), (dx, dy) = raccord(direction)
     ax, ay = ex - dx * 0.55, ey - dy * 0.55          # coude avant la sortie
@@ -29,10 +29,10 @@ def _ligne(k, depart, direction, z=0.42):
     pts = [depart, (x0, y0, z)]
     if abs(ax - x0) >= 0.9:          # lyre sur le trajet est-ouest : dans le plan X-Z, face à la caméra
         m, sg = (x0 + ax) / 2.0, math.copysign(1.0, ax - x0)
-        pts += [(x0, ay, z), (m - sg * 0.3, ay, z), (m - sg * 0.3, ay, z + 0.55), (m + sg * 0.3, ay, z + 0.55), (m + sg * 0.3, ay, z), (ax, ay, z)]
+        pts += [(x0, ay, z), (m - sg * demi, ay, z), (m - sg * demi, ay, z + lyre), (m + sg * demi, ay, z + lyre), (m + sg * demi, ay, z), (ax, ay, z)]
     else:
         m, sg = (y0 + ay) / 2.0, math.copysign(1.0, ay - y0)
-        pts += [(x0, m - sg * 0.3, z), (x0, m - sg * 0.3, z + 0.55), (x0, m + sg * 0.3, z + 0.55), (x0, m + sg * 0.3, z), (x0, ay, z), (ax, ay, z)]
+        pts += [(x0, m - sg * demi, z), (x0, m - sg * demi, z + lyre), (x0, m + sg * demi, z + lyre), (x0, m + sg * demi, z), (x0, ay, z), (ax, ay, z)]
     pts += [(ax + dx * 0.2, ay + dy * 0.2, ZR), (ex, ey, ZR)]
     clean = [pts[0]]
     for p in pts[1:]:
@@ -92,18 +92,109 @@ def _cyclone(k, x, y, h=1.3, r=0.28):
     k.plaque("jaune", x, y - r - 0.004, h * 0.62, 0.2, 0.08)
 
 
+def _vapeur(S, M):
+    """Vapeur blanche translucide (visualisation de marche en phase 3 ; ici dans l'état clé)."""
+    import bpy
+    m = bpy.data.materials.new("c_vapeur")
+    m.use_nodes = True
+    p = m.node_tree.nodes["Principled BSDF"]
+    p.inputs["Base Color"].default_value = (0.82, 0.83, 0.85, 1.0)
+    p.inputs["Roughness"].default_value = 1.0
+    p.inputs["Alpha"].default_value = 0.32
+    m["fo_kind"] = "surface"
+    M["vapeur"] = m
+
+
+def _cristaux(k, x, y, rx, ry, n, seed):
+    """Dépôts cristallins de soufre : aiguilles et prismes inclinés, en grappes, autour de la tête de puits."""
+    rnd = G.Rnd(seed)
+    for i in range(n):
+        t = rnd.f(0.0, TAU)
+        rho = 0.55 + 0.45 * rnd.f()
+        px, py = x + rx * rho * math.cos(t), y + ry * rho * math.sin(t)
+        for j in range(rnd.i(2, 4)):
+            h = rnd.f(0.12, 0.28)
+            E.bipyramide(k, "soufre", px + rnd.f(-0.06, 0.06), py + rnd.f(-0.06, 0.06), 0.02, h, rnd.f(0.03, 0.055), 5, 0.35,
+                         rx=rnd.f(-0.5, 0.5), ry=rnd.f(-0.5, 0.5))
+
+
+def _tete_haute(k, x, y, n=3, R=0.125):
+    """Tête de puits d'une tuile de haut : bride de tubage, n vannes à volant rouge de 0,25 tuile face caméra, croix et
+    aile, chapeau à manomètre. Rend la hauteur de l'aile."""
+    k.cyl("acier", x, y, 0.0, 0.12, 0.24, 24)
+    k.boulons_rond("riv", x, y, 0.12, 0.21, 12, 0.016)
+    z = 0.12
+    k.cyl("car2", x, y, z, z + 0.12, 0.12, 16)
+    z += 0.12
+    for i in range(n):
+        k.caisson("acier_clair", x, y, z, 0.24, 0.2, 0.2, 0.02)
+        k.cyl("acier", x, y, z - 0.012, z + 0.012, 0.15, 18)
+        k.axe("acier", (x, y - 0.1, z + 0.1), (x, y - 0.24, z + 0.1), 0.02, 6)
+        E.roue_xz(k, "rouge", x, y - 0.25, z + 0.1, R, 0.02, 4, moyeu="acier")
+        z += 0.24
+    k.cyl("acier", x, y, z, z + 0.05, 0.15, 18)
+    k.b("car2", (x, y, z + 0.15), (0.24, 0.24, 0.2))
+    zw = z + 0.15
+    z += 0.25
+    k.cyl("acier", x, y, z, z + 0.14, 0.09, 14)
+    k.cyl("acier_clair", x, y, z + 0.14, z + 0.19, 0.12, 14)
+    k.axe("noir", (x - 0.06, y - 0.1, z + 0.07), (x - 0.06, y - 0.16, z + 0.07), 0.055, 14)
+    k.axe("ceramique", (x - 0.06, y - 0.16, z + 0.07), (x - 0.06, y - 0.172, z + 0.07), 0.044, 14)
+    return zw
+
+
 def v_a(S, k):
-    M = E.matieres(S, k, "elec")
+    """Tête de puits d'une tuile au-dessus d'un forage incandescent, bourrelet de roche, croûte et cristaux de soufre,
+    cyclone d'une tuile à soufflante et silencieux qui fume, châssis court, lyre alu (corrections du 3/11)."""
+    M = E.matieres(S, k, "elec", "geo")
     E.lueurs(S, M)
-    xw, yw = -0.15, 0.35
-    _cave(k, xw, yw, 1.05, 1.25, 11)
-    zt = _tete(k, xw, yw)
-    xc, yc = 0.85, 1.05
-    _cyclone(k, xc, yc)
-    k.tuyau("acier", [(xw, yw, zt), (xw + 0.4, yw, zt), (xc - 0.28, yc, 0.95)], r=0.055, coude=0.12, brides=[(xw + 0.12, yw, zt)])
-    _ligne(k, (xc, yc - 0.28, 1.0), k.dir)
-    k.armoire("car2", -1.05, 1.55, 0.0, 0.42, 0.62, 0.18, lampe="voyant_v")
-    k.cable("noir", (-1.05, 1.5, 0.55), (xc - 0.2, yc, 1.3), 0.15)
+    _vapeur(S, M)
+    xw, yw = -0.42, 0.0
+    # croûte de soufre en relief sur 1,5 tuile (amas bosselés, bords déchiquetés), bourrelet de roche, forage
+    k.put("soufre", G.butte_polaire((xw + 0.05, yw - 0.05, 0.0), 0.95, 1.2, 0.05, G.Rnd(17), nr=10, na=48, bosses=0.9, bord=0.45, expo=0.8))
+    rnd = G.Rnd(33)
+    for i in range(14):
+        t = TAU * i / 14 + rnd.f(-0.2, 0.2)
+        r = rnd.f(0.62, 1.05)
+        k.put("soufre", G.butte_polaire((xw + r * 0.9 * math.cos(t), yw + r * 1.1 * math.sin(t), 0.0), rnd.f(0.12, 0.24), rnd.f(0.1, 0.22),
+                                        rnd.f(0.07, 0.15), G.Rnd(60 + i), nr=4, na=14, bosses=0.6, bord=0.35, expo=0.7))
+    k.put("cendre", G.butte_polaire((xw, yw, 0.0), 0.62, 0.62, 0.16, G.Rnd(18), nr=8, na=36, bosses=0.6, bord=0.2, expo=0.6))
+    rnd = G.Rnd(19)
+    for i in range(11):
+        t = TAU * i / 11 + rnd.f(-0.15, 0.15)
+        r = 0.5 + rnd.f(-0.04, 0.06)
+        k.put("roche", G.butte_polaire((xw + r * math.cos(t), yw + r * math.sin(t), 0.0), rnd.f(0.12, 0.18), rnd.f(0.11, 0.17),
+                                       rnd.f(0.16, 0.26), G.Rnd(40 + i), nr=4, na=12, bosses=0.4, bord=0.25, expo=0.6))
+    k.put("forage", G.butte_polaire((xw, yw, 0.1), 0.36, 0.36, 0.04, G.Rnd(21), nr=5, na=28, bosses=0.4, bord=0.2))
+    _cristaux(k, xw, yw, 1.0, 1.2, 22, 23)
+    # châssis court : tête de puits et coffret seulement
+    k.caisson("car2", xw - 0.62, yw - 0.05, 0.0, 0.55, 0.75, 0.08, 0.02)
+    zw = _tete_haute(k, xw, yw, 3)
+    k.armoire("car", xw - 0.62, yw - 0.2, 0.08, 0.46, 0.66, 0.24, lampe="voyant_v")
+    k.voyant("voyant_o", xw - 0.48, yw - 0.33, 0.66, 0.02)
+    k.cable("noir", (xw - 0.45, yw - 0.1, 0.6), (xw - 0.1, yw, zw), 0.05)
+    # cyclone d'une tuile, 1,5 tuile de haut, cône de fond, soufflante, silencieux et vapeur
+    xc, yc, rc, hc = 0.82, 1.2, 0.45, 1.75
+    for i in range(4):
+        a = TAU * i / 4 + 0.4
+        k.axe("acier", (xc + rc * 0.85 * math.cos(a), yc + rc * 0.85 * math.sin(a), 0.0), (xc + rc * 0.92 * math.cos(a), yc + rc * 0.92 * math.sin(a), 0.62), 0.035, 6)
+    k.rev("car", xc, yc, [(0.22, 0.07), (0.62, rc), (hc, rc)], 32)
+    k.cerclages("acier", xc, yc, (0.68, 1.15, hc - 0.08), rc, 0.024, 0.03, 32)
+    k.rev("car", xc, yc, [(hc, rc), (hc + 0.08, rc * 0.92), (hc + 0.08, 0.0)], 32)
+    k.cyl("acier", xc, yc, 0.08, 0.22, 0.07, 12)
+    k.plaque("jaune", xc, yc - rc - 0.004, 1.0, 0.3, 0.1)
+    k.ventilo(xc + 0.12, yc + 0.08, hc + 0.22, 0.24, corps="noir")
+    xsil, ysil = xc - 0.24, yc - 0.18
+    k.cyl("acier_clair", xsil, ysil, hc + 0.08, hc + 0.62, 0.12, 18)
+    k.cerclages("acier", xsil, ysil, (hc + 0.25, hc + 0.45), 0.12, 0.016, 0.02, 18)
+    k.rev("noir", xsil, ysil, [(hc + 0.62, 0.11), (hc + 0.62, 0.0)], 18)
+    rnd = G.Rnd(29)
+    for i in range(6):
+        t = i / 5.0
+        k.sph("vapeur", (xsil + 0.22 * t + rnd.f(-0.04, 0.04), ysil + 0.05 * t, hc + 0.75 + 0.75 * t), 0.12 + 0.17 * t, 16, 8)
+    # aile vers le cyclone, lyre courte vers le raccord
+    k.tuyau("acier", [(xw, yw, zw), (xw + 0.5, yw, zw), (xc - rc, yc - 0.1, 1.1)], r=0.06, coude=0.12, brides=[(xw + 0.14, yw, zw)])
+    _ligne(k, (xc + 0.05, yc - rc, 0.9), k.dir, 0.36, lyre=0.32)
 
 
 def v_b(S, k):

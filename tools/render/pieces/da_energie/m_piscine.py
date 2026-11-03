@@ -14,9 +14,11 @@ ZE = 0.36          # niveau de l'eau
 ZB = 0.46          # arase du bassin
 
 
-def _eau(S, M):
-    M["eau_ch"] = P.lueur(S, "c_eau_ch", (0.1, 0.42, 1.0), 1.5, 0.55, part=0.65, echelle=5.0)
-    M["ch_vif"] = P.lueur(S, "c_ch_vif", (0.35, 0.75, 1.0), 4.2, 0.6, part=0.5, echelle=14.0)
+def _eau(S, M, R=1.62, rect=None):
+    M["eau_ch"] = E.eau(S, "c_eau_ch", R, rect=rect)
+    M["ch_vif"] = P.lueur(S, "c_ch_vif", (0.1, 0.55, 1.0), 1.2, 0.55, part=0.5, echelle=14.0)
+    M["rack"] = P.MT.surface("c_rack", (0.045, 0.075, 0.1), rough=0.45, met=0.6, usure=0.3, nu=(0.2, 0.28, 0.34), crasse=0.6,
+                             crasse_col=(0.01, 0.02, 0.03), grain=0.1, graine=61)
 
 
 def _rateliers_rect(k, x0, x1, y0, y1, pas=0.26, vide=()):
@@ -98,7 +100,7 @@ def _nord(k, y, x0=-1.7, x1=1.7):
     k.tuyau("orange", [(x0 + 0.72, y + 0.05, 0.22), (x1 - 1.7, y + 0.05, 0.22)], r=0.05, brides=[], bride_mat="acier")
 
 
-def _sas_sud(k, y, x=0.0):
+def _sas_sud(k, y, x=0.0, pupitre=True):
     """Sas de transfert : bloc plombé, trappe ronde boulonnée à chevrons, trèfle, pupitre."""
     k.caisson("plomb", x, y, 0.0, 1.3, 0.62, 0.36, 0.04)
     k.cyl("acier", x - 0.15, y + 0.02, 0.36, 0.4, 0.24, 28)
@@ -106,7 +108,8 @@ def _sas_sud(k, y, x=0.0):
     k.boulons_rond("riv", x - 0.15, y + 0.02, 0.4, 0.22, 12, 0.014)
     k.b("chevron", (x + 0.38, y + 0.02, 0.37), (0.36, 0.3, 0.02))
     E.trefle(k, x + 0.38, y - 0.31, 0.18, 0.1)
-    k.armoire("car2", x + 0.95, y + 0.05, 0.0, 0.3, 0.46, 0.14, lampe="voyant_v")
+    if pupitre:
+        k.armoire("car2", x + 0.95, y + 0.05, 0.0, 0.3, 0.46, 0.14, lampe="voyant_v")
 
 
 def v_a(S, k):
@@ -148,43 +151,73 @@ def v_b(S, k):
     k.cyl("acier", -1.25, E.ty(-1.72), 0.5, 0.56, 0.16, 20)
 
 
+def _chateaux(k, x, y):
+    """Pile de châteaux de transfert au coin : 2 fûts debout à ailettes, couvercles jaunes, un fût couché devant."""
+    for (dx, dy, r) in ((-0.2, 0.12, 0.2), (0.2, 0.16, 0.18)):
+        k.cyl("plomb", x + dx, y + dy, 0.0, 0.62, r, 24)
+        k.cerclages("acier", x + dx, y + dy, [0.08 + 0.075 * i for i in range(7)], r, 0.03, 0.014, 24)
+        k.cyl("jaune", x + dx, y + dy, 0.62, 0.68, r * 0.92, 24)
+        k.boulons_rond("riv", x + dx, y + dy, 0.68, r * 0.7, 8, 0.014)
+    k.echangeur(x, y - 0.3, 0.0, 0.46, 0.15, "plomb", "acier", axe="x", cerc=4)
+
+
 def v_c(S, k):
-    E.matieres(S, k, "hitech")
-    _eau(S, k.M)
+    """Bassin rond (le seul plan d'eau rond du jeu), pont polaire tournant sur rail circulaire (corrections du 3/11)."""
+    E.matieres(S, k, "hitech", "piscine")
     R = 1.62
-    k.rev("beton", 0.0, 0.0, [(0.0, R + 0.24), (ZB, R + 0.24), (ZB, R), (ZE - 0.1, R)], 64, cap=False)
+    _eau(S, k.M, R)
+    # bassin : couronne de béton usé, paroi intérieure, rail circulaire sur l'arase
+    k.rev("beton", 0.0, 0.0, [(0.0, R + 0.28), (ZB, R + 0.28), (ZB, R), (ZE - 0.1, R)], 64, cap=False)
     k.rev("eau_ch", 0.0, 0.0, [(ZE - 0.02, R), (ZE - 0.02, 0.0)], 64)
-    k.tore("chevron", 0.0, 0.0, ZB + 0.004, R + 0.04, 0.03, 64, 6)
-    k.tore("acier_clair", 0.0, 0.0, ZB + 0.03, R + 0.14, 0.03, 64, 8)   # rail circulaire
-    # râteliers en couronnes
-    for ring, n in ((0.42, 6), (0.85, 12), (1.27, 18)):
-        k.tore("noyau", 0.0, 0.0, ZE + 0.004, ring + 0.2, 0.012, 48, 4)
+    k.tore("acier", 0.0, 0.0, ZB + 0.035, R + 0.14, 0.036, 72, 8)
+    for i in range(24):
+        a = TAU * i / 24
+        k.b("acier", ((R + 0.14) * math.cos(a), (R + 0.14) * math.sin(a), ZB + 0.01), (0.07, 0.22, 0.02), rz=a)
+    # râteliers : têtes d'assemblages sombres vues sous l'eau, la lueur vient des alvéoles (l'eau)
+    for ring, n in ((0.38, 6), (0.78, 12), (1.18, 18)):
         for i in range(n):
             a = TAU * (i + 0.5) / n
             if (i * 5 + n) % 9 == 0:
                 continue
-            k.b("ch_vif", (ring * math.cos(a), ring * math.sin(a), ZE + 0.001), (0.14, 0.14, 0.01), rz=a)
-            k.b("noyau", ((ring + 0.2) * math.cos(a + TAU / n / 2), (ring + 0.2) * math.sin(a + TAU / n / 2), ZE + 0.004),
-                (0.36, 0.022, 0.012), rz=a + TAU / n / 2)
-    k.cyl("ch_vif", 0.0, 0.0, ZE - 0.01, ZE + 0.001, 0.14, 16)
-    # pont polaire : poutre diamétrale qui tourne
+            k.b("rack", (ring * math.cos(a), ring * math.sin(a), ZE - 0.005), (0.15, 0.15, 0.02), rz=a)
+    k.cyl("rack", 0.0, 0.0, ZE - 0.02, ZE + 0.005, 0.1, 16)
+    # pont polaire : poutre-caisson jaune de 0,4 × 0,4, sur 2 sommiers à galets, qui tourne (pièce mobile)
     a = TAU * k.phase * 0.5 + 0.5
-    k.mobile(True)
     ca, sa = math.cos(a), math.sin(a)
-    h = 1.08
+    Lb = R + 0.14
+    zb = ZB + 0.18
+    k.mobile(True)
+    k.b("jaune", (0.0, 0.0, zb + 0.2), (2 * Lb - 0.1, 0.42, 0.4), rz=a)
+    k.b("car2", (0.0, 0.0, zb + 0.41), (2 * Lb - 0.3, 0.3, 0.02), rz=a)
     for sg in (-1, 1):
-        px, py = sg * (R + 0.14) * ca, sg * (R + 0.14) * sa
-        k.bz("acier", px, py, ZB + 0.04, 0.24, 0.24, 0.1, rz=a)
-        k.axe("jaune", (px, py, ZB + 0.14), (px * 0.96, py * 0.96, h), 0.05, 8)
-    for d in (-0.1, 0.1):
-        k.b("jaune", (-sa * d, ca * d, h + 0.07), (2 * R + 0.5, 0.11, 0.14), rz=a)
-    k.b("chevron", ((R + 0.1) * ca, (R + 0.1) * sa, h + 0.15), (0.24, 0.24, 0.02), rz=a)
-    tx, tyy = 0.55 * ca, 0.55 * sa
-    k.caisson("car", tx, tyy, h + 0.14, 0.4, 0.34, 0.2, 0.03)
-    k.voyant_h("voyant_o", tx, tyy, h + 0.34, 0.026)
-    k.axe("acier_clair", (tx, tyy, h), (tx, tyy, ZE + 0.22), 0.02, 8)
-    k.b("ch_vif", (tx, tyy, ZE + 0.08), (0.1, 0.1, 0.12))
+        px, py = sg * Lb * ca, sg * Lb * sa
+        k.b("car2", (px, py, ZB + 0.12), (0.34, 0.62, 0.16), rz=a)                   # sommier
+        for d in (-0.22, 0.22):
+            q = (px - sa * d, py + ca * d)
+            k.axe("noir", (q[0] - ca * 0.09, q[1] - sa * 0.09, ZB + 0.08), (q[0] + ca * 0.09, q[1] + sa * 0.09, ZB + 0.08), 0.065, 12)
+        k.b("chevron", (px * 0.9, py * 0.9, zb + 0.405), (0.28, 0.43, 0.02), rz=a)
+    t = -0.42
+    tx, tyy = t * ca, t * sa
+    k.b("car", (tx, tyy, zb + 0.54), (0.42, 0.5, 0.24), rz=a)                      # chariot
+    for d in (-0.255, 0.255):
+        k.b("chevron", (tx - sa * d, tyy + ca * d, zb + 0.54), (0.42, 0.02, 0.1), rz=a)
+    k.voyant_h("voyant_o", tx + ca * 0.12, tyy + sa * 0.12, zb + 0.66, 0.04)
+    hx, hy = tx - sa * 0.42, tyy + ca * 0.42                                          # palan en porte-à-faux
+    k.b("car", ((tx + hx) / 2, (tyy + hy) / 2, zb + 0.6), (0.12, 0.5, 0.1), rz=a)
+    k.axe("noir", (hx, hy, zb + 0.6), (hx, hy, ZE + 0.24), 0.018, 6)
+    k.b("acier", (hx, hy, ZE + 0.22), (0.16, 0.16, 0.06), rz=a)
+    k.b("rack", (hx, hy, ZE + 0.07), (0.11, 0.11, 0.24), rz=a)                       # assemblage à demi immergé
     k.mobile(False)
     _nord(k, E.ty(1.62), -1.75, 1.75)
-    _sas_sud(k, E.ty(-1.66))
-    k.rambarde("acier", [(-0.9, E.ty(-1.32), ZB * 0.0 + 0.36), (0.9, E.ty(-1.32), 0.36)], 0.16)
+    _sas_sud(k, E.ty(-1.66), 0.0, pupitre=False)
+    _chateaux(k, -1.48, E.ty(-1.62))
+    # coffret électrique agrandi (0,6 × 0,6 tuile), au sud-est
+    ys = E.ty(-1.66)
+    k.caisson("car2", 1.45, ys, 0.0, 0.6, 0.6 * D, 0.62, 0.04)
+    for dx in (-0.14, 0.14):
+        k.b("car2", (1.45 + dx, ys - 0.3 * D - 0.006, 0.31), (0.26, 0.014, 0.54))
+        k.b("acier_clair", (1.45 + dx + 0.09, ys - 0.3 * D - 0.016, 0.33), (0.025, 0.014, 0.08))
+    k.voyant("voyant_v", 1.3, ys - 0.3 * D - 0.02, 0.55, 0.022)
+    k.voyant("voyant_o", 1.38, ys - 0.3 * D - 0.02, 0.55, 0.022)
+    E.trefle(k, 1.6, ys - 0.3 * D - 0.016, 0.52, 0.06)
+    k.tuyau("noir", [(1.45, ys + 0.2, 0.62), (1.45, ys + 0.2, 0.75), (1.0, ys + 0.6, 0.75), (1.0, ys + 0.6, 0.0)], r=0.03, coude=0.08, brides=[])

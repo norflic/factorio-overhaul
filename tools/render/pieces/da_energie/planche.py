@@ -85,7 +85,10 @@ def main():
     ap.add_argument("--batiments", default="piscine,depot,msr,geo,reso")
     ap.add_argument("--variantes", default="a,b,c")
     ap.add_argument("--titre", default="")
+    ap.add_argument("--choix", default="", help="variante retenue par bâtiment, ex. piscine:c,depot:a (remplace --variantes)")
+    ap.add_argument("--avant", default="", help="dossier des états précédents : case « avant » à côté de la variante retenue")
     a = ap.parse_args()
+    choix = dict(x.split(":") for x in a.choix.split(",") if x)
     ppt = 64 if a.zoom == 2 else 32
     bats = [b for b in a.batiments.split(",") if b]
     vs = [v for v in a.variantes.split(",") if v]
@@ -99,6 +102,11 @@ def main():
         cells = []
         for nuit in modes:
             cells.append((_cellule(a.src, b, None, ppt, nuit), ("nuit · " if nuit else "") + "aujourd'hui"))
+            if choix:
+                if a.avant:
+                    cells.append((_cellule(a.avant, b, "%s_%s" % (b, choix[b]), ppt, nuit), ("nuit · " if nuit else "") + choix[b] + " avant"))
+                cells.append((_cellule(a.src, b, "%s_%s" % (b, choix[b]), ppt, nuit), ("nuit · " if nuit else "") + choix[b] + " corrigé"))
+                continue
             for v in vs:
                 cells.append((_cellule(a.src, b, "%s_%s" % (b, v), ppt, nuit), ("nuit · " if nuit else "") + v))
         t = "%s · %s · %d×%d · âge %d · aujourd'hui = %s" % (NOMS[b], PC.BATIMENTS[b][0], PC.BATIMENTS[b][2], PC.BATIMENTS[b][2],
