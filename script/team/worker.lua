@@ -17,6 +17,10 @@ local Registry = require("script.companion.registry")
 local Render = require("script.companion.render")
 local Brain = require("script.companion.brain")
 local Nav = require("script.agents.nav")
+local DgPS = require("script.core.path_service") -- DIAG NAV2 (ne pas fusionner) : sondes de chemin
+DgPS.register_handler("fo-nav2-sonde", function(owner, path, ticket, reason, tick)
+  log(string.format("[FO-NAV2-SONDE] %s : %s%s a %.1f min", tostring(owner), tostring(reason), path and (", " .. #path .. " point(s)") or "", tick / 3600))
+end)
 local State = require("script.faction.state")
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
@@ -1496,6 +1500,28 @@ FSM.define(MACHINE, {
             end
             log(string.format("[FO-NAV2-ENCLOS] %s ouvrier %d : tuile du PNJ atteinte depuis le bord (rayon %d) : %s ; %d tuile(s) atteintes",
               f.key, agent.id, R, tostring(seen[0] == true), #list))
+            -- sondes : A du PNJ vers une tuile atteinte à 6-10 tuiles (réglage du mod) ; C idem sans marge ni entité ignorée ;
+            -- B de cette tuile vers le but de la tâche
+            local near_t
+            for _, c in ipairs(list) do
+              local m = math.abs(c[1]) + math.abs(c[2])
+              if m >= 6 and m <= 10 then near_t = c break end
+            end
+            if near_t then
+              local q = { x = tx + near_t[1] + 0.5, y = ty + near_t[2] + 0.5 }
+              local tag = string.format("%s ouvrier %d", f.key, agent.id)
+              DgPS.request("fo-nav2-sonde", tag .. string.format(" A depart (%.2f,%.2f) -> (%.1f,%.1f)", p.x, p.y, q.x, q.y), { surface = sf.index, proto = e.name,
+                pad = 0.15, start = { x = p.x, y = p.y }, goal = q, force = e.force.name, radius = 1.5,
+                flags = { cache = false, prefer_straight_paths = true, low_priority = false }, ignore = e, res = 0 })
+              DgPS.request("fo-nav2-sonde", tag .. " C (sans marge, sans entite ignoree)", { surface = sf.index, proto = e.name,
+                pad = 0, start = { x = p.x, y = p.y }, goal = q, force = e.force.name, radius = 1.5,
+                flags = { cache = false, prefer_straight_paths = true, low_priority = false }, res = 0 })
+              if agent.goal then
+                DgPS.request("fo-nav2-sonde", tag .. string.format(" B (%.1f,%.1f) -> but (%.1f,%.1f)", q.x, q.y, agent.goal.x, agent.goal.y), { surface = sf.index, proto = e.name,
+                  pad = 0.15, start = q, goal = { x = agent.goal.x, y = agent.goal.y }, force = e.force.name, radius = 3,
+                  flags = { cache = false, prefer_straight_paths = true, low_priority = false }, res = 0 })
+              end
+            end
           end
         end
         -- Lot C4 PLATEAU 3 (diagnostic) : pourquoi une tournée d'avant-poste ne trouve pas son chemin (6 lignes au plus par équipe)
