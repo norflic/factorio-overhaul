@@ -174,6 +174,37 @@ for _, e in ipairs(world.entities) do if e.valid and e.name == "fo-data-center-p
 check(#S.units == 3 and alive == 3, "centre disparu : retiré de la liste, son compagnon détruit", alive)
 
 ---------------------------------------------------------------------------------------------------
+section("2 bis. Migration UNE fois : on_configuration_changed (correctif du 3/11)")
+---------------------------------------------------------------------------------------------------
+do
+  local MOD = "factorio-overhaul"
+  local function d(old) return { mod_changes = { [MOD] = { old_version = old, new_version = "0.6.42" } } } end
+  check(Cr.v1_migration_due(d("0.6.27"), MOD) and Cr.v1_migration_due(d("0.6.28"), MOD), "versions 0.6.27 et 0.6.28 : migration due")
+  check(Cr.v1_migration_due(d("0.5.99"), MOD), "version antérieure (0.5.99) : due")
+  check(not Cr.v1_migration_due(d("0.6.29"), MOD) and not Cr.v1_migration_due(d("0.6.41"), MOD) and not Cr.v1_migration_due(d("1.0.0"), MOD),
+    "0.6.29, 0.6.41, 1.0.0 : non due")
+  check(not Cr.v1_migration_due({ mod_changes = {} }, MOD) and not Cr.v1_migration_due({}, MOD) and not Cr.v1_migration_due(nil, MOD),
+    "contenu changé sans montée de version (mod_changes vide, F130) : non due")
+  check(not Cr.v1_migration_due(d(nil), MOD) and not Cr.v1_migration_due(d("n'importe quoi"), MOD), "version d'origine absente ou illisible : non due")
+  check(not Cr.v1_migration_due({ mod_changes = { autre = { old_version = "0.1.0" } } }, MOD), "un autre mod qui change : non due")
+
+  -- le défaut : un centre sur une recette v1 encore valide, à une configuration changée SANS montée de version, reste intact
+  local c = center("fo-data-center", "fo-compute-accelerated", { ["fo-gpu-blade"] = 3 }, 3000)
+  Compute.on_config({ mod_changes = {} })
+  check(c.recipe == "fo-compute-accelerated" and (c.inv.items["fo-gpu-blade"] or 0) == 0 and c.water == 3000,
+    "configuration changée sans montée de version : centre sur recette v1 intact (recette, baies, eau)")
+  Compute.on_config(d("0.6.41"))
+  check(c.recipe == "fo-compute-accelerated" and c.water == 3000, "montée depuis 0.6.41 : centre intact")
+  -- une sauvegarde 0.6.28 : converti, UNE fois (le second passage ne touche plus rien)
+  Compute.on_config(d("0.6.28"))
+  check(c.recipe == "fo-dc-chilled-water" and c.inv.items["fo-gpu-blade"] == 3 and c.water == 0, "montée depuis 0.6.28 : centre converti, baies rendues dans ses emplacements")
+  local n0 = S.migrated.centers
+  c.inv.items["fo-gpu-blade"] = 0
+  Compute.on_config(d("0.6.28"))
+  check(S.migrated.centers == n0 and c.recipe == "fo-dc-chilled-water", "second passage : plus rien à convertir (idempotent)")
+end
+
+---------------------------------------------------------------------------------------------------
 section("3. Mutants")
 ---------------------------------------------------------------------------------------------------
 do
@@ -185,6 +216,16 @@ do
   check(c.inv.items["fo-server-blade"] == 1 and c.recipe == "fo-compute-classic",
     "témoin du mutant : la migration pose la baie, mais le centre reste sur la v1 (le banc calcul-v2-migration le voit)")
   Compute.MIGRATION_RECIPE = save
+  -- mutant : migration due à CHAQUE changement de configuration (le défaut d'origine) -> le centre v1 intact serait converti
+  local due = Cr.v1_migration_due
+  Cr.v1_migration_due = function() return true end
+  local k = center("fo-data-center", "fo-compute-quantum", {}, 6000)
+  Compute.on_config({ mod_changes = {} })
+  check(k.recipe == "fo-dc-chilled-water", "témoin du mutant : migration à chaque configuration -> le centre v1 est converti (vu par la section 2 bis)")
+  Cr.v1_migration_due = due
+  k.recipe = "fo-compute-quantum"
+  Compute.on_config({ mod_changes = {} })
+  check(k.recipe == "fo-compute-quantum", "règle rétablie : même centre intact")
   -- satisfaction non lue (e = 1 toujours) : le calcul ne tomberait pas sans courant
   local sat = Cr.satisfaction
   Cr.satisfaction = function() return 1 end
