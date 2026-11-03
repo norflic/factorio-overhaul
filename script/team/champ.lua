@@ -45,7 +45,8 @@ Champ.CFG = {
   -- lot FONDERIE
   coal_r = 192,     -- tuiles autour du champ où le gisement de charbon de la colonne est cherché (320 au lot3 : des tracés de centaines de
                     -- tuiles faisaient attendre les bandes ; le tracé est désormais plafonné, Co.ROUTE_MAX)
-  coal_prio = 80,   -- priorité du projet « réseau du charbon » d'un côté du champ (celle de l'alimentation d'une centrale, Cc.PROJECT_PRIO)
+  coal_prio = 52,   -- priorité du projet « réseau du charbon » d'un côté du champ : celle des bandes (Mg.CFG.prio). À 80 (alimentation d'une
+                    -- centrale, lot4-20261020), emerald était en retard dès 30 min (14 fours sur 59, 2 735 plaques qui dorment, 10 PNJ contre 18)
   coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
   route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
