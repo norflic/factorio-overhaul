@@ -699,5 +699,78 @@ do
   check(chests(m1) == 0 and chests(m2) > 0, string.format("mutants du seuil vus (toujours refuser : %d coffres ; jamais : %d)", chests(m1), chests(m2)))
 end
 
+---------------------------------------------------------------------------------------------------
+section("9. ordre des cotes du reseau du charbon (revue-fonderie, 3/11)")
+---------------------------------------------------------------------------------------------------
+do
+  -- règle pure du choix
+  local function fake(chests, drills)
+    local ents = {}
+    for _ = 1, chests do ents[#ents + 1] = { kind = "coffre", role = "combustible" } end
+    for _ = 1, drills do ents[#ents + 1] = { kind = "foreuse" } end
+    return { ents = ents }
+  end
+  check(Ch.better_order(fake(4, 38), fake(0, 33)) and not Ch.better_order(fake(0, 33), fake(4, 38)), "moins de coffres de tete d'abord (0 contre 4, meme avec moins de foreuses)")
+  check(Ch.better_order(fake(0, 30), fake(0, 31)) and not Ch.better_order(fake(0, 31), fake(0, 31)), "a coffres egaux, plus de foreuses ; egalite : l'ordre habituel")
+  check(Ch.better_order(nil, fake(0, 1)) and not Ch.better_order(fake(0, 1), nil), "plan absent")
+  -- cadre réel relevé en jeu (scarlet, avant-poste 3, fer, verif-guide 20261020 sur 0.6.43 : côté + « aucun chemin », 4 coffres de tête)
+  local function split(str, sep)
+    local out = {}
+    if str == nil or str == "" then return out end
+    for part in (str .. sep):gmatch("(.-)" .. sep:gsub("%p", "%%%0")) do out[#out + 1] = part end
+    return out
+  end
+  local function nums(str) local out = {} for _, x in ipairs(split(str, ",")) do out[#out + 1] = tonumber(x) end return out end
+  local function set(str) local out = {} for _, x in ipairs(split(str, ",")) do out[tonumber(x)] = true end return out end
+  local h = assert(io.open("tests/fixtures/champ_spec_scarlet_20261020.txt", "r"))
+  local line = h:read("*l")
+  h:close()
+  local fl = {}
+  for _, kv in ipairs(split(line, "|")) do local k, v = kv:match("^([%w_]+)=(.*)$"); if k then fl[k] = v end end
+  local function scarlet()
+    local d, pl, fu, tg = nums(fl.drill), nums(fl.pole), split(fl.furnace, ","), nums(fl.target)
+    local belts = {}
+    for _, x in ipairs(split(fl.belts, ";")) do belts[#belts + 1] = { lane = tonumber(x) } end
+    return { ore = nums(fl.ore), blocked = set(fl.blocked), mine = set(fl.mine), soft = fl.soft ~= "" and set(fl.soft) or nil,
+      drill = { size = d[1], reach = d[2], rate = d[3] }, pole = { reach = pl[1], wire = pl[2] }, belts = belts,
+      furnace = { size = tonumber(fu[1]), rate = tonumber(fu[2]), fuel = fu[3] == "true", fuel_rate = tonumber(fu[4]) },
+      inserter = { rate = tonumber(fl.ins) }, target = { x = tg[1], y = tg[2] }, max_side = tonumber(fl.max_side), design = "colonne",
+      logistics = { underground = tonumber(fl.ug), splitter = fl.splitter == "true" }, coal = { tiles = nums(fl.coal), rate = tonumber(fl.coalrate) },
+      ug_tiles = {} }
+  end
+  local ps = Ch.plan(scarlet())
+  check(ps ~= nil and Ch.head_chests(ps) == 0 and ps.order_swapped and ps.order_swapped.chests == 4,
+    string.format("scarlet 20261020 : 0 coffre de tete (%s ; avant : %s)", tostring(ps and Ch.head_chests(ps)), tostring(ps and ps.order_swapped and ps.order_swapped.chests)))
+  check(ps and Ch.field_drills(ps) >= 0.8 * ps.order_swapped.drills, string.format("scarlet : au moins 80 %% des foreuses gardees (%d sur %d)",
+    ps and Ch.field_drills(ps) or 0, ps and ps.order_swapped and ps.order_swapped.drills or 0))
+  local r = ps and Cv.verify(ps, scarlet())
+  check(r and r.no_coal == 0 and r.no_ore == 0 and r.no_plate == 0, "scarlet : chaque four a minerai et charbon, plaques au quai (" .. (r and Cv.line(r) or "?") .. ")")
+  -- bandes seules rejouées du cadre (le réseau du charbon est rejoué du cadre, sans dépendre de l'ordre)
+  local in_full, bad, total, chests = {}, 0, 0, 0
+  for _, e in ipairs(ps and ps.ents or {}) do in_full[sig(e)] = true end
+  for _, bd in ipairs(ps and ps.bands or {}) do
+    local fr = {}
+    for k, v in pairs(ps.frame) do fr[k] = v end
+    fr.only = { [bd.pr] = true }
+    local sp = scarlet()
+    sp.frame = fr
+    local part = Ch.plan(sp)
+    for _, e in ipairs(part and part.ents or {}) do
+      total = total + 1
+      if not in_full[sig(e)] and e.kind ~= "poteau" then bad = bad + 1 end
+    end
+    chests = chests + Ch.head_chests(part)
+  end
+  check(total > 0 and bad == 0 and chests == 0, string.format("scarlet, bandes seules : %d entites, %d absentes du plan entier, %d coffres de tete", total, bad, chests))
+  -- un cadre sans repli ne change pas (pas d'autre ordre essayé)
+  local pv = Ch.plan(spec_of(ORE, { coal = COAL_NEAR }))
+  check(pv and pv.order_swapped == nil and Ch.head_chests(pv) == 0, "cadre en voie des deux cotes : ordre habituel garde")
+  -- mutant : option coupée -> les 4 coffres de tête reviennent
+  Ch.CFG.both_orders = false
+  local pm = Ch.plan(scarlet())
+  Ch.CFG.both_orders = true
+  check(Ch.head_chests(pm) == 4, "mutant « un seul ordre » vu : 4 coffres de tete (" .. Ch.head_chests(pm) .. ")")
+end
+
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

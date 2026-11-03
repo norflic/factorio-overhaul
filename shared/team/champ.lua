@@ -59,6 +59,8 @@ Ch.CFG = {
   -- exclue) ; sinon le cadre garde ses colonnes au coffre de tête (champ-longue 20261020 : le refus réduisait un champ d'azure de 41
   -- foreuses à 4, de 97 % à 3 % du gisement)
   refuse_min = 0.5,
+  -- (revue-fonderie, 3/11) un cadre neuf qui garde un coffre de tête ou refuse une colonne est aussi essayé dans l'autre ordre des côtés
+  both_orders = true,
   eps = 1e-9,
 }
 
@@ -630,7 +632,10 @@ local function plan_once(spec)
       local lg = spec.logistics or {}
       local ugs = {}
       for _, k in ipairs(spec.ug_tiles or {}) do local u, v = c.uv(k[1], k[2]); ugs[Co.tk(u, v)] = true end
-      for _, side in ipairs({ exit, -exit }) do
+      -- (revue-fonderie, 3/11) ordre des côtés : le premier réseau prend ses tuiles, le second ne croise son tracé qu'en souterrain ;
+      -- spec.coal_first (posé par Ch.plan) fait passer l'autre côté d'abord
+      local first = spec.coal_first or exit
+      for _, side in ipairs({ first, -first }) do
         local cols = {}
         for _, it in ipairs(pending) do
           if it.g.side == side then
@@ -820,7 +825,7 @@ function Ch.refuse_keeps(before, after, min)
   return after >= (min or Ch.CFG.refuse_min) * before - 1e-9, cost
 end
 
-function Ch.plan(spec)
+local function plan_order(spec)
   local p, why = plan_once(spec)
   if not (Ch.CFG.refuse_coffre and p and p.design == "colonne" and p.fuelled and not spec.frame) then return p, why end
   if not (p.fallback and #p.fallback > 0) then return p, why end
@@ -853,6 +858,42 @@ function Ch.plan(spec)
       p.frame.cols[key] = p.frame.cols[key] or {}
       p.frame.cols[key][tostring(x.side)] = { mode = "refusee" }
     end
+  end
+  return p, why
+end
+
+--- Coffres de tête (combustible) d'un plan.
+function Ch.head_chests(p)
+  local n = 0
+  for _, e in ipairs(p and p.ents or {}) do if e.kind == "coffre" and e.role == "combustible" then n = n + 1 end end
+  return n
+end
+
+--- Règle pure (revue-fonderie, 3/11) : des deux ordres des côtés du réseau du charbon, le meilleur plan : le moins de coffres de tête,
+--- puis le plus de foreuses du champ ; à égalité, le premier (ordre habituel). Rend vrai si `b` est meilleur que `a`.
+function Ch.better_order(a, b)
+  if not b then return false end
+  if not a then return true end
+  local ca, cb = Ch.head_chests(a), Ch.head_chests(b)
+  if ca ~= cb then return cb < ca end
+  return Ch.field_drills(b) > Ch.field_drills(a)
+end
+
+--- Plan du champ. (revue-fonderie, 3/11 : 3 champs de fer sur environ 10 gardaient des coffres de tête, le côté calculé en second ne
+--- croisant pas le tracé du premier sans souterrain ; rejoué hors jeu sur le cadre de scarlet, graine 20261020 : côté + « aucun chemin »,
+--- 4 coffres de tête ; l'autre ordre : 0 coffre, une colonne refusée de l'autre côté, 13 % des foreuses) un cadre NEUF en colonne à
+--- combustible qui garde un coffre de tête ou refuse une colonne est aussi calculé dans l'autre ordre des côtés ; le meilleur est gardé.
+function Ch.plan(spec)
+  local p, why = plan_order(spec)
+  if not (Ch.CFG.both_orders and p and p.design == "colonne" and p.fuelled and not spec.frame and not spec.coal_first) then return p, why end
+  if Ch.head_chests(p) == 0 and not (p.refused and #p.refused > 0) then return p, why end
+  local sp = {}
+  for k, v in pairs(spec) do sp[k] = v end
+  sp.coal_first = -p.exit
+  local q, qwhy = plan_order(sp)
+  if Ch.better_order(p, q) then
+    q.order_swapped = { chests = Ch.head_chests(p), drills = Ch.field_drills(p) }
+    return q, qwhy
   end
   return p, why
 end

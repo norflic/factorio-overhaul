@@ -481,6 +481,12 @@ function Champ.frame(f, surface, o)
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or "")
     .. string.format(" ; autres ressources minables autour : %d tuile(s) du champ, %d de la ligne de charbon", spec.nforeign or 0,
       spec.coal and spec.coal.nforeign or 0))
+  -- (revue-fonderie, 3/11) réseau du charbon calculé dans l'autre ordre des côtés : moins de coffres de tête
+  if plan.order_swapped then
+    log(string.format("[FO-CHAMP] %s : avant-poste %d : reseau du charbon calcule cote %s d'abord : coffres de tete %d -> %d, foreuses du champ %d -> %d a %.1f min",
+      f.key or "player", o.id, plan.exit > 0 and "-" or "+", plan.order_swapped.chests, Ch.head_chests(plan), plan.order_swapped.drills, Ch.field_drills(plan),
+      game.tick / 3600))
+  end
   -- lot FONDERIE (3/11, décision du lead) : refuser aurait coûté plus de la moitié des foreuses du champ : ce cadre garde ses colonnes au
   -- coffre de tête (0.6.42)
   if plan.coffre_cost then
@@ -677,13 +683,26 @@ Build.SITES.champ = function(f, surface, p, h)
   -- poteaux d'une bande voisine déjà demandée (rangée partagée, même place sur le treillis) : déjà au plan, pas deux fois
   local ents = {}
   local dropped = 0
+  local dropped_by, holders = {}, {} -- (revue-fonderie, 3/11) pièces écartées : plus en silence (journal ci-dessous)
   for _, e in ipairs(bd.ents) do
     local taken = false
     for _, t in ipairs(P.tiles_of(e)) do
       local q = b.occ[P.tkey(t[1], t[2])]
-      if q and q ~= p.id then taken = true end
+      if q and q ~= p.id then taken = true; holders[q] = true end
     end
-    if taken then dropped = dropped + 1 else ents[#ents + 1] = e end
+    if taken then
+      dropped = dropped + 1
+      dropped_by[e.name] = (dropped_by[e.name] or 0) + 1
+    else
+      ents[#ents + 1] = e
+    end
+  end
+  if dropped > 0 then
+    local parts, hs = {}, {}
+    for _, n in ipairs(sorted_keys(dropped_by)) do parts[#parts + 1] = n .. " " .. dropped_by[n] end
+    for _, h in ipairs(sorted_keys(holders)) do hs[#hs + 1] = tostring(h) end
+    log(string.format("[FO-CHAMP] %s : projet %d (bande %s, avant-poste %d) : %d piece(s) ecartee(s), leurs tuiles deja au plan du ou des projet(s) %s : %s a %.1f min",
+      f.key or "player", p.id, tostring(cs.pr), o.id, dropped, table.concat(hs, ","), table.concat(parts, ", "), game.tick / 3600))
   end
   -- raccord au réseau : un poteau alimenté à portée d'un poteau de la bande, sinon une chaîne de poteaux
   -- (lot FONDERIE) les poteaux du réseau du charbon (loin, vers le gisement de charbon) ne comptent pas : le raccord part de la bande
