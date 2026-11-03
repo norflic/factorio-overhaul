@@ -14,6 +14,7 @@ package.loaded["shared.team.champ_fonderie"] = package.loaded["shared.team.champ
 package.loaded["shared.team.champ_colonne"] = package.loaded["shared.team.champ_colonne"] or require("__factorio-overhaul__/shared/team/champ_colonne")
 package.loaded["shared.team.champ"] = package.loaded["shared.team.champ"] or require("__factorio-overhaul__/shared/team/champ")
 local Ch = package.loaded["shared.team.champ"]
+local Co = package.loaded["shared.team.champ_colonne"]
 local Cv = require("__factorio-overhaul__/shared/team/champ_verif")
 
 local X0, Y0 = 6200, 3000
@@ -60,7 +61,7 @@ local function disc(cx, cy, r)
   return out
 end
 
-local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked)
+local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked, margin)
   local s = ctx.surface()
   local st = ctx.state()
   local flat = put_ore(s, ore, disc(cx, cy, 12), 50000)
@@ -70,7 +71,10 @@ local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked)
     inserter = d.inserter, target = { x = cx - 500, y = cy }, max_side = 8, design = "colonne",
     coal = { tiles = coal, rate = d.coal_rate },
     logistics = { splitter = logistics, underground = logistics and d.ug or nil } }
+  local m0 = Co.COAL_MARGIN
+  Co.COAL_MARGIN = margin or m0
   local plan, why = Ch.plan(spec)
+  Co.COAL_MARGIN = m0
   ctx.check(plan ~= nil, key .. " : plan rendu", tostring(why))
   if not plan then return end
   local rep = Cv.verify(plan, spec)
@@ -84,7 +88,7 @@ local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked)
   for _, e in ipairs(plan.ents) do
     local ent = s.create_entity({ name = NAMES[e.kind], position = { e.x, e.y }, direction = e.dir, force = "player", type = e.ug })
     if ent then
-      made[#made + 1] = { ent = ent, kind = e.kind, role = e.role }
+      made[#made + 1] = { ent = ent, kind = e.kind, role = e.role, band = e.band, group = e.group }
     else
       failed = failed + 1
       why_failed = why_failed or string.format("%s (%.1f, %.1f)", e.kind, e.x, e.y)
@@ -109,7 +113,71 @@ local function place(ctx, key, ore, plate, cx, cy, coal_at, logistics, blocked)
   end
   local cols = 0
   for _, bd in ipairs(plan.bands) do cols = cols + #bd.groups end
-  st[key] = { made = made, ore = ore, plate = plate, cx = cx, cy = cy, logistics = logistics, cols = cols }
+  st[key] = { made = made, ore = ore, plate = plate, cx = cx, cy = cy, logistics = logistics, cols = cols, coal_at = coal_at }
+end
+
+--- Diagnostic (lead, 3/11 : « où s'arrête le charbon ? », lu sur les entités) : par colonne (bande:groupe), fours dans l'ordre depuis la
+--- tête, ceux qui ont du charbon, rang du premier sans charbon, charbon dans les fours (min, max), charbon sur la voie de la colonne et sur
+--- sa dérivation ; pour tout le cas : foreuses de charbon par état, charbon extrait, charbon sur le tronc, le tracé et la ligne.
+local function diag(ctx, key, when)
+  local s = ctx.surface()
+  local r = ctx.state()[key]
+  if not r then return end
+  local S = defines.entity_status
+  local cols, keys = {}, {}
+  local coal_net, drills = 0, {}
+  for _, m in ipairs(r.made) do
+    local en = m.ent
+    if en.valid then
+      local k = (m.band or 0) .. ":" .. (m.group or 0)
+      if m.kind == "four" then
+        if not cols[k] then cols[k] = { f = {}, lane = 0 }; keys[#keys + 1] = k end
+        local fi = en.get_fuel_inventory()
+        cols[k].f[#cols[k].f + 1] = { d = math.abs(en.position.x - r.cx), coal = fi and fi.get_item_count("coal") or 0,
+          ore = en.get_inventory(defines.inventory.furnace_source).get_item_count(r.ore), st = en.status }
+      elseif (m.kind == "tapis" or m.kind == "souterrain" or m.kind == "repartiteur") and m.role == "charbon" then
+        local n = 0
+        for l = 1, 2 do local tl = en.get_transport_line(l); if tl then n = n + tl.get_item_count("coal") end end
+        if (m.band or 0) == 0 then coal_net = coal_net + n else
+          if not cols[k] then cols[k] = { f = {}, lane = 0 }; keys[#keys + 1] = k end
+          cols[k].lane = cols[k].lane + n
+        end
+      elseif m.kind == "tapis" and m.role == "colonne" then
+        local tl = { en.get_transport_line(1), en.get_transport_line(2) }
+        if not cols[k] then cols[k] = { f = {}, lane = 0 }; keys[#keys + 1] = k end
+        cols[k].head = (cols[k].head or 0) + tl[1].get_item_count("coal") + tl[2].get_item_count("coal")
+      elseif m.kind == "foreuse" and m.role == "charbon" then
+        local name = "autre"
+        for nm, v in pairs(S) do if v == en.status then name = nm end end
+        drills[name] = (drills[name] or 0) + 1
+      end
+    end
+  end
+  table.sort(keys)
+  for _, k in ipairs(keys) do
+    local c = cols[k]
+    table.sort(c.f, function(a, b) return a.d < b.d end)
+    local with, first, mn, mx, noore = 0, nil, math.huge, 0, 0
+    for i, f in ipairs(c.f) do
+      if f.coal > 0 then with = with + 1 elseif not first then first = i end
+      mn, mx = math.min(mn, f.coal), math.max(mx, f.coal)
+      if f.ore == 0 then noore = noore + 1 end
+    end
+    if #c.f > 0 then
+      ctx.log(string.format("[FO-FONDERIE-BANC] DIAG %s t%s colonne %s : fours %d, avec charbon %d, premier sans charbon au rang %s, charbon par four %d..%d, sans minerai %d, charbon sur la voie de la colonne et sa derivation %d, sur la colonne (deux voies) %d",
+        key, when, k, #c.f, with, tostring(first or "-"), mn, mx, noore, c.lane, c.head or 0))
+    end
+  end
+  local dk = {}
+  for nm in pairs(drills) do dk[#dk + 1] = nm end
+  table.sort(dk)
+  local dt = {}
+  for _, nm in ipairs(dk) do dt[#dt + 1] = nm .. " " .. drills[nm] end
+  local left = 0
+  for _, e in ipairs(s.find_entities_filtered({ name = "coal", position = { r.coal_at[1], r.coal_at[2] }, radius = 9 })) do left = left + e.amount end
+  ctx.log(string.format("[FO-FONDERIE-BANC] DIAG %s t%s : foreuses de charbon [%s], charbon extrait depuis le debut %d, charbon sur le tronc, le trace et la ligne %d",
+    key, when, table.concat(dt, ", "), r.coal_total0 and (r.coal_total0 - left) or -1, coal_net))
+  if not r.coal_total0 then r.coal_total0 = left end
 end
 
 --- Relevé : minerai restant du gisement, plaques dans les coffres de quai, fabrications de chaque four.
@@ -136,7 +204,7 @@ return {
 
   init = function(ctx)
     local s = ctx.surface()
-    ctx.prepare_area(X0 - 260, Y0 - 120, X0 + 260, Y0 + 260, "concrete")
+    ctx.prepare_area(X0 - 260, Y0 - 120, X0 + 260, Y0 + 420, "concrete")
     game.map_settings.enemy_expansion.enabled = false
     game.forces.enemy.set_cease_fire("player", true)
     game.forces.player.set_cease_fire("enemy", true)
@@ -149,6 +217,8 @@ return {
     s.set_tiles(water)
     place(ctx, "voie", "iron-ore", "iron-plate", X0, Y0, { X0 + 45, Y0 - 45 }, false, nil)
     place(ctx, "logistique", "copper-ore", "copper-plate", X0, Y0 + 140, { X0 + 58, Y0 + 140 }, true, blocked)
+    -- diagnostic (3/11) : la géométrie de « voie », ligne de charbon doublée (Co.COAL_MARGIN = 2) : l'amorçage des fours est-il en cause ?
+    place(ctx, "marge", "iron-ore", "iron-plate", X0, Y0 + 330, { X0 + 45, Y0 + 285 }, false, nil, 2)
     -- H-FONDERIE-1 : fantôme d'un souterrain posé avec type = "output", ravivé
     local gh = s.create_entity({ name = "entity-ghost", inner_name = NAMES.souterrain, position = { X0 - 200.5, Y0 - 100.5 }, direction = 2,
       force = "player", type = "output", expires = false })
@@ -162,15 +232,18 @@ return {
   end,
 
   tick = function(ctx, e)
+    if e.tick == 2 then for _, k in ipairs({ "voie", "logistique", "marge" }) do diag(ctx, k, 2) end end
     if e.tick == T1 then
       local st = ctx.state()
-      st.t1 = { voie = sample(ctx, "voie"), logistique = sample(ctx, "logistique") }
+      st.t1 = { voie = sample(ctx, "voie"), logistique = sample(ctx, "logistique"), marge = sample(ctx, "marge") }
+      for _, k in ipairs({ "voie", "logistique", "marge" }) do diag(ctx, k, T1) end
     end
   end,
 
   finish = function(ctx)
     local st = ctx.state()
-    for _, key in ipairs({ "voie", "logistique" }) do
+    for _, k in ipairs({ "voie", "logistique", "marge" }) do diag(ctx, k, 12600) end
+    for _, key in ipairs({ "voie", "logistique", "marge" }) do
       local r, a = st[key], st.t1 and st.t1[key]
       local b = sample(ctx, key)
       if r and a and b then

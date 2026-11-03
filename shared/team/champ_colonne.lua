@@ -39,6 +39,7 @@ Co.UG_COST = 3         -- surcoût d'une paire de souterrains (préférés seule
 Co.ROUTE_CAP = 120000  -- états développés au plus par tracé
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
+Co.COAL_MARGIN = 1     -- foreuses de charbon voulues = charbon brûlé × marge ÷ débit d'une foreuse (banc fonderie-banc : cas « marge »)
 
 local D4 = { { 0, -1 }, { 1, 0 }, { 0, 1 }, { -1, 0 } } -- N, E, S, O
 local function didx(du, dv) for i, d in ipairs(D4) do if d[1] == du and d[2] == dv then return i end end return nil end
@@ -517,7 +518,7 @@ function Co.network(cols, side, env)
   end
   local vmin, vmax = cols[1].b - sf, cols[#cols].b - sf
   local vmid = math.floor((vmin + vmax) / 2)
-  local want = math.max(1, math.ceil(res.need / coal.rate - 1e-9))
+  local want = math.max(1, math.ceil(res.need * Co.COAL_MARGIN / coal.rate - 1e-9))
   local line = Co.coal_line(coal.tiles, coal.is_coal, function(u, v) return env.free(u, v) and not env.forbid(u, v) end,
     env.drill, want, { u = base + 2 * side, v = vmid }, env.pole.reach, env.pole.wire, env.lane_drills)
   if not line then res.why = "aucune ligne de foreuses sur le charbon" return res end
