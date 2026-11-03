@@ -427,32 +427,11 @@ end
 -- Plans
 ---------------------------------------------------------------------------------------------------
 --- Plan entier : (cadre, ordre des bandes { pr }, plan) ou nil, raison. Journal : une ligne [FO-CHAMP] par plan.
--- (TEMPORAIRE, revue-fonderie 3/11 : relevé des spécifications des cadres qui refusent ou retombent au coffre de tête ; retiré avant la livraison)
-local function dump_spec(f, o, spec, plan)
-  local function keys(t)
-    local out = {}
-    for k in pairs(t or {}) do out[#out + 1] = k end
-    table.sort(out)
-    return table.concat(out, ",")
-  end
-  local function flat(t) local out = {} for i = 1, #(t or {}) do out[i] = tostring(t[i]) end return table.concat(out, ",") end
-  local ug = {}
-  for _, t in ipairs(spec.ug_tiles or {}) do ug[#ug + 1] = t[1] .. ":" .. t[2] end
-  local hdr = string.format("team=%s|oid=%d|kind=%s|cost=%s|refused=%s|drill=%g,%g,%g|pole=%g,%g|belts=%s|furnace=%g,%g,%s,%s|ins=%g|target=%g,%g|max_side=%g|ug=%s|splitter=%s|coalrate=%s",
-    f.key or "player", o.id, o.kind, tostring(plan.coffre_cost), tostring(plan.refused and #plan.refused or 0), spec.drill.size, spec.drill.reach,
-    spec.drill.rate, spec.pole.reach, spec.pole.wire, (function() local b = {} for _, x in ipairs(spec.belts) do b[#b + 1] = x.lane end return table.concat(b, ";") end)(),
-    spec.furnace.size, spec.furnace.rate, tostring(spec.furnace.fuel), tostring(spec.furnace.fuel_rate), spec.inserter.rate, spec.target.x, spec.target.y,
-    spec.max_side, tostring(spec.logistics and spec.logistics.underground), tostring(spec.logistics and spec.logistics.splitter), tostring(spec.coal and spec.coal.rate))
-  log("[FO-CHAMP-SPEC] " .. hdr .. "|ore=" .. flat(spec.ore) .. "|coal=" .. flat(spec.coal and spec.coal.tiles) .. "|blocked=" .. keys(spec.blocked)
-    .. "|mine=" .. keys(spec.mine) .. "|soft=" .. keys(spec.soft) .. "|ugt=" .. table.concat(ug, ","))
-end
-
 function Champ.frame(f, surface, o)
   local spec, names = spec_of(f, surface, o, nil, nil)
   if not spec then return nil, names end
   local plan, why = Ch.plan(spec)
   if not plan then return nil, why end
-  if plan.coffre_cost or (plan.refused and #plan.refused > 0) then dump_spec(f, o, spec, plan) end -- (TEMPORAIRE)
   local rep = Cv.verify(plan, spec)
   -- ce qui occupe le gisement (hors de nos paires) : cause des tuiles que le champ ne couvre pas
   local why, keys = {}, {}
