@@ -560,5 +560,60 @@ do
   end, function() Co.branch = br end, { coal = COAL_NEAR }, function(r) return r.no_coal > 0 end)
 end
 
+---------------------------------------------------------------------------------------------------
+section("7. decoupe d'une bande trop grosse et foreuse sautee (dernier tour du 3/11)")
+---------------------------------------------------------------------------------------------------
+do
+  local Sa = require("shared.team.champ_saut")
+  check(#Sa.split(300, { { -1, 200 }, { 1, 250 } }, 800) == 0, "750 entités : aucun report")
+  local d = Sa.split(500, { { -1, 200 }, { 1, 250 } }, 800)
+  check(#d == 1 and d[1] == 1, "950 entités : le plus gros réseau (côté +, 250) reporté, la bande reste à 700")
+  local d2 = Sa.split(700, { { -1, 200 }, { 1, 250 } }, 800)
+  check(#d2 == 2 and d2[1] == -1 and d2[2] == 1, "1 150 entités : les deux réseaux reportés")
+  local d3 = Sa.split(900, {}, 800)
+  check(#d3 == 0, "bande propre de 900 sans réseau : rien à reporter")
+  -- sur le grand champ du test : chaque bande seule, une fois ses réseaux reportés, sous 800 ; chaque réseau reporté sous 800
+  local full = Ch.plan(spec_of(ORE, { coal = COAL_NEAR }))
+  local worst, worst_net = 0, 0
+  for _, bd in ipairs(full.bands) do
+    local fr = {}
+    for _, k in ipairs({ "axis", "phase", "exit", "origin", "umin", "umax", "v0", "offsets", "design", "cols", "coal" }) do fr[k] = full.frame[k] end
+    fr.only = { [bd.pr] = true }
+    local part = Ch.plan(spec_of(ORE, { coal = COAL_NEAR, frame = fr }))
+    if part then
+      local own, by = 0, {}
+      for _, e in ipairs(part.ents) do if e.coalnet then by[e.coalnet] = (by[e.coalnet] or 0) + 1 else own = own + 1 end end
+      local sh = {}
+      for _, sd in ipairs({ -1, 1 }) do if by[sd] then sh[#sh + 1] = { sd, by[sd] } end end
+      local def = Sa.split(own, sh, 800)
+      local kept = own
+      local gone = {}
+      for _, sd in ipairs(def) do gone[sd] = true end
+      for _, x in ipairs(sh) do if gone[x[1]] then worst_net = math.max(worst_net, x[2]) else kept = kept + x[2] end end
+      worst = math.max(worst, kept)
+    end
+  end
+  check(worst > 0 and worst <= 800, string.format("grand champ : bande après report %d entités au plus (<= 800)", worst))
+  check(worst_net <= 800, string.format("grand champ : réseau reporté %d entités au plus (<= 800)", worst_net))
+  -- foreuse sautée : seulement une foreuse de bande, refusée « occupe » pour la 3e fois, sous une tourelle de l'équipe et rien d'autre
+  local T1 = { { own_turret = true } }
+  check(Sa.skip("champ-foreuse", "occupe", 2, T1, 3) == true, "3e refus sous une tourelle de l'équipe : foreuse sautée")
+  check(Sa.skip("champ-foreuse", "occupe", 1, T1, 3) == false, "2e refus : pas encore")
+  check(Sa.skip("champ-foreuse", "occupe", 2, { { own_turret = true }, { own_turret = false } }, 3) == false, "tourelle et autre bâtiment : pas sautée")
+  check(Sa.skip("champ-foreuse", "occupe", 2, { { own_turret = false } }, 3) == false, "tourelle d'une autre force ou bâtiment : pas sautée")
+  check(Sa.skip("champ-foreuse", "occupe", 2, {}, 3) == false, "rien sous l'emprise : pas sautée")
+  check(Sa.skip("champ-charbon", "occupe", 2, T1, 3) == false, "foreuse de la ligne de charbon : jamais sautée")
+  check(Sa.skip("champ-foreuse", "obstacle", 2, T1, 3) == false, "arbre (obstacle) : pas sautée (défrichage)")
+  -- mutants de la règle
+  local sk = Sa.skip
+  Sa.skip = function(role, reason, fails, bl, lim) return role == "champ-foreuse" and reason == "occupe" end
+  check(Sa.skip("champ-foreuse", "occupe", 0, T1, 3) ~= false, "mutant « sans attendre 3 refus » vu (il saute au 1er refus)")
+  Sa.skip = sk
+  local spl = Sa.split
+  Sa.split = function() return {} end
+  check(#Sa.split(700, { { -1, 200 }, { 1, 250 } }, 800) == 0, "mutant « jamais de report » vu (1 150 entités gardées)")
+  Sa.split = spl
+end
+
 print(string.format("[CHAMP-COLONNE] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)

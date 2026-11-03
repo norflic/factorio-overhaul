@@ -21,6 +21,7 @@ local D = require("shared.team.petrole_donnees")
 local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
+local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
 local Db = require("shared.team.debit")
 local Paires = require("shared.team.pose_paires")
 local State = require("script.faction.state")
@@ -52,6 +53,7 @@ Champ.CFG = {
   -- côté, dans son projet (une bande ne produit pas sans lui ; la migration attend ses plaques). Taille bornée : charbon à coal_r tuiles au plus,
   -- tracé à Co.ROUTE_MAX. Vrai : projet séparé (code gardé, éteint).
   coal_project = false,
+  band_max = 800,   -- (lot FONDERIE) entités d'un projet de bande au plus : au-delà, ses réseaux du charbon vont dans des projets LIÉS (Sa.split)
   coal_window = 28, -- demi-côté de la fenêtre lue autour de sa tuile la plus proche (shared/team/champ_colonne.lua, Co.WINDOW = 24)
   route_margin = 24,-- tuiles lues autour du champ et du charbon pour le tracé (eau, bâtiments, souterrains)
   charge_tete = 200,-- charbon posé avec le coffre de tête d'une colonne SANS voie de charbon (24 fours de pierre : 6 min)
@@ -418,14 +420,15 @@ function Champ.has_band(f, o)
 end
 
 --- Entités nommées d'un plan (bande seule) : ents { name, x, y, dir, role }, quais, outs, emprise { tuiles }.
-local function named(plan, names, coal_side)
+local function named(plan, names, coal_side, exclude)
   local ents, quais, outs = {}, {}, {}
   local design = plan.design
   for _, e in ipairs(plan.ents) do
     local name
     -- (projet séparé) la bande ne porte pas les pièces communes du réseau du charbon ; le projet du réseau ne porte qu'elles
     local skip
-    if coal_side then skip = e.coalnet ~= coal_side else skip = Champ.CFG.coal_project and e.coalnet ~= nil end
+    if coal_side then skip = e.coalnet ~= coal_side
+    else skip = (Champ.CFG.coal_project and e.coalnet ~= nil) or (exclude ~= nil and e.coalnet ~= nil and exclude[e.coalnet] == true) end
     if skip then goto continue end
     if e.kind == "foreuse" then name = names.drill
     elseif e.kind == "tapis" then name = names.belts[e.belt or 1]
@@ -469,11 +472,22 @@ function Champ.band(f, surface, o, frame, pr, coal_side)
     return nil, string.format("bande vide : %d foreuse(s) possibles sur ses rangees, %d groupe(s) sans place de fonderie", plan.stats.band_drills or 0,
       plan.stats.no_smelter or 0)
   end
-  local ents, quais, outs = named(plan, names, coal_side)
+  -- (lot FONDERIE, lot6-123456789 : une bande de 1 026 entités portait les deux réseaux du charbon) : au-delà de band_max, les réseaux les plus
+  -- gros sont reportés dans des projets liés à la bande (script/team/migration_champ.lua les demande juste après elle)
+  local exclude, defer = nil, {}
+  if not coal_side and not Champ.CFG.coal_project then
+    local own, by = 0, {}
+    for _, e in ipairs(plan.ents) do if e.coalnet then by[e.coalnet] = (by[e.coalnet] or 0) + 1 else own = own + 1 end end
+    local shared = {}
+    for _, sd in ipairs({ -1, 1 }) do if by[sd] then shared[#shared + 1] = { sd, by[sd] } end end
+    defer = Sa.split(own, shared, Champ.CFG.band_max)
+    if #defer > 0 then exclude = {}; for _, sd in ipairs(defer) do exclude[sd] = true end end
+  end
+  local ents, quais, outs = named(plan, names, coal_side, exclude)
   if coal_side and #ents == 0 then return nil, "reseau du charbon vide" end
   local tiles = {}
   for _, e in ipairs(ents) do for _, t in ipairs(P.tiles_of(e)) do tiles[#tiles + 1] = t[1]; tiles[#tiles + 1] = t[2] end end
-  return { ents = ents, quais = quais, outs = outs, tiles = tiles, plan = plan, names = names, spec = spec }
+  return { ents = ents, quais = quais, outs = outs, tiles = tiles, plan = plan, names = names, spec = spec, defer = defer }
 end
 
 ---------------------------------------------------------------------------------------------------
@@ -503,6 +517,12 @@ Build.SITES.champ = function(f, surface, p, h)
   local cs = p.spec.champ
   local o = cs and Champ.target(f, cs.oid)
   if not o then return nil, "champ: avant-poste perdu" end
+  -- (lot FONDERIE) un réseau du charbon LIÉ à sa bande attend qu'elle soit planifiée, et se refuse si elle l'est : jamais d'orphelin
+  if cs.link then
+    local lp = f.build.projects[cs.link]
+    if not lp or lp.state == "refuse" then return nil, "champ: bande liee absente ou refusee" end
+    if #(lp.ents or {}) == 0 then return nil, "champ: bande liee pas encore planifiee", true end
+  end
   local bd, why = Champ.band(f, surface, o, cs.frame, cs.pr, cs.coal)
   if not bd then return nil, "champ: " .. tostring(why) end
   local b = f.build
@@ -608,12 +628,12 @@ function Champ.report(f, surface, tick)
       end
       local pd = { lost = {}, stuck = 0, noin = 0, armoff = 0 }
       for _, e in ipairs(p.ents) do
-        if e.built and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
+        if e.built and not e.skipped and p.state == "fini" and not (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
           if not (ent and ent.valid) then pd.lost[e.role or "?"] = (pd.lost[e.role or "?"] or 0) + 1
           elseif e.role == "champ-bras" and (ent.status == S.no_power or ent.status == S.low_power) then pd.armoff = pd.armoff + 1 end
         end
-        if e.built and (e.role == "champ-foreuse" or e.role == "champ-four") then
+        if e.built and not e.skipped and (e.role == "champ-foreuse" or e.role == "champ-four") then
           local ent = surface.find_entity(e.name, { e.x, e.y })
           if not (ent and ent.valid) and p.state == "fini" then pd.lost[e.role] = (pd.lost[e.role] or 0) + 1 end
           if ent and ent.valid then

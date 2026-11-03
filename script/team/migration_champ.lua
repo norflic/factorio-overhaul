@@ -506,6 +506,13 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
     say_why(f, ms, st, "req:" .. tostring(rwhy), string.format("avant-poste %d : demande au plan impossible (%s)", o.id, tostring(rwhy)))
     return false
   end
+  -- lot FONDERIE : réseaux du charbon reportés (bande au-delà de Champ.CFG.band_max) : projets LIÉS à la bande, demandés juste après elle
+  for _, sd in ipairs(bd.defer or {}) do
+    local cid = Build.request(f, { site = "champ", champ = { oid = o.id, pr = pr, frame = st.frame, coal = sd, link = id }, near = { x = o.pos.x, y = o.pos.y },
+      prio = CFG.prio, domain = "production", lazy_clear = true })
+    say(f, ms, string.format("%s %d (%s) : reseau du charbon cote %s reporte dans le projet lie %s (bande %d, projet %d)", o.field and "gisement" or "avant-poste",
+      o.id, o.kind, sd > 0 and "+" or "-", tostring(cid), pr, id), true)
+  end
   st.stage, st.pid, st.ids, st.t0, st.band_key = "projet", id, ids, tick, pr
   st.cx, st.cy, st.gate_t0, st.why_last, st.retired = cx, cy, nil, nil, nil
   o.migr, o.full, o.full_by = "en cours", true, "migration"
