@@ -531,6 +531,7 @@ function Ch.plan(spec)
             -- dérivation, lui, borne la prise de chaque colonne. Les souterrains restent (passer sous un obstacle).
             drill = d, pole = spec.pole, ug = lg.underground, split = false, ugs = ugs, box = zone,
             inserter_rate = spec.inserter and spec.inserter.rate,
+            soft = spec.soft and function(u, v) local x, y = c.xy(u, v); return spec.soft[Ch.key(x, y)] == true end or nil,
             lane_drills = co and co.rate and Ch.lane_drills(spec.belts[1].lane, co.rate) or nil,
             bridge = function(poles, free)
               local extra = {}
@@ -546,7 +547,9 @@ function Ch.plan(spec)
           end
           local last_key
           for _, cl in ipairs(cols) do if cl.last then last_key = cl.key end end
-          coal_frame[tostring(side)] = { uT = nt.uT, dv = nt.dv, split = nt.split, last = last_key, ents = nt.ents, why = nt.why,
+          local why = nt.why
+          if nt.dropped and #nt.dropped > 0 then why = (why and (why .. " ; ") or "") .. table.concat(nt.dropped, " ; ") end
+          coal_frame[tostring(side)] = { uT = nt.uT, dv = nt.dv, split = nt.split, last = last_key, ents = nt.ents, why = why,
             drills = nt.drills, undergrounds = nt.undergrounds }
         end
       end
@@ -594,7 +597,11 @@ function Ch.plan(spec)
     end
     for _, side in ipairs({ exit, -exit }) do
       local nt = nets[side]
-      if nt then coal_stats[#coal_stats + 1] = { side = side, voie = nt.uT ~= nil, why = nt.why, drills = nt.drills, undergrounds = nt.undergrounds, split = nt.split } end
+      if nt then
+        local why = nt.why
+        if nt.dropped and #nt.dropped > 0 then why = (why and (why .. " ; ") or "") .. table.concat(nt.dropped, " ; ") end
+        coal_stats[#coal_stats + 1] = { side = side, voie = nt.uT ~= nil, why = why, drills = nt.drills, undergrounds = nt.undergrounds, split = nt.split }
+      end
     end
     if F and F.coal then coal_frame = F.coal end
     -- bande seule : les colonnes des AUTRES bandes du cadre sont réservées (non posées) avant les poteaux des rangées, qui les

@@ -36,6 +36,8 @@ Co.FUEL = 0.0225       -- charbon/s d'un four sans donnée (90 kW, 4 MJ)
 Co.MIN_COAL = 3        -- tuiles de charbon au moins dans la zone d'une foreuse de la ligne
 Co.WINDOW = 24         -- demi-côté de la fenêtre du gisement de charbon lue autour de la tuile la plus proche du tronc
 Co.UG_COST = 3         -- surcoût d'une paire de souterrains (préférés seulement pour passer un obstacle ou couper un détour)
+Co.SOFT_COST = 8       -- surcoût d'un tapis posé sur un arbre ou un rocher (lot-20261020, emerald : 2 arbres de marais jamais coupés ont
+                       -- bloqué 2 h le chantier d'une bande ; le tracé contourne la forêt, ou passe dessous par souterrain)
 Co.ROUTE_CAP = 120000  -- états développés au plus par tracé
 Co.ROUTE_MARGIN = 12   -- tuiles autour de la boîte départ, arrivée et zone interdite
 Co.TRUNK_TRIES = 8     -- colonnes de tronc essayées au-delà du bout des colonnes
@@ -250,8 +252,9 @@ Co.tk = tk
 --- free(u, v) : un tapis peut s'y poser ; span(u, v) : un souterrain peut passer dessous ; ug : écart maximal entre l'entrée et la
 --- sortie d'une paire (nil : aucun souterrain) ; box { u0, v0, u1, v1 }. Rend la liste { u, v, d (index), kind = "tapis" |
 --- "souterrain", ug = "input" | "output" } dans l'ordre du flux, et le nombre d'états développés ; ou nil, raison.
-function Co.route(s, sd, t, td, free, span, ug, box, cap)
+function Co.route(s, sd, t, td, free, span, ug, box, cap, tcost)
   cap = cap or Co.ROUTE_CAP
+  local function tc(u, v) return tcost and tcost(u, v) or 1 end -- coût d'une tuile où se pose une pièce (souterrain : entrée et sortie)
   if not free(s.u, s.v) then return nil, "depart" end
   if not free(t.u, t.v) then return nil, "arrivee" end
   local function inb(u, v) return u >= box.u0 and u <= box.u1 and v >= box.v0 and v <= box.v1 end
@@ -298,7 +301,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap)
           if turn == 0 or cur.m == 0 then
             local nd = ((cur.d - 1 + turn) % 4) + 1
             local dv = D4[nd]
-            relax(cur, cur.u + dv[1], cur.v + dv[2], nd, 0, 1, { { u = cur.u, v = cur.v, d = nd, kind = "tapis" } })
+            relax(cur, cur.u + dv[1], cur.v + dv[2], nd, 0, tc(cur.u, cur.v), { { u = cur.u, v = cur.v, d = nd, kind = "tapis" } })
           end
         end
         -- paire de souterrains : entrée ici (on y arrive tout droit), sortie k tuiles plus loin, puis tout droit
@@ -308,7 +311,7 @@ function Co.route(s, sd, t, td, free, span, ug, box, cap)
           for k = 1, ug do
             local mu, mv = cur.u + k * dv[1], cur.v + k * dv[2]
             if k >= 2 and ok_span and free(mu, mv) and not (mu == t.u and mv == t.v) then
-              relax(cur, mu + dv[1], mv + dv[2], cur.d, 1, k + 1 + Co.UG_COST, {
+              relax(cur, mu + dv[1], mv + dv[2], cur.d, 1, tc(cur.u, cur.v) + tc(mu, mv) + (k - 1) + Co.UG_COST, {
                 { u = cur.u, v = cur.v, d = cur.d, kind = "souterrain", ug = "input" },
                 { u = mu, v = mv, d = cur.d, kind = "souterrain", ug = "output" } })
             end
@@ -540,16 +543,18 @@ function Co.network(cols, side, env)
     for v = v_start, last_v, dv do if not env.free(u, v) then ok = false end end
     if ok then
       local net = { uT = u, dv = dv, split = env.split }
-      local kept = {}
+      local kept, dropped = {}, {}
       for _, c in ipairs(cols) do
-        local fine = true
-        for _, tl in ipairs(branch_tiles(c, net, side, env.pole.wire)) do if not env.free(tl[1], tl[2]) then fine = false end end
-        if fine and net.split then
-          if not env.free(u - side, c.b - sf - dv) then fine = false end
+        local fine, at = true, nil
+        for _, tl in ipairs(branch_tiles(c, net, side, env.pole.wire)) do
+          if fine and not env.free(tl[1], tl[2]) then fine, at = false, tl end
         end
-        if fine then kept[#kept + 1] = c end
+        if fine and net.split then
+          if not env.free(u - side, c.b - sf - dv) then fine, at = false, { u - side, c.b - sf - dv } end
+        end
+        if fine then kept[#kept + 1] = c else dropped[#dropped + 1] = string.format("bande %s : derivation occupee en (u %d, v %d)", c.key, at[1], at[2]) end
       end
-      if #kept > 0 then uT, keep = u, kept break end
+      if #kept > 0 then uT, keep, res.dropped = u, kept, dropped break end
     end
   end
   if not uT then res.why = "aucune place pour le tronc" return res end
@@ -626,7 +631,9 @@ function Co.network(cols, side, env)
   local box = { u0 = math.min(line.exit.u, uT, env.box.u0) - Co.ROUTE_MARGIN, u1 = math.max(line.exit.u, uT, env.box.u1) + Co.ROUTE_MARGIN,
     v0 = math.min(line.exit.v, v_start, env.box.v0) - Co.ROUTE_MARGIN, v1 = math.max(line.exit.v, v_start, env.box.v1) + Co.ROUTE_MARGIN }
   local span = function(u, v) return not (env.ugs and env.ugs[tk(u, v)]) end
-  local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box)
+  local tcost = env.soft and function(u, v) return env.soft(u, v) and (1 + Co.SOFT_COST) or 1 end or nil
+  local route, why = Co.route({ u = line.exit.u, v = line.exit.v }, line.exit.d, { u = uT, v = v_start }, didx(0, dv), rfree, span, env.ug, box,
+    nil, tcost)
   if not route then res.why = "trace du charbon : " .. tostring(why) return res end
   local nug = 0
   for _, r in ipairs(route) do

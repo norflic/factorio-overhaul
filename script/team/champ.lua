@@ -38,6 +38,7 @@ Champ.CFG = {
   margin_v = 10,    -- tuiles lues en travers au-delà du gisement
   margin_u = 120,   -- tuiles lues le long de l'axe au-delà du gisement (fonderies)
   chain_r = 160,    -- tuiles : poteau alimenté le plus loin cherché pour raccorder une bande
+  chain_far = 480,  -- (lot FONDERIE) seconde recherche quand rien n'est vu à chain_r (chaîne de 64 poteaux au plus, P.pole_chain)
   logs = 40,        -- lignes [FO-CHAMP] au plus par équipe
   charge = 40,      -- combustible posé avec chaque coffre de combustible d'une fonderie (deux fours de pierre : 15 min)
   drill_rank = 7,   -- rang de pose des foreuses du champ (P.sort_build : après les tapis, rang 5)
@@ -245,7 +246,7 @@ end
 
 --- Tuiles où rien ne se pose dans le rectangle : eau, bâtiments (arbres et rochers exceptés : défrichés), tuiles réservées par un
 --- autre projet du plan directeur ; les tuiles `mine` restent libres.
-local function blocked_in(f, surface, x0, y0, x1, y1, mine)
+local function blocked_in(f, surface, x0, y0, x1, y1, mine, soft_out)
   local blocked = {}
   for _, t in ipairs(surface.find_tiles_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "water-tile" })) do
     blocked[Ch.key(math.floor(t.position.x), math.floor(t.position.y))] = "eau"
@@ -253,6 +254,8 @@ local function blocked_in(f, surface, x0, y0, x1, y1, mine)
   for _, e in ipairs(surface.find_entities_filtered({ area = { { x0, y0 }, { x1, y1 } }, collision_mask = "object-layer" })) do
     local soft = e.type == "tree" or e.type == "simple-entity" or (e.force.name == "neutral" and e.type ~= "cliff")
     if not soft and e.type ~= "resource" and e.type ~= "cliff" then add_box(blocked, e, e.name) end
+    -- lot FONDERIE : arbres et rochers (défrichables) relevés à part : le tracé du charbon les évite
+    if soft and soft_out and (e.type == "tree" or e.type == "simple-entity") then add_box(soft_out, e) end
   end
   -- lot OBSTACLES : une falaise bloque son emprise RÉELLE (orientation), pas la boîte générique de bounding_box (shared/team/falaise.lua)
   Fal.mark(surface, x0, y0, x1, y1, function(tx, ty) blocked[Ch.key(tx, ty)] = "cliff" end)
@@ -293,8 +296,9 @@ local function spec_of(f, surface, o, frame, only)
     end
   end
   local mine = mine_of(f, o)
+  local soft = coal and {} or nil
   local spec = {
-    ore = ore, blocked = blocked_in(f, surface, x0, y0, x1, y1, mine), mine = mine,
+    ore = ore, blocked = blocked_in(f, surface, x0, y0, x1, y1, mine, soft), mine = mine, soft = soft,
     drill = data.drill, pole = data.pole, belts = data.belts, furnace = data.furnace, inserter = data.inserter,
     target = f.hq_pos, max_side = Champ.CFG.side,
     design = data.design, logistics = data.logistics,
@@ -444,13 +448,13 @@ end
 -- Site « champ » du plan directeur
 ---------------------------------------------------------------------------------------------------
 --- Poteau alimenté le plus proche (réseau d'une génératrice de l'équipe), ou nil.
-local function powered_pole(f, surface, x, y)
+local function powered_pole(f, surface, x, y, radius)
   local powered = {}
   for _, g in ipairs(surface.find_entities_filtered({ type = "generator", force = f.force })) do
     if g.electric_network_id then powered[g.electric_network_id] = true end
   end
   local best, bd
-  for _, e in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = Champ.CFG.chain_r, type = "electric-pole", force = f.force })) do
+  for _, e in ipairs(surface.find_entities_filtered({ position = { x, y }, radius = radius or Champ.CFG.chain_r, type = "electric-pole", force = f.force })) do
     if e.electric_network_id and powered[e.electric_network_id] then
       local d = (e.position.x - x) ^ 2 + (e.position.y - y) ^ 2
       if not bd or d < bd or (d == bd and (e.position.x < best.x or (e.position.x == best.x and e.position.y < best.y))) then
@@ -491,6 +495,9 @@ Build.SITES.champ = function(f, surface, p, h)
   for _, e in ipairs(poles) do cx, cy = cx + e.x, cy + e.y end
   if #poles > 0 then cx, cy = cx / #poles, cy / #poles end
   local net = powered_pole(f, surface, cx, cy)
+  -- lot FONDERIE (lot-20261020, emerald, projet 8 : « aucun reseau alimente vu » a 20,3 min, bande isolée toute la partie) : seconde
+  -- recherche, plus loin, avant de poser une bande sans courant
+  if not net then net = powered_pole(f, surface, cx, cy, Champ.CFG.chain_far) end
   local chain_n = 0
   if net then
     local start, sd

@@ -130,6 +130,19 @@ do
     end
   end
   check(r ~= nil and not over, "aucune paire au-dessus d'un souterrain existant")
+  -- forêt (arbres défrichables : posables mais chers, lot-20261020) : contournée quand le détour est court, passée DESSOUS par souterrain
+  local forest = {}
+  for x = 8, 12 do for y = -6, 6 do forest[Co.tk(x, y)] = true end end
+  local tcost = function(u, v) return forest[Co.tk(u, v)] and (1 + Co.SOFT_COST) or 1 end
+  local function on_trees(r) local n = 0; for _, t in ipairs(r) do if forest[Co.tk(t.u, t.v)] then n = n + 1 end end; return n end
+  local rf = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, free_all, nil, nil, BOX, nil, tcost)
+  check(rf and on_trees(rf) == 0, "forêt sans souterrain : contournée (" .. tostring(rf and on_trees(rf)) .. " tapis sur un arbre, " .. tostring(rf and #rf) .. " tuiles)")
+  local ru = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, free_all, nil, 7, BOX, nil, tcost)
+  check(ru and on_trees(ru) == 0 and nug(ru) == 2, "forêt avec souterrains : passée dessous (" .. tostring(ru and nug(ru)) .. " souterrains)")
+  local wide = {}
+  for x = 8, 12 do for y = -100, 100 do wide[Co.tk(x, y)] = true end end
+  local rw = Co.route({ u = 0, v = 0 }, 2, { u = 20, v = 0 }, 2, free_all, nil, nil, BOX, nil, function(u, v) return wide[Co.tk(u, v)] and (1 + Co.SOFT_COST) or 1 end)
+  check(rw ~= nil and #rw == 21, "forêt sans fin, sans souterrain : traversée tout droit (le défrichage reste possible)")
   -- virage à l'arrivée et sens imposé
   r = Co.route({ u = 0, v = 0 }, 2, { u = 10, v = 10 }, 3, free_all, nil, 5, BOX)
   check(r and r[#r].u == 10 and r[#r].v == 10 and r[#r].d == 3, "arrivée tournée vers le sens demandé")
