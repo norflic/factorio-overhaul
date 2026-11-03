@@ -185,7 +185,8 @@ print(string.format("[VAGUE] suite de 20 min, vagues revues toutes les 3 min : t
 -- §6 câblage
 local C = read("script/ai3/comportement.lua")
 check("§6 comportement charge la regle", C:find('local Vg = require("shared.team.vague")', 1, true) ~= nil)
-check("§6 porte : regle appliquee a un refus", C:find('if decision == "wait" and Vg.applies(task.kind, why, f.hq_pos, dest) then', 1, true) ~= nil)
+check("§6 porte : regle appliquee a un refus (interrupteur f.team.sorties_vague, lot CHARBON4)", C:find('if decision == "wait" and Vg.on(f.team and f.team.sorties_vague) and Vg.applies(task.kind, why, f.hq_pos, dest) then', 1, true) ~= nil)
+check("§6 interrupteur : nil = allumee, false = coupee", V0.on(nil) == true and V0.on(false) == false and V0.on(true) == true)
 check("§6 porte rejugee sur la route du moindre danger", C:find("local qs = R.samples(p, (alt or res).pts, dest, R.SAMPLE)", 1, true) ~= nil
   and C:find("Vg.gate(ginfo, t.map, p, qs, dest, tick, { B = res.B, prudence = prud, escort_ok = free >= 2 })", 1, true) ~= nil)
 check("§6 depart avec le risque accepte", C:find('if vague and decision == "go" then a.risk = true end', 1, true) ~= nil)

@@ -29,6 +29,7 @@ local Ac = require("shared.team.actif")
 
 local V = {}
 
+V.ON = true -- lot CHARBON4 (A/B du lead) : règle allumée par défaut ; interrupteur par équipe f.team.sorties_vague (nil : V.ON)
 V.KINDS = { service = true }                       -- tournées d'avant-poste (ravitaillement, collecte)
 V.WHY = { but = true, bloque = true, marque = true } -- refus de la porte pour le DANGER (route ou but), jamais pour des morts
 V.NEAR_R = 64     -- tuiles : but « dans le rayon du QG défendu » (deux fois M.HOME_SAFE, où un PNJ ne regarde même plus)
@@ -36,6 +37,12 @@ V.QUIET = Ac.FEAR_TICKS -- 1 min sans nouvelle vue : la vague est passée (même
 V.SKIP = 6        -- tuiles : début de route exclu (le PNJ peut déjà être près d'une marque), comme M.plan
 
 --- La règle s'applique-t-elle à ce refus ? `kind` genre de tâche, `why` raison du refus (D.gate), `hq` et `goal` positions.
+--- Règle allumée pour cette équipe ? flag = f.team.sorties_vague (nil : V.ON).
+function V.on(flag)
+  if flag ~= nil then return flag and true or false end
+  return V.ON == true
+end
+
 function V.applies(kind, why, hq, goal)
   if not (V.KINDS[kind] and V.WHY[why] and hq and goal) then return false end
   local dx, dy = goal.x - hq.x, goal.y - hq.y

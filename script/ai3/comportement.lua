@@ -690,7 +690,7 @@ function M.gate(f, agent, task, steps, tick)
   -- risque accepté (a.risk, comme une escalade) : M.leg prend le chemin du moindre danger, les réflexes du PNJ restent.
   -- (0.6.43N 1618033988 : avant-poste de charbon à 33 tuiles du QG, 26 foreuses sur 26 à sec, tournée refusée de 35 à 52 min.)
   local vague = false
-  if decision == "wait" and Vg.applies(task.kind, why, f.hq_pos, dest) then
+  if decision == "wait" and Vg.on(f.team and f.team.sorties_vague) and Vg.applies(task.kind, why, f.hq_pos, dest) then -- CHARBON4 : interrupteur
     local qs = R.samples(p, (alt or res).pts, dest, R.SAMPLE)
     local d3, w3, ns, i3 = Vg.gate(ginfo, t.map, p, qs, dest, tick, { B = res.B, prudence = prud, escort_ok = free >= 2 })
     t.stats.vague = t.stats.vague or {}
