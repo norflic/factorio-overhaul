@@ -64,6 +64,27 @@ function SurvieQg.update(f, tick)
   return r
 end
 
+--- Lot QGSURVIE (règle 2, Sq.recruit_hold) : la recrue de votre équipe est-elle retenue ? Lit le dernier recensement du QG (frais :
+--- SurvieQg.FRESH ; sans recensement, jamais retenue). `threat` : unités ennemies à portée du coffre (Team.view, hq_threat). Une ligne
+--- [FO-QGSURVIE] à l'entrée et à la sortie de la retenue.
+function SurvieQg.recruit_hold(f, tick, threat)
+  if not (f and f.team) then return false end
+  local v = Prev.qg_view(f)
+  local held = false
+  if v and tick - (v.qg.tick or 0) <= SurvieQg.FRESH then
+    held = Sq.recruit_hold({ armed = v.qg.armed, threat = threat, workers = f.engineers_count })
+  end
+  local s = state(f)
+  if held ~= (s.hold == true) then
+    log(string.format("[FO-QGSURVIE] %s : recrues %s a %.1f min : %d tourelle(s) armee(s) au QG, ennemis a portee du coffre %s, effectif %d",
+      tostring(f.key or "?"), held and "RETENUES (QG sans tourelle armee sous l'attaque)" or "liberees", min_of(tick),
+      v and v.qg.armed or -1, tostring(threat == true), f.engineers_count or 0))
+    s.holds = (s.holds or 0) + (held and 1 or 0)
+  end
+  s.hold = held or nil
+  return held
+end
+
 ---------------------------------------------------------------------------------------------------
 -- Protéger avant d'agrandir ou de refaire (avant-postes touchés par des vagues), réserve de chargeurs sur la menace
 ---------------------------------------------------------------------------------------------------

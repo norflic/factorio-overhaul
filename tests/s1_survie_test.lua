@@ -124,6 +124,20 @@ local function sq_facts(Sx)
   f.fate_soldiers = Sx.chest_fate({ killed = true, workers = 0, soldiers = 2, recent = 0 })
   f.fate_last = Sx.chest_fate({ killed = true, workers = 4, soldiers = 0, recent = Sx.CHEST_MAX - 1 })
   f.fate_too_many = Sx.chest_fate({ killed = true, workers = 4, soldiers = 0, recent = Sx.CHEST_MAX })
+  -- lot QGSURVIE : réserve de fer du QG (vanilla : tourelle 40 fer, chargeur 4), module neuf retenu, recrue retenue
+  f.rq_vanilla = Sx.qg_reserve({ floor = 150, turret_iron = 40, mag_iron = 4 })
+  f.rq_noturret = Sx.qg_reserve({ floor = 150, turret_iron = nil, mag_iron = 4 })
+  f.rq_frac = Sx.qg_reserve({ floor = 0, turret_iron = 0.25, mag_iron = 0 })
+  f.rq_nil = Sx.qg_reserve(nil)
+  f.mh_under = Sx.module_held({ iron = 309, reserve = 310 })
+  f.mh_at = Sx.module_held({ iron = 310, reserve = 310 })
+  f.mh_rebuild = Sx.module_held({ iron = 0, reserve = 310, rebuild = true })
+  f.mh_noreserve = Sx.module_held({ iron = 0, reserve = nil })
+  f.rh_fallen = Sx.recruit_hold({ armed = 0, threat = true, workers = 3 })
+  f.rh_armed = Sx.recruit_hold({ armed = 1, threat = true, workers = 3 })
+  f.rh_calm = Sx.recruit_hold({ armed = 0, threat = false, workers = 3 })
+  f.rh_last = Sx.recruit_hold({ armed = 0, threat = true, workers = 1 })
+  f.rh_alone = Sx.recruit_hold({ armed = 0, threat = true, workers = 0 })
   return f
 end
 
@@ -152,6 +166,13 @@ check(F0.refill_partial_peril == 15 and F0.refill_partial_calm == 0 and F0.refil
 check(F0.fate_player_mined == "fin" and F0.fate_alone == "fin" and F0.fate_ok == "poser" and F0.fate_soldiers == "poser" and F0.fate_last == "poser"
   and F0.fate_too_many == "fin",
   "coffre : reposé s'il est détruit et que des PNJ vivent ; fin si le joueur l'a retiré, si personne ne vit, ou après trop de pertes en 30 min")
+check(F0.rq_vanilla == 310 and F0.rq_noturret == 230 and F0.rq_frac == 1 and F0.rq_nil == 0,
+  "QGSURVIE : réserve du QG = plancher 150 + 2 × (tourelle 40 + 10 chargeurs × 4) = 310 ; sans recette de tourelle 230 ; arrondie au-dessus")
+check(F0.mh_under and not F0.mh_at and not F0.mh_rebuild and not F0.mh_noreserve,
+  "QGSURVIE : module neuf retenu sous la réserve (309 < 310), libre à la réserve, jamais une reconstruction, rien sans réserve")
+check(F0.rh_fallen and not F0.rh_armed and not F0.rh_calm and F0.rh_last and not F0.rh_alone,
+  "QGSURVIE : recrue retenue dans un QG sans tourelle armée sous l'attaque (même pour le dernier PNJ), libre avec une tourelle armée, " ..
+  "sans ennemi à portée, ou quand il ne reste personne")
 
 -- déterminisme et invariants sur une grille
 local bad, n = 0, 0
@@ -393,6 +414,26 @@ check(has(src.capi, "Sv.capi(Survie.on(f) and not (view.qg_peril and view.qg_per
 check(has(src.pteam, "Sq.chest_fate({") and has(src.pteam, "repose(f, e.tick)") and has(src.pteam, "[FO-SURVIE] player : coffre"),
   "maillon 8 (coffre) : la perte du coffre passe par Sq.chest_fate, repose, journalise")
 check(has(src.pv, "remember(key, recv, \"vague\")") and has(src.pv, "remember(key, recv, \"rate\")"), "maillon 9 (calibration) : vagues prévues et ratées entrent dans la mémoire")
+-- lot QGSURVIE
+local build_src = read_src("script/team/build.lua")
+check(has(src.team, "f.team.qg_reserve = Sq.qg_reserve({ floor = T.defend_iron_floor, turret_iron = rt[fe], mag_iron = rm[fe] })")
+  and has(src.team, "if f.is_player and T.qg_reserve_on then"),
+  "maillon 10 (vue, QGSURVIE) : la réserve du QG est calculée au livre de recettes, votre équipe seulement, sous interrupteur")
+check(has(build_src, "local held = Sq.module_held({ iron = iron, reserve = f.team.qg_reserve, rebuild = false })")
+  and has(build_src, "if qg_held(f, p, \"reserve\", tick) then") and has(build_src, "if qg_held(f, p, \"ligne\", tick) then")
+  and has(build_src, "if not (T.qg_reserve_on and f.is_player and f.team and f.team.qg_reserve) then return false end"),
+  "maillon 11 (chantiers, QGSURVIE) : la réserve d'un module neuf et l'agrandissement d'une ligne passent par Sq.module_held")
+do -- la porte du QG vient AVANT celle de la pile (qui laisse passer un module qui produit une matière qui manque, le fer)
+  local a = build_src:find("if qg_held(f, p, \"reserve\", tick) then", 1, true)
+  local b = build_src:find("local ok, why = PileRt.porte(f, fam, p.spec.product)", 1, true)
+  local c = build_src:find("local fam = pile_family(f, p)\n  if not fam then return false end\n  -- Lot QGSURVIE", 1, true)
+  check(a and b and c and c < a and a < b, "maillon 11 bis (QGSURVIE) : la porte du QG suit pile_family (pas les reconstructions) et précède celle de la pile")
+end
+check(has(src.team, "if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end")
+  and has(src.glue, "held = Sq.recruit_hold({ armed = v.qg.armed, threat = threat, workers = f.engineers_count })")
+  and has(src.glue, "[FO-QGSURVIE]"),
+  "maillon 12 (recrues, QGSURVIE) : la retenue passe par Sq.recruit_hold avec le recensement et la menace, view.hold_recruits, journal")
+check(T.qg_reserve_on == true and T.qg_recruit_hold_on == true, "QGSURVIE : interrupteurs allumés par défaut")
 
 ---------------------------------------------------------------------------------------------------
 section("6. Mutants : chaque règle retirée change au moins un fait")
@@ -433,6 +474,19 @@ local mutants = {
   { "coffre reposé sans PNJ", "Sq", "if num(a.workers) + num(a.soldiers) <= 0 then return \"fin\", \"aucun PNJ vivant\" end", "" },
   { "coffre reposé sans fin", "Sq", "if num(a.recent) >= Sq.CHEST_MAX then return \"fin\", \"trop de coffres perdus en peu de temps\" end", "" },
   { "soldats ignorés pour le coffre", "Sq", "if num(a.workers) + num(a.soldiers) <= 0 then", "if num(a.workers) <= 0 then" },
+  -- lot QGSURVIE
+  { "réserve sans le plancher", "Sq", "return ceil(num(a.floor) + Sq.RESERVE_TURRETS", "return ceil(0 + Sq.RESERVE_TURRETS" },
+  { "réserve sans les chargeurs", "Sq", "(num(a.turret_iron) + Sq.RESERVE_MAGS * num(a.mag_iron))", "(num(a.turret_iron))" },
+  { "réserve d'une seule tourelle", "Sq", "Sq.RESERVE_TURRETS = 2 ", "Sq.RESERVE_TURRETS = 1 " },
+  { "réserve non arrondie", "Sq", "return ceil(num(a.floor) + Sq.RESERVE_TURRETS * (num(a.turret_iron) + Sq.RESERVE_MAGS * num(a.mag_iron)))",
+    "return num(a.floor) + Sq.RESERVE_TURRETS * (num(a.turret_iron) + Sq.RESERVE_MAGS * num(a.mag_iron))" },
+  { "module retenu à la réserve", "Sq", "return num(a.iron) < num(a.reserve)", "return num(a.iron) <= num(a.reserve)" },
+  { "module jamais retenu", "Sq", "return num(a.iron) < num(a.reserve)", "return false" },
+  { "reconstruction retenue", "Sq", "  if a.rebuild then return false end\n", "" },
+  { "recrue retenue malgré une tourelle armée", "Sq", "if num(a.armed) > 0 or not a.threat then return false end", "if not a.threat then return false end" },
+  { "recrue retenue sans attaque", "Sq", "if num(a.armed) > 0 or not a.threat then return false end", "if num(a.armed) > 0 then return false end" },
+  { "recrue retenue même seule", "Sq", "return num(a.workers) >= Sq.HOLD_MIN_WORKERS", "return true" },
+  { "recrue jamais retenue", "Sq", "return num(a.workers) >= Sq.HOLD_MIN_WORKERS", "return false" },
   -- priorité
   { "le péril ne force plus la défense", "Pr", "if a.peril and not a.survival then", "if false then" },
   { "le péril écrase la survie des effectifs", "Pr", "if a.peril and not a.survival then", "if a.peril then" },
