@@ -489,6 +489,26 @@ local function run_all()
     local rch, cch = emit0(gch)
     check(rch == "matiere" and (cch["iron-gear-wheel"] or 0) >= 3,
       "§15 chaîne, 0 bras libre, plaques au stock : les engrenages sont FABRIQUÉS à la main (" .. tostring(cch["iron-gear-wheel"]) .. ")")
+    -- (c) Le centre prioritaire, fer virtuel sous la ligne du fer de son coût : les circuits sont fabriqués d'abord (pièces avant
+    -- plaques), le fer qui manque ensuite est déclaré manquant.
+    local function emit_centre(av)
+      local E = P.context(av, book, { open = {}, workers_idle = 0 }, {})
+      E.view = { workers_idle = 0 }
+      local g = { key = "capital:c", cost = { { "iron-plate", 310 }, { "copper-plate", 160 }, { "stone-brick", 160 }, { "electronic-circuit", 60 } },
+        target = "c", center = true, fond = true, short = true }
+      Cap.emit(P)(E, { id = 16, key = g.key, prio = 60 }, g)
+      local c = 0
+      for _, t in ipairs(E.tasks) do if t.item == "electronic-circuit" then c = c + t.count end end
+      return c, E
+    end
+    local c300, E300 = emit_centre({ ["iron-plate"] = 300, ["copper-plate"] = 1000, ["stone-brick"] = 50 })
+    check(c300 == 60 and E300.raw["iron-plate"] ~= nil,
+      "§15 centre, fer virtuel 300 sous la ligne de 310 : les 60 circuits sont fabriqués d'abord, le fer manquant est déclaré (" .. c300 .. ")")
+    local c2k = emit_centre({ ["iron-plate"] = 2000, ["copper-plate"] = 1000, ["stone-brick"] = 50 })
+    check(c2k == 60, "§15 centre, fer abondant : les 60 circuits sont fabriqués (" .. c2k .. ")")
+    local ord = Cap.craft_first({ { "iron-plate", 6 }, { "iron-gear-wheel", 3 }, { "stone-brick", 2 }, { "electronic-circuit", 2 } }, book)
+    check(ord[1][1] == "iron-gear-wheel" and ord[2][1] == "electronic-circuit" and ord[3][1] == "iron-plate" and ord[4][1] == "stone-brick",
+      "§15 ordre du besoin : pièces fabricables d'abord, dans l'ordre du coût, puis le reste")
     local gor = Cap.goal(da, {})
     check(gor and gor.opens == nil, "§15 tourelle ordinaire (centre payable) : pas de la chaîne")
     local ror, _, nor = emit0(gor)
@@ -572,6 +592,9 @@ do
   M("chaîne sans ses pièces", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g then g.opens = nil end return g end
   end, function() Cap.goal = cg end)
+  local cf0 = Cap.craft_first
+  M("plaques avant les pièces (ordre du coût)", function() Cap.craft_first = function(l) return l end end,
+    function() Cap.craft_first = cf0 end)
   M("chaîne servie en dernier (pas courte)", function()
     Cap.goal = function(d, w) local g = cg(d, w) if g and g.opens then g.short = nil end return g end
   end, function() Cap.goal = cg end)

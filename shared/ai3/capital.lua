@@ -523,9 +523,24 @@ function Cap.emit(P)
       return "ok"
     end
     if not g.center and not g.opens and not g.replace and ((E.view and E.view.workers_idle) or 0) <= 0 then return "matiere" end
-    P.want(E, proj, g.cost, proj.prio, false, "niveau")
+    P.want(E, proj, Cap.craft_first(g.cost, E.book), proj.prio, false, "niveau")
     return "matiere"
   end
+end
+
+--- Lot AGEBLOCAGE : ordre du besoin d'un coût : les pièces FABRICABLES à la main d'abord (dans l'ordre du coût), puis le reste.
+--- P.want sert la liste dans l'ordre et met de côté toute la matière d'une ligne qui manque : un coût « fer 310, cuivre 160, briques
+--- 160, circuits 60 » réservait tout le fer virtuel à la ligne du fer quand il y en avait moins de 310, et les circuits (du fer et du
+--- cuivre) n'étaient jamais fabriqués. Banc dc-croissance 20261020 (essai 2) : centre d'Émeraude prioritaire de 24,6 à 30,6 min avec
+--- 0 circuit sur 60, celui d'Écarlate de 28,2 à 60 min avec un fer libre de 146 à 224 sur 310 et des circuits qui baissaient (54 -> 37).
+function Cap.craft_first(list, book)
+  if not (book and book.handcraftable) then return list end
+  local made, rest = {}, {}
+  for _, it in ipairs(list or {}) do
+    if book:handcraftable(it[1]) then made[#made + 1] = it else rest[#rest + 1] = it end
+  end
+  for _, it in ipairs(rest) do made[#made + 1] = it end
+  return made
 end
 
 --- Texte de journal d'une décision (ASCII).
