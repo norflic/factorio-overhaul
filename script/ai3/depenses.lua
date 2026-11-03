@@ -8,7 +8,8 @@
     - Dep.mark (script/ai3/cerveau.lua) : le but « amélioration » de fond peut faire fabriquer ses intermédiaires sans bras libre
       (g.depense, lu par Cap.emit) ;
     - Dep.slots (script/ai3/capitalisation.lua, Capi.slots) : emplacements de chantier de plus (Em.slots, `bonus`) ;
-    - Dep.defense (lecture seule, pour le périmètre) : plaques offertes à la défense.
+    - Dep.defense (lecture seule, pour le périmètre) : plaques accordées à la défense, sur la demande écrite dans
+      f.team.depenses.defense_want (au plus Dp.DEF_PCT % du stock qui dort ; sans demande : 0, la capacité prend le reste).
   Interrupteur : f.team.depenses.on = false (rien n'est offert ; les horloges sont oubliées au pas suivant).
 ]]
 
@@ -53,6 +54,10 @@ function Dep.think(f, cs, tick, products, minutes)
     local plates = Dp.cost_plates(cur.cost, function(item) return plate[item] and 1 or 2 end)
     if cur.center then dem.centre = plates else dem.intermediaires = plates end
   end
+  -- Défense : la demande du périmètre (f.team.depenses.defense_want, plaques, écrite par le lot qui gère le budget de défense),
+  -- bornée à Dp.DEF_PCT % par la règle. Personne ne la demande (0) : rien n'est retenu pour elle, la capacité prend le reste
+  -- (une offre que personne ne lit laisserait dormir 30 % du stock).
+  dem.defense = math.max(0, tonumber(d.defense_want) or 0)
   local res
   d.st, res = Dp.step(d.st, { on = d.on ~= false, tick = tick, products = list, demands = dem })
   d.res, d.res_tick = res, tick
