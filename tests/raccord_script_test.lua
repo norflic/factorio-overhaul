@@ -287,5 +287,42 @@ local f2 = { key = "f2", force = "f2", build = b2 }
 for _ = 1, 2 * R.PERIOD / 5 do Ra.step(api, f2, surface, tick) end
 check(b2.raccord ~= nil and b2.raccord.cyc == nil, "8.1 sans centrale finie : pas de releve")
 
+-- 9. (lot FONDERIE, 0.6.43) bande de champ EN CHANTIER dont des bras posés sont sur une île : relevée seulement avec champ_live
+--    (fonderie à tapis allumée) ; sans lui, comme avant (projets finis seulement)
+local function team_champ(key, net, x)
+  ent("steam-engine", "generator", x, 500, net, { w = 3, force = key })
+  ent("medium-electric-pole", "electric-pole", x + 3, 500, net, { force = key })
+  ent("medium-electric-pole", "electric-pole", x + 40, 500, net + 1, { force = key })   -- poteau de la bande, sur une île
+  ent("inserter", "inserter", x + 41, 500, net + 1, { force = key })
+  ent("inserter", "inserter", x + 42, 500, net + 1, { force = key })
+  local bb = { order = { 1, 2 }, plant = 1, opts = {}, projects = {
+    [1] = proj(1, "fini", { { name = "steam-engine", x = x, y = 500, built = true, part = 1 } }, { gen = "steam" }),
+    [2] = proj(2, "chantier", { { name = "inserter", x = x + 41, y = 500, built = true, part = 1, role = "champ-bras" },
+      { name = "inserter", x = x + 42, y = 500, built = true, part = 1, role = "champ-bras" },
+      { name = "medium-electric-pole", x = x + 40, y = 500, built = true, part = 1 } }, { site = "champ", champ = { oid = 4, pr = -42 } }) } }
+  return { key = key, force = key, build = bb }
+end
+local function run_team(ff, flag, n)
+  local reqs = {}
+  local a = { prio = 59, champ_live = flag, request = function(_, spec)
+    reqs[#reqs + 1] = spec.raccord
+    local id = 200 + #reqs
+    ff.build.projects[id] = proj(id, "reserve", {}, spec)
+    ff.build.order[#ff.build.order + 1] = id
+    return id
+  end }
+  for _ = 1, n * (R.PERIOD + 100) / 5 do tick = tick + 5; game.tick = tick; Ra.step(a, ff, surface, tick) end
+  return reqs
+end
+local fo = team_champ("fo", 30, 1000)
+local r_off = run_team(fo, false, 3)
+check(#r_off == 0 and next(fo.build.raccord.seen) == nil and logs_with("%[FO%-RACCORD%] fo : .*sans courant %(ile") == 0, "9.1 sans champ_live : bande en chantier non relevee (0.6.42) (" .. #r_off .. ")")
+local fl = team_champ("fl", 40, 2000)
+local r_on = run_team(fl, true, 3)
+check(#r_on >= 1 and r_on[1].kind == "ile", "9.2 avec champ_live : ile de la bande en chantier relevee, raccordement demande (" .. #r_on .. ")")
+check(r_on[1] and r_on[1].start and r_on[1].start.x == 2040 and r_on[1].target and r_on[1].target.x == 2003,
+  "9.3 depart : le poteau de la bande ; cible : le poteau alimente")
+check(no_function(fl.build.raccord), "9.4 etat sans fonction")
+
 print(string.format("[RACCORD-SCRIPT] BILAN : %d OK, %d ECHEC(S)", ok_n, fail_n))
 os.exit(fail_n == 0 and 0 or 1)

@@ -58,12 +58,20 @@ local function live_networks(f, surface)
   return live, n
 end
 
-local function start_cycle(f, surface, b)
+--- Lot FONDERIE (3/11, 0.6.43) : une bande de champ EN COURS (réserve à chantier) dont des machines sont posées est relevée aussi, quand la
+--- fonderie à tapis est allumée (`champ_live`, passé par build.lua) : son raccord du plan peut viser un poteau détruit depuis (attaque
+--- de l'avant-poste, verif-guide 1618033988 : 68 consommateurs sur 72 sans courant de la minute 28 à 58, projet en chantier).
+local function scanned(q, champ_live)
+  if q.state == "fini" then return true end
+  return champ_live == true and PENDING_STATES[q.state] == true and q.spec ~= nil and q.spec.champ ~= nil
+end
+
+local function start_cycle(f, surface, b, champ_live)
   local live, n = live_networks(f, surface)
   local units = {}
   for _, pid in ipairs(b.order) do
     local q = b.projects[pid]
-    if q and q.state == "fini" and not q.abandoned and not (q.spec and (q.spec.raccord or q.spec.enceinte)) then
+    if q and scanned(q, champ_live) and not q.abandoned and not (q.spec and (q.spec.raccord or q.spec.enceinte)) then
       local parts, seen = {}, {}
       for _, e in ipairs(q.ents) do
         if e.built and not e.dropped and is_machine(e) then
@@ -75,14 +83,14 @@ local function start_cycle(f, surface, b)
       for _, k in ipairs(parts) do units[#units + 1] = { pid, k } end
     end
   end
-  return { live = live, n_live = n, units = units, i = 1, obs = {}, found = {}, machines = 0 }
+  return { live = live, n_live = n, units = units, i = 1, obs = {}, found = {}, machines = 0, champ_live = champ_live or nil }
 end
 
 local function tkey(x, y) return math.floor(x) .. ":" .. math.floor(y) end
 
 local function scan_unit(f, surface, b, c, u)
   local q = b.projects[u[1]]
-  if not (q and q.state == "fini") then return end
+  if not (q and scanned(q, c.champ_live)) then return end
   local keys, x0, y0, x1, y1 = {}, math.huge, math.huge, -math.huge, -math.huge
   for _, e in ipairs(q.ents) do
     if (e.part or 0) == u[2] and e.built and not e.dropped and is_machine(e) then
@@ -373,7 +381,7 @@ function Ra.step(api, f, surface, tick)
     -- jamais posé (PNJ qui évitent l'ennemi) retenait le raccordement du second chemin (mesuré au banc energie-ilot-ennemi)
     local reopened_ok = pp and (pp.reopened or 0) > 0 and pp.state ~= "attente" and pp.state ~= "plan" and pp.state ~= "refuse" and not Rv.coupure_off(b)
     if not (pp and (pp.state == "fini" or reopened_ok)) then return end
-    st.cyc = start_cycle(f, surface, b)
+    st.cyc = start_cycle(f, surface, b, api.champ_live)
     return
   end
   for _ = 1, R.UNITS_PER_PULSE do
