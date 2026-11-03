@@ -25,6 +25,9 @@ BATIMENTS = {
 }
 VARIANTES = ("a", "b", "c")
 MACHINES = {"%s_%s" % (b, v): (p[0], p[1], p[2], p[3]) for b, p in BATIMENTS.items() for v in VARIANTES}
+# couches à part : état chauffé du collecteur du réacteur (heat_picture), panache de vapeur du capteur (animation)
+MACHINES["msr_h"] = BATIMENTS["msr"][:4]
+MACHINES["geo_vap"] = BATIMENTS["geo"][:4]
 PIECE = {"name": "den", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {n: {"epoch": m[1], "side": m[2], "dest": "da/energie/" + n, "anchor_tiles": (0.0, 0.0)}
                       for n, m in MACHINES.items()}}

@@ -25,7 +25,7 @@ def _collecteur(k, a=2.0, r=0.085, mat="acier"):
     for p, q in pts:
         k.axe(mat, p, q, r * 0.92, 14)
         n = G.norm(G.sub(q, p))
-        k.collier("chaleur", G.sub(q, G.mul(n, 0.04)), n, r * 0.92, 0.03, 0.03)
+        k.collier("chaleur" if mat == "chaleur_vif" else "recuit", G.sub(q, G.mul(n, 0.04)), n, r * 0.92, 0.03, 0.03)
         k.collier("acier", G.sub(q, G.mul(n, 0.14)), n, r * 0.92, 0.02, 0.02)
     for x in (-a, a):
         for y in (-ay, ay):
@@ -78,9 +78,9 @@ def _cuve(k, x, y, R=0.92, z0=0.2, h=1.25, dome=0.45):
     return zt
 
 
-def _pompe(k, x, y, h=1.55, r=0.26):
+def _pompe(k, x, y, h=1.55, r=0.26, bol="car2"):
     """Pompe primaire : bol à brides (hublot de sel), long arbre gainé, moteur à ailettes, capot."""
-    k.cuve("car2", x, y, 0.0, 0.42, r, 0.25, 28)
+    k.cuve(bol, x, y, 0.0, 0.42, r, 0.25, 28)
     k.cerclages("recuit", x, y, (0.1, 0.3), r, 0.022, 0.022, 28)
     k.rev("sel", x, y, [(0.18, r + 0.008), (0.24, r + 0.008)], 28, cap=False)
     k.cyl("acier", x, y, 0.42, h - 0.55, r * 0.35, 14)
@@ -92,36 +92,49 @@ def _echangeur(k, x, y, L, ax):
     k.echangeur(x, y, 0.12, L, 0.2, "car", "acier", axe=ax, cerc=4)
 
 
-def _hublots(k, a, b, r, pas=0.2):
-    """Rangée de hublots incandescents sur le dessus d'un tuyau droit de a à b (sel fondu visible)."""
-    L = G.length(G.sub(b, a))
-    n = max(1, int(L / pas))
+def _bande(k, a, b, r, pas=0.15):
+    """Bande de hublots CONTINUE sur le dessus d'un tronçon (sel fondu qui circule) : réglette lumineuse le long du
+    tuyau, découpée en fenêtres par des colliers d'acier ; tronçons verticaux ignorés (dessus invisible)."""
     d = G.norm(G.sub(b, a))
-    for i in range(n):
-        p = G.lerp(a, b, (i + 0.5) / n)
-        q = (p[0], p[1], p[2] + r * 0.92)
-        k.put("acier", G.oriente(G.tour([(0.0, r * 0.5), (0.012, r * 0.5), (0.012, 0.0)], 14, "z", cap0=True), q, (0.0, 0.0, 1.0)))
-        k.put("sel", G.oriente(G.tour([(0.0, r * 0.36), (0.016, r * 0.3), (0.02, 0.0)], 14, "z", cap0=True), (q[0], q[1], q[2] + 0.004), (0.0, 0.0, 1.0)))
-    k.collier("recuit", G.add(a, G.mul(d, 0.06)), d, r, 0.02, 0.03)
-    k.collier("recuit", G.sub(b, G.mul(d, 0.06)), d, r, 0.02, 0.03)
+    up = G.sub((0.0, 0.0, 1.0), G.mul(d, d[2]))
+    if G.length(up) < 0.3:
+        return
+    up = G.norm(up)
+    a2, b2 = G.add(a, G.mul(d, 0.08)), G.sub(b, G.mul(d, 0.08))
+    L = G.length(G.sub(b2, a2))
+    if L < 0.15:
+        return
+    off = G.mul(up, r * 0.8)
+    k.axe("sel", G.add(a2, off), G.add(b2, off), r * 0.36, 10)
+    n = max(2, int(L / pas))
+    for i in range(n + 1):
+        p = G.lerp(a2, b2, i / float(n))
+        k.collier("recuit", p, d, r * 1.0, r * 0.24, 0.016)
 
 
 def _boucle_sel(k, pts, r):
-    """Boucle de sel épaisse (0,25 tuile) : tuyau, hublots sur chaque tronçon horizontal assez long."""
-    k.tuyau("acier_clair", pts, r=r, coude=0.2, brides=[pts[0], pts[-1]], bride_mat="recuit", segs=16)
+    """Boucle de sel épaisse (0,25 tuile) en alliage, bande de hublots sur tous ses tronçons non verticaux."""
+    k.tuyau("hastelloy", pts, r=r, coude=0.2, brides=[pts[0], pts[-1]], bride_mat="recuit", segs=16)
     for i in range(len(pts) - 1):
-        a, b = pts[i], pts[i + 1]
-        if abs(a[2] - b[2]) < 0.02 and G.length(G.sub(b, a)) > 0.5:
-            d = G.norm(G.sub(b, a))
-            _hublots(k, G.add(a, G.mul(d, 0.22)), G.sub(b, G.mul(d, 0.22)), r)
+        _bande(k, pts[i], pts[i + 1], r)
 
 
-def v_a(S, k):
+def v_h(S, k):
+    """État CHAUFFÉ (heat_picture) : même géométrie, seul le collecteur émet (rouge des caloducs) ; les autres lueurs
+    éteintes. On n'en garde que la couche glow."""
+    v_a(S, k, chaud=True)
+
+
+def v_a(S, k, chaud=False):
     """Cuve à dôme de 3 tuiles sur socle rond de protection, 4 grosses pompes aux coins, 4 boucles de sel à hublots,
     échangeurs nord, sud, est, ouest, anneau lumineux du couvercle (corrections du 3/11)."""
-    M = E.matieres(S, k, "hitech", "msr")
+    M = E.matieres(S, k, "hitech", "msr", ecailles=0.12)
     E.lueurs(S, M)
-    _collecteur(k, mat="acier_clair")
+    if chaud:
+        M["chaleur_vif"] = E.P.lueur(S, "c_chaleur_vif", (1.0, 0.13, 0.015), 2.6, 0.0, part=0.4, echelle=10.0)
+        for key in ("sel", "voyant", "voyant_v", "voyant_r", "voyant_o", "fenetre", "cristal_p"):
+            M[key] = M["noir"]
+    _collecteur(k, mat="chaleur_vif" if chaud else "acier_clair")
     # caillebotis le long du collecteur : le sol ne se voit plus que dans des passages étroits
     a, ay = 2.0, 2.0 * D
     E.caillebotis(k, 0.0, ay - 0.32, 0.07, 2 * a - 0.5, 0.42, 0.07, fond="noir")
@@ -129,9 +142,10 @@ def v_a(S, k):
     # socle rond de protection biologique, cuve, dôme, couvercle à anneau de sel
     Rc = 1.45
     k.rev("beton", 0.0, 0.0, [(0.0, Rc + 0.3), (0.26, Rc + 0.3), (0.3, Rc + 0.24), (0.3, Rc + 0.05)], 56)
-    k.cyl("acier_clair", 0.0, 0.0, 0.3, 1.15, Rc, 56)
+    k.cyl("hastelloy", 0.0, 0.0, 0.3, 1.15, Rc, 56)
     k.cerclages("recuit", 0.0, 0.0, (0.42, 0.75, 1.05), Rc, 0.03, 0.035, 56)
-    k.dome("acier_clair", 0.0, 0.0, 1.15, Rc, 0.5 / Rc, 56)
+    k.dome("hastelloy", 0.0, 0.0, 1.15, Rc, 0.5 / Rc, 56)
+    k.rev("recuit", 0.0, 0.0, [(1.55, 0.8), (1.6, 0.66)], 48, cap=False)
     zt = 1.15 + 0.5
     k.cyl("recuit", 0.0, 0.0, zt - 0.08, zt + 0.06, 0.62, 40)
     k.rev("sel", 0.0, 0.0, [(zt + 0.06, 0.58), (zt + 0.075, 0.58), (zt + 0.075, 0.45), (zt + 0.06, 0.45)], 40, cap=False)
@@ -149,17 +163,17 @@ def v_a(S, k):
         for sy in (-1, 1):
             P = (1.55 * sx, 2.22 * sy)
             d = G.norm((P[0], P[1], 0.0))
-            _pompe(k, P[0], P[1], 1.75, r=0.34)
+            _pompe(k, P[0], P[1], 1.75, r=0.34, bol="car")
             n0 = (d[0] * (Rc + 0.02), d[1] * (Rc + 0.02), 0.82)
             _boucle_sel(k, [n0, (P[0] - d[0] * 0.55, P[1] - d[1] * 0.55, 0.82), (P[0] - d[0] * 0.3, P[1] - d[1] * 0.3, 0.82),
                             (P[0] - d[0] * 0.3, P[1] - d[1] * 0.3, 0.42)], 0.125)
             _boucle_sel(k, [(P[0] + sx * 0.05, P[1] - sy * 0.32, 0.3), (P[0] + sx * 0.05, P[1] - sy * 0.55, 0.62),
                             (1.83 * sx, 1.0 * sy, 0.62), (1.83 * sx, 0.72 * sy, 0.45)], 0.1)
     # échangeurs
-    k.echangeur(0.0, 2.45, 0.08, 1.55, 0.27, "car2", "recuit", axe="x", cerc=5)
-    k.echangeur(0.0, -2.45, 0.08, 1.55, 0.27, "car2", "recuit", axe="x", cerc=5)
-    k.echangeur(1.83, 0.0, 0.08, 1.3, 0.2, "car2", "recuit", axe="y", cerc=3)
-    k.echangeur(-1.83, 0.0, 0.08, 1.3, 0.2, "car2", "recuit", axe="y", cerc=3)
+    k.echangeur(0.0, 2.45, 0.08, 1.55, 0.27, "car", "recuit", axe="x", cerc=5)
+    k.echangeur(0.0, -2.45, 0.08, 1.55, 0.27, "car", "recuit", axe="x", cerc=5)
+    k.echangeur(1.83, 0.0, 0.08, 1.3, 0.2, "car", "recuit", axe="y", cerc=3)
+    k.echangeur(-1.83, 0.0, 0.08, 1.3, 0.2, "car", "recuit", axe="y", cerc=3)
     for sy in (-1, 1):
         _boucle_sel(k, [(0.0, sy * (Rc - 0.05), 0.62), (0.0, sy * 2.05, 0.62), (0.0, sy * 2.2, 0.5)], 0.1)
     # cheminée des gaz (fût de 0,35 tuile) au nord-est, vanne gelée et son ventilateur au sud-ouest

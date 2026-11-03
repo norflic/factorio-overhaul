@@ -64,11 +64,14 @@ def _vanilla(cle):
     return out
 
 
-def _cellule(src, bat, nom, ppt, nuit):
+def _cellule(src, bat, nom, ppt, nuit, extra=()):
     side = PC.BATIMENTS[bat][2]
     W = side + 3.0
     Hc, oy = CASE[bat]
     lays = _vanilla(PC.BATIMENTS[bat][4]) if nom is None else K.own(src, nom, ("shadow", "main", "glow"))
+    for ex in extra:                    # « nom/couche » : couche à part posée par-dessus (chaleur, panache)
+        n_, kind = ex.split("/")
+        lays = lays + K.own(src, n_, (kind,))
     day, night, _ = K.compose([{"pos": (W / 2.0, oy), "layers": lays}], W, Hc)
     img = night if nuit else day
     if ppt == 32:
@@ -87,8 +90,14 @@ def main():
     ap.add_argument("--titre", default="")
     ap.add_argument("--choix", default="", help="variante retenue par bâtiment, ex. piscine:c,depot:a (remplace --variantes)")
     ap.add_argument("--avant", default="", help="dossier des états précédents : case « avant » à côté de la variante retenue")
+    ap.add_argument("--extra", default="", help="bat:nom/couche[;…], ex. msr:msr_h/glow : case de plus, couche à part par-dessus")
+    ap.add_argument("--extra-titre", default="en marche")
     a = ap.parse_args()
     choix = dict(x.split(":") for x in a.choix.split(",") if x)
+    extra = {}
+    for x in [x for x in a.extra.split(";") if x]:
+        b_, e_ = x.split(":")
+        extra.setdefault(b_, []).append(e_)
     ppt = 64 if a.zoom == 2 else 32
     bats = [b for b in a.batiments.split(",") if b]
     vs = [v for v in a.variantes.split(",") if v]
@@ -106,6 +115,9 @@ def main():
                 if a.avant:
                     cells.append((_cellule(a.avant, b, "%s_%s" % (b, choix[b]), ppt, nuit), ("nuit · " if nuit else "") + choix[b] + " avant"))
                 cells.append((_cellule(a.src, b, "%s_%s" % (b, choix[b]), ppt, nuit), ("nuit · " if nuit else "") + choix[b] + " corrigé"))
+                if b in extra:
+                    cells.append((_cellule(a.src, b, "%s_%s" % (b, choix[b]), ppt, nuit, extra[b]),
+                                  ("nuit · " if nuit else "") + choix[b] + " " + a.extra_titre))
                 continue
             for v in vs:
                 cells.append((_cellule(a.src, b, "%s_%s" % (b, v), ppt, nuit), ("nuit · " if nuit else "") + v))

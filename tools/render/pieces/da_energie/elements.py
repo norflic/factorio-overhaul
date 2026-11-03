@@ -28,10 +28,12 @@ PEINTURES = {
 }
 
 
-def matieres(S, k, ere="hitech", peinture=None):
+def matieres(S, k, ere="hitech", peinture=None, ecailles=None):
     """Palette du kit calcul_o (cohérence avec la chaîne du calcul) + matières de la famille. peinture : clé de
     PEINTURES (carénages peints, aciers rugueux et rouillés : plus de chrome noir à reflets blancs)."""
     M = k.M = P.matieres(S, ere)
+    if ecailles is not None:          # moucheté noir des écailles de peinture (patine du kit) : réglable par bâtiment
+        P.MT.PATINE["ec"] = ecailles
     sf = P.MT.surface
     cr = (0.008, 0.0065, 0.004)
     ru = (0.2, 0.08, 0.025)
@@ -39,8 +41,10 @@ def matieres(S, k, ere="hitech", peinture=None):
                     crasse_col=cr, coulures=0.75, rouille=ru, grain=0.12, graine=51)
     M["acier_clair"] = sf("c_acier_clair_r", (0.21, 0.2, 0.19), rough=0.55, met=0.6, usure=0.6, nu=(0.6, 0.58, 0.54), crasse=0.8,
                           crasse_col=cr, coulures=0.6, rouille=ru, grain=0.1, graine=52)
-    M["recuit"] = sf("c_recuit", (0.13, 0.1, 0.12), rough=0.5, met=0.7, usure=0.4, nu=(0.35, 0.3, 0.38), crasse=0.7,
-                     crasse_col=(0.05, 0.03, 0.06), coulures=0.4, rouille=(0.18, 0.09, 0.05), grain=0.15, graine=53)
+    M["recuit"] = sf("c_recuit", (0.13, 0.065, 0.05), rough=0.5, met=0.7, usure=0.7, nu=(0.16, 0.2, 0.36), crasse=0.7,
+                     crasse_col=(0.05, 0.025, 0.04), coulures=0.5, rouille=(0.2, 0.08, 0.03), grain=0.15, graine=53)
+    M["hastelloy"] = sf("c_hastelloy", (0.25, 0.205, 0.16), rough=0.52, met=0.65, tole=(0.7, 0.5), joint=0.6, var=0.08, usure=0.6,
+                        nu=(0.6, 0.55, 0.48), crasse=0.85, crasse_col=cr, coulures=1.0, rouille=(0.27, 0.09, 0.025), grain=0.12, graine=57)
     if peinture:
         c1, c2 = PEINTURES[peinture]
         M["car"] = sf("c_peint1", c1, rough=0.55, met=0.25, tole=(0.62, 0.41), joint=0.45, var=0.1, coulures=0.85, rouille=ru,

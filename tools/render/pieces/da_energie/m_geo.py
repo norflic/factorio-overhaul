@@ -98,9 +98,9 @@ def _vapeur(S, M):
     m = bpy.data.materials.new("c_vapeur")
     m.use_nodes = True
     p = m.node_tree.nodes["Principled BSDF"]
-    p.inputs["Base Color"].default_value = (0.82, 0.83, 0.85, 1.0)
+    p.inputs["Base Color"].default_value = (0.5, 0.51, 0.53, 1.0)
     p.inputs["Roughness"].default_value = 1.0
-    p.inputs["Alpha"].default_value = 0.32
+    p.inputs["Alpha"].default_value = 0.22
     m["fo_kind"] = "surface"
     M["vapeur"] = m
 
@@ -148,7 +148,6 @@ def v_a(S, k):
     cyclone d'une tuile à soufflante et silencieux qui fume, châssis court, lyre alu (corrections du 3/11)."""
     M = E.matieres(S, k, "elec", "geo")
     E.lueurs(S, M)
-    _vapeur(S, M)
     xw, yw = -0.42, 0.0
     # croûte de soufre en relief sur 1,5 tuile (amas bosselés, bords déchiquetés), bourrelet de roche, forage
     k.put("soufre", G.butte_polaire((xw + 0.05, yw - 0.05, 0.0), 0.95, 1.2, 0.05, G.Rnd(17), nr=10, na=48, bosses=0.9, bord=0.45, expo=0.8))
@@ -173,28 +172,52 @@ def v_a(S, k):
     k.armoire("car", xw - 0.62, yw - 0.2, 0.08, 0.46, 0.66, 0.24, lampe="voyant_v")
     k.voyant("voyant_o", xw - 0.48, yw - 0.33, 0.66, 0.02)
     k.cable("noir", (xw - 0.45, yw - 0.1, 0.6), (xw - 0.1, yw, zw), 0.05)
-    # cyclone d'une tuile, 1,5 tuile de haut, cône de fond, soufflante, silencieux et vapeur
-    xc, yc, rc, hc = 0.82, 1.2, 0.45, 1.75
+    # cyclone séparateur : fût court, trémie conique (0,5 tuile) et sa vanne à cendres, entrée tangentielle en haut,
+    # tube plongeur central vers la ligne, soufflante ; le panache de vapeur est une animation à part (v_vap)
+    xc, yc, rc = 0.82, 1.22, 0.45
+    zb0, zb1 = 1.12, 1.68                      # fût
+    k.rev("car", xc, yc, [(0.5, 0.08), (zb0, rc), (zb1, rc)], 32)
+    k.cerclages("acier", xc, yc, (zb0 + 0.04, zb1 - 0.06), rc, 0.026, 0.03, 32)
+    k.rev("car", xc, yc, [(zb1, rc), (zb1 + 0.07, rc * 0.9), (zb1 + 0.07, 0.0)], 32)
+    k.tore("acier", xc, yc, zb0, rc + 0.02, 0.03, 32, 6)
     for i in range(4):
-        a = TAU * i / 4 + 0.4
-        k.axe("acier", (xc + rc * 0.85 * math.cos(a), yc + rc * 0.85 * math.sin(a), 0.0), (xc + rc * 0.92 * math.cos(a), yc + rc * 0.92 * math.sin(a), 0.62), 0.035, 6)
-    k.rev("car", xc, yc, [(0.22, 0.07), (0.62, rc), (hc, rc)], 32)
-    k.cerclages("acier", xc, yc, (0.68, 1.15, hc - 0.08), rc, 0.024, 0.03, 32)
-    k.rev("car", xc, yc, [(hc, rc), (hc + 0.08, rc * 0.92), (hc + 0.08, 0.0)], 32)
-    k.cyl("acier", xc, yc, 0.08, 0.22, 0.07, 12)
-    k.plaque("jaune", xc, yc - rc - 0.004, 1.0, 0.3, 0.1)
-    k.ventilo(xc + 0.12, yc + 0.08, hc + 0.22, 0.24, corps="noir")
-    xsil, ysil = xc - 0.24, yc - 0.18
-    k.cyl("acier_clair", xsil, ysil, hc + 0.08, hc + 0.62, 0.12, 18)
-    k.cerclages("acier", xsil, ysil, (hc + 0.25, hc + 0.45), 0.12, 0.016, 0.02, 18)
-    k.rev("noir", xsil, ysil, [(hc + 0.62, 0.11), (hc + 0.62, 0.0)], 18)
-    rnd = G.Rnd(29)
-    for i in range(6):
-        t = i / 5.0
-        k.sph("vapeur", (xsil + 0.22 * t + rnd.f(-0.04, 0.04), ysil + 0.05 * t, hc + 0.75 + 0.75 * t), 0.12 + 0.17 * t, 16, 8)
-    # aile vers le cyclone, lyre courte vers le raccord
-    k.tuyau("acier", [(xw, yw, zw), (xw + 0.5, yw, zw), (xc - rc, yc - 0.1, 1.1)], r=0.06, coude=0.12, brides=[(xw + 0.14, yw, zw)])
-    _ligne(k, (xc + 0.05, yc - rc, 0.9), k.dir, 0.36, lyre=0.32)
+        a_ = TAU * i / 4 + 0.4
+        k.axe("acier", (xc + rc * 1.02 * math.cos(a_), yc + rc * 1.02 * math.sin(a_), 0.0), (xc + rc * 0.98 * math.cos(a_), yc + rc * 0.98 * math.sin(a_), zb0), 0.035, 6)
+    for i in range(4):                         # croisillons entre les pieds
+        a0_, a1_ = TAU * i / 4 + 0.4, TAU * (i + 1) / 4 + 0.4
+        k.axe("acier", (xc + rc * 1.01 * math.cos(a0_), yc + rc * 1.01 * math.sin(a0_), 0.15),
+              (xc + rc * 0.99 * math.cos(a1_), yc + rc * 0.99 * math.sin(a1_), zb0 - 0.1), 0.016, 5)
+    k.cyl("acier", xc, yc, 0.36, 0.5, 0.09, 14)                                    # vanne à cendres
+    k.caisson("car2", xc, yc, 0.24, 0.24, 0.2, 0.14, 0.02)
+    E.roue_xz(k, "rouge", xc, yc - 0.12, 0.31, 0.07, 0.014, 4, moyeu="acier")
+    k.caisson("cendre", xc, yc - 0.05, 0.0, 0.36, 0.32, 0.2, 0.02)                  # bac à cendres
+    # entrée tangentielle : conduit rectangulaire qui arrive tangent au fût, côté ouest
+    yt_ = yc - rc + 0.12
+    k.b("car2", (xc - 0.42, yt_, zb1 - 0.17), (0.5, 0.22, 0.22))
+    k.b("acier", (xc - 0.66, yt_, zb1 - 0.17), (0.04, 0.26, 0.26))
+    k.plaque("jaune", xc + 0.05, yc - rc - 0.004, (zb0 + zb1) / 2, 0.3, 0.1)
+    k.cyl("acier", xc, yc, zb1 + 0.07, zb1 + 0.24, 0.12, 16)                       # tube plongeur
+    k.ventilo(xc + 0.18, yc + 0.16, zb1 + 0.2, 0.2, corps="noir")
+    xsil, ysil = xc - 0.2, yc + 0.18
+    k.cyl("acier_clair", xsil, ysil, zb1 + 0.07, zb1 + 0.58, 0.11, 18)
+    k.cerclages("acier", xsil, ysil, (zb1 + 0.25, zb1 + 0.42), 0.11, 0.016, 0.02, 18)
+    k.rev("noir", xsil, ysil, [(zb1 + 0.58, 0.1), (zb1 + 0.58, 0.0)], 18)
+    # aile de la tête de puits vers l'entrée tangentielle ; ligne alu du tube plongeur au raccord
+    k.tuyau("acier", [(xw, yw, zw), (xw + 0.45, yw, zw), (xc - 0.66, yt_, zb1 - 0.17)], r=0.06, coude=0.12, brides=[(xw + 0.14, yw, zw)])
+    dep = (xc + 0.02, yc - rc - 0.14, zb1 + 0.12)
+    k.tuyau("alu", [(xc, yc, zb1 + 0.2), (xc, yc, zb1 + 0.3), (dep[0], dep[1], zb1 + 0.3), dep], r=0.075, coude=0.12, brides=[])
+    _ligne(k, dep, k.dir, 0.36, lyre=0.32)
+
+
+def v_vap(S, k):
+    """Panache de vapeur SEUL (visualisation de marche, phase 3 : animation semi-transparente, sans ombre). Même repère que
+    v_a ; k.phase fait monter les bouffées."""
+    M = E.matieres(S, k, "elec", "geo")
+    _vapeur(S, M)
+    xsil, ysil, z0 = 0.62, 1.4, 1.68 + 0.58
+    for i in range(7):
+        t = ((i + k.phase) / 7.0)
+        k.sph("vapeur", (xsil + 0.28 * t, ysil + 0.06 * t, z0 + 0.1 + 1.0 * t), 0.09 + 0.2 * t, 16, 8)
 
 
 def v_b(S, k):
