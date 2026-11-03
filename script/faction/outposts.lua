@@ -28,6 +28,7 @@ local Paires = require("shared.team.pose_paires") -- lot EXTENSION-FER : parcour
 local Ruines = require("script.team.ruines") -- lot REBUILD-AVANT-POSTE : un avant-poste perdu en entier garde son plan (ruine)
 local Zone = require("script.team.zone_melee") -- lot MELANGE2 : zone minée de la foreuse thermique (2 × 2) lue au moteur, sans cycle de require
 local Flux = require("shared.team.flux") -- lot FLUX : sorties pleines d'un avant-poste (règle pure)
+local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, cible par tourelle (règle pure)
 
 local Outposts = {}
 
@@ -1209,9 +1210,17 @@ local function ammo_of(t)
   return inv and inv.get_item_count() or 0
 end
 
---- Groupes de tourelles : { key, pos, list, low } ; key = "hq" ou "o<id d'avant-poste>".
+--- Lot MUNITIONS : chargeurs voulus par tourelle de l'équipe (f.team.ammo_per_turret, Mu.per_turret à la pensée ; T.turret_ammo_target sinon).
+function Outposts.ammo_target(f)
+  local v = T.munitions_on and f and f.team and f.team.ammo_per_turret or nil
+  return (type(v) == "number" and v > 0) and v or T.turret_ammo_target
+end
+
+--- Groupes de tourelles : { key, pos, list, low, short, missing, ammo } ; key = "hq" ou "o<id d'avant-poste>". low : tourelles sous le seuil bas ;
+--- short / missing (lot MUNITIONS, Mu.group) : tourelles à recharger au plein et chargeurs qui leur manquent pour la cible ; ammo : chargeurs.
 function Outposts.turret_groups(f)
   local groups, by_key = {}, {}
+  local target = Outposts.ammo_target(f)
   for _, id in ipairs(State.sorted_keys(f.turrets)) do
     local t = f.turrets[id]
     if t.valid then
@@ -1222,15 +1231,23 @@ function Outposts.turret_groups(f)
       if not g then
         local pos = f.hq_pos
         if oid then pos = f.outposts[oid] and f.outposts[oid].pos or t.position end
-        g = { key = key, pos = pos, list = {}, low = 0 }
+        g = { key = key, pos = pos, list = {}, low = 0, have = {} }
         by_key[key] = g
         groups[#groups + 1] = g
       end
       g.list[#g.list + 1] = t
-      if ammo_of(t) < T.turret_ammo_low then g.low = g.low + 1 end
+      local a = ammo_of(t)
+      g.have[#g.have + 1] = a
+      if a < T.turret_ammo_low then g.low = g.low + 1 end
     else
       f.turrets[id] = nil
     end
+  end
+  for _, g in ipairs(groups) do
+    local m = Mu.group(g.have, target, T.turret_ammo_low)
+    local sum = 0
+    for _, a in ipairs(g.have) do sum = sum + a end
+    g.short, g.missing, g.ammo, g.have = m.short, m.missing, sum, nil
   end
   return groups, by_key
 end
@@ -1241,8 +1258,9 @@ function Outposts.refill_group(f, key, carrier)
   local g = by_key[key]
   if not g then return 0 end
   local put = 0
+  local target = Outposts.ammo_target(f) -- lot MUNITIONS : au plein de la cible de l'équipe
   for _, t in ipairs(g.list) do
-    local missing = T.turret_ammo_target - ammo_of(t)
+    local missing = target - ammo_of(t)
     for _, ammo in ipairs({ "piercing-rounds-magazine", "firearm-magazine" }) do
       local n = math.min(missing, carrier.get_item_count(ammo))
       if n > 0 then

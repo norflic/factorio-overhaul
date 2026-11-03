@@ -28,6 +28,7 @@ local Br = require("shared.ai3.bras") -- lot SCALE : travail des bras libres (bo
 local Dm = require("shared.ai3.demande") -- lot C2 : saturation relative au puits ouvert
 local Ex = require("shared.ai3.extension") -- lot C3 EXTENSION : relève d'un avant-poste quand tout gisement pris est plein
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : minerai brut plein (Th.raw_full)
+local Mu = require("shared.team.munitions") -- lot MUNITIONS : stock de chargeurs visé qui suit les tourelles (Mu.stock_target)
 
 local B = {}
 
@@ -380,6 +381,11 @@ function B.generate(s, st)
   local boot = ((s.cap[key.top] or 0) >= 0.75 and (s.cap[key.fuel] or 0) >= 0.75) or s.at_war or reserve > 0
   local ammo = T.turret_ammo
   local ammo_target = math.max(B.AMMO_STOCK, reserve)
+  -- Lot MUNITIONS (retour du DC du 3/11, 0.6.46 : réserve de 60 à 158 chargeurs pour 15 à 44 tourelles, coffre à 8 000 à 11 000 plaques de
+  -- fer) : le stock visé couvre le manque des tourelles au plein plus Mu.SPARE chargeurs par tourelle. Vue sans ce relevé : règle d'avant.
+  if T.munitions_on and s.turrets_n then
+    ammo_target = Mu.stock_target({ turrets = s.turrets_n, missing = s.ammo_missing, floor = ammo_target })
+  end
   if boot and (s.stock[ammo] or 0) < ammo_target then
     goals[#goals + 1] = { key = "defense:munitions", family = "defense", kind = "stock", item = ammo,
       n = ammo_target - (s.stock[ammo] or 0), value = val(B.AMMO, w.defense), permanent = true,

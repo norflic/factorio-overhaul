@@ -63,6 +63,7 @@ local JournauxDC = require("shared.team.journaux_dc") -- lot JOURNAUX-DC : plafo
 local General = require("script.ai3.general") -- lot SCALE : ressource la plus demandée (marge de la recrue)
 local Rg = require("shared.ai3.reglages") -- lot SCALE : ressources clés de repli
 local DefChoix = require("script.faction.defchoix") -- lot DEFENSE-CHOIX : base menacée ou envahie (tourelles du QG avant les soldats)
+local Mu = require("shared.team.munitions") -- lot MUNITIONS : chargeurs voulus par tourelle (cible riche quand le fer la paie)
 
 local Team = {}
 
@@ -567,11 +568,39 @@ function Team.view(f, tick)
   for _, kind in ipairs(T.OUTPOST_ORDER) do sites[kind], sites_near[kind] = Sites.available(f, T.outposts[kind].resource, tick) end
   Profiler.fstop("view:3-sites")
   Profiler.fstart("view:4-fin")
+  -- Lot MUNITIONS (shared/team/munitions.lua, Mu.per_turret) : chargeurs voulus par tourelle, relus à chaque pensée (fer au coffre, tourelles
+  -- de l'équipe ; fer d'un chargeur lu au livre quand la technologie change). Lu par Outposts.turret_groups, Outposts.refill_group et la
+  -- tournée de recharge (script/team/worker.lua).
+  if T.munitions_on then
+    if f.team.mag_iron == nil or f.team.mag_iron_tech ~= f.tech then
+      local rm = book_for(f):raw_cost({ { T.turret_ammo, 1 } })
+      f.team.mag_iron, f.team.mag_iron_tech = rm[T.outposts.iron.product] or 0, f.tech
+    end
+    local n_turrets = 0
+    for _, id in ipairs(State.sorted_keys(f.turrets or {})) do if f.turrets[id].valid then n_turrets = n_turrets + 1 end end
+    f.team.ammo_per_turret = Mu.per_turret({ base = T.turret_ammo_target, rich = T.turret_ammo_rich, turrets = n_turrets, iron = iron0,
+      mag_iron = f.team.mag_iron })
+  else
+    f.team.ammo_per_turret, f.team.mag_iron, f.team.mag_iron_tech = nil, nil, nil
+  end
   local groups = {}
   local hq_turrets = 0
+  local mj = { n = 0, ammo = 0, low = 0, short = 0, missing = 0, hq_n = 0, hq_ammo = 0 } -- lot MUNITIONS : journal [FO-MUNITIONS]
   for _, g in ipairs(Outposts.turret_groups(f)) do
-    groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key) }
+    groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key),
+      n = #g.list, short = T.munitions_on and g.short or nil, missing = T.munitions_on and g.missing or nil } -- lot MUNITIONS
     if g.key == "hq" then hq_turrets = #g.list end -- lot IA1-b2 : tourelles du QG (défendre d'abord)
+    mj.n, mj.ammo, mj.low, mj.short, mj.missing = mj.n + #g.list, mj.ammo + g.ammo, mj.low + g.low, mj.short + g.short, mj.missing + g.missing
+    if g.key == "hq" then mj.hq_n, mj.hq_ammo = #g.list, g.ammo end
+  end
+  -- Lot MUNITIONS : journal de MESURE (aucune décision ne le lit), toutes les 5 min : tourelles, chargeurs, moyenne, sous le seuil bas, à
+  -- recharger au plein, chargeurs au coffre, cible par tourelle, fer au coffre.
+  if tick - (f.team.mun_log or -1000000) >= 5 * 3600 then
+    f.team.mun_log = tick
+    log(string.format("[FO-MUNITIONS] %s minute %.1f | tourelles %d, chargeurs %d (%.1f par tourelle) ; QG %d tourelle(s), %d chargeur(s) ; " ..
+      "sous le seuil bas %d, a recharger %d (%d chargeurs) ; coffre %d chargeur(s), fer %d ; cible %d par tourelle, regle %s",
+      tostring(f.key or "?"), tick / 3600, mj.n, mj.ammo, mj.n > 0 and mj.ammo / mj.n or 0, mj.hq_n, mj.hq_ammo, mj.low, mj.short, mj.missing,
+      stock0[T.turret_ammo] or 0, iron0, Outposts.ammo_target(f), T.munitions_on and "munitions" or "avant"))
   end
   -- Lot IA1-b2 (règle de croissance, D-18) : une recrue de croissance toutes les T.grow_period tant que le QG et chaque
   -- avant-poste sont défendus, que le coffre garde T.grow_iron_reserve fer et qu'un travail attend (D-16 : pas de

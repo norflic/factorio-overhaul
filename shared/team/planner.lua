@@ -37,6 +37,7 @@ local Sq = require("shared.team.survie_qg") -- lot S1 : QG en péril (planchers 
 local Pt = require("shared.team.premiere_tourelle") -- lot EQUIPE : premier palier de la défense du QG (planchers réduits sous P.FIRST_N tourelles)
 local Fx = require("shared.team.flux") -- lot FLUX : priorité des tournées d'avant-poste (règle pure)
 local Th = require("shared.team.thermique") -- lot THERMIQUE2 (essai 3) : plus de brûleur pour un minerai brut plein (Th.raw_full)
+local Mu = require("shared.team.munitions") -- lot MUNITIONS : recharge au plein, partielle, des tourelles (règle pure)
 
 local P = {}
 
@@ -667,7 +668,21 @@ function P.plan(view, book)
     for _, g in ipairs(view.turret_groups) do if g.key ~= "hq" then groups[#groups + 1] = g end end
   end
   for _, g in ipairs(groups) do
-    if g.low > 0 and not g.has_task then
+    if g.short ~= nil then
+      -- Lot MUNITIONS (shared/team/munitions.lua) : une tourelle sous 75 % de sa cible est rechargée AU PLEIN (g.missing chargeurs) ; la
+      -- tournée part avec ce que le stock donne (Mu.take, recharge partielle) et le reste se fabrique aussitôt, à la même priorité. Avant :
+      -- seulement sous le seuil bas, et tout ou rien hors péril (QG à 120 chargeurs pour 8 tourelles quand la vague de 140 min l'a vidé).
+      if Mu.due(g) and not g.has_task then
+        local n = g.missing
+        local stock = avail[ammo] or 0
+        local part = Mu.take(n, g.short, stock)
+        if part > 0 then
+          add({ key = "refill:" .. g.key, kind = "refill", prio = 90, group = g.key })
+          avail[ammo] = stock - part
+        end
+        if part < n then want({ { ammo, n - part } }, 90, "munitions") end
+      end
+    elseif g.low > 0 and not g.has_task then
       local n = g.low * T.turret_ammo_target
       -- Lot S1 : au QG en péril, un stock de chargeurs incomplet remplit quand même les tourelles vides (tout ou rien avant : 160 chargeurs
       -- pour 8 tourelles, jamais atteints avec 0 fer, et les tourelles restaient vides).

@@ -197,6 +197,11 @@ T.smelter_fuel_to = 20
 -- Tourelles : munitions visées par tourelle, seuil de ravitaillement.
 T.turret_ammo_target = 20
 T.turret_ammo_low = 8
+-- Lot MUNITIONS (shared/team/munitions.lua) : recharge au plein sous 75 % de la cible, recharge partielle, stock au coffre qui suit le nombre
+-- de tourelles, et cible RICHE par tourelle quand le fer au coffre la paie (une tourelle garde 200 chargeurs au plus : 50 = 50 s de tir).
+-- T.munitions_on faux : règle d'avant (seuil bas, tout ou rien, réserve fixe), code gardé.
+T.munitions_on = true
+T.turret_ammo_rich = 50
 -- Les tourelles reçoivent des chargeurs standard (bon marché) ; l'acier va aux mitrailleurs.
 T.turret_ammo = "firearm-magazine"
 T.turret = "gun-turret" -- lot CENTRALE-GARDE : la tourelle posée (portée lue à son prototype)

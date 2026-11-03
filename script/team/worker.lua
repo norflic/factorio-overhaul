@@ -471,10 +471,11 @@ function Worker.program(f, task, surface, tick)
       local _, by_key = Outposts.turret_groups(f)
       local g = by_key[task.group]
       local need = 0
+      local target = Outposts.ammo_target(f) -- lot MUNITIONS : au plein de la cible de l'équipe
       for _, t in ipairs(g and g.list or {}) do
         local inv = t.valid and t.get_inventory(defines.inventory.turret_ammo)
         local have = inv and inv.get_item_count() or 0
-        if have < T.turret_ammo_target then need = need + T.turret_ammo_target - have end
+        if have < target then need = need + target - have end
       end
       if need <= 0 then return nil end
       return { { "home" }, { "take", { { ammo, need } } }, { "goto", pos, 6 }, { "act", "refill" }, { "home" } }
