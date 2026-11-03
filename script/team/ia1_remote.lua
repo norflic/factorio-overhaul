@@ -231,6 +231,58 @@ remote.add_interface("fo-ia1", {
     if not o then return nil end
     return { id = o.id, drills = #o.drill_list, sinks = #o.sinks }
   end,
+  -- Lot NAV2 (bancs seulement) : agrandit `rounds` fois l'avant-poste `oid` (Outposts.extend, objets fournis) : champ DENSE comme une
+  -- partie longue (29 foreuses chez Écarlate). Rend le nombre de foreuses de l'avant-poste, ou nil.
+  bench_extend = function(key, oid, rounds)
+    local f = team_of(key)
+    local o = f and f.outposts and f.outposts[oid]
+    local chest = f and (f.hq or f.chest)
+    if not (o and chest and chest.valid) or type(rounds) ~= "number" then return nil end
+    local spec = T.outposts[o.kind]
+    for _ = 1, math.min(rounds, 20) do
+      local tmp = game.create_inventory(8)
+      tmp.insert({ name = T.DRILL, count = spec.drills })
+      tmp.insert({ name = spec.sink, count = spec.drills })
+      local n = Outposts.extend(f, chest.surface, o, tmp)
+      tmp.destroy()
+      if n == 0 then break end
+    end
+    return o.drills
+  end,
+  -- Lot NAV2 (bancs seulement) : délai croissant des tâches au chemin raté (shared/team/repli_chemin.lua) allumé (vrai, défaut) ou coupé
+  -- (faux : 0.6.42, témoin). Rend l'état lu, ou nil.
+  set_regle_repli = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    local f = team_of(key)
+    if not (f and f.team) then return nil end
+    f.team.repli_off = not on
+    return on
+  end,
+  -- Lot NAV2 (bancs seulement) : point d'accès atteignable d'un avant-poste (shared/team/acces_champ.lua) allumé (vrai, défaut) ou coupé
+  -- (faux : comportement de 0.6.42, témoin). Clé « * » : toutes les équipes vivantes. Rend l'état lu, ou le nombre d'équipes touchées.
+  set_regle_acces = function(key, on)
+    if type(on) ~= "boolean" then return nil end
+    local list = {}
+    if key == "*" then
+      list[1] = State.faction("player")
+      for _, id in ipairs(State.alive()) do list[#list + 1] = State.faction(id) end
+    else
+      list[1] = team_of(key)
+    end
+    local n = 0
+    for _, f in ipairs(list) do
+      if f and f.team then
+        f.team.acces_off = not on
+        for _, oid in ipairs(State.sorted_keys(f.outposts or {})) do f.outposts[oid].acces_cache = nil end
+        n = n + 1
+      end
+    end
+    if key ~= "*" then
+      if n > 0 then return on end
+      return nil
+    end
+    return n
+  end,
   -- Lot CHARBON-MAIN (bancs seulement) : règle « sorties d'abord » (shared/team/sorties_main.lua) allumée (vrai, défaut) ou coupée (faux :
   -- le comportement de 0.6.41, témoin). Clé « * » : toutes les équipes vivantes. Rend le nombre d'équipes touchées, ou l'état lu.
   set_regle_sorties = function(key, on)

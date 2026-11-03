@@ -39,6 +39,7 @@ local Ad = require("shared.team.adopte") -- lot ADOPTE : règles pures (mise en 
 local Fantomes = require("script.team.fantomes") -- lot FANTOMES : aperçu en fantômes des paires que le PNJ va poser
 local Outposts = require("script.faction.outposts") -- lot ADOPTE : fours du QG (pose des fours dormants, Stock.place_smelters)
 local Ac = require("shared.team.actif") -- lot COMPAGNONS-ACTIFS : retour rapide après un danger, délai d'affectation mesuré
+local Rc = require("shared.team.repli_chemin") -- lot NAV2 : délai croissant pour une tâche dont le chemin échoue de suite (règle pure)
 
 local Board = {}
 
@@ -833,6 +834,9 @@ function Board.finish(f, task, ok, tick)
   end
   local st = f.team.task_stats
   st[task.kind] = st[task.kind] or { ok = 0, fail = 0 }
+  -- Lot NAV2 : échecs « chemin » de suite par tâche (shared/team/repli_chemin.lua) ; règle coupée (f.team.repli_off, bancs) : 0.6.42.
+  b.path_fails = b.path_fails or {}
+  local n_path = Rc.note(b.path_fails, task.key, ok, task.fail)
   if ok then
     st[task.kind].ok = st[task.kind].ok + 1
   else
@@ -842,7 +846,15 @@ function Board.finish(f, task, ok, tick)
     if task.fail ~= "preempte" then
       -- Lot COMPAGNONS-ACTIFS : une tâche refusée ou abandonnée pour danger revient après Ac.RETRY_DANGER (10 s ; 30 s avant) : le PNJ
       -- revient agir dès que la menace est passée, la porte rejuge à la prise.
-      b.cooldown[task.key] = tick + Ac.retry(task.fail, task.fond, RETRY_TICKS)
+      local k_path = f.team.repli_off and 1 or Rc.factor(n_path)
+      b.cooldown[task.key] = tick + Ac.retry(task.fail, task.fond, RETRY_TICKS) * k_path
+      if k_path > 1 then
+        f.team.repli_logs = (f.team.repli_logs or 0) + 1
+        if f.team.repli_logs <= 12 then
+          log(string.format("[FO-NAV-REPLI] %s : tache %s, %d echec(s) de chemin de suite : reprise dans %.1f min (x%d) a %.1f min",
+            tostring(f.key), tostring(task.key), n_path, Ac.retry(task.fail, task.fond, RETRY_TICKS) * k_path / 3600, k_path, tick / 3600))
+        end
+      end
     end
     if task.fail then
       f.team.fail_reasons[task.fail] = (f.team.fail_reasons[task.fail] or 0) + 1

@@ -19,6 +19,7 @@ local Brain = require("script.companion.brain")
 local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
+local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
@@ -286,8 +287,65 @@ end
 --- Point d'accès d'un avant-poste : là où l'ouvrier se tenait en le construisant (atteignable par
 --- construction). Moteur réel (session 4) : viser le centre du gisement, désormais couvert de foreuses,
 --- faisait échouer le pathfinder (« but occupé ») et les tournées d'entretien.
-local function access(o)
-  return o.access or o.pos
+-- Lot NAV2 : types qui bougent (ne ferment pas un champ) ; recalcul au plus toutes les ACC_TTL ticks si le nombre de bâtiments ne change pas.
+-- (porte : ouverte aux PNJ de sa force, le pathfinder la traverse)
+local ACC_MOVING = { character = true, unit = true, car = true, ["spider-vehicle"] = true, gate = true }
+local ACC_TTL = 7200
+local ACC_LOGS = 12
+--- Lot NAV2 : point d'accès ATTEIGNABLE (shared/team/acces_champ.lua). Banc nav2-marge : le point d'accès finit dans une poche fermée
+--- par les paires jointives des agrandissements, le pathfinder n'y va pas (0 chemin sur 8, avec ou sans marge) ; le but de la marche
+--- devient la tuile libre atteignable depuis l'extérieur la plus proche. Règle coupée (f.team.acces_off, bancs témoins) : 0.6.42.
+local function access(o, f)
+  local base = o.access or o.pos
+  if not f or (f.team and f.team.acces_off) then return base end
+  local own = {}
+  for _, list in ipairs({ o.drill_list, o.sinks, o.turret_list }) do
+    for _, e in ipairs(list or {}) do if e.valid then own[#own + 1] = e end end
+  end
+  if #own == 0 then return base end
+  local tick = game.tick
+  local c = o.acces_cache
+  if c and c.n == #own and c.bx == base.x and c.by == base.y and tick - c.t < ACC_TTL then return { x = c.p.x, y = c.p.y } end
+  local own_boxes = {}
+  for i, e in ipairs(own) do
+    local bb = e.bounding_box
+    own_boxes[i] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+  end
+  local surface = own[1].surface
+  -- Suite NAV2 (champs passés à l'électrique) : script/team/gisement.lua retire de o.drill_list les foreuses à combustion remplacées ; les
+  -- foreuses électriques, tapis et poteaux du champ n'y sont pas. Le rectangle couvre aussi les bâtiments de l'ÉQUIPE à Acc.FIELD_RADIUS
+  -- du centre de l'avant-poste (sinon son bord tombe dans le champ et la poche n'est pas vue).
+  for _, e in ipairs(surface.find_entities_filtered({ position = o.pos, radius = Acc.FIELD_RADIUS, force = own[1].force, collision_mask = "player-layer" })) do
+    if e.valid and not ACC_MOVING[e.type] then
+      local bb = e.bounding_box
+      own_boxes[#own_boxes + 1] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+    end
+  end
+  local rect = Acc.rect(own_boxes, base, Acc.MARGIN)
+  local area = { { rect[1], rect[2] }, { rect[3] + 1, rect[4] + 1 } }
+  local boxes = {}
+  for _, e in ipairs(surface.find_entities_filtered({ area = area, collision_mask = "player-layer" })) do
+    if e.valid and not ACC_MOVING[e.type] then
+      local bb = e.bounding_box
+      boxes[#boxes + 1] = { bb.left_top.x, bb.left_top.y, bb.right_bottom.x, bb.right_bottom.y }
+    end
+  end
+  local tiles = {}
+  for _, t in ipairs(surface.find_tiles_filtered({ area = area, collision_mask = "water-tile" })) do
+    tiles[#tiles + 1] = { x = t.position.x, y = t.position.y }
+  end
+  local r = Acc.reach(boxes, tiles, base, rect)
+  o.acces_cache = { n = #own, t = tick, bx = base.x, by = base.y, p = { x = r.x, y = r.y }, moved = r.moved,
+    side = math.max(rect[3] - rect[1], rect[4] - rect[2]) + 1 }
+  if r.moved and f.stats then
+    f.stats.acces_moved = (f.stats.acces_moved or 0) + 1
+    if f.stats.acces_moved <= ACC_LOGS then
+      log(string.format("[FO-NAV-ACCES] %s : avant-poste %d %s : acces (%.1f,%.1f) ferme par le champ (%d batiment(s)), but deplace en (%.1f,%.1f) a %.1f tuile(s), %d tuile(s) atteignable(s) (n. %d) a %.1f min",
+        tostring(f.key), o.id or 0, tostring(o.kind), base.x, base.y, #own, r.x, r.y, math.sqrt((r.x - base.x) ^ 2 + (r.y - base.y) ^ 2), r.reached,
+        f.stats.acces_moved, tick / 3600))
+    end
+  end
+  return { x = r.x, y = r.y }
 end
 --- Lot IA1-d : programme d'une tâche du plan directeur (script/team/build.lua). build : prise au stock du chantier,
 --- point d'appui, ravivages ; clear : défrichage sur place ; fill : remplir un quai ; collect : vider un quai de sortie.
@@ -362,7 +420,7 @@ function Worker.program(f, task, surface, tick)
   elseif k == "extend" then
     local o = f.outposts[task.outpost]
     if not o then return nil end
-    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "extend" }, { "home" } }
+    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o, f), 3 }, { "act", "extend" }, { "home" } }
   elseif k == "rebuild" then
     return Recon.program(f, task)
   elseif k == "repair" then
@@ -377,7 +435,7 @@ function Worker.program(f, task, surface, tick)
       pos = f.home_spot
     else
       local o = f.outposts[task.post]
-      pos = o and access(o)
+      pos = o and access(o, f)
     end
     if not pos then return nil end
     return { { "goto", pos, 6 }, { "wait", task.wait or 3600 }, { "home" } }
@@ -395,7 +453,7 @@ function Worker.program(f, task, surface, tick)
     if o.kind == "coal" then carry = 0 end
     if Sorties.on(f) then carry = Sorties.carry_fuel(f, o, need) end
     if carry > 0 then steps[#steps + 1] = { "take", { { T.fuel, carry } } } end
-    steps[#steps + 1] = { "goto", access(o), 3 }
+    steps[#steps + 1] = { "goto", access(o, f), 3 }
     steps[#steps + 1] = { "act", "service" }
     steps[#steps + 1] = { "home" }
     return steps
@@ -403,7 +461,7 @@ function Worker.program(f, task, surface, tick)
     local pos = task.group == "hq" and f.home_spot or Outposts.group_pos(f, task.group)
     if not pos then return nil end
     local o = task.group ~= "hq" and f.outposts[tonumber(task.group:sub(2))]
-    if o then pos = access(o) end
+    if o then pos = access(o, f) end
     local ammo = Outposts.ammo_name(f.tech)
     if Board.market(f) then
       -- Lot IA3-b : prise BORNÉE au manque réel du groupe (avant : 200 + 200 chargeurs, `ammo` valant déjà
@@ -436,7 +494,7 @@ function Worker.program(f, task, surface, tick)
     end
     local o = f.outposts[task.outpost]
     if not o then return nil end
-    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o), 3 }, { "act", "fortify" }, { "home" } }
+    return { { "home" }, { "take", task.items, strict = true }, { "goto", access(o, f), 3 }, { "act", "fortify" }, { "home" } }
   elseif k == "smelters" then
     return { { "home" }, { "take", task.items, strict = true }, { "act", "smelters" }, { "home" } }
   elseif k == "smelt" then
@@ -1443,6 +1501,19 @@ FSM.define(MACHINE, {
             f.key, tostring(agent.task.key), p.x, p.y, g.x, g.y, math.floor(math.sqrt((p.x - g.x) ^ 2 + (p.y - g.y) ^ 2)),
             o and o.kind or "?", o and o.pos.x or 0, o and o.pos.y or 0, (o and o.access) and "pose" or "defaut",
             free and string.format("oui (%d,%d)", free.x, free.y) or "NON", gw, table.concat(parts, " "), tick / 3600))
+        end
+        -- Suite NAV2 (diagnostic seul) : fortification en échec de chemin : qui, quelle cible, but déplacé ou non par la règle (8 lignes au
+        -- plus par équipe). Partie lot-271828182 : 40 refus « fortify » contre 12 au témoin, cause non lue.
+        if f and agent.task and agent.task.kind == "fortify" and agent.entity.valid and (f.stats.nav_fort or 0) < 8 then
+          f.stats.nav_fort = (f.stats.nav_fort or 0) + 1
+          local p, g = agent.entity.position, agent.goal or { x = 0, y = 0 }
+          local tgt = agent.task.outpost
+          local o = type(tgt) == "number" and f.outposts[tgt] or nil
+          local c = o and o.acces_cache
+          log(string.format("[FO-NAV-FORTIFY] %s : ouvrier %d, %s (%s), cible %s%s, PNJ en (%d,%d), but (%.1f,%.1f) a %d tuiles, raison %s, but deplace par la regle : %s (rectangle %s) a %.1f min",
+            f.key, agent.id, tostring(agent.task.key), tostring(agent.task.why or agent.task.from or "-"), tostring(tgt), o and (" " .. tostring(o.kind)) or "",
+            p.x, p.y, g.x, g.y, math.floor(math.sqrt((p.x - g.x) ^ 2 + (p.y - g.y) ^ 2)), tostring(reason),
+            c and (c.moved and "oui" or "non") or "sans calcul", c and tostring(c.side) or "-", tick / 3600))
         end
         abort(agent, f, tick, "chemin")
       end,
