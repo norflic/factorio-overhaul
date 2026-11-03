@@ -611,8 +611,11 @@ local function begin_band(f, surface, ms, o, st, list, tick, free)
   -- lot THERMIQUE : un minerai ne perd pas ses paires sous une bande tant que l'approvisionnement qui reste n'atteint pas son plancher ou qu'il
   -- reste sans source (dernière source, centrale) : cette bande-là est mise de côté et une bande sans paire (ou moins chargée) passe devant, de
   -- sorte que l'électrique PRODUISE avant qu'une paire parte (mesuré, 1re mesure : 45 à 57 attentes « protege » de 10 min sinon)
-  if #ids > 0 and free then
-    local ctx = th_context(f, surface, f.build, free, nil)
+  -- Lot THERMIQUE2 : seulement pour le minerai CRITIQUE (le charbon de la centrale). Un minerai ordinaire part comme sur main : sa première bande
+  -- est toujours sur sa dernière source, et la mettre de côté retardait toute l'électrification (champ-longue 20261020 : bande de cuivre d'Azure
+  -- « mise de cote (derniere-source) » à 18,9 min, demandée sur main à la même minute ; première divergence des deux parties).
+  local ctx = (#ids > 0 and free) and th_context(f, surface, f.build, free, nil) or nil
+  if ctx and ctx.critical[o.kind] then
     do
       local fields, byid = build_fields(f, surface, ms, free)
       local fl = byid[o.id]
@@ -774,11 +777,12 @@ local function step_project(f, surface, ms, o, st, tick, free, book)
     -- lot THERMIQUE : protection. Couper les paires de la partie laisse-t-il assez du minerai (le charbon de la centrale, la dernière source d'un
     -- minerai) ? Sinon la coupe attend (un pont de stock, ou une bande qui produit ailleurs) ; un minerai ordinaire ne bloque jamais plus de
     -- Th.CFG.protect_wait, un minerai critique n'est jamais coupé sous son plancher (la demande est annulée après Th.CFG.critical_wait).
-    if st.frame and env.present > 0 and free then
+    -- Lot THERMIQUE2 : la retenue ne vaut plus que pour le minerai CRITIQUE (un minerai ordinaire est coupé comme sur main).
+    local ctx = (st.frame and env.present > 0 and free) and th_context(f, surface, b, free, book) or nil
+    if ctx and ctx.critical[o.kind] then
       local fields, byid = build_fields(f, surface, ms, free)
       local fl = byid[o.id]
       if fl then
-        local ctx = th_context(f, surface, b, free, book)
         local ok, cwhy = Th.cut_ok(fl, fields, env.present * fl.th_rate, ctx)
         local verdict = Th.verdict(ok, ctx.critical[o.kind], env.gate_age)
         if verdict ~= "retirer" then
@@ -1056,12 +1060,9 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book)
       local plates = champ and (free[T.outposts.iron.product] or 0) or (free[product] or 0)
       local ok, why = Mg.start_ok({ migr = o.migr, plan = true, power = power_ok(b), obtainable = obtainable, plates = plates,
         lattice = lattice, pairs = npairs, enemy = enemy, now = tick, retry = st.retry, abandoned = st.abandoned }, cfg)
-      -- lot THERMIQUE : une bande est financée quand le fer libre couvre les foreuses qui rendent l'extraction des paires (Th.financed) ; une bande
-      -- voulue par la capitalisation a déjà été jugée rentable
-      if ok and champ and not it.wanted then
-        local fin, fwhy = Th.financed(it, { power = power_ok(b), iron = free[T.outposts.iron.product] or 0, drill_cost = drill_cost(book) })
-        if not fin and fwhy == "fer" then ok, why = false, "fer" end
-      end
+      -- Lot THERMIQUE2 : la garde de fer du lot THERMIQUE (Th.financed : fer libre >= coût des foreuses de remplacement) est retirée : une force
+      -- dont le fer est tout consommé ne lançait jamais la bande qui lui rendrait du fer (« migration en veille (fer) », champ-longue 20261020) ;
+      -- la garde de plaques de Mg.start_ok (comme sur main) reste.
       if ok then
         if champ then
           if begin_band(f, surface, ms, o, st, list, tick, free) then return true end
