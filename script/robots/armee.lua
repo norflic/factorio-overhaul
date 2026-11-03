@@ -71,10 +71,11 @@ end
 
 function Armee.cap(force) return Mo.cap(Armee.age(force), cap_setting()) end
 
---- Géants vivants d'une force (lot RB-5).
+--- Géants vivants d'une force (lot RB-5), Bourdons compris (lot ROBOTS-JEU : Armee.hooks.extra_giants, posé par script/robots/bourdon.lua).
 function Armee.giants(force_name)
   local s = Armee.S()
-  return s and Mo.giants_of(s.ledger, force_name) or 0
+  local extra = Armee.hooks.extra_giants and Armee.hooks.extra_giants(force_name) or 0
+  return (s and Mo.giants_of(s.ledger, force_name) or 0) + extra
 end
 
 --- Paramètres de Mo.can_release pour le robot `r` de `force` : `used` (points déjà pris, y compris les kits retirés pendant ce
