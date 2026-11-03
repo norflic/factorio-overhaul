@@ -86,7 +86,10 @@ local function hit(r, e, amount, dtype, force, src)
   if not (e and e.valid and e.health and e.destructible) or amount <= 0 then return 0 end
   if not force.is_enemy(e.force) then return 0 end
   local before = e.health
-  local dealt = e.damage(amount, force, dtype, (src and src.valid) and src or nil) or 0
+  -- le moteur refuse un 4e argument nil (« 'entity': table expected, got nil », banc p1-a) : sans tireur, 3 arguments
+  local dealt
+  if src and src.valid then dealt = e.damage(amount, force, dtype, src) else dealt = e.damage(amount, force, dtype) end
+  dealt = dealt or 0
   local st = stat(r.id)
   st.degats = st.degats + dealt
   st.cibles = st.cibles + 1
