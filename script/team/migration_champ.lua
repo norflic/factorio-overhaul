@@ -1002,7 +1002,7 @@ local function start_next(f, surface, ms, free, obtainable, tick, busy, book)
     if is_champ_kind(o.kind) then
       local sq = ms.o[oid]
       local th, el = rates_of_kind(f, o.kind)
-      cand[#cand + 1] = { id = oid, res = o.kind, pairs = thermal_count(o), th_rate = th or 1, el_rate = el or 1, working = 0,
+      cand[#cand + 1] = { id = oid, res = o.kind, tier = is_furnace_kind(o.kind) and 0 or 1, pairs = thermal_count(o), th_rate = th or 1, el_rate = el or 1, working = 0,
         have = free[T.outposts[o.kind].product] or 0, wanted = (sq and (sq.want_until or 0) > tick) and true or false }
     end
   end

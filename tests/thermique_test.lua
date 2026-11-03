@@ -167,6 +167,10 @@ local function suite(Th, verbose)
     local ids = {}
     for _, g2 in ipairs(ord) do ids[#ids + 1] = g2.id end
     check(table.concat(ids, ",") == "5,2,3,4,1", "4 : voulu d'abord, puis le plus productif, puis le stock le plus bas, puis le numéro (" .. table.concat(ids, ",") .. ")")
+    local tiers = Th.order({ fl(1, "charbon", 40, 0, { tier = 1 }), fl(2, "fer", 4, 0), fl(3, "cuivre", 2, 0), fl(4, "pierre", 1, 0, { tier = 1, wanted = true }) })
+    ids = {}
+    for _, g2 in ipairs(tiers) do ids[#ids + 1] = g2.id end
+    check(table.concat(ids, ",") == "4,2,3,1", "4 : les plaques avant le charbon et la pierre, même moins productives ; un voulu passe devant (" .. table.concat(ids, ",") .. ")")
     check(cands[1].id == 1 and cands[5].id == 5, "4 : order rend une nouvelle liste, l'entrée n'est pas triée en place")
     local ord2 = Th.order({ fl(9, "fer", 4, 0), fl(3, "fer", 4, 0) })
     check(ord2[1].id == 3, "4 : à égalité complète, le numéro le plus petit")
@@ -249,6 +253,7 @@ local mutants = {
   { "financed : coût ignoré", "if (ctx.iron or 0) + EPS < cfg.fund_ratio * cost then return false, \"fer\" end", "" },
   { "financed : une foreuse de moins", "need = math.ceil(th / fl.el_rate - EPS)", "need = math.floor(th / fl.el_rate - EPS)" },
   { "order : voulus ignorés", "if wa ~= wb then return wa > wb end", "" },
+  { "order : rang des plaques ignoré", "if ra ~= rb then return ra < rb end", "" },
   { "order : le moins productif d'abord", "if ta ~= tb then return ta > tb end\n    local ha", "if ta ~= tb then return ta < tb end\n    local ha" },
   { "order : stock le plus haut d'abord", "if ha ~= hb then return ha < hb end", "if ha ~= hb then return ha > hb end" },
   { "order : tri en place", "local out = {}\n  for _, g in ipairs(cands) do out[#out + 1] = g end\n  table.sort(out,", "local out = cands\n  table.sort(out," },

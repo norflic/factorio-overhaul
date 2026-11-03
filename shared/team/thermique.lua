@@ -33,7 +33,7 @@
   M.order(cands)                        -> liste triée (voulus, puis les plus productifs)
   M.free_slot(res, busy, cfg)           -> vrai/faux, raison
   M.shares(fields, order)               -> part électrique par minerai (journal et critères)
-  fl = { id, res, pairs (paires thermiques debout), th_rate (ore/s d'une foreuse thermique), working (foreuses électriques en marche),
+  fl = { id, res, tier (0 : plaques, 1 : sans plaque), pairs (paires thermiques debout), th_rate (ore/s d'une foreuse thermique), working (foreuses électriques en marche),
          el_rate (ore/s d'une foreuse électrique), busy (une bande de ce gisement est en chantier), wanted, have }
   ctx = { power, iron (fer libre au stock), drill_cost (fer d'une foreuse électrique), floor = { [res] }, stock = { [res] }, critical = { [res] } }
   Déterminisme : listes triées, égalités départagées par le numéro, aucun `pairs` décisionnel, aucun temps mesuré.
@@ -50,7 +50,7 @@ M.CFG = {
   critical_wait = 20 * 3600, -- ticks : attente d'une coupe d'un minerai critique avant d'annuler la demande (la bande est redemandée plus tard)
   fund_ratio = 1.0,       -- fer libre / coût des foreuses de remplacement à partir duquel une bande est financée
   per_mineral = 1,        -- chantiers de bande simultanés au plus par minerai
-  slots = 3,              -- chantiers de bande simultanés au plus, tous minerais
+  slots = 2,              -- chantiers de bande simultanés au plus, tous minerais (3 : le fer manquait aux bandes, mesuré 150 min : 25 à 50 % des plaques du témoin)
   sweep_max = 1,          -- gisements balayés au plus par pensée (le retrait est immédiat : un gisement à la fois suffit)
   every = 600,            -- ticks entre deux balayages (une pensée d'équipe de la migration)
 }
@@ -172,6 +172,10 @@ function M.order(cands)
   table.sort(out, function(a, b)
     local wa, wb = a.wanted and 1 or 0, b.wanted and 1 or 0
     if wa ~= wb then return wa > wb end
+    -- les minerais qui fournissent les matières des bandes (rang 0 : plaques) avant ceux qui n'en fournissent pas (rang 1 : charbon, pierre) :
+    -- une bande de charbon avant celle du fer vide le fer qui lui manque (mesuré : 20 bandes demandées, 9 produisent, contre 14 et 13 au témoin)
+    local ra, rb = a.tier or 0, b.tier or 0
+    if ra ~= rb then return ra < rb end
     local ta, tb = M.supply(a), M.supply(b)
     if ta ~= tb then return ta > tb end
     local ha, hb = a.have or 0, b.have or 0
