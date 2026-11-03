@@ -264,6 +264,9 @@ do
   check(Ex.on() == false and Ex.held(f, 1800) == nil, "R8. réglage éteint : rien n'est retenu")
   _G.settings = nil
   check(Ex.on() == false, "R9. sans réglage lisible : éteint")
+  check(#said >= 1 and said[1]:find("passe d'abord", 1, true), "R9b. Ex.held écrit une ligne quand il retient")
+  for n = #said, 1, -1 do said[n] = nil end
+  f.build.echelon, f.build.echelon_tick = nil, nil
   Ex.say(f, 7200, "k", "texte")
   Ex.say(f, 7300, "k", "texte")
   Ex.say(f, 7400, "k", "autre")                 -- texte changé mais moins de 5 min après : non dit

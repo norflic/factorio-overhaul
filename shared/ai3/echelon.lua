@@ -52,6 +52,8 @@ local function sorted_keys(t)
   return ks
 end
 
+Ech.sorted_keys = sorted_keys
+
 --- Les plafonds et délais, pour le journal et les tests : liste de { nom, valeur } dans un ordre fixe.
 function Ech.limits()
   return {

@@ -62,6 +62,9 @@ function Ex.held(f, tick)
   end
   local held = Ech.held_back(list, tick)
   if next(held) == nil then return nil end
+  local parts = {}
+  for _, k in ipairs(Ech.sorted_keys(held)) do parts[#parts + 1] = string.format("%s %d", k, held[k]) end
+  Ex.say(f, tick, "retenu", "le producteur de ce qui manque passe d'abord : les autres chantiers laissent {" .. table.concat(parts, ", ") .. "}")
   return held
 end
 
