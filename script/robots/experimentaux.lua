@@ -271,7 +271,8 @@ local function send(u)
   if r.single_use then
     u.set_command({ type = defines.command.attack, target = t, distraction = defines.distraction.none })
   else
-    u.set_command({ type = defines.command.attack_area, destination = t.position, radius = r.range, distraction = defines.distraction.by_anything })
+    -- la Géode s'arrête à sa portée et tire de là (i2 : en « attack_area », elle allait au milieu des cibles et ses pointes ne couraient plus)
+    u.set_command({ type = defines.command.attack, target = t, distraction = defines.distraction.by_enemy })
   end
   return true
 end
