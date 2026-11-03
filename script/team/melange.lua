@@ -135,6 +135,7 @@ local function project(f, surface, s, pid, p, res)
   end
   local items = Mel.belt_items(products(res), made, carried)
   local tot, lines = {}, {}
+  local removed0 = s.removed
   for _, e in ipairs(p.ents) do
     if e.built and not e.dropped and e.role == "champ-foreuse" and not e.mel_ok then
       local ent = surface.find_entity(e.name, { e.x, e.y })
@@ -170,6 +171,19 @@ local function project(f, surface, s, pid, p, res)
           if has then lines[#lines + 1] = { line = line, c = c } end
         end
       end
+    end
+  end
+  -- lot MELANGE2 (revue du 3/11) : une bande dont le relevé vient de retirer la DERNIÈRE foreuse reste « finie » avec 0 production ; rien ne
+  -- la répare (journal seulement, aucun autre traitement)
+  if s.removed > removed0 then
+    local left = 0
+    for _, e in ipairs(p.ents) do
+      if e.role == "champ-foreuse" and not e.dropped then left = left + 1 end
+    end
+    if left == 0 then
+      s.emptied = (s.emptied or 0) + 1
+      say(f, s, string.format("projet %s bande %s : bande videe, toutes ses foreuses retirees (zone melee), plus aucune production", tostring(pid),
+        tostring(p.spec.champ.pr)))
     end
   end
   if #lines > 0 then
@@ -232,8 +246,8 @@ function Run.pass(f, surface, tick)
     s.report_next = tick + Run.REPORT_EVERY
     local by = {}
     for _, name in ipairs(State.sorted_keys(s.by)) do by[#by + 1] = name .. " " .. s.by[name] end
-    log(string.format("[FO-MELANGE-ETAT] %s min %.0f | releves %d | foreuses verifiees %d, zones melees %d, retirees %d | tapis encombres %d (bande x releve), objets etrangers releves %d (%s)",
-      f.key or "player", tick / 3600, s.passes, s.checked, s.mixed, s.removed, s.jams, s.items, #by > 0 and table.concat(by, ", ") or "rien"))
+    log(string.format("[FO-MELANGE-ETAT] %s min %.0f | releves %d | foreuses verifiees %d, zones melees %d, retirees %d | bandes videes %d | tapis encombres %d (bande x releve), objets etrangers releves %d (%s)",
+      f.key or "player", tick / 3600, s.passes, s.checked, s.mixed, s.removed, s.emptied or 0, s.jams, s.items, #by > 0 and table.concat(by, ", ") or "rien"))
   end
 end
 
@@ -262,7 +276,7 @@ if remote and remote.add_interface then remote.add_interface("fo-melange", {
     else
       project(f, args.hq.surface, s, "banc", p, args.resource)
     end
-    return { checked = s.checked, mixed = s.mixed, removed = s.removed, items = s.items, jams = s.jams, by = s.by }
+    return { checked = s.checked, mixed = s.mixed, removed = s.removed, items = s.items, jams = s.jams, by = s.by, emptied = s.emptied or 0 }
   end,
 }) end -- (hors jeu, les bancs simulés n'ont pas `remote`)
 
