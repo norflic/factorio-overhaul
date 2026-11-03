@@ -22,6 +22,7 @@ local P = require("shared.team.plan")
 local Ch = require("shared.team.champ")
 local Cv = require("shared.team.champ_verif")
 local Sa = require("shared.team.champ_saut") -- lot FONDERIE : découpe d'une bande trop grosse en projets liés
+local Ln = require("shared.team.champ_lien") -- revue-fonderie (point 7) : lecteur des projets liés du réseau du charbon
 local Ra = require("shared.team.champ_raccord") -- lot FONDERIE : tous les poteaux d'une bande rejoignent le réseau alimenté
 local Storage = require("script.core.storage")
 local Events = require("script.core.events")
@@ -537,7 +538,9 @@ local function named(plan, names, coal_side, exclude)
       -- lot FONDERIE : le réseau du charbon (ligne de foreuses, tracé, tronc, dérivations) a son rôle : ses foreuses arrêtées quand la
       -- voie de charbon est pleine ne comptent pas parmi les foreuses figées du champ ([FO-CHAMP-ETAT])
       if e.role == "charbon" and e.kind ~= "coffre" then role = "champ-charbon" end
-      local ent = { name = name, x = e.x, y = e.y, dir = e.dir, role = role, type = e.ug }
+      -- (revue-fonderie) `common` : pièce du réseau du charbon COMMUN à un côté (posée par la première bande de ce côté) ; lue par le tri par
+      -- rôle des pièces écartées (Build.SITES.champ), jamais copiée au projet (plan_project ne copie que ses champs)
+      local ent = { name = name, x = e.x, y = e.y, dir = e.dir, role = role, type = e.ug, common = e.coalnet ~= nil or nil }
       if e.kind == "four" and design == "colonne" and plan.fuelled then ent.charge = { item = names.fuel, count = Champ.CFG.amorce } end
       if e.kind == "coffre" and e.role == "combustible" then
         -- coffre de tête d'une colonne (lot FONDERIE) : un seul pour toute la colonne, posé mieux garni
@@ -683,7 +686,7 @@ Build.SITES.champ = function(f, surface, p, h)
   -- poteaux d'une bande voisine déjà demandée (rangée partagée, même place sur le treillis) : déjà au plan, pas deux fois
   local ents = {}
   local dropped = 0
-  local dropped_by, holders = {}, {} -- (revue-fonderie, 3/11) pièces écartées : plus en silence (journal ci-dessous)
+  local dropped_by, holders, drop_roles = {}, {}, {} -- (revue-fonderie, 3/11) pièces écartées : plus en silence (journal ci-dessous)
   for _, e in ipairs(bd.ents) do
     local taken = false
     for _, t in ipairs(P.tiles_of(e)) do
@@ -693,6 +696,10 @@ Build.SITES.champ = function(f, surface, p, h)
     if taken then
       dropped = dropped + 1
       dropped_by[e.name] = (dropped_by[e.name] or 0) + 1
+      -- (revue-fonderie) tri par rôle ; le charbon commun à part
+      local rk = tostring(e.role) .. ((e.role == "champ-charbon") and (e.common and " (commun)" or " (propre a la bande)") or "")
+      drop_roles[rk] = drop_roles[rk] or {}
+      drop_roles[rk][e.name] = (drop_roles[rk][e.name] or 0) + 1
     else
       ents[#ents + 1] = e
     end
@@ -703,6 +710,13 @@ Build.SITES.champ = function(f, surface, p, h)
     for _, h in ipairs(sorted_keys(holders)) do hs[#hs + 1] = tostring(h) end
     log(string.format("[FO-CHAMP] %s : projet %d (bande %s, avant-poste %d) : %d piece(s) ecartee(s), leurs tuiles deja au plan du ou des projet(s) %s : %s a %.1f min",
       f.key or "player", p.id, tostring(cs.pr), o.id, dropped, table.concat(hs, ","), table.concat(parts, ", "), game.tick / 3600))
+    -- (revue-fonderie) une ligne par rôle
+    for _, rk in ipairs(sorted_keys(drop_roles)) do
+      local np, n = {}, 0
+      for _, nm in ipairs(sorted_keys(drop_roles[rk])) do np[#np + 1] = nm .. " " .. drop_roles[rk][nm]; n = n + drop_roles[rk][nm] end
+      log(string.format("[FO-CHAMP] %s : projet %d (bande %s) : pieces ecartees du role %s : %d (%s)", f.key or "player", p.id, tostring(cs.pr), rk, n,
+        table.concat(np, ", ")))
+    end
   end
   -- raccord au réseau : un poteau alimenté à portée d'un poteau de la bande, sinon une chaîne de poteaux
   -- (lot FONDERIE) les poteaux du réseau du charbon (loin, vers le gisement de charbon) ne comptent pas : le raccord part de la bande
@@ -780,9 +794,49 @@ Champ.REPORT_EVERY = 5 * 3600 -- une ligne [FO-CHAMP-ETAT] par équipe toutes le
 
 --- Une ligne par équipe : bandes par état (et ce qui manque à celles qui attendent leurs matières), foreuses et fours des bandes, coffres
 --- de sortie (plaques qui attendent la collecte) et de combustible. Lecture seule (entités relues au moteur).
+--- Revue-fonderie (point 7, 3/11) : lecteur des projets LIÉS du réseau du charbon (Ln.decide) : bande absente ou refusée, le projet lié
+--- encore annulable est annulé (plus d'orphelin) ; bande vivante dont tous les projets liés d'un côté sont refusés, il est redemandé (au
+--- plus Ln.MAX_TRIES). Appelé par Champ.report (son horloge). Rend (annulés, redemandés).
+function Champ.links_step(f, tick)
+  local b = f.build
+  if not b then return 0, 0 end
+  local items = {}
+  for _, pid in ipairs(b.order) do
+    local q = b.projects[pid]
+    local cs = q and q.spec and q.spec.champ
+    if cs and cs.link and cs.coal then
+      local band = b.projects[cs.link]
+      items[#items + 1] = { id = pid, state = q.state, band = cs.link, side = cs.coal, band_state = band and band.state or nil }
+    end
+  end
+  if #items == 0 then return 0, 0 end
+  local acts = Ln.decide(items)
+  local nc, nr = 0, 0
+  for _, id in ipairs(acts.cancel) do
+    if Build.cancel(f, id, "champ: bande liee absente ou refusee") then
+      nc = nc + 1
+      log(string.format("[FO-CHAMP] %s : projet lie %d (reseau du charbon) annule : sa bande est absente ou refusee a %.1f min", f.key or "player", id, tick / 3600))
+    end
+  end
+  for _, id in ipairs(acts.rerequest) do
+    local old = b.projects[id]
+    local spec = {}
+    for _, k in ipairs(sorted_keys(old.spec)) do spec[k] = old.spec[k] end
+    local cs = {}
+    for _, k in ipairs(sorted_keys(old.spec.champ)) do cs[k] = old.spec.champ[k] end
+    spec.champ = cs
+    local nid = Build.request(f, spec)
+    nr = nr + 1
+    log(string.format("[FO-CHAMP] %s : projet lie %d (reseau du charbon cote %s, bande %d) refuse (%s) : redemande, projet %s a %.1f min", f.key or "player", id,
+      cs.coal > 0 and "+" or "-", cs.link, tostring(old.reason), tostring(nid), tick / 3600))
+  end
+  return nc, nr
+end
+
 function Champ.report(f, surface, tick)
   local b = f.build
   if not b then return end
+  Champ.links_step(f, tick) -- (revue-fonderie, point 7)
   local st, miss, ids = {}, {}, {}
   local d = { n = 0, run = 0, stuck = 0, nopow = 0 }
   local fu = { n = 0, run = 0, noin = 0, nofuel = 0, full = 0 }
