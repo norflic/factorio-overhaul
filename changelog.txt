@@ -2,8 +2,12 @@
 Version: 0.6.42
 Date: 2026-11-03
   Changes:
-    - Fonderie a tapis (colonne a tapis mele) : un tapis porte une voie de minerai et une voie de charbon, un bras par four, les plaques sortent sur tapis ; 1 a 6 coffres de combustible a remplir contre 90 a 222. Reglage de carte « fo-war-fonderie-tapis » (vrai pour une partie neuve, eteint pour une sauvegarde existante : comportement 0.6.41, verifie plan par plan). Limite connue : le repli sur un coffre de tete reste possible quand le tronc de charbon n'a ni place ni chemin (3 cotes sur 10 en test).
-    - Production mesuree entre 39 et 88 % du temoin selon la graine (bruit de la mesure : -27 a -39 % sur une meme graine).
+    - Fonderie a tapis (colonne a tapis mele) : un tapis porte une voie de minerai et une voie de charbon, un bras par four, les plaques sortent sur tapis ; 1 a 6 coffres de combustible a remplir contre 90 a 222. Reglage de carte « fo-war-fonderie-tapis » (vrai pour une partie neuve, eteint pour une sauvegarde existante : comportement 0.6.41, verifie plan par plan). Une colonne sans voie de charbon est refusee (journal [FO-CHAMP]), sauf si le refus ferait perdre plus de la moitie des foreuses du champ : ce cadre garde alors le coffre de tete. Les poteaux d'une bande sont relies au reseau alimente.
+    - Foreuses : la zone reelle de minage (5x5) est confrontee aux autres ressources ; une foreuse dont la zone melerait deux minerais (charbon sur les tapis de fer) n'est plus posee, et les bandes deja posees sont relevees toutes les 2 min ([FO-MELANGE]).
+    - PNJ : le minage a la main ne compte plus que le coffre du QG ; il tient compte des coffres de sortie des avant-postes, et la tournee d'un avant-poste de charbon a sec porte le charbon du QG. Une tournee dont le point d'acces est enferme dans le champ vise la tuile atteignable la plus proche (no_path de tournee 473 -> 191 sur une graine).
+    - Foreuses thermiques : plus de nouveau brulleur pour un minerai brut (charbon, pierre) dont le stock libre atteint 3 000.
+    - Migration CALCUL-V2 : un centre de calcul v1 n'est plus reconverti a chaque changement de configuration, seulement a la montee depuis une version anterieure a 0.6.29.
+    - Limites connues : la production mesuree de la fonderie a tapis varie de 39 a 88 % du temoin selon la graine (bruit de la mesure : -27 a -39 % sur une meme graine) ; la famine de fer de l'equipe du joueur au verif-guide 20261020 existe deja en 0.6.41 ; le courant des bandes de la fonderie n'est pas entierement regle ; le banc de migration montre 3 echecs fo-robot-make-* qui sont un artefact du banc (double source), pas un defaut du mod.
 
 ---------------------------------------------------------------------------------------------------
 Version: 0.6.41
