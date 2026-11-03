@@ -1237,6 +1237,21 @@ function P.plan(view, book)
     avail[ammo] = stock - got
     if got < sp.n then want({ { ammo, sp.n - got } }, Mu.SURPLUS_PRIO, "munitions-surplus") end
   end
+  -- Lot MUNITIONS : ÉCHANGE des tourelles pleines d'une munition moins bonne (balles perforantes dès qu'elles se fabriquent ; partie du DC :
+  -- « military-2 » faite à 116 min, inutile), avec le stock seulement (Mu.upgrade_take : rien n'est fabriqué pour cela), après les recrues.
+  for _, g in ipairs(view.turret_groups or {}) do
+    if (g.worse or 0) > 0 and not g.has_task then
+      local stock = avail[ammo] or 0
+      local got = Mu.upgrade_take(g.worse_need, stock)
+      if got > 0 then
+        local t = nil
+        for _, x in ipairs(tasks) do if x.key == "refill:" .. g.key then t = x break end end
+        if t then t.count = (t.count or 0) + got
+        else add({ key = "refill:" .. g.key, kind = "refill", prio = 90, group = g.key, count = got }) end
+        avail[ammo] = stock - got
+      end
+    end
+  end
 
   ---------------------------------------------------------------------------------------------------
   -- 5. Matières premières manquantes : avant-poste existant (on attend sa tournée), fonderie, minage

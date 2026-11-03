@@ -608,7 +608,8 @@ function Team.view(f, tick)
   for _, g in ipairs(Outposts.turret_groups(f)) do
     groups[#groups + 1] = { key = g.key, low = g.low, has_task = Board.has(f, "refill:" .. g.key),
       n = #g.list, short = T.munitions_on and g.short or nil, missing = T.munitions_on and g.missing or nil, -- lot MUNITIONS
-      missing_base = T.munitions_on and g.missing_base or nil, short_base = T.munitions_on and g.short_base or nil }
+      missing_base = T.munitions_on and g.missing_base or nil, short_base = T.munitions_on and g.short_base or nil,
+      worse = T.munitions_on and g.worse or nil, worse_need = T.munitions_on and g.worse_need or nil }
     if g.key == "hq" then hq_turrets = #g.list end -- lot IA1-b2 : tourelles du QG (défendre d'abord)
     mj.n, mj.ammo, mj.low, mj.short, mj.missing = mj.n + #g.list, mj.ammo + g.ammo, mj.low + g.low, mj.short + g.short, mj.missing + g.missing
     if g.key == "hq" then mj.hq_n, mj.hq_ammo = #g.list, g.ammo end

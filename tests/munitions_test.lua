@@ -12,7 +12,8 @@
     5. la CHAÎNE lue dans les sources (outposts, team, worker, planner, cerveau, buts) ;
     6. mutants : chaque règle cassée change au moins un fait observé.
   Essai 2 du lot (après verif-guide 271828182 : 988 chargeurs au coffre, 14 PNJ contre 23) : hystérésis de la cible riche, stock visé compté
-  sur la cible ordinaire avec un plafond, surplus riche servi APRÈS les recrues, meilleure munition fabricable (balles perforantes).
+  sur la cible ordinaire avec un plafond, surplus riche servi APRÈS les recrues, meilleure munition fabricable (balles perforantes), ÉCHANGE des
+  tourelles pleines d'une munition moins bonne (banc munitions-perforantes, 1er passage : perforantes fabriquées, jamais portées).
 ]]
 package.path = "./?.lua;" .. package.path
 local T = require("shared.team.config")
@@ -108,6 +109,10 @@ local function facts(W)
   f.g_short, f.g_missing, f.g_low = g.short, g.missing, g.low
   local gr = Mu.group({ 50, 40, 30, 19, 0 }, 50, 8, 20)
   f.gr_short, f.gr_missing, f.gr_mb, f.gr_sb, f.gr_low = gr.short, gr.missing, gr.missing_base, gr.short_base, gr.low
+  -- échange : 4 tourelles {20 base, 20 perforantes, 10 base, 0 vide}, meilleure = perforante (rang 2), cible 20
+  local gw = Mu.group({ 20, 20, 10, 0 }, 20, 8, 20, { 1, 2, 1, 0 }, 2)
+  f.gw_worse, f.gw_need, f.gw_short = gw.worse, gw.worse_need, gw.short
+  f.up_full, f.up_part, f.up_none = Mu.upgrade_take(80, 200), Mu.upgrade_take(80, 25), Mu.upgrade_take(80, 19)
   f.due_small = Mu.due({ short = 1, missing = 6, low = 0 }) and 1 or 0
   f.due_trip = Mu.due({ short = 2, missing = 10, low = 0 }) and 1 or 0
   f.due_low = Mu.due({ short = 1, missing = 6, low = 1 }) and 1 or 0
@@ -178,6 +183,17 @@ local function facts(W)
   local p10 = Pl.plan(view({ stock = { [IRON] = 500, [COPPER] = 500, ["steel-plate"] = 50 }, turret_ammo = PIERCING,
     turret_groups = { grs("hq", 30, 30, 2, 2) } }), book)
   f.pl_piercing = crafted_item(p10, PIERCING, "munitions")
+  -- échange : 3 tourelles pleines de chargeurs de base, 58 perforantes au coffre : une tournée de 58 ; 10 au coffre : aucune
+  local function grw(key, worse, need) return { key = key, low = 0, has_task = false, n = 3, short = 0, missing = 0, missing_base = 0,
+    short_base = 0, worse = worse, worse_need = need } end
+  local p11 = Pl.plan(view({ stock = { [IRON] = 100, [COPPER] = 200, [PIERCING] = 58 }, turret_ammo = PIERCING,
+    turret_groups = { grw("hq", 3, 60) } }), book)
+  local t11 = task_of(p11, "refill:hq")
+  f.up_task = t11 and t11.count or 0
+  f.up_craft = crafted_item(p11, PIERCING, "munitions") + crafted_item(p11, PIERCING, "munitions-surplus")
+  local p12 = Pl.plan(view({ stock = { [IRON] = 100, [COPPER] = 200, [PIERCING] = 10 }, turret_ammo = PIERCING,
+    turret_groups = { grw("hq", 3, 60) } }), book)
+  f.up_small = keys_of(p12)["refill:hq"] and 1 or 0
   -- vue sans relevé (short absent) : la règle d'avant (seuil bas, tout ou rien)
   local p5 = Pl.plan(view({ stock = { [IRON] = 100, [COPPER] = 200, [AMMO] = 15 },
     turret_groups = { { key = "hq", low = 2, has_task = false } } }), book)
@@ -216,6 +232,9 @@ check(F0.g_short == 3 and F0.g_missing == 6 + 13 + 20 and F0.g_low == 2,
   "groupe {20,19,15,14,7,0} : 3 à recharger (14, 7, 0), 39 chargeurs pour le plein, 2 sous le seuil bas (" .. F0.g_short .. ", " .. F0.g_missing .. ")")
 check(F0.gr_short == 3 and F0.gr_missing == 101 and F0.gr_mb == 21 and F0.gr_sb == 2 and F0.gr_low == 1,
   "groupe {50,40,30,19,0} à 50 : 3 à recharger, 101 chargeurs, dont 21 URGENTS (jusqu'à 20 : 1 + 20) pour 2 tourelles (" .. F0.gr_mb .. ")")
+check(F0.gw_worse == 1 and F0.gw_need == 20 and F0.gw_short == 2,
+  "échange : la tourelle pleine de chargeurs de base est à échanger (20), celle à 10 et la vide sont à recharger, la perforante non")
+check(F0.up_full == 80 and F0.up_part == 25 and F0.up_none == 0, "échange : avec le stock seulement, au moins 20 (80 sur 200, 25, rien pour 19)")
 check(F0.due_small == 0 and F0.due_trip == 1 and F0.due_low == 1 and F0.due_none == 0,
   "tournée : pas pour 6 chargeurs sans tourelle sous le seuil bas ; oui pour 10, ou pour une tourelle sous le seuil bas")
 check(F0.take_full == 30 and F0.take_part == 15 and F0.take_none == 0,
@@ -251,6 +270,9 @@ check(F0.sp_rich == 12 and F0.sp_rich_pistol > 0, "fer 300 : la recrue ET les 12
 check(F0.sp_count == 120, "surplus servi par le stock qui reste après la recrue : tournée de 120 chargeurs (" .. F0.sp_count .. ")")
 check(F0.sp_both == 120, "part urgente (30) puis surplus (90) : une seule tournée de 120 (" .. F0.sp_both .. ")")
 check(F0.pl_piercing == 30, "munition choisie perforante, acier au coffre : 30 balles perforantes fabriquées pour la recharge (" .. F0.pl_piercing .. ")")
+check(F0.up_task == 58 and F0.up_craft == 0, "échange : 58 perforantes au coffre, une tournée de 58, rien fabriqué pour l'échange (" ..
+  F0.up_task .. ")")
+check(F0.up_small == 0, "échange : 10 perforantes au coffre, pas de tournée (moins d'une charge ordinaire)")
 check(F0.pl_old_refill == 0 and F0.pl_old_craft == 25, "vue sans relevé : règle d'avant (tout ou rien : 15 < 40, pas de tournée, 25 fabriqués ; " ..
   F0.pl_old_craft .. ")")
 check(F0.pl_old_none == 0, "vue sans relevé, aucune tourelle sous le seuil bas : aucune tournée (règle d'avant)")
@@ -270,17 +292,21 @@ check(F0.b_item == PIERCING, "munition choisie perforante : le but « defense:mu
 section("5. La chaîne dans les sources")
 ---------------------------------------------------------------------------------------------------
 local function has(path, pat) return read_src(path):find(pat, 1, true) ~= nil end
-check(has("script/faction/outposts.lua", "Mu.group(g.have, target, T.turret_ammo_low, T.turret_ammo_target)"),
+check(has("script/faction/outposts.lua", "Mu.group(g.have, target, T.turret_ammo_low, T.turret_ammo_target, g.ranks, best)"),
   "Outposts.turret_groups lit Mu.group (part urgente)")
 check(has("script/faction/outposts.lua", "local caps = { math.min(T.turret_ammo_target, target), target }"),
   "Outposts.refill_group : cible ordinaire d'abord, puis le plein")
-check(has("script/faction/outposts.lua", "if pass == 1 and T.munitions_on then swap_for_best(t, carrier) end"),
+check(has("script/faction/outposts.lua", "if pass == 1 and T.munitions_on then swap_for_best(t, carrier, caps[1]) end"),
   "Outposts.refill_group échange une munition moins bonne")
 check(has("script/faction/outposts.lua", "local v = T.munitions_on and f and f.team and f.team.ammo_item or nil"),
   "Outposts.ammo_name rend la munition choisie")
 check(has("script/team/worker.lua", "local ammo = Outposts.ammo_name(f.tech, f)"), "la tournée porte la munition choisie")
 check(has("script/team/worker.lua", 'if type(task.count) == "number" and task.count > 0 and task.count < need then need = task.count end'),
   "la tournée porte au plus ce que le planificateur lui a donné")
+check(has("script/faction/outposts.lua", "local m = Mu.group(g.have, target, T.turret_ammo_low, T.turret_ammo_target, g.ranks, best)"),
+  "Outposts.turret_groups relève les tourelles à échanger")
+check(has("script/team/worker.lua", "if r > 0 and r < best then need = need + target"), "la tournée d'échange porte la cible entière")
+check(has("shared/team/planner.lua", "local got = Mu.upgrade_take(g.worse_need, stock)"), "le planificateur lance l'échange (Mu.upgrade_take)")
 check(has("script/team/team.lua", "local idx, why = Mu.best_ammo(cands, cur)"), "Team.view choisit la munition (Mu.best_ammo)")
 check(has("script/team/team.lua", "was = f.team.ammo_rich == true"), "Team.view garde l'état riche d'une pensée à l'autre (hystérésis)")
 check(has("script/team/team.lua", "f.team.ammo_per_turret, f.team.ammo_rich = Mu.per_turret("), "Team.view écrit la cible par tourelle")
@@ -322,6 +348,9 @@ local MUTANTS = {
   { "planificateur : munition de base", mutate("Pl", "local ammo = view.turret_ammo or base_ammo", "local ammo = base_ammo") },
   { "buts : stock visé d'avant", mutate("B", "if T.munitions_on and s.turrets_n then", "if false then") },
   { "buts : munition de base", mutate("B", "local ammo = s.turret_ammo or T.turret_ammo", "local ammo = T.turret_ammo") },
+  { "échange : jamais", mutate("Mu", "if h >= top and r > 0 and r < best then", "if false then") },
+  { "échange : sans minimum", mutate("Mu", "if n < Mu.UPGRADE_MIN then return 0 end", "") },
+  { "planificateur : pas d'échange", mutate("Pl", "local got = Mu.upgrade_take(g.worse_need, stock)", "local got = 0") },
 }
 local killed = 0
 for _, m in ipairs(MUTANTS) do

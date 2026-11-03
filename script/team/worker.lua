@@ -472,10 +472,13 @@ function Worker.program(f, task, surface, tick)
       local g = by_key[task.group]
       local need = 0
       local target = Outposts.ammo_target(f) -- lot MUNITIONS : au plein de la cible de l'équipe
+      local best = Outposts.rank_of(ammo)
       for _, t in ipairs(g and g.list or {}) do
         local inv = t.valid and t.get_inventory(defines.inventory.turret_ammo)
         local have = inv and inv.get_item_count() or 0
-        if have < target then need = need + target - have end
+        local r = t.valid and Outposts.ammo_rank(t) or 0
+        if r > 0 and r < best then need = need + target -- (lot MUNITIONS : tourelle à ÉCHANGER contre la meilleure munition : la cible entière)
+        elseif have < target then need = need + target - have end
       end
       if need <= 0 then return nil end
       -- Lot MUNITIONS : la tournée porte au plus ce que le planificateur lui a donné (task.count : la part urgente avant les recrues, le

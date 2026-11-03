@@ -43,6 +43,7 @@ Mu.RICH_ENTER_PCT = 200 -- entrée dans la cible riche : le fer paie 2 fois le s
 Mu.RICH_EXIT_PCT = 100  -- sortie : le fer ne paie plus 1 fois ce surplus (hystérésis : pas de bascule à chaque variation du fer)
 Mu.SURPLUS_PRIO = 35    -- priorité de la fabrication du surplus riche : sous les recrues (55 à 89) et la recherche (40)
 Mu.AMMO_SWITCH_MIN = 10 -- chargeurs d'une meilleure munition au coffre qui suffisent à la choisir sans pouvoir la fabriquer
+Mu.UPGRADE_MIN = 20     -- chargeurs de la meilleure munition au coffre pour une tournée d'ÉCHANGE (une charge ordinaire : une tourelle au moins)
 
 local function num(x)
   if type(x) ~= "number" or x ~= x or x < 0 then return 0 end
@@ -71,15 +72,23 @@ end
 
 --- État d'un groupe de tourelles. have = { chargeurs de chaque tourelle }, target = chargeurs voulus par tourelle, low = seuil bas, base = cible
 --- ordinaire (absente : `target`). Rend { short (tourelles sous Mu.top(target)), missing (chargeurs pour les remettre à la cible), low (sous le
---- seuil bas), missing_base (part URGENTE de missing : jusqu'à la cible ordinaire), short_base (tourelles à recharger sous la cible ordinaire) }.
-function Mu.group(have, target, low, base)
+--- seuil bas), missing_base (part URGENTE de missing : jusqu'à la cible ordinaire), short_base (tourelles à recharger sous la cible ordinaire),
+--- worse (tourelles qui ne sont pas à recharger mais portent une munition MOINS BONNE que `best`), worse_need (chargeurs de la meilleure pour
+--- les remplir après échange : la cible entière) }. ranks = { rang de la munition de chaque tourelle (0 : vide ou inconnue) }, best = rang choisi.
+function Mu.group(have, target, low, base, ranks, best)
   target, low = num(target), num(low)
   base = base == nil and target or math.min(num(base), target)
   local top = Mu.top(target)
-  local out = { short = 0, missing = 0, low = 0, missing_base = 0, short_base = 0 }
-  for _, h in ipairs(have or {}) do
+  local out = { short = 0, missing = 0, low = 0, missing_base = 0, short_base = 0, worse = 0, worse_need = 0 }
+  best = num(best)
+  for i, h in ipairs(have or {}) do
     h = num(h)
+    local r = ranks and num(ranks[i]) or 0
     if h < low then out.low = out.low + 1 end
+    if h >= top and r > 0 and r < best then
+      out.worse = out.worse + 1
+      out.worse_need = out.worse_need + target
+    end
     if h < top then
       out.short = out.short + 1
       out.missing = out.missing + (target - h)
@@ -90,6 +99,15 @@ function Mu.group(have, target, low, base)
     end
   end
   return out
+end
+
+--- Chargeurs de la meilleure munition pour une tournée d'ÉCHANGE (tourelles pleines d'une munition moins bonne) : ce que le coffre donne, au
+--- plus `need`, s'il donne au moins Mu.UPGRADE_MIN ; sinon 0 (l'échange attend le stock : il ne fait rien fabriquer).
+function Mu.upgrade_take(need, stock)
+  need, stock = num(need), num(stock)
+  local n = need < stock and need or stock
+  if n < Mu.UPGRADE_MIN then return 0 end
+  return n
 end
 
 --- Le groupe mérite-t-il une tournée de recharge ? g = { short, missing, low }.

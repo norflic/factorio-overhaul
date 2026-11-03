@@ -1213,6 +1213,21 @@ local function ammo_of(t)
   return inv and inv.get_item_count() or 0
 end
 
+-- Lot MUNITIONS : rang d'une munition dans l'échelle (T.turret_ammo_ladder, de la moins bonne à la meilleure), 0 hors échelle.
+local AMMO_RANK = {}
+for i, name in ipairs(T.turret_ammo_ladder) do AMMO_RANK[name] = i end
+
+--- Lot MUNITIONS : rang de la munition dans la case de la tourelle (0 : vide).
+local function ammo_rank(t)
+  local inv = t.get_inventory(defines.inventory.turret_ammo)
+  if not inv or inv.is_empty() then return 0 end
+  local s = inv[1]
+  return s.valid_for_read and (AMMO_RANK[s.name] or 0) or 0
+end
+Outposts.ammo_rank = ammo_rank
+--- Lot MUNITIONS : rang d'une munition (0 hors échelle).
+function Outposts.rank_of(name) return AMMO_RANK[name] or 0 end
+
 --- Lot MUNITIONS : chargeurs voulus par tourelle de l'équipe (f.team.ammo_per_turret, Mu.per_turret à la pensée ; T.turret_ammo_target sinon).
 function Outposts.ammo_target(f)
   local v = T.munitions_on and f and f.team and f.team.ammo_per_turret or nil
@@ -1234,35 +1249,34 @@ function Outposts.turret_groups(f)
       if not g then
         local pos = f.hq_pos
         if oid then pos = f.outposts[oid] and f.outposts[oid].pos or t.position end
-        g = { key = key, pos = pos, list = {}, low = 0, have = {} }
+        g = { key = key, pos = pos, list = {}, low = 0, have = {}, ranks = {} }
         by_key[key] = g
         groups[#groups + 1] = g
       end
       g.list[#g.list + 1] = t
       local a = ammo_of(t)
       g.have[#g.have + 1] = a
+      g.ranks[#g.ranks + 1] = ammo_rank(t)
       if a < T.turret_ammo_low then g.low = g.low + 1 end
     else
       f.turrets[id] = nil
     end
   end
+  local best = AMMO_RANK[Outposts.ammo_name(nil, f)] or 1
   for _, g in ipairs(groups) do
-    local m = Mu.group(g.have, target, T.turret_ammo_low, T.turret_ammo_target)
+    local m = Mu.group(g.have, target, T.turret_ammo_low, T.turret_ammo_target, g.ranks, best)
     local sum = 0
     for _, a in ipairs(g.have) do sum = sum + a end
     g.short, g.missing, g.ammo, g.have = m.short, m.missing, sum, nil
     g.missing_base, g.short_base = m.missing_base, m.short_base -- part urgente : jusqu'à la cible ordinaire
+    g.worse, g.worse_need, g.ranks = m.worse, m.worse_need, nil -- tourelles à ÉCHANGER contre la meilleure munition
   end
   return groups, by_key
 end
 
--- Lot MUNITIONS : rang d'une munition dans l'échelle (T.turret_ammo_ladder, de la moins bonne à la meilleure), 0 hors échelle.
-local AMMO_RANK = {}
-for i, name in ipairs(T.turret_ammo_ladder) do AMMO_RANK[name] = i end
-
 --- Lot MUNITIONS : une tourelle chargée d'une munition MOINS BONNE que la meilleure portée la rend au porteur et reçoit la meilleure (la
 --- tourelle n'a qu'une case : sans échange, les balles perforantes n'y entraient jamais tant qu'il restait un chargeur de base).
-local function swap_for_best(t, carrier)
+local function swap_for_best(t, carrier, min_best)
   local inv = t.get_inventory(defines.inventory.turret_ammo)
   if not inv or inv.is_empty() then return end
   local cur = inv[1].valid_for_read and inv[1].name or nil
@@ -1270,7 +1284,7 @@ local function swap_for_best(t, carrier)
   for i = #T.turret_ammo_ladder, 1, -1 do
     local best = T.turret_ammo_ladder[i]
     if (AMMO_RANK[cur] or 0) >= i then return end
-    if carrier.get_item_count(best) > 0 then
+    if carrier.get_item_count(best) >= min_best then -- (assez pour la remplir : jamais une tourelle pleine vidée pour 5 balles)
       local n = inv.get_item_count(cur)
       local back = n > 0 and carrier.insert({ name = cur, count = n }) or 0
       if back > 0 then inv.remove({ name = cur, count = back }) end
@@ -1292,7 +1306,7 @@ function Outposts.refill_group(f, key, carrier)
   for pass, cap in ipairs(caps) do
     for _, t in ipairs(g.list) do
       if t.valid then
-        if pass == 1 and T.munitions_on then swap_for_best(t, carrier) end
+        if pass == 1 and T.munitions_on then swap_for_best(t, carrier, caps[1]) end
         local missing = cap - ammo_of(t)
         for i = #T.turret_ammo_ladder, 1, -1 do
           local ammo = T.turret_ammo_ladder[i]
