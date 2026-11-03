@@ -254,6 +254,10 @@ T.defend_copper_floor = 30 -- 6 pistolets de recrues
 -- tombe armé ; 1618033988 : équipe finie à 54,7 min contre n = 8 au témoin).
 T.qg_reserve_on = false
 T.qg_recruit_hold_on = true
+-- Lot PERIMETRE (shared/team/perimetre.lua, script/team/perimetre.lua) : groupes de tourelles PRÉVUS aux points sensibles, puis sur des
+-- périmètres emboîtés, payés sur Pe.BUDGET_PCT % du surplus de fer. Votre équipe ; les factions ont leur interrupteur (éteint : pas de banc pvp).
+T.perimetre_on = true
+T.perimetre_factions = false
 -- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
 -- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
 -- étaient tous refusés, 2 avant-postes, fer à 35, équipe perdue à 35 min ; ceux de 314159265 (582 à 588) restent exclus.
