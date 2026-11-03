@@ -20,6 +20,7 @@ local Nav = require("script.agents.nav")
 local State = require("script.faction.state")
 local Ar = require("shared.team.arrivee") -- lot C4 PLATEAU 3 : tournée arrivée malgré un chemin refusé (règle pure)
 local Acc = require("shared.team.acces_champ") -- lot NAV2 : point d'accès atteignable depuis l'extérieur du champ (règle pure)
+local Rc = require("shared.team.repli_chemin") -- lot CHARBON3 (B2) : essais de marche d'un PNJ (règle pure)
 local Stock = require("script.team.stock") -- lot COFFRE : stock = coffre du QG + annexes
 local Outposts = require("script.faction.outposts")
 local Sites = require("script.faction.sites")
@@ -1357,6 +1358,7 @@ FSM.define(MACHINE, {
       Board.reserve_soft(f, agent, task, steps, tick) -- lot IA3-b : prises larges bornées au libre (réglage allumé)
       Profiler.fstop("board:reserve")
       agent.task, agent.steps, agent.pc, agent.failed = task, steps, 1, nil
+      agent.walk_retries = 0 -- lot CHARBON3 (B2) : essais de marche comptés par tâche (Rc.walk_fail)
       agent.mine_trips = nil -- lot MAIN-INVENTAIRE : voyages de dépôt comptés par tâche
       set(agent, "step", tick)
       Profiler.fcredit("idle", "idle:depart")
@@ -1413,6 +1415,7 @@ FSM.define(MACHINE, {
     exit = function(agent, tick) if agent.nav then Nav.stop(agent, tick) end end,
     on = {
       nav_arrived = function(agent, tick)
+        agent.walk_retries = 0 -- lot CHARBON3 (B2) : une arrivée remet les essais de marche à zéro (Rc.walk_fail)
         if agent.street_walk then
           agent.street_walk = nil
           local fa = faction_of(agent)
@@ -1449,13 +1452,13 @@ FSM.define(MACHINE, {
         end
         local H = Worker.hook -- lot IA3-k : un point de passage injoignable ne fait pas échouer la tâche
         if H and H.nav_failed(agent, tick) then set(agent, "step", tick) return end
-        agent.walk_retries = (agent.walk_retries or 0) + 1
+        local again
+        again, agent.walk_retries = Rc.walk_fail(agent.walk_retries, reason) -- lot CHARBON3 (B2) : règle pure, remise à 0 à l'abandon
         if f then f.stats.nav_fail = (f.stats.nav_fail or 0) + 1 end
-        if agent.walk_retries <= 3 and reason ~= "no_path" then
+        if again then
           set(agent, "step", tick) -- nouvel essai depuis la position atteinte
           return
         end
-        agent.walk_retries = 0
         local step = agent.steps and agent.steps[agent.pc]
         -- Lot IA1-d : un défricheur ou un bâtisseur arrêté en route travaille là où il est (il s'ouvre le chemin vers son
         -- point d'appui, script/team/build.lua)
