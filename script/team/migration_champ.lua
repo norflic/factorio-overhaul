@@ -1053,8 +1053,8 @@ local function sweep(f, surface, ms, free, book, tick)
         ms.swept = (ms.swept or 0) + removed
         swept = swept + removed
         say(f, ms, string.format("gisement de l'avant-poste %d (%s) : %d paire(s) thermique(s) retiree(s) de force, bande electrique productive (%d foreuse(s) en marche, "
-          .. "%.2f ore/s contre %.2f ore/s thermique), repris au stock : %s", o.id, o.kind, removed, fl and fl.working or 0,
-          fl and fl.working * fl.el_rate or 0, fl and fl.pairs * fl.th_rate or 0, items_text(got)), true)
+          .. "%.2f ore/s contre %.2f ore/s thermique, %d paire(s) avec combustible), repris au stock : %s", o.id, o.kind, removed, fl and fl.working or 0,
+          fl and fl.working * fl.el_rate or 0, fl and (Th.supply(fl)) or 0, fl and fl.fueled or 0, items_text(got)), true)
       end
     end
   end
