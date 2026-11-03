@@ -434,6 +434,12 @@ function Champ.frame(f, surface, o)
     plan.stats.poles, plan.stats.belts, Cv.line(rep)) .. string.format(" ; gisement occupe (hors paires) : %s", #occ > 0 and table.concat(occ, ", ") or "rien")
     .. string.format(" ; fonderie %s, %d souterrain(s), %d repartiteur(s)%s", plan.design or "a coffres", plan.stats.undergrounds or 0,
       plan.stats.splitters or 0, #cs > 0 and (", " .. table.concat(cs, ", ")) or ""))
+  -- lot FONDERIE (3/11, 0.6.43) : colonnes refusées faute de voie de charbon (plus aucun coffre de tête à remplir)
+  for _, x in ipairs(plan.refused or {}) do
+    -- (hors du plafond des lignes [FO-CHAMP] de say : un refus se voit toujours)
+    log(string.format("[FO-CHAMP] %s : colonne refusee : pas de voie de charbon (avant-poste %d, bande %d, cote %s : %s) a %.1f min", f.key or "player",
+      o.id, x.pr, x.side > 0 and "+" or "-", tostring(x.why), game.tick / 3600))
+  end
   return plan.frame, prs, plan
 end
 
