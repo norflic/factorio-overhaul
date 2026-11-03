@@ -33,6 +33,18 @@ local function num(v) return type(v) == "number" and v or 0 end
 --- La règle est-elle allumée pour cette équipe ? flag = f.team.sorties_regle (nil : défaut, allumée).
 function Sm.on(flag) return flag ~= false end
 
+-- Lot CHARBON3 (A/B du lead, 3/11) : les TROIS parties de la règle, chacune avec son interrupteur par équipe (f.team.sorties_<partie>,
+-- nil : défaut de Sm.PARTS) : « main » = refus du minage à la main (Sm.hand_ok), « prio » = tournée urgente à Sm.FETCH_PRIO
+-- (Sm.fetch_prio), « porte » = combustible porté du coffre vers un avant-poste de combustible (Sm.carry_fuel).
+Sm.PARTS = { main = true, prio = true, porte = true }
+
+--- Partie `name` allumée ? all = f.team.sorties_regle (false coupe tout), flag = f.team.sorties_<name> (nil : défaut Sm.PARTS).
+function Sm.part(all, flag, name)
+  if all == false then return false end
+  if flag ~= nil then return flag and true or false end
+  return Sm.PARTS[name] == true
+end
+
 --- spec = { [type] = { resource, product, ... } } -> { [type] = ressource } des avant-postes dont le produit EST la ressource.
 function Sm.raw_kinds(spec)
   local out = {}
