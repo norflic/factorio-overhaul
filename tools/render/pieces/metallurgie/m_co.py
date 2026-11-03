@@ -11,6 +11,7 @@ import geo as G
 import outils as O
 
 TAU = G.TAU
+PALETTE = "four"            # commun.PALETTES ; « calcul » = palette des états clés du 3/11
 VAR = {
     "a": dict(ruche=False, cheminee=(1.18, 1.62, 0.24, 3.9), tour=True, quai=False, ouvert=2, gaz_est=False),
     "b": dict(ruche=False, cheminee=(-0.62, 1.72, 0.3, 4.5), tour=False, quai=True, ouvert=3, gaz_est=True),
@@ -191,7 +192,7 @@ def ruches(lot, M, rnd):
 
 
 def build(S, lot, v):
-    M = K.matieres(S)
+    M = K.matieres(S, PALETTE)
     v = VAR[v]
     rnd = G.Rnd(5503)
     lot.put(M["beton"], G.prisme([(-1.48, -2.08), (1.48, -2.08), (1.48, 2.08), (-1.48, 2.08)], 0.0, 0.025))

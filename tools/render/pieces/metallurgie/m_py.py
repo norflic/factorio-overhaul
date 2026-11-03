@@ -11,6 +11,7 @@ import geo as G
 import outils as O
 
 TAU = G.TAU
+PALETTE = "pylone"            # commun.PALETTES ; « calcul » = palette des états clés du 3/11
 D = K.D
 BASE = (0.72, 0.72 * D)       # demi-côtés au pied (x, y)
 VAR = {
@@ -140,7 +141,7 @@ def tete_chat(lot, M, taille, haut):
 
 
 def build(S, lot, v):
-    M = K.matieres(S)
+    M = K.matieres(S, PALETTE)
     v = VAR[v]
     fut(lot, M, v["taille"], v["haut"] if v["tete"] == "pic" else v["taille"])
     if v["tete"] == "pic":

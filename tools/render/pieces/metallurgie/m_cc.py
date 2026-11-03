@@ -13,6 +13,7 @@ import geo as G
 import outils as O
 
 TAU = G.TAU
+PALETTE = "minerai"            # commun.PALETTES ; « calcul » = palette des états clés du 3/11
 
 
 def socle(lot, M):
@@ -188,7 +189,7 @@ def spirales(lot, M, rnd):
 
 
 def build(S, lot, v):
-    M = K.matieres(S)
+    M = K.matieres(S, PALETTE)
     rnd = G.Rnd(8808)
     socle(lot, M)
     if v == "a":

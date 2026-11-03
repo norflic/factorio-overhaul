@@ -11,6 +11,7 @@ import geo as G
 import outils as O
 
 TAU = G.TAU
+PALETTE = "four"            # commun.PALETTES ; « calcul » = palette des états clés du 3/11
 SC = (0.15, 0.35)           # axe de la cuve
 VAR = {
     "a": dict(cowpers=[(-1.4, 2.2)], pot=True, skip=((1.62, -2.42), (0.3, -0.3)), poche=True, torpille=False, lit=False,
@@ -288,7 +289,7 @@ def coulee(lot, M, v, rnd):
 
 
 def build(S, lot, v):
-    M = K.matieres(S)
+    M = K.matieres(S, PALETTE)
     v = VAR[v]
     rnd = G.Rnd(4401)
     x, y = SC

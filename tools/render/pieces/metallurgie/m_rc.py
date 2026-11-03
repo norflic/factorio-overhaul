@@ -11,6 +11,7 @@ import geo as G
 import outils as O
 
 TAU = G.TAU
+PALETTE = "cuve"            # commun.PALETTES ; « calcul » = palette des états clés du 3/11
 YC = 0.25                  # axe longitudinal de la cuve
 XP, Y0, Y1, ZP = 1.8, -1.45, 1.95, 0.72
 VAR = {
@@ -178,7 +179,7 @@ def creuset(lot, M, x, y, cible):
 
 
 def build(S, lot, v):
-    M = K.matieres(S)
+    M = K.matieres(S, PALETTE)
     v = VAR[v]
     lot.put(M["beton"], G.prisme([(-1.97, -2.78), (1.97, -2.78), (1.97, 2.78), (-1.97, 2.78)], 0.0, 0.03))
     K.chevrons(lot, M, -1.9, 1.9, -2.7, 0.03)

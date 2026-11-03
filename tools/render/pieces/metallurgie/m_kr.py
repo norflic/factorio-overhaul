@@ -12,6 +12,7 @@ import geo as G
 import outils as O
 
 TAU = G.TAU
+PALETTE = "kroll"            # commun.PALETTES ; « calcul » = palette des états clés du 3/11
 D = K.D
 VAR = {
     "a": dict(puits=[(-0.2, 0.55, 1.05, "ferme")], grue="portique", eponge=(-1.3, -2.05), argon=(1.3, 2.15)),
@@ -187,7 +188,7 @@ def transfo(lot, M, x, y, cible):
 
 
 def build(S, lot, v):
-    M = K.matieres(S)
+    M = K.matieres(S, PALETTE)
     v = VAR[v]
     rnd = G.Rnd(7707)
     lot.put(M["beton"], G.prisme([(-1.97, -2.78), (1.97, -2.78), (1.97, 2.78), (-1.97, 2.78)], 0.0, 0.03))

@@ -13,26 +13,50 @@ D = 1.0 / math.cos(math.radians(45.0))
 TAU = G.TAU
 
 
-def matieres(S):
+# PALETTES par machine (note du lead, 3/11 23 h : rendus d'états clés trop gris, saturation 0,08 à 0,27 contre 0,20 à 0,59 en vanilla
+# HR, mesure.py). Couleurs de base (albédo linéaire) des matières de structure ; « calcul » = palette des états clés (référence).
+# Saturation visée en sRGB ≈ 1 − (min/max linéaire)^(1/2,2) : rapport 0,39 → 0,35 ; 0,59 → 0,21 ; 0,73 → 0,13.
+PALETTES = {
+    "calcul": {},
+    # âge 2, haut fourneau et four à coke : fer oxydé brun-rouge, brique vive, sol de halle ocre, coulures de rouille
+    "four": dict(acier=(0.19, 0.112, 0.068), acier2=(0.085, 0.05, 0.03), acier_clair=(0.33, 0.24, 0.16), fonte=(0.075, 0.05, 0.034),
+                 beton=(0.27, 0.2, 0.13), brique=(0.42, 0.125, 0.05), rouille=(0.26, 0.09, 0.028), nu=(0.62, 0.5, 0.4)),
+    # cuve d'électrolyse : acier peint gris-bleu (comme le four électrique vanilla), sol chaud
+    "cuve": dict(acier=(0.1, 0.128, 0.17), acier2=(0.045, 0.055, 0.075), acier_clair=(0.3, 0.29, 0.27), beton=(0.25, 0.21, 0.16),
+                 rouille=(0.2, 0.085, 0.03)),
+    # réacteur de Kroll : four chaud, acier brun-gris réchauffé, sol chaud
+    "kroll": dict(acier=(0.17, 0.125, 0.09), acier2=(0.07, 0.052, 0.038), acier_clair=(0.3, 0.26, 0.2), beton=(0.25, 0.2, 0.14),
+                  rouille=(0.22, 0.085, 0.03)),
+    # pylône : acier galvanisé patiné, traînées de rouille
+    "pylone": dict(acier_clair=(0.3, 0.265, 0.21), acier2=(0.11, 0.085, 0.06), beton=(0.26, 0.22, 0.17), rouille=(0.24, 0.09, 0.03)),
+    # concentrateur : cuves et bâtis peints ocre de chantier, sol de minerai
+    "minerai": dict(acier=(0.22, 0.14, 0.05), acier2=(0.08, 0.055, 0.03), beton=(0.24, 0.19, 0.13), rouille=(0.22, 0.08, 0.03)),
+}
+
+
+def matieres(S, palette="calcul"):
+    P = dict(acier=(0.15, 0.142, 0.132), acier2=(0.075, 0.07, 0.066), acier_clair=(0.27, 0.262, 0.25), fonte=(0.06, 0.055, 0.05),
+             beton=(0.24, 0.225, 0.2), brique=(0.34, 0.12, 0.062), rouille=(0.17, 0.075, 0.03), nu=(0.6, 0.58, 0.54))
+    P.update(PALETTES[palette])
     MT.PATINE.clear()
     MT.PATINE.update(ta=0.16, ra=0.26, ec=0.6, nu_k=1.4, ec_col=(0.026, 0.017, 0.008),
                      sans=("verre", "alu", "cuivre", "noir", "brique", "beton", "ecume", "eponge", "coke"))
     sf = MT.surface
     cr = (0.009, 0.007, 0.005)
     M = {}
-    M["acier"] = sf("m_acier", (0.15, 0.142, 0.132), rough=0.44, met=0.3, tole=(0.62, 0.41), joint=0.45, var=0.09, coulures=0.7,
-                    rouille=(0.17, 0.075, 0.03), usure=0.75, nu=(0.6, 0.58, 0.54), crasse=0.9, crasse_col=cr, pied=(0.0, 0.8, 0.5),
+    M["acier"] = sf("m_acier", P["acier"], rough=0.44, met=0.3, tole=(0.62, 0.41), joint=0.45, var=0.09, coulures=0.7,
+                    rouille=P["rouille"], usure=0.75, nu=P["nu"], crasse=0.9, crasse_col=cr, pied=(0.0, 0.8, 0.5),
                     grain=0.1, graine=11)
-    M["acier_lisse"] = sf("m_acier_lisse", (0.15, 0.142, 0.132), rough=0.34, met=0.35, coulures=0.55, rouille=(0.17, 0.075, 0.03),
+    M["acier_lisse"] = sf("m_acier_lisse", P["acier"], rough=0.34, met=0.35, coulures=0.55, rouille=P["rouille"],
                           usure=0.6, nu=(0.62, 0.6, 0.56), crasse=0.85, crasse_col=cr, grain=0.08, graine=12)
-    M["acier2"] = sf("m_acier2", (0.075, 0.07, 0.066), rough=0.5, met=0.35, tole=(0.33, 0.27), joint=0.5, var=0.1, coulures=0.7,
-                     rouille=(0.16, 0.07, 0.03), usure=0.8, nu=(0.5, 0.48, 0.45), crasse=0.9, crasse_col=cr, pied=(0.0, 0.7, 0.55),
+    M["acier2"] = sf("m_acier2", P["acier2"], rough=0.5, met=0.35, tole=(0.33, 0.27), joint=0.5, var=0.1, coulures=0.7,
+                     rouille=P["rouille"], usure=0.8, nu=(0.5, 0.48, 0.45), crasse=0.9, crasse_col=cr, pied=(0.0, 0.7, 0.55),
                      grain=0.11, graine=13)
-    M["acier_clair"] = sf("m_acier_clair", (0.27, 0.262, 0.25), rough=0.36, met=0.8, usure=0.45, nu=(0.7, 0.68, 0.64), crasse=0.65,
-                          crasse_col=cr, coulures=0.3, rouille=(0.17, 0.08, 0.035), graine=14)
-    M["fonte"] = sf("m_fonte", (0.06, 0.055, 0.05), rough=0.62, met=0.3, usure=0.8, nu=(0.42, 0.39, 0.35), crasse=0.8, crasse_col=cr,
+    M["acier_clair"] = sf("m_acier_clair", P["acier_clair"], rough=0.36, met=0.8, usure=0.45, nu=(0.7, 0.68, 0.64), crasse=0.65,
+                          crasse_col=cr, coulures=0.3 if palette == "calcul" else 0.6, rouille=P["rouille"], graine=14)
+    M["fonte"] = sf("m_fonte", P["fonte"], rough=0.62, met=0.3, usure=0.8, nu=(0.42, 0.39, 0.35), crasse=0.8, crasse_col=cr,
                     coulures=0.55, rouille=(0.14, 0.06, 0.022), grain=0.12, graine=15)
-    M["brique"] = sf("m_brique", (0.34, 0.12, 0.062), rough=0.9, met=0.0, tole=(0.2, 0.09), joint=0.3, joint_l=0.012, var=0.26,
+    M["brique"] = sf("m_brique", P["brique"], rough=0.9, met=0.0, tole=(0.2, 0.09), joint=0.3, joint_l=0.012, var=0.26,
                      coulures=0.5, rouille=(0.025, 0.02, 0.018), usure=0.55, nu=(0.32, 0.18, 0.12), crasse=0.85, crasse_col=cr,
                      pied=(0.1, 0.6, 0.6), relief=0.7, grain=0.16, graine=16)
     M["brique_j"] = sf("m_brique_j", (0.42, 0.33, 0.2), rough=0.9, met=0.0, tole=(0.22, 0.1), joint=0.35, joint_l=0.012, var=0.2,
@@ -40,7 +64,7 @@ def matieres(S):
                        pied=(0.1, 0.6, 0.55), relief=0.6, grain=0.15, graine=17)
     M["suie"] = sf("m_suie", (0.03, 0.028, 0.026), rough=0.85, met=0.0, usure=0.3, nu=(0.1, 0.09, 0.08), crasse=0.6, crasse_col=cr,
                    grain=0.2, graine=18)
-    M["beton"] = sf("m_beton", (0.24, 0.225, 0.2), rough=0.9, met=0.0, tole=(1.3, 0.55), joint=0.6, var=0.07, coulures=0.85,
+    M["beton"] = sf("m_beton", P["beton"], rough=0.9, met=0.0, tole=(1.3, 0.55), joint=0.6, var=0.07, coulures=0.85,
                     rouille=(0.07, 0.06, 0.045), usure=0.5, nu=(0.34, 0.32, 0.29), crasse=0.8, crasse_col=cr, pied=(0.0, 1.0, 0.55),
                     relief=0.3, grain=0.16, graine=19)
     M["rouille"] = sf("m_rouille", (0.17, 0.065, 0.024), rough=0.8, met=0.25, usure=0.45, nu=(0.34, 0.2, 0.12), crasse=0.8,
