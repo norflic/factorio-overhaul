@@ -3316,7 +3316,9 @@ local function revive_one(surface, f, p, e, inv, tick, self)
         if x.valid then bl[#bl + 1] = { own_turret = turret[x.type] == true and x.force.name == f.force } end
       end
       if Saut.skip(e.role, r, e.fails or 0, bl, Build.FAIL_LIMIT) then
-        e.built, e.skipped = true, "tourelle"
+        -- `dropped` : la revue de reconstruction (rebuild_sweep) ne la rouvre pas comme une pièce détruite (court-g-20261020 : rouverte et
+        -- resautée toutes les 5 à 6 min, la bande restait en chantier)
+        e.built, e.skipped, e.dropped = true, "tourelle", true
         st.skipped = (st.skipped or 0) + 1
         log(string.format("[FO-FONDERIE] %s : projet %d, foreuse de bande (%.1f, %.1f) sautee : emprise prise par une tourelle de l'equipe posee apres le plan (non deplacee)",
           f.key or "player", p.id, e.x, e.y))
