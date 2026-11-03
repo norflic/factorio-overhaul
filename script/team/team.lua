@@ -47,6 +47,7 @@ local Gisement = require("script.team.gisement") -- lot GISEMENTS : foreuses à 
 local FoSwap = require("script.team.foreuse_swap") -- lot FOREUSES : foreuse à combustion remplacée par l'électrique quand le courant arrive
 local Survie = require("script.team.survie") -- lot SURVIE-PENURIE : mode survie d'une équipe en pénurie (entrée, sortie, tâches, journal)
 local SurvieQg = require("script.team.survie_qg") -- lot S1 : QG en péril (défense armée contre la menace reçue, journal [FO-SURVIE])
+local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG (règle pure)
 local PileRt = require("script.team.pile") -- lot PILE-PRIORITE : la pile retient l'amélioration (réparer + protéger d'abord)
 local Flux = require("shared.team.flux") -- lot FLUX : sorties des avant-postes comptées comme objets attendus (règle pure)
 local REPAT_ONLY = Flux.plates_of(Flux.plate_map(T.OUTPOST_ORDER, T.outposts, T.smelter_inputs)) -- lot FLUX : seules les plaques comptent comme objets attendus
@@ -646,6 +647,22 @@ function Team.view(f, tick)
     -- sous les urgences), et non plus à 55 derrière les fabrications de l'armée (72 à 83).
     if effectif.reason == "recrue" then recruit_prio = Effectif.kit_prio(effectif.value) end
   end
+  -- Lot QGSURVIE (shared/team/survie_qg.lua) : votre équipe seulement. Règle 1 : réserve de fer du QG (lue par script/team/build.lua, un
+  -- module neuf ne prend rien au coffre dessous), recalculée quand la technologie change. Règle 2 : recrue retenue dans un QG sans
+  -- tourelle armée sous l'attaque (script/team/survie_qg.lua, journal [FO-QGSURVIE]).
+  if f.is_player and T.qg_reserve_on then
+    -- (relue tant que la recette de la tourelle n'est pas acquise : sans elle, le livre rend la tourelle comme matière première, 0 fer)
+    if f.team.qg_reserve == nil or f.team.qg_reserve_tech ~= f.tech or not f.team.qg_reserve_full then
+      local fe = T.outposts.iron.product
+      local book = book_for(f)
+      local rt, rm = book:raw_cost({ { T.turret, 1 } }), book:raw_cost({ { T.turret_ammo, 1 } })
+      f.team.qg_reserve = Sq.qg_reserve({ floor = T.defend_iron_floor, turret_iron = rt[fe], mag_iron = rm[fe] })
+      f.team.qg_reserve_tech, f.team.qg_reserve_full = f.tech, ((rt[fe] or 0) > 0) or nil
+    end
+  else
+    f.team.qg_reserve, f.team.qg_reserve_tech, f.team.qg_reserve_full = nil, nil, nil
+  end
+  if f.is_player and T.qg_recruit_hold_on and SurvieQg.recruit_hold(f, tick, hq_threat) then hold_recruits = true end
   Profiler.fstop("view:4-fin") -- lot PERF (fusion de l'intégrateur : la mesure fine couvre aussi la règle d'effectif)
   return {
     tech = f.tech, personality = f.personality, done = f.team.done, deferred = f.team.deferred,
@@ -912,7 +929,10 @@ function Team.think(f, surface, tick)
       for _, it in ipairs(pay) do Stock.insert(f, it[1], it[2]) end
     end
     stock = Board.view_stock(f, stock_of(f), tick)
-  elseif plan.recruit_unarmed and (f.engineers_count == 0 or (plan.emergency_unarmed and f.engineers_count < 2)) then
+  -- Lot QGSURVIE (règle 2) : pas de recrue sans arme non plus dans un QG sans tourelle armée sous l'attaque (f.team.s1.hold, écrit par
+  -- SurvieQg.recruit_hold à la vue) : celle de l'équipe vide y mourait toutes les 6 s (tour 1, 51,7 à 54,6 min).
+  elseif plan.recruit_unarmed and (f.engineers_count == 0 or (plan.emergency_unarmed and f.engineers_count < 2))
+    and not (f.is_player and T.qg_recruit_hold_on and f.team.s1 and f.team.s1.hold) then
     if Worker.recruit(f, surface, tick, true) then
       if f.stats then f.stats.unarmed_hires = (f.stats.unarmed_hires or 0) + 1 end
     end

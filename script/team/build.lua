@@ -58,6 +58,7 @@ local Liaison = require("script.team.liaison") -- lot INDUSTRIE I7 : un tapis du
 local Sweep = require("shared.team.rebuild_sweep") -- lot INTEG-RECONSTRUCTION : règles pures du relevé (refus répété d'un projet rouvert)
 local Outposts = require("script.faction.outposts") -- lot AUTO : crochet des tuiles réservées (Outposts.reserved)
 local Ilots = require("script.team.ilots") -- lot ILOTS-MURS : murs et tourelles des îlots isolés hors de l'enceinte
+local Sq = require("shared.team.survie_qg") -- lot QGSURVIE : réserve de fer du QG avant un module neuf (règle pure)
 local Ic = require("shared.team.ilots_croissance") -- lot C3 EXTENSION : le treillis grandit au-delà du mur, en îlots défendus (règles pures)
 local Cv = require("shared.team.champ_vapeur") -- lot ENERGIE : champ de machines à vapeur (tapis par relais, refus de l'alimentation)
 local Cc = require("shared.team.charbon_centrale") -- lot CHARBON-CENTRALE : coffre de la centrale en urgence, foreuses de la centrale (règles pures)
@@ -2922,6 +2923,24 @@ local function refresh_missing(f, p)
   p.missing = missing
 end
 
+--- Lot QGSURVIE (règle 1, shared/team/survie_qg.lua, Sq.module_held) : votre équipe ; le fer au coffre est-il sous la réserve du QG
+--- (f.team.qg_reserve, écrite par Team.view) ? Un module rouvert pour reconstruction n'arrive pas ici (pile_family, appelant). Une ligne
+--- [FO-QGSURVIE] à l'entrée et à la sortie de la retenue de chaque projet (`what` : « reserve » ou « ligne »). Rend vrai si retenu.
+local function qg_held(f, p, what, tick)
+  if not (T.qg_reserve_on and f.is_player and f.team and f.team.qg_reserve) then return false end
+  local iron = Stock.count(f, T.outposts.iron.product)
+  local held = Sq.module_held({ iron = iron, reserve = f.team.qg_reserve, rebuild = false })
+  local key = what == "ligne" and "qg_hold_ln" or "qg_hold"
+  if held ~= (p[key] == true) then
+    log(string.format("[FO-QGSURVIE] %s : projet %d (%s, %s) %s a %.1f min : fer au coffre %d, reserve du QG %d", f.key or "player", p.id,
+      tostring(p.spec and p.spec.pile), what, held and "RETENU (module neuf sous la reserve du QG)" or "libere", tick / 3600, iron,
+      f.team.qg_reserve))
+    f.team.qg_holds = (f.team.qg_holds or 0) + (held and 1 or 0)
+  end
+  p[key] = held or nil
+  return held
+end
+
 local function release(f, p)
   for _, it in ipairs(sorted_keys(p.stock)) do
     local n = p.stock[it]
@@ -2940,6 +2959,13 @@ end
 function Build.reserve_suspended(f, p, tick)
   local fam = pile_family(f, p)
   if not fam then return false end
+  -- Lot QGSURVIE (règle 1) : sous la réserve de fer du QG, un module neuf ne prend rien, même s'il produit une matière qui manque.
+  if qg_held(f, p, "reserve", tick) then
+    release(f, p)
+    p.missing = {}
+    p.reason, p.reserve_next = "qg", tick + 60
+    return true
+  end
   local ok, why = PileRt.porte(f, fam, p.spec.product)
   if ok then return false end
   release(f, p)
@@ -2957,6 +2983,11 @@ function Build.grow_suspended(f, p, ln, tick)
   -- (relecture : le produit, et le minerai de la ligne, au cadre ouvert ; une ligne FINIE d'une sauvegarde 0.6.21 n'a pas de
   -- spec.product, Build.tag ne marquant que les modules encore ouverts : sans le minerai, la ligne du fer des tourelles restait
   -- suspendue pendant tout un siège ; le minerai d'une plaque d'un cadre est dans focus, Pi.update produce)
+  -- Lot QGSURVIE (règle 1) : l'agrandissement est un investissement : retenu sous la réserve de fer du QG
+  if qg_held(f, p, "ligne", tick) then
+    ln.missing = nil
+    return true
+  end
   local items = {}
   if p.spec and p.spec.product ~= nil then items[#items + 1] = p.spec.product end
   if ln.ore ~= nil then items[#items + 1] = ln.ore end
