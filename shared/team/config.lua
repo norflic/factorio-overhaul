@@ -248,6 +248,9 @@ T.lethal_need = 50
 T.defend_hq = 4
 T.defend_iron_floor = 150
 T.defend_copper_floor = 30 -- 6 pistolets de recrues
+-- Lot QGGROUPE (shared/team/qg_groupe.lua) : votre équipe seulement (variante de diagnostic chute58, à ne jamais fusionner).
+T.qg_groupe_peril_on = false
+T.qg_groupe_pose_on = true
 -- Votre équipe sans tourelle possible : aucun site d'avant-poste au-delà de cette distance du coffre (tuiles ; D-18).
 -- 300 demandé (D-18) ; 400 retenu : à 300, sur la graine 1618033988 du guide, les sites restants (337 à 368 tuiles)
 -- étaient tous refusés, 2 avant-postes, fer à 35, équipe perdue à 35 min ; ceux de 314159265 (582 à 588) restent exclus.

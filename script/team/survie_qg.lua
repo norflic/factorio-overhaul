@@ -17,6 +17,7 @@ local Pv = require("shared.ai3.prevision")
 local State = require("script.faction.state")
 local Outposts = require("script.faction.outposts")
 local T = require("shared.team.config")
+local QgG = require("script.team.qg_groupe") -- lot QGGROUPE : appui au point le plus faible, regroupement des tourelles du QG
 require("script.team.qg_tourelle") -- lot QGSURVIE2 : journal [FO-QG-TOURELLE] de la mort des tourelles du QG (abonnement au bus, lecture seule)
 
 local SurvieQg = {}
@@ -39,7 +40,10 @@ function SurvieQg.update(f, tick)
   local s = state(f)
   local q = v.qg
   local threat = Sq.threat(v.waves, tick)
-  local r = Sq.peril({ threat = threat, armed_value = q.value, turret_value = q.turret_value, turrets = q.turrets, armed = q.armed,
+  QgG.think(f, tick) -- lot QGGROUPE : regroupement en calme (votre équipe, interrupteur T.qg_groupe_pose_on)
+  -- lot QGGROUPE : défense face à une vague = celle du point le plus faible (votre équipe, T.qg_groupe_peril_on) ; sinon la somme
+  local armed = QgG.facing(f, q.value) or q.value
+  local r = Sq.peril({ threat = threat, armed_value = armed, turret_value = q.turret_value, turrets = q.turrets, armed = q.armed,
     cap = Dc.HQ_CAP, was = s.was })
   r.tick, r.threat = tick, threat
   local who = tostring(f.key or "?")
@@ -57,8 +61,9 @@ function SurvieQg.update(f, tick)
     s.last_log = tick
   elseif (r.peril or threat > 0) and tick - s.last_log >= SurvieQg.LOG_EVERY then
     log(string.format("[FO-SURVIE] %s : QG recensement a %.1f min : %d tourelle(s) dont %d armee(s), %d chargeur(s), defense armee %d PV, " ..
-      "menace %d PV, %s",
-      who, min_of(tick), q.turrets, q.armed, q.ammo, math.floor(q.value), threat, r.peril and ("PERIL (" .. tostring(r.cause) .. ")") or "hors de peril"))
+      "menace %d PV, %s ; face a une vague %d PV (appui %d sur %d)",
+      who, min_of(tick), q.turrets, q.armed, q.ammo, math.floor(q.value), threat, r.peril and ("PERIL (" .. tostring(r.cause) .. ")") or "hors de peril",
+      math.floor(armed), f.team.qgg and f.team.qgg.weakest or -1, f.team.qgg and f.team.qgg.total or -1))
     s.last_log = tick
   end
   s.was = r.peril
