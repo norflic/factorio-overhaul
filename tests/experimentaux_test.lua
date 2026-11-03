@@ -301,7 +301,9 @@ local function no_require_in_function(src)
   return true
 end
 for _, p in ipairs({ "script/robots/experimentaux.lua", "script/robots/experimentaux_commun.lua", "script/robots/experimentaux_geants.lua" }) do
-  local src = read(p)
+  local f = io.open(p, "rb")
+  local src = f and f:read("*a") or ""
+  if f then f:close() end
   check(no_require_in_function(src), "§5 " .. p .. " : aucun require dans une fonction (F24)")
   check(not src:find("%f[%w]global%f[%W]%s*[%.%[]"), "§5 " .. p .. " : `global` jamais nommé")
   local pairs_ok = true
