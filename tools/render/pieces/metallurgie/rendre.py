@@ -76,7 +76,7 @@ def post(name, cache, out_root):
 
     hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
     grade = os.environ.get("FO_GRADE")
-    grade = [float(x) for x in grade.split(",")] if grade else piece.GRADE
+    grade = [float(x) for x in grade.split(",")] if grade else piece.GRADE.get(name.split("_")[0])
     if grade:
         hr["main"] = etalonne(hr["main"], grade)
     sh = npy("shadow")
@@ -84,6 +84,7 @@ def post(name, cache, out_root):
         hr["shadow"] = P.shadow_layer(sh)
     gl = npy("glow")
     if gl is not None:
+        gl[..., :3] *= piece.GAIN_LUEUR.get(name.split("_")[0], 1.0)
         hr["glow"] = P.additive_layer(gl)
     for layer, seuil in (("main", 8), ("shadow", 3), ("glow", 4)):
         if layer in hr:

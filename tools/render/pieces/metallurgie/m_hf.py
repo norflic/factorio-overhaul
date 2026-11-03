@@ -242,6 +242,10 @@ def coulee(lot, M, v, rnd):
     px, py = x + s * 1.3, -1.95
     K.rev(lot, M["fonte"], px, py, [(0.0, 0.18), (0.08, 0.24), (0.4, 0.3), (0.44, 0.31)], 20, cap=False)
     K.rev(lot, M["laitier"], px, py, [(0.42, 0.29), (0.43, 0.0)], 20)
+    rl = G.Rnd(4451)
+    for k in range(11):
+        a, d = rl.f(0.0, TAU), rl.f(0.06, 0.24)
+        lot.put(M["croute"], G.boite((px + d * math.cos(a), py + d * math.sin(a), 0.435), (rl.f(0.06, 0.12), rl.f(0.05, 0.1), 0.012), rl.f(0.0, 3.0)))
     for t in (0.0, math.pi):
         lot.put(M["fonte"], G.tour([(-0.03, 0.05), (0.03, 0.05)], 10, "x", (px + 0.33 * math.cos(t), py, 0.32), cap0=True, cap1=True))
     # machine à boucher (canon à argile) à l'ouest du trou de coulée, foreuse à l'est, sur le plancher

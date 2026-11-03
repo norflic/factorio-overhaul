@@ -26,7 +26,7 @@ RACCORDS = [((-0.5, 1.9 * D), (0, 1)), ((1.9, 0.5 * D), (1, 0)), ((0.5, -1.9 * D
 
 def puits(lot, M, x, y, R, etat):
     zt = 1.0
-    K.rev(lot, M["acier"], x, y, [(0.0, R + 0.04), (0.08, R), (zt, R)], 40)
+    K.rev(lot, M["acier"], x, y, [(0.0, R + 0.04), (0.08, R), (zt, R)], 40, cap=False)    # sans couvercle : le puits ouvert se voit
     for k in range(16):
         a = TAU * (k + 0.5) / 16
         lot.put(M["acier2"], G.boite((x + (R + 0.03) * math.cos(a), y + (R + 0.03) * math.sin(a), zt / 2), (0.05, 0.05, zt), a))
@@ -206,7 +206,7 @@ def build(S, lot, v):
         lot.put(M["acier2"], G.prisme([(x + (R + 0.3) * math.cos(TAU * k / 20), y + (R + 0.3) * math.sin(TAU * k / 20)) for k in range(20)], 0.03, 0.06))
         piqs += puits(lot, M, x, y, R, etat)
         if etat == "ouvert" and v["grue"] == "portique":
-            cornue_suspendue(lot, M, x + 1.0, y - 0.1, R, 1.25)
+            cornue_suspendue(lot, M, x + 1.42, y - 0.1, R, 1.25)
     # cuve et pompe doseuse de TiCl4 au nord-ouest, ligne depuis l'entrée nord
     tx, ty = -1.42, 2.25
     K.rev(lot, M["acier_clair"], tx, ty, [(0.03, 0.34), (1.1, 0.34)] + [(1.1 + 0.2 * math.sin(t), 0.34 * math.cos(t)) for t in [i / 8.0 * math.pi / 2 for i in range(1, 9)]], 28)
@@ -233,7 +233,7 @@ def build(S, lot, v):
     transfo(lot, M, 1.5, -1.0, (px + R + 0.25, py - 0.25))
     if v["grue"] == "portique":
         if any(e == "ouvert" for (_, _, _, e) in v["puits"]):
-            portique(lot, M, 0.8, 3.25)
+            portique(lot, M, 1.22, 3.25)
         else:
             portique(lot, M, -0.2, 2.25)
     else:

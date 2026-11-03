@@ -124,7 +124,7 @@ def matieres(S, palette="calcul"):
     M["brique_noire"] = sf("m_brique_noire", (0.085, 0.055, 0.04), rough=0.9, met=0.0, tole=(0.2, 0.09), joint=0.45, joint_l=0.012,
                            var=0.3, usure=0.5, nu=(0.24, 0.15, 0.1), crasse=0.9, crasse_col=(0.006, 0.005, 0.004), relief=0.7, grain=0.2,
                            graine=40)
-    M["treillis"] = sf("m_treillis", (0.075, 0.066, 0.052), rough=0.42, met=0.55, usure=0.55, nu=(0.42, 0.38, 0.32), crasse=0.6,
+    M["treillis"] = sf("m_treillis", (0.075, 0.066, 0.052), rough=0.62, met=0.3, usure=0.55, nu=(0.42, 0.38, 0.32), crasse=0.6,
                        crasse_col=cr, coulures=0.6, rouille=P["rouille"], grain=0.1, graine=41)
     M["refractaire"] = sf("m_refractaire", (0.24, 0.085, 0.04), rough=0.6, met=0.3, tole=(0.5, 0.3), joint=0.5, var=0.12, coulures=0.6,
                           rouille=(0.1, 0.04, 0.02), usure=0.7, nu=(0.5, 0.32, 0.22), crasse=0.85, crasse_col=cr, grain=0.12, graine=42)

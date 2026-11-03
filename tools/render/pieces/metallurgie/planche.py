@@ -62,14 +62,20 @@ def vanilla(m):
     return out, "%s %d×%d|en jeu : %s" % (piece.MACHINES[m][2], piece.MACHINES[m][1], piece.MACHINES[m][1], titre)
 
 
-def ligne(m, src, ppt, nuit, gap):
+def ligne(m, src, ppt, nuit, gap, retenue=None, avant=None):
+    """Une rangée : sprite en jeu, puis les variantes A, B, C ; ou, avec retenue, en jeu | état clé retenu (avant) | corrigé."""
     side = piece.MACHINES[m][1]
     haut = HAUT[m]
     Wt = side + 3.0
     cells = []
-    for c in ["van"] + list(piece.VARIANTES):
+    cols = ["van"] + (["avant", "corrige"] if retenue else list(piece.VARIANTES))
+    for c in cols:
         if c == "van":
             lay, t = vanilla(m)
+        elif c in ("avant", "corrige"):
+            n = "%s_%s" % (m, retenue)
+            lay = K.own(avant if c == "avant" else src, n, ("shadow", "main", "glow"))
+            t = ("état clé %s (avant)|16 échantillons" if c == "avant" else "%s corrigé|32 échantillons, étalonné") % retenue.upper()
         else:
             lay = K.own(src, "%s_%s" % (m, c), ("shadow", "main", "glow"))
             t = "variante %s|%s" % (c.upper(), piece.MACHINES[m][0])
@@ -91,16 +97,23 @@ def main():
     ap.add_argument("--zoom", type=int, default=2)
     ap.add_argument("--nuit", action="store_true")
     ap.add_argument("--machines", default="hf,co,rc,py,kr,cc")
+    ap.add_argument("--retenues", default="", help="ex. hf_b,co_b,... : colonnes en jeu | avant (--avant) | corrigé (--src)")
+    ap.add_argument("--avant", default="")
     a = ap.parse_args()
     ppt = 32 * a.zoom
     gap, lab = 6, 34
-    rows = [ligne(m, a.src, ppt, a.nuit, gap) for m in a.machines.split(",")]
+    if a.retenues:
+        ret = dict(x.split("_") for x in a.retenues.split(","))
+        rows = [ligne(m, a.src, ppt, a.nuit, gap, ret[m], a.avant) for m in a.machines.split(",") if m in ret]
+    else:
+        rows = [ligne(m, a.src, ppt, a.nuit, gap) for m in a.machines.split(",")]
     W = max(sum(im.width for im, _ in cells) + gap * (len(cells) + 1) for cells, _ in rows)
     H = 34 + sum(max(im.height for im, _ in cells) + lab + gap for cells, _ in rows)
     sheet = Image.new("RGB", (W, H), (22, 22, 26))
     dr = ImageDraw.Draw(sheet)
-    dr.text((10, 8), "DA-METALLURGIE : états clés (16 échantillons), zoom %d du jeu%s ; à gauche, le sprite remplacé tel qu'il est en jeu"
-            % (a.zoom, ", NUIT" if a.nuit else ", jour"), fill=(255, 205, 120), font=K.font(15))
+    dr.text((10, 8), "DA-METALLURGIE : %s, zoom %d du jeu%s ; à gauche, le sprite remplacé tel qu'il est en jeu"
+            % ("retenues corrigées" if a.retenues else "états clés (16 échantillons)", a.zoom, ", NUIT" if a.nuit else ", jour"),
+            fill=(255, 205, 120), font=K.font(15))
     y = 34
     for cells, side in rows:
         x = gap
