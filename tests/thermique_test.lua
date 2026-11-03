@@ -257,6 +257,12 @@ local function suite(Th, verbose)
     check(Th.covering("working") and Th.covering("waiting_for_space_in_destination"), "8f : en marche et sortie pleine couvrent")
     check(not Th.covering("no_power") and not Th.covering("no_minable_resources") and not Th.covering("waiting_for_source_items")
       and not Th.covering(nil), "8f : sans courant, sans minerai, sans entrée : ne couvre pas")
+    -- 8h. priorité 0 : seule une bande FINIE au plan couvre (l'amorce d'une bande en chantier fait déjà tourner des foreuses)
+    check(Th.band_covers("fini") == true, "8h : bande finie au plan : ses foreuses couvrent")
+    for _, st in ipairs({ "attente", "plan", "reserve", "defrichage", "fantomes", "chantier", "bloque", "refuse" }) do
+      check(Th.band_covers(st) == false, "8h : bande « " .. st .. " » : ses foreuses ne couvrent pas")
+    end
+    check(Th.band_covers(nil) == false, "8h : état inconnu : ne couvre pas")
     -- 8g. brûleurs à sec : n'extraient rien
     local th0 = Th.supply(fl(1, "a", 24, 12, { fueled = 0 }))
     check(th0 == 0, "8g : 24 paires à sec : extraction thermique nulle")
@@ -329,6 +335,8 @@ local mutants = {
   { "min_plates : plaques sans garde", "  return min_plates or 0\nend", "  return 0\nend" },
   { "covering : sortie pleine ignorée", "M.COVERING_STATUS = { \"working\", \"waiting_for_space_in_destination\" }", "M.COVERING_STATUS = { \"working\" }" },
   { "covering : tout couvre", "  for _, s in ipairs(M.COVERING_STATUS) do if s == status_name then return true end end\n  return false", "  return true" },
+  { "band_covers : toute bande couvre", "  return state == \"fini\"\nend", "  return true\nend" },
+  { "band_covers : bande en chantier couvre", "  return state == \"fini\"\nend", "  return state == \"fini\" or state == \"chantier\"\nend" },
   { "supply : brûleurs à sec comptés", "  local th = fl.fueled\n", "  local th = nil\n" },
 }
 

@@ -33,7 +33,7 @@
   M.order(cands)                        -> liste triée (voulus, puis les plus productifs)
   M.free_slot(res, busy, cfg)           -> vrai/faux, raison
   M.shares(fields, order)               -> part électrique par minerai (journal et critères)
-  Lot THERMIQUE5 : M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...),
+  Lot THERMIQUE5 : M.band_covers(état du projet), M.covering(état), M.pile_permits(action, retenue, porte), M.order_end(...), M.noop_counts(ids), M.stop_state(...),
   M.min_plates(brut, seuil) ; fl.fueled (paires avec combustible, facultatif) remplace fl.pairs dans M.supply.
   fl = { id, res, tier (0 : plaques, 1 : sans plaque), pairs (paires thermiques debout), th_rate (ore/s d'une foreuse thermique), working (foreuses électriques en marche),
          el_rate (ore/s d'une foreuse électrique), busy (une bande de ce gisement est en chantier), wanted, have }
@@ -89,6 +89,14 @@ M.COVERING_STATUS = { "working", "waiting_for_space_in_destination" }
 function M.covering(status_name)
   for _, s in ipairs(M.COVERING_STATUS) do if s == status_name then return true end end
   return false
+end
+
+--- Lot THERMIQUE5, PRIORITÉ 0 (revue-fonderie du 3/11, mesuré : INTEG-0643N, graine 271828182, Scarlet projet 6 : les 3 dernières paires
+--- balayées « 14 foreuses en marche » alors que la bande était EN CHANTIER, puis 20 fours sur 23 sans combustible et 14 foreuses figées à
+--- 57 min) : l'amorce d'une bande suffit à faire tourner ses premières foreuses. Les foreuses d'une bande ne comptent pour « couvert » que si
+--- son projet est FINI au plan directeur (`state` : état du projet, p.state). Rend vrai/faux.
+function M.band_covers(state)
+  return state == "fini"
 end
 
 --- Lot THERMIQUE5 (revue du 3/11, cause 1 : la retenue de la pile gelait TOUTE la migration du champ, balayage et dégel compris ; Azure et

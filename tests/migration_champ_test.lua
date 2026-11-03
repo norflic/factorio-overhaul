@@ -1595,6 +1595,19 @@ do
     check(E.alive() == 8, "T6 : 6 paires qui brûlent contre 2 électriques : pas couvert, rien ne part")
     E.restore()
 
+    -- T8 (lot THERMIQUE5, priorité 0 ; revue-fonderie, Scarlet INTEG-0643N) : bande EN CHANTIER dont l'amorce fait tourner 6 foreuses : les
+    -- paires restent ; la bande finie au plan, elles partent
+    for _, stp in ipairs({ "chantier", "fantomes", "reserve", "bloque" }) do
+      E = setup({})
+      for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = stp end
+      for _ = 1, 4 do E.sweep() end
+      check(E.alive() == 8, "T8 : bande « " .. stp .. " » (amorce en marche) : aucune paire retirée (" .. E.alive() .. " restent)")
+      for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "fini" end
+      E.sweep(); E.sweep()
+      check(E.alive() == 0, "T8 : la même bande finie au plan : les paires partent (" .. E.alive() .. " restent)")
+      E.restore()
+    end
+
     -- T7 (lot THERMIQUE5) : 6 électriques à SORTIE PLEINE couvrent (le minerai est déjà en trop)
     E = setup({ status = 3 })
     E.sweep(); E.sweep()
@@ -1619,6 +1632,7 @@ do
     { "crédit de la migration oublié", mut("o.migr_credit = (o.migr_credit or 0) + removed", "local _ = 0") },
     { "foreuse à l'arrêt comptée en marche", mut("if de and de.valid and covering(de.status) then n = n + 1 end", "if de and de.valid then n = n + 1 end") },
     -- lot THERMIQUE5
+    { "bande en chantier comptée (priorité 0)", mut("p.spec.champ.oid == oid and Th.band_covers(p.state) then", "p.spec.champ.oid == oid then") },
     { "sortie pleine ignorée", mut("if de and de.valid and covering(de.status) then n = n + 1 end", "if de and de.valid and de.status == 1 then n = n + 1 end") },
     { "brûleurs à sec comptés", mut("pairs = n, fueled = nf,", "pairs = n, fueled = n,") },
     { "chantier en cours ignoré (les deux gardes)", function(src)
