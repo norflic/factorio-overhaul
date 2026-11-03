@@ -2475,8 +2475,8 @@ local function plan_raccord(f, surface, p)
         if e.name:find("electric%-pole") and (P.wire(e.name) or 0) >= rc.reach - 1e-9 then
           -- second chemin : seuls les poteaux qui EXISTENT et hors de la zone des ennemis sont traversés sans en poser (un poteau perdu,
           -- ou tenu par un ennemi, ne relie rien)
-          local usable = true
-          if avoid then
+          local usable = P.relay_pole(q.state, e.built) -- lot COURANT3 : un poteau seulement prevu d'un chantier voisin ne relie rien
+          if usable and avoid then
             usable = e.built and not Cr.in_zone(e.x, e.y, avoid, ends, Cr.EXEMPT_R) and pole_at(e.x, e.y) ~= nil
           end
           if usable then known[#known + 1] = { x = e.x, y = e.y } end

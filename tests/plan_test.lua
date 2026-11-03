@@ -483,5 +483,32 @@ do
   check(P.pole_chain(a, b, 9, false, function() return false end, known) ~= nil, "chaîne : traverser les poteaux connus n'exige aucune tuile libre")
 end
 
+-- lot COURANT3 : relais d'une chaine de raccordement
+check(P.relay_pole("fini", true) == true and P.relay_pole("fini", false) == true, "relais : poteau d'un projet fini")
+check(P.relay_pole("chantier", true) == true and P.relay_pole("fantomes", true) == true and P.relay_pole("raccordement", true) == true, "relais : poteau bati d'un chantier")
+for _, st in ipairs({ "defrichage", "fantomes", "chantier", "raccordement" }) do
+  check(P.relay_pole(st, false) == false and P.relay_pole(st, nil) == false, "relais : poteau seulement prevu (" .. st .. ") ne relie rien")
+end
+do
+  local fh = io.open("script/team/build.lua", "r"); local src = fh:read("*a"); fh:close()
+  check(src:find("P.relay_pole(q.state, e.built)", 1, true) ~= nil, "relais : plan_raccord passe par P.relay_pole")
+  fh = io.open("shared/team/plan.lua", "r"); local psrc = fh:read("*a"); fh:close()
+  local muts = {
+    { "poteau prevu relie", "return state == \"fini\" or built == true", "return true" },
+    { "poteau bati d'un chantier ignore", "return state == \"fini\" or built == true", "return state == \"fini\"" },
+    { "poteau d'un projet fini ignore", "return state == \"fini\" or built == true", "return built == true" },
+  }
+  for _, m in ipairs(muts) do
+    local s2 = psrc:gsub(m[2]:gsub("%p", "%%%0"), (m[3]:gsub("%%", "%%%%")), 1)
+    local fn = assert(load(s2, "=plan-mutant", "t", setmetatable({}, { __index = _G })))
+    local ok, M = pcall(fn)
+    local seen = not ok -- un mutant qui ne se charge pas est refuse
+    if ok and type(M) == "table" and M.relay_pole then
+      seen = not (M.relay_pole("chantier", false) == false and M.relay_pole("chantier", true) == true and M.relay_pole("fini", false) == true)
+    end
+    check(s2 ~= psrc and seen, "mutant relais '" .. m[1] .. "' vu")
+  end
+end
+
 print(string.format("[IA1-D PLAN] BILAN : %d OK, %d ECHEC(S)", passes, failures))
 os.exit(failures == 0 and 0 or 1)
