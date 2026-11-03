@@ -336,7 +336,9 @@ end
 --- chaque côté : { ents, exit = { u, v, d }, drills } ou nil. coal : liste { {u, v} } ; is_coal(u, v) ; free(u, v) ; d = { size, reach } ;
 --- want : foreuses voulues ; target { u, v } : la sortie va vers elle. Choix : le plus de foreuses (au plus `want`), puis la ligne la
 --- plus courte et la plus proche de la cible, puis un seul côté.
-function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center)
+--- is_foreign(u, v) (lot MELANGE, facultatif) : tuile d'une AUTRE ressource minable ; aucune foreuse dont la zone en touche une (fer ou
+--- pierre sur la voie de charbon la bouchent).
+function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, center, is_foreign)
   if #coal == 0 or want < 1 or R < 1 then return nil end
   local s, r = d.size, d.reach
   local h = math.floor(s / 2)
@@ -378,6 +380,11 @@ function Co.coal_line(coal, is_coal, free, d, want, target, R, wire, per_side, c
           end
         end
         local n = 0
+        if ok and is_foreign then -- lot MELANGE
+          for x = a - r, a + s - 1 + r do
+            for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if ok and is_foreign(pu, pv) then ok = false end end
+          end
+        end
         if ok then
           for x = a - r, a + s - 1 + r do
             for y = 1 - r, s + r do local pu, pv = P(x, l + sg * y); if cc(pu, pv) then n = n + 1 end end
@@ -559,7 +566,8 @@ function Co.network(cols, side, env)
   local line, lscore
   local lfree = function(u, v) return env.free(u, v) and not env.forbid(u, v) end
   for _, c in ipairs(centers) do
-    local l = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c)
+    local l = Co.coal_line(coal.tiles, coal.is_coal, lfree, env.drill, want, target, env.pole.reach, env.pole.wire, env.lane_drills, c,
+      coal.is_foreign)
     if l then
       local sc = math.abs(l.exit.u - target.u) + math.abs(l.exit.v - target.v)
       if not line or l.drills > line.drills or (l.drills == line.drills and sc < lscore) then line, lscore = l, sc end

@@ -24,6 +24,7 @@ local State = require("script.faction.state")
 local Board = require("script.team.board")
 local Stock = require("script.team.stock")
 local Outposts = require("script.faction.outposts") -- crochet des tuiles reservees par le plan directeur (Outposts.reserved)
+local Melange = require("script.team.melange") -- lot MELANGE : zone de la future foreuse electrique (5 x 5) relue au moteur
 
 local Swap = {}
 
@@ -125,6 +126,21 @@ local function swap_one(f, surface, ref, cx, cy, tick)
   -- on le sait AVANT de retirer l'ancienne foreuse.
   if Outposts.reserved and Outposts.reserved(f, item, { x = cx, y = cy }, dir) then
     st.retry[ref.key] = tick + Swap.RETRY
+    return false
+  end
+  -- Lot MELANGE (retour du DC du 3/11) : la zone de l'electrique deborde de celle de la thermique ; si elle touche une autre ressource
+  -- minable, la foreuse en deverserait dans son four (charbon au combustible, puis foreuse figee) : pas de remplacement ici.
+  local sp = o.kind and T.outposts[o.kind]
+  local mv, ml = Melange.zone_at(surface, item, cx, cy, sp and sp.resource)
+  if mv ~= "ok" then
+    st.retry[ref.key] = tick + 6 * Swap.RETRY
+    st.mixed = (st.mixed or 0) + 1
+    if st.mixed <= Swap.LOGS then
+      local t = {}
+      for _, it in ipairs(ml) do t[#t + 1] = it[1] .. " " .. it[2] end
+      log(string.format("[FO-MELANGE] %s : foreuse a combustion en (%.1f, %.1f) gardee : l'electrique minerait aussi %s (avant-poste %d, %d cas)",
+        f.key or "player", pos.x, pos.y, table.concat(t, ", "), o.id, st.mixed))
+    end
     return false
   end
   if Stock.remove(f, item, 1) < 1 then return false end

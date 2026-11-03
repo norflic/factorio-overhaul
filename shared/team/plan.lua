@@ -473,6 +473,8 @@ end
 --- centre : la sortie regarde l'arrivée, sans tapis qui contourne la ligne ; axis = "x" | "y" (sens du gisement,
 --- shared/team/orient.lua) : un gabarit dont le port de sortie tapis court en travers de ce sens prend P.AXIS_PENALTY.
 --- Sans ces options, le score est celui d'avant.
+--- foreign (lot MELANGE, retour du DC du 3/11 : « les minerais de charbon prennent la place des minerais de fer sur les convoyeurs ») :
+--- { [tkey] = true } des tuiles d'une AUTRE ressource minable ; aucune position dont une zone de foreuse en touche une.
 function P.fit(g, rect, opts)
   opts = opts or {}
   local margin = opts.margin or 1
@@ -503,7 +505,7 @@ function P.fit(g, rect, opts)
       local res = opts.ore and M.resource_tiles(r) or nil
       -- tuiles minées en rectangle plein (lignes de foreuses) : couverture par sommes cumulées du minerai, en O(1) par
       -- position (27/10 : 8,9 ms par lot essayé sans cela) ; sinon, décompte tuile par tuile
-      local rect_res, ore_sat, ox0, oy0, ow
+      local rect_res, ore_sat, ox0, oy0, ow, frn_sat
       if res and #res > 0 then
         local rx0, ry0, rx1, ry1 = math.huge, math.huge, -math.huge, -math.huge
         for _, t in ipairs(res) do
@@ -524,6 +526,19 @@ function P.fit(g, rect, opts)
             for x = 1, ow do
               if opts.ore[tkey(ox0 + x - 1, oy0 + y - 1)] then row = row + 1 end
               ore_sat[y * (ow + 1) + x] = ore_sat[(y - 1) * (ow + 1) + x] + row
+            end
+          end
+          if opts.foreign then -- lot MELANGE : même somme cumulée pour les tuiles étrangères
+            frn_sat = {}
+            for x = 0, ow do frn_sat[x] = 0 end
+            for y = 1, oy1 - oy0 + 1 do
+              frn_sat[y * (ow + 1)] = 0
+              local row = 0
+              for x = 1, ow do
+                local k = tkey(ox0 + x - 1, oy0 + y - 1)
+                if opts.foreign[k] and not opts.ore[k] then row = row + 1 end
+                frn_sat[y * (ow + 1) + x] = frn_sat[(y - 1) * (ow + 1) + x] + row
+              end
             end
           end
         end
@@ -613,6 +628,20 @@ function P.fit(g, rect, opts)
             end
             cover = #res > 0 and hit / #res or 0
             if cover < (opts.cover_min or P.DRILL_COVER) - 1e-9 then ok = false end
+          end
+          if ok and res and opts.foreign then -- lot MELANGE : une zone de foreuse qui touche une autre ressource minable est refusée
+            local bad = 0
+            if rect_res and frn_sat then
+              local ax, ay = ox + rect_res[1] - ox0, oy + rect_res[2] - oy0
+              local a0, a1 = ay * (ow + 1), (ay + rect_res[4]) * (ow + 1)
+              bad = frn_sat[a1 + ax + rect_res[3]] - frn_sat[a0 + ax + rect_res[3]] - frn_sat[a1 + ax] + frn_sat[a0 + ax]
+            else
+              for _, t in ipairs(res) do
+                local k = tkey(ox + t[1], oy + t[2])
+                if not t.well and opts.foreign[k] and not opts.ore[k] then bad = bad + 1 end
+              end
+            end
+            if bad > 0 then ok = false end
           end
           if ok then
             local cx, cy = ox + r.w / 2, oy + r.h / 2

@@ -12,6 +12,8 @@
     drops                   foreuses dont la sortie ne tombe pas sur un tapis de leur groupe
     arms                    bras qui ne prennent pas ou ne posent pas où il faut (tapis -> four, four -> coffre, coffre -> four)
     starved                 groupes dont la fonderie (ou les coffres) absorbe moins que les foreuses, ou dont une voie déborde
+    melange                 foreuses dont la zone touche une tuile d'une AUTRE ressource minable (lot MELANGE ; foreuses du champ :
+                            spec.foreign ; foreuses de la ligne de charbon : spec.coal.foreign)
     ok                      aucun des défauts ci-dessus
 ]]
 
@@ -220,7 +222,7 @@ end
 local function find(parent) return function(i) while parent[i] ~= i do i = parent[i] end; return i end end
 
 function Cv.verify(plan, spec)
-  local rep = { overlaps = 0, blocked = 0, unpowered = 0, components = 0, traverse = 0, inside = 0, drops = 0, arms = 0, starved = 0 }
+  local rep = { overlaps = 0, blocked = 0, unpowered = 0, components = 0, traverse = 0, inside = 0, drops = 0, arms = 0, starved = 0, melange = 0 }
   local at = {}        -- clé de tuile -> entité
   local R, wire = spec.pole.reach, spec.pole.wire
   local d = spec.drill
@@ -239,15 +241,29 @@ function Cv.verify(plan, spec)
     if not ore[k] then ore[k] = true; n = n + 1 end
   end
   local cov, cn = {}, 0
+  local foreign = spec.foreign or {}
+  -- (lot MELANGE) ligne de charbon du lot FONDERIE : son minerai est le charbon, ses tuiles étrangères sont spec.coal.foreign
+  local cfor, cset = spec.coal and spec.coal.foreign or {}, {}
+  if spec.coal and spec.coal.tiles then
+    for i = 1, #spec.coal.tiles - 1, 2 do cset[Ch.key(spec.coal.tiles[i], spec.coal.tiles[i + 1])] = true end
+  end
   for _, e in ipairs(plan.ents) do
     if e.kind == "foreuse" then
       local x0, y0 = origin(e)
+      local coal_drill = e.role == "charbon"
+      local mixed = false
       for x = x0 - d.reach, x0 + e.size - 1 + d.reach do
         for y = y0 - d.reach, y0 + e.size - 1 + d.reach do
           local k = Ch.key(x, y)
-          if ore[k] and not cov[k] then cov[k] = true; cn = cn + 1 end
+          if coal_drill then
+            if cfor[k] and not cset[k] then mixed = true end
+          else
+            if ore[k] and not cov[k] then cov[k] = true; cn = cn + 1 end
+            if foreign[k] and not ore[k] then mixed = true end
+          end
         end
       end
+      if mixed then rep.melange = rep.melange + 1 end
     end
   end
   rep.tiles, rep.covered, rep.elec = n, cn, n > 0 and cn / n or 0
@@ -389,14 +405,15 @@ function Cv.verify(plan, spec)
   rep.no_ore, rep.no_coal, rep.no_plate, rep.mixed, rep.junction = fl.no_ore, fl.no_coal, fl.no_plate, fl.mixed, fl.junction
   rep.ok = rep.overlaps == 0 and rep.blocked == 0 and rep.unpowered == 0 and rep.components <= 1 and rep.traverse == 0
     and rep.inside == 0 and rep.drops == 0 and rep.arms == 0 and rep.starved == 0
-    and fl.no_ore == 0 and fl.no_coal == 0 and fl.no_plate == 0 and fl.mixed == 0 and fl.junction == 0
+    and fl.no_ore == 0 and fl.no_coal == 0 and fl.no_plate == 0 and fl.mixed == 0 and fl.junction == 0 and rep.melange == 0
   return rep
 end
 
 function Cv.line(rep)
-  return string.format("couverture %d/%d (%d%%), chevauchements %d, obstacles %d, sans courant %d, reseaux %d, tapis hors bande %d, tapis finis dans le champ %d, sorties ratees %d, bras faux %d, debits courts %d, fours sans minerai %d, sans charbon %d, quais sans plaque %d, voies melees %d, raccords faux %d",
+  return string.format("couverture %d/%d (%d%%), chevauchements %d, obstacles %d, sans courant %d, reseaux %d, tapis hors bande %d, tapis finis dans le champ %d, sorties ratees %d, bras faux %d, debits courts %d, fours sans minerai %d, sans charbon %d, quais sans plaque %d, voies melees %d, raccords faux %d, zones melangees %d",
     rep.covered, rep.tiles, math.floor(100 * rep.elec + 0.5), rep.overlaps, rep.blocked, rep.unpowered, rep.components, rep.traverse,
-    rep.inside, rep.drops, rep.arms, rep.starved, rep.no_ore or 0, rep.no_coal or 0, rep.no_plate or 0, rep.mixed or 0, rep.junction or 0)
+    rep.inside, rep.drops, rep.arms, rep.starved, rep.no_ore or 0, rep.no_coal or 0, rep.no_plate or 0, rep.mixed or 0, rep.junction or 0,
+    rep.melange or 0)
 end
 
 return Cv
