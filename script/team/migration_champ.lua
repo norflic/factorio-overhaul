@@ -458,7 +458,7 @@ end
 --- Foreuses électriques EN MARCHE des bandes du champ `oid` (posées) (une bande qui ne mine pas ne couvre rien : sortie bouchée, courant coupé).
 local function working_of(f, surface, oid)
   local b = f.build
-  local n = 0
+  local n, nfini = 0, 0
   for _, pid in ipairs(b.order or {}) do
     local p = b.projects[pid]
     -- (lot THERMIQUE5, priorité 0 : seule une bande FINIE au plan couvre, Th.band_covers ; avant, toute bande comptait ses foreuses posées et en
@@ -466,6 +466,7 @@ local function working_of(f, surface, oid)
     -- (lot THERMIQUE6, essai 3 : une bande bloquée dont les fours ont produit couvre aussi ; la sortie pleine ne compte que si elle produit)
     local made, live = 0, false
     if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and (p.state == "fini" or p.state == "bloque") then made, live = made_by(f, surface, p) end
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state, false) then nfini = nfini + 1 end -- (règle B : bande FINIE)
     if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state, made >= CFG.produce_min) then
       for _, e in ipairs(p.ents or {}) do
         if e.built and e.role == "champ-foreuse" then
@@ -475,7 +476,7 @@ local function working_of(f, surface, oid)
       end
     end
   end
-  return n
+  return n, nfini
 end
 
 --- Combustible (ore/s) que brûlent les générateurs de la force à cet instant : plancher du minerai CRITIQUE (le charbon de la centrale).
@@ -519,7 +520,9 @@ local function build_fields(f, surface, ms, free)
           end
         end
         -- (lot THERMIQUE5 : fueled = paires avec combustible, l'extraction thermique de Th.supply ; pairs = paires à retirer)
-        local fl = { id = o.id, res = o.kind, pairs = n, fueled = nf, th_rate = th, el_rate = el, working = framed and working_of(f, surface, o.id) or 0,
+        local w, nfini = 0, 0
+        if framed then w, nfini = working_of(f, surface, o.id) end
+        local fl = { id = o.id, res = o.kind, pairs = n, fueled = nf, th_rate = th, el_rate = el, working = w, fini = nfini,
           busy = (st and st.stage == "projet") and true or false, wanted = (st and (st.want_until or 0) > game.tick) and true or false,
           have = free[T.outposts[o.kind].product] or 0, framed = framed }
         fields[#fields + 1] = fl
@@ -1065,6 +1068,41 @@ local function sweep(f, surface, ms, free, book, tick)
       end
     end
   end
+  -- Lot THERMIQUE6, règle B (GO du lead, 3/11 ; le DC : « 35 foreuses thermiques qui ne sont plus alimentées ») : un brûleur À SEC depuis
+  -- Th.CFG.dry_wait sur un gisement dont une bande est FINIE est retiré seul (Th.dry_retire), sans exiger « couvert » ; jamais pendant qu'une
+  -- bande du champ attend son dégel (« projet »), jamais le charbon de la centrale sous son plancher (Th.cut_ok sans perte). Date par
+  -- foreuse ms.dry[numéro], refaite à chaque passage avec les seules foreuses vues (ménage sans `pairs`).
+  local dry = {}
+  for _, fl in ipairs(fields) do
+    local o = Champ.target(f, fl.id)
+    local st = ms.o[fl.id]
+    if o and st and st.stage ~= "projet" and (fl.fini or 0) > 0 and (fl.pairs or 0) > (fl.fueled or 0) then
+      local prot = not ctx.critical[fl.res] or (Th.cut_ok(fl, fields, 0, ctx))
+      local list, ents, owners = sweep_list(f, o)
+      local ids = {}
+      for _, pr in ipairs(list) do
+        local d = ents[pr.id]
+        if d and d.valid and not has_fuel(d) then
+          dry[pr.id] = (ms.dry and ms.dry[pr.id]) or tick
+          if Th.dry_retire(dry[pr.id], tick, true, prot) then ids[#ids + 1] = pr.id end
+        end
+      end
+      if #ids > 0 then
+        table.sort(ids)
+        local before = {}
+        for i, q in ipairs(owners) do before[i] = q.drills or 0 end
+        local removed, got = retire(f, surface, o, { ids = ids, frame = true }, list, ents)
+        for i, q in ipairs(owners) do q.drills = before[i]; purge_recon(f, q) end
+        ms.retired = (ms.retired or 0) + removed
+        ms.dry_retired = (ms.dry_retired or 0) + removed
+        swept = swept + removed
+        log(string.format("[FO-THERMIQUE] %s : brûleur(s) à sec retiré(s) : %d sur le gisement de l'avant-poste %d (%s), à sec depuis %d min au moins, "
+          .. "%d bande(s) finie(s), %d paire(s) restent ; repris au stock : %s", name_of(f), removed, o.id, o.kind, Th.CFG.dry_wait / 3600, fl.fini,
+          math.max(0, fl.pairs - removed), items_text(got)))
+      end
+    end
+  end
+  ms.dry = dry
   if tick >= (ms.th_report_next or 0) then
     ms.th_report_next = tick + REPORT_EVERY
     ms.th_logs = (ms.th_logs or 0) + 1

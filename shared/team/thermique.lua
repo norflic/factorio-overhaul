@@ -57,6 +57,7 @@ M.CFG = {
   every = 600,            -- ticks entre deux balayages (une pensée d'équipe de la migration)
   raw_stock_max = 3000,   -- lot THERMIQUE2 (essai 3, décision du lead) : stock libre d'un minerai BRUT au-delà duquel plus aucun brûleur n'est posé
   cover_by_output = true, -- lot THERMIQUE6 (essai 3) : couverture lue à la production de la bande (bloquée qui a produit, sortie pleine si elle produit)
+  dry_wait = 10 * 3600,   -- lot THERMIQUE6, règle B : ticks à sec avant qu'un brûleur d'un gisement à bande finie soit retiré seul
 }
 
 local EPS = 1e-9
@@ -102,6 +103,16 @@ function M.band_covers(state, made_ok, cfg)
   -- lot THERMIQUE6 (essai 3, GO du lead 3/11) : une bande BLOQUÉE (fantôme refusé) laissée au plan n'est jamais « fini » ; elle couvre si ses
   -- fours ont produit (`made_ok` : made_by >= produce_min ; p0-lot 271828182 : Émeraude AP4 12 brûleurs et Azure cuivre 11 gardés sinon)
   return cfg.cover_by_output == true and state == "bloque" and made_ok == true
+end
+
+--- Lot THERMIQUE6, règle B (GO du lead, 3/11 ; plainte du DC : « 35 foreuses thermiques qui ne sont plus alimentées ») : un brûleur À SEC
+--- depuis `since` (tick de la première vue à sec, nil s'il a du combustible) est-il retiré seul, sans exiger que le gisement soit couvert ?
+--- Oui si la date est connue, si `now - since >= cfg.dry_wait`, si une bande du même gisement est FINIE (`band_done`) et si la protection ne
+--- refuse pas (`protect_ok` : faux pour le charbon de la centrale sous son plancher ou sans autre source, M.cut_ok sans perte). Rend vrai/faux.
+function M.dry_retire(since, now, band_done, protect_ok, cfg)
+  cfg = cfg_of(cfg)
+  if since == nil or band_done ~= true or protect_ok == false then return false end
+  return now - since >= cfg.dry_wait
 end
 
 --- Lot THERMIQUE6 (essai 3) : une foreuse électrique d'une bande qui couvre compte-t-elle ? `status_name` : état moteur (Th.COVERING_STATUS) ;

@@ -275,6 +275,14 @@ local function suite(Th, verbose)
     check(Th.drill_counts("waiting_for_space_in_destination", false) == false, "8i : sortie pleine, fonderie à l'arrêt : ne compte pas")
     check(Th.drill_counts("no_power", true) == false and Th.drill_counts(nil, true) == false, "8i : sans courant, état inconnu : ne compte pas")
     check(Th.drill_counts("waiting_for_space_in_destination", false, OFF) == true, "8i : éteint : sortie pleine compte (règle de THERMIQUE5)")
+    -- 8j. lot THERMIQUE6, règle B : brûleur à sec retiré seul après dry_wait, bande finie, protection tenue
+    local W = C.dry_wait
+    check(Th.dry_retire(100, 100 + W, true, true) == true, "8j : à sec depuis dry_wait, bande finie : retiré")
+    check(Th.dry_retire(100, 100 + W - 1, true, true) == false, "8j : à sec depuis moins de dry_wait : gardé")
+    check(Th.dry_retire(100, 100 + W, false, true) == false, "8j : aucune bande finie : gardé")
+    check(Th.dry_retire(100, 100 + W, true, false) == false, "8j : charbon de la centrale sous son plancher : gardé")
+    check(Th.dry_retire(nil, 1e9, true, true) == false, "8j : avec du combustible (pas de date) : gardé")
+    check(Th.dry_retire(0, 30, true, nil, { dry_wait = 30 }) == true, "8j : la durée se lit du réglage, protection absente : retiré")
     -- 8g. brûleurs à sec : n'extraient rien
     local th0 = Th.supply(fl(1, "a", 24, 12, { fueled = 0 }))
     check(th0 == 0, "8g : 24 paires à sec : extraction thermique nulle")
@@ -355,6 +363,9 @@ local mutants = {
   { "drill_counts : sortie pleine toujours", "  return live == true\nend", "  return true\nend" },
   { "drill_counts : sortie pleine jamais", "  return live == true\nend", "  return false\nend" },
   { "drill_counts : interrupteur ignoré", "if cfg.cover_by_output ~= true or status_name == \"working\" then return true end", "if status_name == \"working\" then return true end" },
+  { "dry_retire : durée ignorée", "  return now - since >= cfg.dry_wait\nend", "  return true\nend" },
+  { "dry_retire : bande finie ignorée", "if since == nil or band_done ~= true or protect_ok == false then return false end", "if since == nil or protect_ok == false then return false end" },
+  { "dry_retire : protection ignorée", "if since == nil or band_done ~= true or protect_ok == false then return false end", "if since == nil or band_done ~= true then return false end" },
   { "supply : brûleurs à sec comptés", "  local th = fl.fueled\n", "  local th = nil\n" },
 }
 

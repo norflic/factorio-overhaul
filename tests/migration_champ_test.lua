@@ -1633,6 +1633,45 @@ do
     check(E.alive() == 8, "T7 : sortie pleine, fours à l'arrêt (sans combustible) : pas couvert, les paires restent (" .. E.alive() .. " restent)")
     E.restore()
 
+    -- T10 (lot THERMIQUE6, règle B) : 1 électrique (sous min_working : pas couvert), 3 brûleurs À SEC sur 8, bande finie : les 3 partent seuls
+    -- après dry_wait (relevés d'une minute), pas avant ; les 5 qui brûlent restent
+    E = setup({ working = 1 })
+    for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
+    local nmin = math.floor(require("shared.team.thermique").CFG.dry_wait / 3600)
+    for _ = 1, nmin do E.sweep() end
+    check(E.alive() == 8, "T10 : à sec depuis moins de dry_wait : rien n'est retiré (" .. E.alive() .. ")")
+    E.sweep(); E.sweep()
+    check(E.alive() == 5, "T10 : à sec depuis dry_wait, bande finie : les 3 brûleurs à sec partent, 5 restent (" .. E.alive() .. ")")
+    check(said(E, "à sec retiré(s)"), "T10 : journal [FO-THERMIQUE] brûleur(s) à sec retiré(s)")
+    E.restore()
+    -- T10b : un brûleur réalimenté reprend sa date à zéro
+    E = setup({ working = 1 })
+    E.o.drill_list[1].fuel_n = 0
+    for _ = 1, nmin - 2 do E.sweep() end
+    E.o.drill_list[1].fuel_n = 5; E.sweep()
+    E.o.drill_list[1].fuel_n = 0
+    for _ = 1, nmin - 2 do E.sweep() end
+    check(E.alive() == 8, "T10b : réalimenté puis de nouveau à sec : date reprise à zéro, gardé (" .. E.alive() .. ")")
+    E.restore()
+    -- T10c : bande en chantier (pas finie) : rien ne part, même après longtemps
+    E = setup({ working = 1 })
+    for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "chantier" end
+    for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
+    for _ = 1, nmin + 4 do E.sweep() end
+    check(E.alive() == 8, "T10c : aucune bande finie : les brûleurs à sec restent (" .. E.alive() .. ")")
+    E.restore()
+    -- T10d : charbon de la centrale (minerai critique) sous son plancher : gardé
+    local saved_fuel2 = T.fuel
+    E = setup({ working = 1 })
+    T.fuel = T.outposts.iron.resource
+    game.item_prototypes = { [T.fuel] = { fuel_value = 1e6 } }
+    E.gens = { { valid = true, energy_generated_last_tick = 10 * 1e6 / 60 } }
+    for k, d in ipairs(E.o.drill_list) do if k <= 3 then d.fuel_n = 0 end end
+    for _ = 1, nmin + 4 do E.sweep() end
+    check(E.alive() == 8, "T10d : minerai de la centrale sous son plancher : les brûleurs à sec restent (" .. E.alive() .. ")")
+    T.fuel = saved_fuel2
+    E.restore()
+
     -- T9 (lot THERMIQUE6, essai 3) : bande BLOQUÉE laissée au plan dont les fours ont produit : elle couvre ; sans produit, non
     E = setup({ furnaces = { n = 4, products = 30 } })
     for _, pid in ipairs(E.f.build.order) do E.f.build.projects[pid].state = "bloque" end
@@ -1664,6 +1703,9 @@ do
     { "foreuse à l'arrêt comptée en marche", mut("if de and de.valid and Th.drill_counts(status_name(de.status), live) then n = n + 1 end", "if de and de.valid then n = n + 1 end") },
     -- lot THERMIQUE5
     { "bande en chantier comptée (priorité 0)", mut("p.spec.champ.oid == oid and Th.band_covers(p.state, made >= CFG.produce_min) then", "p.spec.champ.oid == oid then") },
+    { "règle B : bande finie non exigée", mut("(fl.fini or 0) > 0 and (fl.pairs or 0) > (fl.fueled or 0)", "(fl.pairs or 0) > (fl.fueled or 0)") },
+    { "règle B : date jamais remise à zéro", mut("  ms.dry = dry\n", "  for _, k in ipairs(State.sorted_keys(ms.dry or {})) do dry[k] = dry[k] or ms.dry[k] end\n  ms.dry = dry\n") },
+    { "règle B : protection de la centrale ignorée", mut("local prot = not ctx.critical[fl.res] or (Th.cut_ok(fl, fields, 0, ctx))", "local prot = true") },
     { "bloquée sans produit comptée (THERMIQUE6)", mut("Th.band_covers(p.state, made >= CFG.produce_min)", "Th.band_covers(p.state, true)") },
     { "sortie pleine sans production comptée (THERMIQUE6)", mut("Th.drill_counts(status_name(de.status), live)", "Th.drill_counts(status_name(de.status), true)") },
     { "four en marche ignoré (THERMIQUE6)", mut("if fe.status == defines.entity_status.working then live = true end", "") },
