@@ -456,7 +456,9 @@ local function working_of(f, surface, oid)
   local n = 0
   for _, pid in ipairs(b.order or {}) do
     local p = b.projects[pid]
-    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid then -- (toute bande : les foreuses POSEES et en marche comptent, comme au relevé [FO-REGARD] G)
+    -- (lot THERMIQUE5, priorité 0 : seule une bande FINIE au plan couvre, Th.band_covers ; avant, toute bande comptait ses foreuses posées et en
+    -- marche, et l'amorce d'une bande en chantier faisait balayer les dernières paires : Scarlet, INTEG-0643N)
+    if p and p.spec and p.spec.champ and p.spec.champ.oid == oid and Th.band_covers(p.state) then
       for _, e in ipairs(p.ents or {}) do
         if e.built and e.role == "champ-foreuse" then
           local de = surface.find_entity(e.name, { e.x, e.y })
@@ -1051,8 +1053,8 @@ local function sweep(f, surface, ms, free, book, tick)
         ms.swept = (ms.swept or 0) + removed
         swept = swept + removed
         say(f, ms, string.format("gisement de l'avant-poste %d (%s) : %d paire(s) thermique(s) retiree(s) de force, bande electrique productive (%d foreuse(s) en marche, "
-          .. "%.2f ore/s contre %.2f ore/s thermique), repris au stock : %s", o.id, o.kind, removed, fl and fl.working or 0,
-          fl and fl.working * fl.el_rate or 0, fl and fl.pairs * fl.th_rate or 0, items_text(got)), true)
+          .. "%.2f ore/s contre %.2f ore/s thermique, %d paire(s) avec combustible), repris au stock : %s", o.id, o.kind, removed, fl and fl.working or 0,
+          fl and fl.working * fl.el_rate or 0, fl and (Th.supply(fl)) or 0, fl and fl.fueled or 0, items_text(got)), true)
       end
     end
   end
