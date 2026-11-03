@@ -1,4 +1,13 @@
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+Version: 0.6.46
+Date: 2026-11-03
+  Changes:
+    - Foreuses thermiques : une bande de champ est jugee a ce qu'elle produit (fours qui ont fabrique et au moins un four en marche), plus seulement a son etat au plan ; un bruleur a sec depuis 10 min est retire si une bande du meme minerai produit ; la couverture de fond ne s'appuie plus sur des bandes qui n'ont jamais produit (mesure sur une graine, a lire dans RAPPORT THERMIQUE5).
+    - Equipe du joueur : les recrues sans arme d'une equipe vide sont retenues tant que le QG n'a aucune tourelle chargee et que des ennemis sont pres du coffre (elles naissaient et mouraient une dizaine par minute).
+    - Journal [FO-QG-TOURELLE] : cause, cote, chargeurs et tourelles a portee a la mort d'une tourelle du QG (lecture seule, pour comprendre pourquoi un QG tombe avec ses tourelles chargees).
+    - Limites connues : sur la graine 1618033988 le QG de l'equipe du joueur tombe vers 47 min dans 4 parties sur 5 (vague de 1 100 a 2 900 PV contre 5 a 7 tourelles chargees) ; la fonderie a tapis immobilise ~1 500 plaques de fer entre 14 et 35 min et ses bandes atteignent rarement l'etat « fini » ; malls par tapis, usine echelonnable et defense des champs absents.
+
+------------------------------------------------------------
 Version: 0.6.45
 Date: 2026-11-03
   Changes:
