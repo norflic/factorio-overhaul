@@ -47,7 +47,7 @@ def puits(lot, M, x, y, R, etat):
         lot.put(M["cuivre"], G.boite(G.add(p, (0.12 * math.cos(a), 0.12 * math.sin(a), 0.0)), (0.1, 0.06, 0.06), a))
     # couronne réfractaire du sommet
     ring = [(zt, R + 0.05), (zt + 0.08, R + 0.05), (zt + 0.08, R * 0.74), (zt, R * 0.74)]
-    lot.put(M["brique_j"], G.tour(ring, 40, "z", (x, y, 0.0)))
+    lot.put(M["brique"], G.tour(ring, 40, "z", (x, y, 0.0)))       # couronne de brique réfractaire (critique : se lisait sable)
     if etat == "ferme":
         rr = R * 0.7
         lot.put(M["braise"], G.tour([(zt + 0.07, R * 0.74), (zt + 0.075, rr + 0.02)], 40, "z", (x, y, 0.0)))
@@ -75,8 +75,11 @@ def puits(lot, M, x, y, R, etat):
             O.anneau(lot, M["acier2"], G.add(q, (0, 0.06, 0.1)), 0.06, 0.016, 14, 5, n=(1, 0, 0))
         return piq
     # puits ouvert : intérieur incandescent, la cornue est levée
-    K.rev(lot, M["braise"], x, y, [(zt + 0.07, R * 0.74), (0.3, R * 0.68)], 40, cap=False)
-    lot.put(M["fusion"], G.tour([(0.3, R * 0.68), (0.31, 0.0)], 40, "z", (x, y, 0.0)))
+    # puits ouvert lu de l'extérieur vers le centre : bord rouge sombre, parois orange, fond jaune-orange (le plus chaud)
+    K.rev(lot, M["laitier"], x, y, [(zt + 0.07, R * 0.74), (zt - 0.12, R * 0.72)], 40, cap=False)
+    K.rev(lot, M["bain"], x, y, [(zt - 0.12, R * 0.72), (0.55, R * 0.69)], 40, cap=False)
+    lot.put(M["bain"], G.tour([(0.55, R * 0.69), (0.552, R * 0.42)], 40, "z", (x, y, 0.0)))
+    lot.put(M["fusion"], G.tour([(0.552, R * 0.42), (0.556, 0.0)], 40, "z", (x, y, 0.0)))
     for k in range(12):
         a = TAU * k / 12
         lot.put(M["fonte"], G.boite((x + R * 0.71 * math.cos(a), y + R * 0.71 * math.sin(a), 0.65), (0.04, 0.05, 0.5), a))
@@ -99,7 +102,11 @@ def cornue_suspendue(lot, M, x, y, R, z0):
         K.bride(lot, M["acier2"], (x + dx, y + dy, z0 + 1.6), (0, 0, 1), 0.07, 0.02)
     hook = (x, y, z0 + 2.0)
     for s in (-1, 1):
-        lot.put(M["acier_clair"], G.tube([(x + s * rr * 0.62, y, z0 + 1.42), hook], 0.012, 4))
+        # élingues en chaîne, visibles (critique : la cornue flottait au bout d'un fil de 1 px)
+        a, b = (x + s * rr * 0.62, y, z0 + 1.42), hook
+        n = 9
+        for k in range(n):
+            lot.put(M["acier2"], G.tube([G.lerp(a, b, k / float(n)), G.lerp(a, b, (k + 1) / float(n))], 0.022 if k % 2 else 0.016, 6))
         lot.put(M["acier2"], G.oriente(G.tour([(0.0, 0.07), (0.1, 0.07)], 12, "z", cap1=True), (x + s * rr * 0.62, y, z0 + 1.38), (0, 1, 0)))
     return hook
 
@@ -120,9 +127,10 @@ def portique(lot, M, x, crochet_z):
     K.caisson(lot, M["acier2"], x, 0.55, zg + 0.26, 0.5, 0.52, 0.22, 0.02)
     lot.put(M["fonte"], G.tour([(x - 0.18, 0.11), (x + 0.18, 0.11)], 16, "x", (0.0, 0.55, zg + 0.44), cap0=True, cap1=True))
     K.caisson(lot, M["acier"], x + 0.18, 0.75, zg + 0.48, 0.2, 0.16, 0.14, 0.02)
-    for dx in (-0.06, 0.06):
-        lot.put(M["acier_clair"], G.tube([(x + dx, 0.55, zg), (x + dx, 0.55, crochet_z + 0.12)], 0.007, 3))
-    lot.put(M["jaune"], G.boite((x, 0.55, crochet_z + 0.08), (0.2, 0.12, 0.12)))
+    for dx in (-0.07, -0.025, 0.025, 0.07):
+        lot.put(M["acier_clair"], G.tube([(x + dx, 0.55, zg), (x + dx, 0.55, crochet_z + 0.14)], 0.013, 4))
+    lot.put(M["jaune"], G.boite((x, 0.55, crochet_z + 0.09), (0.24, 0.14, 0.14)))
+    lot.put(M["chevron"], G.boite((x, 0.475, crochet_z + 0.09), (0.24, 0.012, 0.1)))
     lot.put(M["acier2"], G.tube(G.coudee([(x, 0.55, crochet_z + 0.02), (x, 0.55, crochet_z - 0.1), (x + 0.08, 0.55, crochet_z - 0.12),
                                           (x + 0.1, 0.55, crochet_z - 0.04)], 0.04, 4), 0.016, 6))
     # cabine

@@ -27,6 +27,10 @@ MACHINES = {
 VARIANTES = ("a", "b", "c")
 MODULES = {"hf": "m_hf", "co": "m_co", "rc": "m_rc", "py": "m_py", "kr": "m_kr", "cc": "m_cc"}
 
+# Étalonnage de la couche principale (rendre.etalonne, hors Blender, rejouable par --post-only) : « tp, tk, sp, g, ga, s » = pied
+# (sous tp, puissance tk : noirs plus noirs), épaule (au-dessus de sp, pente g), gamma des tons moyens, saturation. Critique du 3/11 :
+# écart-type 0,13 à 0,18 contre 0,20 à 0,24 en vanilla ; cibles p5 ≤ 0,04, p95 ≥ 0,65. Vide : aucun étalonnage (états clés du 3/11).
+GRADE = []
 PIECE = {"name": "met", "margin_px": 40, "calib": {"LIGHT_HOLDOUT": True},
          "variants": {"%s_%s" % (m, v): {"epoch": 0, "side": MACHINES[m][1], "dest": "metallurgie/" + m, "anchor_tiles": (0.0, 0.0)}
                       for m in MACHINES for v in VARIANTES}}

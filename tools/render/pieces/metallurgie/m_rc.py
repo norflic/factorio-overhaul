@@ -15,7 +15,8 @@ PALETTE = "cuve"            # commun.PALETTES ; « calcul » = palette des état
 YC = 0.25                  # axe longitudinal de la cuve
 XP, Y0, Y1, ZP = 1.8, -1.45, 1.95, 0.72
 VAR = {
-    "a": dict(soder=False, montees="nord", creuset=(0.45, -2.2), gaine="est", ouvert=(0.1, 0.85)),
+    # RETENUE (critique du 3/11) : caisson, creuset et gaine de A ; superstructure et barres REFAITES (v2)
+    "a": dict(soder=False, montees="nord", creuset=(0.45, -2.2), gaine="est", ouvert=(0.1, 0.85), v2=True),
     "b": dict(soder=False, montees="sud", creuset=(1.25, -2.3), gaine="haut", ouvert=(0.9, 1.6)),
     "c": dict(soder=True, montees="nord", creuset=(-0.35, -2.2), gaine="est", ouvert=None),
 }
@@ -56,12 +57,24 @@ def capots(lot, M, ouvert):
     if ouvert:
         x0, x1 = ouvert
         # bain sous la croûte : fissures orange, croûte sombre en plaques
-        lot.put(M["bain"], G.boite(((x0 + x1) / 2, (Y0 + YC - 0.36) / 2, ZP + 0.06), (x1 - x0 - 0.04, YC - 0.36 - Y0 - 0.06, 0.02)))
+        # croûte sombre fendue : la lueur n'est que dans les fissures
+        cy0, cy1 = Y0 + 0.04, YC - 0.4
+        lot.put(M["croute"], G.boite(((x0 + x1) / 2, (cy0 + cy1) / 2, ZP + 0.06), (x1 - x0 - 0.04, cy1 - cy0, 0.02)))
         r = G.Rnd(6611)
-        for k in range(14):
-            cx = r.f(x0 + 0.06, x1 - 0.06)
-            cy = r.f(Y0 + 0.1, YC - 0.45)
-            lot.put(M["croute"], G.boite((cx, cy, ZP + 0.075), (r.f(0.08, 0.16), r.f(0.08, 0.2), 0.02), r.f(0.0, 3.0)))
+        for k in range(5):
+            px, py = r.f(x0 + 0.08, x1 - 0.08), cy0 + 0.05
+            ang = math.pi / 2 + r.f(-0.5, 0.5)
+            for j in range(7):
+                L = r.f(0.1, 0.2)
+                qx = min(x1 - 0.04, max(x0 + 0.04, px + L * math.cos(ang)))
+                qy = min(cy1 - 0.02, py + L * math.sin(ang))
+                lot.put(M["bain"], G.boite(((px + qx) / 2, (py + qy) / 2, ZP + 0.072), (math.hypot(qx - px, qy - py) + 0.03, 0.035, 0.008),
+                                           math.atan2(qy - py, qx - px)))
+                px, py = qx, qy
+                ang += r.f(-0.7, 0.7)
+                if py >= cy1 - 0.03:
+                    break
+        lot.put(M["bain"], G.boite(((x0 + x1) / 2 + 0.05, cy0 + 0.25, ZP + 0.073), (0.09, 0.07, 0.008), 0.4))
         # le panneau levé, posé debout contre la superstructure
         lot.put(M["acier"], G.boite(((x0 + x1) / 2, YC - 0.5, 1.45), (x1 - x0 - 0.05, 0.03, 0.42), 0.0, 0.25))
 
@@ -184,13 +197,16 @@ def build(S, lot, v):
     lot.put(M["beton"], G.prisme([(-1.97, -2.78), (1.97, -2.78), (1.97, 2.78), (-1.97, 2.78)], 0.0, 0.03))
     K.chevrons(lot, M, -1.9, 1.9, -2.7, 0.03)
     caisson_cuve(lot, M)
-    montees(lot, M, v["montees"])
+    if v.get("v2"):
+        barres_v2(lot, M)
+    else:
+        montees(lot, M, v["montees"])
     if v["soder"]:
         zt = soderberg(lot, M)
         cible = (-0.35, Y0 + 0.18)
     else:
         capots(lot, M, v["ouvert"])
-        zt = superstructure(lot, M, v)
+        zt = superstructure_v2(lot, M) if v.get("v2") else superstructure(lot, M, v)
         o = v["ouvert"]
         cible = ((o[0] + o[1]) / 2, Y0 + 0.25)
     cx, cy = v["creuset"]
@@ -208,3 +224,68 @@ def build(S, lot, v):
     K.armoire(lot, M, -1.55, -2.35, 0.03, 0.42, 0.24, 0.5)
     lot.put(M["jaune"], G.boite((-1.0, Y0 - 0.08, 0.45), (0.22, 0.01, 0.16)))
     return {}
+
+
+# ------------------------------------------------------------------------------------------------- v2 (critique du 3/11)
+def superstructure_v2(lot, M):
+    """Poutre-portique d'acier, deux cadres anodiques d'aluminium vif, peigne de 2 × 9 tiges d'anode serrées par des pinces
+    de cuivre ; deux trémies d'alumine (poudre blanche visible) et deux piqueurs de croûte."""
+    zg0, zg1 = 1.7, 1.98
+    K.caisson(lot, M["acier"], 0.0, YC, zg0, 2 * XP - 0.15, 0.3, zg1 - zg0, 0.03)
+    for x in (-XP + 0.1, XP - 0.1):
+        for s in (-1, 1):
+            lot.put(M["acier2"], G.tube([(x, YC + s * 1.05, ZP + 0.05), (x, YC + s * 0.12, zg0 + 0.05)], 0.05, 6))
+        lot.put(M["acier2"], G.boite((x, YC, zg0 - 0.25), (0.14, 0.34, 0.5)))
+        lot.put(M["chevron"], G.boite((x, YC - 0.175, zg0 - 0.25), (0.14, 0.012, 0.18)))
+    for s in (-1, 1):
+        yb = YC + s * 0.27
+        lot.put(M["alu"], G.boite((0.0, yb, 1.52), (2 * XP - 0.35, 0.15, 0.2)))
+        for x in (-1.1, 0.0, 1.1):
+            K.rev(lot, M["jaune"], x, YC + s * 0.17, [(1.6, 0.045), (zg0 + 0.02, 0.045)], 10)
+        yt = YC + s * 0.4
+        for i in range(9):
+            x = -1.44 + i * 0.36
+            lot.put(M["alu"], G.boite((x, yt, 1.3), (0.085, 0.085, 0.76)))
+            lot.put(M["cuivre"], G.boite((x, yb + s * 0.09, 1.55), (0.14, 0.08, 0.12)))
+            lot.put(M["acier_clair"], G.tube([(x - 0.06, yb + s * 0.13, 1.55), (x + 0.06, yb + s * 0.13, 1.55)], 0.016, 5))
+            K.rev(lot, M["acier2"], x, yt, [(1.0, 0.075), (1.05, 0.075)], 8)
+    # trémies d'alumine
+    for x in (-0.85, 0.85):
+        base = [(x - 0.2, YC - 0.18), (x + 0.2, YC - 0.18), (x + 0.2, YC + 0.18), (x - 0.2, YC + 0.18)]
+        lot.put(M["acier"], G.prisme(base, zg1, zg1 + 0.12))
+        lot.put(M["acier"], G.prisme(base, zg1 + 0.12, zg1 + 0.55, 1.4))
+        lot.put(M["acier2"], G.prisme([(x - 0.3, YC - 0.27), (x + 0.3, YC - 0.27), (x + 0.3, YC + 0.27), (x - 0.3, YC + 0.27)], zg1 + 0.55, zg1 + 0.6))
+        lot.put(M["alumine"], G.prisme([(x - 0.25, YC - 0.22), (x + 0.25, YC - 0.22), (x + 0.25, YC + 0.22), (x - 0.25, YC + 0.22)], zg1 + 0.56, zg1 + 0.62, 0.7))
+        lot.put(M["chevron"], G.boite((x, YC - 0.255, zg1 + 0.4), (0.4, 0.012, 0.08)))
+    O.tuyau(lot, M["acier_clair"], M["acier2"], [(-0.85, YC + 0.2, zg1 + 0.66), (-0.85, YC + 0.2, zg1 + 0.78), (0.85, YC + 0.2, zg1 + 0.78),
+                                                 (0.85, YC + 0.2, zg1 + 0.66)], 0.035, rb=0.08, pas_bride=0.6)
+    # piqueurs de croûte : vérins jaunes, tige jusqu'au bain
+    for x in (-0.36, 0.36):
+        K.rev(lot, M["jaune"], x, YC, [(zg1, 0.07), (zg1 + 0.42, 0.07), (zg1 + 0.46, 0.05)], 14)
+        lot.put(M["acier_clair"], G.tube([(x, YC, zg1 + 0.46), (x, YC, zg1 + 0.56)], 0.02, 5))
+        lot.put(M["acier_clair"], G.tube([(x, YC, zg0), (x, YC, 0.95)], 0.025, 6))
+        O.flexible(lot, M["caoutchouc"], [(x + 0.07, YC, zg1 + 0.35), (x + 0.22, YC + 0.12, zg1 + 0.2), (x + 0.3, YC + 0.15, zg1 + 0.02)], 0.016)
+    K.rambarde(lot, M["jaune"], [(-XP + 0.25, YC - 0.15), (XP - 0.25, YC - 0.15)], zg1, 0.22)
+    return zg1 - 0.05
+
+
+def barres_v2(lot, M):
+    """Deux barres omnibus massives en aluminium vif le long des grands côtés, 4 montées en paquets de plaques vers le cadre
+    anodique nord, souples de cuivre, plaques « danger »."""
+    for y in (Y1 + 0.24, Y0 - 0.24):
+        lot.put(M["alu"], G.boite((0.0, y, 0.15), (2 * XP + 0.3, 0.26, 0.2)))
+        for x in (-1.6, -0.6, 0.6, 1.6):
+            lot.put(M["acier2"], G.boite((x, y, 0.03), (0.1, 0.3, 0.06)))
+    yb = YC + 0.27
+    for x in (-1.3, -0.45, 0.45, 1.3):
+        yr = Y1 + 0.24
+        for k in range(5):
+            xx = x - 0.09 + k * 0.045
+            lot.put(M["alu"], G.boite((xx, yr, 0.95), (0.03, 0.14, 1.3)))
+            lot.put(M["alu"], G.boite((xx, (yr + yb + 0.15) / 2, 1.65), (0.03, yr - yb - 0.1, 0.1)))
+        lot.put(M["acier2"], G.boite((x, yr, 0.62), (0.28, 0.18, 0.06)))
+        lot.put(M["acier2"], G.boite((x, yr, 1.25), (0.28, 0.18, 0.06)))
+        lot.put(M["chevron"], G.boite((x, yr - 0.1, 0.9), (0.2, 0.012, 0.14)))
+        for k in range(3):
+            xx = x - 0.07 + k * 0.07
+            O.flexible(lot, M["cuivre"], [(xx, yb + 0.22, 1.66), (xx, yb + 0.16, 1.74), (xx, yb + 0.08, 1.6)], 0.02)

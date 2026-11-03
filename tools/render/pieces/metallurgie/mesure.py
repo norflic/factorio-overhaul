@@ -40,8 +40,13 @@ def stats(rgba, exclure=None):
     y = 0.2126 * rgb[:, 0] + 0.7152 * rgb[:, 1] + 0.0722 * rgb[:, 2]
     mx, mn = rgb.max(1), rgb.min(1)
     s = np.where(mx > 1e-4, (mx - mn) / np.maximum(mx, 1e-4), 0.0)
+    # teinte (degrés) ; « chaud » : rouge à orange-jaune (0 à 50°), saturation ≥ 0,25, pas noir
+    r, g, b = rgb[:, 0], rgb[:, 1], rgb[:, 2]
+    hue = np.degrees(np.arctan2(np.sqrt(3.0) * (g - b), 2.0 * r - g - b)) % 360.0
+    chaud = ((hue <= 50.0) | (hue >= 345.0)) & (s >= 0.25) & (y >= 0.05)
     return {"lum": float(y.mean()), "lum_med": float(np.median(y)), "sat": float(s.mean()), "sat_med": float(np.median(s)),
-            "px": int(m.sum())}
+            "std": float(y.std()), "p5": float(np.percentile(y, 5)), "p95": float(np.percentile(y, 95)),
+            "chaud": float(chaud.mean()), "px": int(m.sum())}
 
 
 def load(p, w=None, h=None):
@@ -89,13 +94,20 @@ def main():
         spec = json.load(open(p, encoding="utf-8"))
         main_ = load(os.path.join(d, spec["layers"]["main"]["file"]))
         res["met"][n] = stats(main_, masque_lueur(d, spec))
-    fmt = "%-22s lum %.3f (méd %.3f)   sat %.3f (méd %.3f)   %7d px"
+        if "glow" in spec["layers"]:
+            ga = load(os.path.join(d, spec["layers"]["glow"]["file"]))[..., 3]
+            lit = ga >= 0.05
+            res["met"][n]["lueur_ecretee"] = float((ga[lit] >= 0.98).mean()) if lit.any() else 0.0
+            res["met"][n]["lueur_tuiles2"] = float(lit.sum()) / 4096.0
+        res["met"][n]["atlas"] = [spec["layers"][k]["width"] * spec["layers"][k]["height"] for k in sorted(spec["layers"])]
+    fmt = "%-22s lum %.3f  sat %.3f  écart-type %.3f  p5 %.3f  p95 %.3f  chaud %4.1f %%"
     print("VANILLA HR")
     for k, s in res["vanilla"].items():
-        print(fmt % (k, s["lum"], s["lum_med"], s["sat"], s["sat_med"], s["px"]))
-    print("MÉTALLURGIE (états clés)")
+        print(fmt % (k, s["lum"], s["sat"], s["std"], s["p5"], s["p95"], 100 * s["chaud"]))
+    print("MÉTALLURGIE")
     for k, s in res["met"].items():
-        print(fmt % (k, s["lum"], s["lum_med"], s["sat"], s["sat_med"], s["px"]))
+        print(fmt % (k, s["lum"], s["sat"], s["std"], s["p5"], s["p95"], 100 * s["chaud"])
+              + ("  lueur écrêtée %4.1f %% sur %.2f tuile²" % (100 * s["lueur_ecretee"], s["lueur_tuiles2"]) if "lueur_ecretee" in s else ""))
     v = [s for s in res["vanilla"].values()]
     m = [s for s in res["met"].values()]
     print("moyennes : vanilla lum %.3f sat %.3f ; métallurgie lum %.3f sat %.3f" % (

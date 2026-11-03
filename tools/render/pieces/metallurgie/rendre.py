@@ -48,6 +48,23 @@ def etalonne(img, grade):
     return out
 
 
+def nettoie(img, seuil, ile_min=0):
+    """Critique du 3/11 (pixels parasites) : alpha ≤ seuil mis à zéro, puis îles de moins de ile_min pixels retirées ; sans cela,
+    1 à 14 pixels d'alpha 3 à 5 posés en diagonale gonflent le rectangle d'atlas jusqu'à ×2,75 (F186 : atlas plein au plancher)."""
+    out = img.copy()
+    m = out[..., 3] > seuil
+    if ile_min:
+        import scipy.ndimage as nd
+        lab, n = nd.label(m, structure=np.ones((3, 3)))
+        if n:
+            tailles = nd.sum(m, lab, index=np.arange(1, n + 1))
+            garde = np.zeros(n + 1, bool)
+            garde[1:] = tailles >= ile_min
+            m = garde[lab]
+    out[~m] = 0.0
+    return out
+
+
 def post(name, cache, out_root):
     d = os.path.join(cache, name)
     info = json.load(open(os.path.join(d, "render.json"), encoding="utf-8"))
@@ -58,14 +75,19 @@ def post(name, cache, out_root):
         return np.load(p).astype(np.float64) if layer in info["layers"] and os.path.exists(p) else None
 
     hr = {"main": P.compose_main(npy("main"), npy("ao"), C)}
-    if os.environ.get("FO_GRADE"):
-        hr["main"] = etalonne(hr["main"], [float(x) for x in os.environ["FO_GRADE"].split(",")])
+    grade = os.environ.get("FO_GRADE")
+    grade = [float(x) for x in grade.split(",")] if grade else piece.GRADE
+    if grade:
+        hr["main"] = etalonne(hr["main"], grade)
     sh = npy("shadow")
     if sh is not None:
         hr["shadow"] = P.shadow_layer(sh)
     gl = npy("glow")
     if gl is not None:
         hr["glow"] = P.additive_layer(gl)
+    for layer, seuil in (("main", 8), ("shadow", 3), ("glow", 4)):
+        if layer in hr:
+            hr[layer] = nettoie(hr[layer], seuil / 255.0, 12 if layer == "main" else 0)
     out = os.path.join(out_root, name)
     os.makedirs(out, exist_ok=True)
     spec = {"variant": name, "epoch": piece.PIECE["variants"][name]["epoch"], "samples": info["samples"],

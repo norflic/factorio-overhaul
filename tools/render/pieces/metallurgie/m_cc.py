@@ -76,70 +76,107 @@ def flottation(lot, M, rnd):
 
 
 def table(lot, M, rnd):
+    """Table de Wilfley (v2, critique du 3/11) : tête à secousses et alimentation au NORD-EST, surélevées ; pente vers le sud ;
+    trois bandes nettes en éventail (concentré graphite à l'ouest, mixtes rouille, gangue sable au sud-est), pellicule d'eau au
+    nord, rifles sombres ; fenêtre d'armoire et gyrophare ambrés (lueur ≥ 0,10 tuile²)."""
     ang = math.radians(-14.0)
-    c = (-0.05, 0.12, 0.55)
-    L, W = 1.55, 1.3
+    c = (-0.1, 0.08, 0.55)
+    L, W = 1.4, 1.15
+    D_ = K.D
 
     def P(u, v, dz=0.0):
-        """Point du plateau : u le long (0 tête, 1 bout), v en travers (0 alimentation, 1 décharge) ; pente vers le sud."""
-        x = (u - 0.5) * L
-        y = (0.5 - v) * W
-        p = G.rot_z((x, y, 0.0), ang)
-        return (c[0] + p[0], c[1] + p[1], c[2] + dz - v * 0.12 + u * 0.03)
+        """u : 0 à la tête (EST) → 1 au bout (OUEST) ; v : 0 au bord d'alimentation (NORD) → 1 au bord de décharge (SUD)."""
+        p = G.rot_z(((0.5 - u) * L, (0.5 - v) * W, 0.0), ang)
+        return (c[0] + p[0], c[1] + p[1], c[2] + dz - v * 0.13 + u * 0.03)
+
+    def quad(mat, u0, v0, u1, v1, dz):
+        sq = [P(u0, v0, dz), P(u1, v0, dz), P(u1, v1, dz), P(u0, v1, dz)]
+        lot.put(M[mat], (sq, [(0, 1, 2, 3)], [(0, 0), (1, 0), (1, 1), (0, 1)]))
 
     q = [P(0, 0), P(1, 0), P(1, 1), P(0, 1)]
-    lot.put(M["vert"], G.merge((q, [(0, 1, 2, 3)], [(0, 0), (1, 0), (1, 1), (0, 1)]), G.loft([q + [q[0]], [G.add(p, (0, 0, -0.05)) for p in q + [q[0]]]], closed=False)))
-    # bandes de minerai en éventail : concentré sombre, mixte, stérile clair
-    for (v0, v1, mat, u0) in ((0.05, 0.35, "minerai", 0.45), (0.35, 0.6, "coke", 0.2), (0.6, 0.95, "sable", 0.0)):
-        for k in range(12):
-            u = u0 + (1.0 - u0) * k / 12.0
-            u2 = u + (1.0 - u0) / 12.0
-            vv0 = v0 + (v1 - v0) * 0.3 * (1 - u)
-            sq = [P(u, vv0, 0.012), P(u2, vv0, 0.012), P(u2, v1, 0.012), P(u, v1, 0.012)]
-            lot.put(M[mat], (sq, [(0, 1, 2, 3)], [(0, 0), (1, 0), (1, 1), (0, 1)]))
-    for i in range(10):
-        v = 0.06 + i * 0.085
-        lot.put(M["acier_clair"], G.tube([P(0.03, v, 0.02), P(0.95 - 0.5 * v, v, 0.02)], 0.008, 4))
-    # bâti, mécanisme à secousses (tête, est), moteur et courroie
-    for (u, v) in ((0.05, 0.1), (0.95, 0.1), (0.05, 0.9), (0.95, 0.9)):
-        p = P(u, v, -0.05)
-        lot.put(M["acier2"], G.boite((p[0], p[1], p[2] / 2 + 0.03), (0.06, 0.06, p[2])))
-    h = P(-0.02, 0.5)
-    K.caisson(lot, M["jaune"], h[0] - 0.1, h[1], 0.06, 0.26, 0.42, 0.62, 0.02)
-    K.rev(lot, M["bleu"], h[0] - 0.12, h[1] + 0.46, [(0.06, 0.13), (0.4, 0.13), (0.42, 0.09)], 18)
-    lot.put(M["noir"], G.tube([(h[0] - 0.12, h[1] + 0.46, 0.35), (h[0] - 0.1, h[1] + 0.1, 0.55)], 0.025, 6))
-    lot.put(M["acier_clair"], G.tube([(h[0] + 0.03, h[1], 0.5), P(0.02, 0.5, 0.0)], 0.03, 6))
-    # boîte d'alimentation (nord-est) et rampe d'eau de lavage
-    f = P(0.12, -0.02)
-    K.caisson(lot, M["acier"], f[0], f[1] + 0.1, f[2] + 0.05, 0.42, 0.18, 0.18, 0.02)
-    K.tas(lot, M["minerai"], (f[0], f[1] + 0.1, f[2] + 0.22), 0.14, 0.06, 0.03, rnd, 8, 0.015, 0.025)
-    lot.put(M["acier_clair"], G.tube([P(0.25, -0.03, 0.12), P(0.95, -0.03, 0.12)], 0.016, 6))
-    for k in range(8):
-        a = P(0.3 + k * 0.08, -0.03, 0.1)
-        lot.put(M["acier_clair"], G.tube([a, G.add(a, (0.0, -0.05, -0.08))], 0.005, 3))
-    # goulottes de décharge (sud et ouest) à séparateurs ; concentré vers le sud
-    lot.put(M["acier"], G.tube([P(0.0, 1.06, -0.04), P(1.05, 1.06, -0.1)], 0.06, 8))
-    lot.put(M["acier"], G.tube([P(1.06, 0.0, -0.04), P(1.06, 1.06, -0.1)], 0.06, 8))
-    for u in (0.35, 0.65):
-        lot.put(M["acier2"], G.boite(P(u, 1.06, -0.02), (0.02, 0.14, 0.1), ang))
-    goulotte_sud(lot, M, rnd, -0.45)
-    K.armoire(lot, M, 0.72, -0.95, 0.06, 0.28, 0.18, 0.42)
-    # répartiteur d'alimentation au nord : bac sur pieds, goulotte vers la boîte d'alimentation, conduite d'eau
-    K.caisson(lot, M["acier"], 0.55, 1.12, 0.62, 0.5, 0.3, 0.26, 0.02)
-    K.tas(lot, M["minerai"], (0.55, 1.12, 0.86), 0.2, 0.1, 0.05, rnd, 14, 0.018, 0.03)
-    for (dx, dy) in ((-0.22, -0.12), (0.22, -0.12), (-0.22, 0.12), (0.22, 0.12)):
-        lot.put(M["acier2"], G.tube([(0.55 + dx, 1.12 + dy, 0.06), (0.55 + dx, 1.12 + dy, 0.62)], 0.016, 4))
-    lot.put(M["acier"], G.tube([(0.4, 0.98, 0.7), (f[0] + 0.1, f[1] + 0.12, f[2] + 0.22)], 0.05, 8))
-    O.tuyau(lot, M["bleu"], M["acier2"], [(-0.95, 1.3, 0.3), (-0.6, 1.3, 0.3), (-0.6, 1.3, 0.82), P(0.25, -0.03, 0.12)], 0.025, rb=0.06, pas_bride=2.0)
-    # passerelle et garde-corps à l'ouest, pour le réglage des séparateurs
-    lot.put(M["acier2"], G.boite((-0.85, 0.0, 0.3), (0.2, 2.2, 0.03)))
-    for y in (-1.0, -0.3, 0.4, 1.1):
-        lot.put(M["acier2"], G.tube([(-0.85, y, 0.06), (-0.85, y, 0.3)], 0.014, 4))
-    K.rambarde(lot, M["jaune"], [(-0.95, -1.05), (-0.95, 1.15)], 0.31, 0.24, 0.3)
-    # seconde table, au-dessous (installation à deux étages) : on n'en voit que le bord et les rifles
+    lot.put(M["vert"], G.merge((q, [(0, 1, 2, 3)], [(0, 0), (1, 0), (1, 1), (0, 1)]),
+                               G.loft([q + [q[0]], [G.add(p, (0, 0, -0.06)) for p in q + [q[0]]]], closed=False)))
+    # bandes : secteurs vus depuis le point d'alimentation (coin nord-est)
+    nu, nv = 14, 11
+    fu, fv = 0.06, 0.06
+    for i in range(nu):
+        for j in range(nv):
+            u0, u1 = i / float(nu), (i + 1) / float(nu)
+            v0, v1 = j / float(nv), (j + 1) / float(nv)
+            uc, vc = (u0 + u1) / 2, (v0 + v1) / 2
+            du, dv = (uc - fu) * L, (vc - fv) * W * D_ / D_
+            d = math.hypot(du, dv)
+            t = math.atan2(dv, du)
+            if vc < 0.2:
+                continue                                   # pellicule d'eau, posée plus bas
+            if d < 0.3:
+                mat = "minerai"
+            elif t < 0.5:
+                mat = "graphite"
+            elif t < 0.95:
+                mat = "rouille"
+            else:
+                mat = "sable"
+            quad(mat, u0, v0, u1, v1, 0.012)
+            if mat == "graphite" and (i + j) % 3 == 0:
+                p = P(uc + 0.01, vc, 0.02)
+                lot.put(M["acier_clair"], G.boite(p, (0.025, 0.02, 0.008), rnd.f(0.0, 3.0)))
+    quad("eau", 0.0, 0.0, 1.0, 0.2, 0.016)
+    quad("minerai", 0.0, 0.0, 0.25, 0.2, 0.012)
+    # rifles sombres et épais, de plus en plus courts vers le sud
+    for k in range(9):
+        v = 0.12 + k * 0.09
+        lot.put(M["noir"], G.tube([P(0.04, v, 0.026), P(0.96 - 0.55 * v, v, 0.026)], 0.014, 5))
+    # bâti
+    for (u, v) in ((0.05, 0.1), (0.95, 0.1), (0.05, 0.9), (0.95, 0.9), (0.5, 0.1), (0.5, 0.9)):
+        p = P(u, v, -0.06)
+        lot.put(M["acier2"], G.boite((p[0], p[1], p[2] / 2 + 0.03), (0.07, 0.07, p[2])))
+    # tête à secousses (est) : carter, volant, bielle ; moteur surélevé sur chevalet, courroie, gyrophare
+    h = P(-0.07, 0.45)
+    K.caisson(lot, M["jaune"], h[0], h[1], 0.06, 0.24, 0.42, 0.66, 0.02)
+    lot.put(M["fonte"], G.tour([(h[1] - 0.25, 0.18), (h[1] - 0.22, 0.18)], 20, "y", (h[0], 0.0, 0.5), cap0=True, cap1=True))
+    lot.put(M["acier_clair"], G.tube([(h[0] - 0.12, h[1], 0.5), P(0.02, 0.45, -0.02)], 0.035, 8))
+    mx, my = h[0] - 0.02, h[1] + 0.32
+    for (dx, dy) in ((-0.14, -0.12), (0.14, -0.12), (-0.14, 0.12), (0.14, 0.12)):
+        lot.put(M["acier2"], G.tube([(mx + dx, my + dy, 0.06), (mx + dx * 0.8, my + dy * 0.8, 1.3)], 0.022, 5))
+    lot.put(M["acier2"], G.boite((mx, my, 1.32), (0.34, 0.3, 0.04)))
+    lot.put(M["bleu"], G.tour([(my - 0.14, 0.12), (my + 0.14, 0.12)], 18, "y", (mx, 0.0, 1.48), cap0=True, cap1=True))
     for k in range(6):
-        a = P(0.1 + k * 0.15, 1.18, -0.3)
-        lot.put(M["vert"], G.boite(a, (0.14, 0.05, 0.02), ang))
+        lot.put(M["bleu"], G.tour([(my - 0.12 + k * 0.05, 0.13), (my - 0.1 + k * 0.05, 0.13)], 18, "y", (mx, 0.0, 1.48)))
+    lot.put(M["fonte"], G.tour([(my - 0.2, 0.08), (my - 0.16, 0.08)], 16, "y", (mx, 0.0, 1.48), cap0=True, cap1=True))
+    lot.put(M["noir"], G.tube([(mx, my - 0.18, 1.56), (h[0], h[1] - 0.23, 0.68)], 0.018, 5))
+    lot.put(M["noir"], G.tube([(mx, my - 0.18, 1.4), (h[0], h[1] - 0.23, 0.32)], 0.018, 5))
+    K.rev(lot, M["fonte"], mx, my + 0.05, [(1.6, 0.06), (1.64, 0.06)], 12)
+    lot.put(M["lampe"], G.sphere((mx, my + 0.05, 1.72), 0.09, 14, 7))
+    # alimentation surélevée au nord-est : trémie sur pieds, goulotte vers la boîte d'alimentation du plateau
+    tx, ty = 0.55, 1.05
+    for (dx, dy) in ((-0.2, -0.16), (0.2, -0.16), (-0.2, 0.16), (0.2, 0.16)):
+        lot.put(M["acier2"], G.tube([(tx + dx, ty + dy, 0.06), (tx + dx, ty + dy, 1.4)], 0.022, 5))
+    K.rev(lot, M["acier"], tx, ty, [(1.25, 0.07), (1.5, 0.27), (1.92, 0.27)], 4, cap=False)
+    K.tas(lot, M["minerai"], (tx, ty, 1.85), 0.2, 0.2, 0.08, rnd, 20, 0.02, 0.035)
+    f = P(0.1, 0.02)
+    K.caisson(lot, M["acier"], f[0], f[1], f[2] + 0.04, 0.36, 0.16, 0.16, 0.02)
+    lot.put(M["acier"], G.tube([(tx, ty, 1.25), (f[0], f[1] + 0.02, f[2] + 0.22)], 0.05, 8))
+    # eau de lavage : rampe bleue le long du bord nord, buses
+    O.tuyau(lot, M["bleu"], M["acier2"], [(-0.95, 1.3, 0.3), (-0.6, 1.3, 0.3), (-0.6, 1.3, 0.8), P(0.9, -0.05, 0.12)], 0.025, rb=0.06, pas_bride=2.0)
+    lot.put(M["bleu"], G.tube([P(0.9, -0.05, 0.12), P(0.22, -0.05, 0.12)], 0.022, 6))
+    for k in range(7):
+        a = P(0.3 + k * 0.09, -0.05, 0.1)
+        lot.put(M["acier2"], G.tube([a, G.add(a, (0.0, -0.06, -0.07))], 0.012, 4))
+    # goulottes de décharge (sud, ouest) ; le concentré sort au sud
+    lot.put(M["acier"], G.tube([P(0.0, 1.07, -0.05), P(1.07, 1.07, -0.12)], 0.06, 8))
+    lot.put(M["acier"], G.tube([P(1.07, 0.0, -0.05), P(1.07, 1.07, -0.12)], 0.06, 8))
+    for u in (0.3, 0.62):
+        lot.put(M["acier2"], G.boite(P(u, 1.07, -0.03), (0.03, 0.14, 0.1), ang))
+    goulotte_sud(lot, M, rnd, -0.45)
+    # armoire au sud-est : fenêtre éclairée (lueur de travail)
+    K.armoire(lot, M, 0.66, -1.0, 0.06, 0.34, 0.2, 0.5)
+    lot.put(M["lampe"], G.boite((0.66, -1.112, 0.36), (0.26, 0.012, 0.2)))
+    # passerelle et garde-corps à l'ouest
+    lot.put(M["acier2"], G.boite((-0.86, 0.0, 0.3), (0.2, 2.2, 0.03)))
+    for y in (-1.0, -0.3, 0.4, 1.1):
+        lot.put(M["acier2"], G.tube([(-0.86, y, 0.06), (-0.86, y, 0.3)], 0.02, 5))
+    K.rambarde(lot, M["jaune"], [(-0.95, -1.05), (-0.95, 1.15)], 0.31, 0.24)
 
 
 def spirale(lot, M, cx, cy, z0, z1, tours=4.5, r0=0.06, r1=0.24):

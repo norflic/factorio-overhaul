@@ -40,25 +40,34 @@ def batterie(lot, M, v, rnd):
     # fondation et massif de brique
     K.caisson(lot, M["beton"], (X0 + X1) / 2, (YS + YN) / 2, 0.0, X1 - X0 + 0.14, YN - YS + 0.2, 0.12, 0.02)
     lot.put(M["brique"], G.prisme([(X0, YS), (X1, YS), (X1, YN), (X0, YN)], 0.12, ZT))
-    lot.put(M["brique_j"], G.prisme([(X0 + 0.02, YS + 0.02), (X1 - 0.02, YS + 0.02), (X1 - 0.02, YN - 0.02), (X0 + 0.02, YN - 0.02)], ZT, ZT + 0.03))
+    lot.put(M["brique_noire"], G.prisme([(X0 + 0.02, YS + 0.02), (X1 - 0.02, YS + 0.02), (X1 - 0.02, YN - 0.02), (X0 + 0.02, YN - 0.02)], ZT, ZT + 0.03))
     # pignons de brique, mur d'about
     for x in (X0 - 0.06, X1 + 0.06):
         K.caisson(lot, M["brique"], x, (YS + YN) / 2, 0.1, 0.12, YN - YS + 0.12, ZT + 0.12, 0.02)
     for i in range(N_FOURS + 1):
         x = X0 + i * pas
         # poutres d'ancrage (sud et nord), tirants au-dessus
-        for y in (YS - 0.05, YN + 0.05):
-            lot.put(M["acier2"], G.boite((x, y, 0.85), (0.07, 0.06, 1.6)))
-        lot.put(M["acier_clair"], G.tube([(x, YS - 0.05, 1.55), (x, YN + 0.05, 1.55)], 0.011, 5))
+        for y in (YS - 0.06, YN + 0.06):
+            lot.put(M["acier_clair"], G.boite((x, y, 0.85), (0.035, 0.08, 1.6)))
+            for f in (-1, 1):
+                lot.put(M["acier_clair"], G.boite((x, y + f * 0.04, 0.85), (0.1, 0.022, 1.6)))
+        lot.put(M["acier_clair"], G.tube([(x, YS - 0.05, 1.55), (x, YN + 0.05, 1.55)], 0.02, 6))
         for y in (YS - 0.05, YN + 0.05):
             lot.put(M["fonte"], G.tour([(0.0, 0.03), (0.03, 0.025)], 8, "y", (x, y + (-0.04 if y < 0 else 0.0), 1.55), cap0=True, cap1=True))
     for i in range(N_FOURS):
         xc = X0 + (i + 0.5) * pas
         # porte côté coke (sud) ou fenêtre ouverte
         if i == v["ouvert"]:
-            lot.put(M["noir"], G.boite((xc, YS - 0.005, 0.66), (pas * 0.62, 0.02, 1.02)))
-            lot.put(M["fusion"], G.boite((xc, YS + 0.03, 0.66), (pas * 0.56, 0.02, 0.96)))
-            lot.put(M["braise"], G.boite((xc, YS - 0.012, 0.66), (pas * 0.5, 0.012, 0.9)))
+            # gâteau de coke grumeleux : cœur blanc-jaune, puis orange, croûte rouge sombre au bord
+            lot.put(M["noir"], G.boite((xc, YS + 0.02, 0.66), (pas * 0.62, 0.02, 1.02)))
+            rc = G.Rnd(5531)
+            for iz in range(12):
+                for ix in range(4):
+                    z = 0.2 + iz * 0.078
+                    xx = xc + (ix - 1.5) * pas * 0.15 + rc.f(-0.012, 0.012)
+                    d = math.hypot((xx - xc) / (pas * 0.32), (z - 0.66) / 0.5)
+                    mat = "fusion" if d < 0.45 else "braise" if d < 0.8 else "laitier"
+                    lot.put(M[mat], G.sphere((xx, YS - 0.005 + rc.f(-0.01, 0.015), z), rc.f(0.035, 0.05), 7, 3))
             # porte levée par le dégarnisseur
             lot.put(M["fonte"], G.boite((xc, YS - 0.06, 1.62), (pas * 0.66, 0.06, 0.95)))
             for z in (1.3, 1.6, 1.9):
@@ -68,24 +77,36 @@ def batterie(lot, M, v, rnd):
                 gx = xc + s * pas * 0.36
                 lot.put(M["acier2"], G.tube([(gx, YS - 0.08, 0.2), (gx, YS - 0.62, 0.2), (gx, YS - 0.62, 1.0), (gx, YS - 0.08, 1.05)], 0.02, 5))
                 for k in range(4):
-                    lot.put(M["acier2"], G.tube([(gx, YS - 0.08 - 0.13 * k, 0.2), (gx, YS - 0.08 - 0.13 * k, 1.02)], 0.009, 4))
+                    lot.put(M["acier2"], G.tube([(gx, YS - 0.08 - 0.18 * k, 0.2), (gx, YS - 0.08 - 0.18 * k, 1.02)], 0.02, 5))
             for s2 in (-1, 1):
                 lot.put(M["acier2"], G.tube([(xc + s2 * pas * 0.36, YS - 0.08, 1.04), (xc + s2 * pas * 0.36, YS - 0.62, 1.0)], 0.014, 4))
             # coke qui croule hors du four, en cascade vers le wagon
-            K.tas(lot, M["braise"], (xc, YS - 0.3, 0.14), 0.13, 0.26, 0.12, G.Rnd(5521), 26, 0.025, 0.045)
-            K.tas(lot, M["fusion"], (xc, YS - 0.12, 0.3), 0.09, 0.08, 0.2, G.Rnd(5523), 12, 0.025, 0.04)
+            K.tas(lot, M["braise"], (xc, YS - 0.3, 0.14), 0.13, 0.26, 0.12, G.Rnd(5521), 22, 0.03, 0.05)
+            K.tas(lot, M["laitier"], (xc, YS - 0.42, 0.1), 0.15, 0.2, 0.08, G.Rnd(5522), 14, 0.03, 0.05)
         else:
-            lot.put(M["fonte"], G.boite((xc, YS - 0.03, 0.66), (pas * 0.68, 0.05, 1.04)))
-            for z in (0.3, 0.66, 1.02):
-                lot.put(M["acier2"], G.boite((xc, YS - 0.07, z), (pas * 0.74, 0.03, 0.05)))
-            lot.put(M["acier_clair"], G.boite((xc, YS - 0.09, 0.55), (0.06, 0.02, 0.1)))
-            # joints qui fuient : petites lueurs aux coins du haut
-            for s in (-1, 1):
-                lot.put(M["braise"], G.boite((xc + s * pas * 0.31, YS - 0.06, 1.15), (0.035, 0.012, 0.035)))
+            w, h, zc = pas * 0.6, 0.94, 0.66
+            if i in (0, 2, 4):
+                # joints rougeoyants (2 px en HR) tout autour de la porte
+                for (cx, cz, sx, sz) in ((xc, zc + h / 2 + 0.02, w + 0.07, 0.035), (xc, zc - h / 2 - 0.02, w + 0.07, 0.035),
+                                         (xc - w / 2 - 0.02, zc, 0.035, h + 0.07), (xc + w / 2 + 0.02, zc, 0.035, h + 0.07)):
+                    lot.put(M["laitier" if i else "braise"], G.boite((cx, YS - 0.012, cz), (sx, 0.012, sz)))
+            # cadre d'acier, porte de fonte, barres de fermeture, loquet
+            for (cx, cz, sx, sz) in ((xc, zc + h / 2 + 0.06, w + 0.18, 0.05), (xc, zc - h / 2 - 0.06, w + 0.18, 0.05)):
+                lot.put(M["acier"], G.boite((cx, YS - 0.03, cz), (sx, 0.05, sz)))
+            lot.put(M["fonte"], G.boite((xc, YS - 0.04, zc), (w, 0.06, h)))
+            for z in (0.32, 0.66, 1.0):
+                lot.put(M["acier2"], G.boite((xc, YS - 0.085, z), (w + 0.04, 0.03, 0.05)))
+            lot.put(M["acier_clair"], G.boite((xc, YS - 0.105, 0.55), (0.06, 0.02, 0.1)))
         # couvercles d'enfournement (3 par four)
         for y in (-0.42, 0.1, 0.62):
-            K.rev(lot, M["fonte"], xc, y, [(ZT + 0.03, 0.075), (ZT + 0.06, 0.07), (ZT + 0.075, 0.045)], 14)
-            lot.put(M["acier_clair"], G.tube([(xc - 0.03, y, ZT + 0.09), (xc + 0.03, y, ZT + 0.09)], 0.008, 4))
+            ouvert = (i, y) in ((1, 0.1), (5, -0.42))
+            dx = 0.1 if ouvert else 0.0
+            if ouvert:
+                K.rev(lot, M["noir"], xc, y, [(ZT + 0.03, 0.06), (ZT + 0.035, 0.06)], 12)
+                K.rev(lot, M["braise"], xc, y, [(ZT + 0.03, 0.05), (ZT + 0.12, 0.035), (ZT + 0.22, 0.0)], 10)
+                K.rev(lot, M["fusion"], xc, y, [(ZT + 0.03, 0.025), (ZT + 0.12, 0.0)], 8)
+            K.rev(lot, M["fonte"], xc + dx, y, [(ZT + 0.03, 0.075), (ZT + 0.06, 0.07), (ZT + 0.075, 0.045)], 14)
+            lot.put(M["acier_clair"], G.tube([(xc + dx - 0.035, y, ZT + 0.09), (xc + dx + 0.035, y, ZT + 0.09)], 0.016, 5))
         # colonne montante en col de cygne vers le barillet
         p0 = (xc, YN - 0.18, ZT + 0.03)
         p1 = (xc, YN - 0.18, ZT + 0.55)
@@ -108,7 +129,7 @@ def batterie(lot, M, v, rnd):
         O.tuyau(lot, M["acier"], M["acier2"], [(X0 + 0.02, yb, zb), (X0 + 0.02, yb + 0.5, zb), (X0 + 0.02, yb + 0.5, 0.1)], 0.12, rb=0.15)
     # enfourneuse sur rails au toit
     for y in (-0.62, 0.84):
-        lot.put(M["acier_clair"], G.boite(((X0 + X1) / 2, y, ZT + 0.05), (X1 - X0, 0.035, 0.035)))
+        lot.put(M["acier_clair"], G.boite(((X0 + X1) / 2, y, ZT + 0.05), (X1 - X0, 0.05, 0.04)))
     lx = X0 + (4.5 if v["ouvert"] != 4 else 1.5) * pas
     lot.put(M["acier2"], G.boite((lx, 0.11, ZT + 0.2), (0.36, 1.6, 0.06)))
     for (wy) in (-0.62, 0.84):
@@ -130,14 +151,15 @@ def batterie(lot, M, v, rnd):
 def wagon(lot, M, x, y, rnd, plein=True):
     """Wagon d'extinction sur rails (sud) : caisse ouverte, coke incandescent."""
     for yy in (y - 0.2, y + 0.2):
-        lot.put(M["acier_clair"], G.boite((0.0, yy, 0.03), (2.95, 0.035, 0.04)))
+        lot.put(M["acier"], G.boite((0.0, yy, 0.035), (2.95, 0.055, 0.05)))
     for k in range(11):
-        lot.put(M["fonte"], G.boite((-1.38 + 0.276 * k, y, 0.012), (0.08, 0.56, 0.025)))
+        lot.put(M["fonte"], G.boite((-1.38 + 0.276 * k, y, 0.012), (0.09, 0.56, 0.025)))
     K.caisson(lot, M["acier"], x, y, 0.12, 0.62, 0.5, 0.3, 0.02)
     lot.put(M["noir"], G.boite((x, y, 0.415), (0.54, 0.42, 0.01)))
     if plein:
-        K.tas(lot, M["braise"], (x, y, 0.4), 0.24, 0.18, 0.08, rnd, 28, 0.025, 0.045)
-        K.tas(lot, M["coke"], (x + 0.12, y - 0.05, 0.4), 0.14, 0.14, 0.06, rnd, 12, 0.025, 0.04)
+        K.tas(lot, M["coke"], (x, y, 0.4), 0.27, 0.21, 0.14, rnd, 34, 0.03, 0.05)
+        K.tas(lot, M["braise"], (x, y, 0.44), 0.2, 0.15, 0.12, rnd, 26, 0.03, 0.05)
+        K.tas(lot, M["fusion"], (x, y + 0.02, 0.5), 0.08, 0.06, 0.07, rnd, 7, 0.03, 0.04)
     for s in (-1, 1):
         for t in (-1, 1):
             lot.put(M["fonte"], G.tour([(-0.025, 0.07), (0.025, 0.07)], 12, "y", (x + s * 0.2, y + t * 0.23, 0.08), cap0=True, cap1=True))
@@ -205,13 +227,7 @@ def build(S, lot, v):
         if v["quai"]:
             # quai de coke incliné au sud : coke étalé, incandescent près du four
             lot.put(M["brique"], G.loft([[(X0, YS - 0.1, 0.25), (X1, YS - 0.1, 0.25)], [(X0, -1.55, 0.06), (X1, -1.55, 0.06)]], closed=False))
-            for k in range(60):
-                x = rnd.f(X0 + 0.05, X1 - 0.05)
-                t = rnd.f(0.0, 1.0)
-                y = YS - 0.1 - t * (1.45 + YS)
-                hot = abs(x - xo) < 0.45 and t < 0.6
-                lot.put(M["braise" if hot else "coke"], G.sphere((x, y, 0.25 - t * 0.19 + 0.03), rnd.f(0.03, 0.05), 5, 2))
-            wagon(lot, M, xo + 0.6, -1.85, rnd, plein=False)
+            wagon(lot, M, xo, -1.85, rnd, plein=True)
         else:
             wagon(lot, M, xo, -1.5, rnd)
     cx, cy, cr, ch = v["cheminee"]

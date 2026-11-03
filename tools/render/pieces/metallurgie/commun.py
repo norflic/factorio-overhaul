@@ -71,7 +71,7 @@ def matieres(S, palette="calcul"):
                       crasse_col=cr, grain=0.2, graine=20)
     M["cuivre"] = sf("m_cuivre", (0.42, 0.17, 0.06), rough=0.32, met=0.9, coulures=0.7, rouille=(0.05, 0.17, 0.11), usure=0.55,
                      nu=(0.75, 0.42, 0.22), crasse=0.65, crasse_col=cr, graine=21)
-    M["alu"] = sf("m_alu", (0.5, 0.51, 0.53), rough=0.3, met=0.95, usure=0.35, nu=(0.85, 0.86, 0.88), crasse=0.55,
+    M["alu"] = sf("m_alu", (0.62, 0.63, 0.65), rough=0.26, met=0.55, usure=0.35, nu=(0.85, 0.86, 0.88), crasse=0.45,
                   crasse_col=(0.05, 0.05, 0.05), grain=0.06, graine=22)
     M["noir"] = sf("m_noir", (0.012, 0.0125, 0.014), rough=0.62, met=0.2, usure=0.45, nu=(0.16, 0.16, 0.16), crasse=0.6,
                    crasse_col=(0.003, 0.003, 0.003), grain=0.1, graine=23)
@@ -106,18 +106,33 @@ def matieres(S, palette="calcul"):
     M["minerai"] = sf("m_minerai", (0.16, 0.1, 0.07), rough=0.8, met=0.1, usure=0.3, crasse=0.7, crasse_col=cr, grain=0.3, graine=38)
     M["sable"] = sf("m_sable", (0.36, 0.3, 0.22), rough=0.9, met=0.0, usure=0.0, crasse=0.6, crasse_col=cr, grain=0.3, graine=39)
     # lumières : le métal en fusion est la lueur de travail de la famille ; aucune surface émissive sans dégradé ni croûte
-    M["fusion"] = S.mat_emissive("m_fusion", (1.0, 0.55, 0.12), strength=3.4, base=(0.08, 0.03, 0.005), main_scale=0.75,
+    # CRITIQUE (3/11) : 56 à 90 % de la lueur écrêtée en aplats jaunes ; forces divisées par 2 environ (cible ≤ 25 % écrêtés)
+    M["fusion"] = S.mat_emissive("m_fusion", (1.0, 0.55, 0.12), strength=1.6, base=(0.08, 0.03, 0.005), main_scale=0.75,
                                  crust=(9.0, 0.45, 3.0))
-    M["bain"] = S.mat_emissive("m_bain", (1.0, 0.36, 0.06), strength=2.6, base=(0.06, 0.02, 0.005), main_scale=0.7,
+    M["bain"] = S.mat_emissive("m_bain", (1.0, 0.36, 0.06), strength=1.25, base=(0.06, 0.02, 0.005), main_scale=0.7,
                                crust=(14.0, 0.6, 5.0))
-    M["braise"] = S.mat_emissive("m_braise", (1.0, 0.3, 0.05), strength=2.2, base=(0.05, 0.015, 0.004), main_scale=0.7,
+    M["braise"] = S.mat_emissive("m_braise", (1.0, 0.3, 0.05), strength=1.1, base=(0.05, 0.015, 0.004), main_scale=0.7,
                                  crust=(18.0, 0.65, 7.0))
-    M["laitier"] = S.mat_emissive("m_laitier", (0.95, 0.22, 0.04), strength=1.3, base=(0.06, 0.02, 0.006), main_scale=0.7,
+    M["laitier"] = S.mat_emissive("m_laitier", (0.95, 0.22, 0.04), strength=0.7, base=(0.06, 0.02, 0.006), main_scale=0.7,
                                   crust=(11.0, 0.7, 9.0))
-    M["lampe"] = MT.degrade(S, "m_lampe", (1.0, 0.62, 0.16), (1.0, 0.3, 0.04), 4.0, main=0.6)
-    M["feu_rouge"] = MT.degrade(S, "m_feu_rouge", (1.0, 0.16, 0.06), (0.7, 0.02, 0.01), 5.0, main=0.6)
-    M["voyant"] = MT.degrade(S, "m_voyant", (0.4, 0.85, 1.0), (0.05, 0.4, 1.0), 4.0, main=0.55)
-    M["voyant_v"] = MT.degrade(S, "m_voyant_v", (0.5, 1.0, 0.4), (0.1, 0.8, 0.15), 3.6, main=0.55)
+    M["lampe"] = MT.degrade(S, "m_lampe", (1.0, 0.62, 0.16), (1.0, 0.3, 0.04), 2.6, main=0.35, base=(0.4, 0.2, 0.04))
+    # feu de balisage : le pixel de la couche principale doit rester ROUGE (critique : il sortait blanc)
+    M["feu_rouge"] = MT.degrade(S, "m_feu_rouge", (1.0, 0.12, 0.05), (0.7, 0.02, 0.01), 3.0, main=0.12, base=(0.45, 0.02, 0.01))
+    M["voyant"] = MT.degrade(S, "m_voyant", (0.4, 0.85, 1.0), (0.05, 0.4, 1.0), 2.6, main=0.4)
+    M["voyant_v"] = MT.degrade(S, "m_voyant_v", (0.5, 1.0, 0.4), (0.1, 0.8, 0.15), 2.4, main=0.4)
+    # matières ajoutées après la critique
+    M["brique_noire"] = sf("m_brique_noire", (0.085, 0.055, 0.04), rough=0.9, met=0.0, tole=(0.2, 0.09), joint=0.45, joint_l=0.012,
+                           var=0.3, usure=0.5, nu=(0.24, 0.15, 0.1), crasse=0.9, crasse_col=(0.006, 0.005, 0.004), relief=0.7, grain=0.2,
+                           graine=40)
+    M["treillis"] = sf("m_treillis", (0.075, 0.066, 0.052), rough=0.42, met=0.55, usure=0.55, nu=(0.42, 0.38, 0.32), crasse=0.6,
+                       crasse_col=cr, coulures=0.6, rouille=P["rouille"], grain=0.1, graine=41)
+    M["refractaire"] = sf("m_refractaire", (0.24, 0.085, 0.04), rough=0.6, met=0.3, tole=(0.5, 0.3), joint=0.5, var=0.12, coulures=0.6,
+                          rouille=(0.1, 0.04, 0.02), usure=0.7, nu=(0.5, 0.32, 0.22), crasse=0.85, crasse_col=cr, grain=0.12, graine=42)
+    M["alumine"] = sf("m_alumine", (0.62, 0.62, 0.6), rough=0.95, met=0.0, usure=0.0, crasse=0.4, crasse_col=(0.2, 0.2, 0.2), grain=0.25,
+                      graine=43)
+    M["eau"] = MT.verre("m_eau", col=(0.02, 0.05, 0.06), reflet=(0.25, 0.42, 0.5))
+    M["graphite"] = sf("m_graphite", (0.05, 0.05, 0.055), rough=0.35, met=0.8, usure=0.6, nu=(0.5, 0.5, 0.52), crasse=0.5, grain=0.4,
+                       graine=44)
     return M
 
 
@@ -147,7 +162,7 @@ def cerclage(lot, m, x, y, z, r, w=0.05, e=0.022, segs=32):
     lot.put(m, G.tour([(z - w / 2, r), (z - w / 2 + 0.008, r + e), (z + w / 2 - 0.008, r + e), (z + w / 2, r)], segs, "z", (x, y, 0.0)))
 
 
-def rambarde(lot, m, pts, z, h=0.3, pas=0.32, r=0.011):
+def rambarde(lot, m, pts, z, h=0.3, pas=0.45, r=0.02):
     """Garde-corps le long d'une polyligne au niveau z : montants, lisse haute et sous-lisse."""
     for k in (h, h * 0.5):
         lot.put(m, G.tube([(p[0], p[1], z + k) for p in pts], r, 5))
@@ -160,7 +175,7 @@ def rambarde(lot, m, pts, z, h=0.3, pas=0.32, r=0.011):
             lot.put(m, G.tube([(p[0], p[1], z), (p[0], p[1], z + h)], r, 5))
 
 
-def echelle(lot, m, a, b, l=0.16, pas=0.09, r=0.01):
+def echelle(lot, m, a, b, l=0.16, pas=0.11, r=0.017):
     """Échelle droite de a à b (montants écartés de l en X)."""
     for s in (-1, 1):
         lot.put(m, G.tube([G.add(a, (s * l / 2, 0, 0)), G.add(b, (s * l / 2, 0, 0))], r, 5))
