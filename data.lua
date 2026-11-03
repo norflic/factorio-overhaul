@@ -29,3 +29,4 @@ require("prototypes.vitrine")
 require("prototypes.gui") -- lot IA1-i : raccourci et touche de l'interface « Équipe et factions »
 require("prototypes.dezoom") -- dézoom étendu : Ctrl + molette, deux touches
 require("prototypes.bourdon") -- lot BOURDON : l'expérimental de l'âge 15, sprites, effets, son, touche
+require("prototypes.experimentaux") -- lot EXPERIMENTAUX : les expérimentaux de la famille EXP2 (Mât-Foudre, Géode, Sarracénie, Demi-Vie, Veilleuse) ; après prototypes.robots

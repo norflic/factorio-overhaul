@@ -975,6 +975,9 @@ function M.new_world(opts)
     -- les gestionnaires à la main
     on_player_selected_area = 36, on_player_alt_selected_area = 37, on_player_reverse_selected_area = 38,
     on_player_alt_reverse_selected_area = 39,
+    -- lot EXPERIMENTAUX : capsules qui lancent la Géode et la Demi-Vie (script/robots/experimentaux.lua) ; le mock n'en lève aucune,
+    -- le moteur réel est prouvé par « xp-petits » (joueur de la session avec images)
+    on_player_used_capsule = 40,
   }
   _G.defines = {
     -- Lot IA3-e : plan directeur des factions (fantômes : can_place_entity{build_check_type = ghost_revive}).
