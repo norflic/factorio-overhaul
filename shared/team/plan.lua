@@ -29,6 +29,7 @@ end
 local M = need("shared.team.modules", "shared/team/modules")
 local Poteaux = need("shared.team.poteaux", "shared/team/poteaux") -- lot POTEAUX-ASTAR : chaîne par recherche de chemin
 local Ligne = need("shared.team.ligne", "shared/team/ligne") -- lot AGENCEMENT : disposition des bras de sortie
+local T = need("shared.team.config", "shared/team/config") -- lot RECHARGE : type de prototype du répartiteur (T.LOGISTIC_TYPES)
 
 local P = {}
 
@@ -378,6 +379,14 @@ function P.size(name, dir)
   if x then if x.rot and (dir == 2 or dir == 6) then return x.h, x.w end return x.w, x.h end
   -- Lot CONVOYEURS : un tapis des données du jeu que modules.lua ne connaît pas (niveau supérieur) occupe une tuile.
   if not M.BASE[name] and name:find("belt", 1, true) and not M.spec(name) then return 1, 1 end
+  -- Lot RECHARGE : DECLARED est LOCALE et vide après un rechargement ; Champ.data (qui y déclare le répartiteur) n'est rappelé qu'au premier
+  -- pas de construction, or un projet de bande en cours est relu avant (empreinte, relevé des tuiles). Sans cette règle, M.spec rendait nil
+  -- pour « splitter » et M.size levait « attempt to index local 's' ». 2 × 1 vers le nord et le sud, 1 × 2 vers l'est et l'ouest, comme la
+  -- déclaration de Champ.data (prototypes vanilla : splitter, fast-splitter, express-splitter). Aucun `game` ici : lu aussi dans on_load.
+  if name:find(T.LOGISTIC_TYPES.splitter, 1, true) and not M.spec(name) then
+    if dir == 2 or dir == 6 then return 1, 2 end
+    return 2, 1
+  end
   return M.size(name, dir or 0)
 end
 
