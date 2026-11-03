@@ -1428,6 +1428,50 @@ FSM.define(MACHINE, {
           log(string.format("[FO-TEAM] %s : ouvrier %d, chemin introuvable (%s) depuis (%d,%d) pour %s",
             f.key, agent.id, reason, math.floor(p.x), math.floor(p.y), agent.task and agent.task.key or "?"))
         end
+        -- NAV2 (DIAGNOSTIC SEUL, branche diag-nav2) : PNJ dont 3 départs de suite échouent depuis la même tuile : ce qui l'entoure.
+        if f and agent.entity.valid then
+          local e = agent.entity
+          local p = e.position
+          local tx, ty = math.floor(p.x), math.floor(p.y)
+          if agent.dg_tx == tx and agent.dg_ty == ty then agent.dg_n = (agent.dg_n or 0) + 1 else agent.dg_tx, agent.dg_ty, agent.dg_n = tx, ty, 1 end
+          if agent.dg_n == 3 and (f.stats.dg_encl or 0) < 4 then
+            f.stats.dg_encl = (f.stats.dg_encl or 0) + 1
+            local sf = e.surface
+            local near = {}
+            for _, q in ipairs(sf.find_entities_filtered({ position = p, radius = 6, collision_mask = "player-layer" })) do
+              if q.valid and q ~= e then
+                local bb = q.bounding_box
+                near[#near + 1] = string.format("%s[%s]@(%.1f,%.1f)%s", q.name, q.force.name, q.position.x, q.position.y,
+                  (bb.left_top.x < p.x + 0.2 and bb.right_bottom.x > p.x - 0.2 and bb.left_top.y < p.y + 0.2 and bb.right_bottom.y > p.y - 0.2) and "!SUR" or "")
+              end
+            end
+            log(string.format("[FO-NAV2-ENCLOS] %s : ouvrier %d en (%.2f,%.2f), 3 echecs de suite depuis la tuile (%d,%d), raison %s, tache %s, a %.1f min ; libre ici pour le corps : %s ; entites a 6 tuiles (%d) : %s",
+              f.key, agent.id, p.x, p.y, tx, ty, tostring(reason), agent.task and agent.task.key or "?", tick / 3600,
+              tostring(sf.can_place_entity({ name = e.name, position = p })), #near, table.concat(near, " ")))
+            for dy = -7, 7 do
+              local row = {}
+              for dx = -7, 7 do
+                local x, y = tx + dx + 0.5, ty + dy + 0.5
+                local ch = "."
+                if dx == 0 and dy == 0 then ch = "@"
+                else
+                  for _, q in ipairs(sf.find_entities_filtered({ area = { { x - 0.21, y - 0.21 }, { x + 0.21, y + 0.21 } }, collision_mask = "player-layer" })) do
+                    if q.valid and q ~= e and q.type ~= "character" then
+                      local bb = q.bounding_box
+                      if bb.left_top.x < x + 0.2 and bb.right_bottom.x > x - 0.2 and bb.left_top.y < y + 0.2 and bb.right_bottom.y > y - 0.2 then ch = "#" break end
+                    elseif q.valid and q ~= e then ch = "c" end
+                  end
+                  if ch == "." then
+                    local t = sf.get_tile(tx + dx, ty + dy)
+                    if t.valid and t.collides_with("water-tile") then ch = "~" end
+                  end
+                end
+                row[#row + 1] = ch
+              end
+              log(string.format("[FO-NAV2-ENCLOS] %s ouvrier %d carte %+d %s", f.key, agent.id, dy, table.concat(row)))
+            end
+          end
+        end
         -- Lot C4 PLATEAU 3 (diagnostic) : pourquoi une tournée d'avant-poste ne trouve pas son chemin (6 lignes au plus par équipe)
         if f and agent.task and (agent.task.kind == "service" or agent.task.kind == "extend") and agent.goal and agent.entity.valid
           and (f.stats.nav_diag or 0) < 6 then
